@@ -5,6 +5,7 @@ import { DebugFacadeService } from '../../services/debug/debug-facade.service';
 import { BossIntroService } from '../../services/boss-intro.service';
 import { TdIconComponent } from '../icon/icon.component';
 import { BloodMoonBannerTiming, bloodMoonBanner, type BannerRun } from './blood-moon-banner';
+import { waveMutator } from '../../director/wave-rules';
 
 /** Where the fade-out begins, as a share of the banner's time */
 const FADE_OUT_AT = 0.72;
@@ -57,7 +58,7 @@ export class BloodMoonBannerComponent {
   }
 
   private show(wave: number): void {
-    const banner = bloodMoonBanner(wave, this.vfx().bloodMoon);
+    const banner = bloodMoonBanner(wave, this.vfx().bloodMoon, waveMutator(wave));
     if (!banner) return;
     this.waveLabel.set(banner.wave);
     void this.announcer.announce(banner.announcement);

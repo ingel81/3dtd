@@ -30,12 +30,13 @@ export class WaveTimelineComponent {
   readonly damageTypeIcon = damageTypeIcon;
   readonly markIconSize = markIconSize;
 
-  /** "Wave 7, Bat Swarm, air"; "…, blood moon" on a blood moon wave */
+  /** "Wave 7, Bat Swarm, air"; "…, Swift, blood moon" on a blood moon wave */
   markLabel(peek: WavePeek): string {
     return [
       `Wave ${peek.wave}`,
       peek.name,
       ...(peek.air ? ['air'] : []),
+      ...(peek.mutator ? [peek.mutator] : []),
       ...(peek.bloodMoon ? ['blood moon'] : []),
     ].join(', ');
   }

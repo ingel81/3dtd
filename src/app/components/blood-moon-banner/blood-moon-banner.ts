@@ -1,19 +1,30 @@
 import { isBloodMoonWave } from '../../configs/blood-moon.config';
+import type { WaveMutator } from '../../configs/wave-mutators.config';
 
 export interface BloodMoonBanner {
-  /** Under the title: "Wave 14" */
+  /** Under the title: "Wave 14", with a mutator "Wave 14 · Swift" */
   wave: string;
   /** For screen readers */
   announcement: string;
 }
 
 /**
- * The banner a wave start shows, null when the wave has no blood moon or
- * its look is switched off (display option): there is nothing to announce.
+ * The banner a wave start shows, null when the wave has no blood moon, or
+ * when its look is switched off (display option) and it has no mutator:
+ * then there is nothing to announce. A mutator is announced whatever the
+ * look, it changes the wave.
  */
-export function bloodMoonBanner(wave: number, lookEnabled: boolean): BloodMoonBanner | null {
-  if (!lookEnabled || !isBloodMoonWave(wave)) return null;
-  return { wave: `Wave ${wave}`, announcement: `Blood moon, wave ${wave}.` };
+export function bloodMoonBanner(
+  wave: number,
+  lookEnabled: boolean,
+  mutator: Pick<WaveMutator, 'name' | 'description'> | null = null,
+): BloodMoonBanner | null {
+  if (!isBloodMoonWave(wave) || (!lookEnabled && !mutator)) return null;
+  if (!mutator) return { wave: `Wave ${wave}`, announcement: `Blood moon, wave ${wave}.` };
+  return {
+    wave: `Wave ${wave} · ${mutator.name}`,
+    announcement: `Blood moon, wave ${wave}. ${mutator.name}: ${mutator.description}`,
+  };
 }
 
 /** What the timing needs of the banner's Web Animation. */

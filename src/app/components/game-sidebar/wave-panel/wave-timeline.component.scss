@@ -127,6 +127,17 @@
   color: var(--td-text-primary);
   font-weight: 700;
 }
+/* The wave's mutator (blood moon): a small tag in the moon's red */
+.td-next-mut {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border: 1px solid var(--td-health-red);
+  font-size: 9px;
+  line-height: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--td-health-red);
+}
 .td-next-count {
   flex-shrink: 0;
   color: var(--td-text-muted);

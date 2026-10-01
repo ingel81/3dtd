@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, markIconSize, peekUpcomingWaves, shownPeek } from './upcoming-waves';
+import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, markIconSize, mutatorNote, peekUpcomingWaves, shownPeek } from './upcoming-waves';
+import { WAVE_MUTATORS } from '../../../configs/wave-mutators.config';
 import { BudgetWaveSource } from '../../../director/sources/budget/budget-source';
 import { planRowForWave } from '../../../director/sources/budget/run-plan';
 
@@ -89,7 +90,7 @@ describe('peekUpcomingWaves', () => {
     expect(w40).toMatchObject({ wave: 40, name: 'Boss: Stone Golem', boss: true, known: true });
   });
 
-  it('marks the blood moon waves, W14 and every seventh after, and says in the tooltip that they only look different', () => {
+  it('marks the blood moon waves, W14 and every seventh after, with the look in the tooltip', () => {
     const peeks = peekWaves(12, NEXT_WAVE_MARKS);
     expect(peeks.filter((p) => p.bloodMoon).map((p) => p.wave)).toEqual([14]);
     const w14 = peeks.find((p) => p.wave === 14)!;
@@ -106,6 +107,16 @@ describe('peekUpcomingWaves', () => {
     const w14 = peekWaves(13, 1, false)[0];
     expect(w14.bloodMoon).toBe(false);
     expect(w14.tooltip).not.toContain(BLOOD_MOON_NOTE);
+  });
+
+  it('names the mutator of a blood moon wave, look on or off, and says what it does', () => {
+    for (const look of [true, false]) {
+      const [w13, w14] = peekWaves(12, 2, look);
+      expect(w13.mutator).toBeNull();
+      expect(w14.mutator).toBe(WAVE_MUTATORS.swift.name);
+      expect(w14.tooltip).toContain(mutatorNote(WAVE_MUTATORS.swift));
+    }
+    expect(peekWaves(20, 1)[0].mutator).toBe(WAVE_MUTATORS.swarm.name);
   });
 });
 

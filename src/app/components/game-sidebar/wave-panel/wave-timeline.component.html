@@ -32,6 +32,9 @@
 @if (shown(); as peek) {
   <div class="td-next-detail" [matTooltip]="peek.tooltip" matTooltipPosition="left">
     <span class="td-next-name" [class.td-next-name-boss]="peek.boss">{{ peek.name }}</span>
+    @if (peek.mutator; as mutator) {
+      <span class="td-next-mut">{{ mutator }}</span>
+    }
     @if (peek.known) {
       @if (peek.count; as count) {
         <span class="td-next-count">{{ count }}</span>

@@ -2,7 +2,7 @@ import { ARMOR_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import type { ArmorType, DamageType } from '../../../configs/combat/combat.types';
 import { bestDamageTypesAgainst } from '../../../configs/combat/damage-matrix.config';
 import { EnemyTypeId, ENEMY_TYPES, leakDamageOf, lineageLeakDamage } from '../../../configs/enemy-types.config';
-import { waveRules } from '../../../director/wave-rules';
+import { waveMutator, waveRules } from '../../../director/wave-rules';
 import { BLOOD_MOON_INTERVAL, isBloodMoonWave } from '../../../configs/blood-moon.config';
 import type { WavePeekFacts } from '../../../director/wave-source';
 import { splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
@@ -15,9 +15,14 @@ import { splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
  * tooltips (docs/WAVE_SOURCE_PLAN.md, section 9).
  */
 
-/** Tooltip sentence of a blood moon wave */
+/** Tooltip sentence of a blood moon wave's look; what the wave does is its mutator's (mutatorNote) */
 export const BLOOD_MOON_NOTE =
-  `Blood moon (every ${BLOOD_MOON_INTERVAL}th wave): red night, glowing enemies, searchlights on the towers. Looks only, the wave is the same.`;
+  `Blood moon (every ${BLOOD_MOON_INTERVAL}th wave): red night, glowing enemies, searchlights on the towers.`;
+
+/** Tooltip sentence of a wave's mutator: "Swift: Enemies move 25 % faster ..." */
+export function mutatorNote(mutator: { name: string; description: string }): string {
+  return `${mutator.name}: ${mutator.description}`;
+}
 
 /** Marks on the NEXT timeline of the WAVE panel. */
 export const NEXT_WAVE_MARKS = 5;
@@ -37,8 +42,10 @@ export interface WavePeek {
   armorLabel: string;
   /** Air units in the wave */
   air: boolean;
-  /** A blood moon wave (look only), false while the display option is off */
+  /** A blood moon wave (its look), false while the display option is off */
   bloodMoon: boolean;
+  /** Name of the wave's mutator, "Swift"; null for none. Shown whatever the look */
+  mutator: string | null;
   /** Best damage types against the wave's HP, none when unknown */
   weakToTypes: DamageType[];
   /** The same as text, "Fire, Poison, Pierce"; "" when unknown */
@@ -100,6 +107,7 @@ function toPeek(fact: WavePeekFacts): WavePeek {
     armorLabel: armors.length > 1 ? `${armors[0]} +${armors.length - 1}` : (armors[0] ?? ''),
     air: fact.air,
     bloodMoon: false,
+    mutator: waveMutator(fact.wave)?.name ?? null,
     weakToTypes: bestDamageTypesAgainst(weights),
     weakTo,
     note: fact.note,
@@ -113,6 +121,8 @@ function countLabel(fact: WavePeekFacts): string | null {
 
 function tooltip(fact: WavePeekFacts, weights: [ArmorType, number][], weakTo: string): string {
   const parts = [fact.description];
+  const mutator = waveMutator(fact.wave);
+  if (mutator) parts.push(mutatorNote(mutator));
 
   // What a type does beyond dying, e.g. a splitter
   for (const [enemyId] of fact.enemies) {
