@@ -346,6 +346,29 @@ Ideen (2026-09-27), nichts entschieden:
       **Gebaut 2026-10-01:** feste Skalen (FPS bis 150, Ticks bis 40, Sim bis 100 %), Werte darüber am Rand
       (`sparkline.ts`). Im Browser angesehen; der Aufklappzustand des Overlays war schon gespeichert und überlebt
       einen Reload (geprüft).
+- [ ] **E92 Rest aus dem Review Robustheit und Bedienung** (Review 2026-10-01, zwei Reviewer, Befunde im Code
+      nachgeprüft; das Behobene steht in den Commits des Tages). Offen, nach Gewicht:
+      - Coop: `command:los-mask` nimmt jede Simulation von jedem Spieler; ein Gast könnte allen Towern freie Sicht
+        geben (kein Desync, Schummeln). Nur vom Host annehmen braucht, dass alle Clients am selben Tick wissen, wer
+        Host ist (heute kommt „Spieler gegangen“ per `configure`, nicht über den Lockstep). Entscheidung User.
+      - Coop: kein Wächter für ausbleibende Ticks (halboffene Verbindung nach WLAN-Wechsel oder Standby: das Spiel
+        steht ohne Meldung, bis das Betriebssystem aufgibt); bei Pause kommen legitim keine Ticks, braucht ein
+        Lebenszeichen vom Relay. Ein Gast kann mit falschen Hashes bis zu 5 Resyncs erzwingen; geht der Host während
+        eines Resyncs, wartet der Raum die 20 s ab. Unbekannte Felder eines Befehls landen im Befehlslog jedes Clients.
+      - Relay: der Run-Log-Speicher entpackt synchron bis 32 MB und räumt bei jedem Eintrag auf (nur Relays mit
+        `collectRuns`); 200 Räume lassen sich von vielen Adressen mit leeren Lobbys belegen.
+      - Ein Gegner- oder Towermodell, das nicht lädt, steht nur in der Konsole: Gegner laufen unsichtbar.
+      - Ein Fehler beim Start des Simulations-Workers (`sim.start()`) ist nicht abgefangen; IndexedDB-Öffnungen, die
+        einmal scheitern, bleiben bis zum Reload gescheitert. Vermutet: `load-error` ohne Tile schickt auch bei
+        Netzfehlern zum Token-Dialog.
+      - Bedienung: Startbildschirm für Kartenschlüssel ohne Fokusfalle; Tab-/Radio-Rollen (Forschung, Raumoptionen,
+        Munition des Helden) ohne Pfeiltasten; Rich-Tooltip ohne Esc und ohne Aktualisierung; Tab öffnet im Coop das
+        Dock, bevor ein Fokus gesetzt ist; `aria-label` auf Spans ohne Rolle (Bau-Leiste).
+      - Kleinigkeiten: Coop-Name hält bei gesperrtem Speicher nicht für die Sitzung; gespeicherte Debug-Fenster können
+        außerhalb des Bildschirms landen; die 1,5 km Spawn-Grenze steht viermal von Hand; M (stumm) überlebt einen
+        Reload mit wenig Hinweis.
+      - Testlücken: Quick-Actions, Game-Speed, Info-Overlay-Komponente, Rich-Tooltip, Tower-Control-HUD, Coop-Chat-Tasten,
+        Loading-Screen, `tower-defense.component` selbst.
 - [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
       Der Worker loopt mit eigener Uhr statt auf Tick-Anfrage, der Hauptthread liest je Bild den neuesten Stand und
       spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf
