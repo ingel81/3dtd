@@ -127,14 +127,21 @@ export function weakToLabel(weights: readonly (readonly [ArmorType, number])[]):
 }
 
 /**
- * What a kill splits this enemy type into, for the wave panel and its
- * tooltips: "Splits into 2 minions on death". Null for a type that does not
- * split (EnemyTypeConfig.splitOnDeath).
+ * What an enemy type does beyond walking and dying, for the wave panel and
+ * its tooltips: "Splits into 2 minions on death", "Regenerates 1 % of its HP
+ * a second unless burning", "Phasing: cannot be slowed", joined by ". ".
+ * Null for a type with none of them (EnemyTypeConfig.splitOnDeath,
+ * regenPerSecond, immuneToSlow).
  */
-export function splitTraitLabel(enemyType: string): string | null {
-  const split = ENEMY_TYPES[enemyType]?.splitOnDeath;
-  if (!split) return null;
-  return `Splits into ${split.count} ${split.count === 1 ? 'minion' : 'minions'} on death`;
+export function enemyTraitLabel(enemyType: string): string | null {
+  const cfg = ENEMY_TYPES[enemyType];
+  if (!cfg) return null;
+  const traits: string[] = [];
+  const split = cfg.splitOnDeath;
+  if (split) traits.push(`Splits into ${split.count} ${split.count === 1 ? 'minion' : 'minions'} on death`);
+  if (cfg.regenPerSecond) traits.push(`Regenerates ${Math.round(cfg.regenPerSecond * 100)} % of its HP a second unless burning`);
+  if (cfg.immuneToSlow) traits.push('Phasing: cannot be slowed');
+  return traits.length > 0 ? traits.join('. ') : null;
 }
 
 /**
@@ -189,7 +196,7 @@ export function enemyGroupTooltip(group: WaveGroupDisplay): TdTooltipData | null
   if (group.healthMultiplier !== 1) flavorParts.push(`HP ×${group.healthMultiplier.toFixed(1)}`);
   if (group.speedMultiplier !== 1) flavorParts.push(`Speed ×${group.speedMultiplier.toFixed(2)}`);
   const scaled = flavorParts.length > 0 ? `Scaled: ${flavorParts.join(' · ')}` : null;
-  const lines = [splitTraitLabel(group.enemyType), scaled].filter((line): line is string => line !== null);
+  const lines = [enemyTraitLabel(group.enemyType), scaled].filter((line): line is string => line !== null);
   const flavor = lines.length > 0 ? lines.join('. ') : undefined;
 
   return {

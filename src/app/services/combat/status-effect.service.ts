@@ -20,7 +20,9 @@ export class StatusEffectService {
     this.gameClockProvider = provider;
   }
 
+  /** Nothing on a type with Phasing (immuneToSlow) */
   applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string): void {
+    if (enemy.typeConfig.immuneToSlow) return;
     enemy.movement.applyStatusEffect({
       type: 'slow',
       value: slowAmount,

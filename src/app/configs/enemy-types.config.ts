@@ -196,6 +196,13 @@ export interface EnemyTypeConfig {
    * (an EMP) hit it harder. Per type, like isBoss.
    */
   mechanical?: boolean;
+  /**
+   * Regen (MASTER_GAME_DESIGN §2.5): share of its max HP it heals a second,
+   * in steps of REGEN_INTERVAL_MS, never while it burns. Fire is the counter.
+   */
+  regenPerSecond?: number;
+  /** Phasing (§2.5): a slow does not take hold. Freeze and stun still do. */
+  immuneToSlow?: boolean;
 
   // Spawning
   /**
@@ -840,6 +847,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     scale: 2.206,
     modelRangeY: { min: -0.7034, max: 2.9834 },
     armorType: 'fortified',
+    // Thick hide that closes again: fire stops it (2026-10-02)
+    regenPerSecond: 0.01,
     baseHp: 400,
     baseSpeed: 3,
     hasAnimations: true,
@@ -1057,6 +1066,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     scale: 2.0,
     modelRangeY: { min: -0.1292, max: 1.3724 },
     armorType: 'ethereal',
+    // Phasing: half out of this world, a slow finds nothing to hold (2026-10-02)
+    immuneToSlow: true,
     baseHp: 100,
     baseSpeed: 8,
     hasAnimations: true,
@@ -1190,6 +1201,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     scale: 0.9,
     modelRangeY: { min: -0.0173, max: 2.0607 },
     armorType: 'unarmored',
+    // What is left of the ooze keeps flowing back together, unless it burns
+    regenPerSecond: 0.02,
     // Twenty of them hold a tenth of the ooze's HP; the split scales them by
     // its HP multiplier. No template, not in AI_ENEMY_ORDER, no split of its own.
     // Ein Zwanzigstel des Ooze, damit die zwanzig Klumpen zusammen ein Zehntel
@@ -1281,6 +1294,9 @@ export function splitBodyCount(id: EnemyTypeId, depth = 0): number {
   if (!split || depth >= MAX_SPLIT_DEPTH) return 1;
   return 1 + split.count * splitBodyCount(split.type, depth + 1);
 }
+
+/** Regeneration heals in steps of this much game time, ms (regenPerSecond, the Regeneration mutator) */
+export const REGEN_INTERVAL_MS = 500;
 
 /** The spawn floor of a type without spawnStartDelay, ms */
 export const DEFAULT_SPAWN_FLOOR_MS = 300;

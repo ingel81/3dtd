@@ -3,7 +3,7 @@ import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
 import { MovementComponent } from '../game-components/movement.component';
-import { ENEMY_TYPES, EnemyTypeId, SplitOnDeath, enemyDeathDuration, enemyRewardWeight, leakDamageOf } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, EnemyTypeId, SplitOnDeath, enemyDeathDuration, enemyRewardWeight, leakDamageOf, REGEN_INTERVAL_MS } from '../configs/enemy-types.config';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
@@ -635,20 +635,23 @@ export class EnemyManager extends EntityManager<Enemy> {
   private profileSampleOffset = 0;
 
   /**
-   * The Regeneration mutator of the wave (configs/wave-mutators.config.ts):
-   * every `regenIntervalMs` of game time each living enemy heals its share of
-   * its max HP. On the game clock and nothing else, so a restored snapshot
-   * heals on the same sub-steps. Worm segments and oozes keep their own HP.
+   * Regeneration, every REGEN_INTERVAL_MS of game time: each living enemy
+   * heals its type's share (regenPerSecond, the Regen trait) plus the wave's
+   * (the Regeneration mutator), none while it burns. On the game clock and
+   * the status effects alone, so a restored snapshot heals on the same
+   * sub-steps. Worm segments and route bodies keep their own HP.
    */
   private tickRegeneration(deltaTime: number, gameTimeMs: number): void {
-    const mutator = waveMutator(this.getWaveNumber());
-    if (!mutator?.regenShare || !mutator.regenIntervalMs) return;
-    const interval = mutator.regenIntervalMs;
-    if (Math.floor(gameTimeMs / interval) === Math.floor((gameTimeMs - deltaTime) / interval)) return;
+    if (Math.floor(gameTimeMs / REGEN_INTERVAL_MS) === Math.floor((gameTimeMs - deltaTime) / REGEN_INTERVAL_MS)) return;
+    const wavePerSecond = waveMutator(this.getWaveNumber())?.regenPerSecond ?? 0;
+    const step = REGEN_INTERVAL_MS / 1000;
     for (const enemy of this.getAllActive()) {
       if (!enemy.alive || enemy.worm !== null || enemy.body) continue;
+      const perSecond = wavePerSecond + (enemy.typeConfig.regenPerSecond ?? 0);
+      if (perSecond === 0) continue;
       const health = enemy.health;
-      if (health.hp < health.maxHp) health.heal(health.maxHp * mutator.regenShare);
+      if (health.hp >= health.maxHp || enemy.movement.isBurning(gameTimeMs)) continue;
+      health.heal(health.maxHp * perSecond * step);
     }
   }
 

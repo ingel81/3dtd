@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { enemyGroupTooltip, towerCardTooltip, TowerCardTooltipContext, waveLeakTotal } from './sidebar-tooltips';
+import { enemyGroupTooltip, enemyTraitLabel, towerCardTooltip, TowerCardTooltipContext, waveLeakTotal } from './sidebar-tooltips';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { EFFECTIVENESS_THRESHOLDS } from '../../configs/combat/damage-matrix.config';
 import { EnemyTypeId } from '../../configs/enemy-types.config';
@@ -163,5 +163,11 @@ describe('enemyGroupTooltip', () => {
     expect(enemyGroupTooltip(group('skeleton'))?.flavor).toBe('Splits into 2 minions on death');
     expect(enemyGroupTooltip(group('skeleton', { healthMultiplier: 0.5 }))?.flavor)
       .toBe('Splits into 2 minions on death. Scaled: HP ×0.5');
+  });
+
+  it('names regeneration and phasing', () => {
+    expect(enemyGroupTooltip(group('mammoth'))?.flavor).toBe('Regenerates 1 % of its HP a second unless burning');
+    expect(enemyGroupTooltip(group('wraith'))?.flavor).toBe('Phasing: cannot be slowed');
+    expect(enemyTraitLabel('zombie')).toBeNull();
   });
 });

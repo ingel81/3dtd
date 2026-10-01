@@ -11,6 +11,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import { StatusEffectService } from './status-effect.service';
+import { ENEMY_TYPES } from '../../configs/enemy-types.config';
 import type { StatusEffectType } from '../../models/status-effects';
 
 interface AppliedEffect {
@@ -22,9 +23,10 @@ interface AppliedEffect {
 }
 
 /** Minimal Enemy stub — only the `movement` surface the service touches. */
-function makeEnemy() {
+function makeEnemy(typeConfig: { immuneToSlow?: boolean } = {}) {
   const statusEffects: AppliedEffect[] = [];
   return {
+    typeConfig,
     movement: {
       statusEffects,
       applyStatusEffect(e: AppliedEffect) { statusEffects.push(e); },
@@ -80,6 +82,14 @@ describe('StatusEffectService', () => {
       expect(enemy.movement.statusEffects[0]).toMatchObject({
         type: 'slow', value: 0.4, duration: 1500, sourceId: 'ice-tower',
       });
+    });
+
+    it('applySlow leaves a type with Phasing alone, a freeze still holds it', () => {
+      const wraith = makeEnemy({ immuneToSlow: ENEMY_TYPES['wraith'].immuneToSlow });
+      service.applySlow(wraith as never, 0.4, 1500, 'ice-tower');
+      expect(wraith.movement.statusEffects).toHaveLength(0);
+      service.applyFreeze(wraith as never, 3000, 'frost-bomb');
+      expect(wraith.movement.statusEffects.map((e) => e.type)).toEqual(['freeze']);
     });
 
     it('applyPoison forwards a poison effect with the DoT value', () => {

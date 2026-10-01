@@ -18,7 +18,7 @@ import { waveMutator, waveRules } from '../director/wave-rules';
 import { WAVE_MUTATORS } from '../configs/wave-mutators.config';
 import { PORTAL_OPENING_HEIGHT } from '../configs/marker-geometry.config';
 import { TIMING } from '../configs/timing.config';
-import { ENEMY_TYPES, enemyDeathDuration, enemyRewardWeight, leakDamageOf, type EnemyTypeId } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, REGEN_INTERVAL_MS, enemyDeathDuration, enemyRewardWeight, leakDamageOf, type EnemyTypeId } from '../configs/enemy-types.config';
 import { createSinkSpy, createTestCoords, type SinkSpy } from '../integration/test-helpers';
 import type { SimSink } from '../sim/core/sim-sink';
 import { GameClock } from './game-state/game-clock';
@@ -203,7 +203,7 @@ describe('EnemyManager', () => {
     expect(manager.getKillingCount()).toBe(0);
   });
 
-  describe('Regeneration mutator', () => {
+  describe('regeneration (the Regen trait and the Regeneration mutator)', () => {
     const path: GeoPosition[] = [
       { lat: 0, lon: 0, height: 2 },
       { lat: 0.01, lon: 0, height: 2 },
@@ -219,16 +219,41 @@ describe('EnemyManager', () => {
       enemy.health.takeDamage(max / 2);
 
       const step = GameClock.FIXED_STEP_MS;
-      const steps = Math.round((2 * regen.regenIntervalMs!) / step);
+      const steps = Math.round((2 * REGEN_INTERVAL_MS) / step);
       for (let s = 1; s <= steps; s++) manager.update(step, s * step);
-      expect(enemy.health.hp).toBeCloseTo(max / 2 + 2 * max * regen.regenShare!, 6);
+      expect(enemy.health.hp).toBeCloseTo(max / 2 + 2 * max * regen.regenPerSecond! * (REGEN_INTERVAL_MS / 1000), 6);
 
       // Half the max back takes 50 intervals; a minute of game time is more than enough
       for (let s = steps + 1; s <= steps + Math.round(60_000 / step); s++) manager.update(step, s * step);
       expect(enemy.health.hp).toBe(max);
     });
 
-    it('heals nobody on a wave without it', () => {
+    it('heals a type with Regen on any wave, but not while it burns', () => {
+      manager.setWaveNumberProvider(() => 27);
+      const perSecond = ENEMY_TYPES['mammoth'].regenPerSecond!;
+      expect(perSecond).toBeGreaterThan(0);
+      const mammoth = manager.spawn(path, 'mammoth');
+      vi.spyOn(mammoth.movement, 'move').mockReturnValue('moving' as never);
+      const max = mammoth.health.maxHp;
+      mammoth.health.takeDamage(max / 2);
+      const step = GameClock.FIXED_STEP_MS;
+      let s = 0;
+      const run = (ms: number) => {
+        const end = s + Math.round(ms / step);
+        for (s += 1; s <= end; s++) manager.update(step, s * step);
+        s = end;
+      };
+      run(1000);
+      expect(mammoth.health.hp).toBeCloseTo(max / 2 + max * perSecond, 6);
+
+      const burning = vi.spyOn(mammoth.movement, 'isBurning').mockReturnValue(true);
+      const before = mammoth.health.hp;
+      run(2000);
+      expect(mammoth.health.hp).toBe(before);
+      burning.mockRestore();
+    });
+
+    it('heals nobody without the trait on a wave without the mutator', () => {
       manager.setWaveNumberProvider(() => 27);
       const enemy = manager.spawn(path, 'zombie');
       vi.spyOn(enemy.movement, 'move').mockReturnValue('moving' as never);

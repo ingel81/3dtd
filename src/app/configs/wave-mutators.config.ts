@@ -8,7 +8,8 @@
  * run plan does, the wave table does not. Where each one takes effect:
  * - swift: the budget source's plan (speed of every group, less budget)
  * - swarm: the run plan's counts (planEnemies), the budget stays
- * - regen: the EnemyManager heals every living enemy of the wave
+ * - regen: the EnemyManager heals every living enemy of the wave, as the
+ *   Regen trait of a type (EnemyTypeConfig.regenPerSecond) does
  * - bounty: the run plan's gold for the wave's kills
  */
 
@@ -28,9 +29,8 @@ export interface WaveMutator {
   readonly speed?: number;
   /** Factor on the wave's counts */
   readonly count?: number;
-  /** Share of its max HP a living enemy heals every `regenIntervalMs` of game time */
-  readonly regenShare?: number;
-  readonly regenIntervalMs?: number;
+  /** Share of its max HP every living enemy heals a second, as the Regen trait (regenPerSecond) */
+  readonly regenPerSecond?: number;
   /** Factor on the gold the wave's kills pay */
   readonly killGold?: number;
 }
@@ -58,9 +58,8 @@ export const WAVE_MUTATORS: Readonly<Record<WaveMutatorId, WaveMutator>> = {
   regen: {
     id: 'regen',
     name: 'Regeneration',
-    description: 'Enemies heal 1 % of their max HP every half second and come with less HP.',
-    regenShare: 0.01,
-    regenIntervalMs: 500,
+    description: 'Enemies heal 2 % of their max HP a second unless they burn, and come with less HP.',
+    regenPerSecond: 0.02,
     budget: 0.85,
   },
   bounty: {

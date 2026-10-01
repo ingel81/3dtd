@@ -35,7 +35,7 @@ import { DebugFacadeService } from '../../../services/debug/debug-facade.service
 import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { REPLAY_CONFIG } from '../../../configs/replay.config';
-import { enemyGroupTooltip, formatLeak, splitTraitLabel, waveLeakTotal, weakToLabel } from '../sidebar-tooltips';
+import { enemyGroupTooltip, enemyTraitLabel, formatLeak, waveLeakTotal, weakToLabel } from '../sidebar-tooltips';
 import {
   WAVE_ALERT_KINDS, WaveAlertAnnouncer, countAntiAirTowers, countAntiEtherealTowers, upcomingWaveAlert, waveAlertView,
   type WaveAlertKind,
@@ -261,7 +261,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   /** What the running wave costs the HQ if all of it gets through (TODO E49) */
   readonly leakTotal = computed(() => waveLeakTotal(this.currentWaveGroups()));
   /** "Splits into 2 minions on death" under the armor line, null for a type that does not split. */
-  readonly splitTrait = splitTraitLabel;
+  readonly enemyTrait = enemyTraitLabel;
 
   @ViewChildren('mixedEnemyCanvas') mixedEnemyCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
   private activeMixedPreviewIds: string[] = [];

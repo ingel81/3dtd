@@ -5,7 +5,7 @@ import { EnemyTypeId, ENEMY_TYPES, leakDamageOf, lineageLeakDamage } from '../..
 import { waveMutator, waveRules } from '../../../director/wave-rules';
 import { BLOOD_MOON_INTERVAL, isBloodMoonWave } from '../../../configs/blood-moon.config';
 import type { WavePeekFacts } from '../../../director/wave-source';
-import { splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
+import { enemyTraitLabel, weakToLabel } from '../sidebar-tooltips';
 
 /**
  * NEXT in the WAVE panel: the coming waves as the player reads them.
@@ -124,11 +124,11 @@ function tooltip(fact: WavePeekFacts, weights: [ArmorType, number][], weakTo: st
   const mutator = waveMutator(fact.wave);
   if (mutator) parts.push(mutatorNote(mutator));
 
-  // What a type does beyond dying, e.g. a splitter
+  // What a type does beyond walking and dying: a splitter, regeneration, phasing
   for (const [enemyId] of fact.enemies) {
     const cfg = ENEMY_TYPES[enemyId as EnemyTypeId];
-    const split = cfg ? splitTraitLabel(enemyId) : null;
-    if (split) parts.push(`${cfg!.name}: ${split}.`);
+    const traits = cfg ? enemyTraitLabel(enemyId) : null;
+    if (traits) parts.push(`${cfg!.name}: ${traits}.`);
   }
 
   if (fact.count) parts.push(`${fact.count} enemies.`);

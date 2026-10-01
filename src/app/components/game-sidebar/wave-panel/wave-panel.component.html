@@ -32,8 +32,8 @@
                 </span>
                 <span class="td-group-weak">{{ getArmorWeakTo(group.enemyType) }}</span>
               </div>
-              @if (splitTrait(group.enemyType); as split) {
-                <div class="td-group-trait">{{ split }}</div>
+              @if (enemyTrait(group.enemyType); as trait) {
+                <div class="td-group-trait">{{ trait }}</div>
               }
             </div>
           </div>
