@@ -27,6 +27,8 @@ export class RouteGridVizService {
 
   // Debug: defense reach marker (orange sphere)
   private defenseReachMarker: Mesh | null = null;
+  // The marker has a waypoint; it shows only with the Route Grid Overlay
+  private defenseReachPlaced = false;
 
   // Spatial grid debug visualization mesh (owned by this service)
   private spatialGridVizMesh: InstancedMesh | null = null;
@@ -163,7 +165,9 @@ export class RouteGridVizService {
       if (this.spatialGridVizMesh) {
         this.spatialGridVizMesh.visible = true;
       }
+      if (this.defenseReachMarker) this.defenseReachMarker.visible = this.defenseReachPlaced;
     } else {
+      if (this.defenseReachMarker) this.defenseReachMarker.visible = false;
       // Hide visualization (don't dispose - may toggle again)
       if (this.spatialGridVizMesh) {
         this.spatialGridVizMesh.visible = false;
@@ -361,7 +365,9 @@ export class RouteGridVizService {
 
   /**
    * Defense reach percent (GlobalRouteGridService.defenseReach) of the
-   * routes, with the orange debug marker moved to its waypoint.
+   * routes, with the orange debug marker moved to its waypoint. The marker
+   * shows only while the Route Grid Overlay is on: players read it as how
+   * far the enemies came.
    *
    * @param routes Array of route paths (GeoPosition[][])
    * @returns Defense reach as fraction 0..1
@@ -385,10 +391,12 @@ export class RouteGridVizService {
     }
 
     this.defenseReachMarker.position.set(x, y, z);
-    this.defenseReachMarker.visible = true;
+    this.defenseReachPlaced = true;
+    this.defenseReachMarker.visible = this.uiStore.spatialGridDebugVisible();
   }
 
   private hideDefenseReachMarker(): void {
+    this.defenseReachPlaced = false;
     if (this.defenseReachMarker) {
       this.defenseReachMarker.visible = false;
     }

@@ -244,6 +244,7 @@ describe('GlobalRouteGridService', () => {
     it('marks the reach 3 m above that waypoint and hides the marker when it is gone', () => {
       init();
       viz.initDebugViz(scene);
+      uiStore.spatialGridDebugVisible.set(true);
       tower('t1', 20, 3);
       viz.getDefenseReachPercent([route]);
 
@@ -257,6 +258,21 @@ describe('GlobalRouteGridService', () => {
       expect(viz.getDefenseReachPercent([route])).toBe(0);
       expect(marker.visible).toBe(false);
       expect(scene.children).toContain(marker);
+    });
+
+    it('shows the marker only with the Route Grid Overlay', () => {
+      init();
+      viz.initDebugViz(scene);
+      tower('t1', 20, 3);
+      viz.getDefenseReachPercent([route]);
+      const marker = scene.children.find((c) => c instanceof Mesh)!;
+      expect(marker.visible).toBe(false);
+
+      viz.toggleSpatialGridDebug();
+      expect(marker.visible).toBe(true);
+
+      viz.toggleSpatialGridDebug();
+      expect(marker.visible).toBe(false);
     });
 
     it('still reports the reach without a debug scene', () => {
