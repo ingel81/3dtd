@@ -525,13 +525,13 @@ eine alle zehn Wellen, nach W60 laufen die Zeilen 31 bis 60 erneut (Stand 2026-1
 | Welle | Boss | Begleiter |
 |---|---|---|
 | W10 | Herbert | Panzer, Zombies |
-| W20 | Ooze | 100 Schleimklumpen |
+| W20 | Ooze | 100 Schleimklumpen, 450 ms auseinander |
 | W30, W60 | Skarnax | keine |
 | W40 | Golem King | Steingolems, Mammuts |
 | W50 | Dragon Matriarch | Drachen, Hornissen |
 
 Das Budget bemisst sie wie jede Welle. Ein Boss (`isBoss`) bekommt dabei mindestens das Dreifache des zähesten
-Begleiters, das 1,25-Fache von dessen Elite und ein Viertel seiner Basis-HP, auch über seine eigene Grenze; er
+Begleiters, so viel wie dessen Elite und ein Viertel seiner Basis-HP, auch über seine eigene Grenze; er
 darf durchkommen. Sein Leck zahlt er ganz, die Begrenzung des Lecks einer vollen Welle gilt nur den anderen.
 Herbert, der Golem King und die Dragon Matriarch werden unter einem Anteil ihrer HP wütend (`traits.rage`,
 `managers/boss-traits.ts`): schneller, weniger Schaden, rot, „ENRAGED“ über ihnen. Die Ooze zerfällt beim Tod in

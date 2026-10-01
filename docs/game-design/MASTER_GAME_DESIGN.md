@@ -137,15 +137,15 @@ Gebaut sind diese Eigenschaften je Gegnertyp (`EnemyTypeConfig` in
 | Eigenschaft | Feld | Wirkung | Typen |
 |---|---|---|---|
 | Luft | `isAirUnit` | nur von Towern mit Luftziel zu treffen | Bat, Hornet, Dragon |
-| Boss | `isBoss` | Boss-Leiste, Boss-Intro, Fähigkeiten wirken schwächer | Herbert, Skarnax, Ooze |
+| Boss | `isBoss` | Boss-Leiste, Boss-Intro, Fähigkeiten wirken schwächer; das Budget gibt ihm eine Untergrenze und sein Leck ganz | Herbert, Skarnax, Ooze, Golem King, Dragon Matriarch |
 | Maschine | `mechanical` | das EMP hält sie 6 statt 1,5 s | Tank, Mech |
-| Split | `splitOnDeath` | ein Kill (kein Leck) teilt den Gegner | Skeleton (2 Minions), Ooze (bis zu 10 Slime Clumps) |
+| Split | `splitOnDeath` | ein Kill (kein Leck) teilt den Gegner | Skeleton (2 Minions), Ooze (bis zu 20 Slime Clumps mit 3/10 ihrer HP) |
 | Kette | `chain` | ein Spawn bringt einen Wurm aus Segmenten | Skarnax |
 | Regen | `regenPerSecond` | heilt je Sekunde einen Anteil der max. HP, in Schritten von 0,5 s Spielzeit, nie solange er brennt | Mammoth 1 %, Slime Clump 2 % |
 | Phasing | `immuneToSlow` | ein Slow greift nicht; Freeze und Stun schon | Wraith |
-
-`immunityPercent: 100` steht bei Herbert in der Config, gelesen wird es im
-Spiel nicht (nur ein Spec prüft, dass das Feld nicht negativ ist).
+| Wut | `traits.rage` | unter einem Anteil der HP schneller und nimmt weniger Turmschaden, rot | Herbert (50 %), Golem King (40 %), Dragon Matriarch (50 %) |
+| Eigenes Leck | `leakDamage` | kostet im HQ diesen Wert statt dem aus den HP | Skarnax 150 |
+| Elite | (je Welle, `ELITE_SHARE`) | etwa jeder 20. einer Art ab zehn, 4,5-fache HP, gold, ein Viertel größer | alle außer Bossen, Wurm und Ooze |
 
 Regen und Phasing sind seit 2026-10-02 gebaut, ohne eigenen Zustand je Gegner
 (Snapshots, Coop und Replay brauchen nichts Neues). Shielded, Camo und Aura
@@ -296,21 +296,23 @@ in §12.3.
 | **Tank** | Heavy | Maschine | Heavy-Check (`tank_column`, W9) |
 | **Zombie Soldier** | Heavy | – | Begleitung in `tank_column` |
 | **Bear** | Heavy | schnell | Heavy und schnell (`bear_pack`, W11) |
-| **Dragon** | Heavy | Luft | Luft-Elite (`dragon_elite`, W12); ab W31 im Boss-Template `boss_dragon`, selbst kein Boss |
+| **Dragon** | Heavy | Luft | Luft-Elite (W12), Gefolge der Dragon Matriarch (W50) |
 | **Mech** | Heavy | Maschine | Heavy-Masse (`mech_army`, W28) |
 | **Ghost** | Ethereal | – | Ethereal-Debüt (`ghost_surge`, W13) |
 | **Wraith** | Ethereal | schnell, Phasing (kein Slow) | Ethereal-Schwarm (W17 Night Flight mit Fledermäusen, W52 Wraith Storm) |
 | **Mammoth** | Fortified | langsam, Regen 1 % je s | DPS-Check (`mammoth_siege`, W14) |
-| **Stone Golem** | Fortified | langsam | DPS-Check (`golem_squad`, W15); ab W31 im Boss-Template `boss_golem` |
-| **Herbert** | Fortified | Boss | Boss W10 (`boss_herbert`, genau ein Herbert), danach einer der Director-Bosse. W20 und W30 plant der Director als Herbert-Welle, geschickt werden Ooze und Skarnax |
+| **Stone Golem** | Fortified | langsam | DPS-Check (W15), Gefolge des Golem King (W40) |
+| **Herbert** | Fortified | Boss, Wut unter 50 % | Boss W10 (ein Herbert mit Panzern und Zombies) |
+| **Golem King** | Fortified | Boss, Wut unter 40 %, Golem in 1,6-facher Größe (`renderAs`) | Boss W40 mit Golems und Mammuts |
+| **Dragon Matriarch** | Heavy | Boss, Luft, Wut unter 50 %, Drache in 1,6-facher Größe (`renderAs`) | Boss W50 mit Drachen und Hornissen |
 | **Skeleton** | Unarmored | Schwarm, Split: ein Kill teilt ihn in 2 Skeleton Minions, ein Leck nicht | Mega-Schwarm (`skeleton_swarm`, W19), Split seit 2026-09-13 |
 | **Skeleton Minion** | Unarmored | schnell, entsteht nur aus dem Split, teilt sich nicht weiter | kein eigenes Template |
-| **Skarnax** (Wurm) | Heavy | Boss, Kette aus 16 bis 240 Segmenten, die Länge folgt der Route | Boss-Variante W35, W55, W75, … |
+| **Skarnax** (Wurm) | Heavy | Boss, Kette aus 16 bis 240 Segmenten, die Länge folgt der Route, Leck 150 für den ganzen Wurm | Boss W30 und W60 |
 | **Skarnax Segment** | Heavy | Körperring des Wurms | einzeln nur per Custom Wave oder Enemy Debug |
-| **Ooze** | Unarmored | Boss, Körper als Schleimband entlang der Route (bis 80 m), fließt Meter für Meter in die Basis, Split in bis zu 10 Slime Clumps | Boss-Variante W45, W65, W85, … |
-| **Slime Clump** | Unarmored | entsteht nur aus dem Split der Ooze, Regen 2 % je s | kein eigenes Template |
+| **Ooze** | Unarmored | Boss, Körper als Schleimband entlang der Route (bis 80 m), fließt Meter für Meter in die Basis, Split in bis zu 20 Slime Clumps mit drei Zehnteln ihrer HP | Boss W20, 100 Slime Clumps als Gefolge |
+| **Slime Clump** | Unarmored | Regen 2 % je s | Split der Ooze, Gefolge der Ooze (W20) |
 
-Boss-Rotation nach W30: [WAVE_SYSTEM.md](../WAVE_SYSTEM.md#boss-waves). Nicht
+Boss-Wellen des Laufplans: [WAVE_SYSTEM.md](../WAVE_SYSTEM.md#boss-waves). Nicht
 gebaut sind Lich, Slime (mit Regen) und Banshee sowie die früher hier geführten
 Flags für Spider (Camo) und Mech (Shielded, immuneToBurn), siehe §12.4.
 
@@ -775,7 +777,7 @@ gebaut (§2.5): Regen am Mammoth und an der Slime Clump, Phasing am Wraith.
 Außerdem waren geplant: **Spider** mit Camo (Camo-Check), **Mech** mit
 Shielded und `immuneToBurn` (Shield-Check), **Dragon** mit Boss-Flag
 (Air-Boss). Gebaut sind Spider und Mech ohne diese Flags und Dragon ohne
-`isBoss`; die Boss-Welle mit Drachen ist das Template `boss_dragon`. Ooze und
+`isBoss`; der Luft-Boss ist seit 2026-10-02 die Dragon Matriarch (W50). Ooze und
 Slime Clump (§4) sind etwas anderes als der geplante Slime; die Slime Clump hat
 seit 2026-10-02 Regen.
 

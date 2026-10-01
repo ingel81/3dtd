@@ -472,45 +472,50 @@ stärkerer Spieler sind `u` mal 0,7 und 1,3 (geschätzte Spanne, nicht gemessen)
 
 ### Was sich geändert hat
 
+Stand nach dem Rebase auf den Laufplan, die Mutatoren und die Tower-Werte von Abschnitt 16, dort nachgestellt.
+
 | Hebel | vorher | jetzt | Wo |
 |---|---|---|---|
 | Bemessung | HP am Ende der Vorwelle, vor den Käufen der Pause | Gegner, Anzahl, Abstände am Ende der Vorwelle fest, HP beim Start neu gegen die Abwehr | `WaveSource.sizeAtStart` |
-| Deckel | Fenster der Welle, fest | Fenster mal R | `CAP_FOLLOWS_REGULATOR` |
+| Deckel | Fenster der Welle mal `BUDGET_REALISM` 0,6, dazu erlaubte Lecks als Anteil des Budgets | Fenster mal `min(R, 1,5)` mal 0,55; erlaubte Lecks als Anteil der Zeit, höchstens die Hälfte der Körper | `CAP_FOLLOWS_REGULATOR`, `CAP_REGULATOR_MAX`, `BUDGET_REALISM`, `MAX_ALLOWED_LEAK_SHARE` |
 | Regler | 0,5 bis 1,5, öffnet bis ×1,42 je Welle | 0,5 bis 2,5, öffnet höchstens ×1,105 je Welle, schließt wie bisher | `BUDGET_REGULATOR_LIMITS`, `PRESSURE_MAX_OPEN_STEP` |
 | Leck einer Welle | ein Schwarm trug 2000 bis 3500 HP Leck gegen ein HQ von 350 | alle Körper außer Bossen zusammen höchstens 40 mal die Leckskala, ein voller Schwarm teilt das auf | `WAVE_LEAK_POTENTIAL`, `waveLeakScale(wave, type)` |
+| Regeneration | vom Budget nicht gesehen | ein heilender Körper kostet, was er in einem Viertel seiner Zeit auf der Route heilt (Regen-Eigenschaft, Regeneration-Mutator) | `REGEN_TIME_SHARE` |
 | Sicherheitsanteil | 0,25, sobald ein Leck mehr kostet als die Welle darf (wenige HP) | 0,5, erst wenn ein Leck mehr als 15 % des HQ kostet | `SURE_KILL_SHARE`, `SURE_KILL_HQ_SHARE` |
-| Boss-Untergrenze | keine | mindestens 3× der zäheste Begleiter, 1,25× dessen Elite, 0,25 der Basis | `BOSS_OVER_ESCORT`, `BOSS_OVER_ELITE`, `BOSS_MIN_HP_MULT` |
+| Boss-Untergrenze | keine | mindestens 3× der zäheste Begleiter, so zäh wie dessen Elite, 0,25 der Basis; die Wut zahlt das Budget mit | `BOSS_OVER_ESCORT`, `BOSS_OVER_ELITE`, `BOSS_MIN_HP_MULT`, `rageFactor` |
 | Skarnax | Leck 50 auf 240 Segmente | Leck 150 (`leakDamage`), spät rund 1,4 HP je Segment | `enemy-types.config.ts` |
-| Boss-Zeilen | W20 Ooze allein, W40 Golems, W50 Drachen | W20 Ooze mit 100 Schleimklumpen, W40 Golem King, W50 Dragon Matriarch | `run-plan.json`, `renderAs` |
+| Boss-Zeilen | W20 Ooze allein, W40 Golems, W50 Drachen | W20 Ooze mit 100 Schleimklumpen im Abstand von 450 ms, W40 Golem King, W50 Dragon Matriarch | `run-plan.json`, `renderAs` |
 | Boss-Mechanik | keine | Wut: Herbert unter 50 % (×1,35 Tempo, 75 % Schaden), Golem King unter 40 %, Dragon Matriarch unter 50 %; die Ooze zerfällt in Klumpen mit drei Zehnteln ihrer HP | `traits.rage`, `splitOnDeath` |
 | Elite | keine | rund jeder zwanzigste einer Art ab zehn, 4,5-fache HP bis zur Grenze der Art, im selben Budget; gold und ein Viertel größer | `ELITE_SHARE`, `ELITE_HP_FACTOR` |
-
-Bosse ohne Wut zählt das Budget voll. Die Wut nicht: ein wütender Boss ist rund 1,17-mal so zäh und schneller.
+| Zeilen | W17 Night Flight Stärke 1, W44 Swarm Surge 1,5 | 0,85 und 1,3: die beiden teuersten Zeilen für jeden Spieler | `run-plan.json` |
 
 ### Zahlen (Rechenwerkzeug, keine Messung)
 
-HQ nach W10 / 20 / 30 / 40 / 50 / 60, Sollkurve des Reglers 405 / 313 / 230 / 162 / 108 / 69:
+HQ nach W10 / 20 / 30 / 40 / 50 / 60, Sollkurve des Reglers 405 / 313 / 230 / 162 / 108 / 69. „vorher“ ist `next`
+vor dem Nachtlauf, „nur Inhalt“ Abschnitt 16 ohne diesen, „jetzt“ beides:
 
-| Abwehr | vorher | jetzt |
-|---|---|---|
-| Lauf, aufgezeichnet | 363 / 357 / 356 / 356 / 330 / 0 | |
-| Mensch ×1 | 363 / 348 / 315 / 315 / 224 / 21 | 363 / 309 / 236 / 175 / 101 / 16 |
-| Mensch ×0,7 | 337 / 265, Tod in W23 | 339 / 268 / 203 / 151 / 62 / 46 |
-| Mensch ×1,3 | 363 / 362 / 354 / 354 / 354 / 354 | 363 / 338 / 278 / 219 / 127 / 58 |
+| Abwehr | vorher | nur Inhalt | jetzt |
+|---|---|---|---|
+| Lauf, aufgezeichnet | 363 / 357 / 356 / 356 / 330 / 0 | | |
+| Mensch ×1 | 363 / 348 / 315 / 315 / 224 / 21 | 363 / 351 / 311 / 299 / 237, Tod in W56 | 363 / 331 / 247 / 166 / 97 / 58 |
+| Mensch ×0,7 | 337 / 265, Tod in W23 | 337 / 251, Tod in W23 | 363 / 262 / 174 / 125 / 29, Tod in W55 |
+| Mensch ×1,3 | 363 / 362 / 354 / 354 / 354 / 354 | 363 / 362 / 362 / 362 / 362 / 134 | 363 / 351 / 318 / 263 / 203 / 139 |
 
-Wellen mit Verlust ab W8 (von 53): Mensch ×1 vorher 8, jetzt 18; ×1,3 vorher 2, jetzt 21. Mit `u` ±10 %, einem
-Tower-Anteil der Meter von 0,15 oder 0,3 und einer anderen Schwelle für einzelne Körper bleibt das Bild: vorher
-stirbt ×0,7 in W23 und ×1,3 verliert fast nichts, jetzt folgen alle drei grob der Sollkurve und leben in W60.
+Wellen ohne Verlust ab W8 (von 53): Mensch ×1 vorher 45, jetzt 35; ×1,3 vorher 51, jetzt 30. Mit `u` ±10 % und
+einem Tower-Anteil der Meter von 0,15 oder 0,3 bleibt das Bild: Mensch ×1 lebt in W60 mit 54 bis 66 HP, ×0,7
+stirbt in W55 oder lebt in W60 (3 von 5), ×1,3 verliert regelmäßig und hat in W60 87 bis 273. Vorher stirbt ×0,7
+in jeder Variante in W23, und ×1,3 verliert nach W10 fast nichts.
 
 Bosse, Mensch ×1, HP eines Bosses beim Start:
 
 | Welle | vorher | jetzt |
 |---|---|---|
-| W10 Herbert | 440 | 5256 (Wut ab 50 %) |
-| W20 Ooze (mit ihrem Zerfall) | 7920 | 19812, dazu 100 Klumpen als Begleiter |
-| W30 Skarnax | 201.000 auf 241 Segmente | 188.000, Leck 1,3 statt 0,42 je Segment |
-| W40 | 21 Golems, kein Boss | Golem King 38.755 |
-| W50 | 40 Drachen, kein Boss | Dragon Matriarch 33.102 |
+| W10 Herbert | 440 | 3532 (dazu die Wut ab 50 %) |
+| W20 Ooze (mit ihrem Zerfall) | 7920 | 19500, dazu 100 Klumpen als Begleiter |
+| W30 Skarnax | 201.000 auf 241 Segmente | 273.000, Leck 1,3 statt 0,42 je Segment |
+| W40 | 21 Golems, kein Boss | Golem King 24.922 |
+| W50 | 40 Drachen, kein Boss | Dragon Matriarch 31.442 |
 
 Grenzen: eine Abwehr, ein Ort, das Leck ist eine Schätzung mit scharfer Kante (eine Welle kostet nichts oder
-merklich), der Held fehlt, Fähigkeiten fehlen. Gegen Bots und Menschen gemessen ist nichts davon.
+merklich), der Held fehlt, Fähigkeiten fehlen; die Wirkung der Mutatoren außer Tempo und Heilung kennt es nicht.
+Gegen Bots und Menschen gemessen ist nichts davon.
