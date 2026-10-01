@@ -93,7 +93,7 @@ function standInEngine(sync: OriginSync) {
     enemies: withAutoStubs({ create: vi.fn(() => Promise.resolve({})), resolveSlot: vi.fn(() => null) }),
     towers: withAutoStubs({ get: vi.fn(() => undefined) }),
     // What the presenter reads of the projectiles besides calling them
-    projectiles: withAutoStubs({ lastOffset: new Vector3() }),
+    projectiles: withAutoStubs({ lastOffset: new Vector3(), landed: [], landingNow: [] }),
     spatialAudio: withAutoStubs({
       createLoop: vi.fn(() => Promise.resolve(++handles)),
       playAt: vi.fn(() => Promise.resolve(null)),

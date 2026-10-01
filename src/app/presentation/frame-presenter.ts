@@ -147,6 +147,7 @@ export class FramePresenter {
       // Bodies slide from where they are shown to this state (state-lerp.ts): enemies, projectiles, heroes
       const carry = this.engine.enemies.beginState(performance.now());
       this.engine.projectiles.beginState(carry);
+      this.landProjectiles();
       this.presentEnemies(packet, frame, gameTimeMs, deltaMs);
       this.oozes.present(packet.oozes, this.engine);
       this.wormSounds.present(packet.worms, this.headAt, this.engine.spatialAudio ?? null, gameTimeMs);
@@ -300,6 +301,14 @@ export class FramePresenter {
     sync.geoToLocalSimpleInto(d[o + E_LAT], d[o + E_LON], 0, out);
     out.y = d[o + E_TERRAIN] + d[o + E_HOFF] + WORM_SOUNDS.voice.liftM - sync.getOrigin().height;
     return true;
+  }
+
+  /** Trails of the projectiles sliding to their hit point go with them, and go when they land */
+  private landProjectiles(): void {
+    const { projectiles, trailStreaks } = this.engine;
+    if (!trailStreaks) return;
+    for (const id of projectiles.landed) trailStreaks.remove(id);
+    for (const landing of projectiles.landingNow) trailStreaks.pushPosition(landing.id, landing.shown, landing.lead);
   }
 
   private presentProjectiles(packet: SimFramePacket, frame: number): void {

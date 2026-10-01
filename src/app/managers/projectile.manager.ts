@@ -40,7 +40,7 @@ interface ShotSound {
  */
 export class ProjectileManager extends EntityManager<Projectile> {
   /** Reused per-frame scratch buffers — avoids per-update allocation. */
-  private readonly toRemove: Projectile[] = [];
+  private readonly toFinish: Projectile[] = [];
 
   constructor(
     private eventBus: GameEventBus,
@@ -210,7 +210,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    * push lives in {@link presentFrame}, once per render frame.
    */
   override update(deltaTime: number): void {
-    this.toRemove.length = 0;
+    this.toFinish.length = 0;
 
     for (const projectile of this.getAllActive()) {
       const hit = projectile.updateTowardsTarget(deltaTime);
@@ -219,7 +219,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
       if (hit && !target) {
         // A free shot (a manned tower's miss) ends where it was aimed: no
         // hit, no splash, no impact
-        this.toRemove.push(projectile);
+        this.toFinish.push(projectile);
       } else if (hit && target) {
         // Emit projectile:hit when the target is still alive, OR when the
         // projectile carries splash — splash must still detonate at the impact
@@ -249,11 +249,20 @@ export class ProjectileManager extends EntityManager<Projectile> {
           targetLost: projectile.targetLost,
         });
 
-        this.toRemove.push(projectile);
+        this.toFinish.push(projectile);
       }
     }
 
-    this.toRemove.forEach((p) => this.remove(p));
+    for (const p of this.toFinish) this.finish(p);
+  }
+
+  /**
+   * Gone from the simulation; on the main thread it flies the rest of the
+   * way to where it ended, then goes with its trail streak.
+   */
+  private finish(entity: Projectile): void {
+    this.sink.projectiles.finish(entity.id, entity.position.lat, entity.position.lon, entity.flightHeight);
+    super.remove(entity);
   }
 
   /** Its instance and trail streak on the main thread */

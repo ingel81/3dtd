@@ -81,6 +81,8 @@ export interface SimSink {
   };
   readonly projectiles: {
     create(id: string, typeId: string, lat: number, lon: number, height: number, direction: { dx: number; dy: number; dz: number }): void;
+    /** It hit (or a free shot ended) here: shown flying there with the next state, then gone with its trail streak */
+    finish(id: string, lat: number, lon: number, height: number): void;
     remove(id: string): void;
     clear(): void;
   };

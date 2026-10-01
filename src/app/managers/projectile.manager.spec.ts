@@ -81,7 +81,7 @@ describe('ProjectileManager', () => {
     for (let i = 0; i < 600 && manager.getAll().length > 0; i++) manager.update(16);
 
     expect(manager.getAll()).toHaveLength(0);
-    expect(sink.projectiles.remove).toHaveBeenCalledWith(shot.id);
+    expect(sink.projectiles.finish).toHaveBeenCalledWith(shot.id, expect.any(Number), expect.any(Number), expect.any(Number));
     eventBus.processQueue();
     expect(hits).not.toHaveBeenCalled();
   });
@@ -137,7 +137,8 @@ describe('ProjectileManager', () => {
       })
     );
     expect(manager.getById(projectile.id)).toBeNull();
-    expect(sink.projectiles.remove).toHaveBeenCalledWith(projectile.id);
+    expect(sink.projectiles.finish).toHaveBeenCalledWith(projectile.id, projectile.position.lat, projectile.position.lon, projectile.flightHeight);
+    expect(sink.projectiles.remove).not.toHaveBeenCalled();
   });
 
   it('does not emit hit event when a non-splash target died before impact', () => {
@@ -158,7 +159,8 @@ describe('ProjectileManager', () => {
 
     expect(hitSpy).not.toHaveBeenCalled();
     expect(manager.getById(projectile.id)).toBeNull();
-    expect(sink.projectiles.remove).toHaveBeenCalledWith(projectile.id);
+    expect(sink.projectiles.finish).toHaveBeenCalledWith(projectile.id, projectile.position.lat, projectile.position.lon, projectile.flightHeight);
+    expect(sink.projectiles.remove).not.toHaveBeenCalled();
   });
 
   it('still emits hit event for a splash projectile when target died before impact', () => {
@@ -182,6 +184,7 @@ describe('ProjectileManager', () => {
     expect(hitSpy).toHaveBeenCalledTimes(1);
     expect(projectile.targetLost).toBe(true);
     expect(manager.getById(projectile.id)).toBeNull();
-    expect(sink.projectiles.remove).toHaveBeenCalledWith(projectile.id);
+    expect(sink.projectiles.finish).toHaveBeenCalledWith(projectile.id, projectile.position.lat, projectile.position.lon, projectile.flightHeight);
+    expect(sink.projectiles.remove).not.toHaveBeenCalled();
   });
 });

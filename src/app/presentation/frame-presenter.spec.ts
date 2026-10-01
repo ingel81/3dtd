@@ -121,8 +121,8 @@ function makeEngine() {
       spawnConfigurableTrail: vi.fn(),
     },
     oozes: { add: vi.fn(), setFrame: vi.fn() },
-    projectiles: { update: vi.fn(), updateWithRotation: vi.fn(), beginState: vi.fn(), lastOffset: new Vector3() },
-    trailStreaks: { pushPosition: vi.fn() },
+    projectiles: { update: vi.fn(), updateWithRotation: vi.fn(), beginState: vi.fn(), lastOffset: new Vector3(), landed: [] as string[], landingNow: [] as { id: string; shown: Vector3; lead: Vector3 }[] },
+    trailStreaks: { pushPosition: vi.fn(), remove: vi.fn() },
     towerBadges: { setRank: vi.fn() },
     hero: { present: vi.fn() },
     createPartnerHero: vi.fn(() => partner),
@@ -272,6 +272,21 @@ describe('FramePresenter', () => {
       expect(trails[1][1]).toBeCloseTo(1.2 - 2.1 - TRAIL_SPAWN_DISTANCE_M);
       expect(engine.trailStreaks.pushPosition).toHaveBeenCalledTimes(3);
       expect(engine.trailStreaks.pushPosition.mock.calls[0][0]).toBe('projectile-11');
+    });
+
+    it('takes the trail of a landing projectile to its hit point and off once it landed', () => {
+      const { presenter, engine } = setup();
+      const shown = new Vector3(1, 2, 3);
+      const lead = new Vector3(4, 0, 0);
+      engine.projectiles.landingNow.push({ id: 'projectile-11', shown, lead });
+      presenter.present(packet({}));
+      expect(engine.trailStreaks.pushPosition).toHaveBeenCalledWith('projectile-11', shown, lead);
+      expect(engine.trailStreaks.remove).not.toHaveBeenCalled();
+
+      engine.projectiles.landingNow.length = 0;
+      engine.projectiles.landed.push('projectile-11');
+      presenter.present(packet({}));
+      expect(engine.trailStreaks.remove).toHaveBeenCalledWith('projectile-11');
     });
 
     it('lays bursts only for the way it has been shown on, none behind the muzzle while it slides', () => {

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { BoxGeometry, Euler, MeshBasicMaterial, Vector3 } from 'three';
-import { createRocketGeometry, ProjectileInstanceManager } from './three-projectile.renderer';
+import { BoxGeometry, Euler, MeshBasicMaterial, Scene, Vector3 } from 'three';
+import { createRocketGeometry, ProjectileInstanceManager, ThreeProjectileRenderer } from './three-projectile.renderer';
+import { StateLerp } from './state-lerp';
+import type { CoordinateSync } from './index';
 import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
 import { MAGIC_ORB_FRAGMENT } from './magic-orb-shaders';
 import { DISPLAY_OUTPUT_GLSL } from './display-output';
@@ -181,5 +183,63 @@ describe('ProjectileInstanceManager', () => {
     add('c');
     manager.clear();
     expect(mesh.visible).toBe(false);
+  });
+});
+
+describe('ThreeProjectileRenderer, a hit shown to its end', () => {
+  // Local x = lat, y = height: a shot along x
+  const sync = { geoToLocal: (lat: number, _lon: number, height: number) => new Vector3(lat, height, 0) } as unknown as CoordinateSync;
+  let renderer: ThreeProjectileRenderer;
+  const flying = () => renderer.count;
+
+  beforeEach(() => {
+    renderer = new ThreeProjectileRenderer(new Scene(), sync);
+    renderer.stateLerp = new StateLerp();
+    renderer.beginState(0);
+    renderer.create('p', 'bullet', 0, 0, 0, { dx: 1, dy: 0, dz: 0 });
+    renderer.beginState(0);
+    renderer.update('p', 10, 0, 0);
+  });
+
+  it('slides to its hit point with the next state and goes one state later, with its trail', () => {
+    renderer.finish('p', 30, 0, 0);
+    expect(flying()).toBe(1);
+
+    renderer.beginState(0);
+    expect(renderer.landed).toEqual([]);
+    expect(renderer.landingNow).toHaveLength(1);
+    const [landing] = renderer.landingNow;
+    expect(landing.id).toBe('p');
+    // Shown where its last state put it, the rest of the way to the hit ahead
+    expect(landing.shown.x).toBeCloseTo(10, 6);
+    expect(landing.lead.x).toBeCloseTo(20, 6);
+    expect(flying()).toBe(1);
+
+    renderer.beginState(0);
+    expect(renderer.landed).toEqual(['p']);
+    expect(renderer.landingNow).toEqual([]);
+    expect(flying()).toBe(0);
+  });
+
+  it('goes at once with the slide off', () => {
+    renderer.stateLerp = new StateLerp(false);
+    renderer.finish('p', 30, 0, 0);
+    renderer.beginState(0);
+    expect(renderer.landed).toEqual(['p']);
+    expect(flying()).toBe(0);
+  });
+
+  it('forgets a hit that a remove or a clear took first', () => {
+    renderer.finish('p', 30, 0, 0);
+    renderer.remove('p');
+    renderer.beginState(0);
+    expect(renderer.landingNow).toEqual([]);
+
+    renderer.create('q', 'bullet', 0, 0, 0, { dx: 1, dy: 0, dz: 0 });
+    renderer.finish('q', 5, 0, 0);
+    renderer.clear();
+    renderer.beginState(0);
+    expect(renderer.landingNow).toEqual([]);
+    expect(renderer.landed).toEqual([]);
   });
 });

@@ -344,6 +344,15 @@ export class ThreeProjectileRenderer {
   // Track which manager owns each projectile
   private projectileTypes = new Map<string, ProjectileVisualType>();
 
+  /** Hit points of the projectiles that hit since the last state, by id (finish) */
+  private readonly hits = new Map<string, Vector3>();
+  /** Projectiles sliding to their hit point; gone at the next state */
+  private readonly landing: string[] = [];
+  /** Where each projectile that began landing at the last state is shown, and the rest of its way (trails) */
+  readonly landingNow: { id: string; shown: Vector3; lead: Vector3 }[] = [];
+  /** Projectiles that landed and went at the last state: their trails go too */
+  readonly landed: string[] = [];
+
   /** Settles once the arrow pool exists, from the model or the fallback. */
   private readonly arrowLoad: Promise<void>;
 
@@ -711,13 +720,51 @@ export class ThreeProjectileRenderer {
   /** The slide between two states, shared with the enemies (state-lerp.ts); null: every projectile stands where its state puts it */
   stateLerp: StateLerp | null = null;
 
-  /** A state of the simulation is about to be written; `carry` from StateLerp.begin. */
+  /**
+   * A state of the simulation is about to be written; `carry` from
+   * StateLerp.begin. The projectiles that slid to their hit point since the
+   * last state go (`landed`); those that hit since then slide there now,
+   * one state interval like every body (`landingNow`), instead of going at
+   * the place the state before showed them: at game speed 4 that was up to
+   * 20 m short of the target.
+   */
   beginState(carry: number): void {
+    this.landed.length = 0;
+    for (const id of this.landing) {
+      this.remove(id);
+      this.landed.push(id);
+    }
+    this.landing.length = 0;
+    this.landingNow.length = 0;
+
     const slides = this.stateLerp?.enabled ?? false;
     for (const manager of this.managers()) {
       manager.carry = carry;
       manager.slides = slides;
     }
+
+    for (const [id, hit] of this.hits) {
+      const manager = this.getManager(this.projectileTypes.get(id)!);
+      if (!slides || !manager) {
+        this.remove(id);
+        this.landed.push(id);
+        continue;
+      }
+      manager.updatePosition(id, hit);
+      const lead = manager.lastOffset.clone().negate();
+      this.landingNow.push({ id, shown: hit.add(manager.lastOffset), lead });
+      this.landing.push(id);
+    }
+    this.hits.clear();
+  }
+
+  /**
+   * Projectile `id` hit (or a free shot ended) at this point: it slides
+   * there with the next state and goes one state later (beginState).
+   */
+  finish(id: string, lat: number, lon: number, height: number): void {
+    if (!this.projectileTypes.has(id)) return;
+    this.hits.set(id, this.sync.geoToLocal(lat, lon, height));
   }
 
   private managers(): ProjectileInstanceManager[] {
@@ -756,6 +803,7 @@ export class ThreeProjectileRenderer {
    * Remove projectile
    */
   remove(id: string): void {
+    this.hits.delete(id);
     const visualType = this.projectileTypes.get(id);
     if (!visualType) return;
 
@@ -810,6 +858,10 @@ export class ThreeProjectileRenderer {
     this.chaosManager.clear();
     this.shellManager.clear();
     this.projectileTypes.clear();
+    this.hits.clear();
+    this.landing.length = 0;
+    this.landingNow.length = 0;
+    this.landed.length = 0;
   }
 
   /**
