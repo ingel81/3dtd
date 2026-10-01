@@ -16,6 +16,9 @@ import {
 
 type Command = StampedCommand['command'];
 
+/** A request to the relay (create, join, the room list) fails after this long without an answer, ms */
+const REQUEST_TIMEOUT_MS = 10_000;
+
 /** The socket a session talks over; the browser's WebSocket fits. */
 export interface CoopSocket {
   readonly readyState: number;
@@ -357,7 +360,16 @@ export class CoopSession {
     // (a refused join read as a failed room list), and the first would wait for ever
     if (this.pendingReply) return Promise.reject(new Error(`Busy waiting for ${this.pendingReply.wants}`));
     return new Promise((resolve, reject) => {
-      this.expect(wants, resolve, reject);
+      // A relay that ignores the request (a create while it closes) left it waiting for good,
+      // and every later request failed as busy
+      const timer = setTimeout(() => {
+        if (this.pendingReply?.wants === wants) this.fail(new Error('No answer from the relay'));
+      }, REQUEST_TIMEOUT_MS);
+      this.expect(
+        wants,
+        (value) => { clearTimeout(timer); resolve(value); },
+        (error) => { clearTimeout(timer); reject(error); },
+      );
       this.out(message);
     });
   }
