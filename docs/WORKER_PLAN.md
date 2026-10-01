@@ -123,8 +123,8 @@ Hauptthread-Seite.
 Nicht geprüft: eine echte Karte (Routen, Höhen und Tile-Fallback aus einem Weltpaket), der Coop-Pfad im Worker, und
 ob die gestubbten Stores im Spiel Werte in die Simulation zurückgeben.
 
-Nachmessen: `node tools/worker-sim/build.mjs`, `node tools/worker-sim/server.mjs`, dann
-`node e2e/perf/worker-sim.ts [Gegner] [chromium,firefox] [--no-bench] [--reach]`.
+Das Labor (`tools/worker-sim`, `e2e/perf/worker-sim.ts`) ist am 2026-10-01 entfernt; abgelöst von `SimCore` und der
+Lastmessung `e2e/perf/sim-load.ts`. Der Stand liegt in der Git-Historie (bis `ecebfe02`).
 
 ## Vorschlag
 
