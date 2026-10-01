@@ -352,7 +352,6 @@ Ideen (2026-09-27), nichts entschieden:
         eines Resyncs, wartet der Raum die 20 s ab. Unbekannte Felder eines Befehls landen im Befehlslog jedes Clients.
       - Relay: der Run-Log-Speicher entpackt synchron bis 32 MB und räumt bei jedem Eintrag auf (nur Relays mit
         `collectRuns`); 200 Räume lassen sich von vielen Adressen mit leeren Lobbys belegen.
-      - Ein Gegner- oder Towermodell, das nicht lädt, steht nur in der Konsole: Gegner laufen unsichtbar.
       - Ein Fehler beim Start des Simulations-Workers (`sim.start()`) ist nicht abgefangen; IndexedDB-Öffnungen, die
         einmal scheitern, bleiben bis zum Reload gescheitert. Vermutet: `load-error` ohne Tile schickt auch bei
         Netzfehlern zum Token-Dialog.

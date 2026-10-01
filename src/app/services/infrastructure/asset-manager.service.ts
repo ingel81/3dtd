@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { Object3D, AnimationClip, Mesh, Material, MeshStandardMaterial } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -16,6 +16,12 @@ export interface CachedModel {
   /** Model URL for debugging */
   url: string;
 }
+
+/**
+ * Waits before the second and third try of a model that did not load, ms: a
+ * network hiccup passes, a missing or broken file fails all three.
+ */
+export const MODEL_RETRY_DELAYS_MS: readonly number[] = [1000, 3000];
 
 /**
  * Model clone options
@@ -47,6 +53,12 @@ export class AssetManagerService {
 
   // Loading promises to prevent duplicate loads
   private readonly loadingPromises = new Map<string, Promise<CachedModel>>();
+
+  /**
+   * Models that did not load after every try, by URL, in the order they
+   * failed (ModelLoadHintComponent); a later load that works takes its URL out.
+   */
+  readonly failedModels = signal<readonly string[]>([]);
 
   /**
    * Load a model from URL (cached)
@@ -85,7 +97,22 @@ export class AssetManagerService {
    * Internal: perform actual model load
    */
   private async doLoadModel(url: string): Promise<CachedModel> {
-    const gltf = await this.gltfLoader.loadAsync(url);
+    let gltf;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        gltf = await this.gltfLoader.loadAsync(url);
+        break;
+      } catch (error) {
+        const delay = MODEL_RETRY_DELAYS_MS[attempt];
+        if (delay === undefined) {
+          this.failedModels.update((urls) => (urls.includes(url) ? urls : [...urls, url]));
+          throw error;
+        }
+        console.warn(`[AssetManager] ${url} did not load, trying again in ${delay} ms`, error);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+    if (this.failedModels().includes(url)) this.failedModels.update((urls) => urls.filter((u) => u !== url));
     return {
       scene: gltf.scene,
       animations: gltf.animations || [],

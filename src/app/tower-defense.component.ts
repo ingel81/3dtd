@@ -105,6 +105,7 @@ import { CoopPingArrowsComponent } from './components/coop-ping-arrows/coop-ping
 import { BloodMoonBannerComponent } from './components/blood-moon-banner/blood-moon-banner.component';
 import { RelocationStatusComponent } from './components/relocation-status/relocation-status.component';
 import { UpdateHintComponent } from './components/update-hint/update-hint.component';
+import { ModelLoadHintComponent } from './components/model-load-hint/model-load-hint.component';
 import { CellReportPanelComponent } from './components/cell-report-panel/cell-report-panel.component';
 import { AbilityBarComponent } from './components/ability-bar/ability-bar.component';
 import { RunSummaryComponent } from './components/run-summary/run-summary.component';
@@ -175,6 +176,7 @@ import { COOP } from './services/coop.token';
     BloodMoonBannerComponent,
     RelocationStatusComponent,
     UpdateHintComponent,
+    ModelLoadHintComponent,
     CellReportPanelComponent,
     AbilityBarComponent,
     RunSummaryComponent,
