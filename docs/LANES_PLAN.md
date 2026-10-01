@@ -28,5 +28,5 @@ Stand 2026-10-01, Branch `lanes`. Entscheidungen des Users per AUQ am 2026-10-01
   freie Spur; Kills und Lecks gehen an den Besitzer der Spur (`coop-run-counts.ts`); die Farbe eines Spielers ist die
   seiner ersten Spur. Ein Client mit Protokoll 2 wird mit `version` abgewiesen: Relay-Image und Client zusammen
   ausliefern.
-- **Längen-Leiste** (offen): `laneStats` (Länge, Laufzeit) aus `coop/lane-stats.ts`, die Route des Spawns unter der
-  Maus gedrosselt neu.
+- **Längen-Leiste** (`components/lane-length-panel/`): die Route, die die Platzier-Vorschau ohnehin je Segment findet
+  (`MapPlacementService.spawnPreview`), dazu die stehenden Spuren aus `laneStats`; Zeilen in `laneLengthRows`.

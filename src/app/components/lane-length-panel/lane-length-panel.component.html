@@ -1,0 +1,16 @@
+@if (view(); as v) {
+  <div class="ll" aria-label="Lane lengths to the HQ">
+    <span class="ll-title">Lanes to the HQ</span>
+    @for (row of v.rows; track $index) {
+      <div class="ll-row" [class.edited]="row.edited">
+        <span class="ll-swatch" [style.background]="row.color"></span>
+        <span class="ll-label">{{ row.label }}</span>
+        <span class="ll-bar"><span class="ll-fill" [style.width.%]="row.share * 100" [style.background]="row.color"></span></span>
+        <span class="ll-m">{{ row.meters === null ? '–' : row.meters + ' m' }}</span>
+      </div>
+    }
+    @if (v.deltaPercent !== null) {
+      <span class="ll-delta">{{ v.deltaPercent > 0 ? '+' : '' }}{{ v.deltaPercent }} % against the others on average</span>
+    }
+  </div>
+}

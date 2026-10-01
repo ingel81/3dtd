@@ -17,7 +17,7 @@ import type { SegmentRoutes } from '../../utils/route-start';
 import { raycastStats } from '../../utils/raycast-stats';
 import { UIStore } from '../../store/ui.store';
 import { GeoPosition } from '../../models/game.types';
-import { canonicalCoords } from '../../utils/geo-utils';
+import { canonicalCoords, haversineDistance } from '../../utils/geo-utils';
 import {
   MIN_MANUAL_SPAWN_DISTANCE,
   MAX_MANUAL_SPAWN_DISTANCE,
@@ -54,6 +54,19 @@ interface PreviewRoute {
   pose: SpawnPortalPose;
   /** How far R may turn it from pose.heading either way (rad), see portalTurnRange */
   turn: { min: number; max: number };
+  /** Length of the route to the HQ, m (the lane length panel) */
+  meters: number;
+}
+
+/**
+ * The spawn being placed, for the lane length panel (docs/LANES_PLAN.md, L6):
+ * which lane it is (one more, the one at `move`, or one in place of all) and
+ * how long its route to the HQ would be where the cursor is, null where no
+ * spawn may stand.
+ */
+export interface SpawnPreview {
+  target: { kind: 'add' } | { kind: 'move'; index: number } | { kind: 'all' };
+  meters: number | null;
 }
 
 /** Where the preview marker stands: scene position, heading without the player's R turn, scale. */
@@ -107,6 +120,8 @@ export class MapPlacementService {
 
   /** Current validation reason (null when valid) — read by component for context hints */
   readonly validationReason = signal<string | null>(null);
+  /** The spawn being placed and the length of its route, null outside spawn placement (LaneLengthPanelComponent) */
+  readonly spawnPreview = signal<SpawnPreview | null>(null);
 
   // Preview marker that follows the cursor
   private previewMarker: Group | null = null;
@@ -191,6 +206,10 @@ export class MapPlacementService {
     this.exitPlacementMode();
     this.addingSpawn = mode === 'spawn' && add;
     this.movingSpawn = mode === 'spawn' && !add ? move : null;
+    if (mode === 'spawn') {
+      const target: SpawnPreview['target'] = add ? { kind: 'add' } : move !== null ? { kind: 'move', index: move } : { kind: 'all' };
+      this.spawnPreview.set({ target, meters: null });
+    }
 
     // Set mode signal
     this.uiStore.mapPlacementMode.set(mode);
@@ -254,6 +273,9 @@ export class MapPlacementService {
     } else {
       const check = this.checkSpawn(lat, lon);
       this.currentRoute = check.route ?? null;
+      const meters = check.valid ? check.route?.meters ?? null : null;
+      const preview = this.spawnPreview();
+      if (preview && preview.meters !== meters) this.spawnPreview.set({ ...preview, meters });
       this.followPose(this.spawnPreviewPose(local.x, groundY, local.z));
       validation = check;
     }
@@ -345,6 +367,7 @@ export class MapPlacementService {
     this.currentPosition = null;
     this.currentValid = false;
     this.currentRoute = null;
+    this.spawnPreview.set(null);
     this.shownPose = null;
     this.targetPose = null;
     this.manualTurn = null;
@@ -518,7 +541,11 @@ export class MapPlacementService {
     const start = { lat: path[0].lat, lon: path[0].lon };
     const groundY = engine.getTerrainHeightAtGeo(start.lat, start.lon) ?? 0;
     const pose = spawnPortalPose(points, groundY, portalCorridorWidth(start));
-    return pose && { pose, turn: portalTurnRange(points, pose, portalLaneOffset(start)) };
+    let meters = 0;
+    for (let i = 1; i < path.length; i++) {
+      meters += haversineDistance(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
+    }
+    return pose && { pose, turn: portalTurnRange(points, pose, portalLaneOffset(start)), meters: Math.round(meters) };
   }
 
   /** Whether the position lies inside the box the street network was loaded for. */
