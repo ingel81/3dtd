@@ -4,6 +4,12 @@ import type { WaveSnapshot } from '../simulator/wave-snapshot';
 import { MAX_RESYNC_PARTS } from './protocol';
 
 /**
+ * A host's state unpacks to at most this (bytes). Measured: 406 kB of gzip at
+ * 3600 enemies; far above a real state, far below what kills a tab.
+ */
+const MAX_STATE_BYTES = 256 * 1024 * 1024;
+
+/**
  * Resync after a desync (docs/COOP_PLAN.md C5b, TODO E58). The relay holds
  * the room: no tick closes from `tick` on, so every client's simulation
  * stops at that tick's boundary (the lockstep barrier). There the host
@@ -176,7 +182,7 @@ export class ResyncDriver {
     this.pieces = [];
     this.piecesExpected = 0;
     try {
-      const snapshot = JSON.parse(await gunzipBase64(gz)) as WaveSnapshot;
+      const snapshot = JSON.parse(await gunzipBase64(gz, MAX_STATE_BYTES)) as WaveSnapshot;
       // Still at the boundary: the room holds until every guest answered
       if (this.tick !== tick || this.game.subStep() !== boundary) return;
       await this.game.restore(snapshot);
