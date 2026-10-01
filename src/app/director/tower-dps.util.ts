@@ -76,7 +76,7 @@ function statMultiplier(
  *   - Chain geometric series 1 + f + f² + … + f^maxJumps (Lightning)
  *   - Additive DoT component (Poison, flat — AI approximation, intentionally
  *     unscaled by the damage track)
- *   - Multiplicative splash/AoE factor (projectile splashRadius, fire beamWidth)
+ *   - Multiplicative splash/AoE factor (projectile splashRadius, fire beamWidth, melee slam)
  *   - Passive buildings → 0
  */
 export function computeTowerDPSFromLevels(
@@ -119,7 +119,9 @@ export function computeTowerDPSFromLevels(
   if (cfg.attackType === 'beam') {
     beamSplash = (cfg.beamWidth ?? 0) * statMultiplier(cfg, 'beamWidth', levels);
   }
-  const splashRadius = Math.max(projectileSplash, beamSplash);
+  // A slam hits its neighbours for a share of the strike: a smaller radius in this soft measure
+  const slamSplash = cfg.meleeSlam ? cfg.meleeSlam.radius * cfg.meleeSlam.share : 0;
+  const splashRadius = Math.max(projectileSplash, beamSplash, slamSplash);
   if (splashRadius > 0) {
     const mult = Math.min(SPLASH_MULT_CAP, 1 + splashRadius / SPLASH_NORM);
     base *= mult;

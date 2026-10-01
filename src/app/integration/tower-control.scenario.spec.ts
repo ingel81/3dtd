@@ -210,8 +210,9 @@ describe('Manning a tower, through the sub-step loop', () => {
     const shots: (Enemy | null)[] = [];
     gsm.getEventBus().on('tower:manual-shot', (event) => shots.push(event.target));
     gsm.beginWave();
-    // Nearly standing, 7 m west of the tower
-    const enemy = gsm.enemyManager.spawn(NEAR_PATH, 'zombie', 0.01);
+    // Nearly standing, 7 m west of the tower. A zombie soldier (160 HP, heavy):
+    // the archer's 30 halved, so the first 3 s cannot kill it and leave no blank
+    const enemy = gsm.enemyManager.spawn(NEAR_PATH, 'zombie-soldier', 0.01);
     const clock = { now: 1000 };
 
     gsm.getEventBus().emit({ type: 'command:man-tower', towerId: tower.id });
@@ -239,7 +240,7 @@ describe('Manning a tower, through the sub-step loop', () => {
     expect(spawn.mock.calls.length).toBeGreaterThanOrEqual(1);
     expect(spawn.mock.calls.length).toBeLessThanOrEqual(Math.ceil(3 * tower.combat.fireRate) + 1);
     expect(shots.length).toBe(spawn.mock.calls.length);
-    // Enough time for the hits; the zombie's 80 HP against the archer's arrows
+    // Enough time for the hits; the soldier's 160 HP against the archer's arrows
     gsm.getEventBus().emit({ type: 'command:tower-trigger', held: true });
     steps(gsm, clock, 600, () => {
       if (!enemy.alive) return;

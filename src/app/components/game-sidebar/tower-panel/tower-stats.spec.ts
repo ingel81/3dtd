@@ -28,7 +28,7 @@ describe('towerDps', () => {
   });
 
   it('takes the configured DPS of a beam tower', () => {
-    expect(towerDps({ typeConfig: TOWER_TYPES.fire, combat: { damage: 0, fireRate: 0 } })).toBe(35);
+    expect(towerDps({ typeConfig: TOWER_TYPES.fire, combat: { damage: 0, fireRate: 0 } })).toBe(30);
   });
 });
 

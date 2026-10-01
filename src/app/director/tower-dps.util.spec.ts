@@ -40,10 +40,10 @@ describe('computeTowerDPS()', () => {
   // ===================================================================
   // Projectile towers: damage × fireRate
   // ===================================================================
-  it('archer: damage(25) × fireRate(1) = 25, no splash (arrow has no splashRadius)', () => {
+  it('archer: damage(30) × fireRate(1) = 30, no splash (arrow has no splashRadius)', () => {
     const tower = new Tower(POS, 'archer');
     // arrow has no splashRadius → no splash multiplier
-    expect(computeTowerDPS(tower)).toBeCloseTo(25 * 1, 5);
+    expect(computeTowerDPS(tower)).toBeCloseTo(30 * 1, 5);
   });
 
   it('dual-gatling: damage(10) × fireRate(5) = 50, no splash (bullet has no splashRadius)', () => {
@@ -73,10 +73,10 @@ describe('computeTowerDPS()', () => {
     expect(computeTowerDPS(tower)).toBeCloseTo(baseDps * mult, 4);
   });
 
-  it('rocket: damage(40) × fireRate(0.5) × splashMult(rocket)', () => {
+  it('rocket: damage(60) × fireRate(0.5) × splashMult(rocket)', () => {
     const tower = new Tower(POS, 'rocket');
     const rocketSplash = PROJECTILE_TYPES['rocket'].splashRadius ?? 0;
-    const baseDps = 40 * 0.5; // 20
+    const baseDps = 60 * 0.5; // 30
     const expected = rocketSplash > 0 ? baseDps * splashMult(rocketSplash) : baseDps;
     expect(computeTowerDPS(tower)).toBeCloseTo(expected, 4);
   });
@@ -84,9 +84,9 @@ describe('computeTowerDPS()', () => {
   // ===================================================================
   // Beam tower: damagePerSecond (+ beamWidth splash)
   // ===================================================================
-  it('fire (beam): base = damagePerSecond(35) × splashMult(beamWidth=5)', () => {
+  it('fire (beam): base = damagePerSecond(30) × splashMult(beamWidth=5)', () => {
     const tower = new Tower(POS, 'fire');
-    const dps = 35;
+    const dps = 30;
     const beamWidth = 5; // from config
     const mult = splashMult(beamWidth); // 1 + 5/10 = 1.5
     expect(computeTowerDPS(tower)).toBeCloseTo(dps * mult, 5);
@@ -114,11 +114,11 @@ describe('computeTowerDPS()', () => {
   // ===================================================================
   it('lightning (chain, maxJumps=2, falloff=0.7): chainMult = 1 + 0.7 + 0.49 = 2.19', () => {
     const tower = new Tower(POS, 'lightning');
-    // attackType: chain, damage: 35, fireRate: 0.8, maxJumps: 2, chainFalloff: 0.7
+    // attackType: chain, damage: 32, fireRate: 0.8, maxJumps: 2, chainFalloff: 0.7
     // chainMult = 1 + 0.7 + 0.7^2 = 2.19
     // lightning fallback projectile: arrow (no splashRadius)
     const chainMult = 1 + 0.7 + 0.7 * 0.7;
-    const expected = 35 * 0.8 * chainMult;
+    const expected = 32 * 0.8 * chainMult;
     expect(computeTowerDPS(tower)).toBeCloseTo(expected, 4);
   });
 
@@ -138,12 +138,12 @@ describe('computeTowerDPS()', () => {
   // ===================================================================
   // Melee tower: damage × fireRate (no projectile splash for melee)
   // ===================================================================
-  it('tentacle (melee): damage(30) × fireRate(1.5), arrow has no splash → 45', () => {
+  it('tentacle (melee): damage(45) × fireRate(1.5) × splashMult(slam radius × share)', () => {
     const tower = new Tower(POS, 'tentacle');
     // attackType: melee (not beam, not chain, not passive)
     // falls into the else branch: combat.damage × combat.fireRate
-    // projectileType: arrow → no splashRadius
-    expect(computeTowerDPS(tower)).toBeCloseTo(30 * 1.5, 5);
+    // projectileType: arrow → no splashRadius; the slam counts as radius 5 × share 0.5
+    expect(computeTowerDPS(tower)).toBeCloseTo(45 * 1.5 * splashMult(5 * 0.5), 5);
   });
 
   // ===================================================================

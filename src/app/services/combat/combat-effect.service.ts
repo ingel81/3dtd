@@ -7,7 +7,7 @@ import { DamageApplicationService } from './damage-application.service';
 import { NO_RESEARCH, type SimResearch } from '../../managers/research.manager';
 import { Enemy } from '../../entities/enemy.entity';
 import { canTargetAirEffective } from '../../entities/tower-targeting.util';
-import { TOWER_TYPES } from '../../configs/tower-types.config';
+import { TOWER_TYPES, type TowerTypeConfig } from '../../configs/tower-types.config';
 import { Projectile } from '../../entities/projectile.entity';
 import { GeoPosition } from '../../models/game.types';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
@@ -59,6 +59,8 @@ export class CombatEffectService {
   // neu befüllt. Schadensanwendung löst keinen weiteren Splash synchron aus.
   private readonly _splashScratch: Enemy[] = [];
   private readonly _splashDistScratch: number[] = [];
+  /** What nearestHittable() found, the scratch above as the grid hands it back */
+  private _splashHits: Enemy[] = this._splashScratch;
   // Scratch für keepHitOnBody
   private readonly _hitLocal = new Vector3();
   private readonly _hitContact: RouteBodyContact = { station: 0, offset: 0, distance: 0 };
@@ -204,13 +206,6 @@ export class CombatEffectService {
     isIceShard: boolean,
     isPoisonGlob = false
   ): void {
-    const candidates = this.globalRouteGrid.getEnemiesInRadiusGeo(
-      originPos,
-      splashRadius,
-      excludeId,
-      this._splashScratch
-    );
-
     // Splash trifft nur, was der Quell-Tower auch anvisieren darf. Die
     // Umkreissuche kennt nur den 2D-Abstand, ohne diesen Filter traf die
     // Cannon Fledermäuse 15 m über dem Boden, obwohl sie nicht auf Luft zielt.
@@ -220,39 +215,11 @@ export class CombatEffectService {
       || canTargetAirEffective(sourceType, this.research.airTargetingFor(this.ownerOf(projectile.sourceTowerId)));
     const hitsGround = sourceType === null || (TOWER_TYPES[sourceType].canTargetGround ?? true);
 
-    // Treffbare Ziele samt Abstand nach vorne kompaktieren. Ein Körper entlang
-    // der Route zählt mit dem Abstand zu seinem nächsten Punkt, den die
-    // Umkreissuche gerade gemessen hat (RouteBody.hitDistanceM).
+    const maxTargets = this.nearestHittable(
+      originPos, splashRadius, excludeId, hitsAir, hitsGround, projectile.typeConfig.splashMaxTargets,
+    );
+    const candidates = this._splashHits;
     const dists = this._splashDistScratch;
-    let count = 0;
-    // Schreibt nur auf Indizes, die die Schleife schon hinter sich hat.
-    for (const enemy of candidates) {
-      if (enemy.typeConfig.isAirUnit ? !hitsAir : !hitsGround) continue;
-      candidates[count] = enemy;
-      dists[count] = enemy.body ? enemy.body.hitDistanceM : geoDistanceFast(originPos, enemy.position);
-      count++;
-    }
-
-    // Höchstens splashMaxTargets Opfer, die nächsten zuerst. Teilweiser
-    // Selection-Sort: k ist klein, n selten mehr als ein paar Dutzend, und
-    // Gleichstand bleibt in Grid-Reihenfolge (deterministisch).
-    const maxTargets = Math.min(count, projectile.typeConfig.splashMaxTargets ?? count);
-    if (maxTargets < count) {
-      for (let i = 0; i < maxTargets; i++) {
-        let nearest = i;
-        for (let j = i + 1; j < count; j++) {
-          if (dists[j] < dists[nearest]) nearest = j;
-        }
-        if (nearest !== i) {
-          const enemy = candidates[i];
-          candidates[i] = candidates[nearest];
-          candidates[nearest] = enemy;
-          const dist = dists[i];
-          dists[i] = dists[nearest];
-          dists[nearest] = dist;
-        }
-      }
-    }
 
     for (let i = 0; i < maxTargets; i++) {
       const nearbyEnemy = candidates[i];
@@ -407,25 +374,88 @@ export class CombatEffectService {
     body.setHit(k, offset, groundY);
   }
 
+  /**
+   * The enemies within `radius` of `origin` a source may hit, the nearest
+   * `maxTargets` of them first: fills `_splashHits` and `_splashDistScratch`
+   * and returns how many of them to take.
+   */
+  private nearestHittable(
+    origin: GeoPosition,
+    radius: number,
+    excludeId: string | undefined,
+    hitsAir: boolean,
+    hitsGround: boolean,
+    maxTargets: number | undefined,
+  ): number {
+    const candidates = this.globalRouteGrid.getEnemiesInRadiusGeo(origin, radius, excludeId, this._splashScratch);
+    this._splashHits = candidates;
+
+    // Treffbare Ziele samt Abstand nach vorne kompaktieren. Ein Körper entlang
+    // der Route zählt mit dem Abstand zu seinem nächsten Punkt, den die
+    // Umkreissuche gerade gemessen hat (RouteBody.hitDistanceM).
+    const dists = this._splashDistScratch;
+    let count = 0;
+    // Schreibt nur auf Indizes, die die Schleife schon hinter sich hat.
+    for (const enemy of candidates) {
+      if (enemy.typeConfig.isAirUnit ? !hitsAir : !hitsGround) continue;
+      candidates[count] = enemy;
+      dists[count] = enemy.body ? enemy.body.hitDistanceM : geoDistanceFast(origin, enemy.position);
+      count++;
+    }
+
+    // Höchstens maxTargets Opfer, die nächsten zuerst. Teilweiser
+    // Selection-Sort: k ist klein, n selten mehr als ein paar Dutzend, und
+    // Gleichstand bleibt in Grid-Reihenfolge (deterministisch).
+    const take = Math.min(count, maxTargets ?? count);
+    if (take < count) {
+      for (let i = 0; i < take; i++) {
+        let nearest = i;
+        for (let j = i + 1; j < count; j++) {
+          if (dists[j] < dists[nearest]) nearest = j;
+        }
+        if (nearest !== i) {
+          const enemy = candidates[i];
+          candidates[i] = candidates[nearest];
+          candidates[nearest] = enemy;
+          const dist = dists[i];
+          dists[i] = dists[nearest];
+          dists[nearest] = dist;
+        }
+      }
+    }
+    return take;
+  }
+
   // =====================================================
   // PUBLIC METHODS FOR BEAM TOWERS
   // =====================================================
 
   /**
    * Apply melee damage to an enemy.
-   * Used by Tentacle Tower direct strikes.
+   * Used by Tentacle Tower direct strikes. With `slam` the strike also hits
+   * the ground enemies around its target (TowerTypeConfig.meleeSlam).
    */
   applyMeleeDamage(
     enemy: Enemy,
     damage: number,
     damageType: DamageType,
-    sourceTowerId: string
+    sourceTowerId: string,
+    slam?: TowerTypeConfig['meleeSlam'],
   ): void {
     const result = this.damageService.applyBeamDamage(this.vfx, enemy, damage, damageType, sourceTowerId, true);
 
     // Spawn damage number with effectiveness feedback
     if (result) {
       this.spawnDamageNumberFromResult(enemy, result);
+    }
+
+    if (!slam) return;
+    const count = this.nearestHittable(enemy.position, slam.radius, enemy.id, false, true, slam.maxTargets);
+    const slamDamage = damage * slam.share;
+    for (let i = 0; i < count; i++) {
+      const nearby = this._splashHits[i];
+      const hit = this.damageService.applyBeamDamage(this.vfx, nearby, slamDamage, damageType, sourceTowerId, true);
+      if (hit) this.spawnDamageNumberFromResult(nearby, hit);
     }
   }
 

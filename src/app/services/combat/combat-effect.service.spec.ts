@@ -125,6 +125,58 @@ describe('CombatEffectService splash', () => {
   });
 });
 
+describe('CombatEffectService tentacle slam', () => {
+  const origin = { lat: 48.0, lon: 9.0, height: 0 };
+  const enemyAt = (id: string, metersNorth: number, isAirUnit = false) => ({
+    id,
+    alive: true,
+    position: { lat: origin.lat + metersNorth / METERS_PER_DEGREE_LAT, lon: origin.lon },
+    typeConfig: { id, isAirUnit, heightOffset: isAirUnit ? 15 : 0 },
+    heightOffset: isAirUnit ? 15 : 0,
+    transform: { terrainHeight: 0 },
+  });
+
+  let applyBeamDamage: ReturnType<typeof vi.fn>;
+  let radiusAsked: number | undefined;
+
+  function strike(around: ReturnType<typeof enemyAt>[], slam: typeof TOWER_TYPES.tentacle.meleeSlam): [string, number][] {
+    mockInjections['GlobalRouteGridService'] = {
+      getEnemiesInRadiusGeo: (_c: unknown, radius: number, _ex: unknown, out: unknown[]) => {
+        radiusAsked = radius;
+        out.length = 0;
+        out.push(...around);
+        return out;
+      },
+    };
+    const service = new CombatEffectService();
+    service.applyMeleeDamage(enemyAt('target', 0) as never, 100, 'physical', 't-1', slam);
+    return applyBeamDamage.mock.calls.map((c) => [(c[1] as { id: string }).id, c[2] as number]);
+  }
+
+  beforeEach(() => {
+    Object.keys(mockInjections).forEach((k) => delete mockInjections[k]);
+    applyBeamDamage = vi.fn(() => null);
+    radiusAsked = undefined;
+    mockInjections['DamageApplicationService'] = { applyBeamDamage };
+  });
+
+  it('hits the nearest ground enemies around the target for its share, flyers spared', () => {
+    const slam = TOWER_TYPES.tentacle.meleeSlam!;
+    const around = [4, 1, 3, 2, 0.5, 4.5].map((m) => enemyAt(`z${m}`, m));
+    const hits = strike([...around, enemyAt('bat', 1, true)], slam);
+
+    expect(radiusAsked).toBe(slam.radius);
+    expect(hits[0]).toEqual(['target', 100]);
+    const rest = hits.slice(1);
+    expect(rest.map(([id]) => id).sort()).toEqual(['z0.5', 'z1', 'z2', 'z3'].slice(0, slam.maxTargets).sort());
+    expect(rest.every(([, damage]) => damage === 100 * slam.share)).toBe(true);
+  });
+
+  it('is a single strike without a slam', () => {
+    expect(strike([enemyAt('z1', 1)], undefined)).toEqual([['target', 100]]);
+  });
+});
+
 describe('CombatEffectService hits on a body along the route', () => {
   const impact = { lat: 48.0, lon: 9.0, height: 0 };
 

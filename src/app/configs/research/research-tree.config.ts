@@ -76,7 +76,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'tentacle-biology': {
     id: 'tentacle-biology',
     name: 'Tentacle Biology',
-    description: 'Unlocks the Tentacle Tower: close-range melee strikes',
+    description: 'Unlocks the Tentacle Tower: close-range melee strikes that slam what stands around the target',
     category: 'tower-unlock',
     branch: 'biology',
     icon: 'tentacle',

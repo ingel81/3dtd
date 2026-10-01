@@ -70,7 +70,7 @@ describe('towerCardTooltip', () => {
     expect(tip.category).toBe('PHYSICAL');
     expect(tip.accent).toBe('gold');
     expect(tip.stats).toEqual([
-      { label: 'DMG', value: '25' },
+      { label: 'DMG', value: '30' },
       { label: 'RATE', value: '1/s' },
       { label: 'RANGE', value: '30m' },
     ]);
@@ -80,7 +80,7 @@ describe('towerCardTooltip', () => {
     const tip = towerCardTooltip(TOWER_TYPES.fire, noResearch);
     expect(tip.accent).toBe('fire');
     expect(tip.stats).toEqual([
-      { label: 'DPS', value: '35' },
+      { label: 'DPS', value: '30' },
       { label: 'TYPE', value: 'BEAM' },
       { label: 'RANGE', value: '20m' },
     ]);

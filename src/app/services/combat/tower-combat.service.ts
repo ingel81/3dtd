@@ -861,6 +861,7 @@ export class TowerCombatService {
             tower.combat.damage,
             tower.typeConfig.damageType,
             tower.id,
+            tower.typeConfig.meleeSlam,
           );
 
           const at = opVec(targetLocalPos);

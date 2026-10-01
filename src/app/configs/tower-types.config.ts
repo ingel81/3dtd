@@ -272,6 +272,12 @@ export interface TowerTypeConfig {
   /** Fire point offsets in turret-local space (x=lateral meters, z=forward meters). Alternates per shot. */
   firePoints?: { x: number; z: number }[];
 
+  /**
+   * Melee only: each strike also hits up to `maxTargets` more ground enemies
+   * within `radius` m of its target, nearest first, for `share` of the strike.
+   */
+  meleeSlam?: { radius: number; maxTargets: number; share: number };
+
   // Chain attack settings (for lightning-type towers — hitscan chain)
   maxJumps?: number;      // Number of additional targets after the primary (e.g. 2 = 3 total hits)
   chainFalloff?: number;  // Damage multiplier applied per jump (e.g. 0.7 = -30% per hop)
@@ -305,7 +311,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     turnsTurret: false,
     modelTop: 9.22,
     damageType: 'physical',
-    damage: 25,
+    damage: 30, // 25 until 2026-10-02 (E52)
     range: 30,
     fireRate: 1, // 1 shot/sec
     canTargetAir: true,
@@ -315,7 +321,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     animationPingPong: true, // Smooth loop: forward then backward
     // Starttower, trifft Luft und Boden. Das Tempo machte ihn im Endausbau
     // zum Dauerfeuer (4,29 Schuss/s), deshalb wächst er eher über Schaden.
-    upgrades: combatUpgrades({ damage: 1.05, rate: 1.04 }),
+    // Upgrades at 0.6 (2026-10-02, E52): with the same prices as every tower
+    // its lowest base damage made each level the worst buy in the shop (human
+    // run to W60: 3.6 damage per gold against 8 to 17 for magic, cannon,
+    // lightning and fire).
+    upgrades: combatUpgrades({ damage: 1.05, rate: 1.04, costFactor: 0.6 }),
   },
   'dual-gatling': {
     id: 'dual-gatling',
@@ -407,15 +417,17 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     turnsTurret: true,
     modelTop: 5.17,
     damageType: 'siege',
-    damage: 40,
+    damage: 60, // 40 until 2026-10-02 (E15)
     range: 100,
     fireRate: 0.5,
     projectileType: 'rocket',
     cost: 120, // Phase 5.16: air specialist — large range premium
     canTargetAir: true, // Can only target air units
     canTargetGround: false, // Cannot target ground units
-    // Anti-Drachen-Rolle: wenige schwere Treffer.
-    upgrades: combatUpgrades({ damage: 1.07, rate: 1.03 }),
+    // Anti-Drachen-Rolle: wenige schwere Treffer. Sie steht in jeder Bodenwelle
+    // still, deshalb Upgrades zu 0,75 und 60 statt 40 Schaden (2026-10-02, E15:
+    // 2,8 Schaden je Gold im menschlichen Lauf bis W60, Archer 3,6, Fire 17).
+    upgrades: combatUpgrades({ damage: 1.07, rate: 1.03, costFactor: 0.75 }),
   },
   ice: {
     id: 'ice',
@@ -463,7 +475,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     attackType: 'beam',
     damageType: 'fire',
     damage: 0, // Not used for beam towers
-    damagePerSecond: 35, // 35 DPS to all enemies in cone
+    damagePerSecond: 30, // to all enemies in cone; 35 until 2026-10-02, the most damage per gold in the W60 run
     // Erfassung = Flammenlänge. Früher 25 m Erfassung bei 20 m Flamme: der
     // Tower zielte (mit 'first' bevorzugt) auf Gegner, die er nicht traf.
     range: 20,
@@ -500,12 +512,16 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     // Melee attack — direct hit, no projectile
     attackType: 'melee',
     damageType: 'physical',
-    damage: 30,
+    damage: 45, // 30 until 2026-10-02, plus the slam (meleeSlam)
     range: 25, // Short range like Fire Tower
     fireRate: 1.5, // 1.5 hits/sec
     projectileType: 'arrow', // Fallback, not used
 
     cost: 80,
+    // A strike hits what stands around its target too, the tower's role at a
+    // choke point (2026-10-02): single strikes at 25 m dealt 0.2 % of the
+    // damage of a human run to W60 for 0.9 damage per gold.
+    meleeSlam: { radius: 5, maxTargets: 4, share: 0.5 },
     upgrades: combatUpgrades({ damage: 1.07, rate: 1.03 }), // Nahkampf, wenige harte Schläge
   },
   poison: {
@@ -548,7 +564,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     // Chain hitscan — primary + N jumps, damage falloff per hop
     attackType: 'chain',
     damageType: 'lightning',
-    damage: 35,        // Primary-hit damage (jumps scaled by chainFalloff)
+    damage: 32,        // Primary-hit damage (jumps scaled by chainFalloff)
     range: 65,         // Primary target acquisition range
     fireRate: 0.8,     // 0.8 shots/sec
     projectileType: 'arrow', // Fallback, unused for chain attackType
