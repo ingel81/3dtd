@@ -11,7 +11,7 @@ import type { PlannedWave } from '../../src/app/director/wave-source';
 import { BudgetWaveSource } from '../../src/app/director/sources/budget/budget-source';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../src/app/configs/enemy-types.config';
 import { mulberry32 } from '../../src/app/utils/game-rng';
-import { bodyFire, defenseDps, estimateLeak, metresPerWave, realisedDps, scaleArmor, waveBodies, type LeakModel } from './model';
+import { bodyFire, defenseDps, estimateLeak, realisedDps, scaleArmor, waveBodies, type LeakModel } from './model';
 import type { Trajectory } from './trajectory';
 
 export interface ScenarioOptions {
@@ -75,7 +75,7 @@ function snapshot(dps: EffectiveDPSPerArmor, metres: number, towerShare: number,
 export function runScenario(trajectory: Trajectory, options: ScenarioOptions): WaveRow[] {
   const source = new BudgetWaveSource();
   const random = mulberry32(1);
-  const metres = metresPerWave(trajectory.waves);
+  const metres = new Map(trajectory.waves.map((w) => [w.wave, w.metres]));
   const model: LeakModel = {
     ...options.model,
     ground: options.model.ground * options.strength,

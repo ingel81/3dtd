@@ -112,7 +112,7 @@ export function metresFromWindow(wave: number, window: number, dps: EffectiveDPS
 }
 
 /** The metres per wave, gaps filled from the neighbours. */
-export function metresPerWave(waves: readonly TrajectoryWave[]): Map<number, number> {
+export function metresPerWave(waves: readonly Pick<TrajectoryWave, 'wave' | 'plan' | 'actual'>[]): Map<number, number> {
   const read = new Map<number, number>();
   for (const w of waves) {
     const m = metresFromWindow(w.wave, w.actual.window, defenseDps(w.plan));

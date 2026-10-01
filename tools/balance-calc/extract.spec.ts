@@ -8,7 +8,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { extractTrajectory } from './trajectory';
+import { extractTrajectory, type Trajectory } from './trajectory';
+import { metresPerWave } from './model';
 
 const LOG = process.env['BALANCE_RUN_LOG'];
 const REPLAY = process.env['BALANCE_REPLAY'];
@@ -18,8 +19,13 @@ describe.skipIf(!LOG || !REPLAY)('balance-calc: extract a trajectory', () => {
   it('writes trajectory.json', () => {
     const lines = readFileSync(LOG!, 'utf8').split('\n');
     const replay = JSON.parse(readFileSync(REPLAY!, 'utf8'));
-    const trajectory = extractTrajectory(basename(LOG!).replace(/-world\.jsonl$|\.jsonl$/, ''), lines, replay);
+    const raw = extractTrajectory(basename(LOG!).replace(/-world\.jsonl$|\.jsonl$/, ''), lines, replay);
+    // Read back with the run plan in force now, which has to be the one the run played
+    const metres = metresPerWave(raw.waves);
+    const trajectory: Trajectory = { ...raw, waves: raw.waves.map((w) => ({ ...w, metres: Math.round(metres.get(w.wave)! * 10) / 10 })) };
     expect(trajectory.waves.length).toBeGreaterThan(0);
-    writeFileSync(OUT, JSON.stringify(trajectory, null, 1) + '\n');
+    // One wave per line: small, and a diff shows which wave changed
+    const waves = trajectory.waves.map((w) => '  ' + JSON.stringify(w)).join(',\n');
+    writeFileSync(OUT, `{"source": ${JSON.stringify(trajectory.source)}, "startHealth": ${trajectory.startHealth}, "waves": [\n${waves}\n]}\n`);
   });
 });

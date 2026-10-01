@@ -40,6 +40,12 @@ export interface TrajectoryWave {
   readonly plan: DefenseAt;
   /** The defense when the wave started. */
   readonly start: DefenseAt;
+  /**
+   * Metres of route under fire when the wave was planned, read back from the
+   * logged window (model.ts, metresPerWave) with the run plan the run played.
+   * Stored, so a later run plan does not change the defense.
+   */
+  readonly metres: number;
   readonly actual: WaveActual;
 }
 
@@ -137,14 +143,14 @@ function towersAt(replay: { waves: ReplayWave[]; log: ReplayCommand[] }, wave: n
  */
 export function extractTrajectory(
   source: string, logLines: readonly string[], replay: { waves: ReplayWave[]; log: ReplayCommand[] },
-): Trajectory {
+): Omit<Trajectory, 'waves'> & { waves: Omit<TrajectoryWave, 'metres'>[] } {
   const records = logLines.filter((line) => line.trim()).map((line) => JSON.parse(line) as { kind: string });
   const waves = records.filter((r): r is LogWave => r.kind === 'wave');
   const research = records.filter((r): r is LogEvent => r.kind === 'event' && (r as LogEvent).event === 'research-completed');
   const snapshots = new Map(replay.waves.map((w) => [w.wave, w]));
   const startHealth = waves[0]?.healthStart ?? 500;
 
-  const out: TrajectoryWave[] = [];
+  const out: Omit<TrajectoryWave, 'metres'>[] = [];
   for (const record of waves) {
     const before = waves.find((w) => w.wave === record.wave - 1);
     const planTime = before ? before.timeMs + before.durationMs : 0;
