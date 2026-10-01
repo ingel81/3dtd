@@ -55,19 +55,20 @@ export const CAMPAIGN: readonly CampaignWave[] = [
   { killGold:  6000, completionGold:  3000 }, // 18: multi-armor mix
   { killGold:  8000, completionGold:  4000 }, // 19: mega-swarm checkpoint (skeletons, was a second rat_tide)
   { killGold: 12000, completionGold:  6000 }, // 20: BOSS 2, bonus peak
-  // W21-30 grow by x1.2 a wave from W20's 12,000 (User, 2026-09-23). At
-  // about x1.3 a player sat on 350,000 unspent gold by W28 and the income
-  // fell off a cliff past W30; the gold moved into the taper (waveGold).
-  { killGold:  14400, completionGold:   7200 }, // 21: air pressure
-  { killGold:  17300, completionGold:   8650 }, // 22: heavy pressure
-  { killGold:  20700, completionGold:  10350 }, // 23: breather: mass, no counter needed
-  { killGold:  24900, completionGold:  12450 }, // 24: ethereal pressure
-  { killGold:  29900, completionGold:  14950 }, // 25: fortified pressure
-  { killGold:  35800, completionGold:  17900 }, // 26: breather: mass, no counter needed
-  { killGold:  43000, completionGold:  21500 }, // 27: flying-heavy pressure
-  { killGold:  51600, completionGold:  25800 }, // 28: heavy mass
-  { killGold:  61900, completionGold:  30950 }, // 29: final mix
-  { killGold:  77400, completionGold:  38700 }, // 30: BOSS 3, season finale, bonus peak
+  // W21-30 grow by x1.1 a wave from W20's 12,000 (2026-10-02), no peak at
+  // W30. At x1.2 (User, 2026-09-23) a human run banked 46,000 to 147,000
+  // over W23-W34 and had every research by W26; at about x1.3 a player sat
+  // on 350,000 unspent gold by W28.
+  { killGold:  13200, completionGold:   6600 }, // 21: air pressure
+  { killGold:  14500, completionGold:   7250 }, // 22: heavy pressure
+  { killGold:  16000, completionGold:   8000 }, // 23: breather: mass, no counter needed
+  { killGold:  17600, completionGold:   8800 }, // 24: ethereal pressure
+  { killGold:  19300, completionGold:   9650 }, // 25: fortified pressure
+  { killGold:  21300, completionGold:  10650 }, // 26: breather: mass, no counter needed
+  { killGold:  23400, completionGold:  11700 }, // 27: flying-heavy pressure
+  { killGold:  25700, completionGold:  12850 }, // 28: heavy mass
+  { killGold:  28300, completionGold:  14150 }, // 29: final mix
+  { killGold:  31100, completionGold:  15550 }, // 30: BOSS 3, on the line since 2026-10-02
 ] as const;
 
 /**
@@ -97,22 +98,23 @@ export function enemyBaseDamageForWave(waveNum: number): number {
  *
  * Applied per wave past the campaign, down to GOLD_SUSTAIN_FRACTION.
  */
-// 0.85 since 2026-09-23, before 0.5. Halving per wave took a human run from
-// 99,600 gold at W31 to 25,650 at W33 while the waves kept growing; the
-// campaign's flatter W21-30 hands the difference to the taper, and a 100-wave
-// run still totals ~1.7M against the 1.39M roster.
-const GOLD_TAPER_PER_WAVE = 0.85;
+// 0.9 since 2026-10-02, 0.85 since 2026-09-23, before 0.5. Halving per wave
+// took a human run from 99,600 gold at W31 to 25,650 at W33 while the waves
+// kept growing. At 0.85 with the 5 % floor a human run earned about 6,000 a
+// wave from W45 on, less than one upgrade past L20, and could not close the
+// gaps the air of W58 and the wraiths of W52 found.
+const GOLD_TAPER_PER_WAVE = 0.9;
 
 /**
  * Floor on post-campaign income, as a fraction of the last authored wave.
  *
- * Sized against what the run is supposed to buy. The design roster (one tower
- * of each type plus three archers, all upgrade tracks maxed, every research)
- * costs about 1.39M gold. The authored campaign pays 791k across its 30
- * waves, so the tail has to supply roughly 600k more over a long run and then
- * stop, rather than fund a second army.
+ * 0.3 since 2026-10-02 (before 0.05): the late game keeps about 14,000 a wave
+ * at strength 1, one or two upgrades past L20 or a new tower brought to L15,
+ * so a gap a late wave finds can still be closed. The campaign pays about
+ * 390,000 over W1-W30 (before 650,000), the plan about 930,000 by W60
+ * (before 1.28M); docs/WAVE_RUN_PLAN.md, section 16.
  */
-const GOLD_SUSTAIN_FRACTION = 0.05;
+const GOLD_SUSTAIN_FRACTION = 0.3;
 
 /**
  * Boss waves past the campaign pay this multiple of the tapered budget.

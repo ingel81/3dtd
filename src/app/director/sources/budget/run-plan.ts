@@ -73,7 +73,7 @@ export function planLeakScale(wave: number): number {
 const CAMPAIGN_GOLD_PEAKS: ReadonlySet<number> = new Set([10, 20, 30]);
 
 /** Growth of the campaign's gold per wave over W21 to W29, the line the last wave keeps to. */
-const LATE_GOLD_GROWTH = 1.2;
+const LATE_GOLD_GROWTH = 1.1;
 
 interface WaveGold { kill: number; complete: number }
 

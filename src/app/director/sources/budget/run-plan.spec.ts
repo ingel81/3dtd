@@ -90,18 +90,21 @@ describe('run plan', () => {
     expect(planBaseGold(9)).toEqual(waveGold(9, false));
     expect(planBaseGold(21)).toEqual(waveGold(21, false));
     expect(planBaseGold(20).kill).toBeLessThan(waveGold(20, false).kill);
-    expect(planBaseGold(30).kill).toBeLessThan(waveGold(30, false).kill);
+    // W30 has been on the campaign's line since 2026-10-02, no peak to take out
+    expect(planBaseGold(30).kill).toBeCloseTo(waveGold(30, false).kill, -2);
     for (const w of [10, 20]) {
       expect(planBaseGold(w).kill).toBeGreaterThan(planBaseGold(w - 1).kill);
       expect(planBaseGold(w).kill).toBeLessThan(planBaseGold(w + 1).kill);
     }
-    expect(planBaseGold(30).kill).toBeCloseTo(planBaseGold(29).kill * 1.2, -1);
+    expect(planBaseGold(30).kill).toBeCloseTo(planBaseGold(29).kill * 1.1, -1);
   });
 
   it('tapers past the campaign from the smooth last wave, no boss bonus of its own', () => {
     const w30 = planBaseGold(30).kill;
-    expect(planBaseGold(31).kill).toBeCloseTo(w30 * 0.85, -1);
+    expect(planBaseGold(31).kill).toBeCloseTo(w30 * 0.9, -1);
     expect(planBaseGold(40).kill).toBeLessThan(planBaseGold(39).kill);
+    // The floor: 30 % of the last authored wave from about W42 on
+    expect(planBaseGold(60).kill).toBeCloseTo(w30 * 0.3, -1);
     expect(RUN_PLAN_RULES.gold(40).kill).toBe(Math.round(planBaseGold(40).kill * 1.3));
   });
 
