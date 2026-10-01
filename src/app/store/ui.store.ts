@@ -231,29 +231,40 @@ export class UIStore {
   // PERSISTENCE (localStorage)
   // ════════════════════════════════════════════════════════════
 
-  /** Load persisted state from localStorage */
+  /**
+   * Load persisted state from localStorage. Every field is checked: a value of
+   * the wrong type (an old or hand-edited state) keeps the default, a volume
+   * is clamped to 0..1, so no NaN or gain above 1 reaches the audio.
+   */
   private loadPersistedState(): void {
     const state = readJson(STORAGE_KEY) as (PersistedUIState & LegacyMenuFlags) | null;
-    if (state && typeof state === 'object') {
-      if (state.infoOverlayVisible !== undefined) this.infoOverlayVisible.set(state.infoOverlayVisible);
-      if (state.infoOverlayWide !== undefined) this.infoOverlayWide.set(state.infoOverlayWide);
-      if (state.streetsVisible !== undefined) this.streetsVisible.set(state.streetsVisible);
-      if (state.routesVisible !== undefined) this.routesVisible.set(state.routesVisible);
-      if (state.spatialGridDebugVisible !== undefined) this.spatialGridDebugVisible.set(state.spatialGridDebugVisible);
-      if (state.airSpatialGridDebugVisible !== undefined) this.airSpatialGridDebugVisible.set(state.airSpatialGridDebugVisible);
-      if (state.airRouteVisible !== undefined) this.airRouteVisible.set(state.airRouteVisible);
-      if (state.perTowerLosFilter !== undefined) this.perTowerLosFilter.set(state.perTowerLosFilter);
-      this.openMenu.set(storedOpenMenu(state));
-      if (state.masterVolume !== undefined) this.masterVolume.set(state.masterVolume);
-      if (state.masterMuted !== undefined) this.masterMuted.set(state.masterMuted);
-      if (state.uiVolume !== undefined) this.uiVolume.set(state.uiVolume);
-      if (state.uiMuted !== undefined) this.uiMuted.set(state.uiMuted);
-      if (state.musicVolume !== undefined) this.musicVolume.set(state.musicVolume);
-      if (state.sfxVolume !== undefined) this.sfxVolume.set(state.sfxVolume);
-      if (state.musicMuted !== undefined) this.musicMuted.set(state.musicMuted);
-      if (state.sfxMuted !== undefined) this.sfxMuted.set(state.sfxMuted);
-      if (state.autoStartWaves !== undefined) this.autoStartWaves.set(state.autoStartWaves);
+    if (!state || typeof state !== 'object') return;
+    const flag = (value: unknown, target: { set(v: boolean): void }) => {
+      if (typeof value === 'boolean') target.set(value);
+    };
+    const volume = (value: unknown, target: { set(v: number): void }) => {
+      if (typeof value === 'number' && Number.isFinite(value)) target.set(Math.min(1, Math.max(0, value)));
+    };
+    flag(state.infoOverlayVisible, this.infoOverlayVisible);
+    flag(state.infoOverlayWide, this.infoOverlayWide);
+    flag(state.streetsVisible, this.streetsVisible);
+    flag(state.routesVisible, this.routesVisible);
+    flag(state.spatialGridDebugVisible, this.spatialGridDebugVisible);
+    flag(state.airSpatialGridDebugVisible, this.airSpatialGridDebugVisible);
+    flag(state.airRouteVisible, this.airRouteVisible);
+    if (state.perTowerLosFilter === 'both' || state.perTowerLosFilter === 'ground' || state.perTowerLosFilter === 'air') {
+      this.perTowerLosFilter.set(state.perTowerLosFilter);
     }
+    this.openMenu.set(storedOpenMenu(state));
+    volume(state.masterVolume, this.masterVolume);
+    flag(state.masterMuted, this.masterMuted);
+    volume(state.uiVolume, this.uiVolume);
+    flag(state.uiMuted, this.uiMuted);
+    volume(state.musicVolume, this.musicVolume);
+    volume(state.sfxVolume, this.sfxVolume);
+    flag(state.musicMuted, this.musicMuted);
+    flag(state.sfxMuted, this.sfxMuted);
+    flag(state.autoStartWaves, this.autoStartWaves);
   }
 
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -284,15 +295,22 @@ export class UIStore {
           autoStartWaves: this.autoStartWaves(),
         };
         if (this.persistTimer !== null) return;
-        this.persistTimer = setTimeout(() => {
-          this.persistTimer = null;
-          // Storage full or blocked: the settings hold for this session
-          if (this.pendingState) writeJson(STORAGE_KEY, this.pendingState);
-        }, PERSIST_DEBOUNCE_MS);
+        this.persistTimer = setTimeout(() => this.flushPersisted(), PERSIST_DEBOUNCE_MS);
       });
+      // A change in the last half second before the tab closes is written at once
+      if (typeof window !== 'undefined') window.addEventListener('pagehide', () => this.flushPersisted());
     } catch {
       // Outside injection context (e.g. unit tests) — persistence disabled
     }
+  }
+
+  /** Write the pending state now (the debounce's end, or the page going away) */
+  private flushPersisted(): void {
+    if (this.persistTimer !== null) clearTimeout(this.persistTimer);
+    this.persistTimer = null;
+    // Storage full or blocked: the settings hold for this session
+    if (this.pendingState) writeJson(STORAGE_KEY, this.pendingState);
+    this.pendingState = null;
   }
 
   // ════════════════════════════════════════════════════════════

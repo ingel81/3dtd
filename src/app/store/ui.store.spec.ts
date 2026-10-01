@@ -126,6 +126,22 @@ describe('UIStore', () => {
       expect(load({ autoStartWaves: true }).autoStartWaves()).toBe(true);
       expect(load({}).autoStartWaves()).toBe(false);
     });
+
+    it('keeps the defaults for values of the wrong type and clamps volumes to 0..1', () => {
+      const fresh = new UIStore();
+      const s = load({
+        masterVolume: 'abc', musicVolume: 5, sfxVolume: -1, uiVolume: null,
+        masterMuted: 'yes', streetsVisible: 1, perTowerLosFilter: 'sky', infoOverlayWide: true,
+      });
+      expect(s.masterVolume()).toBe(fresh.masterVolume());
+      expect(s.musicVolume()).toBe(1);
+      expect(s.sfxVolume()).toBe(0);
+      expect(s.uiVolume()).toBe(fresh.uiVolume());
+      expect(s.masterMuted()).toBe(fresh.masterMuted());
+      expect(s.streetsVisible()).toBe(fresh.streetsVisible());
+      expect(s.perTowerLosFilter()).toBe(fresh.perTowerLosFilter());
+      expect(s.infoOverlayWide()).toBe(true);
+    });
   });
 
   describe('toggleInfoOverlay', () => {
