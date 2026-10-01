@@ -42,12 +42,16 @@
   overflow: hidden;
   max-height: 0;
   opacity: 0;
-  transition: max-height 0.3s ease-out, opacity 0.15s ease;
+  /* Hidden also from Tab and screen readers while collapsed, after the fade */
+  visibility: hidden;
+  transition: max-height 0.3s ease-out, opacity 0.15s ease, visibility 0s linear 0.3s;
 }
 
 .td-layer-toggles.expanded {
   max-height: 100vh;
   opacity: 1;
+  visibility: visible;
+  transition: max-height 0.3s ease-out, opacity 0.15s ease, visibility 0s;
 }
 
 /* === Shared: Icon button base — refined glass + bevel === */
@@ -318,7 +322,9 @@
   opacity: 0;
   padding: 0 10px;
   pointer-events: none;
-  transition: max-height 0.3s ease-out, opacity 0.15s ease, padding 0.15s ease;
+  /* Hidden also from Tab and screen readers while collapsed, after the fade */
+  visibility: hidden;
+  transition: max-height 0.3s ease-out, opacity 0.15s ease, padding 0.15s ease, visibility 0s linear 0.3s;
 }
 
 .td-audio-panel.expanded {
@@ -326,6 +332,8 @@
   opacity: 1;
   padding: 10px;
   pointer-events: auto;
+  visibility: visible;
+  transition: max-height 0.3s ease-out, opacity 0.15s ease, padding 0.15s ease, visibility 0s;
 }
 
 .td-audio-row {
