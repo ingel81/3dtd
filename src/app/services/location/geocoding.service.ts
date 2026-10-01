@@ -1,5 +1,4 @@
 import { Injectable, signal } from '@angular/core';
-
 import { readJson, writeJson } from '../../utils/storage';
 
 /** A search or reverse lookup without an answer for this long fails, ms (it showed "Searching..." until the browser gave up) */
