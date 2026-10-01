@@ -136,10 +136,10 @@ export class LocationChangeCoordinatorService {
     } catch (err) {
       if (err instanceof LocationDialogLoadError) {
         console.error('[LocationCoordinator] Location dialog did not load:', err);
-        this.uiStore.notice.set(LOCATION_DIALOG_LOAD_FAILED);
+        this.uiStore.notice.set({ text: LOCATION_DIALOG_LOAD_FAILED });
       } else {
         console.error('[LocationCoordinator] Location dialog failed to open:', err);
-        this.uiStore.notice.set(LOCATION_DIALOG_OPEN_FAILED);
+        this.uiStore.notice.set({ text: LOCATION_DIALOG_OPEN_FAILED });
       }
       return;
     }
@@ -254,7 +254,7 @@ export class LocationChangeCoordinatorService {
       callbacks?.appendDebugLog('World Dice: Failed - ' + (reason || 'Unknown error'));
       // Hide loading overlay on error and say so: it used to close without a word
       this.engineInit.setLoading(false);
-      this.uiStore.notice.set(WORLD_DICE_FAILED);
+      this.uiStore.notice.set({ text: WORLD_DICE_FAILED });
       return;
     }
 

@@ -220,7 +220,7 @@ export class GameLoopFacadeService {
     effect(() => {
       const failure = this.sim.failure();
       if (failure === null) return;
-      untracked(() => this.uiStore.notice.set(`The simulation stopped with an error (${failure}). Reload the page to play on.`));
+      untracked(() => this.uiStore.notice.set({ text: `The simulation stopped with an error (${failure}). Reload the page to play on.`, reload: true }));
     }, { injector });
 
     // Effect: Sync wave debug state with store
@@ -516,10 +516,10 @@ export class GameLoopFacadeService {
       // The rule director needs nothing to load, so anything that reaches
       // here is a real bug: surface it rather than silently dropping to
       // manual waves.
-      this.store.directorError.set(
-        'Could not plan the next wave; it comes from the Wave Debug settings instead. '
-        + 'See the console for details.'
-      );
+      this.uiStore.notice.set({
+        text: 'Wave error: could not plan the next wave; it comes from the Wave Debug settings instead. '
+          + 'See the console for details.',
+      });
       this.store.directorEnabled.set(false);
       this.pendingAIWaveRequest = false;
       this.startWaveWithAI(retryCount + 1);

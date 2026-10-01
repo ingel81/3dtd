@@ -2,17 +2,14 @@
      [class.td-replay-mode]="replay.active()"
      [class.td-tower-control]="towerControl.active()"
      (contextmenu)="$event.preventDefault()">
-  @if (store.directorError(); as aiErr) {
-    <div class="ai-error-banner" role="alert">
-      <strong>Wave error:</strong>
-      <span>{{ aiErr }}</span>
-      <button type="button" (click)="store.directorError.set(null)" aria-label="Close the error message">×</button>
-    </div>
-  }
+  <!-- The one message banner (UIStore.notice) -->
   @if (uiStore.notice(); as notice) {
-    <div class="ai-error-banner" role="alert">
-      <span>{{ notice }}</span>
-      <button type="button" (click)="uiStore.notice.set(null)" aria-label="Close the message">×</button>
+    <div class="notice-banner" role="alert">
+      <span>{{ notice.text }}</span>
+      @if (notice.reload) {
+        <button type="button" class="notice-reload" (click)="reloadPage()">Reload</button>
+      }
+      <button type="button" class="notice-close" (click)="uiStore.notice.set(null)" aria-label="Close the message">×</button>
     </div>
   }
 
@@ -54,8 +51,6 @@
       <!-- Desktop build only: a downloaded update and "Restart now". Outside the
            loading and error blocks: an update may be what fixes an error. -->
       <app-update-hint />
-      <!-- A tower or enemy model that did not load: named, with a reload -->
-      <app-model-load-hint />
 
       <!-- Tile credentials missing or rejected: everything else waits.
            The screen is a lazy chunk, loaded the first time it shows. -->

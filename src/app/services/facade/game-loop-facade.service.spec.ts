@@ -76,7 +76,6 @@ function makeStore() {
     waveNumber: signal(0),
     directorEnabled: signal(true),
     waveExplanation: signal<DecisionExplanation | null>(null),
-    directorError: signal<string | null>(null),
     paused: signal(false),
   };
 }

@@ -149,9 +149,6 @@ export class GameStore {
    */
   readonly waveExplanation = signal<DecisionExplanation | null>(null);
 
-  /** Fatal wave-director error (shown as blocking banner) */
-  readonly directorError = signal<string | null>(null);
-
   /** DevWorld is regenerating terrain */
   readonly isDevWorldRegenerating = signal<boolean>(false);
 

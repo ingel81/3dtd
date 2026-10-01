@@ -56,7 +56,7 @@ export class AssetManagerService {
 
   /**
    * Models that did not load after every try, by URL, in the order they
-   * failed (ModelLoadHintComponent); a later load that works takes its URL out.
+   * failed (the notice, TowerDefenseComponent); a later load that works takes its URL out.
    */
   readonly failedModels = signal<readonly string[]>([]);
 

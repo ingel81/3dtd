@@ -34,7 +34,7 @@ import { KeyboardPanService } from '../keyboard-pan.service';
 import { LocationManagementService } from './location-management.service';
 import { UrlLocationService } from './url-location.service';
 import { WORLD_DICE_FAILED, WorldDiceService } from './world-dice.service';
-import { UIStore } from '../../store/ui.store';
+import { UIStore, type UiNotice } from '../../store/ui.store';
 import { MainWorldService } from '../world/main-world.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
@@ -164,7 +164,7 @@ describe('LocationChangeCoordinatorService', () => {
     rollRandomCity: vi.fn(),
     error: signal<string | null>(null),
   };
-  const uiStore = { routesVisible: signal(true), notice: signal<string | null>(null), coopMapLocked: signal(false) };
+  const uiStore = { routesVisible: signal(true), notice: signal<UiNotice | null>(null), coopMapLocked: signal(false) };
   const routeGrid = {
     initSpatialGridVisualizationIfEnabled: vi.fn(),
     initAirSpatialGridVisualizationIfEnabled: vi.fn(),
@@ -589,7 +589,7 @@ describe('LocationChangeCoordinatorService', () => {
       expect(console.error).toHaveBeenCalledWith(
         '[LocationCoordinator] Location dialog did not load:', expect.any(LocationDialogLoadError),
       );
-      expect(uiStore.notice()).toBe(LOCATION_DIALOG_LOAD_FAILED);
+      expect(uiStore.notice()).toEqual({ text: LOCATION_DIALOG_LOAD_FAILED });
       expect(engineInit.loading()).toBe(false);
     });
 
@@ -601,7 +601,7 @@ describe('LocationChangeCoordinatorService', () => {
       await coordinator.openLocationDialog();
 
       expect(console.error).toHaveBeenCalledWith('[LocationCoordinator] Location dialog failed to open:', bug);
-      expect(uiStore.notice()).toBe(LOCATION_DIALOG_OPEN_FAILED);
+      expect(uiStore.notice()).toEqual({ text: LOCATION_DIALOG_OPEN_FAILED });
       expect(engineInit.loading()).toBe(false);
     });
 
@@ -613,7 +613,7 @@ describe('LocationChangeCoordinatorService', () => {
       await coordinator.onWorldDice();
 
       // It used to close the loading overlay without a word
-      expect(uiStore.notice()).toBe(WORLD_DICE_FAILED);
+      expect(uiStore.notice()).toEqual({ text: WORLD_DICE_FAILED });
       expect(engineInit.loading()).toBe(false);
     });
 

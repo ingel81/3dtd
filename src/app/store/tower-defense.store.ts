@@ -237,7 +237,6 @@ export class TowerDefenseStore {
   readonly waveExplanation = this.gameStore.waveExplanation;
 
   /** Fatal wave-director error (blocking banner) */
-  readonly directorError = this.gameStore.directorError;
 
   // ════════════════════════════════════════════════════════════
   // DEVWORLD

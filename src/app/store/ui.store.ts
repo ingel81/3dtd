@@ -59,6 +59,13 @@ function storedOpenMenu(state: PersistedUIState & LegacyMenuFlags): QuickMenu | 
   return null;
 }
 
+/** A message in the banner over the game (UIStore.notice) */
+export interface UiNotice {
+  text: string;
+  /** Offer a reload of the page: what the message says goes away with one */
+  reload?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class UIStore {
   /** Debug panel visibility */
@@ -219,8 +226,11 @@ export class UIStore {
   /** Photo mode or replay: the camera moves, clicks and hover pick nothing, game keys build nothing. */
   readonly viewOnly = computed(() => this.photoMode() || this.replayMode());
 
-  /** Message in the banner over the game until closed, null for none. Not persisted. */
-  readonly notice = signal<string | null>(null);
+  /**
+   * The one message banner over the game until closed, null for none. Not
+   * persisted; a newer message replaces the one showing.
+   */
+  readonly notice = signal<UiNotice | null>(null);
 
   constructor() {
     this.loadPersistedState();

@@ -134,7 +134,7 @@ export class WaveDirector {
    * The wave to start now.
    *
    * Stays `async` although nothing in here is: the facade's retry path
-   * (`MAX_AI_RETRY`, `directorError`) hangs off the rejected promise, and
+   * (`MAX_AI_RETRY`, the wave error notice) hangs off the rejected promise, and
    * unwinding that belongs to its own change (WAVE_SOURCE_PLAN.md, R5).
    */
   async getNextWave(wave: number): Promise<PlannedWave> {

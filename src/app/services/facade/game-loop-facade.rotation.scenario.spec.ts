@@ -126,7 +126,6 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
       waveNumber: signal(0),
       directorEnabled: signal(false),
       waveExplanation: signal(null),
-      directorError: signal(null),
       paused: signal(true),
     };
     gameUpdate = vi.fn();

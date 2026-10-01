@@ -105,7 +105,8 @@ import { CoopPingArrowsComponent } from './components/coop-ping-arrows/coop-ping
 import { BloodMoonBannerComponent } from './components/blood-moon-banner/blood-moon-banner.component';
 import { RelocationStatusComponent } from './components/relocation-status/relocation-status.component';
 import { UpdateHintComponent } from './components/update-hint/update-hint.component';
-import { ModelLoadHintComponent } from './components/model-load-hint/model-load-hint.component';
+import { AssetManagerService } from './services/infrastructure/asset-manager.service';
+import { modelsMissingText } from './services/infrastructure/model-label';
 import { CellReportPanelComponent } from './components/cell-report-panel/cell-report-panel.component';
 import { AbilityBarComponent } from './components/ability-bar/ability-bar.component';
 import { RunSummaryComponent } from './components/run-summary/run-summary.component';
@@ -176,7 +177,6 @@ import { COOP } from './services/coop.token';
     BloodMoonBannerComponent,
     RelocationStatusComponent,
     UpdateHintComponent,
-    ModelLoadHintComponent,
     CellReportPanelComponent,
     AbilityBarComponent,
     RunSummaryComponent,
@@ -491,6 +491,12 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   constructor() {
     this.facade.initEffects(this);
+    // A tower or enemy model did not load after every try: its enemies walk unseen
+    const assets = inject(AssetManagerService);
+    effect(() => {
+      const failed = assets.failedModels();
+      if (failed.length > 0) untracked(() => this.uiStore.notice.set({ text: modelsMissingText(failed), reload: true }));
+    });
     // Every dialog sounds as it opens and closes
     inject(MatDialog).afterOpened.pipe(takeUntilDestroyed()).subscribe((ref) => {
       uiSound.play('dialogOpen');

@@ -915,7 +915,7 @@ export class CoopService {
     this.los.setRole('render');
     this.sim.configure({ playersLeft: this.mirror.scalars.players.filter((id) => id !== me) });
     this.leave();
-    this.uiStore.notice.set('The coop game goes on as a single player game.');
+    this.uiStore.notice.set({ text: 'The coop game goes on as a single player game.' });
   }
 
   /**

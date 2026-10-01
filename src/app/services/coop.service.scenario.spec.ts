@@ -68,7 +68,7 @@ import { TowerLosRegistry } from './tower-los-registry';
 import { PresentationService } from '../presentation/presentation.service';
 import { ConfigService } from '../core/services/config.service';
 import { GameStore } from '../store/game.store';
-import { UIStore } from '../store/ui.store';
+import { UIStore, type UiNotice } from '../store/ui.store';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { LocationManagementService } from './location/location-management.service';
 import { UrlLocationService } from './location/url-location.service';
@@ -144,7 +144,7 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
       { provide: PresentationService, useValue: { host: null } },
       { provide: ConfigService, useValue: { coopRelay: signal(null), coopLobbies: signal(null), needsCredentials: signal(false) } },
       { provide: GameStore, useValue: { gameSpeed: signal(1), paused: signal(false) } },
-      { provide: UIStore, useValue: { coopMapLocked: signal(false), notice: signal<string | null>(null), coopDockOpen: signal(false) } },
+      { provide: UIStore, useValue: { coopMapLocked: signal(false), notice: signal<UiNotice | null>(null), coopDockOpen: signal(false) } },
       { provide: EngineInitializationService, useValue: { getEngine: () => ({}), loading: () => false } },
       { provide: LocationManagementService, useValue: { hq, spawns: signal(SPAWNS.map(({ lat, lon }) => ({ lat, lon }))), missionInfo: signal({ city: 'Stuttgart', country: 'Deutschland', address: 'Marktplatz 1' }) } },
       { provide: UrlLocationService, useValue: { urlFor: () => '/?l=48.7758,9.1829' } },

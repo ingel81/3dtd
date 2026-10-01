@@ -78,7 +78,6 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     waveNumber: signal(0),
     directorEnabled: signal(true),
     waveExplanation: signal<WaveConfig['explanation'] | null>(null),
-    directorError: signal<string | null>(null),
     paused: signal(false),
     enemiesAlive: signal(0),
     waveEnemyTotal: signal(0),

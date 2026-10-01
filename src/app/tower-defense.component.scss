@@ -475,7 +475,7 @@
 }
 
 /* Phase 5.10: AI error banner */
-.ai-error-banner {
+.notice-banner {
   position: absolute;
   top: 0;
   left: 0;
@@ -490,13 +490,10 @@
   gap: 12px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
-.ai-error-banner strong {
-  flex-shrink: 0;
-}
-.ai-error-banner span {
+.notice-banner span {
   flex: 1;
 }
-.ai-error-banner button {
+.notice-banner .notice-close {
   background: transparent;
   border: none;
   color: white;
@@ -505,6 +502,20 @@
   padding: 0 6px;
   line-height: 1;
 }
-.ai-error-banner button:hover {
+.notice-banner .notice-close:hover {
   opacity: 0.75;
+}
+.notice-banner .notice-reload {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 3px;
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+.notice-banner .notice-reload:hover,
+.notice-banner .notice-reload:focus-visible {
+  background: rgba(255, 255, 255, 0.3);
 }
