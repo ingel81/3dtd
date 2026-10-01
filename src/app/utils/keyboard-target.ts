@@ -28,8 +28,8 @@ export function ownsKey(target: EventTarget | null, key: string): boolean {
   return tag === 'textarea' || tag === 'select' || el.isContentEditable === true;
 }
 
-/** Keys a focused control uses itself: Tab moves the focus on, Enter presses it. */
-const CONTROL_KEYS = new Set(['Tab', 'Enter']);
+/** Keys a focused control uses itself: Tab moves the focus on, Enter and Space press it (Space ticks a checkbox). */
+const CONTROL_KEYS = new Set(['Tab', 'Enter', ' ']);
 
 /** Elements that press or move on Enter and Tab */
 const CONTROL_SELECTOR = 'button, a[href], summary, input, [role="button"], [role="radio"], [role="tab"], [role="menuitem"]';
@@ -78,8 +78,9 @@ export function trackFocusOrigin(): void {
 }
 
 /**
- * True when Tab or Enter belongs to the focused control and not to a game
- * key (the coop keys: Tab opens the dock, Enter the chat). Only a control
+ * True when Tab, Enter or Space belongs to the focused control and not to a
+ * game key (the coop keys: Tab opens the dock, Enter the chat; Space starts a
+ * wave). Only a control
  * the player reached by keyboard counts: a button clicked with the mouse
  * keeps the focus, and the game keys keep working after the click, as
  * `ownsKey` wants.

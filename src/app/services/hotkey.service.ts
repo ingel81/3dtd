@@ -8,7 +8,7 @@ import { ResearchStore } from '../store/research.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 import { canPickTowerCard } from '../utils/player-actions';
-import { ownsKey } from '../utils/keyboard-target';
+import { controlTakesKey, ownsKey, trackFocusOrigin } from '../utils/keyboard-target';
 import { openHotkeyHelpDialog } from '../components/hotkey-help-dialog/open-hotkey-help-dialog';
 import { openResearchDialog } from '../components/research-dialog/open-research-dialog';
 import { openGameMenu } from '../components/game-menu/open-game-menu';
@@ -72,6 +72,11 @@ export class HotkeyService {
   /** The Space press that is down started the wave (handleKeyUp) */
   private spaceStartedWave = false;
 
+  constructor() {
+    // Tells a focus by Tab from one by a click (controlTakesKey)
+    trackFocusOrigin();
+  }
+
   handleKeyDown(event: KeyboardEvent): void {
     if (this.handleAlt(event, true)) return;
     // Held Space repeats its keydown; the first one decides
@@ -117,6 +122,10 @@ export class HotkeyService {
   private acceptsKey(event: KeyboardEvent): boolean {
     return !event.defaultPrevented
       && !ownsKey(event.target, event.key)
+      // A control the player tabbed to takes its own keys: Space ticks a checkbox
+      // in the display menu instead of starting a wave (after a mouse click Space
+      // still starts it)
+      && !controlTakesKey(event.target, event.key)
       // A dialog owns the keyboard; the help dialog closes itself on H and ?
       && this.dialog.openDialogs.length === 0
       && !this.store.loading()

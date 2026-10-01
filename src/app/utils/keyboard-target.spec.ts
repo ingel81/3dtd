@@ -65,6 +65,7 @@ describe('controlTakesKey', () => {
     for (const el of [button, link, radio, input('checkbox')]) {
       expect(controlTakesKey(el, 'Tab', keyboard), el.tagName).toBe(true);
       expect(controlTakesKey(el, 'Enter', keyboard), el.tagName).toBe(true);
+      expect(controlTakesKey(el, ' ', keyboard), el.tagName).toBe(true);
     }
   });
 
@@ -72,11 +73,12 @@ describe('controlTakesKey', () => {
     const button = document.createElement('button');
     expect(controlTakesKey(button, 'Tab', mouse)).toBe(false);
     expect(controlTakesKey(button, 'Enter', mouse)).toBe(false);
+    expect(controlTakesKey(button, ' ', mouse)).toBe(false);
   });
 
   it('leaves the other game keys, and plain elements, alone', () => {
     const button = document.createElement('button');
-    for (const key of ['x', ' ', 'Escape', 'w']) expect(controlTakesKey(button, key, keyboard), key).toBe(false);
+    for (const key of ['x', 'Escape', 'w']) expect(controlTakesKey(button, key, keyboard), key).toBe(false);
     expect(controlTakesKey(document.createElement('div'), 'Enter', keyboard)).toBe(false);
     expect(controlTakesKey(document.body, 'Tab', keyboard)).toBe(false);
     expect(controlTakesKey(null, 'Tab', keyboard)).toBe(false);
