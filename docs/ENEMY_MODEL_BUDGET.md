@@ -541,7 +541,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Rat (`rat`) | Swarm | 700 | 999 | 1.529 | 0,7 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
 | Skarnax Segment (`worm-segment`) | in keiner Welle | 0 | 634 | 556 | 0,0 | Skinning | 32 | 634×32 | RGBA16F | 0,95 | 0,2 | 512² |
 | Ooze (`ooze`) | Elite/Boss | 1 | 282 | 504 | 0,0 | Objekt-Anim. | 24 | 282×24 | RGBA16F | 0,50 | 0,1 | – |
-| Slime Clump (`slime-clump`) | Elite/Boss | 20 | 282 | 504 | 0,0 | Objekt-Anim. | 38 | 282×38 | RGBA16F | 0,47 | 0,1 | – |
+| Slime Clump (`slime-clump`) | Normal | 120 | 282 | 504 | 0,0 | Objekt-Anim. | 38 | 282×38 | RGBA16F | 0,47 | 0,1 | – |
 
 VAT-Speicher aller Typen zusammen: **97,4 MB** (30 fps), alles in RGBA32F wären **168,0 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **0,4 MB** dazu.
@@ -672,13 +672,13 @@ Gegner der Zeile, mit allem, was ein Kill abspaltet.
 | Plague and Iron | W39 | 720 | 20 mech, 700 rat | 0,8 |
 | Last Stand | W59 | 304 | 200 rat, 31 tank, 31 mammoth, 32 ghost, 10 dragon | 0,8 |
 | Final Mix | W29 | 200 | 60 zombie, 40 tank, 40 hornet, 40 bear, 20 ghost | 0,7 |
+| Boss: Dragon Matriarch | W50 | 81 | 1 dragon-matriarch, 40 dragon, 40 hornet | 0,7 |
 | Iron Night | W56 | 380 | 50 tank, 30 mech, 300 rat | 0,7 |
-| Boss: Dragon Flight | W50 | 80 | 40 dragon, 40 hornet | 0,7 |
 | Penguin Breather | W31 | 360 | 300 penguin, 60 rat | 0,7 |
 | Armored Push | W22 | 370 | 40 tank, 30 zombie-soldier, 300 rat | 0,6 |
 | Golem Guard | W33 | 212 | 12 stone-golem, 200 spider | 0,6 |
+| Boss: Golem King | W40 | 70 | 1 golem-king, 21 stone-golem, 48 mammoth | 0,6 |
 | Chaos Wave | W16, W55 | 152 | 46 zombie, 46 tank, 30 hornet, 30 bear | 0,6 |
-| Boss: Stone Golem | W40 | 69 | 21 stone-golem, 48 mammoth | 0,6 |
 | Ghost Riders | W37 | 130 | 90 ghost, 40 bear | 0,5 |
 | Dragon Patrol | W27 | 110 | 60 bat, 40 hornet, 10 dragon | 0,5 |
 | Wall Breakers | W43 | 140 | 110 wallsmasher, 30 tank | 0,5 |
@@ -702,8 +702,8 @@ Gegner der Zeile, mit allem, was ein Kill abspaltet.
 | Wallsmasher Crew | W5 | 18 | 18 wallsmasher | 0,1 |
 | Rat Tide | W2 | 62 | 62 rat | 0,1 |
 | Tank Column | W9 | 9 | 5 tank, 4 zombie-soldier | 0,0 |
+| Boss: Ooze | W20 | 101 | 1 ooze (je Kill +20 slime-clump), 100 slime-clump | 0,0 |
 | Zombie Horde | W1 | 10 | 9 zombie, 1 zombie-v2 | 0,0 |
-| Boss: Ooze | W20 | 1 | 1 ooze (je Kill +20 slime-clump) | 0,0 |
 | Boss: Skarnax | W30, W60 | 1 | 1 worm | 0,0 |
 
 | Gegner | Wellen im Laufplan | max. in einer Welle |
@@ -721,7 +721,7 @@ Gegner der Zeile, mit allem, was ein Kill abspaltet.
 | Rat | W2, W3, W18, W22, W31, W32, W39, W44, W56, W59 | 700 |
 | Skeleton | W19, W38, W48 | 820 |
 | Skeleton Minion | W19, W38, W48 | 1.640 |
-| Slime Clump | W20 | 20 |
+| Slime Clump | W20 | 120 |
 | Spider | W4, W6, W23, W33, W38, W44, W54 | 700 |
 | Stone Golem | W15, W25, W33, W40, W53 | 21 |
 | Tank | W9, W10, W16, W18, W22, W29, W32, W43, W46, W55, W56, W59 | 50 |
