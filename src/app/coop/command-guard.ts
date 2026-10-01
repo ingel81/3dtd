@@ -10,6 +10,8 @@
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import { ABILITIES } from '../configs/abilities.config';
 import { HERO_AMMO } from '../configs/hero.config';
+import { ENEMY_TYPES } from '../configs/enemy-types.config';
+import { ALL_SPAWN_PATTERNS } from '../director/spawn-schedule-builder';
 
 /** A stone plinth under a tower is never higher, m */
 const MAX_PLINTH_M = 200;
@@ -21,6 +23,14 @@ const MAX_ID_LENGTH = 64;
 const MAX_WAVE_ENEMIES = 20_000;
 /** Gold a player may send or a dev tool may add at once */
 const MAX_AMOUNT = 10_000_000;
+/** No gap between two spawns, nor a pause after one, is longer, ms */
+const MAX_SPAWN_GAP_MS = 600_000;
+/** An enemy's HP, or the multiplier of a group's HP, is never larger */
+const MAX_HEALTH = 1e9;
+/** An enemy's speed (m/s or a multiplier) is never larger */
+const MAX_SPEED = 1000;
+/** The wave source's plan as every client logs it, JSON characters */
+const MAX_PLAN_CHARS = 32_768;
 
 type Command = { readonly type: string } & Readonly<Record<string, unknown>>;
 
@@ -39,18 +49,74 @@ function geo(value: unknown): boolean {
   return finite(lat) && Math.abs(lat) <= 90 && finite(lon) && Math.abs(lon) <= 180 && optionalFinite(height);
 }
 
-/** The enemies of a wave from the wave source: known shape, a sane count */
+/** `value` absent, or a finite number in [min, max] */
+const optionalIn = (value: unknown, min: number, max: number) =>
+  value === undefined || (finite(value) && value >= min && value <= max);
+/** A positive finite number up to `max` */
+const positiveUpTo = (value: unknown, max: number) => finite(value) && value > 0 && value <= max;
+const spawnMode = (value: unknown) => value === undefined || value === 'each' || value === 'random';
+
+/**
+ * A wave from the wave source: enemy types the game has (own keys only, a
+ * type like "constructor" is no enemy), a sane count, finite and bounded
+ * gaps and multipliers, a known pattern. Every client builds its schedule
+ * from it, so a bad one would stop every client's simulation.
+ */
 function directorWave(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false;
-  const enemies = (value as Record<string, unknown>)['enemies'];
+  const wave = value as Record<string, unknown>;
+  const enemies = wave['enemies'];
   if (!Array.isArray(enemies) || enemies.length > 256) return false;
   let total = 0;
   for (const group of enemies) {
-    const { type, count } = (group ?? {}) as Record<string, unknown>;
-    if (!id(type) || !integerIn(count, 0, MAX_WAVE_ENEMIES)) return false;
+    const { type, count, healthMultiplier, speedMultiplier, spawnDelay } = (group ?? {}) as Record<string, unknown>;
+    if (!known(type, ENEMY_TYPES) || !integerIn(count, 0, MAX_WAVE_ENEMIES)) return false;
+    if (healthMultiplier !== undefined && !positiveUpTo(healthMultiplier, MAX_HEALTH)) return false;
+    if (speedMultiplier !== undefined && !positiveUpTo(speedMultiplier, MAX_SPEED)) return false;
+    if (!optionalIn(spawnDelay, 0, MAX_SPAWN_GAP_MS)) return false;
     total += count as number;
   }
-  return total <= MAX_WAVE_ENEMIES;
+  const pattern = wave['pattern'];
+  return total <= MAX_WAVE_ENEMIES
+    && optionalIn(wave['spawnDelay'], 0, MAX_SPAWN_GAP_MS)
+    && optionalIn(wave['spawnDelayVariation'], 0, 1)
+    && spawnMode(wave['spawnMode'])
+    && (pattern === undefined || ALL_SPAWN_PATTERNS.includes(pattern as never));
+}
+
+/**
+ * A ready spawn schedule (the debug panel's custom wave): every entry of a
+ * known type with a bounded speed, HP and gaps, a bounded count. Not a cheat
+ * command, so any player of a room can send one.
+ */
+function scheduledWave(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const schedule = (value as Record<string, unknown>)['schedule'];
+  if (typeof schedule !== 'object' || schedule === null) return false;
+  const { entries, baseDelay, delayVariation, spawnMode: mode, spawnFloor } = schedule as Record<string, unknown>;
+  if (!Array.isArray(entries) || entries.length > MAX_WAVE_ENEMIES) return false;
+  for (const entry of entries) {
+    const { enemyType, speed, health, delay, pauseAfter, spawnPointId } = (entry ?? {}) as Record<string, unknown>;
+    if (!known(enemyType, ENEMY_TYPES) || !positiveUpTo(speed, MAX_SPEED)) return false;
+    if (health !== undefined && !positiveUpTo(health, MAX_HEALTH)) return false;
+    if (!optionalIn(delay, 0, MAX_SPAWN_GAP_MS) || !optionalIn(pauseAfter, 0, MAX_SPAWN_GAP_MS)) return false;
+    if (spawnPointId !== undefined && !id(spawnPointId)) return false;
+  }
+  return finite(baseDelay) && baseDelay >= 0 && baseDelay <= MAX_SPAWN_GAP_MS
+    && optionalIn(delayVariation, 0, 1)
+    && spawnMode(mode)
+    && (spawnFloor === undefined || spawnFloor === false);
+}
+
+/** What the wave source decided, for every client's run log: an object of bounded size */
+function planOk(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  try {
+    return JSON.stringify(value).length <= MAX_PLAN_CHARS;
+  } catch {
+    return false;
+  }
 }
 
 function placeTowerProblem(c: Command): string | null {
@@ -100,7 +166,8 @@ export function commandProblem(c: Command): string | null {
       return aimOk(c) ? null : 'aim';
     case 'command:start-wave':
       return (c['director'] === undefined || directorWave(c['director']))
-        && (c['plan'] === undefined || (typeof c['plan'] === 'object' && c['plan'] !== null)) ? null : 'wave';
+        && (c['config'] === undefined || scheduledWave(c['config']))
+        && planOk(c['plan']) ? null : 'wave';
     case 'command:restart-game':
       return c['seed'] === undefined || integerIn(c['seed'], 0, 0xffffffff) ? null : 'seed';
     case 'command:set-ready':

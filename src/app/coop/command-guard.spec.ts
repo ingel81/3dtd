@@ -34,4 +34,37 @@ describe('commandProblem (COOP_PLAN S4)', () => {
     expect(commandProblem({ type: 'command:set-ready', ready: 'yes' })).toBe('ready');
     expect(commandProblem({ type: 'command:sell-tower', towerId: 'x'.repeat(500) })).toBe('tower id');
   });
+
+  describe('waves from another client: every client builds them, a bad one would stop them all', () => {
+    const wave = (extra: object) => commandProblem({ type: 'command:start-wave', ...extra });
+    const entry = { enemyType: 'zombie', speed: 5, health: 80 };
+
+    it('takes the waves the game sends: a planned one with its plan, the debug panel’s schedule', () => {
+      expect(wave({
+        director: { enemies: [{ type: 'rat', count: 30, healthMultiplier: 1.4 }], totalCount: 30, spawnDelay: 300, spawnDelayVariation: 0.3, pattern: 'interleaved', spawnMode: 'random' },
+        plan: { waveSource: 'budget', log: ['row 2', 'budget 20.5 s'] },
+      })).toBeNull();
+      expect(wave({ config: { schedule: { entries: [entry, { ...entry, delay: 0, pauseAfter: 2000 }], baseDelay: 0, spawnFloor: false } } })).toBeNull();
+    });
+
+    it('refuses enemy types that are no own key, as "constructor"', () => {
+      expect(wave({ director: { enemies: [{ type: 'constructor', count: 1 }] } })).toBe('wave');
+      expect(wave({ config: { schedule: { entries: [{ ...entry, enemyType: 'toString' }], baseDelay: 100 } } })).toBe('wave');
+    });
+
+    it('refuses gaps, speeds, HP and patterns out of range, and too many entries', () => {
+      expect(wave({ director: { enemies: [{ type: 'zombie', count: 1 }], spawnDelay: NaN } })).toBe('wave');
+      expect(wave({ director: { enemies: [{ type: 'zombie', count: 1 }], pattern: 'spiral' } })).toBe('wave');
+      expect(wave({ director: { enemies: [{ type: 'zombie', count: 1, speedMultiplier: -1 }] } })).toBe('wave');
+      expect(wave({ config: { schedule: { entries: [{ ...entry, speed: Infinity }], baseDelay: 100 } } })).toBe('wave');
+      expect(wave({ config: { schedule: { entries: [{ ...entry, delay: 1e12 }], baseDelay: 100 } } })).toBe('wave');
+      expect(wave({ config: { schedule: { entries: [entry], baseDelay: 100, spawnMode: 'all' } } })).toBe('wave');
+      expect(wave({ config: { schedule: { entries: new Array(20_001).fill(entry), baseDelay: 100 } } })).toBe('wave');
+      expect(wave({ config: { entries: [entry] } })).toBe('wave');
+    });
+
+    it('refuses a plan too large for every client’s run log', () => {
+      expect(wave({ director: { enemies: [{ type: 'zombie', count: 1 }] }, plan: { log: ['x'.repeat(40_000)] } })).toBe('wave');
+    });
+  });
 });

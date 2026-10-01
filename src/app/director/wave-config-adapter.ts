@@ -59,5 +59,6 @@ export function adaptDirectorWave(
 
 /** Validate and convert enemy type string to EnemyTypeId. */
 function validateEnemyType(type: string): EnemyTypeId | null {
-  return type in ENEMY_TYPES ? (type as EnemyTypeId) : null;
+  // Own keys only: `in` takes the prototype's too ("constructor")
+  return Object.hasOwn(ENEMY_TYPES, type) ? (type as EnemyTypeId) : null;
 }
