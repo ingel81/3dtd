@@ -519,26 +519,26 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | --- | ---: | ---: | ---: |
 | Herbert (`herbert`) | Elite/Boss | 1 | 30.831 | 31.949 | 0,0 | Skinning | 32 | 8192×128 | RGBA16F | 0,56 | 8,0 | 512² |
 | Stone Golem (`stone-golem`) | Elite/Boss | 21 | 13.614 | 10.368 | 0,3 | Skinning | 107 | 8192×214 | RGBA32F | 2,64 | 26,8 | 1024² |
-| Dragon (`dragon`) | Elite/Boss | 60 | 12.272 | 19.541 | 0,7 | Skinning | 99 | 8192×198 | RGBA16F | 1,78 | 12,4 | 1024² |
-| Wraith (`wraith`) | Normal | 224 | 8.126 | 6.790 | 1,8 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
+| Dragon (`dragon`) | Elite/Boss | 45 | 12.272 | 19.541 | 0,6 | Skinning | 99 | 8192×198 | RGBA16F | 1,78 | 12,4 | 1024² |
+| Wraith (`wraith`) | Normal | 150 | 8.126 | 6.790 | 1,2 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
 | Mammoth (`mammoth`) | Elite/Boss | 48 | 5.557 | 8.685 | 0,3 | Skinning | 321 | 5557×321 | RGBA16F | 1,51 | 13,6 | 1024² |
-| Tank (`tank`) | Elite/Boss | 95 | 4.932 | 2.705 | 0,5 | Skinning | 24 | 4932×24 | RGBA16F | 0,82 | 0,9 | 1024² |
-| Hornet (`hornet`) | Normal | 210 | 4.915 | 6.440 | 1,0 | Objekt-Anim. | 59 | 4915×59 | RGBA16F | 0,35 | 2,2 | 1024² |
-| Zombie v2 (`zombie-v2`) | Elite/Boss | 70 | 4.870 | 3.704 | 0,3 | Skinning | 306 | 4870×306 | RGBA16F | 1,08 | 11,4 | 1024² |
-| Mech (`mech`) | Elite/Boss | 65 | 4.771 | 2.877 | 0,3 | Skinning | 40 | 4771×40 | RGBA16F | 1,44 | 1,5 | 1024² |
-| Ghost (`ghost`) | Normal | 162 | 4.270 | 6.474 | 0,7 | Skinning | 105 | 4270×105 | RGBA16F | 0,46 | 3,4 | 1024² |
-| Zombie Soldier (`zombie-soldier`) | Elite/Boss | 46 | 4.266 | 7.176 | 0,2 | Skinning | 160 | 4266×160 | RGBA16F | 0,84 | 5,2 | 1024² |
-| Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 41 | 4083×41 | RGBA16F | 0,74 | 1,3 | 1024² |
-| Bat (`bat`) | Normal | 336 | 3.559 | 2.684 | 1,2 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 512² |
-| Wallsmasher (`wallsmasher`) | Normal | 136 | 3.444 | 5.670 | 0,5 | Skinning | 104 | 3444×104 | RGBA16F | 1,28 | 2,7 | 512² |
-| Spider (`spider`) | Swarm | 800 | 2.140 | 2.417 | 1,7 | Skinning | 25 | 2140×25 | RGBA16F | 0,56 | 0,4 | 512² |
-| Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 512² |
+| Tank (`tank`) | Elite/Boss | 50 | 4.932 | 2.705 | 0,2 | Skinning | 24 | 4932×24 | RGBA16F | 0,82 | 0,9 | 1024² |
+| Hornet (`hornet`) | Normal | 160 | 4.915 | 6.440 | 0,8 | Objekt-Anim. | 59 | 4915×59 | RGBA16F | 0,35 | 2,2 | 1024² |
+| Zombie v2 (`zombie-v2`) | Elite/Boss | 80 | 4.870 | 3.704 | 0,4 | Skinning | 306 | 4870×306 | RGBA16F | 1,08 | 11,4 | 1024² |
+| Mech (`mech`) | Elite/Boss | 40 | 4.771 | 2.877 | 0,2 | Skinning | 40 | 4771×40 | RGBA16F | 1,44 | 1,5 | 1024² |
+| Ghost (`ghost`) | Normal | 140 | 4.270 | 6.474 | 0,6 | Skinning | 105 | 4270×105 | RGBA16F | 0,46 | 3,4 | 1024² |
+| Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 160 | 4266×160 | RGBA16F | 0,84 | 5,2 | 1024² |
+| Bear (`bear`) | Elite/Boss | 80 | 4.083 | 6.135 | 0,3 | Skinning | 41 | 4083×41 | RGBA16F | 0,74 | 1,3 | 1024² |
+| Bat (`bat`) | Normal | 260 | 3.559 | 2.684 | 0,9 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 512² |
+| Wallsmasher (`wallsmasher`) | Normal | 110 | 3.444 | 5.670 | 0,4 | Skinning | 104 | 3444×104 | RGBA16F | 1,28 | 2,7 | 512² |
+| Spider (`spider`) | Swarm | 700 | 2.140 | 2.417 | 1,5 | Skinning | 25 | 2140×25 | RGBA16F | 0,56 | 0,4 | 512² |
+| Penguin (`penguin`) | Normal | 300 | 1.993 | 3.408 | 0,6 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 512² |
 | Skarnax (`worm`) | Elite/Boss | 1 | 1.700 | 1.662 | 0,0 | Skinning | 48 | 1700×48 | RGBA16F | 0,93 | 0,6 | 1024² |
-| Zombie (`zombie`) | Swarm | 630 | 1.453 | 2.157 | 0,9 | Skinning | 209 | 1453×209 | RGBA16F | 0,83 | 2,3 | 1024² |
+| Zombie (`zombie`) | Swarm | 560 | 1.453 | 2.157 | 0,8 | Skinning | 209 | 1453×209 | RGBA16F | 0,83 | 2,3 | 1024² |
 | Skarnax Tail (`worm-tail`) | in keiner Welle | 0 | 1.214 | 1.214 | 0,0 | Skinning | 32 | 1214×32 | RGBA16F | 1,05 | 0,3 | 512² |
 | Skeleton (`skeleton`) | Swarm | 820 | 1.156 | 658 | 0,9 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.640 | 1.156 | 658 | 1,9 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
-| Rat (`rat`) | Swarm | 908 | 999 | 1.529 | 0,9 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
+| Rat (`rat`) | Swarm | 700 | 999 | 1.529 | 0,7 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
 | Skarnax Segment (`worm-segment`) | in keiner Welle | 0 | 634 | 556 | 0,0 | Skinning | 32 | 634×32 | RGBA16F | 0,95 | 0,2 | 512² |
 | Ooze (`ooze`) | Elite/Boss | 1 | 282 | 504 | 0,0 | Objekt-Anim. | 24 | 282×24 | RGBA16F | 0,50 | 0,1 | – |
 | Slime Clump (`slime-clump`) | Elite/Boss | 20 | 282 | 504 | 0,0 | Objekt-Anim. | 38 | 282×38 | RGBA16F | 0,47 | 0,1 | – |
@@ -653,57 +653,85 @@ Gegner der Zeile, mit allem, was ein Kill abspaltet.
 
 | Welle | Laufplan | max. Anzahl | Mischung | Mio. Vertices |
 | --- | --- | ---: | --- | ---: |
-| Skeleton Swarm | W19, W38, W48 | 820 | 820 skeleton (je Kill +2 skeleton-minion) | 2,8 |
-| Wraith Storm | W17, W35, W52 | 224 | 224 wraith | 1,8 |
-| Spider Swarm | W6, W23, W54 | 800 | 800 spider | 1,7 |
-| Hornet Strike | W8, W58 | 300 | 210 hornet, 90 bat | 1,4 |
-| Zombie Horde | W1, W26, W36 | 700 | 630 zombie, 70 zombie-v2 | 1,3 |
-| Bat Swarm | W7, W21 | 336 | 336 bat | 1,2 |
-| Chaos Wave | W16, W29, W55 | 314 | 95 zombie, 95 tank, 63 hornet, 61 bear | 1,2 |
-| Ghost Surge | W13, W24, W57 | 203 | 162 ghost, 41 wraith | 1,0 |
-| Penguin Rush | W3, W37 | 500 | 450 penguin, 50 rat | 0,9 |
-| Dragon Elite | W12, W27, W42, W49 | 100 | 60 dragon, 40 hornet | 0,9 |
-| Rat Tide | W2, W39, W44 | 908 | 908 rat | 0,9 |
+| Skeleton Swarm | W19, W48 | 820 | 820 skeleton (je Kill +2 skeleton-minion) | 2,8 |
+| Bone Tide | W38 | 750 | 600 skeleton (je Kill +2 skeleton-minion), 150 spider | 2,4 |
+| Spider Swarm | W6, W54 | 800 | 700 spider, 100 bat | 1,9 |
+| Wraith Night | W35 | 270 | 150 wraith, 120 bat | 1,6 |
+| Swarm Surge | W44 | 900 | 500 rat, 250 spider, 150 bat | 1,6 |
+| Ether Assault | W49 | 330 | 150 penguin, 120 wraith, 60 ghost | 1,5 |
+| Great Horde | W36 | 700 | 560 zombie, 80 zombie-v2, 60 zombie-soldier | 1,5 |
+| Wraith Storm | W52 | 300 | 150 zombie, 150 wraith | 1,4 |
+| Sky Siege | W58 | 265 | 80 bat, 160 hornet, 25 dragon | 1,4 |
+| Horde and Hornets | W26 | 540 | 420 zombie, 60 zombie-v2, 60 hornet | 1,2 |
+| Dusk Flock | W21 | 380 | 260 bat, 120 penguin | 1,2 |
+| Dragon Night | W42 | 185 | 80 bat, 60 hornet, 45 dragon | 1,1 |
+| Ghost Surge | W13, W57 | 220 | 140 ghost, 40 wraith, 40 hornet | 1,1 |
+| Hornet Raid | W47 | 230 | 150 hornet, 80 wallsmasher | 1,0 |
+| Spider Nest | W23 | 420 | 380 spider, 40 wallsmasher | 1,0 |
+| Haunted Pack | W45 | 160 | 70 bear, 60 wraith, 30 ghost | 0,9 |
+| Plague and Iron | W39 | 720 | 20 mech, 700 rat | 0,8 |
+| Last Stand | W59 | 304 | 200 rat, 31 tank, 31 mammoth, 32 ghost, 10 dragon | 0,8 |
+| Final Mix | W29 | 200 | 60 zombie, 40 tank, 40 hornet, 40 bear, 20 ghost | 0,7 |
+| Iron Night | W56 | 380 | 50 tank, 30 mech, 300 rat | 0,7 |
 | Boss: Dragon Flight | W50 | 80 | 40 dragon, 40 hornet | 0,7 |
-| Light Mix | W4, W31, W47 | 228 | 114 wallsmasher, 114 spider | 0,6 |
+| Penguin Breather | W31 | 360 | 300 penguin, 60 rat | 0,7 |
+| Armored Push | W22 | 370 | 40 tank, 30 zombie-soldier, 300 rat | 0,6 |
+| Golem Guard | W33 | 212 | 12 stone-golem, 200 spider | 0,6 |
+| Chaos Wave | W16, W55 | 152 | 46 zombie, 46 tank, 30 hornet, 30 bear | 0,6 |
 | Boss: Stone Golem | W40 | 69 | 21 stone-golem, 48 mammoth | 0,6 |
-| Tank Column | W9, W22, W46, W56 | 115 | 69 tank, 46 zombie-soldier | 0,5 |
-| Armor Gauntlet | W18, W32, W59 | 125 | 31 rat, 31 tank, 31 mammoth, 32 ghost | 0,5 |
-| Bear Pack | W11, W41, W45 | 120 | 120 bear | 0,5 |
-| Wallsmasher Crew | W5, W43 | 136 | 136 wallsmasher | 0,5 |
-| Mammoth Siege | W14, W25, W34, W51 | 64 | 45 mammoth, 19 wallsmasher | 0,3 |
-| Mech Army | W28 | 65 | 65 mech | 0,3 |
-| Golem Squad | W15, W33, W53 | 21 | 21 stone-golem | 0,3 |
+| Ghost Riders | W37 | 130 | 90 ghost, 40 bear | 0,5 |
+| Dragon Patrol | W27 | 110 | 60 bat, 40 hornet, 10 dragon | 0,5 |
+| Wall Breakers | W43 | 140 | 110 wallsmasher, 30 tank | 0,5 |
+| Mech Column | W46 | 110 | 40 mech, 40 tank, 30 zombie-soldier | 0,5 |
+| Fortress | W53 | 74 | 14 stone-golem, 30 mammoth, 30 ghost | 0,5 |
+| Armor Gauntlet | W18, W32 | 108 | 27 rat, 27 tank, 27 mammoth, 27 ghost | 0,4 |
+| Mammoth Stampede | W34 | 70 | 40 mammoth, 30 bear | 0,3 |
+| Siege Line | W25 | 60 | 30 mammoth, 6 stone-golem, 24 wallsmasher | 0,3 |
+| Bear Pack | W11, W41 | 80 | 80 bear | 0,3 |
+| Phantom March | W24 | 148 | 120 zombie, 20 ghost, 8 wraith | 0,3 |
+| Mech Army | W28 | 70 | 40 mech, 30 zombie-soldier | 0,3 |
+| Bat Swarm | W7 | 73 | 73 bat | 0,3 |
+| Mammoth Siege | W14, W51 | 35 | 25 mammoth, 10 wallsmasher | 0,2 |
+| Night Flight | W17 | 33 | 9 wraith, 24 bat | 0,2 |
+| Golem Squad | W15 | 10 | 10 stone-golem | 0,1 |
+| Hornet Strike | W8 | 27 | 19 hornet, 8 bat | 0,1 |
+| Penguin Rush | W3 | 59 | 53 penguin, 6 rat | 0,1 |
 | Boss: Herbert | W10 | 20 | 1 herbert, 10 tank, 9 zombie | 0,1 |
+| Light Mix | W4 | 26 | 13 wallsmasher, 13 spider | 0,1 |
+| Dragon Elite | W12 | 7 | 4 dragon, 3 hornet | 0,1 |
+| Wallsmasher Crew | W5 | 18 | 18 wallsmasher | 0,1 |
+| Rat Tide | W2 | 62 | 62 rat | 0,1 |
+| Tank Column | W9 | 9 | 5 tank, 4 zombie-soldier | 0,0 |
+| Zombie Horde | W1 | 10 | 9 zombie, 1 zombie-v2 | 0,0 |
 | Boss: Ooze | W20 | 1 | 1 ooze (je Kill +20 slime-clump) | 0,0 |
 | Boss: Skarnax | W30, W60 | 1 | 1 worm | 0,0 |
 
 | Gegner | Wellen im Laufplan | max. in einer Welle |
 | --- | --- | ---: |
-| Bat | W7, W8, W21, W58 | 336 |
-| Bear | W11, W16, W29, W41, W45, W55 | 120 |
-| Dragon | W12, W27, W42, W49, W50 | 60 |
-| Ghost | W13, W18, W24, W32, W57, W59 | 162 |
+| Bat | W7, W8, W17, W21, W27, W35, W42, W44, W54, W58 | 260 |
+| Bear | W11, W16, W29, W34, W37, W41, W45, W55 | 80 |
+| Dragon | W12, W27, W42, W50, W58, W59 | 45 |
+| Ghost | W13, W18, W24, W29, W32, W37, W45, W49, W53, W57, W59 | 140 |
 | Herbert | W10 | 1 |
-| Hornet | W8, W12, W16, W27, W29, W42, W49, W50, W55, W58 | 210 |
-| Mammoth | W14, W18, W25, W32, W34, W40, W51, W59 | 48 |
-| Mech | W28 | 65 |
+| Hornet | W8, W12, W16, W26, W27, W29, W42, W47, W50, W55, W57, W58 | 160 |
+| Mammoth | W14, W18, W25, W32, W34, W40, W51, W53, W59 | 48 |
+| Mech | W28, W39, W46, W56 | 40 |
 | Ooze | W20 | 1 |
-| Penguin | W3, W37 | 450 |
-| Rat | W2, W3, W18, W32, W37, W39, W44, W59 | 908 |
+| Penguin | W3, W21, W31, W49 | 300 |
+| Rat | W2, W3, W18, W22, W31, W32, W39, W44, W56, W59 | 700 |
 | Skeleton | W19, W38, W48 | 820 |
 | Skeleton Minion | W19, W38, W48 | 1.640 |
 | Slime Clump | W20 | 20 |
-| Spider | W4, W6, W23, W31, W47, W54 | 800 |
-| Stone Golem | W15, W33, W40, W53 | 21 |
-| Tank | W9, W10, W16, W18, W22, W29, W32, W46, W55, W56, W59 | 95 |
-| Wallsmasher | W4, W5, W14, W25, W31, W34, W43, W47, W51 | 136 |
+| Spider | W4, W6, W23, W33, W38, W44, W54 | 700 |
+| Stone Golem | W15, W25, W33, W40, W53 | 21 |
+| Tank | W9, W10, W16, W18, W22, W29, W32, W43, W46, W55, W56, W59 | 50 |
+| Wallsmasher | W4, W5, W14, W23, W25, W43, W47, W51 | 110 |
 | Skarnax | W30, W60 | 1 |
 | Skarnax Segment | – | 0 |
 | Skarnax Tail | – | 0 |
-| Wraith | W13, W17, W24, W35, W52, W57 | 224 |
-| Zombie | W1, W10, W16, W26, W29, W36, W55 | 630 |
-| Zombie Soldier | W9, W22, W46, W56 | 46 |
-| Zombie v2 | W1, W26, W36 | 70 |
+| Wraith | W13, W17, W24, W35, W45, W49, W52, W57 | 150 |
+| Zombie | W1, W10, W16, W24, W26, W29, W36, W52, W55 | 560 |
+| Zombie Soldier | W9, W22, W28, W36, W46 | 60 |
+| Zombie v2 | W1, W26, W36 | 80 |
 
 <!-- model-budget:end -->
