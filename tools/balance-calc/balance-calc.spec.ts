@@ -5,6 +5,9 @@
  * BALANCE_OUT set it writes the tables there:
  *
  *   BALANCE_OUT=<dir> npx vitest run tools/balance-calc/balance-calc.spec.ts
+ *
+ * BALANCE_MODEL='{"ground":0.6}' overrides values of the fitted model, to see
+ * how much a conclusion hangs on the fit.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -12,7 +15,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runScenario, type WaveRow } from './calc';
-import { HUMAN_RUN_MODEL } from './model';
+import { HUMAN_RUN_MODEL, type LeakModel } from './model';
 import { targetPressure } from '../../src/app/director/pressure-controller';
 import type { Trajectory } from './trajectory';
 
@@ -20,6 +23,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const TRAJECTORY: Trajectory = JSON.parse(readFileSync(resolve(HERE, 'trajectory.json'), 'utf8'));
 const OUT = process.env['BALANCE_OUT'];
 const LABEL = process.env['BALANCE_LABEL'] ?? 'current';
+const MODEL: LeakModel = { ...HUMAN_RUN_MODEL, ...JSON.parse(process.env['BALANCE_MODEL'] ?? '{}') };
 
 /** HQ HP after wave `wave` if every wave cost exactly the loop's set point. */
 function targetHp(wave: number, start: number): number {
@@ -55,7 +59,7 @@ function table(rows: readonly WaveRow[], start: number): string {
 
 describe('balance-calc', () => {
   it('rebuilds the recorded run: the loop moves as it did', () => {
-    const rows = runScenario(TRAJECTORY, { strength: 1, model: HUMAN_RUN_MODEL, recordedLoss: true });
+    const rows = runScenario(TRAJECTORY, { strength: 1, model: MODEL, recordedLoss: true });
     // Only meaningful while the planner is the one the run played; a change to it moves these on purpose
     expect(rows.length).toBe(TRAJECTORY.waves.length);
   });
@@ -65,8 +69,8 @@ describe('balance-calc', () => {
     const scenarios = [
       ['Mensch ×1', 1], ['Mensch ×0,7', 0.7], ['Mensch ×1,3', 1.3],
     ] as const;
-    const results = scenarios.map(([name, strength]) => [name, runScenario(TRAJECTORY, { strength, model: HUMAN_RUN_MODEL })] as const);
-    const recorded = runScenario(TRAJECTORY, { strength: 1, model: HUMAN_RUN_MODEL, recordedLoss: true });
+    const results = scenarios.map(([name, strength]) => [name, runScenario(TRAJECTORY, { strength, model: MODEL })] as const);
+    const recorded = runScenario(TRAJECTORY, { strength: 1, model: MODEL, recordedLoss: true });
     for (const [, rows] of results) expect(rows.length).toBeGreaterThan(0);
     if (!OUT) return;
 
@@ -75,6 +79,7 @@ describe('balance-calc', () => {
       `# Balance-Rechnung: ${LABEL}`,
       '',
       `Abwehr aus ${TRAJECTORY.source}; Leck-Modell und Kalibrierung siehe tools/balance-calc/README.md.`,
+      ...(process.env['BALANCE_MODEL'] ? ['', `Modell abweichend: ${process.env['BALANCE_MODEL']}`] : []),
       '',
       '| Abwehr | HQ nach W10 / 20 / 30 / 40 / 50 / 60 | Tod in | Wellen ohne Verlust (ab W8) | Wellen > 10 % HP |',
       '|---|---|---|---|---|',
