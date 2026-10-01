@@ -144,6 +144,12 @@ export class RunLogFacade {
         this.collector.noteBossSpawned(e.enemy.typeConfig.id);
       }
     }));
+    // A worm's head comes out with its chain, not through enemy:spawned's portal entry
+    this.subs.add(bus.onLive('worm:spawned', (e) => {
+      if (e.viaPortal && e.head.typeConfig.isBoss) {
+        this.collector.noteBossSpawned(e.head.typeConfig.id);
+      }
+    }));
     // The reset comes on restart, location change and DevWorld rebuild; the
     // run that was open ends there and the next one opens with the new run's
     // first packet. On a new place SimClient.newRun hands game:reset on with

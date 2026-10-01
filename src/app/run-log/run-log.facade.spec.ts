@@ -93,4 +93,15 @@ describe('RunLogFacade opens a run with the first packet of the run', () => {
     expect(wave?.creditsStart).toBe(100);
     expect(wave?.income['reset']).toBeUndefined();
   });
+
+  it('notes a boss through the portal, the worm by its chain too', () => {
+    facade.initialize();
+    packet(1, 500, 100);
+    bus.emit({ type: 'wave:started', waveNumber: 30 } as never);
+    bus.emit({ type: 'worm:spawned', head: { typeConfig: { id: 'worm', isBoss: true } }, group: {}, viaPortal: true } as never);
+    bus.emit({ type: 'worm:spawned', head: { typeConfig: { id: 'worm', isBoss: true } }, group: {}, viaPortal: false } as never);
+    bus.emit({ type: 'enemy:spawned', enemy: { id: 'e1', typeConfig: { id: 'herbert', isBoss: true } }, viaPortal: true } as never);
+    const bosses = facade.current()!.records.filter((r) => r.kind === 'event' && (r as { event: string }).event === 'boss-spawned');
+    expect(bosses.map((r) => (r as { id?: string }).id)).toEqual(['worm', 'herbert']);
+  });
 });
