@@ -444,8 +444,29 @@ describe('SimCore in the same thread', () => {
       expect(packet.scalars.gameTimeMs).toBe(every[every.length - 1].scalars.gameTimeMs);
       // Nothing held after it
       expect(core.pass(now + 1, Infinity, asked)).toBeNull();
-      // Asked only from when the next packet is due (MIN_PUBLISH_GAP_MS)
-      expect(asked.takeDemand).toHaveBeenCalledTimes(1);
+      // Asked only from when the next packet is due (MIN_PUBLISH_GAP_MS): at 1034 and 1068, one gap after the
+      // two packets at 1000 (not two gaps: the schedule stays within one gap of now), not at now + 1
+      expect(asked.takeDemand).toHaveBeenCalledTimes(2);
+    });
+
+    it('answers demands at the schedule again right after a run of inputs every frame (a manned tower aiming)', () => {
+      const always = { demandPending: () => true, takeDemand: vi.fn(() => true) };
+      const core = running(1);
+      let now = 1000;
+      // A second of aiming at 144 frames a second: an input every frame, a packet each
+      for (let i = 0; i < 144; i++) {
+        now += 1000 / 144;
+        core.input({ ...SETTINGS, gameSpeed: 1 }, now);
+        expect(core.pass(now, Infinity, always)).not.toBeNull();
+      }
+      // Then the frames only ask: about 30 packets a second, as before the aiming
+      let packets = 0;
+      for (let i = 0; i < 144; i++) {
+        now += 1000 / 144;
+        if (core.pass(now, Infinity, always)) packets++;
+      }
+      expect(packets).toBeGreaterThanOrEqual(28);
+      expect(packets).toBeLessThanOrEqual(31);
     });
 
     it('ends the pass after the sub-step running when the main thread waits for a packet', () => {

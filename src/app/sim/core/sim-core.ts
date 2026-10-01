@@ -276,7 +276,14 @@ export class SimCore implements SimCoreApi {
       return null;
     }
     this.publishedAt = now;
-    this.answerFrom = Math.max(this.answerFrom + MIN_PUBLISH_GAP_MS, now + MIN_PUBLISH_GAP_MS / 2);
+    // Never more than one gap ahead: inputs every frame (a manned tower's aim)
+    // publish faster than the schedule, and each pushed it a gap further, so
+    // after a second of aiming the demands went unanswered for seconds (about
+    // 9 packets a second, MAX_PUBLISH_GAP_MS)
+    this.answerFrom = Math.min(
+      Math.max(this.answerFrom + MIN_PUBLISH_GAP_MS, now + MIN_PUBLISH_GAP_MS / 2),
+      now + MIN_PUBLISH_GAP_MS,
+    );
     this.heldSteps = 0;
     // A replay's jump shows only where it arrives: its slices on the way are not drawn
     const presented = this.renderingEnabled && !this.replay?.isSeeking && (stepsRun > 0 || this.forcePresent);
