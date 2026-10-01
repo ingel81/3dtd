@@ -51,20 +51,20 @@ describe('enemy types config', () => {
     expect(ENEMY_TYPES['ooze'].splitOnDeath?.type).toBe('slime-clump');
     expect(splitBodyCount('ooze')).toBe(21);
     expect(lineageHp('ooze')).toBe(ENEMY_TYPES['ooze'].baseHp + 20 * ENEMY_TYPES['slime-clump'].baseHp);
-    // 20 clumps of 3 at the HQ cost more than the whole ooze (49)
+    // 20 clumps of 6 at the HQ cost more than the whole ooze (49)
     expect(lineageLeakDamage('ooze')).toBe(20 * leakDamageOf('slime-clump'));
     expect(ENEMY_TYPES['slime-clump'].splitOnDeath).toBeUndefined();
   });
 
-  it('keeps the clumps of a full ooze at a tenth of its HP', () => {
+  it('keeps the clumps of a full ooze at three tenths of its HP', () => {
     // Die Beziehung, nicht die Zahl: Der Ooze zog am 2026-09-22 von 3.000 auf
     // 60.000, weil ihn als einzelnen Körper jeder Turm gleichzeitig trifft.
-    // Die Klumpen mussten mit, sonst wäre aus einem Zehntel ein Zweihundertstel
-    // geworden.
+    // Die Klumpen mussten mit. Seit 2026-10-02 tragen sie drei Zehntel, die
+    // zweite Phase des Bosses.
     const ooze = ENEMY_TYPES['ooze'];
     const split = ooze.splitOnDeath!;
-    expect(split.count * ENEMY_TYPES['slime-clump'].baseHp).toBe(ooze.baseHp / 10);
-    expect(lineageHp('ooze')).toBe(ooze.baseHp * 1.1);
+    expect(split.count * ENEMY_TYPES['slime-clump'].baseHp).toBe(ooze.baseHp * 0.3);
+    expect(lineageHp('ooze')).toBe(ooze.baseHp * 1.3);
   });
 
   it('lets a skeleton leak twice: both minions reach the base when it dies just before', () => {

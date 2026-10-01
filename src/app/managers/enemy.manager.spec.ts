@@ -1008,9 +1008,9 @@ describe('EnemyManager', () => {
       const along = clumps.map((c) => c.movement.getDistanceAlongPath()).sort((a, b) => a - b);
       expect(along[0]).toBeCloseTo(42, 6);
       expect(along[19]).toBeCloseTo(118, 6);
-      expect(clumps.every((c) => c.health.maxHp === 30)).toBe(true);
-      // The same 600 HP as the ten clumps of 60 HP before 2026-09-14
-      expect(clumps.reduce((sum, c) => sum + c.health.maxHp, 0)).toBe(600);
+      expect(clumps.every((c) => c.health.maxHp === 90)).toBe(true);
+      // Three tenths of the ooze's 6000 HP (one tenth before 2026-10-02)
+      expect(clumps.reduce((sum, c) => sum + c.health.maxHp, 0)).toBe(1800);
       // Lanes scattered across the corridor, not one line
       expect(new Set(clumps.map((c) => c.movement.getLateralFactor().toFixed(3))).size).toBe(20);
       // The band collapses from the body's stretch of the kill's sub-step; the removal after it keeps that

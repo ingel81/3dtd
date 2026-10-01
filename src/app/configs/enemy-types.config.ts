@@ -201,7 +201,7 @@ export interface EnemyTypeConfig {
    * ratio; name, boss flag, health bar colour and stats are this type's.
    */
   renderAs?: EnemyTypeId;
-  /** A boss's rage and regeneration (managers/boss-traits.ts) */
+  /** A boss's rage (managers/boss-traits.ts) */
   traits?: BossTraits;
 
   // Air Unit
@@ -1200,15 +1200,15 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     emissiveColor: '#66ff22',
     // Appears only as the boss, never in a template
     isBoss: true,
-    // Heals in the gaps between the towers: 1.5 % of its HP a second after 3 s without a hit
-    traits: { regen: { perSecond: 0.015, quietMs: 3000 } },
     // The tip keeps to the centre line; the body fills the corridor
     lateralSpread: 0,
     // 80 m of body at the HQ cost its leak damage (49 at wave scale 1), spread by the metre
     ooze: { maxLengthM: 80 },
     // A kill (not a leak) breaks it into clumps along its body, one per 4 m
     // of body left (OozeBodies.splitCount). Until 2026-09-14 ten clumps of
-    // 30 HP; twenty of 15 hold the same HP and share the same wave gold.
+    // 30 HP, then twenty holding a tenth of its HP; since 2026-10-02 twenty
+    // holding three tenths: a second phase, fast and many, instead of a slow
+    // body that is done when it dies.
     splitOnDeath: { type: 'slime-clump', count: 20, spread: 0.8 },
     previewScale: 1.4,
     previewCameraDistance: 6,
@@ -1233,11 +1233,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'unarmored',
     // What is left of the ooze keeps flowing back together, unless it burns
     regenPerSecond: 0.02,
-    // Twenty of them hold a tenth of the ooze's HP; the split scales them by
-    // its HP multiplier. No template, not in AI_ENEMY_ORDER, no split of its own.
-    // Ein Zwanzigstel des Ooze, damit die zwanzig Klumpen zusammen ein Zehntel
-    // seiner HP tragen. Zog mit ihm von 3.000 auf 60.000 mit (2026-09-22).
-    baseHp: 300,
+    // Twenty of them hold three tenths of the ooze's HP; the split scales them
+    // by its HP multiplier. No split of its own. Zog mit dem Ooze von 3.000 auf
+    // 60.000 mit (2026-09-22); seit 2026-10-02 drei Zehntel statt einem.
+    baseHp: 900,
     baseSpeed: 4.5,
     hasAnimations: true,
     walkAnimation: 'Wobble',

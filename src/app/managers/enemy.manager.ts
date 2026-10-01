@@ -733,12 +733,8 @@ export class EnemyManager extends EntityManager<Enemy> {
       if (enemy.rush !== null && !enemy.movement.paused && !statusFlags.isHalted) {
         enemy.movement.speedMultiplier = enemy.rush.tick(deltaTime);
       }
-      // A boss's rage and regeneration. An ooze flowing into the base loses HP with every
-      // metre (OozeBodies), which keeps its regeneration waiting
-      if (enemy.traits !== null) {
-        const halted = statusFlags.isHalted || enemy.movement.paused;
-        if (tickBossTraits(enemy, enemy.traits, deltaTime, halted) === 'enraged') this.announceRage(enemy);
-      }
+      // A boss's rage
+      if (enemy.traits !== null && tickBossTraits(enemy, enemy.traits) === 'enraged') this.announceRage(enemy);
       // A worm segment goes where its chain put it (worms.tick above)
       const moveResult = enemy.worm === null
         ? enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier)

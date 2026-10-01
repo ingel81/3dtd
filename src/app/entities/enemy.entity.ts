@@ -85,7 +85,7 @@ export class Enemy extends GameObject {
    * instead of `position`.
    */
   body: RouteBody | null = null;
-  /** A boss's rage and regeneration (EnemyTypeConfig.traits), null for most */
+  /** A boss's rage (EnemyTypeConfig.traits), null for most */
   readonly traits: BossTraits | null;
   /** Share of a tower's damage it takes (a raging boss less), see managers/boss-traits.ts */
   damageTaken = 1;
@@ -93,9 +93,6 @@ export class Enemy extends GameObject {
   elite = false;
   /** Its rage has begun (boss-traits); the packet shows it (EF_ENRAGED) */
   enraged = false;
-  /** Game ms since it last lost HP, and the HP it had then (boss-traits, regen) */
-  regenQuietMs = 0;
-  regenSeenHp = 0;
 
   /**
    * `startIndex` and `startProgress` start the enemy part-way along `path`
