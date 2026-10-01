@@ -4,7 +4,7 @@
      (contextmenu)="$event.preventDefault()">
   @if (store.directorError(); as aiErr) {
     <div class="ai-error-banner" role="alert">
-      <strong>AI error:</strong>
+      <strong>Wave error:</strong>
       <span>{{ aiErr }}</span>
       <button type="button" (click)="store.directorError.set(null)" aria-label="Close the error message">×</button>
     </div>

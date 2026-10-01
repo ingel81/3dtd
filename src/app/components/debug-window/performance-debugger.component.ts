@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, OnDestroy, ChangeDetectionStrategy, NgZone } from '@angular/core';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { PerformanceProfilerService, PerformanceStats } from '../../services/debug/performance-profiler.service';
@@ -30,7 +30,9 @@ export class PerformanceDebuggerComponent implements OnDestroy {
   private collecting = false;
 
   constructor() {
-    this.updateInterval = setInterval(() => {
+    // Outside the zone: the timer runs while the window is closed too, and in the
+    // zone every tick ran change detection; the signal asks for it itself
+    this.updateInterval = inject(NgZone).runOutsideAngular(() => setInterval(() => {
       const isOpen = this.windowService.performanceWindow().isOpen;
       this.profiler.setProfilingActive(isOpen);
       if (!isOpen || this.collecting) return;
@@ -40,7 +42,7 @@ export class PerformanceDebuggerComponent implements OnDestroy {
           if (this.windowService.performanceWindow().isOpen) this.stats.set(stats);
         })
         .finally(() => (this.collecting = false));
-    }, REFRESH_MS);
+    }, REFRESH_MS));
   }
 
   ngOnDestroy(): void {

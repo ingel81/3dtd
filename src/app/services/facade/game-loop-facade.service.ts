@@ -517,8 +517,8 @@ export class GameLoopFacadeService {
       // here is a real bug: surface it rather than silently dropping to
       // manual waves.
       this.store.directorError.set(
-        'Could not generate a wave. Falling back to manual waves; see the console '
-        + 'for details.'
+        'Could not plan the next wave. It is tried again; if that fails too, the wave '
+        + 'comes from the Wave Debug settings. See the console for details.'
       );
       this.store.directorEnabled.set(false);
       this.pendingAIWaveRequest = false;
