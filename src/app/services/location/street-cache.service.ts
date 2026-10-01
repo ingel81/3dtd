@@ -28,14 +28,22 @@ export class StreetCacheService {
       this.dbReady = new Promise((resolve, reject) => {
         const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
 
+        // A failed open is not kept: the next call tries again (and one the browser closes, below)
         request.onerror = () => {
           console.error('[StreetCache] IndexedDB error:', request.error);
+          this.dbReady = null;
           reject(request.error);
         };
 
         request.onsuccess = () => {
-          this.db = request.result;
-          resolve(this.db);
+          const db = request.result;
+          db.onclose = () => {
+            if (this.db !== db) return;
+            this.db = null;
+            this.dbReady = null;
+          };
+          this.db = db;
+          resolve(db);
         };
 
         request.onupgradeneeded = (event) => {
@@ -75,7 +83,7 @@ export class StreetCacheService {
     try {
       const db = await this.getDB();
 
-      return new Promise((resolve) => {
+      return await new Promise((resolve) => {
         const transaction = db.transaction([this.STORE_NAME, this.INDEX_STORE], 'readwrite');
         const store = transaction.objectStore(this.STORE_NAME);
         const request = store.get(key);
@@ -132,7 +140,7 @@ export class StreetCacheService {
       // Enforce LRU limit before saving
       await this.enforceLRULimit();
 
-      return new Promise((resolve, reject) => {
+      return await new Promise((resolve, reject) => {
         const transaction = db.transaction([this.STORE_NAME, this.INDEX_STORE], 'readwrite');
         const store = transaction.objectStore(this.STORE_NAME);
 
@@ -249,7 +257,7 @@ export class StreetCacheService {
     try {
       const db = await this.getDB();
 
-      return new Promise((resolve) => {
+      return await new Promise((resolve) => {
         const transaction = db.transaction(this.INDEX_STORE, 'readonly');
         const store = transaction.objectStore(this.INDEX_STORE);
         const request = store.getAll();

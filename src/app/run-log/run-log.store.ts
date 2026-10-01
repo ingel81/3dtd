@@ -59,9 +59,28 @@ function asPromise<T>(request: IDBRequest<T>): Promise<T> {
 export class RunLogStore {
   private db: Promise<IDBDatabase> | null = null;
 
+  /**
+   * The connection, opened once. One that failed (a blocked upgrade, storage
+   * briefly unavailable) or that the browser closed (site data cleared) is
+   * forgotten, so the next call opens it again instead of failing until a
+   * reload.
+   */
   private connect(): Promise<IDBDatabase> {
-    this.db ??= openDb();
-    return this.db;
+    if (this.db) return this.db;
+    const opening = openDb().then(
+      (db) => {
+        db.onclose = () => {
+          if (this.db === opening) this.db = null;
+        };
+        return db;
+      },
+      (error: unknown) => {
+        if (this.db === opening) this.db = null;
+        throw error;
+      },
+    );
+    this.db = opening;
+    return opening;
   }
 
   /** Write the run under its id, replacing the previous state of it. */
