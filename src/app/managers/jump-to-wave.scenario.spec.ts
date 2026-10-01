@@ -45,6 +45,7 @@ function createStubService(name: string): Record<string, unknown> {
     CombatEffectService: {
       initialize: vi.fn(),
       applyAbilityStrike: vi.fn().mockReturnValue(0),
+      resetAbilityDamage: vi.fn(),
     },
     StatusEffectService: {
       setGameClockProvider: vi.fn(),
