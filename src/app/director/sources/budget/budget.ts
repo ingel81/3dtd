@@ -10,7 +10,8 @@
  *    under fire (metres of route under fire over its speed), and only a part of
  *    that when its one leak would cost a good part of the HQ (SURE_KILL_SHARE).
  *    A boss is never weaker than its escort (BOSS_OVER_ESCORT, BOSS_MIN_HP_MULT),
- *    its own limit or not.
+ *    its own limit or not. A few of each kind are elites (ELITE_SHARE) with
+ *    ELITE_HP_FACTOR times the HP, inside the same budget.
  * 4. Deckel: the wave's whole cost is at most what the defense can deal while
  *    the wave is on the route, times the loop's R, plus the leaks the tension
  *    curve allows (CAP_FOLLOWS_REGULATOR).
@@ -74,6 +75,23 @@ export const SURE_KILL_HQ_SHARE = 0.15;
  */
 export const BOSS_OVER_ESCORT = 3;
 export const BOSS_MIN_HP_MULT = 0.25;
+/**
+ * Elites: about one in twenty of a kind (rounded, so from ten of a kind on)
+ * come with ELITE_HP_FACTOR times its HP, at most its own limit; the budget
+ * pays for them, the others of the kind get less. Bosses, chains and bodies
+ * along the route have none. Which ones the spawn schedule draws
+ * (spawn-schedule-builder.ts). A wave of the same HP is less uniform.
+ */
+export const ELITE_SHARE = 0.05;
+export const ELITE_HP_FACTOR = 4.5;
+
+/** How many of `count` spawns of `type` are elites */
+export function eliteCount(type: string, count: number): number {
+  const cfg = ENEMY_TYPES[type as EnemyTypeId];
+  if (!cfg || cfg.isBoss || cfg.chain || cfg.ooze) return 0;
+  return Math.round(count * ELITE_SHARE);
+}
+
 /** Least time under fire an enemy counts with, so a defense whose LOS is not in yet does not zero the HP. */
 export const MIN_UNDER_FIRE_S = 2;
 /** HP factors stay within these, whatever the defense. */
@@ -136,6 +154,8 @@ export interface BudgetResult {
   readonly limits: Readonly<Record<string, number>>;
   /** Bosses held up by their floor (BOSS_OVER_ESCORT, BOSS_MIN_HP_MULT) over the shared factor or their limit. */
   readonly floored: readonly string[];
+  /** Per type with elites: how many and their HP factor (eliteCount, ELITE_HP_FACTOR). */
+  readonly elites: Readonly<Record<string, { readonly count: number; readonly hpMult: number }>>;
 }
 
 /** The bodies of one kind one spawn brings, each walking past the towers on its own. */
@@ -194,7 +214,7 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   }, 0);
 
   const leakHp = Math.max(MIN_LEAK_HP, input.defense.hpRemaining * Math.max(0, input.targetPressure));
-  const hurt: { type: string; boss: boolean; n: number; hp: number; sec: number; cap: number; fire: number; onRoute: number }[] = [];
+  const hurt: { type: string; boss: boolean; n: number; elites: number; hp: number; sec: number; cap: number; fire: number; onRoute: number }[] = [];
   const unhurt: string[] = [];
   let leakCost = 0;
   for (const [type, spawns] of types) {
@@ -219,7 +239,8 @@ export function sizeWave(input: BudgetInput): BudgetResult {
       const fire = Math.max(MIN_UNDER_FIRE_S, damageMetres / (rawDps * Math.max(0.1, part.speed)));
       // For the wave's window: how long this body is under fire at all (union of the stretches)
       const onRoute = Math.max(MIN_UNDER_FIRE_S, (defense.metresUnderFire?.[side] ?? 0) / Math.max(0.1, part.speed));
-      hurt.push({ type, boss: cfg.isBoss === true, n, hp: part.hp, sec, fire, onRoute, cap: (share * fire) / sec });
+      const elites = cfg.chain ? 0 : eliteCount(type, spawns);
+      hurt.push({ type, boss: cfg.isBoss === true, n, elites, hp: part.hp, sec, fire, onRoute, cap: (share * fire) / sec });
     }
     if (!isHurt) unhurt.push(type);
   }
@@ -239,18 +260,29 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   const capWindow = CAP_FOLLOWS_REGULATOR ? window * input.regulator : window;
   const delivered = Math.min(budget, capWindow + budget * Math.min(1, allowedLeaks / Math.max(1, count)));
 
-  // A boss's floor at the shared factor m: over the toughest escort body, over its share of its base
+  // An elite: ELITE_HP_FACTOR times its kind, at most the kind's own limit
+  const eliteOf = (mult: number, cap: number) => Math.max(mult, Math.min(ELITE_HP_FACTOR * mult, cap));
+
+  // A boss's floor at the shared factor m: BOSS_OVER_ESCORT times the toughest escort body,
+  // as tough as an elite of it, and its share of its base
   const bossHp = new Map<string, number>();
   for (const h of hurt) if (h.boss) bossHp.set(h.type, Math.max(bossHp.get(h.type) ?? 0, h.hp));
   const floorOf = (type: string, m: number) => {
     let escort = 0;
-    for (const h of hurt) if (!h.boss) escort = Math.max(escort, h.hp * Math.min(m, h.cap));
-    return Math.max(BOSS_MIN_HP_MULT, (BOSS_OVER_ESCORT * escort) / bossHp.get(type)!);
+    for (const h of hurt) {
+      if (h.boss) continue;
+      const mult = Math.min(m, h.cap);
+      escort = Math.max(escort, BOSS_OVER_ESCORT * h.hp * mult, h.elites > 0 ? h.hp * eliteOf(mult, h.cap) : 0);
+    }
+    return Math.max(BOSS_MIN_HP_MULT, escort / bossHp.get(type)!);
   };
   const multOf = (h: (typeof hurt)[number], m: number) => (h.boss ? Math.max(floorOf(h.type, m), Math.min(m, h.cap)) : Math.min(m, h.cap));
 
-  // One shared factor m, each type held at its own limit, a boss at least at its floor
-  const cost = (m: number) => hurt.reduce((sum, h) => sum + h.n * h.sec * multOf(h, m), 0);
+  // One shared factor m, each type held at its own limit, a boss at least at its floor, the elites on top
+  const cost = (m: number) => hurt.reduce((sum, h) => {
+    const mult = multOf(h, m);
+    return sum + h.sec * ((h.n - h.elites) * mult + h.elites * eliteOf(mult, h.cap));
+  }, 0);
   let lo = 0;
   let hi = HP_MULT_MAX;
   if (cost(hi) <= delivered) lo = hi;
@@ -260,8 +292,10 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   const hpMult: Record<string, number> = {};
   const clamped: string[] = [];
   const floored: string[] = [];
+  const elites: Record<string, { count: number; hpMult: number }> = {};
   for (const h of hurt) {
     const mult = multOf(h, m);
+    if (h.elites > 0) elites[h.type] = { count: h.elites, hpMult: round3(Math.min(HP_MULT_MAX, Math.max(HP_MULT_MIN, eliteOf(mult, h.cap)))) };
     if (h.boss && mult > Math.min(m, h.cap)) {
       if (!floored.includes(h.type)) floored.push(h.type);
     } else if (h.cap < m && !clamped.includes(h.type)) clamped.push(h.type);
@@ -272,7 +306,7 @@ export function sizeWave(input: BudgetInput): BudgetResult {
 
   const limits: Record<string, number> = {};
   for (const [type, cap] of capOf) limits[type] = round3(cap);
-  return { hpMult, budget, delivered, window, capped: delivered < budget, clamped, unhurt, limits, floored };
+  return { hpMult, budget, delivered, window, capped: delivered < budget, clamped, unhurt, limits, floored, elites };
 }
 
 function round3(x: number): number {

@@ -89,6 +89,8 @@ export class Enemy extends GameObject {
   readonly traits: BossTraits | null;
   /** Share of a tower's damage it takes (a raging boss less), see managers/boss-traits.ts */
   damageTaken = 1;
+  /** An elite of its kind (SpawnEntry.elite) or split from one; the packet marks it (EF_ELITE) */
+  elite = false;
   /** Its rage has begun (boss-traits); the packet shows it (EF_ENRAGED) */
   enraged = false;
   /** Game ms since it last lost HP, and the HP it had then (boss-traits, regen) */

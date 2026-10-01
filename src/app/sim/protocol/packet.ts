@@ -63,6 +63,8 @@ export const EF_MOVING = 1024;
 export const EF_ANY_STATUS = 2048;
 /** A boss in its rage (Enemy.enraged): tinted red */
 export const EF_ENRAGED = 4096;
+/** An elite (Enemy.elite): bigger and gold */
+export const EF_ELITE = 8192;
 
 // ── Projectiles in flight ──
 export const P_ID = 0;

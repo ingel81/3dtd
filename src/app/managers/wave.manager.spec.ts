@@ -159,6 +159,21 @@ describe('WaveManager', () => {
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
     });
 
+    it('marks the enemy of an elite entry', () => {
+      const spawned: { worm: null; elite?: boolean }[] = [];
+      (enemyManager.spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        const enemy = { worm: null };
+        spawned.push(enemy);
+        return enemy;
+      });
+      const config = makeWaveConfig({ count: 2, spawnDelay: 100 });
+      config.schedule!.entries[1].elite = true;
+      wm.startWave(config);
+      wm.tickSpawn(0);
+      wm.tickSpawn(1000);
+      expect(spawned.map((e) => e.elite === true)).toEqual([false, true]);
+    });
+
     it('spawns enemies with game-time delay between them', () => {
       wm.startWave(makeWaveConfig({ count: 3, spawnDelay: 400 }));
 

@@ -626,14 +626,17 @@ export class EnemyManager extends EntityManager<Enemy> {
         : count > 1 ? (2 * i) / (count - 1) - 1 : 0;
       start.lateralFactor = centre + side * spread;
       if (body) this.oozes.placeSplitChild(parent, i, count, start);
-      children.push(this.spawn(
+      const child = this.spawn(
         pm.path,
         split.type,
         childType.baseSpeed * speedScale,
         paused,
         childType.baseHp * hpScale,
         start,
-      ));
+      );
+      // An elite's children are as tough for their kind (hpScale), and marked so
+      child.elite = parent.elite;
+      children.push(child);
     }
     this.eventBus.emit({ type: 'enemy:split', enemy: parent, children });
   }

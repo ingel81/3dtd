@@ -35,6 +35,8 @@ export interface SpawnEntry {
   pauseAfter?: number;
   /** Spawn at this spawn point, not by spawnMode: a coop lane (laneSchedule) */
   spawnPointId?: string;
+  /** An elite of its kind (WaveEnemyGroup.elite): its health is the elite's, it is marked */
+  elite?: boolean;
 }
 
 /**
@@ -396,6 +398,7 @@ export class WaveManager implements IGameManager {
       const path = this.cachedPaths.get(spawn.id);
       if (path && path.length > 1) {
         const enemy = this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health, 'portal');
+        if (entry.elite) enemy.elite = true;
         // A worm puts all its segments on the route from this one entry
         if (enemy.worm !== null) {
           this.expectedBodyWeight += (enemy.worm.group.size - 1) * enemyRewardWeight(ENEMY_TYPES[entry.enemyType].baseHp);

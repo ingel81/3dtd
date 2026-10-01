@@ -95,12 +95,16 @@ export class BudgetWaveSource implements WaveSource {
 
     const enemies: WaveEnemyGroup[] = Object.entries(planned)
       .filter(([, count]) => count > 0)
-      .map(([type, count]) => ({
-        type,
-        count,
-        healthMultiplier: sized.hpMult[type] ?? 1,
-        ...(mutator?.speed ? { speedMultiplier: mutator.speed } : {}),
-      }));
+      .map(([type, count]) => {
+        const elite = sized.elites[type];
+        return {
+          type,
+          count,
+          healthMultiplier: sized.hpMult[type] ?? 1,
+          ...(mutator?.speed ? { speedMultiplier: mutator.speed } : {}),
+          ...(elite ? { elite: { count: elite.count, healthMultiplier: elite.hpMult } } : {}),
+        };
+      });
     const totalCount = enemies.reduce((sum, group) => sum + group.count, 0);
     const shared = sharedMult(sized);
     const explanation: DecisionExplanation = {

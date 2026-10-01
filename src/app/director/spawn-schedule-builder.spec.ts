@@ -339,3 +339,34 @@ describe('buildSpawnSchedule() — random pattern', () => {
     expect(tanks).toBe(3);
   });
 });
+
+// ----------------------------------------------------------------
+// Elites
+// ----------------------------------------------------------------
+describe('buildSpawnSchedule: elites', () => {
+  const group: WaveEnemyGroup = { type: 'zombie', count: 40, healthMultiplier: 2, elite: { count: 2, healthMultiplier: 9 } };
+
+  it('marks as many spawns of the group as it has elites, with the elite health', () => {
+    for (const pattern of ALL_SPAWN_PATTERNS) {
+      const entries = buildSpawnSchedule(cfg([group, tankGroup(10)], pattern, { random: () => 0.5 })).entries;
+      const elites = entries.filter((e) => e.elite);
+      expect(elites.length, pattern).toBe(2);
+      expect(elites.every((e) => e.enemyType === 'zombie' && e.health === ENEMY_TYPES['zombie'].baseHp * 9), pattern).toBe(true);
+      expect(entries.filter((e) => !e.elite && e.enemyType === 'zombie').every((e) => e.health === ENEMY_TYPES['zombie'].baseHp * 2)).toBe(true);
+    }
+  });
+
+  it('spreads them over the group, where the spawn stream says', () => {
+    const at = (draw: number) => buildSpawnSchedule(cfg([group], 'sequential', { random: () => draw })).entries
+      .map((e, i) => (e.elite ? i : -1)).filter((i) => i >= 0);
+    expect(at(0)).toEqual([0, 20]);
+    expect(at(0.5)).toEqual([10, 30]);
+    expect(at(0.99)).toEqual([19, 39]);
+  });
+
+  it('draws nothing for a wave without elites', () => {
+    let draws = 0;
+    buildSpawnSchedule(cfg([zombieGroup(40)], 'sequential', { random: () => { draws++; return 0.5; } }));
+    expect(draws).toBe(0);
+  });
+});

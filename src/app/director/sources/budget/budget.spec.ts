@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   baseBudgetSeconds, bodyParts, budgetSeconds, ENDLESS_GROWTH, enemyHp, meanRush, sizeWave, BOSS_MIN_HP_MULT, BOSS_OVER_ESCORT,
-  BUDGET_REALISM, SURE_KILL_HQ_SHARE, SURE_KILL_SHARE, UNDER_FIRE_SHARE, type BudgetInput,
+  BUDGET_REALISM, ELITE_HP_FACTOR, SURE_KILL_HQ_SHARE, SURE_KILL_SHARE, UNDER_FIRE_SHARE, eliteCount, type BudgetInput,
 } from './budget';
 import type { EffectiveDPSPerArmor } from '../../models/game-state-snapshot';
 import { ENEMY_TYPES, WORM_MAX_SEGMENTS } from '../../../configs/enemy-types.config';
@@ -23,9 +23,13 @@ const base = (over: Partial<BudgetInput> = {}): BudgetInput => ({
   ...over,
 });
 
-/** Seconds of defense damage the sized wave costs. */
-const cost = (input: BudgetInput, hpMult: Readonly<Record<string, number>>) =>
-  Object.entries(input.enemies).reduce((sum, [type, n]) => sum + (n * enemyHp(type) * hpMult[type]) / (1000 * BUDGET_REALISM), 0);
+/** Seconds of defense damage the sized wave costs, its elites included. */
+const cost = (input: BudgetInput, sized: ReturnType<typeof sizeWave>) =>
+  Object.entries(input.enemies).reduce((sum, [type, n]) => {
+    const elite = sized.elites[type] ?? { count: 0, hpMult: 0 };
+    const hp = (n - elite.count) * sized.hpMult[type] + elite.count * elite.hpMult;
+    return sum + (enemyHp(type) * hp) / (1000 * BUDGET_REALISM);
+  }, 0);
 
 describe('budget curve', () => {
   it('starts at 15 s and rises steadily, without a bend at the end of the plan', () => {
@@ -47,7 +51,7 @@ describe('sizeWave', () => {
     const sized = sizeWave(input);
     expect(sized.capped).toBe(false);
     expect(sized.delivered).toBeCloseTo(budgetSeconds(20));
-    expect(cost(input, sized.hpMult)).toBeCloseTo(sized.delivered, 1);
+    expect(cost(input, sized)).toBeCloseTo(sized.delivered, 1);
   });
 
   it('scales with the row strength and the loop, the same way for every wave', () => {
@@ -113,6 +117,30 @@ describe('sizeWave, an enemy whose one leak costs a good part of the HQ', () => 
     expect(49).toBeLessThan(3000 * SURE_KILL_HQ_SHARE);
     expect(49).toBeGreaterThan(300 * SURE_KILL_HQ_SHARE);
     expect(at(300).hpMult['ooze']).toBeCloseTo((at(3000).hpMult['ooze'] * SURE_KILL_SHARE) / UNDER_FIRE_SHARE, 2);
+  });
+});
+
+describe('sizeWave, elites', () => {
+  it('makes one in twenty of a kind an elite with ELITE_HP_FACTOR times the HP, inside the same budget', () => {
+    const input = base({ enemies: { zombie: 100 } });
+    const sized = sizeWave(input);
+    expect(eliteCount('zombie', 100)).toBe(5);
+    expect(sized.elites['zombie']).toEqual({ count: 5, hpMult: expect.any(Number) });
+    expect(sized.elites['zombie'].hpMult / sized.hpMult['zombie']).toBeCloseTo(ELITE_HP_FACTOR, 2);
+    expect(cost(input, sized)).toBeCloseTo(sized.delivered, 1);
+  });
+
+  it('has none for a boss, a chain or fewer than ten of a kind', () => {
+    expect(eliteCount('herbert', 40)).toBe(0);
+    expect(eliteCount('worm', 40)).toBe(0);
+    expect(eliteCount('ooze', 40)).toBe(0);
+    expect(eliteCount('tank', 9)).toBe(0);
+    expect(eliteCount('tank', 10)).toBe(1);
+  });
+
+  it('keeps an elite at the limit of its kind', () => {
+    const sized = sizeWave(base({ enemies: { mammoth: 40 }, defense: { dps: dps(1000), damageMetres: dps(1000 * 15), hpRemaining: 300 } }));
+    expect(sized.elites['mammoth'].hpMult).toBeLessThanOrEqual(sized.limits['mammoth'] + 1e-3);
   });
 });
 

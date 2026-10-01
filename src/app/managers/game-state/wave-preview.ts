@@ -15,13 +15,18 @@ export function summarizeWaveGroups(config: WaveConfig, lanes = 1, wave = 1): Wa
   const entries = config.schedule.entries;
   if (entries.length === 0) return [];
 
-  const groupMap = new Map<string, { count: number; health: number; speed: number }>();
+  const groupMap = new Map<string, { count: number; health: number; speed: number; elite: boolean }>();
   for (const e of entries) {
     const existing = groupMap.get(e.enemyType);
     if (existing) {
       existing.count++;
+      // An elite's health is not its kind's: the first regular one gives it
+      if (existing.elite && !e.elite) {
+        existing.health = e.health ?? 0;
+        existing.elite = false;
+      }
     } else {
-      groupMap.set(e.enemyType, { count: 1, health: e.health ?? 0, speed: e.speed });
+      groupMap.set(e.enemyType, { count: 1, health: e.health ?? 0, speed: e.speed, elite: e.elite === true });
     }
   }
 

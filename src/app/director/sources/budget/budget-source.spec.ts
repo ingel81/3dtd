@@ -46,6 +46,16 @@ describe('BudgetWaveSource', () => {
     expect(plain.log.diagnostics?.['mutator']).toBeNull();
   });
 
+  it('sends the elites the budget sized with their kind', () => {
+    const wave = plan(new BudgetWaveSource(), 26);
+    const withElites = wave.config.enemies.filter((g) => g.elite);
+    expect(withElites.length).toBeGreaterThan(0);
+    for (const g of withElites) {
+      expect(g.elite!.count).toBeGreaterThan(0);
+      expect(g.elite!.healthMultiplier).toBeGreaterThan(g.healthMultiplier!);
+    }
+  });
+
   it('plans a boss wave the same way as any other', () => {
     const boss = plan(new BudgetWaveSource(), 30);
     expect(boss.config.templateName).toBe(planRowForWave(30)!.name);

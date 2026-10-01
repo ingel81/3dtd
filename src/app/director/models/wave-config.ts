@@ -27,6 +27,12 @@ export interface WaveEnemyGroup {
 
   /** Per-group spawn delay override in ms (overrides global baseDelay) */
   spawnDelay?: number;
+
+  /**
+   * Elites of the group: how many and their health multiplier (budget.ts,
+   * ELITE_SHARE); the spawn schedule draws which ones.
+   */
+  elite?: { count: number; healthMultiplier: number };
 }
 
 /**

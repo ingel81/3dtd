@@ -65,9 +65,15 @@ export function waveBodies(wave: number, config: Pick<WaveConfig, 'enemies'>): W
     const bodies = parts.reduce((sum, p) => sum + p.bodies, 0);
     const leak = cfg.chain ? leakDamageOf(group.type as EnemyTypeId) / bodies : lineageLeakDamage(group.type as EnemyTypeId);
     const scale = RUN_PLAN_RULES.leakScale(wave, group.type);
+    // A raging boss counts as more HP: the part past the rage at its damage taken, faster (boss-traits.ts)
+    const rage = cfg.traits?.rage;
+    const hpFactor = rage ? 1 - rage.belowHp + (rage.belowHp * rage.speed) / rage.damageTaken : 1;
     for (const part of parts) {
       const n = group.count * part.bodies;
-      out.push({ type: group.type, n, hp: part.hp * (group.healthMultiplier ?? 1), armor: part.armor, air: !!cfg.isAirUnit, speed: part.speed, leak: leak * scale });
+      const elites = cfg.chain ? 0 : Math.min(n, group.elite?.count ?? 0);
+      const body = { type: group.type, armor: part.armor, air: !!cfg.isAirUnit, speed: part.speed, leak: leak * scale };
+      if (elites > 0) out.push({ ...body, n: elites, hp: part.hp * group.elite!.healthMultiplier * hpFactor });
+      out.push({ ...body, n: n - elites, hp: part.hp * (group.healthMultiplier ?? 1) * hpFactor });
     }
   }
   return out.filter((b) => b.n > 0);

@@ -76,6 +76,8 @@ export function buildSpawnSchedule(config: ScheduleBuildConfig): SpawnSchedule {
       entries = buildInterleaved(validGroups);
   }
 
+  markElites(entries, validGroups, random);
+
   // The gaps are drawn when the spawns come due (WaveManager.startWave),
   // from the same spawn stream
   const variation = config.delayVariation ?? 0;
@@ -90,6 +92,29 @@ export function buildSpawnSchedule(config: ScheduleBuildConfig): SpawnSchedule {
  * for legacy paths (debug UI creating ad-hoc waves without template metadata).
  */
 export const DEFAULT_SPAWN_PATTERN: SpawnPattern = 'interleaved';
+
+/**
+ * The elites of each group (WaveEnemyGroup.elite): spread evenly over the
+ * group's spawns, where in the spread one draw of the stream decides, so a
+ * wave does not always lead with its elite. Their entries carry the elite's
+ * health and the mark.
+ */
+function markElites(entries: SpawnEntry[], groups: WaveEnemyGroup[], random: () => number): void {
+  for (const group of groups) {
+    const elite = group.elite;
+    if (!elite || elite.count <= 0) continue;
+    const own = entries.filter((e) => e.enemyType === group.type && !e.elite);
+    const count = Math.min(elite.count, own.length);
+    if (count === 0) continue;
+    const offset = random();
+    const health = Math.round((ENEMY_TYPES[group.type as EnemyTypeId]?.baseHp ?? 80) * elite.healthMultiplier);
+    for (let i = 0; i < count; i++) {
+      const entry = own[Math.floor(((i + offset) * own.length) / count)];
+      entry.elite = true;
+      entry.health = health;
+    }
+  }
+}
 
 // === Pattern Implementations ===
 
