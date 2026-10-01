@@ -1388,6 +1388,8 @@ export class GameStateManager {
     for (const seat of this.heroSeats) seat.reset();
     this.commandLog.clear();
     this.simRecorder.clear();
+    // The game over numbers and the run log count a run's own ability damage
+    this.combatEffect.resetAbilityDamage();
 
     // NOTE: Do NOT clear GlobalRouteGrid here — it's bound to the location
     // and won't be re-initialized on a game-over restart. Tower visibility

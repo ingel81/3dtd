@@ -343,6 +343,9 @@ describe('DamageApplicationService', () => {
       service.applyMaxHpFraction(vfx as never, makeEnemy({ id: 'c', hp: 100 }) as never, 0.5, false, 'bob');
       expect(service.abilityDamageOf('ann')).toBeCloseTo(60);
       expect(service.abilityDamageOf('bob')).toBeCloseTo(50);
+      // A new run counts from 0: the game over numbers of the next run held the earlier ones
+      service.resetAbilityDamage();
+      expect(service.abilityDamageOf('ann')).toBe(0);
     });
 
     it('credits the kill to no tower', () => {

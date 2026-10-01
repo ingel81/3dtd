@@ -495,6 +495,11 @@ export class CombatEffectService {
     return this.damageService.abilityDamageOf(ownerId);
   }
 
+  /** A new run counts the abilities' damage from 0 */
+  resetAbilityDamage(): void {
+    this.damageService.resetAbilityDamage();
+  }
+
   /**
    * Damage number for an ability: `fraction` of the enemy's max HP, drawn
    * like a tower hit. A beam's `damageType` colours it by how it does

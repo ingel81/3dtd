@@ -159,12 +159,17 @@ export class DamageApplicationService {
   }
 
   /**
-   * HP the abilities of `ownerId` took from enemies so far, overkill left
-   * out; only ever grows, the run log reads the difference over a wave
-   * (TODO E44).
+   * HP the abilities of `ownerId` took from enemies so far in this run,
+   * overkill left out; grows until the run ends, the run log reads the
+   * difference over a wave (TODO E44).
    */
   abilityDamageOf(ownerId: string): number {
     return this.abilityDamage.get(ownerId) ?? 0;
+  }
+
+  /** A new run counts from 0 (GameStateManager.reset) */
+  resetAbilityDamage(): void {
+    this.abilityDamage.clear();
   }
 
   /** HP the abilities took, by owner, see abilityDamageOf */
