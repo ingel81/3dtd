@@ -46,10 +46,10 @@ function summary(name: string, rows: readonly WaveRow[], start: number): string 
 }
 
 function table(rows: readonly WaveRow[], start: number): string {
-  const head = '| W | Welle | R | Budget | geliefert | Deckel | HP-Faktor | DPS-s | Last | Boss-HP | Boss/Begleiter | Boss-Drohung | Leck | HQ | Soll |\n'
-    + '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|';
+  const head = '| W | Welle | k | Mutator | R | Budget | geliefert | Deckel | HP-Faktor | DPS-s | Last | Boss-HP | Boss/Begleiter | Boss-Drohung | Leck | HQ | Soll |\n'
+    + '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|';
   const lines = rows.map((r) => [
-    r.wave, r.name, r2(r.regulator), r1(r.budget), r1(r.delivered), r.capped ? 'ja' : '',
+    r.wave, r.name, r2(r.strength), r.mutator ?? '', r2(r.regulator), r1(r.budget), r1(r.delivered), r.capped ? 'ja' : '',
     r2(r.shared), r0(r.dpsSeconds), r2(r.load),
     r.bossHp ? r0(r.bossHp) : '', r.bossHp && r.escortHp ? r1(r.bossHp / r.escortHp) : '',
     r.bossHp ? r2(r.bossThreat) : '', r1(r.leak), r0(r.hpEnd), r0(targetHp(r.wave, start)),

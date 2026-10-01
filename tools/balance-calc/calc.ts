@@ -11,6 +11,7 @@ import type { PlannedWave } from '../../src/app/director/wave-source';
 import { BudgetWaveSource } from '../../src/app/director/sources/budget/budget-source';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../src/app/configs/enemy-types.config';
 import { mulberry32 } from '../../src/app/utils/game-rng';
+import { planMutator, planRowForWave } from '../../src/app/director/sources/budget/run-plan';
 import { bodyFire, defenseDps, estimateLeak, realisedDps, scaleArmor, waveBodies, type LeakModel } from './model';
 import type { Trajectory } from './trajectory';
 
@@ -32,6 +33,9 @@ export interface ScenarioOptions {
 export interface WaveRow {
   readonly wave: number;
   readonly name: string;
+  /** The row's strength and the blood moon's mutator, if any */
+  readonly strength: number;
+  readonly mutator: string | null;
   readonly regulator: number;
   readonly budget: number;
   readonly delivered: number;
@@ -98,7 +102,7 @@ export function runScenario(trajectory: Trajectory, options: ScenarioOptions): W
     let planned: PlannedWave = source.plan({ wave: w.wave, state: planState, random });
     if (source.sizeAtStart) planned = source.sizeAtStart(planned, { wave: w.wave, state: startState, random });
     const config = planned.config;
-    const bodies = waveBodies(w.wave, config);
+    const bodies = waveBodies(w.wave, config, startMetres);
     const leak = estimateLeak(w.wave, bodies, startDps, startMetres, model);
     const recordedLoss = Math.max(0, w.actual.healthStart - w.actual.healthEnd);
     const buildUp = w.wave <= options.model.buildUpWaves ? recordedLoss : 0;
@@ -115,6 +119,8 @@ export function runScenario(trajectory: Trajectory, options: ScenarioOptions): W
     rows.push({
       wave: w.wave,
       name: config.templateName ?? '',
+      strength: planRowForWave(w.wave)?.strength ?? 1,
+      mutator: planMutator(w.wave)?.id ?? null,
       regulator: planned.log.pressureMultiplier ?? 1,
       budget: Number(diag['budget'] ?? 0),
       delivered: Number(diag['delivered'] ?? 0),
