@@ -1,5 +1,9 @@
 import { Injectable, signal } from '@angular/core';
+
 import { readJson, writeJson } from '../../utils/storage';
+
+/** A search or reverse lookup without an answer for this long fails, ms (it showed "Searching..." until the browser gave up) */
+const GEOCODE_TIMEOUT_MS = 10_000;
 
 export interface GeocodingResult {
   placeId: number;
@@ -145,7 +149,8 @@ export class GeocodingService {
       });
 
       const response = await fetch(`${this.NOMINATIM_URL}/search?${params}`, {
-        signal: this.abortController.signal,
+        // A newer search cancels it; a server that does not answer ends it after a while (TimeoutError, shown)
+        signal: AbortSignal.any([this.abortController.signal, AbortSignal.timeout(GEOCODE_TIMEOUT_MS)]),
         headers: {
           // Nominatim requires a user-agent
           'User-Agent': 'Nervbox-TowerDefense/1.0',
@@ -206,6 +211,7 @@ export class GeocodingService {
       });
 
       const response = await fetch(`${this.NOMINATIM_URL}/reverse?${params}`, {
+        signal: AbortSignal.timeout(GEOCODE_TIMEOUT_MS),
         headers: {
           'User-Agent': 'Nervbox-TowerDefense/1.0',
         },
