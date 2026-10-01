@@ -4,6 +4,25 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-10-01
+
+- [x] **Review gegen main** (Nachtlauf): 16 Regressionen des Worker-Umbaus behoben, u. a. Run-Log nach Ortswechsel
+      und bei hohem Tempo, Forschung nach Restore, Kill-Zuordnung im Coop beim Verkauf.
+- [x] **Robustheit und Bedienung** (zweites Review): Relay-Deckel, Timeouts für Relay und Ortssuche, Fehlerpfade der
+      Simulation, Tastatur und Fokus in Dialogen; Rest in E92.
+- [x] **Coop: Wächter für stille Verbindung** (`7379e953`): nach 20 s ohne Nachricht vom Relay Meldung statt Stillstand.
+- [x] **Ein Hinweisbanner** (`e4810de4`, `c7c29e4b`, `dec58755`): fehlende Modelle, Simulationsfehler und ein nicht
+      erreichbarer Kartenserver melden sich dort, mit Reload; nur ein abgelehnter Schlüssel führt zur Schlüsseleingabe.
+- [x] **Gunner-Modus** (`87ffcf96`, `003279c2`, `a4abc8e5`): feuert auch beim Schwenken, keine Paketflut beim Zielen,
+      danach wieder 30 Pakete pro Sekunde.
+- [x] **Route schwebt nach dem Laden** (`8ca156ce`, E93): Korridor-Region im richtigen Rahmen, Neubau auf neuen Tiles.
+- [x] **Spiellogik** (`378f4a64`, `0fa3953e`, `137c4f73`): Rückerstattung beim Verkauf des Forschungszentrums,
+      Kill-Budget im neuen Lauf, Zielstrategie greift sofort, erster Gegner einer Welle kommt sofort.
+- [x] **Sicherheit** (`3d812465`, `232b0e2b`): Bot-Server nur lokal und ohne Pfad-Ausbruch, Desktop speichert Läufe
+      auch ohne Update-Feed; Rest in E94.
+- [x] **Start- und Speicherfehler** (`34241767`, `5bed8ac5`): Worker-Start mit Banner, IndexedDB öffnet nach einem
+      Fehler neu.
+
 ## 2026-09-30
 
 - [x] **E78 Messlauf** (`5f12875b` bis `ba500df6`): Pixeldichte 1, Gegner 0,5 m/s, Füllen trifft die Zielzahl genau,
