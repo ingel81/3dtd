@@ -199,6 +199,9 @@ Ideen (2026-09-27), nichts entschieden:
       Restore, Raster-Overlay, Bot auf altem Stand, Movement-Schalter, Messskripte, Gold-Abweichungen im Run-Log bei
       hohem Tempo, Kill-Zuordnung im Coop beim Verkauf). E2E 15 von 15 grün (2026-10-01). Offen: Handtest, Coop über
       zwei Rechner, Webseite nach dem Deploy.
+      **Entschieden (User, 2026-10-01):** Der Bot entscheidet einmal je Bild und wartet auf das Paket seines letzten
+      Befehls; bei Tempo 75 sind das weniger Entscheidungen je Spielsekunde als auf `main`. So lassen: die nächste
+      Bot-Messreihe auf `next` ist die neue Basis, Reihen von vor dem Worker nicht mehr direkt damit vergleichen.
 - [ ] **E72 Mehr Gegner bei gleicher Bildrate** ([SIM_WORKER.md](docs/SIM_WORKER.md#mehr-gegner-gemessen-2026-09-29)):
       **Gemessen 2026-09-29** bis 25000 Gegner: Chromium hält 144 FPS und Tempo 4 bis rund 11000 (vorher 4900), dann
       wird der Worker knapp; Firefox hält Tempo 4 bis rund 7300, Grenze ist der Hauptthread (Paket anwenden 6 bis 19 ms).
@@ -337,6 +340,9 @@ Ideen (2026-09-27), nichts entschieden:
       mit Gegenprobe geprüft.
 - [ ] **E91 Diagramme für FPS, Ticks und Sim** (Playtest 2026-09-30): minimal bleiben, aber wie richtige Diagramme
       aussehen (Skala, saubere Linie, Grenzlinien, aktueller Wert). Entwurf vor dem Bauen.
+      **Entschieden (User, 2026-10-01):** Variante B aus dem Entwurf: 96 px breit wie heute, feste Skala, der schlechte
+      Bereich als Band (FPS unter 30, Ticks unter 24, Sim über 90 %), Punkt am letzten Wert, aktueller Wert rechts,
+      darunter Minimum und Maximum der Minute.
 - [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
       Der Worker loopt mit eigener Uhr statt auf Tick-Anfrage, der Hauptthread liest je Bild den neuesten Stand und
       spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf
