@@ -14,6 +14,7 @@
  */
 
 import { RUN_PLAN_RULES } from './sources/budget/run-plan';
+import { WAVE_MUTATORS, type WaveMutator, type WaveMutatorId } from '../configs/wave-mutators.config';
 
 export interface WaveGold {
   /** Gold the wave's kills pay in total */
@@ -32,6 +33,8 @@ export interface WaveRules {
   enemyMix(wave: number): readonly (readonly [string, number])[] | null;
   /** Name of `wave` when the source fixes it in advance, else null. */
   name(wave: number): string | null;
+  /** What changes how the enemies of `wave` come (configs/wave-mutators.config.ts), null for nothing. */
+  mutator(wave: number): WaveMutatorId | null;
 }
 
 let active: WaveRules | null = null;
@@ -47,6 +50,12 @@ export function waveRules(): WaveRules {
 
 export function setActiveWaveRules(rules: WaveRules): void {
   active = rules;
+}
+
+/** The mutator of `wave` under the run's rules, null for none. */
+export function waveMutator(wave: number): WaveMutator | null {
+  const id = waveRules().mutator(wave);
+  return id ? WAVE_MUTATORS[id] : null;
 }
 
 /** Whether `wave` brings air units, from the enemy mix the source fixes in advance. */

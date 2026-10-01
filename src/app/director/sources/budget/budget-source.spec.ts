@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { BudgetWaveSource, BUDGET_REGULATOR_LIMITS } from './budget-source';
 import { planRowForWave } from './run-plan';
+import { budgetSeconds } from './budget';
+import { WAVE_MUTATORS } from '../../../configs/wave-mutators.config';
 import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';
 import type { WaveResult } from '../../models/wave-result';
 
@@ -29,6 +31,19 @@ describe('BudgetWaveSource', () => {
     expect(Object.fromEntries(wave.config.enemies.map((g) => [g.type, g.count]))).toEqual(row.enemies);
     expect(wave.config.spawnDelay).toBe(row.spawnDelay);
     expect(wave.config.enemies.every((g) => (g.healthMultiplier ?? 0) > 0)).toBe(true);
+  });
+
+  it('sends a Swift wave faster, with its budget cut by the mutator', () => {
+    const swift = plan(new BudgetWaveSource(), 14);
+    expect(swift.config.enemies.every((g) => g.speedMultiplier === WAVE_MUTATORS.swift.speed)).toBe(true);
+    const expected = budgetSeconds(14) * planRowForWave(14)!.strength * WAVE_MUTATORS.swift.budget!;
+    expect(swift.log.diagnostics?.['budget']).toBeCloseTo(expected, 0);
+    expect(swift.log.diagnostics?.['mutator']).toBe('swift');
+    expect(swift.explanation!.reasons.some((r) => r.includes(WAVE_MUTATORS.swift.name))).toBe(true);
+
+    const plain = plan(new BudgetWaveSource(), 13);
+    expect(plain.config.enemies.every((g) => g.speedMultiplier === undefined)).toBe(true);
+    expect(plain.log.diagnostics?.['mutator']).toBeNull();
   });
 
   it('plans a boss wave the same way as any other', () => {

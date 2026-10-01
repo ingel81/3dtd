@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { setActiveWaveRules, waveHasAir, waveRules, type WaveRules } from './wave-rules';
+import { setActiveWaveRules, waveHasAir, waveMutator, waveRules, type WaveRules } from './wave-rules';
+import { WAVE_MUTATORS } from '../configs/wave-mutators.config';
 import { RUN_PLAN_RULES, planLeakScale, planRowForWave } from './sources/budget/run-plan';
 import { enemyBaseDamageForWave, waveGold } from '../configs/campaign.config';
 import { TableWaveSource } from './sources/table/table-source';
@@ -11,6 +12,7 @@ const LOUD: WaveRules = {
   isBoss: (wave) => wave === 3,
   enemyMix: (wave) => (wave === 4 ? [['bat', 1]] : null),
   name: () => 'Loud',
+  mutator: (wave) => (wave === 5 ? 'swift' : null),
 };
 
 describe('wave rules', () => {
@@ -28,6 +30,8 @@ describe('wave rules', () => {
     expect(waveRules().isBoss(3)).toBe(true);
     expect(waveHasAir(4, (id) => id === 'bat')).toBe(true);
     expect(waveHasAir(5, (id) => id === 'bat')).toBe(false);
+    expect(waveMutator(5)).toBe(WAVE_MUTATORS.swift);
+    expect(waveMutator(6)).toBeNull();
     // The preview prices a leak with the active rules
     const config = { schedule: { entries: [{ enemyType: 'rat', speed: 1 }], baseDelay: 100 } } as never;
     const loud = JSON.stringify(summarizeWaveGroups(config, 1, 1));
@@ -40,5 +44,7 @@ describe('wave rules', () => {
     expect(rules.leakScale(40)).toBe(enemyBaseDamageForWave(40));
     expect(rules.name(1)).toBeTruthy();
     expect(rules.enemyMix(1)?.length).toBeGreaterThan(0);
+    // The list is the wave as written: no mutator on a blood moon either
+    expect(rules.mutator(14)).toBeNull();
   });
 });

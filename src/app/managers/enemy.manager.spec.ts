@@ -14,7 +14,8 @@ import type { GlobalRouteGridService } from '../services/world/global-route-grid
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import type { Enemy } from '../entities/enemy.entity';
 import type { OozeBody } from '../entities/ooze-body';
-import { waveRules } from '../director/wave-rules';
+import { waveMutator, waveRules } from '../director/wave-rules';
+import { WAVE_MUTATORS } from '../configs/wave-mutators.config';
 import { PORTAL_OPENING_HEIGHT } from '../configs/marker-geometry.config';
 import { TIMING } from '../configs/timing.config';
 import { ENEMY_TYPES, enemyDeathDuration, enemyRewardWeight, leakDamageOf, type EnemyTypeId } from '../configs/enemy-types.config';
@@ -200,6 +201,42 @@ describe('EnemyManager', () => {
     run(enemyDeathDuration(soldier.typeConfig) - TIMING.deathAnimationDuration);
     expect(manager.getById(soldier.id)).toBeNull();
     expect(manager.getKillingCount()).toBe(0);
+  });
+
+  describe('Regeneration mutator', () => {
+    const path: GeoPosition[] = [
+      { lat: 0, lon: 0, height: 2 },
+      { lat: 0.01, lon: 0, height: 2 },
+    ];
+    const regen = WAVE_MUTATORS.regen;
+
+    it('heals every living enemy by its share once per interval of game time, up to its max', () => {
+      manager.setWaveNumberProvider(() => 28); // blood moon, Regeneration
+      expect(waveMutator(28)).toBe(regen);
+      const enemy = manager.spawn(path, 'zombie');
+      vi.spyOn(enemy.movement, 'move').mockReturnValue('moving' as never);
+      const max = enemy.health.maxHp;
+      enemy.health.takeDamage(max / 2);
+
+      const step = GameClock.FIXED_STEP_MS;
+      const steps = Math.round((2 * regen.regenIntervalMs!) / step);
+      for (let s = 1; s <= steps; s++) manager.update(step, s * step);
+      expect(enemy.health.hp).toBeCloseTo(max / 2 + 2 * max * regen.regenShare!, 6);
+
+      // Half the max back takes 50 intervals; a minute of game time is more than enough
+      for (let s = steps + 1; s <= steps + Math.round(60_000 / step); s++) manager.update(step, s * step);
+      expect(enemy.health.hp).toBe(max);
+    });
+
+    it('heals nobody on a wave without it', () => {
+      manager.setWaveNumberProvider(() => 27);
+      const enemy = manager.spawn(path, 'zombie');
+      vi.spyOn(enemy.movement, 'move').mockReturnValue('moving' as never);
+      enemy.health.takeDamage(10);
+      const step = GameClock.FIXED_STEP_MS;
+      for (let s = 1; s <= 100; s++) manager.update(step, s * step);
+      expect(enemy.health.hp).toBe(enemy.health.maxHp - 10);
+    });
   });
 
   describe('kill-budget accumulator', () => {

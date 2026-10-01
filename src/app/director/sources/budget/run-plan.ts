@@ -15,6 +15,7 @@ import type { WaveRules } from '../../wave-rules';
 import { CAMPAIGN, goldTaper, waveGold } from '../../../configs/campaign.config';
 import { baseBudgetSeconds, budgetSeconds } from './budget';
 import { ENEMY_TYPES, lineageBodies, type EnemyTypeId } from '../../../configs/enemy-types.config';
+import { WAVE_MUTATORS, bloodMoonMutator, type WaveMutator } from '../../../configs/wave-mutators.config';
 
 export interface RunPlanRow {
   readonly wave: number;
@@ -109,13 +110,15 @@ export function planBaseGold(wave: number): WaveGold {
 /**
  * The enemies of wave `wave`: its row's counts times how far the budget curve
  * has risen since the row's own wave, S(N) / S(row), which is 1 inside the
- * plan. A chain (Skarnax) stays one: its length is the route's. The same
- * rule for every row; over MAX_BODIES_PER_LANE the counts shrink back.
+ * plan, and times the count of the wave's mutator (Swarm). A chain (Skarnax)
+ * stays one: its length is the route's. The same rule for every row; over
+ * MAX_BODIES_PER_LANE the counts shrink back.
  */
 export function planEnemies(wave: number): Readonly<Record<string, number>> {
   const row = planRowForWave(wave);
   if (!row) return {};
-  const growth = budgetSeconds(wave) / budgetSeconds(row.wave);
+  const mutator = planMutator(wave);
+  const growth = (budgetSeconds(wave) / budgetSeconds(row.wave)) * (mutator?.count ?? 1);
   const grows = (type: string) => !ENEMY_TYPES[type as EnemyTypeId]?.chain;
   const bodies = Object.entries(row.enemies)
     .filter(([type]) => grows(type))
@@ -128,10 +131,23 @@ export function planEnemies(wave: number): Readonly<Record<string, number>> {
   return out;
 }
 
+/** The mutator of `wave` in the run plan: the blood moon's (configs/wave-mutators.config.ts). */
+export function planMutator(wave: number): WaveMutator | null {
+  const id = bloodMoonMutator(wave);
+  return id ? WAVE_MUTATORS[id] : null;
+}
+
+/** The plan's gold for `wave`: the smooth curve times the row's strength, the kills times the mutator's bounty. */
+function planGold(wave: number): WaveGold {
+  // The same rule as the HP: a boss row of strength 1.3 pays 1.3 times, a breather 0.7
+  const gold = scaleGold(planBaseGold(wave), planRowForWave(wave)?.strength ?? 1);
+  const bounty = planMutator(wave)?.killGold ?? 1;
+  return bounty === 1 ? gold : { kill: Math.round(gold.kill * bounty), complete: gold.complete };
+}
+
 export const RUN_PLAN_RULES: WaveRules = {
   leakScale: planLeakScale,
-  // The same rule as the HP: a boss row of strength 1.3 pays 1.3 times, a breather 0.7
-  gold: (wave) => scaleGold(planBaseGold(wave), planRowForWave(wave)?.strength ?? 1),
+  gold: planGold,
   isBoss: (wave) => planRowForWave(wave)?.boss === true,
   enemyMix: (wave) => {
     const row = planRowForWave(wave);
@@ -141,4 +157,5 @@ export const RUN_PLAN_RULES: WaveRules = {
     return total > 0 ? entries.map(([type, count]) => [type, count / total] as const) : null;
   },
   name: (wave) => planRowForWave(wave)?.name ?? null,
+  mutator: bloodMoonMutator,
 };

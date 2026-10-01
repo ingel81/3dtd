@@ -1,8 +1,9 @@
 /**
- * Blood moon waves: a look and nothing else. Every seventh wave from W14 the
- * night turns red, enemies glow and searchlights on the towers point where
- * the towers aim. Stats, spawns and gold of the wave stay exactly as they
- * are; no game logic reads anything in here.
+ * Blood moon waves: every seventh wave from W14 the night turns red, enemies
+ * glow and searchlights on the towers point where the towers aim. The look is
+ * a display option; what the wave does differently is its mutator
+ * (wave-mutators.config.ts), which the run plan gives every blood moon wave
+ * whatever the look.
  */
 
 /** First blood moon wave */

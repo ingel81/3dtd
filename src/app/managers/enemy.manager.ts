@@ -10,7 +10,7 @@ import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
-import { waveRules } from '../director/wave-rules';
+import { waveMutator, waveRules } from '../director/wave-rules';
 import type { DamageType } from '../configs/combat/combat.types';
 import { airPortalExit, airPortalExitOffset, type AirPortalExit } from '../utils/air-portal-exit';
 import type { StatusEffect } from '../models/status-effects';
@@ -635,6 +635,24 @@ export class EnemyManager extends EntityManager<Enemy> {
   private profileSampleOffset = 0;
 
   /**
+   * The Regeneration mutator of the wave (configs/wave-mutators.config.ts):
+   * every `regenIntervalMs` of game time each living enemy heals its share of
+   * its max HP. On the game clock and nothing else, so a restored snapshot
+   * heals on the same sub-steps. Worm segments and oozes keep their own HP.
+   */
+  private tickRegeneration(deltaTime: number, gameTimeMs: number): void {
+    const mutator = waveMutator(this.getWaveNumber());
+    if (!mutator?.regenShare || !mutator.regenIntervalMs) return;
+    const interval = mutator.regenIntervalMs;
+    if (Math.floor(gameTimeMs / interval) === Math.floor((gameTimeMs - deltaTime) / interval)) return;
+    for (const enemy of this.getAllActive()) {
+      if (!enemy.alive || enemy.worm !== null || enemy.body) continue;
+      const health = enemy.health;
+      if (health.hp < health.maxHp) health.heal(health.maxHp * mutator.regenShare);
+    }
+  }
+
+  /**
    * Update all enemies — movement and rendering. Called once per gameplay
    * sub-step (~16ms game-time). `gameTimeMs` is the engine game-clock used
    * for DoT ticks, status-effect lookups, and pending death delays.
@@ -649,6 +667,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     // Worms first: their segments go where the chains put them, and segments
     // that come out of the portal now join the loop below
     this.worms.tick(deltaTime, gameTimeMs);
+    this.tickRegeneration(deltaTime, gameTimeMs);
 
     const profiling = this.onProfileTiming !== null;
     let tMove = 0, tGrid = 0, tHeight = 0;

@@ -24,7 +24,7 @@ import type { ArmorType } from '../../../configs/combat/combat.types';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import { PressureController, targetPressure, wavePressure } from '../../pressure-controller';
 import { directorParams } from '../../director-params';
-import { RUN_PLAN_RULES, planEnemies, planLeakScale, planRowForWave, type RunPlanRow } from './run-plan';
+import { RUN_PLAN_RULES, planEnemies, planLeakScale, planMutator, planRowForWave, type RunPlanRow } from './run-plan';
 import { bodyParts, sizeWave, type BudgetResult } from './budget';
 
 /**
@@ -56,10 +56,12 @@ export class BudgetWaveSource implements WaveSource {
     // The same set point the loop aims at (pressureTargetScale included)
     const target = targetPressure(wave) * directorParams().pressureTargetScale;
     const planned = planEnemies(wave);
+    const mutator = planMutator(wave);
     const sized = sizeWave({
       wave,
       enemies: planned,
-      strength: row.strength,
+      // A mutator that makes its enemies harder to kill takes it out of the HP (WAVE_MUTATORS)
+      strength: row.strength * (mutator?.budget ?? 1),
       spawnDelayMs: row.spawnDelay,
       regulator,
       targetPressure: target,
@@ -77,7 +79,12 @@ export class BudgetWaveSource implements WaveSource {
 
     const enemies: WaveEnemyGroup[] = Object.entries(planned)
       .filter(([, count]) => count > 0)
-      .map(([type, count]) => ({ type, count, healthMultiplier: sized.hpMult[type] ?? 1 }));
+      .map(([type, count]) => ({
+        type,
+        count,
+        healthMultiplier: sized.hpMult[type] ?? 1,
+        ...(mutator?.speed ? { speedMultiplier: mutator.speed } : {}),
+      }));
     const totalCount = enemies.reduce((sum, group) => sum + group.count, 0);
     const shared = sharedMult(sized);
     const explanation: DecisionExplanation = {
@@ -111,6 +118,7 @@ export class BudgetWaveSource implements WaveSource {
           capped: sized.capped,
           clamped: sized.clamped.join(' ') || null,
           unhurt: sized.unhurt.join(' ') || null,
+          mutator: mutator?.id ?? null,
         },
       },
     };
@@ -194,6 +202,8 @@ function explain(
   if (sized.capped) reasons.push(`The defense has about ${round1(sized.window)} s while the wave is on the route: ${round1(sized.delivered)} s of it are sent, leaks included.`);
   if (sized.clamped.length) reasons.push(`At their limit (time under fire): ${sized.clamped.map((type) => `${type} HP ×${sized.hpMult[type]}`).join(', ')}.`);
   if (sized.unhurt.length) reasons.push(`The defense cannot hurt ${sized.unhurt.join(', ')}: HP × the row's strength ${row.strength}.`);
+  const mutator = planMutator(wave);
+  if (mutator) reasons.push(`Blood moon: ${mutator.name}. ${mutator.description}`);
   if (row.note) reasons.push(row.note);
   return {
     summary: `Wave ${wave}: ${row.name} · ${totalCount} enemies · HP ×${shared}`,

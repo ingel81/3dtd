@@ -44,6 +44,8 @@ const TABLE_WAVE_RULES: WaveRules = {
     return lookup ? factsOf(wave, lookup).enemies : null;
   },
   name: (wave) => tableRowForWave(wave)?.row.name ?? null,
+  // The list is the wave as written, nothing changes it
+  mutator: () => null,
 };
 
 export class TableWaveSource implements WaveSource {

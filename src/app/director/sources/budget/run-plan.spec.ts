@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  MAX_BODIES_PER_LANE, RUN_PLAN, RUN_PLAN_REPEAT, RUN_PLAN_RULES, planBaseGold, planEnemies, planLeakScale, planRowForWave,
+  MAX_BODIES_PER_LANE, RUN_PLAN, RUN_PLAN_REPEAT, RUN_PLAN_RULES, planBaseGold, planEnemies, planLeakScale, planMutator,
+  planRowForWave,
 } from './run-plan';
+import { WAVE_MUTATORS } from '../../../configs/wave-mutators.config';
 import { budgetSeconds } from './budget';
 import { ENEMY_TYPES, lineageBodies, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import { waveGold } from '../../../configs/campaign.config';
@@ -39,8 +41,30 @@ describe('run plan', () => {
     expect(bosses).toEqual([40, 50, 60]);
   });
 
-  it('sends the row as it is inside the plan', () => {
-    for (const row of RUN_PLAN) expect(planEnemies(row.wave), `wave ${row.wave}`).toEqual(row.enemies);
+  it('sends the row as it is inside the plan, except where a mutator changes the counts', () => {
+    for (const row of RUN_PLAN) {
+      if (planMutator(row.wave)?.count) continue;
+      expect(planEnemies(row.wave), `wave ${row.wave}`).toEqual(row.enemies);
+    }
+  });
+
+  it('sends half as many again on a Swarm wave, the blood moon of W21', () => {
+    expect(planMutator(21)).toBe(WAVE_MUTATORS.swarm);
+    const row = planRowForWave(21)!;
+    for (const [type, count] of Object.entries(planEnemies(21))) {
+      expect(count).toBe(Math.round(row.enemies[type] * WAVE_MUTATORS.swarm.count!));
+    }
+  });
+
+  it('pays double kill gold on a Bounty wave, the completion as usual', () => {
+    expect(planMutator(35)).toBe(WAVE_MUTATORS.bounty);
+    const strength = planRowForWave(35)!.strength;
+    expect(RUN_PLAN_RULES.gold(35).kill).toBe(Math.round(Math.round(planBaseGold(35).kill * strength) * 2));
+    expect(RUN_PLAN_RULES.gold(35).complete).toBe(Math.round(planBaseGold(35).complete * strength));
+  });
+
+  it('names the blood moon mutators as its rules', () => {
+    expect([14, 21, 28, 35, 13].map((w) => RUN_PLAN_RULES.mutator(w))).toEqual(['swift', 'swarm', 'regen', 'bounty', null]);
   });
 
   it('grows the counts past the plan with the budget curve, a chain stays one', () => {
@@ -82,7 +106,8 @@ describe('run plan', () => {
     for (let w = 1; w <= 90; w++) {
       const row = planRowForWave(w)!;
       const base = planBaseGold(w);
-      expect(RUN_PLAN_RULES.gold(w).kill, `wave ${w}`).toBe(Math.round(base.kill * row.strength));
+      const bounty = planMutator(w)?.killGold ?? 1;
+      expect(RUN_PLAN_RULES.gold(w).kill, `wave ${w}`).toBe(Math.round(Math.round(base.kill * row.strength) * bounty));
     }
   });
 
