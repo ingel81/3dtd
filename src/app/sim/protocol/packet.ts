@@ -61,6 +61,8 @@ export const EF_BURNING = 512;
 export const EF_MOVING = 1024;
 /** movement.hasStatusEffects */
 export const EF_ANY_STATUS = 2048;
+/** A boss in its rage (Enemy.enraged): tinted red */
+export const EF_ENRAGED = 4096;
 
 // ── Projectiles in flight ──
 export const P_ID = 0;

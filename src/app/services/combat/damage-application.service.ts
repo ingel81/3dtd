@@ -68,7 +68,8 @@ export class DamageApplicationService {
     }
 
     const hpBefore = enemy.health.hp;
-    const killed = enemy.health.takeDamage(result.finalDamage);
+    // A raging boss takes less (Enemy.damageTaken, managers/boss-traits.ts)
+    const killed = enemy.health.takeDamage(result.finalDamage * enemy.damageTaken);
     this.creditDamage(sourceTowerId, hpBefore - enemy.health.hp);
     if (killed) {
       if (!skipBloodEffects) {
@@ -111,7 +112,7 @@ export class DamageApplicationService {
     }
 
     const hpBefore = enemy.health.hp;
-    const killed = enemy.health.takeDamage(result.finalDamage);
+    const killed = enemy.health.takeDamage(result.finalDamage * enemy.damageTaken);
     this.creditDamage(sourceTowerId, hpBefore - enemy.health.hp);
     if (killed) {
       vfx.emitDeathBlood(enemy);

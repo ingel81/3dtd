@@ -15,6 +15,7 @@ import type { WormLink } from '../managers/worm/worm-group';
 import type { RouteBody } from '../utils/route-body';
 import type { SpatialEntry } from '../services/world/spatial-grid.service';
 import { EnemyRush } from './enemy-rush';
+import type { BossTraits } from '../managers/boss-traits';
 
 /**
  * Enemy entity - combines Transform, Health, Render and Movement components.
@@ -84,6 +85,15 @@ export class Enemy extends GameObject {
    * instead of `position`.
    */
   body: RouteBody | null = null;
+  /** A boss's rage and regeneration (EnemyTypeConfig.traits), null for most */
+  readonly traits: BossTraits | null;
+  /** Share of a tower's damage it takes (a raging boss less), see managers/boss-traits.ts */
+  damageTaken = 1;
+  /** Its rage has begun (boss-traits); the packet shows it (EF_ENRAGED) */
+  enraged = false;
+  /** Game ms since it last lost HP, and the HP it had then (boss-traits, regen) */
+  regenQuietMs = 0;
+  regenSeenHp = 0;
 
   /**
    * `startIndex` and `startProgress` start the enemy part-way along `path`
@@ -99,6 +109,7 @@ export class Enemy extends GameObject {
     super('enemy');
     this.typeConfig = getEnemyType(typeId);
     this.heightOffset = this.typeConfig.heightOffset;
+    this.traits = this.typeConfig.traits ?? null;
     this.rush =
       this.typeConfig.animationVariation && this.typeConfig.runAnimation
         ? new EnemyRush(this.id, this.typeConfig.runSpeedMultiplier ?? 1)

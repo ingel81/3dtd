@@ -347,7 +347,7 @@ export class InstancedEnemyRenderer {
 
     // Update health bar (with debug healthBarOffset if set)
     if (slot.healthBarIndex < 0) return;
-    const barOffset = slot.debugHealthBarOffset ?? slot.config.healthBarOffset * slot.size;
+    const barOffset = slot.debugHealthBarOffset ?? slot.config.healthBarOffset * slot.size * slot.markScale;
     this.healthBarManager.updateAt(
       slot.healthBarIndex,
       localPos,
@@ -365,6 +365,11 @@ export class InstancedEnemyRenderer {
 
   startWalkAnimation(id: string): void {
     this.instanceManager.startWalkAnimation(id);
+  }
+
+  /** See EnemyInstanceManager.setMark */
+  setMark(id: string, scale: number, tint: readonly [number, number, number] | null): void {
+    this.instanceManager.setMark(id, scale, tint);
   }
 
   startRunAnimation(id: string): void {

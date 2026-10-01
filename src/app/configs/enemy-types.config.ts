@@ -7,6 +7,7 @@
 
 import { ArmorType } from '../configs/combat/combat.types';
 import { TIMING } from './timing.config';
+import type { BossTraits } from '../managers/boss-traits';
 import {
   GOLEM_FOOTSTEP,
   type DeathSoundId,
@@ -200,6 +201,8 @@ export interface EnemyTypeConfig {
    * ratio; name, boss flag, health bar colour and stats are this type's.
    */
   renderAs?: EnemyTypeId;
+  /** A boss's rage and regeneration (managers/boss-traits.ts) */
+  traits?: BossTraits;
 
   // Air Unit
   isAirUnit?: boolean; // true = air unit, only attackable by air towers
@@ -691,6 +694,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     animationSpeed: 1.0,
     heightOffset: 0.5,
     healthBarOffset: 7,
+    // Badly hurt he charges: faster, and the towers bite less
+    traits: { rage: { belowHp: 0.5, speed: 1.35, damageTaken: 0.75 } },
     // Only in boss_herbert. Stone golem and dragon lead the later boss waves
     // but also march in golem_squad and dragon_elite, so they stay regular.
     isBoss: true,
@@ -1195,6 +1200,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     emissiveColor: '#66ff22',
     // Appears only as the boss, never in a template
     isBoss: true,
+    // Heals in the gaps between the towers: 1.5 % of its HP a second after 3 s without a hit
+    traits: { regen: { perSecond: 0.015, quietMs: 3000 } },
     // The tip keeps to the centre line; the body fills the corridor
     lateralSpread: 0,
     // 80 m of body at the HQ cost its leak damage (49 at wave scale 1), spread by the metre
@@ -1269,6 +1276,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     baseSpeed: 2.2,
     healthBarColor: '#ff3b30',
     isBoss: true,
+    traits: { rage: { belowHp: 0.4, speed: 1.3, damageTaken: 0.7 } },
     lateralSpread: 0.3,
     spawnStartDelay: 2400,
     // Previews and the debug lists keep the golem's sizes
@@ -1290,6 +1298,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     heightVariation: 0,
     healthBarColor: '#ff3b30',
     isBoss: true,
+    traits: { rage: { belowHp: 0.5, speed: 1.25, damageTaken: 0.75 } },
     lateralSpread: 0.4,
     spawnStartDelay: 2400,
   },

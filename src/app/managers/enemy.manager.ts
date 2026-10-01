@@ -18,6 +18,7 @@ import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/render
 import { WormChains, stepWormSegment } from './worm/worm-chains';
 import type { WormGroup, WormLink } from './worm/worm-group';
 import { OozeBodies } from './ooze-bodies';
+import { tickBossTraits } from './boss-traits';
 import type { SimCoords } from '../sim/core/sim-coords';
 import type { SimSink } from '../sim/core/sim-sink';
 import type { KilledBy } from '../game-engine/game-event-bus';
@@ -46,7 +47,7 @@ const PROFILE_STRIDE = 32;
  * Enemy fields a wave snapshot leaves out: identity and the route grid
  * memo's generation (restoreEnemyMemo)
  */
-const ENEMY_NOT_SAVED = ['id', 'type', 'routeCellGen'];
+const ENEMY_NOT_SAVED = ['id', 'type', 'routeCellGen', 'traits'];
 
 /**
  * Why an enemy dies. A 'combat' kill (towers, damage over time) pays from
@@ -174,6 +175,17 @@ export class EnemyManager extends EntityManager<Enemy> {
   ) {
     super();
     this.oozes = new OozeBodies(globalRouteGrid, eventBus, () => this.getWaveNumber(), coords, sink);
+  }
+
+  /** A boss's rage began: a word over its head, the packet tints it (EF_ENRAGED) */
+  private announceRage(enemy: Enemy): void {
+    this.sink.effects.spawnFloatingText(
+      'ENRAGED',
+      enemy.position.lat,
+      enemy.position.lon,
+      enemy.transform.terrainHeight + enemy.heightOffset + enemy.typeConfig.healthBarOffset + 2,
+      { color: '#ff3b30', duration: 2200, floatSpeed: 1.5, scale: 1.1 },
+    );
   }
 
   /** See spawnGround */
@@ -717,6 +729,12 @@ export class EnemyManager extends EntityManager<Enemy> {
       // do not advance it.
       if (enemy.rush !== null && !enemy.movement.paused && !statusFlags.isHalted) {
         enemy.movement.speedMultiplier = enemy.rush.tick(deltaTime);
+      }
+      // A boss's rage and regeneration. An ooze flowing into the base loses HP with every
+      // metre (OozeBodies), which keeps its regeneration waiting
+      if (enemy.traits !== null) {
+        const halted = statusFlags.isHalted || enemy.movement.paused;
+        if (tickBossTraits(enemy, enemy.traits, deltaTime, halted) === 'enraged') this.announceRage(enemy);
       }
       // A worm segment goes where its chain put it (worms.tick above)
       const moveResult = enemy.worm === null

@@ -45,6 +45,7 @@ import {
   type SimFramePacket,
 } from '../sim/protocol/packet';
 import { EnemyStatusVisuals } from './enemy-status-visuals';
+import { MARK_LOOKS, NO_MARK, enemyMarkOf } from './enemy-marks';
 import { EnemySounds } from './enemy-sounds';
 import { OozePresenter, type PresentationGround } from './ooze-presenter';
 import { WormSounds } from './worm-sounds';
@@ -84,6 +85,8 @@ interface EnemyRecord {
   row: number;
   /** It had a status effect in the last frame: its looks are checked once more when it ends */
   status: boolean;
+  /** The mark its slot shows (enemy-marks.ts) */
+  mark: number;
 }
 
 /** A projectile the presenter has seen: its trail's distance */
@@ -232,7 +235,7 @@ export class FramePresenter {
         record = undefined;
       }
       if (record === undefined) {
-        record = { id: `enemy-${num}`, type, slot: null, seen: frame, row: -1, status: false };
+        record = { id: `enemy-${num}`, type, slot: null, seen: frame, row: -1, status: false, mark: NO_MARK };
         this.enemies.set(num, record);
       }
       record.seen = frame;
@@ -264,6 +267,13 @@ export class FramePresenter {
       let slot = record.slot;
       if (slot === null || slot.released) slot = record.slot = engine.enemies.resolveSlot(record.id);
       if (slot !== null) {
+        // A mark of the simulation (a raging boss): set on the slot when it changes
+        const mark = enemyMarkOf(flags);
+        if (mark !== record.mark) {
+          const look = MARK_LOOKS[mark];
+          engine.enemies.setMark(record.id, look.scale, look.tint);
+          record.mark = mark;
+        }
         // Show the walk/run state the simulation decided. Mismatch only
         // right after a switch, so the id-based call runs once per switch.
         if ((flags & EF_RUSH) !== 0) {

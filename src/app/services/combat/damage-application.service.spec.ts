@@ -25,6 +25,8 @@ interface EnemyStub {
   typeConfig: { canBleed: boolean; armorType: ArmorType };
   health: { takeDamage: (n: number) => boolean; hp: number; maxHp: number };
   getEffectiveArmorType: () => ArmorType;
+  /** Share of the damage it takes (a raging boss less) */
+  damageTaken: number;
 }
 
 function makeEnemy(opts: {
@@ -33,6 +35,7 @@ function makeEnemy(opts: {
   maxHp?: number;
   armor?: ArmorType;
   canBleed?: boolean;
+  damageTaken?: number;
 } = {}): EnemyStub {
   const armor = opts.armor ?? 'unarmored';
   let hp = opts.hp ?? 100;
@@ -55,6 +58,7 @@ function makeEnemy(opts: {
       },
     },
     getEffectiveArmorType: () => armor,
+    damageTaken: opts.damageTaken ?? 1,
   };
 }
 
@@ -126,6 +130,14 @@ describe('DamageApplicationService', () => {
       );
       expect(result).not.toBeNull();
       expect(result!.finalDamage).toBe(100 * result!.multiplier);
+    });
+
+    it('takes only the share a raging boss takes (Enemy.damageTaken), from towers and beams alike', () => {
+      const enemy = makeEnemy({ hp: 100, armor: 'unarmored', damageTaken: 0.75 });
+      service.applyDamage(vfx as never, enemy as never, 20, 'physical' as DamageType, 'tower-1', false, false);
+      expect(enemy.health.hp).toBe(85);
+      service.applyBeamDamage(vfx as never, enemy as never, 20, 'physical' as DamageType, 'tower-1', false);
+      expect(enemy.health.hp).toBe(70);
     });
 
     it('returns null and does no work if not initialized', () => {

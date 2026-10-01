@@ -310,6 +310,16 @@ describe('EnemyInstanceManager', () => {
     expect(tintOf(plain)).toEqual([0, 0, 0]);
   });
 
+  it('takes a mark of the simulation: a scale on its size, a tint under the status tints', () => {
+    const state = manager.addEnemy('m', 'wallsmasher', new Vector3(), 0, 1.5)!;
+    manager.setMark('m', 1.2, [1, 0.15, 0.08]);
+    manager.updateEnemyState(state, new Vector3(), 0, 0);
+    const matrix = new Matrix4();
+    state.pool.instancedMesh.getMatrixAt(state.index, matrix);
+    expect(new Vector3().setFromMatrixScale(matrix).x).toBeCloseTo(CONFIG.scale * 1.5 * 1.2, 4);
+    expect([0, 1, 2].map((i) => state.pool.tintColorAttr.getComponent(state.index, i))).toEqual([1, 0.15, 0.08].map(Math.fround));
+  });
+
   it('drops the hit flash of a removed enemy without touching its old slot', () => {
     const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
     manager.addEnemy('a', 'wallsmasher', new Vector3(), 0);

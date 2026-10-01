@@ -77,7 +77,9 @@ export interface EnemyInstanceState {
    * elite. 1 for most.
    */
   size: number;
-  /** Tint the instance shows while no status tint is on (an elite), null for none. */
+  /** Scale on top of `size` from what the simulation marks it as (setMark: an elite) */
+  markScale: number;
+  /** Tint the instance shows while no status tint is on (an elite, a raging boss), null for none. */
   baseTint: readonly [number, number, number] | null;
   // Debug overrides (only set for debug-spawned enemies, undefined in normal gameplay)
   debugScale?: number;
@@ -366,6 +368,7 @@ export class EnemyInstanceManager {
       released: false,
       healthBarIndex: -1,
       size,
+      markScale: 1,
       baseTint,
     };
 
@@ -474,6 +477,18 @@ export class EnemyInstanceManager {
     const pool = this.pools.get(state.typeId);
     if (!pool) return;
     this.applyTint(state, pool);
+  }
+
+  /**
+   * What the simulation marks the enemy as, from its packet flags
+   * (FramePresenter): a scale on its size and a tint under the status tints.
+   */
+  setMark(id: string, scale: number, tint: readonly [number, number, number] | null): void {
+    const state = this.getState(id);
+    if (!state) return;
+    state.markScale = scale;
+    state.baseTint = tint;
+    this.applyTint(state, state.pool);
   }
 
   /** Frozen solid (freeze status): the iced tint, over every tint but the hit flash */
@@ -737,6 +752,7 @@ export class EnemyInstanceManager {
     state.debugRotation = old.debugRotation;
     state.debugHealthBarOffset = old.debugHealthBarOffset;
     state.size = old.size;
+    state.markScale = old.markScale;
     state.baseTint = old.baseTint;
     this.applyTint(state, pool);
     return state;
@@ -933,7 +949,7 @@ export class EnemyInstanceManager {
       quat = EnemyInstanceManager._tempQuat.setFromAxisAngle(UP, totalHeading);
     }
 
-    const scale = state?.debugScale ?? pool.config.scale * (state?.size ?? 1);
+    const scale = state?.debugScale ?? pool.config.scale * (state ? state.size * state.markScale : 1);
 
     // Apply debug height offset if present
     let py = position.y;
