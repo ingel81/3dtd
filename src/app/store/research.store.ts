@@ -38,14 +38,20 @@ export class ResearchStore {
     Math.max(0, this.researchSlots() - this.activeResearches().length)
   );
 
+  /** Effects of the completed research, derived so a restore or resync cannot leave them stale */
+  private readonly completedEffects = computed<readonly ResearchEffect[]>(() =>
+    [...this.completedResearches()].flatMap((id) => getResearch(id)?.effects ?? []),
+  );
+
   /** Highest unlocked upgrade tier (default: 1) */
-  readonly maxUpgradeTier = signal<number>(1);
+  readonly maxUpgradeTier = computed(() =>
+    this.completedEffects().reduce((tier, e) => (e.kind === 'unlock-upgrade-tier' ? Math.max(tier, e.tier) : tier), 1),
+  );
 
-  /** Set of unlocked global perk IDs */
-  readonly unlockedPerks = signal<Set<string>>(new Set());
-
-  /** Whether air targeting perk is unlocked */
-  readonly airTargetingUnlocked = signal<boolean>(false);
+  /** Whether air targeting is unlocked */
+  readonly airTargetingUnlocked = computed(() =>
+    this.completedEffects().some((e) => e.kind === 'enable-targeting' && e.capability === 'air'),
+  );
 
   /**
    * Check if a tower is unlocked. Returns a computed signal.
@@ -73,34 +79,6 @@ export class ResearchStore {
   }
 
   /**
-   * Apply effects from a completed research.
-   */
-  applyResearchEffects(effects: ResearchEffect[]): void {
-    for (const effect of effects) {
-      switch (effect.kind) {
-        case 'unlock-upgrade-tier':
-          if (effect.tier > this.maxUpgradeTier()) {
-            this.maxUpgradeTier.set(effect.tier);
-          }
-          break;
-        case 'global-perk':
-          this.unlockedPerks.update(perks => {
-            const next = new Set(perks);
-            next.add(effect.perkId);
-            return next;
-          });
-          break;
-        case 'enable-targeting':
-          if (effect.capability === 'air') {
-            this.airTargetingUnlocked.set(true);
-          }
-          break;
-        // unlock-tower is handled implicitly via completedResearches
-      }
-    }
-  }
-
-  /**
    * Reset all research state (on game restart).
    */
   resetResearchState(): void {
@@ -110,8 +88,5 @@ export class ResearchStore {
     this.researchElapsed.set(new Map());
     this.centerLevel.set(0);
     this.researchSlots.set(1);
-    this.maxUpgradeTier.set(1);
-    this.unlockedPerks.set(new Set());
-    this.airTargetingUnlocked.set(false);
   }
 }

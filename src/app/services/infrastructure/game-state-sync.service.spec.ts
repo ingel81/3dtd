@@ -398,23 +398,30 @@ describe('GameStateSyncService (real service)', () => {
       expect(researchStore.researchElapsed().get('ice-magic')).toBe(7.5);
     });
 
-    it('research:completed → applyResearchEffects raises maxUpgradeTier', () => {
+    it('research:state-changed → tier and air targeting follow the completed set', () => {
+      expect(researchStore.airTargetingUnlocked()).toBe(false);
       eventBus.emit({
-        type: 'research:completed', playerId: 'local', local: true,
-        researchId: 'tier-2-tech',
-        effects: [{ kind: 'unlock-upgrade-tier', tier: 3 }],
+        type: 'research:state-changed', playerId: 'local', local: true,
+        activeResearches: [],
+        completedResearches: new Set(['aa-retrofit', 'master-engineering']),
+        queuedResearches: [],
+        centerLevel: 1,
+        maxSlots: 1,
       });
+      expect(researchStore.airTargetingUnlocked()).toBe(true);
       expect(researchStore.maxUpgradeTier()).toBe(3);
     });
 
-    it('research:completed → applies enable-targeting:air', () => {
-      expect(researchStore.airTargetingUnlocked()).toBe(false);
+    it('research:state-changed of the partner leaves the local flags alone', () => {
       eventBus.emit({
-        type: 'research:completed', playerId: 'local', local: true,
-        researchId: 'aa-retrofit',
-        effects: [{ kind: 'enable-targeting', capability: 'air' }],
+        type: 'research:state-changed', playerId: 'partner', local: false,
+        activeResearches: [],
+        completedResearches: new Set(['aa-retrofit']),
+        queuedResearches: [],
+        centerLevel: 1,
+        maxSlots: 1,
       });
-      expect(researchStore.airTargetingUnlocked()).toBe(true);
+      expect(researchStore.airTargetingUnlocked()).toBe(false);
     });
   });
 

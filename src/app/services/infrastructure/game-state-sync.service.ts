@@ -233,12 +233,6 @@ export class GameStateSyncService {
       if (!event.local) return;
       this.researchStore.researchElapsed.set(event.elapsed);
     }));
-
-    // research:completed bleibt zusätzlich, um Effects auf den Store anzuwenden
-    // (DamageMultiplier-Buffs etc.) — `state-changed` deckt nur die Pflicht-Felder ab.
-    this.subs.add(eventBus.onLive('research:completed', (event) => {
-      if (event.local) this.researchStore.applyResearchEffects([...event.effects]);
-    }));
   }
 
   /**

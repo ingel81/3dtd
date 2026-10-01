@@ -11,7 +11,6 @@ vi.mock('@angular/core', async () => {
 });
 
 import { ResearchStore } from './research.store';
-import { ResearchEffect } from '../configs/research/research.types';
 
 describe('ResearchStore', () => {
   let store: ResearchStore;
@@ -39,7 +38,6 @@ describe('ResearchStore', () => {
     });
 
     it('starts with no perks unlocked', () => {
-      expect(store.unlockedPerks().size).toBe(0);
       expect(store.airTargetingUnlocked()).toBe(false);
     });
   });
@@ -107,49 +105,27 @@ describe('ResearchStore', () => {
   });
 
   // ────────────────────────────────────────────────────────────────
-  // applyResearchEffects
+  // Effects derived from completedResearches
   // ────────────────────────────────────────────────────────────────
-  describe('applyResearchEffects', () => {
-    it('raises maxUpgradeTier on unlock-upgrade-tier', () => {
-      store.applyResearchEffects([{ kind: 'unlock-upgrade-tier', tier: 3 }]);
-      expect(store.maxUpgradeTier()).toBe(3);
-    });
-
-    it('does not regress maxUpgradeTier when a lower tier is applied later', () => {
-      store.applyResearchEffects([{ kind: 'unlock-upgrade-tier', tier: 4 }]);
-      store.applyResearchEffects([{ kind: 'unlock-upgrade-tier', tier: 2 }]);
+  describe('derived effects', () => {
+    it('takes the highest upgrade tier of the completed research', () => {
+      expect(store.maxUpgradeTier()).toBe(1);
+      store.completedResearches.set(new Set(['advanced-weaponry', 'advanced-engineering', 'master-engineering']));
       expect(store.maxUpgradeTier()).toBe(4);
     });
 
-    it('adds perk IDs to unlockedPerks on global-perk', () => {
-      const effects: ResearchEffect[] = [
-        { kind: 'global-perk', perkId: 'income-boost', description: 'Income boost' },
-      ];
-      store.applyResearchEffects(effects);
-      expect(store.unlockedPerks().has('income-boost')).toBe(true);
-    });
-
-    it('flips airTargetingUnlocked on enable-targeting:air', () => {
-      store.applyResearchEffects([{ kind: 'enable-targeting', capability: 'air' }]);
-      expect(store.airTargetingUnlocked()).toBe(true);
-    });
-
-    it('ignores unlock-tower at the store level (handled via completedResearches)', () => {
-      const before = store.unlockedPerks().size;
-      store.applyResearchEffects([{ kind: 'unlock-tower', towerId: 'ice' }]);
-      expect(store.unlockedPerks().size).toBe(before);
+    it('unlocks air targeting with the retrofit', () => {
+      store.completedResearches.set(new Set(['gatling-tech']));
       expect(store.airTargetingUnlocked()).toBe(false);
+      store.completedResearches.set(new Set(['gatling-tech', 'aa-retrofit']));
+      expect(store.airTargetingUnlocked()).toBe(true);
     });
 
-    it('processes multiple effects in one call', () => {
-      store.applyResearchEffects([
-        { kind: 'unlock-upgrade-tier', tier: 2 },
-        { kind: 'global-perk', perkId: 'commerce', description: 'Commerce' },
-        { kind: 'enable-targeting', capability: 'air' },
-      ]);
-      expect(store.maxUpgradeTier()).toBe(2);
-      expect(store.unlockedPerks().has('commerce')).toBe(true);
-      expect(store.airTargetingUnlocked()).toBe(true);
+    it('follows a restored set without any research:completed event', () => {
+      store.completedResearches.set(new Set(['aa-retrofit', 'master-engineering']));
+      store.completedResearches.set(new Set(['gatling-tech']));
+      expect(store.airTargetingUnlocked()).toBe(false);
+      expect(store.maxUpgradeTier()).toBe(1);
     });
   });
 
@@ -165,9 +141,6 @@ describe('ResearchStore', () => {
       ]);
       store.centerLevel.set(2);
       store.researchSlots.set(3);
-      store.maxUpgradeTier.set(4);
-      store.unlockedPerks.set(new Set(['income-boost']));
-      store.airTargetingUnlocked.set(true);
 
       store.resetResearchState();
 
@@ -176,7 +149,6 @@ describe('ResearchStore', () => {
       expect(store.centerLevel()).toBe(0);
       expect(store.researchSlots()).toBe(1);
       expect(store.maxUpgradeTier()).toBe(1);
-      expect(store.unlockedPerks().size).toBe(0);
       expect(store.airTargetingUnlocked()).toBe(false);
     });
   });
