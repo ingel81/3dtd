@@ -63,15 +63,19 @@ export function waveBodies(wave: number, config: Pick<WaveConfig, 'enemies'>): W
     if (!cfg || group.count <= 0) continue;
     const parts = bodyParts(group.type);
     const bodies = parts.reduce((sum, p) => sum + p.bodies, 0);
-    const leak = cfg.chain ? leakDamageOf(group.type as EnemyTypeId) / bodies : lineageLeakDamage(group.type as EnemyTypeId);
-    const scale = RUN_PLAN_RULES.leakScale(wave, group.type);
+    // What one of them costs getting through: itself, or its split children at their own scale (a boss's
+    // children are no boss), whichever is more, as lineageLeakDamage takes the larger of the two
+    const own = leakDamageOf(group.type as EnemyTypeId) * RUN_PLAN_RULES.leakScale(wave, group.type);
+    const split = cfg.splitOnDeath;
+    const children = split ? split.count * lineageLeakDamage(split.type) * RUN_PLAN_RULES.leakScale(wave, split.type) : 0;
+    const leak = cfg.chain ? own / bodies : Math.max(own, children);
     // A raging boss counts as more HP: the part past the rage at its damage taken, faster (boss-traits.ts)
     const rage = cfg.traits?.rage;
     const hpFactor = rage ? 1 - rage.belowHp + (rage.belowHp * rage.speed) / rage.damageTaken : 1;
     for (const part of parts) {
       const n = group.count * part.bodies;
       const elites = cfg.chain ? 0 : Math.min(n, group.elite?.count ?? 0);
-      const body = { type: group.type, armor: part.armor, air: !!cfg.isAirUnit, speed: part.speed, leak: leak * scale };
+      const body = { type: group.type, armor: part.armor, air: !!cfg.isAirUnit, speed: part.speed, leak };
       if (elites > 0) out.push({ ...body, n: elites, hp: part.hp * group.elite!.healthMultiplier * hpFactor });
       out.push({ ...body, n: n - elites, hp: part.hp * (group.healthMultiplier ?? 1) * hpFactor });
     }
