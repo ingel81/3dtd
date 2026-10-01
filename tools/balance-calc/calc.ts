@@ -96,8 +96,7 @@ export function runScenario(trajectory: Trajectory, options: ScenarioOptions): W
     const planState = snapshot(planDps, planMetres, options.model.towerShare, hp, w.wave);
     const startState = snapshot(startDps, startMetres, options.model.towerShare, hp, w.wave);
     let planned: PlannedWave = source.plan({ wave: w.wave, state: planState, random });
-    const sized = source as unknown as { startWave?: (p: PlannedWave, s: GameStateSnapshot) => PlannedWave };
-    if (sized.startWave) planned = sized.startWave(planned, startState);
+    if (source.sizeAtStart) planned = source.sizeAtStart(planned, { wave: w.wave, state: startState, random });
     const config = planned.config;
     const bodies = waveBodies(w.wave, config);
     const leak = estimateLeak(w.wave, bodies, startDps, startMetres, model);

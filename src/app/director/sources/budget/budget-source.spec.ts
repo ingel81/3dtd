@@ -69,6 +69,16 @@ describe('BudgetWaveSource', () => {
     expect(plan(source, 20).log.pressureMultiplier).toBe(1);
   });
 
+  it('sizes the committed wave again at its start: same enemies, HP against the defense built in the break', () => {
+    const source = new BudgetWaveSource();
+    const planned = plan(source, 15, 1000);
+    const started = source.sizeAtStart(planned, { wave: 15, state: state(15, 1500), random: () => 0.5 });
+    expect(started.config.enemies.map((g) => [g.type, g.count])).toEqual(planned.config.enemies.map((g) => [g.type, g.count]));
+    expect(started.config.spawnDelay).toBe(planned.config.spawnDelay);
+    expect(started.config.enemies[0].healthMultiplier!).toBeGreaterThan(planned.config.enemies[0].healthMultiplier!);
+    expect(() => source.sizeAtStart(planned, { wave: 16, state: state(16), random: () => 0.5 })).toThrow();
+  });
+
   it('peeks every coming wave by its row', () => {
     const facts = new BudgetWaveSource().peek({ fromWave: 9, count: 3 });
     expect(facts.map((f) => f.wave)).toEqual([9, 10, 11]);

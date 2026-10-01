@@ -54,6 +54,19 @@ class StubSource implements WaveSource {
   draws: number[] = [];
   throwOn: number | null = null;
 
+  /** Set to make the stub size its waves again at the start, as the budget source does. */
+  sizes: number[] | null = null;
+
+  sizeAtStart?: (planned: PlannedWave) => PlannedWave = undefined;
+
+  enableSizeAtStart(): void {
+    this.sizes = [];
+    this.sizeAtStart = (planned) => {
+      this.sizes!.push(planned.wave);
+      return { ...planned, config: { ...planned.config, enemies: planned.config.enemies.map((g) => ({ ...g, healthMultiplier: 2 })) } };
+    };
+  }
+
   plan({ wave, random }: { wave: number; random: () => number }): PlannedWave {
     if (wave === this.throwOn) throw new Error(`stub refuses wave ${wave}`);
     this.planned.push(wave);
@@ -164,6 +177,21 @@ describe('WaveDirector', () => {
       expect(director.lastDecision()).toBe(planned.config);
       expect(collector.setCurrentWaveConfig).toHaveBeenCalledWith(planned.config);
       expect(director.decisionTimeMs()).toBeGreaterThanOrEqual(0);
+    });
+
+    it('sizes the committed wave again when it starts, for a source that does', async () => {
+      source.plansAt = 'wave-end';
+      source.enableSizeAtStart();
+      director.resetForNewGame();
+      const committed = director.committed!;
+      const started = await director.getNextWave(1);
+
+      expect(source.planned).toEqual([1]);
+      expect(source.sizes).toEqual([1]);
+      expect(started.config.enemies[0].healthMultiplier).toBe(2);
+      expect(started.config.enemies[0].count).toBe(committed.config.enemies[0].count);
+      expect(director.committed).toBe(started);
+      expect(director.lastDecision()).toBe(started.config);
     });
 
     it('plans a wave only once, however often it is asked', () => {

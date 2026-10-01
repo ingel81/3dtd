@@ -106,7 +106,7 @@ export interface WavePeekFacts {
   readonly count: number | null;
   /** Enemy types with their share of the wave. */
   readonly enemies: readonly (readonly [string, number])[];
-  /** What the source wants to add, e.g. "HP set against the defense when the wave is planned". */
+  /** What the source wants to add, e.g. "HP set against the defense when the wave starts". */
   readonly note: string;
   readonly description: string;
 }
@@ -125,6 +125,16 @@ export interface WaveSource {
 
   /** The wave `request.wave`, ready to ship. */
   plan(request: WavePlanRequest): PlannedWave;
+
+  /**
+   * The committed wave as it starts, against the game as it stands now. A
+   * source that commits at `wave-end` may size the wave again here: what the
+   * wave is stays (types, counts, spawning, what the preview named), only
+   * its HP follow the defense the player built in the break. Without it the
+   * committed wave ships as planned. Must not draw from `request.random`:
+   * the wave was drawn when it was committed.
+   */
+  sizeAtStart?(planned: PlannedWave, request: WavePlanRequest): PlannedWave;
 
   /**
    * The `count` waves from `fromWave` on, without committing anything.

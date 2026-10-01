@@ -139,7 +139,7 @@ export class WaveDirector {
    */
   async getNextWave(wave: number): Promise<PlannedWave> {
     const startTime = performance.now();
-    const planned = this.ensurePlanned(wave);
+    const planned = this.sizeAtStart(this.ensurePlanned(wave));
 
     this.lastDecision.set(planned.config);
     this.stateSnapshots.setCurrentWaveConfig(planned.config);
@@ -153,6 +153,22 @@ export class WaveDirector {
     }
 
     return planned;
+  }
+
+  /**
+   * The committed wave sized against the defense as it stands at the start,
+   * for a source that does that (WaveSource.sizeAtStart); it replaces the
+   * commitment, so a retry ships the same wave.
+   */
+  private sizeAtStart(planned: PlannedWave): PlannedWave {
+    if (!this.activeSource.sizeAtStart) return planned;
+    const sized = this.activeSource.sizeAtStart(planned, {
+      wave: planned.wave,
+      state: this.stateSnapshots.getStateSnapshot(),
+      random: () => { throw new Error('sizeAtStart must not draw'); },
+    });
+    this.plannedWave = sized;
+    return sized;
   }
 
   /** NEXT in the wave panel: what the source says about the coming waves. */

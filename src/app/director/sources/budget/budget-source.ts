@@ -5,7 +5,10 @@
  * (docs/WAVE_RUN_PLAN.md).
  *
  * It commits at the end of the previous wave, so the preview names the wave
- * exactly; only its HP depends on the defense at the moment of planning.
+ * exactly, and sizes its HP again when it starts (sizeAtStart): against the
+ * defense the player built in the break, not the one that stood when the
+ * wave before ended. The human run of 2026-10-01 bought 1.3 to 1.4 times the
+ * damage between planning and start before W10, W11 and W13 (TODO E95).
  */
 
 import type {
@@ -18,6 +21,7 @@ import type {
   WaveSourceId,
 } from '../../wave-source';
 import type { WaveConfig, WaveEnemyGroup } from '../../models/wave-config';
+import type { GameStateSnapshot } from '../../models/game-state-snapshot';
 import type { WaveResult } from '../../models/wave-result';
 import type { BudgetBreakdown, DecisionExplanation } from '../../wave-explanation';
 import type { ArmorType } from '../../../configs/combat/combat.types';
@@ -47,7 +51,16 @@ export class BudgetWaveSource implements WaveSource {
   private lastCapped = false;
 
   plan(request: WavePlanRequest): PlannedWave {
-    const { wave, state } = request;
+    return this.size(request.wave, request.state);
+  }
+
+  /** The same wave, its HP against the defense at the start; the row fixes the rest. */
+  sizeAtStart(planned: PlannedWave, request: WavePlanRequest): PlannedWave {
+    if (planned.wave !== request.wave) throw new Error(`[budget] wave ${planned.wave} committed, ${request.wave} started`);
+    return this.size(request.wave, request.state);
+  }
+
+  private size(wave: number, state: GameStateSnapshot): PlannedWave {
     const row = planRowForWave(wave);
     if (!row) throw new Error(`[budget] no plan row for wave ${wave}`);
 
@@ -124,7 +137,7 @@ export class BudgetWaveSource implements WaveSource {
     };
   }
 
-  /** Every wave's enemies are known in advance; their HP is set when the wave is planned. */
+  /** Every wave's enemies are known in advance; their HP is set when the wave starts. */
   peek(request: WavePeekRequest): WavePeekFacts[] {
     const facts: WavePeekFacts[] = [];
     for (let wave = request.fromWave; wave < request.fromWave + request.count; wave++) {
@@ -234,7 +247,7 @@ function factsOf(wave: number, row: RunPlanRow, planned: Readonly<Record<string,
     hpByArmor: [...hpByArmor],
     count: total,
     enemies: entries.map(([type, count]) => [type, count / total] as const),
-    note: 'HP set against the defense when the wave is planned',
+    note: 'HP set against the defense when the wave starts',
     description: row.note ?? `${entries.map(([type, count]) => `${count}× ${type}`).join(', ')}, every ${row.spawnDelay} ms.`,
   };
 }
