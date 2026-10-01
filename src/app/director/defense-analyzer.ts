@@ -8,7 +8,7 @@
  */
 
 import { Tower } from '../entities/tower.entity';
-import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
+import { TowerTypeId, TOWER_TYPES, type TowerTypeConfig } from '../configs/tower-types.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import { ArmorType, ARMOR_TYPES, DamageType, DAMAGE_TYPES } from '../configs/combat/combat.types';
 import {
@@ -331,31 +331,29 @@ function calculateDPSPerArmor(
   towers: Tower[],
   airTargetingUnlocked: AirTargeting,
 ): EffectiveDPSPerArmor {
-  const zero = () =>
-    ARMOR_TYPES.reduce((acc, a) => {
-      acc[a] = 0;
-      return acc;
-    }, {} as Record<ArmorType, number>);
-
+  const zero = () => ARMOR_TYPES.reduce((acc, a) => { acc[a] = 0; return acc; }, {} as Record<ArmorType, number>);
   const effective: EffectiveDPSPerArmor = { ground: zero(), air: zero() };
-
   for (const tower of towers) {
-    const typeId = tower.typeConfig.id as TowerTypeId;
-    const dps = computeTowerDPS(tower);
-    if (dps <= 0) continue;
-
-    const mults = armorMultipliersFor(tower.typeConfig.damageType);
-    const canGround = tower.typeConfig.canTargetGround ?? true;
-    const canAir = canTargetAirEffective(typeId, airTargetingFor(airTargetingUnlocked, tower));
-
-    for (const armor of ARMOR_TYPES) {
-      const dpsVsArmor = dps * mults[armor];
-      if (canGround) effective.ground[armor] += dpsVsArmor;
-      if (canAir) effective.air[armor] += dpsVsArmor;
-    }
+    addTowerDps(effective, tower.typeConfig, computeTowerDPS(tower), airTargetingFor(airTargetingUnlocked, tower));
   }
-
   return effective;
+}
+
+/**
+ * One tower's matrix damage into `out`, per armor, ground and air as it can
+ * target them. Pure: the live analysis and the balance calculator
+ * (tools/balance-calc) share it.
+ */
+export function addTowerDps(out: EffectiveDPSPerArmor, cfg: TowerTypeConfig, dps: number, airTargeting: boolean): void {
+  if (dps <= 0) return;
+  const mults = armorMultipliersFor(cfg.damageType);
+  const canGround = cfg.canTargetGround ?? true;
+  const canAir = canTargetAirEffective(cfg.id as TowerTypeId, airTargeting);
+  for (const armor of ARMOR_TYPES) {
+    const dpsVsArmor = dps * mults[armor];
+    if (canGround) out.ground[armor] += dpsVsArmor;
+    if (canAir) out.air[armor] += dpsVsArmor;
+  }
 }
 
 /**
