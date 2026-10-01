@@ -670,8 +670,18 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
 
 ## Blutmond-Wellen
 
-Nur Optik. Stats, Spawns und Gold der Welle bleiben, wie sie sind, und keine
-Spiel-Logik liest etwas davon.
+Ein Look und seit 2026-10-02 ein Mutator je Welle. Der Look ist reine Optik und
+eine Display-Option; der Mutator ändert die Welle und gilt auch mit
+ausgeschaltetem Look.
+
+- **Mutator:** `WaveRules.mutator(wave)`, beim Budget-Source die feste Folge
+  `bloodMoonMutator()` in `configs/wave-mutators.config.ts`: W14 Swift, W21
+  Swarm, W28 Regeneration, W35 Bounty, W42 Swift, … (Rotation über die
+  Blutmond-Wellen, ohne Zufall, gleich in Coop und Replay). Der Tabellen-Source
+  hat keine. Swift: Tempo ×1,25, Budget ×0,8. Swarm: Anzahl ×1,5, gleiches
+  Budget. Regeneration: 2 % der max. HP je Sekunde, nicht solange ein Gegner
+  brennt, Budget ×0,85. Bounty: Kill-Gold ×2. Vorschau (Tag in der Detailzeile,
+  Tooltip) und Banner nennen ihn ([WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), Abschnitt 16).
 
 - **Welche Wellen:** `isBloodMoonWave()` in `configs/blood-moon.config.ts`: ab
   W14 jede siebte (W14, W21, W28, W35, …), ohne Ende, also auch im Endlosspiel.
@@ -704,8 +714,9 @@ Spiel-Logik liest etwas davon.
   Farbe hoch 2,2. Entsättigen kann eine Multiplikation nicht, der Look ist ein
   Rotstich mit dunkleren Ecken.
 - **Display-Option:** "Blood Moon" im Display-Menü (`VfxSettings.bloodMoon`,
-  Default an, von keinem Preset gesetzt). Aus nimmt den Look sofort weg, Mond auf
-  NEXT und Banner entfallen. An während einer Blutmond-Welle blendet ihn ein.
+  Default an, von keinem Preset gesetzt). Aus nimmt den Look sofort weg, der Mond
+  auf NEXT entfällt; das Banner kommt dann nur noch für den Mutator. An während
+  einer Blutmond-Welle blendet ihn ein.
 - **Photo Mode:** Der Look gehört zur Szene und bleibt, auch im Screenshot. Das
   Banner geht mit dem HUD.
 - **Werte:** `BLOOD_MOON_LOOK` in `configs/blood-moon.config.ts` (Blende, Tönung,

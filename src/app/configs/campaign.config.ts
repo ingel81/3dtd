@@ -111,7 +111,7 @@ const GOLD_TAPER_PER_WAVE = 0.9;
  * 0.3 since 2026-10-02 (before 0.05): the late game keeps about 14,000 a wave
  * at strength 1, one or two upgrades past L20 or a new tower brought to L15,
  * so a gap a late wave finds can still be closed. The campaign pays about
- * 390,000 over W1-W30 (before 650,000), the plan about 930,000 by W60
+ * 390,000 over W1-W30 (before 650,000), the plan about 975,000 by W60
  * (before 1.28M); docs/WAVE_RUN_PLAN.md, section 16.
  */
 const GOLD_SUSTAIN_FRACTION = 0.3;

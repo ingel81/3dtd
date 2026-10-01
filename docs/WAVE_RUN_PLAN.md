@@ -1,8 +1,9 @@
 # Laufplan: ein Weg für alle Wellen
 
-**Stand:** 2026-09-29, gebaut: der Budget-Source ist der Standard, der adaptive Director ist entfernt
+**Stand:** 2026-10-02, gebaut: der Budget-Source ist der Standard, der adaptive Director ist entfernt
 (Abschnitt 13, [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md), Abschnitt 18). Die Abschnitte 1 bis 12 sind das
-Konzept vom 2026-09-28.
+Konzept vom 2026-09-28; Abschnitt 16 die Vielfalt, das Gold, die Forschung und die Mutatoren nach dem
+menschlichen Lauf bis W60.
 
 Verwandt: [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md) (Quellen, Vertrag), [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)
 (adaptiver Director, archiviert), [WAVE_SYSTEM.md](WAVE_SYSTEM.md) (Boss-Wellen), TODO E54, E67.
@@ -277,3 +278,176 @@ vorher standen bis W10 nur 3 bis 4 Tower.
 
 Spielen und messen: menschliche Läufe und Bot-Läufe mit dem Budget-Source als Standard, dann Laufplan,
 `BUDGET_REALISM` und `LEAK_GROWTH` justieren.
+
+## 16. Vielfalt, Gold, Forschung, Mutatoren (2026-10-02)
+
+Anlass: ein menschlicher Solo-Lauf bis W60 (TODO E95), Urteil „zu leicht und monoton, alles zu früh erforscht“.
+Befunde aus dem Run-Log: alle 21 Forschungen in W26 fertig für 19.670 Gold, 1,3 % des Einkommens; Bank W23 bis
+W34 meist 46.000 bis 147.000; ab W45 rund 6.000 Gold je Welle, eine Upgrade-Stufe über L20 kostet 4.337 bis
+10.588, die Lücken bei W52 (Wraiths, -108 HP) und W58 (Luft, -218 HP) ließen sich nicht mehr schließen. Im Plan
+19 Vorlagen für 54 Zeilen, 26 Zeilen mit nur einem Gegnertyp, nur `interleaved` und `clustered`. Die Werte unten
+sind Rechenwerte (Plan-Gold ohne Skill-Boni, ein Modell der Tower), keine Bot- oder Spielmessung.
+
+### 16.1 Laufplan
+
+Neu sind W17, W21 bis W29 und W31 bis W59 außer den Boss-Zeilen; W1 bis W16 bleiben, wie die Bots sie
+kalibriert haben (Streuung ±25 % auf den frühen Schwärmen, W16 `random`). Danach: 47 Namen für 54 Zeilen,
+9 Zeilen mit einem Typ, jedes Spawn-Muster in Gebrauch, Stärke 1,5 bei W36, W44, W55, Atempausen 0,7 bis 0,9,
+Mittel 0,98 wie vorher. Luft kommt in W26, W27, W35, W42, W44, W47, W54, W57 bis W59, ätherisch in W24, W29,
+W32, W35, W37, W45, W49, W52, W53, W57, W59. Die Anzahlen folgen den alten Zeilen gleicher Typen und Phase,
+so dass jede Zeile lang genug für ihr Budget bleibt (Zeilendauer nach W20 30 bis 100 s, Anzahl mal
+`spawnDelay`).
+
+| Welle | Name | Gegner | Stärke | Muster | Mutator |
+|---|---|---|---:|---|---|
+| W17 | Night Flight | 9 wraith, 24 bat | 1 | random, ±20 % |  |
+| W21 | Dusk Flock | 260 bat, 120 penguin | 0,7 | random, ±30 % | Swarm |
+| W22 | Armored Push | 40 tank, 30 zombie-soldier, 300 rat | 1 | front-loaded |  |
+| W23 | Spider Nest | 380 spider, 40 wallsmasher | 1 | back-loaded, ±25 % |  |
+| W24 | Phantom March | 120 zombie, 20 ghost, 8 wraith | 0,9 | interleaved |  |
+| W25 | Siege Line | 30 mammoth, 6 stone-golem, 24 wallsmasher | 0,8 | clustered |  |
+| W26 | Horde and Hornets | 420 zombie, 60 zombie-v2, 60 hornet | 1 | random, ±30 % |  |
+| W27 | Dragon Patrol | 60 bat, 40 hornet, 10 dragon | 1 | wave-in-wave |  |
+| W28 | Mech Army | 40 mech, 30 zombie-soldier | 1 | interleaved | Regeneration |
+| W29 | Final Mix | 60 zombie, 40 tank, 40 hornet, 40 bear, 20 ghost | 1 | random, ±20 % |  |
+| W31 | Penguin Breather | 300 penguin, 60 rat | 0,7 | interleaved, ±30 % |  |
+| W32 | Armor Gauntlet | 27 rat, 27 tank, 27 mammoth, 27 ghost | 1 | sequential |  |
+| W33 | Golem Guard | 12 stone-golem, 200 spider | 1 | front-loaded |  |
+| W34 | Mammoth Stampede | 40 mammoth, 30 bear | 1 | clustered |  |
+| W35 | Wraith Night | 150 wraith, 120 bat | 0,9 | interleaved, ±20 % | Bounty |
+| W36 | Great Horde | 560 zombie, 80 zombie-v2, 60 zombie-soldier | 1,5 | random, ±35 % |  |
+| W37 | Ghost Riders | 90 ghost, 40 bear | 1 | interleaved |  |
+| W38 | Bone Tide | 600 skeleton, 150 spider | 1 | back-loaded, ±30 % |  |
+| W39 | Plague and Iron | 20 mech, 700 rat | 1 | front-loaded |  |
+| W41 | Bear Pack | 80 bear | 0,7 | - |  |
+| W42 | Dragon Night | 80 bat, 60 hornet, 45 dragon | 1 | wave-in-wave | Swift |
+| W43 | Wall Breakers | 110 wallsmasher, 30 tank | 1 | interleaved |  |
+| W44 | Swarm Surge | 500 rat, 250 spider, 150 bat | 1,5 | wave-in-wave, ±30 % |  |
+| W45 | Haunted Pack | 70 bear, 60 wraith, 30 ghost | 1 | random |  |
+| W46 | Mech Column | 40 mech, 40 tank, 30 zombie-soldier | 1 | clustered |  |
+| W47 | Hornet Raid | 150 hornet, 80 wallsmasher | 1 | interleaved, ±20 % |  |
+| W48 | Skeleton Swarm | 820 skeleton | 0,8 | -, ±30 % |  |
+| W49 | Ether Assault | 150 penguin, 120 wraith, 60 ghost | 1 | random | Swarm |
+| W51 | Mammoth Siege | 25 mammoth, 10 wallsmasher | 0,7 | interleaved |  |
+| W52 | Wraith Storm | 150 zombie, 150 wraith | 1 | interleaved |  |
+| W53 | Fortress | 14 stone-golem, 30 mammoth, 30 ghost | 1 | clustered |  |
+| W54 | Spider Swarm | 700 spider, 100 bat | 1 | random, ±30 % |  |
+| W55 | Chaos Wave | 46 zombie, 46 tank, 30 hornet, 30 bear | 1,5 | random, ±20 % |  |
+| W56 | Iron Night | 50 tank, 30 mech, 300 rat | 1 | front-loaded | Regeneration |
+| W57 | Ghost Surge | 140 ghost, 40 wraith, 40 hornet | 1 | interleaved |  |
+| W58 | Sky Siege | 80 bat, 160 hornet, 25 dragon | 1 | wave-in-wave |  |
+| W59 | Last Stand | 200 rat, 31 tank, 31 mammoth, 32 ghost, 10 dragon | 1 | random |  |
+
+Rollen: Panzer mit Schwarm dahinter (`front-loaded`: W22, W39, W56), Luft über Boden (W26, W47), ätherisch
+in einer Horde (W24, W49, W52), Golems vor Spinnen (W33), Schübe mit drei Sekunden Pause (`wave-in-wave`: W27,
+W42, W44, W58). `wave-in-wave` verlängert die Welle um die Pausen, das Budget rechnet ohne sie (der Deckel
+greift also eher früher).
+
+### 16.2 Mutatoren der Blutmond-Wellen
+
+`WaveRules.mutator(wave)`, Werte in `configs/wave-mutators.config.ts`, beim Budget-Source eine feste Folge über
+die Blutmond-Wellen (W14, W21, W28, …), ohne Zufall; der Tabellen-Source hat keine.
+
+| Mutator | Wirkung | Budget | Wo |
+|---|---|---:|---|
+| Swift | Tempo jeder Gruppe ×1,25 | ×0,8 | `BudgetWaveSource.plan` (`speedMultiplier`) |
+| Swarm | Anzahl ×1,5 | ×1 | `planEnemies` (Vorschau und Plan gleich) |
+| Regeneration | 2 % der max. HP je Sekunde, nicht solange er brennt | ×0,85 | `EnemyManager.tickRegeneration` |
+| Bounty | Kill-Gold ×2 | ×1 | `RUN_PLAN_RULES.gold` |
+
+Folge: W14 Swift, W21 Swarm, W28 Regeneration, W35 Bounty, W42 Swift, W49 Swarm, W56 Regeneration, W63 Bounty.
+Die Budget-Faktoren sollen eine Mutator-Welle etwa so teuer halten wie ihre Zeile; ob sie das tun, zeigt erst
+eine Messung. Regeneration heilt auf der Spieluhr allein (kein Zustand je Gegner), wie die Eigenschaft Regen
+(Mammoth, Slime Clump, [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) §2.5). Vorschau (Tag in der
+Detailzeile, Tooltip) und Banner nennen den Mutator auch mit ausgeschaltetem Look.
+
+### 16.3 Gold
+
+W21 bis W30 ×1,1 je Welle statt ×1,2 (`CAMPAIGN`, W30 ohne Spitze), danach ×0,9 statt ×0,85 bis auf 30 % von
+W30 statt 5 % (`GOLD_TAPER_PER_WAVE`, `GOLD_SUSTAIN_FRACTION`). Plan-Gold mal Stärke der Zeile; vorher mit dem
+alten Plan, nachher mit dem neuen und Bounty:
+
+| Welle | je Welle vorher | je Welle nachher | Summe vorher | Summe nachher |
+|---|---:|---:|---:|---:|
+| W5 | 650 | 650 | 2.250 | 2.250 |
+| W10 | 1.829 | 1.829 | 7.439 | 7.439 |
+| W15 | 4.500 | 4.500 | 22.199 | 22.199 |
+| W20 | 20.930 | 20.039 | 76.629 | 75.738 |
+| W23 | 31.050 | 24.000 | 148.749 | 135.348 |
+| W25 | 35.880 | 23.160 | 214.509 | 182.268 |
+| W28 | 77.400 | 38.550 | 410.109 | 287.868 |
+| W30 | 144.846 | 60.704 | 647.805 | 391.021 |
+| W32 | 80.501 | 37.823 | 794.601 | 458.262 |
+| W35 | 39.550 | 41.359 | 960.739 | 564.299 |
+| W38 | 30.361 | 20.101 | 1.068.840 | 643.957 |
+| W40 | 28.516 | 21.166 | 1.123.163 | 683.214 |
+| W42 | 15.849 | 14.009 | 1.152.064 | 707.479 |
+| W45 | 9.733 | 14.009 | 1.186.719 | 756.509 |
+| W48 | 5.977 | 11.207 | 1.208.001 | 795.733 |
+| W50 | 7.242 | 18.211 | 1.220.814 | 827.953 |
+| W55 | 5.571 | 21.013 | 1.246.998 | 900.797 |
+| W60 | 7.242 | 18.211 | 1.276.524 | 975.042 |
+
+Bis W20 bleibt alles gleich. W23 bis W34 wächst die Bank langsamer (Summe W30 391.000 statt 648.000), ab W42
+bleiben 11.000 bis 21.000 je Welle statt 5.600 bis 16.000: eine Stufe über L20 oder ein neuer Tower bis L15
+(rund 11.000 für zwei Tracks) je Welle. Das Budget misst die Abwehr, eine kleinere Bank macht die Wellen also
+nicht leichter, sondern die Entscheidungen knapper.
+
+### 16.4 Forschung
+
+`minWave` je Forschung: sie öffnet in der Bauphase vor dieser Welle und lässt sich vorher weder starten noch
+einreihen (Manager, Bot und Baum lesen dieselbe Regel, `researchWaitsForWave`). Kosten der gesperrten
+Forschungen nach dem Einkommen der Welle, in der sie öffnen (nachher, Plan-Gold ohne Boni):
+
+| Forschung | Kosten vorher | Kosten nachher | ab Welle | Einkommen dieser Welle (nachher) | Kosten in Wellen-Einkommen |
+|---|---:|---:|---:|---:|---:|
+| Advanced Weaponry (T2) | 800 | 2.000 | W7 | 800 | 2,5 |
+| Master Engineering (T3) | 1.500 | 8.000 | W15 | 4.500 | 1,8 |
+| Advanced Engineering (T4) | 2.500 | 30.000 | W25 | 23.160 | 1,3 |
+| Transcendent Tech (T5) | 4.000 | 100.000 | W38 | 20.101 | 5,0 |
+| Frost Bomb | 700 | 1.000 | W6 | 560 | 1,8 |
+| EMP | 800 | 2.500 | W12 | 2.500 | 1,0 |
+| Nuclear Strike | 1.000 | 4.000 | W12 | 2.500 | 1,6 |
+| Chaos Rift | 1.000 | 8.000 | W20 | 20.039 | 0,4 |
+| Orbital Laser | 1.500 | 12.000 | W22 | 21.750 | 0,6 |
+| Fire Alchemy | 550 | 800 | W6 | 560 | 1,4 |
+| Storm Mastery | 700 | 1.200 | W9 | 1.100 | 1,1 |
+
+Der ganze Baum kostet 174.120 statt 19.670, rund ein Viertel des Plan-Golds bis W40, und ist frühestens in W38
+komplett. Coop: jeder Spieler forscht für sich, die Welle ist für alle dieselbe.
+
+### 16.5 Tower
+
+Menschlicher Lauf bis W60, Schaden je Gold: Fire 17,3, Lightning 14,8, Kanone 11,9, Chaos 8,7, Magic 8,2,
+Gatling 5,3, Archer 3,6, Poison 3,4, Rakete 2,8, Eis 2,5, Tentacle 0,9. Geändert: Archer 25 auf 30 Schaden und
+Upgrades zu 0,6; Rakete 40 auf 60 und Upgrades zu 0,75 (bleibt nur Luft, E15); Tentacle 30 auf 45 und ein
+Schlag trifft bis 4 Nachbarn in 5 m mit 50 %; Fire 35 auf 30 DPS; Lightning 35 auf 32.
+
+Modell (Skript außerhalb des Repos): Schaden je 1000 Gold bei L15 auf Damage und Rate, Range L10, Matrix
+gegen den HP-Mix jeder Zeile des neuen Plans, gewichtet mit ihrer Stärke, Mehrfachtreffer in Schwarm-Zeilen
+(Abstand bis 250 ms) geschätzt (Kanone 3,5, Rakete 2,5, Fire 4, Lightning 2,19, Tentacle-Schlag 2,5).
+Reichweite und Platzierung kennt es nicht, deshalb liegt der Tentacle (25 m) dort zu hoch:
+
+| Tower | vorher | nachher |
+|---|---:|---:|
+| Archer | 4,8 | 8,8 |
+| Gatling mit AA | 13,4 | 13,4 |
+| Kanone | 10,8 | 10,8 |
+| Magic | 17,6 | 17,6 |
+| Rakete (nur der Luft-Anteil zählt) | 1,2 | 2,3 |
+| Fire | 16,3 | 13,9 |
+| Tentacle | 8,0 | 20,7 |
+| Lightning | 13,2 | 12,1 |
+| Chaos | 17,5 | 17,5 |
+
+### 16.6 Gegner-Eigenschaften
+
+Regen (`regenPerSecond`: Mammoth 1 %, Slime Clump 2 % je Sekunde, nicht solange er brennt) und Phasing
+(`immuneToSlow`: Wraith). Beide ohne Zustand je Gegner. Shielded, Camo und Aura sind nicht gebaut.
+
+### 16.7 Offen
+
+Nichts davon ist mit Bots oder im Spiel gemessen. Zu prüfen: ob die Mutator-Wellen mit ihren Budget-Faktoren
+etwa so viel kosten wie ihre Zeile, ob die Stärke-1,5-Zeilen (W36, W44, W55) den Regler an den Anschlag
+treiben, ob Regen am Mammoth die Zeilen W14, W25, W34, W51 zu teuer macht, und wie sich die Forschungssperre
+und das knappere Gold W21 bis W34 anfühlen.

@@ -1,6 +1,6 @@
 # 3DTD: Master Game Design Document
 
-**Stand:** 2026-09-15, gegen die Configs geprüft.
+**Stand:** 2026-09-15, gegen die Configs geprüft; §2.4, §2.5, §3, §5.3 und §6.3 am 2026-10-02 nachgezogen.
 
 > **Wie dieses Dokument zu lesen ist.** §1 bis §11 beschreiben, was gebaut ist;
 > die Quelle der Wahrheit ist jeweils die genannte Config. Wo ein Punkt der
@@ -125,9 +125,9 @@ Kegel gleich: der Fire Tower gibt 20 % seines Schadens als Burn aus statt
 direkt. Details in [STATUS_EFFECTS.md](../STATUS_EFFECTS.md#burn-effect-dot),
 die Fähigkeiten in [ABILITIES.md](../ABILITIES.md).
 
-Nicht gebaut: Armor Break, Mark, ein Stun als Tower-Effekt, die Gegenmittel
-`immuneToSlow` und `immuneToBurn` sowie Regen, gegen den Burn helfen sollte.
-Die Design-Werte stehen in §12.1.
+Gebaut seit 2026-10-02: Regen (§2.5), den ein Burn anhält, und das Gegenmittel
+`immuneToSlow` (Phasing). Nicht gebaut: Armor Break, Mark, ein Stun als
+Tower-Effekt und `immuneToBurn`. Die Design-Werte stehen in §12.1.
 
 ### 2.5 Gegner-Eigenschaften (Schicht 3)
 
@@ -141,12 +141,16 @@ Gebaut sind diese Eigenschaften je Gegnertyp (`EnemyTypeConfig` in
 | Maschine | `mechanical` | das EMP hält sie 6 statt 1,5 s | Tank, Mech |
 | Split | `splitOnDeath` | ein Kill (kein Leck) teilt den Gegner | Skeleton (2 Minions), Ooze (bis zu 10 Slime Clumps) |
 | Kette | `chain` | ein Spawn bringt einen Wurm aus Segmenten | Skarnax |
+| Regen | `regenPerSecond` | heilt je Sekunde einen Anteil der max. HP, in Schritten von 0,5 s Spielzeit, nie solange er brennt | Mammoth 1 %, Slime Clump 2 % |
+| Phasing | `immuneToSlow` | ein Slow greift nicht; Freeze und Stun schon | Wraith |
 
 `immunityPercent: 100` steht bei Herbert in der Config, gelesen wird es im
 Spiel nicht (nur ein Spec prüft, dass das Feld nicht negativ ist).
 
-Die geplanten Flags Shielded, Camo, Regen, Phasing und Aura sind nicht gebaut,
-siehe §12.2.
+Regen und Phasing sind seit 2026-10-02 gebaut, ohne eigenen Zustand je Gegner
+(Snapshots, Coop und Replay brauchen nichts Neues). Shielded, Camo und Aura
+sind nicht gebaut, siehe §12.2. Die Blutmond-Wellen bringen dazu einen
+Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 
 ---
 
@@ -157,20 +161,21 @@ siehe §12.2.
 
 | Tower | Typ | Base Stats | Kosten | Air? |
 |---|---|---|---:|---|
-| **Archer** | Physical | 25 dmg, 1.0/s, Range 30 | 45 | **Air + Ground** |
+| **Archer** | Physical | 30 dmg, 1.0/s, Range 30, Upgrades zu 0,6 | 45 | **Air + Ground** |
 | **Dual-Gatling** | Pierce | 10 dmg, 5.0/s, Range 50 | 90 | per Forschung (AA Retrofit) |
 | **Cannon** | Siege | 55 dmg, 0.5/s, Range 70, Splash 6 m (max. 8 Ziele) | 150 | nein |
-| **Rocket** | Siege | 40 dmg, 0.5/s, Range 100 | 120 | **Air-only** |
+| **Rocket** | Siege | 60 dmg, 0.5/s, Range 100, Splash 5 m (max. 5 Ziele), Upgrades zu 0,75 | 120 | **Air-only** |
 | **Magic** | Magic | 40 dmg, 1.5/s, Range 70 | 140 | nein |
 | **Ice** | Ice | 5 dmg, 0.33/s, Range 60, Slow 50 % 3 s, Splash 8 m | 90 | **Air + Ground** |
-| **Fire** | Fire | 35 DPS Beam, Range 20 (= Flammenlänge) | 110 | nein |
-| **Tentacle** | Physical | 30 dmg, 1.5/s, Range 25 | 80 | nein |
+| **Fire** | Fire | 30 DPS Beam, Range 20 (= Flammenlänge) | 110 | nein |
+| **Tentacle** | Physical | 45 dmg, 1.5/s, Range 25, Schlag trifft bis 4 Nachbarn in 5 m mit 50 % | 80 | nein |
 | **Poison** | Poison | 5 dmg + DoT 8/s für 4 s, 1.0/s, Range 55, Splash 8 m | 100 | nein |
-| **Lightning** | Lightning | 35 dmg primary, Chain ×0.7/Jump, 2 Jumps, 0.8/s, Range 65 | 130 | **Air + Ground** |
+| **Lightning** | Lightning | 32 dmg primary, Chain ×0.7/Jump, 2 Jumps, 0.8/s, Range 65 | 130 | **Air + Ground** |
 | **Chaos** | Chaos | 50 dmg, 1.2/s, Range 60, 1,0 gegen jede Rüstung | 200 | **Air + Ground** |
 
 ### 3.2 Upgrade-Regeln (Stand 2026-09)
-- **Kosten:** `50 × 1,25^Stufe` pro Stufe und Track, für alle Tower gleich.
+- **Kosten:** `50 × 1,25^Stufe` pro Stufe und Track, mal dem Kostenfaktor des
+  Towers (`costFactor`): Cannon 1,15, Rocket 0,75, Archer 0,6, sonst 1.
 - **Damage und Fire Rate:** 25 Stufen. Stufe 1–15 wirkt der tower-eigene
   Multiplikator `m`, Stufe 16–25 nur noch `1 + 0,4 × (m − 1)`. L25 liefert das
   5,3- bis 6,4-Fache der Basis-DPS (vorher 14,5 mit ×1,05/×1,06 für alle).
@@ -201,6 +206,9 @@ in §12.3.
 
 ### 3.3 Archer: Physical
 - Starttower, trifft Luft und Boden ab Basis.
+- Seit 2026-10-02 30 statt 25 Schaden und Upgrades zu 0,6 des Preises: Mit den
+  Preisen aller Tower war jede Stufe des schwächsten Basis-Schadens der
+  schlechteste Kauf (menschlicher Lauf bis W60: 3,6 Schaden je Gold, Fire 17,3).
 - Der geplante Air-Upgrade-Pfad und die Spezialisierungen sind nicht gebaut (§12.3).
 
 ### 3.4 Dual-Gatling: Pierce
@@ -213,7 +221,10 @@ in §12.3.
 - Der geplante Armor-Break-Pfad ist nicht gebaut (§12.3).
 
 ### 3.6 Rocket: Siege (Air-Only)
-- Trifft nur Luft (`canTargetGround: false`), kein Splash.
+- Trifft nur Luft (`canTargetGround: false`), Splash 5 m mit höchstens 5 Zielen.
+- Seit 2026-10-02 60 statt 40 Schaden und Upgrades zu 0,75: Sie steht in jeder
+  Bodenwelle still (menschlicher Lauf bis W60: 2,8 Schaden je Gold). Die Rolle
+  bleibt (TODO E15).
 - Die geplante „Bodenfreigabe" ist nicht gebaut (§12.3).
 
 ### 3.7 Magic: Magic
@@ -225,9 +236,14 @@ in §12.3.
 
 ### 3.9 Fire: Fire
 - Flammen-Beam mit Burn (§2.4), trifft nur Boden (`canTargetAir: false`).
+- Seit 2026-10-02 30 statt 35 DPS: der meiste Schaden je Gold im menschlichen
+  Lauf bis W60 (17,3). Ein Burn hält Regen an (§2.5).
 - Die geplante „Luftflamme" ist nicht gebaut (§12.3).
 
 ### 3.10 Tentacle: Physical
+- Seit 2026-10-02 45 statt 30 Schaden, und jeder Schlag trifft bis zu 4 weitere
+  Bodengegner in 5 m um sein Ziel mit 50 % (`meleeSlam`, nächste zuerst): die
+  Rolle am Engpass. Vorher 0,2 % des Schadens im menschlichen Lauf bis W60.
 - Reiner Physical-Schaden. Die früher geplanten 20 % True Damage (Armor-unabhängig)
   sind gestrichen: sie würden die Matrix-Spreizung wieder aufweichen
   (BALANCE_PROPOSAL_2026-09, Entscheidung 7).
@@ -245,7 +261,7 @@ in §12.3.
 
 ### 3.13 Chaos (seit 2026-09-12)
 - **Generalist:** 1,0 gegen jede Rüstung (§2.3), Luft und Boden, Einzelziel-Projektil (`chaos-orb`, kein Splash).
-- **Teuer und spät:** 200 Gold, der teuerste Tower. Freischaltung über **Chaos Rift** (1.000 Gold, 30 s) hinter Siege Engineering und Storm Mastery, damit auch hinter Arcane Studies. Der ganze Pfad kostet 3.650 Gold Forschung (Gatling Tech, Siege Engineering, Ice Magic, Arcane Studies, Storm Mastery, Chaos Rift).
+- **Teuer und spät:** 200 Gold, der teuerste Tower. Freischaltung über **Chaos Rift** (8.000 Gold, 30 s, ab Welle 20) hinter Siege Engineering und Storm Mastery, damit auch hinter Arcane Studies. Der ganze Pfad kostet 11.150 Gold Forschung (Gatling Tech, Siege Engineering, Ice Magic, Arcane Studies, Storm Mastery, Chaos Rift).
 - **Kein Pflicht-Tower:** 60 DPS wie Magic. Nach dem DPS-Modell (`computeTowerDPSFromLevels`, Basisstufe, nicht gemessen) bringt Chaos gegen jede Rüstung 0,30 DPS pro Gold, der beste Tower je Rüstung 0,56 (Fortified: Magic) bis 0,89 (Light: Gatling). Auch pro Bauplatz liegt Chaos in keiner Spalte vorn:
 
 | Basisstufe, DPS × Matrix | Unarmored | Light | Heavy | Fortified | Ethereal |
@@ -283,8 +299,8 @@ in §12.3.
 | **Dragon** | Heavy | Luft | Luft-Elite (`dragon_elite`, W12); ab W31 im Boss-Template `boss_dragon`, selbst kein Boss |
 | **Mech** | Heavy | Maschine | Heavy-Masse (`mech_army`, W28) |
 | **Ghost** | Ethereal | – | Ethereal-Debüt (`ghost_surge`, W13) |
-| **Wraith** | Ethereal | schnell | Ethereal-Schwarm (`wraith_storm`, W17) |
-| **Mammoth** | Fortified | langsam | DPS-Check (`mammoth_siege`, W14) |
+| **Wraith** | Ethereal | schnell, Phasing (kein Slow) | Ethereal-Schwarm (W17 Night Flight mit Fledermäusen, W52 Wraith Storm) |
+| **Mammoth** | Fortified | langsam, Regen 1 % je s | DPS-Check (`mammoth_siege`, W14) |
 | **Stone Golem** | Fortified | langsam | DPS-Check (`golem_squad`, W15); ab W31 im Boss-Template `boss_golem` |
 | **Herbert** | Fortified | Boss | Boss W10 (`boss_herbert`, genau ein Herbert), danach einer der Director-Bosse. W20 und W30 plant der Director als Herbert-Welle, geschickt werden Ooze und Skarnax |
 | **Skeleton** | Unarmored | Schwarm, Split: ein Kill teilt ihn in 2 Skeleton Minions, ein Leck nicht | Mega-Schwarm (`skeleton_swarm`, W19), Split seit 2026-09-13 |
@@ -292,7 +308,7 @@ in §12.3.
 | **Skarnax** (Wurm) | Heavy | Boss, Kette aus 16 bis 240 Segmenten, die Länge folgt der Route | Boss-Variante W35, W55, W75, … |
 | **Skarnax Segment** | Heavy | Körperring des Wurms | einzeln nur per Custom Wave oder Enemy Debug |
 | **Ooze** | Unarmored | Boss, Körper als Schleimband entlang der Route (bis 80 m), fließt Meter für Meter in die Basis, Split in bis zu 10 Slime Clumps | Boss-Variante W45, W65, W85, … |
-| **Slime Clump** | Unarmored | entsteht nur aus dem Split der Ooze | kein eigenes Template |
+| **Slime Clump** | Unarmored | entsteht nur aus dem Split der Ooze, Regen 2 % je s | kein eigenes Template |
 
 Boss-Rotation nach W30: [WAVE_SYSTEM.md](../WAVE_SYSTEM.md#boss-waves). Nicht
 gebaut sind Lich, Slime (mit Regen) und Banshee sowie die früher hier geführten
@@ -367,7 +383,14 @@ Verteidigung erreichte den Vollausbau und tötete ab W11 alles.
 | 10 (Boss) | 933 | 467 | 1.400 |
 | 15 | 3.000 | 1.500 | 4.500 |
 | 20 (Boss) | 12.000 | 6.000 | 18.000 |
-| 30 (Boss) | 120.000 | 60.000 | 180.000 |
+| 25 | 19.300 | 9.650 | 28.950 |
+| 30 (Boss) | 31.100 | 15.550 | 46.650 |
+
+Seit 2026-10-02 wachsen W21 bis W30 um ×1,1 je Welle (vorher ×1,2), danach
+fällt das Gold um ×0,9 je Welle (vorher ×0,85) bis auf 30 % von W30 (vorher
+5 %), rund 14.000 je Welle ab W42. Der Budget-Source glättet die Boss-Spitzen
+und multipliziert mit der Stärke der Zeile; Kurve und Summen vorher und nachher
+in [WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16.
 
 **Ziel:** 1 neuer Tower alle 2–3 Waves, Upgrades alle 3–4 Waves. Das Budget ist
 gegen einen W30-Vollausbau gerechnet (jeder Tower 1×, Archer 3×, alle
@@ -484,46 +507,56 @@ den Text aus `description`.
 
 ### 6.3 Tech-Tree (Forschungsbaum)
 
-Frei wählbar mit Voraussetzungen, 20 Knoten in drei Kategorien
-(`research-tree.config.ts`), zusammen 19.550 Credits.
+Frei wählbar mit Voraussetzungen, 21 Knoten in vier Kategorien
+(`research-tree.config.ts`), zusammen 174.120 Credits (bis 2026-10-01 19.670).
+
+**Tempo (seit 2026-10-02):** Eine Forschung kann eine Mindestwelle haben
+(`minWave`). Sie öffnet in der Bauphase vor dieser Welle (`researchWave`: die
+laufende Welle, sonst die nächste) und lässt sich vorher weder starten noch
+einreihen; der Baum zeigt „Wave N“ am Knoten. Die Kosten der gesperrten
+Forschungen folgen dem Einkommen der Welle, in der sie öffnen. Anlass: ein
+menschlicher Lauf hatte den ganzen Baum in W26 für 1,3 % seines Einkommens.
+Komplett ist der Baum frühestens in W38; Transcendent Tech kostet dort rund
+fünf Wellen Einkommen und steht gegen Upgrades.
 
 #### Tower-Unlocks
 
-| ID | Name | Kosten | Dauer | Voraussetzung | Schaltet frei |
-|---|---|---:|---:|---|---|
-| `gatling-tech` | Gatling Technology | 400 | 15 s | – | Dual-Gatling |
-| `ice-magic` | Ice Magic | 400 | 15 s | – | Ice Tower |
-| `tentacle-biology` | Tentacle Biology | 450 | 15 s | – | Tentacle |
-| `toxic-compounds` | Toxic Compounds | 450 | 15 s | – | Poison Tower |
-| `siege-engineering` | Siege Engineering | 500 | 20 s | Gatling Technology | Cannon |
-| `rocketry` | Rocketry | 600 | 18 s | Gatling Technology | Rocket Tower |
-| `fire-alchemy` | Fire Alchemy | 550 | 20 s | Toxic Compounds | Fire Tower |
-| `arcane-studies` | Arcane Studies | 650 | 20 s | Ice Magic | Magic Tower |
-| `storm-mastery` | Storm Mastery | 700 | 20 s | Arcane Studies | Lightning Tower |
-| `chaos-rift` | Chaos Rift | 1.000 | 30 s | Siege Engineering + Storm Mastery | Chaos Tower |
+| ID | Name | Kosten | Dauer | ab Welle | Voraussetzung | Schaltet frei |
+|---|---|---:|---:|---:|---|---|
+| `gatling-tech` | Gatling Technology | 400 | 15 s | – | – | Dual-Gatling |
+| `ice-magic` | Ice Magic | 400 | 15 s | – | – | Ice Tower |
+| `biology` | Biology | 120 | 8 s | – | – | (Tor zu Tentacle und Poison) |
+| `tentacle-biology` | Tentacle Biology | 450 | 15 s | – | Biology | Tentacle |
+| `toxic-compounds` | Toxic Compounds | 450 | 15 s | – | Biology | Poison Tower |
+| `siege-engineering` | Siege Engineering | 500 | 20 s | – | Gatling Technology | Cannon |
+| `rocketry` | Rocketry | 600 | 18 s | – | Siege Engineering | Rocket Tower |
+| `fire-alchemy` | Fire Alchemy | 800 | 20 s | 6 | Toxic Compounds | Fire Tower |
+| `arcane-studies` | Arcane Studies | 650 | 20 s | – | Ice Magic | Magic Tower |
+| `storm-mastery` | Storm Mastery | 1.200 | 20 s | 9 | Arcane Studies | Lightning Tower |
+| `chaos-rift` | Chaos Rift | 8.000 | 30 s | 20 | Siege Engineering + Storm Mastery | Chaos Tower |
 
 #### Global Perks
 
-| ID | Name | Kosten | Dauer | Voraussetzung | Effekt |
-|---|---|---:|---:|---|---|
-| `aa-retrofit` | AA Retrofit | 450 | 12 s | Rocketry | Dual-Gatling trifft Luft |
-| `nuclear-strike` | Nuclear Strike | 1.000 | 40 s | Advanced Weaponry | Fähigkeit Nuklearschlag und das Missile Silo, von dem sie startet |
-| `frost-bomb` | Frost Bomb | 700 | 25 s | Arcane Studies | Fähigkeit Frostbombe |
-| `emp` | EMP | 800 | 30 s | Storm Mastery | Fähigkeit EMP |
-| `orbital-laser` | Orbital Laser | 1.500 | 45 s | Master Engineering | Fähigkeit Orbitallaser |
-| `mercenary-contract` | Mercenary Contract | 600 | 30 s | Siege Engineering | Held anheuern |
+| ID | Name | Kosten | Dauer | ab Welle | Voraussetzung | Effekt |
+|---|---|---:|---:|---:|---|---|
+| `aa-retrofit` | AA Retrofit | 450 | 12 s | – | Gatling Technology | Dual-Gatling trifft Luft |
+| `nuclear-strike` | Nuclear Strike | 4.000 | 40 s | 12 | Advanced Weaponry | Fähigkeit Nuklearschlag und das Missile Silo, von dem sie startet |
+| `frost-bomb` | Frost Bomb | 1.000 | 25 s | 6 | Arcane Studies | Fähigkeit Frostbombe |
+| `emp` | EMP | 2.500 | 30 s | 12 | Storm Mastery | Fähigkeit EMP |
+| `orbital-laser` | Orbital Laser | 12.000 | 45 s | 22 | Master Engineering | Fähigkeit Orbitallaser |
+| `mercenary-contract` | Mercenary Contract | 600 | 30 s | – | Siege Engineering | Held anheuern |
 
 Die Fähigkeiten beschreibt [ABILITIES.md](../ABILITIES.md), den Held
 [HERO.md](../HERO.md).
 
 #### Upgrade-Tier-Freischaltungen
 
-| ID | Name | Kosten | Dauer | Voraussetzung | Effekt |
-|---|---|---:|---:|---|---|
-| `advanced-weaponry` | Advanced Weaponry | 800 | 35 s | Siege Engineering + Arcane Studies | T2, Stufen 6–10 |
-| `master-engineering` | Master Engineering | 1.500 | 60 s | Advanced Weaponry | T3, Stufen 11–15 |
-| `advanced-engineering` | Advanced Engineering | 2.500 | 90 s | Master Engineering | T4, Stufen 16–20 |
-| `transcendent-tech` | Transcendent Tech | 4.000 | 150 s | Advanced Engineering | T5, Stufen 21–25 |
+| ID | Name | Kosten | Dauer | ab Welle | Voraussetzung | Effekt |
+|---|---|---:|---:|---:|---|---|
+| `advanced-weaponry` | Advanced Weaponry | 2.000 | 35 s | 7 | Siege Engineering + Arcane Studies | T2, Stufen 6–10 |
+| `master-engineering` | Master Engineering | 8.000 | 60 s | 15 | Advanced Weaponry | T3, Stufen 11–15 |
+| `advanced-engineering` | Advanced Engineering | 30.000 | 90 s | 25 | Master Engineering | T4, Stufen 16–20 |
+| `transcendent-tech` | Transcendent Tech | 100.000 | 150 s | 38 | Advanced Engineering | T5, Stufen 21–25 |
 
 ### 6.4 UI im Forschungszentrum
 
@@ -707,8 +740,8 @@ Wirkung des EMP, nicht als Tower-Effekt.
 ### 12.2 Immunitäts-Flags (aus §2.5)
 - **Shielded** (Schild-HP)
 - **Camo** (Detection nötig)
-- **Regen** (Burn kontert)
-- **Phasing** (Slow immun)
+- **Regen** (Burn kontert): gebaut 2026-10-02 (§2.5), Mammoth und Slime Clump
+- **Phasing** (Slow immun): gebaut 2026-10-02 (§2.5), Wraith
 - **Aura** (Buff-Aura)
 
 Split stand ebenfalls in dieser Liste; er ist gebaut (§2.5).
@@ -737,12 +770,14 @@ Gebaut sind nur die Tracks aus §3.2. Geplant waren:
 | **Slime** | Unarmored | Regen, Split | Regen-Check |
 | **Banshee** | Ethereal | Phasing | Slow-Check |
 
+Regen und Phasing sind seit 2026-10-02 als Eigenschaften bestehender Typen
+gebaut (§2.5): Regen am Mammoth und an der Slime Clump, Phasing am Wraith.
 Außerdem waren geplant: **Spider** mit Camo (Camo-Check), **Mech** mit
 Shielded und `immuneToBurn` (Shield-Check), **Dragon** mit Boss-Flag
 (Air-Boss). Gebaut sind Spider und Mech ohne diese Flags und Dragon ohne
 `isBoss`; die Boss-Welle mit Drachen ist das Template `boss_dragon`. Ooze und
-Slime Clump (§4) sind etwas anderes als der geplante Slime: sie haben keinen
-Regen.
+Slime Clump (§4) sind etwas anderes als der geplante Slime; die Slime Clump hat
+seit 2026-10-02 Regen.
 
 ### 12.5 Kill-Reward-Formel (aus §5.1)
 
