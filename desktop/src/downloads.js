@@ -46,4 +46,17 @@ function uniqueDownloadPath(dir, suggested, exists) {
   return candidate;
 }
 
-module.exports = { safeFileName, savesSilently, uniqueDownloadPath };
+/** Largest run log the page may write, bytes of UTF-16 text (a long run is a few MB) */
+const MAX_RUN_LOG_CHARS = 64 * 2 ** 20;
+
+/**
+ * The file name of a run log in `userData/runs`, or null: one plain name of
+ * letters, digits, dot, dash and underscore, not starting with a dot (".."
+ * would be the folder above).
+ */
+function runLogFileName(raw) {
+  const name = String(raw ?? '').replace(/[^a-zA-Z0-9._-]/g, '_');
+  return name && !name.startsWith('.') ? name : null;
+}
+
+module.exports = { MAX_RUN_LOG_CHARS, runLogFileName, safeFileName, savesSilently, uniqueDownloadPath };

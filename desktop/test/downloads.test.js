@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { describe, it } = require('node:test');
-const { safeFileName, savesSilently, uniqueDownloadPath } = require('../src/downloads');
+const { runLogFileName, safeFileName, savesSilently, uniqueDownloadPath } = require('../src/downloads');
 
 const dir = path.join(path.sep === '\\' ? 'C:\\' : '/', 'Users', 'player', 'Downloads');
 
@@ -49,5 +49,21 @@ describe('savesSilently', () => {
     assert.equal(savesSilently('photo.JPG'), true);
     assert.equal(savesSilently('3dtd-run-2026-09-26T13-16-46-891Z-world.jsonl'), false);
     assert.equal(savesSilently('3dtd-state-unknown.json'), false);
+  });
+});
+
+describe('runLogFileName', () => {
+  it('keeps the names the game gives', () => {
+    assert.equal(runLogFileName('3dtd-run-20260919-101500.jsonl'), '3dtd-run-20260919-101500.jsonl');
+  });
+
+  it('turns separators into underscores and refuses a name of dots', () => {
+    assert.equal(runLogFileName('../../evil.jsonl'), null);
+    assert.equal(runLogFileName('runs/../evil.jsonl'), 'runs_.._evil.jsonl');
+    assert.equal(runLogFileName('a/b\\c.jsonl'), 'a_b_c.jsonl');
+    assert.equal(runLogFileName('..'), null);
+    assert.equal(runLogFileName('.hidden'), null);
+    assert.equal(runLogFileName(''), null);
+    assert.equal(runLogFileName(undefined), null);
   });
 });
