@@ -170,9 +170,10 @@ export class TowerLifecycle {
       this.combat.stopTowerBeam(tower.id);
     }
 
-    // Notify ResearchManager when Research Center is sold
+    // A sold Research Center cancels what runs in it, refunded as a cancel by hand
     if (tower.typeConfig.id === 'research-center') {
-      this.research(tower.ownerId).onCenterRemoved();
+      const refund = this.research(tower.ownerId).onCenterRemoved();
+      if (refund > 0) this.creditsLedger.add(refund, 'research-refund', tower.ownerId);
     }
 
     // Sell tower (emits tower:sold event, returns refund)

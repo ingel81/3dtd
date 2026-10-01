@@ -1379,6 +1379,8 @@ export class GameStateManager {
     this.towerCombat.stopAllMelee();
 
     this.enemyManager.clear();
+    // A run lost in wave 1 left wave 1's kill budget half spent: the next run's wave 1 went on with it
+    this.enemyManager.resetKillRewards();
     this.debugEnemies.clear(); // Clear orphaned debug enemy references
     this.towerManager.clear();
     this.projectileManager.clear();

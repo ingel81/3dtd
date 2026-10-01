@@ -388,16 +388,19 @@ export class ResearchManager implements IGameManager {
   }
 
   /**
-   * Called when Research Center is sold (shouldn't happen, but safety).
+   * The Research Center was sold: the queue goes (nothing of it was charged)
+   * and every running research is cancelled as by hand.
+   * @returns the refunds of the cancelled researches, for the owner to get
    */
-  onCenterRemoved(): void {
+  onCenterRemoved(): number {
     this._centerLevel = 0;
     this.queue = [];
-    // Cancel all active researches
+    let refund = 0;
     for (const [id] of this.activeResearches) {
-      this.cancelResearch(id);
+      refund += this.cancelResearch(id);
     }
     this.emitStateSnapshot();
+    return refund;
   }
 
   // ==================== Update Loop ====================

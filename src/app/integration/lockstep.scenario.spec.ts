@@ -48,6 +48,7 @@ import type { UpgradeId } from '../configs/tower-types.config';
 import type { WaveConfig, SpawnEntry } from '../managers/wave.manager';
 import type { WaveConfig as DirectorWave } from '../director/models/wave-config';
 import { mulberry32 } from '../utils/game-rng';
+import { getResearch } from '../configs/research/research-tree.config';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { LocalRelay, type LocalLink } from '../coop/local-relay';
 import { GameClock } from '../managers/game-state/game-clock';
@@ -844,12 +845,71 @@ describe('Coop players in the simulation (COOP_PLAN C2a)', () => {
     expect(earned).toEqual(byOwner);
     expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
   });
+
+  it('a new run starts its wave 1 with the whole kill budget, not what the run before left of it', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const firstKill = () => {
+      let credits = 0;
+      a.gsm.getEventBus().on('enemy:died', (e) => {
+        if (credits === 0 && e.credits > 0) credits = e.credits;
+      });
+      a.emit({ type: 'command:start-wave', director: directorWave() });
+      for (let f = 0; f < 20000 && credits === 0; f++) {
+        relay.closeTick();
+        a.frame(40);
+        b.frame(40);
+      }
+      return credits;
+    };
+    const first = firstKill();
+    expect(first).toBeGreaterThan(0);
+    // The run ends in wave 1, half way through its kill gold
+    const rewards = () => a.gsm.enemyManager as unknown as { rewardWaveNumber: number; paidRewardWeight: number };
+    expect(rewards().paidRewardWeight).toBeGreaterThan(0);
+    a.run(() => a.gsm.reset());
+    expect(rewards().rewardWaveNumber).toBe(-1);
+    expect(rewards().paidRewardWeight).toBe(0);
+  });
 });
 
 describe('Coop research per player (COOP_PLAN C2b)', () => {
   const mathRandom = Math.random;
   afterEach(() => {
     Math.random = mathRandom;
+  });
+
+  it('a sold research center refunds what runs in it, half as a cancel, in step on both clients', () => {
+    Math.random = mulberry32(SEED + 2);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const step = (frames = 3) => {
+      for (let i = 0; i < frames; i++) {
+        relay.closeTick();
+        a.frame(40);
+        b.frame(40);
+      }
+    };
+    const at = (south: number, east: number) => ({ lat: south / M, lon: east / M, height: 0 });
+    b.emit({ type: 'debug:add-credits', amount: 20000 });
+    b.emit({ type: 'command:place-tower', typeId: 'research-center', position: at(100, 130) });
+    step();
+    const center = a.gsm.towerManager.getAll().find((t) => t.typeConfig.id === 'research-center')!;
+    b.emit({ type: 'command:start-research', researchId: 'ice-magic' });
+    step();
+    expect(b.gsm.researchOf('b').isActive('ice-magic')).toBe(true);
+    const before = b.gsm.creditsOf('b');
+    let sellRefund = 0;
+    b.gsm.getEventBus().on('tower:sold', (event) => (sellRefund = event.refund));
+    b.emit({ type: 'command:sell-tower', towerId: center.id });
+    step();
+    expect(sellRefund).toBeGreaterThan(0);
+    expect(b.gsm.creditsOf('b') - before).toBe(sellRefund + Math.floor(getResearch('ice-magic')!.cost * 0.5));
+    expect(b.gsm.researchOf('b').isActive('ice-magic')).toBe(false);
+    expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
   });
 
   it('stays in step after a resync between waves, research centers and slot upgrades included (C5b)', async () => {
