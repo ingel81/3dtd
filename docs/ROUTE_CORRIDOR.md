@@ -1496,6 +1496,45 @@ eine zweite Sichtbarkeitsmeldung ab, und danach ersetzt sein eigenes Ergebnis
 den Merker. Friert auch er blind ein, bleibt der Merker stehen, und die
 nächste Sichtbarkeitsmeldung versucht es noch einmal.
 
+**Grenzfall Region im falschen Rahmen** (2026-10-01): Die Region steht im
+Rahmen der Tile-Gruppe, den sie beim Bau vorfand (`RouteCorridorRegion`,
+`toLocal`). Das `ReorientationPlugin` setzt diesen Rahmen aber erst bei
+`load-root-tileset`. Kommen die Straßen eines gecachten Orts vor dem
+Wurzel-Tileset, liegt die Region neben der Route (nach dem Code; das Log
+belegte nur die Folgen): Sie erreichte eine Handvoll
+Tiles (`build.tiles … tiles=8 fine=8 finest=0 coarse=0` statt rund 100),
+die nie verfeinern, keine Station fand ein feines Tile (`coarse tile 482`),
+und Route und Zellen hingen bis zum nächsten F5 in der Luft, auch bei
+sichtbarem Tab. Seitdem baut `RouteCorridorTiles.refreshFrame` die Region aus
+denselben Routen neu, sobald die Gruppe sich bewegt hat: bei
+`load-root-tileset` und zu Beginn jedes Korridor-Baus (`build.reframe` im
+Trace, Konsole `the tiles group moved since the corridor region was built`).
+`lod()` und damit jede `tiles`-Zeile des Trace nennen `frame=ok|stale` und
+`reframes`.
+
+Friert ein Bau trotzdem blind ein und bleibt die Seite sichtbar, baut der
+Korridor neu, sobald die Region andere feine Tiles hat als beim Einfrieren
+(`tileSet`), höchstens dreimal je Einfrieren
+(`VisualizationFacadeService.retryBlindOnNewTiles`, Grund `new corridor tiles
+after unmeasured freeze`).
+
+**Vorgehen, wenn die Route wieder schwebt** (vor F5, ohne Ortswechsel):
+
+1. In der Konsole `__corridor.trace()` und `__tiles.stats()`.
+2. Die Konsole als Datei sichern (Rechtsklick, Save as) nach `tmp/logs/`.
+3. Im Log nachsehen:
+   - `build.tiles`: `tiles`/`fine`/`finest`, `timedOut`, `frame`. Wenige
+     Tiles und `frame=stale` heißt Region im falschen Rahmen; `timedOut=true`
+     heißt, die Tiles kamen nicht in 30 s.
+   - `[Corridor] clearance: … unmeasured=N (coarse tile M)`: wie viele
+     Stationen kein feines Tile fanden.
+   - `build.reframe`, `build.revisit` mit `reason`: ob und warum neu gebaut
+     wurde.
+4. Notieren, ob der Tab beim Laden sichtbar war (Hintergrund-Tab, siehe oben).
+
+Ein F5 ohne den Fehler danach als Vergleich sichern hilft: dieselben Zeilen
+mit `unmeasured` nahe 0.
+
 Der Merker gilt immer dem Bau, der gerade läuft: `expect()` löscht ihn, und
 nur ein Einfrieren setzt ihn. Ein Bau, der vorher abbricht, lässt ihn also
 auf `false` und nicht auf dem, was ein früherer Ort hinterließ.
@@ -1673,11 +1712,12 @@ vitest (Specs schalten ihn selbst ein).
 | `tiles` | `VisualizationFacadeService.onTilesLoaded`, je beruhigtem Tile-Schub | `lod` (lodVersion); aktive Tiles, die die Region (`RouteCorridorRegion.lodState`) erreichen: `tiles`, `fine` (bis zum Fehlerziel der Region, im Bau 2,5 m, sonst 5 m, oder Blatt), `finest` (bis 2 m), `coarse` (gröber und noch zu verfeinern); `tileSet`: welche der `fine`-Tiles das sind, 8 Hex-Ziffern über ihre Content-Pfade ohne Query (die trägt die Session), gleich heißt dieselben feinen Tiles. Die `coarse`-Eltern gehen seit 2026-09-16 nicht mehr ein: Wie viele davon noch aktiv sind, schwankt von Ladung zu Ladung (Tokyo, derselbe Korridor: `fine=181` beide Male, `coarse=20` frisch und 14 nach Ortswechsel und `reset()`, damit zwei Hashes); `pending`: Tiles in Warteschlange, Download oder beim Parsen, überall |
 | `region.complete` | das erste Mal je Ort `coarse=0` | `tiles`, `finest` |
 | `build.start` | Beginn eines Baus (`CorridorBuild.build`) | `reason`, `tiles` (es gibt 3D-Tiles; in DevWorld false) |
-| `build.tiles` | die Tiles der Region sind ruhig, oder der Timeout ist um | `target` (Fehlerziel der Region, m), `loadS`, `timedOut`, dazu der Stand der Region (`lodState`) |
+| `build.tiles` | die Tiles der Region sind ruhig, oder der Timeout ist um | `target` (Fehlerziel der Region, m), `loadS`, `timedOut`, dazu der Stand der Region (`lodState`, `frame`: die Region im Rahmen der Tile-Gruppe, `reframes`) |
+| `build.reframe` | die Tile-Gruppe hatte sich seit dem Bau der Region bewegt, die Region wurde vor dem Warten neu gebaut (`RouteCorridorTiles.refreshFrame`) | – |
 | `build.fallback` | ein Wechsel auf die gröbere Stufe (für Stationen und zurück) | `what`: `stations` oder `cells`; `missing`, `found`; für Zellen `why`: wie viele aus welchem Grund ohne Höhe waren, bevor die gröbere Stufe probte (unten) |
 | `build.band` | das Band aller Routen, dann Routen und Zellen (Schritt 4) | `routes`, `stations`, `passages`, `maxSlopeM`, `maxCurvature`, `cells`, `ms` |
 | `build.notiles` | der Bau maß auf nichts: keine Station mit Tile oder keine Zelle mit Höhe; der Korridor friert mit den OSM-Breiten ein | `stations`, `unmeasured`, `cells`, `bare` (Zellen ohne eigene Höhe), `timedOut` |
-| `build.revisit` | die Seite wurde sichtbar und der Korridor war auf nichts gebaut (`rebuildAfterBlindBuild`) | `built`: ob ein Bau startete; `blocked`: die Sperre, wenn nicht |
+| `build.revisit` | der Korridor war auf nichts gebaut und baut neu: die Seite wurde sichtbar oder die Region hat andere feine Tiles (`rebuildAfterBlindBuild`) | `built`: ob ein Bau startete; `blocked`: die Sperre, wenn nicht; `reason` |
 | `build.cancel` | der Bau hört auf, ohne einzufrieren | `reason`: `superseded` oder `routes replaced` |
 | `build.freeze` | Ende eines Baus, der eingefroren hat | wie die `[Corridor] build`-Zeile: `stations`, `unmeasured`, `bandStations`, `passages`, `timedOut`, `fallbackStations`, `fallbackCells`, `cells`, `cellsWithoutHeight`, `ms`, dazu `tilesMs`, `measureMs`, `fallbackMs`, `buildMs`, `cornersMs`; nur wenn Zellen ohne Höhe bleiben `why` (Gründe, unten) und `at` (lokale `x,z` der ersten zehn, `;+N` für den Rest) |
 | `build.change` | `__corridor.set()` und `reset()` | `remeasure` (die Änderung braucht eine neue Messung) |

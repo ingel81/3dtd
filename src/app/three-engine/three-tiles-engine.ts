@@ -58,7 +58,6 @@ import { DevWorldService } from '../devworld/devworld.service';
 import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 import { TowerShadowMapper } from './tower-shadow-mapper';
-import type { RegionLodState } from './route-corridor-region';
 import { RouteCorridorTiles } from './route-corridor-tiles';
 import { SettleHold, type TilesLodDebug } from './tiles-lod-debug';
 import { perfTrace } from '../utils/perf-trace';
@@ -769,8 +768,13 @@ export class ThreeTilesEngine {
   }
 
   /** How far the route corridor's tiles are refined, see RouteCorridorTiles.lod */
-  routeCorridorLod(): (RegionLodState & { pending: number }) | null {
+  routeCorridorLod(): ReturnType<RouteCorridorTiles['lod']> {
     return this.corridor.lod();
+  }
+
+  /** The corridor region in the tiles group's frame now, see RouteCorridorTiles.refreshFrame */
+  refreshRouteCorridorFrame(): boolean {
+    return this.corridor.refreshFrame();
   }
 
   /** The content paths of the corridor's fine tiles, see RouteCorridorTiles.tilePaths */

@@ -269,6 +269,8 @@ export class CorridorBuild {
       let timedOut = false;
       if (tiles) {
         report({ step: TILES_STEP, percent: null });
+        // A region built before the root tileset placed the group stands beside the route
+        if (engine?.refreshRouteCorridorFrame()) traced(() => corridorTrace.log('build.reframe', {}));
         this.mute(tiles);
         tiles.setRegionErrorTarget(ROUTE_CORRIDOR_ERROR_TARGET);
         // Quiet on its own would end this wait a second after it began while

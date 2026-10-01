@@ -320,6 +320,7 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
         getEngine: () => ({
           tilesLodDebug: () => tilesLod,
           routeCorridorLod: () => ({ errorTarget: level }),
+          refreshRouteCorridorFrame: () => false,
           terrain,
         }),
       },

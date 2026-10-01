@@ -29,7 +29,15 @@ export class RouteCorridorTiles {
   private regions: LoadRegionPlugin | null = null;
   /** The region `regions` holds, see setRoutes(); null before the first routes and after an origin change. */
   private region: RouteCorridorRegion | null = null;
+  /** The routes the region was built from, for building it again in a new group frame (refreshFrame) */
+  private routes: GeoPosition[][] | null = null;
+  /** Times the region was built again because the group moved, for the trace (lod) */
+  private reframes = 0;
   private lodDebugPlugin: DebugTilesPlugin | null = null;
+  /** The root tileset placed the group (ReorientationPlugin): a region built before stands in the old frame */
+  private readonly onRootLoaded = (): void => {
+    this.refreshFrame();
+  };
 
   constructor(
     private readonly sync: EllipsoidSync,
@@ -40,10 +48,14 @@ export class RouteCorridorTiles {
   attach(tiles: TilesRenderer, regions: LoadRegionPlugin | null): void {
     this.tiles = tiles;
     this.regions = regions;
+    // After the ReorientationPlugin's own listener, which it added when it registered
+    tiles.addEventListener('load-root-tileset', this.onRootLoaded);
   }
 
   /** The tiles renderer is gone (dispose) */
   detach(): void {
+    this.tiles?.removeEventListener('load-root-tileset', this.onRootLoaded);
+    this.routes = null;
     this.tiles = null;
     this.regions = null;
     this.region = null;
@@ -54,6 +66,27 @@ export class RouteCorridorTiles {
   dropForNewOrigin(): void {
     this.regions?.clearRegions();
     this.region = null;
+    this.routes = null;
+  }
+
+  /**
+   * Build the region again from the same routes when the tiles group moved
+   * since it was built. The streets of a cached place are there before the
+   * root tileset: a region built then stood in the frame before the
+   * ReorientationPlugin placed the group, beside the route, and reached a
+   * handful of tiles that never refine, so no station of the build found a
+   * fine one and the route stayed in the air until a reload (2026-10-01).
+   * @returns whether it was built again
+   */
+  refreshFrame(): boolean {
+    if (!this.tiles || !this.region || !this.routes) return false;
+    const group = this.tiles.group;
+    group.updateMatrixWorld();
+    if (this.region.builtIn(group.matrixWorld)) return false;
+    this.reframes++;
+    console.warn('[RouteCorridorTiles] the tiles group moved since the corridor region was built: building it again');
+    this.setRoutes(this.routes);
+    return true;
   }
 
   /**
@@ -64,6 +97,7 @@ export class RouteCorridorTiles {
    */
   setRoutes(routes: GeoPosition[][]): void {
     if (!this.tiles || !this.regions) return;
+    this.routes = routes;
     const group = this.tiles.group;
     group.updateMatrixWorld();
     const localRoutes = routes.map((route) =>
@@ -97,11 +131,14 @@ export class RouteCorridorTiles {
    * tiles wait to load anywhere, for the corridor trace
    * (VisualizationFacadeService.onTilesLoaded). Null without a corridor.
    */
-  lod(): (RegionLodState & { pending: number }) | null {
+  lod(): (RegionLodState & { pending: number; frame: 'ok' | 'stale'; reframes: number }) | null {
     if (!this.tiles || !this.region) return null;
     return {
       ...this.region.lodState(this.tiles.activeTiles as unknown as Iterable<RegionTile>),
       pending: tilesPending(this.tiles),
+      // The region in the group's frame now, and how often it had to be built again for it
+      frame: this.region.builtIn(this.tiles.group.matrixWorld) ? 'ok' : 'stale',
+      reframes: this.reframes,
     };
   }
 

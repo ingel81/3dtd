@@ -360,11 +360,12 @@ Ideen (2026-09-27), nichts entschieden:
         Reload mit wenig Hinweis.
       - Testlücken: Quick-Actions, Game-Speed, Info-Overlay-Komponente, Rich-Tooltip, Tower-Control-HUD, Coop-Chat-Tasten,
         Loading-Screen, `tower-defense.component` selbst.
-- [ ] **E93 Nach einem Reload durch den Dev-Server schweben Route, Zellen, Spawn und HQ** (User, 2026-10-01, sporadisch):
-      F5 oder ein Ortswechsel heilt es; mehrere Reloads am Stück bei sichtbarem Tab zeigten es nicht. Die Höhen misst
-      nur der Korridor-Aufbau (`corridor-build.ts`, `waitForQuietTiles`); „ruhig“ heißt auch „nichts angefordert“, etwa
-      wenn ohne Frames (verdeckter Tab) nichts nachlädt, wie am 2026-09-16. Vermutung, nicht belegt. Beim nächsten Mal
-      vor F5 `__corridor.trace()` (Zeilen `build.start`, `build.tiles`) und notieren, ob der Tab sichtbar war.
+- [ ] **E93 Route, Zellen, Spawn und HQ schweben nach dem Laden** (User, 2026-10-01, sporadisch, auch bei F5 und
+      sichtbarem Tab): Belegt sind 8 statt rund 100 Tiles in der Region und keine gemessene Station. Wahrscheinliche
+      Ursache nach dem Code, nicht direkt gemessen: die Korridor-Region stand im Rahmen der Tile-Gruppe vor
+      `load-root-tileset` (Straßen aus dem Cache kamen vor dem Wurzel-Tileset). Gebaut: Region neu im neuen Rahmen, Neubau bei neuen Tiles nach blindem Einfrieren, `frame` im Trace.
+      Offen: im Spiel bestätigen; tritt es wieder auf, Vorgehen in ROUTE_CORRIDOR.md („Vorgehen, wenn die Route wieder
+      schwebt“).
 - [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
       Der Worker loopt mit eigener Uhr statt auf Tick-Anfrage, der Hauptthread liest je Bild den neuesten Stand und
       spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf

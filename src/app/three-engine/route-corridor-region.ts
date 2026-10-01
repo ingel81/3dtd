@@ -137,6 +137,16 @@ export class RouteCorridorRegion {
     this.maxZ = maxZ;
   }
 
+  /**
+   * Whether the region stands in the frame `groupMatrix` gives: false when
+   * the tiles group moved since it was built (the ReorientationPlugin places
+   * the group only once the root tileset loaded), and the region lies beside
+   * the route.
+   */
+  builtIn(groupMatrix: Matrix4): boolean {
+    return this.toLocal.equals(groupMatrix);
+  }
+
   intersectsTile(boundingVolume: BoundingVolumeLike, tile: object): boolean {
     let footprint = this.footprints.get(tile);
     if (footprint === undefined) {

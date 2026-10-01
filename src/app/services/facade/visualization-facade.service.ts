@@ -1,6 +1,7 @@
 import { Injectable, inject, Injector, effect, untracked } from '@angular/core';
 import { OsmStreetService } from '../location/osm-street.service';
 import { UIStore } from '../../store/ui.store';
+import type { ThreeTilesEngine } from '../../three-engine';
 import { CameraControlService } from '../camera-control.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
@@ -227,9 +228,16 @@ export class VisualizationFacadeService {
   /** EventBus subscription bag — cleaned up in dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
 
+  /**
+   * The fine tiles of the corridor (RegionLodState.tileSet) when a build had
+   * frozen blind, and the builds tried since on new tiles (retryBlindOnNewTiles)
+   */
+  private blindTileSet: string | null = null;
+  private blindRetries = 0;
+
   /** The page was shown or hidden, see rebuildAfterBlindBuild(). */
   private readonly onVisibilityChange = (): void => {
-    void this.rebuildAfterBlindBuild();
+    void this.rebuildAfterBlindBuild('visible after unmeasured freeze');
   };
 
   /**
@@ -274,23 +282,51 @@ export class VisualizationFacadeService {
    * while it runs (corridorPending), so it shows the hint over the map that
    * an HQ move shows (RelocationStatusService).
    */
-  private async rebuildAfterBlindBuild(): Promise<void> {
+  private async rebuildAfterBlindBuild(reason: string): Promise<void> {
     if (!this.initialized || document.hidden) return;
     if (!this.corridor.frozeBlind() || this.corridor.pending()) return;
     const blocked = this.corridor.rebuildBlocker();
     if (blocked) {
-      corridorTrace.log('build.revisit', { built: false, blocked });
+      corridorTrace.log('build.revisit', { built: false, blocked, reason });
       return;
     }
-    corridorTrace.log('build.revisit', { built: true });
-    console.log('[Corridor] the page is visible again and the corridor was built without tiles: building it again.');
+    corridorTrace.log('build.revisit', { built: true, reason });
+    console.log(`[Corridor] the corridor was built without tiles, building it again (${reason}).`);
     this.relocationStatus.show('Building the corridor', 'Loading the corridor tiles');
     const hint = this.relocationStatus.follow();
     try {
-      await this.corridor.build('visible after unmeasured freeze', hint.report);
+      await this.corridor.build(reason, hint.report);
     } finally {
       hint.end();
     }
+  }
+
+  /** Builds at most on new tiles after one blind freeze, see retryBlindOnNewTiles() */
+  private static readonly BLIND_RETRIES = 3;
+
+  /**
+   * A build that froze blind on a page that stays visible waited for the
+   * visibility change that never came: the route stayed in the air until a
+   * reload (2026-10-01). Once the corridor's fine tiles are others than when
+   * it froze, build again, at most BLIND_RETRIES times per freeze; a build
+   * that measures ends it. Same guards as the build on visibility.
+   */
+  private retryBlindOnNewTiles(engine: ThreeTilesEngine): void {
+    if (!this.corridor.frozeBlind()) {
+      this.blindTileSet = null;
+      this.blindRetries = 0;
+      return;
+    }
+    const tileSet = engine.routeCorridorLod()?.tileSet ?? null;
+    if (tileSet === null || document.hidden || this.corridor.pending()) return;
+    if (this.blindTileSet === null) {
+      this.blindTileSet = tileSet;
+      return;
+    }
+    if (tileSet === this.blindTileSet || this.blindRetries >= VisualizationFacadeService.BLIND_RETRIES) return;
+    this.blindTileSet = tileSet;
+    this.blindRetries++;
+    void this.rebuildAfterBlindBuild('new corridor tiles after unmeasured freeze');
   }
 
   /**
@@ -789,6 +825,7 @@ export class VisualizationFacadeService {
     const trace = corridorTrace.enter(`tilesLoaded lod=${lodVersion}`);
     try {
       corridorTrace.tiles(lodVersion, () => engine.routeCorridorLod());
+      this.retryBlindOnNewTiles(engine);
 
       this.renderStreets();
       const tStreets = performance.now();

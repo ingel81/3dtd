@@ -147,11 +147,13 @@ describe('VisualizationFacadeService', () => {
     add: vi.fn((m: { parent: unknown }) => { m.parent = scene; }),
     remove: vi.fn((m: { parent: unknown }) => { m.parent = null; }),
   };
+  /** What the engine says of the corridor's tiles (RouteCorridorTiles.lod); null without a corridor */
+  let corridorLod: { tileSet: string } | null = null;
   const engine = {
     getScene: () => scene,
     towers: { setShowShootHeight: vi.fn(), applyDebugOverrides: vi.fn() },
     terrain: { lodVersion: 0, clearHeightCache: vi.fn() },
-    routeCorridorLod: () => null,
+    routeCorridorLod: (): unknown => corridorLod,
     // No 3D tiles here: the corridor build measures and builds without waiting for them
     tilesLodDebug: () => null,
   };
@@ -406,6 +408,7 @@ describe('VisualizationFacadeService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    corridorLod = null;
     for (const method of ['log', 'warn', 'error', 'table'] as const) {
       vi.spyOn(console, method).mockImplementation(() => undefined);
     }
@@ -518,12 +521,32 @@ describe('VisualizationFacadeService', () => {
 
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
       expect(traced).toHaveBeenCalledWith('build.revisit', {
-        built: false, blocked: 'towers stand on the map, sell them first',
+        built: false, blocked: 'towers stand on the map, sell them first', reason: 'visible after unmeasured freeze',
       });
       // The next visibility change tries again: the flag stays up.
       towerCount = 0;
       await show();
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(2);
+    });
+
+    it('builds again on a visible page once the corridor has other fine tiles, three times at most', async () => {
+      await blindBuild();
+      const batch = async (tileSet: string) => {
+        corridorLod = { tileSet };
+        facade.onTilesLoaded();
+        for (let i = 0; i < 50; i++) {
+          runFrames();
+          for (let j = 0; j < 10; j++) await Promise.resolve();
+        }
+      };
+      // The tiles of the freeze, and the same again: nothing new to measure on
+      await batch('a');
+      await batch('a');
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+      // Other tiles: once per change, still blind each time, then no more
+      for (const tileSet of ['b', 'c', 'd', 'e', 'f']) await batch(tileSet);
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(4);
+      corridorLod = null;
     });
 
     it('shows the hint over the map while it builds, and takes it away after', async () => {

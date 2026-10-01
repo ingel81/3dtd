@@ -78,6 +78,7 @@ describe('CorridorBuild', () => {
         const count = state.regionTiles();
         return count === null ? null : { tiles: count };
       },
+      refreshRouteCorridorFrame: () => false,
     };
     const grid = {
       getStats: () => ({ totalCells: 42 }),

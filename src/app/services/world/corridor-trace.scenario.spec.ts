@@ -92,6 +92,7 @@ describe('corridor trace, from the loading screen to the frozen corridor', () =>
       tilesLodDebug: () => tiles,
       terrain: { clearHeightCache: vi.fn() },
       routeCorridorLod: () => ({ tiles: 12, fine: 12, finest: 0, coarse: 0, pending: 0 }),
+      refreshRouteCorridorFrame: () => false,
     };
     return new CorridorBuild({
       scalars: () => ({ towerCount: 0, phase: 'setup', enemiesAlive: 0 }),
