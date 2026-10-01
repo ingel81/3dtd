@@ -18,7 +18,8 @@
       "rat": 62
     },
     "strength": 1,
-    "spawnDelay": 167
+    "spawnDelay": 167,
+    "spawnDelayVariation": 0.25
   },
   {
     "wave": 3,
@@ -29,6 +30,7 @@
     },
     "strength": 1,
     "spawnDelay": 200,
+    "spawnDelayVariation": 0.25,
     "pattern": "interleaved"
   },
   {
@@ -59,6 +61,7 @@
     },
     "strength": 0.8,
     "spawnDelay": 268,
+    "spawnDelayVariation": 0.25,
     "note": "A fast swarm early on: at strength 1 it cost 59 to 99 HP alone and up to 172 in coop (bots)."
   },
   {
@@ -68,7 +71,8 @@
       "bat": 73
     },
     "strength": 1,
-    "spawnDelay": 243
+    "spawnDelay": 243,
+    "spawnDelayVariation": 0.25
   },
   {
     "wave": 8,
@@ -167,16 +171,19 @@
     },
     "strength": 1,
     "spawnDelay": 510,
-    "pattern": "interleaved"
+    "pattern": "random"
   },
   {
     "wave": 17,
-    "name": "Wraith Storm",
+    "name": "Night Flight",
     "enemies": {
-      "wraith": 11
+      "wraith": 9,
+      "bat": 24
     },
     "strength": 1,
-    "spawnDelay": 400
+    "spawnDelay": 350,
+    "spawnDelayVariation": 0.2,
+    "pattern": "random"
   },
   {
     "wave": 18,
@@ -198,7 +205,8 @@
       "skeleton": 583
     },
     "strength": 1,
-    "spawnDelay": 100
+    "spawnDelay": 100,
+    "spawnDelayVariation": 0.3
   },
   {
     "wave": 20,
@@ -212,100 +220,114 @@
   },
   {
     "wave": 21,
-    "name": "Bat Swarm",
+    "name": "Dusk Flock",
     "enemies": {
-      "bat": 336
+      "bat": 260,
+      "penguin": 120
     },
     "strength": 0.7,
-    "spawnDelay": 100
+    "spawnDelay": 100,
+    "spawnDelayVariation": 0.3,
+    "pattern": "random"
   },
   {
     "wave": 22,
-    "name": "Tank Column",
+    "name": "Armored Push",
     "enemies": {
-      "tank": 54,
-      "zombie-soldier": 36
+      "tank": 40,
+      "zombie-soldier": 30,
+      "rat": 300
     },
     "strength": 1,
-    "spawnDelay": 600,
-    "pattern": "interleaved"
+    "spawnDelay": 150,
+    "pattern": "front-loaded"
   },
   {
     "wave": 23,
-    "name": "Spider Swarm",
+    "name": "Spider Nest",
     "enemies": {
-      "spider": 470
+      "spider": 380,
+      "wallsmasher": 40
     },
     "strength": 1,
-    "spawnDelay": 100
+    "spawnDelay": 120,
+    "spawnDelayVariation": 0.25,
+    "pattern": "back-loaded"
   },
   {
     "wave": 24,
-    "name": "Ghost Surge",
+    "name": "Phantom March",
     "enemies": {
-      "ghost": 18,
-      "wraith": 5
+      "zombie": 120,
+      "ghost": 20,
+      "wraith": 8
     },
-    "strength": 0.8,
-    "spawnDelay": 400,
-    "pattern": "interleaved",
-    "note": "Ghosts take magic: without it this row leaked 55 HP alone and 110 in coop at strength 1 (bots)."
+    "strength": 0.9,
+    "spawnDelay": 300,
+    "pattern": "interleaved"
   },
   {
     "wave": 25,
-    "name": "Mammoth Siege",
+    "name": "Siege Line",
     "enemies": {
-      "mammoth": 44,
-      "wallsmasher": 18
+      "mammoth": 30,
+      "stone-golem": 6,
+      "wallsmasher": 24
     },
     "strength": 0.8,
     "spawnDelay": 850,
-    "pattern": "interleaved",
-    "note": "Mammoths take siege: at strength 1 this row cost 55 to 125 HP alone and about 100 in coop (bots)."
+    "pattern": "clustered"
   },
   {
     "wave": 26,
-    "name": "Zombie Horde",
+    "name": "Horde and Hornets",
     "enemies": {
-      "zombie": 540,
-      "zombie-v2": 60
+      "zombie": 420,
+      "zombie-v2": 60,
+      "hornet": 60
     },
     "strength": 1,
     "spawnDelay": 100,
-    "pattern": "interleaved"
+    "spawnDelayVariation": 0.3,
+    "pattern": "random"
   },
   {
     "wave": 27,
-    "name": "Dragon Elite",
+    "name": "Dragon Patrol",
     "enemies": {
-      "dragon": 5,
-      "hornet": 3
+      "bat": 60,
+      "hornet": 40,
+      "dragon": 10
     },
     "strength": 1,
-    "spawnDelay": 840,
-    "pattern": "interleaved"
+    "spawnDelay": 400,
+    "pattern": "wave-in-wave"
   },
   {
     "wave": 28,
     "name": "Mech Army",
     "enemies": {
-      "mech": 65
+      "mech": 40,
+      "zombie-soldier": 30
     },
     "strength": 1,
-    "spawnDelay": 1000
+    "spawnDelay": 900,
+    "pattern": "interleaved"
   },
   {
     "wave": 29,
-    "name": "Chaos Wave",
+    "name": "Final Mix",
     "enemies": {
-      "zombie": 95,
-      "tank": 95,
-      "hornet": 63,
-      "bear": 61
+      "zombie": 60,
+      "tank": 40,
+      "hornet": 40,
+      "bear": 40,
+      "ghost": 20
     },
     "strength": 1,
-    "spawnDelay": 510,
-    "pattern": "interleaved"
+    "spawnDelay": 500,
+    "spawnDelayVariation": 0.2,
+    "pattern": "random"
   },
   {
     "wave": 30,
@@ -319,13 +341,14 @@
   },
   {
     "wave": 31,
-    "name": "Light Mix",
+    "name": "Penguin Breather",
     "enemies": {
-      "wallsmasher": 60,
-      "spider": 60
+      "penguin": 300,
+      "rat": 60
     },
     "strength": 0.7,
-    "spawnDelay": 350,
+    "spawnDelay": 150,
+    "spawnDelayVariation": 0.3,
     "pattern": "interleaved"
   },
   {
@@ -339,77 +362,88 @@
     },
     "strength": 1,
     "spawnDelay": 587.5,
-    "pattern": "interleaved"
+    "pattern": "sequential"
   },
   {
     "wave": 33,
-    "name": "Golem Squad",
+    "name": "Golem Guard",
     "enemies": {
-      "stone-golem": 17
+      "stone-golem": 12,
+      "spider": 200
     },
     "strength": 1,
-    "spawnDelay": 2400
+    "spawnDelay": 300,
+    "pattern": "front-loaded"
   },
   {
     "wave": 34,
-    "name": "Mammoth Siege",
+    "name": "Mammoth Stampede",
     "enemies": {
-      "mammoth": 45,
-      "wallsmasher": 19
+      "mammoth": 40,
+      "bear": 30
     },
     "strength": 1,
     "spawnDelay": 850,
-    "pattern": "interleaved"
+    "pattern": "clustered"
   },
   {
     "wave": 35,
-    "name": "Wraith Storm",
+    "name": "Wraith Night",
     "enemies": {
-      "wraith": 207
+      "wraith": 150,
+      "bat": 120
     },
-    "strength": 0.8,
-    "spawnDelay": 400,
-    "note": "Wraiths take magic: at strength 1 this row cost 17 to 179 HP (bots)."
-  },
-  {
-    "wave": 36,
-    "name": "Zombie Horde",
-    "enemies": {
-      "zombie": 630,
-      "zombie-v2": 70
-    },
-    "strength": 1,
-    "spawnDelay": 100,
+    "strength": 0.9,
+    "spawnDelay": 300,
+    "spawnDelayVariation": 0.2,
     "pattern": "interleaved"
   },
   {
-    "wave": 37,
-    "name": "Penguin Rush",
+    "wave": 36,
+    "name": "Great Horde",
     "enemies": {
-      "penguin": 450,
-      "rat": 50
+      "zombie": 560,
+      "zombie-v2": 80,
+      "zombie-soldier": 60
+    },
+    "strength": 1.5,
+    "spawnDelay": 100,
+    "spawnDelayVariation": 0.35,
+    "pattern": "random"
+  },
+  {
+    "wave": 37,
+    "name": "Ghost Riders",
+    "enemies": {
+      "ghost": 90,
+      "bear": 40
     },
     "strength": 1,
-    "spawnDelay": 173,
+    "spawnDelay": 600,
     "pattern": "interleaved"
   },
   {
     "wave": 38,
-    "name": "Skeleton Swarm",
+    "name": "Bone Tide",
     "enemies": {
-      "skeleton": 781
+      "skeleton": 600,
+      "spider": 150
     },
     "strength": 1,
-    "spawnDelay": 100
+    "spawnDelay": 100,
+    "spawnDelayVariation": 0.3,
+    "pattern": "back-loaded"
   },
   {
     "wave": 39,
-    "name": "Rat Tide",
+    "name": "Plague and Iron",
     "enemies": {
-      "rat": 887
+      "mech": 20,
+      "rat": 700
     },
     "strength": 1,
-    "spawnDelay": 100
+    "spawnDelay": 110,
+    "pattern": "front-loaded"
   },
   {
     "wave": 40,
@@ -427,69 +461,81 @@
     "wave": 41,
     "name": "Bear Pack",
     "enemies": {
-      "bear": 91
+      "bear": 80
     },
     "strength": 0.7,
     "spawnDelay": 600
   },
   {
     "wave": 42,
-    "name": "Dragon Elite",
+    "name": "Dragon Night",
     "enemies": {
-      "dragon": 60,
-      "hornet": 40
+      "bat": 80,
+      "hornet": 60,
+      "dragon": 45
     },
     "strength": 1,
-    "spawnDelay": 840,
-    "pattern": "interleaved"
+    "spawnDelay": 450,
+    "pattern": "wave-in-wave"
   },
   {
     "wave": 43,
-    "name": "Wallsmasher Crew",
+    "name": "Wall Breakers",
     "enemies": {
-      "wallsmasher": 136
+      "wallsmasher": 110,
+      "tank": 30
     },
     "strength": 1,
-    "spawnDelay": 500
-  },
-  {
-    "wave": 44,
-    "name": "Rat Tide",
-    "enemies": {
-      "rat": 908
-    },
-    "strength": 1,
-    "spawnDelay": 100
-  },
-  {
-    "wave": 45,
-    "name": "Bear Pack",
-    "enemies": {
-      "bear": 120
-    },
-    "strength": 1,
-    "spawnDelay": 728
-  },
-  {
-    "wave": 46,
-    "name": "Tank Column",
-    "enemies": {
-      "tank": 67,
-      "zombie-soldier": 44
-    },
-    "strength": 1,
-    "spawnDelay": 600,
+    "spawnDelay": 500,
     "pattern": "interleaved"
   },
   {
-    "wave": 47,
-    "name": "Light Mix",
+    "wave": 44,
+    "name": "Swarm Surge",
     "enemies": {
-      "wallsmasher": 114,
-      "spider": 114
+      "rat": 500,
+      "spider": 250,
+      "bat": 150
+    },
+    "strength": 1.5,
+    "spawnDelay": 100,
+    "spawnDelayVariation": 0.3,
+    "pattern": "wave-in-wave"
+  },
+  {
+    "wave": 45,
+    "name": "Haunted Pack",
+    "enemies": {
+      "bear": 70,
+      "wraith": 60,
+      "ghost": 30
+    },
+    "strength": 1,
+    "spawnDelay": 550,
+    "pattern": "random"
+  },
+  {
+    "wave": 46,
+    "name": "Mech Column",
+    "enemies": {
+      "mech": 40,
+      "tank": 40,
+      "zombie-soldier": 30
+    },
+    "strength": 1,
+    "spawnDelay": 650,
+    "pattern": "clustered"
+  },
+  {
+    "wave": 47,
+    "name": "Hornet Raid",
+    "enemies": {
+      "hornet": 150,
+      "wallsmasher": 80
     },
     "strength": 1,
     "spawnDelay": 350,
+    "spawnDelayVariation": 0.2,
     "pattern": "interleaved"
   },
   {
@@ -498,19 +544,21 @@
     "enemies": {
       "skeleton": 820
     },
-    "strength": 1,
-    "spawnDelay": 100
+    "strength": 0.8,
+    "spawnDelay": 100,
+    "spawnDelayVariation": 0.3
   },
   {
     "wave": 49,
-    "name": "Dragon Elite",
+    "name": "Ether Assault",
     "enemies": {
-      "dragon": 60,
-      "hornet": 40
+      "penguin": 150,
+      "wraith": 120,
+      "ghost": 60
     },
     "strength": 1,
-    "spawnDelay": 856,
-    "pattern": "interleaved"
+    "spawnDelay": 300,
+    "pattern": "random"
   },
   {
     "wave": 50,
@@ -539,28 +587,36 @@
     "wave": 52,
     "name": "Wraith Storm",
     "enemies": {
-      "wraith": 224
+      "zombie": 150,
+      "wraith": 150
     },
     "strength": 1,
-    "spawnDelay": 400
+    "spawnDelay": 300,
+    "pattern": "interleaved"
   },
   {
     "wave": 53,
-    "name": "Golem Squad",
+    "name": "Fortress",
     "enemies": {
-      "stone-golem": 21
+      "stone-golem": 14,
+      "mammoth": 30,
+      "ghost": 30
     },
     "strength": 1,
-    "spawnDelay": 2400
+    "spawnDelay": 1000,
+    "pattern": "clustered"
   },
   {
     "wave": 54,
     "name": "Spider Swarm",
     "enemies": {
-      "spider": 800
+      "spider": 700,
+      "bat": 100
     },
     "strength": 1,
-    "spawnDelay": 115
+    "spawnDelay": 115,
+    "spawnDelayVariation": 0.3,
+    "pattern": "random"
   },
   {
     "wave": 55,
@@ -571,27 +627,30 @@
       "hornet": 30,
       "bear": 30
     },
-    "strength": 1,
+    "strength": 1.5,
     "spawnDelay": 510,
-    "pattern": "interleaved"
+    "pattern": "random",
+    "spawnDelayVariation": 0.2
   },
   {
     "wave": 56,
-    "name": "Tank Column",
+    "name": "Iron Night",
     "enemies": {
-      "tank": 69,
-      "zombie-soldier": 46
+      "tank": 50,
+      "mech": 30,
+      "rat": 300
     },
     "strength": 1,
-    "spawnDelay": 600,
-    "pattern": "interleaved"
+    "spawnDelay": 180,
+    "pattern": "front-loaded"
   },
   {
     "wave": 57,
     "name": "Ghost Surge",
     "enemies": {
-      "ghost": 162,
-      "wraith": 41
+      "ghost": 140,
+      "wraith": 40,
+      "hornet": 40
     },
     "strength": 1,
     "spawnDelay": 400,
@@ -599,27 +658,29 @@
   },
   {
     "wave": 58,
-    "name": "Hornet Strike",
+    "name": "Sky Siege",
     "enemies": {
-      "hornet": 210,
-      "bat": 90
+      "bat": 80,
+      "hornet": 160,
+      "dragon": 25
     },
     "strength": 1,
-    "spawnDelay": 306,
-    "pattern": "interleaved"
+    "spawnDelay": 350,
+    "pattern": "wave-in-wave"
   },
   {
     "wave": 59,
-    "name": "Armor Gauntlet",
+    "name": "Last Stand",
     "enemies": {
-      "rat": 31,
+      "rat": 200,
       "tank": 31,
       "mammoth": 31,
-      "ghost": 32
+      "ghost": 32,
+      "dragon": 10
     },
     "strength": 1,
-    "spawnDelay": 587.5,
-    "pattern": "interleaved"
+    "spawnDelay": 300,
+    "pattern": "random"
   },
   {
     "wave": 60,
