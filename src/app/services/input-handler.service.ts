@@ -740,6 +740,9 @@ export class InputHandlerService {
     if (isEscapeForDialog(event.key, event.defaultPrevented, this.dialog.openDialogs.length)) {
       return;
     }
+    // An open dialog owns the keyboard, as for the hotkeys: arrows and WASD
+    // pan no camera behind it, T hides no tiles
+    if (this.dialog.openDialogs.length > 0) return;
 
     // Camera panning (WASD / Arrow keys) - works always
     if (this.keyboardPan.onKeyDown(event)) {

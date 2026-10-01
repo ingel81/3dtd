@@ -33,6 +33,7 @@ describe('InputHandlerService keys on a focused slider', () => {
   let pan: { onKeyDown: ReturnType<typeof vi.fn>; onKeyUp: ReturnType<typeof vi.fn>; clearKeys: ReturnType<typeof vi.fn> };
   let mapPlacement: { startRotating: ReturnType<typeof vi.fn>; stopRotating: ReturnType<typeof vi.fn> };
   let towerPlacement: { buildMode: () => boolean; stopRotating: ReturnType<typeof vi.fn> };
+  let dialogs: { openDialogs: unknown[] };
 
   beforeEach(() => {
     slider = document.createElement('input');
@@ -40,6 +41,7 @@ describe('InputHandlerService keys on a focused slider', () => {
     pan = { onKeyDown: vi.fn(() => true), onKeyUp: vi.fn(() => true), clearKeys: vi.fn() };
     mapPlacement = { startRotating: vi.fn(() => true), stopRotating: vi.fn() };
     towerPlacement = { buildMode: () => false, stopRotating: vi.fn() };
+    dialogs = { openDialogs: [] };
 
     const injector = Injector.create({
       providers: [
@@ -47,7 +49,7 @@ describe('InputHandlerService keys on a focused slider', () => {
         { provide: TowerSelectionService, useValue: {} },
         { provide: TowerDefenseStore, useValue: {} },
         { provide: UIStore, useValue: { photoMode: signal(false) } },
-        { provide: MatDialog, useValue: { openDialogs: [] } },
+        { provide: MatDialog, useValue: dialogs },
         { provide: KeyboardPanService, useValue: pan },
         { provide: TowerPlacementService, useValue: towerPlacement },
         { provide: MapPlacementService, useValue: mapPlacement },
@@ -119,5 +121,15 @@ describe('InputHandlerService keys on a focused slider', () => {
     service.handleKeyDown(down);
     expect(pan.onKeyDown).toHaveBeenCalledWith(down);
     expect(down.defaultPrevented).toBe(true);
+  });
+
+  it('leaves the arrows and WASD to an open dialog: no camera pans behind it', () => {
+    dialogs.openDialogs.push({});
+    for (const key of ['ArrowLeft', 'w', 't']) {
+      const down = keyOn('keydown', key, document.createElement('button'));
+      service.handleKeyDown(down);
+      expect(down.defaultPrevented, key).toBe(false);
+    }
+    expect(pan.onKeyDown).not.toHaveBeenCalled();
   });
 });
