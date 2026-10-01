@@ -348,12 +348,7 @@ Ideen (2026-09-27), nichts entschieden:
       einen Reload (geprüft).
 - [ ] **E92 Rest aus dem Review Robustheit und Bedienung** (Review 2026-10-01, zwei Reviewer, Befunde im Code
       nachgeprüft; das Behobene steht in den Commits des Tages). Offen, nach Gewicht:
-      - Coop: `command:los-mask` nimmt jede Simulation von jedem Spieler; ein Gast könnte allen Towern freie Sicht
-        geben (kein Desync, Schummeln). Nur vom Host annehmen braucht, dass alle Clients am selben Tick wissen, wer
-        Host ist (heute kommt „Spieler gegangen“ per `configure`, nicht über den Lockstep). Entscheidung User.
-      - Coop: kein Wächter für ausbleibende Ticks (halboffene Verbindung nach WLAN-Wechsel oder Standby: das Spiel
-        steht ohne Meldung, bis das Betriebssystem aufgibt); bei Pause kommen legitim keine Ticks, braucht ein
-        Lebenszeichen vom Relay. Ein Gast kann mit falschen Hashes bis zu 5 Resyncs erzwingen; geht der Host während
+      - Coop: Ein Gast kann mit falschen Hashes bis zu 5 Resyncs erzwingen; geht der Host während
         eines Resyncs, wartet der Raum die 20 s ab. Unbekannte Felder eines Befehls landen im Befehlslog jedes Clients.
       - Relay: der Run-Log-Speicher entpackt synchron bis 32 MB und räumt bei jedem Eintrag auf (nur Relays mit
         `collectRuns`); 200 Räume lassen sich von vielen Adressen mit leeren Lobbys belegen.
@@ -442,6 +437,10 @@ jeweiligen Fach-Doku.
 
 ## Verworfen (nicht erneut angehen)
 
+- **Sichtmaske im Coop nur vom Host annehmen** (E92; User 2026-10-01): `command:los-mask` gilt nur für einen
+  wartenden Tower mit passender Generation, die erste Antwort gewinnt. Ein umgebauter Gast könnte nur direkt nach
+  Setzen, Reichweiten-Upgrade oder Luftziel-Forschung schneller antworten als der Host. Coop läuft unter Freunden;
+  der Host-Wechsel über den Lockstep lohnt dafür nicht.
 - **Enemy Movement als Structure of Arrays**: gebaut `bd1d3a5`, zurückgenommen `731f454` (13 % langsamer). Nur als
   Komplettumbau mit Position und Rotation in Arrays sinnvoll; gemessen unter jsdom.
 - **Mehrere Simulations-Worker und Gegnerzustand in Tabellen** (E72 B2, B3; User 2026-09-30): gebaut auf
