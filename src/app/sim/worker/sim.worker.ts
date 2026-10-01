@@ -16,6 +16,8 @@ const store = new TableStore();
 const core = new SimCore({ store });
 /** The run the packets belong to, as the main thread last said (SimClient.newRun) */
 let epoch = 0;
+/** A throw left the state half updated: nothing further runs, no call is answered from it */
+let dead = false;
 
 function post(message: FromWorker, transfer: Transferable[] = []): void {
   postMessage(message, transfer);
@@ -35,7 +37,10 @@ const loop = new SimLoop(
     const { frame, transfer } = toWire(packet, store);
     post({ kind: 'frame', frame, epoch }, transfer);
   },
-  (error) => post({ kind: 'error', error: describe(error) }),
+  (error) => {
+    dead = true;
+    post({ kind: 'error', error: describe(error) });
+  },
 );
 core.output((message) => post({ kind: 'output', message }));
 
@@ -79,6 +84,7 @@ function handle(message: ToWorkerMessage): boolean {
     take(message);
     return true;
   } catch (error) {
+    dead = true;
     loop.stop();
     post({ kind: 'error', error: describe(error) });
     return false;
@@ -86,6 +92,7 @@ function handle(message: ToWorkerMessage): boolean {
 }
 
 addEventListener('message', (ev: MessageEvent<ToWorker>) => {
+  if (dead) return;
   const message = ev.data;
   // A batch is what the main thread sent in one task: taken in one go, no pass in between
   for (const one of message.kind === 'batch' ? message.messages : [message]) {
