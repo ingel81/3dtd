@@ -28,7 +28,7 @@
 <body>
 <h1>3DTD Economy Chart — Phase 5.16 (Wave-Campaign Budget)</h1>
 <div class="meta">
-  Generated <code>2026-09-26T14:10:21.615Z</code> from
+  Generated <code>2026-09-30T21:37:11.203Z</code> from
   <code>campaign.ts</code>, <code>tower-types.config.ts</code>,
   <code>research-tree.config.ts</code>, <code>research-center.config.ts</code>,
   <code>game-balance.config.ts</code>.
@@ -81,13 +81,12 @@
   </div>
 
   <div class="chart-container">
-    <h2>Difficulty Curve (Phase 5.16) — Endgame Pressure Multipliers</h2>
+    <h2>Difficulty Curve: budget and leak of the run plan</h2>
     <p class="note">
-      Structural difficulty knobs that compound on top of the NN's continuous
-      factors. <strong>HP multiplier</strong> kicks in at W20 (+5%/wave, cap 4×) — applied
-      AFTER the NN's hp_mult so a strong checkpoint pushing 3× still gets the
-      ramp on top. <strong>Leak damage</strong> scales every 10 waves so late-game leaks
-      drain the base much faster (W11→2 HP, W21→3 HP, W31→4 HP per leak).
+      <strong>Budget</strong>: seconds of defense damage a wave of strength 1 gets at
+      loop factor 1 (budget source, docs/WAVE_RUN_PLAN.md); a plan row and the pressure
+      loop scale it. <strong>Leak scale</strong>: the factor on each enemy's leak damage,
+      growing with the budget curve.
     </p>
     <canvas id="difficultyChart" height="90"></canvas>
   </div>
@@ -110,503 +109,503 @@
       <tbody>
         <tr>
           <td>1</td>
-          <td class="l">zombie_horde</td>
-          <td>133</td>
-          <td>67</td>
+          <td class="l">Zombie Horde</td>
+          <td>100</td>
+          <td>50</td>
           <td>—</td>
-          <td>200</td>
-          <td>300</td>
-          <td>321</td>
+          <td>150</td>
+          <td>250</td>
+          <td>267</td>
         </tr>
         <tr>
           <td>2</td>
-          <td class="l">rat_tide</td>
+          <td class="l">Rat Tide</td>
           <td>267</td>
           <td>133</td>
           <td>—</td>
           <td>400</td>
-          <td>700</td>
-          <td>770</td>
+          <td>650</td>
+          <td>716</td>
         </tr>
         <tr>
           <td>3</td>
-          <td class="l">penguin_rush</td>
+          <td class="l">Penguin Rush</td>
           <td>333</td>
           <td>167</td>
           <td>—</td>
           <td>500</td>
-          <td>1,200</td>
-          <td>1,340</td>
+          <td>1,150</td>
+          <td>1,286</td>
         </tr>
         <tr>
           <td>4</td>
-          <td class="l">light_mix</td>
+          <td class="l">Light Mix</td>
           <td>367</td>
           <td>183</td>
           <td>—</td>
           <td>550</td>
-          <td>1,750</td>
-          <td>1,976</td>
+          <td>1,700</td>
+          <td>1,922</td>
         </tr>
         <tr>
           <td>5</td>
-          <td class="l">wallsmasher_crew</td>
+          <td class="l">Wallsmasher Crew</td>
           <td>433</td>
           <td>217</td>
           <td>—</td>
           <td>650</td>
-          <td>2,400</td>
-          <td>2,739</td>
+          <td>2,350</td>
+          <td>2,685</td>
         </tr>
         <tr>
           <td>6</td>
-          <td class="l">spider_swarm</td>
-          <td>467</td>
-          <td>233</td>
+          <td class="l">Spider Swarm</td>
+          <td>374</td>
+          <td>186</td>
           <td>—</td>
-          <td>700</td>
-          <td>3,100</td>
-          <td>3,572</td>
+          <td>560</td>
+          <td>2,910</td>
+          <td>3,351</td>
         </tr>
         <tr>
           <td>7</td>
-          <td class="l">bat_swarm</td>
+          <td class="l">Bat Swarm</td>
           <td>533</td>
           <td>267</td>
           <td>—</td>
           <td>800</td>
-          <td>3,900</td>
-          <td>4,524</td>
+          <td>3,710</td>
+          <td>4,303</td>
         </tr>
         <tr>
           <td>8</td>
-          <td class="l">hornet_strike</td>
+          <td class="l">Hornet Strike</td>
           <td>600</td>
           <td>300</td>
           <td>—</td>
           <td>900</td>
-          <td>4,800</td>
-          <td>5,595</td>
+          <td>4,610</td>
+          <td>5,374</td>
         </tr>
         <tr>
           <td>9</td>
-          <td class="l">tank_column</td>
+          <td class="l">Tank Column</td>
           <td>733</td>
           <td>367</td>
           <td>—</td>
           <td>1,100</td>
-          <td>5,900</td>
-          <td>6,904</td>
+          <td>5,710</td>
+          <td>6,683</td>
         </tr>
         <tr class="boss milestone">
           <td>10</td>
-          <td class="l">boss_herbert</td>
-          <td>933</td>
-          <td>467</td>
+          <td class="l">Boss: Herbert</td>
+          <td>1,219</td>
+          <td>610</td>
           <td>45</td>
-          <td>1,445</td>
-          <td>7,345</td>
-          <td>8,615</td>
+          <td>1,874</td>
+          <td>7,584</td>
+          <td>8,905</td>
         </tr>
         <tr>
           <td>11</td>
-          <td class="l">bear_pack</td>
-          <td>1,200</td>
-          <td>600</td>
+          <td class="l">Bear Pack</td>
+          <td>840</td>
+          <td>420</td>
           <td>—</td>
-          <td>1,800</td>
-          <td>9,145</td>
-          <td>10,757</td>
+          <td>1,260</td>
+          <td>8,844</td>
+          <td>10,404</td>
         </tr>
         <tr>
           <td>12</td>
-          <td class="l">dragon_elite</td>
+          <td class="l">Dragon Elite</td>
           <td>1,667</td>
           <td>833</td>
           <td>—</td>
           <td>2,500</td>
-          <td>11,645</td>
-          <td>13,732</td>
+          <td>11,344</td>
+          <td>13,379</td>
         </tr>
         <tr>
           <td>13</td>
-          <td class="l">ghost_surge</td>
+          <td class="l">Ghost Surge</td>
           <td>2,000</td>
           <td>1,000</td>
           <td>—</td>
           <td>3,000</td>
-          <td>14,645</td>
-          <td>17,302</td>
+          <td>14,344</td>
+          <td>16,949</td>
         </tr>
         <tr>
           <td>14</td>
-          <td class="l">mammoth_siege</td>
+          <td class="l">Mammoth Siege</td>
           <td>2,333</td>
           <td>1,167</td>
           <td>—</td>
           <td>3,500</td>
-          <td>18,145</td>
-          <td>21,467</td>
+          <td>17,844</td>
+          <td>21,114</td>
         </tr>
         <tr>
           <td>15</td>
-          <td class="l">golem_squad</td>
+          <td class="l">Golem Squad</td>
           <td>3,000</td>
           <td>1,500</td>
           <td>—</td>
           <td>4,500</td>
-          <td>22,645</td>
-          <td>26,822</td>
+          <td>22,344</td>
+          <td>26,469</td>
         </tr>
         <tr>
           <td>16</td>
-          <td class="l">chaos_wave</td>
+          <td class="l">Chaos Wave</td>
           <td>3,667</td>
           <td>1,833</td>
           <td>—</td>
           <td>5,500</td>
-          <td>28,145</td>
-          <td>33,367</td>
+          <td>27,844</td>
+          <td>33,014</td>
         </tr>
         <tr>
           <td>17</td>
-          <td class="l">wraith_storm</td>
+          <td class="l">Wraith Storm</td>
           <td>4,667</td>
           <td>2,333</td>
           <td>—</td>
           <td>7,000</td>
-          <td>35,145</td>
-          <td>41,697</td>
+          <td>34,844</td>
+          <td>41,344</td>
         </tr>
         <tr>
           <td>18</td>
-          <td class="l">armor_gauntlet</td>
+          <td class="l">Armor Gauntlet</td>
           <td>6,000</td>
           <td>3,000</td>
           <td>—</td>
           <td>9,000</td>
-          <td>44,145</td>
-          <td>52,407</td>
+          <td>43,844</td>
+          <td>52,054</td>
         </tr>
         <tr>
           <td>19</td>
-          <td class="l">skeleton_swarm</td>
+          <td class="l">Skeleton Swarm</td>
           <td>8,000</td>
           <td>4,000</td>
           <td>—</td>
           <td>12,000</td>
-          <td>56,145</td>
-          <td>66,687</td>
+          <td>55,844</td>
+          <td>66,334</td>
         </tr>
         <tr class="boss milestone">
           <td>20</td>
-          <td class="l">boss_herbert</td>
-          <td>12,000</td>
-          <td>6,000</td>
+          <td class="l">Boss: Ooze</td>
+          <td>13,953</td>
+          <td>6,977</td>
           <td>80</td>
-          <td>18,080</td>
-          <td>74,225</td>
-          <td>88,187</td>
+          <td>21,010</td>
+          <td>76,854</td>
+          <td>91,321</td>
         </tr>
         <tr>
           <td>21</td>
-          <td class="l">bat_swarm</td>
-          <td>14,400</td>
-          <td>7,200</td>
+          <td class="l">Bat Swarm</td>
+          <td>10,080</td>
+          <td>5,040</td>
           <td>—</td>
-          <td>21,600</td>
-          <td>95,825</td>
-          <td>113,891</td>
+          <td>15,120</td>
+          <td>91,974</td>
+          <td>109,314</td>
         </tr>
         <tr>
           <td>22</td>
-          <td class="l">tank_column</td>
+          <td class="l">Tank Column</td>
           <td>17,300</td>
           <td>8,650</td>
           <td>—</td>
           <td>25,950</td>
-          <td>121,775</td>
-          <td>144,772</td>
+          <td>117,924</td>
+          <td>140,195</td>
         </tr>
         <tr>
           <td>23</td>
-          <td class="l">spider_swarm</td>
+          <td class="l">Spider Swarm</td>
           <td>20,700</td>
           <td>10,350</td>
           <td>—</td>
           <td>31,050</td>
-          <td>152,825</td>
-          <td>181,722</td>
+          <td>148,974</td>
+          <td>177,145</td>
         </tr>
         <tr>
           <td>24</td>
-          <td class="l">ghost_surge</td>
-          <td>24,900</td>
-          <td>12,450</td>
+          <td class="l">Ghost Surge</td>
+          <td>19,920</td>
+          <td>9,960</td>
           <td>—</td>
-          <td>37,350</td>
-          <td>190,175</td>
-          <td>226,169</td>
+          <td>29,880</td>
+          <td>178,854</td>
+          <td>212,702</td>
         </tr>
         <tr>
           <td>25</td>
-          <td class="l">mammoth_siege</td>
-          <td>29,900</td>
-          <td>14,950</td>
+          <td class="l">Mammoth Siege</td>
+          <td>23,920</td>
+          <td>11,960</td>
           <td>—</td>
-          <td>44,850</td>
-          <td>235,025</td>
-          <td>279,541</td>
+          <td>35,880</td>
+          <td>214,734</td>
+          <td>255,399</td>
         </tr>
         <tr>
           <td>26</td>
-          <td class="l">zombie_horde</td>
+          <td class="l">Zombie Horde</td>
           <td>35,800</td>
           <td>17,900</td>
           <td>—</td>
           <td>53,700</td>
-          <td>288,725</td>
-          <td>343,444</td>
+          <td>268,434</td>
+          <td>319,302</td>
         </tr>
         <tr>
           <td>27</td>
-          <td class="l">dragon_elite</td>
+          <td class="l">Dragon Elite</td>
           <td>43,000</td>
           <td>21,500</td>
           <td>—</td>
           <td>64,500</td>
-          <td>353,225</td>
-          <td>420,199</td>
+          <td>332,934</td>
+          <td>396,057</td>
         </tr>
         <tr>
           <td>28</td>
-          <td class="l">mech_army</td>
+          <td class="l">Mech Army</td>
           <td>51,600</td>
           <td>25,800</td>
           <td>—</td>
           <td>77,400</td>
-          <td>430,625</td>
-          <td>512,305</td>
+          <td>410,334</td>
+          <td>488,163</td>
         </tr>
         <tr>
           <td>29</td>
-          <td class="l">chaos_wave</td>
+          <td class="l">Chaos Wave</td>
           <td>61,900</td>
           <td>30,950</td>
           <td>—</td>
           <td>92,850</td>
-          <td>523,475</td>
-          <td>622,797</td>
+          <td>503,184</td>
+          <td>598,655</td>
         </tr>
         <tr class="boss milestone">
           <td>30</td>
-          <td class="l">boss_herbert</td>
-          <td>77,400</td>
-          <td>38,700</td>
+          <td class="l">Boss: Skarnax</td>
+          <td>96,564</td>
+          <td>48,282</td>
           <td>120</td>
-          <td>116,220</td>
-          <td>639,695</td>
-          <td>761,076</td>
+          <td>144,966</td>
+          <td>648,150</td>
+          <td>771,142</td>
         </tr>
         <tr>
           <td>31</td>
-          <td class="l">(director)</td>
-          <td>65,790</td>
-          <td>32,895</td>
+          <td class="l">Light Mix</td>
+          <td>44,197</td>
+          <td>22,098</td>
           <td>—</td>
-          <td>98,685</td>
-          <td>738,380</td>
-          <td>878,512</td>
+          <td>66,295</td>
+          <td>714,445</td>
+          <td>850,032</td>
         </tr>
         <tr>
           <td>32</td>
-          <td class="l">(director)</td>
-          <td>55,921</td>
-          <td>27,961</td>
+          <td class="l">Armor Gauntlet</td>
+          <td>53,667</td>
+          <td>26,834</td>
           <td>—</td>
-          <td>83,882</td>
-          <td>822,262</td>
-          <td>978,331</td>
+          <td>80,501</td>
+          <td>794,946</td>
+          <td>945,828</td>
         </tr>
         <tr>
           <td>33</td>
-          <td class="l">(director)</td>
-          <td>47,533</td>
-          <td>23,767</td>
+          <td class="l">Golem Squad</td>
+          <td>45,617</td>
+          <td>22,809</td>
           <td>—</td>
-          <td>71,300</td>
-          <td>893,562</td>
-          <td>1,063,178</td>
+          <td>68,426</td>
+          <td>863,372</td>
+          <td>1,027,255</td>
         </tr>
         <tr>
           <td>34</td>
-          <td class="l">(director)</td>
-          <td>40,403</td>
-          <td>20,202</td>
+          <td class="l">Mammoth Siege</td>
+          <td>38,775</td>
+          <td>19,387</td>
           <td>—</td>
-          <td>60,605</td>
-          <td>954,167</td>
-          <td>1,135,299</td>
+          <td>58,162</td>
+          <td>921,534</td>
+          <td>1,096,467</td>
         </tr>
-        <tr class="boss">
+        <tr>
           <td>35</td>
-          <td class="l">boss (director)</td>
-          <td>68,686</td>
-          <td>34,343</td>
+          <td class="l">Wraith Storm</td>
+          <td>26,366</td>
+          <td>13,183</td>
           <td>—</td>
-          <td>103,029</td>
-          <td>1,057,196</td>
-          <td>1,257,904</td>
+          <td>39,549</td>
+          <td>961,083</td>
+          <td>1,143,530</td>
         </tr>
         <tr>
           <td>36</td>
-          <td class="l">(director)</td>
-          <td>29,191</td>
-          <td>14,596</td>
+          <td class="l">Zombie Horde</td>
+          <td>28,015</td>
+          <td>14,007</td>
           <td>—</td>
-          <td>43,787</td>
-          <td>1,100,983</td>
-          <td>1,310,011</td>
+          <td>42,022</td>
+          <td>1,003,105</td>
+          <td>1,193,536</td>
         </tr>
         <tr>
           <td>37</td>
-          <td class="l">(director)</td>
-          <td>24,813</td>
-          <td>12,406</td>
+          <td class="l">Penguin Rush</td>
+          <td>23,812</td>
+          <td>11,906</td>
           <td>—</td>
-          <td>37,219</td>
-          <td>1,138,202</td>
-          <td>1,354,302</td>
+          <td>35,718</td>
+          <td>1,038,823</td>
+          <td>1,236,041</td>
         </tr>
         <tr>
           <td>38</td>
-          <td class="l">(director)</td>
-          <td>21,091</td>
-          <td>10,545</td>
+          <td class="l">Skeleton Swarm</td>
+          <td>20,241</td>
+          <td>10,120</td>
           <td>—</td>
-          <td>31,636</td>
-          <td>1,169,838</td>
-          <td>1,391,949</td>
+          <td>30,361</td>
+          <td>1,069,184</td>
+          <td>1,272,170</td>
         </tr>
         <tr>
           <td>39</td>
-          <td class="l">(director)</td>
-          <td>17,927</td>
-          <td>8,964</td>
+          <td class="l">Rat Tide</td>
+          <td>17,205</td>
+          <td>8,602</td>
           <td>—</td>
-          <td>26,891</td>
-          <td>1,196,729</td>
-          <td>1,423,949</td>
+          <td>25,807</td>
+          <td>1,094,991</td>
+          <td>1,302,881</td>
         </tr>
         <tr class="boss milestone">
           <td>40</td>
-          <td class="l">boss (director)</td>
-          <td>30,476</td>
-          <td>15,238</td>
+          <td class="l">Boss: Stone Golem</td>
+          <td>19,011</td>
+          <td>9,506</td>
           <td>170</td>
-          <td>45,884</td>
-          <td>1,242,613</td>
-          <td>1,478,518</td>
+          <td>28,687</td>
+          <td>1,123,678</td>
+          <td>1,336,987</td>
         </tr>
         <tr>
           <td>41</td>
-          <td class="l">(director)</td>
-          <td>12,952</td>
-          <td>6,476</td>
+          <td class="l">Bear Pack</td>
+          <td>8,701</td>
+          <td>4,351</td>
           <td>—</td>
-          <td>19,428</td>
-          <td>1,262,041</td>
-          <td>1,501,638</td>
+          <td>13,052</td>
+          <td>1,136,730</td>
+          <td>1,352,519</td>
         </tr>
         <tr>
           <td>42</td>
-          <td class="l">(director)</td>
-          <td>11,010</td>
-          <td>5,505</td>
+          <td class="l">Dragon Elite</td>
+          <td>10,566</td>
+          <td>5,283</td>
           <td>—</td>
-          <td>16,515</td>
-          <td>1,278,556</td>
-          <td>1,521,291</td>
+          <td>15,849</td>
+          <td>1,152,579</td>
+          <td>1,371,379</td>
         </tr>
         <tr>
           <td>43</td>
-          <td class="l">(director)</td>
-          <td>9,358</td>
-          <td>4,679</td>
+          <td class="l">Wallsmasher Crew</td>
+          <td>8,981</td>
+          <td>4,490</td>
           <td>—</td>
-          <td>14,037</td>
-          <td>1,292,593</td>
-          <td>1,537,995</td>
+          <td>13,471</td>
+          <td>1,166,050</td>
+          <td>1,387,409</td>
         </tr>
         <tr>
           <td>44</td>
-          <td class="l">(director)</td>
-          <td>7,954</td>
-          <td>3,977</td>
+          <td class="l">Rat Tide</td>
+          <td>7,634</td>
+          <td>3,817</td>
           <td>—</td>
-          <td>11,931</td>
-          <td>1,304,524</td>
-          <td>1,552,193</td>
+          <td>11,451</td>
+          <td>1,177,501</td>
+          <td>1,401,036</td>
         </tr>
-        <tr class="boss">
+        <tr>
           <td>45</td>
-          <td class="l">boss (director)</td>
-          <td>13,522</td>
-          <td>6,761</td>
+          <td class="l">Bear Pack</td>
+          <td>6,489</td>
+          <td>3,244</td>
           <td>—</td>
-          <td>20,283</td>
-          <td>1,324,807</td>
-          <td>1,576,329</td>
+          <td>9,733</td>
+          <td>1,187,234</td>
+          <td>1,412,618</td>
         </tr>
         <tr>
           <td>46</td>
-          <td class="l">(director)</td>
-          <td>5,747</td>
-          <td>2,874</td>
+          <td class="l">Tank Column</td>
+          <td>5,515</td>
+          <td>2,758</td>
           <td>—</td>
-          <td>8,621</td>
-          <td>1,333,428</td>
-          <td>1,586,588</td>
+          <td>8,273</td>
+          <td>1,195,507</td>
+          <td>1,422,463</td>
         </tr>
         <tr>
           <td>47</td>
-          <td class="l">(director)</td>
-          <td>4,885</td>
-          <td>2,442</td>
+          <td class="l">Light Mix</td>
+          <td>4,688</td>
+          <td>2,344</td>
           <td>—</td>
-          <td>7,327</td>
-          <td>1,340,755</td>
-          <td>1,595,307</td>
+          <td>7,032</td>
+          <td>1,202,539</td>
+          <td>1,430,831</td>
         </tr>
         <tr>
           <td>48</td>
-          <td class="l">(director)</td>
-          <td>4,152</td>
-          <td>2,076</td>
+          <td class="l">Skeleton Swarm</td>
+          <td>3,985</td>
+          <td>1,992</td>
           <td>—</td>
-          <td>6,228</td>
-          <td>1,346,983</td>
-          <td>1,602,719</td>
+          <td>5,977</td>
+          <td>1,208,516</td>
+          <td>1,437,944</td>
         </tr>
         <tr>
           <td>49</td>
-          <td class="l">(director)</td>
-          <td>3,870</td>
-          <td>1,935</td>
+          <td class="l">Dragon Elite</td>
+          <td>3,714</td>
+          <td>1,857</td>
           <td>—</td>
-          <td>5,805</td>
-          <td>1,352,788</td>
-          <td>1,609,627</td>
+          <td>5,571</td>
+          <td>1,214,087</td>
+          <td>1,444,573</td>
         </tr>
         <tr class="boss">
           <td>50</td>
-          <td class="l">boss (director)</td>
-          <td>7,740</td>
-          <td>3,870</td>
+          <td class="l">Boss: Dragon Flight</td>
+          <td>4,828</td>
+          <td>2,414</td>
           <td>—</td>
-          <td>11,610</td>
-          <td>1,364,398</td>
-          <td>1,623,443</td>
+          <td>7,242</td>
+          <td>1,221,329</td>
+          <td>1,453,191</td>
         </tr>
       </tbody>
     </table>
@@ -941,11 +940,11 @@
 const milestoneLines = [{"label":"First Archer (45)","cost":45,"color":"#888"},{"label":"Research Center placed","cost":75,"color":"#6FB7A5"},{"label":"Research Center → Lv2","cost":195,"color":"#6FB7A5"},{"label":"Research Center → Lv3","cost":411,"color":"#6FB7A5"},{"label":"Cannon unlocked + built (Siege-Eng + Cannon)","cost":1125,"color":"#C04B3F"},{"label":"Magic unlocked + built (Ice-Magic + Arcane + Magic)","cost":1265,"color":"#7B6BD9"},{"label":"Anti-Air ready (Rocketry+AA-Retrofit + Rocket tower)","cost":2145,"color":"#E2A53D"},{"label":"T2 upgrades available (Advanced Weaponry path)","cost":2945,"color":"#9B7BC2"},{"label":"T3 upgrades available (Master Engineering full chain)","cost":4661,"color":"#D6A23A"},{"label":"T4 upgrades available (Advanced Engineering chain)","cost":7161,"color":"#E68A4D"},{"label":"T5 upgrades available (Transcendent Tech chain)","cost":11161,"color":"#F2D17A"}];
 const startCredits = 100;
 const numWaves = 50;
-const cumulData = [300,700,1200,1750,2400,3100,3900,4800,5900,7345,9145,11645,14645,18145,22645,28145,35145,44145,56145,74225,95825,121775,152825,190175,235025,288725,353225,430625,523475,639695,738380,822262,893562,954167,1057196,1100983,1138202,1169838,1196729,1242613,1262041,1278556,1292593,1304524,1324807,1333428,1340755,1346983,1352788,1364398];
-const cumulPerfectData = [321,770,1340,1976,2739,3572,4524,5595,6904,8615,10757,13732,17302,21467,26822,33367,41697,52407,66687,88187,113891,144772,181722,226169,279541,343444,420199,512305,622797,761076,878512,978331,1063178,1135299,1257904,1310011,1354302,1391949,1423949,1478518,1501638,1521291,1537995,1552193,1576329,1586588,1595307,1602719,1609627,1623443];
+const cumulData = [250,650,1150,1700,2350,2910,3710,4610,5710,7584,8844,11344,14344,17844,22344,27844,34844,43844,55844,76854,91974,117924,148974,178854,214734,268434,332934,410334,503184,648150,714445,794946,863372,921534,961083,1003105,1038823,1069184,1094991,1123678,1136730,1152579,1166050,1177501,1187234,1195507,1202539,1208516,1214087,1221329];
+const cumulPerfectData = [267,716,1286,1922,2685,3351,4303,5374,6683,8905,10404,13379,16949,21114,26469,33014,41344,52054,66334,91321,109314,140195,177145,212702,255399,319302,396057,488163,598655,771142,850032,945828,1027255,1096467,1143530,1193536,1236041,1272170,1302881,1336987,1352519,1371379,1387409,1401036,1412618,1422463,1430831,1437944,1444573,1453191];
 const waveLabels = ["W1","W2","W3","W4","W5","W6","W7","W8","W9","W10","W11","W12","W13","W14","W15","W16","W17","W18","W19","W20","W21","W22","W23","W24","W25","W26","W27","W28","W29","W30","W31","W32","W33","W34","W35","W36","W37","W38","W39","W40","W41","W42","W43","W44","W45","W46","W47","W48","W49","W50"];
-const hpMultData = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1.05,1.1,1.15,1.2,1.25,1.3,1.35,1.4,1.45,1.5,1.55,1.6,1.65,1.7000000000000002,1.75,1.8,1.85,1.9,1.9500000000000002,2,2.05,2.1,2.1500000000000004,2.2,2.25,2.3,2.35,2.4000000000000004,2.45,2.5];
-const leakDamageData = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2];
+const hpMultData = [15,20.5,25.6,30.4,34.9,39.2,43.1,46.8,50.3,53.6,56.6,59.5,62.2,64.7,67.1,69.4,71.5,73.4,75.3,77.1,78.7,80.3,81.7,83.1,84.4,85.7,86.9,88,89,90,91,91.9,92.8,93.6,94.4,95.2,95.9,96.6,97.3,97.9,98.5,99.1,99.7,100.3,100.9,101.4,101.9,102.4,102.9,103.4];
+const leakDamageData = [1,1.08,1.15,1.22,1.28,1.34,1.4,1.45,1.5,1.54,1.59,1.63,1.66,1.7,1.73,1.76,1.79,1.82,1.84,1.86,1.89,1.91,1.93,1.94,1.96,1.98,1.99,2.01,2.02,2.03,2.04,2.05,2.06,2.07,2.08,2.09,2.09,2.1,2.11,2.11,2.12,2.13,2.13,2.14,2.14,2.14,2.15,2.15,2.16,2.16];
 
 // Wave at which baseline cumul first reaches each milestone (1-indexed; null = never)
 function waveAffordable(cost) {
@@ -1074,7 +1073,7 @@ new Chart(difficultyChartCtx, {
     labels: waveLabels,
     datasets: [
       {
-        label: 'HP multiplier (post-NN)',
+        label: 'Budget at strength 1 (s of defense damage)',
         data: hpMultData,
         borderColor: '#C04B3F',
         backgroundColor: 'rgba(192,75,63,0.10)',
@@ -1084,11 +1083,10 @@ new Chart(difficultyChartCtx, {
         yAxisID: 'y',
       },
       {
-        label: 'Leak damage (HP per enemy reaching base)',
+        label: 'Leak scale (times the enemy leak damage)',
         data: leakDamageData,
         borderColor: '#E68A4D',
         fill: false,
-        stepped: true,
         pointRadius: 2,
         yAxisID: 'y1',
       },
@@ -1106,17 +1104,17 @@ new Chart(difficultyChartCtx, {
       y: {
         type: 'linear',
         position: 'left',
-        ticks: { color: '#C04B3F', callback: (v) => v.toFixed(1) + '×' },
+        ticks: { color: '#C04B3F', callback: (v) => v + ' s' },
         grid: { color: '#2a322a' },
-        title: { display: true, text: 'HP multiplier', color: '#C04B3F' },
+        title: { display: true, text: 'Budget', color: '#C04B3F' },
         beginAtZero: true,
       },
       y1: {
         type: 'linear',
         position: 'right',
-        ticks: { color: '#E68A4D', callback: (v) => v + ' HP' },
+        ticks: { color: '#E68A4D', callback: (v) => v.toFixed(2) + '×' },
         grid: { drawOnChartArea: false },
-        title: { display: true, text: 'Leak damage', color: '#E68A4D' },
+        title: { display: true, text: 'Leak scale', color: '#E68A4D' },
         beginAtZero: true,
       },
     },
@@ -1172,8 +1170,8 @@ new Chart(perWaveCtx, {
   data: {
     labels: ["W1","W2","W3","W4","W5","W6","W7","W8","W9","W10","W11","W12","W13","W14","W15","W16","W17","W18","W19","W20","W21","W22","W23","W24","W25","W26","W27","W28","W29","W30","W31","W32","W33","W34","W35","W36","W37","W38","W39","W40","W41","W42","W43","W44","W45","W46","W47","W48","W49","W50"],
     datasets: [
-      { label: 'Kill budget', data: [133,267,333,367,433,467,533,600,733,933,1200,1667,2000,2333,3000,3667,4667,6000,8000,12000,14400,17300,20700,24900,29900,35800,43000,51600,61900,77400,65790,55921,47533,40403,68686,29191,24813,21091,17927,30476,12952,11010,9358,7954,13522,5747,4885,4152,3870,7740], backgroundColor: '#6FB7A5' },
-      { label: 'Completion base', data: [67,133,167,183,217,233,267,300,367,467,600,833,1000,1167,1500,1833,2333,3000,4000,6000,7200,8650,10350,12450,14950,17900,21500,25800,30950,38700,32895,27961,23767,20202,34343,14596,12406,10545,8964,15238,6476,5505,4679,3977,6761,2874,2442,2076,1935,3870], backgroundColor: '#c9a44c' },
+      { label: 'Kill budget', data: [100,267,333,367,433,374,533,600,733,1219,840,1667,2000,2333,3000,3667,4667,6000,8000,13953,10080,17300,20700,19920,23920,35800,43000,51600,61900,96564,44197,53667,45617,38775,26366,28015,23812,20241,17205,19011,8701,10566,8981,7634,6489,5515,4688,3985,3714,4828], backgroundColor: '#6FB7A5' },
+      { label: 'Completion base', data: [50,133,167,183,217,186,267,300,367,610,420,833,1000,1167,1500,1833,2333,3000,4000,6977,5040,8650,10350,9960,11960,17900,21500,25800,30950,48282,22098,26834,22809,19387,13183,14007,11906,10120,8602,9506,4351,5283,4490,3817,3244,2758,2344,1992,1857,2414], backgroundColor: '#c9a44c' },
       { label: 'Milestone bonus', data: [0,0,0,0,0,0,0,0,0,45,0,0,0,0,0,0,0,0,0,80,0,0,0,0,0,0,0,0,0,120,0,0,0,0,0,0,0,0,0,170,0,0,0,0,0,0,0,0,0,0], backgroundColor: '#C04B3F' },
     ],
   },
