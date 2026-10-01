@@ -202,15 +202,23 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   );
 
   /**
-   * Placed towers that answer each alert kind. Tower entities carry no
-   * signals: the tower count (placed, sold, reset) and the AA research tell
-   * when to recount.
+   * Placed towers that answer each alert kind, air with each owner's research
+   * like the wave source counts it. Tower entities and the mirrored research
+   * carry no signals: the tower count (placed, sold, reset), the local AA
+   * research and the wave number (a partner's research by the next build
+   * phase) tell when to recount.
    */
   private readonly answeringTowers = computed(() => {
     this.store.towerCount();
-    const unlocked = this.researchStore.airTargetingUnlocked();
-    const types = this.mirror.towers().map((t) => t.typeConfig.id as TowerTypeId);
-    return { air: countAntiAirTowers(types, unlocked), ethereal: countAntiEtherealTowers(types) };
+    this.store.waveNumber();
+    this.researchStore.airTargetingUnlocked();
+    const towers = this.mirror.towers();
+    const types = towers.map((t) => t.typeConfig.id as TowerTypeId);
+    const air = countAntiAirTowers(towers.map((t) => ({
+      typeId: t.typeConfig.id as TowerTypeId,
+      airTargetingUnlocked: this.mirror.researchOf(t.ownerId).airTargetingUnlocked,
+    })));
+    return { air, ethereal: countAntiEtherealTowers(types) };
   });
 
   /** Air or ethereal enemies in the next or the next-but-one wave, build phase only. */

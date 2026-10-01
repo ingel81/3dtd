@@ -128,9 +128,17 @@ describe('WaveAlertAnnouncer', () => {
 
 describe('countAntiAirTowers', () => {
   it('counts towers that hit air, the research-gated ones only after research', () => {
-    const placed = ['archer', 'dual-gatling', 'research-center'] as const;
-    expect(countAntiAirTowers(placed, false)).toBe(1);
-    expect(countAntiAirTowers(placed, true)).toBe(2);
+    const placed = (unlocked: boolean) =>
+      (['archer', 'dual-gatling', 'research-center'] as const).map((typeId) => ({ typeId, airTargetingUnlocked: unlocked }));
+    expect(countAntiAirTowers(placed(false))).toBe(1);
+    expect(countAntiAirTowers(placed(true))).toBe(2);
+  });
+
+  it('takes the research of each tower owner', () => {
+    expect(countAntiAirTowers([
+      { typeId: 'dual-gatling', airTargetingUnlocked: true },
+      { typeId: 'dual-gatling', airTargetingUnlocked: false },
+    ])).toBe(1);
   });
 });
 

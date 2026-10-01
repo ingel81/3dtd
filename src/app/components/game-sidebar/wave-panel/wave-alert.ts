@@ -105,11 +105,20 @@ export class WaveAlertAnnouncer {
   }
 }
 
-/** Placed towers of these types that hit air, research included. */
-export function countAntiAirTowers(typeIds: Iterable<TowerTypeId>, airTargetingUnlocked: boolean): number {
+/** A placed tower and whether its owner has researched air targeting. */
+export interface AirAnswerTower {
+  typeId: TowerTypeId;
+  airTargetingUnlocked: boolean;
+}
+
+/**
+ * Placed towers that hit air, each with its owner's research: in coop a
+ * partner's retrofitted gatling counts as the simulation targets with it.
+ */
+export function countAntiAirTowers(towers: Iterable<AirAnswerTower>): number {
   let n = 0;
-  for (const id of typeIds) {
-    if (canTargetAirEffective(id, airTargetingUnlocked)) n++;
+  for (const t of towers) {
+    if (canTargetAirEffective(t.typeId, t.airTargetingUnlocked)) n++;
   }
   return n;
 }
