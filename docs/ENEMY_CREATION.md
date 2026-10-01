@@ -309,7 +309,6 @@ colorMultiplier: 1.3,  // Gesamt-Helligkeit (Default 1.0; 1.3 = +30% heller)
 ### Boss Health Bar
 
 ```typescript
-immunityPercent: 100,        // derzeit von keinem Spielcode gelesen (keine Anzeige, keine Schadensreduktion)
 healthBarColor: '#ff0000',   // Optional: feste Health-Bar-Farbe (z.B. Boss)
 isBoss: true,                // Boss-Leiste oben mittig (Label: name), Screen-Shake beim Tod (Preset bossDeath), kleinerer Anteil bei Abilities
 ```
@@ -623,6 +622,33 @@ Grenzen:
 
 ---
 
+## Bosse und Elite (2026-10-02)
+
+Was einen Boss (`isBoss`) mehr macht als viele HP, und was eine Art abwechslungsreicher macht. Wie das Budget sie
+bemisst: [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), Abschnitt 17.
+
+**Wut (`traits.rage`, `managers/boss-traits.ts`).** Fällt ein Boss unter `belowHp` seiner HP, ist er für den Rest
+seines Lebens `speed`-mal so schnell und nimmt `damageTaken` des Turmschadens (Fähigkeiten wirken wie zuvor). Im
+Sub-Step, nach Spielzeit; der Zustand liegt in einfachen Feldern des Gegners (`enraged`, `damageTaken`), Wellen-
+Schnappschüsse und Replays tragen ihn. Das Paket meldet ihn (`EF_ENRAGED`), die Instanz wird rot, über ihm steht
+„ENRAGED“. Herbert (50 %, ×1,35, 75 %), Golem King (40 %, ×1,3, 70 %), Dragon Matriarch (50 %, ×1,25, 75 %).
+
+**Größerer Verwandter (`renderAs`).** Ein Typ, der mit dem Pool eines anderen gezeichnet wird, in seiner eigenen
+`scale`: Golem King (`stone-golem`) und Dragon Matriarch (`dragon`), je 1,6-mal so groß. Kein zweites VAT, Modell,
+Clips und Aussehen des Pools; Name, Boss-Flag, Farbe der Lebensleiste und Werte sind die des Typs. Die Instanz trägt
+dafür eine Größe (`EnemyInstanceState.size`), die Höhe der Lebensleiste wächst mit.
+
+**Eigenes Leck (`leakDamage`).** Was ein Gegner im HQ kostet, statt der Zahl aus seinen HP (`leakDamageOf`). Skarnax
+hat 150 statt 50, verteilt auf seine Segmente.
+
+**Elite.** Rund jeder zwanzigste einer Art (gerundet, ab zehn) kommt mit 4,5-facher HP, höchstens der Grenze seiner
+Art (`ELITE_SHARE`, `ELITE_HP_FACTOR` in `sources/budget/budget.ts`); das Budget zahlt sie aus derselben Summe.
+Bosse, der Wurm und die Ooze haben keine. Der Plan nennt die Zahl (`WaveEnemyGroup.elite`), der Spawnplan zieht mit
+einem Wert des Spawn-Stroms, wo sie in der Gruppe kommen (`SpawnEntry.elite`). Eine Elite ist ein Viertel größer
+und golden (`EF_ELITE`, `presentation/enemy-marks.ts`), die Teilungskinder einer Elite sind Eliten ihrer Art.
+
+---
+
 ## Status-Effekte
 
 Welche Effekte es gibt (Slow, Poison, Burn, Freeze, Stun), wie sie sich stapeln, wie sie
@@ -711,7 +737,8 @@ herbert: {
 
   heightOffset: 0.5,
   healthBarOffset: 7,
-  immunityPercent: 100,       // "Immun 100%"
+  // Unter 50 % seiner HP: ×1,35 Tempo, nimmt 75 % des Schadens (Abschnitt Bosse)
+  traits: { rage: { belowHp: 0.5, speed: 1.35, damageTaken: 0.75 } },
   canBleed: true,
   headingOffset: -0.192,
   randomAnimationStart: true,

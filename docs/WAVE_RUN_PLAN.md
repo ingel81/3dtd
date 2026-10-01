@@ -451,3 +451,66 @@ Nichts davon ist mit Bots oder im Spiel gemessen. Zu prüfen: ob die Mutator-Wel
 etwa so viel kosten wie ihre Zeile, ob die Stärke-1,5-Zeilen (W36, W44, W55) den Regler an den Anschlag
 treiben, ob Regen am Mammoth die Zeilen W14, W25, W34, W51 zu teuer macht, und wie sich die Forschungssperre
 und das knappere Gold W21 bis W34 anfühlen.
+
+## 17. Regler, Deckel, Bosse, Elite (2026-10-02)
+
+Anlass: der menschliche Solo-Lauf bis W60 (TODO E95), Urteil „zu leicht“, „Herbert W10 zu schwach, Ooze W20 zu
+schwach, ab W30 keine Bosse“. Aus Run-Log und Replay: der Regler stand von W11 bis W60 am Anschlag 1,5, 37 Wellen
+kosteten nichts, dann W52 −108, W58 −218, Tod in W60. Herbert kam mit HP-Faktor 0,1 (400 HP neben Panzern mit
+719), die Ooze mit 0,12 und starb nach einem Fünftel der Route, ein Skarnax-Segment kostete im HQ 0,46 HP,
+W40 und W50 hießen Boss-Wellen und hatten keinen Boss.
+
+### Rechenwerkzeug
+
+`tools/balance-calc` (README dort) spielt den echten Budget-Source Welle für Welle gegen die Abwehr dieses Laufs
+(Tower und Upgrades zur Planung und zum Start, aus dem Replay): Laufplan, Budget, Regler sind der Code des Spiels.
+Geschätzt sind die Meter unter Feuer (aus dem geloggten Fenster zurückgelesen) und das Leck: die Abwehr arbeitet
+die HP der Welle mit einem Anteil `u` ihres Matrix-Schadens ab, solange die Welle unter Feuer ist, der Rest kommt
+durch. `u` ist am Lauf kalibriert (Boden 0,65, Luft 0,58, ätherisch 0,55; W5 bis W7 übernimmt es wie gelaufen);
+mit dem alten Planer zeichnet die Schätzung die Summe der Verluste nach, nicht jede Welle. Ein schwächerer und ein
+stärkerer Spieler sind `u` mal 0,7 und 1,3 (geschätzte Spanne, nicht gemessen).
+
+### Was sich geändert hat
+
+| Hebel | vorher | jetzt | Wo |
+|---|---|---|---|
+| Bemessung | HP am Ende der Vorwelle, vor den Käufen der Pause | Gegner, Anzahl, Abstände am Ende der Vorwelle fest, HP beim Start neu gegen die Abwehr | `WaveSource.sizeAtStart` |
+| Deckel | Fenster der Welle, fest | Fenster mal R | `CAP_FOLLOWS_REGULATOR` |
+| Regler | 0,5 bis 1,5, öffnet bis ×1,42 je Welle | 0,5 bis 2,5, öffnet höchstens ×1,105 je Welle, schließt wie bisher | `BUDGET_REGULATOR_LIMITS`, `PRESSURE_MAX_OPEN_STEP` |
+| Leck einer Welle | ein Schwarm trug 2000 bis 3500 HP Leck gegen ein HQ von 350 | alle Körper außer Bossen zusammen höchstens 40 mal die Leckskala, ein voller Schwarm teilt das auf | `WAVE_LEAK_POTENTIAL`, `waveLeakScale(wave, type)` |
+| Sicherheitsanteil | 0,25, sobald ein Leck mehr kostet als die Welle darf (wenige HP) | 0,5, erst wenn ein Leck mehr als 15 % des HQ kostet | `SURE_KILL_SHARE`, `SURE_KILL_HQ_SHARE` |
+| Boss-Untergrenze | keine | mindestens 3× der zäheste Begleiter, 1,25× dessen Elite, 0,25 der Basis | `BOSS_OVER_ESCORT`, `BOSS_OVER_ELITE`, `BOSS_MIN_HP_MULT` |
+| Skarnax | Leck 50 auf 240 Segmente | Leck 150 (`leakDamage`), spät rund 1,4 HP je Segment | `enemy-types.config.ts` |
+| Boss-Zeilen | W20 Ooze allein, W40 Golems, W50 Drachen | W20 Ooze mit 100 Schleimklumpen, W40 Golem King, W50 Dragon Matriarch | `run-plan.json`, `renderAs` |
+| Boss-Mechanik | keine | Wut: Herbert unter 50 % (×1,35 Tempo, 75 % Schaden), Golem King unter 40 %, Dragon Matriarch unter 50 %; die Ooze zerfällt in Klumpen mit drei Zehnteln ihrer HP | `traits.rage`, `splitOnDeath` |
+| Elite | keine | rund jeder zwanzigste einer Art ab zehn, 4,5-fache HP bis zur Grenze der Art, im selben Budget; gold und ein Viertel größer | `ELITE_SHARE`, `ELITE_HP_FACTOR` |
+
+Bosse ohne Wut zählt das Budget voll. Die Wut nicht: ein wütender Boss ist rund 1,17-mal so zäh und schneller.
+
+### Zahlen (Rechenwerkzeug, keine Messung)
+
+HQ nach W10 / 20 / 30 / 40 / 50 / 60, Sollkurve des Reglers 405 / 313 / 230 / 162 / 108 / 69:
+
+| Abwehr | vorher | jetzt |
+|---|---|---|
+| Lauf, aufgezeichnet | 363 / 357 / 356 / 356 / 330 / 0 | |
+| Mensch ×1 | 363 / 348 / 315 / 315 / 224 / 21 | 363 / 309 / 236 / 175 / 101 / 16 |
+| Mensch ×0,7 | 337 / 265, Tod in W23 | 339 / 268 / 203 / 151 / 62 / 46 |
+| Mensch ×1,3 | 363 / 362 / 354 / 354 / 354 / 354 | 363 / 338 / 278 / 219 / 127 / 58 |
+
+Wellen mit Verlust ab W8 (von 53): Mensch ×1 vorher 8, jetzt 18; ×1,3 vorher 2, jetzt 21. Mit `u` ±10 %, einem
+Tower-Anteil der Meter von 0,15 oder 0,3 und einer anderen Schwelle für einzelne Körper bleibt das Bild: vorher
+stirbt ×0,7 in W23 und ×1,3 verliert fast nichts, jetzt folgen alle drei grob der Sollkurve und leben in W60.
+
+Bosse, Mensch ×1, HP eines Bosses beim Start:
+
+| Welle | vorher | jetzt |
+|---|---|---|
+| W10 Herbert | 440 | 5256 (Wut ab 50 %) |
+| W20 Ooze (mit ihrem Zerfall) | 7920 | 19812, dazu 100 Klumpen als Begleiter |
+| W30 Skarnax | 201.000 auf 241 Segmente | 188.000, Leck 1,3 statt 0,42 je Segment |
+| W40 | 21 Golems, kein Boss | Golem King 38.755 |
+| W50 | 40 Drachen, kein Boss | Dragon Matriarch 33.102 |
+
+Grenzen: eine Abwehr, ein Ort, das Leck ist eine Schätzung mit scharfer Kante (eine Welle kostet nichts oder
+merklich), der Held fehlt, Fähigkeiten fehlen. Gegen Bots und Menschen gemessen ist nichts davon.

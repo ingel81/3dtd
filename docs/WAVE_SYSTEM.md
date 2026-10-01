@@ -519,31 +519,24 @@ und nicht mehr 18 HP wie zwei.
 
 ### Boss Waves
 
-Boss-Wellen sind Templates mit `bossOnly: true` (`boss_herbert`, `boss_golem`,
-`boss_dragon`). Welche Welle eine Boss-Welle ist, sagt `isBossWave()`: im
-Kampagne W10/W20/W30, dort fest auf `boss_herbert` gepinnt, danach jede
-fünfte Welle (W35, W40, ...). W20 und W30 schickt statt der geplanten
-Herbert-Welle der Ooze bzw. Skarnax, mit der Gesamt-HP der geplanten Welle
-(`CAMPAIGN_BOSS_VARIANTS` in `boss-variants.config.ts`). Eine Herbert-Welle
-schickt genau einen Herbert (`leaderCount`). An Boss-Wellen lässt die Maske nur Boss-Templates
-zu, an allen anderen sperrt sie sie; Details in
-[WAVE_DIRECTOR.md](WAVE_DIRECTOR.md#5-kandidaten-und-kampagne). `boss_golem` und
-`boss_dragon` haben `minWave: 31`, `boss_dragon` braucht Anti-Air.
+Boss-Wellen sind Zeilen des Laufplans mit `boss: true` (`run-plan.json`, [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md)),
+eine alle zehn Wellen, nach W60 laufen die Zeilen 31 bis 60 erneut (Stand 2026-10-02):
 
-**Boss-Varianten** (`configs/boss-variants.config.ts`): Bosse, die kein Template des
-Directors sind, kommen über eine Rotation über die Boss-Wellen nach der Kampagne.
-`BOSS_VARIANT_ROTATION` läuft über W35, W40, W45, ... und nennt je Welle eine Variante oder
-`null` für das Boss-Template des Directors; derzeit `['worm', null, 'ooze', null]`: W35,
-W55, W75, ... bringen Skarnax, den Wurm, W45, W65, W85, ... die Ooze (ENEMY_CREATION.md,
-Körper entlang der Route), W40, W50, W60, ... die Director-Bosse. Der Director plant auch diese
-Wellen wie bisher. `GameLoopFacadeService.startWaveWithAI()` ersetzt danach seine Welle durch
-`bossVariantWave()`: ein Gegner des Varianten-Typs (ein Wurm, also ein Enemy je Segment) mit der
-Gesamt-HP der geplanten Welle, wie in der Kampagne (seit 2026-09-28, vorher nahm jedes Segment den
-Multiplikator des Templates, TODO E54); der Wurm zählt dabei mit seiner größten Länge. Der
-Überlebbarkeits-Deckel bestimmt die Größe nicht, die Länge des Wurms folgt der Route. „Why this wave“ nennt das ersetzte
-Template, der Collector speichert die Welle, die läuft. Templates und Kampagne kennen die
-Varianten nicht. NEXT im Wave-Panel (Zeitleiste der kommenden Wellen, `wave-timeline.component`) zeigt
-eine Varianten-Welle vorab mit Namen, Rüstung und „weak to“.
+| Welle | Boss | Begleiter |
+|---|---|---|
+| W10 | Herbert | Panzer, Zombies |
+| W20 | Ooze | 100 Schleimklumpen |
+| W30, W60 | Skarnax | keine |
+| W40 | Golem King | Steingolems, Mammuts |
+| W50 | Dragon Matriarch | Drachen, Hornissen |
+
+Das Budget bemisst sie wie jede Welle. Ein Boss (`isBoss`) bekommt dabei mindestens das Dreifache des zähesten
+Begleiters, das 1,25-Fache von dessen Elite und ein Viertel seiner Basis-HP, auch über seine eigene Grenze; er
+darf durchkommen. Sein Leck zahlt er ganz, die Begrenzung des Lecks einer vollen Welle gilt nur den anderen.
+Herbert, der Golem King und die Dragon Matriarch werden unter einem Anteil ihrer HP wütend (`traits.rage`,
+`managers/boss-traits.ts`): schneller, weniger Schaden, rot, „ENRAGED“ über ihnen. Die Ooze zerfällt beim Tod in
+Klumpen mit drei Zehnteln ihrer HP. Golem King und Dragon Matriarch zeichnen sich mit dem Pool von Golem und
+Drache (`renderAs`), 1,6-mal so groß.
 
 #### Boss-Intro
 

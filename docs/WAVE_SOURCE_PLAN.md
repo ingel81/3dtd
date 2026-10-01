@@ -677,3 +677,16 @@ Der Tabellen-Source spielt unverändert: Leck in den Stufen der Kampagne (`enemy
 der Kurve der Kampagne, Boss, Mischung und Namen aus seiner Liste; die zwei Grenzen seiner Zeilen (5 ms, 180 s)
 stehen jetzt in `wave-table.ts`. Die Werkzeuge `economy-chart`, `model-budget` und `wave-planner` lesen den
 Laufplan statt Templates und Kampagnen-Pins.
+
+## 19. Bemessung beim Start (2026-10-02)
+
+Der Budget-Source legt eine Welle am Ende der Vorwelle fest, damit die Vorschau sie nennt, bemaß ihre HP aber
+gegen die Abwehr dieses Augenblicks. Im menschlichen Lauf bis W60 kaufte der Spieler vor W10, W11 und W13 in der
+Pause das 1,3- bis 1,4-Fache an Schaden dazu. Der Vertrag hat dafür `WaveSource.sizeAtStart(planned, request)`:
+`WaveDirector.getNextWave` ruft es beim Start mit dem Schnappschuss von jetzt, das Ergebnis ersetzt die
+Festlegung. Was die Welle ist (Gegner, Anzahl, Abstände, Muster), bleibt; nur die HP folgen der Abwehr. Die
+Quelle darf dabei nicht aus dem Zufallsstrom ziehen. Der Start-Befehl trägt die bemessene Welle, Coop und Replay
+bekommen sie, wie sie gespielt wurde. Der Tabellen-Source hat kein `sizeAtStart`.
+
+Ebenfalls im Vertrag: `WaveRules.leakScale(wave, enemyType?)` nimmt den Typ, weil der Budget-Source das Leck
+einer vollen Welle begrenzt und Bosse davon ausnimmt ([WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), Abschnitt 17).

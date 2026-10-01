@@ -9,6 +9,9 @@ point is a before/after table for every change to the planner: same defense, old
 # the tables, into a directory of your choice
 BALANCE_OUT=<dir> BALANCE_LABEL=after npx vitest run tools/balance-calc/balance-calc.spec.ts
 
+# the same with other values of the leak model, to see how much a conclusion hangs on the fit
+BALANCE_MODEL='{"ground":0.6,"towerShare":0.3}' BALANCE_OUT=<dir> npx vitest run tools/balance-calc/balance-calc.spec.ts
+
 # a new trajectory from another run (run log and its replay)
 BALANCE_RUN_LOG=<run.jsonl> BALANCE_REPLAY=<replay.json> npx vitest run tools/balance-calc/extract.spec.ts
 ```
