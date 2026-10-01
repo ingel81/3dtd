@@ -17,7 +17,7 @@ import type { ReorientationPlugin } from '3d-tiles-renderer/plugins';
 import { ColorGradingPreset } from './post-processing/color-grading';
 import { PostProcessingPipeline } from './post-processing/post-processing-pipeline';
 import { CameraRig } from './camera-rig';
-import { TileLoadingTracker, type TileStats } from './tile-loading-tracker';
+import { TileLoadingTracker, type RootLoadFailure, type TileStats } from './tile-loading-tracker';
 import { EllipsoidSync } from './ellipsoid-sync';
 import { RenderLoop } from './render-loop';
 import { CanvasSizeFollower } from './canvas-size-follower';
@@ -599,11 +599,10 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Register a callback for a rejected tile-server credential.
-   * Used to send the player back to the token screen instead of leaving them
-   * on a loading indicator that never finishes.
+   * Register a callback for a root tileset that failed, with why
+   * (RootLoadFailure): refused credentials or a server not reached.
    */
-  setOnAuthErrorCallback(callback: () => void): void {
+  setOnAuthErrorCallback(callback: (failure: RootLoadFailure) => void): void {
     // Registration usually happens after the tileset request already failed,
     // the tracker replays a remembered error.
     this.tileLoading.setOnAuthError(callback);

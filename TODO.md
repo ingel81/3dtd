@@ -352,7 +352,6 @@ Ideen (2026-09-27), nichts entschieden:
         eines Resyncs, wartet der Raum die 20 s ab. Unbekannte Felder eines Befehls landen im Befehlslog jedes Clients.
       - Relay: der Run-Log-Speicher entpackt synchron bis 32 MB und räumt bei jedem Eintrag auf (nur Relays mit
         `collectRuns`); 200 Räume lassen sich von vielen Adressen mit leeren Lobbys belegen.
-      - Vermutet: `load-error` ohne Tile schickt auch bei Netzfehlern zum Token-Dialog.
       - Bedienung: Startbildschirm für Kartenschlüssel ohne Fokusfalle; Tab-/Radio-Rollen (Forschung, Raumoptionen,
         Munition des Helden) ohne Pfeiltasten; Rich-Tooltip ohne Esc und ohne Aktualisierung; Tab öffnet im Coop das
         Dock, bevor ein Fokus gesetzt ist; `aria-label` auf Spans ohne Rolle (Bau-Leiste).

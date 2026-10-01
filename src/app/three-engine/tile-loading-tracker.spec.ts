@@ -266,6 +266,21 @@ describe('TileLoadingTracker', () => {
       expect(onAuthError).not.toHaveBeenCalled();
     });
 
+    it('trennt abgelehnte Zugangsdaten von einem nicht erreichbaren Server', () => {
+      const { tiles, tracker } = setup();
+      const seen: string[] = [];
+      tracker.setOnAuthError((failure) => seen.push(failure));
+      const fail = (error: unknown) => tiles.dispatchEvent({ type: 'load-error', tile: null, error } as never);
+      fail(new Error('CesiumIonAuthPlugin: Failed to load data with error code 401'));
+      fail(new Error('GoogleCloudAuth: Failed to load data with error code 400'));
+      fail(new Error('TilesRenderer: Failed to load tileset "x" with status 403 : Forbidden'));
+      fail(new TypeError('Failed to fetch'));
+      fail(new Error('CesiumIonAuthPlugin: Failed to load data with error code 503'));
+      fail(new Error('GoogleCloudAuth: Failed to load data with error code 429'));
+      fail(undefined);
+      expect(seen).toEqual(['credentials', 'credentials', 'credentials', 'unreachable', 'unreachable', 'unreachable', 'unreachable']);
+    });
+
     it('vergisst einen gemerkten Auth-Fehler beim Standortwechsel', () => {
       const { tiles, tracker } = setup();
       tiles.dispatchEvent({ type: 'load-error', tile: null });

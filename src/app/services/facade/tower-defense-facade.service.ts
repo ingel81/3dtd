@@ -83,6 +83,9 @@ export interface FacadeComponentBridge {
   exitMapPlacement: () => void;
 }
 
+/** The notice when the map's tile server could not be reached (not a refused key) */
+export const TILES_UNREACHABLE = 'The map server could not be reached. Check the connection and reload.';
+
 /**
  * Main facade service, orchestrates initialization, dispose, and delegates
  * domain-specific work to sub-facades:
@@ -352,10 +355,12 @@ export class TowerDefenseFacadeService {
 
       if (engine) {
         engine.setOnTilesLoadCallback(() => this.vizFacade.onTilesLoaded());
-        // A rejected token surfaces here rather than as a stuck loading screen.
-        engine.setOnAuthErrorCallback(() => {
-          this.configService.reportCredentialsRejected();
+        // A rejected token, or a tile server out of reach, surfaces here rather
+        // than as a stuck loading screen; only the token goes to its screen
+        engine.setOnAuthErrorCallback((failure) => {
           this.engineInit.setLoading(false);
+          if (failure === 'credentials') this.configService.reportCredentialsRejected();
+          else this.uiStore.notice.set({ text: TILES_UNREACHABLE, reload: true });
         });
         engine.setOnUpdateCallback((deltaTime) => this.gameLoopFacade.onEngineUpdate(deltaTime));
 

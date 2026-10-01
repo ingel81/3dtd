@@ -35,6 +35,27 @@ const MIN_VISIBLE_TILES = 50;
 const TILE_STATS_CACHE_MS = 500;
 
 /**
+ * Why the root tileset did not load: the tile server refused the
+ * credentials, or it could not be reached (no network, a timeout, a server
+ * error). Only the first goes to the token screen.
+ */
+export type RootLoadFailure = 'credentials' | 'unreachable';
+
+/**
+ * Tell the two apart by the HTTP status the libraries put in their messages
+ * ("error code 401", "with status 403 : Forbidden"). A 4xx other than a
+ * timeout or a rate limit is the credentials (Google answers a bad key with
+ * 400, Cesium a bad token with 401); a 5xx, 408, 429 or no status at all (a
+ * fetch that failed) is the network.
+ */
+export function rootLoadFailure(error: unknown): RootLoadFailure {
+  const text = error instanceof Error ? error.message : String(error ?? '');
+  const status = Number(/(?:error code|with status) (\d{3})/.exec(text)?.[1]);
+  if (!Number.isFinite(status)) return 'unreachable';
+  return status >= 400 && status < 500 && status !== 408 && status !== 429 ? 'credentials' : 'unreachable';
+}
+
+/**
  * TileLoadingTracker: wann gelten die ersten Tiles als geladen, und wann hat sich
  * der geladene Tile-Satz beruhigt.
  *
@@ -60,11 +81,12 @@ export class TileLoadingTracker {
   private onFirstTilesLoadedCallback: (() => void) | null = null;
   private firstTilesLoaded = false;
 
-  // Callback when the tile server rejects our credentials (bad/expired token).
-  // The rejection lands during initEngine(), before the caller gets the engine
-  // back to register anything, so a missed error is remembered and replayed.
-  private onAuthErrorCallback: (() => void) | null = null;
-  private authErrorSeen = false;
+  // Callback when the root tileset failed: credentials refused or server not
+  // reached (RootLoadFailure). The failure lands during initEngine(), before
+  // the caller gets the engine back to register anything, so a missed one is
+  // remembered and replayed.
+  private onAuthErrorCallback: ((failure: RootLoadFailure) => void) | null = null;
+  private rootFailure: RootLoadFailure | null = null;
 
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -105,10 +127,10 @@ export class TileLoadingTracker {
     tilesRenderer.addEventListener('load-error', (event: unknown) => {
       console.error('[TilesEngine] load-error event:', event);
 
-      const tile = (event as { tile?: unknown } | null)?.tile;
+      const { tile, error } = (event as { tile?: unknown; error?: unknown } | null) ?? {};
       if (tile === null) {
-        this.authErrorSeen = true;
-        this.onAuthErrorCallback?.();
+        this.rootFailure = rootLoadFailure(error);
+        this.onAuthErrorCallback?.(this.rootFailure);
       }
     });
   }
@@ -126,15 +148,16 @@ export class TileLoadingTracker {
   }
 
   /**
-   * Register a callback for a rejected tile-server credential.
-   * Used to send the player back to the token screen instead of leaving them
-   * on a loading indicator that never finishes.
+   * Register a callback for a root tileset that failed, with why: refused
+   * credentials send the player back to the token screen, an unreachable
+   * server asks for a reload; either instead of a loading indicator that
+   * never finishes.
    */
-  setOnAuthError(callback: () => void): void {
+  setOnAuthError(callback: (failure: RootLoadFailure) => void): void {
     this.onAuthErrorCallback = callback;
 
     // Registration usually happens after the tileset request already failed.
-    if (this.authErrorSeen) callback();
+    if (this.rootFailure) callback(this.rootFailure);
   }
 
   /**
@@ -160,7 +183,7 @@ export class TileLoadingTracker {
     this.firstTilesLoaded = false;
     this.retryCount = 0;
     this.tilesetLoadCount = 0;
-    this.authErrorSeen = false;
+    this.rootFailure = null;
     this.cameraNudgeCount = 0;
   }
 
