@@ -360,6 +360,18 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(all('a', 'ping')).toHaveLength(1);
   });
 
+  it('passes at most two pings a second of a player, and none off the earth', () => {
+    lobby();
+    for (let i = 0; i < 10; i++) room.receive('b', { t: 'ping', lat: 48.1, lon: 9.2, height: 240 });
+    expect(all('a', 'ping')).toHaveLength(1);
+    room.receive('a', { t: 'ping', lat: 48.1, lon: 9.2, height: 240 });
+    expect(all('b', 'ping')).toHaveLength(2);
+    clock += 500;
+    room.receive('b', { t: 'ping', lat: 95, lon: 9.2, height: 240 });
+    room.receive('b', { t: 'ping', lat: 48.1, lon: 9.2, height: 240 });
+    expect(all('a', 'ping').filter((p) => p.from === 'b')).toHaveLength(2);
+  });
+
   it('follows the host speed, and stands still at 0', () => {
     lobby();
     room.receive('a', { t: 'start', seed: 1 });

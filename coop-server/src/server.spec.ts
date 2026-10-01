@@ -242,6 +242,10 @@ describe('coop relay over sockets (COOP_PLAN C4)', () => {
     const reply = new Promise<ServerMessage>((resolve) => socket.once('message', (d) => resolve(JSON.parse(String(d)))));
     socket.send(JSON.stringify({ t: 'hello', protocol: PROTOCOL_VERSION + 1, name: 'x', gameVersion: 'v1', configHash: 'h' }));
     expect(await reply).toEqual({ t: 'refused', reason: 'protocol' });
+    // A hello of an older build that lacks a field is refused alike, not left in silence
+    const old = new Promise<ServerMessage>((resolve) => socket.once('message', (d) => resolve(JSON.parse(String(d)))));
+    socket.send(JSON.stringify({ t: 'hello', protocol: 1, name: 'x' }));
+    expect(await old).toEqual({ t: 'refused', reason: 'protocol' });
     socket.close();
 
     const c = await client(relay.port, 'C');

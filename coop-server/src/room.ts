@@ -83,6 +83,13 @@ const MAX_OPEN_COMMANDS = 2000;
 const MAX_OPEN_CHARS = 4_000_000;
 
 /**
+ * A player's map pings come at most this often (ms): each one draws text,
+ * rings and a sound on every client, and up to the message rate a changed
+ * client flooded them all.
+ */
+const PING_EVERY_MS = 500;
+
+/**
  * How long the room waits for a player who does not catch up before it lets
  * them go (relay review M4): a frozen tab or a sleeping laptop that still
  * answers the heartbeat must not hold everyone.
@@ -190,6 +197,8 @@ export class Room {
   private open: { playerId: string; command: StampedCommand['command'] }[] = [];
   /** Per player: commands and JSON characters in `open` (MAX_OPEN_COMMANDS) */
   private readonly openBy = new Map<string, { commands: number; chars: number }>();
+  /** When each player's last ping went out (PING_EVERY_MS) */
+  private readonly lastPingAt = new Map<string, number>();
   private seq = 0;
   /** Game time run up and not yet closed into a tick, ms */
   private pending = 0;
@@ -467,9 +476,14 @@ export class Room {
       }
       case 'chat':
         return this.broadcast({ t: 'chat', from: playerId, text: message.text.slice(0, 500) });
-      case 'ping':
+      case 'ping': {
         if (![message.lat, message.lon, message.height].every(Number.isFinite)) return;
+        if (Math.abs(message.lat) > 90 || Math.abs(message.lon) > 180) return;
+        const at = this.now();
+        if (at - (this.lastPingAt.get(playerId) ?? -Infinity) < PING_EVERY_MS) return;
+        this.lastPingAt.set(playerId, at);
         return this.broadcast({ t: 'ping', from: playerId, lat: message.lat, lon: message.lon, height: message.height });
+      }
       default:
         return;
     }

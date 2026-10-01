@@ -646,6 +646,10 @@ class Relay {
     const message = parseClientMessage(raw);
     if (!message) {
       this.metrics.drop('malformed');
+      // A hello of another build that does not parse (a field it lacks) gets the
+      // protocol refusal it can show, not 5 s of silence and a drop
+      const t = (raw as { t?: unknown } | null)?.t;
+      if (t === 'hello' && !connection.player) this.send(id, { t: 'refused', reason: 'protocol' });
       return;
     }
     if (message.t === 'hello') {

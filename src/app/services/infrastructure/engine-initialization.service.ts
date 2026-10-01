@@ -281,8 +281,9 @@ export class EngineInitializationService {
         callbacks.onCheckAllLoaded();
       });
 
-      // Preload 3D models in background
-      this.engine.preloadModels();
+      // Preload 3D models in background; a failure (a shader that does not compile,
+      // a lost context) is said in the console instead of an unhandled rejection
+      this.engine.preloadModels().catch((err: unknown) => console.error('[Engine] preloading the models failed', err));
 
       // Setup click handler
       callbacks.onSetupClickHandler();
