@@ -23,7 +23,9 @@ import {
   getAllResearchIds,
   RESEARCH_TREE,
 } from '../../../configs/research/research-tree.config';
-import { ResearchId, ResearchEffect } from '../../../configs/research/research.types';
+import {
+  ResearchId, ResearchEffect, researchWaitsForWave, researchWave,
+} from '../../../configs/research/research.types';
 import { ArmorType, ARMOR_TYPES } from '../../../configs/combat/combat.types';
 import { DAMAGE_MATRIX } from '../../../configs/combat/damage-matrix.config';
 import { TowerTypeId, TOWER_TYPES } from '../../../configs/tower-types.config';
@@ -297,9 +299,11 @@ export class ResearchPickStrategy extends BaseStrategy {
     return 0.5;
   }
 
+  /** Prerequisites done and its wave reached (minWave), what the manager checks too. */
   private prereqsMet(id: ResearchId, state: GameStateSnapshot): boolean {
     const cfg = getResearch(id);
     if (!cfg) return false;
+    if (researchWaitsForWave(cfg, researchWave(state.waveNumber, state.phase)) !== null) return false;
     return cfg.prerequisites.every(p => state.research.completedIds.includes(p));
   }
 

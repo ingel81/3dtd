@@ -75,6 +75,7 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
       elapsed: researchStore.researchElapsed(),
       credits: credits(),
       availableSlots: availableSlots(),
+      wave: Number.POSITIVE_INFINITY,
     });
 
     // The command the dialog emits for a click, and the one the X emits
@@ -100,7 +101,7 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
     research.startQueued(() => ledger.credits(), (cost) => ledger.spend(cost, 'research', LOCAL_PLAYER_ID));
   };
   const status = (id: ResearchId) =>
-    researchStatus(id, treeState().completed, treeState().active, treeState().queued);
+    researchStatus(id, treeState().completed, treeState().active, treeState().queued, treeState().wave);
 
   /** New game, cheat Credits, Research Center built (TowerLifecycle charges it and opens the slot) */
   const newGameWithCenter = () => {

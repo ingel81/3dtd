@@ -63,7 +63,26 @@ export interface ResearchConfig {
   cost: number;                    // Credits
   duration: number;                // Seconds (real-time)
   prerequisites: ResearchId[];     // Must all be completed before this is available
+  /**
+   * First wave it may start in: from the build phase before that wave on
+   * (researchWave). Spreads the tree over the run, gold alone did not: a
+   * human run had all of it done by W26 for 1.3 % of its income.
+   */
+  minWave?: number;
   effects: ResearchEffect[];
+}
+
+/**
+ * The wave a run is at for the research: the wave being played, else the next
+ * one. A research of `minWave` N opens in the build phase before wave N.
+ */
+export function researchWave(waveNumber: number, phase: string): number {
+  return phase === 'wave' ? waveNumber : waveNumber + 1;
+}
+
+/** The wave `config` waits for at `wave` (researchWave), null when it is open. */
+export function researchWaitsForWave(config: Pick<ResearchConfig, 'minWave'>, wave: number): number | null {
+  return config.minWave !== undefined && wave < config.minWave ? config.minWave : null;
 }
 
 // ==================== Active Research ====================

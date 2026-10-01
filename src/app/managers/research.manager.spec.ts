@@ -748,6 +748,44 @@ describe('ResearchManager', () => {
     });
   });
 
+  describe('wave lock (minWave)', () => {
+    const TIER5 = 'transcendent-tech';
+    const minWave = getResearch(TIER5)!.minWave!;
+
+    /** A manager at `wave` (researchWave), with the center and every prerequisite of tier 5 done. */
+    function atWave(wave: { n: number }): ResearchManager {
+      const manager = new ResearchManager(new GameEventBus(), undefined, () => wave.n);
+      manager.onCenterPlaced();
+      for (const id of getResearch(TIER5)!.prerequisites) manager.completeResearch(id);
+      return manager;
+    }
+
+    it('neither starts nor queues before its wave, and says which', () => {
+      const wave = { n: minWave - 1 };
+      const manager = atWave(wave);
+      expect(manager.canStartResearch(TIER5, 1e9)).toEqual({ canStart: false, reason: `Opens at wave ${minWave}` });
+      expect(manager.canQueueResearch(TIER5)).toEqual({ canQueue: false, reason: `Opens at wave ${minWave}` });
+      expect(manager.queueResearch(TIER5)).toBe(false);
+      expect(manager.isAvailable(TIER5)).toBe(false);
+    });
+
+    it('opens on its wave, read at every check', () => {
+      const wave = { n: minWave - 1 };
+      const manager = atWave(wave);
+      wave.n = minWave;
+      expect(manager.canStartResearch(TIER5, 1e9).canStart).toBe(true);
+      expect(manager.canQueueResearch(TIER5).canQueue).toBe(true);
+      expect(manager.isAvailable(TIER5)).toBe(true);
+    });
+
+    it('keeps a research without minWave open from the first wave', () => {
+      const manager = new ResearchManager(new GameEventBus(), undefined, () => 1);
+      manager.onCenterPlaced();
+      expect(getResearch(NO_PREREQ_ID)!.minWave).toBeUndefined();
+      expect(manager.canStartResearch(NO_PREREQ_ID, 1e9).canStart).toBe(true);
+    });
+  });
+
   // -------------------------------------------------------------------------
   // isTowerUnlocked()
   // -------------------------------------------------------------------------

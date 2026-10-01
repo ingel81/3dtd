@@ -19,6 +19,7 @@ import { GameCommandsHandler } from './game-commands.handler';
 import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
 import type { IGameManager } from '../game-engine/game-manager.interface';
 import { ResearchManager, type SimResearch } from './research.manager';
+import { researchWave } from '../configs/research/research.types';
 import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
 import { AbilityManager } from './ability.manager';
 import { HeroManager } from './hero.manager';
@@ -438,7 +439,7 @@ export class GameStateManager {
   /** A player's research with its credits bound once, see researchSeats */
   private researchSeat(playerId: string, owner: PlayerOwner): ResearchSeat {
     return {
-      research: new ResearchManager(this.eventBus, owner),
+      research: new ResearchManager(this.eventBus, owner, () => researchWave(this.waveManager.waveNumber(), this.waveManager.phase())),
       credits: () => this.creditsLedger.balance(playerId),
       spend: (cost) => this.creditsLedger.spend(cost, 'research', playerId),
     };

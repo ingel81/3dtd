@@ -30,12 +30,13 @@ describe('abilities config', () => {
     expect(nuke.hotkey).toBe('K');
   });
 
-  it('is unlocked by its research: 1,000 gold, 40 s, after Advanced Weaponry', () => {
+  it('is unlocked by its research: 4,000 gold, 40 s, from W12, after Advanced Weaponry', () => {
     const nuke = ABILITIES['nuclear-strike'];
     const research = getResearch(nuke.researchId)!;
     expect(research).toMatchObject({
       category: 'global-perk',
-      cost: 1000,
+      cost: 4000,
+      minWave: 12,
       duration: 40,
       prerequisites: ['advanced-weaponry'],
     });
@@ -60,12 +61,13 @@ describe('abilities config', () => {
     expect(abilityFreezeMs(effect, ENEMY_TYPES['herbert'])).toBe(1000);
   });
 
-  it('unlocks the frost bomb by its research: 700 gold, 25 s, after Arcane Studies', () => {
+  it('unlocks the frost bomb by its research: 1,000 gold, 25 s, from W6, after Arcane Studies', () => {
     const frost = ABILITIES['frost-bomb'];
     const research = getResearch(frost.researchId)!;
     expect(research).toMatchObject({
       category: 'global-perk',
-      cost: 700,
+      cost: 1000,
+      minWave: 6,
       duration: 25,
       prerequisites: ['arcane-studies'],
     });
@@ -94,12 +96,13 @@ describe('abilities config', () => {
     expect(abilityStunMs(effect, { isBoss: true, mechanical: true })).toBe(750);
   });
 
-  it('unlocks the EMP by its research: 800 gold, 30 s, after Storm Mastery', () => {
+  it('unlocks the EMP by its research: 2,500 gold, 30 s, from W12, after Storm Mastery', () => {
     const emp = ABILITIES['emp'];
     const research = getResearch(emp.researchId)!;
     expect(research).toMatchObject({
       category: 'global-perk',
-      cost: 800,
+      cost: 2500,
+      minWave: 12,
       duration: 30,
       prerequisites: ['storm-mastery'],
     });
@@ -143,12 +146,13 @@ describe('abilities config', () => {
     expect(abilityBeamCap(effect, ENEMY_TYPES['herbert'])).toBe(0.2);
   });
 
-  it('unlocks the orbital laser by its research: 1,500 gold, 45 s, after Master Engineering', () => {
+  it('unlocks the orbital laser by its research: 12,000 gold, 45 s, from W22, after Master Engineering', () => {
     const laser = ABILITIES['orbital-laser'];
     const research = getResearch(laser.researchId)!;
     expect(research).toMatchObject({
       category: 'global-perk',
-      cost: 1500,
+      cost: 12000,
+      minWave: 22,
       duration: 45,
       prerequisites: ['master-engineering'],
     });

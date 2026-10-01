@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { getResearch } from '../../configs/research/research-tree.config';
-import type { ResearchId } from '../../configs/research/research.types';
+import { researchWave, type ResearchId } from '../../configs/research/research.types';
 import { ResearchStore } from '../../store/research.store';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-facade.service';
@@ -107,7 +107,8 @@ export class ResearchDialogComponent {
 
   protected readonly treeState = computed<ResearchTreeState>(() => {
     const partner = this.partner();
-    if (partner) return viewOnlyTreeState(partner);
+    const wave = researchWave(this.store.waveNumber(), this.store.phase());
+    if (partner) return viewOnlyTreeState(partner, wave);
     return {
       completed: this.research.completedResearches(),
       active: this.research.activeResearches(),
@@ -115,6 +116,7 @@ export class ResearchDialogComponent {
       elapsed: this.research.researchElapsed(),
       credits: this.store.credits(),
       availableSlots: this.research.availableSlots(),
+      wave,
     };
   });
 

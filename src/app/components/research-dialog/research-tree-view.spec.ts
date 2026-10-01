@@ -20,6 +20,7 @@ const state = (partial: Partial<ResearchTreeState> = {}): ResearchTreeState => (
   elapsed: new Map<ResearchId, number>(),
   credits: 10_000,
   availableSlots: 1,
+  wave: Number.POSITIVE_INFINITY,
   ...partial,
 });
 
@@ -97,6 +98,29 @@ describe('buildResearchNodes', () => {
     expect(nodeFor('siege-engineering', state({ active: [active('gatling-tech', 15)] })).state).toBe('pending');
     // Nothing under way: shut is shut.
     expect(nodeFor('siege-engineering').state).toBe('locked');
+  });
+
+  it('stays locked before its wave, says which, and opens on it', () => {
+    const tier5 = RESEARCH_TREE['transcendent-tech'];
+    const wave = tier5.minWave!;
+    const before = state({ completed: new Set(tier5.prerequisites), wave: wave - 1 });
+    const node = nodeFor(tier5.id, before);
+    expect(node.state).toBe('locked');
+    expect(node.subtitle).toBe(`Wave ${wave}`);
+    expect(node.hint).toBe(`Opens at wave ${wave}.`);
+    expect(researchClickAction(tier5.id, before)).toBe('none');
+    expect(buildResearchDetail(tier5.id, before, 0)!.opensAtWave).toBe(wave);
+
+    const on = state({ completed: new Set(tier5.prerequisites), wave, credits: tier5.cost });
+    expect(nodeFor(tier5.id, on).state).toBe('available');
+    expect(buildResearchDetail(tier5.id, on, 0)!.opensAtWave).toBeNull();
+  });
+
+  it('is locked, not pending, while it waits for its wave, even with its prerequisites under way', () => {
+    const tier5 = RESEARCH_TREE['transcendent-tech'];
+    const s = state({ active: tier5.prerequisites.map((id) => active(id, 10)), wave: 1 });
+    expect(nodeFor(tier5.id, s).state).toBe('locked');
+    expect(nodeFor(tier5.id, s).hint).toContain(`Opens at wave ${tier5.minWave}`);
   });
 
   it('carries the strand of the tree, for the tint and the tally', () => {
@@ -218,7 +242,7 @@ describe('the read-only view of a coop partner (TODO E35)', () => {
     elapsed: new Map<ResearchId, number>([['gatling-tech', 5]]),
     centerLevel: 1,
     maxSlots: 1,
-  });
+  }, Number.POSITIVE_INFINITY);
 
   it('shows their done, running and queued research, and no click does anything', () => {
     expect(nodeFor('biology', partner).state).toBe('completed');

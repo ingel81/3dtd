@@ -14,7 +14,9 @@ import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
 import {
   ResearchId,
   ActiveResearch,
+  ResearchConfig,
   ResearchSaveState,
+  researchWaitsForWave,
 } from '../configs/research/research.types';
 import {
   RESEARCH_TREE,
@@ -69,10 +71,20 @@ export class ResearchManager implements IGameManager {
   private static readonly PROGRESS_INTERVAL_MS = 100;
   private lastProgressEmitAt = -Infinity;
 
+  /**
+   * @param wave the wave the run is at for the research (researchWave), read
+   *   at every check; a manager without a run (specs) has every wave open
+   */
   constructor(
     private readonly eventBus: GameEventBus,
     readonly owner: PlayerOwner = LOCAL_OWNER,
+    private readonly wave: () => number = () => Number.POSITIVE_INFINITY,
   ) {}
+
+  /** The wave `config` still waits for (its minWave), null when it is open. */
+  waitsForWave(config: ResearchConfig): number | null {
+    return researchWaitsForWave(config, this.wave());
+  }
 
   /** Emit a research event with the owner on it. */
   private emit(event: OwnerlessResearchEvent): void {
@@ -114,7 +126,7 @@ export class ResearchManager implements IGameManager {
   isAvailable(id: ResearchId): boolean {
     if (this.isCompleted(id) || this.isActive(id)) return false;
     const config = getResearch(id);
-    if (!config) return false;
+    if (!config || this.waitsForWave(config) !== null) return false;
     return config.prerequisites.every(prereq => this.completedResearches.has(prereq));
   }
 
@@ -221,6 +233,10 @@ export class ResearchManager implements IGameManager {
     if (!config.prerequisites.every(p => this.completedResearches.has(p))) {
       return { canStart: false, reason: 'Prerequisites not met' };
     }
+    const wave = this.waitsForWave(config);
+    if (wave !== null) {
+      return { canStart: false, reason: `Opens at wave ${wave}` };
+    }
     if (this.availableSlots <= 0) {
       return { canStart: false, reason: 'No available research slots' };
     }
@@ -273,6 +289,10 @@ export class ResearchManager implements IGameManager {
     if (!config.prerequisites.every(p => this.completedResearches.has(p))) {
       return { canQueue: false, reason: 'Prerequisites not met' };
     }
+    // Not into the queue before its wave: the head of the queue waits, and a
+    // research many waves off would hold up everything behind it
+    const wave = this.waitsForWave(config);
+    if (wave !== null) return { canQueue: false, reason: `Opens at wave ${wave}` };
     return { canQueue: true };
   }
 

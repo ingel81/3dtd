@@ -160,6 +160,9 @@
                   <b [class.td-gold]="d.state !== 'poor'" [class.td-warn]="d.state === 'poor'">{{ d.cost }}</b>
                 </div>
                 <div><span>Time</span><b>{{ d.duration }}s</b></div>
+                @if (d.opensAtWave !== null) {
+                  <div class="td-rd-wide"><span>Opens</span><b class="td-warn">Wave {{ d.opensAtWave }}</b></div>
+                }
               }
             </div>
 
@@ -205,6 +208,8 @@
                       <p class="td-rd-note">Finishes in {{ d.remaining.toFixed(1) }} seconds.</p>
                     } @else if (d.state === 'completed') {
                       <p class="td-rd-note">Active for the rest of the run.</p>
+                    } @else if (d.opensAtWave !== null) {
+                      <p class="td-rd-note">Opens at wave {{ d.opensAtWave }}.</p>
                     } @else {
                       <p class="td-rd-note">Research everything connected above this node first.</p>
                     }

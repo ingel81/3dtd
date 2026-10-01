@@ -15,6 +15,7 @@ import {
   type ActiveResearch,
   type ResearchConfig,
   type ResearchId,
+  researchWaitsForWave,
 } from '../../configs/research/research.types';
 import type { ResearchSnapshot } from '../../managers/research-snapshot';
 import type { DagEdge } from '../../utils/dag-layout';
@@ -30,6 +31,8 @@ export interface ResearchTreeState {
   elapsed: ReadonlyMap<ResearchId, number>;
   credits: number;
   availableSlots: number;
+  /** The wave the run is at for the research (researchWave): a node before its minWave stays locked. */
+  wave: number;
   /**
    * A coop partner's tree, looked at only (TODO E35): no click does anything,
    * and the hints say nothing about clicking.
@@ -60,7 +63,7 @@ export function researchTabs(
  * The tree state for a partner's research, read only. Their credits are not
  * this view's business: every open node shows as open, none as too dear.
  */
-export function viewOnlyTreeState(snapshot: ResearchSnapshot): ResearchTreeState {
+export function viewOnlyTreeState(snapshot: ResearchSnapshot, wave: number): ResearchTreeState {
   return {
     completed: snapshot.completed,
     active: snapshot.active,
@@ -68,6 +71,7 @@ export function viewOnlyTreeState(snapshot: ResearchSnapshot): ResearchTreeState
     elapsed: snapshot.elapsed,
     credits: Number.POSITIVE_INFINITY,
     availableSlots: Math.max(0, snapshot.maxSlots - snapshot.active.length),
+    wave,
     readOnly: true,
   };
 }
@@ -94,6 +98,8 @@ export interface ResearchDetail {
   /** Place in the queue, 1-based; 0 when it is not queued. */
   queuePosition: number;
   prerequisites: { id: ResearchId; name: string; done: boolean }[];
+  /** The wave it opens at while the run is not there yet, else null. */
+  opensAtWave: number | null;
   /** How many researches this one opens up. */
   opens: number;
   action: ResearchAction;
@@ -162,6 +168,7 @@ export function buildResearchDetail(
       name: getResearch(p)?.name ?? p,
       done: state.completed.has(p),
     })),
+    opensAtWave: waitsForWave(research, state),
     opens: Object.values(RESEARCH_TREE).filter((r) => r.prerequisites.includes(research.id)).length,
     action: researchClickAction(research.id, state),
   };
@@ -179,7 +186,7 @@ export function buildResearchDetail(
 export function researchClickAction(id: ResearchId, state: ResearchTreeState): ResearchAction {
   const research = getResearch(id);
   if (!research || state.readOnly) return 'none';
-  switch (researchStatus(id, state.completed, state.active, state.queued)) {
+  switch (researchStatus(id, state.completed, state.active, state.queued, state.wave)) {
     case 'available':
       return state.credits >= research.cost && state.availableSlots > 0 ? 'start' : 'queue';
     case 'queued':
@@ -240,9 +247,10 @@ const STATUS_ICON: Record<TechTreeNodeState, TdIconName> = {
  * the tree can show a branch that is on its way rather than one that is shut.
  */
 function nodeState(research: ResearchConfig, state: ResearchTreeState): TechTreeNodeState {
-  const status = researchStatus(research.id, state.completed, state.active, state.queued);
+  const status = researchStatus(research.id, state.completed, state.active, state.queued, state.wave);
   if (status === 'available') return state.credits >= research.cost ? 'available' : 'poor';
-  if (status === 'locked') {
+  // Waiting for its wave is not on its way, whatever the queue holds
+  if (status === 'locked' && waitsForWave(research, state) === null) {
     const missing = research.prerequisites.filter((p) => !state.completed.has(p));
     const underway = missing.every(
       (p) => state.active.some((a) => a.researchId === p) || state.queued.includes(p),
@@ -260,6 +268,10 @@ function subtitleOf(research: ResearchConfig, status: TechTreeNodeState, state: 
       return `${remainingOf(research, state).toFixed(1)}s left`;
     case 'queued':
       return `${research.cost} at start`;
+    case 'locked': {
+      const wave = waitsForWave(research, state);
+      return wave === null ? String(research.cost) : `Wave ${wave}`;
+    }
     default:
       return String(research.cost);
   }
@@ -268,8 +280,12 @@ function subtitleOf(research: ResearchConfig, status: TechTreeNodeState, state: 
 function hintOf(research: ResearchConfig, status: TechTreeNodeState, state: ResearchTreeState): string {
   switch (status) {
     case 'locked':
-    case 'pending':
-      return `Requires: ${missingPrereqNames(research.id, state.completed)}`;
+    case 'pending': {
+      const wave = waitsForWave(research, state);
+      const missing = missingPrereqNames(research.id, state.completed);
+      if (wave === null) return `Requires: ${missing}`;
+      return missing ? `Opens at wave ${wave}. Requires: ${missing}` : `Opens at wave ${wave}.`;
+    }
     case 'queued':
       return state.readOnly ? research.description : `${research.description} Click to take it out of the queue.`;
     case 'poor':
@@ -281,6 +297,10 @@ function hintOf(research: ResearchConfig, status: TechTreeNodeState, state: Rese
     default:
       return research.description;
   }
+}
+
+function waitsForWave(research: ResearchConfig, state: ResearchTreeState): number | null {
+  return researchWaitsForWave(research, state.wave);
 }
 
 function elapsedOf(research: ResearchConfig, state: ResearchTreeState): number {

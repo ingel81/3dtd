@@ -13,6 +13,14 @@ import { HERO } from '../hero.config';
 /**
  * Complete tech tree — all available researches.
  *
+ * Pacing (2026-10-02): a human run had the whole tree by W26 for 19,670
+ * credits, 1.3 % of its income. Costs now follow the income of the wave a
+ * research opens at (`minWave`), the tiers most: Tier 2 2,000 from W7, Tier 3
+ * 8,000 from W15, Tier 4 30,000 from W25, Tier 5 100,000 from W38, about four
+ * waves of income there. The tree is done at W38 at the earliest and usually
+ * later; the last tier competes with upgrades. Tables in docs/WAVE_RUN_PLAN.md,
+ * section 16.
+ *
  * Structure:
  * - Tower Unlocks (Tier 0): No prerequisites, unlock basic towers
  * - Tower Unlocks (Tier 1): Require Tier 0, unlock advanced towers
@@ -113,9 +121,10 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     category: 'tower-unlock',
     branch: 'arcane',
     icon: 'flame',
-    cost: 550,
+    cost: 800,
     duration: 20,
     prerequisites: ['toxic-compounds'],
+    minWave: 6,
     effects: [{ kind: 'unlock-tower', towerId: 'fire' }],
   },
 
@@ -139,9 +148,10 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     category: 'tower-unlock',
     branch: 'arcane',
     icon: 'bolt',
-    cost: 700,
+    cost: 1200,
     duration: 20,
     prerequisites: ['arcane-studies'],
+    minWave: 9,
     effects: [{ kind: 'unlock-tower', towerId: 'lightning' }],
   },
 
@@ -173,12 +183,13 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     category: 'tower-unlock',
     branch: 'arcane',
     icon: 'rift',
-    cost: 1000,
+    cost: 8000,
     duration: 30,
     // Der späteste Tower: braucht den Panzer- und den Geister-Pfad. Über Storm
     // Mastery hängt Arcane Studies davor, Chaos kommt also nie vor dem ersten
     // echten Ethereal-Konter.
     prerequisites: ['siege-engineering', 'storm-mastery'],
+    minWave: 20,
     effects: [{ kind: 'unlock-tower', towerId: 'chaos' }],
   },
 
@@ -209,11 +220,11 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     category: 'global-perk',
     branch: 'ballistics',
     icon: 'mushroom',
-    cost: 1000,
+    cost: 4000,
     duration: 40,
-    // Comes after the first boss (W10), when the campaign picks up; no wave
-    // lock of its own (PLAYER_AGENCY_CONCEPT.md, section 7)
+    // Comes after the first boss (W10), when the campaign picks up
     prerequisites: ['advanced-weaponry'],
+    minWave: 12,
     effects: [
       { kind: 'unlock-tower', towerId: 'missile-silo' },
       {
@@ -255,11 +266,11 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     category: 'global-perk',
     branch: 'arcane',
     icon: 'frostRune',
-    cost: 700,
+    cost: 1000,
     duration: 25,
-    // After the ice line's second step, so it cannot come before W5 or so:
-    // 400 + 650 + 700 gold of research on top of the towers
+    // After the ice line's second step, and not before W6
     prerequisites: ['arcane-studies'],
+    minWave: 6,
     effects: [{
       kind: 'global-perk',
       perkId: 'frost-bomb',
@@ -276,11 +287,12 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     category: 'global-perk',
     branch: 'engineering',
     icon: 'pulse',
-    cost: 800,
+    cost: 2500,
     duration: 30,
     // Out of the lightning research: comes with Storm Mastery's chain
     // lightning, before the tank column of W22 and the mech army of W28
     prerequisites: ['storm-mastery'],
+    minWave: 12,
     effects: [{
       kind: 'global-perk',
       perkId: 'emp',
@@ -297,11 +309,12 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     category: 'global-perk',
     branch: 'ballistics',
     icon: 'laser',
-    cost: 1500,
+    cost: 12000,
     duration: 45,
     // The late damage ability: after Master Engineering (T3 upgrades,
     // about W15 to W18), beyond the nuclear strike's Advanced Weaponry
     prerequisites: ['master-engineering'],
+    minWave: 22,
     effects: [{
       kind: 'global-perk',
       perkId: 'orbital-laser',
@@ -318,9 +331,10 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     category: 'upgrade-tier',
     branch: 'ballistics',
     icon: 'sword',
-    cost: 800,
+    cost: 2000,
     duration: 35,
     prerequisites: ['siege-engineering', 'arcane-studies'],
+    minWave: 7,
     effects: [{ kind: 'unlock-upgrade-tier', tier: 2 }],
   },
 
@@ -331,9 +345,10 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     category: 'upgrade-tier',
     branch: 'engineering',
     icon: 'sliders',
-    cost: 1500,
+    cost: 8000,
     duration: 60,
     prerequisites: ['advanced-weaponry'],
+    minWave: 15,
     effects: [{ kind: 'unlock-upgrade-tier', tier: 3 }],
   },
 
@@ -344,9 +359,10 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     category: 'upgrade-tier',
     branch: 'engineering',
     icon: 'cogRing',
-    cost: 2500,
+    cost: 30000,
     duration: 90,
     prerequisites: ['master-engineering'],
+    minWave: 25,
     effects: [{ kind: 'unlock-upgrade-tier', tier: 4 }],
   },
 
@@ -357,9 +373,10 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     category: 'upgrade-tier',
     branch: 'engineering',
     icon: 'star',
-    cost: 4000,
+    cost: 100000,
     duration: 150,
     prerequisites: ['advanced-engineering'],
+    minWave: 38,
     effects: [{ kind: 'unlock-upgrade-tier', tier: 5 }],
   },
 };

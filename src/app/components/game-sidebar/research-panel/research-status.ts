@@ -1,20 +1,27 @@
 import { getResearch } from '../../../configs/research/research-tree.config';
-import { ActiveResearch, ResearchConfig, ResearchId } from '../../../configs/research/research.types';
+import {
+  ActiveResearch, ResearchConfig, ResearchId, researchWaitsForWave,
+} from '../../../configs/research/research.types';
 
 export type ResearchStatus = 'completed' | 'active' | 'queued' | 'available' | 'locked';
 
-/** Status eines Knotens im Forschungsbaum, abgeleitet aus dem Research-Store. */
+/**
+ * Status eines Knotens im Forschungsbaum, abgeleitet aus dem Research-Store.
+ * `wave` ist die Welle des Laufs für die Forschung (researchWave); vor seiner
+ * `minWave` ist ein Knoten gesperrt wie ohne Voraussetzungen.
+ */
 export function researchStatus(
   id: ResearchId,
   completed: ReadonlySet<ResearchId>,
   active: readonly ActiveResearch[],
-  queued: readonly ResearchId[] = [],
+  queued: readonly ResearchId[],
+  wave: number,
 ): ResearchStatus {
   if (completed.has(id)) return 'completed';
   if (active.some(a => a.researchId === id)) return 'active';
   if (queued.includes(id)) return 'queued';
   const config = getResearch(id);
-  if (!config) return 'locked';
+  if (!config || researchWaitsForWave(config, wave) !== null) return 'locked';
   const allPrereqsMet = config.prerequisites.every(p => completed.has(p));
   return allPrereqsMet ? 'available' : 'locked';
 }

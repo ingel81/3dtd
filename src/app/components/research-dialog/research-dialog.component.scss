@@ -733,6 +733,11 @@
     background: var(--td-panel-secondary);
   }
 
+  // A third line (the wave a research opens at) takes the whole width
+  .td-rd-wide {
+    grid-column: 1 / -1;
+  }
+
   span {
     display: block;
     font-family: var(--td-font-mono);

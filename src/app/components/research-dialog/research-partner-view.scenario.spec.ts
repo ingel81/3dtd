@@ -95,7 +95,7 @@ describe('Coop research view of a partner (TODO E35)', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
-        { provide: TowerDefenseStore, useValue: { credits: signal(750) } },
+        { provide: TowerDefenseStore, useValue: { credits: signal(750), waveNumber: signal(0), phase: signal('setup') } },
         { provide: TowerDefenseFacadeService, useValue: { emitCommand } },
         { provide: SimMirror, useValue: mirror },
         { provide: SimClient, useValue: { bus: main } },

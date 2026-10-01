@@ -6,7 +6,7 @@ import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { ResearchStore } from '../../../store/research.store';
 import { UpgradeId } from '../../../configs/tower-types.config';
 import { RESEARCH_TREE, getResearch } from '../../../configs/research/research-tree.config';
-import { ActiveResearch, ResearchId } from '../../../configs/research/research.types';
+import { ActiveResearch, ResearchId, researchWave } from '../../../configs/research/research.types';
 import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { UpgradeHintService } from '../../../services/upgrade-hint.service';
@@ -72,6 +72,7 @@ export class SidebarResearchPanelComponent {
           this.researchStore.completedResearches(),
           this.researchStore.activeResearches(),
           this.queue(),
+          researchWave(this.store.waveNumber(), this.store.phase()),
         ) === 'available',
     ).length,
   );
