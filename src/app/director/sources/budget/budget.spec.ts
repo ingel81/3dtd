@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  baseBudgetSeconds, bodyParts, budgetSeconds, ENDLESS_GROWTH, enemyHp, meanRush, sizeWave, BOSS_MIN_HP_MULT, BOSS_OVER_ESCORT,
+  baseBudgetSeconds, bodyParts, budgetSeconds, ENDLESS_GROWTH, enemyHp, meanRush, sizeWave, BOSS_MIN_HP_MULT, BOSS_OVER_ELITE, BOSS_OVER_ESCORT,
   BUDGET_REALISM, ELITE_HP_FACTOR, SURE_KILL_HQ_SHARE, SURE_KILL_SHARE, UNDER_FIRE_SHARE, eliteCount, type BudgetInput,
 } from './budget';
 import type { EffectiveDPSPerArmor } from '../../models/game-state-snapshot';
@@ -152,6 +152,8 @@ describe('sizeWave, a boss', () => {
     const herbert = enemyHp('herbert') * sized.hpMult['herbert'];
     const tank = enemyHp('tank') * sized.hpMult['tank'];
     expect(herbert).toBeGreaterThanOrEqual(BOSS_OVER_ESCORT * tank * 0.999);
+    // and BOSS_OVER_ELITE times the elite tank
+    expect(herbert).toBeGreaterThanOrEqual(BOSS_OVER_ELITE * enemyHp('tank') * sized.elites['tank'].hpMult * 0.999);
     expect(sized.floored).toContain('herbert');
   });
 

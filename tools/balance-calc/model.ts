@@ -47,7 +47,10 @@ export function scaleArmor(dps: EffectiveDPSPerArmor, k: number): EffectiveDPSPe
 export interface WaveBody {
   readonly type: string;
   readonly n: number;
+  /** HP each as the leak estimate counts it: a raging boss's rage included */
   readonly hp: number;
+  /** HP each as shipped */
+  readonly shippedHp: number;
   readonly armor: ArmorType;
   readonly air: boolean;
   readonly speed: number;
@@ -76,8 +79,10 @@ export function waveBodies(wave: number, config: Pick<WaveConfig, 'enemies'>): W
       const n = group.count * part.bodies;
       const elites = cfg.chain ? 0 : Math.min(n, group.elite?.count ?? 0);
       const body = { type: group.type, armor: part.armor, air: !!cfg.isAirUnit, speed: part.speed, leak };
-      if (elites > 0) out.push({ ...body, n: elites, hp: part.hp * group.elite!.healthMultiplier * hpFactor });
-      out.push({ ...body, n: n - elites, hp: part.hp * (group.healthMultiplier ?? 1) * hpFactor });
+      const eliteHp = part.hp * (group.elite?.healthMultiplier ?? 0);
+      const hp = part.hp * (group.healthMultiplier ?? 1);
+      if (elites > 0) out.push({ ...body, n: elites, hp: eliteHp * hpFactor, shippedHp: eliteHp });
+      out.push({ ...body, n: n - elites, hp: hp * hpFactor, shippedHp: hp });
     }
   }
   return out.filter((b) => b.n > 0);

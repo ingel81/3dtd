@@ -68,12 +68,14 @@ export const UNDER_FIRE_SHARE = 0.9;
 export const SURE_KILL_SHARE = 0.5;
 export const SURE_KILL_HQ_SHARE = 0.15;
 /**
- * A boss (EnemyTypeConfig.isBoss) gets at least this many times the HP of
- * the toughest body of its escort, and at least this share of its base HP,
- * whatever its own limit says: a boss is a boss, and its HP come out of the
- * escort's share of the budget. It may get through; that is its threat.
+ * A boss (EnemyTypeConfig.isBoss) gets at least BOSS_OVER_ESCORT times the
+ * HP of the toughest regular escort body, BOSS_OVER_ELITE times an elite of
+ * it, and BOSS_MIN_HP_MULT of its base HP, whatever its own limit says: a
+ * boss is a boss, and its HP come out of the escort's share of the budget.
+ * It may get through; that is its threat.
  */
 export const BOSS_OVER_ESCORT = 3;
+export const BOSS_OVER_ELITE = 1.25;
 export const BOSS_MIN_HP_MULT = 0.25;
 /**
  * Elites: about one in twenty of a kind (rounded, so from ten of a kind on)
@@ -263,8 +265,7 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   // An elite: ELITE_HP_FACTOR times its kind, at most the kind's own limit
   const eliteOf = (mult: number, cap: number) => Math.max(mult, Math.min(ELITE_HP_FACTOR * mult, cap));
 
-  // A boss's floor at the shared factor m: BOSS_OVER_ESCORT times the toughest escort body,
-  // as tough as an elite of it, and its share of its base
+  // A boss's floor at the shared factor m: over the toughest escort body and its elite, and its share of its base
   const bossHp = new Map<string, number>();
   for (const h of hurt) if (h.boss) bossHp.set(h.type, Math.max(bossHp.get(h.type) ?? 0, h.hp));
   const floorOf = (type: string, m: number) => {
@@ -272,7 +273,7 @@ export function sizeWave(input: BudgetInput): BudgetResult {
     for (const h of hurt) {
       if (h.boss) continue;
       const mult = Math.min(m, h.cap);
-      escort = Math.max(escort, BOSS_OVER_ESCORT * h.hp * mult, h.elites > 0 ? h.hp * eliteOf(mult, h.cap) : 0);
+      escort = Math.max(escort, BOSS_OVER_ESCORT * h.hp * mult, h.elites > 0 ? BOSS_OVER_ELITE * h.hp * eliteOf(mult, h.cap) : 0);
     }
     return Math.max(BOSS_MIN_HP_MULT, escort / bossHp.get(type)!);
   };

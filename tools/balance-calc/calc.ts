@@ -107,7 +107,7 @@ export function runScenario(trajectory: Trajectory, options: ScenarioOptions): W
     let dpsSeconds = 0;
     for (const b of bodies) {
       const d = startDps[b.air ? 'air' : 'ground'][b.armor];
-      if (d > 0) dpsSeconds += (b.n * b.hp) / d;
+      if (d > 0) dpsSeconds += (b.n * b.shippedHp) / d;
     }
     const isBoss = (type: string) => ENEMY_TYPES[type as EnemyTypeId]?.isBoss === true;
     const diag = planned.log.diagnostics ?? {};
@@ -122,9 +122,9 @@ export function runScenario(trajectory: Trajectory, options: ScenarioOptions): W
       capped: diag['capped'] === true,
       shared: config.templateStrength ?? 1,
       hpMult,
-      hp: bodies.reduce((sum, b) => sum + b.n * b.hp, 0),
-      bossHp: bodies.filter((b) => isBoss(b.type)).reduce((sum, b) => sum + b.n * b.hp, 0),
-      escortHp: Math.max(0, ...bodies.filter((b) => !isBoss(b.type)).map((b) => b.hp)),
+      hp: bodies.reduce((sum, b) => sum + b.n * b.shippedHp, 0),
+      bossHp: bodies.filter((b) => isBoss(b.type)).reduce((sum, b) => sum + b.n * b.shippedHp, 0),
+      escortHp: Math.max(0, ...bodies.filter((b) => !isBoss(b.type)).map((b) => b.shippedHp)),
       bossThreat: Math.max(0, ...bodies.filter((b) => isBoss(b.type))
         .map((b) => b.hp / (realisedDps(b, startDps, model) * bodyFire(b, startMetres, model)))),
       dpsSeconds,
