@@ -35,8 +35,21 @@ const RELAY_RESTART_CODE = 1012;
 /** The close code for a client that kept sending too fast (coop-server/server.ts CLOSE_TOO_FAST, TODO E65) */
 const RELAY_TOO_FAST_CODE = 4008;
 
-/** Why the relay closed the connection, where it said so */
-export type CoopCloseReason = 'restart' | 'too-fast' | null;
+/**
+ * In a room the relay sends every player the round trips every 5 s
+ * (coop-server/server.ts HEARTBEAT_MS), in a pause too. Nothing at all for
+ * this long reads as a half-open connection (a WLAN switch, standby), which
+ * the browser would only notice once the system gives up, ms.
+ */
+export const SILENCE_MS = 20_000;
+/** How often the silence is looked at, ms */
+const SILENCE_CHECK_MS = 1000;
+
+/**
+ * Why the connection closed, where it is known: the relay said so
+ * (`restart`, `too-fast`) or this client heard nothing from it (`silent`)
+ */
+export type CoopCloseReason = 'restart' | 'too-fast' | 'silent' | null;
 
 /** What the game needs to start: seed, roster, lanes, who is here, the link. */
 export interface CoopStart {
@@ -140,6 +153,9 @@ export class CoopSession {
   private socket: CoopSocket | null = null;
   private pendingReply: { resolve: (value: unknown) => void; reject: (error: Error) => void; wants: ServerMessage['t'] } | null = null;
   private linkNow: WebSocketLink | null = null;
+  /** When the relay was last heard, and the watchdog over it (SILENCE_MS) */
+  private heardAt = 0;
+  private silenceTimer: ReturnType<typeof setInterval> | null = null;
 
   /** This player's id at the relay, once connected */
   playerId: string | null = null;
@@ -179,7 +195,8 @@ export class CoopSession {
   /**
    * The connection closed, with why where the relay said so: `restart` (close
    * code 1012, relay review M6), `too-fast` when it closed this client for
-   * sending too much (TODO E65).
+   * sending too much (TODO E65), `silent` when nothing came from the relay
+   * for SILENCE_MS while in a room.
    */
   onClosed: ((reason: CoopCloseReason) => void) | null = null;
 
@@ -225,8 +242,12 @@ export class CoopSession {
           reject(err);
         });
         this.out({ t: 'hello', protocol: PROTOCOL_VERSION, ...this.hello });
+        this.watch(socket);
       };
-      socket.onmessage = (event) => this.receive(String(event.data));
+      socket.onmessage = (event) => {
+        this.heardAt = performance.now();
+        this.receive(String(event.data));
+      };
       socket.onerror = () => {
         clearTimeout(timer);
         this.fail(new Error(`no coop relay at ${this.url}`), reject);
@@ -235,6 +256,7 @@ export class CoopSession {
         clearTimeout(timer);
         this.fail(new Error('the connection to the coop relay closed'), reject);
         this.socket = null;
+        this.stopWatch();
         const code = (event as { code?: number } | null)?.code;
         this.onClosed?.(code === RELAY_RESTART_CODE ? 'restart' : code === RELAY_TOO_FAST_CODE ? 'too-fast' : null);
       };
@@ -347,7 +369,47 @@ export class CoopSession {
   close(): void {
     const socket = this.socket;
     this.socket = null;
+    this.stopWatch();
     socket?.close();
+  }
+
+  /**
+   * The watchdog over the relay's heartbeat (SILENCE_MS), from the hello on.
+   * Outside a room the relay sends nothing unasked, so silence counts only in
+   * one. A check that came late means this page stood still (a hidden tab, a
+   * long block): what did not arrive may wait in its queue, so the silence
+   * starts again.
+   */
+  private watch(socket: CoopSocket): void {
+    this.stopWatch();
+    let checkedAt = performance.now();
+    this.heardAt = checkedAt;
+    this.silenceTimer = setInterval(() => {
+      const now = performance.now();
+      const late = now - checkedAt > SILENCE_MS / 2;
+      checkedAt = now;
+      if (late || this.room === null) this.heardAt = now;
+      else if (now - this.heardAt >= SILENCE_MS && this.socket === socket) this.lost(socket);
+    }, SILENCE_CHECK_MS);
+  }
+
+  private stopWatch(): void {
+    if (this.silenceTimer !== null) clearInterval(this.silenceTimer);
+    this.silenceTimer = null;
+  }
+
+  /**
+   * The relay went silent: drop the socket without waiting for a close
+   * handshake that a half-open connection never finishes, and end the
+   * session as a close would.
+   */
+  private lost(socket: CoopSocket): void {
+    socket.onmessage = null;
+    socket.onclose = null;
+    socket.onerror = null;
+    this.close();
+    this.fail(new Error('No word from the coop relay'));
+    this.onClosed?.('silent');
   }
 
   private out(message: ClientMessage): void {

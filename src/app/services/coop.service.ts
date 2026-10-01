@@ -24,7 +24,7 @@ import { ResyncDriver, resyncPartParam } from '../coop/resync';
 import type { WaveSourceId } from '../director/wave-source';
 import { newRunSeed } from '../utils/game-rng';
 import { coordKey } from '../utils/geo-utils';
-import { CoopRefusedError, CoopSession, type CoopCloseReason, type CoopStart } from '../coop/coop-session';
+import { CoopRefusedError, CoopSession, SILENCE_MS, type CoopCloseReason, type CoopStart } from '../coop/coop-session';
 import { HASH_PARTS, hashEveryParam, type HashedEntities, type HashPart } from '../coop/hash-check';
 import {
   buildWorldPackage,
@@ -134,12 +134,14 @@ const STATUS_LINE: Record<PlayerStatus, (name: string) => string> = {
 const CLOSED_TEXT: Record<NonNullable<CoopCloseReason> | 'lost', string> = {
   restart: 'The coop server restarts. Try again in a moment.',
   'too-fast': 'The coop server closed the connection: this game sent too many messages. Reload to join again.',
+  silent: `No word from the coop server for ${SILENCE_MS / 1000} s: the connection is gone (a network switch or standby?).`,
   lost: 'The connection to the coop server closed.',
 };
 /** The same as the head of the in-game notice */
 const CLOSED_HEAD: Record<NonNullable<CoopCloseReason> | 'lost', string> = {
   restart: 'The coop server restarts',
   'too-fast': 'The coop server closed the connection, this game sent too many messages',
+  silent: `No word from the coop server for ${SILENCE_MS / 1000} s`,
   lost: 'Connection to the coop server lost',
 };
 

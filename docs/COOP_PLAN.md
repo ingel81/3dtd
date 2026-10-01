@@ -816,7 +816,9 @@ Aus einem Review des Relays (Absturzsicherheit, Grenzen, Betrieb), Entscheidunge
   Trennen, Serialisierung einmal je Broadcast, eine Welt höchstens je Sekunde, 20 falsche Raumcodes, Hash-Meldungen
   nur für geschlossene Ticks im Fenster, `HashCheck.prune` vom höchsten Tick aus.
 - **Spieler und Räume:** Herzschlag 5 s, drei verpasste (D70); ein Spieler, auf den der Raum 30 s wartet, geht
-  (D71), Kick im Spiel; Spiele ohne Befehl schließen nach 3 h.
+  (D71), Kick im Spiel; Spiele ohne Befehl schließen nach 3 h. Umgekehrt gibt der Client im Raum nach 20 s ohne
+  jede Nachricht vom Relay auf (die Laufzeiten kommen alle 5 s, auch in der Pause): eine halboffene Verbindung nach
+  WLAN-Wechsel oder Standby meldet sich als „No word from the coop server“ statt still zu stehen (`SILENCE_MS`).
 - **Betrieb:** Log-Zeilen der Lobby je Spieler gedrosselt (30 je Minute), Ablehnungen gebündelt, Tagesdatei bis
   50 MB, Fehler der Log-Datei beenden nur die Datei; SIGTERM schickt Close-Code 1012, der Client sagt „The coop
   server restarts“; `close()` einmalig. `/healthz` mit `HEALTHCHECK` im Dockerfile, `logging: max-size` in der
