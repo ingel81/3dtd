@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   baseBudgetSeconds, bodyParts, budgetSeconds, ENDLESS_GROWTH, enemyHp, meanRush, sizeWave, BOSS_MIN_HP_MULT, BOSS_OVER_ELITE, BOSS_OVER_ESCORT,
-  BUDGET_REALISM, ELITE_HP_FACTOR, SURE_KILL_HQ_SHARE, SURE_KILL_SHARE, UNDER_FIRE_SHARE, eliteCount, type BudgetInput,
+  BUDGET_REALISM, CAP_REGULATOR_MAX, ELITE_HP_FACTOR, MAX_ALLOWED_LEAK_SHARE, rageFactor, SURE_KILL_HQ_SHARE, SURE_KILL_SHARE, UNDER_FIRE_SHARE, eliteCount, type BudgetInput,
 } from './budget';
 import type { EffectiveDPSPerArmor } from '../../models/game-state-snapshot';
 import { ENEMY_TYPES, WORM_MAX_SEGMENTS } from '../../../configs/enemy-types.config';
@@ -82,19 +82,35 @@ describe('sizeWave', () => {
   });
 
   it('cuts the budget to the time on the route plus the leaks the curve allows', () => {
-    const short = sizeWave(base({ enemies: { zombie: 10 }, spawnDelayMs: 100, defense: { dps: dps(1000), damageMetres: dps(1000 * 30), hpRemaining: 300 } }));
+    const at = (hpRemaining: number) => sizeWave(base({ enemies: { zombie: 200 }, spawnDelayMs: 100, defense: { dps: dps(1000), damageMetres: dps(1000 * 30), hpRemaining } }));
+    const short = at(300);
     expect(short.capped).toBe(true);
     expect(short.delivered).toBeLessThan(short.budget);
-    const moreHp = sizeWave(base({ enemies: { zombie: 10 }, spawnDelayMs: 100, defense: { dps: dps(1000), damageMetres: dps(1000 * 30), hpRemaining: 3000 } }));
-    expect(moreHp.delivered).toBeGreaterThan(short.delivered);
+    expect(at(3000).delivered).toBeGreaterThan(short.delivered);
   });
 
-  it('moves the cap with the loop, so a capped wave still answers to it', () => {
-    const at = (regulator: number) => sizeWave(base({ enemies: { zombie: 10 }, spawnDelayMs: 100, regulator, defense: { dps: dps(1000), damageMetres: dps(1000 * 30), hpRemaining: 300 } }));
+  it('lets through at most MAX_ALLOWED_LEAK_SHARE of the bodies by design', () => {
+    // Ten zombies against a large HQ: every one may leak, the cap asks at most 1 / (1 - share) of the time
+    const at = (hpRemaining: number) => sizeWave(base({ enemies: { zombie: 10 }, spawnDelayMs: 100, defense: { dps: dps(1000), damageMetres: dps(1000 * 30), hpRemaining } }));
+    const capped = at(30000);
+    expect(capped.delivered).toBeCloseTo(capped.window / (1 - MAX_ALLOWED_LEAK_SHARE), 6);
+  });
+
+  it('moves the cap with the loop up to CAP_REGULATOR_MAX, so a capped wave still answers to it', () => {
+    const at = (regulator: number) => sizeWave(base({ enemies: { zombie: 200 }, spawnDelayMs: 100, regulator, defense: { dps: dps(1000), damageMetres: dps(1000 * 30), hpRemaining: 300 } }));
     expect(at(1).capped).toBe(true);
-    expect(at(2).capped).toBe(true);
-    expect(at(2).delivered).toBeGreaterThan(at(1).delivered * 1.5);
+    expect(at(CAP_REGULATOR_MAX).delivered).toBeCloseTo(at(1).delivered * CAP_REGULATOR_MAX, 6);
+    expect(at(CAP_REGULATOR_MAX + 0.5).delivered).toBeCloseTo(at(CAP_REGULATOR_MAX).delivered, 6);
     expect(at(0.5).delivered).toBeLessThan(at(1).delivered);
+  });
+
+  it('counts what a regenerating body heals and what a raging boss is worth', () => {
+    const plain = sizeWave(base({ enemies: { zombie: 100 } }));
+    const healing = sizeWave(base({ enemies: { zombie: 100 }, regenPerSecond: () => 0.02, defense: { ...base().defense, metresUnderFire: { ground: 300, air: 300 } } }));
+    expect(healing.hpMult['zombie']).toBeLessThan(plain.hpMult['zombie']);
+    const rage = ENEMY_TYPES['herbert'].traits!.rage!;
+    expect(rageFactor(ENEMY_TYPES['herbert'])).toBeCloseTo(1 - rage.belowHp + (rage.belowHp * rage.speed) / rage.damageTaken, 9);
+    expect(rageFactor(ENEMY_TYPES['zombie'])).toBe(1);
   });
 
   it('leaves enemies the defense cannot hurt at the row strength, HP ×1 at strength 1', () => {

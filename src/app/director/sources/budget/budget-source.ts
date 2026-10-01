@@ -81,6 +81,7 @@ export class BudgetWaveSource implements WaveSource {
       regulator,
       targetPressure: target,
       leakScale: (type) => waveLeakScale(wave, type),
+      regenPerSecond: (type) => (ENEMY_TYPES[type as EnemyTypeId]?.regenPerSecond ?? 0) + (mutator?.regenPerSecond ?? 0),
       defense: {
         dps: state.defense?.effectiveDPSPerArmor,
         damageMetres: state.defense?.damageMetres,

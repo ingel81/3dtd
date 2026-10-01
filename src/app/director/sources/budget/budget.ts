@@ -23,7 +23,7 @@
 import type { EffectiveDPSPerArmor } from '../../models/game-state-snapshot';
 import type { ArmorType } from '../../../configs/combat/combat.types';
 import {
-  ENEMY_TYPES, WORM_MAX_SEGMENTS, leakDamageOf, lineageHp, lineageLeakDamage, type EnemyTypeId,
+  ENEMY_TYPES, WORM_MAX_SEGMENTS, type EnemyTypeConfig, leakDamageOf, lineageHp, lineageLeakDamage, type EnemyTypeId,
 } from '../../../configs/enemy-types.config';
 import { DetMath } from '../../../utils/det-math';
 
@@ -52,9 +52,12 @@ export function budgetSeconds(wave: number): number {
  * Share of the modelled damage a defense actually lands, one value for the
  * whole run. Bots with three or four towers in W2-W8 killed 33 to 89 % of what
  * the model gave them at 0.9 (2026-09-28, 3 runs); the adaptive director
- * measured 0.65 on W1-W10. The pressure loop corrects the rest.
+ * measured 0.65 on W1-W10. The pressure loop corrects the rest. 0.55 since
+ * 2026-10-02 (0.6 before): with the cap following the loop (CAP_REGULATOR_MAX)
+ * the balance calculator brings a player who lands 0.7 times the recorded
+ * human's share to W55 to W60 instead of W50 to W56.
  */
-export const BUDGET_REALISM = 0.6;
+export const BUDGET_REALISM = 0.55;
 /** An enemy may take this share of the damage the defense deals while it is under fire. */
 export const UNDER_FIRE_SHARE = 0.9;
 /**
@@ -70,12 +73,13 @@ export const SURE_KILL_HQ_SHARE = 0.15;
 /**
  * A boss (EnemyTypeConfig.isBoss) gets at least BOSS_OVER_ESCORT times the
  * HP of the toughest regular escort body, BOSS_OVER_ELITE times an elite of
- * it, and BOSS_MIN_HP_MULT of its base HP, whatever its own limit says: a
- * boss is a boss, and its HP come out of the escort's share of the budget.
- * It may get through; that is its threat.
+ * it (never weaker; 1.25 let the dragon matriarch through a weaker player),
+ * and BOSS_MIN_HP_MULT of its base HP, whatever its own limit says: a boss is
+ * a boss, and its HP come out of the escort's share of the budget. It may get
+ * through; that is its threat.
  */
 export const BOSS_OVER_ESCORT = 3;
-export const BOSS_OVER_ELITE = 1.25;
+export const BOSS_OVER_ELITE = 1;
 export const BOSS_MIN_HP_MULT = 0.25;
 /**
  * Elites: about one in twenty of a kind (rounded, so from ten of a kind on)
@@ -87,12 +91,30 @@ export const BOSS_MIN_HP_MULT = 0.25;
 export const ELITE_SHARE = 0.05;
 export const ELITE_HP_FACTOR = 4.5;
 
+/**
+ * How much tougher a boss's rage makes it (EnemyTypeConfig.traits.rage): the
+ * HP past the rage at the damage it then takes, and faster through the towers.
+ * Herbert's 1.4, the budget pays for it.
+ */
+export function rageFactor(cfg: Pick<EnemyTypeConfig, 'traits'>): number {
+  const rage = cfg.traits?.rage;
+  return rage ? 1 - rage.belowHp + (rage.belowHp * rage.speed) / rage.damageTaken : 1;
+}
+
 /** How many of `count` spawns of `type` are elites */
 export function eliteCount(type: string, count: number): number {
   const cfg = ENEMY_TYPES[type as EnemyTypeId];
   if (!cfg || cfg.isBoss || cfg.chain || cfg.ooze) return 0;
   return Math.round(count * ELITE_SHARE);
 }
+
+/**
+ * Share of its time on the route a regenerating body heals for (Regen trait,
+ * the Regeneration mutator): it heals until it dies, which is on average a
+ * good way before the end of the route. A body that heals 2 % a second over
+ * 100 s on the route costs 1.5 times its HP.
+ */
+export const REGEN_TIME_SHARE = 0.25;
 
 /** Least time under fire an enemy counts with, so a defense whose LOS is not in yet does not zero the HP. */
 export const MIN_UNDER_FIRE_S = 2;
@@ -109,6 +131,21 @@ export const HP_MULT_MAX = 500;
  * for this player; below R 1 it protects a weaker one further.
  */
 export const CAP_FOLLOWS_REGULATOR = true;
+/**
+ * The cap follows R only up to this. One R serves every wave, and it climbs on
+ * the ground waves a defense handles; at 2.5 in the cap the air and ethereal
+ * waves met it in full and cost a weaker player a third of the HQ each (W17,
+ * W44, balance calculator 2026-10-02). Above it R still fills the waves that
+ * are not capped, so a strong player keeps being asked more.
+ */
+export const CAP_REGULATOR_MAX = 1.5;
+/**
+ * Most of a wave's bodies the cap lets through by design. Before 2026-10-02
+ * the allowed leaks were added as a share of the budget, not of the time:
+ * a short wave with a large budget (W17, 33 bodies) was let through at 1.7
+ * to 2 times what the defense can work through in its time.
+ */
+export const MAX_ALLOWED_LEAK_SHARE = 0.5;
 /** Least HP a wave may cost through leaks, as in the adaptive cap. */
 export const MIN_LEAK_HP = 1;
 
@@ -134,6 +171,8 @@ export interface BudgetInput {
   readonly targetPressure: number;
   /** What one leak of a type costs at this wave, times the type's own leak damage (waveLeakScale). */
   readonly leakScale: (type: string) => number;
+  /** Share of its max HP a type heals a second in this wave (its Regen trait, the Regeneration mutator). */
+  readonly regenPerSecond?: (type: string) => number;
   readonly defense: BudgetDefense;
 }
 
@@ -234,13 +273,15 @@ export function sizeWave(input: BudgetInput): BudgetResult {
       const dps = rawDps * BUDGET_REALISM;
       if (!(dps > 0)) continue;
       isHurt = true;
-      const sec = part.hp / dps;
+      // For the wave's window: how long this body is under fire at all (union of the stretches)
+      const onRoute = Math.max(MIN_UNDER_FIRE_S, (defense.metresUnderFire?.[side] ?? 0) / Math.max(0.1, part.speed));
+      // A body that heals costs what it heals while it lives (REGEN_TIME_SHARE of its time on the route)
+      const regen = cfg.chain || cfg.ooze ? 0 : input.regenPerSecond?.(type) ?? 0;
+      const sec = (part.hp * (1 + regen * REGEN_TIME_SHARE * onRoute) * rageFactor(cfg)) / dps;
       // Seconds of the whole defense's damage the body takes on its way past: each tower
       // counts with the stretch it sees (damage-metres over speed, over the total damage)
       const damageMetres = defense.damageMetres?.[side]?.[part.armor] ?? 0;
       const fire = Math.max(MIN_UNDER_FIRE_S, damageMetres / (rawDps * Math.max(0.1, part.speed)));
-      // For the wave's window: how long this body is under fire at all (union of the stretches)
-      const onRoute = Math.max(MIN_UNDER_FIRE_S, (defense.metresUnderFire?.[side] ?? 0) / Math.max(0.1, part.speed));
       const elites = cfg.chain ? 0 : eliteCount(type, spawns);
       hurt.push({ type, boss: cfg.isBoss === true, n, elites, hp: part.hp, sec, fire, onRoute, cap: (share * fire) / sec });
     }
@@ -259,8 +300,11 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   const fireAvg = hurt.length ? hurt.reduce((sum, h) => sum + h.n * Math.max(h.fire, h.onRoute), 0) / hurt.reduce((sum, h) => sum + h.n, 0) : 0;
   const window = spawnSeconds + fireAvg;
   const allowedLeaks = leakCost > 0 && count > 0 ? leakHp / (leakCost / count) : 0;
-  const capWindow = CAP_FOLLOWS_REGULATOR ? window * input.regulator : window;
-  const delivered = Math.min(budget, capWindow + budget * Math.min(1, allowedLeaks / Math.max(1, count)));
+  const capWindow = CAP_FOLLOWS_REGULATOR ? window * Math.min(input.regulator, CAP_REGULATOR_MAX) : window;
+  // Leaks the curve allows: a share `a` of the bodies gets through when the wave asks 1 / (1 - a) times the
+  // time it has (what the defense cannot work through comes through, spread over the bodies)
+  const allowedShare = Math.min(MAX_ALLOWED_LEAK_SHARE, allowedLeaks / Math.max(1, count));
+  const delivered = Math.min(budget, capWindow / (1 - allowedShare));
 
   // An elite: ELITE_HP_FACTOR times its kind, at most the kind's own limit
   const eliteOf = (mult: number, cap: number) => Math.max(mult, Math.min(ELITE_HP_FACTOR * mult, cap));
