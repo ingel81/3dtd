@@ -405,27 +405,34 @@ export class TowerCombatService {
     const aimTarget = tower.losReady ? this.manualTarget(tower) : null;
     this.mannedAimTargets.set(tower.id, aimTarget);
     if (!tower.losReady || !tower.triggerHeld || !tower.combat.canFire()) return null;
-    if (!isAimAligned(tower.aim, TOWER_CONTROL.alignToleranceRad)) return null;
 
+    // The held trigger fires at the tower's rate, wherever the turret points:
+    // a turret that trails a fast swing used to hold fire until it caught up
+    // within the tolerance, so swinging fired next to nothing. Close to the
+    // crosshair the shot goes for its enemy; further off it flies along the
+    // turret's own heading and hits nothing.
     tower.combat.fire();
     tower.lastTargetTime = gameTimeMs;
-    const target = aimTarget;
+    const aligned = isAimAligned(tower.aim, TOWER_CONTROL.alignToleranceRad);
+    const target = aligned ? aimTarget : null;
+    const shotHeading = aligned ? heading : tower.aim.current;
     if (target) {
       projectileManager.spawn(tower, target, heading, this.projectileAim(target));
     } else {
-      projectileManager.fireBlank(tower, this.freeShotEnd(tower), heading);
+      projectileManager.fireBlank(tower, this.freeShotEnd(tower, shotHeading), shotHeading);
     }
     return { tower, target };
   }
 
   /**
    * Where a manned tower's miss flies: the point on the aim ray at the
-   * tower's range from the eye, so it passes the crosshair. Geo, relative
+   * tower's range from the eye, so it passes the crosshair; with `heading`
+   * the turret's own, while it still trails the crosshair. Geo, relative
    * to the muzzle (METERS_PER_DEGREE_LAT at the tower's latitude, as the
    * projectile moves).
    */
-  private freeShotEnd(tower: Tower): GeoPosition {
-    const { heading, pitch } = tower.manualAim;
+  private freeShotEnd(tower: Tower, heading = tower.manualAim.heading): GeoPosition {
+    const { pitch } = tower.manualAim;
     const muzzleHeight = (tower.position.height ?? 0) + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
     const range = tower.combat.range;
     const dir = aimDirectionInto(heading, pitch, this._mannedDir);

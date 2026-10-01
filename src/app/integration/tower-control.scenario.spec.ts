@@ -296,6 +296,32 @@ describe('Manning a tower, through the sub-step loop', () => {
     expect(enemy.health.hp).toBe(enemy.health.maxHp);
   });
 
+  it('a turret swung fast keeps firing at its rate, along where it points until it catches up (User, 2026-10-01)', () => {
+    const gsm = createGame();
+    const tower = placeTower(gsm, 'dual-gatling');
+    expect(tower.aim.turret).toBe(true);
+    const spawn = vi.spyOn(gsm.projectileManager, 'spawn');
+    const turretAtShot: number[] = [];
+    const fireBlank = gsm.projectileManager.fireBlank.bind(gsm.projectileManager);
+    const blank = vi.spyOn(gsm.projectileManager, 'fireBlank').mockImplementation((...args) => {
+      turretAtShot.push(tower.aim.current);
+      return fireBlank(...args);
+    });
+    const clock = { now: 1000 };
+    gsm.getEventBus().emit({ type: 'command:man-tower', towerId: tower.id });
+    steps(gsm, clock, 1);
+    // The aim swings half a turn every sub-step: the turret never gets within the tolerance
+    let heading = 0;
+    gsm.getEventBus().emit({ type: 'command:tower-trigger', held: true });
+    steps(gsm, clock, 125, () => sendAim(gsm, (heading += Math.PI) % (2 * Math.PI), 0));
+    expect(spawn).not.toHaveBeenCalled();
+    // 2 s at the tower's rate, as if it stood still
+    expect(blank.mock.calls.length).toBeGreaterThanOrEqual(Math.floor(2 * tower.combat.fireRate) - 1);
+    // Along the turret's heading of the moment, which trails the crosshair
+    expect(turretAtShot.length).toBe(blank.mock.calls.length);
+    expect(blank.mock.calls.map(([, , shotHeading]) => shotHeading)).toEqual(turretAtShot);
+  });
+
   it('fires between waves too, at nothing', () => {
     const gsm = createGame();
     const tower = placeTower(gsm);

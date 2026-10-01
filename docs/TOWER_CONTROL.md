@@ -34,8 +34,10 @@ Der besetzte Tower läuft pro Sub-Step über `TowerCombatService.updateMannedTow
 
 - **Drehen:** Der Turm dreht mit seiner eigenen Geschwindigkeit (~π rad/s) zur Zielrichtung des Spielers, auch
   zwischen den Wellen. Tower mit `pitchNodes` (Dual Gatling) neigen die Rohre dazu, begrenzt auf `pitchRange`.
-- **Feuern:** in und zwischen den Wellen, bei gehaltenem Abzug, wenn der Cooldown des Towers abgelaufen ist und der Turm höchstens 5° neben der Zielrichtung steht (`alignToleranceRad`; der
-  Autofeuer-Wert ist 15°). Feuerrate, Schaden, Projektil, Schadensart und Upgrades sind die des Towers: der
+- **Feuern:** in und zwischen den Wellen, bei gehaltenem Abzug, sobald der Cooldown des Towers abgelaufen ist, wohin der
+  Turm gerade zeigt (User, 2026-10-01). Steht er höchstens 5° neben der Zielrichtung (`alignToleranceRad`; der
+  Autofeuer-Wert ist 15°), geht der Schuss auf den Gegner im Fadenkreuz; sonst fliegt er ins Leere entlang der
+  Turmrichtung. Vorher hielt ein Turm, der einem schnellen Schwenk nachdreht, das Feuer an. Feuerrate, Schaden, Projektil, Schadensart und Upgrades sind die des Towers: der
   Cooldown ist dieselbe `CombatComponent` wie beim Autofeuer, `combat.fireRate` setzt nur das Upgrade
   (`Tower.applyUpgrade`), der Test prüft die Schusszahl gegen die Rate der Upgrade-Stufe exakt.
 - **Treffer:** Ein Strahl vom Augenpunkt entlang der Zielrichtung. Getroffen ist der erste Gegner, an dessen
