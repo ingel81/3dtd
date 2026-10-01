@@ -46,7 +46,7 @@
   </div>
   @if (uiStore.infoOverlayVisible() && uiStore.infoOverlayWide()) {
     <div class="td-info__col td-info__col--side">
-      <div class="td-info__row" title="Simulation ticks per second: one per packet"><span class="k">Ticks/s</span><span class="v">{{ (sample()?.ticksPerS ?? 0) | number:'1.0-0' }}</span></div>
+      <div class="td-info__row" title="Packets per second from the simulation: about 30, more while commands come in"><span class="k">Packets/s</span><span class="v">{{ (sample()?.ticksPerS ?? 0) | number:'1.0-0' }}</span></div>
       <div class="td-info__row" title="Tables in shared memory (cross-origin isolated), else copied every frame">
         <span class="k">Memory</span><span class="v">{{ meter.sharedMemory ? 'shared' : 'copy' }}</span>
       </div>

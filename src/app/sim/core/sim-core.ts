@@ -200,6 +200,14 @@ export class SimCore implements SimCoreApi {
 
   input(input: SimInput, now: number): void {
     const gsm = this.gsm;
+    // Only a manned tower's aim, every frame while the mouse moves: it acts at
+    // once but goes out with the next packet due, not as a packet of its own
+    // (a packet a frame wrote and applied every table 144 times a second)
+    const aimOnly = !input.lockstep
+      && input.commands.length > 0 && input.commands.every(({ command }) => command.type === 'command:tower-aim')
+      && input.paused === gsm.paused() && input.gameSpeed === gsm.gameSpeed()
+      && input.renderingEnabled === this.renderingEnabled
+      && input.replay?.playing === this.replayInput?.playing && input.replay?.speed === this.replayInput?.speed;
     // The loop slept through a pause or a held replay: their clocks take the
     // wall clock now, or the game would jump by the backlog when they go on
     if (gsm.paused()) gsm.update(now);
@@ -210,7 +218,7 @@ export class SimCore implements SimCoreApi {
     if (input.renderingEnabled && !this.renderingEnabled) this.forcePresent = true;
     this.renderingEnabled = input.renderingEnabled;
     this.replayInput = input.replay;
-    this.dirty = true;
+    if (!aimOnly) this.dirty = true;
     if (input.commands.length === 0) return;
     // At the boundary between two sub-steps (no pass runs meanwhile), in the order given
     const started = performance.now();
@@ -222,7 +230,7 @@ export class SimCore implements SimCoreApi {
       c0 = c1;
     }
     this.commandsMs += c0 - started;
-    this.forcePresent = true;
+    if (!aimOnly) this.forcePresent = true;
   }
 
   pass(now: number, deadline = Infinity, demand?: PacketDemand): SimFramePacket | null {

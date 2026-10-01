@@ -469,6 +469,28 @@ describe('SimCore in the same thread', () => {
       expect(packets).toBeLessThanOrEqual(31);
     });
 
+    it('the aim of a manned tower acts at once but rides the next packet due, other commands publish at once', () => {
+      const always = { demandPending: () => true, takeDemand: vi.fn(() => true) };
+      const core = running(1);
+      let now = 1000;
+      const aim = (heading: number) => core.input({
+        ...SETTINGS, gameSpeed: 1, commands: [{ playerId: 'local', command: { type: 'command:tower-aim', heading, pitch: 0 } as unknown as CommandData }],
+      }, now);
+      // A second of aiming at 144 frames a second: about 30 packets, not one a frame
+      let packets = 0;
+      for (let i = 0; i < 144; i++) {
+        now += 1000 / 144;
+        aim(i / 100);
+        if (core.pass(now, Infinity, always)) packets++;
+      }
+      expect(packets).toBeGreaterThanOrEqual(28);
+      expect(packets).toBeLessThanOrEqual(31);
+      // Another command still goes out at once
+      now += 1;
+      core.input({ ...SETTINGS, gameSpeed: 1, commands: [{ playerId: 'local', command: { type: 'debug:add-credits', amount: 1 } as unknown as CommandData }] }, now);
+      expect(core.pass(now, Infinity, always)).not.toBeNull();
+    });
+
     it('ends the pass after the sub-step running when the main thread waits for a packet', () => {
       const core = running(4);
       // 100 ms at speed 4 and what the first pass left are due, the demand comes during the third sub-step

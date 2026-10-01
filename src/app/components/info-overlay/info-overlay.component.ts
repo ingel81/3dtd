@@ -104,7 +104,7 @@ export class InfoOverlayComponent {
     const percent = (v: number) => `${Math.round(v * 100)}%`;
     return [
       { label: 'FPS', chart: fps, now: whole(fps.last), range: `min ${whole(fps.min)} · max ${whole(fps.max)}` },
-      { label: 'Ticks', chart: ticks, now: whole(ticks.last), range: `min ${whole(ticks.min)} · max ${whole(ticks.max)}` },
+      { label: 'Packets', chart: ticks, now: whole(ticks.last), range: `min ${whole(ticks.min)} · max ${whole(ticks.max)}` },
       { label: 'Sim', chart: load, now: percent(load.last), range: `max ${percent(load.max)}` },
     ];
   });
