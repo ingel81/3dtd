@@ -55,7 +55,8 @@ export type CoopCloseReason = 'restart' | 'too-fast' | 'silent' | null;
 export interface CoopStart {
   seed: number;
   players: string[];
-  lanes: Map<string, string>;
+  /** [player, spawn] pairs, a player in as many as they took (docs/LANES_PLAN.md) */
+  lanes: [string, string][];
   localId: string;
   speed: number;
   link: LockstepLink;
@@ -279,8 +280,9 @@ export class CoopSession {
     this.out({ t: 'world', world, spawnIds });
   }
 
-  pick(spawnId: string | null): void {
-    this.out({ t: 'pick', spawnId });
+  /** Lobby: take a free spawn as one more lane, or give one back (`take` false); null gives every lane back */
+  pick(spawnId: string | null, take = true): void {
+    this.out(spawnId !== null && !take ? { t: 'pick', spawnId, take: false } : { t: 'pick', spawnId });
   }
 
   /** Lobby: another name for this player. */
@@ -482,7 +484,7 @@ export class CoopSession {
         return this.onStarted?.({
           seed: message.seed,
           players: message.players,
-          lanes: new Map(message.lanes),
+          lanes: message.lanes.map(([player, spawn]): [string, string] => [player, spawn]),
           localId: this.playerId!,
           speed: message.speed,
           link,

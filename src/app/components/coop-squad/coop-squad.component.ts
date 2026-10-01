@@ -68,7 +68,7 @@ export class CoopSquadComponent {
     // This player first, the others in the room's order
     const roster = [...this.coop.roster()].sort((a, b) => Number(b.id === me) - Number(a.id === me));
     return roster.map((p) => {
-      const index = p.spawnId === null ? -1 : lanes.indexOf(p.spawnId);
+      const index = p.spawnIds.length === 0 ? -1 : lanes.indexOf(p.spawnIds[0]);
       const state: RowState = left.has(p.id) ? 'left'
         : p.id === this.coop.waitingFor() ? 'slow'
           : this.coop.lagging(p.id) ? 'lag' : 'ok';

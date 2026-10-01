@@ -17,7 +17,7 @@ import type { HashedEntities, HashPart } from './hash-check';
  * Back to 1 before the first release (User, 2026-09-25): the numbers up to
  * then were development steps only.
  */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** Players per room at most (D16). */
 export const MAX_PLAYERS = 4;
@@ -41,8 +41,8 @@ export const PLAYER_STATUSES: readonly PlayerStatus[] = ['key', 'loading', 'relo
 export interface CoopPlayerInfo {
   id: string;
   name: string;
-  /** The spawn they picked as their lane, null before they did */
-  spawnId: string | null;
+  /** The spawns they took as their lanes, in the order taken; empty before they took one (docs/LANES_PLAN.md) */
+  spawnIds: string[];
   /** Ready to start (lobby) */
   ready: boolean;
   /** What they play with (browser or desktop build, version, system); null when the client did not say */
@@ -130,8 +130,8 @@ export type ClientMessage =
   | { t: 'moving' }
   /** Lobby: what this client is doing now (PlayerStatus) */
   | { t: 'status'; status: PlayerStatus }
-  /** Lobby: take a spawn as one's lane, or give it back (null) */
-  | { t: 'pick'; spawnId: string | null }
+  /** Lobby: take a free spawn as one more lane, or give one back (`take` false); null gives every lane back */
+  | { t: 'pick'; spawnId: string | null; take?: boolean }
   /** Lobby: another name; the relay numbers it where someone has it already */
   | { t: 'rename'; name: string }
   /** Host, lobby: take a player out of the room (review R9) */
@@ -183,7 +183,7 @@ export type ServerMessage =
   | { t: 'world'; world: unknown }
   /** Lobby: the host changes the map, its world follows */
   | { t: 'moving' }
-  /** The game starts: seed, roster and lanes; ticks follow */
+  /** The game starts: seed, roster and lanes ([player, spawn], a player in as many as they took); ticks follow */
   | {
     t: 'started';
     seed: number;

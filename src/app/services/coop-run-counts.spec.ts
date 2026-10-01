@@ -5,8 +5,8 @@ import { createMainEventBus } from '../sim/client/view-events';
 import type { EnemyView } from '../sim/client/views';
 
 const ROSTER = [
-  { id: 'host', name: 'Host', spawnId: 'north' },
-  { id: 'guest', name: 'Guest', spawnId: 'south' },
+  { id: 'host', name: 'Host', spawnIds: ['north'] },
+  { id: 'guest', name: 'Guest', spawnIds: ['south'] },
 ];
 
 function counts() {

@@ -935,7 +935,7 @@ export function statusText(status: RelayStatus): string {
     lines.push('', `${room.code}  ${state}, ${Math.round(room.ageMs / 1000)} s old, ${room.commands} commands, ${desync}`);
     for (const p of room.players) {
       const host = p.id === room.hostId ? ' host' : '';
-      const lane = p.spawnId ?? 'no lane';
+      const lane = p.spawnIds.join('+') || 'no lane';
       const ready = room.started ? '' : p.ready ? ', ready' : ', not ready';
       const rtt = p.rttMs === null ? '?' : `${p.rttMs}`;
       const hash = p.lastHash ? `, hash ${hex(p.lastHash.hash)} at tick ${p.lastHash.tick}` : '';

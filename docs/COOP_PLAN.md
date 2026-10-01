@@ -62,7 +62,7 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 
 | # | Frage | Entscheidung |
 |---|-------|--------------|
-| D1 | Modus | "Vier Tore": ein Spawn je Spieler, gemeinsames HQ, Gold getrennt, Bauen überall (User, 2026-09-24) |
+| D1 | Modus | "Vier Tore": ein Spawn je Spieler, gemeinsames HQ, Gold getrennt, Bauen überall (User, 2026-09-24). Seit 2026-10-01 ein oder mehrere Spawns je Spieler, jeder Spawn eine Spur, Startgold je Spur ([LANES_PLAN.md](LANES_PLAN.md)) |
 | D2 | Transport | Eigener Relay, Node oder Bun mit WebSocket, TypeScript mit geteilten Typen (User, 2026-09-24) |
 | D3 | Strenge | Erst Soft-Lockstep mit Prüfsumme und Resync, messen, nur bei Bedarf hart machen (User, 2026-09-24) |
 | D4 | Vorgehen | Erst dieser Plan, gelesen vom User, dann bauen (User, 2026-09-24) |
@@ -87,7 +87,7 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 | D23 | Beitritt | Nur vor dem Start; im Spiel nur Wiedereinstieg nach einem Abbruch auf die eigene Lane (User, 2026-09-24) |
 | D24 | Bots | Als Mitspieler nur zum Testen im Dev-Modus, nicht im Spiel (User, 2026-09-24) |
 | D25 | Verständigung | Ping auf der Karte in der Spielerfarbe und ein Text-Chat (User, 2026-09-24) |
-| D26 | Spawns | Der Host wählt Stadt, HQ und beliebig viele Spawns, fehlende füllt die Zufallswahl auf. Die Mitspieler suchen sich in der Lobby einen der Spawns aus (User, 2026-09-24) |
+| D26 | Spawns | Der Host wählt Stadt, HQ und beliebig viele Spawns, fehlende füllt die Zufallswahl auf. Die Mitspieler suchen sich in der Lobby einen der Spawns aus (User, 2026-09-24), seit 2026-10-01 beliebig viele; gestartet wird, wenn jede Spur einen Spieler hat (Protokoll 3) |
 | D27 | Bosse | Ein Boss je Lane, folgt aus D13; Intro und Musik einmal (User, 2026-09-24) |
 | D28 | Gegnerzahl | Erst ohne Deckel, messen, dann entscheiden (User, 2026-09-24) |
 | D29 | Gemischte Browser | Electron ist primär; die Abweichung Chrome gegen Firefox ist ein Randthema, erst eingrenzen, später entscheiden (User, 2026-09-24, TODO E28) |

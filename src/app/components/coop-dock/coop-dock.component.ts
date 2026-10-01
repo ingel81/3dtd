@@ -87,7 +87,7 @@ export class CoopDockComponent {
     const status = this.coop.status();
     if (this.coop.intent() !== 'join' || this.room()?.started) return false;
     if (status === 'connecting' || status === 'loading-world') return true;
-    return !!this.room() && !this.coop.isHost() && (!this.coop.worldReady() || !this.me()?.spawnId);
+    return !!this.room() && !this.coop.isHost() && (!this.coop.worldReady() || (this.me()?.spawnIds.length ?? 0) === 0);
   });
 
   readonly status = computed(() => roomStatus({
@@ -146,7 +146,7 @@ export class CoopDockComponent {
   }
 
   readyUp(): void {
-    if (this.me()?.spawnId) this.coop.setLobbyReady(true);
+    if ((this.me()?.spawnIds.length ?? 0) > 0) this.coop.setLobbyReady(true);
   }
 
   leave(): void {

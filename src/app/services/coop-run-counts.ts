@@ -19,7 +19,7 @@ export interface CoopRunCountsHost {
   readonly mirror: Pick<SimMirror, 'killCreditPlayer' | 'creditsOf'>;
   inGame(): boolean;
   /** The players of the running game in roster order, with their lanes */
-  roster(): readonly { id: string; name: string; spawnId: string | null }[];
+  roster(): readonly { id: string; name: string; spawnIds: readonly string[] }[];
   playerId(): string | null;
   leftIds(): ReadonlySet<string>;
   /** A player's lane colour as CSS */
@@ -120,6 +120,6 @@ export class CoopRunCounts {
    */
   private laneOwnerOf(routeId: string): string | null {
     if (!routeId) return null;
-    return this.host.roster().find((p) => p.spawnId === routeId)?.id ?? null;
+    return this.host.roster().find((p) => p.spawnIds.includes(routeId))?.id ?? null;
   }
 }

@@ -140,7 +140,7 @@
           </button>
         } @else {
           <button class="btn-primary big" type="button" (click)="readyUp()"
-                  [attr.aria-disabled]="!me()?.spawnId || null" [matTooltip]="me()?.spawnId ? '' : 'Take a lane first'">Ready up</button>
+                  [attr.aria-disabled]="!me()?.spawnIds?.length || null" [matTooltip]="me()?.spawnIds?.length ? '' : 'Take a lane first'">Ready up</button>
         }
       }
     }

@@ -125,7 +125,7 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(all('b', 'moving')).toHaveLength(1);
   });
 
-  it('gives each lane to one player, and ready only with a lane', () => {
+  it('gives each lane to one player, a player as many as they take, and ready only with a lane', () => {
     room.join(player('b'));
     room.receive('a', { t: 'world', world: {}, spawnIds: ['s1', 's2'] });
     room.receive('b', { t: 'ready', ready: true });
@@ -136,7 +136,29 @@ describe('Room (COOP_PLAN C4)', () => {
     room.receive('b', { t: 'pick', spawnId: 's9' });
     expect(all('b', 'refused')).toHaveLength(2);
     room.receive('b', { t: 'pick', spawnId: 's2' });
-    expect(last('a', 'room')!.room.players.map((p) => p.spawnId)).toEqual(['s1', 's2']);
+    expect(last('a', 'room')!.room.players.map((p) => p.spawnIds)).toEqual([['s1'], ['s2']]);
+    // b gives s2 back, a takes it too; a hands s1 back alone
+    room.receive('b', { t: 'pick', spawnId: 's2', take: false });
+    room.receive('a', { t: 'pick', spawnId: 's2' });
+    expect(last('a', 'room')!.room.players.map((p) => p.spawnIds)).toEqual([['s1', 's2'], []]);
+    room.receive('a', { t: 'pick', spawnId: 's1', take: false });
+    expect(last('a', 'room')!.room.players.map((p) => p.spawnIds)).toEqual([['s2'], []]);
+    room.receive('a', { t: 'pick', spawnId: null });
+    expect(last('a', 'room')!.room.players.map((p) => p.spawnIds)).toEqual([[], []]);
+  });
+
+  it('starts only when every lane has a player, and hands every pair of a player with two lanes', () => {
+    room.join(player('b'));
+    room.receive('a', { t: 'world', world: {}, spawnIds: ['s1', 's2', 's3'] });
+    room.receive('a', { t: 'pick', spawnId: 's1' });
+    room.receive('b', { t: 'pick', spawnId: 's2' });
+    room.receive('b', { t: 'ready', ready: true });
+    // s3 has nobody
+    room.receive('a', { t: 'start', seed: 3 });
+    expect(last('a', 'refused')!.reason).toBe('not-ready');
+    room.receive('a', { t: 'pick', spawnId: 's3' });
+    room.receive('a', { t: 'start', seed: 3 });
+    expect(last('b', 'started')!.lanes).toEqual([['a', 's1'], ['a', 's3'], ['b', 's2']]);
   });
 
   it('starts only when the host says so and every guest is ready, with roster, lanes, host and options', () => {
@@ -249,7 +271,7 @@ describe('Room (COOP_PLAN C4)', () => {
     room.advance(0);
     expect(all('b', 'world')).toHaveLength(2);
     const b = last('b', 'room')!.room.players.find((p) => p.id === 'b')!;
-    expect(b).toMatchObject({ spawnId: 's2', ready: false });
+    expect(b).toMatchObject({ spawnIds: ['s2'], ready: false });
     expect(last('b', 'world')!.world).toEqual({ other: 'map' });
   });
 

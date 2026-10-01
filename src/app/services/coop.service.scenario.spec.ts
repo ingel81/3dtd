@@ -206,8 +206,8 @@ describe('CoopService over a real relay (review R21)', () => {
     await host.coop.host('Ann');
     await until(() => host.coop.room() !== null && host.coop.worldReady());
     await guest.coop.join('Bob', host.coop.room()!.code);
-    const lanes = () => host.coop.room()!.players.map((p) => p.spawnId);
-    await until(() => lanes().length === 2 && lanes().every((lane) => lane !== null));
+    const lanes = () => host.coop.room()!.players.map((p) => p.spawnIds);
+    await until(() => lanes().length === 2 && lanes().every((lane) => lane.length > 0));
     return { host, guest };
   }
 
@@ -215,7 +215,7 @@ describe('CoopService over a real relay (review R21)', () => {
     const { host, guest } = await lobby();
     const room = host.coop.room()!;
     expect(room.players.map((p) => p.name)).toEqual(['Ann', 'Bob']);
-    expect(new Set(room.players.map((p) => p.spawnId))).toEqual(new Set(['spawn-1', 'spawn-2']));
+    expect(new Set(room.players.flatMap((p) => p.spawnIds))).toEqual(new Set(['spawn-1', 'spawn-2']));
     expect(host.coop.isHost()).toBe(true);
     expect(guest.coop.isHost()).toBe(false);
     await until(() => host.coop.chat().some((line) => line.from === null && line.text === 'Bob joined'));
@@ -277,7 +277,7 @@ describe('CoopService over a real relay (review R21)', () => {
     const me = host.coop.roster().find((p) => p.id === host.coop.playerId())!;
     const bus = host.sim.bus;
     // The route an enemy walks, as the mirror names it: its spawn's id
-    const enemy = (id: string) => ({ id, movement: { routeId: me.spawnId! } }) as unknown as EnemyView;
+    const enemy = (id: string) => ({ id, movement: { routeId: me.spawnIds[0] } }) as unknown as EnemyView;
 
     bus.emit({ type: 'enemy:leaking', enemy: enemy('ooze'), damage: 1 });
     bus.emit({ type: 'enemy:leaking', enemy: enemy('ooze'), damage: 1 });

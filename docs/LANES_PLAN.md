@@ -22,8 +22,11 @@ Stand 2026-10-01, Branch `lanes`. Entscheidungen des Users per AUQ am 2026-10-01
 - **Startgold** (`CreditsLedger.setStartCredits`, `followStart`): beim Laufstart und bei jeder Spuränderung vor der
   ersten Welle.
 - **Sperre**: `canPlaceOnMap` (Header) und `MapRelocationService.applySpawns` ab Welle 1.
-- **Coop** (offen): Protokoll `spawnId` wird zur Liste, `pick` nimmt oder gibt eine Spur, Relay prüft und startet mit
-  allen Paaren, Lobby-Tabelle und automatische Wahl, Zuordnung von Kills und Lecks (`coop-run-counts.ts`) über die
-  Spur statt den Spieler, Spieler-Leiste.
+- **Coop** (Protokoll 3): `CoopPlayerInfo.spawnIds` statt `spawnId`; `pick` nimmt eine freie Spur dazu oder gibt
+  eine ab (`take: false`, `null` gibt alle ab); das Relay startet erst, wenn jede Spur einen Spieler hat, und schickt
+  alle Paare. Lobby-Tabelle („Free · take“, „Give the lane back“ je Zeile), Statuszeile und Start-Tooltip nennen eine
+  freie Spur; Kills und Lecks gehen an den Besitzer der Spur (`coop-run-counts.ts`); die Farbe eines Spielers ist die
+  seiner ersten Spur. Ein Client mit Protokoll 2 wird mit `version` abgewiesen: Relay-Image und Client zusammen
+  ausliefern.
 - **Längen-Leiste** (offen): `laneStats` (Länge, Laufzeit) aus `coop/lane-stats.ts`, die Route des Spawns unter der
   Maus gedrosselt neu.

@@ -169,7 +169,7 @@ export interface RoomStatus {
   players: {
     id: string;
     name: string;
-    spawnId: string | null;
+    spawnIds: string[];
     ready: boolean;
     client: ClientInfo | null;
     /** The last hash the player reported, null before the first */
@@ -255,7 +255,7 @@ export class Room {
     this.drop = options.drop ?? ((playerId, reason) => this.leave(playerId, reason));
     this.removed = options.removed ?? (() => undefined);
     this.hostId = host.id;
-    this.players.push({ ...host, client: host.client ?? null, spawnId: null, ready: false, status: null });
+    this.players.push({ ...host, client: host.client ?? null, spawnIds: [], ready: false, status: null });
     this.listing = { public: true, title: `${host.name}'s game`.slice(0, TITLE_MAX), city: '' };
     this.log(`opened by ${this.who(host.id)}, game ${host.gameVersion}, balance ${host.configHash}${this.clientOf(host.id)}`
       + `${this.cheats ? ', cheats allowed' : ''}`);
@@ -289,7 +289,7 @@ export class Room {
     const host = this.players.find((p) => p.id === this.hostId)!;
     if (player.gameVersion !== host.gameVersion) return 'version';
     if (player.configHash !== host.configHash) return 'balance';
-    this.players.push({ ...player, client: player.client ?? null, name: this.freeName(player.name), spawnId: null, ready: false, status: null });
+    this.players.push({ ...player, client: player.client ?? null, name: this.freeName(player.name), spawnIds: [], ready: false, status: null });
     this.log(`${this.who(player.id)} joined (${this.players.length} players)${this.clientOf(player.id)}`);
     if (this.world !== null) this.send(player.id, { t: 'world', world: this.world });
     this.broadcastRoom();
@@ -334,14 +334,24 @@ export class Room {
       case 'pick': {
         if (this.started) return this.refuse(playerId, 'started');
         const spawnId = message.spawnId;
-        if (spawnId !== null) {
-          if (!this.spawnIds.includes(spawnId) || this.players.some((p) => p.id !== playerId && p.spawnId === spawnId)) {
+        if (spawnId === null) {
+          player.spawnIds = [];
+          player.ready = false;
+          this.log(`${this.who(playerId)} gave every lane back`);
+        } else if (message.take === false) {
+          if (!player.spawnIds.includes(spawnId)) return;
+          player.spawnIds = player.spawnIds.filter((id) => id !== spawnId);
+          if (player.spawnIds.length === 0) player.ready = false;
+          this.log(`${this.who(playerId)} gave lane ${spawnId} back`);
+        } else {
+          // A player takes as many free lanes as they like (docs/LANES_PLAN.md, L4)
+          if (player.spawnIds.includes(spawnId)) return;
+          if (!this.spawnIds.includes(spawnId) || this.players.some((p) => p.spawnIds.includes(spawnId))) {
             return this.refuse(playerId, 'lane-taken');
           }
+          player.spawnIds = [...player.spawnIds, spawnId];
+          this.log(`${this.who(playerId)} took lane ${spawnId}`);
         }
-        player.spawnId = spawnId;
-        if (spawnId === null) player.ready = false;
-        this.log(`${this.who(playerId)} ${spawnId === null ? 'gave the lane back' : `took lane ${spawnId}`}`);
         return this.broadcastRoom();
       }
       case 'kick': {
@@ -404,26 +414,28 @@ export class Room {
       }
       case 'ready':
         if (this.started) return;
-        player.ready = message.ready && player.spawnId !== null;
+        player.ready = message.ready && player.spawnIds.length > 0;
         this.noisy(playerId, `${this.who(playerId)} ${player.ready ? 'ready' : 'not ready'}`);
         return this.broadcastRoom();
       case 'start':
         if (!host) return this.refuse(playerId, 'not-host');
         if (this.started) return this.refuse(playerId, 'started');
         if (this.players.length < 2) return this.refuse(playerId, 'alone');
-        // The host is always ready (D40); every guest says so
-        if (this.world === null || this.players.some((p) => p.spawnId === null || (p.id !== this.hostId && !p.ready))) {
+        // The host is always ready (D40); every guest says so. Every player has
+        // a lane and every lane a player (docs/LANES_PLAN.md, L4)
+        if (this.world === null || this.players.some((p) => p.spawnIds.length === 0 || (p.id !== this.hostId && !p.ready))
+          || this.spawnIds.some((id) => !this.players.some((p) => p.spawnIds.includes(id)))) {
           return this.refuse(playerId, 'not-ready');
         }
         this.started = true;
         this.pending = 0;
         this.lastCommandAt = this.now();
-        this.log(`started, seed ${message.seed >>> 0}, speed ${this.speed}, lanes ${this.players.map((p) => `${this.who(p.id)} on ${p.spawnId}`).join(', ')}`);
+        this.log(`started, seed ${message.seed >>> 0}, speed ${this.speed}, lanes ${this.players.map((p) => `${this.who(p.id)} on ${p.spawnIds.join('+')}`).join(', ')}`);
         this.broadcast({
           t: 'started',
           seed: message.seed >>> 0,
           players: this.players.map((p) => p.id),
-          lanes: this.players.map((p) => [p.id, p.spawnId!]),
+          lanes: this.players.flatMap((p) => p.spawnIds.map((spawnId): [string, string] => [p.id, spawnId])),
           speed: this.speed,
           hostId: this.hostId,
           options: { ...this.options },
@@ -688,7 +700,7 @@ export class Room {
     for (const p of this.players) if (p.id !== this.hostId) p.ready = false;
     this.noisy(this.hostId, `world from the host, ${Math.round(JSON.stringify(this.world).length / 1024)} kB, spawns ${this.spawnIds.join(', ') || 'none'}`);
     for (const p of this.players) {
-      if (p.spawnId !== null && !this.spawnIds.includes(p.spawnId)) p.spawnId = null;
+      p.spawnIds = p.spawnIds.filter((id) => this.spawnIds.includes(id));
       if (p.id !== this.hostId) this.send(p.id, { t: 'world', world: this.world });
     }
     this.broadcastRoom();
@@ -730,8 +742,8 @@ export class Room {
       desyncs: this.desyncCount,
       firstDesync: this.firstDesync,
       idleMs: Math.round(this.now() - (this.started ? this.lastCommandAt : this.createdAt)),
-      players: this.players.map(({ id, name, spawnId, ready, client }) => ({
-        id, name, spawnId, ready, client, lastHash: this.hashCheck.last.get(id) ?? null,
+      players: this.players.map(({ id, name, spawnIds, ready, client }) => ({
+        id, name, spawnIds: [...spawnIds], ready, client, lastHash: this.hashCheck.last.get(id) ?? null,
       })),
     };
   }
@@ -768,7 +780,7 @@ export class Room {
     return {
       code: this.code,
       hostId: this.hostId,
-      players: this.players.map(({ id, name, spawnId, ready, client, status }) => ({ id, name, spawnId, ready, client, status })),
+      players: this.players.map(({ id, name, spawnIds, ready, client, status }) => ({ id, name, spawnIds: [...spawnIds], ready, client, status })),
       spawnIds: [...this.spawnIds],
       started: this.started,
       cheats: this.cheats,

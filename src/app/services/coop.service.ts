@@ -312,7 +312,8 @@ export class CoopService {
   /** The connection broke in a running game: it stands until the player goes on alone (review R10) */
   readonly lostInGame = computed(() => this.status() === 'closed' && this.roster().length > 0);
   /** The players of the running game in roster order, with name and lane as the room had them at the start */
-  readonly roster = this.perRoom.signal<{ id: string; name: string; spawnId: string | null }[]>([]);
+  /** The players of the game with their lanes, from the start (a player has one or more) */
+  readonly roster = this.perRoom.signal<{ id: string; name: string; spawnIds: string[] }[]>([]);
   /** Players ready for the next wave (in the game) */
   readonly readyIds = signal<ReadonlySet<string>>(new Set());
   /** Players who left the running game */
@@ -811,10 +812,14 @@ export class CoopService {
     void this.locationFacade.removeSpawn(index);
   }
 
-  /** Lobby: take a lane, or give it back. A lane taken by hand is not changed by autoPick. */
-  pick(spawnId: string | null): void {
+  /**
+   * Lobby: take a free lane as one more, or give one of one's own back
+   * (`take` false); null gives every lane back. A player takes as many as
+   * they like (docs/LANES_PLAN.md). A choice by hand stops autoPick.
+   */
+  pick(spawnId: string | null, take = true): void {
     this.pickedByHand = true;
-    this.session?.pick(spawnId);
+    this.session?.pick(spawnId, take);
   }
 
   /**
@@ -825,8 +830,8 @@ export class CoopService {
   private autoPick(): void {
     const room = this.room();
     const me = room?.players.find((p) => p.id === this.playerId());
-    if (!room || !me || room.started || me.spawnId !== null || this.pickedByHand || !this.worldReady()) return;
-    const taken = (id: string) => room.players.some((p) => p.spawnId === id);
+    if (!room || !me || room.started || me.spawnIds.length > 0 || this.pickedByHand || !this.worldReady()) return;
+    const taken = (id: string) => room.players.some((p) => p.spawnIds.includes(id));
     // The lane held before a move to another place, else the first free one
     const wanted = this.laneFromUrl !== null && room.spawnIds.includes(this.laneFromUrl) && !taken(this.laneFromUrl)
       ? this.laneFromUrl : null;
@@ -1011,10 +1016,10 @@ export class CoopService {
     return index < 0 ? null : SPAWN_COLORS[index % SPAWN_COLORS.length];
   }
 
-  /** Index of a player's lane among the room's spawns, -1 without one */
+  /** Index of a player's first lane among the room's spawns, -1 without one: the player's colour */
   private laneIndexOf(playerId: string): number {
-    const spawnId = this.roster().find((p) => p.id === playerId)?.spawnId
-      ?? this.room()?.players.find((p) => p.id === playerId)?.spawnId ?? null;
+    const spawnId = this.roster().find((p) => p.id === playerId)?.spawnIds[0]
+      ?? this.room()?.players.find((p) => p.id === playerId)?.spawnIds[0] ?? null;
     return spawnId === null ? -1 : (this.room()?.spawnIds ?? []).indexOf(spawnId);
   }
 
@@ -1049,7 +1054,7 @@ export class CoopService {
     const room = this.room();
     if (!room || !this.worldReady()) return [];
     const paths = this.pathRoute.getCachedPaths();
-    const taken = new Set(room.players.map((p) => p.spawnId).filter((id): id is string => id !== null));
+    const taken = new Set(room.players.flatMap((p) => p.spawnIds));
     return [...taken].filter((id) => (paths.get(id)?.length ?? 0) < 2);
   }
 
@@ -1275,7 +1280,7 @@ export class CoopService {
           this.notify(`${host} set ${label}: ${optionLabel(key, room.options[key])}`);
         }
       }
-      if (this.autoPicking !== null && room.players.some((p) => p.id === this.playerId() && p.spawnId !== null)) {
+      if (this.autoPicking !== null && room.players.some((p) => p.id === this.playerId() && p.spawnIds.length > 0)) {
         this.autoPicking = null;
       }
       this.autoPick();
@@ -1446,7 +1451,7 @@ export class CoopService {
     const room = this.room()?.code ?? this.roomFromUrl ?? '';
     const url = this.urlLocation.urlFor(world.hq, world.spawns.map(({ lat, lon }) => ({ lat, lon })));
     // The lane goes along: autoPick takes it again after the reload
-    const lane = this.room()?.players.find((p) => p.id === this.playerId())?.spawnId ?? null;
+    const lane = this.room()?.players.find((p) => p.id === this.playerId())?.spawnIds[0] ?? null;
     const params = `${this.roomParams(room)}${lane ? `&lane=${encodeURIComponent(lane)}` : ''}`;
     // The room hears why this player goes, then out of it: the browser
     // closes the socket of a page it leaves late, and the relay kept this
@@ -1511,8 +1516,8 @@ export class CoopService {
     this.hostPlace.set(null);
     this.status.set('lobby');
     // The host took this player's lane away: a free one comes by itself again
-    const mine = this.room()?.players.find((p) => p.id === this.playerId())?.spawnId ?? null;
-    if (mine === null || !world.spawns.some((spawn) => spawn.id === mine)) this.pickedByHand = false;
+    const mine = this.room()?.players.find((p) => p.id === this.playerId())?.spawnIds ?? [];
+    if (!mine.some((id) => world.spawns.some((spawn) => spawn.id === id))) this.pickedByHand = false;
     this.autoPick();
   }
 
@@ -1542,7 +1547,7 @@ export class CoopService {
     this.roster.set(start.players.map((id) => ({
       id,
       name: players.find((p) => p.id === id)?.name ?? id,
-      spawnId: start.lanes.get(id) ?? null,
+      spawnIds: start.lanes.filter(([player]) => player === id).map(([, spawn]) => spawn),
     })));
     this.readyIds.set(new Set());
     this.leftIds.set(new Set());

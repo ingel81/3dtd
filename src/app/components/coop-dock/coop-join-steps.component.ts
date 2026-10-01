@@ -48,7 +48,7 @@ export class CoopJoinStepsComponent {
       relay: relay ? relayLabel(relay.url) : '',
       mapPercent: this.mapPercent(),
       worldReady: this.coop.worldReady(),
-      mySpawn: room?.players.find((p) => p.id === this.coop.playerId())?.spawnId ?? null,
+      mySpawn: room?.players.find((p) => p.id === this.coop.playerId())?.spawnIds[0] ?? null,
     });
   });
   readonly barPercent = computed(() => this.mapPercent() ?? 0);

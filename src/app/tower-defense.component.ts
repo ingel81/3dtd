@@ -1010,7 +1010,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     if (!room) return null;
     return {
       code: room.code,
-      colors: room.players.map((p) => (p.spawnId === null ? null : this.coop.laneColorOf(p.id))),
+      colors: room.players.map((p) => (p.spawnIds.length === 0 ? null : this.coop.laneColorOf(p.id))),
       max: MAX_PLAYERS,
     };
   });

@@ -91,7 +91,8 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
     case 'pick': {
       if (m['spawnId'] === null) return { t: 'pick', spawnId: null };
       const spawnId = cleanText(m['spawnId'], ID_MAX);
-      return spawnId === null ? null : { t: 'pick', spawnId };
+      if (spawnId === null || (m['take'] !== undefined && typeof m['take'] !== 'boolean')) return null;
+      return m['take'] === false ? { t: 'pick', spawnId, take: false } : { t: 'pick', spawnId };
     }
     case 'rename': {
       const name = cleanText(m['name'], NAME_MAX);

@@ -196,7 +196,7 @@ const PAGE = `<!doctype html>
       room.players.forEach(function (p) {
         var line = el('div');
         var ping = p.rttMs === null ? '?' : p.rttMs;
-        line.appendChild(el('span', p.name + ' (' + p.id + (p.id === room.hostId ? ', host' : '') + '), ' + (p.spawnId || 'no lane') + ', ' + ping + ' ms '));
+        line.appendChild(el('span', p.name + ' (' + p.id + (p.id === room.hostId ? ', host' : '') + '), ' + ((p.spawnIds || []).join('+') || 'no lane') + ', ' + ping + ' ms '));
         if (actions && unlocked) line.appendChild(actionButton('drop', 'Drop ' + p.name + '?', function () { act('/admin/drop-player', { id: p.id }, 'drop ' + p.id); }));
         players.appendChild(line);
       });

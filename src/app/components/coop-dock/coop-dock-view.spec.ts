@@ -4,7 +4,7 @@ import { DEFAULT_ROOM_OPTIONS } from '../../coop/room-options';
 import { desyncText, dockBanners, joinSteps, roomStatus, roomTable, startBlocked } from './coop-dock-view';
 
 function player(id: string, spawnId: string | null, extra: Partial<CoopPlayerInfo> = {}): CoopPlayerInfo {
-  return { id, name: id.toUpperCase(), spawnId, ready: false, client: null, status: 'ready', ...extra };
+  return { id, name: id.toUpperCase(), spawnIds: spawnId === null ? [] : [spawnId], ready: false, client: null, status: 'ready', ...extra };
 }
 
 function room(players: CoopPlayerInfo[], spawnIds = ['s1', 's2', 's3']): CoopRoomInfo {
@@ -41,10 +41,14 @@ describe('roomStatus and startBlocked', () => {
     expect(roomStatus({ ...base, room: loading })).toMatchObject({ bold: 'BOB', text: ' to load the map' });
     const noLane = room([player('ann', 's1'), player('bob', null)]);
     expect(roomStatus({ ...base, room: noLane })).toMatchObject({ bold: 'BOB', text: ' to take a lane' });
-    const notReady = room([player('ann', 's1'), player('bob', 's2')]);
+    // A spawn nobody took holds the start; anyone may take it as one more lane (docs/LANES_PLAN.md)
+    const freeLane = room([player('ann', 's1'), player('bob', 's2', { ready: true })]);
+    expect(roomStatus({ ...base, room: freeLane })).toMatchObject({ bold: 'Spawn 3', text: ' has nobody yet · anyone can take it' });
+    expect(startBlocked(freeLane, true)).toBe('Spawn 3 has nobody');
+    const notReady = room([player('ann', 's1'), player('bob', 's2')], ['s1', 's2']);
     expect(roomStatus({ ...base, room: notReady })).toMatchObject({ bold: 'BOB', text: ' to ready up (1/2)' });
     expect(startBlocked(notReady, true)).toBe('Waiting for BOB');
-    const ready = room([player('ann', 's1'), player('bob', 's2', { ready: true })]);
+    const ready = room([player('ann', 's1', { spawnIds: ['s1', 's3'] }), player('bob', 's2', { ready: true })]);
     expect(roomStatus({ ...base, room: ready })).toMatchObject({ go: true, bold: 'Everyone is ready.' });
     expect(startBlocked(ready, true)).toBeNull();
     expect(startBlocked(ready, false)).toBe('The map is still being sent');
@@ -53,7 +57,7 @@ describe('roomStatus and startBlocked', () => {
   });
 
   it('a guest who is not ready is told to pick a lane and ready up', () => {
-    const r = room([player('ann', 's1'), player('bob', 's2')]);
+    const r = room([player('ann', 's1'), player('bob', 's2')], ['s1', 's2']);
     expect(roomStatus({ ...base, isHost: false, myId: 'bob', room: r })).toMatchObject({ lead: 'Pick a lane, then ', bold: 'ready up' });
   });
 });

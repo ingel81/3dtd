@@ -59,10 +59,10 @@ export class CoopRoomTableComponent {
   });
   readonly freeSeat = computed(() => (this.room()?.players.length ?? 0) < 2);
 
-  /** A free lane: take it; the own one: give it back. Only in the lobby */
+  /** A free lane: take it as one more; one of the own: give it back. Only in the lobby */
   take(lane: LaneRow): void {
     if (this.room()?.started || (lane.player && !lane.player.me)) return;
-    this.coop.pick(lane.player?.me ? null : lane.spawnId);
+    this.coop.pick(lane.spawnId, !lane.player?.me);
   }
 
   /** The camera to the lane's spawn */

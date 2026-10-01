@@ -95,8 +95,11 @@ export function roomStatus(i: StatusInput): RoomStatus | null {
     const what = busy.status === 'key' ? ' to enter their map key' : busy.status === 'reloading' ? ' to reload' : ' to load the map';
     return line('Waiting for ', busy.name, what);
   }
-  const noLane = room.players.find((p) => p.spawnId === null);
+  const noLane = room.players.find((p) => p.spawnIds.length === 0);
   if (noLane) return line('Waiting for ', noLane.name, ' to take a lane');
+  // Every lane needs a player (docs/LANES_PLAN.md, L4); anyone may take one more
+  const free = room.spawnIds.findIndex((id) => !room.players.some((p) => p.spawnIds.includes(id)));
+  if (free >= 0) return line('', `Spawn ${free + 1}`, ' has nobody yet · anyone can take it');
   if (guestsReady(room)) {
     return i.isHost
       ? line('', 'Everyone is ready.', ' Start when you like.', true)
@@ -120,7 +123,9 @@ export function startBlocked(
   if (!worldReady) return 'The map is still being sent';
   const lost = room.spawnIds.findIndex((id) => routeless.includes(id));
   if (lost >= 0) return `Spawn ${lost + 1} has no route`;
-  const waiting = room.players.find((p) => p.spawnId === null || (p.id !== room.hostId && !p.ready));
+  const free = room.spawnIds.findIndex((id) => !room.players.some((p) => p.spawnIds.includes(id)));
+  if (free >= 0) return `Spawn ${free + 1} has nobody`;
+  const waiting = room.players.find((p) => p.spawnIds.length === 0 || (p.id !== room.hostId && !p.ready));
   return waiting ? `Waiting for ${waiting.name}` : null;
 }
 
@@ -183,7 +188,7 @@ export function roomTable(i: TableInput): { lanes: LaneRow[]; seatless: SeatPlay
     left: i.leftIds.has(p.id),
   });
   const lanes = room.spawnIds.map((spawnId, index): LaneRow => {
-    const owner = room.players.find((p) => p.spawnId === spawnId);
+    const owner = room.players.find((p) => p.spawnIds.includes(spawnId));
     const stat = i.lanes.get(spawnId);
     return {
       spawnId,
@@ -195,7 +200,7 @@ export function roomTable(i: TableInput): { lanes: LaneRow[]; seatless: SeatPlay
       player: owner ? seat(owner) : null,
     };
   });
-  const seatless = room.players.filter((p) => p.spawnId === null || !room.spawnIds.includes(p.spawnId)).map(seat);
+  const seatless = room.players.filter((p) => !p.spawnIds.some((id) => room.spawnIds.includes(id))).map(seat);
   return { lanes, seatless };
 }
 
