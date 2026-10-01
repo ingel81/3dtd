@@ -66,6 +66,27 @@
   stroke-width: 1.2;
   stroke-linejoin: round;
 }
+/* The bad range of the scale (TODO E91) */
+.td-info__row--chart .band {
+  fill: var(--td-perf-warning);
+  fill-opacity: 0.16;
+}
+.td-info__row--chart .dot {
+  fill: var(--td-text-primary);
+}
+.td-info__row--chart .now {
+  flex: 0 0 34px;
+  text-align: right;
+}
+/* The minute's minimum and maximum under a chart */
+.td-info__row--range {
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+.td-info__row--range .range {
+  color: var(--td-text-muted);
+  font-size: 9px;
+}
 
 /* Caret only on the head row, subtle */
 .td-info__row--head .caret {

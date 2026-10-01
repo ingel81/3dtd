@@ -54,24 +54,20 @@
         <span class="k">Packet</span><span class="v">{{ (sample()?.applyPerPacketMs ?? 0) | number:'1.2-2' }} ms</span>
       </div>
       <div class="td-info__row"><span class="k">Enemies</span><span class="v">{{ (sample()?.enemies ?? 0) | number:'1.0-0' }}</span></div>
-      <div class="td-info__row td-info__row--chart">
-        <span class="k">FPS</span>
-        <svg class="chart" [attr.width]="chartW" [attr.height]="chartH" [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH" aria-hidden="true">
-          <polyline [attr.points]="charts().fps" />
-        </svg>
-      </div>
-      <div class="td-info__row td-info__row--chart">
-        <span class="k">Ticks</span>
-        <svg class="chart" [attr.width]="chartW" [attr.height]="chartH" [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH" aria-hidden="true">
-          <polyline [attr.points]="charts().ticks" />
-        </svg>
-      </div>
-      <div class="td-info__row td-info__row--chart">
-        <span class="k">Sim</span>
-        <svg class="chart" [attr.width]="chartW" [attr.height]="chartH" [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH" aria-hidden="true">
-          <polyline [attr.points]="charts().load" />
-        </svg>
-      </div>
+      @for (c of chartRows(); track c.label) {
+        <div class="td-info__row td-info__row--chart">
+          <span class="k">{{ c.label }}</span>
+          <svg class="chart" [attr.width]="chartW" [attr.height]="chartH" [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH" aria-hidden="true">
+            <rect class="band" x="0" [attr.y]="c.chart.band.y" [attr.width]="chartW" [attr.height]="c.chart.band.height" />
+            <polyline [attr.points]="c.chart.points" />
+            @if (c.chart.dot; as dot) {
+              <circle class="dot" [attr.cx]="dot.x" [attr.cy]="dot.y" r="2" />
+            }
+          </svg>
+          <span class="v now">{{ c.now }}</span>
+        </div>
+        <div class="td-info__row td-info__row--range"><span class="k"></span><span class="range">{{ c.range }}</span></div>
+      }
     </div>
   }
 </aside>

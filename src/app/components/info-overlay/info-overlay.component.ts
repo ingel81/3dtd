@@ -16,11 +16,21 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { observeBottomEdge } from './bottom-edge';
 import { SimMeterService, speedShort } from '../../services/debug/sim-meter.service';
-import { sparkPoints } from './sparkline';
+import { sparkChart } from './sparkline';
 
 /** Size of the mini charts of the wide stage, px */
 const CHART_W = 96;
-const CHART_H = 18;
+const CHART_H = 20;
+
+/**
+ * The charts' fixed scales and the ranges they shade as bad (TODO E91): a
+ * frame rate under 30, under 24 of the about 30 simulation ticks a second,
+ * the simulation's worker busy over 90 % of the time. A value past the top is
+ * drawn at the edge.
+ */
+const FPS_SCALE = { top: 150, bad: [0, 30] } as const;
+const TICKS_SCALE = { top: 40, bad: [0, 24] } as const;
+const LOAD_SCALE = { top: 1, bad: [0.9, 1] } as const;
 
 /**
  * Info overlay (top-left).
@@ -32,7 +42,8 @@ const CHART_H = 18;
  *     tiles, cache, sounds asked for against played, streets;
  *  3. wide: a column to the right with the simulation's numbers (ticks,
  *     memory mode, cost per packet, enemies) and mini charts of the last
- *     minute (TODO E75).
+ *     minute (TODO E75), each on a fixed scale with its bad range as a band,
+ *     the newest value at its end and the minute's minimum or maximum (E91).
  * The simulation's numbers come from SimMeterService, which listens to the
  * packets only from the second stage on.
  *
@@ -79,10 +90,22 @@ export class InfoOverlayComponent {
   readonly charts = computed(() => {
     const history = this.meter.history();
     return {
-      fps: sparkPoints(history.map((s) => s.fps), CHART_W, CHART_H, 60),
-      ticks: sparkPoints(history.map((s) => s.ticksPerS), CHART_W, CHART_H, 60),
-      load: sparkPoints(history.map((s) => s.workerLoad), CHART_W, CHART_H, 1),
+      fps: sparkChart(history.map((s) => s.fps), CHART_W, CHART_H, FPS_SCALE.top, FPS_SCALE.bad),
+      ticks: sparkChart(history.map((s) => s.ticksPerS), CHART_W, CHART_H, TICKS_SCALE.top, TICKS_SCALE.bad),
+      load: sparkChart(history.map((s) => s.workerLoad), CHART_W, CHART_H, LOAD_SCALE.top, LOAD_SCALE.bad),
     };
+  });
+
+  /** The rows of the charts: the newest value right of each, the minute's range below */
+  readonly chartRows = computed(() => {
+    const { fps, ticks, load } = this.charts();
+    const whole = (v: number) => Math.round(v).toString();
+    const percent = (v: number) => `${Math.round(v * 100)}%`;
+    return [
+      { label: 'FPS', chart: fps, now: whole(fps.last), range: `min ${whole(fps.min)} · max ${whole(fps.max)}` },
+      { label: 'Ticks', chart: ticks, now: whole(ticks.last), range: `min ${whole(ticks.min)} · max ${whole(ticks.max)}` },
+      { label: 'Sim', chart: load, now: percent(load.last), range: `max ${percent(load.max)}` },
+    ];
   });
 
   private readonly box = viewChild.required<ElementRef<HTMLElement>>('box');

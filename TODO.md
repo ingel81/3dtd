@@ -343,6 +343,9 @@ Ideen (2026-09-27), nichts entschieden:
       **Entschieden (User, 2026-10-01):** Variante B aus dem Entwurf: 96 px breit wie heute, feste Skala, der schlechte
       Bereich als Band (FPS unter 30, Ticks unter 24, Sim über 90 %), Punkt am letzten Wert, aktueller Wert rechts,
       darunter Minimum und Maximum der Minute.
+      **Gebaut 2026-10-01:** feste Skalen (FPS bis 150, Ticks bis 40, Sim bis 100 %), Werte darüber am Rand
+      (`sparkline.ts`). Im Browser angesehen; der Aufklappzustand des Overlays war schon gespeichert und überlebt
+      einen Reload (geprüft).
 - [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
       Der Worker loopt mit eigener Uhr statt auf Tick-Anfrage, der Hauptthread liest je Bild den neuesten Stand und
       spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf
