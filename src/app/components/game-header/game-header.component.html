@@ -134,7 +134,7 @@
       </div>
 
       <button class="action-btn" (click)="addSpawnClick.emit()"
-              matTooltip="Add a spawn (up to four; one lane per coop player)"
+              matTooltip="Add a spawn, a lane of its own (up to four, before the first wave)"
               aria-label="Add a spawn" [disabled]="!canPlace()">
         <td-icon name="plus" [size]="22"></td-icon>
       </button>

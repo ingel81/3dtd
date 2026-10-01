@@ -43,4 +43,25 @@ describe('CreditsLedger', () => {
     expect(ledger.credits()).toBe(START);
     expect(changed).toHaveBeenCalledWith({ type: 'credits:changed', credits: START, delta: 40, source: 'reset', playerId: LOCAL_PLAYER_ID, local: true });
   });
+
+  it('starts each account with its start credits, one share per lane, and follows them until told otherwise', () => {
+    const ledger = new CreditsLedger(new GameEventBus());
+    const lanes = new Map([['a', 2], ['b', 1]]);
+    ledger.setStartCredits((id) => START * (lanes.get(id) ?? 1));
+    ledger.setPlayers(['a', 'b'], 'a');
+    expect(ledger.balances()).toEqual([2 * START, START]);
+
+    // Before the first wave: a lane more for b, one less for a who spent most already
+    ledger.spend(2 * START - 30, 'build', 'a');
+    lanes.set('a', 1);
+    lanes.set('b', 3);
+    ledger.followStart();
+    expect(ledger.balances()).toEqual([0, 3 * START]);
+    // Nothing changed: nothing booked
+    ledger.followStart();
+    expect(ledger.balances()).toEqual([0, 3 * START]);
+
+    ledger.reset();
+    expect(ledger.balances()).toEqual([START, 3 * START]);
+  });
 });

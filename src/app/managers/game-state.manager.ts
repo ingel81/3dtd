@@ -41,7 +41,8 @@ import type { SimSnapshot, SnapshotRefusal } from '../simulator/sim-snapshot';
 import type { WaveSnapshot, WaveSnapshotRefusal } from '../simulator/wave-snapshot';
 import { SimSnapshots } from './game-state/sim-snapshots';
 import { RouteWorld } from './game-state/route-world';
-import { CoopRoom } from './game-state/coop-room';
+import { CoopRoom, type Lane } from './game-state/coop-room';
+import { GAME_BALANCE } from '../configs/game-balance.config';
 import type { ResimHost } from '../simulator/resimulation';
 import { losMaskFromJson, type LosMaskJson } from '../utils/los-mask';
 import { stepTowerAim } from '../entities/tower-aim';
@@ -506,27 +507,47 @@ export class GameStateManager {
   }
 
   /** Coop: lanes, readiness, who left, gifts, see CoopRoom */
-  private readonly room = new CoopRoom({
+  private readonly room = this.withStartCredits(new CoopRoom({
     eventBus: this.eventBus,
     creditsLedger: this.creditsLedger,
     players: () => this.players,
     localPlayerId: () => this.localPlayerId,
     leaveTowers: (playerId) => this.towerLifecycle.leave(playerId),
-  });
+    spawnIds: () => this.waveManager.spawnPoints.map((point) => point.id),
+  }));
 
-  /** Coop: which spawn point is whose lane (D1), see CoopRoom.setLanes */
-  setLanes(lanes: ReadonlyMap<string, string>): void {
-    this.room.setLanes(lanes);
+  /** The start credits once per lane of the player (docs/LANES_PLAN.md); one share without a lane */
+  private withStartCredits(room: CoopRoom): CoopRoom {
+    this.creditsLedger.setStartCredits(
+      (playerId) => GAME_BALANCE.player.startCredits * Math.max(1, room.laneSpawnsOf(playerId).length),
+    );
+    return room;
   }
 
-  /** The spawn point ids of the lanes, roster order. */
+  /** Coop: which spawn points are whose lanes (D1), [player, spawn] pairs, see CoopRoom.setLanes */
+  setLanes(lanes: readonly (readonly [string, string])[]): void {
+    this.room.setLanes(lanes);
+    this.followStartCredits();
+  }
+
+  /** The start credits follow the lanes until the first wave (CreditsLedger.followStart) */
+  private followStartCredits(): void {
+    if (!this.runStarted && this.waveManager.waveNumber() === 0) this.creditsLedger.followStart();
+  }
+
+  /** The spawn point ids of the lanes, roster order: the room's in coop, every spawn point alone. */
   get laneSpawns(): readonly string[] {
     return this.room.laneSpawns;
   }
 
-  /** Coop: the spawn point id of `playerId`'s lane; null without one */
-  laneSpawnOf(playerId: string): string | null {
-    return this.room.laneSpawnOf(playerId);
+  /** The lanes with their players, roster order (CoopRoom.lanes) */
+  get lanes(): readonly Lane[] {
+    return this.room.lanes;
+  }
+
+  /** The spawn point ids of `playerId`'s lanes */
+  laneSpawnsOf(playerId: string): string[] {
+    return this.room.laneSpawnsOf(playerId);
   }
 
   /** A player is ready for the next wave, or no longer (command:set-ready), see CoopRoom.setReady */
@@ -772,6 +793,8 @@ export class GameStateManager {
     this.commandsHandler.setLockstep(this.lockstep.current);
 
     this.waveManager.initialize(spawnPoints, cachedPaths);
+    // Alone every spawn point is a lane, with its share of the start credits
+    this.followStartCredits();
     // Wire health-provider for CloseCall detection at wave end
     this.waveManager.setCurrentHealthProvider(() => this.baseHealth());
     // The wave books its completion gold through here, so wave:completed can

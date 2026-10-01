@@ -9,21 +9,30 @@ export interface CoopRoomHost {
   players(): readonly string[];
   /** The player at this client */
   localPlayerId(): string;
+  /** The spawn points of the world, in order: alone, each is a lane of the player */
+  spawnIds(): readonly string[];
   /** `playerId` left: out of a manned tower (TowerLifecycle.leave) */
   leaveTowers(playerId: string): void;
 }
 
+/** A lane: the spawn point the wave runs from and the player it belongs to */
+export interface Lane {
+  readonly spawnId: string;
+  readonly playerId: string;
+}
+
 /**
- * The coop room as the simulation keeps it (docs/COOP_PLAN.md, C2d): whose
- * lane is which spawn point, who is ready for the next wave, who left, the
- * gold players give each other and who may use the dev tools' commands.
- * Empty in the single player game.
+ * The coop room as the simulation keeps it (docs/COOP_PLAN.md, C2d): which
+ * spawn points are whose lanes, who is ready for the next wave, who left,
+ * the gold players give each other and who may use the dev tools' commands.
+ *
+ * Every wave runs once on each lane (laneSchedule), and a player has as many
+ * lanes as they took, one or more (docs/LANES_PLAN.md). Alone, every spawn
+ * point is a lane of the player.
  */
 export class CoopRoom {
-  /** Coop lanes: the spawn point of each player's lane, roster order; empty in the single player game */
-  private lanes: string[] = [];
-  /** Coop: each player's lane spawn */
-  private readonly laneOf = new Map<string, string>();
+  /** Coop: the lanes the room gave, roster order; empty alone, where every spawn point is one (lanes) */
+  private coopLanes: Lane[] = [];
   /** Coop: the players who are ready for the next wave (D15) */
   private readonly ready = new Set<string>();
   /** Coop: players who left the game (command:leave-game) */
@@ -50,23 +59,32 @@ export class CoopRoom {
   }
 
   /**
-   * Coop: which spawn point is whose lane (D1). Every wave then runs once
-   * on each lane (laneSchedule). An empty map is the single player game:
-   * the wave spreads over the spawn points by its spawn mode.
+   * Coop: which spawn points are whose lanes (D1), as [player, spawn] pairs,
+   * a player in as many as they took. Kept in roster order, a player's lanes
+   * in the order given; a pair of a player not in the run, or of a spawn
+   * taken already, is left out. Empty: every spawn point is a lane of the
+   * player alone.
    */
-  setLanes(lanes: ReadonlyMap<string, string>): void {
-    this.laneOf.clear();
-    this.lanes = this.host.players().flatMap((playerId) => {
-      const spawnId = lanes.get(playerId);
-      if (spawnId === undefined) return [];
-      this.laneOf.set(playerId, spawnId);
-      return [spawnId];
-    });
+  setLanes(pairs: readonly (readonly [string, string])[]): void {
+    const taken = new Set<string>();
+    this.coopLanes = this.host.players().flatMap((playerId) => pairs.flatMap(([owner, spawnId]) => {
+      if (owner !== playerId || taken.has(spawnId)) return [];
+      taken.add(spawnId);
+      return [{ spawnId, playerId }];
+    }));
+  }
+
+  /** The lanes, roster order: the room's in coop, every spawn point of the player alone */
+  get lanes(): readonly Lane[] {
+    if (this.coopLanes.length > 0) return this.coopLanes;
+    const players = this.host.players();
+    if (players.length !== 1) return [];
+    return this.host.spawnIds().map((spawnId) => ({ spawnId, playerId: players[0] }));
   }
 
   /** The spawn point ids of the lanes, roster order. */
   get laneSpawns(): readonly string[] {
-    return this.lanes;
+    return this.lanes.map((lane) => lane.spawnId);
   }
 
   /**
@@ -101,9 +119,14 @@ export class CoopRoom {
     return true;
   }
 
-  /** The spawn point id of `playerId`'s lane; null without one */
-  laneSpawnOf(playerId: string): string | null {
-    return this.laneOf.get(playerId) ?? null;
+  /** The spawn point ids of `playerId`'s lanes; none without a lane */
+  laneSpawnsOf(playerId: string): string[] {
+    return this.lanes.filter((lane) => lane.playerId === playerId).map((lane) => lane.spawnId);
+  }
+
+  /** The player whose lane the spawn point `spawnId` is; null when it is no lane */
+  laneOwnerOf(spawnId: string): string | null {
+    return this.lanes.find((lane) => lane.spawnId === spawnId)?.playerId ?? null;
   }
 
   /** `playerId` said ready for the next wave (setReady) */
@@ -118,7 +141,7 @@ export class CoopRoom {
 
   /**
    * Coop: `playerId` left the game (command:leave-game, put in a tick by
-   * the relay). Their lane closes, no more spawns there (D22, lane
+   * the relay). Their lanes close, no more spawns there (D22, lane
    * collapse); their towers stay and keep shooting, their hero and account
    * stay as they are. They get out of a manned tower and count as ready.
    */
@@ -127,11 +150,7 @@ export class CoopRoom {
     if (!players.includes(playerId) || this.left.has(playerId)) return;
     this.left.add(playerId);
     const index = players.indexOf(playerId);
-    const lane = this.laneOf.get(playerId);
-    if (lane !== undefined) {
-      this.lanes = this.lanes.filter((spawnId) => spawnId !== lane);
-      this.laneOf.delete(playerId);
-    }
+    this.coopLanes = this.coopLanes.filter((lane) => lane.playerId !== playerId);
     this.host.leaveTowers(playerId);
     this.ready.delete(playerId);
     this.host.eventBus.emit({ type: 'coop:player-left', playerId, index, local: playerId === this.host.localPlayerId() });

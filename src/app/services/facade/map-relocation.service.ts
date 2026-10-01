@@ -429,6 +429,11 @@ export class MapRelocationService {
     const engine = ctx?.bridge.getEngine();
     const streetNetwork = ctx?.bridge.getStreetNetwork();
     if (!ctx || !engine || !streetNetwork) return false;
+    // The lanes stand once the first wave came (docs/LANES_PLAN.md): a change would build the run anew
+    if (this.store.waveNumber() > 0) {
+      console.warn('[MapPlacement] the run has played a wave: spawns stay as they are until a restart');
+      return false;
+    }
 
     const hq = this.store.baseCoords();
 

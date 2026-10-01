@@ -218,7 +218,7 @@ describe('Snapshot mid-wave (TODO E58, COOP_PLAN C5b)', () => {
     const setup: Setup = {
       wave: ground,
       players: ['a', 'b'],
-      before: (sim) => sim.gsm.setLanes(new Map([['a', 'spawn-1'], ['b', 'spawn-2']])),
+      before: (sim) => sim.gsm.setLanes([['a', 'spawn-1'], ['b', 'spawn-2']]),
     };
     expect(splitAt(setup, 500)).toBeGreaterThan(100);
   });
@@ -326,8 +326,9 @@ describe('Snapshot mid-wave (TODO E58, COOP_PLAN C5b)', () => {
       },
     };
     const chains = (snapshot: WaveSnapshot) => snapshot.wave!.enemies.worms.groups[0].state.chains.length;
-    expect(splitAt(setup, stepsOf(500), (snapshot) => expect(wormsIn(snapshot)).toBe(1))).toBeGreaterThan(100);
-    expect(splitAt(setup, stepsOf(10_000), (snapshot) => expect(wormsIn(snapshot)).toBe(2))).toBeGreaterThan(100);
+    // One worm a lane: the wave runs on each spawn point
+    expect(splitAt(setup, stepsOf(500), (snapshot) => expect(wormsIn(snapshot)).toBe(2))).toBeGreaterThan(100);
+    expect(splitAt(setup, stepsOf(10_000), (snapshot) => expect(wormsIn(snapshot)).toBe(4))).toBeGreaterThan(100);
     // Soon after the cut: the short front part rushes (EnemyChain.rush) and is through early
     for (const at of [stepsOf(21_700), stepsOf(25_000)]) {
       expect(splitAt(setup, at, (snapshot) => expect(chains(snapshot)).toBeGreaterThan(1))).toBeGreaterThan(100);

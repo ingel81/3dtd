@@ -49,7 +49,7 @@ export interface BotWorld {
 export interface PlayerBotWorldSource {
   mirror: Pick<SimMirror,
     'players' | 'localPlayerId' | 'rng' | 'scalars' | 'towers' | 'aliveEnemies' | 'checkUse' | 'heroStatus'
-    | 'heroAnchor' | 'laneSpawnOf' | 'researchOf' | 'heroDefenseProfile' | 'creditsOf' | 'gameTimeMs'>;
+    | 'heroAnchor' | 'laneSpawnsOf' | 'researchOf' | 'heroDefenseProfile' | 'creditsOf' | 'gameTimeMs'>;
   spawnPoints(): SpawnPoint[];
   paths(): Map<string, GeoPosition[]>;
   routes: Pick<RouteQueriesService, 'previewSweep'>;
@@ -110,20 +110,19 @@ export class PlayerBotWorld implements BotWorld {
     return this.mirror.gameTimeMs;
   }
 
-  /** Coop: the spawn of the own lane only; all spawns otherwise, or when this player has no lane */
+  /** Coop: the spawns of the own lanes only; all spawns otherwise, or when this player has no lane */
   getSpawnPoints(): SpawnPoint[] {
     const all = this.source.spawnPoints();
-    const lane = this.ownLane();
-    return lane === null ? all : all.filter((spawn) => spawn.id === lane);
+    const lanes = this.ownLanes();
+    return lanes === null ? all : all.filter((spawn) => lanes.has(spawn.id));
   }
 
-  /** Coop: the route of the own lane only */
+  /** Coop: the routes of the own lanes only */
   getCachedPaths(): Map<string, GeoPosition[]> {
     const all = this.source.paths();
-    const lane = this.ownLane();
-    if (lane === null) return all;
-    const path = all.get(lane);
-    return path ? new Map([[lane, path]]) : new Map();
+    const lanes = this.ownLanes();
+    if (lanes === null) return all;
+    return new Map([...all].filter(([id]) => lanes.has(id)));
   }
 
   /** The towers of the player at this client */
@@ -132,18 +131,19 @@ export class PlayerBotWorld implements BotWorld {
     return this.mirror.towers().filter((tower) => tower.ownerId === me);
   }
 
-  /** The spawn id of this player's lane; null outside coop or without a lane */
-  private ownLane(): string | null {
+  /** The spawn ids of this player's lanes; null outside coop or without a lane */
+  private ownLanes(): ReadonlySet<string> | null {
     if (!this.coop) return null;
-    return this.mirror.laneSpawnOf(this.mirror.localPlayerId);
+    const lanes = this.mirror.laneSpawnsOf(this.mirror.localPlayerId);
+    return lanes.length > 0 ? new Set(lanes) : null;
   }
 
-  /** Enemies on the route of the own lane's spawn; all of them without a lane */
+  /** Enemies on the routes of the own lanes' spawns; all of them without a lane */
   private enemiesOnOwnLane(): EnemyView[] {
     const alive = [...this.mirror.aliveEnemies()];
-    const lane = this.ownLane();
-    if (lane === null) return alive;
-    return alive.filter((enemy) => enemy.movement.routeId === lane);
+    const lanes = this.ownLanes();
+    if (lanes === null) return alive;
+    return alive.filter((enemy) => lanes.has(enemy.movement.routeId));
   }
 
   private dice(): () => number {

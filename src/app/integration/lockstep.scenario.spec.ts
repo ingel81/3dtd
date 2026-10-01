@@ -1129,7 +1129,7 @@ describe('Coop lanes and readiness (COOP_PLAN C2d)', () => {
     const relay = new LocalRelay(true);
     const a = buildClient(relay, 'a');
     const b = buildClient(relay, 'b');
-    const lanes = new Map([['a', 'spawn-1'], ['b', 'spawn-2']]);
+    const lanes = [['a', 'spawn-1'], ['b', 'spawn-2']] as const;
     a.gsm.setLanes(lanes);
     b.gsm.setLanes(lanes);
     // Route 1 runs north at 0 m east, route 2 at 200 m east (sim-world.ts)
@@ -1163,7 +1163,7 @@ describe('Coop lanes and readiness (COOP_PLAN C2d)', () => {
       const a = buildClient(relay, 'a');
       const b = buildClient(relay, 'b');
       if (withLanes) {
-        const lanes = new Map([['a', 'spawn-1'], ['b', 'spawn-2']]);
+        const lanes = [['a', 'spawn-1'], ['b', 'spawn-2']] as const;
         a.gsm.setLanes(lanes);
         b.gsm.setLanes(lanes);
       }
@@ -1197,7 +1197,7 @@ describe('Coop lanes and readiness (COOP_PLAN C2d)', () => {
       const a = buildClient(relay, 'a');
       const b = buildClient(relay, 'b');
       if (withLanes) {
-        const lanes = new Map([['a', 'spawn-1'], ['b', 'spawn-2']]);
+        const lanes = [['a', 'spawn-1'], ['b', 'spawn-2']] as const;
         a.gsm.setLanes(lanes);
         b.gsm.setLanes(lanes);
       }
@@ -1387,7 +1387,7 @@ describe('Coop player leaving (COOP_PLAN C4)', () => {
     const relay = new LocalRelay(true);
     const a = buildClient(relay, 'a');
     const b = buildClient(relay, 'b');
-    const lanes = new Map([['a', 'spawn-1'], ['b', 'spawn-2']]);
+    const lanes = [['a', 'spawn-1'], ['b', 'spawn-2']] as const;
     a.gsm.setLanes(lanes);
     b.gsm.setLanes(lanes);
     const step = () => { relay.closeTick(); a.frame(40); b.frame(40); };
@@ -1413,7 +1413,7 @@ describe('Coop player leaving (COOP_PLAN C4)', () => {
     Math.random = mulberry32(SEED + 2);
     const relay = new LocalRelay(true);
     const a = buildClient(relay, 'a');
-    a.gsm.setLanes(new Map([['a', 'spawn-1'], ['b', 'spawn-2']]));
+    a.gsm.setLanes([['a', 'spawn-1'], ['b', 'spawn-2']]);
     // CoopService.continueAlone: no link, the partner gone, the ids stay
     a.gsm.setLockstep(null);
     a.gsm.playerLeft('b');

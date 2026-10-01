@@ -157,7 +157,7 @@ export class SimCore implements SimCoreApi {
       this.link.playerId = config.players.local;
       this.left.clear();
     }
-    if (config.lanes) gsm.setLanes(new Map(config.lanes));
+    if (config.lanes) gsm.setLanes(config.lanes);
     if (config.cheatsFor !== undefined) {
       const rule = config.cheatsFor;
       gsm.setCheatRule(rule === null ? null : rule === 'all' ? () => true : (playerId) => rule.includes(playerId));

@@ -33,6 +33,7 @@ function game(players: string[], local = players[0], owners = [players[0], playe
       localPlayerId: local,
       credits: players.map((_, i) => 100 * (i + 1)),
       laneSpawns: players.length > 1 ? ['a', 'b'] : [],
+      laneOwners: players.length > 1 ? players.slice(0, 2) : [],
       seed: SEED,
     },
     towerStates: towers.map(towerDto),

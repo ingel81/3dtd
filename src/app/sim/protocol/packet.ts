@@ -174,7 +174,9 @@ export interface SimScalars {
   mannedTowers: (string | null)[];
   /** Ready for the next wave, roster order */
   ready: boolean[];
+  /** The spawn point of each lane, roster order (alone every spawn point), and the player of each */
   laneSpawns: string[];
+  laneOwners: string[];
   /** Wave numbers a replay can re-simulate (SimRecorder), newest last */
   replayableWaves: number[];
   towerCount: number;

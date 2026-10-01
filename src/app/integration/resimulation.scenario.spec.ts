@@ -48,6 +48,7 @@ import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition } from '../models/game.types';
 import type { WaveConfig, SpawnEntry } from '../managers/wave.manager';
 import { mulberry32 } from '../utils/game-rng';
+import { GAME_BALANCE } from '../configs/game-balance.config';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { Resimulation } from '../simulator/resimulation';
 import { buildReplayFile, readReplayFile } from '../simulator/replay-file';
@@ -326,6 +327,15 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     expect(resim.divergedAt).toBeNull();
     resim.end();
   });
+  it('alone, every spawn point is a lane: the start credits once for each (docs/LANES_PLAN.md)', () => {
+    world = buildWorld();
+    const { gsm } = world;
+    expect(gsm.laneSpawns.length).toBe(2);
+    expect(gsm.creditsOf(gsm.localPlayerId)).toBe(2 * GAME_BALANCE.player.startCredits);
+    gsm.reset();
+    expect(gsm.creditsOf(gsm.localPlayerId)).toBe(2 * GAME_BALANCE.player.startCredits);
+  });
+
   it('re-simulates a wave of an ooze, a worm and splitting skeletons', () => {
     world = buildWorld();
     const { gsm } = world;
@@ -339,8 +349,8 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     expect(gsm.waveManager.phase()).not.toBe('wave');
     const record = gsm.simRecorder.get(1)!;
     expect(record.endStep).not.toBeNull();
-    // The ooze, the worm's segments and the skeletons' minions all came
-    expect(spawned.get('ooze')).toBe(1);
+    // The ooze, the worm's segments and the skeletons' minions all came, the wave on each spawn's lane
+    expect(spawned.get('ooze')).toBe(gsm.laneSpawns.length);
     expect(spawned.get('worm')).toBeGreaterThan(3);
     expect(spawned.get('skeleton-minion') ?? spawned.get('skeleton-warrior') ?? 0).toBeGreaterThan(0);
     expect(record.hashes.length).toBeGreaterThan(10);

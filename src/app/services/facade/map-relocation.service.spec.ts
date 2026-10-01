@@ -44,6 +44,7 @@ describe('MapRelocationService', () => {
     baseCoords: ReturnType<typeof signal<{ lat: number; lon: number }>>;
     centerCoords: ReturnType<typeof signal<{ lat: number; lon: number; height: number }>>;
     spawnPoints: ReturnType<typeof signal<SpawnPoint[]>>;
+    waveNumber: ReturnType<typeof signal<number>>;
   };
   let host: RelocationHost & Record<keyof RelocationHost, ReturnType<typeof vi.fn>>;
   let viz: Record<keyof VizCallbacks, ReturnType<typeof vi.fn>>;
@@ -94,6 +95,7 @@ describe('MapRelocationService', () => {
       baseCoords: signal({ ...HQ }),
       centerCoords: signal({ ...HQ, height: 400 }),
       spawnPoints: signal<SpawnPoint[]>([OLD_SPAWN]),
+      waveNumber: signal(0),
     };
     viz = {
       initializeTowerPlacement: vi.fn(),
@@ -293,6 +295,13 @@ describe('MapRelocationService', () => {
     expect(routeAnimation.startAnimation).toHaveBeenCalledTimes(1);
 
     osm.findPath.mockReturnValue(null);
+    await click('spawn', INSIDE);
+    expect(world.resetRun).toHaveBeenCalledTimes(1);
+
+    // Once the run has played a wave the lanes stand, whatever the route
+    osm.findPath.mockReturnValue([OLD_SPAWN, HQ]);
+    store.waveNumber.set(1);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     await click('spawn', INSIDE);
     expect(world.resetRun).toHaveBeenCalledTimes(1);
   });

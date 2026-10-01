@@ -22,8 +22,33 @@ export class CreditsLedger {
   private roster: readonly string[] = [LOCAL_PLAYER_ID];
   private local = LOCAL_PLAYER_ID;
   private readonly accounts = new Map<string, number>([[LOCAL_PLAYER_ID, GAME_BALANCE.player.startCredits]]);
+  /** A player's start credits: the start credits for each of their lanes (setStartCredits) */
+  private startOf: (playerId: string) => number = () => GAME_BALANCE.player.startCredits;
+  /** The start credits each account got so far this run, for followStart() */
+  private readonly granted = new Map<string, number>([[LOCAL_PLAYER_ID, GAME_BALANCE.player.startCredits]]);
 
   constructor(private readonly eventBus: GameEventBus) {}
+
+  /** Where a player's start credits come from: their lanes (GameStateManager) */
+  setStartCredits(startOf: (playerId: string) => number): void {
+    this.startOf = startOf;
+  }
+
+  /**
+   * Before the first wave the lanes may still change (a spawn added, moved
+   * away, a lane taken in the lobby): every account follows its start
+   * credits by the difference, booked as 'reset', and never goes below 0
+   * for what was spent already. After the first wave nothing calls it.
+   */
+  followStart(): void {
+    for (const id of this.roster) {
+      const target = this.startOf(id);
+      const before = this.granted.get(id) ?? target;
+      this.granted.set(id, target);
+      const delta = Math.max(target - before, -this.balance(id));
+      if (delta !== 0) this.add(delta, 'reset', id);
+    }
+  }
 
   /** The players in roster order. */
   get players(): readonly string[] {
@@ -37,14 +62,19 @@ export class CreditsLedger {
 
   /**
    * The players of the run and the one at this client. Every account starts
-   * with the start credits (D21), without a booking: this is the run's
+   * with its start credits (D21, one share per lane), without a booking: this is the run's
    * starting line, not income.
    */
   setPlayers(players: readonly string[], local: string): void {
     this.roster = [...players];
     this.local = local;
     this.accounts.clear();
-    for (const id of players) this.accounts.set(id, GAME_BALANCE.player.startCredits);
+    this.granted.clear();
+    for (const id of players) {
+      const start = this.startOf(id);
+      this.accounts.set(id, start);
+      this.granted.set(id, start);
+    }
     this.credits.set(this.balance(local));
   }
 
@@ -113,8 +143,12 @@ export class CreditsLedger {
     this.credits.set(this.balance(this.local));
   }
 
-  /** Every account back to the start credits, booked as one delta each. */
+  /** Every account back to its start credits, booked as one delta each. */
   reset(): void {
-    for (const id of this.roster) this.add(GAME_BALANCE.player.startCredits - this.balance(id), 'reset', id);
+    for (const id of this.roster) {
+      const start = this.startOf(id);
+      this.granted.set(id, start);
+      this.add(start - this.balance(id), 'reset', id);
+    }
   }
 }

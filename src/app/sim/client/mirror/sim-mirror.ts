@@ -48,6 +48,7 @@ export function initialScalars(): SimScalars {
     mannedTowers: [null],
     ready: [false],
     laneSpawns: [],
+    laneOwners: [],
     replayableWaves: [],
     towerCount: 0,
     abilityDamage: [0],
@@ -626,10 +627,16 @@ export class SimMirror implements SimMirrorApi {
     return this.scalars.laneSpawns;
   }
 
-  /** Coop: the spawn point id of `playerId`'s lane; null without one */
-  laneSpawnOf(playerId: string): string | null {
-    const i = this.scalars.players.indexOf(playerId);
-    return i < 0 ? null : this.scalars.laneSpawns[i] ?? null;
+  /** The spawn point ids of `playerId`'s lanes; none without a lane */
+  laneSpawnsOf(playerId: string): string[] {
+    const { laneSpawns, laneOwners } = this.scalars;
+    return laneSpawns.filter((_, i) => laneOwners[i] === playerId);
+  }
+
+  /** The player whose lane the spawn point `spawnId` is; null when it is no lane */
+  laneOwnerOf(spawnId: string): string | null {
+    const i = this.scalars.laneSpawns.indexOf(spawnId);
+    return i < 0 ? null : this.scalars.laneOwners[i] ?? null;
   }
 
   /**
