@@ -186,6 +186,23 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(last('a', 'room')!.room.cheats).toBe(false);
   });
 
+  it('holds at most 2000 commands of a player while no tick closes, the others still get in', () => {
+    lobby();
+    room.receive('a', { t: 'start', seed: 1 });
+    room.receive('a', { t: 'speed', speed: 0 });
+    for (let i = 0; i < 2100; i++) room.receive('b', { t: 'cmd', command: { type: 'command:x' } });
+    room.receive('a', { t: 'cmd', command: { type: 'command:y' } });
+    room.receive('a', { t: 'speed', speed: 1 });
+    room.advance(TICK_MS);
+    const commands = all('a', 'tick').flatMap((t) => t.commands);
+    expect(commands.filter((c) => c.playerId === 'b')).toHaveLength(2000);
+    expect(commands.filter((c) => c.playerId === 'a')).toHaveLength(1);
+    // The next tick has room again
+    room.receive('b', { t: 'cmd', command: { type: 'command:x' } });
+    room.advance(TICK_MS);
+    expect(all('a', 'tick').at(-1)!.commands).toHaveLength(1);
+  });
+
   it('lets the cheats through as the relay and the room allow them, and says so to the room (D38)', () => {
     room = new Room('CHEATS', player('a'), (id, message) => {
       if (!inbox.has(id)) inbox.set(id, []);

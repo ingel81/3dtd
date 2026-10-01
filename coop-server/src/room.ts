@@ -72,6 +72,17 @@ const STATUS_LOG: Record<PlayerStatus, string> = {
 const RECENT_COMMANDS = 40;
 
 /**
+ * Commands and their JSON characters one player may have waiting for the
+ * next tick. While no tick closes (paused, waiting for a slow client, a
+ * resync) the queue grew without end; a changed client could fill the
+ * relay's memory and, once the ticks ran again, every client's downlink.
+ * Far above what a player clicks while paused; past it a command is dropped
+ * for everyone alike, as one the relay refuses.
+ */
+const MAX_OPEN_COMMANDS = 2000;
+const MAX_OPEN_CHARS = 4_000_000;
+
+/**
  * How long the room waits for a player who does not catch up before it lets
  * them go (relay review M4): a frozen tab or a sleeping laptop that still
  * answers the heartbeat must not hold everyone.
@@ -177,6 +188,8 @@ export class Room {
   private resumeSpeed = 1;
   private nextTick = 0;
   private open: { playerId: string; command: StampedCommand['command'] }[] = [];
+  /** Per player: commands and JSON characters in `open` (MAX_OPEN_COMMANDS) */
+  private readonly openBy = new Map<string, { commands: number; chars: number }>();
   private seq = 0;
   /** Game time run up and not yet closed into a tick, ms */
   private pending = 0;
@@ -410,6 +423,7 @@ export class Room {
       case 'cmd':
         // Game commands; the dev tools' debug:* only as the room's cheat rule lets them (D38)
         if (!this.started || typeof message.command?.type !== 'string' || !this.accepts(message.command.type, playerId)) return;
+        if (!this.takesOpen(playerId, message.command)) return;
         this.open.push({ playerId, command: message.command });
         this.commandCount++;
         this.lastCommandAt = this.now();
@@ -514,6 +528,20 @@ export class Room {
     return slowest;
   }
 
+  /** Room in `playerId`'s share of the open queue for `command`; counted when there is */
+  private takesOpen(playerId: string, command: unknown): boolean {
+    let open = this.openBy.get(playerId);
+    if (!open) this.openBy.set(playerId, (open = { commands: 0, chars: 0 }));
+    const chars = JSON.stringify(command).length;
+    if (open.commands >= MAX_OPEN_COMMANDS || open.chars + chars > MAX_OPEN_CHARS) {
+      this.noisy(playerId, `${this.who(playerId)}: command dropped, ${open.commands} waiting for the next tick`);
+      return false;
+    }
+    open.commands++;
+    open.chars += chars;
+    return true;
+  }
+
   /** Close the next tick with everything that came in since the last. */
   closeTick(): void {
     const tick = this.nextTick++;
@@ -524,6 +552,7 @@ export class Room {
       command,
     }));
     this.open = [];
+    this.openBy.clear();
     this.recent.push(...commands);
     if (this.recent.length > RECENT_COMMANDS) this.recent.splice(0, this.recent.length - RECENT_COMMANDS);
     this.broadcast({ t: 'tick', tick, commands });
