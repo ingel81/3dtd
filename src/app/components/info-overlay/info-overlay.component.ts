@@ -17,6 +17,7 @@ import { TdIconComponent } from '../icon/icon.component';
 import { observeBottomEdge } from './bottom-edge';
 import { SimMeterService, speedShort } from '../../services/debug/sim-meter.service';
 import { sparkChart } from './sparkline';
+import { controlTakesKey } from '../../utils/keyboard-target';
 
 /** Size of the mini charts of the wide stage, px */
 const CHART_W = 96;
@@ -109,6 +110,18 @@ export class InfoOverlayComponent {
   });
 
   private readonly box = viewChild.required<ElementRef<HTMLElement>>('box');
+
+  /**
+   * Enter or Space steps the overlay when the keyboard focused it (Tab).
+   * Focused by a click, the keys stay the game's: Space starts the wave and
+   * does not also step the overlay.
+   */
+  onKey(event: Event): void {
+    const key = event as KeyboardEvent;
+    if (!controlTakesKey(key.target, key.key)) return;
+    key.preventDefault();
+    this.uiStore.toggleInfoOverlay();
+  }
 
   constructor() {
     const destroyRef = inject(DestroyRef);

@@ -1,10 +1,10 @@
 <aside #box class="td-info" [class.td-info--expanded]="uiStore.infoOverlayVisible()"
        [class.td-info--wide]="uiStore.infoOverlayVisible() && uiStore.infoOverlayWide()"
        (click)="uiStore.toggleInfoOverlay()"
-       (keydown.enter)="uiStore.toggleInfoOverlay()"
-       (keydown.space)="uiStore.toggleInfoOverlay()"
+       (keydown.enter)="onKey($event)"
+       (keydown.space)="onKey($event)"
        tabindex="0"
-       role="button" [attr.aria-expanded]="uiStore.infoOverlayVisible()">
+       role="button" aria-label="Performance info" [attr.aria-expanded]="uiStore.infoOverlayVisible()">
   <div class="td-info__col">
     <div class="td-info__row td-info__row--head">
       @if (uiStore.infoOverlayVisible()) {
