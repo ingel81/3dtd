@@ -392,6 +392,7 @@ Ideen (2026-09-27), nichts entschieden:
       - Herbert zu schwach (Welle 10), Ooze zu schwach (Welle 20), Bosse ab Welle 30 keine Bosse.
       - Bei Tempo ×4 (etwas weniger bei ×2) verschwinden Projektile, bevor sie den Gegner sichtbar erreichen; ×1 stimmt.
       - Insgesamt oft zu leicht.
+      - Positiv: Engine solide, Performance gut; dazu nichts zu tun.
 - [ ] **E96 Spuren: Branch `lanes` übernehmen** (User, 2026-10-01, [LANES_PLAN.md](docs/LANES_PLAN.md) auf dem
       Branch): jeder Spawn eine Spur auch allein, Startgold 100 je Spur, HQ und Spawns ab Welle 1 gesperrt, im Coop
       beliebig viele Spuren je Spieler (Protokoll 3), Längen-Leiste beim Setzen eines Spawns. Gate grün, im Browser nur
