@@ -111,6 +111,7 @@ export class SimClient {
    */
   start(transport?: (handlers: SimTransportHandlers) => SimTransport): void {
     this.transport?.dispose();
+    this.transport = null;
     this.resetSession();
     const handlers: SimTransportHandlers = {
       frame: (packet, epoch) => {
@@ -122,8 +123,17 @@ export class SimClient {
       output: (message) => this.output(message),
       error: (error) => this.fail(error),
     };
-    this.transport = transport ? transport(handlers) : new WorkerTransport(handlers);
-    this.transport.epoch(this.epoch);
+    // A worker that cannot start (blocked by the page's policy, out of
+    // memory) stopped the game's setup with nothing on screen: it fails as
+    // the simulation does, with its banner
+    try {
+      this.transport = transport ? transport(handlers) : new WorkerTransport(handlers);
+      this.transport.epoch(this.epoch);
+    } catch (error) {
+      this.transport?.dispose();
+      this.transport = null;
+      this.fail(`the simulation did not start: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /** What a started or stopped simulation forgets: the world, what is queued, the links and the failure. */
@@ -221,6 +231,7 @@ export class SimClient {
 
   /** The finished world; before it the simulation runs no sub-step. */
   loadWorld(world: SimWorld): void {
+    if (this.failure() !== null) return;
     this.requireTransport().loadWorld(world);
     this.worldLoaded = true;
   }

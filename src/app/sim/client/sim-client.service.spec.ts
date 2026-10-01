@@ -104,6 +104,23 @@ describe('SimClient', () => {
   beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => undefined));
 
   describe('a failed simulation', () => {
+    it('fails with its message when the worker cannot start, and the rest of the setup goes on', async () => {
+      const { client } = setup();
+      const failed = vi.fn();
+      client.onFailure(failed);
+      client.start(() => {
+        throw new Error('Worker blocked');
+      });
+      expect(client.started).toBe(false);
+      expect(client.failure()).toBe('the simulation did not start: Worker blocked');
+      expect(failed).toHaveBeenCalledTimes(1);
+      // What follows in the game's setup does not throw
+      client.configure({} as never);
+      client.loadWorld({} as never);
+      client.frame(16, false);
+      await expect(client.rpc('hashBreakdownAt', 0)).rejects.toThrow('simulation stopped');
+    });
+
     it('sends nothing further for good when the worker reports an error, and says so once', async () => {
       const { client, transport, frame } = setup();
       const failed = vi.fn();
