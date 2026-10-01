@@ -90,10 +90,43 @@ export function readWorldPackage(
   ) {
     return { world: null, refusal: 'not-a-world' };
   }
+  if (!worldShapeOk(data as WorldPackage)) return { world: null, refusal: 'not-a-world' };
   if (data.version !== WORLD_PACKAGE_VERSION) return { world: null, refusal: 'version' };
   if (data.gameVersion !== here.gameVersion) return { world: null, refusal: 'other-game' };
   if (data.configHash !== here.configHash) return { world: null, refusal: 'other-balance' };
   return { world: data as WorldPackage, refusal: null };
+}
+
+/** Routes, waypoints and grid cells a package holds at most: far above a real place */
+const MAX_ROUTES = 64;
+const MAX_WAYPOINTS = 200_000;
+const MAX_HEIGHT_ROWS = 5_000_000;
+
+const finiteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const placeOk = (v: unknown): boolean => {
+  if (typeof v !== 'object' || v === null) return false;
+  const { lat, lon, height } = v as Record<string, unknown>;
+  return finiteNumber(lat) && Math.abs(lat) <= 90 && finiteNumber(lon) && Math.abs(lon) <= 180
+    && (height === undefined || finiteNumber(height));
+};
+
+/**
+ * The package's routes, spawns and heights in the shape the world build
+ * reads: a host's package with NaN places or a height row of another shape
+ * would stop the guest's simulation.
+ */
+function worldShapeOk(data: WorldPackage): boolean {
+  if (!placeOk(data.origin) || !placeOk(data.hq)) return false;
+  if (data.spawns.length > MAX_ROUTES || !data.spawns.every((s) => placeOk(s) && typeof s.id === 'string')) return false;
+  if (data.paths.length > MAX_ROUTES) return false;
+  let waypoints = 0;
+  for (const route of data.paths) {
+    if (!Array.isArray(route) || typeof route[0] !== 'string' || !Array.isArray(route[1])) return false;
+    waypoints += route[1].length;
+    if (waypoints > MAX_WAYPOINTS || !route[1].every(placeOk)) return false;
+  }
+  return data.heights.length <= MAX_HEIGHT_ROWS
+    && data.heights.every((row) => Array.isArray(row) && row.length === 3 && row.every(finiteNumber));
 }
 
 /** What the player reads when a room's world does not load. */

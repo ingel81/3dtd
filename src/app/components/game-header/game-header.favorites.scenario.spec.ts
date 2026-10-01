@@ -175,7 +175,7 @@ describe('Favorites menu, playtest 538 to 540 replayed', () => {
   });
 
   it('Esc closes the spawn menu and keeps the key from the game; with the menus shut it leaves the key alone', () => {
-    header.closeFavMenu();
+    header.toggleFavMenu(); // open from beforeEach: now shut
     header.spawnMenuOpen.set(true);
     const first = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
     header.onEscape(first);
