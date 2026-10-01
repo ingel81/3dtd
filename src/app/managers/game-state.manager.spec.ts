@@ -320,11 +320,15 @@ describe('GameStateManager', () => {
 
     describe('command:set-targeting', () => {
       it('sets the strategy and the air sub-strategy of the tower, each only when given', () => {
-        const tower = { ownerId: LOCAL_PLAYER_ID, targetingStrategy: 'closest', airSubStrategy: 'closest' };
+        const tower = { ownerId: LOCAL_PLAYER_ID, targetingStrategy: 'closest', airSubStrategy: 'closest', clearTarget: vi.fn() };
         vi.spyOn(gsm.towerManager, 'getById').mockImplementation((id) => (id === 't1' ? tower as never : null));
 
         bus.emit({ type: 'command:set-targeting', towerId: 't1', strategy: 'air-priority' });
         expect(tower).toMatchObject({ targetingStrategy: 'air-priority', airSubStrategy: 'closest' });
+        // The new strategy picks from the next sub-step on, not once the kept target is gone
+        expect(tower.clearTarget).toHaveBeenCalledTimes(1);
+        bus.emit({ type: 'command:set-targeting', towerId: 't1', strategy: 'air-priority' });
+        expect(tower.clearTarget).toHaveBeenCalledTimes(1);
 
         bus.emit({ type: 'command:set-targeting', towerId: 't1', airSubStrategy: 'lowest-hp' });
         expect(tower).toMatchObject({ targetingStrategy: 'air-priority', airSubStrategy: 'lowest-hp' });
