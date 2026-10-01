@@ -94,7 +94,7 @@ describe('Jump to wave section, playtest 378 and 380 replayed', () => {
 
   it('names every wave by the run plan, past the campaign as well', () => {
     enter('40');
-    expect(debuggerPanel.jumpWaveName()).toBe('Boss: Stone Golem');
+    expect(debuggerPanel.jumpWaveName()).toBe('Boss: Golem King');
     enter('41');
     expect(debuggerPanel.jumpWaveName()).toBe(planRowForWave(41)!.name);
     enter('7');

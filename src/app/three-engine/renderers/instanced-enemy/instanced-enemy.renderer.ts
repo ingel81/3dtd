@@ -130,6 +130,8 @@ export class InstancedEnemyRenderer {
   async preloadModel(typeId: EnemyTypeId): Promise<void> {
     const config = ENEMY_TYPES[typeId];
     if (!config) return;
+    // Drawn with another type's pool
+    if (config.renderAs) return this.preloadModel(config.renderAs);
 
     // Skip if already loaded or loading
     if (this.loadedTypes.has(typeId)) return;
@@ -141,9 +143,12 @@ export class InstancedEnemyRenderer {
     this.bakingPromises.delete(typeId);
   }
 
-  /** A pool for every type that spawns as an instance; an ooze's body is drawn by the ooze renderer. */
+  /**
+   * A pool for every type that spawns as an instance; an ooze's body is drawn
+   * by the ooze renderer, a type with `renderAs` by that type's pool.
+   */
   async preloadAllModels(): Promise<void> {
-    const types = (Object.keys(ENEMY_TYPES) as EnemyTypeId[]).filter((t) => !ENEMY_TYPES[t].ooze);
+    const types = (Object.keys(ENEMY_TYPES) as EnemyTypeId[]).filter((t) => !ENEMY_TYPES[t].ooze && !ENEMY_TYPES[t].renderAs);
     await Promise.all(types.map((t) => this.preloadModel(t)));
   }
 
@@ -230,13 +235,16 @@ export class InstancedEnemyRenderer {
   ): Promise<EnemyRenderData | null> {
     const config = ENEMY_TYPES[typeId];
     if (!config) return null;
+    // A type drawn with another's pool, at its own scale (EnemyTypeConfig.renderAs)
+    const poolType = config.renderAs ?? typeId;
+    const size = config.renderAs ? config.scale / ENEMY_TYPES[poolType].scale : 1;
 
     // Wait for baking if still in progress
-    if (this.bakingPromises.has(typeId)) {
-      await this.bakingPromises.get(typeId);
+    if (this.bakingPromises.has(poolType)) {
+      await this.bakingPromises.get(poolType);
     }
 
-    if (!this.instanceManager.hasPool(typeId)) {
+    if (!this.instanceManager.hasPool(poolType)) {
       console.warn(`[InstancedRenderer] No pool for ${typeId} — cannot create enemy`);
       return null;
     }
@@ -245,7 +253,7 @@ export class InstancedEnemyRenderer {
     const localPos = this.sync.geoToLocal(lat, lon, height);
 
     // Add to instance pool
-    const state = this.instanceManager.addEnemy(id, typeId, localPos, 0);
+    const state = this.instanceManager.addEnemy(id, poolType, localPos, 0, size);
     if (!state) return null;
 
     // Add health bar (use cached parsed color)
@@ -267,7 +275,7 @@ export class InstancedEnemyRenderer {
     state.healthBarIndex = this.healthBarManager.add(
       id,
       localPos,
-      config.healthBarOffset,
+      state.config.healthBarOffset * state.size,
       fixedColor,
       6, // barWidth (matches original Sprite scale)
       1, // barHeight
@@ -339,7 +347,7 @@ export class InstancedEnemyRenderer {
 
     // Update health bar (with debug healthBarOffset if set)
     if (slot.healthBarIndex < 0) return;
-    const barOffset = slot.debugHealthBarOffset ?? slot.config.healthBarOffset;
+    const barOffset = slot.debugHealthBarOffset ?? slot.config.healthBarOffset * slot.size;
     this.healthBarManager.updateAt(
       slot.healthBarIndex,
       localPos,

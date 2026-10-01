@@ -207,6 +207,8 @@ async function bakeModel(config: EnemyTypeConfig): Promise<VATData | null> {
 async function buildRows(): Promise<Row[]> {
   const rows: Row[] = [];
   for (const [id, config] of Object.entries(ENEMY_TYPES)) {
+    // Drawn with another type's pool: no VAT of its own
+    if (config.renderAs) continue;
     const model = inspectModel(resolve(ROOT, 'public', config.modelUrl));
     const bake = planBake(config, model);
     const vertices = bake.meshes.reduce((s, m) => s + m.vertices, 0);
@@ -460,7 +462,7 @@ function render(rows: Row[]): string {
   out.push('');
   // VAT vertices of one enemy and everything a kill splits it into
   const lineageVerts = (enemy: string, depth = 0): number => {
-    const own = vertsById.get(enemy) ?? 0;
+    const own = vertsById.get(ENEMY_TYPES[enemy]?.renderAs ?? enemy) ?? 0;
     const split = ENEMY_TYPES[enemy]?.splitOnDeath;
     return !split || depth >= 4 ? own : own + split.count * lineageVerts(split.type, depth + 1);
   };

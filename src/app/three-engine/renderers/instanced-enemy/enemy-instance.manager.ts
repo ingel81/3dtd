@@ -71,6 +71,14 @@ export interface EnemyInstanceState {
   released: boolean;
   /** Health-bar slot, set by InstancedEnemyRenderer.create() (-1 = none). */
   healthBarIndex: number;
+  /**
+   * Scale on the pool's model for this instance, its health bar height with
+   * it: a type drawn with another type's pool (EnemyTypeConfig.renderAs), an
+   * elite. 1 for most.
+   */
+  size: number;
+  /** Tint the instance shows while no status tint is on (an elite), null for none. */
+  baseTint: readonly [number, number, number] | null;
   // Debug overrides (only set for debug-spawned enemies, undefined in normal gameplay)
   debugScale?: number;
   debugHeightOffset?: number;
@@ -303,6 +311,8 @@ export class EnemyInstanceManager {
     typeId: string,
     position: Vector3,
     heading: number,
+    size = 1,
+    baseTint: readonly [number, number, number] | null = null,
   ): EnemyInstanceState | null {
     const pool = this.pools.get(typeId);
     if (!pool) return null;
@@ -322,7 +332,7 @@ export class EnemyInstanceManager {
 
     // Set initial attributes; they go out with the frame flush.
     pool.animFrameAttr.setX(index, 0);
-    pool.tintColorAttr.setXYZ(index, 0, 0, 0);
+    pool.tintColorAttr.setXYZ(index, baseTint?.[0] ?? 0, baseTint?.[1] ?? 0, baseTint?.[2] ?? 0);
     pool.animFrameDirty = true;
     pool.tintDirty = true;
 
@@ -355,6 +365,8 @@ export class EnemyInstanceManager {
       pool,
       released: false,
       healthBarIndex: -1,
+      size,
+      baseTint,
     };
 
     pool.instances.set(id, state);
@@ -580,6 +592,8 @@ export class EnemyInstanceManager {
       pool.tintColorAttr.setXYZ(state.index, BURN_TINT_R, BURN_TINT_G, BURN_TINT_B);
     } else if (state.poisoned) {
       pool.tintColorAttr.setXYZ(state.index, POISON_TINT_R, POISON_TINT_G, POISON_TINT_B);
+    } else if (state.baseTint) {
+      pool.tintColorAttr.setXYZ(state.index, state.baseTint[0], state.baseTint[1], state.baseTint[2]);
     } else {
       pool.tintColorAttr.setXYZ(state.index, 0, 0, 0);
     }
@@ -722,6 +736,8 @@ export class EnemyInstanceManager {
     state.debugHeightOffset = old.debugHeightOffset;
     state.debugRotation = old.debugRotation;
     state.debugHealthBarOffset = old.debugHealthBarOffset;
+    state.size = old.size;
+    state.baseTint = old.baseTint;
     this.applyTint(state, pool);
     return state;
   }
@@ -917,7 +933,7 @@ export class EnemyInstanceManager {
       quat = EnemyInstanceManager._tempQuat.setFromAxisAngle(UP, totalHeading);
     }
 
-    const scale = state?.debugScale ?? pool.config.scale;
+    const scale = state?.debugScale ?? pool.config.scale * (state?.size ?? 1);
 
     // Apply debug height offset if present
     let py = position.y;

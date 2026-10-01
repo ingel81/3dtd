@@ -87,7 +87,7 @@ describe('peekUpcomingWaves', () => {
   it('marks the boss waves past the campaign by the plan, and names them', () => {
     const [w39, w40] = peekWaves(38, 2);
     expect(w39.boss).toBe(false);
-    expect(w40).toMatchObject({ wave: 40, name: 'Boss: Stone Golem', boss: true, known: true });
+    expect(w40).toMatchObject({ wave: 40, name: 'Boss: Golem King', boss: true, known: true });
   });
 
   it('marks the blood moon waves, W14 and every seventh after, with the look in the tooltip', () => {

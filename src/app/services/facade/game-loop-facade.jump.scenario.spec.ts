@@ -157,8 +157,8 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     expect(buttonLabel()).toBe('Wave 40');
     facade.startWave();
     await settle();
-    expect(new Set(startedTypes())).toEqual(new Set(['stone-golem', 'mammoth']));
-    expect(store.waveExplanation()?.summary).toMatch(/^Wave 40: Boss: Stone Golem/);
+    expect(new Set(startedTypes())).toEqual(new Set(['golem-king', 'stone-golem', 'mammoth']));
+    expect(store.waveExplanation()?.summary).toMatch(/^Wave 40: Boss: Golem King/);
   });
 
   it('365 and 380: after W30 a jump to 60 starts the worm again', async () => {

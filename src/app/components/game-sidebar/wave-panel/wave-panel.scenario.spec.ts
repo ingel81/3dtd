@@ -269,8 +269,8 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
 
   it('365: after a jump to 20 (counter 19) the first mark is W20 "Boss: Ooze" with the skull', () => {
     const [w20] = peekWaves(19, NEXT_WAVE_MARKS, true);
-    expect(w20).toMatchObject({ wave: 20, name: 'Boss: Ooze', boss: true, known: true, count: '1' });
+    expect(w20).toMatchObject({ wave: 20, name: 'Boss: Ooze', boss: true, known: true, count: '101' });
     expect(w20.armors).toEqual([ARMOR_TYPE_UI[ENEMY_TYPES['ooze'].armorType].label]);
-    expect(w20.tooltip).toContain('1× ooze');
+    expect(w20.tooltip).toContain('The Ooze leads its brood');
   });
 });

@@ -287,6 +287,29 @@ describe('EnemyInstanceManager', () => {
     }
   });
 
+  it('draws an instance at its own size and shows its base tint while no status tint is on', () => {
+    const gold = [0.9, 0.7, 0.2] as const;
+    const big = manager.addEnemy('big', 'wallsmasher', new Vector3(), 0, 1.6, gold)!;
+    const plain = manager.addEnemy('plain', 'wallsmasher', new Vector3(), 0)!;
+    manager.updateEnemyState(big, new Vector3(), 0, 0);
+    manager.updateEnemyState(plain, new Vector3(), 0, 0);
+    const matrix = new Matrix4();
+    const scaleOf = (state: typeof big) => {
+      state.pool.instancedMesh.getMatrixAt(state.index, matrix);
+      return new Vector3().setFromMatrixScale(matrix).x;
+    };
+    expect(scaleOf(big)).toBeCloseTo(CONFIG.scale * 1.6, 4);
+    expect(scaleOf(plain)).toBeCloseTo(CONFIG.scale, 4);
+
+    const tintOf = (state: typeof big) => [0, 1, 2].map((i) => state.pool.tintColorAttr.getComponent(state.index, i));
+    expect(tintOf(big)).toEqual(gold.map(Math.fround));
+    manager.setBurnVisual('big', true);
+    expect(tintOf(big)).toEqual([1.0, 0.45, 0.05].map(Math.fround));
+    manager.setBurnVisual('big', false);
+    expect(tintOf(big)).toEqual(gold.map(Math.fround));
+    expect(tintOf(plain)).toEqual([0, 0, 0]);
+  });
+
   it('drops the hit flash of a removed enemy without touching its old slot', () => {
     const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
     manager.addEnemy('a', 'wallsmasher', new Vector3(), 0);

@@ -193,6 +193,14 @@ export interface EnemyTypeConfig {
   lateralSpread?: number; // Share of the lateral room the route corridor leaves (0 = centre line, 1 = up to the edge margin)
   heightVariation?: number; // Max random height deviation in meters (for waves)
 
+  /**
+   * Drawn with this type's model pool, at its own `scale` (one VAT for both
+   * types, a pool less to bake): a boss that is a bigger kin of a regular.
+   * The pool's model, clips, look and health bar height times the scale
+   * ratio; name, boss flag, health bar colour and stats are this type's.
+   */
+  renderAs?: EnemyTypeId;
+
   // Air Unit
   isAirUnit?: boolean; // true = air unit, only attackable by air towers
 
@@ -358,6 +366,91 @@ const WORM_STATS = {
   hitSound: 'stone',
 } satisfies Partial<EnemyTypeConfig>;
 
+/** The stone golem, also the body of the golem king. */
+const STONE_GOLEM: EnemyTypeConfig = {
+  id: 'stone-golem',
+  name: 'Stone Golem',
+  deathSound: 'golem',
+  hitSound: 'stone',
+  footstep: GOLEM_FOOTSTEP,
+  modelUrl: 'assets/models/enemies/stone_golem.glb',
+  scale: 7.312,
+  modelRangeY: { min: -0.4192, max: 1.8233 },
+
+  armorType: 'fortified',
+  baseHp: 480,
+  baseSpeed: 2.5,
+
+  hasAnimations: true,
+  walkAnimation: 'Casual_Walk',
+  deathAnimation: 'dying_backwards',
+  // dying_backwards (2.21 s of clip, 2.94 s at 0.75) drops between 1.1 and
+  // 1.4 s of clip time and settles its limbs until about 2 s; the default
+  // 2 s (1.5 s of clip) took the golem away before that. The whole clip
+  // plays (tools/model-budget/death-rest.spec.ts).
+  deathDuration: 3000,
+  animationSpeed: 0.75,
+
+  // Audio (Spatial) — heavy stone footstep loop while moving
+  movingSound: 'assets/sounds/enemies/golem/golem_walk_loop.mp3',
+  movingSoundVolume: 0.4,
+  movingSoundRefDistance: 45,
+
+  heightOffset: 0,
+  healthBarOffset: 15,
+  canBleed: false,
+  headingOffset: 0,
+
+  randomAnimationStart: true,
+  lateralSpread: 0.65,
+  spawnStartDelay: 1200,
+
+  previewScale: 2.149,
+  previewCameraDistance: 6,
+  previewCameraAngle: 0.26,
+  previewOffsetY: -0.1,
+};
+
+/** The dragon, also the body of the dragon matriarch. */
+const DRAGON: EnemyTypeConfig = {
+  id: 'dragon',
+  name: 'Dragon',
+  deathSound: 'dragon',
+  hitSound: 'flesh',
+  modelUrl: 'assets/models/enemies/dragon.glb',
+  scale: 2.5,
+  modelRangeY: { min: 0.2898, max: 4.8873 },
+  armorType: 'heavy',
+  baseHp: 450,
+  baseSpeed: 6,
+  hasAnimations: true,
+  walkAnimation: 'flying',
+  animationSpeed: 1.46,
+  // Rare dragon roar — every 12-35s
+  randomSound: 'assets/sounds/enemies/dragon/dragon01.mp3',
+  randomSoundMinInterval: 12000,
+  randomSoundMaxInterval: 35000,
+  randomSoundVolumeMin: 0.3,
+  randomSoundVolumeMax: 0.7,
+  randomSoundRefDistance: 50,
+  heightOffset: 20,
+  heightVariation: 4,
+  healthBarOffset: 14,
+  canBleed: true,
+  headingOffset: 0,
+  isAirUnit: true,
+  colorMultiplier: 1.3,
+  emissiveIntensity: 0.15,
+  emissiveColor: '#ccddff',
+  randomAnimationStart: true,
+  lateralSpread: 1.0,
+  spawnStartDelay: 1200,
+  previewScale: 1,
+  previewCameraDistance: 7,
+  previewCameraAngle: 0.26,
+  previewOffsetY: 0.6,
+};
+
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: {
     id: 'zombie',
@@ -509,49 +602,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewOffsetY: 0,
   },
 
-  'stone-golem': {
-    id: 'stone-golem',
-    name: 'Stone Golem',
-    deathSound: 'golem',
-    hitSound: 'stone',
-    footstep: GOLEM_FOOTSTEP,
-    modelUrl: 'assets/models/enemies/stone_golem.glb',
-    scale: 7.312,
-    modelRangeY: { min: -0.4192, max: 1.8233 },
-
-    armorType: 'fortified',
-    baseHp: 480,
-    baseSpeed: 2.5,
-
-    hasAnimations: true,
-    walkAnimation: 'Casual_Walk',
-    deathAnimation: 'dying_backwards',
-    // dying_backwards (2.21 s of clip, 2.94 s at 0.75) drops between 1.1 and
-    // 1.4 s of clip time and settles its limbs until about 2 s; the default
-    // 2 s (1.5 s of clip) took the golem away before that. The whole clip
-    // plays (tools/model-budget/death-rest.spec.ts).
-    deathDuration: 3000,
-    animationSpeed: 0.75,
-
-    // Audio (Spatial) — heavy stone footstep loop while moving
-    movingSound: 'assets/sounds/enemies/golem/golem_walk_loop.mp3',
-    movingSoundVolume: 0.4,
-    movingSoundRefDistance: 45,
-
-    heightOffset: 0,
-    healthBarOffset: 15,
-    canBleed: false,
-    headingOffset: 0,
-
-    randomAnimationStart: true,
-    lateralSpread: 0.65,
-    spawnStartDelay: 1200,
-
-    previewScale: 2.149,
-    previewCameraDistance: 6,
-    previewCameraAngle: 0.26,
-    previewOffsetY: -0.1,
-  },
+  'stone-golem': STONE_GOLEM,
 
   bat: {
     id: 'bat',
@@ -920,44 +971,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewOffsetY: -0.2,
   },
 
-  dragon: {
-    id: 'dragon',
-    name: 'Dragon',
-    deathSound: 'dragon',
-    hitSound: 'flesh',
-    modelUrl: 'assets/models/enemies/dragon.glb',
-    scale: 2.5,
-    modelRangeY: { min: 0.2898, max: 4.8873 },
-    armorType: 'heavy',
-    baseHp: 450,
-    baseSpeed: 6,
-    hasAnimations: true,
-    walkAnimation: 'flying',
-    animationSpeed: 1.46,
-    // Rare dragon roar — every 12-35s
-    randomSound: 'assets/sounds/enemies/dragon/dragon01.mp3',
-    randomSoundMinInterval: 12000,
-    randomSoundMaxInterval: 35000,
-    randomSoundVolumeMin: 0.3,
-    randomSoundVolumeMax: 0.7,
-    randomSoundRefDistance: 50,
-    heightOffset: 20,
-    heightVariation: 4,
-    healthBarOffset: 14,
-    canBleed: true,
-    headingOffset: 0,
-    isAirUnit: true,
-    colorMultiplier: 1.3,
-    emissiveIntensity: 0.15,
-    emissiveColor: '#ccddff',
-    randomAnimationStart: true,
-    lateralSpread: 1.0,
-    spawnStartDelay: 1200,
-    previewScale: 1,
-    previewCameraDistance: 7,
-    previewCameraAngle: 0.26,
-    previewOffsetY: 0.6,
-  },
+  dragon: DRAGON,
 
   ghost: {
     id: 'ghost',
@@ -1237,6 +1251,47 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewCameraDistance: 5,
     previewCameraAngle: 0.3,
     previewOffsetY: 0.7,
+  },
+
+  // The boss of the golem wave: a golem 1.6 times as big, leading its kin.
+  // Its own type so boss bar, intro, music and abilities know it as a boss,
+  // the stone golem stays a regular in its squads. Drawn with the golem's
+  // pool (renderAs).
+  'golem-king': {
+    ...STONE_GOLEM,
+    id: 'golem-king',
+    name: 'Golem King',
+    epithet: 'Heart of the Mountain',
+    renderAs: 'stone-golem',
+    scale: STONE_GOLEM.scale * 1.6,
+    // Ten golems; the wave's budget sets what it brings (sources/budget)
+    baseHp: 4800,
+    baseSpeed: 2.2,
+    healthBarColor: '#ff3b30',
+    isBoss: true,
+    lateralSpread: 0.3,
+    spawnStartDelay: 2400,
+    // Previews and the debug lists keep the golem's sizes
+    previewScale: STONE_GOLEM.previewScale,
+  },
+
+  // The boss of the dragon flight, a dragon 1.6 times as big
+  'dragon-matriarch': {
+    ...DRAGON,
+    id: 'dragon-matriarch',
+    name: 'Dragon Matriarch',
+    epithet: 'Mother of the Flight',
+    renderAs: 'dragon',
+    scale: DRAGON.scale * 1.6,
+    // Ten dragons
+    baseHp: 4500,
+    baseSpeed: 5,
+    heightOffset: 26,
+    heightVariation: 0,
+    healthBarColor: '#ff3b30',
+    isBoss: true,
+    lateralSpread: 0.4,
+    spawnStartDelay: 2400,
   },
 };
 
