@@ -366,6 +366,21 @@ Ideen (2026-09-27), nichts entschieden:
       `load-root-tileset` (Straßen aus dem Cache kamen vor dem Wurzel-Tileset). Gebaut: Region neu im neuen Rahmen, Neubau bei neuen Tiles nach blindem Einfrieren, `frame` im Trace.
       Offen: im Spiel bestätigen; tritt es wieder auf, Vorgehen in ROUTE_CORRIDOR.md („Vorgehen, wenn die Route wieder
       schwebt“).
+- [ ] **E94 Rest aus dem Review Sicherheit, Desktop und Spiellogik** (Review 2026-10-01, zwei Reviewer, Befunde im
+      Code nachgeprüft; das Behobene steht in den Commits des Tages). Offen:
+      - Windows-Installer und Auto-Update ohne Code-Signierung: SmartScreen warnt, das Update vertraut nur der
+        Prüfsumme aus demselben GitHub-Release. Entschieden (User, 2026-10-01): vorerst nicht, wieder ansehen, wenn
+        die App mehr Nutzer hat.
+      - Webversion ohne Content-Security-Policy (die Desktop-App hat eine); keine ausnutzbare Lücke gefunden, die CSP
+        wäre das Netz für den Kartenschlüssel im localStorage. Entscheidung User offen.
+      - Replay-Dateien werden nur flach geprüft (Format, zwei Arrays), ohne Größengrenze; eine gebaute Datei kann den
+        Worker werfen lassen (nur der eigene Client).
+      - Langsam und Gift haben je einen Platz: ein neuer, schwächerer Treffer überschreibt einen stärkeren, im Coop
+        also der Tower, der zuletzt traf (laut Code so gewollt).
+      - Der State-Hash erfasst Spawner (`accumulatedMs`, `nextDelayMs`, `spawnIndex`), Rush-Phase und
+        `remainingKillBudget` nicht: eine Abweichung dort zeigt sich erst später an Gegnern oder Gold.
+      - Bot-Server: das Dashboard ist jetzt nur lokal (`DASHBOARD_HOST`); der LAN-Relay der Desktop-App lauscht auf
+        allen Schnittstellen (für LAN-Spiel nötig) und nimmt Verbindungen ohne Origin an.
 - [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
       Der Worker loopt mit eigener Uhr statt auf Tick-Anfrage, der Hauptthread liest je Bild den neuesten Stand und
       spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf
