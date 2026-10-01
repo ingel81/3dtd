@@ -918,7 +918,7 @@ export class CoopService {
 
   /**
    * In the game (review R13): the next click on the map marks that place for
-   * everyone, this player included, in their lane colour. G arms it
+   * everyone, this player included, in their lane colour. X arms it
    * (CoopChatComponent); Esc or a click beside the map drops it.
    */
   armPing(): void {

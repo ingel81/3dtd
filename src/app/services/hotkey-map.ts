@@ -183,6 +183,14 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
     ],
   },
   {
+    title: 'Coop',
+    rows: [
+      { keys: ['Tab'], label: 'Open and close the room dock' },
+      { keys: ['Enter'], label: 'Write in the chat, Enter sends' },
+      { keys: ['X'], label: 'Mark a place: the next click on the map shows it to everyone; Esc drops it' },
+    ],
+  },
+  {
     title: 'Help',
     rows: [
       { keys: ['H', '?'], label: 'This overview' },
