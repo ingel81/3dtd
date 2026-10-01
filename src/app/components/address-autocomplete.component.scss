@@ -165,7 +165,8 @@ input.selected {
   border-bottom: none;
 }
 
-.result-item:hover {
+.result-item:hover,
+.result-item.active {
   background: var(--td-panel-main);
 }
 

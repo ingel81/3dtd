@@ -77,3 +77,45 @@ describe('AddressAutocompleteComponent, the hint under the field', () => {
     expect(field.searchState()).toBe('results');
   });
 });
+
+describe('AddressAutocompleteComponent by keyboard', () => {
+  const key = (k: string) => new KeyboardEvent('keydown', { key: k, cancelable: true });
+  const place = (n: number) => ({ placeId: n, lat: n, lon: n, displayName: `Place ${n}` }) as unknown as GeocodingResult;
+
+  it('walks the results with the arrows and takes one with Enter, the first when none is stood on', () => {
+    const { field, results } = setup();
+    const picked: string[] = [];
+    field.locationSelected.subscribe((value) => picked.push(value.name ?? ''));
+    field.onSearchChange('stu');
+    results.set([place(1), place(2), place(3)]);
+
+    field.onKeyDown(key('ArrowDown'));
+    field.onKeyDown(key('ArrowDown'));
+    expect(field.activeIndex()).toBe(1);
+    field.onKeyDown(key('ArrowUp'));
+    field.onKeyDown(key('ArrowUp'));
+    expect(field.activeIndex()).toBe(2);
+    const enter = key('Enter');
+    field.onKeyDown(enter);
+    expect(enter.defaultPrevented).toBe(true);
+    expect(picked).toEqual(['Place 3']);
+
+    field.onSearchChange('stut');
+    results.set([place(4), place(5)]);
+    field.onKeyDown(key('Enter'));
+    expect(picked).toEqual(['Place 3', 'Place 4']);
+  });
+
+  it('closes the list on Escape, and lets Escape through when no list is open', () => {
+    const { field, results } = setup();
+    field.onSearchChange('stu');
+    results.set([place(1)]);
+    const first = key('Escape');
+    field.onKeyDown(first);
+    expect(first.defaultPrevented).toBe(true);
+    expect(field.dropdownShown()).toBe(false);
+    const second = key('Escape');
+    field.onKeyDown(second);
+    expect(second.defaultPrevented).toBe(false);
+  });
+});

@@ -5,8 +5,15 @@
       #inputElement
       type="text"
       [placeholder]="placeholder()"
+      [attr.aria-label]="placeholder()"
+      role="combobox"
+      aria-autocomplete="list"
+      aria-controls="td-address-results"
+      [attr.aria-expanded]="dropdownShown()"
+      [attr.aria-activedescendant]="activeIndex() >= 0 && dropdownShown() ? 'td-address-result-' + activeIndex() : null"
       [ngModel]="searchText()"
       (ngModelChange)="onSearchChange($event)"
+      (keydown)="onKeyDown($event)"
       (focus)="onFocus()"
       (blur)="onBlur()"
       [class.selected]="currentValue()"
@@ -15,7 +22,7 @@
       <mat-spinner diameter="14" class="loading-spinner"></mat-spinner>
     }
     @if (currentValue() && !geocoding.isLoading()) {
-      <button class="clear-btn" (mousedown)="clearValue($event)" title="Clear" aria-label="Clear the address">
+      <button type="button" class="clear-btn" (mousedown)="$event.preventDefault()" (click)="clearValue($event)" title="Clear" aria-label="Clear the address">
         <td-icon name="cross" [size]="14"></td-icon>
       </button>
     }
@@ -63,10 +70,12 @@
   }
 
   <!-- Results dropdown -->
-  @if (showDropdown() && geocoding.results().length > 0) {
-    <div class="dropdown">
-      @for (result of geocoding.results().slice(0, 5); track result.placeId) {
-        <div class="result-item" (mousedown)="selectResult(result)">
+  @if (dropdownShown()) {
+    <div class="dropdown" id="td-address-results" role="listbox">
+      @for (result of shownResults(); track result.placeId; let i = $index) {
+        <div class="result-item" role="option" [id]="'td-address-result-' + i"
+             [class.active]="i === activeIndex()" [attr.aria-selected]="i === activeIndex()"
+             (mousedown)="selectResult(result)">
           <td-icon class="result-icon" name="pin" [size]="14"></td-icon>
           <span class="result-text">{{ formatResultLine(result) }}</span>
         </div>

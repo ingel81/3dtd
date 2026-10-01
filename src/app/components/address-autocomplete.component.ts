@@ -42,6 +42,11 @@ export class AddressAutocompleteComponent {
   readonly searchText = signal('');
   readonly hasFocus = signal(false);
   readonly showDropdown = signal(false);
+  /** The result the arrow keys stand on, -1 for none */
+  readonly activeIndex = signal(-1);
+  /** The results the dropdown lists */
+  readonly shownResults = computed(() => this.geocoding.results().slice(0, 5));
+  readonly dropdownShown = computed(() => this.showDropdown() && this.shownResults().length > 0);
 
   // Computed search state for status display
   readonly searchState = computed<SearchState>(() => {
@@ -70,6 +75,7 @@ export class AddressAutocompleteComponent {
   /** Each keystroke in the field ((ngModelChange)). */
   onSearchChange(query: string): void {
     this.searchText.set(query);
+    this.activeIndex.set(-1);
     this.geocoding.search(query);
     // Show dropdown when we have results
     if (query.length >= 3) {
@@ -105,6 +111,7 @@ export class AddressAutocompleteComponent {
   selectResult(result: GeocodingResult): void {
     this.searchText.set(this.formatSmartName(result));
     this.showDropdown.set(false);
+    this.activeIndex.set(-1);
     this.geocoding.clearResults();
 
     this.locationSelected.emit({
@@ -154,6 +161,40 @@ export class AddressAutocompleteComponent {
 
     // Fall back to displayName or coordinates
     return value.name || `${value.lat.toFixed(4)}, ${value.lon.toFixed(4)}`;
+  }
+
+  /**
+   * The list by keyboard: the arrows walk the results, Enter takes the one
+   * stood on (the first when none is), Escape closes the list.
+   */
+  onKeyDown(event: KeyboardEvent): void {
+    const results = this.shownResults();
+    if (!this.dropdownShown()) {
+      if (event.key === 'ArrowDown' && results.length > 0) {
+        this.showDropdown.set(true);
+        event.preventDefault();
+      }
+      return;
+    }
+    switch (event.key) {
+      case 'ArrowDown':
+        this.activeIndex.set((this.activeIndex() + 1) % results.length);
+        break;
+      case 'ArrowUp':
+        this.activeIndex.set(this.activeIndex() <= 0 ? results.length - 1 : this.activeIndex() - 1);
+        break;
+      case 'Enter':
+        this.selectResult(results[Math.max(0, this.activeIndex())]);
+        break;
+      case 'Escape':
+        this.showDropdown.set(false);
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    // Escape and Enter stop here: the dialog behind keeps open
+    event.stopPropagation();
   }
 
   clearValue(event: MouseEvent): void {
