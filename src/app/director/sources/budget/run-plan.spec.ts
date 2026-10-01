@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  MAX_BODIES_PER_LANE, RUN_PLAN, RUN_PLAN_REPEAT, RUN_PLAN_RULES, planBaseGold, planEnemies, planLeakScale, planMutator,
-  planRowForWave,
+  MAX_BODIES_PER_LANE, RUN_PLAN, RUN_PLAN_REPEAT, RUN_PLAN_RULES, WAVE_LEAK_POTENTIAL, planBaseGold, planEnemies, planLeakScale,
+  planMutator, planRowForWave, waveLeakPotential, waveLeakScale,
 } from './run-plan';
 import { WAVE_MUTATORS } from '../../../configs/wave-mutators.config';
 import { budgetSeconds } from './budget';
@@ -95,6 +95,22 @@ describe('run plan', () => {
       expect(planLeakScale(w) - planLeakScale(w - 1)).toBeLessThan(0.1);
     }
     expect(planLeakScale(31)).toBeCloseTo(2, 0);
+  });
+
+  it('shares the leaks of a crowded wave out of WAVE_LEAK_POTENTIAL and leaves a small wave its scale', () => {
+    let crowded = 0;
+    for (let w = 1; w <= 90; w++) {
+      const potential = waveLeakPotential(w);
+      expect(RUN_PLAN_RULES.leakScale(w)).toBe(waveLeakScale(w));
+      if (potential > WAVE_LEAK_POTENTIAL) {
+        crowded++;
+        // Every body getting through costs the potential at the curve's scale, no more
+        expect(Math.abs((potential * waveLeakScale(w)) / (WAVE_LEAK_POTENTIAL * planLeakScale(w)) - 1)).toBeLessThan(0.02);
+      } else {
+        expect(waveLeakScale(w)).toBeCloseTo(planLeakScale(w), 2);
+      }
+    }
+    expect(crowded).toBeGreaterThan(0);
   });
 
   it('marks the plan boss waves, not the campaign cadence', () => {

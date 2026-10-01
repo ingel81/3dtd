@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setActiveWaveRules, waveHasAir, waveMutator, waveRules, type WaveRules } from './wave-rules';
 import { WAVE_MUTATORS } from '../configs/wave-mutators.config';
-import { RUN_PLAN_RULES, planLeakScale, planRowForWave } from './sources/budget/run-plan';
+import { RUN_PLAN_RULES, planRowForWave, waveLeakScale } from './sources/budget/run-plan';
 import { enemyBaseDamageForWave, waveGold } from '../configs/campaign.config';
 import { TableWaveSource } from './sources/table/table-source';
 import { summarizeWaveGroups } from '../managers/game-state/wave-preview';
@@ -19,7 +19,7 @@ describe('wave rules', () => {
   afterEach(() => setActiveWaveRules(RUN_PLAN_RULES));
 
   it('are the run plan rules, the default source, before any source is set', () => {
-    for (const wave of [1, 31, 61]) expect(waveRules().leakScale(wave)).toBe(planLeakScale(wave));
+    for (const wave of [1, 31, 61]) expect(waveRules().leakScale(wave)).toBe(waveLeakScale(wave));
     expect(waveRules().gold(12)).toEqual(waveGold(12, false));
     expect(waveRules().isBoss(10)).toBe(planRowForWave(10)!.boss === true);
   });

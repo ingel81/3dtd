@@ -16,7 +16,7 @@ import { addTowerDps } from '../../src/app/director/defense-analyzer';
 import { computeTowerDPSFromLevels } from '../../src/app/director/tower-dps.util';
 import type { EffectiveDPSPerArmor } from '../../src/app/director/models/game-state-snapshot';
 import { bodyParts } from '../../src/app/director/sources/budget/budget';
-import { planEnemies, planLeakScale, planRowForWave } from '../../src/app/director/sources/budget/run-plan';
+import { RUN_PLAN_RULES, planEnemies, planRowForWave } from '../../src/app/director/sources/budget/run-plan';
 import type { WaveConfig } from '../../src/app/director/models/wave-config';
 import type { DefenseAt, TrajectoryWave } from './trajectory';
 
@@ -57,7 +57,7 @@ export interface WaveBody {
 
 /** The bodies of a wave as shipped: counts and HP factors from the config, the rest from the enemy types. */
 export function waveBodies(wave: number, config: Pick<WaveConfig, 'enemies'>): WaveBody[] {
-  const scale = planLeakScale(wave);
+  const scale = RUN_PLAN_RULES.leakScale(wave);
   const out: WaveBody[] = [];
   for (const group of config.enemies) {
     const cfg = ENEMY_TYPES[group.type as EnemyTypeId];

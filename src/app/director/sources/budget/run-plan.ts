@@ -14,7 +14,7 @@ import type { SpawnPattern } from '../../spawn-schedule-builder';
 import type { WaveRules } from '../../wave-rules';
 import { CAMPAIGN, goldTaper, waveGold } from '../../../configs/campaign.config';
 import { baseBudgetSeconds, budgetSeconds } from './budget';
-import { ENEMY_TYPES, lineageBodies, type EnemyTypeId } from '../../../configs/enemy-types.config';
+import { ENEMY_TYPES, leakDamageOf, lineageBodies, lineageLeakDamage, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import { WAVE_MUTATORS, bloodMoonMutator, type WaveMutator } from '../../../configs/wave-mutators.config';
 
 export interface RunPlanRow {
@@ -68,6 +68,34 @@ export function planLeakScale(wave: number): number {
   const first = baseBudgetSeconds(1);
   const scale = 1 + (LEAK_GROWTH * (baseBudgetSeconds(Math.max(1, wave)) - first)) / first;
   return Math.round(scale * 100) / 100;
+}
+
+/**
+ * Most HQ HP the bodies of one wave cost if every one of them gets through,
+ * before the wave's scale (planLeakScale). A wave that brings more shares it
+ * out: each of its leaks costs that much less. Every wave, every type.
+ *
+ * Without it a swarm carried 2000 to 3500 HP of leaks against an HQ of 350
+ * (the human run of 2026-10-01, W19 to W54), so a defense a few per cent too
+ * weak for it lost a third of its HQ in one wave, and the loop could only
+ * keep such waves well under the edge: 37 waves without a loss, then the end.
+ * A boss wave carries about 100.
+ */
+export const WAVE_LEAK_POTENTIAL = 40;
+
+/** What all bodies of `wave` cost the HQ at the wave's scale 1: each type's leak damage (split tree, a worm once) times its count. */
+export function waveLeakPotential(wave: number): number {
+  return Object.entries(planEnemies(wave)).reduce((sum, [type, count]) => {
+    const id = type as EnemyTypeId;
+    return sum + count * (ENEMY_TYPES[id]?.chain ? leakDamageOf(id) : lineageLeakDamage(id));
+  }, 0);
+}
+
+/** What one leak of `wave` costs per point of a type's leak damage: the curve's scale, a crowded wave's share of WAVE_LEAK_POTENTIAL. */
+export function waveLeakScale(wave: number): number {
+  const potential = waveLeakPotential(wave);
+  const share = potential > WAVE_LEAK_POTENTIAL ? WAVE_LEAK_POTENTIAL / potential : 1;
+  return Math.round(planLeakScale(wave) * share * 1000) / 1000;
 }
 
 /** Campaign waves whose gold was a boss peak; the plan's curve runs smooth through them. */
@@ -146,7 +174,7 @@ function planGold(wave: number): WaveGold {
 }
 
 export const RUN_PLAN_RULES: WaveRules = {
-  leakScale: planLeakScale,
+  leakScale: waveLeakScale,
   gold: planGold,
   isBoss: (wave) => planRowForWave(wave)?.boss === true,
   enemyMix: (wave) => {

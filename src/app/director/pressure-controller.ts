@@ -106,6 +106,15 @@ export const PRESSURE_SHAPE_END = 1.5;
 export const PRESSURE_MAX_STEP = 0.7;
 
 /**
+ * Größter Schritt beim Öffnen, als Betrag des Log-Fehlers: 0,3 entspricht
+ * höchstens ×1,16 pro Welle. Öffnen geht langsamer als Schließen: Nach einer
+ * Reihe billiger Wellen stand der Regler sonst in drei Wellen beim Doppelten,
+ * und die erste Welle, die die Abwehr wirklich forderte, kam mit vollem
+ * Überschuss.
+ */
+export const PRESSURE_MAX_OPEN_STEP = 0.2;
+
+/**
  * Untergrenze der Messung, damit `ln(target / 0)` nicht divergiert. Eine
  * Welle, die gar nichts kostet, liest sich als "kostete 0,2 % der HP".
  */
@@ -302,7 +311,7 @@ export class PressureController {
       return this.multiplier;
     }
 
-    const clamped = Math.max(-PRESSURE_MAX_STEP, Math.min(PRESSURE_MAX_STEP, error));
+    const clamped = Math.max(-PRESSURE_MAX_STEP, Math.min(PRESSURE_MAX_OPEN_STEP, error));
     const step = DetMath.exp(params.pressureGain * clamped);
     this.multiplier = Math.max(
       this.limits.min,

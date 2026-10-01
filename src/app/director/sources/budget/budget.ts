@@ -10,7 +10,8 @@
  *    under fire (metres of route under fire over its speed), and only a part of
  *    that when its one leak would cost more than the wave may (SURE_KILL_SHARE).
  * 4. Deckel: the wave's whole cost is at most what the defense can deal while
- *    the wave is on the route, plus the leaks the tension curve allows.
+ *    the wave is on the route, times the loop's R, plus the leaks the tension
+ *    curve allows (CAP_FOLLOWS_REGULATOR).
  * 5. One shared HP factor fills what is left of the budget.
  *
  * Pure functions, no state: the source holds R.
@@ -65,6 +66,16 @@ export const MIN_UNDER_FIRE_S = 2;
 /** HP factors stay within these, whatever the defense. */
 export const HP_MULT_MIN = 0.1;
 export const HP_MULT_MAX = 500;
+/**
+ * The cap moves with the loop: a wave may cost R times the defense's time on
+ * the route. A fixed cap held 13 of 60 waves of the human run of 2026-10-01
+ * while the loop stood at its stop for 50 waves and 37 of them cost nothing:
+ * a player who lands more than BUDGET_REALISM of the matrix damage was never
+ * reached on the waves that fill the route. With R in it the cap still flattens
+ * the waves a plan row makes too dense, and the loop decides how dense that is
+ * for this player; below R 1 it protects a weaker one further.
+ */
+export const CAP_FOLLOWS_REGULATOR = true;
 /** Least HP a wave may cost through leaks, as in the adaptive cap. */
 export const MIN_LEAK_HP = 1;
 
@@ -209,7 +220,8 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   const fireAvg = hurt.length ? hurt.reduce((sum, h) => sum + h.n * Math.max(h.fire, h.onRoute), 0) / hurt.reduce((sum, h) => sum + h.n, 0) : 0;
   const window = spawnSeconds + fireAvg;
   const allowedLeaks = leakCost > 0 && count > 0 ? leakHp / (input.leakScale * (leakCost / count)) : 0;
-  const delivered = Math.min(budget, window + budget * Math.min(1, allowedLeaks / Math.max(1, count)));
+  const capWindow = CAP_FOLLOWS_REGULATOR ? window * input.regulator : window;
+  const delivered = Math.min(budget, capWindow + budget * Math.min(1, allowedLeaks / Math.max(1, count)));
 
   // One shared factor m, each type held at its own limit
   const cost = (m: number) => hurt.reduce((sum, h) => sum + h.n * h.sec * Math.min(m, h.cap), 0);

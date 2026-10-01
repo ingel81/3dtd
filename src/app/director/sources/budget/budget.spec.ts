@@ -82,6 +82,14 @@ describe('sizeWave', () => {
     expect(moreHp.delivered).toBeGreaterThan(short.delivered);
   });
 
+  it('moves the cap with the loop, so a capped wave still answers to it', () => {
+    const at = (regulator: number) => sizeWave(base({ enemies: { zombie: 10 }, spawnDelayMs: 100, regulator, defense: { dps: dps(1000), damageMetres: dps(1000 * 30), hpRemaining: 300 } }));
+    expect(at(1).capped).toBe(true);
+    expect(at(2).capped).toBe(true);
+    expect(at(2).delivered).toBeGreaterThan(at(1).delivered * 1.5);
+    expect(at(0.5).delivered).toBeLessThan(at(1).delivered);
+  });
+
   it('leaves enemies the defense cannot hurt at the row strength, HP ×1 at strength 1', () => {
     const sized = sizeWave(base({ enemies: { bat: 20, zombie: 50 }, defense: { dps: dps(1000, 0), damageMetres: dps(1000 * 400, 0), hpRemaining: 300 } }));
     expect(sized.unhurt).toEqual(['bat']);

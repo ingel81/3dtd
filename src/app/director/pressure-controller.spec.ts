@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   PressureController,
+  PRESSURE_MAX_OPEN_STEP,
+  PRESSURE_MAX_STEP,
   PRESSURE_MEASURE_CAP,
   targetPressure,
 } from './pressure-controller';
@@ -33,5 +35,24 @@ describe('PressureController: one wave counts at most three times the target (TO
   it('takes a wave under the cap as it is', () => {
     const wave = first + 3;
     expect(after(target(wave) * 2).status.meanPressure).not.toBeCloseTo(after(target(wave) * 2.9).status.meanPressure!);
+  });
+});
+
+describe('PressureController: opens slower than it closes', () => {
+  const gain = () => directorParams().pressureGain;
+
+  it('opens at most by the open step per wave after waves that cost nothing', () => {
+    const loop = new PressureController({ min: 0.5, max: 10 }, { warmupWaves: 0, minSamples: 1 });
+    let before = loop.pressureMultiplier;
+    for (let wave = 1; wave <= 6; wave++) {
+      const after = loop.recordWave(0, wave);
+      expect(after / before).toBeCloseTo(Math.exp(gain() * PRESSURE_MAX_OPEN_STEP), 6);
+      before = after;
+    }
+  });
+
+  it('closes by the full step after a wave far over the target', () => {
+    const loop = new PressureController({ min: 0.1, max: 10 }, { warmupWaves: 0, minSamples: 1 });
+    expect(loop.recordWave(0.5, 1)).toBeCloseTo(Math.exp(-gain() * PRESSURE_MAX_STEP), 6);
   });
 });

@@ -28,15 +28,17 @@ import type { ArmorType } from '../../../configs/combat/combat.types';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import { PressureController, targetPressure, wavePressure } from '../../pressure-controller';
 import { directorParams } from '../../director-params';
-import { RUN_PLAN_RULES, planEnemies, planLeakScale, planMutator, planRowForWave, type RunPlanRow } from './run-plan';
-import { bodyParts, sizeWave, type BudgetResult } from './budget';
+import { RUN_PLAN_RULES, planEnemies, planMutator, planRowForWave, waveLeakScale, type RunPlanRow } from './run-plan';
+import { CAP_FOLLOWS_REGULATOR, bodyParts, sizeWave, type BudgetResult } from './budget';
 
 /**
- * The loop moves the budget between half and one and a half. Decided was half to double (User, 2026-09-28);
- * at double the bots lost nothing on most waves, the loop stood at its stop by W23 and the waves the defense
- * matches worst (ghosts W24, mammoths W25) then cost 60 to 210 HP (bot runs 2026-09-29).
+ * The loop moves the budget, and the cap with it, between half and two and a half. At 1.5 with a fixed cap
+ * the human run of 2026-10-01 stood at the stop from W11 to W60 and lost nothing in 37 waves; at double with
+ * a fixed cap the bots' worst pairings had cost 60 to 210 HP (2026-09-29), which the leak potential of a wave
+ * (WAVE_LEAK_POTENTIAL) now bounds. The balance calculator puts a player who lands 1.3 times as much of
+ * the damage on the set curve at 2.5 and leaves the recorded player below 2 most of the run.
  */
-export const BUDGET_REGULATOR_LIMITS = { min: 0.5, max: 1.5 } as const;
+export const BUDGET_REGULATOR_LIMITS = { min: 0.5, max: 2.5 } as const;
 /** From the second wave on, two readings: bots lost 40 to 60 HP a wave in W5-W7 while the loop still waited. */
 export const BUDGET_REGULATOR_START = { warmupWaves: 1, minSamples: 2 } as const;
 
@@ -78,7 +80,7 @@ export class BudgetWaveSource implements WaveSource {
       spawnDelayMs: row.spawnDelay,
       regulator,
       targetPressure: target,
-      leakScale: planLeakScale(wave),
+      leakScale: waveLeakScale(wave),
       defense: {
         dps: state.defense?.effectiveDPSPerArmor,
         damageMetres: state.defense?.damageMetres,
@@ -86,9 +88,10 @@ export class BudgetWaveSource implements WaveSource {
         hpRemaining: (state.player?.lives ?? 100) / lanes,
       },
     });
-    // Anti-windup: opening the loop helps nothing when the cap or every type's own limit holds the wave
+    // Anti-windup: opening the loop helps nothing when every type's own limit holds the wave.
+    // The cap moves with R (CAP_FOLLOWS_REGULATOR), so a capped wave still answers to it.
     const hurt = Object.keys(sized.hpMult).filter((type) => !sized.unhurt.includes(type));
-    this.lastCapped = sized.capped || (hurt.length > 0 && hurt.every((type) => sized.clamped.includes(type)));
+    this.lastCapped = (!CAP_FOLLOWS_REGULATOR && sized.capped) || (hurt.length > 0 && hurt.every((type) => sized.clamped.includes(type)));
 
     const enemies: WaveEnemyGroup[] = Object.entries(planned)
       .filter(([, count]) => count > 0)
@@ -212,7 +215,7 @@ function explain(
     `Run plan, row ${row.wave}: ${Object.entries(planned).map(([type, count]) => `${count}× ${type}`).join(', ')}, every ${row.spawnDelay} ms.`,
     `Budget ${round1(sized.budget)} s of defense damage (curve × strength ${row.strength} × loop ×${round2(regulator)}).`,
   ];
-  if (sized.capped) reasons.push(`The defense has about ${round1(sized.window)} s while the wave is on the route: ${round1(sized.delivered)} s of it are sent, leaks included.`);
+  if (sized.capped) reasons.push(`The defense has about ${round1(sized.window)} s while the wave is on the route: ${round1(sized.delivered)} s are sent (that time × the loop, leaks included).`);
   if (sized.clamped.length) reasons.push(`At their limit (time under fire): ${sized.clamped.map((type) => `${type} HP ×${sized.hpMult[type]}`).join(', ')}.`);
   if (sized.unhurt.length) reasons.push(`The defense cannot hurt ${sized.unhurt.join(', ')}: HP × the row's strength ${row.strength}.`);
   const mutator = planMutator(wave);
