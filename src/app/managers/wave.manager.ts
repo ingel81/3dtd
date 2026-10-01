@@ -432,9 +432,11 @@ export class WaveManager implements IGameManager {
       spawner.spawnIndex = state.spawnIndex;
       spawner.consecutiveFailures = state.consecutiveFailures;
     } else {
-      // Spawn the first immediately: its delay drawn once, as both fields
-      spawner.accumulatedMs = delayForEntry(0);
-      spawner.nextDelayMs = delayForEntry(0);
+      // Spawn the first immediately: its delay drawn once, as both fields (two
+      // draws gave two values, and the first waited for their difference)
+      const first = delayForEntry(0);
+      spawner.accumulatedMs = first;
+      spawner.nextDelayMs = first;
     }
     this.activeSpawner = spawner;
   }
