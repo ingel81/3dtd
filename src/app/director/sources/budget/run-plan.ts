@@ -79,20 +79,26 @@ export function planLeakScale(wave: number): number {
  * (the human run of 2026-10-01, W19 to W54), so a defense a few per cent too
  * weak for it lost a third of its HQ in one wave, and the loop could only
  * keep such waves well under the edge: 37 waves without a loss, then the end.
- * A boss wave carries about 100.
+ * A boss (isBoss) is neither counted nor shared: it costs what it costs.
  */
 export const WAVE_LEAK_POTENTIAL = 40;
 
-/** What all bodies of `wave` cost the HQ at the wave's scale 1: each type's leak damage (split tree, a worm once) times its count. */
+/** What all bodies of `wave` but its bosses cost the HQ at the wave's scale 1: each type's leak damage (split tree, a worm once) times its count. */
 export function waveLeakPotential(wave: number): number {
   return Object.entries(planEnemies(wave)).reduce((sum, [type, count]) => {
     const id = type as EnemyTypeId;
+    if (ENEMY_TYPES[id]?.isBoss) return sum;
     return sum + count * (ENEMY_TYPES[id]?.chain ? leakDamageOf(id) : lineageLeakDamage(id));
   }, 0);
 }
 
-/** What one leak of `wave` costs per point of a type's leak damage: the curve's scale, a crowded wave's share of WAVE_LEAK_POTENTIAL. */
-export function waveLeakScale(wave: number): number {
+/**
+ * What one leak of `wave` costs per point of a type's leak damage: the curve's
+ * scale, for a crowded wave its share of WAVE_LEAK_POTENTIAL. A boss pays the
+ * curve's scale whole.
+ */
+export function waveLeakScale(wave: number, enemyType?: string): number {
+  if (enemyType !== undefined && ENEMY_TYPES[enemyType as EnemyTypeId]?.isBoss) return planLeakScale(wave);
   const potential = waveLeakPotential(wave);
   const share = potential > WAVE_LEAK_POTENTIAL ? WAVE_LEAK_POTENTIAL / potential : 1;
   return Math.round(planLeakScale(wave) * share * 1000) / 1000;

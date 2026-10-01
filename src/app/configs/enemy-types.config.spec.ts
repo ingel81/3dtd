@@ -81,13 +81,18 @@ describe('enemy types config', () => {
     expect(leakDamageOf('stone-golem')).toBe(4);
     expect(leakDamageOf('herbert')).toBe(13);
     expect(leakDamageOf('ooze')).toBe(49);
-    // The worm costs it once for all its segments
-    expect(leakDamageOf('worm')).toBe(MAX_LEAK_DAMAGE);
     for (const enemy of getAllEnemyTypes()) {
       const damage = leakDamageOf(enemy.id as never);
       expect(damage).toBeGreaterThanOrEqual(1);
-      expect(damage).toBeLessThanOrEqual(MAX_LEAK_DAMAGE);
+      // A type's own leak damage stands in for the one from its HP
+      expect(damage).toBeLessThanOrEqual(enemy.leakDamage ?? MAX_LEAK_DAMAGE);
     }
+  });
+
+  it('lets a type set its own leak damage: the worm costs 150 for all its segments', () => {
+    expect(ENEMY_TYPES['worm'].leakDamage).toBe(150);
+    expect(leakDamageOf('worm')).toBe(150);
+    expect(ENEMY_TYPES['worm-segment'].leakDamage).toBeUndefined();
   });
 
   it('all enemy types have required fields', () => {

@@ -57,7 +57,6 @@ export interface WaveBody {
 
 /** The bodies of a wave as shipped: counts and HP factors from the config, the rest from the enemy types. */
 export function waveBodies(wave: number, config: Pick<WaveConfig, 'enemies'>): WaveBody[] {
-  const scale = RUN_PLAN_RULES.leakScale(wave);
   const out: WaveBody[] = [];
   for (const group of config.enemies) {
     const cfg = ENEMY_TYPES[group.type as EnemyTypeId];
@@ -65,6 +64,7 @@ export function waveBodies(wave: number, config: Pick<WaveConfig, 'enemies'>): W
     const parts = bodyParts(group.type);
     const bodies = parts.reduce((sum, p) => sum + p.bodies, 0);
     const leak = cfg.chain ? leakDamageOf(group.type as EnemyTypeId) / bodies : lineageLeakDamage(group.type as EnemyTypeId);
+    const scale = RUN_PLAN_RULES.leakScale(wave, group.type);
     for (const part of parts) {
       const n = group.count * part.bodies;
       out.push({ type: group.type, n, hp: part.hp * (group.healthMultiplier ?? 1), armor: part.armor, air: !!cfg.isAirUnit, speed: part.speed, leak: leak * scale });

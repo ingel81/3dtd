@@ -12,7 +12,6 @@ import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
  * one lane's. `wave`: the wave number, for what a leak costs at it.
  */
 export function summarizeWaveGroups(config: WaveConfig, lanes = 1, wave = 1): WaveGroupDisplay[] {
-  const scale = waveRules().leakScale(wave);
   const entries = config.schedule.entries;
   if (entries.length === 0) return [];
 
@@ -27,6 +26,7 @@ export function summarizeWaveGroups(config: WaveConfig, lanes = 1, wave = 1): Wa
   }
 
   return Array.from(groupMap.entries()).map(([typeId, data]) => {
+    const scale = waveRules().leakScale(wave, typeId);
     const enemyConfig = ENEMY_TYPES[typeId as keyof typeof ENEMY_TYPES];
     const baseHp = enemyConfig.baseHp;
     const baseSpeed = enemyConfig.baseSpeed;

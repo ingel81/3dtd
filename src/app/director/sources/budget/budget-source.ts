@@ -29,7 +29,7 @@ import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.conf
 import { PressureController, targetPressure, wavePressure } from '../../pressure-controller';
 import { directorParams } from '../../director-params';
 import { RUN_PLAN_RULES, planEnemies, planMutator, planRowForWave, waveLeakScale, type RunPlanRow } from './run-plan';
-import { CAP_FOLLOWS_REGULATOR, bodyParts, sizeWave, type BudgetResult } from './budget';
+import { BOSS_MIN_HP_MULT, BOSS_OVER_ESCORT, CAP_FOLLOWS_REGULATOR, bodyParts, sizeWave, type BudgetResult } from './budget';
 
 /**
  * The loop moves the budget, and the cap with it, between half and two and a half. At 1.5 with a fixed cap
@@ -80,7 +80,7 @@ export class BudgetWaveSource implements WaveSource {
       spawnDelayMs: row.spawnDelay,
       regulator,
       targetPressure: target,
-      leakScale: waveLeakScale(wave),
+      leakScale: (type) => waveLeakScale(wave, type),
       defense: {
         dps: state.defense?.effectiveDPSPerArmor,
         damageMetres: state.defense?.damageMetres,
@@ -194,15 +194,17 @@ function breakdown(
           armor: cfg?.armorType ?? 'unarmored',
           hpMult: sized.hpMult[type] ?? 1,
           limit: unhurt ? null : sized.limits[type] ?? null,
-          state: unhurt ? 'unhurt' as const : sized.clamped.includes(type) ? 'limit' as const : 'shared' as const,
+          state: unhurt ? 'unhurt' as const
+            : sized.floored.includes(type) ? 'boss' as const
+            : sized.clamped.includes(type) ? 'limit' as const : 'shared' as const,
         };
       }),
   };
 }
 
-/** The factor most of the wave got: the unclamped one, else the largest. */
+/** The factor most of the wave got: the unclamped one (not a floored boss), else the largest. */
 function sharedMult(sized: BudgetResult): number {
-  const free = Object.entries(sized.hpMult).filter(([type]) => !sized.clamped.includes(type) && !sized.unhurt.includes(type));
+  const free = Object.entries(sized.hpMult).filter(([type]) => !sized.clamped.includes(type) && !sized.unhurt.includes(type) && !sized.floored.includes(type));
   const values = (free.length ? free : Object.entries(sized.hpMult)).map(([, m]) => m);
   return values.length ? Math.max(...values) : 1;
 }
@@ -217,6 +219,7 @@ function explain(
   ];
   if (sized.capped) reasons.push(`The defense has about ${round1(sized.window)} s while the wave is on the route: ${round1(sized.delivered)} s are sent (that time × the loop, leaks included).`);
   if (sized.clamped.length) reasons.push(`At their limit (time under fire): ${sized.clamped.map((type) => `${type} HP ×${sized.hpMult[type]}`).join(', ')}.`);
+  if (sized.floored.length) reasons.push(`Boss floor (${BOSS_OVER_ESCORT}× the toughest escort, at least ${BOSS_MIN_HP_MULT}× its base): ${sized.floored.map((type) => `${type} HP ×${sized.hpMult[type]}`).join(', ')}.`);
   if (sized.unhurt.length) reasons.push(`The defense cannot hurt ${sized.unhurt.join(', ')}: HP × the row's strength ${row.strength}.`);
   const mutator = planMutator(wave);
   if (mutator) reasons.push(`Blood moon: ${mutator.name}. ${mutator.description}`);

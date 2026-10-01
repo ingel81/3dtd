@@ -86,6 +86,7 @@
                     <td>
                       @switch (t.state) {
                         @case ('limit') { at {{ t.limit }} }
+                        @case ('boss') { boss floor, limit {{ t.limit }} }
                         @case ('unhurt') { no damage }
                         @default { {{ t.limit }} }
                       }

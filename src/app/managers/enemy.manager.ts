@@ -735,7 +735,7 @@ export class EnemyManager extends EntityManager<Enemy> {
         this.eventBus.emit({
           type: 'enemy:reached-base',
           enemy,
-          damage: typeDamage * waveRules().leakScale(this.getWaveNumber()),
+          damage: typeDamage * waveRules().leakScale(this.getWaveNumber(), enemy.typeConfig.id),
         });
         this.toRemove.push(enemy);
         continue;

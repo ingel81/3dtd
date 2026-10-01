@@ -30,8 +30,8 @@ export interface BudgetTypeLine {
   hpMult: number;
   /** Its own limit (time under fire), null when the defense cannot hurt it */
   limit: number | null;
-  /** shared: the wave's factor; limit: held at its own limit; unhurt: the row's strength */
-  state: 'shared' | 'limit' | 'unhurt';
+  /** shared: the wave's factor; limit: held at its own limit; boss: held up by the boss floor; unhurt: the row's strength */
+  state: 'shared' | 'limit' | 'boss' | 'unhurt';
 }
 
 /** How the budget source sized a wave: the loop, the budget, what the defense can take, each type */

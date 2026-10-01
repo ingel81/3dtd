@@ -136,14 +136,14 @@ function tooltip(fact: WavePeekFacts, weights: [ArmorType, number][], weakTo: st
   // What they cost the HQ (TODO E49): each type, and the largest wave whole
   const known = fact.enemies.filter(([id]) => ENEMY_TYPES[id as EnemyTypeId]);
   if (known.length > 0) {
-    const scale = waveRules().leakScale(fact.wave);
+    const scale = (id: string) => waveRules().leakScale(fact.wave, id);
     // Two kinds under one name (the zombies) are one entry
-    const each = [...new Set(known.map(([id]) => `${ENEMY_TYPES[id as EnemyTypeId].name} ${Math.round(leakDamageOf(id as EnemyTypeId) * scale * 10) / 10}`))];
+    const each = [...new Set(known.map(([id]) => `${ENEMY_TYPES[id as EnemyTypeId].name} ${Math.round(leakDamageOf(id as EnemyTypeId) * scale(id) * 10) / 10}`))];
     parts.push(`At the HQ each costs: ${each.join(', ')} HP.`);
     const shares = known.reduce((sum, [, share]) => sum + share, 0);
     if (fact.count && shares > 0) {
-      const perEnemy = known.reduce((sum, [id, share]) => sum + share * lineageLeakDamage(id as EnemyTypeId), 0) / shares;
-      parts.push(`All ${fact.count} through: up to ${Math.round(fact.count * perEnemy * scale)} HP.`);
+      const perEnemy = known.reduce((sum, [id, share]) => sum + share * lineageLeakDamage(id as EnemyTypeId) * scale(id), 0) / shares;
+      parts.push(`All ${fact.count} through: up to ${Math.round(fact.count * perEnemy)} HP.`);
     }
   }
 

@@ -98,7 +98,8 @@ export class OozeBodies {
       const speed = movement.speedMps * movement.speedMultiplier * movement.getSlowMultiplier(gameTimeMs);
       const entered = body.flowIn((speed * Math.min(deltaMs, 100)) / 1000);
       if (entered > 0) {
-        const perMetre = (waveRules().leakScale(this.waveNumber()) * leakDamageOf(enemy.typeConfig.id as EnemyTypeId)) / config.maxLengthM;
+        const type = enemy.typeConfig.id as EnemyTypeId;
+        const perMetre = (waveRules().leakScale(this.waveNumber(), type) * leakDamageOf(type)) / config.maxLengthM;
         const damage = body.owe(entered * perMetre);
         if (damage > 0) this.eventBus.emit({ type: 'enemy:leaking', enemy, damage });
         // The mass that went in takes its share of the one HP pool with it

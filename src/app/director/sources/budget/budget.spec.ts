@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { baseBudgetSeconds, bodyParts, budgetSeconds, ENDLESS_GROWTH, enemyHp, meanRush, sizeWave, BUDGET_REALISM, SURE_KILL_SHARE, UNDER_FIRE_SHARE, type BudgetInput } from './budget';
+import {
+  baseBudgetSeconds, bodyParts, budgetSeconds, ENDLESS_GROWTH, enemyHp, meanRush, sizeWave, BOSS_MIN_HP_MULT, BOSS_OVER_ESCORT,
+  BUDGET_REALISM, SURE_KILL_HQ_SHARE, SURE_KILL_SHARE, UNDER_FIRE_SHARE, type BudgetInput,
+} from './budget';
 import type { EffectiveDPSPerArmor } from '../../models/game-state-snapshot';
 import { ENEMY_TYPES, WORM_MAX_SEGMENTS } from '../../../configs/enemy-types.config';
 
@@ -15,7 +18,7 @@ const base = (over: Partial<BudgetInput> = {}): BudgetInput => ({
   spawnDelayMs: 1000,
   regulator: 1,
   targetPressure: 0.05,
-  leakScale: 1,
+  leakScale: () => 1,
   defense: { dps: dps(1000), damageMetres: dps(1000 * 400), hpRemaining: 300 },
   ...over,
 });
@@ -61,7 +64,7 @@ describe('sizeWave', () => {
 
   it('holds an enemy at what the defense deals while it is under fire', () => {
     // One worm, a short stretch under fire: it would take far more than that
-    const input = base({ enemies: { ooze: 1 }, spawnDelayMs: 0, targetPressure: 10, defense: { dps: dps(50000), damageMetres: dps(50000 * 20), hpRemaining: 300 } });
+    const input = base({ enemies: { ooze: 1 }, spawnDelayMs: 0, targetPressure: 10, defense: { dps: dps(50000), damageMetres: dps(50000 * 20), hpRemaining: 3000 } });
     const sized = sizeWave(input);
     const fire = 20 / ENEMY_TYPES['ooze'].baseSpeed;
     expect(sized.clamped).toEqual(['ooze']);
@@ -103,12 +106,36 @@ describe('sizeWave', () => {
   });
 });
 
-describe('sizeWave, an enemy whose one leak costs more than the wave may', () => {
+describe('sizeWave, an enemy whose one leak costs a good part of the HQ', () => {
   it('gets only the sure-kill share of the damage under fire', () => {
-    const defense = { dps: dps(50000), damageMetres: dps(50000 * 30), hpRemaining: 300 };
-    const cheap = sizeWave(base({ enemies: { ooze: 1 }, spawnDelayMs: 0, targetPressure: 10, defense }));
-    const dear = sizeWave(base({ enemies: { ooze: 1 }, spawnDelayMs: 0, targetPressure: 0.0001, defense }));
-    expect(dear.hpMult['ooze']).toBeCloseTo((cheap.hpMult['ooze'] * SURE_KILL_SHARE) / UNDER_FIRE_SHARE, 2);
+    const at = (hpRemaining: number) => sizeWave(base({ enemies: { ooze: 1 }, spawnDelayMs: 0, defense: { dps: dps(50000), damageMetres: dps(50000 * 30), hpRemaining } }));
+    // The Ooze's leak (49) against SURE_KILL_HQ_SHARE of 3000 and of 300 HQ HP
+    expect(49).toBeLessThan(3000 * SURE_KILL_HQ_SHARE);
+    expect(49).toBeGreaterThan(300 * SURE_KILL_HQ_SHARE);
+    expect(at(300).hpMult['ooze']).toBeCloseTo((at(3000).hpMult['ooze'] * SURE_KILL_SHARE) / UNDER_FIRE_SHARE, 2);
+  });
+});
+
+describe('sizeWave, a boss', () => {
+  const defense = { dps: dps(3000), damageMetres: dps(3000 * 40), metresUnderFire: { ground: 200, air: 200 }, hpRemaining: 300 };
+
+  it('is never weaker than BOSS_OVER_ESCORT times the toughest escort body', () => {
+    const sized = sizeWave(base({ wave: 10, enemies: { herbert: 1, tank: 10, zombie: 9 }, spawnDelayMs: 2000, defense }));
+    const herbert = enemyHp('herbert') * sized.hpMult['herbert'];
+    const tank = enemyHp('tank') * sized.hpMult['tank'];
+    expect(herbert).toBeGreaterThanOrEqual(BOSS_OVER_ESCORT * tank * 0.999);
+    expect(sized.floored).toContain('herbert');
+  });
+
+  it('keeps at least BOSS_MIN_HP_MULT of its base HP, however short its time under fire', () => {
+    const sized = sizeWave(base({ wave: 20, enemies: { ooze: 1 }, spawnDelayMs: 0, defense: { ...defense, damageMetres: dps(3000 * 2) } }));
+    expect(sized.hpMult['ooze']).toBe(BOSS_MIN_HP_MULT);
+  });
+
+  it('takes its floor out of the budget of its escort', () => {
+    const alone = sizeWave(base({ wave: 10, enemies: { tank: 10, zombie: 9 }, spawnDelayMs: 2000, defense }));
+    const led = sizeWave(base({ wave: 10, enemies: { herbert: 1, tank: 10, zombie: 9 }, spawnDelayMs: 2000, defense }));
+    expect(led.hpMult['tank']).toBeLessThan(alone.hpMult['tank']);
   });
 });
 

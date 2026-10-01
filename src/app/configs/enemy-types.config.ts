@@ -172,7 +172,12 @@ export interface EnemyTypeConfig {
 
   // Boss / Special
   healthBarColor?: string; // Fixed health bar color as hex (e.g. '#ff0000' for boss)
-  immunityPercent?: number; // Damage immunity in % (0-100, displayed as "Immune X%")
+  /**
+   * HQ HP it costs when it gets through, before the wave's scale, instead of
+   * the one its HP give (leakDamageOf). For a body that is meant to hurt more
+   * than its HP say, the worm.
+   */
+  leakDamage?: number;
   /**
    * A boss unit: the boss bar at the top centre shows it under its `name`,
    * its death shakes the screen (bossDeath preset), and abilities take a
@@ -635,7 +640,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     animationSpeed: 1.0,
     heightOffset: 0.5,
     healthBarOffset: 7,
-    immunityPercent: 100,
     // Only in boss_herbert. Stone golem and dragon lead the later boss waves
     // but also march in golem_squad and dragon_elite, so they stay regular.
     isBoss: true,
@@ -1112,6 +1116,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
       head: { hpFactor: 5, armorType: 'fortified' },
       rush: 1,
     },
+    // 150 instead of the 50 its HP would give (MAX_LEAK_DAMAGE): spread over
+    // 240 segments a segment that got through cost 0.46 HP late in a run,
+    // so the boss was HP without a threat (the run of 2026-10-01). About
+    // 1.4 a segment at the late wave scale.
+    leakDamage: 150,
   },
 
   'worm-segment': {
@@ -1319,11 +1328,13 @@ export const MAX_LEAK_DAMAGE = 50;
  * (TODO E49, docs/PRESSURE_ONE_PLACE_PLAN.md). A rat costs 1, a golem 4,
  * Herbert 13. A body of many parts, the worm, costs it once for the whole
  * body, from the HP of all its segments; each segment that gets through
- * pays its share. 1 for an unknown id.
+ * pays its share. A type's own `leakDamage` takes the place of the one its
+ * HP give. 1 for an unknown id.
  */
 export function leakDamageOf(id: EnemyTypeId): number {
   const type = ENEMY_TYPES[id];
   if (!type) return 1;
+  if (type.leakDamage !== undefined) return type.leakDamage;
   const hp = type.chain ? type.baseHp * WORM_MAX_SEGMENTS : type.baseHp;
   return Math.max(1, Math.min(MAX_LEAK_DAMAGE, Math.round(Math.sqrt(hp) / 5)));
 }

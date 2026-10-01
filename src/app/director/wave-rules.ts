@@ -24,8 +24,12 @@ export interface WaveGold {
 }
 
 export interface WaveRules {
-  /** Scale on what one leak costs the HQ at `wave` (the enemy type's leak damage times this). */
-  leakScale(wave: number): number;
+  /**
+   * Scale on what one leak of `enemyType` costs the HQ at `wave` (the type's
+   * leak damage times this). Without a type: the scale of the wave's
+   * regular enemies.
+   */
+  leakScale(wave: number, enemyType?: string): number;
   gold(wave: number): WaveGold;
   /** For the music and the debug window. */
   isBoss(wave: number): boolean;

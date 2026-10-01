@@ -93,7 +93,7 @@ describe('Enemy entity', () => {
 
     expect(flyer.typeConfig.isAirUnit).toBe(true);
     expect(boss.typeConfig.baseHp).toBeGreaterThanOrEqual(500);
-    expect(boss.typeConfig.immunityPercent).toBeGreaterThanOrEqual(0);
+    expect(boss.typeConfig.isBoss).toBe(true);
     expect(armored.typeConfig.canBleed).toBe(false);
     expect(armored.health.maxHp).toBeGreaterThan(flyer.health.maxHp);
   });
