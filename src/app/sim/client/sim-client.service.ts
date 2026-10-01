@@ -203,7 +203,14 @@ export class SimClient {
     this.lockstep?.onTick?.(null);
     this.lockstep = null;
     this.deliveredTick = -1;
-    for (const listener of this.failureListeners) listener(firstLine);
+    for (const listener of this.failureListeners) {
+      // One throwing listener (coop leaving the room) must not keep the others from hearing it
+      try {
+        listener(firstLine);
+      } catch (err) {
+        console.error('[Sim] failure listener threw', err);
+      }
+    }
   }
 
   /** Settings of the run the simulation reads (wave source, roster, lanes, dev flags). */

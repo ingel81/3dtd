@@ -125,6 +125,15 @@ describe('SimClient', () => {
       expect(transport().configs).toEqual([]);
     });
 
+    it('tells every failure listener, also when one of them throws', () => {
+      const { client, transport } = setup();
+      const second = vi.fn();
+      client.onFailure(() => { throw new Error('leave failed'); });
+      client.onFailure(second);
+      transport().handlers.error('boom');
+      expect(second).toHaveBeenCalledWith('boom');
+    });
+
     it('stops when the same thread simulation throws in its pass, and drops what arrives after', () => {
       const { client, transport, frame, presenter } = setup();
       transport().throwOnFrame = new Error('boom');
