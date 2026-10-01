@@ -382,6 +382,21 @@ Ideen (2026-09-27), nichts entschieden:
         `remainingKillBudget` nicht: eine Abweichung dort zeigt sich erst später an Gegnern oder Gold.
       - Bot-Server: das Dashboard ist jetzt nur lokal (`DASHBOARD_HOST`); der LAN-Relay der Desktop-App lauscht auf
         allen Schnittstellen (für LAN-Spiel nötig) und nimmt Verbindungen ohne Origin an.
+- [ ] **E95 Solo-Lauf bis Welle 60, Befunde** (User, 2026-10-01, Kirchgasse Binswangen; Run-Log
+      `tmp/runs/3dtd-run-2026-10-01T20-42-41-216Z-world.jsonl`, Replay
+      `tmp/runs/3dtd-replay-kirchgasse-binswangen-deutschland-w1-w60.json`; die Dateien mit „(1)“ sind Duplikate).
+      Analyse in einer eigenen Sitzung. Notiert:
+      - Der gelbe Punkt, bis wohin die Gegner kamen: entfernen oder abschaltbar machen.
+      - Zombie Soldier ohne Vorschau.
+      - Air-Warnung der Wellenvorschau: die Zahl der Tower, die Luftziele treffen, zählt AA-Retrofit nicht mit.
+      - Herbert zu schwach (Welle 10), Ooze zu schwach (Welle 20), Bosse ab Welle 30 keine Bosse.
+      - Bei Tempo ×4 (etwas weniger bei ×2) verschwinden Projektile, bevor sie den Gegner sichtbar erreichen; ×1 stimmt.
+      - Insgesamt oft zu leicht.
+- [ ] **E96 Spuren: Branch `lanes` übernehmen** (User, 2026-10-01, [LANES_PLAN.md](docs/LANES_PLAN.md) auf dem
+      Branch): jeder Spawn eine Spur auch allein, Startgold 100 je Spur, HQ und Spawns ab Welle 1 gesperrt, im Coop
+      beliebig viele Spuren je Spieler (Protokoll 3), Längen-Leiste beim Setzen eines Spawns. Gate grün, im Browser nur
+      die Tafel gesehen (DevWorld fand keinen gültigen Spawn-Platz). Offen: per Fast-Forward nach `next`, dann mit in den
+      Playtest und das Release; Relay-Image und Client zusammen ausliefern; Balance prüft der User.
 - [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
       Der Worker loopt mit eigener Uhr statt auf Tick-Anfrage, der Hauptthread liest je Bild den neuesten Stand und
       spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf
