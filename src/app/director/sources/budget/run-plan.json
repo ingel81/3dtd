@@ -216,7 +216,7 @@
       "slime-clump": 100
     },
     "strength": 1.3,
-    "spawnDelay": 300,
+    "spawnDelay": 450,
     "pattern": "sequential",
     "boss": true,
     "note": "The Ooze leads its brood: what its own limit leaves of the budget goes to the clumps behind it."
