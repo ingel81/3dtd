@@ -308,7 +308,7 @@
 
       <!-- Coop: the connection broke in the game, which stands still until the player decides (TODO E40) -->
       @if (coop.lostInGame() && !store.showGameOverScreen()) {
-        <div class="td-lost-overlay" role="alertdialog" aria-labelledby="td-lost-title">
+        <div class="td-lost-overlay" role="alertdialog" aria-modal="true" aria-labelledby="td-lost-title" tabindex="-1" tdFocusOnShow>
           <div class="td-lost-content">
             <h2 id="td-lost-title">Connection lost</h2>
             <p>The connection to the coop server closed, the game stands still. Go on alone with this run, or start a new one alone.</p>
@@ -322,9 +322,9 @@
 
       <!-- Game Over Overlay -->
       @if (store.showGameOverScreen()) {
-        <div class="td-gameover-overlay">
+        <div class="td-gameover-overlay" role="dialog" aria-modal="true" aria-labelledby="td-gameover-title" tabindex="-1" tdFocusOnShow>
           <div class="td-gameover-content">
-            <h1>GAME OVER</h1>
+            <h1 id="td-gameover-title">GAME OVER</h1>
             <p>The HQ was destroyed!</p>
             @if (store.runSummary(); as summary) {
               <app-run-summary [summary]="summary" />

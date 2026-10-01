@@ -198,6 +198,12 @@
 }
 
 /* Game Over Overlay */
+/* The overlays take the focus to be announced (tdFocusOnShow); they are no control to ring */
+.td-gameover-overlay:focus,
+.td-lost-overlay:focus {
+  outline: none;
+}
+
 .td-gameover-overlay {
   position: absolute;
   top: 0;

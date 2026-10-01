@@ -127,6 +127,7 @@ import { BUILD_VERSION } from './configs/build-info.config';
 import { isLocationDialogFailure } from './components/location-dialog/open-location-dialog';
 import { ABILITIES } from './configs/abilities.config';
 import { RefusalHintService } from './services/refusal-hint.service';
+import { FocusOnShowDirective } from './components/focus-on-show.directive';
 import { RunLogFacade } from './run-log/run-log.facade';
 import { uiSound } from './services/ui-sound';
 import { CoopService } from './services/coop.service';
@@ -138,6 +139,7 @@ import { COOP } from './services/coop.token';
   standalone: true,
   imports: [
     CommonModule,
+    FocusOnShowDirective,
     MatDialogModule,
     MatButtonModule,
     MatTooltipModule,
