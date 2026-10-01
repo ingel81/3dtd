@@ -161,7 +161,7 @@
       "file": "enemy-zombie-soldier.webp",
       "width": 80,
       "height": 80,
-      "view": "{\"animationName\":\"zombie_02_Run\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/zombie_soldier.glb\",\"offsetY\":0.3,\"scale\":2.571}",
+      "view": "{\"animationName\":\"zombie_02_Run\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":5,\"modelUrl\":\"assets/models/enemies/zombie_soldier.glb\",\"offsetY\":0.3,\"scale\":2.571}",
       "model": "4adc75828d1df7a168e245c6ea5f24e4d6c84cedf1b24db27d68cd08a66be6af"
     },
     "enemy-zombie-v2": {

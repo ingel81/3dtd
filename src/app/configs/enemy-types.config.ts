@@ -220,6 +220,7 @@ export interface EnemyTypeConfig {
   previewCameraDistance?: number; // Camera distance for preview (default: 7)
   previewCameraAngle?: number; // Camera pitch angle in radians for preview (default: Math.PI / 12)
   previewOffsetY?: number; // Vertical offset for preview camera target (default: 0)
+  previewLight?: number; // Key light of the preview (default 1.3); dark models need more to read on the dark panel
 }
 
 /** What a worm head, segment or tail model sets; the rest of the type is shared. */
@@ -678,6 +679,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewCameraDistance: 7,
     previewCameraAngle: 0.26,
     previewOffsetY: 0.3,
+    // Olive drab on a dark panel: at the default light it hardly read
+    previewLight: 5,
   },
 
   rat: {

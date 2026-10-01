@@ -69,7 +69,7 @@ export function enemyPreviewConfig(enemy: EnemyTypeConfig, overrides?: EnemyPrev
     offsetY: overrides?.previewOffsetY ?? enemy.previewOffsetY ?? 0,
     animationName: enemy.walkAnimation || undefined,
     animationTimeScale: 0.7,
-    lightIntensity: 1.3,
+    lightIntensity: enemy.previewLight ?? 1.3,
     groundModel: true,
   };
 }
