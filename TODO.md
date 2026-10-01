@@ -197,8 +197,9 @@ Ideen (2026-09-27), nichts entschieden:
       **Stand 2026-10-01:** `simu-worker` ist seit 2026-09-30 in `next` (Branch gelöscht). Nachtlauf 2026-10-01: Review
       gegen `main` nur im Code, Regressionen behoben (Run-Log nach neuem Ort, Game Over ohne Abwahl, Forschung nach
       Restore, Raster-Overlay, Bot auf altem Stand, Movement-Schalter, Messskripte, Gold-Abweichungen im Run-Log bei
-      hohem Tempo, Kill-Zuordnung im Coop beim Verkauf). E2E 15 von 15 grün (2026-10-01). Offen: Handtest, Coop über
-      zwei Rechner, Webseite nach dem Deploy.
+      hohem Tempo, Kill-Zuordnung im Coop beim Verkauf). E2E 15 von 15 grün (2026-10-01, erneut nachmittags nach den
+      Fixes des Tages, Gate grün). Offen: Handtest, Coop über zwei Rechner, Webseite nach dem Deploy (`curl -I` auf
+      /play/: COOP und COEP aus `public/.htaccess`, im Overlay `Memory: shared`).
       **Entschieden (User, 2026-10-01):** Der Bot entscheidet einmal je Bild und wartet auf das Paket seines letzten
       Befehls; bei Tempo 75 sind das weniger Entscheidungen je Spielsekunde als auf `main`. So lassen: die nächste
       Bot-Messreihe auf `next` ist die neue Basis, Reihen von vor dem Worker nicht mehr direkt damit vergleichen.
