@@ -1063,7 +1063,7 @@ export class GameStateManager {
       config: toPlainData(config) as WaveConfig,
       startStep: this.clock.subStep,
       logStart: this.commandLog.length,
-    });
+    }, this.gameSpeed());
   }
 
   /** Why the state now cannot be a snapshot, null when it can: between waves, nothing in flight. */

@@ -207,13 +207,15 @@ export class SimCore implements SimCoreApi {
       && input.commands.length > 0 && input.commands.every(({ command }) => command.type === 'command:tower-aim')
       && input.paused === gsm.paused() && input.gameSpeed === gsm.gameSpeed()
       && input.renderingEnabled === this.renderingEnabled
-      && input.replay?.playing === this.replayInput?.playing && input.replay?.speed === this.replayInput?.speed;
+      && input.replay?.playing === this.replayInput?.playing && input.replay?.speed === this.replayInput?.speed
+      && input.replay?.original === this.replayInput?.original;
     // The loop slept through a pause or a held replay: their clocks take the
     // wall clock now, or the game would jump by the backlog when they go on
     if (gsm.paused()) gsm.update(now);
     if (!this.replayInput?.playing) this.replayNow = now;
     if (input.lockstep) this.link.deliver(input.lockstep);
     gsm.paused.set(input.paused);
+    if (input.gameSpeed !== gsm.gameSpeed() && !this.replay) gsm.simRecorder.speedChanged(gsm.subStep, input.gameSpeed);
     gsm.gameSpeed.set(input.gameSpeed);
     if (input.renderingEnabled && !this.renderingEnabled) this.forcePresent = true;
     this.renderingEnabled = input.renderingEnabled;
@@ -261,7 +263,7 @@ export class SimCore implements SimCoreApi {
         // The seek's end sets up the field anew: shown even without a sub-step
         if (!replay.isSeeking) this.forcePresent = true;
       } else if (this.replayInput?.playing) {
-        stepsRun = replay.play(delta, this.replayInput.speed, deadline, stop);
+        stepsRun = replay.play(delta, this.replaySpeed(replay), deadline, stop);
       }
     } else {
       const before = gsm.subStep;
@@ -325,7 +327,13 @@ export class SimCore implements SimCoreApi {
     const replay = this.replay;
     if (!replay) return this.gsm.dueInMs();
     if (replay.isSeeking) return 0;
-    return this.replayInput?.playing ? replay.dueInMs(this.replayInput.speed) : Infinity;
+    return this.replayInput?.playing ? replay.dueInMs(this.replaySpeed(replay)) : Infinity;
+  }
+
+  /** The replay's speed: the one chosen, or the one the wave was played at where its record has it */
+  private replaySpeed(replay: SimReplay): number {
+    const input = this.replayInput!;
+    return (input.original ? replay.recordedSpeed() : null) ?? input.speed;
   }
 
   private packet(stepsRun: number, presented: boolean): SimFramePacket {

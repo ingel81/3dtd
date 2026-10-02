@@ -195,7 +195,11 @@ describe('SimClient', () => {
       client.replay.playing = false;
       frame();
       frame();
-      expect(transport().inputs.slice(3).map((i) => i.replay)).toEqual([{ playing: true, speed: 2 }, { playing: false, speed: 2 }]);
+      client.replay.original = true;
+      frame();
+      expect(transport().inputs.slice(3).map((i) => i.replay)).toEqual([
+        { playing: true, speed: 2 }, { playing: false, speed: 2 }, { playing: false, speed: 2, original: true },
+      ]);
     });
 
     it('carries the commands given since the last one, in order, once', () => {

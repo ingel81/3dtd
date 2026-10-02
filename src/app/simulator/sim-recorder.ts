@@ -32,6 +32,11 @@ export interface WaveRecord {
    * every input of that boundary (ResimHost.setBoundaryListener)
    */
   hashes: number[];
+  /**
+   * The game speed the wave was played at, as [sub-step, speed] from its start on, one entry per change
+   * (the replay's original tempo); absent in records from before it came
+   */
+  speeds?: [number, number][];
 }
 
 /**
@@ -59,8 +64,8 @@ export class SimRecorder {
     return null;
   }
 
-  begin(record: Omit<WaveRecord, 'endStep' | 'hashes' | 'tainted'>): void {
-    this.current = { ...record, endStep: null, hashes: [], tainted: null };
+  begin(record: Omit<WaveRecord, 'endStep' | 'hashes' | 'tainted' | 'speeds'>, speed: number): void {
+    this.current = { ...record, endStep: null, hashes: [], tainted: null, speeds: [[record.startStep, speed]] };
     this.list.push(this.current);
   }
 
@@ -69,6 +74,16 @@ export class SimRecorder {
     const current = this.current;
     return current !== null && current.snapshot !== null && current.tainted === null
       && (step - current.startStep) % STATE_HASH_INTERVAL === 0 && step > current.startStep;
+  }
+
+  /** The game speed changed to `speed` at sub-step `step`: kept for the running wave. */
+  speedChanged(step: number, speed: number): void {
+    const speeds = this.current?.speeds;
+    if (!speeds) return;
+    const last = speeds[speeds.length - 1];
+    if (last[1] === speed) return;
+    if (last[0] === step) last[1] = speed;
+    else speeds.push([step, speed]);
   }
 
   addHash(hash: number): void {

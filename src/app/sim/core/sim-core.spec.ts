@@ -661,6 +661,37 @@ describe('SimCore in the same thread', () => {
       expect(packet.stepsRun).toBe(0);
     });
 
+    it('keeps the speed a wave was played at and replays at it when the original tempo is on', () => {
+      const mathRandom = Math.random;
+      Math.random = mulberry32(SEED + 3);
+      try {
+        const drive = new Driver(newCore(mainWorld().world));
+        drive.send({ type: 'command:start-wave', config: wave });
+        let packet = drive.tick();
+        for (let f = 0; f < 20; f++) packet = drive.tick();
+        const changedAt = drive.core.gsm.subStep;
+        for (let f = 0; f < 20000 && packet.scalars.phase === 'wave'; f++) packet = drive.tick({ gameSpeed: 8 });
+        for (let f = 0; f < 400 && packet.scalars.snapshotRefusal !== null; f++) packet = drive.tick({ gameSpeed: 8 });
+        const core = drive.core;
+        const record = core.gsm.simRecorder.get(1)!;
+        expect(record.speeds).toEqual([[record.startStep, 4], [changedAt, 8]]);
+
+        expect(core.rpc('replayEnter', 1, false)).not.toBeNull();
+        const now = drive.now + 1000;
+        core.input({ ...SETTINGS, replay: { playing: true, speed: 1, original: true } }, now);
+        expect(core.pass(now)!.scalars.replay!.recordedSpeed).toBe(4);
+        expect(core.idleMs()).toBeCloseTo(STEP / 4, 6);
+        core.input({ ...SETTINGS, replay: { playing: true, speed: 1, original: false } }, now);
+        core.pass(now);
+        expect(core.idleMs()).toBeCloseTo(STEP, 6);
+        // Speeds the replay itself runs at are not the run's
+        core.input({ ...SETTINGS, gameSpeed: 2, replay: { playing: true, speed: 1, original: false } }, now);
+        expect(record.speeds).toHaveLength(2);
+      } finally {
+        Math.random = mathRandom;
+      }
+    });
+
     it('holds a replay that does not play, and plays it by the wall clock from where it was let go', () => {
       const mathRandom = Math.random;
       Math.random = mulberry32(SEED + 3);

@@ -102,6 +102,10 @@ export class ReplayService {
   readonly durationMs = signal(0);
   readonly playing = signal(false);
   readonly speed = signal(1);
+  /** Play at the speed the wave was played at (WaveRecord.speeds) instead of `speed`; off until switched on */
+  readonly originalTempo = signal(false);
+  /** The speed the wave was played at here, null when its record does not have it (a file from before) */
+  readonly recordedSpeed = signal<number | null>(null);
   readonly baseHealth = signal(0);
   readonly enemiesAlive = signal(0);
   readonly markers = signal<readonly ReplayMarker[]>([]);
@@ -157,7 +161,8 @@ export class ReplayService {
   timescale(): number | null {
     const replay = this.sim.replay;
     if (!replay) return null;
-    return replay.playing ? replay.speed : 0;
+    if (!replay.playing) return 0;
+    return (replay.original ? this.sim.scalars.replay?.recordedSpeed : null) ?? replay.speed;
   }
 
   /**
@@ -272,9 +277,22 @@ export class ReplayService {
     this.syncBar();
   }
 
+  /** A chosen speed; it ends the original tempo */
   setSpeed(speed: number): void {
     this.speed.set(speed);
-    if (this.sim.replay) this.sim.replay.speed = speed;
+    this.originalTempo.set(false);
+    if (this.sim.replay) {
+      this.sim.replay.speed = speed;
+      this.sim.replay.original = false;
+    }
+    this.syncBar();
+  }
+
+  /** Switch the original tempo on or off, see originalTempo */
+  toggleOriginalTempo(): void {
+    const on = !this.originalTempo();
+    this.originalTempo.set(on);
+    if (this.sim.replay) this.sim.replay.original = on;
     this.syncBar();
   }
 
@@ -453,7 +471,7 @@ export class ReplayService {
       const entered = await this.sim.rpc('replayEnter', wave, this.file);
       if (!entered) return false;
       this.entered = entered;
-      this.sim.replay = { playing: true, speed: this.speed() };
+      this.sim.replay = { playing: true, speed: this.speed(), original: this.originalTempo() };
       this.waves.set(entered.waves);
       this.markers.set(entered.markers);
       return true;
@@ -477,6 +495,7 @@ export class ReplayService {
     this.durationMs.set((entered.lengthInSteps ?? 0) * GameClock.FIXED_STEP_MS);
     this.playing.set(replay.playing);
     this.speed.set(replay.speed);
+    this.recordedSpeed.set(state?.recordedSpeed ?? null);
     this.baseHealth.set(scalars.baseHealth);
     this.enemiesAlive.set(scalars.enemiesAlive);
     const diverged = state?.divergedAt ?? null;

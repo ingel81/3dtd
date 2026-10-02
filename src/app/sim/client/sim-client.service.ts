@@ -54,7 +54,7 @@ export class SimClient {
   private commands: QueuedCommand[] = [];
   private lockstep: LockstepLink | null = null;
   /** See SimInput.replay; set by the replay UI (ReplayService) */
-  replay: { playing: boolean; speed: number } | null = null;
+  replay: SimInput['replay'] = null;
   /** A demand for a packet is out and none came since (frame()) */
   private demandOut = false;
   /** The settings the simulation has (the last input sent), null before the first */
@@ -337,6 +337,7 @@ export class SimClient {
       sent && this.commands.length === 0 && !lockstep
       && sent.gameSpeed === gameSpeed && sent.paused === paused && sent.renderingEnabled === renderingEnabled
       && sent.replay?.playing === replay?.playing && sent.replay?.speed === replay?.speed
+      && sent.replay?.original === replay?.original
     ) return;
     const commands = this.commands;
     this.commands = [];

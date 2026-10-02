@@ -70,10 +70,17 @@
     }
 
     <div class="td-replay-speeds" role="group" aria-label="Replay speed" aria-keyshortcuts="+ -">
+      @if (replay.recordedSpeed() !== null) {
+        <button type="button" class="td-replay-speed"
+                [class.td-replay-speed-on]="replay.originalTempo()"
+                [attr.aria-pressed]="replay.originalTempo()"
+                [title]="'The speed the wave was played at, now ' + speedLabel(replay.recordedSpeed()!)"
+                (click)="replay.toggleOriginalTempo()">orig</button>
+      }
       @for (s of replay.speeds; track s) {
         <button type="button" class="td-replay-speed"
-                [class.td-replay-speed-on]="s === replay.speed()"
-                [attr.aria-pressed]="s === replay.speed()"
+                [class.td-replay-speed-on]="!replay.originalTempo() && s === replay.speed()"
+                [attr.aria-pressed]="!replay.originalTempo() && s === replay.speed()"
                 (click)="replay.setSpeed(s)">{{ speedLabel(s) }}</button>
       }
     </div>

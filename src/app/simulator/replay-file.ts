@@ -150,8 +150,8 @@ const isStep = (v: unknown): v is number => Number.isInteger(v) && (v as number)
 /**
  * The waves and the log hold what the replay reads, of the types it reads them as: a wave a number, a config
  * object, its log start inside the log, its steps whole and in order, its hashes numbers, its snapshot an
- * object or null; a log entry a step, a player and a command with a type. Anything else is a damaged or
- * hand-made file, refused before the simulation reads it.
+ * object or null, its speeds [step, speed] pairs; a log entry a step, a player and a command with a type.
+ * Anything else is a damaged or hand-made file, refused before the simulation reads it.
  */
 function wellFormed(data: { waves: unknown[]; log: unknown[] }): boolean {
   const logOk = data.log.every((e) => isObject(e) && isStep(e['step']) && typeof e['playerId'] === 'string'
@@ -164,7 +164,9 @@ function wellFormed(data: { waves: unknown[]; log: unknown[] }): boolean {
     && isStep(w['startStep'])
     && isStep(w['logStart']) && (w['logStart'] as number) <= data.log.length
     && (w['endStep'] === null || (isStep(w['endStep']) && (w['endStep'] as number) >= (w['startStep'] as number)))
-    && Array.isArray(w['hashes']) && (w['hashes'] as unknown[]).every((h) => typeof h === 'number'));
+    && Array.isArray(w['hashes']) && (w['hashes'] as unknown[]).every((h) => typeof h === 'number')
+    && (w['speeds'] === undefined || (Array.isArray(w['speeds']) && (w['speeds'] as unknown[]).every((s) => Array.isArray(s)
+      && s.length === 2 && isStep(s[0]) && typeof s[1] === 'number' && s[1] > 0 && s[1] <= 75))));
 }
 
 /**

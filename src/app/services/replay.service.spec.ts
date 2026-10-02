@@ -182,6 +182,23 @@ describe('ReplayService.enter gate', () => {
     expect(paused()).toBe(true);
   });
 
+  it('plays at the original tempo only once switched on, and a chosen speed ends it', async () => {
+    service.enter();
+    await settle();
+    const sim = injector.get(SimClient);
+    expect(sim.replay).toEqual({ playing: true, speed: 1, original: false });
+
+    service.toggleOriginalTempo();
+    expect(service.originalTempo()).toBe(true);
+    expect(sim.replay!.original).toBe(true);
+    // No recorded speed in the packet (a file from before): the chosen one runs
+    expect(service.timescale()).toBe(1);
+
+    service.setSpeed(4);
+    expect(service.originalTempo()).toBe(false);
+    expect(sim.replay).toEqual({ playing: true, speed: 4, original: false });
+  });
+
   it('offers the player the button while REPLAY_CONFIG.offered is on', async () => {
     expect(service.available()).toBe(true);
     expect(service.offered()).toBe(true);

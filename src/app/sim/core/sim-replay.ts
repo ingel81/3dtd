@@ -167,6 +167,19 @@ export class SimReplay {
     this.gsm.resyncPresentation();
   }
 
+  /** The game speed the wave was played at here, null when its record does not have it */
+  recordedSpeed(): number | null {
+    const speeds = this.record.speeds;
+    if (!speeds || speeds.length === 0) return null;
+    const step = this.record.startStep + this.resim.stepInWave;
+    let speed = speeds[0][1];
+    for (const [from, value] of speeds) {
+      if (from > step) break;
+      speed = value;
+    }
+    return speed;
+  }
+
   /** The replay for the packet's scalars */
   state(): NonNullable<SimScalars['replay']> {
     return {
@@ -175,6 +188,7 @@ export class SimReplay {
       lengthInSteps: this.resim.lengthInSteps,
       divergedAt: this.resim.divergedAt,
       finished: this.resim.finished,
+      recordedSpeed: this.recordedSpeed(),
       seeking: this.seeking === null ? null : { ...this.seeking },
     };
   }

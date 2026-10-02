@@ -58,9 +58,11 @@ export interface SimInput {
   /**
    * While a replay is on (rpc replayEnter): play it at `speed` times the
    * wall clock (the backlog capped like the game clock's) instead of the
-   * live game; `playing` false holds it. Null for the live game.
+   * live game; `playing` false holds it; `original` plays at the speed the
+   * wave was played at (WaveRecord.speeds) where its record has one. Null
+   * for the live game.
    */
-  replay: { playing: boolean; speed: number } | null;
+  replay: { playing: boolean; speed: number; original?: boolean } | null;
 }
 
 /** What the simulation sends besides frames. */

@@ -189,6 +189,8 @@ export interface SimScalars {
     lengthInSteps: number | null;
     divergedAt: number | null;
     finished: boolean;
+    /** The game speed the wave was played at here (WaveRecord.speeds), null when the record has none */
+    recordedSpeed: number | null;
     /** A seek running (SimReplay.seek): the step it runs to and the one it began at, for the bar's progress */
     seeking: { target: number; from: number } | null;
   } | null;

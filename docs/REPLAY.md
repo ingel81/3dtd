@@ -100,6 +100,7 @@ Determinismus-Bug: bitte mit der Replay-Datei melden.
 | Pfeile neben „Wave N“ in der Leiste | Vorige oder nächste abspielbare Welle |
 | Leertaste, P, Play-Knopf | Pause und weiter; am Ende startet Play von vorn |
 | + / - , Geschwindigkeitsknöpfe | 0,25x, 0,5x, 1x, 2x, 4x |
+| orig vor den Geschwindigkeiten | Original-Tempo: spielt mit dem Spieltempo, mit dem die Welle gespielt wurde (`WaveRecord.speeds`); aus, bis man es einschaltet, eine gewählte Geschwindigkeit beendet es. Fehlt in Aufnahmen ohne Tempo |
 | Fortschrittsbalken | Springen; beim Ziehen hält das Replay an. Marken zeigen Befehle des Spielers (ohne Zielen und Sichtlinien) |
 | Save in der Leiste | Alle abspielbaren Wellen des Laufs als Datei |
 | load im WAVE-Panel | Eine Datei laden; nur auf derselben Karte und mit denselben Balance-Werten |
@@ -124,7 +125,8 @@ ihre Summen: Das Replay läuft, meldet aber keine Abweichung, die keine ist.
 Gespeichert wird gzip-gepackt (`.json.gz`), jede Sichtmaske nur einmal: Version 3 legt die Masken in eine Tabelle
 `masks`, Snapshot-Tower und Log-Einträge tragen dort einen Index (`serializeReplayFile`). Der W60-Lauf vom
 2026-10-01 schrumpft so von 6,2 MB auf 0,38 MB. Geladen wird beides, gepackt oder nicht, und Dateien der Version 2;
-entpackt wird höchstens bis zur Größengrenze.
+entpackt wird höchstens bis zur Größengrenze. Jede Welle trägt ihr Spieltempo als `speeds` ([Sub-Step, Tempo] ab
+Wellenstart, ein Eintrag je Wechsel) für das Original-Tempo.
 
 Das ist zugleich das Match-Log für Coop ([MULTIPLAYER_CONCEPT.md](archive/MULTIPLAYER_CONCEPT.md), Abschnitt 18): Welt,
 Balance, Seed, Eingaben mit Sub-Step und Sicht-Masken, jeder Eintrag mit `playerId`.
