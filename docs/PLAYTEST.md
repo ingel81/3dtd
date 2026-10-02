@@ -1,6 +1,6 @@
 # Playtest: offene Nachtests
 
-Stand 2026-09-26, Code-Stand `coop`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
+Stand 2026-10-02, Code-Stand `next`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
 warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). Die erledigten Punkte samt Ergebnissen
 (bis 748, dazu M, Q, R, T bis 2026-09-26) liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Listen in `archive/REVIEW_*.md`.
 
@@ -168,8 +168,9 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
 
 ## B Budget-Quelle: Laufplan mit HP gegen die Abwehr (2026-09-29)
 
-Neue Wellenquelle nach [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), noch nicht Standard. Eingeschaltet mit `waves=budget` in
-der Adresse (bleibt beim Ortswechsel erhalten) oder im Wave-Debug-Fenster als Quelle des nächsten Laufs. Die Bots
+Wellenquelle nach [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), **seit 2026-09-29 Standard** (die Adresse braucht
+`waves=budget` nicht mehr). B1 ist mit dem Solo-Lauf bis W60 (2026-10-01) erledigt, die Befunde stehen in E95; der
+Stand danach wird unter N geprüft. Die Bots
 kommen mit ihr bis W37 bis W40, mit dem heutigen Director bis W30 bis W36 (Bot-Werte, je 6 Läufe); Bots bauen aber
 anders als Menschen, darum diese Läufe. Im Coop bestimmt der Host die Quelle. Jeden Lauf am Ende über "Runs" speichern und exportieren: das Log hat je Welle Budget, Zeitfenster und
 welche Gegner an ihrer Grenze hängen.
@@ -184,6 +185,35 @@ welche Gegner an ihrer Grenze hängen.
   und stimmen mit dem, was dann kommt; Luftwarnung vor Luftwellen (7, 8, 12 …).
 - **B4 Coop:** Host öffnet mit `?waves=budget` einen Raum, der Gast kommt über den normalen Einladungslink (ohne
   `waves`). Erwartung: beide spielen denselben Plan (gleiche Wellennamen), keine Abweichung, Lauf bis zum Ende.
+
+## N Balance-Nacht und Spuren (2026-10-02, auf `next`)
+
+Nach dem Solo-Lauf bis W60 (TODO E95) neu abgestimmt, dazu die Spuren (jeder Spawn eine Spur, Gold und Forschung je
+Spur). Ein Lauf mit zwei Spawns, gern über W20 hinaus; am Ende über "Runs" Run-Log und Replay exportieren.
+
+- **N1 Bemessung beim Start:** vor einer Welle in der Pause Tower kaufen, dann starten. Erwartung: die Gegnerzahl wie
+  in der Vorschau, die HP höher ("Why this wave" im Wave-Debug).
+- **N2 Herbert (W10):** Boss-Leiste und Intro, hält deutlich länger; unter 50 % HP "ENRAGED", rot, schneller.
+- **N3 Eliten:** etwa jeder zwanzigste Gegner einer Art gold und größer, z. B. 3 von 62 Ratten in W2; Schüsse treffen
+  ihn in der Mitte.
+- **N4 Projektile bei Tempo 4:** Gatling oder Rakete: die Geschosse fliegen sichtbar bis zum Gegner.
+- **N5 Gelber Punkt:** auf der Route nicht mehr zu sehen; mit dem Layer "Route Grid Overlay" ist er da.
+- **N6 Zombie Soldier (W9 Tank Column):** Vorschau im Wellen-Panel gut zu erkennen.
+- **N7 Forschung:** Advanced Weaponry zeigt "Wave 7" und ist bis dahin gesperrt; mit zwei Spuren kostet jede
+  Forschung das Doppelte (Preis im Baum).
+- **N8 Mutatoren:** W14 Swift (Tag in der NEXT-Leiste, Banner, schnellere Mammuts), W21 Swarm (anderthalbmal so viele),
+  W28 Regeneration (brennende Mechs heilen nicht), W35 Bounty (doppeltes Kill-Gold).
+- **N9 W20 Ooze:** mit Brut, zerfällt beim Tod in zähe Klumpen.
+- **N10 Tentacle:** an einer Engstelle Schadenszahlen auch an den Nachbarn des Ziels.
+- **N11 W30 Skarnax:** ein durchgekommenes Segment kostet rund 1,3 HP; W40 Golem King, W50 Dragon Matriarch mit
+  Boss-Leiste, Intro und Wut.
+- **N12 W52 Wraiths:** ein Eis-Tower verlangsamt sie nicht (Phasing).
+- **N13 Spuren:** HQ und Spawns sind ab Welle 1 gesperrt; jede Spur bekommt die ganze Welle; beim Setzen eines Spawns
+  zeigt die Leiste die Länge jeder Spur.
+- **N14 Gesamtgefühl:** HQ fällt gleichmäßig, keine lange Strecke ohne Verlust, kein Absturz am Ende; Forschung erst
+  um W38 komplett. Auf W17, W27, W44 und W50 achten (Luft und Geister).
+- **N15 Coop über zwei Rechner** (Protokoll 3, Relay und Client neu): Raum, Spuren je Spieler wählen, ein Lauf bis
+  mindestens W10, keine Abweichung.
 
 ## K8 Desktop-Build
 

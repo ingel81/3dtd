@@ -4,6 +4,22 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-10-02
+
+- [x] **Balance nach dem W60-Lauf** (E95): Wellen-HP beim Start bemessen, Druck-Regler 0,5 bis 2,5, echte Bosse
+      (Herbert-Wut, Ooze mit Brut, Golem King W40, Dragon Matriarch W50, Skarnax-Leck 150), Eliten.
+- [x] **Inhalt und Tempo**: Forschung mit Wellensperren und Kosten nach Einkommen, flachere Gold-Kurve, Archer,
+      Rakete und Tentacle aufgewertet, neuer Laufplan mit Rhythmus, Blutmond-Mutatoren, Regen und Phasing.
+- [x] **Rechenwerkzeug** `tools/balance-calc`: echter Wellenplaner gegen die Abwehr eines aufgezeichneten Laufs.
+- [x] **Darstellung** (E95): Geschosse fliegen bei hohem Tempo bis zum Treffer, Debug-Marker nur mit Overlay,
+      Soldier-Vorschau heller, Air-Warnung je Besitzer und sofort.
+- [x] **Spuren** (E96): jeder Spawn eine Spur, Startgold und Forschungskosten je Spur, Sperren ab Welle 1, im Coop
+      mehrere Spuren je Spieler (Protokoll 3), Längen-Leiste.
+- [x] **Eliten und Replays**: Elite-Größe auch in der Simulation; Replay-Dateien mit Größengrenze und Prüfung beim Laden.
+- [x] **Tower-Kandidaten**: Blender-Werkzeug zum Zerlegen und Vorführen (`tools/blender/split_tower.py`).
+- [x] **Aus TODO genommen, erledigt**: J2, E27, E58, E65, E72, E85, E87 bis E91; aufgegangen in E95: E54, E67, E69,
+      E70; E66 unter „Entschieden“.
+
 ## 2026-10-01
 
 - [x] **Review gegen main** (Nachtlauf): 16 Regressionen des Worker-Umbaus behoben, u. a. Run-Log nach Ortswechsel

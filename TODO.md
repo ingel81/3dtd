@@ -9,8 +9,8 @@ hierher. Offene Nachtests stehen in [docs/PLAYTEST.md](docs/PLAYTEST.md), Erledi
   vergeben. Neues kommt ans Ende des Backlogs.
 - Konzepte und Pläne bekommen ein eigenes Dokument, hier steht nur der Verweis.
 
-Stand 2026-09-25, gearbeitet wird auf `coop`. Offene Nachtests stehen in [docs/PLAYTEST.md](docs/PLAYTEST.md), vor
-allem unter T (Coop).
+Stand 2026-10-02, gearbeitet wird auf `next` (Release 0.6 in Vorbereitung). Offene Nachtests stehen in
+[docs/PLAYTEST.md](docs/PLAYTEST.md).
 
 ---
 
@@ -82,9 +82,6 @@ allem unter T (Coop).
 - [ ] **G4 Konzept Explosivmunition des Helden mit Flächenschaden** (`hero.config.ts`).
 - [ ] **D1 Spawn-Portal an engen Stellen und Hängen**: Pfeiler in Fassaden, Lichtfleck am Hang schief. Nur im Browser
       an echten Gassen zu beurteilen.
-- [ ] **J2 GitHub-Actions auf Node 24**: gebaut 2026-09-19 (`actions/checkout@v7`, `actions/setup-node@v7`,
-      `SamKirkland/FTP-Deploy-Action@v4.4.0`, alle auf Node 24; `ubuntu-latest` bleibt, Node ist gepinnt). Der erste
-      echte Lauf ist das nächste Release (`release.yml`, dann `deploy.yml`); danach nach DONE.
 - [ ] **H4** Tower-LOD (High, Medium, Low).
 - [ ] **H5** Tower-Instancing (schwierig wegen der Rotationen).
 - [ ] **H7** Explosionen zweistufig staffeln.
@@ -94,11 +91,6 @@ allem unter T (Coop).
 - [ ] **H16** Deep-Link in die Desktop-App: Schema `threedtd://open?l=...&s=...` (Installer, nur geprüfte Koordinaten)
       plus Knopf "In der Desktop-App öffnen" in der Web-Version. Erst nach dem ersten Desktop-Release, geteilte Links
       bleiben bis dahin https (E26). Skizze im [Electron-Plan](docs/ELECTRON_DESKTOP_PLAN.md), "Bewusst nicht".
-- [ ] **E27 Coop "Vier Tore"** (Branch `coop`, gepusht, nicht gemergt), alles in [docs/COOP_PLAN.md](docs/COOP_PLAN.md).
-      Gebaut: C0 bis C4d, C5a, C7 (öffentliche Lobby, läuft seit 2026-09-25), C8, Review R1 bis R21 (R10 teilweise).
-      LAN (T66) und online (erster Lauf 2026-09-25, keine Abweichung) mit zwei Rechnern bestätigt. Als Nächstes:
-      Playtest T67 bis T72, dann Merge nach `main` und Release 0.5.0. Später C5b (Wiedereinstieg, Resync; daran die
-      Squad-Zustände aus D45), Browser online erst nach einem Lauf Chrome gegen App (D59).
 - [ ] **E30 Coop: Beitreten, ohne erst einen Ort zu laden** (**gebaut 2026-09-25**, Nachtest PLAYTEST T70) (User, 2026-09-25, LAN-Test): Startet die App ohne Ort,
       steht der Standortdialog; heute muss der Gast erst irgendeinen Ort laden, dann beitreten, dann lädt der Ort des
       Hosts. Lösung: im Standortdialog (und im Token-Dialog) ein Abschnitt „Coop“ mit den LAN-Spielen und dem Raum-Code;
@@ -160,10 +152,6 @@ Aus dem Coop-Playtest Heilbronn W1-W38 (2026-09-26, `tmp/coop-playtest/ANALYSE.m
       Bot-Läufe: Todeswelle 34 gegen 34 bis 42, HP nach W20 288 gegen 312, also keine Verbesserung. Schaden je Gold
       ist bei gestuften Upgrade-Kosten kein sauberes Maß (Archer bekommt die meisten Upgrades). Offen bleibt nur, ob ein
       menschlicher Lauf Kanone oder Archer anders erlebt.
-- [ ] **E54 Skarnax beendet Läufe** (Bot-Messung 2026-09-27): W35 beendet 4 von 12 kalibrierten Läufen, 113 bis 206
-      Segmente im HQ. Entschieden (User, 2026-09-28): Boss-Varianten nach der Kampagne genauso normieren wie darin
-      (`directedTotalHp / variantNominalHp`), danach mit Bots messen. Beleg in [Plan](docs/PRESSURE_ONE_PLACE_PLAN.md).
-      **2026-09-29:** mit gepanzertem Kopf (E67) kostet Skarnax W30 die Bots 21 HP statt 0; kein Lauf endete dort.
 
 Ideen (2026-09-27), nichts entschieden:
 
@@ -203,38 +191,6 @@ Ideen (2026-09-27), nichts entschieden:
       **Entschieden (User, 2026-10-01):** Der Bot entscheidet einmal je Bild und wartet auf das Paket seines letzten
       Befehls; bei Tempo 75 sind das weniger Entscheidungen je Spielsekunde als auf `main`. So lassen: die nächste
       Bot-Messreihe auf `next` ist die neue Basis, Reihen von vor dem Worker nicht mehr direkt damit vergleichen.
-- [ ] **E72 Mehr Gegner bei gleicher Bildrate** ([SIM_WORKER.md](docs/SIM_WORKER.md#mehr-gegner-gemessen-2026-09-29)):
-      **Gemessen 2026-09-29** bis 25000 Gegner: Chromium hält 144 FPS und Tempo 4 bis rund 11000 (vorher 4900), dann
-      wird der Worker knapp; Firefox hält Tempo 4 bis rund 7300, Grenze ist der Hauptthread (Paket anwenden 6 bis 19 ms).
-      Nächste Hebel laut Messung: Hauptthread verschlanken, Tick vom Bild lösen, GPU-Culling; SAB-Gegnerdaten und
-      mehrere Worker danach. Entscheidung User.
-      **Entschieden (User, 2026-09-30):** alle Hebel bauen, auch Gegnerdaten im SAB und mehrere Worker fest einplanen.
-      Worker-Zahl automatisch aus `navigator.hardwareConcurrency` (Kerne minus 2, höchstens 4, mindestens 1), Ergebnis
-      bei jeder Zahl bitgleich (Coop mit verschiedenen Rechnern), Schalter in den Einstellungen erzwingt 1 Worker.
-      Messen: volle Ausgangsreihe mit `--dpr 1` vor dem ersten Umbau, nach jedem Umbau ein kurzer Check (5000 und 16 000
-      Gegner, beide Browser), am Ende die volle Reihe bis 25 000 inklusive `next`.
-      **Gebaut 2026-09-30** (simu-worker, [SIM_WORKER.md](docs/SIM_WORKER.md#hebel-gebaut-gemessen-2026-09-30)): Tick vom
-      Bild gelöst (zwei Tabellensätze, früher Tick ab 35 ms), Spiegel liest bei Bedarf, Presenter ohne Map-Schreiben je
-      Gegner. Firefox bei Tempo 4 deutlich mehr Tempo bei etwa gleicher Bildrate (16 000: 3,34 statt 2,42), Chromium
-      bei 25 000 Tempo 3,89 statt 3,34.
-      **Mehrere Worker:** nur im Labor gebaut und gemessen (Branch `perf/multi-worker-lab`): Bewegung bitgleich, mit 4
-      Workern 1,7- bis 3,7-mal so schnell; hochgerechnet 1,3- bis 1,4-mal so viel Simulation. Offen: der Umbau im Spiel
-      (Bewegungsdaten aus dem Worker heraus, Snapshot, Prüfsumme und Resync bitgleich, 24 Dateien), Worker-Zahl und
-      Schalter in den Einstellungen. **Entschieden (User, 2026-09-30):** mehrere Worker bauen, auf eigenem Branch, mit
-      Schalter für 1 Worker und Bitgleichheit gegen Coop; Culling erst messen (Chromium ohne Bildratenbremse bei 8000,
-      16 000, 25 000, normal und herangezoomt, Sichttest am Bildrand), nur bei Gewinn übernehmen; die Schwelle für frühe
-      Ticks (35 ms) in Firefox mit mehreren Wiederholungen bei 16 000 und 20 000 nachmessen. **Culling** (Hebel 3) gebaut, aber ungemessen (Branch `wt/render-cull`): der
-      Vertex-Shader verwirft eine Gegner-Instanz, deren Hüllkugel außerhalb des Sichtfelds liegt, ohne Kosten im
-      Hauptthread. **Gemessen 2026-09-30, nicht übernommen** (Branch `perf/cull`, Chromium ohne Bildratenbremse,
-      8000/16 000/25 000 Gegner, je zwei Runden): weder in der Gesamtansicht noch im Bestfall (herangezoomt, alle Gegner
-      außerhalb des Bildes) ein Unterschied über die Streuung von rund ±10 FPS. Den Sichttest am Bildrand braucht es
-      damit nicht.
-      **Schwelle früher Ticks nachgemessen 2026-09-30** (Firefox, Tempo 4, je drei Läufe, `?earlyTick=`): bei 16 000
-      Gegnern ohne frühe Ticks 108,6 FPS und Tempo 2,97, mit 50 ms 107,8/3,39, mit 35 ms 104,7/3,76, mit 20 ms
-      103,4/3,88; bei 20 000 ähnlich (88,9/2,07 bis 87,4/2,86). Frühe Ticks kosten 2 bis 4 FPS für 0,7 bis 0,8 mehr
-      Tempo; 20 gegen 35 ms liegt im Rauschen. 35 ms bleibt.
-      **Mehrere Worker im Spiel:** Plan in `docs/MULTI_WORKER_PLAN.md` (Branch `perf/multi-worker`); entschieden (User,
-      2026-09-30): bauen wie dort empfohlen, auf dem eigenen Branch, danach messen.
 - [ ] **E76 Vorschau der Seitenleiste nachbessern** (Playtest 2026-09-30, nach E73): die gebackene Drehung wirkt minimal
       ruckelig (72 Bilder mit 12 FPS, 5° je Schritt) und dreht in 6 s statt früher 15,7 s. Gebacken wird beim ersten
       Anzeigen, Gegnergruppen also beim Wellenstart; besser vorberechnen (beim Laden, im Leerlauf der Setup-Phase) oder
@@ -258,41 +214,9 @@ Ideen (2026-09-27), nichts entschieden:
       Wanduhr (braucht das Relay länger, verwirft die Simulation den zweiten Start); Coop-Start und Ortswechsel ohne Paket
       dazwischen ließen den Lauf unmarkiert; ein hängender Worker blockiert nach `newRun`; Gegner-Views nur aus Event-Refs
       behalten die Werte des Events. Beobachten, nur mit Beleg angehen.
-- [ ] **E58 Coop-Resync auf Abruf** (**erster Bau 2026-09-28**, COOP_PLAN C5b): Relay hält nach einer Abweichung, der
-      Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze; im Browser mit Bots geprüft.
-      **Fertig gebaut 2026-09-29:** Stände in Teilen, Darstellung und Stores nach dem Laden (mit Bild zweier Sitze
-      geprüft). Offen nur: ein Stand in mehreren Teilen im Browser (bisher nur Unit-Tests).
-      **Entschieden (User, 2026-09-30):** beides bauen: ein Coop-Bot-Lauf mit großer Custom-Welle ohne Spawn-Untergrenze und
-      gefälschtem Gold, der einen Resync in mehreren Teilen auslöst, und ein URL-Schalter, der die Teilgröße für Tests
-      verkleinert.
-      **Gebaut 2026-09-30:** `?resyncPart=<kB>` (1 bis 768) teilt den Stand des Hosts in kleinere Stücke;
-      `e2e/coop-bots/run.ts --big-wave N` startet vor der Fälschung (`--falsify-at-wave`) eine Welle aus N zähen
-      Zombies ohne Spawn-Untergrenze. **Geprüft 2026-09-30** (zwei Bots, Tempo 4, Dev-Build isoliert): bei rund 3600
-      Gegnern mitten in der Welle ein Stand von 406 kB in einem Teil, mit `resyncPart=64` in 7 Teilen; beide Male lud der
-      Gast, der Raum lief ohne neue Abweichung weiter (einmal 55 s bis Game Over). Dafür liest der Coop-Bot-Läufer jetzt
-      Spiegel und Bus statt `gameState`, gefälscht wird per Test-Aufruf in die Simulation (`falsifyCredits`).
 - [ ] **E60 Versus-Modus** (Idee, im Lobby-Umschalter schon als SOON, COOP_PLAN D39): Form offen.
 - [ ] **E61 DevWorld als Spielfeld** (Idee): prozedurale Karten als volles Spiel ohne Google-Tiles, später ein Editor.
       Verwandt: E55, E56.
-- [ ] **E65 Relay verwirft Nachrichten still, der Raum friert ein** (Nachtlauf 2026-09-28): Überschreitet ein Client
-      die Nachrichtengrenze, verwirft das Relay den Rest der Sekunde ohne Hinweis; gehen dabei Nachrichten verloren, die
-      der Lockstep braucht, bleibt der Raum für alle stehen. Im normalen Spiel nur durch einen Client-Fehler oder einen
-      manipulierten Client erreichbar. Entschieden (User, 2026-09-28): nach anhaltender Überschreitung trennt das Relay
-      nur diesen Client mit dem Grund „zu schnell“, der bekommt eine Meldung, die anderen spielen weiter.
-- [ ] **E66 Coop: das gemeinsame HQ trägt die Lecks aller Spuren** (Bot-Messung 2026-09-28, 22 Läufe zu zweit): Welle 6
-      bis 10 kosten 128 statt 85 HP, der Coop endet 1,7 Wellen früher. Als Nächstes messen: Leck geteilt durch die
-      Spuren, HQ mal Spuren, unverändert; je etwa 10 Läufe. Bot-Werte, kein Menschenlauf.
-      **Gemessen 2026-09-28** (je 10 Räume bis W15): HP-Rest nach W15 Solo 63 %, unverändert 45 %, Leck geteilt 72 %,
-      HQ mal Spuren 68 %. **Entschieden (User, 2026-09-28): so lassen**, Coop bleibt härter.
-- [ ] **E67 Skarnax zu anspruchslos** (User, 2026-09-28): Segment für Segment von vorne nach hinten zu zerlegen, wenig
-      Anspruch. **Gebaut 2026-09-29:** Kopf mit 5× HP und `fortified`, nach jedem Schnitt neu; schneller, je kürzer
-      der Wurm ([ENEMY_CREATION.md](docs/ENEMY_CREATION.md)). Offen: im Spiel ansehen (Playtest).
-- [ ] **E69 Budget-Quelle als Standard** ([WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md)): **seit 2026-09-29 auf `next`**,
-      adaptiver Director entfernt; dazu Gold nach Zeilenstärke, Endlos nach W60, Geisterwarnung, Why this wave.
-      Offen: der Playtest des Users auf diesem Stand.
-- [ ] **E70 Budget-Quelle gegen starke Abwehr** (Bot-Messung 2026-09-29): mit dem Bot bis 40 Tower und Magic/Eis/Blitz
-      im Mix sterben Bots erst W42 bis W79 (Median 57, vorher 37 bis 40). Nach dem Playtest entscheiden, ob nachgestellt
-      wird.
 - [ ] **E68 Zwei volle Pools** (gemessen 2026-09-28): Geschoss-Spuren (11 % des Bildes bei Tempo 4) und Schadenszahlen
       (4 % der Simulation) durchsuchen bei jedem neuen Eintrag den ganzen Pool. Entschieden (User): beide beheben, dann
       Bildrate, Bildzeit und verworfene Einträge bei 1-, 2- und 4-facher Poolgröße messen; Größen erst nach Zuruf ändern.
@@ -309,44 +233,7 @@ Ideen (2026-09-27), nichts entschieden:
       **Stand 2026-09-30 abends:** A und B1 in `simu-worker` übernommen; B2 und B3 verworfen (siehe „Verworfen“).
       **Stand 2026-10-01:** A und B1 sind in `next`.
       Nächster Hebel: der Hauptthread (Paket anwenden, Gegner darstellen), der bei vielen Gegnern die Bildrate hält.
-- [ ] **E87 Statuseffekte in den Simulations-Specs** (2026-09-30): Die Testwelt der Specs (`integration/sim-world.ts`)
-      setzt nie einen Statuseffekt: `StatusEffectService` ist dort ein Platzhalter, die Eis-, Feuer- und Gift-Tower
-      schießen ohne Wirkung. Replay-, Resync-, Snapshot- und Lockstep-Specs prüfen damit Slow, Freeze, Stun, Gift und
-      Brand nie. Den echten Dienst in die Testwelt nehmen (oder gezielt Effekte setzen) und die betroffenen Specs
-      danach ansehen.
-      **Nachgesehen und gebaut 2026-10-01:** Der Dienst ist in der Testwelt echt. Die Lücke war eine andere: Die Wellen
-      der Specs haben 2 HP je Gegner und sterben an den ersten beiden Towern, Eis, Feuer und Gift treffen nie. Neue
-      Fälle mit zähen Gegnern (3000 HP, Tempo 4): Snapshot mitten in der Welle mit Slow, Brand und Gift
-      (`wave-snapshot.scenario.spec.ts`) und Neu-Simulation (`resimulation.scenario.spec.ts`). Dabei gefunden: Die
-      Neu-Simulation wich ab, weil die Testwelt ihren Towern die Zellen in anderer Reihenfolge gab als das Spiel (bei
-      zwei Gegnern mit gleichen HP zielte „highest-hp“ nach einem Restore auf den anderen). Im Spiel kommen die Zellen
-      immer aus der Maske; die Testwelt tut das jetzt auch (`markAllVisible`).
-- [ ] **E88 Wave-Debug-Panel in zwei Tabs** (Playtest 2026-09-30): erster Tab (Name etwa „Run plan“ oder
-      „Campaign“) mit Wellenquelle, „Why this wave“ und „Jump to wave“; zweiter Tab „Custom Wave“ mit dem Rest
-      (eigene Welle zusammenstellen usw.).
-      **Gebaut 2026-09-30:** Tabs „Run plan“ (Quelle, Why this wave, Jump to wave) und „Custom wave“ (Single/Mixed),
-      als Unterstrich-Tabs, damit sie nicht wie der Single/Mixed-Umschalter aussehen. Im Browser angesehen.
 
-- [ ] **E89 Layer-Menü: Knöpfe ohne Wirkung** (Playtest 2026-09-30): das Route-Grid-Overlay und die Flughöhe der
-      Luftroute lassen sich nicht mehr anzeigen, vielleicht weitere. Vermutlich lesen sie seit der Simulation im Worker
-      noch deren Objekte statt des Rasters im Hauptthread. Alle Knöpfe des Menüs prüfen.
-      **Behoben 2026-09-30:** die Overlays bekamen ihre Szene nie (`initDebugViz` rief früher der `GameStateManager`,
-      der jetzt im Worker läuft); jetzt beim Start der Engine, beim Abbau räumt `dispose` alle Overlays. Im Browser
-      (DevWorld) alle drei Knöpfe geprüft.
-- [ ] **E90 Fokus nach dem Layer-Menü** (Playtest 2026-09-30): Layer-Menü schließen, mit Esc das Hauptmenü öffnen und
-      schließen: danach steht der Tooltip des Layer-Knopfs, und das Hauptmenü braucht 2× Esc. Vermutlich behält der
-      Knopf den Fokus und das erste Esc schließt dessen Tooltip. Im Browser prüfen (jsdom kennt den Fall nicht).
-      **Behoben 2026-09-30:** der Dialog gab den Fokus beim Schließen mit Esc als Tastatur-Fokus an den Knopf zurück,
-      dessen Tooltip schluckte das nächste Esc. Kein Dialog gibt den Fokus mehr zurück (`app.config.ts`). Im Browser
-      mit Gegenprobe geprüft.
-- [ ] **E91 Diagramme für FPS, Ticks und Sim** (Playtest 2026-09-30): minimal bleiben, aber wie richtige Diagramme
-      aussehen (Skala, saubere Linie, Grenzlinien, aktueller Wert). Entwurf vor dem Bauen.
-      **Entschieden (User, 2026-10-01):** Variante B aus dem Entwurf: 96 px breit wie heute, feste Skala, der schlechte
-      Bereich als Band (FPS unter 30, Ticks unter 24, Sim über 90 %), Punkt am letzten Wert, aktueller Wert rechts,
-      darunter Minimum und Maximum der Minute.
-      **Gebaut 2026-10-01:** feste Skalen (FPS bis 150, Ticks bis 40, Sim bis 100 %), Werte darüber am Rand
-      (`sparkline.ts`). Im Browser angesehen; der Aufklappzustand des Overlays war schon gespeichert und überlebt
-      einen Reload (geprüft).
 - [ ] **E92 Rest aus dem Review Robustheit und Bedienung** (Review 2026-10-01, zwei Reviewer, Befunde im Code
       nachgeprüft; das Behobene steht in den Commits des Tages). Offen, nach Gewicht:
       - Coop: Ein Gast kann mit falschen Hashes bis zu 5 Resyncs erzwingen; geht der Host während
@@ -374,43 +261,17 @@ Ideen (2026-09-27), nichts entschieden:
         die App mehr Nutzer hat.
       - Webversion ohne Content-Security-Policy (die Desktop-App hat eine); keine ausnutzbare Lücke gefunden, die CSP
         wäre das Netz für den Kartenschlüssel im localStorage. Entscheidung User offen.
-      - Replay-Dateien werden nur flach geprüft (Format, zwei Arrays), ohne Größengrenze; eine gebaute Datei kann den
-        Worker werfen lassen (nur der eigene Client).
       - Langsam und Gift haben je einen Platz: ein neuer, schwächerer Treffer überschreibt einen stärkeren, im Coop
         also der Tower, der zuletzt traf (laut Code so gewollt).
       - Der State-Hash erfasst Spawner (`accumulatedMs`, `nextDelayMs`, `spawnIndex`), Rush-Phase und
         `remainingKillBudget` nicht: eine Abweichung dort zeigt sich erst später an Gegnern oder Gold.
       - Bot-Server: das Dashboard ist jetzt nur lokal (`DASHBOARD_HOST`); der LAN-Relay der Desktop-App lauscht auf
         allen Schnittstellen (für LAN-Spiel nötig) und nimmt Verbindungen ohne Origin an.
-- [ ] **E95 Solo-Lauf bis Welle 60, Befunde** (User, 2026-10-01, Kirchgasse Binswangen; Run-Log
-      `tmp/runs/3dtd-run-2026-10-01T20-42-41-216Z-world.jsonl`, Replay
-      `tmp/runs/3dtd-replay-kirchgasse-binswangen-deutschland-w1-w60.json`; die Dateien mit „(1)“ sind Duplikate).
-      Analyse in einer eigenen Sitzung. Notiert:
-      - Der gelbe Punkt, bis wohin die Gegner kamen: entfernen oder abschaltbar machen.
-      - Zombie Soldier ohne Vorschau.
-      - Air-Warnung der Wellenvorschau: die Zahl der Tower, die Luftziele treffen, zählt AA-Retrofit nicht mit.
-      - Herbert zu schwach (Welle 10), Ooze zu schwach (Welle 20), Bosse ab Welle 30 keine Bosse.
-      - Bei Tempo ×4 (etwas weniger bei ×2) verschwinden Projektile, bevor sie den Gegner sichtbar erreichen; ×1 stimmt.
-      - Insgesamt oft zu leicht.
-      - Positiv: Engine solide, Performance gut; dazu nichts zu tun.
-- [ ] **E96 Spuren: Branch `lanes` übernehmen** (User, 2026-10-01, [LANES_PLAN.md](docs/LANES_PLAN.md) auf dem
-      Branch): jeder Spawn eine Spur auch allein, Startgold 100 je Spur, HQ und Spawns ab Welle 1 gesperrt, im Coop
-      beliebig viele Spuren je Spieler (Protokoll 3), Längen-Leiste beim Setzen eines Spawns. Gate grün, im Browser nur
-      die Tafel gesehen (DevWorld fand keinen gültigen Spawn-Platz). Offen: per Fast-Forward nach `next`, dann mit in den
-      Playtest und das Release; Relay-Image und Client zusammen ausliefern; Balance prüft der User.
-- [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
-      Der Worker loopt mit eigener Uhr statt auf Tick-Anfrage, der Hauptthread liest je Bild den neuesten Stand und
-      spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf
-      bei 16 000 Gegnern in Chromium), und langsame Bilder machen das Spiel zur Zeitlupe.
-      **Gebaut 2026-09-30** (Branch `perf/decouple`, Schritte 1 bis 6, `3867621a`): Loop im Worker mit eigener Uhr, drei
-      Tabellensätze, Veröffentlichen auf Abruf (bei Rückstand höchstens alle 33 ms), Coop-Freigaben direkt an den Worker,
-      Aufrufe und Replay mit angehaltenem Loop, Gegendruck; E2E 15 von 15 grün.
-      **Gemessen** (gegen `88658b44`, an eine Kernhälfte gebunden, zwei Runden, Tempo / neue Stände je Sekunde / FPS):
-      Firefox 16 000 Gegner bei Tempo 4: 4,0 / 43 bis 49 / 102 statt 3,9 / 24 / 107; 25 000 bei Tempo 4: 3,2 / 27 / 71
-      statt 3,0 / 15 / 72. Chromium 16 000 bei Tempo 4: 4,0 / 107 bis 111 / 112 statt 4,0 / 48 / 128; 25 000 bei Tempo 4:
-      4,0 / 62 / 75 statt 3,97 / 23 / 85. Tempo gleich oder besser, 1,7- bis 2,7-mal so viele neue Stände, FPS 3 bis
-      14 % niedriger (öfter eingeräumt). Offen: Übernahme nach `simu-worker` (User).
-      **Übernommen 2026-09-30:** über `simu-worker` in `next`.
+- [ ] **E95 Solo-Lauf bis Welle 60, Befunde** (User, 2026-10-01, Kirchgasse Binswangen; Run-Log und Replay in
+      `tmp/runs/`): zu leicht, monoton, Forschung zu früh, schwache Bosse, Projektile bei Tempo 4, gelber Punkt,
+      Soldier-Vorschau, Air-Warnung. **Umgesetzt 2026-10-02** (Balance-Nacht, dabei E54, E67, E69 und E70 aufgegangen),
+      gerechnet mit `tools/balance-calc` gegen diesen Lauf. Erster Test bis W20 gut (User). Offen: Playtest ab W20 mit
+      Spuren (Sonntag 2026-10-04), dessen Run-Log und Replay danach gegen die Rechnung legen.
 - [ ] **E86 Simulationsrate senken, Bild interpolieren** (User, 2026-09-30): Die Simulation rechnet 60 Sub-Steps je
       Sekunde Spielzeit (`GameClock.FIXED_STEP_MS` 16,667 ms), bei Tempo 4 also 240 je Sekunde. Viele Strategiespiele
       rechnen 10 bis 30 und interpolieren das Bild. 30 statt 60 würde die Arbeit des Workers grob halbieren; Ergebnisse,
@@ -453,6 +314,33 @@ Ideen (2026-09-27), nichts entschieden:
       Je Weg klären: Aufwand pro Release, Auto-Update neben dem eigenen, Sandbox gegen WebGL und LAN-Relay.
 ---
 
+- [ ] **E97 Replay kleiner und mit Tempo** (User, 2026-10-02): Sichtmasken einmal je Tower und Sichtweite ablegen
+      (45 % eines W60-Replays, nur 71 verschiedene), beim Speichern komprimieren (`.json.gz`, beim Laden erkannt),
+      Tempo-Wechsel ins Replay; Abspielen im Original-Tempo als Schalter, Standard aus.
+- [ ] **E98 Druck-Regler getrennt für Luft und Boden** (2026-10-02): Laut Rechnung scheitern schwächere Spieler vor allem
+      an Luft- und Geisterwellen (W17, W27, W44, W50), weil ein Regler für alle Wellen gilt. Nach dem Playtest entscheiden.
+- [ ] **E99 Anfänger-Bot hortet W7 bis W15**: Tier 3 öffnet erst ab W15, seine Forschungsliste hat dazwischen nichts.
+      Nur Bot-Läufe; bei der nächsten Bot-Messung ansehen.
+- [ ] **E100 Camo** (User, 2026-10-02): flexibel (einzelne Gegner, Anteil einer Art, ganze Wellen); getarnt schimmernd
+      halbtransparent, ohne Lebensbalken, nicht anvisierbar. Nur im Radius eines Archers mit Erkennung sichtbar und von
+      allen Towern treffbar. Erkennung: Forschung schaltet ein Einmal-Upgrade frei, sichtbarer Anbau (Blender), Ring beim
+      Auswählen, NEXT-Leiste warnt. Ins Budget rechnen.
+- [ ] **E101 Tower-Pfade und Ein-Klick-Upgrades** (User, 2026-10-02): ein Pfad je Tower, Forschung schaltet frei, je
+      Tower einmal gekauft, Anbau oder Modelltausch. Archer: Späher (Erkennung, E100), Scharfschütze (Modelltausch, etwa
+      auf die Ironclad Ballista, E102), Brandpfeile. Weitere Ideen: Rakete Mehrzweck (Boden mit halbem Schaden), Magic
+      Bannsiegel (hebt Phasing auf), Poison Ätzend (−1 Rüstung), Ice, Kanone, Gatling, Lightning, Fire, Tentacle.
+- [ ] **E102 Neue Tower aus den Meshy-Kandidaten** (User, 2026-10-02; Modelle in
+      `public/assets/models/towers/candidates/`, Zerlegung mit `tools/blender/split_tower.py` und `towers/*.json`):
+      Iron Bastion und Sentinel Laser abgenommen. Chainsaw mit Roboter-Tentakeln statt Armen (bis 14 m, eingefahren wie
+      das Modell, je Arm ein eigenes Ziel, Zuordnung nach Entfernung, damit nichts kreuzt). Shawarma Slicer mit
+      Döner-Strahl (dreht aus dem Stand hoch, Fett-Spritzer später als Pfad). Magma Reactor zurückgestellt. Alle auf das
+      Modell-Budget reduzieren (heute 0,8 bis 2,5 Mio. Dreiecke).
+- [ ] **E103 Ego-Steuerung des Helden** (User, 2026-10-02).
+- [ ] **E104 Bauzeit mit Gerüst** (User, 2026-10-02): echte Bauzeit, kurz (etwa 5 s, je Tower-Typ), der Tower wächst im
+      Gerüst schichtweise nach oben und schießt erst danach. Idee dazu: manche Aktionen laufen nur während einer Welle weiter.
+- [ ] **E105 Spieltiefe, Rest der Balance-Nacht**: Schild am Skarnax-Kopf, Gegnereigenschaften Shielded und Aura,
+      Mutator „Panzerung +1“.
+
 ## Entschieden (keine Arbeit)
 
 Vom User am 2026-09-16 entschieden, festgehalten in DONE.md (2026-09-16, "Entscheidungen des Users") und in der
@@ -466,6 +354,7 @@ jeweiligen Fach-Doku.
 - **B11** `PERF_BUG_ANALYSIS_2026-05-28.md` und die Abschnitte 0 bis 6 von `PLAYER_AGENCY_CONCEPT.md` liegen im Archiv
   (erledigt, `fbd30436`).
 - **B12** Die 32 Worker-Entscheidungen und "Shader-Prüfung bleibt manuell" sind bestätigt; Fundstellen in DONE.md.
+- **E66** Coop: Das gemeinsame HQ trägt die Lecks aller Spuren, Coop bleibt härter (User, 2026-09-28: so lassen).
 - Dev-Menü mit Cheats, alle Konsolen-Globals (`__corridor`, `__rg`, `__perf` usw.) und die Dauer-Messungen
   (Raycast-Zeitmessung, `[Camera]`-Log) bleiben im Release-Build.
 
