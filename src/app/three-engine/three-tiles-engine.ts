@@ -273,6 +273,8 @@ export class ThreeTilesEngine {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x151c1f);
     this.renderer.outputColorSpace = SRGBColorSpace;
+    // A tower being built is cut off above its course by a plane on its materials (TowerBuild)
+    this.renderer.localClippingEnabled = true;
     // After a context loss, objects three used before (tiles, pools, targets)
     // would delete their lost handles in the restored context when disposed.
     this.restoreGLDeletes = skipLostContextDeletes(this.renderer.getContext() as WebGL2RenderingContext, canvas);
@@ -952,6 +954,8 @@ export class ThreeTilesEngine {
 
     // Tower visuals only (selection ring pulse, magic hover, GLTF mixer LOD)
     this.towers.updateAnimations(deltaTime, this.camera);
+    // Scaffolds count the build down in game time (Tower.builtAtMs)
+    this.towers.updateBuilds(gameDeltaSeconds * 1000);
 
     // Veteran badges face the camera; their size is set in CSS pixels. The
     // drawing buffer's height, not clientHeight, which could force a layout

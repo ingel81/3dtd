@@ -262,6 +262,7 @@ export class GameStateManager {
     this.sink,
     () => this.corridorPending(),
     () => this.actingPlayerId,
+    () => this.clock.gameTimeMs,
   );
 
   /** Game speed (1.0 = normal, 75 at most), from the main thread when it changes (SimInput.gameSpeed) */
@@ -1003,6 +1004,8 @@ export class GameStateManager {
     this.eventBus.processQueue();
     if (profiling) timings.tEvents += performance.now() - t0;
 
+    this.towerLifecycle.finishBuilds(now);
+
     const hasDebugEnemies = this.debugEnemies.size > 0;
     const isWavePhase = this.waveManager.phase() === 'wave';
     const shouldRunCombat = isWavePhase || hasDebugEnemies;
@@ -1142,6 +1145,7 @@ export class GameStateManager {
    */
   resyncPresentation(): void {
     this.towerManager.refreshInnerFires();
+    this.towerLifecycle.announceBuilds();
     const phase = this.waveManager.phase();
     const wave = this.waveManager.waveNumber();
     for (const seat of this.abilitySeats) seat.announceState();

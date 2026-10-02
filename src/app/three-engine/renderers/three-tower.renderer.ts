@@ -31,6 +31,7 @@ import { TurretPitch, createTurretPitch, drawTurretAim } from './tower-turret-ai
 import type { TowerAim } from '../../entities/tower-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
 import { setTowerGreyedOut } from './tower-hold-fire';
+import { TowerBuild } from './tower-scaffold';
 
 /**
  * Tower render data - stored per tower
@@ -109,6 +110,10 @@ export class ThreeTowerRenderer {
   private readonly ranges = new Map<string, number>();
   /** A partner's lane colour per tower (setOwnerRing), set as the tower is placed, before its model arrives */
   private readonly ownerColors = new Map<string, number>();
+  /** A build (setBuild) that came before the tower's model: create() starts it */
+  private readonly pendingBuilds = new Map<string, { remainingMs: number; totalMs: number }>();
+  /** The towers growing in their scaffold, or whose scaffold is coming down, see TowerBuild */
+  private readonly builds = new Map<string, TowerBuild>();
 
   /** Tower types whose configured turretNode the model lacks, warned about once. */
   private readonly missingTurretNodes = new Set<string>();
@@ -435,7 +440,42 @@ export class ThreeTowerRenderer {
     if (range !== undefined) this.updateRangeIndicator(id, range);
     const ownerColor = this.ownerColors.get(id);
     if (ownerColor !== undefined) this.setOwnerRing(id, ownerColor);
+    const build = this.pendingBuilds.get(id);
+    if (build) {
+      this.pendingBuilds.delete(id);
+      this.setBuild(id, build.remainingMs, build.totalMs);
+    }
     return renderData;
+  }
+
+  /**
+   * The tower grows in its scaffold for `remainingMs` more game ms out of `totalMs` (Tower.builtAtMs); 0
+   * ends the build and the scaffold comes down. Before the model arrives it waits for create().
+   */
+  setBuild(id: string, remainingMs: number, totalMs: number): void {
+    const data = this.towers.get(id);
+    if (!data) {
+      if (remainingMs > 0) this.pendingBuilds.set(id, { remainingMs, totalMs });
+      else this.pendingBuilds.delete(id);
+      return;
+    }
+    const build = this.builds.get(id);
+    if (build) {
+      build.set(remainingMs, totalMs);
+    } else if (remainingMs > 0) {
+      this.builds.set(id, new TowerBuild(this.scene, data.mesh, data.typeConfig.footprintRadius, remainingMs, totalMs));
+    }
+  }
+
+  /** The builds of one render frame, `gameDeltaMs` of game time (0 while paused) */
+  updateBuilds(gameDeltaMs: number): void {
+    for (const [id, build] of this.builds) {
+      build.update(gameDeltaMs);
+      if (build.finished) {
+        build.dispose();
+        this.builds.delete(id);
+      }
+    }
   }
 
   /**
@@ -685,6 +725,9 @@ export class ThreeTowerRenderer {
    */
   remove(id: string): void {
     this.pendingCreates.delete(id);
+    this.pendingBuilds.delete(id);
+    this.builds.get(id)?.dispose();
+    this.builds.delete(id);
     this.heldIds.delete(id);
     this.ranges.delete(id);
     this.ownerColors.delete(id);
@@ -837,6 +880,7 @@ export class ThreeTowerRenderer {
    */
   clear(): void {
     this.pendingCreates.clear();
+    this.pendingBuilds.clear();
     this.heldIds.clear();
     this.ranges.clear();
     this.ownerColors.clear();

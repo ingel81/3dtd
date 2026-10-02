@@ -15,7 +15,7 @@ vi.mock('three', () => ({
 import { Tower } from './tower.entity';
 import { TransformComponent, CombatComponent, RenderComponent } from '../game-components';
 import { ComponentType } from '../core/component';
-import { getTowerType, getUpgradeCost } from '../configs/tower-types.config';
+import { DEFAULT_BUILD_TIME_MS, buildTimeOf, getTowerType, getUpgradeCost } from '../configs/tower-types.config';
 import { Enemy } from './enemy.entity';
 
 const position = { lat: 10, lon: 20, height: 5 };
@@ -221,5 +221,28 @@ describe('Tower entity', () => {
     expect(sniper.typeConfig.range).toBeGreaterThan(aoe.typeConfig.range);
     expect(aoe.typeConfig.projectileType).toBe('cannonball');
     expect(beam.typeConfig.attackType).toBe('beam');
+  });
+});
+
+describe('Tower build (TODO E104)', () => {
+  it('stands until its build end and keeps it through a snapshot', () => {
+    const tower = new Tower(position, 'archer');
+    expect(tower.isBuilt(0)).toBe(true);
+    tower.builtAtMs = 6000;
+    expect(tower.isBuilt(5999)).toBe(false);
+    expect(tower.isBuilt(6000)).toBe(true);
+
+    const copy = new Tower(position, 'archer');
+    copy.restoreSimState(tower.getSimState());
+    expect(copy.builtAtMs).toBe(6000);
+    // A snapshot from before the build came
+    const { builtAtMs: _, ...old } = tower.getSimState();
+    copy.restoreSimState(old);
+    expect(copy.builtAtMs).toBe(0);
+  });
+
+  it('takes the default build time, a passive building none', () => {
+    expect(buildTimeOf(getTowerType('archer'))).toBe(DEFAULT_BUILD_TIME_MS);
+    expect(buildTimeOf(getTowerType('research-center'))).toBe(0);
   });
 });

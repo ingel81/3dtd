@@ -26,6 +26,7 @@ function tower(id: string, cooldown: number, damageLevel = 0): Tower {
     airSubStrategy: 'closest',
     holdFire: false,
     manned: false,
+    builtAtMs: 0,
   } as unknown as Tower;
 }
 
@@ -83,7 +84,7 @@ describe('StateHasher', () => {
       .not.toBe(hasher.hash(source([], [tower('tower-1', 11)])));
   });
 
-  it('notices a status effect, an upgrade level and a tower setting', () => {
+  it('notices a status effect, an upgrade level, a tower setting and a build', () => {
     const plain = hasher.hash(source([enemy('enemy-1', 48.1, 90)]));
     const slowed = enemy('enemy-1', 48.1, 90);
     slowed.movement.statusEffects.push({ type: 'slow', value: 0.5, duration: 2000, startTime: 100, sourceId: 's' });
@@ -92,6 +93,9 @@ describe('StateHasher', () => {
     const holding = tower('tower-1', 10);
     holding.holdFire = true;
     expect(hasher.hash(source([], [holding]))).not.toBe(hasher.hash(source([], [tower('tower-1', 10)])));
+    const building = tower('tower-1', 10);
+    building.builtAtMs = 5000;
+    expect(hasher.hash(source([], [building]))).not.toBe(hasher.hash(source([], [tower('tower-1', 10)])));
   });
 
   describe('breakdown', () => {
@@ -124,7 +128,7 @@ describe('StateHasher', () => {
       expect(enemyRow).toHaveLength(7); // the status effects as one digest
       const [towerRow] = breakdown.entities.towers!;
       expect(towerRow.slice(0, 5)).toEqual(['tower-1', 10, 2, 40, '']);
-      expect(towerRow.slice(6)).toEqual(['closest', 'closest', 0]);
+      expect(towerRow.slice(6)).toEqual(['closest', 'closest', 0, 0]);
       expect(breakdown.entities.heroes).toEqual([[0, -1, expect.any(Number)]]);
       expect(breakdown.entities.research).toEqual([[0, expect.any(Number)]]);
       expect(breakdown.entities.projectiles).toBeUndefined();

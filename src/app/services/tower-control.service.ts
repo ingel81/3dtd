@@ -431,7 +431,7 @@ export class TowerControlService {
    */
   private predictShot(): void {
     const tower = this.mirror.mannedTower();
-    if (!tower || !tower.losReady || !tower.combat.canFire()) return;
+    if (!tower || !tower.losReady || !tower.isBuilt(this.mirror.gameTimeMs) || !tower.combat.canFire()) return;
     this.prediction.predict(tower.id);
     this.showShot();
     const bus = this.sim.bus;

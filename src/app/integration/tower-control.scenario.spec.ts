@@ -74,7 +74,7 @@ import { LOCAL_PLAYER_ID } from '../managers/game-state/command-log';
 import type { Enemy } from '../entities/enemy.entity';
 import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition } from '../models/game.types';
-import type { TowerTypeId } from '../configs/tower-types.config';
+import { DEFAULT_BUILD_TIME_MS, type TowerTypeId } from '../configs/tower-types.config';
 import type { RouteCell } from '../utils/route-cell';
 
 const BASE: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
@@ -336,6 +336,33 @@ describe('Manning a tower, through the sub-step loop', () => {
 
     expect(blank.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(blank.mock.calls.length).toBeLessThanOrEqual(3);
+  });
+
+  it('a tower placed stands in its scaffold for its build time and fires only after it (TODO E104)', () => {
+    const gsm = createGame();
+    const setBuild = vi.mocked(gsm.ops.sink.towers.setBuild);
+    const placedAt = gsm.gameTimeMs;
+    const tower = gsm.placeTower(TOWER_AT, 'archer')!;
+    expect(tower).not.toBeNull();
+    tower.losReady = true;
+    tower.visibleCells = [{} as RouteCell];
+    expect(tower.builtAtMs).toBe(placedAt + DEFAULT_BUILD_TIME_MS);
+    expect(setBuild.mock.calls).toEqual([[tower.id, DEFAULT_BUILD_TIME_MS, DEFAULT_BUILD_TIME_MS]]);
+
+    const blank = vi.spyOn(gsm.projectileManager, 'fireBlank');
+    const clock = { now: 1000 };
+    gsm.getEventBus().emit({ type: 'command:man-tower', towerId: tower.id });
+    gsm.getEventBus().emit({ type: 'command:tower-trigger', held: true });
+    steps(gsm, clock, Math.floor((DEFAULT_BUILD_TIME_MS - 100) / 16));
+    expect(blank).not.toHaveBeenCalled();
+    expect(tower.isBuilt(gsm.gameTimeMs)).toBe(false);
+
+    steps(gsm, clock, 30);
+    expect(tower.builtAtMs).toBe(0);
+    expect(setBuild).toHaveBeenLastCalledWith(tower.id, 0, DEFAULT_BUILD_TIME_MS);
+    expect(setBuild).toHaveBeenCalledTimes(2);
+    steps(gsm, clock, 70);
+    expect(blank).toHaveBeenCalled();
   });
 
   it('fires at exactly the fire rate of its upgrade level', () => {

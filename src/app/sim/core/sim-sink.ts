@@ -96,6 +96,11 @@ export interface SimSink {
     create(id: string, typeId: string, lat: number, lon: number, height: number, customRotation: number): void;
     updateRangeIndicator(id: string, range: number): void;
     setHoldFire(id: string, holdFire: boolean): void;
+    /**
+     * The tower grows in its scaffold for `remainingMs` more of game time out of `totalMs` (Tower.builtAtMs);
+     * 0 ends the build at once
+     */
+    setBuild(id: string, remainingMs: number, totalMs: number): void;
     remove(id: string): void;
     clear(): void;
   };

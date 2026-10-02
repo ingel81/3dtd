@@ -15,7 +15,7 @@ import type { ResearchEffect } from '../../configs/research/research.types';
 import type { CreditsLedger } from './credits-ledger';
 import { canTargetAirEffective } from '../../entities/tower-targeting.util';
 import { releaseAim } from '../../entities/tower-aim';
-import { TowerTypeId, TOWER_TYPES, UpgradeId, requiredUpgradeTier } from '../../configs/tower-types.config';
+import { TowerTypeId, TOWER_TYPES, UpgradeId, buildTimeOf, requiredUpgradeTier } from '../../configs/tower-types.config';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import type { SavedTower } from '../../simulator/sim-snapshot';
 import { losMaskFromJson } from '../../utils/los-mask';
@@ -49,6 +49,8 @@ export class TowerLifecycle {
     private readonly corridorPending: () => boolean,
     /** The player whose command runs (GameStateManager.actingPlayerId): pays, and owns what is built */
     private readonly actingPlayer: () => string = () => LOCAL_PLAYER_ID,
+    /** Game time now (GameClock.gameTimeMs): a placed tower's build ends from it */
+    private readonly gameTimeMs: () => number = () => 0,
   ) {}
 
   /** The first player of the run: the owner of a tower from a snapshot saved before coop */
@@ -85,6 +87,7 @@ export class TowerLifecycle {
       this.sink.towers.setHoldFire(tower.id, true);
       this.sink.towerBadges.setHoldFire(tower.id, true);
     }
+    this.announceBuild(tower);
     return tower;
   }
 
@@ -137,6 +140,13 @@ export class TowerLifecycle {
     if (tower) {
       this.creditsLedger.add(-config.cost, 'build', player);
 
+      // It grows in its scaffold and fires once it stands (finishBuilds)
+      const buildMs = buildTimeOf(config);
+      if (buildMs > 0) {
+        tower.builtAtMs = this.gameTimeMs() + buildMs;
+        this.announceBuild(tower);
+      }
+
       // Its line of sight comes from the main thread (TowerLos); passive
       // buildings need none
       if (config.attackType !== 'passive') {
@@ -152,6 +162,29 @@ export class TowerLifecycle {
       this.abilities(player).buildingChanged(typeId);
     }
     return tower;
+  }
+
+  /**
+   * Every sub-step: the towers whose build ended stand (Tower.builtAtMs back to 0), their scaffold comes
+   * down. In and between waves, in game time.
+   */
+  finishBuilds(gameTimeMs: number): void {
+    for (const tower of this.towerManager.getAll()) {
+      if (tower.builtAtMs === 0 || gameTimeMs < tower.builtAtMs) continue;
+      tower.builtAtMs = 0;
+      this.sink.towers.setBuild(tower.id, 0, buildTimeOf(tower.typeConfig));
+    }
+  }
+
+  /** The scaffold of every tower still building, after a restore or a seek changed the field without its ops */
+  announceBuilds(): void {
+    for (const tower of this.towerManager.getAll()) this.announceBuild(tower);
+  }
+
+  private announceBuild(tower: Tower): void {
+    if (tower.builtAtMs === 0) return;
+    const remaining = Math.max(0, tower.builtAtMs - this.gameTimeMs());
+    this.sink.towers.setBuild(tower.id, remaining, Math.max(remaining, buildTimeOf(tower.typeConfig)));
   }
 
   /**

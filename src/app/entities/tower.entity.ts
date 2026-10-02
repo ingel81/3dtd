@@ -37,6 +37,8 @@ export interface TowerSimState {
   cooldownMs: number;
   kills: number;
   damageDealt: number;
+  /** See Tower.builtAtMs; absent in snapshots from before it came, which read as 0 */
+  builtAtMs?: number;
 }
 
 /**
@@ -136,6 +138,12 @@ export class Tower extends GameObject {
 
   /** Whether LOS computation is complete (tower won't fire until true) */
   losReady = false;
+
+  /**
+   * Game time (GameClock.gameTimeMs) its build ends, 0 once it stands: until then it grows in its scaffold
+   * and does not fire (TowerLifecycle.place, finishBuilds; TODO E104).
+   */
+  builtAtMs = 0;
 
   /**
    * The answers in `visibleCells` and the grid as data, current after each
@@ -259,6 +267,11 @@ export class Tower extends GameObject {
     const point = points[this._nextFirePointIndex % points.length];
     this._nextFirePointIndex++;
     return point;
+  }
+
+  /** It stands and may fire at game time `gameTimeMs`, see builtAtMs */
+  isBuilt(gameTimeMs: number): boolean {
+    return this.builtAtMs === 0 || gameTimeMs >= this.builtAtMs;
   }
 
   /**
@@ -649,6 +662,7 @@ export class Tower extends GameObject {
       cooldownMs: this._combat.cooldownRemaining,
       kills: this._combat.kills,
       damageDealt: this._combat.damageDealt,
+      builtAtMs: this.builtAtMs,
     };
   }
 
@@ -672,6 +686,7 @@ export class Tower extends GameObject {
     this._combat.restoreCooldown(state.cooldownMs);
     this._combat.kills = state.kills;
     this._combat.damageDealt = state.damageDealt;
+    this.builtAtMs = state.builtAtMs ?? 0;
   }
 
   /**

@@ -242,6 +242,11 @@ export interface TowerTypeConfig {
 
   cost: number;
   upgrades: TowerUpgrade[]; // Available upgrades for this tower type
+  /**
+   * Game ms from placing to the first shot: it grows in its scaffold meanwhile (buildTimeOf, TODO E104).
+   * Default DEFAULT_BUILD_TIME_MS, 0 for a passive building.
+   */
+  buildTimeMs?: number;
 
   /**
    * One per map: while one stands, another cannot be placed. Checked by
@@ -712,6 +717,17 @@ export const AIR_SUB_STRATEGIES: AirSubStrategyConfig[] = [
   { id: 'lowest-hp', label: 'Weakest', icon: 'heart', tooltip: 'Targets the weakest air enemy' },
   { id: 'highest-hp', label: 'Strongest', icon: 'shield', tooltip: 'Targets the strongest air enemy' },
 ];
+
+/** Game ms a tower stands in its scaffold before it fires, unless its type says otherwise (TowerTypeConfig.buildTimeMs) */
+export const DEFAULT_BUILD_TIME_MS = 5000;
+
+/**
+ * Game ms `config` takes to build. A passive building stands at once: what it does (research slots, the
+ * silo's strike) does not wait for a build.
+ */
+export function buildTimeOf(config: TowerTypeConfig): number {
+  return config.buildTimeMs ?? (config.attackType === 'passive' ? 0 : DEFAULT_BUILD_TIME_MS);
+}
 
 export function getTowerType(id: TowerTypeId): TowerTypeConfig {
   return TOWER_TYPES[id];

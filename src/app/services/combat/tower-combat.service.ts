@@ -312,7 +312,7 @@ export class TowerCombatService {
       tower.combat.update(deltaTime);
 
       // Skip towers with pending LOS computation (progressive registration not yet complete)
-      if (!tower.losReady) continue;
+      if (!tower.losReady || !tower.isBuilt(gameTimeMs)) continue;
 
       if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;
 
@@ -404,7 +404,7 @@ export class TowerCombatService {
 
     const aimTarget = tower.losReady ? this.manualTarget(tower) : null;
     this.mannedAimTargets.set(tower.id, aimTarget);
-    if (!tower.losReady || !tower.triggerHeld || !tower.combat.canFire()) return null;
+    if (!tower.losReady || !tower.isBuilt(gameTimeMs) || !tower.triggerHeld || !tower.combat.canFire()) return null;
 
     // The held trigger fires at the tower's rate, wherever the turret points:
     // a turret that trails a fast swing used to hold fire until it caught up
@@ -563,7 +563,7 @@ export class TowerCombatService {
 
     for (const tower of towerManager.getAllActive()) {
       // Skip towers with pending LOS computation
-      if (!tower.losReady) continue;
+      if (!tower.losReady || !tower.isBuilt(gameTimeMs)) continue;
       // Skip non-beam towers
       if (tower.typeConfig.attackType !== 'beam') continue;
 
@@ -834,7 +834,7 @@ export class TowerCombatService {
 
       tower.combat.update(deltaTime);
 
-      if (!tower.losReady) continue;
+      if (!tower.losReady || !tower.isBuilt(gameTimeMs)) continue;
 
       // Wake check (game-time, no timescale compensation needed thanks to sub-stepping)
       if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;
@@ -905,7 +905,7 @@ export class TowerCombatService {
 
       tower.combat.update(deltaTime);
 
-      if (!tower.losReady) continue;
+      if (!tower.losReady || !tower.isBuilt(gameTimeMs)) continue;
 
       // Wake check
       if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;

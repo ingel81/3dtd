@@ -332,6 +332,20 @@ if (target) {
 
 ---
 
+## Bauzeit und Gerüst
+
+Ein gesetzter Tower steht erst nach seiner Bauzeit: `buildTimeOf(config)` in `tower-types.config.ts`, Standard
+`DEFAULT_BUILD_TIME_MS` (5 s Spielzeit), je Typ über `buildTimeMs`; passive Gebäude (Research Center, Missile Silo)
+stehen sofort, weil ihre Wirkung nicht auf den Bau wartet. `TowerLifecycle.place` setzt `Tower.builtAtMs` (Spielzeit
+des Bauendes), bis dahin feuert der Tower nicht (`Tower.isBuilt`, auch bemannt), `finishBuilds` setzt es je Sub-Step
+zurück auf 0. Snapshot und Prüfsumme tragen es, ein Replay baut also gleich.
+
+Darstellung: Op `towers.setBuild(id, restMs, gesamtMs)`, `TowerBuild` in `tower-scaffold.ts`. Ein Gerüst aus Rohren
+und Brettern steht um das Modell, das Modell wächst schichtweise von unten (Clip-Ebene auf seinen eigenen Materialien,
+`renderer.localClippingEnabled`), gezählt in Spielzeit. Das Ende kommt von der Simulation, dann fährt das Gerüst ein.
+
+---
+
 ## Model-Teile ein- und ausblenden
 
 Ein Node im Modell eines Tower-Typs lässt sich über den Renderer zeigen oder verbergen,
