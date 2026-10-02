@@ -121,7 +121,7 @@ function makeEngine() {
       spawnConfigurableTrail: vi.fn(),
     },
     oozes: { add: vi.fn(), setFrame: vi.fn() },
-    projectiles: { update: vi.fn(), updateWithRotation: vi.fn(), beginState: vi.fn(), lastOffset: new Vector3(), landed: [] as string[], landingNow: [] as { id: string; shown: Vector3; lead: Vector3 }[] },
+    projectiles: { update: vi.fn(), updateWithRotation: vi.fn(), beginState: vi.fn(), settleHits: vi.fn(), lastOffset: new Vector3(), landed: [] as string[], landingNow: [] as { id: string; shown: Vector3; lead: Vector3 }[] },
     trailStreaks: { pushPosition: vi.fn(), remove: vi.fn() },
     towerBadges: { setRank: vi.fn() },
     hero: { present: vi.fn() },
@@ -272,6 +272,15 @@ describe('FramePresenter', () => {
       expect(trails[1][1]).toBeCloseTo(1.2 - 2.1 - TRAIL_SPAWN_DISTANCE_M);
       expect(engine.trailStreaks.pushPosition).toHaveBeenCalledTimes(3);
       expect(engine.trailStreaks.pushPosition.mock.calls[0][0]).toBe('projectile-11');
+    });
+
+    it('settles every hit at once for a packet that is not presented, trails with them', () => {
+      const { presenter, engine } = setup();
+      engine.projectiles.landed.push('projectile-7');
+      presenter.present(packet({ presented: false }));
+      expect(engine.projectiles.settleHits).toHaveBeenCalledTimes(1);
+      expect(engine.projectiles.beginState).not.toHaveBeenCalled();
+      expect(engine.trailStreaks.remove).toHaveBeenCalledWith('projectile-7');
     });
 
     it('takes the trail of a landing projectile to its hit point and off once it landed', () => {

@@ -229,6 +229,21 @@ describe('ThreeProjectileRenderer, a hit shown to its end', () => {
     expect(flying()).toBe(0);
   });
 
+  it('goes at once, landing or just hit, when no state is presented', () => {
+    renderer.finish('p', 30, 0, 0);
+    renderer.beginState(0);
+    renderer.create('q', 'bullet', 0, 0, 0, { dx: 1, dy: 0, dz: 0 });
+    renderer.finish('q', 5, 0, 0);
+
+    renderer.settleHits();
+    expect(renderer.landed).toEqual(['p', 'q']);
+    expect(renderer.landingNow).toEqual([]);
+    expect(flying()).toBe(0);
+
+    renderer.beginState(0);
+    expect(renderer.landed).toEqual([]);
+  });
+
   it('forgets a hit that a remove or a clear took first', () => {
     renderer.finish('p', 30, 0, 0);
     renderer.remove('p');

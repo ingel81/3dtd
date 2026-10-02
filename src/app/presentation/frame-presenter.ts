@@ -160,6 +160,10 @@ export class FramePresenter {
       this.engine.spatialAudio?.rebalanceEnemyLoops();
       // The tables are views into shared memory, valid during present() only
       this.enemyTable = null;
+    } else {
+      // No state to slide with: what hit goes now, or it piles up while rendering is off
+      this.engine.projectiles.settleHits();
+      this.landProjectiles();
     }
     this.oozes.endFrame();
   }

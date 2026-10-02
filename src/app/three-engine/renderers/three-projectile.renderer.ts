@@ -759,6 +759,25 @@ export class ThreeProjectileRenderer {
   }
 
   /**
+   * Every projectile that hit or is landing goes at once, without the slide:
+   * for a packet that is not presented (rendering off in a bot run, a
+   * replay's seek), where no beginState comes to take them.
+   */
+  settleHits(): void {
+    this.landed.length = 0;
+    this.landingNow.length = 0;
+    for (const id of this.landing) {
+      this.remove(id);
+      this.landed.push(id);
+    }
+    this.landing.length = 0;
+    for (const id of [...this.hits.keys()]) {
+      this.remove(id);
+      this.landed.push(id);
+    }
+  }
+
+  /**
    * Projectile `id` hit (or a free shot ended) at this point: it slides
    * there with the next state and goes one state later (beginState).
    */
