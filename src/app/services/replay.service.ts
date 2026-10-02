@@ -7,7 +7,7 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 import { REPLAY_CONFIG } from '../configs/replay.config';
 import type { ReplayMarker } from '../replay/replay-bar-view';
-import { replayFileName, replayFileRefusalText, type ReplayFile, type ReplayFileRefusal } from '../simulator/replay-file';
+import { MAX_REPLAY_FILE_BYTES, replayFileName, replayFileRefusalText, type ReplayFile, type ReplayFileRefusal } from '../simulator/replay-file';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { buildCommit } from '../run-log/build-commit';
 import { BUILD_VERSION } from '../configs/build-info.config';
@@ -383,6 +383,11 @@ export class ReplayService {
    * otherwise fileProblem says why.
    */
   async loadFile(blob: Blob): Promise<void> {
+    // Before reading it whole: a file far above any replay could freeze the tab
+    if (blob.size > MAX_REPLAY_FILE_BYTES) {
+      this.ngZone.run(() => this.fileProblem.set(replayFileRefusalText('too-big')));
+      return;
+    }
     const text = await blob.text();
     const phase = this.store.phase();
     if (this.active() || (phase !== 'setup' && phase !== 'gameover')) {

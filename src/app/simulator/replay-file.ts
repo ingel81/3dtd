@@ -70,8 +70,37 @@ export function buildReplayFile(
   };
 }
 
+/**
+ * The largest replay file read, bytes. A full run to wave 60 is about 6 MB; a file far above that is not one
+ * the game wrote, and parsing it could freeze the tab.
+ */
+export const MAX_REPLAY_FILE_BYTES = 64 * 1024 * 1024;
+
 /** Why a file cannot be replayed here, null when it can. */
-export type ReplayFileRefusal = 'not-a-replay' | 'version' | 'other-world' | 'other-balance' | 'empty';
+export type ReplayFileRefusal = 'not-a-replay' | 'too-big' | 'damaged' | 'version' | 'other-world' | 'other-balance' | 'empty';
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const isStep = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0;
+
+/**
+ * The waves and the log hold what the replay reads, of the types it reads them as: a wave a number, a config
+ * object, its log start inside the log, its steps whole and in order, its hashes numbers, its snapshot an
+ * object or null; a log entry a step, a player and a command with a type. Anything else is a damaged or
+ * hand-made file, refused before the simulation reads it.
+ */
+function wellFormed(data: { waves: unknown[]; log: unknown[] }): boolean {
+  const logOk = data.log.every((e) => isObject(e) && isStep(e['step']) && typeof e['playerId'] === 'string'
+    && isObject(e['command']) && typeof e['command']['type'] === 'string');
+  if (!logOk) return false;
+  return data.waves.every((w) => isObject(w)
+    && Number.isInteger(w['wave'])
+    && isObject(w['config'])
+    && (w['snapshot'] === null || isObject(w['snapshot']))
+    && isStep(w['startStep'])
+    && isStep(w['logStart']) && (w['logStart'] as number) <= data.log.length
+    && (w['endStep'] === null || (isStep(w['endStep']) && (w['endStep'] as number) >= (w['startStep'] as number)))
+    && Array.isArray(w['hashes']) && (w['hashes'] as unknown[]).every((h) => typeof h === 'number'));
+}
 
 /**
  * Parse `text` and check it against the world and balance loaded now. A file
@@ -84,6 +113,8 @@ export function readReplayFile(
   text: string,
   here: { worldKey: string; configHash: string; gameVersion: string },
 ): { file: ReplayFile; refusal: null; note: string | null } | { file: null; refusal: ReplayFileRefusal } {
+  // UTF-16 code units, at least the bytes of any ASCII file: a cap for a file that came another way than loadFile
+  if (text.length > MAX_REPLAY_FILE_BYTES) return { file: null, refusal: 'too-big' };
   let data: Partial<ReplayFile>;
   try {
     data = JSON.parse(text) as Partial<ReplayFile>;
@@ -96,6 +127,7 @@ export function readReplayFile(
   if (data.version !== REPLAY_FILE_VERSION || data.snapshotVersion !== SIM_SNAPSHOT_VERSION) {
     return { file: null, refusal: 'version' };
   }
+  if (!wellFormed(data as { waves: unknown[]; log: unknown[] })) return { file: null, refusal: 'damaged' };
   if (data.worldKey !== here.worldKey) return { file: null, refusal: 'other-world' };
   if (data.configHash !== here.configHash) return { file: null, refusal: 'other-balance' };
   if (data.waves.length === 0) return { file: null, refusal: 'empty' };
@@ -115,6 +147,8 @@ export function readReplayFile(
 export function replayFileRefusalText(refusal: ReplayFileRefusal): string {
   switch (refusal) {
     case 'not-a-replay': return 'That file is no 3DTD replay.';
+    case 'too-big': return 'That file is far too big for a 3DTD replay.';
+    case 'damaged': return 'That replay file is damaged.';
     case 'version': return 'That replay was saved by another version of the game.';
     case 'other-world': return 'That replay was played on another map. Load the same place first.';
     case 'other-balance': return 'That replay was played with other tower or enemy values.';
