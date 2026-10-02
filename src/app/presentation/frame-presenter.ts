@@ -269,7 +269,11 @@ export class FramePresenter {
       }
 
       let slot = record.slot;
-      if (slot === null || slot.released) slot = record.slot = engine.enemies.resolveSlot(record.id);
+      if (slot === null || slot.released) {
+        slot = record.slot = engine.enemies.resolveSlot(record.id);
+        // A slot resolved anew starts without a mark: set it again below
+        record.mark = NO_MARK;
+      }
       if (slot !== null) {
         // A mark of the simulation (a raging boss): set on the slot when it changes
         const mark = enemyMarkOf(flags);
