@@ -59,7 +59,7 @@ test('smoke: build a tower, play a wave, open a dialog, watch the replay', async
   });
 });
 
-test('M5 a new place starts the pressure loop at ×1.00, capped clean waves hold it there', async ({ duo, relay: _relay }, testInfo) => {
+test('M5 a new place starts the pressure loop at ×1.00 and counts only its own waves', async ({ duo, relay: _relay }, testInfo) => {
   const page = duo.host;
   // The loop's factor R in "Why this wave" (wave debugger), null while no wave is explained
   const loop = async () => {
@@ -78,9 +78,9 @@ test('M5 a new place starts the pressure loop at ×1.00, capped clean waves hold
   await shot(testInfo, page, 'm5-new-place');
   await clearWave(page);
 
-  // One warm-up wave the loop does not count (BUDGET_REGULATOR_START), then the clean waves it measures. Without a
-  // tower every wave is capped (the defense cannot take the budget), so the anti-windup holds the loop at x1.00
-  // instead of opening it against a cap
+  // One warm-up wave the loop does not count (BUDGET_REGULATOR_START), then the waves it measures. The cap follows
+  // the loop (CAP_FOLLOWS_REGULATOR), so capped waves move it too; how far depends on what slips through between two
+  // "Kill all" on a short route, so only its bounds are checked
   for (let wave = 2; wave <= 7; wave++) {
     await page.keyboard.press('Space');
     await expect(waveButton(page)).toContainText(/left/i);
@@ -94,8 +94,11 @@ test('M5 a new place starts the pressure loop at ×1.00, capped clean waves hold
     }).facade.waveDirector.source;
     return source.pressure.status;
   });
-  await expect.poll(regulator).toMatchObject({ samples: 6, meanPressure: 0, lastStep: 'held' });
-  expect(await loop()).toBe(1);
+  await expect.poll(async () => (await regulator()).samples).toBe(6);
+  const r = await loop();
+  expect(r).not.toBeNull();
+  expect(r!).toBeGreaterThanOrEqual(0.5);
+  expect(r!).toBeLessThanOrEqual(2.5);
   await shot(testInfo, page, 'm5-held');
   await clearWave(page);
 });
