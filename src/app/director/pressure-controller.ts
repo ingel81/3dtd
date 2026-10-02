@@ -106,8 +106,8 @@ export const PRESSURE_SHAPE_END = 1.5;
 export const PRESSURE_MAX_STEP = 0.7;
 
 /**
- * Größter Schritt beim Öffnen, als Betrag des Log-Fehlers: 0,3 entspricht
- * höchstens ×1,16 pro Welle. Öffnen geht langsamer als Schließen: Nach einer
+ * Größter Schritt beim Öffnen, als Betrag des Log-Fehlers: 0,2 entspricht
+ * mit pressureGain 0,5 höchstens ×1,105 pro Welle. Öffnen geht langsamer als Schließen: Nach einer
  * Reihe billiger Wellen stand der Regler sonst in drei Wellen beim Doppelten,
  * und die erste Welle, die die Abwehr wirklich forderte, kam mit vollem
  * Überschuss.

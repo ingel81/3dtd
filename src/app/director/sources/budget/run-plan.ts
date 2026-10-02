@@ -85,12 +85,20 @@ export const WAVE_LEAK_POTENTIAL = 40;
 
 /** What all bodies of `wave` but its bosses cost the HQ at the wave's scale 1: each type's leak damage (split tree, a worm once) times its count. */
 export function waveLeakPotential(wave: number): number {
-  return Object.entries(planEnemies(wave)).reduce((sum, [type, count]) => {
-    const id = type as EnemyTypeId;
-    if (ENEMY_TYPES[id]?.isBoss) return sum;
-    return sum + count * (ENEMY_TYPES[id]?.chain ? leakDamageOf(id) : lineageLeakDamage(id));
-  }, 0);
+  let potential = leakPotentials.get(wave);
+  if (potential === undefined) {
+    potential = Object.entries(planEnemies(wave)).reduce((sum, [type, count]) => {
+      const id = type as EnemyTypeId;
+      if (ENEMY_TYPES[id]?.isBoss) return sum;
+      return sum + count * (ENEMY_TYPES[id]?.chain ? leakDamageOf(id) : lineageLeakDamage(id));
+    }, 0);
+    leakPotentials.set(wave, potential);
+  }
+  return potential;
 }
+
+/** waveLeakPotential per wave: the plan is fixed, and leaks and a flowing Ooze ask for it every sub-step */
+const leakPotentials = new Map<number, number>();
 
 /**
  * What one leak of `wave` costs per point of a type's leak damage: the curve's
