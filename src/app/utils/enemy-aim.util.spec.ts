@@ -14,7 +14,8 @@ import {
 import { bakeVAT } from '../three-engine/renderers/instanced-enemy/vat-baker';
 import { vatClips } from '../three-engine/renderers/instanced-enemy/vat-clips';
 import { getEnemyAimOffsetY } from './enemy-aim.util';
-import type { Enemy } from '../entities/enemy.entity';
+import { Enemy } from '../entities/enemy.entity';
+import { ELITE_SIZE } from '../configs/enemy-types.config';
 
 const NATIVE = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'exp', 'log', 'pow', 'hypot'] as const;
 const M = Math as unknown as Record<string, (...args: number[]) => number>;
@@ -67,7 +68,7 @@ function bakeRange(): { min: number; max: number } {
 
 /** An enemy of a type whose config carries the natively baked extent */
 function enemyWith(range: { min: number; max: number }): Enemy {
-  return { typeConfig: { id: 'skew-test', scale: 1.7, modelRangeY: range } } as unknown as Enemy;
+  return { typeConfig: { id: 'skew-test', scale: 1.7, modelRangeY: range }, sizeScale: 1.7 } as unknown as Enemy;
 }
 
 describe('enemy aim offset across engines (TODO E28)', () => {
@@ -84,5 +85,15 @@ describe('enemy aim offset across engines (TODO E28)', () => {
     // What the simulation reads does not come from it
     expect(getEnemyAimOffsetY(enemy)).toBe(aim);
     expect(aim).toBe(((native.min + native.max) / 2) * 1.7);
+  });
+});
+
+describe('getEnemyAimOffsetY of an elite', () => {
+  it('aims at the middle of the bigger model an elite is drawn with', () => {
+    const path = [{ lat: 0, lon: 0 }, { lat: 0.001, lon: 0 }];
+    const plain = new Enemy('tank', path);
+    const elite = new Enemy('tank', path);
+    elite.elite = true;
+    expect(getEnemyAimOffsetY(elite)).toBeCloseTo(getEnemyAimOffsetY(plain) * ELITE_SIZE, 6);
   });
 });

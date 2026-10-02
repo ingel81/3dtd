@@ -35,5 +35,5 @@ export const DEFAULT_AIM_OFFSET_Y = 2;
 export function getEnemyAimOffsetY(enemy: Enemy): number {
   const range = enemy.typeConfig.modelRangeY;
   if (range === undefined) return DEFAULT_AIM_OFFSET_Y;
-  return ((range.min + range.max) / 2) * enemy.typeConfig.scale;
+  return ((range.min + range.max) / 2) * enemy.sizeScale;
 }

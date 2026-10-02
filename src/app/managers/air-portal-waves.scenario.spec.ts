@@ -193,11 +193,15 @@ describe('Regular air waves at two portals, playtest 238 (night 1) replayed', ()
       expect(t.climbEnd, type.id).toBeGreaterThan(t.climbStart);
       expect(t.cruise, type.id).toBe(type.heightOffset);
     }
-    // All of a type come through the same height, at both portals (both of scale 1)
+    // All of a type come through the same height, at both portals (both of scale 1); an elite, drawn bigger,
+    // comes through at its own
     const types = new Set(tracked.map((t) => t.enemy.typeConfig.id));
     for (const type of types) {
-      const altitudes = tracked.filter((t) => t.enemy.typeConfig.id === type).map((t) => t.altitude);
-      expect(Math.max(...altitudes) - Math.min(...altitudes), type).toBeLessThan(1e-9);
+      for (const elite of [false, true]) {
+        const altitudes = tracked.filter((t) => t.enemy.typeConfig.id === type && t.enemy.elite === elite).map((t) => t.altitude);
+        if (altitudes.length === 0) continue;
+        expect(Math.max(...altitudes) - Math.min(...altitudes), type).toBeLessThan(1e-9);
+      }
     }
     return types;
   }

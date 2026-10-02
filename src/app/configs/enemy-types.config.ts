@@ -454,6 +454,12 @@ const DRAGON: EnemyTypeConfig = {
   previewOffsetY: 0.6,
 };
 
+/**
+ * An elite (SpawnEntry.elite) is drawn this much bigger, and the simulation sizes it the same: where projectiles
+ * aim, how high it comes out of a portal.
+ */
+export const ELITE_SIZE = 1.25;
+
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: {
     id: 'zombie',

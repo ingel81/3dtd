@@ -263,6 +263,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     paused = false,
     healthOverride?: number,
     entry?: SpawnEntry,
+    elite = false,
   ): Enemy {
     const type = ENEMY_TYPES[typeId];
     const chain = type?.chain;
@@ -276,7 +277,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
       return head;
     }
-    return this.spawnOne(path, typeId, speedOverride, paused, healthOverride, entry, null);
+    return this.spawnOne(path, typeId, speedOverride, paused, healthOverride, entry, null, elite);
   }
 
   /** One enemy, see spawn(). `worm` links a worm segment to its chain. */
@@ -288,10 +289,13 @@ export class EnemyManager extends EntityManager<Enemy> {
     healthOverride: number | undefined,
     entry: SpawnEntry | undefined,
     worm: WormLink | null,
+    elite = false,
   ): Enemy {
     const start = typeof entry === 'object' ? entry : undefined;
     const enemy = new Enemy(typeId, path, speedOverride, start?.segmentIndex, start?.segmentProgress);
     enemy.worm = worm;
+    // Before the portal exit below, which sizes the enemy as drawn
+    enemy.elite = elite;
 
     // Override health if specified
     if (healthOverride !== undefined) {
@@ -403,7 +407,7 @@ export class EnemyManager extends EntityManager<Enemy> {
    */
   private portalExitFor(enemy: Enemy, start: RouteWaypoint): AirPortalExit {
     const range = enemy.typeConfig.modelRangeY;
-    const scale = enemy.typeConfig.scale;
+    const scale = enemy.sizeScale;
     return airPortalExit(
       portalScaleForWidth(portalCorridorWidth(start)),
       range !== undefined ? range.min * scale : 0,

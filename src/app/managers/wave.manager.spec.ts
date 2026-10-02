@@ -160,18 +160,18 @@ describe('WaveManager', () => {
     });
 
     it('marks the enemy of an elite entry', () => {
-      const spawned: { worm: null; elite?: boolean }[] = [];
-      (enemyManager.spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => {
-        const enemy = { worm: null };
-        spawned.push(enemy);
-        return enemy;
+      const elite: boolean[] = [];
+      (enemyManager.spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation((...args: unknown[]) => {
+        elite.push(args[6] === true);
+        return { worm: null };
       });
       const config = makeWaveConfig({ count: 2, spawnDelay: 100 });
       config.schedule!.entries[1].elite = true;
       wm.startWave(config);
       wm.tickSpawn(0);
       wm.tickSpawn(1000);
-      expect(spawned.map((e) => e.elite === true)).toEqual([false, true]);
+      // Spawned as an elite, so the portal exit already sizes it as drawn
+      expect(elite).toEqual([false, true]);
     });
 
     it('spawns enemies with game-time delay between them', () => {
@@ -223,6 +223,7 @@ describe('WaveManager', () => {
         false,
         undefined,
         'portal',
+        false,
       );
 
       wm.tickSpawn(300); // the spawn floor, not the 50 ms asked
@@ -233,6 +234,7 @@ describe('WaveManager', () => {
         false,
         undefined,
         'portal',
+        false,
       );
     });
 

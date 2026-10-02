@@ -7,7 +7,7 @@ import {
   MovementComponent,
 } from '../game-components';
 import { GeoPosition } from '../models/game.types';
-import { EnemyTypeId, getEnemyType, EnemyTypeConfig } from '../configs/enemy-types.config';
+import { EnemyTypeId, getEnemyType, EnemyTypeConfig, ELITE_SIZE } from '../configs/enemy-types.config';
 import { ArmorType } from '../configs/combat/combat.types';
 import type { RouteCell } from '../utils/route-cell';
 import type { AirPortalExit } from '../utils/air-portal-exit';
@@ -91,6 +91,11 @@ export class Enemy extends GameObject {
   damageTaken = 1;
   /** An elite of its kind (SpawnEntry.elite) or split from one; the packet marks it (EF_ELITE) */
   elite = false;
+
+  /** The model's scale as drawn: the type's, an elite's ELITE_SIZE times bigger */
+  get sizeScale(): number {
+    return this.typeConfig.scale * (this.elite ? ELITE_SIZE : 1);
+  }
   /** Its rage has begun (boss-traits); the packet shows it (EF_ENRAGED) */
   enraged = false;
 
