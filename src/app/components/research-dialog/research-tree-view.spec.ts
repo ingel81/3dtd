@@ -87,6 +87,13 @@ describe('buildResearchNodes', () => {
     expect(nodeFor('gatling-tech').hint).toBe(RESEARCH_TREE['gatling-tech'].description);
   });
 
+  it('prices a node at the cost times the lanes of the player', () => {
+    const cost = RESEARCH_TREE['gatling-tech'].cost;
+    expect(nodeFor('gatling-tech', state({ lanes: 2, credits: cost * 2 - 1 })).state).toBe('poor');
+    expect(nodeFor('gatling-tech', state({ lanes: 2, credits: cost * 2 })).state).toBe('available');
+    expect(buildResearchDetail('gatling-tech', state({ lanes: 2 }), 0)!.cost).toBe(cost * 2);
+  });
+
   it('is poor, not available, when the node is open but the purse is short', () => {
     const node = nodeFor('gatling-tech', state({ credits: RESEARCH_TREE['gatling-tech'].cost - 1 }));
     expect(node.state).toBe('poor');

@@ -17,6 +17,7 @@ import {
   ResearchConfig,
   ResearchSaveState,
   researchWaitsForWave,
+  researchCost,
 } from '../configs/research/research.types';
 import {
   RESEARCH_TREE,
@@ -74,12 +75,19 @@ export class ResearchManager implements IGameManager {
   /**
    * @param wave the wave the run is at for the research (researchWave), read
    *   at every check; a manager without a run (specs) has every wave open
+   * @param lanes how many lanes the player holds, the factor on every cost (researchCost)
    */
   constructor(
     private readonly eventBus: GameEventBus,
     readonly owner: PlayerOwner = LOCAL_OWNER,
     private readonly wave: () => number = () => Number.POSITIVE_INFINITY,
+    private readonly lanes: () => number = () => 1,
   ) {}
+
+  /** What `config` costs this player now (researchCost with the player's lanes). */
+  costOf(config: ResearchConfig): number {
+    return researchCost(config, this.lanes());
+  }
 
   /** The wave `config` still waits for (its minWave), null when it is open. */
   waitsForWave(config: ResearchConfig): number | null {
@@ -191,6 +199,7 @@ export class ResearchManager implements IGameManager {
       queuedResearches: this.getQueuedResearches(),
       centerLevel: this._centerLevel,
       maxSlots: this._maxSlots,
+      lanes: Math.max(1, this.lanes()),
     });
   }
 
@@ -240,7 +249,7 @@ export class ResearchManager implements IGameManager {
     if (this.availableSlots <= 0) {
       return { canStart: false, reason: 'No available research slots' };
     }
-    if (availableCredits < config.cost) {
+    if (availableCredits < this.costOf(config)) {
       return { canStart: false, reason: 'Not enough credits' };
     }
     return { canStart: true };
@@ -254,11 +263,12 @@ export class ResearchManager implements IGameManager {
     const config = getResearch(id);
     if (!config) return false;
 
+    const cost = this.costOf(config);
     const active: ActiveResearch = {
       researchId: id,
       duration: config.duration,
       elapsed: 0,
-      cost: config.cost,
+      cost,
     };
 
     this.activeResearches.set(id, active);
@@ -266,7 +276,7 @@ export class ResearchManager implements IGameManager {
     this.emit({
       type: 'research:started',
       researchId: id,
-      cost: config.cost,
+      cost,
       duration: config.duration,
     });
     this.emitStateSnapshot();
@@ -359,7 +369,7 @@ export class ResearchManager implements IGameManager {
         dropped = true;
         continue;
       }
-      if (!this.canStartResearch(head, credits()).canStart || !spend(config.cost)) break;
+      if (!this.canStartResearch(head, credits()).canStart || !spend(this.costOf(config))) break;
       this.queue.shift();
       // Emits the snapshot, the queue already without the head
       this.startResearch(head);
@@ -603,7 +613,7 @@ export class ResearchManager implements IGameManager {
           researchId: active.researchId,
           duration: config.duration,
           elapsed: active.elapsed,
-          cost: config.cost,
+          cost: this.costOf(config),
         });
       }
     }

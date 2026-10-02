@@ -60,7 +60,7 @@ describe('OnboardingService', () => {
     expect(service.tip()).toBeNull();
     bus.emit({
       type: 'research:state-changed', playerId: 'local', local: true, activeResearches: [], completedResearches: new Set(),
-      queuedResearches: [], centerLevel: 1, maxSlots: 1,
+      queuedResearches: [], centerLevel: 1, maxSlots: 1, lanes: 1,
     });
     expect(service.tip()?.title).toBe('Start a research');
   });

@@ -8,6 +8,7 @@ Stand 2026-10-01, Branch `lanes`. Entscheidungen des Users per AUQ am 2026-10-01
 |-----|-------|--------------|
 | L1 | Einzelspiel mit mehreren Spawns | Jeder Spawn ist eine Spur wie im Coop: jede Welle kommt komplett auf jeder Spur, Kill-Gold je Spur, die Wellengröße gegen den Anteil der Abwehr je Spur |
 | L2 | Startgold | 100 je Spur des Spielers (`GAME_BALANCE.player.startCredits` mal Spuren, mindestens einmal) |
+| L2b | Forschung | Kosten mal Spuren des Spielers (`researchCost`): jede Spur bringt ihr eigenes Kill-Gold, also spielt jede Spur wirtschaftlich wie ein einzelner Spawn |
 | L3 | Spawns ändern | Nur vor der ersten Welle; das Startgold folgt bis dahin (nie unter das schon Ausgegebene). Ab Welle 1 gesperrt, auch HQ verschieben (beides baut den Lauf neu) |
 | L4 | Coop: Spurwahl | Jeder nimmt in der Lobby beliebig viele freie Spuren und gibt sie ab; Start erst, wenn jede Spur einen Spieler hat und jeder mindestens eine |
 | L5 | Coop: wer setzt Spawns | Nur der Host, wie bisher; ein neuer oder verschobener Spawn lässt die Bereit-Meldungen fallen |

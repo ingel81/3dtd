@@ -24,7 +24,7 @@ import {
   RESEARCH_TREE,
 } from '../../../configs/research/research-tree.config';
 import {
-  ResearchId, ResearchEffect, researchWaitsForWave, researchWave,
+  ResearchId, ResearchEffect, researchCost, researchWaitsForWave, researchWave,
 } from '../../../configs/research/research.types';
 import { ArmorType, ARMOR_TYPES } from '../../../configs/combat/combat.types';
 import { DAMAGE_MATRIX } from '../../../configs/combat/damage-matrix.config';
@@ -104,7 +104,7 @@ export class ResearchPickStrategy extends BaseStrategy {
     const cfg = getResearch(next);
     if (!cfg) return false;
 
-    return state.player.credits >= cfg.cost;
+    return state.player.credits >= researchCost(cfg, r.lanes ?? 1);
   }
 
   execute(state: GameStateSnapshot): TowerAction | null {

@@ -440,7 +440,11 @@ export class GameStateManager {
   /** A player's research with its credits bound once, see researchSeats */
   private researchSeat(playerId: string, owner: PlayerOwner): ResearchSeat {
     return {
-      research: new ResearchManager(this.eventBus, owner, () => researchWave(this.waveManager.waveNumber(), this.waveManager.phase())),
+      research: new ResearchManager(
+        this.eventBus, owner,
+        () => researchWave(this.waveManager.waveNumber(), this.waveManager.phase()),
+        () => this.room.laneSpawnsOf(playerId).length,
+      ),
       credits: () => this.creditsLedger.balance(playerId),
       spend: (cost) => this.creditsLedger.spend(cost, 'research', playerId),
     };

@@ -382,7 +382,7 @@ describe('GameStateSyncService (real service)', () => {
         completedResearches: completed,
         queuedResearches: ['arcane-studies'],
         centerLevel: 2,
-        maxSlots: 3,
+        maxSlots: 3, lanes: 1,
       });
 
       expect(researchStore.completedResearches().has('gatling-tech')).toBe(true);
@@ -406,7 +406,7 @@ describe('GameStateSyncService (real service)', () => {
         completedResearches: new Set(['aa-retrofit', 'master-engineering']),
         queuedResearches: [],
         centerLevel: 1,
-        maxSlots: 1,
+        maxSlots: 1, lanes: 1,
       });
       expect(researchStore.airTargetingUnlocked()).toBe(true);
       expect(researchStore.maxUpgradeTier()).toBe(3);
@@ -419,7 +419,7 @@ describe('GameStateSyncService (real service)', () => {
         completedResearches: new Set(['aa-retrofit']),
         queuedResearches: [],
         centerLevel: 1,
-        maxSlots: 1,
+        maxSlots: 1, lanes: 1,
       });
       expect(researchStore.airTargetingUnlocked()).toBe(false);
     });

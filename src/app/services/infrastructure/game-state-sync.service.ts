@@ -226,6 +226,7 @@ export class GameStateSyncService {
       this.researchStore.queuedResearches.set([...event.queuedResearches]);
       this.researchStore.centerLevel.set(event.centerLevel);
       this.researchStore.researchSlots.set(event.maxSlots);
+      this.researchStore.lanes.set(event.lanes);
     }));
 
     // Fortschritt zwischen den Snapshots, vom ResearchManager auf 10 Hz gedrosselt

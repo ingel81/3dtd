@@ -542,6 +542,7 @@ export class SimMirror implements SimMirrorApi {
       case 'research:state-changed':
         this.researchOf(event.playerId).setState(
           event.activeResearches, event.completedResearches, event.queuedResearches, event.centerLevel, event.maxSlots,
+          event.lanes,
         );
         break;
       case 'research:progress':

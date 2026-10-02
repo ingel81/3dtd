@@ -266,12 +266,13 @@ export class GameCommandsHandler {
 
   private attachResearchCommands(): void {
     this.on('command:start-research', (event) => {
-      const validation = this.gsm.researchOf(this.gsm.actingPlayerId).canStartResearch(event.researchId, this.gsm.creditsOf(this.gsm.actingPlayerId));
+      const seat = this.gsm.researchOf(this.gsm.actingPlayerId);
+      const validation = seat.canStartResearch(event.researchId, this.gsm.creditsOf(this.gsm.actingPlayerId));
       if (!validation.canStart) return;
 
       const research = getResearch(event.researchId);
-      if (research && this.gsm.spendCredits(research.cost, 'research')) {
-        this.gsm.researchOf(this.gsm.actingPlayerId).startResearch(event.researchId);
+      if (research && this.gsm.spendCredits(seat.costOf(research), 'research')) {
+        seat.startResearch(event.researchId);
       }
     });
 

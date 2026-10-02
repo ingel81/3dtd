@@ -68,6 +68,8 @@ export interface ResearchSnapshot {
   /** Perk flags derived from completed researches */
   airTargetingUnlocked: boolean;
   maxUpgradeTier: number;
+  /** The player's lanes, the factor on every research cost (researchCost); 1 when left out */
+  lanes?: number;
   /** Per-tower unlock map (true = unlocked or always-free) */
   towerUnlocked: Record<TowerTypeId, boolean>;
 }

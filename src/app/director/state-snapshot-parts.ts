@@ -23,7 +23,7 @@ export type ResearchReader = Pick<
   | 'airTargetingUnlocked'
   | 'maxUpgradeTier'
   | 'isTowerUnlocked'
->;
+> & Partial<Pick<ResearchStore, 'lanes'>>;
 
 export function playerState(baseHealth: number, credits: number): PlayerState {
   const maxHealth = GAME_BALANCE.player.startHealth;
@@ -55,6 +55,7 @@ export function researchSnapshot(research: ResearchReader): ResearchSnapshot {
     airTargetingUnlocked: research.airTargetingUnlocked(),
     maxUpgradeTier: research.maxUpgradeTier(),
     towerUnlocked,
+    lanes: research.lanes?.() ?? 1,
   };
 }
 

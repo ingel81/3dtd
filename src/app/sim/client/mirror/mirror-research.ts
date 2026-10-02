@@ -17,6 +17,7 @@ export class MirrorResearch implements ResearchSource {
   private _centerLevel = 0;
   private _maxSlots = 1;
   private _airTargetingUnlocked = false;
+  private _lanes = 1;
 
   constructor(readonly playerId: string) {}
 
@@ -26,6 +27,11 @@ export class MirrorResearch implements ResearchSource {
 
   get maxSlots(): number {
     return this._maxSlots;
+  }
+
+  /** The player's lanes, the factor on every research cost (researchCost) */
+  get lanes(): number {
+    return this._lanes;
   }
 
   get availableSlots(): number {
@@ -60,7 +66,9 @@ export class MirrorResearch implements ResearchSource {
     queued: readonly ResearchId[],
     centerLevel: number,
     maxSlots: number,
+    lanes = 1,
   ): void {
+    this._lanes = lanes;
     this.active = active.map((a) => ({ ...a }));
     this.completed = new Set(completed);
     this.queued = [...queued];

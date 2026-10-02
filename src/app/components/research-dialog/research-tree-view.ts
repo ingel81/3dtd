@@ -15,6 +15,7 @@ import {
   type ActiveResearch,
   type ResearchConfig,
   type ResearchId,
+  researchCost,
   researchWaitsForWave,
 } from '../../configs/research/research.types';
 import type { ResearchSnapshot } from '../../managers/research-snapshot';
@@ -22,6 +23,11 @@ import type { DagEdge } from '../../utils/dag-layout';
 import type { TdIconName } from '../icon/icon.component';
 import type { TechTreeNode, TechTreeNodeState } from '../tech-tree/tech-tree-view';
 import { missingPrereqNames, researchStatus } from '../game-sidebar/research-panel/research-status';
+
+/** What `research` costs the player whose tree this is (researchCost with their lanes). */
+function costIn(research: ResearchConfig, state: ResearchTreeState): number {
+  return researchCost(research, state.lanes ?? 1);
+}
 
 export interface ResearchTreeState {
   completed: ReadonlySet<ResearchId>;
@@ -33,6 +39,8 @@ export interface ResearchTreeState {
   availableSlots: number;
   /** The wave the run is at for the research (researchWave): a node before its minWave stays locked. */
   wave: number;
+  /** The player's lanes, the factor on every cost (researchCost); 1 when left out */
+  lanes?: number;
   /**
    * A coop partner's tree, looked at only (TODO E35): no click does anything,
    * and the hints say nothing about clicking.
@@ -158,10 +166,10 @@ export function buildResearchDetail(
     state: status,
     stateLabel: STATE_LABEL[status],
     effect: research.description,
-    cost: research.cost,
+    cost: costIn(research, state),
     duration: research.duration,
     remaining: status === 'active' ? remainingOf(research, state) : null,
-    missingCredits: Math.max(0, research.cost - Math.floor(state.credits)),
+    missingCredits: Math.max(0, costIn(research, state) - Math.floor(state.credits)),
     queuePosition: state.queued.indexOf(research.id) + 1,
     prerequisites: research.prerequisites.map((p) => ({
       id: p,
@@ -188,7 +196,7 @@ export function researchClickAction(id: ResearchId, state: ResearchTreeState): R
   if (!research || state.readOnly) return 'none';
   switch (researchStatus(id, state.completed, state.active, state.queued, state.wave)) {
     case 'available':
-      return state.credits >= research.cost && state.availableSlots > 0 ? 'start' : 'queue';
+      return state.credits >= costIn(research, state) && state.availableSlots > 0 ? 'start' : 'queue';
     case 'queued':
       return 'unqueue';
     default:
@@ -248,7 +256,7 @@ const STATUS_ICON: Record<TechTreeNodeState, TdIconName> = {
  */
 function nodeState(research: ResearchConfig, state: ResearchTreeState): TechTreeNodeState {
   const status = researchStatus(research.id, state.completed, state.active, state.queued, state.wave);
-  if (status === 'available') return state.credits >= research.cost ? 'available' : 'poor';
+  if (status === 'available') return state.credits >= costIn(research, state) ? 'available' : 'poor';
   // Waiting for its wave is not on its way, whatever the queue holds
   if (status === 'locked' && waitsForWave(research, state) === null) {
     const missing = research.prerequisites.filter((p) => !state.completed.has(p));
@@ -267,13 +275,13 @@ function subtitleOf(research: ResearchConfig, status: TechTreeNodeState, state: 
     case 'active':
       return `${remainingOf(research, state).toFixed(1)}s left`;
     case 'queued':
-      return `${research.cost} at start`;
+      return `${costIn(research, state)} at start`;
     case 'locked': {
       const wave = waitsForWave(research, state);
-      return wave === null ? String(research.cost) : `Wave ${wave}`;
+      return wave === null ? String(costIn(research, state)) : `Wave ${wave}`;
     }
     default:
-      return String(research.cost);
+      return String(costIn(research, state));
   }
 }
 
@@ -289,7 +297,7 @@ function hintOf(research: ResearchConfig, status: TechTreeNodeState, state: Rese
     case 'queued':
       return state.readOnly ? research.description : `${research.description} Click to take it out of the queue.`;
     case 'poor':
-      return `${research.description} ${research.cost - Math.floor(state.credits)} credits short.`;
+      return `${research.description} ${costIn(research, state) - Math.floor(state.credits)} credits short.`;
     case 'available':
       return state.availableSlots > 0 || state.readOnly
         ? research.description

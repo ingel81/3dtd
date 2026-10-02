@@ -33,6 +33,9 @@ export class ResearchStore {
   /** Maximum concurrent research slots */
   readonly researchSlots = signal<number>(1);
 
+  /** The player's lanes, the factor on every research cost (researchCost) */
+  readonly lanes = signal<number>(1);
+
   /** Number of available (free) research slots */
   readonly availableSlots = computed(() =>
     Math.max(0, this.researchSlots() - this.activeResearches().length)
@@ -88,5 +91,6 @@ export class ResearchStore {
     this.researchElapsed.set(new Map());
     this.centerLevel.set(0);
     this.researchSlots.set(1);
+    this.lanes.set(1);
   }
 }

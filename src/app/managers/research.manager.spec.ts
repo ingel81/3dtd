@@ -100,6 +100,52 @@ describe('ResearchManager', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Cost per lane: each lane pays its own kill gold, so research costs once per lane
+  // -------------------------------------------------------------------------
+  describe('cost per lane', () => {
+    it('asks and charges the cost times the lanes of the player', () => {
+      let lanes = 3;
+      const laneBus = new GameEventBus();
+      const three = new ResearchManager(laneBus, undefined, undefined, () => lanes);
+      three.onCenterPlaced();
+      const cfg = getResearch(NO_PREREQ_ID)!;
+      expect(three.costOf(cfg)).toBe(cfg.cost * 3);
+      expect(three.canStartResearch(NO_PREREQ_ID, cfg.cost * 3 - 1).reason).toBe('Not enough credits');
+      expect(three.canStartResearch(NO_PREREQ_ID, cfg.cost * 3).canStart).toBe(true);
+
+      const started: number[] = [];
+      laneBus.on('research:started', (e) => started.push(e.cost));
+      three.startResearch(NO_PREREQ_ID);
+      laneBus.processQueue();
+      expect(started).toEqual([cfg.cost * 3]);
+
+      lanes = 1;
+      expect(three.costOf(cfg)).toBe(cfg.cost);
+    });
+
+    it('charges a queued research at its lane cost when it starts', () => {
+      const laneBus = new GameEventBus();
+      const two = new ResearchManager(laneBus, undefined, undefined, () => 2);
+      two.onCenterPlaced();
+      const cfg = getResearch(NO_PREREQ_ID)!;
+      expect(two.queueResearch(NO_PREREQ_ID)).toBe(true);
+      const spent: number[] = [];
+      two.startQueued(() => cfg.cost * 2, (cost) => { spent.push(cost); return true; });
+      expect(spent).toEqual([cfg.cost * 2]);
+    });
+
+    it('tells the main thread the factor with every state', () => {
+      const laneBus = new GameEventBus();
+      const two = new ResearchManager(laneBus, undefined, undefined, () => 2);
+      const lanes: number[] = [];
+      laneBus.on('research:state-changed', (e) => lanes.push(e.lanes));
+      two.onCenterPlaced();
+      laneBus.processQueue();
+      expect(lanes.at(-1)).toBe(2);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // startResearch()
   // -------------------------------------------------------------------------
   describe('startResearch()', () => {

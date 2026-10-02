@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { getResearch } from '../../configs/research/research-tree.config';
-import { researchWave, type ResearchId } from '../../configs/research/research.types';
+import { researchCost as laneCost, researchWave, type ResearchId } from '../../configs/research/research.types';
 import { ResearchStore } from '../../store/research.store';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-facade.service';
@@ -117,6 +117,7 @@ export class ResearchDialogComponent {
       credits: this.store.credits(),
       availableSlots: this.research.availableSlots(),
       wave,
+      lanes: this.research.lanes(),
     };
   });
 
@@ -262,7 +263,8 @@ export class ResearchDialogComponent {
   }
 
   protected researchCost(id: ResearchId): number {
-    return getResearch(id)?.cost ?? 0;
+    const research = getResearch(id);
+    return research ? laneCost(research, this.research.lanes()) : 0;
   }
 
   protected tooShort(id: ResearchId): boolean {

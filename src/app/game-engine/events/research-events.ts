@@ -42,6 +42,8 @@ export type ResearchEvent =
       queuedResearches: import('../../configs/research/research.types').ResearchId[];
       centerLevel: number;
       maxSlots: number;
+      /** The player's lanes, the factor on every research cost (researchCost) */
+      lanes: number;
       /** Whose research (docs/COOP_PLAN.md, D20) */
       playerId: string;
       /** The research of the player at this client, the one the UI shows */

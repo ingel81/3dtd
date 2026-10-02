@@ -80,6 +80,14 @@ export function researchWave(waveNumber: number, phase: string): number {
   return phase === 'wave' ? waveNumber : waveNumber + 1;
 }
 
+/**
+ * What `config` costs a player with `lanes` lanes: each lane pays its own kill gold, so research costs once per
+ * lane and two lanes play like one spawn twice over, not like one spawn with half the research bill.
+ */
+export function researchCost(config: Pick<ResearchConfig, 'cost'>, lanes: number): number {
+  return config.cost * Math.max(1, lanes);
+}
+
 /** The wave `config` waits for at `wave` (researchWave), null when it is open. */
 export function researchWaitsForWave(config: Pick<ResearchConfig, 'minWave'>, wave: number): number | null {
   return config.minWave !== undefined && wave < config.minWave ? config.minWave : null;
