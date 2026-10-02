@@ -116,7 +116,7 @@
           <td-icon name="filing" [size]="12"></td-icon>
           <span>load</span>
         </button>
-        <input #replayFile type="file" accept=".json,application/json" hidden
+        <input #replayFile type="file" accept=".json,.gz,application/json,application/gzip" hidden
                (change)="onReplayFile($event)">
       }
     </div>

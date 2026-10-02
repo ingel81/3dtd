@@ -121,6 +121,11 @@ welcher Version), weil das Replay dort abweichen kann, wo sich die Spiellogik ge
 seit der Datei anderen Zustand (`hashVersion`, fehlt in älteren Dateien und gilt dann als 1), lädt die Datei ohne
 ihre Summen: Das Replay läuft, meldet aber keine Abweichung, die keine ist.
 
+Gespeichert wird gzip-gepackt (`.json.gz`), jede Sichtmaske nur einmal: Version 3 legt die Masken in eine Tabelle
+`masks`, Snapshot-Tower und Log-Einträge tragen dort einen Index (`serializeReplayFile`). Der W60-Lauf vom
+2026-10-01 schrumpft so von 6,2 MB auf 0,38 MB. Geladen wird beides, gepackt oder nicht, und Dateien der Version 2;
+entpackt wird höchstens bis zur Größengrenze.
+
 Das ist zugleich das Match-Log für Coop ([MULTIPLAYER_CONCEPT.md](archive/MULTIPLAYER_CONCEPT.md), Abschnitt 18): Welt,
 Balance, Seed, Eingaben mit Sub-Step und Sicht-Masken, jeder Eintrag mit `playerId`.
 

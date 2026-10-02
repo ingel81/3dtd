@@ -7,7 +7,9 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 import { REPLAY_CONFIG } from '../configs/replay.config';
 import type { ReplayMarker } from '../replay/replay-bar-view';
-import { MAX_REPLAY_FILE_BYTES, replayFileName, replayFileRefusalText, type ReplayFile, type ReplayFileRefusal } from '../simulator/replay-file';
+import {
+  MAX_REPLAY_FILE_BYTES, replayFileBlob, replayFileName, replayFileRefusalText, replayFileText, type ReplayFile, type ReplayFileRefusal,
+} from '../simulator/replay-file';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { buildCommit } from '../run-log/build-commit';
 import { BUILD_VERSION } from '../configs/build-info.config';
@@ -365,7 +367,7 @@ export class ReplayService {
       commit: buildCommit(),
     });
     if (!doc || !file || file.waves.length === 0) return false;
-    const blob = new Blob([file.text], { type: 'application/json' });
+    const blob = await replayFileBlob(file.text);
     const url = URL.createObjectURL(blob);
     const link = doc.createElement('a');
     link.href = url;
@@ -388,7 +390,11 @@ export class ReplayService {
       this.ngZone.run(() => this.fileProblem.set(replayFileRefusalText('too-big')));
       return;
     }
-    const text = await blob.text();
+    const text = await replayFileText(blob);
+    if (text === 'too-big' || text === 'not-a-replay') {
+      this.ngZone.run(() => this.fileProblem.set(replayFileRefusalText(text)));
+      return;
+    }
     const phase = this.store.phase();
     if (this.active() || (phase !== 'setup' && phase !== 'gameover')) {
       this.ngZone.run(() => this.fileProblem.set('A replay loads between waves.'));

@@ -19,7 +19,7 @@ import { EconomyService } from '../../services/economy.service';
 import type { GameEvent } from '../../game-engine/game-event-bus';
 import { setActiveWaveRules } from '../../director/wave-rules';
 import { createWaveSource, isWaveSourceId } from '../../director/wave-source.registry';
-import { buildReplayFile, readReplayFile, type ReplayFile } from '../../simulator/replay-file';
+import { buildReplayFile, readReplayFile, serializeReplayFile, type ReplayFile } from '../../simulator/replay-file';
 import { replayable, type WaveRecord } from '../../simulator/sim-recorder';
 import type { WaveSnapshot } from '../../simulator/wave-snapshot';
 import type { CommandLogEntry } from '../../managers/game-state/command-log';
@@ -411,7 +411,7 @@ export class SimCore implements SimCoreApi {
         commit: head.commit,
       });
       if (file.waves.length === 0) return null;
-      return { text: JSON.stringify(file), waves: file.waves.map((wave) => wave.wave) };
+      return { text: serializeReplayFile(file), waves: file.waves.map((wave) => wave.wave) };
     },
     loadReplayFile: (text, here) => {
       const read = readReplayFile(text, { worldKey: this.gsm.worldKey(), ...here });

@@ -1,10 +1,15 @@
 import type { CommandLogEntry } from '../managers/game-state/command-log';
+import type { LosMaskJson } from '../utils/los-mask';
 import { SIM_SNAPSHOT_VERSION } from './sim-snapshot';
 import { replayable, type WaveRecord } from './sim-recorder';
 import { STATE_HASH_VERSION } from './state-hash';
 
-/** Bumped whenever the file's shape changes; another version is refused. */
-export const REPLAY_FILE_VERSION = 2;
+/**
+ * Bumped whenever the file's shape changes; another version is refused. 3 keeps each line of sight once in
+ * `masks` (serializeReplayFile); a file of version 2 holds them in place and still reads.
+ */
+export const REPLAY_FILE_VERSION = 3;
+const READABLE_VERSIONS: readonly number[] = [2, REPLAY_FILE_VERSION];
 const FORMAT = '3dtd-replay';
 
 /**
@@ -44,6 +49,67 @@ export interface ReplayFile {
   waves: WaveRecord[];
   /** The log from the first wave's inputs to the last one's end; WaveRecord.logStart points into it */
   log: CommandLogEntry[];
+  /**
+   * Every line of sight of the file once, in the text only: a tower's `losMask` in a snapshot and a log
+   * command's `mask` hold an index into it there. readReplayFile puts the masks back in place.
+   */
+  masks?: LosMaskJson[];
+}
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** The keys a line of sight sits under: SavedTower.losMask, and `mask` of command:los-mask and los:resolved */
+const MASK_KEYS = new Set(['losMask', 'mask']);
+
+const isMaskJson = (v: unknown): v is LosMaskJson => isObject(v) && typeof v['bits'] === 'string'
+  && typeof v['range'] === 'number' && typeof v['ground'] === 'boolean' && typeof v['air'] === 'boolean';
+
+/**
+ * The file as text with each line of sight once: a tower keeps its mask from wave to wave and the log
+ * repeats it, so a long run held the same masks many times over (TODO E95). The masks go into a table at
+ * the end, their places hold an index into it.
+ */
+export function serializeReplayFile(file: ReplayFile): string {
+  const masks: LosMaskJson[] = [];
+  const index = new Map<string, number>();
+  const body = JSON.stringify({ ...file, masks: undefined }, (key, value: unknown) => {
+    if (!MASK_KEYS.has(key) || !isMaskJson(value)) return value;
+    const id = `${value.range}|${value.ground ? 1 : 0}|${value.air ? 1 : 0}|${value.bits}`;
+    let at = index.get(id);
+    if (at === undefined) {
+      at = masks.length;
+      masks.push({ range: value.range, ground: value.ground, air: value.air, bits: value.bits });
+      index.set(id, at);
+    }
+    return at;
+  });
+  return `${body.slice(0, -1)},"masks":${JSON.stringify(masks)}}`;
+}
+
+/**
+ * Put the masks of `table` back where serializeReplayFile left an index; false when an index points
+ * nowhere or the table holds no mask.
+ */
+function expandMasks(data: { waves: unknown[]; log: unknown[] }, table: unknown): boolean {
+  if (table === undefined) return true;
+  if (!Array.isArray(table) || !table.every(isMaskJson)) return false;
+  const masks = table as LosMaskJson[];
+  const resolve = (holder: Record<string, unknown>, key: string): boolean => {
+    const ref = holder[key];
+    if (typeof ref !== 'number') return true;
+    if (!Number.isInteger(ref) || ref < 0 || ref >= masks.length) return false;
+    holder[key] = masks[ref];
+    return true;
+  };
+  for (const wave of data.waves as Record<string, unknown>[]) {
+    const towers = isObject(wave['snapshot']) ? wave['snapshot']['towers'] : undefined;
+    if (!Array.isArray(towers)) continue;
+    for (const tower of towers) if (isObject(tower) && !resolve(tower, 'losMask')) return false;
+  }
+  for (const entry of data.log as Record<string, unknown>[]) {
+    if (!resolve(entry['command'] as Record<string, unknown>, 'mask')) return false;
+  }
+  return true;
 }
 
 /** The replayable waves of `records` with the log they need, logStart moved into the slice. */
@@ -79,7 +145,6 @@ export const MAX_REPLAY_FILE_BYTES = 64 * 1024 * 1024;
 /** Why a file cannot be replayed here, null when it can. */
 export type ReplayFileRefusal = 'not-a-replay' | 'too-big' | 'damaged' | 'version' | 'other-world' | 'other-balance' | 'empty';
 
-const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isStep = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0;
 
 /**
@@ -124,10 +189,12 @@ export function readReplayFile(
   if (data?.format !== FORMAT || !Array.isArray(data.waves) || !Array.isArray(data.log)) {
     return { file: null, refusal: 'not-a-replay' };
   }
-  if (data.version !== REPLAY_FILE_VERSION || data.snapshotVersion !== SIM_SNAPSHOT_VERSION) {
+  if (!READABLE_VERSIONS.includes(data.version as number) || data.snapshotVersion !== SIM_SNAPSHOT_VERSION) {
     return { file: null, refusal: 'version' };
   }
-  if (!wellFormed(data as { waves: unknown[]; log: unknown[] })) return { file: null, refusal: 'damaged' };
+  const parts = data as { waves: unknown[]; log: unknown[] };
+  if (!wellFormed(parts) || !expandMasks(parts, data.masks)) return { file: null, refusal: 'damaged' };
+  delete data.masks;
   if (data.worldKey !== here.worldKey) return { file: null, refusal: 'other-world' };
   if (data.configHash !== here.configHash) return { file: null, refusal: 'other-balance' };
   if (data.waves.length === 0) return { file: null, refusal: 'empty' };
@@ -143,6 +210,50 @@ export function readReplayFile(
   return { file, refusal: null, note: notes.length > 0 ? notes.join(' ') : null };
 }
 
+/** A stream of the one chunk `bytes` (not Blob.stream, which not every runtime has) */
+function streamOf(bytes: Uint8Array<ArrayBuffer>): ReadableStream<BufferSource> {
+  return new ReadableStream<BufferSource>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+}
+
+/** The file as a download: its text gzipped, which a long run's snapshots and log shrink to about a tenth */
+export async function replayFileBlob(text: string): Promise<Blob> {
+  const reader = streamOf(new TextEncoder().encode(text)).pipeThrough(new CompressionStream('gzip')).getReader();
+  const chunks: BlobPart[] = [];
+  for (let read = await reader.read(); !read.done; read = await reader.read()) chunks.push(read.value as BlobPart);
+  return new Blob(chunks, { type: 'application/gzip' });
+}
+
+/**
+ * The text of a replay file, gzipped (replayFileBlob) or plain as the game wrote it before; 'too-big' when
+ * it unpacks to more than `max`, which stops reading there, and 'not-a-replay' when the gzip in it is broken.
+ */
+export async function replayFileText(blob: Blob, max = MAX_REPLAY_FILE_BYTES): Promise<string | 'too-big' | 'not-a-replay'> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const decoder = new TextDecoder();
+  if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) return decoder.decode(bytes);
+  const reader = streamOf(bytes).pipeThrough(new DecompressionStream('gzip')).getReader();
+  let text = '';
+  let size = 0;
+  try {
+    for (let read = await reader.read(); !read.done; read = await reader.read()) {
+      size += read.value.byteLength;
+      if (size > max) {
+        await reader.cancel();
+        return 'too-big';
+      }
+      text += decoder.decode(read.value, { stream: true });
+    }
+  } catch {
+    return 'not-a-replay';
+  }
+  return text + decoder.decode();
+}
+
 /** What the player reads when a file does not load. */
 export function replayFileRefusalText(refusal: ReplayFileRefusal): string {
   switch (refusal) {
@@ -156,9 +267,9 @@ export function replayFileRefusalText(refusal: ReplayFileRefusal): string {
   }
 }
 
-/** File name for a download: 3dtd-replay-<place>-w<first>-w<last>.json */
+/** File name for a download: 3dtd-replay-<place>-w<first>-w<last>.json.gz */
 export function replayFileName(file: ReplayFile, place: string): string {
   const waves = file.waves.map((w) => w.wave);
   const slug = place.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'map';
-  return `3dtd-replay-${slug}-w${Math.min(...waves)}-w${Math.max(...waves)}.json`;
+  return `3dtd-replay-${slug}-w${Math.min(...waves)}-w${Math.max(...waves)}.json.gz`;
 }
