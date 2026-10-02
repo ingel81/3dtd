@@ -10,6 +10,7 @@ import {
   input,
   output,
   QueryList,
+  signal,
   untracked,
   ViewChildren,
 } from '@angular/core';
@@ -21,6 +22,7 @@ import { UIStore } from '../../../store/ui.store';
 import { ResearchStore } from '../../../store/research.store';
 import { WaveDirector } from '../../../director/wave-director';
 import { SimMirror } from '../../../sim/client/mirror/sim-mirror';
+import { SimClient } from '../../../sim/client/sim-client.service';
 import { EngineInitializationService } from '../../../services/infrastructure/engine-initialization.service';
 import { AUTO_WAVE_DELAY_MS } from '../../../utils/auto-wave-countdown';
 import { toneWavDataUrl } from '../../../utils/alert-tone';
@@ -68,6 +70,9 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   private readonly researchStore = inject(ResearchStore);
   private readonly waveDirector = inject(WaveDirector);
   private readonly mirror = inject(SimMirror);
+  private readonly sim = inject(SimClient);
+  /** Bumped by every player's research:state-changed: the mirrored research carries no signals */
+  private readonly researchChanged = signal(0);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
@@ -107,6 +112,8 @@ export class SidebarWavePanelComponent implements AfterViewInit {
     });
 
     this.destroyRef.onDestroy(() => this.destroyMixedEnemyPreviews());
+    const research = this.sim.bus.onLive('research:state-changed', () => this.researchChanged.update((n: number) => n + 1));
+    this.destroyRef.onDestroy(() => research.dispose());
   }
 
   readonly waveActive = input.required<boolean>();
@@ -204,14 +211,12 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   /**
    * Placed towers that answer each alert kind, air with each owner's research
    * like the wave source counts it. Tower entities and the mirrored research
-   * carry no signals: the tower count (placed, sold, reset), the local AA
-   * research and the wave number (a partner's research by the next build
-   * phase) tell when to recount.
+   * carry no signals: the tower count (placed, sold, reset) and every
+   * player's research change (a partner's retrofit at once) tell when to recount.
    */
   private readonly answeringTowers = computed(() => {
     this.store.towerCount();
-    this.store.waveNumber();
-    this.researchStore.airTargetingUnlocked();
+    this.researchChanged();
     const towers = this.mirror.towers();
     const types = towers.map((t) => t.typeConfig.id as TowerTypeId);
     const air = countAntiAirTowers(towers.map((t) => ({
