@@ -1,0 +1,13 @@
+{
+ "yaw": [0.237, 0.0, -0.385],
+ "parts": [
+  {"name": "gun", "parent": "turret", "pivot": [0.15, 0.0, -0.07],
+   "rules": [{"beyond": {"point": [0.2, 0.0, 0.1], "normal": [-0.859, 0.016, 0.513]}},
+             {"box": {"lo": [-1.0, -0.2, -0.05], "hi": [0.22, 0.2, 1.0]}}],
+   "motion": [{"type": "swing", "axis": [0, 1, 0], "deg": 9, "period": 3.0},
+              {"type": "recoil", "axis": [0.859, -0.016, -0.513], "length": 0.07, "period": 1.5, "phase": 0.3}]},
+  {"name": "base", "rules": [{"zBelow": -0.385}]},
+  {"name": "turret", "parent": "base", "pivot": "yaw",
+   "motion": [{"type": "swing", "axis": [0, 0, 1], "deg": 55, "period": 6.0}]}
+ ]
+}

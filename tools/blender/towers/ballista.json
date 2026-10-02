@@ -1,0 +1,11 @@
+{
+ "yaw": [0.267, 0.001, -0.3],
+ "parts": [
+  {"name": "weapon", "parent": "turret", "pivot": [0.603, 0.001, 0.359],
+   "rules": [{"zAbove": 0.07}],
+   "motion": [{"type": "swing", "axis": [0, 1, 0], "deg": 10, "period": 3.0}]},
+  {"name": "base", "rules": [{"zBelow": -0.3}]},
+  {"name": "turret", "parent": "base", "pivot": "yaw",
+   "motion": [{"type": "swing", "axis": [0, 0, 1], "deg": 60, "period": 6.0}]}
+ ]
+}

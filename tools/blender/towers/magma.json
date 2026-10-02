@@ -1,0 +1,140 @@
+{
+ "yaw": [
+  0.0,
+  0.0,
+  -0.8
+ ],
+ "showDistance": 4.6,
+ "parts": [
+  {
+   "name": "coolant_a",
+   "parent": "base",
+   "rules": [
+    {
+     "loose": [
+      1
+     ]
+    }
+   ],
+   "motion": [
+    {
+     "type": "slide",
+     "axis": [
+      0,
+      0,
+      1
+     ],
+     "length": 0.08,
+     "period": 1.4
+    }
+   ]
+  },
+  {
+   "name": "coolant_b",
+   "parent": "base",
+   "rules": [
+    {
+     "loose": [
+      2
+     ]
+    }
+   ],
+   "motion": [
+    {
+     "type": "slide",
+     "axis": [
+      0,
+      0,
+      1
+     ],
+     "length": 0.08,
+     "period": 1.4,
+     "phase": 0.5
+    }
+   ]
+  },
+  {
+   "name": "core",
+   "parent": "base",
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rules": [
+    {
+     "radiusBelow": {
+      "centre": [
+       0.0,
+       0.0
+      ],
+      "r": 0.22
+     }
+    },
+    {
+     "zAbove": -0.3
+    }
+   ],
+   "motion": [
+    {
+     "type": "spin",
+     "axis": [
+      0,
+      0,
+      1
+     ],
+     "rps": 0.12
+    }
+   ]
+  },
+  {
+   "name": "ring",
+   "parent": "base",
+   "pivot": [
+    0.0,
+    0.0,
+    -0.39
+   ],
+   "rules": [
+    {
+     "radiusAbove": {
+      "centre": [
+       0.0,
+       0.0
+      ],
+      "r": 0.66
+     }
+    },
+    {
+     "radiusBelow": {
+      "centre": [
+       0.0,
+       0.0
+      ],
+      "r": 0.8
+     }
+    },
+    {
+     "zAbove": -0.45
+    },
+    {
+     "zBelow": -0.33
+    }
+   ],
+   "motion": [
+    {
+     "type": "spin",
+     "axis": [
+      0,
+      0,
+      1
+     ],
+     "rps": -0.2
+    }
+   ]
+  },
+  {
+   "name": "base"
+  }
+ ]
+}

@@ -1,0 +1,206 @@
+{
+ "yaw": [
+  -0.06,
+  0.0,
+  -0.47
+ ],
+ "parts": [
+  {
+   "name": "slice_a",
+   "parent": "turret",
+   "rules": [
+    {
+     "loose": [
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "name": "slice_b",
+   "parent": "turret",
+   "rules": [
+    {
+     "loose": [
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "name": "spit",
+   "parent": "turret",
+   "pivot": [
+    -0.065,
+    0.0,
+    0.0
+   ],
+   "rules": [
+    {
+     "box": {
+      "lo": [
+       -0.32,
+       -0.34,
+       0.02
+      ],
+      "hi": [
+       0.23,
+       0.21,
+       0.68
+      ]
+     }
+    },
+    {
+     "radiusBelow": {
+      "centre": [
+       -0.065,
+       0.0
+      ],
+      "r": 0.28
+     }
+    },
+    {
+     "colour": {
+      "hue": [
+       0,
+       32
+      ],
+      "satMin": 0.42
+     }
+    }
+   ],
+   "motion": [
+    {
+     "type": "spin",
+     "axis": [
+      0,
+      0,
+      -1
+     ],
+     "rps": 1.5,
+     "ramped": true
+    }
+   ]
+  },
+  {
+   "name": "blade",
+   "parent": "arm",
+   "pivot": [
+    0.01,
+    -0.22,
+    0.256
+   ],
+   "rules": [
+    {
+     "box": {
+      "lo": [
+       -0.14,
+       -0.38,
+       0.15
+      ],
+      "hi": [
+       0.13,
+       -0.16,
+       0.48
+      ]
+     }
+    },
+    {
+     "notColour": {
+      "hue": [
+       0,
+       32
+      ],
+      "satMin": 0.42
+     }
+    }
+   ]
+  },
+  {
+   "name": "arm",
+   "parent": "turret",
+   "pivot": [
+    0.27,
+    -0.25,
+    0.07
+   ],
+   "rules": [
+    {
+     "box": {
+      "lo": [
+       0.1,
+       -0.37,
+       -0.05
+      ],
+      "hi": [
+       0.46,
+       -0.12,
+       0.5
+      ]
+     }
+    }
+   ],
+   "motion": [
+    {
+     "type": "stroke",
+     "axis": [
+      0,
+      1,
+      0
+     ],
+     "deg": 8,
+     "hz": 6.0
+    }
+   ]
+  },
+  {
+   "name": "base",
+   "rules": [
+    {
+     "zBelow": -0.47
+    }
+   ]
+  },
+  {
+   "name": "turret",
+   "parent": "base",
+   "pivot": "yaw",
+   "motion": [
+    {
+     "type": "swing",
+     "axis": [
+      0,
+      0,
+      1
+     ],
+     "deg": 25,
+     "period": 6.0
+    }
+   ]
+  }
+ ],
+ "stream": {
+  "sources": [
+   "slice_a",
+   "slice_b"
+  ],
+  "pool": 44,
+  "parent": "turret",
+  "from": [
+   -0.02,
+   -0.33,
+   0.3
+  ],
+  "dir": [
+   -0.92,
+   -0.38,
+   0.04
+  ],
+  "speed": 11.0,
+  "flight": 0.4,
+  "strokeHz": 6.0,
+  "perStroke": 12,
+  "scale": 0.6
+ },
+ "rampUp": 2.5
+}
