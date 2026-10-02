@@ -33,6 +33,9 @@ export interface WaveEnemyGroup {
    * ELITE_SHARE); the spawn schedule draws which ones.
    */
   elite?: { count: number; healthMultiplier: number };
+
+  /** Camouflaged ones of the group (Enemy.camo): how many; the spawn schedule spreads them (markCamo) */
+  camo?: { count: number };
 }
 
 /**

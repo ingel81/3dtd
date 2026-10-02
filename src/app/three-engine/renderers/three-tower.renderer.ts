@@ -32,6 +32,7 @@ import type { TowerAim } from '../../entities/tower-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
 import { setTowerGreyedOut } from './tower-hold-fire';
 import { TowerBuild } from './tower-scaffold';
+import { getTowerPath } from '../../configs/tower-paths.config';
 
 /**
  * Tower render data - stored per tower
@@ -108,6 +109,12 @@ export class ThreeTowerRenderer {
    */
   private readonly heldIds = new Set<string>();
   private readonly ranges = new Map<string, number>();
+  /** The path a tower took (setPath), before its model may have arrived: create() hangs it on */
+  private readonly pathIds = new Map<string, string>();
+  /** A scout's detection ring (TowerPath.detectionRadius), shown with its range */
+  private readonly detectionRings = new Map<string, Group>();
+  /** The node of a path's attachment that sweeps (TowerPath.attachment.sweepNode), by tower */
+  private readonly sweepNodes = new Map<string, Object3D>();
   /** A partner's lane colour per tower (setOwnerRing), set as the tower is placed, before its model arrives */
   private readonly ownerColors = new Map<string, number>();
   /** A build (setBuild) that came before the tower's model: create() starts it */
@@ -129,6 +136,8 @@ export class ThreeTowerRenderer {
 
   /** Geometry and materials every range ring shares */
   private readonly rangeRings = new RangeRingKit();
+  /** The same for a scout's detection rings, teal, drawn after the range rings */
+  private readonly detectionRingKit = new RangeRingKit(0x4fc3c3, 3);
 
   /** Range ring of the tower the build preview shows, see showPreviewRange */
   private readonly previewRange: Group;
@@ -440,6 +449,8 @@ export class ThreeTowerRenderer {
     if (range !== undefined) this.updateRangeIndicator(id, range);
     const ownerColor = this.ownerColors.get(id);
     if (ownerColor !== undefined) this.setOwnerRing(id, ownerColor);
+    const pathId = this.pathIds.get(id);
+    if (pathId) void this.applyPath(renderData, pathId);
     const build = this.pendingBuilds.get(id);
     if (build) {
       this.pendingBuilds.delete(id);
@@ -465,6 +476,47 @@ export class ThreeTowerRenderer {
     } else if (remainingMs > 0) {
       this.builds.set(id, new TowerBuild(this.scene, data.mesh, data.typeConfig.footprintRadius, remainingMs, totalMs));
     }
+  }
+
+  /**
+   * The tower took path `pathId`: its attachment goes on the model, a detection radius gets its ring.
+   * Before the model arrives create() does it.
+   */
+  setPath(id: string, pathId: string): void {
+    if (this.pathIds.get(id) === pathId) return;
+    this.pathIds.set(id, pathId);
+    const data = this.towers.get(id);
+    if (data) void this.applyPath(data, pathId);
+  }
+
+  private async applyPath(data: TowerRenderData, pathId: string): Promise<void> {
+    const path = getTowerPath(pathId);
+    if (!path) return;
+    if ((path.detectionRadius ?? 0) > 0 && !this.detectionRings.has(data.id)) {
+      const ring = this.detectionRingKit.create();
+      const foot = this.sync.geoToLocal(data.lat, data.lon, data.height);
+      placeRangeRing(ring, foot.x, foot.y, foot.z, path.detectionRadius!);
+      ring.visible = data.isSelected || data.id === this.hoveredId;
+      this.scene.add(ring);
+      this.detectionRings.set(data.id, ring);
+    }
+    const attachment = path.attachment;
+    if (!attachment) return;
+    try {
+      await this.assetManager.loadModel(attachment.modelUrl);
+      this.loadedModelUrls.add(attachment.modelUrl);
+    } catch (err) {
+      console.error(`[ThreeTowerRenderer] Failed to load path attachment: ${pathId}`, err);
+      return;
+    }
+    // The tower went or took the attachment meanwhile
+    if (this.towers.get(data.id) !== data || data.mesh.getObjectByName(`path:${pathId}`)) return;
+    const model = this.assetManager.cloneModel(attachment.modelUrl);
+    if (!model) return;
+    model.name = `path:${pathId}`;
+    data.mesh.add(model);
+    const sweep = attachment.sweepNode ? model.getObjectByName(attachment.sweepNode) : undefined;
+    if (sweep) this.sweepNodes.set(data.id, sweep);
   }
 
   /** The builds of one render frame, `gameDeltaMs` of game time (0 while paused) */
@@ -606,6 +658,8 @@ export class ThreeTowerRenderer {
 
   private setRangeVisible(data: TowerRenderData, visible: boolean): void {
     if (data.rangeIndicator) data.rangeIndicator.visible = visible;
+    const detection = this.detectionRings.get(data.id);
+    if (detection) detection.visible = visible;
     if (data.selectionRing) data.selectionRing.visible = visible;
   }
 
@@ -645,8 +699,7 @@ export class ThreeTowerRenderer {
     if (!data) return;
 
     data.isSelected = true;
-    if (data.rangeIndicator) data.rangeIndicator.visible = true;
-    if (data.selectionRing) data.selectionRing.visible = true;
+    this.setRangeVisible(data, true);
     if (data.tipMarker) data.tipMarker.visible = this.showShootHeight;
     if (data.losRing) data.losRing.visible = this.debugMode;
   }
@@ -726,6 +779,11 @@ export class ThreeTowerRenderer {
   remove(id: string): void {
     this.pendingCreates.delete(id);
     this.pendingBuilds.delete(id);
+    this.pathIds.delete(id);
+    this.sweepNodes.delete(id);
+    const detection = this.detectionRings.get(id);
+    if (detection) this.scene.remove(detection);
+    this.detectionRings.delete(id);
     this.builds.get(id)?.dispose();
     this.builds.delete(id);
     this.heldIds.delete(id);
@@ -824,6 +882,12 @@ export class ThreeTowerRenderer {
       }
     }
 
+    // A lookout sweeps the land around it, slowly to and fro
+    for (const [id, node] of this.sweepNodes) {
+      const phase = this.towers.get(id)?.hoverPhaseOffset ?? 0;
+      node.rotation.y = Math.sin(this.animationTime * 0.35 + phase) * 1.3;
+    }
+
     // Turret aim and the magic hover
     this.updateTurretVisuals();
   }
@@ -881,6 +945,7 @@ export class ThreeTowerRenderer {
   clear(): void {
     this.pendingCreates.clear();
     this.pendingBuilds.clear();
+    this.pathIds.clear();
     this.heldIds.clear();
     this.ranges.clear();
     this.ownerColors.clear();
@@ -987,6 +1052,7 @@ export class ThreeTowerRenderer {
     // Dispose shared geometry and materials
     this.scene.remove(this.previewRange);
     this.rangeRings.dispose();
+    this.detectionRingKit.dispose();
 
     // Only dispose static selection resources when last instance is destroyed
     ThreeTowerRenderer.sharedRefCount--;

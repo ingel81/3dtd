@@ -332,6 +332,17 @@ if (target) {
 
 ---
 
+## Pfade (2026-10-03, TODO E101)
+
+Ein Pfad ist ein Ein-Klick-Upgrade, einmal je Tower, einer je Tower (`configs/tower-paths.config.ts`). Eine Forschung
+öffnet ihn (`unlock-path`), der Tower kauft ihn im Tower-Panel unter den Upgrades (`command:choose-path`,
+`TowerLifecycle.choosePath`); der Verkaufswert zählt ihn mit. Der Tower trägt ihn als `pathId` (Snapshot, Prüfsumme).
+Ein Pfad kann einen Anbau mitbringen (`attachment`: GLB in den Einheiten des Tower-Modells, unter dessen Mesh gehängt,
+ein Knoten darf langsam schwenken) und einen Erkennungsradius (`detectionRadius`, türkiser Ring beim Auswählen).
+
+Heute: Archer „Scout“ (Forschung Scouting ab W16, 3000; Pfad 250): ein Ausguck (`tools/blender/scout_lookout.py`)
+entdeckt getarnte Gegner im Umkreis von 35 m für alle Tower ([ENEMY_CREATION.md](ENEMY_CREATION.md), Camo).
+
 ## Bauzeit und Gerüst
 
 Ein gesetzter Tower steht erst nach seiner Bauzeit: `buildTimeOf(config)` in `tower-types.config.ts`, Standard

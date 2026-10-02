@@ -9,7 +9,7 @@
  */
 
 import { SpawnEntry, SpawnSchedule } from '../managers/wave.manager';
-import { EnemyTypeId, ENEMY_TYPES } from '../configs/enemy-types.config';
+import { CAMO_HP_FACTOR, EnemyTypeId, ENEMY_TYPES } from '../configs/enemy-types.config';
 import { WaveEnemyGroup } from './models/wave-config';
 
 export type SpawnPattern =
@@ -77,6 +77,7 @@ export function buildSpawnSchedule(config: ScheduleBuildConfig): SpawnSchedule {
   }
 
   markElites(entries, validGroups, random);
+  markCamo(entries, validGroups);
 
   // The gaps are drawn when the spawns come due (WaveManager.startWave),
   // from the same spawn stream
@@ -112,6 +113,25 @@ function markElites(entries: SpawnEntry[], groups: WaveEnemyGroup[], random: () 
       const entry = own[Math.floor(((i + offset) * own.length) / count)];
       entry.elite = true;
       entry.health = health;
+    }
+  }
+}
+
+/**
+ * The camouflaged ones of each group (WaveEnemyGroup.camo): spread evenly over the group's spawns from its
+ * first, elites included, without a draw of the stream. Their health is CAMO_HP_FACTOR of what it was.
+ */
+function markCamo(entries: SpawnEntry[], groups: WaveEnemyGroup[]): void {
+  for (const group of groups) {
+    const camo = group.camo;
+    if (!camo || camo.count <= 0) continue;
+    const own = entries.filter((e) => e.enemyType === group.type);
+    const count = Math.min(camo.count, own.length);
+    const base = ENEMY_TYPES[group.type as EnemyTypeId]?.baseHp ?? 80;
+    for (let i = 0; i < count; i++) {
+      const entry = own[Math.floor((i * own.length) / count)];
+      entry.camo = true;
+      entry.health = Math.max(1, Math.round((entry.health ?? base) * CAMO_HP_FACTOR));
     }
   }
 }

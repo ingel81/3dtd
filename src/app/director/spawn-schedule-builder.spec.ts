@@ -7,7 +7,7 @@ import {
   SpawnPattern,
 } from './spawn-schedule-builder';
 import { WaveEnemyGroup } from './models/wave-config';
-import { ENEMY_TYPES } from '../configs/enemy-types.config';
+import { CAMO_HP_FACTOR, ENEMY_TYPES } from '../configs/enemy-types.config';
 import { drawSpawnGap } from '../managers/wave.manager';
 
 // ----------------------------------------------------------------
@@ -367,6 +367,33 @@ describe('buildSpawnSchedule: elites', () => {
   it('draws nothing for a wave without elites', () => {
     let draws = 0;
     buildSpawnSchedule(cfg([zombieGroup(40)], 'sequential', { random: () => { draws++; return 0.5; } }));
+    expect(draws).toBe(0);
+  });
+});
+
+// ----------------------------------------------------------------
+// Camouflage (TODO E100)
+// ----------------------------------------------------------------
+describe('buildSpawnSchedule: camouflage', () => {
+  it('marks as many spawns of the group as it has camouflaged, spread from its first, with less health', () => {
+    const group: WaveEnemyGroup = { type: 'zombie', count: 40, healthMultiplier: 2, camo: { count: 4 } };
+    for (const pattern of ALL_SPAWN_PATTERNS) {
+      const entries = buildSpawnSchedule(cfg([group, tankGroup(10)], pattern, { random: () => 0.5 })).entries;
+      const camo = entries.filter((e) => e.camo);
+      expect(camo.length, pattern).toBe(4);
+      expect(camo.every((e) => e.enemyType === 'zombie'
+        && e.health === Math.round(ENEMY_TYPES['zombie'].baseHp * 2 * CAMO_HP_FACTOR)), pattern).toBe(true);
+    }
+    const at = buildSpawnSchedule(cfg([group], 'sequential')).entries.map((e, i) => (e.camo ? i : -1)).filter((i) => i >= 0);
+    expect(at).toEqual([0, 10, 20, 30]);
+  });
+
+  it('camouflages a whole group and draws nothing for it', () => {
+    let draws = 0;
+    const entries = buildSpawnSchedule(cfg([{ ...zombieGroup(12), camo: { count: 12 } }], 'sequential', {
+      random: () => { draws++; return 0.5; },
+    })).entries;
+    expect(entries.every((e) => e.camo)).toBe(true);
     expect(draws).toBe(0);
   });
 });

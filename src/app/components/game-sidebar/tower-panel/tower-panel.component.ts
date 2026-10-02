@@ -39,6 +39,9 @@ import {
 } from './tower-stats';
 import { formatCompact } from '../../../utils/format-compact';
 import { COOP } from '../../../services/coop.token';
+import { getTowerPath, pathsOf, type TowerPath, type TowerPathId } from '../../../configs/tower-paths.config';
+import { getResearch } from '../../../configs/research/research-tree.config';
+import { TowerUpgradeService } from '../../../services/tower-upgrade.service';
 import { UPGRADE_MANY, upgradeTimes, upgradeTrackRefusal } from '../../../utils/player-actions';
 
 /**
@@ -64,6 +67,7 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   private readonly researchStore = inject(ResearchStore);
   private readonly sellConfirm = inject(SellConfirmService);
   private readonly upgradeHint = inject(UpgradeHintService);
+  private readonly towerUpgrade = inject(TowerUpgradeService, { optional: true });
   readonly store = inject(TowerDefenseStore);
 
   readonly tower = input.required<Tower>();
@@ -117,6 +121,30 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
     this.store.selectedTowerRevision();
     return towerStats(this.tower());
   });
+
+  /** The paths of the tower's type (configs/tower-paths.config.ts) */
+  readonly paths = computed(() => pathsOf(this.tower().typeConfig.id));
+  /** The path it took, null while none; follows the same revision as the stats */
+  readonly chosenPath = computed(() => {
+    this.store.selectedTowerRevision();
+    return getTowerPath(this.tower().pathId);
+  });
+
+  /** Its research done: the tile can be bought */
+  isPathUnlocked(path: TowerPath): boolean {
+    return this.researchStore.completedResearches().has(path.research);
+  }
+
+  /** The tooltip of a path tile: what it does, and what it waits for */
+  pathTooltip(path: TowerPath): string {
+    if (this.isPathUnlocked(path)) return `${path.description} Once per tower.`;
+    return `${path.description} Research ${getResearch(path.research)?.name ?? path.research} first.`;
+  }
+
+  onChoosePath(pathId: TowerPathId): void {
+    if (this.viewOnly() || this.chosenPath()) return;
+    this.towerUpgrade?.choosePath(this.tower(), pathId);
+  }
 
   /** Veteran rank from the kills, follows the same revision as the stats */
   readonly veteran = computed(() => veteranView(this.stats().kills));

@@ -171,9 +171,14 @@ export class RangeRingKit {
   /** Mark back faces, mark front faces, paint: drawn in this order, see the file comment. */
   readonly materials: readonly [ShaderMaterial, ShaderMaterial, ShaderMaterial];
 
-  constructor() {
+  /**
+   * @param color 0xRRGGBB, the gold of a range by default
+   * @param orderOffset Render order after the default kit's three passes: a second kit (a scout's detection
+   *   ring) drawn with the same order would mix its stencil marks with the first's
+   */
+  constructor(color = RING_COLOR, private readonly orderOffset = 0) {
     const uniforms = {
-      uColor: { value: new Color(RING_COLOR) },
+      uColor: { value: new Color(color) },
       uOpacity: { value: RING_OPACITY },
       uBandPerM: { value: BAND_PER_M },
       uBandMinM: { value: BAND_MIN_M },
@@ -222,7 +227,7 @@ export class RangeRingKit {
     this.materials.forEach((material, i) => {
       // Hidden or not, three raycasts it; the volume is hundreds of metres tall
       const mesh = unpickable(new Mesh(this.geometry, material));
-      mesh.renderOrder = PASS_ORDER + i;
+      mesh.renderOrder = PASS_ORDER + this.orderOffset + i;
       ring.add(mesh);
     });
     return ring;

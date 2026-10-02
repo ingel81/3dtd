@@ -6,6 +6,7 @@
  */
 
 import { TowerTypeId } from '../tower-types.config';
+import type { TowerPathId } from '../tower-paths.config';
 
 // ==================== Research Categories ====================
 
@@ -49,7 +50,9 @@ export type ResearchEffect =
   | { kind: 'unlock-tower'; towerId: TowerTypeId }
   | { kind: 'global-perk'; perkId: string; description: string }
   | { kind: 'unlock-upgrade-tier'; tier: number }
-  | { kind: 'enable-targeting'; capability: 'air' };
+  | { kind: 'enable-targeting'; capability: 'air' }
+  /** Every tower of the path's type may buy it (configs/tower-paths.config.ts) */
+  | { kind: 'unlock-path'; pathId: TowerPathId };
 
 // ==================== Research Config ====================
 

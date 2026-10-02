@@ -229,3 +229,28 @@
 }
 
 @include panel.upgrades;
+
+/* Path: below the upgrade tracks, a tile until bought, then a line */
+.td-path-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--td-frame-mid);
+}
+
+.td-path-chosen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  color: var(--td-text-primary);
+}
+
+.td-path-tag {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}

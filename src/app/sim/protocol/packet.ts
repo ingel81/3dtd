@@ -65,6 +65,10 @@ export const EF_ANY_STATUS = 2048;
 export const EF_ENRAGED = 4096;
 /** An elite (Enemy.elite): bigger and gold */
 export const EF_ELITE = 8192;
+/** Camouflaged (Enemy.camo) */
+export const EF_CAMO = 16384;
+/** Camouflaged and within a scout's detection radius (Enemy.revealed) */
+export const EF_REVEALED = 32768;
 
 // ── Projectiles in flight ──
 export const P_ID = 0;

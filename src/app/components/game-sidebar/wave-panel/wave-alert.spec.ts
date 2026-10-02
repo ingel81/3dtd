@@ -4,6 +4,7 @@ import {
   waveAlertView,
   countAntiAirTowers,
   countAntiEtherealTowers,
+  countScouts,
   waveBrings,
   upcomingWaveAlert,
 } from './wave-alert';
@@ -187,5 +188,20 @@ describe('waveAlertView', () => {
     expect(view.tooltip).not.toContain('Archer Tower');
     expect(waveAlertView({ kind: 'ethereal', wave: 13, wavesAhead: 1, answering: 2 }, false).defense)
       .toBe('2 towers hurt ethereal');
+  });
+});
+
+describe('camo alert (TODO E100)', () => {
+  it('reads the camouflaged waves from the plan and counts the scouts', () => {
+    expect(waveBrings('camo', 22)).toBe(true); // Armored Push, a tenth of the rats
+    expect(waveBrings('camo', 23)).toBe(false);
+    expect(upcomingWaveAlert('camo', 20, 0)).toEqual({ kind: 'camo', wave: 22, wavesAhead: 2, answering: 0 });
+    expect(countScouts(['scout', null, 'scout'])).toBe(2);
+  });
+
+  it('says whether a scout stands', () => {
+    const none = waveAlertView({ kind: 'camo', wave: 22, wavesAhead: 1, answering: 0 }, false);
+    expect(none).toMatchObject({ icon: 'eyeOff', covered: false, defense: 'No scout yet', when: 'next wave' });
+    expect(waveAlertView({ kind: 'camo', wave: 22, wavesAhead: 1, answering: 2 }, false).defense).toBe('2 scouts');
   });
 });

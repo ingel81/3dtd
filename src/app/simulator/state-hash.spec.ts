@@ -27,6 +27,7 @@ function tower(id: string, cooldown: number, damageLevel = 0): Tower {
     holdFire: false,
     manned: false,
     builtAtMs: 0,
+    pathId: null,
   } as unknown as Tower;
 }
 
@@ -128,7 +129,7 @@ describe('StateHasher', () => {
       expect(enemyRow).toHaveLength(7); // the status effects as one digest
       const [towerRow] = breakdown.entities.towers!;
       expect(towerRow.slice(0, 5)).toEqual(['tower-1', 10, 2, 40, '']);
-      expect(towerRow.slice(6)).toEqual(['closest', 'closest', 0, 0]);
+      expect(towerRow.slice(6)).toEqual(['closest', 'closest', 0, 0, '']);
       expect(breakdown.entities.heroes).toEqual([[0, -1, expect.any(Number)]]);
       expect(breakdown.entities.research).toEqual([[0, expect.any(Number)]]);
       expect(breakdown.entities.projectiles).toBeUndefined();

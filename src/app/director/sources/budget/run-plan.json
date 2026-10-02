@@ -241,6 +241,9 @@
       "zombie-soldier": 30,
       "rat": 300
     },
+    "camo": {
+      "rat": 0.1
+    },
     "strength": 1,
     "spawnDelay": 150,
     "pattern": "front-loaded"
@@ -288,6 +291,9 @@
       "zombie": 420,
       "zombie-v2": 60,
       "hornet": 60
+    },
+    "camo": {
+      "zombie-v2": 1
     },
     "strength": 1,
     "spawnDelay": 100,
@@ -374,6 +380,9 @@
       "stone-golem": 12,
       "spider": 200
     },
+    "camo": {
+      "spider": 0.25
+    },
     "strength": 1,
     "spawnDelay": 300,
     "pattern": "front-loaded"
@@ -408,6 +417,9 @@
       "zombie": 560,
       "zombie-v2": 80,
       "zombie-soldier": 60
+    },
+    "camo": {
+      "zombie-soldier": 1
     },
     "strength": 1.5,
     "spawnDelay": 100,
@@ -467,6 +479,9 @@
     "enemies": {
       "bear": 80
     },
+    "camo": {
+      "bear": 0.25
+    },
     "strength": 0.7,
     "spawnDelay": 600
   },
@@ -525,6 +540,9 @@
       "mech": 40,
       "tank": 40,
       "zombie-soldier": 30
+    },
+    "camo": {
+      "tank": 0.5
     },
     "strength": 1,
     "spawnDelay": 650,
@@ -595,6 +613,9 @@
       "zombie": 150,
       "wraith": 150
     },
+    "camo": {
+      "zombie": 0.5
+    },
     "strength": 1,
     "spawnDelay": 300,
     "pattern": "interleaved"
@@ -644,6 +665,11 @@
       "tank": 50,
       "mech": 30,
       "rat": 300
+    },
+    "camo": {
+      "tank": 1,
+      "mech": 1,
+      "rat": 1
     },
     "strength": 1,
     "spawnDelay": 180,

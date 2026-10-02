@@ -455,7 +455,7 @@ export class HeroManager implements IGameManager {
   private acquireTarget(hero: Hero): Enemy | null {
     const rangeSq = HERO.rangeM * HERO.rangeM;
     const current = this.target;
-    if (current && current.alive && this.distanceSq(current, hero.position) <= rangeSq) {
+    if (current && current.alive && !current.hidden && this.distanceSq(current, hero.position) <= rangeSq) {
       return current;
     }
     const candidates = this.world.enemiesInRadius(hero.position, HERO.rangeM, this.scratch);
@@ -730,7 +730,7 @@ function furthestAlong(
   let best: Enemy | null = null;
   let bestProgress = -Infinity;
   for (const enemy of candidates) {
-    if (!enemy.alive || distanceSq(enemy, from) > rangeSq) continue;
+    if (!enemy.alive || enemy.hidden || distanceSq(enemy, from) > rangeSq) continue;
     const progress = enemy.movement.getPathProgress();
     if (progress > bestProgress) {
       best = enemy;

@@ -39,6 +39,8 @@ export interface WaveRules {
   name(wave: number): string | null;
   /** What changes how the enemies of `wave` come (configs/wave-mutators.config.ts), null for nothing. */
   mutator(wave: number): WaveMutatorId | null;
+  /** Whether `wave` brings camouflaged enemies (Enemy.camo), as far as the source fixes it; absent for never */
+  camo?(wave: number): boolean;
 }
 
 let active: WaveRules | null = null;

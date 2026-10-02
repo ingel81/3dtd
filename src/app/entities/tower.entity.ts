@@ -17,6 +17,7 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { canTargetAirEffective } from './tower-targeting.util';
 import { TowerAim, createTowerAim } from './tower-aim';
 import { DetMath } from '../utils/det-math';
+import { getTowerPath, type TowerPathId } from '../configs/tower-paths.config';
 
 /** See Tower.getSimState. Plain data. */
 export interface TowerSimState {
@@ -39,6 +40,8 @@ export interface TowerSimState {
   damageDealt: number;
   /** See Tower.builtAtMs; absent in snapshots from before it came, which read as 0 */
   builtAtMs?: number;
+  /** See Tower.pathId; absent in snapshots from before paths, which read as none */
+  pathId?: TowerPathId | null;
 }
 
 /**
@@ -144,6 +147,14 @@ export class Tower extends GameObject {
    * and does not fire (TowerLifecycle.place, finishBuilds; TODO E104).
    */
   builtAtMs = 0;
+
+  /** The path it took (configs/tower-paths.config.ts), null for none; one per tower, bought once */
+  pathId: TowerPathId | null = null;
+
+  /** Radius (m) within which it reveals camouflaged enemies, 0 when it does not (its path's detectionRadius) */
+  get detectionRadius(): number {
+    return getTowerPath(this.pathId)?.detectionRadius ?? 0;
+  }
 
   /**
    * The answers in `visibleCells` and the grid as data, current after each
@@ -344,7 +355,8 @@ export class Tower extends GameObject {
         const canTargetGround = this.typeConfig.canTargetGround ?? true;
         const typeValid = (isAirEnemy && canTargetAir) || (!isAirEnemy && canTargetGround);
 
-        if (typeValid) {
+        // A camouflaged target the scouts lost goes as one out of range
+        if (typeValid && !this._currentTarget.hidden) {
           const distSq = this.targetDistSq(this._currentTarget);
           if (distSq <= rangeSq) {
             // Target still valid - keep it without expensive LOS recheck
@@ -411,6 +423,8 @@ export class Tower extends GameObject {
     losCheck?: (enemy: Enemy) => boolean,
   ): boolean {
     if (!enemy.alive) return false;
+    // Camouflaged and no scout near it (Enemy.hidden)
+    if (enemy.hidden) return false;
 
     // Air/Ground targeting filter
     const isAirEnemy = enemy.typeConfig.isAirUnit ?? false;
@@ -663,6 +677,7 @@ export class Tower extends GameObject {
       kills: this._combat.kills,
       damageDealt: this._combat.damageDealt,
       builtAtMs: this.builtAtMs,
+      pathId: this.pathId,
     };
   }
 
@@ -687,6 +702,7 @@ export class Tower extends GameObject {
     this._combat.kills = state.kills;
     this._combat.damageDealt = state.damageDealt;
     this.builtAtMs = state.builtAtMs ?? 0;
+    this.pathId = state.pathId ?? null;
   }
 
   /**
@@ -737,7 +753,7 @@ export class Tower extends GameObject {
    * Reflects upgrades that were paid for, not just the base cost.
    */
   getSellValue(): number {
-    return calculateSellValue(this.typeConfig.cost, this.getTotalUpgradeCost());
+    return calculateSellValue(this.typeConfig.cost, this.getTotalUpgradeCost() + (getTowerPath(this.pathId)?.cost ?? 0));
   }
 
   /**
@@ -748,6 +764,11 @@ export class Tower extends GameObject {
   private targetDistSq(enemy: Enemy): number {
     if (enemy.body) return this._bodyDistSq ? this._bodyDistSq(enemy) : Infinity;
     return this.calculateDistanceFastSq(enemy.position);
+  }
+
+  /** Flat squared distance (m²) from the tower to `target`, as its range counts it */
+  distanceSqTo(target: GeoPosition): number {
+    return this.calculateDistanceFastSq(target);
   }
 
   /**

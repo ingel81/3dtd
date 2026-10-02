@@ -3,22 +3,25 @@ import { getAllTowerTypes, TowerTypeId } from '../../../configs/tower-types.conf
 import { waveHasAir } from '../../../director/wave-rules';
 import { isAntiEtherealTower } from '../../../director/defense-analyzer';
 import { canTargetAirEffective } from '../../../entities/tower-targeting.util';
+import { waveRules } from '../../../director/wave-rules';
+import { TOWER_PATHS } from '../../../configs/tower-paths.config';
 
 /**
  * Wave alerts in the WAVE panel (MASTER_GAME_DESIGN §9): an icon and a sound
  * two waves before enemies arrive that only some towers answer. The same rule
- * for each kind: air units, which only towers that hit air can shoot, and
- * ethereal ones, which only magic, ice and lightning hurt. Pure functions,
+ * for each kind: air units, which only towers that hit air can shoot,
+ * ethereal ones, which only magic, ice and lightning hurt, and camouflaged
+ * ones, which only a scout reveals to the towers. Pure functions,
  * the panel feeds in the wave number and the placed towers.
  */
 
 /** Waves an alert looks ahead: the next one and the one after. */
 export const WAVE_ALERT_LOOKAHEAD = 2;
 
-export type WaveAlertKind = 'air' | 'ethereal';
+export type WaveAlertKind = 'air' | 'ethereal' | 'camo';
 
 /** The kinds in the order the panel shows them */
-export const WAVE_ALERT_KINDS: readonly WaveAlertKind[] = ['air', 'ethereal'];
+export const WAVE_ALERT_KINDS: readonly WaveAlertKind[] = ['air', 'ethereal', 'camo'];
 
 export interface WaveAlert {
   kind: WaveAlertKind;
@@ -32,7 +35,7 @@ export interface WaveAlert {
 
 export interface WaveAlertView {
   kind: WaveAlertKind;
-  icon: 'plane' | 'ghost';
+  icon: 'plane' | 'ghost' | 'eyeOff';
   title: string;
   when: string;
   defense: string;
@@ -48,6 +51,7 @@ const isEtherealEnemy = (id: string): boolean => ENEMY_TYPES[id]?.armorType === 
  * in advance (both of today's sources fix every wave).
  */
 export function waveBrings(kind: WaveAlertKind, wave: number): boolean {
+  if (kind === 'camo') return waveRules().camo?.(wave) ?? false;
   return kind === 'air'
     ? waveHasAir(wave, (id) => ENEMY_TYPES[id]?.isAirUnit === true)
     : waveHasAir(wave, isEtherealEnemy);
@@ -148,9 +152,30 @@ function etherealTowerNames(): string {
     .join(', ');
 }
 
+/** Placed towers with a path that reveals camouflaged enemies (TowerPath.detectionRadius) */
+export function countScouts(pathIds: Iterable<string | null>): number {
+  let n = 0;
+  for (const id of pathIds) {
+    if (id && (TOWER_PATHS[id as keyof typeof TOWER_PATHS]?.detectionRadius ?? 0) > 0) n++;
+  }
+  return n;
+}
+
 export function waveAlertView(alert: WaveAlert, airTargetingUnlocked: boolean): WaveAlertView {
   const n = alert.answering;
   const when = alert.wavesAhead === 1 ? 'next wave' : `in ${alert.wavesAhead} waves`;
+  if (alert.kind === 'camo') {
+    return {
+      kind: 'camo',
+      icon: 'eyeOff',
+      title: `Camo · Wave ${alert.wave}`,
+      when,
+      defense: n === 0 ? 'No scout yet' : `${n} ${n === 1 ? 'scout' : 'scouts'}`,
+      covered: n > 0,
+      tooltip: 'Camouflaged enemies slip past every tower that cannot see them. An Archer with the Scout path '
+        + '(research Scouting) reveals them within 35 m, and every tower can hit them there.',
+    };
+  }
   if (alert.kind === 'air') {
     return {
       kind: 'air',

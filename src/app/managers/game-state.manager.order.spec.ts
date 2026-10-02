@@ -383,7 +383,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'research:completed', 'wave:completed',
         'enemy:died', 'enemy:reached-base', 'enemy:died',
         // GameCommandsHandler
-        'command:place-tower', 'command:sell-tower', 'command:upgrade-tower', 'command:set-targeting',
+        'command:place-tower', 'command:sell-tower', 'command:upgrade-tower', 'command:choose-path', 'command:set-targeting',
         'command:set-hold-fire', 'command:man-tower', 'command:leave-tower', 'command:tower-trigger',
         'command:tower-aim',
         'command:start-research', 'command:cancel-research', 'command:queue-research', 'command:unqueue-research',

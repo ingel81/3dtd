@@ -29,6 +29,11 @@ export interface RunPlanRow {
   readonly pattern?: SpawnPattern;
   /** Boss music, boss gold. */
   readonly boss?: boolean;
+  /**
+   * Camouflaged enemies (Enemy.camo, TODO E100): share of each type's count, 1 for all of it; at least one
+   * where the share is above 0. A few, a share of a type, or a whole wave.
+   */
+  readonly camo?: Readonly<Record<string, number>>;
   readonly note?: string;
 }
 
@@ -200,4 +205,5 @@ export const RUN_PLAN_RULES: WaveRules = {
   },
   name: (wave) => planRowForWave(wave)?.name ?? null,
   mutator: bloodMoonMutator,
+  camo: (wave) => Object.values(planRowForWave(wave)?.camo ?? {}).some((share) => share > 0),
 };

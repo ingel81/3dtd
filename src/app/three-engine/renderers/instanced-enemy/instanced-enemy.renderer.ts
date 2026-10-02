@@ -339,6 +339,8 @@ export class InstancedEnemyRenderer {
     heading: number,
     healthPercent: number,
     currentSpeed: number,
+    /** False for a hidden camouflaged enemy: no bar gives it away */
+    barShown = true,
   ): void {
     if (!this._showEnemies) return;
 
@@ -353,8 +355,8 @@ export class InstancedEnemyRenderer {
       localPos,
       barOffset,
       healthPercent,
-      6, // barWidth
-      1, // barHeight
+      barShown ? 6 : 0, // barWidth
+      barShown ? 1 : 0, // barHeight
       this.instanceManager.lastOffset,
     );
   }
@@ -365,6 +367,11 @@ export class InstancedEnemyRenderer {
 
   startWalkAnimation(id: string): void {
     this.instanceManager.startWalkAnimation(id);
+  }
+
+  /** See EnemyInstanceManager.setCamo */
+  setCamo(id: string, level: number): void {
+    this.instanceManager.setCamo(id, level);
   }
 
   /** See EnemyInstanceManager.setMark */
@@ -384,6 +391,7 @@ export class InstancedEnemyRenderer {
   updateAnimations(deltaTime: number, camera: Camera): void {
     // How far the bodies are on their way to their newest state; projectiles and heroes go by it too
     this.stateLerp.update(performance.now());
+    this.instanceManager.advanceCamo(deltaTime);
 
     // Hidden enemies get no per-frame writes (updateSlot returns early), so
     // there is nothing to flush either.

@@ -101,6 +101,8 @@ export interface SimSink {
      * 0 ends the build at once
      */
     setBuild(id: string, remainingMs: number, totalMs: number): void;
+    /** The tower took path `pathId` (configs/tower-paths.config.ts): its model shows it */
+    setPath(id: string, pathId: string): void;
     remove(id: string): void;
     clear(): void;
   };

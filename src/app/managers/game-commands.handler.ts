@@ -222,6 +222,11 @@ export class GameCommandsHandler {
       if (tower) this.gsm.upgradeTower(tower, event.upgradeId);
     });
 
+    this.on('command:choose-path', (event) => {
+      const tower = this.towerFor(event.towerId, 'upgrade');
+      if (tower) this.gsm.chooseTowerPath(tower, event.pathId);
+    });
+
     this.on('command:set-targeting', (event) => {
       const tower = this.towerFor(event.towerId, 'targeting');
       if (!tower) return;

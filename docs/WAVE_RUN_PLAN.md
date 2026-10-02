@@ -519,3 +519,11 @@ Bosse, Mensch ×1, HP eines Bosses beim Start:
 Grenzen: eine Abwehr, ein Ort, das Leck ist eine Schätzung mit scharfer Kante (eine Welle kostet nichts oder
 merklich), der Held fehlt, Fähigkeiten fehlen; die Wirkung der Mutatoren außer Tempo und Heilung kennt es nicht.
 Gegen Bots und Menschen gemessen ist nichts davon.
+
+## 18. Camo (2026-10-03, nicht nachgerechnet)
+
+Eine Zeile darf `camo` tragen: Anteil je Art, 1 für alle (mindestens einer, wo der Anteil über 0 liegt). Gesetzt ab
+W22 (Scouting öffnet ab W16): W22 ein Zehntel der Ratten, W26 alle Zombie v2, W33 ein Viertel der Spinnen, W36 alle
+Zombie-Soldaten, W41 ein Viertel der Bären, W46 die Hälfte der Panzer, W52 die Hälfte der Zombies, W56 die ganze
+Welle. Getarnte kommen mit 0,75 der HP (`CAMO_HP_FACTOR`); das Budget rechnet sonst nicht mit ihnen. Ohne Späher
+laufen sie bis auf Flächenschaden durch. Bots kennen Pfade noch nicht.

@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { getTowerPath, type TowerPathId } from '../configs/tower-paths.config';
 import type { UpgradeId } from '../configs/tower-types.config';
 import type { Tower } from '../entities/tower.entity';
 import { SimClient } from '../sim/client/sim-client.service';
@@ -110,6 +111,27 @@ export class TowerUpgradeService {
       ? `${[...levels.values()].reduce((a, b) => a + b, 0)} UPGRADES`
       : `${name.toUpperCase()} ${count > 1 ? `+${count}` : `LV ${tower.getUpgradeLevel(first) + 1}`}`;
     this.floatOverTower(tower, text, UPGRADE_TEXT.bought);
+    return true;
+  }
+
+  /**
+   * A click on a path tile (configs/tower-paths.config.ts): buys it for `tower` when its research is done
+   * and the credits reach, else the refusal sound. The simulation checks again.
+   * @returns true when it sent the purchase
+   */
+  choosePath(tower: Tower, pathId: TowerPathId): boolean {
+    const path = getTowerPath(pathId);
+    if (!path || tower.pathId !== null) return false;
+    if (!this.researchStore.completedResearches().has(path.research)) {
+      uiSound.play('denied');
+      return false;
+    }
+    if (this.store.credits() < path.cost) {
+      uiSound.play('noMoney');
+      return false;
+    }
+    this.sim.bus.emit({ type: 'command:choose-path', towerId: tower.id, pathId });
+    this.floatOverTower(tower, path.name.toUpperCase(), UPGRADE_TEXT.bought);
     return true;
   }
 

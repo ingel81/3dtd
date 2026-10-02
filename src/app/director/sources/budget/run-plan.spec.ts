@@ -7,6 +7,7 @@ import { WAVE_MUTATORS } from '../../../configs/wave-mutators.config';
 import { budgetSeconds } from './budget';
 import { ENEMY_TYPES, lineageBodies, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import { waveGold } from '../../../configs/campaign.config';
+import { getResearch } from '../../../configs/research/research-tree.config';
 
 describe('run plan', () => {
   it('has one row per wave from 1, every enemy known, every count positive', () => {
@@ -153,5 +154,20 @@ describe('run plan', () => {
     expect(RUN_PLAN_RULES.name(30)).toBe(RUN_PLAN[29].name);
     const mix = RUN_PLAN_RULES.enemyMix(7)!;
     expect(mix.reduce((sum, [, share]) => sum + share, 0)).toBeCloseTo(1);
+  });
+
+  it('camouflages only types of the row, by a share above 0 up to all, after the Scouting research opens', () => {
+    const rows = RUN_PLAN.filter((row) => row.camo);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      for (const [type, share] of Object.entries(row.camo!)) {
+        expect(row.enemies[type], `${row.wave} ${type}`).toBeGreaterThan(0);
+        expect(share).toBeGreaterThan(0);
+        expect(share).toBeLessThanOrEqual(1);
+      }
+      expect(row.wave).toBeGreaterThan(getResearch('scouting')!.minWave!);
+    }
+    expect(RUN_PLAN_RULES.camo!(22)).toBe(true);
+    expect(RUN_PLAN_RULES.camo!(21)).toBe(false);
   });
 });

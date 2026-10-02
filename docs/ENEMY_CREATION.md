@@ -646,6 +646,15 @@ Bosse, der Wurm und die Ooze haben keine. Der Plan nennt die Zahl (`WaveEnemyGro
 einem Wert des Spawn-Stroms, wo sie in der Gruppe kommen (`SpawnEntry.elite`). Eine Elite ist ein Viertel größer
 und golden (`EF_ELITE`, `presentation/enemy-marks.ts`), die Teilungskinder einer Elite sind Eliten ihrer Art.
 
+**Camo (2026-10-03, TODO E100).** Ein getarnter Gegner (`Enemy.camo`) wird von keinem Tower und nicht vom Helden als
+Ziel gewählt, solange kein gebauter Späher ihn im Erkennungsradius hat (`Enemy.revealed`, je Sub-Step vor dem Kampf in
+`managers/game-state/camo-reveal.ts`); dann trifft ihn jeder Tower. Flächenschaden trifft ihn immer. Er kommt mit
+`CAMO_HP_FACTOR` (0,75) der HP seiner Art. Der Laufplan nennt Anteile je Art (`camo` in `run-plan.json`: wenige, ein
+Anteil, eine ganze Art oder Welle), die Gruppe trägt die Zahl (`WaveEnemyGroup.camo`), der Spawnplan verteilt sie
+gleichmäßig ohne Zug aus dem Spawn-Strom (`SpawnEntry.camo`). Teilungskinder erben es. Darstellung: `EF_CAMO`,
+`EF_REVEALED`, im VAT-Shader `aTintColor.a` (1 verborgen: schimmernde, gestreute Pixel ohne Lebensbalken; 0,5 entdeckt:
+kalter Rand). Die NEXT-Leiste warnt zwei Wellen vorher (`WaveRules.camo`, Alarm „Camo“ mit der Zahl der Späher).
+
 ---
 
 ## Status-Effekte

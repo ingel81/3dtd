@@ -21,6 +21,8 @@ import {
   ENEMY_TYPE_IDS,
   EF_ALIVE,
   EF_ANY_STATUS,
+  EF_CAMO,
+  EF_REVEALED,
   EF_BODY,
   EF_MOVING,
   EF_RUNNING,
@@ -87,6 +89,8 @@ interface EnemyRecord {
   status: boolean;
   /** The mark its slot shows (enemy-marks.ts) */
   mark: number;
+  /** The camouflage set on its slot (setCamo): 1 hidden, 0.5 revealed, 0 none */
+  camo: number;
 }
 
 /** A projectile the presenter has seen: its trail's distance */
@@ -239,7 +243,7 @@ export class FramePresenter {
         record = undefined;
       }
       if (record === undefined) {
-        record = { id: `enemy-${num}`, type, slot: null, seen: frame, row: -1, status: false, mark: NO_MARK };
+        record = { id: `enemy-${num}`, type, slot: null, seen: frame, row: -1, status: false, mark: NO_MARK, camo: 0 };
         this.enemies.set(num, record);
       }
       record.seen = frame;
@@ -273,6 +277,7 @@ export class FramePresenter {
         slot = record.slot = engine.enemies.resolveSlot(record.id);
         // A slot resolved anew starts without a mark: set it again below
         record.mark = NO_MARK;
+        record.camo = 0;
       }
       if (slot !== null) {
         // A mark of the simulation (a raging boss): set on the slot when it changes
@@ -281,6 +286,11 @@ export class FramePresenter {
           const look = MARK_LOOKS[mark];
           engine.enemies.setMark(record.id, look.scale, look.tint);
           record.mark = mark;
+        }
+        const camo = (flags & EF_CAMO) === 0 ? 0 : (flags & EF_REVEALED) !== 0 ? 0.5 : 1;
+        if (camo !== record.camo) {
+          engine.enemies.setCamo(record.id, camo);
+          record.camo = camo;
         }
         // Show the walk/run state the simulation decided. Mismatch only
         // right after a switch, so the id-based call runs once per switch.
@@ -292,7 +302,7 @@ export class FramePresenter {
           }
         }
         const maxHp = d[o + E_MAXHP];
-        engine.enemies.updateSlot(slot, pos, d[o + E_ROT], maxHp > 0 ? d[o + E_HP] / maxHp : 0, d[o + E_ANIM_SPEED]);
+        engine.enemies.updateSlot(slot, pos, d[o + E_ROT], maxHp > 0 ? d[o + E_HP] / maxHp : 0, d[o + E_ANIM_SPEED], camo !== 1);
       }
 
       // Almost no enemy carries an effect: the looks are looked at only while one does, and once after

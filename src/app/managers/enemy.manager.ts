@@ -264,6 +264,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     healthOverride?: number,
     entry?: SpawnEntry,
     elite = false,
+    camo = false,
   ): Enemy {
     const type = ENEMY_TYPES[typeId];
     const chain = type?.chain;
@@ -277,7 +278,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
       return head;
     }
-    return this.spawnOne(path, typeId, speedOverride, paused, healthOverride, entry, null, elite);
+    return this.spawnOne(path, typeId, speedOverride, paused, healthOverride, entry, null, elite, camo);
   }
 
   /** One enemy, see spawn(). `worm` links a worm segment to its chain. */
@@ -290,12 +291,14 @@ export class EnemyManager extends EntityManager<Enemy> {
     entry: SpawnEntry | undefined,
     worm: WormLink | null,
     elite = false,
+    camo = false,
   ): Enemy {
     const start = typeof entry === 'object' ? entry : undefined;
     const enemy = new Enemy(typeId, path, speedOverride, start?.segmentIndex, start?.segmentProgress);
     enemy.worm = worm;
     // Before the portal exit below, which sizes the enemy as drawn
     enemy.elite = elite;
+    enemy.camo = camo;
 
     // Override health if specified
     if (healthOverride !== undefined) {
@@ -640,6 +643,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       );
       // An elite's children are as tough for their kind (hpScale), and marked so
       child.elite = parent.elite;
+      child.camo = parent.camo;
       children.push(child);
     }
     this.eventBus.emit({ type: 'enemy:split', enemy: parent, children });

@@ -154,6 +154,8 @@ export function commandProblem(c: Command): string | null {
       return id(c['towerId']) ? null : 'tower id';
     case 'command:upgrade-tower':
       return id(c['towerId']) && id(c['upgradeId']) ? null : 'upgrade';
+    case 'command:choose-path':
+      return id(c['towerId']) && id(c['pathId']) ? null : 'path';
     case 'command:set-targeting':
       return id(c['towerId'])
         && (c['strategy'] === undefined || id(c['strategy']))

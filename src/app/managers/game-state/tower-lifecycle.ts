@@ -20,6 +20,7 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import type { SavedTower } from '../../simulator/sim-snapshot';
 import { losMaskFromJson } from '../../utils/los-mask';
 import { DetMath } from '../../utils/det-math';
+import { getTowerPath } from '../../configs/tower-paths.config';
 
 /**
  * Tower rules and glue around the TowerManager: what placing, selling and
@@ -88,6 +89,7 @@ export class TowerLifecycle {
       this.sink.towerBadges.setHoldFire(tower.id, true);
     }
     this.announceBuild(tower);
+    if (tower.pathId) this.sink.towers.setPath(tower.id, tower.pathId);
     return tower;
   }
 
@@ -162,6 +164,21 @@ export class TowerLifecycle {
       this.abilities(player).buildingChanged(typeId);
     }
     return tower;
+  }
+
+  /**
+   * Buy path `pathId` for `tower` (configs/tower-paths.config.ts): of its type, opened by its owner's
+   * research, none taken yet, paid by the acting player. The model shows it (towers.setPath).
+   * @returns false when it may not
+   */
+  choosePath(tower: Tower, pathId: string): boolean {
+    const path = getTowerPath(pathId);
+    if (!path || tower.pathId !== null || path.towerId !== tower.typeConfig.id) return false;
+    if (!this.research(tower.ownerId).isPathUnlocked(path.id)) return false;
+    if (!this.creditsLedger.spend(path.cost, 'upgrade', this.actingPlayer())) return false;
+    tower.pathId = path.id;
+    this.sink.towers.setPath(tower.id, path.id);
+    return true;
   }
 
   /**

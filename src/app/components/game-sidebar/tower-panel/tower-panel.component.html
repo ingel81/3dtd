@@ -173,5 +173,37 @@
       }
     </div>
 
+    <!-- Path: a one-click upgrade bought once per tower (configs/tower-paths.config.ts) -->
+    @if (paths().length > 0) {
+      <div class="td-path-section">
+        @if (chosenPath(); as path) {
+          <div class="td-path-chosen" [matTooltip]="path.description" matTooltipPosition="left">
+            <td-icon name="eye" [size]="16"></td-icon>
+            <span class="td-upgrade-name">{{ path.name }}</span>
+            <span class="td-path-tag">path</span>
+          </div>
+        } @else {
+          @for (path of paths(); track path.id) {
+            @let unlocked = isPathUnlocked(path);
+            <button class="td-upgrade-tile td-path-tile"
+                    [class.td-upgrade-affordable]="unlocked && store.credits() >= path.cost"
+                    [class.td-upgrade-tier-locked]="!unlocked"
+                    [attr.aria-disabled]="!unlocked || store.credits() < path.cost || viewOnly()"
+                    [matTooltip]="pathTooltip(path)" matTooltipPosition="left"
+                    (click)="onChoosePath(path.id)">
+              <td-icon class="td-upgrade-icon" [size]="18" [name]="unlocked ? 'eye' : 'lock'"></td-icon>
+              <div class="td-upgrade-info">
+                <span class="td-upgrade-name">{{ path.name }} <span class="td-path-tag">path</span></span>
+                <span class="td-upgrade-desc">once per tower</span>
+              </div>
+              @if (!viewOnly()) {
+                <span class="td-upgrade-cost">{{ path.cost }}</span>
+              }
+            </button>
+          }
+        }
+      </div>
+    }
+
   </div>
 </section>

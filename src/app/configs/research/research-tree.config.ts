@@ -211,6 +211,21 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'enable-targeting', capability: 'air' }],
   },
 
+  'scouting': {
+    id: 'scouting',
+    name: 'Scouting',
+    description: 'Archer towers can take the Scout path: a lookout that reveals camouflaged enemies to every tower',
+    category: 'global-perk',
+    branch: 'ballistics',
+    icon: 'eye',
+    cost: 3000,
+    duration: 25,
+    prerequisites: ['advanced-weaponry'],
+    // Camouflaged enemies come from W22 on (run-plan.json)
+    minWave: 16,
+    effects: [{ kind: 'unlock-path', pathId: 'scout' }],
+  },
+
   'nuclear-strike': {
     id: 'nuclear-strike',
     name: 'Nuclear Strike',

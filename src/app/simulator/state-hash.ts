@@ -14,7 +14,7 @@ import { HASH_PARTS, type HashedEntities, type HashPart } from '../coop/hash-che
  * 1: up to 0.5.1. 2: status effects, tower settings and upgrades, research,
  * abilities, the hero's level and ammo, the perfect streak (TODO E63 i).
  * 3: the simulation computes with DetMath instead of the native Math (E28),
- * so the same run gives other bits. 4: a tower's build end (Tower.builtAtMs).
+ * so the same run gives other bits. 4: a tower's build end (Tower.builtAtMs) and path.
  */
 export const STATE_HASH_VERSION = 4;
 
@@ -185,6 +185,7 @@ export class StateHasher {
       this.str(tower.airSubStrategy);
       this.num((tower.holdFire ? 1 : 0) + (tower.manned ? 2 : 0));
       this.num(tower.builtAtMs);
+      this.str(tower.pathId ?? '');
       // The owner only when it is not the single player: a single player's row stays short
       if (tower.ownerId !== LOCAL_PLAYER_ID) this.str(tower.ownerId);
     }

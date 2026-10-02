@@ -45,6 +45,7 @@ import { CoopRoom, type Lane } from './game-state/coop-room';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import type { ResimHost } from '../simulator/resimulation';
 import { losMaskFromJson, type LosMaskJson } from '../utils/los-mask';
+import { revealCamo } from './game-state/camo-reveal';
 import { stepTowerAim } from '../entities/tower-aim';
 import type { LockstepLink } from '../coop/lockstep';
 import { LockstepPacer } from './game-state/lockstep-pacer';
@@ -313,6 +314,8 @@ export class GameStateManager {
 
   /** Sub-step accounting: accumulator, catch-up cap, game time. */
   private readonly clock = new GameClock();
+  /** Scratch of revealCamo */
+  private readonly scouts: Tower[] = [];
 
   /**
    * The run's random source. One seed per run, one stream per system, so a
@@ -1020,6 +1023,9 @@ export class GameStateManager {
     // death animation just expired.
     this.enemyManager.update(stepMs, now);
 
+    // Camouflaged enemies near a scout, before anything picks a target
+    revealCamo(this.enemyManager.getAllActive(), this.towerManager.getAll(), now, this.scouts);
+
     if (shouldRunCombat) {
       t0 = profiling ? performance.now() : 0;
       this.towerCombat.updateTowerShooting(
@@ -1504,6 +1510,11 @@ export class GameStateManager {
    */
   upgradeTower(tower: Tower, upgradeId: UpgradeId): boolean {
     return this.towerLifecycle.upgrade(tower, upgradeId);
+  }
+
+  /** Buy a path for a tower, see TowerLifecycle.choosePath */
+  chooseTowerPath(tower: Tower, pathId: string): boolean {
+    return this.towerLifecycle.choosePath(tower, pathId);
   }
 
   /**

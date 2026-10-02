@@ -162,6 +162,14 @@ export class ResearchManager implements IGameManager {
     return false;
   }
 
+  /** Whether a completed research opens tower path `pathId` (`unlock-path`). */
+  isPathUnlocked(pathId: string): boolean {
+    for (const researchId of this.completedResearches) {
+      if (getResearch(researchId)?.effects.some((e) => e.kind === 'unlock-path' && e.pathId === pathId)) return true;
+    }
+    return false;
+  }
+
   /** Get snapshot of all active researches. */
   getActiveResearches(): ActiveResearch[] {
     return [...this.activeResearches.values()];

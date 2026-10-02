@@ -214,6 +214,8 @@ export class EnemyInstanceManager {
 
   /** Blood moon uniforms every pool's material shares, see setBloodMoon(). */
   private readonly bloodMoon = createVATBloodMoonUniforms();
+  /** Seconds the camouflage shimmer has run (vat-material.ts uCamoTime), shared by every type */
+  private readonly camoTime = { value: 0 };
 
   // Reusable temp objects
   private readonly matrix = new Matrix4();
@@ -260,6 +262,7 @@ export class EnemyInstanceManager {
       bloodMoon: this.bloodMoon,
       portalClip: this.portalClip,
       stateLerp: this.stateLerp.uniform,
+      camoTime: this.camoTime,
     });
     const instancedMesh = new InstancedMesh(
       vatData.geometry,
@@ -271,10 +274,11 @@ export class EnemyInstanceManager {
 
     // Per-instance attributes
     const animFrameData = new Float32Array(INITIAL_INSTANCES_PER_TYPE);
-    const tintColorData = new Float32Array(INITIAL_INSTANCES_PER_TYPE * 3);
+    // rgb the tint, a the camouflage (setCamo)
+    const tintColorData = new Float32Array(INITIAL_INSTANCES_PER_TYPE * 4);
 
     const animFrameAttr = new InstancedBufferAttribute(animFrameData, 1);
-    const tintColorAttr = new InstancedBufferAttribute(tintColorData, 3);
+    const tintColorAttr = new InstancedBufferAttribute(tintColorData, 4);
     const prevOffsetAttr = new InstancedBufferAttribute(new Float32Array(INITIAL_INSTANCES_PER_TYPE * 3), 3);
 
     instancedMesh.geometry.setAttribute('aAnimFrame', animFrameAttr);
@@ -334,7 +338,7 @@ export class EnemyInstanceManager {
 
     // Set initial attributes; they go out with the frame flush.
     pool.animFrameAttr.setX(index, 0);
-    pool.tintColorAttr.setXYZ(index, baseTint?.[0] ?? 0, baseTint?.[1] ?? 0, baseTint?.[2] ?? 0);
+    pool.tintColorAttr.setXYZW(index, baseTint?.[0] ?? 0, baseTint?.[1] ?? 0, baseTint?.[2] ?? 0, 0);
     pool.animFrameDirty = true;
     pool.tintDirty = true;
 
@@ -489,6 +493,19 @@ export class EnemyInstanceManager {
     state.markScale = scale;
     state.baseTint = tint;
     this.applyTint(state, state.pool);
+  }
+
+  /** Camouflage of the enemy (vat-material.ts aTintColor.a): 1 hidden, 0.5 revealed, 0 none */
+  setCamo(id: string, level: number): void {
+    const state = this.getState(id);
+    if (!state) return;
+    state.pool.tintColorAttr.setW(state.index, level);
+    state.pool.tintDirty = true;
+  }
+
+  /** The camouflage shimmer runs on, `deltaMs` of wall time */
+  advanceCamo(deltaMs: number): void {
+    this.camoTime.value = (this.camoTime.value + deltaMs / 1000) % 1000;
   }
 
   /** Frozen solid (freeze status): the iced tint, over every tint but the hit flash */
@@ -1061,7 +1078,7 @@ export class EnemyInstanceManager {
       if (pool.tintDirty) {
         if (activeCount > 0) {
           pool.tintColorAttr.clearUpdateRanges();
-          pool.tintColorAttr.addUpdateRange(0, activeCount * 3);
+          pool.tintColorAttr.addUpdateRange(0, activeCount * 4);
           pool.tintColorAttr.needsUpdate = true;
         }
         pool.tintDirty = false;

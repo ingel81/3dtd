@@ -19,7 +19,7 @@ import { wormGroupNum } from './event-export';
 import {
   E_ANIM_SPEED, E_DIST, E_EFF_SPEED, E_FLAGS, E_HOFF, E_HP, E_ID, E_LAT, E_LON, E_MAXHP, E_PROGRESS, E_ROT, E_ROUTE,
   E_TERRAIN, E_TYPE, EF_ACTIVE, EF_ALIVE, EF_ANY_STATUS, EF_BODY, EF_BURNING, EF_FROZEN, EF_MOVING, EF_POISONED,
-  EF_ELITE, EF_ENRAGED, EF_RUNNING, EF_RUSH, EF_SLOWED, EF_STUNNED, ENEMY_STRIDE, ENEMY_TYPE_IDS, O_FLAGS, O_HP, O_ID, O_TAIL, O_TIP,
+  EF_CAMO, EF_ELITE, EF_ENRAGED, EF_REVEALED, EF_RUNNING, EF_RUSH, EF_SLOWED, EF_STUNNED, ENEMY_STRIDE, ENEMY_TYPE_IDS, O_FLAGS, O_HP, O_ID, O_TAIL, O_TIP,
   OF_BURNING, OF_FROZEN, OF_POISONED, OF_SLOWED, OF_STUNNED, OOZE_STRIDE, P_DX, P_DY, P_DZ, P_FLAGS, P_HEIGHT, P_ID,
   P_LAT, P_LON, P_TYPE, PF_ROTATES, PROJECTILE_STRIDE, PROJECTILE_TYPE_IDS, T_AIM, T_COOLDOWN, T_DAMAGE, T_FLAGS,
   T_ID, T_KILLS, T_PITCH, TF_HOLD_FIRE, TF_LOS_READY, TF_MANNED, TF_ON_TARGET, TF_SLEEPING, TF_TRIGGER, TOWER_STRIDE,
@@ -168,6 +168,7 @@ export class PacketWriter {
       if (enemy.moving) flags |= EF_MOVING;
       if (enemy.enraged) flags |= EF_ENRAGED;
       if (enemy.elite) flags |= EF_ELITE;
+      if (enemy.camo) flags |= enemy.revealed ? EF_CAMO | EF_REVEALED : EF_CAMO;
       if (effects) {
         flags |= EF_ANY_STATUS;
         if (m.isSlowed(now)) flags |= EF_SLOWED;
@@ -338,7 +339,7 @@ function changeKey(tower: Tower): string {
   return JSON.stringify([
     tower.ownerId, tower.getUpgradeLevels(), tower.targetingStrategy, tower.airSubStrategy, tower.holdFire,
     tower.manned, tower.guardHeading, tower.rangeSquaredGeo, tower.combat.range, tower.combat.damage,
-    tower.combat.fireRate, tower.losReady,
+    tower.combat.fireRate, tower.losReady, tower.builtAtMs, tower.pathId,
   ]);
 }
 

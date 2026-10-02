@@ -28,6 +28,12 @@ export type CommandEvent =
       upgradeId: UpgradeId;
     }
   | {
+      /** Buy a path for a tower (configs/tower-paths.config.ts), TowerLifecycle.choosePath */
+      type: 'command:choose-path';
+      towerId: string;
+      pathId: string;
+    }
+  | {
       /** Targeting of a tower; a field left out keeps its value */
       type: 'command:set-targeting';
       towerId: string;

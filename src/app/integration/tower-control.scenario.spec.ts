@@ -75,6 +75,7 @@ import type { Enemy } from '../entities/enemy.entity';
 import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition } from '../models/game.types';
 import { DEFAULT_BUILD_TIME_MS, type TowerTypeId } from '../configs/tower-types.config';
+import { TOWER_PATHS } from '../configs/tower-paths.config';
 import type { RouteCell } from '../utils/route-cell';
 
 const BASE: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
@@ -363,6 +364,34 @@ describe('Manning a tower, through the sub-step loop', () => {
     expect(setBuild).toHaveBeenCalledTimes(2);
     steps(gsm, clock, 70);
     expect(blank).toHaveBeenCalled();
+  });
+
+  it('buys the Scout path once its research is done, once per tower, and sells it back with the tower (TODO E101)', () => {
+    const gsm = createGame();
+    const setPath = vi.mocked(gsm.ops.sink.towers.setPath);
+    gsm.addCredits(5000, 'cheat');
+    const tower = gsm.placeTower(TOWER_AT, 'archer')!;
+    const credits = () => gsm.creditsOf(gsm.localPlayerId);
+
+    // Not before Scouting is researched
+    expect(gsm.chooseTowerPath(tower, 'scout')).toBe(false);
+    const research = gsm.researchOf(gsm.localPlayerId);
+    research.restoreState({ ...research.getState(), completed: ['scouting'] });
+
+    const before = credits();
+    const sellBefore = tower.getSellValue();
+    expect(gsm.chooseTowerPath(tower, 'scout')).toBe(true);
+    expect(tower.pathId).toBe('scout');
+    expect(tower.detectionRadius).toBe(TOWER_PATHS.scout.detectionRadius);
+    expect(credits()).toBe(before - TOWER_PATHS.scout.cost);
+    expect(setPath).toHaveBeenCalledWith(tower.id, 'scout');
+    expect(tower.getSellValue()).toBeGreaterThan(sellBefore);
+
+    // Once per tower, and only for its type
+    expect(gsm.chooseTowerPath(tower, 'scout')).toBe(false);
+    const cannon = gsm.towerManager.placeTower({ ...TOWER_AT, lat: TOWER_AT.lat + 0.001 }, 'cannon', 0)!;
+    expect(gsm.chooseTowerPath(cannon, 'scout')).toBe(false);
+    expect(credits()).toBe(before - TOWER_PATHS.scout.cost);
   });
 
   it('fires at exactly the fire rate of its upgrade level', () => {

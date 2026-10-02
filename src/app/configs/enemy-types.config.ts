@@ -458,6 +458,12 @@ const DRAGON: EnemyTypeConfig = {
  * An elite (SpawnEntry.elite) is drawn this much bigger, and the simulation sizes it the same: where projectiles
  * aim, how high it comes out of a portal.
  */
+/**
+ * HP of a camouflaged enemy (Enemy.camo, TODO E100) against its kind: only towers near a scout hit it, so it
+ * comes with less, as the swift and regen mutators do.
+ */
+export const CAMO_HP_FACTOR = 0.75;
+
 export const ELITE_SIZE = 1.25;
 
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {

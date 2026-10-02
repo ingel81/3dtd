@@ -111,4 +111,14 @@ describe('BudgetWaveSource', () => {
       if (t.state === 'limit') expect(t.hpMult).toBe(t.limit);
     }
   });
+
+  it('camouflages a share of a type the row names, at least one, a whole type at 1', () => {
+    const few = plan(new BudgetWaveSource(), 22).config.enemies;
+    const rats = few.find((g) => g.type === 'rat')!;
+    expect(rats.camo?.count).toBe(Math.round(rats.count * planRowForWave(22)!.camo!['rat']));
+    expect(few.filter((g) => g.type !== 'rat').every((g) => g.camo === undefined)).toBe(true);
+    const all = plan(new BudgetWaveSource(), 26).config.enemies.find((g) => g.type === 'zombie-v2')!;
+    expect(all.camo?.count).toBe(all.count);
+    expect(plan(new BudgetWaveSource(), 21).config.enemies.every((g) => g.camo === undefined)).toBe(true);
+  });
 });

@@ -224,6 +224,7 @@ describe('WaveManager', () => {
         undefined,
         'portal',
         false,
+        false,
       );
 
       wm.tickSpawn(300); // the spawn floor, not the 50 ms asked
@@ -234,6 +235,7 @@ describe('WaveManager', () => {
         false,
         undefined,
         'portal',
+        false,
         false,
       );
     });

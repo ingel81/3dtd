@@ -92,6 +92,23 @@ export class Enemy extends GameObject {
   /** An elite of its kind (SpawnEntry.elite) or split from one; the packet marks it (EF_ELITE) */
   elite = false;
 
+  /**
+   * Camouflaged (SpawnEntry.camo, TODO E100) or split from one: no tower and no hero picks it as a target
+   * unless a scout reveals it (`revealed`); area damage hits it all the same. The packet marks it (EF_CAMO).
+   */
+  camo = false;
+
+  /**
+   * A camouflaged enemy within a scout's detection radius (Tower.detectionRadius) this sub-step:
+   * GameStateManager sets it before the combat runs. Always false for one that is not camouflaged.
+   */
+  revealed = false;
+
+  /** Camouflaged and not revealed: towers and the hero do not pick it */
+  get hidden(): boolean {
+    return this.camo && !this.revealed;
+  }
+
   /** The model's scale as drawn: the type's, an elite's ELITE_SIZE times bigger */
   get sizeScale(): number {
     return this.typeConfig.scale * (this.elite ? ELITE_SIZE : 1);

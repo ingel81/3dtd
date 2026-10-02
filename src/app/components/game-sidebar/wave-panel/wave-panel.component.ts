@@ -39,7 +39,8 @@ import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive'
 import { REPLAY_CONFIG } from '../../../configs/replay.config';
 import { enemyGroupTooltip, enemyTraitLabel, formatLeak, waveLeakTotal, weakToLabel } from '../sidebar-tooltips';
 import {
-  WAVE_ALERT_KINDS, WaveAlertAnnouncer, countAntiAirTowers, countAntiEtherealTowers, upcomingWaveAlert, waveAlertView,
+  WAVE_ALERT_KINDS, WaveAlertAnnouncer, countAntiAirTowers, countAntiEtherealTowers, countScouts, upcomingWaveAlert,
+  waveAlertView,
   type WaveAlertKind,
 } from './wave-alert';
 import { NEXT_WAVE_MARKS, peekUpcomingWaves } from './upcoming-waves';
@@ -73,6 +74,8 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   private readonly sim = inject(SimClient);
   /** Bumped by every player's research:state-changed: the mirrored research carries no signals */
   private readonly researchChanged = signal(0);
+  /** Bumped when a placed tower changes (a path bought): the scouts are counted again */
+  private readonly towersChanged = signal(0);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
@@ -114,6 +117,10 @@ export class SidebarWavePanelComponent implements AfterViewInit {
     this.destroyRef.onDestroy(() => this.destroyMixedEnemyPreviews());
     const research = this.sim.bus.onLive('research:state-changed', () => this.researchChanged.update((n: number) => n + 1));
     this.destroyRef.onDestroy(() => research.dispose());
+    const towers = this.mirror.onTowerChange((change) => {
+      if (change.kind === 'state') this.towersChanged.update((n: number) => n + 1);
+    });
+    this.destroyRef.onDestroy(towers);
   }
 
   readonly waveActive = input.required<boolean>();
@@ -211,19 +218,21 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   /**
    * Placed towers that answer each alert kind, air with each owner's research
    * like the wave source counts it. Tower entities and the mirrored research
-   * carry no signals: the tower count (placed, sold, reset) and every
-   * player's research change (a partner's retrofit at once) tell when to recount.
+   * carry no signals: the tower count (placed, sold, reset), a tower's change
+   * (a path) and every player's research change (a partner's retrofit at once)
+   * tell when to recount.
    */
   private readonly answeringTowers = computed(() => {
     this.store.towerCount();
     this.researchChanged();
+    this.towersChanged();
     const towers = this.mirror.towers();
     const types = towers.map((t) => t.typeConfig.id as TowerTypeId);
     const air = countAntiAirTowers(towers.map((t) => ({
       typeId: t.typeConfig.id as TowerTypeId,
       airTargetingUnlocked: this.mirror.researchOf(t.ownerId).airTargetingUnlocked,
     })));
-    return { air, ethereal: countAntiEtherealTowers(types) };
+    return { air, ethereal: countAntiEtherealTowers(types), camo: countScouts(towers.map((t) => t.pathId)) };
   });
 
   /** Air or ethereal enemies in the next or the next-but-one wave, build phase only. */
@@ -244,6 +253,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   private readonly alertAnnouncers: Record<WaveAlertKind, WaveAlertAnnouncer> = {
     air: new WaveAlertAnnouncer(),
     ethereal: new WaveAlertAnnouncer(),
+    camo: new WaveAlertAnnouncer(),
   };
 
   /**
@@ -254,7 +264,8 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   private async playAlertTone(kind: WaveAlertKind): Promise<boolean> {
     const audio = this.engineInit.getEngine()?.spatialAudio;
     if (!audio) return false;
-    const { id, notes, volume } = kind === 'air' ? UI_SOUNDS.airAlert : UI_SOUNDS.etherealAlert;
+    const { id, notes, volume } = kind === 'air' ? UI_SOUNDS.airAlert
+      : kind === 'camo' ? UI_SOUNDS.camoAlert : UI_SOUNDS.etherealAlert;
     if (!audio.getSoundConfig(id)) {
       audio.registerSound(id, toneWavDataUrl(notes), { volume });
     }

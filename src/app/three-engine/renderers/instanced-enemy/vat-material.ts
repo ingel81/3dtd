@@ -45,6 +45,8 @@ export interface VATMaterialOptions {
   portalClip?: PortalClipUniforms;
   /** The slide between two states (StateLerp.uniform), shared by every type; without it none */
   stateLerp?: IUniform<number>;
+  /** Seconds the camouflage shimmer has run, shared by every type; without it a still pattern */
+  camoTime?: IUniform<number>;
 }
 
 /**
@@ -60,7 +62,9 @@ export interface VATMaterialOptions {
  *
  * Per-instance attributes:
  *   aAnimFrame (float) - current animation frame in the VAT
- *   aTintColor (vec3) - tint color overlay (0,0,0 = no tint)
+ *   aTintColor (vec4) - tint color overlay in rgb (0,0,0 = no tint); in a the
+ *     camouflage (Enemy.camo): 1 hidden (a shimmer of scattered pixels), 0.5
+ *     revealed by a scout (a cold rim), 0 none
  *   aPrevOffset (vec3) - from the state's position back to where the body
  *     was shown before it; the body slides in over uStateLerp (state-lerp.ts)
  *
@@ -89,6 +93,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     ...bloodMoon,
     ...portalClip,
     uStateLerp: options?.stateLerp ?? { value: 1 },
+    uCamoTime: options?.camoTime ?? { value: 0 },
     bloodMoonGlowColor: { value: new Vector3(glow.color.r, glow.color.g, glow.color.b) },
     bloodMoonRim: { value: glow.rim },
     bloodMoonBase: { value: glow.base },
@@ -124,7 +129,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
 
       // Per-instance attributes
       attribute float aAnimFrame;
-      attribute vec3 aTintColor;
+      attribute vec4 aTintColor;
       attribute vec3 aPrevOffset;
 
       uniform float uStateLerp;
@@ -146,14 +151,16 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       varying float vVertexAlpha;
       varying float vUseMap;
       varying vec3 vWorldPosition;
+      varying float vCamo;
 
       #include <common>
       #include <logdepthbuf_pars_vertex>
 
       void main() {
         vUv = uv;
-        vTintColor = aTintColor;
-        vHasTint = step(0.01, dot(aTintColor, aTintColor));
+        vTintColor = aTintColor.rgb;
+        vHasTint = step(0.01, dot(aTintColor.rgb, aTintColor.rgb));
+        vCamo = aTintColor.a;
         vVertexColor = aVertexColor;
         vVertexAlpha = aVertexAlpha;
         vUseMap = aUseMap;
@@ -202,6 +209,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       uniform float bloodMoonRim;
       uniform float bloodMoonBase;
       uniform vec3 bloodMoonTint;
+      uniform float uCamoTime;
 
       varying vec2 vUv;
       varying vec3 vNormal;
@@ -211,6 +219,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       varying float vVertexAlpha;
       varying float vUseMap;
       varying vec3 vWorldPosition;
+      varying float vCamo;
 
       #include <logdepthbuf_pars_fragment>
 
@@ -226,6 +235,12 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         // Still behind a spawn portal's plane: not out yet
         float portalAhead = portalClipAhead(vWorldPosition);
         if (portalAhead < 0.0) discard;
+        // Camouflaged and hidden: a scatter of pixels, thicker in bands that run up the body
+        if (vCamo > 0.75) {
+          float grain = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453);
+          float band = 0.5 + 0.5 * sin(vWorldPosition.y * 5.0 - uCamoTime * 3.0);
+          if (grain > 0.18 + 0.32 * band) discard;
+        }
 
         // Base color + alpha: per-vertex texture flag decides texture vs vertex color
         vec3 baseColor;
@@ -302,6 +317,16 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         // Apply tint (for freeze/damage effects)
         if (vHasTint > 0.5) {
           litColor = mix(litColor, vTintColor, 0.5);
+        }
+
+        // Camouflage: hidden, its pixels glassy and pale; revealed, a cold rim
+        if (vCamo > 0.25) {
+          vec3 camoNormal = normalize(vNormal) * (gl_FrontFacing ? 1.0 : -1.0);
+          float camoRim = 1.0 - max(dot(camoNormal, normalize(cameraPosition - vWorldPosition)), 0.0);
+          vec3 camoColor = vec3(0.55, 0.85, 1.0);
+          litColor = vCamo > 0.75
+            ? mix(litColor, camoColor, 0.6) + camoColor * camoRim * 0.6
+            : litColor + camoColor * camoRim * camoRim * 0.9;
         }
 
         // ACES Filmic tone mapping (matches Three.js default)

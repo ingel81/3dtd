@@ -113,7 +113,16 @@ export const UI_SOUNDS = {
     ],
     volume: 0.35,
   },
-
+  /** Camouflaged enemies two waves ahead (WAVE panel): a soft note, a pause, the same one higher */
+  camoAlert: {
+    id: 'ui_camo_alert',
+    notes: [
+      { freq: 523, ms: 120 },
+      { freq: 0, ms: 60 },
+      { freq: 784, ms: 160 },
+    ],
+    volume: 0.3,
+  },
   /** A coop player marked a place on the map (review R13): two soft rising notes */
   coopPing: {
     id: 'ui_coop_ping',
