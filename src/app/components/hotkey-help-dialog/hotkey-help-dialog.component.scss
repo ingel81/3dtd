@@ -80,30 +80,26 @@ dt {
 /* Alternatives: "H / ?", a range: "1 – 9" */
 dt kbd + kbd::before {
   content: '/';
-  position: relative;
-  left: -7px;
-  margin-right: -4px;
+  position: absolute;
+  left: -12px;
+  width: 10px;
+  text-align: center;
   font-weight: 400;
   color: var(--td-text-muted);
 }
 dt kbd + kbd {
-  margin-left: 8px;
+  margin-left: 14px;
 }
 dt.range kbd + kbd::before {
   content: '–';
 }
 
 kbd {
-  display: inline-block;
-  min-width: 12px;
-  padding: 3px 6px;
-  font: 700 10px/1 var(--td-font-mono);
-  text-align: center;
-  color: var(--td-gold-light);
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  border-bottom-color: #050705;
-  border-radius: 3px;
+  @include td.keycap;
+  position: relative;
+  min-width: 14px;
+  padding: 3px 7px 2px;
+  font-size: 10px;
 }
 
 dd {
