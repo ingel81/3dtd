@@ -6,7 +6,7 @@ import { STATE_HASH_VERSION } from './state-hash';
 const here = { worldKey: 'w', configHash: 'c', gameVersion: 'v1' };
 
 /** A file the game would write: one wave, one command */
-function file(patch: (f: Record<string, unknown>) => void = () => {}): string {
+function file(patch: (f: Record<string, unknown>) => void = () => undefined): string {
   const f: Record<string, unknown> = {
     format: '3dtd-replay', version: REPLAY_FILE_VERSION, snapshotVersion: SIM_SNAPSHOT_VERSION,
     hashVersion: STATE_HASH_VERSION, worldKey: 'w', configHash: 'c', gameVersion: 'v1', commit: 'x', seed: 1,

@@ -8,6 +8,7 @@ WORKDIR /src
 COPY coop-server/src/ coop-server/src/
 COPY src/app/coop/ src/app/coop/
 COPY src/app/managers/game-state/game-clock.ts src/app/managers/game-state/
+COPY src/app/configs/timing.config.ts src/app/configs/
 COPY src/app/run-log/run-log-check.ts src/app/run-log/
 # One file with ws in it; the optional native ws helpers stay out
 RUN npm install --no-save --no-audit --no-fund esbuild@0.28.1 ws@8.21.3 \
