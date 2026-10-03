@@ -571,7 +571,7 @@ export class CoopService {
       untracked(() => this.setListing({}));
     }, { injector: this.injector });
 
-    // The dock by itself, in one place (docs/COOP_UI_REWORK_PLAN.md, T5): it opens on
+    // The dock by itself, in one place (docs/archive/COOP_UI_REWORK_PLAN.md, T5): it opens on
     // entering a room, also after joining from the location dialog (E30), and steps aside
     // for the squad box when the game starts; Tab, the header chip and Esc do the rest
     let wasInRoom = false;
@@ -815,7 +815,7 @@ export class CoopService {
   /**
    * Lobby: take a free lane as one more, or give one of one's own back
    * (`take` false); null gives every lane back. A player takes as many as
-   * they like (docs/LANES_PLAN.md). A choice by hand stops autoPick.
+   * they like (docs/WAVE_SYSTEM.md (Spuren)). A choice by hand stops autoPick.
    */
   pick(spawnId: string | null, take = true): void {
     this.pickedByHand = true;

@@ -1,7 +1,7 @@
 # Multiplayer-Konzept: PvE-Coop & PvP
 
-> **Status:** Historisch. Als Konzept entstanden; Coop ist nach [COOP_PLAN.md](COOP_PLAN.md) gebaut (Code in `src/app/coop/` statt dem hier entworfenen `src/app/net/`).
-> **2026-09-24:** PvP ist gestrichen, weiter geht es nur mit Coop "Vier Tore"; Plan in [COOP_PLAN.md](COOP_PLAN.md).
+> **Status:** Historisch. Als Konzept entstanden; Coop ist nach [COOP_PLAN.md](../COOP_PLAN.md) gebaut (Code in `src/app/coop/` statt dem hier entworfenen `src/app/net/`).
+> **2026-09-24:** PvP ist gestrichen, weiter geht es nur mit Coop "Vier Tore"; Plan in [COOP_PLAN.md](../COOP_PLAN.md).
 > **Stand:** 2026-08-26 · Branch `claude/multiplayer-pve-pvp-architecture-amu0x7`;
 > Commands, Korridor und Stellen im Code nachgeführt 2026-09-15; Bezug zum Balancing-Plan 2026-09-19
 >
@@ -37,7 +37,7 @@ alle drei Blocker: nur World-Snapshot und Wave-Schedule-Sharing.
 
 ## Stand Determinismus (2026-09-24)
 
-Auf dem Branch `simulator` ist das Determinismus-Fundament für einen Rechner gebaut ([SIMULATOR_PLAN.md](SIMULATOR_PLAN.md),
+Auf dem Branch `simulator` ist das Determinismus-Fundament für einen Rechner gebaut ([SIMULATOR_PLAN.md](../SIMULATOR_PLAN.md),
 Abnahme per Spec: eine Welle rechnet bit-genau nach, auch aus einer Datei in einem frisch gestarteten Spiel):
 
 - **Befehle:** wirken nur an Sub-Step-Grenzen, stehen mit Sub-Step und `playerId` im `CommandLog` (4.3, 18).
@@ -57,7 +57,7 @@ Abnahme per Spec: eine Welle rechnet bit-genau nach, auch aus einer Datei in ein
 ## Bezug zum Balancing-Plan (2026-09-19)
 
 Eingeordnet mit dem User am 2026-09-19, rein zur Orientierung; entschieden ist für Multiplayer nichts. Der
-[Balancing-Plan](BALANCING_PLAN.md) legt Teile des Determinismus-Fundaments (Abschnitt 6, Punkte 1 und 4) ohnehin:
+[Balancing-Plan](../BALANCING_PLAN.md) legt Teile des Determinismus-Fundaments (Abschnitt 6, Punkte 1 und 4) ohnehin:
 
 - **Schon heute:** Die Höhen der Korridorzellen frieren nach dem Korridor-Bau ein; danach verändert kein Tile-Load
   sie mehr. Vom World Seal (2.2) fehlt damit nur noch das Serialisieren und Übernehmen der Host-Höhen.
@@ -72,7 +72,7 @@ Eingeordnet mit dem User am 2026-09-19, rein zur Orientierung; entschieden ist f
 - **Config-Hash** im Kopf des Run-Logs taugt für den Balance-Hash-Check der Lobby (Punkt 14).
 - **Sichtlinie hängt am Frame, auch in DevWorld:** Wann ein Tower nach dem Bau schießen darf, entscheidet der
   GPU-Readback. Mit der Turmdrehung im Renderer (11.1, Punkt 2) ist das der Kern von Stufe 2.
-- **Abnahme im Einzelspieler:** Spielt ein aufgezeichneter Lauf lokal als Neu-Simulation (E2, [REPLAY.md](REPLAY.md))
+- **Abnahme im Einzelspieler:** Spielt ein aufgezeichneter Lauf lokal als Neu-Simulation (E2, [REPLAY.md](../REPLAY.md))
   bit-genau nach, ist die Simulation auf einem Rechner lockstep-fähig. Das liefert zugleich Replay und
   reproduzierbare Bugs, bevor ein Netz-Layer existiert.
 - **Reihenfolge, falls Coop zuerst käme:** Plan 1a und 1c mit vollständigen Befehlen, dann Determinismus im
@@ -105,7 +105,7 @@ typischen Singleplayer-Codebase.
 
 `global-route-grid.ts` füllt `cell.towerVisibility` / `cell.airVisibility` über
 einen `readRenderTargetPixels`-Pass gegen die Tower-Shadow-Cubemap
-(`TowerShadowMapper`, gelesen über `sampleCubeAtPoint` in `utils/gpu-cube-resolve.ts`, siehe [LOS_PIPELINE.md](LOS_PIPELINE.md)). Der Combat-Hot-Path liest daraus
+(`TowerShadowMapper`, gelesen über `sampleCubeAtPoint` in `utils/gpu-cube-resolve.ts`, siehe [LOS_PIPELINE.md](../LOS_PIPELINE.md)). Der Combat-Hot-Path liest daraus
 O(1), also entscheidet ein **GPU-Roundtrip gegen gerade geladene Tile-Geometrie**
 darüber, ob ein Turm schießen darf.
 
@@ -138,7 +138,7 @@ Gameplay-Höhen ein. Nachladende Tiles dürfen weiter die *Optik* verbessern,
 aber nicht mehr die Simulation.
 
 Größe: 3 km Route × bis 14 m Korridor (je Seite bis 7 m, gemessen, siehe
-[ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md)) / 4 m² ≈ bis 10k Korridorzellen, plus
+[ROUTE_CORRIDOR.md](../ROUTE_CORRIDOR.md)) / 4 m² ≈ bis 10k Korridorzellen, plus
 Tower-Radius-Zellen: realistisch 20–50k Zellen. Als Int16-Delta in cm:
 **40–100 KB roh, gzip ~15–30 KB.** Einmaliger Download beim Join.
 
@@ -176,7 +176,7 @@ dort dieselbe geseedete Quelle zu übergeben wie überall sonst. Der
 vergangener Wellen, ist also deterministisch, sobald diese Wellen es sind.
 
 **Der ONNX-Pfad** ist am 2026-09-20 entfallen
-([BALANCING_PLAN.md](BALANCING_PLAN.md), Phase 1a); es gibt nur noch den
+([BALANCING_PLAN.md](../BALANCING_PLAN.md), Phase 1a); es gibt nur noch den
 Regel-Director. Käme je wieder ein Modell dazu, wäre es nicht synchronisierbar
 (WASM- und WebGPU-Backend liefern unterschiedliche Floats), und es gälte die
 alte Lösung: der Host läuft die Inferenz und broadcastet den fertigen
@@ -385,7 +385,7 @@ Grob nach Aufwand sortiert, mit Dateibezug:
 **Determinismus-Fundament (nutzt auch Singleplayer: Replays per Re-Simulation, Bug-Repro, AI-Training)**
 
 Das heute gebaute Replay der letzten Welle ist eine Präsentations-Aufnahme, keine
-Re-Simulation, und braucht nichts davon ([REPLAY.md](REPLAY.md)).
+Re-Simulation, und braucht nichts davon ([REPLAY.md](../REPLAY.md)).
 
 1. `DeterministicRng` + Injection in die Gameplay-Dateien aus 2.3
 2. World Seal: `terrainHeight`-Freeze + Serialisierung: `utils/global-route-grid.ts`
@@ -844,7 +844,7 @@ den das Relay ohnehin durchreicht.
 Was daraus wird, kann später entschieden werden:
 - **Replay-Wiedergabe** im Client (kostet nur UI). Das heute gebaute Replay der
   letzten Welle ist eine Präsentations-Aufnahme ohne Nachrechnen
-  ([REPLAY.md](REPLAY.md)), keine Wiedergabe aus dem Command-Log.
+  ([REPLAY.md](../REPLAY.md)), keine Wiedergabe aus dem Command-Log.
 - **Zuschauermodus**: ein Client, der den Tick-Strom live mitliest.
 - **Nachträgliche Verifikation** für Ranked: Ein Verifizierer spielt den Log
   nach und vergleicht das Ergebnis. Das braucht irgendwann doch eine
@@ -1048,7 +1048,7 @@ profitiert.
 Netzwerk, sondern der Renderer.**
 
 Vier Lanes bedeuten die vierfache Gegnerzahl **in jedem einzelnen Client**.
-Ist-Stand laut [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md):
+Ist-Stand laut [INSTANCED_ENEMY_RENDERING.md](../INSTANCED_ENEMY_RENDERING.md):
 
 > 5000 Enemies @ 67 FPS · 500 Enemies ≈ 1,3 ms JS-Zeit, linear skalierend
 

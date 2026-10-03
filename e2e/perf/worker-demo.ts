@@ -1,4 +1,4 @@
-// The worker demo (docs/WORKER_PLAN.md, TODO E57) in Chromium and Firefox: the simulation's state of
+// The worker demo (docs/archive/WORKER_PLAN.md, TODO E57) in Chromium and Firefox: the simulation's state of
 // 5000 enemies each frame, on the main thread against a worker (postMessage with a transferred buffer,
 // SharedArrayBuffer), at game speed 1 and 4; and which of the game's foreign sources still answer a
 // page under COOP/COEP.

@@ -27,7 +27,7 @@ export interface Lane {
  * the gold players give each other and who may use the dev tools' commands.
  *
  * Every wave runs once on each lane (laneSchedule), and a player has as many
- * lanes as they took, one or more (docs/LANES_PLAN.md). Alone, every spawn
+ * lanes as they took, one or more (docs/WAVE_SYSTEM.md (Spuren)). Alone, every spawn
  * point is a lane of the player.
  */
 export class CoopRoom {

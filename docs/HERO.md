@@ -1,7 +1,7 @@
 # Held (Söldner)
 
 **Stand:** 2026-09-14, Zahlen abgeglichen am 2026-09-15. Stufe 1 des Helden aus
-[PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md), Abschnitt 7
+[PLAYER_AGENCY_CONCEPT.md](archive/PLAYER_AGENCY_CONCEPT.md), Abschnitt 7
 (Entwurf in Abschnitt 3.2 im
 [Archiv](archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md)): nur auf den
 Gegnerrouten, unverwundbar. Im Spiel heißt er "Mercenary".

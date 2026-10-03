@@ -69,7 +69,7 @@ export interface LockstepLink {
   /**
    * Call `listener` whenever a tick came in (confirmedTick moved), null to
    * stop: the ticks go on to the simulation at once instead of with the
-   * next frame (docs/SIM_DECOUPLE_PLAN.md). A link may leave it out.
+   * next frame (docs/archive/SIM_DECOUPLE_PLAN.md). A link may leave it out.
    */
   onTick?(listener: (() => void) | null): void;
   /**

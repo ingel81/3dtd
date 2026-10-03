@@ -1,9 +1,9 @@
 # Sound-Paket
 
-**Status:** abgestimmt am 2026-09-23 (vier AUQ-Runden). Alle vier Phasen gebaut (2026-09-23). Offen: die
-Todes-Sounds von Mammut und Ratte (dritte Runde, noch nicht gewählt), Nachhören im Spiel, die Mischung.
+**Status:** abgestimmt am 2026-09-23 (vier AUQ-Runden). Alle vier Phasen gebaut (2026-09-23), die Todes-Sounds von
+Mammut und Ratte inzwischen auch (`deathSound` in `enemy-types.config.ts`). Archiviert 2026-10-03.
 **Grundlage:** Bestandsaufnahme vom 2026-09-23 über Code, Assets, Doku und `tmp/`. Das System selbst beschreibt
-[SPATIAL_AUDIO.md](SPATIAL_AUDIO.md).
+[SPATIAL_AUDIO.md](../SPATIAL_AUDIO.md).
 
 Heute klingen Tower-Schüsse, die Fähigkeiten, der HQ-Treffer, Platzieren und Verkaufen sowie ein Teil der Gegner.
 Stumm sind Tode und Treffer, zehn Gegnertypen, die meisten Spielmomente und die ganze UI. Die Musik kennt nur
@@ -129,4 +129,4 @@ Loops in der Pause des Intros laufen; die Stimme des Wurms zählt Spielzeit und 
 4. Game Over: Zerstörung, dann Stinger, dann der Game-Over-Track.
 5. `M` gebaut.
 
-Umsetzung: [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md), "Spiel-Sounds" und "Hintergrundmusik".
+Umsetzung: [SPATIAL_AUDIO.md](../SPATIAL_AUDIO.md), "Spiel-Sounds" und "Hintergrundmusik".

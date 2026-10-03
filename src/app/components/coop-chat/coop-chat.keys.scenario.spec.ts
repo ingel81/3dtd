@@ -1,5 +1,5 @@
 /**
- * The coop keys (docs/COOP_UI_REWORK_PLAN.md, U5): Tab opens and closes the
+ * The coop keys (docs/archive/COOP_UI_REWORK_PLAN.md, U5): Tab opens and closes the
  * room dock, Enter the chat, X arms the ping, but a control the player
  * reached by keyboard keeps Tab and Enter, and inside the dock Tab walks its
  * controls. CoopChatComponent with its real template and a stand-in CoopService. A focus

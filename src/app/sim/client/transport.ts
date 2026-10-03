@@ -1,7 +1,7 @@
 /**
  * How the SimClient reaches the simulation (docs/SIM_WORKER.md): a Web Worker
  * in the game, the same thread in the specs. The worker loops by itself and
- * publishes packets as it gets on (docs/SIM_DECOUPLE_PLAN.md); the same
+ * publishes packets as it gets on (docs/archive/SIM_DECOUPLE_PLAN.md); the same
  * thread runs one pass per frame and answers at once.
  */
 import type {

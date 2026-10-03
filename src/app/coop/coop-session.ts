@@ -55,7 +55,7 @@ export type CoopCloseReason = 'restart' | 'too-fast' | 'silent' | null;
 export interface CoopStart {
   seed: number;
   players: string[];
-  /** [player, spawn] pairs, a player in as many as they took (docs/LANES_PLAN.md) */
+  /** [player, spawn] pairs, a player in as many as they took (docs/WAVE_SYSTEM.md (Spuren)) */
   lanes: [string, string][];
   localId: string;
   speed: number;

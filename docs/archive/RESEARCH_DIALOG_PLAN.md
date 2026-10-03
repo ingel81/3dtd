@@ -1,7 +1,7 @@
 # Forschung als Dialog mit echtem Graphen (TODO G3)
 
 **Stand 2026-09-21: gebaut.** Was am Ende anders kam als geplant, steht in Abschnitt 10; die
-Darstellung selbst beschreibt [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md), "Forschungsbaum (Dialog)".
+Darstellung selbst beschreibt [DESIGN_SYSTEM.md](../DESIGN_SYSTEM.md), "Forschungsbaum (Dialog)".
 Entscheidungen des Users stehen in Abschnitt 8, die Fragen aus Abschnitt 9 sind beantwortet.
 
 Auslöser ist nicht die Optik. Am 2026-09-21 hing `aa-retrofit` (breite Flugabwehr, 450) hinter

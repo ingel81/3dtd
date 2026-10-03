@@ -774,7 +774,7 @@ Gehsteigkanten oder Hängen teilweise im Boden verschwinden.
 
 ## Kampfspuren (Scorch-Decals)
 
-Schicht 1 aus `docs/game-design/COMBAT_HEATMAP_STUDY.md`, seit 2026-09-12. Dunkle
+Schicht 1 aus `docs/archive/COMBAT_HEATMAP_STUDY.md`, seit 2026-09-12. Dunkle
 Brandflecken als eigener `DecalInstanceManager`-Pool (`ScorchMarks` in
 `scorch-marks.ts`, Shader `createScorchDecalShader`), Werte in `SCORCH_DECAL_CONFIG`:
 

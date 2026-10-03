@@ -10,7 +10,7 @@ import { laneLengthRows } from './lane-length-rows';
  * While a spawn is added or moved, single player and coop: every lane's
  * route to the HQ as a bar in its colour, the one being placed highlighted
  * and following the cursor, and how it compares with the others on average
- * (docs/LANES_PLAN.md, L6). A short lane leaves less time to shoot.
+ * (docs/WAVE_SYSTEM.md (Spuren), L6). A short lane leaves less time to shoot.
  */
 @Component({
   selector: 'app-lane-length-panel',

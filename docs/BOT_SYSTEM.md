@@ -516,7 +516,7 @@ setzt sie ein. Ihre Läufe sind mit Läufen vor dem
 Forschungsfolge, weniger Lecks in Wellen mit Einsatz. Der Einsteiger
 erforscht sie nie und spielt unverändert. Der Leck-Regler bucht die Kills
 einer Fähigkeit als Leck, die Wellengröße wächst also nicht durch den Einsatz
-([WAVE_DIRECTOR.md](WAVE_DIRECTOR.md), Abschnitt 6). Seit 2026-09-17 baut der
+([WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md), Abschnitt 6). Seit 2026-09-17 baut der
 Könner dafür zusätzlich das Silo (400 Gold) und zielt mit Vorhalt auf die
 Gruppe beim Einschlag; Läufe davor sind in allem, was vom Nuklearschlag
 abhängt, nicht direkt vergleichbar. Das Silo zählt in `defense.towerCount` wie
@@ -987,7 +987,7 @@ Gold liegen; Sell macht am Bautempo Platz für einen deutlich besseren Typ.
 
 ## Verwandte Dokumente
 
-- [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md): die Wellenseite,
+- [WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md): die Wellenseite,
   Regel-Director und Überlebbarkeits-Deckel, gegen die der Bot spielt
 - [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md): Trainings- und
   Messhistorie, inklusive der Befunde, die zu dieser Platzierung geführt haben

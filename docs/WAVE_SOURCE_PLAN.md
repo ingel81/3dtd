@@ -6,7 +6,7 @@ Plugin-System für die Wellenerzeugung: Der Budget-Source ist der Standard, der 
 Abschnitt 16. Die Abschnitte 1 bis 16 beschreiben den Umbau vom 2026-09-22, als der adaptive Source noch der
 Standard war.
 
-Verwandt: [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md) (Budget-Source, Standard), [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)
+Verwandt: [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md) (Budget-Source, Standard), [WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md)
 (adaptiver Source, archiviert), [WAVE_SYSTEM.md](WAVE_SYSTEM.md) (wie eine
 fertige Welle abgespielt wird), [BALANCING_PLAN.md](BALANCING_PLAN.md) (woher der heutige Aufbau kommt),
 [RUN_LOG.md](RUN_LOG.md) (Datensammlung).
@@ -518,7 +518,7 @@ Balance-Entscheidung und nicht Teil dieses Umbaus.
 **R5 `async` bleibt.** `getNextWave` aufzulösen hieße, den Retry-Pfad der Facade mit anzufassen. *Folge:*
 ausdrücklich außerhalb des Umbaus.
 
-**R6 Doku-Drift im Druck-Regler.** `docs/WAVE_DIRECTOR.md`, Abschnitt 6, beschreibt einen Median über ein
+**R6 Doku-Drift im Druck-Regler.** `docs/archive/WAVE_DIRECTOR.md`, Abschnitt 6, beschreibt einen Median über ein
 Fenster von fünf Wellen und ein `PRESSURE_WINDOW = 5`. Im Code gibt es beides nicht: geglättet wird
 exponentiell (`PRESSURE_SMOOTHING = 0.35`), freigegeben ab `PRESSURE_MIN_SAMPLES = 3`. Die Aussage über die
 Totzeit bleibt richtig, der Mechanismus ist ein anderer. *Folge:* Abschnitt 6 von WAVE_DIRECTOR.md wird in S6

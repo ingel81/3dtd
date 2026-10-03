@@ -1,11 +1,11 @@
 # Simulation im Worker
 
 Stand 2026-10-01: Die Simulation läuft im Worker, seit 2026-09-30 auf `next` (vorher Branch `simu-worker`), mit dem
-Loop auf eigener Uhr ([SIM_DECOUPLE_PLAN.md](SIM_DECOUPLE_PLAN.md), TODO E85) und 30 Sub-Steps je Sekunde samt
+Loop auf eigener Uhr ([SIM_DECOUPLE_PLAN.md](archive/SIM_DECOUPLE_PLAN.md), TODO E85) und 30 Sub-Steps je Sekunde samt
 Gleiten zwischen zwei Ständen (E86). Drei Reviews sind behoben, das letzte nach dem Merge im Nachtlauf 2026-10-01
 (Regressionen gegenüber `main`). Gemessen bis 25 000 Gegner (siehe Kennzahlen und Mehr Gegner). Offene Prüfungen
 (Handtest, Coop über zwei Rechner, Webseite) stehen in TODO E71, die Hebel in E72, der Benchmark im Spiel in E74. Die
-Simulation läuft in einem Web Worker, der Hauptthread hält nur Bild, Ton, UI, Eingabe, Tiles und die GPU-Sichtlinien. Grundlage: [WORKER_PLAN.md](WORKER_PLAN.md) (Stufe 1: echte Simulation im
+Simulation läuft in einem Web Worker, der Hauptthread hält nur Bild, Ton, UI, Eingabe, Tiles und die GPU-Sichtlinien. Grundlage: [WORKER_PLAN.md](archive/WORKER_PLAN.md) (Stufe 1: echte Simulation im
 Worker bitgleich).
 
 ## Überblick
@@ -66,7 +66,7 @@ sequenceDiagram
   R->>R: Renderer und renderer.render
 ```
 
-Der Worker loopt mit eigener Uhr (`sim/worker/sim-loop.ts`, [SIM_DECOUPLE_PLAN.md](SIM_DECOUPLE_PLAN.md)): ein
+Der Worker loopt mit eigener Uhr (`sim/worker/sim-loop.ts`, [SIM_DECOUPLE_PLAN.md](archive/SIM_DECOUPLE_PLAN.md)): ein
 Durchgang rechnet die fälligen Sub-Steps, höchstens 8 ms Wanduhr, veröffentlicht ein Paket, wenn der Hauptthread das
 letzte bekommen hat (Abruf im Kontrollwort je Bild, sonst spätestens nach 100 ms), und gibt den Thread frei;
 ohne fällige Arbeit schläft er bis zum nächsten fälligen Sub-Step oder bis eine Nachricht kommt (Pause, keine Welt).
@@ -119,7 +119,7 @@ LOS (GPU)    <-- tower:los-needed    --> command:los-mask --> SimCore
 - 30 Sub-Steps je Sekunde Spielzeit (TODO E86, 2026-09-30): die Rate steht einmal, `SIM_STEPS_PER_SECOND` in
   `configs/timing.config.ts`; `GameClock.FIXED_STEP_MS` (33,334 ms statt 16,667 ms) und der Coop-Tick
   (`TICK_SUB_STEPS`, jetzt ein Sub-Step, weiter 30 Ticks je Sekunde) leiten sich daraus ab. Was sich an den Regeln ändert,
-  steht in [SIM_DECOUPLE_PLAN.md](SIM_DECOUPLE_PLAN.md) unter „30 Sub-Steps je Sekunde“. Alte Replay-Dateien und
+  steht in [SIM_DECOUPLE_PLAN.md](archive/SIM_DECOUPLE_PLAN.md) unter „30 Sub-Steps je Sekunde“. Alte Replay-Dateien und
   Snapshots werden abgewiesen (Versionen erhöht), alte Coop-Clients auch (`PROTOCOL_VERSION` 2).
 - Gegendruck: Ruft der Hauptthread 250 ms lang nichts ab (versteckter Tab, langer Hänger), rechnet der Worker nicht
   weiter, bis der nächste Abruf kommt, und holt die Standzeit nicht nach. Das Spiel steht im versteckten Tab.
@@ -346,7 +346,7 @@ Gebaut (Hebel 1 und 2 der Liste oben):
 - **Nicht gebaut, weil ohne Gewinn gemessen:** Gegnergeräusche ausgelassen (Presenter 4,30 statt 4,32 ms bei 16000 in
   Firefox), Typindex im Paketschreiber (unter 1 % der Worker-Zeit).
 
-**Entkopplung (gemessen 2026-09-30, [SIM_DECOUPLE_PLAN.md](SIM_DECOUPLE_PLAN.md)):** Der Worker loopt mit eigener
+**Entkopplung (gemessen 2026-09-30, [SIM_DECOUPLE_PLAN.md](archive/SIM_DECOUPLE_PLAN.md)):** Der Worker loopt mit eigener
 Uhr, der Hauptthread ruft je Bild ein Paket ab. Tempo 4, Messrechner A, der Lauf an eine Hälfte der Kerne gebunden,
 zwei Runden deckungsgleich, vorher (`88658b44`) → nachher (`3867621a`); die Zahlen sind wegen der Bindung nicht mit
 den Tabellen oben vergleichbar:
@@ -368,7 +368,7 @@ Wo die Zeit jetzt hingeht (CPU-Profil `sim-load.ts --profile`, Chromium, 25000 G
 - **Worker** (zu 88 % beschäftigt): Bewegung der Gegner rund 43 % (`move`, `place`, `placeOnArc`, Winkelfunktionen),
   Gegner-Update mit Rastern und Höhe 19 %, Kampf rund 11 %, Paket schreiben 7 %.
 
-**Mehrere Worker, Labor** (`tools/multi-worker`, `e2e/perf/multi-worker.mjs`, Branch `perf/multi-worker-lab`): der
+**Mehrere Worker, Labor** (verworfen; Werkzeuge und Branch nur noch im lokalen Tag `archive/perf-multi-worker`): der
 Bewegungsteil des Sub-Steps mit den echten `Enemy`- und `MovementComponent`-Objekten, über 1 bis 4 Worker verteilt, per
 `Atomics` im Takt. Ergebnis je Sub-Step:
 

@@ -520,7 +520,7 @@ export class GameStateManager {
     spawnIds: () => this.waveManager.spawnPoints.map((point) => point.id),
   }));
 
-  /** The start credits once per lane of the player (docs/LANES_PLAN.md); one share without a lane */
+  /** The start credits once per lane of the player (docs/WAVE_SYSTEM.md (Spuren)); one share without a lane */
   private withStartCredits(room: CoopRoom): CoopRoom {
     this.creditsLedger.setStartCredits(
       (playerId) => GAME_BALANCE.player.startCredits * Math.max(1, room.laneSpawnsOf(playerId).length),
@@ -831,7 +831,7 @@ export class GameStateManager {
    *
    * `deadline` (performance.now()): no further sub-step starts after it, the
    * game-time left carries into the next call (the worker's loop gives each
-   * pass a budget, docs/SIM_DECOUPLE_PLAN.md), nor once `stop` says so (the
+   * pass a budget, docs/archive/SIM_DECOUPLE_PLAN.md), nor once `stop` says so (the
    * main thread waits for a packet). At least one due sub-step runs. Which
    * sub-steps a call runs never changes what they do.
    */

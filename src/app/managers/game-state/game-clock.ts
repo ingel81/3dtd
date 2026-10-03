@@ -49,7 +49,7 @@ export class GameClock {
    * cannot keep up runs slower than the wall clock instead of piling up debt,
    * and a loop that stood (a hidden tab, a long call, the coop barrier) does
    * not run minutes of game time at once. Start value, tuned by measurement
-   * (docs/SIM_DECOUPLE_PLAN.md, TODO E85).
+   * (docs/archive/SIM_DECOUPLE_PLAN.md, TODO E85).
    */
   static readonly MAX_BACKLOG_MS = 250;
 
@@ -92,7 +92,7 @@ export class GameClock {
    * A paused pass, or the moment a pause ends: no sub-step runs and the game
    * clock stands. The wall clock is still taken, otherwise the first pass
    * after the pause would try to catch up the pause (the loop sleeps through
-   * it, docs/SIM_DECOUPLE_PLAN.md). The remainder stays as it was, the resume
+   * it, docs/archive/SIM_DECOUPLE_PLAN.md). The remainder stays as it was, the resume
    * continues where the pause began.
    */
   holdFrame(currentTime: number): void {

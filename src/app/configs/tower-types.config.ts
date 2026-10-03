@@ -71,7 +71,7 @@ export function calculateSellValue(baseCost: number, totalUpgradeCost: number): 
 }
 
 // =====================================================================
-// Upgrade-Tracks (Balance 2026-09, docs/game-design/BALANCE_PROPOSAL_2026-09.md §2)
+// Upgrade-Tracks (Balance 2026-09, docs/archive/BALANCE_PROPOSAL_2026-09.md §2)
 //
 // Damage und Fire Rate: 25 Stufen mit tower-eigenem Multiplikator m. Stufe
 // 1-15 wirkt m, Stufe 16-25 nur noch 1 + 0,4 × (m − 1). Bis L15 bleibt das

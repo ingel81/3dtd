@@ -469,7 +469,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // Map placement mode (HQ/Spawn)
   readonly mapPlacementMode = computed(() => this.uiStore.mapPlacementMode());
   // HQ and spawns only before the first wave: a change builds the run anew,
-  // and the lanes with their start credits are set by then (docs/LANES_PLAN.md)
+  // and the lanes with their start credits are set by then (docs/WAVE_SYSTEM.md (Spuren))
   readonly canPlaceOnMap = computed(() =>
     this.store.phase() === 'setup' && this.store.waveNumber() === 0
       && !this.engineInit.loading() && !this.uiStore.coopMapLocked(),

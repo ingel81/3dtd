@@ -1394,7 +1394,7 @@ export const MAX_LEAK_DAMAGE = 50;
 /**
  * HP an enemy of `id` costs the HQ when it gets through, before the wave's
  * scale (enemyBaseDamageForWave): round(√HP / 5), from 1 to MAX_LEAK_DAMAGE
- * (TODO E49, docs/PRESSURE_ONE_PLACE_PLAN.md). A rat costs 1, a golem 4,
+ * (TODO E49, docs/archive/PRESSURE_ONE_PLACE_PLAN.md). A rat costs 1, a golem 4,
  * Herbert 13. A body of many parts, the worm, costs it once for the whole
  * body, from the HP of all its segments; each segment that gets through
  * pays its share. A type's own `leakDamage` takes the place of the one its

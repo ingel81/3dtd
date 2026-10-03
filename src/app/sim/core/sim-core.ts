@@ -2,7 +2,7 @@
  * The simulation behind SimCoreApi (docs/SIM_WORKER.md): the GameStateManager
  * with its sim services, built in an Injector of its own (no platform, no
  * app, no root lookups), a world from the main thread, inputs as they come
- * and a packet out per pass of the loop (docs/SIM_DECOUPLE_PLAN.md). Runs in
+ * and a packet out per pass of the loop (docs/archive/SIM_DECOUPLE_PLAN.md). Runs in
  * the worker (sim/worker/sim.worker.ts, driven by SimLoop) and, for the
  * specs, in the same thread (a pass per frame).
  */
@@ -58,7 +58,7 @@ export const SIM_PROVIDERS: StaticProvider[] = [
  * The longest the simulation keeps what it ran to itself while the main
  * thread asks for no packet (ms of wall clock): events of a main thread that
  * stands still do not wait for good. Start value, to be matched with the
- * backpressure (docs/SIM_DECOUPLE_PLAN.md, TODO E85).
+ * backpressure (docs/archive/SIM_DECOUPLE_PLAN.md, TODO E85).
  */
 export const MAX_PUBLISH_GAP_MS = 100;
 
@@ -273,7 +273,7 @@ export class SimCore implements SimCoreApi {
     if (stepsRun === 0 && !changed) return null;
 
     const updateDone = performance.now();
-    // On demand (docs/SIM_DECOUPLE_PLAN.md): the tables are written and the message goes once per frame of the
+    // On demand (docs/archive/SIM_DECOUPLE_PLAN.md): the tables are written and the message goes once per frame of the
     // main thread, not per sub-step. The demand is taken even when something else publishes: one packet answers both
     const dueIn = waits ? Infinity : this.dueInMs();
     const asked = demand ? (spaced || changed) && demand.takeDemand() : true;

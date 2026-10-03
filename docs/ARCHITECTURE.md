@@ -1321,7 +1321,7 @@ function onEngineUpdate(deltaTime: number) {
 }
 ```
 
-Der Worker loopt mit eigener Uhr (`sim/worker/sim-loop.ts`, [SIM_DECOUPLE_PLAN.md](SIM_DECOUPLE_PLAN.md)): er
+Der Worker loopt mit eigener Uhr (`sim/worker/sim-loop.ts`, [SIM_DECOUPLE_PLAN.md](archive/SIM_DECOUPLE_PLAN.md)): er
 rechnet die fälligen Sub-Steps und veröffentlicht Pakete, ohne auf ein Bild zu warten. Was seit dem letzten Bild kam,
 wendet der Hauptthread am Anfang des nächsten als ein Paket an (`SimClient.frame`). Befehle vom Hauptthread-Bus gehen
 mit der Eingabe des Bilds und wirken sofort, an der Grenze zwischen zwei Sub-Steps

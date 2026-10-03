@@ -1,7 +1,7 @@
 # Fähigkeiten (Player Abilities)
 
 **Stand:** 2026-09-17 (Nuklearschlag aus dem Missile Silo). Konzept und Entscheidungen zum Nuklearschlag:
-[PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md), Abschnitte 7
+[PLAYER_AGENCY_CONCEPT.md](archive/PLAYER_AGENCY_CONCEPT.md), Abschnitte 7
 und 8 (das MVP aus Abschnitt 5 im
 [Archiv](archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md)). Die weiteren
 Fähigkeiten folgen seinem Muster: eigene Forschung, eine Ladung, eine neue
@@ -232,7 +232,7 @@ Einschlag hängt nicht daran.
   Derselbe Spec prüft den Abschussort: ohne Silo `no-launch-site`, mit Silo
   dessen ID und Position in `launch`.
 - Im Mehrspielerbetrieb liefe `command:use-ability` über dieselbe Pipeline wie
-  die übrigen Commands ([MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) §4.3;
+  die übrigen Commands ([MULTIPLAYER_CONCEPT.md](archive/MULTIPLAYER_CONCEPT.md) §4.3;
   das Konzept zählt sieben, der Bus kennt heute 14 `command:*`).
 
 ---

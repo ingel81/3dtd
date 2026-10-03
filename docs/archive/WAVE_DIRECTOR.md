@@ -1,17 +1,17 @@
 # Wave Director
 
 > **Archiviert (2026-09-29):** Der adaptive Source ist aus dem Code entfernt, mit Templates, Kampagnen-Pins,
-> Boss-Rotation und Überlebbarkeits-Deckel. Standard ist der Budget-Source ([WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md));
-> was aus den Sonderregeln wurde, steht in [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md), Abschnitt 18. Der
+> Boss-Rotation und Überlebbarkeits-Deckel. Standard ist der Budget-Source ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md));
+> was aus den Sonderregeln wurde, steht in [WAVE_SOURCE_PLAN.md](../WAVE_SOURCE_PLAN.md), Abschnitt 18. Der
 > Druck-Regler (`director/pressure-controller.ts`) lebt dort weiter. Dieses Dokument bleibt als Beschreibung
 > des alten Stands und seiner Messungen.
 
 **Stand:** 2026-09-22. Dieses Dokument beschreibt den **adaptiven Wave Source**: regelbasiert, vollständig im
 Client, kein Python-Server, kein Modell, keine Runtime. Er ist einer von mehreren austauschbaren Wellenquellen
 und der Standard. Der Rahmen darum, also der Vertrag und wie umgeschaltet wird, steht in
-[WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md); die Liste als Alternative dort ebenfalls. Wie der WaveManager die
-fertige Welle abspielt, steht in [WAVE_SYSTEM.md](WAVE_SYSTEM.md), der Umbau, aus dem dieser Stand stammt, in
-[BALANCING_PLAN.md](BALANCING_PLAN.md).
+[WAVE_SOURCE_PLAN.md](../WAVE_SOURCE_PLAN.md); die Liste als Alternative dort ebenfalls. Wie der WaveManager die
+fertige Welle abspielt, steht in [WAVE_SYSTEM.md](../WAVE_SYSTEM.md), der Umbau, aus dem dieser Stand stammt, in
+[BALANCING_PLAN.md](../BALANCING_PLAN.md).
 
 Alle Dateien dieses Sources liegen in `src/app/director/sources/adaptive/`. Was er mit jedem anderen Source
 teilt, liegt im Wurzelordner `src/app/director/`: Templates, Snapshot, Verteidigungsanalyse, Adapter, Run-Log.
@@ -45,7 +45,7 @@ Die Ursache lag vor dem Lernen: Die Kampagne pinnt das Template auf 49 % der Wel
 der volle Bereich des Anzahl-Faktors bewegte eine Welle von 19 auf 28 Gegner. Es gab fast nichts zu entscheiden und
 damit nichts zu lernen.
 
-Messreihe und Herleitung: [archive/HANDOVER_RULE_DIRECTOR.md](archive/HANDOVER_RULE_DIRECTOR.md). ONNX-Modell,
+Messreihe und Herleitung: [archive/HANDOVER_RULE_DIRECTOR.md](HANDOVER_RULE_DIRECTOR.md). ONNX-Modell,
 State-Encoder und der Wellen-Pfad des Backends sind am 2026-09-20 entfernt worden.
 
 ## 3. Architektur
@@ -122,7 +122,7 @@ Begründung:
   (`boss_herbert`, `boss_golem`, `boss_dragon`; die Älteste-zuerst-Regel rotiert sie), an allen anderen sind sie
   gesperrt. Vorher waren Bosse an Vielfachen von 10 nur erlaubt: über 2.000 simulierte Läufe kamen zwischen W31
   und W130 0,7 statt 10 Boss-Wellen. Einen Teil der Boss-Wellen ersetzt der Source selbst durch eine Boss-Variante
-  (Skarnax, Ooze), siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-waves). Bis zum 2026-09-22 tat das die Facade,
+  (Skarnax, Ooze), siehe [WAVE_SYSTEM.md](../WAVE_SYSTEM.md#boss-waves). Bis zum 2026-09-22 tat das die Facade,
   wodurch "welche Welle kommt" an zwei Stellen entschieden wurde. Boss-Wellen nach W30 zahlen das doppelte
   Gold (`BOSS_GOLD_MULTIPLIER` in `waveGold`).
 - **Fallbacks** in dieser Reihenfolge, damit die Liste nie leer ist: an einer Boss-Welle, deren Boss-Templates alle
@@ -136,7 +136,7 @@ Begründung:
 
 `pressure-controller.ts`: ein Regelkreis, der die Kill-Schätzung von `survivableCount` über
 `pressureMultiplier` (Default 1) korrigiert. Er löst am 2026-09-21 den Leck-Regler ab; die Begründung und die
-Messreihe stehen in [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md).
+Messreihe stehen in [DRAMA_CONTROLLER_PLAN.md](../DRAMA_CONTROLLER_PLAN.md).
 
 **Warum überhaupt:** `survivableCount` schätzt, wie viele Gegner eine Verteidigung zerstören kann, abgewertet mit
 `FAIRNESS_KILL_REALISM = 0.65`. Dieser Abschlag wurde auf W1 bis W10 gemessen und ist ab W11 falsch. Der Deckel
@@ -211,7 +211,7 @@ Weiter gelten unverändert:
   wurde er zur Ratsche: mediane Runlänge 6 Wellen gegen ein Ziel von 80.
 - **Verdrahtung:** Der Regler hängt an `StateSnapshotService.onWaveResult()`, nicht am `wave:completed`-Event.
   `pressure-wiring.spec.ts` existiert genau dagegen.
-- **Der Held zählt als Verteidigung** (`analyzeDefense`, Präsenzfaktor 0,5). Details in [HERO.md](HERO.md).
+- **Der Held zählt als Verteidigung** (`analyzeDefense`, Präsenzfaktor 0,5). Details in [HERO.md](../HERO.md).
 
 **Der Deckelboden.** `FAIRNESS_MIN_COUNT = 5` war der Grund, warum der Regler in der toten Mitte blind wurde:
 Der Deckel konnte nicht unter fünf Gegner, und bei sieben gespawnten ist über den Druck nichts mehr auszusagen.
@@ -236,7 +236,7 @@ Der wirksame Boden ist jetzt die halbe Template-Untergrenze
    nie gefährlich: Gemessen über 749 Bot-Läufe kostete das Mittelspiel des Könners zwölf Wellen am Stück gar
    nichts, und der schwächere Bot kam weiter als der stärkere. Bei 2 bricht beides zusammen, beide Bots sterben
    im Median bei Welle 13. 1,5 ist das Maximum dazwischen
-   ([BALANCING_PLAN.md](BALANCING_PLAN.md), Tuning-Runde 1).
+   ([BALANCING_PLAN.md](../BALANCING_PLAN.md), Tuning-Runde 1).
 6. **Dauer-Deckel.** `count × spawnDelay > 180_000 ms` komprimiert den Spawn-Abstand (`MIN_SPAWN_DELAY_MS = 5`).
    Danach **zweiter Pass** über den Überlebbarkeits-Deckel: Eine langsame Mega-Welle passiert ihn gerade *weil* ihr
    langes Spawn-Fenster der Verteidigung Zeit gibt, und die Kompression vervielfacht danach die Spawn-Rate.
@@ -304,17 +304,17 @@ tatsächlich begrenzt hat.
 ## 10. Offen
 
 - Der Zyklus nach der Kampagne, das Kampagnenende und die Zielbänder für das Tuning stehen in
-  [BALANCING_PLAN.md](BALANCING_PLAN.md), Phase 3.
+  [BALANCING_PLAN.md](../BALANCING_PLAN.md), Phase 3.
 - Der Lauf-Seed steht noch in keinem Log; das kommt mit dem Run-Log (Phase 2a).
 
 ## 11. Verwandte Dokumentation
 
 | Dokument | Inhalt |
 |----------|--------|
-| [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | WaveManager, Spawner, Boss-Wellen, Blutmond |
-| [BALANCING_PLAN.md](BALANCING_PLAN.md) | Umbau der Wellen-Pipeline, Datensammlung, Tuning |
-| [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) | Warum der Druck-Regler den Leck-Regler ablöst, mit Messreihe |
-| [BOT_SYSTEM.md](BOT_SYSTEM.md) | Bots, die gegen den Director spielen |
-| [ABILITIES.md](ABILITIES.md) | Fähigkeiten und ihre Wirkung auf den Druck |
-| [HERO.md](HERO.md) | Der Held im Verteidigungsmodell |
-| [archive/HANDOVER_RULE_DIRECTOR.md](archive/HANDOVER_RULE_DIRECTOR.md) | Messreihe hinter dem Wechsel auf Regeln (2026-09-07) |
+| [WAVE_SYSTEM.md](../WAVE_SYSTEM.md) | WaveManager, Spawner, Boss-Wellen, Blutmond |
+| [BALANCING_PLAN.md](../BALANCING_PLAN.md) | Umbau der Wellen-Pipeline, Datensammlung, Tuning |
+| [DRAMA_CONTROLLER_PLAN.md](../DRAMA_CONTROLLER_PLAN.md) | Warum der Druck-Regler den Leck-Regler ablöst, mit Messreihe |
+| [BOT_SYSTEM.md](../BOT_SYSTEM.md) | Bots, die gegen den Director spielen |
+| [ABILITIES.md](../ABILITIES.md) | Fähigkeiten und ihre Wirkung auf den Druck |
+| [HERO.md](../HERO.md) | Der Held im Verteidigungsmodell |
+| [archive/HANDOVER_RULE_DIRECTOR.md](HANDOVER_RULE_DIRECTOR.md) | Messreihe hinter dem Wechsel auf Regeln (2026-09-07) |

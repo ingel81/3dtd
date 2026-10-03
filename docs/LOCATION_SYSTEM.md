@@ -571,7 +571,7 @@ Spawns aus URL/Service vorhanden?
 
 ## Location Dialog Component
 
-Angular Material Dialog mit drei Tabs (seit 2026-09-26, [COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md) P3; die
+Angular Material Dialog mit drei Tabs (seit 2026-09-26, [COOP_UI_REWORK_PLAN.md](archive/COOP_UI_REWORK_PLAN.md) P3; die
 Darstellung steht in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#standortdialog)). Titel „Choose a place“ beim Start ohne Ort
 (dann ohne Cancel), sonst „Change place“.
 

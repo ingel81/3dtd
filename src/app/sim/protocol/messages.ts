@@ -42,7 +42,7 @@ export interface LockstepDelivery {
 }
 
 /**
- * What the main thread gives the simulation (docs/SIM_DECOUPLE_PLAN.md): sent
+ * What the main thread gives the simulation (docs/archive/SIM_DECOUPLE_PLAN.md): sent
  * when something of it changed or commands came, not per frame. The
  * simulation keeps the settings until the next one.
  */
@@ -245,7 +245,7 @@ export type ToWorkerMessage =
  * What the main thread posts: everything it sent in one task, in order. The
  * worker takes a batch in one go, no pass of its loop in between: a reset,
  * the settings after it and a call all act at the same boundary between two
- * sub-steps (docs/SIM_DECOUPLE_PLAN.md).
+ * sub-steps (docs/archive/SIM_DECOUPLE_PLAN.md).
  */
 export type ToWorker = ToWorkerMessage | { kind: 'batch'; messages: ToWorkerMessage[] };
 

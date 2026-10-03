@@ -21,7 +21,7 @@ const COPIED_MS = 1200;
 
 /**
  * The coop dock (docs/COOP_PLAN.md, C8, D41; the layout
- * docs/COOP_UI_REWORK_PLAN.md, P5): right of the ability bar, from below
+ * docs/archive/COOP_UI_REWORK_PLAN.md, P5): right of the ability bar, from below
  * the info overlay down to the logo row, without a veil; the map stays
  * usable beside it. Not in a room it opens or joins one (app-coop-entry);
  * joining it shows the handshake (app-coop-join-steps); in the room it

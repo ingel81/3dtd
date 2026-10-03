@@ -339,7 +339,7 @@ export class HotkeyService {
       this.selection.select(null);
       return true;
     }
-    // The coop dock closes, the room stays open (docs/COOP_UI_REWORK_PLAN.md, U5)
+    // The coop dock closes, the room stays open (docs/archive/COOP_UI_REWORK_PLAN.md, U5)
     if (this.uiStore.coopDockOpen()) {
       this.uiStore.coopDockOpen.set(false);
       return true;

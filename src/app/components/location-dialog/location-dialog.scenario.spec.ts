@@ -1,5 +1,5 @@
 /**
- * The location dialog after the rework (docs/COOP_UI_REWORK_PLAN.md, P3):
+ * The location dialog after the rework (docs/archive/COOP_UI_REWORK_PLAN.md, P3):
  * the title and the tabs at a start and with a place, no Cancel at a start,
  * "Load place" only once the search picked a place, moving only the spawn
  * (the former Spawn Only tab), and the Coop tab closing with the host's

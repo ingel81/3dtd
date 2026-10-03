@@ -137,7 +137,7 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 - [x] **E45 Upgrades ×5/×10**: Shift+U und Ctrl+U, dazu Shift-/Ctrl-Klick.
 - [x] **E46 Game-Over-Screen**: Gold je Spieler, Mini-Charts je Welle.
 - [x] **E47 Druck-Multiplikator an einer Stelle**: nur im Kill-Budget, Deckel stetig
-      ([Plan](docs/PRESSURE_ONE_PLACE_PLAN.md)).
+      ([Plan](docs/archive/PRESSURE_ONE_PLACE_PLAN.md)).
 - [x] **E48 Regler-Messwert gekappt**: eine Welle zählt höchstens rund 3× Ziel.
 - [x] **E49 Leckschaden je Gegnertyp**, sichtbar in Vorschau, Tooltip und am HQ.
 - [x] **E50 Spawn-Boden je Typ**: Schwarm-Templates höchstens 600 je Lane (Ratten 1200).
@@ -145,7 +145,7 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-09-26
 
-- [x] **Coop-UI und Standortdialog überarbeitet** (`b6d7d61d`, [Plan](docs/COOP_UI_REWORK_PLAN.md), U1 bis U8):
+- [x] **Coop-UI und Standortdialog überarbeitet** (`b6d7d61d`, [Plan](docs/archive/COOP_UI_REWORK_PLAN.md), U1 bis U8):
       Standortdialog mit festen Tabs Place/World/Coop, Coop-Einstieg mit Umschalter Online/Same network, Raum als
       Tabelle, gemeinsame Coop-Styles, Tab/Enter/Esc an Knöpfen korrekt, Squad-Box neben der Fähigkeitenleiste.
       Nachtests T73 bis T75.
@@ -173,7 +173,7 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       `b9b58a36`): acht Bugs (Zufallsrufe, Musik nach Neustart, Autoplay, Pegel des Hauptthemas u. a.),
       Master-Regler und `M`, Tode, Treffer, stumme Gegner, Held, Spielmomente, UI-Töne mit eigenem Regler,
       Boss-Signaturen, Musik für Boss, Blutmond und Game Over, Ducking. Plan und Stand:
-      [docs/SOUND_PLAN.md](docs/SOUND_PLAN.md).
+      [docs/archive/SOUND_PLAN.md](docs/archive/SOUND_PLAN.md).
 - [x] **E5 Raketen-Sound** (`6e520466`): neues Abschuss-Zischen statt des tiefen Knalls.
 - [x] **E4 Stone Golem: Schritte und Beben** (`6e520466`, `b9b58a36`): schwere Schritte im Takt der
       Laufanimation, tiefer gespielt, mit Beben in Kameranähe.
@@ -586,7 +586,7 @@ stehen weiter in TODO.md.
       Ab L16 nur noch 40 % des Zuwachses, Profile je Tower, Range-Track auf
       10 Stufen ×1,03 gekappt (`90662f0`); Cannon mit 6 m Splash, höchstens
       8 Zielen, 70 m Reichweite, siege gegen unarmored/light 0,5 (`401c6a1`).
-      Vorlage: `docs/game-design/BALANCE_PROPOSAL_2026-09.md`.
+      Vorlage: `docs/archive/BALANCE_PROPOSAL_2026-09.md`.
       **Warum:** L25 brachte das 14,5-Fache der Basis-DPS, die Cannon kam auf
       213 m Reichweite.
 

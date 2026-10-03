@@ -17,7 +17,7 @@ function room(players: string[], spawns = ['spawn-1', 'spawn-2', 'spawn-3']) {
   return new CoopRoom(host);
 }
 
-describe('CoopRoom lanes (docs/LANES_PLAN.md)', () => {
+describe('CoopRoom lanes (docs/WAVE_SYSTEM.md (Spuren))', () => {
   it('alone, every spawn point is a lane of the player', () => {
     const r = room(['local']);
     expect(r.laneSpawns).toEqual(['spawn-1', 'spawn-2', 'spawn-3']);

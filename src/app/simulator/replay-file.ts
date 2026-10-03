@@ -11,7 +11,7 @@ const FORMAT = '3dtd-replay';
  * The replayable waves of a run as a file (decision D4 of
  * docs/SIMULATOR_PLAN.md): their snapshots, configs and hashes and the part
  * of the command log they read. The same as a match log for coop later
- * (section 18 of docs/MULTIPLAYER_CONCEPT.md): world key, config hash,
+ * (section 18 of docs/archive/MULTIPLAYER_CONCEPT.md): world key, config hash,
  * seed, inputs.
  *
  * The world is not in it: a replay re-simulates on the world it was played

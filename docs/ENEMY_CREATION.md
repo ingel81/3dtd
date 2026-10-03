@@ -57,9 +57,8 @@ generierten Tabellen von [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte
 | **ooze** | unarmored | 3000 | 3 | – | Boss (2026-09-14), `isBoss`, ein Körper entlang der Route statt eines Modells ([Körper entlang der Route](#körper-entlang-der-route-ooze)), fließt an der HQ Meter für Meter hinein, zerfällt beim Kill in Slime Clumps. Boss-Variante der Endlos-Rotation, kein Template |
 | slime-clump | unarmored | 15 | 4.5 | – | Nur aus dem Split der Ooze, kein Template. `slime.glb` bei `scale: 0.9` (Hüpfer `Wobble`, Tod `Splat`), grünes Blut (`bloodColor`) |
 
-> **Wave-Director:** Stone Golem ist seit 2026-08-27 angebunden: Template
-> `golem_squad` (`src/app/director/templates.ts`, `minWave: 14`) steht auf Wave 15
-> des Curriculums (`configs/campaign.config.ts`).
+> **Wellen:** Stone Golem steht im Laufplan (`director/sources/budget/run-plan.json`) in den
+> Wellen 15, 25, 33, 40 (als Golem King) und 53.
 
 ---
 
@@ -846,27 +845,25 @@ wallsmasher: {
 
 Siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md) für Wave-Konfiguration.
 
-Gegner kommen über Wave-Templates in die Wellen: `director/templates.ts`, Feld `enemies` mit
-Anteilen, dazu `minWave` und die Bereiche für Anzahl, Spawn-Delay und HP. Das Kampagne
-(`configs/campaign.config.ts`) legt fest, welches Template in welcher Welle läuft.
+Gegner kommen über den Laufplan in die Wellen (Budget-Source, [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md)):
+eine Zeile je Welle in `director/sources/budget/run-plan.json`, mit den Gegnertypen und ihrer Anzahl. Die HP setzt
+der Source beim Wellenstart gegen die Abwehr (Budget); ab Welle 61 wiederholen sich die Zeilen 31 bis 60. Ein neuer
+Gegner braucht also eine oder mehrere Zeilen, die ihn nennen.
 
-```typescript
-// director/templates.ts
+```json
 {
-  id: 'skeleton_swarm',
-  name: 'Skeleton Swarm',
-  description: 'A rattling swarm of skeletons.',
-  enemies: [['skeleton', 1.0]],
-  countRange: [25, 940], // mit den Minions des Splits bis 2.820 Körper
-  spawnDelayRange: [15, 300],
-  hpMultRange: [0.5, 5.0],
-  variationRange: [0.05, 0.35],
-  minWave: 6,
-  spawnPattern: null,
-  requiresCapability: null,
-  bossOnly: false,
-},
+  "wave": 2,
+  "name": "Rat Tide",
+  "enemies": { "rat": 62 },
+  "strength": 1,
+  "spawnDelay": 167,
+  "spawnDelayVariation": 0.25
+}
 ```
+
+`strength` skaliert das Budget (unter 1 eine Atempause, über 1 fordernd), `boss` schaltet Boss-Musik und Boss-Gold,
+`pattern` die Spawn-Reihenfolge. Die Tabellen-Quelle (`director/sources/table/`) spielt dagegen eine feste,
+editierbare Liste ([WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md)).
 
 `WaveManager.startWave()` nimmt nur einen fertigen `SpawnSchedule` (`{ schedule }`), keine
 Einzeltyp-Konfiguration mehr.

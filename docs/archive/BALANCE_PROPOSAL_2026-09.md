@@ -544,7 +544,7 @@ ausgenommen, sie sind harte Gates mit eigener Capability-Prüfung. Der Schaden
 einer schlecht gekonterten Welle bleibt durch `maxLeakDamagePerWave = 18`
 begrenzt (`game-balance.config.ts:36`). **Überholt:** Dieser Deckel ist am
 2026-09-20 entfallen, der Überlebbarkeits-Deckel steht allein
-([MASTER_GAME_DESIGN.md](MASTER_GAME_DESIGN.md), Abschnitt 5). Umsetzung: zweites Feld
+([MASTER_GAME_DESIGN.md](../game-design/MASTER_GAME_DESIGN.md), Abschnitt 5). Umsetzung: zweites Feld
 `gateDpsPerArmor` in `DefenseAnalysis`, berechnet neben
 `calculateEffectiveDPSPerArmor`, gelesen von `survivableCount`. Der Python-Spiegel
 `schema.fair_max_count` muss mitziehen.

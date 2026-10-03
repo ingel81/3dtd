@@ -41,7 +41,7 @@ describe('roomStatus and startBlocked', () => {
     expect(roomStatus({ ...base, room: loading })).toMatchObject({ bold: 'BOB', text: ' to load the map' });
     const noLane = room([player('ann', 's1'), player('bob', null)]);
     expect(roomStatus({ ...base, room: noLane })).toMatchObject({ bold: 'BOB', text: ' to take a lane' });
-    // A spawn nobody took holds the start; anyone may take it as one more lane (docs/LANES_PLAN.md)
+    // A spawn nobody took holds the start; anyone may take it as one more lane (docs/WAVE_SYSTEM.md (Spuren))
     const freeLane = room([player('ann', 's1'), player('bob', 's2', { ready: true })]);
     expect(roomStatus({ ...base, room: freeLane })).toMatchObject({ bold: 'Spawn 3', text: ' has nobody yet · anyone can take it' });
     expect(startBlocked(freeLane, true)).toBe('Spawn 3 has nobody');

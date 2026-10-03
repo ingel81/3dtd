@@ -2,7 +2,7 @@
 
 Stand 2026-10-01: gebaut und seit 2026-09-30 auf `next`: Schritte 1 bis 6 (E85, Branch `perf/decouple`), danach
 Interpolation und 30 Sub-Steps je Sekunde (E86, Branches `perf/interp` und `perf/rate30`). Die Branches sind
-aufgegangen; ihre Namen unten sind Geschichte. Offene Arbeit steht in [TODO.md](../TODO.md) (E85); Architektur in [SIM_WORKER.md](SIM_WORKER.md).
+aufgegangen; ihre Namen unten sind Geschichte. Offene Arbeit steht in [TODO.md](../../TODO.md) (E85); Architektur in [SIM_WORKER.md](../SIM_WORKER.md).
 
 ## Ziel
 
@@ -204,7 +204,7 @@ Branches `perf/interp` und `perf/rate30`, auf `perf/decouple` aufgesetzt.
 
 - **Gleiten zwischen zwei Ständen** (`perf/interp`): Der Worker veröffentlicht rund 30 Stände je Sekunde
   (`MIN_PUBLISH_GAP_MS`, als Zeitplan), Gegner und Lebensbalken gleiten im Shader, Geschosse, ihre Spuren und die
-  Helden auf dem Hauptthread (`three-engine/renderers/state-lerp.ts`). Beschrieben in [SIM_WORKER.md](SIM_WORKER.md).
+  Helden auf dem Hauptthread (`three-engine/renderers/state-lerp.ts`). Beschrieben in [SIM_WORKER.md](../SIM_WORKER.md).
 - **30 Sub-Steps je Sekunde** (`perf/rate30`). Die Rate steht an einer Stelle: `SIM_STEPS_PER_SECOND` in
   `configs/timing.config.ts`. Daraus folgen die Schrittlänge (`GameClock.FIXED_STEP_MS`, 33,334 ms), der Coop-Tick
   (`TICK_SUB_STEPS = max(1, round(Rate / 30))`, den auch das Relay nimmt) und jede Schrittzahl
@@ -244,7 +244,7 @@ Was sich an den Regeln ändert (vorher 60 Sub-Steps, Abklingzeit ohne Rest):
 
 Heute kopiert der Worker jeden Gegner je Paket in die Gegner-Tabelle (`writeEnemies`, rund 6,5 % des Workers bei
 16 000 Gegnern in Chromium). Liegen die Gegnerdaten selbst in einer Tabelle im SAB (Bewegungstabelle aus
-[MULTI_WORKER_PLAN.md](MULTI_WORKER_PLAN.md), Branch `perf/multi-worker`), veröffentlicht der Worker einen Satz dieser
+MULTI_WORKER_PLAN.md (gelöscht), Branch `perf/multi-worker`), veröffentlicht der Worker einen Satz dieser
 Tabelle, statt zu kopieren. Setzt beide Umbauten voraus; entscheiden nach den Messungen. Nicht Teil dieses Plans.
 
 ## Risiken
@@ -262,7 +262,7 @@ Tabelle, statt zu kopieren. Setzt beide Umbauten voraus; entscheiden nach den Me
 
 ## Zum Multi-Worker-Umbau
 
-Unabhängig davon ([MULTI_WORKER_PLAN.md](MULTI_WORKER_PLAN.md), Branch `perf/multi-worker`). Die Entkopplung
+Unabhängig davon (MULTI_WORKER_PLAN.md (gelöscht), Branch `perf/multi-worker`). Die Entkopplung
 nimmt dem Worker das Warten auf das Bild und dem Hauptthread das Einräumen je Tick; mehrere Worker machen nur den
 Worker selbst schneller. Vorschlag: die Entkopplung zuerst, weil sie in beiden Browsern wirkt und der Multi-Worker-Umbau
 dann gegen einen Worker ohne Leerlauf misst.

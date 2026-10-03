@@ -222,7 +222,7 @@ Basis-HP der Gegner nicht mehr mit, die nur der Server-Decoder brauchte.
 ## 5. Seeds und Determinismus
 
 Ein Kernpunkt über das Balancing hinaus: dieselben Grundlagen tragen später ein Replay als Neu-Simulation (E2,
-[REPLAY.md](REPLAY.md)) und Multiplayer im Lockstep ([MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md), Abschnitt 2).
+[REPLAY.md](REPLAY.md)) und Multiplayer im Lockstep ([MULTIPLAYER_CONCEPT.md](archive/MULTIPLAYER_CONCEPT.md), Abschnitt 2).
 
 **Gameplay-Zufall heute** (die übrigen rund 180 `Math.random`-Aufrufe sind VFX und Audio und bleiben):
 Spawnpunkt (`wave.manager.ts`), Seitenversatz und Höhe der Luftgegner (`enemy.manager.ts`), Jitter und Mischen im
@@ -247,7 +247,7 @@ lesen Verteidigung und Lecks. Gleicher Seed heißt deshalb gleiche Wellen, solan
 Replay und Multiplayer ist das kein Hindernis, weil dort auch der Verlauf gleich ist. Der Seed bleibt intern (D11).
 
 Welche Pakete dieses Plans zugleich das Fundament für Coop im Lockstep sind, steht in
-[MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md), Abschnitt "Bezug zum Balancing-Plan".
+[MULTIPLAYER_CONCEPT.md](archive/MULTIPLAYER_CONCEPT.md), Abschnitt "Bezug zum Balancing-Plan".
 
 Dieser Plan baut Stufe 1 und legt das Run-Log so an, dass es für Stufe 2 und 3 als Eingabe taugt (Seed, Weltbezug,
 Befehle je Sub-Step). Damit das Befehls-Log als Eingabe taugt, laufen alle Aktionen über `command:*`, die der Bots

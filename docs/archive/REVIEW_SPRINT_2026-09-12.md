@@ -553,7 +553,7 @@ Auch hier lief nichts im Browser.
   kräftiger, zeichnet jede Zelle mit einer Kontur nach Zustand: weiß normal,
   orange `clamped`, blau Brückendeck, rosa ohne Höhenprobe (`25da3d2`).
 - **Konzept route-parallele Zellen** (`a866e63`,
-  `docs/ROUTE_ALIGNED_CELLS_CONCEPT.md`): Empfehlung, erst den breiten
+  `docs/archive/ROUTE_ALIGNED_CELLS_CONCEPT.md`): Empfehlung, erst den breiten
   Korridor zu testen. Stören die Treppenkanten dann vor allem optisch, reicht
   ein Band entlang der Route nur für die Anzeige (2 bis 3 Tage); echte
   Routenzellen (8 bis 12 Tage) oder eine Mischform (6 bis 8) erst, wenn auch
@@ -635,7 +635,7 @@ Auch hier lief nichts im Browser.
   25 m, 1,5 s Vorwarnung mit Einschlag auf der nächsten Route-Zelle,
   Forschung (1.000 Gold, 40 s, nach `advanced-weaponry`, voraussichtlich nach
   dem ersten Boss), sofort eine Bot-Strategie, danach der Held.
-  Festgehalten in `docs/game-design/PLAYER_AGENCY_CONCEPT.md`, Abschnitt 7.
+  Festgehalten in `docs/archive/PLAYER_AGENCY_CONCEPT.md`, Abschnitt 7.
   Gebaut wird in einer eigenen Runde.
 
 ### Playtest-Liste, Fortsetzung

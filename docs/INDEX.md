@@ -17,7 +17,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [EVENT_SYSTEM.md](EVENT_SYSTEM.md) | Aktuell | Event Bus, Event-Typen, Manager-Kommunikation |
 | [SIGNAL-STORE-ARCHITECTURE.md](SIGNAL-STORE-ARCHITECTURE.md) | Aktuell | Signal Store (6 Sub-Stores: Game/UI/Engine/Location/Research/Debug), Facade Pattern, Persistence |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | Aktuell | UI/UX Design Guidelines, Farbschema, Komponenten-Styling |
-| [TODO.md](../TODO.md) | Aktuell | Die eine Liste offener Arbeit (Backlog mit stabilen Kennungen), dazu Entschiedenes und Verworfenes |
+| [TODO.md](../TODO.md) | Aktuell | Die eine Liste offener Arbeit mit stabilen Kennungen: Offen, Gebaut und wartet auf Test, Später und Ideen; dazu Entschiedenes und Verworfenes |
 | [PLAYTEST.md](PLAYTEST.md) | Aktuell (laufende Liste) | Nur offene Nachtests (Pakete mit Klickwegen und URLs) und die Eichtabelle der Korridor-Fingerprints; erledigte Pakete wandern ins Archiv |
 | [E2E.md](E2E.md) | Aktuell | End-to-End-Tests des laufenden Dev-Spiels mit Playwright (`npm run e2e`): Aufbau, Kartensitzungen, was sie nicht können |
 | [DONE.md](../DONE.md) | Aktuell | Changelog, neueste zuerst |
@@ -36,13 +36,9 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [RUN_LOG.md](RUN_LOG.md) | Aktuell | Das Log eines Laufs: Format, Kopf, Wellenblöcke, Abgleiche, wo die Läufe liegen |
 | [REPLAY.md](REPLAY.md) | Aktuell | Replay jeder Welle als Neu-Simulation: Snapshot am Wellenstart, Befehlslog, Springen, Datei speichern und laden, Bedienung, Grenzen |
 | [SIM_WORKER.md](SIM_WORKER.md) | Aktuell | Simulation im Web Worker: Grundsätze, Datenfluss, Verträge (Paket, Ops, Events, Views), Entscheidungen (Sichtlinien, Welt, Wellenquelle, Bot, Coop, Replay), Transport im `SharedArrayBuffer`, Kennzahlen mit Messrechner, Messkurve bis 25 000 Gegner und Hebel |
-| [SIM_DECOUPLE_PLAN.md](SIM_DECOUPLE_PLAN.md) | Gebaut (E85, E86), auf `next` | Simulation läuft frei im Worker, die Darstellung liest je Bild den neuesten Stand: Loop mit eigener Uhr, drei Tabellensätze, Event-Strom, Coop, Bauschritte |
-| [WORKER_PLAN.md](WORKER_PLAN.md) | Historisch (gebaut, siehe SIM_WORKER.md) | Konzept der Simulation in einem Worker (E57): Demo, Stufe 1 (echte Simulation im Worker bitgleich, Kopplungsliste), Transport `postMessage` gegen `SharedArrayBuffer`, COOP/COEP, Schnittstelle |
 | [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md) | Aktuell | Deterministische Simulation: Befehlsgrenze, Turmdrehung in der Sim, Sicht als Daten, Snapshot, Prüfsumme, Abnahme, Messungen; Unterbau für Coop |
 | [COOP_PLAN.md](COOP_PLAN.md) | Aktuell (ausgeliefert mit 0.5.0) | Coop "Vier Tore" im Lockstep über einen Node-Relay, online über die öffentliche Lobby, im LAN aus der Desktop-App: Entscheidungen D1 bis D68, Pakete C0 bis C9 (offen C5b), Relay-Betrieb, Schutz gegen Schummeln |
-| [COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md) | Aktuell (gebaut 2026-09-26) | Coop-Oberfläche und Standortdialog überarbeitet: Befunde aus Technik- und Design-Review, Entscheidungen U1 bis U8, Pakete P1 bis P5 |
 | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Aktuell | Desktop-Build (Windows NSIS, Linux AppImage), Auto-Update, Release-Ablauf; ausgeliefert seit v0.3.1 |
-| [SOUND_PLAN.md](SOUND_PLAN.md) | Bericht (gebaut 2026-09-23) | Sound-Paket: Bugs, Technik, neue SFX per ElevenLabs, Musikzustände, Ducking; offen zwei Todes-Sounds und die Mischung |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Location Dialog, Geocoding, Spawn-Generierung |
 | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) | Aktuell | Breite des Routenkorridors: Freiraum je Seite aus den Tiles, OSM-Breite als Rückfall, Laufweg (Korridor endet vor Autos, Traufen, Hecken), Brücken, Tunnel, Bau hinter dem Ladescreen und Einfrieren (`CorridorBuild`), Seitenversatz der Gegner und ihre Bögen an Ecken, `__corridor.*`, `__routes.describe()` |
 | [PROJECTILES.md](PROJECTILES.md) | Aktuell | Projektil-System, Flugbahnen, Konfiguration |
@@ -60,9 +56,6 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
 | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) | Aktuell | Game Design: Schadenstypen, Rüstung, Damage-Matrix, Balance |
-| [BALANCE_PROPOSAL_2026-09.md](game-design/BALANCE_PROPOSAL_2026-09.md) | Bericht | Balance-Vorschlag vom 2026-09-11: Upgrade-Kurven, Cannon, Matrix-Spreizung, Boss-Takt ab W31, mit Rechenwegen. Im Sprint 2026-09-11 umgesetzt; die offenen Fragen stehen am Ende |
-| [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md) | Bericht | Spieler aktiver einbinden: die Entscheidungen vom 2026-09-12 (Abschnitt 7) und was beim Bau von Nuklearschlag und Held festgelegt wurde (8, 9). Das Konzept davor (Abschnitte 0 bis 6) liegt im Archiv |
-| [COMBAT_HEATMAP_STUDY.md](game-design/COMBAT_HEATMAP_STUDY.md) | Bericht | Machbarkeitsstudie Kampfzonen. Schicht 1 (Kampfspuren) ist umgesetzt, siehe PARTICLE_SYSTEM.md; Schicht 2 (Heatmap) nicht |
 
 ## Wave Director & AI
 
@@ -77,29 +70,19 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 |----------|--------|--------------|
 | **[WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md)** | **Aktuell** | **Einstiegspunkt:** der Vertrag der Wellenquellen, Ordnerschnitt, Umschalten, die Wellenliste, Contract-Spec |
 | **[WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md)** | **Aktuell** | Der Budget-Source: ein Laufplan für alle Wellen, Budget je Welle, die 42 Sonderregeln und was aus ihnen wurde |
-| [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) | Archiv (Code entfernt 2026-09-29) | Der frühere adaptive Source: Kandidaten, Überlebbarkeits-Deckel, Boss-Rotation; Druck-Regler lebt im Budget-Source weiter |
-| [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) | Bericht (gebaut) | Druck-Regler statt Leck-Regler: Befund, Bau, Messrunden, verworfener HP-Hebel (2026-09-21/22) |
-| [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Strategy-Pattern-Bots (Placement, Upgrade, Wave, Research), der Spieler in Bot-Läufen |
-| [BOT_PLAYER_PLAN.md](BOT_PLAYER_PLAN.md) | Entschieden, nicht gebaut | Menschenähnlicher Bot: Wahrnehmung, Sichtlinien-Probe, Nutzen-Schiedsrichter, drei Profile mit menschlichen Grenzen, Coop-Partner; Entscheidungen P1 bis P6, Pakete B1 bis B7 |
+| [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) | Bericht, beschreibt den laufenden Regler | Druck-Regler statt Leck-Regler: Befund, Bau, Messrunden, verworfener HP-Hebel (2026-09-21/22) |
+| [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Der Bot: Strategien schlagen vor, ein Schiedsrichter wählt nach Nutzen je Gold; drei Profile, Coop-Partner, Bot-Läufe |
+| [BOT_PLAYER_PLAN.md](BOT_PLAYER_PLAN.md) | Plan (B1 bis B6 gebaut, B7 offen) | Menschenähnlicher Bot: Wahrnehmung, Sichtlinien-Probe, Nutzen-Schiedsrichter, drei Profile mit menschlichen Grenzen, Coop-Partner; Entscheidungen P1 bis P6, Pakete B1 bis B7 |
 | [bot-server/README.md](../bot-server/README.md) | Aktuell | Bot-Server: starten, Protokoll, Dashboard-API, Log |
 | [desktop/README.md](../desktop/README.md) | Aktuell | Desktop-App bauen und starten |
 | [coop-server/README.md](../coop-server/README.md) | Aktuell | Coop-Relay: Optionen, Statusseite, Limits, öffentliche Lobby hinter einem Tunnel, Datenschutz |
 | [e2e/README.md](../e2e/README.md) | Aktuell | End-to-End-Tests einrichten |
 
-## Berichte
-
-| Dokument | Status | Beschreibung |
-|----------|--------|--------------|
-| [RESEARCH_DIALOG_PLAN.md](RESEARCH_DIALOG_PLAN.md) | Bericht (gebaut 2026-09-21) | Forschung als Dialog mit Graph (G3): Entscheidungen, was anders kam; die Darstellung steht in DESIGN_SYSTEM.md |
-
 ## Pläne und Konzepte
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
-| [ROUTE_ALIGNED_CELLS_CONCEPT.md](ROUTE_ALIGNED_CELLS_CONCEPT.md) | Konzept (nicht geplant) | Zellen parallel zur Route statt Nord-Ost-Raster: Abhängigkeiten, Knicke, Kreuzungen, Varianten mit Aufwand, Empfehlung. Kein Code |
 | [BALANCING_PLAN.md](BALANCING_PLAN.md) | Plan (Phase 1 und 2 gebaut, Phase 3 offen) | Balancing aufrollen: Begriffe (Wellenplan statt Kampagne), eine Wellenquelle, Seeds und Determinismus, Datensammlung von Menschen und Bots (Run-Log), Zielwerte und Tuning; offene Entscheidungen |
-| [PRESSURE_ONE_PLACE_PLAN.md](PRESSURE_ONE_PLACE_PLAN.md) | Bericht (gebaut E47 bis E51, 2026-09-27) | Druck-Multiplikator nur im Kill-Budget, stetiger Deckel, Messwert gekappt, Leckschaden je Gegnertyp, Spawn-Boden je Typ |
-| [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) | Historisch | PvE-Coop und PvP: Machbarkeit, Determinismus-Blocker, Server-Entwurf, zwei Zielmodi. Coop ist nach COOP_PLAN.md gebaut; PvP am 2026-09-24 gestrichen, ein Versus-Modus ist wieder Idee (TODO E60, Lobby-Schalter D39) |
 
 ## Archiv
 
@@ -108,11 +91,24 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 
 | Dokument | Ersetzt durch / Anlass |
 |----------|------------------------|
+| [WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md) | [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md); der frühere adaptive Source, Code entfernt 2026-09-29 |
+| [WORKER_PLAN.md](archive/WORKER_PLAN.md) | [SIM_WORKER.md](SIM_WORKER.md); Konzept der Simulation im Worker (E57), Demo und Stufe 1 |
+| [SIM_DECOUPLE_PLAN.md](archive/SIM_DECOUPLE_PLAN.md) | [SIM_WORKER.md](SIM_WORKER.md); freie Simulation, Interpolation, Rate 30 (E85, E86), gebaut 2026-09-30 |
+| [MULTIPLAYER_CONCEPT.md](archive/MULTIPLAYER_CONCEPT.md) | [COOP_PLAN.md](COOP_PLAN.md); erstes Multiplayer-Konzept (Coop und PvP), PvP gestrichen 2026-09-24 |
+| [LANES_PLAN.md](archive/LANES_PLAN.md) | [WAVE_SYSTEM.md](WAVE_SYSTEM.md#spuren); Spuren je Spawn und je Spieler (E96), gebaut 2026-10-02 |
+| [PRESSURE_ONE_PLACE_PLAN.md](archive/PRESSURE_ONE_PLACE_PLAN.md) | [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md); Druck an einer Stelle (E47 bis E51), gebaut 2026-09-27 |
+| [RESEARCH_DIALOG_PLAN.md](archive/RESEARCH_DIALOG_PLAN.md) | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) (Forschungsbaum); Forschung als Dialog mit Graph (G3), gebaut 2026-09-21 |
+| [COOP_UI_REWORK_PLAN.md](archive/COOP_UI_REWORK_PLAN.md) | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) (Coop, Standortdialog); Überarbeitung U1 bis U8, gebaut 2026-09-26 |
+| [SOUND_PLAN.md](archive/SOUND_PLAN.md) | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md); Sound-Paket, gebaut 2026-09-23 |
+| [ROUTE_ALIGNED_CELLS_CONCEPT.md](archive/ROUTE_ALIGNED_CELLS_CONCEPT.md) | Konzept Zellen parallel zur Route, vom User am 2026-09-16 gestrichen |
+| [BALANCE_PROPOSAL_2026-09.md](archive/BALANCE_PROPOSAL_2026-09.md) | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md); Balance-Vorschlag vom 2026-09-11, Werte seit der Balance-Nacht überholt |
+| [PLAYER_AGENCY_CONCEPT.md](archive/PLAYER_AGENCY_CONCEPT.md) | [ABILITIES.md](ABILITIES.md), [HERO.md](HERO.md); Entscheidungen zu Fähigkeiten und Held (2026-09-12) |
+| [COMBAT_HEATMAP_STUDY.md](archive/COMBAT_HEATMAP_STUDY.md) | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) (Kampfspuren); Studie Kampfzonen, Schicht 2 als Idee in TODO |
 | [PHASE_5.10_TEMPLATES.md](archive/PHASE_5.10_TEMPLATES.md) | [PHASE_5.11_RANGES.md](archive/PHASE_5.11_RANGES.md), Übergang von 16-Softmax zu Templates |
 | [ROUTE_GEOMETRY_ANALYSIS.md](archive/ROUTE_GEOMETRY_ANALYSIS.md) | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md); Herleitung des Korridors aus den Playtests 2026-09-10 bis -12 |
 | [HANDOVER_ROUTE_GRID_GPU_LOS.md](archive/HANDOVER_ROUTE_GRID_GPU_LOS.md) | [LOS_PIPELINE.md](LOS_PIPELINE.md); Sackgassen, Diagnose-Werkzeuge und GPU-Probe der LOS-Anläufe (2026-05-15) |
 | [TILES_LOADING_BUG.md](archive/TILES_LOADING_BUG.md) | Untersuchung der Tile-Ladefehler (2026-05-08); der Ablauf heute steht in ARCHITECTURE.md (`tile-loading-tracker.ts`) |
-| [PHASE_5.11_RANGES.md](archive/PHASE_5.11_RANGES.md) | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md); Range-Templates und Decoder, die Mechanik gilt weiter |
+| [PHASE_5.11_RANGES.md](archive/PHASE_5.11_RANGES.md) | [WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md); Range-Templates und Decoder, die Mechanik gilt weiter |
 | [HANDOVER_PLAYTEST_PHASE5.16.md](archive/HANDOVER_PLAYTEST_PHASE5.16.md) | [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md); Balance-Pass von Phase 5.16 |
 | [UX_DISCUSSION_NOTES.md](archive/UX_DISCUSSION_NOTES.md) | Diskussionsnotizen zu Turmdrehung und Color Grading, beide entschieden |
 | [ENGINE_DEEP_REVIEW_2026-05-16.md](archive/ENGINE_DEEP_REVIEW_2026-05-16.md) | Engine-Review über `src/app/`, Dependencies, Tests (Stand 2026-05-16) |
@@ -123,16 +119,16 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | [REVIEW_SPRINT_2026-09-13.md](archive/REVIEW_SPRINT_2026-09-13.md) | Nachtschicht 1: Änderungen, Entscheidungen, Review-Befunde, Playtest-Liste 101 bis 258 |
 | [REVIEW_SPRINT_2026-09-12.md](archive/REVIEW_SPRINT_2026-09-12.md) | Zweite Sprint-Runde: Änderungen, Review-Befunde, Playtest-Liste 1 bis 56 mit Ergebnissen |
 | [REVIEW_SPRINT_2026-09-11.md](archive/REVIEW_SPRINT_2026-09-11.md) | Erste Sprint-Runde: Änderungen, Entscheidungen, TODO-Stand (in DONE.md 2026-09-12 übernommen) |
-| [HANDOVER_RULE_DIRECTOR.md](archive/HANDOVER_RULE_DIRECTOR.md) | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md); Umstellung vom ONNX-Netz auf den Regel-Director (2026-09-07), die Messreihe dahinter, Einstieg für ein späteres Training |
-| [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md) | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md); Refresh des Trainings-Backends bis 2026-09-07: Befunde, Grundsatzentscheidungen, Messhistorie |
+| [HANDOVER_RULE_DIRECTOR.md](archive/HANDOVER_RULE_DIRECTOR.md) | [WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md); Umstellung vom ONNX-Netz auf den Regel-Director (2026-09-07), die Messreihe dahinter, Einstieg für ein späteres Training |
+| [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md) | [WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md); Refresh des Trainings-Backends bis 2026-09-07: Befunde, Grundsatzentscheidungen, Messhistorie |
 | [PERF_BUG_ANALYSIS_2026-05-28.md](archive/PERF_BUG_ANALYSIS_2026-05-28.md) | [ARCHITECTURE.md](ARCHITECTURE.md) (Raycast-Messung, Benchmarks); Performance- und Bug-Deep-Dive vom 2026-05-28 mit Nachträgen bis 2026-09-14 |
-| [PLAYER_AGENCY_CONCEPT_2026-09-11.md](archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md) | [ABILITIES.md](ABILITIES.md), [HERO.md](HERO.md), [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md) (Abschnitte 7 bis 9); das Konzept Abschnitte 0 bis 6 mit Varianten, Vergleich, MVP und offenen Fragen |
+| [PLAYER_AGENCY_CONCEPT_2026-09-11.md](archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md) | [ABILITIES.md](ABILITIES.md), [HERO.md](HERO.md), [PLAYER_AGENCY_CONCEPT.md](archive/PLAYER_AGENCY_CONCEPT.md) (Abschnitte 7 bis 9); das Konzept Abschnitte 0 bis 6 mit Varianten, Vergleich, MVP und offenen Fragen |
 
 ## Werkzeuge (HTML, lokal im Browser öffnen)
 
 | Datei | Zweck |
 |-------|-------|
-| [wave-planner.html](wave-planner.html) | Wave-Planer, arbeitet gegen `wave-planner-plan.json` |
+| [wave-planner.html](wave-planner.html) | Wave-Planer: Bestand je Welle planen, Plan als JSON im Browser speichern und laden |
 | [economy-chart.html](economy-chart.html) | Gold-/Economy-Kurve über die Waves |
 | [tower-stats-chart.html](tower-stats-chart.html) | Tower-Werte im Vergleich |
 
@@ -147,7 +143,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...den Signal Store verstehen | [SIGNAL-STORE-ARCHITECTURE.md](SIGNAL-STORE-ARCHITECTURE.md) |
 | ...wissen, welche Services es gibt | [ARCHITECTURE.md](ARCHITECTURE.md) → Services |
 | ...das UI stylen | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
-| ...wissen, was offen ist (Bugs, Entscheidungen, Features) | [TODO.md](../TODO.md) |
+| ...wissen, was offen ist oder auf einen Test wartet | [TODO.md](../TODO.md) |
 | ...wissen, was schon fertig ist | [DONE.md](../DONE.md) |
 | ...wissen, was im Spiel noch nachzutesten ist | [PLAYTEST.md](PLAYTEST.md) |
 | ...einen neuen Tower erstellen | [TOWER_CREATION.md](TOWER_CREATION.md) |
@@ -161,11 +157,12 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...den Helden (Söldner) verstehen | [HERO.md](HERO.md) |
 | ...einen Tower selbst steuern (Egoperspektive) | [TOWER_CONTROL.md](TOWER_CONTROL.md) |
 | ...Waves konfigurieren / Mixed Waves bauen | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |
+| ...Spuren verstehen (Spawns, Startgold, Coop-Spurwahl) | [WAVE_SYSTEM.md](WAVE_SYSTEM.md#spuren) |
 | ...verstehen, wer die Wellen aussucht | [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md), [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md) |
 | ...das Budget, den Deckel und den Druck-Regler verstehen | [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) |
-| ...wissen, warum das ONNX-Modell weg ist | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) → Warum die Regeln, [BALANCING_PLAN.md](BALANCING_PLAN.md) |
+| ...wissen, warum das ONNX-Modell weg ist | [BALANCING_PLAN.md](BALANCING_PLAN.md), Archiv: [WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md) |
 | ...das Bot-System verstehen | [BOT_SYSTEM.md](BOT_SYSTEM.md) |
-| ...den Balance-Stand verstehen | [BALANCE_PROPOSAL_2026-09.md](game-design/BALANCE_PROPOSAL_2026-09.md), [economy-chart.html](economy-chart.html), [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |
+| ...den Balance-Stand verstehen | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md), [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), `tools/balance-calc`, [economy-chart.html](economy-chart.html) |
 | ...Bot-Läufe fahren | [bot-server/README.md](../bot-server/README.md), Skill `/bots` |
 | ...das Location-System anpassen | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) |
 | ...verstehen, wie breit Route und Zellkorridor sind | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |

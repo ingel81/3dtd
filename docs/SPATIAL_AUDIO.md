@@ -484,7 +484,7 @@ vorher eine allgemeine Explosion (`effects/explosion.mp3`, gelöscht).
 
 ### Spiel-Sounds (GameSoundsService, uiSound, seit 2026-09-23)
 
-Sound-Paket Phase 3 ([SOUND_PLAN.md](SOUND_PLAN.md)), Samples und Mischung in
+Sound-Paket Phase 3 ([SOUND_PLAN.md](archive/SOUND_PLAN.md)), Samples und Mischung in
 `configs/game-sounds.config.ts`.
 
 `GameSoundsService` (`game-engine/`, framework-agnostisch, eine Instanz je Engine im

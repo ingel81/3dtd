@@ -11,7 +11,7 @@
  * needed and a frame costs no copy and no allocation.
  *
  * The control word also carries the main thread's demand
- * (docs/SIM_DECOUPLE_PLAN.md): it asks for the next packet once it has
+ * (docs/archive/SIM_DECOUPLE_PLAN.md): it asks for the next packet once it has
  * applied the last (TableViews.demand), and the simulation writes and
  * publishes one only when asked (TableStore.takeDemand), not per sub-step.
  *

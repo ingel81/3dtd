@@ -3,7 +3,7 @@ import type { SimFramePacket } from '../protocol/packet';
 /**
  * Wall clock a pass of the loop may run sub-steps before it publishes and
  * lets messages in. Start value, tuned by measurement
- * (docs/SIM_DECOUPLE_PLAN.md, TODO E85).
+ * (docs/archive/SIM_DECOUPLE_PLAN.md, TODO E85).
  */
 export const PASS_BUDGET_MS = 8;
 
@@ -47,7 +47,7 @@ export function workerTimers(): LoopTimers {
 }
 
 /**
- * The simulation's loop in the worker (docs/SIM_DECOUPLE_PLAN.md): its own
+ * The simulation's loop in the worker (docs/archive/SIM_DECOUPLE_PLAN.md): its own
  * clock, no frame to wait for. A pass runs the sub-steps due, at most
  * PASS_BUDGET_MS of wall clock, publishes a packet when the main thread
  * asks for one (SimCore.pass) and gives the thread back, so messages

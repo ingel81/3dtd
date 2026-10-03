@@ -1,5 +1,5 @@
 /**
- * The coop entry after the rework (docs/COOP_UI_REWORK_PLAN.md, P4, U3):
+ * The coop entry after the rework (docs/archive/COOP_UI_REWORK_PLAN.md, P4, U3):
  * one way at a time behind the Online / Same network switch, kept across
  * visits; one host button on the chosen way; the lobby as a select with
  * "Add lobby…"; why a room cannot be joined as text in its row; a lobby

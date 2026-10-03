@@ -344,7 +344,7 @@ export class Room {
           if (player.spawnIds.length === 0) player.ready = false;
           this.log(`${this.who(playerId)} gave lane ${spawnId} back`);
         } else {
-          // A player takes as many free lanes as they like (docs/LANES_PLAN.md, L4)
+          // A player takes as many free lanes as they like (docs/WAVE_SYSTEM.md (Spuren), L4)
           if (player.spawnIds.includes(spawnId)) return;
           if (!this.spawnIds.includes(spawnId) || this.players.some((p) => p.spawnIds.includes(spawnId))) {
             return this.refuse(playerId, 'lane-taken');
@@ -422,7 +422,7 @@ export class Room {
         if (this.started) return this.refuse(playerId, 'started');
         if (this.players.length < 2) return this.refuse(playerId, 'alone');
         // The host is always ready (D40); every guest says so. Every player has
-        // a lane and every lane a player (docs/LANES_PLAN.md, L4)
+        // a lane and every lane a player (docs/WAVE_SYSTEM.md (Spuren), L4)
         if (this.world === null || this.players.some((p) => p.spawnIds.length === 0 || (p.id !== this.hostId && !p.ready))
           || this.spawnIds.some((id) => !this.players.some((p) => p.spawnIds.includes(id)))) {
           return this.refuse(playerId, 'not-ready');

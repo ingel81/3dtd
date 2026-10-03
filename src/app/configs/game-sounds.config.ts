@@ -4,7 +4,7 @@
  * footsteps, the casts of abilities, the hero, the moments of a run (wave,
  * blood moon, research, game over) and the UI cues. GameSoundsService plays
  * the ones in the world and the moments, uiSound (services/ui-sound.ts) the UI cues.
- * Generated with ElevenLabs (docs/SOUND_PLAN.md, Phase 2), each peak
+ * Generated with ElevenLabs (docs/archive/SOUND_PLAN.md, Phase 2), each peak
  * normalised; `volume` sets the mix.
  */
 import type { AbilityId } from './abilities.config';

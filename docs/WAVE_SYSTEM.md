@@ -165,7 +165,7 @@ Schwierigkeitskurve. Die Welle entsteht im Wave-Director
 (`WaveDirector.getNextWave()`, regelbasiert, im Client) aus fünf Zahlen:
 einem Template-Index und vier Formfaktoren. Regel-Director, Maske und
 Kampagne, Decoder, Überlebbarkeits-Deckel und Leck-Regler beschreibt nur
-[WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) (Abschnitte 4 bis 6).
+[WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md) (Abschnitte 4 bis 6).
 
 ```
 getStateSnapshot()        director/state-snapshot.service.ts
@@ -449,6 +449,37 @@ private registerDebugHandlers(): void {
 
 ---
 
+## Spuren
+
+Jeder Spawn ist eine Spur, allein wie im Coop; ein Coop-Spieler kann mehrere Spuren halten (gebaut 2026-10-02, E96,
+Entscheidungen des Users vom 2026-10-01). Jede Welle kommt komplett auf jeder Spur.
+
+| Nr. | Punkt | Entscheidung |
+|-----|-------|--------------|
+| L1 | Einzelspiel mit mehreren Spawns | Jeder Spawn ist eine Spur wie im Coop: jede Welle kommt komplett auf jeder Spur, Kill-Gold je Spur, die Wellengröße gegen den Anteil der Abwehr je Spur |
+| L2 | Startgold | 100 je Spur des Spielers (`GAME_BALANCE.player.startCredits` mal Spuren, mindestens einmal) |
+| L2b | Forschung | Kosten mal Spuren des Spielers (`researchCost`): jede Spur bringt ihr eigenes Kill-Gold, also spielt jede Spur wirtschaftlich wie ein einzelner Spawn |
+| L3 | Spawns ändern | Nur vor der ersten Welle; das Startgold folgt bis dahin (nie unter das schon Ausgegebene). Ab Welle 1 gesperrt, auch HQ verschieben (beides baut den Lauf neu) |
+| L4 | Coop: Spurwahl | Jeder nimmt in der Lobby beliebig viele freie Spuren und gibt sie ab; Start erst, wenn jede Spur einen Spieler hat und jeder mindestens eine |
+| L5 | Coop: wer setzt Spawns | Nur der Host, wie bisher; ein neuer oder verschobener Spawn lässt die Bereit-Meldungen fallen |
+| L6 | Längen-Leiste | Beim Setzen und Verschieben eines Spawns eine Tafel mit allen Spuren: Balken in Spurfarbe, Meter, die bearbeitete hervorgehoben, live; Einzelspiel und Coop |
+
+- **Spurmodell** (`managers/game-state/coop-room.ts`): Liste von `{ spawnId, playerId }`, im Coop aus den Paaren des
+  Raums (`setLanes`), allein aus allen Spawns. `laneSpawnsOf`, `laneOwnerOf`. Das Paket trägt `laneSpawns` und
+  `laneOwners` parallel; der Spiegel liest die Besitzer daraus statt aus der Roster-Position.
+- **Startgold** (`CreditsLedger.setStartCredits`, `followStart`): beim Laufstart und bei jeder Spuränderung vor der
+  ersten Welle.
+- **Sperre**: `canPlaceOnMap` (Header) und `MapRelocationService.applySpawns` ab Welle 1.
+- **Coop** (Protokoll 3): `CoopPlayerInfo.spawnIds` statt `spawnId`; `pick` nimmt eine freie Spur dazu oder gibt
+  eine ab (`take: false`, `null` gibt alle ab); das Relay startet erst, wenn jede Spur einen Spieler hat, und schickt
+  alle Paare. Lobby-Tabelle („Free · take“, „Give the lane back“ je Zeile), Statuszeile und Start-Tooltip nennen eine
+  freie Spur; Kills und Lecks gehen an den Besitzer der Spur (`coop-run-counts.ts`); die Farbe eines Spielers ist die
+  seiner ersten Spur. Ein Client mit Protokoll 2 wird mit `version` abgewiesen: Relay-Image und Client zusammen
+  ausliefern.
+- **Längen-Leiste** (`components/lane-length-panel/`): die Route, die die Platzier-Vorschau ohnehin je Segment findet
+  (`MapPlacementService.spawnPreview`), dazu die stehenden Spuren aus `laneStats`; Zeilen in `laneLengthRows`.
+
+
 ## Wave-Completion
 
 ### Check-Logik
@@ -512,7 +543,7 @@ multipliziert sich:
 | Leck-Schaden | `leakDamageOf(typ) × enemyBaseDamageForWave(wave)` | HP-Verlust pro Durchkommen: `round(√baseHp / 5)`, 1 bis 50 (Ratte 1, Zombie 2, Golem 4, Herbert 13), mal dem Wellenaufschlag (+1 je 30 Wellen) |
 
 Nach oben gedeckelt wird die Kurve durch den Überlebbarkeits-Deckel und den
-Leck-Regler (siehe [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md),
+Leck-Regler (siehe [WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md),
 Abschnitte 5 und 6). Was ein Durchkommen kostet, ist seit dem 2026-09-20
 ungedeckelt: Laufen fünfhundert Gegner ins HQ, kostet das fünfhundert Lecks
 und nicht mehr 18 HP wie zwei.
@@ -819,7 +850,7 @@ const waveConfig = adaptDirectorWave(aiConfig);
 
 Oben im Wave-Debug-Panel (`wave-debugger.component.ts`) steht **Why this wave**:
 die Begründung des Directors für die laufende Welle (`GameStore.waveExplanation`,
-Herkunft der Gründe in [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)).
+Herkunft der Gründe in [WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md)).
 Custom-Wellen aus dem Debug-Panel haben keine Begründung.
 
 Darunter bietet das Panel einen **Mode-Toggle** (Single/Mixed):
@@ -1059,7 +1090,7 @@ parallel gibt es nicht: `GameLoopFacadeService.startWave()` startet nur aus
 
 ## Siehe auch
 
-- [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) - Regel-Director, Maske, Decoder, Überlebbarkeits-Deckel, Leck-Regler
+- [WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md) - Regel-Director, Maske, Decoder, Überlebbarkeits-Deckel, Leck-Regler
 - [ENEMY_CREATION.md](ENEMY_CREATION.md) - Enemy-Typen erstellen
 - [STATUS_EFFECTS.md](STATUS_EFFECTS.md) - Status-Effekte
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Manager-System Übersicht

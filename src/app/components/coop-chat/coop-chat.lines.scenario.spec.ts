@@ -1,5 +1,5 @@
 /**
- * The chat under the squad box over time (docs/COOP_UI_REWORK_PLAN.md, T14,
+ * The chat under the squad box over time (docs/archive/COOP_UI_REWORK_PLAN.md, T14,
  * U8): a line dims after 15 s and goes after 60 s; the clock ticks only
  * while a line is shown, none shown, no timer; the key line goes once the
  * player sent a message. Real template, a stand-in CoopService, fake timers.

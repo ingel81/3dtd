@@ -26,7 +26,7 @@ export function isSimInput(type: string): boolean {
  *  - `mirror`: what the simulation looked like after the last packet.
  *  - `rpc`: calls with an answer (replay file, snapshots, hashes).
  *
- * The simulation runs by its own clock (docs/SIM_DECOUPLE_PLAN.md): it waits
+ * The simulation runs by its own clock (docs/archive/SIM_DECOUPLE_PLAN.md): it waits
  * for no frame of this thread to compute. It publishes a packet when this
  * thread took the last one (the demand at the start of frame()), so its
  * tables are written once per frame here, not per sub-step. This thread sends it

@@ -59,7 +59,7 @@ interface PreviewRoute {
 }
 
 /**
- * The spawn being placed, for the lane length panel (docs/LANES_PLAN.md, L6):
+ * The spawn being placed, for the lane length panel (docs/WAVE_SYSTEM.md (Spuren), L6):
  * which lane it is (one more, the one at `move`, or one in place of all) and
  * how long its route to the HQ would be where the cursor is, null where no
  * spawn may stand.

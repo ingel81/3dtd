@@ -121,7 +121,7 @@ welcher Version), weil das Replay dort abweichen kann, wo sich die Spiellogik ge
 seit der Datei anderen Zustand (`hashVersion`, fehlt in älteren Dateien und gilt dann als 1), lädt die Datei ohne
 ihre Summen: Das Replay läuft, meldet aber keine Abweichung, die keine ist.
 
-Das ist zugleich das Match-Log für Coop ([MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md), Abschnitt 18): Welt,
+Das ist zugleich das Match-Log für Coop ([MULTIPLAYER_CONCEPT.md](archive/MULTIPLAYER_CONCEPT.md), Abschnitt 18): Welt,
 Balance, Seed, Eingaben mit Sub-Step und Sicht-Masken, jeder Eintrag mit `playerId`.
 
 ## Was das Replay nicht zeigt
@@ -137,7 +137,7 @@ Balance, Seed, Eingaben mit Sub-Step und Sicht-Masken, jeder Eintrag mit `player
 
 - Eine Welle, bei deren Start noch etwas unterwegs war, oder mit Cheats am Log vorbei, ist nicht abspielbar
 - Bit-gleich gilt auf demselben Rechner und Browser. Über Browser hinweg können `Math.sin`, `cos` und `atan2`
-  abweichen ([MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md), 2.4); eine Datei von einem anderen Rechner kann dann
+  abweichen ([MULTIPLAYER_CONCEPT.md](archive/MULTIPLAYER_CONCEPT.md), 2.4); eine Datei von einem anderen Rechner kann dann
   „differs from“ zeigen
 - Eine Datei gilt nur für die Karte, deren Zellhöhen beim Laden dieselben sind: Nach einer Änderung am Korridorbau
   passen alte Dateien nicht mehr

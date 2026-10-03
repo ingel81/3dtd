@@ -2,7 +2,7 @@
 
 > **Archiviert (2026-09-16), Abschnitte 0 bis 6.** Das Konzept vom 2026-09-11 mit Varianten, Vergleich, MVP und
 > offenen Fragen. Die Entscheidungen (Abschnitt 7) und die Umsetzung (8, 9) stehen in
-> [game-design/PLAYER_AGENCY_CONCEPT.md](../game-design/PLAYER_AGENCY_CONCEPT.md); was heute gilt, in
+> [PLAYER_AGENCY_CONCEPT.md](PLAYER_AGENCY_CONCEPT.md); was heute gilt, in
 > [ABILITIES.md](../ABILITIES.md) und [HERO.md](../HERO.md).
 
 **Status:** Entschieden am 2026-09-12 (Abschnitt 7). MVP Nuklearschlag gebaut

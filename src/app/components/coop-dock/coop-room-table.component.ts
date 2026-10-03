@@ -12,7 +12,7 @@ import { clientLabel } from '../../coop/client-info';
 import { roomTable, type LaneRow } from './coop-dock-view';
 
 /**
- * Lanes and players of the coop room as one table (docs/COOP_UI_REWORK_PLAN.md,
+ * Lanes and players of the coop room as one table (docs/archive/COOP_UI_REWORK_PLAN.md,
  * U4): a row per lane with its colour, length and the player on it, their
  * ready state and ping, and what the host and the player may do there; the
  * players without a lane after it; a free seat while alone. In the lobby and

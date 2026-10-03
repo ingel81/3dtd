@@ -14,7 +14,7 @@ export interface LaneLengthRow {
 }
 
 /**
- * The rows of the lane length panel (docs/LANES_PLAN.md, L6): the lanes as
+ * The rows of the lane length panel (docs/WAVE_SYSTEM.md (Spuren), L6): the lanes as
  * they stand, the one being placed in its place (moved), after them (added)
  * or alone (one in place of all), and how much longer or shorter it is than
  * the others on average, in percent; null without others or without a route.

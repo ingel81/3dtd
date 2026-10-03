@@ -1,4 +1,4 @@
-// Backpressure (docs/SIM_DECOUPLE_PLAN.md, TODO E85): what the simulation does while the main thread stands. A DevWorld
+// Backpressure (docs/archive/SIM_DECOUPLE_PLAN.md, TODO E85): what the simulation does while the main thread stands. A DevWorld
 // tab of a build, the main thread blocked for a few seconds (as a hidden tab or a long hang leaves it), the game time
 // before and after: the worker runs on for MAX_AHEAD_MS and then waits, and does not catch the stall up afterwards.
 //

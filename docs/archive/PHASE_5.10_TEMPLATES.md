@@ -9,7 +9,7 @@
 >   Netz war in A/B-Läufen dreimal statistisch nicht von uniformem Zufall zu
 >   unterscheiden. Details und Messwerte in
 >   [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) (Kopf) und
->   [AI_WAVE_DIRECTOR_PLAN.md](../AI_WAVE_DIRECTOR_PLAN.md).
+>   AI_WAVE_DIRECTOR_PLAN.md (gelöscht).
 > - Der Training-Refresh (2026-08) hat `templates.py`, `wave_curriculum.py` und die
 >   Enemy-Tabellen in `config.py` gelöscht: Templates, Curriculum und Vokabulare
 >   kommen jetzt aus den TypeScript-Configs über
@@ -147,7 +147,7 @@ retraining the model.
 > explicit opt-in that leaves the rule director running if it fails. The error
 > banner path still exists in `game-loop-facade.service.ts`, but anything that
 > reaches it now is a genuine bug rather than an absent asset. See
-> [STATIC_WAVE_FALLBACK.md](../STATIC_WAVE_FALLBACK.md) for today's wave-source
+> STATIC_WAVE_FALLBACK.md (gelöscht) for today's wave-source
 > priority.
 
 Phase-5.10 behaviour, for the record — if the ONNX model failed to load during

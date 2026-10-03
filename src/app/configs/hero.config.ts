@@ -1,6 +1,6 @@
 /**
  * The hero: a mercenary the player hires once and sends along the enemy
- * routes. Design: docs/game-design/PLAYER_AGENCY_CONCEPT.md section 7 (stage one:
+ * routes. Design: docs/archive/PLAYER_AGENCY_CONCEPT.md section 7 (stage one:
  * routes only, invulnerable); how it is built and why the numbers are what
  * they are: docs/HERO.md.
  *

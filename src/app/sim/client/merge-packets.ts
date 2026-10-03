@@ -1,7 +1,7 @@
 import type { SimFramePacket, TowerStateDto } from '../protocol/packet';
 
 /**
- * The packets that came since the last frame as one (docs/SIM_DECOUPLE_PLAN.md,
+ * The packets that came since the last frame as one (docs/archive/SIM_DECOUPLE_PLAN.md,
  * "Events und Ops"): the state of the newest (tables, scalars, heroes), the
  * stream of all of them in order (ops, events), the tower changes folded as
  * if one tick had run them all. So the main thread applies one packet per

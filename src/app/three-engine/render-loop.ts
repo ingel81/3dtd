@@ -10,7 +10,7 @@ const FRAME_WAIT_TIMEOUT_MS = 1000;
  * Longest delta a single background tick hands to `update()`, ms.
  *
  * A throttled hidden tab can hand us gaps of seconds. The game time runs in
- * the simulation's worker by its own clock (docs/SIM_DECOUPLE_PLAN.md); what
+ * the simulation's worker by its own clock (docs/archive/SIM_DECOUPLE_PLAN.md); what
  * the delta still drives on this thread (the bot's reaction time, the
  * presentation's clocks) should not jump by seconds in one step.
  */
@@ -91,7 +91,7 @@ export class RenderLoop {
    * Cap the render loop at `fps` frames per second, 0 = unlimited (vsync).
    *
    * Frames that come too early are skipped whole, update included. The
-   * simulation runs by its own clock in the worker (docs/SIM_DECOUPLE_PLAN.md),
+   * simulation runs by its own clock in the worker (docs/archive/SIM_DECOUPLE_PLAN.md),
    * so the game speed stays the same at any cap, training timescales
    * included. Persisted by DebugFacadeService.
    */

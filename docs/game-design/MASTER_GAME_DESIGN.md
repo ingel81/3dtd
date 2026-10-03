@@ -602,7 +602,7 @@ spürbar werden, nicht als kleinere Welle. Der `LeakController` korrigiert die
 Schätzung laufend an der tatsächlichen Leck-Quote, Zielband 8 bis 16 % der
 Welle. Warum es den Regelkreis braucht (ohne ihn töteten 70 % der Wellen
 alles) und alle Konstanten:
-[WAVE_DIRECTOR.md](../WAVE_DIRECTOR.md#der-überlebbarkeits-deckel-im-einzelnen),
+[WAVE_DIRECTOR.md](../archive/WAVE_DIRECTOR.md#der-überlebbarkeits-deckel-im-einzelnen),
 Abschnitte 5 und 6.
 
 ---
@@ -663,7 +663,7 @@ Heuristik gegen Spieler-Schwächen sind nicht gebaut: der Regel-Director liest
 keine Spieler-Schwächen. Beides steht in §12.7.
 
 Mechanik, Konstanten und Messungen:
-[WAVE_DIRECTOR.md](../WAVE_DIRECTOR.md).
+[WAVE_DIRECTOR.md](../archive/WAVE_DIRECTOR.md).
 
 ---
 

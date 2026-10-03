@@ -29,7 +29,7 @@ npm run coop-server  # Coop-Relay (:3003), docs/COOP_PLAN.md
   Laufplan (`run-plan.json`), dessen HP ein Budget gegen die Abwehr setzt, geregelt vom Druck-Regler; er läuft
   ohne Server und ohne Modell. Der Tabellen-Source spielt eine editierbare Liste. Rahmen in
   [WAVE_SOURCE_PLAN.md](docs/WAVE_SOURCE_PLAN.md), das Budget-Modell in [WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md);
-  der frühere adaptive Director ist entfernt ([WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md), archiviert)
+  der frühere adaptive Director ist entfernt ([WAVE_DIRECTOR.md](docs/archive/WAVE_DIRECTOR.md), archiviert)
 - Tile-Zugang: Cesium-Ion-Token (Standard) oder Google-Maps-Key. `ConfigService` liest ihn aus drei Quellen, die
   spätere gewinnt: `environment.ts` (Vorlage `environment.template.ts`), `public/runtime-config.json`, Token-Dialog
   (localStorage `3dtd-tile-credentials`)

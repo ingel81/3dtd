@@ -6,7 +6,7 @@ am 2026-09-14 (Abschnitt 9). Frostbombe, EMP und Orbitallaser gebaut am 2026-09-
 die Tabellen in 8 und 9 halten fest, was beim Bau entschieden wurde.
 
 Das Konzept davor (Abschnitte 0 bis 6: Kurzfassung, Ist-Stand vom 2026-09-11, Regelkreis, Varianten, Vergleich, MVP,
-offene Entscheidungen) liegt in [archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md](../archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md).
+offene Entscheidungen) liegt in [archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md](PLAYER_AGENCY_CONCEPT_2026-09-11.md).
 Verweise wie "3.2", "Abschnitt 5" oder "6.1 b" meinen die Abschnitte dort; die Nummern sind geblieben.
 
 ---

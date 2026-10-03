@@ -24,7 +24,7 @@ export type CoopWay = 'online' | 'lan';
 
 /**
  * The way into a coop room (docs/COOP_PLAN.md, D61, D67; the layout
- * docs/COOP_UI_REWORK_PLAN.md, U3): the player's name, then Online or, in
+ * docs/archive/COOP_UI_REWORK_PLAN.md, U3): the player's name, then Online or, in
  * the desktop app, Same network, one at a time behind a switch that keeps
  * the last choice. Online: the lobby as a select, its open rooms, a room
  * code. Same network: the games found, the host IP field. One button hosts

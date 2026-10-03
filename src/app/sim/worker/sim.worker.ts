@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 /**
  * The simulation's worker (docs/SIM_WORKER.md): a SimCore that loops by
- * itself (SimLoop, docs/SIM_DECOUPLE_PLAN.md) and takes the messages of the
+ * itself (SimLoop, docs/archive/SIM_DECOUPLE_PLAN.md) and takes the messages of the
  * main thread's WorkerTransport (sim/client/transport.ts) between two passes.
  * Packets go back as WireFrames: the tables stay in the store's memory
  * (shared where the page is cross-origin isolated), the rest is cloned.

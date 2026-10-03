@@ -7,7 +7,7 @@ import { formatClock } from '../../utils/format-clock';
 
 /**
  * What the coop dock shows, as pure functions of the room and the service's
- * state (docs/COOP_UI_REWORK_PLAN.md, P5): the joining steps, the status
+ * state (docs/archive/COOP_UI_REWORK_PLAN.md, P5): the joining steps, the status
  * line, why Start is off, the table of lanes and players, the banners. The
  * components only bind them.
  */
@@ -97,7 +97,7 @@ export function roomStatus(i: StatusInput): RoomStatus | null {
   }
   const noLane = room.players.find((p) => p.spawnIds.length === 0);
   if (noLane) return line('Waiting for ', noLane.name, ' to take a lane');
-  // Every lane needs a player (docs/LANES_PLAN.md, L4); anyone may take one more
+  // Every lane needs a player (docs/WAVE_SYSTEM.md (Spuren), L4); anyone may take one more
   const free = room.spawnIds.findIndex((id) => !room.players.some((p) => p.spawnIds.includes(id)));
   if (free >= 0) return line('', `Spawn ${free + 1}`, ' has nobody yet · anyone can take it');
   if (guestsReady(room)) {

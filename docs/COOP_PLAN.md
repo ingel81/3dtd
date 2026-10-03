@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-27 · ausgeliefert mit 0.5.0 (`main`, `next`) · Status: C0 bis C4d, C5a, C7 und C8 gebaut, öffentliche Lobby läuft (D56 bis D68), Review R1 bis R21 gebaut (R10 teilweise), Oberfläche überarbeitet ([COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md), U1 bis U8); offen C5b, aus C6 nur Bots als Mitspieler (D24); Determinismus gemessen und geprüft (TODO E28, E63) · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-27 · ausgeliefert mit 0.5.0 (`main`, `next`) · Status: C0 bis C4d, C5a, C7 und C8 gebaut, öffentliche Lobby läuft (D56 bis D68), Review R1 bis R21 gebaut (R10 teilweise), Oberfläche überarbeitet ([COOP_UI_REWORK_PLAN.md](archive/COOP_UI_REWORK_PLAN.md), U1 bis U8); offen C5b, aus C6 nur Bots als Mitspieler (D24); Determinismus gemessen und geprüft (TODO E28, E63) · Grundlage: [MULTIPLAYER_CONCEPT.md](archive/MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -62,7 +62,7 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 
 | # | Frage | Entscheidung |
 |---|-------|--------------|
-| D1 | Modus | "Vier Tore": ein Spawn je Spieler, gemeinsames HQ, Gold getrennt, Bauen überall (User, 2026-09-24). Seit 2026-10-01 ein oder mehrere Spawns je Spieler, jeder Spawn eine Spur, Startgold je Spur ([LANES_PLAN.md](LANES_PLAN.md)) |
+| D1 | Modus | "Vier Tore": ein Spawn je Spieler, gemeinsames HQ, Gold getrennt, Bauen überall (User, 2026-09-24). Seit 2026-10-01 ein oder mehrere Spawns je Spieler, jeder Spawn eine Spur, Startgold je Spur ([LANES_PLAN.md](WAVE_SYSTEM.md#spuren)) |
 | D2 | Transport | Eigener Relay, Node oder Bun mit WebSocket, TypeScript mit geteilten Typen (User, 2026-09-24) |
 | D3 | Strenge | Erst Soft-Lockstep mit Prüfsumme und Resync, messen, nur bei Bedarf hart machen (User, 2026-09-24) |
 | D4 | Vorgehen | Erst dieser Plan, gelesen vom User, dann bauen (User, 2026-09-24) |
@@ -112,7 +112,7 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 | D46 | Schriften | Keine Cinzel: Überschriften in Inter Tight. JetBrains Mono wird selbst gehostet (`@fontsource`), weil `--td-font-mono` sie nennt und bisher auf Consolas fiel (User, 2026-09-25) |
 | D56 | Öffentliche Lobby | Das Relay läuft als Docker-Container auf einem Server des Users in einem abgeschotteten Netz; ein Cloudflare-Tunnel macht es erreichbar, kein offener Port (User, 2026-09-25) |
 | D57 | Adresse | `wss://3dtd-lobby.sgeht.net`, eine Ebene unter der Domain: das kostenlose Zertifikat von Cloudflare deckt `lobby.3dtd.sgeht.net` nicht ab. Live seit 2026-09-25 (User, 2026-09-25) |
-| D58 | Lobbies wählen | Standard-Lobby mit Name und Adresse aus `runtime-config.json`; weitere hinzufügen und die aktive wählen über ein Zahnrad im Online-Teil des Docks; im Dock nur der Name (User, 2026-09-25). Seit 2026-09-26 eine Auswahlliste mit „Add lobby…“ statt des Zahnrads ([COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md) U3) |
+| D58 | Lobbies wählen | Standard-Lobby mit Name und Adresse aus `runtime-config.json`; weitere hinzufügen und die aktive wählen über ein Zahnrad im Online-Teil des Docks; im Dock nur der Name (User, 2026-09-25). Seit 2026-09-26 eine Auswahlliste mit „Add lobby…“ statt des Zahnrads ([COOP_UI_REWORK_PLAN.md](archive/COOP_UI_REWORK_PLAN.md) U3) |
 | D59 | Wer spielt online | Zuerst nur die Desktop-App (`--origins app://app`, eine Engine, Versionen per Auto-Update gleich). Chromium-Browser später per Schalter nach einem Lauf Chrome gegen App; Firefox und Safari erst nach E28. Hart erzwingen lässt sich das nicht (Origin ist fälschbar), es hält Webseiten draußen (User, 2026-09-25) |
 | D60 | Andere Version | Abweisen mit Hinweis „Host has 0.5.0, you have 0.4.0“ und in der App gleich „Update now“ (User, 2026-09-25) |
 | D61 | Ausfall | „Lobby is offline right now“; LAN und Einzelspieler unberührt, laufende Räume wie heute „Continue alone“ (User, 2026-09-25) |

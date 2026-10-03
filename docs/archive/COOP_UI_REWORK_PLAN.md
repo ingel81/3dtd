@@ -2,7 +2,7 @@
 
 **Stand 2026-09-26: P1 bis P5 gebaut, nicht committet.** Entscheidungen des Users in Abschnitt 3 (U1 bis U8), die
 Pakete in Abschnitt 4, was beim Bauen anders kam in Abschnitt 6. Die Darstellung beschreibt jetzt
-[DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) (Coop, Standortdialog).
+[DESIGN_SYSTEM.md](../DESIGN_SYSTEM.md) (Coop, Standortdialog).
 
 Auslöser: Die Coop-Oberfläche ist in wenigen Tagen gewachsen (Dock, Einstieg, Squad, Chat, Lobby, öffentliche
 Raumliste, Reiter im Standortdialog). Sie funktioniert, aber sie hat Tastaturfehler, doppeltes SCSS, ein zu großes
@@ -215,7 +215,7 @@ Reihenfolge nach Risiko: erst die Fehler, dann die gemeinsame Basis, dann die si
 ## 5. Offen
 
 Nichts mehr aus diesem Plan. Die Fragen von hier sind in Abschnitt 6 beantwortet (Code bei stummer Lobby, Esc,
-Cancel beim Beitritt); die Nachtests stehen in [PLAYTEST.md](PLAYTEST.md) als T73 bis T75. Esc-Reihenfolge: ein
+Cancel beim Beitritt); die Nachtests stehen in [PLAYTEST.md](../PLAYTEST.md) als T73 bis T75. Esc-Reihenfolge: ein
 scharfer Ping (Chat), das Spawn-Menü im Kopf, Zelle, Fähigkeit, Platzierung, Bau (InputHandler), dann die Kette
 des HotkeyService mit dem Dock als letztem Glied; ein Feld im Dock schließt es selbst.
 

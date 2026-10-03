@@ -4,7 +4,7 @@
 
 Ziel: Die Simulation rechnet einen Lauf aus Startzustand, Seed und Befehlen auf einem Rechner bit-genau nach.
 Darauf stehen das Replay als Neu-Simulation (TODO E2) und später Coop im Lockstep
-([MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md), Stufe 3 in [BALANCING_PLAN.md](BALANCING_PLAN.md) Abschnitt 5).
+([MULTIPLAYER_CONCEPT.md](archive/MULTIPLAYER_CONCEPT.md), Stufe 3 in [BALANCING_PLAN.md](BALANCING_PLAN.md) Abschnitt 5).
 Performance ist Randbedingung: Das laufende Spiel darf pro Sub-Step nicht teurer werden, das Nachrechnen muss schnell
 genug für Springen im Replay sein.
 

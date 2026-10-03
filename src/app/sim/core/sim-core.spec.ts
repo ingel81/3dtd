@@ -342,7 +342,7 @@ describe('SimCore in the same thread', () => {
     expect(core.gsm.enemyManager.onProfileTiming).toBeNull();
   });
 
-  describe('as the loop drives it (docs/SIM_DECOUPLE_PLAN.md)', () => {
+  describe('as the loop drives it (docs/archive/SIM_DECOUPLE_PLAN.md)', () => {
     const STEP = GameClock.FIXED_STEP_MS;
 
     /** A core at speed 1 with the first pass behind it (it opens the clock) */

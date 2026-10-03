@@ -1,4 +1,4 @@
-// Worker demo server (docs/WORKER_PLAN.md): static files with the cross-origin isolation headers switchable per port.
+// Worker demo server (docs/archive/WORKER_PLAN.md): static files with the cross-origin isolation headers switchable per port.
 //   node server.mjs   -> :4240 no headers, :4241 COOP + COEP require-corp, :4242 COOP + COEP credentialless
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';

@@ -5,7 +5,7 @@
 Konzept vom 2026-09-28; Abschnitt 16 die Vielfalt, das Gold, die Forschung und die Mutatoren nach dem
 menschlichen Lauf bis W60.
 
-Verwandt: [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md) (Quellen, Vertrag), [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)
+Verwandt: [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md) (Quellen, Vertrag), [WAVE_DIRECTOR.md](archive/WAVE_DIRECTOR.md)
 (adaptiver Director, archiviert), [WAVE_SYSTEM.md](WAVE_SYSTEM.md) (Boss-Wellen), TODO E54, E67.
 
 ## 1. Anlass

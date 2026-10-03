@@ -1,10 +1,10 @@
 # Handover: Training-Backend Refresh (From-Scratch-Retraining)
 
 > **Archiviert (2026-09-16).** Nur noch Historie. Den laufenden Stand beschreibt
-> [AI_WAVE_DIRECTOR_PLAN.md](../AI_WAVE_DIRECTOR_PLAN.md), offene Arbeit steht in [TODO.md](../../TODO.md).
+> AI_WAVE_DIRECTOR_PLAN.md (gelöscht), offene Arbeit steht in [TODO.md](../../TODO.md).
 
 **Branch:** `feat/training-backend-refresh`
-**Stand:** 2026-09-07, abgeschlossen (historisch). Ergebnis: kein Modell im Produkt; den aktuellen Stand beschreibt [AI_WAVE_DIRECTOR_PLAN.md](../AI_WAVE_DIRECTOR_PLAN.md).
+**Stand:** 2026-09-07, abgeschlossen (historisch). Ergebnis: kein Modell im Produkt; den aktuellen Stand beschreibt AI_WAVE_DIRECTOR_PLAN.md (gelöscht).
 
 Ziel: Das Training-Backend auf den aktuellen Spielstand bringen, damit ein
 From-Scratch-Trainingslauf überhaupt sinnvolle Gradienten bekommt. Ausgangslage

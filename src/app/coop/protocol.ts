@@ -41,7 +41,7 @@ export const PLAYER_STATUSES: readonly PlayerStatus[] = ['key', 'loading', 'relo
 export interface CoopPlayerInfo {
   id: string;
   name: string;
-  /** The spawns they took as their lanes, in the order taken; empty before they took one (docs/LANES_PLAN.md) */
+  /** The spawns they took as their lanes, in the order taken; empty before they took one (docs/WAVE_SYSTEM.md (Spuren)) */
   spawnIds: string[];
   /** Ready to start (lobby) */
   ready: boolean;

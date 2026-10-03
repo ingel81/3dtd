@@ -327,7 +327,7 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     expect(resim.divergedAt).toBeNull();
     resim.end();
   });
-  it('alone, every spawn point is a lane: the start credits once for each (docs/LANES_PLAN.md)', () => {
+  it('alone, every spawn point is a lane: the start credits once for each (docs/WAVE_SYSTEM.md (Spuren))', () => {
     world = buildWorld();
     const { gsm } = world;
     expect(gsm.laneSpawns.length).toBe(2);
