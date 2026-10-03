@@ -70,9 +70,6 @@ Stand 2026-10-03. `next` ist der RC für 0.6 (gepusht), `dev/after-0.6` wartet a
 - [ ] **A1 Herkunft von 5 Gegnermodellen** (Ghost, Hornet, Mech, Wraith, zombie_v2), Einträge in
       `attributions.config.ts` nachtragen. Der User sucht die Quellen, low prio; Stone Golem und Herbert sind eigene
       Modelle.
-- [ ] **A2 Tentacle-Sound ersetzen** (Security-Review 2026-09-27, User: ersetzen): `tentacle-01.mp3` trägt ID3-Tags
-      aus „The Odyssey Collection: Expanded“ (Liquid FX), eine Lizenz ist nicht belegt. Neu mit ElevenLabs über die
-      Sound-Auswahlseite (`tmp/sound-audition`), User wählt, alte Datei raus.
 
 ### Entscheidung des Users offen
 
@@ -150,6 +147,8 @@ Stand 2026-10-03. `next` ist der RC für 0.6 (gepusht), `dev/after-0.6` wartet a
 
 ### Sonstige
 
+- [ ] **A2 Tentacle-Sound ersetzt** (2026-10-03): Saugnapf-Griff von ElevenLabs statt der Datei ohne belegte Lizenz;
+      im Spiel anhören (PLAYTEST N17).
 - [ ] **C19 Tower bemannen**: im Coop behoben und geprüft; im Einzelspieler und in der Desktop-App offen (PLAYTEST T72).
 - [ ] **E37 Desktop: Downloads sichtbar** (Speichern-Dialog für Run-Log, Dump, Replay): in der App prüfen.
 - [ ] **E93 Route, Zellen, Spawn und HQ schweben nach dem Laden**: Neubau der Region im neuen Rahmen gebaut; im Spiel

@@ -216,6 +216,8 @@ Spur). Ein Lauf mit zwei Spawns, gern über W20 hinaus; am Ende über "Runs" Run
   mindestens W10, keine Abweichung.
 - **N16 Münze im bemannten Tower** (2026-10-03): Tower bemannen und eine Welle schießen. Das Kill-Gold klingt so leise
   wie von oben, nicht mehr deutlich lauter (Rückmelde-Sounds jetzt wie aus 400 m statt 150 m).
+- **N17 Tentacle-Griff** (2026-10-03): Tentacle Tower bauen, Gegner greifen lassen. Der neue Saugnapf-Griff passt zum
+  Zupacken und ist neben Schüssen hörbar, nicht zu laut.
 
 ## K8 Desktop-Build
 
