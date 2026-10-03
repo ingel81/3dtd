@@ -58,10 +58,11 @@ Stand 2026-10-03. `next` ist der RC für 0.6 (gepusht), `dev/after-0.6` wartet a
       Modell-Budget reduzieren (heute 0,8 bis 2,5 Mio. Dreiecke).
 - [ ] **E103 Ego-Steuerung des Helden** (User, 2026-10-02).
 - [ ] **E83 AppImage im AppImage-Katalog nachbessern** (2026-09-30): 3DTD steht seit dem 2026-09-30 im Katalog auf
-      appimage.github.io. Der Test meldet drei Punkte: der Dateiname `3DTD-linux-x64.AppImage` soll kein „linux“ tragen
-      (etwa `3DTD-0.5.1-x86_64.AppImage`); keine eingebettete Update-Information (`appimagetool -u` und eine `.zsync`
-      neben dem AppImage, für AppImageUpdate); alte AppImage-Laufzeit, die glibc und libfuse2 des Systems braucht.
-      Prüfen, was electron-builder davon kann, und ob ein neuer Name den Auto-Update-Feed (`latest-linux.yml`) bricht.
+      appimage.github.io. Der Test meldet drei Punkte. Gebaut für 0.6 (2026-10-03): der Name ist jetzt
+      `3DTD-X.Y.Z-x86_64.AppImage` und `3DTD-x86_64.AppImage` ohne „linux“, der Updater zieht mit (`latest-linux.yml`);
+      die alte Kopie `3DTD-linux-x64.AppImage` lädt `release.yml` ein Release lang mit hoch, danach aus dem Workflow
+      nehmen. Offen: keine eingebettete Update-Information (`appimagetool -u` und eine `.zsync` neben dem AppImage, für
+      AppImageUpdate; electron-builder kann das nicht selbst); alte AppImage-Laufzeit, die glibc und libfuse2 braucht.
       Dazu (User, 2026-09-30): ein AUR-Paket `3dtd-bin` (PKGBUILD, das das AppImage des Releases lädt, mit
       Desktop-Eintrag und Icon); bei jedem Release Version und Prüfsumme nachziehen, am besten aus der CI.
 

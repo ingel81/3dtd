@@ -23,7 +23,7 @@ A hobby project. It runs, it's playable, and it is nowhere near finished.
 
 **Play the desktop app.** That is where the work goes now: co-op lives there, every player runs the same engine,
 and it keeps itself up to date. [Windows installer](https://github.com/ingel81/3dtd/releases/latest/download/3DTD-win-x64-setup.exe)
-or [Linux AppImage](https://github.com/ingel81/3dtd/releases/latest/download/3DTD-linux-x64.AppImage) (x64), the
+or [Linux AppImage](https://github.com/ingel81/3dtd/releases/latest/download/3DTD-x86_64.AppImage) (x64), the
 newest build of each; older ones are on the [releases page](https://github.com/ingel81/3dtd/releases).
 
 - Windows: not code-signed yet, so SmartScreen warns on the first start: *More info*, then *Run anyway*.

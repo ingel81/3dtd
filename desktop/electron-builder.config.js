@@ -59,8 +59,11 @@ module.exports = {
       },
     },
   },
+  // The AppImage catalog wants the architecture in its own spelling and no
+  // "linux" in the name. latest-linux.yml carries the new name, and the updater
+  // puts a versioned file next to the old one under the new name.
   appImage: {
-    artifactName: '${productName}-${version}-linux-x64.${ext}',
+    artifactName: '${productName}-${version}-x86_64.${ext}',
   },
   nsis: {
     oneClick: true,

@@ -293,7 +293,8 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   anlegen wie in `deploy.yml` (die Datei ist gitignored), Root `npm ci`,
   Production-Build mit `--base-href=/`, `desktop` `npm ci`, Tests, electron-builder mit
   `--publish always`. Ergebnis: Release-Entwurf mit `3DTD-X.Y.Z-win-x64-setup.exe`,
-  `.blockmap` und `latest.yml`, dazu aus dem zweiten Job `3DTD-X.Y.Z-linux-x64.AppImage`
+  `.blockmap` und `latest.yml`, dazu aus dem zweiten Job `3DTD-X.Y.Z-x86_64.AppImage`
+  (bis 0.5.1 `3DTD-X.Y.Z-linux-x64.AppImage`, der AppImage-Katalog will kein „linux“ im Namen)
   und `latest-linux.yml`. Die Namen tragen seit 0.3.2 Plattform und Architektur,
   weil in einem Release mehrere Dateien liegen; bis 0.3.1 hießen sie
   `3DTD-Setup-X.Y.Z.exe`. **Geschrieben 2026-09-19**, YAML geprüft, aber noch nie
@@ -320,8 +321,9 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   ausgeblendet wie "Play". Die Landing Page geht mit dem Veröffentlichen des Releases
   live (E46), der Knopf zeigt also nie auf eine leere Release-Seite. **Seit 0.5.0**
   verlinken README und Landing die Dateien direkt (`releases/latest/download/3DTD-win-x64-setup.exe`,
-  `3DTD-linux-x64.AppImage`): `release.yml` legt vor dem Veröffentlichen je eine Kopie ohne Version im Namen dazu,
-  der Updater liest weiter `latest.yml` und die Dateien mit Version.
+  `3DTD-x86_64.AppImage`, bis 0.5.1 `3DTD-linux-x64.AppImage`): `release.yml` legt vor dem Veröffentlichen je
+  eine Kopie ohne Version im Namen dazu, der Updater liest weiter `latest.yml` und die Dateien mit Version. Den alten
+  Linux-Namen lädt 0.6.0 als dritte Kopie mit hoch, für Links von außen (TODO E83).
 - **E44 Muss** Kein lokaler Schlüssel im Installer. `scripts/copy-web.js` liest
   `cesiumIonToken` und `googleMapsApiKey` aus `environment.ts` und
   `environment.prod.ts` und bricht ab, wenn einer dieser Werte im Build steht. Die
