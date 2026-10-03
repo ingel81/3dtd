@@ -73,6 +73,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) | Bericht, beschreibt den laufenden Regler | Druck-Regler statt Leck-Regler: Befund, Bau, Messrunden, verworfener HP-Hebel (2026-09-21/22) |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Der Bot: Strategien schlagen vor, ein Schiedsrichter wählt nach Nutzen je Gold; drei Profile, Coop-Partner, Bot-Läufe |
 | [BOT_PLAYER_PLAN.md](BOT_PLAYER_PLAN.md) | Plan (B1 bis B6 gebaut, B7 offen) | Menschenähnlicher Bot: Wahrnehmung, Sichtlinien-Probe, Nutzen-Schiedsrichter, drei Profile mit menschlichen Grenzen, Coop-Partner; Entscheidungen P1 bis P6, Pakete B1 bis B7 |
+| [SAVE_LOAD_PLAN.md](SAVE_LOAD_PLAN.md) | Plan (nicht gebaut, nach 0.6) | Speichern und Laden im Einzelspiel über das Spielmenü (E110), Menü vervollständigen (E111): vorhandene Bausteine, was fehlt, offene Fragen |
 | [bot-server/README.md](../bot-server/README.md) | Aktuell | Bot-Server: starten, Protokoll, Dashboard-API, Log |
 | [desktop/README.md](../desktop/README.md) | Aktuell | Desktop-App bauen und starten |
 | [coop-server/README.md](../coop-server/README.md) | Aktuell | Coop-Relay: Optionen, Statusseite, Limits, öffentliche Lobby hinter einem Tunnel, Datenschutz |

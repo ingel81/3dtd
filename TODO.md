@@ -50,6 +50,10 @@ Stand 2026-10-03. `next` ist der RC für 0.6 (gepusht), `dev/after-0.6` wartet a
 
 ### Features
 
+- [ ] **E110 Speichern und Laden im Einzelspiel** (User, 2026-10-03, nach dem Release 0.6): über das Spielmenü,
+      Weiterspielen am selben Ort. Bausteine und offene Fragen in [SAVE_LOAD_PLAN.md](docs/SAVE_LOAD_PLAN.md).
+- [ ] **E111 Spielmenü vervollständigen** (User, 2026-10-03, nach dem Release 0.6): Kandidaten in
+      [SAVE_LOAD_PLAN.md](docs/SAVE_LOAD_PLAN.md), Frage 6.
 - [ ] **E102 Neue Tower aus den Meshy-Kandidaten** (User, 2026-10-02; Modelle in
       `public/assets/models/towers/candidates/`, Zerlegung mit `tools/blender/split_tower.py` und `towers/*.json`):
       Iron Bastion und Sentinel Laser abgenommen. Chainsaw mit Roboter-Tentakeln statt Armen (bis 14 m, eingefahren wie
