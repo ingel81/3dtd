@@ -66,10 +66,19 @@ export class StrategyBot extends BaseTowerBot {
 
   /** Every strategy proposes, the arbiter takes one */
   protected decideAction(state: GameStateSnapshot): TowerAction | null {
-    const context = this.contextOf(state);
+    // Whether this decision looks at the wave panel and the last waves' leaks (BotConfig.attention)
+    const looks = this.dice() < this.config.attention;
+    const context = this.contextOf(state, looks);
     const proposals = this.strategies.flatMap((strategy) => strategy.propose(state, context));
-    const last = this.world.perception.lastWave;
-    const action = arbitrate({ proposals, credits: state.player.credits, safe: last === null || last.leaks === 0 });
+    const last = looks ? this.world.perception.lastWave : null;
+    const noise = this.config.noise;
+    const action = arbitrate({
+      proposals,
+      credits: state.player.credits,
+      safe: last === null || last.leaks === 0,
+      // A player does not always see the best per gold (BotConfig.noise)
+      jitter: noise > 0 ? (value) => value * Math.max(0, 1 + noise * (2 * this.dice() - 1)) : undefined,
+    });
     // A wait does not count as an action (it would reset the wave starter's timer)
     if (action.type !== 'wait') this.notifyActionExecuted(action);
     return action;
@@ -77,14 +86,19 @@ export class StrategyBot extends BaseTowerBot {
 
   /**
    * What every strategy reads: the threat of the coming waves (off the wave
-   * panel for a bot that reads it, else the expected armor mix), the own
+   * panel when the bot looks, else the expected armor mix), the own
    * defense's damage times metres under fire, the metres per tower.
    */
-  private contextOf(state: GameStateSnapshot): DecisionContext {
+  /** The run's bot stream: a bot's choices must not move the enemies */
+  private dice(): number {
+    return this.world.rng.stream('bot')();
+  }
+
+  private contextOf(state: GameStateSnapshot, looks: boolean): DecisionContext {
     const metresByTower = this.world.metresByTower();
     const airUnlocked = state.research?.airTargetingUnlocked ?? false;
     const capacity = damageMetresPerArmor(this.world.towerManager.getAll(), airUnlocked, metresByTower);
-    const waves = this.config.adaptsToEnemies ? this.world.peekWaves(state.waveNumber + 1, WAVES_AHEAD) : [];
+    const waves = looks ? this.world.peekWaves(state.waveNumber + 1, WAVES_AHEAD) : [];
     const read = threatFromWaves(waves);
     const threat = totalOf(read) > 0 ? read : threatFromMix(state.expectedArmorDistribution);
     const paths = [...this.world.getCachedPaths().values()];

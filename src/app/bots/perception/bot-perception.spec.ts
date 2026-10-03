@@ -83,6 +83,8 @@ describe('BotPerception', () => {
     expect(seen.lastWave!.kills).toBe(1);
     expect(seen.lastWave!.leaks).toBe(0);
     expect([...seen.lastWave!.routes.keys()]).toEqual(['mine']);
+    // The partner's leaks stand apart, for the gold the bot may send (B6)
+    expect(seen.lastWave!.leaksElsewhere.get('theirs')).toBe(1);
   });
 
   it(`remembers the last ${PERCEPTION_WAVES} waves and forgets them on a restart`, () => {

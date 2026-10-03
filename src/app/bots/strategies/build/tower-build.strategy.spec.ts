@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { TOWER_TYPES, TowerTypeId } from '../../../configs/tower-types.config';
 import type { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
-import { BOT_CONFIGS } from '../../bots/tower-bot.interface';
+import { BOT_CONFIGS, towersByWave } from '../../bots/tower-bot.interface';
 import { emptySides, threatFromWaves } from '../../decision/value';
 import type { DecisionContext } from '../tower-strategy.interface';
-import { TowerBuildStrategy } from './tower-build.strategy';
+import { FIRST_OF_TYPE, TowerBuildStrategy } from './tower-build.strategy';
 
 const unlocked = (ids: TowerTypeId[]) =>
   Object.fromEntries((Object.keys(TOWER_TYPES) as TowerTypeId[]).map((id) => [id, ids.includes(id)])) as Record<TowerTypeId, boolean>;
@@ -53,8 +53,7 @@ describe('TowerBuildStrategy', () => {
   });
 
   it('keeps the pace of a player: no more fighting towers by a wave than the tempo allows', () => {
-    const { base, perWave } = BOT_CONFIGS.expert.buildTempo;
-    const allowed = base + perWave * 2;
+    const allowed = towersByWave(BOT_CONFIGS.expert, 2);
     expect(strategy(40, allowed - 1).build.propose(state(['archer'], allowed - 1, 2), zombies)).toHaveLength(1);
     expect(strategy(40, allowed).build.propose(state(['archer'], allowed, 2), zombies)).toEqual([]);
   });
@@ -63,6 +62,12 @@ describe('TowerBuildStrategy', () => {
     const bats = context([['bat', 1]], [['light', 5000]]);
     const cannon = strategy().build.propose(state(['cannon']), bats)[0];
     expect(cannon.value).toBe(0);
+  });
+
+  it('weighs the first tower of a type more: a player builds what they researched', () => {
+    const first = strategy().build.propose(state(['archer']), zombies)[0].value;
+    const second = strategy(40, 1).build.propose(state(['archer'], 1), zombies)[0].value;
+    expect(first).toBeCloseTo(second * FIRST_OF_TYPE);
   });
 
   it('looks for the spot only when the arbiter takes the buy', () => {

@@ -18,9 +18,10 @@ DASHBOARD_PORT = 3002
 
 # === BOTS ===
 # Skill levels the server hands out to connecting clients, with their weight
-# in the draw. Two bots since 2026-09-20 (BALANCING_PLAN.md, D15): a beginner
-# and an expert. Equal weights means a batch measures both.
-BOT_WEIGHTS = {"beginner": 1.0, "expert": 1.0}
+# in the draw. A beginner and an expert since 2026-09-20 (BALANCING_PLAN.md,
+# D15), a normal player between them since 2026-10-03 (BOT_PLAYER_PLAN.md, B5).
+# Equal weights means a batch measures all three.
+BOT_WEIGHTS = {"beginner": 1.0, "normal": 1.0, "expert": 1.0}
 
 # === RUNS ===
 # The director parameter set every client plays. A batch that compares two

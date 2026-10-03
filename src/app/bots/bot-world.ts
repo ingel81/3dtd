@@ -51,6 +51,8 @@ export interface BotWorld {
   metresByTower(): ReadonlyMap<string, { ground: number; air: number }>;
   getSpawnPoints(): SpawnPoint[];
   getCachedPaths(): Map<string, GeoPosition[]>;
+  /** Coop: the other players, their gold and the spawns of their lanes; none alone */
+  partners(): { id: string; credits: number; lanes: readonly string[] }[];
 }
 
 /** What PlayerBotWorld reads: the mirror, the main thread's spawns and routes, the route queries */
@@ -126,6 +128,13 @@ export class PlayerBotWorld implements BotWorld {
 
   peekWaves(fromWave: number, count: number): readonly WavePeekFacts[] {
     return this.source.peek({ fromWave, count });
+  }
+
+  partners(): { id: string; credits: number; lanes: readonly string[] }[] {
+    if (!this.coop) return [];
+    const me = this.mirror.localPlayerId;
+    return this.mirror.players.filter((id) => id !== me)
+      .map((id) => ({ id, credits: this.mirror.creditsOf(id), lanes: this.mirror.laneSpawnsOf(id) }));
   }
 
   metresByTower(): ReadonlyMap<string, { ground: number; air: number }> {

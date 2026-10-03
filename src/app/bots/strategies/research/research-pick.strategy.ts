@@ -68,7 +68,7 @@ export class ResearchPickStrategy extends BaseStrategy {
   }
 
   /** Static fallback order per skill — used when no adaptive pick is available. */
-  private readonly researchOrderBySkill: Record<BotSkillLevel, ResearchId[]> = {
+  private readonly researchOrderBySkill: Record<Exclude<BotSkillLevel, 'normal'>, ResearchId[]> = {
     // A beginner researches what makes its towers stronger, not what answers
     // a wave: the tier line, and the two unlocks that gate it. With only
     // `gatling-tech` every branch of every tower stood at the tier-1 ceiling
@@ -222,13 +222,13 @@ export class ResearchPickStrategy extends BaseStrategy {
     if (!r) return null;
 
     // Adaptive: the expert prefers researches that close an armor gap
-    if (skill === 'expert' && state.expectedArmorDistribution) {
+    if (this.config.knows.adaptiveResearch && state.expectedArmorDistribution) {
       const adaptive = this.pickByArmorGap(state);
       if (adaptive) return adaptive;
     }
 
-    // Fallback: skill-order list
-    const list = this.researchOrderBySkill[skill];
+    // Fallback: skill-order list; a normal player follows the expert's
+    const list = this.researchOrderBySkill[skill === 'normal' ? 'expert' : skill];
     return list.find(id =>
       !BOT_SKIPPED_RESEARCH.has(id) &&
       !r.completedIds.includes(id) &&

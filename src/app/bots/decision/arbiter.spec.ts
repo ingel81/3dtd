@@ -58,6 +58,14 @@ describe('arbitrate', () => {
     expect(arbitrate({ proposals: [], credits: 100, safe: true })).toEqual({ type: 'wait', reason: 'Nothing worth doing' });
   });
 
+  it('ranks buys by their value after the spread, drawn once per buy', () => {
+    const proposals = [proposal('buy', 'a', 100, 10), proposal('buy', 'b', 100, 9)];
+    const draws: number[] = [];
+    const jitter = (value: number) => { draws.push(value); return value === 9 ? 20 : value; };
+    expect(reasonOf({ proposals, credits: 500, safe: true, jitter })).toMatch(/^b/);
+    expect(draws).toEqual([10, 9]);
+  });
+
   it('skips a buy whose action cannot be worked out (no spot) for the next best', () => {
     const proposals = [proposal('buy', 'blocked', 100, 100, () => null), proposal('buy', 'other', 100, 50)];
     expect(reasonOf({ proposals, credits: 500, safe: true })).toMatch(/^other/);

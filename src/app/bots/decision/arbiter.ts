@@ -46,10 +46,12 @@ export interface ArbiterInput {
   readonly credits: number;
   /** The last wave leaked nothing (or there was none yet) */
   readonly safe: boolean;
+  /** Spread on a buy's value, drawn once per buy and decision (BotConfig.noise) */
+  readonly jitter?: (value: number) => number;
 }
 
 /** The action the arbiter takes; a wait with the reason when it saves or nothing applies */
-export function arbitrate({ proposals, credits, safe }: ArbiterInput): TowerAction {
+export function arbitrate({ proposals, credits, safe, jitter }: ArbiterInput): TowerAction {
   const of = (kind: ProposalKind) => proposals.filter((p) => p.kind === kind);
   const first = (list: readonly Proposal[]): TowerAction | null => {
     for (const proposal of list) {
@@ -69,7 +71,8 @@ export function arbitrate({ proposals, credits, safe }: ArbiterInput): TowerActi
   }
 
   const buys = of('buy').filter((p) => p.value > 0 && p.cost > 0);
-  const ratio = (p: Proposal) => p.value / p.cost;
+  const seen = new Map(buys.map((p) => [p, jitter ? jitter(p.value) : p.value]));
+  const ratio = (p: Proposal) => seen.get(p)! / p.cost;
   const byRatio = [...buys].sort((a, b) => ratio(b) - ratio(a));
   const affordable = byRatio.filter((p) => p.cost <= credits);
   const best = byRatio[0];

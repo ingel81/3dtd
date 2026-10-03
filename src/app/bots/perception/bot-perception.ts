@@ -51,6 +51,8 @@ export interface WaveRecord {
   kills: number;
   leaks: number;
   leakedAir: number;
+  /** Coop: leaks on the partners' routes, per route id */
+  readonly leaksElsewhere: Map<string, number>;
   /** Max HP of what got through, by the armor it wore */
   readonly leakedHpByArmor: Partial<Record<ArmorType, number>>;
 }
@@ -112,7 +114,7 @@ export class BotPerception {
     // A restart or a wave jump back: what came before belongs to another run
     if (this.records.length > 0 && wave <= this.records.at(-1)!.wave) this.reset();
     this.current = {
-      wave, routes: new Map(), kills: 0, leaks: 0, leakedAir: 0, leakedHpByArmor: {},
+      wave, routes: new Map(), kills: 0, leaks: 0, leakedAir: 0, leakedHpByArmor: {}, leaksElsewhere: new Map(),
     };
   }
 
@@ -188,7 +190,12 @@ export class BotPerception {
 
   private bookLeak(enemy: SeenEnemy): void {
     const wave = this.current;
-    if (!wave || !this.isOwnRoute(enemy.movement.routeId)) return;
+    if (!wave) return;
+    const routeId = enemy.movement.routeId;
+    if (!this.isOwnRoute(routeId)) {
+      wave.leaksElsewhere.set(routeId, (wave.leaksElsewhere.get(routeId) ?? 0) + 1);
+      return;
+    }
     this.route(wave, enemy.movement.routeId).leaks++;
     wave.leaks++;
     if (enemy.typeConfig.isAirUnit) wave.leakedAir++;

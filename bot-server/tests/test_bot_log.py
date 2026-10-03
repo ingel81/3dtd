@@ -92,7 +92,7 @@ def test_connect_answers_with_the_run_state_and_the_run_config(srv, log):
 
     config = ws.sent[1]
     assert config["type"] == "run_config"
-    assert config["bot"] in ("beginner", "expert")
+    assert config["bot"] in ("beginner", "normal", "expert")
     assert isinstance(config["seed"], int)
     assert config["directorParams"] == "default"
 

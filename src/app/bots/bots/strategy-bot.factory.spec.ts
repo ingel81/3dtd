@@ -15,14 +15,14 @@ function strategiesOf(skill: BotSkillLevel, autoStartWaves = false): ITowerStrat
 const names = (skill: BotSkillLevel, autoStartWaves = false) => strategiesOf(skill, autoStartWaves).map((s) => s.name);
 
 describe('StrategyBotFactory', () => {
-  it.each(['beginner', 'expert'] as BotSkillLevel[])(
+  it.each(['beginner', 'normal', 'expert'] as BotSkillLevel[])(
     'gives %s the abilities first among its rules, the nuclear strike on top',
     (skill) => {
       expect(names(skill).slice(0, 4)).toEqual(['NuclearStrike', 'FrostBomb', 'Emp', 'OrbitalLaser']);
     },
   );
 
-  it.each(['beginner', 'expert'] as BotSkillLevel[])(
+  it.each(['beginner', 'normal', 'expert'] as BotSkillLevel[])(
     'gives %s the research center and the silo before research, building and upgrading',
     (skill) => {
       const list = names(skill);
@@ -39,10 +39,23 @@ describe('StrategyBotFactory', () => {
     for (const name of ['Hero', 'Sell', 'Targeting']) expect(names('beginner')).not.toContain(name);
   });
 
+  it('lets the normal player and the expert send gold in coop, not the beginner', () => {
+    expect(names('normal')).toContain('Gift');
+    expect(names('expert')).toContain('Gift');
+    expect(names('beginner')).not.toContain('Gift');
+  });
+
+  it('gives the normal player the hero, but neither selling nor targeting', () => {
+    expect(names('normal')).toContain('Hero');
+    expect(names('normal')).not.toContain('Sell');
+    expect(names('normal')).not.toContain('Targeting');
+  });
+
   it('builds the expert spread over the route, the beginner at its two ends', () => {
     const spots = (skill: BotSkillLevel) =>
       (strategiesOf(skill).find((s) => s.name === 'Build') as unknown as { spots: string }).spots;
     expect(spots('expert')).toBe('distributed');
+    expect(spots('normal')).toBe('distributed');
     expect(spots('beginner')).toBe('strategic');
   });
 

@@ -3,12 +3,19 @@
 // waves fills and adds up. B2: before it builds it looks at the line of sight of
 // a few spots and takes one that sees the route; each choice is logged next to
 // the spot the score alone would have picked. B3: the arbiter decides; every
-// decision is logged, and the bot builds a mix, upgrades and holds.
+// decision is logged, and the bot builds a mix, upgrades and holds. B4: the
+// expert sets its towers' aim. B5: BOT_SKILL=beginner|normal|expert plays a
+// profile; the run log lands in bot-runs/bot-player-<skill>.jsonl for
+// tools/play-profile/play-profile.mjs.
 import { test, expect, type Page } from '@playwright/test';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { gameReady, shot } from '../support/game';
 
 /** Waves the bot plays before the checks */
 const WAVES = 12;
+
+/** The profile the bot plays (BotSkillLevel) */
+const SKILL = process.env.BOT_SKILL ?? 'expert';
 
 interface SightChoice { typeId: string; old: number; chosen: number; ms: number; probed: number }
 interface Seen {
@@ -23,6 +30,7 @@ interface Decision { wave: number; type: string; reason: string; credits: number
 
 type Comp = {
   store: { waveNumber(): number; phase(): string; baseHealth(): number; credits(): number };
+  runLog: { current(): { head: unknown; records: unknown[] } | null };
   botClient: {
     botAutoMode: { set(v: boolean): void };
     enableBot(level: string): void;
@@ -52,8 +60,8 @@ test('the bot reads the waves and builds where it sees the route', async ({ page
   test.setTimeout(20 * 60_000);
   await openDevWorld(page);
 
-  await test.step('log every choice of spot, then let the expert bot play', async () => {
-    await page.evaluate(() => {
+  await test.step(`log every choice of spot, then let the ${SKILL} bot play`, async () => {
+    await page.evaluate((skill) => {
       const w = window as unknown as { ng: { getComponent(el: Element | null): unknown }; __sight: SightChoice[]; __load: { speed(v: number): void } };
       const comp = w.ng.getComponent(document.querySelector('app-tower-defense')) as Comp;
       const placement = comp.botClient.deps!.strategicPlacement as {
@@ -75,9 +83,9 @@ test('the bot reads the waves and builds where it sees the route', async ({ page
         return out;
       };
       comp.botClient.botAutoMode.set(true);
-      comp.botClient.enableBot('expert');
+      comp.botClient.enableBot(skill);
       w.__load.speed(4);
-    });
+    }, SKILL);
     // The session loads as a chunk of its own: log its bot's decisions once it is there
     await expect.poll(() => page.evaluate(() => {
       const w = window as unknown as { ng: { getComponent(el: Element | null): unknown }; __decisions?: Decision[] };
@@ -98,12 +106,12 @@ test('the bot reads the waves and builds where it sees the route', async ({ page
     }), { timeout: 30_000 }).toBe(true);
   });
 
-  await test.step(`the bot plays to wave ${WAVES + 1}`, async () => {
+  await test.step(`the bot plays to wave ${WAVES + 1}, or falls`, async () => {
     await expect.poll(
       () => page.evaluate(() => {
         const comp = (window as unknown as { ng: { getComponent(el: Element | null): unknown } }).ng
           .getComponent(document.querySelector('app-tower-defense')) as Comp;
-        return comp.store.waveNumber();
+        return comp.store.phase() === 'gameover' ? Infinity : comp.store.waveNumber();
       }),
       { timeout: 15 * 60_000, intervals: [5000] },
     ).toBeGreaterThan(WAVES);
@@ -160,11 +168,20 @@ test('the bot reads the waves and builds where it sees the route', async ({ page
     waveNumber: seen.waveNumber, waves: seen.waves, leaking: seen.leaking, ahead: seen.ahead,
     towers: seen.towers.length, recorded: seen.towers.filter((t) => t.record !== null).length,
   } })}`);
+  const runLog = await page.evaluate(() => {
+    const comp = (window as unknown as { ng: { getComponent(el: Element | null): unknown } }).ng
+      .getComponent(document.querySelector('app-tower-defense')) as Comp;
+    const run = comp.runLog.current();
+    return run ? [run.head, ...run.records].map((r) => JSON.stringify(r)).join('\n') : '';
+  });
+  // Not under test-results: Playwright empties that before every run
+  mkdirSync('bot-runs', { recursive: true });
+  writeFileSync(`bot-runs/bot-player-${SKILL}.jsonl`, runLog);
   await testInfo.attach('bot-player.json', { body: JSON.stringify({ report, sight, decisions }, null, 1), contentType: 'application/json' });
 
   await test.step('B1: the perception holds the last waves, and the kills add up', async () => {
     expect(seen.waves.length).toBe(3);
-    expect(seen.waves.at(-1)!.wave).toBeGreaterThanOrEqual(WAVES);
+    expect(seen.waves.at(-1)!.wave).toBeGreaterThanOrEqual(SKILL === 'expert' ? WAVES : 6);
     for (const wave of seen.waves) {
       expect(wave.kills, `wave ${wave.wave} killed`).toBeGreaterThan(0);
       expect(wave.deaths, `the kills of wave ${wave.wave} lie on its routes`).toBe(wave.kills);
@@ -190,13 +207,17 @@ test('the bot reads the waves and builds where it sees the route', async ({ page
     expect(report.actions['place'] ?? 0).toBeGreaterThan(3);
     expect(report.actions['upgrade'] ?? 0).toBeGreaterThan(0);
     expect(report.actions['research-start'] ?? 0).toBeGreaterThan(0);
-    expect(report.actions['start-wave'] ?? 0).toBeGreaterThanOrEqual(WAVES);
     const combatTypes = report.builtTypes.filter((t) => t !== 'research-center' && t !== 'missile-silo');
-    expect(combatTypes.length, `tower types: ${combatTypes.join(', ')}`).toBeGreaterThanOrEqual(3);
-    expect(hq.health).toBeGreaterThan(0);
+    expect(combatTypes.length, `tower types: ${combatTypes.join(', ')}`).toBeGreaterThanOrEqual(SKILL === 'beginner' ? 1 : 2);
+    if (SKILL === 'expert') {
+      expect(report.actions['start-wave'] ?? 0).toBeGreaterThanOrEqual(WAVES);
+      expect(combatTypes.length).toBeGreaterThanOrEqual(3);
+      expect(hq.health).toBeGreaterThan(0);
+    }
   });
 
-  await test.step('B4: the bot sets the aim of its towers for the boss and the air waves on the way', async () => {
-    expect(report.actions['set-targeting'] ?? 0).toBeGreaterThan(0);
+  await test.step('B4: the expert sets the aim of its towers for the boss and the air waves on the way', async () => {
+    if (SKILL === 'expert') expect(report.actions['set-targeting'] ?? 0).toBeGreaterThan(0);
+    else expect(report.actions['set-targeting'] ?? 0).toBe(0);
   });
 });

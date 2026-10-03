@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TOWER_TYPES, TowerTypeId } from '../../../configs/tower-types.config';
 import type { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { BotPerception } from '../../perception/bot-perception';
-import { BOT_CONFIGS } from '../../bots/tower-bot.interface';
+import { BOT_CONFIGS, towersByWave } from '../../bots/tower-bot.interface';
 import { emptySides, expectedMetres, sum, threatFromWaves, towerCapacity } from '../../decision/value';
 import type { DecisionContext } from '../tower-strategy.interface';
 import { IDLE_WAVES, TowerSellStrategy } from './tower-sell.strategy';
@@ -71,9 +71,8 @@ describe('TowerSellStrategy', () => {
   });
 
   it('makes room at its pace, in the build phase, for a type worth much more', () => {
-    const { base, perWave } = BOT_CONFIGS.expert.buildTempo;
-    const wave = 2;
-    const towers = Array.from({ length: base + perWave * wave }, (_, i) => tower(`a${i}`, 'archer', 300));
+    const wave = 4;
+    const towers = Array.from({ length: towersByWave(BOT_CONFIGS.expert, wave) }, (_, i) => tower(`a${i}`, 'archer', 300));
     const metres = Object.fromEntries(towers.map((t) => [t.id, full]));
     const rich = state('setup', wave, 5000, ['archer', 'magic']);
     const [proposal] = strategy(towers).propose(rich, context(metres));

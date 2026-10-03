@@ -86,7 +86,7 @@ bot-server/                     # Python Bot-Server (nur für Bot-Läufe, plant 
 coop-server/                    # Node-Relay für Coop (npm run coop-server, :3003), Einstieg der Desktop-App (desktop.ts)
 desktop/                        # Electron-App: Installer, Auto-Update, LAN-Relay und LAN-Suche (docs/ELECTRON_DESKTOP_PLAN.md)
 e2e/                            # Playwright-Tests des Dev-Spiels (docs/E2E.md)
-tools/                          # Charts, Modell-Budget, Shader-Check, Blender-Skripte, Build-Info, Relay-Last
+tools/                          # Charts, Modell-Budget, Shader-Check, Blender-Skripte, Build-Info, Relay-Last, Spielprofil
 landing/                        # Projektseite
 ```
 

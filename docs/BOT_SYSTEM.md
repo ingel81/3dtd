@@ -15,10 +15,10 @@ startet Wellen. Er hat zwei Aufgaben, und die zweite bestimmt sein Design:
    ganze Trainingsgeneration gescheitert (siehe [Warum die Platzierung so
    aussieht](#warum-die-platzierung-so-aussieht)).
 
-**Zwei Bots seit 2026-09-20** ([BALANCING_PLAN.md](BALANCING_PLAN.md), D15):
-`beginner` und `expert`. Vorher gab es vier Stufen, von denen zwei Paare
-dasselbe Strategie-Set hatten. Der Könner heuert seit demselben Tag auch den
-Helden an; vorher maß jeder Lauf ein Spiel ohne ihn.
+**Drei Profile seit 2026-10-03** ([BOT_PLAYER_PLAN.md](BOT_PLAYER_PLAN.md), B5):
+`beginner`, `normal` und `expert`. Von 2026-09-20 bis dahin gab es zwei
+([BALANCING_PLAN.md](BALANCING_PLAN.md), D15), davor vier, von denen zwei Paare
+dasselbe Strategie-Set hatten.
 
 **Der Bot handelt nur über `command:*`.** Bauen, Upgraden, Verkaufen, Forschen,
 Fähigkeiten und der Held gehen denselben Weg wie ein Klick. Vorher riefen Bau
@@ -135,7 +135,7 @@ export interface ITowerBot {
   onWaveCompleted?(survived: boolean, damagePercent: number): void;
 }
 
-export type BotSkillLevel = 'beginner' | 'expert';
+export type BotSkillLevel = 'beginner' | 'normal' | 'expert';
 ```
 
 ### ITowerStrategy
@@ -199,18 +199,33 @@ export interface BotConfig {
 }
 ```
 
-| Skill | reactionTimeMs | maxTowers | adaptsToEnemies | buildTempo |
-|---|---|---|---|---|
-| beginner | 3000 | 10 | false | 2 + 1 je Welle |
-| expert | 800 | 40 | true | 3 + 2 je Welle |
+| Profil | reactionTimeMs | maxTowers | buildTempo | attention | noise | knows |
+|---|---|---|---|---|---|---|
+| beginner | 3000 | 10 | 1 + 1 je Welle | 0 | 0,5 | nichts davon |
+| normal | 1500 | 25 | 1 + 1,5 je Welle | 0,6 | 0,25 | Held, adaptive Forschung, verteilt bauen, Gold senden |
+| expert | 800 | 40 | 1 + 1,75 je Welle | 0,95 | 0,1 | dazu Verkaufen, Zielwahl |
 
-`adaptsToEnemies` heißt seit 2026-10-03: der Bot liest das Wellen-Panel (die
-nächsten zwei Wellen, `WaveDirector.peek`); sonst rechnet er mit der erwarteten
-Rüstungsverteilung am Boden. `buildTempo` ist das Bautempo eines Menschen:
-höchstens `base + perWave × Welle` Kampftower (`towersByWave`). Per Gold schlägt
-ein neuer Tower jedes Upgrade, ein Bot nur nach Nutzen baute 35 Archer bis
-Welle 4. Im Lauf des Users (2026-10-01, Binswangen) standen 4 Tower bei W2,
-9 bei W4, 15 bei W8, 30 bei W12; das Gold darüber ging in Upgrades.
+Die menschlichen Grenzen (Entscheidung P3):
+
+- **`attention`:** Chance, dass eine Entscheidung auf das Wellen-Panel (die
+  nächsten zwei Wellen, `WaveDirector.peek`) und die Lecks der letzten Wellen
+  schaut. Ohne den Blick rechnet der Bot mit der erwarteten Rüstungsverteilung
+  am Boden und nimmt die letzte Welle als dicht. Ersetzt `adaptsToEnemies`.
+- **`noise`:** Streuung auf den Wert jedes Kaufs, je Entscheidung gewürfelt
+  (Faktor `1 ± noise`): ein Spieler sieht nicht immer das Beste je Gold.
+- **`reactionTimeMs`** ist auch der Deckel für Aktionen je Minute: 800 ms sind 75
+  je Spielminute. Der Lauf des Users kam in Upgrade-Salven auf 60 bis 90, dazwischen
+  auf 3 bis 18; ein fester Deckel je Minute hätte die Salven verboten.
+- **`knows`:** Held, Verkaufen, Zielwahl, adaptive Forschung, verteiltes Bauen,
+  Gold senden im Coop. Die Factory baut danach das Strategie-Set.
+
+Der Zufall kommt aus dem `bot`-Strom des Laufs, Läufe bleiben reproduzierbar.
+`buildTempo` ist das Bautempo eines Menschen:
+höchstens `base + perWave × Welle` Kampftower, abgerundet (`towersByWave`). Per
+Gold schlägt ein neuer Tower jedes Upgrade, ein Bot nur nach Nutzen baute 35
+Archer bis Welle 4. Im Lauf des Users (2026-10-01, Binswangen) standen 1
+Kampftower bei W1, 3 bei W2, 8 bei W4, 14 bei W8, 29 bei W12; das Gold darüber
+ging in Upgrades. Abgleich mit `tools/play-profile/play-profile.mjs`.
 
 `knownTowerTypes` ist bei allen `ALL_COMBAT_TOWERS` (archer, dual-gatling,
 cannon, magic, rocket, ice, fire, tentacle, poison, lightning, chaos). Was ein Bot
@@ -247,11 +262,12 @@ ist die, in der der Schiedsrichter Regeln nimmt.
 | FrostBomb | Regel | ✓ | ✓ |
 | Emp | Regel | ✓ | ✓ |
 | OrbitalLaser | Regel | ✓ | ✓ |
-| Hero | Regel | | ✓ |
+| Hero | Regel | | ✓ (auch normal) |
 | ResearchCenterPlacement | Regel | ✓ | ✓ |
 | MissileSiloPlacement | Regel | ✓ | ✓ |
 | Sell | Regel | | ✓ |
 | Targeting | Regel | | ✓ |
+| Gift (nur Coop) | Regel | | ✓ (auch normal) |
 | ResearchPick | Kauf, Forschung oder Regel | ✓ | ✓ |
 | Build | Kauf | ✓ (Enden der Route) | ✓ (Zonen) |
 | Upgrade | Kauf | ✓ | ✓ |
@@ -262,14 +278,16 @@ ist die, in der der Schiedsrichter Regeln nimmt.
 Die Fähigkeiten feuern nur, wenn erforscht; das erforscht nur der Könner
 (ResearchPick), beim Einsteiger bleiben sie stumm.
 
-**Unterschied der beiden:** Der Einsteiger reagiert langsam (3000 ms gegen
-800 ms), baut höchstens 10 Tower und langsamer, liest das Wellen-Panel nicht,
-forscht nach seiner festen Liste, baut an den beiden Enden der Route,
-verkauft nie und lässt die Zielwahl, wie sie ist. Der Könner liest die
-nächsten zwei Wellen, forscht adaptiv, verteilt seine Tower über die Zonen der
-Route, verkauft, stellt vor Boss- und Luftwellen Tower um und schickt den Helden.
+**Unterschied der drei:** Der Einsteiger reagiert langsam (3000 ms), baut
+höchstens 10 Tower und langsamer, liest das Wellen-Panel nie, forscht nach
+seiner festen Liste, baut an den beiden Enden der Route, verkauft nie und lässt
+die Zielwahl, wie sie ist. Der Normale (1500 ms) schaut in sechs von zehn
+Entscheidungen auf Panel und Lecks, forscht adaptiv, verteilt seine Tower,
+heuert den Helden an und schickt im Coop Gold, verkauft aber nicht und stellt
+keine Tower um. Der Könner (800 ms) schaut fast immer, verkauft und stellt vor
+Boss- und Luftwellen Tower um.
 
-Ein Batch verteilt beide Bots gleich (`BOT_WEIGHTS` im Bot-Server); der Server
+Ein Batch verteilt die Bots gleich (`BOT_WEIGHTS` im Bot-Server); der Server
 sagt jedem Client vor jedem Lauf, welchen er spielt.
 
 ---
@@ -309,6 +327,9 @@ Abwehr die kommenden Wellen tötet.
   Kanone. Regeln wie „Anti-Air ab Welle 4“ gibt es nicht mehr.
 - **Neuer Tower:** Meter erwartet aus der Sehne seiner Reichweite neben der
   Straße (`chordMetres`) mal 0,9; den Platz probt die Platzierung selbst (B2).
+  Der erste Tower eines Typs zählt 1,5-fach (`FIRST_OF_TYPE`): ein Spieler baut,
+  was er gerade erforscht hat. Ohne das erforschte ein Normal-Bot Eis und Magie
+  und baute keins davon.
   Kurze Reichweite deckt weniger Route, darum verliert der Archer gegen
   weiterreichende Tower, sobald sie frei sind.
 - **Upgrade:** was es hinzufügt, mit den Metern, die der Tower wirklich unter
@@ -425,6 +446,16 @@ stand (`IDLE_WAVES`, Wahrnehmung B1):
 
 4 s Spielzeit zwischen zwei Verkäufen.
 
+### Gift (Regel, Coop, normal und Könner)
+
+`strategies/coop/gift.strategy.ts`, Entscheidung P5. In der Bauphase, einmal je
+Welle: hat ein Partner in der letzten Welle mehr geleckt als der Bot und weniger
+als die Hälfte seines Golds, schickt der Bot 30 % seines Golds
+(`command:give-credits`), wenn er mindestens 300 hat. Die Lecks auf den Spuren
+der Partner zählt die Wahrnehmung mit (`leaksElsewhere`), Gold und Spuren der
+Partner liefert `BotWorld.partners()`. Bereit meldet sich ein Coop-Bot wie
+jeder Bot erst, wenn der Schiedsrichter nichts mehr kauft.
+
 ### Targeting (Regel, nur Könner)
 
 `strategies/targeting/targeting.strategy.ts`. Nur in der Bauphase, nach der
@@ -436,7 +467,7 @@ nächsten Welle im Wellen-Panel, ein Tower je Entscheidung:
 - Sonst der Standard des Typs. Die erste Fassung stellte vor jeder Luftwelle
   alle Archer um und danach zurück: 104 Umstellungen bis Welle 13, jetzt 34.
 
-### Hero (Regel, nur Könner)
+### Hero (Regel, normal und Könner)
 
 `strategies/hero/hero.strategy.ts`. Drei Entscheidungen in dieser Reihenfolge:
 
@@ -799,6 +830,14 @@ Gold liegen; Sell macht am Bautempo Platz für einen deutlich besseren Typ.
 ---
 
 ## Changelog
+
+### 2026-10-03: Profile und Coop-Partner (B5, B6)
+- Bautempo neu gegen den Lauf des Users: Könner 1 + 1,75 je Welle, Normal 1 + 1,5,
+  Anfänger 1 + 1; erster Tower eines Typs 1,5-fach.
+- Drittes Profil `normal`; `attention`, `noise` und `knows` je Profil statt
+  `adaptsToEnemies` und Stufen-Abfragen in Factory und Forschung.
+- Neue Regel Gift (Coop): Gold an einen Partner, der leckt und knapp ist.
+- `tools/play-profile/play-profile.mjs` vergleicht Läufe je Welle (Replay oder Run-Log).
 
 ### 2026-10-03: Zielwahl, Verkauf, Slots, Schaden über Zeit (B4)
 - Neue Regel Targeting (Boss, Luft), neue Regel Sell (blind, Platz für Besseres)

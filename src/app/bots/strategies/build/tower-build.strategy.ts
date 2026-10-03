@@ -25,6 +25,13 @@ import type { DecisionContext, ITowerStrategy } from '../tower-strategy.interfac
 /** Where the spot comes from: zones along the route that lack towers, or the two ends of the route */
 export type BuildSpots = 'distributed' | 'strategic';
 
+/**
+ * The first tower of a type weighs this much more: a player builds what they
+ * just researched. Without it a normal bot researched ice and magic and
+ * built neither, archer upgrades won by a hair per gold.
+ */
+export const FIRST_OF_TYPE = 1.5;
+
 export class TowerBuildStrategy implements ITowerStrategy {
   readonly name = 'Build';
 
@@ -42,6 +49,7 @@ export class TowerBuildStrategy implements ITowerStrategy {
     const fighting = this.world.towerManager.getAll().filter((t) => t.typeConfig.attackType !== 'passive').length;
     if (fighting >= towersByWave(this.config, state.waveNumber)) return [];
     const airUnlocked = state.research?.airTargetingUnlocked ?? false;
+    const standing = new Set(this.world.towerManager.getAll().map((t) => t.typeConfig.id));
     const proposals: Proposal[] = [];
     for (const typeId of this.config.knownTowerTypes) {
       const cfg = TOWER_TYPES[typeId];
@@ -52,7 +60,7 @@ export class TowerBuildStrategy implements ITowerStrategy {
         kind: 'buy',
         label: cfg.name,
         cost: cfg.cost,
-        value: killTimeSaved(context.threat, context.capacity, added),
+        value: killTimeSaved(context.threat, context.capacity, added) * (standing.has(typeId) ? 1 : FIRST_OF_TYPE),
         act: () => this.place(typeId),
       });
     }

@@ -1,6 +1,6 @@
 # Bot-Spieler: Plan für einen menschenähnlichen Bot
 
-**Stand:** 2026-10-03, entschieden (P1 bis P6), B1 bis B4 gebaut
+**Stand:** 2026-10-03, entschieden (P1 bis P6), B1 bis B6 gebaut, B7 wartet auf `dev/after-0.6`
 **Code heute:** `src/app/bots/`, Beschreibung in [BOT_SYSTEM.md](BOT_SYSTEM.md)
 
 ## Ziel
@@ -153,6 +153,32 @@ ein weiterer Forschungs-Slot, wenn alle belegt sind, Gift und Brand mit ihrer Na
 Forschungs-Warteschlange nutzt der Bot nicht: sie bezahlt am Schiedsrichter vorbei. Feuerpause und Bemannen auch
 nicht, es gibt keinen Fall, in dem sie einem Bot nützen. Browserlauf bis Welle 13: 34 Umstellungen der Zielwahl,
 drei Tower auf den Boss in W10, kein Verkauf (kein Tower stand blind).
+
+**B5 Profile (gebaut 2026-10-03):** `beginner`, `normal`, `expert` mit Reaktionszeit, Bautempo, Aufmerksamkeit
+(Chance je Entscheidung, auf Wellen-Panel und Lecks zu schauen), Streuung auf den Wert der Käufe und Wissen (Held,
+Verkaufen, Zielwahl, adaptive Forschung, verteiltes Bauen, Gold senden). Ein eigener Deckel für Aktionen je Minute
+entfällt: der Lauf des Users hatte Upgrade-Salven von 60 bis 90 je Spielminute und dazwischen 3 bis 18, die
+Reaktionszeit (Könner 800 ms, 75 je Minute) deckt beides. `tools/play-profile/play-profile.mjs` vergleicht Läufe je
+Welle (Replay oder Run-Log); der Browsertest schreibt das Run-Log jeder Stufe nach `e2e/bot-runs/`. Der erste
+Tower eines Typs zählt 1,5-fach, weil ein Spieler baut, was er erforscht hat.
+
+| Welle | User: Tower / Upgrades | Könner | Normal | Anfänger |
+|---|---|---|---|---|
+| 1 | 1 / 2 | 2 / 5 | 2 / 5 | 2 / 5 |
+| 4 | 8 / 8 | 8 / 38 | 7 / 38 | 5 / 28 |
+| 8 | 14 / 21 | 15 / 85 | 13 / 95 | 9 / 55 |
+| 12 | 29 / 62 | 22 / 147 | 19 / 167 | 9 / 135 |
+
+Tower je Welle neben dem User: Könner 2,0, Normal 3,3, Anfänger 7,0 (gewollt langsamer, Deckel 10). Die Bots rüsten
+mehr auf: der Lauf des User war vor den Mindestwellen der Forschung, er hatte bis W8 fünf Forschungen, die Bots eine;
+das Gold geht bei ihnen in Upgrades. Nachjustieren mit Läufen nach der Balance-Nacht und von anderen Spielern.
+
+**B6 Coop (gebaut 2026-10-03):** Gift-Regel (normal und Könner): einmal je Welle 30 % des Golds an einen Partner,
+der mehr geleckt hat und weniger als die Hälfte hat, ab 300 Gold. Bereit meldet sich der Bot, wenn der Schiedsrichter
+nichts mehr kauft. Nur per Spec geprüft, kein Coop-Lauf im Browser.
+
+**B7 Neue Mechaniken (offen):** Camo, Tower-Pfade und Bauzeit liegen auf `dev/after-0.6`, nicht auf `next`; der Bot
+bekommt sie nach dem Merge.
 
 ## Entscheidungen
 

@@ -32,7 +32,7 @@ def main() -> int:
         if not result.runs:
             continue
         for group in group_runs(result.runs):
-            who = "expert" if "expert" in group.label else "beginner"
+            who = next((bot for bot in ("expert", "normal", "beginner") if bot in group.label), "?")
             rounds.append((f"{path.name} · {who}", group))
 
     if not rounds:

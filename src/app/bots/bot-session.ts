@@ -377,6 +377,13 @@ export class BotSession {
         }
         break;
 
+      case 'give-credits':
+        // Coop: the gold window's command, from the own gold (docs/COOP_PLAN.md)
+        if (action.to && action.amount && action.amount > 0) {
+          this.sim.bus.emit({ type: 'command:give-credits', to: action.to, amount: action.amount });
+        }
+        break;
+
       case 'set-targeting':
         if (action.towerId && action.targeting && this.mirror.tower(action.towerId)) {
           this.sim.bus.emit({ type: 'command:set-targeting', towerId: action.towerId, strategy: action.targeting });
