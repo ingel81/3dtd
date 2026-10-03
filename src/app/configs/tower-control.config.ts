@@ -47,9 +47,10 @@ export const TOWER_CONTROL = {
   /**
    * Feedback cues (the kill gold) sound as from at least this far off while
    * the player sits in a tower, m: about where the camera hangs otherwise,
-   * instead of at full volume a few metres over the kills
+   * instead of at full volume a few metres over the kills. 150 m was twice
+   * as loud as the overview, where the coin is barely heard
    */
-  feedbackSoundMinDistanceM: 150,
+  feedbackSoundMinDistanceM: 400,
   /** How long the hit marker stays on the crosshair, ms (wall clock) */
   hitMarkerMs: 160,
   /** How long the kill marker stays, ms (wall clock) */

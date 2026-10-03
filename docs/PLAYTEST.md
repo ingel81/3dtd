@@ -214,6 +214,8 @@ Spur). Ein Lauf mit zwei Spawns, gern über W20 hinaus; am Ende über "Runs" Run
   um W38 komplett. Auf W17, W27, W44 und W50 achten (Luft und Geister).
 - **N15 Coop über zwei Rechner** (Protokoll 3, Relay und Client neu): Raum, Spuren je Spieler wählen, ein Lauf bis
   mindestens W10, keine Abweichung.
+- **N16 Münze im bemannten Tower** (2026-10-03): Tower bemannen und eine Welle schießen. Das Kill-Gold klingt so leise
+  wie von oben, nicht mehr deutlich lauter (Rückmelde-Sounds jetzt wie aus 400 m statt 150 m).
 
 ## K8 Desktop-Build
 

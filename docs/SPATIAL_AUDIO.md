@@ -209,10 +209,11 @@ kein Geräusch des Kampfs, Stand heute nur das Kill-Gold (`WORLD_SOUNDS.coin`). 
 Spieler in einem Tower ([TOWER_CONTROL.md](TOWER_CONTROL.md)), hängt die Kamera und damit
 der Hörer wenige Meter über den Kills statt 100 bis 400 m darüber; unterhalb der
 `refDistance` dämpft der Panner nicht, der Coin war dort rund 14-mal lauter (etwa +23 dB).
-`SpatialAudioManager.setFeedbackMinDistance(m)` (dort 150 m, 0 = aus) skaliert die
+`SpatialAudioManager.setFeedbackMinDistance(m)` (dort 400 m, 0 = aus) skaliert die
 Lautstärke solcher Sounds näher als `m` auf den Wert, den das Distanzmodell bei `m` gäbe
 (`feedbackDistanceScale`). Schüsse, Einschläge und Gegner bleiben bei ihrer echten
-Entfernung.
+Entfernung. Bis 2026-10-03 waren es 150 m: Der Coin klang im Tower doppelt so laut wie aus
+300 m Draufsicht, und fast jeder Kill liegt in Reichweite des Towers (Playtest).
 
 **Methoden in SpatialAudioManager:**
 ```typescript
