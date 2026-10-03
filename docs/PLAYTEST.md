@@ -218,6 +218,9 @@ Spur). Ein Lauf mit zwei Spawns, gern über W20 hinaus; am Ende über "Runs" Run
   wie von oben, nicht mehr deutlich lauter (Rückmelde-Sounds jetzt wie aus 400 m statt 150 m).
 - **N17 Tentacle-Griff** (2026-10-03): Tentacle Tower bauen, Gegner greifen lassen. Der neue Saugnapf-Griff passt zum
   Zupacken und ist neben Schüssen hörbar, nicht zu laut.
+- **N18 Coop-Start nach Solo-Lauf** (2026-10-04, mit N15): allein ein paar Wellen spielen, dann einen Raum öffnen.
+  Der Lauf läuft weiter, bis der Host „Start match“ drückt; dann fragt der Dock-Fuß „This ends your solo run (wave N)“,
+  „Cancel“ lässt den Lauf stehen, „Start anyway“ startet.
 
 ## K8 Desktop-Build
 
