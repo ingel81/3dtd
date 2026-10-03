@@ -18,6 +18,7 @@ import { ITowerBot, TowerAction, BotSkillLevel } from './bots/tower-bot.interfac
 import { StrategyBotFactory } from './bots/strategy-bot.factory';
 import { PlayerBotWorld } from './bot-world';
 import { WaveDirector } from '../director/wave-director';
+import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 import { GeoPosition } from '../models/game.types';
 import { TowerDefenseStore } from '../store/tower-defense.store';
@@ -127,19 +128,17 @@ export class BotSession {
 
     const pathRoute = inject(PathAndRouteService);
     const waves = inject(WaveDirector);
+    const grid = inject(GlobalRouteGridService);
     this.world = new PlayerBotWorld({
       mirror: this.mirror,
       spawnPoints: () => this.store.spawnPoints(),
       paths: () => pathRoute.getCachedPaths(),
       routes: inject(RouteQueriesService),
       peek: (request) => waves.peek(request),
+      metresUnderFire: (routes) => grid.metersUnderFire(routes).byTower,
     });
     this.watchWaves();
-    this.botFactory = new StrategyBotFactory(
-      deps.strategicPlacement,
-      this.world,
-      deps.osmService
-    );
+    this.botFactory = new StrategyBotFactory(deps.strategicPlacement, this.world);
   }
 
   /**

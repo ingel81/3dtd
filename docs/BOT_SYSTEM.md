@@ -1,6 +1,6 @@
 # Bot System: Dokumentation
 
-**Stand:** 2026-09-20
+**Stand:** 2026-10-03 (Schiedsrichter, B3 in [BOT_PLAYER_PLAN.md](BOT_PLAYER_PLAN.md))
 **Code:** `src/app/bots/`
 
 ## Überblick
@@ -25,9 +25,13 @@ Fähigkeiten und der Held gehen denselben Weg wie ein Klick. Vorher riefen Bau
 und Verkauf direkt in den `GameStateManager`, und das Run-Log
 ([RUN_LOG.md](RUN_LOG.md)) hätte diese Entscheidungen nie gesehen.
 
-Architektur: **Strategy Pattern mit Composition**. Ein `StrategyBot` hält eine
-nach Priorität sortierte Liste von `ITowerStrategy`-Objekten und führt pro
-Entscheidung die erste aus, die kann und will.
+Architektur: **Strategien schlagen vor, ein Schiedsrichter entscheidet**
+(seit 2026-10-03). Ein `StrategyBot` hält eine Liste von `ITowerStrategy`-
+Objekten; jede liefert Vorschläge (`Proposal`), `arbitrate` in
+`decision/arbiter.ts` nimmt einen. Käufe vergleicht er nach Nutzen je Gold
+(`decision/value.ts`). Vorher führte er je Entscheidung die erste Strategie
+einer Prioritätsliste aus, die konnte. Wahrnehmung (B1) und Sichtprobe (B2)
+stehen in [BOT_PLAYER_PLAN.md](BOT_PLAYER_PLAN.md).
 
 ---
 
@@ -39,7 +43,9 @@ Sub-Step-Loop (game-loop-facade)
        └─ BotSession.updateBot(getSnapshot, deltaTime)
             ├─ bot.tickCooldown(deltaTime)      → false ⇒ Abbruch, KEIN Snapshot
             ├─ bot.update(getSnapshot(), 0)     → StrategyBot.decideAction(state)
-            │    └─ Strategien in Prioritätsreihenfolge: canExecute() → execute()
+            │    ├─ Kontext: Bedrohung, Kapazität, Meter je Tower
+            │    ├─ jede Strategie: propose(state, context) → Proposal[]
+            │    └─ arbitrate(): Regeln → Forschung → Kauf nach Nutzen/Gold → Welle
             └─ BotSession.executeBotAction(action)
 ```
 
@@ -58,12 +64,11 @@ Drei Details, die man beim Lesen des Codes sonst falsch erwartet:
   läuft bei hohem Spieltempo ~200 Ticks pro gerendertem Frame. Wer
   `tickCooldown` vorher ruft, übergibt danach `deltaTime = 0`, sonst tickt der
   Cooldown doppelt.
-- **`wait`-Actions blockieren nicht.** Gibt eine Strategie `wait` zurück (typisch:
-  „ich spare auf einen Turmtyp"), merkt der Bot das als Fallback und probiert
-  weiter niedrigere Prioritäten. Erst wenn keine konkrete Action zustande kommt,
-  wird der gemerkte `wait` geliefert. Jede Action, auch `wait`, setzt den
-  Reaktionszeit-Cooldown zurück, damit zufallsbasierte Entscheidungen nicht
-  jeden Frame neu gewürfelt werden.
+- **`wait` kommt vom Schiedsrichter.** Er wartet, wenn er auf einen Kauf
+  spart oder nichts lohnt; der Grund steht im `reason` („Saving for …“). Jede
+  Action, auch `wait`, setzt den Reaktionszeit-Cooldown zurück. Ein `wait`
+  zählt nicht als Aktion für die Strategien (`onActionExecuted`), sonst liefe
+  der Timer des Wellenstarts nie ab.
 
 Strategie-eigene Cooldowns (Sell-Cooldown, Wave-Start-Delay) laufen über
 `tickCooldowns(deltaTime)` und werden **jeden** Frame getickt, auch während der
@@ -78,36 +83,32 @@ verhungern.
 src/app/bots/
 ├── bot-client.service.ts       # Einstieg: Signale für UI/Game-Loop, lädt die Session bei Bedarf
 ├── bot-session.ts              # WebSocket-Client + Bot-Steuerung + Action-Ausführung (Lazy-Chunk)
+├── bot-world.ts                # Was der Bot sieht: Tower, Gegner, Routen, Wahrnehmung, Wellen-Panel
 │
 ├── bots/
-│   ├── tower-bot.interface.ts       # ITowerBot, TowerAction, BotConfig, BOT_CONFIGS
+│   ├── tower-bot.interface.ts       # ITowerBot, TowerAction, BotConfig, BOT_CONFIGS, towersByWave
 │   ├── base-tower-bot.ts            # Cooldown, Stats
-│   ├── strategy-bot.ts              # Prioritätsauswahl, Strategie-Notifications
+│   ├── strategy-bot.ts              # Kontext je Entscheidung, Vorschläge sammeln, Schiedsrichter
 │   └── strategy-bot.factory.ts      # Strategie-Sets je Skill-Level + Jitter
 │
+├── decision/
+│   ├── arbiter.ts                   # Proposal, arbitrate(): Reihenfolge, Sparziel
+│   └── value.ts                     # Bedrohung, Kapazität, Nutzen (killTimeSaved), Verlangsamung
+│
+├── perception/
+│   └── bot-perception.ts            # Letzte Wellen: Kills je Abschnitt, Lecks, Tower-Leistung (B1)
+│
 └── strategies/
-    ├── tower-strategy.interface.ts  # ITowerStrategy, BaseStrategy (+ Tower-Bewertung)
-    ├── ability/
-    │   ├── ability-aim.ts                          # Zielhilfen (densestCenter, enemyAhead), geteilt
-    │   ├── nuclear-strike.strategy.ts              # 97
-    │   ├── frost-bomb.strategy.ts                  # 96
-    │   ├── emp.strategy.ts                         # 94
-    │   └── orbital-laser.strategy.ts               # 93
-    ├── placement/
-    │   ├── research-center-placement.strategy.ts   # 95
-    │   ├── missile-silo-placement.strategy.ts      # 91
-    │   ├── anti-air-placement.strategy.ts          # 90
-    │   ├── anti-ethereal-placement.strategy.ts     # 88
-    │   ├── splash-defense-placement.strategy.ts    # 85
-    │   ├── distributed-placement.strategy.ts       # 65
-    │   └── coverage-fill.strategy.ts               # 60
-    ├── research/
-    │   └── research-pick.strategy.ts               # 80
+    ├── tower-strategy.interface.ts  # ITowerStrategy, DecisionContext, BaseStrategy (eine Regel)
+    ├── ability/                     # Regeln: Nuklearschlag, Frostbombe, EMP, Orbitallaser
+    ├── hero/hero.strategy.ts        # Regel: anheuern, Munition, Stellung
+    ├── placement/                   # Regeln: Research Center, Missile Silo
+    ├── research/research-pick.strategy.ts   # Forschung: Kauf, Forschung oder Regel
+    ├── build/tower-build.strategy.ts        # Kauf: ein neuer Tower je Typ
     ├── upgrade/
-    │   ├── path-coverage-upgrade.strategy.ts       # 75
-    │   └── sell-underperformer.strategy.ts         # 72
-    └── wave/
-        └── auto-start-wave.strategy.ts             # 30
+    │   ├── tower-upgrade.strategy.ts        # Kauf: jedes Upgrade jedes Towers
+    │   └── sell-underperformer.strategy.ts  # Regel: Verkauf
+    └── wave/auto-start-wave.strategy.ts     # Welle
 ```
 
 Es gibt **keine** `index.ts`-Barrels in diesem Baum; importiert wird direkt aus
@@ -142,23 +143,27 @@ export type BotSkillLevel = 'beginner' | 'expert';
 ```typescript
 export interface ITowerStrategy {
   readonly name: string;
-  readonly priority: number;          // 0-100, höher = zuerst geprüft
-
-  canExecute(state: GameStateSnapshot): boolean;
-  execute(state: GameStateSnapshot): TowerAction | null;
-
-  /** Optional: Game-Time-Cooldowns dekrementieren. Default no-op. */
+  /** Was sie jetzt täte; leer, wenn nichts */
+  propose(state: GameStateSnapshot, context: DecisionContext): Proposal[];
   tickCooldowns?(deltaTime: number): void;
+  onActionExecuted?(action: TowerAction): void;
+  onReset?(): void;
+}
+
+export interface Proposal {
+  kind: 'rule' | 'research' | 'buy' | 'wave';
+  label: string;
+  cost: number;     // Gold
+  value: number;    // Käufe: gesparte Tötungszeit gegen die kommenden Wellen
+  act(): TowerAction | null;   // erst für den genommenen Vorschlag ausgerechnet
 }
 ```
 
-`BaseStrategy` liefert zusätzlich die geteilten Bewertungshelfer:
-
-| Helfer | Zweck |
-|---|---|
-| `getAffordableTowers(credits, knownTypes, state?)` | filtert nach Kosten, wirft `attackType === 'passive'` (Research Center, Missile Silo) raus und respektiert `state.research.towerUnlocked` |
-| `getTowerValue(type)` | DPS pro Credit über `computeTowerDPSFromLevels`, **nicht** `damage × fireRate`. Die Abkürzung liefert 0 für Beam-Tower (Fire hat `damage: 0` und trägt seinen Output in `damagePerSecond`) und ignoriert Chain-Falloff, Splash und DoT |
-| `getTowerValueVsArmor(type, armor)` | effektive DPS pro Credit gegen eine Rüstungsklasse. Notwendig, weil die Damage-Matrix schief ist: Archer schlägt Magic auf dem Papier, landet aber bei 0.1× gegen Ethereal, wo Magic 2.0× macht |
+`BaseStrategy` ist eine Strategie aus einer Regel: `canExecute`/`execute` wie
+früher, `propose` macht daraus einen Vorschlag ihrer Art (`rule` als Vorgabe,
+`wave` für den Wellenstart). `DecisionContext` baut der `StrategyBot` einmal je
+Entscheidung: Bedrohung, Kapazität, Meter unter Feuer je Tower, Zahl und mittlere
+Länge der eigenen Routen.
 
 ### TowerAction
 
@@ -194,10 +199,18 @@ export interface BotConfig {
 }
 ```
 
-| Skill | reactionTimeMs | maxTowers | adaptsToEnemies |
-|---|---|---|---|
-| beginner | 3000 | 10 | false |
-| expert | 800 | 40 | true |
+| Skill | reactionTimeMs | maxTowers | adaptsToEnemies | buildTempo |
+|---|---|---|---|---|
+| beginner | 3000 | 10 | false | 2 + 1 je Welle |
+| expert | 800 | 40 | true | 3 + 2 je Welle |
+
+`adaptsToEnemies` heißt seit 2026-10-03: der Bot liest das Wellen-Panel (die
+nächsten zwei Wellen, `WaveDirector.peek`); sonst rechnet er mit der erwarteten
+Rüstungsverteilung am Boden. `buildTempo` ist das Bautempo eines Menschen:
+höchstens `base + perWave × Welle` Kampftower (`towersByWave`). Per Gold schlägt
+ein neuer Tower jedes Upgrade, ein Bot nur nach Nutzen baute 35 Archer bis
+Welle 4. Im Lauf des Users (2026-10-01, Binswangen) standen 4 Tower bei W2,
+9 bei W4, 15 bei W8, 30 bei W12; das Gold darüber ging in Upgrades.
 
 `knownTowerTypes` ist bei allen `ALL_COMBAT_TOWERS` (archer, dual-gatling,
 cannon, magic, rocket, ice, fire, tentacle, poison, lightning, chaos). Was ein Bot
@@ -217,58 +230,99 @@ Skill-Level unterscheiden sich in Reaktionszeit, Turm-Cap und Strategie-Set.
 Die Factory legt beim Erzeugen ±30 % Jitter auf `reactionTimeMs` und `maxTowers`
 (`jitterConfig()`, Faktor in [0.7, 1.3], Untergrenzen 100 ms und 5 Türme,
 `maxTowers = 0` bleibt 0), damit
-parallele Bot-Tabs nicht identisch spielen.
+parallele Bot-Tabs nicht identisch spielen. Seit 2026-10-03 bekommen auch die
+Strategien die gejitterte Config; vorher lasen sie `BOT_CONFIGS` und der
+Jitter des Tower-Deckels wirkte nie.
 
 ---
 
 ## Strategie-Sets je Skill-Level
 
-Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
+Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`. Die Reihenfolge
+ist die, in der der Schiedsrichter Regeln nimmt.
 
-| Priority | Strategie | beginner | expert |
-|---:|---|:--:|:--:|
-| 97 | NuclearStrike | ✓ | ✓ |
-| 96 | FrostBomb | ✓ | ✓ |
-| 95 | ResearchCenterPlacement | ✓ | ✓ |
-| 94 | Emp | ✓ | ✓ |
-| 93 | OrbitalLaser | ✓ | ✓ |
-| 91 | MissileSiloPlacement | ✓ | ✓ |
-| 90 | AntiAirPlacement | | ✓ |
-| 88 | AntiEtherealPlacement | | ✓ |
-| 85 | SplashDefensePlacement | | ✓ |
-| 85 | Hero | | ✓ |
-| 80 | ResearchPick | ✓ | ✓ |
-| 75 | PathCoverageUpgrade | | ✓ |
-| 72 | SellUnderperformer | | ✓ |
-| 65 | DistributedPlacement | | ✓ |
-| 60 | CoverageFill | ✓ | |
-| 30 | AutoStartWave | (✓) | (✓) |
+| Strategie | Art | beginner | expert |
+|---|---|:--:|:--:|
+| NuclearStrike | Regel | ✓ | ✓ |
+| FrostBomb | Regel | ✓ | ✓ |
+| Emp | Regel | ✓ | ✓ |
+| OrbitalLaser | Regel | ✓ | ✓ |
+| Hero | Regel | | ✓ |
+| ResearchCenterPlacement | Regel | ✓ | ✓ |
+| MissileSiloPlacement | Regel | ✓ | ✓ |
+| SellUnderperformer | Regel | | ✓ |
+| ResearchPick | Kauf, Forschung oder Regel | ✓ | ✓ |
+| Build | Kauf | ✓ (Enden der Route) | ✓ (Zonen) |
+| Upgrade | Kauf | ✓ | ✓ |
+| AutoStartWave | Welle | (✓) | (✓) |
 
 `(✓)` = wird nur angehängt, wenn `createBot(skill, autoStartWaves = true)`.
 
-NuclearStrike steht in beiden Sets, feuert aber nur mit erforschtem
-`nuclear-strike` und stehendem Missile Silo, und das erforscht nur der Könner
-(ResearchPick). Dasselbe gilt für MissileSiloPlacement, für FrostBomb und
-`frost-bomb`, Emp und `emp`, OrbitalLaser und `orbital-laser`.
-Frostbombe, EMP und Orbitallaser suchen ihre Kandidaten je für sich
-(`enemiesFromProgress` in `ability-aim.ts`, der EMP zweimal): Im selben Zug
-geht die Liste der Gegner mehrmals durch. Nicht gemessen, nicht geteilt.
+Die Fähigkeiten feuern nur, wenn erforscht; das erforscht nur der Könner
+(ResearchPick), beim Einsteiger bleiben sie stumm.
 
 **Unterschied der beiden:** Der Einsteiger reagiert langsam (3000 ms gegen
-800 ms), baut höchstens 10 Tower (gegen 20), forscht nur `gatling-tech`, füllt
-die Route ohne Rücksicht auf die Gegnerart und verkauft nie. Der Könner
-antwortet auf das, was eine Welle bringt, forscht den ganzen Baum inklusive
-Söldner-Vertrag, rüstet entlang des Pfads auf, verkauft, was sich nicht trägt,
-und schickt den Helden dorthin, wo die Gegner stehen.
+800 ms), baut höchstens 10 Tower und langsamer, liest das Wellen-Panel nicht,
+forscht nach seiner festen Liste, baut an den beiden Enden der Route und
+verkauft nie. Der Könner liest die nächsten zwei Wellen, forscht adaptiv,
+verteilt seine Tower über die Zonen der Route, verkauft und schickt den Helden.
 
 Ein Batch verteilt beide Bots gleich (`BOT_WEIGHTS` im Bot-Server); der Server
 sagt jedem Client vor jedem Lauf, welchen er spielt.
 
 ---
 
+## Der Schiedsrichter
+
+`decision/arbiter.ts`, Entscheidung P1 in [BOT_PLAYER_PLAN.md](BOT_PLAYER_PLAN.md).
+Reihenfolge:
+
+1. **Regeln** in der Reihenfolge der Factory, die erste, die eine Aktion
+   ergibt: Fähigkeiten, Held, Research Center, Silo, Verkauf, eine Forschung,
+   auf die die nächste Welle nicht warten kann.
+2. **Forschung** ohne Kaufwert, solange die letzte Welle dicht war.
+3. **Käufe** nach Nutzen je Gold. Ist der beste aller Käufe zu teuer, aber je
+   Gold mindestens `SAVE_MARGIN` (1,5) mal so gut wie der beste bezahlbare und
+   höchstens `SAVE_REACH` (3) mal so teuer wie das Gold, das da ist, spart der
+   Bot darauf.
+4. **Forschung** nach einem Leck, wenn es nichts zu kaufen gibt.
+5. **Welle**, in der Bauphase, wenn oben nichts handelt: das Gold ist
+   ausgegeben oder verplant.
+
+### Nutzen
+
+`decision/value.ts`. Eine Einheit für jeden Kauf: wie viel schneller die
+Abwehr die kommenden Wellen tötet.
+
+- **Bedrohung:** HP der nächsten Welle je Rüstung, Boden und Luft, die
+  übernächste zur Hälfte (`threatFromWaves`, aus dem Wellen-Panel). Den
+  Luftanteil einer Rüstung geben die Gegnerarten der Welle, die sie tragen.
+- **Kapazität:** Schaden mal Meter Route unter Feuer je Rüstung und Seite
+  (`damageMetresPerArmor`, echte Sichtlinien). Über das Tempo eines Gegners
+  ist das die HP, die er auf dem Weg verliert.
+- **Nutzen** eines Kaufs, der Kapazität `Δ` hinzufügt:
+  `Σ Bedrohung × (1/(Kapazität + Boden) − 1/(Kapazität + Boden + Δ))`.
+  Der Ertrag fällt mit dem, was steht: eine Lücke ist am meisten wert. Gegen
+  eine Luftwelle ohne Luftabwehr schlägt der erste Luft-Tower jede weitere
+  Kanone. Regeln wie „Anti-Air ab Welle 4“ gibt es nicht mehr.
+- **Neuer Tower:** Meter erwartet aus der Sehne seiner Reichweite neben der
+  Straße (`chordMetres`) mal 0,9; den Platz probt die Platzierung selbst (B2).
+  Kurze Reichweite deckt weniger Route, darum verliert der Archer gegen
+  weiterreichende Tower, sobald sie frei sind.
+- **Upgrade:** was es hinzufügt, mit den Metern, die der Tower wirklich unter
+  Feuer hat; eine Reichweitenstufe skaliert die Meter mit der Sehne.
+- **Verlangsamung** (Eis, `slowAdded`): Gegner bleiben länger im Feuer der
+  anderen Tower auf seiner Strecke, für den Anteil, den er verlangsamt halten
+  kann.
+- **Forschung** mit Tower-Freischaltung: der Gewinn je Gold des neuen Typs
+  gegenüber dem besten jetzigen, mal 1.000 Gold, die der Bot in den Typ
+  stecken wird (`UNLOCK_SPEND`); ein Tor zählt mit 0,9 dessen, was es öffnet.
+
+---
+
 ## Strategien im Einzelnen
 
-### ResearchCenterPlacement (95)
+### ResearchCenterPlacement (Regel)
 
 Baut das Research-Center, solange `state.research.centerLevel === 0`. Wartet, bis
 Center **plus** ein Archer bezahlbar sind (75 + 45), damit der Bot sich nicht
@@ -277,10 +331,10 @@ in die Forschung leerkauft und ohne Verteidigung dasteht. Position über
 Reichweite (der Service bewertet die Abdeckung dann in 60 m), aber er liefert
 bereits validierte straßennahe Punkte.
 
-Höchste Priorität, weil ohne Center kein Tower-Unlock passiert und damit fast
-das gesamte Spiel verschlossen bleibt.
+Eine Regel vor jedem Kauf, weil ohne Center kein Tower-Unlock passiert und
+damit fast das gesamte Spiel verschlossen bleibt.
 
-### MissileSiloPlacement (91)
+### MissileSiloPlacement (Regel)
 
 Baut das Missile Silo, von dem der Nuklearschlag startet
 ([ABILITIES.md](ABILITIES.md#nuklearschlag-in-zahlen)): sobald
@@ -292,50 +346,21 @@ Research Center: Silo **plus** ein Archer (400 + 45). Position über
 Reichweite in 60 m bewertet, 15 bis 25 m neben der Straße und nach den
 Platzierungsregeln, also nicht auf der Route.
 
-Priorität 91: über den Kampf-Platzierungen, damit die 1.000 Gold der Forschung
-nicht ohne Silo liegen bleiben, unter dem Research Center und den Fähigkeiten.
+Eine Regel vor jedem Kauf, damit die 1.000 Gold der Forschung nicht ohne Silo
+liegen bleiben.
 Wie das Research Center ignoriert die Strategie `maxTowers`, das Silo zählt
 aber wie das Center in `defense.towerCount` und damit gegen den Turm-Cap der
 anderen Platzierungen.
 
-### AntiAirPlacement (90)
+### ResearchPick
 
-Aktiv bei `vulnerabilities.airDefenseGap`, ab Welle 4, unterhalb `maxTowers`,
-sobald ein luftfähiger Turm bezahlbar ist.
-
-Wählt nach **effektiver DPS pro Credit gegen `light`**, nicht nach roher
-DPS-pro-Kosten. Nach roher DPS gewann immer der Archer: der schließt die Lücke
-formal (er kann Luft treffen), lässt die Verteidigung aber ohne echte Antwort
-auf einen Dragon. `light` ist die Rüstung, die die ersten Luftwellen schicken.
-
-### AntiEtherealPlacement (88)
-
-Aktiv, solange weniger als ein Viertel der Türme Ethereal trifft (ab dem dritten
-Turm mindestens einer, `antiEtherealWanted()`), unterhalb `maxTowers`.
-
-Ethereal ist die eine Rüstungsklasse, die sich nicht mit Masse erschlagen lässt:
-physical, pierce und fire liegen alle bei 0.1×, nur magic (2.0×), ice (1.5×),
-lightning (1.5×) und chaos (1.0×) kommen durch. Ein Spieler baut Magic, Eis und
-Blitz als Teil des Mix, nicht erst nach der ersten Geisterwelle; baute der Bot
-nur einen einzigen, spät, maßen die Geisterzeilen einen wehrlosen Bot statt der
-Welle.
-
-Auswahl: der am wenigsten gebaute der drei Typen, bei Gleichstand der beste nach
-`getTowerValueVsArmor(t, 'ethereal')`.
-
-### SplashDefensePlacement (85)
-
-Aktiv bei `vulnerabilities.splashGap`, ab Welle 3. Liest Splash aus
-`isSplashTower`, das ihn aus der Tower-Config ableitet (Projektil mit
-`splashRadius`, Beam, Chain): Cannon, Ice, Poison, Fire und Lightning. Die
-Rocket hat keinen Splash und zählt nicht. Auswahl nach `getTowerValueVsArmor`,
-gewichtet mit `expectedArmorDistribution` (ohne Verteilung roh nach `getTowerValue`):
-seit der Matrix-Spreizung 2026-09 ist die Cannon gegen weiche Schwärme schwach (0,5).
-
-### ResearchPick (80)
-
-Feuert, wenn ein Center steht, ein Slot frei ist und die nächste Node bezahlbar
-ist und ihre Prereqs erfüllt sind.
+Schlägt die nächste Node vor, wenn ein Center steht, ein Slot frei ist und ihre
+Prereqs und ihre Mindestwelle erfüllt sind, auch unbezahlbar, damit der
+Schiedsrichter darauf sparen kann. Schaltet sie einen Tower frei, der je Gold
+besser ist als der beste baubare, ist sie ein **Kauf** (Nutzen siehe oben).
+Sonst ist sie **Forschung** und wartet, bis eine Welle dicht war. Bringt die
+nächste Welle Luft, gegen die nichts schießt, und ist der Retrofit (oder bei
+gepanzerter Luft die Rakete) dran, ist sie eine **Regel**, sobald bezahlbar.
 
 - **beginner:** nur `gatling-tech`.
 - **expert:** primär **adaptiv**: bewertet alle offenen Nodes gegen
@@ -377,49 +402,7 @@ Drei Sonderregeln, alle aus konkreten Fehlern:
   eine Verteidigung voller Archer (die Luft treffen) als „keine Anti-Air" und
   der Bot kaufte weiter Rocketry.
 
-### PathCoverageUpgrade (75)
-
-**War `NearSpawnUpgradeStrategy`; umbenannt, weil sich das Verhalten geändert
-hat.** Datei: `strategies/upgrade/path-coverage-upgrade.strategy.ts`.
-
-Bedingungen: ≥ 3 Türme, ≥ 50 Credits, mindestens ein bezahlbares Upgrade
-vorhanden. Feuerrate 70 % pro Entscheidung, 90 % ab 2000 Credits, damit
-hortende Bots ihre Kasse tatsächlich in Upgrades leeren statt auf 300k zu
-sitzen.
-
-Erst ausbauen (2026-09-28): unter `towersWanted(Welle, maxTowers)`, vier Türme und einer mehr je Welle bis zur
-Obergrenze, geht das Gold in neue Türme, außer ab 2000 Credits. Vorher rüstete der Experte bis Welle 11 drei oder vier
-Türme auf, und jede Bot-Messung begann mit einer Abwehr, die kein Mensch baut.
-
-Ablauf:
-
-1. Türme mit verfügbaren Upgrades nach Distanz zum nächsten Spawn sortieren.
-2. **Kandidaten abwechselnd von BEIDEN Enden der Liste nehmen** (bis zu 8).
-   Die Liste läuft spawn-nächster → spawn-fernster, und spawn-fernst ist
-   HQ-nächst; es braucht also keine zweite Distanzrechnung. Vorne zuerst je
-   Paar, weil die Eröffnungswellen am Spawn entschieden werden und ein junger
-   Run zu wenige Türme hat, als dass das ferne Ende zählt.
-3. Pro Kandidat die bezahlbaren Upgrades filtern, Tier-Gate über das geteilte
-   `requiredUpgradeTier()` (`research-slots` ist ausgenommen).
-4. Das Upgrade mit dem **niedrigsten** aktuellen Level wählen, Gleichstand
-   zufällig; so bleiben die drei Upgrade-Tracks eines Turms auf ähnlicher Höhe
-   statt einer maximiert.
-
-Warum acht Kandidaten und nicht einer: Vorher wurde nur `towersWithDistance[0]`
-betrachtet. War dessen nächstes Upgrade unbezahlbar oder tier-gesperrt, gab die
-Strategie `null` zurück und die Platzierungsstrategien (niedriger priorisiert,
-aber praktisch immer anwendbar) bekamen jeden Zug. Mit der Late-Game-Gold-Kurve
-ergab das eine Verteidigung aus ~300 Türmen auf niedrigem Level statt einer
-kompakten hochgezogenen.
-
-Warum von beiden Enden: siehe [nächster Abschnitt](#warum-die-platzierung-so-aussieht).
-
-Das eigene Tier-Mapping ist ebenfalls entfallen: der Bot trug eine strengere
-lokale Kopie (Tier 2 schon ab Level 1, Tier 3 ab Level 2, darüber nichts) und
-lehnte damit Upgrades ab, die die Engine akzeptiert hätte; Tier 4 und 5 waren
-für ihn unerreichbar.
-
-### SellUnderperformer (72, nur Könner)
+### SellUnderperformer (Regel, nur Könner)
 
 Verkauft **unaufgerüstete Archer**, wenn ≥ 2000 Credits da sind, ≥ 5 Türme
 stehen, der Sell-Cooldown (4 s Game-Time) abgelaufen ist und ein teurerer,
@@ -430,23 +413,7 @@ Verkaufsmechanismus entstanden 300k-Gold-Horte.
 Der Kommentar im Code beschreibt eine Auswahl „nächster am Pfadende"; implementiert
 ist bewusst `archers[0]`.
 
-### DistributedPlacement (65, nur Könner)
-
-Zonenbasierte Platzierung über `findDistributedPositions` (5 Zonen entlang des
-Pfades, unterversorgte Zonen scoren höher). Auswahl-Logik:
-
-1. Erste 2 Türme: der billigste bezahlbare (Bootstrap).
-2. Ein noch nicht gebauter Typ bezahlbar? Diesen bauen (Varianz zuerst).
-3. Fehlende Typen zu teuer? Mit 30 % auf den billigsten fehlenden sparen
-   (`wait`), mit 70 % den am wenigsten vertretenen vorhandenen Typ verstärken.
-4. Alle Typen vorhanden: den am wenigsten vertretenen verstärken.
-
-**Archer-Cap:** `max(4, häufigsterNichtArcher × 2)`. Archer sind billig, ohne
-Deckel endete der Bot bei 92 Archern und je einem von allem anderen. Der Cap
-wächst mit dem Mix mit, verbietet aber reinen Archer-Spam; ist nur Archer
-bezahlbar und der Cap erreicht, spart der Bot auf den billigsten Nicht-Archer.
-
-### Hero (85, nur Könner)
+### Hero (Regel, nur Könner)
 
 `strategies/hero/hero.strategy.ts`. Drei Entscheidungen in dieser Reihenfolge:
 
@@ -458,14 +425,7 @@ bezahlbar und der Cap erreicht, spart der Bot auf den billigsten Nicht-Archer.
    (`densestCenter`). Ein neuer Befehl erst, wenn der Pulk mehr als zwei Leinenlängen von seinem Posten weg ist,
    sonst läuft er mehr als er schießt.
 
-### CoverageFill (60)
-
-Dieselbe Varianz-/Verstärkungslogik wie DistributedPlacement, aber über
-`findStrategicPositions` statt Zonen und mit 50/50 statt 30/70 beim
-Spar-Entscheid; gespart wird auf einen zufälligen fehlenden Typ statt auf den
-billigsten. Erster Turm: der billigste. Gleicher Archer-Cap.
-
-### NuclearStrike (97)
+### NuclearStrike (Regel)
 
 Feuert den Nuklearschlag ([ABILITIES.md](ABILITIES.md)): während einer Welle,
 sobald die Fähigkeit bereit ist (`AbilityManager.checkUse`: erforscht,
@@ -508,21 +468,21 @@ Gruppe beim Einschlag; Läufe davor sind in allem, was vom Nuklearschlag
 abhängt, nicht direkt vergleichbar. Das Silo zählt in `defense.towerCount` wie
 das Research Center.
 
-### FrostBomb (96)
+### FrostBomb (Regel)
 
 Wirft die Frostbombe ([ABILITIES.md](ABILITIES.md#frostbombe-in-zahlen)):
 während einer Welle, sobald sie bereit ist, und nur, wenn irgendwo in der
 zweiten Hälfte der Route (Pfadfortschritt ab 0,5) mindestens 8 Gegner im
 Radius von 20 m um einen von ihnen stehen. Ziel ist dieser Gegner, gewählt wie
 beim Nuklearschlag (`densestCenter` in `strategies/ability/ability-aim.ts`,
-höchstens 48 Kandidaten). Steht beides bereit, geht der Nuklearschlag (97)
-vor.
+höchstens 48 Kandidaten). Steht beides bereit, geht der Nuklearschlag vor
+(Reihenfolge der Factory).
 
 **Vergleichbarkeit:** Der Könner erforscht `frost-bomb` direkt nach
 `nuclear-strike` (700 Gold). Ihre Läufe sind mit Läufen vor dem 2026-09-14
 nicht direkt vergleichbar; der Einsteiger spielt unverändert.
 
-### Emp (94)
+### Emp (Regel)
 
 Setzt das EMP ein ([ABILITIES.md](ABILITIES.md#emp-in-zahlen)): während einer
 Welle, sobald es bereit ist, wenn mindestens 3 Maschinen (`mechanical`) ab
@@ -535,7 +495,7 @@ den meisten anderen (`densestCenter`).
 **Vergleichbarkeit:** Der Könner erforscht `emp` direkt nach
 `storm-mastery` (800 Gold). Der Einsteiger spielt unverändert.
 
-### OrbitalLaser (93)
+### OrbitalLaser (Regel)
 
 Ruft den Orbitallaser ([ABILITIES.md](ABILITIES.md#orbitallaser-in-zahlen)):
 während einer Welle, sobald er bereit ist, wenn ein Strahl, gezielt auf einen
@@ -573,7 +533,7 @@ Zählung "bis 72 m hinter einem Gegner derselben Route" (Entscheidung E2):
 Wann und wohin er den Laser feuert, hat sich geändert, Läufe davor sind in
 allem, was vom Laser abhängt, nicht direkt vergleichbar.
 
-### AutoStartWave (30)
+### AutoStartWave (Welle)
 
 Nur im Auto-Modus und nur in der Setup-Phase, ab 1 Turm. Wartet auf laufende
 Forschung (ein Mensch startet keine Welle mitten im Upgrade), verlangt 1 s
@@ -636,9 +596,9 @@ Zwei Stellen, gemeinsam:
   Das Gewicht geht mit 0.6 in `calculatePlacementScore` ein; die restlichen 0.4
   verteilen sich auf Pfadabdeckung (0.2) und Straßenabstand (0.2, Optimum 20 m).
 
-- `path-coverage-upgrade.strategy.ts`: Upgrade-Kandidaten abwechselnd von beiden
-  Enden der spawn-sortierten Liste. Diese Strategie überholt jede
-  Platzierungsstrategie und feuert auf den meisten Ticks; solange sie nur das
+- `path-coverage-upgrade.strategy.ts` (seit 2026-10-03 entfernt, Upgrades gehen
+  nach Nutzen und den Metern, die ein Tower sieht): Upgrade-Kandidaten
+  abwechselnd von beiden Enden der spawn-sortierten Liste. Solange sie nur das
   Spawn-Ende bediente, landete praktisch das gesamte Upgrade-Gold in einem
   Cluster, egal wie gut die Platzierung verteilte.
 
@@ -782,22 +742,23 @@ Erzeugungszeitpunkt gelesen; eine spätere Änderung wirkt erst beim nächsten
 ### Bot platziert keine Türme
 
 1. Bot aktiv? → `botEnabled()`
-2. Genug Credits? → Konsole, „Not enough credits"
-3. Valide Positionen? → `StrategicPlacementService` gibt nur Kandidaten zurück,
+2. Bautempo erreicht? → `towersByWave(config, welle)`, Kampftower ohne Center und Silo
+3. Turm-Cap (`maxTowers`, gejittert) erreicht?
+4. Valide Positionen? → `StrategicPlacementService` gibt nur Kandidaten zurück,
    die `TowerPlacementService.placementChecker()` besteht (dieselben Regeln wie
-   Vorschau und Klick). Vom besten an prüft er die Grundfläche für den Tower-Typ
-   (`placementAt`), bis einer steht; davor liegende Kandidaten mit Wand oder
-   Abbruch unter dem inneren Ring fallen weg. Keine Kandidaten, keine Platzierung
-4. `canExecute()` der Strategie: Turm-Cap (`maxTowers`, gejittert!) erreicht?
-5. Reaktions-Cooldown abgelaufen? → `reactionTimeMs`, ebenfalls gejittert
+   Vorschau und Klick). Die besten vier, die stehen (`placementAt`), probt er
+   auf Sicht (B2). Keine Kandidaten, keine Platzierung; der Schiedsrichter
+   nimmt dann den nächsten Kauf
+5. Spart er? → `reason` „Saving for …“ im Bot-Fenster
+6. Reaktions-Cooldown abgelaufen? → `reactionTimeMs`, ebenfalls gejittert
 
 ### Bot upgradet nicht
 
 1. Upgrades verfügbar? → `tower.getAvailableUpgrades()`
 2. Bezahlbar? → `tower.getNextUpgradeCost(upgradeId)` (dynamisch)
 3. Tier-Gate? → `requiredUpgradeTier(level)` gegen `state.research.maxUpgradeTier`
-4. Feuerrate getroffen? → 70 %, bzw. 90 % ab 2000 Credits
-5. ≥ 3 Türme und ≥ 50 Credits vorhanden?
+4. Ein neuer Tower je Gold mehr wert? Unter dem Bautempo baut der Bot meist
+   erst aus
 
 ### Bot startet Wellen im Dauerfeuer
 
@@ -808,14 +769,23 @@ Erzeugungszeitpunkt gelesen; eine spätere Änderung wirkt erst beim nächsten
 
 ### Bot hortet Gold
 
-Erwartetes Symptom, wenn PathCoverageUpgrade nicht durchkommt (Tier-Gate, keine
-bezahlbaren Upgrades) und die Platzierungsstrategien am Turm-Cap hängen. Die
-90 %-Feuerrate ab 2000 Credits und SellUnderperformer sind die Gegenmaßnahmen;
-beim Könner greifen beide, bei den anderen Skill-Levels nur die erste.
+Er spart, wenn ein teurer Kauf je Gold klar besser ist (Sparziel, höchstens
+dreimal sein Gold). Am Bautempo und ohne Upgrade im erlaubten Tier bleibt
+Gold liegen; SellUnderperformer verkauft Archer ab 2000 Gold.
 
 ---
 
 ## Changelog
+
+### 2026-10-03: Schiedsrichter statt Prioritätsliste (B3)
+- Strategien schlagen vor (`propose`), `arbitrate` entscheidet: Regeln, Forschung,
+  Käufe nach Nutzen je Gold mit Sparziel, Welle. Nutzen in `decision/value.ts`.
+- Neu: `TowerBuildStrategy`, `TowerUpgradeStrategy`. Entfernt: AntiAir-,
+  AntiEthereal-, SplashDefense-, Distributed-Placement, CoverageFill,
+  PathCoverageUpgrade, FavouriteTowerUpgrade.
+- Forschung mit Tower-Freischaltung ist ein Kauf; Bautempo (`buildTempo`)
+  aus dem Lauf des Users; Strategien bekommen die gejitterte Config.
+- Läufe davor sind mit Läufen danach nicht vergleichbar.
 
 ### 2026-09-17: Missile Silo und Vorhalt
 - Neue Strategie MissileSiloPlacement (91) in allen Skill-Stufen: baut das
@@ -889,7 +859,7 @@ beim Könner greifen beide, bei den anderen Skill-Levels nur die erste.
 - Neue Aktion `use-ability`, neue Strategie NuclearStrike (97) in allen
   Skill-Stufen; `nuclear-strike` in der Forschungsliste des Könners nach
   `advanced-weaponry`. Folgen für Messungen:
-  [NuclearStrike (97)](#nuclearstrike-97).
+  [NuclearStrike](#nuclearstrike-regel).
 
 ### 2026-09-12: Platzierungsregeln aus einer Quelle
 - `TowerManager.validatePosition` und `StrategicPlacementService.meetsPlacementConstraints`

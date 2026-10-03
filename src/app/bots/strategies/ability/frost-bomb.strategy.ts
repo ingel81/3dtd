@@ -1,8 +1,8 @@
 /**
  * Frost Bomb Strategy
  *
- * Priority: 96, right under the nuclear strike: both spend a charge when a
- * wave presses, the strike takes the moment first.
+ * A rule (decision/arbiter.ts), right after the nuclear strike: both spend a
+ * charge when a wave presses, the strike takes the moment first.
  *
  * Fires when: a wave runs, the frost bomb is ready (researched, charged) and
  * a group of at least MIN_CLUSTER enemies stands within the bomb's radius
@@ -30,7 +30,7 @@ export class FrostBombStrategy extends BaseStrategy {
   private readonly decision = new DecisionAim<ReturnType<typeof densestCenter>>();
 
   constructor(private readonly gameState: BotWorld) {
-    super('FrostBomb', 96);
+    super('FrostBomb');
   }
 
   canExecute(state: GameStateSnapshot): boolean {

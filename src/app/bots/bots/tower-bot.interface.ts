@@ -80,6 +80,21 @@ export interface BotConfig {
 
   /** Max towers bot will build (0 = unlimited) */
   maxTowers: number;
+
+  /**
+   * Fighting towers the bot builds up to by a wave: `base + perWave × wave`
+   * (docs/BOT_PLAYER_PLAN.md, B3). A player's pace, not a value: per gold a
+   * new tower beats an upgrade, so a bot that only weighs value builds 35
+   * archers by wave 4. In a human run (2026-10-01, wave 60) the defense stood
+   * at 4 towers at wave 2, 9 at 4, 15 at 8, 30 at 12; the gold beyond went
+   * into upgrades.
+   */
+  buildTempo: { base: number; perWave: number };
+}
+
+/** Fighting towers a bot of `config` builds up to by wave `wave` (BotConfig.buildTempo) */
+export function towersByWave(config: Pick<BotConfig, 'buildTempo'>, wave: number): number {
+  return config.buildTempo.base + config.buildTempo.perWave * Math.max(0, wave);
 }
 
 /**
@@ -148,6 +163,7 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: false,
     maxTowers: 10,
+    buildTempo: { base: 2, perWave: 1 },
   },
 
   expert: {
@@ -163,5 +179,6 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     // 6ms per sub-step. With the factory's jitter the cap lands between 28
     // and 52.
     maxTowers: 40,
+    buildTempo: { base: 3, perWave: 2 },
   },
 };

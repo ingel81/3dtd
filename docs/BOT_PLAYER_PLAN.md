@@ -1,6 +1,6 @@
 # Bot-Spieler: Plan für einen menschenähnlichen Bot
 
-**Stand:** 2026-10-03, entschieden (P1 bis P6), B1 und B2 gebaut
+**Stand:** 2026-10-03, entschieden (P1 bis P6), B1 bis B3 gebaut
 **Code heute:** `src/app/bots/`, Beschreibung in [BOT_SYSTEM.md](BOT_SYSTEM.md)
 
 ## Ziel
@@ -124,6 +124,31 @@ Gebäude ohne Reichweite und Läufe ohne Engine bleiben beim alten Weg. Geprüft
 nach Score allein hätte im Mittel 93,7 % seiner Zellen gesehen, der gewählte 99,5 %, neun Mal ein anderer Platz;
 2,3 ms je Suche im Mittel, höchstens 43 ms. Auf echten Karten mit Fassaden ist mehr Unterschied zu erwarten,
 gemessen ist das nicht.
+
+**B3 Schiedsrichter (gebaut 2026-10-03):** Strategien schlagen vor, `decision/arbiter.ts` entscheidet: Regeln
+(Fähigkeiten, Held, Center, Silo, Verkauf, dringende Luft-Forschung), Forschung nach einer dichten Welle, Käufe nach
+Nutzen je Gold mit Sparziel, Welle. Der Nutzen (`decision/value.ts`) ist die Tötungszeit, die ein Kauf gegen die
+nächsten zwei Wellen spart, über Schaden mal Meter unter Feuer je Rüstung und Seite; Eis zählt mit seiner
+Verlangsamung. Ein Bau- und ein Upgrade-Vorschlag ersetzen sieben Strategien mit eigenen Regeln. Forschung, die einen
+besseren Tower freischaltet, ist ein Kauf. Dazu ein Bautempo je Profil (`buildTempo`, Könner 3 + 2 je Welle), weil
+ein Tower je Gold jedes Upgrade schlägt: ohne Tempo baute der Bot 35 Archer bis Welle 4. Beschreibung in
+[BOT_SYSTEM.md](BOT_SYSTEM.md#der-schiedsrichter).
+
+Browserlauf DevWorld (dichte Gebäude, Könner bis Welle 11), gegen den Lauf des Users (Binswangen, 2026-10-01, vor
+den Mindestwellen der Forschung):
+
+| Welle | User: Tower | Bot vor B3 | Bot mit B3 |
+|---|---:|---:|---:|
+| 4 | 9 | 35 (nur Archer, Deckel) | 12 |
+| 8 | 15 | 35 | 19 |
+| 10 | 25 | 35 | 24 |
+
+Mit B3 bis Welle 11: 26 Tower aus Archer, Eis (3) und Magie, 99 Upgrades, zwei Forschungen (die erste öffnet in
+W6 bis W9). Die Wellen 9 und 10 hielt er dicht. Der Druck-Regler setzt die HP der Wellen gegen die Abwehr, darum
+sind Lecks zwischen den Bots kein Maß für ihre Stärke.
+
+Offen für B4/B5: Forschungs-Slots kauft er nicht; Gift und Feuer (Schaden über Zeit) zählen nur mit ihrer DPS;
+Upgrades werden je Gold niedrig bewertet, bis das Bautempo greift.
 
 ## Entscheidungen
 

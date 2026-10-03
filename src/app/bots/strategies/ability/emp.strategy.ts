@@ -1,7 +1,7 @@
 /**
  * EMP Strategy
  *
- * Priority: 94, under the nuclear strike and the frost bomb.
+ * A rule (decision/arbiter.ts), after the nuclear strike and the frost bomb.
  *
  * Fires when: a wave runs, the EMP is ready (researched, charged) and
  * either at least MIN_MACHINES machines (`mechanical`) stand within its
@@ -42,7 +42,7 @@ export class EmpStrategy extends BaseStrategy {
   private readonly decision = new DecisionAim<EmpAim>();
 
   constructor(private readonly gameState: BotWorld) {
-    super('Emp', 94);
+    super('Emp');
   }
 
   canExecute(state: GameStateSnapshot): boolean {

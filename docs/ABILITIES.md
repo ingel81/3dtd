@@ -612,7 +612,7 @@ der Nuklearschlag seinen Knopf.
   Silo, sobald `nuclear-strike` erforscht ist und keines steht, wenn das Gold
   für Silo und einen Archer reicht (400 + 45), auf den besten Kandidaten von
   `findStrategicPositions` für den Typ, wie beim Research Center
-  ([BOT_SYSTEM.md](BOT_SYSTEM.md#missilesiloplacement-91)).
+  ([BOT_SYSTEM.md](BOT_SYSTEM.md#missilesiloplacement-regel)).
 - `NuclearStrikeStrategy` (Priorität 97, über allen anderen) hält vor: Jeder
   Gegner zählt dort, wo er beim Einschlag steht, sein Tempo dieses Moments
   (Slow, Freeze, Stun eingerechnet) mal 6,5 s weiter auf seinem Pfad
@@ -624,18 +624,18 @@ der Nuklearschlag seinen Knopf.
   Kandidaten.
 - Die Factory hängt beide Strategien an alle Skill-Stufen. Erforschen tun sie
   nur strategist und meta; für beginner und casual bleiben sie wirkungslos.
-  Folge für Messungen: siehe [BOT_SYSTEM.md](BOT_SYSTEM.md#nuclearstrike-97).
+  Folge für Messungen: siehe [BOT_SYSTEM.md](BOT_SYSTEM.md#nuclearstrike-regel).
 - `FrostBombStrategy` (96): wirft die Frostbombe auf die dichteste Gruppe von
   mindestens 8 Gegnern in der zweiten Hälfte der Route
-  ([BOT_SYSTEM.md](BOT_SYSTEM.md#frostbomb-96)).
+  ([BOT_SYSTEM.md](BOT_SYSTEM.md#frostbomb-regel)).
 - `EmpStrategy` (94): setzt das EMP auf mindestens 3 Maschinen beisammen ab
   Pfadfortschritt 0,4, sonst auf eine Menge von mindestens 12 Gegnern ab 0,6
-  ([BOT_SYSTEM.md](BOT_SYSTEM.md#emp-94)).
+  ([BOT_SYSTEM.md](BOT_SYSTEM.md#emp-regel)).
 - `OrbitalLaserStrategy` (93): bewertet je Kandidat ab Pfadfortschritt 0,5
   den Strahl, den die Fähigkeit feuern würde (Weg aus `previewSweep`,
   Radius, Tempo, Brenndauer), gegen die Gegner in Bewegung; feuert ab 10
   erwarteten Treffern auf den Kandidaten mit dem größten erwarteten Schaden
-  ([BOT_SYSTEM.md](BOT_SYSTEM.md#orbitallaser-93)).
+  ([BOT_SYSTEM.md](BOT_SYSTEM.md#orbitallaser-regel)).
 
 ---
 

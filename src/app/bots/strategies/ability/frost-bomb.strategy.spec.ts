@@ -41,10 +41,6 @@ describe('FrostBombStrategy', () => {
     for (let i = 0; i < 3; i++) enemies.push(enemyAt(150 + i, 0.7));
   };
 
-  it('ranks right under the nuclear strike', () => {
-    expect(strategy.priority).toBe(96);
-  });
-
   it('waits for a wave and for its own charge', () => {
     packedGroup();
     expect(strategy.canExecute({ phase: 'setup' } as GameStateSnapshot)).toBe(false);

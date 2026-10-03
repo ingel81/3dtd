@@ -47,6 +47,8 @@ export interface BotWorld {
   readonly perception: BotPerception;
   /** The coming waves as the wave panel shows them (WaveDirector.peek) */
   peekWaves(fromWave: number, count: number): readonly WavePeekFacts[];
+  /** Metres of the own routes each tower has under fire, ground and air, averaged over them (metersUnderFire) */
+  metresByTower(): ReadonlyMap<string, { ground: number; air: number }>;
   getSpawnPoints(): SpawnPoint[];
   getCachedPaths(): Map<string, GeoPosition[]>;
 }
@@ -61,6 +63,8 @@ export interface PlayerBotWorldSource {
   routes: Pick<RouteQueriesService, 'previewSweep'>;
   /** The wave source's look ahead, the wave panel's NEXT (WaveDirector.peek) */
   peek(request: WavePeekRequest): WavePeekFacts[];
+  /** Metres under fire per tower on these routes (GlobalRouteGridService.metersUnderFire) */
+  metresUnderFire(routes: GeoPosition[][]): ReadonlyMap<string, { ground: number; air: number }>;
 }
 
 /**
@@ -122,6 +126,10 @@ export class PlayerBotWorld implements BotWorld {
 
   peekWaves(fromWave: number, count: number): readonly WavePeekFacts[] {
     return this.source.peek({ fromWave, count });
+  }
+
+  metresByTower(): ReadonlyMap<string, { ground: number; air: number }> {
+    return this.source.metresUnderFire([...this.getCachedPaths().values()]);
   }
 
   /** Coop: the spawns of the own lanes only; all spawns otherwise, or when this player has no lane */

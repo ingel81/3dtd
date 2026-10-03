@@ -121,10 +121,6 @@ describe('OrbitalLaserStrategy', () => {
     strategy = new OrbitalLaserStrategy(gameState as never);
   });
 
-  it('ranks under the EMP', () => {
-    expect(strategy.priority).toBe(93);
-  });
-
   it('waits for a wave and for its charge', () => {
     enemies.push(...column(NORTH, 300, 12, 5));
     expect(strategy.canExecute({ phase: 'setup' } as GameStateSnapshot)).toBe(false);

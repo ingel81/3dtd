@@ -17,7 +17,6 @@ import { GameStateSnapshot } from '../director/models/game-state-snapshot';
 import type { RunLog, RunLogRecord } from '../run-log/run-log.types';
 import { TowerPlacementService } from '../services/tower-placement.service';
 import { StrategicPlacementService } from '../services/world/strategic-placement.service';
-import { OsmStreetService } from '../services/location/osm-street.service';
 import type { BotSkillLevel } from './bots/tower-bot.interface';
 import type { BotSession } from './bot-session';
 
@@ -67,7 +66,6 @@ export interface BotRunLog {
 export interface BotDeps {
   towerPlacement: TowerPlacementService;
   strategicPlacement: StrategicPlacementService;
-  osmService: OsmStreetService;
   callbacks: BotCallbacks;
   runLog: BotRunLog;
 }

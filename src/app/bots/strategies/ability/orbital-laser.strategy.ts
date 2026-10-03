@@ -1,7 +1,7 @@
 /**
  * Orbital Laser Strategy
  *
- * Priority: 93, under the other abilities.
+ * A rule (decision/arbiter.ts), after the other abilities.
  *
  * Fires when: a wave runs, the laser is ready (researched, charged) and a
  * beam aimed at one of the enemies in the second half of its route (path
@@ -63,7 +63,7 @@ export class OrbitalLaserStrategy extends BaseStrategy {
   private readonly speeds: number[] = [];
 
   constructor(private readonly gameState: BotWorld) {
-    super('OrbitalLaser', 93);
+    super('OrbitalLaser');
   }
 
   canExecute(state: GameStateSnapshot): boolean {

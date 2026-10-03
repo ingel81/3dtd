@@ -1,7 +1,7 @@
 /**
  * Sell-Underperformer Strategy
  *
- * Priority: 72 (between PathCoverageUpgrade at 75 and DistributedPlacement at 65)
+ * A rule (decision/arbiter.ts), taken before any buy.
  *
  * Purpose: Dispose of early-game placeholder towers (un-upgraded Lvl 1 Archers)
  * when the bot has accumulated enough gold to replace them with something
@@ -35,7 +35,7 @@ export class SellUnderperformerStrategy extends BaseStrategy {
     private gameState: BotWorld,
     private config: BotConfig,
   ) {
-    super('SellUnderperformer', 72);
+    super('SellUnderperformer');
   }
 
   override tickCooldowns(deltaTime: number): void {

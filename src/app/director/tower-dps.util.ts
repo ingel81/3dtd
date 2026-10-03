@@ -55,7 +55,7 @@ export interface TowerStatsAtLevel {
  * `upgradeFactor` — the same function the tower entity uses, so per-tower
  * profiles, the degressive tail and the level cap need no copy here.
  */
-function statMultiplier(
+export function statMultiplier(
   cfg: TowerTypeConfig,
   stat: 'damage' | 'fireRate' | 'range' | 'beamWidth',
   levels: UpgradeLevels,

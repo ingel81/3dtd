@@ -1,7 +1,7 @@
 /**
  * Missile Silo Placement Strategy
  *
- * Priority: 91, above the combat placements (AntiAir 90 and below): the
+ * A rule (decision/arbiter.ts), taken before any buy: the
  * nuclear strike fires only while a silo stands (AbilityConfig.launchFrom),
  * so the 1,000 credits of its research sit idle until one is built.
  *
@@ -31,7 +31,7 @@ export class MissileSiloPlacementStrategy extends BaseStrategy {
     private readonly strategicPlacement: StrategicPlacementService,
     private readonly gameState: BotWorld,
   ) {
-    super('MissileSiloPlacement', 91);
+    super('MissileSiloPlacement');
   }
 
   canExecute(state: GameStateSnapshot): boolean {

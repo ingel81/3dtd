@@ -4,58 +4,58 @@ import type { BotSkillLevel } from './tower-bot.interface';
 import type { ITowerStrategy } from '../strategies/tower-strategy.interface';
 import { GameRng } from '../../utils/game-rng';
 
-function strategyNames(skill: BotSkillLevel, autoStartWaves = false): string[] {
+function strategiesOf(skill: BotSkillLevel, autoStartWaves = false): ITowerStrategy[] {
   // The strategies only keep their collaborators; nothing is called while
   // composing, but the config jitter draws from the run's bot stream.
-  const factory = new StrategyBotFactory(
-    {} as never,
-    { rng: new GameRng(1) } as never,
-    {} as never,
-  );
+  const factory = new StrategyBotFactory({} as never, { rng: new GameRng(1) } as never);
   const bot = factory.createBot(skill, autoStartWaves);
-  return (bot as unknown as { strategies: ITowerStrategy[] }).strategies.map((s) => s.name);
+  return (bot as unknown as { strategies: ITowerStrategy[] }).strategies;
 }
+
+const names = (skill: BotSkillLevel, autoStartWaves = false) => strategiesOf(skill, autoStartWaves).map((s) => s.name);
 
 describe('StrategyBotFactory', () => {
   it.each(['beginner', 'expert'] as BotSkillLevel[])(
-    'gives %s the nuclear strike, at the top of its priorities',
+    'gives %s the abilities first among its rules, the nuclear strike on top',
     (skill) => {
-      const names = strategyNames(skill);
-      expect(names).toContain('NuclearStrike');
-      expect(names[0]).toBe('NuclearStrike');
+      expect(names(skill).slice(0, 4)).toEqual(['NuclearStrike', 'FrostBomb', 'Emp', 'OrbitalLaser']);
     },
   );
 
   it.each(['beginner', 'expert'] as BotSkillLevel[])(
-    'gives %s the missile silo placement, after the research center and before the combat placements',
+    'gives %s the research center and the silo before research, building and upgrading',
     (skill) => {
-      const names = strategyNames(skill);
-      const silo = names.indexOf('MissileSiloPlacement');
-      expect(silo).toBeGreaterThan(names.indexOf('ResearchCenterPlacement'));
-      for (const placement of ['AntiAirPlacement', 'CoverageFill', 'DistributedPlacement']) {
-        if (names.includes(placement)) expect(silo, placement).toBeLessThan(names.indexOf(placement));
-      }
+      const list = names(skill);
+      const silo = list.indexOf('MissileSiloPlacement');
+      expect(silo).toBeGreaterThan(list.indexOf('ResearchCenterPlacement'));
+      for (const later of ['ResearchPick', 'Build', 'Upgrade']) expect(silo, later).toBeLessThan(list.indexOf(later));
     },
   );
 
-  it('gives the expert the hero, and the beginner none', () => {
+  it('gives the expert the hero and selling, the beginner neither', () => {
     // Nobody used the hero before 2026-09-20, so every run measured a game
     // without him (BALANCING_PLAN.md, D15).
-    expect(strategyNames('expert')).toContain('Hero');
-    expect(strategyNames('beginner')).not.toContain('Hero');
+    expect(names('expert')).toEqual(expect.arrayContaining(['Hero', 'SellUnderperformer']));
+    expect(names('beginner')).not.toContain('Hero');
+    expect(names('beginner')).not.toContain('SellUnderperformer');
   });
 
-  it('gives the expert what answers a wave, the beginner only a fill', () => {
-    expect(strategyNames('expert')).toEqual(expect.arrayContaining([
-      'AntiAirPlacement', 'AntiEtherealPlacement', 'SplashDefensePlacement',
-      'SellUnderperformer', 'DistributedPlacement',
-    ]));
-    expect(strategyNames('beginner')).toContain('CoverageFill');
-    expect(strategyNames('beginner')).not.toContain('SellUnderperformer');
+  it('builds the expert spread over the route, the beginner at its two ends', () => {
+    const spots = (skill: BotSkillLevel) =>
+      (strategiesOf(skill).find((s) => s.name === 'Build') as unknown as { spots: string }).spots;
+    expect(spots('expert')).toBe('distributed');
+    expect(spots('beginner')).toBe('strategic');
+  });
+
+  it('hands the strategies the bot\'s jittered tower cap', () => {
+    const build = strategiesOf('expert').find((s) => s.name === 'Build') as unknown as { config: { maxTowers: number } };
+    const factory = new StrategyBotFactory({} as never, { rng: new GameRng(1) } as never);
+    const bot = factory.createBot('expert');
+    expect(build.config.maxTowers).toBe(bot.config.maxTowers);
   });
 
   it('appends the wave starter only in auto mode', () => {
-    expect(strategyNames('expert')).not.toContain('AutoStartWave');
-    expect(strategyNames('expert', true)).toContain('AutoStartWave');
+    expect(names('expert')).not.toContain('AutoStartWave');
+    expect(names('expert', true).at(-1)).toBe('AutoStartWave');
   });
 });

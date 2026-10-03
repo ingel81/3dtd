@@ -1,7 +1,7 @@
 /**
  * Research Center Placement Strategy
  *
- * Priority: VERY HIGH (95) — higher than AntiAir/Splash so the bot bootstraps
+ * A rule (decision/arbiter.ts), taken before any buy, so the bot bootstraps
  * research early. Without a Research Center the bot cannot unlock new towers.
  *
  * Triggers when:
@@ -22,7 +22,7 @@ export class ResearchCenterPlacementStrategy extends BaseStrategy {
     private strategicPlacement: StrategicPlacementService,
     private gameState: BotWorld,
   ) {
-    super('ResearchCenterPlacement', 95);
+    super('ResearchCenterPlacement');
   }
 
   canExecute(state: GameStateSnapshot): boolean {

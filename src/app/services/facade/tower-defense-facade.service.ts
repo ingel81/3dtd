@@ -2,7 +2,6 @@ import { Injectable, inject, Injector } from '@angular/core';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { BackgroundMusicService } from '../../game-engine/background-music.service';
-import { OsmStreetService } from '../location/osm-street.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { ConfigService } from '../../core/services/config.service';
@@ -106,7 +105,6 @@ export class TowerDefenseFacadeService {
   private readonly vizFacade = inject(VisualizationFacadeService);
 
   // Services needed only by the main facade for orchestration
-  private readonly osmService = inject(OsmStreetService);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly configService = inject(ConfigService);
@@ -199,7 +197,6 @@ export class TowerDefenseFacadeService {
     this.botClient.initialize({
       towerPlacement: this.towerPlacement,
       strategicPlacement: this.strategicPlacement,
-      osmService: this.osmService,
       // The bot sends its run log to the server; the log itself is the data
       runLog: {
         current: () => this.runLog.current(),

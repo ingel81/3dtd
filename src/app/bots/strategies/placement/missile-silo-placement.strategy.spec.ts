@@ -26,10 +26,8 @@ describe('MissileSiloPlacementStrategy', () => {
     strategy = new MissileSiloPlacementStrategy({ findStrategicPositions } as never, gameState as never);
   });
 
-  it('builds the launch site of the nuclear strike, above the combat placements and under the abilities', () => {
+  it('builds the launch site of the nuclear strike', () => {
     expect(ABILITIES['nuclear-strike'].launchFrom).toBe('missile-silo');
-    expect(strategy.priority).toBeGreaterThan(90);
-    expect(strategy.priority).toBeLessThan(93);
   });
 
   it('waits for the research, then for the silo plus an Archer in credits', () => {

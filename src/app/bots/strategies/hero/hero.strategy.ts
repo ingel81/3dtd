@@ -1,8 +1,8 @@
 /**
  * Hero Strategy
  *
- * Priority 85: below the anti-air and anti-ethereal placements, which answer
- * a wave the defense cannot hit at all, and above the ordinary fill.
+ * A rule (decision/arbiter.ts), after the abilities: the hire costs
+ * one and a half towers and he never dies, so there is no reason to wait.
  *
  * Three decisions, in this order:
  *
@@ -39,7 +39,7 @@ const ARMOR_SHARE = 0.4;
 
 export class HeroStrategy extends BaseStrategy {
   constructor(private gameState: BotWorld) {
-    super('Hero', 85);
+    super('Hero');
   }
 
   canExecute(state: GameStateSnapshot): boolean {

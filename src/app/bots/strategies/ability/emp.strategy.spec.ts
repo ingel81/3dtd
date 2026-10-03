@@ -36,10 +36,6 @@ describe('EmpStrategy', () => {
     strategy = new EmpStrategy(gameState as never);
   });
 
-  it('ranks under the frost bomb', () => {
-    expect(strategy.priority).toBe(94);
-  });
-
   it('waits for a wave and for its charge', () => {
     for (let i = 0; i < 3; i++) enemies.push(enemyAt('tank', i * 5, 0.5));
     expect(strategy.canExecute({ phase: 'setup' } as GameStateSnapshot)).toBe(false);

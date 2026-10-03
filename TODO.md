@@ -342,8 +342,8 @@ Ideen (2026-09-27), nichts entschieden:
       Mutator „Panzerung +1“.
 - [ ] **E106 Menschenähnlicher Bot** (User, 2026-10-03, entschieden per Einzelfragen P1 bis P6,
       [BOT_PLAYER_PLAN.md](docs/BOT_PLAYER_PLAN.md)): Wahrnehmung, Sichtlinien-Probe für Bauplätze, Nutzen-Schiedsrichter
-      statt Prioritätsliste, drei Profile mit menschlichen Grenzen, Coop-Partner. Branch `bot-player`; B1 (Wahrnehmung)
-      gebaut, nicht committet; weiter mit B2.
+      statt Prioritätsliste, drei Profile mit menschlichen Grenzen, Coop-Partner. Branch `bot-player`, lokal committet:
+      B1 (Wahrnehmung), B2 (Sichtprobe), B3 (Schiedsrichter); weiter mit B4 (Zielwahl, Verkaufen und Umbauen).
 
 ## Entschieden (keine Arbeit)
 

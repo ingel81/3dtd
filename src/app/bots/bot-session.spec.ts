@@ -13,6 +13,7 @@ import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { packet } from '../sim/client/mirror/testing/mirror-packets';
 import { WaveDirector } from '../director/wave-director';
+import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { RouteQueriesService } from '../services/route-queries.service';
 import { PathAndRouteService } from '../services/world/path-route.service';
 import { MainWorldService } from '../services/world/main-world.service';
@@ -41,6 +42,7 @@ function sessionInjector(phase: string, options: { bus?: GameEventBus; players?:
       { provide: SimMirror, useValue: mirror },
       { provide: RouteQueriesService, useValue: {} },
       { provide: WaveDirector, useValue: { peek: () => [] } },
+        { provide: GlobalRouteGridService, useValue: { metersUnderFire: () => ({ byTower: new Map(), any: { ground: 0, air: 0 } }) } },
       { provide: PathAndRouteService, useValue: { getCachedPaths: () => new Map() } },
       { provide: MainWorldService, useValue: { corridorPending: () => corridor.building } },
     ],

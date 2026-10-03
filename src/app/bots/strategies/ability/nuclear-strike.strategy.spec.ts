@@ -61,10 +61,6 @@ describe('NuclearStrikeStrategy', () => {
     return { north: northOf(action.position!.z), reason: action.reason };
   };
 
-  it('outranks every other strategy', () => {
-    expect(strategy.priority).toBeGreaterThan(95);
-  });
-
   it('waits for a wave', () => {
     enemies.push(...pack(900, 12));
     expect(strategy.canExecute({ phase: 'setup' } as GameStateSnapshot)).toBe(false);

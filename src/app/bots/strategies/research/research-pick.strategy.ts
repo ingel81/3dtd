@@ -1,7 +1,8 @@
 /**
  * Research Pick Strategy
  *
- * Priority: 80 (between PathCoverageUpgrade=75 and SplashDefense=85).
+ * Research (decision/arbiter.ts): taken while the last wave held, and a
+ * rule when the next wave brings air the defense cannot hit (kindNow).
  *
  * Fires when:
  * - Research Center is placed (centerLevel > 0)
@@ -16,6 +17,9 @@
  */
 
 import { BaseStrategy } from '../tower-strategy.interface';
+import type { Proposal, ProposalKind } from '../../decision/arbiter';
+import { killTimeSaved, newTowerCapacity } from '../../decision/value';
+import type { DecisionContext } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { TowerAction, BotConfig, BotSkillLevel } from '../../bots/tower-bot.interface';
 import {
@@ -46,11 +50,20 @@ import { isAntiEtherealTower } from '../../../director/defense-analyzer';
  */
 const ETHEREAL_STAPLE_BONUS = 2.5;
 
+/**
+ * Gold the bot expects to spend on the towers of a new type before the next
+ * research matters: what an unlock's better value per gold is worth over.
+ */
+const UNLOCK_SPEND = 1000;
+
+/** A gate is worth what it opens, a little less, since a second research is still to pay */
+const GATE_SHARE = 0.9;
+
 export const BOT_SKIPPED_RESEARCH: ReadonlySet<ResearchId> = new Set([HERO.researchId]);
 
 export class ResearchPickStrategy extends BaseStrategy {
   constructor(private config: BotConfig) {
-    super('ResearchPick', 80);
+    super('ResearchPick', 'research');
   }
 
   /** Static fallback order per skill — used when no adaptive pick is available. */
@@ -105,6 +118,64 @@ export class ResearchPickStrategy extends BaseStrategy {
     if (!cfg) return false;
 
     return state.player.credits >= researchCost(cfg, r.lanes ?? 1);
+  }
+
+  /**
+   * The next research as a proposal. One that unlocks a tower better per gold
+   * than the best the bot can build now is a buy like any other: worth that
+   * gain over the gold it will spend on the new type (UNLOCK_SPEND), so it
+   * competes with towers and upgrades and the bot may save for it. Without
+   * such a gain it waits until a wave held (kind research); an answer to air
+   * the next wave brings is a rule. Proposed while unaffordable too, so the
+   * arbiter can save for it; a rule only once it is affordable.
+   */
+  override propose(state: GameStateSnapshot, context: DecisionContext): Proposal[] {
+    const r = state.research;
+    if (!r || r.centerLevel === 0 || r.slotsUsed >= r.maxSlots) return [];
+    const next = this.pickNext(state);
+    const cfg = next ? getResearch(next) : undefined;
+    if (!next || !cfg) return [];
+    const cost = researchCost(cfg, r.lanes ?? 1);
+    const act = () => this.execute(state);
+    const kind = this.kindNow(state);
+    if (kind === 'rule') return cost <= state.player.credits ? [{ kind, label: cfg.name, cost, value: 0, act }] : [];
+    const value = this.unlockGain(next, state, context) * UNLOCK_SPEND;
+    return [{ kind: value > 0 ? 'buy' : 'research', label: cfg.name, cost, value, act }];
+  }
+
+  /**
+   * Value per gold a research adds to the best tower the bot can build: of
+   * the towers it unlocks, or for a gate of those behind it (GATE_SHARE).
+   */
+  private unlockGain(id: ResearchId, state: GameStateSnapshot, context: DecisionContext): number {
+    const air = state.research.airTargetingUnlocked;
+    const perGold = (t: TowerTypeId) => {
+      const cfg = TOWER_TYPES[t];
+      if (!cfg || cfg.cost <= 0) return 0;
+      return killTimeSaved(context.threat, context.capacity, newTowerCapacity(t, air, context.routes, context.capacity, context.routeMetres)) / cfg.cost;
+    };
+    const known = this.config.knownTowerTypes;
+    const bestNow = Math.max(0, ...known.filter((t) => state.research.towerUnlocked[t]).map(perGold));
+    const unlocks = (rid: ResearchId) => (getResearch(rid)?.effects ?? [])
+      .flatMap((e) => e.kind === 'unlock-tower' && known.includes(e.towerId as TowerTypeId) ? [e.towerId as TowerTypeId] : []);
+    const direct = Math.max(0, ...unlocks(id).map(perGold));
+    const behind = Object.values(RESEARCH_TREE)
+      .filter((c) => c.prerequisites.includes(id))
+      .flatMap((c) => unlocks(c.id as ResearchId))
+      .map((t) => GATE_SHARE * perGold(t));
+    return Math.max(0, Math.max(direct, ...behind) - bestNow);
+  }
+
+  /**
+   * A rule when the next wave cannot wait for it: air the defense cannot hit
+   * and the retrofit is next, or armored air and the rocket is. Otherwise it
+   * waits until the last wave held.
+   */
+  protected override kindNow(state: GameStateSnapshot): ProposalKind {
+    const next = this.pickNext(state);
+    const urgent = (next === 'aa-retrofit' && this.upcomingWaveHasAir(state) && !this.hasAntiAirCapability(state))
+      || (next === 'rocketry' && this.upcomingWaveHasHeavyAir(state));
+    return urgent ? 'rule' : 'research';
   }
 
   execute(state: GameStateSnapshot): TowerAction | null {

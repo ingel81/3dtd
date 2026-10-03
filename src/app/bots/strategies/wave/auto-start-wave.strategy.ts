@@ -1,7 +1,7 @@
 /**
  * Auto-Start Wave Strategy
  *
- * Priority: LOW (30) - Only after other strategies can't execute
+ * The wave (decision/arbiter.ts): only once nothing else acts
  * Triggers when: In auto-mode, has minimal defense, can't spend more money
  * Action: Start next wave after delay
  */
@@ -21,7 +21,7 @@ export class AutoStartWaveStrategy extends BaseStrategy {
   constructor(
     private autoMode: boolean
   ) {
-    super('AutoStartWave', 30);
+    super('AutoStartWave', 'wave');
   }
 
   override tickCooldowns(deltaTime: number): void {

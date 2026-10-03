@@ -1,7 +1,7 @@
 /**
  * Nuclear Strike Strategy
  *
- * Priority: 97, above every other strategy: a charge is worth most in the
+ * The first rule (decision/arbiter.ts): a charge is worth most in the
  * few decisions where a wave is about to break through, and a placement or
  * upgrade can wait for the next one.
  *
@@ -49,7 +49,7 @@ export class NuclearStrikeStrategy extends BaseStrategy {
   private readonly decision = new DecisionAim<StrikeAim>();
 
   constructor(private readonly gameState: BotWorld) {
-    super('NuclearStrike', 97);
+    super('NuclearStrike');
   }
 
   canExecute(state: GameStateSnapshot): boolean {
