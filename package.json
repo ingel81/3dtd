@@ -51,7 +51,7 @@
     "@fontsource/inter-tight": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/roboto": "^5.3.0",
-    "@types/three": "^0.185.4",
+    "@types/three": "^0.186.0",
     "3d-tiles-renderer": "0.5.2",
     "rxjs": "~7.8.0",
     "three": "^0.186.0",
