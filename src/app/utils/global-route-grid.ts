@@ -7,7 +7,7 @@ import type { PortalClipUniforms } from '../three-engine/renderers/portal-clip';
 import { LosResolveContext } from './gpu-cube-resolve';
 import { RouteCell } from './route-cell';
 import { LOS_SLOT_AIR, LOS_SLOT_GROUND, LosMask, createLosBits, readLosSlot, writeLosSlot } from './los-mask';
-import { resolveTowerLos, resolveTowerLosIncremental } from './route-grid-los';
+import { resolveTowerLos, resolveTowerLosIncremental, countSight, SightCount } from './route-grid-los';
 import { RouteCellLattice, claimRouteCells } from './route-grid-builder';
 import {
   HeightResetResult,
@@ -570,6 +570,24 @@ export class GlobalRouteGrid {
     return resolveTowerLos(
       this.cellsInReach(towerX, towerZ, range), towerId, towerX, towerZ, ctx, canTargetGround, canTargetAir,
       this.standHeight,
+    );
+  }
+
+  /**
+   * What a tower at (towerX, towerZ) would see of the cells in its reach,
+   * counted with the same test as registerTower, but no cell keeps an
+   * answer: a spot the bot only considers (countSight).
+   */
+  sightFrom(
+    towerX: number,
+    towerZ: number,
+    range: number,
+    ctx: LosResolveContext,
+    canTargetGround: boolean,
+    canTargetAir: boolean,
+  ): SightCount {
+    return countSight(
+      this.cellsInReach(towerX, towerZ, range), towerX, towerZ, ctx, canTargetGround, canTargetAir, this.standHeight,
     );
   }
 

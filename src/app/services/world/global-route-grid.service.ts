@@ -6,6 +6,7 @@ import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { CoordinateSync } from '../../three-engine/renderers';
 import type { ColumnSampler, TerrainPeekLOD } from '../../three-engine/column-sample';
 import { LosResolveContext } from '../../utils/gpu-cube-resolve';
+import type { SightCount } from '../../utils/route-grid-los';
 import type { LosMask } from '../../utils/los-mask';
 import { Vector3 } from 'three';
 
@@ -138,6 +139,18 @@ export class GlobalRouteGridService {
     canTargetAir = false
   ): RouteCell[] {
     return this.grid.registerTower(towerId, towerX, towerZ, range, ctx, canTargetGround, canTargetAir);
+  }
+
+  /** What a tower at (towerX, towerZ) would see, without booking it into the cells (GlobalRouteGrid.sightFrom) */
+  sightFrom(
+    towerX: number,
+    towerZ: number,
+    range: number,
+    ctx: LosResolveContext,
+    canTargetGround: boolean,
+    canTargetAir: boolean,
+  ): SightCount {
+    return this.grid.sightFrom(towerX, towerZ, range, ctx, canTargetGround, canTargetAir);
   }
 
   /**

@@ -39,6 +39,7 @@ scheitert ein Test, startet Playwright den Worker neu, und die zwei Spieler lade
 | `e2e/tests/coop-options.e2e.ts` | Cheats, Pause und Next wave nach den Raum-Optionen, Relay ohne Cheats |
 | `e2e/tests/coop-game.e2e.ts` | Squad und Chat, Gold senden, zurückgefallener Gast (eingefroren), Game over und Neustart, allein weiter |
 | `e2e/tests/solo.e2e.ts` | Rauchtest (Tower, Welle ohne Cheat auf 4x, Dialog, Replay), Druck-Regler nach neuem Ort (M5) |
+| `e2e/tests/bot-player.e2e.ts` | Bot in DevWorld (keine Kartensitzung, eigene Seite statt `duo`): Wahrnehmung der Wellen (B1), Bauplatz nach Sichtlinie (B2), [BOT_PLAYER_PLAN.md](BOT_PLAYER_PLAN.md) |
 | `e2e/tests/budget-source.e2e.ts` | Budget-Quelle auf echter Karte (`&waves=budget`, eine Kartensitzung): der Schalter bleibt in der Adresse, die Planung sieht Schaden unter Feuer über echten Sichtlinien |
 
 Jeder Coop-Test mit Spiel prüft am Ende das Relay-Log auf `DESYNC`. Die Nummern (T.., M..) verweisen auf

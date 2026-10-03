@@ -1,6 +1,6 @@
 # Bot-Spieler: Plan für einen menschenähnlichen Bot
 
-**Stand:** 2026-10-03, entschieden (P1 bis P6), B1 gebaut
+**Stand:** 2026-10-03, entschieden (P1 bis P6), B1 und B2 gebaut
 **Code heute:** `src/app/bots/`, Beschreibung in [BOT_SYSTEM.md](BOT_SYSTEM.md)
 
 ## Ziel
@@ -112,6 +112,18 @@ Die Session speist sie aus dem Bus (`wave:started`, `enemy:died`, `enemy:leaking
 Lecks je Route, geleckte HP nach Rüstung, Luftlecks, und je Tower Kills und Schaden pro Welle. `leakingRoutes()` nennt
 die Routen mit Lecks und ab wo vor dem HQ die Kills ausdünnen. Die kommenden Wellen liest `BotWorld.peekWaves` wie das
 Wellen-Panel (`WaveDirector.peek`). Im Coop nur die eigenen Spuren. Noch liest keine Strategie davon; das kommt mit B3.
+
+**B2 Sichtlinie (gebaut 2026-10-03):** `StrategicPlacementService` sucht wie bisher Kandidaten nach Score, nimmt aber
+nicht mehr den ersten, auf dem der Tower steht, sondern die besten vier stehenden und probt ihre Sicht
+(`TowerLosRegistry.probeSight`): der Würfel vom Tip wie bei einer Platzierung, gezählt mit demselben Zelltest wie die
+Kampf-Sicht (`cellInSight` in `route-grid-los.ts`), ohne dass eine Zelle eine Antwort behält. Der Score wird mit dem
+Sichtanteil gewichtet, `0,2 + 0,8 × Anteil`; der Anteil zählt Boden- und Luftzellen nach dem, was der Tower treffen
+kann. Ein Cache je Platz, Typ und Luft-Flag, geleert mit neuen Routenzellen (Tower blockieren den Würfel nicht).
+Gebäude ohne Reichweite und Läufe ohne Engine bleiben beim alten Weg. Geprüft per Spec und im Browser
+(`e2e/tests/bot-player.e2e.ts`, DevWorld mit dichten Gebäuden, Könner bis Welle 7): 67 Bauentscheidungen, der Platz
+nach Score allein hätte im Mittel 93,7 % seiner Zellen gesehen, der gewählte 99,5 %, neun Mal ein anderer Platz;
+2,3 ms je Suche im Mittel, höchstens 43 ms. Auf echten Karten mit Fassaden ist mehr Unterschied zu erwarten,
+gemessen ist das nicht.
 
 ## Entscheidungen
 

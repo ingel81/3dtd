@@ -18,6 +18,58 @@ import { RouteCell, getAirTargetY, getGroundTargetY } from './route-cell';
  */
 
 /**
+ * Does the cube from the tip in `ctx` see the ground sample of `cell` (1.5 m
+ * above where enemies stand), or with `air` the air sample (15 m)? The cell
+ * under the tower always counts as seen.
+ */
+export function cellInSight(
+  cell: RouteCell,
+  air: boolean,
+  towerX: number,
+  towerZ: number,
+  ctx: LosResolveContext,
+  standY: (cell: RouteCell) => number,
+): boolean {
+  if ((cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2 < 0.01) return true;
+  const targetY = air ? getAirTargetY(cell, standY(cell)) : getGroundTargetY(cell, standY(cell));
+  const tip = ctx.referencePos;
+  return isCubeVisible(tip.x, tip.y, tip.z, cell.x, targetY, cell.z, ctx);
+}
+
+/** What a tower would see from a spot, in cells, without booking it into the cells (sightFrom) */
+export interface SightCount {
+  /** Cells in its reach */
+  readonly reach: number;
+  /** Cells whose ground sample it sees, 0 for a tower that cannot target ground */
+  readonly ground: number;
+  /** Cells whose air sample it sees, 0 for a tower that cannot target air */
+  readonly air: number;
+}
+
+/**
+ * Count what the cube in `ctx` sees of `candidates`, the same test the
+ * tower's own LOS runs (cellInSight), but the cells keep no answer: the bot
+ * asks this of spots it might build on (docs/BOT_PLAYER_PLAN.md, B2).
+ */
+export function countSight(
+  candidates: readonly RouteCell[],
+  towerX: number,
+  towerZ: number,
+  ctx: LosResolveContext,
+  canTargetGround: boolean,
+  canTargetAir: boolean,
+  standY: (cell: RouteCell) => number,
+): SightCount {
+  let ground = 0;
+  let air = 0;
+  for (const cell of candidates) {
+    if (canTargetGround && cellInSight(cell, false, towerX, towerZ, ctx, standY)) ground++;
+    if (canTargetAir && cellInSight(cell, true, towerX, towerZ, ctx, standY)) air++;
+  }
+  return { reach: candidates.length, ground, air };
+}
+
+/**
  * Compute LOS for every cell of `candidates`, the cells in the tower's reach.
  * Pre-computes ground LOS and/or air LOS depending on the tower's targeting
  * capabilities.
@@ -43,34 +95,19 @@ export function resolveTowerLos(
   standY: (cell: RouteCell) => number,
 ): RouteCell[] {
   const visibleCells: RouteCell[] = [];
-  const tipX = ctx.referencePos.x;
-  const tipY = ctx.referencePos.y;
-  const tipZ = ctx.referencePos.z;
 
   for (const cell of candidates) {
-    const atTower = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2 < 0.01;
-
     // Ground visibility — GPU-cube sample at getGroundTargetY (ground + 1.5m)
     let groundVisible = false;
     if (canTargetGround) {
-      if (atTower) {
-        groundVisible = true;
-      } else {
-        const targetY = getGroundTargetY(cell, standY(cell));
-        groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
-      }
+      groundVisible = cellInSight(cell, false, towerX, towerZ, ctx, standY);
       cell.towerVisibility.set(towerId, groundVisible);
     }
 
     // Air visibility — GPU-cube sample at getAirTargetY (ground + 15m)
     let airVisible = false;
     if (canTargetAir) {
-      if (atTower) {
-        airVisible = true;
-      } else {
-        const targetY = getAirTargetY(cell, standY(cell));
-        airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
-      }
+      airVisible = cellInSight(cell, true, towerX, towerZ, ctx, standY);
       cell.airVisibility.set(towerId, airVisible);
     }
 
@@ -107,24 +144,15 @@ export function resolveTowerLosIncremental(
   standY: (cell: RouteCell) => number,
 ): RouteCell[] {
   const visibleCells: RouteCell[] = [];
-  const tipX = ctx.referencePos.x;
-  const tipY = ctx.referencePos.y;
-  const tipZ = ctx.referencePos.z;
 
   for (const cell of candidates) {
-    const atTower = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2 < 0.01;
-
     // Ground visibility — reuse cached value if present, otherwise GPU-sample
     let groundVisible = false;
     if (canTargetGround) {
       if (cell.towerVisibility.has(towerId)) {
         groundVisible = cell.towerVisibility.get(towerId)!;
-      } else if (atTower) {
-        groundVisible = true;
-        cell.towerVisibility.set(towerId, groundVisible);
       } else {
-        const targetY = getGroundTargetY(cell, standY(cell));
-        groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
+        groundVisible = cellInSight(cell, false, towerX, towerZ, ctx, standY);
         cell.towerVisibility.set(towerId, groundVisible);
       }
     } else {
@@ -137,12 +165,8 @@ export function resolveTowerLosIncremental(
     if (canTargetAir) {
       if (cell.airVisibility.has(towerId)) {
         airVisible = cell.airVisibility.get(towerId)!;
-      } else if (atTower) {
-        airVisible = true;
-        cell.airVisibility.set(towerId, airVisible);
       } else {
-        const targetY = getAirTargetY(cell, standY(cell));
-        airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
+        airVisible = cellInSight(cell, true, towerX, towerZ, ctx, standY);
         cell.airVisibility.set(towerId, airVisible);
       }
     } else {

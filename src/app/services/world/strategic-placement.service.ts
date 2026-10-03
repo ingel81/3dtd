@@ -13,6 +13,11 @@ import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { SpawnPoint } from '../../managers/wave.manager';
 import { Tower } from '../../entities/tower.entity';
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
+import { TowerLosRegistry } from '../tower-los-registry';
+import { ResearchStore } from '../../store/research.store';
+import { GlobalRouteGridService } from './global-route-grid.service';
+import { canTargetAirEffective } from '../../entities/tower-targeting.util';
+import type { SightCount } from '../../utils/route-grid-los';
 
 /**
  * Weight of the HQ end of the path relative to the spawn end, in the U-shaped
@@ -25,6 +30,19 @@ import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
  * no defenses at all and enemies reaching it arrived at the base 95% of the time.
  */
 const END_ZONE_HQ_WEIGHT = 0.8;
+
+/**
+ * Standing spots whose line of sight is probed per search (B2,
+ * docs/BOT_PLAYER_PLAN.md): a cube render and a readback each, so a few, the
+ * best by score. A player looks at the build preview of a handful of spots too.
+ */
+const SIGHT_PROBES = 4;
+
+/**
+ * What is left of a spot's score when its tower would see nothing of the
+ * route in its reach; a spot that sees all of it keeps its whole score.
+ */
+const SIGHT_FLOOR = 0.2;
 
 /** Radius (m) the path coverage of a candidate is scored in for a tower without range (Research Center). */
 const DEFAULT_SEARCH_RANGE_M = 60;
@@ -55,8 +73,19 @@ export class StrategicPlacementService {
   private osmService = inject(OsmStreetService);
   /** Source of the placement rules, the same the player's clicks go through. */
   private towerPlacement = inject(TowerPlacementService);
+  private los = inject(TowerLosRegistry);
+  private research = inject(ResearchStore);
 
   private streetNetwork: StreetNetwork | null = null;
+  /**
+   * Probed sight per spot, tower type and air flag. The cube draws the tiles
+   * only, so towers placed later change nothing; new route cells do.
+   */
+  private readonly sightCache = new Map<string, SightCount>();
+
+  constructor() {
+    inject(GlobalRouteGridService).onCellsChanged(() => this.sightCache.clear());
+  }
 
   /**
    * Initialize with street network
@@ -238,14 +267,66 @@ export class StrategicPlacementService {
   /**
    * `candidates` from the first one a tower of `typeId` can stand on
    * (TowerPlacementService.placementAt): those ahead of it would stand in a
-   * wall or over a drop and are left out. The ones behind it are not probed,
-   * the footprint costs raycasts and the strategies build on the first.
+   * wall or over a drop and are left out. The footprint costs raycasts, so
+   * without a line of sight to probe only the first standing one is found.
+   *
+   * With one (the engine runs, B2): the best SIGHT_PROBES standing spots get
+   * the look a player takes at the build preview. Their score is weighed with
+   * the share of the route in reach the tower would see (bySight) and they
+   * come first, best on top; the rest follow as they were.
    */
   private standingFirst(candidates: PlacementCandidate[], typeId: TowerTypeId): PlacementCandidate[] {
-    const first = candidates.findIndex(
-      ({ position }) => this.towerPlacement.placementAt(position.lat, position.lon, typeId)?.result.valid,
-    );
-    return first < 0 ? [] : candidates.slice(first);
+    const probing = !!TOWER_TYPES[typeId].range && this.los.canProbeSight();
+    const standing: { candidate: PlacementCandidate; footY: number }[] = [];
+    let first = -1;
+    let last = -1;
+    for (let i = 0; i < candidates.length; i++) {
+      const { position } = candidates[i];
+      const placement = this.towerPlacement.placementAt(position.lat, position.lon, typeId);
+      if (!placement?.result.valid) continue;
+      if (first < 0) first = i;
+      last = i;
+      standing.push({ candidate: candidates[i], footY: placement.footprint.footY });
+      if (!probing || standing.length === SIGHT_PROBES) break;
+    }
+    if (first < 0) return [];
+    if (!probing) return candidates.slice(first);
+
+    const seen = this.bySight(standing, typeId);
+    if (!seen) return candidates.slice(first);
+    const probed = new Set(standing.map((s) => s.candidate));
+    return [...seen, ...candidates.slice(first, last + 1).filter((c) => !probed.has(c)), ...candidates.slice(last + 1)];
+  }
+
+  /**
+   * The standing spots with their score weighed by sight, best first; null
+   * when a probe cannot answer. The share counts what the tower can target:
+   * ground cells, air cells, or both halves for a tower that hits both.
+   */
+  private bySight(standing: { candidate: PlacementCandidate; footY: number }[], typeId: TowerTypeId): PlacementCandidate[] | null {
+    const config = TOWER_TYPES[typeId];
+    const ground = config.canTargetGround ?? true;
+    const air = canTargetAirEffective(typeId, this.research.airTargetingUnlocked());
+    const targets = (ground ? 1 : 0) + (air ? 1 : 0);
+    if (targets === 0) return null;
+    const out: PlacementCandidate[] = [];
+    for (const { candidate, footY } of standing) {
+      const { lat, lon } = candidate.position;
+      const key = `${typeId}|${air}|${lat.toFixed(6)}|${lon.toFixed(6)}`;
+      let sight = this.sightCache.get(key);
+      if (!sight) {
+        const probed = this.los.probeSight({ lat, lon, height: footY }, typeId, air);
+        if (!probed) return null;
+        this.sightCache.set(key, sight = probed);
+      }
+      const share = sight.reach > 0 ? (sight.ground + sight.air) / (sight.reach * targets) : 0;
+      out.push({
+        ...candidate,
+        score: candidate.score * (SIGHT_FLOOR + (1 - SIGHT_FLOOR) * share),
+        reason: `${candidate.reason}, sees ${Math.round(share * 100)}%`,
+      });
+    }
+    return out.sort((a, b) => b.score - a.score);
   }
 
   /**

@@ -91,7 +91,9 @@ describe('StrategicPlacementService candidate filter', () => {
       // The path is the street: every lookup lands on its one segment.
       findNearestStreetPoint: () => ({ street: { nodes: path }, nodeIndex: 0, distance: 20 }),
     };
-    injectionRegistry['GlobalRouteGridService'] = {};
+    injectionRegistry['GlobalRouteGridService'] = { onCellsChanged: () => () => undefined };
+    injectionRegistry['TowerLosRegistry'] = { canProbeSight: () => false };
+    injectionRegistry['ResearchStore'] = { airTargetingUnlocked: () => false };
     // Stand-in rule: only the east side of the street is buildable.
     check = vi.fn<(lat: number, lon: number) => TowerPlacementResult>(
       (_lat, lon) => ({ valid: lon > hq.lon }),
@@ -154,5 +156,72 @@ describe('StrategicPlacementService candidate filter', () => {
     placementAt.mockReturnValue({ footprint: { footY: 0, plinthHeight: 0, refusal: 'edge' }, result: { valid: false } });
     expect(service.findStrategicPositions(spawnPoints, paths, 'archer')).toEqual([]);
     expect(service.findDistributedPositions(spawnPoints, paths, 'archer')).toEqual([]);
+  });
+
+  /**
+   * With the engine up the bot looks at a few standing spots the way a player
+   * looks at the build preview (B2, docs/BOT_PLAYER_PLAN.md): a spot behind a
+   * facade drops behind one that sees the route.
+   */
+  describe('with a line of sight to probe', () => {
+    let probeSight: ReturnType<typeof vi.fn>;
+    /** Sight per probe call, in candidate order; what is not listed sees everything */
+    let sights: { reach: number; ground: number; air: number }[];
+
+    beforeEach(() => {
+      sights = [];
+      let call = 0;
+      probeSight = vi.fn(() => sights[call++] ?? { reach: 10, ground: 10, air: 10 });
+      injectionRegistry['TowerLosRegistry'] = { canProbeSight: () => true, probeSight };
+      service = new StrategicPlacementService();
+      service.initialize({} as never);
+    });
+
+    it('probes the best four standing spots, from the foot the placement gives them', () => {
+      placementAt.mockReturnValue({ footprint: { footY: 7, plinthHeight: 0 }, result: { valid: true } });
+      service.findStrategicPositions(spawnPoints, paths, 'archer');
+
+      expect(placementAt).toHaveBeenCalledTimes(4);
+      expect(probeSight).toHaveBeenCalledTimes(4);
+      expect(probeSight.mock.calls[0][0]).toEqual(expect.objectContaining({ height: 7 }));
+      expect(probeSight.mock.calls[0][1]).toBe('archer');
+    });
+
+    it('puts a spot that sees the route ahead of a better scored one behind a wall', () => {
+      injectionRegistry['TowerLosRegistry'] = { canProbeSight: () => false };
+      const blind = new StrategicPlacementService();
+      blind.initialize({} as never);
+      const byScore = blind.findStrategicPositions(spawnPoints, paths, 'archer');
+
+      // The best spot sees nothing, the second sees all
+      sights = [{ reach: 10, ground: 0, air: 0 }, { reach: 10, ground: 10, air: 10 }];
+      const bySight = service.findStrategicPositions(spawnPoints, paths, 'archer');
+
+      expect(bySight[0].position).toEqual(byScore[1].position);
+      expect(bySight[0].reason).toContain('sees 100%');
+      expect(bySight).toHaveLength(byScore.length);
+    });
+
+    it('asks a spot once: towers do not block the cube, so a second search reads the cache', () => {
+      service.findStrategicPositions(spawnPoints, paths, 'archer');
+      service.findStrategicPositions(spawnPoints, paths, 'archer');
+      expect(probeSight).toHaveBeenCalledTimes(4);
+    });
+
+    it('does not probe a building without range', () => {
+      service.findStrategicPositions(spawnPoints, paths, 'research-center');
+      expect(probeSight).not.toHaveBeenCalled();
+      expect(placementAt).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the order by score when a probe cannot answer', () => {
+      injectionRegistry['TowerLosRegistry'] = { canProbeSight: () => false };
+      const blind = new StrategicPlacementService();
+      blind.initialize({} as never);
+      const byScore = blind.findStrategicPositions(spawnPoints, paths, 'archer');
+
+      probeSight.mockReturnValue(null);
+      expect(service.findStrategicPositions(spawnPoints, paths, 'archer')).toEqual(byScore);
+    });
   });
 });

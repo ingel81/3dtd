@@ -8,6 +8,8 @@ import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import { losMaskFromJson, losMaskToJson } from '../utils/los-mask';
 import type { LosResolveReason } from '../game-engine/game-event-bus';
 import type { Tower } from '../entities/tower.entity';
+import type { GeoPosition } from '../models/game.types';
+import type { SightCount } from '../utils/route-grid-los';
 import { SimClient } from '../sim/client/sim-client.service';
 import type { LosNeededPayload } from '../sim/protocol/events';
 import type { SimFramePacket } from '../sim/protocol/packet';
@@ -199,6 +201,32 @@ export class TowerLosRegistry {
     return losMaskToJson(this.grid.encodeLosMask(
       tower.id, terrainPos.x, terrainPos.z, request.range, request.canTargetGround, request.canTargetAir,
     ));
+  }
+
+  /** probeSight can answer: the engine and the grid are there */
+  canProbeSight(): boolean {
+    return this.engine !== null && this.grid.isInitialized();
+  }
+
+  /**
+   * What a tower of `typeId` standing at `position` (its foot, as the
+   * placement puts it) would see of the route: the cube from its tip like a
+   * placement renders it, counted on the main grid, but no cell keeps an
+   * answer. For the bot's choice among spots, the look a player takes at the
+   * build preview (docs/BOT_PLAYER_PLAN.md, B2). Null without the engine, its
+   * blocker group or the grid, and for a building without range.
+   */
+  probeSight(position: GeoPosition, typeId: TowerTypeId, canTargetAir: boolean): SightCount | null {
+    const config = TOWER_TYPES[typeId];
+    if (!this.engine || !this.grid.isInitialized() || !config?.range) return null;
+    const local = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
+    const tipY = local.y + config.heightOffset + config.shootHeight;
+    const ctx = this.buildLosResolveContext(new Vector3(local.x, tipY, local.z), config.range);
+    if (!ctx) return null;
+    const sight = this.grid.sightFrom(local.x, local.z, config.range, ctx, config.canTargetGround ?? true, canTargetAir);
+    // The build preview renders only when its tip moves: make it render its own again
+    this.engine.getTowerShadowMapper().invalidate();
+    return sight;
   }
 
   /**
