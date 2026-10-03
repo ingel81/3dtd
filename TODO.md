@@ -340,6 +340,10 @@ Ideen (2026-09-27), nichts entschieden:
       Gerüst schichtweise nach oben und schießt erst danach. Idee dazu: manche Aktionen laufen nur während einer Welle weiter.
 - [ ] **E105 Spieltiefe, Rest der Balance-Nacht**: Schild am Skarnax-Kopf, Gegnereigenschaften Shielded und Aura,
       Mutator „Panzerung +1“.
+- [ ] **E106 Menschenähnlicher Bot** (User, 2026-10-03, entschieden per Einzelfragen P1 bis P6,
+      [BOT_PLAYER_PLAN.md](docs/BOT_PLAYER_PLAN.md)): Wahrnehmung, Sichtlinien-Probe für Bauplätze, Nutzen-Schiedsrichter
+      statt Prioritätsliste, drei Profile mit menschlichen Grenzen, Coop-Partner. Branch `bot-player`; B1 (Wahrnehmung)
+      gebaut, nicht committet; weiter mit B2.
 
 ## Entschieden (keine Arbeit)
 

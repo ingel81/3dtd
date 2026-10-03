@@ -17,6 +17,7 @@ import { BUILD_VERSION } from '../configs/build-info.config';
 import { ITowerBot, TowerAction, BotSkillLevel } from './bots/tower-bot.interface';
 import { StrategyBotFactory } from './bots/strategy-bot.factory';
 import { PlayerBotWorld } from './bot-world';
+import { WaveDirector } from '../director/wave-director';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 import { GeoPosition } from '../models/game.types';
 import { TowerDefenseStore } from '../store/tower-defense.store';
@@ -125,17 +126,35 @@ export class BotSession {
     this.runLog = deps.runLog;
 
     const pathRoute = inject(PathAndRouteService);
+    const waves = inject(WaveDirector);
     this.world = new PlayerBotWorld({
       mirror: this.mirror,
       spawnPoints: () => this.store.spawnPoints(),
       paths: () => pathRoute.getCachedPaths(),
       routes: inject(RouteQueriesService),
+      peek: (request) => waves.peek(request),
     });
+    this.watchWaves();
     this.botFactory = new StrategyBotFactory(
       deps.strategicPlacement,
       this.world,
       deps.osmService
     );
+  }
+
+  /**
+   * Feed the bot's perception from the bus for as long as the session lives
+   * (as long as the game): it watches the waves whether the bot plays or not,
+   * so a bot switched on mid-run knows the last ones (docs/BOT_PLAYER_PLAN.md, B1).
+   */
+  private watchWaves(): void {
+    const seen = this.world.perception;
+    const bus = this.sim.bus;
+    bus.onLive('wave:started', (e) => seen.onWaveStarted(e.wave));
+    bus.onLive('enemy:died', (e) => seen.onEnemyDied(e.enemy, e.killedBy !== null));
+    bus.onLive('enemy:leaking', (e) => seen.onEnemyLeaking(e.enemy));
+    bus.onLive('enemy:reached-base', (e) => seen.onEnemyArrived(e.enemy));
+    bus.onLive('wave:completed', () => seen.onWaveCompleted(this.world.towerManager.getAll()));
   }
 
   // === BOT API ===
@@ -167,6 +186,7 @@ export class BotSession {
    */
   resetBot(): void {
     this.awaiting?.();
+    this.world.perception.reset();
     if (this.currentBot) {
       this.currentBot.reset();
       this.signals.botStats.set({ towersPlaced: 0, goldSpent: 0 });

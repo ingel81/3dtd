@@ -80,6 +80,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) | Archiv (Code entfernt 2026-09-29) | Der frühere adaptive Source: Kandidaten, Überlebbarkeits-Deckel, Boss-Rotation; Druck-Regler lebt im Budget-Source weiter |
 | [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) | Bericht (gebaut) | Druck-Regler statt Leck-Regler: Befund, Bau, Messrunden, verworfener HP-Hebel (2026-09-21/22) |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Strategy-Pattern-Bots (Placement, Upgrade, Wave, Research), der Spieler in Bot-Läufen |
+| [BOT_PLAYER_PLAN.md](BOT_PLAYER_PLAN.md) | Entschieden, nicht gebaut | Menschenähnlicher Bot: Wahrnehmung, Sichtlinien-Probe, Nutzen-Schiedsrichter, drei Profile mit menschlichen Grenzen, Coop-Partner; Entscheidungen P1 bis P6, Pakete B1 bis B7 |
 | [bot-server/README.md](../bot-server/README.md) | Aktuell | Bot-Server: starten, Protokoll, Dashboard-API, Log |
 | [desktop/README.md](../desktop/README.md) | Aktuell | Desktop-App bauen und starten |
 | [coop-server/README.md](../coop-server/README.md) | Aktuell | Coop-Relay: Optionen, Statusseite, Limits, öffentliche Lobby hinter einem Tunnel, Datenschutz |

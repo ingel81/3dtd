@@ -12,6 +12,7 @@ import { GameStore } from '../store/game.store';
 import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { packet } from '../sim/client/mirror/testing/mirror-packets';
+import { WaveDirector } from '../director/wave-director';
 import { RouteQueriesService } from '../services/route-queries.service';
 import { PathAndRouteService } from '../services/world/path-route.service';
 import { MainWorldService } from '../services/world/main-world.service';
@@ -39,6 +40,7 @@ function sessionInjector(phase: string, options: { bus?: GameEventBus; players?:
       { provide: SimClient, useValue: options.sim ?? { bus: options.bus ?? new GameEventBus() } },
       { provide: SimMirror, useValue: mirror },
       { provide: RouteQueriesService, useValue: {} },
+      { provide: WaveDirector, useValue: { peek: () => [] } },
       { provide: PathAndRouteService, useValue: { getCachedPaths: () => new Map() } },
       { provide: MainWorldService, useValue: { corridorPending: () => corridor.building } },
     ],

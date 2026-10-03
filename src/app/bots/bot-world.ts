@@ -21,6 +21,8 @@ import type { HeroStatus } from '../configs/hero.config';
 import type { RouteSweep } from '../utils/route-sweep';
 import type { GeoPosition } from '../models/game.types';
 import type { GameStateSnapshot } from '../director/models/game-state-snapshot';
+import type { WavePeekFacts, WavePeekRequest } from '../director/wave-source';
+import { BotPerception } from './perception/bot-perception';
 import { analyzeDefense, analyzeVulnerabilities } from '../director/defense-analyzer';
 import { mulberry32 } from '../utils/game-rng';
 
@@ -41,6 +43,10 @@ export interface BotWorld {
     getAnchor(): GeoPosition | null;
   };
   readonly gameTimeMs: number;
+  /** What the bot learned from the last waves: leaks, kills by stretch, tower records (B1) */
+  readonly perception: BotPerception;
+  /** The coming waves as the wave panel shows them (WaveDirector.peek) */
+  peekWaves(fromWave: number, count: number): readonly WavePeekFacts[];
   getSpawnPoints(): SpawnPoint[];
   getCachedPaths(): Map<string, GeoPosition[]>;
 }
@@ -53,6 +59,8 @@ export interface PlayerBotWorldSource {
   spawnPoints(): SpawnPoint[];
   paths(): Map<string, GeoPosition[]>;
   routes: Pick<RouteQueriesService, 'previewSweep'>;
+  /** The wave source's look ahead, the wave panel's NEXT (WaveDirector.peek) */
+  peek(request: WavePeekRequest): WavePeekFacts[];
 }
 
 /**
@@ -64,6 +72,8 @@ export class PlayerBotWorld implements BotWorld {
   /** Coop dice: seeded from the run seed and the player, redrawn with a new run */
   private coopDice: { seed: number; player: string; next: () => number } | null = null;
   private readonly coopStream = { stream: (_name: 'bot') => this.dice() };
+  /** Its own lanes only in coop, read at each event: a coop start in the same tab narrows it */
+  readonly perception = new BotPerception((routeId) => this.ownLanes()?.has(routeId) ?? true);
 
   constructor(private readonly source: PlayerBotWorldSource) {}
 
@@ -108,6 +118,10 @@ export class PlayerBotWorld implements BotWorld {
 
   get gameTimeMs(): number {
     return this.mirror.gameTimeMs;
+  }
+
+  peekWaves(fromWave: number, count: number): readonly WavePeekFacts[] {
+    return this.source.peek({ fromWave, count });
   }
 
   /** Coop: the spawns of the own lanes only; all spawns otherwise, or when this player has no lane */

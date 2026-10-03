@@ -44,6 +44,7 @@ function game(players: string[], local = players[0], owners = [players[0], playe
     spawnPoints: () => [SPAWN_A, SPAWN_B],
     paths: () => new Map([['a', PATH_A], ['b', PATH_B]]),
     routes: { previewSweep: () => null },
+    peek: () => [],
   });
   return { mirror, towers, world };
 }
