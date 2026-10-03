@@ -54,6 +54,14 @@ Stand 2026-10-03. `next` ist der RC für 0.6 (gepusht), `dev/after-0.6` wartet a
       Weiterspielen am selben Ort. Bausteine und offene Fragen in [SAVE_LOAD_PLAN.md](docs/SAVE_LOAD_PLAN.md).
 - [ ] **E111 Spielmenü vervollständigen** (User, 2026-10-03, nach dem Release 0.6): Kandidaten in
       [SAVE_LOAD_PLAN.md](docs/SAVE_LOAD_PLAN.md), Frage 6.
+- [ ] **E112 UI-Feinschliff** (User, 2026-10-04, nach UI-Screenshots aus DevWorld): (a) Steuerungs-Hilfe zu
+      Spielbeginn in einer Reihe, nicht „H Shortcuts“ allein umgebrochen; (b) Tasten in Steuerungs-Hilfe und
+      Keys-Dialog wie echte Keyboard-Kappen, einheitlich; (c) Spielmenü als klassisches Spielmenü (mit E111);
+      (d) Coop-Knopf im Header während einer Welle: sperren, Rückfrage oder lassen (prüfen, was ein Raum mitten im
+      Solo-Lauf macht); (e) Header-Leiste logisch gruppiert mit sichtbaren Trennern (Ort, Karte bearbeiten, Coop);
+      (f) Wellen-Vorschau („NEXT“) optisch aufwerten. Gebaut 2026-10-04 auf `next`: (a), (b), (d) als Rückfrage beim
+      „Start match“, solange ein Solo-Lauf läuft (der Raum selbst lässt ihn stehen), (e) Variante B aus Claude Design
+      (sichtbare Striche, neue Icons). Offen (c) und (f).
 - [ ] **E102 Neue Tower aus den Meshy-Kandidaten** (User, 2026-10-02; Modelle in
       `public/assets/models/towers/candidates/`, Zerlegung mit `tools/blender/split_tower.py` und `towers/*.json`):
       Iron Bastion und Sentinel Laser abgenommen. Chainsaw mit Roboter-Tentakeln statt Armen (bis 14 m, eingefahren wie

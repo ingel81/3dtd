@@ -118,6 +118,11 @@
 
 .spacer { flex: 1; }
 
+.confirm-text {
+  font: 12px/1.3 var(--td-font-body);
+  color: var(--td-text-secondary);
+}
+
 /* The warning strip with its "+n" at the end */
 .banner {
   display: flex;

@@ -132,8 +132,14 @@
               </div>
             }
           </div>
-          <button class="btn-primary big" type="button" (click)="start()"
-                  [attr.aria-disabled]="startBlocked() !== null || null" [matTooltip]="startBlocked() ?? ''">Start match</button>
+          @if (confirmStart()) {
+            <span class="confirm-text" role="alert">This ends your solo run (wave {{ soloRunWave() }}).</span>
+            <button class="btn ghost big" type="button" (click)="confirmStart.set(false)">Cancel</button>
+            <button class="btn-primary big" type="button" (click)="start()" tdFocusOnShow>Start anyway</button>
+          } @else {
+            <button class="btn-primary big" type="button" (click)="start()"
+                    [attr.aria-disabled]="startBlocked() !== null || null" [matTooltip]="startBlocked() ?? ''">Start match</button>
+          }
         } @else if (me()?.ready) {
           <button class="btn-done big" type="button" (click)="coop.setLobbyReady(false)">
             <td-icon name="check" [size]="16"></td-icon>Ready · undo

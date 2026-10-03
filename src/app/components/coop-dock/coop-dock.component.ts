@@ -9,12 +9,14 @@ import { CoopRoomOptionsComponent } from './coop-room-options.component';
 import { CoopLobbyChatComponent } from './coop-lobby-chat.component';
 import { CoopService } from '../../services/coop.service';
 import { UIStore } from '../../store/ui.store';
+import { GameStore } from '../../store/game.store';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { TICK_SUB_STEPS } from '../../coop/lockstep';
 import { GameClock } from '../../managers/game-state/game-clock';
 import { ABILITY_BAR_EDGE_PX, ABILITY_BAR_PX } from '../ability-bar/ability-button';
 import { desyncText, dockBanners, roomStatus, startBlocked } from './coop-dock-view';
 import { ownsKey } from '../../utils/keyboard-target';
+import { FocusOnShowDirective } from '../focus-on-show.directive';
 
 /** How long "Copied" stays on a copy button, ms */
 const COPIED_MS = 1200;
@@ -36,7 +38,7 @@ const COPIED_MS = 1200;
   standalone: true,
   imports: [
     MatTooltipModule, TdIconComponent, CoopEntryComponent, CoopJoinStepsComponent,
-    CoopRoomTableComponent, CoopRoomOptionsComponent, CoopLobbyChatComponent,
+    CoopRoomTableComponent, CoopRoomOptionsComponent, CoopLobbyChatComponent, FocusOnShowDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
@@ -61,6 +63,7 @@ const COPIED_MS = 1200;
 export class CoopDockComponent {
   readonly coop = inject(CoopService);
   private readonly uiStore = inject(UIStore);
+  private readonly gameStore = inject(GameStore);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly more = viewChild<ElementRef<HTMLElement>>('more');
 
@@ -141,8 +144,24 @@ export class CoopDockComponent {
     this.coop.shareWorld();
   }
 
+  /**
+   * The wave of the solo run the match would end, 0 when none is under way:
+   * opening a room keeps it, only the start of the match resets the game
+   */
+  readonly soloRunWave = computed(() =>
+    this.gameStore.waveNumber() > 0 && !this.gameStore.isGameOver() ? this.gameStore.waveNumber() : 0);
+
+  /** The host asked to start while a solo run is under way: the footer asks once more */
+  readonly confirmStart = signal(false);
+
   start(): void {
-    if (this.startBlocked() === null) this.coop.start();
+    if (this.startBlocked() !== null) return;
+    if (this.soloRunWave() > 0 && !this.confirmStart()) {
+      this.confirmStart.set(true);
+      return;
+    }
+    this.confirmStart.set(false);
+    this.coop.start();
   }
 
   readyUp(): void {
