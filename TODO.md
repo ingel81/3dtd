@@ -319,8 +319,6 @@ Ideen (2026-09-27), nichts entschieden:
       Tempo-Wechsel ins Replay; Abspielen im Original-Tempo als Schalter, Standard aus.
 - [ ] **E98 Druck-Regler getrennt für Luft und Boden** (2026-10-02): Laut Rechnung scheitern schwächere Spieler vor allem
       an Luft- und Geisterwellen (W17, W27, W44, W50), weil ein Regler für alle Wellen gilt. Nach dem Playtest entscheiden.
-- [ ] **E99 Anfänger-Bot hortet W7 bis W15**: Tier 3 öffnet erst ab W15, seine Forschungsliste hat dazwischen nichts.
-      Nur Bot-Läufe; bei der nächsten Bot-Messung ansehen.
 - [ ] **E100 Camo** (User, 2026-10-02): flexibel (einzelne Gegner, Anteil einer Art, ganze Wellen); getarnt schimmernd
       halbtransparent, ohne Lebensbalken, nicht anvisierbar. Nur im Radius eines Archers mit Erkennung sichtbar und von
       allen Towern treffbar. Erkennung: Forschung schaltet ein Einmal-Upgrade frei, sichtbarer Anbau (Blender), Ring beim

@@ -4,6 +4,14 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-10-03
+
+- [x] **Menschenähnlicher Bot** (E106, B1 bis B6): Wahrnehmung der Wellen, Bauplatz nach Sichtlinie, Schiedsrichter
+      nach Nutzen je Gold statt Prioritätsliste, Zielwahl, Verkauf, Forschungs-Slot, drei Profile, Gold im Coop.
+- [x] **Werkzeuge**: Browsertest `e2e/tests/bot-player.e2e.ts`, Lauf-Vergleich `tools/play-profile`.
+- [x] **CI**: Relay-Image mit `configs/timing.config.ts`, Lint in `replay-file.spec.ts`.
+- [x] **Aus TODO genommen, erledigt**: E99 (der neue Anfänger-Bot rüstet weiter auf statt zu horten).
+
 ## 2026-10-02
 
 - [x] **Balance nach dem W60-Lauf** (E95): Wellen-HP beim Start bemessen, Druck-Regler 0,5 bis 2,5, echte Bosse
