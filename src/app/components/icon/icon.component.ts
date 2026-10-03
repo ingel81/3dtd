@@ -48,7 +48,9 @@ export type TdIconName =
   | 'link'
   | 'send'
   | 'more'
-  | 'signIn';
+  | 'signIn'
+  // header actions (design 2026-10-04): favourites, random place, HQ, spawn portal, a spawn more, coop
+  | 'bookmarkStar' | 'dice' | 'castle' | 'portal' | 'portalAdd' | 'shields';
 
 interface IconDef {
   /** Inner SVG markup. Stroke uses currentColor; fill defaults to none unless set explicitly per <path>. */
@@ -100,6 +102,12 @@ const ICONS: Record<TdIconName, IconDef> = {
   send: { body: '<path d="m4 12 16-8-6 16-3-7Z" />' },
   more: { body: '<circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" />' },
   signIn: { body: '<path d="M15 3h4v18h-4M10 17l5-5-5-5M15 12H3" />' },
+  bookmarkStar: { body: '<path d="M6 3h12v18l-6-4-6 4Z" /><path d="m12 6.8 1.1 2.2 2.4.35-1.75 1.7.42 2.4L12 12.3l-2.17 1.15.42-2.4-1.75-1.7 2.4-.35Z" />' },
+  dice: { body: '<path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7Z" /><path d="M3.5 7 12 11.5 20.5 7M12 11.5v10" /><circle cx="12" cy="7" r="1" fill="currentColor" stroke="none" /><circle cx="7.2" cy="12.4" r="1" fill="currentColor" stroke="none" /><circle cx="8.6" cy="16.4" r="1" fill="currentColor" stroke="none" /><circle cx="16.3" cy="14.4" r="1" fill="currentColor" stroke="none" />' },
+  castle: { body: '<path d="M4.5 21V9.5h2.5V6.5h2.5v3h1.5v-3h2v3h1.5v-3H17v3h2.5V21Z" /><path d="M10 21v-3.5a2 2 0 0 1 4 0V21" /><path d="M3 21h18" />' },
+  portal: { body: '<path d="M5 21V11a7 7 0 0 1 14 0v10" /><path d="M3 21h18" /><path d="M12 17a3 3 0 1 1 3-3" />' },
+  portalAdd: { body: '<path d="M3.5 21v-8a6 6 0 0 1 9.5-4.9" /><path d="M15.5 21v-5" /><path d="M2 21h15.5" /><path d="M19 3v6M16 6h6" />' },
+  shields: { body: '<path d="M8.5 4 3 6v4.8c0 3.8 2.4 6.7 5.5 7.7 3.1-1 5.5-3.9 5.5-7.7V6Z" /><path d="M14.6 6.3 21 8.5v4.6c0 3.6-2.3 6.4-5.3 7.4-.9-.3-1.7-.7-2.4-1.2" />' },
   sliders: { body: '<path d="M4 8h12M18 8h2M4 16h4M10 16h10M16 6v4M8 14v4" />' },
   chart: { body: '<path d="M3 20h18M5 20V10M10 20V5M15 20v-8M20 20v-4" />' },
   share: { body: '<circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="m8.2 11 7.6-4M8.2 13l7.6 4" />' },

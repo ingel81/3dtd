@@ -262,6 +262,16 @@
   gap: 2px;
 }
 
+/* Between the groups of actions (the place, editing the map, coop): a
+   carved line, dark with a lit edge, tall enough to read at a glance */
+.action-divider {
+  width: 0;
+  height: 24px;
+  margin: 0 9px;
+  border-left: 1px solid rgba(0, 0, 0, 0.6);
+  border-right: 1px solid var(--td-frame-mid);
+}
+
 .action-btn {
   display: flex;
   align-items: center;
@@ -320,14 +330,6 @@
     width: 7px;
     height: 7px;
   }
-}
-
-.action-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--td-frame-mid);
-  margin: 0 2px;
-  opacity: 0.5;
 }
 
 .fav-wrapper,

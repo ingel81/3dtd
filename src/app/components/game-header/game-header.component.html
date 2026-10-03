@@ -8,12 +8,12 @@
       <td-icon class="location-edit" name="edit" [size]="16"></td-icon>
     </button>
 
-    <!-- Location Actions -->
+    <!-- Location Actions, in three groups: the place, editing the map, coop -->
     <div class="location-actions">
       <!-- Share Button -->
       <button class="action-btn" (click)="onShare()" matTooltip="Copy link"
               [attr.aria-label]="shareConfirmed() ? 'Link copied' : 'Copy link'">
-        <td-icon [name]="shareConfirmed() ? 'check' : 'share'" [size]="22"></td-icon>
+        <td-icon [name]="shareConfirmed() ? 'check' : 'link'" [size]="22"></td-icon>
       </button>
 
       <!-- Favorites Dropdown -->
@@ -21,7 +21,7 @@
         <button class="action-btn" [class.active]="favMenuExpanded()"
                 (click)="toggleFavMenu()" matTooltip="Favorites"
                 aria-label="Favorites" [attr.aria-expanded]="favMenuExpanded()">
-          <td-icon name="bookmark" [size]="22"></td-icon>
+          <td-icon name="bookmarkStar" [size]="22"></td-icon>
         </button>
         <div class="fav-dropdown" [class.expanded]="favMenuExpanded()">
           <!-- Name field: saving the current location, or renaming a favorite.
@@ -91,7 +91,7 @@
       <button class="action-btn" (click)="diceClick.emit()"
               [matTooltip]="locationLocked() ? 'The coop room plays this map' : 'Random location'"
               aria-label="Random location" [disabled]="locationLocked()">
-        <td-icon name="random" [size]="22"></td-icon>
+        <td-icon name="dice" [size]="22"></td-icon>
       </button>
 
       <!-- Rendering Toggle (Phase 5.14), headless mode for bot runs, DevWorld only -->
@@ -104,14 +104,13 @@
         </button>
       }
 
-      <!-- Placement Divider + Buttons -->
-      <span class="action-divider"></span>
+      <span class="action-divider" aria-hidden="true"></span>
 
       <button class="action-btn" [class.active]="placementMode() === 'hq'"
               (click)="placeHqClick.emit()" matTooltip="Move HQ"
               aria-label="Move HQ" [attr.aria-pressed]="placementMode() === 'hq'"
               [disabled]="!canPlace()">
-        <td-icon name="pin" [size]="22"></td-icon>
+        <td-icon name="castle" [size]="22"></td-icon>
       </button>
 
       <!-- With several spawns: which one to move, or one in place of all -->
@@ -121,7 +120,7 @@
                 [attr.aria-label]="spawnCount() > 1 ? 'Move a spawn' : 'Set spawn'"
                 [attr.aria-expanded]="spawnCount() > 1 ? spawnMenuOpen() : null"
                 [attr.aria-pressed]="placementMode() === 'spawn'" [disabled]="!canPlace()">
-          <td-icon name="flag" [size]="22"></td-icon>
+          <td-icon name="portal" [size]="22"></td-icon>
         </button>
         @if (spawnMenuOpen()) {
           <div class="spawn-menu">
@@ -136,18 +135,18 @@
       <button class="action-btn" (click)="addSpawnClick.emit()"
               matTooltip="Add a spawn, a lane of its own (up to four, before the first wave)"
               aria-label="Add a spawn" [disabled]="!canPlace()">
-        <td-icon name="plus" [size]="22"></td-icon>
+        <td-icon name="portalAdd" [size]="22"></td-icon>
       </button>
 
       <!-- Coop: open a room or join one; in one the room chip (code, a square per player, seats) -->
-      <span class="action-divider"></span>
+      <span class="action-divider" aria-hidden="true"></span>
       @if (coopChip(); as chip) {
         <!-- No focus after the click: the chip would keep a ring (PLAYTEST T63) -->
         <button class="action-btn coop-btn active" type="button" (click)="coopClick.emit()"
                 (mousedown)="$event.preventDefault()"
                 [matTooltip]="'Coop room ' + chip.code + ': players, lanes, chat · Tab'"
                 [attr.aria-label]="'Coop room ' + chip.code + ', ' + chip.colors.length + ' of ' + chip.max + ' players'">
-          <td-icon name="users" [size]="22"></td-icon>
+          <td-icon name="shields" [size]="22"></td-icon>
           <span class="room-code">{{ chip.code }}</span>
           <span class="room-dots" aria-hidden="true">
             @for (color of chip.colors; track $index) { <b [style.background]="color ?? 'var(--td-frame-mid)'"></b> }
@@ -158,7 +157,7 @@
         <button class="action-btn coop-btn" type="button" (click)="coopClick.emit()"
                 (mousedown)="$event.preventDefault()"
                 matTooltip="Coop: play one map together" aria-label="Coop: play one map together">
-          <td-icon name="users" [size]="22"></td-icon>
+          <td-icon name="shields" [size]="22"></td-icon>
         </button>
       }
     </div>
