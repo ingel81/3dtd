@@ -124,8 +124,11 @@ Partikel; Game Design und Balance; Berichte und Sprint-Handover; Pläne; Archiv)
 | Offene Arbeit und Entscheidungen, Changelog | [TODO.md](TODO.md), [DONE.md](DONE.md) |
 
 **Hinweis zu TODO/DONE:**
-- **TODO.md** ist die einzige Liste offener Arbeit: ein Backlog mit stabilen Kennungen (A1, C16, E27 …), dazu
-  „Entschieden“ und „Verworfen“; Handover und Berichte führen keine eigenen Listen
+- **TODO.md** ist die einzige Liste offener Arbeit, mit stabilen Kennungen (A1, C16, E106 …) in drei Abschnitten:
+  **1. Offen** (nach Gewicht; besprochene Details für Ungebautes im Eintrag, größere Pläne als `docs/<THEMA>_PLAN.md`),
+  **2. Gebaut, wartet auf Test** (höchstens drei Zeilen, Verweis auf PLAYTEST.md), **3. Später und Ideen**; dazu
+  „Entschieden“ und „Verworfen“. Handover und Berichte führen keine eigenen Listen
+- Beim Bau wandern Entscheidungen in die Fach-Doku und der Eintrag nach Abschnitt 2; der Verlauf steht in den Commits
 - **DONE.md** ist ein chronologischer Changelog mit Datumsabschnitten (neueste zuerst)
 - Einträge werden **nur auf menschlichen Zuruf** von TODO nach DONE verschoben
 - Bei neuen Einträgen in DONE.md immer das aktuelle Datum als Section verwenden
