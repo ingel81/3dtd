@@ -342,7 +342,7 @@ Ideen (2026-09-27), nichts entschieden:
       Mutator „Panzerung +1“.
 - [ ] **E106 Menschenähnlicher Bot** (User, 2026-10-03, entschieden per Einzelfragen P1 bis P6,
       [BOT_PLAYER_PLAN.md](docs/BOT_PLAYER_PLAN.md)): Wahrnehmung, Sichtlinien-Probe für Bauplätze, Nutzen-Schiedsrichter
-      statt Prioritätsliste, drei Profile mit menschlichen Grenzen, Coop-Partner. Branch `bot-player`, lokal committet:
+      statt Prioritätsliste, drei Profile mit menschlichen Grenzen, Coop-Partner. Auf `next` seit 2026-10-03:
       B1 bis B6 (Wahrnehmung, Sichtprobe, Schiedsrichter, Zielwahl/Verkauf/Slots, drei Profile, Gold im Coop). Offen:
       B7 (Camo, Pfade, Bauzeit) nach dem Merge von `dev/after-0.6`; Coop-Bot im Browser zu zweit prüfen; Profile mit
       Läufen nach der Balance-Nacht nachjustieren.
