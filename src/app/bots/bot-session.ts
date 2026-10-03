@@ -377,6 +377,12 @@ export class BotSession {
         }
         break;
 
+      case 'set-targeting':
+        if (action.towerId && action.targeting && this.mirror.tower(action.towerId)) {
+          this.sim.bus.emit({ type: 'command:set-targeting', towerId: action.towerId, strategy: action.targeting });
+        }
+        break;
+
       case 'wait':
         // Do nothing
         break;

@@ -1,6 +1,6 @@
 # Bot-Spieler: Plan für einen menschenähnlichen Bot
 
-**Stand:** 2026-10-03, entschieden (P1 bis P6), B1 bis B3 gebaut
+**Stand:** 2026-10-03, entschieden (P1 bis P6), B1 bis B4 gebaut
 **Code heute:** `src/app/bots/`, Beschreibung in [BOT_SYSTEM.md](BOT_SYSTEM.md)
 
 ## Ziel
@@ -147,8 +147,12 @@ Mit B3 bis Welle 11: 26 Tower aus Archer, Eis (3) und Magie, 99 Upgrades, zwei F
 W6 bis W9). Die Wellen 9 und 10 hielt er dicht. Der Druck-Regler setzt die HP der Wellen gegen die Abwehr, darum
 sind Lecks zwischen den Bots kein Maß für ihre Stärke.
 
-Offen für B4/B5: Forschungs-Slots kauft er nicht; Gift und Feuer (Schaden über Zeit) zählen nur mit ihrer DPS;
-Upgrades werden je Gold niedrig bewertet, bis das Bautempo greift.
+**B4 Werkzeuge (gebaut 2026-10-03):** Zielwahl vor Boss- und Luftwellen (drei Tower auf den Boss, das stärkste
+Drittel auf Luft, nur in der Bauphase), Verkauf blinder Tower und Platz für einen doppelt so guten Typ am Bautempo,
+ein weiterer Forschungs-Slot, wenn alle belegt sind, Gift und Brand mit ihrer Nachwirkung im Nutzen. Die
+Forschungs-Warteschlange nutzt der Bot nicht: sie bezahlt am Schiedsrichter vorbei. Feuerpause und Bemannen auch
+nicht, es gibt keinen Fall, in dem sie einem Bot nützen. Browserlauf bis Welle 13: 34 Umstellungen der Zielwahl,
+drei Tower auf den Boss in W10, kein Verkauf (kein Tower stand blind).
 
 ## Entscheidungen
 

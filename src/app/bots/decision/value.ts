@@ -44,6 +44,9 @@ const SLOWED_PER_HIT = 3;
 /** Enemies in a tower's reach at once, for the share of them a slow keeps slowed */
 const ENEMIES_IN_REACH = 6;
 
+/** A typical enemy's pace, m/s (the median base speed of the enemy types) */
+const TYPICAL_SPEED = 6;
+
 /** HP of a wave the bot cannot read (a beginner does not look at the wave panel) */
 const UNREAD_WAVE_HP = 1000;
 
@@ -119,7 +122,26 @@ export function newTowerCapacity(
   const metres = expectedMetres(typeId, routes);
   const cfg = TOWER_TYPES[typeId];
   const at = { ground: metres, air: metres };
-  return sum(towerCapacity(cfg, {}, airUnlocked, at), slowAdded(cfg, {}, at, capacity, routeMetres));
+  return ownCapacity(cfg, {}, airUnlocked, at, capacity, routeMetres);
+}
+
+/**
+ * Everything one tower brings at these levels on these metres: its own
+ * damage, the damage over time it leaves behind (lingerAdded) and what its
+ * slow adds to the others (slowAdded).
+ */
+export function ownCapacity(
+  cfg: TowerTypeConfig,
+  levels: UpgradeLevels,
+  airUnlocked: boolean,
+  metres: { ground: number; air: number },
+  capacity: ArmorSides,
+  routeMetres: number,
+): ArmorSides {
+  return sum(
+    sum(towerCapacity(cfg, levels, airUnlocked, metres), lingerAdded(cfg, levels, airUnlocked)),
+    slowAdded(cfg, levels, metres, capacity, routeMetres),
+  );
 }
 
 /** Capacity of one tower: its matrix damage times the metres it has under fire, per armor and side */
@@ -165,6 +187,36 @@ export function slowAdded(
   for (const side of ['ground', 'air'] as const) {
     const share = Math.min(1, metres[side] / routeMetres);
     for (const armor of ARMOR_TYPES) out[side][armor] = capacity[side][armor] * share * held * longer;
+  }
+  return out;
+}
+
+/**
+ * Capacity of the damage over time a tower leaves behind: poison and the
+ * fire's burn keep ticking after the enemy left its reach, over the metres it
+ * walks meanwhile (duration times a typical pace). The poison's ticks inside
+ * the reach are part of its DPS already (computeTowerDPSFromLevels).
+ */
+export function lingerAdded(cfg: TowerTypeConfig, levels: UpgradeLevels, airUnlocked: boolean): ArmorSides {
+  const effects = GAME_BALANCE.effects;
+  let dps = 0;
+  let seconds = 0;
+  if (cfg.id === 'poison') {
+    dps = effects.poison.dotDamagePerSecond;
+    seconds = effects.poison.duration / 1000;
+  } else if (cfg.id === 'fire') {
+    dps = effects.burn.beamDpsShare * computeTowerDPSFromLevels(cfg, levels);
+    seconds = effects.burn.duration / 1000;
+  }
+  const out = emptySides();
+  if (dps <= 0) return out;
+  const metres = TYPICAL_SPEED * seconds;
+  const mults = armorMultipliersFor(cfg.damageType);
+  const ground = cfg.canTargetGround ?? true;
+  const air = canTargetAirEffective(cfg.id as TowerTypeId, airUnlocked);
+  for (const armor of ARMOR_TYPES) {
+    if (ground) out.ground[armor] = dps * mults[armor] * metres;
+    if (air) out.air[armor] = dps * mults[armor] * metres;
   }
   return out;
 }

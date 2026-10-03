@@ -6,7 +6,7 @@
  */
 
 import { GameStateSnapshot } from '../../director/models/game-state-snapshot';
-import { TowerTypeId } from '../../configs/tower-types.config';
+import { TowerTypeId, TargetingStrategy } from '../../configs/tower-types.config';
 import type { AbilityId } from '../../configs/abilities.config';
 import type { HeroAmmoId } from '../../configs/hero.config';
 
@@ -26,7 +26,7 @@ export type BotSkillLevel = 'beginner' | 'expert';
  */
 export type TowerActionType =
   'place' | 'upgrade' | 'sell' | 'wait' | 'start-wave' | 'research-start' | 'research-cancel'
-  | 'use-ability' | 'hire-hero' | 'hero-move' | 'hero-ammo';
+  | 'use-ability' | 'hire-hero' | 'hero-move' | 'hero-ammo' | 'set-targeting';
 
 /**
  * Tower action returned by bot
@@ -54,6 +54,9 @@ export interface TowerAction {
 
   /** For 'hero-ammo': which rounds he loads */
   ammo?: HeroAmmoId;
+
+  /** For 'set-targeting': what the tower (towerId) aims at */
+  targeting?: TargetingStrategy;
 
   /** Confidence in this action (0-1) */
   confidence?: number;

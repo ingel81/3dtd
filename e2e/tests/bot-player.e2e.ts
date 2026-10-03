@@ -8,7 +8,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { gameReady, shot } from '../support/game';
 
 /** Waves the bot plays before the checks */
-const WAVES = 10;
+const WAVES = 12;
 
 interface SightChoice { typeId: string; old: number; chosen: number; ms: number; probed: number }
 interface Seen {
@@ -194,5 +194,9 @@ test('the bot reads the waves and builds where it sees the route', async ({ page
     const combatTypes = report.builtTypes.filter((t) => t !== 'research-center' && t !== 'missile-silo');
     expect(combatTypes.length, `tower types: ${combatTypes.join(', ')}`).toBeGreaterThanOrEqual(3);
     expect(hq.health).toBeGreaterThan(0);
+  });
+
+  await test.step('B4: the bot sets the aim of its towers for the boss and the air waves on the way', async () => {
+    expect(report.actions['set-targeting'] ?? 0).toBeGreaterThan(0);
   });
 });

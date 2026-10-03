@@ -10,7 +10,8 @@
  * first" count) and the favourite tower of the beginner: the arbiter weighs
  * each level against a new tower.
  *
- * The research center's slots are no upgrade of the defense and stay out.
+ * The research center's slots are no upgrade of the defense: ResearchPick
+ * proposes them when a research waits for one.
  */
 
 import type { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
@@ -18,7 +19,7 @@ import { requiredUpgradeTier, TowerTypeId } from '../../../configs/tower-types.c
 import type { UpgradeLevels } from '../../../director/tower-dps.util';
 import type { BotWorld } from '../../bot-world';
 import type { Proposal } from '../../decision/arbiter';
-import { chordMetres, difference, expectedMetres, killTimeSaved, rangeAt, slowAdded, sum, towerCapacity } from '../../decision/value';
+import { chordMetres, difference, expectedMetres, killTimeSaved, ownCapacity, rangeAt } from '../../decision/value';
 import type { DecisionContext, ITowerStrategy } from '../tower-strategy.interface';
 
 export class TowerUpgradeStrategy implements ITowerStrategy {
@@ -38,7 +39,7 @@ export class TowerUpgradeStrategy implements ITowerStrategy {
       const expected = expectedMetres(cfg.id as TowerTypeId, context.routes);
       const metres = context.metresByTower.get(tower.id) ?? { ground: expected, air: expected };
       const own = (at: UpgradeLevels, m: { ground: number; air: number }) =>
-        sum(towerCapacity(cfg, at, airUnlocked, m), slowAdded(cfg, at, m, context.capacity, context.routeMetres));
+        ownCapacity(cfg, at, airUnlocked, m, context.capacity, context.routeMetres);
       const before = own(levels, metres);
       const reach = chordMetres(rangeAt(cfg, levels));
 

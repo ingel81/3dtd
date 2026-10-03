@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import type { WavePeekFacts } from '../../director/wave-source';
 import {
-  chordMetres, difference, emptySides, expectedMetres, killTimeSaved, slowAdded, threatFromMix, threatFromWaves, towerCapacity,
+  chordMetres, difference, emptySides, expectedMetres, killTimeSaved, lingerAdded, slowAdded, threatFromMix, threatFromWaves, towerCapacity,
 } from './value';
 
 function wave(enemies: [string, number][], hpByArmor: [string, number][]): WavePeekFacts {
@@ -98,5 +98,13 @@ describe('slowAdded', () => {
     const rate = ice.upgrades.find((u) => u.effect.stat === 'fireRate')!;
     expect(slowAdded(ice, { [rate.id]: 5 }, metres, others, 700).ground.unarmored)
       .toBeGreaterThanOrEqual(slowAdded(ice, {}, metres, others, 700).ground.unarmored);
+  });
+});
+
+describe('lingerAdded', () => {
+  it('counts the poison and the burn that tick on after the reach, nothing for a plain tower', () => {
+    expect(lingerAdded(TOWER_TYPES.poison, {}, false).ground.unarmored).toBeGreaterThan(0);
+    expect(lingerAdded(TOWER_TYPES.fire, {}, false).ground.unarmored).toBeGreaterThan(0);
+    expect(lingerAdded(TOWER_TYPES.archer, {}, false).ground.unarmored).toBe(0);
   });
 });

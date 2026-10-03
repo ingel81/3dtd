@@ -4,6 +4,9 @@ import { BOT_CONFIGS, BotSkillLevel } from '../../bots/tower-bot.interface';
 import { createEmptySnapshot, GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { getAllResearchIds, getResearch } from '../../../configs/research/research-tree.config';
 import { HERO } from '../../../configs/hero.config';
+import { TOWER_TYPES, TowerTypeId } from '../../../configs/tower-types.config';
+import { emptySides, sum, threatFromWaves, towerCapacity } from '../../decision/value';
+import type { DecisionContext } from '../tower-strategy.interface';
 
 const SKILLS: BotSkillLevel[] = ['beginner', 'expert'];
 
@@ -88,5 +91,53 @@ describe('the beginner research order', () => {
     expect(beginner).not.toContain('rocketry');       // anti-air
     expect(beginner).not.toContain('aa-retrofit');
     expect(beginner.length).toBeLessThan((order.researchOrderBySkill['expert'] ?? []).length);
+  });
+});
+
+describe('research as a proposal (B3)', () => {
+  /** Ten archers against a wave of zombies, every other tower locked, late enough for every research */
+  function archerRun(slotsUsed = 0): { state: GameStateSnapshot; context: DecisionContext } {
+    const state = stateWith([]);
+    state.waveNumber = 40;
+    state.research.slotsUsed = slotsUsed;
+    state.research.maxSlots = 1;
+    state.research.towerUnlocked = Object.fromEntries(
+      (Object.keys(TOWER_TYPES) as TowerTypeId[]).map((id) => [id, id === 'archer'])) as Record<TowerTypeId, boolean>;
+    const archer = towerCapacity(TOWER_TYPES.archer, {}, false, { ground: 40, air: 40 });
+    let capacity = emptySides();
+    for (let i = 0; i < 10; i++) capacity = sum(capacity, archer);
+    const context: DecisionContext = {
+      threat: threatFromWaves([{
+        wave: 41, name: '', known: true, boss: false, air: false, armors: [], count: null, note: '', description: '',
+        enemies: [['tank', 1]], hpByArmor: [['heavy', 20000]],
+      }]),
+      capacity, metresByTower: new Map(), routes: 1, routeMetres: 700,
+    };
+    return { state, context };
+  }
+
+  it('is a buy when it unlocks a tower better per gold than the archer, worth that gain', () => {
+    const { state, context } = archerRun();
+    const [proposal] = new ResearchPickStrategy(BOT_CONFIGS.expert).propose(state, context);
+    expect(proposal.kind).toBe('buy');
+    expect(proposal.value).toBeGreaterThan(0);
+    expect(proposal.act()?.type).toBe('research-start');
+  });
+
+  it('asks for another slot of the research center when every slot is busy', () => {
+    const { state, context } = archerRun(1);
+    const center = {
+      id: 'rc',
+      typeConfig: TOWER_TYPES['research-center'],
+      getAvailableUpgrades: () => TOWER_TYPES['research-center'].upgrades,
+      getNextUpgradeCost: () => 300,
+    };
+    const world = { towerManager: { getAll: () => [center] } };
+    const [slot] = new ResearchPickStrategy(BOT_CONFIGS.expert, world as never).propose(state, context);
+    expect(slot.label).toBe('Research slot');
+    expect(slot.cost).toBe(300);
+    expect(slot.act()).toEqual(expect.objectContaining({ type: 'upgrade', towerId: 'rc', upgradeId: 'research-slots' }));
+    // Without a slot to buy, nothing
+    expect(new ResearchPickStrategy(BOT_CONFIGS.expert).propose(state, context)).toEqual([]);
   });
 });

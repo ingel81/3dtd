@@ -16,7 +16,8 @@ import { MissileSiloPlacementStrategy } from '../strategies/placement/missile-si
 import { ResearchPickStrategy } from '../strategies/research/research-pick.strategy';
 import { TowerBuildStrategy } from '../strategies/build/tower-build.strategy';
 import { TowerUpgradeStrategy } from '../strategies/upgrade/tower-upgrade.strategy';
-import { SellUnderperformerStrategy } from '../strategies/upgrade/sell-underperformer.strategy';
+import { TowerSellStrategy } from '../strategies/sell/tower-sell.strategy';
+import { TargetingStrategy } from '../strategies/targeting/targeting.strategy';
 import { AutoStartWaveStrategy } from '../strategies/wave/auto-start-wave.strategy';
 import { NuclearStrikeStrategy } from '../strategies/ability/nuclear-strike.strategy';
 import { FrostBombStrategy } from '../strategies/ability/frost-bomb.strategy';
@@ -60,7 +61,7 @@ export class StrategyBotFactory {
   /**
    * The strategies of a bot, in the order its rules are taken
    * (decision/arbiter.ts): the abilities, the hero, the research center and
-   * the silo, selling; then research, the buys and the wave start, which the
+   * the silo, selling, targeting; then research, the buys and the wave start, which the
    * arbiter orders by kind and value.
    */
   private getStrategiesForSkillLevel(config: BotConfig, autoStartWaves: boolean): ITowerStrategy[] {
@@ -73,16 +74,16 @@ export class StrategyBotFactory {
       new EmpStrategy(this.gameState),
       new OrbitalLaserStrategy(this.gameState),
     ];
-    // The expert hires the hero and sells what does not earn its place; the
-    // beginner does neither.
+    // The expert hires the hero; the beginner does not.
     if (expert) strategies.push(new HeroStrategy(this.gameState));
     strategies.push(
       new ResearchCenterPlacementStrategy(this.strategicPlacement, this.gameState),
       new MissileSiloPlacementStrategy(this.strategicPlacement, this.gameState),
     );
-    if (expert) strategies.push(new SellUnderperformerStrategy(this.gameState, config));
+    // The expert sells what does not earn its place and sets the towers' aim for the wave
+    if (expert) strategies.push(new TowerSellStrategy(this.gameState, config), new TargetingStrategy(this.gameState));
     strategies.push(
-      new ResearchPickStrategy(config),
+      new ResearchPickStrategy(config, this.gameState),
       // The expert spreads its towers over the zones of the route; the
       // beginner builds at the two ends, where the score puts them.
       new TowerBuildStrategy(this.strategicPlacement, this.gameState, config, expert ? 'distributed' : 'strategic'),

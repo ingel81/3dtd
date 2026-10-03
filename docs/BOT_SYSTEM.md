@@ -105,9 +105,9 @@ src/app/bots/
     ├── placement/                   # Regeln: Research Center, Missile Silo
     ├── research/research-pick.strategy.ts   # Forschung: Kauf, Forschung oder Regel
     ├── build/tower-build.strategy.ts        # Kauf: ein neuer Tower je Typ
-    ├── upgrade/
-    │   ├── tower-upgrade.strategy.ts        # Kauf: jedes Upgrade jedes Towers
-    │   └── sell-underperformer.strategy.ts  # Regel: Verkauf
+    ├── upgrade/tower-upgrade.strategy.ts    # Kauf: jedes Upgrade jedes Towers
+    ├── sell/tower-sell.strategy.ts          # Regel: blinde Tower verkaufen, Platz für Besseres
+    ├── targeting/targeting.strategy.ts      # Regel: Zielwahl für Boss und Luft
     └── wave/auto-start-wave.strategy.ts     # Welle
 ```
 
@@ -250,7 +250,8 @@ ist die, in der der Schiedsrichter Regeln nimmt.
 | Hero | Regel | | ✓ |
 | ResearchCenterPlacement | Regel | ✓ | ✓ |
 | MissileSiloPlacement | Regel | ✓ | ✓ |
-| SellUnderperformer | Regel | | ✓ |
+| Sell | Regel | | ✓ |
+| Targeting | Regel | | ✓ |
 | ResearchPick | Kauf, Forschung oder Regel | ✓ | ✓ |
 | Build | Kauf | ✓ (Enden der Route) | ✓ (Zonen) |
 | Upgrade | Kauf | ✓ | ✓ |
@@ -263,9 +264,10 @@ Die Fähigkeiten feuern nur, wenn erforscht; das erforscht nur der Könner
 
 **Unterschied der beiden:** Der Einsteiger reagiert langsam (3000 ms gegen
 800 ms), baut höchstens 10 Tower und langsamer, liest das Wellen-Panel nicht,
-forscht nach seiner festen Liste, baut an den beiden Enden der Route und
-verkauft nie. Der Könner liest die nächsten zwei Wellen, forscht adaptiv,
-verteilt seine Tower über die Zonen der Route, verkauft und schickt den Helden.
+forscht nach seiner festen Liste, baut an den beiden Enden der Route,
+verkauft nie und lässt die Zielwahl, wie sie ist. Der Könner liest die
+nächsten zwei Wellen, forscht adaptiv, verteilt seine Tower über die Zonen der
+Route, verkauft, stellt vor Boss- und Luftwellen Tower um und schickt den Helden.
 
 Ein Batch verteilt beide Bots gleich (`BOT_WEIGHTS` im Bot-Server); der Server
 sagt jedem Client vor jedem Lauf, welchen er spielt.
@@ -314,6 +316,8 @@ Abwehr die kommenden Wellen tötet.
 - **Verlangsamung** (Eis, `slowAdded`): Gegner bleiben länger im Feuer der
   anderen Tower auf seiner Strecke, für den Anteil, den er verlangsamt halten
   kann.
+- **Schaden über Zeit** (Gift, Brand, `lingerAdded`): tickt nach der Reichweite
+  weiter, über die Meter, die ein Gegner in der Wirkdauer läuft (6 m/s).
 - **Forschung** mit Tower-Freischaltung: der Gewinn je Gold des neuen Typs
   gegenüber dem besten jetzigen, mal 1.000 Gold, die der Bot in den Typ
   stecken wird (`UNLOCK_SPEND`); ein Tor zählt mit 0,9 dessen, was es öffnet.
@@ -358,7 +362,11 @@ Schlägt die nächste Node vor, wenn ein Center steht, ein Slot frei ist und ihr
 Prereqs und ihre Mindestwelle erfüllt sind, auch unbezahlbar, damit der
 Schiedsrichter darauf sparen kann. Schaltet sie einen Tower frei, der je Gold
 besser ist als der beste baubare, ist sie ein **Kauf** (Nutzen siehe oben).
-Sonst ist sie **Forschung** und wartet, bis eine Welle dicht war. Bringt die
+Sonst ist sie **Forschung** und wartet, bis eine Welle dicht war. Sind alle
+Slots belegt, schlägt sie einen weiteren Slot des Research Centers vor, mit
+dem Wert der Forschung, die wartet. Die Warteschlange (`queue-research`) nutzt
+der Bot nicht: sie bezahlt am Schiedsrichter vorbei, und ein Bot, der jede
+Sekunde schaut, startet eine Forschung ebenso schnell selbst. Bringt die
 nächste Welle Luft, gegen die nichts schießt, und ist der Retrofit (oder bei
 gepanzerter Luft die Rakete) dran, ist sie eine **Regel**, sobald bezahlbar.
 
@@ -402,16 +410,31 @@ Drei Sonderregeln, alle aus konkreten Fehlern:
   eine Verteidigung voller Archer (die Luft treffen) als „keine Anti-Air" und
   der Bot kaufte weiter Rocketry.
 
-### SellUnderperformer (Regel, nur Könner)
+### Sell (Regel, nur Könner)
 
-Verkauft **unaufgerüstete Archer**, wenn ≥ 2000 Credits da sind, ≥ 5 Türme
-stehen, der Sell-Cooldown (4 s Game-Time) abgelaufen ist und ein teurerer,
-freigeschalteter, bezahlbarer Alternativturm existiert. Zweck: die
-Early-Game-Platzhalter loswerden, wenn Geld für Besseres da ist; ohne
-Verkaufsmechanismus entstanden 300k-Gold-Horte.
+`strategies/sell/tower-sell.strategy.ts`, ersetzt SellUnderperformer (unaufgerüstete
+Archer ab 2.000 Gold). Zwei Fälle, beide erst für einen Tower, der drei Wellen
+stand (`IDLE_WAVES`, Wahrnehmung B1):
 
-Der Kommentar im Code beschreibt eine Auswahl „nächster am Pfadende"; implementiert
-ist bewusst `archers[0]`.
+- **Blind:** er hat weniger als 30 % der Meter unter Feuer, die seine Reichweite
+  decken sollte, und machte über die drei Wellen unter 2 % des Schadens. Ein
+  stiller Tower, der die Route sieht (das Polster vor dem HQ), bleibt.
+- **Platz für Besseres:** in der Bauphase am Bautempo, wenn ein freier,
+  bezahlbarer Typ doppelt so viel wert ist wie der schwächste unaufgerüstete
+  Tower. Der Bau nimmt den freien Platz danach.
+
+4 s Spielzeit zwischen zwei Verkäufen.
+
+### Targeting (Regel, nur Könner)
+
+`strategies/targeting/targeting.strategy.ts`. Nur in der Bauphase, nach der
+nächsten Welle im Wellen-Panel, ein Tower je Entscheidung:
+
+- **Boss:** die drei stärksten Einzelziel-Tower (DPS) zielen auf die meisten HP.
+- **Luft:** bringt die Welle mindestens 30 % ihrer HP in der Luft, zielt das
+  stärkste Drittel der Tower, die beides treffen, auf Luft zuerst.
+- Sonst der Standard des Typs. Die erste Fassung stellte vor jeder Luftwelle
+  alle Archer um und danach zurück: 104 Umstellungen bis Welle 13, jetzt 34.
 
 ### Hero (Regel, nur Könner)
 
@@ -771,11 +794,17 @@ Erzeugungszeitpunkt gelesen; eine spätere Änderung wirkt erst beim nächsten
 
 Er spart, wenn ein teurer Kauf je Gold klar besser ist (Sparziel, höchstens
 dreimal sein Gold). Am Bautempo und ohne Upgrade im erlaubten Tier bleibt
-Gold liegen; SellUnderperformer verkauft Archer ab 2000 Gold.
+Gold liegen; Sell macht am Bautempo Platz für einen deutlich besseren Typ.
 
 ---
 
 ## Changelog
+
+### 2026-10-03: Zielwahl, Verkauf, Slots, Schaden über Zeit (B4)
+- Neue Regel Targeting (Boss, Luft), neue Regel Sell (blind, Platz für Besseres)
+  statt SellUnderperformer; Aktion `set-targeting`.
+- ResearchPick schlägt einen Forschungs-Slot vor, wenn alle belegt sind.
+- Nutzen zählt Gift und Brand nach der Reichweite (`lingerAdded`).
 
 ### 2026-10-03: Schiedsrichter statt Prioritätsliste (B3)
 - Strategien schlagen vor (`propose`), `arbitrate` entscheidet: Regeln, Forschung,

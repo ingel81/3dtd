@@ -20,6 +20,7 @@ import { BaseStrategy } from '../tower-strategy.interface';
 import type { Proposal, ProposalKind } from '../../decision/arbiter';
 import { killTimeSaved, newTowerCapacity } from '../../decision/value';
 import type { DecisionContext } from '../tower-strategy.interface';
+import type { BotWorld } from '../../bot-world';
 import { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { TowerAction, BotConfig, BotSkillLevel } from '../../bots/tower-bot.interface';
 import {
@@ -62,7 +63,7 @@ const GATE_SHARE = 0.9;
 export const BOT_SKIPPED_RESEARCH: ReadonlySet<ResearchId> = new Set([HERO.researchId]);
 
 export class ResearchPickStrategy extends BaseStrategy {
-  constructor(private config: BotConfig) {
+  constructor(private config: BotConfig, private world?: Pick<BotWorld, 'towerManager'>) {
     super('ResearchPick', 'research');
   }
 
@@ -131,16 +132,36 @@ export class ResearchPickStrategy extends BaseStrategy {
    */
   override propose(state: GameStateSnapshot, context: DecisionContext): Proposal[] {
     const r = state.research;
-    if (!r || r.centerLevel === 0 || r.slotsUsed >= r.maxSlots) return [];
+    if (!r || r.centerLevel === 0) return [];
     const next = this.pickNext(state);
     const cfg = next ? getResearch(next) : undefined;
     if (!next || !cfg) return [];
+    if (r.slotsUsed >= r.maxSlots) return this.proposeSlot(state, context, next);
     const cost = researchCost(cfg, r.lanes ?? 1);
     const act = () => this.execute(state);
     const kind = this.kindNow(state);
     if (kind === 'rule') return cost <= state.player.credits ? [{ kind, label: cfg.name, cost, value: 0, act }] : [];
     const value = this.unlockGain(next, state, context) * UNLOCK_SPEND;
     return [{ kind: value > 0 ? 'buy' : 'research', label: cfg.name, cost, value, act }];
+  }
+
+  /**
+   * Every slot busy and a research waiting: another slot of the research
+   * center, worth what that research is worth (a buy for an unlock, else
+   * research after a held wave). A player buys the slot when the tree has
+   * more to give than one slot can take.
+   */
+  private proposeSlot(state: GameStateSnapshot, context: DecisionContext, waiting: ResearchId): Proposal[] {
+    const center = this.world?.towerManager.getAll().find((t) => t.typeConfig.id === 'research-center');
+    if (!center || !center.getAvailableUpgrades().some((u) => u.id === 'research-slots')) return [];
+    const value = this.unlockGain(waiting, state, context) * UNLOCK_SPEND;
+    return [{
+      kind: value > 0 ? 'buy' : 'research',
+      label: 'Research slot',
+      cost: center.getNextUpgradeCost('research-slots'),
+      value,
+      act: () => ({ type: 'upgrade', towerId: center.id, upgradeId: 'research-slots', reason: `Another research slot for ${waiting}` }),
+    }];
   }
 
   /**

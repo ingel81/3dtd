@@ -343,7 +343,8 @@ Ideen (2026-09-27), nichts entschieden:
 - [ ] **E106 Menschenähnlicher Bot** (User, 2026-10-03, entschieden per Einzelfragen P1 bis P6,
       [BOT_PLAYER_PLAN.md](docs/BOT_PLAYER_PLAN.md)): Wahrnehmung, Sichtlinien-Probe für Bauplätze, Nutzen-Schiedsrichter
       statt Prioritätsliste, drei Profile mit menschlichen Grenzen, Coop-Partner. Branch `bot-player`, lokal committet:
-      B1 (Wahrnehmung), B2 (Sichtprobe), B3 (Schiedsrichter); weiter mit B4 (Zielwahl, Verkaufen und Umbauen).
+      B1 (Wahrnehmung), B2 (Sichtprobe), B3 (Schiedsrichter), B4 (Zielwahl, Verkauf, Slots); weiter mit B5 (Profile,
+      Vergleich gegen Läufe).
 
 ## Entschieden (keine Arbeit)
 

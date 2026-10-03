@@ -32,12 +32,11 @@ describe('StrategyBotFactory', () => {
     },
   );
 
-  it('gives the expert the hero and selling, the beginner neither', () => {
+  it('gives the expert the hero, selling and targeting, the beginner none', () => {
     // Nobody used the hero before 2026-09-20, so every run measured a game
     // without him (BALANCING_PLAN.md, D15).
-    expect(names('expert')).toEqual(expect.arrayContaining(['Hero', 'SellUnderperformer']));
-    expect(names('beginner')).not.toContain('Hero');
-    expect(names('beginner')).not.toContain('SellUnderperformer');
+    expect(names('expert')).toEqual(expect.arrayContaining(['Hero', 'Sell', 'Targeting']));
+    for (const name of ['Hero', 'Sell', 'Targeting']) expect(names('beginner')).not.toContain(name);
   });
 
   it('builds the expert spread over the route, the beginner at its two ends', () => {
