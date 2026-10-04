@@ -3,6 +3,22 @@
 What changed for players, newest first. Every release adds a section here, and the
 game shows it once after an update.
 
+## 0.6.0 (2026-10-04)
+
+### Better
+- Much smoother big waves: the simulation now runs in the background. In the new
+  benchmark, 10,000 enemies at 4x speed held 144 FPS (RTX 5080).
+
+### New
+- A new run plan with more kinds of waves, each sized against your defence.
+- Bosses rage at half health, two new bosses lead waves 40 and 50, and elites appear.
+- Blood moon waves bring a twist: faster enemies, a bigger swarm or double gold.
+- Every spawn is a lane of its own; in co-op a player can hold several.
+
+### Also new
+- Paste a 3DTD link to open that place with all its spawns.
+- The co-op host can save the replay at game over, and the game menu has a benchmark.
+
 ## 0.5.1 (2026-09-27)
 
 ### New
