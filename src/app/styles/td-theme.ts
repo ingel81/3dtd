@@ -101,7 +101,7 @@ export const TD_SHADOWS = {
 export const TD_FONTS = {
   mono: `'JetBrains Mono', ui-monospace, monospace`,
   body: `'Inter Tight', system-ui, -apple-system, sans-serif`,
-  display: `'Cinzel', 'Inter Tight', serif`,
+  display: `'Inter Tight', system-ui, -apple-system, sans-serif`,
 } as const;
 
 /**

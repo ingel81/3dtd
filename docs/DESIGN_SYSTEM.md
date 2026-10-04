@@ -153,9 +153,9 @@ Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`. K
 |----------|------|------------|
 | `--td-font-mono` | `'JetBrains Mono', ui-monospace, monospace` | Stats, HP, Kosten, Hotkeys, Wave-Zähler, Section-Header |
 | `--td-font-body` | `'Inter Tight', system-ui, -apple-system, sans-serif` | Tower-Namen, Tooltip-Text, Dialogtitel, Hinweise |
-| `--td-font-display` | `'Cinzel', 'Inter Tight', serif` | Titel im Token-Setup (`token-setup`); laut `td-theme.ts` für Game Over / Victory gedacht |
+| `--td-font-display` | `'Inter Tight', system-ui, -apple-system, sans-serif` | Titel im Token-Setup (`token-setup`); laut `td-theme.ts` für Game Over / Victory gedacht |
 
-Selbst gehostet über `@fontsource` in `src/styles.scss`: Inter Tight (400 bis 700), JetBrains Mono (400, 500, 700, seit 2026-09-25) und Roboto (für Angular Material). Cinzel wird nicht geladen; `--td-font-display` fällt auf Inter Tight zurück, und dabei bleibt es (User, 2026-09-25): Überschriften stehen in Inter Tight, Versalien mit Sperrung.
+Selbst gehostet über `@fontsource` in `src/styles.scss`: Inter Tight (400 bis 700), JetBrains Mono (400, 500, 700, seit 2026-09-25) und Roboto (für Angular Material). Cinzel ist aus dem Stack entfernt (2026-10-04): im Playtest zeigte der Kopf des Ortsdialogs in der App eine Serifenschrift (ein lokal installiertes Cinzel oder der Rückfall `serif`). Überschriften stehen in Inter Tight, Versalien mit Sperrung (User, 2026-09-25).
 
 ### Debug & Performance
 
@@ -261,7 +261,7 @@ Bosse kommen über `enemy:spawned` in eine kurze Liste; ein 8-Hz-Timer außerhal
 Tritt ein Boss einer Welle aus seinem Portal, schneidet die Kamera aufs Portal und `app-boss-intro` (`components/boss-intro/`) zeigt seinen Namen; Auslöser, Pause und Zeitplan in [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-intro). Die Komponente liegt immer über dem Canvas-Bereich (`z-index` 25, über der oberen HUD-Spalte und dem Game-Over-Overlay mit 20) und ist ohne Intro durchsichtig und klickdurchlässig; so hat die erste Blende eine Deckkraft, von der sie ausgeht.
 
 - Schleier: ganze Fläche in `--td-panel-shadow`, blendet vor jedem Schnitt in 220 ms ein (ease-in) und danach in 320 ms aus (ease-out); die Dauern kommen aus `BOSS_INTRO_TIMING`, damit Blende und Schnitt zusammenpassen
-- Titelkarte im unteren Drittel, zentriert, nur während der Portal-Einstellung, über einer weichen Abdunklung der unteren 45 % (`rgba(8,11,9,0.72)` nach transparent): oben "BOSS · WAVE n" (11px/700 Mono-Versalien, Laufweite 0.32em, `--td-gold`, als Trenner eine 4px-Raute in `--td-gold-dark`), darunter der Name des Typs (`EnemyTypeConfig.name`, Inter Tight 700, `clamp(30px, 4.6vw, 54px)`, Versalien per CSS, Laufweite 0.16em, `--td-text-primary` mit Textschatten), eine 88px-Haarlinie im Gold-Verlauf und der Hinweis "Esc or click to skip" (10px Mono, `--td-text-muted`, Tastenkappe wie in der Photo-Leiste). Cinzel (`--td-font-display`) wird nicht geladen, deshalb Inter Tight
+- Titelkarte im unteren Drittel, zentriert, nur während der Portal-Einstellung, über einer weichen Abdunklung der unteren 45 % (`rgba(8,11,9,0.72)` nach transparent): oben "BOSS · WAVE n" (11px/700 Mono-Versalien, Laufweite 0.32em, `--td-gold`, als Trenner eine 4px-Raute in `--td-gold-dark`), darunter der Name des Typs (`EnemyTypeConfig.name`, Inter Tight 700, `clamp(30px, 4.6vw, 54px)`, Versalien per CSS, Laufweite 0.16em, `--td-text-primary` mit Textschatten), eine 88px-Haarlinie im Gold-Verlauf und der Hinweis "Esc or click to skip" (10px Mono, `--td-text-muted`, Tastenkappe wie in der Photo-Leiste). `--td-font-display` ist Inter Tight
 - Die Karte steigt 8px auf und blendet ein, 140 ms nachdem der Schleier zu weichen beginnt; die Laufweite des Namens setzt sich in 0,9 s von 0.3em auf 0.16em. Bei `prefers-reduced-motion` nur Deckkraft, keine Bewegung (auch die Kamera fährt dann nicht heran)
 - Bis die Sicht zurück ist, liegt ein durchsichtiger Knopf über der ganzen Fläche ("Skip the boss intro"): ein Klick überspringt und erreicht weder Karte noch HUD noch den Pause-Knopf darunter. Während der Schleier danach weicht, nimmt die Karte wieder Klicks
 - Die Karte ist `aria-hidden`; der `LiveAnnouncer` sagt beim Start "Boss: <Name>, wave <n>. Escape skips."
@@ -523,7 +523,7 @@ Tasten: Tab (Dock), Enter (Chat) und X (Markierung) hört `app-coop-chat` auf de
 | Squad `app-coop-squad` | unten über der Logo-Zeile, rechts neben der Fähigkeitenleiste wie das Dock, 400px | Kopf SQUAD mit Code oder Problem (Versalien per CSS), CHEATS ON (Orange), Einklappen; Zeilen 36px, man selbst zuerst; Fuß: auf wen die Welle wartet oder was nicht stimmt |
 | Chat `app-coop-chat` | unter der Squad-Box | ein Verlauf auf einem Scrim, ältere Zeilen gedimmt, Systemzeilen in Mono; Enter schreibt, X markiert die Karte, Tab öffnet das Dock; die Tastenzeile darunter nur bis zur ersten eigenen Nachricht |
 
-Überschrift des Docks in `--td-font-display` (Cinzel wird nicht geladen, also Inter Tight, Versalien, Sperrung 0.1em). Warnfarben über `color-mix` aus `--td-warn-orange` und `--td-health-red`, keine eigenen Hex-Werte.
+Überschrift des Docks in `--td-font-display` (Inter Tight, Versalien, Sperrung 0.1em). Warnfarben über `color-mix` aus `--td-warn-orange` und `--td-health-red`, keine eigenen Hex-Werte.
 
 ### Standortdialog
 
