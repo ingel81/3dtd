@@ -1,6 +1,6 @@
 # Playtest: offene Nachtests
 
-Stand 2026-10-02, Code-Stand `next`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
+Stand 2026-10-04, Code-Stand `next`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
 warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). Die erledigten Punkte samt Ergebnissen
 (bis 748, dazu M, Q, R, T bis 2026-09-26) liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Listen in `archive/REVIEW_*.md`.
 
@@ -36,35 +36,44 @@ Paket W1, allein auf einer echten Karte:
 
 - **W1.1 Ein normaler Lauf:** Ort wählen, bis mindestens Welle 10 spielen, zwischendurch Tempo 4. Erwartung: nichts
   anders als auf `next`; Tower treffen, Gegner laufen flüssig, Töne und Effekte kommen zur Zeit.
+  **ok (2026-10-04)**
 - **W1.2 FPS-Anzeige:** Den FPS-Zähler oben links anklicken, dann noch einmal. Erwartung: erst „Speed x / y · Sim
   n %“ und „Sounds/s“, dann rechts daneben Ticks/s, „Memory shared“, „Packet … ms“, Gegnerzahl und kleine Kurven.
   Sinkt das Tempo unter das eingestellte, ist die erste Zahl rot.
+  **ok (2026-10-04)**
 - **W1.3 Tab im Hintergrund:** Während einer Welle zwei Minuten in einen anderen Tab, dann zurück. Erwartung: die
   Welle lief weiter (Wellenzähler und Gold passen), kein Standbild, keine Fehlermeldung.
 - **W1.4 Vorschau der Seitenleiste:** Tower-Karten und Gegnergruppen im Wellen-Panel ansehen, auch gesperrte Tower.
   Erwartung: alle drehen sich gleichmäßig ab dem ersten Bild, eine Umdrehung in etwa 6 Sekunden, gesperrte als
   dunkle Silhouette.
+  **ok (2026-10-04)**
 
 Paket W2, Replay und Werkzeuge:
 
 - **W2.1 Replay-Effekte:** Eine Welle mit Atombombe (Fähigkeit) spielen, danach das Replay der Welle öffnen und
   verlassen, während die Bombe im Replay noch wirkt. Erwartung: im Live-Spiel ist nichts mehr von ihr zu sehen.
+  **ok (2026-10-04)**
 - **W2.2 Replay springen:** Das Replay einer großen Welle öffnen, weit nach vorn klicken, dann zurück. Erwartung:
   beim ersten Sprung „Jumping n %“ in der Leiste, der Rücksprung ist fast sofort da.
 - **W2.3 Benchmark:** Esc (Menü), „Benchmark“, „Run“. Erwartung: die Seite lädt in eine Testwelt, misst rund
   3 Minuten, zeigt dann eine Tabelle und „Copy results“; kopieren und hier einfügen.
+  **kaputt (2026-10-04)**: Läuft (RTX 5080, 10 000 Gegner bei 4x: 144 FPS, Worker 19 %, Apply 3,5 ms), aber danach kam man nicht an den vorherigen Ort zurück. Gefixt: „Back to your place“ lädt die Seite vom Start des Benchmarks. Nachtest.
 - **W2.4 Performance-Fenster:** Unten rechts „T“ (Developer options), „Performance“. Erwartung: Zeiten des Workers
   je Teil, Einräumen je Paket, Spielschleife und Zeichnen; die Zahlen bewegen sich mit der Gegnerzahl.
+  **ok (2026-10-04)**
 
 Paket W3, Coop über zwei Rechner und Desktop-App:
 
 - **W3.1 Coop im LAN:** Relay neu starten (`npm run coop-server`), auf beiden Rechnern der Branch, ein Raum, bis
   mindestens Welle 8 zu zweit. Erwartung: keine `DESYNC`-Zeile im Relay-Log (`logs/coop_*.log`), beide sehen dieselben
   Gegner an denselben Stellen.
+  **ok (2026-10-04)**
 - **W3.2 Coop mit Tempo 4 und vielen Gegnern:** Host setzt Tempo 4, eine Custom Wave mit 2000 Zombies. Erwartung:
   beide Rechner halten Schritt, kein „waiting for …“ über Sekunden, kein `DESYNC`.
+  **ok (2026-10-04)**
 - **W3.3 Desktop-App:** Installer aus dem Branch (`desktop/`, [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md)),
   App starten, FPS-Zähler zweimal aufklappen. Erwartung: „Memory shared“; ein Lauf bis Welle 5 wie im Browser.
+  **ok (2026-10-04)**
 - **W3.4 Coop Browser gegen App:** Ein Spieler im Browser, einer in der App, ein Raum bis Welle 5. Erwartung: kein
   `DESYNC`.
 
@@ -86,6 +95,7 @@ Aus M2/M3 und der Gold-Auswertung (beide im Archiv). Ein Lauf bis mindestens W31
 - **Q4 Gold**: Ein Herbert, Mammut oder Golem bringt sichtbar mehr als ein Zombie derselben Welle (Kopfgeld nach
   Wurzel der Basis-HP). W21 bis W30 wachsen je Welle um ×1,2, nach W30 fällt das Einkommen je Welle nur noch
   um ×0,85 statt ×0,5. Die Auswertung macht der Lead aus der Datei.
+  **ok (2026-10-04)**
 
 ## T Coop: Tower bemannen, Spieler-Leiste, Gold, Lobby (2026-09-24, Branch `coop`)
 
@@ -101,8 +111,10 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
   auch leer; Box und Chat darunter verschieben sich nicht mehr. Dazu (User, 2026-09-26): die Spielerzeilen wachsen mit Name und
   Tags, die Spawn-Zeile liegt in der Zeile, der Lane-Strich läuft bündig über die ganze Höhe.
   Vorab per Probe (2026-09-26, zwei Browser, echte Karte): die Box bleibt 208,6 px hoch über Bereit, Welle und Wellenende; sie rückt je Chat-Zeile (Systemzeilen wie „Bob is ready“) um eine Zeile höher, bis der Chat voll ist. Offen: ob das stört.
+  **ok (2026-10-04)**
 - **T69 Tastenleiste unter dem Chat lesbar** (User, 2026-09-25): „Enter chat · X mark · Tab room“ auf heller Karte.
   Erwartung: eigene dunkle Fläche, gut lesbar.
+  **ok (2026-10-04)**
 - **T70 Beitreten ohne eigenen Ort und das neue Dock (E30, E31 Schritt 1)**: App frisch starten (Standortdialog).
   Reiter „Coop“: Umschalter „Same network“ mit Liste und „Online“ mit Code. Auf dem anderen Rechner „Same network“ und „Host a room“, hier in
   der Liste „Join“. Erwartung: der Dialog schließt, der Ort des Hosts lädt einmal, danach geht das Dock mit der Lobby
@@ -119,29 +131,37 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
   Zwischenablage und lehnte den Pointer Lock ab (`SecurityError`, im Electron-Test belegt); betrifft auch den
   Einzelspieler in der App und damit v0.4.0. Gebaut: `pointerLock` erlaubt (`desktop/src/security.js`). Nachtest mit
   neuem Installer: Tower bemannen, klicken, Maus zielt, Linksklick schießt; allein und im Coop.
+  **ok (2026-10-04)**
 - **T67 Held des Partners (R15)**: Im Coop-Spiel heuern beide ihren Helden an. Erwartung: jeder sieht auch den Helden
   des anderen laufen und schießen, mit einem Ring in dessen Lane-Farbe unter den Füßen; ein Klick auf ihn wählt nichts
   aus. Bisher nur per Spec geprüft.
   Vorab per Probe (2026-09-26): beide Clients haben beide Helden im Spiel. Offen: Ring in Lane-Farbe und Klick ohne Auswahl, nur heranzoomend zu sehen.
+  **ok (2026-10-04)**
 - **T73 Standortdialog neu (COOP_UI_REWORK_PLAN P3)**: App ohne Ort starten, dann mit Ort über den Kopf öffnen.
   Erwartung: beim Start „Choose a place“ ohne Cancel, mit Ort „Change place“; die Tabs Place, World, Coop bleiben beim
   Wechseln stehen; „Load place“ erst nach einer Suche, die Spawn-Zeile klappt auf; „Move the spawn by address…“ setzt
   nur den Spawn. Logik per Spec geprüft, offen nur: Wirkt es aufgeräumt, passt es zum Rest?
+  **kaputt (2026-10-04)**: Serifenschrift im Kopf des Dialogs. Gefixt: Cinzel und `serif` aus `--td-font-display`. Nachtest: Kopf in Inter Tight.
 - **T74 Coop-Einstieg neu (P4)**: In der App Coop öffnen. Erwartung: Umschalter Online / Same network, nur ein Weg zu
   sehen, beim nächsten Öffnen der zuletzt gewählte; die Lobby als Auswahl im Kopf von „Open rooms“, „Add lobby…“ öffnet
   die Felder; ein Knopf „Host a room“. Per Spec und E2E geprüft, offen nur der Eindruck.
+  **ok (2026-10-04)**
 - **T75 Raum als Tabelle (P5)**: Zu zweit einen Raum öffnen. Erwartung: eine Zeile je Lane mit Spieler, Haken für
   Ready, Ping und Werkzeugen; Spieler ohne Lane darunter; bei mehreren Warnungen nur die schwerste mit „+n“. Tab im
   Dock wandert durch die Knöpfe, Esc schließt es, ein Klick auf einen Knopf und dann Enter öffnet im Spiel den Chat.
   Vorab per Probe (2026-09-26): Tab wandert durchs Dock (PvE, Versus, Chat, Send, Leave, More, Start match) und verlässt es nach dem letzten Knopf in die Sidebar (kein Fokus-Käfig); Esc schließt es aus dem Dock; Klick auf einen Knopf, dann Enter öffnet im Spiel den Chat. Offen: der Eindruck der Tabelle.
+  **kaputt (2026-10-04)**: Tabelle passt, aber der eigene Name war in beiden eigenen Spuren änderbar. Gefixt: nur noch in der ersten. Nachtest.
 - **T76 Coop-Skalierung (E34)**: Zu zweit bis W8 spielen. Erwartung: Kill-Gold je Spieler wie allein (W6 Spinnen
   nicht mehr ~26 Gold), W6 keine ~1000 Spinnen mehr, die Vorschau zeigt „per lane“ und im Tooltip die Lanes; das
   Run-Log nennt nur eigene Tower und `killsByPartner`.
+  **ok (2026-10-04)**
 - **T77 Tower des Mitspielers ansehen (E39)**: Auf einen Tower des anderen klicken. Erwartung: Panel „NOAH'S …“ mit
   „view only“, Werte und Upgrade-Stufen sichtbar, keine Kosten, kein Verkauf; Zielmodus, Upgrades, U, Entf und C tun
   nichts. Sein Research Center lässt sich nicht auswählen.
+  **ok (2026-10-04)**
 - **T78 Gold frei senden (E36)**: Im Gold-Menü der Squad-Box einen Betrag tippen, Send. Erwartung: genau der Betrag
   kommt an; mehr als man hat, 0 oder Kommazahl geht nicht.
+  **ok (2026-10-04)**
 - **T79 Run-Log ans Relay (E38)**: Relay mit `RELAY_COLLECT_RUNS=1`, ein Coop-Spiel bis Game Over. Erwartung: einmal
   die Frage „Help improve 3DTD?“, nach „Yes“ im Chat „Run log sent. Thanks!“; auf der Statusseite nach Unlock
   „Run logs“ mit beiden Logs des Raums, Download geht. Runs-Dialog: Haken ändert die Antwort.
@@ -149,22 +169,30 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
   gültigem Token; Logo und Favicon da; das Log schreibt `metrics:` nur bei Änderung.
 - **T81 Start ohne Route (E34 Punkt 7)**: nur wenn ein Spawn keine Route findet. Erwartung: „Start match“ gesperrt mit
   „Spawn N has no route“.
+  **ok (2026-10-04)**
 - **T83 Forschung des Mitspielers (E35)**: Der andere forscht etwas; bei dir in der Squad-Box den Kolben an seiner
   Zeile klicken. Erwartung: Forschungsfenster auf seinem Reiter, „VIEW ONLY“, sein Fortschritt läuft mit, keine
   Knöpfe; Reiter „You“ zeigt deine Forschung wie gewohnt. Allein keine Reiter.
+  **ok (2026-10-04)**
 - **T82 Downloads in der App (E37)**: Run-Log speichern und Screenshot. Erwartung: Speichern-Dialog für das Log, der
   Screenshot geht still nach Downloads und die Foto-Leiste nennt die Datei.
+  **ok (2026-10-04)**
 - **T84 Verbindung weg (E40)**: Im Coop-Spiel den Relay stoppen. Erwartung: Dialog „Connection lost“ mit „Continue
   alone“ und „Start over alone“; beides spielt allein weiter. Stirbt das HQ ohne Verbindung: Hinweis auf dem
   Game-Over-Screen, Restart spielt allein.
+  **ok (2026-10-04)**
 - **T85 Upgrades ×5/×10 (E45)**: Tower wählen, Shift+U und Ctrl+U, Shift-/Ctrl-Klick auf eine Kachel. Erwartung: bis
   5 bzw. 10 Stufen, so weit das Gold reicht, über dem Tower „DAMAGE +5“ oder „N UPGRADES“; im Coop genauso.
+  **ok (2026-10-04)**
 - **T86 Game Over (E46)**: Lauf bis Game Over, allein und im Coop. Erwartung: vier kleine Charts je Welle (Kills,
   Towers, Gold earned, HQ health), im Coop je Spieler in Lane-Farbe mit Strichmuster und Legende, Spalte „Earned“.
+  **ok (2026-10-04)**
 - **T87 Leckschaden (E49)**: Welle durchlassen. Erwartung: über dem HQ steigt „−2“ für einen Zombie, „−4“ für einen
   Golem; die laufende Welle zeigt „Max HQ damage“ und je Typ „HQ −N“, NEXT-Tooltip „At the HQ each costs“.
+  **kaputt (2026-10-04)**: Über dem HQ stieg nichts sichtbar auf (Rest passt). Der Text war 3 m groß, aus Übersichtshöhe ein paar Pixel. Gefixt: 12 m, helleres Rot, über dem Kristall. Nachtest.
 - **T88 Lightning (E43)**: Lightning an einer Gasse. Erwartung: kein Blitz mehr in die Gasse, wenn der Gegner um die
   Ecke ist; keine Sprünge zu Bodengegnern, die der Tower nicht sieht.
+  **ok (2026-10-04)**
 
 ## B Budget-Quelle: Laufplan mit HP gegen die Abwehr (2026-09-29)
 
@@ -181,10 +209,13 @@ welche Gegner an ihrer Grenze hängen.
 - **B2 "Why this wave":** Wave-Debug-Fenster während einer Welle. Erwartung: "Run plan, row N", das Budget in
   Sekunden, bei gekürztem Budget das Zeitfenster, bei Gegnern an ihrer Grenze deren HP-Faktor. Liest es sich
   verständlich?
+  **ok (2026-10-04)**
 - **B3 Vorschau:** Wellen-Panel zwischen zwei Wellen. Erwartung: Name und Anzahl der nächsten Wellen stehen fest
   und stimmen mit dem, was dann kommt; Luftwarnung vor Luftwellen (7, 8, 12 …).
+  **kaputt (2026-10-04)**: Name und Anzahl stimmen, aber der Tooltip der Detailzeile war ein ungegliederter Fließtext. Gefixt: Blöcke mit Leerzeile (Beschreibung, Gegner, HQ-Kosten, Schwächen, Blutmond). Nachtest: Tooltip lesen.
 - **B4 Coop:** Host öffnet mit `?waves=budget` einen Raum, der Gast kommt über den normalen Einladungslink (ohne
   `waves`). Erwartung: beide spielen denselben Plan (gleiche Wellennamen), keine Abweichung, Lauf bis zum Ende.
+  **ok (2026-10-04)**
 
 ## N Balance-Nacht und Spuren (2026-10-02, auf `next`)
 
@@ -193,40 +224,61 @@ Spur). Ein Lauf mit zwei Spawns, gern über W20 hinaus; am Ende über "Runs" Run
 
 - **N1 Bemessung beim Start:** vor einer Welle in der Pause Tower kaufen, dann starten. Erwartung: die Gegnerzahl wie
   in der Vorschau, die HP höher ("Why this wave" im Wave-Debug).
+  **ok (2026-10-04)**
 - **N2 Herbert (W10):** Boss-Leiste und Intro, hält deutlich länger; unter 50 % HP "ENRAGED", rot, schneller.
+  **ok (2026-10-04)**
 - **N3 Eliten:** etwa jeder zwanzigste Gegner einer Art gold und größer, z. B. 3 von 62 Ratten in W2; Schüsse treffen
   ihn in der Mitte.
+  **ok (2026-10-04)**
 - **N4 Projektile bei Tempo 4:** Gatling oder Rakete: die Geschosse fliegen sichtbar bis zum Gegner.
+  **ok (2026-10-04)**
 - **N5 Gelber Punkt:** auf der Route nicht mehr zu sehen; mit dem Layer "Route Grid Overlay" ist er da.
+  **ok (2026-10-04)**
 - **N6 Zombie Soldier (W9 Tank Column):** Vorschau im Wellen-Panel gut zu erkennen.
+  **ok (2026-10-04)**
 - **N7 Forschung:** Advanced Weaponry zeigt "Wave 7" und ist bis dahin gesperrt; mit zwei Spuren kostet jede
   Forschung das Doppelte (Preis im Baum).
+  **ok (2026-10-04)**
 - **N8 Mutatoren:** W14 Swift (Tag in der NEXT-Leiste, Banner, schnellere Mammuts), W21 Swarm (anderthalbmal so viele),
   W28 Regeneration (brennende Mechs heilen nicht), W35 Bounty (doppeltes Kill-Gold).
+  **ok (2026-10-04)**
 - **N9 W20 Ooze:** mit Brut, zerfällt beim Tod in zähe Klumpen.
+  **ok (2026-10-04)**
 - **N10 Tentacle:** an einer Engstelle Schadenszahlen auch an den Nachbarn des Ziels.
+  **ok (2026-10-04)**
 - **N11 W30 Skarnax:** ein durchgekommenes Segment kostet rund 1,3 HP; W40 Golem King, W50 Dragon Matriarch mit
   Boss-Leiste, Intro und Wut.
+  **ok (2026-10-04)**
 - **N12 W52 Wraiths:** ein Eis-Tower verlangsamt sie nicht (Phasing).
+  **ok (2026-10-04)**
 - **N13 Spuren:** HQ und Spawns sind ab Welle 1 gesperrt; jede Spur bekommt die ganze Welle; beim Setzen eines Spawns
   zeigt die Leiste die Länge jeder Spur.
+  **ok (2026-10-04)**
 - **N14 Gesamtgefühl:** HQ fällt gleichmäßig, keine lange Strecke ohne Verlust, kein Absturz am Ende; Forschung erst
   um W38 komplett. Auf W17, W27, W44 und W50 achten (Luft und Geister).
+  **ok (2026-10-04)**: Gesamtgefühl passt, releasetauglich für 0.6.
 - **N15 Coop über zwei Rechner** (Protokoll 3, Relay und Client neu): Raum, Spuren je Spieler wählen, ein Lauf bis
   mindestens W10, keine Abweichung.
+  **ok (2026-10-04)**
 - **N16 Münze im bemannten Tower** (2026-10-03): Tower bemannen und eine Welle schießen. Das Kill-Gold klingt so leise
   wie von oben, nicht mehr deutlich lauter (Rückmelde-Sounds jetzt wie aus 400 m statt 150 m).
+  **kaputt (2026-10-04)**: „Hört man immer noch viel zu sehr.“ Die Münze war schon gedämpft; laut war vermutlich der Kill-Tick des bemannten Towers (zwei hohe Noten, 0.4, ungedämpft). Gefixt: Kill-Tick 0.15, Treffer-Tick 0.12. Nachtest: ist es das gewesen?
 - **N17 Tentacle-Griff** (2026-10-03): Tentacle Tower bauen, Gegner greifen lassen. Der neue Saugnapf-Griff passt zum
   Zupacken und ist neben Schüssen hörbar, nicht zu laut.
+  **ok (2026-10-04)**
 - **N18 Coop-Start nach Solo-Lauf** (2026-10-04, mit N15): allein ein paar Wellen spielen, dann einen Raum öffnen.
   Der Lauf läuft weiter, bis der Host „Start match“ drückt; dann fragt der Dock-Fuß „This ends your solo run (wave N)“,
   „Cancel“ lässt den Lauf stehen, „Start anyway“ startet.
+  Noch nicht getestet (2026-10-04).
 - **N19 Link in die Desktop-App** (2026-10-04): einen 3DTD-Link aus dem Browser (`?l=…&s=…`) im Ortsdialog unter
   „Coordinates“ ins Feld Lat einfügen. Die App lädt HQ und alle Spawns des Links, beim ersten Start wie im laufenden Spiel.
+  **ok (2026-10-04)**
 - **N20 Favorit mit mehreren Spuren** (2026-10-04): einen Ort mit zwei oder mehr Spawns als Favorit speichern, einen
   anderen Ort laden, den Favoriten wieder wählen. Alle Spuren sind wieder da, die Portale wie gespeichert gedreht.
+  **ok (2026-10-04)**
 - **N21 Coop-Replay als Datei** (2026-10-04): ein Coop-Spiel bis Game Over. Beim Host steht „Save the replay“, beim Gast
   nicht; die Datei lädt danach allein am selben Ort über „load“ in der Wellen-Leiste.
+  Noch nicht getestet (2026-10-04).
 
 ## K8 Desktop-Build
 
