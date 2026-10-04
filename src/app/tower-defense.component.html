@@ -367,6 +367,13 @@
               <td-icon name="filing" [size]="14"></td-icon>
               <span>{{ runLogExported() ? 'Run saved' : 'Save the run' }}</span>
             </button>
+            <!-- Coop: no replay to watch here, but the host saves the waves as a file -->
+            @if (coopReplaySave()) {
+              <button type="button" class="td-gameover-replay" (click)="saveCoopReplay()">
+                <td-icon name="replay" [size]="14"></td-icon>
+                <span>{{ coopReplaySaved() ? 'Replay saved' : 'Save the replay' }}</span>
+              </button>
+            }
             <!-- The wave that broke the HQ, once more, while the replay is offered -->
             @if (replay.offered()) {
               <button type="button" class="td-gameover-replay" (click)="replay.enter()">

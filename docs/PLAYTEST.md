@@ -225,6 +225,8 @@ Spur). Ein Lauf mit zwei Spawns, gern über W20 hinaus; am Ende über "Runs" Run
   „Coordinates“ ins Feld Lat einfügen. Die App lädt HQ und alle Spawns des Links, beim ersten Start wie im laufenden Spiel.
 - **N20 Favorit mit mehreren Spuren** (2026-10-04): einen Ort mit zwei oder mehr Spawns als Favorit speichern, einen
   anderen Ort laden, den Favoriten wieder wählen. Alle Spuren sind wieder da, die Portale wie gespeichert gedreht.
+- **N21 Coop-Replay als Datei** (2026-10-04): ein Coop-Spiel bis Game Over. Beim Host steht „Save the replay“, beim Gast
+  nicht; die Datei lädt danach allein am selben Ort über „load“ in der Wellen-Leiste.
 
 ## K8 Desktop-Build
 

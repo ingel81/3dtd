@@ -917,6 +917,21 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
+   * Coop: the host saves the run's replayable waves as a file at game over.
+   * Watching a replay stays off in a coop game (the lockstep runs on, see
+   * ReplayService.available); the file loads again alone on the same map.
+   */
+  readonly coopReplaySave = computed(() =>
+    this.coop.inGame() && this.coop.isHost() && this.replay.recordedWave() !== null);
+
+  /** The coop replay file of the run that just ended was saved */
+  readonly coopReplaySaved = signal(false);
+
+  async saveCoopReplay(): Promise<void> {
+    if (await this.replay.saveFile()) this.coopReplaySaved.set(true);
+  }
+
+  /**
    * Restart game, delegates to facade
    */
   restartGame(): void {
