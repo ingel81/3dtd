@@ -5,8 +5,13 @@ import { GAME_SOUNDS } from '../configs/audio.config';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
 import type { MainEventBus } from '../sim/client/view-events';
 
-/** The number over the HQ when a leak costs health (TODO E49): --td-health-red */
-const HQ_LEAK_TEXT = { color: '#B14436', durationMs: 1400, floatSpeed: 2.5, scale: 1.1, lift: 12 } as const;
+/**
+ * The number over the HQ when a leak costs health (TODO E49). The text is
+ * world sized: at scale 1.1 (3 m) it was a few pixels from the usual
+ * overview height and went unseen, so it is 12 m tall, a lighter red, and
+ * starts above the HQ crystal.
+ */
+const HQ_LEAK_TEXT = { color: '#E0533D', durationMs: 1800, floatSpeed: 4, scale: 4, lift: 28 } as const;
 
 /** Cooldown between HQ damage sounds, so many enemies hitting at once do not overload the audio (ms) */
 const DAMAGE_SOUND_COOLDOWN_MS = 150;
