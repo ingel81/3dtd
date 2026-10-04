@@ -574,7 +574,7 @@ Reihenfolge nach Priorität (A zuerst):
 
 So gebaut (2026-09-24), Nachtest in [PLAYTEST.md](PLAYTEST.md) T:
 
-- Name: Nachricht `rename` am Relay, nur in der Lobby, gleiche Namen bekommen eine Nummer; Feld „Your name“ im Dialog.
+- Name: Nachricht `rename` am Relay, nur in der Lobby, gleiche Namen bekommen eine Nummer; Feld „Your name“ in der Raumtabelle, nur in der ersten eigenen Spur (mit zwei Spuren stand es doppelt da).
 - Spieler-Leiste `components/coop-players/` oben mittig unter dem Tempo: je Spieler Lane-Farbe, Name, Gold, zwischen
   den Wellen „ready“ oder „building“, Gegangene durchgestrichen; „Waiting for …“, sobald man selbst bereit ist.
   Gelesen aus der Simulation (`coop:ready-changed`, `credits:changed`, `coop:player-left`), auf allen Clients gleich.

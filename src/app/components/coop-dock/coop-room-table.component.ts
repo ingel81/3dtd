@@ -59,6 +59,11 @@ export class CoopRoomTableComponent {
   });
   readonly freeSeat = computed(() => (this.room()?.players.length ?? 0) < 2);
 
+  /** The first lane row that is mine: the only one where my name can be edited */
+  isFirstOwnLane(lane: LaneRow): boolean {
+    return this.table().lanes.find((l) => l.player?.me) === lane;
+  }
+
   /** A free lane: take it as one more; one of the own: give it back. Only in the lobby */
   take(lane: LaneRow): void {
     if (this.room()?.started || (lane.player && !lane.player.me)) return;

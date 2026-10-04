@@ -10,10 +10,11 @@
     </p>
   }
 
-  <!-- A player's name, tags and what their client does; shared by lane rows and rows without a lane -->
-  <ng-template #who let-p>
+  <!-- A player's name, tags and what their client does; shared by lane rows and rows without a lane.
+       The own name is edited in the first own row only, `edit` is false in the others -->
+  <ng-template #who let-p let-edit="edit">
     <span class="who">
-      @if (p.me && !r.started) {
+      @if (p.me && !r.started && edit !== false) {
         <label class="name-edit" matTooltip="Your name: click to change, Enter saves">
           <input type="text" maxlength="32" [value]="p.name" aria-label="Your name"
                  (change)="coop.rename($any($event.target).value)" (keydown.enter)="$any($event.target).blur()" />
@@ -63,7 +64,7 @@
           }
         </span>
         @if (p) {
-          <ng-container *ngTemplateOutlet="who; context: { $implicit: p }" />
+          <ng-container *ngTemplateOutlet="who; context: { $implicit: p, edit: !p.me || isFirstOwnLane(lane) }" />
           <ng-container *ngTemplateOutlet="state; context: { $implicit: p }" />
         } @else {
           @if (!r.started) {
