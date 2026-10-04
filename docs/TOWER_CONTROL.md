@@ -76,8 +76,8 @@ GameStateManager.runSubStep
             ProjectileManager.spawn (Treffer) | fireBlank (Fehlschuss, freies Projektil)
                         │
             tower:manual-shot { towerId, target } (deferred)   → HUD: Rückstoß
-            projectile:hit (sourceTowerId)                     → HUD: Treffermarker, Tick
-            enemy:died (killedBy tower)                        → HUD: Kill-Marker, zwei Ticks
+            projectile:hit (sourceTowerId)                     → HUD: Treffermarker
+            enemy:died (killedBy tower)                        → HUD: Kill-Marker
 ```
 
 **Zielen als Command:** Die Mausbewegungen eines Frames sammelt `TowerControlService` und schickt sie als ein
@@ -106,9 +106,8 @@ Zeile mit Tower-Name und Tasten. Sidebar und Overlays der Karte sind weg, Header
 Beim Einsteigen gehen Auswahl und Hover des Towers (Ring, Reichweite; `InputHandlerService.clearHover`, auch ein
 noch anstehender Hover-Pick), danach nimmt keine Mausbewegung mehr einen Tower auf. Das Abzeichen über dem
 eigenen Tower (Rang, Hold-Fire-Pause) ist aus, weil es mitten im Bild stünde
-(`TowerBadgeRenderer.hideFor`); Rang und Hold Fire laufen weiter und zeigen sich beim Aussteigen wieder. Die Ticks sind
-synthetisch (`UI_SOUNDS.towerHit`, `towerKill` in `audio.config.ts`), leise (0.12 und 0.15): sie spielen ungedämpft
-bei jedem Treffer und Kill, mit 0.4 klang der Kill-Tick wie eine laute Münze.
+(`TowerBadgeRenderer.hideFor`); Rang und Hold Fire laufen weiter und zeigen sich beim Aussteigen wieder. Treffer und Kill
+zeigt nur das Bild: die synthetischen Ticks dazu sind entfernt (User, 2026-10-04, auch leiser störten sie).
 
 **Ton:** Die Schüsse des eigenen Towers spielen am Hörer (`audio:play` mit `atListener`,
 `SpatialAudioManager.playAtListener`), ohne Richtung, mit allen Grenzen eines One-Shots. Am Modell unter und vor dem

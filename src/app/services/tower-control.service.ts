@@ -18,9 +18,7 @@ import { BossIntroService } from './boss-intro.service';
 import { UIStore } from '../store/ui.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { TOWER_CONTROL } from '../configs/tower-control.config';
-import { UI_SOUNDS } from '../configs/audio.config';
 import { aimDirectionInto, eyeBackAt, eyeInto } from '../utils/manual-aim';
-import { toneWavDataUrl } from '../utils/alert-tone';
 import { cameraTimeline } from '../utils/camera-timeline';
 import { TICK_SUB_STEPS } from '../coop/lockstep';
 import { projectileSoundId } from '../managers/projectile.manager';
@@ -467,19 +465,11 @@ export class TowerControlService {
   private showMarker(kind: 'hit' | 'kill'): void {
     if (kind === 'hit' && this.marker() === 'kill') return;
     this.marker.set(kind);
-    this.playTone(kind === 'kill' ? UI_SOUNDS.towerKill : UI_SOUNDS.towerHit);
     if (this.markerTimer) clearTimeout(this.markerTimer);
     this.markerTimer = setTimeout(() => {
       this.markerTimer = null;
       this.marker.set(null);
     }, kind === 'kill' ? TOWER_CONTROL.killMarkerMs : TOWER_CONTROL.hitMarkerMs);
-  }
-
-  private playTone(tone: typeof UI_SOUNDS.towerHit | typeof UI_SOUNDS.towerKill): void {
-    const audio = this.engineInit.getEngine()?.spatialAudio;
-    if (!audio) return;
-    if (!audio.getSoundConfig(tone.id)) audio.registerSound(tone.id, toneWavDataUrl(tone.notes), { volume: tone.volume });
-    audio.playGlobal(tone.id).catch(() => undefined);
   }
 
   // ── Camera ────────────────────────────────────────────────────
