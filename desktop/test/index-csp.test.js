@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { it } = require('node:test');
-const { ALLOWED_INLINE_HANDLERS } = require('../src/protocol');
+const { ALLOWED_INLINE_HANDLERS, ALLOWED_INLINE_SCRIPTS } = require('../src/protocol');
 
 const candidates = [
   path.join(__dirname, '..', 'app', 'index.html'),
@@ -31,5 +31,8 @@ it('index.html has no inline code the CSP would block', { skip: !indexFile && 'n
   const inlineScripts = [...html.matchAll(/<script(?![^>]*\ssrc=)([^>]*)>([\s\S]*?)<\/script>/gi)].filter(
     ([, attributes, body]) => body.trim() && !/type\s*=\s*"application\/(ld\+)?json"/i.test(attributes)
   );
-  assert.equal(inlineScripts.length, 0, 'inline <script> in index.html, the CSP blocks it');
+  // The CSP allows a script by the hash of its exact text
+  for (const [, , body] of inlineScripts) {
+    assert.ok(ALLOWED_INLINE_SCRIPTS.includes(body), `inline <script> not in the CSP: ${body.slice(0, 80)}`);
+  }
 });

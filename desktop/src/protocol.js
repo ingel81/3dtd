@@ -65,11 +65,21 @@ const CONNECT_HOSTS = [
  */
 const ALLOWED_INLINE_HANDLERS = ["this.media='all'"];
 
+/**
+ * Inline scripts the Angular build writes into index.html. Beasties 0.5
+ * (Angular 22.2) flips the deferred stylesheets with this script instead of
+ * the onload handler above; blocked, the app kept only the critical CSS
+ * (the serif header of the place dialog in the playtest of 2026-10-04).
+ */
+const ALLOWED_INLINE_SCRIPTS = [
+  "document.querySelectorAll('link[data-beasties-media]').forEach(function(l){l.media=l.getAttribute('data-beasties-media');l.removeAttribute('data-beasties-media')})",
+];
+
 const sha256 = (source) => `'sha256-${crypto.createHash('sha256').update(source).digest('base64')}'`;
 
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  `script-src 'self' 'wasm-unsafe-eval' 'unsafe-hashes' ${ALLOWED_INLINE_HANDLERS.map(sha256).join(' ')}`,
+  `script-src 'self' 'wasm-unsafe-eval' 'unsafe-hashes' ${[...ALLOWED_INLINE_HANDLERS, ...ALLOWED_INLINE_SCRIPTS].map(sha256).join(' ')}`,
   "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
@@ -219,6 +229,7 @@ module.exports = {
   APP_HOST,
   APP_ORIGIN,
   ALLOWED_INLINE_HANDLERS,
+  ALLOWED_INLINE_SCRIPTS,
   CONNECT_HOSTS,
   CONTENT_SECURITY_POLICY,
   createAppProtocolHandler,

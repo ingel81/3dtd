@@ -120,7 +120,7 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
 
   ```
   default-src 'self';
-  script-src 'self' 'wasm-unsafe-eval' 'unsafe-hashes' 'sha256-<this.media='all'>';
+  script-src 'self' 'wasm-unsafe-eval' 'unsafe-hashes' 'sha256-<this.media='all'>' 'sha256-<Beasties-Skript>';
   worker-src 'self' blob:;
   style-src 'self' 'unsafe-inline';
   img-src 'self' data: blob:;
@@ -135,8 +135,11 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
 
   Drei Einträge kamen erst beim Bauen und Spielen dazu. Angular (Beasties, kritisches
   CSS) schreibt `onload="this.media='all'"` in die `index.html`; ohne den Hash bliebe
-  das volle Stylesheet auf `media="print"`. `test/index-csp.test.js` schlägt an,
-  sobald der Build weiteren Inline-Code enthält. `GLTFLoader` holt die in `.glb`
+  das volle Stylesheet auf `media="print"`. Seit Angular 22.2 (Beasties 0.5) kommt
+  stattdessen ein Inline-Skript, das die Links umschaltet (`ALLOWED_INLINE_SCRIPTS` in
+  `src/protocol.js`, Hash seines genauen Texts); ohne ihn fehlte der App im Playtest vom
+  2026-10-04 das volle Stylesheet. `test/index-csp.test.js` schlägt an, sobald der Build
+  anderen Inline-Code enthält. `GLTFLoader` holt die in `.glb`
   eingebetteten Texturen per `fetch(blob:...)`, deshalb `blob:` in `connect-src` (im
   Smoke-Test aufgefallen). `AudioBufferCache` lädt Sounds, die als
   `data:audio/wav`-URL vorliegen, per `fetch`, deshalb `data:` (im ersten Spieltest
