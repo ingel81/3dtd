@@ -46,6 +46,18 @@ const IDLE: BenchmarkState = { phase: 'idle', index: 0, total: 0, doing: '', env
  * Scoped to the game component, next to the GameLoopFacadeService whose
  * load handle it drives.
  */
+/** sessionStorage: the page the menu's entry left, to come back to */
+const RETURN_KEY = '3dtd-benchmark-return';
+
+function readReturnHref(): string | null {
+  try {
+    const href = sessionStorage.getItem(RETURN_KEY);
+    return href && new URL(href).origin === location.origin ? href : null;
+  } catch {
+    return null;
+  }
+}
+
 @Injectable()
 export class BenchmarkService {
   private readonly loop = inject(GameLoopFacadeService);
@@ -54,11 +66,18 @@ export class BenchmarkService {
 
   /** This page was loaded to run the benchmark */
   readonly requested = isBenchmarkSearch(location.search);
+  /** Where the menu's entry came from (its URL carries the place): the panel offers the way back */
+  readonly returnHref = this.requested ? readReturnHref() : null;
   readonly state = signal<BenchmarkState>(IDLE);
   private cancelRequested = false;
 
   /** The menu's entry: reload into the DevWorld with the flag */
   start(): void {
+    try {
+      sessionStorage.setItem(RETURN_KEY, location.href);
+    } catch {
+      // No storage: the panel only closes afterwards
+    }
     location.assign(benchmarkUrl(location.href));
   }
 
@@ -66,9 +85,17 @@ export class BenchmarkService {
     this.cancelRequested = true;
   }
 
-  /** The panel's Close: the results go, the game stays as it is */
+  /** The panel's Close: the results go; back to the place the benchmark was started from, if known */
   dismiss(): void {
     this.state.set(IDLE);
+    const back = this.returnHref;
+    if (!back) return;
+    try {
+      sessionStorage.removeItem(RETURN_KEY);
+    } catch {
+      // nothing to clean up
+    }
+    location.assign(back);
   }
 
   /** Once the game stands: run if the page was loaded for it, once */
