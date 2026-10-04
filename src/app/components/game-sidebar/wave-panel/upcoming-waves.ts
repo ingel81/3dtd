@@ -19,6 +19,9 @@ import { enemyTraitLabel, weakToLabel } from '../sidebar-tooltips';
 export const BLOOD_MOON_NOTE =
   `Blood moon (every ${BLOOD_MOON_INTERVAL}th wave): red night, glowing enemies, searchlights on the towers.`;
 
+/** Blank line between the tooltip's blocks */
+const TOOLTIP_BLOCK = '\n\n';
+
 /** Tooltip sentence of a wave's mutator: "Swift: Enemies move 25 % faster ..." */
 export function mutatorNote(mutator: { name: string; description: string }): string {
   return `${mutator.name}: ${mutator.description}`;
@@ -66,7 +69,7 @@ export function peekUpcomingWaves(facts: readonly WavePeekFacts[], bloodMoon = t
     const peek = toPeek(fact);
     if (bloodMoon && isBloodMoonWave(fact.wave)) {
       peek.bloodMoon = true;
-      peek.tooltip = `${peek.tooltip} ${BLOOD_MOON_NOTE}`;
+      peek.tooltip = `${peek.tooltip}${TOOLTIP_BLOCK}${BLOOD_MOON_NOTE}`;
     }
     return peek;
   });
@@ -119,40 +122,46 @@ function countLabel(fact: WavePeekFacts): string | null {
   return fact.count === null ? null : `${fact.count}`;
 }
 
+/**
+ * The mark's tooltip in blocks, one thought per line (td-tooltip-multiline):
+ * what the wave is, who comes, what they cost the HQ, what hurts them.
+ */
 function tooltip(fact: WavePeekFacts, weights: [ArmorType, number][], weakTo: string): string {
-  const parts = [fact.description];
+  const about = [fact.description];
   const mutator = waveMutator(fact.wave);
-  if (mutator) parts.push(mutatorNote(mutator));
+  if (mutator) about.push(mutatorNote(mutator));
 
+  const who: string[] = [];
+  if (fact.count) who.push(`${fact.count} enemies.`);
   // What a type does beyond walking and dying: a splitter, regeneration, phasing
   for (const [enemyId] of fact.enemies) {
     const cfg = ENEMY_TYPES[enemyId as EnemyTypeId];
     const traits = cfg ? enemyTraitLabel(enemyId) : null;
-    if (traits) parts.push(`${cfg!.name}: ${traits}.`);
+    if (traits) who.push(`${cfg!.name}: ${traits}.`);
   }
 
-  if (fact.count) parts.push(`${fact.count} enemies.`);
-
   // What they cost the HQ (TODO E49): each type, and the largest wave whole
+  const cost: string[] = [];
   const known = fact.enemies.filter(([id]) => ENEMY_TYPES[id as EnemyTypeId]);
   if (known.length > 0) {
     const scale = (id: string) => waveRules().leakScale(fact.wave, id);
     // Two kinds under one name (the zombies) are one entry
     const each = [...new Set(known.map(([id]) => `${ENEMY_TYPES[id as EnemyTypeId].name} ${Math.round(leakDamageOf(id as EnemyTypeId) * scale(id) * 10) / 10}`))];
-    parts.push(`At the HQ each costs: ${each.join(', ')} HP.`);
+    cost.push(`At the HQ each costs: ${each.join(', ')} HP.`);
     const shares = known.reduce((sum, [, share]) => sum + share, 0);
     if (fact.count && shares > 0) {
       const perEnemy = known.reduce((sum, [id, share]) => sum + share * lineageLeakDamage(id as EnemyTypeId) * scale(id), 0) / shares;
-      parts.push(`All ${fact.count} through: up to ${Math.round(fact.count * perEnemy)} HP.`);
+      cost.push(`All ${fact.count} through: up to ${Math.round(fact.count * perEnemy)} HP.`);
     }
   }
 
   // The line shows the counters as icons only; the tooltip names them
-  if (weakTo) parts.push(`Weak to ${weakTo}.`);
+  const weak: string[] = [];
+  if (weakTo) weak.push(`Weak to ${weakTo}.`);
   if (weights.length > 1) {
     for (const [armor] of weights) {
-      parts.push(`${ARMOR_TYPE_UI[armor].label}: ${weakToLabel([[armor, 1]])}.`);
+      weak.push(`${ARMOR_TYPE_UI[armor].label}: ${weakToLabel([[armor, 1]])}.`);
     }
   }
-  return parts.join(' ');
+  return [about, who, cost, weak].filter((block) => block.length > 0).map((block) => block.join('\n')).join(TOOLTIP_BLOCK);
 }

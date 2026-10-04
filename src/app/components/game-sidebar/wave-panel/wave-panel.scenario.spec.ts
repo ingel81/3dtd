@@ -260,7 +260,7 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
     const w14 = on[4];
     expect(BLOOD_MOON_NOTE.startsWith('Blood moon (every 7th wave): ')).toBe(true);
     expect(w14.tooltip.endsWith(BLOOD_MOON_NOTE)).toBe(true);
-    expect(w14.tooltip).toBe(`${off[4].tooltip} ${BLOOD_MOON_NOTE}`);
+    expect(w14.tooltip).toBe(`${off[4].tooltip}\n\n${BLOOD_MOON_NOTE}`);
     expect({ ...w14, bloodMoon: false, tooltip: off[4].tooltip }).toEqual(off[4]);
     // The other marks are the same with the look on or off
     expect(on.slice(0, 4)).toEqual(off.slice(0, 4));
