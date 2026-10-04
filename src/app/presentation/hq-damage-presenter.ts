@@ -6,12 +6,11 @@ import { SubscriptionBag } from '../game-engine/game-event-bus';
 import type { MainEventBus } from '../sim/client/view-events';
 
 /**
- * The number over the HQ when a leak costs health (TODO E49). The text is
- * world sized: at scale 1.1 (3 m) it was a few pixels from the usual
- * overview height and went unseen, so it is 12 m tall, a lighter red, and
- * starts above the HQ crystal.
+ * The number over the HQ when a leak costs health (TODO E49): world sized,
+ * 6 m tall (scale 2), a lighter red, starting above the HQ crystal. 12 m was
+ * too big in the playtest.
  */
-const HQ_LEAK_TEXT = { color: '#E0533D', durationMs: 1800, floatSpeed: 4, scale: 4, lift: 28 } as const;
+const HQ_LEAK_TEXT = { color: '#E0533D', durationMs: 1800, floatSpeed: 4, scale: 2, lift: 20 } as const;
 
 /** Cooldown between HQ damage sounds, so many enemies hitting at once do not overload the audio (ms) */
 const DAMAGE_SOUND_COOLDOWN_MS = 150;

@@ -29,6 +29,7 @@ import { Injector } from '@angular/core';
 import { withAutoStubs, TEST_PATH, TEST_SPAWN_POINTS } from './test-helpers';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { MainWorldService } from '../services/world/main-world.service';
+import { PresentationService } from '../presentation/presentation.service';
 import { RouteGridVizService } from '../services/world/route-grid-viz.service';
 import { PathAndRouteService } from '../services/world/path-route.service';
 import { CorridorBuild, type CorridorBuildDeps, type CorridorMeasurement } from '../services/world/corridor-build';
@@ -89,6 +90,9 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
   let client: SimClient;
   let mirror: SimMirror;
   let world: MainWorldService;
+  // The HQ the main thread's presentation gets for its fire, sound and leak number
+  const hqBases: unknown[] = [];
+  const presentation = { host: { setBase: (base: unknown) => hqBases.push(base) } } as unknown as PresentationService;
   let grid: GlobalRouteGridService;
   let corridor: CorridorBuild;
   let pathRoute: Record<string, unknown> & {
@@ -280,6 +284,7 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     }) as typeof pathRoute;
 
     grid = new GlobalRouteGridService();
+    hqBases.length = 0;
     const gridViz = withAutoStubs({}) as unknown as RouteGridVizService;
     const injector = Injector.create({
       providers: [
@@ -289,6 +294,7 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
         { provide: GlobalRouteGridService, useValue: grid },
         { provide: RouteGridVizService, useValue: gridViz },
         { provide: PathAndRouteService, useValue: pathRoute },
+        { provide: PresentationService, useValue: presentation },
         { provide: MainWorldService, useFactory: () => new MainWorldService(), deps: [] },
       ],
     });
@@ -351,6 +357,12 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     gameFrames(1);
     return result!;
   };
+
+  it('hands the HQ to the presentation with the world (leak number, playtest T87 2026-10-04)', async () => {
+    await loadLocation();
+    expect(worldsSent).toHaveBeenCalled();
+    expect(hqBases.at(-1)).toEqual(BASE);
+  });
 
   it('builds on the finest level with the camera muted, and gives both back when it freezes', async () => {
     const result = await loadLocation();

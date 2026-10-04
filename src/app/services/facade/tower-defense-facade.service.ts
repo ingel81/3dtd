@@ -381,6 +381,8 @@ export class TowerDefenseFacadeService {
         this.dropPresentation();
         const host = new PresentationHost({ engine, bus: this.sim.bus, source: this.mirror, ground: this.grid });
         this.presentation.attach(host);
+        // A world sent before the host stood: its HQ (MainWorldService.sendToSim sets it on later ones)
+        host.setBase(this.world.basePosition);
         this.sim.setPresenter(host);
         // Lines of sight render here on the simulation's request
         this.los.attach(engine);

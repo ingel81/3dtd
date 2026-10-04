@@ -11,6 +11,7 @@ import { SimClient } from '../../sim/client/sim-client.service';
 import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { buildSimWorld } from '../../sim/client/sim-world-builder';
 import { worldKeyOf } from '../../sim/protocol/world-key';
+import { PresentationService } from '../../presentation/presentation.service';
 
 /**
  * The world on the main thread (docs/SIM_WORKER.md): the route grid's cells
@@ -30,6 +31,7 @@ export class MainWorldService {
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly sim = inject(SimClient);
   private readonly mirror = inject(SimMirror);
+  private readonly presentation = inject(PresentationService);
 
   private engine: ThreeTilesEngine | null = null;
   private hq: GeoPosition | null = null;
@@ -186,6 +188,9 @@ export class MainWorldService {
     const world = buildSimWorld(engine, this.grid, hq, this.spawns, paths);
     if (!world) return false;
     this.mirror.setWorld(world.spawns.map((s) => s.id), paths);
+    // The HQ's fire, damage sound and leak number on the main thread need the
+    // place's HQ (HqDamagePresenter); nothing else hands it to them
+    this.presentation.host?.setBase(hq);
     this.sim.loadWorld(world);
     this.pendingSent = null;
     this.syncPending();
