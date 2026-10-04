@@ -28,6 +28,18 @@ export interface LocationChangeInput {
   hq: LocationConfig;
   /** With the bearing of its portal where the player turned it (a favorite, a retry), see SavedSpawn */
   spawn: LocationConfig & Pick<SavedSpawn, 'portalBearing'>;
+  /**
+   * Every spawn of the place, `spawn` first, where it has several (a
+   * favourite, a pasted link): each becomes a lane. Without it the place
+   * has `spawn` alone.
+   */
+  spawns?: SavedSpawn[];
+}
+
+/** The spawns a location change places: all of a stored place, else its one spawn */
+export function spawnsOf(input: LocationChangeInput): SavedSpawn[] {
+  if (input.spawns?.length) return input.spawns;
+  return [{ lat: input.spawn.lat, lon: input.spawn.lon, portalBearing: input.spawn.portalBearing }];
 }
 
 /**
@@ -183,16 +195,13 @@ export class LocationChangeExecutorService {
     callbacks.setCenterCoords({ lat: input.hq.lat, lon: input.hq.lon, height: 400 });
 
     // Update location service and URL, the bearing of the spawn's portal with it
-    this.locationMgmt.setLocation(
-      { lat: input.hq.lat, lon: input.hq.lon },
-      [{ lat: input.spawn.lat, lon: input.spawn.lon, portalBearing: input.spawn.portalBearing }]
-    );
+    this.locationMgmt.setLocation({ lat: input.hq.lat, lon: input.hq.lon }, spawnsOf(input));
     callbacks.syncUrlWithLocation();
 
     // Compute and apply optimal camera framing IMMEDIATELY (before tiles load)
     this.engineInit.updateStepMeta('engine', 'Positioning camera...');
     const hqCoord: GeoPoint = { lat: input.hq.lat, lon: input.hq.lon };
-    const spawnCoords: GeoPoint[] = [{ lat: input.spawn.lat, lon: input.spawn.lon }];
+    const spawnCoords: GeoPoint[] = spawnsOf(input).map(({ lat, lon }) => ({ lat, lon }));
 
     const camera = ctx.engine.getCamera();
     const initialFrame = this.cameraFraming.computeInitialFrame(hqCoord, spawnCoords, {
@@ -317,13 +326,16 @@ export class LocationChangeExecutorService {
   ): Promise<void> {
     await this.engineInit.setStepCurrent('spawns');
 
-    // Add spawn point (component handles signal update and visualization)
+    // Add the spawn points (component handles signal update and visualization),
+    // one lane each, in the colours and ids a reload gives them
     const spawnName = input.spawn.name?.split(',')[0] || 'Spawn';
-    callbacks.addSpawnPoint(
-      'spawn-1', spawnName, input.spawn.lat, input.spawn.lon, SPAWN_COLORS[0], input.spawn.portalBearing,
-    );
+    const spawns = spawnsOf(input);
+    spawns.forEach((spawn, i) => callbacks.addSpawnPoint(
+      `spawn-${i + 1}`, i === 0 ? spawnName : `Spawn ${i + 1}`, spawn.lat, spawn.lon,
+      SPAWN_COLORS[i % SPAWN_COLORS.length], spawn.portalBearing,
+    ));
 
-    await this.engineInit.setStepDone('spawns', '1 point');
+    await this.engineInit.setStepDone('spawns', spawns.length > 1 ? `${spawns.length} points` : '1 point');
   }
 
   /**

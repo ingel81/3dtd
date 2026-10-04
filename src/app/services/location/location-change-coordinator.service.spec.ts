@@ -784,6 +784,17 @@ describe('LocationChangeCoordinatorService', () => {
       expect(callbacks.syncUrlWithLocation).toHaveBeenCalledTimes(2);
     });
 
+    it('places every lane of a favorite, not only the first', async () => {
+      const second = canonicalCoords({ lat: SPAWN.lat - 0.004, lon: SPAWN.lon + 0.003 });
+      const lanes = { id: 'l', hq: HQ, spawns: [SPAWN, { ...second, portalBearing: 45 }] } as unknown as FavoriteLocation;
+      coordinator.initializeFlow(delegate);
+      await coordinator.onSelectFavorite(lanes);
+
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], undefined);
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-2', 'Spawn 2', second.lat, second.lon, SPAWN_COLORS[1], 45);
+      expect(locationMgmt.setLocation).toHaveBeenLastCalledWith(HQ, [SPAWN, { ...second, portalBearing: 45 }]);
+    });
+
     it('puts the spawn 0.005 degrees north of a favorite that has none', async () => {
       coordinator.initializeFlow(delegate);
       await coordinator.onSelectFavorite(favB);

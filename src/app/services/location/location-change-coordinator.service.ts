@@ -317,6 +317,8 @@ export class LocationChangeCoordinatorService {
     await this.applyNewLocation({
       hq: { lat: fav.hq.lat, lon: fav.hq.lon, name: 'Loading...' },
       spawn: { lat: spawn.lat, lon: spawn.lon, name: 'Spawn', portalBearing: spawn.portalBearing },
+      // Every lane of the place, not only the first (saved with all of them)
+      ...(fav.spawns.length > 1 ? { spawns: fav.spawns } : {}),
     });
   }
 
@@ -376,7 +378,11 @@ export class LocationChangeCoordinatorService {
     }
 
     const callbacks = this.delegate.getChangeCallbacks();
-    const input: LocationChangeInput = { hq: canonicalCoords(data.hq), spawn: canonicalCoords(data.spawn) };
+    const input: LocationChangeInput = {
+      hq: canonicalCoords(data.hq),
+      spawn: canonicalCoords(data.spawn),
+      ...(data.spawns?.length ? { spawns: data.spawns.map((s) => canonicalCoords(s)) } : {}),
+    };
 
     try {
       await this.executor.executeLocationChange(input, ctx, callbacks);
