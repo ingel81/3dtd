@@ -113,11 +113,14 @@ export const UI_SOUNDS = {
     ],
     volume: 0.35,
   },
-  /** A shot of the manned tower hit (docs/TOWER_CONTROL.md): one short high tick */
+  /**
+   * A shot of the manned tower hit (docs/TOWER_CONTROL.md): one short high tick.
+   * Quiet: it plays on every hit, unattenuated (0.3 drowned out the shots)
+   */
   towerHit: {
     id: 'ui_tower_hit',
     notes: [{ freq: 1760, ms: 35 }],
-    volume: 0.3,
+    volume: 0.12,
   },
   /** A coop player marked a place on the map (review R13): two soft rising notes */
   coopPing: {
@@ -128,14 +131,17 @@ export const UI_SOUNDS = {
     ],
     volume: 0.35,
   },
-  /** A shot of the manned tower killed: two rising ticks */
+  /**
+   * A shot of the manned tower killed: two rising ticks. At 0.4 they rang
+   * like a coin on every kill, louder than the kill gold itself
+   */
   towerKill: {
     id: 'ui_tower_kill',
     notes: [
       { freq: 1319, ms: 45 },
       { freq: 1976, ms: 90 },
     ],
-    volume: 0.4,
+    volume: 0.15,
   },
 } as const;
 

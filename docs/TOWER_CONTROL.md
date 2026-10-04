@@ -107,7 +107,8 @@ Beim Einsteigen gehen Auswahl und Hover des Towers (Ring, Reichweite; `InputHand
 noch anstehender Hover-Pick), danach nimmt keine Mausbewegung mehr einen Tower auf. Das Abzeichen über dem
 eigenen Tower (Rang, Hold-Fire-Pause) ist aus, weil es mitten im Bild stünde
 (`TowerBadgeRenderer.hideFor`); Rang und Hold Fire laufen weiter und zeigen sich beim Aussteigen wieder. Die Ticks sind
-synthetisch (`UI_SOUNDS.towerHit`, `towerKill` in `audio.config.ts`).
+synthetisch (`UI_SOUNDS.towerHit`, `towerKill` in `audio.config.ts`), leise (0.12 und 0.15): sie spielen ungedämpft
+bei jedem Treffer und Kill, mit 0.4 klang der Kill-Tick wie eine laute Münze.
 
 **Ton:** Die Schüsse des eigenen Towers spielen am Hörer (`audio:play` mit `atListener`,
 `SpatialAudioManager.playAtListener`), ohne Richtung, mit allen Grenzen eines One-Shots. Am Modell unter und vor dem
