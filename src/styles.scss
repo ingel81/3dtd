@@ -41,6 +41,26 @@ html {
     typography: Roboto,
     density: 0,
   ));
+
+  // Every tooltip in the game's look (dark glass, Inter Tight) instead of
+  // Material's light pill in Roboto, which fell back to a serif face
+  @include mat.tooltip-overrides((
+    container-color: rgba(17, 22, 19, 0.94),
+    container-shape: 2px,
+    supporting-text-color: #EEF1EB,
+    supporting-text-font: var(--td-font-body),
+    supporting-text-size: 12px,
+    supporting-text-weight: 500,
+    supporting-text-line-height: 1.4,
+    supporting-text-tracking: 0.01em,
+  ));
+}
+
+.mat-mdc-tooltip .mdc-tooltip__surface {
+  border: 1px solid #2F3631;
+  box-shadow:
+    inset 0 1px 0 rgba(122, 133, 128, 0.33),
+    0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 body {
