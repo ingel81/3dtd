@@ -1,4 +1,4 @@
-import type { LocationDialogResult } from '../../models/location.types';
+import { LINKED_SPAWN_ID, type LocationDialogResult, type SavedSpawn } from '../../models/location.types';
 
 /** The place a coop host sends a joining guest (CoopService.hostPlace) */
 export interface HostPlace {
@@ -19,5 +19,22 @@ export function joinedPlaceResult(place: HostPlace): LocationDialogResult {
     hq: { lat: place.hq.lat, lon: place.hq.lon, name: '', displayName: '' },
     spawn: { id: 'spawn-1', lat: first?.lat ?? place.hq.lat, lon: first?.lon ?? place.hq.lon },
     spawns: place.spawns.map(({ lat, lon }) => ({ lat, lon })),
+  };
+}
+
+/**
+ * The dialog's result for a link pasted into the coordinates (the dev server,
+ * the web version, a share link): its HQ and every spawn with its portal
+ * bearing. Without a spawn in the link the game draws a random one.
+ */
+export function linkedPlaceResult(hq: { lat: number; lon: number }, spawns: SavedSpawn[]): LocationDialogResult {
+  const [first] = spawns;
+  return {
+    confirmed: true,
+    hq: { lat: hq.lat, lon: hq.lon, name: '', displayName: '' },
+    spawn: first
+      ? { id: LINKED_SPAWN_ID, lat: first.lat, lon: first.lon, portalBearing: first.portalBearing, isRandom: false }
+      : { id: 'spawn_random', lat: 0, lon: 0, isRandom: true },
+    spawns: spawns.length ? spawns : undefined,
   };
 }

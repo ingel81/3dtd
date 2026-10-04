@@ -16,7 +16,8 @@ import { TdIconComponent } from '../icon/icon.component';
 import { WorldGlobeComponent } from '../world-globe/world-globe.component';
 import { CoopEntryComponent } from '../coop-entry/coop-entry.component';
 import { COOP } from '../../services/coop.token';
-import { joinedPlaceResult } from './joined-place';
+import { joinedPlaceResult, linkedPlaceResult } from './joined-place';
+import { UrlLocationService } from '../../services/location/url-location.service';
 import {
   LocationDialogData,
   LocationDialogMode,
@@ -59,6 +60,7 @@ export class LocationDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<LocationDialogComponent>);
   private readonly geocodingService = inject(GeocodingService);
   private readonly locationMgmt = inject(LocationManagementService);
+  private readonly urlLocation = inject(UrlLocationService);
   private readonly bestWaves = inject(BestWaveService);
   readonly data: LocationDialogData = inject(MAT_DIALOG_DATA);
   /** The game's coop service, through the injector the start dialog opens with (E30); null elsewhere */
@@ -218,6 +220,15 @@ export class LocationDialogComponent {
   onCoordPaste(event: ClipboardEvent): void {
     const pastedText = event.clipboardData?.getData('text')?.trim();
     if (!pastedText) return;
+
+    // A link to a place (dev server, web version, share link): that place with
+    // all its spawns, at once, the way a favourite loads
+    const place = pastedText.includes('l=') ? this.urlLocation.parseLink(pastedText) : null;
+    if (place) {
+      event.preventDefault();
+      this.dialogRef.close(linkedPlaceResult(place.hq, place.spawns));
+      return;
+    }
 
     const coords = this.parseCoordinates(pastedText);
     if (coords) {

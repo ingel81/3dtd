@@ -61,7 +61,8 @@
               <label class="coord-field">
                 <span>Lat</span>
                 <input class="inp" type="text" [value]="coordLat()" (input)="onCoordLatChange($event)"
-                       (paste)="onCoordPaste($event)" placeholder="49.5432" />
+                       (paste)="onCoordPaste($event)" placeholder="49.5432 or a link"
+                       matTooltip="Coordinates, or paste a 3DTD link to open that place with its spawns" />
               </label>
               <label class="coord-field">
                 <span>Lon</span>

@@ -20,6 +20,7 @@ import {
   LocationDialogResult,
   FavoriteLocation,
   SavedSpawn,
+  LINKED_SPAWN_ID,
 } from '../../models/location.types';
 import {
   LocationChangeExecutorService,
@@ -148,6 +149,11 @@ export class LocationChangeCoordinatorService {
       .pipe(take(1))
       .subscribe(async (result: LocationDialogResult | null | undefined) => {
       if (!result?.confirmed) return;
+      // A pasted link: its HQ with every spawn, the way a favourite loads
+      if (result.spawn.id === LINKED_SPAWN_ID && result.spawns?.length) {
+        await this.loadPlace({ lat: result.hq.lat, lon: result.hq.lon }, result.spawns);
+        return;
+      }
       await this.moveTo(
         { lat: result.hq.lat, lon: result.hq.lon, name: result.hq.displayName, address: result.hq.address },
         result.spawn.isRandom ? null : result.spawn,
@@ -295,6 +301,12 @@ export class LocationChangeCoordinatorService {
    */
   async onSelectFavorite(fav: FavoriteLocation): Promise<void> {
     if (this.uiStore.coopMapLocked()) return;
+    await this.loadPlace(fav.hq, fav.spawns);
+  }
+
+  /** A stored place with all its spawns: a favourite, a pasted link */
+  private async loadPlace(hqAt: { lat: number; lon: number }, spawns: SavedSpawn[]): Promise<void> {
+    const fav = { hq: hqAt, spawns };
     const spawn: SavedSpawn = fav.spawns[0] || { lat: fav.hq.lat + 0.005, lon: fav.hq.lon };
 
     // Update service and URL

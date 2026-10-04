@@ -210,7 +210,8 @@ Stand 2026-10-03. `next` ist der RC für 0.6 (gepusht), `dev/after-0.6` wartet a
 - [ ] **H9** Mobile und Barrierefreiheit: Qualitäts-Presets, Breakpoints 768 und 480 px, Touch-Ziele 44 px
       (`aria-label` an allen Icon-Buttons ist erledigt).
 - [ ] **H16** Deep-Link in die Desktop-App (`threedtd://open?l=...&s=...`) plus Knopf in der Web-Version; Skizze im
-      [Electron-Plan](docs/ELECTRON_DESKTOP_PLAN.md), "Bewusst nicht".
+      [Electron-Plan](docs/ELECTRON_DESKTOP_PLAN.md), "Bewusst nicht". Zwischenschritt gebaut (2026-10-04): ein Link im
+      Ortsdialog unter „Coordinates“ eingefügt lädt HQ und alle Spawns (PLAYTEST N19).
 - [ ] **G1 Konzept Resistenzen, Immunitäten, Schild und HP** je Gegnertyp. Entschieden: Herbert Slow-Resistenz 50 %,
       `immunityPercent` geht im neuen Feld auf. Grundlage lokal in `tmp/archive-2026-09/fix1/reports/`.
 - [ ] **G2 Konzept Tech Tree des Helden** (Stufe 2 erst damit), Vorschläge lokal in `tmp/archive-2026-09/fix1/reports/herotier2.md`.

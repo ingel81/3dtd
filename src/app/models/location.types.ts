@@ -67,6 +67,9 @@ export interface LocationDialogData {
 /**
  * Result from location dialog
  */
+/** The spawn id of a place pasted as a link into the location dialog: the result carries every spawn in `spawns` */
+export const LINKED_SPAWN_ID = 'spawn_link';
+
 export interface LocationDialogResult {
   hq: LocationInfo;
   spawn: SpawnLocationConfig;

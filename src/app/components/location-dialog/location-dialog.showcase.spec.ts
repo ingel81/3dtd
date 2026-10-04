@@ -16,6 +16,7 @@ import { LocationManagementService } from '../../services/location/location-mana
 import { BestWaveService } from '../../services/location/best-wave.service';
 import { LocationDialogComponent } from './location-dialog.component';
 import type { LocationDialogData, LocationDialogResult } from '../../models/location.types';
+import { UrlLocationService } from '../../services/location/url-location.service';
 
 function create(close: (result: LocationDialogResult | null) => void): LocationDialogComponent {
   const data: LocationDialogData = { currentLocation: null, currentSpawn: null, isGameInProgress: false };
@@ -26,6 +27,7 @@ function create(close: (result: LocationDialogResult | null) => void): LocationD
       { provide: GeocodingService, useValue: {} },
       { provide: LocationManagementService, useValue: { recents: signal([]) } },
       { provide: BestWaveService, useValue: { records: signal([]) } },
+      { provide: UrlLocationService, useValue: new UrlLocationService() },
     ],
   });
   return runInInjectionContext(injector, () => new LocationDialogComponent());

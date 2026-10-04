@@ -23,6 +23,17 @@ describe('UrlLocationService', () => {
     });
   });
 
+  it('reads HQ and every spawn from a pasted link of any host', () => {
+    const place = url.parseLink('localhost:4200/?l=48.87350,2.29588&s=48.87832,2.29851;48.86883,2.29135,90.0');
+
+    expect(place).toEqual({
+      hq: { lat: 48.8735, lon: 2.29588 },
+      spawns: [{ lat: 48.87832, lon: 2.29851 }, { lat: 48.86883, lon: 2.29135, portalBearing: 90 }],
+    });
+    expect(url.parseLink('https://example.org/play/?s=48.1,2.2')).toBeNull();
+    expect(url.parseLink('48.8735, 2.29588')).toBeNull();
+  });
+
   it('reads a URL from before the bearing: the spawn has none and faces along its route', () => {
     open('?l=48.77580,9.18290&s=48.78000,9.19000');
 

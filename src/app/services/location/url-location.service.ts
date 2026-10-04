@@ -26,7 +26,17 @@ export class UrlLocationService {
    * Parse location from current URL
    */
   parseFromUrl(): { hq: { lat: number; lon: number }; spawns: SavedSpawn[] } | null {
-    const params = new URLSearchParams(window.location.search);
+    return this.parseLink(window.location.search);
+  }
+
+  /**
+   * HQ and spawns from a link to a place: a whole URL from any host (the dev
+   * server, the web version, a share link) or only its query. Null when it
+   * names no HQ. A link pasted into the desktop app opens the same place there.
+   */
+  parseLink(link: string): { hq: { lat: number; lon: number }; spawns: SavedSpawn[] } | null {
+    const query = link.includes('?') ? link.slice(link.indexOf('?') + 1).split('#')[0] : link;
+    const params = new URLSearchParams(query);
     const hqParam = params.get('l');
     const spawnsParam = params.get('s');
 

@@ -221,6 +221,8 @@ Spur). Ein Lauf mit zwei Spawns, gern über W20 hinaus; am Ende über "Runs" Run
 - **N18 Coop-Start nach Solo-Lauf** (2026-10-04, mit N15): allein ein paar Wellen spielen, dann einen Raum öffnen.
   Der Lauf läuft weiter, bis der Host „Start match“ drückt; dann fragt der Dock-Fuß „This ends your solo run (wave N)“,
   „Cancel“ lässt den Lauf stehen, „Start anyway“ startet.
+- **N19 Link in die Desktop-App** (2026-10-04): einen 3DTD-Link aus dem Browser (`?l=…&s=…`) im Ortsdialog unter
+  „Coordinates“ ins Feld Lat einfügen. Die App lädt HQ und alle Spawns des Links, beim ersten Start wie im laufenden Spiel.
 
 ## K8 Desktop-Build
 
