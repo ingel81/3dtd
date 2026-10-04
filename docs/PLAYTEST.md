@@ -223,6 +223,8 @@ Spur). Ein Lauf mit zwei Spawns, gern über W20 hinaus; am Ende über "Runs" Run
   „Cancel“ lässt den Lauf stehen, „Start anyway“ startet.
 - **N19 Link in die Desktop-App** (2026-10-04): einen 3DTD-Link aus dem Browser (`?l=…&s=…`) im Ortsdialog unter
   „Coordinates“ ins Feld Lat einfügen. Die App lädt HQ und alle Spawns des Links, beim ersten Start wie im laufenden Spiel.
+- **N20 Favorit mit mehreren Spuren** (2026-10-04): einen Ort mit zwei oder mehr Spawns als Favorit speichern, einen
+  anderen Ort laden, den Favoriten wieder wählen. Alle Spuren sind wieder da, die Portale wie gespeichert gedreht.
 
 ## K8 Desktop-Build
 
