@@ -248,6 +248,9 @@
           <app-intro-skip />
         }
 
+        <!-- "Continue: <place>, wave N" once a session, before the new run begins (an autosave there) -->
+        <app-continue-bar />
+
         <!-- LOS Coverage Legend (Build Preview + Tower Selection) -->
         @if (losLegendVisible()) {
           <app-los-legend

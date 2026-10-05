@@ -121,7 +121,7 @@ async function setup({
   await fixture.whenStable();
   const el = fixture.nativeElement as HTMLElement;
   const buttons = () => [...el.querySelectorAll('button')];
-  const labels = () => [...el.querySelectorAll('.gm-list > .gm-item .gm-label')].map((l) => l.textContent!.trim());
+  const labels = () => [...el.querySelectorAll('.gm-list > .gm-item .gm-label')].map((l) => l.textContent!.trim().replace(/\s+/g, ' '));
   const byText = (text: string) => buttons().find((b) => b.textContent?.includes(text));
   // The port answers in promises the zoneless fixture does not wait for: a macrotask lets them settle
   const settle = async () => {
@@ -163,6 +163,23 @@ describe('GameMenuComponent', () => {
       expect(labels()).toEqual([
         'Continue', 'Save game', 'Load game', 'Settings', 'More', 'Restart here', 'Change location', 'Quit 3DTD',
       ]);
+    });
+
+    it('offers the autosave on top while the new run has not begun, then Back to the game', async () => {
+      const autosave = slot(AUTOSAVE_SLOT, 'Heilbronn, wave 12', 12);
+      const { labels, click, saves, close, el } = await setup({ slots: [autosave] });
+      expect(labels().slice(0, 2)).toEqual(['Continue Heilbronn, wave 12', 'Back to the game']);
+      expect(el.querySelector('.gm-sub')!.textContent).toBe('Heilbronn, wave 12');
+      await click('Continue');
+      expect(saves.continueAutosave).toHaveBeenCalledTimes(1);
+      expect(close).toHaveBeenCalledTimes(1);
+
+      TestBed.resetTestingModule();
+      const underWay = await setup({ slots: [autosave], started: true });
+      expect(underWay.labels()[0]).toBe('Continue');
+      TestBed.resetTestingModule();
+      const coop = await setup({ slots: [autosave], inCoop: true });
+      expect(coop.labels()[0]).toBe('Continue');
     });
 
     it('Continue goes back to the game', async () => {

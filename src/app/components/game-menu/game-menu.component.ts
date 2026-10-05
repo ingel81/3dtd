@@ -17,7 +17,7 @@ import { ConfigService } from '../../core/services/config.service';
 import { BenchmarkService } from '../../benchmark/benchmark.service';
 import { DebugFacadeService } from '../../services/debug/debug-facade.service';
 import { VFX_PRESET_CHOICES, matchingVfxPreset, type VfxPreset } from '../../three-engine/vfx-settings';
-import { SAVE_GAME, type LoadResult } from '../../services/save-game/save-game.port';
+import { AUTOSAVE_SLOT, SAVE_GAME, type LoadResult } from '../../services/save-game/save-game.port';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { ReplayService } from '../../services/replay.service';
 import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-facade.service';
@@ -51,7 +51,8 @@ interface VolumeRow {
 /**
  * The game menu (TODO A3, E111, E112c): the gear in the sidebar footer and
  * Esc, when Esc has nothing else to do, open it. A classic game menu:
- * Continue on top, then Save and Load (alone only, between waves,
+ * Continue on top (the autosave's, while the new run has not begun, then
+ * "Back to the game"), then Save and Load (alone only, between waves,
  * docs/SAVE_LOAD_PLAN.md), Settings (fullscreen, the four volumes, graphics
  * quality, game speed), More (run log and replay as files, map key, what's
  * new, keys, credits, benchmark), and below a line Restart here, Change
@@ -125,6 +126,15 @@ export class GameMenuComponent {
   /** Loading replaces the run: between waves only, like saving */
   readonly canLoad = computed(() => !this.store.waveActive());
   readonly cannotLoadReason = computed(() => (this.canLoad() ? null : 'Loads between waves'));
+  /**
+   * The autosave, offered on top while the new run has not begun (as the
+   * continue bar does); once the run is under way the autosave is this run's
+   */
+  readonly autosaveOffer = computed(() => {
+    if (this.inCoop() || this.underWay() || !this.saves.hasAutosave()) return null;
+    const autosave = this.saves.slots().find((slot) => slot.id === AUTOSAVE_SLOT);
+    return autosave ? { location: autosave.location, wave: autosave.wave } : null;
+  });
   readonly saveRows = computed(() => saveSlotRows(this.saves.slots()));
   readonly loadRows = computed(() => loadSlotRows(this.saves.slots()));
 
@@ -243,6 +253,11 @@ export class GameMenuComponent {
   async loadSlot(slotId: string): Promise<void> {
     this.cancelConfirm();
     await this.run(async () => this.afterLoad(await this.saves.load(slotId)));
+  }
+
+  /** Continue the autosave (it may move to another place) */
+  async continueAutosave(): Promise<void> {
+    await this.run(async () => this.afterLoad(await this.saves.continueAutosave()));
   }
 
   /** Load from a file: ask about the run under way, then pick the file */

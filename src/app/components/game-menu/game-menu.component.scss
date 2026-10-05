@@ -105,6 +105,14 @@ button.gm-item:focus-visible {
   color: var(--td-gold);
 }
 
+/* Where the autosave stands, under Continue */
+.gm-sub {
+  display: block;
+  margin-top: 3px;
+  font: 10px/1.2 var(--td-font-mono);
+  color: var(--td-text-muted);
+}
+
 /* A page behind the entry */
 .gm-more {
   color: var(--td-text-muted);

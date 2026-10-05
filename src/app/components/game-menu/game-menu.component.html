@@ -90,9 +90,17 @@
           <p class="gm-note">The game runs on while you are here: it is everyone's.</p>
         }
         <div class="gm-list">
-          <button class="gm-item gm-continue" type="button" (click)="close()">
-            <td-icon name="play" [size]="14"></td-icon>
-            <span class="gm-label">Continue</span>
+          @if (autosaveOffer(); as offer) {
+            <button class="gm-item gm-continue" type="button" [disabled]="busy()" (click)="continueAutosave()">
+              <td-icon name="play" [size]="14"></td-icon>
+              <span class="gm-label">Continue
+                <span class="gm-sub">{{ offer.location }}, wave {{ offer.wave }}</span>
+              </span>
+            </button>
+          }
+          <button class="gm-item" type="button" [class.gm-continue]="!autosaveOffer()" (click)="close()">
+            <td-icon [name]="autosaveOffer() ? 'caretL' : 'play'" [size]="14"></td-icon>
+            <span class="gm-label">{{ autosaveOffer() ? 'Back to the game' : 'Continue' }}</span>
             <kbd class="gm-key">Esc</kbd>
           </button>
           @if (!inCoop()) {

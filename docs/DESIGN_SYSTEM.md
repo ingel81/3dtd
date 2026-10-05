@@ -614,7 +614,7 @@ Optional: `title` (mit `counter` rechts daneben), `message` darunter, `actions` 
 
 Das Zahnrad im Sidebar-Footer und Esc (wenn Esc sonst nichts zu tun hat) öffnen das Spielmenü (`components/game-menu/`), einen Dialog in der Mitte, 380px breit, im Look der anderen Dialoge. Allein pausiert das Spiel, solange es offen ist; im Coop läuft es weiter, das sagt eine Zeile oben. Aufbau wie ein klassisches Spielmenü:
 
-- **Continue** zuerst (Icon `play` in `--td-gold`, Text `--td-text-primary`, Tastenkappe Esc), schließt das Menü.
+- **Continue** zuerst (Icon `play` in `--td-gold`, Text `--td-text-primary`, Tastenkappe Esc), schließt das Menü. Gibt es einen Autosave und hat der neue Lauf noch nicht begonnen (allein, Welle 0, kein Tower), lädt das oberste "Continue" den Autosave (`continueAutosave`, darunter in 10px Mono Ort und Welle), und der Eintrag zum Schließen heißt "Back to the game" (Icon `caretL`).
 - **Save game**, **Load game**, **Settings**, **More**: je eine Seite im Körper des Menüs, mit einem Caret rechts. Auf einer Seite steht im Kopf ein Zurück-Caret vor dem Titel; Zurück und Esc führen zur Liste, Esc auf der Liste schließt das Menü. Die Seite bekommt den Fokus auf ihrem ersten Bedienelement.
 - Unter einer Linie **Restart here**, **Change location** und in der Desktop-App **Quit 3DTD**.
 
@@ -625,6 +625,10 @@ Settings: Fullscreen (F11), dann "Volume" mit je einer Zeile für Master, Effect
 More: "Save the run log" jederzeit, "Save the replay", sobald eine Welle aufgezeichnet ist, dann Map key, What's new, Keys, Attributions und (nicht im Coop) Benchmark.
 
 Was den laufenden Lauf beendet, fragt im Menü selbst: Restart (nur allein, mit Rückfrage, sobald ein Lauf begonnen hat), Quit, Benchmark. Change location schließt das Menü und öffnet den Standortdialog, der Lauf endet erst, wenn dort ein neuer Ort bestätigt wird.
+
+### Continue-Leiste (Canvas)
+
+Unten in der Mitte, im Stapel über der Hinweisbox (`components/continue-bar/`): "▷ CONTINUE Heilbronn, wave 12" und ein Kreuz, als Glas-Leiste wie "Skip Intro" (`--td-glass-tint`, Rand `--td-frame-mid`, 4px Ecken). "CONTINUE" in 11px Mono, Versalien, `--td-gold-light`, Ort und Welle in `--td-text-secondary`. Sie erscheint, sobald das Spiel geladen ist, nur allein, solange der neue Lauf nicht begonnen hat (Welle 0, kein Tower) und ein Autosave existiert. Ein Klick lädt ihn (`continueAutosave`, der auch an einen anderen Ort wechselt); ein Versionshinweis des Ports geht in den Hinweis-Banner (`UIStore.notice`), ein Fehler steht orange unter der Leiste. Klick, Kreuz, erster Tower oder erste Welle schicken sie weg, für die Sitzung des Tabs (`sessionStorage` `td-continue-offered`).
 
 ### Tastenkürzel
 
