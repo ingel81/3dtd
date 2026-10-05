@@ -54,9 +54,12 @@ describe('RovingGroupDirective', () => {
     await f.whenStable();
     await Promise.resolve();
   };
+  /** A key on an item the keyboard focused (Tab), unless it has the focus already */
   function press(f: ComponentFixture<unknown>, label: string, key: string): KeyboardEvent {
+    const item = radio(f, label);
+    if (document.activeElement !== item) item.focus();
     const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
-    radio(f, label).dispatchEvent(event);
+    item.dispatchEvent(event);
     return event;
   }
 
@@ -109,5 +112,31 @@ describe('RovingGroupDirective', () => {
     expect(game).toHaveBeenCalledTimes(1);
     expect(game.mock.calls[0][0]).toBe(space);
     expect(space.defaultPrevented).toBe(false);
+  });
+
+  it('a radio clicked with the mouse keeps the focus but leaves the arrows to the camera', async () => {
+    const fixture = await open();
+    const game = vi.fn();
+    window.addEventListener('keydown', game);
+    const ball = radio(fixture, 'ball');
+    ball.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    ball.focus();
+    ball.click();
+    await settle(fixture);
+    const arrow = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+    ball.dispatchEvent(arrow);
+    await settle(fixture);
+    window.removeEventListener('keydown', game);
+
+    expect(fixture.componentInstance.chosen()).toBe('ball');
+    expect(arrow.defaultPrevented).toBe(false);
+    expect(game).toHaveBeenCalledWith(arrow);
+
+    // Reached by Tab again, the arrows choose
+    radio(fixture, 'fire').focus();
+    ball.focus();
+    press(fixture, 'ball', 'ArrowRight');
+    await settle(fixture);
+    expect(fixture.componentInstance.chosen()).toBe('fire');
   });
 });

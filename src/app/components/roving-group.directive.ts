@@ -1,4 +1,5 @@
 import { DestroyRef, Directive, ElementRef, afterNextRender, inject } from '@angular/core';
+import { focusedByKeyboard, trackFocusOrigin } from '../utils/keyboard-target';
 
 /** The items of a group: its radios or tabs */
 const ITEM_SELECTOR = '[role="radio"], [role="tab"]';
@@ -16,7 +17,10 @@ const CHOSEN = (item: HTMLElement) =>
  * what the group sets.
  *
  * The arrows are spent on the group: they reach no window listener, so the
- * camera does not pan while the player picks with them.
+ * camera does not pan while the player picks with them. Only on an item the
+ * keyboard focused: a radio clicked with the mouse keeps the focus in
+ * Chrome, and the arrows then still pan the camera (utils/keyboard-target.ts:
+ * a clicked control takes no game key).
  *
  * Usage: `<div role="radiogroup" tdRovingGroup>` around `role="radio"` buttons.
  */
@@ -29,6 +33,8 @@ export class RovingGroupDirective {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   constructor() {
+    // Whether the keyboard or the pointer focused an item, from the first click on
+    trackFocusOrigin();
     // The Tab stop follows the choice, whoever changes it (a click, a key, the game)
     const observer = new MutationObserver(() => this.updateTabStops());
     afterNextRender(() => {
@@ -47,7 +53,7 @@ export class RovingGroupDirective {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     const items = this.items();
     const from = items.indexOf(event.target as HTMLElement);
-    if (from < 0) return;
+    if (from < 0 || !focusedByKeyboard(event.target as HTMLElement)) return;
     const usable = items.filter((item) => item.getAttribute('aria-disabled') !== 'true');
     if (usable.length === 0) return;
 

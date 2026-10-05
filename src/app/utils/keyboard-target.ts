@@ -87,6 +87,11 @@ export function pointerUsedYet(): boolean {
   return pageFocusOrigin()?.pointerUsed() ?? false;
 }
 
+/** The keyboard (Tab, a script, an arrow key) focused `el`, not a pointer (FocusOrigin.byKeyboardFocus) */
+export function focusedByKeyboard(el: Element): boolean {
+  return pageFocusOrigin()?.byKeyboardFocus(el) ?? false;
+}
+
 /** Set up the focus tracking early, before the first click the game keys may care about */
 export function trackFocusOrigin(): void {
   pageFocusOrigin();
