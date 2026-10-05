@@ -13,6 +13,7 @@ import type { CoordinateSync } from '../index';
 import { OozeBandRenderer, type OozeMessEffects } from './ooze-band.renderer';
 import { OOZE_DEBRIS_DECK, OozeDebrisRenderer, type OozeDebrisKind } from './ooze-debris.renderer';
 import { oozeMessCounts, planOozeDeath } from './ooze-death-plan';
+import { perfBudget } from '../../../../test/perf-budget';
 
 // The atlases paint on a 2D canvas, which jsdom lacks
 vi.mock('../sprite-atlas-generator', () => ({
@@ -360,7 +361,8 @@ describe('OozeDebrisRenderer', () => {
  * the pools' buffers. Logs the measured numbers.
  */
 describe('Ooze death cost', () => {
-  const SANITY_CAP_MS = 50;
+  /** The worst frame, ms; held as written by npm run test:perf only (perfBudget) */
+  const PEAK_FRAME_MS = 50;
 
   it('stays cheap at the peak of two full oozes dying at once', () => {
     const { pools, effects, debris, renderer, goo: decals } = realMess(['a', 'b']);
@@ -391,7 +393,7 @@ describe('Ooze death cost', () => {
     expect(debris.count).toBe(256);
     expect(decals.count).toBe(128);
     expect(peak.particles).toBeGreaterThan(0);
-    expect(worst).toBeLessThan(SANITY_CAP_MS);
+    expect(worst).toBeLessThan(perfBudget(PEAK_FRAME_MS));
     renderer.dispose();
   });
 });

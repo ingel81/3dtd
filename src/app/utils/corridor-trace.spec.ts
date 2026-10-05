@@ -14,6 +14,7 @@ import {
 import { cameraTimeline } from './camera-timeline';
 import { GlobalRouteGrid } from './global-route-grid';
 import type { RouteWaypoint } from '../models/game.types';
+import { medianMs, perfBudget } from '../../test/perf-budget';
 
 /** About 10 m of latitude. */
 const TEN_M = 10 / 111_320;
@@ -231,16 +232,14 @@ describe('corridor trace', () => {
         id, Array.from({ length: 300 }, (_, i): RouteWaypoint => ({ lat: 48 + i * step, lon: 9, corridorLeft: 3, corridorRight: 4 })),
       ]));
 
-      const runs = 20;
-      const t0 = performance.now();
-      for (let i = 0; i < runs; i++) {
+      // The median of 20 rebuilds: a GC pause in one does not count (perfBudget)
+      const perRebuildMs = medianMs(() => {
         const before = { cells: grid.snapshotHeights(), widths: widthProfile(paths) };
         const after = { cells: grid.snapshotHeights(), widths: widthProfile(paths) };
         cellDelta(before.cells, after.cells);
         widthDelta(before.widths, after.widths);
-      }
-      const perRebuildMs = (performance.now() - t0) / runs;
-      expect(perRebuildMs).toBeLessThan(5);
+      }, 20);
+      expect(perRebuildMs).toBeLessThan(perfBudget(5));
     });
   });
 });

@@ -10,6 +10,7 @@
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:perf": "vitest run --mode perf",
     "bench": "vitest bench --run --no-file-parallelism --reporter=verbose --silent=false",
     "bench:sim": "vitest run src/app/integration/sim-step.perf.spec.ts --mode simbench --reporter=verbose --silent=false",
     "lint": "ng lint",

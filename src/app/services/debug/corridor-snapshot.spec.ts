@@ -15,6 +15,7 @@ import type { CorridorState } from '../world/path-route.service';
 import type { BandStation } from '../../utils/corridor-band';
 import type { RouteCellDump } from '../../utils/route-grid-diagnostics';
 import type { RecentLocation } from '../location/recent-locations';
+import { medianMs, perfBudget } from '../../../test/perf-budget';
 
 /**
  * The corridor snapshot saves everything of the corridor at a place as one
@@ -191,11 +192,12 @@ describe('corridor snapshot', () => {
     it('puts 2000 cells with their columns together in a few milliseconds', () => {
       const cells = Array.from({ length: 2000 }, (_, i) => cell(i % 40, Math.floor(i / 40)));
       const input = data({ cells, probes: cells.map(() => probe()) });
-      const t0 = performance.now();
-      const text = buildCorridorSnapshot(meta(), input);
-      const ms = performance.now() - t0;
+      let text = '';
+      const ms = medianMs(() => {
+        text = buildCorridorSnapshot(meta(), input);
+      }, 3);
       expect(JSON.parse(text).cells).toHaveLength(2000);
-      expect(ms).toBeLessThan(100);
+      expect(ms).toBeLessThan(perfBudget(100));
     });
   });
 
