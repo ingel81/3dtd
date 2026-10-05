@@ -10,6 +10,7 @@
 npm start       # Development Server (http://localhost:4200)
 npm run build   # Production Build
 npm test        # vitest
+npm run test:perf  # vitest mit strengen Zeitgrenzen (src/test/perf-budget.ts)
 npm run lint
 npm run e2e     # End-to-End-Tests im Browser (Dev-Server muss laufen, docs/E2E.md)
 npm run coop-server  # Coop-Relay (:3003), docs/COOP_PLAN.md
