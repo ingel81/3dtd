@@ -61,6 +61,14 @@ die Punkte, die ein Spielmenü erwartet.
 - **Prüfung:** `integration/save-resume.scenario.spec.ts` speichert zwischen zwei Wellen, baut eine frische
   Simulation aus dem Weltpaket auf Boden ohne Werte und spielt die nächste Welle mit denselben Befehlen: jede
   Prüfsumme gleich dem ununterbrochenen Lauf.
+- **Nach dem Review (2026-10-05):** Der Save nimmt den Snapshot exakt (der Held behält seinen Weg, ein Save ändert
+  den Lauf nicht) und liest Director, Run-Log und Zufallsquelle vor der Antwort des Workers. Kein Save, solange ein
+  Tower seine Sichtlinie misst („A tower is still measuring its line of sight.“, `SimScalars.losAwaiting`).
+  `readSaveFile` prüft den Snapshot so tief, wie der Restore ihn liest, dazu den Quellzustand
+  (`WaveSource.validState`) und die Zufallsströme; Dateien höchstens 32 MB, gepackt wie entpackt. Das Laden wartet
+  immer, bis der Ort steht, setzt die Quelle des Spielstands vor `adopt` (`useSourceNextRun`, damit auch der Worker
+  ihre Regeln spielt), und ein Restore, der mittendrin scheitert, hinterlässt einen sauberen frischen Lauf mit Meldung.
+  IndexedDB: Öffnen gibt nach 5 s auf, `versionchange` schließt die Verbindung, ein unlesbarer Platz heißt nicht leer.
 
 Offen: die Menü-Oberfläche (Plätze, Export, Import, „Continue“ im Startbildschirm, Rückfrage vor dem Laden über
 einen laufenden Lauf) baut der Menü-Worker; ein Lauf im Browser mit echter Karte steht aus. Replays der Wellen vor
