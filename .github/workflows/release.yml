@@ -190,8 +190,7 @@ jobs:
     steps:
       # Copies without the version in the name, so README and landing page can link
       # /releases/latest/download/3DTD-win-x64-setup.exe for good. The updater reads
-      # latest.yml and keeps using the versioned files. 3DTD-linux-x64.AppImage is the
-      # name before 0.6.0, kept for the links out there for one release (TODO E83).
+      # latest.yml and keeps using the versioned files.
       - name: Add copies with fixed names
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -200,8 +199,7 @@ jobs:
           cd fixed
           mv 3DTD-*-win-x64-setup.exe 3DTD-win-x64-setup.exe
           mv 3DTD-*-x86_64.AppImage 3DTD-x86_64.AppImage
-          cp 3DTD-x86_64.AppImage 3DTD-linux-x64.AppImage
-          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber 3DTD-win-x64-setup.exe 3DTD-x86_64.AppImage 3DTD-linux-x64.AppImage
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber 3DTD-win-x64-setup.exe 3DTD-x86_64.AppImage
 
       - name: Publish the release
         env:

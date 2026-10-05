@@ -326,7 +326,7 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   verlinken README und Landing die Dateien direkt (`releases/latest/download/3DTD-win-x64-setup.exe`,
   `3DTD-x86_64.AppImage`, bis 0.5.1 `3DTD-linux-x64.AppImage`): `release.yml` legt vor dem Veröffentlichen je
   eine Kopie ohne Version im Namen dazu, der Updater liest weiter `latest.yml` und die Dateien mit Version. Den alten
-  Linux-Namen lädt 0.6.0 als dritte Kopie mit hoch, für Links von außen (TODO E83).
+  Linux-Namen lud nur 0.6.0 als dritte Kopie mit hoch, für Links von außen; ab dem Release nach 0.6.0 nicht mehr (TODO E83).
 - **E44 Muss** Kein lokaler Schlüssel im Installer. `scripts/copy-web.js` liest
   `cesiumIonToken` und `googleMapsApiKey` aus `environment.ts` und
   `environment.prod.ts` und bricht ab, wenn einer dieser Werte im Build steht. Die
