@@ -87,6 +87,18 @@ export class SceneGraphVersion {
   }
 }
 
+/**
+ * Geometric error (m) of the tile `object` belongs to: the tiles renderer
+ * stamps `userData.tile` on the objects of a tile's scene. Infinity for an
+ * object of no tile.
+ */
+function geometricErrorOf(object: Object3D): number {
+  let current: Object3D | null = object;
+  while (current && !current.userData['tile']) current = current.parent;
+  const tile = current?.userData['tile'] as { geometricError?: number } | undefined;
+  return tile?.geometricError ?? Infinity;
+}
+
 /** A ray answered before and the hits the ground gave for it. */
 interface CachedRay {
   ox: number;
@@ -183,7 +195,7 @@ export class GroundPickRoot extends Group {
   }
 
   /**
-   * Hits on hidden tiles count only where no shown tile lies on the ray.
+   * Hits on hidden tiles count only where no finer shown tile lies on the ray.
    *
    * The tiles renderer keeps tiles active that it does not draw: the
    * siblings along the path to the tiles in view, out of the frustum, from
@@ -195,15 +207,23 @@ export class GroundPickRoot extends Group {
    * controls set the camera 5 m above it. The zoom stopped 300 m up and
    * each further step only moved the camera forward, to the north.
    *
-   * A shown tile on the same ray is what the player sees there, so it wins.
-   * Without one (the ground under the camera out of view) the hidden tiles
-   * stay the best answer there is.
+   * A shown tile on the same ray is what the player sees there, so it wins
+   * over a hidden one that is coarser. A hidden tile at least as fine (a
+   * corridor region tile beside the frustum's edge) keeps its hit. Without a
+   * shown tile on the ray (the ground under the camera out of view) the
+   * hidden tiles stay the best answer there is. Only the camera controls
+   * cast through this root; terrain, corridor and placement raycast the
+   * tiles group directly (TerrainQueries).
    */
   private dropHiddenBehindShown(hits: Intersection[]): void {
-    if (!hits.some((hit) => this.shown(hit.object))) return;
+    let finestShown = Infinity;
+    for (const hit of hits) {
+      if (this.shown(hit.object)) finestShown = Math.min(finestShown, geometricErrorOf(hit.object));
+    }
+    if (finestShown === Infinity) return;
     let kept = 0;
     for (const hit of hits) {
-      if (this.shown(hit.object)) hits[kept++] = hit;
+      if (this.shown(hit.object) || geometricErrorOf(hit.object) <= finestShown) hits[kept++] = hit;
     }
     hits.length = kept;
   }

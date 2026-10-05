@@ -84,18 +84,27 @@ class ActiveTilesGroup extends Group {
   }
 }
 
-/** Straße in 0 m, gezeigt, nur um (0, 0); ein grobes verstecktes Tile in 300 m, weit gespannt */
+/** Ein Tile als Fläche in Höhe `y`, mit seinem geometrischen Fehler wie vom TilesRenderer gestempelt */
+function tileMesh(size: number, y: number, geometricError: number): Mesh {
+  const mesh = new Mesh(new PlaneGeometry(size, size), new MeshBasicMaterial());
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = y;
+  mesh.userData['tile'] = { geometricError };
+  return mesh;
+}
+
+/**
+ * Straße in 0 m, gezeigt (4 m Fehler), nur um (0, 0); ein grobes verstecktes
+ * Tile (8218 m Fehler) in 300 m, weit gespannt, wie in Płock
+ */
 function placeholderScene() {
   const scene = new Scene();
   const ground = new ActiveTilesGroup();
   scene.add(ground);
   scene.updateMatrixWorld(true);
-  const street = new Mesh(new PlaneGeometry(100, 100), new MeshBasicMaterial());
-  street.rotation.x = -Math.PI / 2;
+  const street = tileMesh(100, 0, 4);
   ground.addTile(street, true);
-  const coarse = new Mesh(new PlaneGeometry(4000, 4000), new MeshBasicMaterial());
-  coarse.rotation.x = -Math.PI / 2;
-  coarse.position.y = 300;
+  const coarse = tileMesh(4000, 300, 8218);
   ground.addTile(coarse, false);
   const root = new GroundPickRoot(ground);
   scene.add(root);
@@ -175,6 +184,21 @@ describe('GroundPickRoot', () => {
       const hits = downRay(500, 1e5, 0).intersectObject(root);
       expect(hits[0].object).toBe(coarse);
       expect(hits[0].point.y).toBeCloseTo(300, 6);
+    });
+
+    it('ein verstecktes Tile, mindestens so fein wie das gezeigte (Korridor am Bildrand), behält seinen Treffer', () => {
+      const { root, ground, street } = placeholderScene();
+      // Ein Dach im versteckten 2,5-m-Tile über der gröberen gezeigten Fläche
+      const regionRoof = tileMesh(20, 12, 2.5);
+      ground.addTile(regionRoof, false);
+      const coarseShown = tileMesh(100, 0, 8);
+      ground.remove(street);
+      ground.active.splice(ground.active.indexOf(street), 1);
+      ground.addTile(coarseShown, true);
+      const hits = downRay(0, 1e5, 0).intersectObject(root);
+      expect(hits[0].object).toBe(regionRoof);
+      expect(hits[0].point.y).toBeCloseTo(12, 6);
+      expect(hits.some((hit) => hit.object === coarseShown)).toBe(true);
     });
 
     it('Zoom-Schritt unter das grobe Tile: die Kamera bleibt unten, statt 5 m darüber zu springen', () => {
