@@ -67,6 +67,19 @@ export class WaveSeriesRecorder {
     subs.add(bus.onLive('game:reset', () => this.reset()));
   }
 
+  /** Go on from the points of a save game (TODO E110): the counts stand where its last point left them */
+  restore(points: readonly WaveSeriesPoint[]): void {
+    this.reset();
+    this.list = [...points];
+    const last = points.at(-1);
+    if (!last) return;
+    this.wave = last.wave;
+    for (const [id, numbers] of Object.entries(last.players)) {
+      this.kills.set(id, numbers.kills);
+      this.earned.set(id, numbers.goldEarned);
+    }
+  }
+
   reset(): void {
     this.kills.clear();
     this.earned.clear();

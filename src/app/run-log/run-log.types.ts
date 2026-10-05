@@ -68,6 +68,8 @@ export interface RunLogHead {
 /** A moment in the run worth naming. */
 export type RunLogEventKind =
   | 'run-opened'
+  /** A save game was loaded: the run goes on from here (TODO E110) */
+  | 'run-resumed'
   | 'tower-built'
   | 'tower-upgraded'
   | 'tower-sold'

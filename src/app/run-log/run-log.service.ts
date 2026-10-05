@@ -196,6 +196,24 @@ export class RunLogCollector {
   }
 
   /**
+   * Go on with a run from a save game (TODO E110): its head and records as
+   * they were saved, between waves after `wavesDone` finished, the next
+   * block from the state loaded now. The store keeps it under its run id,
+   * so the saved run grows on instead of a second one starting.
+   */
+  resume(run: RunLog, wavesDone: number, world: RunLogWorld): void {
+    this.world = world;
+    this.head = { ...run.head };
+    this.records = [this.head, ...run.records.slice(1).filter((record) => record.kind !== 'end')];
+    this.drained = this.records.length;
+    this.closed = false;
+    this.wave = wavesDone;
+    this.beginBlock();
+    this.nextSampleAtMs = 0;
+    this.event('run-resumed', { value: wavesDone + 1 });
+  }
+
+  /**
    * Close the run and hand back what it came to. A second call returns null,
    * so game over followed by a reset writes exactly one end record.
    */

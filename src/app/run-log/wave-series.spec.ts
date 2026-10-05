@@ -59,4 +59,16 @@ describe('WaveSeriesRecorder (TODO E46)', () => {
     bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
     expect(recorder.points[0].players['ann'].kills).toBe(0);
   });
+
+  it('goes on from a save game’s points, counting on from its last one (TODO E110)', () => {
+    const { bus, recorder, kill, gold } = setup();
+    recorder.restore([
+      { wave: 3, hqHealth: 480, players: { ann: { kills: 7, towers: 2, goldEarned: 90 }, bob: { kills: 1, towers: 0, goldEarned: 5 } } },
+    ]);
+    bus.emit({ type: 'wave:started', wave: 4, enemyCount: 1 });
+    kill('a1');
+    gold('ann', 10, 'kill');
+    bus.emit({ type: 'wave:completed', wave: 4, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
+    expect(recorder.points.map((p) => [p.wave, p.players['ann'].kills, p.players['ann'].goldEarned])).toEqual([[3, 7, 90], [4, 8, 100]]);
+  });
 });

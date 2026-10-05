@@ -122,6 +122,34 @@ describe('the run log', () => {
     });
   });
 
+  describe('a run from a save game (TODO E110)', () => {
+    it('goes on with the saved head and records: no end record, the same run id, the next block from the state now', () => {
+      open();
+      bus.emit({ type: 'wave:started', wave: 1, enemyCount: 1 } as never);
+      book(30, 'kill');
+      bus.emit({ type: 'wave:completed', wave: 1, credits, perfect: true, closeCall: false, hpLost: 0 } as never);
+      const saved = JSON.parse(JSON.stringify(log.current())) as NonNullable<ReturnType<RunLogCollector['current']>>;
+      log.close('restart');
+
+      // Another collector in a fresh game: the load
+      log = new RunLogCollector();
+      subs = new SubscriptionBag();
+      log.attach(bus, subs);
+      credits = 500;
+      log.resume(saved, 1, world());
+      expect(log.current()!.head.runId).toBe(saved.head.runId);
+      expect(log.current()!.records.some((r) => r.kind === 'end')).toBe(false);
+      expect(events().at(-1)).toMatchObject({ event: 'run-resumed', value: 2, wave: 1 });
+
+      bus.emit({ type: 'wave:started', wave: 2, enemyCount: 1 } as never);
+      book(-100, 'build');
+      bus.emit({ type: 'wave:completed', wave: 2, credits, perfect: true, closeCall: false, hpLost: 0 } as never);
+      expect(waves().map((w) => w.wave)).toEqual([1, 2]);
+      expect(waves()[1]).toMatchObject({ creditsStart: 500 });
+      expect(log.waveReached).toBe(2);
+    });
+  });
+
   describe('a wave block', () => {
     it('covers the build phase before the wave: what was spent there belongs to it', () => {
       open();

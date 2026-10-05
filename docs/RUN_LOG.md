@@ -20,7 +20,7 @@ JSONL, eine Zeile je Datensatz, in der Reihenfolge, in der sie entstanden sind. 
 | `kind` | Wann | Inhalt |
 |---|---|---|
 | `head` | einmal, als erste Zeile | Version, Commit, Config-Hash, Seed, Karte, Ort, wer spielt |
-| `event` | je Entscheidung oder Moment | Bau, Upgrade, Verkauf, Forschung, Fähigkeit, Held, Leck, Boss, Tempo, Pause, Cheat, Wellensprung |
+| `event` | je Entscheidung oder Moment | Bau, Upgrade, Verkauf, Forschung, Fähigkeit, Held, Leck, Boss, Tempo, Pause, Cheat, Wellensprung, Laden eines Spielstands (`run-resumed`) |
 | `sample` | einmal je Sekunde Spielzeit | Gold, HQ-HP, lebende Gegner, Gesamt-DPS |
 | `wave` | am Ende jeder Welle | die ganze Welle: Gold, Kills, Lecks, Tower, Director-Entscheidung |
 | `end` | einmal, als letzte Zeile | erreichte Welle und Grund |
@@ -174,3 +174,10 @@ Nichts je Treffer, nichts je Sub-Step. Die Stichprobe liest die Gesamt-DPS über
 - Der Korridor-Fingerprint steht im Kopf als optionales Feld, wird aber noch nicht gefüllt.
 - Läufe aus Format 1 haben `towerSpending` nicht. `bot-server/analysis/run_reader.py` summiert für sie die Bau-
   und Upgrade-Ereignisse; der Zweig kann weg, sobald keine Format-1-Läufe mehr ausgewertet werden.
+
+## Spielstände (TODO E110)
+
+Ein Spielstand trägt den offenen Lauf mit (Kopf und Datensätze) und die Punkte der Game-Over-Kurven. Nach dem Laden
+schreibt `RunLogCollector.resume` denselben Lauf weiter: gleiche `runId`, im Speicher derselbe Eintrag, ein Ereignis
+`run-resumed` mit der Welle, die als Nächstes kommt; der Block danach beginnt beim geladenen Stand. Ein Ende-Datensatz
+im gespeicherten Lauf fällt weg. Was nach dem Speichern bis zum Laden noch geschah, steht im Lauf nicht mehr.

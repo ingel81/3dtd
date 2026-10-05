@@ -206,8 +206,33 @@ export class RunLogFacade {
     this.subs.disposeAll();
   }
 
-  private open(): void {
+  /** The open run and the game-over charts' points, for a save game (TODO E110) */
+  saveState(): { runLog: RunLog | null; waveSeries: WaveSeriesPoint[] } {
+    const run = this.collector.isOpen ? this.current() : null;
+    return {
+      runLog: run ? (JSON.parse(JSON.stringify(run)) as RunLog) : null,
+      waveSeries: JSON.parse(JSON.stringify(this.series.points)) as WaveSeriesPoint[],
+    };
+  }
+
+  /**
+   * A save game was loaded (TODO E110), its state already in the mirror:
+   * the run the load's reset opened gives way to the saved one, which goes
+   * on from here; without a saved run a new one opens.
+   */
+  resumeRun(runLog: RunLog | null, waveSeries: readonly WaveSeriesPoint[], wavesDone: number): void {
     if (!this.wired) return;
+    this.openPending = false;
+    // The run of the load's reset holds nothing worth keeping (close keeps no run without a wave)
+    this.collector.close('restart');
+    this.series.restore(waveSeries);
+    this.waveSeries.set(this.series.points);
+    if (runLog) this.collector.resume(runLog, wavesDone, this.runWorld());
+    else this.open();
+  }
+
+  /** What the collector reads of the game: this player's side of the mirror */
+  private runWorld(): RunLogWorld {
     const mirror = this.mirror;
 
     // The run log is this player's run (TODO E34): in coop the partner's
@@ -230,7 +255,13 @@ export class RunLogFacade {
       ownsKill: killOwnership(mirror),
       abilityDamage: () => mirror.abilityDamageOf(mirror.localPlayerId),
     };
+    return world;
+  }
 
+  private open(): void {
+    if (!this.wired) return;
+    const mirror = this.mirror;
+    const world = this.runWorld();
     const home = this.locations.editableHqLocation();
     const who = this.whoPlays();
     this.collector.open(
