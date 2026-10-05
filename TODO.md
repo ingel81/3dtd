@@ -36,8 +36,10 @@ Stand 2026-10-04. 0.6.0 ist veröffentlicht (Tag `v0.6.0` auf `next`), `dev/afte
 - [ ] **E114 Coop im Browser** (User, 2026-10-04, Notiz 2 in `tmp/PLAYTEST_NOTIZEN_2026-10-04.md`): laut D59/D52 nur
       in der App, der Browser zeigt trotzdem den Coop-Dialog. Auf localhost bietet er „This machine“ an; antwortet
       der Relay nicht, steht die Meldung doppelt da, und der Text „Playing on the same network still works“ ist im
-      Browser falsch (kein LAN). Vorschlag, nicht entschieden: im Browser zeigt der Coop-Knopf nur „Co-op runs in the
-      desktop app“ mit Download-Link, auf localhost bleibt der Dialog für Dev-Tests ohne LAN-Satz und Doppelmeldung.
+      Browser falsch (kein LAN). Entschieden (User, 2026-10-04): der Knopf bleibt im Browser sichtbar (Schaufenster
+      für die App) und öffnet nur den Hinweis „Co-op runs in the desktop app“ mit Download-Link; ein Einladungslink
+      mit Raumcode im Browser zeigt denselben Hinweis. Auf localhost bleibt der Dialog für Dev-Tests, ohne den
+      LAN-Satz und ohne die doppelte Meldung.
 - [ ] **E115 Forschungspreise des Mitspielers** (User, 2026-10-04, Notiz 1 dort): in der Forschungsansicht des
       Mitspielers stehen die Grundpreise, nicht die mit seiner Spuranzahl multiplizierten.
 - [ ] **E106 Menschenähnlicher Bot** ([BOT_PLAYER_PLAN.md](docs/BOT_PLAYER_PLAN.md), B1 bis B6 auf `next`): offen B7
