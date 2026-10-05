@@ -5,7 +5,8 @@ import { AUTOSAVE_SLOT, manualSlotId } from './save-game.port';
 import type { SaveSlotStore, StoredSlotMeta } from './save-slot.store';
 import { buildWorldPackage } from '../../coop/world-package';
 import { emptySimSnapshot } from '../../../test/sim-snapshot-fixture';
-import type { SaveFile, SaveParts } from '../../simulator/save-file';
+import { MAX_SAVE_FILE_BYTES, type SaveFile, type SaveParts } from '../../simulator/save-file';
+import { replayFileBlob } from '../../simulator/replay-file';
 
 /**
  * The slots, names, notes and order of the save game (TODO E110), on a
@@ -139,6 +140,14 @@ describe('SaveGame (TODO E110)', () => {
     vi.mocked(host.apply).mockRejectedValueOnce(new Error('worker gone'));
     expect(await game.load(manualSlotId(1))).toEqual({ ok: false, reason: 'The save could not be loaded.' });
     expect(await game.load(manualSlotId(1))).toMatchObject({ ok: true });
+  });
+
+  it('refuses a small gzip that unpacks past the cap, before it parses anything', async () => {
+    const { game, applied } = setup();
+    const bomb = await replayFileBlob(' '.repeat(MAX_SAVE_FILE_BYTES + 1024));
+    expect(bomb.size).toBeLessThan(1024 * 1024);
+    expect(await game.importFile(new File([await bomb.arrayBuffer()], 'save.json.gz'))).toEqual({ ok: false, reason: 'That file is far too big for a 3DTD save.' });
+    expect(applied).toHaveLength(0);
   });
 
   it('exports a slot as a gzipped file that imports again, and refuses what is no save', async () => {

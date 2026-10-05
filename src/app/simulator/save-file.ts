@@ -74,11 +74,12 @@ export function buildSaveFile(parts: SaveParts, now: Date = new Date()): SaveFil
 }
 
 /**
- * The largest save read, bytes: a run of 80 waves with many towers is far
- * below (the world package is most of it), a file far above it is not one
- * the game wrote.
+ * The largest save read, bytes, packed and unpacked: a run of 80 waves with
+ * many towers is far below (the world package is most of it, some hundred
+ * kB), a file far above it is not one the game wrote. Unpacked and parsed on
+ * the main thread, so a small gzip that unpacks to more stops here.
  */
-export const MAX_SAVE_FILE_BYTES = 128 * 1024 * 1024;
+export const MAX_SAVE_FILE_BYTES = 32 * 1024 * 1024;
 
 /** Why a save cannot be loaded, null when it can. */
 export type SaveFileRefusal = 'not-a-save' | 'too-big' | 'damaged' | 'version';
