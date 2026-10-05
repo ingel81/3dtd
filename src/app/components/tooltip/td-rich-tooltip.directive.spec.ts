@@ -6,9 +6,12 @@
  */
 // CDK pulls in partially compiled Angular code, which needs the JIT compiler
 import '@angular/compiler';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ElementRef, Injector, runInInjectionContext, signal } from '@angular/core';
 import { Overlay, OverlayPositionBuilder, ScrollStrategyOptions } from '@angular/cdk/overlay';
+import { getTestBed, TestBed } from '@angular/core/testing';
+import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
+import { EMPTY } from 'rxjs';
 import { TdRichTooltipDirective } from './td-rich-tooltip.directive';
 import { TdTooltipContentComponent } from './td-tooltip-content.component';
 import type { TdTooltipData } from './tooltip-data.types';
@@ -16,6 +19,10 @@ import type { TdTooltipData } from './tooltip-data.types';
 const DATA = { title: 'Gatling' } as unknown as TdTooltipData;
 
 describe('TdRichTooltipDirective', () => {
+  beforeAll(() => {
+    getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
+  });
+
   let host: HTMLElement;
   let opened: { attached: unknown; data: unknown; disposed: boolean }[];
 
@@ -44,10 +51,12 @@ describe('TdRichTooltipDirective', () => {
             return { setInput: (_: string, value: unknown) => (entry.data = value) };
           },
           dispose: () => (entry.disposed = true),
+          keydownEvents: () => EMPTY,
         };
       },
     };
     const injector = Injector.create({
+      parent: TestBed.inject(Injector),
       providers: [
         { provide: Overlay, useValue: overlay },
         { provide: OverlayPositionBuilder, useValue: { flexibleConnectedTo: () => strategy } },
