@@ -1,8 +1,7 @@
 # Speichern und Laden, Menü
 
-Stand 2026-10-03, **Plan, nicht gebaut**. Eintrag in [TODO.md](../TODO.md): E110 (Speichern und Laden im
-Einzelspiel), E111 (Menü vervollständigen). Gebaut wird nach dem Release 0.6; die offenen Fragen unten gehen vorher
-einzeln per AUQ an den User.
+Stand 2026-10-05, **Plan entschieden, im Bau**. Eintrag in [TODO.md](../TODO.md): E110 (Speichern und Laden im
+Einzelspiel), E111 (Menü vervollständigen). Die Fragen unten hat der User am 2026-10-05 beantwortet.
 
 ## Ziel
 
@@ -29,14 +28,16 @@ die Punkte, die ein Spielmenü erwartet.
 - **Run-Log:** nach dem Laden weiterschreiben statt neu beginnen.
 - **Darstellung:** Modelle, Sichtlinien-Masken und Bauzustand aus dem geladenen Stand.
 
-## Offene Fragen (AUQ, einzeln)
+## Entschieden (User, 2026-10-05)
 
-1. Wann speichern: nur zwischen den Wellen (`SimSnapshot`, klein, ein Weg) oder auch mitten in der Welle
-   (`WaveSnapshot`)?
-2. Wohin: feste Plätze im Browser (IndexedDB), eine Datei zum Herunterladen, oder beides?
-3. Automatisch speichern, etwa nach jeder Welle, oder nur auf Knopfdruck?
-4. Spielstand einer älteren Spielversion: ablehnen, oder laden mit Hinweis wie beim Replay?
-5. Coop: aus, oder später der Host?
-6. Menü (E111): welche Punkte kommen dazu? Kandidaten: Weiterspielen oben, Neustart am selben Ort, Speichern und
-   Laden, getrennte Regler für Effekte, Musik und UI (intern schon da), Grafikqualität, Spieltempo, Run-Log und
-   Replay exportieren (heute nur am Game-Over-Bildschirm).
+1. **Wann:** nur zwischen den Wellen (`SimSnapshot`). Während einer Welle ist Speichern gesperrt.
+2. **Wohin:** beides. Feste Plätze im Browser (IndexedDB), dazu Export und Import als Datei, Format nach dem Vorbild
+   der Replay-Datei (Kopf mit Version, `worldKey`, Config-Hash, Spielversion).
+3. **Autosave:** ein eigener Autosave-Platz nach jeder Welle, dazu mehrere Plätze per Knopf. Der Startbildschirm bietet
+   „Continue“ an, wenn ein Autosave da ist.
+4. **Ältere Spielversion:** laden mit Hinweis wie beim Replay („saved with version X, values may differ“); nur bei
+   inkompatiblem Format ablehnen.
+5. **Coop:** vorerst nur Einzelspiel, im Coop ist Speichern ausgeblendet. Das Format bleibt so, dass der Host es später
+   als Raum-Start verteilen kann.
+6. **Menü:** dazu kommen Restart am selben Ort (mit Rückfrage), getrennte Regler für Effekte, Musik und UI,
+   Grafikqualität und Spieltempo, Run-Log und Replay exportieren (heute nur am Game-Over-Bildschirm).
