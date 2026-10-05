@@ -57,6 +57,7 @@ vi.mock('../coop/world-package', () => ({
 }));
 
 import { CoopService } from './coop.service';
+import { WorldPackageLoader } from './world/world-package-loader.service';
 import { CoopSession } from '../coop/coop-session';
 import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
@@ -136,6 +137,8 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
     parent: TestBed.inject(EnvironmentInjector),
     providers: [
       CoopService,
+      // The real one, on the stand-ins below
+      WorldPackageLoader,
       { provide: SimClient, useValue: sim },
       { provide: SimMirror, useValue: mirror },
       { provide: MainWorldService, useValue: world },

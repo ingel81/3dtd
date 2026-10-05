@@ -2,7 +2,6 @@ import { DestroyRef, Injectable, Injector, NgZone, computed, effect, inject, isD
 import { SimClient } from '../sim/client/sim-client.service';
 import type { WaveSnapshot } from '../simulator/wave-snapshot';
 import type { HashBreakdown } from '../simulator/state-hash';
-import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { MainWorldService } from './world/main-world.service';
 import { TowerLosRegistry } from './tower-los-registry';
@@ -15,7 +14,6 @@ import { LocationManagementService } from './location/location-management.servic
 import { UrlLocationService } from './location/url-location.service';
 import { PathAndRouteService } from './world/path-route.service';
 import { LocationFacadeService } from './facade/location-facade.service';
-import { LocationChangeCoordinatorService } from './location/location-change-coordinator.service';
 import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { WaveDirector } from '../director/wave-director';
@@ -48,6 +46,7 @@ import { relayCandidates, relayForLink, relayLabel, type RelaySource } from '../
 import { readCoopLan, readDesktopBridge, type LanGame } from '../core/desktop-bridge';
 import { coopAccess } from '../coop/coop-access';
 import { CoopLobbyList } from './coop-lobby-list';
+import { WorldPackageLoader } from './world/world-package-loader.service';
 import {
   DEFAULT_ROOM_OPTIONS,
   changedOptions,
@@ -59,7 +58,6 @@ import {
   type CoopRoomOptions,
   type RoomOptionKey,
 } from '../coop/room-options';
-import type { GeoPosition } from '../models/game.types';
 import { readText, writeText } from '../utils/storage';
 import { MatDialog } from '@angular/material/dialog';
 import { askRunUpload } from '../components/run-upload-dialog/run-upload-dialog.component';
@@ -68,11 +66,6 @@ import { toJsonl } from '../run-log/run-log.export';
 import type { RunLog } from '../run-log/run-log.types';
 import { CoopRunCounts } from './coop-run-counts';
 import { ResettableSignals } from '../utils/resettable-signals';
-
-/** Two points are the same place at the precision the URL keeps. */
-function samePlace(a: GeoPosition, b: GeoPosition): boolean {
-  return coordKey(a) === coordKey(b);
-}
 
 /** A mark on the map one player set for all (review R13) */
 export interface CoopPing {
@@ -159,9 +152,6 @@ const PING_MS = 4000;
 const LANE_WALK_SPEED_MPS = ENEMY_TYPES['zombie'].baseSpeed;
 /** Host: how long a changed map waits before it checks that the rebuild is done, ms */
 const SHARE_SETTLE_MS = 400;
-
-/** Longest wait for this client's own load of the host's place before taking the world over, ms */
-const WORLD_LOAD_TIMEOUT_MS = 120_000;
 
 const REFUSAL_TEXT: Record<RefusalReason, string> = {
   protocol: 'The relay speaks another version of the coop protocol.',
@@ -253,9 +243,9 @@ export class CoopService {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly urlLocation = inject(UrlLocationService);
   private readonly pathRoute = inject(PathAndRouteService);
-  private readonly grid = inject(GlobalRouteGridService);
   private readonly locationFacade = inject(LocationFacadeService);
-  private readonly locationChange = inject(LocationChangeCoordinatorService);
+  /** Standing on the host's world package (C1) */
+  private readonly loader = inject(WorldPackageLoader);
   /** The signals of a room, back to their start in leave() */
   private readonly perRoom = new ResettableSignals();
   /** What this client told the room it is doing, see tellStatus */
@@ -1434,14 +1424,13 @@ export class CoopService {
     }
     // Same HQ, other spawns (the host added, moved or took one away): set
     // them here too, no reload; the street network is the same
-    if (this.sameHq(world) && !this.standsOn(world)) {
-      await this.locationFacade.replaceSpawns(world.spawns.map(({ lat, lon }) => ({ lat, lon })));
+    if (this.loader.sameHq(world) && !this.loader.standsOn(world)) {
       // The routes of the new spawns rebuild here
-      if (!(await this.placeLoaded())) return;
+      if (!(await this.loader.takeSpawns(world, this.stillInRoom()))) return;
     }
     // Another place: go there in this page, as the host did (D35); every
     // reload is a new map session with the tile provider (User, 2026-09-25)
-    if (!this.standsOn(world) && !(await this.moveToWorld(world))) {
+    if (!this.loader.standsOn(world) && !(await this.moveToWorld(world))) {
       this.reloadAt(world);
       return;
     }
@@ -1449,25 +1438,13 @@ export class CoopService {
   }
 
   /**
-   * Go to the world's place without a reload: its HQ with the first spawn,
-   * then all of its spawns. False when the place did not come out as the
-   * world's; the caller reloads then.
+   * Go to the world's place without a reload (WorldPackageLoader.moveTo);
+   * false when it did not come out as the world's, the caller reloads then.
    */
   private async moveToWorld(world: WorldPackage): Promise<boolean> {
-    const [first] = world.spawns;
-    if (!first) return false;
     // The room hears "loading the map" and, once adoptWorld is done, "ready"
     this.worldReady.set(false);
-    await this.locationChange.applyNewLocation({
-      hq: { lat: world.hq.lat, lon: world.hq.lon, name: 'Loading...' },
-      spawn: { lat: first.lat, lon: first.lon, name: first.name },
-    });
-    if (!(await this.placeLoaded())) return false;
-    if (!this.standsOn(world)) {
-      await this.locationFacade.replaceSpawns(world.spawns.map(({ lat, lon }) => ({ lat, lon })));
-      if (!(await this.placeLoaded())) return false;
-    }
-    return this.standsOn(world);
+    return this.loader.moveTo(world, 'Loading...', this.stillInRoom());
   }
 
   /** The fallback of moveToWorld: this page at the world's place, back into the room */
@@ -1485,57 +1462,31 @@ export class CoopService {
     window.location.assign(`${url}${params}`);
   }
 
-  /** The place loaded here has the world's HQ */
-  private sameHq(world: WorldPackage): boolean {
-    const hq = this.locationMgmt.hq();
-    return hq !== null && samePlace(hq, world.hq);
-  }
-
-  /** The place loaded here is the world's: same HQ, same spawns in the same order. */
-  private standsOn(world: WorldPackage): boolean {
-    const hq = this.locationMgmt.hq();
-    const spawns = this.world.spawnPoints;
-    return hq !== null && samePlace(hq, world.hq)
-      && spawns.length === world.spawns.length
-      && spawns.every((spawn, i) => samePlace(spawn, world.spawns[i]));
-  }
-
   /**
-   * Wait until the place stands here: an engine, loading screen gone,
-   * corridor frozen. While the player still has to enter a map key (review
-   * R8) there is no engine yet and no limit on the wait; the load itself has
-   * WORLD_LOAD_TIMEOUT_MS.
+   * Wait until the place stands here (WorldPackageLoader.placeLoaded), as
+   * long as this client has not left the room meanwhile.
    */
-  private async placeLoaded(): Promise<boolean> {
-    let end = performance.now() + WORLD_LOAD_TIMEOUT_MS;
+  private placeLoaded(): Promise<boolean> {
+    return this.loader.placeLoaded(this.stillInRoom());
+  }
+
+  /** True until the next leave(): a wait begun before it gives up */
+  private stillInRoom(): () => boolean {
     const generation = this.generation;
-    while (this.needsKey() || !this.engineInit.getEngine() || this.engineInit.loading() || this.world.corridorPending()) {
-      // Left the room meanwhile: nothing to wait for
-      if (generation !== this.generation) return false;
-      if (this.needsKey()) end = performance.now() + WORLD_LOAD_TIMEOUT_MS;
-      if (performance.now() > end) return false;
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-    return true;
+    return () => generation === this.generation;
   }
 
   /** Routes, cells and heights of the host's world, then its key must be this world's (C1b). */
   private adoptWorld(world: WorldPackage): void {
-    const paths = packagePaths(world);
-    this.pathRoute.adoptPaths(paths);
-    this.lanes.set(laneStats(paths, LANE_WALK_SPEED_MPS));
-    this.world.setSpawns(world.spawns);
-    this.world.rebuildCells();
-    this.grid.restoreHeights(world.heights);
-    const key = this.world.key();
+    this.lanes.set(laneStats(packagePaths(world), LANE_WALK_SPEED_MPS));
+    const key = this.loader.adopt(world);
     if (key !== world.worldKey) {
       this.error.set(worldPackageRefusalText('other-world'));
       console.warn(`[Coop] world key ${key}, host ${world.worldKey}`);
       this.status.set('lobby');
       return;
     }
-    // The simulation stands on the host's world from here
-    this.world.sendToSim();
+    // The simulation stands on the host's world from here (adopt sent it)
     this.worldReady.set(true);
     this.hostPlace.set(null);
     this.status.set('lobby');
