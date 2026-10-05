@@ -104,7 +104,7 @@
                   />
                   @if (spawnDistance() !== null) {
                     <p class="note" [class.is-error]="isSpawnTooFar()">
-                      {{ (spawnDistance()! / 1000).toFixed(1) }} km from the HQ{{ isSpawnTooFar() ? ', at most 1.5 km' : '' }}
+                      {{ (spawnDistance()! / 1000).toFixed(1) }} km from the HQ{{ isSpawnTooFar() ? ', at most ' + maxSpawnKm + ' km' : '' }}
                     </p>
                   }
                 } @else {
@@ -173,10 +173,10 @@
           />
           @if (spawnDistance() !== null) {
             <p class="note" [class.is-error]="isSpawnTooFar()">
-              {{ (spawnDistance()! / 1000).toFixed(1) }} km from the HQ{{ isSpawnTooFar() ? ', at most 1.5 km' : '' }}
+              {{ (spawnDistance()! / 1000).toFixed(1) }} km from the HQ{{ isSpawnTooFar() ? ', at most ' + maxSpawnKm + ' km' : '' }}
             </p>
           } @else {
-            <p class="note">At most 1.5 km from the HQ. To drop it on the map, use the flag in the header.</p>
+            <p class="note">At most {{ maxSpawnKm }} km from the HQ. To drop it on the map, use the flag in the header.</p>
           }
         </section>
       }

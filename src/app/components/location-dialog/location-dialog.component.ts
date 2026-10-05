@@ -28,6 +28,7 @@ import {
 } from '../../models/location.types';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { haversineDistance } from '../../utils/geo-utils';
+import { MAX_MANUAL_SPAWN_DISTANCE } from '../../configs/map-constants.config';
 
 type SpawnMode = 'random' | 'manual';
 
@@ -166,9 +167,12 @@ export class LocationDialogComponent {
     return haversineDistance(hqLat, hqLon, spawn.lat, spawn.lon);
   });
 
+  /** How far from the HQ a spawn may be, km, as the dialog says it */
+  readonly maxSpawnKm = MAX_MANUAL_SPAWN_DISTANCE / 1000;
+
   readonly isSpawnTooFar = computed(() => {
     const dist = this.spawnDistance();
-    return dist !== null && dist > 1500;
+    return dist !== null && dist > MAX_MANUAL_SPAWN_DISTANCE;
   });
 
   readonly canConfirm = computed(() => {

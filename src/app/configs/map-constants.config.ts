@@ -51,5 +51,5 @@ export const MAX_HQ_STREET_DISTANCE = 150;
  */
 export const MAX_SPAWN_STREET_DISTANCE = 30;
 
-/** Max distance (meters) from new HQ before old spawn is discarded during HQ relocation */
-export const SPAWN_DISCARD_DISTANCE = 1500;
+/** Max distance (meters) from new HQ before old spawn is discarded during HQ relocation: farther, it could not be placed */
+export const SPAWN_DISCARD_DISTANCE = MAX_MANUAL_SPAWN_DISTANCE;
