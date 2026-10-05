@@ -120,11 +120,13 @@ function markElites(entries: SpawnEntry[], groups: WaveEnemyGroup[], random: () 
 /**
  * The camouflaged ones of each group (WaveEnemyGroup.camo): spread evenly over the group's spawns from its
  * first, elites included, without a draw of the stream. Their health is CAMO_HP_FACTOR of what it was.
+ * A worm (EnemyTypeConfig.chain) is never camouflaged: its segments come out one by one and carry no mark,
+ * so it would only lose health. The budget source leaves worms out the same way.
  */
 function markCamo(entries: SpawnEntry[], groups: WaveEnemyGroup[]): void {
   for (const group of groups) {
     const camo = group.camo;
-    if (!camo || camo.count <= 0) continue;
+    if (!camo || camo.count <= 0 || ENEMY_TYPES[group.type as EnemyTypeId]?.chain) continue;
     const own = entries.filter((e) => e.enemyType === group.type);
     const count = Math.min(camo.count, own.length);
     const base = ENEMY_TYPES[group.type as EnemyTypeId]?.baseHp ?? 80;

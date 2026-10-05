@@ -396,4 +396,10 @@ describe('buildSpawnSchedule: camouflage', () => {
     expect(entries.every((e) => e.camo)).toBe(true);
     expect(draws).toBe(0);
   });
+
+  it('leaves a worm uncamouflaged and at full health, as the budget source does', () => {
+    const entries = buildSpawnSchedule(cfg([{ type: 'worm', count: 3, camo: { count: 3 } }], 'sequential')).entries;
+    expect(entries.some((e) => e.camo)).toBe(false);
+    expect(entries.every((e) => e.health === undefined)).toBe(true);
+  });
 });
