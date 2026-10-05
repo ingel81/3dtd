@@ -545,7 +545,16 @@ Bekannte Stolpersteine, beim ersten Test zu prüfen:
   nicht mehr von sich aus (`libfuse2` bzw. `fuse2`); sonst hilft der Start mit
   `--appimage-extract-and-run`. Danach baut electron-builder mit der statischen Laufzeit
   (`toolsets.appimage: '1.0.3'`, AppImage/type2-runtime, squashfs mit zstd), die weder libfuse2 noch eine
-  bestimmte glibc braucht (TODO E83). Noch auf keinem System getestet.
+  bestimmte glibc braucht (TODO E83). Am 2026-10-05 in WSL gebaut: die Datei ist statisch gelinkt und meldet die
+  type2-runtime; das Spiel daraus ist noch auf keinem Linux-Desktop gestartet.
+- **Update-Information (TODO E83):** Im AppImage steht seit dem Release nach 0.6.0
+  `gh-releases-zsync|ingel81|3dtd|latest|3DTD-*x86_64.AppImage.zsync`, daneben liegt im Release die `.zsync` der
+  versionierten Datei; AppImageUpdate und der AppImage-Katalog lesen beides. electron-builder kann das nicht selbst:
+  `release.yml` kopiert vorher dessen AppImage-Werkzeuge (`desktop/scripts/appimage-tools.js`), schreibt die Zeile in
+  den Abschnitt `.upd_info` der Laufzeit und baut mit `APPIMAGE_TOOLS_PATH` auf die Kopie. sha512 und Blockmap in
+  `latest-linux.yml` gehören so zur fertigen Datei, der eigene Updater der App bleibt unberührt. Geprüft am 2026-10-05
+  in WSL (Ubuntu) mit dem echten Build: `--appimage-updateinformation` nennt die Zeile, sha512 stimmt, `zsyncmake`
+  läuft; in der CI noch nicht gelaufen.
 - **Sandbox:** Ohne User-Namespaces (gehärtete Kernel) startet Chromium nicht; dann
   braucht es `--no-sandbox`, was die Sandbox aufgibt.
 - **Wayland:** Electron läuft über XWayland, auf HiDPI wirkt das leicht unscharf.
