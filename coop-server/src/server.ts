@@ -46,6 +46,8 @@ const STATUS_MS = 10_000;
 const METRICS_LINE_MS = 60_000;
 /** Run logs one connection may send (TODO E38) */
 const MAX_RUN_LOGS = 10;
+/** Run logs unpacked and checked at once, over all connections: each may take 32 MB */
+const MAX_RUN_LOGS_AT_ONCE = 2;
 /** How often kept run logs are checked for age and size */
 const RUN_PRUNE_MS = 60 * 60_000;
 
@@ -139,6 +141,8 @@ interface Connection {
   playedRoom: string | null;
   /** Run logs this connection sent; a few per connection (a room plays several games) */
   sentRuns: number;
+  /** A run log of this connection is being unpacked and checked */
+  runLogBusy: boolean;
   helloTimer: ReturnType<typeof setTimeout> | null;
 }
 
@@ -268,6 +272,8 @@ class Relay {
   private readonly options: RelayOptions;
   /** The kept run logs, when the relay collects them (TODO E38) */
   private readonly runStore: RunStore | null;
+  /** Run logs being unpacked and checked (MAX_RUN_LOGS_AT_ONCE) */
+  private runLogsBusy = 0;
 
   constructor(options: RelayOptions) {
     this.options = options;
@@ -559,7 +565,7 @@ class Relay {
     const connection: Connection = {
       socket, address, player: null, room: null, missed: 0, pingAt: 0, rtt: null, dropReason: null,
       burst: 0, burstBytes: 0, burstAt: this.now(), throttled: false, throttledRun: 0, joinMisses: 0, helloTimer: null,
-      playedRoom: null, sentRuns: 0,
+      playedRoom: null, sentRuns: 0, runLogBusy: false,
     };
     this.connections.set(id, connection);
     // A connection that never says hello holds a slot for nothing (review H3)
@@ -699,14 +705,27 @@ class Relay {
     const room = connection.room?.hasStarted ? connection.room.code : connection.playedRoom;
     if (!this.runStore || !room) return this.send(id, { t: 'run-log', ok: false, reason: 'not collected here' });
     if (connection.sentRuns >= MAX_RUN_LOGS) return this.send(id, { t: 'run-log', ok: false, reason: 'too many' });
+    if (connection.runLogBusy || this.runLogsBusy >= MAX_RUN_LOGS_AT_ONCE) return this.send(id, { t: 'run-log', ok: false, reason: 'busy' });
     connection.sentRuns++;
-    const result = this.runStore.accept(room, id, player.name, gz);
-    if (result.ok) {
-      this.log(`[${room}] run log of ${player.name} (${id}) kept, ${Math.round(gz.length * 0.75 / 1024)} kB`);
-      return this.send(id, { t: 'run-log', ok: true });
-    }
-    this.log(`[${room}] run log of ${player.name} (${id}) refused: ${result.reason}`);
-    this.send(id, { t: 'run-log', ok: false, reason: result.reason });
+    connection.runLogBusy = true;
+    this.runLogsBusy++;
+    const name = player.name;
+    // Unpacked off the relay's thread; the answer goes out when it is done, if the player is still there
+    this.runStore.accept(room, id, name, gz).then((result) => {
+      if (result.ok) {
+        this.log(`[${room}] run log of ${name} (${id}) kept, ${Math.round(gz.length * 0.75 / 1024)} kB`);
+        return this.send(id, { t: 'run-log', ok: true });
+      }
+      this.log(`[${room}] run log of ${name} (${id}) refused: ${result.reason}`);
+      this.send(id, { t: 'run-log', ok: false, reason: result.reason });
+    }).catch((error: unknown) => {
+      this.metrics.errors++;
+      this.log(`[${room}] run log of ${name} (${id}) failed: ${errorText(error)}`);
+      this.send(id, { t: 'run-log', ok: false, reason: 'failed' });
+    }).finally(() => {
+      connection.runLogBusy = false;
+      this.runLogsBusy--;
+    });
   }
 
   private create(id: string, connection: Connection, player: RoomPlayer): void {

@@ -11,7 +11,8 @@
  * made up by hand would have to fake both. A real run with a hole in its
  * bookkeeping still passes, and that hole is what the analysis wants.
  */
-import { gunzipSync } from 'node:zlib';
+import { gunzip } from 'node:zlib';
+import { promisify } from 'node:util';
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { RUN_LOG_FORMAT, reconcileWave, type ReconcilableWave } from '../../src/app/run-log/run-log-check.ts';
@@ -20,6 +21,9 @@ import { RUN_LOG_FORMAT, reconcileWave, type ReconcilableWave } from '../../src/
 const MAX_UNPACKED_BYTES = 32 * 1024 * 1024;
 /** Records one log may hold */
 const MAX_RECORDS = 400_000;
+
+/** Unpacks on libuv's thread pool: a 32 MB log does not hold the relay's ticks */
+const gunzipAsync = promisify(gunzip);
 
 export interface RunStoreOptions {
   dir: string;
@@ -93,6 +97,13 @@ const segment = (text: string): string => text.replace(/[^A-Za-z0-9_-]/g, '_').s
 export class RunStore {
   private readonly root: string;
   private readonly options: RunStoreOptions;
+  /**
+   * The kept logs' bytes as of the last prune plus what came since; null
+   * before the first. A log only prunes when it takes the total over the
+   * cap, the walk over every file runs once then and on the relay's timer,
+   * not with every log.
+   */
+  private knownBytes: number | null = null;
 
   constructor(options: RunStoreOptions) {
     this.options = options;
@@ -105,12 +116,12 @@ export class RunStore {
    * player and run (a room can play several games); the answer says why not
    * when it was refused.
    */
-  accept(room: string, playerId: string, name: string, gzBase64: string): { ok: true; path: string } | { ok: false; reason: string } {
+  async accept(room: string, playerId: string, name: string, gzBase64: string): Promise<{ ok: true; path: string } | { ok: false; reason: string }> {
     let packed: Buffer;
     let text: string;
     try {
       packed = Buffer.from(gzBase64, 'base64');
-      text = gunzipSync(packed, { maxOutputLength: MAX_UNPACKED_BYTES }).toString('utf8');
+      text = (await gunzipAsync(packed, { maxOutputLength: MAX_UNPACKED_BYTES })).toString('utf8');
     } catch {
       return { ok: false, reason: 'not gzip or too large' };
     }
@@ -121,8 +132,14 @@ export class RunStore {
     const file = join(folder, `${segment(name)}_${segment(playerId)}_${segment(runId)}.jsonl.gz`);
     if (existsSync(file)) return { ok: false, reason: 'already sent' };
     mkdirSync(folder, { recursive: true });
-    writeFileSync(file, packed);
-    this.prune();
+    try {
+      // 'wx': the same log twice at once, the second finds the first
+      writeFileSync(file, packed, { flag: 'wx' });
+    } catch {
+      return { ok: false, reason: 'already sent' };
+    }
+    if (this.knownBytes === null) this.prune();
+    else if ((this.knownBytes += packed.length) > this.options.maxBytes) this.prune();
     return { ok: true, path: this.relativePath(file) };
   }
 
@@ -152,6 +169,7 @@ export class RunStore {
       rmSync(f.file, { force: true });
       total -= f.bytes;
     }
+    this.knownBytes = total;
     this.removeEmptyFolders();
   }
 

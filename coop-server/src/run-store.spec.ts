@@ -51,25 +51,48 @@ describe('RunStore', () => {
   let dir = '';
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  it('keeps one log per player and run, lists and reads it, and refuses paths outside', () => {
+  it('keeps one log per player and run, lists and reads it, and refuses paths outside', async () => {
     dir = mkdtempSync(join(tmpdir(), 'runs-'));
     const store = new RunStore({ dir, maxBytes: 1e9, maxAgeMs: 1e12, now: () => Date.parse('2026-09-26T12:00:00Z') });
-    const result = store.accept('ABC123', 'p1', 'Ann', packed(jsonl(head, wave())));
+    const result = await store.accept('ABC123', 'p1', 'Ann', packed(jsonl(head, wave())));
     expect(result).toEqual({ ok: true, path: 'coop/2026-09-26_ABC123/Ann_p1_r1.jsonl.gz' });
-    expect(store.accept('ABC123', 'p1', 'Ann', packed(jsonl(head, wave())))).toEqual({ ok: false, reason: 'already sent' });
-    expect(store.accept('ABC123', 'p2', 'Bob', 'not base64 gzip')).toMatchObject({ ok: false });
+    expect(await store.accept('ABC123', 'p1', 'Ann', packed(jsonl(head, wave())))).toEqual({ ok: false, reason: 'already sent' });
+    expect(await store.accept('ABC123', 'p2', 'Bob', 'not base64 gzip')).toMatchObject({ ok: false });
     expect(store.list().map((r) => r.path)).toEqual(['coop/2026-09-26_ABC123/Ann_p1_r1.jsonl.gz']);
     expect(store.read('coop/2026-09-26_ABC123/Ann_p1_r1.jsonl.gz')?.length).toBeGreaterThan(0);
     expect(store.read('../../etc/passwd')).toBeNull();
   });
 
-  it('lets the oldest go once the total is over the cap', () => {
+  it('lets the oldest go once the total is over the cap', async () => {
     dir = mkdtempSync(join(tmpdir(), 'runs-'));
     const store = new RunStore({ dir, maxBytes: 1, maxAgeMs: 1e12, now: () => Date.now() });
-    store.accept('ROOM1', 'p1', 'Ann', packed(jsonl(head, wave())));
+    await store.accept('ROOM1', 'p1', 'Ann', packed(jsonl(head, wave())));
     // Over the cap with a single file: nothing is left
     expect(store.list()).toEqual([]);
     expect(existsSync(join(dir, 'coop'))).toBe(true);
+  });
+
+  it('walks the kept files only when a log takes the total over the cap', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'runs-'));
+    const store = new RunStore({ dir, maxBytes: 1e9, maxAgeMs: 1e12, now: () => Date.now() });
+    let walks = 0;
+    const prune = store.prune.bind(store);
+    store.prune = () => {
+      walks++;
+      prune();
+    };
+    const log = (runId: string) => packed(jsonl({ ...head, runId }, wave()));
+    for (const runId of ['r1', 'r2', 'r3']) expect(await store.accept('ROOM1', 'p1', 'Ann', log(runId))).toMatchObject({ ok: true });
+    // Once to learn the total, not with every log
+    expect(walks).toBe(1);
+    expect(store.list()).toHaveLength(3);
+  });
+
+  it('refuses a log that unpacks to more than it takes', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'runs-'));
+    const store = new RunStore({ dir, maxBytes: 1e9, maxAgeMs: 1e12, now: () => Date.now() });
+    const bomb = gzipSync(Buffer.alloc(40 * 1024 * 1024, 32)).toString('base64');
+    expect(await store.accept('ROOM1', 'p1', 'Ann', bomb)).toEqual({ ok: false, reason: 'not gzip or too large' });
   });
 });
 
