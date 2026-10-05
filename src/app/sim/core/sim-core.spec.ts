@@ -232,8 +232,11 @@ describe('SimCore in the same thread', () => {
       expect(packet.scalars.phase).toBe('wave');
       expect(core.rpc('captureSnapshot')).toBeNull();
       for (let f = 0; f < 20000 && (packet.scalars.phase === 'wave' || packet.scalars.snapshotRefusal !== null); f++) packet = drive.tick();
+      const capture = vi.spyOn(core.gsm, 'captureSnapshot');
       const saved = JSON.parse(JSON.stringify(core.rpc('captureSnapshot')));
       expect(saved).not.toBeNull();
+      // Exact: a hero on his way keeps it, the save leaves the run as it was
+      expect(capture).toHaveBeenCalledWith(true);
 
       const other = new Driver(newCore(main.world));
       other.core.rpc('restoreSnapshot', saved);

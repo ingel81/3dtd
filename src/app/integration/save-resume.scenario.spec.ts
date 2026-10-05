@@ -128,7 +128,8 @@ describe('Save game: saved between waves, loaded into a fresh simulation (TODO E
       wave: gsm.waveManager.waveNumber() + 1,
       place: { name: 'Hills', hq: live.hq, spawns: gsm.getSpawnPoints().map(({ lat, lon }) => ({ lat, lon })) },
       world: buildWorldPackage(worldSourceOf(live), HEAD),
-      sim: gsm.captureSnapshot(),
+      // As the save's rpc takes it: exact, the hero on his way keeps it
+      sim: gsm.captureSnapshot(true),
       director: { source: 'budget', sourceState: null, planned: null },
       mainRng: { seed: SEED, streams: {} },
       runLog: null,

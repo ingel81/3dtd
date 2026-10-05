@@ -1084,8 +1084,8 @@ export class GameStateManager {
   }
 
   /** The simulation as plain data between waves (SimSnapshot), see SimSnapshots.capture */
-  captureSnapshot(): SimSnapshot {
-    return this.snapshots.capture();
+  captureSnapshot(exact = false): SimSnapshot {
+    return this.snapshots.capture(exact);
   }
 
   /** Put the simulation back to `snapshot`, see SimSnapshots.restore */

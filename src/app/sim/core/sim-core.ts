@@ -401,7 +401,8 @@ export class SimCore implements SimCoreApi {
     falsifyCredits: (amount) => this.gsm.addCredits(amount, 'reset'),
     stateHash: () => this.gsm.stateHash(),
     hashBreakdownAt: (tick) => this.gsm.hashBreakdownAt(tick),
-    captureSnapshot: () => (this.replay || this.gsm.snapshotRefusal() !== null ? null : this.gsm.captureSnapshot()),
+    // Exact: the hero keeps his way; a save must not change the run it is taken of (a fresh plan would)
+    captureSnapshot: () => (this.replay || this.gsm.snapshotRefusal() !== null ? null : this.gsm.captureSnapshot(true)),
     restoreSnapshot: (snapshot) => {
       // As the resync's restore: the old state's show goes first; a live restore asks for the sight of
       // the towers that wait for it (TowerLos.restoreAwaiting)
