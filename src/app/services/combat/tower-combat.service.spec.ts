@@ -504,6 +504,19 @@ describe('TowerCombatService', () => {
       // No tower turn has begun in BodyAim: no aim point on the ooze
       expect(find(from, [ooze, zombie], new Set(), 15)).toBe(zombie);
     });
+
+    it('do not jump to a camouflaged enemy no scout sees (TODO E100)', () => {
+      const find = (service as unknown as {
+        findNearestUnhit: (from: unknown, candidates: unknown[], hit: Set<string>, max: number) => unknown;
+      }).findNearestUnhit.bind(service);
+      const from = { lat: 48.0, lon: 9.0 };
+      const near = (id: string, m: number, hidden: boolean) =>
+        ({ id, alive: true, hidden, body: null, position: { lat: 48.0 + m / METERS_PER_DEGREE_LAT, lon: 9.0 } });
+      const camo = near('camo', 2, true);
+      const seen = near('seen', 8, false);
+      expect(find(from, [camo, seen], new Set(), 15)).toBe(seen);
+      expect(find(from, [camo], new Set(), 15)).toBeNull();
+    });
   });
 
   // ────────────────────────────────────────────────────────────────

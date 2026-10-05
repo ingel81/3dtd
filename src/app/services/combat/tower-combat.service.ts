@@ -998,7 +998,8 @@ export class TowerCombatService {
     let best: Enemy | null = null;
     let bestSq = maxDist * maxDist;
     for (const e of candidates) {
-      if (hitIds.has(e.id) || !e.alive) continue;
+      // A camouflaged enemy no scout sees is no jump target, as it is no target (Enemy.hidden)
+      if (hitIds.has(e.id) || !e.alive || e.hidden) continue;
       // A body the tower has no point of in range and sight is not jumped to
       let p: { lat: number; lon: number } = e.position;
       if (e.body) {
