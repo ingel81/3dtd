@@ -78,23 +78,34 @@ export function readWorldPackage(
   text: string,
   here: { gameVersion: string; configHash: string },
 ): { world: WorldPackage; refusal: null } | { world: null; refusal: WorldPackageRefusal } {
-  let data: Partial<WorldPackage>;
+  let parsed: unknown;
   try {
-    data = JSON.parse(text) as Partial<WorldPackage>;
+    parsed = JSON.parse(text);
   } catch {
     return { world: null, refusal: 'not-a-world' };
   }
-  if (
-    data?.format !== FORMAT || !Array.isArray(data.paths) || !Array.isArray(data.heights)
-    || !Array.isArray(data.spawns) || !data.origin || !data.hq || typeof data.worldKey !== 'string'
-  ) {
-    return { world: null, refusal: 'not-a-world' };
-  }
-  if (!worldShapeOk(data as WorldPackage)) return { world: null, refusal: 'not-a-world' };
+  const data = worldPackageShape(parsed);
+  if (!data) return { world: null, refusal: 'not-a-world' };
   if (data.version !== WORLD_PACKAGE_VERSION) return { world: null, refusal: 'version' };
   if (data.gameVersion !== here.gameVersion) return { world: null, refusal: 'other-game' };
   if (data.configHash !== here.configHash) return { world: null, refusal: 'other-balance' };
   return { world: data as WorldPackage, refusal: null };
+}
+
+/**
+ * `data` as a world package when it has the shape of one (format, places,
+ * routes, heights), null otherwise; version, game and balance are the
+ * caller's to judge. A save game carries one too (TODO E110).
+ */
+export function worldPackageShape(data: unknown): WorldPackage | null {
+  const world = data as Partial<WorldPackage> | null;
+  if (
+    world?.format !== FORMAT || !Array.isArray(world.paths) || !Array.isArray(world.heights)
+    || !Array.isArray(world.spawns) || !world.origin || !world.hq || typeof world.worldKey !== 'string'
+  ) {
+    return null;
+  }
+  return worldShapeOk(world as WorldPackage) ? (world as WorldPackage) : null;
 }
 
 /** Routes, waypoints and grid cells a package holds at most: far above a real place */
