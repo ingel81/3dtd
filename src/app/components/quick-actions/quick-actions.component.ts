@@ -10,17 +10,10 @@ import { UIStore } from '../../store/ui.store';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
-import { matchingVfxPreset, type VfxPreset, type VfxSettings } from '../../three-engine/vfx-settings';
+import { VFX_PRESET_CHOICES, matchingVfxPreset, type VfxSettings } from '../../three-engine/vfx-settings';
 import { COLOR_GRADING_PRESETS, type ColorGradingPreset } from '../../three-engine/post-processing/color-grading';
 
 type VfxSwitch = Exclude<keyof VfxSettings, 'colorGrading'>;
-
-/** Quality presets, see VFX_PRESETS. */
-const PRESET_BUTTONS: readonly { id: VfxPreset; label: string; hint: string }[] = [
-  { id: 'low', label: 'Low', hint: 'No muzzle flashes, trails, impact effects or ground marks' },
-  { id: 'medium', label: 'Medium', hint: 'All effects except projectile trails' },
-  { id: 'high', label: 'High', hint: 'All effects, bloom and color grading off' },
-];
 
 /** The switches the quality presets set, in menu order. */
 const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = [
@@ -67,7 +60,7 @@ export class QuickActionsComponent {
   /** Preset the effect switches match, null for a mix of the player's own. */
   readonly activePreset = computed(() => matchingVfxPreset(this.vfx()));
 
-  readonly presetButtons = PRESET_BUTTONS;
+  readonly presetButtons = VFX_PRESET_CHOICES;
   readonly effectRows = EFFECT_ROWS;
   readonly colorGradingPresets = COLOR_GRADING_PRESETS;
   readonly fpsLimits = FPS_LIMITS;

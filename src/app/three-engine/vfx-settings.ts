@@ -48,6 +48,13 @@ export type VfxPreset = 'low' | 'medium' | 'high';
  */
 export type VfxPresetSettings = Omit<VfxSettings, 'freezeTint' | 'bloodMoon'>;
 
+/** The presets as the display menu and the game menu offer them, low to high */
+export const VFX_PRESET_CHOICES: readonly { id: VfxPreset; label: string; hint: string }[] = [
+  { id: 'low', label: 'Low', hint: 'No muzzle flashes, trails, impact effects or ground marks' },
+  { id: 'medium', label: 'Medium', hint: 'All effects except projectile trails' },
+  { id: 'high', label: 'High', hint: 'All effects, bloom and color grading off' },
+];
+
 export const VFX_PRESETS: Readonly<Record<VfxPreset, Readonly<VfxPresetSettings>>> = {
   // Nothing that is decoration only
   low: {

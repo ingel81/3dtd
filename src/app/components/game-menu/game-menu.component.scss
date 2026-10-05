@@ -25,8 +25,25 @@
   border-bottom: 1px solid var(--td-frame-dark);
 }
 
-.gm-header-icon {
+/* Back on a page: a quiet caret before the page's title */
+.gm-back {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: -3px 0 -3px -6px;
+  padding: 0;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+}
+
+.gm-back:hover,
+.gm-back:focus-visible {
+  border-color: var(--td-frame-dark);
   color: var(--td-gold);
+  outline: none;
 }
 
 h2 {
@@ -63,7 +80,7 @@ h2 {
   cursor: pointer;
 }
 
-button.gm-item:hover,
+button.gm-item:hover:not(:disabled),
 button.gm-item:focus-visible {
   border-color: var(--td-frame-dark);
   background: var(--td-panel-shadow);
@@ -71,8 +88,30 @@ button.gm-item:focus-visible {
   outline: none;
 }
 
+.gm-item:disabled {
+  color: var(--td-text-disabled);
+  cursor: default;
+}
+
 .gm-label {
   flex: 1;
+}
+
+/* Continue: the first thing a menu offers, in gold */
+.gm-continue {
+  color: var(--td-text-primary);
+}
+.gm-continue td-icon {
+  color: var(--td-gold);
+}
+
+/* A page behind the entry */
+.gm-more {
+  color: var(--td-text-muted);
+}
+
+.gm-list-tight {
+  padding-top: 0;
 }
 
 .gm-key {
@@ -82,8 +121,213 @@ button.gm-item:focus-visible {
   color: var(--td-text-muted);
 }
 
+/* Settings: small headings over the groups */
+.gm-section {
+  margin: 0;
+  padding: 10px 18px 4px;
+  font: 9px/1 var(--td-font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+.gm-volumes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 18px 4px;
+}
+
 .gm-volume {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 28px;
+}
+
+.gm-volume-label {
+  width: 66px;
+  font-size: 13px;
+  color: var(--td-text-secondary);
+}
+
+.gm-volume-value {
+  width: 24px;
+  text-align: right;
+  font: 10px/1 var(--td-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--td-text-muted);
+}
+
+.gm-icon-btn.is-muted {
+  color: var(--td-text-disabled);
+}
+
+/* Graphics and speed: a segmented choice, the chosen one in gold */
+.gm-seg {
+  display: flex;
+  margin: 0 18px;
+  border: 1px solid var(--td-frame-dark);
+  background: var(--td-panel-shadow);
+}
+
+.gm-seg button {
+  flex: 1;
+  padding: 7px 0;
+  background: none;
+  border: none;
+  border-left: 1px solid var(--td-frame-dark);
+  color: var(--td-text-secondary);
+  font: 11px/1 var(--td-font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.gm-seg button:first-child {
+  border-left: none;
+}
+
+.gm-seg button:hover,
+.gm-seg button:focus-visible {
+  color: var(--td-text-primary);
+  outline: none;
+}
+
+.gm-seg button:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--td-gold-light);
+}
+
+.gm-seg button.is-on {
+  background: var(--td-panel-main);
+  color: var(--td-gold-light);
+  font-weight: 700;
+}
+
+.gm-seg button[aria-disabled='true'] {
+  color: var(--td-text-disabled);
   cursor: default;
+}
+
+.gm-hint {
+  margin: 0;
+  padding: 5px 18px 0;
+  font-size: 11px;
+  color: var(--td-text-muted);
+}
+
+.gm-hint:last-child {
+  padding-bottom: 14px;
+}
+
+/* Save and load: one row a slot, the title over place, wave and time */
+.gm-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 10px;
+  list-style: none;
+}
+
+.gm-slot-row {
+  display: flex;
+  gap: 4px;
+}
+
+.gm-slot {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  background: var(--td-panel-secondary);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.2), inset 0 -1px 0 var(--td-panel-shadow);
+  color: var(--td-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gm-slots li:not(.gm-slot-row) .gm-slot {
+  width: 100%;
+}
+
+.gm-slot:hover:not(:disabled),
+.gm-slot:focus-visible {
+  border-color: var(--td-frame-light);
+  outline: none;
+}
+
+.gm-slot:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.gm-slot-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.gm-slot-note {
+  color: var(--td-warn-orange);
+}
+
+.gm-slot-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 10px/1.2 var(--td-font-mono);
+  color: var(--td-text-muted);
+}
+
+.gm-slot.is-empty .gm-slot-title {
+  font-weight: 400;
+  color: var(--td-text-secondary);
+}
+
+.gm-slot-tool {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--td-frame-dark);
+  color: var(--td-text-muted);
+  cursor: pointer;
+}
+
+.gm-slot-tool:hover:not(:disabled),
+.gm-slot-tool:focus-visible {
+  color: var(--td-text-primary);
+  border-color: var(--td-frame-light);
+  outline: none;
+}
+
+.gm-file {
+  display: none;
+}
+
+/* What the last save, load or export said */
+.gm-status {
+  margin: 0;
+  padding: 8px 14px 12px;
+  border-top: 1px solid var(--td-frame-dark);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--td-green);
+}
+
+.gm-status.is-bad {
+  color: var(--td-warn-orange);
 }
 
 .gm-icon-btn {
@@ -163,7 +407,7 @@ button.gm-item:focus-visible {
 
 .gm-note {
   margin: 0;
-  padding: 8px 14px 0;
+  padding: 10px 14px 0;
   font: 11px/1.4 var(--td-font-mono);
   color: var(--td-text-muted);
 }

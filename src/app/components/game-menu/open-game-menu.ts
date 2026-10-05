@@ -18,7 +18,7 @@ export function openGameMenu(dialog: MatDialog, injector: Injector): Promise<Mat
   return open(dialog, {
     injector,
     panelClass: 'td-dialog-panel',
-    width: 'min(340px, 92vw)',
+    width: 'min(380px, 92vw)',
     ariaLabelledBy: 'td-game-menu-title',
     autoFocus: 'first-tabbable',
   });
