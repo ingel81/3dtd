@@ -35,6 +35,13 @@
       </div>
     }
 
+    @for (banner of d.banners ?? []; track banner.text) {
+      <div class="td-tooltip__banner" [class.td-tooltip__banner--danger]="banner.tone === 'danger'">
+        <td-icon class="td-tooltip__banner-icon" [name]="banner.icon" [size]="13"></td-icon>
+        <span>{{ banner.text }}</span>
+      </div>
+    }
+
     @if (d.armor && d.armor.length > 0) {
       <div class="td-tooltip__armor">
         @if (d.armorTitle) {
@@ -45,6 +52,45 @@
             <span class="dot" [style.--dot-color]="row.color"></span>
             <span class="armor-label">{{ row.label }}</span>
             <span class="armor-mul">{{ row.multiplier }}</span>
+          </div>
+        }
+      </div>
+    }
+
+    @for (section of d.sections ?? []; track section.title) {
+      <div class="td-tooltip__section">
+        <h4>
+          <span>{{ section.title }}</span>
+          @if (section.aside) {
+            <span class="aside">{{ section.aside }}</span>
+          }
+        </h4>
+        @for (row of section.rows; track $index) {
+          <div class="td-tooltip__row">
+            <div class="row-main">
+              @if (row.color) {
+                <span class="dot" [style.--dot-color]="row.color"></span>
+              }
+              <span class="row-label">{{ row.label }}</span>
+              @if (row.detail) {
+                <span class="row-detail">{{ row.detail }}</span>
+              }
+              @if (row.value) {
+                <span class="row-value">{{ row.value }}</span>
+              }
+              @if (row.chips && row.chips.length > 0) {
+                <span class="row-chips">
+                  @for (chip of row.chips; track chip.label) {
+                    <span class="chip" [style.color]="chip.color">
+                      <td-icon [name]="chip.icon" [size]="11"></td-icon>{{ chip.label }}
+                    </span>
+                  }
+                </span>
+              }
+            </div>
+            @if (row.note) {
+              <div class="row-note">{{ row.note }}</div>
+            }
           </div>
         }
       </div>

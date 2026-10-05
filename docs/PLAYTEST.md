@@ -212,7 +212,7 @@ welche Gegner an ihrer Grenze hängen.
   **ok (2026-10-04)**
 - **B3 Vorschau:** Wellen-Panel zwischen zwei Wellen. Erwartung: Name und Anzahl der nächsten Wellen stehen fest
   und stimmen mit dem, was dann kommt; Luftwarnung vor Luftwellen (7, 8, 12 …).
-  **kaputt (2026-10-04)**: Name und Anzahl stimmen, aber der Tooltip der Detailzeile war ein ungegliederter Fließtext. Gefixt: Blöcke mit Leerzeile (Beschreibung, Gegner, HQ-Kosten, Schwächen, Blutmond). Nachtest: Tooltip lesen.
+  **kaputt (2026-10-04)**: Name und Anzahl stimmen, aber der Tooltip der Detailzeile war ein ungegliederter Fließtext. Erst Blöcke mit Leerzeile, „hübsch ist es nicht“; seit 2026-10-05 ein Detailkasten in zwei Zeilen und eine Tooltip-Karte (Stats, Mutator-Banner, Gegnerliste mit HQ-Kosten, Konter je Rüstung). Nachtest: Kasten und Karte an W7, W10 und W14 lesen.
 - **B4 Coop:** Host öffnet mit `?waves=budget` einen Raum, der Gast kommt über den normalen Einladungslink (ohne
   `waves`). Erwartung: beide spielen denselben Plan (gleiche Wellennamen), keine Abweichung, Lauf bis zum Ende.
   **ok (2026-10-04)**

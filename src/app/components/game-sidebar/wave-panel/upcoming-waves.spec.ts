@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, markIconSize, mutatorNote, peekUpcomingWaves, shownPeek } from './upcoming-waves';
+import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, markIconSize, mutatorNote, peekUpcomingWaves, shownPeek, type WavePeek } from './upcoming-waves';
 import { WAVE_MUTATORS } from '../../../configs/wave-mutators.config';
 import { BudgetWaveSource } from '../../../director/sources/budget/budget-source';
 import { planRowForWave } from '../../../director/sources/budget/run-plan';
@@ -15,13 +15,20 @@ const peekWaves = (currentWave: number, count: number, bloodMoon = true) =>
   peekUpcomingWaves(source.peek({ fromWave: currentWave + 1, count }), bloodMoon);
 const rowCount = (wave: number) => Object.values(planRowForWave(wave)!.enemies).reduce((sum, n) => sum + n, 0);
 
+// What the detail line's card says, by its parts
+const section = (peek: WavePeek, title: string) => peek.tooltip.sections?.find((s) => s.title === title);
+const stat = (peek: WavePeek, label: string) => peek.tooltip.stats?.find((s) => s.label === label)?.value;
+const banners = (peek: WavePeek) => (peek.tooltip.banners ?? []).map((b) => b.text);
+const counters = (peek: WavePeek, armor: string) =>
+  section(peek, 'Weak to')?.rows.find((r) => r.label === armor)?.chips?.map((c) => c.label);
+
 describe('peekUpcomingWaves', () => {
   it('shows the waves after the current one, as many as asked for', () => {
     const peeks = peekWaves(0, NEXT_WAVE_MARKS);
     expect(peeks.map((p) => p.wave)).toEqual([1, 2, 3, 4, 5]);
     expect(peeks[0]).toMatchObject({ name: 'Zombie Horde', known: true, boss: false });
     const [fact] = source.peek({ fromWave: 1, count: 1 });
-    expect(peeks[0].tooltip.startsWith(fact.description)).toBe(true);
+    expect(peeks[0].tooltip).toMatchObject({ title: 'Zombie Horde', category: 'Wave 1', flavor: fact.description });
     expect(peekWaves(7, 2).map((p) => p.wave)).toEqual([8, 9]);
   });
 
@@ -31,7 +38,7 @@ describe('peekUpcomingWaves', () => {
     expect(w1.armorLabel).toBe('Unarmored');
     expect(w1.weakToTypes).toEqual(['fire', 'poison', 'pierce']);
     expect(w1.weakTo).toBe('Fire, Poison, Pierce');
-    expect(w1.tooltip).toContain('Weak to Fire, Poison, Pierce.');
+    expect(counters(w1, 'Unarmored')).toEqual(['Fire', 'Poison', 'Pierce']);
     expect(w1.air).toBe(false);
   });
 
@@ -39,12 +46,13 @@ describe('peekUpcomingWaves', () => {
     const [, w7] = peekWaves(5, 2);
     expect(w7).toMatchObject({ wave: 7, name: 'Bat Swarm', air: true });
     expect(w7.armors).toEqual(['Light']);
+    expect(section(w7, 'Enemies')!.rows[0].detail).toBe('Light · air');
   });
 
   it('shows the count of the plan row, on the mark and in the tooltip', () => {
     const [w1] = peekWaves(0, 1);
     expect(w1.count).toBe(`${rowCount(1)}`);
-    expect(w1.tooltip).toContain(`${rowCount(1)} enemies.`);
+    expect(stat(w1, 'ENEMIES')).toBe(`${rowCount(1)}`);
   });
 
   it('weighs a mixed wave by HP, sums up the armors and names the counters per armor in the tooltip', () => {
@@ -53,7 +61,10 @@ describe('peekUpcomingWaves', () => {
     expect(w10.armors.length).toBeGreaterThan(1);
     expect(w10.armorLabel).toBe(`${w10.armors[0]} +${w10.armors.length - 1}`);
     expect(w10.weakToTypes.length).toBeGreaterThan(0);
-    expect(w10.tooltip).toContain('Fortified: Siege, Magic.');
+    expect(w10.tooltip.accent).toBe('gold');
+    // One row per armor of the wave, each with its own counters
+    expect(section(w10, 'Weak to')!.rows.length).toBe(w10.armors.length);
+    expect(counters(w10, 'Fortified')).toEqual(['Siege', 'Magic']);
   });
 
   it('names the boss of W20 and W30, not Herbert (TODO E41)', () => {
@@ -66,14 +77,15 @@ describe('peekUpcomingWaves', () => {
   it('says what each enemy and the whole wave cost the HQ (TODO E49)', () => {
     const [w1] = peekWaves(0, 1);
     const n = rowCount(1);
-    expect(w1.tooltip).toContain('At the HQ each costs: Zombie 2, Zombie v2 2 HP.');
-    expect(w1.tooltip).toContain(`All ${n} through: up to ${n * 2} HP.`);
+    expect(section(w1, 'Enemies')!.rows.map((r) => [r.label.replace(/^\d+× /, ''), r.value])).toEqual([['Zombie', '−2'], ['Zombie v2', '−2']]);
+    expect(section(w1, 'Enemies')!.rows.map((r) => Number(r.label.split('×')[0])).reduce((a, b) => a + b, 0)).toBe(n);
+    expect(stat(w1, 'HQ MAX')).toBe(`−${n * 2}`);
   });
 
   it('adds the split of the skeletons to the W19 tooltip', () => {
     const [w19] = peekWaves(18, 1);
     expect(w19).toMatchObject({ wave: 19, name: 'Skeleton Swarm' });
-    expect(w19.tooltip).toContain('Skeleton: Splits into 2 minions on death.');
+    expect(section(w19, 'Enemies')!.rows.find((r) => r.label.endsWith('Skeleton'))!.note).toBe('Splits into 2 minions on death');
   });
 
   it('knows the waves past the campaign as well', () => {
@@ -94,19 +106,19 @@ describe('peekUpcomingWaves', () => {
     const peeks = peekWaves(12, NEXT_WAVE_MARKS);
     expect(peeks.filter((p) => p.bloodMoon).map((p) => p.wave)).toEqual([14]);
     const w14 = peeks.find((p) => p.wave === 14)!;
-    expect(w14.tooltip).toContain(BLOOD_MOON_NOTE);
-    expect(peeks.find((p) => p.wave === 13)!.tooltip).not.toContain(BLOOD_MOON_NOTE);
+    expect(banners(w14)).toContain(BLOOD_MOON_NOTE);
+    expect(banners(peeks.find((p) => p.wave === 13)!)).not.toContain(BLOOD_MOON_NOTE);
 
     // Past the campaign as well
     const [, w35] = peekWaves(33, 2);
     expect(w35).toMatchObject({ wave: 35, bloodMoon: true });
-    expect(w35.tooltip).toContain(BLOOD_MOON_NOTE);
+    expect(banners(w35)).toContain(BLOOD_MOON_NOTE);
   });
 
   it('leaves the blood moon off the line while its look is switched off', () => {
     const w14 = peekWaves(13, 1, false)[0];
     expect(w14.bloodMoon).toBe(false);
-    expect(w14.tooltip).not.toContain(BLOOD_MOON_NOTE);
+    expect(banners(w14)).not.toContain(BLOOD_MOON_NOTE);
   });
 
   it('names the mutator of a blood moon wave, look on or off, and says what it does', () => {
@@ -114,7 +126,7 @@ describe('peekUpcomingWaves', () => {
       const [w13, w14] = peekWaves(12, 2, look);
       expect(w13.mutator).toBeNull();
       expect(w14.mutator).toBe(WAVE_MUTATORS.swift.name);
-      expect(w14.tooltip).toContain(mutatorNote(WAVE_MUTATORS.swift));
+      expect(banners(w14)[0]).toBe(mutatorNote(WAVE_MUTATORS.swift));
     }
     expect(peekWaves(20, 1)[0].mutator).toBe(WAVE_MUTATORS.swarm.name);
   });

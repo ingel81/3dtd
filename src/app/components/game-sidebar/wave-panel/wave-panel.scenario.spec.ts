@@ -220,7 +220,7 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
     expect(w1).toMatchObject({ wave: 1, name: 'Zombie Horde', known: true, armorLabel: 'Unarmored' });
     expect(w1.count).toBe('10');
     expect(w1.weakToTypes.map((type) => next.damageTypeIcon(type))).toEqual(['flame', 'splash', 'target']);
-    expect(w1.tooltip).toContain('Weak to Fire, Poison, Pierce.');
+    expect(w1.tooltip.sections!.find((s) => s.title === 'Weak to')!.rows[0].chips!.map((c) => c.label)).toEqual(['Fire', 'Poison', 'Pierce']);
     expect(next.markLabel(w1)).toBe('Wave 1, Zombie Horde');
   });
 
@@ -251,7 +251,7 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
     expect(next.markLabel(peeks[1])).toBe('Wave 7, Bat Swarm, air');
   });
 
-  it('372: after W9 the moon stands over mark 14; its tooltip ends with the blood moon sentence, the rest as with the look off', () => {
+  it('372: after W9 the moon stands over mark 14; its tooltip ends with the blood moon banner, the rest as with the look off', () => {
     const on = peekWaves(9, NEXT_WAVE_MARKS, true);
     const off = peekWaves(9, NEXT_WAVE_MARKS, false);
     expect(on.map((p) => p.wave)).toEqual([10, 11, 12, 13, 14]);
@@ -259,8 +259,11 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
 
     const w14 = on[4];
     expect(BLOOD_MOON_NOTE.startsWith('Blood moon (every 7th wave): ')).toBe(true);
-    expect(w14.tooltip.endsWith(BLOOD_MOON_NOTE)).toBe(true);
-    expect(w14.tooltip).toBe(`${off[4].tooltip}\n\n${BLOOD_MOON_NOTE}`);
+    expect(w14.tooltip.banners!.at(-1)!.text).toBe(BLOOD_MOON_NOTE);
+    expect(w14.tooltip).toEqual({
+      ...off[4].tooltip,
+      banners: [...(off[4].tooltip.banners ?? []), { icon: 'moon', text: BLOOD_MOON_NOTE, tone: 'danger' }],
+    });
     expect({ ...w14, bloodMoon: false, tooltip: off[4].tooltip }).toEqual(off[4]);
     // The other marks are the same with the look on or off
     expect(on.slice(0, 4)).toEqual(off.slice(0, 4));
@@ -271,6 +274,6 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
     const [w20] = peekWaves(19, NEXT_WAVE_MARKS, true);
     expect(w20).toMatchObject({ wave: 20, name: 'Boss: Ooze', boss: true, known: true, count: '101' });
     expect(w20.armors).toEqual([ARMOR_TYPE_UI[ENEMY_TYPES['ooze'].armorType].label]);
-    expect(w20.tooltip).toContain('The Ooze leads its brood');
+    expect(w20.tooltip.flavor).toContain('The Ooze leads its brood');
   });
 });

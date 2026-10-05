@@ -1,19 +1,20 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../icon/icon.component';
+import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { damageTypeIcon } from '../../icon/damage-type-icon';
 import { markIconSize, shownPeek, type WavePeek } from './upcoming-waves';
 
 /**
  * NEXT in the WAVE panel: the coming waves as marks on a thin line, the
  * number under each, small icons above for boss, air and blood moon. Under
- * the line one detail line for one mark (shownPeek): the next wave, the one
- * under the pointer or keyboard focus, or the one clicked last.
+ * the line two detail lines for one mark (shownPeek): the next wave, the one
+ * under the pointer or keyboard focus, or the one clicked last; its card
+ * (td-rich-tooltip) on hover.
  */
 @Component({
   selector: 'app-wave-timeline',
   standalone: true,
-  imports: [MatTooltipModule, TdIconComponent],
+  imports: [TdIconComponent, TdRichTooltipDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wave-timeline.component.html',
   styleUrl: './wave-timeline.component.scss',

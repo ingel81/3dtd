@@ -5,6 +5,8 @@
  * giving us proper sections (header / stats / armor / flavor) with semantic markup.
  */
 
+import type { TdIconName } from '../icon/icon.component';
+
 export type TdTooltipAccent = 'gold' | 'teal' | 'fire' | 'cold' | 'lightning' | 'chaos' | 'poison' | 'health' | 'neutral';
 
 export interface TdTooltipStat {
@@ -39,6 +41,46 @@ export interface TdTooltipTargeting {
   viaResearch?: boolean;
 }
 
+/**
+ * A line that stands out under the stats: what changes the rules of the
+ * thing, like a wave's mutator. `danger` gets the red stripe.
+ */
+export interface TdTooltipBanner {
+  icon: TdIconName;
+  text: string;
+  tone?: 'danger' | 'neutral';
+}
+
+/** An icon with its label, in the color of what it stands for (a damage type) */
+export interface TdTooltipChip {
+  icon: TdIconName;
+  label: string;
+  color: string;
+}
+
+/** One line of a list section: a dot, the label, a muted detail, a value or chips right, a note under it */
+export interface TdTooltipRow {
+  label: string;
+  /** Muted text after the label, e.g. an enemy's armor */
+  detail?: string;
+  /** Right-aligned value, e.g. "-6.8" */
+  value?: string;
+  /** Color of the dot in front; no dot without it */
+  color?: string;
+  /** Right-aligned chips instead of a value */
+  chips?: TdTooltipChip[];
+  /** Small line under the row, e.g. what an enemy does beyond walking */
+  note?: string;
+}
+
+/** A titled list, e.g. the enemies of a wave */
+export interface TdTooltipSection {
+  title: string;
+  /** Muted heading of the right column, e.g. "HQ each" */
+  aside?: string;
+  rows: TdTooltipRow[];
+}
+
 export interface TdTooltipData {
   /** Title, typically the tower or enemy name in caps. */
   title: string;
@@ -56,6 +98,10 @@ export interface TdTooltipData {
   armorTitle?: string;
   /** Armor effectiveness rows. */
   armor?: TdTooltipArmorRow[];
+  /** Banners under the stats (and under the targeting banner). */
+  banners?: TdTooltipBanner[];
+  /** List sections after the armor table. */
+  sections?: TdTooltipSection[];
   /** Italic flavor / description line at the bottom. */
   flavor?: string;
 }

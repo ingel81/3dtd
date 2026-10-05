@@ -25,7 +25,7 @@ export interface TowerCardTooltipContext {
 // Armor identity colors per mockup (tmp/td-components.jsx ArmorChip).
 // The dot color reflects the ARMOR TYPE, not the effectiveness; the dim
 // flag (faded row) communicates "weak matchup" instead.
-const ARMOR_DOT_COLOR: Record<string, string> = {
+export const ARMOR_DOT_COLOR: Readonly<Record<ArmorType, string>> = {
   'unarmored': '#7DBE82',
   'light': '#5BA4D9',
   'heavy': '#C46B3A',
@@ -91,7 +91,7 @@ export function towerCardTooltip(
     return {
       label: meta.label,
       multiplier: `${mul.toFixed(2)}×`,
-      color: ARMOR_DOT_COLOR[a] ?? 'var(--td-text-muted)',
+      color: ARMOR_DOT_COLOR[a as ArmorType] ?? 'var(--td-text-muted)',
       dim: mul < EFFECTIVENESS_THRESHOLDS.weak,
     };
   });
