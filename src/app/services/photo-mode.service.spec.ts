@@ -216,7 +216,7 @@ describe('PhotoModeService screenshot', () => {
     vi.clearAllMocks();
   });
 
-  it('stamps the game logo and address next to the map attribution, then saves the picture', async () => {
+  it('stamps the game logo and address next to the map attribution and the OSM credit, then saves the picture', async () => {
     const service = build(false, 'google');
     await service.saveScreenshot();
 
@@ -226,7 +226,7 @@ describe('PhotoModeService screenshot', () => {
     ]);
     expect(screenshot.stampScreenshot).toHaveBeenCalledWith(
       frame,
-      'Map data ©2026 Google',
+      'Map data ©2026 Google · Routes © OpenStreetMap contributors',
       [{ src: 'assets/images/ui/google-maps-logo.svg' }],
       { logo: { src: 'assets/images/logo/logo.png' }, url: 'https://3dtd.sgeht.net' },
     );
@@ -252,7 +252,7 @@ describe('PhotoModeService screenshot', () => {
     await build(true, 'cesium').saveScreenshot();
     expect(screenshot.stampScreenshot).toHaveBeenCalledWith(
       frame,
-      'Map data ©2026 Google',
+      'Map data ©2026 Google · Routes © OpenStreetMap contributors',
       [],
       { logo: { src: 'assets/images/logo/logo.png' }, url: 'https://3dtd.sgeht.net' },
     );

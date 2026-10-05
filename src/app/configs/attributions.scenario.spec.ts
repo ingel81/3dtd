@@ -26,9 +26,10 @@ describe('Attributions of the hero and the world map (playtest 302)', () => {
     }
   });
 
-  it('302: has a section "Map Data" with Natural Earth, Public Domain', () => {
+  it('302: has a section "Map Data" with Natural Earth, Public Domain, and OpenStreetMap under the ODbL', () => {
     expect(category('Map Data')!.items).toEqual([
       expect.objectContaining({ author: 'Natural Earth', license: 'Public Domain' }),
+      expect.objectContaining({ author: 'OpenStreetMap contributors', license: 'ODbL 1.0' }),
     ]);
   });
 });

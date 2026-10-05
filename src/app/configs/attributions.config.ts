@@ -12,6 +12,13 @@ export interface AttributionCategory {
   items: Attribution[];
 }
 
+/**
+ * Credit for the OpenStreetMap data on the map (roads for the enemy routes, the street overlay),
+ * shown beside Google's map attribution: the ODbL asks for it, and Google's tile policies ask that
+ * the player can tell own map data from Google's.
+ */
+export const OSM_MAP_ATTRIBUTION = 'Routes © OpenStreetMap contributors';
+
 export const ATTRIBUTIONS: AttributionCategory[] = [
   {
     title: '3D Models',
@@ -193,6 +200,13 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
         license: 'Public Domain',
         licenseUrl: 'https://www.naturalearthdata.com/about/terms-of-use/',
         sourceUrl: 'https://www.naturalearthdata.com',
+      },
+      {
+        name: 'Roads for the enemy routes (Overpass API) and place search (Nominatim)',
+        author: 'OpenStreetMap contributors',
+        license: 'ODbL 1.0',
+        licenseUrl: 'https://www.openstreetmap.org/copyright',
+        sourceUrl: 'https://www.openstreetmap.org',
       },
     ],
   },

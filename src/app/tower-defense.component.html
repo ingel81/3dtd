@@ -129,7 +129,7 @@
             <img src="assets/images/ui/cesium-ion-logo.svg" alt="Cesium ion" class="td-cesium-logo">
           }
         </div>
-        <div class="td-map-attribution">{{ mapAttribution() }}</div>
+        <div class="td-map-attribution">{{ mapAttribution() }} · {{ osmAttribution }}</div>
 
         <!-- Compass Overlay -->
         <app-compass [rotation]="compassRotation()" (resetBearing)="resetCamera()" />

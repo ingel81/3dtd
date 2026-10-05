@@ -131,6 +131,7 @@ import { IntroCameraFlightService } from './services/world/intro-camera-flight.s
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
 import { BUILD_VERSION } from './configs/build-info.config';
+import { OSM_MAP_ATTRIBUTION } from './configs/attributions.config';
 import { isLocationDialogFailure } from './components/location-dialog/open-location-dialog';
 import { ABILITIES } from './configs/abilities.config';
 import { RefusalHintService } from './services/refusal-hint.service';
@@ -360,6 +361,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly fps = this.store.fps;
   readonly tileStats = this.store.tileStats;
   readonly mapAttribution = this.store.mapAttribution;
+  readonly osmAttribution = OSM_MAP_ATTRIBUTION;
 
   // Camera, from Store
   readonly compassRotation = this.store.compassRotation;
