@@ -133,6 +133,9 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   object-src 'none'; base-uri 'self'; frame-ancestors 'none'
   ```
 
+  Die Webversion schickt dieselbe Policy aus `public/.htaccess` (seit 2026-10-05); eine Änderung hier gehört auch
+  dorthin, `tools/web-csp/web-csp.spec.ts` schlägt sonst fehl.
+
   Drei Einträge kamen erst beim Bauen und Spielen dazu. Angular (Beasties, kritisches
   CSS) schreibt `onload="this.media='all'"` in die `index.html`; ohne den Hash bliebe
   das volle Stylesheet auf `media="print"`. Seit Angular 22.2 (Beasties 0.5) kommt

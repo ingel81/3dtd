@@ -5,4 +5,11 @@
 <IfModule mod_headers.c>
   Header always set Cross-Origin-Opener-Policy "same-origin"
   Header always set Cross-Origin-Embedder-Policy "credentialless"
+  # The desktop app's policy, word for word (desktop/src/protocol.js, CONTENT_SECURITY_POLICY):
+  # the same build runs under it there. Scripts only from the page's own origin plus the
+  # Beasties stylesheet switch by its hash, WASM for the Draco decoder, workers from the
+  # page and blob: (Draco), connections to the tile, street and place hosts and to any
+  # coop relay (ws:, wss:), no plugins, no framing. tools/web-csp/web-csp.spec.ts holds
+  # this line to the desktop's and the built index.html's inline code to it.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-hashes' 'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc=' 'sha256-LMY6wYoFV9I4wWzxaq1N/dTpl4iurQktw706UCHK3vM='; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self' blob: data: ws: wss: https://api.cesium.com https://assets.ion.cesium.com https://tile.googleapis.com https://nominatim.openstreetmap.org https://overpass.kumi.systems https://overpass-api.de https://overpass.private.coffee; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 </IfModule>

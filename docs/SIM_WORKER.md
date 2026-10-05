@@ -202,7 +202,9 @@ Historisch, alle erledigt.
   `Atomics.wait`/`notify` bräuchten wir nur für ein reines Shared-Memory-Signal; der Worker dürfte dann blockierend
   warten, der Hauptthread liest einmal je Bild (Firefox hat kein `Atomics.waitAsync`).
 - **Header** für die Isolation: Web `public/.htaccess` (COOP same-origin, COEP credentialless), Dev-Server in
-  `angular.json`, Desktop-App im `app://`-Handler. Nach dem nächsten Deploy mit `curl -I` prüfen.
+  `angular.json`, Desktop-App im `app://`-Handler. Nach dem nächsten Deploy mit `curl -I` prüfen. Dieselbe
+  `.htaccess` setzt seit 2026-10-05 die Content-Security-Policy der Desktop-App (ELECTRON_DESKTOP_PLAN.md, E20) auch
+  für die Webversion, wortgleich; `tools/web-csp/web-csp.spec.ts` hält beide und die gebaute `index.html` gleich.
 
 ## Kennzahlen
 
