@@ -75,6 +75,7 @@ export class SaveGameService implements SaveGamePort {
       if (this.gameStore.isGameOver()) return 'The run is over.';
       if (this.gameStore.phase() !== 'setup') return 'Saving works only between waves.';
       if (!this.locationMgmt.hq() || this.engineInit.loading()) return 'No place is loaded yet.';
+      if (this.mirror.losAwaiting() > 0) return LOS_PENDING_TEXT;
       return null;
     }),
     loadBlocked: computed(() => {
@@ -147,7 +148,7 @@ export class SaveGameService implements SaveGamePort {
       await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_POLL_MS));
       // The next wave started, or the run ended: nothing to save for this one
       if (!current() || this.gameStore.phase() !== 'setup') return;
-      if (this.mirror.scalars.snapshotRefusal === null && this.mirror.scalars.losAwaiting === 0 && this.host.saveBlocked() === null) {
+      if (this.mirror.scalars.snapshotRefusal === null && this.host.saveBlocked() === null) {
         await this.game.autosave();
         return;
       }
@@ -159,7 +160,6 @@ export class SaveGameService implements SaveGamePort {
     const source = this.world.source();
     const hq = this.locationMgmt.hq();
     if (!source || !hq) return null;
-    if (this.mirror.scalars.losAwaiting > 0) return LOS_PENDING_TEXT;
     // The main thread's part before the simulation's answer: a wave started meanwhile makes the simulation
     // refuse, and then nothing of what the start changed here (the director's sizing, the run log) is in
     const director = this.director.saveState();

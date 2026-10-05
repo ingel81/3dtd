@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import {
   E_ID, E_ROUTE, E_TYPE, ENEMY_STRIDE, ENEMY_TYPE_IDS, T_AIM, T_COOLDOWN, T_DAMAGE, T_FLAGS, T_ID, T_KILLS, T_PITCH,
   TF_HOLD_FIRE, TF_LOS_READY, TF_MANNED, TF_ON_TARGET, TF_SLEEPING, TF_TRIGGER, TOWER_STRIDE, W_GROUP, W_HEAD, W_HP,
@@ -152,6 +152,10 @@ export class SimMirror implements SimMirrorApi {
     }
   }
 
+  private readonly losAwaitingSignal = signal(0);
+  /** Towers waiting for their line of sight (SimScalars.losAwaiting), as a signal: a save waits for them */
+  readonly losAwaiting = this.losAwaitingSignal.asReadonly();
+
   /** Spawn ids in SimWorld order */
   // ── Packet ────────────────────────────────────────────────────
 
@@ -159,6 +163,8 @@ export class SimMirror implements SimMirrorApi {
     this.frameStamp++;
     const scalars = packet.scalars;
     this.scalars = scalars;
+    // A signal for the menu; only a change notifies, a packet with the same count costs a compare
+    if (scalars.losAwaiting !== this.losAwaitingSignal()) this.losAwaitingSignal.set(scalars.losAwaiting);
     if (scalars.seed !== this.rng.seed) this.rng.reset(scalars.seed);
     this.heroFrames = packet.heroes;
 
@@ -209,6 +215,7 @@ export class SimMirror implements SimMirrorApi {
     this.eventMoment = null;
     this.soldInPacket.clear();
     this.scalars = initialScalars();
+    this.losAwaitingSignal.set(0);
     this.towerMap.clear();
     this.towerList = null;
     this.goneTowers.clear();

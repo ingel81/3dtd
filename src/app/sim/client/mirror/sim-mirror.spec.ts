@@ -22,6 +22,24 @@ describe('SimMirror', () => {
     mirror.setWorld(['north', 'south'], new Map([['north', [AT]], ['south', []]]));
   });
 
+  it('holds the towers waiting for their sight as a signal that changes only with the count', () => {
+    let changes = 0;
+    let seen = mirror.losAwaiting();
+    const count = (n: number) => {
+      mirror.applyState(packet({ scalars: { losAwaiting: n } }));
+      if (mirror.losAwaiting() !== seen) changes++;
+      seen = mirror.losAwaiting();
+    };
+    count(0);
+    count(2);
+    count(2);
+    count(0);
+    expect(changes).toBe(2);
+    mirror.applyState(packet({ scalars: { losAwaiting: 3 } }));
+    mirror.clear();
+    expect(mirror.losAwaiting()).toBe(0);
+  });
+
   describe('shadow towers', () => {
     it('match a real tower in upgrade and sell numbers, without moving the id counter', () => {
       const real = new Tower(AT, 'archer');
