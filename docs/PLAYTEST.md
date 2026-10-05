@@ -1,6 +1,6 @@
 # Playtest: offene Nachtests
 
-Stand 2026-10-04, Code-Stand `next`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
+Stand 2026-10-05, Code-Stand `next`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
 warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). Die erledigten Punkte samt Ergebnissen
 (bis 748, dazu M, Q, R, T bis 2026-09-26) liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Listen in `archive/REVIEW_*.md`.
 
@@ -82,9 +82,9 @@ Paket W3, Coop über zwei Rechner und Desktop-App:
 Gemessen ist der Regler an Bot-Läufen; was Bots nicht prüfen können, ist wie es sich anfühlt. Genau darum geht
 es hier. Ein Lauf bis mindestens Welle 30, am Ende über "Runs" speichern.
 
-- **M4 "Why this wave"**: Im Wave-Debug-Fenster steht jetzt "Pressure loop: waves cost X % of HP on average,
-  ... so it opened/closed to ×Y" statt der alten Leck-Zeile. Erwartung: Die Zahlen passen zu dem, was man
-  gerade erlebt hat.
+- **M4 "Why this wave"**: Im Wave-Debug-Fenster stehen statt der Zeile "Pressure loop …" seit 2026-10-05 zwei Zeilen
+  in Worten: "Measured" (was die letzten Wellen an HP gekostet haben, gegen das Ziel) und "Loop" (Budget steigt, fällt
+  oder hält, um welchen Faktor und warum). Erwartung: liest sich ohne Erklärung, die Zahlen passen zum Erlebten.
 
 ## Q Balance-Runde nach dem New-York-Lauf (2026-09-23)
 
@@ -279,6 +279,61 @@ Spur). Ein Lauf mit zwei Spawns, gern über W20 hinaus; am Ende über "Runs" Run
 - **N21 Coop-Replay als Datei** (2026-10-04): ein Coop-Spiel bis Game Over. Beim Host steht „Save the replay“, beim Gast
   nicht; die Datei lädt danach allein am selben Ort über „load“ in der Wellen-Leiste.
   Noch nicht getestet (2026-10-04).
+
+## S Nach dem Release 0.6 (2026-10-05, auf `next`)
+
+Gebaut in einer Sitzung mit vier Workern; Logik per Spec und Browser-Probe geprüft, hier steht, was Augen, Ohren und
+echte Karten brauchen. Dev-Server auf `next`, Konsole offen.
+
+Paket S1, Speichern und Laden (Einzelspiel, [SAVE_LOAD_PLAN.md](SAVE_LOAD_PLAN.md)):
+
+- **S1.1 Autosave und Continue:** Ort laden, Welle 1 spielen, Seite neu laden. Erwartung: unten mittig die Leiste
+  „Continue: Ort, wave 2“; Klick lädt den Lauf (Tower, Gold, HP wie vorher). Esc zeigt oben ebenfalls „Continue“.
+- **S1.2 Platz speichern und laden:** Zwischen zwei Wellen Esc, „Save game“, Platz 1. Einen Tower verkaufen, „Load
+  game“, Platz 1. Erwartung: Tower wieder da, Gold und HP wie beim Speichern; danach eine Welle spielen, die Tower
+  schießen, Sichtlinien wie vorher.
+- **S1.3 Anderer Ort:** Seite an einem anderen Ort neu laden, Platz 1 laden. Erwartung: das Spiel wechselt an den Ort
+  des Spielstands (dauert wie ein Ortswechsel), Lauf geht weiter.
+- **S1.4 Datei:** „Load game“, beim Platz das Download-Symbol; dann „Load from a file“ mit dieser Datei. Erwartung:
+  lädt wie S1.2. Während einer Welle ist „Save game“ gesperrt mit Grund.
+
+Paket S2, Oberfläche:
+
+- **S2.1 Spielmenü (Esc):** Continue, Save, Load, Settings (Regler für Master, Effekte, Musik, Oberfläche; Grafik;
+  Tempo), More (Run-Log und Replay jederzeit speichern), Restart here mit Rückfrage. Erwartung: alles wirkt sofort,
+  Esc führt von einer Seite zurück und schließt auf der Liste.
+- **S2.2 Tastatur:** Munition des Helden anklicken, dann Pfeiltasten. Erwartung: die Kamera schwenkt (die Munition
+  wechselt nur, wenn man per Tab dorthin kam). Karte über einer Tower-Karte offen, Tower gewählt, Esc: Baumodus endet.
+- **S2.3 Druck-Regler in Worten:** siehe M4.
+
+Paket S3, Coop und Web:
+
+- **S3.1 Coop im Browser:** auf `/play/` (nicht localhost) den Coop-Knopf. Erwartung: nur der Hinweis „Co-op runs in
+  the desktop app“ mit Download-Knöpfen; ein Einladungslink `&room=…` zeigt denselben Hinweis mit Raumcode, auch im
+  Dialog für den Kartenschlüssel.
+- **S3.2 Forschungspreise des Mitspielers:** Coop mit einem Partner auf zwei Spuren, seine Forschung ansehen.
+  Erwartung: seine Preise doppelt so hoch wie im eigenen Baum mit einer Spur.
+- **S3.3 CSP der Webversion:** nach dem nächsten Deploy `curl -I …/play/` zeigt Content-Security-Policy, COOP und
+  COEP; ein Spiel in Chrome und Firefox mit offener Konsole ohne CSP-Verletzung (Ortssuche, Straßen, Tiles,
+  Schlüsselprüfung, Lobby). Bricht etwas: die Zeile aus `public/.htaccess` nehmen.
+- **S3.4 Relay:** nach dem Ziehen des neuen Images eine Lobby anlegen, ein Coop-Spiel; Resync nach Hash-Abweichung
+  läuft wie bisher.
+
+Paket S4, Spiel (aus `dev/after-0.6`, Standardwerte in `tmp/plan/PAKET_2026-10-02.md`):
+
+- **S4.1 Bauzeit:** ein gesetzter Tower wächst 5 s im Gerüst und schießt erst danach. Fühlt es sich richtig an?
+- **S4.2 Camo ab W22:** getarnte Gegner schimmern, kein Tower zielt auf sie; Forschung „Scouting“ und der Archer-Pfad
+  „Scout“ (250) decken sie im Umkreis von 35 m auf. NEXT warnt zwei Wellen vorher.
+- **S4.3 Replay:** Replay-Datei ist `.json.gz`, Knopf „orig“ spielt im Originaltempo. Replays von 0.6.0 laden nicht
+  mehr (andere Balance).
+- **S4.4 Zoom in Płock:** `?l=52.55000,19.70000&s=52.54690,19.69225`, aufs Portal zoomen bis zum Anschlag.
+  Erwartung: bis etwa 10 m an die Straße, kein Zurückspringen, kein Rutschen nach Norden.
+
+Paket S5, Linux (vor dem nächsten Release):
+
+- **S5.1 AppImage:** das neue AppImage (statische Laufzeit, ohne libfuse2) auf einem Linux-Desktop starten.
+- **S5.2 AUR:** einmalig AUR-Konto, erster Push von Arch mit `makepkg -si` und `namcap`, Secret `AUR_SSH_PRIVATE_KEY`
+  ([ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), „AUR-Paket“).
 
 ## K8 Desktop-Build
 

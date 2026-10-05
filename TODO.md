@@ -17,7 +17,8 @@ Nach dem Test geht ein Eintrag **nur auf Zuruf des Users** nach DONE.md. Die Ken
 und werden nicht neu vergeben, Neues bekommt die nächste freie Nummer. Nichts Internes ins Repo (Adressen,
 Mitspielernamen, Gesprächsdetails).
 
-Stand 2026-10-04. 0.6.0 ist veröffentlicht (Tag `v0.6.0` auf `next`), `dev/after-0.6` wartet auf das Review des Users.
+Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt nur noch `main` (Release) und `next`
+(Weiterentwicklung); `dev/after-0.6` ist in `next` aufgegangen.
 
 ---
 
@@ -31,19 +32,8 @@ Stand 2026-10-04. 0.6.0 ist veröffentlicht (Tag `v0.6.0` auf `next`), `dev/afte
       an Luft- und Geisterwellen (W17, W27, W44, W50), weil ein Regler für alle Wellen gilt. Nach dem Playtest entscheiden.
 - [ ] **E105 Spieltiefe, Rest der Balance-Nacht**: Schild am Skarnax-Kopf, Gegnereigenschaften Shielded und Aura,
       Mutator „Panzerung +1“.
-- [ ] **E113 Druck-Regler im Wave Debug verständlich machen** (User, 2026-10-04, PLAYTEST M4): die Zeile
-      „Pressure loop …“ sagt ihm nichts. In Worten zeigen, was der Regler gemessen hat und was er daraus macht.
-- [ ] **E114 Coop im Browser** (User, 2026-10-04, Notiz 2 in `tmp/PLAYTEST_NOTIZEN_2026-10-04.md`): laut D59/D52 nur
-      in der App, der Browser zeigt trotzdem den Coop-Dialog. Auf localhost bietet er „This machine“ an; antwortet
-      der Relay nicht, steht die Meldung doppelt da, und der Text „Playing on the same network still works“ ist im
-      Browser falsch (kein LAN). Entschieden (User, 2026-10-04): der Knopf bleibt im Browser sichtbar (Schaufenster
-      für die App) und öffnet nur den Hinweis „Co-op runs in the desktop app“ mit Download-Link; ein Einladungslink
-      mit Raumcode im Browser zeigt denselben Hinweis. Auf localhost bleibt der Dialog für Dev-Tests, ohne den
-      LAN-Satz und ohne die doppelte Meldung.
-- [ ] **E115 Forschungspreise des Mitspielers** (User, 2026-10-04, Notiz 1 dort): in der Forschungsansicht des
-      Mitspielers stehen die Grundpreise, nicht die mit seiner Spuranzahl multiplizierten.
 - [ ] **E106 Menschenähnlicher Bot** ([BOT_PLAYER_PLAN.md](docs/BOT_PLAYER_PLAN.md), B1 bis B6 auf `next`): offen B7
-      (Camo, Pfade, Bauzeit) nach dem Merge von `dev/after-0.6`; Profile mit dem Lauf vom 2026-10-04 nachjustieren
+      (Camo, Pfade, Bauzeit; seit 2026-10-05 auf `next`); Profile mit dem Lauf vom 2026-10-04 nachjustieren
       (`tools/play-profile`); Gold an den Coop-Partner im Browser auslösen (bisher nur per Spec).
 
 ### Bugs
@@ -52,27 +42,9 @@ Stand 2026-10-04. 0.6.0 ist veröffentlicht (Tag `v0.6.0` auf `next`), `dev/afte
       Verschieben auf ein gerades Stück (`cbdec4e5`) stand ein Portal schräg. Vermutungen: gerades Stück zu kurz (nur
       bis zur Ebene geprüft, Mindestlänge etwa 25 bis 30 m fehlt) oder die Gegnerlinie schwenkt am Start vom OSM-Punkt
       zur Bandmitte. Erst mit URL oder Snapshot eines neuen Falls debuggen.
-- [ ] **C17 Zoom rutscht nahe der Route zurück und nach Norden** (User, 2026-09-23, nur hier reproduziert):
-      `?l=52.55000,19.70000&s=52.54690,19.69225` (Płock). Wer aufs Portal oder daneben zoomt, wird am Limit
-      zurückgesetzt, die Kamera rutscht nach Norden. Mit weit versetztem Spawn ist dieselbe Stelle unauffällig.
-      Kein `cameraCorrection` im Log; der Korridor-Aufbau lief dort als "unmeasured freeze" (452/452 Stationen,
-      Fallback). Vermutung, unbelegt: die Korridor-Region hält grobe Tiles, der Abstands-Raycast der GlobeControls
-      trifft zu hoch. Messen: Raycast-Treffer, Höhe, Tile-Tiefe am Limit, mit und ohne Region.
 
 ### Features
 
-- [ ] **E110 Speichern und Laden im Einzelspiel** (User, 2026-10-03, nach dem Release 0.6): über das Spielmenü,
-      Weiterspielen am selben Ort. Bausteine und offene Fragen in [SAVE_LOAD_PLAN.md](docs/SAVE_LOAD_PLAN.md).
-- [ ] **E111 Spielmenü vervollständigen** (User, 2026-10-03, nach dem Release 0.6): Kandidaten in
-      [SAVE_LOAD_PLAN.md](docs/SAVE_LOAD_PLAN.md), Frage 6.
-- [ ] **E112 UI-Feinschliff** (User, 2026-10-04, nach UI-Screenshots aus DevWorld): (a) Steuerungs-Hilfe zu
-      Spielbeginn in einer Reihe, nicht „H Shortcuts“ allein umgebrochen; (b) Tasten in Steuerungs-Hilfe und
-      Keys-Dialog wie echte Keyboard-Kappen, einheitlich; (c) Spielmenü als klassisches Spielmenü (mit E111);
-      (d) Coop-Knopf im Header während einer Welle: sperren, Rückfrage oder lassen (prüfen, was ein Raum mitten im
-      Solo-Lauf macht); (e) Header-Leiste logisch gruppiert mit sichtbaren Trennern (Ort, Karte bearbeiten, Coop);
-      (f) Wellen-Vorschau („NEXT“) optisch aufwerten, dazu ihr Tooltip (PLAYTEST B3, 2026-10-04: jetzt in Blöcken, „hübsch ist es nicht“). Gebaut 2026-10-04 auf `next`: (a), (b), (d) als Rückfrage beim
-      „Start match“, solange ein Solo-Lauf läuft (der Raum selbst lässt ihn stehen), (e) Variante B aus Claude Design
-      (sichtbare Striche, neue Icons). Offen (c) und (f).
 - [ ] **E102 Neue Tower aus den Meshy-Kandidaten** (User, 2026-10-02; Modelle in
       `public/assets/models/towers/candidates/`, Zerlegung mit `tools/blender/split_tower.py` und `towers/*.json`):
       Iron Bastion und Sentinel Laser abgenommen. Chainsaw mit Roboter-Tentakeln statt Armen (bis 14 m, eingefahren wie
@@ -80,14 +52,9 @@ Stand 2026-10-04. 0.6.0 ist veröffentlicht (Tag `v0.6.0` auf `next`), `dev/afte
       Döner-Strahl (dreht aus dem Stand hoch, Fett-Spritzer später als Pfad). Magma Reactor zurückgestellt. Alle auf das
       Modell-Budget reduzieren (heute 0,8 bis 2,5 Mio. Dreiecke).
 - [ ] **E103 Ego-Steuerung des Helden** (User, 2026-10-02).
-- [ ] **E83 AppImage im AppImage-Katalog nachbessern** (2026-09-30): 3DTD steht seit dem 2026-09-30 im Katalog auf
-      appimage.github.io. Der Test meldet drei Punkte. Gebaut für 0.6 (2026-10-03): der Name ist jetzt
-      `3DTD-X.Y.Z-x86_64.AppImage` und `3DTD-x86_64.AppImage` ohne „linux“, der Updater zieht mit (`latest-linux.yml`);
-      die alte Kopie `3DTD-linux-x64.AppImage` lud `release.yml` für 0.6.0 noch mit hoch; vor dem nächsten Release
-      aus dem Workflow nehmen. Offen: keine eingebettete Update-Information (`appimagetool -u` und eine `.zsync` neben dem AppImage, für
-      AppImageUpdate; electron-builder kann das nicht selbst); alte AppImage-Laufzeit, die glibc und libfuse2 braucht.
-      Dazu (User, 2026-09-30): ein AUR-Paket `3dtd-bin` (PKGBUILD, das das AppImage des Releases lädt, mit
-      Desktop-Eintrag und Icon); bei jedem Release Version und Prüfsumme nachziehen, am besten aus der CI.
+- [ ] **E83 AppImage und AUR** (2026-09-30): gebaut 2026-10-05 (statische Laufzeit, Update-Information und `.zsync`,
+      AUR-Paket `3dtd-bin` mit CI-Job). Offen beim User: einmal auf Linux starten, AUR-Konto und Secret einrichten
+      (PLAYTEST S5); in der CI ist der neue Teil noch nie gelaufen.
 
 ### Assets
 
@@ -102,36 +69,16 @@ Stand 2026-10-04. 0.6.0 ist veröffentlicht (Tag `v0.6.0` auf `next`), `dev/afte
       [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md), "Was das Tuning nicht lösen kann". Hängt an D10.
 - [ ] **E68 Pool-Größen** (Geschoss-Spuren, Schadenszahlen): die Suche im vollen Pool ist behoben (`778343c2`, 31 bis
       50 statt 18 bis 25 FPS bei 5000 Gegnern); 2- und 4-fache Größe waren wieder langsamer. Vorschlag: Größen lassen.
-- [ ] **E94a Content-Security-Policy für die Webversion** (aus E94): die Desktop-App hat eine, die Webversion nicht;
-      keine ausnutzbare Lücke gefunden, die CSP wäre das Netz für den Kartenschlüssel im localStorage.
 
 ### Review-Reste
 
-- [ ] **E92 Rest aus dem Review Robustheit und Bedienung** (Review 2026-10-01, zwei Reviewer, Befunde im Code
-      nachgeprüft; das Behobene steht in den Commits des Tages). Offen, nach Gewicht:
-      - Coop: Ein Gast kann mit falschen Hashes bis zu 5 Resyncs erzwingen; geht der Host während
-        eines Resyncs, wartet der Raum die 20 s ab. Unbekannte Felder eines Befehls landen im Befehlslog jedes Clients.
-      - Relay: der Run-Log-Speicher entpackt synchron bis 32 MB und räumt bei jedem Eintrag auf (nur Relays mit
-        `collectRuns`); 200 Räume lassen sich von vielen Adressen mit leeren Lobbys belegen.
-      - Bedienung: Startbildschirm für Kartenschlüssel ohne Fokusfalle; Tab-/Radio-Rollen (Forschung, Raumoptionen,
-        Munition des Helden) ohne Pfeiltasten; Rich-Tooltip ohne Esc und ohne Aktualisierung; Tab öffnet im Coop das
-        Dock, bevor ein Fokus gesetzt ist; `aria-label` auf Spans ohne Rolle (Bau-Leiste).
-      - Kleinigkeiten: Coop-Name hält bei gesperrtem Speicher nicht für die Sitzung; gespeicherte Debug-Fenster können
-        außerhalb des Bildschirms landen; die 1,5 km Spawn-Grenze steht viermal von Hand; M (stumm) überlebt einen
-        Reload mit wenig Hinweis.
-      - Testlücken: Quick-Actions, Game-Speed, Info-Overlay-Komponente, Rich-Tooltip, Tower-Control-HUD, Coop-Chat-Tasten,
-        Loading-Screen, `tower-defense.component` selbst.
-- [ ] **E94 Rest aus dem Review Sicherheit, Desktop und Spiellogik** (Review 2026-10-01, zwei Reviewer, Befunde im
-      Code nachgeprüft). Offen (die CSP steht als E94a oben):
-      - Windows-Installer und Auto-Update ohne Code-Signierung: SmartScreen warnt, das Update vertraut nur der
-        Prüfsumme aus demselben GitHub-Release. Entschieden (User, 2026-10-01): vorerst nicht, wieder ansehen, wenn
-        die App mehr Nutzer hat.
-      - Langsam und Gift haben je einen Platz: ein neuer, schwächerer Treffer überschreibt einen stärkeren, im Coop
-        also der Tower, der zuletzt traf (laut Code so gewollt).
-      - Der State-Hash erfasst Spawner (`accumulatedMs`, `nextDelayMs`, `spawnIndex`), Rush-Phase und
-        `remainingKillBudget` nicht: eine Abweichung dort zeigt sich erst später an Gegnern oder Gold.
-      - Bot-Server: das Dashboard ist jetzt nur lokal (`DASHBOARD_HOST`); der LAN-Relay der Desktop-App lauscht auf
-        allen Schnittstellen (für LAN-Spiel nötig) und nimmt Verbindungen ohne Origin an.
+- [ ] **E94 Rest aus dem Review Sicherheit und Desktop** (Review 2026-10-01; der Rest von E92 und E94 ist am
+      2026-10-05 gebaut, PLAYTEST S3):
+      - Windows-Installer und Auto-Update ohne Code-Signierung. Entschieden (User, 2026-10-01): vorerst nicht, wieder
+        ansehen, wenn die App mehr Nutzer hat.
+      - Der LAN-Relay der Desktop-App lauscht auf allen Schnittstellen (für LAN-Spiel nötig) und nimmt Verbindungen
+        ohne Origin an.
+      - Testlücke: `tower-defense.component` selbst.
 
 ---
 
@@ -163,12 +110,11 @@ Stand 2026-10-04. 0.6.0 ist veröffentlicht (Tag `v0.6.0` auf `next`), `dev/afte
 - [ ] **E93 Route, Zellen, Spawn und HQ schweben nach dem Laden**: Neubau der Region im neuen Rahmen gebaut; im Spiel
       bestätigen. Tritt es wieder auf: [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md), „Vorgehen, wenn die Route wieder schwebt“.
 
-### Auf `dev/after-0.6`, Review des Users
+### Nach dem Release 0.6 (2026-10-05, auf `next`)
 
-- [ ] **E97 Replay kleiner und mit Tempo**: Sichtmasken einmal je Tower, `.json.gz`, Tempo-Wechsel im Replay.
-- [ ] **E100 Camo** und **E101 Tower-Pfade** (Archer: Späher erkennt Camo).
-- [ ] **E104 Bauzeit mit Gerüst**: der Tower wächst im Gerüst und schießt erst danach. Idee dazu, nicht gebaut:
-      manche Aktionen laufen nur während einer Welle weiter.
+- [ ] **E110, E111, E112 (c, f), E113 bis E115, C17, E92, E94a** gebaut: Speichern und Laden, Spielmenü, NEXT-Karte,
+      Regler in Worten, Coop im Browser, Partnerpreise, Zoom in Płock, Robustheit, Web-CSP. PLAYTEST S1 bis S3, S4.4.
+- [ ] **E97, E100, E101, E104** aus `dev/after-0.6`: Replay klein mit Tempo, Camo, Späher-Pfad, Bauzeit. PLAYTEST S4.
 
 ---
 
@@ -221,6 +167,8 @@ Stand 2026-10-04. 0.6.0 ist veröffentlicht (Tag `v0.6.0` auf `next`), `dev/afte
 - [ ] **E108 Kampfzonen-Heatmap** (Schicht 2 der Studie, [COMBAT_HEATMAP_STUDY.md](docs/archive/COMBAT_HEATMAP_STUDY.md)):
       Kills je Route-Grid-Zelle mit Farbrampe, in der Bauphase als Bild der letzten Welle, in der Welle per Taste;
       Aufwand M laut Studie. Schicht 1 (Kampfspuren) ist gebaut.
+- [ ] **E116 Coop-Spielstand vom Host** (User, 2026-10-05: vorerst nur Einzelspiel): der Host lädt einen Spielstand in
+      einen Raum, Gäste bekommen ihn beim Beitreten; das Format ist dafür ausgelegt ([SAVE_LOAD_PLAN.md](docs/SAVE_LOAD_PLAN.md)).
 - [ ] **E109 Forschungsdialog**: Warteschlange per Ziehen umsortieren (heute Hoch/Runter-Knöpfe, das Repo nutzt kein
       `cdk/drag-drop`) und weitere Rubriken neben "Tower Tech", sobald es Inhalt dafür gibt.
 

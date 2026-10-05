@@ -33,8 +33,9 @@ die Punkte, die ein Spielmenü erwartet.
 1. **Wann:** nur zwischen den Wellen (`SimSnapshot`). Während einer Welle ist Speichern gesperrt.
 2. **Wohin:** beides. Feste Plätze im Browser (IndexedDB), dazu Export und Import als Datei, Format nach dem Vorbild
    der Replay-Datei (Kopf mit Version, `worldKey`, Config-Hash, Spielversion).
-3. **Autosave:** ein eigener Autosave-Platz nach jeder Welle, dazu mehrere Plätze per Knopf. Der Startbildschirm bietet
-   „Continue“ an, wenn ein Autosave da ist.
+3. **Autosave:** ein eigener Autosave-Platz nach jeder Welle, dazu mehrere Plätze per Knopf. Einen Startbildschirm gibt es
+   nicht; „Continue“ steht darum als Leiste nach dem Laden, solange der neue Lauf nicht begonnen hat, und oben im
+   Spielmenü (User, 2026-10-05).
 4. **Ältere Spielversion:** laden mit Hinweis wie beim Replay („saved with version X, values may differ“); nur bei
    inkompatiblem Format ablehnen.
 5. **Coop:** vorerst nur Einzelspiel, im Coop ist Speichern ausgeblendet. Das Format bleibt so, dass der Host es später
