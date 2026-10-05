@@ -2,8 +2,10 @@ import {
   CircleGeometry,
   DoubleSide,
   Group,
+  type Intersection,
   Mesh,
   MeshBasicMaterial,
+  type Object3D,
   PerspectiveCamera,
   PlaneGeometry,
   Raycaster,
@@ -56,6 +58,48 @@ function roofTile(): Mesh {
   roof.rotation.x = -Math.PI / 2;
   roof.position.y = 12;
   return roof;
+}
+
+/**
+ * Wie die TilesGroup: der Raycast beantwortet alle aktiven Tiles, auch die
+ * versteckten, deren Szene die Gruppe als parent nennt, ohne Kind zu sein.
+ */
+class ActiveTilesGroup extends Group {
+  readonly active: Object3D[] = [];
+
+  override raycast(raycaster: Raycaster, intersects: Intersection[]): boolean {
+    for (const scene of this.active) raycaster.intersectObject(scene, true, intersects);
+    return false;
+  }
+
+  /** Ein aktives Tile, gezeigt (Kind der Gruppe) oder versteckt (nur parent) */
+  addTile(tile: Object3D, shown: boolean): void {
+    this.active.push(tile);
+    if (shown) {
+      this.add(tile);
+    } else {
+      tile.parent = this;
+    }
+    tile.updateMatrixWorld(true);
+  }
+}
+
+/** Straße in 0 m, gezeigt, nur um (0, 0); ein grobes verstecktes Tile in 300 m, weit gespannt */
+function placeholderScene() {
+  const scene = new Scene();
+  const ground = new ActiveTilesGroup();
+  scene.add(ground);
+  scene.updateMatrixWorld(true);
+  const street = new Mesh(new PlaneGeometry(100, 100), new MeshBasicMaterial());
+  street.rotation.x = -Math.PI / 2;
+  ground.addTile(street, true);
+  const coarse = new Mesh(new PlaneGeometry(4000, 4000), new MeshBasicMaterial());
+  coarse.rotation.x = -Math.PI / 2;
+  coarse.position.y = 300;
+  ground.addTile(coarse, false);
+  const root = new GroundPickRoot(ground);
+  scene.add(root);
+  return { scene, ground, street, coarse, root };
 }
 
 function emit(tiles: TilesRenderer, type: string): void {
@@ -116,6 +160,33 @@ describe('GroundPickRoot', () => {
     expect(pivot.getWorldPosition(new Vector3()).toArray()).toEqual([3, 20, -4]);
     const hits = downRay(3, 50, -4).intersectObject(root);
     expect(hits[0].point.y).toBeCloseTo(0, 6);
+  });
+
+  describe('versteckte aktive Tiles (TODO C17)', () => {
+    it('ein gezeigtes Tile auf dem Strahl schlägt ein verstecktes darüber', () => {
+      const { root, street } = placeholderScene();
+      const hits = downRay(0, 1e5, 0).intersectObject(root);
+      expect(hits.length).toBeGreaterThan(0);
+      expect(hits.every((hit) => hit.object === street)).toBe(true);
+    });
+
+    it('ohne gezeigtes Tile auf dem Strahl bleibt das versteckte die Antwort', () => {
+      const { root, coarse } = placeholderScene();
+      const hits = downRay(500, 1e5, 0).intersectObject(root);
+      expect(hits[0].object).toBe(coarse);
+      expect(hits[0].point.y).toBeCloseTo(300, 6);
+    });
+
+    it('Zoom-Schritt unter das grobe Tile: die Kamera bleibt unten, statt 5 m darüber zu springen', () => {
+      // Wie in Płock: Kamera 120 m über der Straße, das versteckte Tile in 300 m
+      const sceneCamera = cameraAbove(120);
+      new EnvironmentControls(placeholderScene().ground, sceneCamera).adjustCamera(sceneCamera);
+      expect(sceneCamera.position.y).toBeCloseTo(305, 6);
+
+      const camera = cameraAbove(120);
+      new EnvironmentControls(placeholderScene().root, camera).adjustCamera(camera);
+      expect(camera.position.y).toBeCloseTo(120, 6);
+    });
   });
 
   describe('mit den echten EnvironmentControls', () => {

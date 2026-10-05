@@ -172,6 +172,7 @@ export class GroundPickRoot extends Group {
         } finally {
           raycastStats.exit(scope);
         }
+        this.dropHiddenBehindShown(results);
         this.store(raycaster, results);
         for (const hit of results) intersects.push(hit);
         results.length = 0;
@@ -179,6 +180,43 @@ export class GroundPickRoot extends Group {
     }
     // false: three soll nicht in die Kinder (das Pivot-Mesh) weitergehen
     return false;
+  }
+
+  /**
+   * Hits on hidden tiles count only where no shown tile lies on the ray.
+   *
+   * The tiles renderer keeps tiles active that it does not draw: the
+   * siblings along the path to the tiles in view, out of the frustum, from
+   * continent-sized tiles down. It parents their scenes to the group
+   * without adding them as children, and its raycast answers for them
+   * too. In Płock (TODO C17) a hidden tile of 8 km geometric error lay
+   * 300 m above the street; in the frame after a zoom step it reached the
+   * column under the camera, the clearance ray met it first and the
+   * controls set the camera 5 m above it. The zoom stopped 300 m up and
+   * each further step only moved the camera forward, to the north.
+   *
+   * A shown tile on the same ray is what the player sees there, so it wins.
+   * Without one (the ground under the camera out of view) the hidden tiles
+   * stay the best answer there is.
+   */
+  private dropHiddenBehindShown(hits: Intersection[]): void {
+    if (!hits.some((hit) => this.shown(hit.object))) return;
+    let kept = 0;
+    for (const hit of hits) {
+      if (this.shown(hit.object)) hits[kept++] = hit;
+    }
+    hits.length = kept;
+  }
+
+  /**
+   * Whether the ground holds `object` as a child, directly or below one.
+   * A hidden tile's scene names the ground as its parent but is not among
+   * its children; an object outside the ground counts as shown.
+   */
+  private shown(object: Object3D): boolean {
+    let top = object;
+    while (top.parent && top.parent !== this.ground) top = top.parent;
+    return top.parent !== this.ground || this.ground.children.includes(top);
   }
 
   /** The remembered answer for this ray, null when it has to be cast. */
