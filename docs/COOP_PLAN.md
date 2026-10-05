@@ -520,7 +520,10 @@ nimmt der Host `captureWaveSnapshot()`, schickt ihn als JSON, gzip, base64 (`res
 `null`), das Relay reicht ihn an die Gäste, jeder lädt ihn an derselben Grenze (`restoreWaveSnapshot(…, 'live')`) und
 meldet `resynced`; sind alle da, `resync-done`, und die Ticks laufen weiter. Kein Vor- oder Zurückspulen, weil niemand
 über die Grenze kommt. Das Relay vergisst danach die Prüfsummen vor der Grenze, eine neue Abweichung startet die
-nächste Resync, höchstens `MAX_RESYNCS` (5) je Raum; ohne Antwort geht der Raum nach 20 s ohne weiter.
+nächste Resync, höchstens `MAX_RESYNCS` (5) je Raum und `MAX_RESYNCS_PER_GUEST` (3) je Gast, dessen Stand ersetzt
+wird (mit zwei Spielern also 3), und frühestens `RESYNC_GAP_MS` (30 s) nach dem Ende der letzten; eine Abweichung davor
+wartet und startet sie dann. Ohne Antwort geht der Raum nach 20 s ohne weiter, geht der Host, bevor sein Stand
+draußen ist, sofort.
 Code: `coop/resync.ts` (`ResyncDriver`), `coop-server/src/room.ts`, `CoopService` (Abfrage alle 50 ms während des
 Haltens). Abnahme: `room.spec.ts` (Halten, Weiterreichen, Weiter, Zeitablauf, Obergrenze), `lockstep.scenario.spec.ts`
 (Gast mit verfälschtem Gold mitten in der Welle, nach dem Laden gleiche Prüfsumme und keine weitere Abweichung).

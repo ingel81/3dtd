@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Room, TICK_MS, MAX_AHEAD_TICKS, HANG_MS, MAX_RESYNCS, RESYNC_TIMEOUT_MS, type RoomPlayer } from './room.ts';
+import {
+  Room, TICK_MS, MAX_AHEAD_TICKS, HANG_MS, MAX_RESYNCS, MAX_RESYNCS_PER_GUEST, RESYNC_GAP_MS, RESYNC_TIMEOUT_MS, type RoomPlayer,
+} from './room.ts';
 import { HASH_EVERY_TICKS, HASH_PARTS } from '../../src/app/coop/hash-check.ts';
 import { DEFAULT_ROOM_OPTIONS } from '../../src/app/coop/room-options.ts';
 import type { ServerMessage } from '../../src/app/coop/protocol.ts';
@@ -535,10 +537,29 @@ describe('Room (COOP_PLAN C4)', () => {
       room.receive('b', { t: 'hash', tick: 30, hash: 2 });
       expect(all('a', 'desync')).toHaveLength(1);
       closeTicks(HASH_EVERY_TICKS);
+      clock += RESYNC_GAP_MS;
       room.receive('a', { t: 'hash', tick: 90, hash: 3 });
       room.receive('b', { t: 'hash', tick: 90, hash: 4 });
       expect(all('a', 'desync')).toHaveLength(2);
       expect(all('a', 'resync')).toHaveLength(2);
+    });
+
+    it('starts a resync no sooner than RESYNC_GAP_MS after the last', () => {
+      const tick = diverged();
+      room.receive('a', { t: 'resync-state', tick, gz: null });
+      closeTicks(HASH_EVERY_TICKS);
+      room.receive('a', { t: 'hash', tick: 90, hash: 3 });
+      room.receive('b', { t: 'hash', tick: 90, hash: 4 });
+      expect(all('a', 'desync')).toHaveLength(2);
+      // The divergence waits; the room plays on meanwhile
+      expect(all('a', 'resync')).toHaveLength(1);
+      clock += RESYNC_GAP_MS / 2;
+      expect(room.advance(3 * TICK_MS)).toBeGreaterThan(0);
+      expect(all('a', 'resync')).toHaveLength(1);
+      clock += RESYNC_GAP_MS / 2;
+      room.advance(TICK_MS);
+      expect(all('a', 'resync')).toHaveLength(2);
+      expect(last('b', 'resync')!.tick).toBe(room.lastTick + 1);
     });
 
     it('passes a state in pieces on as they come and counts it sent with the last', () => {
@@ -569,6 +590,7 @@ describe('Room (COOP_PLAN C4)', () => {
       expect(last('b', 'resync-done')).toEqual({ t: 'resync-done', tick, ok: false });
 
       closeTicks(HASH_EVERY_TICKS);
+      clock += RESYNC_GAP_MS;
       room.receive('a', { t: 'hash', tick: 90, hash: 3 });
       room.receive('b', { t: 'hash', tick: 90, hash: 4 });
       tick = last('a', 'resync')!.tick;
@@ -586,16 +608,37 @@ describe('Room (COOP_PLAN C4)', () => {
       expect(room.advance(3 * TICK_MS)).toBeGreaterThan(0);
     });
 
-    it('stops trying after MAX_RESYNCS and only counts from there', () => {
+    /** Let the running resync fail, close ticks past the gap and let `off` report another hash than the rest */
+    const divergeAgain = (ids: string[], off: string, i: number) => {
+      const tick = last('a', 'resync')!.tick;
+      room.receive('a', { t: 'resync-state', tick, gz: null });
+      closeTicks(HASH_EVERY_TICKS);
+      clock += RESYNC_GAP_MS;
+      const at = Math.floor(room.lastTick / HASH_EVERY_TICKS) * HASH_EVERY_TICKS;
+      for (const id of ids) room.receive(id, { t: 'hash', tick: at, hash: id === off ? 200 + i : 100 + i });
+    };
+
+    it('replaces one guest at most MAX_RESYNCS_PER_GUEST times', () => {
       diverged();
-      for (let i = 0; i < MAX_RESYNCS + 2; i++) {
-        const tick = last('a', 'resync')!.tick;
-        room.receive('a', { t: 'resync-state', tick, gz: null });
-        closeTicks(HASH_EVERY_TICKS);
-        const at = Math.floor(room.lastTick / HASH_EVERY_TICKS) * HASH_EVERY_TICKS;
-        room.receive('a', { t: 'hash', tick: at, hash: 100 + i });
-        room.receive('b', { t: 'hash', tick: at, hash: 200 + i });
-      }
+      for (let i = 0; i < MAX_RESYNCS + 2; i++) divergeAgain(['a', 'b'], 'b', i);
+      expect(all('a', 'resync')).toHaveLength(MAX_RESYNCS_PER_GUEST);
+    });
+
+    it('stops trying after MAX_RESYNCS in the room and only counts from there', () => {
+      room.join(player('b'));
+      room.join(player('c'));
+      room.receive('a', { t: 'world', world: {}, spawnIds: ['s1', 's2', 's3'] });
+      room.receive('a', { t: 'pick', spawnId: 's1' });
+      room.receive('b', { t: 'pick', spawnId: 's2' });
+      room.receive('c', { t: 'pick', spawnId: 's3' });
+      room.receive('b', { t: 'ready', ready: true });
+      room.receive('c', { t: 'ready', ready: true });
+      room.receive('a', { t: 'start', seed: 1 });
+      closeTicks(2 * HASH_EVERY_TICKS);
+      for (const id of ['a', 'b', 'c']) room.receive(id, { t: 'hash', tick: 30, hash: id === 'b' ? 9 : 8 });
+      expect(all('a', 'resync')).toHaveLength(1);
+      // b and c in turn: neither reaches its own limit before the room's
+      for (let i = 0; i < MAX_RESYNCS + 2; i++) divergeAgain(['a', 'b', 'c'], i % 2 === 0 ? 'c' : 'b', i);
       expect(all('a', 'resync')).toHaveLength(MAX_RESYNCS);
     });
   });

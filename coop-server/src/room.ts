@@ -103,6 +103,21 @@ export const RESYNC_TIMEOUT_MS = 20_000;
  * every second otherwise.
  */
 export const MAX_RESYNCS = 5;
+/**
+ * Resyncs that may replace one guest's state. A changed client that reports
+ * wrong hashes on purpose would use up the room's MAX_RESYNCS and leave an
+ * honest divergence of the others without one; past this its divergences
+ * only count. With two players the guest is always the one replaced, so
+ * there it is the room's limit.
+ */
+export const MAX_RESYNCS_PER_GUEST = 3;
+/**
+ * Wall time from the end of one resync to the start of the next, ms. A
+ * divergence in between waits and starts it then: a guest whose hashes
+ * differ right after every resync holds the room at most 20 s in 50, not
+ * one hold after another.
+ */
+export const RESYNC_GAP_MS = 30_000;
 
 /** The host sends a world at most this often; more are dropped (review H2) */
 const WORLD_EVERY_MS = 1000;
@@ -220,6 +235,12 @@ export class Room {
   /** Hash reports below this tick describe a state a resync replaced */
   private hashFloor = 0;
   private resyncCount = 0;
+  /** Per guest: resyncs that replaced their state (MAX_RESYNCS_PER_GUEST) */
+  private readonly resyncsOf = new Map<string, number>();
+  /** When the last resync ended, ms (RESYNC_GAP_MS) */
+  private resyncEndedAt = -Infinity;
+  /** The guests out of step of a divergence that waits for RESYNC_GAP_MS; null while none */
+  private resyncDue: string[] | null = null;
   /** Since when the room waits for `waitingFor`, ms */
   private waitingSince = 0;
   private lastCommandAt = 0;
@@ -514,6 +535,11 @@ export class Room {
   advance(realMs: number): number {
     this.flushWorld();
     if (!this.started || this.speed === 0) return 0;
+    if (this.resyncDue && !this.resync && this.now() - this.resyncEndedAt >= RESYNC_GAP_MS) {
+      const due = this.resyncDue;
+      this.resyncDue = null;
+      this.startResync(due);
+    }
     if (this.resync) {
       if (this.now() - this.resync.since >= RESYNC_TIMEOUT_MS) {
         this.log(`resync: no answer within ${RESYNC_TIMEOUT_MS / 1000} s, the room goes on`);
@@ -611,7 +637,19 @@ export class Room {
       this.log(`  command at tick ${c.tick} from ${this.who(c.playerId)}: ${JSON.stringify(c.command).slice(0, 300)}`);
     }
     this.broadcast({ t: 'desync', tick: divergence.tick, hashes: divergence.hashes, outOfStep: divergence.outOfStep, parts: divergence.parts });
-    this.startResync();
+    this.startResync(this.guestsOutOfStep(divergence.hashes, divergence.outOfStep));
+  }
+
+  /**
+   * The guests a divergence puts out of step: those whose hash is not the
+   * host's; without the host's report those off the majority, without a
+   * majority every guest that reported.
+   */
+  private guestsOutOfStep(hashes: readonly [string, number][], outOfStep: readonly string[]): string[] {
+    const hostHash = hashes.find(([id]) => id === this.hostId)?.[1];
+    const ids = hostHash !== undefined ? hashes.filter(([, h]) => h !== hostHash).map(([id]) => id)
+      : outOfStep.length > 0 ? outOfStep : hashes.map(([id]) => id);
+    return ids.filter((id) => id !== this.hostId);
   }
 
   /**
@@ -619,9 +657,20 @@ export class Room {
    * E58): no further tick closes, so every client stops at the boundary of
    * the next one; the host sends its state from there, the guests load it.
    */
-  private startResync(): void {
+  private startResync(outOfStep: readonly string[]): void {
     if (this.resync || this.players.length < 2) return;
     if (this.resyncCount >= MAX_RESYNCS) return this.log(`no resync: ${MAX_RESYNCS} already, divergences only count from here`);
+    const present = outOfStep.filter((id) => this.players.some((p) => p.id === id));
+    if (outOfStep.length > 0 && present.length === 0) return this.log('no resync: the players out of step left');
+    if (present.length > 0 && present.every((id) => (this.resyncsOf.get(id) ?? 0) >= MAX_RESYNCS_PER_GUEST)) {
+      return this.log(`no resync: ${present.map((id) => this.who(id)).join(', ')} had ${MAX_RESYNCS_PER_GUEST} already, their divergences only count`);
+    }
+    if (this.now() - this.resyncEndedAt < RESYNC_GAP_MS) {
+      if (!this.resyncDue) this.log(`resync waits until ${RESYNC_GAP_MS / 1000} s after the last`);
+      this.resyncDue = [...present];
+      return;
+    }
+    for (const id of present) this.resyncsOf.set(id, (this.resyncsOf.get(id) ?? 0) + 1);
     const guests = new Set(this.players.filter((p) => p.id !== this.hostId).map((p) => p.id));
     this.resync = { tick: this.nextTick, since: this.now(), waiting: guests, stateSent: false, nextPart: 0, ok: true };
     this.resyncCount++;
@@ -663,6 +712,7 @@ export class Room {
     const resync = this.resync;
     if (!resync) return;
     this.resync = null;
+    this.resyncEndedAt = this.now();
     this.hashFloor = resync.tick;
     // A new state: the next divergence is news again
     this.hashCheck.forgetTicks();
