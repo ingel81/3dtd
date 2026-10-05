@@ -227,7 +227,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
 
-  # The AUR package 3dtd-bin (packaging/aur, TODO E83): pkgver and the
+  # The AUR package 3dtd-bin (packaging/aur, TODO E83): pkgver, pkgrel and the
   # checksums of this release, .SRCINFO from makepkg in an Arch container.
   # Pushed to the AUR only when the secret AUR_SSH_PRIVATE_KEY is set (the key
   # of the AUR account that owns 3dtd-bin); without it the job shows the files
@@ -236,9 +236,12 @@ jobs:
     needs: publish
     if: ${{ !contains(github.event.inputs.tag || github.ref_name, '-') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
-      AUR_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+      # Whether the key is set, without the key: only the push step sees it
+      HAS_AUR_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
 
     steps:
       - name: Checkout
@@ -246,19 +249,59 @@ jobs:
         with:
           ref: ${{ env.TAG }}
 
-      # The sha256 GitHub keeps for the asset, so nothing is downloaded here
+      # The sha256 GitHub keeps for the asset (REST field `digest`); an asset
+      # without one is downloaded and summed here.
       - name: Version and checksums
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # archlinux:base-devel as of 2026-10-05, pinned: what it writes goes to the AUR
+          ARCH_IMAGE: archlinux:base-devel@sha256:51dd3d24f7fba779e7c471caeee7804c50e8c134ad948e19685a1c83a42facc3
         run: |
           version="${TAG#v}"
-          sum=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
-            --jq ".assets[] | select(.name == \"3DTD-${version}-x86_64.AppImage\") | .digest")
-          sum="${sum#sha256:}"
+          appimage="3DTD-${version}-x86_64.AppImage"
+          digest=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" \
+            --jq ".assets[] | select(.name == \"$appimage\") | .digest // \"\"")
+          if [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            sum="${digest#sha256:}"
+          else
+            echo "[aur] no digest for $appimage, downloading it"
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$appimage" --dir "$RUNNER_TEMP/appimage"
+            sum=$(sha256sum "$RUNNER_TEMP/appimage/$appimage" | cut -d' ' -f1)
+          fi
+
+          # What the AUR holds now, read anonymously, so a rerun for the same
+          # version raises pkgrel only when the package changed (update.sh)
+          # (an unknown package clones empty; a failed clone counts as none, pkgrel 1)
+          if ! git clone --depth 1 https://aur.archlinux.org/3dtd-bin.git "$RUNNER_TEMP/aur-published"; then
+            echo "::warning::could not read 3dtd-bin from the AUR, pkgrel starts at 1"
+            mkdir -p "$RUNNER_TEMP/aur-published"
+          fi
+
           # makepkg does not run as root; update.sh checks both values before it uses them
-          docker run --rm -e VERSION="$version" -e SUM="$sum" -v "$PWD/packaging/aur:/pkg" archlinux:base-devel \
-            bash -c 'set -e; useradd -m builder; chown -R builder /pkg; su builder -c "cd /pkg && bash update.sh $VERSION $SUM"'
+          docker run --rm -e VERSION="$version" -e SUM="$sum" \
+            -v "$PWD/packaging/aur:/pkg" -v "$RUNNER_TEMP/aur-published:/published:ro" "$ARCH_IMAGE" \
+            bash -c 'set -e; useradd -m builder; chown -R builder /pkg; su builder -c "cd /pkg && bash update.sh $VERSION $SUM /published/PKGBUILD"'
           sudo chown -R "$(id -u):$(id -g)" packaging/aur
+
+          # The container may only set pkgver, pkgrel and the checksums and write .SRCINFO
+          others=$(git status --porcelain -- packaging/aur | grep -vx ' M packaging/aur/PKGBUILD' | grep -vx '?? packaging/aur/.SRCINFO' || true)
+          if [ -n "$others" ]; then
+            echo "[aur] the container changed more than PKGBUILD and .SRCINFO:"; echo "$others"; exit 1
+          fi
+          lines=$(git diff --unified=0 -- packaging/aur/PKGBUILD | grep '^[-+]' | grep -v '^+++ \|^--- ' || true)
+          if echo "$lines" | grep -Ev '^[-+](pkgver|pkgrel|sha256sums)=' | grep -q .; then
+            echo "[aur] PKGBUILD changed beyond pkgver, pkgrel and sha256sums:"; echo "$lines"; exit 1
+          fi
+          grep -qx "pkgver=${version}" packaging/aur/PKGBUILD
+          grep -q "^sha256sums=('${sum}' " packaging/aur/PKGBUILD
+          srcinfo=packaging/aur/.SRCINFO
+          grep -qxP "\tpkgver = ${version}" "$srcinfo"
+          grep -qxP "\tsha256sums = ${sum}" "$srcinfo"
+          grep -qxF "$(printf '\tsource = %s::https://github.com/ingel81/3dtd/releases/download/v%s/%s' "$appimage" "$version" "$appimage")" "$srcinfo"
+          if grep -vP '^(\t?(pkgbase|pkgname|pkgdesc|pkgver|pkgrel|url|arch|license|depends|provides|conflicts|options|source|noextract|sha256sums) = .*)?$' "$srcinfo" | grep -q .; then
+            echo "[aur] .SRCINFO has a line it should not:"; cat "$srcinfo"; exit 1
+          fi
+
           fence='```'
           {
             echo "### AUR package 3dtd-bin ${version}"
@@ -270,15 +313,24 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Push to the AUR
-        if: env.AUR_KEY != ''
+        if: env.HAS_AUR_KEY == 'true'
         env:
+          AUR_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           AUR_EMAIL: ${{ secrets.AUR_GIT_EMAIL }}
+          # The AUR's Ed25519 host key as https://aur.archlinux.org/ lists it under
+          # "SSH fingerprints" (read 2026-10-05); the scanned key must match it
+          AUR_HOST_FINGERPRINT: 'SHA256:RFzBCUItH9LZS0cKB5UE6ceAYhBD5C8GeOBip8Z11+4'
         run: |
           install -dm700 ~/.ssh
+          ssh-keyscan -t ed25519 aur.archlinux.org > "$RUNNER_TEMP/aur-host"
+          scanned=$(ssh-keygen -lf "$RUNNER_TEMP/aur-host" | awk '{print $2}')
+          if [ "$scanned" != "$AUR_HOST_FINGERPRINT" ]; then
+            echo "[aur] host key $scanned is not the published $AUR_HOST_FINGERPRINT"; exit 1
+          fi
+          cat "$RUNNER_TEMP/aur-host" >> ~/.ssh/known_hosts
           printf '%s\n' "$AUR_KEY" > ~/.ssh/aur
           chmod 600 ~/.ssh/aur
-          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
-          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/aur -o IdentitiesOnly=yes"
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/aur -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
           git clone ssh://aur@aur.archlinux.org/3dtd-bin.git aur
           cp packaging/aur/PKGBUILD packaging/aur/.SRCINFO packaging/aur/3dtd.desktop packaging/aur/3dtd.sh aur/
           cd aur
@@ -289,7 +341,7 @@ jobs:
             echo "[aur] 3dtd-bin is up to date"
             exit 0
           fi
-          git commit -m "Update to ${TAG#v}"
+          git commit -m "Update to $(sed -n 's/^pkgver=//p' PKGBUILD)-$(sed -n 's/^pkgrel=//p' PKGBUILD)"
           git push origin HEAD:master
 
   # The coop relay for the online lobby, as a container image next to the

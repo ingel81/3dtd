@@ -570,12 +570,19 @@ Bekannte Stolpersteine, beim ersten Test zu prüfen:
 `packaging/aur/` hält das Paket: `PKGBUILD` lädt das versionierte AppImage des Releases, entpackt es
 (`--appimage-extract`, ohne FUSE) nach `/opt/3dtd`, legt `/usr/bin/3dtd`, den Desktop-Eintrag, die Icons und die
 Lizenz dazu. Gestartet ohne AppImage-Hülle fehlt `APPIMAGE`, der eigene Updater der App bleibt aus, pacman
-aktualisiert. `update.sh <version> <sha256>` setzt pkgver, pkgrel 1 und die Prüfsummen und schreibt `.SRCINFO` mit
-`makepkg --printsrcinfo`.
+aktualisiert. `chrome-sandbox` behält das SUID-Bit (Kernel ohne unprivilegierte User-Namespaces).
+`update.sh <version> <sha256> [<PKGBUILD im AUR>]` setzt pkgver, pkgrel und die Prüfsummen und schreibt `.SRCINFO` mit
+`makepkg --printsrcinfo`; pkgrel ist 1 bei neuer Version, bei gleicher Version bleibt er ohne Änderung und steigt um
+eins mit Änderung (erneuter Lauf nach einem Packaging-Fix).
 
-Der Job `aur` in `release.yml` läuft nach dem Veröffentlichen (nicht bei Tags mit „-“): die Prüfsumme kommt aus
-den Asset-Daten von GitHub, `update.sh` läuft in `archlinux:base-devel`, die Dateien stehen in der Zusammenfassung
-des Laufs. Gepusht wird nur mit dem Secret `AUR_SSH_PRIVATE_KEY`.
+Der Job `aur` in `release.yml` läuft nach dem Veröffentlichen (nicht bei Tags mit „-“, nur mit Leserecht): die
+Prüfsumme kommt aus dem REST-Feld `digest` des Assets (ohne es wird das AppImage geladen und gerechnet), `update.sh`
+läuft in `archlinux:base-devel`, per Digest gepinnt, mit dem PKGBUILD, das das AUR gerade hält (anonymer Klon). Danach
+prüft der Job, dass der Container nur pkgver, pkgrel und sha256sums geändert und `.SRCINFO` mit den erwarteten Werten
+geschrieben hat. Die Dateien stehen in der Zusammenfassung des Laufs. Gepusht wird nur mit dem Secret
+`AUR_SSH_PRIVATE_KEY`, das nur der Push-Schritt sieht; der gescannte Host-Schlüssel muss den Ed25519-Fingerprint
+tragen, den https://aur.archlinux.org/ veröffentlicht. Ein neues Image: Digest von `archlinux:base-devel` holen und
+`ARCH_IMAGE` ersetzen.
 
 Einmalig vom User einzurichten:
 
@@ -587,7 +594,9 @@ Einmalig vom User einzurichten:
 3. In GitHub unter Settings, Secrets and variables, Actions: `AUR_SSH_PRIVATE_KEY` (der private Schlüssel aus 1),
    optional `AUR_GIT_EMAIL` (sonst `ingel81@users.noreply.github.com` als Autor der AUR-Commits).
 
-Ungeprüft: der Job selbst (Container, Push), `namcap` und ob die Liste in `depends` vollständig ist; die
+Ungeprüft: der Job selbst (Container, Push), `namcap` und ob die Liste in `depends` vollständig ist. Was mit `usr/`
+wegfällt, hat Toolset 1.0.3 gebündelt: libXss, libXtst, libnotify (in `depends`), libappindicator3, libindicator3,
+libgconf-2 (nicht in `depends`); ob die Binärdatei eine davon lädt, zeigt erst `ldd` auf einem echten Build. Die
 Schritte von `prepare` und `package` liefen am 2026-10-05 in WSL gegen das AppImage von 0.6.0, `update.sh` mit
 einem Ersatz für `makepkg`.
 
