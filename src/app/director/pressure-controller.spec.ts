@@ -77,3 +77,16 @@ describe('PressureController: what it tells about its last step (E113)', () => {
     expect(loop.status).toMatchObject({ lastStep: 'opened', lastChange: 1 });
   });
 });
+
+describe('PressureController: saved and taken back (TODO E110)', () => {
+  it('goes on from a saved state as the controller it was saved from', () => {
+    const live = new PressureController({ min: 0.5, max: 2.5 }, { warmupWaves: 1, minSamples: 2 });
+    for (const [wave, p] of [[1, 0.3], [2, 0], [3, 0], [4, 0.08]] as const) live.recordWave(p, wave);
+    const loaded = new PressureController({ min: 0.5, max: 2.5 }, { warmupWaves: 1, minSamples: 2 });
+    loaded.restoreState(JSON.parse(JSON.stringify(live.saveState())));
+    for (const [wave, p] of [[5, 0], [6, 0.02], [7, 0.2]] as const) {
+      expect(loaded.recordWave(p, wave)).toBe(live.recordWave(p, wave));
+    }
+    expect(loaded.status).toEqual(live.status);
+  });
+});

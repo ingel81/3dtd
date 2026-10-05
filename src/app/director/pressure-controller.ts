@@ -179,6 +179,17 @@ export interface PressureStatus {
   lastChange: number;
 }
 
+/** Der Zustand des Reglers als einfache Daten, für einen Spielstand (TODO E110). */
+export interface PressureState {
+  smoothed: number | null;
+  samples: number;
+  multiplier: number;
+  lastStep: PressureStep;
+  lastTarget: number | null;
+  lastPressure: number | null;
+  lastChange: number;
+}
+
 /**
  * Warum überhaupt geglättet und nicht auf die letzte Welle geregelt:
  *
@@ -234,6 +245,30 @@ export class PressureController {
       lastStep: this.lastStep,
       lastChange: this.lastChange,
     };
+  }
+
+  /** Der Zustand des Laufs, für einen Spielstand. */
+  saveState(): PressureState {
+    return {
+      smoothed: this.smoothed,
+      samples: this.sampleCount,
+      multiplier: this.multiplier,
+      lastStep: this.lastStep,
+      lastTarget: this.lastTarget,
+      lastPressure: this.lastPressure,
+      lastChange: this.lastChange,
+    };
+  }
+
+  /** Den Zustand eines Spielstands übernehmen; der Regler macht weiter, wo er dort stand. */
+  restoreState(state: PressureState): void {
+    this.smoothed = state.smoothed;
+    this.sampleCount = state.samples;
+    this.multiplier = state.multiplier;
+    this.lastStep = state.lastStep;
+    this.lastTarget = state.lastTarget;
+    this.lastPressure = state.lastPressure;
+    this.lastChange = state.lastChange;
   }
 
   /** Zustand des Laufs verwerfen. Gehört an den Start eines neuen Spiels. */

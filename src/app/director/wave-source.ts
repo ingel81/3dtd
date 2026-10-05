@@ -151,4 +151,12 @@ export interface WaveSource {
 
   /** Drop everything that belongs to one run. */
   reset(): void;
+
+  /**
+   * What belongs to the run as plain data, for a save game (TODO E110); a
+   * source without state of its own leaves both out.
+   */
+  saveState?(): unknown;
+  /** Take a save game's state back: the run goes on as if never left */
+  restoreState?(state: unknown): void;
 }

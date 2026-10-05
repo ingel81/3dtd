@@ -26,7 +26,7 @@ import type { WaveResult } from '../../models/wave-result';
 import type { BudgetBreakdown, DecisionExplanation, LoopReading } from '../../wave-explanation';
 import type { ArmorType } from '../../../configs/combat/combat.types';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
-import { PressureController, targetPressure, wavePressure } from '../../pressure-controller';
+import { PressureController, targetPressure, wavePressure, type PressureState } from '../../pressure-controller';
 import { directorParams } from '../../director-params';
 import { RUN_PLAN_RULES, planEnemies, planMutator, planRowForWave, waveLeakScale, type RunPlanRow } from './run-plan';
 import { BOSS_MIN_HP_MULT, BOSS_OVER_ESCORT, CAP_FOLLOWS_REGULATOR, bodyParts, sizeWave, type BudgetResult } from './budget';
@@ -41,6 +41,12 @@ import { BOSS_MIN_HP_MULT, BOSS_OVER_ESCORT, CAP_FOLLOWS_REGULATOR, bodyParts, s
 export const BUDGET_REGULATOR_LIMITS = { min: 0.5, max: 2.5 } as const;
 /** From the second wave on, two readings: bots lost 40 to 60 HP a wave in W5-W7 while the loop still waited. */
 export const BUDGET_REGULATOR_START = { warmupWaves: 1, minSamples: 2 } as const;
+
+/** What a run of the budget source holds, see saveState */
+export interface BudgetSourceState {
+  pressure: PressureState;
+  lastCapped: boolean;
+}
 
 export class BudgetWaveSource implements WaveSource {
   readonly id: WaveSourceId = 'budget';
@@ -174,6 +180,17 @@ export class BudgetWaveSource implements WaveSource {
   reset(): void {
     this.pressure.reset();
     this.lastCapped = false;
+  }
+
+  /** The loop and the anti-windup flag, for a save game (TODO E110) */
+  saveState(): BudgetSourceState {
+    return { pressure: this.pressure.saveState(), lastCapped: this.lastCapped };
+  }
+
+  restoreState(state: unknown): void {
+    const saved = state as BudgetSourceState;
+    this.pressure.restoreState(saved.pressure);
+    this.lastCapped = saved.lastCapped;
   }
 
   /** What the loop read after the last wave and what it did, for the wave debug window (E113) */

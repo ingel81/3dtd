@@ -28,6 +28,15 @@ import type {
   WaveSourceId,
 } from './wave-source';
 
+/** The director of a run in a save game, see WaveDirector.saveState */
+export interface DirectorSave {
+  source: WaveSourceId;
+  /** WaveSource.saveState, null for a source without state */
+  sourceState: unknown;
+  /** The committed wave, null before one was */
+  planned: PlannedWave | null;
+}
+
 @Injectable() // Provided in TowerDefenseComponent alongside GameStateManager
 export class WaveDirector {
   private stateSnapshots = inject(StateSnapshotService);
@@ -214,6 +223,33 @@ export class WaveDirector {
     if (this.activeSource.plansAt === 'wave-end') {
       this.planAhead(1);
     }
+  }
+
+  /**
+   * The run's side of the director for a save game (TODO E110): the source
+   * it plays, the source's own state and the wave it has committed. The
+   * `director` stream is the mirror's (SimMirror.rng) and goes with it there.
+   */
+  saveState(): DirectorSave {
+    return {
+      source: this.activeSource.id,
+      sourceState: this.activeSource.saveState?.() ?? null,
+      planned: this.plannedWave ? (JSON.parse(JSON.stringify(this.plannedWave)) as PlannedWave) : null,
+    };
+  }
+
+  /**
+   * Take a save game's director back, after the reset of the run it loads
+   * into: its source plays this run and the next, its loop stands where it
+   * stood, its committed wave is the one that comes.
+   */
+  restoreState(save: DirectorSave): void {
+    this.activeSource = createWaveSource(save.source);
+    this.nextSourceId = save.source;
+    if (save.sourceState !== null) this.activeSource.restoreState?.(save.sourceState);
+    setActiveWaveRules(this.activeSource.rules);
+    this.plannedWave = save.planned;
+    this.lastDecision.set(null);
   }
 
   /**
