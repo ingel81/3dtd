@@ -68,6 +68,20 @@ describe('DebugWindowService', () => {
     expect(service.getPosition('display')).toEqual({ x: 5, y: 6 });
   });
 
+  it('ignores a malformed stored position and keeps one left or above the page on it', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      sound: { position: { x: 'far', y: null } },
+      tower: { position: { x: -400, y: -30 } },
+      enemy: { position: { x: 900, y: 40 } },
+    }));
+
+    const service = new DebugWindowService();
+    expect(service.getPosition('sound')).toEqual({ x: 20, y: 200 });
+    expect(service.getPosition('tower')).toEqual({ x: 0, y: 0 });
+    // Right and below depend on the window, the panel's frame moves it on opening
+    expect(service.getPosition('enemy')).toEqual({ x: 900, y: 40 });
+  });
+
   it('ignores a malformed stored size and clamps one below the minimum', () => {
     const defaultSize = new DebugWindowService().getSize('sound');
     localStorage.setItem(STORAGE_KEY, JSON.stringify({

@@ -213,6 +213,7 @@ export class DebugWindowService {
           defaults[key] = {
             ...defaults[key],
             ...entry,
+            position: this.parseStoredPosition(entry.position, DEFAULT_POSITIONS[key]),
             size: this.parseStoredSize(entry.size, DEFAULT_SIZES[key]),
           };
         }
@@ -220,6 +221,15 @@ export class DebugWindowService {
     }
 
     return defaults;
+  }
+
+  /** A stored position of finite numbers, left and top never above or left of the page; the default otherwise */
+  private parseStoredPosition(value: unknown, fallback: WindowPosition): WindowPosition {
+    const position = value as Partial<WindowPosition> | null | undefined;
+    if (position && Number.isFinite(position.x) && Number.isFinite(position.y)) {
+      return { x: Math.max(0, position.x!), y: Math.max(0, position.y!) };
+    }
+    return fallback;
   }
 
   private parseStoredSize(value: unknown, fallback: WindowSize): WindowSize {

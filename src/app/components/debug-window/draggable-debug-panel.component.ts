@@ -126,6 +126,12 @@ export class DraggableDebugPanelComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  /** A smaller window: the panel comes back into view */
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.constrainToViewport();
+  }
+
   @HostListener('document:mouseup')
   onMouseUp(): void {
     this.stopDrag();
@@ -177,12 +183,12 @@ export class DraggableDebugPanelComponent implements AfterViewInit, OnDestroy {
     let newX = pos.x;
     let newY = pos.y;
 
-    if (pos.x + size.width > window.innerWidth) {
-      newX = Math.max(0, window.innerWidth - size.width);
+    if (pos.x < 0 || pos.x + size.width > window.innerWidth) {
+      newX = Math.max(0, Math.min(pos.x, window.innerWidth - size.width));
       needsUpdate = true;
     }
-    if (pos.y + size.height > window.innerHeight) {
-      newY = Math.max(0, window.innerHeight - size.height);
+    if (pos.y < 0 || pos.y + size.height > window.innerHeight) {
+      newY = Math.max(0, Math.min(pos.y, window.innerHeight - size.height));
       needsUpdate = true;
     }
 
