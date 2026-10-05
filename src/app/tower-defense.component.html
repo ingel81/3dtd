@@ -298,7 +298,7 @@
           <!-- Camera controls at the start, auto-hidden after 15 s. In the hint
                slot rather than bottom left, where it covered the map credits. -->
           <app-context-hint
-            [hints]="controlsHints"
+            [hints]="controlsHints()"
             [actions]="controlsHintActions"
             (actionClicked)="controlsHintVisible.set(false)"
           />

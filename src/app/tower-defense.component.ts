@@ -44,6 +44,7 @@ import { InfoOverlayComponent } from './components/info-overlay/info-overlay.com
 import { BenchmarkPanelComponent } from './benchmark/benchmark-panel.component';
 import { BenchmarkService } from './benchmark/benchmark.service';
 import { ContextHintComponent, HintAction, HintItem } from './components/context-hint/context-hint.component';
+import { controlsHints } from './components/context-hint/controls-hints';
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
 import { BossBarComponent } from './components/boss-bar/boss-bar.component';
 import { CoopSquadComponent } from './components/coop-squad/coop-squad.component';
@@ -477,13 +478,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   // Controls hint auto-hide
   readonly controlsHintVisible = signal(true);
-  readonly controlsHints: HintItem[] = [
-    { key: 'LMB', description: 'Pan' },
-    { key: 'RMB', description: 'Rotate' },
-    { key: 'Wheel', description: 'Zoom' },
-    { key: 'WASD', description: 'Move' },
-    { key: 'H', description: 'Shortcuts' },
-  ];
+  /** With "M: Sound is off" while M from the last session holds (review 2026-10-01) */
+  readonly controlsHints = computed(() => controlsHints(this.uiStore.masterMuted()));
   readonly controlsHintActions: HintAction[] = [{ id: 'hide', label: 'Got it' }];
   private controlsHintTimer: ReturnType<typeof setTimeout> | null = null;
   /** Set once the game started; the hint's 15 s count only after the intro flight. */
