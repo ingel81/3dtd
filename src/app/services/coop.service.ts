@@ -281,6 +281,8 @@ export class CoopService {
   /** Lobby: the lane autoPick asked for, so it asks once */
   private autoPicking: string | null = null;
   private chatId = 1;
+  /** The name set in this session; holds where storage is blocked */
+  private sessionName: string | null = null;
   private waveStarter: (() => void) | null = null;
   private readyNow = false;
   /** The speed the room runs at; what the store shows is set from it (applySpeed) */
@@ -654,11 +656,12 @@ export class CoopService {
   }
 
   get name(): string {
-    return readText(NAME_KEY) ?? 'Player';
+    return this.sessionName ?? readText(NAME_KEY) ?? 'Player';
   }
 
   set name(value: string) {
-    // Storage blocked: the name holds for this session
+    // Storage blocked: the name holds for this session all the same
+    this.sessionName = value;
     writeText(NAME_KEY, value);
   }
 

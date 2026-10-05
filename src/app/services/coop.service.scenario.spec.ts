@@ -211,6 +211,23 @@ describe('CoopService over a real relay (review R21)', () => {
     return { host, guest };
   }
 
+  it('keeps the name for the session where storage is blocked (review 2026-10-01)', () => {
+    const { coop } = player(1);
+    const blocked = () => {
+      throw new DOMException('blocked', 'SecurityError');
+    };
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked);
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(blocked);
+    try {
+      expect(coop.name).toBe('Player');
+      coop.name = 'Ann';
+      expect(coop.name).toBe('Ann');
+    } finally {
+      set.mockRestore();
+      get.mockRestore();
+    }
+  });
+
   it('opens a room, lets a guest in and gives each a lane of their own', async () => {
     const { host, guest } = await lobby();
     const room = host.coop.room()!;
