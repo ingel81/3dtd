@@ -154,6 +154,8 @@ export class SimSnapshots {
     // A killed ooze's collapsing band belongs to the state before
     w.sink.oozes.clear();
 
+    // The clock first: a tower still in its scaffold tells its rest of the build from it (announceBuild)
+    w.clock.setState(snapshot.clock);
     // Towers keep their ids: the id counter is set before each is built
     for (const saved of snapshot.towers) {
       GameObject.setIdCounter(idNumber(saved.id) - 1);
@@ -200,7 +202,6 @@ export class SimSnapshots {
     w.waveManager.waveNumber.set(snapshot.waveNumber);
     w.waveManager.phase.set(snapshot.phase);
     w.setRunStarted(snapshot.runStarted);
-    w.clock.setState(snapshot.clock);
     w.rng.setState(snapshot.rng);
     GameObject.setIdCounter(snapshot.idCounter);
 

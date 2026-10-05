@@ -366,6 +366,18 @@ describe('Manning a tower, through the sub-step loop', () => {
     expect(blank).toHaveBeenCalled();
   });
 
+  it('tells a scaffold its rest of the build by the restored clock, not the one before the restore', () => {
+    const gsm = createGame();
+    const setBuild = vi.mocked(gsm.ops.sink.towers.setBuild);
+    const tower = gsm.placeTower(TOWER_AT, 'archer')!;
+    const snapshot = gsm.captureSnapshot();
+    steps(gsm, { now: 1000 }, 120);
+    expect(tower.isBuilt(gsm.gameTimeMs)).toBe(false);
+    setBuild.mockClear();
+    gsm.restoreSnapshot(snapshot, 'live');
+    expect(setBuild.mock.calls).toEqual([[tower.id, DEFAULT_BUILD_TIME_MS, DEFAULT_BUILD_TIME_MS]]);
+  });
+
   it('buys the Scout path once its research is done, once per tower, and sells it back with the tower (TODO E101)', () => {
     const gsm = createGame();
     const setPath = vi.mocked(gsm.ops.sink.towers.setPath);
