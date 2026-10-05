@@ -61,7 +61,7 @@ describe('save file (TODO E110)', () => {
   });
 
   it('names the download after place and wave', () => {
-    expect(saveFileName({ place: { name: 'Heilbronn, Kiliansplatz', hq: { lat: 0, lon: 0 }, spawns: [] }, wave: 12 }))
+    expect(saveFileName('Heilbronn, Kiliansplatz', 12))
       .toBe('3dtd-save-heilbronn-kiliansplatz-w12.json.gz');
   });
 });

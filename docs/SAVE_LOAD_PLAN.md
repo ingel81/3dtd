@@ -41,3 +41,27 @@ die Punkte, die ein Spielmenü erwartet.
    als Raum-Start verteilen kann.
 6. **Menü:** dazu kommen Restart am selben Ort (mit Rückfrage), getrennte Regler für Effekte, Musik und UI,
    Grafikqualität und Spieltempo, Run-Log und Replay exportieren (heute nur am Game-Over-Bildschirm).
+
+## Gebaut (2026-10-05, E110 Kern)
+
+- **Port** `services/save-game/save-game.port.ts`: `SAVE_GAME` mit `canSave`, `cannotSaveReason`, `slots`,
+  `hasAutosave`, `startPlace`, `save`, `load`, `deleteSlot`, `exportFile`, `importFile`, `continueAutosave`. Im
+  Spiel stellt `TowerDefenseComponent` den `SaveGameService` dahinter, außerhalb bleibt der Stub.
+- **Format** `simulator/save-file.ts` (`3dtd-save`, Version 1): Kopf wie die Replay-Datei, dazu Ort (Name, HQ,
+  Spawns), Weltpaket, `SimSnapshot`, Director (Quelle, deren Zustand, die zugesagte Welle), `SimMirror.rng`, Run-Log
+  und Kurvenpunkte. Andere Spielversion oder andere Werte laden mit Hinweis, abgelehnt werden nur anderes Format,
+  andere Snapshot-Form oder eine beschädigte Datei. Export als gzip (`3dtd-save-<ort>-w<welle>.json.gz`).
+- **Plätze** in IndexedDB (`3dtd-saves`, Kopf und Text getrennt): `autosave` nach jeder Welle, sobald die
+  Simulation ruht (`snapshotRefusal` leer, höchstens 10 s), dazu `slot-1` bis `slot-5`.
+- **Speichern** nur zwischen den Wellen, nicht im Coop, nicht im Replay, nicht in DevWorld, nicht nach Game Over.
+- **Laden:** Ort wie beim Coop-Gast (`WorldPackageLoader`, aus `CoopService` herausgezogen), dann Routen, Zellen und
+  Höhen des Spielstands statt der gemessenen, Weltschlüssel muss passen; danach `restoreSnapshot` im Worker und, wenn
+  das Paket mit `sim:restored` da ist, Director, Zufallsquelle und Run-Log (`RunLogCollector.resume`, gleiche
+  `runId`). Ohne Ort (Start) schließt der Startdialog mit dem Ort des Spielstands (`startPlace`).
+- **Prüfung:** `integration/save-resume.scenario.spec.ts` speichert zwischen zwei Wellen, baut eine frische
+  Simulation aus dem Weltpaket auf Boden ohne Werte und spielt die nächste Welle mit denselben Befehlen: jede
+  Prüfsumme gleich dem ununterbrochenen Lauf.
+
+Offen: die Menü-Oberfläche (Plätze, Export, Import, „Continue“ im Startbildschirm, Rückfrage vor dem Laden über
+einen laufenden Lauf) baut der Menü-Worker; ein Lauf im Browser mit echter Karte steht aus. Replays der Wellen vor
+dem Laden gibt es nach dem Laden nicht (die Aufzeichnung beginnt neu).

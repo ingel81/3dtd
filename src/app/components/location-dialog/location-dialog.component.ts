@@ -15,6 +15,7 @@ import { SHOWCASE_LOCATIONS, ShowcaseLocation } from '../../configs/showcase-loc
 import { TdIconComponent } from '../icon/icon.component';
 import { WorldGlobeComponent } from '../world-globe/world-globe.component';
 import { CoopEntryComponent } from '../coop-entry/coop-entry.component';
+import { SAVE_GAME } from '../../services/save-game/save-game.port';
 import { COOP } from '../../services/coop.token';
 import { joinedPlaceResult, linkedPlaceResult } from './joined-place';
 import { UrlLocationService } from '../../services/location/url-location.service';
@@ -66,6 +67,8 @@ export class LocationDialogComponent {
   readonly data: LocationDialogData = inject(MAT_DIALOG_DATA);
   /** The game's coop service, through the injector the start dialog opens with (E30); null elsewhere */
   readonly coop = inject(COOP, { optional: true });
+  /** The game's save game through the same injector: a load at a start without a place (TODO E110) */
+  private readonly saveGame = inject(SAVE_GAME, { optional: true });
 
   constructor() {
     // Joined from the Coop tab: the host's world came, close with its place
@@ -74,6 +77,12 @@ export class LocationDialogComponent {
     if (coop) effect(() => {
       const place = coop.hostPlace();
       if (place && this.editMode() === 'coop') this.dialogRef.close(joinedPlaceResult(place));
+    });
+    // A save loaded from the start ("Continue"): close with its place, the boot loads it, the load goes on there
+    const saveGame = this.saveGame;
+    if (saveGame) effect(() => {
+      const place = saveGame.startPlace();
+      if (place && this.firstPlace) this.dialogRef.close(joinedPlaceResult(place));
     });
   }
 

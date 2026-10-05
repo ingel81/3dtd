@@ -43,6 +43,8 @@ import { DEBUG_CREDITS_STEPS, DEBUG_HEALTH_STEPS, debugCheatAmount } from './com
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { BenchmarkPanelComponent } from './benchmark/benchmark-panel.component';
 import { BenchmarkService } from './benchmark/benchmark.service';
+import { SaveGameService } from './services/save-game/save-game.service';
+import { SAVE_GAME } from './services/save-game/save-game.port';
 import { ContextHintComponent, HintAction, HintItem } from './components/context-hint/context-hint.component';
 import { controlsHints } from './components/context-hint/controls-hints';
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
@@ -217,6 +219,9 @@ import { COOP } from './services/coop.token';
     { provide: COOP, useExisting: CoopService },
     // The in-game benchmark drives the game loop's load handle (TODO E74)
     BenchmarkService,
+    // Saving and loading the run, between the waves (TODO E110); the menu binds to SAVE_GAME
+    SaveGameService,
+    { provide: SAVE_GAME, useExisting: SaveGameService },
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-defense.component.html',
@@ -237,6 +242,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly presentation = inject(PresentationService);
   private readonly routeGridViz = inject(RouteGridVizService);
   private readonly runLog = inject(RunLogFacade);
+  /** Made with the game: it saves after every wave from the start */
+  private readonly saveGame = inject(SaveGameService);
   protected readonly uiStore = inject(UIStore);
   readonly configService = inject(ConfigService);
 

@@ -154,7 +154,7 @@ export function saveFileRefusalText(refusal: SaveFileRefusal): string {
 }
 
 /** File name for a download: 3dtd-save-<place>-w<wave>.json.gz */
-export function saveFileName(file: Pick<SaveFile, 'place' | 'wave'>): string {
-  const slug = file.place.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'map';
-  return `3dtd-save-${slug}-w${file.wave}.json.gz`;
+export function saveFileName(placeName: string, wave: number): string {
+  const slug = placeName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'map';
+  return `3dtd-save-${slug}-w${wave}.json.gz`;
 }
