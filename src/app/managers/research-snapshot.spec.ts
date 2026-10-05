@@ -12,11 +12,11 @@ describe('research snapshot of a coop partner', () => {
   const setup = () => {
     const bus = new GameEventBus();
     const mine = new ResearchManager(bus, { playerId: 'p1', local: () => true });
-    const theirs = new ResearchManager(bus, { playerId: 'p2', local: () => false });
+    const theirs = new ResearchManager(bus, { playerId: 'p2', local: () => false }, undefined, () => 2);
     return { bus, mine, theirs };
   };
 
-  it('copies completed, running, queued, the elapsed time and the center', () => {
+  it('copies completed, running, queued, the elapsed time, the center and the lanes', () => {
     const { theirs } = setup();
     theirs.onCenterPlaced();
     theirs.completeResearch('biology');
@@ -29,6 +29,8 @@ describe('research snapshot of a coop partner', () => {
     expect(snapshot.elapsed.get('gatling-tech')).toBeCloseTo(4);
     expect(snapshot.centerLevel).toBe(1);
     expect(snapshot.maxSlots).toBe(theirs.maxSlots);
+    // Their prices: the cost times their lanes (E115)
+    expect(snapshot.lanes).toBe(2);
 
     // The manager counts on in place; what was read stays as it was read
     theirs.update(2000);

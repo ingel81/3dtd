@@ -262,9 +262,10 @@ export class ResearchDialogComponent {
     return getResearch(id)?.icon ?? 'flask';
   }
 
+  /** What `id` costs the player whose tree is shown: their lanes on a partner's tree (E115) */
   protected researchCost(id: ResearchId): number {
     const research = getResearch(id);
-    return research ? laneCost(research, this.research.lanes()) : 0;
+    return research ? laneCost(research, this.treeState().lanes ?? 1) : 0;
   }
 
   protected tooShort(id: ResearchId): boolean {

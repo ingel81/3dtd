@@ -249,6 +249,7 @@ describe('the read-only view of a coop partner (TODO E35)', () => {
     elapsed: new Map<ResearchId, number>([['gatling-tech', 5]]),
     centerLevel: 1,
     maxSlots: 1,
+    lanes: 2,
   }, Number.POSITIVE_INFINITY);
 
   it('shows their done, running and queued research, and no click does anything', () => {
@@ -259,6 +260,11 @@ describe('the read-only view of a coop partner (TODO E35)', () => {
     for (const id of Object.keys(RESEARCH_TREE) as ResearchId[]) {
       expect(researchClickAction(id, partner)).toBe('none');
     }
+  });
+
+  it('prices their nodes at the cost times their lanes, not the base cost (E115)', () => {
+    const cost = RESEARCH_TREE['gatling-tech'].cost;
+    expect(buildResearchDetail('gatling-tech', partner, 0)!.cost).toBe(cost * 2);
   });
 
   it('does not judge their credits and does not tell to click', () => {

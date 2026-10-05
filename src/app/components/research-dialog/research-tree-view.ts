@@ -70,6 +70,7 @@ export function researchTabs(
 /**
  * The tree state for a partner's research, read only. Their credits are not
  * this view's business: every open node shows as open, none as too dear.
+ * The prices are theirs, the cost times their lanes (E115).
  */
 export function viewOnlyTreeState(snapshot: ResearchSnapshot, wave: number): ResearchTreeState {
   return {
@@ -80,6 +81,7 @@ export function viewOnlyTreeState(snapshot: ResearchSnapshot, wave: number): Res
     credits: Number.POSITIVE_INFINITY,
     availableSlots: Math.max(0, snapshot.maxSlots - snapshot.active.length),
     wave,
+    lanes: snapshot.lanes,
     readOnly: true,
   };
 }

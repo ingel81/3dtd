@@ -75,18 +75,23 @@ export class ResearchManager implements IGameManager {
   /**
    * @param wave the wave the run is at for the research (researchWave), read
    *   at every check; a manager without a run (specs) has every wave open
-   * @param lanes how many lanes the player holds, the factor on every cost (researchCost)
+   * @param laneCount how many lanes the player holds, the factor on every cost (researchCost)
    */
   constructor(
     private readonly eventBus: GameEventBus,
     readonly owner: PlayerOwner = LOCAL_OWNER,
     private readonly wave: () => number = () => Number.POSITIVE_INFINITY,
-    private readonly lanes: () => number = () => 1,
+    private readonly laneCount: () => number = () => 1,
   ) {}
+
+  /** The player's lanes, the factor on every research cost (researchCost); at least 1 */
+  get lanes(): number {
+    return Math.max(1, this.laneCount());
+  }
 
   /** What `config` costs this player now (researchCost with the player's lanes). */
   costOf(config: ResearchConfig): number {
-    return researchCost(config, this.lanes());
+    return researchCost(config, this.lanes);
   }
 
   /** The wave `config` still waits for (its minWave), null when it is open. */
@@ -207,7 +212,7 @@ export class ResearchManager implements IGameManager {
       queuedResearches: this.getQueuedResearches(),
       centerLevel: this._centerLevel,
       maxSlots: this._maxSlots,
-      lanes: Math.max(1, this.lanes()),
+      lanes: this.lanes,
     });
   }
 

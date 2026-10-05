@@ -14,6 +14,8 @@ export interface ResearchSnapshot {
   /** Level of their research center, 0 without one */
   centerLevel: number;
   maxSlots: number;
+  /** Their lanes, the factor on every research cost (researchCost) */
+  lanes: number;
 }
 
 /** The parts of a ResearchManager the snapshot reads */
@@ -23,6 +25,7 @@ export interface ResearchSource {
   getQueuedResearches(): ResearchId[];
   readonly centerLevel: number;
   readonly maxSlots: number;
+  readonly lanes: number;
 }
 
 /**
@@ -38,6 +41,7 @@ export function researchSnapshotOf(research: ResearchSource): ResearchSnapshot {
     elapsed: new Map(active.map((a) => [a.researchId, a.elapsed])),
     centerLevel: research.centerLevel,
     maxSlots: research.maxSlots,
+    lanes: research.lanes,
   };
 }
 
