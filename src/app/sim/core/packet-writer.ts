@@ -118,6 +118,7 @@ export class PacketWriter {
       enemiesAlive: gsm.enemyManager.getAliveCount(),
       snapshotRefusal: gsm.snapshotRefusal(),
       waveSnapshotRefusal: gsm.waveSnapshotRefusal(),
+      losAwaiting: gsm.towerLos.awaitingCount,
       lockstepActive: gsm.lockstepActive,
       paused: frame.paused,
       gameSpeed: frame.gameSpeed,

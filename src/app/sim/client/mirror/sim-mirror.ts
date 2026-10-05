@@ -42,6 +42,7 @@ export function initialScalars(): SimScalars {
     enemiesAlive: 0,
     snapshotRefusal: null,
     waveSnapshotRefusal: null,
+    losAwaiting: 0,
     lockstepActive: false,
     paused: false,
     gameSpeed: 1,

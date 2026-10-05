@@ -81,7 +81,7 @@ function setup(options: { inCoop?: boolean } = {}) {
   };
   const mirror = {
     rng: { setState: vi.fn(() => order.push('rng')), getState: () => ({ seed: 1, streams: {} }) },
-    scalars: { snapshotRefusal: null },
+    scalars: { snapshotRefusal: null, losAwaiting: 0 },
   };
   const director = {
     restoreState: vi.fn(() => order.push('director')),
@@ -171,6 +171,23 @@ describe('SaveGameService (TODO E110)', () => {
     // The simulation refuses: a wave began meanwhile
     expect(await service.save('slot-1')).toEqual({ ok: false, reason: 'Saving works only between waves.' });
     expect(order).toEqual(['director save', 'run-log save', 'captureSnapshot']);
+  });
+
+  it('does not save while a tower measures its line of sight, and the autosave waits for it', async () => {
+    vi.useFakeTimers();
+    try {
+      const { service, order, mirror, bus } = setup();
+      mirror.scalars.losAwaiting = 1;
+      expect(await service.save('slot-1')).toEqual({ ok: false, reason: 'A tower is still measuring its line of sight.' });
+      bus.emit({ type: 'wave:completed', wave: 3, credits: 0, perfect: true, closeCall: false, hpLost: 0 } as never);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(order).toEqual([]);
+      mirror.scalars.losAwaiting = 0;
+      await vi.advanceTimersByTimeAsync(300);
+      expect(order).toContain('captureSnapshot');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('waits for the place loaded here to stand, its corridor built, before it takes the save', async () => {

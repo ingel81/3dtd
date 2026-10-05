@@ -174,6 +174,11 @@ export class TowerLos {
   }
 
   /** The waiting towers with their reason and generation, oldest first (snapshots) */
+  /** Towers waiting for their line of sight now */
+  get awaitingCount(): number {
+    return this.awaiting.size;
+  }
+
   awaitingEntries(): [string, LosResolveReason, number][] {
     return [...this.awaiting].map(([tower, { reason, generation }]) => [tower.id, reason, generation]);
   }

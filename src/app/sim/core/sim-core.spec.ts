@@ -269,14 +269,19 @@ describe('SimCore in the same thread', () => {
     // Both place the same tower in the new run and take the same mask, as the relay hands it to both
     GameObject.resetIdCounter();
     host.send(place);
-    const [need] = host.needs(host.tick());
+    const waiting = host.tick();
+    // The tower waits for its sight: a save waits with it (SaveGameService)
+    expect(waiting.scalars.losAwaiting).toBe(1);
+    const [need] = host.needs(waiting);
     GameObject.resetIdCounter();
     guest.send(place);
     expect(guest.needs(guest.tick())).toEqual([need]);
     const mask = answer(main, host.core, need);
     host.send(mask);
     guest.send(mask);
-    expect(host.tick().towerStates.map((s) => s.losReady)).toEqual([true]);
+    const answered = host.tick();
+    expect(answered.towerStates.map((s) => s.losReady)).toEqual([true]);
+    expect(answered.scalars.losAwaiting).toBe(0);
     expect(guest.tick().towerStates.map((s) => s.losReady)).toEqual([true]);
   });
 

@@ -171,6 +171,11 @@ export interface SimScalars {
   /** SimSnapshots refusal, null when a snapshot may be taken now */
   snapshotRefusal: string | null;
   waveSnapshotRefusal: string | null;
+  /**
+   * Towers waiting for their line of sight (TowerLos): a save waits for them, a load would measure them
+   * against the tiles of another session
+   */
+  losAwaiting: number;
   lockstepActive: boolean;
   paused: boolean;
   gameSpeed: number;

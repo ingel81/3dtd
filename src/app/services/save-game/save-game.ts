@@ -31,8 +31,11 @@ export interface SaveGameHost {
   readonly saveBlocked: Signal<string | null>;
   /** Why loading is not possible now (coop), null when it is */
   readonly loadBlocked: Signal<string | null>;
-  /** The run between the waves; null when the simulation said no (a wave started meanwhile) */
-  collect(): Promise<Omit<SaveParts, 'name'> | null>;
+  /**
+   * The run between the waves; null when the simulation said no (a wave started meanwhile), a text when
+   * it cannot be saved yet for another reason
+   */
+  collect(): Promise<Omit<SaveParts, 'name'> | string | null>;
   /** Put the save in place: place, world, simulation, director, run log; the reason when it failed */
   apply(file: SaveFile): Promise<string | null>;
   download(blob: Blob, fileName: string): void;
@@ -134,6 +137,7 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace'> {
     const blocked = this.host.saveBlocked();
     if (blocked) return { ok: false, reason: blocked };
     const parts = await this.host.collect();
+    if (typeof parts === 'string') return { ok: false, reason: parts };
     if (!parts) return { ok: false, reason: 'Saving works only between waves.' };
     const file = buildSaveFile({ ...parts, name: name?.trim() || defaultSlotName(parts.place.name, parts.wave) });
     const meta: StoredSlotMeta = {

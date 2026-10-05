@@ -25,6 +25,12 @@ import type { LoadResult, SaveGamePort, SaveResult, SaveSlotInfo, StartPlace } f
 /** How long the autosave waits after a wave for the last shots and events to settle, ms */
 const AUTOSAVE_WAIT_MS = 10_000;
 const AUTOSAVE_POLL_MS = 250;
+/**
+ * Why a save waits while a tower measures its line of sight: the load would measure it again, against the
+ * tiles of another session, and the run could go on otherwise
+ */
+export const LOS_PENDING_TEXT = 'A tower is still measuring its line of sight.';
+
 /** Longest wait for the restored state's first packet after a load, ms */
 const RESTORE_WAIT_MS = 10_000;
 
@@ -141,7 +147,7 @@ export class SaveGameService implements SaveGamePort {
       await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_POLL_MS));
       // The next wave started, or the run ended: nothing to save for this one
       if (!current() || this.gameStore.phase() !== 'setup') return;
-      if (this.mirror.scalars.snapshotRefusal === null && this.host.saveBlocked() === null) {
+      if (this.mirror.scalars.snapshotRefusal === null && this.mirror.scalars.losAwaiting === 0 && this.host.saveBlocked() === null) {
         await this.game.autosave();
         return;
       }
@@ -153,6 +159,7 @@ export class SaveGameService implements SaveGamePort {
     const source = this.world.source();
     const hq = this.locationMgmt.hq();
     if (!source || !hq) return null;
+    if (this.mirror.scalars.losAwaiting > 0) return LOS_PENDING_TEXT;
     // The main thread's part before the simulation's answer: a wave started meanwhile makes the simulation
     // refuse, and then nothing of what the start changed here (the director's sizing, the run log) is in
     const director = this.director.saveState();
