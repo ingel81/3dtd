@@ -159,4 +159,6 @@ export interface WaveSource {
   saveState?(): unknown;
   /** Take a save game's state back: the run goes on as if never left */
   restoreState?(state: unknown): void;
+  /** Whether `state` from a save file has the shape restoreState reads; a source with state has it */
+  validState?(state: unknown): boolean;
 }

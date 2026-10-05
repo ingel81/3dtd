@@ -1,7 +1,7 @@
 import type { GeoPosition } from '../models/game.types';
 import type { GameRngState } from '../utils/game-rng';
 import type { DirectorSave } from '../director/wave-director';
-import { isWaveSourceId } from '../director/wave-source.registry';
+import { createWaveSource, isWaveSourceId } from '../director/wave-source.registry';
 import type { RunLog } from '../run-log/run-log.types';
 import type { WaveSeriesPoint } from '../run-log/wave-series';
 import { WORLD_PACKAGE_VERSION, worldPackageShape, type WorldPackage } from '../coop/world-package';
@@ -85,6 +85,71 @@ export type SaveFileRefusal = 'not-a-save' | 'too-big' | 'damaged' | 'version';
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isPlace = (v: unknown): boolean => isObject(v) && Number.isFinite(v['lat']) && Number.isFinite(v['lon']);
+const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const strings = (v: unknown): boolean => Array.isArray(v) && v.every((s) => typeof s === 'string');
+/** [player id, state] pairs of a per-player part, absent in a snapshot from before coop */
+const perPlayer = (v: unknown, state: (s: unknown) => boolean): boolean =>
+  v === undefined || (Array.isArray(v) && v.every((p) => Array.isArray(p) && p.length === 2 && typeof p[0] === 'string' && state(p[1])));
+
+/** Random state: a seed and finite numbers per stream */
+function isRng(v: unknown): boolean {
+  return isObject(v) && finite(v['seed']) && isObject(v['streams'])
+    && Object.values(v['streams']).every(finite);
+}
+
+function isResearch(v: unknown): boolean {
+  return isObject(v) && strings(v['completed']) && finite(v['slots']) && finite(v['centerLevel'])
+    && Array.isArray(v['active']) && (v['active'] as unknown[]).every((a) => isObject(a) && typeof a['researchId'] === 'string' && finite(a['elapsed']))
+    && (v['queued'] === undefined || strings(v['queued']));
+}
+
+function isAbilities(v: unknown): boolean {
+  return isObject(v) && finite(v['nextStrikeId']) && Array.isArray(v['states'])
+    && (v['states'] as unknown[]).every((s) => isObject(s) && typeof s['id'] === 'string' && typeof s['unlocked'] === 'boolean'
+      && finite(s['charges']) && finite(s['wavesTowardCharge']));
+}
+
+function isHero(v: unknown): boolean {
+  if (!isObject(v) || typeof v['unlocked'] !== 'boolean' || typeof v['ammo'] !== 'string' || !finite(v['kills']) || !finite(v['level'])) return false;
+  const hired = v['hired'];
+  return hired === null || (isObject(hired) && finite(hired['lat']) && finite(hired['lon']) && finite(hired['height'])
+    && finite(hired['cooldownMs']) && finite(hired['replanMs']) && finite(hired['clockMs']) && isObject(hired['anchor']));
+}
+
+function isTower(v: unknown): boolean {
+  if (!isObject(v)) return false;
+  const state = v['state'];
+  return typeof v['id'] === 'string' && typeof v['typeId'] === 'string'
+    && finite(v['lat']) && finite(v['lon']) && finite(v['height']) && finite(v['customRotation']) && finite(v['plinthHeight'])
+    && Array.isArray(v['plinthOverhang']) && Array.isArray(v['upgrades'])
+    && (v['upgrades'] as unknown[]).every((u) => Array.isArray(u) && typeof u[0] === 'string' && finite(u[1]))
+    && isObject(state) && finite(state['cooldownMs']) && finite(state['kills']) && finite(state['damageDealt']);
+}
+
+/** The snapshot as SimSnapshots.restore reads it: a damaged one would stop that half way, with the run gone */
+function isSimSnapshot(v: unknown): boolean {
+  if (!isObject(v)) return false;
+  const clock = v['clock'];
+  return isObject(clock) && finite(clock['gameTimeMs']) && finite(clock['subStep']) && isRng(v['rng'])
+    && finite(v['idCounter']) && finite(v['credits']) && finite(v['baseHealth'])
+    && Number.isInteger(v['waveNumber']) && (v['waveNumber'] as number) >= 0
+    && typeof v['phase'] === 'string' && typeof v['runStarted'] === 'boolean' && finite(v['economyPerfectStreak'])
+    && (v['accounts'] === undefined || perPlayer(v['accounts'], finite))
+    && isResearch(v['research']) && perPlayer(v['researchByPlayer'], isResearch)
+    && isAbilities(v['abilities']) && perPlayer(v['abilitiesByPlayer'], isAbilities)
+    && isHero(v['hero']) && perPlayer(v['heroesByPlayer'], isHero)
+    && Array.isArray(v['towers']) && (v['towers'] as unknown[]).every(isTower)
+    && Array.isArray(v['losQueue']);
+}
+
+/** The director: a known source, the state that source reads, a committed wave or none */
+function isDirector(v: unknown): boolean {
+  if (!isObject(v) || !isWaveSourceId(v['source'])) return false;
+  const state = v['sourceState'];
+  const source = createWaveSource(v['source']);
+  const stateOk = state === null || (source.validState ? source.validState(state) : false);
+  return stateOk && (v['planned'] === null || isObject(v['planned']));
+}
 
 /**
  * Parse `text` and check it. A save of another game version or balance
@@ -126,10 +191,9 @@ function wellFormed(data: Partial<SaveFile>): boolean {
     && Array.isArray(place['spawns']) && (place['spawns'] as unknown[]).length > 0
     && (place['spawns'] as unknown[]).every(isPlace)
     && worldPackageShape(data.world) !== null
-    && isObject(data.sim) && Array.isArray(data.sim['towers']) && isObject(data.sim['rng'])
-    && isObject(director) && isWaveSourceId(director['source'])
-    && (director['planned'] === null || isObject(director['planned']))
-    && isObject(data.mainRng) && Number.isFinite(data.mainRng['seed']) && isObject(data.mainRng['streams'])
+    && isSimSnapshot(data.sim)
+    && isDirector(director)
+    && isRng(data.mainRng)
     && (data.runLog === null || (isObject(data.runLog) && isObject(data.runLog['head']) && Array.isArray(data.runLog['records'])))
     && Array.isArray(data.waveSeries);
 }

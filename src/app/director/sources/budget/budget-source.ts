@@ -187,6 +187,17 @@ export class BudgetWaveSource implements WaveSource {
     return { pressure: this.pressure.saveState(), lastCapped: this.lastCapped };
   }
 
+  validState(state: unknown): boolean {
+    if (typeof state !== 'object' || state === null) return false;
+    const { pressure, lastCapped } = state as Partial<BudgetSourceState>;
+    if (typeof lastCapped !== 'boolean' || typeof pressure !== 'object' || pressure === null) return false;
+    const finite = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
+    const finiteOrNull = (v: unknown) => v === null || finite(v);
+    return finiteOrNull(pressure.smoothed) && finite(pressure.samples) && finite(pressure.multiplier)
+      && typeof pressure.lastStep === 'string' && finiteOrNull(pressure.lastTarget)
+      && finiteOrNull(pressure.lastPressure) && finite(pressure.lastChange);
+  }
+
   restoreState(state: unknown): void {
     const saved = state as BudgetSourceState;
     this.pressure.restoreState(saved.pressure);

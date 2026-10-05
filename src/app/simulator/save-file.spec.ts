@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildSaveFile, readSaveFile, saveFileName, saveFileRefusalText, type SaveParts } from './save-file';
 import { buildWorldPackage } from '../coop/world-package';
-import { SIM_SNAPSHOT_VERSION, type SimSnapshot } from './sim-snapshot';
+import { emptySimSnapshot } from '../../test/sim-snapshot-fixture';
 
 const HERE = { gameVersion: '0.7.0', configHash: 'abc' };
 
@@ -22,7 +22,7 @@ function parts(): SaveParts {
       heights: [[1, 2.5, 1]],
       worldKey: 'w1',
     }, HERE),
-    sim: { version: SIM_SNAPSHOT_VERSION, towers: [], rng: { seed: 1, streams: {} } } as unknown as SimSnapshot,
+    sim: emptySimSnapshot(11),
     director: { source: 'budget', sourceState: null, planned: null },
     mainRng: { seed: 1, streams: { director: 7 } },
     runLog: null,
@@ -57,6 +57,24 @@ describe('save file (TODO E110)', () => {
     expect(readSaveFile(text({ world: { format: '3dtd-world' } }), HERE).refusal).toBe('damaged');
     expect(readSaveFile(text({ director: { source: 'nope', planned: null } }), HERE).refusal).toBe('damaged');
     expect(readSaveFile(text({ wave: 0 }), HERE).refusal).toBe('damaged');
+  });
+
+  it('refuses a snapshot, director or random state restore would stop half way on', () => {
+    const sim = emptySimSnapshot(11);
+    const broken: Record<string, unknown>[] = [
+      { sim: { ...sim, clock: { gameTimeMs: 'later', subStep: 0 } } },
+      { sim: { ...sim, research: { ...sim.research, active: [{ researchId: 'x', elapsed: null }] } } },
+      { sim: { ...sim, abilities: { states: [{ id: 'nuke' }], nextStrikeId: 1 } } },
+      { sim: { ...sim, hero: { ...sim.hero, hired: { lat: 1 } } } },
+      { sim: { ...sim, towers: [{ id: 't1', typeId: 'archer', lat: 'x' }] } },
+      { sim: { ...sim, rng: { seed: 1, streams: { spawn: 'x' } } } },
+      { director: { source: 'budget', sourceState: { pressure: { multiplier: 'big' }, lastCapped: false }, planned: null } },
+      { director: { source: 'budget', sourceState: 7, planned: null } },
+      { mainRng: { seed: 1, streams: { director: null } } },
+    ];
+    for (const override of broken) expect(readSaveFile(text(override), HERE).refusal, JSON.stringify(override)).toBe('damaged');
+    const pressure = { smoothed: null, samples: 0, multiplier: 1, lastStep: 'warming-up', lastTarget: null, lastPressure: null, lastChange: 1 };
+    expect(readSaveFile(text({ director: { source: 'budget', sourceState: { pressure, lastCapped: false }, planned: null } }), HERE).refusal).toBeNull();
     expect(saveFileRefusalText('damaged')).toBe('That save is damaged.');
   });
 

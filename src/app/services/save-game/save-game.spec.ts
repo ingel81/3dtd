@@ -4,7 +4,7 @@ import { SaveGame, type SaveGameHost } from './save-game';
 import { AUTOSAVE_SLOT, manualSlotId } from './save-game.port';
 import type { SaveSlotStore, StoredSlotMeta } from './save-slot.store';
 import { buildWorldPackage } from '../../coop/world-package';
-import { SIM_SNAPSHOT_VERSION, type SimSnapshot } from '../../simulator/sim-snapshot';
+import { emptySimSnapshot } from '../../../test/sim-snapshot-fixture';
 import type { SaveFile, SaveParts } from '../../simulator/save-file';
 
 /**
@@ -47,7 +47,7 @@ function parts(wave: number): Omit<SaveParts, 'name'> {
       origin: hq, hq, spawns: [spawn], paths: new Map([['spawn-1', [{ lat: spawn.lat, lon: spawn.lon }, hq]]]),
       heights: [[1, 2.5, 1]], worldKey: 'w1',
     }, HERE),
-    sim: { version: SIM_SNAPSHOT_VERSION, towers: [], rng: { seed: 1, streams: {} }, waveNumber: wave - 1 } as unknown as SimSnapshot,
+    sim: emptySimSnapshot(wave - 1),
     director: { source: 'budget', sourceState: null, planned: null },
     mainRng: { seed: 1, streams: {} },
     runLog: null,
