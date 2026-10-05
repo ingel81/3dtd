@@ -46,7 +46,8 @@ eine Summe aus Sub-Steps von 33,334 ms und driftet im Float; der Schritt-Index t
   auch die Spielversion aus `package.json` (`version`), die der Lastlauf `e2e/perf/sim-load.ts` in jedes Ergebnis
   schreibt.
 - **`configHash`** ist ein fnv1a über alle balance-relevanten Configs (Tower, Gegner, Balance, Kampagnen-Gold,
-  Laufplan, Wellenliste, Forschung, Fähigkeiten, Held, Schadensmatrix). Die Auswertung gruppiert danach und warnt
+  Laufplan, Wellenliste, Forschung, Fähigkeiten, Held, Schadensmatrix, dazu Standard-Bauzeit, HP-Faktor der Tarnung
+  und Tower-Pfade). Die Auswertung gruppiert danach und warnt
   bei gemischten Ständen. Er deckt die Tabellen ab, nicht den Code; dafür steht der Commit daneben.
 - **`waveSource`** steht nur dort, wenn der Lauf **nicht** die Standard-Wellenquelle gespielt hat
   (`budget`, seit 2026-09-29). Dann geht die Quelle auch in den `configHash` ein, damit zwei Läufe mit

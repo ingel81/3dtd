@@ -11,8 +11,9 @@
  */
 
 import { fnv1a } from '../utils/fnv1a';
-import { TOWER_TYPES } from '../configs/tower-types.config';
-import { ENEMY_TYPES } from '../configs/enemy-types.config';
+import { DEFAULT_BUILD_TIME_MS, TOWER_TYPES } from '../configs/tower-types.config';
+import { CAMO_HP_FACTOR, ENEMY_TYPES } from '../configs/enemy-types.config';
+import { TOWER_PATHS } from '../configs/tower-paths.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { CAMPAIGN } from '../configs/campaign.config';
 import { RESEARCH_TREE } from '../configs/research/research-tree.config';
@@ -51,6 +52,8 @@ function balanceParts(): unknown[] {
     ABILITIES,
     HERO,
     DAMAGE_MATRIX,
+    // Rules beside the tables: a tower's default build time, a camouflaged enemy's HP, the tower paths
+    { buildTimeMs: DEFAULT_BUILD_TIME_MS, camoHpFactor: CAMO_HP_FACTOR, paths: TOWER_PATHS },
   ];
 }
 
