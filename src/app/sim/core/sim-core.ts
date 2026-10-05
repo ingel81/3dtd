@@ -21,6 +21,7 @@ import { setActiveWaveRules } from '../../director/wave-rules';
 import { createWaveSource, isWaveSourceId } from '../../director/wave-source.registry';
 import { buildReplayFile, readReplayFile, serializeReplayFile, type ReplayFile } from '../../simulator/replay-file';
 import { replayable, type WaveRecord } from '../../simulator/sim-recorder';
+import type { SimSnapshot } from '../../simulator/sim-snapshot';
 import type { WaveSnapshot } from '../../simulator/wave-snapshot';
 import type { CommandLogEntry } from '../../managers/game-state/command-log';
 import { commandMarkers } from '../../replay/replay-bar-view';
@@ -400,6 +401,17 @@ export class SimCore implements SimCoreApi {
     falsifyCredits: (amount) => this.gsm.addCredits(amount, 'reset'),
     stateHash: () => this.gsm.stateHash(),
     hashBreakdownAt: (tick) => this.gsm.hashBreakdownAt(tick),
+    captureSnapshot: () => (this.replay || this.gsm.snapshotRefusal() !== null ? null : this.gsm.captureSnapshot()),
+    restoreSnapshot: (snapshot) => {
+      // As the resync's restore: the old state's show goes first; a live restore asks for the sight of
+      // the towers that wait for it (TowerLos.restoreAwaiting)
+      this.leaveReplay();
+      this.file = null;
+      this.gsm.clearShow();
+      this.gsm.restoreSnapshot(snapshot as SimSnapshot, 'live');
+      this.gsm.resyncPresentation();
+      this.forcePresent = true;
+    },
     captureWaveSnapshot: () => this.gsm.captureWaveSnapshot(),
     restoreWaveSnapshot: (snapshot, reason) => {
       // As a replay's seek: the old state's particles, marks, strikes and one-shot sounds go first

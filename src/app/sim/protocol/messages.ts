@@ -155,6 +155,10 @@ export interface SimRpc {
   worldKey(): string;
   stateHash(): number;
   hashBreakdownAt(tick: number): unknown;
+  /** The simulation between waves (SimSnapshot) for a save game; null when it is not between waves (snapshotRefusal) */
+  captureSnapshot(): unknown;
+  /** Put a save game's SimSnapshot in place, live: the presentation and the stores hear it as after a resync */
+  restoreSnapshot(snapshot: unknown): void;
   captureWaveSnapshot(): unknown;
   restoreWaveSnapshot(snapshot: unknown, reason: 'replay' | 'live'): void;
   /** The run's (or the loaded file's) replayable waves as a replay file's text; null when there is none */

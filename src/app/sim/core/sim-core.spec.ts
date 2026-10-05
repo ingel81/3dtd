@@ -214,6 +214,43 @@ describe('SimCore in the same thread', () => {
     }
   });
 
+  it('hands out the state between waves for a save game, none during a wave, and takes it back in another core (TODO E110)', () => {
+    const mathRandom = Math.random;
+    Math.random = mulberry32(SEED + 1);
+    try {
+      const main = mainWorld();
+      const core = newCore(main.world);
+      const drive = new Driver(core);
+      drive.send({ type: 'debug:add-credits', amount: 3000 });
+      drive.send({ type: 'command:place-tower', typeId: 'archer', position: { lat: 60 / M, lon: 9 / M, height: 0 } });
+      drive.send({ type: 'command:place-tower', typeId: 'cannon', position: { lat: 140 / M, lon: -9 / M, height: 0 } });
+      let packet = drive.tick();
+      for (const need of drive.needs(packet)) drive.send(answer(main, core, need));
+      drive.tick();
+      drive.send({ type: 'command:start-wave', config: wave });
+      packet = drive.tick();
+      expect(packet.scalars.phase).toBe('wave');
+      expect(core.rpc('captureSnapshot')).toBeNull();
+      for (let f = 0; f < 20000 && (packet.scalars.phase === 'wave' || packet.scalars.snapshotRefusal !== null); f++) packet = drive.tick();
+      const saved = JSON.parse(JSON.stringify(core.rpc('captureSnapshot')));
+      expect(saved).not.toBeNull();
+
+      const other = new Driver(newCore(main.world));
+      other.core.rpc('restoreSnapshot', saved);
+      expect(other.core.rpc('stateHash')).toBe(core.rpc('stateHash'));
+      const after = other.tick();
+      expect(after.scalars.waveNumber).toBe(1);
+      expect(after.scalars.credits).toEqual(packet.scalars.credits);
+      const towers = core.gsm.towerManager.getAll().map((t) => t.id);
+      expect(towers.length).toBeGreaterThan(0);
+      expect(after.towerStates.map((s) => [s.id, s.losReady])).toEqual(towers.map((id) => [id, true]));
+      // The stores hear the restored research, the presentation the restored towers
+      expect(after.events.some((e) => e.type === 'research:state-changed')).toBe(true);
+    } finally {
+      Math.random = mathRandom;
+    }
+  });
+
   it('counts line-of-sight generations from 1 in a new run, so a fresh guest takes the masks of a host who played before', () => {
     const main = mainWorld();
     const place = { type: 'command:place-tower', typeId: 'archer', position: { lat: 60 / M, lon: 9 / M, height: 0 } };
