@@ -134,6 +134,11 @@ describe('SaveGame (TODO E110)', () => {
     await game.save(manualSlotId(1));
     vi.mocked(host.apply).mockResolvedValueOnce('The place of the save did not load.');
     expect(await game.load(manualSlotId(1))).toEqual({ ok: false, reason: 'The place of the save did not load.' });
+    // A load that throws on its way says so as well, and the next one still runs
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.mocked(host.apply).mockRejectedValueOnce(new Error('worker gone'));
+    expect(await game.load(manualSlotId(1))).toEqual({ ok: false, reason: 'The save could not be loaded.' });
+    expect(await game.load(manualSlotId(1))).toMatchObject({ ok: true });
   });
 
   it('exports a slot as a gzipped file that imports again, and refuses what is no save', async () => {

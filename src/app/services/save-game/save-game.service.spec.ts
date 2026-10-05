@@ -101,12 +101,13 @@ function setup(options: { inCoop?: boolean } = {}) {
     }),
   };
   const phase = signal<GamePhase>('setup');
+  const world = { source: () => ({}), spawnPoints: [], sendToSim: vi.fn(() => order.push('fresh run')) };
   const injector = Injector.create({
     providers: [
       SaveGameService,
       { provide: SimClient, useValue: sim },
       { provide: SimMirror, useValue: mirror },
-      { provide: MainWorldService, useValue: { source: () => ({}), spawnPoints: [] } },
+      { provide: MainWorldService, useValue: world },
       { provide: WorldPackageLoader, useValue: loader },
       { provide: LocationManagementService, useValue: { hq: signal({ lat: 49.1, lon: 9.2 }), getLocationDisplayName: () => 'Heilbronn' } },
       { provide: EngineInitializationService, useValue: { getEngine: () => ({}), loading: signal(false) } },
@@ -119,7 +120,7 @@ function setup(options: { inCoop?: boolean } = {}) {
     ],
   });
   const service = injector.get(SaveGameService);
-  return { service, apply: (file: SaveFile) => (service as unknown as Applying).apply(file), order, phase, director, mirror, runLog, loader, bus };
+  return { service, apply: (file: SaveFile) => (service as unknown as Applying).apply(file), order, phase, director, mirror, runLog, loader, bus, sim };
 }
 
 describe('SaveGameService (TODO E110)', () => {
@@ -142,6 +143,18 @@ describe('SaveGameService (TODO E110)', () => {
     expect(director.restoreState).toHaveBeenCalledWith(file.director);
     expect(mirror.rng.setState).toHaveBeenCalledWith(file.mainRng);
     expect(runLog.resumeRun).toHaveBeenCalledWith(null, [], 4);
+  });
+
+  it('starts a clean fresh run and says so when the simulation could not take the snapshot', async () => {
+    const { apply, order, sim, director } = setup();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    sim.rpc.mockImplementationOnce(async (method: string) => {
+      order.push(method);
+      throw new Error('restore stopped');
+    });
+    expect(await apply(saveFile())).toBe('That save is damaged: a fresh run starts on its place.');
+    expect(order).toEqual(['source budget', 'adopt', 'restoreSnapshot', 'fresh run']);
+    expect(director.restoreState).not.toHaveBeenCalled();
   });
 
   it('waits for the place loaded here to stand, its corridor built, before it takes the save', async () => {

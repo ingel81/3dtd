@@ -208,7 +208,14 @@ export class SaveGameService implements SaveGamePort {
     // The fresh run on the save's world (adopt sent it) and then the snapshot; the main thread's part
     // waits for the packet that says the simulation was restored, after the reset's
     const restored = this.nextRestore();
-    await this.sim.rpc('restoreSnapshot', file.sim);
+    try {
+      await this.sim.rpc('restoreSnapshot', file.sim);
+    } catch (error) {
+      // Stopped half way: a clean fresh run on the save's world instead of half of one
+      console.error('[SaveGame] restore failed:', error);
+      this.world.sendToSim();
+      return 'That save is damaged: a fresh run starts on its place.';
+    }
     if (!(await restored)) return 'The game did not take the save.';
     this.director.restoreState(file.director);
     this.mirror.rng.setState(file.mainRng);

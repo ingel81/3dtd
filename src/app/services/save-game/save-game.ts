@@ -148,7 +148,14 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace'> {
   private async loadText(text: string): Promise<LoadResult> {
     const read = readSaveFile(text, this.here);
     if (read.refusal !== null) return { ok: false, reason: saveFileRefusalText(read.refusal) };
-    const failed = await this.host.apply(read.file);
+    let failed: string | null;
+    try {
+      failed = await this.host.apply(read.file);
+    } catch (error) {
+      // Whatever went wrong on the way, the player reads it instead of a menu that just stops being busy
+      console.error('[SaveGame] load failed:', error);
+      failed = 'The save could not be loaded.';
+    }
     return failed ? { ok: false, reason: failed } : { ok: true, note: read.note };
   }
 
