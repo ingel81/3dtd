@@ -812,7 +812,8 @@ Aus einem Review des Relays (Absturzsicherheit, Grenzen, Betrieb), Entscheidunge
 [coop-server/README.md](../coop-server/README.md), Abschnitte „Limits“ und „Status page“.
 
 - **Kein Absturz durch eine Nachricht:** `validate.ts` prüft jede Nachricht Feld für Feld (Typen, Längen, endliche
-  Zahlen, Steuerzeichen raus, Befehle höchstens 256 kB und ohne Schlüssel wie `__proto__`); die Behandlung läuft in
+  Zahlen, Steuerzeichen raus, Befehle höchstens 256 kB, ohne Schlüssel wie `__proto__` und nur mit den Feldern ihres
+  Typs aus `coop/command-fields.ts`, ein unbekannter Befehl gar nicht); die Behandlung läuft in
   einem try/catch, ein Fehler trennt nur diese Verbindung. Timer und Räume fangen ihre Fehler selbst, dazu
   `uncaughtException` als Netz in `main.ts` und `desktop.ts`. Vorher reichte `{"t":"chat"}` ohne Text, um den
   Prozess mit allen Räumen zu beenden.

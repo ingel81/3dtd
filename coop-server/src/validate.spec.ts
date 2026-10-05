@@ -7,8 +7,18 @@ describe('parseClientMessage (relay review K1, H1, N1)', () => {
     expect(parseClientMessage({ t: 'chat', text: 'hi' })).toEqual({ t: 'chat', text: 'hi' });
     expect(parseClientMessage({ t: 'pick', spawnId: null })).toEqual({ t: 'pick', spawnId: null });
     expect(parseClientMessage({ t: 'hash', tick: 30, hash: 5, parts: [1, 2] })).toEqual({ t: 'hash', tick: 30, hash: 5, parts: [1, 2] });
-    expect(parseClientMessage({ t: 'cmd', command: { type: 'command:place-tower', x: 1 } }))
-      .toEqual({ t: 'cmd', command: { type: 'command:place-tower', x: 1 } });
+    expect(parseClientMessage({ t: 'cmd', command: { type: 'command:sell-tower', towerId: 't1' } }))
+      .toEqual({ t: 'cmd', command: { type: 'command:sell-tower', towerId: 't1' } });
+  });
+
+  it('passes a command on with its own fields only, and no unknown command', () => {
+    const position = { lat: 1, lon: 2, extra: 'stays: the client checks what a field holds' };
+    expect(parseClientMessage({ t: 'cmd', command: { type: 'command:place-tower', position, typeId: 'basic', x: 1, note: 'y' } }))
+      .toEqual({ t: 'cmd', command: { type: 'command:place-tower', position, typeId: 'basic' } });
+    expect(parseClientMessage({ t: 'cmd', command: { type: 'command:leave-tower', towerId: 't1' } }))
+      .toEqual({ t: 'cmd', command: { type: 'command:leave-tower' } });
+    expect(parseClientMessage({ t: 'cmd', command: { type: 'command:made-up' } })).toBeNull();
+    expect(parseClientMessage({ t: 'cmd', command: { type: 'toString' } })).toBeNull();
   });
 
   it('refuses what is no message, an unknown type and a field of the wrong type', () => {
@@ -33,9 +43,9 @@ describe('parseClientMessage (relay review K1, H1, N1)', () => {
   });
 
   it('refuses a command too large or with a key that reaches a prototype', () => {
-    expect(parseClientMessage({ t: 'cmd', command: { type: 'x', data: 'y'.repeat(COMMAND_MAX) } })).toBeNull();
-    expect(parseClientMessage({ t: 'cmd', command: JSON.parse('{"type":"x","a":{"__proto__":{"p":1}}}') })).toBeNull();
-    expect(parseClientMessage({ t: 'cmd', command: { type: 'x', constructor: 1 } })).toBeNull();
+    expect(parseClientMessage({ t: 'cmd', command: { type: 'command:start-wave', plan: 'y'.repeat(COMMAND_MAX) } })).toBeNull();
+    expect(parseClientMessage({ t: 'cmd', command: JSON.parse('{"type":"command:start-wave","plan":{"__proto__":{"p":1}}}') })).toBeNull();
+    expect(parseClientMessage({ t: 'cmd', command: { type: 'command:start-wave', constructor: 1 } })).toBeNull();
   });
 });
 

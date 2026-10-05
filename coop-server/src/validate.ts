@@ -8,9 +8,11 @@
  * The result is a new object: nothing of the input's own keys beyond the
  * fields listed here goes on. `world`, `options` and `entities` pass as
  * they came; the room checks them (validOptions, validDetail) or only
- * forwards them (the world, bounded by the relay's message size).
+ * forwards them (the world, bounded by the relay's message size). A
+ * command keeps its type's fields only (command-fields.ts).
  */
 import { MAX_RESYNC_PARTS, type ClientMessage } from '../../src/app/coop/protocol.ts';
+import { knownFields } from '../../src/app/coop/command-fields.ts';
 
 /** Longest name, as the client allows it */
 const NAME_MAX = 32;
@@ -122,7 +124,9 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
       const command = m['command'];
       if (!isObject(command) || typeof command['type'] !== 'string' || command['type'].length > ID_MAX) return null;
       if (JSON.stringify(command).length > COMMAND_MAX || hasForbiddenKey(command)) return null;
-      return { t: 'cmd', command: command as never };
+      // Only the fields the command has: a changed client's own keys would go into every client's log
+      const known = knownFields(command as { type: string });
+      return known ? { t: 'cmd', command: known as never } : null;
     }
     case 'hash': {
       const tick = tickOf(m['tick']);
