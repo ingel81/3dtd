@@ -143,6 +143,16 @@ export class EnemyManager extends EntityManager<Enemy> {
   private remainingKillBudget = 0;
   private paidRewardWeight = 0;
 
+  /**
+   * What is left of the wave's kill gold and the reward weight paid so far,
+   * for the state hash; null before the wave's first kill, where the next
+   * kill starts the budget afresh whatever an earlier wave left in it.
+   */
+  killRewardState(): { remainingKillBudget: number; paidRewardWeight: number } | null {
+    if (this.rewardWaveNumber !== this.getWaveNumber()) return null;
+    return { remainingKillBudget: this.remainingKillBudget, paidRewardWeight: this.paidRewardWeight };
+  }
+
   /** EventBus subscriptions — disposed in destroy(). */
   private readonly subs = new SubscriptionBag();
 

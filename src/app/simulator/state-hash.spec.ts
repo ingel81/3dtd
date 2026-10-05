@@ -3,6 +3,7 @@ import { StateHasher, type Hashable, type HashSink, type StateHashSource } from 
 import { HASH_PARTS } from '../coop/hash-check';
 import type { Enemy } from '../entities/enemy.entity';
 import type { Tower } from '../entities/tower.entity';
+import { EnemyRush } from '../entities/enemy-rush';
 
 function enemy(id: string, lat: number, hp: number): Enemy {
   return {
@@ -40,13 +41,17 @@ function source(
   enemies: Enemy[],
   towers: Tower[] = [tower('tower-1', 10)],
   players: { research?: Hashable; abilities?: Hashable } = {},
+  wave: { spawnIndex?: number; nextDelayMs?: number; running?: boolean; killBudget?: number } = {},
 ): StateHashSource {
   return {
     subStep: () => 600,
     credits: () => [250],
     perfectStreak: () => 0,
+    killRewards: () => ({ remainingKillBudget: wave.killBudget ?? 120, paidRewardWeight: 30 }),
     baseHealth: () => 480,
     waveNumber: () => 3,
+    spawner: () => (wave.running === false ? null
+      : { accumulatedMs: 400, nextDelayMs: wave.nextDelayMs ?? 800, spawnIndex: wave.spawnIndex ?? 5 }),
     idCounter: () => 42,
     rngState: () => ({ seed: 7, streams: { director: 1, spawn: 2, enemy: 3, bot: 4 } }),
     enemies: () => enemies,
@@ -112,6 +117,31 @@ describe('StateHasher', () => {
       const b = hasher.breakdown(source([enemy('enemy-1', 48.1, 89)]));
       const differ = HASH_PARTS.filter((_, i) => a.parts[i] !== b.parts[i]);
       expect(differ).toEqual(['enemies']);
+    });
+
+    it('names the spawner and the kill gold left, which act only later (TODO E94)', () => {
+      const base = hasher.breakdown(source([]));
+      const differ = (other: StateHashSource) => {
+        const b = hasher.breakdown(other);
+        return HASH_PARTS.filter((_, i) => base.parts[i] !== b.parts[i]);
+      };
+      expect(differ(source([], undefined, {}, { spawnIndex: 6 }))).toEqual(['wave']);
+      expect(differ(source([], undefined, {}, { nextDelayMs: 801 }))).toEqual(['wave']);
+      expect(differ(source([], undefined, {}, { running: false }))).toEqual(['wave']);
+      expect(differ(source([], undefined, {}, { killBudget: 119 }))).toEqual(['credits']);
+    });
+
+    it("names an enemy's walk and run phase before its speed shows it", () => {
+      const rushing = (ms: number) => {
+        const e = enemy('enemy-1', 48.1, 90);
+        const rush = new EnemyRush('enemy-1', 1.8);
+        rush.tick(ms);
+        return Object.assign(e, { rush });
+      };
+      const a = hasher.breakdown(source([rushing(100)]));
+      const b = hasher.breakdown(source([rushing(116)]));
+      expect(HASH_PARTS.filter((_, i) => a.parts[i] !== b.parts[i])).toEqual(['enemies']);
+      expect(a.entities.enemies![0]).toHaveLength(8);
     });
 
     it('names research and abilities apart', () => {

@@ -29,6 +29,8 @@ function hashId(id: string): number {
   return h >>> 0;
 }
 
+import type { HashSink } from '../simulator/state-hash';
+
 export class EnemyRush {
   /** true = rennt (Run-Clip, runSpeedMultiplier), false = geht. */
   running = false;
@@ -55,6 +57,13 @@ export class EnemyRush {
       this.remainingMs += this.nextInterval();
     }
     return this.running ? this.runSpeedMultiplier : 1;
+  }
+
+  /** Für den State-Hash: Phase, Rest der Phase und RNG-Zustand; ein Abweichen zeigt sich sonst erst Sekunden später an der Position. */
+  hashInto(sink: HashSink): void {
+    sink.num(this.running ? 1 : 0);
+    sink.num(this.remainingMs);
+    sink.num(this.rngState);
   }
 
   /** Debug: Zustand setzen, die nächste Phase beginnt von vorn. */

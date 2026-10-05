@@ -445,6 +445,12 @@ export class WaveManager implements IGameManager {
     this.activeSpawner = spawner;
   }
 
+  /** Where the running wave's spawner stands, for the state hash; null while none runs */
+  spawnerProgress(): { accumulatedMs: number; nextDelayMs: number; spawnIndex: number } | null {
+    const spawner = this.activeSpawner;
+    return spawner ? { accumulatedMs: spawner.accumulatedMs, nextDelayMs: spawner.nextDelayMs, spawnIndex: spawner.spawnIndex } : null;
+  }
+
   /** The spawner and the wave's counters mid-wave, for the wave snapshot (wave-snapshot.ts) */
   captureWaveState(): { spawner: SpawnerState | null; counters: PlainRecord } {
     const spawner = this.activeSpawner;

@@ -15,8 +15,10 @@ import { HASH_PARTS, type HashedEntities, type HashPart } from '../coop/hash-che
  * abilities, the hero's level and ammo, the perfect streak (TODO E63 i).
  * 3: the simulation computes with DetMath instead of the native Math (E28),
  * so the same run gives other bits. 4: a tower's build end (Tower.builtAtMs) and path.
+ * 5: the wave's spawner, the kill gold left and paid, an enemy's walk and
+ * run phase (TODO E94).
  */
-export const STATE_HASH_VERSION = 4;
+export const STATE_HASH_VERSION = 5;
 
 /** Takes what a manager hands to the hash (Hashable). */
 export interface HashSink {
@@ -47,8 +49,12 @@ export interface StateHashSource {
   credits(): readonly number[];
   /** Perfect waves in a row: the combo of the next wave's bonus */
   perfectStreak(): number;
+  /** The wave's kill gold not yet paid and the reward weight paid so far (EnemyManager); null between waves */
+  killRewards(): { remainingKillBudget: number; paidRewardWeight: number } | null;
   baseHealth(): number;
   waveNumber(): number;
+  /** The running wave's spawner, null while none runs (WaveManager) */
+  spawner(): { accumulatedMs: number; nextDelayMs: number; spawnIndex: number } | null;
   idCounter(): number;
   rngState(): GameRngState;
   enemies(): readonly Enemy[];
@@ -129,10 +135,27 @@ export class StateHasher {
     this.part('credits');
     for (const credits of source.credits()) this.num(credits);
     this.num(source.perfectStreak());
+    // The gold of the kills to come: a difference shows in the credits only at the next kill
+    const rewards = source.killRewards();
+    if (rewards) {
+      this.num(rewards.remainingKillBudget);
+      this.num(rewards.paidRewardWeight);
+    } else {
+      this.num(-1);
+    }
     this.part('health');
     this.num(source.baseHealth());
     this.part('wave');
     this.num(source.waveNumber());
+    // The spawner: a difference shows only once the next enemy comes out, or does not
+    const spawner = source.spawner();
+    if (spawner) {
+      this.num(spawner.accumulatedMs);
+      this.num(spawner.nextDelayMs);
+      this.num(spawner.spawnIndex);
+    } else {
+      this.num(-1);
+    }
     this.part('ids');
     this.num(source.idCounter());
     this.part('rng');
@@ -165,6 +188,8 @@ export class StateHasher {
         this.sink.num(effect.duration);
       }
       this.num(this.d >>> 0);
+      // Walk or run: the speed differs only once the phase turns
+      if (enemy.rush) this.digest(enemy.rush);
     }
 
     this.part('towers');

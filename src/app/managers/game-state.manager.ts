@@ -395,8 +395,11 @@ export class GameStateManager {
     subStep: () => this.clock.subStep,
     credits: () => this.creditsLedger.balances(),
     perfectStreak: () => this.economy.perfectStreak,
+    // Between waves the next kill's wave starts the budget afresh; a restore resets it (resetKillRewards)
+    killRewards: () => (this.waveManager.phase() === 'wave' ? this.enemyManager.killRewardState() : null),
     baseHealth: () => this.baseHealth(),
     waveNumber: () => this.waveManager.waveNumber(),
+    spawner: () => this.waveManager.spawnerProgress(),
     idCounter: () => GameObject.getIdCounter(),
     rngState: () => this.rng.getState(),
     enemies: () => this.enemyManager.getAll(),
