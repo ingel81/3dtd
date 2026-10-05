@@ -1,11 +1,13 @@
-<div class="token-setup">
+<!-- Covers the whole page: Tab stays in it, and the focus goes back where it was when it closes -->
+<div class="token-setup" role="dialog" aria-modal="true" aria-labelledby="token-setup-title"
+     cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
   <td-icon class="token-icon" [name]="rejected() ? 'warn' : 'lock'" [size]="40"></td-icon>
 
   @if (rejected()) {
-    <h2>Key rejected</h2>
+    <h2 id="token-setup-title">Key rejected</h2>
     <p class="token-lead">The tile server refused it. Check you pasted the whole thing.</p>
   } @else {
-    <h2>Bring your own map key</h2>
+    <h2 id="token-setup-title">Bring your own map key</h2>
     <p class="token-lead">
       The 3D tiles are billed per request, so this build ships without a key.
       A free account covers playing.
@@ -54,6 +56,7 @@
 
   <form class="token-form" (submit)="submit($event)">
     <input
+      cdkFocusInitial
       class="token-input"
       type="text"
       [name]="provider() === 'cesium' ? 'cesium-ion-token' : 'google-maps-api-key'"

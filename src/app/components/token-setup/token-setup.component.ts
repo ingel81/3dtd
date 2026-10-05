@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { ConfigService } from '../../core/services/config.service';
 import { TdIconComponent } from '../icon/icon.component';
 import { RovingGroupDirective } from '../roving-group.directive';
@@ -18,12 +19,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
  * referrer and not available in every region).
  *
  * Shown before the engine starts (no credentials at all) and after a rejected
- * one, which is why the copy has to work for both cases.
+ * one, which is why the copy has to work for both cases. It covers the page,
+ * so it holds the focus (cdkTrapFocus): Tab cannot wander into the hidden HUD.
  */
 @Component({
   selector: 'td-token-setup',
   standalone: true,
-  imports: [TdIconComponent, RovingGroupDirective],
+  imports: [CdkTrapFocus, TdIconComponent, RovingGroupDirective],
   host: { '(document:keydown.escape)': 'dismiss()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './token-setup.component.html',

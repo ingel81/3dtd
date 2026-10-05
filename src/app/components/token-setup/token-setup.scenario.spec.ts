@@ -20,6 +20,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Component, Input, input } from '@angular/core';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { getTestBed, TestBed, type ComponentFixture } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 
@@ -62,7 +63,7 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false })));
     TestBed.configureTestingModule({});
     TestBed.overrideComponent(TokenSetupComponent, {
-      set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [IconStub] },
+      set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [CdkTrapFocus, IconStub] },
     });
     config = TestBed.inject(ConfigService);
     await config.load();
@@ -152,5 +153,16 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     pressEsc();
     expect(config.needsCredentials()).toBe(true);
     expect(fixture.componentInstance.dismissible()).toBe(false);
+  });
+
+  it('is a modal dialog that holds the focus, named by its heading (review E92)', () => {
+    render();
+    const root = fixture.nativeElement as HTMLElement;
+    const dialog = root.querySelector('[role="dialog"]')!;
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(root.querySelector(`#${dialog.getAttribute('aria-labelledby')}`)!.textContent).toBe('Bring your own map key');
+    // cdkTrapFocus puts its anchors around the screen; what they do needs a browser (jsdom sees nothing focusable)
+    expect(root.querySelectorAll('.cdk-focus-trap-anchor').length).toBe(2);
+    expect(root.querySelector('[cdkFocusInitial]')?.classList).toContain('token-input');
   });
 });
