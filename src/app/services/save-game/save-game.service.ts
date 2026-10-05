@@ -196,6 +196,9 @@ export class SaveGameService implements SaveGamePort {
         : await this.loader.moveTo(world, file.place.name);
       if (!there || !this.loader.standsOn(world)) return 'The place of the save did not load.';
     }
+    // The save's wave source for the fresh run adopt starts: its reset puts it into service on both threads,
+    // so the simulation pays kill gold, leaks and wave ends by the save's rules (GameLoopFacade.resetWaveSource)
+    this.director.useSourceNextRun(file.director.source);
     if (this.loader.adopt(world) !== world.worldKey) return 'The world of the save did not come out the same here.';
 
     // The fresh run on the save's world (adopt sent it) and then the snapshot; the main thread's part

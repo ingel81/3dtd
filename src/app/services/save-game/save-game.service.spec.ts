@@ -83,7 +83,11 @@ function setup(options: { inCoop?: boolean } = {}) {
     rng: { setState: vi.fn(() => order.push('rng')), getState: () => ({ seed: 1, streams: {} }) },
     scalars: { snapshotRefusal: null },
   };
-  const director = { restoreState: vi.fn(() => order.push('director')), saveState: vi.fn() };
+  const director = {
+    restoreState: vi.fn(() => order.push('director')),
+    saveState: vi.fn(),
+    useSourceNextRun: vi.fn((id: string) => order.push(`source ${id}`)),
+  };
   const runLog = { resumeRun: vi.fn(() => order.push('run-log')), saveState: vi.fn() };
   const loader = {
     placeLoaded: vi.fn(async () => true),
@@ -133,7 +137,8 @@ describe('SaveGameService (TODO E110)', () => {
     const { apply, order, director, mirror, runLog } = setup();
     const file = saveFile();
     expect(await apply(file)).toBeNull();
-    expect(order).toEqual(['adopt', 'restoreSnapshot', 'director', 'rng', 'run-log']);
+    // The save's source before adopt: the reset of the fresh run puts it into service in the worker too
+    expect(order).toEqual(['source budget', 'adopt', 'restoreSnapshot', 'director', 'rng', 'run-log']);
     expect(director.restoreState).toHaveBeenCalledWith(file.director);
     expect(mirror.rng.setState).toHaveBeenCalledWith(file.mainRng);
     expect(runLog.resumeRun).toHaveBeenCalledWith(null, [], 4);
