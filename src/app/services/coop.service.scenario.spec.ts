@@ -425,6 +425,11 @@ describe('CoopService over a real relay (review R21)', () => {
     expect(alone.coop.error()).toBeNull();
     expect(alone.coop.publicRooms()).toBeNull();
     expect(alone.coop.status()).toBe('closed');
+    // Named for the entry, which says it on either way (an invite link on Same network too)
+    expect(alone.coop.lobbyDown()).toEqual(expect.any(String));
+    // The probe of the lobby menu marks it, so the entry shows no second note
+    const lobbyUrl = alone.coop.lobby()!.url;
+    expect(await alone.coop.probeLobby(lobbyUrl)).toMatchObject({ ok: false, down: true });
   });
 
   it('goes on alone once the connection broke in the game (R10)', async () => {

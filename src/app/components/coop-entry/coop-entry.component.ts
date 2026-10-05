@@ -208,12 +208,16 @@ export class CoopEntryComponent {
     void this.checkLobby();
   }
 
-  /** Whether the lobby just added answers and takes this version */
+  /**
+   * Whether the lobby just added answers and takes this version. A lobby
+   * that is down gets no note: the "does not answer" line says it once.
+   */
   async checkLobby(): Promise<void> {
     const lobby = this.coop().lobby();
     if (!lobby) return;
     this.lobbyNote.set({ ok: true, text: 'Asking…' });
-    this.lobbyNote.set(await this.coop().probeLobby(lobby.url));
+    const answer = await this.coop().probeLobby(lobby.url);
+    this.lobbyNote.set(answer.down ? null : { ok: answer.ok, text: answer.text });
   }
 
   removeLobby(url: string): void {

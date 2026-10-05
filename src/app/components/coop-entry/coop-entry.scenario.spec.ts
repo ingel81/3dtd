@@ -46,6 +46,7 @@ function stubCoop(lanAvailable: boolean) {
     lobbies: signal([EU, MINE]),
     lobby,
     lobbyPing: signal<number | null>(42),
+    lobbyDown: signal<string | null>(null),
     publicRooms: signal<unknown[] | null>([]),
     lanGames: signal<unknown[]>([]),
     scanLan: vi.fn(),
@@ -57,7 +58,7 @@ function stubCoop(lanAvailable: boolean) {
     selectLobby: vi.fn((url: string) => lobby.set(url === MINE.url ? MINE : EU)),
     addLobby: vi.fn(() => true),
     removeLobby: vi.fn(),
-    probeLobby: vi.fn(async () => ({ ok: true, text: 'This lobby answers.' })),
+    probeLobby: vi.fn(async (): Promise<{ ok: boolean; text: string; down?: true }> => ({ ok: true, text: 'This lobby answers.' })),
     probeLan: vi.fn(async () => false),
     leave: vi.fn(),
     installUpdate: vi.fn(),
@@ -178,6 +179,39 @@ describe('Coop entry, reworked', () => {
     coop.publicRooms.set(null);
     fixture.detectChanges();
     expect(text(fixture)).toContain('EU does not answer right now. Playing on the same network still works.');
+  });
+
+  const count = (f: ComponentFixture<unknown>, phrase: string) => text(f).split(phrase).length - 1;
+
+  it('an invite link failed on a lobby that is down while Same network is shown: the line stands there too', () => {
+    const fixture = open(true);
+    click(fixture, 'Same network');
+    coop.publicRooms.set(null);
+    coop.lobbyDown.set('EU');
+    fixture.detectChanges();
+    expect(text(fixture)).toContain('EU does not answer right now. Playing on the same network still works.');
+
+    // On Online it is the one line of the lobby block, not a second one
+    click(fixture, 'Online');
+    expect(count(fixture, 'does not answer right now')).toBe(1);
+  });
+
+  it('a lobby added while it is down: the line says it once, no probe note beside it', async () => {
+    const fixture = open(false);
+    coop.publicRooms.set(null);
+    coop.probeLobby.mockResolvedValueOnce({ ok: false, text: 'EU is offline right now.', down: true });
+    fixture.componentInstance.newLobbyUrl.set('wss://eu.example.test');
+    fixture.componentInstance.addLobby();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(text(fixture)).not.toContain('offline right now');
+    expect(count(fixture, 'does not answer right now')).toBe(1);
+
+    // Another reason (a lobby that refuses this version) still gets its note
+    coop.probeLobby.mockResolvedValueOnce({ ok: false, text: 'That lobby runs another version.' });
+    await fixture.componentInstance.checkLobby();
+    fixture.detectChanges();
+    expect(text(fixture)).toContain('That lobby runs another version.');
   });
 
   it('connecting: Cancel leaves and drops the intent', () => {

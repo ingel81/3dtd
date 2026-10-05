@@ -24,6 +24,12 @@
 @if (way() === 'lan') {
   <!-- Same network: the desktop app hosts and finds games itself (C4d) -->
   <section class="blk">
+    @if (c.lobbyDown(); as down) {
+      <!-- A join over the lobby failed while this way is shown (an invite link): the line Online shows -->
+      <p class="banner is-warn offline" role="status">
+        <span>{{ down }} does not answer right now. Playing on the same network still works.</span>
+      </p>
+    }
     <h3 class="sec">
       Games on this network
       <button class="icon-btn sm" type="button" (click)="rescanLan()"

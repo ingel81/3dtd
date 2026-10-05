@@ -385,6 +385,12 @@ export class CoopService {
   readonly publicRooms = signal<readonly PublicRoom[] | null>(null);
   /** Round trip of the last look at the list, ms (D63) */
   readonly lobbyPing = signal<number | null>(null);
+  /**
+   * The lobby the last host or join found down, by name; null after a
+   * connect that got through it or a list it answered. The entry says it
+   * on either way, also on Same network after an invite link failed.
+   */
+  readonly lobbyDown = signal<string | null>(null);
 
   /**
    * Look at the active lobby's public rooms: over the room's session where
@@ -410,6 +416,7 @@ export class CoopService {
       const rooms = await session.listRooms();
       this.ngZone.run(() => {
         this.publicRooms.set(rooms);
+        this.lobbyDown.set(null);
         this.lobbyPing.set(Math.round(performance.now() - started));
       });
     } catch {
@@ -1177,6 +1184,7 @@ export class CoopService {
     this.leave();
     this.name = name;
     this.error.set(null);
+    this.lobbyDown.set(null);
     this.status.set('connecting');
     const reached = await this.reachRelay(name, (attempt) => this.wire(attempt), lanUrls ? { source: 'lan', urls: lanUrls } : undefined);
     if ('error' in reached) {
@@ -1184,6 +1192,7 @@ export class CoopService {
       if (reached.lobbyDown) {
         this.publicRooms.set(null);
         this.lobbyPing.set(null);
+        this.lobbyDown.set(reached.lobbyDown);
       } else {
         this.error.set(reached.error);
       }
@@ -1198,9 +1207,9 @@ export class CoopService {
   }
 
   /** Whether the lobby at `url` answers and takes this game version, for the lobby menu's check. */
-  async probeLobby(url: string): Promise<{ ok: boolean; text: string }> {
+  async probeLobby(url: string): Promise<{ ok: boolean; text: string; down?: true }> {
     const reached = await this.reachRelay(this.name, undefined, { source: 'lobby', urls: [url] });
-    if ('error' in reached) return { ok: false, text: reached.error };
+    if ('error' in reached) return reached.lobbyDown ? { ok: false, text: reached.error, down: true } : { ok: false, text: reached.error };
     reached.session.close();
     return { ok: true, text: 'This lobby answers.' };
   }
@@ -1232,7 +1241,7 @@ export class CoopService {
     name: string,
     wire?: (attempt: CoopSession) => void,
     given?: { source: RelaySource; urls: string[] },
-  ): Promise<{ session: CoopSession; playerId: string; url: string; source: RelaySource } | { error: string; lobbyDown?: true }> {
+  ): Promise<{ session: CoopSession; playerId: string; url: string; source: RelaySource } | { error: string; lobbyDown?: string }> {
     const client = clientInfoFrom(navigator.userAgent);
     const candidates = given ?? this.relaysToTry();
     for (const url of candidates.urls) {
@@ -1254,7 +1263,7 @@ export class CoopService {
         return { error: `Can't reach that LAN game (tried ${tried}). The host's firewall may block it, or the room just closed.` };
       case 'lobby': {
         const name = this.lobbies().find((l) => l.url === candidates.urls[0])?.name ?? 'The lobby';
-        return { error: `${name} is offline right now.`, lobbyDown: true };
+        return { error: `${name} is offline right now.`, lobbyDown: name };
       }
       case 'auto':
         return { error: 'No online lobby is set up. Add one under Online.' };
