@@ -123,6 +123,13 @@ export class GameMenuComponent {
   /** Restart needs the game's facade; in coop the host restarts at game over (docs/COOP_PLAN.md, R1) */
   readonly canRestart = computed(() => this.facade !== null && !this.inCoop());
 
+  /**
+   * The location dialog opens only where the place is the player's: not in
+   * a coop game, and not for a guest in a room's lobby, whose map the host
+   * sets (UIStore.coopMapLocked; openLocationDialog would do nothing)
+   */
+  readonly canChangeLocation = computed(() => !this.inCoop() && !this.ui.coopMapLocked());
+
   /** Loading replaces the run: between waves only, like saving */
   readonly canLoad = computed(() => !this.store.waveActive());
   readonly cannotLoadReason = computed(() => (this.canLoad() ? null : 'Loads between waves'));

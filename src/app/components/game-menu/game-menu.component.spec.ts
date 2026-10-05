@@ -46,6 +46,8 @@ interface Setup {
   waveRunning?: boolean;
   /** The replay recorded a wave */
   recorded?: boolean;
+  /** A coop guest in a room's lobby: the host sets the map */
+  mapLocked?: boolean;
 }
 
 const slot = (id: string, name: string, wave: number, note: string | null = null): SaveSlotInfo => ({
@@ -59,6 +61,7 @@ const slot = (id: string, name: string, wave: number, note: string | null = null
 async function setup({
   desktop = true, started = false, inCoop = false, host = true, pausedBefore = false, benchmark = false,
   canSave = false, slots = [], loadResult = { ok: true, note: null }, waveRunning = false, recorded = false,
+  mapLocked = false,
 }: Setup = {}) {
   const bench = { start: vi.fn() };
   const bridge = {
@@ -112,6 +115,7 @@ async function setup({
     // The icon's signal inputs need the AOT compiler; the icon is no part of this test
     set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [], schemas: [NO_ERRORS_SCHEMA] },
   });
+  TestBed.inject(UIStore).coopMapLocked.set(mapLocked);
   const store = TestBed.inject(GameStore);
   if (started) store.towerCount.set(3);
   if (waveRunning) store.phase.set('wave');
@@ -321,6 +325,12 @@ describe('GameMenuComponent', () => {
       await click('Restart here');
       await click('Restart');
       expect(facade.restartGame).toHaveBeenCalledTimes(1);
+    });
+
+    it('has no Change location for a coop guest in the lobby, where the host sets the map', async () => {
+      const { labels } = await setup({ mapLocked: true });
+      expect(labels()).not.toContain('Change location');
+      expect(labels()).toContain('Restart here');
     });
 
     it('Change location opens the location dialog', async () => {

@@ -624,7 +624,7 @@ Settings: Fullscreen (F11), dann "Volume" mit je einer Zeile für Master, Effect
 
 More: "Save the run log" jederzeit, "Save the replay", sobald eine Welle aufgezeichnet ist, dann Map key, What's new, Keys, Attributions und (nicht im Coop) Benchmark.
 
-Was den laufenden Lauf beendet, fragt im Menü selbst: Restart (nur allein, mit Rückfrage, sobald ein Lauf begonnen hat), Quit, Benchmark. Change location schließt das Menü und öffnet den Standortdialog, der Lauf endet erst, wenn dort ein neuer Ort bestätigt wird.
+Was den laufenden Lauf beendet, fragt im Menü selbst: Restart (nur allein, mit Rückfrage, sobald ein Lauf begonnen hat), Quit, Benchmark. Change location (nicht im Coop und nicht für einen Gast in der Lobby eines Raums, dessen Karte der Host setzt, `UIStore.coopMapLocked`) schließt das Menü und öffnet den Standortdialog, der Lauf endet erst, wenn dort ein neuer Ort bestätigt wird.
 
 ### Continue-Leiste (Canvas)
 

@@ -126,7 +126,7 @@
             <td-icon class="gm-more" name="caretR" [size]="12"></td-icon>
           </button>
 
-          @if (canRestart() || !inCoop() || canQuit) {
+          @if (canRestart() || canChangeLocation() || canQuit) {
             <div class="gm-sep" role="separator"></div>
           }
           @if (canRestart()) {
@@ -135,7 +135,7 @@
               <span class="gm-label">Restart here</span>
             </button>
           }
-          @if (!inCoop()) {
+          @if (canChangeLocation()) {
             <button class="gm-item" type="button" (click)="changeLocation()">
               <td-icon name="globe" [size]="14"></td-icon>
               <span class="gm-label">Change location</span>
