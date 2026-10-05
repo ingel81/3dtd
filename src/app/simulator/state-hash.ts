@@ -16,7 +16,7 @@ import { HASH_PARTS, type HashedEntities, type HashPart } from '../coop/hash-che
  * 3: the simulation computes with DetMath instead of the native Math (E28),
  * so the same run gives other bits. 4: a tower's build end (Tower.builtAtMs) and path.
  * 5: the wave's spawner, the kill gold left and paid, an enemy's walk and
- * run phase (TODO E94).
+ * run phase (TODO E94) and its camouflage.
  */
 export const STATE_HASH_VERSION = 5;
 
@@ -190,6 +190,9 @@ export class StateHasher {
       this.num(this.d >>> 0);
       // Walk or run: the speed differs only once the phase turns
       if (enemy.rush) this.digest(enemy.rush);
+      // Camouflaged: shows otherwise only in whom the towers pick. Only then, a plain enemy's row stays short;
+      // `revealed` follows from the positions every sub-step
+      if (enemy.camo) this.str('camo');
     }
 
     this.part('towers');

@@ -144,6 +144,14 @@ describe('StateHasher', () => {
       expect(a.entities.enemies![0]).toHaveLength(8);
     });
 
+    it('names an enemy camouflaged on one side only', () => {
+      const plain = hasher.breakdown(source([enemy('enemy-1', 48.1, 90)]));
+      const hidden = Object.assign(enemy('enemy-1', 48.1, 90), { camo: true });
+      const camo = hasher.breakdown(source([hidden]));
+      expect(HASH_PARTS.filter((_, i) => plain.parts[i] !== camo.parts[i])).toEqual(['enemies']);
+      expect(camo.entities.enemies![0].at(-1)).toBe('camo');
+    });
+
     it('names research and abilities apart', () => {
       const base = hasher.breakdown(source([]));
       const research = hasher.breakdown(source([], undefined, { research: seat(2) }));

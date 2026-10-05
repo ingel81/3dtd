@@ -133,11 +133,11 @@ Reihenfolge nach Abhängigkeit. P1 bis P3 sind unabhängig voneinander.
 ### P5 Prüfsumme, Abnahme, Benchmark
 - `stateHash()`: Sub-Step, Credits und Perfect-Serie, das noch offene Kill-Gold der Welle (ab ihrem ersten Kill),
   HQ-Leben, Wellennummer und Spawner (Zeit seit dem letzten Spawn, nächste Pause, nächster Eintrag), Id-Zähler,
-  Zufallsstand; je Gegner Id, Position, Höhe, Leben, Wegfortschritt, Statuseffekte und Geh-/Renn-Phase; je Tower Cooldown, Kills, Schaden, Ziel, Upgrade-Stufen,
+  Zufallsstand; je Gegner Id, Position, Höhe, Leben, Wegfortschritt, Statuseffekte, Geh-/Renn-Phase und Tarnung; je Tower Cooldown, Kills, Schaden, Ziel, Upgrade-Stufen,
   Zielstrategie, Hold-Fire und Besetzung; Projektile; je Held Ort, Cooldown, Stufe, Munition und Ziel; je Spieler
   Forschung (fertig, laufend, Warteschlange) und Fähigkeiten (Ladungen, Schläge unterwegs). Bits, nicht gerundet. Nur
   beim Aufnehmen und Prüfen, jede Spielsekunde (30 Sub-Steps) und am Wellenende, im Coop alle 30 Ticks; im normalen Spiel nicht.
-  `STATE_HASH_VERSION` (2 seit TODO E63 i, 3 seit der eigenen Mathe aus E28, 4 seit Bauende und Pfad der Tower, 5 seit Spawner, Kill-Gold und Renn-Phase aus E94) steht in der Replay-Datei; eine Datei
+  `STATE_HASH_VERSION` (2 seit TODO E63 i, 3 seit der eigenen Mathe aus E28, 4 seit Bauende und Pfad der Tower, 5 seit Spawner, Kill-Gold, Renn-Phase und Tarnung aus E94) steht in der Replay-Datei; eine Datei
   einer anderen Version spielt ohne Prüfung ihrer Summen.
 - Snapshot mitten in der Welle (`simulator/wave-snapshot.ts`, 2026-09-28): `captureWaveSnapshot()` an jeder
   Sub-Step-Grenze, `restoreWaveSnapshot()` rechnet bitgleich weiter, Würmer und Oozes eingeschlossen; Stand, Kosten
