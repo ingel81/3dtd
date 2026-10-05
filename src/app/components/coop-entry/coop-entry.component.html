@@ -138,7 +138,7 @@
         }
       } @else {
         <p class="banner is-warn offline" role="status">
-          <span>{{ active.name }} does not answer right now.</span>
+          <span>{{ active.name }} does not answer right now.{{ c.lanAvailable ? ' Playing on the same network still works.' : '' }}</span>
           <button class="btn-xs" type="button" (click)="refreshRooms()">Retry</button>
         </p>
       }

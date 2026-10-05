@@ -396,14 +396,17 @@ describe('CoopService over a real relay (review R21)', () => {
     await until(() => host.coop.chat().some((line) => line.from === null && line.text === "Bob's map stands"));
   });
 
-  it('says the lobby is offline when no relay answers (D61)', async () => {
+  it('says the lobby is offline once, as the "does not answer" line of the entry, when no relay answers (D61, E114)', async () => {
     relay = await startRelay({ port: 0 });
     const port = relay.port;
     await relay.close();
     relay = null;
     const alone = player(port);
+    alone.coop.publicRooms.set([]);
     await alone.coop.host('Ann');
-    expect(alone.coop.error()).toBe(`localhost:${port} is offline right now. Playing on the same network still works.`);
+    // No second message beside the line the entry shows for a lobby that does not answer
+    expect(alone.coop.error()).toBeNull();
+    expect(alone.coop.publicRooms()).toBeNull();
     expect(alone.coop.status()).toBe('closed');
   });
 

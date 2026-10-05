@@ -1,0 +1,44 @@
+@use '../../styles/td-mixins' as td;
+@use '../coop-ui/coop-ui' as ui;
+
+@include ui.classes;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--td-font-body);
+  color: var(--td-text-primary);
+}
+
+.blk {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 18px;
+}
+
+.sec {
+  margin: 0;
+  @include td.section-label;
+}
+
+.invite b {
+  font-family: var(--td-font-mono);
+  color: var(--td-gold-light);
+}
+
+.row {
+  flex-wrap: wrap;
+
+  a { flex: 1; text-decoration: none; }
+}
+
+.link {
+  align-self: flex-start;
+  padding: 2px 0;
+  font: 12px var(--td-font-body);
+  color: var(--td-text-muted);
+  @include td.focus-ring;
+
+  &:hover { color: var(--td-gold-light); }
+}

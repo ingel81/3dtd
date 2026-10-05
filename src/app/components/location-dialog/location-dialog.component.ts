@@ -104,11 +104,12 @@ export class LocationDialogComponent {
 
   /**
    * The Coop tab: only at a start without a place, where there is something
-   * to join (the desktop app's LAN, or an online lobby) (E30, D67)
+   * to join (the desktop app's LAN, or an online lobby) (E30, D67); not in a
+   * browser on the site, where coop only points to the app (E114)
    */
   readonly coopOffered = computed(() => {
     const coop = this.coop;
-    return !!coop && this.firstPlace && (coop.lanAvailable || coop.lobby() !== null);
+    return !!coop && this.firstPlace && coop.access !== 'hint' && (coop.lanAvailable || coop.lobby() !== null);
   });
 
   // State

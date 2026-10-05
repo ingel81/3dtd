@@ -46,6 +46,7 @@ import { toneWavDataUrl } from '../utils/alert-tone';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { relayCandidates, relayForLink, relayLabel, type RelaySource } from '../coop/relay-address';
 import { readCoopLan, readDesktopBridge, type LanGame } from '../core/desktop-bridge';
+import { coopAccess } from '../coop/coop-access';
 import { CoopLobbyList } from './coop-lobby-list';
 import {
   DEFAULT_ROOM_OPTIONS,
@@ -449,6 +450,8 @@ export class CoopService {
   private readonly lanBridge = readCoopLan();
   /** Coop on the local network is offered here: the desktop app */
   readonly lanAvailable = this.lanBridge !== null;
+  /** Where coop may be played: the app, the dev game, or a browser that only points to the app (E114) */
+  readonly access = coopAccess(readDesktopBridge() !== null, window.location.hostname);
   /** This machine hosts a LAN game: its relay runs and ends with the room */
   private lanHosting = false;
   /** While hosting on the LAN, this machine's addresses for the guests (D54) */
@@ -488,7 +491,10 @@ export class CoopService {
     });
     const params = new URLSearchParams(window.location.search);
     this.roomFromUrl = params.get('room');
-    if (this.roomFromUrl) {
+    if (this.roomFromUrl && this.access === 'hint') {
+      // An invite link in a browser: the dock says the room is played in the app (E114)
+      this.uiStore.coopDockOpen.set(true);
+    } else if (this.roomFromUrl) {
       // Opened with an invite link (?room=): the dock opens at once and says what
       // happens, the host's map loads, the player joins as soon as it stands
       this.intent.set('join');
@@ -1171,7 +1177,13 @@ export class CoopService {
     this.status.set('connecting');
     const reached = await this.reachRelay(name, (attempt) => this.wire(attempt), lanUrls ? { source: 'lan', urls: lanUrls } : undefined);
     if ('error' in reached) {
-      this.error.set(reached.error);
+      // The lobby is down: the entry's "does not answer" line says it once, no second message (E114)
+      if (reached.lobbyDown) {
+        this.publicRooms.set(null);
+        this.lobbyPing.set(null);
+      } else {
+        this.error.set(reached.error);
+      }
       this.status.set('closed');
       return null;
     }
@@ -1217,7 +1229,7 @@ export class CoopService {
     name: string,
     wire?: (attempt: CoopSession) => void,
     given?: { source: RelaySource; urls: string[] },
-  ): Promise<{ session: CoopSession; playerId: string; url: string; source: RelaySource } | { error: string }> {
+  ): Promise<{ session: CoopSession; playerId: string; url: string; source: RelaySource } | { error: string; lobbyDown?: true }> {
     const client = clientInfoFrom(navigator.userAgent);
     const candidates = given ?? this.relaysToTry();
     for (const url of candidates.urls) {
@@ -1239,7 +1251,7 @@ export class CoopService {
         return { error: `Can't reach that LAN game (tried ${tried}). The host's firewall may block it, or the room just closed.` };
       case 'lobby': {
         const name = this.lobbies().find((l) => l.url === candidates.urls[0])?.name ?? 'The lobby';
-        return { error: `${name} is offline right now. Playing on the same network still works.` };
+        return { error: `${name} is offline right now.`, lobbyDown: true };
       }
       case 'auto':
         return { error: 'No online lobby is set up. Add one under Online.' };

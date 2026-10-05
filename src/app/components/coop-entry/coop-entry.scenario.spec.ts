@@ -165,10 +165,19 @@ describe('Coop entry, reworked', () => {
     coop.publicRooms.set(null);
     fixture.detectChanges();
     expect(text(fixture)).toContain('EU does not answer right now.');
+    // The web version has no LAN (E114)
+    expect(text(fixture)).not.toContain('same network');
     coop.refreshPublicRooms.mockClear();
     click(fixture, 'Retry');
     expect(coop.refreshPublicRooms).toHaveBeenCalledTimes(1);
     expect(el(fixture).querySelector('[aria-label="Room code"]')).not.toBeNull();
+  });
+
+  it('the app: a lobby that does not answer points to the same network (E114)', () => {
+    const fixture = open(true);
+    coop.publicRooms.set(null);
+    fixture.detectChanges();
+    expect(text(fixture)).toContain('EU does not answer right now. Playing on the same network still works.');
   });
 
   it('connecting: Cancel leaves and drops the intent', () => {

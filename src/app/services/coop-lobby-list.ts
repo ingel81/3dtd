@@ -1,6 +1,7 @@
 import { computed, signal } from '@angular/core';
 import type { ConfigService } from '../core/services/config.service';
 import { DEFAULT_RELAY_PORT } from '../coop/relay-address';
+import { DEV_HOSTS } from '../coop/coop-access';
 import { readDesktopBridge } from '../core/desktop-bridge';
 import {
   activeLobby,
@@ -17,8 +18,6 @@ import { readText, removeKey, writeJson } from '../utils/storage';
 
 /** The player's own relay from before the lobbies (D58), kept in this browser; none means automatic */
 const RELAY_KEY = '3dtd-coop-relay';
-/** Pages of the dev game: without a configured lobby they get this machine's relay */
-const DEV_HOSTS = new Set(['localhost', '127.0.0.1']);
 /** localStorage: the lobbies the player added and the active one (D58) */
 const LOBBIES_KEY = '3dtd-coop-lobbies';
 

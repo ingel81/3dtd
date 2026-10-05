@@ -3,6 +3,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { CoopEntryComponent } from '../coop-entry/coop-entry.component';
+import { CoopAppHintComponent } from '../coop-entry/coop-app-hint.component';
 import { CoopJoinStepsComponent } from './coop-join-steps.component';
 import { CoopRoomTableComponent } from './coop-room-table.component';
 import { CoopRoomOptionsComponent } from './coop-room-options.component';
@@ -25,7 +26,8 @@ const COPIED_MS = 1200;
  * The coop dock (docs/COOP_PLAN.md, C8, D41; the layout
  * docs/archive/COOP_UI_REWORK_PLAN.md, P5): right of the ability bar, from below
  * the info overlay down to the logo row, without a veil; the map stays
- * usable beside it. Not in a room it opens or joins one (app-coop-entry);
+ * usable beside it. Not in a room it opens or joins one (app-coop-entry),
+ * in a browser on the site it points to the desktop app (app-coop-app-hint);
  * joining it shows the handshake (app-coop-join-steps); in the room it
  * holds code and invite, the public listing, who we wait on, one warning,
  * the table of lanes and players, the options and, in a column of its own,
@@ -37,7 +39,7 @@ const COPIED_MS = 1200;
   selector: 'app-coop-dock',
   standalone: true,
   imports: [
-    MatTooltipModule, TdIconComponent, CoopEntryComponent, CoopJoinStepsComponent,
+    MatTooltipModule, TdIconComponent, CoopEntryComponent, CoopAppHintComponent, CoopJoinStepsComponent,
     CoopRoomTableComponent, CoopRoomOptionsComponent, CoopLobbyChatComponent, FocusOnShowDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
