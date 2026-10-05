@@ -541,9 +541,11 @@ Zwei Befunde:
 
 Bekannte Stolpersteine, beim ersten Test zu prüfen:
 
-- **FUSE:** Ein AppImage braucht FUSE 2. Ubuntu ab 22.04 und Arch installieren es
+- **FUSE:** Bis 0.6.0 brauchte das AppImage FUSE 2. Ubuntu ab 22.04 und Arch installieren es
   nicht mehr von sich aus (`libfuse2` bzw. `fuse2`); sonst hilft der Start mit
-  `--appimage-extract-and-run`.
+  `--appimage-extract-and-run`. Danach baut electron-builder mit der statischen Laufzeit
+  (`toolsets.appimage: '1.0.3'`, AppImage/type2-runtime, squashfs mit zstd), die weder libfuse2 noch eine
+  bestimmte glibc braucht (TODO E83). Noch auf keinem System getestet.
 - **Sandbox:** Ohne User-Namespaces (gehärtete Kernel) startet Chromium nicht; dann
   braucht es `--no-sandbox`, was die Sandbox aufgibt.
 - **Wayland:** Electron läuft über XWayland, auf HiDPI wirkt das leicht unscharf.

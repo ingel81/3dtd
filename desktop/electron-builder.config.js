@@ -65,6 +65,10 @@ module.exports = {
   appImage: {
     artifactName: '${productName}-${version}-x86_64.${ext}',
   },
+  // The static AppImage runtime (AppImage/type2-runtime): it needs no libfuse2
+  // and no particular glibc on the player's system, which the AppImage catalog
+  // asks for (TODO E83). '0.0.0' would be the old FUSE 2 runtime.
+  toolsets: { appimage: '1.0.3' },
   nsis: {
     oneClick: true,
     perMachine: false,
