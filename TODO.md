@@ -17,7 +17,7 @@ Nach dem Test geht ein Eintrag **nur auf Zuruf des Users** nach DONE.md. Die Ken
 und werden nicht neu vergeben, Neues bekommt die nächste freie Nummer. Nichts Internes ins Repo (Adressen,
 Mitspielernamen, Gesprächsdetails).
 
-Stand 2026-10-03. `next` ist der RC für 0.6 (gepusht), `dev/after-0.6` wartet auf das Review des Users.
+Stand 2026-10-04. 0.6.0 ist veröffentlicht (Tag `v0.6.0` auf `next`), `dev/after-0.6` wartet auf das Review des Users.
 
 ---
 
@@ -31,6 +31,15 @@ Stand 2026-10-03. `next` ist der RC für 0.6 (gepusht), `dev/after-0.6` wartet a
       an Luft- und Geisterwellen (W17, W27, W44, W50), weil ein Regler für alle Wellen gilt. Nach dem Playtest entscheiden.
 - [ ] **E105 Spieltiefe, Rest der Balance-Nacht**: Schild am Skarnax-Kopf, Gegnereigenschaften Shielded und Aura,
       Mutator „Panzerung +1“.
+- [ ] **E113 Druck-Regler im Wave Debug verständlich machen** (User, 2026-10-04, PLAYTEST M4): die Zeile
+      „Pressure loop …“ sagt ihm nichts. In Worten zeigen, was der Regler gemessen hat und was er daraus macht.
+- [ ] **E114 Coop im Browser** (User, 2026-10-04, Notiz 2 in `tmp/PLAYTEST_NOTIZEN_2026-10-04.md`): laut D59/D52 nur
+      in der App, der Browser zeigt trotzdem den Coop-Dialog. Auf localhost bietet er „This machine“ an; antwortet
+      der Relay nicht, steht die Meldung doppelt da, und der Text „Playing on the same network still works“ ist im
+      Browser falsch (kein LAN). Vorschlag, nicht entschieden: im Browser zeigt der Coop-Knopf nur „Co-op runs in the
+      desktop app“ mit Download-Link, auf localhost bleibt der Dialog für Dev-Tests ohne LAN-Satz und Doppelmeldung.
+- [ ] **E115 Forschungspreise des Mitspielers** (User, 2026-10-04, Notiz 1 dort): in der Forschungsansicht des
+      Mitspielers stehen die Grundpreise, nicht die mit seiner Spuranzahl multiplizierten.
 - [ ] **E106 Menschenähnlicher Bot** ([BOT_PLAYER_PLAN.md](docs/BOT_PLAYER_PLAN.md), B1 bis B6 auf `next`): offen B7
       (Camo, Pfade, Bauzeit) nach dem Merge von `dev/after-0.6`; Profile mit dem Lauf vom 2026-10-04 nachjustieren
       (`tools/play-profile`); Gold an den Coop-Partner im Browser auslösen (bisher nur per Spec).
@@ -59,7 +68,7 @@ Stand 2026-10-03. `next` ist der RC für 0.6 (gepusht), `dev/after-0.6` wartet a
       Keys-Dialog wie echte Keyboard-Kappen, einheitlich; (c) Spielmenü als klassisches Spielmenü (mit E111);
       (d) Coop-Knopf im Header während einer Welle: sperren, Rückfrage oder lassen (prüfen, was ein Raum mitten im
       Solo-Lauf macht); (e) Header-Leiste logisch gruppiert mit sichtbaren Trennern (Ort, Karte bearbeiten, Coop);
-      (f) Wellen-Vorschau („NEXT“) optisch aufwerten. Gebaut 2026-10-04 auf `next`: (a), (b), (d) als Rückfrage beim
+      (f) Wellen-Vorschau („NEXT“) optisch aufwerten, dazu ihr Tooltip (PLAYTEST B3, 2026-10-04: jetzt in Blöcken, „hübsch ist es nicht“). Gebaut 2026-10-04 auf `next`: (a), (b), (d) als Rückfrage beim
       „Start match“, solange ein Solo-Lauf läuft (der Raum selbst lässt ihn stehen), (e) Variante B aus Claude Design
       (sichtbare Striche, neue Icons). Offen (c) und (f).
 - [ ] **E102 Neue Tower aus den Meshy-Kandidaten** (User, 2026-10-02; Modelle in
@@ -72,8 +81,8 @@ Stand 2026-10-03. `next` ist der RC für 0.6 (gepusht), `dev/after-0.6` wartet a
 - [ ] **E83 AppImage im AppImage-Katalog nachbessern** (2026-09-30): 3DTD steht seit dem 2026-09-30 im Katalog auf
       appimage.github.io. Der Test meldet drei Punkte. Gebaut für 0.6 (2026-10-03): der Name ist jetzt
       `3DTD-X.Y.Z-x86_64.AppImage` und `3DTD-x86_64.AppImage` ohne „linux“, der Updater zieht mit (`latest-linux.yml`);
-      die alte Kopie `3DTD-linux-x64.AppImage` lädt `release.yml` ein Release lang mit hoch, danach aus dem Workflow
-      nehmen. Offen: keine eingebettete Update-Information (`appimagetool -u` und eine `.zsync` neben dem AppImage, für
+      die alte Kopie `3DTD-linux-x64.AppImage` lud `release.yml` für 0.6.0 noch mit hoch; vor dem nächsten Release
+      aus dem Workflow nehmen. Offen: keine eingebettete Update-Information (`appimagetool -u` und eine `.zsync` neben dem AppImage, für
       AppImageUpdate; electron-builder kann das nicht selbst); alte AppImage-Laufzeit, die glibc und libfuse2 braucht.
       Dazu (User, 2026-09-30): ein AUR-Paket `3dtd-bin` (PKGBUILD, das das AppImage des Releases lädt, mit
       Desktop-Eintrag und Icon); bei jedem Release Version und Prüfsumme nachziehen, am besten aus der CI.
@@ -126,15 +135,13 @@ Stand 2026-10-03. `next` ist der RC für 0.6 (gepusht), `dev/after-0.6` wartet a
 
 ## 2. Gebaut, wartet auf Test
 
-### Playtest 2026-10-04 auf `next`
+### Beim nächsten Release testen
 
-- [ ] **E95 Solo-Lauf bis Welle 60, Befunde**: in der Balance-Nacht umgesetzt (2026-10-02), bis W20 gut. Lauf ab W20 mit
-      Spuren (PLAYTEST N1 bis N14), danach Run-Log und Replay gegen `tools/balance-calc` legen.
-- [ ] **E71 Worker-Stand**: Coop über zwei Rechner (PLAYTEST N15, W), Webseite nach dem Deploy mit `curl -I` auf
-      /play/ (COOP und COEP, im Overlay `Memory: shared`).
+- [ ] **Coop-Reste aus dem Playtest 2026-10-04**: PLAYTEST N18 (Coop-Start nach Solo-Lauf), N21 (Coop-Replay als
+      Datei), T70 (Beitreten ohne eigenen Ort, E30), T71 (öffentliche Raumliste, E31), T79 (Run-Log ans Relay, E38),
+      K8.4 (Laptop mit zwei Grafikkarten).
 - [ ] **E86 Simulationsrate 30, Bild interpoliert** ([SIM_WORKER.md](docs/SIM_WORKER.md)): ansehen, ob die Drehung mit
       dem Stand springt und Auren und Flammen mitgleiten.
-- [ ] **E76 Vorschau der Seitenleiste**: vorgebackene Bildbänder (`npm run previews`), im Spiel ansehen (PLAYTEST W1.4).
 
 ### Gefühl im Spiel
 
@@ -147,23 +154,10 @@ Stand 2026-10-03. `next` ist der RC für 0.6 (gepusht), `dev/after-0.6` wartet a
 
 ### Coop-Nachtests
 
-- [ ] **E30 Coop: Beitreten ohne erst einen Ort zu laden** (PLAYTEST T70); dabei den ganzen Ablauf vom Start der App bis
-      im Raum einmal durchgehen.
-- [ ] **E31 Coop übers Internet** ([COOP_PLAN.md](docs/COOP_PLAN.md) C7): PLAYTEST T70, T71 mit neuem Installer, ein
-      Lauf über die echte Lobby.
-- [ ] **E34 Coop-Skalierung** (jede Spur bekommt die ganze Welle): PLAYTEST T76, T81.
-- [ ] **E35 Coop: Forschung des Mitspielers ansehen**: PLAYTEST T83.
-- [ ] **E36 Coop: Gold in beliebiger Höhe senden**: im Coop ausprobieren.
-- [ ] **E38 Run-Log ans Relay** (Opt-in, nur Coop, Relay-Schalter `--collect-runs`): PLAYTEST T79.
-- [ ] **E39 Coop: Tower des Mitspielers ansehen**: PLAYTEST T77.
 - [ ] **E43 Coop-Masken des Hosts mit groben Kacheln**: auf einer echten Karte prüfen.
 
 ### Sonstige
 
-- [ ] **A2 Tentacle-Sound ersetzt** (2026-10-03): Saugnapf-Griff von ElevenLabs statt der Datei ohne belegte Lizenz;
-      im Spiel anhören (PLAYTEST N17).
-- [ ] **C19 Tower bemannen**: im Coop behoben und geprüft; im Einzelspieler und in der Desktop-App offen (PLAYTEST T72).
-- [ ] **E37 Desktop: Downloads sichtbar** (Speichern-Dialog für Run-Log, Dump, Replay): in der App prüfen.
 - [ ] **E93 Route, Zellen, Spawn und HQ schweben nach dem Laden**: Neubau der Region im neuen Rahmen gebaut; im Spiel
       bestätigen. Tritt es wieder auf: [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md), „Vorgehen, wenn die Route wieder schwebt“.
 

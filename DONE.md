@@ -4,6 +4,22 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-10-04
+
+- [x] **Release 0.6.0** (`f6bf5f48`, Tag `v0.6.0`): Simulation im Worker, neuer Laufplan, wütende Bosse, Eliten,
+      Blutmond-Mutatoren, Spuren je Spawn; Installer, AppImage, Web und Relay-Image live.
+- [x] **Playtest 2026-10-04** (Ergebnisse in [docs/PLAYTEST.md](docs/PLAYTEST.md)): bestanden E95 (N1 bis N14), E71
+      (N15, W), E76 (W1.4), E34, E35, E36, E39, A2, C19, E37; Gesamtgefühl releasetauglich.
+- [x] **Fixes aus dem Playtest**: HQ-Darstellung kannte das HQ seit dem Worker-Umbau nicht, also keine Leckzahl,
+      kein Ton, kein Feuer (`bb775d7c`); Ticks im bemannten Tower entfernt (`191d5013`); App-CSP ließ das Stylesheet
+      von Angular 22.2 nicht zu (`2964f5fa`); Überschriften ohne Serifen (`80d0264e`); Name nur in der ersten Spur
+      (`6f1f78fe`); nach dem Benchmark zurück zum Ort (`233e63a9`); Wellen-Tooltip in Blöcken (`6f84ed62`).
+- [x] **Coop und Orte**: Host speichert das Coop-Replay (`beea8747`), Rückfrage vor Start mitten im Solo-Lauf
+      (`ed069762`), eingefügter 3DTD-Link öffnet den Ort mit allen Spawns (`3a4f02e4`), Favoriten mit allen Spuren
+      (`263b7a92`).
+- [x] **E112 (a), (b), (d), (e)**: Steuerungs-Hilfe in einer Reihe, Tasten als Kappen, Header mit Trennern (`0699f151`,
+      `915da012`).
+
 ## 2026-10-03
 
 - [x] **Menschenähnlicher Bot** (E106, B1 bis B6): Wahrnehmung der Wellen, Bauplatz nach Sichtlinie, Schiedsrichter
