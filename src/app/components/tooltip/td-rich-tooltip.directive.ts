@@ -1,9 +1,11 @@
 import {
+  ComponentRef,
   Directive,
   ElementRef,
   HostListener,
   Injector,
   OnDestroy,
+  effect,
   inject,
   input,
 } from '@angular/core';
@@ -45,7 +47,9 @@ const POSITION_PRESETS: Record<string, ConnectedPosition[]> = {
 
 /**
  * Rich tooltip directive — opens a CDK overlay hosting `<td-tooltip-content>`
- * when the host element receives mouseenter/focus, dismisses on mouseleave/blur.
+ * when the host element receives mouseenter/focus, dismisses on mouseleave/blur
+ * and on Escape (which then goes no further, like MatTooltip). Open, it follows
+ * its data: new data redraws the card, null or disabled closes it.
  *
  * Replaces `[matTooltip]`/`matTooltipClass` for cases where structured markup
  * is needed (Tower-Cards, Enemy-Cards, …). MatTooltip remains the right choice
@@ -69,8 +73,20 @@ export class TdRichTooltipDirective implements OnDestroy {
   readonly tdRichTooltipDisabled = input<boolean>(false);
 
   private overlayRef: OverlayRef | null = null;
+  private contentRef: ComponentRef<TdTooltipContentComponent> | null = null;
   private showTimer: ReturnType<typeof setTimeout> | null = null;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor() {
+    // An open card shows what its host shows now (a countdown, a state)
+    effect(() => {
+      const data = this.tdRichTooltip();
+      const disabled = this.tdRichTooltipDisabled();
+      if (!this.contentRef) return;
+      if (!data || disabled) this.closeOverlay();
+      else this.contentRef.setInput('data', data);
+    });
+  }
 
   @HostListener('mouseenter')
   @HostListener('focus')
@@ -129,15 +145,25 @@ export class TdRichTooltipDirective implements OnDestroy {
       panelClass: 'td-rich-tooltip-panel',
     });
 
+    // Escape closes the card and is spent on it (keydown on body, before the game's window listener)
+    this.overlayRef.keydownEvents().subscribe((event) => {
+      if (event.key !== 'Escape' || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.cancelHide();
+      this.closeOverlay();
+    });
+
     const portal = new ComponentPortal(TdTooltipContentComponent, null, this.injector);
-    const ref = this.overlayRef.attach(portal);
-    ref.setInput('data', data);
+    this.contentRef = this.overlayRef.attach(portal);
+    this.contentRef.setInput('data', data);
   }
 
   private closeOverlay(): void {
     if (!this.overlayRef) return;
     this.overlayRef.dispose();
     this.overlayRef = null;
+    this.contentRef = null;
   }
 
   private cancelShow(): void {
