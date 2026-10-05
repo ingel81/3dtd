@@ -153,11 +153,14 @@ export class SaveGameService implements SaveGamePort {
     const source = this.world.source();
     const hq = this.locationMgmt.hq();
     if (!source || !hq) return null;
+    // The main thread's part before the simulation's answer: a wave started meanwhile makes the simulation
+    // refuse, and then nothing of what the start changed here (the director's sizing, the run log) is in
+    const director = this.director.saveState();
+    const { runLog, waveSeries } = this.runLog.saveState();
+    const mainRng = this.mirror.rng.getState();
     const sim = (await this.sim.rpc('captureSnapshot')) as SimSnapshot | null;
     if (!sim) return null;
-    const director = this.director.saveState();
     const head = { gameVersion: BUILD_VERSION, configHash: balanceConfigHash() };
-    const { runLog, waveSeries } = this.runLog.saveState();
     return {
       ...head,
       commit: buildCommit(),
@@ -170,7 +173,7 @@ export class SaveGameService implements SaveGamePort {
       world: buildWorldPackage(source, { ...head, waveSource: director.source }),
       sim,
       director,
-      mainRng: this.mirror.rng.getState(),
+      mainRng,
       runLog,
       waveSeries,
     };

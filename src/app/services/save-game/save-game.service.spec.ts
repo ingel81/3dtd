@@ -85,10 +85,19 @@ function setup(options: { inCoop?: boolean } = {}) {
   };
   const director = {
     restoreState: vi.fn(() => order.push('director')),
-    saveState: vi.fn(),
+    saveState: vi.fn(() => {
+      order.push('director save');
+      return { source: 'budget', sourceState: null, planned: null };
+    }),
     useSourceNextRun: vi.fn((id: string) => order.push(`source ${id}`)),
   };
-  const runLog = { resumeRun: vi.fn(() => order.push('run-log')), saveState: vi.fn() };
+  const runLog = {
+    resumeRun: vi.fn(() => order.push('run-log')),
+    saveState: vi.fn(() => {
+      order.push('run-log save');
+      return { runLog: null, waveSeries: [] };
+    }),
+  };
   const loader = {
     placeLoaded: vi.fn(async () => true),
     standsOn: vi.fn(() => true),
@@ -157,6 +166,13 @@ describe('SaveGameService (TODO E110)', () => {
     expect(director.restoreState).not.toHaveBeenCalled();
   });
 
+  it("takes the main thread's part before the simulation answers, so a wave started meanwhile changes none of it", async () => {
+    const { service, order } = setup();
+    // The simulation refuses: a wave began meanwhile
+    expect(await service.save('slot-1')).toEqual({ ok: false, reason: 'Saving works only between waves.' });
+    expect(order).toEqual(['director save', 'run-log save', 'captureSnapshot']);
+  });
+
   it('waits for the place loaded here to stand, its corridor built, before it takes the save', async () => {
     const { apply, order, loader } = setup();
     let stand!: (ok: boolean) => void;
@@ -186,12 +202,13 @@ describe('SaveGameService (TODO E110)', () => {
       bus.emit({ type: 'wave:completed', wave: 3, credits: 0, perfect: true, closeCall: false, hpLost: 0 } as never);
       expect(order).toEqual([]);
       await vi.advanceTimersByTimeAsync(300);
-      expect(order).toEqual(['captureSnapshot']);
+      const saved = ['director save', 'run-log save', 'captureSnapshot'];
+      expect(order).toEqual(saved);
 
       bus.emit({ type: 'wave:completed', wave: 4, credits: 0, perfect: true, closeCall: false, hpLost: 0 } as never);
       phase.set('wave');
       await vi.advanceTimersByTimeAsync(11_000);
-      expect(order).toEqual(['captureSnapshot']);
+      expect(order).toEqual(saved);
     } finally {
       vi.useRealTimers();
     }
