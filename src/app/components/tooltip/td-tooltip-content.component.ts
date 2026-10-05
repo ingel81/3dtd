@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdTooltipAccent, TdTooltipData, TdTooltipTargeting } from './tooltip-data.types';
 import { TdIconComponent, TdIconName } from '../icon/icon.component';
+import { targetingLabel } from './tooltip-text';
 
 const ACCENT_COLOR_MAP: Record<TdTooltipAccent, string> = {
   gold: 'var(--td-gold-light)',
@@ -59,10 +60,6 @@ export class TdTooltipContentComponent {
 
   /** Spelled-out label for the targeting banner. */
   protected targetingLabel(t: TdTooltipTargeting): string {
-    switch (t.mode) {
-      case 'air-only':    return 'Air-only';
-      case 'air-ground':  return 'Ground and Air';
-      case 'ground-only': return 'Ground-only';
-    }
+    return targetingLabel(t);
   }
 }

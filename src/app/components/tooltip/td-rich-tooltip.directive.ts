@@ -17,6 +17,9 @@ import {
   ScrollStrategyOptions,
 } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
+import { AriaDescriber } from '@angular/cdk/a11y';
+import { focusedByKeyboard, trackFocusOrigin } from '../../utils/keyboard-target';
+import { tooltipText } from './tooltip-text';
 import { TdTooltipContentComponent } from './td-tooltip-content.component';
 import { TdTooltipData } from './tooltip-data.types';
 
@@ -48,8 +51,9 @@ const POSITION_PRESETS: Record<string, ConnectedPosition[]> = {
 /**
  * Rich tooltip directive — opens a CDK overlay hosting `<td-tooltip-content>`
  * when the host element receives mouseenter/focus, dismisses on mouseleave/blur
- * and on Escape (which then goes no further, like MatTooltip). Open, it follows
- * its data: new data redraws the card, null or disabled closes it.
+ * and on Escape. Open, it follows its data: new data redraws the card, null or
+ * disabled closes it. Its text also describes the host for screen readers
+ * (aria-describedby to a visually hidden copy, as MatTooltip does).
  *
  * Replaces `[matTooltip]`/`matTooltipClass` for cases where structured markup
  * is needed (Tower-Cards, Enemy-Cards, …). MatTooltip remains the right choice
@@ -67,6 +71,9 @@ export class TdRichTooltipDirective implements OnDestroy {
   private readonly scrollStrategies = inject(ScrollStrategyOptions);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
+  private readonly ariaDescriber = inject(AriaDescriber);
+  /** The text the host is described with now, null without one */
+  private described: string | null = null;
 
   readonly tdRichTooltip = input.required<TdTooltipData | null>();
   readonly tdRichTooltipPosition = input<'left' | 'right' | 'above' | 'below'>('left');
@@ -78,10 +85,13 @@ export class TdRichTooltipDirective implements OnDestroy {
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    // Whether the host has the keyboard's focus, for Escape
+    trackFocusOrigin();
     // An open card shows what its host shows now (a countdown, a state)
     effect(() => {
       const data = this.tdRichTooltip();
       const disabled = this.tdRichTooltipDisabled();
+      this.describe(data && !disabled ? tooltipText(data) : null);
       if (!this.contentRef) return;
       if (!data || disabled) this.closeOverlay();
       else this.contentRef.setInput('data', data);
@@ -121,6 +131,15 @@ export class TdRichTooltipDirective implements OnDestroy {
     this.cancelShow();
     this.cancelHide();
     this.closeOverlay();
+    this.describe(null);
+  }
+
+  private describe(text: string | null): void {
+    if (text === this.described) return;
+    const host = this.host.nativeElement;
+    if (this.described) this.ariaDescriber.removeDescription(host, this.described);
+    this.described = text;
+    if (text) this.ariaDescriber.describe(host, text);
   }
 
   private openOverlay(): void {
@@ -145,11 +164,17 @@ export class TdRichTooltipDirective implements OnDestroy {
       panelClass: 'td-rich-tooltip-panel',
     });
 
-    // Escape closes the card and is spent on it (keydown on body, before the game's window listener)
+    // Escape closes the card (keydown on body, before the game's window listener). It is
+    // spent on the card only when the keyboard is on the host: a card the pointer opened
+    // leaves that Escape to the game too (the pointer resting on the NEXT box or an ability
+    // button while the player lets the hero or a tower go, or opens the menu).
     this.overlayRef.keydownEvents().subscribe((event) => {
       if (event.key !== 'Escape' || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-      event.preventDefault();
-      event.stopPropagation();
+      const host = this.host.nativeElement;
+      if (document.activeElement === host && focusedByKeyboard(host)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       this.cancelHide();
       this.closeOverlay();
     });

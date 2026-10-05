@@ -1,6 +1,7 @@
 /**
  * The rich tooltip: opens on hover after the show delay, follows its data
- * while open, closes on Escape and keeps that Escape from the game. The card
+ * while open, closes on Escape (kept from the game only when the keyboard is
+ * on its host), describes its host for screen readers. The card
  * draws banners and list sections (the NEXT card of the WAVE panel). Real
  * template read from disk, icons are stubs.
  */
@@ -95,7 +96,7 @@ describe('Rich tooltip', () => {
     expect(card()).toBeNull();
   });
 
-  it('closes on Escape and keeps that Escape from the game', () => {
+  it('opened by the pointer: Escape closes it and still reaches the game (build mode ends, the menu opens)', () => {
     open();
     const game = vi.fn();
     window.addEventListener('keydown', game);
@@ -104,13 +105,59 @@ describe('Rich tooltip', () => {
     window.removeEventListener('keydown', game);
 
     expect(card()).toBeNull();
+    expect(escape.defaultPrevented).toBe(false);
+    expect(game).toHaveBeenCalledWith(escape);
+  });
+
+  it('opened by the keyboard on its host: Escape closes it and is kept from the game', () => {
+    TestBed.configureTestingModule({});
+    TestBed.overrideComponent(TdTooltipContentComponent, {
+      set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [IconStub] },
+    });
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+    document.body.appendChild(fixture.nativeElement);
+    host(fixture).focus();
+    vi.advanceTimersByTime(250);
+    fixture.detectChanges();
+    expect(title()).toBe('Ready');
+
+    const game = vi.fn();
+    window.addEventListener('keydown', game);
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    host(fixture).dispatchEvent(escape);
+    window.removeEventListener('keydown', game);
+
+    expect(card()).toBeNull();
     expect(escape.defaultPrevented).toBe(true);
     expect(game).not.toHaveBeenCalled();
 
     // Closed, the next Escape is the game's again
     const again = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
-    document.body.dispatchEvent(again);
+    host(fixture).dispatchEvent(again);
     expect(again.defaultPrevented).toBe(false);
+    fixture.nativeElement.remove();
+  });
+
+  it('describes its host with the card as text, follows the data and drops it with null', () => {
+    const fixture = open();
+    const describedText = () => {
+      const ids = host(fixture).getAttribute('aria-describedby')?.split(/\s+/).filter(Boolean) ?? [];
+      return ids.map((id) => document.getElementById(id)?.textContent ?? '').join(' ');
+    };
+    expect(describedText()).toBe('Ready.');
+
+    fixture.componentInstance.data.set({
+      title: 'Zombie Horde', category: 'Wave 7', stats: [{ label: 'ENEMIES', value: '40' }],
+      banners: [{ icon: 'bolt', text: 'Swift: Enemies move 25 % faster.' }],
+      sections: [{ title: 'Enemies', rows: [{ label: '40× Zombie', detail: 'Unarmored', value: '−1', note: 'splits' }] }],
+    });
+    fixture.detectChanges();
+    expect(describedText()).toBe('Zombie Horde, Wave 7. ENEMIES 40. Swift: Enemies move 25 % faster. Enemies: 40× Zombie Unarmored −1 (splits).');
+
+    fixture.componentInstance.data.set(null);
+    fixture.detectChanges();
+    expect(host(fixture).getAttribute('aria-describedby')).toBeFalsy();
   });
 
   it('draws banners and list sections with dots, values, chips and notes', () => {
