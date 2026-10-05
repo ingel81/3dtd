@@ -127,7 +127,8 @@ function markCamo(entries: SpawnEntry[], groups: WaveEnemyGroup[]): void {
   for (const group of groups) {
     const camo = group.camo;
     if (!camo || camo.count <= 0 || ENEMY_TYPES[group.type as EnemyTypeId]?.chain) continue;
-    const own = entries.filter((e) => e.enemyType === group.type);
+    // Not those another group of the type marked already: health once, as many as asked
+    const own = entries.filter((e) => e.enemyType === group.type && !e.camo);
     const count = Math.min(camo.count, own.length);
     const base = ENEMY_TYPES[group.type as EnemyTypeId]?.baseHp ?? 80;
     for (let i = 0; i < count; i++) {

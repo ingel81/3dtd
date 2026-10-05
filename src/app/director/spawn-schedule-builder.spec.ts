@@ -397,6 +397,14 @@ describe('buildSpawnSchedule: camouflage', () => {
     expect(draws).toBe(0);
   });
 
+  it('marks each spawn once where two groups of one type are camouflaged', () => {
+    const groups: WaveEnemyGroup[] = [{ ...zombieGroup(10), camo: { count: 5 } }, { ...zombieGroup(10), camo: { count: 5 } }];
+    const entries = buildSpawnSchedule(cfg(groups, 'sequential')).entries;
+    const camo = entries.filter((e) => e.camo);
+    expect(camo).toHaveLength(10);
+    expect(camo.every((e) => e.health === Math.max(1, Math.round(ENEMY_TYPES['zombie'].baseHp * CAMO_HP_FACTOR)))).toBe(true);
+  });
+
   it('leaves a worm uncamouflaged and at full health, as the budget source does', () => {
     const entries = buildSpawnSchedule(cfg([{ type: 'worm', count: 3, camo: { count: 3 } }], 'sequential')).entries;
     expect(entries.some((e) => e.camo)).toBe(false);
