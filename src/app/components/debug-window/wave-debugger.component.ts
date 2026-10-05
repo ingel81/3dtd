@@ -13,6 +13,7 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { WaveDirector } from '../../director/wave-director';
 import { WAVE_SOURCES } from '../../director/wave-source.registry';
 import type { WaveSourceId } from '../../director/wave-source';
+import { loopSentences } from '../../director/wave-explanation';
 
 const PATTERN_LABELS: Record<SpawnPattern, string> = {
   'interleaved': 'Interleaved',
@@ -59,11 +60,11 @@ export class WaveDebuggerComponent {
   readonly tab = signal<'plan' | 'custom'>('plan');
   /** Director's reasons for the wave in play; null for waves it did not plan. */
   readonly explanation = this.store.waveExplanation;
-
-  /** 0.042 as "4.2 %" */
-  percent(share: number): string {
-    return `${Math.round(share * 1000) / 10} %`;
-  }
+  /** The pressure loop of a budget wave in plain words (E113) */
+  readonly loop = computed(() => {
+    const budget = this.explanation()?.budget;
+    return budget ? loopSentences(budget) : null;
+  });
 
   // === Wave source (docs/WAVE_SOURCE_PLAN.md, section 7) ===
 

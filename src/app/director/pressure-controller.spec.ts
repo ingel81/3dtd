@@ -56,3 +56,24 @@ describe('PressureController: opens slower than it closes', () => {
     expect(loop.recordWave(0.5, 1)).toBeCloseTo(Math.exp(-gain() * PRESSURE_MAX_STEP), 6);
   });
 });
+
+describe('PressureController: what it tells about its last step (E113)', () => {
+  it('reports the last wave, the step and the factor it moved by', () => {
+    const loop = new PressureController({ min: 0.5, max: 10 }, { warmupWaves: 0, minSamples: 1 });
+    const after = loop.recordWave(0, 1);
+    expect(loop.status).toMatchObject({ lastPressure: 0, lastStep: 'opened' });
+    expect(loop.status.lastChange).toBeCloseTo(after, 9);
+  });
+
+  it('a factor of 1 when it holds, and "blocked" when the anti-windup holds an opening', () => {
+    const loop = new PressureController({ min: 0.5, max: 10 }, { warmupWaves: 0, minSamples: 1 });
+    loop.recordWave(0, 1, false);
+    expect(loop.status).toMatchObject({ lastStep: 'blocked', lastChange: 1, multiplier: 1 });
+  });
+
+  it('a factor of 1 at its stop, though it would open', () => {
+    const loop = new PressureController({ min: 0.5, max: 1 }, { warmupWaves: 0, minSamples: 1 });
+    loop.recordWave(0, 1);
+    expect(loop.status).toMatchObject({ lastStep: 'opened', lastChange: 1 });
+  });
+});

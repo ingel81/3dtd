@@ -157,8 +157,11 @@ export function wavePressure(
   return Math.max(0, Math.min(1, hpLost / hpAtStart));
 }
 
-/** Was der Regler mit der letzten Welle gemacht hat. */
-export type PressureStep = 'warming-up' | 'opened' | 'closed' | 'held';
+/**
+ * Was der Regler mit der letzten Welle gemacht hat. 'held': im Band;
+ * 'blocked': zu billig, aber das Anti-Windup hielt ihn (die Grenze hielt die Welle).
+ */
+export type PressureStep = 'warming-up' | 'opened' | 'closed' | 'held' | 'blocked';
 
 /** Lesender Blick auf den Regler. */
 export interface PressureStatus {
@@ -169,7 +172,11 @@ export interface PressureStatus {
   meanPressure: number | null;
   /** Sollwert der zuletzt verarbeiteten Welle. */
   target: number | null;
+  /** Druck der zuletzt verarbeiteten Welle allein, null ohne Aussage. */
+  lastPressure: number | null;
   lastStep: PressureStep;
+  /** Faktor, um den die letzte Welle den Multiplikator verschoben hat; 1 ohne Schritt. */
+  lastChange: number;
 }
 
 /**
@@ -208,6 +215,8 @@ export class PressureController {
   private multiplier = 1;
   private lastStep: PressureStep = 'warming-up';
   private lastTarget: number | null = null;
+  private lastPressure: number | null = null;
+  private lastChange = 1;
 
   /** Faktor auf das Budget der nächsten Welle. */
   get pressureMultiplier(): number {
@@ -221,7 +230,9 @@ export class PressureController {
       samples: this.sampleCount,
       meanPressure: ready ? this.smoothed : null,
       target: this.lastTarget,
+      lastPressure: this.lastPressure,
       lastStep: this.lastStep,
+      lastChange: this.lastChange,
     };
   }
 
@@ -232,6 +243,8 @@ export class PressureController {
     this.multiplier = 1;
     this.lastStep = 'warming-up';
     this.lastTarget = null;
+    this.lastPressure = null;
+    this.lastChange = 1;
   }
 
   /**
@@ -250,6 +263,8 @@ export class PressureController {
     const params = directorParams();
     const target = targetPressure(waveNumber) * params.pressureTargetScale;
     this.lastTarget = target;
+    this.lastPressure = pressure !== null && Number.isFinite(pressure) ? pressure : null;
+    this.lastChange = 1;
 
     // Die Aufbauwellen messen einen Spieler ohne Türme. Sie kommen nicht
     // einmal ins Fenster, sonst ziehen ihre Verluste den Schnitt über Wellen
@@ -307,16 +322,18 @@ export class PressureController {
     // dann 673 Gegner in eine Welle. Schließen bleibt erlaubt: Dafür ist der
     // Deckel immer zuständig.
     if (!capBinding && error > 0) {
-      this.lastStep = 'held';
+      this.lastStep = 'blocked';
       return this.multiplier;
     }
 
     const clamped = Math.max(-PRESSURE_MAX_STEP, Math.min(PRESSURE_MAX_OPEN_STEP, error));
     const step = DetMath.exp(params.pressureGain * clamped);
+    const before = this.multiplier;
     this.multiplier = Math.max(
       this.limits.min,
       Math.min(this.limits.max, this.multiplier * step),
     );
+    this.lastChange = this.multiplier / before;
     this.lastStep = measured < target ? 'opened' : 'closed';
     return this.multiplier;
   }

@@ -240,6 +240,9 @@ Quelle. Bleiben bewusst geteilt: der Konfigurations-Hash und die Stellschrauben 
   ein Boss 1,3 zahlt 1,3-fach, kein Boss-×2).
 - 2026-09-29: Standard (`DEFAULT_WAVE_SOURCE = 'budget'`), der adaptive Source mit Templates, Kampagnen-Pins,
   Boss-Rotation und Endgame-HP entfernt; `table` bleibt, `?waves=table` schaltet einen Tab um.
+- 2026-10-05 (E113): das Wave-Debug-Fenster sagt den Regler in Worten (`loopSentences` in `wave-explanation.ts`):
+  „Measured“ nennt den geglätteten HP-Anteil der letzten Wellen, das Ziel und die letzte Welle allein, „Loop“ was er
+  daraus macht (hoch, runter um welchen Faktor, hält im Band, hält wegen Anti-Windup, steht am Anschlag).
 
 ## 14. Kalibrierung mit Bots (Nacht 2026-09-28/29, Bot-Werte)
 

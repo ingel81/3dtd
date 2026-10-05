@@ -5,6 +5,7 @@ import { budgetSeconds } from './budget';
 import { WAVE_MUTATORS } from '../../../configs/wave-mutators.config';
 import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';
 import type { WaveResult } from '../../models/wave-result';
+import { loopSentences } from '../../wave-explanation';
 
 const flat = (v: number) => ({ unarmored: v, light: v, heavy: v, fortified: v, ethereal: v });
 
@@ -94,6 +95,30 @@ describe('BudgetWaveSource', () => {
     expect(facts.map((f) => f.wave)).toEqual([9, 10, 11]);
     expect(facts[1].boss).toBe(true);
     expect(facts.every((f) => f.known && f.count !== null)).toBe(true);
+  });
+
+  it('says in plain words what the loop measured and what it does with the budget (E113)', () => {
+    const source = new BudgetWaveSource();
+    const first = loopSentences(plan(source, 2).explanation!.budget!);
+    expect(first.measured).toBe('Still counting: 0 of 2 waves measured, the first wave is skipped.');
+    expect(first.response).toBe('The budget stays at ×1 until then.');
+
+    // Waves that cost nothing: too easy, up
+    for (let w = 1; w <= 4; w++) source.onWaveResult(result(w, 0));
+    const easy = plan(source, 5).explanation!.budget!;
+    expect(easy.loop.step).toBe('opened');
+    expect(easy.loop.change).toBeGreaterThan(1);
+    const up = loopSentences(easy);
+    expect(up.measured).toMatch(/^The last waves cost 0 % of the HP on average, the target is \d+(\.\d)? %; the last wave alone 0 %\.$/);
+    expect(up.response).toBe(`Too easy: the budget goes up ×${easy.loop.change} to ×${easy.regulator}.`);
+
+    // Two waves that cost half the HP: too hard, down
+    source.onWaveResult(result(5, 250));
+    source.onWaveResult(result(6, 250));
+    const hard = plan(source, 7).explanation!.budget!;
+    expect(hard.loop.step).toBe('closed');
+    expect(hard.loop.lastWave).toBe(0.5);
+    expect(loopSentences(hard).response).toBe(`Too hard: the budget goes down ×${hard.loop.change} to ×${hard.regulator}.`);
   });
 
   it('lays out the loop, the budget, the defense and each type for the wave debug window', () => {

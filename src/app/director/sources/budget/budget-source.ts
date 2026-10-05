@@ -23,7 +23,7 @@ import type {
 import type { WaveConfig, WaveEnemyGroup } from '../../models/wave-config';
 import type { GameStateSnapshot } from '../../models/game-state-snapshot';
 import type { WaveResult } from '../../models/wave-result';
-import type { BudgetBreakdown, DecisionExplanation } from '../../wave-explanation';
+import type { BudgetBreakdown, DecisionExplanation, LoopReading } from '../../wave-explanation';
 import type { ArmorType } from '../../../configs/combat/combat.types';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import { PressureController, targetPressure, wavePressure } from '../../pressure-controller';
@@ -115,7 +115,7 @@ export class BudgetWaveSource implements WaveSource {
     const shared = sharedMult(sized);
     const explanation: DecisionExplanation = {
       ...explain(wave, row, planned, sized, regulator, totalCount, shared),
-      budget: breakdown(row, planned, sized, regulator, target),
+      budget: breakdown(row, planned, sized, regulator, target, this.loopReading(target)),
     };
 
     const config: WaveConfig = {
@@ -175,11 +175,26 @@ export class BudgetWaveSource implements WaveSource {
     this.pressure.reset();
     this.lastCapped = false;
   }
+
+  /** What the loop read after the last wave and what it did, for the wave debug window (E113) */
+  private loopReading(target: number): LoopReading {
+    const status = this.pressure.status;
+    return {
+      measured: status.meanPressure === null ? null : round3(status.meanPressure),
+      lastWave: status.lastPressure === null ? null : round3(status.lastPressure),
+      target: round3(status.target ?? target),
+      samples: status.samples,
+      minSamples: BUDGET_REGULATOR_START.minSamples,
+      step: status.lastStep,
+      change: round2(status.lastChange),
+    };
+  }
 }
 
 /** The numbers of a sized wave for the wave debug window */
 function breakdown(
   row: RunPlanRow, planned: Readonly<Record<string, number>>, sized: BudgetResult, regulator: number, target: number,
+  loop: LoopReading,
 ): BudgetBreakdown {
   return {
     row: row.wave,
@@ -192,6 +207,7 @@ function breakdown(
     window: round1(sized.window),
     delivered: round1(sized.delivered),
     capped: sized.capped,
+    loop,
     types: Object.entries(planned)
       .filter(([, count]) => count > 0)
       .map(([type, count]) => {

@@ -54,14 +54,16 @@
             <div class="budget-grid">
               <span class="budget-key">Row</span>
               <span>W{{ b.row }} · strength {{ b.strength }}</span>
-              <span class="budget-key">Loop</span>
-              <span>
-                R {{ b.regulator }}
-                <span class="budget-muted">({{ b.regulatorMin }} to {{ b.regulatorMax }}, target {{ percent(b.targetPressure) }} of HP)</span>
-                @if (b.regulator <= b.regulatorMin || b.regulator >= b.regulatorMax) {
-                  <span class="budget-flag">at stop</span>
-                }
-              </span>
+              <!-- The pressure loop in plain words: what it measured, what it does (E113) -->
+              @if (loop(); as l) {
+                <span class="budget-key">Measured</span>
+                <span>{{ l.measured }}</span>
+                <span class="budget-key">Loop</span>
+                <span>
+                  {{ l.response }}
+                  <span class="budget-muted">(R {{ b.regulator }}, {{ b.regulatorMin }} to {{ b.regulatorMax }})</span>
+                </span>
+              }
               <span class="budget-key">Budget</span>
               <span>{{ b.budget }} s of defense damage</span>
               <span class="budget-key">Defense</span>
