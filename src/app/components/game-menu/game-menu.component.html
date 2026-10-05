@@ -160,7 +160,12 @@
               <button class="gm-slot" type="button" [class.is-empty]="!row.filled"
                       [disabled]="!saves.canSave() || busy()"
                       (click)="saveTo(row.id, row.filled, row.title)">
-                <span class="gm-slot-title">{{ row.title }}</span>
+                <span class="gm-slot-head">
+                  <span class="gm-slot-title">{{ row.title }}</span>
+                  @if (row.when) {
+                    <span class="gm-slot-when">{{ row.when }}</span>
+                  }
+                </span>
                 <span class="gm-slot-detail">{{ row.detail }}</span>
               </button>
             </li>
@@ -180,10 +185,13 @@
             <li class="gm-slot-row">
               <button class="gm-slot" type="button" [disabled]="!canLoad() || busy()"
                       (click)="askLoad(row.id, row.title)">
-                <span class="gm-slot-title">
-                  {{ row.title }}
+                <span class="gm-slot-head">
+                  <span class="gm-slot-title">{{ row.title }}</span>
                   @if (row.note) {
                     <td-icon class="gm-slot-note" name="info" [size]="11" [matTooltip]="row.note"></td-icon>
+                  }
+                  @if (row.when) {
+                    <span class="gm-slot-when">{{ row.when }}</span>
                   }
                 </span>
                 <span class="gm-slot-detail">{{ row.detail }}</span>

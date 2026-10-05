@@ -274,10 +274,24 @@ button.gm-item:focus-visible {
   opacity: 0.55;
 }
 
-.gm-slot-title {
+/* Title left (cut first), the note icon, the date and time right */
+.gm-slot-head {
   display: flex;
-  align-items: center;
-  gap: 5px;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.gm-slot-when {
+  flex-shrink: 0;
+  margin-left: auto;
+  font: 10px/1 var(--td-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--td-text-muted);
+}
+
+.gm-slot-title {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -286,6 +300,8 @@ button.gm-item:focus-visible {
 }
 
 .gm-slot-note {
+  flex-shrink: 0;
+  align-self: center;
   color: var(--td-warn-orange);
 }
 
