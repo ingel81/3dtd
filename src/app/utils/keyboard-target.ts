@@ -47,9 +47,14 @@ const POINTER_FOCUS_MS = 600;
 export class FocusOrigin {
   private pointerAt = -Infinity;
   private byKeyboard: Element | null = null;
+  /** A pointer pressed anywhere on the page since it loaded */
+  private pointerSeen = false;
 
   constructor(doc: Document) {
-    doc.addEventListener('pointerdown', () => { this.pointerAt = performance.now(); }, true);
+    doc.addEventListener('pointerdown', () => {
+      this.pointerAt = performance.now();
+      this.pointerSeen = true;
+    }, true);
     // A key press moves on from the last click: the next focus is the keyboard's
     doc.addEventListener('keydown', () => { this.pointerAt = -Infinity; }, true);
     doc.addEventListener('focusin', (event) => {
@@ -61,6 +66,11 @@ export class FocusOrigin {
   byKeyboardFocus(el: Element): boolean {
     return el === this.byKeyboard;
   }
+
+  /** The page has seen a pointer press: the player is on the map, not tabbing in from the address bar */
+  pointerUsed(): boolean {
+    return this.pointerSeen;
+  }
 }
 
 let origin: FocusOrigin | null = null;
@@ -70,6 +80,11 @@ function pageFocusOrigin(): FocusOrigin | null {
   if (typeof document === 'undefined') return null;
   origin ??= new FocusOrigin(document);
   return origin;
+}
+
+/** The page has seen a pointer press since it loaded (FocusOrigin.pointerUsed) */
+export function pointerUsedYet(): boolean {
+  return pageFocusOrigin()?.pointerUsed() ?? false;
 }
 
 /** Set up the focus tracking early, before the first click the game keys may care about */

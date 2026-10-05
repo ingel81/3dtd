@@ -115,4 +115,12 @@ describe('FocusOrigin', () => {
     expect(origin.byKeyboardFocus(next)).toBe(true);
     expect(origin.byKeyboardFocus(clicked)).toBe(false);
   });
+
+  it('knows whether the page has seen a pointer press at all', () => {
+    const page = document.implementation.createHTMLDocument();
+    const fresh = new FocusOrigin(page);
+    expect(fresh.pointerUsed()).toBe(false);
+    page.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(fresh.pointerUsed()).toBe(true);
+  });
 });

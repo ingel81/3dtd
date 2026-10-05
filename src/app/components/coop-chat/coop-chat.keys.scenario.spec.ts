@@ -4,6 +4,7 @@
  * reached by keyboard keeps Tab and Enter, and inside the dock Tab walks its
  * controls. CoopChatComponent with its real template and a stand-in CoopService. A focus
  * right after a pointer press counts as the mouse's (FocusOrigin), any other as the keyboard's.
+ * FocusOrigin is one per page: the first test runs before any pointer press.
  */
 // The component is partially compiled and needs the JIT compiler
 import '@angular/compiler';
@@ -82,8 +83,17 @@ describe('Coop keys', () => {
     document.body.innerHTML = '';
   });
 
+  it('Tab before any click on the page moves the focus into it, it opens no dock (review E92)', () => {
+    const { ui } = setup(false);
+    const event = press('Tab');
+    expect(ui.coopDockOpen()).toBe(false);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it('Tab on the map opens and closes the dock', () => {
     const { ui } = setup(false);
+    // A click on the map first
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     const event = press('Tab');
     expect(ui.coopDockOpen()).toBe(true);
     expect(event.defaultPrevented).toBe(true);

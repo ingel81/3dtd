@@ -3,7 +3,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { CoopService } from '../../services/coop.service';
 import { UIStore } from '../../store/ui.store';
-import { controlTakesKey, ownsKey, trackFocusOrigin } from '../../utils/keyboard-target';
+import { controlTakesKey, ownsKey, pointerUsedYet, trackFocusOrigin } from '../../utils/keyboard-target';
 import { chatView } from '../coop-ui/chat-view';
 
 /** Lines shown at most */
@@ -83,8 +83,10 @@ export class CoopChatComponent {
     if (ownsKey(event.target, event.key) || this.dialog.openDialogs.length > 0) return;
     // A control reached by keyboard keeps Tab and Enter; inside the dock Tab walks its controls (U5)
     if (controlTakesKey(event.target, event.key) || (key === 'tab' && inDock(event.target))) return;
-    // Tab: the room dock, in the lobby and in the game (D42)
-    if (key === 'tab' && !event.shiftKey && (this.coop.room() || this.uiStore.coopDockOpen())) {
+    // Tab: the room dock, in the lobby and in the game (D42). Not before the
+    // first click on the page: nothing has the focus yet, and a player who
+    // came by keyboard needs that Tab to get into the page at all
+    if (key === 'tab' && !event.shiftKey && pointerUsedYet() && (this.coop.room() || this.uiStore.coopDockOpen())) {
       event.preventDefault();
       this.uiStore.coopDockOpen.update((open) => !open);
       return;
