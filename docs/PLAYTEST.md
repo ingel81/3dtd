@@ -303,7 +303,7 @@ Paket S2, Oberfläche:
   Tempo), More (Run-Log und Replay jederzeit speichern), Restart here mit Rückfrage. Erwartung: alles wirkt sofort,
   Esc führt von einer Seite zurück und schließt auf der Liste.
 - **S2.2 Tastatur:** Munition des Helden anklicken, dann Pfeiltasten. Erwartung: die Kamera schwenkt (die Munition
-  wechselt nur, wenn man per Tab dorthin kam). Karte über einer Tower-Karte offen, Tower gewählt, Esc: Baumodus endet.
+  wechselt nur, wenn man per Tab dorthin kam). Held gewählt, Karte am NEXT-Kasten per Maus offen, ein Esc: Karte zu und Held abgewählt.
 - **S2.3 Druck-Regler in Worten:** siehe M4.
 
 Paket S3, Coop und Web:
