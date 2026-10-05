@@ -235,6 +235,27 @@ describe('coop relay over sockets (COOP_PLAN C4)', () => {
     expect(status.rooms).toEqual([]);
   });
 
+  it('caps the lobbies of one address and closes a lobby nobody joins, not one with a guest', async () => {
+    relay = await startRelay({ port: 0, maxLobbiesPerAddress: 2, lobbyAloneMaxMs: 150, heartbeatMs: 30 });
+    const [a, b, c] = await Promise.all(['Ann', 'Bob', 'Cid'].map((name) => client(relay!.port, name)));
+    a.send({ t: 'create' });
+    const code = (await a.until('room')).room.code;
+    b.send({ t: 'create' });
+    await b.until('room');
+    // Every client of the spec comes from one address
+    c.send({ t: 'create' });
+    expect((await c.until('refused')).reason).toBe('busy');
+    c.send({ t: 'join', room: code });
+    await a.until('room', (m) => m.room.players.length === 2);
+    // Bob alone goes after lobbyAloneMaxMs; Ann has a guest and stays
+    await new Promise<void>((resolve) => b.socket.on('close', () => resolve()));
+    const status = await (await fetch(`http://localhost:${relay.port}/status`)).json() as RelayStatus;
+    expect(status.rooms.map((r) => r.code)).toEqual([code]);
+    expect(a.socket.readyState).toBe(WebSocket.OPEN);
+    a.close();
+    c.close();
+  });
+
   it('refuses a client of another protocol and a room that is not there', async () => {
     relay = await startRelay({ port: 0 });
     const socket = new WebSocket(`ws://localhost:${relay.port}`);

@@ -181,6 +181,8 @@ export interface RoomStatus {
   firstDesync: number | null;
   /** Since the last command (in the lobby: since the room opened), ms; for closing a game nobody plays (review N4) */
   idleMs: number;
+  /** Since the room has had one player only, ms; 0 with more. For closing a lobby nobody joins */
+  aloneMs: number;
   players: {
     id: string;
     name: string;
@@ -244,6 +246,8 @@ export class Room {
   /** Since when the room waits for `waitingFor`, ms */
   private waitingSince = 0;
   private lastCommandAt = 0;
+  /** Since when the room has had one player only, ms; null with more */
+  private aloneSince: number | null;
   private lastWorldAt = -Infinity;
   /** The host's latest world while the last one went out less than WORLD_EVERY_MS ago */
   private pendingWorld: { world: unknown; spawnIds: string[] } | null = null;
@@ -271,6 +275,7 @@ export class Room {
     this.log = options.log ?? (() => undefined);
     this.now = options.now ?? (() => performance.now());
     this.createdAt = this.now();
+    this.aloneSince = this.createdAt;
     this.cheats = options.cheats ?? false;
     this.hashEvery = options.hashEvery ?? HASH_EVERY_TICKS;
     this.drop = options.drop ?? ((playerId, reason) => this.leave(playerId, reason));
@@ -311,6 +316,7 @@ export class Room {
     if (player.gameVersion !== host.gameVersion) return 'version';
     if (player.configHash !== host.configHash) return 'balance';
     this.players.push({ ...player, client: player.client ?? null, name: this.freeName(player.name), spawnIds: [], ready: false, status: null });
+    this.aloneSince = null;
     this.log(`${this.who(player.id)} joined (${this.players.length} players)${this.clientOf(player.id)}`);
     if (this.world !== null) this.send(player.id, { t: 'world', world: this.world });
     this.broadcastRoom();
@@ -328,6 +334,7 @@ export class Room {
     if (index < 0) return;
     this.log(`${this.who(playerId)} left (${reason})${this.started ? `, lane closes after tick ${this.lastTick}` : ''}`);
     this.players.splice(index, 1);
+    if (this.players.length === 1) this.aloneSince = this.now();
     this.logBudget.delete(playerId);
     if (this.resync?.waiting.delete(playerId) && this.resync.waiting.size === 0 && this.resync.stateSent) this.finishResync();
     // The state the guests wait for will not come: the room goes on at once, not after RESYNC_TIMEOUT_MS
@@ -798,6 +805,7 @@ export class Room {
       desyncs: this.desyncCount,
       firstDesync: this.firstDesync,
       idleMs: Math.round(this.now() - (this.started ? this.lastCommandAt : this.createdAt)),
+      aloneMs: this.aloneSince === null ? 0 : Math.round(this.now() - this.aloneSince),
       players: this.players.map(({ id, name, spawnIds, ready, client }) => ({
         id, name, spawnIds: [...spawnIds], ready, client, lastHash: this.hashCheck.last.get(id) ?? null,
       })),

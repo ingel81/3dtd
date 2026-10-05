@@ -642,7 +642,8 @@ nach Gewicht. Aus dem Code belegt, nicht im Browser nachgestellt, wo nicht ander
 
 - R17 `maxPayload` am WebSocket-Server setzen (Standard 100 MB; das Weltpaket hat rund 300 kB), Nachrichten je
   Sekunde und Verbindung begrenzen, Chatlänge ist schon begrenzt. **Gebaut 2026-09-24: `maxPayload` 4 MB, 120 Nachrichten je Sekunde und Verbindung, darüber verworfen und einmal geloggt.**
-- R18 Leere oder verwaiste Räume nach Zeit schließen (Lobby ohne Start nach 1 h), Obergrenze an Räumen. **Gebaut 2026-09-25: 1 h, 200 Räume.**
+- R18 Leere oder verwaiste Räume nach Zeit schließen (Lobby ohne Start nach 1 h), Obergrenze an Räumen. **Gebaut 2026-09-25: 1 h, 200 Räume.** Seit 2026-10-05
+  schließt eine Lobby mit dem Host allein nach 20 min, und eine Adresse hält höchstens 3 Lobbys zugleich.
 - R19 `wss://` und Herkunftsprüfung (`Origin`) fürs Netz (C7). **Gebaut 2026-09-25: `--origins`, Proxy-Beispiele in C7.**
 - R20 Electron: Relay im Main-Prozess, „LAN-Spiel hosten“, eigene IP im Dialog anzeigen (C4d). **Gebaut 2026-09-25 (C4d): Relay im `utilityProcess`, Suche im LAN, Adressen im Raumkopf.**
 

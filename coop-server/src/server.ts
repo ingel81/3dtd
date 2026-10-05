@@ -55,8 +55,20 @@ const RUN_PRUNE_MS = 60 * 60_000;
 export const LOBBY_MAX_MS = 60 * 60 * 1000;
 /** A game without a command this long closes: a forgotten, paused game (review N4) */
 export const GAME_IDLE_MAX_MS = 3 * 60 * 60 * 1000;
+/**
+ * A lobby with its host alone this long closes (review 2026-10-01): one
+ * connection holds one lobby, so many connections held the MAX_ROOMS
+ * places for LOBBY_MAX_MS with lobbies nobody joins.
+ */
+export const LOBBY_ALONE_MAX_MS = 20 * 60 * 1000;
 /** Rooms at most at once; a create beyond is refused as busy (review R18) */
 export const MAX_ROOMS = 200;
+/**
+ * Lobbies opened from one address at most at once; a create beyond is
+ * refused as busy. A few for players behind one router; with
+ * MAX_PER_ADDRESS alone one address held 8 of the MAX_ROOMS.
+ */
+export const MAX_LOBBIES_PER_ADDRESS = 3;
 
 /** Connections at most at once, and from one address (review H3); the address is counted in memory, never logged */
 export const MAX_CONNECTIONS = 500;
@@ -193,8 +205,13 @@ export interface RelayOptions {
   statusEveryMs?: number;
   /** Rooms let the dev tools' cheats through (RoomOptions.cheats); off by default */
   cheats?: boolean;
-  /** LOBBY_MAX_MS, GAME_IDLE_MAX_MS, MAX_ROOMS, MAX_CONNECTIONS, MAX_PER_ADDRESS, HELLO_TIMEOUT_MS by default; for the spec */
+  /**
+   * LOBBY_MAX_MS, LOBBY_ALONE_MAX_MS, GAME_IDLE_MAX_MS, MAX_ROOMS, MAX_LOBBIES_PER_ADDRESS, MAX_CONNECTIONS,
+   * MAX_PER_ADDRESS, HELLO_TIMEOUT_MS by default; for the spec
+   */
   lobbyMaxMs?: number;
+  lobbyAloneMaxMs?: number;
+  maxLobbiesPerAddress?: number;
   gameIdleMaxMs?: number;
   maxRooms?: number;
   maxConnections?: number;
@@ -253,6 +270,8 @@ class Relay {
   private readonly connections = new Map<string, Connection>();
   /** Open connections per address, in memory only (review H3, D64) */
   private readonly perAddress = new Map<string, number>();
+  /** The address each room was opened from, for the lobbies per address; in memory only */
+  private readonly openedFrom = new Map<Room, string>();
   private readonly metrics = new RelayMetrics();
   private readonly startedAt: number;
   private readonly origins: Set<string> | null;
@@ -731,6 +750,12 @@ class Relay {
   private create(id: string, connection: Connection, player: RoomPlayer): void {
     if (connection.room || this.closing) return;
     if (this.rooms.size >= (this.options.maxRooms ?? MAX_ROOMS)) return this.send(id, { t: 'refused', reason: 'busy' });
+    let lobbies = 0;
+    for (const [room, address] of this.openedFrom) if (address === connection.address && !room.isStarted) lobbies++;
+    if (lobbies >= (this.options.maxLobbiesPerAddress ?? MAX_LOBBIES_PER_ADDRESS)) {
+      this.logRefusal('lobbies-per-address', 'refused a lobby: too many open from one address');
+      return this.send(id, { t: 'refused', reason: 'busy' });
+    }
     const code = this.newCode();
     const room = new Room(code, player, (playerId, message) => this.send(playerId, message), {
       log: (line) => this.log(`[${code}] ${line}`),
@@ -745,6 +770,7 @@ class Relay {
       },
     });
     this.rooms.set(room.code, room);
+    this.openedFrom.set(room, connection.address);
     connection.room = room;
   }
 
@@ -782,6 +808,7 @@ class Relay {
   private closeIfEmpty(room: Room): void {
     if (!room.isEmpty || !this.rooms.has(room.code)) return;
     this.rooms.delete(room.code);
+    this.openedFrom.delete(room);
     const s = room.status();
     this.log(`[${room.code}] closed after ${Math.round(s.ageMs / 1000)} s, tick ${s.tick}, ${s.commands} commands, ${s.desyncs} desyncs`);
   }
@@ -851,6 +878,7 @@ class Relay {
     for (const room of this.rooms.values()) {
       const s = room.status();
       const reason = !room.isStarted && s.ageMs >= (options.lobbyMaxMs ?? LOBBY_MAX_MS) ? 'lobby open too long'
+        : !room.isStarted && s.players.length === 1 && s.aloneMs >= (options.lobbyAloneMaxMs ?? LOBBY_ALONE_MAX_MS) ? 'lobby alone too long'
         : room.isStarted && s.idleMs >= (options.gameIdleMaxMs ?? GAME_IDLE_MAX_MS) ? 'game without commands too long'
           : null;
       if (!reason) continue;
