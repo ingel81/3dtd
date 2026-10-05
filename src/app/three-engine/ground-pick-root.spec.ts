@@ -97,9 +97,20 @@ function tileMesh(size: number, y: number, geometricError: number): Mesh {
  * Straße in 0 m, gezeigt (4 m Fehler), nur um (0, 0); ein grobes verstecktes
  * Tile (8218 m Fehler) in 300 m, weit gespannt, wie in Płock
  */
-function placeholderScene() {
+/** Wie der TilesRenderer ohne accelerateRaycast: mit firstHitOnly nur der nächste Treffer */
+class FirstHitTilesGroup extends ActiveTilesGroup {
+  override raycast(raycaster: Raycaster, intersects: Intersection[]): boolean {
+    if (!(raycaster as Raycaster & { firstHitOnly?: boolean }).firstHitOnly) return super.raycast(raycaster, intersects);
+    const hits: Intersection[] = [];
+    super.raycast(raycaster, hits);
+    hits.sort((a, b) => a.distance - b.distance);
+    if (hits.length > 0) intersects.push(hits[0]);
+    return false;
+  }
+}
+
+function placeholderScene(ground: ActiveTilesGroup = new ActiveTilesGroup()) {
   const scene = new Scene();
-  const ground = new ActiveTilesGroup();
   scene.add(ground);
   scene.updateMatrixWorld(true);
   const street = tileMesh(100, 0, 4);
@@ -199,6 +210,17 @@ describe('GroundPickRoot', () => {
       expect(hits[0].object).toBe(regionRoof);
       expect(hits[0].point.y).toBeCloseTo(12, 6);
       expect(hits.some((hit) => hit.object === coarseShown)).toBe(true);
+    });
+
+    it('auch wo der Tiles-Raycast nur den ersten Treffer liefert, zählt das gezeigte Tile, und nur ein Treffer kommt zurück', () => {
+      const { root, street, ground } = placeholderScene(new FirstHitTilesGroup());
+      const raycaster = firstHitRay(new Vector3(0, 1e5, 0), new Vector3(0, -1, 0));
+      const hits = raycaster.intersectObject(root);
+      expect(hits).toHaveLength(1);
+      expect(hits[0].object).toBe(street);
+      expect((raycaster as Raycaster & { firstHitOnly?: boolean }).firstHitOnly).toBe(true);
+      // Die Gruppe selbst gäbe das versteckte Tile
+      expect(firstHitRay(new Vector3(0, 1e5, 0), new Vector3(0, -1, 0)).intersectObject(ground)[0].point.y).toBeCloseTo(300, 6);
     });
 
     it('Zoom-Schritt unter das grobe Tile: die Kamera bleibt unten, statt 5 m darüber zu springen', () => {

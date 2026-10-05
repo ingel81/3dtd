@@ -121,6 +121,10 @@ function firstHitOnly(raycaster: Raycaster): boolean {
   return (raycaster as Raycaster & { firstHitOnly?: boolean }).firstHitOnly === true;
 }
 
+function setFirstHitOnly(raycaster: Raycaster, value: boolean): void {
+  (raycaster as Raycaster & { firstHitOnly?: boolean }).firstHitOnly = value;
+}
+
 /** Own object and point: the controls take `distance` down by 1e5 on the hit they get back. */
 function copyHit(hit: Intersection): Intersection {
   return { ...hit, point: hit.point.clone() };
@@ -179,12 +183,20 @@ export class GroundPickRoot extends Group {
         // In `__raycastStats()` unter `cameraControls` statt `unscoped`
         const results = this.results;
         const scope = raycastStats.enter('cameraControls');
+        // Every hit, also where the controls want only the first: the filter below needs the shown tile
+        // behind a hidden one, and a raycast that honours firstHitOnly (the tiles renderer without
+        // accelerateRaycast) would hand over only the hidden one
+        const first = firstHitOnly(raycaster);
+        setFirstHitOnly(raycaster, false);
         try {
           raycaster.intersectObject(this.ground, true, results);
         } finally {
+          setFirstHitOnly(raycaster, first);
           raycastStats.exit(scope);
         }
         this.dropHiddenBehindShown(results);
+        // intersectObject sorted them by distance
+        if (first && results.length > 1) results.length = 1;
         this.store(raycaster, results);
         for (const hit of results) intersects.push(hit);
         results.length = 0;
