@@ -1,5 +1,5 @@
 @if (view(); as v) {
-  <div class="ll" aria-label="Lane lengths to the HQ">
+  <div class="ll" role="group" aria-label="Lane lengths to the HQ">
     <span class="ll-title">Lanes to the HQ</span>
     @for (row of v.rows; track $index) {
       <div class="ll-row" [class.edited]="row.edited">

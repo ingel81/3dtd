@@ -24,7 +24,7 @@
       <ul class="runs-list">
         @for (run of runs(); track run.runId) {
           <li class="runs-row">
-            <span class="runs-wave" [attr.aria-label]="'Wave ' + run.waveReached">
+            <span class="runs-wave" role="img" [attr.aria-label]="'Wave ' + run.waveReached">
               <span class="runs-wave-label">W</span>{{ run.waveReached }}
             </span>
             <div class="runs-text">

@@ -24,7 +24,7 @@
       @for (hint of hints(); track hint.key) {
         <div class="hint-item">
           @if (mouseIcon(hint.key); as icon) {
-            <span class="hint-key hint-mouse" [attr.aria-label]="hint.key"><td-icon [name]="icon" [size]="16" /></span>
+            <span class="hint-key hint-mouse" role="img" [attr.aria-label]="hint.key"><td-icon [name]="icon" [size]="16" /></span>
           } @else {
             <span class="hint-key">{{ hint.key }}</span>
           }
