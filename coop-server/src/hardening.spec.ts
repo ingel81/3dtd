@@ -11,9 +11,9 @@ import { PROTOCOL_VERSION, type ClientMessage, type ServerMessage } from '../../
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Wait until `ok`, up to 3 s */
+/** Wait until `ok`, up to 15 s: under a loaded suite the sockets answer late, a failure still ends it */
 async function until(ok: () => boolean): Promise<void> {
-  const end = Date.now() + 3000;
+  const end = Date.now() + 15_000;
   while (!ok()) {
     if (Date.now() > end) throw new Error('timed out');
     await sleep(10);

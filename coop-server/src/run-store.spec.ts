@@ -91,10 +91,10 @@ describe('RunStore', () => {
   it('refuses a log that unpacks to more than it takes', async () => {
     dir = mkdtempSync(join(tmpdir(), 'runs-'));
     const store = new RunStore({ dir, maxBytes: 1e9, maxAgeMs: 1e12, now: () => Date.now() });
-    // Just past the 32 MB cap; under the full suite's load packing and unpacking it took over 5 s
+    // Just past the 32 MB cap
     const bomb = gzipSync(Buffer.alloc(33 * 1024 * 1024, 32)).toString('base64');
     expect(await store.accept('ROOM1', 'p1', 'Ann', bomb)).toEqual({ ok: false, reason: 'not gzip or too large' });
-  }, 30_000);
+  });
 });
 
 describe('a run log through the relay', () => {

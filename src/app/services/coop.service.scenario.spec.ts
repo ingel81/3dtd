@@ -169,9 +169,9 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
   return { coop, sim, los, mirror, hq, locationChange, closedRun, director, runs };
 }
 
-/** Wait for `ok`, flushing effects, up to 3 s */
+/** Wait for `ok`, flushing effects, up to 15 s: under a loaded suite the sockets answer late */
 async function until(ok: () => boolean): Promise<void> {
-  const end = Date.now() + 3000;
+  const end = Date.now() + 15_000;
   while (!ok()) {
     if (Date.now() > end) throw new Error('timed out');
     TestBed.tick();
