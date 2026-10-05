@@ -30,9 +30,17 @@ prepare() {
 package() {
   install -dm755 "${pkgdir}/opt/3dtd"
   cp -a squashfs-root/. "${pkgdir}/opt/3dtd/"
-  # What only the AppImage needs: its launcher, its desktop entry and icon, its bundled libraries
+  # What only the AppImage needs: its launcher, its desktop entry and icon, its bundled libraries.
+  # usr/lib holds what electron-builder's toolset 1.0.3 puts there (lib/x64 of
+  # appimage-tools-runtime-20251108): libXss, libXtst and libnotify, which depends names,
+  # and libappindicator3, libindicator3 and libgconf-2, which it does not (the game has
+  # no tray icon). Whether the binary links any of these is not checked yet (ldd and
+  # namcap on a real build).
   rm -rf "${pkgdir}/opt/3dtd/"{AppRun,.DirIcon,3dtd.desktop,3dtd.png,usr}
   find "${pkgdir}/opt/3dtd" -type d -exec chmod 755 {} +
+  # Chromium's setuid sandbox helper, for kernels without unprivileged user namespaces
+  # (linux-hardened); without the bit Electron stops at start there
+  chmod 4755 "${pkgdir}/opt/3dtd/chrome-sandbox"
 
   install -dm755 "${pkgdir}/usr/share"
   cp -r --no-preserve=mode squashfs-root/usr/share/icons "${pkgdir}/usr/share/"
