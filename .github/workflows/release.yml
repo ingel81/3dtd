@@ -227,6 +227,71 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
 
+  # The AUR package 3dtd-bin (packaging/aur, TODO E83): pkgver and the
+  # checksums of this release, .SRCINFO from makepkg in an Arch container.
+  # Pushed to the AUR only when the secret AUR_SSH_PRIVATE_KEY is set (the key
+  # of the AUR account that owns 3dtd-bin); without it the job shows the files
+  # in its summary to push by hand. A pre-release (a tag with "-") is skipped.
+  aur:
+    needs: publish
+    if: ${{ !contains(github.event.inputs.tag || github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      AUR_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+
+      # The sha256 GitHub keeps for the asset, so nothing is downloaded here
+      - name: Version and checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${TAG#v}"
+          sum=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq ".assets[] | select(.name == \"3DTD-${version}-x86_64.AppImage\") | .digest")
+          sum="${sum#sha256:}"
+          # makepkg does not run as root; update.sh checks both values before it uses them
+          docker run --rm -e VERSION="$version" -e SUM="$sum" -v "$PWD/packaging/aur:/pkg" archlinux:base-devel \
+            bash -c 'set -e; useradd -m builder; chown -R builder /pkg; su builder -c "cd /pkg && bash update.sh $VERSION $SUM"'
+          sudo chown -R "$(id -u):$(id -g)" packaging/aur
+          fence='```'
+          {
+            echo "### AUR package 3dtd-bin ${version}"
+            for file in PKGBUILD .SRCINFO; do
+              printf '\n%s\n%s\n' "$file:" "$fence"
+              cat "packaging/aur/$file"
+              echo "$fence"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push to the AUR
+        if: env.AUR_KEY != ''
+        env:
+          AUR_EMAIL: ${{ secrets.AUR_GIT_EMAIL }}
+        run: |
+          install -dm700 ~/.ssh
+          printf '%s\n' "$AUR_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/aur -o IdentitiesOnly=yes"
+          git clone ssh://aur@aur.archlinux.org/3dtd-bin.git aur
+          cp packaging/aur/PKGBUILD packaging/aur/.SRCINFO packaging/aur/3dtd.desktop packaging/aur/3dtd.sh aur/
+          cd aur
+          git config user.name ingel81
+          git config user.email "${AUR_EMAIL:-ingel81@users.noreply.github.com}"
+          git add PKGBUILD .SRCINFO 3dtd.desktop 3dtd.sh
+          if git diff --cached --quiet; then
+            echo "[aur] 3dtd-bin is up to date"
+            exit 0
+          fi
+          git commit -m "Update to ${TAG#v}"
+          git push origin HEAD:master
+
   # The coop relay for the online lobby, as a container image next to the
   # release (docs/COOP_PLAN.md, D66): ghcr.io/ingel81/3dtd-relay:<version> and
   # :latest. The lobby server pulls it; the relay's protocol has to match the

@@ -562,10 +562,36 @@ Bekannte Stolpersteine, beim ersten Test zu prüfen:
 - **Update:** Der `AppImageUpdater` schreibt die laufende Datei neu; sie muss im
   Schreibzugriff des Nutzers liegen (Download-Ordner ja, `/opt` nein).
 
+## AUR-Paket `3dtd-bin` (TODO E83)
+
+`packaging/aur/` hält das Paket: `PKGBUILD` lädt das versionierte AppImage des Releases, entpackt es
+(`--appimage-extract`, ohne FUSE) nach `/opt/3dtd`, legt `/usr/bin/3dtd`, den Desktop-Eintrag, die Icons und die
+Lizenz dazu. Gestartet ohne AppImage-Hülle fehlt `APPIMAGE`, der eigene Updater der App bleibt aus, pacman
+aktualisiert. `update.sh <version> <sha256>` setzt pkgver, pkgrel 1 und die Prüfsummen und schreibt `.SRCINFO` mit
+`makepkg --printsrcinfo`.
+
+Der Job `aur` in `release.yml` läuft nach dem Veröffentlichen (nicht bei Tags mit „-“): die Prüfsumme kommt aus
+den Asset-Daten von GitHub, `update.sh` läuft in `archlinux:base-devel`, die Dateien stehen in der Zusammenfassung
+des Laufs. Gepusht wird nur mit dem Secret `AUR_SSH_PRIVATE_KEY`.
+
+Einmalig vom User einzurichten:
+
+1. Konto auf aur.archlinux.org, dort einen eigenen SSH-Schlüssel nur für die CI hinterlegen (ed25519, ohne
+   Passphrase).
+2. Das Paket anlegen: auf Arch `packaging/aur/update.sh <version> <sha256>`, dann
+   `git clone ssh://aur@aur.archlinux.org/3dtd-bin.git`, `PKGBUILD`, `.SRCINFO`, `3dtd.desktop`, `3dtd.sh` hinein,
+   committen, pushen (der erste Push legt das Paket an). Vorher einmal `makepkg -si` und `namcap` zur Probe.
+3. In GitHub unter Settings, Secrets and variables, Actions: `AUR_SSH_PRIVATE_KEY` (der private Schlüssel aus 1),
+   optional `AUR_GIT_EMAIL` (sonst `ingel81@users.noreply.github.com` als Autor der AUR-Commits).
+
+Ungeprüft: der Job selbst (Container, Push), `namcap` und ob die Liste in `depends` vollständig ist; die
+Schritte von `prepare` und `package` liefen am 2026-10-05 in WSL gegen das AppImage von 0.6.0, `update.sh` mit
+einem Ersatz für `makepkg`.
+
 ## Bewusst nicht
 
 - macOS
-- deb, rpm, pacman, snap und flatpak (Begründung in den Entscheidungen)
+- deb, rpm, snap und flatpak (Begründung in den Entscheidungen); pacman nur als AUR-Paket, das das AppImage entpackt
 - Portable-ZIP (nachrüstbar, siehe Entscheidungen)
 - Code-Signing im ersten Release
 - Training im Desktop-Build

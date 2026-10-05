@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=3DTD
+Comment=Tower defense on photorealistic 3D tiles
+Exec=3dtd %U
+Icon=3dtd
+Terminal=false
+Type=Application
+Categories=Game;StrategyGame;
+StartupWMClass=3dtd

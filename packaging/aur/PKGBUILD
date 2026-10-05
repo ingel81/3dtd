@@ -1,0 +1,42 @@
+# Maintainer: ingel81 <https://github.com/ingel81>
+#
+# Kept in the 3DTD repository under packaging/aur; release.yml sets pkgver and
+# the checksums for every release (update.sh) and pushes to the AUR.
+
+pkgname=3dtd-bin
+pkgver=0.6.0
+pkgrel=1
+pkgdesc='Tower defense on photorealistic 3D tiles: defend your own address'
+arch=('x86_64')
+url='https://github.com/ingel81/3dtd'
+license=('AGPL-3.0-only')
+depends=('alsa-lib' 'gtk3' 'libnotify' 'libxss' 'libxtst' 'nss' 'xdg-utils')
+provides=('3dtd')
+conflicts=('3dtd')
+options=('!strip' '!debug')
+_appimage="3DTD-${pkgver}-x86_64.AppImage"
+source=("${_appimage}::https://github.com/ingel81/3dtd/releases/download/v${pkgver}/${_appimage}"
+        '3dtd.desktop'
+        '3dtd.sh')
+noextract=("${_appimage}")
+sha256sums=('4504c5b28ba6e5740501babae88928b7337955e432d1597ca02ec992e46bd875' '37e9e47928aa17e0f5d9ac22a68ddfd4979aa3328d5b6866ebcdcf82a561df1a' '64a0c84682a5feea59fe3c3ad1bbbac120ca399b47b41f4db7a2d0671873df31')
+
+prepare() {
+  # The AppImage unpacks itself, without FUSE
+  chmod +x "${_appimage}"
+  ./"${_appimage}" --appimage-extract >/dev/null
+}
+
+package() {
+  install -dm755 "${pkgdir}/opt/3dtd"
+  cp -a squashfs-root/. "${pkgdir}/opt/3dtd/"
+  # What only the AppImage needs: its launcher, its desktop entry and icon, its bundled libraries
+  rm -rf "${pkgdir}/opt/3dtd/"{AppRun,.DirIcon,3dtd.desktop,3dtd.png,usr}
+  find "${pkgdir}/opt/3dtd" -type d -exec chmod 755 {} +
+
+  install -dm755 "${pkgdir}/usr/share"
+  cp -r --no-preserve=mode squashfs-root/usr/share/icons "${pkgdir}/usr/share/"
+  install -Dm755 3dtd.sh "${pkgdir}/usr/bin/3dtd"
+  install -Dm644 3dtd.desktop "${pkgdir}/usr/share/applications/3dtd.desktop"
+  install -Dm644 squashfs-root/LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
