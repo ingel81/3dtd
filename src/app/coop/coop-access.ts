@@ -5,7 +5,7 @@
  * Framework-free and pure.
  */
 
-/** 'app': the desktop build; 'dev': the dev game on this machine; 'hint': any other browser */
+/** 'app': the desktop build; 'dev': the dev game (a dev build, or this machine); 'hint': any other browser */
 export type CoopAccess = 'app' | 'dev' | 'hint';
 
 /** Pages of the dev game: coop stays for tests, without a configured lobby over this machine's relay */
@@ -18,7 +18,11 @@ export const APP_DOWNLOADS = {
   all: 'https://github.com/ingel81/3dtd/releases/latest',
 } as const;
 
-export function coopAccess(desktop: boolean, hostname: string): CoopAccess {
+/**
+ * @param devBuild Angular's isDevMode(): the dev server, also when a second
+ *   machine reaches it over the LAN address for a coop test
+ */
+export function coopAccess(desktop: boolean, hostname: string, devBuild = false): CoopAccess {
   if (desktop) return 'app';
-  return DEV_HOSTS.has(hostname) ? 'dev' : 'hint';
+  return devBuild || DEV_HOSTS.has(hostname) ? 'dev' : 'hint';
 }

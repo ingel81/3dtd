@@ -98,6 +98,13 @@ describe('Coop by where the game runs (E114)', () => {
     expect(coopAccess(false, '3dtd.example.test')).toBe('hint');
   });
 
+  it('a dev build is the dev game on any host, also over a LAN address; a production build there is not', () => {
+    expect(coopAccess(false, '192.168.1.20', true)).toBe('dev');
+    expect(coopAccess(false, '192.168.1.20', false)).toBe('hint');
+    expect(coopAccess(false, 'localhost', false)).toBe('dev');
+    expect(coopAccess(true, '192.168.1.20', true)).toBe('app');
+  });
+
   it('the desktop app: the coop entry, no hint', () => {
     const fixture = openDock('app');
     expect(text(fixture)).toContain('ENTRY');

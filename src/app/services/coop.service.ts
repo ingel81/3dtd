@@ -1,4 +1,4 @@
-import { DestroyRef, Injectable, Injector, NgZone, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DestroyRef, Injectable, Injector, NgZone, computed, effect, inject, isDevMode, signal, untracked } from '@angular/core';
 import { SimClient } from '../sim/client/sim-client.service';
 import type { WaveSnapshot } from '../simulator/wave-snapshot';
 import type { HashBreakdown } from '../simulator/state-hash';
@@ -453,7 +453,7 @@ export class CoopService {
   /** Coop on the local network is offered here: the desktop app */
   readonly lanAvailable = this.lanBridge !== null;
   /** Where coop may be played: the app, the dev game, or a browser that only points to the app (E114) */
-  readonly access = coopAccess(readDesktopBridge() !== null, window.location.hostname);
+  readonly access = coopAccess(readDesktopBridge() !== null, window.location.hostname, isDevMode());
   /** This machine hosts a LAN game: its relay runs and ends with the room */
   private lanHosting = false;
   /** While hosting on the LAN, this machine's addresses for the guests (D54) */
