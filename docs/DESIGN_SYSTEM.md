@@ -750,6 +750,7 @@ Die Werte liefert `veteranView()` (`tower-panel/tower-stats.ts`) aus `stats().ki
 - Umschalter mit sichtbarem Aktiv-Zustand: `[attr.aria-pressed]` (Layer-Toggles, Segmente im Display-Panel, Mute, Targeting, Move HQ / Set spawn)
 - Buttons, die ein Menü aufklappen: `[attr.aria-expanded]` (Favoriten, Display, Audio, Layers, Developer)
 - Deko-SVGs in gelabelten Links: `aria-hidden="true"`
+- Radiogruppen und Tab-Leisten (Munition des Helden, Raumoptionen, Forschung je Spieler, Kartenanbieter) tragen `tdRovingGroup` (`components/roving-group.directive.ts`): ein Tab-Halt auf der Wahl, Pfeiltasten wählen das vorige oder nächste Element (umlaufend, `aria-disabled` übersprungen), Home und End das erste und letzte; die Pfeile schwenken dabei keine Kamera
 
 `td-icon` rendert ohne `ariaLabel` ein `role="presentation"`-SVG, das Icon selbst trägt also nichts zum Namen bei. Debug-Fenster sind nachrangig, die meisten ihrer Buttons haben ein `title` als Fallback.
 

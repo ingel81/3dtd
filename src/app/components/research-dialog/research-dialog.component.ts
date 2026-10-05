@@ -9,6 +9,7 @@ import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-f
 import { TdIconComponent } from '../icon/icon.component';
 import { TechTreeComponent } from '../tech-tree/tech-tree.component';
 import { DragScrollDirective } from '../tech-tree/drag-scroll.directive';
+import { RovingGroupDirective } from '../roving-group.directive';
 import { buildTechTreeView, TECH_TREE_METRICS } from '../tech-tree/tech-tree-view';
 import { COOP } from '../../services/coop.token';
 import { researchSnapshotOf, type ResearchSnapshot } from '../../managers/research-snapshot';
@@ -50,7 +51,7 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 @Component({
   selector: 'app-research-dialog',
   standalone: true,
-  imports: [MatDialogModule, TdIconComponent, TechTreeComponent, DragScrollDirective],
+  imports: [MatDialogModule, TdIconComponent, TechTreeComponent, DragScrollDirective, RovingGroupDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './research-dialog.component.html',
   styleUrl: './research-dialog.component.scss',

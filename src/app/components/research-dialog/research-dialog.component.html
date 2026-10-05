@@ -32,7 +32,7 @@
   <div class="td-rd-bar td-rd-tabs">
     <!-- Coop: whose research, one tab a player (TODO E35) -->
     @if (tabs().length > 1) {
-      <div class="td-rd-players" role="tablist" aria-label="Whose research">
+      <div class="td-rd-players" role="tablist" tdRovingGroup aria-label="Whose research">
         @for (tab of tabs(); track tab.id) {
           @let on = tab.me ? partnerId() === null : partnerId() === tab.id;
           <button type="button" role="tab" class="td-rd-tab" [class.td-on]="on" [attr.aria-selected]="on"

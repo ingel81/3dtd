@@ -24,7 +24,7 @@
       <div class="set">
         <span class="set-label">{{ option.label }}</span>
         @if (canEdit()) {
-          <span class="seg" role="radiogroup" [attr.aria-label]="option.label">
+          <span class="seg" role="radiogroup" tdRovingGroup [attr.aria-label]="option.label">
             @for (choice of option.choices; track choice.value) {
               <button type="button" role="radio" [class.is-on]="value(option.key) === choice.value"
                       [class.is-warn]="option.key === 'cheats' && choice.value !== 'off'"

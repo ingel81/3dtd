@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
 import { ConfigService } from '../../core/services/config.service';
 import { TdIconComponent } from '../icon/icon.component';
+import { RovingGroupDirective } from '../roving-group.directive';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /**
@@ -22,7 +23,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 @Component({
   selector: 'td-token-setup',
   standalone: true,
-  imports: [TdIconComponent],
+  imports: [TdIconComponent, RovingGroupDirective],
   host: { '(document:keydown.escape)': 'dismiss()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './token-setup.component.html',

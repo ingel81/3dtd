@@ -4,6 +4,7 @@ import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { HeroControlService } from '../../../services/hero-control.service';
 import type { HeroAmmoId } from '../../../configs/hero.config';
 import { heroPanelView } from './hero-panel';
+import { RovingGroupDirective } from '../../roving-group.directive';
 
 /**
  * Sidebar-Panel des Helden, sichtbar solange er gewählt ist, an der Stelle
@@ -14,7 +15,7 @@ import { heroPanelView } from './hero-panel';
 @Component({
   selector: 'app-sidebar-hero-panel',
   standalone: true,
-  imports: [MatTooltipModule],
+  imports: [MatTooltipModule, RovingGroupDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './hero-panel.component.html',
   styleUrl: './hero-panel.component.scss',

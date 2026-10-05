@@ -26,7 +26,7 @@
       <span class="td-hero-label">Ammo</span>
       <span class="td-hero-key" aria-hidden="true">V</span>
     </div>
-    <div class="td-hero-ammo" role="radiogroup" aria-label="Ammo" aria-keyshortcuts="V">
+    <div class="td-hero-ammo" role="radiogroup" tdRovingGroup aria-label="Ammo" aria-keyshortcuts="V">
       @for (ammo of view().ammo; track ammo.id) {
         <button class="td-hero-ammo-btn" type="button" role="radio"
                 [class.active]="ammo.active"

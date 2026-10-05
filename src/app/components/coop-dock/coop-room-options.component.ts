@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { RovingGroupDirective } from '../roving-group.directive';
 import { TdIconComponent } from '../icon/icon.component';
 import { CoopService } from '../../services/coop.service';
 import { ROOM_OPTION_CHOICES, optionLabel, type RoomOptionKey } from '../../coop/room-options';
@@ -13,7 +14,7 @@ import { ROOM_OPTION_CHOICES, optionLabel, type RoomOptionKey } from '../../coop
 @Component({
   selector: 'app-coop-room-options',
   standalone: true,
-  imports: [MatTooltipModule, TdIconComponent],
+  imports: [MatTooltipModule, TdIconComponent, RovingGroupDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './coop-room-options.component.html',
   styleUrl: './coop-room-options.component.scss',
