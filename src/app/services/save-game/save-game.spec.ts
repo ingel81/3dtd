@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { signal } from '@angular/core';
 import { SaveGame, type SaveGameHost } from './save-game';
 import { AUTOSAVE_SLOT, manualSlotId } from './save-game.port';
-import type { SaveSlotStore, StoredSlotMeta } from './save-slot.store';
+import { UNREADABLE, type SaveSlotStore, type StoredSlotMeta } from './save-slot.store';
 import { buildWorldPackage } from '../../coop/world-package';
 import { emptySimSnapshot } from '../../../test/sim-snapshot-fixture';
 import { MAX_SAVE_FILE_BYTES, type SaveFile, type SaveParts } from '../../simulator/save-file';
@@ -22,8 +22,10 @@ class MemoryStore implements SaveSlotStore {
   async list(): Promise<StoredSlotMeta[]> {
     return [...this.meta.values()];
   }
-  async read(id: string): Promise<string | null> {
-    return this.text.get(id) ?? null;
+  /** Slots the browser would not hand out */
+  readonly unreadable = new Set<string>();
+  async read(id: string): Promise<string | null | typeof UNREADABLE> {
+    return this.unreadable.has(id) ? UNREADABLE : this.text.get(id) ?? null;
   }
   async write(meta: StoredSlotMeta, text: string): Promise<boolean> {
     this.meta.set(meta.id, meta);
@@ -140,6 +142,16 @@ describe('SaveGame (TODO E110)', () => {
     vi.mocked(host.apply).mockRejectedValueOnce(new Error('worker gone'));
     expect(await game.load(manualSlotId(1))).toEqual({ ok: false, reason: 'The save could not be loaded.' });
     expect(await game.load(manualSlotId(1))).toMatchObject({ ok: true });
+  });
+
+  it('says when the browser would not hand out a slot, apart from an empty one', async () => {
+    const { game, store } = setup();
+    await game.save(manualSlotId(2));
+    store.unreadable.add(manualSlotId(2));
+    expect(await game.load(manualSlotId(2))).toEqual({
+      ok: false, reason: 'This browser could not read the save (storage blocked or unavailable).',
+    });
+    expect(await game.load(manualSlotId(4))).toEqual({ ok: false, reason: 'That slot is empty.' });
   });
 
   it('refuses a small gzip that unpacks past the cap, before it parses anything', async () => {

@@ -8,8 +8,11 @@ import {
   type SaveResult,
   type SaveSlotInfo,
 } from './save-game.port';
-import type { SaveSlotStore, StoredSlotMeta } from './save-slot.store';
+import { UNREADABLE, type SaveSlotStore, type StoredSlotMeta } from './save-slot.store';
 import { defaultSlotName } from './slot-name';
+
+/** A slot the browser would not hand out, apart from an empty one */
+const UNREADABLE_TEXT = 'This browser could not read the save (storage blocked or unavailable).';
 import {
   MAX_SAVE_FILE_BYTES,
   buildSaveFile,
@@ -91,6 +94,7 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace'> {
       if (blocked) return { ok: false, reason: blocked };
       const text = await this.store.read(slotId);
       if (text === null) return { ok: false, reason: 'That slot is empty.' };
+      if (text === UNREADABLE) return { ok: false, reason: UNREADABLE_TEXT };
       return this.loadText(text);
     });
   }
@@ -107,6 +111,7 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace'> {
   async exportFile(slotId: string): Promise<SaveResult> {
     const text = await this.store.read(slotId);
     const meta = this.stored().find((m) => m.id === slotId);
+    if (text === UNREADABLE) return { ok: false, reason: UNREADABLE_TEXT };
     if (text === null || !meta) return { ok: false, reason: 'That slot is empty.' };
     const blob = await replayFileBlob(text);
     this.host.download(blob, saveFileName(meta.location, meta.wave));
