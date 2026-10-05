@@ -113,7 +113,7 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 ### Nach dem Release 0.6 (2026-10-05, auf `next`)
 
 - [ ] **E110, E111, E112 (c, f), E113 bis E115, C17, E92, E94a** gebaut: Speichern und Laden, Spielmenü, NEXT-Karte,
-      Regler in Worten, Coop im Browser, Partnerpreise, Zoom in Płock, Robustheit, Web-CSP. PLAYTEST S1 bis S3, S4.4.
+      Regler in Worten, Coop im Browser, Partnerpreise, Zoom in Płock, Robustheit, Web-CSP, OSM-Nennung. PLAYTEST S1 bis S3, S4.4.
 - [ ] **E97, E100, E101, E104** aus `dev/after-0.6`: Replay klein mit Tempo, Camo, Späher-Pfad, Bauzeit. PLAYTEST S4.
 
 ---
