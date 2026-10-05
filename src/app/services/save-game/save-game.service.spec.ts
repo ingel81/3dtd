@@ -144,6 +144,18 @@ describe('SaveGameService (TODO E110)', () => {
     expect(runLog.resumeRun).toHaveBeenCalledWith(null, [], 4);
   });
 
+  it('waits for the place loaded here to stand, its corridor built, before it takes the save', async () => {
+    const { apply, order, loader } = setup();
+    let stand!: (ok: boolean) => void;
+    loader.placeLoaded.mockReturnValueOnce(new Promise<boolean>((resolve) => { stand = resolve; }));
+    const applied = apply(saveFile());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(order).toEqual([]);
+    stand(true);
+    expect(await applied).toBeNull();
+    expect(order).toContain('adopt');
+  });
+
   it('moves to the place of the save when it does not stand here, and stops when the world comes out another', async () => {
     const { apply, loader } = setup();
     loader.standsOn.mockReturnValueOnce(false).mockReturnValue(true);

@@ -189,6 +189,10 @@ export class SaveGameService implements SaveGamePort {
       const loaded = await this.loader.placeLoaded();
       this.pendingPlace.set(null);
       if (!loaded) return 'The place of the save did not load.';
+    } else if (!(await this.loader.placeLoaded())) {
+      // The place here still loading or building its corridor: its end would send the measured world and a
+      // fresh run over the save's
+      return 'The place of the save did not load.';
     }
     if (!this.loader.standsOn(world)) {
       const there = this.loader.sameHq(world)
