@@ -392,7 +392,11 @@ describe('Manning a tower, through the sub-step loop', () => {
 
     const before = credits();
     const sellBefore = tower.getSellValue();
+    const upgraded: unknown[] = [];
+    gsm.getEventBus().on('tower:upgraded', (e) => upgraded.push({ id: e.tower.id, cost: e.cost, upgradeId: e.upgradeId }));
     expect(gsm.chooseTowerPath(tower, 'scout')).toBe(true);
+    // Booked as the tower's upgrade by the run log, with its sound
+    expect(upgraded).toEqual([{ id: tower.id, cost: TOWER_PATHS.scout.cost, upgradeId: 'path:scout' }]);
     expect(tower.pathId).toBe('scout');
     expect(tower.detectionRadius).toBe(TOWER_PATHS.scout.detectionRadius);
     expect(credits()).toBe(before - TOWER_PATHS.scout.cost);

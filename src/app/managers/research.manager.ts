@@ -22,6 +22,7 @@ import {
 import {
   RESEARCH_TREE,
   getResearch,
+  pathUnlockedBy,
 } from '../configs/research/research-tree.config';
 import {
   RESEARCH_CENTER_CONFIG,
@@ -169,10 +170,7 @@ export class ResearchManager implements IGameManager {
 
   /** Whether a completed research opens tower path `pathId` (`unlock-path`). */
   isPathUnlocked(pathId: string): boolean {
-    for (const researchId of this.completedResearches) {
-      if (getResearch(researchId)?.effects.some((e) => e.kind === 'unlock-path' && e.pathId === pathId)) return true;
-    }
-    return false;
+    return pathUnlockedBy(this.completedResearches, pathId);
   }
 
   /** Get snapshot of all active researches. */

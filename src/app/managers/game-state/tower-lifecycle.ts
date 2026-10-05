@@ -178,6 +178,8 @@ export class TowerLifecycle {
     if (!this.creditsLedger.spend(path.cost, 'upgrade', this.actingPlayer())) return false;
     tower.pathId = path.id;
     this.sink.towers.setPath(tower.id, path.id);
+    // As an upgrade: the run log books it as the tower's, its sound plays, the stats panel follows
+    this.eventBus.emit({ type: 'tower:upgraded', tower, level: 1, cost: path.cost, upgradeId: `path:${path.id}` });
     return true;
   }
 

@@ -402,6 +402,17 @@ export function getResearch(id: ResearchId): ResearchConfig | undefined {
   return RESEARCH_TREE[id];
 }
 
+/**
+ * Whether the researches in `completed` open tower path `pathId` (an `unlock-path` effect): the one rule
+ * of the simulation (ResearchManager.isPathUnlocked, for the tower's owner) and of the tower panel.
+ */
+export function pathUnlockedBy(completed: Iterable<ResearchId>, pathId: string): boolean {
+  for (const researchId of completed) {
+    if (getResearch(researchId)?.effects.some((e) => e.kind === 'unlock-path' && e.pathId === pathId)) return true;
+  }
+  return false;
+}
+
 export function getAllResearchIds(): ResearchId[] {
   return Object.keys(RESEARCH_TREE);
 }

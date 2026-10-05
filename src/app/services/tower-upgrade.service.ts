@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { getTowerPath, type TowerPathId } from '../configs/tower-paths.config';
 import type { UpgradeId } from '../configs/tower-types.config';
+import { pathUnlockedBy } from '../configs/research/research-tree.config';
 import type { Tower } from '../entities/tower.entity';
 import { SimClient } from '../sim/client/sim-client.service';
 import { ResearchStore } from '../store/research.store';
@@ -122,7 +123,8 @@ export class TowerUpgradeService {
   choosePath(tower: Tower, pathId: TowerPathId): boolean {
     const path = getTowerPath(pathId);
     if (!path || tower.pathId !== null) return false;
-    if (!this.researchStore.completedResearches().has(path.research)) {
+    // The simulation's rule, for the owner: the tower panel offers paths only on the player's own towers
+    if (!pathUnlockedBy(this.researchStore.completedResearches(), path.id)) {
       uiSound.play('denied');
       return false;
     }

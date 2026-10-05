@@ -40,7 +40,7 @@ import {
 import { formatCompact } from '../../../utils/format-compact';
 import { COOP } from '../../../services/coop.token';
 import { getTowerPath, pathsOf, type TowerPath, type TowerPathId } from '../../../configs/tower-paths.config';
-import { getResearch } from '../../../configs/research/research-tree.config';
+import { getResearch, pathUnlockedBy } from '../../../configs/research/research-tree.config';
 import { TowerUpgradeService } from '../../../services/tower-upgrade.service';
 import { UPGRADE_MANY, upgradeTimes, upgradeTrackRefusal } from '../../../utils/player-actions';
 
@@ -130,9 +130,12 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
     return getTowerPath(this.tower().pathId);
   });
 
-  /** Its research done: the tile can be bought */
+  /**
+   * Its research done: the tile can be bought. The simulation asks the owner's research; a partner's tower
+   * is view only here (viewOnly), so the player's own is the owner's.
+   */
   isPathUnlocked(path: TowerPath): boolean {
-    return this.researchStore.completedResearches().has(path.research);
+    return pathUnlockedBy(this.researchStore.completedResearches(), path.id);
   }
 
   /** The tooltip of a path tile: what it does, and what it waits for */
