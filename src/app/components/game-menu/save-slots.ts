@@ -1,4 +1,5 @@
 import { MANUAL_SLOT_COUNT, manualSlotId, type SaveSlotInfo } from '../../services/save-game/save-game.port';
+import { shortPlaceName } from '../../services/save-game/slot-name';
 
 /**
  * The slot lists of the game menu (docs/SAVE_LOAD_PLAN.md): Save shows every
@@ -23,9 +24,9 @@ export interface SlotRow {
 
 const WHEN = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-/** "Wave 7 · Heilbronn" */
+/** "Wave 7 · Heilbronn", the town of the saved place */
 export function slotDetail(info: SaveSlotInfo): string {
-  return [`Wave ${info.wave}`, info.location].filter((part) => part !== '').join(' · ');
+  return [`Wave ${info.wave}`, shortPlaceName(info.location)].filter((part) => part !== '').join(' · ');
 }
 
 /** "5 Oct, 14:32"; "" for a broken date */

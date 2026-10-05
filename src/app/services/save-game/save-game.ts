@@ -9,6 +9,7 @@ import {
   type SaveSlotInfo,
 } from './save-game.port';
 import type { SaveSlotStore, StoredSlotMeta } from './save-slot.store';
+import { defaultSlotName } from './slot-name';
 import {
   MAX_SAVE_FILE_BYTES,
   buildSaveFile,
@@ -129,7 +130,7 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace'> {
     if (blocked) return { ok: false, reason: blocked };
     const parts = await this.host.collect();
     if (!parts) return { ok: false, reason: 'Saving works only between waves.' };
-    const file = buildSaveFile({ ...parts, name: name?.trim() || `${parts.place.name}, wave ${parts.wave}` });
+    const file = buildSaveFile({ ...parts, name: name?.trim() || defaultSlotName(parts.place.name, parts.wave) });
     const meta: StoredSlotMeta = {
       id: slotId,
       name: file.name,

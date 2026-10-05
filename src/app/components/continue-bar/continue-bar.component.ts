@@ -5,6 +5,7 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { UIStore } from '../../store/ui.store';
 import { COOP } from '../../services/coop.token';
 import { AUTOSAVE_SLOT, SAVE_GAME } from '../../services/save-game/save-game.port';
+import { shortPlaceName } from '../../services/save-game/slot-name';
 
 /** sessionStorage: the bar was offered in this tab and went away; not again until the tab is new */
 export const CONTINUE_OFFERED_KEY = 'td-continue-offered';
@@ -158,7 +159,7 @@ export class ContinueBarComponent {
     if (this.store.loading() || this.store.error() || this.coop?.inGame()) return null;
     if (this.store.gameStarted() || this.store.towerCount() > 0) return null;
     const autosave = this.saves.slots().find((slot) => slot.id === AUTOSAVE_SLOT);
-    return autosave ? { location: autosave.location, wave: autosave.wave } : null;
+    return autosave ? { location: shortPlaceName(autosave.location), wave: autosave.wave } : null;
   });
 
   constructor() {

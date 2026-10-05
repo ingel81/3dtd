@@ -23,6 +23,7 @@ import { ReplayService } from '../../services/replay.service';
 import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-facade.service';
 import { LocationChangeCoordinatorService } from '../../services/location/location-change-coordinator.service';
 import { loadSlotRows, saveSlotRows } from './save-slots';
+import { shortPlaceName } from '../../services/save-game/slot-name';
 
 /** The pages of the menu: the list, and what an entry opens in its place */
 export type GameMenuPage = 'main' | 'save' | 'load' | 'settings' | 'more';
@@ -140,7 +141,7 @@ export class GameMenuComponent {
   readonly autosaveOffer = computed(() => {
     if (this.inCoop() || this.underWay() || !this.saves.hasAutosave()) return null;
     const autosave = this.saves.slots().find((slot) => slot.id === AUTOSAVE_SLOT);
-    return autosave ? { location: autosave.location, wave: autosave.wave } : null;
+    return autosave ? { location: shortPlaceName(autosave.location), wave: autosave.wave } : null;
   });
   readonly saveRows = computed(() => saveSlotRows(this.saves.slots()));
   readonly loadRows = computed(() => loadSlotRows(this.saves.slots()));

@@ -15,6 +15,7 @@ describe('save slots of the game menu', () => {
     expect(slotDetail(slot('slot-1', 'x', 7))).toBe('Wave 7 · Heilbronn');
     expect(slotWhen(slot('slot-1', 'x', 7))).toBe('5 Oct, 14:32');
     expect(slotWhen(slot('slot-1', 'x', 7, 'not a date'))).toBe('');
+    expect(slotDetail({ ...slot('slot-1', 'x', 2), location: 'Hauptstraße 51, Bad Wimpfen, Deutschland' })).toBe('Wave 2 · Bad Wimpfen');
   });
 
   it('Save shows every manual slot, empty or filled', () => {
