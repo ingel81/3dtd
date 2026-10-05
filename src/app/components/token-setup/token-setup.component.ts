@@ -1,9 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, isDevMode, output, signal } from '@angular/core';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { ConfigService } from '../../core/services/config.service';
 import { TdIconComponent } from '../icon/icon.component';
 import { RovingGroupDirective } from '../roving-group.directive';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { APP_DOWNLOADS, coopAccess, type CoopAccess } from '../../coop/coop-access';
+import { readDesktopBridge } from '../../core/desktop-bridge';
 
 /**
  * First-run screen that asks the player for their own tile credentials.
@@ -40,6 +42,9 @@ export class TokenSetupComponent {
   readonly config = inject(ConfigService);
   /** The coop room of an invite link this page came with (?room=), to say why a key is asked for (review R8) */
   readonly coopRoom = new URLSearchParams(window.location.search).get('room');
+  /** Where coop may be played: in a browser on the site the invite points to the desktop app (E114) */
+  readonly coopAccess: CoopAccess = coopAccess(readDesktopBridge() !== null, window.location.hostname, isDevMode());
+  protected readonly appDownloads = APP_DOWNLOADS.all;
 
   /** Emitted once credentials are stored, so the caller can start the engine. */
   readonly tokenSaved = output<void>();

@@ -145,6 +145,29 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     }
   });
 
+  it('an invite link in a browser on the site points to the desktop app, not to joining here (E114)', () => {
+    const before = window.location.href;
+    window.history.replaceState(null, '', '/?room=ABC123');
+    try {
+      const text = (access: 'app' | 'dev' | 'hint') => {
+        const f = TestBed.createComponent(TokenSetupComponent);
+        (f.componentInstance as { coopAccess: string }).coopAccess = access;
+        f.detectChanges();
+        const shown = (f.nativeElement as HTMLElement).textContent!.replace(/\s+/g, ' ');
+        f.destroy();
+        return shown;
+      };
+      const hint = text('hint');
+      expect(hint).toContain('You were invited to coop room ABC123. Co-op runs in the free desktop app');
+      expect(hint).not.toContain('you join by yourself');
+      for (const access of ['app', 'dev'] as const) {
+        expect(text(access)).toContain("You are joining coop room ABC123. Every player needs a map key of their own; once yours is in, the host's map loads and you join by yourself.");
+      }
+    } finally {
+      window.history.replaceState(null, '', before);
+    }
+  });
+
   it('a first start without any key shows the screen, and Esc does not leave it', () => {
     expect(config.needsCredentials()).toBe(true);
     expect(screenShown(config, config.needsCredentials())).toBe(true);

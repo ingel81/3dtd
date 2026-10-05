@@ -12,7 +12,14 @@
       The 3D tiles are billed per request, so this build ships without a key.
       A free account covers playing.
     </p>
-    @if (coopRoom) {
+    @if (coopRoom && coopAccess === 'hint') {
+      <!-- A browser on the site joins no room: co-op is played in the desktop app (E114) -->
+      <p class="token-lead token-coop">
+        You were invited to coop room {{ coopRoom }}. Co-op runs in the free
+        <a [href]="appDownloads" target="_blank" rel="noopener">desktop app</a> for Windows and Linux: open Coop
+        there and join with this code. Here you can play solo with your own key.
+      </p>
+    } @else if (coopRoom) {
       <p class="token-lead token-coop">
         You are joining coop room {{ coopRoom }}. Every player needs a map key of their own; once yours is in,
         the host's map loads and you join by yourself.
