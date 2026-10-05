@@ -309,6 +309,12 @@ export class Room {
     this.players.splice(index, 1);
     this.logBudget.delete(playerId);
     if (this.resync?.waiting.delete(playerId) && this.resync.waiting.size === 0 && this.resync.stateSent) this.finishResync();
+    // The state the guests wait for will not come: the room goes on at once, not after RESYNC_TIMEOUT_MS
+    if (this.resync && playerId === this.hostId && !this.resync.stateSent) {
+      this.log('resync: the host left before its state went out');
+      this.resync.ok = false;
+      this.finishResync();
+    }
     this.removed(playerId);
     if (this.started) this.open.push({ playerId, command: { type: 'command:leave-game' } });
     this.broadcast({ t: 'left', playerId });

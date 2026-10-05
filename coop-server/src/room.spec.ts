@@ -577,6 +577,15 @@ describe('Room (COOP_PLAN C4)', () => {
       expect(last('a', 'resync-done')).toEqual({ t: 'resync-done', tick, ok: false });
     });
 
+    it('goes on at once when the host leaves before its state went out', () => {
+      const tick = diverged();
+      room.leave('a');
+      expect(last('b', 'resync-done')).toEqual({ t: 'resync-done', tick, ok: false });
+      expect(last('b', 'host')).toEqual({ t: 'host', hostId: 'b' });
+      clock += 3 * TICK_MS;
+      expect(room.advance(3 * TICK_MS)).toBeGreaterThan(0);
+    });
+
     it('stops trying after MAX_RESYNCS and only counts from there', () => {
       diverged();
       for (let i = 0; i < MAX_RESYNCS + 2; i++) {
