@@ -158,6 +158,12 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
       `immunityPercent` geht im neuen Feld auf. Grundlage lokal in `tmp/archive-2026-09/fix1/reports/`.
 - [ ] **G2 Konzept Tech Tree des Helden** (Stufe 2 erst damit), Vorschläge lokal in `tmp/archive-2026-09/fix1/reports/herotier2.md`.
 - [ ] **G4 Konzept Explosivmunition des Helden mit Flächenschaden** (`hero.config.ts`).
+- [ ] **E118 Anmelden mit Cesium ion** statt Token kopieren (Probe 2026-10-06, Browser und Desktop): OAuth2 mit PKCE
+      ohne Client-Secret, Client per Dynamic Client Registration beim Start (Desktop: System-Browser, Rückleitung an
+      `127.0.0.1:port`), im Web per CIMD oder DCR, Austausch per `fetch` (CORS offen). Scope `assets:read`; der Token
+      trägt `CesiumIonAuthPlugin` und den Endpoint von Asset 2275207 wie ein normaler Token. Zugriff 30 Tage, Refresh
+      90 Tage, jeder Refresh erneuert beide. Token einfügen bleibt als Rückfall. Offen: Ablauf mit neuem Konto,
+      Steam Deck im Gaming-Modus.
 - [ ] **E55 Eigene Tilesets als dritter Anbieter**: Anbieter „tileset.json per URL“ mit eigener Authentifizierung;
       braucht ein Mesh mit Boden (Raycasts), Höhen mit Geoidabstand nach EPSG:4978.
 - [ ] **E56 Eigenes Spielfeld aus Photogrammetrie** (z. B. der eigene Garten): `TerrainProvider` auf das Mesh, Wege
