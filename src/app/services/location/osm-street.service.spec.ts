@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { OsmStreetService, BuildingFootprint, StreetNetwork, STREET_RADIUS_M } from './osm-street.service';
+import { OsmStreetService, BuildingFootprint, StreetNetwork, STREET_RADIUS_M, thinRoute } from './osm-street.service';
 import { boxAround } from './street-box';
 import { ROUTE_START_NODE_ID } from '../../utils/route-start';
 import { extendPathToOptimalTurnoff, leavePathForBase } from '../../utils/route-geometry';
@@ -157,53 +157,56 @@ describe('OsmStreetService', () => {
   });
 
   // ════════════════════════════════════════════════════════════
-  // filterBuildingsNearRoutes
+  // loadBuildingsNearRoutes, thinRoute
   // ════════════════════════════════════════════════════════════
 
-  describe('filterBuildingsNearRoutes', () => {
-    const makeBuilding = (id: number, lat: number, lon: number): BuildingFootprint => ({
-      id,
-      type: 'yes',
-      levels: 2,
-      nodes: [
-        { id: id * 10 + 1, lat, lon },
-        { id: id * 10 + 2, lat: lat + 0.0001, lon },
-        { id: id * 10 + 3, lat: lat + 0.0001, lon: lon + 0.0001 },
-      ],
-    });
+  describe('loadBuildingsNearRoutes', () => {
+    function captureQuery(): { query: () => string } {
+      let query = '';
+      vi.spyOn(service as unknown as { fetchOverpass: (what: string, q: string) => Promise<unknown> }, 'fetchOverpass')
+        .mockImplementation(async (_what, q) => { query = q; return []; });
+      return { query: () => query };
+    }
 
-    it('returns all buildings when no routes given', () => {
-      const buildings = [makeBuilding(1, 48.0, 9.0)];
-      const result = service.filterBuildingsNearRoutes(buildings, []);
-      expect(result).toHaveLength(1);
-    });
-
-    it('keeps buildings near a route', () => {
-      // Building at 48.0, 9.0 — route passes through 48.0, 9.0
-      const buildings = [makeBuilding(1, 48.0, 9.0)];
-      const routes = [[{ lat: 48.0, lon: 9.0 }, { lat: 48.001, lon: 9.001 }]];
-      const result = service.filterBuildingsNearRoutes(buildings, routes, 100);
-      expect(result).toHaveLength(1);
-    });
-
-    it('filters out buildings far from routes', () => {
-      // Building at 48.1, 9.1 — far from route at 48.0, 9.0
-      const buildings = [makeBuilding(1, 48.1, 9.1)];
-      const routes = [[{ lat: 48.0, lon: 9.0 }, { lat: 48.001, lon: 9.001 }]];
-      const result = service.filterBuildingsNearRoutes(buildings, routes, 100);
-      expect(result).toHaveLength(0);
-    });
-
-    it('filters mixed near/far buildings correctly', () => {
-      const buildings = [
-        makeBuilding(1, 48.0, 9.0),       // near route
-        makeBuilding(2, 48.1, 9.1),       // far from route
-        makeBuilding(3, 48.0005, 9.0005), // near route
+    it('asks Overpass for the buildings around each route, not for a box', async () => {
+      const captured = captureQuery();
+      const routes = [
+        [{ lat: 48.0, lon: 9.0 }, { lat: 48.001, lon: 9.001 }],
+        [{ lat: 48.01, lon: 9.01 }, { lat: 48.011, lon: 9.012 }],
       ];
-      const routes = [[{ lat: 48.0, lon: 9.0 }, { lat: 48.001, lon: 9.001 }]];
-      const result = service.filterBuildingsNearRoutes(buildings, routes, 100);
-      expect(result).toHaveLength(2);
-      expect(result.map(b => b.id)).toEqual([1, 3]);
+      await service.loadBuildingsNearRoutes(routes, 100);
+      const ways = captured.query().match(/way\["building"\]\([^)]*\);/g);
+      expect(ways).toEqual([
+        'way["building"](around:100,48.000000,9.000000,48.001000,9.001000);',
+        'way["building"](around:100,48.010000,9.010000,48.011000,9.012000);',
+      ]);
+    });
+
+    it('asks nothing without routes', async () => {
+      const spy = vi.spyOn(service as unknown as { fetchOverpass: () => Promise<unknown> }, 'fetchOverpass');
+      expect(await service.loadBuildingsNearRoutes([[]], 100)).toEqual({ buildings: [] });
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('thinRoute', () => {
+    // 1e-5 deg of latitude is about 1.1 m
+    it('drops the points within the tolerance of a straight line', () => {
+      const route = Array.from({ length: 50 }, (_, i) => ({ lat: 48 + i * 1e-5, lon: 9 + (i % 2) * 1e-5 }));
+      expect(thinRoute(route, 5)).toEqual([route[0], route[49]]);
+    });
+
+    it('keeps a corner', () => {
+      const route = [
+        { lat: 48.0, lon: 9.0 }, { lat: 48.0005, lon: 9.0 }, { lat: 48.001, lon: 9.0 },
+        { lat: 48.001, lon: 9.0005 }, { lat: 48.001, lon: 9.001 },
+      ];
+      expect(thinRoute(route, 5)).toEqual([route[0], route[2], route[4]]);
+    });
+
+    it('leaves short routes alone', () => {
+      const route = [{ lat: 48, lon: 9 }, { lat: 48.001, lon: 9 }];
+      expect(thinRoute(route, 5)).toEqual(route);
     });
   });
 

@@ -150,6 +150,47 @@ function streetQuery(boxes: readonly GeoBox[]): string {
     `;
 }
 
+/**
+ * How far a thinned route may stray from the real one, m. Small against the
+ * building corridor, so the `around` query keeps what the route touches.
+ */
+const ROUTE_QUERY_TOLERANCE_M = 5;
+
+/**
+ * `route` with the points dropped that lie within `toleranceM` of the line
+ * through their neighbours (Douglas-Peucker, flat metres around the first point).
+ */
+export function thinRoute<P extends { lat: number; lon: number }>(route: readonly P[], toleranceM: number): P[] {
+  if (route.length <= 2) return [...route];
+  const cosLat = Math.cos((route[0].lat * Math.PI) / 180);
+  const xs = route.map((p) => (p.lon - route[0].lon) * cosLat * METERS_PER_DEGREE_LAT);
+  const zs = route.map((p) => (p.lat - route[0].lat) * METERS_PER_DEGREE_LAT);
+  const keep = new Uint8Array(route.length);
+  keep[0] = keep[route.length - 1] = 1;
+  const stack: [number, number][] = [[0, route.length - 1]];
+  while (stack.length > 0) {
+    const [first, last] = stack.pop()!;
+    const dx = xs[last] - xs[first];
+    const dz = zs[last] - zs[first];
+    const lengthSq = dx * dx + dz * dz;
+    let worst = -1;
+    let worstDist = toleranceM;
+    for (let i = first + 1; i < last; i++) {
+      const t = lengthSq > 0 ? Math.max(0, Math.min(1, ((xs[i] - xs[first]) * dx + (zs[i] - zs[first]) * dz) / lengthSq)) : 0;
+      const dist = Math.hypot(xs[i] - xs[first] - t * dx, zs[i] - zs[first] - t * dz);
+      if (dist > worstDist) {
+        worst = i;
+        worstDist = dist;
+      }
+    }
+    if (worst >= 0) {
+      keep[worst] = 1;
+      stack.push([first, worst], [worst, last]);
+    }
+  }
+  return route.filter((_, i) => keep[i] === 1);
+}
+
 /** The street graph's connected pieces: a number per node id, the same for nodes a route can join. */
 function connectedComponents(graph: ReadonlyMap<number, { neighbors: { nodeId: number }[] }>): Map<number, number> {
   const components = new Map<number, number>();
@@ -853,19 +894,27 @@ export class OsmStreetService {
   }
 
   /**
-   * Load building footprints for a given bounding box around coordinates
+   * Load the building footprints within `radiusMeters` of the routes, and
+   * no others: one Overpass `around` filter per route, on the route thinned
+   * by ROUTE_QUERY_TOLERANCE_M.
    */
-  async loadBuildings(
-    centerLat: number,
-    centerLon: number,
-    radiusMeters = 500
+  async loadBuildingsNearRoutes(
+    routes: readonly (readonly { lat: number; lon: number }[])[],
+    radiusMeters: number
   ): Promise<BuildingData> {
-    const bounds = boxAround(centerLat, centerLon, radiusMeters);
+    const lines = routes
+      .map((route) => thinRoute(route, ROUTE_QUERY_TOLERANCE_M))
+      .filter((line) => line.length > 0)
+      .map((line) => line.map((p) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`).join(','));
+    if (lines.length === 0) return { buildings: [] };
 
+    const ways = lines
+      .map((line) => `way["building"](around:${Math.round(radiusMeters)},${line});`)
+      .join('\n        ');
     const query = `
       [out:json][timeout:25][maxsize:4194304];
       (
-        way["building"](${bounds.minLat},${bounds.minLon},${bounds.maxLat},${bounds.maxLon});
+        ${ways}
       );
       out body;
       >;
@@ -880,7 +929,7 @@ export class OsmStreetService {
       throw error instanceof Error ? error : new Error('Failed to load buildings');
     }
 
-    if (isDevMode()) console.log(`[OSM] Loaded ${buildings.length} building footprints`);
+    if (isDevMode()) console.log(`[OSM] Loaded ${buildings.length} building footprints near ${lines.length} routes`);
     return { buildings };
   }
 
@@ -927,42 +976,6 @@ export class OsmStreetService {
     }
 
     return buildings;
-  }
-
-  /**
-   * Filter buildings to only include those near the given routes.
-   */
-  filterBuildingsNearRoutes(
-    buildings: BuildingFootprint[],
-    routes: { lat: number; lon: number }[][],
-    corridorWidth = 100
-  ): BuildingFootprint[] {
-    const routePoints: { lat: number; lon: number }[] = [];
-    for (const route of routes) {
-      routePoints.push(...route);
-    }
-
-    if (routePoints.length === 0) {
-      return buildings;
-    }
-
-    const filtered: BuildingFootprint[] = [];
-
-    for (const building of buildings) {
-      let nearRoute = false;
-      for (const node of building.nodes) {
-        if (this.isPointNearRoute(node.lat, node.lon, routePoints, corridorWidth)) {
-          nearRoute = true;
-          break;
-        }
-      }
-      if (nearRoute) {
-        filtered.push(building);
-      }
-    }
-
-    if (isDevMode()) console.log(`[OSM] Filtered buildings: ${buildings.length} → ${filtered.length}`);
-    return filtered;
   }
 
   /**

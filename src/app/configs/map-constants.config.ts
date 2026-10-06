@@ -14,6 +14,13 @@ export const MAX_SPAWN_DISTANCE = 1000;
 /** Radius (meters) for filtering street segments near calculated routes */
 export const STREET_FILTER_RADIUS = 100;
 
+/**
+ * Radius (meters) around the routes' centre lines the OSM buildings are
+ * loaded for: a building counts when its outline comes this close. Takes the
+ * first row along the street, a lane or two and a front yard away.
+ */
+export const BUILDING_CORRIDOR_RADIUS = 25;
+
 /** Default camera framing padding (fraction of viewport) */
 export const CAMERA_PADDING = 0.1;
 

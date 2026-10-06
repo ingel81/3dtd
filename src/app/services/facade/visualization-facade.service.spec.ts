@@ -89,7 +89,7 @@ import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { TowerSelectionService } from '../tower-selection.service';
 import { PresentationService } from '../../presentation/presentation.service';
 import {
-  CAMERA_ANGLE, CAMERA_MARKER_RADIUS, CAMERA_PADDING, STREET_FILTER_RADIUS, SPAWN_COLORS,
+  BUILDING_CORRIDOR_RADIUS, CAMERA_ANGLE, CAMERA_MARKER_RADIUS, CAMERA_PADDING, STREET_FILTER_RADIUS, SPAWN_COLORS,
 } from '../../configs/map-constants.config';
 import { INTRO_GATE_SAMPLES_PER_FRAME, INTRO_GATE_TIMEOUT_MS } from '../../utils/flight-gate';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
@@ -207,8 +207,7 @@ describe('VisualizationFacadeService', () => {
 
   const osm = {
     filterStreetsNearRoutes: vi.fn(() => ({ filtered: true })),
-    loadBuildings: vi.fn(),
-    filterBuildingsNearRoutes: vi.fn(() => ['near']),
+    loadBuildingsNearRoutes: vi.fn(),
   };
   const uiStore = { routesVisible: signal(true), buildingsVisible: signal(false), specialPointsDebugVisible: signal(false) };
   const cameraControl = {
@@ -1257,20 +1256,19 @@ describe('VisualizationFacadeService', () => {
     });
 
     it('loads the buildings near the routes on the first toggle, then only toggles', async () => {
-      osm.loadBuildings.mockResolvedValue({ buildings: ['near', 'far'] });
+      osm.loadBuildingsNearRoutes.mockResolvedValue({ buildings: ['near'] });
       uiStore.buildingsVisible.set(true);
 
       facade.onBuildingsToggled();
       await settle();
 
-      expect(osm.loadBuildings).toHaveBeenCalledWith(48.777, 9.185);
-      expect(osm.filterBuildingsNearRoutes).toHaveBeenCalledWith(
-        ['near', 'far'], [ROUTE.map(({ lat, lon }) => ({ lat, lon }))], STREET_FILTER_RADIUS,
+      expect(osm.loadBuildingsNearRoutes).toHaveBeenCalledWith(
+        [ROUTE.map(({ lat, lon }) => ({ lat, lon }))], BUILDING_CORRIDOR_RADIUS,
       );
       expect(buildingRendering.renderBuildings).toHaveBeenCalledWith(engine, ['near'], HQ, true);
 
       facade.onBuildingsToggled();
-      expect(osm.loadBuildings).toHaveBeenCalledTimes(1);
+      expect(osm.loadBuildingsNearRoutes).toHaveBeenCalledTimes(1);
       expect(buildingRendering.toggleVisibility).toHaveBeenCalled();
 
       // Once loaded, tile loads re-render them.
@@ -1278,35 +1276,34 @@ describe('VisualizationFacadeService', () => {
       expect(buildingRendering.renderBuildings).toHaveBeenCalledTimes(2);
     });
 
-    it('keeps every building without routes', async () => {
+    it('loads no buildings without routes', async () => {
       cachedPaths = new Map();
-      osm.loadBuildings.mockResolvedValue({ buildings: ['a', 'b'] });
       uiStore.buildingsVisible.set(true);
 
       facade.onBuildingsToggled();
       await settle();
 
-      expect(osm.filterBuildingsNearRoutes).not.toHaveBeenCalled();
-      expect(buildingRendering.renderBuildings).toHaveBeenCalledWith(engine, ['a', 'b'], HQ, true);
+      expect(osm.loadBuildingsNearRoutes).not.toHaveBeenCalled();
+      expect(buildingRendering.renderBuildings).not.toHaveBeenCalled();
     });
 
     it('tries to load again on the next toggle after a failed load', async () => {
-      osm.loadBuildings.mockRejectedValueOnce(new Error('Overpass down'));
+      osm.loadBuildingsNearRoutes.mockRejectedValueOnce(new Error('Overpass down'));
       uiStore.buildingsVisible.set(true);
 
       facade.onBuildingsToggled();
       await settle();
       expect(console.error).toHaveBeenCalledWith('[Buildings] Failed to load:', expect.any(Error));
 
-      osm.loadBuildings.mockResolvedValue({ buildings: [] });
+      osm.loadBuildingsNearRoutes.mockResolvedValue({ buildings: [] });
       facade.onBuildingsToggled();
       await settle();
-      expect(osm.loadBuildings).toHaveBeenCalledTimes(2);
+      expect(osm.loadBuildingsNearRoutes).toHaveBeenCalledTimes(2);
     });
 
     it('only toggles while the buildings are hidden and not loaded', () => {
       facade.onBuildingsToggled();
-      expect(osm.loadBuildings).not.toHaveBeenCalled();
+      expect(osm.loadBuildingsNearRoutes).not.toHaveBeenCalled();
       expect(buildingRendering.toggleVisibility).toHaveBeenCalled();
     });
   });
