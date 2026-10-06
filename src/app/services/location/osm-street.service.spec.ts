@@ -466,17 +466,17 @@ describe('OsmStreetService', () => {
       await flush();
       requests[0].answer({}, 504);
       await flush();
-      expect(requests.map((request) => request.host)).toEqual(['overpass.kumi.systems', 'overpass-api.de']);
+      expect(requests.map((request) => request.host)).toEqual(['overpass-api.de', 'overpass.private.coffee']);
 
       requests[1].answer({ ...overpass([1, 48.78, 9.18, 48.781, 9.18]), remark: 'runtime error: out of memory' });
       const network = await loading;
 
       expect(network.streets.map((street) => street.id)).toEqual([1]);
       expect(logged()).toContainEqual(expect.stringMatching(
-        /^\[OSM\] streets from overpass\.kumi\.systems failed after \d+ms: OSM API error: 504$/,
+        /^\[OSM\] streets from overpass-api\.de failed after \d+ms: OSM API error: 504$/,
       ));
       expect(logged()).toContainEqual(expect.stringMatching(
-        /^\[OSM\] streets from overpass-api\.de: headers=\d+ body=\d+ms size=\d+\.\dMB ways=1 nodes=2 remark="runtime error: out of memory"$/,
+        /^\[OSM\] streets from overpass\.private\.coffee: headers=\d+ body=\d+ms size=\d+\.\dMB ways=1 nodes=2 remark="runtime error: out of memory"$/,
       ));
     });
 
@@ -490,7 +490,7 @@ describe('OsmStreetService', () => {
       expect(requests).toHaveLength(1);
       vi.advanceTimersByTime(1);
       await flush();
-      expect(requests.map((request) => request.host)).toEqual(['overpass.kumi.systems', 'overpass-api.de']);
+      expect(requests.map((request) => request.host)).toEqual(['overpass-api.de', 'overpass.private.coffee']);
 
       requests[1].answer(overpass([1, 48.78, 9.18, 48.781, 9.18]));
       await expect(loading).resolves.toMatchObject({ streets: [{ id: 1 }] });
@@ -512,12 +512,11 @@ describe('OsmStreetService', () => {
         await flush();
       }
 
-      expect(requests).toHaveLength(3);
+      expect(requests).toHaveLength(2);
       expect(requests[0].signal.aborted).toBe(true);
-      expect(logged()).toContainEqual(expect.stringMatching(/overpass\.kumi\.systems failed after \d+ms: no answer within 15000ms$/));
-      requests[2].answer(overpass([1, 48.78, 9.18, 48.781, 9.18]));
+      expect(logged()).toContainEqual(expect.stringMatching(/overpass-api\.de failed after \d+ms: no answer within 15000ms$/));
+      requests[1].answer(overpass([1, 48.78, 9.18, 48.781, 9.18]));
       await expect(loading).resolves.toMatchObject({ streets: [{ id: 1 }] });
-      expect(requests[1].signal.aborted).toBe(true);
     });
 
     it('asks no other server while an answer streams in', async () => {
@@ -551,15 +550,18 @@ describe('OsmStreetService', () => {
 
       expect(requests[0].signal.aborted).toBe(true);
       expect(logged()).toContainEqual(expect.stringMatching(
-        /overpass\.kumi\.systems failed after \d+ms: answer not complete within 30000ms$/,
+        /overpass-api\.de failed after \d+ms: answer not complete within 30000ms$/,
       ));
-      expect(requests.map((request) => request.host)).toEqual(['overpass.kumi.systems', 'overpass-api.de']);
+      expect(requests.map((request) => request.host)).toEqual(['overpass-api.de', 'overpass.private.coffee']);
       requests[1].answer(overpass([1, 48.78, 9.18, 48.781, 9.18]));
       await expect(loading).resolves.toMatchObject({ streets: [{ id: 1 }] });
     });
 
     it('hands over to the next server at once when one fails, also after the second was asked alongside', async () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      // A third server, so there is one left to hand over to.
+      const servers = service as unknown as { OVERPASS_SERVERS: string[] };
+      servers.OVERPASS_SERVERS = [...servers.OVERPASS_SERVERS, 'https://overpass.example/api/interpreter'];
       const loading = service.loadStreets(48.78, 9.18, 500);
       await flush();
       vi.advanceTimersByTime(4000);
@@ -576,12 +578,12 @@ describe('OsmStreetService', () => {
 
     it('hands an answer without streets to the next server, and says so when no server has any', async () => {
       const loading = service.loadStreets(48.78, 9.18, 500);
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 2; i++) {
         await flush();
         requests[i].answer({ elements: [] });
       }
       await expect(loading).rejects.toThrow('No streets found in this area');
-      expect(requests).toHaveLength(3);
+      expect(requests).toHaveLength(2);
     });
 
     describe('after streets were loaded', () => {
@@ -649,7 +651,7 @@ describe('OsmStreetService', () => {
 
     it('says the servers are unreachable when all of them fail', async () => {
       const loading = service.loadStreets(48.78, 9.18, 500);
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 2; i++) {
         await flush();
         requests[i].fail(new TypeError('Failed to fetch'));
       }
@@ -774,7 +776,7 @@ describe('OsmStreetService', () => {
 
       it('hands a failure to the caller that takes the load, and to nobody else', async () => {
         service.prefetchStreets(48.78, 9.18, 500);
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 2; i++) {
           await flush();
           requests[i].fail(new TypeError('Failed to fetch'));
         }

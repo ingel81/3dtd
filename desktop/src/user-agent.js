@@ -13,7 +13,6 @@
  */
 
 const IDENTIFIED_HOSTS = [
-  'https://overpass.kumi.systems',
   'https://overpass-api.de',
   'https://overpass.private.coffee',
   'https://nominatim.openstreetmap.org',
