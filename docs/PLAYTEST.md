@@ -172,10 +172,10 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
 - **T79 Run-Log ans Relay (E38)**: Relay mit `RELAY_COLLECT_RUNS=1`, ein Coop-Spiel bis Game Over. Erwartung: einmal
   die Frage „Help improve 3DTD?“, nach „Yes“ im Chat „Run log sent. Thanks!“; auf der Statusseite nach Unlock
   „Run logs“ mit beiden Logs des Raums, Download geht. Runs-Dialog: Haken ändert die Antwort.
-  **ok (2026-10-07)**, per Browser-Probe: beide gefragt, nach „Yes, send it“ „Run log sent. Thanks!“, auf der Statusseite beide Logs des Raums, Download geht. Der Haken im Runs-Dialog ist nicht geprüft.
+  **ok (2026-10-07)**, per Browser-Probe: beide gefragt, nach „Yes, send it“ „Run log sent. Thanks!“, auf der Statusseite beide Logs des Raums, Download geht. Der Haken im Runs-Dialog schaltet die Antwort um (yes, no).
 - **T80 Statusseite (E33)**: Token eintragen, Unlock. Erwartung: „unlocked“ bzw. „wrong token“, Knöpfe nur mit
   gültigem Token; Logo und Favicon da; das Log schreibt `metrics:` nur bei Änderung.
-  **ok (2026-10-07)**, per Browser-Probe: „wrong token, locked“ bzw. „unlocked …“, Run logs nur mit Token, Logo und Favicon da. `metrics:` kam im Spiel jede Minute, die Zahlen änderten sich jedes Mal; eine ruhige Minute ohne Zeile ist nicht geprüft.
+  **ok (2026-10-07)**, per Browser-Probe: „wrong token, locked“ bzw. „unlocked …“, Run logs nur mit Token, Logo und Favicon da. `metrics:` kam im Spiel jede Minute, die Zahlen änderten sich jedes Mal; ein leeres Relay schrieb in 2,5 min nur die erste Zeile.
 - **T81 Start ohne Route (E34 Punkt 7)**: nur wenn ein Spawn keine Route findet. Erwartung: „Start match“ gesperrt mit
   „Spawn N has no route“.
   **ok (2026-10-04)**
@@ -331,8 +331,10 @@ Paket S3, Coop und Web:
 - **S3.1 Coop im Browser:** auf `/play/` (nicht localhost) den Coop-Knopf. Erwartung: nur der Hinweis „Co-op runs in
   the desktop app“ mit Download-Knöpfen; ein Einladungslink `&room=…` zeigt denselben Hinweis mit Raumcode, auch im
   Dialog für den Kartenschlüssel.
+  **ok (2026-10-07)**, per Browser-Probe (Prod-Build, nicht von localhost): Coop-Knopf zeigt nur „Co-op runs in the desktop app“ mit beiden Downloads, ein Link mit `&room=` öffnet den Hinweis selbst mit Code, der Schlüsseldialog nennt den Raum.
 - **S3.2 Forschungspreise des Mitspielers:** Coop mit einem Partner auf zwei Spuren, seine Forschung ansehen.
   Erwartung: seine Preise doppelt so hoch wie im eigenen Baum mit einer Spur.
+  **kaputt (2026-10-07)**, per Browser-Probe: Bob mit zwei Spuren, sein Reiter zeigt die Grundpreise (400, 120, 500 …) wie Anns Baum mit einer Spur. Verdacht: der Spiegel übernimmt die Spuren nur mit `research:state-changed`, das nach dem Start nicht kommt.
 - **S3.3 CSP der Webversion:** nach dem nächsten Deploy `curl -I …/play/` zeigt Content-Security-Policy, COOP und
   COEP; ein Spiel in Chrome und Firefox mit offener Konsole ohne CSP-Verletzung (Ortssuche, Straßen, Tiles,
   Schlüsselprüfung, Lobby). Bricht etwas: die Zeile aus `public/.htaccess` nehmen.
@@ -345,10 +347,13 @@ Paket S4, Spiel (aus `dev/after-0.6`, Standardwerte in `tmp/plan/PAKET_2026-10-0
 - **S4.1 Bauzeit:** ein gesetzter Tower wächst 5 s im Gerüst und schießt erst danach. Fühlt es sich richtig an?
 - **S4.2 Camo ab W22:** getarnte Gegner schimmern, kein Tower zielt auf sie; Forschung „Scouting“ und der Archer-Pfad
   „Scout“ (250) decken sie im Umkreis von 35 m auf. NEXT warnt zwei Wellen vorher.
+  Logik per Spec ok (2026-10-07): kein Ziel ohne Scout, Aufdecken im Radius, Gerüst deckt nicht auf, Warnung zwei Wellen vorher. Offen nur das Schimmern.
 - **S4.3 Replay:** Replay-Datei ist `.json.gz`, Knopf „orig“ spielt im Originaltempo. Replays von 0.6.0 laden nicht
   mehr (andere Balance).
+  Logik per Spec und Probe ok (2026-10-07): Datei `.json.gz` (N21), „orig“ schaltet das Originaltempo, eine Datei mit anderer Balance wird abgelehnt (`other-balance`). Eine echte Datei von 0.6.0 ist nicht geladen worden.
 - **S4.4 Zoom in Płock:** `?l=52.55000,19.70000&s=52.54690,19.69225`, aufs Portal zoomen bis zum Anschlag.
   Erwartung: bis etwa 10 m an die Straße, kein Zurückspringen, kein Rutschen nach Norden.
+  **ok (2026-10-07)**, per Browser-Probe: aufs Portal gezoomt bis 10,1 m (8 m über dem Boden), kein Schritt zurück, in 4 s Ruhe 0,00 m Bewegung.
 
 Paket S6, Straßen und Gebäude (2583ac45, f4e8a2b2, 2026-10-06):
 
@@ -357,6 +362,7 @@ Paket S6, Straßen und Gebäude (2583ac45, f4e8a2b2, 2026-10-06):
   **ok (2026-10-07)**, per Browser-Probe (Köln, kalt): eine Abfrage an overpass-api.de, fertig nach 1 bis 2,4 s, kein kumi.systems. Nebenbei: overpass.private.coffee (Rückfall) antwortete am 2026-10-07 mit 500 ohne CORS-Kopf.
 - **S6.2 Gebäude an der Route:** Quick Actions, „Layers“, „Show buildings“. Erwartung: die Häuser entlang der Routen
   (etwa die erste Reihe) sind da, weiter weg keine; nach einem neuen Spawn bringt Aus und An die Häuser an der neuen Route.
+  **kaputt (2026-10-07)**, per Browser-Probe: die Häuser liegen alle innerhalb von 25 m um die Route (Median 12 bis 17 m). Nach einem neuen Spawn bringt Aus und An aber keine neue Abfrage: die geladenen Häuser bleiben im Cache, den nur ein Ortswechsel leert.
 
 Paket S5, Linux (vor dem nächsten Release):
 
