@@ -15,7 +15,7 @@ vi.mock('../../components/location-dialog/location-dialog.component', () => ({
   },
 }));
 
-import { LocationChangeCoordinatorService, LocationFlowDelegate } from './location-change-coordinator.service';
+import { LocationChangeCoordinatorService, LocationFlowDelegate, streetsFailedText } from './location-change-coordinator.service';
 import {
   LocationChangeExecutorService,
   LocationChangeCallbacks,
@@ -835,6 +835,21 @@ describe('LocationChangeCoordinatorService', () => {
       expect(worldDice.onStepDetail).toBeNull();
       expect(engineInit.setLoading).toHaveBeenCalledWith(false);
       expect(callbacks.appendDebugLog).toHaveBeenCalledWith('World Dice: Failed - Timeout');
+    });
+
+    it('stays where it is and says so when the streets of the rolled city do not load', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      osm.loadStreets.mockRejectedValue(new Error('OSM server unreachable. Check your internet connection.'));
+      worldDice.rollRandomCity.mockResolvedValue({ name: 'Lyon', country: 'France', lat: 45.764, lon: 4.8357 });
+      coordinator.initializeFlow(delegate);
+
+      await coordinator.onWorldDice();
+      await settle();
+
+      // It used to leave the loading screen up for good
+      expect(engineInit.setLoading).toHaveBeenLastCalledWith(false);
+      expect(uiStore.notice()).toEqual({ text: streetsFailedText('Lyon, France') });
+      expect(callbacks.addSpawnPoint).not.toHaveBeenCalled();
     });
 
     it('goes to the rolled city in this page with a random street spawn (a coop room survives it)', async () => {

@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { take } from 'rxjs';
 import { OsmStreetService, STREET_RADIUS_M } from './osm-street.service';
+import type { StreetNetwork } from '../../interfaces/street-network-provider.interface';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { LocationManagementService } from './location-management.service';
@@ -44,6 +45,11 @@ export interface LocationFlowDelegate {
   isGameInProgress(): boolean;
   /** Get the current location display name */
   getCurrentLocationName(): string;
+}
+
+/** What the player reads when the streets of the place they go to did not load; they stay where they are */
+export function streetsFailedText(place: string): string {
+  return `The streets of ${place} did not load: the map server is busy or out of reach. You stay where you are; try again in a minute.`;
 }
 
 /**
@@ -184,11 +190,22 @@ export class LocationChangeCoordinatorService {
 
       // Generate random spawn if requested
       if (!spawn) {
-        // Load streets for the new location to find spawn
-        const newNetwork = await this.osmService.loadStreets(hq.lat, hq.lon, STREET_RADIUS_M);
+        const callbacks = this.delegate!.getChangeCallbacks();
+        // Load streets for the new location to find spawn. Nothing changed yet: when they do not
+        // come (every Overpass server busy or out of reach), the game stays where it is and says so,
+        // instead of a loading screen that waits for good
+        let newNetwork: StreetNetwork;
+        try {
+          newNetwork = await this.osmService.loadStreets(hq.lat, hq.lon, STREET_RADIUS_M);
+        } catch (err) {
+          console.error('[LocationCoordinator] The streets of the new place did not load:', err);
+          callbacks.appendDebugLog(`Streets of ${target.name} failed: ${err instanceof Error ? err.message : 'unknown'}`);
+          this.engineInit.setLoading(false);
+          this.uiStore.notice.set({ text: streetsFailedText(target.name) });
+          return;
+        }
 
         // Store for reuse in executeLocationChange to avoid double-loading
-        const callbacks = this.delegate!.getChangeCallbacks();
         callbacks.setStreetNetwork(newNetwork);
         callbacks.setStreetNetworkLocation({ lat: hq.lat, lon: hq.lon });
 
