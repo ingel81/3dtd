@@ -539,6 +539,9 @@ export class GameStateManager {
   setLanes(lanes: readonly (readonly [string, string])[]): void {
     this.room.setLanes(lanes);
     this.followStartCredits();
+    // The lanes price every research (researchCost); the main thread's research (SimMirror) hears it
+    // only with research:state-changed, and nothing else changed for it to be sent
+    for (const seat of this.researchSeats) seat.research.announceState();
   }
 
   /** The start credits follow the lanes until the first wave (CreditsLedger.followStart) */

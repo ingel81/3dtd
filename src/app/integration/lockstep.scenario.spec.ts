@@ -1155,6 +1155,17 @@ describe('Coop lanes and readiness (COOP_PLAN C2d)', () => {
     expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
   });
 
+  it('tells the research of every player its lanes, which price it, when the lanes are set', () => {
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    buildClient(relay, 'b');
+    const told = new Map<string, number>();
+    a.gsm.getEventBus().on('research:state-changed', (e) => told.set(e.playerId, e.lanes));
+    a.gsm.setLanes([['a', 'spawn-1'], ['b', 'spawn-2'], ['b', 'spawn-3']]);
+    expect(told.get('a')).toBe(1);
+    expect(told.get('b')).toBe(2);
+  });
+
   it('pays a kill on two lanes what it pays on one: every lane has the whole wave and its kill gold', () => {
     /** The gold of each tower kill of wave 1, with or without lanes */
     const killGold = (withLanes: boolean): number[] => {
