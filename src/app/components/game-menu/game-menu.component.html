@@ -215,8 +215,6 @@
             <span class="gm-label">Load from a file</span>
           </button>
         </div>
-        <input #importInput class="gm-file" type="file" tabindex="-1"
-               aria-hidden="true" (change)="onImportFile($event)">
       }
 
       @case ('settings') {
@@ -309,6 +307,10 @@
       }
     }
   }
+
+  <!-- Outside the pages: the question before a load from a file replaces the page, Pick file still finds it -->
+  <input #importInput class="gm-file" type="file" tabindex="-1"
+         aria-hidden="true" (change)="onImportFile($event)">
 
   @if (status(); as s) {
     <p class="gm-status" [class.is-bad]="s.bad" role="status">{{ s.text }}</p>

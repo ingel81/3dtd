@@ -268,6 +268,15 @@ describe('GameMenuComponent', () => {
       expect(saves.load).toHaveBeenCalledWith('slot-1');
     });
 
+    it('asks before a file while a run is under way, the file picker stays there for Pick file', async () => {
+      const { click, el } = await setup({ slots, started: true });
+      await click('Load game');
+      await click('Load from a file');
+      expect(el.textContent).toContain('Load a save from a file?');
+      // The question replaces the page: the hidden file input must not go with it, or Pick file clicks nothing
+      expect(el.querySelectorAll('input.gm-file')).toHaveLength(1);
+    });
+
     it('shows the version note of a save from another version and stays open', async () => {
       const note = 'Saved with version 0.5.0, values may differ.';
       const { click, close, status } = await setup({ slots, loadResult: { ok: true, note } });
