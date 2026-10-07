@@ -353,6 +353,7 @@ Paket S4, Spiel (aus `dev/after-0.6`, Standardwerte in `tmp/plan/PAKET_2026-10-0
 - **S4.3 Replay:** Replay-Datei ist `.json.gz`, Knopf „orig“ spielt im Originaltempo. Replays von 0.6.0 laden nicht
   mehr (andere Balance).
   Logik per Spec und Probe ok (2026-10-07): Datei `.json.gz` (N21), „orig“ schaltet das Originaltempo, eine Datei mit anderer Balance wird abgelehnt (`other-balance`). Eine echte Datei von 0.6.0 ist nicht geladen worden.
+  Mit echter Datei ok (2026-10-07): ein Replay der Live-Seite (0.6.0) lädt auf `next` nicht, „That replay was played with other tower or enemy values.“
 - **S4.4 Zoom in Płock:** `?l=52.55000,19.70000&s=52.54690,19.69225`, aufs Portal zoomen bis zum Anschlag.
   Erwartung: bis etwa 10 m an die Straße, kein Zurückspringen, kein Rutschen nach Norden.
   **ok (2026-10-07)**, per Browser-Probe: aufs Portal gezoomt bis 10,1 m (8 m über dem Boden), kein Schritt zurück, in 4 s Ruhe 0,00 m Bewegung.
@@ -362,6 +363,7 @@ Paket S6, Straßen und Gebäude (2583ac45, f4e8a2b2, 2026-10-06):
 - **S6.1 Straßen laden flott:** einen neuen Ort kalt laden, Netzwerk-Reiter mit Filter „interpreter“. Erwartung: die
   Abfrage geht an overpass-api.de und kommt ohne 4 s Pause; kein Aufruf an kumi.systems.
   **ok (2026-10-07)**, per Browser-Probe (Köln, kalt): eine Abfrage an overpass-api.de, fertig nach 1 bis 2,4 s, kein kumi.systems. Nebenbei: overpass.private.coffee (Rückfall) antwortete am 2026-10-07 mit 500 ohne CORS-Kopf.
+  Befund (2026-10-07): antworten beide Server nicht (overpass-api.de 429 nach vielen Probe-Läufen), blieb der Würfel beim Ladebildschirm 0/10 stehen. Gefixt: Meldung oben, das Spiel bleibt am Ort (Spec).
 - **S6.2 Gebäude an der Route:** Quick Actions, „Layers“, „Show buildings“. Erwartung: die Häuser entlang der Routen
   (etwa die erste Reihe) sind da, weiter weg keine; nach einem neuen Spawn bringt Aus und An die Häuser an der neuen Route.
   **kaputt (2026-10-07)**, per Browser-Probe: die Häuser liegen alle innerhalb von 25 m um die Route (Median 12 bis 17 m). Nach einem neuen Spawn bringt Aus und An aber keine neue Abfrage: die geladenen Häuser bleiben im Cache, den auch ein Ortswechsel nicht leert: nach dem Würfel auf einen neuen Ort (Layer an) hält er die Häuser des alten Orts, am neuen kommt keine Abfrage, auch nicht nach Aus und An; jeder Tile-Schub zeichnet den alten Cache relativ zur neuen Basis neu.
