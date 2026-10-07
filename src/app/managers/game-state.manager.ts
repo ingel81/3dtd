@@ -1171,6 +1171,7 @@ export class GameStateManager {
       waveEnemiesLeft: phase === 'wave'
         ? alive + this.enemyManager.getPendingSpawnCount() + this.waveManager.getEnemiesToSpawn()
         : 0,
+      towers: this.towerCount(),
     });
   }
 

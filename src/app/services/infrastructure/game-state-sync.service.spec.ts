@@ -150,9 +150,12 @@ describe('GameStateSyncService (real service)', () => {
     it('sim:presented → the state as it stands, whatever the events said before', () => {
       eventBus.emit({ type: 'wave:started', wave: 3, enemyCount: 10 });
       eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 10, killedBy: null });
+      // A restore puts its towers back without tower:placed: the count comes with the state
       eventBus.emit({
         type: 'sim:presented', phase: 'wave', wave: 3, credits: 342, baseHealth: 477, enemiesAlive: 32, waveEnemiesLeft: 40,
+        towers: 5,
       });
+      expect(store.towerCount()).toBe(5);
       expect(store.phase()).toBe('wave');
       expect(store.credits()).toBe(342);
       expect(store.baseHealth()).toBe(477);

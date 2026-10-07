@@ -230,7 +230,7 @@ describe('PresentationHost', () => {
     expect(engine.spatialAudio.stopOneShots).toHaveBeenCalledTimes(1);
     // In a replay too: the event is not live there
     bus.setLiveMuted(true);
-    bus.emit({ type: 'sim:presented', phase: 'wave', wave: 7, credits: 0, baseHealth: 300, enemiesAlive: 0, waveEnemiesLeft: 0 });
+    bus.emit({ type: 'sim:presented', phase: 'wave', wave: 7, credits: 0, baseHealth: 300, enemiesAlive: 0, waveEnemiesLeft: 0, towers: 0 });
     bus.setLiveMuted(false);
     expect(host.backgroundMusic.followPhase).toHaveBeenCalledWith('wave', 7);
   });

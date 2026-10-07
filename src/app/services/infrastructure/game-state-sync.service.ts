@@ -110,6 +110,7 @@ export class GameStateSyncService {
       this.store.baseHealth.set(event.baseHealth);
       this.store.enemiesAlive.set(event.enemiesAlive);
       this.store.waveEnemiesLeft.set(event.waveEnemiesLeft);
+      this.store.towerCount.set(event.towers);
       // The total counts splits as they happened; it is never less than what is left
       this.store.waveEnemyTotal.update((total) => Math.max(total, event.waveEnemiesLeft));
     }));

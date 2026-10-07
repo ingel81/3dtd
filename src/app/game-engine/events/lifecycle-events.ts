@@ -266,6 +266,8 @@ export type LifecycleEvent =
       enemiesAlive: number;
       /** Alive, still in the portal and still to spawn */
       waveEnemiesLeft: number;
+      /** Towers standing: a restore puts them back without tower:placed */
+      towers: number;
     }
   | {
       type: 'credits:changed';
