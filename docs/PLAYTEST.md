@@ -362,7 +362,7 @@ Paket S6, Straßen und Gebäude (2583ac45, f4e8a2b2, 2026-10-06):
   **ok (2026-10-07)**, per Browser-Probe (Köln, kalt): eine Abfrage an overpass-api.de, fertig nach 1 bis 2,4 s, kein kumi.systems. Nebenbei: overpass.private.coffee (Rückfall) antwortete am 2026-10-07 mit 500 ohne CORS-Kopf.
 - **S6.2 Gebäude an der Route:** Quick Actions, „Layers“, „Show buildings“. Erwartung: die Häuser entlang der Routen
   (etwa die erste Reihe) sind da, weiter weg keine; nach einem neuen Spawn bringt Aus und An die Häuser an der neuen Route.
-  **kaputt (2026-10-07)**, per Browser-Probe: die Häuser liegen alle innerhalb von 25 m um die Route (Median 12 bis 17 m). Nach einem neuen Spawn bringt Aus und An aber keine neue Abfrage: die geladenen Häuser bleiben im Cache, den nur ein Ortswechsel leert.
+  **kaputt (2026-10-07)**, per Browser-Probe: die Häuser liegen alle innerhalb von 25 m um die Route (Median 12 bis 17 m). Nach einem neuen Spawn bringt Aus und An aber keine neue Abfrage: die geladenen Häuser bleiben im Cache, den auch ein Ortswechsel nicht leert: nach dem Würfel auf einen neuen Ort (Layer an) hält er die Häuser des alten Orts, am neuen kommt keine Abfrage, auch nicht nach Aus und An; jeder Tile-Schub zeichnet den alten Cache relativ zur neuen Basis neu.
 
 Paket S5, Linux (vor dem nächsten Release):
 
