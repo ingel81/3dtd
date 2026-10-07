@@ -173,6 +173,11 @@ export class BuildingRenderingService {
     this.buildingFillMesh = null;
   }
 
+  /** Take the drawn buildings off the map: they belong to routes or a place that changed */
+  clear(engine: ThreeTilesEngine): void {
+    this.disposeMeshes(engine.getOverlayGroup());
+  }
+
   private disposeMeshes(overlayGroup: Group): void {
     if (this.buildingLinesMesh) {
       overlayGroup.remove(this.buildingLinesMesh);

@@ -353,6 +353,12 @@ export class VisualizationFacadeService {
    * Called from the main facade during initEffects().
    */
   initEffects(injector: Injector): void {
+    // Effect: the OSM buildings follow the routes (another place, a new or moved spawn)
+    effect(() => {
+      this.pathRoute.routesVersion();
+      untracked(() => this.buildings.routesChanged());
+    }, { injector });
+
     // Effect: the tower debug panel's dropdown follows the selected tower
     effect(() => {
       const tower = this.store.selectedTower();

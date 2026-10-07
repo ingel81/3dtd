@@ -234,6 +234,7 @@ describe('VisualizationFacadeService', () => {
     toggleRouteLinesVisibility: vi.fn(),
     beginClearanceMeasurement: vi.fn(() => corridorRun()),
     routesEpoch: vi.fn(() => 1),
+    routesVersion: signal(0),
     unmeasuredStations: vi.fn(() => 0),
     buildBands: vi.fn(() => ({ routes: 1, stations: 30, passages: 0, maxSlopeM: 0, maxCurvature: 0 })),
     clearCorridorMeasurements: vi.fn(),

@@ -251,6 +251,8 @@ export class PathAndRouteService {
   private cachedPaths = new Map<string, RouteWaypoint[]>();
   /** At least one spawn has a route to the HQ, i.e. `cachedPaths` is not empty */
   readonly hasRoutes = signal(false);
+  /** Bumped whenever `cachedPaths` changes (a route built, adopted, the routes cleared): what hangs on the routes follows it */
+  readonly routesVersion = signal(0);
 
   /** Street lookup for route segments, built on first use per street network. */
   private edgeIndex: StreetEdgeIndex | null = null;
@@ -376,6 +378,7 @@ export class PathAndRouteService {
   clearCache(): void {
     this.cachedPaths.clear();
     this.hasRoutes.set(false);
+    this.routesVersion.update((n) => n + 1);
     this.streetRoutes.clear();
     this.forgetBands();
     this.epoch++;
@@ -400,6 +403,7 @@ export class PathAndRouteService {
   adoptPaths(paths: ReadonlyMap<string, RouteWaypoint[]>): void {
     this.cachedPaths = new Map(paths);
     this.hasRoutes.set(this.cachedPaths.size > 0);
+    this.routesVersion.update((n) => n + 1);
   }
 
   /**
@@ -633,6 +637,7 @@ export class PathAndRouteService {
 
     this.cachedPaths.set(spawn.id, pathWithHeights);
     this.hasRoutes.set(true);
+    this.routesVersion.update((n) => n + 1);
 
     // The spawn portal stands on the route's first cell, facing along it
     this.onRouteBuilt?.(spawn.id, pathWithHeights, startCellY);

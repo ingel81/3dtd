@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { signal } from '@angular/core';
-import { BuildingOverlay, type BuildingOverlayDeps } from './building-overlay';
+import { BUILDING_RELOAD_DELAY_MS, BuildingOverlay, type BuildingOverlayDeps } from './building-overlay';
 import { BUILDING_CORRIDOR_RADIUS } from '../../configs/map-constants.config';
 
 /**
@@ -23,7 +23,7 @@ describe('BuildingOverlay', () => {
         loadBuildingsNearRoutes: vi.fn(async (_routes: unknown, _radius: number) => ({ buildings: ['near'] as unknown[] })),
       },
       pathRoute: { getCachedPaths: vi.fn(() => cachedPaths) },
-      buildingRendering: { renderBuildings: vi.fn(), toggleVisibility: vi.fn(), reset: vi.fn() },
+      buildingRendering: { renderBuildings: vi.fn(), toggleVisibility: vi.fn(), reset: vi.fn(), clear: vi.fn() },
       uiStore: { buildingsVisible: signal(false) },
       store: { baseCoords: signal({ ...HQ }) },
       engine: vi.fn(() => currentEngine),
@@ -124,5 +124,69 @@ describe('BuildingOverlay', () => {
     overlay.toggled();
     await settle();
     expect(deps.osm.loadBuildingsNearRoutes).toHaveBeenCalledTimes(2);
+  });
+
+  describe('when the routes or the place change', () => {
+    const OTHER = [{ lat: 48.77, lon: 9.17, height: 1 }, { ...HQ, height: 1 }];
+
+    it('takes the old buildings off and loads those of the new routes by itself while shown', async () => {
+      await show();
+      vi.useFakeTimers();
+      try {
+        cachedPaths = new Map([['spawn-1', ROUTE], ['spawn-2', OTHER]]);
+        overlay.routesChanged();
+        expect(deps.buildingRendering.clear).toHaveBeenCalledWith(engine);
+        // Not at once: a place builds its routes one by one
+        expect(deps.osm.loadBuildingsNearRoutes).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(BUILDING_RELOAD_DELAY_MS);
+        expect(deps.osm.loadBuildingsNearRoutes).toHaveBeenCalledTimes(2);
+        expect(deps.osm.loadBuildingsNearRoutes).toHaveBeenLastCalledWith(
+          [ROUTE, OTHER].map((r) => r.map(({ lat, lon }) => ({ lat, lon }))), BUILDING_CORRIDOR_RADIUS,
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('drops the buildings of another place while hidden and loads anew on the next toggle-on', async () => {
+      await show();
+      deps.uiStore.buildingsVisible.set(false);
+      overlay.toggled();
+      deps.store.baseCoords.set({ lat: 40.64, lon: 22.93 });
+      cachedPaths = new Map([['spawn-1', OTHER]]);
+      overlay.routesChanged();
+      expect(deps.buildingRendering.clear).toHaveBeenCalledTimes(1);
+      overlay.rerender(engine as never);
+      expect(deps.buildingRendering.renderBuildings).toHaveBeenCalledTimes(1);
+
+      await show();
+      expect(deps.osm.loadBuildingsNearRoutes).toHaveBeenCalledTimes(2);
+    });
+
+    it('never draws the old cache on the new place after a tile load', async () => {
+      await show();
+      deps.store.baseCoords.set({ lat: 40.64, lon: 22.93 });
+      overlay.rerender(engine as never);
+      expect(deps.buildingRendering.renderBuildings).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws away an answer for routes that changed while it was on its way', async () => {
+      let answer!: (value: { buildings: unknown[] }) => void;
+      deps.osm.loadBuildingsNearRoutes.mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
+      deps.uiStore.buildingsVisible.set(true);
+      overlay.toggled();
+      cachedPaths = new Map([['spawn-1', OTHER]]);
+      answer({ buildings: ['old'] });
+      await settle();
+      expect(deps.buildingRendering.renderBuildings).not.toHaveBeenCalled();
+    });
+
+    it('stays as it is when nothing changed for the buildings', async () => {
+      await show();
+      overlay.routesChanged();
+      expect(deps.buildingRendering.clear).not.toHaveBeenCalled();
+      overlay.toggled();
+      expect(deps.osm.loadBuildingsNearRoutes).toHaveBeenCalledTimes(1);
+    });
   });
 });
