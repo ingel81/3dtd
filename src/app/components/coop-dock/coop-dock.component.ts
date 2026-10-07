@@ -11,6 +11,7 @@ import { CoopLobbyChatComponent } from './coop-lobby-chat.component';
 import { CoopService } from '../../services/coop.service';
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
+import { LocationStore } from '../../store/location.store';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { TICK_SUB_STEPS } from '../../coop/lockstep';
 import { GameClock } from '../../managers/game-state/game-clock';
@@ -66,6 +67,7 @@ export class CoopDockComponent {
   readonly coop = inject(CoopService);
   private readonly uiStore = inject(UIStore);
   private readonly gameStore = inject(GameStore);
+  private readonly locationStore = inject(LocationStore);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly more = viewChild<ElementRef<HTMLElement>>('more');
 
@@ -152,6 +154,13 @@ export class CoopDockComponent {
    */
   readonly soloRunWave = computed(() =>
     this.gameStore.waveNumber() > 0 && !this.gameStore.isGameOver() ? this.gameStore.waveNumber() : 0);
+
+  /**
+   * The wave of the solo run that opening a room would end, 0 when it would
+   * not: a room on a map with one spawn adds a lane for the second player at
+   * once (CoopService.openRoom), and a new spawn starts the run over.
+   */
+  readonly soloRunEndsOnHost = computed(() => (this.locationStore.spawnPoints().length < 2 ? this.soloRunWave() : 0));
 
   /** The host asked to start while a solo run is under way: the footer asks once more */
   readonly confirmStart = signal(false);

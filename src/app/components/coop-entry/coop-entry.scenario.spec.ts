@@ -26,7 +26,7 @@ class IconStub {
   readonly size = input(16);
 }
 for (const name of ['name', 'size']) Input({ alias: name, isSignal: true } as Input)(IconStub.prototype, name);
-for (const name of ['coop', 'canHost', 'placeName']) Input({ alias: name, isSignal: true } as Input)(CoopEntryComponent.prototype, name);
+for (const name of ['coop', 'canHost', 'placeName', 'soloRunEnds']) Input({ alias: name, isSignal: true } as Input)(CoopEntryComponent.prototype, name);
 
 const EU = { url: 'wss://eu.example.test', name: 'EU', builtIn: true };
 const MINE = { url: 'wss://mine.example.test', name: 'Mine', builtIn: false };
@@ -109,6 +109,21 @@ describe('Coop entry, reworked', () => {
     click(fixture, 'Host a room');
     expect(coop.host).toHaveBeenCalledWith('Ann');
     expect(coop.hostLan).not.toHaveBeenCalled();
+  });
+
+  it('hosting that would end a solo run asks first; Cancel keeps the run, Host anyway hosts', () => {
+    const fixture = open(false);
+    fixture.componentRef.setInput('soloRunEnds', 4);
+    fixture.detectChanges();
+    click(fixture, 'Host a room');
+    expect(coop.host).not.toHaveBeenCalled();
+    expect(text(fixture)).toContain('This ends your solo run (wave 4)');
+    click(fixture, 'Cancel');
+    expect(button(fixture, 'Host a room')).not.toBeNull();
+    expect(coop.host).not.toHaveBeenCalled();
+    click(fixture, 'Host a room');
+    click(fixture, 'Host anyway');
+    expect(coop.host).toHaveBeenCalledWith('Ann');
   });
 
   it('the app: the switch shows one way, the host button follows it, the choice is kept', () => {

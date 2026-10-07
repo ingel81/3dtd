@@ -160,9 +160,19 @@
 <!-- The one main action: host on the chosen way (plan G5) -->
 @if (canHost() && (way() === 'lan' || c.lobby())) {
   <section class="blk plain">
-    <button class="btn-primary wide" type="button" (click)="host()" [disabled]="busy()">
-      {{ busy() ? 'Opening…' : 'Host a room' }}
-    </button>
+    @if (confirmHost()) {
+      <p class="note" role="alert">
+        This ends your solo run (wave {{ soloRunEnds() }}): the room adds a lane for a second player.
+      </p>
+      <div class="row">
+        <button class="btn" type="button" (click)="confirmHost.set(false)">Cancel</button>
+        <button class="btn-primary" type="button" (click)="host()" [disabled]="busy()" tdFocusOnShow>Host anyway</button>
+      </div>
+    } @else {
+      <button class="btn-primary wide" type="button" (click)="host()" [disabled]="busy()">
+        {{ busy() ? 'Opening…' : 'Host a room' }}
+      </button>
+    }
     <p class="note">
       @if (way() === 'lan') {
         Players on this network see it. Windows may ask to let 3DTD through the firewall: allow it.

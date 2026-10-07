@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, linkedSignal, signal, untracked } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { FocusOnShowDirective } from '../focus-on-show.directive';
 import { TdIconComponent } from '../icon/icon.component';
 import type { CoopService } from '../../services/coop.service';
 import { MAX_PLAYERS, PROTOCOL_VERSION, type PublicRoom } from '../../coop/protocol';
@@ -36,7 +37,7 @@ export type CoopWay = 'online' | 'lan';
 @Component({
   selector: 'app-coop-entry',
   standalone: true,
-  imports: [MatTooltipModule, TdIconComponent],
+  imports: [MatTooltipModule, TdIconComponent, FocusOnShowDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './coop-entry.component.html',
   styleUrl: './coop-entry.component.scss',
@@ -52,6 +53,10 @@ export class CoopEntryComponent {
   readonly canHost = input(true);
   /** Where hosting happens, for the notes */
   readonly placeName = input('');
+  /** The wave of the solo run that hosting here would end, 0 when none would (CoopDockComponent.soloRunEndsOnHost) */
+  readonly soloRunEnds = input(0);
+  /** Host a room was pressed while it would end the solo run: the section asks once more */
+  readonly confirmHost = signal(false);
 
   protected readonly maxPlayers = MAX_PLAYERS;
   protected readonly addLobbyValue = ADD_LOBBY;
@@ -125,6 +130,11 @@ export class CoopEntryComponent {
 
   /** Host on the chosen way */
   host(): void {
+    if (this.soloRunEnds() > 0 && !this.confirmHost()) {
+      this.confirmHost.set(true);
+      return;
+    }
+    this.confirmHost.set(false);
     if (this.way() === 'lan') void this.coop().hostLan(this.playerName());
     else void this.coop().host(this.playerName());
   }

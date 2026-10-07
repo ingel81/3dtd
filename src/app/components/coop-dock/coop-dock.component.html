@@ -110,7 +110,7 @@
     <app-coop-app-hint [roomCode]="coop.roomFromUrl" />
   } @else {
     <!-- Not in a room: host or join, the same entry the location dialog shows (D61, D67) -->
-    <app-coop-entry [coop]="coop" [canHost]="true" [placeName]="placeName()" />
+    <app-coop-entry [coop]="coop" [canHost]="true" [placeName]="placeName()" [soloRunEnds]="soloRunEndsOnHost()" />
   }
   @if ((room() || joining()) && coop.error(); as error) {
     <p class="banner is-error" role="alert">{{ error }}</p>
