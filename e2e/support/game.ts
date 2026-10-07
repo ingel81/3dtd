@@ -284,3 +284,56 @@ export async function chatText(page: Page): Promise<string> {
   return page.evaluate(() =>
     (document.querySelector('app-coop-dock .chat') ?? document.querySelector('app-coop-chat'))?.textContent ?? '');
 }
+
+// === Single player ===
+
+/** Build an archer tower with a click on the map where one fits; true once the credits went down */
+export async function buildArcher(page: Page): Promise<boolean> {
+  const before = await credits(page);
+  let built = false;
+  for (let r = 90; r <= 390 && !built; r += 60) {
+    for (let a = 0; a < 360 && !built; a += 45) {
+      const x = Math.round(650 + r * Math.cos((a * Math.PI) / 180));
+      const y = Math.round(470 + r * 0.8 * Math.sin((a * Math.PI) / 180));
+      await page.keyboard.press('1');
+      await page.mouse.move(x, y);
+      await page.waitForTimeout(200);
+      await page.mouse.click(x, y);
+      await page.waitForTimeout(700);
+      built = (await credits(page)) < before;
+    }
+  }
+  // Escape leaves the build mode; with none left it opens the game menu, which then goes again
+  await page.keyboard.press('Escape');
+  const menu = gameMenu(page);
+  if (await menu.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  return built;
+}
+
+/** The game menu (Esc), on its list or one of its pages: the dialog takes the page's title */
+export function gameMenu(page: Page) {
+  return page.getByRole('dialog', { name: /^(Menu|Save game|Load game|Settings|More)$/ });
+}
+
+/** Open the game menu with Escape, the focus taken off a clicked control first (its tooltip would take the key) */
+export async function openGameMenu(page: Page): Promise<void> {
+  await page.mouse.move(650, 600);
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press('Escape');
+  await expect(gameMenu(page)).toBeVisible();
+}
+
+/** What a save keeps, as the simulation's mirror and the store have it */
+export async function runState(page: Page): Promise<{ towers: number; credits: number; health: number; wave: number }> {
+  return page.evaluate(() => {
+    const w = window as unknown as { ng: { getComponent(el: Element | null): any } };
+    const c = w.ng.getComponent(document.querySelector('app-tower-defense'));
+    return {
+      towers: c.facade.mirror.scalars.towerCount,
+      credits: c.store.credits(),
+      health: c.store.baseHealth(),
+      wave: c.store.waveNumber(),
+    };
+  });
+}

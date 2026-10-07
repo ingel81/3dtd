@@ -2,7 +2,7 @@
 // M5 and a smoke run of the basics): build, a wave, a dialog, the replay, a
 // new place. The dice changes the place in the game: no new map session.
 import { test, expect } from '../support/fixtures';
-import { clearWave, credits, devAction, gameReady, shot, waveButton } from '../support/game';
+import { buildArcher, clearWave, credits, devAction, gameMenu, gameReady, openGameMenu, runState, shot, waveButton } from '../support/game';
 
 test('smoke: build a tower, play a wave, open a dialog, watch the replay', async ({ duo, relay: _relay }, testInfo) => {
   const page = duo.host;
@@ -101,4 +101,62 @@ test('M5 a new place starts the pressure loop at ×1.00 and counts only its own 
   expect(r!).toBeLessThanOrEqual(2.5);
   await shot(testInfo, page, 'm5-held');
   await clearWave(page);
+});
+
+test('S1 a save comes back as it was, from its slot and from its file, while a run is under way', async ({ duo, relay: _relay }, testInfo) => {
+  const page = duo.host;
+  const menu = gameMenu(page);
+  const confirm = async (label: string) => {
+    const button = menu.getByRole('button', { name: label, exact: true });
+    if (await button.waitFor({ timeout: 3000 }).then(() => true, () => false)) await button.click();
+  };
+
+  await test.step('save into slot 1', async () => {
+    expect(await buildArcher(page), 'a tower stands').toBe(true);
+    await openGameMenu(page);
+    await menu.getByRole('button', { name: /Save game/ }).click();
+    await menu.locator('.gm-slot').first().click();
+    await confirm('Overwrite');
+    await expect(menu.locator('.gm-status')).toContainText('Saved.');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+  });
+  const saved = await runState(page);
+
+  await test.step('another tower, then slot 1 loads the run as it was', async () => {
+    expect(await buildArcher(page)).toBe(true);
+    await openGameMenu(page);
+    await menu.getByRole('button', { name: /Load game/ }).click();
+    await menu.locator('.gm-slot-row', { hasNot: page.getByText('Autosave') }).first().locator('.gm-slot').click();
+    await confirm('Load');
+    await expect(menu).toHaveCount(0, { timeout: 120_000 });
+    await expect.poll(() => runState(page), { timeout: 120_000 }).toEqual(saved);
+  });
+
+  await test.step('the file of slot 1 loads it too (the question before Pick file kept the file input)', async () => {
+    await openGameMenu(page);
+    await menu.getByRole('button', { name: /Load game/ }).click();
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      menu.locator('.gm-slot-row', { hasNot: page.getByText('Autosave') }).first().locator('.gm-slot-tool').first().click(),
+    ]);
+    const file = testInfo.outputPath(download.suggestedFilename());
+    await download.saveAs(file);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    expect(await buildArcher(page)).toBe(true);
+    await openGameMenu(page);
+    await menu.getByRole('button', { name: /Load game/ }).click();
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      (async () => {
+        await menu.getByRole('button', { name: 'Load from a file' }).click();
+        await confirm('Pick file');
+      })(),
+    ]);
+    await chooser.setFiles(file);
+    await expect(menu).toHaveCount(0, { timeout: 120_000 });
+    await expect.poll(() => runState(page), { timeout: 120_000 }).toEqual(saved);
+  });
 });
