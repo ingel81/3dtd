@@ -172,8 +172,10 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
 - **T79 Run-Log ans Relay (E38)**: Relay mit `RELAY_COLLECT_RUNS=1`, ein Coop-Spiel bis Game Over. Erwartung: einmal
   die Frage „Help improve 3DTD?“, nach „Yes“ im Chat „Run log sent. Thanks!“; auf der Statusseite nach Unlock
   „Run logs“ mit beiden Logs des Raums, Download geht. Runs-Dialog: Haken ändert die Antwort.
+  **ok (2026-10-07)**, per Browser-Probe: beide gefragt, nach „Yes, send it“ „Run log sent. Thanks!“, auf der Statusseite beide Logs des Raums, Download geht. Der Haken im Runs-Dialog ist nicht geprüft.
 - **T80 Statusseite (E33)**: Token eintragen, Unlock. Erwartung: „unlocked“ bzw. „wrong token“, Knöpfe nur mit
   gültigem Token; Logo und Favicon da; das Log schreibt `metrics:` nur bei Änderung.
+  **ok (2026-10-07)**, per Browser-Probe: „wrong token, locked“ bzw. „unlocked …“, Run logs nur mit Token, Logo und Favicon da. `metrics:` kam im Spiel jede Minute, die Zahlen änderten sich jedes Mal; eine ruhige Minute ohne Zeile ist nicht geprüft.
 - **T81 Start ohne Route (E34 Punkt 7)**: nur wenn ein Spawn keine Route findet. Erwartung: „Start match“ gesperrt mit
   „Spawn N has no route“.
   **ok (2026-10-04)**
@@ -280,6 +282,7 @@ Spur). Ein Lauf mit zwei Spawns, gern über W20 hinaus; am Ende über "Runs" Run
   Der Lauf läuft weiter, bis der Host „Start match“ drückt; dann fragt der Dock-Fuß „This ends your solo run (wave N)“,
   „Cancel“ lässt den Lauf stehen, „Start anyway“ startet.
   Noch nicht getestet (2026-10-04).
+  **kaputt (2026-10-07)**, per Browser-Probe: auf einem Ort mit zwei Spawns wie beschrieben (Lauf bleibt in der Lobby, „This ends your solo run (wave 1).“, Cancel lässt ihn, Start anyway startet). Auf einem Ort mit einem Spawn ist der Solo-Lauf schon beim Öffnen des Raums weg, ohne Frage: `openRoom` setzt einen zweiten Spawn (`addRandomSpawn`), und der neue Spawn setzt den Lauf zurück.
 - **N19 Link in die Desktop-App** (2026-10-04): einen 3DTD-Link aus dem Browser (`?l=…&s=…`) im Ortsdialog unter
   „Coordinates“ ins Feld Lat einfügen. Die App lädt HQ und alle Spawns des Links, beim ersten Start wie im laufenden Spiel.
   **ok (2026-10-04)**
@@ -289,6 +292,7 @@ Spur). Ein Lauf mit zwei Spawns, gern über W20 hinaus; am Ende über "Runs" Run
 - **N21 Coop-Replay als Datei** (2026-10-04): ein Coop-Spiel bis Game Over. Beim Host steht „Save the replay“, beim Gast
   nicht; die Datei lädt danach allein am selben Ort über „load“ in der Wellen-Leiste.
   Noch nicht getestet (2026-10-04).
+  **ok (2026-10-07)**, per Browser-Probe: „Save the replay“ nur beim Host, die Datei lädt danach allein über „load“ (Replay-Leiste „FROM FILE“).
 
 ## S Nach dem Release 0.6 (2026-10-05, auf `next`)
 
@@ -299,21 +303,27 @@ Paket S1, Speichern und Laden (Einzelspiel, [SAVE_LOAD_PLAN.md](SAVE_LOAD_PLAN.m
 
 - **S1.1 Autosave und Continue:** Ort laden, Welle 1 spielen, Seite neu laden. Erwartung: unten mittig die Leiste
   „Continue: Ort, wave 2“; Klick lädt den Lauf (Tower, Gold, HP wie vorher). Esc zeigt oben ebenfalls „Continue“.
+  **ok (2026-10-07)**, per Browser-Probe: Leiste „Continue: Stuttgart, wave 2“, im Esc-Menü derselbe Eintrag; Tower, Gold, HP, Welle wie vorher. Nebenbefund: der Zähler `towerCount` der Oberfläche bleibt nach jedem Laden auf 0 (die Simulation hat die Tower).
 - **S1.2 Platz speichern und laden:** Zwischen zwei Wellen Esc, „Save game“, Platz 1. Einen Tower verkaufen, „Load
   game“, Platz 1. Erwartung: Tower wieder da, Gold und HP wie beim Speichern; danach eine Welle spielen, die Tower
   schießen, Sichtlinien wie vorher.
+  **ok (2026-10-07)**, per Browser-Probe: Stand nach dem Laden wie beim Speichern, die Welle danach brachte 147 Kill-Gold. Sichtlinien nicht im Bild geprüft.
 - **S1.3 Anderer Ort:** Seite an einem anderen Ort neu laden, Platz 1 laden. Erwartung: das Spiel wechselt an den Ort
   des Spielstands (dauert wie ein Ortswechsel), Lauf geht weiter.
+  **ok (2026-10-07)**, per Browser-Probe: von München aus Platz 1 geladen, das Spiel wechselt nach Stuttgart, Stand wie gespeichert.
 - **S1.4 Datei:** „Load game“, beim Platz das Download-Symbol; dann „Load from a file“ mit dieser Datei. Erwartung:
   lädt wie S1.2. Während einer Welle ist „Save game“ gesperrt mit Grund.
+  **kaputt (2026-10-07)**, per Browser-Probe: Download und Sperre in der Welle gehen („Saving works only between waves.“), aber „Load from a file“ tat bei laufendem Lauf nichts: die Rückfrage ersetzte die Seite samt Datei-Feld, „Pick file“ klickte ins Leere. Gefixt: das Feld steht außerhalb der Seiten (Spec); mit dem Fix lädt die Datei wie S1.2.
 
 Paket S2, Oberfläche:
 
 - **S2.1 Spielmenü (Esc):** Continue, Save, Load, Settings (Regler für Master, Effekte, Musik, Oberfläche; Grafik;
   Tempo), More (Run-Log und Replay jederzeit speichern), Restart here mit Rückfrage. Erwartung: alles wirkt sofort,
   Esc führt von einer Seite zurück und schließt auf der Liste.
+  **ok (2026-10-07)**, per Browser-Probe: Einträge wie beschrieben, Regler wirken (Musik 25 → 0,25), Grafik LOW/MEDIUM/HIGH, Tempo 2x auch im Kopf, Run-Log und Replay als Datei, Restart fragt, Esc auf der Rückfrage lässt sie, Esc auf einer Seite zurück und auf der Liste zu. Nebenbefund: steht die Maus nach einem Klick noch auf einem Knopf mit Tooltip (Tempo), nimmt der Tooltip das erste Esc.
 - **S2.2 Tastatur:** Munition des Helden anklicken, dann Pfeiltasten. Erwartung: die Kamera schwenkt (die Munition
   wechselt nur, wenn man per Tab dorthin kam). Held gewählt, Karte am NEXT-Kasten per Maus offen, ein Esc: Karte zu und Held abgewählt.
+  **ok (2026-10-07)**, per Browser-Probe: nach Klick auf die Munition schwenken die Pfeile die Kamera, per Tab wechseln sie die Munition; ein Esc schließt die NEXT-Karte und wählt den Helden ab, kein Menü.
 - **S2.3 Druck-Regler in Worten:** siehe M4.
 
 Paket S3, Coop und Web:
@@ -326,6 +336,7 @@ Paket S3, Coop und Web:
 - **S3.3 CSP der Webversion:** nach dem nächsten Deploy `curl -I …/play/` zeigt Content-Security-Policy, COOP und
   COEP; ein Spiel in Chrome und Firefox mit offener Konsole ohne CSP-Verletzung (Ortssuche, Straßen, Tiles,
   Schlüsselprüfung, Lobby). Bricht etwas: die Zeile aus `public/.htaccess` nehmen.
+  Noch nicht prüfbar (2026-10-07): `/play/` liefert COOP und COEP, aber noch keine CSP; die `.htaccess` mit CSP ist erst auf `next`.
 - **S3.4 Relay:** nach dem Ziehen des neuen Images eine Lobby anlegen, ein Coop-Spiel; Resync nach Hash-Abweichung
   läuft wie bisher.
 
@@ -343,6 +354,7 @@ Paket S6, Straßen und Gebäude (2583ac45, f4e8a2b2, 2026-10-06):
 
 - **S6.1 Straßen laden flott:** einen neuen Ort kalt laden, Netzwerk-Reiter mit Filter „interpreter“. Erwartung: die
   Abfrage geht an overpass-api.de und kommt ohne 4 s Pause; kein Aufruf an kumi.systems.
+  **ok (2026-10-07)**, per Browser-Probe (Köln, kalt): eine Abfrage an overpass-api.de, fertig nach 1 bis 2,4 s, kein kumi.systems. Nebenbei: overpass.private.coffee (Rückfall) antwortete am 2026-10-07 mit 500 ohne CORS-Kopf.
 - **S6.2 Gebäude an der Route:** Quick Actions, „Layers“, „Show buildings“. Erwartung: die Häuser entlang der Routen
   (etwa die erste Reihe) sind da, weiter weg keine; nach einem neuen Spawn bringt Aus und An die Häuser an der neuen Route.
 
