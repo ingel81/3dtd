@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { FocusOrigin, controlTakesKey, ownsKey } from './keyboard-target';
+import { afterEach, describe, expect, it } from 'vitest';
+import { FocusOrigin, controlTakesKey, escapeBelongsToGame, ownsKey } from './keyboard-target';
 
 function input(type?: string): HTMLInputElement {
   const el = document.createElement('input');
@@ -122,5 +122,61 @@ describe('FocusOrigin', () => {
     expect(fresh.pointerUsed()).toBe(false);
     page.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     expect(fresh.pointerUsed()).toBe(true);
+  });
+});
+
+describe('escapeBelongsToGame', () => {
+  const escape = (init: KeyboardEventInit = {}) => new KeyboardEvent('keydown', { key: 'Escape', ...init });
+
+  // The page's own document: focus moves only in a rendered one
+  afterEach(() => document.body.replaceChildren());
+
+  function page(...panes: string[]): Document {
+    const doc = document;
+    doc.body.replaceChildren();
+    for (const cls of panes) {
+      const pane = doc.createElement('div');
+      pane.className = `cdk-overlay-pane ${cls}`;
+      pane.appendChild(doc.createElement('div'));
+      doc.body.appendChild(pane);
+    }
+    return doc;
+  }
+
+  function trigger(doc: Document): HTMLButtonElement {
+    const el = doc.createElement('button');
+    el.className = 'mat-mdc-tooltip-trigger';
+    doc.body.appendChild(el);
+    el.focus();
+    return el;
+  }
+
+  it('goes to the game while a tooltip opened by the pointer shows', () => {
+    const doc = page('mat-mdc-tooltip-panel');
+    trigger(doc);
+    expect(escapeBelongsToGame(escape(), doc, () => false)).toBe(true);
+  });
+
+  it('stays with a tooltip whose trigger the keyboard is on', () => {
+    const doc = page('mat-mdc-tooltip-panel');
+    trigger(doc);
+    expect(escapeBelongsToGame(escape(), doc, () => true)).toBe(false);
+  });
+
+  it('stays with a dialog or a menu that is open beside the tooltip', () => {
+    expect(escapeBelongsToGame(escape(), page('mat-mdc-tooltip-panel', 'mat-mdc-dialog-panel'), () => false)).toBe(false);
+  });
+
+  it('is the normal way without a tooltip, an empty pane or another key', () => {
+    expect(escapeBelongsToGame(escape(), page(), () => false)).toBe(false);
+    const doc = page('mat-mdc-tooltip-panel');
+    doc.querySelector('.cdk-overlay-pane')!.replaceChildren();
+    expect(escapeBelongsToGame(escape(), doc, () => false)).toBe(false);
+    expect(escapeBelongsToGame(new KeyboardEvent('keydown', { key: 'Enter' }), page('mat-mdc-tooltip-panel'), () => false)).toBe(false);
+    expect(escapeBelongsToGame(escape({ shiftKey: true }), page('mat-mdc-tooltip-panel'), () => false)).toBe(false);
+  });
+
+  it('counts a rich tooltip card beside it as a tooltip', () => {
+    expect(escapeBelongsToGame(escape(), page('mat-mdc-tooltip-panel', 'td-rich-tooltip-panel'), () => false)).toBe(true);
   });
 });

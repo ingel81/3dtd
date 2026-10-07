@@ -116,3 +116,30 @@ export function controlTakesKey(
   if (!el || typeof el.matches !== 'function' || !el.matches(CONTROL_SELECTOR)) return false;
   return byKeyboard(el);
 }
+
+/** Overlay panes that hold a tooltip and nothing the player works in */
+const TOOLTIP_PANE = '.mat-mdc-tooltip-panel, .td-rich-tooltip-panel';
+
+/**
+ * True when Escape must reach the game before a matTooltip spends it. A
+ * tooltip open under the pointer (a button just clicked, the mouse still on
+ * it) takes Escape on body and stops it there, so the first press only
+ * closed the tooltip; letting a tower or the hero go, or opening the menu,
+ * took a second one. The game takes it first when a matTooltip shows, no
+ * other overlay is open (a dialog, a menu or a select keeps its Escape) and
+ * the keyboard is not on a tooltip's trigger: a tooltip the player tabbed to
+ * is closed by Escape alone, as it must be. The tooltip still closes.
+ */
+export function escapeBelongsToGame(
+  event: KeyboardEvent,
+  doc: Document = document,
+  byKeyboard: (el: Element) => boolean = focusedByKeyboard,
+): boolean {
+  if (event.key !== 'Escape' || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return false;
+  // Overlay panes keep their element after they detach: only filled ones count
+  const panes = Array.from(doc.querySelectorAll('.cdk-overlay-pane')).filter((pane) => pane.childElementCount > 0);
+  if (!panes.some((pane) => pane.matches('.mat-mdc-tooltip-panel'))) return false;
+  if (!panes.every((pane) => pane.matches(TOOLTIP_PANE))) return false;
+  const active = doc.activeElement;
+  return !(active && active.matches('.mat-mdc-tooltip-trigger') && byKeyboard(active));
+}

@@ -12,6 +12,7 @@ import {
   ChangeDetectionStrategy,
   effect,
   untracked,
+  DestroyRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -63,6 +64,7 @@ import type { LocationChangeInput } from './services/location/location-change-ex
 import { CameraControlService } from './services/camera-control.service';
 import { InputHandlerService } from './services/input-handler.service';
 import { HotkeyService } from './services/hotkey.service';
+import { escapeBelongsToGame } from './utils/keyboard-target';
 import { TowerUpgradeService } from './services/tower-upgrade.service';
 import { TowerPlacementService } from './services/tower-placement.service';
 import { AbilityTargetingService } from './services/ability-targeting.service';
@@ -503,6 +505,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   constructor() {
     this.facade.initEffects(this);
+    window.addEventListener('keydown', this.escapePastTooltip, { capture: true });
+    inject(DestroyRef).onDestroy(() => window.removeEventListener('keydown', this.escapePastTooltip, { capture: true }));
     // A tower or enemy model did not load after every try: its enemies walk unseen
     const assets = inject(AssetManagerService);
     effect(() => {
@@ -608,6 +612,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    // Taken already on its way down, past a tooltip (escapePastTooltip)
+    if (event === this.escapeTakenEarly) return;
     // A running boss intro takes Esc (skip) and holds the other game keys back
     if (this.bossIntro.handleKeyDown(event)) return;
     // So does the intro flight
@@ -619,6 +625,20 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     // Game hotkeys take what the input handler left alone (not defaultPrevented)
     this.hotkeys.handleKeyDown(event);
   }
+
+  /** The Escape escapePastTooltip handed to the game, so the window listener does not take it twice */
+  private escapeTakenEarly: KeyboardEvent | null = null;
+
+  /**
+   * A matTooltip under the pointer spends Escape on body, before the window
+   * listener: the game takes it on the way down instead (escapeBelongsToGame),
+   * the tooltip still closes.
+   */
+  private readonly escapePastTooltip = (event: KeyboardEvent): void => {
+    if (!escapeBelongsToGame(event)) return;
+    this.onKeyDown(event);
+    this.escapeTakenEarly = event;
+  };
 
   @HostListener('window:keyup', ['$event'])
   onKeyUp(event: KeyboardEvent): void {
