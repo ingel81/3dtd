@@ -1,6 +1,6 @@
 # Playtest: offene Nachtests
 
-Stand 2026-10-05, Code-Stand `next`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
+Stand 2026-10-07, Code-Stand `next`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
 warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). Die erledigten Punkte samt Ergebnissen
 (bis 748, dazu M, Q, R, T bis 2026-09-26) liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Listen in `archive/REVIEW_*.md`.
 
@@ -43,6 +43,7 @@ Paket W1, allein auf einer echten Karte:
   **ok (2026-10-04)**
 - **W1.3 Tab im Hintergrund:** Während einer Welle zwei Minuten in einen anderen Tab, dann zurück. Erwartung: die
   Welle lief weiter (Wellenzähler und Gold passen), kein Standbild, keine Fehlermeldung.
+  **ok (2026-10-04)**
 - **W1.4 Vorschau der Seitenleiste:** Tower-Karten und Gegnergruppen im Wellen-Panel ansehen, auch gesperrte Tower.
   Erwartung: alle drehen sich gleichmäßig ab dem ersten Bild, eine Umdrehung in etwa 6 Sekunden, gesperrte als
   dunkle Silhouette.
@@ -55,9 +56,11 @@ Paket W2, Replay und Werkzeuge:
   **ok (2026-10-04)**
 - **W2.2 Replay springen:** Das Replay einer großen Welle öffnen, weit nach vorn klicken, dann zurück. Erwartung:
   beim ersten Sprung „Jumping n %“ in der Leiste, der Rücksprung ist fast sofort da.
+  **ok (2026-10-04)**
 - **W2.3 Benchmark:** Esc (Menü), „Benchmark“, „Run“. Erwartung: die Seite lädt in eine Testwelt, misst rund
   3 Minuten, zeigt dann eine Tabelle und „Copy results“; kopieren und hier einfügen.
   **kaputt (2026-10-04)**: Läuft (RTX 5080, 10 000 Gegner bei 4x: 144 FPS, Worker 19 %, Apply 3,5 ms), aber danach kam man nicht an den vorherigen Ort zurück. Gefixt: „Back to your place“ lädt die Seite vom Start des Benchmarks. Nachtest.
+  **Nachtest ok (2026-10-04)**
 - **W2.4 Performance-Fenster:** Unten rechts „T“ (Developer options), „Performance“. Erwartung: Zeiten des Workers
   je Teil, Einräumen je Paket, Spielschleife und Zeichnen; die Zahlen bewegen sich mit der Gegnerzahl.
   **ok (2026-10-04)**
@@ -86,12 +89,14 @@ es hier. Ein Lauf bis mindestens Welle 30, am Ende über "Runs" speichern.
   in Worten: "Measured" (was die letzten Wellen an HP gekostet haben, gegen das Ziel) und "Loop" (Budget steigt, fällt
   oder hält, um welchen Faktor und warum). Erwartung: liest sich ohne Erklärung, die Zahlen passen zum Erlebten.
 
+  **kaputt (2026-10-04)**: „verwirrend, sagt mir alles nichts“. Neu gefasst am 2026-10-05, Nachtest als S2.3.
 ## Q Balance-Runde nach dem New-York-Lauf (2026-09-23)
 
 Aus M2/M3 und der Gold-Auswertung (beide im Archiv). Ein Lauf bis mindestens W31, am Ende über "Runs" speichern.
 
 - **Q1 Keine Wand in W15**: Golem Squad bleibt beim Überlebbarkeits-Deckel. Erwartung: keine Welle, die auf einen
   Schlag den Großteil der HP nimmt. Im Wave Debug steht bei W15 keine Anzahl über dem Deckel.
+  **ok (2026-10-04)**
 - **Q4 Gold**: Ein Herbert, Mammut oder Golem bringt sichtbar mehr als ein Zombie derselben Welle (Kopfgeld nach
   Wurzel der Basis-HP). W21 bis W30 wachsen je Welle um ×1,2, nach W30 fällt das Einkommen je Welle nur noch
   um ×0,85 statt ×0,5. Die Auswertung macht der Lead aus der Datei.
@@ -142,6 +147,7 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
   Wechseln stehen; „Load place“ erst nach einer Suche, die Spawn-Zeile klappt auf; „Move the spawn by address…“ setzt
   nur den Spawn. Logik per Spec geprüft, offen nur: Wirkt es aufgeräumt, passt es zum Rest?
   **kaputt (2026-10-04)**: Serifenschrift im Kopf des Dialogs. Gefixt: Cinzel und `serif` aus `--td-font-display`. Nachtest: Kopf in Inter Tight.
+  **Nachtest ok (2026-10-04)**
 - **T74 Coop-Einstieg neu (P4)**: In der App Coop öffnen. Erwartung: Umschalter Online / Same network, nur ein Weg zu
   sehen, beim nächsten Öffnen der zuletzt gewählte; die Lobby als Auswahl im Kopf von „Open rooms“, „Add lobby…“ öffnet
   die Felder; ein Knopf „Host a room“. Per Spec und E2E geprüft, offen nur der Eindruck.
@@ -151,6 +157,7 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
   Dock wandert durch die Knöpfe, Esc schließt es, ein Klick auf einen Knopf und dann Enter öffnet im Spiel den Chat.
   Vorab per Probe (2026-09-26): Tab wandert durchs Dock (PvE, Versus, Chat, Send, Leave, More, Start match) und verlässt es nach dem letzten Knopf in die Sidebar (kein Fokus-Käfig); Esc schließt es aus dem Dock; Klick auf einen Knopf, dann Enter öffnet im Spiel den Chat. Offen: der Eindruck der Tabelle.
   **kaputt (2026-10-04)**: Tabelle passt, aber der eigene Name war in beiden eigenen Spuren änderbar. Gefixt: nur noch in der ersten. Nachtest.
+  **Nachtest ok (2026-10-04)**, per Browser-Probe: Namensfeld nur in der ersten Zeile.
 - **T76 Coop-Skalierung (E34)**: Zu zweit bis W8 spielen. Erwartung: Kill-Gold je Spieler wie allein (W6 Spinnen
   nicht mehr ~26 Gold), W6 keine ~1000 Spinnen mehr, die Vorschau zeigt „per lane“ und im Tooltip die Lanes; das
   Run-Log nennt nur eigene Tower und `killsByPartner`.
@@ -190,6 +197,7 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
 - **T87 Leckschaden (E49)**: Welle durchlassen. Erwartung: über dem HQ steigt „−2“ für einen Zombie, „−4“ für einen
   Golem; die laufende Welle zeigt „Max HQ damage“ und je Typ „HQ −N“, NEXT-Tooltip „At the HQ each costs“.
   **kaputt (2026-10-04)**: Über dem HQ stieg nichts sichtbar auf (Rest passt). Der Text war 3 m groß, aus Übersichtshöhe ein paar Pixel. Gefixt: 12 m, helleres Rot, über dem Kristall. Nachtest.
+  **Nachtest ok (2026-10-04)**: Ursache war das fehlende HQ in der Darstellung seit dem Worker-Umbau (bb775d7c).
 - **T88 Lightning (E43)**: Lightning an einer Gasse. Erwartung: kein Blitz mehr in die Gasse, wenn der Gegner um die
   Ecke ist; keine Sprünge zu Bodengegnern, die der Tower nicht sieht.
   **ok (2026-10-04)**
@@ -213,6 +221,7 @@ welche Gegner an ihrer Grenze hängen.
 - **B3 Vorschau:** Wellen-Panel zwischen zwei Wellen. Erwartung: Name und Anzahl der nächsten Wellen stehen fest
   und stimmen mit dem, was dann kommt; Luftwarnung vor Luftwellen (7, 8, 12 …).
   **kaputt (2026-10-04)**: Name und Anzahl stimmen, aber der Tooltip der Detailzeile war ein ungegliederter Fließtext. Erst Blöcke mit Leerzeile, „hübsch ist es nicht“; seit 2026-10-05 ein Detailkasten in zwei Zeilen und eine Tooltip-Karte (Stats, Mutator-Banner, Gegnerliste mit HQ-Kosten, Konter je Rüstung). Nachtest: Kasten und Karte an W7, W10 und W14 lesen.
+  Nachtest des Kastens als S2.4.
 - **B4 Coop:** Host öffnet mit `?waves=budget` einen Raum, der Gast kommt über den normalen Einladungslink (ohne
   `waves`). Erwartung: beide spielen denselben Plan (gleiche Wellennamen), keine Abweichung, Lauf bis zum Ende.
   **ok (2026-10-04)**
@@ -263,6 +272,7 @@ Spur). Ein Lauf mit zwei Spawns, gern über W20 hinaus; am Ende über "Runs" Run
 - **N16 Münze im bemannten Tower** (2026-10-03): Tower bemannen und eine Welle schießen. Das Kill-Gold klingt so leise
   wie von oben, nicht mehr deutlich lauter (Rückmelde-Sounds jetzt wie aus 400 m statt 150 m).
   **kaputt (2026-10-04)**: „Hört man immer noch viel zu sehr.“ Die Münze war schon gedämpft; laut war vermutlich der Kill-Tick des bemannten Towers (zwei hohe Noten, 0.4, ungedämpft). Gefixt: Kill-Tick 0.15, Treffer-Tick 0.12. Nachtest: ist es das gewesen?
+  **Nachtest ok (2026-10-04)**: Ticks entfernt (191d5013), Ton passt.
 - **N17 Tentacle-Griff** (2026-10-03): Tentacle Tower bauen, Gegner greifen lassen. Der neue Saugnapf-Griff passt zum
   Zupacken und ist neben Schüssen hörbar, nicht zu laut.
   **ok (2026-10-04)**
@@ -328,6 +338,13 @@ Paket S4, Spiel (aus `dev/after-0.6`, Standardwerte in `tmp/plan/PAKET_2026-10-0
   mehr (andere Balance).
 - **S4.4 Zoom in Płock:** `?l=52.55000,19.70000&s=52.54690,19.69225`, aufs Portal zoomen bis zum Anschlag.
   Erwartung: bis etwa 10 m an die Straße, kein Zurückspringen, kein Rutschen nach Norden.
+
+Paket S6, Straßen und Gebäude (2583ac45, f4e8a2b2, 2026-10-06):
+
+- **S6.1 Straßen laden flott:** einen neuen Ort kalt laden, Netzwerk-Reiter mit Filter „interpreter“. Erwartung: die
+  Abfrage geht an overpass-api.de und kommt ohne 4 s Pause; kein Aufruf an kumi.systems.
+- **S6.2 Gebäude an der Route:** Quick Actions, „Layers“, „Show buildings“. Erwartung: die Häuser entlang der Routen
+  (etwa die erste Reihe) sind da, weiter weg keine; nach einem neuen Spawn bringt Aus und An die Häuser an der neuen Route.
 
 Paket S5, Linux (vor dem nächsten Release):
 
