@@ -200,23 +200,24 @@ async function gameReady(page: Page): Promise<void> {
   await page.waitForTimeout(1000);
 }
 
-// === The room, through the dock as a player does it (e2e/support/game.ts) ===
+// === The room, through the Coop page and the dock as a player does it (e2e/support/game.ts) ===
 
-async function openDock(page: Page): Promise<void> {
-  if (await page.locator('app-coop-dock').count()) return;
+/** The menu's Coop page, where hosting and joining start: the header's coop button outside a room */
+async function openCoopPage(page: Page): Promise<void> {
+  if (await page.locator('app-coop-ways').count()) return;
   await page.getByRole('button', { name: /^Coop/ }).first().click();
-  await page.locator('app-coop-dock').waitFor();
+  await page.locator('app-coop-ways').waitFor();
 }
 
 async function startRoom(seats: Page[]): Promise<string> {
   const [host, ...guests] = seats;
-  await openDock(host);
-  await host.getByRole('button', { name: 'Host a room' }).click();
+  await openCoopPage(host);
+  await host.locator('app-coop-ways').getByRole('button', { name: 'Host a room' }).click();
   const code = (await host.locator('app-coop-dock .code b').innerText({ timeout: 60_000 })).trim();
   for (const guest of guests) {
-    await openDock(guest);
-    await guest.locator('app-coop-dock input.codein').fill(code);
-    await guest.locator('app-coop-dock .code-row').getByRole('button', { name: 'Join', exact: true }).click();
+    await openCoopPage(guest);
+    await guest.locator('app-coop-ways input.codein').fill(code);
+    await guest.locator('app-coop-ways .code-row').getByRole('button', { name: 'Join', exact: true }).click();
   }
   await host.locator('app-coop-dock .who').nth(seats.length - 1).waitFor({ timeout: 120_000 });
   for (const guest of guests) await guest.getByRole('button', { name: 'Ready up' }).click({ timeout: 120_000 });

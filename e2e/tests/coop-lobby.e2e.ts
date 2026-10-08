@@ -1,27 +1,24 @@
 // The coop lobby (docs/PLAYTEST.md T36, T47, T54, T56, T58, T63, T65, D47):
-// the entry dock, what the host sees while a guest comes, the host's rights,
+// the Coop page of the menu, what the host sees while a guest comes, the host's rights,
 // a guest following the host to a new place.
 import { test, expect } from '../support/fixtures';
-import { DEFAULT_PLACE, chatText, coopRoom, gameReady, inviteLink, joinByCode, openDock, openRoom, roomCode, shot } from '../support/game';
+import { DEFAULT_PLACE, chatText, coopRoom, gameReady, inviteLink, joinByCode, openCoopPage, openDock, openRoom, roomCode, shot } from '../support/game';
 
-test('the entry dock: no scrolling sideways, no focus left on the coop button (T54, T63)', async ({ duo, relay: _relay }, testInfo) => {
+test('the Coop page: no scrolling sideways, the three ways, Esc steps back (T54, T63)', async ({ duo, relay: _relay }, testInfo) => {
   const page = duo.host;
-  await openDock(page);
-  const body = page.locator('app-coop-dock .body');
+  await openCoopPage(page);
+  const body = page.locator('.mm-page-body');
   await expect(body).toBeVisible();
   expect(await body.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
-  const focused = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '');
-  expect(focused).not.toMatch(/coop/i);
-  await expect(page.getByRole('button', { name: 'Host a room' })).toBeVisible();
-  await shot(testInfo, page, 'entry');
+  const ways = page.locator('app-coop-ways');
+  for (const way of ['Host online', 'Join online', 'Same network']) await expect(ways.getByRole('heading', { name: way })).toBeVisible();
+  await expect(ways.getByRole('button', { name: 'Host a room' })).toBeVisible();
+  await shot(testInfo, page, 'coop-page');
 
-  await test.step('U5 Tab walks the controls of the dock and leaves it open; Esc closes it', async () => {
-    await page.locator('app-coop-dock .field input').click();
-    for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
-    await expect(page.locator('app-coop-dock')).toBeVisible();
-    expect(await page.evaluate(() => !!document.activeElement?.closest('app-coop-dock'))).toBe(true);
+  await test.step('Esc steps back to the menu list', async () => {
+    await ways.locator('input.codein').click();
     await page.keyboard.press('Escape');
-    await expect(page.locator('app-coop-dock')).toHaveCount(0);
+    await expect(page.locator('app-coop-ways')).toHaveCount(0);
   });
 });
 
@@ -61,7 +58,7 @@ test('the host sees a guest come by the invite link and load; name, options, kic
     await lock.click();
     await expect(lock).toContainText('Locked');
     await joinByCode(guest, code);
-    await expect(guest.locator('app-coop-dock')).toContainText('The host closed the room to new players.');
+    await expect(guest.locator('app-coop-ways')).toContainText('The host closed the room to new players.');
   });
 });
 

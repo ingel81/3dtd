@@ -115,9 +115,9 @@ test('S1 a save comes back as it was, from its slot and from its file, while a r
     expect(await buildArcher(page), 'a tower stands').toBe(true);
     await openGameMenu(page);
     await menu.getByRole('button', { name: /Save game/ }).click();
-    await menu.locator('.gm-slot').first().click();
+    await menu.locator('.mp-slot').first().click();
     await confirm('Overwrite');
-    await expect(menu.locator('.gm-status')).toContainText('Saved.');
+    await expect(menu.locator('.mp-status')).toContainText('Saved.');
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
@@ -128,7 +128,7 @@ test('S1 a save comes back as it was, from its slot and from its file, while a r
     expect(await buildArcher(page)).toBe(true);
     await openGameMenu(page);
     await menu.getByRole('button', { name: /Load game/ }).click();
-    await menu.locator('.gm-slot-row', { hasNot: page.getByText('Autosave') }).first().locator('.gm-slot').click();
+    await menu.locator('.mp-slot-row', { hasNot: page.getByText('Autosave') }).first().locator('.mp-slot').click();
     await confirm('Load');
     await expect(menu).toHaveCount(0, { timeout: 120_000 });
     await expect.poll(() => runState(page), { timeout: 120_000 }).toEqual(saved);
@@ -139,7 +139,7 @@ test('S1 a save comes back as it was, from its slot and from its file, while a r
     await menu.getByRole('button', { name: /Load game/ }).click();
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      menu.locator('.gm-slot-row', { hasNot: page.getByText('Autosave') }).first().locator('.gm-slot-tool').first().click(),
+      menu.locator('.mp-slot-row', { hasNot: page.getByText('Autosave') }).first().locator('.mp-slot-tool').first().click(),
     ]);
     const file = testInfo.outputPath(download.suggestedFilename());
     await download.saveAs(file);

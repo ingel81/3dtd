@@ -204,19 +204,26 @@ export async function coopRoom({ host, guest }: { host: Page; guest: Page }, { o
   return { code, host, guest };
 }
 
-/** Open the dock: the coop button of the header, in a room or not */
+/** Open the dock of the room this page is in: the coop button of the header (without a room it opens the menu's Coop page) */
 export async function openDock(page: Page): Promise<void> {
   if (await page.locator('app-coop-dock').count()) return;
   await page.getByRole('button', { name: /^Coop/ }).first().click();
   await page.locator('app-coop-dock').waitFor();
 }
 
-/** Guest: join the room `code` from the dock */
+/** The menu's Coop page, where hosting and joining start: the coop button of the header outside a room */
+export async function openCoopPage(page: Page): Promise<void> {
+  if (await page.locator('app-coop-ways').count()) return;
+  await page.getByRole('button', { name: /^Coop/ }).first().click();
+  await page.locator('app-coop-ways').waitFor();
+}
+
+/** Guest: join the room `code` from the menu's Coop page */
 export async function joinByCode(page: Page, code: string): Promise<void> {
-  await openDock(page);
-  await page.locator('app-coop-dock input.codein').fill(code);
+  await openCoopPage(page);
+  await page.locator('app-coop-ways input.codein').fill(code);
   // The Join beside the code field, not one of an open room's rows
-  await page.locator('app-coop-dock .code-row').getByRole('button', { name: 'Join', exact: true }).click();
+  await page.locator('app-coop-ways .code-row').getByRole('button', { name: 'Join', exact: true }).click();
 }
 
 /**
@@ -244,10 +251,11 @@ export async function leaveRoom(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: /^Coop room/ })).toHaveCount(0);
 }
 
-/** Host: open a room from the dock */
+/** Host: open a room from the menu's Coop page; the menu closes and the dock opens on the room */
 export async function openRoom(page: Page): Promise<void> {
-  await openDock(page);
-  await page.getByRole('button', { name: 'Host a room' }).click();
+  await openCoopPage(page);
+  await page.locator('app-coop-ways').getByRole('button', { name: 'Host a room' }).click();
+  await page.locator('app-coop-dock').waitFor({ timeout: 60_000 });
 }
 
 /** Host: the invite link, as the dock's button copies it */

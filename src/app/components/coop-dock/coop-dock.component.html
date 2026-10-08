@@ -8,7 +8,7 @@
       <p>PvE Coop · {{ placeName() }} · {{ r.spawnIds.length }} lane{{ r.spawnIds.length === 1 ? '' : 's' }}</p>
     } @else {
       <h2 id="td-coop-dock-title">Coop</h2>
-      <p>Opening the room</p>
+      <p>Not in a room</p>
     }
   </div>
   <button class="icon-btn close" type="button" (click)="close()"
@@ -106,7 +106,7 @@
       <app-coop-lobby-chat class="chat-col" />
     </div>
   }
-  @if ((room() || joining()) && coop.error(); as error) {
+  @if (coop.error(); as error) {
     <p class="banner is-error" role="alert">{{ error }}</p>
   }
 </div>

@@ -231,7 +231,7 @@
         <!-- Coop, bottom left: the squad and the chat; empty outside a coop game -->
         <app-coop-squad />
         <!-- Coop: the room dock right of the ability bar (Tab or the header chip) -->
-        @if (uiStore.coopDockOpen() && (coop.room() || coop.intent() === 'join')) {
+        @if (uiStore.coopDockOpen() && (coop.room() || coop.intent() === 'join' || coop.error())) {
           @defer {
             <app-coop-dock />
           }
