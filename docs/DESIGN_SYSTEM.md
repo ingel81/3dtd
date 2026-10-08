@@ -476,24 +476,37 @@ Tasten: Tab (Dock), Enter (Chat) und X (Markierung) hört `app-coop-chat` auf de
 | Teil | Ort | Inhalt |
 |------|-----|--------|
 | Raum-Chip | Kopf, nach den Werkzeugen | Code in Mono, ein Quadrat je Spieler in seiner Lane-Farbe, `n/4`; Klick oder Tab öffnet das Dock. Ohne Raum das Zwei-Personen-Icon |
-| Dock `app-coop-dock` | rechts neben der Fähigkeitenleiste, oben auf ihrer Höhe, bis über die Logo-Zeile, 440px, im Raum 860px (Raum 480px, der Chat als zweite Spalte) | Ohne Raum der Einstieg `app-coop-entry`; beim Beitritt `app-coop-join-steps` (Schrittliste mit Fortschritt der Karte); im Raum Code (28px Mono, Code und Einladung kopieren, Sperre), Listing, Statuszeile, eine Warnung (die schwerste, weitere hinter „+n“), `app-coop-room-table`, `app-coop-room-options`, `app-coop-lobby-chat`; Fuß (Leave, ⋯ Resend map, Start match oder Ready up). Was es zeigt, rechnen die reinen Funktionen in `coop-dock/coop-dock-view.ts`. Kein Dialog, kein Schleier, `role="region"` (`UIStore.coopDockOpen`; von selbst öffnet und schließt es nur der `CoopService`: beim Betreten eines Raums auf, beim Spielstart zu) |
-| Einstieg `app-coop-entry` | im Dock ohne Raum und im Reiter Coop des Standortdialogs | Name (Hinweis zum Kartenschlüssel nur ohne Schlüssel); in der App ein Umschalter Online / Same network, gemerkt in `3dtd-coop-way`, nur der gewählte Weg ist zu sehen. Online: „Open rooms“ mit der Lobby als Auswahlliste im Abschnittskopf (letzter Eintrag „Add lobby…“ klappt Name und Adresse auf), Ping, Raumzeilen, Codefeld; antwortet die Lobby nicht, eine Warnzeile mit Retry. Same network: gefundene Spiele, nach 4 s Stille das IP-Feld und die Checkliste. Ein Knopf „Host a room“ für den gewählten Weg (nur im Dock). Beim Verbinden eine Zeile mit Cancel |
+| Dock `app-coop-dock` | rechts neben der Fähigkeitenleiste, oben auf ihrer Höhe, bis über die Logo-Zeile, 440px, im Raum 860px (Raum 480px, der Chat als zweite Spalte) | Nur mit Raum oder beim Beitritt (Hosten und Beitreten beginnen auf der Menüseite Coop); beim Beitritt `app-coop-join-steps` (Schrittliste mit Fortschritt der Karte); im Raum Code (28px Mono, Code und Einladung kopieren, Sperre), Listing, Statuszeile, eine Warnung (die schwerste, weitere hinter „+n“), `app-coop-room-table`, `app-coop-room-options`, `app-coop-lobby-chat`; Fuß (Leave, ⋯ Resend map, Start match oder Ready up). Was es zeigt, rechnen die reinen Funktionen in `coop-dock/coop-dock-view.ts`. Kein Dialog, kein Schleier, `role="region"` (`UIStore.coopDockOpen`; von selbst öffnet und schließt es nur der `CoopService`: beim Betreten eines Raums auf, beim Spielstart zu) |
+| Menüseite Coop `app-coop-ways` | Seite „Coop“ des Hauptmenüs | Name und Lobby-Auswahl (mit Ping) oben, darunter drei Wege untereinander: Host online (Raum auf dem geladenen Ort, „Change place“ zu New game, Rückfrage, wenn das den Solo-Lauf beendet), Join online (Codefeld, öffentliche Räume als Tabelle Room, Place, Players, alle 5 s neu; eine Lobby ohne Antwort als Warnzeile mit Retry), Same network (nur App: gefundene Spiele, „Host on this network“, nach 4 s Stille IP-Feld und Checkliste; im Browser ein Hinweis auf die App). Im Browser der Website nur `app-coop-app-hint`. Lobby-Adressen kommen in Settings dazu. Beim Verbinden eine Zeile mit Cancel |
 | Raumtabelle `app-coop-room-table` | im Dock | Eine Zeile je Lane (Rezept Listenzeile 48px): Farbbalken, Lane mit Länge und Balken, Spieler (Name, Host, You, was sein Client tut), Ready (Haken im Quadrat, nur in der Lobby), Ping, Werkzeuge (Hinfliegen; in der Lobby Lane zurückgeben, beim Host Versetzen, Entfernen, Rauswerfen). Freie Lanes „Free · take“ in `--td-gold`. Spieler ohne Lane danach mit gestricheltem Rand |
 | Squad `app-coop-squad` | unten über der Logo-Zeile, rechts neben der Fähigkeitenleiste wie das Dock, 400px | Kopf SQUAD mit Code oder Problem (Versalien per CSS), CHEATS ON (Orange), Einklappen; Zeilen 36px, man selbst zuerst; Fuß: auf wen die Welle wartet oder was nicht stimmt |
 | Chat `app-coop-chat` | unter der Squad-Box | ein Verlauf auf einem Scrim, ältere Zeilen gedimmt, Systemzeilen in Mono; Enter schreibt, X markiert die Karte, Tab öffnet das Dock (erst nach dem ersten Klick auf die Seite: davor bringt Tab den Fokus in die Seite); die Tastenzeile darunter nur bis zur ersten eigenen Nachricht |
 
 Kopf des Docks als Titelplatte (Messingkante, `title(18px)`). Warntext in `--td-warn-text`, Fehler in `--td-danger-text`, keine eigenen Hex-Werte.
 
-### Standortdialog
+### Menüseiten
 
-`app-td-location-dialog` (`components/location-dialog/`, Plan [COOP_UI_REWORK_PLAN.md](archive/COOP_UI_REWORK_PLAN.md) P3). Fester Rahmen, 460px breit, `min(640px, 100vh - 48px)` hoch: Kopf, Tabs und Knopfzeile stehen still, nur der Inhalt scrollt, ein Tab-Wechsel verschiebt die Tabs nicht. Titel in `--td-font-display` wie das Dock: „Choose a place“ beim Start ohne Ort, sonst „Change place“. Tabs einzeilig in Mono-Versalien (Place, World, Coop), der aktive mit 2px `--td-gold` unten. Der Autofokus liegt auf dem Suchfeld (`autoFocus: 'input'`).
+Der Inhalt der Seiten des Hauptmenüs (`components/main-menu/pages/`); Platte und Titelplatte stellt das Menü. Die
+gemeinsamen Teile stehen in `pages/_menu-page.scss` (`page.classes`, darin `ui.classes`): Abschnitte `.mp-sec` mit
+Mono-Label `.mp-label` (10px, Messing, Versalien) und Haarlinie zwischen den Abschnitten, Listen `.mp-list` mit Zeilen
+`.mp-row` (Name links, Mono-Detail rechts, Messingbalken links bei Hover), Segmente `.mp-seg` für `role="radio"` und
+`role="tab"` mit `tdRovingGroup`, Feldzeilen `.mp-field` (Name links, Bedienelement rechts), Warnzeile `.mp-banner`
+(`is-error` rot), Textlinks `.mp-link`. Knöpfe, Eingaben und Notizen sind die des Fundaments (`btn-primary`,
+`btn-secondary`, `btn-danger`, `btn-xs`, `inp`, `note`). Keine Kartenraster.
 
-- Place: oben die Adresssuche (38px, 13px Mono), darunter die Links „Coordinates“ und, mit geladenem Ort, „Move the spawn by address…“ (die frühere Spawn-Only-Ansicht mit „HQ stays“ und „Move spawn“). Ist ein Ort gesucht, fasst eine Zeile den Spawn zusammen („Spawn: random, 0.5 to 1 km from the HQ“), ein Klick klappt Random / By address auf. Darunter Recent und Showcase mit Abschnittskopf; ein Klick lädt
-- World: die Kugel mit Bestwellen, darunter die Liste
-- Coop: `app-coop-entry` nur zum Beitreten, darunter „To host, pick a place first, then open Coop in the header.“ Der Beitritt schließt den Dialog mit dem Ort des Hosts (`joinedPlaceResult`)
-- Knopfzeile: „Load place“ oder „Move spawn“ erst, wenn es etwas zu bestätigen gibt; Cancel oder Close nur mit geladenem Ort, beim Start gibt es nichts, wohin man zurück könnte
-
-Abschnittsköpfe über das Mixin `section-label` wie im Dock, keine Kästen in Kästen; Knöpfe über die Coop-Rezepte (`ui.btn`, `ui.btn-primary`); die Warnung bei laufendem Spiel als `.banner.is-warn`.
+- New game (`app-place-picker`): Warnzeile bei laufendem Lauf; Abschnitt Search (Adresssuche, Links „Coordinates or
+  link“, „Use my location“, „Roll a random city“, mit Ort „Move the spawn by address…“, nach einer Wahl die
+  Spawn-Zeile und „Load place“); darunter Umschalter Recent / Favorites / Showcase / World und die Liste, World mit
+  Globus links
+- Save und Load (`app-save-slots`): Slots als Liste, Rückfragen (Overwrite, Load, Pick file, Delete) ersetzen die Liste
+  auf der Seite, darunter die Statuszeile `.mp-status`; Load mit Datei-Download und Delete je Zeile und „Load from a
+  file“
+- Settings (`app-settings-sections`): Audio (vier Regler mit Wert und Stumm-Knopf), Graphics (Preset als Segmente, die
+  Schalter in zwei Spalten, Color grading, Frame limit, Fullscreen), Gameplay (Tempo, Auto-Start), Map (Anbieter,
+  „Change key“), Coop (Name, Lobby-Liste, „Add lobby“), Privacy (Run-Log-Upload)
+- Extras (`app-extras-list`): Zeilen in drei Gruppen (Replays and runs, The game, About); Legal & privacy und GitHub als
+  Links mit `target="_blank"`
+- Coop (`app-coop-ways`): siehe Coop oben
 
 ### Off-Screen-Pfeile (Canvas)
 
@@ -761,7 +774,7 @@ Fokus: 2px `--td-focus-color` mit 2px Abstand, nur bei `:focus-visible` (`focus-
 | `components/context-hint/` | Wiederverwendbare Kontext-Hinweis-Box |
 | `components/attributions-dialog/` | Attributions & Lizenzen Dialog |
 | `components/damage-matrix-dialog/` | Damage-vs-Armor-Tabelle (Hilfe-Dialog aus der Sidebar) |
-| `components/location-dialog/` | Standortdialog: Tabs Place, World, beim Start ohne Ort Coop (siehe [Standortdialog](#standortdialog)) |
+| `components/main-menu/pages/` | Inhalt der Menüseiten: Ortswahl, Slots, Settings, Extras, Coop-Wege (siehe [Menüseiten](#menüseiten)) |
 | `components/world-globe/` | Weltkarte: Globus (2D-Canvas), Rekord-Hinweis im Game-Over-Overlay |
 | `components/address-autocomplete.component.ts` | Adress-Autocomplete (Nominatim) |
 | `components/engine-test/` | Standalone Engine-Test-View |

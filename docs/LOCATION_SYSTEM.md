@@ -15,11 +15,11 @@ LocationManagementService           ← State (Signals), Favorites
   ↓
 LocationFacadeService               ← Location Detection, Spawn-Logik
   ↓
-LocationChangeCoordinatorService    ← Dialog, Favoriten, Weltwürfel; applyNewLocation
+LocationChangeCoordinatorService    ← choosePlace (Menü), Favoriten, Weltwürfel; applyNewLocation
   ↓
 LocationChangeExecutorService       ← 7-Step Location Change Sequence
   ↓
-LocationDialogComponent             ← UI für Ortswahl
+PlacePickerComponent                ← UI für Ortswahl (Menüseite New game)
 ```
 
 ## Dateien
@@ -41,7 +41,8 @@ services/world/path-route.service.ts                        - Routen je Spawn (C
 services/world/map-placement.service.ts                     - HQ/Spawn per Klick auf die Karte
 services/location/best-waves.ts                             - Beste Welle je Ort: Liste, Rekord, localStorage (reine Funktionen)
 services/location/best-wave.service.ts                      - Beste Welle je Ort: Aufzeichnung am Event-Bus, neuer Rekord bei Game Over
-components/location-dialog/location-dialog.component.ts  - Dialog UI
+services/location/place-choice.ts                           - PlaceChoice, Koordinaten lesen (rein)
+components/main-menu/pages/new-game/place-picker.component.ts - Ortswahl der Menüseite New game
 components/address-autocomplete.component.ts        - Adress-Autocomplete
 components/world-globe/world-globe.component.ts             - Weltkarte: Globus auf 2D-Canvas
 components/world-globe/globe-projection.ts                  - Orthografische Projektion, Horizont-Schnitt, Drehen, Zoom
@@ -80,19 +81,11 @@ interface SpawnLocationConfig extends SavedSpawn {
   isRandom?: boolean;
 }
 
-// Dialog-Eingabe
-interface LocationDialogData {
-  currentLocation: LocationInfo | null;
-  currentSpawn: SpawnLocationConfig | null;
-  isGameInProgress: boolean;
-}
-
-// Dialog-Ergebnis
-interface LocationDialogResult {
-  hq: LocationInfo;
-  spawn: SpawnLocationConfig;
-  confirmed: boolean;
-}
+// Die Wahl der Menüseite New game (services/location/place-choice.ts)
+type PlaceChoice =
+  | { kind: 'place'; hq: { lat; lon; name; address? }; spawn: SpawnPick | null }  // null: Zufalls-Spawn
+  | { kind: 'stored'; hq: { lat; lon }; spawns: SavedSpawn[] }                    // Favorit, Link, Coop-Host, Save
+  | { kind: 'dice' };
 
 // Zufälliger Spawn-Kandidat
 interface RandomSpawnCandidate extends GeoPosition {
@@ -229,11 +222,10 @@ Ein Globus mit allen verteidigten Orten und der besten Welle je Ort; ein Klick l
 
 | Wo | Was |
 |----|-----|
-| Standort-Dialog, Tab "World" | Globus, darunter die Orte als Zeilen (Name, Welle), höchste Welle zuerst |
-| Sidebar-Fuß, "World" | Öffnet den Standort-Dialog auf dem Tab (`openLocationDialog('world')`, `LocationDialogData.initialMode`) |
+| Menüseite New game, Liste "World" | Globus, daneben die Orte als Zeilen (Name, Welle), höchste Welle zuerst |
 | Game-Over-Overlay | Unter Restart, blendet nach 1,2 s ein: kleiner Globus auf den Ort gedreht und gold umringt, "New record for <Ort>: wave N", darunter "Best before: wave M" oder "First run here"; "Skip" blendet aus. Der Restart-Button verschiebt sich nicht |
 
-Ein Klick auf einen Marker oder eine Zeile schließt den Dialog wie ein Recent-Eintrag: HQ und erster Spawn des Rekordlaufs (`spawn.id: 'spawn_world'`, ohne Spawn Random), der Coordinator wendet ihn an. Der gerade gespielte Ort ist grau umringt, in der Liste ausgegraut und lädt nicht. Hover oder Fokus auf einer Zeile dreht den Globus zum Ort.
+Ein Klick auf einen Marker oder eine Zeile lädt den Ort wie ein Recent-Eintrag: HQ und erster Spawn des Rekordlaufs (ohne Spawn Random), über `choosePlace`. Der gerade gespielte Ort ist grau umringt, in der Liste ausgegraut und lädt nicht. Hover oder Fokus auf einer Zeile dreht den Globus zum Ort.
 
 ### Globus (`components/world-globe/`)
 
@@ -269,7 +261,7 @@ Die Drehung des Spawn-Portals:
 | Spawn setzen mit R-Drehung (`MapRelocationService.applySpawnInPlace`) | `portalHeadingToBearing` der Drehung, in `LocationManagementService.spawns`, von dort in die URL und in einen danach gespeicherten Favoriten |
 | Reload, geteilter Link | aus `s`, `addPredefinedSpawns` → `addSpawnPoint(…, portalBearing)` |
 | Favorit laden | aus `FavoriteLocation.spawns[0]`, über `applyNewLocation` (Schritt 2 schreibt ihn in Ort und URL, Schritt 5 an den Spawn) |
-| HQ versetzen (in place und außerhalb der Straßen), Standort-Dialog, Zuletzt gespielt, Weltkarte, World Dice | keiner, das Portal folgt der Route |
+| HQ versetzen (in place und außerhalb der Straßen), Ortswahl im Menü, Zuletzt gespielt, Weltkarte, World Dice | keiner, das Portal folgt der Route (ein Showcase-Ort mit festem Kurs bringt ihn mit) |
 
 `LocationFacadeService.addSpawnPoint` dreht das Portal nach dem Bau der Route (`MarkerVisualizationService.setPortalHeading`); jeder Bau der Route hält den Kurs im Drehbereich dieser Route (`clampPortalHeading`). Hat sich die Route seit dem Speichern geändert, steht das Portal an der Grenze; im Ort, in der URL und im Favoriten bleibt der Kurs, wie er gegeben wurde. Mehr zum Drehbereich in [SPAWN_PORTAL.md](SPAWN_PORTAL.md#drehbereich).
 
@@ -287,8 +279,8 @@ Gerundet wird dort, wo Koordinaten ins Spiel kommen, bevor Origin, Routen oder K
 
 | Stelle | Was dort hereinkommt |
 |--------|----------------------|
-| `LocationManagementService.setLocation`, `setGeneratedSpawns` | Der Ort beim Start (URL, Browser-Standort, Dialog) und nach jedem Wechsel; URL, Favoriten, Zuletzt gespielt und Weltkarte speichern ihn von hier |
-| `LocationChangeCoordinatorService.applyNewLocation` | Jeder Ortswechsel: Dialog (Suche, Koordinaten, Zuletzt gespielt, Showcase, Weltkarte), Favorit, HQ außerhalb der Straßen, erneuter Versuch. Der Dialog-Zweig rundet das HQ schon davor, weil er die Straßen für einen Zufalls-Spawn um das HQ lädt |
+| `LocationManagementService.setLocation`, `setGeneratedSpawns` | Der Ort beim Start (URL oder die Wahl im Menü) und nach jedem Wechsel; URL, Favoriten, Zuletzt gespielt und Weltkarte speichern ihn von hier |
+| `LocationChangeCoordinatorService.applyNewLocation` | Jeder Ortswechsel: Ortswahl im Menü (Suche, Koordinaten, Zuletzt gespielt, Favorit, Showcase, Weltkarte, Würfel), HQ außerhalb der Straßen, erneuter Versuch. Der Zweig mit Zufalls-Spawn rundet das HQ schon davor, weil er die Straßen für den Spawn um das HQ lädt |
 | `OsmStreetService.findRandomStreetPoint` | Der Zufalls-Spawn: der OSM-Knoten (7 Stellen) gerundet, bevor Abstand und Route geprüft werden. Gerundet kann der Punkt näher an einem anderen Weg liegen; geprüft wird die Route, die der Spawn dann wirklich bekommt |
 | `LocationFacadeService.addSpawnPoint` | Jeder Spawn im Spiel |
 | `MapPlacementService.updatePreviewPosition` | HQ und Spawn per Klick: Prüfung und Vorschau sehen den Punkt, der gesetzt wird; die Vorschau folgt dem Cursor dadurch in Schritten von rund einem Meter |
@@ -300,12 +292,11 @@ Gerundet wird dort, wo Koordinaten ins Spiel kommen, bevor Origin, Routen oder K
 
 ## GeolocationService
 
-Automatische Standort-Erkennung:
+Der Standort des Browsers, nur auf Klick: „Use my location“ auf der Menüseite New game (seit 2026-10-09; vorher
+fragte der Start ohne Ort ungefragt). Mit Ergebnis lädt der Ort mit Zufalls-Spawn, ohne sagt die Seite es.
 
 ```
-1. Browser Geolocation API (GPS/WiFi, 15s Timeout für Permission-Dialog)
-   ↓ (bei Fehler/Ablehnung)
-2. null → Location-Dialog wird angezeigt
+Browser Geolocation API (GPS/WiFi, 15s Timeout für Permission-Dialog) → Ort oder null
 ```
 
 ```typescript
@@ -316,7 +307,7 @@ async detectLocation(): Promise<GeolocationResult | null>
 Dazwischen lag früher ein IP-Lookup über ip-api.com. Der ist raus: der
 kostenlose Tarif spricht nur http, auf der ausgelieferten https-Seite blockt
 der Browser den Request ohnehin als Mixed Content, und die IP jedes Spielers
-ging an einen Dritten für eine Schätzung, die der Dialog mit einem Klick
+ging an einen Dritten für eine Schätzung, die die Ortswahl mit einem Klick
 genauer hinbekommt.
 
 ## GeocodingService
@@ -375,13 +366,12 @@ Beim App-Start in `LocationFacadeService.initializeLocation()`:
 2. URL-Parameter vorhanden? (UrlLocationService.parseFromUrl())
    → Location aus URL laden, fertig
 
-3. Geolocation (GeolocationService.detectLocation())
-   → Browser-Geolocation, 15 s Timeout
-   → Bei Erfolg: Location ohne Spawn setzen, fertig
-
-4. Nichts gefunden
-   → Location-Dialog (disableClose: true) anzeigen
-   → Warten bis User eine Location wählt
+3. Sonst auf die Wahl im Menü warten (waitForPlaceChoice)
+   → LocationChangeCoordinatorService.waitForStartChoice(), awaitingStartChoice() ist true
+   → choosePlace() aus New game, der Ort eines Coop-Hosts oder eines Saves
+     (followStartPlaces, pages/start-places.ts) gibt den Ort; der Würfel würfelt vorher
+   → Location mit den Spawns der Wahl setzen (keiner: Zufalls-Spawn), fertig
+   → Geht die Komponente vorher weg: Abbruch ohne Fehler
 ```
 
 Nach Erkennung wird die URL synchronisiert (`syncUrlWithLocation()`).
@@ -528,7 +518,8 @@ Boden.
 Der Coordinator bietet auch UI-Flow-Methoden:
 
 ```typescript
-openLocationDialog(initialMode?): void  // Dialog öffnen (optional auf einem Tab), bei Bestätigung applyNewLocation()
+choosePlace(choice): Promise<boolean>   // Die Wahl im Menü: an den wartenden Start, sonst moveTo/loadPlace/Würfel
+waitForStartChoice(): Promise<PlacedChoice> // Der Start ohne Ort wartet hier
 onShareLocation(): void          // URL in Clipboard kopieren
 onWorldDice(): Promise<void>     // Zufällige Stadt aus der Liste, URL-Reload
 onAddFavorite(name?): void       // Aktuelle Location als Favorit
@@ -545,7 +536,7 @@ Sub-Facade für Location-Management. Verbindet Coordinator mit Component-State.
 
 ### Verantwortlichkeiten
 
-- **Location Detection**: URL → Geolocation → Dialog Cascade
+- **Location Detection**: URL, sonst die Wahl im Menü
 - **Coordinator-Initialisierung**: Baut `LocationFlowDelegate` für den Coordinator
 - **Spawn-Management**: `addPredefinedSpawns()`, `addSpawnPoint()`
 - **Map Cleanup**: `clearMapEntities()` (Marker, Routes, Streets, Route-Zellen mit ihren Overlays)
@@ -569,58 +560,34 @@ Spawns aus URL/Service vorhanden?
   → Alle Spawns mit Markern und Pfaden hinzufügen
 ```
 
-## Location Dialog Component
+## Ortswahl (Menüseite New game)
 
-Angular Material Dialog mit drei Tabs (seit 2026-09-26, [COOP_UI_REWORK_PLAN.md](archive/COOP_UI_REWORK_PLAN.md) P3; die
-Darstellung steht in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#standortdialog)). Titel „Choose a place“ beim Start ohne Ort
-(dann ohne Cancel), sonst „Change place“.
+`PlacePickerComponent` (`components/main-menu/pages/new-game/`), seit 2026-10-09 statt des Standortdialogs; die
+Darstellung steht in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#menüseiten). Jede Wahl geht als `PlaceChoice` an
+`LocationChangeCoordinatorService.choosePlace`. Läuft ein Lauf, warnt eine Zeile, dass er mit dem neuen Ort endet
+(nicht beim Verschieben des Spawns). Ein Coop-Gast, dessen Karte der Host setzt, sieht keine Ortswahl.
 
-### Tabs
+- **Suche** via `AddressAutocompleteComponent` (Nominatim), danach eine Zeile für den Spawn (Random oder By address,
+  eingeklappt) und „Load place“
+- **Coordinates or link** (ausklappbar): Lat/Lon mit Rückwärtssuche des Namens; ein eingefügter 3DTD-Link lädt den Ort
+  mit allen Spawns sofort (`storedPlace`). Formate beim Einfügen (`parseCoordinates`): Dezimal `49.5432, 9.1234`,
+  Kardinal `49.5432°N, 9.1234°E`, vorangestellt `N 49.5432, E 9.1234`, DMS `49°32'35.5"N 9°7'24.2"E`, Google-Maps-URL
+  `@49.5432,9.1234`
+- **Use my location**: fragt den Browser erst auf Klick (siehe GeolocationService)
+- **Roll a random city**: der Weltwürfel (`{ kind: 'dice' }`)
+- **Move the spawn by address…** (mit geladenem Ort): nur den Spawn ändern, der HQ bleibt; höchstens 1,5 km
+  (`MAX_MANUAL_SPAWN_DISTANCE`), darüber bleibt „Move spawn“ gesperrt
+- **Listen** hinter einem Umschalter Recent / Favorites / Showcase / World, ein Klick lädt:
+  - Recent: zuletzt gespielte Orte ohne den aktuellen, mit ihrem Spawn
+  - Favorites: mit allen gespeicherten Spawns; verwaltet werden sie weiter im Kopf
+  - Showcase: 12 Orte aus `configs/showcase-locations.config.ts`, Spawn zufällig, außer der Ort trägt einen festen
+    (`ShowcaseLocation.spawn`, optional mit Kompasskurs): bisher Rio de Janeiro, Copacabana und Tokyo, Shibuya
+    Crossing. `__showcase.line()` in den DevTools druckt ein einfügefertiges `ShowcaseLocation`-Snippet für den
+    aktuellen Ort
+  - World: siehe [Weltkarte](#weltkarte-beste-welle-je-ort)
 
-| Modus | Beschreibung |
-|-------|--------------|
-| `place` | Neuer Ort (Standard), Tab "Place": Suche, Recent/Showcase, Spawn eingeklappt. Mit geladenem Ort zusätzlich der Link "Move the spawn by address…": nur den Spawn ändern, der HQ bleibt (früher Tab "Spawn Only", Ansicht `placeView = 'spawn'`) |
-| `world` | Weltkarte der verteidigten Orte, Tab "World", siehe [Weltkarte](#weltkarte-beste-welle-je-ort); ohne Confirm-Button, ein Klick lädt |
-| `coop` | Nur beim Start ohne Ort und wenn es etwas zum Beitreten gibt (LAN der App oder eine Lobby): `app-coop-entry` ohne Hosten; der Beitritt schließt den Dialog mit dem Ort des Hosts (`joinedPlaceResult`). Den `CoopService` bekommt der Dialog über `MatDialogConfig.injector` und das Token `COOP` |
-
-`LocationDialogData.initialMode` wählt den Tab beim Öffnen (Standard `place`).
-
-### Spawn Modes
-
-| Modus | Beschreibung |
-|-------|--------------|
-| `random` | Automatisch 500m-1km vom HQ auf Straße platziert |
-| `manual` | Adresse per Autocomplete suchen |
-
-### Features
-
-- **Recent / Showcase** (Tab Place, eine Liste mit zwei Tabs unter der Suche; ohne Recent-Einträge nur Showcase): ein Klick lädt ohne Bestätigung (Ergebnis wie Confirm)
-  - Recent: zuletzt gespielte Orte ohne den aktuellen, mit ihrem Spawn (`spawn.id: 'spawn_recent'`)
-  - Showcase: 12 Orte aus `configs/showcase-locations.config.ts` (Name, eine Zeile Hinweis), Spawn zufällig wie im Modus Random. Koordinaten gegen OSM (Nominatim) geprüft, auf Fußweg, Straße oder Platz; nicht einzeln im Spiel angespielt. Ein Ort kann einen festen Spawn tragen (`ShowcaseLocation.spawn`, optional mit Kompasskurs, `SavedSpawn`), bisher Rio de Janeiro, Copacabana (`s=-22.96421,-43.17463`) und Tokyo, Shibuya Crossing (`l=35.65924,139.70049&s=35.65208,139.69853`, HQ und Spawn aus einer URL des Users, weil der alte Punkt eine Route um einen Block ergab); diese Orte hat der User gespielt. Ein Klick lädt ihn dann über denselben Pfad wie einen Spawn aus URL oder Favorit (`spawn.id: 'spawn_showcase'`, keine Zufallssuche). `__showcase.line()` in den DevTools druckt ein einfügefertiges `ShowcaseLocation`-Snippet für den aktuellen Ort (id/name/hint als `'TODO'`), zum Weitergeben neuer Einträge
-- **Autocomplete-Suche** via `AddressAutocompleteComponent` (Nominatim)
-- **Manuelle Koordinaten-Eingabe** (ausklappbar, nur für das HQ: "Coordinates")
-  - Unterstützte Formate beim Einfügen:
-    - Dezimal: `49.5432, 9.1234`
-    - Kardinal: `49.5432°N, 9.1234°E`
-    - Kardinal vorangestellt: `N 49.5432, E 9.1234`
-    - DMS: `49°32'35.5"N 9°7'24.2"E`
-    - Google Maps URL: `@49.5432,9.1234`
-- **Entfernung**: Zeile unter der Spawn-Suche mit der Entfernung Spawn-HQ
-- **Max-Distanz**: 1,5 km, im Dialog fest als 1500 m geprüft (nicht über `MAX_MANUAL_SPAWN_DISTANCE`); darüber bleibt Confirm gesperrt. Eine Mindestdistanz prüft der Dialog nicht
-- **Warnung** bei laufendem Spiel (Tabs Place und World, nicht beim Verschieben des Spawns)
-- **Bestätigen**: "Load place" erscheint erst, wenn die Suche einen Ort gewählt hat, und ist aktiv, wenn der Spawn `random` oder ausgewählt und nah genug ist; beim Verschieben "Move spawn", aktiv mit gewähltem Spawn. Recent, Showcase und World laden per Klick
-
-### Dialog-Ergebnis
-
-```typescript
-{
-  hq: LocationInfo,           // { lat, lon, name, displayName, address? }
-  spawn: SpawnLocationConfig, // { id, lat, lon, name?, isRandom? }
-  confirmed: boolean
-}
-```
-
-Bei `isRandom: true` (`id: 'spawn_random'`, `lat`/`lon` = 0) lädt der Coordinator die Straßen und sucht den Spawn mit `findRandomStreetPoint()`; findet er keinen, nimmt er einen Punkt ca. 700 m nördlich des HQ.
+Bei `spawn: null` lädt der Coordinator die Straßen und sucht den Spawn mit `findRandomStreetPoint()`; findet er keinen,
+nimmt er einen Punkt ca. 700 m nördlich des HQ.
 
 ## HQ-Relocation (interaktives Versetzen)
 

@@ -739,7 +739,7 @@ im Dev-Spiel mit zwei Browsern (PLAYTEST T71). Schritt 2:
 Datenschutzerklärung in `coop-server/README.md`. Die Lobby läuft seit 2026-09-25 und steht in
 `public/runtime-config.json`. Nicht geprüft: der Docker-Build selbst (kein
 Docker auf dem Dev-Rechner; die Schritte darin liefen einzeln). Schritt 1: Schritt 1:
-`app-coop-entry` (Name, „Same network“, „Online“; seit 2026-09-26 ein Umschalter zwischen beiden, die Lobby als Auswahlliste, ein Knopf „Host a room“, U3) im Dock und als Reiter „Coop“ im
+Seit 2026-10-09 die Menüseite Coop (`app-coop-ways`: Name und Lobby oben, Host online, Join online, Same network untereinander; das Dock hält nur noch den Raum), vorher `app-coop-entry` im Dock und als Reiter „Coop“ im
 Standortdialog beim Start ohne Ort; `coop/lobbies.ts`, `coopLobbies` in `runtime-config.json`, die alte Einstellung
 `3dtd-coop-relay` wird eine eigene Lobby; im Dev-Spiel auf `localhost` ohne Lobby „This machine“; Raumkopf „LAN“ oder
 „Online · <Lobby>“; Abweisung mit beiden Versionen, „Update now“ bei fertigem Update; „<Lobby> is offline right now“.
