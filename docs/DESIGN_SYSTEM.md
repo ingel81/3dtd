@@ -357,17 +357,17 @@ die Zählung je Strang.
 Der Graph ist `components/tech-tree/`, eine darstellende Komponente ohne Fachwissen: Knoten und
 Kanten rein, Klick und Hover raus. Die Geometrie rechnet `utils/dag-layout.ts` aus den
 Vorbedingungen (Ebene = längster Weg von einer Wurzel), es stehen keine Koordinaten in der Config.
-Der Heldenbaum (TODO G2) soll dieselben zwei Schichten benutzen.
+Der Heldenbaum (TODO G2) soll dieselben zwei Schichten benutzen. Alle Farben des Baums sind Tokens (`--td-node*` je Zustand, `--td-branch-biology`/`-engineering` als Strangfarbe, Arkan ist Teal, `--td-tree-line`, `--td-tree-well`); die Kontrast-Spec prüft Titel und Fuß auf ihren Knoten.
 
 | Zustand eines Knotens | Aussehen |
 |---|---|
-| `completed` | Rahmen `#2C3A35`, Name in `#7E9A90`, Fuß "RESEARCHED" in Versalien |
+| `completed` | `--td-node-done`, Rahmen `--td-node-done-edge`, grüne Kante links (`--td-green-dark`), Fuß "RESEARCHED" in Versalien |
 | `active` | Rahmen `--td-teal`, Restzeit und Balken im Fuß |
 | `queued` | gestrichelt in `--td-gold-dark`, Position als Gold-Kappe in der Ecke |
 | `available` | Gold-Kante links (`inset 3px 0 0 var(--td-rune-amber)`), Hover hebt den Knoten um 1 px |
-| `poor` | dieselbe Form in Warnorange: offen, aber die Credits fehlen |
+| `poor` | dieselbe Form, wärmer: Rahmen `--td-node-poor-edge`, Kante und Plattenrahmen `--td-node-poor-mark`, Kosten in Warnorange; offen, aber die Credits fehlen |
 | `pending` | wie `locked`, aber jede fehlende Vorbedingung läuft oder wartet schon |
-| `locked` | versenkt, Rahmen `#262C27` |
+| `locked` | versenkt: `--td-node-locked`, Rahmen `--td-node-locked-edge`, Titel `--td-node-locked-title` |
 
 Kanten lesen sich aus dem Paar, das sie verbinden: `done` (Teal, Ziel erforscht), `active` (Teal,
 laufend, wandernde Strichelung), `open` (`--td-rune-amber`, Quelle erforscht), `pending`
