@@ -119,11 +119,6 @@ export class GameSidebarComponent implements OnDestroy {
     this.onboarding.restart();
   }
 
-  /** Coop: the room dock (docs/COOP_PLAN.md, D41); the header chip and Tab open it as well. */
-  openCoop(): void {
-    this.uiStore.coopDockOpen.set(true);
-  }
-
   /** The version in the footer opens "What's new" with every release */
   openWhatsNew(): void {
     this.whatsNew.open();

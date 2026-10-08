@@ -177,7 +177,6 @@ export class LocationFacadeService {
         getSpawnPoints: () => this.store.spawnPoints(),
         getBaseCoords: () => this.store.baseCoords(),
       }),
-      getCurrentLocationName: () => this.locationMgmt.getLocationDisplayName(),
     };
   }
 

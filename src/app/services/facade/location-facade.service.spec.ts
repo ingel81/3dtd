@@ -296,10 +296,6 @@ describe('LocationFacadeService', () => {
       expect(vizCallbacks.filterStreetNetworkToRoutes).toHaveBeenCalled();
       expect(vizCallbacks.scheduleOverlayHeightUpdate).toHaveBeenCalled();
     });
-
-    it('names the location through the location service', () => {
-      expect(delegate().getCurrentLocationName()).toBe('Stuttgart');
-    });
   });
 
   describe('initializeLocation', () => {

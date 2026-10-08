@@ -27,8 +27,6 @@ export interface LocationFlowDelegate {
   getChangeContext(): LocationChangeContext | null;
   /** Build the LocationChangeCallbacks from component methods */
   getChangeCallbacks(): LocationChangeCallbacks;
-  /** Get the current location display name */
-  getCurrentLocationName(): string;
 }
 
 /** What the player reads when the streets of the place they go to did not load; they stay where they are */

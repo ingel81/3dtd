@@ -181,7 +181,6 @@ describe('LocationChangeCoordinatorService', () => {
     delegate = {
       getChangeContext: vi.fn(() => ctx),
       getChangeCallbacks: () => callbacks,
-      getCurrentLocationName: () => 'Stuttgart',
     };
 
     const injector = Injector.create({

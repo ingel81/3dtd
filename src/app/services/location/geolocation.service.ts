@@ -9,11 +9,8 @@ export interface GeolocationResult {
 }
 
 /**
- * GeolocationService - Automatic location detection
- *
- * Fallback cascade:
- * 1. Browser Geolocation API (GPS/WiFi, precise, needs permission)
- * 2. null - Location dialog will be shown
+ * GeolocationService - the browser's location, asked only from "Use my
+ * location" on the menu's New game page; null when it gives none.
  *
  * There used to be an IP lookup via ip-api.com in between. It has been removed:
  * the free tier is plain http, so the browser blocks it as mixed content on the
@@ -22,15 +19,11 @@ export interface GeolocationResult {
  */
 @Injectable({ providedIn: 'root' })
 export class GeolocationService {
-  /** Callback for step detail updates (set by component) */
-  onStepDetail: ((detail: string) => void) | null = null;
-
   /**
    * Detects the user's location, returns null if the browser denies it
    */
   async detectLocation(): Promise<GeolocationResult | null> {
     // Browser Geolocation API (15s timeout for permission dialog)
-    this.updateDetail('Checking browser location...');
     const browser = await this.tryBrowserGeolocation();
     if (browser) {
       if (isDevMode()) console.log('[Geolocation] Browser API successful');
@@ -38,7 +31,6 @@ export class GeolocationService {
     }
 
     if (isDevMode()) console.log('[Geolocation] No location detection possible');
-    this.updateDetail('No location found');
     return null;
   }
 
@@ -71,11 +63,5 @@ export class GeolocationService {
         }
       );
     });
-  }
-
-  private updateDetail(detail: string): void {
-    if (this.onStepDetail) {
-      this.onStepDetail(detail);
-    }
   }
 }
