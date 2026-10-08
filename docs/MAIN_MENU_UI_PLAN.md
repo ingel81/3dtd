@@ -90,7 +90,8 @@ Abweichungen vom Vorschlag:
    [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#header-stat-platten).
 7. **Logo** als SVG (`public/assets/images/logo/logo.svg`, vektorisiert mit `tools/logo/vectorize_logo.py`),
    `public/favicon.svg` aus derselben Form.
-8. **Kontrast:** HP-Zahl `--td-hp-text` #E36A5A, Warntext `--td-warn-text`.
+8. **Kontrast:** HP-Zahl `--td-hp-text` #E87A6A (der vorgeschlagene #E36A5A fiel in der Kontrast-Spec durch), Warntext
+   `--td-warn-text`.
 
 ## Wo es steht
 
