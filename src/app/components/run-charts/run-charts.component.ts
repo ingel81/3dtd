@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import type { PlayerWaveNumbers, WaveSeriesPoint } from '../../run-log/wave-series';
 import { formatCompact } from '../../utils/format-compact';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /** A player of the charts: their name and colour (the lane colour in coop) */
 export interface RunChartPlayer {
@@ -50,7 +49,6 @@ const DASHES: (string | null)[] = [null, '6 3', '2 2', '8 3 2 3'];
   styles: `
     :host {
       display: block;
-      ${TD_CSS_VARS}
     }
   `,
 })

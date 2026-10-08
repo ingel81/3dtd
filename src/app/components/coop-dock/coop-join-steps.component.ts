@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { CoopService } from '../../services/coop.service';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
@@ -19,11 +18,6 @@ import { joinSteps } from './coop-dock-view';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './coop-join-steps.component.html',
   styleUrl: './coop-join-steps.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class CoopJoinStepsComponent {
   readonly coop = inject(CoopService);

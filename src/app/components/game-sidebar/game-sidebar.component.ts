@@ -21,7 +21,6 @@ import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
 import { WhatsNewService } from '../../services/onboarding/whats-new.service';
 import { MainMenuService } from '../main-menu/main-menu.service';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { OnboardingService } from '../../services/onboarding/onboarding.service';
 import { TdIconComponent } from '../icon/icon.component';
@@ -57,7 +56,6 @@ import { UIStore } from '../../store/ui.store';
   styles: `
     :host {
       display: contents;
-      ${TD_CSS_VARS}
     }
   `,
 })

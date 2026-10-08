@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { BossIntroService } from '../../services/boss-intro.service';
 import { BOSS_INTRO_TIMING } from '../../utils/boss-intro';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /**
  * What the boss intro puts over the canvas (BossIntroService): a dark veil
@@ -39,7 +38,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
   `,
   styles: [`
     :host {
-      ${TD_CSS_VARS}
       position: absolute;
       inset: 0;
       z-index: 25;

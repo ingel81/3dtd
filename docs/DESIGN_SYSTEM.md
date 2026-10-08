@@ -14,7 +14,7 @@ Was der Look nicht hat: Glow, Verläufe als Fläche über ganze Bereiche, Emoji,
 
 **Pfad:** `src/app/styles/td-theme.ts`. `TD_THEME` (Farben), `TD_FONTS`, `TD_TYPE`, `TD_SPACE`, `TD_SHAPE`, `TD_MOTION`, `TD_SHADOWS`, `TD_LAYOUT`, `TD_LAYERS`; daraus der String `TD_CSS_VARS` mit allen `--td-*`.
 
-`installThemeVars(document)` in `main.ts` setzt `TD_CSS_VARS` vor dem Bootstrap einmal als `:root`-Regel (ein `<style id="td-theme-vars">` im Kopf). So sehen auch Overlays außerhalb des Komponentenbaums (`.cdk-overlay-container`: Dialoge, Tooltips) dieselben Werte; `src/styles.scss` liest sie nur. Neue Komponenten setzen `TD_CSS_VARS` nicht mehr auf `:host`. Ältere tun es noch; das ist doppelt, aber gleichwertig, und fällt beim Anfassen der Datei weg.
+`installThemeVars(document)` in `main.ts` setzt `TD_CSS_VARS` vor dem Bootstrap einmal als `:root`-Regel (ein `<style id="td-theme-vars">` im Kopf). So sehen auch Overlays außerhalb des Komponentenbaums (`.cdk-overlay-container`: Dialoge, Tooltips) dieselben Werte; `src/styles.scss` liest sie nur. Das ist die einzige Quelle: keine Komponente setzt `TD_CSS_VARS` auf `:host`. Eine Komponente setzt dort nur eigene Größen (z. B. `--td-hud-stats-width` im Header). Specs brauchen die Tokens nicht, jsdom rechnet `var()` nicht aus.
 
 Kontrast prüft `td-theme.contrast.spec.ts` aus `TD_THEME`: Text auf jeder Fläche 4,5:1, Fokus, Warnstreifen und stille Icons 3:1. Fällt ein Token durch, wird er in `td-theme.ts` geändert.
 
@@ -131,7 +131,7 @@ Debug-Farben (`--td-event-vfx`, `--td-event-audio`, `--td-perf-critical`, `--td-
 
 `ui.classes` gibt `.dlg`, `.dlg-head`, `.dlg-title`, `.dlg-body`, `.dlg-foot`, `.btn-primary`, `.btn-secondary`, `.btn-danger`, `.btn-ghost`, `.btn-done`, `.btn-xs`, `.icon-btn` (`.sm`, `.big`), `.inp`, `.seg` (Wahl `.is-on`), `.note` (`.is-warn`, `.is-error`, `.is-ok`), `.banner`, `.spin`, `.section-label`, `.link`, `kbd`, `.sr-only`.
 
-Die älteren Rezepte in `_td-mixins.scss` (`gold-button`, `teal-button`, `frame-button`, `bevel-glass`) nutzen Sidebar und HUD noch; neue Teile nehmen die Knöpfe aus `_game-ui`.
+Knöpfe und Glas kommen nur aus `_game-ui`; `_td-mixins.scss` hält noch `sunken`, `keycap`, `section-label`, `sr-only`, `focus-ring` und die Scrollbar (über `@forward` auch als `ui.*` erreichbar).
 
 ### Dialoge
 
@@ -211,7 +211,7 @@ Effekte, Anzeige und Lautstärken stehen nur noch auf der Seite Settings des Men
 
 Die Quick Actions reichen vertikal von unterhalb des Kompasses (`top: 112px`) bis 36px über der Unterkante (`bottom: 36px`); die Buttons sitzen unten, die leere Fläche darüber ist `pointer-events: none`. Untermenüs klappen nach oben auf. Es ist immer nur eines der beiden Menüs (Layers, Dev) offen: `UIStore.openMenu` ist die einzige Quelle, `toggleMenu()` schließt beim Öffnen das andere, gespeichert wird nur das zuletzt offene (ein gespeichertes `display` oder `audio` öffnet keines mehr). Das Dev-Panel spannt die ganze Leiste und würde die anderen sonst überdecken.
 
-Das Dev-Menü (`.td-dev-menu`) ist ein Glas-Panel (Mixin `bevel-glass`) über der Leiste: genau so breit wie sie (212px), rechtsbündig, Unterkante 4px über den Buttons, außerhalb des Flusses. Innen ein Raster mit vier Spalten (`gap` 4px, `padding` 6px), gegliedert in Gruppen, deren Titel über die volle Breite laufen (8px/600, `letter-spacing: 0.16em`, `--td-text-muted`):
+Das Dev-Menü (`.td-dev-menu`) ist eine Glas-Leiste (`ui.glass-strip`) über der Leiste: genau so breit wie sie (212px), rechtsbündig, Unterkante 4px über den Buttons, außerhalb des Flusses. Innen ein Raster mit vier Spalten (`gap` 4px, `padding` 6px), gegliedert in Gruppen, deren Titel über die volle Breite laufen (8px/600, `letter-spacing: 0.16em`, `--td-text-muted`):
 
 | Gruppe | Kacheln |
 |--------|---------|
@@ -258,18 +258,15 @@ Tritt ein Boss einer Welle aus seinem Portal, schneidet die Kamera aufs Portal u
 
 ### Rezepte (Panel, Buttons, Slots)
 
-Rezepte sind Mixins, siehe [Fundament](#fundament-stylesgame-uiscss). Die älteren in `styles/_td-mixins.scss` gelten weiter, wo sie stehen:
+Rezepte sind Mixins, siehe [Fundament](#fundament-stylesgame-uiscss). Was davon in `styles/_td-mixins.scss` steht (über `@forward` auch als `ui.*`):
 
 | Mixin | Inhalt |
 |-------|--------|
 | `sunken` | Vertiefte Fläche (Slots, Inputs, Balken-Hintergrund): 1px `--td-frame-dark`, Inset-Schatten |
-| `gold-button`, `teal-button` | Verlauf mit Kanten, Text `#1A140A` bzw. `#0E1612` (Sidebar, `.td-btn`) |
-| `frame-button` | Rahmen-Knopf im Panel-Material |
-| `bevel-glass` | Glas mit Blur für Canvas-Leisten |
 | `keycap`, `section-label`, `sr-only` | Tastenkappe, Abschnittskopf in Mono-Versalien mit Linie, nur für Screenreader |
 | `scrollbar`, `webkit-scrollbar*` | Dunkle Scrollbar: `scrollbar` in die scrollende Regel, die `webkit-*` in die `::-webkit-scrollbar*`-Regeln |
 
-Die globalen Buttons `.td-btn` (`tower-defense.component.scss`, Fehler-Overlays) folgen `gold-button`. Die Sidebar-Sektionen (`.td-panel`) sind flach, ohne Rahmen (`_sidebar-panel.scss`).
+Die Sidebar-Sektionen (`.td-panel`) sind flach, ohne Rahmen (`_sidebar-panel.scss`).
 
 ### Sidebar-Panels
 
@@ -536,10 +533,9 @@ Wiederverwendbare Hinweis-Box für kontextabhängige Aktionen (z.B. Build-Modus)
   left: 50%;
   transform: translateX(-50%);
   padding: 10px 16px;
-  border-radius: 4px;
   font-family: var(--td-font-body);
 
-  /* Glas wie der Mixin bevel-glass */
+  /* Glas über der Karte, eckig */
   background: var(--td-glass-tint);
   backdrop-filter: blur(8px) saturate(1.1);
   border: 1px solid var(--td-frame-mid);
@@ -672,7 +668,7 @@ Blendet das HUD aus, die Kamera bleibt frei (Maus, WASD). Einstieg über den Kno
 - Beim Einstieg enden Build- und Platzierungsmodus, die Tower-Auswahl (Reichweite, LOS) und das offene Quick-Actions-Menü; die Veteranen-Abzeichen über den Towern sind bis zum Ausstieg aus. Im Photo Mode wählen Klicks auf die Karte nichts aus, Hover zeigt keine Reichweite, die Zifferntasten wählen keine Karte
 - O und Esc sind Hotkeys (`hotkey-map.ts`, `HotkeyService`, siehe [Tastenkürzel](#tastenkürzel)); Esc verlässt den Photo Mode vor allem anderen
 - Header und Sidebar verschwinden, der Canvas wird größer; `ThreeTilesEngine.fitToCanvas()` zieht den Zeichenpuffer nach dem nächsten Render nach. Sichtbar bleiben Canvas, Google-Logo und Kartenattribution, die Leiste und blockierende Screens (Laden, Token, Fehler, Game Over)
-- Leiste oben mittig (Glas, `bevel-glass`): "Save screenshot" und "Exit" mit `Esc`-Kappe
+- Leiste oben mittig (Glas, `ui.glass-strip`): "Save screenshot" und "Exit" mit `Esc`-Kappe
 - Screenshot: `captureFrame()` kopiert den nächsten gezeichneten Frame synchron in `RenderLoop.onNextFrameRendered()`, weil der Renderer ohne `preserveDrawingBuffer` läuft. Logos und Attribution werden ins Bild gestempelt (auf dem Schirm sind sie HTML), dazu das Zeichen des Spiels (`stampScreenshot` in `utils/screenshot.ts`) als ein Block unten rechts, rechtsbündig mit der Attributionsleiste und eine Randbreite über der unteren Zeile (Anbieter-Logos links, Leiste rechts, die höhere zählt): oben das Logo (`assets/images/logo/logo.png`) als Wasserzeichen, viermal so hoch wie die Schrift der Attribution (48 px bei 1080p) mit 60 % Deckkraft, darunter mittig `https://3dtd.sgeht.net` in 1,25-facher Schriftgröße (15 px bei 1080p, 35 px bei 1170 × 2532), 500 `--td-font-body`, `--td-text-primary` mit 90 % Deckkraft über einer Kontur in `--td-panel-shadow` mit 60 % Deckkraft, ein Fünftel der Schriftgröße breit (3 px bei 1080p). Weil der Block über der ganzen unteren Zeile steht, bleibt er auch im Hochformat frei, wo die Leiste bis zu 60 % der Breite einnimmt. In der DevWorld (keine Anbieter-Logos, keine Attribution) steht er auf dem unteren Rand; ohne geladenes Logo steht die Adresse allein rechts. Dann PNG-Download als `3dtd-<ort>-<datum>-<zeit>.png`
 - Tab bleibt in der Leiste (`cycleTab` in `utils/focus-cycle.ts`, geteilt mit dem Replay)
 

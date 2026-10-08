@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { TD_CSS_VARS } from '../styles/td-theme';
 import { BenchmarkService } from './benchmark.service';
 import { formatBenchmark, numberCells } from './benchmark-report';
 
@@ -14,11 +13,6 @@ import { formatBenchmark, numberCells } from './benchmark-report';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './benchmark-panel.component.html',
   styleUrl: './benchmark-panel.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class BenchmarkPanelComponent {
   readonly benchmark = inject(BenchmarkService);

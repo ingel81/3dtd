@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { PingBarsComponent } from '../coop-ui/ping-bars.component';
 import { CoopService } from '../../services/coop.service';
@@ -25,11 +24,6 @@ import { roomTable, type LaneRow } from './coop-dock-view';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './coop-room-table.component.html',
   styleUrl: './coop-room-table.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class CoopRoomTableComponent {
   readonly coop = inject(CoopService);

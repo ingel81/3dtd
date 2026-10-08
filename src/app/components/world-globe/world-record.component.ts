@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import type { NewRecord } from '../../services/location/best-wave.service';
 import type { BestWave } from '../../services/location/best-waves';
 import { WorldGlobeComponent } from './world-globe.component';
@@ -19,7 +18,6 @@ import { WorldGlobeComponent } from './world-globe.component';
   styles: `
     :host {
       display: block;
-      ${TD_CSS_VARS}
     }
   `,
 })

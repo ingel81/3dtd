@@ -17,7 +17,6 @@ import {
   DEBUG_PANEL_MIN_SIZE,
   clampPanelSize,
 } from '../../services/debug/debug-window.service';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 
 /**
@@ -33,9 +32,6 @@ import { TdIconComponent } from '../icon/icon.component';
   templateUrl: './draggable-debug-panel.component.html',
   styleUrl: './draggable-debug-panel.component.scss',
   styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
 
     .debug-panel {
       min-width: ${DEBUG_PANEL_MIN_SIZE.width}px;

@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { CoopService } from '../../services/coop.service';
 import { chatView } from '../coop-ui/chat-view';
@@ -16,11 +15,6 @@ import { chatView } from '../coop-ui/chat-view';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './coop-lobby-chat.component.html',
   styleUrl: './coop-lobby-chat.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class CoopLobbyChatComponent {
   readonly coop = inject(CoopService);

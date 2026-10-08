@@ -2,7 +2,6 @@ import { Component, computed, inject, ChangeDetectionStrategy } from '@angular/c
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { GameStore } from '../../store/game.store';
 import { GAME_SPEEDS } from '../../configs/game-speed.config';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { COOP } from '../../services/coop.token';
 
@@ -50,7 +49,6 @@ import { COOP } from '../../services/coop.token';
       flex-direction: column;
       align-items: center;
       gap: 6px;
-      ${TD_CSS_VARS}
     }
     .speed-group {
       display: flex;

@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TowerControlService } from '../../services/tower-control.service';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /**
  * What the player sees in a manned tower (TowerControlService,
@@ -46,7 +45,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
   `,
   styles: [`
     :host {
-      ${TD_CSS_VARS}
       position: absolute;
       inset: 0;
       pointer-events: none;

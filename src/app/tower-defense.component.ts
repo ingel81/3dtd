@@ -88,7 +88,6 @@ import { RouteGridVizService } from './services/world/route-grid-viz.service';
 import { ThreeTilesEngine } from './three-engine';
 import { Vector3 } from 'three';
 // Theme
-import { TD_CSS_VARS } from './styles/td-theme';
 // Tower config
 import { TOWER_TYPES, getAllTowerTypes, TowerTypeId, UpgradeId, TargetingStrategy, AirSubStrategy } from './configs/tower-types.config';
 import { Tower } from './entities/tower.entity';
@@ -233,7 +232,6 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
   styles: [`
     :host {
       display: contents;
-      ${TD_CSS_VARS}
     }
   `],
 })

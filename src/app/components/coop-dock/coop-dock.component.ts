@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { CoopJoinStepsComponent } from './coop-join-steps.component';
 import { CoopRoomTableComponent } from './coop-room-table.component';
@@ -53,11 +52,6 @@ const COPIED_MS = 1200;
   },
   templateUrl: './coop-dock.component.html',
   styleUrl: './coop-dock.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class CoopDockComponent {
   readonly coop = inject(CoopService);

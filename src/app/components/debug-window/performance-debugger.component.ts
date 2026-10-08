@@ -2,7 +2,6 @@ import { Component, inject, signal, OnDestroy, ChangeDetectionStrategy, NgZone }
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { PerformanceProfilerService, PerformanceStats } from '../../services/debug/performance-profiler.service';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /** How often the panel takes a window of numbers, ms: long enough for steady means */
 const REFRESH_MS = 500;
@@ -14,11 +13,6 @@ const REFRESH_MS = 500;
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './performance-debugger.component.html',
   styleUrl: './performance-debugger.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class PerformanceDebuggerComponent implements OnDestroy {
   readonly windowService = inject(DebugWindowService);

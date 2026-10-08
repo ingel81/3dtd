@@ -7,7 +7,6 @@ import { CellReportService } from '../../services/debug/cell-report.service';
 import { CorridorSnapshotService } from '../../services/debug/corridor-snapshot.service';
 import { UIStore } from '../../store/ui.store';
 import { DevWorldService } from '../../devworld/devworld.service';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
@@ -17,11 +16,6 @@ import { TdIconComponent } from '../icon/icon.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './quick-actions.component.html',
   styleUrl: './quick-actions.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class QuickActionsComponent {
   readonly debugWindows = inject(DebugWindowService);

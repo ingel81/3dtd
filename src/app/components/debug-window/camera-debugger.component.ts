@@ -3,7 +3,6 @@ import { CommonModule, DecimalPipe } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { CameraControlService, CameraDebugInfo } from '../../services/camera-control.service';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 
 @Component({
   selector: 'app-camera-debugger',
@@ -12,11 +11,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './camera-debugger.component.html',
   styleUrl: './camera-debugger.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class CameraDebuggerComponent implements OnDestroy {
   readonly windowService = inject(DebugWindowService);

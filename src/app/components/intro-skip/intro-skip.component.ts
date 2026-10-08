@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { IntroCameraFlightService } from '../../services/world/intro-camera-flight.service';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /**
  * Skip control for the intro camera flight.
@@ -27,7 +26,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
      * the sidebar.
      */
     :host {
-      ${TD_CSS_VARS}
       display: block;
       /* Clickable, so above the band of the off-screen arrows */
       margin-bottom: 36px;

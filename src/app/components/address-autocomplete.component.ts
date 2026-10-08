@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { GeocodingService, GeocodingResult, NominatimAddress } from '../services/location/geocoding.service';
-import { TD_CSS_VARS } from '../styles/td-theme';
 import { TdIconComponent } from './icon/icon.component';
 
 type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results' | 'error' | 'selected';
@@ -15,11 +14,6 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './address-autocomplete.component.html',
   styleUrl: './address-autocomplete.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class AddressAutocompleteComponent {
   @ViewChild('inputElement') inputElement!: ElementRef<HTMLInputElement>;

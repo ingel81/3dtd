@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /** Four bars below these round trips, three, two, else one (docs/COOP_PLAN.md, C8), ms */
 const BAR_LIMITS_MS = [40, 90, 160];
@@ -38,7 +37,6 @@ export function pingBarCount(ms: number | null): number {
       align-items: center;
       gap: 6px;
       min-width: 66px;
-      ${TD_CSS_VARS}
     }
     .bars {
       display: flex;

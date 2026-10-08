@@ -3,7 +3,6 @@ import { MapPlacementService } from '../../services/world/map-placement.service'
 import { PathAndRouteService } from '../../services/world/path-route.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { laneStats } from '../../coop/lane-stats';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { laneLengthRows } from './lane-length-rows';
 
 /**
@@ -18,11 +17,6 @@ import { laneLengthRows } from './lane-length-rows';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './lane-length-panel.component.html',
   styleUrl: './lane-length-panel.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class LaneLengthPanelComponent {
   private readonly placement = inject(MapPlacementService);

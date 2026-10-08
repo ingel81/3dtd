@@ -17,7 +17,6 @@ import { TemplatePortal } from '@angular/cdk/portal';
 import { TdIconComponent } from '../icon/icon.component';
 import { readDesktopBridge, type DesktopUpdate } from '../../core/desktop-bridge';
 import { parseReleaseBody } from '../../utils/changelog';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /** Items of the release notes the hint lists; the rest shows in "What's new" after the restart. */
 const NOTE_ITEMS = 3;
@@ -47,7 +46,6 @@ const NOTE_ITEMS = 3;
   // In the overlay the chip is outside the game's host, so it brings the theme along
   styles: `
     .uh {
-      ${TD_CSS_VARS}
     }
   `,
 })

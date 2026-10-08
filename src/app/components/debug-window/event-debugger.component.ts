@@ -13,7 +13,6 @@ import { DraggableDebugPanelComponent } from './draggable-debug-panel.component'
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { EventSubscription } from '../../game-engine/game-event-bus';
 import type { MainEventBus, ViewEvent } from '../../sim/client/view-events';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 
 interface EventLogEntry {
@@ -42,11 +41,6 @@ const MAX_LOG_ENTRIES = 100;
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './event-debugger.component.html',
   styleUrl: './event-debugger.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class EventDebuggerComponent implements OnDestroy {
   readonly windowService = inject(DebugWindowService);

@@ -4,7 +4,6 @@ import { DraggableDebugPanelComponent } from './draggable-debug-panel.component'
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { TowerDebugService } from '../../services/debug/tower-debug.service';
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
@@ -14,11 +13,6 @@ import { TdIconComponent } from '../icon/icon.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-debugger.component.html',
   styleUrl: './tower-debugger.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class TowerDebuggerComponent {
   readonly windowService = inject(DebugWindowService);

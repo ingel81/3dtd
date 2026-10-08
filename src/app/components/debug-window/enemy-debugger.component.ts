@@ -5,7 +5,6 @@ import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { EnemyDebugService } from '../../services/debug/enemy-debug.service';
 import { WaveDebugService } from '../../services/debug/wave-debug.service';
 import { ENEMY_TYPES, EnemyTypeId } from '../../configs/enemy-types.config';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
@@ -15,11 +14,6 @@ import { TdIconComponent } from '../icon/icon.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './enemy-debugger.component.html',
   styleUrl: './enemy-debugger.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class EnemyDebuggerComponent {
   readonly windowService = inject(DebugWindowService);

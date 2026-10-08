@@ -1,6 +1,5 @@
 import { Component, ChangeDetectionStrategy, input, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdTooltipAccent, TdTooltipData, TdTooltipTargeting } from './tooltip-data.types';
 import { TdIconComponent, TdIconName } from '../icon/icon.component';
 import { targetingLabel } from './tooltip-text';
@@ -28,11 +27,6 @@ const ACCENT_COLOR_MAP: Record<TdTooltipAccent, string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './td-tooltip-content.component.html',
   styleUrl: './td-tooltip-content.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class TdTooltipContentComponent {
   readonly data = input.required<TdTooltipData>();

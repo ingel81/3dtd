@@ -1,6 +1,5 @@
 import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent, type TdIconName } from '../icon/icon.component';
 
 /**
@@ -51,11 +50,6 @@ const MOUSE_ICON: Readonly<Record<string, TdIconName>> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './context-hint.component.html',
   styleUrl: './context-hint.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class ContextHintComponent {
   /** The mouse icon for a hint key, or null for a keyboard key. */

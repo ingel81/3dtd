@@ -2,7 +2,6 @@ import { Component, inject, signal, computed, output, effect, ChangeDetectionStr
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { DebugFacadeService } from '../../services/debug/debug-facade.service';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { ColorGradingPreset, COLOR_GRADING_PRESETS } from '../../three-engine/post-processing/color-grading';
 import { loadDisplayOptions, persistDisplayOptions } from '../../utils/display-options.storage';
 
@@ -13,11 +12,6 @@ import { loadDisplayOptions, persistDisplayOptions } from '../../utils/display-o
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './display-options.component.html',
   styleUrl: './display-options.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class DisplayOptionsComponent {
   readonly windowService = inject(DebugWindowService);

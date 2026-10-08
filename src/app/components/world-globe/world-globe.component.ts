@@ -14,7 +14,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { TD_CSS_VARS, TD_FONTS, TD_THEME } from '../../styles/td-theme';
+import { TD_FONTS, TD_THEME } from '../../styles/td-theme';
 import { BestWave, byBestWave } from '../../services/location/best-waves';
 import { isSamePlace } from '../../services/location/recent-locations';
 import { BORDERS, COASTLINES, OUTLINE_FACTOR } from './world-outlines.data';
@@ -90,7 +90,6 @@ export interface GlobeHover {
   styles: `
     :host {
       display: block;
-      ${TD_CSS_VARS}
     }
   `,
 })

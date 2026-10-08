@@ -12,7 +12,6 @@ import {
 } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { UIStore } from '../../store/ui.store';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { observeBottomEdge } from './bottom-edge';
 import { SimMeterService, speedShort } from '../../services/debug/sim-meter.service';
@@ -61,11 +60,6 @@ const LOAD_SCALE = { top: 1, bad: [0.9, 1] } as const;
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './info-overlay.component.html',
   styleUrl: './info-overlay.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class InfoOverlayComponent {
   readonly uiStore = inject(UIStore);

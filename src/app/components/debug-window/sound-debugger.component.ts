@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { SoundDebugService } from '../../services/debug/sound-debug.service';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
@@ -13,11 +12,6 @@ import { TdIconComponent } from '../icon/icon.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sound-debugger.component.html',
   styleUrl: './sound-debugger.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class SoundDebuggerComponent {
   readonly windowService = inject(DebugWindowService);

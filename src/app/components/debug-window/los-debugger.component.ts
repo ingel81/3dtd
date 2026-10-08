@@ -16,7 +16,6 @@ import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { LosDebugService, HoveredPixelState } from '../../services/debug/los-debug.service';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { FACE_LABELS, FACE_CROSS_LAYOUT } from '../../utils/los-debug-pixel-math';
 import { getAirTargetY, getGroundTargetY } from '../../utils/route-cell';
 
@@ -48,9 +47,6 @@ const ZOOM_CANVAS_PX = 144;
   templateUrl: './los-debugger.component.html',
   styleUrl: './los-debugger.component.scss',
   styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
 
     .zoom-canvas {
       width: ${ZOOM_CANVAS_PX}px;

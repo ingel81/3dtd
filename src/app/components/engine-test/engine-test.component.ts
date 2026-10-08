@@ -2,7 +2,6 @@ import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStr
 import { CommonModule } from '@angular/common';
 import { Scene, PerspectiveCamera, WebGLRenderer, Color, PointsMaterial, Points, BufferGeometry, BufferAttribute, Vector3, GridHelper, AxesHelper, AdditiveBlending, NormalBlending, ShaderMaterial } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /**
  * Engine Test Component - Sandbox for testing Three.js features
@@ -65,7 +64,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     </div>
   `,
   styles: [`
-    :host { ${TD_CSS_VARS} }
     .engine-test-container {
       display: flex;
       width: 100vw;

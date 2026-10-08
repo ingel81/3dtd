@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, NgZone, inject, signal } from '@angular/core';
 import { Vector3 } from 'three';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import type { ThreeTilesEngine } from '../../three-engine';
 import { CameraControlService } from '../../services/camera-control.service';
@@ -52,7 +51,6 @@ interface PingArrow {
       position: absolute;
       inset: 0;
       pointer-events: none;
-      ${TD_CSS_VARS}
       z-index: var(--td-z-marks);
     }
     .arrow {

@@ -4,7 +4,6 @@ import { DraggableDebugPanelComponent } from './draggable-debug-panel.component'
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { WaveDebugService } from '../../services/debug/wave-debug.service';
 import type { MainEventBus } from '../../sim/client/view-events';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { EnemyTypeId } from '../../configs/enemy-types.config';
 import { waveRules } from '../../director/wave-rules';
 import { SpawnPattern } from '../../director/spawn-schedule-builder';
@@ -45,11 +44,6 @@ const MAX_JUMP_WAVE = 999;
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wave-debugger.component.html',
   styleUrl: './wave-debugger.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class WaveDebuggerComponent {
   readonly windowService = inject(DebugWindowService);

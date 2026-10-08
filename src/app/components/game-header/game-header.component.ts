@@ -16,7 +16,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TD_CSS_VARS, TD_THEME } from '../../styles/td-theme';
+import { TD_THEME } from '../../styles/td-theme';
 import { FavoriteLocation } from '../../models/location.types';
 import { LOADING_NAME, NO_LOCATION_NAME } from '../../services/location/location-management.service';
 import { FAVORITE_NAME_MAX_LENGTH } from '../../services/location/favorite-locations';
@@ -75,11 +75,6 @@ function prefersReducedMotion(): boolean {
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './game-header.component.html',
   styleUrl: './game-header.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class GameHeaderComponent {
   private readonly elementRef = inject(ElementRef);

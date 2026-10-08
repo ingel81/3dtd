@@ -2,7 +2,6 @@ import { Component, ChangeDetectionStrategy, inject, output, input } from '@angu
 import { CommonModule } from '@angular/common';
 import { DevWorldService } from './devworld.service';
 import { TerrainPreset } from './terrain-presets';
-import { TD_CSS_VARS } from '../styles/td-theme';
 import { TdIconComponent } from '../components/icon/icon.component';
 
 /**
@@ -29,11 +28,6 @@ const TERRAIN_CATEGORIES: { name: string; presets: TerrainPreset[] }[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './devworld-debug-panel.component.html',
   styleUrl: './devworld-debug-panel.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class DevWorldDebugPanelComponent {
   readonly devWorld = inject(DevWorldService);

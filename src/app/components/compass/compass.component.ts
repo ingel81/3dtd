@@ -1,6 +1,5 @@
 import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 
 interface Tick {
@@ -27,11 +26,6 @@ interface Tick {
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './compass.component.html',
   styleUrl: './compass.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class CompassComponent {
   /** Map bearing in degrees. Whole face rotates so N points actual north. */

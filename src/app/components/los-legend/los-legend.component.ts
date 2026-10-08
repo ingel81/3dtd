@@ -1,6 +1,5 @@
 import { Component, computed, inject, input, ChangeDetectionStrategy } from '@angular/core';
 import { UIStore } from '../../store/ui.store';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { buildLosLegendEntries, LosLegendEntry } from './los-legend-entries';
 
 /**
@@ -17,11 +16,6 @@ import { buildLosLegendEntries, LosLegendEntry } from './los-legend-entries';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './los-legend.component.html',
   styleUrl: './los-legend.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class LosLegendComponent {
   private readonly uiStore = inject(UIStore);

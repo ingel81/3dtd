@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, Injector, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { PingBarsComponent } from '../coop-ui/ping-bars.component';
 import { ABILITY_BAR_EDGE_PX, ABILITY_BAR_PX } from '../ability-bar/ability-button';
@@ -38,11 +37,6 @@ const KICK_ARM_MS = 3000;
   host: { '[style.left.px]': 'left' },
   templateUrl: './coop-squad.component.html',
   styleUrl: './coop-squad.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class CoopSquadComponent {
   readonly coop = inject(CoopService);
