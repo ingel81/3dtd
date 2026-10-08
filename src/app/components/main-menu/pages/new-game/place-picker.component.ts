@@ -104,6 +104,11 @@ export class PlacePickerComponent {
   /** Defended places, highest wave first; the globe turns to the row under the pointer or the focus */
   readonly worldRecords = computed(() => [...this.bestWaves.records()].sort(byBestWave));
   readonly worldHover = signal<BestWave | null>(null);
+  /** The place loaded, for the globe: grey ring, not clickable */
+  readonly worldCurrent = computed(() => {
+    const current = this.current();
+    return current ? { lat: current.lat, lon: current.lon } : null;
+  });
 
   /** Moving only the spawn of the place loaded, by address */
   readonly movingSpawn = signal(false);

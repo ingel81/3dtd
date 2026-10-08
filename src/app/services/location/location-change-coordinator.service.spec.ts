@@ -1,19 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
-import { Subject } from 'rxjs';
-
-// The real dialog and material modules are partially compiled and need the JIT
-// compiler; the coordinator only uses them as DI token and dialog type.
-vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
-// With `fails` set, the dialog's lazy chunk does not load.
-const chunk = vi.hoisted(() => ({ fails: false, component: class LocationDialogComponent {} }));
-vi.mock('../../components/location-dialog/location-dialog.component', () => ({
-  get LocationDialogComponent() {
-    if (chunk.fails) throw new TypeError('Failed to fetch dynamically imported module');
-    return chunk.component;
-  },
-}));
 
 import { LocationChangeCoordinatorService, LocationFlowDelegate, streetsFailedText } from './location-change-coordinator.service';
 import {
@@ -38,20 +24,15 @@ import { UIStore, type UiNotice } from '../../store/ui.store';
 import { MainWorldService } from '../world/main-world.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
-import { LocationDialogComponent } from '../../components/location-dialog/location-dialog.component';
-import {
-  LOCATION_DIALOG_LOAD_FAILED,
-  LOCATION_DIALOG_OPEN_FAILED,
-  LocationDialogLoadError,
-} from '../../components/location-dialog/open-location-dialog';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import { canonicalCoords } from '../../utils/geo-utils';
-import type { FavoriteLocation, LocationDialogResult } from '../../models/location.types';
+import type { FavoriteLocation } from '../../models/location.types';
+import { storedPlace } from './place-choice';
 import type { StreetNetwork } from './osm-street.service';
 
 /**
  * The coordinator runs the 7-step location change and the location UI flows
- * (dialog, favorites, world dice, share). These tests pin what each step does
+ * (the place chosen in the menu, favorites, world dice, share). These tests pin what each step does
  * to its collaborators, the order the loading steps are reported in, and how
  * a failure unwinds the loading flags.
  */
@@ -139,11 +120,9 @@ describe('LocationChangeCoordinatorService', () => {
   let callbacks: ReturnType<typeof makeCallbacks>;
   let ctx: LocationChangeContext;
   let delegate: LocationFlowDelegate & { getChangeContext: ReturnType<typeof vi.fn> };
-  let dialogClosed: Subject<LocationDialogResult | null>;
   let cachedPaths: Map<string, unknown[]>;
   let state: { spawnPoints: { id: string; name: string; lat: number; lon: number; color: number }[] };
 
-  const dialog = { open: vi.fn() };
   const osm = { loadStreets: vi.fn(), prefetchStreets: vi.fn(), findRandomStreetPoint: vi.fn() };
   const heightUpdate = { heightsLoading: signal(false), stopHeightUpdates: vi.fn() };
   const markerViz = { initialize: vi.fn(), placeSpawnPortal: vi.fn(), addBaseMarker: vi.fn() };
@@ -184,9 +163,6 @@ describe('LocationChangeCoordinatorService', () => {
     state = { spawnPoints: [] };
     callbacks = makeCallbacks(state);
     cachedPaths = new Map([['spawn-1', [HQ, SPAWN]]]);
-    dialogClosed = new Subject();
-    dialog.open.mockReturnValue({ afterClosed: () => dialogClosed.asObservable() });
-    chunk.fails = false;
     osm.loadStreets.mockResolvedValue(network());
     osm.findRandomStreetPoint.mockReturnValue(null);
     worldDice.onStepDetail = null;
@@ -204,13 +180,11 @@ describe('LocationChangeCoordinatorService', () => {
     delegate = {
       getChangeContext: vi.fn(() => ctx),
       getChangeCallbacks: () => callbacks,
-      isGameInProgress: () => true,
       getCurrentLocationName: () => 'Stuttgart',
     };
 
     const injector = Injector.create({
       providers: [
-        { provide: MatDialog, useValue: dialog },
         { provide: EngineInitializationService, useValue: engineInit },
         { provide: OsmStreetService, useValue: osm },
         { provide: HeightUpdateService, useValue: heightUpdate },
@@ -539,70 +513,18 @@ describe('LocationChangeCoordinatorService', () => {
     });
   });
 
-  describe('openLocationDialog', () => {
-    it('does not open without a delegate', async () => {
-      await coordinator.openLocationDialog();
-      expect(dialog.open).not.toHaveBeenCalled();
+  describe('choosePlace', () => {
+    it('does nothing without a delegate', async () => {
+      expect(await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'HQ' }, spawn: null })).toBe(false);
+      expect(engine.setOrigin).not.toHaveBeenCalled();
     });
 
-    it('opens the dialog with the current HQ, spawn and game state', async () => {
-      locationMgmt.editableHqLocation.set({ ...HQ, name: 'Schlossplatz' });
-      locationMgmt.editableSpawnLocations.set([{ id: 's1', ...SPAWN, name: 'Spawn A' }]);
+    it('does nothing for a coop guest whose map the host sets', async () => {
+      uiStore.coopMapLocked.set(true);
       coordinator.initializeFlow(delegate);
-
-      await coordinator.openLocationDialog();
-
-      expect(dialog.open).toHaveBeenCalledWith(LocationDialogComponent, {
-        data: {
-          currentLocation: { ...HQ, name: 'Stuttgart', displayName: 'Schlossplatz' },
-          currentSpawn: { id: 's1', ...SPAWN, name: 'Spawn A' },
-          isGameInProgress: true,
-        },
-        autoFocus: 'input',
-        panelClass: 'td-dialog-panel',
-        disableClose: false,
-      });
-    });
-
-    it('opens on the tab it is asked for, and on the default tab otherwise', async () => {
-      coordinator.initializeFlow(delegate);
-      await coordinator.openLocationDialog('world');
-      await coordinator.openLocationDialog();
-      expect(dialog.open.mock.calls[0][1].data.initialMode).toBe('world');
-      expect(dialog.open.mock.calls[1][1].data).not.toHaveProperty('initialMode');
-    });
-
-    it('passes null locations when none is set yet', async () => {
-      coordinator.initializeFlow(delegate);
-      await coordinator.openLocationDialog();
-      const { data } = dialog.open.mock.calls[0][1];
-      expect(data.currentLocation).toBeNull();
-      expect(data.currentSpawn).toBeNull();
-    });
-
-    it('says so over the game when the dialog does not load', async () => {
-      chunk.fails = true;
-      coordinator.initializeFlow(delegate);
-
-      await coordinator.openLocationDialog();
-
-      expect(console.error).toHaveBeenCalledWith(
-        '[LocationCoordinator] Location dialog did not load:', expect.any(LocationDialogLoadError),
-      );
-      expect(uiStore.notice()).toEqual({ text: LOCATION_DIALOG_LOAD_FAILED });
-      expect(engineInit.loading()).toBe(false);
-    });
-
-    it('tells a dialog that loaded but failed to open apart from one that did not load', async () => {
-      const bug = new Error('NG0201: No provider found');
-      dialog.open.mockImplementation(() => { throw bug; });
-      coordinator.initializeFlow(delegate);
-
-      await coordinator.openLocationDialog();
-
-      expect(console.error).toHaveBeenCalledWith('[LocationCoordinator] Location dialog failed to open:', bug);
-      expect(uiStore.notice()).toEqual({ text: LOCATION_DIALOG_OPEN_FAILED });
-      expect(engineInit.loading()).toBe(false);
+      expect(await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'HQ' }, spawn: null })).toBe(false);
+      expect(engine.setOrigin).not.toHaveBeenCalled();
+      uiStore.coopMapLocked.set(false);
     });
 
     it('says over the game that a world dice roll brought no city', async () => {
@@ -610,50 +532,27 @@ describe('LocationChangeCoordinatorService', () => {
       worldDice.error.set(WORLD_DICE_FAILED);
       coordinator.initializeFlow(delegate);
 
-      await coordinator.onWorldDice();
+      await coordinator.choosePlace({ kind: 'dice' });
 
       // It used to close the loading overlay without a word
       expect(uiStore.notice()).toEqual({ text: WORLD_DICE_FAILED });
       expect(engineInit.loading()).toBe(false);
     });
 
-    it('does nothing when the dialog is dismissed', async () => {
+    it('goes to a place with the chosen spawn', async () => {
       coordinator.initializeFlow(delegate);
-      await coordinator.openLocationDialog();
 
-      dialogClosed.next(null);
-      await settle();
-
-      expect(engineInit.loading()).toBe(false);
-      expect(engine.setOrigin).not.toHaveBeenCalled();
-    });
-
-    it('applies a confirmed location with the chosen spawn', async () => {
-      coordinator.initializeFlow(delegate);
-      await coordinator.openLocationDialog();
-
-      dialogClosed.next({
-        confirmed: true,
-        hq: { ...HQ, displayName: 'Schlossplatz', address: 'Stuttgart' },
-        spawn: { ...SPAWN, name: 'Königstraße', isRandom: false },
-      } as unknown as LocationDialogResult);
-      await settle();
+      await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'Schlossplatz' }, spawn: { ...SPAWN, name: 'Königstraße' } });
 
       expect(osm.findRandomStreetPoint).not.toHaveBeenCalled();
       expect(engine.setOrigin).toHaveBeenCalledWith(HQ.lat, HQ.lon);
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Königstraße', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], undefined);
     });
 
-    it('carries a portal bearing the dialog result brought along (a showcase spawn with one)', async () => {
+    it('carries a portal bearing the choice brought along (a showcase spawn with one)', async () => {
       coordinator.initializeFlow(delegate);
-      await coordinator.openLocationDialog();
 
-      dialogClosed.next({
-        confirmed: true,
-        hq: { ...HQ, displayName: 'Rio de Janeiro' },
-        spawn: { ...SPAWN, name: 'Spawn', isRandom: false, portalBearing: 187.5 },
-      } as unknown as LocationDialogResult);
-      await settle();
+      await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'Rio de Janeiro' }, spawn: { ...SPAWN, name: 'Spawn', portalBearing: 187.5 } });
 
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], 187.5);
     });
@@ -663,14 +562,8 @@ describe('LocationChangeCoordinatorService', () => {
       osm.loadStreets.mockResolvedValue(loaded);
       osm.findRandomStreetPoint.mockReturnValue({ lat: 48.781, lon: 9.191, distance: 742.4, streetName: 'Hauptstätter Str.' });
       coordinator.initializeFlow(delegate);
-      await coordinator.openLocationDialog();
 
-      dialogClosed.next({
-        confirmed: true,
-        hq: { ...HQ, displayName: 'HQ' },
-        spawn: { lat: 0, lon: 0, name: '', isRandom: true },
-      } as unknown as LocationDialogResult);
-      await settle();
+      await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'HQ' }, spawn: null });
 
       expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(loaded, HQ.lat, HQ.lon, 500, 1000);
       expect(callbacks.setStreetNetwork).toHaveBeenCalledWith(loaded);
@@ -681,19 +574,57 @@ describe('LocationChangeCoordinatorService', () => {
 
     it('falls back to a spawn about 700 m north when no street point is found', async () => {
       coordinator.initializeFlow(delegate);
-      await coordinator.openLocationDialog();
 
-      dialogClosed.next({
-        confirmed: true,
-        hq: { ...HQ, displayName: 'HQ' },
-        spawn: { lat: 0, lon: 0, name: '', isRandom: true },
-      } as unknown as LocationDialogResult);
-      await settle();
+      await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'HQ' }, spawn: null });
 
       expect(callbacks.appendDebugLog).toHaveBeenCalledWith('No valid spawn found, using fallback');
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith(
         'spawn-1', 'Fallback Spawn', HQ.lat + 0.0063, HQ.lon, SPAWN_COLORS[0], undefined,
       );
+    });
+
+    it('loads a stored place with every spawn, as a favourite does', async () => {
+      coordinator.initializeFlow(delegate);
+
+      await coordinator.choosePlace(storedPlace(HQ, [{ ...SPAWN, portalBearing: 90 }]));
+
+      expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [{ ...SPAWN, portalBearing: 90 }]);
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], 90);
+    });
+
+    it('hands the choice to a start that waits for one, and goes nowhere itself', async () => {
+      coordinator.initializeFlow(delegate);
+      const waiting = coordinator.waitForStartChoice();
+      expect(coordinator.awaitingStartChoice()).toBe(true);
+
+      expect(await coordinator.choosePlace(storedPlace(HQ, [SPAWN]))).toBe(true);
+
+      await expect(waiting).resolves.toEqual(storedPlace(HQ, [SPAWN]));
+      expect(coordinator.awaitingStartChoice()).toBe(false);
+      expect(engine.setOrigin).not.toHaveBeenCalled();
+    });
+
+    it('rolls the dice for a waiting start: the city with a random spawn, or a notice and the start waits on', async () => {
+      worldDice.rollRandomCity.mockResolvedValueOnce(null);
+      const waiting = coordinator.waitForStartChoice();
+      expect(await coordinator.choosePlace({ kind: 'dice' })).toBe(false);
+      expect(uiStore.notice()).toEqual({ text: WORLD_DICE_FAILED });
+      expect(coordinator.awaitingStartChoice()).toBe(true);
+
+      worldDice.rollRandomCity.mockResolvedValueOnce({ name: 'Lyon', country: 'France', lat: 45.76, lon: 4.84 });
+      expect(await coordinator.choosePlace({ kind: 'dice' })).toBe(true);
+      await expect(waiting).resolves.toEqual({ kind: 'place', hq: { lat: 45.76, lon: 4.84, name: 'Lyon, France' }, spawn: null });
+    });
+
+    it('a start that gave up takes no choice', async () => {
+      coordinator.initializeFlow(delegate);
+      void coordinator.waitForStartChoice();
+      coordinator.cancelStartChoice();
+      expect(coordinator.awaitingStartChoice()).toBe(false);
+
+      await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'HQ' }, spawn: { ...SPAWN, name: 'S' } });
+      // No start waits: the choice goes to the place in this page
+      expect(engine.setOrigin).toHaveBeenCalledWith(HQ.lat, HQ.lon);
     });
   });
 

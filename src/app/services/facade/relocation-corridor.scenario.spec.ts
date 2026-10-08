@@ -21,11 +21,6 @@ vi.mock('@angular/core', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('@angular/core');
   return { ...actual, inject: (token: { name?: string }) => di.stubs[token?.name ?? ''] ?? {} };
 });
-// The coordinator pulls in the dialog and material modules; not used here.
-vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
-vi.mock('../../components/location-dialog/location-dialog.component', () => ({
-  LocationDialogComponent: class LocationDialogComponent {},
-}));
 
 import { signal } from '@angular/core';
 import { MapRelocationService, type RelocationHost } from './map-relocation.service';

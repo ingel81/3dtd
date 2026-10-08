@@ -21,7 +21,6 @@ import { AUTOSAVE_SLOT, SAVE_GAME, type LoadResult } from '../../services/save-g
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { ReplayService } from '../../services/replay.service';
 import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-facade.service';
-import { LocationChangeCoordinatorService } from '../../services/location/location-change-coordinator.service';
 import { loadSlotRows, saveSlotRows } from './save-slots';
 import { shortPlaceName } from '../../services/save-game/slot-name';
 
@@ -95,7 +94,6 @@ export class GameMenuComponent {
   private readonly debugFacade = inject(DebugFacadeService);
   readonly saves = inject(SAVE_GAME);
   private readonly runLog = inject(RunLogFacade);
-  private readonly location = inject(LocationChangeCoordinatorService);
   /** The game component's; the menu opened elsewhere has none of these */
   private readonly benchmark = inject(BenchmarkService, { optional: true });
   private readonly replay = inject(ReplayService, { optional: true });
@@ -125,9 +123,9 @@ export class GameMenuComponent {
   readonly canRestart = computed(() => this.facade !== null && !this.inCoop());
 
   /**
-   * The location dialog opens only where the place is the player's: not in
-   * a coop game, and not for a guest in a room's lobby, whose map the host
-   * sets (UIStore.coopMapLocked; openLocationDialog would do nothing)
+   * Another place only where the place is the player's: not in a coop
+   * game, and not for a guest in a room's lobby, whose map the host sets
+   * (UIStore.coopMapLocked)
    */
   readonly canChangeLocation = computed(() => !this.inCoop() && !this.ui.coopMapLocked());
 
@@ -421,10 +419,10 @@ export class GameMenuComponent {
     this.close();
   }
 
-  /** Another place: the location dialog; the run ends only when a new place is confirmed there */
+  /** Another place: the main menu's New game page; the run ends only when a new place is chosen there */
   changeLocation(): void {
     this.dialogRef.close();
-    void this.location.openLocationDialog();
+    this.ui.mainMenu.set({ open: true, layer: 'pause', page: 'new-game' });
   }
 
   /** Straight out when nothing is at stake, otherwise ask first */

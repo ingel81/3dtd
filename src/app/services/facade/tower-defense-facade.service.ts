@@ -248,7 +248,7 @@ export class TowerDefenseFacadeService {
     BackgroundMusicService.playMainTheme(this.uiStore.effectiveMusicVolume());
 
     // Location detection (delegated to LocationFacade). Without a location
-    // (component gone, location dialog did not load) there is nothing to start.
+    // (component gone before a place was chosen) there is nothing to start.
     if (!(await this.locationFacade.initializeLocation())) return;
 
     // Engine initialization

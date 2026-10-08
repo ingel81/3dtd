@@ -1,6 +1,4 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
-import { take } from 'rxjs';
 import { OsmStreetService, STREET_RADIUS_M } from './osm-street.service';
 import type { StreetNetwork } from '../../interfaces/street-network-provider.interface';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
@@ -8,21 +6,9 @@ import { HeightUpdateService } from '../world/height-update.service';
 import { LocationManagementService } from './location-management.service';
 import { UrlLocationService } from './url-location.service';
 import { WORLD_DICE_FAILED, WorldDiceService } from './world-dice.service';
-import {
-  LOCATION_DIALOG_LOAD_FAILED,
-  LOCATION_DIALOG_OPEN_FAILED,
-  LocationDialogLoadError,
-  openLocationDialog,
-} from '../../components/location-dialog/open-location-dialog';
 import { UIStore } from '../../store/ui.store';
-import {
-  LocationDialogData,
-  LocationDialogMode,
-  LocationDialogResult,
-  FavoriteLocation,
-  SavedSpawn,
-  LINKED_SPAWN_ID,
-} from '../../models/location.types';
+import { FavoriteLocation, SavedSpawn } from '../../models/location.types';
+import type { PlaceChoice, PlacedChoice } from './place-choice';
 import {
   LocationChangeExecutorService,
   LocationChangeCallbacks,
@@ -34,15 +20,13 @@ import type { NominatimAddress } from './geocoding.service';
 
 /**
  * Delegate interface for component-specific state the coordinator needs
- * for location flow methods (dialog, favorites, etc.)
+ * for location flow methods (place choice, favorites, etc.)
  */
 export interface LocationFlowDelegate {
   /** Build the LocationChangeContext from current component state */
   getChangeContext(): LocationChangeContext | null;
   /** Build the LocationChangeCallbacks from component methods */
   getChangeCallbacks(): LocationChangeCallbacks;
-  /** Whether a game is in progress (for dialog warning) */
-  isGameInProgress(): boolean;
   /** Get the current location display name */
   getCurrentLocationName(): string;
 }
@@ -56,14 +40,14 @@ export function streetsFailedText(place: string): string {
  * LocationChangeCoordinatorService - Entry point for changing the location
  *
  * Extracted from TowerDefenseComponent to reduce god object complexity.
- * Handles the location flow UI (dialog, world dice, favorites, share) and
+ * Handles the location flow UI (the menu's place choice, world dice,
+ * favorites, share) and
  * applyNewLocation, which guards against concurrent changes, runs the
  * 7-step change in LocationChangeExecutorService and unwinds the loading
  * flags when it fails.
  */
 @Injectable({ providedIn: 'root' })
 export class LocationChangeCoordinatorService {
-  private readonly dialog = inject(MatDialog);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly osmService = inject(OsmStreetService);
   private readonly heightUpdate = inject(HeightUpdateService);
@@ -79,11 +63,16 @@ export class LocationChangeCoordinatorService {
   /** Delegate for component-specific state access */
   private delegate: LocationFlowDelegate | null = null;
 
+  /** A start without a place waits for the menu's choice (waitForStartChoice) */
+  private startWaiter: ((choice: PlacedChoice) => void) | null = null;
+  /** The start waits for a place to be chosen in the menu */
+  readonly awaitingStartChoice = signal(false);
+
   // ==================== Initialization ====================
 
   /**
    * Register the component delegate for location flow operations.
-   * Must be called before using dialog/favorites/worldDice methods.
+   * Must be called before using the place choice, favorites or the world dice.
    */
   initializeFlow(delegate: LocationFlowDelegate): void {
     this.delegate = delegate;
@@ -93,83 +82,74 @@ export class LocationChangeCoordinatorService {
   // ==================== Location Flow Methods ====================
 
   /**
-   * Open location dialog to change HQ and spawn point. Resolves once the
-   * dialog is open; the first call loads its chunk. When the chunk does not
-   * load or the dialog fails to open, a notice over the game says which and
-   * the game goes on.
-   *
-   * @param initialMode tab to open on; the sidebar's World button opens the world map
+   * The start without a place (LocationFacadeService.initializeLocation)
+   * waits here until the menu chooses one: New game, a coop host's place, the
+   * place of a save loaded before the first. One waiter at a time; a second
+   * call replaces the first.
    */
-  async openLocationDialog(initialMode?: LocationDialogMode): Promise<void> {
-    if (this.uiStore.coopMapLocked()) return;
-    if (!this.delegate) {
-      console.error('[LocationCoordinator] No delegate registered');
-      return;
-    }
-
-    const hq = this.locationMgmt.editableHqLocation();
-    const spawn = this.locationMgmt.editableSpawnLocations()[0];
-
-    const dialogData: LocationDialogData = {
-      currentLocation: hq
-        ? {
-            lat: hq.lat,
-            lon: hq.lon,
-            name: this.delegate.getCurrentLocationName(),
-            displayName: hq.name || '',
-          }
-        : null,
-      currentSpawn: spawn
-        ? {
-            id: spawn.id,
-            lat: spawn.lat,
-            lon: spawn.lon,
-            name: spawn.name,
-          }
-        : null,
-      isGameInProgress: this.delegate.isGameInProgress(),
-      ...(initialMode ? { initialMode } : {}),
-    };
-
-    let dialogRef: Awaited<ReturnType<typeof openLocationDialog>>;
-    try {
-      dialogRef = await openLocationDialog(this.dialog, {
-        data: dialogData,
-        // The search field, ready to type into; without one (World tab) the dialog itself
-        autoFocus: 'input',
-        panelClass: 'td-dialog-panel',
-        disableClose: false,
-      });
-    } catch (err) {
-      if (err instanceof LocationDialogLoadError) {
-        console.error('[LocationCoordinator] Location dialog did not load:', err);
-        this.uiStore.notice.set({ text: LOCATION_DIALOG_LOAD_FAILED });
-      } else {
-        console.error('[LocationCoordinator] Location dialog failed to open:', err);
-        this.uiStore.notice.set({ text: LOCATION_DIALOG_OPEN_FAILED });
-      }
-      return;
-    }
-
-    dialogRef.afterClosed()
-      .pipe(take(1))
-      .subscribe(async (result: LocationDialogResult | null | undefined) => {
-      if (!result?.confirmed) return;
-      // A pasted link: its HQ with every spawn, the way a favourite loads
-      if (result.spawn.id === LINKED_SPAWN_ID && result.spawns?.length) {
-        await this.loadPlace({ lat: result.hq.lat, lon: result.hq.lon }, result.spawns);
-        return;
-      }
-      await this.moveTo(
-        { lat: result.hq.lat, lon: result.hq.lon, name: result.hq.displayName, address: result.hq.address },
-        result.spawn.isRandom ? null : result.spawn,
-      );
+  waitForStartChoice(): Promise<PlacedChoice> {
+    return new Promise((resolve) => {
+      this.startWaiter = resolve;
+      this.awaitingStartChoice.set(true);
     });
   }
 
+  /** The start gave up waiting (the component went away) */
+  cancelStartChoice(): void {
+    this.startWaiter = null;
+    this.awaitingStartChoice.set(false);
+  }
+
   /**
-   * Go to another place in this page, no reload: the location dialog and
-   * the world dice. `spawn` null draws a random street spawn 500 to 1000 m
+   * The one way in for a place chosen in the menu. At a start without a
+   * place it hands the choice to the start (the dice rolls first); with a
+   * place it goes there in this page: a stored place with every spawn, a
+   * place with its spawn or a random one, the world dice. False when nothing
+   * happens: the host sets the map, or the dice found no city.
+   */
+  async choosePlace(choice: PlaceChoice): Promise<boolean> {
+    if (this.startWaiter) {
+      const placed = choice.kind === 'dice' ? await this.rollStartCity() : choice;
+      // The start may have given up while the dice rolled
+      if (!placed || !this.startWaiter) return false;
+      const resolve = this.startWaiter;
+      this.cancelStartChoice();
+      resolve(placed);
+      return true;
+    }
+    if (this.uiStore.coopMapLocked()) return false;
+    if (!this.delegate) {
+      console.error('[LocationCoordinator] No delegate registered');
+      return false;
+    }
+    switch (choice.kind) {
+      case 'stored':
+        await this.loadPlace(choice.hq, choice.spawns);
+        break;
+      case 'place':
+        await this.moveTo(choice.hq, choice.spawn);
+        break;
+      case 'dice':
+        await this.onWorldDice();
+        break;
+    }
+    return true;
+  }
+
+  /** The world dice before the first place: a city with a random spawn, or a notice when none came */
+  private async rollStartCity(): Promise<PlacedChoice | null> {
+    const city = await this.worldDice.rollRandomCity();
+    if (!city) {
+      this.uiStore.notice.set({ text: WORLD_DICE_FAILED });
+      return null;
+    }
+    const name = city.country ? `${city.name}, ${city.country}` : city.name;
+    return { kind: 'place', hq: { lat: city.lat, lon: city.lon, name }, spawn: null };
+  }
+
+  /**
+   * Go to another place in this page, no reload: a place chosen in the menu
+   * and the world dice. `spawn` null draws a random street spawn 500 to 1000 m
    * from the HQ. In place, so a coop room survives it and the guests follow
    * (docs/COOP_PLAN.md, D35).
    */
@@ -284,7 +264,7 @@ export class LocationChangeCoordinatorService {
     const displayName = city.country ? `${city.name}, ${city.country}` : city.name;
     callbacks?.appendDebugLog(`World Dice: ${displayName} (${city.lat.toFixed(4)}, ${city.lon.toFixed(4)})`);
 
-    // In place with a random spawn, as the location dialog goes there: a
+    // In place with a random spawn, as a place chosen in the menu goes there: a
     // reload would end a coop room (the host's socket) and its lanes
     await this.moveTo({ lat: city.lat, lon: city.lon, name: displayName }, null);
   }
@@ -321,7 +301,7 @@ export class LocationChangeCoordinatorService {
     await this.loadPlace(fav.hq, fav.spawns);
   }
 
-  /** A stored place with all its spawns: a favourite, a pasted link */
+  /** A stored place with all its spawns: a favourite, a pasted link, a coop host's or a save's place */
   private async loadPlace(hqAt: { lat: number; lon: number }, spawns: SavedSpawn[]): Promise<void> {
     const fav = { hq: hqAt, spawns };
     const spawn: SavedSpawn = fav.spawns[0] || { lat: fav.hq.lat + 0.005, lon: fav.hq.lon };

@@ -53,7 +53,7 @@ export interface SaveFile {
   waveSeries: WaveSeriesPoint[];
 }
 
-/** Where the run is played: the place as the location dialog names it, its HQ and spawns */
+/** Where the run is played: the place as the place picker names it, its HQ and spawns */
 export interface SavePlace {
   name: string;
   hq: GeoPosition;

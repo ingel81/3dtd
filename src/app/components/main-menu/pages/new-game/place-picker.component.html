@@ -145,7 +145,7 @@
             @defer (on immediate) {
               <app-world-globe
                 [records]="worldRecords()"
-                [current]="current()"
+                [current]="worldCurrent()"
                 [highlight]="worldHover()?.hq ?? null"
                 [size]="220"
                 (picked)="loadRecord($event)"

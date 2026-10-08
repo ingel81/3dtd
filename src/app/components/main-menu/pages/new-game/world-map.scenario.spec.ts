@@ -1,33 +1,35 @@
 /**
  * Playtest 340 to 343, 345 and 346 (docs/archive/REVIEW_SPRINT_2026-09-14.md, world
  * map). The waves go over the main bus into the real BestWaveService
- * and its localStorage key; the location dialog and the game-over hint are
- * rendered with their real templates (read from disk, the vitest build has
+ * and its localStorage key; the place picker of the menu's New game page
+ * and the game-over hint are rendered with their real templates (read from disk, the vitest build has
  * no templateUrl loader). The globe, the icons and the address search are
  * stubs that keep the inputs they get: the globe draws on a canvas jsdom
  * does not have. Not covered: how the globe turns and looks, the layout
  * under Restart, the 1.2 s fade-in (CSS), the size of the globe chunk.
  */
-// The dialog's Material modules are partially compiled and need the JIT compiler
+// The components are partially compiled and need the JIT compiler
 import '@angular/compiler';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMainEventBus, type MainEventBus } from '../../sim/client/view-events';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { createMainEventBus, type MainEventBus } from '../../../../sim/client/view-events';
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { Component, Input, input, output, signal } from '@angular/core';
 import { getTestBed, TestBed, type ComponentFixture } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { BestWaveService } from '../../services/location/best-wave.service';
-import { GeocodingService, NominatimAddress, UNKNOWN_LOCATION_NAME } from '../../services/location/geocoding.service';
-import { LocationManagementService } from '../../services/location/location-management.service';
-import { BEST_WAVES_KEY, type BestWave } from '../../services/location/best-waves';
-import type { LocationDialogData } from '../../models/location.types';
-import { LocationDialogComponent } from './location-dialog.component';
-import { WorldRecordComponent } from '../world-globe/world-record.component';
-import type { NewRecord } from '../../services/location/best-wave.service';
+import { BestWaveService } from '../../../../services/location/best-wave.service';
+import { GeocodingService, NominatimAddress, UNKNOWN_LOCATION_NAME } from '../../../../services/location/geocoding.service';
+import { GeolocationService } from '../../../../services/location/geolocation.service';
+import { LocationChangeCoordinatorService } from '../../../../services/location/location-change-coordinator.service';
+import { GameStore } from '../../../../store/game.store';
+import type { PlaceChoice } from '../../../../services/location/place-choice';
+import { LocationManagementService } from '../../../../services/location/location-management.service';
+import { BEST_WAVES_KEY, type BestWave } from '../../../../services/location/best-waves';
+import { PlacePickerComponent } from './place-picker.component';
+import { WorldRecordComponent } from '../../../world-globe/world-record.component';
+import type { NewRecord } from '../../../../services/location/best-wave.service';
 
-const template = (relative: string) => readFileSync(fileURLToPath(new URL(relative, import.meta.url)), 'utf8');
+const template = (path: string) => readFileSync(resolve(path), 'utf8');
 
 @Component({ selector: 'app-world-globe', standalone: true, template: '' })
 class GlobeStub {
@@ -74,8 +76,12 @@ const PARIS = { lat: 48.8584, lon: 2.2945 };
 
 /** The place being played, as LocationManagementService holds it */
 function makeLocation() {
+  const hq = signal<{ lat: number; lon: number } | null>(HEILBRONN);
   return {
-    hq: signal<{ lat: number; lon: number } | null>(HEILBRONN),
+    hq,
+    editableHqLocation: hq,
+    getLocationDisplayName: () => 'Heilbronn',
+    favorites: signal([]),
     spawns: signal([{ lat: 49.15, lon: 9.21 }]),
     displayName: signal('Marktplatz 1, Heilbronn'),
     address: signal<NominatimAddress | null>({ city: 'Heilbronn' } as NominatimAddress),
@@ -87,10 +93,7 @@ describe('World map, playtest 340 to 346', () => {
   let location: ReturnType<typeof makeLocation>;
   let bus: MainEventBus;
   let bestWaves: BestWaveService;
-  let close: ReturnType<typeof vi.fn>;
-
-  /** What the coordinator hands the dialog, read when the dialog is created */
-  let dialogData: LocationDialogData;
+  let chosen: PlaceChoice[];
 
   beforeAll(() => {
     getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
@@ -98,9 +101,9 @@ describe('World map, playtest 340 to 346', () => {
 
   /** Real templates, stub children; the overrides live as long as one testing module */
   function overrideTemplates(): void {
-    TestBed.overrideComponent(LocationDialogComponent, {
+    TestBed.overrideComponent(PlacePickerComponent, {
       set: {
-        template: template('./location-dialog.component.html'),
+        template: template('src/app/components/main-menu/pages/new-game/place-picker.component.html'),
         templateUrl: undefined,
         styleUrl: undefined,
         styles: [],
@@ -109,7 +112,7 @@ describe('World map, playtest 340 to 346', () => {
     });
     TestBed.overrideComponent(WorldRecordComponent, {
       set: {
-        template: template('../world-globe/world-record.component.html'),
+        template: template('src/app/components/world-globe/world-record.component.html'),
         templateUrl: undefined,
         styleUrl: undefined,
         styles: [],
@@ -122,7 +125,6 @@ describe('World map, playtest 340 to 346', () => {
   function loadPage(): void {
     bestWaves?.disconnect();
     TestBed.resetTestingModule();
-    close = vi.fn();
     TestBed.configureTestingModule({
       providers: [
         { provide: LocationManagementService, useValue: location },
@@ -130,8 +132,9 @@ describe('World map, playtest 340 to 346', () => {
           provide: GeocodingService,
           useValue: { extractLocationName: (a: NominatimAddress) => a.city ?? UNKNOWN_LOCATION_NAME },
         },
-        { provide: MatDialogRef, useValue: { close } },
-        { provide: MAT_DIALOG_DATA, useFactory: () => dialogData },
+        { provide: GeolocationService, useValue: {} },
+        { provide: LocationChangeCoordinatorService, useValue: { favoriteNamesMap: signal({}) } },
+        { provide: GameStore, useFactory: () => ({ gameStarted: signal(running), towerCount: signal(0) }) },
       ],
     });
     overrideTemplates();
@@ -153,15 +156,16 @@ describe('World map, playtest 340 to 346', () => {
     location.address.set({ city: town } as NominatimAddress);
   }
 
-  async function openWorld(data: Partial<LocationDialogData> = {}): Promise<ComponentFixture<LocationDialogComponent>> {
-    dialogData = {
-      currentLocation: { ...HEILBRONN, name: 'Heilbronn', displayName: 'Marktplatz 1, Heilbronn' },
-      currentSpawn: null,
-      isGameInProgress: true,
-      initialMode: 'world',
-      ...data,
-    };
-    const fixture = TestBed.createComponent(LocationDialogComponent);
+  /** A run under way at the place loaded */
+  let running = true;
+
+  async function openWorld(setup: { place?: boolean; running?: boolean } = {}): Promise<ComponentFixture<PlacePickerComponent>> {
+    running = setup.running ?? true;
+    if (setup.place === false) location.hq.set(null);
+    const fixture = TestBed.createComponent(PlacePickerComponent);
+    chosen = [];
+    fixture.componentInstance.chosen.subscribe((choice) => chosen.push(choice));
+    fixture.componentInstance.list.set('world');
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -169,9 +173,9 @@ describe('World map, playtest 340 to 346', () => {
   }
 
   const rows = (fixture: ComponentFixture<unknown>) =>
-    Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.world-list .quick-item'));
+    Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.mp-world .mp-row'));
   const rowText = (row: HTMLElement) =>
-    `${row.querySelector('.quick-name')!.textContent!.trim()} | ${row.querySelector('.quick-hint')!.textContent!.trim()}`;
+    `${row.querySelector('.mp-name')!.textContent!.trim()} | ${row.querySelector('.mp-meta')!.textContent!.trim()}`;
   const globe = (fixture: ComponentFixture<unknown>) =>
     fixture.debugElement.query((d) => d.componentInstance instanceof GlobeStub).componentInstance as GlobeStub;
   const text = (fixture: ComponentFixture<unknown>) => (fixture.nativeElement as HTMLElement).textContent!.replace(/\s+/g, ' ');
@@ -200,7 +204,7 @@ describe('World map, playtest 340 to 346', () => {
     // The disabled button gets no click; the handler refuses the place as well
     row.click();
     fixture.componentInstance.loadRecord(bestWaves.records()[0]);
-    expect(close).not.toHaveBeenCalled();
+    expect(chosen).toEqual([]);
     // The globe gets the place as current: grey ring, not clickable (world-globe.component.ts:226, :354)
     expect(globe(fixture).current()).toEqual(HEILBRONN);
   });
@@ -214,10 +218,12 @@ describe('World map, playtest 340 to 346', () => {
     // A later run at Paris with another spawn beats the record: the record takes its spawn
     playAt(PARIS, 'Paris', spawnB);
     waves(3);
+    // Back at Heilbronn with a run under way there
+    location.hq.set(HEILBRONN);
     const fixture = await openWorld();
 
     expect(rows(fixture).map(rowText)).toEqual(['Paris | wave 3', 'Heilbronn | playing now · wave 2']);
-    expect(text(fixture)).toContain('Warning! The current game will be ended.');
+    expect(text(fixture)).toContain('The run at Heilbronn ends when a new place loads.');
 
     const paris = rows(fixture)[0];
     paris.dispatchEvent(new Event('mouseenter'));
@@ -228,36 +234,30 @@ describe('World map, playtest 340 to 346', () => {
     expect(globe(fixture).highlight()).toBeNull();
 
     paris.click();
-    expect(close).toHaveBeenCalledWith({
-      hq: { ...PARIS, name: 'Paris', displayName: 'Main St, Paris' },
-      spawn: { id: 'spawn_world', ...spawnB, isRandom: false },
-      confirmed: true,
-    });
+    expect(chosen).toEqual([{ kind: 'place', hq: { ...PARIS, name: 'Main St, Paris' }, spawn: spawnB }]);
   });
 
   it('343: no warning when no game is running', async () => {
     waves(1);
-    const fixture = await openWorld({ isGameInProgress: false });
+    const fixture = await openWorld({ running: false });
     expect(text(fixture)).not.toContain('The current game will be ended');
   });
 
-  it('345: wave 5 reached, a reload without game over: the world tab shows wave 5 for the place', async () => {
+  it('345: wave 5 reached, a reload without game over: the world list shows wave 5 for the place', async () => {
     waves(5);
     loadPage();
-    const fixture = await openWorld({ currentLocation: null, isGameInProgress: false });
+    const fixture = await openWorld({ place: false, running: false });
 
     expect(rows(fixture).map(rowText)).toEqual(['Heilbronn | wave 5']);
     expect(rows(fixture)[0].disabled).toBe(false);
   });
 
-  it('346: with td_best_waves_v1 gone the world tab says "None yet" and has no list', async () => {
+  it('346: with td_best_waves_v1 gone the world list is empty and says how it fills', async () => {
     waves(3);
     localStorage.removeItem(BEST_WAVES_KEY);
     loadPage();
-    const fixture = await openWorld({ currentLocation: null, isGameInProgress: false });
+    const fixture = await openWorld({ place: false, running: false });
 
-    const hint = (fixture.nativeElement as HTMLElement).querySelector('.world-section .section-hint')!;
-    expect(hint.textContent!.trim()).toBe('None yet');
     expect(rows(fixture)).toHaveLength(0);
     expect(text(fixture)).toContain('Every place you defend shows up here with the best wave you reached.');
   });

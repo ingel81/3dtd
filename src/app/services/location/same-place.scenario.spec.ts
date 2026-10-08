@@ -1,22 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Injector, signal } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
 import { Group, Vector2 } from 'three';
-import { Subject } from 'rxjs';
-
-// The real dialog and material modules are partially compiled and need the JIT
-// compiler; the coordinator only opens the dialog, each test gives its result.
-vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
-vi.mock('../../components/location-dialog/location-dialog.component', () => ({
-  LocationDialogComponent: class LocationDialogComponent {},
-}));
 
 import { UrlLocationService } from './url-location.service';
 import { LocationManagementService } from './location-management.service';
 import { LocationChangeCoordinatorService } from './location-change-coordinator.service';
 import { LocationChangeExecutorService } from './location-change-executor.service';
 import { GeocodingService } from './geocoding.service';
-import { GeolocationService } from './geolocation.service';
 import { OsmStreetService, StreetNetwork } from './osm-street.service';
 import { WorldDiceService } from './world-dice.service';
 import { FAVORITES_KEY } from './favorite-locations';
@@ -47,7 +37,7 @@ import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { PresentationService } from '../../presentation/presentation.service';
 import type { ThreeTilesEngine } from '../../three-engine';
-import type { FavoriteLocation, LocationDialogResult } from '../../models/location.types';
+import type { FavoriteLocation } from '../../models/location.types';
 import type { CorridorBuildResult } from '../world/corridor-build';
 
 /**
@@ -59,8 +49,8 @@ import type { CorridorBuildResult } from '../world/corridor-build';
  * Expected: every way into the place gives the engine origin, the HQ, the
  * spawn, the location and the URL exactly as the URL does.
  *
- * Real: the location services from the URL, the stored places, the dialog
- * result and the map click to the origin and the spawn (UrlLocationService,
+ * Real: the location services from the URL, the stored places, the place
+ * chosen in the menu and the map click to the origin and the spawn (UrlLocationService,
  * LocationManagementService, LocationFacadeService, the coordinator and the
  * executor of a location change, MapPlacementService, MapRelocationService).
  * Fakes: engine, streets (one street from the spawn to the HQ), routes,
@@ -110,7 +100,6 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
   let cachedPaths: Map<string, unknown[]>;
   let streetNetwork: StreetNetwork | null;
   let streetNetworkLocation: { lat: number; lon: number } | null;
-  let dialogClosed: Subject<LocationDialogResult | null>;
   let randomSpawn: { lat: number; lon: number } | null;
   let store: {
     baseCoords: ReturnType<typeof signal<{ lat: number; lon: number }>>;
@@ -201,7 +190,6 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
     cachedPaths = new Map();
     streetNetwork = null;
     streetNetworkLocation = null;
-    dialogClosed = new Subject();
     randomSpawn = null;
     store = {
       baseCoords: signal({ lat: 0, lon: 0 }),
@@ -257,7 +245,6 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
       setLoading: vi.fn(),
       getEngine: () => engine,
     };
-    const dialog = { open: vi.fn(() => ({ afterClosed: () => dialogClosed.asObservable(), close: vi.fn() })) };
 
     const injector: Injector = Injector.create({
       providers: [
@@ -272,7 +259,6 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
         { provide: IntroCameraFlightService, useValue: { initialize: vi.fn(), stop: vi.fn(), start: vi.fn(), isRunning: () => false } },
         { provide: KeyboardPanService, useValue: { initialize: vi.fn() } },
         { provide: GeocodingService, useValue: { reverseGeocodeDetailed: async () => null, reverseGeocodeWithCache: async () => 'Rothenburg' } },
-        { provide: GeolocationService, useValue: { detectLocation: async () => null } },
         { provide: WorldDiceService, useValue: {} },
         { provide: DevWorldService, useValue: { isActive: false } },
         { provide: StreetRenderingService, useValue: { dispose: vi.fn() } },
@@ -281,7 +267,6 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
           provide: RelocationStatusService,
           useValue: { show: vi.fn(), clear: vi.fn(), painted: async () => undefined, follow: () => ({ report: vi.fn(), end: vi.fn() }) },
         },
-        { provide: MatDialog, useValue: dialog },
         { provide: TowerDefenseStore, useValue: store },
         { provide: MainWorldService, useValue: world },
         { provide: GlobalRouteGridService, useValue: { clear: vi.fn() } },
@@ -327,19 +312,18 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
     expect(place()).toEqual(AS_FROM_URL);
   });
 
-  it('747: a recent place stored with every digit, picked in the dialog, loads Rothenburg as its URL does', async () => {
+  it('747: a recent place stored with every digit, picked in the menu, loads Rothenburg as its URL does', async () => {
     localStorage.setItem(RECENT_LOCATIONS_KEY, JSON.stringify([
       { hq: FULL_HQ, spawns: [FULL_SPAWN], name: 'Rothenburg ob der Tauber', visitedAt: 1 },
     ]));
     await loadPage(ELSEWHERE_SEARCH);
 
-    await coordinator.openLocationDialog();
-    // What the dialog closes with for that row (LocationDialogComponent.loadRecent), the world map alike
+    // What the place picker hands on for that row (PlacePickerComponent.loadRecent), the world map alike
     const recent = loadRecentLocations()[0];
-    dialogClosed.next({
-      hq: { lat: recent.hq.lat, lon: recent.hq.lon, name: recent.name, displayName: recent.name },
-      spawn: { id: 'spawn_recent', lat: recent.spawns[0].lat, lon: recent.spawns[0].lon, isRandom: false },
-      confirmed: true,
+    void coordinator.choosePlace({
+      kind: 'place',
+      hq: { lat: recent.hq.lat, lon: recent.hq.lon, name: recent.name },
+      spawn: { lat: recent.spawns[0].lat, lon: recent.spawns[0].lon },
     });
     // The change moved the origin, then ran to its end
     await vi.waitFor(() => expect(origins).toHaveLength(2));

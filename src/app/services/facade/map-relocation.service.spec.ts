@@ -1,13 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 
-// The coordinator pulls in the dialog and material modules, which are
-// partially compiled and need the JIT compiler; they are not used here.
-vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
-vi.mock('../../components/location-dialog/location-dialog.component', () => ({
-  LocationDialogComponent: class LocationDialogComponent {},
-}));
-
 import { MapRelocationService, RelocationHost } from './map-relocation.service';
 import { OsmStreetService } from '../location/osm-street.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';

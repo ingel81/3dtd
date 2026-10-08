@@ -150,7 +150,7 @@ export class MapRelocationService {
       spawnFrom = 'old';
     } else {
       // Old spawn too far or none exists — pre-load streets and find a random spawn
-      // (same pattern as the location dialog's isRandom flow). Up to three
+      // (as a random spawn of a place chosen in the menu). Up to three
       // Overpass servers at 15 s each before the loading screen: say so.
       this.relocationStatus.show(MOVING_HQ, 'Loading streets');
       try {

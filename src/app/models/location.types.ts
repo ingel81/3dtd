@@ -16,15 +16,6 @@ export interface LocationConfig extends GeoPosition {
 }
 
 /**
- * Full location info with display name
- */
-export interface LocationInfo extends GeoPosition {
-  name: string; // Display name (city/place)
-  displayName: string; // Full Nominatim display name
-  address?: NominatimAddress; // Structured address for smart display
-}
-
-/**
  * A spawn as the location keeps it (LocationManagementService.spawns, the
  * URL, favorites): where it stands and, if the player turned its portal
  * with R while placing it, which way the portal faces, as a compass bearing
@@ -44,38 +35,6 @@ export interface SpawnLocationConfig extends SavedSpawn {
   id: string;
   name?: string;
   isRandom?: boolean;
-}
-
-/**
- * Tabs of the location dialog: a place (search, recent and showcase places,
- * a new spawn for the current place), the world map of defended places, and
- * joining a coop game
- */
-export type LocationDialogMode = 'place' | 'world' | 'coop';
-
-/**
- * Data passed to location dialog
- */
-export interface LocationDialogData {
-  currentLocation: LocationInfo | null;
-  currentSpawn: SpawnLocationConfig | null;
-  isGameInProgress: boolean;
-  /** Tab the dialog opens on, 'place' when not given */
-  initialMode?: LocationDialogMode;
-}
-
-/**
- * Result from location dialog
- */
-/** The spawn id of a place pasted as a link into the location dialog: the result carries every spawn in `spawns` */
-export const LINKED_SPAWN_ID = 'spawn_link';
-
-export interface LocationDialogResult {
-  hq: LocationInfo;
-  spawn: SpawnLocationConfig;
-  confirmed: boolean;
-  /** Every spawn of the place, where there are several: a coop host's (E30) */
-  spawns?: SavedSpawn[];
 }
 
 /**

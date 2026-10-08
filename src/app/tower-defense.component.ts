@@ -135,7 +135,6 @@ import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
 import { BUILD_VERSION } from './configs/build-info.config';
 import { OSM_MAP_ATTRIBUTION } from './configs/attributions.config';
-import { isLocationDialogFailure } from './components/location-dialog/open-location-dialog';
 import { ABILITIES } from './configs/abilities.config';
 import { RefusalHintService } from './services/refusal-hint.service';
 import { FocusOnShowDirective } from './components/focus-on-show.directive';
@@ -275,6 +274,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
+  private readonly mainMenuService = inject(MainMenuService);
   private readonly devWorld = inject(DevWorldService);
   readonly facade = inject(TowerDefenseFacadeService);
   readonly store = inject(TowerDefenseStore);
@@ -350,8 +350,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // Loading / Engine, from Store
   readonly loading = this.store.loading;
   readonly error = this.store.error;
-  /** The error screen's way out: a reload when the location dialog failed, else new tile credentials */
-  readonly errorOffersReload = computed(() => isLocationDialogFailure(this.error()));
   readonly loadingSteps = this.store.loadingSteps;
 
   // UI State, from Store
@@ -983,9 +981,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.locationCoordinator.applyNewLocation(data);
   }
 
-  /** Open location dialog */
-  openLocationDialog(): void {
-    this.locationCoordinator.openLocationDialog();
+  /** The header's place button: the menu's New game page, where a place is chosen */
+  openPlaceChoice(): void {
+    if (this.uiStore.coopMapLocked()) return;
+    this.mainMenuService.open('new-game');
   }
 
   /** Copy shareable URL to clipboard */

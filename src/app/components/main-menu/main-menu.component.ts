@@ -9,6 +9,7 @@ import { MenuSaveComponent } from './pages/save/menu-save.component';
 import { MenuLoadComponent } from './pages/load/menu-load.component';
 import { MenuSettingsComponent } from './pages/settings/menu-settings.component';
 import { MenuExtrasComponent } from './pages/extras/menu-extras.component';
+import { followStartPlaces } from './pages/start-places';
 
 /**
  * The main menu (docs/MAIN_MENU_UI_PLAN.md): one place for everything that
@@ -43,6 +44,11 @@ export class MainMenuComponent {
   readonly layer = this.menu.layer;
   readonly page = this.menu.page;
   readonly title = computed(() => MENU_PAGE_TITLES[this.page()]);
+
+  constructor() {
+    // A start without a place takes the host's place of a coop join or a save's place
+    followStartPlaces();
+  }
 
   /** Esc: one step back; on the start list it does nothing, there is no game behind it */
   onEscape(event: Event): void {

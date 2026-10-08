@@ -38,9 +38,9 @@ export interface SaveSlotInfo {
 }
 
 /**
- * The place a load waits for at a start without one: the start dialog closes
- * with it (as with the place of a coop host, joinedPlaceResult), the boot
- * loads it, and the load goes on there.
+ * The place a load waits for at a start without one: the menu hands it to
+ * the start (LocationChangeCoordinatorService.choosePlace, as the place of a
+ * coop host), the boot loads it, and the load goes on there.
  */
 export interface StartPlace {
   hq: { lat: number; lon: number };
@@ -60,7 +60,7 @@ export interface SaveGamePort {
   readonly slots: Signal<readonly SaveSlotInfo[]>;
   /** An autosave exists: the start screen offers "Continue" */
   readonly hasAutosave: Signal<boolean>;
-  /** A load at a start without a place waits for the start dialog to close with this one; null otherwise */
+  /** A load at a start without a place waits for the menu to hand this one to the start; null otherwise */
   readonly startPlace: Signal<StartPlace | null>;
   /** Read the slots again from storage (the list fills on its own at start) */
   refresh(): Promise<void>;

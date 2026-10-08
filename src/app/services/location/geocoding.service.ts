@@ -44,7 +44,7 @@ export interface ReverseGeocodeResult {
 }
 
 /**
- * Fallback name when Nominatim returns nothing usable. The location dialog
+ * Fallback name when Nominatim returns nothing usable. The menu's place picker
  * compares against it to fall back to the HQ name or coordinates.
  */
 export const UNKNOWN_LOCATION_NAME = 'Unknown location';

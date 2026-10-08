@@ -1,20 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
-import { Subject } from 'rxjs';
-
-// The real dialog and material modules are partially compiled and need the JIT
-// compiler; the facade only uses them as DI token and dialog type.
-vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
-// With `fails` set, the dialog's lazy chunk does not load.
-const chunk = vi.hoisted(() => ({ fails: false, component: class LocationDialogComponent {} }));
-vi.mock('../../components/location-dialog/location-dialog.component', () => ({
-  get LocationDialogComponent() {
-    if (chunk.fails) throw new TypeError('Failed to fetch dynamically imported module');
-    return chunk.component;
-  },
-}));
-
 // The street lookup has its own spec; the network here is a stub without real
 // streets, so every real-map spawn reads as the street 'Damrak'.
 vi.mock('../../utils/spawn-label', () => ({ spawnLabel: vi.fn(() => 'Damrak') }));
@@ -27,7 +12,6 @@ import { PathAndRouteService } from '../world/path-route.service';
 import { LocationManagementService } from '../location/location-management.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
-import { GeolocationService } from '../location/geolocation.service';
 import { UrlLocationService } from '../location/url-location.service';
 import { DevWorldService, DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
 import { RouteAnimationService } from '../world/route-animation.service';
@@ -39,24 +23,18 @@ import { MapPlacementService } from '../world/map-placement.service';
 import { RelocationStatusService } from '../world/relocation-status.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
-import { LocationDialogComponent } from '../../components/location-dialog/location-dialog.component';
-import {
-  LOCATION_DIALOG_LOAD_FAILED,
-  LOCATION_DIALOG_OPEN_FAILED,
-  LocationDialogLoadError,
-} from '../../components/location-dialog/open-location-dialog';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import { MainWorldService } from '../world/main-world.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { PresentationService } from '../../presentation/presentation.service';
-import type { LocationDialogResult } from '../../models/location.types';
+import { storedPlace, type PlacedChoice } from '../location/place-choice';
 import type { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
 
 /**
- * The location sub-facade decides where the game starts (DevWorld, URL,
- * browser location, dialog), creates the spawns, moves HQ or spawn in place
+ * The location sub-facade decides where the game starts (DevWorld, URL, the
+ * place chosen in the menu), creates the spawns, moves HQ or spawn in place
  * when the click stays inside the loaded streets (a full location change via
  * the coordinator otherwise) and rebuilds the DevWorld after regeneration.
  * These tests pin those decisions and what each path does to the store and
@@ -75,7 +53,6 @@ describe('LocationFacadeService', () => {
   let facade: LocationFacadeService;
   let streetNetwork: { streets: unknown[]; bounds: typeof BOUNDS } | null;
   let cachedPaths: Map<string, unknown[]>;
-  let dialogClosed: Subject<LocationDialogResult | null>;
   let destroyCallbacks: (() => void)[];
   let destroyRef: { destroyed: boolean; onDestroy: (cb: () => void) => () => void };
   let vizCallbacks: { [K in keyof VizCallbacks]: ReturnType<typeof vi.fn> };
@@ -145,7 +122,6 @@ describe('LocationFacadeService', () => {
     setError: vi.fn(),
     setLoading: vi.fn(),
   };
-  const geolocation = { onStepDetail: null as ((d: string) => void) | null, detectLocation: vi.fn() };
   const urlLocation = { parseFromUrl: vi.fn(), updateUrl: vi.fn() };
   const devWorld = {
     isActive: false,
@@ -156,10 +132,15 @@ describe('LocationFacadeService', () => {
   const routeAnimation = { stopAnimation: vi.fn(), startAnimation: vi.fn() };
   const streetRendering = { dispose: vi.fn() };
   const debugFacade = { appendDebugLog: vi.fn() };
-  const coordinator = { initializeFlow: vi.fn(), applyNewLocation: vi.fn(async () => undefined) };
+  /** The menu's choice for a start without a place: `choose` hands one to the waiting start */
+  let choose: (choice: PlacedChoice) => void;
+  const coordinator = {
+    initializeFlow: vi.fn(),
+    applyNewLocation: vi.fn(async () => undefined),
+    waitForStartChoice: vi.fn(() => new Promise<PlacedChoice>((resolve) => { choose = resolve; })),
+    cancelStartChoice: vi.fn(),
+  };
   const mapPlacement = { startPlacement: vi.fn(), handlePlacementClick: vi.fn(), updateDependencies: vi.fn() };
-  const dialog = { open: vi.fn() };
-  const closeDialog = vi.fn();
   let store: {
     baseCoords: ReturnType<typeof signal<Spawn>>;
     centerCoords: ReturnType<typeof signal<Spawn & { height: number }>>;
@@ -172,8 +153,8 @@ describe('LocationFacadeService', () => {
   };
 
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-  /** The dialog opens once its lazy chunk has loaded. */
-  const dialogOpened = () => vi.waitFor(() => expect(dialog.open).toHaveBeenCalled());
+  /** The start waits for the menu's choice */
+  const waiting = () => vi.waitFor(() => expect(coordinator.waitForStartChoice).toHaveBeenCalled());
   const delegate = (): LocationFlowDelegate => coordinator.initializeFlow.mock.calls[0][0];
   /** The spawn points the facade put into the store, by id. */
   const spawnIds = () => store.spawnPoints().map((s) => s.id);
@@ -185,9 +166,6 @@ describe('LocationFacadeService', () => {
 
     streetNetwork = { streets: [{}], bounds: BOUNDS };
     cachedPaths = new Map([['spawn-1', [HQ, OLD_SPAWN]]]);
-    dialogClosed = new Subject();
-    dialog.open.mockReturnValue({ afterClosed: () => dialogClosed.asObservable(), close: closeDialog });
-    chunk.fails = false;
     destroyCallbacks = [];
     destroyRef = {
       destroyed: false,
@@ -204,7 +182,6 @@ describe('LocationFacadeService', () => {
     osm.haversineDistance.mockReturnValue(0);
     mapPlacement.handlePlacementClick.mockReturnValue(null);
     urlLocation.parseFromUrl.mockReturnValue(null);
-    geolocation.onStepDetail = null;
     devWorld.isActive = false;
     locationMgmt.hq.set(null);
     locationMgmt.spawns.set([]);
@@ -240,7 +217,6 @@ describe('LocationFacadeService', () => {
         { provide: LocationManagementService, useValue: locationMgmt },
         { provide: HeightUpdateService, useValue: heightUpdate },
         { provide: EngineInitializationService, useValue: engineInit },
-        { provide: GeolocationService, useValue: geolocation },
         { provide: UrlLocationService, useValue: urlLocation },
         { provide: DevWorldService, useValue: devWorld },
         { provide: RouteAnimationService, useValue: routeAnimation },
@@ -258,7 +234,6 @@ describe('LocationFacadeService', () => {
           },
         },
         { provide: TowerPlacementService, useValue: {} },
-        { provide: MatDialog, useValue: dialog },
         { provide: TowerDefenseStore, useValue: store },
         { provide: MainWorldService, useValue: world },
         { provide: GlobalRouteGridService, useValue: routeGrid },
@@ -322,15 +297,6 @@ describe('LocationFacadeService', () => {
       expect(vizCallbacks.scheduleOverlayHeightUpdate).toHaveBeenCalled();
     });
 
-    it('counts a game as in progress once it left setup or played a wave', () => {
-      expect(delegate().isGameInProgress()).toBe(false);
-      store.waveNumber.set(3);
-      expect(delegate().isGameInProgress()).toBe(true);
-      store.waveNumber.set(0);
-      store.phase.set('wave');
-      expect(delegate().isGameInProgress()).toBe(true);
-    });
-
     it('names the location through the location service', () => {
       expect(delegate().getCurrentLocationName()).toBe('Stuttgart');
     });
@@ -359,147 +325,63 @@ describe('LocationFacadeService', () => {
       expect(engineInit.setStepCurrent).toHaveBeenCalledWith('location');
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, [OUTSIDE]);
       expect(engineInit.setStepDone).toHaveBeenCalledWith('location', 'from URL');
-      expect(geolocation.detectLocation).not.toHaveBeenCalled();
+      expect(coordinator.waitForStartChoice).not.toHaveBeenCalled();
       expect(urlLocation.updateUrl).toHaveBeenCalledWith(INSIDE, [OUTSIDE]);
       expect(store.baseCoords()).toEqual(INSIDE);
       expect(store.centerCoords()).toEqual({ ...INSIDE, height: 400 });
     });
 
-    it('falls back to the browser location and shows its progress', async () => {
-      geolocation.detectLocation.mockImplementation(async () => {
-        geolocation.onStepDetail?.('Asking the browser...');
-        return INSIDE;
-      });
+    it('without a place in the URL waits for the place chosen in the menu, the browser is not asked', async () => {
+      const done = facade.initializeLocation();
+      await waiting();
+      expect(engineInit.updateStepMeta).toHaveBeenCalledWith('location', 'Choose a place');
+      expect(locationMgmt.setLocation).not.toHaveBeenCalled();
 
-      await facade.initializeLocation();
+      choose({ kind: 'place', hq: { ...INSIDE, name: 'Stuttgart' }, spawn: { ...OUTSIDE } });
+      expect(await done).toBe(true);
 
-      expect(engineInit.updateStepMeta).toHaveBeenCalledWith('location', 'Asking the browser...');
-      expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, []);
-      expect(engineInit.setStepDone).toHaveBeenCalledWith('location', 'Browser');
-      expect(dialog.open).not.toHaveBeenCalled();
+      expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, [OUTSIDE]);
+      expect(engineInit.setStepDone).toHaveBeenCalledWith('location', 'chosen');
       expect(store.baseCoords()).toEqual(INSIDE);
     });
 
-    it('asks the player when neither URL nor browser know a location', async () => {
-      geolocation.detectLocation.mockResolvedValue(null);
-
+    it('stops quietly when the component goes away before a place is chosen', async () => {
       const done = facade.initializeLocation();
-      await dialogOpened();
-      expect(engineInit.updateStepMeta).toHaveBeenCalledWith('location', 'Select location...');
-      expect(dialog.open.mock.calls[0][1]).toMatchObject({ disableClose: true, panelClass: 'td-dialog-panel' });
-
-      dialogClosed.next({
-        confirmed: true, hq: INSIDE, spawn: { ...OUTSIDE, isRandom: false },
-      } as unknown as LocationDialogResult);
-      await done;
-
-      expect(engineInit.setStepDone).toHaveBeenCalledWith('location', 'manually selected');
-      expect(store.baseCoords()).toEqual(INSIDE);
-    });
-
-    it('stops quietly when the component goes away while the dialog is open', async () => {
-      geolocation.detectLocation.mockResolvedValue(null);
-
-      const done = facade.initializeLocation();
-      await dialogOpened();
+      await waiting();
       destroyCallbacks.forEach((cb) => cb());
       expect(await done).toBe(false);
 
+      expect(coordinator.cancelStartChoice).toHaveBeenCalled();
       expect(engineInit.setStepDone).not.toHaveBeenCalled();
       expect(engineInit.setError).not.toHaveBeenCalled();
       expect(urlLocation.updateUrl).not.toHaveBeenCalled();
     });
-
-    it('shows the error screen and stops the boot when the dialog does not load', async () => {
-      geolocation.detectLocation.mockResolvedValue(null);
-      chunk.fails = true;
-
-      const done = facade.initializeLocation();
-      await vi.waitFor(() => expect(engineInit.setError).toHaveBeenCalledWith(LOCATION_DIALOG_LOAD_FAILED));
-
-      expect(await done).toBe(false);
-      expect(engineInit.setLoading).toHaveBeenCalledWith(false);
-      expect(engineInit.setStepDone).not.toHaveBeenCalled();
-      expect(console.error).toHaveBeenCalledWith('[LocationFacade] Location dialog failed:', expect.any(LocationDialogLoadError));
-    });
-
-    it('reports a dialog that loaded but failed to open as such, with its error in the console', async () => {
-      geolocation.detectLocation.mockResolvedValue(null);
-      const bug = new Error('NG0201: No provider found');
-      dialog.open.mockImplementation(() => { throw bug; });
-
-      expect(await facade.initializeLocation()).toBe(false);
-
-      expect(engineInit.setError).toHaveBeenCalledWith(LOCATION_DIALOG_OPEN_FAILED);
-      expect(engineInit.setLoading).toHaveBeenCalledWith(false);
-      expect(console.error).toHaveBeenCalledWith('[LocationFacade] Location dialog failed:', bug);
-    });
   });
 
-  describe('waitForLocationFromDialog', () => {
-    it('opens an empty dialog that cannot be dismissed by clicking outside, on the game injector (COOP for the Coop tab)', async () => {
-      void facade.waitForLocationFromDialog();
-      await dialogOpened();
-      expect(dialog.open).toHaveBeenCalledWith(LocationDialogComponent, {
-        data: expect.objectContaining({ currentLocation: null, currentSpawn: null, isGameInProgress: false }),
-        injector: expect.anything(),
-        autoFocus: 'input',
-        panelClass: 'td-dialog-panel',
-        disableClose: true,
-      });
-    });
-
-    it('stores the confirmed HQ with its spawn', async () => {
-      const done = facade.waitForLocationFromDialog();
-      await dialogOpened();
-      dialogClosed.next({ confirmed: true, hq: INSIDE, spawn: { ...OUTSIDE, isRandom: false } } as unknown as LocationDialogResult);
-      await done;
-      expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, [OUTSIDE]);
-    });
-
-    it('stores every spawn of a coop host’s place, joined from the Coop tab (E30)', async () => {
-      const done = facade.waitForLocationFromDialog();
-      await dialogOpened();
-      dialogClosed.next({ confirmed: true, hq: INSIDE, spawn: { ...OUTSIDE }, spawns: [OUTSIDE, INSIDE] } as unknown as LocationDialogResult);
+  describe('waitForPlaceChoice', () => {
+    it('stores every spawn of a stored place: the place of a coop host or of a save (E30, E110)', async () => {
+      const done = facade.waitForPlaceChoice();
+      await waiting();
+      choose(storedPlace(INSIDE, [OUTSIDE, INSIDE]));
       await done;
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, [OUTSIDE, INSIDE]);
     });
 
     it('stores no spawn when the player asked for a random one', async () => {
-      const done = facade.waitForLocationFromDialog();
-      await dialogOpened();
-      dialogClosed.next({ confirmed: true, hq: INSIDE, spawn: { ...OUTSIDE, isRandom: true } } as unknown as LocationDialogResult);
+      const done = facade.waitForPlaceChoice();
+      await waiting();
+      choose({ kind: 'place', hq: { ...INSIDE, name: 'Stuttgart' }, spawn: null });
       await done;
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, []);
     });
 
-    it('resolves without a location when the dialog closes unconfirmed', async () => {
-      const done = facade.waitForLocationFromDialog();
-      await dialogOpened();
-      dialogClosed.next(null);
-      await expect(done).resolves.toBeUndefined();
-      expect(locationMgmt.setLocation).not.toHaveBeenCalled();
-    });
-
-    it('rejects with a load error when the dialog chunk does not load', async () => {
-      chunk.fails = true;
-      await expect(facade.waitForLocationFromDialog()).rejects.toBeInstanceOf(LocationDialogLoadError);
-    });
-
-    it('rejects with the error itself when the loaded dialog fails to open', async () => {
-      const bug = new Error('NG0201: No provider found');
-      dialog.open.mockImplementation(() => { throw bug; });
-      await expect(facade.waitForLocationFromDialog()).rejects.toBe(bug);
-    });
-
-    it('rejects when the component is destroyed first and closes the dialog that opens late', async () => {
-      const done = facade.waitForLocationFromDialog();
+    it('rejects when the component is destroyed first, and a late choice sets nothing', async () => {
+      const done = facade.waitForPlaceChoice();
+      await waiting();
       destroyCallbacks.forEach((cb) => cb());
-      await expect(done).rejects.toThrow('Component destroyed before location was selected');
-
-      await dialogOpened();
-      expect(closeDialog).toHaveBeenCalled();
-      dialogClosed.next({ confirmed: true, hq: INSIDE, spawn: { ...OUTSIDE, isRandom: false } } as unknown as LocationDialogResult);
+      await expect(done).rejects.toThrow('Component destroyed before a place was chosen');
+      choose(storedPlace(INSIDE, [OUTSIDE]));
+      await settle();
       expect(locationMgmt.setLocation).not.toHaveBeenCalled();
     });
   });
@@ -1055,10 +937,10 @@ describe('LocationFacadeService', () => {
       expect(world.sendToSim).not.toHaveBeenCalled();
     });
 
-    it('refuses the location dialog without a component', async () => {
+    it('refuses to wait for a place without a component', async () => {
       facade.dispose();
-      await expect(facade.waitForLocationFromDialog()).rejects.toThrow('not initialized');
-      expect(dialog.open).not.toHaveBeenCalled();
+      await expect(facade.waitForPlaceChoice()).rejects.toThrow('not initialized');
+      expect(coordinator.waitForStartChoice).not.toHaveBeenCalled();
     });
 
     it('works again after the next initialize', () => {

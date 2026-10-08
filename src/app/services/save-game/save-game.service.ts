@@ -61,7 +61,7 @@ export class SaveGameService implements SaveGamePort {
   private readonly uiStore = inject(UIStore);
   private readonly coop = inject(CoopService, { optional: true });
 
-  /** A load at a start without a place: the start dialog closes with this place (see StartPlace) */
+  /** A load at a start without a place: the menu hands this place to the start (see StartPlace) */
   private readonly pendingPlace = signal<StartPlace | null>(null);
   readonly startPlace: Signal<StartPlace | null> = this.pendingPlace.asReadonly();
 

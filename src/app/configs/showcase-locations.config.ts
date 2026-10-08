@@ -2,7 +2,7 @@ import { SavedSpawn } from '../models/location.types';
 
 /**
  * Places that show off Google Photorealistic 3D Tiles and have a dense street
- * network for the routes. Listed in the location dialog under "Showcase";
+ * network for the routes. Listed on the menu's New game page under "Showcase";
  * one click loads the place, with its fixed spawn if it has one, otherwise a
  * random spawn like the Random mode.
  *

@@ -29,7 +29,7 @@
     [placementMode]="mapPlacementMode()"
     [canPlace]="canPlaceOnMap()"
     [locationLocked]="uiStore.coopMapLocked()"
-    (locationClick)="openLocationDialog()"
+    (locationClick)="openPlaceChoice()"
     (closeClick)="close()"
     (shareClick)="onShareLocation()"
     (diceClick)="onWorldDice()"
@@ -89,14 +89,9 @@
           <h3>Error</h3>
           <p>{{ error() }}</p>
           <div class="td-error-actions">
-            @if (errorOffersReload()) {
-              <!-- The location dialog did not load or open: a reload fetches it again -->
-              <button class="td-btn" (click)="reloadPage()">Reload</button>
-            } @else {
-              <button class="td-btn" (click)="awaitingCredentials.set(true)">
-                Change tile credentials
-              </button>
-            }
+            <button class="td-btn" (click)="awaitingCredentials.set(true)">
+              Change tile credentials
+            </button>
             <button class="td-btn" (click)="close()">Close</button>
           </div>
         </div>

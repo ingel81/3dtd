@@ -46,7 +46,7 @@ export function formatShowcaseLine(hq: { lat: number; lon: number } | null, spaw
  * URL is the source of truth - this service just holds the current state.
  *
  * IMPORTANT: hq and spawns can be null if no location is set.
- * In this case, the component should show the location dialog.
+ * In this case, the start waits for a place chosen in the menu.
  */
 @Injectable({ providedIn: 'root' })
 export class LocationManagementService {

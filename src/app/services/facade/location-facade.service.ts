@@ -1,25 +1,18 @@
 import { Injectable, inject, DestroyRef, Injector } from '@angular/core';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatDialog } from '@angular/material/dialog';
 import { OsmStreetService } from '../location/osm-street.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { LocationManagementService } from '../location/location-management.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
-import { GeolocationService } from '../location/geolocation.service';
 import { UrlLocationService } from '../location/url-location.service';
 import { DevWorldService, DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
-import {
-  LOCATION_DIALOG_OPEN_FAILED,
-  LocationDialogLoadError,
-  openLocationDialog,
-} from '../../components/location-dialog/open-location-dialog';
-import { LocationDialogData, LocationDialogResult, SavedSpawn } from '../../models/location.types';
+import { SavedSpawn } from '../../models/location.types';
+import { startSpawns } from '../location/place-choice';
 import { MainWorldService } from '../world/main-world.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { PresentationService } from '../../presentation/presentation.service';
@@ -61,7 +54,7 @@ class ComponentGoneError extends Error {}
 /** What the game component hands over in initialize(). */
 interface ComponentContext {
   bridge: FacadeComponentBridge;
-  /** Component injector, for the DestroyRef of the location dialog. */
+  /** Component injector, for the DestroyRef the wait for a place ends with. */
   injector: Injector;
 }
 
@@ -69,7 +62,7 @@ interface ComponentContext {
  * Sub-facade for location management, DevWorld, spawns, and street loading.
  *
  * Responsibilities:
- * - Location detection (URL, geolocation, dialog)
+ * - Location at the start (URL, or the place chosen in the menu)
  * - DevWorld regeneration
  * - Spawn point management
  * - Street network loading
@@ -89,7 +82,6 @@ export class LocationFacadeService {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
-  private readonly geolocation = inject(GeolocationService);
   private readonly urlLocation = inject(UrlLocationService);
   private readonly devWorld = inject(DevWorldService);
   private readonly routeAnimation = inject(RouteAnimationService);
@@ -98,7 +90,6 @@ export class LocationFacadeService {
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   private readonly mapPlacement = inject(MapPlacementService);
   private readonly mapRelocation = inject(MapRelocationService);
-  private readonly dialog = inject(MatDialog);
   private readonly store = inject(TowerDefenseStore);
 
   /**
@@ -186,7 +177,6 @@ export class LocationFacadeService {
         getSpawnPoints: () => this.store.spawnPoints(),
         getBaseCoords: () => this.store.baseCoords(),
       }),
-      isGameInProgress: () => this.store.phase() !== 'setup' || this.store.waveNumber() > 0,
       getCurrentLocationName: () => this.locationMgmt.getLocationDisplayName(),
     };
   }
@@ -196,9 +186,10 @@ export class LocationFacadeService {
   // ══════════════════════════════════════════════════════════════
 
   /**
-   * Initialize location from URL or geolocation cascade. False when the boot
-   * cannot go on: the component went away while the location dialog was
-   * open, or the dialog did not load (then the error screen says so).
+   * Initialize the location from the URL or, without one there, from the
+   * place chosen in the menu (LocationChangeCoordinatorService.choosePlace).
+   * The browser's location is asked only from the menu's "Use my location".
+   * False when the component went away before a place was chosen.
    */
   async initializeLocation(): Promise<boolean> {
     await this.engineInit.setStepCurrent('location');
@@ -222,29 +213,15 @@ export class LocationFacadeService {
       this.locationMgmt.setLocation(urlData.hq, urlData.spawns);
       await this.engineInit.setStepDone('location', 'from URL');
     } else {
-      // No URL params → try geolocation cascade
-      this.geolocation.onStepDetail = (detail) => this.engineInit.updateStepMeta('location', detail);
-      const detected = await this.geolocation.detectLocation();
-
-      if (detected) {
-        this.locationMgmt.setLocation(detected, []);
-        await this.engineInit.setStepDone('location', 'Browser');
-      } else {
-        this.engineInit.updateStepMeta('location', 'Select location...');
-        try {
-          await this.waitForLocationFromDialog();
-        } catch (err) {
-          // The component went away before the dialog closed: nothing to show
-          if (err instanceof ComponentGoneError) return false;
-          console.error('[LocationFacade] Location dialog failed:', err);
-          this.engineInit.setError(
-            err instanceof LocationDialogLoadError ? err.message : LOCATION_DIALOG_OPEN_FAILED,
-          );
-          this.engineInit.setLoading(false);
-          return false;
-        }
-        await this.engineInit.setStepDone('location', 'manually selected');
+      this.engineInit.updateStepMeta('location', 'Choose a place');
+      try {
+        await this.waitForPlaceChoice();
+      } catch (err) {
+        // The component went away before a place was chosen: nothing to show
+        if (err instanceof ComponentGoneError) return false;
+        throw err;
       }
+      await this.engineInit.setStepDone('location', 'chosen');
     }
 
     // Sync URL with current location
@@ -258,66 +235,22 @@ export class LocationFacadeService {
   }
 
   /**
-   * Open location dialog and wait for user to select a location.
-   * Rejects with a ComponentGoneError if component is destroyed before dialog
-   * closes, or if there is no component to begin with, with a
-   * LocationDialogLoadError when the dialog's chunk does not load, and with
-   * the error itself when the loaded dialog fails to open.
+   * Wait for the place the menu chooses and set it. Rejects with a
+   * ComponentGoneError if the component is destroyed first, or if there is
+   * no component to begin with.
    */
-  waitForLocationFromDialog(): Promise<void> {
+  async waitForPlaceChoice(): Promise<void> {
     const ctx = this.ctx;
-    if (!ctx) return Promise.reject(new ComponentGoneError('Location facade is not initialized'));
-
-    return new Promise((resolve, reject) => {
-      const destroyRef = ctx.injector.get(DestroyRef);
-      let settled = false;
-
-      // Reject if component is destroyed before dialog closes
+    if (!ctx) throw new ComponentGoneError('Location facade is not initialized');
+    const destroyRef = ctx.injector.get(DestroyRef);
+    const gone = new Promise<never>((_, reject) => {
       destroyRef.onDestroy(() => {
-        if (!settled) {
-          settled = true;
-          reject(new ComponentGoneError('Component destroyed before location was selected'));
-        }
-      });
-
-      void openLocationDialog(this.dialog, {
-        data: {
-          currentLocation: null,
-          currentSpawn: null,
-          isGameInProgress: false,
-        } as LocationDialogData,
-        // The game's injector: the Coop tab reaches the CoopService through it (COOP) and
-        // joins a game without a place of one's own first (E30)
-        injector: ctx.injector,
-        // The search field, ready to type into; without one (World tab) the dialog itself
-        autoFocus: 'input',
-        panelClass: 'td-dialog-panel',
-        disableClose: true,
-      }).then((dialogRef) => {
-        // The component went away while the dialog chunk loaded
-        if (settled) {
-          dialogRef.close();
-          return;
-        }
-        dialogRef.afterClosed()
-          .pipe(takeUntilDestroyed(destroyRef))
-          .subscribe((result: LocationDialogResult | null | undefined) => {
-            if (settled) return;
-            settled = true;
-            if (result?.confirmed) {
-              this.locationMgmt.setLocation(
-                { lat: result.hq.lat, lon: result.hq.lon },
-                result.spawns ?? (result.spawn.isRandom ? [] : [{ lat: result.spawn.lat, lon: result.spawn.lon }])
-              );
-            }
-            resolve();
-          });
-      }).catch((err: unknown) => {
-        if (settled) return;
-        settled = true;
-        reject(err);
+        this.locationCoordinator.cancelStartChoice();
+        reject(new ComponentGoneError('Component destroyed before a place was chosen'));
       });
     });
+    const choice = await Promise.race([this.locationCoordinator.waitForStartChoice(), gone]);
+    this.locationMgmt.setLocation({ lat: choice.hq.lat, lon: choice.hq.lon }, startSpawns(choice));
   }
 
   /**

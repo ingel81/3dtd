@@ -13,7 +13,7 @@ import { AddressAutocompleteComponent } from './address-autocomplete.component';
 import { GeocodingService, type GeocodingResult } from '../services/location/geocoding.service';
 
 /**
- * The hint under the address field of the location dialog (searchState), as
+ * The hint under the address field of the menu's place picker (searchState), as
  * the template drives it: each keystroke goes through onSearchChange
  * ((ngModelChange)). GeocodingService is a stub with its signals; its
  * search() resets them for a query under three characters, as the real one

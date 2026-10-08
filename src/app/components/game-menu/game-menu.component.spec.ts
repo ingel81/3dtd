@@ -26,7 +26,6 @@ import { DebugFacadeService } from '../../services/debug/debug-facade.service';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { ReplayService } from '../../services/replay.service';
 import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-facade.service';
-import { LocationChangeCoordinatorService } from '../../services/location/location-change-coordinator.service';
 import { AUTOSAVE_SLOT, SAVE_GAME, manualSlotId, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
 import { VFX_PRESETS } from '../../three-engine/vfx-settings';
 
@@ -95,7 +94,6 @@ async function setup({
   const runLog = { export: vi.fn(() => true) };
   const replay = { recordedWave: signal(recorded ? 3 : null), saveFile: vi.fn(async () => true) };
   const facade = { restartGame: vi.fn() };
-  const location = { openLocationDialog: vi.fn(async () => undefined) };
   TestBed.configureTestingModule({
     providers: [
       { provide: MatDialogRef, useValue: { close } },
@@ -107,7 +105,6 @@ async function setup({
       { provide: RunLogFacade, useValue: runLog },
       { provide: ReplayService, useValue: replay },
       { provide: TowerDefenseFacadeService, useValue: facade },
-      { provide: LocationChangeCoordinatorService, useValue: location },
       ...(benchmark ? [{ provide: BenchmarkService, useValue: bench }] : []),
     ],
   });
@@ -147,7 +144,7 @@ async function setup({
   const status = () => el.querySelector('.gm-status')?.textContent?.trim() ?? null;
   return {
     bridge, bench, close, el, byText, click, escape, labels, status, settle, store, fixture, saves, debugFacade,
-    runLog, replay, facade, location, menu: fixture.componentInstance,
+    runLog, replay, facade, menu: fixture.componentInstance,
   };
 }
 
@@ -342,11 +339,11 @@ describe('GameMenuComponent', () => {
       expect(labels()).toContain('Restart here');
     });
 
-    it('Change location opens the location dialog', async () => {
-      const { click, close, location } = await setup();
+    it('Change location opens the main menu on New game', async () => {
+      const { click, close } = await setup();
       await click('Change location');
       expect(close).toHaveBeenCalled();
-      expect(location.openLocationDialog).toHaveBeenCalledTimes(1);
+      expect(TestBed.inject(UIStore).mainMenu()).toEqual({ open: true, layer: 'pause', page: 'new-game' });
     });
   });
 
