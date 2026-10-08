@@ -212,7 +212,7 @@ describe('VisualizationFacadeService', () => {
   };
   const uiStore = { routesVisible: signal(true), buildingsVisible: signal(false), specialPointsDebugVisible: signal(false) };
   /** No menu in front: the show plays at once */
-  const startShow = { whenPlayed: vi.fn((show: () => void) => show()) };
+  const startShow = { whenPlayed: vi.fn((_kind: string, show: () => void) => show()) };
   const cameraControl = {
     initialize: vi.fn(),
     setOverviewProvider: vi.fn(),

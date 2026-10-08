@@ -8,23 +8,34 @@ import { UIStore } from '../../store/ui.store';
  * when the player closes it with Play or Continue (docs/MAIN_MENU_UI_PLAN.md,
  * Menü 3). Without the menu it starts at once.
  */
+export type StartShowKind =
+  /** The opening music gives way to the build phase's (the first load) */
+  | 'music'
+  /** Route animation and intro flight of the place standing; a newer place's replaces an older one's */
+  | 'place';
+
 @Injectable({ providedIn: 'root' })
 export class StartShowService {
   private readonly ui = inject(UIStore);
-  private pending: (() => void)[] = [];
+  /** One show of each kind, in the order the kinds first came */
+  private pending = new Map<StartShowKind, () => void>();
 
   constructor() {
     effect(() => {
       if (this.ui.mainMenuOpen()) return;
-      const shows = this.pending;
-      this.pending = [];
+      const shows = [...this.pending.values()];
+      this.pending = new Map();
       untracked(() => shows.forEach((show) => show()));
     });
   }
 
-  /** Play `show` now, or when the menu closes, in the order they came */
-  whenPlayed(show: () => void): void {
-    if (this.ui.mainMenuOpen()) this.pending.push(show);
+  /**
+   * Play `show` now, or when the menu closes. A show of the same kind still
+   * waiting is replaced: two places loaded behind the menu fly once, over
+   * the one that stands.
+   */
+  whenPlayed(kind: StartShowKind, show: () => void): void {
+    if (this.ui.mainMenuOpen()) this.pending.set(kind, show);
     else show();
   }
 }

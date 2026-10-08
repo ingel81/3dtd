@@ -408,7 +408,7 @@ export class LocationChangeExecutorService {
     this.locationMgmt.isApplyingLocation.set(false);
 
     // Route animation and flight wait for the main menu to close (StartShowService)
-    this.startShow.whenPlayed(() => this.playShow(callbacks));
+    this.startShow.whenPlayed('place', () => this.playShow(callbacks));
   }
 
   /** The route animation and the intro flight of the new place */

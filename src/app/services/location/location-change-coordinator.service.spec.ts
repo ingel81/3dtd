@@ -200,7 +200,7 @@ describe('LocationChangeCoordinatorService', () => {
         { provide: WorldDiceService, useValue: worldDice },
         { provide: UIStore, useValue: uiStore },
         // The show plays at once: no menu in front of it here
-        { provide: StartShowService, useValue: { whenPlayed: (show: () => void) => show() } },
+        { provide: StartShowService, useValue: { whenPlayed: (_kind: string, show: () => void) => show() } },
         { provide: MainWorldService, useValue: world },
         { provide: GlobalRouteGridService, useValue: {} },
         { provide: RouteGridVizService, useValue: routeGrid },

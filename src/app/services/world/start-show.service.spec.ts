@@ -18,29 +18,43 @@ describe('StartShowService', () => {
 
   it('plays at once without the menu', () => {
     const show = vi.fn();
-    TestBed.inject(StartShowService).whenPlayed(show);
+    TestBed.inject(StartShowService).whenPlayed('place', show);
     expect(show).toHaveBeenCalledTimes(1);
   });
 
-  it('waits while the menu stands and plays every show once it closes, in order', () => {
+  it('waits while the menu stands and plays each kind once it closes, in the order they came', () => {
     const ui = TestBed.inject(UIStore);
     const shows = TestBed.inject(StartShowService);
     ui.mainMenu.set({ open: true, layer: 'start', page: 'home' });
     const order: string[] = [];
-    shows.whenPlayed(() => order.push('first'));
-    shows.whenPlayed(() => order.push('second'));
+    shows.whenPlayed('music', () => order.push('music'));
+    shows.whenPlayed('place', () => order.push('place'));
     TestBed.tick();
     expect(order).toEqual([]);
 
     ui.mainMenu.set({ open: false, layer: 'start', page: 'home' });
     TestBed.tick();
-    expect(order).toEqual(['first', 'second']);
+    expect(order).toEqual(['music', 'place']);
 
     // Played once
     ui.mainMenu.set({ open: true, layer: 'pause', page: 'home' });
     TestBed.tick();
     ui.mainMenu.set({ open: false, layer: 'pause', page: 'home' });
     TestBed.tick();
-    expect(order).toEqual(['first', 'second']);
+    expect(order).toEqual(['music', 'place']);
+  });
+
+  it('a second place loaded behind the menu replaces the first one’s show: one flight, over the place that stands', () => {
+    const ui = TestBed.inject(UIStore);
+    const shows = TestBed.inject(StartShowService);
+    ui.mainMenu.set({ open: true, layer: 'start', page: 'home' });
+    const played: string[] = [];
+    shows.whenPlayed('music', () => played.push('music'));
+    shows.whenPlayed('place', () => played.push('Heilbronn'));
+    shows.whenPlayed('place', () => played.push('Paris'));
+
+    ui.mainMenu.set({ open: false, layer: 'start', page: 'home' });
+    TestBed.tick();
+    expect(played).toEqual(['music', 'Paris']);
   });
 });

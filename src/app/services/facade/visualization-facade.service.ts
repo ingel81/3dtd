@@ -757,19 +757,18 @@ export class VisualizationFacadeService {
     if (wasLoading && !isNowLoading) {
       cameraTimeline.record('loading.done', { isApplying });
       // The show waits for the main menu to close (StartShowService)
-      this.startShow.whenPlayed(() => this.playStartShow(isApplying));
+      this.startShow.whenPlayed('music', () => this.presentation.onLoadingComplete());
+      this.startShow.whenPlayed('place', () => this.playStartShow(isApplying));
     }
   }
 
   /**
-   * The place is up and the player in front of it: the build-phase music,
-   * the route animation and the intro flight. A location change plays its
-   * own from its last step (LocationChangeExecutorService).
+   * The place is up and the player in front of it: the route animation and
+   * the intro flight (the build-phase music goes as a show of its own). A
+   * location change plays its own from its last step
+   * (LocationChangeExecutorService).
    */
   private playStartShow(isApplying: boolean): void {
-    // Transition from opening music → build phase music now that loading screen is gone
-    this.presentation.onLoadingComplete();
-
     if (!this.routeAnimation.isRunning() && !isApplying) {
       const cachedPaths = this.pathRoute.getCachedPaths();
       if (cachedPaths.size > 0) {

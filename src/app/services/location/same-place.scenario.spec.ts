@@ -273,7 +273,7 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
         { provide: GlobalRouteGridService, useValue: { clear: vi.fn() } },
         { provide: RouteGridVizService, useValue: routeGrid },
         { provide: PresentationService, useValue: { host: null } },
-        { provide: StartShowService, useValue: { whenPlayed: (show: () => void) => show() } },
+        { provide: StartShowService, useValue: { whenPlayed: (_kind: string, show: () => void) => show() } },
         { provide: UIStore, useValue: { routesVisible: signal(true), notice: signal(null), loadProblem: signal(null), mapPlacementMode: signal(null), coopMapLocked: signal(false) } },
         // The real services, as factories: a class provider would need the JIT compiler
         { provide: UrlLocationService, useFactory: () => new UrlLocationService() },
