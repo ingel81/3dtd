@@ -1,3 +1,7 @@
+@use '../../styles/game-ui' as ui;
+
+@include ui.classes;
+
 :host {
   /* Covers header and sidebar too: a half-visible HUD behind a screen that
      blocks play reads as a broken game rather than a prompt. */
@@ -12,175 +16,59 @@
 .token-setup {
   box-sizing: border-box;
   min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: var(--td-sp-5);
+}
+
+.dlg {
+  width: 540px;
+  max-height: none;
+  @include ui.plate-shadow;
+}
+
+.dlg-body {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 24px;
-  text-align: center;
-  font-family: var(--td-font-body);
+  gap: var(--td-sp-3);
+  overflow: visible;
 }
 
-.token-icon {
-  color: var(--td-gold);
-}
-
-h2 {
+.token-lead {
   margin: 0;
-  font-family: var(--td-font-display);
-  font-size: 19px;
-  color: var(--td-text-primary);
 }
 
 .token-coop {
   color: var(--td-gold-light);
 }
 
-.token-lead {
-  margin: 0;
-  max-width: 420px;
-  color: var(--td-text-secondary);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
 .token-tabs {
-  display: flex;
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.token-tab {
-  padding: 7px 18px;
-  cursor: pointer;
-  background: var(--td-panel-dark);
-  border: 1px solid var(--td-frame-mid);
-  color: var(--td-text-secondary);
-  font-family: var(--td-font-body);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition: color 120ms ease, border-color 120ms ease;
-}
-
-.token-tab.active {
-  border-color: var(--td-gold);
-  color: var(--td-gold);
+  align-self: flex-start;
 }
 
 .token-steps {
   margin: 0;
-  padding: 12px 18px 12px 34px;
-  max-width: 420px;
-  text-align: left;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-mid);
-  color: var(--td-text-secondary);
-  font-size: 12px;
+  padding: var(--td-sp-3) var(--td-sp-4) var(--td-sp-3) 34px;
+  @include ui.sunken;
+  font-size: var(--td-fs-body);
   line-height: 1.75;
 }
 
-.token-steps strong { color: var(--td-text-primary); }
-
-.token-warning {
-  margin: 0;
-  max-width: 480px;
-  color: var(--td-warn-orange);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
 a {
-  color: var(--td-gold);
+  @include ui.link;
 }
 
 .token-form {
   display: flex;
-  gap: 8px;
-  width: 100%;
-  max-width: 480px;
+  gap: var(--td-sp-2);
 }
 
 .token-input {
   flex: 1;
-  min-width: 0;
-  padding: 10px 12px;
-  background: var(--td-panel-dark);
-  border: 1px solid var(--td-frame-mid);
-  color: var(--td-text-primary);
-  font-family: var(--td-font-mono);
-  font-size: 12px;
 }
 
-.token-input:focus {
-  outline: none;
-  border-color: var(--td-gold);
-}
-
-.token-btn {
-  padding: 10px 22px;
-  cursor: pointer;
-  background: var(--td-glass-tint);
-  border: 1px solid var(--td-gold);
-  color: var(--td-gold);
-  font-family: var(--td-font-body);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition: background 120ms ease;
-}
-
-.token-btn:hover:not(:disabled) { background: var(--td-panel-secondary); }
-
-.token-btn.ghost {
-  border-color: var(--td-frame-mid);
-  color: var(--td-text-secondary);
-}
-
-.token-result {
-  margin: 0;
-  max-width: 420px;
-  color: var(--td-green);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.token-result.bad { color: var(--td-warn-orange); }
-.token-btn:disabled { opacity: 0.4; cursor: default; }
-
-.token-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 6px;
-  padding: 11px 26px;
-  cursor: pointer;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-light);
-  color: var(--td-text-primary);
-  font-family: var(--td-font-body);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition: border-color 120ms ease, color 120ms ease;
-}
-
-.token-back:hover {
-  border-color: var(--td-gold);
-  color: var(--td-gold);
-}
-
-.token-key-hint {
-  padding: 1px 5px;
-  border: 1px solid var(--td-frame-mid);
-  color: var(--td-text-muted);
-  font-size: 9px;
-  font-weight: 400;
-  letter-spacing: 0.04em;
+.token-note {
+  font-size: var(--td-fs-small);
 }
 
 .token-link {
@@ -189,17 +77,13 @@ a {
   background: none;
   border: none;
   color: var(--td-text-secondary);
-  font-family: var(--td-font-body);
-  font-size: 11px;
+  font: inherit;
   text-decoration: underline;
   cursor: pointer;
+  @include ui.focus-ring;
 }
 
-.token-note {
-  margin: 2px 0 0;
-  max-width: 420px;
-  color: var(--td-text-muted);
-  font-size: 11px;
-  line-height: 1.6;
-  opacity: 0.75;
+.token-back kbd {
+  margin-left: var(--td-sp-1);
+  letter-spacing: 0.04em;
 }

@@ -1,9 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, isDevMode, output, signal } from '@angular/core';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { ConfigService } from '../../core/services/config.service';
-import { TdIconComponent } from '../icon/icon.component';
 import { RovingGroupDirective } from '../roving-group.directive';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { APP_DOWNLOADS, coopAccess, type CoopAccess } from '../../coop/coop-access';
 import { readDesktopBridge } from '../../core/desktop-bridge';
 
@@ -27,16 +25,11 @@ import { readDesktopBridge } from '../../core/desktop-bridge';
 @Component({
   selector: 'td-token-setup',
   standalone: true,
-  imports: [CdkTrapFocus, TdIconComponent, RovingGroupDirective],
+  imports: [CdkTrapFocus, RovingGroupDirective],
   host: { '(document:keydown.escape)': 'dismiss()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './token-setup.component.html',
   styleUrl: './token-setup.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class TokenSetupComponent {
   readonly config = inject(ConfigService);

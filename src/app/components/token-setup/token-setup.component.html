@@ -1,13 +1,15 @@
 <!-- Covers the whole page: Tab stays in it, and the focus goes back where it was when it closes -->
 <div class="token-setup" role="dialog" aria-modal="true" aria-labelledby="token-setup-title"
      cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
-  <td-icon class="token-icon" [name]="rejected() ? 'warn' : 'lock'" [size]="40"></td-icon>
+ <div class="dlg">
+  <header class="dlg-head">
+    <h2 class="dlg-title" id="token-setup-title">{{ rejected() ? 'Key rejected' : 'Bring your own map key' }}</h2>
+  </header>
 
+  <div class="dlg-body">
   @if (rejected()) {
-    <h2 id="token-setup-title">Key rejected</h2>
     <p class="token-lead">The tile server refused it. Check you pasted the whole thing.</p>
   } @else {
-    <h2 id="token-setup-title">Bring your own map key</h2>
     <p class="token-lead">
       The 3D tiles are billed per request, so this build ships without a key.
       A free account covers playing.
@@ -27,19 +29,19 @@
     }
   }
 
-  <div class="token-tabs" role="tablist" tdRovingGroup aria-label="Map provider">
+  <div class="seg token-tabs" role="tablist" tdRovingGroup aria-label="Map provider">
     <button
       type="button"
       role="tab"
       class="token-tab"
-      [class.active]="provider() === 'cesium'"
+      [class.is-on]="provider() === 'cesium'"
       [attr.aria-selected]="provider() === 'cesium'"
       (click)="selectProvider('cesium')">Cesium Ion</button>
     <button
       type="button"
       role="tab"
       class="token-tab"
-      [class.active]="provider() === 'google'"
+      [class.is-on]="provider() === 'google'"
       [attr.aria-selected]="provider() === 'google'"
       (click)="selectProvider('google')">Google Maps</button>
   </div>
@@ -56,7 +58,7 @@
       <li>Enable the <strong>Map Tiles API</strong>, create a key</li>
       <li>Paste it here</li>
     </ol>
-    <p class="token-warning">
+    <p class="note is-warn">
       Referrer-restricted and not offered in every region. Use Cesium Ion if the map stays empty.
     </p>
   }
@@ -64,7 +66,7 @@
   <form class="token-form" (submit)="submit($event)">
     <input
       cdkFocusInitial
-      class="token-input"
+      class="inp token-input"
       type="text"
       [name]="provider() === 'cesium' ? 'cesium-ion-token' : 'google-maps-api-key'"
       [placeholder]="provider() === 'cesium' ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6...' : 'AIza...'"
@@ -74,30 +76,34 @@
       (input)="onInput($event)"
       [attr.aria-label]="provider() === 'cesium' ? 'Cesium Ion access token' : 'Google Maps API key'" />
     <button
-      class="token-btn ghost"
+      class="btn-secondary"
       type="button"
       [disabled]="!value().trim() || testing()"
       (click)="test()">{{ testing() ? 'Checking' : 'Test' }}</button>
-    <button class="token-btn" type="submit" [disabled]="!value().trim()">Start</button>
+    <button class="btn-primary" type="submit" [disabled]="!value().trim()">Start</button>
   </form>
 
   @if (testResult(); as result) {
-    <p class="token-result" [class.bad]="!result.ok">
+    <p class="note" [class.is-ok]="result.ok" [class.is-warn]="!result.ok">
       {{ result.ok ? '✓ ' : '✗ ' }}{{ result.message }}
     </p>
   }
 
-  @if (dismissible()) {
-    <button class="token-back" type="button" (click)="dismiss()">
-      Back to the game
-      <span class="token-key-hint">ESC</span>
-    </button>
-  }
-
-  <p class="token-note">
+  <p class="note token-note">
     Stays in this browser, goes only to the tile provider.
     @if (config.hasStoredToken()) {
       <button class="token-link" type="button" (click)="clear()">Forget stored key</button>
     }
   </p>
+  </div>
+
+  @if (dismissible()) {
+    <footer class="dlg-foot">
+      <button class="btn-secondary token-back" type="button" (click)="dismiss()">
+        Back to the game
+        <kbd>Esc</kbd>
+      </button>
+    </footer>
+  }
+ </div>
 </div>

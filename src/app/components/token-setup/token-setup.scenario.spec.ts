@@ -19,7 +19,6 @@ import '@angular/compiler';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Component, Input, input } from '@angular/core';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { getTestBed, TestBed, type ComponentFixture } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
@@ -34,16 +33,6 @@ import { TokenSetupComponent } from './token-setup.component';
 
 const template = readFileSync(resolve('src/app/components/token-setup/token-setup.component.html'), 'utf8');
 const STORAGE_KEY = '3dtd-tile-credentials';
-
-@Component({ selector: 'td-icon', standalone: true, template: '' })
-class IconStub {
-  readonly name = input('');
-  readonly size = input(16);
-}
-// The @Input annotation the JIT transform adds for input() (see world-map.scenario.spec.ts)
-for (const name of ['name', 'size']) {
-  Input({ alias: name, isSignal: true } as Input)(IconStub.prototype, name);
-}
 
 /** What the game shows the token screen for (tower-defense.component.html:50) */
 const screenShown = (config: ConfigService, awaitingCredentials: boolean) =>
@@ -63,7 +52,7 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false })));
     TestBed.configureTestingModule({});
     TestBed.overrideComponent(TokenSetupComponent, {
-      set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [CdkTrapFocus, IconStub] },
+      set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [CdkTrapFocus] },
     });
     config = TestBed.inject(ConfigService);
     await config.load();
@@ -95,7 +84,7 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     config.setupRequested.set(true);
     expect(screenShown(config, false)).toBe(true);
     render();
-    expect(backButton()?.textContent).toContain('ESC');
+    expect(backButton()?.textContent).toContain('Esc');
 
     pressEsc();
     expect(config.setupRequested()).toBe(false);
