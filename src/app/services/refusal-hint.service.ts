@@ -8,6 +8,7 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 import { UPGRADE_HINT_MS } from './upgrade-hint.service';
 import { uiSound } from './ui-sound';
+import { refuseForCredits } from './credits-refusal';
 
 /** A refused press on an ability or the hero: whose, and why. */
 export interface Refusal {
@@ -134,7 +135,8 @@ export class RefusalHintService {
     const hired = this.store.hero().hired;
     const text = heroRefusalText(reason, this.store.credits(), hired);
     if (!text) return;
-    uiSound.play(reason === 'credits' ? 'noMoney' : 'denied');
+    if (reason === 'credits') refuseForCredits();
+    else uiSound.play('denied');
     this.show({ subject: hired ? HERO.name : `Hire ${HERO.name}`, reason: text });
   }
 

@@ -15,6 +15,7 @@ import {
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { UpgradeHintService } from './upgrade-hint.service';
 import { uiSound } from './ui-sound';
+import { refuseForCredits } from './credits-refusal';
 
 /**
  * Text rising over the tower after a purchase: --td-gold-light for what it
@@ -129,7 +130,7 @@ export class TowerUpgradeService {
       return false;
     }
     if (this.store.credits() < path.cost) {
-      uiSound.play('noMoney');
+      refuseForCredits();
       return false;
     }
     this.sim.bus.emit({ type: 'command:choose-path', towerId: tower.id, pathId });
@@ -138,7 +139,8 @@ export class TowerUpgradeService {
   }
 
   private refuse(tower: Tower, refusal: UpgradeRefusal): void {
-    uiSound.play(refusal.kind === 'credits' ? 'noMoney' : 'denied');
+    if (refusal.kind === 'credits') refuseForCredits();
+    else uiSound.play('denied');
     this.upgradeHint.refused(tower.id, refusal);
     this.floatOverTower(tower, refusalLabel(refusal), UPGRADE_TEXT.refused);
   }

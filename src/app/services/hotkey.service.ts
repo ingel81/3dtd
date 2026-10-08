@@ -27,7 +27,7 @@ import { ReplayService } from './replay.service';
 import { TowerControlService } from './tower-control.service';
 import { TowerUpgradeService } from './tower-upgrade.service';
 import { DebugFacadeService } from './debug/debug-facade.service';
-import { uiSound } from './ui-sound';
+import { refuseForCredits } from './credits-refusal';
 
 /**
  * Runs the game hotkeys (see hotkey-map.ts). The component hands it every key
@@ -270,7 +270,7 @@ export class HotkeyService {
       isUnlocked: (id) => this.researchStore.isTowerUnlocked(id),
     });
     if (!pickable) {
-      if (this.store.credits() < tower.cost && this.researchStore.isTowerUnlocked(tower.id)) uiSound.play('noMoney');
+      if (this.store.credits() < tower.cost && this.researchStore.isTowerUnlocked(tower.id)) refuseForCredits();
       return false;
     }
     // Already building this one: keep the preview where it is
