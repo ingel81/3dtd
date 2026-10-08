@@ -1,4 +1,9 @@
-// Structure and a plain look; the menu-list recipe of the foundation (_game-ui.scss) replaces it.
+// The menu's list on the foundation's menu recipe (menu-list, menu-item,
+// menu-rule); the question under it with brass and steel buttons.
+@use '../../../../styles/game-ui' as ui;
+
+@include ui.classes;
+
 :host {
   display: flex;
   flex-direction: column;
@@ -9,82 +14,58 @@
 .mh-pause-line {
   margin: 18px 0 0;
   font-family: var(--td-font-mono);
-  font-size: 11px;
+  font-size: var(--td-fs-small);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--td-gold);
 }
 
 .mh-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  @include ui.menu-list(4px);
   margin-top: 56px;
 }
 
 .mh-pause {
-  gap: 2px;
+  @include ui.menu-list(2px);
   margin-top: 36px;
   width: 300px;
+  max-width: 100%;
 }
 
 .mh-item {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 10px 0 10px 25px;
-  border: 0;
-  border-left: 3px solid transparent;
-  background: none;
-  color: var(--td-text-secondary);
-  font-family: var(--td-font-display);
-  text-align: left;
-  cursor: pointer;
+  @include ui.menu-item;
+  padding-left: 25px;
 
-  &:hover,
+  &:hover:not(:disabled, [aria-disabled='true']),
   &:focus-visible {
     padding-left: 22px;
-    border-left-color: var(--td-gold);
-    color: var(--td-text-primary);
-    background: linear-gradient(90deg, rgba(194, 160, 85, 0.16), rgba(194, 160, 85, 0) 80%);
-    outline: none;
   }
 
-  &:focus-visible {
-    box-shadow: inset 0 0 0 2px var(--td-gold-light);
+  &[data-entry='quit'] {
+    color: var(--td-text-muted);
   }
 }
 
-.mh-label {
-  font-weight: 500;
-  font-size: 26px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  line-height: 1;
-}
-
-.mh-lead .mh-label {
-  font-weight: 600;
+.mh-lead {
   font-size: 30px;
+  font-weight: 600;
 }
 
-.mh-pause .mh-label {
+.mh-pause .mh-item {
+  padding-top: 9px;
+  padding-bottom: 9px;
   font-size: 22px;
 }
 
-.mh-below .mh-label {
+.mh-item.mh-below {
   font-size: 20px;
-}
-
-.mh-item[data-entry='quit'] {
-  color: var(--td-text-muted);
 }
 
 .mh-sub {
   font-family: var(--td-font-mono);
   font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--td-gold-light);
 }
 
@@ -92,34 +73,32 @@
   display: block;
   width: 220px;
   height: 4px;
-  margin-top: 6px;
-  background: var(--td-bg-dark);
+  margin-top: 4px;
+  background: var(--td-panel-shadow);
 }
 
 .mh-bar-fill {
   display: block;
   height: 100%;
   background: var(--td-gold);
-  transition: width 0.3s ease-out;
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
+  @include ui.motion(width);
 }
 
 .mh-sep {
-  width: 220px;
-  height: 1px;
-  margin: 10px 0 10px 25px;
-  background: var(--td-frame-dark);
+  @include ui.menu-rule;
+}
+
+.mh-pause .mh-sep {
+  width: 180px;
+  margin-left: 21px;
 }
 
 .mh-confirm {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin: 16px 0 0 25px;
-  padding-left: 12px;
+  margin: var(--td-sp-4) 0 0 25px;
+  padding-left: var(--td-sp-3);
   border-left: 2px solid var(--td-warn-orange);
 
   p {
@@ -131,38 +110,11 @@
 
 .mh-confirm-actions {
   display: flex;
-  gap: 8px;
-}
-
-.mh-btn {
-  padding: 7px 14px;
-  border: 1px solid var(--td-frame-mid);
-  background: var(--td-panel-dark);
-  color: var(--td-text-secondary);
-  font-family: var(--td-font-display);
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-
-  &:hover {
-    color: var(--td-text-primary);
-    border-color: var(--td-gold);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--td-gold-light);
-    outline-offset: 2px;
-  }
-}
-
-.mh-btn-yes {
-  border-color: var(--td-gold);
-  color: var(--td-text-primary);
+  gap: var(--td-sp-2);
 }
 
 .mh-status {
-  margin: 12px 0 0 25px;
-  font-size: 13px;
-  color: var(--td-warn-orange);
+  @include ui.note;
+  margin: var(--td-sp-3) 0 0 25px;
+  color: var(--td-warn-text);
 }

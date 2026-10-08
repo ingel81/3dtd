@@ -3,7 +3,7 @@
      cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
      (keydown.escape)="onEscape($event)">
   <div class="mm-column">
-    <img class="mm-logo" src="assets/images/logo/logo.png" alt="3DTD">
+    <img class="mm-logo" src="assets/images/logo/logo.svg" alt="3DTD" width="480" height="272">
     @if (layer() === 'start') {
       <p class="mm-tagline">Tower defense on real streets</p>
     }
@@ -14,22 +14,24 @@
   </div>
 
   @if (page() !== 'home') {
-    <section class="mm-page" aria-labelledby="td-menu-title">
-      <header class="mm-page-head">
-        <h2 id="td-menu-title">{{ title() }}</h2>
-        <button type="button" class="mm-back" (click)="menu.back()" aria-label="Back">Esc</button>
-      </header>
-      <div class="mm-page-body">
-        @switch (page()) {
-          @case ('new-game') { <app-menu-new-game [layer]="layer()" /> }
-          @case ('coop') { <app-menu-coop [layer]="layer()" /> }
-          @case ('save') { <app-menu-save [layer]="layer()" /> }
-          @case ('load') { <app-menu-load [layer]="layer()" /> }
-          @case ('settings') { <app-menu-settings [layer]="layer()" /> }
-          @case ('extras') { <app-menu-extras [layer]="layer()" /> }
-        }
-      </div>
-    </section>
+    <div class="mm-page-wrap">
+      <section class="mm-page" aria-labelledby="td-menu-title">
+        <header class="mm-page-head">
+          <h2 id="td-menu-title">{{ title() }}</h2>
+          <button type="button" class="mm-back" (click)="menu.back()" aria-label="Back">Esc</button>
+        </header>
+        <div class="mm-page-body">
+          @switch (page()) {
+            @case ('new-game') { <app-menu-new-game [layer]="layer()" /> }
+            @case ('coop') { <app-menu-coop [layer]="layer()" /> }
+            @case ('save') { <app-menu-save [layer]="layer()" /> }
+            @case ('load') { <app-menu-load [layer]="layer()" /> }
+            @case ('settings') { <app-menu-settings [layer]="layer()" /> }
+            @case ('extras') { <app-menu-extras [layer]="layer()" /> }
+          }
+        </div>
+      </section>
+    </div>
   }
 
   @if (layer() === 'start') {

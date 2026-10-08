@@ -10,10 +10,10 @@
     <div class="ml-problem" role="alert">
       <p>{{ problem.text }}</p>
       <div class="ml-actions">
-        <button type="button" class="ml-btn" (click)="retry()">Retry</button>
-        <button type="button" class="ml-btn" (click)="otherPlace()">Other place</button>
+        <button type="button" class="btn-primary" (click)="retry()">Retry</button>
+        <button type="button" class="btn-secondary" (click)="otherPlace()">Other place</button>
         @if (offersMapKey()) {
-          <button type="button" class="ml-btn" (click)="mapKey()">Map key</button>
+          <button type="button" class="btn-secondary" (click)="mapKey()">Map key</button>
         }
       </div>
     </div>
@@ -21,7 +21,7 @@
     <div class="ml-bar" role="progressbar" aria-label="Loading the place"
          aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="view().percent">
       @for (filled of segments(); track $index) {
-        <span class="ml-seg" [class.ml-seg-on]="filled"></span>
+        <span [class.is-on]="filled"></span>
       }
     </div>
     <div class="ml-step" aria-live="polite">

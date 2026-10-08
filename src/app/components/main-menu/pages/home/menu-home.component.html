@@ -27,8 +27,8 @@
   <div class="mh-confirm" role="group" aria-labelledby="td-menu-confirm">
     <p id="td-menu-confirm">{{ confirmText(confirm).question }}</p>
     <div class="mh-confirm-actions">
-      <button type="button" class="mh-btn mh-btn-yes" (click)="confirmed()">{{ confirmText(confirm).yes }}</button>
-      <button type="button" class="mh-btn" (click)="cancelConfirm()">Cancel</button>
+      <button type="button" class="btn-primary" (click)="confirmed()">{{ confirmText(confirm).yes }}</button>
+      <button type="button" class="btn-secondary" (click)="cancelConfirm()">Cancel</button>
     </div>
   </div>
 }

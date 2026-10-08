@@ -1,4 +1,9 @@
-// Structure and a plain look; the plate and menu recipes of the foundation (_game-ui.scss) replace it.
+// The main menu's frame on the foundation (docs/MAIN_MENU_UI_PLAN.md, Optik):
+// start layer with logo, gold corner brackets and the scene free on the
+// right; pause layer over an evenly darkened map; a page as a plate with its
+// title plate beside the list.
+@use '../../styles/game-ui' as ui;
+
 :host {
   position: fixed;
   inset: 0;
@@ -11,21 +16,32 @@
   display: flex;
   gap: 48px;
   align-items: flex-start;
-  padding: 72px 88px 160px;
   box-sizing: border-box;
+  padding: 72px 88px 168px;
   overflow: auto;
   color: var(--td-text-primary);
   font-family: var(--td-font-body);
+  font-size: var(--td-fs-body);
+
+  &:focus {
+    outline: none;
+  }
 }
 
+// The scene shows through on the right; the list reads on stone
 .mm-start {
   background:
-    linear-gradient(0deg, rgba(8, 11, 9, 0.7) 0%, rgba(8, 11, 9, 0) 26%),
-    linear-gradient(90deg, rgba(8, 11, 9, 0.94) 0%, rgba(8, 11, 9, 0.86) 30%, rgba(8, 11, 9, 0.25) 52%, rgba(8, 11, 9, 0) 70%);
+    linear-gradient(0deg, color-mix(in srgb, var(--td-bg-dark) 70%, transparent) 0%, transparent 26%),
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--td-bg-dark) 94%, transparent) 0%,
+      color-mix(in srgb, var(--td-bg-dark) 86%, transparent) 30%,
+      color-mix(in srgb, var(--td-bg-dark) 25%, transparent) 52%,
+      transparent 70%);
+  @include ui.corner-brackets;
 }
 
 .mm-pause {
-  background: rgba(8, 11, 9, 0.72);
+  background: color-mix(in srgb, var(--td-bg-dark) 72%, transparent);
 }
 
 .mm-column {
@@ -36,9 +52,9 @@
 
 .mm-logo {
   display: block;
-  height: auto;
   width: 420px;
   max-width: calc(100vw - 32px);
+  height: auto;
 }
 
 .mm-pause .mm-logo {
@@ -47,77 +63,58 @@
 
 .mm-tagline {
   margin: 14px 0 0;
-  font-family: var(--td-font-mono);
-  font-size: 11px;
+  @include ui.caps-label;
+  font-size: var(--td-fs-small);
   letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
+}
+
+.mm-page-wrap {
+  flex: 0 1 640px;
+  min-width: 0;
+  @include ui.plate-shadow;
 }
 
 .mm-page {
-  flex: 0 1 640px;
-  min-width: 0;
-  background: var(--td-panel-main);
-  border: 1px solid var(--td-frame-mid);
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  @include ui.plate;
+  max-height: calc(100vh - 144px);
+  display: flex;
+  flex-direction: column;
 }
 
 .mm-page-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px 12px;
-  border-top: 2px solid var(--td-gold-dark);
-  border-bottom: 1px solid var(--td-frame-dark);
+  @include ui.plate-head;
 
   h2 {
-    margin: 0;
-    font-family: var(--td-font-display);
-    font-weight: 600;
-    font-size: 20px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--td-gold-light);
+    @include ui.title;
   }
 }
 
 .mm-back {
+  @include ui.icon-btn(32px);
   width: 40px;
-  height: 32px;
-  border: 1px solid var(--td-frame-mid);
-  background: var(--td-panel-dark);
-  color: var(--td-text-secondary);
   font-family: var(--td-font-mono);
-  font-size: 11px;
-  cursor: pointer;
-
-  &:hover {
-    color: var(--td-text-primary);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--td-gold-light);
-    outline-offset: 2px;
-  }
+  font-size: var(--td-fs-small);
 }
 
 .mm-page-body {
   padding: 18px 20px 22px;
+  overflow: auto;
+  @include ui.scrollbar;
 }
 
 .mm-foot {
   position: absolute;
   left: 88px;
-  bottom: 40px;
+  bottom: 48px;
   width: 420px;
   max-width: calc(100vw - 32px);
 }
 
 .mm-tip {
   display: flex;
-  gap: 12px;
+  gap: var(--td-sp-3);
   margin: 0;
-  font-size: 13px;
+  font-size: var(--td-fs-body);
   line-height: 1.45;
   color: var(--td-text-secondary);
 }
@@ -125,27 +122,25 @@
 .mm-tip-label {
   padding-top: 2px;
   font-family: var(--td-font-mono);
-  font-size: 10px;
+  font-size: var(--td-fs-micro);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--td-gold);
 }
 
 .mm-tip-gold {
+  font-weight: 600;
   color: var(--td-gold-light);
 }
 
 .mm-tip-teal {
+  font-weight: 600;
   color: var(--td-teal-light);
 }
 
 .mm-version {
-  margin: 14px 0 0;
-  font-family: var(--td-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
+  margin: var(--td-sp-4) 0 0;
+  @include ui.caps-label;
 }
 
 .mm-loading {
@@ -155,27 +150,26 @@
 }
 
 .mm-sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  @include ui.sr-only;
 }
 
-// Phone width: one column, the plate under the list
+// Phone width: one column, the plates under the list
 @media (max-width: 760px) {
   .mm-root {
     flex-direction: column;
-    gap: 24px;
-    padding: 24px 16px;
+    gap: var(--td-sp-5);
+    padding: var(--td-sp-5) 16px;
+  }
+
+  .mm-start::after {
+    display: none;
   }
 
   .mm-logo {
     width: 240px;
   }
 
-  .mm-page {
+  .mm-page-wrap {
     flex: 0 0 auto;
     width: 100%;
   }
@@ -184,8 +178,4 @@
   .mm-loading {
     position: static;
   }
-}
-
-.mm-root:focus {
-  outline: none;
 }
