@@ -331,8 +331,13 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * under the start menu, which stands in front of the scene alone. Under
    * the pause layer it stays, darkened.
    */
-  readonly hudShown = computed(() =>
-    !this.loading() && !this.error() && !(this.uiStore.mainMenuOpen() && this.mainMenu.layer() === 'start'));
+  readonly hudShown = computed(() => !this.loading() && !this.error() && !this.startMenu());
+  /**
+   * The start menu stands in front: the scene alone behind it, full width,
+   * no header and no sidebar (Main.dc.html); the canvas follows its box
+   * (CanvasSizeFollower), and back when the menu closes
+   */
+  readonly startMenu = computed(() => this.uiStore.mainMenuOpen() && this.mainMenu.layer() === 'start');
   /** The tile key screen stands instead of the game, the menu waits behind it */
   readonly tokenScreen = computed(() =>
     this.awaitingCredentials() || this.configService.credentialsRejected() || this.configService.setupRequested());

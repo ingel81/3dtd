@@ -384,6 +384,15 @@
   color: var(--td-text-secondary);
 }
 
+/* === Start menu ===
+ * The scene alone behind the start menu, the whole width (Main.dc.html):
+ * no header, no sidebar; the canvas follows its box. The pause layer keeps
+ * them under its veil. */
+.td-start-menu > app-game-header,
+.td-start-menu app-game-sidebar {
+  display: none !important;
+}
+
 /* === Photo mode ===
  * Header, sidebar and every overlay of the canvas area go; the canvas, the
  * map attribution the tiles require, the photo bar, and screens that block

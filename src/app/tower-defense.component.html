@@ -1,5 +1,6 @@
 <div class="td-container" [class.td-fullscreen]="!isDialog" [class.td-photo-mode]="photoMode.active()"
      [class.td-replay-mode]="replay.active()"
+     [class.td-start-menu]="startMenu()"
      [class.td-tower-control]="towerControl.active()"
      (contextmenu)="$event.preventDefault()">
   <!-- The one message banner (UIStore.notice) -->
