@@ -422,10 +422,10 @@ Der Standort-Button ist ein Rechteck (keine abgeschrägte Platte, die würde den
 
 ### Favoriten-Menü (Header)
 
-Der Lesezeichen-Knopf klappt unter sich ein Panel auf (`.fav-dropdown`, 300px breit, Rezept "Panel (erhöht)" mit `--td-shadow-soft`). Oben "Save location" (Icon `plus`), darunter die Favoriten als Liste (`.fav-list`), die ab `min(60vh, 440px)` scrollt (Scrollbar-Mixins); eine Obergrenze gibt es nicht. Ohne Favoriten "No favorites".
+Der Lesezeichen-Knopf klappt unter sich ein Panel auf (`.fav-dropdown`, 300px breit, Rezept "Panel (erhöht)" mit `--td-shadow-soft`). Oben "Save this place" (Icon `plus`), darunter die Favoriten als Liste (`.fav-list`), die ab `min(60vh, 440px)` scrollt (Scrollbar-Mixins); eine Obergrenze gibt es nicht. Ohne Favoriten "No favorites".
 
 - Zeile: links Name (11px, eine Zeile, Ellipse) über den Koordinaten (9px, 60 % Deckkraft), ein Klick lädt den Ort. Rechts vier Werkzeugknöpfe (`.fav-tool`, Icons 14px, `--td-text-secondary` bei 50 % Deckkraft, Hover voll in `--td-gold`, Löschen im Hover `--td-health-red`): `caretU` hoch, `caret` runter (am Anfang bzw. Ende gesperrt, 20 %), `edit` umbenennen, `cross` löschen. Jeder trägt Tooltip und einen `aria-label` mit dem Namen des Favoriten
-- Namensfeld (`.fav-edit`): ersetzt beim Speichern den Knopf "Save location", beim Umbenennen die Zeile. Input im Rezept der vertieften Fläche auf `--td-panel-shadow`, `--td-font-mono` 11px, Fokus-Outline `--td-gold-dark`; daneben Haken (speichern) und Kreuz (abbrechen). Das Feld nimmt beim Öffnen den Fokus, der Vorschlag ist markiert; Enter speichert, Esc bricht ab. Tasten im Feld erreichen das Spiel nicht (`ownsKey`)
+- Namensfeld (`.fav-edit`): ersetzt beim Speichern den Knopf "Save this place", beim Umbenennen die Zeile. Input im Rezept der vertieften Fläche auf `--td-panel-shadow`, `--td-font-mono` 11px, Fokus-Outline `--td-gold-dark`; daneben Haken (speichern) und Kreuz (abbrechen). Das Feld nimmt beim Öffnen den Fokus, der Vorschlag ist markiert; Enter speichert, Esc bricht ab. Tasten im Feld erreichen das Spiel nicht (`ownsKey`)
 - Klick außerhalb schließt das Menü und verwirft ein offenes Namensfeld. Ablauf und Speicher: [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md#favorites-system)
 
 ### Leak-Vignette (Canvas)

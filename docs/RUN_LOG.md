@@ -150,7 +150,7 @@ Nichts je Treffer, nichts je Sub-Step. Die Stichprobe liest die Gesamt-DPS über
   geschlossener Tab verliert höchstens die laufende Welle. Kein `beforeunload`-Haken.
 - **Desktop:** zusätzlich als Datei in `%APPDATA%/3DTD/runs/`, geschrieben über die Preload-Funktion `saveRun`.
   Der Dateiname wird im Hauptprozess bereinigt, die Seite erfährt keinen Pfad.
-- **Export:** Knopf im Game-Over-Bildschirm ("Save the run") und die Liste "Runs" in der Sidebar, beides als
+- **Export:** Knopf im Game-Over-Bildschirm ("Save the run log") und Extras im Menü ("Save the run log", "Runs"), beides als
   Download.
 - **Kein Upload** (Entscheidung D6). Wer seinen Lauf teilen will, schickt die Datei.
 

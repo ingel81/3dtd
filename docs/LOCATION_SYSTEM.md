@@ -175,7 +175,7 @@ reset(): void                 // Alle Signals auf Defaults
 
 ### Favorites-System
 
-- Keine Obergrenze (bis 2026-09-14 waren es 10, danach verschwand "Save location" ohne Hinweis); die Liste im Header scrollt
+- Keine Obergrenze (bis 2026-09-14 waren es 10, danach verschwand "Save this place" ohne Hinweis); die Liste im Header scrollt
 - Gespeichert in `localStorage` unter Key `td_favorites_v2`, in der Reihenfolge des Spielers; Laden, Speichern, Umbenennen und Verschieben als reine Funktionen in `favorite-locations.ts`
 - Jeder Favorit hat `id` (crypto.randomUUID), `hq`, `spawns`, `createdAt`, optional `name`
 - Ein Spawn trägt `portalBearing`, wenn sein Portal beim Speichern gedreht war (siehe [UrlLocationService](#urllocationservice)); Laden dreht es wieder so
@@ -186,7 +186,7 @@ Bedienung im Header (Lesezeichen-Knopf):
 
 | Aktion | Ablauf |
 |--------|--------|
-| Anlegen | "Save location" öffnet an seiner Stelle ein Namensfeld, vorbefüllt mit dem Header-Namen ("DEFEND …"; leer, solange er lädt) und markiert. Enter oder der Haken speichert, Esc oder das Kreuz bricht ab. Ein leeres Feld speichert ohne Namen |
+| Anlegen | "Save this place" öffnet an seiner Stelle ein Namensfeld, vorbefüllt mit dem Header-Namen ("DEFEND …"; leer, solange er lädt) und markiert. Enter oder der Haken speichert, Esc oder das Kreuz bricht ab. Ein leeres Feld speichert ohne Namen |
 | Umbenennen | Stift je Zeile, dasselbe Namensfeld an Stelle der Zeile, vorbefüllt mit dem angezeigten Namen |
 | Ordnen | Pfeil hoch und runter je Zeile; am Anfang bzw. Ende gesperrt |
 | Löschen | Kreuz je Zeile |
