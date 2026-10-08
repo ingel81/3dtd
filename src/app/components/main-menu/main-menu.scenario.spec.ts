@@ -286,6 +286,32 @@ describe('The main menu', () => {
       expect(config.setupRequested()).toBe(true);
     });
 
+    it('shows the next load in the plate, not the failure of the change before it', async () => {
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+      engineInit.error.set('Error changing location');
+      await setup();
+      expect(el().querySelector('app-menu-loading [role="alert"]')).not.toBeNull();
+
+      // Other place: the next load runs while the broken change's error still stands
+      engineInit.loading.set(true);
+      await settle();
+      expect(el().querySelector('app-menu-loading [role="alert"]')).toBeNull();
+      expect(el().querySelector('app-menu-loading [role="progressbar"]')).not.toBeNull();
+      expect(menu.playBlocked()).toBe(true);
+      engineInit.error.set(null);
+    });
+
+    // jsdom finds nothing tabbable (see above): the test reads where the trap is told to go
+    it('a menu opened on a page starts there: the page body is the trap’s first focus', async () => {
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+      await setup('pause');
+      menu.open('settings');
+      await settle();
+      expect(el().querySelector('.mm-page-body')?.hasAttribute('cdkFocusInitial')).toBe(true);
+    });
+
     it('Continue of an autosave at this place loads it and plays', async () => {
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);

@@ -20,7 +20,8 @@
           <h2 id="td-menu-title">{{ title() }}</h2>
           <button type="button" class="mm-back" (click)="menu.back()" aria-label="Back">Esc</button>
         </header>
-        <div class="mm-page-body">
+        <!-- A menu opened on a page (header, quick bar) starts there: the trap's first focus -->
+        <div class="mm-page-body" cdkFocusInitial>
           @switch (page()) {
             @case ('new-game') { <app-menu-new-game [layer]="layer()" /> }
             @case ('coop') { <app-menu-coop [layer]="layer()" /> }

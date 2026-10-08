@@ -78,12 +78,25 @@ export class MainMenuService {
 
   /** A place is chosen and loads or stands; false while the game waits for the first one */
   readonly hasPlace = computed(() => !this.location.awaitingStartChoice() && this.locationMgmt.hq() !== null);
-  /** The place loads (the loading plate shows) */
-  readonly placeLoading = computed(() => this.hasPlace() && this.engineInit.loading() && !this.engineInit.error());
+  /**
+   * The place loads (the loading plate shows). A failed engine sets
+   * `loading` off itself; an error left from a change that broke shows no
+   * longer while the next place loads.
+   */
+  readonly placeLoading = computed(() => this.hasPlace() && this.engineInit.loading());
   /** The place stands: Play starts the game there */
   readonly ready = computed(() => this.hasPlace() && !this.engineInit.loading() && !this.playBlocked());
-  /** The last load went wrong (UIStore.loadProblem), or the engine failed */
-  readonly problem = computed(() => this.ui.loadProblem() ?? (this.engineInit.error() ? { text: this.engineInit.error()! } : null));
+  /**
+   * The last load went wrong (UIStore.loadProblem), or the engine failed.
+   * The engine's error waits while another place loads: the plate shows that
+   * load, not the failure before it.
+   */
+  readonly problem = computed(() => {
+    const problem = this.ui.loadProblem();
+    if (problem) return problem;
+    const error = this.engineInit.error();
+    return error && !this.engineInit.loading() ? { text: error } : null;
+  });
   /**
    * Nothing to play: the engine failed, or the place has no streets. A
    * place that did not load beside it (the dice, a change whose streets
@@ -221,7 +234,6 @@ export class MainMenuService {
     if (!this.playBlocked()) this.ui.loadProblem.set(null);
     this.ui.mainMenu.set({ ...state, open: false, page: 'home' });
   }
-
 
   // ---- Playing ----
 
