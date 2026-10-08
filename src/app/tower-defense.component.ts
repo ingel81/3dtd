@@ -1047,9 +1047,9 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     else this.mainMenuService.open('coop');
   }
 
-  /** The quick bar's Settings button: the menu's Settings page; until the menu has it, the game menu */
+  /** The quick bar's Settings button: the menu's Settings page */
   openSettings(): void {
-    void openGameMenu(this.dialog, this.injector);
+    this.mainMenuService.open('settings');
   }
 
   /** The header's room chip: code, a square per player in their lane colour, how many of how many */
