@@ -456,6 +456,54 @@ describe('The main menu', () => {
     });
   });
 
+  describe('after game over and in the desktop app', () => {
+    beforeEach(() => {
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+    });
+
+    afterEach(() => {
+      delete (window as unknown as { desktop?: unknown }).desktop;
+    });
+
+    it('game over, Main menu: New game and Restart here are there, New game opens its page', async () => {
+      await setup('pause');
+      game.towerCount.set(4);
+      game.phase.set('gameover');
+      await settle();
+
+      expect(entries()).toContain('New game');
+      expect(entries()).toContain('Restart here');
+      await click(entry('new-game'));
+      expect(menu.page()).toBe('new-game');
+      expect(el().querySelector('app-menu-new-game')).not.toBeNull();
+    });
+
+    it('Quit 3DTD only in the app: at once with nothing under way, asked first during a run', async () => {
+      const quit = vi.fn();
+      (window as unknown as { desktop?: unknown }).desktop = {
+        version: '0.7.0', onUpdateReady: () => () => undefined, installUpdateNow: vi.fn(), saveRun: vi.fn(), quit,
+      };
+      await setup('start');
+      expect(entries()).toContain('Quit 3DTD');
+      await click(entry('quit'));
+      expect(quit).toHaveBeenCalledTimes(1);
+
+      game.towerCount.set(1);
+      await settle();
+      await click(entry('quit'));
+      expect(quit).toHaveBeenCalledTimes(1);
+      expect(text()).toContain('Quit 3DTD? The run ends.');
+      await click(Array.from(el().querySelectorAll<HTMLElement>('.mh-confirm button')).find((b) => b.textContent === 'Quit')!);
+      expect(quit).toHaveBeenCalledTimes(2);
+    });
+
+    it('a browser has no Quit: a tab cannot close itself', async () => {
+      await setup('start');
+      expect(entries()).not.toContain('Quit 3DTD');
+    });
+  });
+
   describe('a place loads in the game', () => {
     it('switches the menu to the start layer with the plate, the page open kept, or opens it', async () => {
       locationMgmt.hq.set(HEILBRONN);
