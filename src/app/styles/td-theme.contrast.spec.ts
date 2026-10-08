@@ -55,6 +55,11 @@ describe('theme contrast', () => {
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(3);
   });
 
+  // The HQ plate under 30 %: its number, label and max on the warm plate
+  it.each(pairs(['hpLow', 'textMuted', 'textPrimary'], ['hpWarmTop', 'hpWarmBottom']))('%s on %s reaches 4.5:1', (fg, bg) => {
+    expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it.each([['ink', 'gold'], ['ink', 'goldLight']] as const)('%s on the brass button (%s) reaches 4.5:1', (fg, bg) => {
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
   });
