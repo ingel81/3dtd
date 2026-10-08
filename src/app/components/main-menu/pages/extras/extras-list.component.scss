@@ -1,0 +1,27 @@
+@use '../menu-page' as page;
+
+@include page.classes;
+
+a.mp-row {
+  align-items: center;
+  text-decoration: none;
+
+  td-icon { color: var(--td-text-secondary); }
+}
+
+.ex-key {
+  padding: 1px 5px;
+  border: 1px solid var(--td-frame-mid);
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  color: var(--td-text-secondary);
+}
+
+.ex-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 12px 12px;
+}
+
+.mp-file { display: none; }
