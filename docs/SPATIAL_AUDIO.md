@@ -510,7 +510,7 @@ Das Boss-Intro spielt den Signatur-Sound des jeweiligen Bosses (`BOSS_INTRO_SOUN
 
 `uiSound` (`services/ui-sound.ts`, ein Objekt für die App wie `cameraTimeline`, verbunden vom Facade) spielt die UI-Töne (`UI_CUES`) über
 `SpatialAudioManager.playUi()`: nicht positional wie `playGlobal`, aber mit der UI-Lautstärke
-(`setUiVolume`, Regler im Audio-Menü, Start 0,5) statt der SFX-Lautstärke. Aufrufer: Bauauswahl
+(`setUiVolume`, Regler auf der Seite Settings des Menüs, Start 0,5) statt der SFX-Lautstärke. Aufrufer: Bauauswahl
 (`TowerPlacementService.selectTowerType`), ungültiger Bauklick und ungültige HQ-/Spawn-Platzierung
 (Fehlerton), abgelehntes Upgrade, abgelehnte Fähigkeit oder Held (`RefusalHintService`; zu wenig
 Credits: eigener Ton), Hotkey auf einen zu teuren Tower, Laufbefehl an den Helden. Jeder

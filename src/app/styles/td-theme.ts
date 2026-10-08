@@ -102,7 +102,7 @@ export const TD_THEME = {
 } as const;
 
 /**
- * Shadow & glow recipes (new)
+ * Shadow recipes
  * String values, applied via CSS custom properties.
  */
 export const TD_SHADOWS = {
@@ -112,10 +112,6 @@ export const TD_SHADOWS = {
   shadowKey: '0 1px 0 rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4)',
   /** Inner highlight for raised surfaces */
   innerHighlight: 'inset 0 1px 0 rgba(255,255,255,0.06)',
-  /** Gold glow on hover/active */
-  goldGlow: '0 0 14px rgba(194,160,85,0.28), 0 0 0 1px rgba(217,188,104,0.15)',
-  /** Teal glow on hover/active */
-  tealGlow: '0 0 14px rgba(107,182,164,0.32), 0 0 0 1px rgba(143,217,198,0.18)',
 } as const;
 
 /**
@@ -255,8 +251,6 @@ export const TD_CSS_VARS = `
   --td-shadow-soft: ${TD_SHADOWS.shadowSoft};
   --td-shadow-key: ${TD_SHADOWS.shadowKey};
   --td-inner-highlight: ${TD_SHADOWS.innerHighlight};
-  --td-gold-glow: ${TD_SHADOWS.goldGlow};
-  --td-teal-glow: ${TD_SHADOWS.tealGlow};
 
   --td-font-mono: ${TD_FONTS.mono};
   --td-font-body: ${TD_FONTS.body};

@@ -63,8 +63,8 @@
  * next charge at the bottom. Gold only while an ability is ready, the full
  * gold gradient of the wave button while it aims. A button appears once
  * its research is done.
- *   ready      rim --td-gold-dark, icon --td-gold-light, hover glow
- *   armed       gold gradient, icon, key and strokes dark, glow
+ *   ready      rim --td-gold-dark, icon --td-gold-light
+ *   armed       gold gradient, icon, key and strokes dark
  *   waiting     charged, no wave: icon --td-text-muted
  *   pending     strike on its way: icon --td-warn-orange
  *   recharging  icon --td-text-disabled

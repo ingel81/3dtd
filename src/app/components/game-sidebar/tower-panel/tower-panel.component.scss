@@ -204,9 +204,8 @@
 
 .td-targeting-btn.active {
   border-color: var(--td-teal);
-  background: rgba(0, 188, 212, 0.15);
-  color: var(--td-teal);
-  box-shadow: 0 0 6px rgba(0, 188, 212, 0.3);
+  background: color-mix(in srgb, var(--td-teal) 15%, transparent);
+  color: var(--td-teal-light);
 }
 
 .td-hold-fire-btn {
@@ -216,8 +215,7 @@
 .td-hold-fire-btn.active {
   border-color: var(--td-health-red);
   background: color-mix(in srgb, var(--td-health-red) 15%, transparent);
-  color: var(--td-health-red);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--td-health-red) 30%, transparent);
+  color: var(--td-hp-text);
 }
 
 .td-sub-targeting-row {

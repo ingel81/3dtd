@@ -90,7 +90,7 @@ Nie reines Weiß.
 
 Oswald liegt lokal in `src/fonts/` (OFL, dieselbe Datei wie auf der Projektseite, variabel 400 bis 700) und wird in `src/styles.scss` über eine relative URL eingebunden: der Build bündelt sie nach `media/`, sie lädt unter jeder Base-Href und mit CSP `font-src 'self'`. Inter Tight, JetBrains Mono und Roboto (nur Material) kommen über `@fontsource`.
 
-Debug-Farben (`--td-event-vfx`, `--td-event-audio`, `--td-perf-critical`, `--td-perf-warning`), Schatten (`--td-shadow-soft`, `--td-shadow-key`, `--td-inner-highlight`, die Glows der älteren Knöpfe) und Layout-Tokens (`--td-sidebar-width`, `--td-sidebar-gutter`, `--td-z-marks`, `--td-z-hud`, `--td-z-dock`) stehen ebenfalls in `TD_CSS_VARS`.
+Debug-Farben (`--td-event-vfx`, `--td-event-audio`, `--td-perf-critical`, `--td-perf-warning`), Schatten (`--td-shadow-soft`, `--td-shadow-key`, `--td-inner-highlight`) und Layout-Tokens (`--td-sidebar-width`, `--td-sidebar-gutter`, `--td-z-marks`, `--td-z-hud`, `--td-z-dock`) stehen ebenfalls in `TD_CSS_VARS`.
 
 ---
 
@@ -207,7 +207,7 @@ Sechs Buttons in einer Reihe (je 32px, `gap` 4px, zusammen 212px), von links:
 | Kamera-Reset | Setzt die Kamera zurück |
 | Dev | Dev-Menü mit Kachel-Raster (unten beschrieben) |
 
-Effekte, Anzeige und Lautstärken stehen nur noch auf der Seite Settings des Menüs; die früheren Klappmenüs Display und Audio der Leiste gibt es nicht mehr. Aktive Layer-Schalter leuchten im Teal-Verlauf mit `--td-teal-glow`, die offenen Toggles Layers und Dev im Gold-Verlauf mit `--td-gold-glow`. Alle Knöpfe und Kacheln tragen den 2px-Fokusring.
+Effekte, Anzeige und Lautstärken stehen nur noch auf der Seite Settings des Menüs; die früheren Klappmenüs Display und Audio der Leiste gibt es nicht mehr. Aktive Layer-Schalter stehen im Teal-Verlauf, die offenen Toggles Layers und Dev im Gold-Verlauf, je mit 1px-Rand in der Farbe statt Glow. Alle Knöpfe und Kacheln tragen den 2px-Fokusring.
 
 Die Quick Actions reichen vertikal von unterhalb des Kompasses (`top: 112px`) bis 36px über der Unterkante (`bottom: 36px`); die Buttons sitzen unten, die leere Fläche darüber ist `pointer-events: none`. Untermenüs klappen nach oben auf. Es ist immer nur eines der beiden Menüs (Layers, Dev) offen: `UIStore.openMenu` ist die einzige Quelle, `toggleMenu()` schließt beim Öffnen das andere, gespeichert wird nur das zuletzt offene (ein gespeichertes `display` oder `audio` öffnet keines mehr). Das Dev-Panel spannt die ganze Leiste und würde die anderen sonst überdecken.
 
@@ -453,8 +453,8 @@ Knopf: Quadrat 44 × 44px, Fläche und Kanten wie die laufende Welle (`--td-pane
 
 | Zustand | Auslöser | Darstellung |
 |---------|----------|-------------|
-| Bereit | geladen, Welle läuft | Rand `--td-gold-dark`, Icon `--td-gold-light`, Hover `--td-gold-glow` |
-| Zielt | Zielmodus an | Gold-Verlauf wie der Next-Wave-Button, Icon, Taste und Striche `#1A140A`, `--td-gold-glow`, `aria-pressed` |
+| Bereit | geladen, Welle läuft | Rand `--td-gold-dark`, Icon `--td-gold-light`, Hover 1px-Rand `--td-gold` |
+| Zielt | Zielmodus an | Gold-Verlauf wie der Next-Wave-Button, Icon, Taste und Striche `#1A140A`, 1px-Rand `--td-gold`, `aria-pressed` |
 | Wartet | geladen, keine Welle | Icon `--td-text-muted` |
 | Unterwegs | Schlag zwischen Befehl und Einschlag | Icon `--td-warn-orange` |
 | Lädt | Ladung verbraucht | Icon `--td-text-disabled`, die Striche zählen die geschafften Wellen |
@@ -605,7 +605,7 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | Taste der Fähigkeit (`AbilityConfig.hotkey`, K für den Nuclear Strike, alle in [ABILITIES.md](ABILITIES.md)) | Zielmodus der Fähigkeit an, nochmal drücken schaltet ihn ab (nicht im Photo Mode). Kann sie gerade nicht feuern, nennt die Kontext-Hinweis-Box den Grund ("Build a Missile Silo first", "Only during a wave", "No charges, recharges in 2 waves"); vor ihrer Forschung bleibt die Taste still | Knopf in der Fähigkeitenleiste (`AbilityTargetingService.start`) |
 | G | Held wählen; ist er gewählt, gleitet die Kamera zu ihm (nicht im Photo Mode, nicht während des Intro-Flugs) | Held-Knopf in der Fähigkeitenleiste, Klick auf den Helden (`HeroControlService.summon`) |
 | V | Nächste Munition des Helden, reihum (auch ohne ihn zu wählen) | Segmente im Helden-Panel (`HeroControlService.cycleAmmo`) |
-| O | Photo Mode an und aus | Eintrag im Display-Panel (`PhotoModeService`) |
+| O | Photo Mode an und aus | Knopf Photo Mode der Quick Actions (`PhotoModeService`) |
 | Q | [Forschungsbaum](#forschungsbaum-dialog) als Dialog; still, solange kein Research Center steht | Knopf im BUILD-Panel und im Panel des Centers (`ResearchStore.centerLevel`) |
 | C | In den gewählten Tower steigen und selbst feuern, im Tower: aussteigen (nur Projektil-Tower) | Gamepad-Knopf in der Zielwahl-Zeile des Tower-Panels (`TowerControlService`) |
 | Esc | Photo Mode verlassen, sonst Quick-Menü schließen, sonst Verkauf abbrechen, sonst Held loslassen, sonst Tower abwählen | |
@@ -645,7 +645,7 @@ Hilfe-Dialog in `components/damage-matrix-dialog/`, geöffnet über den `i`-Butt
 
 ### Photo Mode
 
-Blendet das HUD aus, die Kamera bleibt frei (Maus, WASD). Einstieg über "Photo Mode" im Display-Panel oder Taste O, Ausstieg über Esc, O oder "Exit". Zustand in `UIStore.photoMode` (nicht gespeichert), Ablauf in `PhotoModeService` (vom Spiel-Component bereitgestellt).
+Blendet das HUD aus, die Kamera bleibt frei (Maus, WASD). Einstieg über den Knopf Photo Mode der Quick Actions oder Taste O, Ausstieg über Esc, O oder "Exit". Zustand in `UIStore.photoMode` (nicht gespeichert), Ablauf in `PhotoModeService` (vom Spiel-Component bereitgestellt).
 
 - Beim Einstieg enden Build- und Platzierungsmodus, die Tower-Auswahl (Reichweite, LOS) und das offene Quick-Actions-Menü; die Veteranen-Abzeichen über den Towern sind bis zum Ausstieg aus. Im Photo Mode wählen Klicks auf die Karte nichts aus, Hover zeigt keine Reichweite, die Zifferntasten wählen keine Karte
 - O und Esc sind Hotkeys (`hotkey-map.ts`, `HotkeyService`, siehe [Tastenkürzel](#tastenkürzel)); Esc verlässt den Photo Mode vor allem anderen
@@ -728,8 +728,8 @@ Fokus: 2px `--td-focus-color` mit 2px Abstand, nur bei `:focus-visible` (`focus-
 `matTooltip` setzt nur `aria-describedby`, keinen Namen. Reine Icon-Buttons (Header, Sidebar, Quick-Actions, Kompass, Dialoge) brauchen deshalb zusätzlich einen englischen Namen:
 
 - `aria-label`, in der Regel mit dem Tooltip-Text; dynamisch per `[attr.aria-label]` (z. B. Sell-Wert, LOS-Filter-Modus)
-- Umschalter mit sichtbarem Aktiv-Zustand: `[attr.aria-pressed]` (Layer-Toggles, Segmente im Display-Panel, Mute, Targeting, Move HQ / Set spawn)
-- Buttons, die ein Menü aufklappen: `[attr.aria-expanded]` (Favoriten, Display, Audio, Layers, Developer)
+- Umschalter mit sichtbarem Aktiv-Zustand: `[attr.aria-pressed]` (Layer-Toggles, Mute, Targeting, Move HQ / Set spawn)
+- Buttons, die ein Menü aufklappen: `[attr.aria-expanded]` (Favoriten, Layers, Developer)
 - Deko-SVGs in gelabelten Links: `aria-hidden="true"`
 - Radiogruppen und Tab-Leisten (Munition des Helden, Raumoptionen, Forschung je Spieler, Kartenanbieter) tragen `tdRovingGroup` (`components/roving-group.directive.ts`): ein Tab-Halt auf der Wahl, Pfeiltasten wählen das vorige oder nächste Element (umlaufend, `aria-disabled` übersprungen), Home und End das erste und letzte; die Pfeile schwenken dabei keine Kamera
 
@@ -753,7 +753,7 @@ Fokus: 2px `--td-focus-color` mit 2px Abstand, nur bei `:focus-visible` (`focus-
 | `components/ability-bar/` | Fähigkeitenleiste am linken Rand (Held, Fähigkeiten) |
 | `components/info-overlay/` | FPS-Anzeige in drei Stufen (Caret schaltet weiter): nur FPS; aufgeklappt mit Tempo und Worker-Last (Tempo in `--td-perf-critical` unter dem eingestellten), Tiles, Cache, Sounds je Sekunde angefordert / gespielt, Straßen; breit mit einer Spalte rechts: Ticks, Speicher-Modus, Kosten je Paket, Gegner, Mini-Charts |
 | `benchmark/benchmark-panel.component.*` | Benchmark oben mittig: Fortschritt, Tabelle, Kopierknopf (Gold), Schließen (Rahmen-Button) |
-| `components/quick-actions/` | Quick Actions: Route-Animation, Display-, Audio-, Layer- und Dev-Menü, Kamera-Reset |
+| `components/quick-actions/` | Quick Actions: Route-Animation, Settings, Photo Mode, Layer- und Dev-Menü, Kamera-Reset |
 | `components/game-speed/` | Pause und Game-Speed (1x/2x/4x), Bauphase und Welle |
 | `components/boss-intro/` | Schleier und Titelkarte des Boss-Intros |
 | `components/relocation-status/` | Hinweis "Moving HQ" mit Schritt und Messfortschritt |

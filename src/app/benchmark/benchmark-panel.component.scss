@@ -127,7 +127,7 @@ h2 {
 .bm-btn-gold:hover,
 .bm-btn-gold:focus-visible {
   border-color: var(--td-gold-light);
-  box-shadow: var(--td-gold-glow);
+  filter: brightness(1.08);
 }
 
 .bm-copied {
