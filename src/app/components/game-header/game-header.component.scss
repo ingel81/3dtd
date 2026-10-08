@@ -252,14 +252,31 @@
   }
 }
 
+/* The plate and, below it, the rising change. The change stands outside
+   the plate (whose clip-path would cut it) and over the top of the map,
+   right-aligned under the plate, on a dark chip: it never covers the label
+   or the figure, however long either gets. */
+.credits-cell {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+
 .credits-delta {
   position: absolute;
-  top: 5px;
-  right: 10px;
+  top: calc(100% + 6px);
+  right: 0;
+  /* Over the map like the header's menus, under the favorites (100) */
+  z-index: 90;
+  padding: 3px 7px;
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
   font-family: var(--td-font-display);
   font-size: 14px;
   font-weight: 600;
   line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   color: var(--td-gain);
   pointer-events: none;
   animation: credits-delta 900ms var(--td-ease-out) forwards;
@@ -269,11 +286,12 @@
   color: var(--td-loss);
 }
 
+/* Rises from below towards the plate's bottom edge and fades there */
 @keyframes credits-delta {
-  0% { opacity: 0; transform: translateY(6px); }
-  15% { opacity: 1; transform: translateY(2px); }
+  0% { opacity: 0; transform: translateY(8px); }
+  15% { opacity: 1; transform: translateY(3px); }
   70% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-3px); }
+  100% { opacity: 0; transform: translateY(-2px); }
 }
 
 /* Wave: the share of the running wave that is gone; a wave that starts
