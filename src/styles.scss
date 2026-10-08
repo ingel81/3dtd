@@ -123,6 +123,12 @@ input, textarea {
   padding: 0;
 }
 
+// Fills the window: no shadow to cast, and a filter over the whole screen
+// would cost a layer on every drag of the board
+.td-research-panel .mat-mdc-dialog-container {
+  filter: none;
+}
+
 // Multiline tooltip: string content in mono, so the armor table lines up.
 // Surface and border come from the tooltip overrides above.
 .td-tooltip-multiline .mdc-tooltip__surface {

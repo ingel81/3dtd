@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { getResearch } from '../../configs/research/research-tree.config';
 import { researchCost as laneCost, researchWave, type ResearchId } from '../../configs/research/research.types';
 import { ResearchStore } from '../../store/research.store';
@@ -55,11 +54,6 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './research-dialog.component.html',
   styleUrl: './research-dialog.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class ResearchDialogComponent {
   private readonly research = inject(ResearchStore);

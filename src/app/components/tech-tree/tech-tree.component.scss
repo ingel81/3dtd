@@ -1,3 +1,5 @@
+@use '../../styles/game-ui' as ui;
+
 // Tech tree: edges as one SVG layer, nodes as buttons on top of it. Both are
 // positioned from the same layout numbers, so nothing here may add offsets of
 // its own; padding and borders live inside the node box.
@@ -101,10 +103,7 @@
     box-shadow 130ms ease,
     opacity 160ms ease;
 
-  &:focus-visible {
-    outline: 1px solid var(--td-edge-highlight);
-    outline-offset: 2px;
-  }
+  @include ui.focus-ring;
 }
 
 .td-tech-node-top {
@@ -173,7 +172,6 @@
     position: absolute;
     inset: 0 auto 0 0;
     background: linear-gradient(180deg, var(--td-teal-light), var(--td-teal) 60%, var(--td-teal-dark));
-    box-shadow: 0 0 8px rgba(107, 182, 164, 0.4);
   }
 }
 
@@ -280,7 +278,6 @@
   box-shadow:
     inset 0 1px 0 rgba(143, 217, 198, 0.18),
     0 0 0 1px rgba(107, 182, 164, 0.14),
-    0 0 22px rgba(107, 182, 164, 0.1),
     0 1px 0 var(--td-panel-shadow);
 
   .td-tech-node-title {
