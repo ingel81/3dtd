@@ -3,7 +3,8 @@
  * app and the dev game get the ways in; a browser on the site gets only the
  * hint to the desktop app, with the downloads, and, opened from an invite
  * link, the room to join there. Entering a room hands over to the dock: the
- * menu closes, unless the start still waits for the host's place. The ways
+ * menu plays once the place stands (a guest without a place waits for the
+ * host's). The ways
  * are a stub here (coop-ways.scenario.spec.ts covers them).
  */
 // The components are partially compiled and need the JIT compiler
@@ -19,7 +20,6 @@ import { APP_DOWNLOADS, coopAccess, type CoopAccess } from '../../../../coop/coo
 import { COOP } from '../../../../services/coop.token';
 import { UIStore } from '../../../../store/ui.store';
 import { MainMenuService } from '../../main-menu.service';
-import { LocationChangeCoordinatorService } from '../../../../services/location/location-change-coordinator.service';
 
 @Component({ selector: 'app-coop-ways', standalone: true, template: 'WAYS' })
 class WaysStub {
@@ -42,14 +42,13 @@ describe('Coop page by where the game runs (E114)', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
-  function open(access: CoopAccess, roomFromUrl: string | null = null, waiting = false) {
+  function open(access: CoopAccess, roomFromUrl: string | null = null, placed = true) {
     const coop = stubCoop(access, roomFromUrl);
-    const menu = { open: vi.fn(), close: vi.fn() };
+    const menu = { open: vi.fn(), close: vi.fn(), requestPlay: vi.fn(), hasPlace: signal(placed) };
     TestBed.configureTestingModule({
       providers: [
         { provide: COOP, useValue: coop },
         { provide: MainMenuService, useValue: menu },
-        { provide: LocationChangeCoordinatorService, useValue: { awaitingStartChoice: signal(waiting) } },
       ],
     });
     TestBed.overrideComponent(MenuCoopComponent, { remove: { imports: [CoopWaysComponent] }, add: { imports: [WaysStub] } });
@@ -109,18 +108,36 @@ describe('Coop page by where the game runs (E114)', () => {
     expect(appDownloads('Mozilla/5.0 (Linux; Android 14) Chrome/140')[0].url).toBe(APP_DOWNLOADS.windows);
   });
 
-  it('a room entered from here hands over to the dock: the menu closes', () => {
+  it('a room entered with a place standing plays: the menu goes, the dock holds the room', () => {
     const { coop, menu } = open('app');
     coop.room.set({ code: 'ABC123' });
     TestBed.tick();
-    expect(menu.close).toHaveBeenCalledTimes(1);
+    expect(menu.requestPlay).toHaveBeenCalledTimes(1);
   });
 
-  it('a guest who joined before the first place stays in the menu while the host place loads', () => {
-    const { coop, menu } = open('app', null, true);
+  it('a guest who joined before the first place plays once the host place is chosen; the start menu stays meanwhile', () => {
+    const { coop, menu } = open('app', null, false);
     coop.room.set({ code: 'ABC123' });
     TestBed.tick();
+    expect(menu.requestPlay).not.toHaveBeenCalled();
     expect(menu.close).not.toHaveBeenCalled();
+    menu.hasPlace.set(true);
+    TestBed.tick();
+    expect(menu.requestPlay).toHaveBeenCalledTimes(1);
+  });
+
+  it('a room the page found already open does not play by itself', () => {
+    const coop = stubCoop('app', null);
+    coop.room.set({ code: 'OLD111' });
+    const menu = { open: vi.fn(), close: vi.fn(), requestPlay: vi.fn(), hasPlace: signal(true) };
+    TestBed.configureTestingModule({ providers: [{ provide: COOP, useValue: coop }, { provide: MainMenuService, useValue: menu }] });
+    TestBed.overrideComponent(MenuCoopComponent, { remove: { imports: [CoopWaysComponent] }, add: { imports: [WaysStub] } });
+    TestBed.overrideComponent(CoopAppHintComponent, { set: { styleUrl: undefined, styles: [] } });
+    const fixture = TestBed.createComponent(MenuCoopComponent);
+    fixture.componentRef.setInput('layer', 'pause');
+    fixture.detectChanges();
+    TestBed.tick();
+    expect(menu.requestPlay).not.toHaveBeenCalled();
   });
 
   it('"Change place" opens New game; "Open the room" opens the dock and closes the menu', () => {
