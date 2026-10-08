@@ -64,11 +64,12 @@
           <td-token-setup (tokenSaved)="onCredentialsSaved()" />
         } @error {
           <div class="td-error-overlay" role="alert">
-            <td-icon class="td-error-icon" name="warn" [size]="64"></td-icon>
-            <h3>Setup screen did not load</h3>
-            <p>The screen for the map credentials could not be loaded. Check the connection and reload the page.</p>
-            <div class="td-error-actions">
-              <button class="td-btn" (click)="reloadPage()">Reload</button>
+            <div class="td-error-plate">
+              <h3>Setup screen did not load</h3>
+              <p>The screen for the map credentials could not be loaded. Check the connection and reload the page.</p>
+              <div class="td-error-actions">
+                <button type="button" class="btn-primary" (click)="reloadPage()">Reload</button>
+              </div>
             </div>
           </div>
         }
@@ -77,12 +78,13 @@
       <!-- The engine failed where no menu stands (an automated run): the menu's plate says it otherwise -->
       @if (error() && !loading() && !uiStore.mainMenuOpen()) {
         <div class="td-error-overlay" role="alert">
-          <td-icon class="td-error-icon" name="warn" [size]="64"></td-icon>
-          <h3>Error</h3>
-          <p>{{ error() }}</p>
-          <div class="td-error-actions">
-            <button class="td-btn" (click)="reloadPage()">Reload</button>
-            <button class="td-btn" (click)="awaitingCredentials.set(true)">Change tile credentials</button>
+          <div class="td-error-plate">
+            <h3>The map did not load</h3>
+            <p>{{ error() }}</p>
+            <div class="td-error-actions">
+              <button type="button" class="btn-primary" (click)="reloadPage()">Reload</button>
+              <button type="button" class="btn-secondary" (click)="awaitingCredentials.set(true)">Map key</button>
+            </div>
           </div>
         </div>
       }

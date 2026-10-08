@@ -142,56 +142,51 @@
 }
 
 /* === Overlays === */
+/* The engine failed where no menu stands, or the key screen did not load:
+ * a danger plate over the dark page, the menu's plate says it otherwise */
 .td-error-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
+  z-index: 10;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  padding: 40px 16px;
   background: var(--td-bg-dark);
-  z-index: 10;
-  padding: 40px;
-  text-align: center;
+  font-family: var(--td-font-body);
 }
 
-.td-error-icon {
-  font-size: 64px;
-  width: 64px;
-  height: 64px;
-  color: var(--td-warn-orange);
-}
+.td-error-plate {
+  @include ui.plate(var(--td-cut), var(--td-plate-danger), var(--td-danger-edge));
+  display: flex;
+  flex-direction: column;
+  gap: var(--td-sp-3);
+  width: 460px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: var(--td-sp-5);
 
-.td-error-overlay h3 {
-  font-size: 20px;
-  color: var(--td-warn-orange);
-  margin: 0;
-}
+  h3 {
+    @include ui.title;
+    color: var(--td-danger-text);
+  }
 
-.td-error-overlay p {
-  color: var(--td-text-secondary);
-  max-width: 400px;
+  p {
+    margin: 0;
+    font-size: var(--td-fs-body);
+    line-height: 1.5;
+    color: var(--td-text-secondary);
+  }
 }
 
 .td-error-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 8px;
-}
+  flex-wrap: wrap;
+  gap: var(--td-sp-2);
+  margin-top: var(--td-sp-2);
 
-/* Generic Buttons, refined gradient + glow-hover (no translate) */
-.td-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  @include td.gold-button;
+  .btn-primary { @include ui.btn-primary; }
+  .btn-secondary { @include ui.btn-secondary; }
 }
 
 /* === Game over and connection lost ===
