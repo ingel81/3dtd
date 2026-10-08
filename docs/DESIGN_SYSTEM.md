@@ -188,7 +188,7 @@ Selbst gehostet über `@fontsource` in `src/styles.scss`: Inter Tight (400 bis 7
 
 | Bereich | Beschreibung |
 |---------|--------------|
-| **Info-Header** | Logo, Standort ("DEFEND Straße, Stadt, Land"; der Name kommt aus `formatAddressShort`, seit 2026-09-20 mit Land. Die Zeile wird höchstens 34 % der Fensterbreite breit, danach schneidet sie hinten ab; Klick öffnet den Standort-Dialog) mit Aktionen (Link kopieren, Favoriten, Zufallsort, HQ versetzen, Spawn setzen), rechts die Stat-Leiste HQ / CREDITS / WAVE, während einer Welle links davon der Gegner-Chip |
+| **Info-Header** | Logo, Standort ("DEFEND Straße, Stadt, Land"; der Name kommt aus `formatAddressShort`, seit 2026-09-20 mit Land. Die Zeile wird höchstens 34 % der Fensterbreite breit, danach schneidet sie hinten ab; Klick öffnet den Standort-Dialog) mit Aktionen (Link kopieren, Favoriten, Zufallsort, HQ versetzen, Spawn setzen), rechts die drei Stat-Platten HQ / CREDITS / WAVE, während einer Welle links davon der Gegner-Chip (siehe [Header-Stat-Platten](#header-stat-platten)). Der Ortsname gibt auf schmalen Fenstern zuerst nach |
 | **Canvas** | 3D-Spielfeld mit Google Photorealistic Tiles |
 | **Sidebar** | Rechte Sidebar: WAVE-Panel, darunter BUILD, Tower-Detail oder Research (siehe [Sidebar-Panels](#sidebar-panels)) |
 | **Info-Overlay** | Oben links: FPS, per Caret aufklappbar um Tiles, Sounds und Streets. Misst seine Unterkante (`ResizeObserver`, `UIStore.infoOverlayBottom`), die Fähigkeitenleiste bleibt darunter |
@@ -197,6 +197,7 @@ Selbst gehostet über `@fontsource` in `src/styles.scss`: Inter Tight (400 bis 7
 | **Fähigkeitenleiste** | Linker Rand, senkrecht mittig zwischen Info-Overlay und Logos: Held (sobald es einen gibt) und ein Knopf je erforschter Fähigkeit (der Nuclear Strike nur mit stehendem Missile Silo), siehe [Fähigkeitenleiste](#fähigkeitenleiste-canvas) |
 | **Controls Hint** | Unten links neben den Logos (LMB: Pan, RMB: Rotate, Scroll: Zoom, WASD/Pfeile: Move, H: Shortcuts), verschwindet nach 15 s oder per Klick. Solange ein [First-Run-Tipp](#first-run-tipps) steht, bleibt er weg: der erste Tipp trägt dieselben Tasten |
 | **Quick Actions** | Sechs Icon-Buttons unten rechts, siehe unten |
+| **Sidebar-Fuß** | Eine Zeile mit drei Zellen: Menu (Zahnrad in `--td-gold`, öffnet das Menü, Esc), Tips (die First-Run-Tipps von vorn), die Version (öffnet What's new). Weltkarte, Läufe und GitHub stehen im Menü (New game, Extras). 30px hoch, 11px Mono, Trennlinien aus dem 1px-`gap` über `--td-frame-dark` |
 
 ### Quick Actions und Dev-Menü
 
@@ -205,15 +206,15 @@ Sechs Buttons in einer Reihe (je 32px, `gap` 4px, zusammen 212px), von links:
 | Button | Funktion |
 |--------|----------|
 | Route-Animation | Spielt die Routen-Animation ab; oranger Rand (`--td-warn-orange`) |
-| Display | Panel mit Effekt- und Anzeige-Einstellungen (unten beschrieben) |
-| Audio | Lautstärke und Mute für Musik und SFX |
+| Settings | Öffnet die Seite Settings des Menüs (Effekte, Audio, Grafik); Output `settingsRequested` |
+| Photo Mode | Schaltet den [Photo Mode](#photo-mode) ein (Taste O) |
 | Layers | Sieben Overlay-Schalter, die senkrecht nach oben aufklappen: Route Grid, Gebäude, Straßen, Routen, Flughöhe der Air-Route, Air Route Grid, Per-Tower-LOS-Filter (schaltet beide, Boden, Luft durch) |
 | Kamera-Reset | Setzt die Kamera zurück |
 | Dev | Dev-Menü mit Kachel-Raster (unten beschrieben) |
 
-Geöffnet leuchten Display und Audio (wie die aktiven Layer-Schalter) im Teal-Verlauf mit `--td-teal-glow`, Layers und Dev im Gold-Verlauf mit `--td-gold-glow`.
+Effekte, Anzeige und Lautstärken stehen nur noch auf der Seite Settings des Menüs; die früheren Klappmenüs Display und Audio der Leiste gibt es nicht mehr. Aktive Layer-Schalter leuchten im Teal-Verlauf mit `--td-teal-glow`, die offenen Toggles Layers und Dev im Gold-Verlauf mit `--td-gold-glow`. Alle Knöpfe und Kacheln tragen den 2px-Fokusring.
 
-Die Quick Actions reichen vertikal von unterhalb des Kompasses (`top: 112px`) bis 36px über der Unterkante (`bottom: 36px`); die Buttons sitzen unten, die leere Fläche darüber ist `pointer-events: none`. Untermenüs klappen nach oben auf. Es ist immer nur eines der vier Menüs (Display, Audio, Layers, Dev) offen: `UIStore.openMenu` ist die einzige Quelle, `toggleMenu()` schließt beim Öffnen die anderen, gespeichert wird nur das zuletzt offene. Das Dev-Panel spannt die ganze Leiste und würde die anderen sonst überdecken.
+Die Quick Actions reichen vertikal von unterhalb des Kompasses (`top: 112px`) bis 36px über der Unterkante (`bottom: 36px`); die Buttons sitzen unten, die leere Fläche darüber ist `pointer-events: none`. Untermenüs klappen nach oben auf. Es ist immer nur eines der beiden Menüs (Layers, Dev) offen: `UIStore.openMenu` ist die einzige Quelle, `toggleMenu()` schließt beim Öffnen das andere, gespeichert wird nur das zuletzt offene (ein gespeichertes `display` oder `audio` öffnet keines mehr). Das Dev-Panel spannt die ganze Leiste und würde die anderen sonst überdecken.
 
 Das Dev-Menü (`.td-dev-menu`) ist ein Glas-Panel (Mixin `bevel-glass`) über der Leiste: genau so breit wie sie (212px), rechtsbündig, Unterkante 4px über den Buttons, außerhalb des Flusses. Innen ein Raster mit vier Spalten (`gap` 4px, `padding` 6px), gegliedert in Gruppen, deren Titel über die volle Breite laufen (8px/600, `letter-spacing: 0.16em`, `--td-text-muted`):
 
@@ -239,16 +240,6 @@ Die Höhe ist auf den Platz zwischen Leiste und Kompass begrenzt; bei niedrigem 
 Snapshot leuchtet im Aktiv-Zustand, solange er liest. Was er zuletzt sagt (Fortschritt, Dateiname, Grund ohne Datei), steht als Statuszeile (`.td-dev-status`) über die volle Breite unter der Gruppe: 9px Mono, `--td-text-muted`, bricht lange Dateinamen um, `role="status"`. Inhalt der Datei: [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#__corridor-devtools).
 
 **Zellbericht** (Kachel Cells, `app-cell-report-panel` in `components/cell-report-panel/`): Solange er an ist, steht oben in der Mitte, 120px unter der Oberkante der Canvas-Fläche und damit unter Game Speed und Boss-Leiste, ein Glas-Panel (Mixin `bevel-glass`, 300px breit). Oben der Titel "CELL REPORT" (12px/600 `--td-font-body`, Versalien), rechts die Zahl der Zellen in `#e69f00` (Okabe-Ito-Orange, die Rahmenfarbe der gewählten Zellen auf der Karte), darunter die Bedienung (10px Mono, `--td-text-muted`), ein Notizfeld (Input-Rezept) und die Knöpfe Copy JSON (Gold-Rezept), Clear und Done (Rahmen-Rezept), zuletzt eine Statuszeile. Nur das Panel nimmt Klicks. Das Rechteck eines Shift-Ziehens ist ein gestrichelter Rahmen in derselben Farbe. Bedienung und JSON: [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#__corridor-devtools).
-
-Das Display-Menü ist ein Panel über seinem Toggle (`.td-display-panel`, 212px breit), ebenfalls außerhalb des Flusses. Sein Wrapper spannt die volle Höhe der Quick Actions, damit das Panel wie das Dev-Menü vor dem Kompass endet und bei niedrigem Fenster scrollt; der Wrapper selbst lässt Klicks auf die Karte durch.
-
-| Bereich | Inhalt |
-|---------|--------|
-| Effects | Preset-Leiste Low / Medium / High, darunter die Schalter, die ein Preset setzt (Muzzle Flash, Projectile Trails, Impact Effects, Ground Marks, Bloom) und Color Grading als Select. Passt kein Preset, steht "Custom" rechts im Kopf. |
-| General | Freeze Tint, Blood Moon, Screen Shake, Boss Intro (siehe [Boss-Intro](#boss-intro-canvas)), Health Bars, Damage Numbers, Frame Limit (Off / 60 / 30) |
-| View | Photo Mode (Taste O), siehe [Photo Mode](#photo-mode) |
-
-Zeilen sind Checkbox-Labels wie im Display-Debugfenster (Akzent `--td-teal`), Kopfzeilen 10px Versalien in `--td-text-tertiary`, Schrift `--td-font-mono` 12px. Preset und Frame Limit sind Segmente: `--td-panel-secondary`, 1px `--td-frame-dark`, aktiv im Teal-Verlauf der aktiven Quick-Buttons, `aria-pressed`. Jede Effektzeile sagt im Tooltip, was sie abschaltet. Was die Schalter technisch tun: [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#vfx-einstellungen).
 
 ### Boss-Leiste
 
@@ -335,7 +326,7 @@ Beschriftung, Restzahl und Balkenbreite liefert `waveButtonView()` (`wave-panel/
 
 ### NEXT (WAVE-Panel)
 
-Unter dem Auto-Start-Schalter die nächsten fünf Wellen als Zeitleiste (`wave-panel/wave-timeline.component.*`, Daten aus `wave-panel/upcoming-waves.ts`, `NEXT_WAVE_MARKS`), darüber das Label "NEXT" (9px Mono, `letter-spacing: 0.18em`, `--td-text-muted`). Eine 1px-Linie in `--td-frame-mid` läuft durch die Marken: je Welle eine 7px-Raute (Fläche `--td-bg-dark`, Rand `--td-frame-light`), darunter die Nummer (9px Mono, `--td-text-muted`), darüber kleine Icons (10px, 2px Abstand; stehen drei auf einer Marke, 8px, damit sie in die 28px der Marke passen, `markIconSize`), `skull` in `--td-gold` für Boss-Wellen, `plane` in `--td-text-muted` für Lufteinheiten, `moon` in `--td-health-red` für Blutmond-Wellen (ab W14 jede siebte, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#blutmond-wellen); nicht, solange "Blood Moon" im Display-Menü aus ist). Der Name der Marke endet dann auf "blood moon", der Tooltip der Detailzeile beschreibt den Look. Ihren Mutator nennt die Marke im Namen auch mit ausgeschaltetem Look. Die erste Marke ist die Welle, die der Button als Nächstes startet (Rand `--td-gold-dark`, Nummer `--td-text-secondary`); während einer Welle ist das die folgende.
+Unter dem Auto-Start-Schalter die nächsten fünf Wellen als Zeitleiste (`wave-panel/wave-timeline.component.*`, Daten aus `wave-panel/upcoming-waves.ts`, `NEXT_WAVE_MARKS`), darüber das Label "NEXT" (9px Mono, `letter-spacing: 0.18em`, `--td-text-muted`). Eine 1px-Linie in `--td-frame-mid` läuft durch die Marken: je Welle eine 7px-Raute (Fläche `--td-bg-dark`, Rand `--td-frame-light`), darunter die Nummer (9px Mono, `--td-text-muted`), darüber kleine Icons (10px, 2px Abstand; stehen drei auf einer Marke, 8px, damit sie in die 28px der Marke passen, `markIconSize`), `skull` in `--td-gold` für Boss-Wellen, `plane` in `--td-text-muted` für Lufteinheiten, `moon` in `--td-health-red` für Blutmond-Wellen (ab W14 jede siebte, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#blutmond-wellen); nicht, solange "Blood Moon" in Settings aus ist). Der Name der Marke endet dann auf "blood moon", der Tooltip der Detailzeile beschreibt den Look. Ihren Mutator nennt die Marke im Namen auch mit ausgeschaltetem Look. Die erste Marke ist die Welle, die der Button als Nächstes startet (Rand `--td-gold-dark`, Nummer `--td-text-secondary`); während einer Welle ist das die folgende.
 
 Unter der Linie steht ein Detailkasten für eine Marke (`shownPeek`): die unter dem Mauszeiger oder mit dem Tastaturfokus, sonst die zuletzt geklickte, solange sie noch kommt, sonst die erste. Diese Marke ist gefüllt (`--td-gold`, Rand `--td-gold-light`, Nummer fett in `--td-gold-light`, `aria-pressed`). Der Kasten ist eine Slot-Fläche (`--td-panel-secondary`, 1px `--td-frame-dark`, Kanten des erhöhten Panels) mit zwei Zeilen. Oben der Name (Inter Tight 12px/600, `--td-text-primary`, Boss-Wellen `--td-gold-light` fett, kürzt mit Ellipse), rechts bei einem Mutator ein Tag mit seinem Namen (9px, Großbuchstaben, 1px-Rahmen und Text in `--td-health-red`, `td-next-mut`). Unten in 10px Mono, `--td-text-muted`: "N enemies" (die Zahl fett in `--td-text-secondary`), bei Lufteinheiten `plane` in `--td-health-red` mit "Air", die Rüstung als `shield` mit Namen (bei mehreren die erste und "+N"), rechtsbündig "WEAK" (9px, Versalien) und die Schwächen als Icons der Schadensarten in `--td-gold` (`DAMAGE_TYPE_ICON` in `components/icon/damage-type-icon.ts`, ein eigenes Icon je Art; Name für Screenreader "Weak to …").
 
@@ -405,6 +396,7 @@ eigene Scrollfläche mit (`max-height: 65vh`), und der Surface scrollt ebenfalls
 
 ```css
 .header {
+  padding: 6px var(--td-sidebar-gutter) 6px 12px;
   background:
     linear-gradient(rgba(15, 19, 15, 0.8), rgba(15, 19, 15, 0.8)),
     url('./src/styles/textures/stone-wall.jpg') repeat;
@@ -414,57 +406,29 @@ eigene Scrollfläche mit (`max-height: 65vh`), und der Surface scrollt ebenfalls
 }
 ```
 
-Die Textur liegt unter `src/styles/textures/stone-wall.jpg` und wird 64px gekachelt; die Landing Page hat eine eigene Kopie (`landing/media/stone-wall-128.jpg`). Die obere Kante ist Messing (`--td-gold-dark`) wie der Wave-Button, die untere die dunkle Schattenkante. Einen Titeltext gibt es nicht, links steht das Logo.
+Die Textur liegt unter `src/styles/textures/stone-wall.jpg` und wird 64px gekachelt; die Landing Page hat eine eigene Kopie (`landing/media/stone-wall-128.jpg`). Die obere Kante ist Messing (`--td-gold-dark`) wie der Wave-Button, die untere die dunkle Schattenkante. Einen Titeltext gibt es nicht, links steht das Logo. Alles, was auf der Textur Text trägt (Stat-Platten, Gegner-Chip, Standort-Button), hat eine eigene dunkle Fläche.
 
-### Header-Stat-Leiste (an der Sidebar ausgerichtet)
+### Header-Stat-Platten
 
-HQ, Credits und Wave stehen in einer Leiste fester Breite (`.header-stats` in `game-header`) direkt über dem Sidebar-Inhalt: gleiche Breite und Außenkanten wie Next-Wave-Button und Tower-Raster. Drei gleich breite Spalten, Zahlen mit `tabular-nums`, damit wachsende Werte die Nachbarn nicht verschieben. Der Gegnerzähler erscheint nur während einer Welle als eigener Chip (`.enemies-chip`) links neben der Leiste, die Leiste selbst springt dabei nicht.
+HQ, Credits und Wave stehen als drei Platten (`.header-stats` in `game-header`, Vorlage `tmp/ui-design/Hud.dc.html`) rechts im Header. Ihre rechte Kante schließt bündig mit dem Sidebar-Inhalt darunter ab (rechtes Header-Padding = `--td-sidebar-gutter`); die Platten brauchen mehr Platz, als die Sidebar breit ist, deshalb reicht die Leiste mit `--td-hud-stats-width` (400px) nach links über die Canvas. Spalten `34fr 34fr 30fr` mit `minmax(0, …)` und 4px Fuge, damit wachsende Werte die Nachbarn nicht verschieben. Platten 42px hoch, der Header 54px (6px Padding oben und unten).
 
-Jede Zelle: Icon 16px, daneben eine kleine Spalte mit Label (`HQ`, `CREDITS`, `WAVE`; 8px, `line-height: 9px`, `letter-spacing: 0.16em`, `--td-text-muted`) über der Zahl (15px, `line-height: 17px`, 700). Zell-Padding 3px 8px, Abstand 7px. Mit diesen Zeilenhöhen bleibt die Leiste 34px und der Header 46px hoch. Die Labels benennen die Werte, die Icons sind Deko und tragen kein `aria-label`.
+Jede Platte ist `ui.stat-plate` (Stahlkante `--td-line-steel`, Steinfläche `--td-plate`, Ecken `--td-cut-sm` abgeschrägt). Links ein gefülltes Icon 20px (`hqSolid`, `coinSolid`, `waveSolid`), daneben das Label (`ui.caps-label`, 10px Mono) und die Zahl in Oswald (`--td-fs-hud`, 22px, 600, `tabular-nums`). HQ und Wave: Label und Zahl in einer Zeile, darunter ein 4px-Balken; Credits: Label über der Zahl. Die Labels benennen die Werte, die Icons sind Deko.
 
-Die HQ-Zelle zeigt hinter der Zahl das Maximum (`/100`, 10px, `--td-text-muted`, aus `GAME_BALANCE.player.startHealth`) und an ihrer Unterkante einen 2px-Balken in `--td-health-red` auf `rgba(184,62,50,0.18)`, so breit wie der Anteil der HQ-Gesundheit (`aria-hidden`, die Zahl benennt den Wert). Verliert das HQ Gesundheit, blitzt der Balken 450 ms auf (Web Animations, höchstens alle 300 ms); ein Reset oder der +HP-Cheat füllen ihn ohne Blitz. Liegt die HQ-Gesundheit über dem Maximum (nur per +HP-Cheat), steht nur die Zahl da, ohne `/100`, und der Balken ist voll.
+| Platte | Zustände |
+|--------|----------|
+| HQ | Zahl und zehn Segmente in `--td-hp-text` (#E36A5A, 5,9:1); ein Segment je angefangenem Zehntel der Startgesundheit. Unter 30 % (`hqLevel` `low`) Kante `--td-health-red`, Fläche `--td-hp-plate`, Zahl `--td-hp-low`, langsames Pulsieren (2,4 s). Unter 10 % (`critical`) dazu der Warnstreifen `--td-hazard` 4px am Fuß. Verliert das HQ Gesundheit, blitzt die Platte 450 ms auf und ruckt 2px (höchstens alle 300 ms); ein Reset oder der +HP-Cheat heben sie ohne Blitz |
+| Credits | Zahl in `--td-gold-light`, Münze in `--td-gold`. Eine neue Summe zählt über 250 ms hoch. Jede Änderung steigt als "+25" (`--td-gain`) oder "−150" (`--td-loss`) oben rechts 900 ms auf; Änderungen innerhalb von 250 ms addieren sich (`CreditsDeltaTracker`). Wird ein Kauf mangels Credits abgelehnt (`refuseForCredits()` in `services/credits-refusal.ts`: Bau-Taste, Upgrade, Pfad, Held), blitzt die Kante 600 ms rot |
+| Wave | Zahl in `--td-text-primary`, Icon in `--td-teal`. Der Balken zeigt den Anteil der laufenden Welle, der weg ist (getötet oder durch), aus `waveEnemyTotal` und `waveEnemiesLeft`; zwischen den Wellen leer. Startet eine Welle, wird die Kante 600 ms Messing (`--td-gold`) |
 
-Jede Zahl muss in ihre Zelle passen, auch nach Cheats (`header-stats.ts`): unter einer Schwelle je Zelle exakt, darüber kurz über `formatCompact` ("101k", "1.2M"). Credits bleiben bis 999.999 exakt, weil Kaufentscheidungen an der genauen Zahl hängen und sechs Stellen in die Zelle passen; Wave und Gegner-Chip bis 99.999; die HQ-Gesundheit bis 9999 (mehr gibt es nur per Cheat). Die kurze Zahl ist `aria-hidden`, Screenreader lesen die exakte aus einem `.sr-only`-Span; zeigt die Zelle weniger als den exakten Wert, steht er auch im Tooltip ("101,100 / 100"). Die Spalten sind `minmax(0, 1fr)` und wachsen nicht über ihren Anteil; passt `/100` nicht mehr neben die Zahl, bricht es in eine zweite, verdeckte Zeile um und fällt ganz weg, bevor die Zahl selbst mit Ellipse gekürzt wird.
+Reduced motion: Farben und Streifen bleiben, nichts bewegt sich (kein Puls, kein Ruck, die Credit-Änderung steht still und blendet aus, die Zahl springt).
 
-Grundlage sind zwei Layout-Tokens aus `TD_LAYOUT` (`td-theme.ts`), die Header und Sidebar gemeinsam nutzen:
+Jede Zahl muss in ihre Platte passen, auch nach Cheats (`header-stats.ts`): unter einer Schwelle je Platte exakt, darüber kurz über `formatCompact` ("101k", "1.2M"). Credits bleiben bis 999.999 exakt, Wave und Gegner-Chip bis 99.999, die HQ-Gesundheit bis 9999 (mehr gibt es nur per Cheat). Die kurze Zahl ist `aria-hidden`, Screenreader lesen die exakte aus einem `.sr-only`-Span; zeigt die Platte weniger als den exakten Wert, steht er auch im Tooltip ("101,100 / 500"). Hinter der HQ-Zahl steht das Maximum (`/500`, 11px Mono, `--td-text-muted`); passt es nicht mehr, bricht es in eine verdeckte zweite Zeile um und fällt ganz weg, bevor die Zahl gekürzt wird. Balken, Segmente, Streifen und die aufsteigende Änderung sind `aria-hidden`.
 
-| Variable | Wert | Verwendung |
-|----------|------|------------|
-| `--td-sidebar-width` | `300px` | Breite der Sidebar (`.td-sidebar`) |
-| `--td-sidebar-gutter` | `14px` | Seitlicher Innenabstand der Sidebar-Sektionen, rechtes Padding des Headers |
+Der Gegner-Chip (`.enemies-chip`) erscheint nur während einer Welle links neben den Platten, als eigene kleine Platte mit Zahl in Oswald 18px und `--td-warn-text`.
 
-```css
-.header {
-  padding: 4px var(--td-sidebar-gutter) 4px 12px;
-}
+### Header-Knöpfe
 
-.header-stats {
-  box-sizing: border-box;
-  /* 1px = border-left der Sidebar */
-  width: calc(var(--td-sidebar-width) - 2 * var(--td-sidebar-gutter) - 1px);
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-}
-```
-
-Im Dialog-Modus (`isDialog`) sitzt rechts noch der Close-Button, dort gilt die Ausrichtung nicht.
-
-### Text auf Stein-Textur (Lesbarkeit)
-
-Elemente auf der Stein-Textur benötigen einen dunklen Hintergrund für Lesbarkeit. Im Header tragen ihn die Stat-Leiste (`.header-stats`), der Gegner-Chip (`.enemies-chip`) und der Standort-Button (`.location-btn`):
-
-```css
-.header-stats,
-.enemies-chip {
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.13),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.5);
-}
-```
-
-Der Standort-Button hat dieselbe Fläche mit 1px `--td-frame-dark` und heller Oberkante (`--td-frame-mid`).
+Der Standort-Button ist ein Rechteck (keine abgeschrägte Platte, die würde den Fokusring abschneiden) mit Stahlrand und `--td-plate`: Label "DEFEND" als `ui.caps-label`, der Name in Oswald 16px `--td-gold-light`; Hover färbt den Rand gold. Die Aktionsknöpfe (Link, Favoriten, Würfel, HQ, Spawn, Coop) sind 34px groß und durchsichtig, Hover und aktiv mit Messingrand. Alle tragen `ui.focus-ring` (2px `--td-focus-color`, Abstand 2px), die Zeilen in Favoriten- und Spawn-Menü einen nach innen versetzten.
 
 ### Favoriten-Menü (Header)
 
@@ -480,7 +444,7 @@ Erreicht ein Gegner das HQ (`enemy:reached-base`), blendet `app-leak-vignette` (
 
 ### Blutmond-Banner (Canvas)
 
-Startet eine Blutmond-Welle ([WAVE_SYSTEM.md](WAVE_SYSTEM.md#blutmond-wellen)), steht `app-blood-moon-banner` (`components/blood-moon-banner/`) 3,6 s über dem Canvas: mittig, 18 % unter der Oberkante und damit unter der Spalte mit Game Speed und Boss-Leiste. Glas-Chip (Mixin `bevel-glass`, Ecken 4px) mit Rand `rgba(184,62,50,0.55)` wie der Air-Alert, links `moon` (18px) in `--td-health-red`, daneben "BLOOD MOON" (12px/600 `--td-font-body`, Versalien, `letter-spacing: 0.2em`, `--td-text-primary`) über "Wave N", mit Mutator "Wave N · Swift" (10px Mono, `--td-text-muted`). Einblenden in gut 0,4 s, Ausblenden in 1 s (Web Animation, Wanduhr), `pointer-events: none`, `z-index` 5. Der Chip ist `aria-hidden`, Screenreader hören "Blood moon, wave N." und den Satz des Mutators über den `LiveAnnouncer`. Ist "Blood Moon" im Display-Menü aus, kommt das Banner nur für einen Mutator. Im Photo Mode verschwindet es mit dem HUD, der Look der Szene bleibt. Ein Boss-Intro (W35 ist Blutmond und Welle des Wurms) hält es vom Schirm (`BloodMoonBannerTiming` in `blood-moon-banner.ts`): Ist das Banner fällig, während ein Intro läuft, wartet es bis zu dessen Ende; startet ein Intro, während es steht, verschwindet es und läuft nach dem Intro noch einmal ganz, sofern es noch nicht ausblendete. Ein Neustart verwirft ein wartendes Banner.
+Startet eine Blutmond-Welle ([WAVE_SYSTEM.md](WAVE_SYSTEM.md#blutmond-wellen)), steht `app-blood-moon-banner` (`components/blood-moon-banner/`) 3,6 s über dem Canvas: mittig, 18 % unter der Oberkante und damit unter der Spalte mit Game Speed und Boss-Leiste. Glas-Chip (Mixin `bevel-glass`, Ecken 4px) mit Rand `rgba(184,62,50,0.55)` wie der Air-Alert, links `moon` (18px) in `--td-health-red`, daneben "BLOOD MOON" (12px/600 `--td-font-body`, Versalien, `letter-spacing: 0.2em`, `--td-text-primary`) über "Wave N", mit Mutator "Wave N · Swift" (10px Mono, `--td-text-muted`). Einblenden in gut 0,4 s, Ausblenden in 1 s (Web Animation, Wanduhr), `pointer-events: none`, `z-index` 5. Der Chip ist `aria-hidden`, Screenreader hören "Blood moon, wave N." und den Satz des Mutators über den `LiveAnnouncer`. Ist "Blood Moon" in Settings aus, kommt das Banner nur für einen Mutator. Im Photo Mode verschwindet es mit dem HUD, der Look der Szene bleibt. Ein Boss-Intro (W35 ist Blutmond und Welle des Wurms) hält es vom Schirm (`BloodMoonBannerTiming` in `blood-moon-banner.ts`): Ist das Banner fällig, während ein Intro läuft, wartet es bis zu dessen Ende; startet ein Intro, während es steht, verschwindet es und läuft nach dem Intro noch einmal ganz, sofern es noch nicht ausblendete. Ein Neustart verwirft ein wartendes Banner.
 
 ### Umzugs-Hinweis (Canvas)
 
@@ -661,7 +625,7 @@ Während des Replays der letzten Welle steuern Leertaste und P dessen Pause, + u
 
 Im bemannten Tower wirken nur Leertaste, P, +/-, M, C und Esc (`HotkeyService.runInTower`, siehe [Tower bemannen](#tower-bemannen)); Esc gibt dort die gefangene Maus frei, das zählt als Aussteigen.
 
-S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, Tastenkappe im Tooltip der Knöpfe der Fähigkeitenleiste, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint. Dauerhaft sichtbar öffnet "Keys" im Sidebar-Footer (Icon `keyboard`, rechts neben "Tips") dieselbe Übersicht. Das Helden-Panel zeigt V, G und Esc als Tastenkappen, seine Munitionswahl trägt `aria-keyshortcuts`.
+S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, Tastenkappe im Tooltip der Knöpfe der Fähigkeitenleiste, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint. Im Menü öffnet Extras, Keys dieselbe Übersicht. Das Helden-Panel zeigt V, G und Esc als Tastenkappen, seine Munitionswahl trägt `aria-keyshortcuts`.
 
 ### First-Run-Tipps
 
@@ -672,7 +636,7 @@ Sieben kurze Tipps in der Context-Hint-Box, entlang des Spielablaufs: Tower baue
 - Kopf "1/7" rechts neben dem Titel; der erste Tipp zeigt die Kamera-Tasten und H (Shortcuts) als Tastenkappen, der Controls Hint wartet so lange. Der Wellen-Tipp zeigt Space, P und +/-, der Upgrade-Tipp U und Del (Verkauf), der Fähigkeiten-Tipp die Tasten der erforschten Fähigkeiten, der Helden-Tipp G und V
 - Nicht über Ladescreen, Token-Screen, Fehler, Intro-Flug, Game Over, Photo Mode und Replay
 - Die Tipp-Box sitzt 56px über der Unterkante statt 20px wie die Build-Hinweise: oberhalb des Bands der Offscreen-Pfeile (26px vom Rand, Chips bis 26px), damit kein Pfeil darunter verschwindet
-- "Tips" links im Sidebar-Footer startet die Tipps von vorn, ohne die Schritte, die das laufende Spiel schon getan hat (ohne Skips): in Welle 12 kommt nicht "Build a tower". Hat das Spiel alle sieben getan, kommt die ganze Runde ab 1/7. Neues Spiel oder Reload setzen den gespeicherten Stand nicht zurück, nur den Spielfortschritt
+- "Tips" im Sidebar-Footer startet die Tipps von vorn, ohne die Schritte, die das laufende Spiel schon getan hat (ohne Skips): in Welle 12 kommt nicht "Build a tower". Hat das Spiel alle sieben getan, kommt die ganze Runde ab 1/7. Neues Spiel oder Reload setzen den gespeicherten Stand nicht zurück, nur den Spielfortschritt
   Grenzen: "Tips" kennt nur, was der Dienst in diesem Spiel über Events gesehen hat. Der Forschungs-Cheat sendet kein `research:started`; wer cheatet, ohne vorher selbst eine Forschung gestartet zu haben, bekommt nach "Tips" wieder "Start a research" (wenn ein Center steht). Wartet der nächste offene Schritt noch auf seinen Moment (während Welle 1, oder nach gestarteter Forschung ohne erforschte Fähigkeit), erscheint nach dem Klick zunächst kein Tipp.
 
 ### Damage-vs-Armor-Dialog

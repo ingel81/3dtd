@@ -1351,8 +1351,8 @@ verstecktem Tab ein Worker-Takt (`workers/heartbeat.worker.ts`, 16 ms) `update()
 läuft, ruft der rAF-Loop `update()` nicht. Ohne diesen Takt rechnet der Hauptthread im versteckten Tab keine
 Bilder und ruft keine Pakete ab; die Simulation wartet dann nach 250 ms (`MAX_AHEAD_MS`), das Spiel steht.
 
-**Frame-Cap (60 / 30 / unbegrenzt):** Spieler-Einstellung im Display-Menü der
-Quick-Actions, persistiert von `DebugFacadeService` als `fpsLimit` in
+**Frame-Cap (60 / 30 / unbegrenzt):** Spieler-Einstellung auf der Seite Settings des
+Menüs, persistiert von `DebugFacadeService` als `fpsLimit` in
 `td_display_options` (`utils/display-options.storage.ts`; bis 2026-09-12 unter
 eigenem Schlüssel `3dtd-fps-limit`, der beim Laden übernommen wird).
 `engine.renderLoop.setFpsLimit()` (`three-engine/render-loop.ts`) gibt sie an einen `FramePacer`

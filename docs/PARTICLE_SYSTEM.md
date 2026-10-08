@@ -874,7 +874,7 @@ pausiert.
 
 ## VFX-Einstellungen
 
-Spieler-Schalter im Display-Menü der Quick Actions (Panel über dem Augen-Button),
+Spieler-Schalter auf der Seite Settings des Menüs (bis 2026-10-09 im Display-Menü der Quick Actions),
 Stand 2026-09-12. Typ und Presets in `three-engine/vfx-settings.ts`,
 `ThreeTilesEngine.applyVfxSettings()` verteilt sie an die Renderer,
 `DebugFacadeService` hält und speichert sie. Umschalten wirkt sofort, ohne Reload.

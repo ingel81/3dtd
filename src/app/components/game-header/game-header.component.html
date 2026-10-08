@@ -179,41 +179,36 @@
          aria-hidden: the figures say it. -->
     <div class="header-stats">
       <div class="stat-plate hp" #hqPlate [attr.data-level]="hqLevel()" [matTooltip]="hq().tooltip">
-        <div class="plate-face">
-          <td-icon name="hqSolid" [size]="20"></td-icon>
-          <div class="stat-text">
-            <div class="stat-row">
-              <span class="stat-label">HQ</span>
-              <span class="stat-value" aria-hidden="true">
-                <span class="stat-num">{{ hq().text }}</span>
-                @if (hq().max; as max) {
-                  <span class="stat-max">/{{ max }}</span>
-                }
-              </span>
-            </div>
-            <span class="sr-only">{{ hq().exact }}</span>
-            <span class="seg-bar" aria-hidden="true">
-              @for (lit of hqSegments(); track $index) { <i [class.lit]="lit"></i> }
+        <td-icon name="hqSolid" [size]="20"></td-icon>
+        <div class="stat-text">
+          <div class="stat-row">
+            <span class="stat-label">HQ</span>
+            <span class="stat-value" aria-hidden="true">
+              <span class="stat-num">{{ hq().text }}</span>
+              @if (hq().max; as max) {
+                <span class="stat-max">/{{ max }}</span>
+              }
             </span>
           </div>
+          <span class="sr-only">{{ hq().exact }}</span>
+          <span class="seg-bar" aria-hidden="true">
+            @for (lit of hqSegments(); track $index) { <i [class.lit]="lit"></i> }
+          </span>
         </div>
         @if (hqLevel() === 'critical') {
           <span class="hazard" aria-hidden="true"></span>
         }
       </div>
       <div class="stat-plate credits" #creditsPlate [matTooltip]="creditsStat().tooltip">
-        <div class="plate-face">
-          <td-icon name="coinSolid" [size]="20"></td-icon>
-          <div class="stat-text">
-            <div class="stat-row">
-              <span class="stat-label">CREDITS</span>
-            </div>
-            <span class="stat-value" aria-hidden="true">
-              <span class="stat-num">{{ creditsShownText() }}</span>
-            </span>
-            <span class="sr-only">{{ creditsStat().exact }}</span>
-          </div>
+        <td-icon name="coinSolid" [size]="20"></td-icon>
+        <div class="stat-text">
+          <span class="stat-label">CREDITS</span>
+          <span class="stat-value" aria-hidden="true">
+            <span class="stat-num">{{ creditsShownText() }}</span>
+          </span>
+          <span class="sr-only">{{ creditsStat().exact }}</span>
         </div>
+        <!-- Keyed by the delta's id: a sum that grows keeps its rising text -->
         @if (creditsDelta(); as delta) {
           @for (d of [delta]; track d.id) {
             <span class="credits-delta" [class.loss]="d.kind === 'loss'" aria-hidden="true">{{ d.text }}</span>
@@ -221,20 +216,18 @@
         }
       </div>
       <div class="stat-plate wave" [class.starting]="waveStarting()" [matTooltip]="waveStat().tooltip">
-        <div class="plate-face">
-          <td-icon name="waveSolid" [size]="20"></td-icon>
-          <div class="stat-text">
-            <div class="stat-row">
-              <span class="stat-label">WAVE</span>
-              <span class="stat-value" aria-hidden="true">
-                <span class="stat-num">{{ waveStat().text }}</span>
-              </span>
-            </div>
-            <span class="sr-only">{{ waveStat().exact }}</span>
-            <span class="wave-bar" aria-hidden="true">
-              <span class="wave-bar-fill" [style.width.%]="waveProgress()"></span>
+        <td-icon name="waveSolid" [size]="20"></td-icon>
+        <div class="stat-text">
+          <div class="stat-row">
+            <span class="stat-label">WAVE</span>
+            <span class="stat-value" aria-hidden="true">
+              <span class="stat-num">{{ waveStat().text }}</span>
             </span>
           </div>
+          <span class="sr-only">{{ waveStat().exact }}</span>
+          <span class="wave-bar" aria-hidden="true">
+            <span class="wave-bar-fill" [style.width.%]="waveProgress()"></span>
+          </span>
         </div>
       </div>
     </div>

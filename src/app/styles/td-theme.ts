@@ -52,6 +52,8 @@ export const TD_THEME = {
   // === HUD states ===
   hpText: '#E36A5A', // HQ number; healthRed is a fill, too dark for text
   hpLow: '#E8735F', // HQ under 30 %
+  hpWarmTop: '#3A1F1A', // HQ plate under 30 %
+  hpWarmBottom: '#251612',
   gain: '#9ED6A0', // +credits
   loss: '#E36A5A', // -credits, a buy that fails
 
@@ -219,6 +221,7 @@ export const TD_CSS_VARS = `
 
   --td-hp-text: ${TD_THEME.hpText};
   --td-hp-low: ${TD_THEME.hpLow};
+  --td-hp-plate: linear-gradient(180deg, ${TD_THEME.hpWarmTop}, ${TD_THEME.hpWarmBottom});
   --td-gain: ${TD_THEME.gain};
   --td-loss: ${TD_THEME.loss};
   --td-hazard: repeating-linear-gradient(-45deg, ${TD_THEME.warnOrange} 0 6px, ${TD_THEME.ink} 6px 12px);

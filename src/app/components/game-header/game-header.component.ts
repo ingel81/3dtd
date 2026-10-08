@@ -16,7 +16,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TD_CSS_VARS } from '../../styles/td-theme';
+import { TD_CSS_VARS, TD_THEME } from '../../styles/td-theme';
 import { FavoriteLocation } from '../../models/location.types';
 import { LOADING_NAME, NO_LOCATION_NAME } from '../../services/location/location-management.service';
 import { FAVORITE_NAME_MAX_LENGTH } from '../../services/location/favorite-locations';
@@ -56,9 +56,9 @@ const HQ_HIT_MS = 450;
 const HQ_HIT_MIN_INTERVAL_MS = 300;
 /** The credits plate's edge when a buy was refused for too few credits: red, then back */
 const CREDITS_REFUSED_FLASH: Keyframe[] = [
-  { backgroundColor: 'var(--td-health-red)' },
-  { backgroundColor: 'var(--td-health-red)', offset: 0.5 },
-  { backgroundColor: 'var(--td-frame-dark)' },
+  { backgroundColor: TD_THEME.healthRed },
+  { backgroundColor: TD_THEME.healthRed, offset: 0.5 },
+  { backgroundColor: TD_THEME.lineSteel },
 ];
 const CREDITS_REFUSED_MS = 600;
 /** The wave plate's brass edge when a wave starts */

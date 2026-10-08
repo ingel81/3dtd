@@ -609,7 +609,7 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
   ab (`OOZE_LOOK.capLength`), und die Einstellung schaut von vorn am Band
   entlang, mit 3 m war nur ein flacher Buckel am Portal zu sehen. Bei 3 m/s
   knapp 4 s nach dem Spawn.
-- **Keins** bei ausgeschaltetem Schalter "Boss Intro" im Display-Menü, im Photo
+- **Keins** bei ausgeschaltetem Schalter "Boss Intro" in Settings, im Photo
   Mode, mit Trainings-Bot oder verbundenem Trainings-Backend, über 4x (nur
   Trainingsläufe kommen darüber), ohne Rendering, während des Intro-Flugs und
   solange ein Dialog offen ist (`bossIntroBlock`). Ein so übergangener Boss
@@ -737,7 +737,7 @@ ausgeschaltetem Look.
   wirkt auf dem Canvas und im Composer-Target gleich; ins lineare Target geht seine
   Farbe hoch 2,2. Entsättigen kann eine Multiplikation nicht, der Look ist ein
   Rotstich mit dunkleren Ecken.
-- **Display-Option:** "Blood Moon" im Display-Menü (`VfxSettings.bloodMoon`,
+- **Display-Option:** "Blood Moon" in Settings (`VfxSettings.bloodMoon`,
   Default an, von keinem Preset gesetzt). Aus nimmt den Look sofort weg, der Mond
   auf NEXT entfällt; das Banner kommt dann nur noch für den Mutator. An während
   einer Blutmond-Welle blendet ihn ein.

@@ -1,4 +1,4 @@
-@use '../../styles/td-mixins' as td;
+@use '../../styles/game-ui' as ui;
 
 :host {
   display: block;
@@ -47,39 +47,41 @@
   min-width: 0;
 }
 
+/* A rectangle, not a cut plate: a cut would clip the focus ring */
 .location-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  border-top-color: var(--td-frame-mid);
-  color: var(--td-gold);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  font-family: inherit;
-  font-size: 13px;
-  min-width: 0;
-}
-
-.location-btn:hover {
-  border-color: var(--td-gold-dark);
-  background: rgba(255, 215, 0, 0.15);
+  gap: 8px;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid var(--td-line-steel);
+  background: var(--td-plate);
   color: var(--td-gold-light);
+  cursor: pointer;
+  font-family: var(--td-font-display);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  min-width: 0;
+  @include ui.motion(border-color, color);
+
+  &:hover:not(:disabled) {
+    border-color: var(--td-gold);
+    color: var(--td-text-primary);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
 }
 
 .location-label {
+  @include ui.caps-label;
   flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--td-text-secondary);
-  opacity: 0.6;
 }
 
 .location-name {
-  font-weight: 500;
   /* Street, city and country; on a narrow window the end gives way */
   max-width: 34vw;
   overflow: hidden;
@@ -121,30 +123,12 @@
   height: 42px;
 }
 
-/* A plate: the outer layer is the 1px edge, the face sits 1px inside; both
-   cut at the top left and bottom right */
+/* A plate: the steel edge is its background, the stone face its ::before */
 .stat-plate {
-  --plate-cut: var(--td-cut-sm, 6px);
-  --plate-shape: polygon(var(--plate-cut) 0, 100% 0, 100% calc(100% - var(--plate-cut)),
-    calc(100% - var(--plate-cut)) 100%, 0 100%, 0 var(--plate-cut));
-  position: relative;
+  @include ui.stat-plate;
   min-width: 0;
-  padding: 1px;
-  clip-path: var(--plate-shape);
-  background-color: var(--td-frame-mid);
   font-variant-numeric: tabular-nums;
-  transition: background-color var(--td-dur-fast, 120ms) ease-out;
-}
-
-.plate-face {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 100%;
-  box-sizing: border-box;
-  padding: 0 10px;
-  clip-path: var(--plate-shape);
-  background: linear-gradient(180deg, var(--td-plate-top, #262f28), var(--td-plate-bottom, #1d241f));
+  @include ui.motion(background-color);
 }
 
 .stat-text {
@@ -165,10 +149,9 @@
 }
 
 .stat-label {
+  @include ui.caps-label;
   flex-shrink: 0;
-  font: 10px/1 var(--td-font-mono);
-  letter-spacing: 0.14em;
-  color: var(--td-text-muted);
+  line-height: 1;
 }
 
 /* One line: the value and, on the HQ plate, the max. What does not fit
@@ -181,9 +164,12 @@
   justify-content: flex-end;
   align-items: baseline;
   min-width: 0;
-  height: 22px;
+  height: var(--td-fs-hud);
   overflow: hidden;
-  font: 600 22px/22px var(--td-font-hud, 'Oswald', var(--td-font-body));
+  font-family: var(--td-font-display);
+  font-size: var(--td-fs-hud);
+  font-weight: 600;
+  line-height: var(--td-fs-hud);
 }
 
 .credits .stat-value {
@@ -199,24 +185,21 @@
 
 .stat-max {
   white-space: nowrap;
-  font: 400 11px var(--td-font-mono);
+  font-family: var(--td-font-mono);
+  font-size: var(--td-fs-small);
+  font-weight: 400;
   color: var(--td-text-muted);
 }
 
 .sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+  @include ui.sr-only;
 }
 
 /* HQ: ten segments, one per tenth of the start health. Warm below 30 %
    with a slow pulse, a hazard stripe at the foot below 10 %. A loss of
    health flashes and jolts the plate (Web Animations, see the component). */
 .hp {
-  --hp-color: var(--td-hp-text, #e36a5a);
+  --hp-color: var(--td-hp-text);
   color: var(--hp-color);
 }
 
@@ -237,17 +220,17 @@
 
 .hp[data-level='low'],
 .hp[data-level='critical'] {
-  --hp-color: var(--td-hp-low, #e8735f);
-  background-color: var(--td-health-red);
+  --hp-color: var(--td-hp-low);
+  background: var(--td-health-red);
 
-  .plate-face {
-    background: linear-gradient(180deg, var(--td-hp-warm-top, #3a1f1a), var(--td-hp-warm-bottom, #251612));
+  &::before {
+    background: var(--td-hp-plate);
     animation: hq-warm 2.4s ease-in-out infinite;
   }
 }
 
 @keyframes hq-warm {
-  50% { filter: brightness(1.25); }
+  50% { filter: brightness(1.3); }
 }
 
 .hazard {
@@ -256,7 +239,7 @@
   right: 1px;
   bottom: 1px;
   height: 4px;
-  background: var(--td-hazard, repeating-linear-gradient(-45deg, #c96a3a 0 6px, #1a140a 6px 12px));
+  background: var(--td-hazard);
 }
 
 /* Credits: the figure counts to a new value, a change rises over the
@@ -273,14 +256,17 @@
   position: absolute;
   top: 5px;
   right: 10px;
-  font: 600 14px/1 var(--td-font-hud, 'Oswald', var(--td-font-body));
-  color: var(--td-gain, #9ed6a0);
+  font-family: var(--td-font-display);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--td-gain);
   pointer-events: none;
-  animation: credits-delta 900ms ease-out forwards;
+  animation: credits-delta 900ms var(--td-ease-out) forwards;
 }
 
 .credits-delta.loss {
-  color: var(--td-loss, #e36a5a);
+  color: var(--td-loss);
 }
 
 @keyframes credits-delta {
@@ -301,7 +287,7 @@
 }
 
 .wave.starting {
-  background-color: var(--td-gold);
+  background: var(--td-gold);
 }
 
 .wave-bar {
@@ -314,13 +300,13 @@
   position: absolute;
   inset: 0 auto 0 0;
   background: var(--td-teal);
-  transition: width 0.3s ease;
+  transition: width var(--td-dur-slow) var(--td-ease-out);
 }
 
 /* Reduced motion: colour and stripe stay, nothing moves or pulses */
-@media (prefers-reduced-motion: reduce) {
-  .hp[data-level='low'] .plate-face,
-  .hp[data-level='critical'] .plate-face {
+@include ui.reduced-motion {
+  .hp[data-level='low']::before,
+  .hp[data-level='critical']::before {
     animation: none;
   }
 
@@ -338,17 +324,15 @@
   100% { opacity: 0; }
 }
 
+/* Enemies alive, only during a wave: a small plate of its own */
 .enemies-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  @include ui.stat-plate;
   height: 42px;
   box-sizing: border-box;
-  padding: 0 12px;
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-  background: var(--td-panel-shadow);
-  color: var(--td-warn-orange);
-  font: 600 18px/1 var(--td-font-hud, 'Oswald', var(--td-font-body));
+  color: var(--td-warn-text);
+  font-family: var(--td-font-display);
+  font-size: 18px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -388,18 +372,19 @@
   flex-shrink: 0;
 }
 
-/* Keyboard focus: a 2px ring outside the button */
+/* Keyboard focus: a 2px ring outside the button; inside on the rows of the
+   menus, whose neighbours would cover it */
 .location-btn,
 .action-btn,
-.close-btn,
+.close-btn {
+  @include ui.focus-ring;
+}
+
 .fav-select,
 .fav-tool,
 .fav-add,
 .spawn-menu-item {
-  &:focus-visible {
-    outline: 2px solid var(--td-gold-light);
-    outline-offset: 2px;
-  }
+  @include ui.focus-ring(-2px);
 }
 
 /* Between the groups of actions (the place, editing the map, coop): a
@@ -422,13 +407,13 @@
   border: 1px solid transparent;
   color: var(--td-text-secondary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  @include ui.motion(background-color, border-color, color);
 }
 
 .action-btn:hover, .action-btn.active {
-  background: rgba(255, 215, 0, 0.1);
-  border-color: var(--td-gold-dark);
-  color: var(--td-gold);
+  background: color-mix(in srgb, var(--td-gold) 12%, transparent);
+  border-color: var(--td-line-brass);
+  color: var(--td-gold-light);
 }
 
 .action-btn mat-icon {
@@ -508,7 +493,7 @@
 }
 
 .spawn-menu-item:hover {
-  background: rgba(255, 215, 0, 0.1);
+  background: color-mix(in srgb, var(--td-gold) 12%, transparent);
   color: var(--td-gold);
 }
 
@@ -541,13 +526,13 @@
 .fav-list {
   max-height: min(60vh, 440px);
   overflow-y: auto;
-  @include td.scrollbar;
+  @include ui.scrollbar;
 }
 
-.fav-list::-webkit-scrollbar { @include td.webkit-scrollbar; }
-.fav-list::-webkit-scrollbar-track { @include td.webkit-scrollbar-track; }
-.fav-list::-webkit-scrollbar-thumb { @include td.webkit-scrollbar-thumb; }
-.fav-list::-webkit-scrollbar-thumb:hover { @include td.webkit-scrollbar-thumb-hover; }
+.fav-list::-webkit-scrollbar { @include ui.webkit-scrollbar; }
+.fav-list::-webkit-scrollbar-track { @include ui.webkit-scrollbar-track; }
+.fav-list::-webkit-scrollbar-thumb { @include ui.webkit-scrollbar-thumb; }
+.fav-list::-webkit-scrollbar-thumb:hover { @include ui.webkit-scrollbar-thumb-hover; }
 
 .fav-item {
   display: flex;
@@ -576,7 +561,7 @@
 }
 
 .fav-select:hover {
-  background: rgba(255, 215, 0, 0.1);
+  background: color-mix(in srgb, var(--td-gold) 12%, transparent);
   color: var(--td-gold);
 }
 
@@ -668,7 +653,7 @@
 }
 
 .fav-add:hover {
-  background: rgba(255, 215, 0, 0.1);
+  background: color-mix(in srgb, var(--td-gold) 12%, transparent);
   color: var(--td-gold);
 }
 
