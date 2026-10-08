@@ -143,6 +143,8 @@ import { uiSound } from './services/ui-sound';
 import { CoopService } from './services/coop.service';
 import { MAX_PLAYERS } from './coop/protocol';
 import { COOP } from './services/coop.token';
+import { MainMenuComponent } from './components/main-menu/main-menu.component';
+import { MainMenuService } from './components/main-menu/main-menu.service';
 
 @Component({
   selector: 'app-tower-defense',
@@ -197,6 +199,7 @@ import { COOP } from './services/coop.token';
     // Used only inside @defer on the game-over screen, so it loads with the globe as a lazy chunk
     WorldRecordComponent,
     BenchmarkPanelComponent,
+    MainMenuComponent,
   ],
   providers: [
     ModelPreviewService,
@@ -227,6 +230,8 @@ import { COOP } from './services/coop.token';
     // Saving and loading the run, between the waves (TODO E110); the menu binds to SAVE_GAME
     SaveGameService,
     { provide: SAVE_GAME, useExisting: SaveGameService },
+    // The main menu: its pages reach the services above (docs/MAIN_MENU_UI_PLAN.md)
+    MainMenuService,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-defense.component.html',

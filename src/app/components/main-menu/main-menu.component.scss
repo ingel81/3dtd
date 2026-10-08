@@ -1,0 +1,73 @@
+// Minimal layout until the foundation (_game-ui.scss) is in; the look follows then.
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+}
+
+.mm-root {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: 48px;
+  align-items: flex-start;
+  padding: 72px 88px;
+  box-sizing: border-box;
+  overflow: auto;
+  color: var(--td-text-primary, #eef1eb);
+}
+
+.mm-start {
+  background: linear-gradient(90deg, rgba(8, 11, 9, 0.94) 0%, rgba(8, 11, 9, 0.86) 30%, rgba(8, 11, 9, 0.25) 52%, rgba(8, 11, 9, 0) 70%);
+}
+
+.mm-pause {
+  background: rgba(8, 11, 9, 0.72);
+}
+
+.mm-column {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+}
+
+.mm-logo {
+  display: block;
+  height: auto;
+  width: 420px;
+}
+
+.mm-pause .mm-logo {
+  width: 200px;
+}
+
+.mm-page {
+  flex: 0 1 640px;
+  min-width: 0;
+  background: var(--td-panel-main, #1d241f);
+  border: 1px solid var(--td-frame-mid, #4a544d);
+}
+
+.mm-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 12px;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.mm-page-body {
+  padding: 18px 20px 22px;
+}
+
+.mm-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

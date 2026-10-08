@@ -1,0 +1,31 @@
+<div class="mm-root" [class.mm-start]="layer() === 'start'" [class.mm-pause]="layer() === 'pause'"
+     role="dialog" aria-modal="true" aria-labelledby="td-menu-title"
+     cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
+     (keydown.escape)="onEscape($event)">
+  <div class="mm-column">
+    <img class="mm-logo" src="assets/images/logo/logo.png" alt="3DTD">
+    @if (page() === 'home') {
+      <h2 class="mm-sr-only" id="td-menu-title">{{ title() }}</h2>
+    }
+    <app-menu-home [layer]="layer()" />
+  </div>
+
+  @if (page() !== 'home') {
+    <section class="mm-page" aria-labelledby="td-menu-title">
+      <header class="mm-page-head">
+        <h2 id="td-menu-title">{{ title() }}</h2>
+        <button type="button" class="mm-back" (click)="menu.back()" aria-label="Back">Esc</button>
+      </header>
+      <div class="mm-page-body">
+        @switch (page()) {
+          @case ('new-game') { <app-menu-new-game [layer]="layer()" /> }
+          @case ('coop') { <app-menu-coop [layer]="layer()" /> }
+          @case ('save') { <app-menu-save [layer]="layer()" /> }
+          @case ('load') { <app-menu-load [layer]="layer()" /> }
+          @case ('settings') { <app-menu-settings [layer]="layer()" /> }
+          @case ('extras') { <app-menu-extras [layer]="layer()" /> }
+        }
+      </div>
+    </section>
+  }
+</div>

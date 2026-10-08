@@ -445,4 +445,9 @@
       (cancelResearch)="onCancelResearch($event)"
     />
   </div>
+
+  <!-- The main menu: in front of the scene that loads behind it, and Esc in the game -->
+  @if (uiStore.mainMenuOpen()) {
+    <app-main-menu />
+  }
 </div>

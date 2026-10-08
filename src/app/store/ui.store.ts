@@ -2,6 +2,7 @@ import { Injectable, computed, signal, effect } from '@angular/core';
 import { TowerTypeId } from '../configs/tower-types.config';
 import type { AbilityId } from '../configs/abilities.config';
 import { readJson, writeJson } from '../utils/storage';
+import type { MainMenuState } from '../components/main-menu/menu-page';
 
 /** LocalStorage key for persisted UI state */
 const STORAGE_KEY = 'td-ui-state';
@@ -222,6 +223,16 @@ export class UIStore {
 
   /** Coop: the room dock is open (docs/COOP_PLAN.md, D41); the header chip and Tab toggle it. Not persisted. */
   readonly coopDockOpen = signal<boolean>(false);
+
+  /**
+   * The main menu (docs/MAIN_MENU_UI_PLAN.md): open, its layer and page.
+   * Written by MainMenuService only; here so the HUD, the hotkeys and the
+   * hints can wait while it stands. Not persisted.
+   */
+  readonly mainMenu = signal<MainMenuState>({ open: false, layer: 'start', page: 'home' });
+
+  /** The main menu stands in front of the game */
+  readonly mainMenuOpen = computed(() => this.mainMenu().open);
 
   /** Photo mode or replay: the camera moves, clicks and hover pick nothing, game keys build nothing. */
   readonly viewOnly = computed(() => this.photoMode() || this.replayMode());
