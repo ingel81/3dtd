@@ -22,13 +22,8 @@ describe('UIStore', () => {
       expect(store.devMenuExpanded()).toBe(false);
     });
 
-    it('displayMenuExpanded starts as false', () => {
-      expect(store.displayMenuExpanded()).toBe(false);
-    });
-
     it('no quick-actions menu is open', () => {
       expect(store.openMenu()).toBeNull();
-      expect(store.audioMenuExpanded()).toBe(false);
     });
 
     it('routes start visible', () => {
@@ -66,8 +61,6 @@ describe('UIStore', () => {
 
   describe('quick-actions menus: only one open', () => {
     const flags = () => ({
-      display: store.displayMenuExpanded(),
-      audio: store.audioMenuExpanded(),
       layers: store.layerMenuExpanded(),
       dev: store.devMenuExpanded(),
     });
@@ -75,15 +68,15 @@ describe('UIStore', () => {
     it('toggleMenu opens the menu and only that one', () => {
       store.toggleMenu('layers');
       expect(store.openMenu()).toBe('layers');
-      expect(flags()).toEqual({ display: false, audio: false, layers: true, dev: false });
+      expect(flags()).toEqual({ layers: true, dev: false });
     });
 
     it('opening another menu closes the open one', () => {
-      store.toggleMenu('display');
+      store.toggleMenu('layers');
       store.toggleMenu('dev');
-      expect(flags()).toEqual({ display: false, audio: false, layers: false, dev: true });
-      store.toggleMenu('audio');
-      expect(flags()).toEqual({ display: false, audio: true, layers: false, dev: false });
+      expect(flags()).toEqual({ layers: false, dev: true });
+      store.toggleMenu('layers');
+      expect(flags()).toEqual({ layers: true, dev: false });
     });
 
     it('toggling the open menu closes it', () => {
@@ -105,8 +98,10 @@ describe('UIStore', () => {
       expect(load({ openMenu: null }).openMenu()).toBeNull();
     });
 
-    it('ignores an unknown stored menu', () => {
+    it('ignores an unknown stored menu, and the display and audio menus that moved to Settings', () => {
       expect(load({ openMenu: 'inventory' }).openMenu()).toBeNull();
+      expect(load({ openMenu: 'display' }).openMenu()).toBeNull();
+      expect(load({ openMenu: 'audio' }).openMenu()).toBeNull();
     });
 
     it('migrates the old per-menu flags to one menu, dev first', () => {
@@ -114,12 +109,12 @@ describe('UIStore', () => {
       expect(s.openMenu()).toBe('dev');
       expect(s.layerMenuExpanded()).toBe(false);
       expect(load({ layerMenuExpanded: true, audioMenuExpanded: true }).openMenu()).toBe('layers');
-      expect(load({ displayMenuExpanded: true }).openMenu()).toBe('display');
+      expect(load({ displayMenuExpanded: true }).openMenu()).toBeNull();
       expect(load({ devMenuExpanded: false, layerMenuExpanded: false }).openMenu()).toBeNull();
     });
 
     it('the new field wins over leftover old flags', () => {
-      expect(load({ openMenu: 'audio', devMenuExpanded: true }).openMenu()).toBe('audio');
+      expect(load({ openMenu: 'layers', devMenuExpanded: true }).openMenu()).toBe('layers');
     });
 
     it('restores the auto-start of waves, off when never stored', () => {

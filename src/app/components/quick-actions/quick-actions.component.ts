@@ -2,7 +2,6 @@ import { Component, inject, input, output, computed, ChangeDetectionStrategy } f
 import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
-import { DebugFacadeService, FPS_LIMITS } from '../../services/debug/debug-facade.service';
 import { DebugStateDumpService } from '../../services/debug/debug-state-dump.service';
 import { CellReportService } from '../../services/debug/cell-report.service';
 import { CorridorSnapshotService } from '../../services/debug/corridor-snapshot.service';
@@ -10,19 +9,6 @@ import { UIStore } from '../../store/ui.store';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
-import { VFX_PRESET_CHOICES, matchingVfxPreset, type VfxSettings } from '../../three-engine/vfx-settings';
-import { COLOR_GRADING_PRESETS, type ColorGradingPreset } from '../../three-engine/post-processing/color-grading';
-
-type VfxSwitch = Exclude<keyof VfxSettings, 'colorGrading'>;
-
-/** The switches the quality presets set, in menu order. */
-const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = [
-  { key: 'muzzleFlash', label: 'Muzzle Flash', hint: 'Flash and light at the barrel of guns, launcher and bow' },
-  { key: 'projectileTrails', label: 'Projectile Trails', hint: 'Streaks and particle trails behind projectiles' },
-  { key: 'impactEffects', label: 'Impact Effects', hint: 'Explosions, smoke, spark bursts and blood spray at hits' },
-  { key: 'groundMarks', label: 'Ground Marks', hint: 'Blood, frost, scorch marks and ooze puddles on the ground' },
-  { key: 'bloom', label: 'Bloom', hint: 'Glow around bright surfaces, an extra full-screen pass' },
-];
 
 @Component({
   selector: 'app-quick-actions',
@@ -42,28 +28,11 @@ export class QuickActionsComponent {
   readonly uiStore = inject(UIStore);
   readonly devWorld = inject(DevWorldService);
   readonly debugStateDump = inject(DebugStateDumpService);
-  readonly debugFacade = inject(DebugFacadeService);
   readonly cellReport = inject(CellReportService);
   readonly corridorSnapshot = inject(CorridorSnapshotService);
 
   // Input for camera framing debug state (component-local in parent)
   readonly cameraFramingDebug = input.required<boolean>();
-
-  // Display settings: shared signals in DebugFacadeService (single source of
-  // truth, also shown by the Display debug window), changed through its on*() methods
-  readonly screenShakeEnabled = this.debugFacade.screenShakeEnabled;
-  readonly healthBarsVisible = this.debugFacade.healthBarsVisible;
-  readonly damageNumbersVisible = this.debugFacade.damageNumbersVisible;
-  readonly bossIntroEnabled = this.debugFacade.bossIntroEnabled;
-  readonly fpsLimit = this.debugFacade.fpsLimit;
-  readonly vfx = this.debugFacade.vfx;
-  /** Preset the effect switches match, null for a mix of the player's own. */
-  readonly activePreset = computed(() => matchingVfxPreset(this.vfx()));
-
-  readonly presetButtons = VFX_PRESET_CHOICES;
-  readonly effectRows = EFFECT_ROWS;
-  readonly colorGradingPresets = COLOR_GRADING_PRESETS;
-  readonly fpsLimits = FPS_LIMITS;
 
   // Per-tower-LOS filter — icon + tooltip computed from the UIStore signal
   // so the button reflects the current mode (both / ground / air).
@@ -100,57 +69,6 @@ export class QuickActionsComponent {
   readonly readyAbilities = output<void>();
   readonly readyHero = output<void>();
   readonly photoModeRequested = output<void>();
-
-  // Computed: anything muted? The store's volumes reach the audio by
-  // themselves (TowerDefenseComponent)
-  readonly anyMuted = computed(() =>
-    this.uiStore.masterMuted() || this.uiStore.musicMuted() || this.uiStore.sfxMuted() || this.uiStore.uiMuted());
-
-  toggleVfx(key: VfxSwitch): void {
-    const change: Partial<VfxSettings> = {};
-    change[key] = !this.vfx()[key];
-    this.debugFacade.onVfxSettingsChanged(change);
-  }
-
-  onColorGradingChange(event: Event): void {
-    const preset = (event.target as HTMLSelectElement).value as ColorGradingPreset;
-    this.debugFacade.onVfxSettingsChanged({ colorGrading: preset });
-  }
-
-  // Audio controls: they set the store only
-  onMasterSlider(event: Event): void {
-    this.uiStore.masterVolume.set((event.target as HTMLInputElement).valueAsNumber / 100);
-    this.uiStore.masterMuted.set(false);
-  }
-
-  onMusicSlider(event: Event): void {
-    this.uiStore.musicVolume.set((event.target as HTMLInputElement).valueAsNumber / 100);
-    this.uiStore.musicMuted.set(false);
-  }
-
-  onSfxSlider(event: Event): void {
-    this.uiStore.sfxVolume.set((event.target as HTMLInputElement).valueAsNumber / 100);
-    this.uiStore.sfxMuted.set(false);
-  }
-
-  onUiSlider(event: Event): void {
-    this.uiStore.uiVolume.set((event.target as HTMLInputElement).valueAsNumber / 100);
-    this.uiStore.uiMuted.set(false);
-  }
-
-  toggleUiMute(): void {
-    this.uiStore.uiMuted.update(v => !v);
-  }
-
-  toggleMasterMute(): void {
-    this.uiStore.masterMuted.update(v => !v);
-  }
-
-  toggleMusicMute(): void {
-    this.uiStore.musicMuted.update(v => !v);
-  }
-
-  toggleSfxMute(): void {
-    this.uiStore.sfxMuted.update(v => !v);
-  }
+  /** The menu's Settings page: effects, audio, graphics (the display and audio menus moved there) */
+  readonly settingsRequested = output<void>();
 }

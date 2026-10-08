@@ -138,6 +138,7 @@ import { isLocationDialogFailure } from './components/location-dialog/open-locat
 import { ABILITIES } from './configs/abilities.config';
 import { RefusalHintService } from './services/refusal-hint.service';
 import { FocusOnShowDirective } from './components/focus-on-show.directive';
+import { openGameMenu } from './components/game-menu/open-game-menu';
 import { RunLogFacade } from './run-log/run-log.facade';
 import { uiSound } from './services/ui-sound';
 import { CoopService } from './services/coop.service';
@@ -1035,6 +1036,11 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   /** The header's room chip: the coop dock opens and closes (docs/COOP_PLAN.md, D41). */
   openCoop(): void {
     this.uiStore.coopDockOpen.update((open) => !open);
+  }
+
+  /** The quick bar's Settings button: the menu's Settings page; until the menu has it, the game menu */
+  openSettings(): void {
+    void openGameMenu(this.dialog, this.injector);
   }
 
   /** The header's room chip: code, a square per player in their lane colour, how many of how many */

@@ -10,10 +10,13 @@ const STORAGE_KEY = 'td-ui-state';
 /** Trailing debounce window for localStorage writes (ms) */
 const PERSIST_DEBOUNCE_MS = 500;
 
-/** Menus that open above the quick-actions bar. Only one is open at a time. */
-export type QuickMenu = 'display' | 'audio' | 'layers' | 'dev';
+/**
+ * Menus that open above the quick-actions bar. Only one is open at a time.
+ * Display and audio settings live on the menu's Settings page.
+ */
+export type QuickMenu = 'layers' | 'dev';
 
-const QUICK_MENUS: readonly QuickMenu[] = ['display', 'audio', 'layers', 'dev'];
+const QUICK_MENUS: readonly QuickMenu[] = ['layers', 'dev'];
 
 /** Shape of persisted UI state */
 interface PersistedUIState {
@@ -41,13 +44,12 @@ interface PersistedUIState {
 interface LegacyMenuFlags {
   devMenuExpanded?: boolean;
   layerMenuExpanded?: boolean;
-  displayMenuExpanded?: boolean;
-  audioMenuExpanded?: boolean;
 }
 
 /**
  * Menu to reopen from a stored state. A legacy state with several open menus
- * reopens one, taken right to left along the bar: dev, layers, audio, display.
+ * reopens one, taken right to left along the bar: dev, then layers. A
+ * stored display or audio menu (now on the menu's Settings page) reopens none.
  */
 function storedOpenMenu(state: PersistedUIState & LegacyMenuFlags): QuickMenu | null {
   if (state.openMenu !== undefined) {
@@ -55,8 +57,6 @@ function storedOpenMenu(state: PersistedUIState & LegacyMenuFlags): QuickMenu | 
   }
   if (state.devMenuExpanded) return 'dev';
   if (state.layerMenuExpanded) return 'layers';
-  if (state.audioMenuExpanded) return 'audio';
-  if (state.displayMenuExpanded) return 'display';
   return null;
 }
 
@@ -85,12 +85,6 @@ export class UIStore {
 
   /** Developer menu expanded */
   readonly devMenuExpanded = computed(() => this.openMenu() === 'dev');
-
-  /** Display settings menu expanded */
-  readonly displayMenuExpanded = computed(() => this.openMenu() === 'display');
-
-  /** Audio settings menu expanded */
-  readonly audioMenuExpanded = computed(() => this.openMenu() === 'audio');
 
   /** Overall volume (0-1), on top of music and sound effects */
   readonly masterVolume = signal<number>(1.0);

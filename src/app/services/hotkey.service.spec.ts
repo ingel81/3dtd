@@ -685,10 +685,10 @@ describe('HotkeyService', () => {
 
     it('Esc leaves it before it closes a menu', () => {
       photoActive.set(true);
-      uiStore.openMenu.set('display');
+      uiStore.openMenu.set('layers');
       service.handleKeyDown(press('Escape'));
       expect(photoActive()).toBe(false);
-      expect(uiStore.openMenu()).toBe('display');
+      expect(uiStore.openMenu()).toBe('layers');
     });
 
     it('number keys do not start building while it is on', () => {

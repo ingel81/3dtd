@@ -7,181 +7,20 @@
           aria-label="Play route animation">
     <td-icon name="route" [size]="18"></td-icon>
   </button>
-  <!-- Display settings (panel opens above its toggle) -->
-  <div class="td-display-menu-wrapper">
-    <div class="td-display-panel" [class.expanded]="uiStore.displayMenuExpanded()">
-      <div class="td-settings-head">
-        <span>Effects</span>
-        @if (!activePreset()) {
-          <span class="td-settings-custom">Custom</span>
-        }
-      </div>
-      <div class="td-segmented" role="group" aria-label="Effect quality">
-        @for (preset of presetButtons; track preset.id) {
-          <button type="button" class="td-segment"
-                  [class.active]="activePreset() === preset.id"
-                  [attr.aria-pressed]="activePreset() === preset.id"
-                  (click)="debugFacade.onVfxPresetSelected(preset.id)"
-                  [matTooltip]="preset.hint" matTooltipPosition="above">{{ preset.label }}</button>
-        }
-      </div>
-      @for (row of effectRows; track row.key) {
-        <label class="td-setting-row" [matTooltip]="row.hint" matTooltipPosition="left">
-          <input type="checkbox" [checked]="vfx()[row.key]" (change)="toggleVfx(row.key)">
-          <span>{{ row.label }}</span>
-        </label>
-      }
-      <label class="td-setting-row td-setting-split"
-             matTooltip="Tints the whole picture, an extra full-screen pass" matTooltipPosition="left">
-        <span>Color Grading</span>
-        <select class="td-setting-select" (change)="onColorGradingChange($event)">
-          @for (preset of colorGradingPresets; track preset.id) {
-            <option [value]="preset.id" [selected]="vfx().colorGrading === preset.id">{{ preset.label }}</option>
-          }
-        </select>
-      </label>
-
-      <div class="td-settings-head td-settings-divider">
-        <span>General</span>
-      </div>
-      <label class="td-setting-row" matTooltip="Blue tint and ice sparks on slowed enemies" matTooltipPosition="left">
-        <input type="checkbox" [checked]="vfx().freezeTint" (change)="toggleVfx('freezeTint')">
-        <span>Freeze Tint</span>
-      </label>
-      <label class="td-setting-row"
-             matTooltip="Every 7th wave from wave 14: red night, glowing enemies, searchlights on the towers. Looks only"
-             matTooltipPosition="left">
-        <input type="checkbox" [checked]="vfx().bloodMoon" (change)="toggleVfx('bloodMoon')">
-        <span>Blood Moon</span>
-      </label>
-      <label class="td-setting-row" matTooltip="Nearby explosions, HQ damage and boss deaths shake the view"
-             matTooltipPosition="left">
-        <input type="checkbox" [checked]="screenShakeEnabled()"
-               (change)="debugFacade.onScreenShakeToggled(!screenShakeEnabled())">
-        <span>Screen Shake</span>
-      </label>
-      <label class="td-setting-row"
-             matTooltip="Camera cut to a boss as it steps out of its portal, with its name. The game pauses meanwhile; click or Esc skips"
-             matTooltipPosition="left">
-        <input type="checkbox" [checked]="bossIntroEnabled()"
-               (change)="debugFacade.onBossIntroToggled(!bossIntroEnabled())">
-        <span>Boss Intro</span>
-      </label>
-      <label class="td-setting-row"
-             matTooltip="Hold Alt to show them the other way round: on while this is off, off while it is on"
-             matTooltipPosition="left">
-        <input type="checkbox" [checked]="healthBarsVisible()"
-               (change)="debugFacade.onHealthBarsToggled(!healthBarsVisible())">
-        <span>Health Bars</span>
-      </label>
-      <label class="td-setting-row">
-        <input type="checkbox" [checked]="damageNumbersVisible()"
-               (change)="debugFacade.onDamageNumbersToggled(!damageNumbersVisible())">
-        <span>Damage Numbers</span>
-      </label>
-      <div class="td-setting-row td-setting-split">
-        <span>Frame Limit</span>
-        <div class="td-segmented" role="group" aria-label="Frame limit">
-          @for (fps of fpsLimits; track fps) {
-            <button type="button" class="td-segment"
-                    [class.active]="fpsLimit() === fps"
-                    [attr.aria-pressed]="fpsLimit() === fps"
-                    (click)="debugFacade.onFpsLimitChanged(fps)">{{ fps === 0 ? 'Off' : fps }}</button>
-          }
-        </div>
-      </div>
-
-      <div class="td-settings-head td-settings-divider">
-        <span>View</span>
-      </div>
-      <button type="button" class="td-setting-row td-setting-action"
-              (click)="photoModeRequested.emit()"
-              matTooltip="Hide the interface, keep the camera free, save screenshots" matTooltipPosition="left">
-        <td-icon name="camera" [size]="14"></td-icon>
-        <span>Photo Mode</span>
-        <kbd class="td-setting-key">O</kbd>
-      </button>
-    </div>
-    <button class="td-quick-btn td-display-toggle-btn"
-            [class.active]="uiStore.displayMenuExpanded()"
-            (click)="uiStore.toggleMenu('display')"
-            matTooltip="Display" matTooltipPosition="left"
-            aria-label="Display" [attr.aria-expanded]="uiStore.displayMenuExpanded()">
-      <td-icon [name]="uiStore.displayMenuExpanded() ? 'eyeOff' : 'eye'" [size]="18"></td-icon>
-    </button>
-  </div>
-  <!-- Audio Settings Menu (collapsible, expands upward) -->
-  <div class="td-audio-menu-wrapper">
-    <div class="td-audio-panel" [class.expanded]="uiStore.audioMenuExpanded()">
-      <div class="td-audio-row">
-        <td-icon class="td-audio-label" name="audio" [size]="14"></td-icon>
-        <input type="range" class="td-audio-slider"
-               min="0" max="100" step="1"
-               aria-label="Master volume"
-               [value]="uiStore.masterVolume() * 100"
-               (input)="onMasterSlider($event)">
-        <button class="td-audio-mute"
-                [class.muted]="uiStore.masterMuted()"
-                (click)="toggleMasterMute()"
-                matTooltip="Mute all (M)" matTooltipPosition="left"
-                aria-label="Mute all" [attr.aria-pressed]="uiStore.masterMuted()">
-          <td-icon [name]="uiStore.masterMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
-        </button>
-      </div>
-      <div class="td-audio-row">
-        <td-icon class="td-audio-label" name="music" [size]="14"></td-icon>
-        <input type="range" class="td-audio-slider"
-               min="0" max="100" step="1"
-               aria-label="Music volume"
-               [value]="uiStore.musicVolume() * 100"
-               (input)="onMusicSlider($event)">
-        <button class="td-audio-mute"
-                [class.muted]="uiStore.musicMuted()"
-                (click)="toggleMusicMute()"
-                matTooltip="Mute music" matTooltipPosition="left"
-                aria-label="Mute music" [attr.aria-pressed]="uiStore.musicMuted()">
-          <td-icon [name]="uiStore.musicMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
-        </button>
-      </div>
-      <div class="td-audio-row">
-        <td-icon class="td-audio-label" name="sliders" [size]="14"></td-icon>
-        <input type="range" class="td-audio-slider"
-               min="0" max="100" step="1"
-               aria-label="Sound effects volume"
-               [value]="uiStore.sfxVolume() * 100"
-               (input)="onSfxSlider($event)">
-        <button class="td-audio-mute"
-                [class.muted]="uiStore.sfxMuted()"
-                (click)="toggleSfxMute()"
-                matTooltip="Mute SFX" matTooltipPosition="left"
-                aria-label="Mute SFX" [attr.aria-pressed]="uiStore.sfxMuted()">
-          <td-icon [name]="uiStore.sfxMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
-        </button>
-      </div>
-      <div class="td-audio-row">
-        <td-icon class="td-audio-label" name="gamepad" [size]="14"></td-icon>
-        <input type="range" class="td-audio-slider"
-               min="0" max="100" step="1"
-               aria-label="Interface sounds volume"
-               [value]="uiStore.uiVolume() * 100"
-               (input)="onUiSlider($event)">
-        <button class="td-audio-mute"
-                [class.muted]="uiStore.uiMuted()"
-                (click)="toggleUiMute()"
-                matTooltip="Mute interface sounds" matTooltipPosition="left"
-                aria-label="Mute interface sounds" [attr.aria-pressed]="uiStore.uiMuted()">
-          <td-icon [name]="uiStore.uiMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
-        </button>
-      </div>
-    </div>
-    <button class="td-quick-btn td-audio-toggle-btn"
-            [class.active]="uiStore.audioMenuExpanded()"
-            (click)="uiStore.toggleMenu('audio')"
-            matTooltip="Audio" matTooltipPosition="left"
-            aria-label="Audio" [attr.aria-expanded]="uiStore.audioMenuExpanded()">
-      <td-icon [name]="anyMuted() ? 'audioOff' : 'audio'" [size]="18"></td-icon>
-    </button>
-  </div>
+  <!-- Settings: the menu's Settings page (effects, audio, graphics) -->
+  <button class="td-quick-btn td-settings-btn"
+          (click)="settingsRequested.emit()"
+          matTooltip="Settings" matTooltipPosition="left"
+          aria-label="Settings">
+    <td-icon name="sliders" [size]="18"></td-icon>
+  </button>
+  <button class="td-quick-btn"
+          (click)="photoModeRequested.emit()"
+          matTooltip="Photo mode: hide the interface, keep the camera free, save screenshots (O)"
+          matTooltipPosition="left"
+          aria-label="Photo mode" aria-keyshortcuts="O">
+    <td-icon name="camera" [size]="18"></td-icon>
+  </button>
   <!-- Layer Menu (collapsible, expands upward) -->
   <div class="td-layer-menu-wrapper">
     <div class="td-layer-toggles" [class.expanded]="uiStore.layerMenuExpanded()">

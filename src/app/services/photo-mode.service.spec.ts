@@ -78,7 +78,7 @@ describe('PhotoModeService focus', () => {
     save = host.querySelector('button')!;
     document.body.append(trigger, host);
 
-    openMenu = signal<string | null>('display');
+    openMenu = signal<string | null>('layers');
     announce = vi.fn();
     const injector = Injector.create({
       providers: [
@@ -112,7 +112,7 @@ describe('PhotoModeService focus', () => {
     expect(document.activeElement).toBe(save);
 
     service.exit();
-    expect(openMenu()).toBe('display');
+    expect(openMenu()).toBe('layers');
     drawFrame();
     expect(document.activeElement).toBe(trigger);
   });
