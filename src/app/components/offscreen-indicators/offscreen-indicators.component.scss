@@ -29,7 +29,7 @@
 }
 
 .osi:focus-visible .osi-chip {
-  outline: 1px solid var(--td-gold-light);
+  outline: var(--td-focus-width) solid var(--td-focus-color);
   outline-offset: 2px;
 }
 

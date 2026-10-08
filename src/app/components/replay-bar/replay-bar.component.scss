@@ -1,4 +1,4 @@
-@use '../../styles/td-mixins' as td;
+@use '../../styles/game-ui' as ui;
 
 /* Bottom centre over the map, above the logo and attribution line */
 :host {
@@ -16,7 +16,7 @@
   flex-direction: column;
   gap: 6px;
   padding: 8px 10px;
-  @include td.bevel-glass;
+  @include ui.glass-strip;
   font-family: var(--td-font-mono);
 }
 
@@ -88,7 +88,7 @@
 
 .td-replay-btn:focus-visible,
 .td-replay-speed:focus-visible {
-  outline: 1px solid var(--td-teal-light);
+  outline: var(--td-focus-width) solid var(--td-focus-color);
   outline-offset: 1px;
 }
 
@@ -105,7 +105,7 @@
   border: 1px solid var(--td-frame-dark);
   color: var(--td-gold-light);
   font-family: inherit;
-  font-size: 9px;
+  font-size: var(--td-fs-micro);
   line-height: 14px;
 }
 
@@ -146,7 +146,7 @@
 }
 
 .td-replay-scrub:focus-visible {
-  outline: 1px solid var(--td-teal-light);
+  outline: var(--td-focus-width) solid var(--td-focus-color);
   outline-offset: 2px;
 }
 
@@ -180,7 +180,6 @@
   margin-top: -6px;
   background: linear-gradient(180deg, var(--td-gold-light) 0%, var(--td-gold) 55%, var(--td-gold-dark) 100%);
   border: 1px solid #11140F;
-  border-radius: 2px;
 }
 
 .td-replay-scrub::-moz-range-thumb {
@@ -188,7 +187,6 @@
   height: 14px;
   background: linear-gradient(180deg, var(--td-gold-light) 0%, var(--td-gold) 55%, var(--td-gold-dark) 100%);
   border: 1px solid #11140F;
-  border-radius: 2px;
 }
 
 .td-replay-seeking {
@@ -269,7 +267,7 @@
   }
 
   &:focus-visible {
-    outline: 1px solid var(--td-teal-light);
+    outline: var(--td-focus-width) solid var(--td-focus-color);
     outline-offset: 1px;
   }
 }

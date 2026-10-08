@@ -1,10 +1,9 @@
-@use '../../styles/td-mixins' as td;
+@use '../../styles/game-ui' as ui;
 
 .context-hint-container {
   background: var(--td-glass-tint);
   backdrop-filter: blur(8px) saturate(1.1);
   -webkit-backdrop-filter: blur(8px) saturate(1.1);
-  border-radius: 4px;
   padding: 10px 16px;
   display: flex;
   flex-direction: column;
@@ -121,7 +120,7 @@
 }
 
 .hint-action:focus-visible {
-  outline: 1px solid var(--td-gold-light);
+  outline: var(--td-focus-width) solid var(--td-focus-color);
   outline-offset: 2px;
 }
 
@@ -139,7 +138,7 @@
 }
 
 .hint-key {
-  @include td.keycap;
+  @include ui.keycap;
   padding: 4px 8px 3px;
   font-size: 11px;
   text-transform: uppercase;

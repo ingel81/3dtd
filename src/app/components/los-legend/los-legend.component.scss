@@ -8,7 +8,6 @@
   backdrop-filter: blur(8px) saturate(1.1);
   -webkit-backdrop-filter: blur(8px) saturate(1.1);
   border: 1px solid var(--td-frame-mid);
-  border-radius: 4px;
   padding: 6px 12px;
   box-shadow:
     inset 0 1px 0 rgba(122, 133, 128, 0.33),
@@ -18,7 +17,7 @@
 
 .los-legend-title {
   color: var(--td-gold-light);
-  font-size: 9px;
+  font-size: var(--td-fs-micro);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -44,7 +43,6 @@
 .los-legend-swatch {
   width: 12px;
   height: 12px;
-  border-radius: 2px;
   border: 1px solid var(--td-frame-dark);
   box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.35);
   flex-shrink: 0;

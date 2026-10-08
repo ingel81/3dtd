@@ -1,4 +1,4 @@
-@use '../../styles/td-mixins' as td;
+@use '../../styles/game-ui' as ui;
 
 /* Over the canvas where the blood moon banner shows, below the HUD column
    at the top; never in the way of a click. The two do not meet: moving the
@@ -16,14 +16,13 @@
 
 /* Glass chip like the blood moon banner, the move HQ pin in gold */
 .rls {
-  @include td.bevel-glass;
+  @include ui.glass-strip;
   position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 220px;
   padding: 8px 18px 10px 12px;
-  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -38,8 +37,8 @@
 }
 
 .rls-title {
-  font: 600 12px/14px var(--td-font-body);
-  letter-spacing: 0.2em;
+  font: 600 14px/16px var(--td-font-display);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--td-text-primary);
 }

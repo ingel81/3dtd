@@ -72,6 +72,10 @@ import { COOP } from '../../services/coop.token';
       font-family: inherit;
       transition: all 0.15s;
     }
+    .hud-btn:focus-visible {
+      outline: var(--td-focus-width) solid var(--td-focus-color);
+      outline-offset: var(--td-focus-offset);
+    }
     .hud-btn.is-locked {
       cursor: default;
       opacity: 0.6;
@@ -96,8 +100,8 @@ import { COOP } from '../../services/coop.token';
     }
     .paused-chip {
       padding: 3px 10px;
-      font: 700 10px/1 var(--td-font-mono);
-      letter-spacing: 0.18em;
+      font: 600 13px/1 var(--td-font-display);
+      letter-spacing: 0.14em;
       text-transform: uppercase;
       color: var(--td-gold-light);
       background: var(--td-glass-tint);

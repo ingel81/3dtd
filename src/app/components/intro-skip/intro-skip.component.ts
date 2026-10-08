@@ -44,14 +44,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       backdrop-filter: blur(8px) saturate(1.1);
       -webkit-backdrop-filter: blur(8px) saturate(1.1);
       border: 1px solid var(--td-frame-mid);
-      border-radius: 4px;
       box-shadow:
         inset 0 1px 0 rgba(122, 133, 128, 0.33),
         var(--td-shadow-soft);
       color: var(--td-text-primary);
-      font-family: var(--td-font-body);
-      font-size: 11px;
-      font-weight: 700;
+      font-family: var(--td-font-display);
+      font-size: 14px;
+      font-weight: 500;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       transition: border-color 120ms ease, color 120ms ease;
@@ -65,8 +64,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     .intro-skip-hint {
       padding: 1px 5px;
       border: 1px solid var(--td-frame-dark);
-      border-radius: 2px;
-      font-size: 9px;
+      font-size: var(--td-fs-micro);
       letter-spacing: 0.04em;
       opacity: 0.7;
     }

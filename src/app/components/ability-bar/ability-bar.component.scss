@@ -1,4 +1,4 @@
-@use '../../styles/td-mixins' as td;
+@use '../../styles/game-ui' as ui;
 
 /* Left edge of the canvas. Above the leak vignette (4) and the off-screen
  * arrows (5), below the game-over overlay (20). `left`, the border, the
@@ -45,8 +45,7 @@
   scrollbar-width: none;
   pointer-events: auto;
   padding: var(--td-bar-pad);
-  border-radius: 4px;
-  @include td.bevel-glass;
+  @include ui.glass-strip;
   border-width: var(--td-bar-border);
 }
 
@@ -83,7 +82,6 @@
   background: var(--td-panel-shadow);
   color: var(--td-text-disabled);
   border: 1px solid var(--td-frame-dark);
-  border-radius: 3px;
   box-shadow:
     inset 0 1px 2px rgba(0, 0, 0, 0.5),
     inset 0 -1px 0 rgba(74, 84, 77, 0.13);
@@ -92,7 +90,7 @@
 }
 
 .td-bar-btn:focus-visible {
-  outline: 1px solid var(--td-gold-light);
+  outline: var(--td-focus-width) solid var(--td-focus-color);
   outline-offset: 2px;
 }
 
@@ -100,7 +98,7 @@
   position: absolute;
   top: 3px;
   right: 4px;
-  font: 600 8px/1 var(--td-font-mono);
+  font: 600 10px/1 var(--td-font-mono);
   letter-spacing: 0.04em;
   color: var(--td-text-muted);
 }
@@ -114,7 +112,7 @@
 .td-ability-btn[data-state='ready']:hover {
   box-shadow:
     inset 0 1px 2px rgba(0, 0, 0, 0.5),
-    var(--td-gold-glow);
+    0 0 0 1px var(--td-gold);
 }
 
 .td-ability-btn[data-state='armed'] {
@@ -128,7 +126,7 @@
   border-color: #11140F;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    var(--td-gold-glow);
+    0 0 0 1px var(--td-gold);
   cursor: pointer;
 }
 
@@ -149,7 +147,7 @@
   position: absolute;
   top: 3px;
   left: 4px;
-  font: 700 8px/1 var(--td-font-mono);
+  font: 700 10px/1 var(--td-font-mono);
   font-variant-numeric: tabular-nums;
   color: var(--td-gold-light);
 }

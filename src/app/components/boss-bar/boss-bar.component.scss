@@ -1,4 +1,4 @@
-@use '../../styles/td-mixins' as td;
+@use '../../styles/game-ui' as ui;
 
 /* Display only, the map under it stays clickable */
 :host {
@@ -9,11 +9,10 @@
 /* Glass panel under the game speed: name left, HP right, below a recessed
    8px bar in health red. More bosses: thin bars under it, most HP first. */
 .boss-bar {
-  @include td.bevel-glass;
+  @include ui.glass-strip;
   box-sizing: border-box;
   width: min(420px, 56vw);
   padding: 6px 10px 7px;
-  border-radius: 3px;
 }
 
 .boss-head {
@@ -25,7 +24,7 @@
 }
 
 .boss-name {
-  font: 600 12px/1.2 var(--td-font-body);
+  font: 600 15px/1.2 var(--td-font-display);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--td-text-primary);
@@ -66,6 +65,6 @@
 }
 
 .boss-more {
-  font: 400 9px/1 var(--td-font-mono);
+  font: 400 10px/1 var(--td-font-mono);
   color: var(--td-text-muted);
 }

@@ -1,4 +1,4 @@
-@use '../../styles/td-mixins' as td;
+@use '../../styles/game-ui' as ui;
 
 /* The anchor, top right of the map, under the compass (12px from the top,
    88px high) and under the build chip of the loading screen (46px, about
@@ -16,13 +16,12 @@
 
 /* Glass chip like the relocation status, the icon in gold */
 .uh {
-  @include td.bevel-glass;
+  @include ui.glass-strip;
   display: flex;
   align-items: flex-start;
   gap: 10px;
   max-width: 260px;
   padding: 8px 14px 10px 12px;
-  border-radius: 4px;
   pointer-events: auto;
 }
 
@@ -38,8 +37,8 @@
 }
 
 .uh-title {
-  font: 600 12px/14px var(--td-font-body);
-  letter-spacing: 0.2em;
+  font: 600 14px/16px var(--td-font-display);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--td-text-primary);
 }
@@ -91,6 +90,10 @@
 .uh-action:hover,
 .uh-action:focus-visible {
   color: var(--td-text-primary);
+}
+
+.uh-action {
+  @include ui.focus-ring;
 }
 
 .uh-restart {

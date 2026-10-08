@@ -162,10 +162,9 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     .hint kbd {
       padding: 2px 5px;
       border: 1px solid var(--td-frame-dark);
-      border-radius: 2px;
       background: var(--td-panel-shadow);
       font: inherit;
-      font-size: 9px;
+      font-size: var(--td-fs-micro);
       color: var(--td-text-secondary);
     }
 
@@ -180,7 +179,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .skip-layer:focus-visible {
-      outline: 1px solid var(--td-gold-dark);
+      outline: var(--td-focus-width) solid var(--td-focus-color);
       outline-offset: -4px;
     }
 

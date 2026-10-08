@@ -1,4 +1,4 @@
-@use '../../styles/td-mixins' as td;
+@use '../../styles/game-ui' as ui;
 
 /* Top right of the map, under the compass: the corner is free while a spawn
    is placed (the context hint sits at the bottom). Never in the way of the
@@ -12,18 +12,17 @@
 }
 
 .ll {
-  @include td.bevel-glass;
+  @include ui.glass-strip;
   display: flex;
   flex-direction: column;
   gap: 4px;
   width: 260px;
   padding: 8px 12px 10px;
-  border-radius: 4px;
 }
 
 .ll-title {
-  font: 600 12px/14px var(--td-font-body);
-  letter-spacing: 0.2em;
+  font: 600 14px/16px var(--td-font-display);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--td-text-primary);
 }
@@ -44,13 +43,11 @@
 .ll-swatch {
   width: 8px;
   height: 8px;
-  border-radius: 2px;
 }
 
 .ll-bar {
   height: 6px;
   background: var(--td-frame-dark);
-  border-radius: 2px;
   overflow: hidden;
 }
 

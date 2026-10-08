@@ -155,7 +155,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       backdrop-filter: blur(8px) saturate(1.1);
       -webkit-backdrop-filter: blur(8px) saturate(1.1);
       border: 1px solid var(--td-frame-mid);
-      border-radius: 4px;
       box-shadow: var(--td-shadow-soft);
       color: var(--td-text-secondary);
       font-family: var(--td-font-body);
@@ -174,9 +173,8 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       padding: 1px 5px;
       margin-right: 3px;
       border: 1px solid var(--td-frame-dark);
-      border-radius: 2px;
       font-family: var(--td-font-body);
-      font-size: 9px;
+      font-size: var(--td-fs-micro);
       color: var(--td-text-primary);
     }
   `],
