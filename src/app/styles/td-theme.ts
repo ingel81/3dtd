@@ -52,12 +52,12 @@ export const TD_THEME = {
   dangerPlateBottom: '#170E0C',
 
   // === HUD states ===
-  hpText: '#E36A5A', // HQ number; healthRed is a fill, too dark for text
-  hpLow: '#E8735F', // HQ under 30 %
+  hpText: '#E87A6A', // HQ number; healthRed is a fill, too dark for text
+  hpLow: '#EE8A5E', // HQ under 30 %, warmer
   hpWarmTop: '#3A1F1A', // HQ plate under 30 %
   hpWarmBottom: '#251612',
   gain: '#9ED6A0', // +credits
-  loss: '#E36A5A', // -credits, a buy that fails
+  loss: '#E87A6A', // -credits, a buy that fails
 
   // === Plates (panels, dialogs, menu) ===
   plateTop: '#262F28',
@@ -73,7 +73,7 @@ export const TD_THEME = {
   // Never use pure white!
   textPrimary: '#EEF1EB', // (was #ECEFE9)
   textSecondary: '#B6C0B3', // (was #B2BCAF)
-  textMuted: '#8E988C', // (was #8B948A)
+  textMuted: '#929C90', // AA on title plates (was #8E988C)
   textTertiary: '#7A837A', // Non-text only (icons, rules); below AA as text on panels
   textDisabled: '#6A726A',
 
