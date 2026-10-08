@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { FIELD_TIPS } from './field-tips';
 
 /**
- * The loading screen renders each part of a tip as text and an accent as a
- * coloured `<b>` (loading-screen.component.html). Markup in a part would
+ * The start menu renders each part of a tip as text and an accent as a
+ * coloured `<b>` (main-menu.component.html). Markup in a part would
  * show as literal text, so the tips carry none.
  */
 describe('FIELD_TIPS', () => {

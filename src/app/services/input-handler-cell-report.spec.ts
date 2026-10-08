@@ -71,7 +71,7 @@ describe('InputHandlerService with the cell report', () => {
         { provide: SimMirror, useValue: { selectableTower: (id: string | null) => id } },
         { provide: TowerSelectionService, useValue: { select: selectTower } },
         { provide: TowerDefenseStore, useValue: { selectedTowerId: () => null } },
-        { provide: UIStore, useValue: { viewOnly: signal(false) } },
+        { provide: UIStore, useValue: { viewOnly: signal(false), mainMenuOpen: signal(false) } },
         { provide: MatDialog, useValue: { openDialogs: [] } },
         { provide: KeyboardPanService, useValue: { onKeyDown: () => false, onKeyUp: vi.fn(), clearKeys: vi.fn() } },
         { provide: TowerPlacementService, useValue: { buildMode: () => false, stopRotating: vi.fn() } },

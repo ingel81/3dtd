@@ -29,11 +29,11 @@ const GPU_ARGS = process.platform === 'win32'
 
 async function gameReady(page: Page): Promise<void> {
   await page.waitForSelector('app-tower-defense', { timeout: 180_000 });
-  await page.waitForSelector('td-loading-screen', { timeout: 60_000 }).catch(() => undefined);
+  // No start menu (&menu=skip): the HUD comes once the place stands
   const end = Date.now() + 300_000;
-  let gone = 0;
-  while (gone < 4 && Date.now() < end) {
-    gone = (await page.locator('td-loading-screen').count()) ? 0 : gone + 1;
+  let shown = 0;
+  while (shown < 4 && Date.now() < end) {
+    shown = (await page.locator('app-quick-actions').count()) ? shown + 1 : 0;
     await page.waitForTimeout(500);
   }
   for (let i = 0; i < 20; i++) {
@@ -105,7 +105,7 @@ async function main(): Promise<void> {
     localStorage.setItem('td_seen_version', '9999.0.0');
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
   });
-  await page.goto(MAP ? `${URL_BASE}/?l=${PLACE}` : `${URL_BASE}/?devworld`);
+  await page.goto(MAP ? `${URL_BASE}/?l=${PLACE}&menu=skip` : `${URL_BASE}/?devworld&menu=skip`);
   await gameReady(page);
 
   if (MAP) {

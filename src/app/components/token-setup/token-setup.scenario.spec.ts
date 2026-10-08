@@ -6,7 +6,7 @@
  * The real ConfigService with a production build's environment (no
  * credentials, mocked below) and jsdom's localStorage; the real
  * TokenSetupComponent template (read from disk) with its document Esc
- * listener. "Map key" in the game menu is GameMenuComponent.openMapKey,
+ * listener. "Map key" on the menu's Settings page,
  * which only sets config.setupRequested; the game shows the screen while
  * `awaitingCredentials() || credentialsRejected() || setupRequested()`
  * (tower-defense.component.html:50), and sets awaitingCredentials on start

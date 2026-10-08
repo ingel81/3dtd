@@ -135,6 +135,7 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
             buildMode: signal(false),
             selectedTowerType: signal(null),
             viewOnly: signal(false),
+            mainMenuOpen: signal(false),
           },
         },
         {

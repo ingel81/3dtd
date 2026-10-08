@@ -20,7 +20,8 @@ import { KeyboardPanService } from '../keyboard-pan.service';
 import { LocationManagementService } from './location-management.service';
 import { UrlLocationService } from './url-location.service';
 import { WORLD_DICE_FAILED, WorldDiceService } from './world-dice.service';
-import { UIStore, type UiNotice } from '../../store/ui.store';
+import { UIStore, type LoadProblem } from '../../store/ui.store';
+import { StartShowService } from '../world/start-show.service';
 import { MainWorldService } from '../world/main-world.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
@@ -143,7 +144,7 @@ describe('LocationChangeCoordinatorService', () => {
     rollRandomCity: vi.fn(),
     error: signal<string | null>(null),
   };
-  const uiStore = { routesVisible: signal(true), notice: signal<UiNotice | null>(null), coopMapLocked: signal(false) };
+  const uiStore = { routesVisible: signal(true), loadProblem: signal<LoadProblem | null>(null), coopMapLocked: signal(false) };
   const routeGrid = {
     initSpatialGridVisualizationIfEnabled: vi.fn(),
     initAirSpatialGridVisualizationIfEnabled: vi.fn(),
@@ -167,7 +168,7 @@ describe('LocationChangeCoordinatorService', () => {
     osm.findRandomStreetPoint.mockReturnValue(null);
     worldDice.onStepDetail = null;
     worldDice.error.set(null);
-    uiStore.notice.set(null);
+    uiStore.loadProblem.set(null);
     routeAnimation.isRunning.mockReturnValue(false);
     introFlight.isRunning.mockReturnValue(false);
 
@@ -199,6 +200,8 @@ describe('LocationChangeCoordinatorService', () => {
         { provide: UrlLocationService, useValue: urlLocation },
         { provide: WorldDiceService, useValue: worldDice },
         { provide: UIStore, useValue: uiStore },
+        // The show plays at once: no menu in front of it here
+        { provide: StartShowService, useValue: { whenPlayed: (show: () => void) => show() } },
         { provide: MainWorldService, useValue: world },
         { provide: GlobalRouteGridService, useValue: {} },
         { provide: RouteGridVizService, useValue: routeGrid },
@@ -483,7 +486,8 @@ describe('LocationChangeCoordinatorService', () => {
 
       expect(engine.setOrigin).toHaveBeenCalledWith(HQ.lat, HQ.lon);
       expect(callbacks.addSpawnPoint).toHaveBeenCalled();
-      expect(engineInit.setError).not.toHaveBeenCalled();
+      // Only cleared, the error of an earlier change
+      expect(engineInit.setError.mock.calls).toEqual([[null]]);
     });
 
     it('reports a failed change and clears every loading flag', async () => {
@@ -499,6 +503,24 @@ describe('LocationChangeCoordinatorService', () => {
       expect(engineInit.osmLoading()).toBe(false);
       expect(heightUpdate.heightsLoading()).toBe(false);
       expect(locationMgmt.isApplyingLocation()).toBe(false);
+      // The menu's plate stood on its last step for good without this
+      expect(engineInit.setLoading).toHaveBeenLastCalledWith(false);
+      expect(uiStore.loadProblem()?.text).toBe(`The place did not load: ${message}`);
+    });
+
+    it('tries the same change again from the Retry of the problem, the error cleared first', async () => {
+      coordinator.initializeFlow(delegate);
+      cachedPaths = new Map();
+      await coordinator.applyNewLocation(input());
+      cachedPaths = new Map([['spawn-1', [HQ, SPAWN]]]);
+      engineInit.setError.mockClear();
+
+      uiStore.loadProblem()!.retry!();
+      await settle();
+
+      expect(engineInit.setError).toHaveBeenCalledWith(null);
+      expect(uiStore.loadProblem()).toBeNull();
+      expect(engine.setOrigin).toHaveBeenLastCalledWith(HQ.lat, HQ.lon);
     });
 
     it('falls back to a generic message for errors that are not Error objects', async () => {
@@ -535,7 +557,7 @@ describe('LocationChangeCoordinatorService', () => {
       await coordinator.choosePlace({ kind: 'dice' });
 
       // It used to close the loading overlay without a word
-      expect(uiStore.notice()).toEqual({ text: WORLD_DICE_FAILED });
+      expect(uiStore.loadProblem()?.text).toBe(WORLD_DICE_FAILED);
       expect(engineInit.loading()).toBe(false);
     });
 
@@ -604,11 +626,11 @@ describe('LocationChangeCoordinatorService', () => {
       expect(engine.setOrigin).not.toHaveBeenCalled();
     });
 
-    it('rolls the dice for a waiting start: the city with a random spawn, or a notice and the start waits on', async () => {
+    it('rolls the dice for a waiting start: the city with a random spawn, or a problem in the menu and the start waits on', async () => {
       worldDice.rollRandomCity.mockResolvedValueOnce(null);
       const waiting = coordinator.waitForStartChoice();
       expect(await coordinator.choosePlace({ kind: 'dice' })).toBe(false);
-      expect(uiStore.notice()).toEqual({ text: WORLD_DICE_FAILED });
+      expect(uiStore.loadProblem()?.text).toBe(WORLD_DICE_FAILED);
       expect(coordinator.awaitingStartChoice()).toBe(true);
 
       worldDice.rollRandomCity.mockResolvedValueOnce({ name: 'Lyon', country: 'France', lat: 45.76, lon: 4.84 });
@@ -779,7 +801,7 @@ describe('LocationChangeCoordinatorService', () => {
 
       // It used to leave the loading screen up for good
       expect(engineInit.setLoading).toHaveBeenLastCalledWith(false);
-      expect(uiStore.notice()).toEqual({ text: streetsFailedText('Lyon, France') });
+      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('Lyon, France'));
       expect(callbacks.addSpawnPoint).not.toHaveBeenCalled();
     });
 

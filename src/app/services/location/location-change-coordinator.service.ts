@@ -136,11 +136,11 @@ export class LocationChangeCoordinatorService {
     return true;
   }
 
-  /** The world dice before the first place: a city with a random spawn, or a notice when none came */
+  /** The world dice before the first place: a city with a random spawn, or a problem in the menu when none came */
   private async rollStartCity(): Promise<PlacedChoice | null> {
     const city = await this.worldDice.rollRandomCity();
     if (!city) {
-      this.uiStore.notice.set({ text: WORLD_DICE_FAILED });
+      this.uiStore.loadProblem.set({ text: WORLD_DICE_FAILED, retry: () => void this.choosePlace({ kind: 'dice' }) });
       return null;
     }
     const name = city.country ? `${city.name}, ${city.country}` : city.name;
@@ -157,6 +157,7 @@ export class LocationChangeCoordinatorService {
     target: { lat: number; lon: number; name: string; address?: NominatimAddress },
     spawn: { lat: number; lon: number; name?: string; portalBearing?: number } | null,
   ): Promise<void> {
+      this.uiStore.loadProblem.set(null);
       // Show loading overlay IMMEDIATELY before any async operations
       this.engineInit.loading.set(true);
       this.engineInit.resetLoadingSteps();
@@ -181,7 +182,7 @@ export class LocationChangeCoordinatorService {
           console.error('[LocationCoordinator] The streets of the new place did not load:', err);
           callbacks.appendDebugLog(`Streets of ${target.name} failed: ${err instanceof Error ? err.message : 'unknown'}`);
           this.engineInit.setLoading(false);
-          this.uiStore.notice.set({ text: streetsFailedText(target.name) });
+          this.uiStore.loadProblem.set({ text: streetsFailedText(target.name), retry: () => void this.moveTo(target, spawn) });
           return;
         }
 
@@ -239,6 +240,7 @@ export class LocationChangeCoordinatorService {
     const callbacks = this.delegate?.getChangeCallbacks();
     callbacks?.appendDebugLog('World Dice: Rolling random city...');
 
+    this.uiStore.loadProblem.set(null);
     // Show loading overlay with World Dice step
     this.engineInit.startWorldDiceLoading();
 
@@ -257,7 +259,7 @@ export class LocationChangeCoordinatorService {
       callbacks?.appendDebugLog('World Dice: Failed - ' + (reason || 'Unknown error'));
       // Hide loading overlay on error and say so: it used to close without a word
       this.engineInit.setLoading(false);
-      this.uiStore.notice.set({ text: WORLD_DICE_FAILED });
+      this.uiStore.loadProblem.set({ text: WORLD_DICE_FAILED, retry: () => void this.onWorldDice() });
       return;
     }
 
@@ -381,14 +383,20 @@ export class LocationChangeCoordinatorService {
       ...(data.spawns?.length ? { spawns: data.spawns.map((s) => canonicalCoords(s)) } : {}),
     };
 
+    this.uiStore.loadProblem.set(null);
+    this.engineInit.setError(null);
     try {
       await this.executor.executeLocationChange(input, ctx, callbacks);
     } catch (err) {
       console.error('[Location] Failed to apply location:', err);
       callbacks.appendDebugLog(`Error: ${err instanceof Error ? err.message : 'Unknown'}`);
-      this.engineInit.setError(err instanceof Error ? err.message : 'Error changing location');
+      const message = err instanceof Error ? err.message : 'Error changing location';
+      // The old place may be gone half way: the run cannot go on, the menu says so and offers the way back
+      this.engineInit.setError(message);
+      this.uiStore.loadProblem.set({ text: `The place did not load: ${message}`, retry: () => void this.applyNewLocation(data) });
 
-      // Reset loading flags on error
+      // Reset loading flags on error; without `loading` the menu's plate stood on its last step for good
+      this.engineInit.setLoading(false);
       this.engineInit.tilesLoading.set(false);
       this.engineInit.osmLoading.set(false);
       this.heightUpdate.heightsLoading.set(false);

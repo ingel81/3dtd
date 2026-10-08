@@ -59,7 +59,7 @@
 
       <!-- Tile credentials missing or rejected: everything else waits.
            The screen is a lazy chunk, loaded the first time it shows. -->
-      @if (awaitingCredentials() || configService.credentialsRejected() || configService.setupRequested()) {
+      @if (tokenScreen()) {
         @defer (on immediate) {
           <td-token-setup (tokenSaved)="onCredentialsSaved()" />
         } @error {
@@ -74,26 +74,15 @@
         }
       }
 
-      @if (loading() && !error()) {
-        <td-loading-screen
-          [mission]="missionInfo()"
-          [steps]="loadingSteps()"
-          [buildVersion]="buildVersion"
-          [tilesVersion]="tilesVersionLabel()"
-          [devWorldSeed]="devWorldSeed()"
-          [tilesReady]="tilesReady()" />
-      }
-
-      @if (error() && !loading()) {
-        <div class="td-error-overlay">
+      <!-- The engine failed where no menu stands (an automated run): the menu's plate says it otherwise -->
+      @if (error() && !loading() && !uiStore.mainMenuOpen()) {
+        <div class="td-error-overlay" role="alert">
           <td-icon class="td-error-icon" name="warn" [size]="64"></td-icon>
           <h3>Error</h3>
           <p>{{ error() }}</p>
           <div class="td-error-actions">
-            <button class="td-btn" (click)="awaitingCredentials.set(true)">
-              Change tile credentials
-            </button>
-            <button class="td-btn" (click)="close()">Close</button>
+            <button class="td-btn" (click)="reloadPage()">Reload</button>
+            <button class="td-btn" (click)="awaitingCredentials.set(true)">Change tile credentials</button>
           </div>
         </div>
       }
@@ -101,7 +90,7 @@
       <canvas #gameCanvas class="td-canvas" [class.hidden]="error()" [class.td-placement-cursor]="!!mapPlacementMode()"></canvas>
 
       <!-- Google Attribution (required) -->
-      @if (!loading() && !error()) {
+      @if (hudShown()) {
         <!-- Red edge when an enemy reaches the HQ -->
         <app-leak-vignette />
 
@@ -183,7 +172,7 @@
       <!-- Top centre, one column so the PAUSED chip and the boss bar never
            overlap. Game Speed: build phase and waves; between waves it speeds
            up research, which runs in game time. Boss bar: while a boss lives. -->
-      @if (!loading() && !error()) {
+      @if (hudShown()) {
         <div class="td-hud-top" [class.td-hud-muted]="bossIntro.active()">
           @if (!isGameOver()) {
             <app-game-speed />
@@ -196,7 +185,7 @@
         <app-boss-intro />
       }
 
-      @if (!loading() && !error()) {
+      @if (hudShown()) {
         <!-- Quick Actions (bottom right) -->
         <app-quick-actions
           [cameraFramingDebug]="cameraFramingDebug()"
@@ -247,9 +236,6 @@
           <app-intro-skip />
         }
 
-        <!-- "Continue: <place>, wave N" once a session, before the new run begins (an autosave there) -->
-        <app-continue-bar />
-
         <!-- LOS Coverage Legend (Build Preview + Tower Selection) -->
         @if (losLegendVisible()) {
           <app-los-legend
@@ -296,7 +282,7 @@
             [actions]="onboardingActions"
             (actionClicked)="onOnboardingAction($event)"
           />
-        } @else if (controlsHintVisible() && !introFlightActive() && !loading() && !error()) {
+        } @else if (controlsHintVisible() && !introFlightActive() && hudShown() && !uiStore.mainMenuOpen()) {
           <!-- Camera controls at the start, auto-hidden after 15 s. In the hint
                slot rather than bottom left, where it covered the map credits. -->
           <app-context-hint
@@ -448,7 +434,7 @@
   </div>
 
   <!-- The main menu: in front of the scene that loads behind it, and Esc in the game -->
-  @if (uiStore.mainMenuOpen()) {
+  @if (uiStore.mainMenuOpen() && !tokenScreen()) {
     <app-main-menu />
   }
 </div>

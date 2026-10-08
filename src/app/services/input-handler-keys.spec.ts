@@ -48,7 +48,7 @@ describe('InputHandlerService keys on a focused slider', () => {
         { provide: SimMirror, useValue: {} },
         { provide: TowerSelectionService, useValue: {} },
         { provide: TowerDefenseStore, useValue: {} },
-        { provide: UIStore, useValue: { photoMode: signal(false) } },
+        { provide: UIStore, useValue: { photoMode: signal(false), mainMenuOpen: signal(false) } },
         { provide: MatDialog, useValue: dialogs },
         { provide: KeyboardPanService, useValue: pan },
         { provide: TowerPlacementService, useValue: towerPlacement },

@@ -16,6 +16,7 @@ import { EngineInitializationService } from '../infrastructure/engine-initializa
 import { DevWorldService } from '../../devworld/devworld.service';
 import { CameraFramingService } from '../camera-framing.service';
 import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
+import { StartShowService } from '../world/start-show.service';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
@@ -99,6 +100,7 @@ export class VisualizationFacadeService {
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly routeAnimation = inject(RouteAnimationService);
   private readonly introFlight = inject(IntroCameraFlightService);
+  private readonly startShow = inject(StartShowService);
 
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly streetRendering = inject(StreetRenderingService);
@@ -754,27 +756,37 @@ export class VisualizationFacadeService {
 
     if (wasLoading && !isNowLoading) {
       cameraTimeline.record('loading.done', { isApplying });
-      // Transition from opening music → build phase music now that loading screen is gone
-      this.presentation.onLoadingComplete();
+      // The show waits for the main menu to close (StartShowService)
+      this.startShow.whenPlayed(() => this.playStartShow(isApplying));
+    }
+  }
 
-      if (!this.routeAnimation.isRunning() && !isApplying) {
-        const cachedPaths = this.pathRoute.getCachedPaths();
-        if (cachedPaths.size > 0) {
-          this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
-        }
+  /**
+   * The place is up and the player in front of it: the build-phase music,
+   * the route animation and the intro flight. A location change plays its
+   * own from its last step (LocationChangeExecutorService).
+   */
+  private playStartShow(isApplying: boolean): void {
+    // Transition from opening music → build phase music now that loading screen is gone
+    this.presentation.onLoadingComplete();
+
+    if (!this.routeAnimation.isRunning() && !isApplying) {
+      const cachedPaths = this.pathRoute.getCachedPaths();
+      if (cachedPaths.size > 0) {
+        this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
       }
+    }
 
-      // Spike: intro camera flight HQ → spawn. Doubles as a tile prewarm for
-      // the route corridor. Guarded separately from the route animation —
-      // that one is often already running by the time loading completes
-      // (started from one of the spawn/location paths), and sharing its
-      // guard would silently swallow the flight.
-      // Toggle in DevTools via `__flight.setEnabled(false)`.
-      if (!this.introFlight.isRunning() && !isApplying) {
-        const cachedPaths = this.pathRoute.getCachedPaths();
-        if (cachedPaths.size > 0) {
-          this.introFlight.start(cachedPaths);
-        }
+    // Spike: intro camera flight HQ → spawn. Doubles as a tile prewarm for
+    // the route corridor. Guarded separately from the route animation:
+    // that one is often already running by the time loading completes
+    // (started from one of the spawn/location paths), and sharing its
+    // guard would silently swallow the flight.
+    // Toggle in DevTools via `__flight.setEnabled(false)`.
+    if (!this.introFlight.isRunning() && !isApplying) {
+      const cachedPaths = this.pathRoute.getCachedPaths();
+      if (cachedPaths.size > 0) {
+        this.introFlight.start(cachedPaths);
       }
     }
   }

@@ -1,4 +1,4 @@
-import { Injectable, inject, Injector } from '@angular/core';
+import { Injectable, inject, Injector, effect, untracked } from '@angular/core';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { BackgroundMusicService } from '../../game-engine/background-music.service';
@@ -42,6 +42,12 @@ import { isBenchmarkSearch } from '../../benchmark/benchmark-report';
 // Sub-facades
 import { GameLoopFacadeService } from './game-loop-facade.service';
 import { LocationFacadeService } from './location-facade.service';
+import { LocationManagementService } from '../location/location-management.service';
+import { LocationChangeCoordinatorService } from '../location/location-change-coordinator.service';
+import { UrlLocationService } from '../location/url-location.service';
+import { storedPlace } from '../location/place-choice';
+import { AUTOSAVE_SLOT, SAVE_GAME } from '../save-game/save-game.port';
+import { startPlaceGuess, type StartPlaceGuess } from '../../components/main-menu/autosave-place';
 import { installPreviewSheetHook } from '../infrastructure/preview-sheets';
 import { VisualizationFacadeService } from './visualization-facade.service';
 
@@ -81,6 +87,10 @@ export interface FacadeComponentBridge {
   onMapPlacementMove: (lat: number, lon: number, hitPoint: Vector3) => void;
   exitMapPlacement: () => void;
 }
+
+/** What the main menu says when the streets of the first place did not load */
+export const FIRST_STREETS_FAILED =
+  'The streets of this place did not load: the map server is busy or out of reach. The map shows, but no route. Retry in a minute.';
 
 /** The notice when the map's tile server could not be reached (not a refused key) */
 export const TILES_UNREACHABLE = 'The map server could not be reached. Check the connection and reload.';
@@ -128,6 +138,14 @@ export class TowerDefenseFacadeService {
   private readonly grid = inject(GlobalRouteGridService);
   private readonly world = inject(MainWorldService);
   private readonly gridViz = inject(RouteGridVizService);
+  private readonly locationMgmt = inject(LocationManagementService);
+  private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
+  private readonly urlLocation = inject(UrlLocationService);
+  /** The game component's: the autosave's place is the start's first guess */
+  private readonly saves = inject(SAVE_GAME);
+
+  /** The game component's injector, for the effect of the start's guess */
+  private injector: Injector | null = null;
 
   /** Component bridge - set via initialize(). Non-null after initEffects(). */
   private bridge!: FacadeComponentBridge;
@@ -147,6 +165,7 @@ export class TowerDefenseFacadeService {
   private initialize(bridge: FacadeComponentBridge, injector: Injector): void {
     this.bridge = bridge;
     this.initialized = true;
+    this.injector = injector;
 
     // The simulation's worker starts with the game (docs/SIM_WORKER.md); it
     // runs no sub-step until the first world is sent (MainWorldService)
@@ -247,12 +266,42 @@ export class TowerDefenseFacadeService {
     // Start main theme music as early as possible (uses HTMLAudioElement, no engine needed)
     BackgroundMusicService.playMainTheme(this.uiStore.effectiveMusicVolume());
 
+    // Without a place in the link the start waits for the menu's choice; the
+    // place the player most likely wants loads behind the menu meanwhile
+    this.offerStartGuess();
+
     // Location detection (delegated to LocationFacade). Without a location
     // (component gone before a place was chosen) there is nothing to start.
     if (!(await this.locationFacade.initializeLocation())) return;
 
     // Engine initialization
     await this.initEngineSequence(canvas);
+  }
+
+  /**
+   * A start without a place in its link loads the main menu's guess
+   * (startPlaceGuess: the autosave's place, else the last one played) as
+   * the menu's choice, once the start waits for one; the player can still
+   * pick another. No geolocation unasked (docs/MAIN_MENU_UI_PLAN.md, Menü 5).
+   */
+  private offerStartGuess(): void {
+    const injector = this.injector;
+    if (!injector || this.devWorld.isActive || this.urlLocation.parseFromUrl()) return;
+    void this.guessStartPlace().then((guess) => {
+      if (!guess) return;
+      const waiting = effect(() => {
+        if (!this.locationCoordinator.awaitingStartChoice()) return;
+        waiting.destroy();
+        untracked(() => void this.locationCoordinator.choosePlace(storedPlace(guess.hq, guess.spawns)));
+      }, { injector });
+    });
+  }
+
+  /** The main menu's guess of the place to load without a link (startPlaceGuess) */
+  private async guessStartPlace(): Promise<StartPlaceGuess | null> {
+    await this.saves.refresh();
+    const autosave = this.saves.slots().find((slot) => slot.id === AUTOSAVE_SLOT) ?? null;
+    return startPlaceGuess(autosave, this.locationMgmt.recents(), window.location.search);
   }
 
   /**
@@ -421,6 +470,8 @@ export class TowerDefenseFacadeService {
         this.store.streetCount.set(count);
       },
     );
+    // Said in the main menu; the map stands, without a route
+    if (result.failed) this.uiStore.loadProblem.set({ text: FIRST_STREETS_FAILED, blocksPlay: true });
     this.bridge.setStreetNetwork(result.network);
     this.bridge.setDevStreetProvider(result.devStreetProvider);
     this.store.streetCount.set(result.count);

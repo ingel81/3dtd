@@ -144,7 +144,10 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
         { provide: GameStore, useValue: { paused: signal(false), gameSpeed: signal(1) } },
         {
           provide: UIStore,
-          useValue: { openMenu: signal(null), mapPlacementMode: signal(null), buildMode: signal(false), selectedTowerType: signal(null) },
+          useValue: {
+            openMenu: signal(null), mapPlacementMode: signal(null), buildMode: signal(false), selectedTowerType: signal(null),
+            mainMenuOpen: signal(false),
+          },
         },
         {
           provide: ResearchStore,

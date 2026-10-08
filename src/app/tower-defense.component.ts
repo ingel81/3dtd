@@ -52,7 +52,6 @@ import { GameSpeedComponent } from './components/game-speed/game-speed.component
 import { BossBarComponent } from './components/boss-bar/boss-bar.component';
 import { CoopSquadComponent } from './components/coop-squad/coop-squad.component';
 import { CoopDockComponent } from './components/coop-dock/coop-dock.component';
-import { LoadingScreenComponent } from './components/loading-screen/loading-screen.component';
 import { DevWorldService } from './devworld/devworld.service';
 import { WaveDebugService } from './services/debug/wave-debug.service';
 import { EnemyDebugService } from './services/debug/enemy-debug.service';
@@ -100,10 +99,8 @@ import { BotClientService } from './bots/bot-client.service';
 // AI Bot Training
 import type { BotSkillLevel } from './bots/bots/tower-bot.interface';
 import { TdIconComponent } from './components/icon/icon.component';
-import { openGameMenu } from './components/game-menu/open-game-menu';
 import { LosLegendComponent } from './components/los-legend/los-legend.component';
 import { IntroSkipComponent } from './components/intro-skip/intro-skip.component';
-import { ContinueBarComponent } from './components/continue-bar/continue-bar.component';
 // Deferred in the template, loaded the first time the screen shows
 import { TokenSetupComponent } from './components/token-setup/token-setup.component';
 import { LeakVignetteComponent } from './components/leak-vignette/leak-vignette.component';
@@ -133,7 +130,6 @@ import { WhatsNewService } from './services/onboarding/whats-new.service';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
-import { BUILD_VERSION } from './configs/build-info.config';
 import { OSM_MAP_ATTRIBUTION } from './configs/attributions.config';
 import { ABILITIES } from './configs/abilities.config';
 import { RefusalHintService } from './services/refusal-hint.service';
@@ -176,11 +172,9 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
     BossBarComponent,
     CoopSquadComponent,
     CoopDockComponent,
-    LoadingScreenComponent,
     TdIconComponent,
     LosLegendComponent,
     IntroSkipComponent,
-    ContinueBarComponent,
     TokenSetupComponent,
     LeakVignetteComponent,
     OffscreenIndicatorsComponent,
@@ -274,7 +268,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
-  private readonly mainMenuService = inject(MainMenuService);
   private readonly devWorld = inject(DevWorldService);
   readonly facade = inject(TowerDefenseFacadeService);
   readonly store = inject(TowerDefenseStore);
@@ -290,23 +283,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly coop = inject(CoopService);
   readonly towerControl = inject(TowerControlService);
 
-  // Build / tiles version chips shown in the loading screen corners.
-  readonly buildVersion = BUILD_VERSION;
-  readonly tilesVersionLabel = computed(
-    () => this.configService.tileProvider() === 'cesium' ? 'cesium · v3' : 'google · v3'
-  );
-  readonly missionInfo = this.locationMgmt.missionInfo;
-  readonly devWorldSeed = computed(() => this.devWorld.isActive ? this.devWorld.config.seed : null);
-  // Flips true the moment ANY 3D-Tile is in the visible set, the loading
-  // screen uses this to fade out its dark backdrop layers and reveal the
-  // live map underneath while the boot panel finishes. We deliberately
-  // don't gate on engineInit.tilesLoading because that flag only flips
-  // after 50+ tiles or a successful terrain raycast, which is way past
-  // the point where the user can already see something. The DevWorld
-  // fallback path drops tilesLoading immediately so we OR both signals.
-  readonly tilesReady = computed(
-    () => this.tileStats().visible > 0 || !this.engineInit.tilesLoading()
-  );
+  /** The main menu: start layer in front of the loading place, pause layer on Esc */
+  readonly mainMenu = inject(MainMenuService);
 
   // Debug services
   readonly waveDebug = inject(WaveDebugService);
@@ -350,7 +328,16 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // Loading / Engine, from Store
   readonly loading = this.store.loading;
   readonly error = this.store.error;
-  readonly loadingSteps = this.store.loadingSteps;
+  /**
+   * The HUD over the map: not while the place loads or failed, and not
+   * under the start menu, which stands in front of the scene alone. Under
+   * the pause layer it stays, darkened.
+   */
+  readonly hudShown = computed(() =>
+    !this.loading() && !this.error() && !(this.uiStore.mainMenuOpen() && this.mainMenu.layer() === 'start'));
+  /** The tile key screen stands instead of the game, the menu waits behind it */
+  readonly tokenScreen = computed(() =>
+    this.awaitingCredentials() || this.configService.credentialsRejected() || this.configService.setupRequested());
 
   // UI State, from Store
   readonly buildMode = this.store.buildMode;
@@ -474,7 +461,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   ];
   /** Tip on screen: only over the running game, not over the intro flight, game over, photo mode or the replay */
   readonly onboardingTip = computed(() => {
-    if (this.loading() || this.error() || this.awaitingCredentials()) return null;
+    if (this.loading() || this.error() || this.awaitingCredentials() || this.uiStore.mainMenuOpen()) return null;
     if (this.introFlightActive() || this.isGameOver() || this.uiStore.viewOnly()) return null;
     return this.onboarding.tip();
   });
@@ -536,18 +523,18 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     // The controls hint waits for the intro flight: it shares the bottom
     // centre with "Skip intro", and 15 s under a flight would be 15 s unseen.
     effect(() => {
-      if (!this.controlsHintArmed() || this.introFlightActive() || this.controlsHintTimer) return;
+      if (!this.controlsHintArmed() || this.uiStore.mainMenuOpen() || this.introFlightActive() || this.controlsHintTimer) return;
       this.controlsHintTimer = setTimeout(() => this.controlsHintVisible.set(false), 15000);
     });
 
     // "What's new" once after an update, when the game is up: not over the
-    // loading screen, an error or the token dialog. A page loaded for the
-    // benchmark runs it instead, the notes wait for the next load.
+    // loading place, an error, the token dialog or the main menu. A page
+    // loaded for the benchmark runs it instead, the notes wait for the next load.
     const whatsNew = inject(WhatsNewService);
     const benchmark = inject(BenchmarkService);
     let whatsNewChecked = false;
     effect(() => {
-      if (whatsNewChecked || this.loading() || this.error() || this.awaitingCredentials()) return;
+      if (whatsNewChecked || this.loading() || this.error() || this.awaitingCredentials() || this.uiStore.mainMenuOpen()) return;
       whatsNewChecked = true;
       untracked(() => (benchmark.requested ? benchmark.runIfRequested() : whatsNew.showAfterUpdate()));
     });
@@ -593,6 +580,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   private async startGameSequence(): Promise<void> {
     this.gameStarted = true;
+    // The start menu stands in front while the place loads behind it; an
+    // invite link opens it on the coop page, where the join shows
+    this.mainMenu.openStart();
+    if (this.uiStore.mainMenuOpen() && new URLSearchParams(window.location.search).has('room')) this.mainMenu.open('coop');
     await this.facade.startGame(this.gameCanvas.nativeElement);
     this.applyAudioVolumes();
     this.controlsHintArmed.set(true);
@@ -971,7 +962,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   /** "Main menu" on the game-over screen: the menu over the game */
   openMainMenu(): void {
-    void openGameMenu(this.dialog, this.injector);
+    this.mainMenu.open();
   }
 
   // ==================== Location Settings Methods (delegates to LocationChangeCoordinatorService) ====================
@@ -984,7 +975,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   /** The header's place button: the menu's New game page, where a place is chosen */
   openPlaceChoice(): void {
     if (this.uiStore.coopMapLocked()) return;
-    this.mainMenuService.open('new-game');
+    this.mainMenu.open('new-game');
   }
 
   /** Copy shareable URL to clipboard */
@@ -1044,12 +1035,12 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   openCoop(): void {
     if (this.coop.room() || this.coop.intent() === 'join') this.uiStore.coopDockOpen.update((open) => !open);
-    else this.mainMenuService.open('coop');
+    else this.mainMenu.open('coop');
   }
 
   /** The quick bar's Settings button: the menu's Settings page */
   openSettings(): void {
-    this.mainMenuService.open('settings');
+    this.mainMenu.open('settings');
   }
 
   /** The header's room chip: code, a square per player in their lane colour, how many of how many */

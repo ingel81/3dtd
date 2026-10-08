@@ -82,6 +82,26 @@ hält Bild, Ton, UI, Eingabe, Tiles und die GPU-Sichtlinien und greift nie auf e
 Reihenfolge beim Anwenden eines Pakets (`sim/client/contracts.ts`): Zustand in den Spiegel, Ops an den Presenter,
 Events auf den Hauptthread-Bus, Tabellen an die Renderer, danach die Frame-Listener (`SimClient.onFrame`).
 
+### Start und Hauptmenü
+
+> **Plan und Entscheidungen:** [MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md)
+
+Nach dem Token-Schritt öffnet `TowerDefenseComponent` das Hauptmenü in der Lage **Start**, und der Ort lädt dahinter.
+Der Ort: der aus dem Link (`?l=`), sonst der des Autosaves (mit den Spawns seines Eintrags unter den zuletzt gespielten
+Orten), sonst der zuletzt gespielte (`startPlaceGuess`, `components/main-menu/autosave-place.ts`), bei einem
+Einladungslink (`?room=`) und beim ersten Besuch keiner. Ohne Ort startet die Engine nicht
+(`EngineInitializationService.awaitingPlace`); der erste Ort, den das Menü wählt, ein Spielstand oder der Ort des
+Coop-Hosts startet sie (`LocationChangeCoordinatorService.setFirstStart`, `goTo`). Keine Ortung ohne Frage.
+
+| Teil | Datei | Aufgabe |
+|---|---|---|
+| **MainMenuService** | `components/main-menu/main-menu.service.ts` | Lage (`start`, `pause`), Seite, Verlauf; `open`, `back`, `close`, `playAt`, `rollDice`, `requestPlay` (Play während des Ladens wartet und spielt dann); Pause-Regel (allein pausiert das Menü, im Coop nie); ein neuer Ort im Spiel schaltet auf die Lage Start. Spiegel in `UIStore.mainMenu` |
+| **MainMenuComponent** | `components/main-menu/` | Overlay im Template der Spielkomponente (Rolle `dialog`, Fokusfalle), Liste (`pages/home`), Seiten, Ladeplatte (`loading/`) |
+| **StartShowService** | `services/world/start-show.service.ts` | Musikwechsel, Routenanimation und Intro-Flug warten, bis das Menü zu ist |
+| Ladeprobleme | `UIStore.loadProblem` | Ein Ort, der nicht lud: Banner in der Ladeplatte mit Retry, Other place, Map key |
+
+`?bot=` (außer `bot=manual`), `&benchmark` und `&menu=skip` starten ohne Start-Menü (`startMenuSkipped`).
+
 ## Design Prinzipien
 
 1. **Component-Based Architecture** - Flexibles GameObject-System mit austauschbaren Components
@@ -198,10 +218,10 @@ Injector der App.
 | Service | Verantwortung |
 |---------|---------------|
 | **LocationManagementService** | Location CRUD, LocalStorage Persistence |
-| **LocationChangeCoordinatorService** | Koordiniert Location-Wechsel (Dialog, Favoriten, Weltwürfel, Fehler-Unwinding) |
+| **LocationChangeCoordinatorService** | Koordiniert Location-Wechsel (Ort aus dem Menü, Favoriten, Weltwürfel, erster Ort ohne Engine, Fehler-Unwinding) |
 | **LocationChangeExecutorService** | Die 7 Schritte eines Location-Wechsels (Reset, Straßen, HQ, Spawn, Routen, Finalize) |
 | **GeocodingService** | Nominatim Geocoding & Reverse-Geocoding |
-| **GeolocationService** | Browser Geolocation API Wrapper |
+| **GeolocationService** | Browser Geolocation API Wrapper, nur auf Wunsch („Use my location“ auf New game) |
 | **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
 | **StreetCacheService** | IndexedDB Cache für Straßendaten |
 | **UrlLocationService** | URL-Parameter für Location-Sharing |

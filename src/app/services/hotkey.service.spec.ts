@@ -54,10 +54,9 @@ import { TowerUpgradeService } from './tower-upgrade.service';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 import { DebugFacadeService } from './debug/debug-facade.service';
 import { ConfigService } from '../core/services/config.service';
-import { openGameMenu } from '../components/game-menu/open-game-menu';
+import { MainMenuService } from '../components/main-menu/main-menu.service';
 
 // The menu's chunk needs the JIT compiler; the opener is what this spec checks
-vi.mock('../components/game-menu/open-game-menu', () => ({ openGameMenu: vi.fn(async () => undefined) }));
 
 function press(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
   const event = new KeyboardEvent('keydown', { key, cancelable: true, ...init });
@@ -155,7 +154,9 @@ describe('HotkeyService', () => {
     buildMode: signal(false),
     selectedTowerType: signal<string | null>(null),
     coopDockOpen: signal(false),
+    mainMenuOpen: signal(false),
   };
+  const mainMenu = { open: vi.fn() };
   const research = {
     maxUpgradeTier: signal(1),
     isTowerUnlocked: (id: string) => id === 'archer' || id === 'research-center',
@@ -228,6 +229,7 @@ describe('HotkeyService', () => {
         { provide: TowerDefenseStore, useValue: store },
         { provide: GameStore, useValue: gameStore },
         { provide: UIStore, useValue: uiStore },
+        { provide: MainMenuService, useValue: mainMenu },
         { provide: ResearchStore, useValue: research },
         { provide: TowerPlacementService, useValue: { selectTowerType } },
         { provide: SellConfirmService, useValue: sellConfirm },
@@ -644,19 +646,32 @@ describe('HotkeyService', () => {
       expect(event.defaultPrevented).toBe(true);
     });
 
-    it('Esc with nothing to cancel opens the game menu, not over the key screen', async () => {
+    it('Esc with nothing to cancel opens the main menu in its pause layer, not over the key screen', async () => {
       const event = press('Escape');
       service.handleKeyDown(event);
       expect(event.defaultPrevented).toBe(true);
-      expect(openGameMenu).toHaveBeenCalledTimes(1);
-      // With the game's injector: the menu asks CoopService, which the root does not provide
-      expect(vi.mocked(openGameMenu).mock.calls[0][1]).toBeDefined();
+      expect(mainMenu.open).toHaveBeenCalledTimes(1);
+      expect(mainMenu.open).toHaveBeenCalledWith();
 
       setupRequested.set(true);
       const onKeyScreen = press('Escape');
       service.handleKeyDown(onKeyScreen);
       expect(onKeyScreen.defaultPrevented).toBe(false);
       setupRequested.set(false);
+    });
+
+    it('takes no key while the main menu stands: Esc there is the menu\'s, the wave waits', () => {
+      uiStore.mainMenuOpen.set(true);
+      const esc = press('Escape');
+      service.handleKeyDown(esc);
+      service.handleKeyDown(press(' '));
+      service.handleKeyDown(press('p'));
+      uiStore.mainMenuOpen.set(false);
+
+      expect(esc.defaultPrevented).toBe(false);
+      expect(mainMenu.open).not.toHaveBeenCalled();
+      expect(facade.startWave).not.toHaveBeenCalled();
+      expect(gameStore.paused()).toBe(false);
     });
 
     it('Esc lets him go before it deselects a tower', () => {

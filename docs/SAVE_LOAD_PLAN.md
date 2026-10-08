@@ -33,9 +33,9 @@ die Punkte, die ein Spielmenü erwartet.
 1. **Wann:** nur zwischen den Wellen (`SimSnapshot`). Während einer Welle ist Speichern gesperrt.
 2. **Wohin:** beides. Feste Plätze im Browser (IndexedDB), dazu Export und Import als Datei, Format nach dem Vorbild
    der Replay-Datei (Kopf mit Version, `worldKey`, Config-Hash, Spielversion).
-3. **Autosave:** ein eigener Autosave-Platz nach jeder Welle, dazu mehrere Plätze per Knopf. Einen Startbildschirm gibt es
-   nicht; „Continue“ steht darum als Leiste nach dem Laden, solange der neue Lauf nicht begonnen hat, und oben im
-   Spielmenü (User, 2026-10-05).
+3. **Autosave:** ein eigener Autosave-Platz nach jeder Welle, dazu mehrere Plätze per Knopf. „Continue“ steht oben im
+   Hauptmenü, solange der neue Lauf nicht begonnen hat; hinter dem Start-Menü lädt schon der Ort des Autosaves, und
+   ein Autosave an einem anderen Ort fragt erst („Leaves Heilbronn“, E120; [MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md)).
 4. **Ältere Spielversion:** laden mit Hinweis wie beim Replay („saved with version X, values may differ“); nur bei
    inkompatiblem Format ablehnen.
 5. **Coop:** vorerst nur Einzelspiel, im Coop ist Speichern ausgeblendet. Das Format bleibt so, dass der Host es später
@@ -58,7 +58,7 @@ die Punkte, die ein Spielmenü erwartet.
 - **Laden:** Ort wie beim Coop-Gast (`WorldPackageLoader`, aus `CoopService` herausgezogen), dann Routen, Zellen und
   Höhen des Spielstands statt der gemessenen, Weltschlüssel muss passen; danach `restoreSnapshot` im Worker und, wenn
   das Paket mit `sim:restored` da ist, Director, Zufallsquelle und Run-Log (`RunLogCollector.resume`, gleiche
-  `runId`). Ohne Ort (Start) schließt der Startdialog mit dem Ort des Spielstands (`startPlace`).
+  `runId`). Ohne Ort (Start) startet die Engine am Ort des Spielstands (`startPlace`, vom Spiel übernommen).
 - **Prüfung:** `integration/save-resume.scenario.spec.ts` speichert zwischen zwei Wellen, baut eine frische
   Simulation aus dem Weltpaket auf Boden ohne Werte und spielt die nächste Welle mit denselben Befehlen: jede
   Prüfsumme gleich dem ununterbrochenen Lauf.

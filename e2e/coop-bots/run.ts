@@ -140,7 +140,8 @@ async function openSeat(browser: Browser, name: string, skew = false): Promise<P
     localStorage.setItem('3dtd-coop-name', seat);
   }, name);
   page.on('pageerror', (err) => log(`[${name}] page error: ${err.message}`));
-  const query = SOLO ? 'devworld'
+  // menu=skip: the solo seat plays without the start menu, as the bot seats do (bot=coop)
+  const query = SOLO ? 'devworld&menu=skip'
     : `devworld&spawns=${PLAYERS}&bot=coop&relay=${encodeURIComponent(RELAY)}${HASH_EVERY ? `&hashEvery=${HASH_EVERY}` : ''}`;
   await page.goto(`${URL_BASE}/?${query}${EXTRA_QUERY ? `&${EXTRA_QUERY}` : ''}`);
   await gameReady(page);
@@ -179,18 +180,18 @@ function skewNativeMath(): void {
   }
 }
 
-/** The loading screen gone for good, the intro skipped */
+/** The place standing for good (the HUD shows), the intro skipped */
 async function gameReady(page: Page): Promise<void> {
   // Under load the app takes a while to come up at all
   await page.waitForSelector('app-tower-defense', { timeout: 180_000 });
-  await page.waitForSelector('td-loading-screen', { timeout: 60_000 }).catch(() => undefined);
+  // No start menu (&menu=skip): the HUD comes once the place stands
   const end = Date.now() + 300_000;
-  let gone = 0;
-  while (gone < 4 && Date.now() < end) {
-    gone = (await page.locator('td-loading-screen').count()) ? 0 : gone + 1;
+  let shown = 0;
+  while (shown < 4 && Date.now() < end) {
+    shown = (await page.locator('app-quick-actions').count()) ? shown + 1 : 0;
     await page.waitForTimeout(500);
   }
-  if (gone < 4) throw new Error('the loading screen stayed');
+  if (shown < 4) throw new Error('the place did not load');
   for (let i = 0; i < 20; i++) {
     const skip = page.getByRole('button', { name: /skip intro/i });
     if (!(await skip.count())) break;

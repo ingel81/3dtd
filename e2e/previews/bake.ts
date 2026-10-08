@@ -40,7 +40,7 @@ try {
     localStorage.setItem('td_seen_version', '9999.0.0');
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
   });
-  await page.goto(`http://localhost:${PORT}/?devworld&bot=manual&previewsheets`);
+  await page.goto(`http://localhost:${PORT}/?devworld&bot=manual&menu=skip&previewsheets`);
   await page.waitForFunction(() => '__previewSheets' in globalThis, null, { timeout: 120_000 });
   const jobs = await page.evaluate(() => (globalThis as unknown as { __previewSheets: Hook }).__previewSheets.jobs());
 

@@ -741,8 +741,8 @@ export class InputHandlerService {
       return;
     }
     // An open dialog owns the keyboard, as for the hotkeys: arrows and WASD
-    // pan no camera behind it, T hides no tiles
-    if (this.dialog.openDialogs.length > 0) return;
+    // pan no camera behind it, T hides no tiles. So does the main menu.
+    if (this.dialog.openDialogs.length > 0 || this.uiStore.mainMenuOpen()) return;
 
     // Camera panning (WASD / Arrow keys) - works always
     if (this.keyboardPan.onKeyDown(event)) {

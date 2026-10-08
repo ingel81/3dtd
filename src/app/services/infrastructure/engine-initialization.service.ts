@@ -5,7 +5,7 @@ import { AssetManagerService } from './asset-manager.service';
 import { OsmStreetService, STREET_RADIUS_M, StreetNetwork } from '../location/osm-street.service';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { DevStreetProvider } from '../../devworld/dev-street.provider';
-import { BootStep } from '../../components/loading-screen/boot-step.model';
+import { BootStep } from '../../components/main-menu/loading/boot-step.model';
 
 /**
  * The steps of the loading screen, in order. A first load and a location
@@ -367,7 +367,7 @@ export class EngineInitializationService {
     centerLat: number,
     centerLon: number,
     onStreetNetworkRefreshed?: (network: StreetNetwork, count: number) => void,
-  ): Promise<{ network: StreetNetwork; count: number; devStreetProvider: DevStreetProvider | null }> {
+  ): Promise<{ network: StreetNetwork; count: number; devStreetProvider: DevStreetProvider | null; failed: boolean }> {
     try {
       // DevWorld mode: Use DevStreetProvider with generated streets from terrain
       if (this.devWorld.isActive) {
@@ -393,12 +393,12 @@ export class EngineInitializationService {
         }
 
         const network = await devStreetProvider.loadStreets(centerLat, centerLon, 500);
-        return { network, count: network.streets.length, devStreetProvider };
+        return { network, count: network.streets.length, devStreetProvider, failed: false };
       }
 
       // Real world: Use OSM
       const network = await this.osmService.loadStreets(centerLat, centerLon, STREET_RADIUS_M);
-      return { network, count: network.streets.length, devStreetProvider: null };
+      return { network, count: network.streets.length, devStreetProvider: null, failed: false };
     } catch (err) {
       console.error('[EngineInit] Failed to load streets:', err);
       const emptyNetwork: StreetNetwork = {
@@ -406,7 +406,8 @@ export class EngineInitializationService {
         nodes: new Map(),
         bounds: { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 },
       };
-      return { network: emptyNetwork, count: 0, devStreetProvider: null };
+      // The map loads without streets; `failed` lets the caller say so
+      return { network: emptyNetwork, count: 0, devStreetProvider: null, failed: true };
     }
   }
 

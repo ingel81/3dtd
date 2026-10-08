@@ -1,8 +1,11 @@
 import { DestroyRef, Directive, ElementRef, afterNextRender, inject } from '@angular/core';
 import { focusedByKeyboard, trackFocusOrigin } from '../utils/keyboard-target';
 
-/** The items of a group: its radios or tabs */
-const ITEM_SELECTOR = '[role="radio"], [role="tab"]';
+/** The items of a group: its radios, tabs or menu entries */
+const ITEM_SELECTOR = '[role="radio"], [role="tab"], [role="menuitem"]';
+
+/** A menu entry only takes the focus; Enter or a click acts */
+const IS_MENU_ITEM = (item: HTMLElement) => item.getAttribute('role') === 'menuitem';
 
 /** An item that is the group's choice */
 const CHOSEN = (item: HTMLElement) =>
@@ -21,6 +24,10 @@ const CHOSEN = (item: HTMLElement) =>
  * keyboard focused: a radio clicked with the mouse keeps the focus in
  * Chrome, and the arrows then still pan the camera (utils/keyboard-target.ts:
  * a clicked control takes no game key).
+ *
+ * A menu (`role="menu"` around `role="menuitem"` buttons, the main menu's
+ * list) moves the focus only, and with any focus: the menu owns the
+ * keyboard while it stands, no camera pans behind it.
  *
  * Usage: `<div role="radiogroup" tdRovingGroup>` around `role="radio"` buttons.
  */
@@ -53,7 +60,9 @@ export class RovingGroupDirective {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     const items = this.items();
     const from = items.indexOf(event.target as HTMLElement);
-    if (from < 0 || !focusedByKeyboard(event.target as HTMLElement)) return;
+    if (from < 0) return;
+    const menu = IS_MENU_ITEM(items[from]);
+    if (!menu && !focusedByKeyboard(event.target as HTMLElement)) return;
     const usable = items.filter((item) => item.getAttribute('aria-disabled') !== 'true');
     if (usable.length === 0) return;
 
@@ -80,7 +89,7 @@ export class RovingGroupDirective {
     event.stopPropagation();
     if (!next || next === event.target) return;
     next.focus();
-    if (!CHOSEN(next)) next.click();
+    if (!menu && !CHOSEN(next)) next.click();
   }
 
   /** The next usable item from `from` in `direction`, wrapping */

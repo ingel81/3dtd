@@ -396,7 +396,7 @@
  * the game (loading, token, error, game over) stay. */
 .td-photo-mode > app-game-header,
 .td-photo-mode app-game-sidebar,
-.td-photo-mode .td-canvas-area > :not(canvas):not(.td-logo-attribution):not(.td-map-attribution):not(.td-photo-bar):not(.td-gameover-overlay):not(.td-error-overlay):not(td-loading-screen):not(td-token-setup) {
+.td-photo-mode .td-canvas-area > :not(canvas):not(.td-logo-attribution):not(.td-map-attribution):not(.td-photo-bar):not(.td-gameover-overlay):not(.td-error-overlay):not(td-token-setup) {
   display: none !important;
 }
 
@@ -405,7 +405,7 @@
  * area go, the header (wave, HQ, credits) and the info overlay (FPS) stay,
  * the crosshair HUD comes. */
 .td-tower-control app-game-sidebar,
-.td-tower-control .td-canvas-area > :not(canvas):not(.td-logo-attribution):not(.td-map-attribution):not(app-tower-control-hud):not(app-info-overlay):not(.td-error-overlay):not(td-loading-screen):not(td-token-setup) {
+.td-tower-control .td-canvas-area > :not(canvas):not(.td-logo-attribution):not(.td-map-attribution):not(app-tower-control-hud):not(app-info-overlay):not(.td-error-overlay):not(td-token-setup) {
   display: none !important;
 }
 
@@ -415,7 +415,7 @@
  * bar (app-replay-bar) places itself at the bottom. */
 .td-replay-mode > app-game-header,
 .td-replay-mode app-game-sidebar,
-.td-replay-mode .td-canvas-area > :not(canvas):not(.td-logo-attribution):not(.td-map-attribution):not(app-replay-bar):not(.td-error-overlay):not(td-loading-screen):not(td-token-setup) {
+.td-replay-mode .td-canvas-area > :not(canvas):not(.td-logo-attribution):not(.td-map-attribution):not(app-replay-bar):not(.td-error-overlay):not(td-token-setup) {
   display: none !important;
 }
 

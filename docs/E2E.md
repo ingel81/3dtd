@@ -34,7 +34,7 @@ scheitert ein Test, startet Playwright den Worker neu, und die zwei Spieler lade
 |-------|--------|
 | `e2e/playwright.config.ts` | Ein Worker, sichtbar (die Tiles brauchen eine GPU), 15 min je Test, Bericht |
 | `e2e/support/fixtures.ts` | `test` mit `duo` (Ann, Bob, einmal je Lauf) und `relay` je Test; `expectNoDesync` |
-| `e2e/support/game.ts` | Spiel öffnen und warten, Coop-Raum, Optionen, Entwicklermenü, Credits, Wellen-Knopf, Seite einfrieren |
+| `e2e/support/game.ts` | Spiel öffnen und warten (`gameReady` drückt Play im Start-Menü), Coop-Raum, Optionen, Entwicklermenü, Credits, Wellen-Knopf, Seite einfrieren |
 | `e2e/tests/coop-lobby.e2e.ts` | Einstieg, Gast kommt und lädt (D47), Name und Optionen, Rauswerfen und Sperren, neuer Ort (T65), `&nokey` |
 | `e2e/tests/coop-options.e2e.ts` | Cheats, Pause und Next wave nach den Raum-Optionen, Relay ohne Cheats |
 | `e2e/tests/coop-game.e2e.ts` | Squad und Chat, Gold senden, zurückgefallener Gast (eingefroren), Game over und Neustart, allein weiter |
@@ -49,6 +49,9 @@ Jeder Coop-Test mit Spiel prüft am Ende das Relay-Log auf `DESYNC`. Die Nummern
 ## Fallen, die die Tests schon kennen
 
 - Ein Klick auf etwas Verdecktes scheitert nach 30 s (`actionTimeout`), nicht erst am Ende des Tests.
+- Das Spiel lädt hinter dem Start-Menü; `gameReady` drückt Play, das bis zum Ende des Ladens wartet, und bricht mit
+  dem Text eines Ladeproblems ab. Ein neuer Ort öffnet das Menü wieder. Skripte ohne Menü (Perf, Vorschau-Bake)
+  hängen `&menu=skip` an und warten auf die HUD.
 - Was zwischen Finden und Lesen verschwinden kann (Fuß der Squad-Box, der Chat beim Ortswechsel), lesen die Helfer
   direkt aus dem DOM (`chatText`, `evaluate`), ohne zu warten.
 - Nach jedem Test räumt `tidyUp` beide Seiten auf (Meldung oben, Raum, Dock, Entwicklermenü).

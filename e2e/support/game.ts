@@ -22,7 +22,7 @@ export interface OpenOptions {
   query?: string;
   /** Into localStorage before the game starts */
   storage?: Record<string, string>;
-  /** Wait for the loading screen to go and skip the intro (default) */
+  /** Wait for the place to load behind the start menu, press Play and skip the intro (default) */
   ready?: boolean;
 }
 
@@ -45,24 +45,38 @@ export async function openGame(browser: Browser, options: OpenOptions = {}): Pro
 }
 
 /**
- * Wait until the loading screen is gone for good (a change of place shows it
- * more than once), then skip the intro flight until its button is gone.
+ * Wait until the place stands and the game shows: the start menu stands in
+ * front while the place loads (docs/MAIN_MENU_UI_PLAN.md), Play (or Continue
+ * of a run loaded) is pressed, which waits for the load, and the menu is
+ * gone for good (a change of place opens it again). A problem in the
+ * menu's loading plate fails at once with its text. Then the intro flight
+ * is skipped until its button is gone. Without a start menu (`&menu=skip`,
+ * a bot) only the wait is left.
  */
 export async function gameReady(page: Page): Promise<void> {
-  await page.waitForSelector('td-loading-screen', { timeout: 30_000 }).catch(() => undefined);
+  await page.waitForSelector('app-main-menu', { timeout: 30_000 }).catch(() => undefined);
   const end = Date.now() + 300_000;
   let gone = 0;
   while (gone < 4 && Date.now() < end) {
-    gone = (await page.locator('td-loading-screen').count()) ? 0 : gone + 1;
+    const problem = page.locator('app-menu-loading [role="alert"]');
+    if (await problem.count()) throw new Error(`The place did not load: ${await problem.innerText()}`);
+    const play = page.locator('.mm-start').locator('[data-entry="play"], [data-entry="continue"]').first();
+    if (await play.count()) await play.click().catch(() => undefined);
+    gone = (await page.locator('app-main-menu').count()) || (await loadingWithoutMenu(page)) ? 0 : gone + 1;
     await page.waitForTimeout(500);
   }
-  expect(gone, 'the loading screen went').toBeGreaterThanOrEqual(4);
+  expect(gone, 'the start menu went').toBeGreaterThanOrEqual(4);
   for (let i = 0; i < 10; i++) {
     if (!(await page.getByRole('button', { name: /skip intro/i }).count())) break;
     await page.keyboard.press('Escape');
     await page.waitForTimeout(700);
   }
   await page.waitForTimeout(1000);
+}
+
+/** The place still loads where no start menu stands (an automated run): no HUD yet */
+async function loadingWithoutMenu(page: Page): Promise<boolean> {
+  return (await page.locator('app-quick-actions').count()) === 0;
 }
 
 /** The player's credits as the header has them (its exact screen reader text) */
@@ -311,7 +325,7 @@ export async function buildArcher(page: Page): Promise<boolean> {
       built = (await credits(page)) < before;
     }
   }
-  // Escape leaves the build mode; with none left it opens the game menu, which then goes again
+  // Escape leaves the build mode; with none left it opens the menu, which then goes again
   await page.keyboard.press('Escape');
   const menu = gameMenu(page);
   if (await menu.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) await page.keyboard.press('Escape');
@@ -319,12 +333,12 @@ export async function buildArcher(page: Page): Promise<boolean> {
   return built;
 }
 
-/** The game menu (Esc), on its list or one of its pages: the dialog takes the page's title */
+/** The main menu, in either layer, on its list or one of its pages: the dialog takes the page's title */
 export function gameMenu(page: Page) {
-  return page.getByRole('dialog', { name: /^(Menu|Save game|Load game|Settings|More)$/ });
+  return page.getByRole('dialog', { name: /^(Menu|New game|Coop|Save game|Load game|Settings|Extras)$/ });
 }
 
-/** Open the game menu with Escape, the focus taken off a clicked control first (its tooltip would take the key) */
+/** Open the main menu's pause layer with Escape, the focus taken off a clicked control first (its tooltip would take the key) */
 export async function openGameMenu(page: Page): Promise<void> {
   await page.mouse.move(650, 600);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());

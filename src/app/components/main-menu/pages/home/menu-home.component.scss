@@ -1,0 +1,168 @@
+// Structure and a plain look; the menu-list recipe of the foundation (_game-ui.scss) replaces it.
+:host {
+  display: flex;
+  flex-direction: column;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+}
+
+.mh-pause-line {
+  margin: 18px 0 0;
+  font-family: var(--td-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--td-gold);
+}
+
+.mh-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 56px;
+}
+
+.mh-pause {
+  gap: 2px;
+  margin-top: 36px;
+  width: 300px;
+}
+
+.mh-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 0 10px 25px;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: none;
+  color: var(--td-text-secondary);
+  font-family: var(--td-font-display);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    padding-left: 22px;
+    border-left-color: var(--td-gold);
+    color: var(--td-text-primary);
+    background: linear-gradient(90deg, rgba(194, 160, 85, 0.16), rgba(194, 160, 85, 0) 80%);
+    outline: none;
+  }
+
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--td-gold-light);
+  }
+}
+
+.mh-label {
+  font-weight: 500;
+  font-size: 26px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.mh-lead .mh-label {
+  font-weight: 600;
+  font-size: 30px;
+}
+
+.mh-pause .mh-label {
+  font-size: 22px;
+}
+
+.mh-below .mh-label {
+  font-size: 20px;
+}
+
+.mh-item[data-entry='quit'] {
+  color: var(--td-text-muted);
+}
+
+.mh-sub {
+  font-family: var(--td-font-mono);
+  font-size: 12px;
+  color: var(--td-gold-light);
+}
+
+.mh-bar {
+  display: block;
+  width: 220px;
+  height: 4px;
+  margin-top: 6px;
+  background: var(--td-bg-dark);
+}
+
+.mh-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--td-gold);
+  transition: width 0.3s ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.mh-sep {
+  width: 220px;
+  height: 1px;
+  margin: 10px 0 10px 25px;
+  background: var(--td-frame-dark);
+}
+
+.mh-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0 0 25px;
+  padding-left: 12px;
+  border-left: 2px solid var(--td-warn-orange);
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--td-text-primary);
+  }
+}
+
+.mh-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.mh-btn {
+  padding: 7px 14px;
+  border: 1px solid var(--td-frame-mid);
+  background: var(--td-panel-dark);
+  color: var(--td-text-secondary);
+  font-family: var(--td-font-display);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--td-text-primary);
+    border-color: var(--td-gold);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--td-gold-light);
+    outline-offset: 2px;
+  }
+}
+
+.mh-btn-yes {
+  border-color: var(--td-gold);
+  color: var(--td-text-primary);
+}
+
+.mh-status {
+  margin: 12px 0 0 25px;
+  font-size: 13px;
+  color: var(--td-warn-orange);
+}

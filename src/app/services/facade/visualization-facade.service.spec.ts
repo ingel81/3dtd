@@ -51,6 +51,7 @@ import { CorridorBuild } from '../world/corridor-build';
 import { corridorTrace } from '../../utils/corridor-trace';
 import { OsmStreetService } from '../location/osm-street.service';
 import { UIStore } from '../../store/ui.store';
+import { StartShowService } from '../world/start-show.service';
 import { CameraControlService, type CameraView } from '../camera-control.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
@@ -210,6 +211,8 @@ describe('VisualizationFacadeService', () => {
     loadBuildingsNearRoutes: vi.fn(),
   };
   const uiStore = { routesVisible: signal(true), buildingsVisible: signal(false), specialPointsDebugVisible: signal(false) };
+  /** No menu in front: the show plays at once */
+  const startShow = { whenPlayed: vi.fn((show: () => void) => show()) };
   const cameraControl = {
     initialize: vi.fn(),
     setOverviewProvider: vi.fn(),
@@ -365,6 +368,7 @@ describe('VisualizationFacadeService', () => {
       providers: [
         { provide: OsmStreetService, useValue: osm },
         { provide: UIStore, useValue: uiStore },
+        { provide: StartShowService, useValue: startShow },
         { provide: CameraControlService, useValue: cameraControl },
         { provide: MarkerVisualizationService, useValue: markerViz },
         { provide: PathAndRouteService, useValue: pathRoute },

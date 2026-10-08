@@ -1,0 +1,38 @@
+@if (layer() === 'pause') {
+  <p class="mh-pause-line">{{ pauseLine() }}</p>
+}
+
+<div class="mh-list" [class.mh-pause]="layer() === 'pause'" role="menu" aria-label="Menu" aria-orientation="vertical" tdRovingGroup>
+  @for (entry of entries(); track entry.id; let first = $first) {
+    @if (entry.below && !entries()[$index - 1]?.below) {
+      <div class="mh-sep" role="separator"></div>
+    }
+    <button type="button" role="menuitem" class="mh-item"
+            [class.mh-lead]="first && layer() === 'start'" [class.mh-below]="entry.below"
+            [attr.data-entry]="entry.id" [attr.aria-disabled]="entry.loads && menu.playBlocked() ? true : null"
+            [attr.aria-busy]="showsBar(entry) || (entry.id === 'continue' && busy()) ? true : null"
+            (click)="activate(entry)">
+      <span class="mh-label">{{ entry.label }}</span>
+      @if (subOf(entry); as sub) {
+        <span class="mh-sub">{{ sub }}</span>
+      }
+      @if (showsBar(entry)) {
+        <span class="mh-bar" aria-hidden="true"><span class="mh-bar-fill" [style.width.%]="plate().percent"></span></span>
+      }
+    </button>
+  }
+</div>
+
+@if (confirm(); as confirm) {
+  <div class="mh-confirm" role="group" aria-labelledby="td-menu-confirm">
+    <p id="td-menu-confirm">{{ confirmText(confirm).question }}</p>
+    <div class="mh-confirm-actions">
+      <button type="button" class="mh-btn mh-btn-yes" (click)="confirmed()">{{ confirmText(confirm).yes }}</button>
+      <button type="button" class="mh-btn" (click)="cancelConfirm()">Cancel</button>
+    </div>
+  </div>
+}
+
+@if (status(); as status) {
+  <p class="mh-status" role="status">{{ status }}</p>
+}

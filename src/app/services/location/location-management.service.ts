@@ -1,7 +1,7 @@
 import { Injectable, signal, inject, computed, effect, untracked, isDevMode } from '@angular/core';
 import { SpawnLocationConfig, FavoriteLocation, SavedSpawn } from '../../models/location.types';
 import { GeocodingService, NominatimAddress } from './geocoding.service';
-import { MissionInfo } from '../../components/loading-screen/boot-step.model';
+import { MissionInfo } from '../../components/main-menu/loading/boot-step.model';
 import { DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
 import { COORD_DECIMALS, canonicalCoords } from '../../utils/geo-utils';
 import { PathAndRouteService } from '../world/path-route.service';

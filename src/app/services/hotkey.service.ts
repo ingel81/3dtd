@@ -11,7 +11,7 @@ import { canPickTowerCard } from '../utils/player-actions';
 import { controlTakesKey, ownsKey, trackFocusOrigin } from '../utils/keyboard-target';
 import { openHotkeyHelpDialog } from '../components/hotkey-help-dialog/open-hotkey-help-dialog';
 import { openResearchDialog } from '../components/research-dialog/open-research-dialog';
-import { openGameMenu } from '../components/game-menu/open-game-menu';
+import { MainMenuService } from '../components/main-menu/main-menu.service';
 import { ConfigService } from '../core/services/config.service';
 import { CameraControlService } from './camera-control.service';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
@@ -128,6 +128,8 @@ export class HotkeyService {
       && !controlTakesKey(event.target, event.key)
       // A dialog owns the keyboard; the help dialog closes itself on H and ?
       && this.dialog.openDialogs.length === 0
+      // The main menu owns the keyboard too; Esc there is its own (MainMenuComponent)
+      && !this.uiStore.mainMenuOpen()
       && !this.store.loading()
       && !this.store.error();
   }
@@ -344,10 +346,10 @@ export class HotkeyService {
       this.uiStore.coopDockOpen.set(false);
       return true;
     }
-    // Last: nothing else to cancel, the game menu opens (TODO A3). Not over the
-    // key screen, which takes Esc itself.
+    // Last: nothing else to cancel, the main menu opens in its pause layer
+    // (docs/MAIN_MENU_UI_PLAN.md). Not over the key screen, which takes Esc itself.
     if (this.injector.get(ConfigService).setupRequested()) return false;
-    void openGameMenu(this.dialog, this.injector);
+    this.injector.get(MainMenuService).open();
     return true;
   }
 }

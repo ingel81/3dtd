@@ -67,6 +67,20 @@ export interface UiNotice {
   reload?: boolean;
 }
 
+/**
+ * A place that did not load, or a load that went wrong: said in the main
+ * menu's loading plate with the ways on (Retry, Other place, Map key)
+ */
+export interface LoadProblem {
+  text: string;
+  /** Try the same again; without it Retry reloads the page */
+  retry?: () => void;
+  /** The map key may be the cause: the plate offers to change it */
+  mapKey?: boolean;
+  /** The place cannot be played as it stands (no streets, no route); else the old place stands on */
+  blocksPlay?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class UIStore {
   /** Debug panel visibility */
@@ -227,6 +241,9 @@ export class UIStore {
 
   /** The main menu stands in front of the game */
   readonly mainMenuOpen = computed(() => this.mainMenu().open);
+
+  /** The last load of a place went wrong; the main menu says it until the next load. Not persisted. */
+  readonly loadProblem = signal<LoadProblem | null>(null);
 
   /** Photo mode or replay: the camera moves, clicks and hover pick nothing, game keys build nothing. */
   readonly viewOnly = computed(() => this.photoMode() || this.replayMode());

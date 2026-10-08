@@ -6,9 +6,7 @@ import {
   inject,
   computed,
   ChangeDetectionStrategy,
-  Injector,
 } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import {
@@ -22,7 +20,7 @@ import { ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
 import { WhatsNewService } from '../../services/onboarding/whats-new.service';
-import { openGameMenu } from '../game-menu/open-game-menu';
+import { MainMenuService } from '../main-menu/main-menu.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { OnboardingService } from '../../services/onboarding/onboarding.service';
@@ -64,12 +62,11 @@ import { UIStore } from '../../store/ui.store';
   `,
 })
 export class GameSidebarComponent implements OnDestroy {
-  private readonly dialog = inject(MatDialog);
-  private readonly injector = inject(Injector);
 
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly whatsNew = inject(WhatsNewService);
   private readonly onboarding = inject(OnboardingService);
+  private readonly mainMenu = inject(MainMenuService);
 
   // Store, single source of truth
   readonly store = inject(TowerDefenseStore);
@@ -134,8 +131,8 @@ export class GameSidebarComponent implements OnDestroy {
     this.whatsNew.open();
   }
 
-  /** The game menu (TODO A3): fullscreen, volume, notes, keys, credits, Quit in the app */
+  /** The main menu in its pause layer (docs/MAIN_MENU_UI_PLAN.md) */
   openMenu(): void {
-    void openGameMenu(this.dialog, this.injector);
+    this.mainMenu.open();
   }
 }

@@ -41,9 +41,10 @@ await context.addInitScript(() => {
 });
 const page = await context.newPage();
 page.on('pageerror', (e) => console.log('pageerror', e.message));
-await page.goto(`${URL_BASE}/?devworld&bot=manual`);
+await page.goto(`${URL_BASE}/?devworld&bot=manual&menu=skip`);
 await page.waitForFunction(() => '__load' in globalThis, null, { timeout: 300_000 });
-await page.waitForSelector('td-loading-screen', { state: 'detached', timeout: 300_000 }).catch(() => undefined);
+// No start menu (&menu=skip): the HUD comes once the place stands
+await page.waitForSelector('app-quick-actions', { timeout: 300_000 }).catch(() => undefined);
 for (const name of [/^close$/i, /skip intro/i]) {
   const button = page.getByRole('button', { name });
   await button.first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => undefined);

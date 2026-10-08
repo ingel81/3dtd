@@ -1,4 +1,4 @@
-// Minimal layout until the foundation (_game-ui.scss) is in; the look follows then.
+// Structure and a plain look; the plate and menu recipes of the foundation (_game-ui.scss) replace it.
 :host {
   position: fixed;
   inset: 0;
@@ -11,14 +11,17 @@
   display: flex;
   gap: 48px;
   align-items: flex-start;
-  padding: 72px 88px;
+  padding: 72px 88px 160px;
   box-sizing: border-box;
   overflow: auto;
-  color: var(--td-text-primary, #eef1eb);
+  color: var(--td-text-primary);
+  font-family: var(--td-font-body);
 }
 
 .mm-start {
-  background: linear-gradient(90deg, rgba(8, 11, 9, 0.94) 0%, rgba(8, 11, 9, 0.86) 30%, rgba(8, 11, 9, 0.25) 52%, rgba(8, 11, 9, 0) 70%);
+  background:
+    linear-gradient(0deg, rgba(8, 11, 9, 0.7) 0%, rgba(8, 11, 9, 0) 26%),
+    linear-gradient(90deg, rgba(8, 11, 9, 0.94) 0%, rgba(8, 11, 9, 0.86) 30%, rgba(8, 11, 9, 0.25) 52%, rgba(8, 11, 9, 0) 70%);
 }
 
 .mm-pause {
@@ -35,17 +38,28 @@
   display: block;
   height: auto;
   width: 420px;
+  max-width: calc(100vw - 32px);
 }
 
 .mm-pause .mm-logo {
   width: 200px;
 }
 
+.mm-tagline {
+  margin: 14px 0 0;
+  font-family: var(--td-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
 .mm-page {
   flex: 0 1 640px;
   min-width: 0;
-  background: var(--td-panel-main, #1d241f);
-  border: 1px solid var(--td-frame-mid, #4a544d);
+  background: var(--td-panel-main);
+  border: 1px solid var(--td-frame-mid);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
 
 .mm-page-head {
@@ -53,14 +67,91 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 20px 12px;
+  border-top: 2px solid var(--td-gold-dark);
+  border-bottom: 1px solid var(--td-frame-dark);
 
   h2 {
     margin: 0;
+    font-family: var(--td-font-display);
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--td-gold-light);
+  }
+}
+
+.mm-back {
+  width: 40px;
+  height: 32px;
+  border: 1px solid var(--td-frame-mid);
+  background: var(--td-panel-dark);
+  color: var(--td-text-secondary);
+  font-family: var(--td-font-mono);
+  font-size: 11px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--td-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--td-gold-light);
+    outline-offset: 2px;
   }
 }
 
 .mm-page-body {
   padding: 18px 20px 22px;
+}
+
+.mm-foot {
+  position: absolute;
+  left: 88px;
+  bottom: 40px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+}
+
+.mm-tip {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--td-text-secondary);
+}
+
+.mm-tip-label {
+  padding-top: 2px;
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--td-gold);
+}
+
+.mm-tip-gold {
+  color: var(--td-gold-light);
+}
+
+.mm-tip-teal {
+  color: var(--td-teal-light);
+}
+
+.mm-version {
+  margin: 14px 0 0;
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+.mm-loading {
+  position: absolute;
+  right: 64px;
+  bottom: 56px;
 }
 
 .mm-sr-only {
@@ -70,4 +161,31 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+// Phone width: one column, the plate under the list
+@media (max-width: 760px) {
+  .mm-root {
+    flex-direction: column;
+    gap: 24px;
+    padding: 24px 16px;
+  }
+
+  .mm-logo {
+    width: 240px;
+  }
+
+  .mm-page {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .mm-foot,
+  .mm-loading {
+    position: static;
+  }
+}
+
+.mm-root:focus {
+  outline: none;
 }

@@ -1,0 +1,163 @@
+// Structure and a plain look; the plate recipe of the foundation (_game-ui.scss) replaces it.
+:host {
+  display: block;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+}
+
+.ml-plate {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px 14px;
+  background: var(--td-panel-main);
+  border: 1px solid var(--td-frame-mid);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.ml-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.ml-place {
+  margin: 0;
+  font-family: var(--td-font-display);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--td-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ml-percent,
+.ml-step,
+.ml-steps {
+  font-family: var(--td-font-mono);
+  font-size: 12px;
+}
+
+.ml-percent {
+  color: var(--td-gold-light);
+}
+
+.ml-bar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  padding: 1px;
+  background: var(--td-bg-dark);
+}
+
+.ml-seg {
+  flex: 1;
+  background: var(--td-frame-dark);
+}
+
+.ml-seg-on {
+  background: var(--td-gold);
+}
+
+.ml-step {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--td-text-secondary);
+}
+
+.ml-step-meta {
+  color: var(--td-text-muted);
+}
+
+.ml-step-count {
+  flex: 0 0 auto;
+}
+
+.ml-toggle,
+.ml-btn {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border: 1px solid var(--td-frame-mid);
+  background: var(--td-panel-dark);
+  color: var(--td-text-secondary);
+  font-family: var(--td-font-display);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--td-text-primary);
+    border-color: var(--td-gold);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--td-gold-light);
+    outline-offset: 2px;
+  }
+}
+
+.ml-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--td-text-muted);
+}
+
+.ml-steps-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: 8px;
+}
+
+.ml-done {
+  color: var(--td-text-secondary);
+}
+
+.ml-current {
+  color: var(--td-gold-light);
+}
+
+.ml-steps-meta {
+  color: var(--td-text-muted);
+}
+
+.ml-problem {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 10px;
+  border-left: 2px solid var(--td-warn-orange);
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--td-text-primary);
+  }
+}
+
+.ml-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ml-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

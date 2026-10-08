@@ -22,10 +22,10 @@ function tip(strings: TemplateStringsArray, ...accents: TipPart[]): FieldTip {
 }
 
 /**
- * Rotating tips shown while the game boots.
+ * Rotating tips under the start menu while the game loads behind it.
  * Kept generic for now — refine with concrete tower names / mechanics later.
- * The loading screen renders the parts as text and an accent as a coloured
- * `<b>` (loading-screen.component.html): no HTML string, so no sanitizer and
+ * The start menu renders the parts as text and an accent as a coloured
+ * `<b>` (main-menu.component.html): no HTML string, so no sanitizer and
  * no style that has to reach past the component's encapsulation.
  */
 export const FIELD_TIPS: FieldTip[] = [
