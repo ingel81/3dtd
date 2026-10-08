@@ -21,13 +21,11 @@ import {
 import { ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
-import { openRunsDialog } from '../runs-dialog/open-runs-dialog';
 import { WhatsNewService } from '../../services/onboarding/whats-new.service';
 import { openGameMenu } from '../game-menu/open-game-menu';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { OnboardingService } from '../../services/onboarding/onboarding.service';
-import { LocationChangeCoordinatorService } from '../../services/location/location-change-coordinator.service';
 import { TdIconComponent } from '../icon/icon.component';
 import { SidebarWavePanelComponent } from './wave-panel/wave-panel.component';
 import { SidebarBuildPanelComponent } from './build-panel/build-panel.component';
@@ -72,7 +70,6 @@ export class GameSidebarComponent implements OnDestroy {
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly whatsNew = inject(WhatsNewService);
   private readonly onboarding = inject(OnboardingService);
-  private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
 
   // Store, single source of truth
   readonly store = inject(TowerDefenseStore);
@@ -82,6 +79,8 @@ export class GameSidebarComponent implements OnDestroy {
   readonly heroSelected = this.uiStore.heroSelected;
 
   readonly buildVersion = BUILD_VERSION;
+  /** The footer's version button: its text, and what a press opens */
+  readonly versionLabel = `${BUILD_VERSION}, what's new`;
 
   // Inputs
   readonly towerTypes = input.required<TowerTypeConfig[]>();
@@ -120,27 +119,14 @@ export class GameSidebarComponent implements OnDestroy {
     this.modelPreview.dispose();
   }
 
-  /** The location dialog on its World tab: defended places, a click loads one. */
-  openWorldMap(): void {
-    void this.locationCoordinator.openLocationDialog('world');
-  }
-
   /** Show the first-run tips again, from the first the running game has not done. */
   showTips(): void {
     this.onboarding.restart();
   }
 
-  /** The shortcut overview, the same dialog as H and ?. */
-
-
   /** Coop: the room dock (docs/COOP_PLAN.md, D41); the header chip and Tab open it as well. */
   openCoop(): void {
     this.uiStore.coopDockOpen.set(true);
-  }
-
-  /** The runs this browser kept, each one to save as a file (docs/RUN_LOG.md). */
-  openRuns(): void {
-    void openRunsDialog(this.dialog);
   }
 
   /** The version in the footer opens "What's new" with every release */

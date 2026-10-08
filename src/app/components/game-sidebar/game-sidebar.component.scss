@@ -29,123 +29,57 @@
     -2px 0 12px rgba(0, 0, 0, 0.5);
 }
 
+/* Footer: Menu, Tips and the version in one row of three cells; the 1px
+   gap over the frame colour draws the dividers */
 .td-sidebar-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
   margin-top: auto;
   flex-shrink: 0;
-  width: 100%;
-  font-size: 10px;
-  color: var(--td-text-muted);
-}
-
-.td-sidebar-footer-bottom {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 4px 36px;
-}
-
-/* Version, repo and author stay quiet; the menu's gear does not */
-.td-sidebar-footer-bottom > :not(.td-menu-btn) {
-  opacity: 0.6;
-}
-
-.td-sidebar-footer-bottom:hover > :not(.td-menu-btn) {
-  opacity: 1;
-}
-
-/* The game menu (TODO A3), bottom right where the menu opens */
-.td-menu-btn {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  background: none;
-  border: 1px solid transparent;
-  color: var(--td-text-secondary);
-  cursor: pointer;
-}
-
-.td-menu-btn:hover,
-.td-menu-btn:focus-visible {
-  border-color: var(--td-frame-dark);
-  color: var(--td-gold);
-  outline: none;
-}
-
-.td-sidebar-footer a {
-  color: var(--td-text-secondary);
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-}
-
-.td-sidebar-footer a:hover {
-  color: var(--td-text-primary);
-}
-
-/* The version opens "What's new"; it reads as text until hovered */
-.td-version {
-  padding: 0;
-  background: none;
-  border: none;
-  font: inherit;
-  color: var(--td-text-secondary);
-  cursor: pointer;
-}
-
-.td-version:hover,
-.td-version:focus-visible {
-  color: var(--td-text-primary);
-  text-decoration: underline dotted;
-}
-
-/* World, Tips and Runs in one row; the keys, the credits and the map key
-   moved into the game menu (TODO A3). The 1px gap over the frame colour
-   draws the dividers between the cells. */
-.td-footer-links {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
   background: var(--td-frame-dark);
   border-top: 1px solid var(--td-frame-dark);
 }
 
-.td-attributions-btn {
+.td-foot-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   min-width: 0;
-  padding: 6px 4px;
+  height: 30px;
+  padding: 0 6px;
   background: var(--td-bg-dark);
   border: none;
   color: var(--td-text-secondary);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10.5px;
+  font: 11px var(--td-font-mono);
+  letter-spacing: 0.06em;
   cursor: pointer;
-  opacity: 0.85;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:hover {
+    color: var(--td-text-primary);
+    background: var(--td-panel-secondary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--td-gold-light);
+    outline-offset: -2px;
+  }
 }
 
-.td-attributions-btn span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* The menu is the way to everything that is not playing: its gear in brass */
+.td-foot-menu td-icon {
+  color: var(--td-gold);
 }
 
-.td-attributions-btn:hover {
-  opacity: 1;
-  color: var(--td-text-primary);
-  background: var(--td-panel-secondary);
+.td-version {
+  color: var(--td-text-muted);
 }
