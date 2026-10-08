@@ -111,12 +111,12 @@
 /* Three stat plates, HQ, Credits, Wave (Hud.dc.html). The right edge ends
    flush with the sidebar content below (the header's right padding is the
    sidebar gutter); the plates need more room than the sidebar is wide, so
-   the bar reaches further left, over the canvas. Columns never grow past
-   their share (minmax(0, ...)), so a growing value never shifts or
-   overlaps its neighbours. */
+   the bar reaches further left, over the canvas. Three equal columns that
+   never grow past their share (minmax(0, 1fr)), so a growing value never
+   shifts or overlaps its neighbours. */
 .header-stats {
   display: grid;
-  grid-template-columns: minmax(0, 34fr) minmax(0, 34fr) minmax(0, 30fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   flex-shrink: 0;
   width: var(--td-hud-stats-width);
@@ -131,27 +131,26 @@
   @include ui.motion(background-color);
 }
 
+/* One anatomy on every plate (Hud.dc.html): label (10px) over figure
+   (21px row) over a 4px bar, left-aligned, 38px of the plate's 40 inside */
 .stat-text {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-/* Label left, figure right on one line (HQ, Wave); Credits puts the figure below */
-.stat-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 6px;
+  gap: 1px;
   min-width: 0;
 }
 
 .stat-label {
   @include ui.caps-label;
   flex-shrink: 0;
-  line-height: 1;
+  line-height: 10px;
+}
+
+.stat-bar {
+  flex-shrink: 0;
+  height: 4px;
+  margin-top: 1px;
 }
 
 /* One line: the value and, on the HQ plate, the max. What does not fit
@@ -161,19 +160,16 @@
 .stat-value {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: baseline;
+  column-gap: 2px;
   min-width: 0;
-  height: var(--td-fs-hud);
+  height: 21px;
   overflow: hidden;
   font-family: var(--td-font-display);
   font-size: var(--td-fs-hud);
   font-weight: 600;
-  line-height: var(--td-fs-hud);
-}
-
-.credits .stat-value {
-  justify-content: flex-start;
+  line-height: 21px;
 }
 
 .stat-num {

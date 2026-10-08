@@ -172,7 +172,9 @@
         <span class="sr-only">{{ enemiesStat().exact }}</span>
       </div>
     }
-    <!-- Three plates HQ, Credits, Wave. The visible labels name the values,
+    <!-- Three plates HQ, Credits, Wave, one anatomy: the icon left, beside it
+         the label over the figure over a 4px bar (segments, wave progress,
+         none on Credits). The visible labels name the values,
          the icons are decoration. Large figures show short ("101k"); screen
          readers get the exact figure, the tooltip too once the plate shows
          less than that. Bars, the rising credit change and the flashes are
@@ -181,17 +183,15 @@
       <div class="stat-plate hp" #hqPlate [attr.data-level]="hqLevel()" [matTooltip]="hq().tooltip">
         <td-icon name="hqSolid" [size]="20"></td-icon>
         <div class="stat-text">
-          <div class="stat-row">
-            <span class="stat-label">HQ</span>
-            <span class="stat-value" aria-hidden="true">
-              <span class="stat-num">{{ hq().text }}</span>
-              @if (hq().max; as max) {
-                <span class="stat-max">/{{ max }}</span>
-              }
-            </span>
-          </div>
+          <span class="stat-label">HQ</span>
+          <span class="stat-value" aria-hidden="true">
+            <span class="stat-num">{{ hq().text }}</span>
+            @if (hq().max; as max) {
+              <span class="stat-max">/{{ max }}</span>
+            }
+          </span>
           <span class="sr-only">{{ hq().exact }}</span>
-          <span class="seg-bar" aria-hidden="true">
+          <span class="stat-bar seg-bar" aria-hidden="true">
             @for (lit of hqSegments(); track $index) { <i [class.lit]="lit"></i> }
           </span>
         </div>
@@ -208,6 +208,8 @@
               <span class="stat-num">{{ creditsShownText() }}</span>
             </span>
             <span class="sr-only">{{ creditsStat().exact }}</span>
+            <!-- No bar on this plate; the empty row keeps the three alike -->
+            <span class="stat-bar" aria-hidden="true"></span>
           </div>
         </div>
         <!-- Under the plate, rising into its bottom edge: it never covers the
@@ -222,14 +224,12 @@
       <div class="stat-plate wave" [class.starting]="waveStarting()" [matTooltip]="waveStat().tooltip">
         <td-icon name="waveSolid" [size]="20"></td-icon>
         <div class="stat-text">
-          <div class="stat-row">
-            <span class="stat-label">WAVE</span>
-            <span class="stat-value" aria-hidden="true">
-              <span class="stat-num">{{ waveStat().text }}</span>
-            </span>
-          </div>
+          <span class="stat-label">WAVE</span>
+          <span class="stat-value" aria-hidden="true">
+            <span class="stat-num">{{ waveStat().text }}</span>
+          </span>
           <span class="sr-only">{{ waveStat().exact }}</span>
-          <span class="wave-bar" aria-hidden="true">
+          <span class="stat-bar wave-bar" aria-hidden="true">
             <span class="wave-bar-fill" [style.width.%]="waveProgress()"></span>
           </span>
         </div>
