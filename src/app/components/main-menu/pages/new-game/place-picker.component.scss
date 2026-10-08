@@ -41,7 +41,7 @@
   &:hover { color: var(--td-text-primary); }
 
   &:focus-visible {
-    outline: 2px solid var(--td-gold-light);
+    outline: var(--td-focus-width) solid var(--td-focus-color);
     outline-offset: 2px;
   }
 }

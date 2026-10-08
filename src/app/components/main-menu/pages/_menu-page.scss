@@ -1,44 +1,30 @@
-// The parts of the menu's pages (docs/MAIN_MENU_UI_PLAN.md, Optik): sections
-// under a small mono label, rows, segmented controls, inputs and buttons.
-// Every page sheet includes `classes`, since view encapsulation keeps one
-// sheet's classes to itself. The plate and its title belong to the menu.
-@use '../../../styles/td-mixins' as td;
-
-@mixin btn-base {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 16px;
-  font-family: var(--td-font-display);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  cursor: pointer;
-
-  &:focus-visible {
-    outline: 2px solid var(--td-gold-light);
-    outline-offset: 2px;
-  }
-
-  &:disabled,
-  &[aria-disabled='true'] {
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
-}
+// The parts of the menu's pages (docs/MAIN_MENU_UI_PLAN.md, Optik), on the
+// foundation: sections under a small mono label, list rows, segmented
+// radios and tabs, a fields row. Buttons, inputs and notes are the
+// foundation's classes (btn-primary, btn-secondary, btn-danger, btn-xs,
+// inp, note, kbd). Every page sheet includes `classes`, since view
+// encapsulation keeps one sheet's classes to itself. The plate and its
+// title plate are the menu's.
+@use '../../../styles/game-ui' as ui;
 
 @mixin classes {
+  @include ui.classes;
+
   :host {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: var(--td-sp-5);
     color: var(--td-text-primary);
     font-family: var(--td-font-body);
     font-size: 14px;
+  }
+
+  .note { color: var(--td-text-secondary); font-size: 13px; }
+
+  .btn-primary.sm {
+    height: 30px;
+    padding: 0 12px;
+    font-size: 12px;
   }
 
   .mp-sec {
@@ -48,7 +34,7 @@
     margin: 0;
 
     & + .mp-sec {
-      padding-top: 20px;
+      padding-top: var(--td-sp-5);
       border-top: 1px solid var(--td-frame-dark);
     }
   }
@@ -56,25 +42,14 @@
   .mp-label {
     margin: 0;
     font-family: var(--td-font-mono);
-    font-size: 10px;
+    font-size: var(--td-fs-micro);
     font-weight: 400;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--td-gold);
   }
 
-  .mp-note {
-    margin: 0;
-    font-size: 13px;
-    line-height: 1.5;
-    color: var(--td-text-secondary);
-    text-wrap: pretty;
-
-    &.is-error { color: color-mix(in srgb, var(--td-health-red) 45%, var(--td-text-primary)); }
-    &.is-ok { color: var(--td-teal-light); }
-  }
-
-  // A strip across the page: what the choice ends, a refusal
+  // A line across the page: what the choice ends
   .mp-banner {
     display: flex;
     align-items: center;
@@ -85,53 +60,9 @@
     background: color-mix(in srgb, var(--td-warn-orange) 10%, transparent);
     font-size: 13px;
     line-height: 1.45;
-    color: color-mix(in srgb, var(--td-warn-orange) 45%, var(--td-text-primary));
-
-    &.is-error {
-      border-left-color: var(--td-health-red);
-      background: color-mix(in srgb, var(--td-health-red) 14%, transparent);
-      color: color-mix(in srgb, var(--td-health-red) 45%, var(--td-text-primary));
-    }
+    color: var(--td-warn-text);
 
     > span { flex: 1; }
-  }
-
-  .mp-btn {
-    @include btn-base;
-    border: 1px solid var(--td-frame-mid);
-    background: var(--td-panel-dark);
-    color: var(--td-text-secondary);
-
-    &:hover:not(:disabled, [aria-disabled='true']) {
-      border-color: var(--td-frame-light);
-      color: var(--td-text-primary);
-    }
-  }
-
-  .mp-btn-primary {
-    border: 0;
-    background: linear-gradient(180deg, var(--td-gold-light), var(--td-gold));
-    box-shadow: 0 2px 0 var(--td-gold-dark);
-    color: var(--td-bg-dark);
-
-    &:hover:not(:disabled, [aria-disabled='true']) {
-      color: var(--td-bg-dark);
-      filter: brightness(1.08);
-    }
-
-    &:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 0 var(--td-gold-dark); }
-  }
-
-  .mp-btn-danger {
-    border-color: var(--td-health-red);
-    background: color-mix(in srgb, var(--td-health-red) 22%, var(--td-panel-dark));
-    color: var(--td-text-primary);
-  }
-
-  .mp-btn-sm {
-    height: 30px;
-    padding: 0 12px;
-    font-size: 12px;
   }
 
   // A text button inside a line: Coordinates, Use my location
@@ -146,13 +77,10 @@
     font-size: 13px;
     color: var(--td-gold-light);
     cursor: pointer;
+    @include ui.focus-ring;
+    @include ui.motion(color);
 
     &:hover { color: var(--td-text-primary); }
-
-    &:focus-visible {
-      outline: 2px solid var(--td-gold-light);
-      outline-offset: 2px;
-    }
   }
 
   .mp-links {
@@ -161,59 +89,38 @@
     gap: 6px 18px;
   }
 
-  .mp-input {
-    box-sizing: border-box;
-    height: 36px;
-    width: 100%;
-    min-width: 0;
-    padding: 0 10px;
-    @include td.sunken;
-    color: var(--td-text-primary);
-    font-family: var(--td-font-body);
-    font-size: 14px;
-    outline: none;
-
-    &:focus { border-color: var(--td-gold); }
-    &::placeholder { color: var(--td-text-disabled); }
-  }
-
-  // Segmented control: radios or tabs side by side, the chosen one in brass
+  // Segmented radios or tabs side by side, the chosen one framed in brass
   .mp-seg {
     display: flex;
+    @include ui.sunken;
 
     > button {
       flex: 1;
       height: 32px;
-      padding: 0 10px;
-      border: 1px solid var(--td-frame-mid);
-      background: var(--td-panel-dark);
+      padding: 0 12px;
+      border: 0;
+      border-left: 1px solid var(--td-frame-dark);
+      border-radius: 0;
+      background: none;
       font-family: var(--td-font-display);
       font-size: 13px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       white-space: nowrap;
-      color: var(--td-text-secondary);
+      color: var(--td-text-muted);
       cursor: pointer;
+      @include ui.focus-ring(-2px);
+      @include ui.motion(color, background-color);
 
-      & + button { border-left: 0; }
+      &:first-child { border-left: 0; }
 
       &:hover:not([aria-disabled='true']) { color: var(--td-text-primary); }
 
-      &:focus-visible {
-        outline: 2px solid var(--td-gold-light);
-        outline-offset: -2px;
-      }
-
       &[aria-checked='true'],
       &[aria-selected='true'] {
-        border-color: var(--td-gold);
-        background: color-mix(in srgb, var(--td-gold) 18%, var(--td-panel-dark));
+        background: color-mix(in srgb, var(--td-gold) 14%, var(--td-panel-secondary));
         color: var(--td-text-primary);
-      }
-
-      & + [aria-checked='true'],
-      & + [aria-selected='true'] {
-        border-left: 1px solid var(--td-gold);
+        box-shadow: inset 0 0 0 1px var(--td-gold);
       }
 
       &[aria-disabled='true'] {
@@ -230,6 +137,7 @@
     padding: 0;
     list-style: none;
     border: 1px solid var(--td-frame-dark);
+    @include ui.scrollbar;
 
     > li + li { border-top: 1px solid var(--td-frame-dark); }
   }
@@ -239,20 +147,26 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 16px;
+    gap: var(--td-sp-4);
+    box-sizing: border-box;
     width: 100%;
     padding: 10px 12px;
     border: 0;
+    border-left: 3px solid transparent;
     background: none;
     font: inherit;
     text-align: left;
     color: var(--td-text-primary);
     cursor: pointer;
+    @include ui.motion(background-color, border-color);
 
-    &:hover:not(:disabled) { background: color-mix(in srgb, var(--td-gold) 8%, transparent); }
+    &:hover:not(:disabled) {
+      border-left-color: var(--td-gold);
+      background: color-mix(in srgb, var(--td-gold) 8%, transparent);
+    }
 
     &:focus-visible {
-      outline: 2px solid var(--td-gold-light);
+      outline: var(--td-focus-width) solid var(--td-focus-color);
       outline-offset: -2px;
     }
 
@@ -281,7 +195,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: var(--td-sp-4);
     min-height: 32px;
   }
 
@@ -292,7 +206,5 @@
     gap: 10px;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .mp-btn-primary:active:not(:disabled) { transform: none; }
-  }
+  .mp-file { display: none; }
 }

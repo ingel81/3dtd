@@ -16,7 +16,7 @@
   accent-color: var(--td-gold);
 
   &:focus-visible {
-    outline: 2px solid var(--td-gold-light);
+    outline: var(--td-focus-width) solid var(--td-focus-color);
     outline-offset: 2px;
   }
 }
@@ -38,7 +38,7 @@
   &[aria-pressed='true'] { color: var(--td-warn-orange); }
 
   &:focus-visible {
-    outline: 2px solid var(--td-gold-light);
+    outline: var(--td-focus-width) solid var(--td-focus-color);
     outline-offset: 2px;
   }
 }
@@ -67,7 +67,7 @@
     cursor: pointer;
 
     &:focus-visible {
-      outline: 2px solid var(--td-gold-light);
+      outline: var(--td-focus-width) solid var(--td-focus-color);
       outline-offset: 2px;
     }
   }
@@ -89,7 +89,7 @@
   font-size: 13px;
 
   &:focus-visible {
-    outline: 2px solid var(--td-gold-light);
+    outline: var(--td-focus-width) solid var(--td-focus-color);
     outline-offset: 2px;
   }
 }

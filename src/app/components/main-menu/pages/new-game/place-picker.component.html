@@ -29,26 +29,26 @@
       }
     </div>
     @if (locating() === 'failed') {
-      <p class="mp-note is-error" role="status">The browser gave no location: it was denied or is not available.</p>
+      <p class="note is-error" role="status">The browser gave no location: it was denied or is not available.</p>
     }
 
     @if (showCoordinates()) {
       <div class="mp-coords">
         <label class="mp-coord">
           <span>Lat</span>
-          <input class="mp-input" type="text" [value]="coordLat()" (input)="onCoordLat($event)"
+          <input class="inp" type="text" [value]="coordLat()" (input)="onCoordLat($event)"
                  (paste)="onCoordPaste($event)" placeholder="49.5432 or a link" />
         </label>
         <label class="mp-coord">
           <span>Lon</span>
-          <input class="mp-input" type="text" [value]="coordLon()" (input)="onCoordLon($event)"
+          <input class="inp" type="text" [value]="coordLon()" (input)="onCoordLon($event)"
                  (paste)="onCoordPaste($event)" placeholder="9.1234" />
         </label>
-        <button type="button" class="mp-btn" [disabled]="!canApplyCoords() || isLoadingCoords()" (click)="applyCoordinates()">
+        <button type="button" class="btn-secondary" [disabled]="!canApplyCoords() || isLoadingCoords()" (click)="applyCoordinates()">
           {{ isLoadingCoords() ? 'Looking up…' : 'Use' }}
         </button>
       </div>
-      <p class="mp-note">Paste a 3DTD link to open that place with its spawns.</p>
+      <p class="note">Paste a 3DTD link to open that place with its spawns.</p>
     }
 
     @if (selectedHQ()) {
@@ -71,17 +71,17 @@
               (locationCleared)="onSpawnCleared()"
             />
             @if (spawnDistance() !== null) {
-              <p class="mp-note" [class.is-error]="isSpawnTooFar()">
+              <p class="note" [class.is-error]="isSpawnTooFar()">
                 {{ (spawnDistance()! / 1000).toFixed(1) }} km from the HQ{{ isSpawnTooFar() ? ', at most ' + maxSpawnKm + ' km' : '' }}
               </p>
             }
           } @else {
-            <p class="mp-note">Enemies come from a street 0.5 to 1 km from the HQ.</p>
+            <p class="note">Enemies come from a street 0.5 to 1 km from the HQ.</p>
           }
         </div>
       }
       <div class="mp-actions">
-        <button type="button" class="mp-btn mp-btn-primary" [disabled]="!canConfirm()" (click)="confirm()">Load place</button>
+        <button type="button" class="btn-primary" [disabled]="!canConfirm()" (click)="confirm()">Load place</button>
       </div>
     }
   </section>
@@ -108,7 +108,7 @@
             }
           </ul>
         } @else {
-          <p class="mp-note">Every place you play shows up here.</p>
+          <p class="note">Every place you play shows up here.</p>
         }
       }
       @case ('favorites') {
@@ -124,7 +124,7 @@
             }
           </ul>
         } @else {
-          <p class="mp-note">No favorites yet. The star in the header keeps the place you play.</p>
+          <p class="note">No favorites yet. The star in the header keeps the place you play.</p>
         }
       }
       @case ('showcase') {
@@ -151,7 +151,7 @@
                 (picked)="loadRecord($event)"
               />
             } @error {
-              <p class="mp-note">The map did not load. Check the connection and reload the page.</p>
+              <p class="note">The map did not load. Check the connection and reload the page.</p>
             }
           </div>
           @if (worldRecords().length) {
@@ -169,7 +169,7 @@
               }
             </ul>
           } @else {
-            <p class="mp-note">Every place you defend shows up here with the best wave you reached.</p>
+            <p class="note">Every place you defend shows up here with the best wave you reached.</p>
           }
         </div>
       }
@@ -183,7 +183,7 @@
       <td-icon name="caretL" [size]="12"></td-icon>Back to the places
     </button>
     @if (current(); as here) {
-      <p class="mp-note">HQ stays at {{ here.name }}.</p>
+      <p class="note">HQ stays at {{ here.name }}.</p>
     }
     <h3 class="mp-label">New spawn</h3>
     <app-td-address-autocomplete
@@ -193,14 +193,14 @@
       (locationCleared)="onSpawnCleared()"
     />
     @if (spawnDistance() !== null) {
-      <p class="mp-note" [class.is-error]="isSpawnTooFar()">
+      <p class="note" [class.is-error]="isSpawnTooFar()">
         {{ (spawnDistance()! / 1000).toFixed(1) }} km from the HQ{{ isSpawnTooFar() ? ', at most ' + maxSpawnKm + ' km' : '' }}
       </p>
     } @else {
-      <p class="mp-note">At most {{ maxSpawnKm }} km from the HQ. To drop it on the map, use the flag in the header.</p>
+      <p class="note">At most {{ maxSpawnKm }} km from the HQ. To drop it on the map, use the flag in the header.</p>
     }
     <div class="mp-actions">
-      <button type="button" class="mp-btn mp-btn-primary" [disabled]="!canConfirm()" (click)="confirm()">Move spawn</button>
+      <button type="button" class="btn-primary" [disabled]="!canConfirm()" (click)="confirm()">Move spawn</button>
     </div>
   </section>
 }

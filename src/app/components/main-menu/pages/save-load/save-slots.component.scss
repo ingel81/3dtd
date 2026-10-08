@@ -24,7 +24,7 @@
   &:hover:not(:disabled) { background: color-mix(in srgb, var(--td-gold) 8%, transparent); }
 
   &:focus-visible {
-    outline: 2px solid var(--td-gold-light);
+    outline: var(--td-focus-width) solid var(--td-focus-color);
     outline-offset: -2px;
   }
 
@@ -69,7 +69,7 @@
   &:hover:not(:disabled) { color: var(--td-text-primary); background: color-mix(in srgb, var(--td-gold) 8%, transparent); }
 
   &:focus-visible {
-    outline: 2px solid var(--td-gold-light);
+    outline: var(--td-focus-width) solid var(--td-focus-color);
     outline-offset: -2px;
   }
 

@@ -13,7 +13,7 @@
       </button>
     </div>
   }
-  <p class="mp-note">M mutes everything in the game.</p>
+  <p class="note">M mutes everything in the game.</p>
 </section>
 
 <section class="mp-sec" aria-labelledby="td-set-graphics">
@@ -25,7 +25,7 @@
     }
   </div>
   @if (!activePreset()) {
-    <p class="mp-note">Your own mix of the switches below.</p>
+    <p class="note">Your own mix of the switches below.</p>
   }
   <div class="set-switches">
     @for (row of switches; track row.label) {
@@ -53,7 +53,7 @@
   </div>
   <div class="mp-field">
     <span>Fullscreen <kbd class="set-key">F11</kbd></span>
-    <button class="mp-btn mp-btn-sm" type="button" (click)="toggleFullscreen()" [attr.aria-pressed]="fullscreen()">
+    <button class="btn-xs" type="button" (click)="toggleFullscreen()" [attr.aria-pressed]="fullscreen()">
       {{ fullscreen() ? 'Leave fullscreen' : 'Fullscreen' }}
     </button>
   </div>
@@ -70,7 +70,7 @@
       }
     </div>
   </div>
-  <p class="mp-note">{{ speedLocked() ? 'The host sets the speed.' : '+ and - change it in the game.' }}</p>
+  <p class="note">{{ speedLocked() ? 'The host sets the speed.' : '+ and - change it in the game.' }}</p>
   <label class="mp-field set-switch">
     <span>Start the next wave on its own</span>
     <input type="checkbox" [checked]="ui.autoStartWaves()" (change)="toggleAutoStart()">
@@ -81,7 +81,7 @@
   <h3 class="mp-label" id="td-set-map">Map</h3>
   <div class="mp-field">
     <span>Tile access <span class="mp-meta">{{ provider() }}</span></span>
-    <button class="mp-btn mp-btn-sm" type="button" (click)="changeKey()">Change key</button>
+    <button class="btn-xs" type="button" (click)="changeKey()">Change key</button>
   </div>
 </section>
 
@@ -90,7 +90,7 @@
     <h3 class="mp-label" id="td-set-coop">Coop</h3>
     <label class="mp-field">
       <span>Your name</span>
-      <input class="mp-input set-name" type="text" maxlength="32" [value]="playerName()"
+      <input class="inp set-name" type="text" maxlength="32" [value]="playerName()"
              (input)="setPlayerName($any($event.target).value)">
     </label>
     @if (c.lobbies().length) {
@@ -110,14 +110,14 @@
       </ul>
     }
     <div class="set-lobby-add">
-      <input class="mp-input" type="text" maxlength="40" placeholder="Name" aria-label="Lobby name"
+      <input class="inp" type="text" maxlength="40" placeholder="Name" aria-label="Lobby name"
              [value]="newLobbyName()" (input)="newLobbyName.set($any($event.target).value)">
-      <input class="mp-input" type="text" placeholder="wss://…" aria-label="Lobby address"
+      <input class="inp" type="text" placeholder="wss://…" aria-label="Lobby address"
              [value]="newLobbyUrl()" (input)="newLobbyUrl.set($any($event.target).value)" (keydown.enter)="addLobby()">
-      <button class="mp-btn mp-btn-sm" type="button" (click)="addLobby()" [disabled]="!newLobbyUrl().trim()">Add lobby</button>
+      <button class="btn-xs" type="button" (click)="addLobby()" [disabled]="!newLobbyUrl().trim()">Add lobby</button>
     </div>
     @if (lobbyNote(); as note) {
-      <p class="mp-note" [class.is-ok]="note.ok" [class.is-error]="!note.ok" role="status">{{ note.text }}</p>
+      <p class="note" [class.is-ok]="note.ok" [class.is-error]="!note.ok" role="status">{{ note.text }}</p>
     }
   </section>
 }

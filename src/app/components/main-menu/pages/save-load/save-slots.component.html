@@ -5,31 +5,31 @@
       @case ('overwrite') {
         <p class="mp-ask" id="td-slot-ask">Overwrite "{{ c.title }}"?</p>
         <div class="mp-actions">
-          <button class="mp-btn" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="mp-btn mp-btn-primary" type="button" (click)="saveTo(c.slotId, true, c.title)">Overwrite</button>
+          <button class="btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
+          <button class="btn-primary" type="button" (click)="saveTo(c.slotId, true, c.title)">Overwrite</button>
         </div>
       }
       @case ('load') {
         <p class="mp-ask" id="td-slot-ask">Load "{{ c.title }}"?</p>
-        <p class="mp-note">The run under way ends; save it first to keep it.</p>
+        <p class="note">The run under way ends; save it first to keep it.</p>
         <div class="mp-actions">
-          <button class="mp-btn" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="mp-btn mp-btn-primary" type="button" (click)="loadSlot(c.slotId)">Load</button>
+          <button class="btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
+          <button class="btn-primary" type="button" (click)="loadSlot(c.slotId)">Load</button>
         </div>
       }
       @case ('import') {
         <p class="mp-ask" id="td-slot-ask">Load a save from a file?</p>
-        <p class="mp-note">The run under way ends; save it first to keep it.</p>
+        <p class="note">The run under way ends; save it first to keep it.</p>
         <div class="mp-actions">
-          <button class="mp-btn" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="mp-btn mp-btn-primary" type="button" (click)="askImport()">Pick file</button>
+          <button class="btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
+          <button class="btn-primary" type="button" (click)="askImport()">Pick file</button>
         </div>
       }
       @case ('delete') {
         <p class="mp-ask" id="td-slot-ask">Delete "{{ c.title }}"?</p>
         <div class="mp-actions">
-          <button class="mp-btn" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="mp-btn mp-btn-danger" type="button" (click)="deleteSlot(c.slotId)">Delete</button>
+          <button class="btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
+          <button class="btn-danger" type="button" (click)="deleteSlot(c.slotId)">Delete</button>
         </div>
       }
     }
@@ -37,7 +37,7 @@
 } @else if (mode() === 'save') {
   <section class="mp-sec">
     @if (saves.cannotSaveReason(); as reason) {
-      <p class="mp-note">{{ reason }}</p>
+      <p class="note">{{ reason }}</p>
     }
     <ul class="mp-list" aria-label="Save slots">
       @for (row of saveRows(); track row.id) {
@@ -60,10 +60,10 @@
 } @else {
   <section class="mp-sec">
     @if (cannotLoadReason(); as reason) {
-      <p class="mp-note">{{ reason }}</p>
+      <p class="note">{{ reason }}</p>
     }
     @if (loadRows().length === 0) {
-      <p class="mp-note">No saved game in this browser yet.</p>
+      <p class="note">No saved game in this browser yet.</p>
     } @else {
       <ul class="mp-list" aria-label="Saved games">
         @for (row of loadRows(); track row.id) {
@@ -96,7 +96,7 @@
       </ul>
     }
     <div class="mp-actions mp-actions-start">
-      <button class="mp-btn" type="button" [disabled]="!canLoad() || busy()" (click)="askImport()">
+      <button class="btn-secondary" type="button" [disabled]="!canLoad() || busy()" (click)="askImport()">
         <td-icon name="filing" [size]="14"></td-icon>Load from a file
       </button>
     </div>
@@ -107,5 +107,5 @@
 <input #importInput class="mp-file" type="file" tabindex="-1" aria-hidden="true" (change)="onImportFile($event)">
 
 @if (status(); as s) {
-  <p class="mp-note mp-status" [class.is-error]="s.bad" role="status">{{ s.text }}</p>
+  <p class="note mp-status" [class.is-error]="s.bad" role="status">{{ s.text }}</p>
 }
