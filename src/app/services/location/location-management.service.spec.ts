@@ -61,6 +61,11 @@ describe('LocationManagementService', () => {
     expect(service.editableSpawnLocations()[1].portalBearing).toBeUndefined();
   });
 
+  it('calls DevWorld\'s fake origin "Dev world" without asking the geocoder', () => {
+    service.setLocation({ lat: 0, lon: 0 }, []);
+    expect(service.displayName()).toBe('Dev world');
+  });
+
   it('reset() restores the same name it starts with', () => {
     service.displayName.set('Erlenbach');
     service.reset();

@@ -21,6 +21,9 @@ import {
 
 /** Header text while no location is set */
 export const NO_LOCATION_NAME = 'No location';
+
+/** What DevWorld's place is called (header, menu, loading plate) */
+export const DEV_WORLD_NAME = 'Dev world';
 /** Header text while the reverse geocode of a new HQ runs */
 export const LOADING_NAME = 'Loading...';
 
@@ -177,8 +180,13 @@ export class LocationManagementService {
    * Resolve display name via reverse geocoding
    */
   private async resolveDisplayName(lat: number, lon: number): Promise<void> {
-    this.displayName.set(LOADING_NAME);
     this.address.set(null);
+    // DevWorld's fake origin has no address: its name, not "0.0000, 0.0000"
+    if (lat === DEV_WORLD_ORIGIN.lat && lon === DEV_WORLD_ORIGIN.lon) {
+      this.displayName.set(DEV_WORLD_NAME);
+      return;
+    }
+    this.displayName.set(LOADING_NAME);
 
     try {
       const result = await this.geocoding.reverseGeocodeDetailed(lat, lon);
