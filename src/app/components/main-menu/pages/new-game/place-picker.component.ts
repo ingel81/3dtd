@@ -90,7 +90,6 @@ export class PlacePickerComponent {
 
   readonly lists = LISTS;
   readonly list = signal<PlaceList>(this.locationMgmt.recents().length > 0 ? 'recent' : 'showcase');
-  readonly listLabel = computed(() => LISTS.find((entry) => entry.id === this.list())!.label);
 
   /** Recent places except the one loaded, which would only restart it */
   readonly recentLocations = computed(() => {

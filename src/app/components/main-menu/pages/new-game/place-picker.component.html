@@ -89,11 +89,12 @@
   <section class="mp-sec">
     <div class="mp-seg mp-lists" role="tablist" aria-label="Places" tdRovingGroup>
       @for (entry of lists; track entry.id) {
-        <button type="button" role="tab" [attr.aria-selected]="list() === entry.id" (click)="list.set(entry.id)">{{ entry.label }}</button>
+        <button type="button" role="tab" [id]="'td-places-tab-' + entry.id" aria-controls="td-places-panel"
+                [attr.aria-selected]="list() === entry.id" (click)="list.set(entry.id)">{{ entry.label }}</button>
       }
     </div>
 
-    <div class="mp-panel" role="tabpanel" [attr.aria-label]="listLabel()">
+    <div class="mp-panel" role="tabpanel" id="td-places-panel" [attr.aria-labelledby]="'td-places-tab-' + list()">
     @switch (list()) {
       @case ('recent') {
         @if (recentLocations().length) {
