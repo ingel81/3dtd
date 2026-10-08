@@ -11,9 +11,10 @@ import { test, expect, type Page } from '@playwright/test';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { leaveRoom, openCoopPage, openRoom, startRelay } from '../support/game';
+import { leaveRoom, openCoopPage, startRelay } from '../support/game';
 
-const OUT = fileURLToPath(new URL('../../tmp/ui-shots/after/', import.meta.url));
+/** UI_SHOTS_DIR for a run from a worktree whose pictures belong to the main checkout */
+const OUT = process.env['UI_SHOTS_DIR'] ?? fileURLToPath(new URL('../../tmp/ui-shots/after/', import.meta.url));
 const VIEWPORTS = [
   { width: 1600, height: 900 },
   { width: 1280, height: 720 },
@@ -34,6 +35,14 @@ const OPTIONAL_IN_START = new Set(['save']);
 
 /** --td-focus-color, #D9BC68 */
 const FOCUS_COLOR = 'rgb(217, 188, 104)';
+
+/**
+ * Smallest computed width that is still a 2px line: Chrome snaps outline
+ * and border widths to whole screen pixels, and at 125 % Windows scaling a
+ * 2px ring computes as 1.6px (2 screen pixels) even where devicePixelRatio
+ * reports 1. A 1px ring computes at most 1px.
+ */
+const TWO_PX = 1.5;
 
 /**
  * The failed steps of one size into missing-<size>.txt, then missing.txt
@@ -79,9 +88,15 @@ class Tour {
     try {
       await test.step(name, body);
     } catch (error) {
-      const line = `${this.size} ${name}: ${String((error as Error)?.message ?? error).split('\n')[0]}`;
+      // Without the terminal colours of expect's messages
+      // eslint-disable-next-line no-control-regex
+      const message = String((error as Error)?.message ?? error).replace(/\u001b\[[0-9;]*m/g, '');
+      const line = `${this.size} ${name}: ${message.split('\n')[0]}`;
       this.failed.push(line);
-      console.warn(`[ui-tour] ${line}`);
+      const detail = message.split('\n').slice(0, 12).join('\n');
+      // What the page showed when the step failed, beside the numbered pictures
+      await this.page.screenshot({ path: join(this.dir, `fail-${name.replace(/[^a-z0-9]+/gi, '-')}.png`) }).catch(() => undefined);
+      console.warn(`[ui-tour] ${line}\n${detail}`);
       // A step that failed half way may leave a dialog open: the next starts from the game
       if (this.inGame) await toGame(this.page).catch(() => undefined);
     }
@@ -129,14 +144,20 @@ async function openPause(page: Page): Promise<void> {
   await expect(menu(page)).toBeVisible({ timeout: 5000 });
 }
 
-/** Out of every menu and dialog, back to the game */
+/** Out of every menu and dialog, back to the game: dialogs by Esc, menu pages by Back, the list by Continue */
 async function toGame(page: Page): Promise<void> {
-  for (let i = 0; i < 6; i++) {
-    const open = (await menu(page).isVisible()) || (await page.locator('mat-dialog-container').count()) > 0;
-    if (!open) return;
-    const cont = menuNamed(page, 'Menu').getByRole('menuitem', { name: /^Continue/ });
-    if (await cont.count()) await cont.first().click();
-    else await page.keyboard.press('Escape');
+  for (let i = 0; i < 8; i++) {
+    if (await page.locator('mat-dialog-container').count()) {
+      await page.keyboard.press('Escape');
+    } else if (await menu(page).isVisible()) {
+      const back = menu(page).getByRole('button', { name: 'Back' });
+      const cont = menu(page).getByRole('menuitem', { name: /^Continue/ });
+      if (await back.count()) await back.first().click();
+      else if (await cont.count()) await cont.first().click();
+      else await page.keyboard.press('Escape');
+    } else {
+      return;
+    }
     await page.waitForTimeout(400);
   }
   await expect(menu(page)).toBeHidden({ timeout: 3000 });
@@ -152,6 +173,8 @@ async function devButton(page: Page, name: RegExp) {
 async function closeDev(page: Page): Promise<void> {
   const toggle = page.getByRole('button', { name: 'Developer options' });
   if ((await toggle.getAttribute('aria-expanded')) === 'true') await toggle.click();
+  // Off the bar, so its tooltip does not cover the next button
+  await page.mouse.move(Math.round((page.viewportSize()?.width ?? 1600) / 3), 400);
 }
 
 /** Take HQ health down to about `share` of `max` with the +HP tile's right-click (-10 each) */
@@ -338,8 +361,9 @@ async function runTour(page: Page, size: string): Promise<Tour> {
     });
     expect(ring, 'something has the focus').not.toBeNull();
     // A ring of 2px or more, or the menu item's 2px+ bar in the focus colour
-    const outline = ring!.outlineStyle !== 'none' && ring!.outlineWidth >= 2;
-    const bar = ring!.borderLeftWidth >= 2 && ring!.borderLeftColor === FOCUS_COLOR;
+    const min = TWO_PX;
+    const outline = ring!.outlineStyle !== 'none' && ring!.outlineWidth >= min;
+    const bar = ring!.borderLeftWidth >= min && ring!.borderLeftColor === FOCUS_COLOR;
     expect(outline || bar, `visible focus on ${ring!.tag} "${ring!.text}": ${JSON.stringify(ring)}`).toBe(true);
     await toGame(page);
   });
@@ -354,7 +378,7 @@ async function runTour(page: Page, size: string): Promise<Tour> {
       const el = document.activeElement as HTMLElement | null;
       return el ? parseFloat(getComputedStyle(el).outlineWidth) || 0 : 0;
     });
-    expect(width, 'outline width of the focused header button').toBeGreaterThanOrEqual(2);
+    expect(width, 'outline width of the focused header button (2px, snapped to device pixels)').toBeGreaterThanOrEqual(TWO_PX);
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   });
 
@@ -406,7 +430,13 @@ async function runTour(page: Page, size: string): Promise<Tour> {
       // DevWorld hosts on the relay of this machine: pick its lobby where the page offers one
       const lobby = page.locator('app-coop-ways select.lobby-select');
       if (await lobby.count()) await lobby.selectOption({ label: 'This machine' });
-      await openRoom(page);
+      // openRoom, with the question a running solo run asks first (it ends that run)
+      await page.locator('app-coop-ways').getByRole('button', { name: 'Host a room' }).click();
+      const anyway = page.locator('app-coop-ways').getByRole('button', { name: 'Host anyway' });
+      if (await anyway.waitFor({ timeout: 3000 }).then(() => true, () => false)) {
+        await tour.shot('coop-host-confirm');
+        await anyway.click();
+      }
       await page.locator('app-coop-dock .code b').waitFor({ timeout: 60_000 });
       await page.waitForTimeout(800);
       await tour.shot('coop-dock-room');
