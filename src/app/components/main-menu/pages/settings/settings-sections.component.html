@@ -53,8 +53,8 @@
   </div>
   <div class="mp-field">
     <span>Fullscreen <kbd class="set-key">F11</kbd></span>
-    <button class="btn-xs" type="button" (click)="toggleFullscreen()" [attr.aria-pressed]="fullscreen()">
-      {{ fullscreen() ? 'Leave fullscreen' : 'Fullscreen' }}
+    <button class="btn-xs" type="button" (click)="toggleFullscreen()">
+      {{ fullscreen() ? 'Leave fullscreen' : 'Go fullscreen' }}
     </button>
   </div>
 </section>
@@ -80,7 +80,7 @@
 <section class="mp-sec" aria-labelledby="td-set-map">
   <h3 class="mp-label" id="td-set-map">Map</h3>
   <div class="mp-field">
-    <span>Tile access <span class="mp-meta">{{ provider() }}</span></span>
+    <span>Map key <span class="mp-meta">{{ provider() }}</span></span>
     <button class="btn-xs" type="button" (click)="changeKey()">Change key</button>
   </div>
 </section>

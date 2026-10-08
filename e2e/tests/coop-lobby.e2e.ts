@@ -67,7 +67,7 @@ test('a guest follows the host to a new place in the page and keeps its lane (T6
   const lane = (await host.locator('app-coop-dock .row-lane', { hasText: 'Bob' }).locator('.lane b').innerText()).match(/Spawn \d/)?.[0] ?? '';
   // The host's dice changes the place in the game; the guest goes there in the page, no reload (no map session more)
   await guest.evaluate(() => { (window as unknown as { samePage?: boolean }).samePage = true; });
-  await host.getByRole('button', { name: 'Random location' }).click();
+  await host.getByRole('button', { name: 'Random city' }).click();
   await expect.poll(() => chatText(host), { timeout: 120_000 }).toMatch(/Bob is loading the map/);
   await gameReady(host);
   await gameReady(guest);

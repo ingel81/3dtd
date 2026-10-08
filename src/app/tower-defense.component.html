@@ -66,8 +66,8 @@
         } @error {
           <div class="td-error-overlay" role="alert">
             <div class="td-error-plate">
-              <h3>Setup screen did not load</h3>
-              <p>The screen for the map credentials could not be loaded. Check the connection and reload the page.</p>
+              <h3>The map key screen did not load</h3>
+              <p>Check the connection and reload the page.</p>
               <div class="td-error-actions">
                 <button type="button" class="btn-primary" (click)="reloadPage()">Reload</button>
               </div>
@@ -363,7 +363,7 @@
               <!-- The run as a file: the analysis reads it, and it can be sent (docs/RUN_LOG.md) -->
               <button type="button" class="btn-ghost" (click)="exportRunLog()">
                 <td-icon name="filing" [size]="14"></td-icon>
-                <span>{{ runLogExported() ? 'Run saved' : 'Save the run' }}</span>
+                <span>{{ runLogExported() ? 'Run log saved' : 'Save the run log' }}</span>
               </button>
               <!-- Coop: no replay to watch here, but the host saves the waves as a file -->
               @if (coopReplaySave()) {

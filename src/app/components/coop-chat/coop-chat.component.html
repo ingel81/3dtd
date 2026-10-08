@@ -11,7 +11,7 @@
   }
   @if (writing()) {
     <div class="open">
-      <span class="to">ALL</span>
+      <span class="to">All</span>
       <input #field type="text" maxlength="200" placeholder="Say something" aria-label="Chat message"
              (keydown.enter)="send($any($event.target).value); $event.stopPropagation()"
              (keydown.escape)="close(); $event.stopPropagation()" (blur)="close()" />

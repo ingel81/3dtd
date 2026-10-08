@@ -30,7 +30,7 @@
 
     @if (!collapsed()) {
       @if (coop.lostInGame()) {
-        <p class="banner is-error" role="alert"><b>Connection to server lost.</b> The game stands still.</p>
+        <p class="banner is-error" role="alert"><b>Connection to the coop server lost.</b> The game stands still.</p>
       } @else if (coop.desync()) {
         <p class="banner" role="alert"><b>Out of sync.</b> What you see may differ from what the others see.</p>
       }

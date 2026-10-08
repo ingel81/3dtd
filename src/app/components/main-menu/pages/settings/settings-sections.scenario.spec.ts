@@ -166,7 +166,7 @@ describe('Settings page', () => {
 
   it('switches the app window to fullscreen and says so', async () => {
     const { bridge, byText, settle } = await setup();
-    byText('Fullscreen')!.click();
+    byText('Go fullscreen')!.click();
     await settle();
     expect(bridge.toggleFullscreen).toHaveBeenCalledTimes(1);
     expect(byText('Leave fullscreen')).toBeDefined();

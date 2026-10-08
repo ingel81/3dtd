@@ -100,8 +100,8 @@ export class MenuHomeComponent {
 
     if (this.layer() === 'pause') {
       list.push(entry('continue', 'Continue'));
-      if (solo && menu.underWay()) list.push(entry('save', 'Save'));
-      if (solo) list.push(entry('load', 'Load'));
+      if (solo && menu.underWay()) list.push(entry('save', 'Save game'));
+      if (solo) list.push(entry('load', 'Load game'));
       list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
       if (menu.canChangePlace()) list.push(entry('new-game', 'New game', null, true));
       list.push(entry('coop', 'Coop', null, true));
@@ -126,8 +126,8 @@ export class MenuHomeComponent {
     list.push(...head);
     if (menu.hasPlace() && menu.canChangePlace()) list.push(entry('new-game', 'New game'));
     list.push(entry('coop', 'Coop'));
-    if (solo && menu.underWay()) list.push(entry('save', 'Save'));
-    if (solo) list.push(entry('load', 'Load'));
+    if (solo && menu.underWay()) list.push(entry('save', 'Save game'));
+    if (solo) list.push(entry('load', 'Load game'));
     list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
     if (menu.canQuit) list.push(entry('quit', 'Quit 3DTD', null, true));
     return list;

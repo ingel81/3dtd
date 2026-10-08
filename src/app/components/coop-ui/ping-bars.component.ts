@@ -29,7 +29,7 @@ export function pingBarCount(ms: number | null): number {
         <i [class.is-off]="bar > lit()"></i>
       }
     </span>
-    <b aria-hidden="true">{{ ms() === null ? '—' : ms() + ' ms' }}</b>
+    <b aria-hidden="true">{{ ms() === null ? '-' : ms() + ' ms' }}</b>
   `,
   styles: `
     :host {

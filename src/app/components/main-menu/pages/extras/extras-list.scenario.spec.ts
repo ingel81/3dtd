@@ -145,7 +145,7 @@ describe('Extras page', () => {
     await settle();
     expect(el.querySelector('.mp-status')!.textContent).toContain('Run log saved.');
     row("What's new").click();
-    row('Keys').click();
+    row('Keyboard shortcuts').click();
     row('Damage vs armor').click();
     row('Attributions').click();
     expect(openers.runs).toHaveBeenCalledTimes(1);

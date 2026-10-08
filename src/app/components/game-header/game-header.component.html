@@ -2,8 +2,8 @@
   <img class="logo" src="assets/images/logo/logo.png" alt="3DTD">
   <div class="header-left">
     <button class="location-btn" (click)="locationClick.emit()" [disabled]="locationLocked()"
-            [matTooltip]="locationLocked() ? 'The coop room plays this map' : 'Change location'">
-      <span class="location-label">DEFEND</span>
+            [matTooltip]="locationLocked() ? 'The coop room plays this map' : 'Change place'">
+      <span class="location-label">Defend</span>
       <span class="location-name">{{ locationName() }}</span>
       <td-icon class="location-edit" name="edit" [size]="16"></td-icon>
     </button>
@@ -49,7 +49,7 @@
           } @else {
             <button class="fav-item fav-add" (click)="startAddFavorite()">
               <td-icon name="plus" [size]="14"></td-icon>
-              <span>Save location</span>
+              <span>Save this place</span>
             </button>
           }
           <div class="fav-list">
@@ -89,8 +89,8 @@
 
       <!-- World Dice -->
       <button class="action-btn" (click)="diceClick.emit()"
-              [matTooltip]="locationLocked() ? 'The coop room plays this map' : 'Random location'"
-              aria-label="Random location" [disabled]="locationLocked()">
+              [matTooltip]="locationLocked() ? 'The coop room plays this map' : 'Random city'"
+              aria-label="Random city" [disabled]="locationLocked()">
         <td-icon name="dice" [size]="22"></td-icon>
       </button>
 
@@ -203,7 +203,7 @@
         <div class="stat-plate credits" #creditsPlate [matTooltip]="creditsStat().tooltip">
           <td-icon name="coinSolid" [size]="20"></td-icon>
           <div class="stat-text">
-            <span class="stat-label">CREDITS</span>
+            <span class="stat-label">Credits</span>
             <span class="stat-value" aria-hidden="true">
               <span class="stat-num">{{ creditsShownText() }}</span>
             </span>
@@ -224,7 +224,7 @@
       <div class="stat-plate wave" [class.starting]="waveStarting()" [matTooltip]="waveStat().tooltip">
         <td-icon name="waveSolid" [size]="20"></td-icon>
         <div class="stat-text">
-          <span class="stat-label">WAVE</span>
+          <span class="stat-label">Wave</span>
           <span class="stat-value" aria-hidden="true">
             <span class="stat-num">{{ waveStat().text }}</span>
           </span>

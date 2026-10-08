@@ -182,7 +182,7 @@ describe('The main menu', () => {
       coordinator.awaitingStartChoice.set(true);
       await setup();
 
-      expect(entries()).toEqual(['New game', 'Coop', 'Load', 'Settings', 'Extras']);
+      expect(entries()).toEqual(['New game', 'Coop', 'Load game', 'Settings', 'Extras']);
       expect(el().querySelector('app-menu-loading')).toBeNull();
     });
 
@@ -413,7 +413,7 @@ describe('The main menu', () => {
       game.towerCount.set(2);
       await settle();
 
-      expect(entries()).toEqual(['Continue', 'Save', 'Load', 'Settings', 'Extras', 'New game', 'Coop', 'Restart here']);
+      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'Restart here']);
       expect(text()).toContain('Paused · Heilbronn · wave 1');
     });
 
