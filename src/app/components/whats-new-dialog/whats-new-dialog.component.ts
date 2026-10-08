@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { CHANGELOG_RELEASES } from '../../configs/changelog.config';
 import { BUILD_VERSION } from '../../configs/build-info.config';
@@ -23,11 +22,6 @@ const CHANGELOG_URL = 'https://github.com/ingel81/3dtd/blob/main/CHANGELOG.md';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './whats-new-dialog.component.html',
   styleUrl: './whats-new-dialog.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class WhatsNewDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<WhatsNewDialogComponent>);

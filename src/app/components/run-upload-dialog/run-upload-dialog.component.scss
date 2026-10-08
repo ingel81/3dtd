@@ -1,0 +1,15 @@
+@use '../../styles/game-ui' as ui;
+
+@include ui.classes;
+
+.dlg {
+  width: 460px;
+}
+
+.dlg-body p {
+  margin: 0 0 var(--td-sp-3);
+}
+
+.dlg-body p:last-child {
+  margin-bottom: 0;
+}

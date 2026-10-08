@@ -1,14 +1,16 @@
-<div class="runs-dialog">
-  <div class="dialog-header">
-    <td-icon class="header-icon" name="filing" [size]="18"></td-icon>
-    <h2 id="td-runs-dialog-title">Runs</h2>
+<div class="dlg">
+  <header class="dlg-head">
+    <h2 class="dlg-title" id="td-runs-dialog-title">Runs</h2>
     @if (!loading()) {
       <span class="runs-count">{{ runs().length }} / {{ maxRuns }}</span>
     }
-  </div>
+    <button class="icon-btn" type="button" aria-label="Close" (click)="close()">
+      <td-icon name="cross" [size]="16"></td-icon>
+    </button>
+  </header>
 
-  <div class="dialog-content">
-    <p class="runs-hint">
+  <div class="dlg-body">
+    <p class="note runs-hint">
       The last {{ maxRuns }} runs of this browser. Saving gives you the run as a file.
     </p>
     <label class="runs-upload">
@@ -38,7 +40,7 @@
                     matTooltip="Save as file" aria-label="Save run as file">
               <td-icon name="download" [size]="16"></td-icon>
             </button>
-            <button class="icon-btn icon-btn-danger" type="button" (click)="remove(run)"
+            <button class="icon-btn is-danger" type="button" (click)="remove(run)"
                     matTooltip="Delete" aria-label="Delete run">
               <td-icon name="trash" [size]="16"></td-icon>
             </button>
@@ -48,19 +50,19 @@
     }
   </div>
 
-  <div class="dialog-footer">
+  <footer class="dlg-foot">
     @if (confirmingClear()) {
       <span class="confirm-text" role="alert">Delete all {{ runs().length }} runs? This cannot be undone.</span>
-      <button class="footer-btn" type="button" (click)="confirmingClear.set(false)">Cancel</button>
-      <button class="footer-btn footer-btn-danger" type="button" (click)="clearAll()">Delete all</button>
+      <button class="btn-secondary" type="button" (click)="confirmingClear.set(false)">Cancel</button>
+      <button class="btn-danger" type="button" (click)="clearAll()">Delete all</button>
     } @else {
-      <button class="footer-btn footer-btn-quiet-danger" type="button" (click)="confirmingClear.set(true)"
+      <button class="btn-ghost" type="button" (click)="confirmingClear.set(true)"
               [disabled]="loading() || runs().length === 0">
-        <td-icon name="trash" [size]="13"></td-icon>
+        <td-icon name="trash" [size]="14"></td-icon>
         Delete all
       </button>
       <span class="footer-spacer"></span>
-      <button class="footer-btn" type="button" (click)="close()">Close</button>
+      <button class="btn-primary" type="button" (click)="close()">Close</button>
     }
-  </div>
+  </footer>
 </div>

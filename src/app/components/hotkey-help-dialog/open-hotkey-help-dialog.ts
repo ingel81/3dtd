@@ -15,7 +15,6 @@ const open = lazyDialog<HotkeyHelpDialogComponent>(
 export function openHotkeyHelpDialog(dialog: MatDialog): Promise<MatDialogRef<HotkeyHelpDialogComponent>> {
   return open(dialog, {
     panelClass: 'td-dialog-panel',
-    width: 'min(460px, 92vw)',
     maxWidth: '92vw',
     ariaLabelledBy: HOTKEY_HELP_TITLE_ID,
     autoFocus: 'dialog',

@@ -1,87 +1,42 @@
-// Same frame as the Attributions dialog: header, scrolling list, footer.
-.runs-dialog {
-  width: 520px;
-  max-width: 92vw;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--td-panel-main);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.2),
-    inset 0 -1px 0 var(--td-panel-shadow),
-    0 1px 0 var(--td-panel-shadow);
-  color: var(--td-text-primary);
-  font-family: var(--td-font-body);
-}
+@use '../../styles/game-ui' as ui;
 
-.dialog-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--td-frame-dark);
-  flex-shrink: 0;
-}
+@include ui.classes;
 
-.header-icon {
-  color: var(--td-gold);
-}
-
-h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--td-gold);
+.dlg {
+  width: 540px;
 }
 
 .runs-count {
   margin-left: auto;
   font-family: var(--td-font-mono);
-  font-size: 11px;
-  color: var(--td-text-tertiary);
-}
-
-.dialog-content {
-  padding: 10px 12px 12px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-}
-
-.dialog-content::-webkit-scrollbar {
-  width: 6px;
-}
-.dialog-content::-webkit-scrollbar-track {
-  background: var(--td-panel-shadow);
-}
-.dialog-content::-webkit-scrollbar-thumb {
-  background: var(--td-frame-mid);
+  font-size: var(--td-fs-small);
+  color: var(--td-text-muted);
 }
 
 .runs-hint {
-  margin: 0 0 10px;
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--td-text-muted);
+  margin-bottom: var(--td-sp-3);
 }
 
 .runs-upload {
   display: flex;
-  gap: 8px;
+  gap: var(--td-sp-2);
   align-items: flex-start;
-  margin: 0 0 12px;
-  font-size: 11px;
-  line-height: 1.4;
+  margin: 0 0 var(--td-sp-4);
+  font-size: var(--td-fs-small);
+  line-height: 1.45;
   color: var(--td-text-secondary);
   cursor: pointer;
 
-  input { margin: 1px 0 0; accent-color: var(--td-gold); }
+  input {
+    margin: 1px 0 0;
+    accent-color: var(--td-gold);
+    @include ui.focus-ring;
+  }
 }
 
 .runs-empty {
-  margin: 16px 0;
-  font-size: 12px;
+  margin: var(--td-sp-4) 0;
+  font-size: var(--td-fs-body);
   text-align: center;
   color: var(--td-text-secondary);
 }
@@ -90,44 +45,33 @@ h2 {
   list-style: none;
   margin: 0;
   padding: 0;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.13),
-    inset 0 -1px 0 var(--td-panel-shadow);
+  border-top: 1px solid var(--td-frame-dark);
 }
 
 .runs-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
+  gap: var(--td-sp-3);
+  padding: var(--td-sp-2) 0;
   border-bottom: 1px solid var(--td-frame-dark);
-  transition: background 0.12s ease;
-}
-
-.runs-row:last-child {
-  border-bottom: none;
-}
-
-.runs-row:hover {
-  background: rgba(122, 133, 128, 0.06);
 }
 
 // The wave reached is the number a run is remembered by.
 .runs-wave {
   flex: none;
-  width: 52px;
-  font-family: var(--td-font-mono);
-  font-size: 18px;
-  font-weight: 700;
+  width: 56px;
+  font-family: var(--td-font-display);
+  font-size: var(--td-fs-hud);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--td-gold-light);
   text-align: right;
 }
 
 .runs-wave-label {
-  margin-right: 2px;
-  font-size: 10px;
+  margin-right: 3px;
+  font-family: var(--td-font-mono);
+  font-size: var(--td-fs-micro);
   font-weight: 500;
   color: var(--td-text-muted);
 }
@@ -135,13 +79,13 @@ h2 {
 .runs-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex: 1;
   min-width: 0;
 }
 
 .runs-where {
-  font-size: 13px;
+  font-size: var(--td-fs-body);
   color: var(--td-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -151,15 +95,14 @@ h2 {
 .runs-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--td-sp-2);
   font-family: var(--td-font-mono);
-  font-size: 10.5px;
+  font-size: var(--td-fs-micro);
   color: var(--td-text-muted);
 }
 
 .runs-who {
   padding: 0 5px;
-  font-size: 9.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--td-teal-light);
@@ -171,39 +114,9 @@ h2 {
   border-color: var(--td-frame-mid);
 }
 
-.icon-btn {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  background: var(--td-panel-main);
-  color: var(--td-text-secondary);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.2);
-  cursor: pointer;
-  transition: color 0.12s ease, border-color 0.12s ease;
-}
-
-.icon-btn:hover {
-  color: var(--td-gold-light);
-  border-color: var(--td-gold-dark);
-}
-
-.icon-btn-danger:hover {
-  color: #e0786c;
-  border-color: #e0786c;
-}
-
-.dialog-footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-top: 1px solid var(--td-frame-mid);
-  flex-shrink: 0;
+.icon-btn.is-danger:hover {
+  color: var(--td-danger-text);
+  border-color: var(--td-danger-edge);
 }
 
 .footer-spacer {
@@ -212,52 +125,6 @@ h2 {
 
 .confirm-text {
   flex: 1;
-  font-size: 12px;
-  color: var(--td-warn-orange);
-}
-
-.footer-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  font-family: var(--td-font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  background: var(--td-panel-main);
-  color: var(--td-text-secondary);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.2),
-    var(--td-shadow-key);
-  cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.footer-btn:hover:not(:disabled) {
-  color: var(--td-text-primary);
-  border-color: var(--td-frame-mid);
-}
-
-.footer-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.footer-btn-quiet-danger:hover:not(:disabled) {
-  color: #e0786c;
-  border-color: #e0786c;
-}
-
-.footer-btn-danger {
-  color: #fff;
-  background: var(--td-red);
-  border-color: #d25a4c;
-}
-
-.footer-btn-danger:hover {
-  filter: brightness(1.1);
-  color: #fff;
+  font-size: var(--td-fs-body);
+  color: var(--td-warn-text);
 }

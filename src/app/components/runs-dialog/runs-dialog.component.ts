@@ -2,7 +2,6 @@ import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { downloadRun } from '../../run-log/run-log.export';
@@ -23,11 +22,6 @@ import { MAX_RUNS } from '../../run-log/run-log.store';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './runs-dialog.component.html',
   styleUrl: './runs-dialog.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class RunsDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<RunsDialogComponent>);

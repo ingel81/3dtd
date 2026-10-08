@@ -1,60 +1,58 @@
-<div class="attributions-dialog">
-  <!-- Header -->
-  <div class="dialog-header">
-    <td-icon class="header-icon" name="copyright" [size]="20"></td-icon>
-    <h2>Attributions</h2>
-  </div>
+<div class="dlg">
+  <header class="dlg-head">
+    <h2 class="dlg-title" [id]="titleId">Attributions</h2>
+    <button class="icon-btn" type="button" aria-label="Close" (click)="close()">
+      <td-icon name="cross" [size]="16"></td-icon>
+    </button>
+  </header>
 
-  <!-- Content -->
-  <div class="dialog-content">
+  <div class="dlg-body">
     @for (category of attributions; track category.title) {
-      <div class="section">
-        <div class="section-header">
+      <section class="section">
+        <div class="section-label">
           <td-icon [name]="$any(category.icon)" [size]="14"></td-icon>
-          <span class="section-title">{{ category.title }}</span>
+          {{ category.title }}
           <span class="section-count">{{ category.items.length }}</span>
         </div>
-        <div class="section-body">
-          @for (item of category.items; track item.name) {
-            <div class="attribution-item">
-              <div class="item-info">
-                <span class="item-name">{{ item.name }}</span>
-                <span class="item-author">by {{ item.author }}</span>
-              </div>
-              <div class="item-actions">
-                @if (item.licenseUrl) {
-                  <a
-                    [href]="item.licenseUrl"
-                    target="_blank"
-                    rel="noopener"
-                    class="license-badge"
-                    [title]="item.license"
-                  >{{ item.license }}</a>
-                } @else {
-                  <span class="license-badge plain">{{ item.license }}</span>
-                }
-                @if (item.sourceUrl) {
-                  <a
-                    [href]="item.sourceUrl"
-                    target="_blank"
-                    rel="noopener"
-                    class="source-link"
-                    title="View source"
-                    [attr.aria-label]="'View source: ' + item.name"
-                  >
-                    <td-icon name="externalLink" [size]="14"></td-icon>
-                  </a>
-                }
-              </div>
+        @for (item of category.items; track item.name) {
+          <div class="attribution-item">
+            <div class="item-info">
+              <span class="item-name">{{ item.name }}</span>
+              <span class="item-author">by {{ item.author }}</span>
             </div>
-          }
-        </div>
-      </div>
+            <div class="item-actions">
+              @if (item.licenseUrl) {
+                <a
+                  [href]="item.licenseUrl"
+                  target="_blank"
+                  rel="noopener"
+                  class="license-badge"
+                  [title]="item.license"
+                >{{ item.license }}</a>
+              } @else {
+                <span class="license-badge plain">{{ item.license }}</span>
+              }
+              @if (item.sourceUrl) {
+                <a
+                  [href]="item.sourceUrl"
+                  target="_blank"
+                  rel="noopener"
+                  class="icon-btn sm"
+                  title="View source"
+                  [attr.aria-label]="'View source: ' + item.name"
+                >
+                  <td-icon name="externalLink" [size]="14"></td-icon>
+                </a>
+              }
+            </div>
+          </div>
+        }
+      </section>
     }
   </div>
 
-  <!-- Footer -->
-  <div class="dialog-actions">
-    <button class="close-btn" (click)="close()">Close</button>
-  </div>
+  <footer class="dlg-foot">
+    <a class="btn-secondary" [href]="legalUrl" target="_blank" rel="noopener">Legal &amp; privacy</a>
+    <button class="btn-primary" type="button" (click)="close()">Close</button>
+  </footer>
 </div>

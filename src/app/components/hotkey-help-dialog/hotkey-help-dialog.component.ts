@@ -1,7 +1,6 @@
 import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { HOTKEY_HELP } from '../../services/hotkey-map';
 import { TdIconComponent } from '../icon/icon.component';
 import { HOTKEY_HELP_TITLE_ID } from './open-hotkey-help-dialog';
@@ -17,11 +16,6 @@ import { HOTKEY_HELP_TITLE_ID } from './open-hotkey-help-dialog';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './hotkey-help-dialog.component.html',
   styleUrl: './hotkey-help-dialog.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class HotkeyHelpDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<HotkeyHelpDialogComponent>);

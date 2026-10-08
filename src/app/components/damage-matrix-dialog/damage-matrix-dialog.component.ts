@@ -1,6 +1,5 @@
 import { Component, ChangeDetectionStrategy, ElementRef, afterNextRender, computed, inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TowerTypeId } from '../../configs/tower-types.config';
 import { ResearchStore } from '../../store/research.store';
 import { TdIconComponent } from '../icon/icon.component';
@@ -31,11 +30,6 @@ export interface DamageMatrixDialogData {
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './damage-matrix-dialog.component.html',
   styleUrl: './damage-matrix-dialog.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class DamageMatrixDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<DamageMatrixDialogComponent>);

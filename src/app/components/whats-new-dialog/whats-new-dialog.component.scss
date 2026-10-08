@@ -1,111 +1,56 @@
-/* Panel, header, content and footer as in the attributions dialog */
-.whats-new-dialog {
-  width: 460px;
-  max-width: 90vw;
-  max-height: 80vh;
+@use '../../styles/game-ui' as ui;
+
+@include ui.classes;
+
+.dlg {
+  width: 520px;
+}
+
+.dlg-body {
   display: flex;
   flex-direction: column;
-  background: var(--td-panel-main);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.2),
-    inset 0 -1px 0 var(--td-panel-shadow),
-    0 1px 0 var(--td-panel-shadow);
-  color: var(--td-text-primary);
-  font-family: var(--td-font-body);
+  gap: var(--td-sp-4);
 }
 
-.dialog-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  background: var(--td-panel-main);
-  border-bottom: 1px solid var(--td-frame-dark);
-  flex-shrink: 0;
-}
-
-.header-icon {
-  color: var(--td-gold);
-}
-
-h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--td-gold);
-}
-
-.dialog-content {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-}
-
-.dialog-content::-webkit-scrollbar {
-  width: 6px;
-}
-.dialog-content::-webkit-scrollbar-track {
-  background: var(--td-panel-shadow);
-}
-.dialog-content::-webkit-scrollbar-thumb {
-  background: var(--td-frame-mid);
-}
-
-/* One release: an inset section like the attribution categories */
-.release {
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.13),
-    inset 0 -1px 0 var(--td-panel-shadow);
+/* One release: version line, then its groups */
+.release + .release {
+  padding-top: var(--td-sp-4);
+  border-top: 1px solid var(--td-frame-dark);
 }
 
 .release-header {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--td-panel-main);
-  border-bottom: 1px solid var(--td-frame-dark);
+  gap: var(--td-sp-2);
+  margin-bottom: var(--td-sp-2);
 }
 
 .release-version {
-  font: 600 12px/1 var(--td-font-mono);
+  font-family: var(--td-font-display);
+  font-size: var(--td-fs-lead);
+  font-weight: 600;
+  letter-spacing: 0.06em;
   color: var(--td-text-primary);
 }
 
 .release.current .release-version {
-  color: var(--td-gold);
+  color: var(--td-gold-light);
 }
 
 .release-tag {
-  font: 9px/1 var(--td-font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  @include ui.caps-label;
   color: var(--td-gold);
 }
 
 .release-date {
+  @include ui.caps-label;
   margin-left: auto;
-  font: 9px/1 var(--td-font-mono);
-  color: var(--td-text-muted);
-}
-
-.release-body {
-  padding: 8px 12px 10px;
 }
 
 .group-title {
+  @include ui.caps-label;
   display: block;
-  margin: 6px 0 2px;
-  font: 600 9px/1 var(--td-font-mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  margin: var(--td-sp-3) 0 var(--td-sp-1);
   color: var(--td-teal);
 }
 
@@ -115,23 +60,20 @@ h2 {
 
 ul {
   margin: 0;
-  padding-left: 16px;
+  padding-left: 18px;
 }
 
 li {
-  margin: 3px 0;
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--td-text-secondary);
+  margin: 4px 0;
+  font-size: var(--td-fs-body);
+  line-height: 1.5;
 }
 
 /* Releases the player already knows, folded away after an update */
 .earlier summary {
+  @include ui.caps-label;
   cursor: pointer;
-  font: 10px var(--td-font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
+  @include ui.focus-ring;
 }
 
 .earlier summary:hover {
@@ -139,58 +81,10 @@ li {
 }
 
 .earlier .release {
-  margin-top: 12px;
+  margin-top: var(--td-sp-4);
 }
 
 .empty {
   margin: 0;
-  font-size: 11px;
   color: var(--td-text-muted);
-}
-
-.dialog-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  background: var(--td-panel-main);
-  border-top: 1px solid var(--td-frame-mid);
-  flex-shrink: 0;
-}
-
-.full-link {
-  font: 10px var(--td-font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
-  text-decoration: none;
-}
-
-.full-link:hover {
-  color: var(--td-text-primary);
-}
-
-.close-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  font-size: 11px;
-  font-weight: 500;
-  font-family: var(--td-font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  background: var(--td-panel-main);
-  color: var(--td-text-secondary);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.2);
-}
-
-.close-btn:hover {
-  color: var(--td-text-primary);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.2),
-    0 0 0 1px var(--td-frame-mid),
-    var(--td-shadow-key);
 }

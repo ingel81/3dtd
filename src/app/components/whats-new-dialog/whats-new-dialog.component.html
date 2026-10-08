@@ -1,10 +1,12 @@
-<div class="whats-new-dialog">
-  <div class="dialog-header">
-    <td-icon class="header-icon" name="sparkle" [size]="20"></td-icon>
-    <h2 [id]="titleId">What's new</h2>
-  </div>
+<div class="dlg">
+  <header class="dlg-head">
+    <h2 class="dlg-title" [id]="titleId">What's new</h2>
+    <button class="icon-btn" type="button" aria-label="Close" (click)="close()">
+      <td-icon name="cross" [size]="16"></td-icon>
+    </button>
+  </header>
 
-  <div class="dialog-content">
+  <div class="dlg-body">
     @for (release of releases; track release.version) {
       <ng-container *ngTemplateOutlet="releaseSection; context: { $implicit: release }" />
     } @empty {
@@ -20,10 +22,10 @@
     }
   </div>
 
-  <div class="dialog-actions">
-    <a class="full-link" [href]="changelogUrl" target="_blank" rel="noopener">Full changelog</a>
-    <button class="close-btn" type="button" (click)="close()">Close</button>
-  </div>
+  <footer class="dlg-foot">
+    <a class="btn-secondary" [href]="changelogUrl" target="_blank" rel="noopener">Full changelog</a>
+    <button class="btn-primary" type="button" (click)="close()">Got it</button>
+  </footer>
 </div>
 
 <ng-template #releaseSection let-release>

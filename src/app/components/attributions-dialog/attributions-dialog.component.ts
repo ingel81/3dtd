@@ -1,10 +1,10 @@
 import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 import { ATTRIBUTIONS } from '../../configs/attributions.config';
 import { TdIconComponent } from '../icon/icon.component';
+import { SITE_URL } from '../../utils/public-url';
+import { ATTRIBUTIONS_TITLE_ID } from './open-attributions-dialog';
 
 @Component({
   selector: 'app-attributions-dialog',
@@ -12,21 +12,18 @@ import { TdIconComponent } from '../icon/icon.component';
   imports: [
     CommonModule,
     MatDialogModule,
-    MatButtonModule,
     TdIconComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './attributions-dialog.component.html',
   styleUrl: './attributions-dialog.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class AttributionsDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<AttributionsDialogComponent>);
   readonly attributions = ATTRIBUTIONS;
+  /** Imprint and privacy notice of the project, on the public site */
+  readonly legalUrl = `${SITE_URL}/legal.html`;
+  readonly titleId = ATTRIBUTIONS_TITLE_ID;
 
   close(): void {
     this.dialogRef.close();

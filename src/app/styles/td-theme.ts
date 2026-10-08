@@ -227,6 +227,7 @@ export const TD_CSS_VARS = `
   --td-hazard: repeating-linear-gradient(-45deg, ${TD_THEME.warnOrange} 0 6px, ${TD_THEME.ink} 6px 12px);
 
   --td-plate: linear-gradient(180deg, ${TD_THEME.plateTop}, ${TD_THEME.plateBottom});
+  --td-plate-top: ${TD_THEME.plateTop};
   --td-plate-head: linear-gradient(180deg, ${TD_THEME.plateHeadTop}, ${TD_THEME.plateHeadBottom});
   --td-line-brass: ${TD_THEME.lineBrass};
   --td-line-steel: ${TD_THEME.lineSteel};

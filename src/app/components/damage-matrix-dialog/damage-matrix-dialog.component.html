@@ -1,13 +1,15 @@
-<div class="matrix-dialog">
-  <div class="dialog-header">
-    <td-icon class="header-icon" name="shield" [size]="18"></td-icon>
+<div class="dlg">
+  <header class="dlg-head">
     <div class="header-text">
-      <h2 [id]="titleId">Damage vs Armor</h2>
+      <h2 class="dlg-title" [id]="titleId">Damage vs armor</h2>
       <p class="header-note" [id]="descId">Multiplier on every hit</p>
     </div>
-  </div>
+    <button class="icon-btn" type="button" aria-label="Close" (click)="close()">
+      <td-icon name="cross" [size]="16"></td-icon>
+    </button>
+  </header>
 
-  <div class="dialog-content" tabindex="0" role="region" aria-label="Damage multipliers">
+  <div class="dlg-body" tabindex="0" role="region" aria-label="Damage multipliers">
     <table class="matrix" [attr.aria-labelledby]="titleId">
       <colgroup>
         <col class="col-tower">
@@ -55,7 +57,7 @@
     }
   </div>
 
-  <div class="dialog-actions">
+  <footer class="dlg-foot">
     <ul class="legend" aria-label="Tiers">
       @for (entry of legend; track entry.effectiveness) {
         <li>
@@ -67,6 +69,6 @@
         </li>
       }
     </ul>
-    <button class="close-btn" (click)="close()">Close</button>
-  </div>
+    <button class="btn-primary" type="button" (click)="close()">Close</button>
+  </footer>
 </div>
