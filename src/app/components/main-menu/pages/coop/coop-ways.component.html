@@ -73,33 +73,38 @@
     </div>
     @if (c.lobby(); as active) {
       @if (publicRooms(); as rooms) {
-        <div class="cw-rooms" role="table" aria-label="Open rooms">
-          <div class="cw-room cw-room-head" role="row">
-            <span role="columnheader">Room</span><span role="columnheader">Place</span>
-            <span role="columnheader">Players</span><span role="columnheader">
-              <button class="icon-btn sm" type="button" (click)="refreshRooms()" matTooltip="Look again" aria-label="Look for open rooms again">
-                <td-icon name="refresh" [size]="13"></td-icon>
-              </button>
-            </span>
-          </div>
-          @for (room of rooms; track room.code) {
-            <div class="cw-room" role="row" [class.is-off]="room.why">
-              <span role="cell" class="cw-room-name">
-                <b>{{ room.title }}</b>
-                <small>{{ room.host }}@if (room.started) { · in game, wave {{ room.wave }} }@if (room.cheats) { · cheats on }</small>
-                @if (room.why) { <small class="why">{{ room.why }}</small> }
-              </span>
-              <span role="cell" class="cw-dim">{{ room.city || '-' }}</span>
-              <span role="cell" class="mp-meta">{{ room.players }}/{{ maxPlayers }}</span>
-              <span role="cell">
-                <button class="btn-xs" type="button" (click)="joinRoom(room)" [attr.aria-disabled]="!!room.why || null"
-                        [disabled]="busy()">Join</button>
-              </span>
-            </div>
-          } @empty {
-            <div class="cw-room cw-room-empty" role="row"><span role="cell">No open rooms right now. Host one, or join with a code.</span></div>
-          }
-        </div>
+        <table class="cw-rooms">
+          <caption class="cw-sr-only">Open rooms</caption>
+          <thead>
+            <tr class="cw-room cw-room-head">
+              <th scope="col">Room</th><th scope="col">Place</th><th scope="col">Players</th>
+              <td>
+                <button class="icon-btn sm" type="button" (click)="refreshRooms()" matTooltip="Look again" aria-label="Look for open rooms again">
+                  <td-icon name="refresh" [size]="13"></td-icon>
+                </button>
+              </td>
+            </tr>
+          </thead>
+          <tbody>
+            @for (room of rooms; track room.code) {
+              <tr class="cw-room" [class.is-off]="room.why">
+                <td class="cw-room-name">
+                  <b>{{ room.title }}</b>
+                  <small>{{ room.host }}@if (room.started) { · in game, wave {{ room.wave }} }@if (room.cheats) { · cheats on }</small>
+                  @if (room.why) { <small class="why">{{ room.why }}</small> }
+                </td>
+                <td class="cw-dim">{{ room.city || '-' }}</td>
+                <td class="mp-meta">{{ room.players }}/{{ maxPlayers }}</td>
+                <td>
+                  <button class="btn-xs" type="button" (click)="joinRoom(room)" [attr.aria-disabled]="!!room.why || null"
+                          [disabled]="busy()">Join</button>
+                </td>
+              </tr>
+            } @empty {
+              <tr class="cw-room cw-room-empty"><td colspan="4">No open rooms right now. Host one, or join with a code.</td></tr>
+            }
+          </tbody>
+        </table>
       } @else {
         <p class="mp-banner" role="status">
           <span>{{ active.name }} does not answer right now.{{ c.lanAvailable ? ' Playing on the same network still works.' : '' }}</span>
