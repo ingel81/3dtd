@@ -6,11 +6,12 @@
  * The real ConfigService with a production build's environment (no
  * credentials, mocked below) and jsdom's localStorage; the real
  * TokenSetupComponent template (read from disk) with its document Esc
- * listener. "Map key" on the menu's Settings page,
- * which only sets config.setupRequested; the game shows the screen while
- * `awaitingCredentials() || credentialsRejected() || setupRequested()`
- * (tower-defense.component.html:50), and sets awaitingCredentials on start
- * when needsCredentials() (TowerDefenseComponent.ngAfterViewInit). Both are
+ * listener. "Map key" on the menu's Settings page and in its loading plate
+ * only sets config.setupRequested; the game shows the screen while
+ * TowerDefenseComponent.tokenScreen() holds
+ * (`awaitingCredentials() || credentialsRejected() || setupRequested()`;
+ * the main menu waits behind it), and sets awaitingCredentials on start when
+ * needsCredentials() (TowerDefenseComponent.ngAfterViewInit). Both are
  * one-liners read here, not rendered. Not covered: that the screen's chunk
  * loads (48618172, a @defer), and how it looks.
  */
@@ -34,7 +35,7 @@ import { TokenSetupComponent } from './token-setup.component';
 const template = readFileSync(resolve('src/app/components/token-setup/token-setup.component.html'), 'utf8');
 const STORAGE_KEY = '3dtd-tile-credentials';
 
-/** What the game shows the token screen for (tower-defense.component.html:50) */
+/** What the game shows the token screen for (TowerDefenseComponent.tokenScreen) */
 const screenShown = (config: ConfigService, awaitingCredentials: boolean) =>
   awaitingCredentials || config.credentialsRejected() || config.setupRequested();
 
