@@ -18,20 +18,7 @@
 }
 
 .runs-upload {
-  display: flex;
-  gap: var(--td-sp-2);
-  align-items: flex-start;
   margin: 0 0 var(--td-sp-4);
-  font-size: var(--td-fs-small);
-  line-height: 1.45;
-  color: var(--td-text-secondary);
-  cursor: pointer;
-
-  input {
-    margin: 1px 0 0;
-    accent-color: var(--td-gold);
-    @include ui.focus-ring;
-  }
 }
 
 .runs-empty {
