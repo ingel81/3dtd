@@ -53,7 +53,7 @@ interface Setup {
 const slot = (id: string, name: string, wave: number, note: string | null = null): SaveSlotInfo => ({
   id, name, wave, note,
   autosave: id === AUTOSAVE_SLOT,
-  location: 'Heilbronn',
+  location: 'Heilbronn', hq: null,
   savedAt: '2026-10-05T14:32:00Z',
   gameVersion: '0.6.0',
 });

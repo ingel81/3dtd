@@ -94,6 +94,19 @@ describe('SaveGame (TODO E110)', () => {
     expect(game.slots()[0].location).toBe('Heilbronn');
   });
 
+  it('keeps the HQ of the place with the slot; a slot from before it was kept has none and still lists (E120)', async () => {
+    const { game, store } = setup();
+    await game.save(manualSlotId(1));
+    expect(store.meta.get(manualSlotId(1))!.hq).toEqual({ lat: 49.1, lon: 9.2 });
+    expect(game.slots()[0].hq).toEqual({ lat: 49.1, lon: 9.2 });
+
+    const { hq: _hq, ...older } = store.meta.get(manualSlotId(1))!;
+    await store.write(older, store.text.get(manualSlotId(1))!);
+    await game.refresh();
+    expect(game.slots()[0].hq).toBeNull();
+    expect(await game.load(manualSlotId(1))).toEqual({ ok: true, note: null });
+  });
+
   it('saves nothing while the game says no, and only into its own slots', async () => {
     const { game, saveBlocked, host } = setup();
     saveBlocked.set('Saving works only between waves.');

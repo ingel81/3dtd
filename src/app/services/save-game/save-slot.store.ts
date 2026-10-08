@@ -23,6 +23,8 @@ export interface StoredSlotMeta {
   savedAt: string;
   gameVersion: string;
   configHash: string;
+  /** The place's HQ, to tell whether the save is at the place loaded; slots from before 0.7 have none */
+  hq?: { lat: number; lon: number };
 }
 
 /** The slots, wherever they are kept */

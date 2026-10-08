@@ -144,6 +144,7 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace'> {
       savedAt: file.createdAt,
       gameVersion: file.gameVersion,
       configHash: file.configHash,
+      hq: { lat: file.place.hq.lat, lon: file.place.hq.lon },
     };
     const written = await this.store.write(meta, JSON.stringify(file));
     await this.refresh();
@@ -171,6 +172,7 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace'> {
       autosave: meta.id === AUTOSAVE_SLOT,
       wave: meta.wave,
       location: meta.location,
+      hq: meta.hq ? { lat: meta.hq.lat, lon: meta.hq.lon } : null,
       savedAt: meta.savedAt,
       gameVersion: meta.gameVersion,
       note: saveNote(meta, this.here),

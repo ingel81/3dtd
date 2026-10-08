@@ -5,7 +5,7 @@ import { AUTOSAVE_SLOT, manualSlotId, type SaveSlotInfo } from '../../services/s
 const slot = (id: string, name: string, wave: number, savedAt = '2026-10-05T14:32:00'): SaveSlotInfo => ({
   id, name, wave, savedAt,
   autosave: id === AUTOSAVE_SLOT,
-  location: 'Heilbronn',
+  location: 'Heilbronn', hq: null,
   gameVersion: '0.6.0',
   note: null,
 });

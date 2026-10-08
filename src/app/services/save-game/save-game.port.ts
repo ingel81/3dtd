@@ -25,8 +25,10 @@ export interface SaveSlotInfo {
   autosave: boolean;
   /** The wave the run stands before: the next start is this wave */
   wave: number;
-  /** The place, as the location dialog names it */
+  /** The place, as the location picker names it */
   location: string;
+  /** The place's HQ; null for a slot saved before it was kept */
+  hq: { lat: number; lon: number } | null;
   /** When it was saved, ISO 8601 */
   savedAt: string;
   /** The game version (BUILD_VERSION) it was saved with */

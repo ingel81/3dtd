@@ -16,7 +16,7 @@ import { COOP } from '../../services/coop.token';
 import { AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
 
 const AUTOSAVE: SaveSlotInfo = {
-  id: AUTOSAVE_SLOT, name: 'Heilbronn, wave 12', autosave: true, wave: 12, location: 'Heilbronn',
+  id: AUTOSAVE_SLOT, name: 'Heilbronn, wave 12', autosave: true, wave: 12, location: 'Heilbronn', hq: null,
   savedAt: '2026-10-05T14:32:00Z', gameVersion: '0.6.0', note: null,
 };
 
