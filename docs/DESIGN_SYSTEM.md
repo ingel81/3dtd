@@ -1,170 +1,165 @@
 # Tower Defense - Design System
 
-**Stand:** 2026-09-14
+**Stand:** 2026-10-09
 
 ## Übersicht
 
-Das Tower Defense UI basiert auf einem **WC3/Ancient Command** inspirierten Design mit Stein-, Metall- und Magie-Ästhetik. Das System verwendet CSS Custom Properties für zentrale Farbverwaltung.
+Taktisch-industriell und nüchtern, im Stil der Projektseite: dunkler Stein, Messing, Stahl, Oswald. Menü, Dialoge, Panels und HUD stehen auf einem SCSS-Fundament (`styles/_game-ui.scss`) und lesen ihre Werte aus Tokens (`styles/td-theme.ts`). Keine kopierten Dialoghüllen, keine Hex-Werte in Komponenten, wo es einen Token gibt.
 
-**Inspiration:** Warcraft III UI (siehe `public/assets/mocks/ui_mock.png`)
+Was der Look nicht hat: Glow, Verläufe als Fläche über ganze Bereiche, Emoji, Dekotext, gleichförmige Kachelraster, runde Ecken. Glas (Blur) nur, wo die Karte durchscheinen muss.
 
 ---
 
-## Theme-Datei
+## Tokens
 
-**Pfad:** `src/app/styles/td-theme.ts`
+**Pfad:** `src/app/styles/td-theme.ts`. `TD_THEME` (Farben), `TD_FONTS`, `TD_TYPE`, `TD_SPACE`, `TD_SHAPE`, `TD_MOTION`, `TD_SHADOWS`, `TD_LAYOUT`, `TD_LAYERS`; daraus der String `TD_CSS_VARS` mit allen `--td-*`.
 
-Zentrale Theme-Definition mit TypeScript-Konstanten und CSS Custom Properties.
+`installThemeVars(document)` in `main.ts` setzt `TD_CSS_VARS` vor dem Bootstrap einmal als `:root`-Regel (ein `<style id="td-theme-vars">` im Kopf). So sehen auch Overlays außerhalb des Komponentenbaums (`.cdk-overlay-container`: Dialoge, Tooltips) dieselben Werte; `src/styles.scss` liest sie nur. Neue Komponenten setzen `TD_CSS_VARS` nicht mehr auf `:host`. Ältere tun es noch; das ist doppelt, aber gleichwertig, und fällt beim Anfassen der Datei weg.
 
-### Verwendung in Komponenten
+Kontrast prüft `td-theme.contrast.spec.ts` aus `TD_THEME`: Text auf jeder Fläche 4,5:1, Fokus, Warnstreifen und stille Icons 3:1. Fällt ein Token durch, wird er in `td-theme.ts` geändert.
 
-Template und Styles liegen neben der Component (`*.component.html`, `*.component.scss`). Inline bleibt nur, was aus TypeScript kommt: `TD_CSS_VARS` auf `:host` und Werte aus TS-Konstanten.
+### Flächen und Platten
 
-```typescript
-import { TD_CSS_VARS } from '../styles/td-theme';
+| Variable | Wert | Verwendung |
+|----------|------|------------|
+| `--td-bg-dark` | `#111613` | Seite, Sidebar, Vollbild-Grund (Forschung, Token-Schritt) |
+| `--td-bg-surface` | `#1A201C` | Allgemeine Oberfläche |
+| `--td-panel-main` / `--td-panel-primary` | `#222A24` | Panel-Fläche |
+| `--td-panel-secondary` | `#1A1F1B` | Unterpanels, Slots, Fläche der Rahmen-Knöpfe |
+| `--td-panel-dark` | `#181D19` | Debugger |
+| `--td-panel-shadow` | `#0B0F0C` | Vertiefte Fläche, Tiefe |
+| `--td-plate` | Verlauf `#262F28` nach `#1D241F` | Fläche einer Platte (`--td-plate-top`, `--td-plate-bottom` einzeln) |
+| `--td-plate-head` | Verlauf `#2B332D` nach `#202722` | Titelplatte |
+| `--td-plate-danger` | Verlauf `#2A1714` nach `#170E0C` | Game Over, Connection lost |
+| `--td-line-steel` | `#4A544D` | 1px-Rand einer Platte, Rahmen-Knöpfe |
+| `--td-line-brass` | `#8E7228` | 2px-Kante oben auf einer Titelplatte |
+| `--td-frame-dark` / `-mid` / `-light` | `#2F3631` / `#4A544D` / `#7A8580` | Trennlinien, Ränder, Hover-Rand |
+| `--td-edge-highlight` | `#A7B3A8` | Auswahl |
+| `--td-glass-tint`, `--td-scrim` | `rgba(17,22,19,.78)`, `rgba(8,11,9,.58)` | Glas über der Karte, Abdunklung |
 
-@Component({
-  templateUrl: './panel.component.html',
-  styleUrl: './panel.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
-})
-```
+### Akzente und Zustände
+
+| Variable | Wert | Verwendung |
+|----------|------|------------|
+| `--td-gold` / `-light` / `-dark` | `#C2A055` / `#D9BC68` / `#8E7228` | Messing: Hauptaktion, Titel, Auswahl |
+| `--td-ink` | `#1A140A` | Text auf Messing |
+| `--td-brass-lip` | `#4A3A12` | Harte Unterkante des Messingknopfs |
+| `--td-teal` / `-light` / `-dark` | `#6BB6A4` / `#8FD9C6` / `#1F8772` | Laufend, magisch, bestätigt |
+| `--td-green` / `-dark` | `#9ED6A0` / `#6AAB6C` | Positiv, erforscht |
+| `--td-health-red` / `--td-red` | `#B83E32` | Rot als Fläche (Balken, Ränder); als Text zu dunkel |
+| `--td-health-bg` | `#2E1614` | Dunkelrote Fläche |
+| `--td-warn-orange` | `#C96A3A` | Warnung als Fläche, Rand, Streifen |
+| `--td-warn-text` | `#D98A4A` | Warnung als Text |
+| `--td-danger-bg` / `-edge` / `-text` | `#3A1410` / `#B83E32` / `#F2C9C2` | Zerstörende Knöpfe, Fehlerbanner |
+| `--td-hp-text` | `#E87A6A` | HQ-Zahl |
+| `--td-hp-low` | `#EE8A5E` | HQ unter 30 %, Titel von Game Over |
+| `--td-gain` / `--td-loss` | `#9ED6A0` / `#E87A6A` | Credits plus und minus |
+| `--td-hazard` | Streifen -45°, `--td-warn-orange` und `--td-ink`, je 6px | HQ unter 10 %, Kante von Game Over |
+| `--td-cold`, `--td-lightning`, `--td-chaos` | `#5BA4D9`, `#7DD3FC`, `#D946EF` | Schadensarten (Tooltips, `DAMAGE_TYPE_UI`) |
+| `--td-rune-amber` / `-muted` | `#A47A2C` / `#6B5320` | Trennlinien, Tier-Marken |
+
+Titelakzent der Tower-Tooltips (`DAMAGE_ACCENT` in `sidebar-tooltips.ts`): `--td-gold-light` (physical, pierce, siege), `--td-teal-light` (magic), `--td-warn-orange` (fire), `--td-green` (poison) und die drei Schadensfarben oben.
+
+### Text
+
+Nie reines Weiß.
+
+| Variable | Wert | Verwendung |
+|----------|------|------------|
+| `--td-text-primary` | `#EEF1EB` | Haupttext, Zahlen |
+| `--td-text-secondary` | `#B6C0B3` | Fließtext in Dialogen, Menüeinträge in Ruhe |
+| `--td-text-muted` | `#929C90` | Labels, Nebeninfo (AA auch auf Titelplatten) |
+| `--td-text-tertiary` | `#7A837A` | Nur für Nicht-Text (Icons, Linien); als Text unter AA |
+| `--td-text-disabled` | `#6A726A` | Gesperrt |
+
+### Schrift, Größen, Abstände, Formen, Bewegung
+
+| Variable | Wert | Verwendung |
+|----------|------|------------|
+| `--td-font-display` | Oswald | Titel, Menü, Knöpfe, HUD-Zahlen |
+| `--td-font-body` | Inter Tight | Fließtext, Namen, Beschreibungen |
+| `--td-font-mono` | JetBrains Mono | Zahlen in Tabellen, Kosten, Hotkeys, Codes, kleine Labels |
+| `--td-fs-micro` bis `--td-fs-hero` | 10, 11, 13, 15, 18, 22, 26, 44 px | micro, small, body, lead, title, hud, menu, hero. Nichts unter 10px |
+| `--td-track-caps`, `--td-track-title` | `.12em`, `.06em` | Laufweite von Versalien-Labels und Titeln |
+| `--td-sp-1` bis `--td-sp-6` | 4, 8, 12, 16, 24, 32 px | Abstände |
+| `--td-cut`, `--td-cut-sm` | 10px, 6px | Abgeschrägte Ecke einer Platte, einer kleinen Platte |
+| `--td-radius` | 0 | Ecken sind eckig |
+| `--td-dur-fast` / `-mid` / `-slow` | 120, 220, 450 ms | Hover und Druck, Wechsel, Ein- und Ausblenden |
+| `--td-ease-out` | `cubic-bezier(.2,.7,.2,1)` | Standardkurve |
+| `--td-focus-color`, `-width`, `-offset` | `#D9BC68`, 2px, 2px | Fokusring |
+
+Oswald liegt lokal in `src/fonts/` (OFL, dieselbe Datei wie auf der Projektseite, variabel 400 bis 700) und wird in `src/styles.scss` über eine relative URL eingebunden: der Build bündelt sie nach `media/`, sie lädt unter jeder Base-Href und mit CSP `font-src 'self'`. Inter Tight, JetBrains Mono und Roboto (nur Material) kommen über `@fontsource`.
+
+Debug-Farben (`--td-event-vfx`, `--td-event-audio`, `--td-perf-critical`, `--td-perf-warning`), Schatten (`--td-shadow-soft`, `--td-shadow-key`, `--td-inner-highlight`, die Glows der älteren Knöpfe) und Layout-Tokens (`--td-sidebar-width`, `--td-sidebar-gutter`, `--td-z-marks`, `--td-z-hud`, `--td-z-dock`) stehen ebenfalls in `TD_CSS_VARS`.
+
+---
+
+## Fundament (`styles/_game-ui.scss`)
 
 ```scss
-// panel.component.scss
-@use '../styles/td-mixins' as td;
+@use '../../styles/game-ui' as ui;
 
-.panel {
-  background: var(--td-panel-main);
-  color: var(--td-text-primary);
-  overflow-y: auto;
-  @include td.scrollbar;
-}
+@include ui.classes;          // .dlg, .btn-primary, ... für das Template
+
+.dlg { width: 520px; }       // die Breite gehört der Komponente
+.my-row { @include ui.motion(color); }
 ```
 
-Angular setzt die Regeln aus `styleUrl` vor die Inline-`styles`. Der `:host`-Block kollidiert damit nicht, solange die `.scss` selbst keine `--td-*` auf `:host` setzt. Wiederverwendbare Style-Rezepte (Scrollbar, Glas) liegen als Sass-Mixins in `styles/_td-mixins.scss`.
+`_game-ui.scss` leitet `_td-mixins.scss` weiter (`ui.scrollbar`, `ui.sunken`, `ui.keycap`, `ui.section-label`, `ui.focus-ring`, `ui.sr-only` usw.). Die View-Encapsulation lässt keine globalen Klassen durch, deshalb bindet jede Komponente `ui.classes` oder einzelne Mixins selbst ein.
 
----
+| Mixin | Was es macht |
+|-------|--------------|
+| `plate($cut, $fill, $edge, $position)` | Platte: Rand `$edge` (Stahl) als Fläche, `::before` 1px innen mit `$fill`, beide mit `cut-shape`; der Rand folgt so der Schräge. `::before` ist belegt. Schatten über `plate-shadow` auf dem Element außen herum, `clip-path` schneidet ihn sonst ab. `$position: null` lässt `absolute` oder `fixed` stehen |
+| `cut-shape($cut)` | `clip-path` mit Schräge oben links und unten rechts |
+| `plate-head` | Titelplatte: 2px Messingkante oben, `--td-plate-head`, Trennlinie unten, Titel links, Aktionen rechts |
+| `title($size: 20px)` | Oswald 600, Versalien, Laufweite .08em, `--td-gold-light` |
+| `dialog-shell($width)`, `dialog-head`, `dialog-body`, `dialog-foot` | Dialog als Platte in einer Spalte; nur der Körper scrollt, Fuß rechtsbündig |
+| `btn-shape($height)` | Größe und Schrift eines Knopfs: Oswald 14px, Versalien, 38px, 2px-Fokusring |
+| `btn-primary` | Messing: Verlauf `--td-gold-light` nach `--td-gold`, Unterkante `0 2px 0` in `--td-brass-lip`, Text `--td-ink`. Hover heller, Druck 1px tiefer. Eine Hauptaktion je Ort |
+| `btn-secondary` | Stahlrahmen auf `--td-panel-secondary`, Hover Rand `--td-frame-light` |
+| `btn-danger` | `--td-danger-*`: Löschen, Verlassen |
+| `btn-ghost` | Nur Text: dritte Aktion, Dateien sichern |
+| `btn-done`, `btn-xs` | Bestätigt (Teal); klein für 30px-Zeilen |
+| `icon-btn($size: 32px)` | Eckiger Icon-Knopf (Schließen, Zurück, Zeilenwerkzeuge) |
+| `menu-list`, `menu-item($size)`, `menu-rule` | Menü: Oswald-Versalien als Text, 3px Messingbalken links bei Hover, Fokus und `.is-active`; ein `<small>` darunter ist die Mono-Unterzeile |
+| `stat-plate($cut)`, `caps-label` | HUD-Platte mit kleiner Schräge; Mono-Label 10px Versalien |
+| `seg-bar($height, $gap)` | Segmentbalken (HQ, Ladefortschritt): die Kinder sind Segmente, `.is-on` leuchtet |
+| `corner-brackets($size, $inset, $color)` | Goldene Eckwinkel über ein `::after`; nur Start-Menü und Game Over |
+| `glass-strip` | Glas mit 6px Blur, nur über der Karte |
+| `input`, `segmented`, `note`, `banner`, `kbd`, `link`, `spinner` | Formular und Text; `segmented` rahmt die Wahl in Messing |
+| `motion($props...)`, `reduced-motion` | Übergänge mit `--td-dur-fast`; bei `prefers-reduced-motion` keine |
 
-## Farbpalette
+`ui.classes` gibt `.dlg`, `.dlg-head`, `.dlg-title`, `.dlg-body`, `.dlg-foot`, `.btn-primary`, `.btn-secondary`, `.btn-danger`, `.btn-ghost`, `.btn-done`, `.btn-xs`, `.icon-btn` (`.sm`, `.big`), `.inp`, `.seg` (Wahl `.is-on`), `.note` (`.is-warn`, `.is-error`, `.is-ok`), `.banner`, `.spin`, `.section-label`, `.link`, `kbd`, `.sr-only`.
 
-Maßgeblich sind die Werte in `td-theme.ts` (`TD_THEME`), die Tabellen geben sie wieder. Seit den Design Refinements (2026-05) sind die Flächen und Rahmen um etwa eine Helligkeitsstufe gespreizt, Gold ist zu antikem Messing entsättigt, Teal kühler. Die Werte davor stehen in `td-theme.ts` als Kommentar `(was …)`.
+Die älteren Rezepte in `_td-mixins.scss` (`gold-button`, `teal-button`, `frame-button`, `bevel-glass`) nutzen Sidebar und HUD noch; neue Teile nehmen die Knöpfe aus `_game-ui`.
 
-### Basisflächen
+### Dialoge
 
-| Variable | Hex | Verwendung |
-|----------|-----|------------|
-| `--td-bg-dark` | `#111613` | Haupt-Sidebar, dunkler Stein |
-| `--td-bg-surface` | `#1A201C` | Allgemeine Oberfläche (Overlay, Loading) |
-| `--td-panel-dark` | `#181D19` | Dark Panel Sections (Debugger Selected States) |
-| `--td-panel-primary` | `#222A24` | Alias für `--td-panel-main` |
-| `--td-panel-main` | `#222A24` | Primäre Panel-Fläche |
-| `--td-panel-secondary` | `#1A1F1B` | Unterpanels, Slots |
-| `--td-panel-shadow` | `#0B0F0C` | Inset-Schatten, Tiefe |
+MatDialog mit `panelClass: 'td-dialog-panel'`. Die cdk-Schale ist durchsichtig, ohne Blur und Radius, und wirft nur den Schatten (`drop-shadow` auf `.mat-mdc-dialog-container`, in `styles.scss`); die Platte zeichnet der Dialog selbst:
 
-### Rahmen (WC3-Stil)
+```html
+<div class="dlg">
+  <header class="dlg-head">
+    <h2 class="dlg-title" [id]="titleId">What's new</h2>
+    <button class="icon-btn" type="button" aria-label="Close" (click)="close()">
+      <td-icon name="cross" [size]="16"></td-icon>
+    </button>
+  </header>
+  <div class="dlg-body">...</div>
+  <footer class="dlg-foot">
+    <a class="btn-secondary" ...>Full changelog</a>
+    <button class="btn-primary" type="button" (click)="close()">Got it</button>
+  </footer>
+</div>
+```
 
-**Regel:** Hell oben, dunkel unten (klassischer WC3-Look)
+Der Titel ist ein Name, kein Satz, und trägt die `id` für `ariaLabelledBy`; ein Icon im Kopf nur, wenn es etwas sagt. Das Overlay-Pane von MatDialog ist per Klasse auf 560px begrenzt: breitere Dialoge setzen `width` und `maxWidth` in der Config und geben `.dlg` `width: 100%` (Damage vs armor). Auf dem Fundament stehen What's new, Attributions (mit „Legal & privacy“, `SITE_URL/legal.html`), Keyboard shortcuts, Damage vs armor, Runs, Run upload, der Token-Schritt und die Forschung (Vollbild, eigener dunkler Grund, ohne Schattenfilter).
 
-| Variable | Hex | Verwendung |
-|----------|-----|------------|
-| `--td-frame-dark` | `#2F3631` | Unterkante, Schatten |
-| `--td-frame-mid` | `#4A544D` | Haupt-Rahmenfarbe |
-| `--td-frame-light` | `#7A8580` | Oberkante, Licht |
-| `--td-edge-highlight` | `#A7B3A8` | Fokus, Selektion |
+Tooltips: der Material-Tooltip über `mat.tooltip-overrides` in `styles.scss` (Glas aus `--td-bg-dark` zu 94 %, Ecken 0, Inter Tight 12px, Rand `--td-line-steel`). `.td-tooltip-multiline` setzt Mono 11px links ausgerichtet, ohne `!important`: zwei Klassen schlagen Materials eine.
 
-### Akzentfarben
+### Game Over und Connection lost
 
-**Wichtig:** Sparsam einsetzen! Max. 3 Akzentfarben gleichzeitig sichtbar.
-
-| Variable | Hex | Verwendung |
-|----------|-----|------------|
-| `--td-gold` | `#C2A055` | Wichtiges, Buttons, Titel |
-| `--td-gold-light` | `#D9BC68` | Button Highlight (Hover, Top-Border) |
-| `--td-gold-dark` | `#8E7228` | Gedrückt, Inaktiv |
-| `--td-teal` | `#6BB6A4` | Magische Akzente |
-| `--td-teal-light` | `#8FD9C6` | Button Highlight (Hover, Top-Border) |
-| `--td-teal-dark` | `#1F8772` | Button Shadow (Bottom-Border) |
-| `--td-green` | `#9ED6A0` | Buffs, Positiv |
-| `--td-green-dark` | `#6AAB6C` | Gedrückt, Button-Schatten |
-
-### Runen-Akzente
-
-| Variable | Hex | Verwendung |
-|----------|-----|------------|
-| `--td-rune-amber` | `#A47A2C` | Trennlinien, Header-Unterstriche, Tier-Marker |
-| `--td-rune-amber-muted` | `#6B5320` | Dasselbe gedämpft (z. B. Rüstungskopf im Damage-vs-Armor-Dialog) |
-
-### Statusfarben
-
-| Variable | Hex | Verwendung |
-|----------|-----|------------|
-| `--td-red` | `#B83E32` | Alias für `--td-health-red` (allgemeines Rot) |
-| `--td-health-red` | `#B83E32` | Health, Danger |
-| `--td-health-bg` | `#2E1614` | Dunkelrote Fläche für Fehler und Gefahr (Warnbox im Standort-Dialog, Danger-Button im Training-Debugger) |
-| `--td-warn-orange` | `#C96A3A` | Warnungen |
-| `--td-disabled` | `#5B625C` | Deaktivierte Elemente |
-
-### Schadenstyp-Farben
-
-Titel-Akzent der Tower-Tooltips (`DAMAGE_ACCENT` in `sidebar-tooltips.ts`), dazu
-`--td-gold-light` (physical, pierce, siege), `--td-teal-light` (magic),
-`--td-warn-orange` (fire) und `--td-green` (poison).
-
-| Variable | Hex | Verwendung |
-|----------|-----|------------|
-| `--td-cold` | `#5BA4D9` | Ice |
-| `--td-lightning` | `#7DD3FC` | Lightning, wie `DAMAGE_TYPE_UI` |
-| `--td-chaos` | `#D946EF` | Chaos, wie `DAMAGE_TYPE_UI` |
-
-### Textfarben
-
-**Regel:** Nie reines Weiß verwenden!
-
-| Variable | Hex | Verwendung |
-|----------|-----|------------|
-| `--td-text-primary` | `#EEF1EB` | Haupttext |
-| `--td-text-secondary` | `#B6C0B3` | Sekundärtext |
-| `--td-text-muted` | `#8E988C` | Gedämpfter Text |
-| `--td-text-tertiary` | `#7A837A` | Zwischen muted/disabled, für pending/inactive Elemente |
-| `--td-text-disabled` | `#6A726A` | Deaktivierter Text |
-
-### Glas, Schatten, Glow
-
-| Variable | Wert | Verwendung |
-|----------|------|------------|
-| `--td-glass-tint` | `rgba(17,22,19,0.78)` | Fläche der Glas-Overlays mit Backdrop-Blur (Mixin `bevel-glass`, Quick Actions, Dialoge) |
-| `--td-scrim` | `rgba(8,11,9,0.58)` | Abdunklung hinter Overlays |
-| `--td-shadow-soft` | `0 6px 20px rgba(0,0,0,0.55), 0 2px 4px rgba(0,0,0,0.5)` | Schlagschatten erhöhter Flächen (Dialoge, Popover) |
-| `--td-shadow-key` | `0 1px 0 rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4)` | Kante unter Buttons |
-| `--td-inner-highlight` | `inset 0 1px 0 rgba(255,255,255,0.06)` | Lichtkante oben auf erhöhten Flächen |
-| `--td-gold-glow` | `0 0 14px rgba(194,160,85,0.28), …` | Hover/Aktiv der Gold-Buttons |
-| `--td-teal-glow` | `0 0 14px rgba(107,182,164,0.32), …` | Hover/Aktiv der Teal-Buttons |
-
-Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`. Kanten für erhöhte Panels und vertiefte Flächen stehen unter [Rezepte](#rezepte-panel-buttons-slots).
-
-### Schriften
-
-| Variable | Wert | Verwendung |
-|----------|------|------------|
-| `--td-font-mono` | `'JetBrains Mono', ui-monospace, monospace` | Stats, HP, Kosten, Hotkeys, Wave-Zähler, Section-Header |
-| `--td-font-body` | `'Inter Tight', system-ui, -apple-system, sans-serif` | Tower-Namen, Tooltip-Text, Dialogtitel, Hinweise |
-| `--td-font-display` | `'Inter Tight', system-ui, -apple-system, sans-serif` | Titel im Token-Setup (`token-setup`); laut `td-theme.ts` für Game Over / Victory gedacht |
-
-Selbst gehostet über `@fontsource` in `src/styles.scss`: Inter Tight (400 bis 700), JetBrains Mono (400, 500, 700, seit 2026-09-25) und Roboto (für Angular Material). Cinzel ist aus dem Stack entfernt (2026-10-04): im Playtest zeigte der Kopf des Ortsdialogs in der App eine Serifenschrift (ein lokal installiertes Cinzel oder der Rückfall `serif`). Überschriften stehen in Inter Tight, Versalien mit Sperrung (User, 2026-09-25).
-
-### Debug & Performance
-
-| Variable | Hex | Verwendung |
-|----------|-----|------------|
-| `--td-event-vfx` | `#a855f7` | Event-Debugger: VFX-Events (lila) |
-| `--td-event-audio` | `#3b82f6` | Event-Debugger: Audio-Events (blau) |
-| `--td-perf-critical` | `#ff4444` | Performance-Profiler: Kritische Schwelle |
-| `--td-perf-warning` | `#ff8844` | Performance-Profiler: Warnung/Bottleneck |
+Ein Overlay über der abgedunkelten Karte (`--td-panel-shadow` zu 72 %) mit goldenen Eckwinkeln, darin eine Gefahr-Platte (`plate(14px, --td-plate-danger, --td-danger-edge)`) mit Warnstreifen (`--td-hazard`, 6px) oben. Game Over: „HQ lost“ in Oswald 56px/700 `--td-hp-low`, darunter Ort und Welle (12px Mono, Versalien), die [Bilanz](#game-over-bilanz), Coop-Tabelle und Diagramme, dann eine Knopfreihe: Restart here (Messing, nur allein oder als Host), Replay wave N (solange angeboten), Main menu (`TowerDefenseComponent.openMainMenu`). Run und Coop-Replay sichern darunter stille Knöpfe. Die Platte steht, ihr Inhalt scrollt (`.td-gameover-scroll`). Connection lost: dieselbe Platte, Titel 28px, Continue alone und Start over alone. Titel-Ruck und Einblenden stehen bei `prefers-reduced-motion` still.
 
 ---
 
@@ -252,7 +247,7 @@ Bosse kommen über `enemy:spawned` in eine kurze Liste; ein 8-Hz-Timer außerhal
 Tritt ein Boss einer Welle aus seinem Portal, schneidet die Kamera aufs Portal und `app-boss-intro` (`components/boss-intro/`) zeigt seinen Namen; Auslöser, Pause und Zeitplan in [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-intro). Die Komponente liegt immer über dem Canvas-Bereich (`z-index` 25, über der oberen HUD-Spalte und dem Game-Over-Overlay mit 20) und ist ohne Intro durchsichtig und klickdurchlässig; so hat die erste Blende eine Deckkraft, von der sie ausgeht.
 
 - Schleier: ganze Fläche in `--td-panel-shadow`, blendet vor jedem Schnitt in 220 ms ein (ease-in) und danach in 320 ms aus (ease-out); die Dauern kommen aus `BOSS_INTRO_TIMING`, damit Blende und Schnitt zusammenpassen
-- Titelkarte im unteren Drittel, zentriert, nur während der Portal-Einstellung, über einer weichen Abdunklung der unteren 45 % (`rgba(8,11,9,0.72)` nach transparent): oben "BOSS · WAVE n" (11px/700 Mono-Versalien, Laufweite 0.32em, `--td-gold`, als Trenner eine 4px-Raute in `--td-gold-dark`), darunter der Name des Typs (`EnemyTypeConfig.name`, Inter Tight 700, `clamp(30px, 4.6vw, 54px)`, Versalien per CSS, Laufweite 0.16em, `--td-text-primary` mit Textschatten), eine 88px-Haarlinie im Gold-Verlauf und der Hinweis "Esc or click to skip" (10px Mono, `--td-text-muted`, Tastenkappe wie in der Photo-Leiste). `--td-font-display` ist Inter Tight
+- Titelkarte im unteren Drittel, zentriert, nur während der Portal-Einstellung, über einer weichen Abdunklung der unteren 45 % (`rgba(8,11,9,0.72)` nach transparent): oben "BOSS · WAVE n" (11px/700 Mono-Versalien, Laufweite 0.32em, `--td-gold`, als Trenner eine 4px-Raute in `--td-gold-dark`), darunter der Name des Typs (`EnemyTypeConfig.name`, Inter Tight 700, `clamp(30px, 4.6vw, 54px)`, Versalien per CSS, Laufweite 0.16em, `--td-text-primary` mit Textschatten), eine 88px-Haarlinie im Gold-Verlauf und der Hinweis "Esc or click to skip" (10px Mono, `--td-text-muted`, Tastenkappe wie in der Photo-Leiste)
 - Die Karte steigt 8px auf und blendet ein, 140 ms nachdem der Schleier zu weichen beginnt; die Laufweite des Namens setzt sich in 0,9 s von 0.3em auf 0.16em. Bei `prefers-reduced-motion` nur Deckkraft, keine Bewegung (auch die Kamera fährt dann nicht heran)
 - Bis die Sicht zurück ist, liegt ein durchsichtiger Knopf über der ganzen Fläche ("Skip the boss intro"): ein Klick überspringt und erreicht weder Karte noch HUD noch den Pause-Knopf darunter. Während der Schleier danach weicht, nimmt die Karte wieder Klicks
 - Die Karte ist `aria-hidden`; der `LiveAnnouncer` sagt beim Start "Boss: <Name>, wave <n>. Escape skips."
@@ -263,22 +258,18 @@ Tritt ein Boss einer Welle aus seinem Portal, schneidet die Kamera aufs Portal u
 
 ### Rezepte (Panel, Buttons, Slots)
 
-Für Panels, Buttons, Slots und Inputs gelten feste Rezepte. Es gibt sie nicht als gemeinsame Konstante oder Mixin: die Komponenten schreiben die Werte in ihrem SCSS aus (z. B. `.td-wave-btn` in `wave-panel.component.scss`, `.td-btn` in `tower-defense.component.scss`). Die früheren String-Rezepte in `td-theme.ts` (`TD_PANEL_STYLES`, `TD_BUTTON_STYLES` usw.) hatte keine Komponente eingebunden; sie sind entfernt.
+Rezepte sind Mixins, siehe [Fundament](#fundament-stylesgame-uiscss). Die älteren in `styles/_td-mixins.scss` gelten weiter, wo sie stehen:
 
-| Rezept | Inhalt |
-|--------|--------|
-| Panel (erhöht) | `--td-panel-main`, 1px `--td-frame-dark`, Inset-Kanten `inset 0 1px 0 rgba(122,133,128,0.2)` und `inset 0 -1px 0 var(--td-panel-shadow)`, Text `--td-text-primary` |
-| Vertiefte Fläche (Slots, Inputs, HP-Hintergrund) | 1px `--td-frame-dark`, `inset 0 1px 2px rgba(0,0,0,0.5)` und `inset 0 -1px 0 rgba(74,84,77,0.13)` |
-| Gold-Button | Gold-Verlauf `--td-gold-light` → `--td-gold` → `--td-gold-dark`, Text `#1A140A`, 1px dunkle Kante, Inset-Kanten plus `--td-shadow-key`, `--td-font-mono` 12px/700, Versalien, `letter-spacing: 0.06em` |
-| Teal-Button | Dasselbe im Teal-Verlauf, Text `#0E1612` |
-| Rahmen-Button (Abbrechen u. Ä.) | `--td-panel-main`, `--td-text-secondary`, 1px `--td-frame-dark` |
-| Slot, Radio-/Checkbox-Option | `--td-panel-secondary` mit den Kanten des erhöhten Panels |
-| Dialog | Panel mit `--td-font-body` |
-| Input | Vertiefte Fläche auf `--td-panel-shadow`, `--td-font-mono` |
+| Mixin | Inhalt |
+|-------|--------|
+| `sunken` | Vertiefte Fläche (Slots, Inputs, Balken-Hintergrund): 1px `--td-frame-dark`, Inset-Schatten |
+| `gold-button`, `teal-button` | Verlauf mit Kanten, Text `#1A140A` bzw. `#0E1612` (Sidebar, `.td-btn`) |
+| `frame-button` | Rahmen-Knopf im Panel-Material |
+| `bevel-glass` | Glas mit Blur für Canvas-Leisten |
+| `keycap`, `section-label`, `sr-only` | Tastenkappe, Abschnittskopf in Mono-Versalien mit Linie, nur für Screenreader |
+| `scrollbar`, `webkit-scrollbar*` | Dunkle Scrollbar: `scrollbar` in die scrollende Regel, die `webkit-*` in die `::-webkit-scrollbar*`-Regeln |
 
-Die dunkle Scrollbar kommt aus Sass-Mixins in `styles/_td-mixins.scss`: `scrollbar` (Firefox) gehört in die scrollende Regel, `webkit-scrollbar`, `webkit-scrollbar-track`, `webkit-scrollbar-thumb`, `webkit-scrollbar-thumb-hover` und `webkit-scrollbar-corner` in die passenden `::-webkit-scrollbar*`-Regeln.
-
-Die globalen Buttons `.td-btn` (`tower-defense.component.scss`) folgen dem Gold-Rezept, Hover mit `--td-gold-glow` statt Verschiebung, `:disabled` als grauer Verlauf mit `--td-text-disabled`. Die Sidebar-Sektionen (`.td-panel`) sind flach, ohne Rahmen (`_sidebar-panel.scss`).
+Die globalen Buttons `.td-btn` (`tower-defense.component.scss`, Fehler-Overlays) folgen `gold-button`. Die Sidebar-Sektionen (`.td-panel`) sind flach, ohne Rahmen (`_sidebar-panel.scss`).
 
 ### Sidebar-Panels
 
@@ -371,7 +362,7 @@ Der Heldenbaum (TODO G2) soll dieselben zwei Schichten benutzen.
 | Zustand eines Knotens | Aussehen |
 |---|---|
 | `completed` | Rahmen `#2C3A35`, Name in `#7E9A90`, Fuß "RESEARCHED" in Versalien |
-| `active` | Rahmen `--td-teal`, Teal-Glow, Restzeit und Balken im Fuß |
+| `active` | Rahmen `--td-teal`, Restzeit und Balken im Fuß |
 | `queued` | gestrichelt in `--td-gold-dark`, Position als Gold-Kappe in der Ecke |
 | `available` | Gold-Kante links (`inset 3px 0 0 var(--td-rune-amber)`), Hover hebt den Knoten um 1 px |
 | `poor` | dieselbe Form in Warnorange: offen, aber die Credits fehlen |
@@ -387,6 +378,8 @@ blendet auf 30 % ab.
 Das Brett scrollt in beide Richtungen und lässt sich ziehen (`tech-tree/drag-scroll.directive.ts`).
 Der Zeiger wird erst gefangen, wenn der Zug ein paar Pixel überschreitet: ein Fang beim Drücken
 leitet den folgenden Klick auf den Rahmen um und macht jeden Knoten unklickbar.
+
+Kopfleiste, Rubrik-Leiste, Warteschlange, Detail und Fuß sind Platten mit kleiner Schräge (`plate(--td-cut-sm)`), die Kopfleiste eine Titelplatte mit Messingkante; Close und die Aktionen im Detail sind Knöpfe des Fundaments. Weil die cdk-Schale durchsichtig ist, malt `.td-rd` den dunklen Grund selbst.
 
 Zwei Eigenheiten von MatDialog, die der Dialog ausräumen muss: `mat-dialog-content` bringt eine
 eigene Scrollfläche mit (`max-height: 65vh`), und der Surface scrollt ebenfalls. Beides steht in
@@ -474,7 +467,7 @@ Im Zielmodus zeigt die Kontext-Hinweis-Box "Click" mit dem `aimHint` der Fähigk
 
 ### Coop: Dock, Squad, Chat (Canvas)
 
-Nach dem Design-Handover vom 2026-09-25 (`tmp/coop-design/test3.zip`, Plan [COOP_PLAN.md](COOP_PLAN.md) C8, D37 bis D46), überarbeitet nach [COOP_UI_REWORK_PLAN.md](archive/COOP_UI_REWORK_PLAN.md) (U1 bis U8). Ecken 0, Farben nur aus `td-theme.ts`, Lane-Farben aus `SPAWN_COLORS` wie auf der Karte, als CSS über `laneCss()` (`coop/lane-color.ts`; ohne Lane durchsichtig oder `--td-text-secondary`, nie Weiß). Die Bausteine stehen einmal: die Rezepte Gold-, Teal- und Rahmen-Button, vertiefte Fläche, Abschnittskopf, Fokusring (`focus-ring`, 1px `--td-gold` nur bei `:focus-visible`) und `sr-only` als Mixins in `styles/_td-mixins.scss` (auch `.td-btn` nutzt `gold-button`), die Coop-Formen (Knopfgrößen, Tag, Pille, Chip, Segment, Listenzeile, Name mit Unterzeile, Hinweis, Banner, Tastenkappe, Spinner mit `prefers-reduced-motion`, Panelrahmen) in `components/coop-ui/_coop-ui.scss`. `@include ui.classes` gibt einer Komponente die gemeinsamen Klassen (`.btn`, `.btn-xs`, `.btn-primary`, `.icon-btn`, `.inp`, `.tag`, `.pill`, `.chip`, `.seg`, `.note`, `.banner`, `.spin`, `kbd`, `.row`, `.sr-only`), weil die View-Encapsulation keine globalen Klassen durchlässt. Dazu `app-ping-bars` (vier Balken, Grenzen 40/90/160 ms, Orange bei Lag) und `chatView()` (Name und Zeit nur über der ersten Zeile eines Schwalls).
+Nach dem Design-Handover vom 2026-09-25 (`tmp/coop-design/test3.zip`, Plan [COOP_PLAN.md](COOP_PLAN.md) C8, D37 bis D46), überarbeitet nach [COOP_UI_REWORK_PLAN.md](archive/COOP_UI_REWORK_PLAN.md) (U1 bis U8). Ecken 0, Farben nur aus `td-theme.ts`, Lane-Farben aus `SPAWN_COLORS` wie auf der Karte, als CSS über `laneCss()` (`coop/lane-color.ts`; ohne Lane durchsichtig oder `--td-text-secondary`, nie Weiß). Knöpfe, Eingabe, Segment, Hinweis, Banner, Tastenkappe und Spinner kommen aus dem [Fundament](#fundament-stylesgame-uiscss); `components/coop-ui/_coop-ui.scss` leitet es weiter und hat nur, was der Coop allein braucht: `.btn` (Rahmen-Knopf), Tag, Pille, Chip, Listenzeile, Name mit Unterzeile und `panel-frame` (eine Platte mit Schräge, leicht durchsichtig). `@include ui.classes` gibt einer Komponente die Klassen des Fundaments plus `.btn`, `.tag`, `.pill`, `.chip`, `.row`. Dazu `app-ping-bars` (vier Balken, Grenzen 40/90/160 ms, Orange bei Lag) und `chatView()` (Name und Zeit nur über der ersten Zeile eines Schwalls).
 
 Ein Knopf, der gerade nichts tut, trägt `aria-disabled` statt `disabled` und prüft im Handler selbst: sonst erschiene sein Tooltip mit dem Grund nie (die Button-Rezepte färben `[aria-disabled='true']` wie `:disabled`). Wo Platz ist, steht der Grund zusätzlich als Text in der Zeile (Raumliste: warum ein Raum nicht beitretbar ist, in `--td-warn-orange`).
 
@@ -489,7 +482,7 @@ Tasten: Tab (Dock), Enter (Chat) und X (Markierung) hört `app-coop-chat` auf de
 | Squad `app-coop-squad` | unten über der Logo-Zeile, rechts neben der Fähigkeitenleiste wie das Dock, 400px | Kopf SQUAD mit Code oder Problem (Versalien per CSS), CHEATS ON (Orange), Einklappen; Zeilen 36px, man selbst zuerst; Fuß: auf wen die Welle wartet oder was nicht stimmt |
 | Chat `app-coop-chat` | unter der Squad-Box | ein Verlauf auf einem Scrim, ältere Zeilen gedimmt, Systemzeilen in Mono; Enter schreibt, X markiert die Karte, Tab öffnet das Dock (erst nach dem ersten Klick auf die Seite: davor bringt Tab den Fokus in die Seite); die Tastenzeile darunter nur bis zur ersten eigenen Nachricht |
 
-Überschrift des Docks in `--td-font-display` (Inter Tight, Versalien, Sperrung 0.1em). Warnfarben über `color-mix` aus `--td-warn-orange` und `--td-health-red`, keine eigenen Hex-Werte.
+Kopf des Docks als Titelplatte (Messingkante, `title(18px)`). Warntext in `--td-warn-text`, Fehler in `--td-danger-text`, keine eigenen Hex-Werte.
 
 ### Standortdialog
 
@@ -645,7 +638,7 @@ Hilfe-Dialog in `components/damage-matrix-dialog/`, geöffnet über den `i`-Butt
 
 - Liest nur Configs (`DAMAGE_MATRIX`, `EFFECTIVENESS_THRESHOLDS`, `EFFECTIVENESS_COLORS`, Tower, Enemies). Ein Rebalancing braucht keine UI-Änderung.
 - Stufen wie bei den Schadenszahlen, Farben ebenso bis auf `normal`: in der Tabelle neutral (`--td-text-secondary`), weil das Rot der Schadenszahlen in einer Matrix als "schlecht" gelesen wird und 1.00× hinter den Abweichungen zurücktreten soll.
-- Aufbau: Kopf mit Titel und Einzeiler ("Multiplier on every hit"), Rüstungskopf sticky mit Bernstein-Unterstrich (`--td-rune-amber-muted`), darunter die Gegner je Rüstung als gedämpfte Zeile. Tower-Spalte mit Name und Schadensart, davor ein 6px-Punkt in `DAMAGE_TYPE_UI.color` (gedämpft). Werte: `weak` und `normal` nur als Textfarbe, `strong` und `devastating` als Chip mit leichtem Tint und Rand in der Stufenfarbe, `devastating` fett. Legende kompakt links im Footer.
+- Aufbau: Titelplatte mit „Damage vs armor“, Einzeiler („Multiplier on every hit“) und Schließen, Rüstungskopf sticky mit Bernstein-Unterstrich (`--td-rune-amber-muted`), darunter die Gegner je Rüstung als gedämpfte Zeile. Tower-Spalte mit Name und Schadensart, davor ein 6px-Punkt in `DAMAGE_TYPE_UI.color` (gedämpft). Werte: `weak` und `normal` nur als Textfarbe, `strong` und `devastating` als Chip mit leichtem Tint und Rand in der Stufenfarbe, `devastating` fett. Legende kompakt links im Footer.
 - Nur freigeschaltete Tower (`ResearchStore.isTowerUnlocked`, dieselbe Prüfung wie das Baumenü). Die Liste ist reaktiv: eine Forschung, die bei offenem Dialog fertig wird, fügt die Zeile sofort ein. Solange noch Tower gesperrt sind, steht unter der Tabelle "More towers unlock through research."
 - Breite `min(880px, 92vw)` über die Dialog-Config (`width`/`maxWidth`), nicht per CSS: das Overlay-Pane von MatDialog ist per Klasse auf 560px begrenzt, nur der Inline-Style der Config hebt das auf. Die Tabelle hat `table-layout: fixed` (Tower-Spalte 150px, Rüstungsspalten gleich breit), Gegnerlisten brechen um; horizontal gescrollt wird erst unter 600px Tabellenbreite.
 - Esc schließt nur den Dialog: `isEscapeForDialog` (`utils/dialog-key-guard.ts`) hält Esc vom globalen Key-Handler fern, solange ein Dialog offen ist oder Esc schon verbraucht hat.
@@ -688,13 +681,13 @@ Technik und Regeln in [TOWER_CONTROL.md](TOWER_CONTROL.md). Zustand in `GameStor
 
 ### Game-Over-Bilanz
 
-`components/run-summary/` im Game-Over-Overlay zwischen Untertitel und Restart. Die Zahlen rechnet `runSummary` (`run-log/run-summary.ts`) aus dem Run-Log, aufgerufen vom `GameStateSyncService`; bei `game:over` landet die Zusammenfassung in `GameStore.runSummary`, `game:reset` leert sie.
+`components/run-summary/` im Game-Over-Overlay unter Ort und Welle, über der Knopfreihe (siehe [Game Over](#game-over-und-connection-lost)). Die Zahlen rechnet `runSummary` (`run-log/run-summary.ts`) aus dem Run-Log, aufgerufen vom `GameStateSyncService`; bei `game:over` landet die Zusammenfassung in `GameStore.runSummary`, `game:reset` leert sie.
 
-- Kennzahlen in einer Zeile mit Haarlinien, keine Kacheln: Wave, Kills, Time (Spielzeit ab Reset, Bauphase eingeschlossen), Earned (Kill-Belohnungen und Wellenboni, ohne Rückerstattungen und Cheat-Credits), Spent (Tower, Upgrades, Forschung, abzüglich Rückerstattungen)
-- Leaks per wave: ein Balken je Welle, Höhe relativ zur schlimmsten Welle, `--td-health-red`; Wellen ohne Leak als 2px-Strich in `--td-frame-dark`. Der Tooltip je Balken nennt Leaks und HQ-Schaden der Welle
+- Kennzahlen in einer Zeile dunkler Zellen (4px Fuge), die Zahl in Oswald 26px über dem Mono-Label: Wave, Kills, Time (Spielzeit ab Reset, Bauphase eingeschlossen), Earned (Kill-Belohnungen und Wellenboni, ohne Rückerstattungen und Cheat-Credits), Spent (Tower, Upgrades, Forschung, abzüglich Rückerstattungen)
+- Leaks per wave: ein Balken je Welle, Höhe relativ zur schlimmsten Welle, `--td-hp-text`; Wellen ohne Leak als 2px-Strich in `--td-frame-dark`. Der Tooltip je Balken nennt Leaks und HQ-Schaden der Welle
 - Top towers by damage: bis zu drei Tower, verkaufte mit dem Stand beim Verkauf (Zusatz "sold"); Tower ohne Schaden und Kills (Research Center) fehlen
 
-Hat der Lauf den Rekord des Ortes geschlagen, steht unter Restart der Hinweis `app-world-record` (`components/world-globe/`): Haarlinie oben, links ein Globus mit 112px auf den Ort gedreht und gold umringt, rechts "WORLD MAP" (9px Mono-Versalien, `--td-text-muted`), "New record for <Ort>: wave N" (13px/600, `--td-gold-light`) und "Best before: wave M" oder "First run here" (10px Mono, `--td-text-muted`), ganz rechts "Skip". Er blendet 1,2 s nach dem Overlay ein (400 ms, bei `prefers-reduced-motion` ohne Animation), Restart bleibt dabei stehen. Details: [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md#weltkarte-beste-welle-je-ort).
+Hat der Lauf den Rekord des Ortes geschlagen, steht unter den Knöpfen der Hinweis `app-world-record` (`components/world-globe/`): Haarlinie oben, links ein Globus mit 112px auf den Ort gedreht und gold umringt, rechts "WORLD MAP" (9px Mono-Versalien, `--td-text-muted`), "New record for <Ort>: wave N" (13px/600, `--td-gold-light`) und "Best before: wave M" oder "First run here" (10px Mono, `--td-text-muted`), ganz rechts "Skip". Er blendet 1,2 s nach dem Overlay ein (400 ms, bei `prefers-reduced-motion` ohne Animation), Restart bleibt dabei stehen. Details: [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md#weltkarte-beste-welle-je-ort).
 
 Den Schaden je Tower zählt `CombatComponent.damageDealt`: `DamageApplicationService` addiert pro Treffer die tatsächlich abgezogenen HP (ohne Overkill). Das Tower-Panel zeigt ihn als Kachel "Dealt" neben Kills (Raster drei über vier Kacheln) und liest ihn alle 250 ms neu, statt pro Treffer `selectedTowerRevision` zu erhöhen.
 
@@ -715,18 +708,22 @@ Die Werte liefert `veteranView()` (`tower-panel/tower-stats.ts`) aus `stats().ki
 
 ---
 
-## WC3-Design-Regeln
+## Regeln
 
-1. **Max. 3 Akzentfarben gleichzeitig sichtbar**
-2. **Gold nur für wichtige Elemente** (Buttons, Titel)
-3. **Keine weichen Gradients** - Farbstufen bevorzugen
-4. **Kontrast über Material & Rahmen**, nicht über Sättigung
-5. **UI immer dunkler & schwerer als das Spielfeld**
-6. **Rahmen: hell oben, dunkel unten** (klassischer 3D-Effekt)
+1. **Eine Hauptaktion je Ort** in Messing; alles andere Stahl oder Text
+2. **Akzente sparsam**: Messing für Aktion und Titel, Teal für Laufendes, Rot nur für Gefahr
+3. **Platten statt Kästen in Kästen**: eine Platte, darin Abschnittsköpfe und Linien
+4. **Titel sind Namen** in Oswald-Versalien, Labels Mono ab 10px, Text Inter Tight
+5. **Kein Glow, kein Blur** außer über der Karte; Ecken eckig oder abgeschrägt
+6. **Bewegung kurz** (120 bis 450 ms), bei `prefers-reduced-motion` nur Farbe
 
 ---
 
-## Accessibility (Icon-Buttons)
+## Accessibility
+
+Fokus: 2px `--td-focus-color` mit 2px Abstand, nur bei `:focus-visible` (`focus-ring`); Menüeinträge zeigen ihn als Messingbalken links. Kein `outline: none` ohne Ersatz.
+
+### Icon-Buttons
 
 `matTooltip` setzt nur `aria-describedby`, keinen Namen. Reine Icon-Buttons (Header, Sidebar, Quick-Actions, Kompass, Dialoge) brauchen deshalb zusätzlich einen englischen Namen:
 
@@ -744,7 +741,11 @@ Die Werte liefert `veteranView()` (`tower-panel/tower-stats.ts`) aus `stats().ki
 
 | Datei | Beschreibung |
 |-------|--------------|
-| `src/app/styles/td-theme.ts` | Zentrale Theme-Definition (Konstanten + CSS-Vars) |
+| `src/app/styles/td-theme.ts` | Tokens (Konstanten, `TD_CSS_VARS`, `installThemeVars`) |
+| `src/app/styles/_game-ui.scss` | Fundament: Platten, Dialoge, Knöpfe, Menü, HUD-Platten |
+| `src/app/styles/_td-mixins.scss` | Ältere Rezepte, Scrollbar, Fokusring |
+| `src/fonts/` | Oswald (OFL) |
+| `public/assets/images/logo/logo.svg` | Logo als SVG (einfarbig `#C2A055`, aus dem PNG nachgezogen mit `tools/logo/vectorize_logo.py`); `public/favicon.svg` ist das Zeichen daraus |
 | `tower-defense.component.ts` | Haupt-UI mit Layout |
 | `components/game-header/` | Info-Header mit Spielstatus |
 | `components/game-sidebar/` | Rechte Sidebar mit Aktionen, Tower-Slots, Wave-Preview (Panels siehe [Sidebar-Panels](#sidebar-panels)) |
