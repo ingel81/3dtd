@@ -138,13 +138,15 @@ export class MainMenuService {
       });
     });
     // Another place starts to load (header, dice, favourite, a save elsewhere,
-    // a coop guest following the host): the start layer shows its plate
+    // a coop guest following the host): the start layer shows its plate. A
+    // page open stays (the Load page waits for its load to say how it went),
+    // a closed menu opens on its list.
     let wasLoading = this.engineInit.loading();
     effect(() => {
       const loading = this.engineInit.loading();
       const began = loading && !wasLoading;
       wasLoading = loading;
-      if (began && !this.automated) untracked(() => this.home('start'));
+      if (began && !this.automated) untracked(() => this.showStartLayer());
     });
   }
 
@@ -170,6 +172,13 @@ export class MainMenuService {
   home(layer: MenuLayer = this.layer()): void {
     this.history.set([]);
     this.ui.mainMenu.set({ open: true, layer, page: 'home' });
+  }
+
+  /** The start layer, on the page open or else on the list */
+  private showStartLayer(): void {
+    const state = this.ui.mainMenu();
+    if (!state.open) this.history.set([]);
+    this.ui.mainMenu.set({ open: true, layer: 'start', page: state.open ? state.page : 'home' });
   }
 
   /** The start menu at app start, after the token step; not for automated runs */

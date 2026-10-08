@@ -8,10 +8,11 @@ import { PlacePickerComponent } from './place-picker.component';
 
 /**
  * The menu's New game page: where to play (the place picker), loaded behind
- * the menu. Before the first place the choice goes to the waiting start and
- * the menu goes back to its list, where the load shows; in a game the menu
- * steps aside and the change runs as before (LocationChangeCoordinatorService
- * .choosePlace). A coop guest's map is the host's: no choice there.
+ * the menu. The choice goes to LocationChangeCoordinatorService.choosePlace
+ * (the waiting start, or a change in a game) and the menu goes to its start
+ * list, where the loading plate shows and Play starts the new place; a
+ * change that did not come about leaves Continue to the old one. A coop
+ * guest's map is the host's: no choice there.
  */
 @Component({
   selector: 'app-menu-new-game',
@@ -38,8 +39,7 @@ export class MenuNewGameComponent {
   private readonly coordinator = inject(LocationChangeCoordinatorService);
 
   choose(choice: PlaceChoice): void {
-    if (this.coordinator.awaitingStartChoice()) this.menu.back();
-    else this.menu.close();
+    this.menu.home('start');
     void this.coordinator.choosePlace(choice);
   }
 }

@@ -431,18 +431,20 @@ describe('The main menu', () => {
   });
 
   describe('a place loads in the game', () => {
-    it('switches the menu to the start layer with the plate, from any page or closed', async () => {
+    it('switches the menu to the start layer with the plate, the page open kept, or opens it', async () => {
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);
       await setup('pause');
-      menu.open('new-game');
+      menu.open('load');
       await settle();
 
       engineInit.loading.set(true);
       await settle();
       expect(menu.layer()).toBe('start');
-      expect(menu.page()).toBe('home');
+      expect(menu.page()).toBe('load');
       expect(el().querySelector('app-menu-loading')).not.toBeNull();
+      expect(menu.back()).toBe(true);
+      expect(menu.page()).toBe('home');
 
       engineInit.loading.set(false);
       menu.close();

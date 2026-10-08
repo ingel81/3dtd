@@ -1,7 +1,7 @@
 /**
- * The New game page hands the picker's choice on: before the first place to
- * the waiting start, the menu back on its list where the load shows; in a
- * game the menu steps aside and the coordinator goes there. A coop guest
+ * The New game page hands the picker's choice on to the coordinator (the
+ * waiting start, or a change in a game), the menu on its start list where
+ * the load shows and Play waits. A coop guest
  * gets no picker. The picker is a stub here (its own scenarios cover it).
  */
 import '@angular/compiler';
@@ -31,7 +31,7 @@ describe('New game page', () => {
   afterEach(() => TestBed.resetTestingModule());
 
   function open(waiting: boolean, locked = false) {
-    const menu = { back: vi.fn(), close: vi.fn() };
+    const menu = { home: vi.fn(), close: vi.fn() };
     const coordinator = { awaitingStartChoice: signal(waiting), choosePlace: vi.fn(async () => true) };
     TestBed.configureTestingModule({
       providers: [
@@ -50,18 +50,19 @@ describe('New game page', () => {
 
   const CHOICE: PlaceChoice = { kind: 'place', hq: { lat: 48.78, lon: 9.18, name: 'Stuttgart' }, spawn: null };
 
-  it('before the first place: the start takes the choice, the menu goes back to its list', () => {
+  it('before the first place: the start takes the choice, the menu goes to its start list', () => {
     const { picker, menu, coordinator } = open(true);
     picker!.chosen.emit(CHOICE);
     expect(coordinator.choosePlace).toHaveBeenCalledWith(CHOICE);
-    expect(menu.back).toHaveBeenCalledTimes(1);
+    expect(menu.home).toHaveBeenCalledWith('start');
     expect(menu.close).not.toHaveBeenCalled();
   });
 
-  it('in a game: the menu steps aside and the place changes', () => {
+  it('in a game: the place changes behind the start list, the menu does not close and open again', () => {
     const { picker, menu, coordinator } = open(false);
     picker!.chosen.emit({ kind: 'dice' });
-    expect(menu.close).toHaveBeenCalledTimes(1);
+    expect(menu.home).toHaveBeenCalledWith('start');
+    expect(menu.close).not.toHaveBeenCalled();
     expect(coordinator.choosePlace).toHaveBeenCalledWith({ kind: 'dice' });
   });
 
