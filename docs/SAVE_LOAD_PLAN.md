@@ -3,6 +3,9 @@
 Stand 2026-10-05, **Plan entschieden, im Bau**. Eintrag in [TODO.md](../TODO.md): E110 (Speichern und Laden im
 Einzelspiel), E111 (Menü vervollständigen). Die Fragen unten hat der User am 2026-10-05 beantwortet.
 
+Seit 2026-10-09 stehen Speichern und Laden als Seiten Save und Load im Hauptmenü, das Spielmenü gibt es nicht mehr
+([MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md)); jeder Slot führt das HQ seines Orts mit (`StoredSlotMeta.hq`).
+
 ## Ziel
 
 Im Einzelspiel einen Lauf über das Spielmenü speichern und später am selben Ort weiterspielen. Das Menü bekommt dabei

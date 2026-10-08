@@ -183,7 +183,7 @@ Ein Overlay über der abgedunkelten Karte (`--td-panel-shadow` zu 72 %) mit gold
 
 | Bereich | Beschreibung |
 |---------|--------------|
-| **Info-Header** | Logo, Standort ("DEFEND Straße, Stadt, Land"; der Name kommt aus `formatAddressShort`, seit 2026-09-20 mit Land. Die Zeile wird höchstens 34 % der Fensterbreite breit, danach schneidet sie hinten ab; Klick öffnet den Standort-Dialog) mit Aktionen (Link kopieren, Favoriten, Zufallsort, HQ versetzen, Spawn setzen), rechts die drei Stat-Platten HQ / CREDITS / WAVE, während einer Welle links davon der Gegner-Chip (siehe [Header-Stat-Platten](#header-stat-platten)). Der Ortsname gibt auf schmalen Fenstern zuerst nach |
+| **Info-Header** | Logo, Standort ("DEFEND Straße, Stadt, Land"; der Name kommt aus `formatAddressShort`, seit 2026-09-20 mit Land. Die Zeile wird höchstens 34 % der Fensterbreite breit, danach schneidet sie hinten ab; Klick öffnet die Menüseite New game) mit Aktionen (Link kopieren, Favoriten, Zufallsort, HQ versetzen, Spawn setzen), rechts die drei Stat-Platten HQ / CREDITS / WAVE, während einer Welle links davon der Gegner-Chip (siehe [Header-Stat-Platten](#header-stat-platten)). Der Ortsname gibt auf schmalen Fenstern zuerst nach |
 | **Canvas** | 3D-Spielfeld mit Google Photorealistic Tiles |
 | **Sidebar** | Rechte Sidebar: WAVE-Panel, darunter BUILD, Tower-Detail oder Research (siehe [Sidebar-Panels](#sidebar-panels)) |
 | **Info-Overlay** | Oben links: FPS, per Caret aufklappbar um Tiles, Sounds und Streets. Misst seine Unterkante (`ResizeObserver`, `UIStore.infoOverlayBottom`), die Fähigkeitenleiste bleibt darunter |

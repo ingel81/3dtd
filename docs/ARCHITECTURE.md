@@ -262,7 +262,7 @@ Konsolen-Globals (`__corridor`, `__rg`, `__perf`, `__raycastStats` usw.) und die
 
 | Datei | Verantwortung |
 |-------|---------------|
-| **BenchmarkService** | Benchmark im Spiel (TODO E74): Eintrag im Spielmenü lädt die Seite mit `?devworld&bot=manual&benchmark` neu, dann Stufen und Tempi messen; auf die Spielkomponente begrenzt, fährt den Last-Handle des `GameLoopFacadeService` |
+| **BenchmarkService** | Benchmark im Spiel (TODO E74): Eintrag Benchmark auf der Menüseite Extras lädt die Seite mit `?devworld&bot=manual&benchmark` neu, dann Stufen und Tempi messen; auf die Spielkomponente begrenzt, fährt den Last-Handle des `GameLoopFacadeService` |
 | `load-scene.ts` | Die Lastszene, die auch `e2e/perf/sim-load.ts` baut: Tower-Plätze, Routenstücke, Auffüllen mit Warten auf die Simulation (`sync`), Einpendeln; ohne Imports, damit Node sie direkt lädt |
 | `benchmark-report.ts` | Plan, URL, Ergebnis als lesbarer Text (`formatBenchmark`) |
 | `BenchmarkPanelComponent` | Fortschritt mit Abbrechen, am Ende Tabelle und Kopierknopf; „Back to your place“ lädt die Seite, von der der Menüeintrag kam (URL in sessionStorage) |

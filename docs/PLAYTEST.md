@@ -375,6 +375,73 @@ Paket S5, Linux (vor dem nächsten Release):
 - **S5.2 AUR:** einmalig AUR-Konto, erster Push von Arch mit `makepkg -si` und `namcap`, Secret `AUR_SSH_PRIVATE_KEY`
   ([ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), „AUR-Paket“).
 
+## H Hauptmenü und Spieloptik (2026-10-09)
+
+Branch `menu/main-menu-2026-10-08`, Plan [MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md). Die Abläufe (Liste, Rückfragen,
+Seiten, Esc) belegen Szenario-Specs und die Bildtour `e2e/tests/ui-tour.e2e.ts`; hier nur, was echte Karte, Augen,
+Ohren oder die Desktop-App braucht.
+
+Paket H1, Laden hinter dem Menü (echte Karte):
+
+- **H1.1 Erster Start:** neues Browser-Profil (oder in den DevTools unter Application den Speicher von localhost
+  leeren), `http://localhost:4200/` ohne Parameter. Erwartung: das Start-Menü mit „New game“ zuerst, keine Frage des
+  Browsers nach dem Standort. „New game“, unter den Listen „Showcase“, einen Ort anklicken. Erwartung: das Menü geht
+  zurück auf seine Liste, unten rechts zählt die Ladeplatte die Schritte, „Play“ trägt einen Balken. Die Zeit vom
+  Klick bis „Play“ ohne Balken notieren. „Play“: erst jetzt Intro-Flug, Musikwechsel und HUD.
+- **H1.2 Play beim Laden:** wie H1.1 mit einem anderen Showcase-Ort, „Play“ sofort klicken. Erwartung: unter Play
+  „Starts when loaded“, das Spiel startet von selbst, sobald der Ort steht.
+- **H1.3 Mit Link:** `http://localhost:4200/?l=49.14227,9.21878` mit F5. Erwartung: „Play“ mit „Heilbronn“ darunter steht
+  oben (vor „Continue“, falls es ein Autosave gibt), der Ort lädt hinter dem Menü.
+- **H1.4 Wieder ohne Link:** in H1.3 eine Welle spielen, dann `http://localhost:4200/` mit F5. Erwartung: hinter dem
+  Menü lädt Heilbronn, oben „Continue“ mit „Heilbronn · wave N“ darunter; Continue lädt den Lauf und startet ihn.
+- **H1.5 Ortswechsel im Lauf:** im Spiel nacheinander den Ortsnamen im Kopf (öffnet „New game“, dort einen Ort
+  wählen), den Würfel „Random location“ und einen Favoriten (Stern im Kopf) wählen. Erwartung: jedes Mal das
+  Start-Menü mit Ladeplatte, danach „Play“; der alte Ort zeigt keinen Intro-Flug dazwischen.
+
+Paket H2, Continue an einem anderen Ort (E120):
+
+- **H2.1:** in Heilbronn (H1.3) bis Welle 2 spielen, dann `http://localhost:4200/?l=48.85341,2.3488` (Paris) mit F5.
+  Erwartung: oben „Play“ mit „Paris“, darunter „Continue“ mit „in Heilbronn · wave N“. „Continue“: Rückfrage „Leaves
+  Paris: the save plays in Heilbronn.“ „Cancel“ lässt alles, „Continue anyway“ lädt Heilbronn mit Platte, der Lauf steht
+  vor der Welle des Autosaves.
+
+Paket H3, Coop:
+
+- **H3.1 Einladungslink (Dev-Spiel):** Relay starten (`npm run coop-server`), Fenster A `http://localhost:4200/`,
+  „Coop“, „Host online“, „Host a room“; im Dock „Copy the invite link“. In einem zweiten Browser-Profil (Fenster B)
+  den Link öffnen. Erwartung: das
+  Start-Menü steht auf „Coop“, dahinter lädt die Karte des Hosts mit Ladeplatte; erst wenn der Ort steht, geht das
+  Menü und das Dock zeigt den Raum. Beim Host erscheint der Gast in der Lobby.
+- **H3.2 Einladungslink im Browser:** denselben Link auf `/play/` der Website (nicht localhost) öffnen. Erwartung: das
+  Menü auf „Coop“ zeigt nur „Co-op runs in the desktop app“ mit Raumcode und Download-Knöpfen.
+- **H3.3 Beitritt ohne eigenen Ort:** Fenster B mit leerem Speicher auf `http://localhost:4200/` ohne Parameter,
+  „Coop“, unter „Join online“ den Code von H3.1 eingeben, „Join“. Erwartung: das Menü bleibt, die Karte des
+  Hosts lädt dahinter, danach Spiel und Dock mit dem Raum.
+- **H3.4 Same network (zwei Rechner, App):** A „Coop“, „Host on this network“ (Windows-Firewall erlauben). B
+  „Coop“: unter „Same network“ steht das Spiel von A mit Spielerzahl, „Join“. Erwartung: B im Raum von A. Ohne Spiel im
+  Netz nach rund 4 s das Feld „Host IP“ und die Checkliste.
+
+Paket H4, Desktop-App:
+
+- **H4.1 Quit:** im Start-Menü ohne Lauf „Quit 3DTD“. Erwartung: die App endet. Neu starten, einen Tower bauen, Esc,
+  „Quit 3DTD“. Erwartung: Rückfrage „Quit 3DTD? The run ends.“; „Quit“ beendet.
+- **H4.2 Links:** Esc, „Extras“, „Legal & privacy“. Erwartung: der System-Browser öffnet
+  `https://3dtd.sgeht.net/legal.html`, die App bleibt wie sie war. Ebenso „Source on GitHub“.
+
+Paket H5, HUD und Lesbarkeit:
+
+- **H5.1 Kopfleiste im Spiel:** eine Welle spielen. Erwartung: ein Kill lässt unter der Credits-Platte „+N“ in Grün
+  aufsteigen, ein Kauf „−N“ in Rot; ein Tower ohne genug Credits (Taste 1 bis 9) lässt die Credits-Kante rot blitzen.
+  Der Wave-Balken füllt sich mit der Welle, ihr Start lässt die Kante kurz Messing werden. Gegner durchlassen: die
+  HQ-Segmente gehen zurück, jeder Treffer blitzt und ruckt die Platte; unter 30 % pulsiert sie warm, unter 10 % steht
+  der Warnstreifen. Nichts davon soll stören oder hektisch wirken.
+- **H5.2 Ton:** in Settings die vier Regler bewegen und je Kanal stummschalten. Erwartung: wirkt sofort hörbar und
+  hält nach F5. Beim ersten Start (H1.1) kommt der Musikwechsel zur Bauphase erst mit „Play“, nicht schon beim
+  Laden.
+- **H5.3 1280x720:** Fenster auf 1280x720 (DevTools, Gerätesymbolleiste, Maße eintragen). Start-Menü mit den Seiten
+  „New game“ (Liste World), „Coop“ und „Settings“, Pause-Menü, HUD im Spiel ansehen. Erwartung: nichts abgeschnitten
+  oder überlappend, eine lange Seite scrollt in ihrer Platte, alle Beschriftungen lesbar.
+
 ## K8 Desktop-Build
 
 K8.1 bis K8.3 und K8.5 sind ok und im [Archiv](archive/PLAYTEST_2026-09.md). Offen nur, was ein Rechner mit zwei

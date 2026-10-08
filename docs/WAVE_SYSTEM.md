@@ -615,7 +615,7 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
   solange ein Dialog offen ist (`bossIntroBlock`). Ein so übergangener Boss
   bekommt später keins mehr.
 - **Dialog offen** (entschieden 2026-09-14): Tritt ein Boss aus dem Portal,
-  während ein Dialog offen ist (Standort-Dialog, Tastenübersicht, jeder andere
+  während ein Dialog offen ist (Tastenübersicht, What's new, jeder andere
   `MatDialog`, gezählt über `MatDialog.openDialogs`), fällt sein Intro aus:
   kein Kameraschnitt und keine Pause hinter dem Dialog. Nach dem Schließen
   kommt es nicht nach; ein Boss eines anderen Typs oder der nächsten Welle

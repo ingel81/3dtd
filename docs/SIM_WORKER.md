@@ -224,7 +224,7 @@ Wo sie im Spiel stehen (TODO E82, E75, E74):
   (`sim/core/sim-profile.ts`), das Fenster holt die Summen alle 0,5 s per RPC `profileSums`; `RenderLoop.setTiming`
   misst das Bild. Geschlossen nimmt ein Tick nur die Zeitstempel, die er schon vorher nahm (vier für `tickMs`, zwei je
   Befehl).
-- **Benchmark** (Spielmenü): lädt die Seite in die DevWorld neu (`?devworld&bot=manual&benchmark`, auch von einer
+- **Benchmark** (Menü, Seite Extras): lädt die Seite in die DevWorld neu (`?devworld&bot=manual&benchmark`, auch von einer
   echten Karte aus, ohne Tiles und Kartensitzung), baut die Szene des Lastlaufs (`benchmark/load-scene.ts`, dieselbe
   wie `e2e/perf/sim-load.ts`: 40 Tower, Gegner mit 1 000 000 HP und 0,5 m/s auf den ersten 70 % der Routen,
   Auffüllen mit Warten auf die Simulation, Einpendeln) und misst 2000, 5000 und 10 000 Gegner je bei Tempo 4 und 1, je 8 s. Am Ende eine

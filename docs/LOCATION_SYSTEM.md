@@ -195,7 +195,7 @@ Bedienung im Header (Lesezeichen-Knopf):
 ### Zuletzt gespielt (Recent)
 
 - `recents` (Signal), gespeichert unter eigenem Key `td_recent_locations_v1`, Logik in `recent-locations.ts`
-- Ein `effect()` im Konstruktor schreibt einen Eintrag, sobald HQ, mindestens ein Spawn und ein aufgelöster Name vorliegen. Damit ist jeder Weg abgedeckt (URL, Geolocation, Dialog, Favorit, World Dice, HQ versetzen), ohne jeden einzeln anzufassen
+- Ein `effect()` im Konstruktor schreibt einen Eintrag, sobald HQ, mindestens ein Spawn und ein aufgelöster Name vorliegen. Damit ist jeder Weg abgedeckt (URL, Ortswahl im Menü, Use my location, Favorit, World Dice, HQ versetzen), ohne jeden einzeln anzufassen
 - Max. 8 Einträge, neueste zuerst. HQs näher als 150 m gelten als derselbe Ort: der Eintrag rückt nach oben und übernimmt Spawn und Namen, statt eine zweite Zeile anzulegen
 - Der Name wird mitgespeichert (anders als bei Favoriten), die Liste braucht also kein Geocoding
 - DevWorld (Fake-Origin 0,0) wird nicht gespeichert; defekte Einträge im Storage werden beim Laden übersprungen
@@ -596,7 +596,7 @@ Wenn der Spieler das HQ über die Map-Platzierung versetzt, wählt `MapRelocatio
 ### Fast Path (innerhalb Street-Bounds)
 
 Wenn das neue HQ innerhalb der geladenen Street-Network-Bounds liegt:
-- Kein Street-Reload, kein Loading Screen
+- Kein Street-Reload, keine Ladeplatte
 - Straßennetz wird wiederverwendet
 - Alte Spawns werden via `findPath()` revalidiert
 - Wenn kein alter Spawn erreichbar ist → Random Spawn generieren
@@ -604,7 +604,7 @@ Wenn das neue HQ innerhalb der geladenen Street-Network-Bounds liegt:
 ### Slow Path (außerhalb Street-Bounds)
 
 Wenn das HQ außerhalb der Bounds platziert wird (z.B. 10km entfernt):
-- Volle 7-Step Location Change Pipeline (mit Loading Screen)
+- Volle 7-Step Location Change Pipeline (mit Ladeplatte im Start-Menü)
 - **Spawn-Discard-Logik**: Alter Spawn wird verworfen wenn >1500m vom neuen HQ (`SPAWN_DISCARD_DISTANCE`)
 - Bei verworfenen/fehlenden Spawns: Streets werden vorab geladen, Random Spawn generiert (500-1000m)
 - Street-Network wird gecached → Coordinator reused es in Step 3 (kein doppeltes Laden)

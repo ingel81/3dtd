@@ -39,8 +39,8 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md) | Aktuell | Deterministische Simulation: Befehlsgrenze, Turmdrehung in der Sim, Sicht als Daten, Snapshot, Prüfsumme, Abnahme, Messungen; Unterbau für Coop |
 | [COOP_PLAN.md](COOP_PLAN.md) | Aktuell (ausgeliefert mit 0.5.0) | Coop "Vier Tore" im Lockstep über einen Node-Relay, online über die öffentliche Lobby, im LAN aus der Desktop-App: Entscheidungen D1 bis D68, Pakete C0 bis C9 (offen C5b), Relay-Betrieb, Schutz gegen Schummeln |
 | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Aktuell | Desktop-Build (Windows NSIS, Linux AppImage), Auto-Update, Release-Ablauf; ausgeliefert seit v0.3.1 |
-| [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Location Dialog, Geocoding, Spawn-Generierung |
-| [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) | Aktuell | Breite des Routenkorridors: Freiraum je Seite aus den Tiles, OSM-Breite als Rückfall, Laufweg (Korridor endet vor Autos, Traufen, Hecken), Brücken, Tunnel, Bau hinter dem Ladescreen und Einfrieren (`CorridorBuild`), Seitenversatz der Gegner und ihre Bögen an Ecken, `__corridor.*`, `__routes.describe()` |
+| [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Ortswahl im Menü (New game), Start ohne Ort, Geocoding, Spawn-Generierung |
+| [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) | Aktuell | Breite des Routenkorridors: Freiraum je Seite aus den Tiles, OSM-Breite als Rückfall, Laufweg (Korridor endet vor Autos, Traufen, Hecken), Brücken, Tunnel, Bau während des Ladens und Einfrieren (`CorridorBuild`), Seitenversatz der Gegner und ihre Bögen an Ecken, `__corridor.*`, `__routes.describe()` |
 | [PROJECTILES.md](PROJECTILES.md) | Aktuell | Projektil-System, Flugbahnen, Konfiguration |
 | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) | Aktuell | 3D Audio, positionsabhängige Sounds, Hintergrundmusik |
 | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) | Aktuell | 3D Model Previews in der Sidebar (Renderer-Capacity-Strategie) |
@@ -73,7 +73,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) | Bericht, beschreibt den laufenden Regler | Druck-Regler statt Leck-Regler: Befund, Bau, Messrunden, verworfener HP-Hebel (2026-09-21/22) |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Der Bot: Strategien schlagen vor, ein Schiedsrichter wählt nach Nutzen je Gold; drei Profile, Coop-Partner, Bot-Läufe |
 | [BOT_PLAYER_PLAN.md](BOT_PLAYER_PLAN.md) | Plan (B1 bis B6 gebaut, B7 offen) | Menschenähnlicher Bot: Wahrnehmung, Sichtlinien-Probe, Nutzen-Schiedsrichter, drei Profile mit menschlichen Grenzen, Coop-Partner; Entscheidungen P1 bis P6, Pakete B1 bis B7 |
-| [SAVE_LOAD_PLAN.md](SAVE_LOAD_PLAN.md) | Plan (nicht gebaut, nach 0.6) | Speichern und Laden im Einzelspiel über das Spielmenü (E110), Menü vervollständigen (E111): vorhandene Bausteine, was fehlt, offene Fragen |
+| [SAVE_LOAD_PLAN.md](SAVE_LOAD_PLAN.md) | Plan, gebaut; die Einstiege heute im Hauptmenü ([MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md)) | Speichern und Laden im Einzelspiel (E110), Menü vervollständigen (E111): vorhandene Bausteine, was fehlt, offene Fragen |
 | [bot-server/README.md](../bot-server/README.md) | Aktuell | Bot-Server: starten, Protokoll, Dashboard-API, Log |
 | [desktop/README.md](../desktop/README.md) | Aktuell | Desktop-App bauen und starten |
 | [coop-server/README.md](../coop-server/README.md) | Aktuell | Coop-Relay: Optionen, Statusseite, Limits, öffentliche Lobby hinter einem Tunnel, Datenschutz |
@@ -83,6 +83,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
+| [MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md) | Gebaut 2026-10-09, wartet auf den Nachtest (PLAYTEST H) | Hauptmenü als Ort für alles außer Spielen (Lagen Start und Pause, Laden hinter dem Menü, Seiten New game, Coop, Save, Load, Settings, Extras) und die Optik aus einem Fundament (E119 bis E122); was gebaut ist, Abweichungen, wo es steht |
 | [BALANCING_PLAN.md](BALANCING_PLAN.md) | Plan (Phase 1 und 2 gebaut, Phase 3 offen) | Balancing aufrollen: Begriffe (Wellenplan statt Kampagne), eine Wellenquelle, Seeds und Determinismus, Datensammlung von Menschen und Bots (Run-Log), Zielwerte und Tuning; offene Entscheidungen |
 
 ## Archiv
@@ -99,7 +100,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | [LANES_PLAN.md](archive/LANES_PLAN.md) | [WAVE_SYSTEM.md](WAVE_SYSTEM.md#spuren); Spuren je Spawn und je Spieler (E96), gebaut 2026-10-02 |
 | [PRESSURE_ONE_PLACE_PLAN.md](archive/PRESSURE_ONE_PLACE_PLAN.md) | [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md); Druck an einer Stelle (E47 bis E51), gebaut 2026-09-27 |
 | [RESEARCH_DIALOG_PLAN.md](archive/RESEARCH_DIALOG_PLAN.md) | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) (Forschungsbaum); Forschung als Dialog mit Graph (G3), gebaut 2026-09-21 |
-| [COOP_UI_REWORK_PLAN.md](archive/COOP_UI_REWORK_PLAN.md) | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) (Coop, Standortdialog); Überarbeitung U1 bis U8, gebaut 2026-09-26 |
+| [COOP_UI_REWORK_PLAN.md](archive/COOP_UI_REWORK_PLAN.md) | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) (Coop); Überarbeitung U1 bis U8, gebaut 2026-09-26 |
 | [SOUND_PLAN.md](archive/SOUND_PLAN.md) | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md); Sound-Paket, gebaut 2026-09-23 |
 | [ROUTE_ALIGNED_CELLS_CONCEPT.md](archive/ROUTE_ALIGNED_CELLS_CONCEPT.md) | Konzept Zellen parallel zur Route, vom User am 2026-09-16 gestrichen |
 | [BALANCE_PROPOSAL_2026-09.md](archive/BALANCE_PROPOSAL_2026-09.md) | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md); Balance-Vorschlag vom 2026-09-11, Werte seit der Balance-Nacht überholt |
@@ -144,6 +145,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...den Signal Store verstehen | [SIGNAL-STORE-ARCHITECTURE.md](SIGNAL-STORE-ARCHITECTURE.md) |
 | ...wissen, welche Services es gibt | [ARCHITECTURE.md](ARCHITECTURE.md) → Services |
 | ...das UI stylen | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
+| ...das Hauptmenü und seine Seiten verstehen | [MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md) |
 | ...wissen, was offen ist oder auf einen Test wartet | [TODO.md](../TODO.md) |
 | ...wissen, was schon fertig ist | [DONE.md](../DONE.md) |
 | ...wissen, was im Spiel noch nachzutesten ist | [PLAYTEST.md](PLAYTEST.md) |

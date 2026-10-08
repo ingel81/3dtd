@@ -2015,8 +2015,8 @@ __corridor.snapshot()                                   // alles zum Korridor al
   Entwickleroptionen, Gruppe Waves & Inspect (`CorridorSnapshotService`,
   `debug/corridor-snapshot.service.ts`). Gedacht für zwei Ladungen desselben
   Orts, eine nach dem Seitenaufruf, eine im Spiel hinnavigiert. Unter den
-  Kacheln steht der Fortschritt, am Ende der Dateiname; ohne Ort, im
-  Ladebildschirm, während eines Korridorbaus und während `probeLod()` nur der
+  Kacheln steht der Fortschritt, am Ende der Dateiname; ohne Ort, während
+  der Ort lädt, während eines Korridorbaus und während `probeLod()` nur der
   Grund.
   - Name `corridor-<ort>-<cold|nav>-<hhmmss>.json`: `<ort>` die Stadt oder
     Gemeinde der Adresse (sonst der Name im Header, sonst die
@@ -2062,7 +2062,7 @@ __corridor.snapshot()                                   // alles zum Korridor al
     Korridor, Trace und Tiles, dann die Zellen in Scheiben von
     `CorridorBuild.SLICE_MS` je Frame. Solange hält er beruhigte Tile-Ladungen
     vom Spiel fern (`SettleHold`), Säulen-Cache und `lodVersion` bleiben also
-    stehen. Kommt zwischen zwei Scheiben ein Ladebildschirm, ein Korridorbau
+    stehen. Kommt zwischen zwei Scheiben ein Laden des Orts, ein Korridorbau
     oder ein anderer Ort, bricht er mit dem Grund ab.
   - Kosten, unter Node: Die Datei für 2000 Zellen entsteht in 8 bis 12 ms,
     775 kB ohne Bild (`corridor-snapshot.spec.ts`); die `pick`-Zeilen von
@@ -2116,7 +2116,7 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
     Konsole, und der Knopf sagt es.
 
   Ablauf:
-  1. Verweigert, solange der Ort lädt (Ladebildschirm), Tower stehen, eine
+  1. Verweigert, solange der Ort lädt, Tower stehen, eine
      Welle läuft, Gegner da sind, der Intro-Flug läuft oder eine
      Korridormessung offen ist, ebenso ohne Tiles (DevWorld) oder ohne Region.
   2. Hält die beruhigten Tile-Ladungen vom Spiel fern (`SettleHold`): kein
