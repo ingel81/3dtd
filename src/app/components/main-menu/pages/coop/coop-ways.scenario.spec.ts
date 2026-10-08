@@ -72,6 +72,7 @@ interface Setup {
   place?: boolean;
   wave?: number;
   spawns?: number;
+  towers?: number;
 }
 
 describe('Coop page, the ways in', () => {
@@ -88,7 +89,7 @@ describe('Coop page, the ways in', () => {
     vi.useRealTimers();
   });
 
-  function open({ lan = false, place = true, wave = 0, spawns = 1 }: Setup = {}): ComponentFixture<CoopWaysComponent> {
+  function open({ lan = false, place = true, wave = 0, spawns = 1, towers = 0 }: Setup = {}): ComponentFixture<CoopWaysComponent> {
     coop = stubCoop(lan);
     TestBed.configureTestingModule({
       providers: [
@@ -97,7 +98,7 @@ describe('Coop page, the ways in', () => {
           provide: LocationManagementService,
           useValue: { hq: signal(place ? { lat: 49.14, lon: 9.21 } : null), getLocationDisplayName: () => 'Heilbronn' },
         },
-        { provide: GameStore, useValue: { waveNumber: signal(wave), isGameOver: signal(false) } },
+        { provide: GameStore, useValue: { waveNumber: signal(wave), towerCount: signal(towers), isGameOver: signal(false) } },
         { provide: LocationStore, useValue: { spawnPoints: signal(Array.from({ length: spawns }, (_, i) => ({ id: `s${i}` }))) } },
       ],
     });
@@ -148,6 +149,13 @@ describe('Coop page, the ways in', () => {
     click(fixture, 'Host a room');
     click(fixture, 'Host anyway');
     expect(coop.host).toHaveBeenCalledWith('Ann');
+  });
+
+  it('towers built before the first wave are a run too: asked first', () => {
+    const fixture = open({ towers: 2 });
+    click(fixture, 'Host a room');
+    expect(coop.host).not.toHaveBeenCalled();
+    expect(text(fixture)).toContain('This ends your solo run (your towers)');
   });
 
   it('a map with two spawns keeps its solo run: no question', () => {
@@ -306,7 +314,7 @@ describe('Coop page, the ways in', () => {
         providers: [
           { provide: COOP, useValue: { ...coop, roomFromUrl: 'XYZ789' } },
           { provide: LocationManagementService, useValue: { hq: signal(null), getLocationDisplayName: () => '' } },
-          { provide: GameStore, useValue: { waveNumber: signal(0), isGameOver: signal(false) } },
+          { provide: GameStore, useValue: { waveNumber: signal(0), towerCount: signal(0), isGameOver: signal(false) } },
           { provide: LocationStore, useValue: { spawnPoints: signal([]) } },
         ],
       });

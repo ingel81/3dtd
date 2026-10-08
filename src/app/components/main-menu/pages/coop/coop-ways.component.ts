@@ -62,13 +62,16 @@ export class CoopWaysComponent {
   readonly placeName = computed(() => (this.locationMgmt.hq() ? this.locationMgmt.getLocationDisplayName() : ''));
 
   /**
-   * The wave of the solo run that opening a room would end, 0 when it would
-   * not: a room on a map with one spawn adds a lane for the second player at
-   * once (CoopService.openRoom), and a new spawn starts the run over.
+   * The solo run that opening a room would end ("wave 3", "your towers"),
+   * null when it would not: a room on a map with one spawn adds a lane for
+   * the second player at once (CoopService.openRoom), and a new spawn starts
+   * the run over. Towers before the first wave are a run too.
    */
   readonly soloRunEnds = computed(() => {
-    const wave = this.game.waveNumber() > 0 && !this.game.isGameOver() ? this.game.waveNumber() : 0;
-    return this.locationStore.spawnPoints().length < 2 ? wave : 0;
+    if (this.locationStore.spawnPoints().length >= 2 || this.game.isGameOver()) return null;
+    const wave = this.game.waveNumber();
+    if (wave > 0) return `wave ${wave}`;
+    return this.game.towerCount() > 0 ? 'your towers' : null;
   });
   /** A host button was pressed while it would end the solo run: the section asks once more */
   readonly confirmHost = signal<HostWay | null>(null);
@@ -133,7 +136,7 @@ export class CoopWaysComponent {
   host(way: HostWay): void {
     const coop = this.coop;
     if (!this.placeName()) return;
-    if (this.soloRunEnds() > 0 && this.confirmHost() !== way) {
+    if (this.soloRunEnds() && this.confirmHost() !== way) {
       this.confirmHost.set(way);
       return;
     }

@@ -51,7 +51,7 @@
       }
     </div>
     @if (confirmHost() === 'online') {
-      <p class="note is-warn" role="alert">This ends your solo run (wave {{ soloRunEnds() }}): the room adds a lane for a second player.</p>
+      <p class="note is-warn" role="alert">This ends your solo run ({{ soloRunEnds() }}): the room adds a lane for a second player.</p>
       <div class="mp-actions">
         <button class="btn-secondary" type="button" (click)="confirmHost.set(null)">Cancel</button>
         <button class="btn-primary" type="button" (click)="host('online')" [disabled]="busy()" tdFocusOnShow>Host anyway</button>
@@ -127,7 +127,7 @@
         }
       </div>
       @if (confirmHost() === 'lan') {
-        <p class="note is-warn" role="alert">This ends your solo run (wave {{ soloRunEnds() }}): the room adds a lane for a second player.</p>
+        <p class="note is-warn" role="alert">This ends your solo run ({{ soloRunEnds() }}): the room adds a lane for a second player.</p>
         <div class="mp-actions">
           <button class="btn-secondary" type="button" (click)="confirmHost.set(null)">Cancel</button>
           <button class="btn-primary" type="button" (click)="host('lan')" [disabled]="busy()" tdFocusOnShow>Host anyway</button>
