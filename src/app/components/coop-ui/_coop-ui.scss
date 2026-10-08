@@ -1,83 +1,13 @@
 // Building blocks of the coop UI (docs/COOP_PLAN.md, C8): lobby dock, squad
-// box and chat use them; the material comes from the recipes in
-// styles/_td-mixins.scss, the colours from TD_CSS_VARS. Radius 0 throughout.
-@use '../../styles/td-mixins' as td;
-
-// A button's size and type; the material comes with one of the recipes below
-@mixin btn-shape($height: 38px) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: $height;
-  padding: 0 16px;
-  font-family: var(--td-font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  @include td.focus-ring;
-}
+// box and chat use them. Buttons, inputs, notes and banners come from the
+// foundation (styles/_game-ui.scss), forwarded here; this file keeps what only
+// the coop UI has. Radius 0 throughout.
+@forward '../../styles/game-ui' hide classes;
+@use '../../styles/game-ui' as g;
 
 // Frame button (secondary): Leave, Copy, Join
 @mixin btn($height: 38px) {
-  @include btn-shape($height);
-  @include td.frame-button;
-}
-
-// The one main action: Open room, Start match, Ready up
-@mixin btn-primary($height: 38px) {
-  @include btn-shape($height);
-  @include td.gold-button;
-}
-
-// Done state of a toggle: Ready · undo
-@mixin btn-done($height: 38px) {
-  @include btn-shape($height);
-  @include td.teal-button;
-}
-
-// Small frame button for 30px rows: Copy code, Copy invite
-@mixin btn-xs {
-  @include btn(30px);
-  padding: 0 10px;
-  font-size: 10.5px;
-  letter-spacing: 0.12em;
-}
-
-// Square icon button in the frame material
-@mixin icon-btn($size: 30px) {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: $size;
-  height: $size;
-  padding: 0;
-  @include td.frame-button;
-  @include td.focus-ring;
-}
-
-// Text input on the sunken surface
-@mixin input {
-  box-sizing: border-box;
-  height: 38px;
-  width: 100%;
-  min-width: 0;
-  padding: 0 12px;
-  @include td.sunken;
-  color: var(--td-text-primary);
-  font-family: var(--td-font-mono);
-  font-size: 13px;
-  outline: none;
-
-  // A text field shows the focus for the mouse too: the caret goes there
-  &:focus {
-    border-color: var(--td-gold);
-  }
-
-  &::placeholder {
-    color: var(--td-text-disabled);
-  }
+  @include g.btn-secondary($height);
 }
 
 // HOST / YOU and the like: a small framed mono label
@@ -147,53 +77,6 @@
   }
 }
 
-// Segmented control: one button each choice, the chosen one underlined in gold
-@mixin segmented {
-  display: flex;
-  @include td.sunken;
-
-  button {
-    height: 28px;
-    padding: 0 10px;
-    border: 0;
-    border-left: 1px solid var(--td-frame-dark);
-    background: none;
-    font-family: var(--td-font-body);
-    font-size: 12px;
-    white-space: nowrap;
-    color: var(--td-text-muted);
-    cursor: pointer;
-
-    &:first-child {
-      border-left: 0;
-    }
-
-    @include td.focus-ring(-2px);
-
-    &:hover:not(:disabled, [aria-disabled='true']) {
-      color: var(--td-text-primary);
-    }
-
-    &.is-on {
-      background: color-mix(in srgb, var(--td-gold) 12%, var(--td-panel-secondary));
-      color: var(--td-gold-light);
-      box-shadow: inset 0 -2px 0 var(--td-gold);
-    }
-
-    &.is-on.is-warn {
-      background: color-mix(in srgb, var(--td-warn-orange) 14%, transparent);
-      color: color-mix(in srgb, var(--td-warn-orange) 55%, var(--td-text-primary));
-      box-shadow: inset 0 -2px 0 var(--td-warn-orange);
-    }
-
-    &:disabled,
-    &[aria-disabled='true'] {
-      color: var(--td-text-disabled);
-      cursor: not-allowed;
-    }
-  }
-}
-
 // A row of a list (player, lane, squad member): panel, a lane colour bar on the left
 @mixin list-row($height) {
   display: grid;
@@ -242,69 +125,6 @@
   }
 }
 
-// A quiet line of text; is-warn, is-error, is-ok colour it, with-icon puts an icon before it
-@mixin note {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--td-text-muted);
-  text-wrap: pretty;
-
-  &.is-warn { color: var(--td-warn-orange); }
-  &.is-error { color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary)); }
-  &.is-ok { color: var(--td-teal-light); }
-  &.with-icon {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-}
-
-// A full-width strip under a head: gold for news, is-warn orange, is-error red
-@mixin banner($pad-x: 18px) {
-  margin: 0;
-  padding: 9px $pad-x;
-  border-bottom: 1px solid var(--td-frame-dark);
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--td-gold-light);
-  background: color-mix(in srgb, var(--td-gold) 8%, transparent);
-
-  b { font-weight: 600; }
-
-  &.is-warn {
-    color: color-mix(in srgb, var(--td-warn-orange) 55%, var(--td-text-primary));
-    background: color-mix(in srgb, var(--td-warn-orange) 10%, transparent);
-  }
-
-  &.is-error {
-    color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary));
-    background: color-mix(in srgb, var(--td-health-red) 16%, transparent);
-  }
-}
-
-// A key cap: Enter, Esc, Space
-@mixin kbd {
-  padding: 1px 5px;
-  border: 1px solid var(--td-frame-mid);
-  font-family: var(--td-font-mono);
-  font-size: 10px;
-  color: var(--td-text-secondary);
-}
-
-// Turns an icon while something loads; stands still for reduced motion
-@mixin spinner {
-  animation: coop-spin 1s linear infinite;
-
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-  }
-
-  @keyframes coop-spin {
-    to { transform: rotate(360deg); }
-  }
-}
-
 // A floating coop panel on the map: dock, squad box
 @mixin panel-frame($alpha: 96%) {
   background: color-mix(in srgb, var(--td-bg-dark) $alpha, transparent);
@@ -312,27 +132,16 @@
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(167, 179, 168, 0.14);
 }
 
-// The shared classes of the coop templates. Each component includes them in
-// its own sheet, since view encapsulation keeps one sheet's classes to itself.
+// The shared classes of the coop templates: the foundation's plus the coop
+// ones. Each component includes them in its own sheet, since view
+// encapsulation keeps one sheet's classes to itself.
 @mixin classes {
+  @include g.classes;
   .btn { @include btn; }
-  .btn-xs { @include btn-xs; }
-  .btn-primary { @include btn-primary; }
-  .btn-done { @include btn-done; }
-  .icon-btn { @include icon-btn; }
-  .icon-btn.sm { @include icon-btn(26px); }
-  .icon-btn.big { @include icon-btn(38px); }
   .icon-gap { width: 26px; }
-  .inp { @include input; }
   .tag { @include tag; }
   .pill { @include pill; }
   .chip { @include chip; }
-  .seg { @include segmented; }
-  .note { @include note; }
-  .banner { @include banner; }
-  .spin { @include spinner; }
-  kbd { @include kbd; }
-  .sr-only { @include td.sr-only; }
 
   .row {
     display: flex;

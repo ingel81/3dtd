@@ -1,5 +1,6 @@
 // Style recipes for component stylesheets. The --td-* custom properties they
-// read come from TD_CSS_VARS (td-theme.ts), which each component sets on :host.
+// read come from TD_CSS_VARS (td-theme.ts) on :root. The look of menu, dialogs
+// and HUD builds on these in _game-ui.scss.
 
 // Dark scrollbar, Firefox standard properties. Goes into the scrolling rule.
 @mixin scrollbar {
@@ -108,11 +109,11 @@
   }
 }
 
-// Keyboard focus: a gold outline, only when the focus came by keyboard.
-// Goes into the rule of the focusable element.
-@mixin focus-ring($offset: 2px) {
+// Keyboard focus: a 2px light gold outline, only when the focus came by
+// keyboard. Goes into the rule of the focusable element.
+@mixin focus-ring($offset: var(--td-focus-offset)) {
   &:focus-visible {
-    outline: 1px solid var(--td-gold);
+    outline: var(--td-focus-width) solid var(--td-focus-color);
     outline-offset: $offset;
   }
 }

@@ -1,0 +1,631 @@
+// The look of menu, dialogs, panels and HUD (docs/DESIGN_SYSTEM.md): plates
+// with cut corners, title plates with a brass edge, brass/steel/danger buttons,
+// menu items, HUD plates. Colours, sizes and durations come from the --td-*
+// tokens (TD_CSS_VARS on :root). Use as `@use '.../styles/game-ui' as ui;`;
+// the older recipes of _td-mixins come along (ui.scrollbar, ui.sunken, ...).
+@use 'sass:list';
+@forward 'td-mixins';
+@use 'td-mixins' as td;
+
+// === Shape and motion ===
+
+// Corners cut off top left and bottom right
+@mixin cut-shape($cut: var(--td-cut)) {
+  clip-path: polygon(
+    $cut 0,
+    100% 0,
+    100% calc(100% - #{$cut}),
+    calc(100% - #{$cut}) 100%,
+    0 100%,
+    0 $cut
+  );
+}
+
+// Everything inside goes into the rule of a reduced-motion query
+@mixin reduced-motion {
+  @media (prefers-reduced-motion: reduce) {
+    @content;
+  }
+}
+
+// Short state changes (hover, press); standing still for reduced motion
+@mixin motion($props...) {
+  $list: ();
+  @each $p in $props {
+    $list: list.append($list, $p var(--td-dur-fast) var(--td-ease-out), comma);
+  }
+  transition: $list;
+
+  @include reduced-motion {
+    transition: none;
+  }
+}
+
+// === Plates ===
+
+// A plate: steel edge, stone gradient, cut corners. The edge is the plate's
+// own background, the fill a ::before 1px inside, so the edge follows the cut.
+// A shadow goes on a wrapper (plate-shadow), clip-path cuts it off here.
+@mixin plate($cut: var(--td-cut), $fill: var(--td-plate), $edge: var(--td-line-steel)) {
+  position: relative;
+  isolation: isolate;
+  background: $edge;
+  @include cut-shape($cut);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    z-index: -1;
+    background: $fill;
+    @include cut-shape($cut);
+  }
+}
+
+// Drop shadow of a plate, on the element around it
+@mixin plate-shadow {
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+// Title plate: the head of a plate, a 2px brass edge on top
+@mixin plate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--td-sp-3);
+  padding: 14px 20px 12px;
+  border-top: 2px solid var(--td-line-brass);
+  border-bottom: 1px solid var(--td-frame-dark);
+  background: var(--td-plate-head);
+}
+
+// Title in a title plate: Oswald caps in light gold
+@mixin title($size: 20px) {
+  margin: 0;
+  font-family: var(--td-font-display);
+  font-weight: 600;
+  font-size: $size;
+  letter-spacing: 0.08em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  color: var(--td-gold-light);
+}
+
+// A small HUD plate (header stats): small cut, no shadow
+@mixin stat-plate($cut: var(--td-cut-sm)) {
+  @include plate($cut);
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-2);
+  padding: 0 var(--td-sp-3);
+}
+
+// A label over or under a number: mono caps, 10px
+@mixin caps-label {
+  font-family: var(--td-font-mono);
+  font-size: var(--td-fs-micro);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+// === Dialog ===
+
+// A dialog: a plate with head, body and foot in a column. The cdk shell
+// around it is transparent (td-dialog-panel in styles.scss).
+@mixin dialog-shell($width: 560px) {
+  @include plate;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: $width;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  color: var(--td-text-primary);
+  font-family: var(--td-font-body);
+}
+
+@mixin dialog-head {
+  @include plate-head;
+  flex: 0 0 auto;
+}
+
+@mixin dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--td-text-secondary);
+  @include td.scrollbar;
+
+  strong,
+  b {
+    color: var(--td-text-primary);
+    font-weight: 600;
+  }
+}
+
+@mixin dialog-foot {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--td-frame-dark);
+}
+
+// === Buttons ===
+
+// Size and type of a button; the material comes with one of the recipes below
+@mixin btn-shape($height: 38px) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--td-sp-2);
+  box-sizing: border-box;
+  height: $height;
+  padding: 0 16px;
+  border-radius: 0;
+  font-family: var(--td-font-display);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  @include td.focus-ring;
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+}
+
+// The one main action of a place: brass with a hard bottom edge
+@mixin btn-primary($height: 38px) {
+  @include btn-shape($height);
+  border: 0;
+  background: linear-gradient(180deg, var(--td-gold-light), var(--td-gold));
+  box-shadow: 0 2px 0 var(--td-brass-lip);
+  color: var(--td-ink);
+  font-weight: 600;
+  @include motion(filter, transform, box-shadow);
+
+  &:hover:not(:disabled, [aria-disabled='true']) {
+    filter: brightness(1.08);
+  }
+
+  &:active:not(:disabled, [aria-disabled='true']) {
+    transform: translateY(1px);
+    box-shadow: 0 1px 0 var(--td-brass-lip);
+  }
+
+  // aria-disabled: greyed but clickable, so its tooltip still says why
+  &:disabled,
+  &[aria-disabled='true'] {
+    background: var(--td-frame-dark);
+    box-shadow: 0 2px 0 var(--td-panel-shadow);
+    color: var(--td-text-disabled);
+  }
+}
+
+// Secondary: a steel frame
+@mixin btn-secondary($height: 38px) {
+  @include btn-shape($height);
+  border: 1px solid var(--td-line-steel);
+  background: var(--td-panel-secondary);
+  color: var(--td-text-secondary);
+  @include motion(border-color, color);
+
+  &:hover:not(:disabled, [aria-disabled='true']) {
+    border-color: var(--td-frame-light);
+    color: var(--td-text-primary);
+  }
+
+  &:active:not(:disabled, [aria-disabled='true']) {
+    transform: translateY(1px);
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    border-color: var(--td-frame-dark);
+    color: var(--td-text-disabled);
+  }
+}
+
+// Destructive: dark red
+@mixin btn-danger($height: 38px) {
+  @include btn-shape($height);
+  border: 1px solid var(--td-danger-edge);
+  background: var(--td-danger-bg);
+  color: var(--td-danger-text);
+  @include motion(background-color, color);
+
+  &:hover:not(:disabled, [aria-disabled='true']) {
+    background: color-mix(in srgb, var(--td-danger-edge) 35%, var(--td-danger-bg));
+    color: var(--td-text-primary);
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    border-color: var(--td-frame-dark);
+    background: var(--td-panel-secondary);
+    color: var(--td-text-disabled);
+  }
+}
+
+// Quiet: text only, for a third action
+@mixin btn-ghost($height: 38px) {
+  @include btn-shape($height);
+  border: 1px solid transparent;
+  background: none;
+  color: var(--td-text-muted);
+  @include motion(color);
+
+  &:hover:not(:disabled, [aria-disabled='true']) {
+    color: var(--td-text-primary);
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    color: var(--td-text-disabled);
+  }
+}
+
+// Done state of a toggle (Ready · undo): the primary button in teal
+@mixin btn-done($height: 38px) {
+  @include btn-primary($height);
+  background: linear-gradient(180deg, var(--td-teal-light), var(--td-teal));
+  box-shadow: 0 2px 0 var(--td-teal-dark);
+  color: #0E1612;
+}
+
+// Small secondary button for 30px rows: Copy code, Copy invite
+@mixin btn-xs {
+  @include btn-secondary(30px);
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+// Square icon button: close, back, row actions
+@mixin icon-btn($size: 32px) {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: $size;
+  height: $size;
+  padding: 0;
+  border: 1px solid var(--td-line-steel);
+  border-radius: 0;
+  background: var(--td-panel-secondary);
+  color: var(--td-text-secondary);
+  cursor: pointer;
+  @include td.focus-ring;
+  @include motion(border-color, color);
+
+  &:hover:not(:disabled, [aria-disabled='true']) {
+    border-color: var(--td-frame-light);
+    color: var(--td-gold-light);
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    color: var(--td-text-disabled);
+    cursor: not-allowed;
+  }
+}
+
+// === Menu ===
+
+@mixin menu-list($gap: 2px) {
+  display: flex;
+  flex-direction: column;
+  gap: $gap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// A menu entry: Oswald caps as text, a brass bar on the left for hover,
+// focus and the open page (.is-active). A <small> under it carries a sub line.
+@mixin menu-item($size: var(--td-fs-menu)) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 0 10px 22px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  background: none;
+  font-family: var(--td-font-display);
+  font-size: $size;
+  font-weight: 500;
+  letter-spacing: var(--td-track-title);
+  line-height: 1;
+  text-align: left;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+  @include motion(color, border-color, background-color);
+
+  small {
+    font-family: var(--td-font-mono);
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--td-gold-light);
+  }
+
+  &:hover:not(:disabled, [aria-disabled='true']),
+  &:focus-visible,
+  &.is-active {
+    border-left-color: var(--td-gold);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--td-gold) 16%, transparent), transparent 80%);
+    color: var(--td-text-primary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-left-color: var(--td-focus-color);
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    color: var(--td-text-disabled);
+    cursor: not-allowed;
+  }
+}
+
+// A thin rule between groups of a menu list
+@mixin menu-rule($width: 220px) {
+  width: $width;
+  height: 1px;
+  margin: 10px 0 10px 25px;
+  border: 0;
+  background: var(--td-frame-dark);
+}
+
+// === Bars and frames ===
+
+// A segmented bar (HQ, load progress): children are the segments, .is-on lit
+@mixin seg-bar($height: 6px, $gap: 2px) {
+  display: flex;
+  gap: $gap;
+  box-sizing: border-box;
+  height: $height;
+  padding: 1px;
+  background: var(--td-panel-shadow);
+
+  > * {
+    flex: 1;
+    background: var(--td-frame-dark);
+  }
+
+  > .is-on {
+    background: var(--td-gold);
+  }
+}
+
+// Gold corner brackets around an element (start menu, Game Over), drawn by
+// one ::after; the element needs position relative/absolute/fixed.
+@mixin corner-brackets($size: 28px, $inset: 24px, $color: var(--td-gold), $width: 2px) {
+  &::after {
+    content: '';
+    position: absolute;
+    inset: $inset;
+    pointer-events: none;
+    background:
+      linear-gradient($color, $color) top left / #{$size} #{$width} no-repeat,
+      linear-gradient($color, $color) top left / #{$width} #{$size} no-repeat,
+      linear-gradient($color, $color) top right / #{$size} #{$width} no-repeat,
+      linear-gradient($color, $color) top right / #{$width} #{$size} no-repeat,
+      linear-gradient($color, $color) bottom left / #{$size} #{$width} no-repeat,
+      linear-gradient($color, $color) bottom left / #{$width} #{$size} no-repeat,
+      linear-gradient($color, $color) bottom right / #{$size} #{$width} no-repeat,
+      linear-gradient($color, $color) bottom right / #{$width} #{$size} no-repeat;
+  }
+}
+
+// Glass, only where the map has to show through (HUD strips on the canvas)
+@mixin glass-strip {
+  background: var(--td-glass-tint);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--td-frame-dark);
+}
+
+// === Form ===
+
+// Text input on the sunken surface
+@mixin input($height: 38px) {
+  box-sizing: border-box;
+  height: $height;
+  width: 100%;
+  min-width: 0;
+  padding: 0 12px;
+  @include td.sunken;
+  border-radius: 0;
+  color: var(--td-text-primary);
+  font-family: var(--td-font-mono);
+  font-size: 13px;
+  outline: none;
+
+  // A text field shows the focus for the mouse too: the caret goes there
+  &:focus {
+    border-color: var(--td-gold);
+    box-shadow: 0 0 0 1px var(--td-gold);
+  }
+
+  &::placeholder {
+    color: var(--td-text-disabled);
+  }
+}
+
+// Segmented control: one button each choice, the chosen one framed in gold
+@mixin segmented {
+  display: flex;
+  @include td.sunken;
+
+  button {
+    height: 30px;
+    padding: 0 12px;
+    border: 0;
+    border-left: 1px solid var(--td-frame-dark);
+    border-radius: 0;
+    background: none;
+    font-family: var(--td-font-display);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--td-text-muted);
+    cursor: pointer;
+
+    &:first-child {
+      border-left: 0;
+    }
+
+    @include td.focus-ring(-2px);
+
+    &:hover:not(:disabled, [aria-disabled='true']) {
+      color: var(--td-text-primary);
+    }
+
+    &.is-on {
+      background: color-mix(in srgb, var(--td-gold) 14%, var(--td-panel-secondary));
+      color: var(--td-text-primary);
+      box-shadow: inset 0 0 0 1px var(--td-gold);
+    }
+
+    &.is-on.is-warn {
+      background: color-mix(in srgb, var(--td-warn-orange) 14%, transparent);
+      color: var(--td-warn-text);
+      box-shadow: inset 0 0 0 1px var(--td-warn-orange);
+    }
+
+    &:disabled,
+    &[aria-disabled='true'] {
+      color: var(--td-text-disabled);
+      cursor: not-allowed;
+    }
+  }
+}
+
+// === Text ===
+
+// A quiet line of text; is-warn, is-error, is-ok colour it, with-icon puts an icon before it
+@mixin note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--td-text-muted);
+  text-wrap: pretty;
+
+  &.is-warn { color: var(--td-warn-text); }
+  &.is-error { color: var(--td-danger-text); }
+  &.is-ok { color: var(--td-teal-light); }
+  &.with-icon {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+// A full-width strip under a head: gold for news, is-warn orange, is-error red
+@mixin banner($pad-x: 20px) {
+  margin: 0;
+  padding: 9px $pad-x;
+  border-bottom: 1px solid var(--td-frame-dark);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--td-gold-light);
+  background: color-mix(in srgb, var(--td-gold) 8%, transparent);
+
+  b { font-weight: 600; }
+
+  &.is-warn {
+    color: var(--td-warn-text);
+    background: color-mix(in srgb, var(--td-warn-orange) 10%, transparent);
+  }
+
+  &.is-error {
+    color: var(--td-danger-text);
+    background: color-mix(in srgb, var(--td-danger-edge) 22%, transparent);
+  }
+}
+
+// A key cap in running text: Enter, Esc, Space
+@mixin kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--td-frame-mid);
+  font-family: var(--td-font-mono);
+  font-size: var(--td-fs-micro);
+  color: var(--td-text-secondary);
+}
+
+// A link in running text
+@mixin link {
+  color: var(--td-gold-light);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--td-gold) 45%, transparent);
+  text-underline-offset: 2px;
+  @include td.focus-ring;
+
+  &:hover {
+    color: var(--td-text-primary);
+  }
+}
+
+// Turns an icon while something loads; stands still for reduced motion
+@mixin spinner {
+  animation: td-spin 1s linear infinite;
+
+  @include reduced-motion {
+    animation: none;
+  }
+
+  @keyframes td-spin {
+    to { transform: rotate(360deg); }
+  }
+}
+
+// === Classes ===
+
+// The shared classes of dialog and menu templates. Each component includes
+// them in its own sheet, since view encapsulation keeps one sheet's classes
+// to itself. The width of .dlg is the component's.
+@mixin classes {
+  .dlg { @include dialog-shell; }
+  .dlg-head { @include dialog-head; }
+  .dlg-title { @include title; }
+  .dlg-body { @include dialog-body; }
+  .dlg-foot { @include dialog-foot; }
+  .btn-primary { @include btn-primary; }
+  .btn-secondary { @include btn-secondary; }
+  .btn-danger { @include btn-danger; }
+  .btn-ghost { @include btn-ghost; }
+  .btn-done { @include btn-done; }
+  .btn-xs { @include btn-xs; }
+  .icon-btn { @include icon-btn; }
+  .icon-btn.sm { @include icon-btn(26px); }
+  .icon-btn.big { @include icon-btn(38px); }
+  .inp { @include input; }
+  .seg { @include segmented; }
+  .note { @include note; }
+  .banner { @include banner; }
+  .spin { @include spinner; }
+  .section-label { @include td.section-label; }
+  .link { @include link; }
+  kbd { @include kbd; }
+  .sr-only { @include td.sr-only; }
+}
