@@ -1,0 +1,131 @@
+<section class="mp-sec" aria-labelledby="td-set-audio">
+  <h3 class="mp-label" id="td-set-audio">Audio</h3>
+  @for (row of volumes; track row.label) {
+    <div class="set-volume">
+      <span class="set-volume-label">{{ row.label }}</span>
+      <input type="range" class="set-slider" min="0" max="100" step="1"
+             [attr.aria-label]="row.label + ' volume'"
+             [value]="row.level() * 100" (input)="onVolume(row, $event)">
+      <span class="mp-meta set-volume-value">{{ row.muted() ? 'off' : percent(row.level()) }}</span>
+      <button class="set-mute" type="button" (click)="row.toggleMute()" [attr.aria-pressed]="row.muted()"
+              [attr.aria-label]="'Mute ' + row.label.toLowerCase()">
+        <td-icon [name]="row.muted() ? 'audioOff' : row.icon" [size]="14"></td-icon>
+      </button>
+    </div>
+  }
+  <p class="mp-note">M mutes everything in the game.</p>
+</section>
+
+<section class="mp-sec" aria-labelledby="td-set-graphics">
+  <h3 class="mp-label" id="td-set-graphics">Graphics</h3>
+  <div class="mp-seg" role="radiogroup" aria-label="Effect quality" tdRovingGroup>
+    @for (preset of presets; track preset.id) {
+      <button type="button" role="radio" [attr.aria-checked]="activePreset() === preset.id"
+              [matTooltip]="preset.hint" (click)="setPreset(preset.id)">{{ preset.label }}</button>
+    }
+  </div>
+  @if (!activePreset()) {
+    <p class="mp-note">Your own mix of the switches below.</p>
+  }
+  <div class="set-switches">
+    @for (row of switches; track row.label) {
+      <label class="mp-field set-switch" [matTooltip]="row.hint" matTooltipPosition="left">
+        <span>{{ row.label }}</span>
+        <input type="checkbox" [checked]="row.on()" (change)="row.toggle()">
+      </label>
+    }
+  </div>
+  <label class="mp-field">
+    <span>Color grading</span>
+    <select class="set-select" (change)="setColorGrading($event)">
+      @for (preset of colorGradings; track preset.id) {
+        <option [value]="preset.id" [selected]="colorGrading() === preset.id">{{ preset.label }}</option>
+      }
+    </select>
+  </label>
+  <div class="mp-field">
+    <span id="td-set-fps">Frame limit</span>
+    <div class="mp-seg set-seg-small" role="radiogroup" aria-labelledby="td-set-fps" tdRovingGroup>
+      @for (fps of fpsLimits; track fps) {
+        <button type="button" role="radio" [attr.aria-checked]="fpsLimit() === fps" (click)="setFpsLimit(fps)">{{ fps === 0 ? 'Off' : fps }}</button>
+      }
+    </div>
+  </div>
+  <div class="mp-field">
+    <span>Fullscreen <kbd class="set-key">F11</kbd></span>
+    <button class="mp-btn mp-btn-sm" type="button" (click)="toggleFullscreen()" [attr.aria-pressed]="fullscreen()">
+      {{ fullscreen() ? 'Leave fullscreen' : 'Fullscreen' }}
+    </button>
+  </div>
+</section>
+
+<section class="mp-sec" aria-labelledby="td-set-gameplay">
+  <h3 class="mp-label" id="td-set-gameplay">Gameplay</h3>
+  <div class="mp-field">
+    <span id="td-set-speed">Game speed</span>
+    <div class="mp-seg set-seg-small" role="radiogroup" aria-labelledby="td-set-speed" tdRovingGroup>
+      @for (s of speeds; track s) {
+        <button type="button" role="radio" [attr.aria-checked]="speed() === s"
+                [attr.aria-disabled]="speedLocked() || null" (click)="setSpeed(s)">{{ s }}x</button>
+      }
+    </div>
+  </div>
+  <p class="mp-note">{{ speedLocked() ? 'The host sets the speed.' : '+ and - change it in the game.' }}</p>
+  <label class="mp-field set-switch">
+    <span>Start the next wave on its own</span>
+    <input type="checkbox" [checked]="ui.autoStartWaves()" (change)="toggleAutoStart()">
+  </label>
+</section>
+
+<section class="mp-sec" aria-labelledby="td-set-map">
+  <h3 class="mp-label" id="td-set-map">Map</h3>
+  <div class="mp-field">
+    <span>Tile access <span class="mp-meta">{{ provider() }}</span></span>
+    <button class="mp-btn mp-btn-sm" type="button" (click)="changeKey()">Change key</button>
+  </div>
+</section>
+
+@if (coop; as c) {
+  <section class="mp-sec" aria-labelledby="td-set-coop">
+    <h3 class="mp-label" id="td-set-coop">Coop</h3>
+    <label class="mp-field">
+      <span>Your name</span>
+      <input class="mp-input set-name" type="text" maxlength="32" [value]="playerName()"
+             (input)="setPlayerName($any($event.target).value)">
+    </label>
+    @if (c.lobbies().length) {
+      <ul class="mp-list" aria-label="Online lobbies">
+        @for (lobby of c.lobbies(); track lobby.url) {
+          <li class="set-lobby">
+            <span class="mp-name">{{ lobby.name }}</span>
+            <span class="mp-meta set-lobby-url">{{ lobby.url }}</span>
+            @if (!lobby.builtIn) {
+              <button class="set-lobby-remove" type="button" (click)="removeLobby(lobby.url)"
+                      [attr.aria-label]="'Remove ' + lobby.name" matTooltip="Remove">
+                <td-icon name="trash" [size]="14"></td-icon>
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    }
+    <div class="set-lobby-add">
+      <input class="mp-input" type="text" maxlength="40" placeholder="Name" aria-label="Lobby name"
+             [value]="newLobbyName()" (input)="newLobbyName.set($any($event.target).value)">
+      <input class="mp-input" type="text" placeholder="wss://…" aria-label="Lobby address"
+             [value]="newLobbyUrl()" (input)="newLobbyUrl.set($any($event.target).value)" (keydown.enter)="addLobby()">
+      <button class="mp-btn mp-btn-sm" type="button" (click)="addLobby()" [disabled]="!newLobbyUrl().trim()">Add lobby</button>
+    </div>
+    @if (lobbyNote(); as note) {
+      <p class="mp-note" [class.is-ok]="note.ok" [class.is-error]="!note.ok" role="status">{{ note.text }}</p>
+    }
+  </section>
+}
+
+<section class="mp-sec" aria-labelledby="td-set-privacy">
+  <h3 class="mp-label" id="td-set-privacy">Privacy</h3>
+  <label class="mp-field set-switch">
+    <span>After a coop game, send its log to the coop server, to find errors and improve the game (kept 90 days)</span>
+    <input type="checkbox" [checked]="uploadRuns()" (change)="setUploadRuns($any($event.target).checked)">
+  </label>
+</section>
