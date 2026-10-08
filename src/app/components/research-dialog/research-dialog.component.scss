@@ -314,7 +314,7 @@
     width: 4px;
     height: 4px;
     transform: rotate(45deg);
-    background: #2a312c;
+    background: var(--td-tree-line);
     text-decoration: none;
   }
 
@@ -335,7 +335,7 @@
   position: relative;
   overflow: auto;
   padding: 24px;
-  background-color: #0d110e;
+  background-color: var(--td-tree-well);
   // Blueprint grid, barely there: gives the board a surface to lie on.
   background-image:
     linear-gradient(rgba(167, 179, 168, 0.028) 1px, transparent 1px),
@@ -545,7 +545,7 @@
   width: 22px;
 
   &:hover {
-    border-color: #6e462b;
+    border-color: var(--td-node-poor-hover);
     color: var(--td-warn-orange);
   }
 }
@@ -598,11 +598,11 @@
   }
 
   &[data-branch='biology'] {
-    color: #8fa85c;
+    color: var(--td-branch-biology);
   }
 
   &[data-branch='engineering'] {
-    color: #8e9ba8;
+    color: var(--td-branch-engineering);
   }
 }
 
@@ -657,7 +657,7 @@
 
   &[data-s='poor'] {
     color: var(--td-warn-orange);
-    border-color: #5c3a24;
+    border-color: var(--td-node-poor-mark);
   }
 }
 
@@ -869,11 +869,11 @@
   }
 
   span[data-branch='biology']::before {
-    background: #8fa85c;
+    background: var(--td-branch-biology);
   }
 
   span[data-branch='engineering']::before {
-    background: #8e9ba8;
+    background: var(--td-branch-engineering);
   }
 
   b {

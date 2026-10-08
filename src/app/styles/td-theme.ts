@@ -59,6 +59,34 @@ export const TD_THEME = {
   gain: '#9ED6A0', // +credits
   loss: '#E87A6A', // -credits, a buy that fails
 
+  // === Research tree (tech-tree, research dialog): nodes by state, strands ===
+  treeLine: '#2A312C', // locked edges, edge caps, empty level marks
+  treeWell: '#0D110E', // the sunken board the tree lies in
+  nodeTop: '#1C221E', // a node at rest
+  nodeBottom: '#151A16',
+  nodeLockedTop: '#141915',
+  nodeLockedBottom: '#101410',
+  nodeLockedEdge: '#262C27',
+  nodeLockedTitle: '#94A092', // shut, still readable
+  nodeLockedFoot: '#8A968A',
+  nodeOpenTop: '#232B25', // open and affordable
+  nodeOpenBottom: '#191E1A',
+  nodePoorEdge: '#3A332B', // open, too few credits
+  nodePoorMark: '#5C3A24', // its left edge and plate frame
+  nodePoorHover: '#6E462B',
+  nodePoorGlyph: '#9B6440', // its plate glyph (non-text)
+  nodeActiveTop: '#1B2723', // being researched
+  nodeActiveBottom: '#141D1A',
+  nodeQueuedTop: '#22201A',
+  nodeQueuedBottom: '#181712',
+  nodeDoneTop: '#1A261C',
+  nodeDoneBottom: '#141C15',
+  nodeDoneEdge: '#3B5A3E',
+  branchBiology: '#8FA85C', // strand tint; arcane is teal
+  branchBiologyEdge: '#4E5C37',
+  branchEngineering: '#8E9BA8',
+  branchEngineeringEdge: '#4A5460',
+
   // === Plates (panels, dialogs, menu) ===
   plateTop: '#262F28',
   plateBottom: '#1D241F',
@@ -226,6 +254,27 @@ export const TD_CSS_VARS = `
   --td-hazard: repeating-linear-gradient(-45deg, ${TD_THEME.warnOrange} 0 6px, ${TD_THEME.ink} 6px 12px);
 
   --td-plate: linear-gradient(180deg, ${TD_THEME.plateTop}, ${TD_THEME.plateBottom});
+
+  --td-tree-line: ${TD_THEME.treeLine};
+  --td-tree-well: ${TD_THEME.treeWell};
+  --td-node: linear-gradient(180deg, ${TD_THEME.nodeTop}, ${TD_THEME.nodeBottom});
+  --td-node-locked: linear-gradient(180deg, ${TD_THEME.nodeLockedTop}, ${TD_THEME.nodeLockedBottom});
+  --td-node-locked-edge: ${TD_THEME.nodeLockedEdge};
+  --td-node-locked-title: ${TD_THEME.nodeLockedTitle};
+  --td-node-locked-foot: ${TD_THEME.nodeLockedFoot};
+  --td-node-open: linear-gradient(180deg, ${TD_THEME.nodeOpenTop}, ${TD_THEME.nodeOpenBottom});
+  --td-node-poor-edge: ${TD_THEME.nodePoorEdge};
+  --td-node-poor-mark: ${TD_THEME.nodePoorMark};
+  --td-node-poor-hover: ${TD_THEME.nodePoorHover};
+  --td-node-poor-glyph: ${TD_THEME.nodePoorGlyph};
+  --td-node-active: linear-gradient(180deg, ${TD_THEME.nodeActiveTop}, ${TD_THEME.nodeActiveBottom});
+  --td-node-queued: linear-gradient(180deg, ${TD_THEME.nodeQueuedTop}, ${TD_THEME.nodeQueuedBottom});
+  --td-node-done: linear-gradient(180deg, ${TD_THEME.nodeDoneTop}, ${TD_THEME.nodeDoneBottom});
+  --td-node-done-edge: ${TD_THEME.nodeDoneEdge};
+  --td-branch-biology: ${TD_THEME.branchBiology};
+  --td-branch-biology-edge: ${TD_THEME.branchBiologyEdge};
+  --td-branch-engineering: ${TD_THEME.branchEngineering};
+  --td-branch-engineering-edge: ${TD_THEME.branchEngineeringEdge};
   --td-plate-top: ${TD_THEME.plateTop};
   --td-plate-bottom: ${TD_THEME.plateBottom};
   --td-plate-head: linear-gradient(180deg, ${TD_THEME.plateHeadTop}, ${TD_THEME.plateHeadBottom});

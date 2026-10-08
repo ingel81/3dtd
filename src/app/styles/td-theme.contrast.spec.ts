@@ -64,6 +64,26 @@ describe('theme contrast', () => {
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
   });
 
+  // Research tree: the titles and feet of nodes on their own surfaces
+  const NODE_SURFACES: Token[] = [
+    'nodeTop', 'nodeBottom', 'nodeOpenTop', 'nodeOpenBottom', 'nodeActiveTop', 'nodeActiveBottom',
+    'nodeQueuedTop', 'nodeQueuedBottom', 'nodeDoneTop', 'nodeDoneBottom',
+  ];
+  it.each(pairs(['nodeLockedTitle', 'nodeLockedFoot', 'textMuted'], ['nodeLockedTop', 'nodeLockedBottom']))('%s on the locked node (%s) reaches 4.5:1', (fg, bg) => {
+    expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
+  });
+  it.each(pairs(['textPrimary', 'textSecondary', 'textMuted', 'goldLight', 'tealLight', 'green', 'warnText'], NODE_SURFACES))('%s on the node (%s) reaches 4.5:1', (fg, bg) => {
+    expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
+  });
+  // Strand tints and the poor glyph are icon colours: 3:1 on the nodes they stand on
+  // (strands on every node still in play, the poor glyph on the resting node)
+  it.each([
+    ...pairs(['branchBiology', 'branchEngineering'], NODE_SURFACES),
+    ...pairs(['nodePoorGlyph'], ['nodeTop', 'nodeBottom']),
+  ])('%s next to %s reaches 3:1', (fg, bg) => {
+    expect(contrast(fg, bg)).toBeGreaterThanOrEqual(3);
+  });
+
   it('keeps healthRed, too dark for text, apart from the HP number', () => {
     expect(contrast('healthRed', 'plateTop')).toBeLessThan(4.5);
     expect(TD_THEME.hpText).not.toBe(TD_THEME.healthRed);

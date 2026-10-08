@@ -29,7 +29,7 @@
   transition: opacity 160ms ease;
 
   &.td-edge-locked {
-    stroke: #2a312c;
+    stroke: var(--td-tree-line);
     stroke-dasharray: 3 5;
   }
 
@@ -62,7 +62,7 @@
 }
 
 .td-tech-edge-cap {
-  fill: #2a312c;
+  fill: var(--td-tree-line);
   transition: opacity 160ms ease;
 
   &.td-edge-done {
@@ -91,7 +91,7 @@
   text-align: left;
   font-family: var(--td-font-body);
   color: var(--td-text-primary);
-  background: linear-gradient(180deg, #1c221e, #151a16);
+  background: var(--td-node);
   border: 1px solid var(--td-frame-dark);
   box-shadow:
     inset 0 1px 0 rgba(167, 179, 168, 0.08),
@@ -152,7 +152,7 @@
   color: var(--td-text-disabled);
 
   .td-sep {
-    color: #333a34;
+    color: var(--td-frame-dark);
   }
 
   .td-time {
@@ -186,8 +186,8 @@
   font-size: 11px;
   font-weight: 500;
   text-align: center;
-  color: #14180f;
-  background: linear-gradient(180deg, var(--td-gold), var(--td-gold-dark));
+  color: var(--td-ink);
+  background: linear-gradient(180deg, var(--td-gold-light), var(--td-gold));
   border: 1px solid var(--td-gold-dark);
 }
 
@@ -196,15 +196,15 @@
 // Locked is the resting state: shut, but still readable.
 .td-state-locked,
 .td-state-pending {
-  background: linear-gradient(180deg, #141915, #101410);
-  border-color: #262c27;
+  background: var(--td-node-locked);
+  border-color: var(--td-node-locked-edge);
 
   .td-tech-node-title {
-    color: #94a092;
+    color: var(--td-node-locked-title);
   }
 
   .td-tech-node-foot {
-    color: #8a968a;
+    color: var(--td-node-locked-foot);
 
     .td-sep {
       color: var(--td-frame-mid);
@@ -214,7 +214,7 @@
 
 // Open and affordable. The gold left edge carries the whole signal.
 .td-state-available {
-  background: linear-gradient(180deg, #232b25, #191e1a);
+  background: var(--td-node-open);
   border-color: var(--td-frame-mid);
   box-shadow:
     inset 3px 0 0 var(--td-rune-amber),
@@ -247,9 +247,9 @@
 
 // Open, but the purse is short. Same shape, warmer and dimmer.
 .td-state-poor {
-  border-color: #3a332b;
+  border-color: var(--td-node-poor-edge);
   box-shadow:
-    inset 3px 0 0 #5c3a24,
+    inset 3px 0 0 var(--td-node-poor-mark),
     inset 0 1px 0 rgba(167, 179, 168, 0.1),
     0 1px 0 var(--td-panel-shadow);
   cursor: pointer;
@@ -259,8 +259,8 @@
   }
 
   .td-tech-node-plate {
-    color: #9b6440;
-    border-color: #5c3a24;
+    color: var(--td-node-poor-glyph);
+    border-color: var(--td-node-poor-mark);
   }
 
   .td-cost {
@@ -268,12 +268,12 @@
   }
 
   &:hover {
-    border-color: #6e462b;
+    border-color: var(--td-node-poor-hover);
   }
 }
 
 .td-state-active {
-  background: linear-gradient(180deg, #1b2723, #141d1a);
+  background: var(--td-node-active);
   border-color: var(--td-teal);
   box-shadow:
     inset 0 1px 0 rgba(143, 217, 198, 0.18),
@@ -300,7 +300,7 @@
 }
 
 .td-state-queued {
-  background: linear-gradient(180deg, #22201a, #181712);
+  background: var(--td-node-queued);
   border-color: var(--td-gold-dark);
   border-style: dashed;
   cursor: pointer;
@@ -332,8 +332,8 @@
 // the gold one on an open node, so a finished chain reads at a glance and
 // never looks like a locked one.
 .td-state-completed {
-  background: linear-gradient(180deg, #1a261c, #141c15);
-  border-color: #3b5a3e;
+  background: var(--td-node-done);
+  border-color: var(--td-node-done-edge);
   box-shadow:
     inset 3px 0 0 var(--td-green-dark),
     inset 0 1px 0 rgba(158, 214, 160, 0.1),
@@ -364,13 +364,13 @@
 // Strand tint on the icon plate, for everything still in play.
 .td-tech-node:not(.td-state-locked):not(.td-state-pending):not(.td-state-completed) {
   .td-tech-node-plate[data-branch='biology'] {
-    color: #8fa85c;
-    border-color: #4e5c37;
+    color: var(--td-branch-biology);
+    border-color: var(--td-branch-biology-edge);
   }
 
   .td-tech-node-plate[data-branch='engineering'] {
-    color: #8e9ba8;
-    border-color: #4a5460;
+    color: var(--td-branch-engineering);
+    border-color: var(--td-branch-engineering-edge);
   }
 
   .td-tech-node-plate[data-branch='arcane'] {
