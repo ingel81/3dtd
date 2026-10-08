@@ -104,6 +104,7 @@ export class GameStateSyncService {
     // After a restore (coop resync, a replay's way back): the state as it
     // stands, none of the events that led there reached the store
     this.subs.add(eventBus.onLive('sim:presented', (event) => {
+      this.store.stateJumps.update((n) => n + 1);
       this.store.phase.set(event.phase);
       this.store.waveNumber.set(event.wave);
       this.store.credits.set(event.credits);

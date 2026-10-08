@@ -163,6 +163,19 @@ describe('GameStateSyncService (real service)', () => {
       expect(store.waveEnemiesLeft()).toBe(40);
       expect(store.waveEnemyTotal()).toBe(40);
     });
+
+    it('a new run and a restored state each count a jump, play does not', () => {
+      const before = store.stateJumps();
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 10, killedBy: null });
+      expect(store.stateJumps()).toBe(before);
+      eventBus.emit({ type: 'game:reset' });
+      expect(store.stateJumps()).toBe(before + 1);
+      eventBus.emit({
+        type: 'sim:presented', phase: 'setup', wave: 7, credits: 900, baseHealth: 300, enemiesAlive: 0, waveEnemiesLeft: 0,
+        towers: 4,
+      });
+      expect(store.stateJumps()).toBe(before + 2);
+    });
   });
 
   describe('enemies left in the wave', () => {

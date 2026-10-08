@@ -134,6 +134,12 @@ export class GameHeaderComponent {
   /** Enemies the running wave brings, 0 = not announced; with waveEnemiesLeft the wave plate's bar */
   readonly waveEnemyTotal = input(0);
   readonly waveEnemiesLeft = input(0);
+  /**
+   * GameStore.stateJumps: a new value means credits and HQ were set without
+   * play (new run, load, resync). They show at once, without the rising
+   * change, the counting or the hit flash.
+   */
+  readonly stateJumps = input(0);
   readonly isDialog = input<boolean>(false);
   readonly favorites = input<FavoriteLocation[]>([]);
   /** Geocoded names of the favorites without a name of their own */
@@ -222,6 +228,8 @@ export class GameHeaderComponent {
   private lastCredits: number | null = null;
   private lastRefusals = creditsRefusals();
   private lastWaveActive: boolean | null = null;
+  private healthJumpsSeen = 0;
+  private creditsJumpsSeen = 0;
   private readonly deltas = new CreditsDeltaTracker();
   private deltaTimer: ReturnType<typeof setTimeout> | null = null;
   private waveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -237,9 +245,12 @@ export class GameHeaderComponent {
     // Flash the HQ plate (and jolt it) when the HQ loses health; a reset or the cheat raises it quietly
     effect(() => {
       const health = this.baseHealth();
+      const jumps = this.stateJumps();
+      const jumped = jumps !== this.healthJumpsSeen;
+      this.healthJumpsSeen = jumps;
       const previous = this.lastHealth;
       this.lastHealth = health;
-      if (previous === null || health >= previous) return;
+      if (previous === null || jumped || health >= previous) return;
       const plate = this.hqPlate()?.nativeElement;
       if (!plate || typeof plate.animate !== 'function') return;
       if (!this.hqPulse.tryPulse(performance.now())) return;
@@ -250,8 +261,15 @@ export class GameHeaderComponent {
     // Credits: the change rises over the plate and the figure counts to the new value
     effect(() => {
       const credits = this.credits();
+      const jumps = this.stateJumps();
+      const jumped = jumps !== this.creditsJumpsSeen;
+      this.creditsJumpsSeen = jumps;
       const previous = this.lastCredits;
       this.lastCredits = credits;
+      if (jumped) {
+        untracked(() => this.jumpCredits());
+        return;
+      }
       if (previous === null || credits === previous) return;
       untracked(() => {
         this.showDelta(credits - previous);
@@ -303,6 +321,17 @@ export class GameHeaderComponent {
       this.deltaTimer = null;
       this.creditsDelta.set(null);
     }, CREDITS_DELTA_SHOW_MS);
+  }
+
+  /** Credits set without play: the figure shows the value at once, no change rises */
+  private jumpCredits(): void {
+    if (this.countFrame !== null) cancelAnimationFrame(this.countFrame);
+    this.countFrame = null;
+    if (this.deltaTimer !== null) clearTimeout(this.deltaTimer);
+    this.deltaTimer = null;
+    this.deltas.reset();
+    this.creditsDelta.set(null);
+    this.creditsShown.set(null);
   }
 
   /** Count the figure from `from` to `to`; with reduced motion, or without frames, it jumps */

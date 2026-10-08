@@ -97,6 +97,14 @@ export class GameStore {
   /** Numbers of the run that just ended, set on game:over, null otherwise */
   readonly runSummary = signal<RunSummary | null>(null);
 
+  /**
+   * Counts up whenever credits and HQ health are set without play: a new
+   * run (restart, a new place) or a restored state (a load, a coop resync, a
+   * replay's seek). The header shows such figures at once, without the
+   * rising change, the counting or the hit flash.
+   */
+  readonly stateJumps = signal<number>(0);
+
   /** Training mode timescale (1.0 = normal, up to 75x); the game loop hands it to the simulation each frame */
   readonly gameSpeed = signal<number>(1.0);
 
@@ -176,6 +184,7 @@ export class GameStore {
    * Called on game restart.
    */
   resetGameState(): void {
+    this.stateJumps.update((n) => n + 1);
     this.credits.set(GAME_BALANCE.player.startCredits);
     this.baseHealth.set(GAME_BALANCE.player.startHealth);
     this.phase.set('setup');

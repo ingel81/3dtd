@@ -26,7 +26,7 @@ const MAX = GAME_BALANCE.player.startHealth;
 const INPUTS = [
   'locationName', 'baseHealth', 'credits', 'waveNumber', 'enemiesAlive', 'waveActive', 'waveEnemyTotal',
   'waveEnemiesLeft', 'isDialog', 'favorites', 'favoriteNames', 'placementMode', 'canPlace', 'locationLocked',
-  'spawnCount', 'coopChip',
+  'spawnCount', 'coopChip', 'stateJumps',
 ];
 const REQUIRED = new Set(['locationName', 'baseHealth', 'credits', 'waveNumber', 'enemiesAlive', 'waveActive']);
 // The @Input annotation the JIT transform adds for input()
@@ -131,6 +131,23 @@ describe('Header stat plates', () => {
     set({ credits: 900 });
     expect(delta()!.textContent).toBe('−150');
     expect(delta()!.classList.contains('loss')).toBe(true);
+  });
+
+  it('shows credits and HQ set without play at once: no rising change, no counting, no flash', () => {
+    set({ baseHealth: MAX - 10, credits: 1025 });
+    expect(el().querySelector('.credits-delta')).not.toBeNull();
+    animate.mockClear();
+    vi.advanceTimersByTime(100);
+
+    // A load: lower HQ and other credits arrive with a new jump count
+    set({ stateJumps: 1, baseHealth: MAX - 200, credits: 4000 });
+    expect(animate).not.toHaveBeenCalled();
+    expect(el().querySelector('.credits-delta')).toBeNull();
+    expect(plate('credits').querySelector('.stat-num')!.textContent).toBe('4000');
+
+    // Play after the jump: the next change rises on its own, not added to the old sum
+    set({ credits: 4010 });
+    expect(el().querySelector('.credits-delta')!.textContent).toBe('+10');
   });
 
   it('flashes the credits plate when a buy is refused for too few credits', () => {

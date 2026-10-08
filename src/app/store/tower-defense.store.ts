@@ -107,6 +107,9 @@ export class TowerDefenseStore {
   /** Numbers of the run that just ended (game-over screen) */
   readonly runSummary = this.gameStore.runSummary;
 
+  /** Credits and HQ set without play: a new run or a restored state (see GameStore) */
+  readonly stateJumps = this.gameStore.stateJumps;
+
   /** Training mode timescale (1.0 = normal, up to 75x) */
   readonly gameSpeed = this.gameStore.gameSpeed;
 

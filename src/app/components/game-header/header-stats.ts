@@ -142,7 +142,11 @@ export class CreditsDeltaTracker {
     return this.current;
   }
 
-
+  /** Forget the running sum: the credits were set without play */
+  reset(): void {
+    this.current = null;
+    this.lastAt = Number.NEGATIVE_INFINITY;
+  }
 }
 
 /** The credits figure counts to a new value over this long */
