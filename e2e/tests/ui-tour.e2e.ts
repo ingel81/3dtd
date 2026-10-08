@@ -134,7 +134,7 @@ async function toGame(page: Page): Promise<void> {
   for (let i = 0; i < 6; i++) {
     const open = (await menu(page).isVisible()) || (await page.locator('mat-dialog-container').count()) > 0;
     if (!open) return;
-    const cont = menuNamed(page, 'Menu').getByRole('button', { name: /^Continue/ });
+    const cont = menuNamed(page, 'Menu').getByRole('menuitem', { name: /^Continue/ });
     if (await cont.count()) await cont.first().click();
     else await page.keyboard.press('Escape');
     await page.waitForTimeout(400);
@@ -182,7 +182,7 @@ async function runTour(page: Page, size: string): Promise<Tour> {
   });
 
   await tour.step('start menu loaded', async () => {
-    const play = menu(page).getByRole('button', { name: /^(Play|Continue)/ }).first();
+    const play = menu(page).getByRole('menuitem', { name: /^(Play|Continue)/ }).first();
     await expect(play).toBeEnabled({ timeout: 120_000 });
     await page.waitForTimeout(1500);
     await tour.shot('start-ready');
@@ -191,7 +191,7 @@ async function runTour(page: Page, size: string): Promise<Tour> {
   for (const p of PAGES) {
     await tour.step(`start page ${p.page}`, async () => {
       await toMenuList(page);
-      const entry = menu(page).getByRole('button', { name: p.entry });
+      const entry = menu(page).getByRole('menuitem', { name: p.entry });
       if (!(await entry.count()) && OPTIONAL_IN_START.has(p.page)) return;
       await entry.first().click();
       await expect(menuNamed(page, p.title)).toBeVisible({ timeout: 5000 });
@@ -202,7 +202,7 @@ async function runTour(page: Page, size: string): Promise<Tour> {
 
   await tour.step('start the game with Play', async () => {
     await toMenuList(page);
-    await menu(page).getByRole('button', { name: /^(Play|Continue)/ }).first().click();
+    await menu(page).getByRole('menuitem', { name: /^(Play|Continue)/ }).first().click();
     await expect(menu(page)).toBeHidden({ timeout: 30_000 });
     for (let i = 0; i < 10; i++) {
       if (!(await page.getByRole('button', { name: /skip intro/i }).count())) break;
@@ -295,7 +295,7 @@ async function runTour(page: Page, size: string): Promise<Tour> {
     await tour.step(`pause page ${p.page}`, async () => {
       await openPause(page);
       await toMenuList(page);
-      await menu(page).getByRole('button', { name: p.entry }).first().click();
+      await menu(page).getByRole('menuitem', { name: p.entry }).first().click();
       await expect(menuNamed(page, p.title)).toBeVisible({ timeout: 5000 });
       await page.waitForTimeout(400);
       await tour.shot(`pause-${p.page}`);
@@ -305,7 +305,7 @@ async function runTour(page: Page, size: string): Promise<Tour> {
   await tour.step('confirmation in the menu', async () => {
     await openPause(page);
     await toMenuList(page);
-    await menu(page).getByRole('button', { name: /^Restart/ }).first().click();
+    await menu(page).getByRole('menuitem', { name: /^Restart/ }).first().click();
     await page.waitForTimeout(400);
     await tour.shot('pause-confirm-restart');
     // Say no: the run goes on
@@ -379,7 +379,7 @@ async function runTour(page: Page, size: string): Promise<Tour> {
     await tour.step(`dialog ${name} from Extras`, async () => {
       await openPause(page);
       await toMenuList(page);
-      await menu(page).getByRole('button', { name: /^Extras/i }).first().click();
+      await menu(page).getByRole('menuitem', { name: /^Extras/i }).first().click();
       await expect(menuNamed(page, 'Extras')).toBeVisible({ timeout: 5000 });
       await menu(page).getByRole('button', { name: label }).first().click();
       await expect(page.locator('mat-dialog-container')).toBeVisible({ timeout: 5000 });
