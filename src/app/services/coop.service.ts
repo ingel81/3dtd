@@ -490,10 +490,9 @@ export class CoopService {
     });
     const params = new URLSearchParams(window.location.search);
     this.roomFromUrl = params.get('room');
-    if (this.roomFromUrl && this.access === 'hint') {
-      // An invite link in a browser: the menu's Coop page says the room is played in the app (E114)
-      this.uiStore.mainMenu.set({ open: true, layer: 'start', page: 'coop' });
-    } else if (this.roomFromUrl) {
+    // An invite link opens the start menu on its Coop page (TowerDefenseComponent.startGameSequence);
+    // in a browser the page says the room is played in the app (E114)
+    if (this.roomFromUrl && this.access !== 'hint') {
       // Opened with an invite link (?room=): the dock opens at once and says what
       // happens, the host's map loads, the player joins as soon as it stands
       this.intent.set('join');
