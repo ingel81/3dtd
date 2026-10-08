@@ -1,20 +1,19 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { TD_CSS_VARS } from '../../styles/td-theme';
-import { APP_DOWNLOADS } from '../../coop/coop-access';
+import { APP_DOWNLOADS } from '../../../../coop/coop-access';
 
 /**
  * Coop in a browser on the site (E114, D52, D59): it is played in the
- * desktop app, so the dock only points there, with the downloads; opened
- * from an invite link it names the room to join in the app. The button for
- * the player's system comes first.
+ * desktop app, so the menu's Coop page only points there, with the
+ * downloads; opened from an invite link it names the room to join in the
+ * app. The button for the player's system comes first.
  */
 @Component({
   selector: 'app-coop-app-hint',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="blk">
-      <h3 class="sec">Co-op runs in the desktop app</h3>
+    <section class="mp-sec">
+      <h3 class="mp-label">Co-op runs in the desktop app</h3>
       <p class="note">
         The browser version is for a quick look, solo. Co-op, with online lobbies and games on the same network,
         lives in the free desktop app for Windows and Linux.
@@ -22,20 +21,15 @@ import { APP_DOWNLOADS } from '../../coop/coop-access';
       @if (roomCode(); as code) {
         <p class="note invite">You were invited to room <b>{{ code }}</b>. In the app, open Coop and join with this code.</p>
       }
-      <div class="row">
+      <div class="mp-actions mp-actions-start">
         @for (download of downloads; track download.url; let first = $first) {
-          <a [class]="first ? 'btn-primary' : 'btn'" [href]="download.url" target="_blank" rel="noopener">{{ download.label }}</a>
+          <a [class]="first ? 'btn-primary' : 'btn-secondary'" [href]="download.url" target="_blank" rel="noopener">{{ download.label }}</a>
         }
       </div>
-      <a class="link" [href]="allDownloads" target="_blank" rel="noopener">All downloads and release notes</a>
+      <a class="link all" [href]="allDownloads" target="_blank" rel="noopener">All downloads and release notes</a>
     </section>
   `,
   styleUrl: './coop-app-hint.component.scss',
-  styles: `
-    :host {
-      ${TD_CSS_VARS}
-    }
-  `,
 })
 export class CoopAppHintComponent {
   /** The room of the invite link this page was opened with, null without one */

@@ -63,6 +63,12 @@
     color: var(--td-warn-text);
 
     > span { flex: 1; }
+
+    &.is-error {
+      border-left-color: var(--td-danger-edge);
+      background: color-mix(in srgb, var(--td-danger-edge) 18%, transparent);
+      color: var(--td-danger-text);
+    }
   }
 
   // A text button inside a line: Coordinates, Use my location
@@ -205,6 +211,8 @@
     justify-content: flex-end;
     gap: 10px;
   }
+
+  .mp-actions-start { justify-content: flex-start; }
 
   .mp-file { display: none; }
 }

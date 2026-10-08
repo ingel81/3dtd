@@ -367,7 +367,7 @@ export class CoopService {
   });
   /**
    * A guest's host place once the world package came, while the map still
-   * loads: the location dialog (E30) closes with it.
+   * loads: a start without a place takes it (followStartPlaces, E30).
    */
   readonly hostPlace = this.perRoom.signal<{ hq: { lat: number; lon: number }; spawns: { lat: number; lon: number }[] } | null>(null);
 
@@ -491,8 +491,8 @@ export class CoopService {
     const params = new URLSearchParams(window.location.search);
     this.roomFromUrl = params.get('room');
     if (this.roomFromUrl && this.access === 'hint') {
-      // An invite link in a browser: the dock says the room is played in the app (E114)
-      this.uiStore.coopDockOpen.set(true);
+      // An invite link in a browser: the menu's Coop page says the room is played in the app (E114)
+      this.uiStore.mainMenu.set({ open: true, layer: 'start', page: 'coop' });
     } else if (this.roomFromUrl) {
       // Opened with an invite link (?room=): the dock opens at once and says what
       // happens, the host's map loads, the player joins as soon as it stands
@@ -577,7 +577,7 @@ export class CoopService {
     }, { injector: this.injector });
 
     // The dock by itself, in one place (docs/archive/COOP_UI_REWORK_PLAN.md, T5): it opens on
-    // entering a room, also after joining from the location dialog (E30), and steps aside
+    // entering a room, also after joining from the menu before the first place (E30), and steps aside
     // for the squad box when the game starts; Tab, the header chip and Esc do the rest
     let wasInRoom = false;
     let wasInGame = false;
@@ -1414,7 +1414,7 @@ export class CoopService {
       this.waveDirector.useSourceNextRun(read.world.waveSource);
     }
     const world = read.world;
-    // A start without a place waits in the location dialog: it closes with this place (E30)
+    // A start without a place waits for one: the menu hands it this place (E30)
     this.hostPlace.set({ hq: world.hq, spawns: world.spawns.map(({ lat, lon }) => ({ lat, lon })) });
     // The place loaded here first (an invite link joins while it loads)
     this.status.set('loading-world');

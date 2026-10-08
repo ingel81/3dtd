@@ -1,0 +1,156 @@
+@use '../menu-page' as page;
+@use '../../../../styles/game-ui' as ui;
+
+@include page.classes;
+
+.cw-top { gap: 8px; }
+
+.cw-name { width: 220px; }
+
+.cw-lobby {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cw-select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--td-line-steel);
+  border-radius: 0;
+  background: var(--td-panel-secondary);
+  color: var(--td-text-primary);
+  font: inherit;
+  font-size: 13px;
+  @include ui.focus-ring;
+}
+
+.cw-code {
+  font-family: var(--td-font-mono);
+  color: var(--td-gold-light);
+  letter-spacing: 0.12em;
+}
+
+// One way: its title and line left, its button right
+.cw-way {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--td-sp-5);
+}
+
+.cw-way-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cw-way-title {
+  margin: 0;
+  font-family: var(--td-font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: var(--td-track-title);
+  text-transform: uppercase;
+  color: var(--td-text-primary);
+}
+
+.code-row {
+  display: flex;
+  gap: 8px;
+
+  .codein {
+    width: 120px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+}
+
+.cw-rooms {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--td-frame-dark);
+}
+
+.cw-room {
+  display: grid;
+  grid-template-columns: 1fr 120px 70px 64px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+
+  & + .cw-room { border-top: 1px solid var(--td-frame-dark); }
+
+  > :last-child { justify-self: end; }
+
+  &.is-off { color: var(--td-text-muted); }
+}
+
+.cw-room-head {
+  padding: 4px 12px;
+  background: var(--td-panel-shadow);
+  font-family: var(--td-font-mono);
+  font-size: var(--td-fs-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+.cw-room-empty {
+  grid-template-columns: 1fr;
+  color: var(--td-text-secondary);
+  font-size: 13px;
+
+  > :last-child { justify-self: start; }
+}
+
+.cw-room-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  b {
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    font-family: var(--td-font-mono);
+    font-size: 11px;
+    color: var(--td-text-muted);
+  }
+
+  .why { color: var(--td-warn-text); }
+}
+
+.cw-dim { color: var(--td-text-secondary); }
+
+.cw-lan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+
+  &.is-off { color: var(--td-text-muted); }
+}
+
+.cw-probe {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  max-width: 360px;
+}
+
+.cw-checks {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--td-text-secondary);
+}

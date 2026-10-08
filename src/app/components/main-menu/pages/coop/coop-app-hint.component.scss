@@ -1,0 +1,10 @@
+@use '../menu-page' as page;
+
+@include page.classes;
+
+.invite b {
+  font-family: var(--td-font-mono);
+  color: var(--td-gold-light);
+}
+
+.all { align-self: flex-start; font-size: 13px; }

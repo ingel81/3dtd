@@ -2,8 +2,6 @@ import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, injec
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
-import { CoopEntryComponent } from '../coop-entry/coop-entry.component';
-import { CoopAppHintComponent } from '../coop-entry/coop-app-hint.component';
 import { CoopJoinStepsComponent } from './coop-join-steps.component';
 import { CoopRoomTableComponent } from './coop-room-table.component';
 import { CoopRoomOptionsComponent } from './coop-room-options.component';
@@ -11,7 +9,6 @@ import { CoopLobbyChatComponent } from './coop-lobby-chat.component';
 import { CoopService } from '../../services/coop.service';
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
-import { LocationStore } from '../../store/location.store';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { TICK_SUB_STEPS } from '../../coop/lockstep';
 import { GameClock } from '../../managers/game-state/game-clock';
@@ -27,8 +24,7 @@ const COPIED_MS = 1200;
  * The coop dock (docs/COOP_PLAN.md, C8, D41; the layout
  * docs/archive/COOP_UI_REWORK_PLAN.md, P5): right of the ability bar, from below
  * the info overlay down to the logo row, without a veil; the map stays
- * usable beside it. Not in a room it opens or joins one (app-coop-entry),
- * in a browser on the site it points to the desktop app (app-coop-app-hint);
+ * usable beside it. Hosting and joining start on the menu's Coop page;
  * joining it shows the handshake (app-coop-join-steps); in the room it
  * holds code and invite, the public listing, who we wait on, one warning,
  * the table of lanes and players, the options and, in a column of its own,
@@ -40,7 +36,7 @@ const COPIED_MS = 1200;
   selector: 'app-coop-dock',
   standalone: true,
   imports: [
-    MatTooltipModule, TdIconComponent, CoopEntryComponent, CoopAppHintComponent, CoopJoinStepsComponent,
+    MatTooltipModule, TdIconComponent, CoopJoinStepsComponent,
     CoopRoomTableComponent, CoopRoomOptionsComponent, CoopLobbyChatComponent, FocusOnShowDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -67,7 +63,6 @@ export class CoopDockComponent {
   readonly coop = inject(CoopService);
   private readonly uiStore = inject(UIStore);
   private readonly gameStore = inject(GameStore);
-  private readonly locationStore = inject(LocationStore);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly more = viewChild<ElementRef<HTMLElement>>('more');
 
@@ -154,13 +149,6 @@ export class CoopDockComponent {
    */
   readonly soloRunWave = computed(() =>
     this.gameStore.waveNumber() > 0 && !this.gameStore.isGameOver() ? this.gameStore.waveNumber() : 0);
-
-  /**
-   * The wave of the solo run that opening a room would end, 0 when it would
-   * not: a room on a map with one spawn adds a lane for the second player at
-   * once (CoopService.openRoom), and a new spawn starts the run over.
-   */
-  readonly soloRunEndsOnHost = computed(() => (this.locationStore.spawnPoints().length < 2 ? this.soloRunWave() : 0));
 
   /** The host asked to start while a solo run is under way: the footer asks once more */
   readonly confirmStart = signal(false);

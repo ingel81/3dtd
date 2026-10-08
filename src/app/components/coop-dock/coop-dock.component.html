@@ -8,7 +8,7 @@
       <p>PvE Coop · {{ placeName() }} · {{ r.spawnIds.length }} lane{{ r.spawnIds.length === 1 ? '' : 's' }}</p>
     } @else {
       <h2 id="td-coop-dock-title">Coop</h2>
-      <p>One map, one shared HQ, a lane per player</p>
+      <p>Opening the room</p>
     }
   </div>
   <button class="icon-btn close" type="button" (click)="close()"
@@ -105,12 +105,6 @@
       </div>
       <app-coop-lobby-chat class="chat-col" />
     </div>
-  } @else if (coop.access === 'hint') {
-    <!-- A browser on the site: coop is played in the desktop app (E114) -->
-    <app-coop-app-hint [roomCode]="coop.roomFromUrl" />
-  } @else {
-    <!-- Not in a room: host or join, the same entry the location dialog shows (D61, D67) -->
-    <app-coop-entry [coop]="coop" [canHost]="true" [placeName]="placeName()" [soloRunEnds]="soloRunEndsOnHost()" />
   }
   @if ((room() || joining()) && coop.error(); as error) {
     <p class="banner is-error" role="alert">{{ error }}</p>

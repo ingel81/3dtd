@@ -1037,9 +1037,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.facade.startMapPlacement('spawn', true);
   }
 
-  /** The header's room chip: the coop dock opens and closes (docs/COOP_PLAN.md, D41). */
+  /**
+   * The header's Coop button: in a room the dock opens and closes
+   * (docs/COOP_PLAN.md, D41); without one the menu's Coop page, where
+   * hosting and joining start.
+   */
   openCoop(): void {
-    this.uiStore.coopDockOpen.update((open) => !open);
+    if (this.coop.room() || this.coop.intent() === 'join') this.uiStore.coopDockOpen.update((open) => !open);
+    else this.mainMenuService.open('coop');
   }
 
   /** The quick bar's Settings button: the menu's Settings page; until the menu has it, the game menu */

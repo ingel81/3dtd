@@ -1,0 +1,192 @@
+@let c = coop;
+<section class="mp-sec cw-top">
+  <label class="mp-field">
+    <span>Your name</span>
+    <input class="inp cw-name" type="text" maxlength="32" [value]="name()" (input)="setName($any($event.target).value)" />
+  </label>
+  @if (c.lobbies().length) {
+    <label class="mp-field">
+      <span>Online lobby</span>
+      <span class="cw-lobby">
+        <select class="cw-select lobby-select" [value]="c.lobby()?.url ?? ''" (change)="pickLobby($any($event.target))">
+          @for (lobby of c.lobbies(); track lobby.url) {
+            <option [value]="lobby.url" [selected]="lobby.url === c.lobby()?.url">{{ lobby.name }}</option>
+          }
+        </select>
+        @if (c.lobbyPing() !== null) { <span class="mp-meta">{{ c.lobbyPing() }} ms</span> }
+      </span>
+    </label>
+  } @else {
+    <p class="note">No online lobby is set up yet. Settings adds the address you were given.</p>
+  }
+  @if (c.needsKey()) {
+    <p class="note">Every player needs their own map key; you enter yours before the map loads.</p>
+  }
+</section>
+
+@if (c.room(); as r) {
+  <section class="mp-sec">
+    <p class="note">You are in room <b class="cw-code">{{ r.code }}</b>.</p>
+    <div class="mp-actions mp-actions-start">
+      <button class="btn-primary" type="button" (click)="openRoom.emit()">Open the room</button>
+    </div>
+  </section>
+} @else {
+  <!-- Host online: a room on the place loaded -->
+  <section class="mp-sec" aria-labelledby="td-coop-host">
+    <div class="cw-way">
+      <div class="cw-way-text">
+        <h3 class="cw-way-title" id="td-coop-host">Host online</h3>
+        @if (placeName(); as place) {
+          <p class="note">Opens a room on {{ place }}. Friends join with the code or the link.
+            <button class="mp-link" type="button" (click)="changePlace.emit()">Change place</button></p>
+        } @else {
+          <p class="note">A room opens on the place you play. <button class="mp-link" type="button" (click)="changePlace.emit()">Choose a place</button></p>
+        }
+      </div>
+      @if (confirmHost() !== 'online') {
+        <button class="btn-primary" type="button" (click)="host('online')" [disabled]="busy() || !placeName() || !c.lobby()">
+          {{ busy() && c.intent() === 'host' ? 'Opening…' : 'Host a room' }}
+        </button>
+      }
+    </div>
+    @if (confirmHost() === 'online') {
+      <p class="note is-warn" role="alert">This ends your solo run (wave {{ soloRunEnds() }}): the room adds a lane for a second player.</p>
+      <div class="mp-actions">
+        <button class="btn-secondary" type="button" (click)="confirmHost.set(null)">Cancel</button>
+        <button class="btn-primary" type="button" (click)="host('online')" [disabled]="busy()" tdFocusOnShow>Host anyway</button>
+      </div>
+    }
+  </section>
+
+  <!-- Join online: a code, or a room of the lobby's list -->
+  <section class="mp-sec" aria-labelledby="td-coop-join">
+    <div class="cw-way">
+      <h3 class="cw-way-title" id="td-coop-join">Join online</h3>
+      @if (c.lobby()) {
+        <span class="row code-row">
+          <input class="inp codein" type="text" maxlength="6" placeholder="CODE" aria-label="Room code"
+                 [value]="code()" (input)="code.set($any($event.target).value)" (keydown.enter)="join()" />
+          <button class="btn-secondary" type="button" (click)="join()" [disabled]="!code().trim() || busy()">Join</button>
+        </span>
+      }
+    </div>
+    @if (c.lobby(); as active) {
+      @if (publicRooms(); as rooms) {
+        <div class="cw-rooms" role="table" aria-label="Open rooms">
+          <div class="cw-room cw-room-head" role="row">
+            <span role="columnheader">Room</span><span role="columnheader">Place</span>
+            <span role="columnheader">Players</span><span role="columnheader">
+              <button class="icon-btn sm" type="button" (click)="refreshRooms()" matTooltip="Look again" aria-label="Look for open rooms again">
+                <td-icon name="refresh" [size]="13"></td-icon>
+              </button>
+            </span>
+          </div>
+          @for (room of rooms; track room.code) {
+            <div class="cw-room" role="row" [class.is-off]="room.why">
+              <span role="cell" class="cw-room-name">
+                <b>{{ room.title }}</b>
+                <small>{{ room.host }}@if (room.started) { · in game, wave {{ room.wave }} }@if (room.cheats) { · cheats on }</small>
+                @if (room.why) { <small class="why">{{ room.why }}</small> }
+              </span>
+              <span role="cell" class="cw-dim">{{ room.city || '-' }}</span>
+              <span role="cell" class="mp-meta">{{ room.players }}/{{ maxPlayers }}</span>
+              <span role="cell">
+                <button class="btn-xs" type="button" (click)="joinRoom(room)" [attr.aria-disabled]="!!room.why || null"
+                        [disabled]="busy()">Join</button>
+              </span>
+            </div>
+          } @empty {
+            <div class="cw-room cw-room-empty" role="row"><span role="cell">No open rooms right now. Host one, or join with a code.</span></div>
+          }
+        </div>
+      } @else {
+        <p class="mp-banner" role="status">
+          <span>{{ active.name }} does not answer right now.{{ c.lanAvailable ? ' Playing on the same network still works.' : '' }}</span>
+          <button class="btn-xs" type="button" (click)="refreshRooms()">Retry</button>
+        </p>
+      }
+    }
+  </section>
+
+  <!-- Same network: the desktop app finds and hosts games itself -->
+  <section class="mp-sec" aria-labelledby="td-coop-lan">
+    @if (c.lanAvailable) {
+      <div class="cw-way">
+        <div class="cw-way-text">
+          <h3 class="cw-way-title" id="td-coop-lan">Same network</h3>
+          @if (!lanGames().length) {
+            <p class="note">
+              <td-icon class="spin" name="refresh" [size]="12"></td-icon>
+              No game found on this network yet. Searching.
+            </p>
+          }
+        </div>
+        @if (confirmHost() !== 'lan') {
+          <button class="btn-secondary" type="button" (click)="host('lan')" [disabled]="busy() || !placeName()">Host on this network</button>
+        }
+      </div>
+      @if (confirmHost() === 'lan') {
+        <p class="note is-warn" role="alert">This ends your solo run (wave {{ soloRunEnds() }}): the room adds a lane for a second player.</p>
+        <div class="mp-actions">
+          <button class="btn-secondary" type="button" (click)="confirmHost.set(null)">Cancel</button>
+          <button class="btn-primary" type="button" (click)="host('lan')" [disabled]="busy()" tdFocusOnShow>Host anyway</button>
+        </div>
+      }
+      @if (lanGames().length) {
+        <ul class="mp-list" aria-label="Games on this network">
+          @for (game of lanGames(); track game.code) {
+            <li class="cw-lan" [class.is-off]="game.why">
+              <span class="cw-room-name">
+                <b>{{ game.host || 'Host' }}</b>
+                <small>{{ game.players }}/{{ maxPlayers }} players · {{ game.code }}</small>
+                @if (game.why) { <small class="why">{{ game.why }}</small> }
+              </span>
+              <button class="btn-xs" type="button" (click)="joinLan(game)" [attr.aria-disabled]="!!game.why || null"
+                      [disabled]="busy()">Join</button>
+            </li>
+          }
+        </ul>
+      }
+      <div class="mp-links">
+        <button class="mp-link" type="button" (click)="rescanLan()">Search again</button>
+      </div>
+      @if (lanQuiet()) {
+        <div class="cw-probe">
+          <input class="inp" type="text" maxlength="15" placeholder="Host IP, e.g. 192.168.1.5" aria-label="Host IP"
+                 [value]="hostIp()" (input)="hostIp.set($any($event.target).value)" (keydown.enter)="probeLan()" />
+          <button class="btn-xs" type="button" (click)="probeLan()" [disabled]="!hostIp().trim() || lanProbe() === 'busy'">Ask</button>
+        </div>
+        @if (lanProbe() === 'none') {
+          <p class="note is-error" role="status">No game answered at {{ hostIp().trim() }}.</p>
+        }
+        <ul class="cw-checks">
+          <li>The host let 3DTD through the Windows firewall (the prompt at "Host on this network").</li>
+          <li>Both are on the same network, not one on mobile data or only on a VPN.</li>
+          <li>Guest Wi-Fi often keeps devices apart: use the main Wi-Fi or a cable.</li>
+        </ul>
+      }
+    } @else {
+      <h3 class="cw-way-title" id="td-coop-lan">Same network</h3>
+      <p class="note">Games on the same network run in the desktop app.
+        <a class="link" [href]="allDownloads" target="_blank" rel="noopener">Downloads</a></p>
+    }
+  </section>
+}
+
+@if (busy()) {
+  <p class="mp-banner" role="status">
+    <td-icon class="spin" name="refresh" [size]="13"></td-icon>
+    <span>Connecting…</span>
+    <button class="btn-xs" type="button" (click)="cancelConnect()">Cancel</button>
+  </p>
+}
+
+@if (c.error(); as error) {
+  <p class="mp-banner is-error" role="alert">
+    <span>{{ error }}</span>
+    @if (c.updateReady()) {
+      <button class="btn-xs" type="button" (click)="installUpdate()">Update now</button>
+    }
+  </p>
+}
