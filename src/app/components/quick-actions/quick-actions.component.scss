@@ -148,7 +148,7 @@
   padding: 6px;
   overflow-x: hidden;
   overflow-y: auto;
-  @include ui.bevel-glass;
+  @include ui.glass-strip;
   font-family: var(--td-font-mono);
   opacity: 0;
   visibility: hidden;
