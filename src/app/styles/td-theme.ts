@@ -40,15 +40,37 @@ export const TD_THEME = {
   // === Status & Feedback colors ===
   healthRed: '#B83E32', // wärmer (was #B14436)
   healthBg: '#2E1614', // (was #3A1B18)
-  warnOrange: '#C96A3A',
+  warnOrange: '#C96A3A', // fills, stripes, edges; on panels below AA as text
+  warnText: '#D98A4A', // warning text on panels
   disabled: '#5B625C',
+
+  // === Danger (destructive buttons, Game Over) ===
+  dangerBg: '#3A1410',
+  dangerEdge: '#B83E32',
+  dangerText: '#F2C9C2',
+
+  // === HUD states ===
+  hpText: '#E36A5A', // HQ number; healthRed is a fill, too dark for text
+  hpLow: '#E8735F', // HQ under 30 %
+  gain: '#9ED6A0', // +credits
+  loss: '#E36A5A', // -credits, a buy that fails
+
+  // === Plates (panels, dialogs, menu) ===
+  plateTop: '#262F28',
+  plateBottom: '#1D241F',
+  plateHeadTop: '#2B332D',
+  plateHeadBottom: '#202722',
+  lineBrass: '#8E7228', // 2px top edge of a title plate
+  lineSteel: '#4A544D', // 1px frame of a plate
+  ink: '#1A140A', // text on brass
+  brassLip: '#4A3A12', // hard bottom edge of a brass button
 
   // === Text colors ===
   // Never use pure white!
   textPrimary: '#EEF1EB', // (was #ECEFE9)
   textSecondary: '#B6C0B3', // (was #B2BCAF)
   textMuted: '#8E988C', // (was #8B948A)
-  textTertiary: '#7A837A', // Between muted and disabled, for pending/inactive elements
+  textTertiary: '#7A837A', // Non-text only (icons, rules); below AA as text on panels
   textDisabled: '#6A726A',
 
   // === Decorative / Rune accents (new) ===
@@ -93,15 +115,47 @@ export const TD_SHADOWS = {
 } as const;
 
 /**
- * Type-Pairing Tokens (new)
- * Mono → Stats, HP-values, Cost-Badges, Hotkey-Chips, Wave-Counter, Section-Headers
- * Body → Tower-Names, Tooltip-Body, Dialog-Titles, Hint-Beschreibungen, Address-Labels
- * Display → reserved for Game-Over / Victory (not used yet)
+ * Schriften (docs/DESIGN_SYSTEM.md)
+ * Display (Oswald) → Titel, Menü, Knöpfe, HUD-Zahlen
+ * Body (Inter Tight) → Fließtext, Namen, Beschreibungen
+ * Mono (JetBrains Mono) → Zahlen in Tabellen, Kosten, Hotkeys, Codes, kleine Labels
  */
 export const TD_FONTS = {
   mono: `'JetBrains Mono', ui-monospace, monospace`,
   body: `'Inter Tight', system-ui, -apple-system, sans-serif`,
-  display: `'Inter Tight', system-ui, -apple-system, sans-serif`,
+  display: `'Oswald', 'Arial Narrow', system-ui, sans-serif`,
+} as const;
+
+/** Schriftgrößen und Laufweiten. Nichts unter micro (10px). */
+export const TD_TYPE = {
+  micro: '10px',
+  small: '11px',
+  body: '13px',
+  lead: '15px',
+  title: '18px',
+  hud: '22px',
+  menu: '26px',
+  hero: '44px',
+  trackCaps: '0.12em',
+  trackTitle: '0.06em',
+} as const;
+
+/** Abstände: 4/8/12/16/24/32 */
+export const TD_SPACE = ['4px', '8px', '12px', '16px', '24px', '32px'] as const;
+
+/** Formen: abgeschrägte Ecken der Platten, sonst eckig */
+export const TD_SHAPE = {
+  cut: '10px',
+  cutSm: '6px',
+  radius: '0',
+} as const;
+
+/** Bewegung */
+export const TD_MOTION = {
+  fast: '120ms',
+  mid: '220ms',
+  slow: '450ms',
+  easeOut: 'cubic-bezier(0.2, 0.7, 0.2, 1)',
 } as const;
 
 /**
@@ -126,8 +180,8 @@ export const TD_LAYERS = {
 } as const;
 
 /**
- * CSS Custom Properties String
- * For use in :host or root element
+ * CSS Custom Properties String. Steht einmal auf :root (installThemeVars in
+ * main.ts), damit auch Overlays (.cdk-overlay-container) sie sehen.
  */
 export const TD_CSS_VARS = `
   --td-bg-dark: ${TD_THEME.bgDark};
@@ -156,7 +210,25 @@ export const TD_CSS_VARS = `
   --td-health-red: ${TD_THEME.healthRed};
   --td-health-bg: ${TD_THEME.healthBg};
   --td-warn-orange: ${TD_THEME.warnOrange};
+  --td-warn-text: ${TD_THEME.warnText};
   --td-disabled: ${TD_THEME.disabled};
+
+  --td-danger-bg: ${TD_THEME.dangerBg};
+  --td-danger-edge: ${TD_THEME.dangerEdge};
+  --td-danger-text: ${TD_THEME.dangerText};
+
+  --td-hp-text: ${TD_THEME.hpText};
+  --td-hp-low: ${TD_THEME.hpLow};
+  --td-gain: ${TD_THEME.gain};
+  --td-loss: ${TD_THEME.loss};
+  --td-hazard: repeating-linear-gradient(-45deg, ${TD_THEME.warnOrange} 0 6px, ${TD_THEME.ink} 6px 12px);
+
+  --td-plate: linear-gradient(180deg, ${TD_THEME.plateTop}, ${TD_THEME.plateBottom});
+  --td-plate-head: linear-gradient(180deg, ${TD_THEME.plateHeadTop}, ${TD_THEME.plateHeadBottom});
+  --td-line-brass: ${TD_THEME.lineBrass};
+  --td-line-steel: ${TD_THEME.lineSteel};
+  --td-ink: ${TD_THEME.ink};
+  --td-brass-lip: ${TD_THEME.brassLip};
 
   --td-text-primary: ${TD_THEME.textPrimary};
   --td-text-secondary: ${TD_THEME.textSecondary};
@@ -182,6 +254,37 @@ export const TD_CSS_VARS = `
   --td-font-body: ${TD_FONTS.body};
   --td-font-display: ${TD_FONTS.display};
 
+  --td-fs-micro: ${TD_TYPE.micro};
+  --td-fs-small: ${TD_TYPE.small};
+  --td-fs-body: ${TD_TYPE.body};
+  --td-fs-lead: ${TD_TYPE.lead};
+  --td-fs-title: ${TD_TYPE.title};
+  --td-fs-hud: ${TD_TYPE.hud};
+  --td-fs-menu: ${TD_TYPE.menu};
+  --td-fs-hero: ${TD_TYPE.hero};
+  --td-track-caps: ${TD_TYPE.trackCaps};
+  --td-track-title: ${TD_TYPE.trackTitle};
+
+  --td-sp-1: ${TD_SPACE[0]};
+  --td-sp-2: ${TD_SPACE[1]};
+  --td-sp-3: ${TD_SPACE[2]};
+  --td-sp-4: ${TD_SPACE[3]};
+  --td-sp-5: ${TD_SPACE[4]};
+  --td-sp-6: ${TD_SPACE[5]};
+
+  --td-cut: ${TD_SHAPE.cut};
+  --td-cut-sm: ${TD_SHAPE.cutSm};
+  --td-radius: ${TD_SHAPE.radius};
+
+  --td-dur-fast: ${TD_MOTION.fast};
+  --td-dur-mid: ${TD_MOTION.mid};
+  --td-dur-slow: ${TD_MOTION.slow};
+  --td-ease-out: ${TD_MOTION.easeOut};
+
+  --td-focus-color: ${TD_THEME.goldLight};
+  --td-focus-width: 2px;
+  --td-focus-offset: 2px;
+
   --td-sidebar-width: ${TD_LAYOUT.sidebarWidth};
   --td-sidebar-gutter: ${TD_LAYOUT.sidebarGutter};
 
@@ -194,3 +297,17 @@ export const TD_CSS_VARS = `
   --td-perf-critical: ${TD_THEME.perfCritical};
   --td-perf-warning: ${TD_THEME.perfWarning};
 `;
+
+/**
+ * Setzt TD_CSS_VARS einmal als `:root`-Regel in den Kopf des Dokuments, vor dem
+ * Bootstrap (main.ts). Ein Stylesheet statt Inline-Style am <html>, damit
+ * Komponenten sie wie jede Regel überschreiben können.
+ */
+export function installThemeVars(doc: Document): void {
+  const id = 'td-theme-vars';
+  if (doc.getElementById(id)) return;
+  const style = doc.createElement('style');
+  style.id = id;
+  style.textContent = `:root {${TD_CSS_VARS}}`;
+  doc.head.prepend(style);
+}
