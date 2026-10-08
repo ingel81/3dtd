@@ -1,5 +1,5 @@
 // The picture tour of the UI (docs/MAIN_MENU_UI_PLAN.md, Prüfung): menu,
-// pages, HUD states, dialogs, coop dock, Game Over and a focus probe, once
+// pages, HUD states, dialogs, coop page and a room's dock, Game Over and a focus probe, once
 // at 1600x900 and once at 1280x720. DevWorld (`?devworld&bot=manual`), so
 // no map session; a page of its own per size, not `duo`.
 //
@@ -11,6 +11,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { leaveRoom, openCoopPage, openRoom, startRelay } from '../support/game';
 
 const OUT = fileURLToPath(new URL('../../tmp/ui-shots/after/', import.meta.url));
 const VIEWPORTS = [
@@ -51,7 +52,6 @@ function writeMissing(size: string, failed: string[]): void {
 
 type Comp = {
   store: { baseHealth(): number };
-  uiStore: { coopDockOpen: { set(v: boolean): void } };
 };
 
 class Tour {
@@ -98,13 +98,6 @@ function hqHealth(page: Page): Promise<number> {
   });
 }
 
-/** Open the coop dock through the UI store (in a room the header chip would) */
-function openDockByStore(page: Page): Promise<void> {
-  return page.evaluate(() => {
-    const w = window as unknown as { ng: { getComponent(el: Element | null): unknown } };
-    (w.ng.getComponent(document.querySelector('app-tower-defense')) as Comp).uiStore.coopDockOpen.set(true);
-  });
-}
 
 /** The menu, in whichever layer and on whichever page */
 function menu(page: Page) {
@@ -398,23 +391,31 @@ async function runTour(page: Page, size: string): Promise<Tour> {
     });
   }
 
-  // --- Coop dock ---
-  await tour.step('coop dock', async () => {
+  // --- Coop: the page from the header, a room of this machine and its dock ---
+  await tour.step('coop page from the header', async () => {
     await toGame(page);
-    await openDockByStore(page);
-    await page.locator('app-coop-dock').waitFor({ timeout: 5000 });
+    await openCoopPage(page);
     await page.waitForTimeout(500);
-    await tour.shot('coop-dock');
-    await page.getByRole('button', { name: 'Close the coop dock' }).click();
+    await tour.shot('coop-page-header');
   });
 
-  await tour.step('coop from the header', async () => {
-    await page.getByRole('button', { name: /^Coop/ }).first().click();
-    await page.waitForTimeout(600);
-    await tour.shot('coop-header');
+  await tour.step('coop dock with a room', async () => {
+    const relay = await startRelay();
+    try {
+      await openCoopPage(page);
+      // DevWorld hosts on the relay of this machine: pick its lobby where the page offers one
+      const lobby = page.locator('app-coop-ways select.lobby-select');
+      if (await lobby.count()) await lobby.selectOption({ label: 'This machine' });
+      await openRoom(page);
+      await page.locator('app-coop-dock .code b').waitFor({ timeout: 60_000 });
+      await page.waitForTimeout(800);
+      await tour.shot('coop-dock-room');
+      await leaveRoom(page);
+    } finally {
+      await leaveRoom(page).catch(() => undefined);
+      await relay.stop();
+    }
     await toGame(page);
-    const close = page.getByRole('button', { name: 'Close the coop dock' });
-    if (await close.count()) await close.click();
   });
 
   // --- Game Over, last: it ends the run ---
@@ -422,7 +423,7 @@ async function runTour(page: Page, size: string): Promise<Tour> {
     const tile = await devButton(page, /^Add 1000 HP/);
     await tile.click({ button: 'right', modifiers: ['Shift'] });
     await closeDev(page).catch(() => undefined);
-    await expect(page.getByRole('dialog', { name: /game over/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('dialog', { name: /^(HQ lost|Game over)/i })).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(1500);
     await tour.shot('game-over');
   });
