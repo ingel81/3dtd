@@ -153,6 +153,33 @@
   @include ui.sr-only;
 }
 
+// Short windows (1280x720 and the like): logo, list and the tip under it
+// did not fit, the tip lay over the last entries and took their clicks. A
+// smaller logo, less padding, and the tip makes way for the list; the
+// version stays at the foot.
+@media (max-height: 820px) and (min-width: 761px) {
+  .mm-root {
+    padding-top: 32px;
+    padding-bottom: 72px;
+  }
+
+  .mm-logo {
+    width: 280px;
+  }
+
+  .mm-tip {
+    display: none;
+  }
+
+  .mm-foot {
+    bottom: 24px;
+  }
+
+  .mm-loading {
+    bottom: 24px;
+  }
+}
+
 // Phone width: one column, the plates under the list
 @media (max-width: 760px) {
   .mm-root {
