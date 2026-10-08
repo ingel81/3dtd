@@ -461,9 +461,8 @@
   border-color: var(--td-frame-mid);
 }
 
-.td-photo-btn:focus-visible {
-  outline: 1px solid var(--td-teal-light);
-  outline-offset: 1px;
+.td-photo-btn {
+  @include ui.focus-ring;
 }
 
 .td-photo-btn:disabled {
@@ -477,52 +476,39 @@
   border: 1px solid var(--td-frame-dark);
   color: var(--td-gold-light);
   font-family: inherit;
-  font-size: 9px;
+  font-size: var(--td-fs-micro);
   line-height: 14px;
 }
 
 /* Phase 5.10: AI error banner */
+/* The one message banner: the foundation's error banner across the top,
+   a danger strip with a close cross and, where it helps, Reload */
 .notice-banner {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   z-index: 1000;
-  padding: 12px 20px;
-  background: rgba(200, 60, 60, 0.95);
-  color: white;
-  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 10px 20px;
+  background: var(--td-danger-bg);
+  border-bottom: 1px solid var(--td-danger-edge);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  color: var(--td-danger-text);
+  font-size: 14px;
 }
 .notice-banner span {
   flex: 1;
 }
 .notice-banner .notice-close {
-  background: transparent;
-  border: none;
-  color: white;
-  font-size: 22px;
-  cursor: pointer;
-  padding: 0 6px;
+  @include ui.icon-btn(30px);
+  font-size: 20px;
   line-height: 1;
 }
-.notice-banner .notice-close:hover {
-  opacity: 0.75;
-}
 .notice-banner .notice-reload {
+  @include ui.btn-danger(30px);
   flex-shrink: 0;
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 3px;
-  color: white;
-  font: inherit;
-  cursor: pointer;
-}
-.notice-banner .notice-reload:hover,
-.notice-banner .notice-reload:focus-visible {
-  background: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
 }
