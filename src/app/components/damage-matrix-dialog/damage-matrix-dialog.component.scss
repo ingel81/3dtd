@@ -131,7 +131,6 @@ tbody th {
   content: '';
   width: 6px;
   height: 6px;
-  border-radius: 1px;
   background: color-mix(in srgb, var(--damage-color) 75%, transparent);
   flex-shrink: 0;
 }
@@ -156,7 +155,6 @@ tbody th {
   min-width: 58px;
   padding: 3px 6px;
   border: 1px solid transparent;
-  border-radius: 2px;
   font: 500 11px/1.2 var(--td-font-mono);
   font-variant-numeric: tabular-nums;
   color: var(--tier-color);
@@ -204,7 +202,6 @@ tbody th {
 .swatch {
   width: 8px;
   height: 8px;
-  border-radius: 1px;
   background: var(--tier-color);
   flex-shrink: 0;
 }

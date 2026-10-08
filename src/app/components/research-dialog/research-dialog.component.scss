@@ -688,7 +688,7 @@
   span {
     display: block;
     font-family: var(--td-font-mono);
-    font-size: 9px;
+    font-size: var(--td-fs-micro);
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--td-text-muted);
@@ -714,7 +714,7 @@
 .td-rd-lab {
   margin: 0 0 6px;
   font-family: var(--td-font-mono);
-  font-size: 9px;
+  font-size: var(--td-fs-micro);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--td-text-muted);
