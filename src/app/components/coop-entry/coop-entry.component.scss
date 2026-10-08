@@ -121,7 +121,7 @@
 
 .tag {
   &.is-open { color: var(--td-teal-light); border-color: var(--td-teal-dark); }
-  &.is-warn { color: var(--td-warn-orange); border-color: color-mix(in srgb, var(--td-warn-orange) 50%, var(--td-frame-dark)); }
+  &.is-warn { color: var(--td-warn-text); border-color: color-mix(in srgb, var(--td-warn-orange) 50%, var(--td-frame-dark)); }
 }
 
 /* Games on the network and open rooms of the lobby */
@@ -162,7 +162,7 @@
     small.why {
       overflow: visible;
       font-family: var(--td-font-body);
-      color: var(--td-warn-orange);
+      color: var(--td-warn-text);
       white-space: normal;
     }
   }

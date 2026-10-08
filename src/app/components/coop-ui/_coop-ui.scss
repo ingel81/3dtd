@@ -16,7 +16,7 @@
   padding: 1px 5px;
   border: 1px solid var(--td-frame-mid);
   font-family: var(--td-font-mono);
-  font-size: 9px;
+  font-size: var(--td-fs-micro);
   font-style: normal;
   letter-spacing: 0.14em;
   line-height: 1.35;
@@ -125,11 +125,17 @@
   }
 }
 
-// A floating coop panel on the map: dock, squad box
+// A floating coop panel on the map (dock, squad box): a plate, see-through
+// by 100% - $alpha so the map shows faintly
 @mixin panel-frame($alpha: 96%) {
-  background: color-mix(in srgb, var(--td-bg-dark) $alpha, transparent);
-  border: 1px solid var(--td-frame-mid);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(167, 179, 168, 0.14);
+  @include g.plate(
+    $fill: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--td-plate-top) $alpha, transparent),
+      color-mix(in srgb, var(--td-plate-bottom) $alpha, transparent)
+    ),
+    $position: null
+  );
 }
 
 // The shared classes of the coop templates: the foundation's plus the coop

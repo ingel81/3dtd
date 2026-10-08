@@ -34,7 +34,7 @@
 .btn-primary.big,
 .btn-done.big {
   height: 44px;
-  font-size: 12.5px;
+  font-size: var(--td-fs-lead);
 }
 .btn.ghost {
   background: transparent;
@@ -42,8 +42,8 @@
   border-color: var(--td-frame-dark);
 }
 .btn.danger:hover {
-  border-color: var(--td-health-red);
-  color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary));
+  border-color: var(--td-danger-edge);
+  color: var(--td-danger-text);
 }
 /* === Head, body, foot === */
 .head {
@@ -51,9 +51,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px 14px 18px;
+  padding: 14px 16px 12px 18px;
+  border-top: 2px solid var(--td-line-brass);
   border-bottom: 1px solid var(--td-frame-dark);
-  background: linear-gradient(180deg, var(--td-panel-main), var(--td-panel-secondary));
+  background: var(--td-plate-head);
 }
 
 .title {
@@ -63,13 +64,7 @@
   min-width: 0;
 
   h2 {
-    margin: 0;
-    font-family: var(--td-font-display);
-    font-size: 17px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--td-gold-light);
+    @include ui.title(18px);
   }
 
   p {
@@ -151,7 +146,7 @@
 
   span {
     font-family: var(--td-font-mono);
-    font-size: 9.5px;
+    font-size: var(--td-fs-micro);
     letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--td-text-muted);
@@ -312,7 +307,9 @@
   left: 0;
   z-index: 1;
   min-width: 220px;
-  @include td.bevel-glass;
+  border: 1px solid var(--td-line-steel);
+  background: var(--td-panel-secondary);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
 
   button {
     display: block;
@@ -324,6 +321,7 @@
     text-align: left;
     color: var(--td-text-secondary);
     cursor: pointer;
+    @include td.focus-ring(-2px);
 
     &:hover { color: var(--td-gold-light); background: color-mix(in srgb, var(--td-gold) 8%, transparent); }
   }

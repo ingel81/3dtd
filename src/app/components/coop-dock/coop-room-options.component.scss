@@ -45,7 +45,7 @@
 
 .tag.soon {
   padding: 0 3px;
-  font-size: 8px;
+  font-size: var(--td-fs-micro);
   border-color: var(--td-frame-dark);
   color: var(--td-text-disabled);
 }

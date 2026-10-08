@@ -19,18 +19,20 @@
 }
 
 @include ui.classes;
-.btn-xs.primary { @include ui.btn-primary(30px); padding: 0 10px; font-size: 10.5px; }
+.btn-xs.primary { @include ui.btn-primary(30px); padding: 0 10px; font-size: 12px; }
 
-.is-warn { color: var(--td-warn-orange); }
-.is-error { color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary)); }
+.is-warn { color: var(--td-warn-text); }
+.is-error { color: var(--td-danger-text); }
 
 .squad {
   display: flex;
   flex-direction: column;
+  position: relative;
   pointer-events: auto;
   @include ui.panel-frame(90%);
 
-  &.is-error { border-color: color-mix(in srgb, var(--td-health-red) 50%, var(--td-frame-dark)); }
+  // The plate's edge is its background
+  &.is-error { background: color-mix(in srgb, var(--td-danger-edge) 60%, var(--td-frame-dark)); }
 }
 
 .sq-head {
@@ -54,7 +56,7 @@
 
   .chip {
     height: 18px;
-    font-size: 9px;
+    font-size: var(--td-fs-micro);
     letter-spacing: 0.14em;
   }
 
@@ -114,7 +116,7 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
 
-    &.is-warn { color: var(--td-warn-orange); }
+    &.is-warn { color: var(--td-warn-text); }
   }
 
   .name {

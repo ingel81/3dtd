@@ -46,8 +46,9 @@
 // A plate: steel edge, stone gradient, cut corners. The edge is the plate's
 // own background, the fill a ::before 1px inside, so the edge follows the cut.
 // A shadow goes on a wrapper (plate-shadow), clip-path cuts it off here.
-@mixin plate($cut: var(--td-cut), $fill: var(--td-plate), $edge: var(--td-line-steel)) {
-  position: relative;
+// $position null leaves the element's own positioning (absolute, fixed).
+@mixin plate($cut: var(--td-cut), $fill: var(--td-plate), $edge: var(--td-line-steel), $position: relative) {
+  position: $position;
   isolation: isolate;
   background: $edge;
   @include cut-shape($cut);
