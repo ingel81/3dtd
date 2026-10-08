@@ -580,29 +580,38 @@ Optional: `title` (mit `counter` rechts daneben), `message` darunter, `actions` 
 
 **Ablehnung** (`RefusalHintService`): Tut ein Druck auf eine Fähigkeit oder den Helden nichts, steht 2,5 s (`UPGRADE_HINT_MS`, so lange wie die Zeile der U-Ablehnung) eine Box mit dem Namen als Titel und dem Grund als Warnung, ohne Tasten, mit `live`: "Nuclear Strike" über "ONLY DURING A WAVE", "NO CHARGES, RECHARGES IN 3 WAVES" oder "NO ROUTE WITHIN 30 M"; "Hire Mercenary" über "NEED 600 CREDITS" oder, ohne Route zum Stehen, "NO ROUTE TO STAND ON"; "Mercenary" über "NO WAY THERE ALONG THE ROUTES" (Befehl an den angeheuerten Helden). Quellen: die eigene Prüfung des Zielmodus, bevor er scharf schaltet (Taste und Knopf der Leiste), und `ability:rejected` und `hero:rejected` der Manager, nicht für Befehle des Bots. Gründe, auf die der Spieler nichts tun kann, zeigt sie nicht: `locked` (vor ihrer Forschung bleibt die Taste einer Fähigkeit still wie bisher), `hired`, `no-hero`, `unknown-ammo`, `unknown`. Startet danach ein Zeigermodus (Build, Platzierung, Zielmodus, Held gewählt), endet sie sofort; ein Neustart räumt sie weg. Rot wie jede Warnung der Box, nicht orange wie der aufsteigende Text der U-Ablehnung: der steht über seinem Tower, eine Fähigkeit vor dem Zielen und der Held vor dem Anheuern haben keinen solchen Ort.
 
-### Spielmenü (Esc)
+### Hauptmenü
 
-Das Zahnrad im Sidebar-Footer und Esc (wenn Esc sonst nichts zu tun hat) öffnen das Spielmenü (`components/game-menu/`), einen Dialog in der Mitte, 380px breit, im Look der anderen Dialoge. Allein pausiert das Spiel, solange es offen ist; im Coop läuft es weiter, das sagt eine Zeile oben. Aufbau wie ein klassisches Spielmenü:
+Ein Menü für alles, was nicht Spielen ist (`components/main-menu/`, Plan in
+[MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md)), als Overlay über dem ganzen Fenster, Rolle `dialog` mit dem Namen der
+Seite ("Menu", "Settings" ...), Fokusfalle; schließt es, geht der Fokus zurück. Zwei Lagen mit derselben Liste und
+denselben Seiten:
 
-- **Continue** zuerst (Icon `play` in `--td-gold`, Text `--td-text-primary`, Tastenkappe Esc), schließt das Menü. Gibt es einen Autosave und hat der neue Lauf noch nicht begonnen (allein, Welle 0, kein Tower), lädt das oberste "Continue" den Autosave (`continueAutosave`, darunter in 10px Mono Ort und Welle), und der Eintrag zum Schließen heißt "Back to the game" (Icon `caretL`).
-- **Save game**, **Load game**, **Settings**, **More**: je eine Seite im Körper des Menüs, mit einem Caret rechts. Auf einer Seite steht im Kopf ein Zurück-Caret vor dem Titel; Zurück und Esc führen zur Liste, Esc auf der Liste schließt das Menü. Die Seite bekommt den Fokus auf ihrem ersten Bedienelement.
-- Unter einer Linie **Restart here**, **Change location** und in der Desktop-App **Quit 3DTD**.
+- **Start** nach dem Token-Schritt, vor einem Lauf und bei jedem Ortswechsel: großes Logo links oben, Zeile "Tower
+  defense on real streets", Liste darunter, links nach rechts auslaufender dunkler Verlauf über der Szene. Unten links
+  ein Feldtipp (wechselt alle 8 s) und der Versions-Chip, unten rechts die Ladeplatte, solange der Ort lädt oder ein
+  Laden scheiterte. Das HUD ist darunter ausgeblendet.
+- **Pause** (Esc als letzter Schritt, Zahnrad im Sidebar-Fuß, "Main menu" am Game Over): kleines Logo, darunter
+  "Paused · Heilbronn · wave 12" (im Coop "Coop · ..."), Szene gleichmäßig abgedunkelt, das HUD bleibt darunter.
 
-Save und Load gibt es nur allein (im Coop ausgeblendet) und binden an den Port `SAVE_GAME` (`services/save-game/save-game.port.ts`). Save zeigt die fünf festen Plätze als Slot-Flächen (`--td-panel-secondary`, Kanten des erhöhten Panels): Titel 13px/600 und rechts daneben die Zeit ("5 Oct, 14:32", 10px Mono, schrumpft nicht), darunter in 10px Mono "Wave N · Ort" (nur der Ort kürzt mit Ellipse), leere Plätze "Slot N" und "Empty". Kann gerade nicht gespeichert werden, nennt eine Zeile den Grund (`cannotSaveReason`) und die Plätze sind gesperrt. Ein belegter Platz fragt vor dem Überschreiben. Load zeigt die belegten Plätze, den Autosave zuerst, mit Knöpfen für "Save as a file" (`download`) und, außer beim Autosave, Löschen (`trash`, mit Rückfrage), darunter "Load from a file". Während einer Welle ist Laden gesperrt ("Loads between waves"). Ein Lauf, der schon begonnen hat (Welle oder Tower), wird vor dem Laden erfragt. Lädt ein Stand einer anderen Version, bleibt das Menü offen und zeigt "Loaded." mit dem Hinweis des Ports (`note`); sonst schließt es. Ergebnisse stehen unten in einer Statuszeile (`role="status"`, `--td-green`, Fehler `--td-warn-orange`); Plätze mit `note` tragen ein `info`-Icon in `--td-warn-orange`.
+Die Liste (`pages/home`) ist ein `role="menu"` aus Textknöpfen (`role="menuitem"`, Oswald in Versalien), ein Tab-Halt,
+Pfeile wandern ohne zu wählen (`tdRovingGroup`); Hover und Fokus zeigen links den Messingbalken. Der erste Eintrag der
+Start-Lage ist größer. Continue und Play tragen darunter in Mono, was sie spielen ("Heilbronn · wave 12"), und während
+der Ort lädt einen dünnen Messingbalken; ein Klick dann merkt sich den Wunsch ("Starts when loaded"). Ein Autosave an
+einem anderen Ort heißt "in Paris · wave 7" und fragt unter der Liste "Leaves Heilbronn: the save plays in Paris."
+(Continue anyway, Cancel). Restart here und Quit fragen bei laufendem Lauf ebenso. Unter einer Linie stehen in der
+Pause New game, Coop, Restart here, Quit; im Start nur Quit (Desktop-App).
 
-Settings: Fullscreen (F11), dann "Volume" mit je einer Zeile für Master, Effects, Music, Interface (Mute-Knopf mit dem Kanal-Icon, Name, Regler in Gold, Wert 0 bis 100 oder "off"), "Graphics" als Segmentwahl Low, Medium, High (`VFX_PRESET_CHOICES`, ohne Wahl bei einer eigenen Mischung aus dem Display-Menü) und "Game speed" 1x, 2x, 4x (im Coop für Gäste gesperrt, "The host sets the speed"). Die Segmente sind Radiogruppen mit `tdRovingGroup`; gewählt ist `--td-panel-main` mit Text in `--td-gold-light`.
+Eine Seite öffnet als Platte rechts neben der Liste, mit Titelplatte und "Esc" als Zurück; Esc geht eine Seite
+zurück, auf der Liste der Pause zurück ins Spiel, auf der Liste des Starts tut es nichts.
 
-More: "Save the run log" jederzeit, "Save the replay", sobald eine Welle aufgezeichnet ist, dann Map key, What's new, Keys, Attributions und (nicht im Coop) Benchmark.
-
-Was den laufenden Lauf beendet, fragt im Menü selbst: Restart (nur allein, mit Rückfrage, sobald ein Lauf begonnen hat), Quit, Benchmark. Change location (nicht im Coop und nicht für einen Gast in der Lobby eines Raums, dessen Karte der Host setzt, `UIStore.coopMapLocked`) schließt das Menü und öffnet den Standortdialog, der Lauf endet erst, wenn dort ein neuer Ort bestätigt wird.
-
-### Continue-Leiste (Canvas)
-
-Unten in der Mitte, im Stapel über der Hinweisbox (`components/continue-bar/`): "▷ CONTINUE Heilbronn, wave 12" und ein Kreuz, als Glas-Leiste wie "Skip Intro" (`--td-glass-tint`, Rand `--td-frame-mid`, 4px Ecken). "CONTINUE" in 11px Mono, Versalien, `--td-gold-light`, Ort und Welle in `--td-text-secondary`. Sie erscheint, sobald das Spiel geladen ist, nur allein, solange der neue Lauf nicht begonnen hat (Welle 0, kein Tower) und ein Autosave existiert. Ein Klick lädt ihn (`continueAutosave`, der auch an einen anderen Ort wechselt); ein Versionshinweis des Ports geht in den Hinweis-Banner (`UIStore.notice`), ein Fehler steht orange unter der Leiste. Klick, Kreuz, erster Tower oder erste Welle schicken sie weg, für die Sitzung des Tabs (`sessionStorage` `td-continue-offered`).
+Ladeplatte (`loading/menu-loading`): Ortsname in Oswald, Prozent in Mono, zehn Segmente in Messing, der laufende Schritt
+mit Detail und "4 of 10", "Show steps" klappt die Liste auf. Ein Fehler steht statt des Balkens mit orangem Strich und
+Retry, Other place und (bei Engine-Fehler) Map key.
 
 ### Tastenkürzel
 
-Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine Funktion), ausgeführt vom `HotkeyService`, den die Spielkomponente nach dem `InputHandlerService` aufruft. Der `InputHandlerService` behält Kamera (WASD/Pfeile), Build- und Platzierungsmodus (R, Esc) und die Debug-Tasten (T, Shift+P); was er behandelt, ist `defaultPrevented` und für die Hotkeys tabu. Hotkeys ruhen, während getippt wird, ein Dialog offen ist oder das Spiel lädt; Strg/Alt/Meta und gehaltene Tasten (Repeat) lösen nichts aus.
+Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine Funktion), ausgeführt vom `HotkeyService`, den die Spielkomponente nach dem `InputHandlerService` aufruft. Der `InputHandlerService` behält Kamera (WASD/Pfeile), Build- und Platzierungsmodus (R, Esc) und die Debug-Tasten (T, Shift+P); was er behandelt, ist `defaultPrevented` und für die Hotkeys tabu. Hotkeys ruhen, während getippt wird, ein Dialog oder das Hauptmenü offen ist oder das Spiel lädt; Strg/Alt/Meta und gehaltene Tasten (Repeat) lösen nichts aus.
 
 | Taste | Aktion | Prüfung wie |
 |-------|--------|-------------|

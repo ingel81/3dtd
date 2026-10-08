@@ -89,13 +89,14 @@ Events auf den Hauptthread-Bus, Tabellen an die Renderer, danach die Frame-Liste
 Nach dem Token-Schritt öffnet `TowerDefenseComponent` das Hauptmenü in der Lage **Start**, und der Ort lädt dahinter.
 Der Ort: der aus dem Link (`?l=`), sonst der des Autosaves (mit den Spawns seines Eintrags unter den zuletzt gespielten
 Orten), sonst der zuletzt gespielte (`startPlaceGuess`, `components/main-menu/autosave-place.ts`), bei einem
-Einladungslink (`?room=`) und beim ersten Besuch keiner. Ohne Ort startet die Engine nicht
-(`EngineInitializationService.awaitingPlace`); der erste Ort, den das Menü wählt, ein Spielstand oder der Ort des
-Coop-Hosts startet sie (`LocationChangeCoordinatorService.setFirstStart`, `goTo`). Keine Ortung ohne Frage.
+Einladungslink (`?room=`) und beim ersten Besuch keiner. Ohne Ort im Link wartet der Start auf die Wahl des Menüs
+(`LocationChangeCoordinatorService.waitForStartChoice`, `choosePlace`); die Vermutung geht als solche Wahl hinein
+(`TowerDefenseFacadeService.offerStartGuess`), ebenso der Ort eines Spielstands oder des Coop-Hosts
+(`followStartPlaces`). Keine Ortung ohne Frage.
 
 | Teil | Datei | Aufgabe |
 |---|---|---|
-| **MainMenuService** | `components/main-menu/main-menu.service.ts` | Lage (`start`, `pause`), Seite, Verlauf; `open`, `back`, `close`, `playAt`, `rollDice`, `requestPlay` (Play während des Ladens wartet und spielt dann); Pause-Regel (allein pausiert das Menü, im Coop nie); ein neuer Ort im Spiel schaltet auf die Lage Start. Spiegel in `UIStore.mainMenu` |
+| **MainMenuService** | `components/main-menu/main-menu.service.ts` | Lage (`start`, `pause`), Seite, Verlauf; `open`, `home`, `back`, `close`, `requestPlay` (Play während des Ladens wartet und spielt dann); Pause-Regel (allein pausiert das Menü, im Coop nie); ein neuer Ort im Spiel schaltet auf die Lage Start. Spiegel in `UIStore.mainMenu` |
 | **MainMenuComponent** | `components/main-menu/` | Overlay im Template der Spielkomponente (Rolle `dialog`, Fokusfalle), Liste (`pages/home`), Seiten, Ladeplatte (`loading/`) |
 | **StartShowService** | `services/world/start-show.service.ts` | Musikwechsel, Routenanimation und Intro-Flug warten, bis das Menü zu ist |
 | Ladeprobleme | `UIStore.loadProblem` | Ein Ort, der nicht lud: Banner in der Ladeplatte mit Retry, Other place, Map key |
