@@ -516,9 +516,12 @@ describe('The main menu', () => {
       await settle();
       expect(menu.layer()).toBe('start');
       expect(menu.page()).toBe('load');
-      expect(el().querySelector('app-menu-loading')).not.toBeNull();
+      // Not over the page's plate: the bar under the list's entry shows the load
+      expect(el().querySelector('app-menu-loading')).toBeNull();
       expect(menu.back()).toBe(true);
       expect(menu.page()).toBe('home');
+      await settle();
+      expect(el().querySelector('app-menu-loading')).not.toBeNull();
 
       engineInit.loading.set(false);
       menu.close();

@@ -587,7 +587,7 @@ denselben Seiten:
 - **Start** nach dem Token-Schritt, vor einem Lauf und bei jedem Ortswechsel: großes Logo links oben, Zeile "Tower
   defense on real streets", Liste darunter, links nach rechts auslaufender dunkler Verlauf über der Szene. Unten links
   ein Feldtipp (wechselt alle 8 s) und der Versions-Chip, unten rechts die Ladeplatte, solange der Ort lädt oder ein
-  Laden scheiterte. HUD, Kopfleiste und Sidebar sind darunter ausgeblendet, die Szene nimmt die ganze Breite.
+  Laden scheiterte, nur auf der Liste (über einer Seite zeigt der Balken unter Play den Stand). HUD, Kopfleiste und Sidebar sind darunter ausgeblendet, die Szene nimmt die ganze Breite.
 - **Pause** (Esc als letzter Schritt, Zahnrad im Sidebar-Fuß, "Main menu" am Game Over): kleines Logo, darunter
   "Paused · Heilbronn · wave 12" (im Coop "Coop · ..."), Szene gleichmäßig abgedunkelt, das HUD bleibt darunter.
 
