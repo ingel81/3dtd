@@ -317,9 +317,9 @@
           <div class="td-lost-content">
             <h2 id="td-lost-title">Connection lost</h2>
             <p>The connection to the coop server closed, the game stands still. Go on alone with this run, or start a new one alone.</p>
-            <div class="td-lost-actions">
-              <button type="button" class="td-btn td-btn-green" (click)="coop.continueAlone()">Continue alone</button>
-              <button type="button" class="td-btn" (click)="restartGame()">Start over alone</button>
+            <div class="td-end-actions">
+              <button type="button" class="btn-primary" (click)="coop.continueAlone()">Continue alone</button>
+              <button type="button" class="btn-secondary" (click)="restartGame()">Start over alone</button>
             </div>
           </div>
         </div>
@@ -329,8 +329,9 @@
       @if (store.showGameOverScreen()) {
         <div class="td-gameover-overlay" role="dialog" aria-modal="true" aria-labelledby="td-gameover-title" tabindex="-1" tdFocusOnShow>
           <div class="td-gameover-content">
-            <h1 id="td-gameover-title">GAME OVER</h1>
-            <p>The HQ was destroyed!</p>
+           <div class="td-gameover-scroll">
+            <h1 id="td-gameover-title">HQ lost</h1>
+            <p class="td-gameover-where">{{ currentLocationName() }} · wave {{ store.waveNumber() }}</p>
             @if (store.runSummary(); as summary) {
               <app-run-summary [summary]="summary" />
             }
@@ -362,31 +363,31 @@
             }
             @if (coop.inGame() && !coop.isHost()) {
               <p class="td-gameover-wait">The host starts the next run.</p>
-            } @else {
-              <button class="td-btn td-btn-green" (click)="restartGame()">
-                <td-icon name="refresh" [size]="18"></td-icon>
-                RESTART
-              </button>
             }
-            <!-- The run as a file: the analysis reads it, and it can be sent (docs/RUN_LOG.md) -->
-            <button type="button" class="td-gameover-replay" (click)="exportRunLog()">
-              <td-icon name="filing" [size]="14"></td-icon>
-              <span>{{ runLogExported() ? 'Run saved' : 'Save the run' }}</span>
-            </button>
-            <!-- Coop: no replay to watch here, but the host saves the waves as a file -->
-            @if (coopReplaySave()) {
-              <button type="button" class="td-gameover-replay" (click)="saveCoopReplay()">
-                <td-icon name="replay" [size]="14"></td-icon>
-                <span>{{ coopReplaySaved() ? 'Replay saved' : 'Save the replay' }}</span>
+            <div class="td-end-actions">
+              @if (!coop.inGame() || coop.isHost()) {
+                <button type="button" class="btn-primary" (click)="restartGame()">Restart here</button>
+              }
+              <!-- The wave that broke the HQ, once more, while the replay is offered -->
+              @if (replay.offered()) {
+                <button type="button" class="btn-secondary" (click)="replay.enter()">Replay wave {{ replay.recordedWave() }}</button>
+              }
+              <button type="button" class="btn-secondary" (click)="openMainMenu()">Main menu</button>
+            </div>
+            <div class="td-gameover-files">
+              <!-- The run as a file: the analysis reads it, and it can be sent (docs/RUN_LOG.md) -->
+              <button type="button" class="btn-ghost" (click)="exportRunLog()">
+                <td-icon name="filing" [size]="14"></td-icon>
+                <span>{{ runLogExported() ? 'Run saved' : 'Save the run' }}</span>
               </button>
-            }
-            <!-- The wave that broke the HQ, once more, while the replay is offered -->
-            @if (replay.offered()) {
-              <button type="button" class="td-gameover-replay" (click)="replay.enter()">
-                <td-icon name="replay" [size]="14"></td-icon>
-                <span>Replay wave {{ replay.recordedWave() }}</span>
-              </button>
-            }
+              <!-- Coop: no replay to watch here, but the host saves the waves as a file -->
+              @if (coopReplaySave()) {
+                <button type="button" class="btn-ghost" (click)="saveCoopReplay()">
+                  <td-icon name="replay" [size]="14"></td-icon>
+                  <span>{{ coopReplaySaved() ? 'Replay saved' : 'Save the replay' }}</span>
+                </button>
+              }
+            </div>
             <!-- New record of this place: under Restart, fades in after a moment, Skip hides it.
                  on immediate like the other @defer blocks; a timer trigger would add core code to the initial bundle. -->
             @if (bestWaves.newRecord(); as record) {
@@ -398,6 +399,7 @@
                 />
               }
             }
+           </div>
           </div>
         </div>
       }

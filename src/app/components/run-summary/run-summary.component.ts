@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { RunSummary } from '../../run-log/run-summary';
 import { formatClock } from '../../utils/format-clock';
 import { formatCompact } from '../../utils/format-compact';
-import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /** One bar of the leaks-per-wave row */
 interface LeakBar {
@@ -26,7 +25,6 @@ interface LeakBar {
   styles: `
     :host {
       display: block;
-      ${TD_CSS_VARS}
     }
   `,
 })

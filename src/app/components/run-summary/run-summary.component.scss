@@ -2,46 +2,48 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  width: min(420px, 80vw);
-  margin: 0 auto 24px;
+  width: min(560px, 80vw);
+  margin: 0 auto;
   text-align: left;
   font-family: var(--td-font-body);
   color: var(--td-text-secondary);
 }
 
-/* Key figures: one row, split by hairlines, no tiles */
+/* Key figures: one row of dark cells, the number in Oswald over a mono label */
 .run-figures {
   display: flex;
+  gap: 4px;
   margin: 0;
-  border-top: 1px solid var(--td-frame-dark);
-  border-bottom: 1px solid var(--td-frame-dark);
 }
 
 .run-figure {
   flex: 1;
   min-width: 0;
-  padding: 8px 10px;
-}
-
-.run-figure + .run-figure {
-  border-left: 1px solid var(--td-frame-dark);
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid color-mix(in srgb, var(--td-danger-edge) 25%, var(--td-frame-dark));
 }
 
 .run-figure dt,
 .run-caption {
   font-family: var(--td-font-mono);
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
+  font-size: var(--td-fs-micro);
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--td-text-muted);
 }
 
 .run-figure dd {
-  margin: 2px 0 0;
-  font-family: var(--td-font-mono);
-  font-size: 15px;
-  font-weight: 700;
+  margin: 0;
+  font-family: var(--td-font-display);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--td-text-primary);
 }
@@ -76,7 +78,7 @@
   flex: 1 1 0;
   max-width: 14px;
   min-height: 2px;
-  background: var(--td-health-red);
+  background: var(--td-hp-text);
 }
 
 .run-leak-bar.run-leak-none {
@@ -88,7 +90,7 @@
   display: flex;
   justify-content: space-between;
   font-family: var(--td-font-mono);
-  font-size: 9px;
+  font-size: var(--td-fs-micro);
   color: var(--td-text-muted);
 }
 
@@ -134,7 +136,7 @@
 }
 
 .run-unit {
-  font-size: 9px;
+  font-size: var(--td-fs-micro);
   color: var(--td-text-muted);
 }
 

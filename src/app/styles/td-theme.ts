@@ -48,6 +48,8 @@ export const TD_THEME = {
   dangerBg: '#3A1410',
   dangerEdge: '#B83E32',
   dangerText: '#F2C9C2',
+  dangerPlateTop: '#2A1714', // Game Over, Connection lost
+  dangerPlateBottom: '#170E0C',
 
   // === HUD states ===
   hpText: '#E36A5A', // HQ number; healthRed is a fill, too dark for text
@@ -218,6 +220,7 @@ export const TD_CSS_VARS = `
   --td-danger-bg: ${TD_THEME.dangerBg};
   --td-danger-edge: ${TD_THEME.dangerEdge};
   --td-danger-text: ${TD_THEME.dangerText};
+  --td-plate-danger: linear-gradient(180deg, ${TD_THEME.dangerPlateTop}, ${TD_THEME.dangerPlateBottom});
 
   --td-hp-text: ${TD_THEME.hpText};
   --td-hp-low: ${TD_THEME.hpLow};

@@ -100,6 +100,7 @@ import { BotClientService } from './bots/bot-client.service';
 // AI Bot Training
 import type { BotSkillLevel } from './bots/bots/tower-bot.interface';
 import { TdIconComponent } from './components/icon/icon.component';
+import { openGameMenu } from './components/game-menu/open-game-menu';
 import { LosLegendComponent } from './components/los-legend/los-legend.component';
 import { IntroSkipComponent } from './components/intro-skip/intro-skip.component';
 import { ContinueBarComponent } from './components/continue-bar/continue-bar.component';
@@ -969,6 +970,11 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   restartGame(): void {
     this.facade.restartGame();
+  }
+
+  /** "Main menu" on the game-over screen: the menu over the game */
+  openMainMenu(): void {
+    void openGameMenu(this.dialog, this.injector);
   }
 
   // ==================== Location Settings Methods (delegates to LocationChangeCoordinatorService) ====================
