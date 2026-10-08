@@ -1,3 +1,5 @@
+@use '../../styles/game-ui' as ui;
+
 /* === Sidebar === */
 .td-sidebar {
   width: var(--td-sidebar-width);
@@ -55,7 +57,7 @@
   font: 11px var(--td-font-mono);
   letter-spacing: 0.06em;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  @include ui.motion(background-color, color);
 
   span {
     min-width: 0;
@@ -69,10 +71,7 @@
     background: var(--td-panel-secondary);
   }
 
-  &:focus-visible {
-    outline: 2px solid var(--td-gold-light);
-    outline-offset: -2px;
-  }
+  @include ui.focus-ring(-2px);
 }
 
 /* The menu is the way to everything that is not playing: its gear in brass */

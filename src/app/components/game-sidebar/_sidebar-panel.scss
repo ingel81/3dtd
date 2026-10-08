@@ -7,7 +7,7 @@
 // Spezifität dieselbe Eigenschaft setzen: tower-header nach header, sonst
 // verliert .td-tower-header sein padding-right.
 
-@use '../../styles/td-mixins' as td;
+@use '../../styles/game-ui' as ui;
 
 @mixin section {
   /* === Section (was .td-panel), flat, no frames ===
@@ -34,35 +34,43 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    @include td.scrollbar;
+    @include ui.scrollbar;
   }
   .td-panel > .td-panel-content::-webkit-scrollbar {
-    @include td.webkit-scrollbar;
+    @include ui.webkit-scrollbar;
   }
   .td-panel > .td-panel-content::-webkit-scrollbar-track {
-    @include td.webkit-scrollbar-track;
+    @include ui.webkit-scrollbar-track;
   }
   .td-panel > .td-panel-content::-webkit-scrollbar-thumb {
-    @include td.webkit-scrollbar-thumb;
+    @include ui.webkit-scrollbar-thumb;
   }
   .td-panel > .td-panel-content::-webkit-scrollbar-thumb:hover {
-    @include td.webkit-scrollbar-thumb-hover;
+    @include ui.webkit-scrollbar-thumb-hover;
   }
 }
 
 @mixin header {
-  /* Section heads, flat label with mono caps + rune-amber color. */
+  /* Section heads as title plates: a 2px brass edge on top, the plate-head
+   * stone, the title in Oswald caps (the dialogs' head, sized for the sidebar) */
   .td-panel-header {
     position: relative;
-    padding: 12px var(--td-sidebar-gutter) 8px;
-    background: transparent;
-    border: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--td-sp-2);
+    min-height: 36px;
+    box-sizing: border-box;
+    padding: 6px var(--td-sidebar-gutter) 5px;
+    background: var(--td-plate-head);
+    border-top: 2px solid var(--td-line-brass);
+    border-bottom: 1px solid var(--td-frame-dark);
     flex-shrink: 0;
-    font-family: var(--td-font-mono);
-    font-size: 11px;
+    font-family: var(--td-font-display);
+    font-size: var(--td-fs-lead);
     font-weight: 600;
-    letter-spacing: 0.18em;
-    color: var(--td-rune-amber);
+    line-height: 1.2;
+    letter-spacing: 0.08em;
+    color: var(--td-gold-light);
     text-transform: uppercase;
   }
 }
@@ -91,46 +99,35 @@
   }
   // A partner's tower in coop: looked at, not changed (TODO E39)
   .td-view-only {
+    @include ui.caps-label;
     padding: 2px 6px;
     border: 1px solid var(--td-frame-dark);
-    border-radius: 3px;
     color: var(--td-text-secondary);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
   }
+  /* Sell: the danger button, small enough for the title plate. The credits
+   * it brings in mono figures. */
   .td-header-sell-btn {
-    display: inline-flex;
-    align-items: center;
+    @include ui.btn-danger(26px);
+    flex-shrink: 0;
     gap: 4px;
-    padding: 2px 6px;
-    background: var(--td-panel-shadow);
-    border: 1px solid var(--td-frame-dark);
-    border-radius: 3px;
-    color: var(--td-gold-light);
-    font-family: var(--td-font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: color 0.15s, box-shadow 0.18s;
-  }
-  .td-header-sell-btn:hover {
-    color: var(--td-health-red);
-    box-shadow: 0 0 0 1px var(--td-health-red);
+    padding: 0 8px;
+    font-size: 12px;
   }
   .td-header-sell-value {
+    font-family: var(--td-font-mono);
     font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
   }
-  /* First click on Sell: the button stays red and the name gives way to the
-   * prompt until the second click or SELL_CONFIRM_WINDOW_MS. More specific
-   * than the teal name of the tower panel, which sets it with three classes. */
+  /* First click on Sell: the button turns full red and the name gives way
+   * to the prompt until the second click or SELL_CONFIRM_WINDOW_MS. More
+   * specific than the teal name of the tower panel, which sets it with
+   * three classes. */
   .td-header-sell-btn.armed {
-    color: var(--td-health-red);
-    background: var(--td-health-bg);
-    box-shadow: 0 0 0 1px var(--td-health-red);
+    background: var(--td-danger-edge);
+    color: var(--td-text-primary);
   }
   .td-panel-header .td-tower-header-name.td-sell-armed-text {
-    color: var(--td-health-red);
+    color: var(--td-danger-text);
   }
 }
 
@@ -138,25 +135,9 @@
   /* Opens the damage-vs-armor chart. `order: 1` puts it at the far right in
    * both headers: after the BUILD rule (::after) and after the sell button. */
   .td-matrix-btn {
+    @include ui.icon-btn(24px);
     order: 1;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    padding: 0;
-    background: var(--td-panel-shadow);
-    border: 1px solid var(--td-frame-dark);
-    border-radius: 3px;
-    color: var(--td-text-muted);
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
-  }
-  .td-matrix-btn:hover,
-  .td-matrix-btn:focus-visible {
-    color: var(--td-text-primary);
-    border-color: var(--td-frame-mid);
+    margin-left: auto;
   }
 }
 
@@ -185,19 +166,19 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 12px;
-    background: linear-gradient(135deg, rgba(255, 193, 7, 0.15) 0%, rgba(255, 193, 7, 0.05) 100%);
-    border: 2px solid var(--td-gold-dark);
-    border-radius: 4px;
+    padding: 10px 12px;
+    background: var(--td-plate);
+    border: 1px solid var(--td-line-brass);
+    border-left-width: 3px;
     cursor: pointer;
-    transition: all 0.15s;
     font-family: inherit;
+    @include ui.focus-ring;
+    @include ui.motion(border-color, background-color);
   }
 
   .td-upgrade-tile:hover:not([aria-disabled='true']) {
-    background: linear-gradient(135deg, rgba(255, 193, 7, 0.25) 0%, rgba(255, 193, 7, 0.1) 100%);
     border-color: var(--td-gold);
-    box-shadow: 0 0 12px rgba(255, 193, 7, 0.3);
+    background: color-mix(in srgb, var(--td-gold) 10%, var(--td-panel-main));
   }
 
   /* A tile the player cannot buy stays clickable (aria-disabled): the click
@@ -223,11 +204,11 @@
     display: inline-block;
     padding: 1px 5px;
     margin-left: 4px;
-    font-size: 9px;
+    font-family: var(--td-font-mono);
+    font-size: var(--td-fs-micro);
     font-weight: 700;
     color: var(--td-bg-dark);
     background: var(--td-gold-dark);
-    border-radius: 2px;
     vertical-align: middle;
   }
   .td-upgrade-tier-locked .td-upgrade-tier-badge {
@@ -251,13 +232,15 @@
   }
 
   .td-upgrade-name {
-    font-size: 13px;
-    font-weight: 600;
+    font-family: var(--td-font-display);
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
     color: var(--td-text-primary);
   }
 
   .td-upgrade-desc {
-    font-size: 9px;
+    font-size: var(--td-fs-micro);
     color: var(--td-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -265,11 +248,12 @@
 
   .td-upgrade-cost {
     padding: 4px 10px;
-    background: var(--td-gold);
-    color: var(--td-bg-dark);
+    background: linear-gradient(180deg, var(--td-gold-light), var(--td-gold));
+    color: var(--td-ink);
+    font-family: var(--td-font-mono);
     font-size: 12px;
     font-weight: 700;
-    border-radius: 3px;
+    font-variant-numeric: tabular-nums;
   }
 
   /* Why U bought nothing (UpgradeHintService), above the tiles for 2.5 s */
@@ -280,7 +264,6 @@
     padding: 5px 8px;
     background: var(--td-panel-secondary);
     border: 1px solid var(--td-warn-orange);
-    border-radius: 3px;
     color: var(--td-text-primary);
     font-family: var(--td-font-mono);
     font-size: 10px;
@@ -306,7 +289,7 @@
     from {
       opacity: 1;
       border-color: var(--td-gold-light);
-      box-shadow: var(--td-gold-glow);
+      box-shadow: 0 0 0 1px var(--td-gold);
     }
   }
 
@@ -314,7 +297,7 @@
     from {
       opacity: 1;
       border-color: var(--td-gold-light);
-      box-shadow: var(--td-gold-glow);
+      box-shadow: 0 0 0 1px var(--td-gold);
     }
   }
 }

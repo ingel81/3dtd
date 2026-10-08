@@ -1,4 +1,5 @@
 @use '../sidebar-panel' as panel;
+@use '../../../styles/game-ui' as ui;
 
 :host {
   display: contents;
@@ -17,77 +18,33 @@
 
 /* === Wave Button ===
  * Primärer Call-to-Action der Sidebar, "▶ WAVE N" links, rechts die Taste
- * Space. Keine Kopfzeile darüber: der Knopf nennt die Welle. Gold-Button-
- * Rezept aus DESIGN_SYSTEM.md (Verlauf, Kante, Key-Shadow, Mono-Caps), 13px
- * und 44px hoch, damit er sich vom Rest der Sidebar abhebt; Ecken wie
- * Tower-Karten (3px). Typografie und Höhe bleiben in jedem Zustand gleich,
- * es wechseln nur Fläche, Farbe und Inhalt:
- *   bereit          Gold-Verlauf, Hover-Glow, Pressed-Inset, rechts Space
+ * Space. Keine Kopfzeile darüber: der Knopf nennt die Welle. Der primäre
+ * Knopf des Fundaments (ui.btn-primary: Messing, harte Unterkante, Oswald),
+ * 44px hoch und 16px Schrift, damit er sich vom Rest der Sidebar abhebt.
+ * Typografie und Höhe bleiben in jedem Zustand gleich, es wechseln nur
+ * Fläche, Farbe und Inhalt:
+ *   bereit          Messing, Hover heller, gedrückt 1px tiefer, rechts Space
  *   Countdown       rechts die Sekunden statt Space, unten der Restbalken
  *   gesperrt        Game Over, grau wie .td-btn:disabled, ohne Taste
  *   Welle läuft     flach eingelassen, "Wave N" links, "N left" rechts,
  *                   unten ein Teal-Balken mit dem Anteil der Restgegner */
 .td-wave-btn {
+  @include ui.btn-primary(44px);
   position: relative;
   overflow: hidden;
-  display: flex;
-  align-items: center;
   justify-content: space-between;
   gap: 10px;
-  height: 44px;
+  width: 100%;
   padding: 0 14px;
-  background: linear-gradient(
-    180deg,
-    var(--td-gold-light) 0%,
-    var(--td-gold) 55%,
-    var(--td-gold-dark) 100%
-  );
-  color: #1A140A;
-  border: 1px solid #11140F;
-  border-radius: 3px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    var(--td-shadow-key);
-  font-family: var(--td-font-mono);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: box-shadow 0.18s ease;
+  font-size: 16px;
 }
 
-.td-wave-btn:hover:not(:disabled) {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    var(--td-gold-glow);
-}
-
-.td-wave-btn:active:not(:disabled) {
-  box-shadow:
-    inset 0 -1px 0 rgba(255, 255, 255, 0.15),
-    inset 0 1px 0 rgba(0, 0, 0, 0.4);
-}
-
-.td-wave-btn:focus-visible {
-  outline: 1px solid var(--td-gold-light);
-  outline-offset: 2px;
-}
-
-.td-wave-btn:disabled {
-  background: linear-gradient(180deg, #424842 0%, #2F3530 100%);
-  color: var(--td-text-disabled);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  cursor: not-allowed;
-}
-
-/* Laufende Welle: eingelassen wie Slots und Inputs (vertiefte Fläche, DESIGN_SYSTEM.md) */
-.td-wave-btn.td-wave-running {
+/* Laufende Welle: eingelassen wie Slots und Inputs (vertiefte Fläche,
+ * DESIGN_SYSTEM.md); der Knopf ist dabei disabled, die Regel schlägt die
+ * graue Fläche des Fundaments */
+.td-wave-btn.td-wave-running:disabled {
   background: var(--td-panel-shadow);
   color: var(--td-teal);
-  border-color: var(--td-frame-dark);
   box-shadow:
     inset 0 1px 2px rgba(0, 0, 0, 0.5),
     inset 0 -1px 0 rgba(74, 84, 77, 0.13);
@@ -101,7 +58,8 @@
 }
 
 .td-wave-left {
-  font-size: 11px;
+  font-family: var(--td-font-mono);
+  font-size: var(--td-fs-small);
   color: var(--td-text-muted);
   letter-spacing: 0.04em;
   text-transform: none;
@@ -127,17 +85,17 @@
 .td-wave-key {
   padding: 3px 5px;
   border: 1px solid rgba(26, 20, 10, 0.35);
-  border-radius: 2px;
   background: rgba(26, 20, 10, 0.08);
   color: rgba(26, 20, 10, 0.75);
-  font: 600 9px/1 var(--td-font-mono);
+  font: 600 10px/1 var(--td-font-mono);
   letter-spacing: 0.08em;
 }
 
 /* Auto-start counting down: seconds right instead of the key, and the bar
  * drains with the game time left (stands while paused) */
 .td-wave-countdown {
-  font-size: 11px;
+  font-family: var(--td-font-mono);
+  font-size: var(--td-fs-small);
   letter-spacing: 0.04em;
   text-transform: none;
   font-variant-numeric: tabular-nums;
@@ -159,7 +117,6 @@
   padding: 5px 8px;
   background: var(--td-health-bg);
   border: 1px solid rgba(184, 62, 50, 0.55);
-  border-radius: 3px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   font-family: var(--td-font-mono);
   cursor: help;
@@ -221,7 +178,7 @@
   color: var(--td-text-secondary);
 }
 .td-auto-toggle:focus-visible {
-  outline: 1px solid var(--td-teal-light);
+  outline: 2px solid var(--td-teal-light);
   outline-offset: 2px;
 }
 .td-auto-switch {
@@ -230,7 +187,6 @@
   width: 18px;
   height: 10px;
   border: 1px solid var(--td-frame-dark);
-  border-radius: 5px;
   background: var(--td-panel-shadow);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
 }
@@ -241,7 +197,6 @@
   left: 1px;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
   background: var(--td-text-disabled);
   transition: transform 0.15s ease, background 0.15s ease;
 }
@@ -280,7 +235,7 @@
   color: var(--td-text-secondary);
 }
 .td-replay-link:focus-visible {
-  outline: 1px solid var(--td-teal-light);
+  outline: 2px solid var(--td-teal-light);
   outline-offset: 2px;
 }
 
@@ -314,10 +269,8 @@
   gap: 8px;
   cursor: default;
   padding: 2px;
-  border-radius: 4px;
   transition: background 0.15s;
   padding: 4px;
-  border-radius: 3px;
   background: var(--td-panel-secondary);
   border: 1px solid var(--td-frame-dark);
 }
@@ -332,7 +285,6 @@
   flex-shrink: 0;
   background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%);
   border: 1px solid var(--td-frame-dark);
-  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -372,7 +324,7 @@
   gap: 8px;
 }
 .td-group-stat {
-  font-size: 9px;
+  font-size: var(--td-fs-micro);
   color: var(--td-text-muted);
 }
 /* What one of them costs the HQ (TODO E49) */
@@ -382,7 +334,7 @@
 /* What the whole wave costs the HQ if all of it gets through */
 .td-wave-leak {
   margin: 0 0 6px;
-  font: 600 9px/1.4 var(--td-font-mono);
+  font: 600 10px/1.4 var(--td-font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--td-text-muted);
@@ -394,7 +346,7 @@
 .td-group-armor {
   display: flex;
   gap: 6px;
-  font-size: 9px;
+  font-size: var(--td-fs-micro);
   color: var(--td-text-secondary);
 }
 /* Armor as in the NEXT line: a grey shield before the name, no emoji */
@@ -411,7 +363,7 @@
   font-style: italic;
 }
 .td-group-trait {
-  font-size: 9px;
+  font-size: var(--td-fs-micro);
   color: var(--td-text-secondary);
   font-style: italic;
 }
