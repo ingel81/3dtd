@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
   COUNT_EXACT_BELOW,
+  CREDITS_COUNT_MS,
+  CREDITS_DELTA_SHOW_MS,
+  CREDITS_DELTA_SUM_MS,
+  CreditsDeltaTracker,
+  countedValue,
+  hqLevel,
+  hqSegmentsLit,
+  waveProgressPercent,
   CREDITS_EXACT_BELOW,
   HQ_EXACT_BELOW,
   hqReadout,
@@ -69,5 +77,74 @@ describe('hqReadout', () => {
       max: null,
       percent: 100,
     });
+  });
+});
+
+describe('hqLevel and hqSegmentsLit', () => {
+  it('turns warm below 30 % and shows the stripe below 10 %', () => {
+    expect(hqLevel(100)).toBe('ok');
+    expect(hqLevel(30)).toBe('ok');
+    expect(hqLevel(29.9)).toBe('low');
+    expect(hqLevel(10)).toBe('low');
+    expect(hqLevel(9.9)).toBe('critical');
+    expect(hqLevel(0)).toBe('critical');
+  });
+
+  it('lights a segment per started tenth, the last one goes out at 0', () => {
+    expect(hqSegmentsLit(100)).toBe(10);
+    expect(hqSegmentsLit(28)).toBe(3);
+    expect(hqSegmentsLit(7)).toBe(1);
+    expect(hqSegmentsLit(0.2)).toBe(1);
+    expect(hqSegmentsLit(0)).toBe(0);
+  });
+});
+
+describe('waveProgressPercent', () => {
+  it('fills with the share of the wave that is gone', () => {
+    expect(waveProgressPercent(true, 50, 50)).toBe(0);
+    expect(waveProgressPercent(true, 50, 18)).toBe(64);
+    expect(waveProgressPercent(true, 50, 0)).toBe(100);
+  });
+
+  it('stays empty between waves and for a wave of unknown size', () => {
+    expect(waveProgressPercent(false, 50, 10)).toBe(0);
+    expect(waveProgressPercent(true, 0, 0)).toBe(0);
+  });
+});
+
+describe('CreditsDeltaTracker', () => {
+  it('shows a gain with a plus and a spend with a real minus', () => {
+    const tracker = new CreditsDeltaTracker();
+    expect(tracker.change(25, 0)).toMatchObject({ text: '+25', kind: 'gain' });
+    expect(tracker.change(-1500, 1000)).toMatchObject({ text: '−1,500', kind: 'loss' });
+  });
+
+  it('adds up changes within the window under one id', () => {
+    const tracker = new CreditsDeltaTracker();
+    const first = tracker.change(25, 0)!;
+    const sum = tracker.change(25, CREDITS_DELTA_SUM_MS - 50)!;
+    expect(sum).toMatchObject({ id: first.id, amount: 50, text: '+50' });
+    const later = tracker.change(10, CREDITS_DELTA_SUM_MS * 3)!;
+    expect(later.id).not.toBe(first.id);
+    expect(later.text).toBe('+10');
+  });
+
+  it('shows nothing for a sum of 0', () => {
+    const tracker = new CreditsDeltaTracker();
+    tracker.change(150, 0);
+    expect(tracker.change(-150, 100)).toBeNull();
+    expect(tracker.change(40, CREDITS_DELTA_SHOW_MS)).toMatchObject({ text: '+40' });
+  });
+});
+
+describe('countedValue', () => {
+  it('counts in whole numbers and lands on the target', () => {
+    expect(countedValue(100, 200, 0)).toBe(100);
+    const mid = countedValue(100, 200, CREDITS_COUNT_MS / 2);
+    expect(mid).toBeGreaterThan(150);
+    expect(mid).toBeLessThan(200);
+    expect(Number.isInteger(mid)).toBe(true);
+    expect(countedValue(100, 200, CREDITS_COUNT_MS)).toBe(200);
+    expect(countedValue(200, 50, CREDITS_COUNT_MS + 1)).toBe(50);
   });
 });

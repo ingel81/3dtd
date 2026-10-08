@@ -166,51 +166,75 @@
     <!-- Only during a wave. Sits left of the stat bar so the bar keeps
          its width and stays lined up with the sidebar. -->
     @if (waveActive()) {
-      <div class="stat enemies enemies-chip" [matTooltip]="enemiesStat().tooltip">
+      <div class="enemies-chip" [matTooltip]="enemiesStat().tooltip">
         <td-icon name="bug" [size]="16" ariaLabel="Enemies"></td-icon>
         <span class="stat-num" aria-hidden="true">{{ enemiesStat().text }}</span>
         <span class="sr-only">{{ enemiesStat().exact }}</span>
       </div>
     }
-    <!-- The visible labels name the values, the icons are decoration.
-         Large figures show short ("101k"); screen readers get the exact
-         figure, the tooltip too once the cell shows less than that. -->
+    <!-- Three plates HQ, Credits, Wave. The visible labels name the values,
+         the icons are decoration. Large figures show short ("101k"); screen
+         readers get the exact figure, the tooltip too once the plate shows
+         less than that. Bars, the rising credit change and the flashes are
+         aria-hidden: the figures say it. -->
     <div class="header-stats">
-      <div class="stat hp" [matTooltip]="hq().tooltip">
-        <td-icon name="heart" [size]="16"></td-icon>
-        <div class="stat-text">
-          <span class="stat-label">HQ</span>
-          <span class="stat-value" aria-hidden="true">
-            <span class="stat-num">{{ hq().text }}</span>
-            @if (hq().max; as max) {
-              <span class="stat-max">/{{ max }}</span>
-            }
-          </span>
-          <span class="sr-only">{{ hq().exact }}</span>
+      <div class="stat-plate hp" #hqPlate [attr.data-level]="hqLevel()" [matTooltip]="hq().tooltip">
+        <div class="plate-face">
+          <td-icon name="hqSolid" [size]="20"></td-icon>
+          <div class="stat-text">
+            <div class="stat-row">
+              <span class="stat-label">HQ</span>
+              <span class="stat-value" aria-hidden="true">
+                <span class="stat-num">{{ hq().text }}</span>
+                @if (hq().max; as max) {
+                  <span class="stat-max">/{{ max }}</span>
+                }
+              </span>
+            </div>
+            <span class="sr-only">{{ hq().exact }}</span>
+            <span class="seg-bar" aria-hidden="true">
+              @for (lit of hqSegments(); track $index) { <i [class.lit]="lit"></i> }
+            </span>
+          </div>
         </div>
-        <!-- The value above names it; the bar only shows it -->
-        <span class="hp-bar" #hpBar aria-hidden="true">
-          <span class="hp-bar-fill" [style.width.%]="hq().percent"></span>
-        </span>
+        @if (hqLevel() === 'critical') {
+          <span class="hazard" aria-hidden="true"></span>
+        }
       </div>
-      <div class="stat credits" [matTooltip]="creditsStat().tooltip">
-        <td-icon name="coin" [size]="16"></td-icon>
-        <div class="stat-text">
-          <span class="stat-label">CREDITS</span>
-          <span class="stat-value" aria-hidden="true">
-            <span class="stat-num">{{ creditsStat().text }}</span>
-          </span>
-          <span class="sr-only">{{ creditsStat().exact }}</span>
+      <div class="stat-plate credits" #creditsPlate [matTooltip]="creditsStat().tooltip">
+        <div class="plate-face">
+          <td-icon name="coinSolid" [size]="20"></td-icon>
+          <div class="stat-text">
+            <div class="stat-row">
+              <span class="stat-label">CREDITS</span>
+            </div>
+            <span class="stat-value" aria-hidden="true">
+              <span class="stat-num">{{ creditsShownText() }}</span>
+            </span>
+            <span class="sr-only">{{ creditsStat().exact }}</span>
+          </div>
         </div>
+        @if (creditsDelta(); as delta) {
+          @for (d of [delta]; track d.id) {
+            <span class="credits-delta" [class.loss]="d.kind === 'loss'" aria-hidden="true">{{ d.text }}</span>
+          }
+        }
       </div>
-      <div class="stat wave" [matTooltip]="waveStat().tooltip">
-        <td-icon name="wave" [size]="16"></td-icon>
-        <div class="stat-text">
-          <span class="stat-label">WAVE</span>
-          <span class="stat-value" aria-hidden="true">
-            <span class="stat-num">{{ waveStat().text }}</span>
-          </span>
-          <span class="sr-only">{{ waveStat().exact }}</span>
+      <div class="stat-plate wave" [class.starting]="waveStarting()" [matTooltip]="waveStat().tooltip">
+        <div class="plate-face">
+          <td-icon name="waveSolid" [size]="20"></td-icon>
+          <div class="stat-text">
+            <div class="stat-row">
+              <span class="stat-label">WAVE</span>
+              <span class="stat-value" aria-hidden="true">
+                <span class="stat-num">{{ waveStat().text }}</span>
+              </span>
+            </div>
+            <span class="sr-only">{{ waveStat().exact }}</span>
+            <span class="wave-bar" aria-hidden="true">
+              <span class="wave-bar-fill" [style.width.%]="waveProgress()"></span>
+            </span>
+          </div>
         </div>
       </div>
     </div>

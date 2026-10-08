@@ -11,6 +11,8 @@ import {
   ElementRef,
   inject,
   ChangeDetectionStrategy,
+  DestroyRef,
+  untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -23,16 +25,48 @@ import { DevWorldService } from '../../devworld/devworld.service';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { PulseThrottle } from '../../utils/pulse-throttle';
 import { TdIconComponent } from '../icon/icon.component';
-import { COUNT_EXACT_BELOW, CREDITS_EXACT_BELOW, hqReadout, statReadout } from './header-stats';
+import { creditsRefusals } from '../../services/credits-refusal';
+import {
+  COUNT_EXACT_BELOW,
+  CREDITS_COUNT_MS,
+  CREDITS_DELTA_SHOW_MS,
+  CREDITS_EXACT_BELOW,
+  CreditsDelta,
+  CreditsDeltaTracker,
+  HQ_SEGMENTS,
+  countedValue,
+  hqLevel,
+  hqReadout,
+  hqSegmentsLit,
+  statReadout,
+  waveProgressPercent,
+} from './header-stats';
 
-/** Flash of the HQ bar when the HQ loses health */
-const HQ_BAR_PULSE: Keyframe[] = [
-  { filter: 'brightness(2)', boxShadow: '0 0 6px 1px rgba(184, 62, 50, 0.9)' },
-  { filter: 'brightness(1)', boxShadow: '0 0 0 0 rgba(184, 62, 50, 0)' },
+/** Flash of the HQ plate when the HQ loses health; the jolt only without reduced motion */
+const HQ_HIT_FLASH: Keyframe[] = [{ filter: 'brightness(1.8)' }, { filter: 'brightness(1)' }];
+const HQ_HIT_JOLT: Keyframe[] = [
+  { transform: 'translateX(0)' },
+  { transform: 'translateX(-2px)', offset: 0.2 },
+  { transform: 'translateX(2px)', offset: 0.45 },
+  { transform: 'translateX(-1px)', offset: 0.7 },
+  { transform: 'translateX(0)' },
 ];
-const HQ_BAR_PULSE_MS = 450;
+const HQ_HIT_MS = 450;
 /** Several leaks in a row flash once, not in a flicker */
-const HQ_BAR_PULSE_MIN_INTERVAL_MS = 300;
+const HQ_HIT_MIN_INTERVAL_MS = 300;
+/** The credits plate's edge when a buy was refused for too few credits: red, then back */
+const CREDITS_REFUSED_FLASH: Keyframe[] = [
+  { backgroundColor: 'var(--td-health-red)' },
+  { backgroundColor: 'var(--td-health-red)', offset: 0.5 },
+  { backgroundColor: 'var(--td-frame-dark)' },
+];
+const CREDITS_REFUSED_MS = 600;
+/** The wave plate's brass edge when a wave starts */
+const WAVE_START_EDGE_MS = 600;
+
+function prefersReducedMotion(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
 
 @Component({
   selector: 'app-game-header',
@@ -97,6 +131,9 @@ export class GameHeaderComponent {
   readonly waveNumber = input.required<number>();
   readonly enemiesAlive = input.required<number>();
   readonly waveActive = input.required<boolean>();
+  /** Enemies the running wave brings, 0 = not announced; with waveEnemiesLeft the wave plate's bar */
+  readonly waveEnemyTotal = input(0);
+  readonly waveEnemiesLeft = input(0);
   readonly isDialog = input<boolean>(false);
   readonly favorites = input<FavoriteLocation[]>([]);
   /** Geocoded names of the favorites without a name of their own */
@@ -148,28 +185,105 @@ export class GameHeaderComponent {
   /** HQ health at the start of a run. Nothing heals in play; the +HP cheat can go past it. */
   private readonly maxHealth = GAME_BALANCE.player.startHealth;
 
-  // Figures of the stat bar and the enemies chip, short enough for their cells
+  /**
+   * The credits figure on the plate: counts to a new value over
+   * CREDITS_COUNT_MS (at once with reduced motion); null before the first
+   * change. Screen readers and the tooltip get the real value.
+   */
+  readonly creditsShown = signal<number | null>(null);
+
+  // Figures of the stat plates and the enemies chip, short enough for their plates
   readonly hq = computed(() => hqReadout(this.baseHealth(), this.maxHealth));
+  readonly hqLevel = computed(() => hqLevel(this.hq().percent));
+  /** One flag per segment of the HQ bar, lit or not */
+  readonly hqSegments = computed(() => {
+    const lit = hqSegmentsLit(this.hq().percent);
+    return Array.from({ length: HQ_SEGMENTS }, (_, i) => i < lit);
+  });
   readonly creditsStat = computed(() => statReadout(this.credits(), CREDITS_EXACT_BELOW));
+  readonly creditsShownText = computed(() =>
+    statReadout(this.creditsShown() ?? this.credits(), CREDITS_EXACT_BELOW).text,
+  );
   readonly waveStat = computed(() => statReadout(this.waveNumber(), COUNT_EXACT_BELOW));
+  readonly waveProgress = computed(() =>
+    waveProgressPercent(this.waveActive(), this.waveEnemyTotal(), this.waveEnemiesLeft()),
+  );
   readonly enemiesStat = computed(() => statReadout(this.enemiesAlive(), COUNT_EXACT_BELOW));
 
-  private readonly hpBar = viewChild<ElementRef<HTMLElement>>('hpBar');
-  private readonly hpPulse = new PulseThrottle(HQ_BAR_PULSE_MIN_INTERVAL_MS);
+  /** "+25" / "-150" over the credits plate, null when none shows */
+  readonly creditsDelta = signal<CreditsDelta | null>(null);
+  /** The wave plate's brass edge, for WAVE_START_EDGE_MS after a wave starts */
+  readonly waveStarting = signal(false);
+
+  private readonly hqPlate = viewChild<ElementRef<HTMLElement>>('hqPlate');
+  private readonly creditsPlate = viewChild<ElementRef<HTMLElement>>('creditsPlate');
+  private readonly hqPulse = new PulseThrottle(HQ_HIT_MIN_INTERVAL_MS);
   private lastHealth: number | null = null;
+  private lastCredits: number | null = null;
+  private lastRefusals = creditsRefusals();
+  private lastWaveActive: boolean | null = null;
+  private readonly deltas = new CreditsDeltaTracker();
+  private deltaTimer: ReturnType<typeof setTimeout> | null = null;
+  private waveTimer: ReturnType<typeof setTimeout> | null = null;
+  private countFrame: number | null = null;
 
   constructor() {
-    // Flash the HQ bar when the HQ loses health; a reset or the cheat raises it quietly
+    inject(DestroyRef).onDestroy(() => {
+      if (this.deltaTimer !== null) clearTimeout(this.deltaTimer);
+      if (this.waveTimer !== null) clearTimeout(this.waveTimer);
+      if (this.countFrame !== null) cancelAnimationFrame(this.countFrame);
+    });
+
+    // Flash the HQ plate (and jolt it) when the HQ loses health; a reset or the cheat raises it quietly
     effect(() => {
       const health = this.baseHealth();
       const previous = this.lastHealth;
       this.lastHealth = health;
       if (previous === null || health >= previous) return;
-      const bar = this.hpBar()?.nativeElement;
-      if (!bar || typeof bar.animate !== 'function') return;
-      if (this.hpPulse.tryPulse(performance.now())) {
-        bar.animate(HQ_BAR_PULSE, { duration: HQ_BAR_PULSE_MS, easing: 'ease-out' });
+      const plate = this.hqPlate()?.nativeElement;
+      if (!plate || typeof plate.animate !== 'function') return;
+      if (!this.hqPulse.tryPulse(performance.now())) return;
+      plate.animate(HQ_HIT_FLASH, { duration: HQ_HIT_MS, easing: 'ease-out' });
+      if (!prefersReducedMotion()) plate.animate(HQ_HIT_JOLT, { duration: HQ_HIT_MS * 0.7, easing: 'ease-out' });
+    });
+
+    // Credits: the change rises over the plate and the figure counts to the new value
+    effect(() => {
+      const credits = this.credits();
+      const previous = this.lastCredits;
+      this.lastCredits = credits;
+      if (previous === null || credits === previous) return;
+      untracked(() => {
+        this.showDelta(credits - previous);
+        this.countCredits(this.creditsShown() ?? previous, credits);
+      });
+    });
+
+    // A buy refused for too few credits flashes the plate's edge red
+    effect(() => {
+      const refusals = creditsRefusals();
+      if (refusals === this.lastRefusals) return;
+      this.lastRefusals = refusals;
+      const plate = this.creditsPlate()?.nativeElement;
+      if (plate && typeof plate.animate === 'function') {
+        plate.animate(CREDITS_REFUSED_FLASH, { duration: CREDITS_REFUSED_MS, easing: 'ease-out' });
       }
+    });
+
+    // A wave that starts gives the wave plate a brass edge for a moment
+    effect(() => {
+      const active = this.waveActive();
+      const previous = this.lastWaveActive;
+      this.lastWaveActive = active;
+      if (previous !== false || !active) return;
+      untracked(() => {
+        if (this.waveTimer !== null) clearTimeout(this.waveTimer);
+        this.waveStarting.set(true);
+        this.waveTimer = setTimeout(() => {
+          this.waveTimer = null;
+          this.waveStarting.set(false);
+        }, WAVE_START_EDGE_MS);
+      });
     });
 
     // A name field that opens takes the focus with its text selected, so
@@ -180,6 +294,32 @@ export class GameHeaderComponent {
       field.focus();
       field.select();
     });
+  }
+
+  private showDelta(diff: number): void {
+    this.creditsDelta.set(this.deltas.change(diff, performance.now()));
+    if (this.deltaTimer !== null) clearTimeout(this.deltaTimer);
+    this.deltaTimer = setTimeout(() => {
+      this.deltaTimer = null;
+      this.creditsDelta.set(null);
+    }, CREDITS_DELTA_SHOW_MS);
+  }
+
+  /** Count the figure from `from` to `to`; with reduced motion, or without frames, it jumps */
+  private countCredits(from: number, to: number): void {
+    if (this.countFrame !== null) cancelAnimationFrame(this.countFrame);
+    this.countFrame = null;
+    if (prefersReducedMotion() || typeof requestAnimationFrame !== 'function') {
+      this.creditsShown.set(to);
+      return;
+    }
+    const start = performance.now();
+    const step = (now: number) => {
+      const value = countedValue(from, to, now - start, CREDITS_COUNT_MS);
+      this.creditsShown.set(value);
+      this.countFrame = value === to ? null : requestAnimationFrame(step);
+    };
+    this.countFrame = requestAnimationFrame(step);
   }
 
   /** The flag: one spawn places at once, with several a menu asks which one to move */

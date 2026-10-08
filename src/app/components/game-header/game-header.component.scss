@@ -2,15 +2,18 @@
 
 :host {
   display: block;
+  /* The three stat plates; header-stats explains why wider than the sidebar */
+  --td-hud-stats-width: 400px;
 }
 
 .header {
   display: flex;
   align-items: center;
   gap: 12px;
-  /* Right padding = sidebar gutter, so the stat bar ends flush with the
-     sidebar content below it */
-  padding: 4px var(--td-sidebar-gutter) 4px 12px;
+  /* Right padding = sidebar gutter, so the stat plates end flush with the
+     sidebar content below them; 6px above and below the 42px plates make
+     the header 54px high */
+  padding: 6px var(--td-sidebar-gutter) 6px 12px;
   background:
     linear-gradient(rgba(15, 19, 15, 0.8), rgba(15, 19, 15, 0.8)),
     url('../../../styles/textures/stone-wall.jpg') repeat;
@@ -40,6 +43,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  /* On a narrow window the place name gives way, not the actions or the plates */
+  min-width: 0;
 }
 
 .location-btn {
@@ -55,6 +60,7 @@
   transition: all 0.15s ease;
   font-family: inherit;
   font-size: 13px;
+  min-width: 0;
 }
 
 .location-btn:hover {
@@ -64,6 +70,7 @@
 }
 
 .location-label {
+  flex-shrink: 0;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1.5px;
@@ -96,73 +103,91 @@
   align-items: center;
   gap: 8px;
   margin-left: auto;
+  flex-shrink: 0;
 }
 
-/* The stat bar sits right above the sidebar content: same width and outer
-   edges as the next-wave button and the tower grid. Sidebar width minus
-   both gutters minus the sidebar's 1px border-left; the header's right
-   padding supplies the right gutter. Three equal columns that never grow
-   past their share (minmax(0, 1fr)), so a growing value never shifts or
+/* Three stat plates, HQ, Credits, Wave (Hud.dc.html). The right edge ends
+   flush with the sidebar content below (the header's right padding is the
+   sidebar gutter); the plates need more room than the sidebar is wide, so
+   the bar reaches further left, over the canvas. Columns never grow past
+   their share (minmax(0, ...)), so a growing value never shifts or
    overlaps its neighbours. */
 .header-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 34fr) minmax(0, 34fr) minmax(0, 30fr);
+  gap: 4px;
   flex-shrink: 0;
-  box-sizing: border-box;
-  width: calc(var(--td-sidebar-width) - 2 * var(--td-sidebar-gutter) - 1px);
+  width: var(--td-hud-stats-width);
+  height: 42px;
 }
 
-.header-stats,
-.enemies-chip {
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.13),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.5);
+/* A plate: the outer layer is the 1px edge, the face sits 1px inside; both
+   cut at the top left and bottom right */
+.stat-plate {
+  --plate-cut: var(--td-cut-sm, 6px);
+  --plate-shape: polygon(var(--plate-cut) 0, 100% 0, 100% calc(100% - var(--plate-cut)),
+    calc(100% - var(--plate-cut)) 100%, 0 100%, 0 var(--plate-cut));
+  position: relative;
+  min-width: 0;
+  padding: 1px;
+  clip-path: var(--plate-shape);
+  background-color: var(--td-frame-mid);
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--td-dur-fast, 120ms) ease-out;
 }
 
-.stat {
+.plate-face {
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-width: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Bar cells: icon plus a small label over the value. Label 9px and
-   value 17px line-height plus 3px padding keep the bar at 34px, so the
-   header stays 46px high. */
-.header-stats .stat {
-  gap: 7px;
-  padding: 3px 8px;
+  gap: 8px;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 10px;
+  clip-path: var(--plate-shape);
+  background: linear-gradient(180deg, var(--td-plate-top, #262f28), var(--td-plate-bottom, #1d241f));
 }
 
 .stat-text {
   display: flex;
+  flex: 1;
   flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* Label left, figure right on one line (HQ, Wave); Credits puts the figure below */
+.stat-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
   min-width: 0;
 }
 
 .stat-label {
-  font-size: 8px;
-  line-height: 9px;
-  letter-spacing: 0.16em;
+  flex-shrink: 0;
+  font: 10px/1 var(--td-font-mono);
+  letter-spacing: 0.14em;
   color: var(--td-text-muted);
 }
 
-/* One line: the value and, in the HQ cell, the max. What does not fit
-   wraps onto a second line that the fixed height hides, so "/100" drops
-   out whole before the value is cut; a value too long for the cell on
+/* One line: the value and, on the HQ plate, the max. What does not fit
+   wraps onto a second line that the fixed height hides, so "/500" drops
+   out whole before the value is cut; a value too long for the plate on
    its own ends in an ellipsis. */
 .stat-value {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: baseline;
-  height: 17px;
+  min-width: 0;
+  height: 22px;
   overflow: hidden;
-  font-size: 15px;
-  line-height: 17px;
-  font-weight: 700;
+  font: 600 22px/22px var(--td-font-hud, 'Oswald', var(--td-font-body));
+}
+
+.credits .stat-value {
+  justify-content: flex-start;
 }
 
 .stat-num {
@@ -170,6 +195,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.stat-max {
+  white-space: nowrap;
+  font: 400 11px var(--td-font-mono);
+  color: var(--td-text-muted);
 }
 
 .sr-only {
@@ -181,51 +212,145 @@
   white-space: nowrap;
 }
 
-.enemies-chip {
-  gap: 6px;
-  padding: 6px 12px;
-  font-size: 15px;
-  font-weight: 700;
+/* HQ: ten segments, one per tenth of the start health. Warm below 30 %
+   with a slow pulse, a hazard stripe at the foot below 10 %. A loss of
+   health flashes and jolts the plate (Web Animations, see the component). */
+.hp {
+  --hp-color: var(--td-hp-text, #e36a5a);
+  color: var(--hp-color);
 }
 
-.stat + .stat {
-  border-left: 1px solid var(--td-frame-dark);
+.seg-bar {
+  display: flex;
+  gap: 2px;
+  height: 4px;
+
+  i {
+    flex: 1;
+    background: var(--td-frame-dark);
+  }
+
+  i.lit {
+    background: var(--hp-color);
+  }
 }
 
-.stat.hp { color: var(--td-health-red); }
+.hp[data-level='low'],
+.hp[data-level='critical'] {
+  --hp-color: var(--td-hp-low, #e8735f);
+  background-color: var(--td-health-red);
 
-/* HQ health: the max small and muted next to the value, and a 2px bar
-   along the bottom edge of the cell, like the bar of the wave button.
-   A loss of health flashes the bar (Web Animations, see the component). */
-.stat.hp {
-  position: relative;
+  .plate-face {
+    background: linear-gradient(180deg, var(--td-hp-warm-top, #3a1f1a), var(--td-hp-warm-bottom, #251612));
+    animation: hq-warm 2.4s ease-in-out infinite;
+  }
 }
 
-.stat-max {
-  white-space: nowrap;
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--td-text-muted);
+@keyframes hq-warm {
+  50% { filter: brightness(1.25); }
 }
 
-.hp-bar {
+.hazard {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
-  background: rgba(184, 62, 50, 0.18);
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  height: 4px;
+  background: var(--td-hazard, repeating-linear-gradient(-45deg, #c96a3a 0 6px, #1a140a 6px 12px));
 }
 
-.hp-bar-fill {
-  display: block;
-  height: 100%;
-  background: var(--td-health-red);
+/* Credits: the figure counts to a new value, a change rises over the
+   plate for a moment, a refused buy flashes the edge red (component) */
+.credits {
+  color: var(--td-gold-light);
+
+  td-icon {
+    color: var(--td-gold);
+  }
+}
+
+.credits-delta {
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  font: 600 14px/1 var(--td-font-hud, 'Oswald', var(--td-font-body));
+  color: var(--td-gain, #9ed6a0);
+  pointer-events: none;
+  animation: credits-delta 900ms ease-out forwards;
+}
+
+.credits-delta.loss {
+  color: var(--td-loss, #e36a5a);
+}
+
+@keyframes credits-delta {
+  0% { opacity: 0; transform: translateY(6px); }
+  15% { opacity: 1; transform: translateY(2px); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-3px); }
+}
+
+/* Wave: the share of the running wave that is gone; a wave that starts
+   lights the edge in brass for 600 ms */
+.wave {
+  color: var(--td-text-primary);
+
+  td-icon {
+    color: var(--td-teal);
+  }
+}
+
+.wave.starting {
+  background-color: var(--td-gold);
+}
+
+.wave-bar {
+  position: relative;
+  height: 4px;
+  background: var(--td-panel-shadow);
+}
+
+.wave-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--td-teal);
   transition: width 0.3s ease;
 }
-.stat.credits { color: var(--td-gold); }
-.stat.wave { color: var(--td-teal); }
-.stat.enemies { color: var(--td-warn-orange); }
+
+/* Reduced motion: colour and stripe stay, nothing moves or pulses */
+@media (prefers-reduced-motion: reduce) {
+  .hp[data-level='low'] .plate-face,
+  .hp[data-level='critical'] .plate-face {
+    animation: none;
+  }
+
+  .credits-delta {
+    animation: credits-delta-still 900ms linear forwards;
+  }
+
+  .wave-bar-fill {
+    transition: none;
+  }
+}
+
+@keyframes credits-delta-still {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.enemies-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 42px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  background: var(--td-panel-shadow);
+  color: var(--td-warn-orange);
+  font: 600 18px/1 var(--td-font-hud, 'Oswald', var(--td-font-body));
+  font-variant-numeric: tabular-nums;
+}
 
 .close-btn {
   display: flex;
@@ -260,6 +385,21 @@
   display: flex;
   align-items: center;
   gap: 2px;
+  flex-shrink: 0;
+}
+
+/* Keyboard focus: a 2px ring outside the button */
+.location-btn,
+.action-btn,
+.close-btn,
+.fav-select,
+.fav-tool,
+.fav-add,
+.spawn-menu-item {
+  &:focus-visible {
+    outline: 2px solid var(--td-gold-light);
+    outline-offset: 2px;
+  }
 }
 
 /* Between the groups of actions (the place, editing the map, coop): a

@@ -50,7 +50,9 @@ export type TdIconName =
   | 'more'
   | 'signIn'
   // header actions (design 2026-10-04): favourites, random place, HQ, spawn portal, a spawn more, coop
-  | 'bookmarkStar' | 'dice' | 'castle' | 'portal' | 'portalAdd' | 'shields';
+  | 'bookmarkStar' | 'dice' | 'castle' | 'portal' | 'portalAdd' | 'shields'
+  // header stat plates, filled
+  | 'hqSolid' | 'coinSolid' | 'waveSolid';
 
 interface IconDef {
   /** Inner SVG markup. Stroke uses currentColor; fill defaults to none unless set explicitly per <path>. */
@@ -108,6 +110,9 @@ const ICONS: Record<TdIconName, IconDef> = {
   portal: { body: '<path d="M5 21V11a7 7 0 0 1 14 0v10" /><path d="M3 21h18" /><path d="M12 17a3 3 0 1 1 3-3" />' },
   portalAdd: { body: '<path d="M3.5 21v-8a6 6 0 0 1 9.5-4.9" /><path d="M15.5 21v-5" /><path d="M2 21h15.5" /><path d="M19 3v6M16 6h6" />' },
   shields: { body: '<path d="M8.5 4 3 6v4.8c0 3.8 2.4 6.7 5.5 7.7 3.1-1 5.5-3.9 5.5-7.7V6Z" /><path d="M14.6 6.3 21 8.5v4.6c0 3.6-2.3 6.4-5.3 7.4-.9-.3-1.7-.7-2.4-1.2" />' },
+  hqSolid: { body: '<path stroke="none" d="M5 21V10l-2 1V7l4-3 2 2 3-3 3 3 2-2 4 3v4l-2-1v11h-5v-5h-4v5z" />', fill: 'currentColor' },
+  coinSolid: { body: '<circle stroke="none" cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5.5" fill="none" stroke="rgba(0, 0, 0, 0.45)" stroke-width="1.6" />', fill: 'currentColor' },
+  waveSolid: { body: '<path stroke="none" d="M2 9c3-3 5-3 8 0s5 3 8 0l4-1v4c-3 3-5 3-8 0s-5-3-8 0l-4 1zM2 16c3-3 5-3 8 0s5 3 8 0l4-1v3c-3 3-5 3-8 0s-5-3-8 0l-4 1z" />', fill: 'currentColor' },
   sliders: { body: '<path d="M4 8h12M18 8h2M4 16h4M10 16h10M16 6v4M8 14v4" />' },
   chart: { body: '<path d="M3 20h18M5 20V10M10 20V5M15 20v-8M20 20v-4" />' },
   share: { body: '<circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="m8.2 11 7.6-4M8.2 13l7.6 4" />' },
