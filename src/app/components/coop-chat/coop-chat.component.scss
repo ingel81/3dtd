@@ -53,6 +53,12 @@
   border: 1px solid var(--td-gold-dark);
   background: color-mix(in srgb, var(--td-panel-shadow) 92%, transparent);
 }
+/* The field inside draws no ring of its own: the line shows the focus as
+   the foundation's input does, a gold edge 2px wide (border and shadow) */
+.open:focus-within {
+  border-color: var(--td-gold);
+  box-shadow: 0 0 0 1px var(--td-gold);
+}
 .to {
   font-family: var(--td-font-mono);
   font-size: 10.5px;
