@@ -248,6 +248,8 @@ export class VisualizationFacadeService {
   initialize(bridge: FacadeComponentBridge): void {
     this.bridge = bridge;
     this.initialized = true;
+    // The start menu showed the scene the whole width: the shows it held back play on the game's width
+    this.startShow.setStage(() => this.fitStage());
 
     // Towers and waves wait while the corridor is built.
     this.world.setCorridorPending(() => this.corridor.pending());
@@ -335,6 +337,7 @@ export class VisualizationFacadeService {
    * Reset state and cleanup on dispose.
    */
   dispose(): void {
+    this.startShow.setStage(null);
     this.eventBusSubs.disposeAll();
     if (this.initialized) this.world.setCorridorPending(null);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
@@ -760,6 +763,20 @@ export class VisualizationFacadeService {
       this.startShow.whenPlayed('music', () => this.presentation.onLoadingComplete());
       this.startShow.whenPlayed('place', () => this.playStartShow(isApplying));
     }
+  }
+
+  /**
+   * The stage for the shows the start menu held back (StartShowService): the
+   * canvas at the size header and sidebar left it, the overview framed for
+   * that width, stored as the view the intro lands in and Reset returns to.
+   * The canvas would follow by itself, but its observer comes a moment late.
+   */
+  private fitStage(): void {
+    const engine = this.initialized ? this.bridge.getEngine() : null;
+    if (!engine) return;
+    engine.fitToCanvas();
+    this.reframeCameraWithRoutes();
+    this.saveInitialCameraPosition();
   }
 
   /**

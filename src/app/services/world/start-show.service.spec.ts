@@ -57,4 +57,24 @@ describe('StartShowService', () => {
     TestBed.tick();
     expect(played).toEqual(['music', 'Paris']);
   });
+
+  it('sets the stage first, on the render after the menu closed: the shows then fit the game width', () => {
+    const ui = TestBed.inject(UIStore);
+    const shows = TestBed.inject(StartShowService);
+    const order: string[] = [];
+    shows.setStage(() => order.push('stage'));
+    ui.mainMenu.set({ open: true, layer: 'start', page: 'home' });
+    shows.whenPlayed('place', () => order.push('intro'));
+    ui.mainMenu.set({ open: false, layer: 'start', page: 'home' });
+    TestBed.tick();
+    expect(order).toEqual(['stage', 'intro']);
+  });
+
+  it('a show played at once needs no stage', () => {
+    const shows = TestBed.inject(StartShowService);
+    const stage = vi.fn();
+    shows.setStage(stage);
+    shows.whenPlayed('place', () => undefined);
+    expect(stage).not.toHaveBeenCalled();
+  });
 });

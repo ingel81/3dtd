@@ -157,6 +157,7 @@ describe('VisualizationFacadeService', () => {
     routeCorridorLod: (): unknown => corridorLod,
     // No 3D tiles here: the corridor build measures and builds without waiting for them
     tilesLodDebug: () => null,
+    fitToCanvas: vi.fn(),
   };
   const canvas = { id: 'canvas' };
   const bridge = {
@@ -212,7 +213,7 @@ describe('VisualizationFacadeService', () => {
   };
   const uiStore = { routesVisible: signal(true), buildingsVisible: signal(false), specialPointsDebugVisible: signal(false) };
   /** No menu in front: the show plays at once */
-  const startShow = { whenPlayed: vi.fn((_kind: string, show: () => void) => show()) };
+  const startShow = { whenPlayed: vi.fn((_kind: string, show: () => void) => show()), setStage: vi.fn() };
   const cameraControl = {
     initialize: vi.fn(),
     setOverviewProvider: vi.fn(),
@@ -1161,6 +1162,16 @@ describe('VisualizationFacadeService', () => {
       introFlight.isRunning.mockReturnValue(true);
       facade.reframeCameraWithRoutes();
       expect(cameraFraming.applyFrame).toHaveBeenCalledTimes(1);
+    });
+
+    it('sets the stage for the shows the start menu held: canvas fitted, overview framed and stored for that width', () => {
+      cameraFraming.getLastFrame.mockReturnValue(FRAME);
+      const stage = startShow.setStage.mock.calls.at(-1)![0] as () => void;
+      stage();
+      expect(engine.fitToCanvas).toHaveBeenCalledTimes(1);
+      expect(cameraFraming.applyFrame).toHaveBeenCalledWith(FRAME);
+      expect(cameraControl.saveInitialPosition).toHaveBeenCalledWith(VIEW);
+      expect(engine.fitToCanvas.mock.invocationCallOrder[0]).toBeLessThan(cameraFraming.applyFrame.mock.invocationCallOrder.at(-1)!);
     });
 
     it('does not frame without routes', () => {
