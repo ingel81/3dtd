@@ -2,7 +2,7 @@
 // ready to play, a coop room with players and options, the relay, reading
 // the HUD. Every player is a browser context of its own (its own
 // localStorage, its own window).
-import { expect, type Browser, type Page, type TestInfo } from '@playwright/test';
+import { expect, type Browser, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -194,10 +194,11 @@ export interface Room {
 
 /**
  * A coop room of the run's two players (fixtures.ts `duo`): the host opens
- * it from the dock, the guest joins by the code (no reload where both stand
- * on the same place) and readies up. `options` ({ Cheats: 'Host only' }, the
- * labels of the dock) are set before; `start` starts the match and waits for
- * the squad box on both sides.
+ * it from the menu's Coop page, the guest joins by the code (no reload where
+ * both stand on the same place) and readies up. `options` ({ Cheats: 'Host
+ * only' }, the labels of the dock) are set before; `start` starts the match
+ * and waits for the squad box on both sides. A solo run the host played
+ * before (towers, a wave) is let go when the page or the dock asks.
  */
 export async function coopRoom({ host, guest }: { host: Page; guest: Page }, { options = {}, start = false }: {
   options?: Record<string, string>;
@@ -212,6 +213,7 @@ export async function coopRoom({ host, guest }: { host: Page; guest: Page }, { o
   await guest.getByRole('button', { name: 'Ready up' }).click({ timeout: 120_000 });
   if (start) {
     await host.getByRole('button', { name: 'Start match' }).click({ timeout: 30_000 });
+    await confirmIfAsked(host.locator('app-coop-dock').getByRole('button', { name: 'Start anyway' }));
     for (const page of [host, guest]) await page.locator('app-coop-squad .squad').waitFor({ timeout: 60_000 });
     await host.waitForTimeout(2000);
   }
@@ -225,11 +227,33 @@ export async function openDock(page: Page): Promise<void> {
   await page.locator('app-coop-dock').waitFor();
 }
 
-/** The menu's Coop page, where hosting and joining start: the coop button of the header outside a room */
+/**
+ * The menu's Coop page, where hosting and joining start: the coop button of
+ * the header outside a room, or the entry Coop when the menu stands already
+ * (it covers the header)
+ */
 export async function openCoopPage(page: Page): Promise<void> {
   if (await page.locator('app-coop-ways').count()) return;
-  await page.getByRole('button', { name: /^Coop/ }).first().click();
+  const entry = page.locator('app-main-menu [data-entry="coop"]');
+  if (await entry.count()) await entry.click();
+  else await page.getByRole('button', { name: /^Coop/ }).first().click();
   await page.locator('app-coop-ways').waitFor();
+}
+
+/** A question that may come (a solo run the action would end): yes when it shows within a moment */
+async function confirmIfAsked(yes: Locator): Promise<void> {
+  if (await yes.waitFor({ timeout: 3000 }).then(() => true, () => false)) await yes.click();
+}
+
+/** The pause menu closed (Continue): the next test finds the game, not a menu over it */
+export async function closePauseMenu(page: Page): Promise<void> {
+  const cont = page.locator('app-main-menu .mm-pause [data-entry="continue"]');
+  for (let i = 0; i < 3 && (await page.locator('app-main-menu .mm-pause').count()); i++) {
+    if (await cont.count()) await cont.click();
+    else await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  }
+  await expect(page.locator('app-main-menu .mm-pause')).toHaveCount(0);
 }
 
 /** Guest: join the room `code` from the menu's Coop page */
@@ -241,13 +265,14 @@ export async function joinByCode(page: Page, code: string): Promise<void> {
 }
 
 /**
- * After a test: out of the room, the dock and the developer menu closed, a
- * message at the top dismissed, so the next test finds the page as a fresh
+ * After a test: out of the room, the pause menu, the dock and the developer
+ * menu closed, a message at the top dismissed, so the next test finds the page as a fresh
  * one would look (the page stays: no new map session).
  */
 export async function tidyUp(page: Page): Promise<void> {
   const notice = page.getByRole('button', { name: 'Close the message' });
   if (await notice.count()) await notice.click();
+  await closePauseMenu(page);
   await leaveRoom(page);
   const dev = page.getByRole('button', { name: 'Developer options' });
   if ((await dev.getAttribute('aria-expanded')) === 'true') await dev.click();
@@ -265,10 +290,12 @@ export async function leaveRoom(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: /^Coop room/ })).toHaveCount(0);
 }
 
-/** Host: open a room from the menu's Coop page; the menu closes and the dock opens on the room */
+/** Host: open a room from the menu's Coop page (letting a solo run go when asked); the menu closes and the dock opens on the room */
 export async function openRoom(page: Page): Promise<void> {
   await openCoopPage(page);
-  await page.locator('app-coop-ways').getByRole('button', { name: 'Host a room' }).click();
+  const ways = page.locator('app-coop-ways');
+  await ways.getByRole('button', { name: 'Host a room' }).click();
+  await confirmIfAsked(ways.getByRole('button', { name: 'Host anyway' }));
   await page.locator('app-coop-dock').waitFor({ timeout: 60_000 });
 }
 

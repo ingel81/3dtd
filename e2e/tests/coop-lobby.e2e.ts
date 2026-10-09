@@ -15,10 +15,12 @@ test('the Coop page: no scrolling sideways, the three ways, Esc steps back (T54,
   await expect(ways.getByRole('button', { name: 'Host a room' })).toBeVisible();
   await shot(testInfo, page, 'coop-page');
 
-  await test.step('Esc steps back to the menu list', async () => {
+  await test.step('Esc steps back to the menu list, a second Esc back to the game', async () => {
     await ways.locator('input.codein').click();
     await page.keyboard.press('Escape');
     await expect(page.locator('app-coop-ways')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('app-main-menu')).toHaveCount(0);
   });
 });
 
@@ -68,9 +70,10 @@ test('a guest follows the host to a new place in the page and keeps its lane (T6
   // The host's dice changes the place in the game; the guest goes there in the page, no reload (no map session more)
   await guest.evaluate(() => { (window as unknown as { samePage?: boolean }).samePage = true; });
   await host.getByRole('button', { name: 'Random city' }).click();
-  await expect.poll(() => chatText(host), { timeout: 120_000 }).toMatch(/Bob is loading the map/);
+  // The start menu stands over the host's load and hides the chat meanwhile: read it once the game shows again
   await gameReady(host);
   await gameReady(guest);
+  await expect.poll(() => chatText(host), { timeout: 120_000 }).toMatch(/Bob is loading the map/);
   const row = host.locator('app-coop-dock .row-lane', { hasText: 'Bob' });
   await expect(row).toBeVisible({ timeout: 120_000 });
   await expect(row.locator('.lane b')).toContainText(lane, { timeout: 120_000 });
