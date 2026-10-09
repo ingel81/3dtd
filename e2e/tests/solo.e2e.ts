@@ -74,6 +74,10 @@ test('M5 a new place starts the pressure loop at ×1.00 and counts only its own 
   await devAction(page, 'Wave spawner');
   for (let i = 0; i < 3; i++) await page.keyboard.press('+');
   await page.keyboard.press('Space');
+  // The wave is under way once its button counts enemies (the start goes through the simulation's worker).
+  // Without this wait clearWave found no wave yet, the next Space started this one, and the loop counted one
+  // wave fewer (trace of the failed run: no "left" 300 ms after Space)
+  await expect(waveButton(page)).toContainText(/left/i);
   await expect.poll(loop, { timeout: 30_000 }).toBe(1);
   await shot(testInfo, page, 'm5-new-place');
   await clearWave(page);
@@ -86,12 +90,9 @@ test('M5 a new place starts the pressure loop at ×1.00 and counts only its own 
     await expect(waveButton(page)).toContainText(/left/i);
     await clearWave(page);
   }
-  // The eighth wave starts: the loop takes its sample of wave 7 then. Wait for it as for the others; a Space
-  // right after the last kill could fall before the wave counted as over and start nothing
-  await expect(async () => {
-    if (!/left/i.test(await waveButton(page).innerText())) await page.keyboard.press('Space');
-    await expect(waveButton(page)).toContainText(/left/i, { timeout: 3000 });
-  }).toPass({ timeout: 30_000 });
+  // The eighth wave starts: the loop takes its sample of wave 7 then
+  await page.keyboard.press('Space');
+  await expect(waveButton(page)).toContainText(/left/i);
   const regulator = () => page.evaluate(() => {
     const w = window as unknown as { ng: { getComponent(el: Element | null): Record<string, never> } };
     const source = (w.ng.getComponent(document.querySelector('app-tower-defense')) as never as {
