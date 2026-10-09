@@ -259,7 +259,7 @@ Tritt ein Boss einer Welle aus seinem Portal, schneidet die Kamera aufs Portal u
 
 ### Rezepte (Panel, Buttons, Slots)
 
-Rezepte sind Mixins, siehe [Fundament](#fundament-stylesgame-uiscss). Was davon in `styles/_td-mixins.scss` steht (über `@forward` auch als `ui.*`):
+Rezepte sind Mixins, siehe [Fundament](#fundament-styles_game-uiscss). Was davon in `styles/_td-mixins.scss` steht (über `@forward` auch als `ui.*`):
 
 | Mixin | Inhalt |
 |-------|--------|
@@ -465,7 +465,7 @@ Im Zielmodus zeigt die Kontext-Hinweis-Box "Click" mit dem `aimHint` der Fähigk
 
 ### Coop: Dock, Squad, Chat (Canvas)
 
-Nach dem Design-Handover vom 2026-09-25 (`tmp/coop-design/test3.zip`, Plan [COOP_PLAN.md](COOP_PLAN.md) C8, D37 bis D46), überarbeitet nach [COOP_UI_REWORK_PLAN.md](archive/COOP_UI_REWORK_PLAN.md) (U1 bis U8). Ecken 0, Farben nur aus `td-theme.ts`, Lane-Farben aus `SPAWN_COLORS` wie auf der Karte, als CSS über `laneCss()` (`coop/lane-color.ts`; ohne Lane durchsichtig oder `--td-text-secondary`, nie Weiß). Knöpfe, Eingabe, Segment, Hinweis, Banner, Tastenkappe und Spinner kommen aus dem [Fundament](#fundament-stylesgame-uiscss); `components/coop-ui/_coop-ui.scss` leitet es weiter und hat nur, was der Coop allein braucht: `.btn` (Rahmen-Knopf), Tag, Pille, Chip, Listenzeile, Name mit Unterzeile und `panel-frame` (eine Platte mit Schräge, leicht durchsichtig). `@include ui.classes` gibt einer Komponente die Klassen des Fundaments plus `.btn`, `.tag`, `.pill`, `.chip`, `.row`. Dazu `app-ping-bars` (vier Balken, Grenzen 40/90/160 ms, Orange bei Lag) und `chatView()` (Name und Zeit nur über der ersten Zeile eines Schwalls).
+Nach dem Design-Handover vom 2026-09-25 (`tmp/coop-design/test3.zip`, Plan [COOP_PLAN.md](COOP_PLAN.md) C8, D37 bis D46), überarbeitet nach [COOP_UI_REWORK_PLAN.md](archive/COOP_UI_REWORK_PLAN.md) (U1 bis U8). Ecken 0, Farben nur aus `td-theme.ts`, Lane-Farben aus `SPAWN_COLORS` wie auf der Karte, als CSS über `laneCss()` (`coop/lane-color.ts`; ohne Lane durchsichtig oder `--td-text-secondary`, nie Weiß). Knöpfe, Eingabe, Segment, Hinweis, Banner, Tastenkappe und Spinner kommen aus dem [Fundament](#fundament-styles_game-uiscss); `components/coop-ui/_coop-ui.scss` leitet es weiter und hat nur, was der Coop allein braucht: `.btn` (Rahmen-Knopf), Tag, Pille, Chip, Listenzeile, Name mit Unterzeile und `panel-frame` (eine Platte mit Schräge, leicht durchsichtig). `@include ui.classes` gibt einer Komponente die Klassen des Fundaments plus `.btn`, `.tag`, `.pill`, `.chip`, `.row`. Dazu `app-ping-bars` (vier Balken, Grenzen 40/90/160 ms, Orange bei Lag) und `chatView()` (Name und Zeit nur über der ersten Zeile eines Schwalls).
 
 Ein Knopf, der gerade nichts tut, trägt `aria-disabled` statt `disabled` und prüft im Handler selbst: sonst erschiene sein Tooltip mit dem Grund nie (die Button-Rezepte färben `[aria-disabled='true']` wie `:disabled`). Wo Platz ist, steht der Grund zusätzlich als Text in der Zeile (Raumliste: warum ein Raum nicht beitretbar ist, in `--td-warn-orange`).
 

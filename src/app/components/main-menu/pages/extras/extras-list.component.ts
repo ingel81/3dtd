@@ -10,14 +10,12 @@ import { ReplayService } from '../../../../services/replay.service';
 import { BenchmarkService } from '../../../../benchmark/benchmark.service';
 import { LocationManagementService } from '../../../../services/location/location-management.service';
 import { REPLAY_CONFIG } from '../../../../configs/replay.config';
-import { SITE_URL } from '../../../../utils/public-url';
+import { LEGAL_URL } from '../../../../utils/public-url';
 import { openRunsDialog } from '../../../runs-dialog/open-runs-dialog';
 import { openHotkeyHelpDialog } from '../../../hotkey-help-dialog/open-hotkey-help-dialog';
 import { openAttributionsDialog } from '../../../attributions-dialog/open-attributions-dialog';
 import { openDamageMatrixDialog } from '../../../damage-matrix-dialog/open-damage-matrix-dialog';
 
-/** Imprint, privacy and licences on the public site (E119); the desktop app opens it in the system browser */
-export const LEGAL_URL = `${SITE_URL}/legal.html`;
 export const REPO_URL = 'https://github.com/ingel81/3dtd';
 
 /**

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { ATTRIBUTIONS } from '../../configs/attributions.config';
 import { TdIconComponent } from '../icon/icon.component';
-import { SITE_URL } from '../../utils/public-url';
+import { LEGAL_URL } from '../../utils/public-url';
 import { ATTRIBUTIONS_TITLE_ID } from './open-attributions-dialog';
 
 @Component({
@@ -22,7 +22,7 @@ export class AttributionsDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<AttributionsDialogComponent>);
   readonly attributions = ATTRIBUTIONS;
   /** Imprint and privacy notice of the project, on the public site */
-  readonly legalUrl = `${SITE_URL}/legal.html`;
+  readonly legalUrl = LEGAL_URL;
   readonly titleId = ATTRIBUTIONS_TITLE_ID;
 
   close(): void {

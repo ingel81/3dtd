@@ -105,7 +105,7 @@ Abweichungen vom Vorschlag:
 | HQ im Slot (E120) | `services/save-game/save-slot.store.ts`, `save-game.ts` | [SAVE_LOAD_PLAN.md](SAVE_LOAD_PLAN.md) |
 | Fundament, Tokens, Schrift, Logo | `styles/_game-ui.scss`, `styles/td-theme.ts`, `src/styles.scss`, `tools/logo/` | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#fundament-styles_game-uiscss) |
 | Kopfleiste | `components/game-header/` | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#header-stat-platten) |
-| Legal & privacy (E119) | `pages/extras/extras-list.component.ts` (`LEGAL_URL`) | |
+| Legal & privacy (E119) | `utils/public-url.ts` (`LEGAL_URL`), Links in Extras und im Attributions-Dialog | |
 | E2E: Helfer, Bildtour | `e2e/support/game.ts`, `e2e/tests/ui-tour.e2e.ts` | [E2E.md](E2E.md) |
 
 ## Prüfung

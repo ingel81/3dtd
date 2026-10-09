@@ -29,7 +29,8 @@ import { RunLogFacade } from '../../../../run-log/run-log.facade';
 import { ReplayService } from '../../../../services/replay.service';
 import { BenchmarkService } from '../../../../benchmark/benchmark.service';
 import { LocationManagementService } from '../../../../services/location/location-management.service';
-import { ExtrasListComponent, LEGAL_URL } from './extras-list.component';
+import { ExtrasListComponent } from './extras-list.component';
+import { LEGAL_URL } from '../../../../utils/public-url';
 
 const template = readFileSync(resolve('src/app/components/main-menu/pages/extras/extras-list.component.html'), 'utf8');
 
