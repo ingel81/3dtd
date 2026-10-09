@@ -50,9 +50,9 @@ describe('QuickActionsComponent', () => {
       return [quick.perTowerLosFilterIcon(), quick.perTowerLosFilterTooltip()];
     });
     expect(seen).toEqual([
-      ['layers', 'Per-tower LOS: Both layers (click → Ground only)'],
-      ['grid', 'Per-tower LOS: Ground only (click → Air only)'],
-      ['gridAir', 'Per-tower LOS: Air only (click → Both layers)'],
+      ['layers', 'Per-tower LOS: Both layers (click: Ground only)'],
+      ['grid', 'Per-tower LOS: Ground only (click: Air only)'],
+      ['gridAir', 'Per-tower LOS: Air only (click: Both layers)'],
     ]);
   });
 

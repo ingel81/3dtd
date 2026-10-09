@@ -84,7 +84,7 @@ describe('waveButtonView', () => {
     it('with "Auto 10 s" the count carries the countdown every client runs alike (D44)', () => {
       expect(waveButtonView(3, false, 0, 0, 7, 10, { ready: false, readyCount: 1, playerCount: 2, hostStarts: false })).toMatchObject({
         label: 'Ready for wave 3',
-        coopReady: '1/2 ready · 7s',
+        coopReady: '1/2 ready | 7s',
       });
     });
 

@@ -1,32 +1,31 @@
-<!-- PASSIVE BUILDING Panel (Missile Silo) -->
-<section class="td-panel td-building-panel">
-  <div class="td-panel-header td-tower-header">
-    <span class="td-tower-header-name" [class.td-sell-armed-text]="sellArmed()" aria-live="polite">
-      {{ sellArmed() ? 'Click again to sell' : (tower().typeConfig.name | uppercase) }}
-    </span>
-    @if (sellValue() > 0) {
-      <button class="td-header-sell-btn"
-              [class.armed]="sellArmed()"
-              aria-keyshortcuts="Delete"
-              [matTooltip]="sellArmed() ? 'Click again to sell for ' + sellValue() + ' credits' : 'Sell: refunds 75% of its cost'"
-              matTooltipPosition="left"
-              [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + sellValue() + ' credits'"
-              (click)="onSell()">
-        <td-icon name="coin" [size]="14"></td-icon>
-        <span class="td-header-sell-value">+{{ sellValue() }}</span>
-      </button>
-    }
-  </div>
-  <div class="td-panel-content td-building-section">
-    @if (tower().typeConfig.description; as description) {
-      <p class="td-building-info">{{ description }}</p>
-    }
-    @for (ability of abilities(); track ability.id) {
-      <div class="td-building-ability">
-        <span class="td-building-ability-name">{{ ability.name }}</span>
-        <span class="td-building-key" aria-hidden="true">{{ ability.hotkey }}</span>
-        <span class="td-building-ability-status">{{ ability.status }}</span>
-      </div>
-    }
-  </div>
-</section>
+<!-- PASSIVE BUILDING section (Missile Silo) -->
+<h2 class="td-side-head">
+  <span class="td-side-name" [class.is-armed]="sellArmed()" aria-live="polite">
+    {{ sellArmed() ? 'Click again to sell' : tower().typeConfig.name }}
+  </span>
+  @if (sellValue() > 0) {
+    <button class="td-btn-danger td-btn-sm"
+            [class.is-armed]="sellArmed()"
+            aria-keyshortcuts="Delete"
+            [matTooltip]="sellArmed() ? 'Click again to sell for ' + sellValue() + ' credits' : 'Sell: refunds 75% of its cost'"
+            matTooltipPosition="left"
+            [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + sellValue() + ' credits'"
+            (click)="onSell()">
+      Sell <span class="td-num">{{ sellValue() }}</span>
+    </button>
+  }
+</h2>
+@if (tower().typeConfig.description; as description) {
+  <p class="td-text">{{ description }}</p>
+}
+<div class="td-rows">
+  @for (ability of abilities(); track ability.id) {
+    <div class="td-row">
+      <span class="td-inline">
+        <span class="td-name">{{ ability.name }}</span>
+        <kbd class="td-kbd" aria-hidden="true">{{ ability.hotkey }}</kbd>
+      </span>
+      <span class="td-note">{{ ability.status }}</span>
+    </div>
+  }
+</div>

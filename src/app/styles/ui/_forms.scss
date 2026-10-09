@@ -1,0 +1,348 @@
+// Form controls, all native elements: sunken fields (input, select, textarea),
+// labels, error messages, segments, switches (checkboxes) and sliders with a
+// scale (range inputs).
+@use 'base';
+
+// A field with its label over it
+@mixin field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+@mixin label {
+  font-size: var(--td-fs-body);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--td-text-muted);
+}
+
+// The hint text in an empty field (60 %: readable, still not a value)
+@mixin placeholder {
+  color: color-mix(in srgb, var(--td-text-primary) 60%, transparent);
+}
+
+// The focus of a field: a 2px light brass frame inside the well, for the
+// mouse too (the caret goes there)
+@mixin focus-edge {
+  outline: none;
+  box-shadow: var(--td-well-shadow), inset 0 0 0 var(--td-focus-width) var(--td-focus-color);
+}
+
+// The dark red edge of a field with an error
+@mixin error-edge {
+  box-shadow: var(--td-well-shadow), inset 0 0 0 1px color-mix(in srgb, var(--td-danger-edge) 80%, transparent);
+}
+
+// A sunken field: input, select, textarea. The focus is shown for the mouse
+// too, the caret goes there.
+@mixin input($height: var(--td-h-field)) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: $height;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--td-radius);
+  background: var(--td-well);
+  box-shadow: var(--td-well-shadow);
+  color: var(--td-text-primary);
+  font-family: var(--td-font);
+  font-size: var(--td-fs-text);
+  font-weight: 500;
+  outline: none;
+  @include base.motion(box-shadow);
+
+  &::placeholder {
+    @include placeholder;
+  }
+
+  &:focus,
+  &:focus-visible {
+    @include focus-edge;
+  }
+
+  @include base.disabled;
+
+  &.is-error,
+  &[aria-invalid='true'] {
+    @include error-edge;
+  }
+
+  // Number fields without the browser's spin arrows
+  &[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  &[type='number']::-webkit-inner-spin-button,
+  &[type='number']::-webkit-outer-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+  }
+}
+
+// A field that holds more than the input: an icon, the input, a button.
+// The wrapper is the field; the input inside has no frame of its own.
+@mixin input-group {
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-2);
+
+  &:focus-within {
+    @include focus-edge;
+  }
+
+  &.is-error,
+  &:has(> input[aria-invalid='true']) {
+    @include error-edge;
+  }
+
+  &:has(> input:disabled) {
+    opacity: var(--td-disabled-opacity);
+  }
+
+  > td-icon {
+    flex: 0 0 auto;
+    color: var(--td-text-muted);
+  }
+
+  > input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    outline: none;
+
+    &::placeholder {
+      @include placeholder;
+    }
+  }
+}
+
+// A small field: in 30px rows, next to small buttons (chat, names, numbers)
+@mixin input-small {
+  height: var(--td-h-button-sm);
+  padding: 0 8px;
+  font-size: var(--td-fs-body);
+}
+
+// Codes and keys: mono caps, wide
+// (Mono is loaded in 400 and 600 only: codes are 600 everywhere)
+@mixin input-code {
+  font-family: var(--td-font-mono);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+// A select: a field with a brass chevron at the right
+@mixin select {
+  @include input;
+  padding-right: 32px;
+  appearance: none;
+  cursor: pointer;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--td-brass) 50%) calc(100% - 17px) 50% / 6px 6px no-repeat,
+    linear-gradient(-45deg, transparent 50%, var(--td-brass) 50%) calc(100% - 11px) 50% / 6px 6px no-repeat,
+    var(--td-well);
+
+  option {
+    background: var(--td-bg-surface);
+    color: var(--td-text-primary);
+  }
+}
+
+// The message under a field with an error, a warning sign before it
+@mixin error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--td-fs-body);
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--td-error-text);
+
+  &::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    background: currentColor;
+    // A triangle with a bar and a dot cut out; the mask only reads alpha
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M12 2l10 19H2zM11 9h2v6h-2zm0 8h2v2h-2z'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+}
+
+// Segments: one button per choice; the chosen one sunken with brass text
+@mixin segmented {
+  display: flex;
+  gap: 3px;
+
+  > button {
+    display: grid;
+    flex: 1 1 0;
+    place-items: center;
+    min-width: 0;
+    height: var(--td-h-button);
+    padding: 0 12px 2px;
+    border: 0;
+    border-radius: var(--td-radius);
+    background: color-mix(in srgb, var(--td-ink) 14%, transparent);
+    color: var(--td-text-quiet);
+    font-family: var(--td-font);
+    font-size: var(--td-fs-text);
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    @include base.focus-ring(-2px);
+    @include base.motion(color, background-color, box-shadow);
+
+    &:hover#{base.$enabled} {
+      color: var(--td-text-primary);
+    }
+
+    &.is-on,
+    &[aria-pressed='true'],
+    &[aria-checked='true'],
+    &[aria-selected='true'] {
+      background: color-mix(in srgb, var(--td-ink) 30%, transparent);
+      box-shadow: var(--td-well-deep);
+      color: var(--td-brass-light);
+    }
+
+    &.is-on.is-warn {
+      color: var(--td-warn-text);
+    }
+
+    @include base.disabled;
+  }
+}
+
+// A switch, on an <input type="checkbox">: a sunken slot, the knob slides
+// to the right and turns brass. On a <span> inside a toggle button it shows
+// the button's state with .is-on.
+@mixin switch {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 20px;
+  margin: 0;
+  border-radius: var(--td-radius);
+  background: var(--td-well);
+  box-shadow: var(--td-well-shadow);
+  appearance: none;
+  cursor: pointer;
+  @include base.focus-ring;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--td-switch-off);
+    @include base.motion(left, background-color);
+  }
+
+  &:checked::before,
+  &.is-on::before {
+    left: 23px;
+    background: var(--td-brass);
+  }
+
+  @include base.disabled;
+}
+
+// A switch with its text: <label class="td-check"><input class="td-switch">Text</label>,
+// or a toggle <button class="td-check"> with a <span class="td-switch"> (its
+// state in aria-pressed). The text takes the size of where it stands.
+@mixin check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  color: var(--td-text-primary);
+  white-space: nowrap;
+  cursor: pointer;
+
+  @at-root button#{&} {
+    @include base.button-reset;
+    font-size: inherit;
+    @include base.focus-ring;
+
+    // The switch in a toggle button shows the button's state
+    &[aria-pressed='true'] > .td-switch::before {
+      left: 23px;
+      background: var(--td-brass);
+    }
+  }
+}
+
+// A slider with a scale, on an <input type="range">. The brass fill left of
+// the handle is drawn by the handle's border image (Chromium) and by
+// ::-moz-range-progress (Firefox); the input clips it.
+@mixin slider {
+  --track: 6px;
+  width: 100%;
+  min-width: 0;
+  height: 20px;
+  margin: 0;
+  overflow: hidden;
+  background: none;
+  appearance: none;
+  cursor: pointer;
+  @include base.focus-ring;
+
+  &::-webkit-slider-runnable-track {
+    height: var(--track);
+    background:
+      repeating-linear-gradient(90deg, var(--td-line-dark) 0 calc(10% - 2px), transparent calc(10% - 2px) 10%),
+      var(--td-well);
+    box-shadow: inset 0 1px 2px var(--td-ink);
+  }
+
+  &::-webkit-slider-thumb {
+    width: 10px;
+    height: 16px;
+    margin-top: calc((var(--track) - 16px) / 2);
+    border: 0;
+    background: var(--td-knob);
+    box-shadow: inset 0 1px 0 var(--td-knob-light), inset 0 -2px 0 var(--td-knob-dark);
+    border-image: linear-gradient(90deg, var(--td-brass) 50%, transparent 0) 0 1 / calc(50% - var(--track) / 2) 100vw / 0 100vw;
+    appearance: none;
+  }
+
+  &::-moz-range-track {
+    height: var(--track);
+    background:
+      repeating-linear-gradient(90deg, var(--td-line-dark) 0 calc(10% - 2px), transparent calc(10% - 2px) 10%),
+      var(--td-well);
+    box-shadow: inset 0 1px 2px var(--td-ink);
+  }
+
+  &::-moz-range-progress {
+    height: var(--track);
+    background: var(--td-brass);
+  }
+
+  &::-moz-range-thumb {
+    width: 10px;
+    height: 16px;
+    border: 0;
+    border-radius: 0;
+    background: var(--td-knob);
+    box-shadow: inset 0 1px 0 var(--td-knob-light), inset 0 -2px 0 var(--td-knob-dark);
+  }
+
+  @include base.disabled;
+}

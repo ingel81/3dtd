@@ -40,12 +40,6 @@ export class ReplayBarComponent {
   readonly time = computed(() => formatClock(this.replay.timeMs()));
   readonly duration = computed(() => formatClock(this.replay.durationMs()));
 
-  /** Share of the wave played, fills the progress bar */
-  readonly progress = computed(() => {
-    const duration = this.replay.durationMs();
-    return duration > 0 ? (this.replay.timeMs() / duration) * 100 : 0;
-  });
-
   readonly speedLabel = formatReplaySpeed;
 
   /** A wave before or after the shown one can be replayed */

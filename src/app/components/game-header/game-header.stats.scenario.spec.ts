@@ -88,7 +88,7 @@ describe('Header stat plates', () => {
   }
   const el = () => fixture.nativeElement as HTMLElement;
   const plate = (kind: string) => el().querySelector(`.stat-plate.${kind}`) as HTMLElement;
-  const lit = () => el().querySelectorAll('.seg-bar i.lit').length;
+  const lit = () => el().querySelectorAll('.stat-bar i.is-on').length;
 
   it('lights ten segments at full health, warms below 30 % and stripes below 10 %', () => {
     expect(plate('hp').dataset['level']).toBe('ok');
@@ -104,7 +104,7 @@ describe('Header stat plates', () => {
     expect(plate('hp').dataset['level']).toBe('critical');
     expect(lit()).toBe(1);
     expect(el().querySelector('.hazard')).not.toBeNull();
-    expect(plate('hp').querySelector('.sr-only')!.textContent).toContain(`/ ${MAX}`);
+    expect(plate('hp').querySelector('.td-sr-only')!.textContent).toContain(`/ ${MAX}`);
   });
 
   it('flashes the HQ plate on a loss, not on a reset back up', () => {
@@ -123,7 +123,7 @@ describe('Header stat plates', () => {
     vi.advanceTimersByTime(100);
     set({ credits: 1050 });
     expect(delta()!.textContent).toBe('+50');
-    expect(plate('credits').querySelector('.sr-only')!.textContent).toBe('1,050');
+    expect(plate('credits').querySelector('.td-sr-only')!.textContent).toBe('1,050');
     vi.advanceTimersByTime(1000);
     fixture.detectChanges();
     expect(delta()).toBeNull();
@@ -150,11 +150,11 @@ describe('Header stat plates', () => {
     expect(el().querySelector('.credits-delta')!.textContent).toBe('+10');
   });
 
-  it('flashes the credits plate when a buy is refused for too few credits', () => {
+  it('flashes the credits figure when a buy is refused for too few credits', () => {
     refuseForCredits();
     fixture.detectChanges();
     expect(animate).toHaveBeenCalledTimes(1);
-    expect(animate.mock.contexts[0]).toBe(plate('credits'));
+    expect(animate.mock.contexts[0]).toBe(plate('credits').querySelector('.stat-num'));
   });
 
   it('fills the wave bar with the share of the wave that is gone and edges the plate in brass at the start', () => {

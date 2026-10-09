@@ -1,37 +1,26 @@
+// Layout of the line of sight legend: a strip with a swatch per state.
+
 :host {
   display: block;
   pointer-events: none;
 }
 
 .los-legend {
-  background: var(--td-glass-tint);
-  backdrop-filter: blur(8px) saturate(1.1);
-  -webkit-backdrop-filter: blur(8px) saturate(1.1);
-  border: 1px solid var(--td-frame-mid);
   padding: 6px 12px;
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.33),
-    var(--td-shadow-soft);
-  font-family: var(--td-font-body);
 }
 
 .los-legend-title {
-  color: var(--td-gold-light);
-  font-size: var(--td-fs-micro);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-align: center;
   margin-bottom: 4px;
-  opacity: 0.85;
+  text-align: center;
+  color: var(--td-brass-light);
 }
 
 .los-legend-row {
   display: flex;
-  gap: 14px;
-  justify-content: center;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
+  gap: 14px;
 }
 
 .los-legend-item {
@@ -40,17 +29,4 @@
   gap: 6px;
 }
 
-.los-legend-swatch {
-  width: 12px;
-  height: 12px;
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.35);
-  flex-shrink: 0;
-}
 
-.los-legend-label {
-  color: var(--td-text-primary);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}

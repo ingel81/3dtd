@@ -78,7 +78,7 @@ describe('stampScreenshot', () => {
   const watermark = (drawn: ReturnType<typeof fakeCanvas>['drawn']) =>
     drawn('drawImage').find((call) => call.args[0] === logo);
 
-  it('keeps the provider logos bottom left and the attribution text as it was', () => {
+  it('keeps the provider logos bottom left and the attribution text on the strip of the game', () => {
     const { canvas, drawn } = fakeCanvas(1920, 1080);
     stampScreenshot(canvas, 'Map data ©2026 Google', [google], { logo, url: SCREENSHOT_URL });
 
@@ -87,7 +87,7 @@ describe('stampScreenshot', () => {
     expect((strip.args as number[])[1]).toBe(1080 - 7 - 18);
     const text = drawn('fillText').find((call) => call.args[0] === 'Map data ©2026 Google')!;
     expect(text.alpha).toBe(1);
-    expect(text.style).toBe('#444');
+    expect(text.style).toBe(TD_THEME.textMuted);
   });
 
   it('stacks logo and address as one block bottom right, the address centred under the logo', () => {

@@ -31,7 +31,7 @@ describe('roomStatus and startBlocked', () => {
 
   it('alone: waits for a second player, with a free segment', () => {
     const status = roomStatus({ ...base, room: room([player('ann', 's1')]) })!;
-    expect(status.text).toBe('Waiting for a second player · share the code');
+    expect(status.text).toBe('Waiting for a second player | share the code');
     expect(status.segments).toEqual([true, false]);
     expect(startBlocked(room([player('ann', 's1')]), true)).toBe('Needs a second player');
   });
@@ -43,7 +43,7 @@ describe('roomStatus and startBlocked', () => {
     expect(roomStatus({ ...base, room: noLane })).toMatchObject({ bold: 'BOB', text: ' to take a lane' });
     // A spawn nobody took holds the start; anyone may take it as one more lane (docs/WAVE_SYSTEM.md (Spuren))
     const freeLane = room([player('ann', 's1'), player('bob', 's2', { ready: true })]);
-    expect(roomStatus({ ...base, room: freeLane })).toMatchObject({ bold: 'Spawn 3', text: ' has nobody yet · anyone can take it' });
+    expect(roomStatus({ ...base, room: freeLane })).toMatchObject({ bold: 'Spawn 3', text: ' has nobody yet | anyone can take it' });
     expect(startBlocked(freeLane, true)).toBe('Spawn 3 has nobody');
     const notReady = room([player('ann', 's1'), player('bob', 's2')], ['s1', 's2']);
     expect(roomStatus({ ...base, room: notReady })).toMatchObject({ bold: 'BOB', text: ' to ready up (1/2)' });
@@ -74,7 +74,7 @@ describe('roomTable', () => {
       leftIds: new Set(),
     });
     expect(table.lanes.map((l) => [l.label, l.player?.name ?? null])).toEqual([['Spawn 1', 'ANN'], ['Spawn 2', null], ['Spawn 3', 'BOB']]);
-    expect(table.lanes[0]).toMatchObject({ length: '820 m · 3:47', share: 1, color: '#ef4444' });
+    expect(table.lanes[0]).toMatchObject({ length: '820 m | 3:47', share: 1, color: '#ef4444' });
     expect(table.lanes[0].player).toMatchObject({ host: true, ready: true, latency: 30 });
     expect(table.lanes[2].player).toMatchObject({ me: true, ready: true });
     expect(table.seatless.map((p) => [p.name, p.doing])).toEqual([['CARL', 'Loading the map…']]);

@@ -56,7 +56,7 @@ import { createMainEventBus, type MainEventBus } from '../../sim/client/view-eve
  */
 
 const EXPLANATION: DecisionExplanation = {
-  summary: 'Wave 1: Zombie Horde · 20 enemies · HP ×0.50',
+  summary: 'Wave 1: Zombie Horde | 20 enemies | HP ×0.50',
   reasons: ['Campaign: wave 1 is always Zombie Horde (waves 1-30 are fixed).'],
 };
 

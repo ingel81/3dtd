@@ -13,9 +13,7 @@ import { COOP } from '../../services/coop.token';
   template: `
     <div class="speed-group" role="group" aria-label="Game speed">
       <button
-        class="hud-btn pause-btn"
-        [class.paused]="paused()"
-        [class.is-locked]="!mayPause()"
+        class="td-icon-btn pause-btn"
         [attr.aria-disabled]="!mayPause()"
         (click)="togglePause()"
         [matTooltip]="!mayPause() ? PAUSE_TIP : paused() ? 'Resume (P)' : 'Pause (P)'"
@@ -26,20 +24,19 @@ import { COOP } from '../../services/coop.token';
         <td-icon [name]="paused() ? 'play' : 'pause'" [size]="16"></td-icon>
       </button>
       <button
-        class="hud-btn speed-btn"
-        [class.fast]="currentSpeed() > 1"
+        class="td-btn-secondary td-btn-sm speed-btn"
+        [class.is-on]="currentSpeed() > 1"
         (click)="cycleSpeed()"
-        [class.is-locked]="guest()"
         [attr.aria-disabled]="guest()"
         [matTooltip]="guest() ? GUEST_TIP : 'Game Speed: ' + currentSpeed() + 'x (+/-)'"
         [attr.aria-label]="'Game speed ' + currentSpeed() + 'x'"
         matTooltipPosition="below">
-        <td-icon [name]="currentSpeed() === 1 ? 'play' : 'fastForward'" [size]="18"></td-icon>
+        <td-icon [name]="currentSpeed() === 1 ? 'play' : 'fastForward'" [size]="16"></td-icon>
         {{ currentSpeed() }}x
       </button>
     </div>
     @if (paused()) {
-      <div class="paused-chip" role="status">Paused</div>
+      <div class="paused-chip td-overlay td-caps" role="status">Paused</div>
     }
   `,
   styles: `
@@ -52,60 +49,15 @@ import { COOP } from '../../services/coop.token';
     }
     .speed-group {
       display: flex;
-      gap: 2px;
-    }
-    .hud-btn {
-      display: flex;
-      align-items: center;
       gap: 4px;
-      background: var(--td-panel-main);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      color: var(--td-text-secondary);
-      padding: 4px 10px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      font-family: inherit;
-      transition: all 0.15s;
-    }
-    .hud-btn:focus-visible {
-      outline: var(--td-focus-width) solid var(--td-focus-color);
-      outline-offset: var(--td-focus-offset);
-    }
-    .hud-btn.is-locked {
-      cursor: default;
-      opacity: 0.6;
-    }
-    .hud-btn:hover:not(.is-locked) {
-      background: var(--td-frame-mid);
-      color: var(--td-text-primary);
     }
     .pause-btn {
-      padding: 4px 7px;
-    }
-    /* Paused: the button now resumes, held in like a pressed key */
-    .pause-btn.paused {
-      background: var(--td-panel-shadow);
-      border-color: var(--td-gold-dark);
-      color: var(--td-gold-light);
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
-    }
-    .speed-btn.fast {
-      background: var(--td-teal);
-      color: var(--td-bg-dark);
+      width: var(--td-h-button-sm);
+      height: var(--td-h-button-sm);
     }
     .paused-chip {
-      padding: 3px 10px;
-      font: 600 13px/1 var(--td-font-display);
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--td-gold-light);
-      background: var(--td-glass-tint);
-      backdrop-filter: blur(8px) saturate(1.1);
-      border: 1px solid var(--td-frame-dark);
-      box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.33), var(--td-shadow-soft);
+      padding: 4px 10px;
+      color: var(--td-brass-light);
       pointer-events: none;
     }
   `

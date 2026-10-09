@@ -1,18 +1,13 @@
-// The loading plate on the foundation: a plate with a brass segmented bar,
-// mono numbers, a banner for a load that went wrong.
-@use '../../../styles/game-ui' as ui;
-
-@include ui.classes;
+// Layout of the loading plate: place and percent in the head, the bar, the
+// step line, the list of steps. The look comes from the td-* classes.
 
 :host {
   display: block;
   width: 380px;
   max-width: calc(100vw - 32px);
-  @include ui.plate-shadow;
 }
 
 .ml-plate {
-  @include ui.plate;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -26,40 +21,10 @@
   gap: var(--td-sp-3);
 }
 
-.ml-place {
-  margin: 0;
-  overflow: hidden;
-  font-family: var(--td-font-display);
-  font-weight: 600;
-  font-size: var(--td-fs-lead);
-  letter-spacing: 0.08em;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: var(--td-text-primary);
-}
-
-.ml-percent {
-  font-family: var(--td-font-mono);
-  font-size: 12px;
-  color: var(--td-gold-light);
-}
-
-.ml-bar {
-  @include ui.seg-bar;
-}
-
 .ml-step {
   display: flex;
   justify-content: space-between;
   gap: var(--td-sp-3);
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-small);
-  color: var(--td-text-secondary);
-}
-
-.ml-step-meta {
-  color: var(--td-text-muted);
 }
 
 .ml-step-count {
@@ -67,22 +32,15 @@
 }
 
 .ml-toggle {
-  @include ui.btn-ghost(26px);
   align-self: flex-start;
-  padding: 0 8px;
-  font-size: var(--td-fs-small);
 }
 
 .ml-steps {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin: 0;
   padding: 0;
   list-style: none;
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-small);
-  color: var(--td-text-muted);
 }
 
 .ml-steps-row {
@@ -96,30 +54,9 @@
 }
 
 .ml-current {
-  color: var(--td-gold-light);
+  color: var(--td-brass-light);
 }
 
-.ml-problem {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-left: 10px;
-  border-left: 2px solid var(--td-warn-orange);
-
-  p {
-    margin: 0;
-    font-size: var(--td-fs-body);
-    line-height: 1.45;
-    color: var(--td-text-primary);
-  }
-}
-
-.ml-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--td-sp-2);
-}
-
-.ml-sr-only {
-  @include ui.sr-only;
+.ml-problem p {
+  margin: 0;
 }

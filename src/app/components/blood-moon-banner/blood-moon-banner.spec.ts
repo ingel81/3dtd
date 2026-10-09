@@ -19,7 +19,7 @@ describe('bloodMoonBanner', () => {
 
   it('names the mutator, and announces it with the look switched off too', () => {
     const swift = WAVE_MUTATORS.swift;
-    const banner = { wave: 'Wave 14 · Swift', announcement: `Blood moon, wave 14. Swift: ${swift.description}` };
+    const banner = { wave: 'Wave 14 | Swift', announcement: `Blood moon, wave 14. Swift: ${swift.description}` };
     expect(bloodMoonBanner(14, true, swift)).toEqual(banner);
     expect(bloodMoonBanner(14, false, swift)).toEqual(banner);
     expect(bloodMoonBanner(13, true, swift)).toBeNull();

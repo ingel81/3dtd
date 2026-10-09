@@ -1,17 +1,16 @@
-@use '../../styles/game-ui' as ui;
-
-/* Left edge of the canvas. Above the leak vignette (4) and the off-screen
- * arrows (5), below the game-over overlay (20). `left`, the border, the
- * padding, the button size and `clear` come from ABILITY_BAR_PX in
- * ability-button.ts (host bindings of the component), the numbers
- * ABILITY_BAR_EDGE_PX is summed from; the off-screen arrows keep clear of
- * that edge.
+/* Layout of the ability bar at the left edge of the canvas. Above the leak
+ * vignette (4) and the off-screen arrows (5), below the game-over overlay
+ * (20). `left`, the border, the padding, the button size and `clear` come
+ * from ABILITY_BAR_PX in ability-button.ts (host bindings of the
+ * component), the numbers ABILITY_BAR_EDGE_PX is summed from; the
+ * off-screen arrows keep clear of that edge.
  *
  * The host spans the height of the canvas area; the bar stands right below
- * the info overlay (--td-bar-top: its measured bottom plus `clear`, User
- * 2026-09-25), the room below it (the pseudo-element) keeps clear of the
- * logo row (--td-logo-bottom and --td-logo-height of the game component).
- * On a canvas too low for all of it, the bar shrinks and scrolls. */
+ * the info overlay (--td-bar-top: its measured bottom plus `clear`), the
+ * room below it (the pseudo-element) keeps clear of the logo row
+ * (--td-logo-bottom and --td-logo-height of the game component). On a
+ * canvas too low for all of it, the bar shrinks and scrolls. The look is a
+ * td-overlay strip with td-icon-btn stones. */
 :host {
   position: absolute;
   top: 0;
@@ -45,93 +44,39 @@
   scrollbar-width: none;
   pointer-events: auto;
   padding: var(--td-bar-pad);
-  @include ui.glass-strip;
-  border-width: var(--td-bar-border);
+  border: var(--td-bar-border) solid transparent;
 }
 
-/* Hairline between the hero and the abilities */
 .td-bar-rule {
   flex-shrink: 0;
-  height: 1px;
   margin: 0 4px;
-  background: var(--td-frame-dark);
 }
 
-/* === Buttons ===
- * 44px squares, sunk into the bar like the running wave button (vertiefte
- * Fläche, DESIGN_SYSTEM.md). Key cap top right, a stroke per wave to the
- * next charge at the bottom. Gold only while an ability is ready, the full
- * gold gradient of the wave button while it aims. A button appears once
- * its research is done.
- *   ready      rim --td-gold-dark, icon --td-gold-light
- *   armed       gold gradient, icon, key and strokes dark
- *   waiting     charged, no wave: icon --td-text-muted
- *   pending     strike on its way: icon --td-warn-orange
- *   recharging  icon --td-text-disabled
- * Without effect a button stays clickable (aria-disabled), so its tooltip
- * shows. */
+/* A stone per ability. Key top right, a stroke per wave to the next charge
+ * at the bottom. Brass while it is ready, pressed while it aims. Without
+ * effect a button stays clickable (aria-disabled), so its tooltip shows.
+ *   ready       icon brass
+ *   armed       pressed (aria-pressed), brass
+ *   waiting     charged, no wave: icon muted
+ *   pending     strike on its way: icon orange
+ *   recharging  icon disabled */
 .td-bar-btn {
   position: relative;
   flex-shrink: 0;
   width: var(--td-bar-btn);
   height: var(--td-bar-btn);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0 4px;
-  background: var(--td-panel-shadow);
+  padding-bottom: 4px;
   color: var(--td-text-disabled);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.5),
-    inset 0 -1px 0 rgba(74, 84, 77, 0.13);
-  cursor: default;
-  transition: box-shadow 0.18s ease, color 0.18s ease, border-color 0.18s ease;
-}
-
-.td-bar-btn:focus-visible {
-  outline: var(--td-focus-width) solid var(--td-focus-color);
-  outline-offset: 2px;
 }
 
 .td-bar-key {
   position: absolute;
-  top: 3px;
-  right: 4px;
-  font: 600 10px/1 var(--td-font-mono);
-  letter-spacing: 0.04em;
-  color: var(--td-text-muted);
+  top: 4px;
+  right: 5px;
 }
 
 .td-ability-btn[data-state='ready'] {
-  color: var(--td-gold-light);
-  border-color: var(--td-gold-dark);
-  cursor: pointer;
-}
-
-.td-ability-btn[data-state='ready']:hover {
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.5),
-    0 0 0 1px var(--td-gold);
-}
-
-.td-ability-btn[data-state='armed'] {
-  background: linear-gradient(
-    180deg,
-    var(--td-gold-light) 0%,
-    var(--td-gold) 55%,
-    var(--td-gold-dark) 100%
-  );
-  color: #1A140A;
-  border-color: #11140F;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 0 0 1px var(--td-gold);
-  cursor: pointer;
-}
-
-.td-ability-btn[data-state='armed'] .td-bar-key {
-  color: #1A140A;
+  color: var(--td-brass-light);
 }
 
 .td-ability-btn[data-state='waiting'] {
@@ -139,24 +84,22 @@
 }
 
 .td-ability-btn[data-state='pending'] {
-  color: var(--td-warn-orange);
+  color: var(--td-warn-text);
 }
 
 /* Charges on hand, only for an ability that holds more than one */
 .td-ability-charges {
   position: absolute;
   top: 3px;
-  left: 4px;
-  font: 700 10px/1 var(--td-font-mono);
-  font-variant-numeric: tabular-nums;
-  color: var(--td-gold-light);
+  left: 5px;
+  font-size: var(--td-fs-small);
 }
 
 .td-ability-pips {
   position: absolute;
   left: 8px;
   right: 8px;
-  bottom: 5px;
+  bottom: 6px;
   display: flex;
   gap: 3px;
 }
@@ -164,33 +107,15 @@
 .td-ability-pip {
   flex: 1;
   height: 2px;
-  background: var(--td-frame-mid);
+  background: var(--td-line-dark);
+
+  &.is-on {
+    background: var(--td-brass);
+  }
 }
 
-.td-ability-pip.td-ability-pip-lit {
-  background: var(--td-gold);
-}
-
-.td-ability-btn[data-state='armed'] .td-ability-pip.td-ability-pip-lit {
-  background: #1A140A;
-}
-
-/* Hero: a plain switch, lit in the active recipe of the dev tiles while the
- * hero is selected */
+/* The hero: a plain switch, pressed while he is selected */
 .td-bar-hero {
   padding: 0;
   color: var(--td-text-secondary);
-  cursor: pointer;
-}
-
-.td-bar-hero:hover {
-  color: var(--td-text-primary);
-  border-color: var(--td-frame-mid);
-}
-
-.td-bar-hero.td-bar-hero-selected {
-  background: rgba(194, 160, 85, 0.16);
-  border-color: var(--td-gold-dark);
-  box-shadow: inset 0 0 0 1px rgba(217, 188, 104, 0.18);
-  color: var(--td-gold-light);
 }

@@ -29,6 +29,7 @@ const BANNER_MS = 3600;
  */
 @Component({
   selector: 'app-blood-moon-banner',
+  host: { class: 'td-chip-slot' },
   standalone: true,
   imports: [TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,

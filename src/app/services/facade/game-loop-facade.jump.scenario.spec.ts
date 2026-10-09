@@ -142,7 +142,7 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     facade.startWave();
     await settle();
     expect(startedTypes()).toEqual(['worm']);
-    expect(store.waveExplanation()?.summary).toMatch(/^Wave 30: Boss: Skarnax · 1 enemies · HP ×[\d.]+$/);
+    expect(store.waveExplanation()?.summary).toMatch(/^Wave 30: Boss: Skarnax | 1 enemies | HP ×[\d.]+$/);
 
     // The header reads the store's wave
     bus.emit({ type: 'wave:started', wave: 30, enemyCount: 1 });

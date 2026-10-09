@@ -987,7 +987,7 @@ export class CoopService {
     if (!engine) return;
     const name = this.nameOf(from);
     const color = this.laneColorOf(from);
-    engine.effects.spawnFloatingText(`▼ ${name}`, lat, lon, height + 8, {
+    engine.effects.spawnFloatingText(`↓ ${name}`, lat, lon, height + 8, {
       color,
       duration: PING_MS,
       floatSpeed: 0.4,

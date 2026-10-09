@@ -182,7 +182,7 @@ describe('Coop page, the ways in', () => {
     ]);
     fixture.detectChanges();
     expect(text(fixture)).toContain(`The host plays 0.0.1, you play ${BUILD_VERSION}.`);
-    const joins = Array.from(el(fixture).querySelectorAll<HTMLButtonElement>('.cw-room .btn-xs'));
+    const joins = Array.from(el(fixture).querySelectorAll<HTMLButtonElement>('.cw-room .td-btn-sm'));
     expect(joins[0].getAttribute('aria-disabled')).toBe('true');
     joins[0].click();
     expect(coop.join).not.toHaveBeenCalled();
@@ -251,7 +251,7 @@ describe('Coop page, the ways in', () => {
       { code: 'LAN222', host: 'Eve', players: 1, protocol: PROTOCOL_VERSION, gameVersion: '0.0.1' },
     ]);
     fixture.detectChanges();
-    const joins = Array.from(el(fixture).querySelectorAll<HTMLButtonElement>('.cw-lan .btn-xs'));
+    const joins = Array.from(el(fixture).querySelectorAll<HTMLButtonElement>('.cw-lan .td-btn-sm'));
     joins[1].click();
     expect(coop.joinLan).not.toHaveBeenCalled();
     expect(text(fixture)).toContain('Both need the same version.');

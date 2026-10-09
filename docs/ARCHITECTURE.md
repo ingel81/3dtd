@@ -169,7 +169,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **EconomyService** | Wave-Completion-Bonus + Perfect-Streak (extrahiert aus GameStateManager, 2026-05-10) |
 | **AbilityTargetingService** | Zielmodus einer Fähigkeit: Ring im Radius des Schlags am Cursor, auf die Route gesnappt, Klick sendet `command:use-ability`, siehe [ABILITIES.md](ABILITIES.md) |
 | **HeroControlService** | Held wählen, schicken (`command:hero-move`), anheuern und Munition wechseln, siehe [HERO.md](HERO.md) |
-| **PhotoModeService** | Photo Mode: HUD aus, Screenshot mit Logo und Adresse (`utils/screenshot.ts`), siehe [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#photo-mode) |
+| **PhotoModeService** | Photo Mode: HUD aus, Screenshot mit Logo und Adresse (`utils/screenshot.ts`), siehe [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#weitere-teile-über-der-karte) |
 | **ReplayService** | Replay einer Welle starten und verlassen: Pause, `ReplaySession`, Kamera, Menü und Fokus zurück, Datei, siehe [REPLAY.md](REPLAY.md) |
 | **SellConfirmService** | Verkauf in zwei Schritten ohne Dialog (`SELL_CONFIRM_WINDOW_MS`), für Tower- und Research-Panel |
 | **RefusalHintService** | Hinweis in der Context-Hint-Box, wenn eine Fähigkeit oder der Held einen Befehl des Spielers ablehnt |

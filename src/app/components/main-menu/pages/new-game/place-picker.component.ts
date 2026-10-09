@@ -62,6 +62,7 @@ interface SearchedPlace {
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './place-picker.component.html',
   styleUrl: './place-picker.component.scss',
+  host: { class: 'td-stack is-loose' },
 })
 export class PlacePickerComponent {
   private readonly geocoding = inject(GeocodingService);

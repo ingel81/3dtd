@@ -1,5 +1,5 @@
 <div
-  class="debug-panel"
+  class="debug-panel td-dlg td-dense"
   [style.left.px]="position().x"
   [style.top.px]="position().y"
   [style.z-index]="zIndex()"
@@ -8,16 +8,18 @@
   (mousedown)="onPanelClick()"
 >
   <div
-    class="debug-panel-header"
+    class="debug-panel-header td-dlg-head"
     (mousedown)="onHeaderMouseDown($event)"
   >
-    <td-icon class="debug-panel-icon" [name]="$any(icon())" [size]="14"></td-icon>
-    <span class="debug-panel-title">{{ title() }}</span>
-    <button class="debug-panel-close" (click)="onClose($event)" [attr.aria-label]="'Close ' + title()">
-      <td-icon name="cross" [size]="14"></td-icon>
+    <span class="td-inline debug-panel-name">
+      <td-icon class="debug-panel-icon" [name]="$any(icon())" [size]="14"></td-icon>
+      <span class="td-dlg-title">{{ title() }}</span>
+    </span>
+    <button class="td-close" (click)="onClose($event)" [attr.aria-label]="'Close ' + title()">
+      <td-icon name="close" [size]="12"></td-icon>
     </button>
   </div>
-  <div class="debug-panel-content">
+  <div class="debug-panel-content td-dlg-body">
     <ng-content></ng-content>
   </div>
   <div class="resize-handle" (mousedown)="onResizeMouseDown($event)">

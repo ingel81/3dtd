@@ -16,30 +16,33 @@ import { TowerControlService } from '../../services/tower-control.service';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="tc-crosshair" [class.tc-on-target]="control.onTarget()" aria-hidden="true">
-      <span class="tc-ticks" [class.tc-kick-a]="kickA()" [class.tc-kick-b]="kickB()">
-        <span class="tc-tick tc-up"></span>
-        <span class="tc-tick tc-down"></span>
-        <span class="tc-tick tc-left"></span>
-        <span class="tc-tick tc-right"></span>
-        <span class="tc-dot"></span>
-      </span>
+    <!-- The crosshair as one drawing: ticks that kick per shot, the hit marker,
+         the reload ring under it. Every stroke lies on a dark one, so it reads
+         on bright tiles as on dark ones. -->
+    <svg class="tc-crosshair" [class.tc-on-target]="control.onTarget()" viewBox="-40 -40 80 80" aria-hidden="true">
+      <g class="tc-ticks" [class.tc-kick-a]="kickA()" [class.tc-kick-b]="kickB()">
+        <path class="tc-shade" d="M0 -7V-16M0 7V16M-7 0H-16M7 0H16M0 0h.01" />
+        <path class="tc-line" d="M0 -7V-16M0 7V16M-7 0H-16M7 0H16M0 0h.01" />
+      </g>
       @if (control.marker(); as marker) {
-        <span class="tc-marker" [class.tc-kill]="marker === 'kill'"></span>
+        <g class="tc-marker" [class.tc-kill]="marker === 'kill'">
+          <path class="tc-shade" d="M4 4L11 11M-4 4L-11 11M4 -4L11 -11M-4 -4L-11 -11" />
+          <path class="tc-line" d="M4 4L11 11M-4 4L-11 11M4 -4L11 -11M-4 -4L-11 -11" />
+        </g>
       }
-      <span class="tc-reload" [class.tc-ready]="control.reload() >= 1"
-            [style.--tc-reload]="control.reload()"></span>
-    </div>
+      <circle class="tc-reload" [class.tc-ready]="control.reload() >= 1" [style.--tc-reload]="control.reload()"
+              cx="0" cy="29" r="6" />
+    </svg>
 
-    <div class="tc-bar">
-      <span class="tc-name">{{ control.towerName() }}</span>
+    <div class="tc-bar td-overlay td-inline">
+      <span class="td-section tc-name">{{ control.towerName() }}</span>
       @if (control.aiming()) {
-        <span class="tc-key"><kbd>LMB</kbd> fire</span>
-        <span class="tc-key"><kbd>RMB</kbd> zoom</span>
-        <span class="tc-key"><kbd>C</kbd> / <kbd>Esc</kbd> get out</span>
+        <span class="td-note"><kbd class="td-kbd">LMB</kbd> fire</span>
+        <span class="td-note"><kbd class="td-kbd">RMB</kbd> zoom</span>
+        <span class="td-note"><kbd class="td-kbd">C</kbd> / <kbd class="td-kbd">Esc</kbd> get out</span>
       } @else {
-        <span class="tc-key">Click the map to aim</span>
-        <span class="tc-key"><kbd>C</kbd> / <kbd>Esc</kbd> get out</span>
+        <span class="td-note">Click the map to aim</span>
+        <span class="td-note"><kbd class="td-kbd">C</kbd> / <kbd class="td-kbd">Esc</kbd> get out</span>
       }
     </div>
   `,
@@ -55,18 +58,31 @@ import { TowerControlService } from '../../services/tower-control.service';
       position: absolute;
       left: 50%;
       top: 50%;
-      width: 0;
-      height: 0;
-      --tc-gap: 7px;
-      --tc-color: rgba(255, 255, 255, 0.9);
+      width: 80px;
+      height: 80px;
+      margin: -40px 0 0 -40px;
+      overflow: visible;
+      fill: none;
+      stroke-linecap: square;
+      --tc-color: var(--td-reticle);
     }
 
     .tc-on-target {
-      --tc-color: var(--td-gold-light);
+      --tc-color: var(--td-brass-light);
+    }
+
+    .tc-line {
+      stroke: var(--tc-color);
+      stroke-width: 2;
+    }
+
+    .tc-shade {
+      stroke: var(--td-ink);
+      stroke-width: 4;
+      stroke-opacity: 0.7;
     }
 
     /* The ticks open up per shot and close again */
-    .tc-ticks { position: absolute; left: 0; top: 0; }
     .tc-kick-a { animation: tc-kick-a 120ms ease-out; }
     .tc-kick-b { animation: tc-kick-b 120ms ease-out; }
     @keyframes tc-kick-a { from { transform: scale(1.6); } to { transform: scale(1); } }
@@ -75,69 +91,33 @@ import { TowerControlService } from '../../services/tower-control.service';
       .tc-kick-a, .tc-kick-b { animation: none; }
     }
 
-    .tc-tick {
-      position: absolute;
-      background: var(--tc-color);
-      box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
-    }
-
-    .tc-up, .tc-down { width: 2px; height: 9px; left: -1px; }
-    .tc-left, .tc-right { width: 9px; height: 2px; top: -1px; }
-    .tc-up { bottom: var(--tc-gap); }
-    .tc-down { top: var(--tc-gap); }
-    .tc-left { right: var(--tc-gap); }
-    .tc-right { left: var(--tc-gap); }
-
-    .tc-dot {
-      position: absolute;
-      width: 2px;
-      height: 2px;
-      left: -1px;
-      top: -1px;
-      background: var(--tc-color);
-    }
-
-    /* The hit marker: a cross turned by 45°, white on a hit, red and bigger on a kill */
-    .tc-marker {
-      position: absolute;
-      width: 22px;
-      height: 22px;
-      left: -11px;
-      top: -11px;
-      transform: rotate(45deg);
-      background:
-        linear-gradient(var(--tc-marker), var(--tc-marker)) center / 2px 100% no-repeat,
-        linear-gradient(var(--tc-marker), var(--tc-marker)) center / 100% 2px no-repeat;
-      -webkit-mask: radial-gradient(circle, transparent 5px, #000 5.5px);
-      mask: radial-gradient(circle, transparent 5px, #000 5.5px);
-      --tc-marker: #fff;
-      filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
+    /* The hit marker: a cross turned by 45°, light on a hit, red and bigger on a kill */
+    .tc-marker .tc-line {
+      stroke: var(--td-reticle);
     }
 
     .tc-marker.tc-kill {
-      width: 30px;
-      height: 30px;
-      left: -15px;
-      top: -15px;
-      --tc-marker: var(--td-health-red);
+      transform: scale(1.35);
     }
 
+    .tc-marker.tc-kill .tc-line {
+      stroke: var(--td-health-red);
+    }
+
+    /* The reload ring fills clockwise from the top, gone once ready */
     .tc-reload {
-      position: absolute;
-      width: 14px;
-      height: 14px;
-      left: -7px;
-      top: 22px;
-      border-radius: 50%;
-      background: conic-gradient(var(--tc-color) calc(var(--tc-reload) * 360deg), rgba(255, 255, 255, 0.15) 0);
-      -webkit-mask: radial-gradient(circle, transparent 4.5px, #000 5px);
-      mask: radial-gradient(circle, transparent 4.5px, #000 5px);
+      stroke: var(--tc-color);
+      stroke-width: 2;
+      stroke-dasharray: calc(var(--tc-reload) * 37.7px) 38px;
+      transform: rotate(-90deg);
+      transform-box: fill-box;
+      transform-origin: center;
       opacity: 0.85;
     }
 
     .tc-reload.tc-ready {
       opacity: 0;
-      transition: opacity 150ms ease;
+      transition: opacity var(--td-dur-fast) var(--td-ease-out);
     }
 
     .tc-bar {
@@ -145,35 +125,13 @@ import { TowerControlService } from '../../services/tower-control.service';
       left: 50%;
       bottom: 28px;
       transform: translateX(-50%);
-      display: flex;
-      align-items: center;
       gap: 14px;
       padding: 6px 14px;
-      background: var(--td-glass-tint);
-      backdrop-filter: blur(8px) saturate(1.1);
-      -webkit-backdrop-filter: blur(8px) saturate(1.1);
-      border: 1px solid var(--td-frame-mid);
-      box-shadow: var(--td-shadow-soft);
-      color: var(--td-text-secondary);
-      font-family: var(--td-font-body);
-      font-size: 11px;
       white-space: nowrap;
     }
 
     .tc-name {
-      color: var(--td-gold-light);
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    kbd {
-      padding: 1px 5px;
-      margin-right: 3px;
-      border: 1px solid var(--td-frame-dark);
-      font-family: var(--td-font-body);
-      font-size: var(--td-fs-micro);
-      color: var(--td-text-primary);
+      color: var(--td-brass-light);
     }
   `],
 })

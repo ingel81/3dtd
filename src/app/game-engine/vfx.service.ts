@@ -1,5 +1,6 @@
 import { clearStrikeEffects } from '../three-engine/strike-effects';
 import { Vector3 } from 'three';
+import { TD_THEME } from '../styles/td-theme';
 import { SubscriptionBag } from './game-event-bus';
 import type { ThreeTilesEngine } from '../three-engine';
 import {
@@ -29,8 +30,8 @@ interface AbilityVfx {
   impact(event: Extract<ViewEvent, { type: 'ability:impact' }>): void;
 }
 
-/** The hero's level-up text: --td-gold-light, larger and longer than a reward popup. */
-const HERO_LEVEL_UP_TEXT = { color: '#D9BC68', durationMs: 2200, floatSpeed: 1.4, scale: 1.1 } as const;
+/** The hero's level-up text: brass light, larger and longer than a reward popup. */
+const HERO_LEVEL_UP_TEXT = { color: TD_THEME.brassLight, durationMs: 2200, floatSpeed: 1.4, scale: 1.1 } as const;
 
 /**
  * VFX Service - Handles visual effects via events

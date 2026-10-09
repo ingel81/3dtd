@@ -11,78 +11,78 @@
   >
     <div class="bot-debug-content">
       <!-- Timescale Control -->
-      <div class="section">
-        <div class="section-title">Game Speed</div>
+      <div class="td-group">
+        <div class="td-section td-inline">Game Speed</div>
 
-        <div class="slider-row">
-          <span class="label">Timescale</span>
-          <input type="range" min="0.1" max="75" step="0.1"
+        <div class="td-range-row">
+          <span>Timescale</span>
+          <input class="td-slider" type="range" min="0.1" max="75" step="0.1"
                  [value]="gameSpeed()"
                  (input)="onTimescaleChange($event)" />
-          <input type="number" class="number-input" min="0.1" max="75" step="0.1"
+          <input type="number" class="td-input" min="0.1" max="75" step="0.1"
                  [value]="gameSpeed()"
                  (change)="onTimescaleChange($event)" />
-          <span class="unit">{{ gameSpeed() }}x</span>
+          <span class="td-muted">{{ gameSpeed() }}x</span>
         </div>
 
-        <div class="quick-buttons">
-          <button class="quick-btn" (click)="setTimescale(1)">1x</button>
-          <button class="quick-btn" (click)="setTimescale(10)">10x</button>
-          <button class="quick-btn" (click)="setTimescale(25)">25x</button>
-          <button class="quick-btn" (click)="setTimescale(50)">50x</button>
-          <button class="quick-btn" (click)="setTimescale(75)">75x</button>
+        <div class="td-seg is-compact quick-buttons">
+          <button type="button" (click)="setTimescale(1)">1x</button>
+          <button type="button" (click)="setTimescale(10)">10x</button>
+          <button type="button" (click)="setTimescale(25)">25x</button>
+          <button type="button" (click)="setTimescale(50)">50x</button>
+          <button type="button" (click)="setTimescale(75)">75x</button>
         </div>
       </div>
 
       <!-- Backend Connection -->
-      <div class="section">
-        <div class="section-title">Backend</div>
+      <div class="td-group">
+        <div class="td-section td-inline">Backend</div>
 
-        <div class="info-row">
-          <span class="label">Status</span>
-          <span class="value" [class.connected]="botClient.isConnected()" [class.disconnected]="!botClient.isConnected()">
+        <div class="td-kv">
+          <span>Status</span>
+          <b [class.is-ok]="botClient.isConnected()" [class.is-error]="!botClient.isConnected()">
             {{ botClient.isConnected() ? 'Connected' : 'Disconnected' }}
-          </span>
+          </b>
         </div>
 
         @if (botClient.sessionError(); as sessionError) {
-          <div class="info-row">
-            <span class="label">Code</span>
-            <span class="value error">{{ sessionError }}</span>
+          <div class="td-kv">
+            <span>Code</span>
+            <b class="is-error">{{ sessionError }}</b>
           </div>
         }
 
         @if (botClient.isConnected()) {
-          <div class="info-row">
-            <span class="label">Client ID</span>
-            <span class="value">#{{ botClient.displayId() ?? '?' }}</span>
+          <div class="td-kv">
+            <span>Client ID</span>
+            <b>#{{ botClient.displayId() ?? '?' }}</b>
           </div>
         }
 
-        <button class="action-btn" (click)="toggleConnection()">
+        <button class="td-btn-secondary td-btn-sm" (click)="toggleConnection()">
           {{ botClient.isConnected() ? 'Disconnect' : 'Connect' }}
         </button>
       </div>
 
       <!-- Wave Director -->
-      <div class="section">
-        <div class="section-title">Wave Director</div>
+      <div class="td-group">
+        <div class="td-section td-inline">Wave Director</div>
 
-        <div class="info-row">
-          <span class="label">Source</span>
-          <span class="value">{{ waveDirector.source.name }}</span>
+        <div class="td-kv">
+          <span>Source</span>
+          <b>{{ waveDirector.source.name }}</b>
         </div>
-        <div class="info-row">
-          <span class="label">Gate ×</span>
-          <span class="value">{{ gateMultiplier() ?? '—' }}</span>
+        <div class="td-kv">
+          <span>Gate ×</span>
+          <b>{{ gateMultiplier() ?? '-' }}</b>
         </div>
       </div>
 
       <!-- Visualization -->
-      <div class="section">
-        <div class="section-title">Visualization</div>
-        <label class="checkbox-row">
-          <input type="checkbox"
+      <div class="td-group">
+        <div class="td-section td-inline">Visualization</div>
+        <label class="td-check">
+          <input class="td-switch" type="checkbox"
                  [checked]="showDpsBins()"
                  (change)="toggleDpsBins()" />
           <span>Show DPS Bins</span>
@@ -90,48 +90,40 @@
       </div>
 
       <!-- Bot -->
-      <div class="section">
-        <div class="section-title">Bot</div>
+      <div class="td-group">
+        <div class="td-section td-inline">Bot</div>
 
-        <div class="info-row">
-          <span class="label">Status</span>
-          <span class="value" [class.active]="botEnabled()" [class.inactive]="!botEnabled()">
+        <div class="td-kv">
+          <span>Status</span>
+          <b [class.is-ok]="botEnabled()" [class.is-muted]="!botEnabled()">
             {{ botEnabled() ? 'Active' : 'Inactive' }}
-          </span>
+          </b>
         </div>
 
         @if (botEnabled()) {
-          <div class="info-row">
-            <span class="label">Skill Level</span>
-            <span class="value">{{ botSkillLevel() }}</span>
+          <div class="td-kv">
+            <span>Skill Level</span>
+            <b>{{ botSkillLevel() }}</b>
           </div>
 
-          <div class="info-row">
-            <span class="label">Towers Placed</span>
-            <span class="value">{{ botStats().towersPlaced }}</span>
+          <div class="td-kv">
+            <span>Towers Placed</span>
+            <b>{{ botStats().towersPlaced }}</b>
           </div>
 
-          <div class="info-row">
-            <span class="label">Gold Spent</span>
-            <span class="value">{{ botStats().goldSpent }}</span>
+          <div class="td-kv">
+            <span>Gold Spent</span>
+            <b>{{ botStats().goldSpent }}</b>
           </div>
         }
 
-        <div class="bot-buttons">
+        <div class="td-actions is-start bot-buttons">
           @if (!botEnabled()) {
-            <button class="bot-btn" (click)="enableBot('beginner')">
-              <span class="bot-icon">🎯</span> Beginner
-            </button>
-            <button class="bot-btn" (click)="enableBot('normal')">
-              <span class="bot-icon">🙂</span> Normal
-            </button>
-            <button class="bot-btn" (click)="enableBot('expert')">
-              <span class="bot-icon">🧠</span> Expert
-            </button>
+            <button class="td-btn-secondary td-btn-sm" (click)="enableBot('beginner')">Beginner</button>
+            <button class="td-btn-secondary td-btn-sm" (click)="enableBot('normal')">Normal</button>
+            <button class="td-btn-secondary td-btn-sm" (click)="enableBot('expert')">Expert</button>
           } @else {
-            <button class="bot-btn danger" (click)="disableBot()">
-              <span class="bot-icon">🛑</span> Disable Bot
-            </button>
+            <button class="td-btn-danger td-btn-sm" (click)="disableBot()">Disable bot</button>
           }
         </div>
       </div>

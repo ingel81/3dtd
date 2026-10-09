@@ -1,9 +1,7 @@
-@use '../../styles/td-mixins' as td;
-@use '../coop-ui/coop-ui' as ui;
-
-/* Bottom left over the logo row, right of the ability bar (`left` from the
- * host binding), one column: squad box, chat below (C8). The host lets
- * clicks through; the box and the chat take their own. */
+/* Layout of the squad box: bottom left over the logo row, right of the
+ * ability bar (`left` from the host binding), one column: squad box, chat
+ * below (C8). The host lets clicks through; the box and the chat take their
+ * own. The look is a td-overlay strip; lane colours are data. */
 :host {
   position: absolute;
   bottom: calc(var(--td-logo-bottom, 0px) + var(--td-logo-height, 0px) + 20px);
@@ -14,135 +12,89 @@
   width: 400px;
   max-width: calc(100% - 100px);
   pointer-events: none;
-  font-family: var(--td-font-body);
-  color: var(--td-text-primary);
 }
-
-@include ui.classes;
-.btn-xs.primary { @include ui.btn-primary(30px); padding: 0 10px; font-size: 12px; }
-
-.is-warn { color: var(--td-warn-text); }
-.is-error { color: var(--td-danger-text); }
 
 .squad {
   display: flex;
   flex-direction: column;
-  position: relative;
   pointer-events: auto;
-  @include ui.panel-frame(90%);
-
-  // The plate's edge is its background
-  &.is-error { background: color-mix(in srgb, var(--td-danger-edge) 60%, var(--td-frame-dark)); }
 }
 
 .sq-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 34px;
+  height: 36px;
   padding: 0 6px 0 12px;
-  border-bottom: 1px solid var(--td-frame-dark);
-  font-family: var(--td-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--td-gold);
 
   small {
     white-space: nowrap;
-    letter-spacing: 0.1em;
-    color: var(--td-text-muted);
-  }
-
-  .chip {
-    height: 18px;
-    font-size: var(--td-fs-micro);
-    letter-spacing: 0.14em;
   }
 
   .toggle {
     margin-left: auto;
-    border: 0;
-    background: none;
-    box-shadow: none;
   }
 }
 
-.banner { @include ui.banner(12px); }
+.sq-banner {
+  margin: 8px 8px 0;
+}
 
-.rows {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0;
+.sq-rows {
   padding: 8px;
-  list-style: none;
 }
 
 .sq {
-  @include ui.list-row(36px);
+  display: grid;
   grid-template-columns: 3px 1fr auto auto auto;
   gap: 10px;
-  // Name with tags over the lane line is taller than the list row: the row grows with it
-  height: auto;
   min-height: 36px;
   padding-block: 5px;
+  padding-left: 0;
 
   // The lane colour runs the full height of the row, padding included
-  > .lane-bar { margin-block: -5px; }
-
-  &.is-lag { border-color: color-mix(in srgb, var(--td-warn-orange) 40%, var(--td-frame-dark)); }
-
-  &.is-gone {
-    border-style: dashed;
-    background: transparent;
-
-    .name {
-      color: var(--td-text-disabled);
-      text-decoration: line-through;
-    }
-
-    > .lane-bar { opacity: 0.35; }
+  > .lane-bar {
+    align-self: stretch;
+    margin-block: -5px;
   }
 
-  &.is-stale { opacity: 0.6; }
+  &.is-lag {
+    border-bottom-color: var(--td-warn-orange);
+  }
+
+  &.is-gone > .lane-bar {
+    opacity: 0.35;
+  }
+
+  &.is-stale {
+    opacity: 0.6;
+  }
 }
 
 .who {
-  @include ui.name-stack(13.5px);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 
-  small {
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-
-    &.is-warn { color: var(--td-warn-text); }
-  }
-
-  .name {
-    overflow: hidden;
-    text-overflow: ellipsis;
+  b {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
   }
 }
 
+/* Credits with a dark brass diamond before them */
 .credits {
   display: flex;
-  min-width: 40px;
   align-items: center;
   gap: 5px;
-  font-family: var(--td-font-mono);
-  font-size: 12px;
-  color: var(--td-gold-light);
+  min-width: 40px;
 
-  &::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    transform: rotate(45deg);
-    background: var(--td-rune-amber);
+  .td-diamond {
+    --td-mark: var(--td-brass-dark);
   }
-
-  &.is-gone::before { content: none; }
 }
 
 .issue {
@@ -151,65 +103,46 @@
   gap: 4px;
 }
 
+/* Ready for the next wave: the check shows once pressed */
 .check {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  margin: 0 3px;
-  padding: 0;
-  border: 1px solid var(--td-frame-mid);
-  background: none;
   color: transparent;
-  cursor: pointer;
 
-  &:hover:not(:disabled) { border-color: var(--td-teal); color: var(--td-teal-dark); }
-  @include td.focus-ring;
-
-  &.is-on {
-    border-color: var(--td-teal);
-    background: color-mix(in srgb, var(--td-teal) 14%, transparent);
+  &[aria-pressed='true'] {
     color: var(--td-teal-light);
   }
-
-  &:disabled { cursor: default; }
 }
 
-.icon-btn.is-open { border-color: var(--td-gold-dark); color: var(--td-gold-light); }
-.icon-btn.is-armed { border-color: var(--td-red); color: var(--td-red); }
+.icon-gap {
+  width: 26px;
+}
 
 .tools {
   display: flex;
-  gap: 4px;
+  gap: 2px;
+
+  .is-armed {
+    color: var(--td-error-text);
+  }
 }
 
 .gift {
-  display: flex;
-  align-items: center;
   gap: 4px;
   padding: 0 8px 8px;
-  font-size: 12px;
-  color: var(--td-text-muted);
 
-  flex-wrap: wrap;
-
-  span { margin-right: auto; }
+  > span {
+    margin-right: auto;
+  }
 }
 
 .gift-any {
   display: flex;
+  justify-content: flex-end;
   gap: 4px;
   width: 100%;
-  justify-content: flex-end;
 }
 
 .gift-input {
   width: 7em;
-  padding: 2px 6px;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  color: var(--td-text-primary);
-  font: inherit;
 }
 
 .sq-foot {
@@ -220,9 +153,6 @@
   min-height: 43px;
   box-sizing: border-box;
   padding: 8px 12px;
-  border-top: 1px solid var(--td-frame-dark);
-  font-size: 12.5px;
-  color: var(--td-text-muted);
 
   > span {
     flex: 1;
@@ -230,7 +160,12 @@
     line-height: 1.4;
   }
 
-  b { font-weight: 500; color: var(--td-text-primary); }
+  b {
+    font-weight: 600;
+    color: var(--td-text-primary);
+  }
 
-  &.is-alert { color: var(--td-text-secondary); }
+  &.is-alert {
+    color: var(--td-text-secondary);
+  }
 }

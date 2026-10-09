@@ -1,29 +1,25 @@
-@use '../../styles/td-mixins' as td;
-@use '../coop-ui/coop-ui' as ui;
-
-@include ui.classes;
+// Layout of the lobby chat: the lines scroll, the composer at the foot.
+// Player colours are data.
 
 :host {
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 12px 18px;
+  min-height: 0;
+  padding: 12px var(--td-dock-gutter);
 }
 
 .sec {
-  margin: 0 0 10px;
-  @include td.section-label;
+  margin-bottom: 10px;
 }
 
 .chat {
   flex: 1 1 auto;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: 0;
   padding: 2px 2px 8px;
   overflow: auto;
-  @include td.scrollbar;
 }
 
 .msg {
@@ -31,12 +27,11 @@
   flex-direction: column;
   gap: 2px;
 
-  &.is-cont { margin-top: -8px; }
+  &.is-cont {
+    margin-top: -8px;
+  }
 
   p {
-    margin: 0;
-    font-size: 13.5px;
-    line-height: 1.45;
     overflow-wrap: anywhere;
   }
 }
@@ -45,44 +40,27 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-size: 12.5px;
   font-weight: 600;
-
-  time {
-    font-family: var(--td-font-mono);
-    font-size: 10px;
-    font-weight: 400;
-    color: var(--td-text-disabled);
-  }
 }
 
+/* A line of the room itself, a brass diamond before it */
 .sys {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0;
-  font-family: var(--td-font-mono);
-  font-size: 11px;
-  color: var(--td-text-muted);
 
-  &::before {
-    content: '';
-    flex: 0 0 auto;
-    width: 5px;
-    height: 5px;
-    transform: rotate(45deg);
-    background: var(--td-rune-amber-muted);
+  .td-diamond {
+    --td-mark: var(--td-brass-dark);
   }
-
-  &.is-warn { color: var(--td-warn-text); }
 }
 
 .composer {
   display: flex;
   gap: 6px;
   margin-top: 6px;
-
-  .inp { flex: 1; }
 }
 
-.send { @include ui.icon-btn(38px); }
+.send {
+  width: var(--td-h-field);
+  height: var(--td-h-field);
+}

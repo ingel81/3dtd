@@ -1,115 +1,41 @@
-// The menu's list on the foundation's menu recipe (menu-list, menu-item,
-// menu-rule); the question under it with brass and steel buttons.
-@use '../../../../styles/game-ui' as ui;
-
-@include ui.classes;
+// Layout of the menu's list: a panel the width of the menu column, the
+// question and the status in it under the entries. The look comes from the
+// td-* classes.
 
 :host {
   display: flex;
   flex-direction: column;
-  width: 420px;
-  max-width: calc(100vw - 32px);
+  gap: var(--td-sp-3);
+}
+
+.mh-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--td-sp-1);
+  padding: 14px;
 }
 
 .mh-pause-line {
-  margin: 18px 0 0;
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-small);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--td-gold);
+  padding: 0 6px 4px;
 }
 
-.mh-list {
-  @include ui.menu-list(4px);
-  margin-top: 56px;
-}
-
-.mh-pause {
-  @include ui.menu-list(2px);
-  margin-top: 36px;
-  width: 300px;
-  max-width: 100%;
-}
-
-.mh-item {
-  // The recipe keeps its 3px bar as a transparent border, so the text stands still on hover
-  @include ui.menu-item;
-
-  &[data-entry='quit'] {
-    color: var(--td-text-muted);
-  }
-}
-
-.mh-lead {
-  font-size: 30px;
-  font-weight: 600;
-}
-
-.mh-pause .mh-item {
-  padding-top: 9px;
-  padding-bottom: 9px;
-  font-size: 22px;
-}
-
-.mh-item.mh-below {
-  font-size: 20px;
-}
-
-.mh-sub {
-  font-family: var(--td-font-mono);
-  font-size: 12px;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--td-gold-light);
+.mh-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .mh-bar {
-  display: block;
-  width: 220px;
+  width: 200px;
   height: 4px;
-  margin-top: 4px;
-  background: var(--td-panel-shadow);
+  margin-top: 6px;
 }
 
-.mh-bar-fill {
-  display: block;
-  height: 100%;
-  background: var(--td-gold);
-  @include ui.motion(width);
-}
-
-.mh-sep {
-  @include ui.menu-rule;
-}
-
-.mh-pause .mh-sep {
-  width: 180px;
-  margin-left: 21px;
-}
-
-.mh-confirm {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: var(--td-sp-4) 0 0 25px;
-  padding-left: var(--td-sp-3);
-  border-left: 2px solid var(--td-warn-orange);
-
-  p {
-    margin: 0;
-    font-size: 14px;
-    color: var(--td-text-primary);
-  }
-}
-
-.mh-confirm-actions {
-  display: flex;
-  gap: var(--td-sp-2);
-}
-
+.mh-confirm,
 .mh-status {
-  @include ui.note;
-  margin: var(--td-sp-3) 0 0 25px;
-  color: var(--td-warn-text);
+  margin-top: var(--td-sp-2);
+}
+
+.mh-confirm p {
+  margin: 0;
 }

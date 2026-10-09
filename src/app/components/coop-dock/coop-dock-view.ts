@@ -87,7 +87,7 @@ export function roomStatus(i: StatusInput): RoomStatus | null {
   const ready = room.players.filter((p) => p.id === room.hostId || p.ready).length;
   const segments = room.players.map((p) => p.id === room.hostId || p.ready);
   if (room.players.length < 2) {
-    return { ...line('', '', 'Waiting for a second player · share the code'), segments: [...segments, false] };
+    return { ...line('', '', 'Waiting for a second player | share the code'), segments: [...segments, false] };
   }
   if (!i.worldReady) return line('', '', i.isHost ? 'Sending the map…' : "Waiting for the host's map…");
   const busy = room.players.find((p) => p.id !== i.myId && (p.status === 'key' || p.status === 'loading' || p.status === 'reloading'));
@@ -99,7 +99,7 @@ export function roomStatus(i: StatusInput): RoomStatus | null {
   if (noLane) return line('Waiting for ', noLane.name, ' to take a lane');
   // Every lane needs a player (docs/WAVE_SYSTEM.md (Spuren), L4); anyone may take one more
   const free = room.spawnIds.findIndex((id) => !room.players.some((p) => p.spawnIds.includes(id)));
-  if (free >= 0) return line('', `Spawn ${free + 1}`, ' has nobody yet · anyone can take it');
+  if (free >= 0) return line('', `Spawn ${free + 1}`, ' has nobody yet | anyone can take it');
   if (guestsReady(room)) {
     return i.isHost
       ? line('', 'Everyone is ready.', ' Start when you like.', true)
@@ -155,7 +155,7 @@ export interface LaneRow {
   color: string;
   /** Length over the longest lane's, 0 to 1 */
   share: number;
-  /** "820 m · 3:47", empty before the routes stand */
+  /** "820 m | 3:47", empty before the routes stand */
   length: string;
   player: SeatPlayer | null;
 }
@@ -196,7 +196,7 @@ export function roomTable(i: TableInput): { lanes: LaneRow[]; seatless: SeatPlay
       label: `Spawn ${index + 1}`,
       color: laneCss(index),
       share: stat?.share ?? 0,
-      length: stat ? `${stat.meters} m · ${formatClock(stat.seconds * 1000)}` : '',
+      length: stat ? `${stat.meters} m | ${formatClock(stat.seconds * 1000)}` : '',
       player: owner ? seat(owner) : null,
     };
   });

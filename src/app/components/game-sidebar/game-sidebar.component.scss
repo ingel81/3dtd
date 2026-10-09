@@ -1,84 +1,23 @@
-@use '../../styles/game-ui' as ui;
+// Layout of the sidebar: one plaster panel (td-side) the height of the game,
+// its sections stacked, the footer at the foot.
 
-/* === Sidebar === */
 .td-sidebar {
   width: var(--td-sidebar-width);
-  position: relative;
-  display: flex;
-  flex-direction: column;
   height: 100%;
   max-height: 100%;
-  overflow: hidden;
 }
 
-/* Sidebar background, refined: NO stone texture, NO inner panel frames.
- * Sidebar IS one panel; sections are split only by 1px border-bottom rules.
- * (Mockup ref: tmp/td-artboards.jsx HudSidebar.) */
-.td-sidebar-content {
-  flex: 1;
-  min-height: 0;
-  background: var(--td-bg-dark);
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 0;
-  overflow: hidden;
-  position: relative;
-  z-index: 1;
-  border-left: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 1px 0 0 rgba(122, 133, 128, 0.22),
-    -2px 0 12px rgba(0, 0, 0, 0.5);
-}
-
-/* Footer: Menu, Tips and the version in one row of three cells; the 1px
-   gap over the frame colour draws the dividers */
-.td-sidebar-footer {
+/* Footer: Menu, Tips and the version in one row; a hairline over it */
+.sb-foot {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  margin-top: auto;
+  gap: 2px;
   flex-shrink: 0;
-  background: var(--td-frame-dark);
-  border-top: 1px solid var(--td-frame-dark);
-}
-
-.td-foot-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
-  height: 30px;
-  padding: 0 6px;
-  background: var(--td-bg-dark);
-  border: none;
-  color: var(--td-text-secondary);
-  font: 11px var(--td-font-mono);
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  @include ui.motion(background-color, color);
-
-  span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  &:hover {
-    color: var(--td-text-primary);
-    background: var(--td-panel-secondary);
-  }
-
-  @include ui.focus-ring(-2px);
+  margin-top: auto;
+  padding: 4px 6px;
 }
 
 /* The menu is the way to everything that is not playing: its gear in brass */
-.td-foot-menu td-icon {
-  color: var(--td-gold);
-}
-
-.td-version {
-  color: var(--td-text-muted);
+.sb-menu td-icon {
+  color: var(--td-brass);
 }

@@ -1,24 +1,24 @@
-<div class="dlg">
-  <header class="dlg-head">
-    <h2 class="dlg-title" [id]="titleId">Keyboard shortcuts</h2>
-    <button class="icon-btn" type="button" aria-label="Close" (click)="close()">
-      <td-icon name="cross" [size]="16"></td-icon>
+<div class="td-dlg">
+  <header class="td-dlg-head">
+    <h2 class="td-dlg-title" [id]="titleId">Keyboard shortcuts</h2>
+    <button class="td-close" type="button" aria-label="Close" (click)="close()">
+      <td-icon name="close" [size]="12"></td-icon>
     </button>
   </header>
 
-  <div class="dlg-body">
+  <div class="td-dlg-body is-loose">
     @for (group of groups; track group.title) {
-      <section class="group">
-        <h3 class="section-label">{{ group.title }}</h3>
+      <section class="td-group">
+        <h3 class="td-section">{{ group.title }}</h3>
         <dl>
           @for (row of group.rows; track row.label) {
-            <div class="row">
+            <div class="td-row hk-row">
               <dt [class.range]="row.range">
                 @for (key of row.keys; track $index) {
-                  <kbd>{{ key }}</kbd>
+                  <kbd class="td-kbd">{{ key }}</kbd>
                 }
               </dt>
-              <dd>{{ row.label }}</dd>
+              <dd class="td-text">{{ row.label }}</dd>
             </div>
           }
         </dl>
@@ -26,8 +26,8 @@
     }
   </div>
 
-  <footer class="dlg-foot">
-    <p class="note">Shortcuts are off while you type or a dialog is open.</p>
-    <button class="btn-primary" type="button" (click)="close()">Close</button>
+  <footer class="td-dlg-foot">
+    <p class="td-note hk-hint">Shortcuts are off while you type or a dialog is open.</p>
+    <button class="td-btn-primary" type="button" (click)="close()">Close</button>
   </footer>
 </div>

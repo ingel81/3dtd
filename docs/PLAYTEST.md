@@ -393,7 +393,7 @@ Paket H1, Laden hinter dem Menü (echte Karte):
 - **H1.3 Mit Link:** `http://localhost:4200/?l=49.14227,9.21878` mit F5. Erwartung: „Play“ mit „Heilbronn“ darunter steht
   oben (vor „Continue“, falls es ein Autosave gibt), der Ort lädt hinter dem Menü.
 - **H1.4 Wieder ohne Link:** in H1.3 eine Welle spielen, dann `http://localhost:4200/` mit F5. Erwartung: hinter dem
-  Menü lädt Heilbronn, oben „Continue“ mit „Heilbronn · wave N“ darunter; Continue lädt den Lauf und startet ihn.
+  Menü lädt Heilbronn, oben „Continue“ mit „Heilbronn | wave N“ darunter; Continue lädt den Lauf und startet ihn.
 - **H1.5 Ortswechsel im Lauf:** im Spiel nacheinander den Ortsnamen im Kopf (öffnet „New game“, dort einen Ort
   wählen), den Würfel „Random location“ und einen Favoriten (Stern im Kopf) wählen. Erwartung: jedes Mal das
   Start-Menü mit Ladeplatte, danach „Play“; der alte Ort zeigt keinen Intro-Flug dazwischen.
@@ -401,7 +401,7 @@ Paket H1, Laden hinter dem Menü (echte Karte):
 Paket H2, Continue an einem anderen Ort (E120):
 
 - **H2.1:** in Heilbronn (H1.3) bis Welle 2 spielen, dann `http://localhost:4200/?l=48.85341,2.3488` (Paris) mit F5.
-  Erwartung: oben „Play“ mit „Paris“, darunter „Continue“ mit „in Heilbronn · wave N“. „Continue“: Rückfrage „Leaves
+  Erwartung: oben „Play“ mit „Paris“, darunter „Continue“ mit „in Heilbronn | wave N“. „Continue“: Rückfrage „Leaves
   Paris: the save plays in Heilbronn.“ „Cancel“ lässt alles, „Continue anyway“ lädt Heilbronn mit Platte, der Lauf steht
   vor der Welle des Autosaves.
 
@@ -430,10 +430,10 @@ Paket H4, Desktop-App:
 
 Paket H5, HUD und Lesbarkeit:
 
-- **H5.1 Kopfleiste im Spiel:** eine Welle spielen. Erwartung: ein Kill lässt unter der Credits-Platte „+N“ in Grün
-  aufsteigen, ein Kauf „−N“ in Rot; ein Tower ohne genug Credits (Taste 1 bis 9) lässt die Credits-Kante rot blitzen.
-  Der Wave-Balken füllt sich mit der Welle, ihr Start lässt die Kante kurz Messing werden. Gegner durchlassen: die
-  HQ-Segmente gehen zurück, jeder Treffer blitzt und ruckt die Platte; unter 30 % pulsiert sie warm, unter 10 % steht
+- **H5.1 Kopfleiste im Spiel:** eine Welle spielen. Erwartung: ein Kill lässt unter den Credits „+N“ in Grün
+  aufsteigen, ein Kauf „−N“ in Rot; ein Tower ohne genug Credits (Taste 1 bis 9) lässt die Credits-Zahl rot blitzen.
+  Der Wave-Balken füllt sich mit der Welle, ihr Start lässt die Zahl kurz Messing werden. Gegner durchlassen: die
+  HQ-Segmente gehen zurück, jeder Treffer blitzt und ruckt den Wert; unter 30 % pulsiert er warm, unter 10 % steht
   der Warnstreifen. Nichts davon soll stören oder hektisch wirken.
 - **H5.2 Ton:** in Settings die vier Regler bewegen und je Kanal stummschalten. Erwartung: wirkt sofort hörbar und
   hält nach F5. Beim ersten Start (H1.1) kommt der Musikwechsel zur Bauphase erst mit „Play“, nicht schon beim
@@ -441,6 +441,18 @@ Paket H5, HUD und Lesbarkeit:
 - **H5.3 1280x720:** Fenster auf 1280x720 (DevTools, Gerätesymbolleiste, Maße eintragen). Start-Menü mit den Seiten
   „New game“ (Liste World), „Coop“ und „Settings“, Pause-Menü, HUD im Spiel ansehen. Erwartung: nichts abgeschnitten
   oder überlappend, eine lange Seite scrollt in ihrer Platte, alle Beschriftungen lesbar.
+
+Paket H6, Design System (E124, [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)):
+
+- **H6.1 Über der Karte:** ein Spiel mit Welle, Held und einer Fähigkeit. Erwartung: Fähigkeitenleiste, Hinweisbox,
+  Info-Overlay, Boss-Leiste und Pfeile am Rand sind derselbe Putz wie die Sidebar, die Karte scheint leicht durch,
+  alles bleibt über hellen Dächern lesbar.
+- **H6.2 Forschungsbaum:** Q. Erwartung: Fläche, Schrift und Linien wie die Dialoge, Zustände und Strangfarben
+  bleiben unterscheidbar; sagen, ob er so passt oder noch fremd wirkt.
+- **H6.3 Debug-Fenster:** Developer, drei Fenster öffnen (Waves, Perf, Enemies). Erwartung: derselbe Look, dichter,
+  alles lesbar, Ziehen und Größe ändern gehen.
+- **H6.4 Schrift:** im Spiel und in der Desktop-App ohne Netz. Erwartung: überall Barlow Semi Condensed, keine
+  Ersatzschrift beim ersten Bild, Mono nur bei Raumcodes, Tasten und Logs.
 
 ## K8 Desktop-Build
 

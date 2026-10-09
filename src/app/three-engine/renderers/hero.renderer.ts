@@ -8,6 +8,7 @@ import {
   Vector3,
   type Object3D,
 } from 'three';
+import { TD_THEME, themeHex } from '../../styles/td-theme';
 import type { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import type { HeroPresentation, HeroView } from '../../managers/hero.manager';
 import { HERO_MODEL, HeroModel, HeroModelConfig, loadHeroModel } from './hero-model';
@@ -24,8 +25,8 @@ export interface HeroCoordinates {
 }
 
 /** Ring colours, td-theme tokens as hex */
-const RING_COLOR = 0xc2a055;    // --td-gold: selection, his post, a valid move target
-const REFUSED_COLOR = 0xb83e32; // --td-health-red: no route in reach
+const RING_COLOR = themeHex(TD_THEME.brass); // selection, his post, a valid move target
+const REFUSED_COLOR = themeHex(TD_THEME.healthRed); // no route in reach
 
 /** Ring radii, metres */
 const SELECTION_RADIUS_M = 2.6;

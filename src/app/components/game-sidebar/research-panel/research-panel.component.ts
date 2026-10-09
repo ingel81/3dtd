@@ -31,6 +31,7 @@ import { researchProgress, researchRemaining, researchStatus } from './research-
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './research-panel.component.html',
   styleUrl: './research-panel.component.scss',
+  host: { class: 'td-side-section is-fill' },
 })
 export class SidebarResearchPanelComponent {
   readonly store = inject(TowerDefenseStore);

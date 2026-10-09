@@ -1,0 +1,94 @@
+// The main menu: entries as text on the panel; the open one a raised stone plate.
+@use 'base';
+
+@mixin menu {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// An entry: an icon (brass) and its name. A <small> after the name is a sub
+// line. The entry with the focus and the one whose page is open stand as a
+// raised stone plate; the list moves the focus with the pointer.
+@mixin menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--td-h-menu-item);
+  padding: 4px 14px;
+  border: 0;
+  border-radius: var(--td-radius);
+  background: none;
+  font-family: var(--td-font);
+  font-size: var(--td-fs-menu);
+  font-weight: 600;
+  line-height: 1.1;
+  text-align: left;
+  text-decoration: none;
+  color: var(--td-text-primary);
+  cursor: pointer;
+  @include base.motion(color, background-color, box-shadow);
+
+  > svg,
+  > td-icon {
+    flex: 0 0 auto;
+    color: var(--td-brass-dark);
+  }
+
+  small {
+    display: block;
+    margin-top: 2px;
+    font-size: var(--td-fs-small);
+    font-weight: 500;
+    color: var(--td-text-muted);
+  }
+
+  &:hover#{base.$enabled} {
+    color: var(--td-brass-light);
+  }
+
+  // The plate shows the focus for the pointer too; the keyboard gets the ring
+  // on top, so focus and the open page never read alike
+  &:focus {
+    outline: none;
+  }
+
+  @include base.focus-ring(calc(-1 * var(--td-focus-width)));
+
+  &:focus,
+  &[aria-current='page'] {
+    background: var(--td-stone-plate);
+    box-shadow: var(--td-raised-plate);
+    color: var(--td-brass-light);
+
+    > svg,
+    > td-icon {
+      color: var(--td-brass);
+    }
+
+    small {
+      color: var(--td-text-secondary);
+    }
+  }
+
+  // The open page while the focus is on another entry: the plate lies flat,
+  // so focus and open page never look alike
+  :focus-within > &[aria-current='page']:not(:focus) {
+    box-shadow: none;
+  }
+
+  @include base.disabled;
+}
+
+// An engraved rule between groups of entries
+@mixin menu-rule {
+  height: 0;
+  margin: 4px 14px;
+  border: 0;
+  @include base.engraved-line;
+}

@@ -129,7 +129,7 @@ export class PhotoModeService {
       const logos = providerLogos.filter((logo): logo is HTMLImageElement => logo !== null);
       const frame = await engine.captureFrame();
       if (!frame) return;
-      stampScreenshot(frame, `${this.store.mapAttribution()} · ${OSM_MAP_ATTRIBUTION}`, logos, { logo: brandLogo, url: SCREENSHOT_URL });
+      stampScreenshot(frame, `${this.store.mapAttribution()} | ${OSM_MAP_ATTRIBUTION}`, logos, { logo: brandLogo, url: SCREENSHOT_URL });
       const fileName = screenshotFileName(this.locationMgmt.displayName(), new Date());
       if (await downloadCanvasPng(frame, fileName)) this.showSaved(fileName);
     } finally {

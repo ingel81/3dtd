@@ -14,23 +14,23 @@ const TITLE_ID = 'td-run-upload-title';
   imports: [MatDialogModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="dlg">
-      <header class="dlg-head">
-        <h2 class="dlg-title" [id]="titleId">Help improve 3DTD?</h2>
+    <div class="td-dlg">
+      <header class="td-dlg-head">
+        <h2 class="td-dlg-title" [id]="titleId">Help improve 3DTD?</h2>
       </header>
-      <div class="dlg-body">
-        <p>
+      <div class="td-dlg-body">
+        <p class="td-text">
           May the game send the log of this coop game to the coop server? It holds the names in the game, the
           place you played with its address, and every move and number of the run.
         </p>
-        <p>
+        <p class="td-text">
           It is used only to find errors and to improve the game, and deleted after 90 days. It helps a lot.
         </p>
-        <p class="note">You can change this later under Runs.</p>
+        <p class="td-note">You can change this later under Runs.</p>
       </div>
-      <footer class="dlg-foot">
-        <button class="btn-secondary" type="button" (click)="answer(false)">No</button>
-        <button class="btn-primary" type="button" (click)="answer(true)">Yes, send it</button>
+      <footer class="td-dlg-foot">
+        <button class="td-btn-secondary" type="button" (click)="answer(false)">No</button>
+        <button class="td-btn-primary" type="button" (click)="answer(true)">Yes, send it</button>
       </footer>
     </div>
   `,

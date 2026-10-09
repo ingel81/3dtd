@@ -1,4 +1,4 @@
-<div class="td-next-label">NEXT</div>
+<h3 class="td-side-head">Next</h3>
 
 <div class="td-next-line" role="group" aria-label="Next waves">
   @for (peek of peeks(); track peek.wave; let first = $first) {
@@ -31,17 +31,17 @@
 
 @if (shown(); as peek) {
   <!-- Two lines: what the wave is, then who comes and what hurts them -->
-  <div class="td-next-detail" [tdRichTooltip]="peek.tooltip" tdRichTooltipPosition="left">
+  <div class="td-well td-next-detail" [tdRichTooltip]="peek.tooltip" tdRichTooltipPosition="left">
     <div class="td-next-head">
-      <span class="td-next-name" [class.td-next-name-boss]="peek.boss">{{ peek.name }}</span>
+      <span class="td-name td-next-name" [class.td-next-name-boss]="peek.boss">{{ peek.name }}</span>
       @if (peek.mutator; as mutator) {
-        <span class="td-next-mut">{{ mutator }}</span>
+        <span class="td-caps td-tone-hurt td-next-mut">{{ mutator }}</span>
       }
     </div>
-    <div class="td-next-facts">
+    <div class="td-note td-next-facts">
       @if (peek.known) {
         @if (peek.count; as count) {
-          <span class="td-next-count"><b>{{ count }}</b> enemies</span>
+          <span class="td-num td-next-count"><b>{{ count }}</b> enemies</span>
         }
         @if (peek.air) {
           <span class="td-next-fact td-next-fact-air">
@@ -54,15 +54,15 @@
           <span>{{ peek.armorLabel }}</span>
         </span>
         @if (peek.weakToTypes.length > 0) {
-          <span class="td-next-weak" role="img" [attr.aria-label]="'Weak to ' + peek.weakTo">
-            <span class="td-next-weak-label" aria-hidden="true">weak</span>
+          <span class="td-next-weak td-tone-brass" role="img" [attr.aria-label]="'Weak to ' + peek.weakTo">
+            <span class="td-caps" aria-hidden="true">weak</span>
             @for (type of peek.weakToTypes; track type) {
               <td-icon [name]="damageTypeIcon(type)" [size]="11"></td-icon>
             }
           </span>
         }
       } @else {
-        <span class="td-next-note">{{ peek.note }}</span>
+        <span class="td-next-note td-trunc">{{ peek.note }}</span>
       }
     </div>
   </div>

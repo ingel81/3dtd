@@ -1,67 +1,30 @@
-@use '../menu-page' as page;
+// Layout of the place picker: the coordinates in a row, the spawn choice
+// indented, the lists scrolling, the globe beside the defended places.
 
-@include page.classes;
-
-.mp-coords {
+.pp-coords {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
   align-items: end;
   gap: 10px;
 }
 
-.mp-coord {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-
-  > span {
-    font-family: var(--td-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--td-text-muted);
-  }
+.pp-spawn-line > span {
+  flex: 1;
 }
 
-.mp-spawn-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 13px;
-  text-align: left;
-  color: var(--td-text-secondary);
-  cursor: pointer;
-
-  > span { flex: 1; }
-
-  &:hover { color: var(--td-text-primary); }
-
-  &:focus-visible {
-    outline: var(--td-focus-width) solid var(--td-focus-color);
-    outline-offset: 2px;
-  }
-}
-
-.mp-spawn {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.pp-spawn {
   padding-left: 22px;
 }
 
-.mp-list {
+.pp-list {
   max-height: 280px;
   overflow-y: auto;
 }
 
-.mp-world {
+.pp-world {
   display: grid;
   grid-template-columns: 220px 1fr;
-  gap: 16px;
+  gap: var(--td-sp-4);
   align-items: start;
 
   @media (max-width: 720px) {
@@ -69,7 +32,7 @@
   }
 }
 
-.mp-globe {
+.pp-globe {
   display: grid;
   place-items: center;
   min-height: 220px;

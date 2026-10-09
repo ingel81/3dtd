@@ -1,35 +1,29 @@
-/* NEXT: the coming waves on a thin line, a detail box under it.
- * Grey by default, gold only for what matters: the wave detailed below (a
- * filled mark), boss waves (skull) and what the wave is weak to. */
+@use '../../../styles/game-ui' as ui;
+/* Next: the coming waves on a thin line, a detail well under it. Quiet by
+ * default, brass only for what matters: the wave detailed below (a filled
+ * mark), boss waves (skull) and what the wave is weak to. */
 :host {
-  display: block;
-  margin-top: 2px;
-  font-family: var(--td-font-mono);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.td-next-label {
-  margin-bottom: 4px;
-  font-size: var(--td-fs-micro);
-  letter-spacing: 0.18em;
-  color: var(--td-text-muted);
-  text-transform: uppercase;
-}
-
-/* The line runs through the marks, from the first centre to the last:
- * icon row 12px, then the middle of the 7px diamond */
+/* The line runs through the marks, from the first centre to the last: icon
+ * row 12px, then the middle of the 7px diamond */
 .td-next-line {
   position: relative;
   display: flex;
   justify-content: space-between;
 }
+
 .td-next-line::before {
   content: '';
   position: absolute;
   left: 14px;
   right: 14px;
   top: 15px;
-  height: 1px;
-  background: var(--td-frame-mid);
+  height: 0;
+  @include ui.engraved-line;
 }
 
 .td-next-mark {
@@ -38,15 +32,9 @@
   flex-direction: column;
   align-items: center;
   width: 28px;
-  padding: 0 0 1px;
-  background: none;
-  border: 0;
+  @include ui.button-reset;
+  padding-bottom: 1px;
   font: inherit;
-  cursor: pointer;
-}
-.td-next-mark:focus-visible {
-  outline: 2px solid var(--td-gold-light);
-  outline-offset: 1px;
 }
 
 .td-next-icons {
@@ -55,38 +43,45 @@
   gap: 2px;
   height: 12px;
 }
+
 .td-next-boss {
-  color: var(--td-gold);
+  color: var(--td-brass);
 }
+
 .td-next-air {
   color: var(--td-text-muted);
 }
+
 .td-next-moon {
   color: var(--td-health-red);
 }
 
-/* A diamond on the line, covering it; the sidebar ground as its fill */
+/* A diamond on the line, covering it */
 .td-next-dot {
   box-sizing: border-box;
   width: 7px;
   height: 7px;
   transform: rotate(45deg);
-  background: var(--td-bg-dark);
+  background: var(--td-surface);
   border: 1px solid var(--td-frame-light);
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background var(--td-dur-fast) var(--td-ease-out),
+    border-color var(--td-dur-fast) var(--td-ease-out);
 }
+
 .td-next-num {
   margin-top: 4px;
-  font-size: var(--td-fs-micro);
+  font-size: var(--td-fs-small);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--td-text-muted);
 }
 
-/* The wave START WAVE starts next */
+/* The wave the button starts next */
 .td-next-mark-first .td-next-dot {
-  border-color: var(--td-gold-dark);
+  border-color: var(--td-brass-dark);
 }
+
 .td-next-mark-first .td-next-num {
   color: var(--td-text-secondary);
 }
@@ -95,26 +90,24 @@
   border-color: var(--td-text-secondary);
 }
 
-/* The wave the line below details */
+/* The wave the well below details */
 .td-next-mark.td-next-mark-shown .td-next-dot {
-  background: var(--td-gold);
-  border-color: var(--td-gold-light);
+  background: var(--td-brass);
+  border-color: var(--td-brass-light);
 }
+
 .td-next-mark.td-next-mark-shown .td-next-num {
-  color: var(--td-gold-light);
+  color: var(--td-brass-light);
   font-weight: 700;
 }
 
-/* Two lines under the marks: the name (body font, the mutator tag right),
- * then the facts in mono: count, air, armor, the weaknesses right */
+/* Two lines: the name (the mutator tag right), then the facts: count, air,
+ * armor, the weaknesses right */
 .td-next-detail {
-  margin-top: 8px;
   padding: 6px 8px 7px;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.2), inset 0 -1px 0 var(--td-panel-shadow);
   cursor: help;
 }
+
 .td-next-head,
 .td-next-facts {
   display: flex;
@@ -122,47 +115,32 @@
   min-width: 0;
   white-space: nowrap;
 }
+
 .td-next-head {
   gap: 8px;
 }
-.td-next-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font: 600 12px/16px var(--td-font-body);
-  color: var(--td-text-primary);
-}
+
 .td-next-name.td-next-name-boss {
-  color: var(--td-gold-light);
+  color: var(--td-brass-light);
   font-weight: 700;
 }
-/* The wave's mutator: a small tag in the moon's red, right */
+
+/* The wave's mutator (td-tone-hurt, the moon's red) */
 .td-next-mut {
   flex-shrink: 0;
   margin-left: auto;
-  padding: 0 4px;
-  border: 1px solid var(--td-health-red);
-  font-size: var(--td-fs-micro);
-  line-height: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--td-health-red);
 }
+
 .td-next-facts {
   gap: 10px;
-  margin-top: 3px;
-  font-size: 10px;
-  line-height: 14px;
-  color: var(--td-text-muted);
+  margin-top: 2px;
 }
-.td-next-count {
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-}
+
 .td-next-count b {
   font-weight: 700;
   color: var(--td-text-secondary);
 }
+
 .td-next-fact {
   flex-shrink: 0;
   display: inline-flex;
@@ -170,32 +148,20 @@
   gap: 3px;
   color: var(--td-text-secondary);
 }
-.td-next-fact td-icon {
-  color: var(--td-text-muted);
-}
+
 /* Air needs towers that hit air: the plane in the alert's red */
 .td-next-fact-air td-icon {
   color: var(--td-health-red);
 }
+
 .td-next-weak {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 3px;
   margin-left: auto;
-  color: var(--td-gold);
 }
-.td-next-weak-label {
-  margin-right: 2px;
-  font-size: var(--td-fs-micro);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
-}
+
 .td-next-note {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--td-text-muted);
   font-style: italic;
 }

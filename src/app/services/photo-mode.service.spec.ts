@@ -226,7 +226,7 @@ describe('PhotoModeService screenshot', () => {
     ]);
     expect(screenshot.stampScreenshot).toHaveBeenCalledWith(
       frame,
-      'Map data ©2026 Google · Routes © OpenStreetMap contributors',
+      'Map data ©2026 Google | Routes © OpenStreetMap contributors',
       [{ src: 'assets/images/ui/google-maps-logo.svg' }],
       { logo: { src: 'assets/images/logo/logo.png' }, url: 'https://3dtd.sgeht.net' },
     );
@@ -252,7 +252,7 @@ describe('PhotoModeService screenshot', () => {
     await build(true, 'cesium').saveScreenshot();
     expect(screenshot.stampScreenshot).toHaveBeenCalledWith(
       frame,
-      'Map data ©2026 Google · Routes © OpenStreetMap contributors',
+      'Map data ©2026 Google | Routes © OpenStreetMap contributors',
       [],
       { logo: { src: 'assets/images/logo/logo.png' }, url: 'https://3dtd.sgeht.net' },
     );

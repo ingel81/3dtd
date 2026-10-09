@@ -35,14 +35,14 @@ interface PingArrow {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @for (arrow of arrows(); track arrow.id) {
-      <button type="button" class="arrow" [style.left.px]="arrow.x" [style.top.px]="arrow.y"
-              [style.--ping-color]="arrow.color" [attr.aria-label]="'Camera to ' + arrow.name + '’s mark'"
+      <button type="button" class="arrow td-marker-btn" [style.left.px]="arrow.x" [style.top.px]="arrow.y"
+              [style.--td-mark]="arrow.color" [attr.aria-label]="'Camera to ' + arrow.name + '’s mark'"
               (click)="goTo(arrow.id)">
-        <span class="chip">
+        <span class="td-overlay td-marker">
           <td-icon name="caretR" [size]="16" [strokeWidth]="2.5"
                    [style.transform]="'rotate(' + arrow.angle + 'deg)'"></td-icon>
         </span>
-        <span class="name">{{ arrow.name }}</span>
+        <span class="name td-overlay">{{ arrow.name }}</span>
       </button>
     }
   `,
@@ -53,41 +53,28 @@ interface PingArrow {
       pointer-events: none;
       z-index: var(--td-z-marks);
     }
+    /* A round plate in the player's colour, the name under it */
     .arrow {
-      position: absolute;
-      transform: translate(-50%, -50%);
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 2px;
-      padding: 0;
-      border: 0;
-      background: none;
-      cursor: pointer;
-      pointer-events: auto;
+      gap: 3px;
       animation: ping-in 0.9s ease-out 2;
     }
-    .chip {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: var(--td-glass-tint);
-      border: 2px solid var(--ping-color);
-      color: var(--ping-color);
-      box-shadow: 0 0 10px var(--ping-color);
-    }
     .name {
-      font: 700 10px/1 var(--td-font-body);
-      color: var(--ping-color);
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+      padding: 1px 5px;
+      font-size: var(--td-fs-small);
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--td-mark);
       white-space: nowrap;
     }
     @keyframes ping-in {
       0% { transform: translate(-50%, -50%) scale(1.6); }
       100% { transform: translate(-50%, -50%) scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .arrow { animation: none; }
     }
   `,
 })

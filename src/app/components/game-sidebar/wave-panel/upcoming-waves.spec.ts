@@ -46,7 +46,7 @@ describe('peekUpcomingWaves', () => {
     const [, w7] = peekWaves(5, 2);
     expect(w7).toMatchObject({ wave: 7, name: 'Bat Swarm', air: true });
     expect(w7.armors).toEqual(['Light']);
-    expect(section(w7, 'Enemies')!.rows[0].detail).toBe('Light · air');
+    expect(section(w7, 'Enemies')!.rows[0].detail).toBe('Light | air');
   });
 
   it('shows the count of the plan row, on the mark and in the tooltip', () => {

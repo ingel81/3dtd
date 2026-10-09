@@ -7,9 +7,11 @@ const ITEM_SELECTOR = '[role="radio"], [role="tab"], [role="menuitem"]';
 /** A menu entry only takes the focus; Enter or a click acts */
 const IS_MENU_ITEM = (item: HTMLElement) => item.getAttribute('role') === 'menuitem';
 
-/** An item that is the group's choice */
+/** An item that is the group's choice (a menu: the entry whose page is open) */
 const CHOSEN = (item: HTMLElement) =>
-  item.getAttribute('aria-checked') === 'true' || item.getAttribute('aria-selected') === 'true';
+  item.getAttribute('aria-checked') === 'true' ||
+  item.getAttribute('aria-selected') === 'true' ||
+  item.getAttribute('aria-current') === 'page';
 
 /**
  * Arrow keys for a radio group or a tab list (WAI-ARIA): the group is one

@@ -1,34 +1,18 @@
-@use '../../styles/game-ui' as ui;
+// Layout of the shortcuts: keys left, what they do right; alternatives
+// parted by a slash, a range by a dash.
 
-@include ui.classes;
-
-:host {
-  display: block;
-}
-
-.dlg {
-  width: 500px;
-}
-
-.dlg-body {
-  padding-top: var(--td-sp-1);
-}
-
-.section-label {
-  margin: var(--td-sp-4) 0 var(--td-sp-1);
-  font-weight: 400;
+.td-dlg {
+  width: 520px;
 }
 
 dl {
   margin: 0;
 }
 
-.row {
+.hk-row {
   display: grid;
-  grid-template-columns: 140px 1fr;
-  align-items: baseline;
-  gap: var(--td-sp-3);
-  padding: 5px 0;
+  grid-template-columns: 120px 1fr;
+  padding-block: 6px;
 }
 
 dt {
@@ -38,40 +22,28 @@ dt {
   gap: 3px;
 }
 
-/* Alternatives: "H / ?", a range: "1 – 9" */
-dt kbd + kbd::before {
-  content: '/';
-  position: absolute;
-  left: -12px;
-  width: 10px;
-  text-align: center;
-  font-weight: 400;
-  color: var(--td-text-muted);
-}
-
-dt kbd + kbd {
-  margin-left: 14px;
-}
-
-dt.range kbd + kbd::before {
-  content: '–';
-}
-
-kbd {
-  @include ui.keycap;
+dt .td-kbd + .td-kbd {
   position: relative;
-  min-width: 14px;
-  padding: 3px 7px 2px;
-  border-radius: 0;
-  font-size: var(--td-fs-micro);
+  margin-left: 14px;
+
+  &::before {
+    content: '/';
+    position: absolute;
+    left: -12px;
+    width: 10px;
+    text-align: center;
+    color: var(--td-text-muted);
+  }
+}
+
+dt.range .td-kbd + .td-kbd::before {
+  content: '–';
 }
 
 dd {
   margin: 0;
-  font-size: var(--td-fs-body);
-  line-height: 1.35;
 }
 
-.dlg-foot .note {
+.hk-hint {
   margin-right: auto;
 }

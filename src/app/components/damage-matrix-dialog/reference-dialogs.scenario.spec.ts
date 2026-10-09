@@ -96,7 +96,7 @@ describe('Damage vs armor, logic of playtest 160 (night 1) replayed', () => {
     await settle();
     expect(dialog.openDialogs).toHaveLength(1);
 
-    const marked = overlay().querySelectorAll('tr.current');
+    const marked = overlay().querySelectorAll('tr.is-selected');
     expect(marked).toHaveLength(1);
     expect(marked[0].getAttribute('aria-current')).toBe('true');
     const archer = buildDamageMatrixRows(() => true).find((row) => row.towerId === 'archer')!;
@@ -127,6 +127,6 @@ describe('Damage vs armor, logic of playtest 160 (night 1) replayed', () => {
     await settle();
     expect(dialog.openDialogs).toHaveLength(1);
     expect(overlay().querySelectorAll('tr.tower-row').length).toBeGreaterThan(0);
-    expect(overlay().querySelectorAll('tr.current')).toHaveLength(0);
+    expect(overlay().querySelectorAll('tr.is-selected')).toHaveLength(0);
   });
 });

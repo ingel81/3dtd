@@ -1,25 +1,25 @@
 <!-- Shown through the CDK overlay, see UpdateHintComponent.show() -->
 <ng-template #chip>
   @if (update(); as u) {
-    <div class="uh" role="status">
+    <div class="uh td-overlay" role="status">
       <td-icon class="uh-icon" name="refresh" [size]="18"></td-icon>
-      <div class="uh-text">
-        <span class="uh-title">Update ready</span>
-        <span class="uh-line">Version {{ u.version }} installs when you quit.</span>
+      <div class="td-stack uh-text">
+        <span class="td-section">Update ready</span>
+        <span class="td-note">Version {{ u.version }} installs when you quit.</span>
         @if (noteItems().shown.length) {
-          <ul class="uh-notes">
+          <ul class="td-note uh-notes">
             @for (item of noteItems().shown; track $index) {
               <li>{{ item }}</li>
             }
             @if (noteItems().more) {
-              <li class="uh-more">and more, see What's new after the restart</li>
+              <li class="td-muted uh-more">and more, see What's new after the restart</li>
             }
           </ul>
         }
-        <span class="uh-line">Restarting now ends this game.</span>
-        <span class="uh-actions">
-          <button class="uh-action uh-restart" type="button" (click)="restart()">Restart now</button>
-          <button class="uh-action" type="button" (click)="hide()">Later</button>
+        <span class="td-note">Restarting now ends this game.</span>
+        <span class="td-actions is-start uh-actions">
+          <button class="uh-action uh-restart td-btn-primary td-btn-sm" type="button" (click)="restart()">Restart now</button>
+          <button class="uh-action td-btn-secondary td-btn-sm" type="button" (click)="hide()">Later</button>
         </span>
       </div>
     </div>

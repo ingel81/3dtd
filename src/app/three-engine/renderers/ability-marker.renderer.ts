@@ -10,12 +10,13 @@ import {
   Scene,
   type Vector3,
 } from 'three';
+import { TD_THEME, themeHex } from '../../styles/td-theme';
 
 /** Marker colours, td-theme tokens as hex */
-const STRIKE_COLOR = 0xc96a3a;    // --td-warn-orange: the zone about to be hit
-const COUNTDOWN_COLOR = 0xd9bc68; // --td-gold-light: the ring closing in on the impact
-const AIM_COLOR = 0xc2a055;       // --td-gold: where a strike would land
-const REFUSED_COLOR = 0xb83e32;   // --td-health-red: no route cell in reach
+const STRIKE_COLOR = themeHex(TD_THEME.warnOrange); // the zone about to be hit
+const COUNTDOWN_COLOR = themeHex(TD_THEME.brassLight); // the ring closing in on the impact
+const AIM_COLOR = themeHex(TD_THEME.brass); // where a strike would land
+const REFUSED_COLOR = themeHex(TD_THEME.healthRed); // no route cell in reach
 
 /** Lift above the ground point so the flat marker clears small bumps, m */
 const LIFT_M = 0.4;

@@ -1,87 +1,15 @@
-@use '../../styles/game-ui' as ui;
+// Layout of the attributions: a group per category, a row per item with
+// name and author left, licence and source right.
 
-@include ui.classes;
-
-.dlg {
-  width: 520px;
-}
-
-.dlg-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--td-sp-5);
-}
-
-.section-label td-icon {
-  color: var(--td-teal);
-}
-
-.section-count {
-  order: 1;
-  color: var(--td-text-muted);
-}
-
-.attribution-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.at-head {
   gap: var(--td-sp-2);
-  padding: var(--td-sp-2) 0;
-  border-bottom: 1px solid var(--td-frame-dark);
 }
 
-.attribution-item:last-child {
-  border-bottom: none;
-}
-
-.item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.at-info {
   min-width: 0;
 }
 
-.item-name {
-  font-size: var(--td-fs-body);
-  font-weight: 500;
-  color: var(--td-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.item-author {
-  font-size: var(--td-fs-small);
-  color: var(--td-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.item-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--td-sp-2);
-  flex-shrink: 0;
-}
-
-.license-badge {
-  padding: 3px 6px;
-  border: 1px solid var(--td-frame-dark);
-  background: var(--td-panel-shadow);
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-micro);
-  color: var(--td-teal-light);
-  text-decoration: none;
-  white-space: nowrap;
-  @include ui.focus-ring;
-  @include ui.motion(border-color);
-}
-
-.license-badge:hover:not(.plain) {
-  border-color: var(--td-teal);
-}
-
-.license-badge.plain {
-  color: var(--td-text-muted);
+.at-actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
 }

@@ -7,6 +7,7 @@
 
 import { Color } from 'three';
 import { DetMath } from '../utils/det-math';
+import { TD_THEME } from '../styles/td-theme';
 
 /**
  * Visual appearance pro Cell-State — Farbe + Alpha. Wird sowohl im
@@ -148,7 +149,7 @@ export const LOS_VIZ_CONFIG = {
      * zu sehen.
      */
     selection: {
-      color: new Color(0xe69f00),
+      color: new Color(TD_THEME.cellSelection),
       /** Rahmenbreite in Metern; nie schmaler als 3 Pixel. */
       borderWidthMeters: 0.3,
       borderAlpha: 1,

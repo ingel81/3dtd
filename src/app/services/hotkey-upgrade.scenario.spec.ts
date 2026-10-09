@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TD_THEME } from '../styles/td-theme';
 
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
@@ -60,8 +61,8 @@ import { singlePlayer } from '../integration/single-player-parts';
 
 const POSITION = { lat: 48.7, lon: 9.1, height: 300 };
 /** Colours of the text over the tower (tower-upgrade.service.ts UPGRADE_TEXT) */
-const GOLD = '#D9BC68';
-const ORANGE = '#C96A3A';
+const GOLD = TD_THEME.brassLight;
+const ORANGE = TD_THEME.warnOrange;
 
 /**
  * Playtest 518, 519 and 520 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed: U

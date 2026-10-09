@@ -1,369 +1,100 @@
-@use '../sidebar-panel' as panel;
-@use '../../../styles/game-ui' as ui;
+// Layout of the wave section: the enemies of the running wave, alerts, the
+// wave button with its bar, the options under it, the timeline.
 
-:host {
-  display: contents;
-}
-
-@include panel.section;
-
-/* Trennlinie zur folgenden Sektion. BUILD, Tower und Research sind immer
- * die letzte sichtbare Sektion und haben keine (früher per
- * .td-panel:last-of-type, das in eigenen Host-Elementen nicht mehr greift). */
-.td-panel {
-  border-bottom: 1px solid var(--td-frame-dark);
-}
-
-@include panel.content;
-
-/* === Wave Button ===
- * Primärer Call-to-Action der Sidebar, "▶ WAVE N" links, rechts die Taste
- * Space. Keine Kopfzeile darüber: der Knopf nennt die Welle. Der primäre
- * Knopf des Fundaments (ui.btn-primary: Messing, harte Unterkante, Oswald),
- * 44px hoch und 16px Schrift, damit er sich vom Rest der Sidebar abhebt.
- * Typografie und Höhe bleiben in jedem Zustand gleich, es wechseln nur
- * Fläche, Farbe und Inhalt:
- *   bereit          Messing, Hover heller, gedrückt 1px tiefer, rechts Space
- *   Countdown       rechts die Sekunden statt Space, unten der Restbalken
- *   gesperrt        Game Over, grau wie .td-btn:disabled, ohne Taste
- *   Welle läuft     flach eingelassen, "Wave N" links, "N left" rechts,
- *                   unten ein Teal-Balken mit dem Anteil der Restgegner */
+/* The wave button: the main action of the sidebar, full width. Running, it
+   stands pressed in teal with the share of enemies left as a bar; counting
+   down, the bar drains with the seconds. */
 .td-wave-btn {
-  @include ui.btn-primary(44px);
   position: relative;
-  overflow: hidden;
   justify-content: space-between;
-  gap: 10px;
   width: 100%;
-  padding: 0 14px;
-  font-size: 16px;
+  overflow: hidden;
 }
 
-/* Laufende Welle: eingelassen wie Slots und Inputs (vertiefte Fläche,
- * DESIGN_SYSTEM.md); der Knopf ist dabei disabled, die Regel schlägt die
- * graue Fläche des Fundaments */
-.td-wave-btn.td-wave-running:disabled {
-  background: var(--td-panel-shadow);
-  color: var(--td-teal);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.5),
-    inset 0 -1px 0 rgba(74, 84, 77, 0.13);
-  cursor: default;
+.td-wave-btn.td-wave-running {
+  color: var(--td-teal-light);
 }
 
-.td-wave-btn-main {
+.wp-btn-main {
+  gap: var(--td-sp-2);
+}
+
+.wp-countdown {
+  opacity: 0.8;
+}
+
+.wp-options {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: var(--td-sp-2);
 }
 
-.td-wave-left {
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-small);
-  color: var(--td-text-muted);
-  letter-spacing: 0.04em;
-  text-transform: none;
-}
-
-/* Anteil der Gegner, die weder getötet noch durchgekommen sind */
-.td-wave-bar {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 2px;
-  background: var(--td-teal);
-  transition: width 0.3s ease;
-}
-
-/* Key cap on the gold: dark ink, a faint rim, as quiet as the countdown */
-/* Coop: this player said ready; the button stays pressed until the wave starts */
-.td-wave-btn.td-wave-pressed {
-  filter: brightness(0.85);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
-}
-
-.td-wave-key {
-  padding: 3px 5px;
-  border: 1px solid rgba(26, 20, 10, 0.35);
-  background: rgba(26, 20, 10, 0.08);
-  color: rgba(26, 20, 10, 0.75);
-  font: 600 10px/1 var(--td-font-mono);
-  letter-spacing: 0.08em;
-}
-
-/* Auto-start counting down: seconds right instead of the key, and the bar
- * drains with the game time left (stands while paused) */
-.td-wave-countdown {
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-small);
-  letter-spacing: 0.04em;
-  text-transform: none;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.75;
-}
-.td-wave-bar.td-wave-bar-countdown {
-  background: rgba(26, 20, 10, 0.45);
-  transition: width 0.9s linear;
-}
-
-/* Wave alerts above the button, build phase only: air or ethereal enemies
- * in the next or the next-but-one wave. Dark red field, the icon in red (the
- * ghost in violet), the rest in text colours; orange only when no placed
- * tower answers it. */
-.td-wave-alert {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  background: var(--td-health-bg);
-  border: 1px solid rgba(184, 62, 50, 0.55);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  font-family: var(--td-font-mono);
-  cursor: help;
-}
-.td-wave-alert-icon {
+/* Alerts: air or ethereal enemies in the next waves; the ghost in violet */
+.wp-alert-icon {
+  flex: 0 0 auto;
   color: var(--td-health-red);
 }
-.td-wave-alert-ethereal {
-  border-color: rgba(168, 85, 247, 0.5);
+
+.wp-alert.is-ethereal .wp-alert-icon {
+  color: var(--td-ethereal);
 }
-.td-wave-alert-ethereal .td-wave-alert-icon {
-  color: #b58cf5;
-}
-.td-wave-alert-text {
-  display: flex;
-  flex-direction: column;
+
+.wp-alert-text {
   gap: 1px;
-  min-width: 0;
 }
-.td-wave-alert-title {
-  font-size: 11px;
+
+.wp-alert-title {
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--td-text-primary);
 }
-.td-wave-alert-when {
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  text-transform: none;
-  color: var(--td-text-muted);
-}
-.td-wave-alert-defense {
-  font-size: 10px;
-  color: var(--td-text-secondary);
-}
-.td-wave-alert-defense.td-wave-alert-open {
-  color: var(--td-warn-orange);
+
+/* What the whole wave costs the HQ if all of it gets through */
+.wp-leak b {
+  color: var(--td-hp-text);
 }
 
-/* Auto-start: a small switch right under the button, "auto 10s". Off the
- * track is sunk and the knob grey; on, the track tints teal and the knob
- * slides right in --td-teal-light (teal was the accent of the checkbox it
- * replaces). */
-.td-auto-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 0;
-  background: none;
-  border: 0;
-  color: var(--td-text-muted);
-  font: 10px/1 var(--td-font-mono);
-  letter-spacing: 0.04em;
-  cursor: pointer;
-}
-.td-auto-toggle:hover,
-.td-auto-toggle[aria-pressed='true'] {
-  color: var(--td-text-secondary);
-}
-.td-auto-toggle:focus-visible {
-  outline: 2px solid var(--td-teal-light);
-  outline-offset: 2px;
-}
-.td-auto-switch {
-  position: relative;
-  box-sizing: border-box;
-  width: 18px;
-  height: 10px;
-  border: 1px solid var(--td-frame-dark);
-  background: var(--td-panel-shadow);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
-}
-.td-auto-switch::after {
-  content: '';
-  position: absolute;
-  top: 1px;
-  left: 1px;
-  width: 6px;
-  height: 6px;
-  background: var(--td-text-disabled);
-  transition: transform 0.15s ease, background 0.15s ease;
-}
-.td-auto-toggle[aria-pressed='true'] .td-auto-switch {
-  border-color: var(--td-teal-dark);
-  background: rgba(31, 135, 114, 0.35);
-}
-.td-auto-toggle[aria-pressed='true'] .td-auto-switch::after {
-  transform: translateX(8px);
-  background: var(--td-teal-light);
+.wp-group {
+  justify-content: flex-start;
+  gap: var(--td-sp-2);
+  padding: 4px 6px 4px 4px;
 }
 
-/* The row under the button: the auto-start switch left, between waves the
- * replay of the last one right, both as quiet as each other */
-.td-wave-options {
+.wp-preview {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+}
+
+.wp-info {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: -3px;
-}
-
-.td-replay-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 0;
-  background: none;
-  border: 0;
-  color: var(--td-text-muted);
-  font: 10px/1 var(--td-font-mono);
-  letter-spacing: 0.04em;
-  cursor: pointer;
-}
-.td-replay-link:hover {
-  color: var(--td-text-secondary);
-}
-.td-replay-link:focus-visible {
-  outline: 2px solid var(--td-teal-light);
-  outline-offset: 2px;
-}
-
-/* Why a replay file did not load */
-.td-replay-problem {
-  margin: 4px 0 0;
-  color: var(--td-warn-orange);
-  font: 10px/1.3 var(--td-font-mono);
-}
-
-/* === Wave Section ===
- * Without a head line the content starts 12px under the top, like the
- * heads of the other panels */
-.td-wave-section {
-  padding-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* === Wave Enemy List === */
-.td-enemy-group-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.td-enemy-group-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: default;
-  padding: 2px;
-  transition: background 0.15s;
-  padding: 4px;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-}
-
-.td-enemy-group-row:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.td-group-preview-container {
-  width: 64px;
-  height: 64px;
-  flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%);
-  border: 1px solid var(--td-frame-dark);
-  overflow: hidden;
-}
-
-.td-group-preview-canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.td-group-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 1px;
+  min-width: 0;
 }
-.td-group-info-header {
+
+.wp-info-head {
   display: flex;
   align-items: baseline;
   gap: 4px;
 }
-.td-group-name {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--td-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.td-group-count {
-  font-size: 10px;
+
+.wp-count {
   font-weight: 700;
-  color: var(--td-warn-orange);
+  color: var(--td-warn-text);
 }
-.td-group-stats {
-  display: flex;
-  gap: 8px;
+
+.wp-stats {
+  gap: 2px 8px;
 }
-.td-group-stat {
-  font-size: var(--td-fs-micro);
-  color: var(--td-text-muted);
-}
-/* What one of them costs the HQ (TODO E49) */
-.td-group-leak {
-  color: var(--td-health-red);
-}
-/* What the whole wave costs the HQ if all of it gets through */
-.td-wave-leak {
-  margin: 0 0 6px;
-  font: 600 10px/1.4 var(--td-font-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
-}
-.td-wave-leak b {
-  color: var(--td-health-red);
-  font-weight: 700;
-}
-.td-group-armor {
-  display: flex;
-  gap: 6px;
-  font-size: var(--td-fs-micro);
-  color: var(--td-text-secondary);
-}
-/* Armor as in the NEXT line: a grey shield before the name, no emoji */
-.td-group-armor-type {
-  display: inline-flex;
-  align-items: center;
+
+.wp-armor {
   gap: 3px;
 }
-.td-group-armor-type td-icon {
-  color: var(--td-text-muted);
-}
-.td-group-weak {
-  color: var(--td-gold-dark);
-  font-style: italic;
-}
-.td-group-trait {
-  font-size: var(--td-fs-micro);
-  color: var(--td-text-secondary);
+
+/* An enemy's trait, a remark under its line */
+.wp-trait {
   font-style: italic;
 }

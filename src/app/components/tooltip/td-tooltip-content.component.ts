@@ -5,7 +5,7 @@ import { TdIconComponent, TdIconName } from '../icon/icon.component';
 import { targetingLabel } from './tooltip-text';
 
 const ACCENT_COLOR_MAP: Record<TdTooltipAccent, string> = {
-  gold: 'var(--td-gold-light)',
+  gold: 'var(--td-brass-light)',
   teal: 'var(--td-teal-light)',
   fire: 'var(--td-warn-orange)',
   cold: 'var(--td-cold)',

@@ -1,35 +1,35 @@
 <!-- Covers the whole page: Tab stays in it, and the focus goes back where it was when it closes -->
 <div class="token-setup" role="dialog" aria-modal="true" aria-labelledby="token-setup-title"
      cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
- <div class="dlg">
-  <header class="dlg-head">
-    <h2 class="dlg-title" id="token-setup-title">{{ rejected() ? 'Key rejected' : 'Bring your own map key' }}</h2>
+ <div class="td-dlg">
+  <header class="td-dlg-head">
+    <h2 class="td-dlg-title" id="token-setup-title">{{ rejected() ? 'Key rejected' : 'Bring your own map key' }}</h2>
   </header>
 
-  <div class="dlg-body">
+  <div class="td-dlg-body">
   @if (rejected()) {
-    <p class="token-lead">The tile server refused it. Check you pasted the whole thing.</p>
+    <p class="td-text">The tile server refused it. Check you pasted the whole thing.</p>
   } @else {
-    <p class="token-lead">
+    <p class="td-text">
       The 3D tiles are billed per request, so this build ships without a key.
       A free account covers playing.
     </p>
     @if (coopRoom && coopAccess === 'hint') {
       <!-- A browser on the site joins no room: co-op is played in the desktop app (E114) -->
-      <p class="token-lead token-coop">
+      <p class="td-text token-coop">
         You were invited to coop room {{ coopRoom }}. Co-op runs in the free
-        <a [href]="appDownloads" target="_blank" rel="noopener">desktop app</a> for Windows and Linux: open Coop
+        <a class="td-link" [href]="appDownloads" target="_blank" rel="noopener">desktop app</a> for Windows and Linux: open Coop
         there and join with this code. Here you can play solo with your own key.
       </p>
     } @else if (coopRoom) {
-      <p class="token-lead token-coop">
+      <p class="td-text token-coop">
         You are joining coop room {{ coopRoom }}. Every player needs a map key of their own; once yours is in,
         the host's map loads and you join by yourself.
       </p>
     }
   }
 
-  <div class="seg token-tabs" role="tablist" tdRovingGroup aria-label="Map provider">
+  <div class="td-seg token-tabs" role="tablist" tdRovingGroup aria-label="Map provider">
     <button
       type="button"
       role="tab"
@@ -47,26 +47,26 @@
   </div>
 
   @if (provider() === 'cesium') {
-    <ol class="token-steps">
-      <li>Sign up at <a href="https://ion.cesium.com/signup" target="_blank" rel="noopener">ion.cesium.com</a></li>
+    <ol class="td-well td-text token-steps">
+      <li>Sign up at <a class="td-link" href="https://ion.cesium.com/signup" target="_blank" rel="noopener">ion.cesium.com</a></li>
       <li>Copy your default token under <strong>Access Tokens</strong></li>
       <li>Paste it here</li>
     </ol>
   } @else {
-    <ol class="token-steps">
-      <li>Create a project in the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a></li>
+    <ol class="td-well td-text token-steps">
+      <li>Create a project in the <a class="td-link" href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a></li>
       <li>Enable the <strong>Map Tiles API</strong>, create a key</li>
       <li>Paste it here</li>
     </ol>
-    <p class="note is-warn">
+    <p class="td-note is-warn">
       Referrer-restricted and not offered in every region. Use Cesium Ion if the map stays empty.
     </p>
   }
 
-  <form class="token-form" (submit)="submit($event)">
+  <form class="td-inline token-form" (submit)="submit($event)">
     <input
       cdkFocusInitial
-      class="inp token-input"
+      class="td-input token-input"
       type="text"
       [name]="provider() === 'cesium' ? 'cesium-ion-token' : 'google-maps-api-key'"
       [placeholder]="provider() === 'cesium' ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6...' : 'AIza...'"
@@ -76,32 +76,32 @@
       (input)="onInput($event)"
       [attr.aria-label]="provider() === 'cesium' ? 'Cesium Ion access token' : 'Google Maps API key'" />
     <button
-      class="btn-secondary"
+      class="td-btn-secondary"
       type="button"
       [disabled]="!value().trim() || testing()"
       (click)="test()">{{ testing() ? 'Checking' : 'Test' }}</button>
-    <button class="btn-primary" type="submit" [disabled]="!value().trim()">Start</button>
+    <button class="td-btn-primary" type="submit" [disabled]="!value().trim()">Start</button>
   </form>
 
   @if (testResult(); as result) {
-    <p class="note" [class.is-ok]="result.ok" [class.is-warn]="!result.ok">
-      {{ result.ok ? '✓ ' : '✗ ' }}{{ result.message }}
+    <p class="td-note" [class.is-ok]="result.ok" [class.is-warn]="!result.ok">
+      {{ result.message }}
     </p>
   }
 
-  <p class="note token-note">
+  <p class="td-note">
     Stays in this browser, goes only to the tile provider.
     @if (config.hasStoredToken()) {
-      <button class="token-link" type="button" (click)="clear()">Forget stored key</button>
+      <button class="td-link" type="button" (click)="clear()">Forget stored key</button>
     }
   </p>
   </div>
 
   @if (dismissible()) {
-    <footer class="dlg-foot">
-      <button class="btn-secondary token-back" type="button" (click)="dismiss()">
+    <footer class="td-dlg-foot">
+      <button class="td-btn-secondary token-back" type="button" (click)="dismiss()">
         Back to the game
-        <kbd>Esc</kbd>
+        <kbd class="td-kbd">Esc</kbd>
       </button>
     </footer>
   }

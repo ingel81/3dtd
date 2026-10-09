@@ -1,0 +1,136 @@
+// The sidebar: one plaster panel like the dialogs; its sections parted by
+// engraved lines, each with a brass head over a hairline. The last section
+// fills the rest and scrolls in itself.
+@use 'base';
+@use 'surface';
+
+@mixin sidebar {
+  @include surface.panel;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@mixin section {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px var(--td-sidebar-gutter) 14px;
+
+  & + & {
+    @include base.engraved-line-top;
+  }
+}
+
+// The section that takes the rest of the height and scrolls
+@mixin section-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+// The body under a head that takes the rest and scrolls
+@mixin body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+// The head of a section: name left, tools right
+@mixin head {
+  @include surface.head;
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-2);
+  min-height: 26px;
+}
+
+// Tiles side by side; the component sets the columns when they are fixed
+@mixin tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  gap: 4px;
+}
+
+// A figure tile: icon, figure, caps label, in a well (tower stats, results).
+// is-label-under puts the label under the figure when it comes first in the
+// markup (screen readers read the name before the number).
+@mixin tile {
+  @include surface.well;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 4px;
+
+  &.is-label-under {
+    flex-direction: column-reverse;
+  }
+}
+
+// A stone plate that is a button with more than a label: an upgrade, a
+// research, a path. Name and line left, cost right. A plate the player cannot
+// buy stays clickable (aria-disabled) and dims; a bought one flashes once.
+@mixin plate-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--td-radius);
+  @include base.quiet-stone;
+  color: var(--td-text-primary);
+  font-family: var(--td-font);
+  font-size: var(--td-fs-body);
+  text-align: left;
+  cursor: pointer;
+  // Inside: plates fill scrolling sections that would clip a ring outside
+  @include base.focus-ring(calc(-1 * var(--td-focus-width)));
+  @include base.motion(color, box-shadow, filter);
+
+  > td-icon {
+    flex: 0 0 auto;
+    color: var(--td-brass);
+  }
+
+  // Name over a line, taking the room between icon and cost
+  .td-plate-label {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &:hover#{base.$enabled} {
+    color: var(--td-brass-light);
+  }
+
+  &:active#{base.$enabled} {
+    box-shadow: var(--td-pressed);
+  }
+
+  @include base.disabled;
+
+  &.is-flash {
+    animation: td-plate-flash 700ms ease-out;
+  }
+
+  &.is-flash-alt {
+    animation: td-plate-flash-alt 700ms ease-out;
+  }
+
+  @include base.reduced-motion {
+    &.is-flash,
+    &.is-flash-alt {
+      animation: none;
+    }
+  }
+}

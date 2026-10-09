@@ -1,15 +1,5 @@
-@use '../../styles/game-ui' as ui;
+// Layout of the upload question: a narrower dialog.
 
-@include ui.classes;
-
-.dlg {
-  width: 460px;
-}
-
-.dlg-body p {
-  margin: 0 0 var(--td-sp-3);
-}
-
-.dlg-body p:last-child {
-  margin-bottom: 0;
+.td-dlg {
+  width: 480px;
 }

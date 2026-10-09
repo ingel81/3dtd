@@ -8,7 +8,7 @@ export type BootStepStatus = 'pending' | 'current' | 'done';
 
 /**
  * One step in the loading screen's boot panel.
- * `meta` is a free-form right-aligned subtext (e.g. "57 streets · OSM").
+ * `meta` is a free-form right-aligned subtext (e.g. "57 streets | OSM").
  */
 export interface BootStep {
   id: string;

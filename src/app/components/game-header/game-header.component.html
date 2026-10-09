@@ -1,45 +1,44 @@
-<header class="header">
-  <img class="logo" src="assets/images/logo/logo.png" alt="3DTD">
+<header class="header td-topbar">
+  <img class="logo" src="assets/images/logo/logo.svg" alt="3DTD">
   <div class="header-left">
-    <button class="location-btn" (click)="locationClick.emit()" [disabled]="locationLocked()"
+    <button class="location-btn td-sunk" (click)="!locationLocked() && locationClick.emit()" [attr.aria-disabled]="locationLocked() ? true : null"
             [matTooltip]="locationLocked() ? 'The coop room plays this map' : 'Change place'">
-      <span class="location-label">Defend</span>
-      <span class="location-name">{{ locationName() }}</span>
-      <td-icon class="location-edit" name="edit" [size]="16"></td-icon>
+      <td-icon class="location-pin" name="pin" [size]="16"></td-icon>
+      <span class="td-loc-label">Defend</span>
+      <span class="location-name td-loc-name">{{ locationName() }}</span>
     </button>
 
-    <!-- Location Actions, in three groups: the place, editing the map, coop -->
+    <!-- Location actions, in three groups: the place, editing the map, coop -->
     <div class="location-actions">
-      <!-- Share Button -->
-      <button class="action-btn" (click)="onShare()" matTooltip="Copy link"
+      <button class="action-btn td-tool" (click)="onShare()" matTooltip="Copy link"
               [attr.aria-label]="shareConfirmed() ? 'Link copied' : 'Copy link'">
-        <td-icon [name]="shareConfirmed() ? 'check' : 'link'" [size]="22"></td-icon>
+        <td-icon [name]="shareConfirmed() ? 'check' : 'link'" [size]="20"></td-icon>
       </button>
 
-      <!-- Favorites Dropdown -->
+      <!-- Favorites dropdown -->
       <div class="fav-wrapper">
-        <button class="action-btn" [class.active]="favMenuExpanded()"
+        <button class="action-btn td-tool"
                 (click)="toggleFavMenu()" matTooltip="Favorites"
                 aria-label="Favorites" [attr.aria-expanded]="favMenuExpanded()">
-          <td-icon name="bookmarkStar" [size]="22"></td-icon>
+          <td-icon name="bookmarkStar" [size]="20"></td-icon>
         </button>
-        <div class="fav-dropdown" [class.expanded]="favMenuExpanded()">
+        <div class="fav-dropdown td-popup td-reveal" [class.is-open]="favMenuExpanded()">
           <!-- Name field: saving the current location, or renaming a favorite.
                Enter or the check saves, Esc or the cross cancels. -->
           <ng-template #favNameField let-label="label">
-            <div class="fav-item fav-edit">
-              <input #favInput class="fav-input" type="text" [value]="favDraftName()"
+            <div class="td-row fav-edit">
+              <input #favInput class="td-input is-sm fav-input" type="text" [value]="favDraftName()"
                      [attr.maxlength]="favNameMaxLength" placeholder="Name"
                      [attr.aria-label]="label"
                      (keydown.enter)="commitFavoriteName()"
                      (keydown.escape)="cancelFavoriteName($event)">
-              <button class="fav-tool fav-confirm" (click)="commitFavoriteName()" matTooltip="Save"
+              <button class="td-tool fav-confirm" (click)="commitFavoriteName()" matTooltip="Save"
                       aria-label="Save name">
-                <td-icon name="check" [size]="14"></td-icon>
+                <td-icon name="check" [size]="16"></td-icon>
               </button>
-              <button class="fav-tool" (click)="cancelFavoriteName($event)" matTooltip="Cancel"
+              <button class="td-tool" (click)="cancelFavoriteName($event)" matTooltip="Cancel"
                       aria-label="Cancel the name">
-                <td-icon name="cross" [size]="14"></td-icon>
+                <td-icon name="cross" [size]="16"></td-icon>
               </button>
             </div>
           </ng-template>
@@ -47,198 +46,184 @@
           @if (favEditing() === 'new') {
             <ng-container *ngTemplateOutlet="favNameField; context: { label: 'Name of the new favorite' }" />
           } @else {
-            <button class="fav-item fav-add" (click)="startAddFavorite()">
-              <td-icon name="plus" [size]="14"></td-icon>
-              <span>Save this place</span>
+            <button class="td-row fav-add" (click)="startAddFavorite()">
+              <span class="td-inline"><td-icon name="plus" [size]="14"></td-icon>Save this place</span>
             </button>
           }
-          <div class="fav-list">
+          <div class="fav-list td-rows">
             @for (fav of favorites(); track fav.id; let first = $first, last = $last) {
               @if (favEditing() === fav.id) {
                 <ng-container *ngTemplateOutlet="favNameField; context: { label: 'New name for ' + favoriteName(fav) }" />
               } @else {
-                <div class="fav-item">
-                  <button class="fav-select" (click)="onSelectFavorite(fav)">
-                    <span class="fav-name">{{ favoriteName(fav) }}</span>
-                    <span class="fav-coords">{{ fav.hq.lat.toFixed(4) }}, {{ fav.hq.lon.toFixed(4) }}</span>
+                <div class="td-row fav-item">
+                  <button class="td-row-main fav-select" (click)="onSelectFavorite(fav)">
+                    <span class="td-name fav-name">{{ favoriteName(fav) }}</span>
+                    <span class="td-sub td-num">{{ fav.hq.lat.toFixed(4) }}, {{ fav.hq.lon.toFixed(4) }}</span>
                   </button>
-                  <button class="fav-tool" (click)="onMoveFavorite(fav.id, -1)" [disabled]="first"
+                  <button class="td-tool fav-tool" (click)="onMoveFavorite(fav.id, -1)" [disabled]="first"
                           matTooltip="Move up" [attr.aria-label]="'Move ' + favoriteName(fav) + ' up'">
                     <td-icon name="caretU" [size]="14"></td-icon>
                   </button>
-                  <button class="fav-tool" (click)="onMoveFavorite(fav.id, 1)" [disabled]="last"
+                  <button class="td-tool fav-tool" (click)="onMoveFavorite(fav.id, 1)" [disabled]="last"
                           matTooltip="Move down" [attr.aria-label]="'Move ' + favoriteName(fav) + ' down'">
                     <td-icon name="caret" [size]="14"></td-icon>
                   </button>
-                  <button class="fav-tool" (click)="startRenameFavorite(fav)" matTooltip="Rename"
+                  <button class="td-tool fav-tool" (click)="startRenameFavorite(fav)" matTooltip="Rename"
                           [attr.aria-label]="'Rename ' + favoriteName(fav)">
                     <td-icon name="edit" [size]="14"></td-icon>
                   </button>
-                  <button class="fav-tool fav-delete" (click)="onDeleteFavorite(fav.id, $event)" matTooltip="Delete"
+                  <button class="td-tool fav-tool fav-delete" (click)="onDeleteFavorite(fav.id, $event)" matTooltip="Delete"
                           [attr.aria-label]="'Delete ' + favoriteName(fav)">
-                    <td-icon name="cross" [size]="14"></td-icon>
+                    <td-icon name="trash" [size]="14"></td-icon>
                   </button>
                 </div>
               }
             } @empty {
-              <div class="fav-empty">No favorites</div>
+              <p class="td-note fav-empty">No favorites</p>
             }
           </div>
         </div>
       </div>
 
-      <!-- World Dice -->
-      <button class="action-btn" (click)="diceClick.emit()"
+      <button class="action-btn td-tool" (click)="!locationLocked() && diceClick.emit()"
               [matTooltip]="locationLocked() ? 'The coop room plays this map' : 'Random city'"
-              aria-label="Random city" [disabled]="locationLocked()">
-        <td-icon name="dice" [size]="22"></td-icon>
+              aria-label="Random city" [attr.aria-disabled]="locationLocked() ? true : null">
+        <td-icon name="dice" [size]="20"></td-icon>
       </button>
 
-      <!-- Rendering Toggle (Phase 5.14), headless mode for bot runs, DevWorld only -->
+      <!-- Rendering toggle (Phase 5.14), headless mode for bot runs, DevWorld only -->
       @if (isDevWorld) {
-        <button class="action-btn" (click)="toggleRendering()"
-                [class.active]="!renderingEnabled()"
+        <button class="action-btn td-tool" (click)="toggleRendering()"
+                [class.is-on]="!renderingEnabled()"
                 [matTooltip]="renderingEnabled() ? 'Disable 3D rendering (headless)' : 'Enable 3D rendering'"
                 [attr.aria-label]="renderingEnabled() ? 'Disable 3D rendering' : 'Enable 3D rendering'">
-          <td-icon [name]="renderingEnabled() ? 'eye' : 'eyeOff'" [size]="22"></td-icon>
+          <td-icon [name]="renderingEnabled() ? 'eye' : 'eyeOff'" [size]="20"></td-icon>
         </button>
       }
 
-      <span class="action-divider" aria-hidden="true"></span>
+      <span class="td-tool-gap" aria-hidden="true"></span>
 
-      <button class="action-btn" [class.active]="placementMode() === 'hq'"
+      <button class="action-btn td-tool" [class.is-on]="placementMode() === 'hq'"
               (click)="placeHqClick.emit()" matTooltip="Move HQ"
               aria-label="Move HQ" [attr.aria-pressed]="placementMode() === 'hq'"
               [disabled]="!canPlace()">
-        <td-icon name="castle" [size]="22"></td-icon>
+        <td-icon name="castle" [size]="20"></td-icon>
       </button>
 
       <!-- With several spawns: which one to move, or one in place of all -->
       <div class="spawn-wrapper">
-        <button class="action-btn" [class.active]="placementMode() === 'spawn' || spawnMenuOpen()"
+        <button class="action-btn td-tool" [class.is-on]="placementMode() === 'spawn' || spawnMenuOpen()"
                 (click)="onSpawnFlag()" [matTooltip]="spawnCount() > 1 ? 'Move a spawn' : 'Set spawn'"
                 [attr.aria-label]="spawnCount() > 1 ? 'Move a spawn' : 'Set spawn'"
                 [attr.aria-expanded]="spawnCount() > 1 ? spawnMenuOpen() : null"
                 [attr.aria-pressed]="placementMode() === 'spawn'" [disabled]="!canPlace()">
-          <td-icon name="portal" [size]="22"></td-icon>
+          <td-icon name="portal" [size]="20"></td-icon>
         </button>
         @if (spawnMenuOpen()) {
-          <div class="spawn-menu">
+          <div class="spawn-menu td-popup td-rows">
             @for (i of spawnIndexes(); track i) {
-              <button class="spawn-menu-item" type="button" (click)="pickSpawn(i)">Move spawn {{ i + 1 }}</button>
+              <button class="td-row spawn-menu-item" type="button" (click)="pickSpawn(i)">Move spawn {{ i + 1 }}</button>
             }
-            <button class="spawn-menu-item" type="button" (click)="pickSpawn(null)">One spawn in place of all</button>
+            <button class="td-row spawn-menu-item" type="button" (click)="pickSpawn(null)">One spawn in place of all</button>
           </div>
         }
       </div>
 
-      <button class="action-btn" (click)="addSpawnClick.emit()"
+      <button class="action-btn td-tool" (click)="addSpawnClick.emit()"
               matTooltip="Add a spawn, a lane of its own (up to four, before the first wave)"
               aria-label="Add a spawn" [disabled]="!canPlace()">
-        <td-icon name="portalAdd" [size]="22"></td-icon>
+        <td-icon name="portalAdd" [size]="20"></td-icon>
       </button>
 
       <!-- Coop: open a room or join one; in one the room chip (code, a square per player, seats) -->
-      <span class="action-divider" aria-hidden="true"></span>
+      <span class="td-tool-gap" aria-hidden="true"></span>
       @if (coopChip(); as chip) {
         <!-- No focus after the click: the chip would keep a ring (PLAYTEST T63) -->
-        <button class="action-btn coop-btn active" type="button" (click)="coopClick.emit()"
+        <button class="action-btn td-tool coop-btn is-on" type="button" (click)="coopClick.emit()"
                 (mousedown)="$event.preventDefault()"
-                [matTooltip]="'Coop room ' + chip.code + ': players, lanes, chat · Tab'"
+                [matTooltip]="'Coop room ' + chip.code + ': players, lanes, chat (Tab)'"
                 [attr.aria-label]="'Coop room ' + chip.code + ', ' + chip.colors.length + ' of ' + chip.max + ' players'">
-          <td-icon name="shields" [size]="22"></td-icon>
-          <span class="room-code">{{ chip.code }}</span>
+          <td-icon name="shields" [size]="20"></td-icon>
+          <span class="td-code">{{ chip.code }}</span>
           <span class="room-dots" aria-hidden="true">
             @for (color of chip.colors; track $index) { <b [style.background]="color ?? 'var(--td-frame-mid)'"></b> }
           </span>
-          <small>{{ chip.colors.length }}/{{ chip.max }}</small>
+          <small class="td-note td-num">{{ chip.colors.length }}/{{ chip.max }}</small>
         </button>
       } @else {
-        <button class="action-btn coop-btn" type="button" (click)="coopClick.emit()"
+        <button class="action-btn td-tool coop-btn" type="button" (click)="coopClick.emit()"
                 (mousedown)="$event.preventDefault()"
                 matTooltip="Coop: play one map together" aria-label="Coop: play one map together">
-          <td-icon name="shields" [size]="22"></td-icon>
+          <td-icon name="shields" [size]="20"></td-icon>
         </button>
       }
     </div>
   </div>
   <div class="header-right">
-    <!-- Only during a wave. Sits left of the stat bar so the bar keeps
-         its width and stays lined up with the sidebar. -->
+    <!-- Only during a wave. Sits left of the stats so they keep their width
+         and stay lined up with the sidebar. -->
     @if (waveActive()) {
-      <div class="enemies-chip" [matTooltip]="enemiesStat().tooltip">
-        <td-icon name="bug" [size]="16" ariaLabel="Enemies"></td-icon>
-        <span class="stat-num" aria-hidden="true">{{ enemiesStat().text }}</span>
-        <span class="sr-only">{{ enemiesStat().exact }}</span>
+      <div class="td-stat enemies-chip" [matTooltip]="enemiesStat().tooltip">
+        <td-icon name="bug" [size]="18" ariaLabel="Enemies"></td-icon>
+        <span class="td-value stat-num enemies-num" aria-hidden="true">{{ enemiesStat().text }}</span>
+        <span class="td-sr-only">{{ enemiesStat().exact }}</span>
       </div>
     }
-    <!-- Three plates HQ, Credits, Wave, one anatomy: the icon left, beside it
-         the label over the figure over a 4px bar (segments, wave progress,
-         none on Credits). The visible labels name the values,
-         the icons are decoration. Large figures show short ("101k"); screen
-         readers get the exact figure, the tooltip too once the plate shows
-         less than that. Bars, the rising credit change and the flashes are
-         aria-hidden: the figures say it. -->
+    <!-- HQ, Credits, Wave, one anatomy: icon, caps label, figure; HQ and Wave
+         with a thin bar at the foot (health in tenths, the wave's progress).
+         The visible labels name the values, the icons are decoration. Large
+         figures show short ("101k"); screen readers get the exact figure, the
+         tooltip too once the figure shows less. Bars, the rising credit change
+         and the flashes are aria-hidden: the figures say it. -->
     <div class="header-stats">
-      <div class="stat-plate hp" data-stat="hq" #hqPlate [attr.data-level]="hqLevel()" [matTooltip]="hq().tooltip">
+      <div class="td-stat stat-plate hp" data-stat="hq" #hqPlate [attr.data-level]="hqLevel()" [matTooltip]="hq().tooltip">
         <td-icon name="hqSolid" [size]="20"></td-icon>
-        <div class="stat-text">
-          <span class="stat-label">HQ</span>
-          <span class="stat-value" aria-hidden="true">
-            <span class="stat-num">{{ hq().text }}</span>
-            @if (hq().max; as max) {
-              <span class="stat-max">/{{ max }}</span>
-            }
-          </span>
-          <span class="sr-only">{{ hq().exact }}</span>
-          <span class="stat-bar seg-bar" aria-hidden="true">
-            @for (lit of hqSegments(); track $index) { <i [class.lit]="lit"></i> }
-          </span>
-        </div>
+        <span class="td-caps">HQ</span>
+        <span class="stat-value" aria-hidden="true">
+          <span class="td-value stat-num">{{ hq().text }}</span>
+          @if (hq().max; as max) {
+            <span class="td-note td-num">/{{ max }}</span>
+          }
+        </span>
+        <span class="td-sr-only">{{ hq().exact }}</span>
+        <span class="stat-bar td-meter" aria-hidden="true">
+          @for (lit of hqSegments(); track $index) { <i [class.is-on]="lit"></i> }
+        </span>
         @if (hqLevel() === 'critical') {
           <span class="hazard" aria-hidden="true"></span>
         }
       </div>
-      <div class="credits-cell">
-        <div class="stat-plate credits" data-stat="credits" #creditsPlate [matTooltip]="creditsStat().tooltip">
-          <td-icon name="coinSolid" [size]="20"></td-icon>
-          <div class="stat-text">
-            <span class="stat-label">Credits</span>
-            <span class="stat-value" aria-hidden="true">
-              <span class="stat-num">{{ creditsShownText() }}</span>
-            </span>
-            <span class="sr-only">{{ creditsStat().exact }}</span>
-            <!-- No bar on this plate; the empty row keeps the three alike -->
-            <span class="stat-bar" aria-hidden="true"></span>
-          </div>
-        </div>
-        <!-- Under the plate, rising into its bottom edge: it never covers the
-             label or the figure. Keyed by the delta's id: a sum that grows
-             keeps its rising text. -->
+      <div class="td-stat stat-plate credits" data-stat="credits" [matTooltip]="creditsStat().tooltip">
+        <td-icon name="coinSolid" [size]="20"></td-icon>
+        <span class="td-caps">Credits</span>
+        <span class="stat-value" aria-hidden="true">
+          <span class="td-value stat-num" #creditsPlate>{{ creditsShownText() }}</span>
+        </span>
+        <span class="td-sr-only">{{ creditsStat().exact }}</span>
+        <!-- Under the figure, rising towards it: it never covers label or
+             figure. Keyed by the delta's id: a sum that grows keeps its text. -->
         @if (creditsDelta(); as delta) {
           @for (d of [delta]; track d.id) {
-            <span class="credits-delta" [class.loss]="d.kind === 'loss'" aria-hidden="true">{{ d.text }}</span>
+            <span class="credits-delta td-popup" [class.loss]="d.kind === 'loss'" aria-hidden="true">{{ d.text }}</span>
           }
         }
       </div>
-      <div class="stat-plate wave" data-stat="wave" [class.starting]="waveStarting()" [matTooltip]="waveStat().tooltip">
+      <div class="td-stat stat-plate wave" data-stat="wave" [class.starting]="waveStarting()" [matTooltip]="waveStat().tooltip">
         <td-icon name="waveSolid" [size]="20"></td-icon>
-        <div class="stat-text">
-          <span class="stat-label">Wave</span>
-          <span class="stat-value" aria-hidden="true">
-            <span class="stat-num">{{ waveStat().text }}</span>
-          </span>
-          <span class="sr-only">{{ waveStat().exact }}</span>
-          <span class="stat-bar wave-bar" aria-hidden="true">
-            <span class="wave-bar-fill" [style.width.%]="waveProgress()"></span>
-          </span>
-        </div>
+        <span class="td-caps">Wave</span>
+        <span class="stat-value" aria-hidden="true">
+          <span class="td-value stat-num">{{ waveStat().text }}</span>
+        </span>
+        <span class="td-sr-only">{{ waveStat().exact }}</span>
+        <span class="stat-bar td-progress is-teal" aria-hidden="true">
+          <span class="wave-bar-fill" [style.width.%]="waveProgress()"></span>
+        </span>
       </div>
     </div>
   </div>
   @if (isDialog()) {
-    <button class="close-btn" (click)="closeClick.emit()" matTooltip="Close" aria-label="Close">
-      <td-icon name="cross" [size]="16"></td-icon>
+    <button class="td-close" (click)="closeClick.emit()" matTooltip="Close" aria-label="Close">
+      <td-icon name="close" [size]="12"></td-icon>
     </button>
   }
 </header>

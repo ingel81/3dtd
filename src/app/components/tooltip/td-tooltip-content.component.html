@@ -1,12 +1,12 @@
 @if (data(); as d) {
-  <div class="td-tooltip">
+  <div class="td-tooltip td-popup">
     <header class="td-tooltip__header">
-      <span class="td-tooltip__title" [style.color]="accentColor()">{{ d.title }}</span>
+      <span class="td-tooltip__title td-name" [style.color]="accentColor()">{{ d.title }}</span>
       @if (d.category) {
-        <span class="td-tooltip__category">{{ d.category }}</span>
+        <span class="td-caps">{{ d.category }}</span>
       }
       @if (d.hotkey) {
-        <kbd class="td-tooltip__key" [attr.aria-label]="'Key ' + d.hotkey">{{ d.hotkey }}</kbd>
+        <kbd class="td-kbd" [attr.aria-label]="'Key ' + d.hotkey">{{ d.hotkey }}</kbd>
       }
     </header>
 
@@ -14,29 +14,29 @@
       <div class="td-tooltip__stats" [style.grid-template-columns]="statColumns()">
         @for (stat of d.stats; track stat.label) {
           <div class="td-tooltip__stat">
-            <dt>{{ stat.label }}</dt>
-            <dd>{{ stat.value }}</dd>
+            <dt class="td-caps">{{ stat.label }}</dt>
+            <dd class="td-value is-sm">{{ stat.value }}</dd>
           </div>
         }
       </div>
     }
 
     @if (d.targeting; as t) {
-      <div class="td-tooltip__targeting"
+      <div class="td-tooltip__targeting td-marked"
            [class.td-tooltip__targeting--air-only]="t.mode === 'air-only'"
            [class.td-tooltip__targeting--air-ground]="t.mode === 'air-ground'"
-           [class.td-tooltip__targeting--ground-only]="t.mode === 'ground-only'">
+          >
         <td-icon class="td-tooltip__targeting-icon"
                  [name]="targetingIcon(t)" [size]="14"></td-icon>
-        <span class="td-tooltip__targeting-label">{{ targetingLabel(t) }}</span>
+        <span class="td-tooltip__targeting-label td-name">{{ targetingLabel(t) }}</span>
         @if (t.viaResearch) {
-          <span class="td-tooltip__targeting-note">via Research</span>
+          <span class="td-caps">via Research</span>
         }
       </div>
     }
 
     @for (banner of d.banners ?? []; track banner.text) {
-      <div class="td-tooltip__banner" [class.td-tooltip__banner--danger]="banner.tone === 'danger'">
+      <div class="td-tooltip__banner td-note td-marked" [class.td-tooltip__banner--danger]="banner.tone === 'danger'">
         <td-icon class="td-tooltip__banner-icon" [name]="banner.icon" [size]="13"></td-icon>
         <span>{{ banner.text }}</span>
       </div>
@@ -45,13 +45,13 @@
     @if (d.armor && d.armor.length > 0) {
       <div class="td-tooltip__armor">
         @if (d.armorTitle) {
-          <h4>{{ d.armorTitle }}</h4>
+          <h4 class="td-caps">{{ d.armorTitle }}</h4>
         }
         @for (row of d.armor; track row.label) {
-          <div class="td-tooltip__armor-row" [class.dim]="row.dim">
-            <span class="dot" [style.--dot-color]="row.color"></span>
-            <span class="armor-label">{{ row.label }}</span>
-            <span class="armor-mul">{{ row.multiplier }}</span>
+          <div class="td-tooltip__armor-row td-note" [class.dim]="row.dim">
+            <span class="td-swatch" [style.--td-mark]="row.color"></span>
+            <span class="armor-label td-trunc">{{ row.label }}</span>
+            <span class="armor-mul td-num">{{ row.multiplier }}</span>
           </div>
         }
       </div>
@@ -59,7 +59,7 @@
 
     @for (section of d.sections ?? []; track section.title) {
       <div class="td-tooltip__section">
-        <h4>
+        <h4 class="td-caps">
           <span>{{ section.title }}</span>
           @if (section.aside) {
             <span class="aside">{{ section.aside }}</span>
@@ -69,14 +69,14 @@
           <div class="td-tooltip__row">
             <div class="row-main">
               @if (row.color) {
-                <span class="dot" [style.--dot-color]="row.color"></span>
+                <span class="td-swatch" [style.--td-mark]="row.color"></span>
               }
-              <span class="row-label">{{ row.label }}</span>
+              <span class="row-label td-trunc">{{ row.label }}</span>
               @if (row.detail) {
-                <span class="row-detail">{{ row.detail }}</span>
+                <span class="row-detail td-muted">{{ row.detail }}</span>
               }
               @if (row.value) {
-                <span class="row-value">{{ row.value }}</span>
+                <span class="row-value td-num">{{ row.value }}</span>
               }
               @if (row.chips && row.chips.length > 0) {
                 <span class="row-chips">
@@ -89,7 +89,7 @@
               }
             </div>
             @if (row.note) {
-              <div class="row-note">{{ row.note }}</div>
+              <div class="row-note td-note">{{ row.note }}</div>
             }
           </div>
         }
@@ -97,7 +97,7 @@
     }
 
     @if (d.flavor) {
-      <div class="td-tooltip__flavor">{{ d.flavor }}</div>
+      <div class="td-tooltip__flavor td-note">{{ d.flavor }}</div>
     }
   </div>
 }

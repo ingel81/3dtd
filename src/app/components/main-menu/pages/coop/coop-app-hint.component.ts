@@ -12,24 +12,24 @@ import { APP_DOWNLOADS } from '../../../../coop/coop-access';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="mp-sec">
-      <h3 class="mp-label">Co-op runs in the desktop app</h3>
-      <p class="note">
+    <section class="td-group">
+      <h3 class="td-section">Co-op runs in the desktop app</h3>
+      <p class="td-note">
         The browser version is for a quick look, solo. Co-op, with online lobbies and games on the same network,
         lives in the free desktop app for Windows and Linux.
       </p>
       @if (roomCode(); as code) {
-        <p class="note invite">You were invited to room <b>{{ code }}</b>. In the app, open Coop and join with this code.</p>
+        <p class="td-note">You were invited to room <b class="td-code">{{ code }}</b>. In the app, open Coop and join with this code.</p>
       }
-      <div class="mp-actions mp-actions-start">
+      <div class="td-actions is-start">
         @for (download of downloads; track download.url; let first = $first) {
-          <a [class]="first ? 'btn-primary' : 'btn-secondary'" [href]="download.url" target="_blank" rel="noopener">{{ download.label }}</a>
+          <a [class]="first ? 'td-btn-primary' : 'td-btn-secondary'" [href]="download.url" target="_blank" rel="noopener">{{ download.label }}</a>
         }
       </div>
-      <a class="link all" [href]="allDownloads" target="_blank" rel="noopener">All downloads and release notes</a>
+      <p class="td-note"><a class="td-link" [href]="allDownloads" target="_blank" rel="noopener">All downloads and release notes</a></p>
     </section>
   `,
-  styleUrl: './coop-app-hint.component.scss',
+  host: { class: 'td-stack is-loose' },
 })
 export class CoopAppHintComponent {
   /** The room of the invite link this page was opened with, null without one */

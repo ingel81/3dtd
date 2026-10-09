@@ -151,9 +151,9 @@ export function buildEffectivenessLegend(): EffectivenessLegendEntry[] {
     color: matrixTierColor(effectiveness),
   });
   return [
-    entry('weak', `< ${formatMultiplier(t.weak)}`),
+    entry('weak', `below ${formatMultiplier(t.weak)}`),
     entry('normal', ''),
-    entry('strong', `≥ ${formatMultiplier(t.strong)}`),
-    entry('devastating', `≥ ${formatMultiplier(t.devastating)}`),
+    entry('strong', `${formatMultiplier(t.strong)} and up`),
+    entry('devastating', `${formatMultiplier(t.devastating)} and up`),
   ];
 }

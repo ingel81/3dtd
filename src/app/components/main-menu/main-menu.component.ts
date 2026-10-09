@@ -28,6 +28,7 @@ import { FIELD_TIPS } from './loading/field-tips';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { ConfigService } from '../../core/services/config.service';
 import { DevWorldService } from '../../devworld/devworld.service';
+import { TdIconComponent } from '../icon/icon.component';
 
 /** How long a field tip stands before the next, ms */
 export const TIP_ROTATE_MS = 8000;
@@ -58,6 +59,7 @@ export const TIP_ROTATE_MS = 8000;
     MenuLoadComponent,
     MenuSettingsComponent,
     MenuExtrasComponent,
+    TdIconComponent,
     MenuLoadingComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -91,7 +93,7 @@ export class MainMenuComponent {
 
   readonly version = computed(() => {
     const tiles = this.devWorld.isActive ? 'devworld' : `tiles ${this.config.tileProvider()}`;
-    return `${BUILD_VERSION} · ${tiles}`;
+    return `${BUILD_VERSION} | ${tiles}`;
   });
 
   readonly tips = FIELD_TIPS;

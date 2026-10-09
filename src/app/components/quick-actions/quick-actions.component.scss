@@ -1,15 +1,17 @@
-@use '../../styles/game-ui' as ui;
+// Layout of the quick actions at the bottom right of the map: a row of stone
+// buttons; the layers open upwards above theirs, the developer options as a
+// strip of tiles over the row.
 
 :host {
   display: contents;
 }
 
-.td-quick-actions {
+.qa-root {
   position: absolute;
-  /* Spans from below the compass (top 12px + 88px + clearance) to the
-     bottom edge, so the dev menu can cap its height against it and never
-     grows into the compass. The buttons sit at the bottom; the empty area
-     above them must not eat map drags/clicks. */
+  /* From below the compass (top 12px + 88px + clearance) to the bottom edge,
+     so the developer strip caps its height against it and never grows into
+     the compass. The buttons sit at the bottom; the empty area above them
+     must not eat map drags and clicks. */
   top: 112px;
   bottom: 36px;
   right: 8px;
@@ -18,271 +20,100 @@
   gap: 4px;
   z-index: 5;
   pointer-events: none;
+
+  > * {
+    flex-shrink: 0;
+    pointer-events: auto;
+  }
 }
 
-.td-quick-actions > * {
-  flex-shrink: 0;
-  pointer-events: auto;
-}
-
-/* === Shared: Accordion wrapper + collapse === */
-.td-layer-menu-wrapper,
-.td-dev-menu-wrapper {
+.qa-wrap {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 4px;
 }
 
-.td-layer-toggles {
+.qa-layers {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  overflow: hidden;
+  /* Clipped for the fold, with room for the buttons' focus ring */
+  overflow: clip;
+  overflow-clip-margin: 4px;
   max-height: 0;
   opacity: 0;
   /* Hidden also from Tab and screen readers while collapsed, after the fade */
   visibility: hidden;
-  transition: max-height 0.3s ease-out, opacity 0.15s ease, visibility 0s linear 0.3s;
+  transition:
+    max-height var(--td-dur-mid) var(--td-ease-out),
+    opacity var(--td-dur-mid) var(--td-ease-out),
+    visibility 0s linear var(--td-dur-mid);
+
+  &.is-open {
+    max-height: 100vh;
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
 }
 
-.td-layer-toggles.expanded {
-  max-height: 100vh;
-  opacity: 1;
-  visibility: visible;
-  transition: max-height 0.3s ease-out, opacity 0.15s ease, visibility 0s;
-}
-
-/* === Shared: Icon button base — refined glass + bevel === */
-.td-quick-btn,
-.td-layer-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  box-sizing: border-box;
-  background: var(--td-glass-tint);
-  backdrop-filter: blur(8px) saturate(1.1);
-  -webkit-backdrop-filter: blur(8px) saturate(1.1);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.2),
-    inset 0 -1px 0 var(--td-panel-shadow),
-    0 1px 0 rgba(0, 0, 0, 0.6);
-  color: var(--td-text-secondary);
-  cursor: pointer;
-  transition: box-shadow 0.18s ease, background 0.15s, color 0.15s;
-}
-
-
-.td-quick-btn:focus-visible,
-.td-layer-btn:focus-visible,
-.td-dev-tile:focus-visible {
-  outline: 2px solid var(--td-gold-light);
-  outline-offset: 2px;
-}
-
-.td-quick-btn:hover,
-.td-layer-btn:hover {
-  color: var(--td-text-primary);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.2),
-    inset 0 -1px 0 var(--td-panel-shadow),
-    0 0 0 1px var(--td-frame-mid),
-    0 1px 0 rgba(0, 0, 0, 0.6);
-}
-
-/* === Active states (teal for a layer, gold for the layers and dev toggles) === */
-.td-quick-btn.active,
-.td-layer-btn.active {
-  background: linear-gradient(180deg, var(--td-teal-light) 0%, var(--td-teal) 55%, var(--td-teal-dark) 100%);
-  color: #0E1612;
-  border-color: #11140F;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    0 0 0 1px var(--td-teal);
-}
-
-.td-layer-toggle-btn.active,
-.td-dev-toggle-btn.active {
-  background: linear-gradient(180deg, var(--td-gold-light) 0%, var(--td-gold) 55%, var(--td-gold-dark) 100%);
-  color: #1A140A;
-  border-color: #11140F;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    0 0 0 1px var(--td-gold);
-}
-
-.route-anim-btn {
-  border-color: var(--td-warn-orange);
-  color: var(--td-warn-orange);
-}
-
-.route-anim-btn:hover {
-  background: var(--td-warn-orange);
-  color: var(--td-bg-dark);
-}
-
-/* === Dev menu: tile grid above the quick-actions bar ===
-   Glass panel as wide as the bar (6 x 32px + 5 x 4px), right-aligned
-   over it, bottom edge 4px above the buttons. Its containing block is
-   .td-quick-actions (the wrapper is not positioned). Out of flow, so it
-   does not push the other buttons aside. Capped at
-   the free height between bar and compass; on short windows it scrolls
-   instead of overlapping. Four columns, group titles span the row. */
-.td-dev-menu {
+/* Developer options: tiles in three columns over the row, right-aligned,
+   4px above the buttons. Out of flow, so they do not push the buttons aside;
+   capped at the free height between row and compass, scrolling on short
+   windows. */
+.qa-dev {
   position: absolute;
   right: 0;
   bottom: 36px;
-  max-height: calc(100% - 36px);
-  width: 212px;
-  box-sizing: border-box;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
-  padding: 6px;
+  box-sizing: border-box;
+  width: 260px;
+  max-height: calc(100% - 36px);
+  padding: 8px;
   overflow-x: hidden;
   overflow-y: auto;
-  @include ui.glass-strip;
-  font-family: var(--td-font-mono);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(8px);
-  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s linear 0.15s;
-  @include ui.scrollbar;
 }
 
-.td-dev-menu.expanded {
-  opacity: 1;
-  visibility: visible;
-  transform: none;
-  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s;
-}
-
-.td-dev-menu::-webkit-scrollbar {
-  @include ui.webkit-scrollbar;
-}
-
-.td-dev-menu::-webkit-scrollbar-track {
-  @include ui.webkit-scrollbar-track;
-}
-
-.td-dev-menu::-webkit-scrollbar-thumb {
-  @include ui.webkit-scrollbar-thumb;
-}
-
-.td-dev-group {
+.qa-group,
+.qa-status {
   grid-column: 1 / -1;
   margin: 4px 2px 0;
-  font-size: var(--td-fs-micro);
-  font-weight: 600;
-  line-height: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
 }
 
-.td-dev-group:first-child {
-  margin-top: 2px;
+.qa-group:first-child {
+  margin-top: 0;
 }
 
-/* What a tile that runs for a while says last (Snapshot): a line over the
-   whole width under its group, as the cell report panel's status line. */
-.td-dev-status {
-  grid-column: 1 / -1;
-  margin: 0 2px;
-  font-size: 9px;
-  line-height: 12px;
-  color: var(--td-text-muted);
+.qa-status {
   overflow-wrap: anywhere;
 }
 
-/* Tile: icon over a short caption. The longest captions in one cell
-   (DEVWORLD, RESEARCH) measure about 39px in the monospace fallback, the
-   tile is 44.5px wide inside. */
-.td-dev-tile {
+/* A tile: icon over a short caption */
+.qa-tile {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  height: 44px;
-  min-width: 0;
-  padding: 0;
-  box-sizing: border-box;
-  background: rgba(11, 15, 12, 0.6);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.14);
-  color: var(--td-text-secondary);
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  width: 100%;
+  height: 46px;
+
+  &.is-wide {
+    grid-column: span 2;
+  }
 }
 
-.td-dev-tile span {
-  /* Below the 10px floor on purpose: a developer tool, and the captions
-     have to fit a 44.5px cell (see below) */
-  font-size: 8px;
-  line-height: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-/* Two cells for a caption one cell cannot hold with room to spare:
-   ABILITIES measures about 44px in the monospace fallback and about 47px
-   in JetBrains Mono. Among the cheats it fills the fourth cell the seven
-   tiles left empty in their second row. */
-.td-dev-tile-wide {
-  grid-column: span 2;
-}
-
-.td-dev-tile:hover {
-  border-color: var(--td-frame-mid);
-  color: var(--td-text-primary);
-}
-
-/* Window open or switch on */
-.td-dev-tile.active {
-  background: rgba(194, 160, 85, 0.16);
-  border-color: var(--td-gold-dark);
-  box-shadow: inset 0 1px 0 rgba(217, 188, 104, 0.18);
-  color: var(--td-gold-light);
-}
-
-/* Cheats: one-shot actions without an active state, coloured by what
-   they touch. Hover keeps the colour and draws the border in it. */
-.td-dev-cheat,
-.td-dev-cheat:hover {
+/* Cheats: one-shot actions, coloured by what they touch */
+.qa-cheat,
+.qa-cheat:hover {
   color: var(--cheat-color);
 }
 
-.td-dev-cheat:hover {
-  border-color: var(--cheat-color);
-}
-
-.td-dev-cheat-danger,
-.td-dev-cheat-health {
-  --cheat-color: var(--td-health-red);
-}
-
-.td-dev-cheat-credits {
-  --cheat-color: var(--td-gold);
-}
-
-.td-dev-cheat-research {
-  --cheat-color: var(--td-teal);
-}
-
-.td-dev-cheat-ability {
-  --cheat-color: var(--td-warn-orange);
-}
-
-.td-dev-cheat-hero {
-  --cheat-color: var(--td-green);
-}
+.qa-cheat.is-red { --cheat-color: var(--td-hp-text); }
+.qa-cheat.is-brass { --cheat-color: var(--td-brass); }
+.qa-cheat.is-teal { --cheat-color: var(--td-teal); }
+.qa-cheat.is-orange { --cheat-color: var(--td-warn-text); }
+.qa-cheat.is-green { --cheat-color: var(--td-green); }

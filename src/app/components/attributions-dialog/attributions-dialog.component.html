@@ -1,43 +1,43 @@
-<div class="dlg">
-  <header class="dlg-head">
-    <h2 class="dlg-title" [id]="titleId">Attributions</h2>
-    <button class="icon-btn" type="button" aria-label="Close" (click)="close()">
-      <td-icon name="cross" [size]="16"></td-icon>
+<div class="td-dlg">
+  <header class="td-dlg-head">
+    <h2 class="td-dlg-title" [id]="titleId">Attributions</h2>
+    <button class="td-close" type="button" aria-label="Close" (click)="close()">
+      <td-icon name="close" [size]="12"></td-icon>
     </button>
   </header>
 
-  <div class="dlg-body">
+  <div class="td-dlg-body is-loose">
     @for (category of attributions; track category.title) {
-      <section class="section">
-        <div class="section-label">
+      <section class="td-group">
+        <h3 class="td-section td-inline at-head">
           <td-icon [name]="$any(category.icon)" [size]="14"></td-icon>
           {{ category.title }}
-          <span class="section-count">{{ category.items.length }}</span>
-        </div>
+          <span class="td-note td-num">{{ category.items.length }}</span>
+        </h3>
         @for (item of category.items; track item.name) {
-          <div class="attribution-item">
-            <div class="item-info">
-              <span class="item-name">{{ item.name }}</span>
-              <span class="item-author">by {{ item.author }}</span>
+          <div class="td-row">
+            <div class="at-info">
+              <span class="td-name">{{ item.name }}</span>
+              <span class="td-sub">by {{ item.author }}</span>
             </div>
-            <div class="item-actions">
+            <div class="td-inline at-actions">
               @if (item.licenseUrl) {
                 <a
                   [href]="item.licenseUrl"
                   target="_blank"
                   rel="noopener"
-                  class="license-badge"
+                  class="td-link td-note"
                   [title]="item.license"
                 >{{ item.license }}</a>
               } @else {
-                <span class="license-badge plain">{{ item.license }}</span>
+                <span class="td-note">{{ item.license }}</span>
               }
               @if (item.sourceUrl) {
                 <a
                   [href]="item.sourceUrl"
                   target="_blank"
                   rel="noopener"
-                  class="icon-btn sm"
+                  class="td-tool"
                   title="View source"
                   [attr.aria-label]="'View source: ' + item.name"
                 >
@@ -51,8 +51,8 @@
     }
   </div>
 
-  <footer class="dlg-foot">
-    <a class="btn-secondary" [href]="legalUrl" target="_blank" rel="noopener">Legal &amp; privacy</a>
-    <button class="btn-primary" type="button" (click)="close()">Close</button>
+  <footer class="td-dlg-foot">
+    <a class="td-btn-secondary" [href]="legalUrl" target="_blank" rel="noopener">Legal &amp; privacy</a>
+    <button class="td-btn-primary" type="button" (click)="close()">Close</button>
   </footer>
 </div>

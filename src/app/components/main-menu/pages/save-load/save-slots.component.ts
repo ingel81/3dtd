@@ -29,6 +29,7 @@ export type SlotConfirm =
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './save-slots.component.html',
   styleUrl: './save-slots.component.scss',
+  host: { class: 'td-stack is-loose' },
 })
 export class SaveSlotsComponent {
   readonly saves = inject(SAVE_GAME);

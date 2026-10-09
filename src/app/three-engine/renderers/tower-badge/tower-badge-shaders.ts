@@ -168,7 +168,7 @@ export function createBadgeMaterial(cameraRight: Vector3, cameraUp: Vector3): Sh
       uSize: { value: new Vector3(BADGE_PX, BADGE_MIN_M, BADGE_MAX_M) },
       uFade: { value: new Vector2(BADGE_FADE_START_M, BADGE_FADE_END_M) },
       uSilver: { value: new Color(TD_THEME.edgeHighlight) },
-      uGold: { value: new Color(TD_THEME.goldLight) },
+      uGold: { value: new Color(TD_THEME.brassLight) },
       uHold: { value: new Color(TD_THEME.healthRed) },
       uOutline: { value: new Color(TD_THEME.panelShadow) },
     },

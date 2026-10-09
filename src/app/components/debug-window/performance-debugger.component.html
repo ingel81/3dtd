@@ -11,133 +11,133 @@
   >
     @if (stats(); as s) {
       <div class="perf-content">
-        <div class="section">
-          <span class="section-label">Overview</span>
-          <div class="row">
-            <span class="key">FPS</span>
-            <span class="value" [class.warn]="s.fps < 30" [class.crit]="s.fps < 15">{{ s.fps }}</span>
+        <div class="td-group">
+          <span class="td-section">Overview</span>
+          <div class="td-kv">
+            <span>FPS</span>
+            <b [class.is-warn]="s.fps < 30" [class.is-error]="s.fps < 15">{{ s.fps }}</b>
           </div>
-          <div class="row">
-            <span class="key">Speed</span>
-            <span class="value" [class.crit]="s.speed < s.speedSet - 0.05">{{ s.speed.toFixed(2) }} / {{ s.speedSet }}</span>
+          <div class="td-kv">
+            <span>Speed</span>
+            <b [class.is-error]="s.speed < s.speedSet - 0.05">{{ s.speed.toFixed(2) }} / {{ s.speedSet }}</b>
           </div>
-          <div class="row">
-            <span class="key">Main thread busy</span>
-            <span class="value" [class.highlight]="s.bottleneck === 'main'">{{ s.mainBusyPct.toFixed(0) }}%</span>
+          <div class="td-kv">
+            <span>Main thread busy</span>
+            <b [class.is-hot]="s.bottleneck === 'main'">{{ s.mainBusyPct.toFixed(0) }}%</b>
           </div>
-          <div class="row">
-            <span class="key">Worker busy</span>
-            <span class="value" [class.highlight]="s.bottleneck === 'worker'">{{ s.workerLoadPct.toFixed(0) }}%</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <span class="section-label">Main thread, ms per frame</span>
-          <div class="row">
-            <span class="key">Frame</span>
-            <span class="value" [class.warn]="s.frameMs > 12" [class.crit]="s.frameMs > 16">{{ s.frameMs.toFixed(2) }}</span>
-          </div>
-          <div class="row sub">
-            <span class="key">Game loop</span>
-            <span class="value">{{ s.updateMs.toFixed(2) }}</span>
-          </div>
-          <div class="row sub">
-            <span class="key">Draw (CPU)</span>
-            <span class="value">{{ s.renderMs.toFixed(2) }}</span>
+          <div class="td-kv">
+            <span>Worker busy</span>
+            <b [class.is-hot]="s.bottleneck === 'worker'">{{ s.workerLoadPct.toFixed(0) }}%</b>
           </div>
         </div>
 
-        <div class="section">
-          <span class="section-label">Apply, ms per packet</span>
-          <div class="row">
-            <span class="key">Total</span>
-            <span class="value">{{ s.apply.total.toFixed(2) }}</span>
+        <div class="td-group">
+          <span class="td-section">Main thread, ms per frame</span>
+          <div class="td-kv">
+            <span>Frame</span>
+            <b [class.is-warn]="s.frameMs > 12" [class.is-error]="s.frameMs > 16">{{ s.frameMs.toFixed(2) }}</b>
           </div>
-          <div class="row sub"><span class="key">State</span><span class="value">{{ s.apply.state.toFixed(2) }}</span></div>
-          <div class="row sub"><span class="key">Ops</span><span class="value">{{ s.apply.ops.toFixed(2) }}</span></div>
-          <div class="row sub"><span class="key">Events</span><span class="value">{{ s.apply.events.toFixed(2) }}</span></div>
-          <div class="row sub"><span class="key">Present</span><span class="value">{{ s.apply.present.toFixed(2) }}</span></div>
-          <div class="row sub"><span class="key">Listeners</span><span class="value">{{ s.apply.listeners.toFixed(2) }}</span></div>
+          <div class="td-kv is-sub1">
+            <span>Game loop</span>
+            <b>{{ s.updateMs.toFixed(2) }}</b>
+          </div>
+          <div class="td-kv is-sub1">
+            <span>Draw (CPU)</span>
+            <b>{{ s.renderMs.toFixed(2) }}</b>
+          </div>
         </div>
 
-        <div class="section">
-          <span class="section-label">Simulation (worker), ms per tick</span>
-          <div class="row">
-            <span class="key">Ticks/s</span>
-            <span class="value">{{ s.ticksPerS.toFixed(0) }}</span>
+        <div class="td-group">
+          <span class="td-section">Apply, ms per packet</span>
+          <div class="td-kv">
+            <span>Total</span>
+            <b>{{ s.apply.total.toFixed(2) }}</b>
           </div>
-          <div class="row">
-            <span class="key">Sub-steps/tick</span>
-            <span class="value" [class.warn]="s.subStepsPerTick > 4">{{ s.subStepsPerTick.toFixed(1) }}</span>
+          <div class="td-kv is-sub1"><span>State</span><b>{{ s.apply.state.toFixed(2) }}</b></div>
+          <div class="td-kv is-sub1"><span>Ops</span><b>{{ s.apply.ops.toFixed(2) }}</b></div>
+          <div class="td-kv is-sub1"><span>Events</span><b>{{ s.apply.events.toFixed(2) }}</b></div>
+          <div class="td-kv is-sub1"><span>Present</span><b>{{ s.apply.present.toFixed(2) }}</b></div>
+          <div class="td-kv is-sub1"><span>Listeners</span><b>{{ s.apply.listeners.toFixed(2) }}</b></div>
+        </div>
+
+        <div class="td-group">
+          <span class="td-section">Simulation (worker), ms per tick</span>
+          <div class="td-kv">
+            <span>Ticks/s</span>
+            <b>{{ s.ticksPerS.toFixed(0) }}</b>
+          </div>
+          <div class="td-kv">
+            <span>Sub-steps/tick</span>
+            <b [class.is-warn]="s.subStepsPerTick > 4">{{ s.subStepsPerTick.toFixed(1) }}</b>
           </div>
           @if (s.sim; as sim) {
-            <div class="row">
-              <span class="key">Tick</span>
-              <span class="value">{{ sim.tickMs.toFixed(2) }}</span>
+            <div class="td-kv">
+              <span>Tick</span>
+              <b>{{ sim.tickMs.toFixed(2) }}</b>
             </div>
-            <div class="row sub"><span class="key">Commands</span><span class="value">{{ sim.commandsMs.toFixed(2) }}</span></div>
-            <div class="row sub"><span class="key">Sub-steps</span><span class="value">{{ sim.updateMs.toFixed(2) }}</span></div>
-            <div class="row sub2"><span class="key">Enemies</span><span class="value">{{ sim.enemyMs.toFixed(2) }}</span></div>
-            <div class="row sub3"><span class="key">Move</span><span class="value">{{ sim.enemyMoveMs.toFixed(2) }}</span></div>
-            <div class="row sub3"><span class="key">Grid</span><span class="value">{{ sim.enemyGridMs.toFixed(2) }}</span></div>
-            <div class="row sub3"><span class="key">Height</span><span class="value">{{ sim.enemyHeightMs.toFixed(2) }}</span></div>
-            <div class="row sub2"><span class="key">Combat</span><span class="value">{{ sim.combatMs.toFixed(2) }}</span></div>
-            <div class="row sub2"><span class="key">Projectiles</span><span class="value">{{ sim.projectileMs.toFixed(2) }}</span></div>
-            <div class="row sub2"><span class="key">Events</span><span class="value">{{ sim.eventsMs.toFixed(2) }}</span></div>
-            <div class="row sub2"><span class="key">Other</span><span class="value">{{ sim.otherMs.toFixed(2) }}</span></div>
-            <div class="row sub"><span class="key">Packet</span><span class="value">{{ sim.packetMs.toFixed(2) }}</span></div>
+            <div class="td-kv is-sub1"><span>Commands</span><b>{{ sim.commandsMs.toFixed(2) }}</b></div>
+            <div class="td-kv is-sub1"><span>Sub-steps</span><b>{{ sim.updateMs.toFixed(2) }}</b></div>
+            <div class="td-kv is-sub2"><span>Enemies</span><b>{{ sim.enemyMs.toFixed(2) }}</b></div>
+            <div class="td-kv is-sub3"><span>Move</span><b>{{ sim.enemyMoveMs.toFixed(2) }}</b></div>
+            <div class="td-kv is-sub3"><span>Grid</span><b>{{ sim.enemyGridMs.toFixed(2) }}</b></div>
+            <div class="td-kv is-sub3"><span>Height</span><b>{{ sim.enemyHeightMs.toFixed(2) }}</b></div>
+            <div class="td-kv is-sub2"><span>Combat</span><b>{{ sim.combatMs.toFixed(2) }}</b></div>
+            <div class="td-kv is-sub2"><span>Projectiles</span><b>{{ sim.projectileMs.toFixed(2) }}</b></div>
+            <div class="td-kv is-sub2"><span>Events</span><b>{{ sim.eventsMs.toFixed(2) }}</b></div>
+            <div class="td-kv is-sub2"><span>Other</span><b>{{ sim.otherMs.toFixed(2) }}</b></div>
+            <div class="td-kv is-sub1"><span>Packet</span><b>{{ sim.packetMs.toFixed(2) }}</b></div>
           } @else {
-            <div class="row"><span class="key">Parts</span><span class="value muted">waiting for the worker</span></div>
+            <div class="td-kv"><span>Parts</span><b class="is-muted">waiting for the worker</b></div>
           }
         </div>
 
-        <div class="section">
-          <span class="section-label">Rendering</span>
-          <div class="row">
-            <span class="key">Draw Calls</span>
-            <span class="value">{{ s.drawCalls }}</span>
+        <div class="td-group">
+          <span class="td-section">Rendering</span>
+          <div class="td-kv">
+            <span>Draw Calls</span>
+            <b>{{ s.drawCalls }}</b>
           </div>
-          <div class="row">
-            <span class="key">Triangles</span>
-            <span class="value">{{ formatTris(s.triangles) }}</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <span class="section-label">Entities</span>
-          <div class="row">
-            <span class="key">Enemies</span>
-            <span class="value">{{ s.enemies }}</span>
-          </div>
-          <div class="row">
-            <span class="key">Towers</span>
-            <span class="value">{{ s.towers }}</span>
-          </div>
-          <div class="row">
-            <span class="key">Projectiles</span>
-            <span class="value">{{ s.projectiles }}</span>
+          <div class="td-kv">
+            <span>Triangles</span>
+            <b>{{ formatTris(s.triangles) }}</b>
           </div>
         </div>
 
-        <div class="section">
-          <span class="section-label">Memory</span>
-          <div class="row">
-            <span class="key">Geometries</span>
-            <span class="value">{{ s.geometries }}</span>
+        <div class="td-group">
+          <span class="td-section">Entities</span>
+          <div class="td-kv">
+            <span>Enemies</span>
+            <b>{{ s.enemies }}</b>
           </div>
-          <div class="row">
-            <span class="key">Textures</span>
-            <span class="value">{{ s.textures }}</span>
+          <div class="td-kv">
+            <span>Towers</span>
+            <b>{{ s.towers }}</b>
           </div>
-          <div class="row">
-            <span class="key">Shader programs</span>
-            <span class="value">{{ s.programs }}</span>
+          <div class="td-kv">
+            <span>Projectiles</span>
+            <b>{{ s.projectiles }}</b>
           </div>
         </div>
 
-        <div class="section">
-          <label class="checkbox-row">
-            <input type="checkbox" [checked]="profiler.consoleLogEnabled()" (change)="toggleConsoleLog()" />
+        <div class="td-group">
+          <span class="td-section">Memory</span>
+          <div class="td-kv">
+            <span>Geometries</span>
+            <b>{{ s.geometries }}</b>
+          </div>
+          <div class="td-kv">
+            <span>Textures</span>
+            <b>{{ s.textures }}</b>
+          </div>
+          <div class="td-kv">
+            <span>Shader programs</span>
+            <b>{{ s.programs }}</b>
+          </div>
+        </div>
+
+        <div class="td-group">
+          <label class="td-check">
+            <input class="td-switch" type="checkbox" [checked]="profiler.consoleLogEnabled()" (change)="toggleConsoleLog()" />
             <span>Console Log (2s)</span>
           </label>
         </div>

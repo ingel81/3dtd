@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { TD_THEME } from '../../styles/td-theme';
 import { enemyGroupTooltip, enemyTraitLabel, towerCardTooltip, TowerCardTooltipContext, waveLeakTotal } from './sidebar-tooltips';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { EFFECTIVENESS_THRESHOLDS } from '../../configs/combat/damage-matrix.config';
@@ -97,7 +98,7 @@ describe('towerCardTooltip', () => {
     const rows = towerCardTooltip(TOWER_TYPES.archer, noResearch).armor ?? [];
     expect(rows.map((r) => r.multiplier)).toEqual(['1.00×', '1.00×', '0.50×', '0.30×', '0.10×']);
     expect(rows.map((r) => r.dim)).toEqual([false, false, true, true, true]);
-    expect(rows[0]).toMatchObject({ label: 'Unarmored', color: '#7DBE82' });
+    expect(rows[0]).toMatchObject({ label: 'Unarmored', color: TD_THEME.greenDark });
   });
 
   it('reads the targeting banner from the effective air capability', () => {
@@ -156,7 +157,7 @@ describe('enemyGroupTooltip', () => {
     expect(enemyGroupTooltip(group('zombie'))?.flavor).toBeUndefined();
     expect(enemyGroupTooltip(group('zombie', { healthMultiplier: 1.5 }))?.flavor).toBe('Scaled: HP ×1.5');
     expect(enemyGroupTooltip(group('zombie', { healthMultiplier: 2, speedMultiplier: 1.25 }))?.flavor)
-      .toBe('Scaled: HP ×2.0 · Speed ×1.25');
+      .toBe('Scaled: HP ×2.0 | Speed ×1.25');
   });
 
   it('names the split of a skeleton, before the scaling', () => {

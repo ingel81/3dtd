@@ -28,6 +28,7 @@ import { TdIconComponent } from '../icon/icon.component';
 import { creditsRefusals } from '../../services/credits-refusal';
 import {
   COUNT_EXACT_BELOW,
+  WAVE_EXACT_BELOW,
   CREDITS_COUNT_MS,
   CREDITS_DELTA_SHOW_MS,
   CREDITS_EXACT_BELOW,
@@ -54,14 +55,14 @@ const HQ_HIT_JOLT: Keyframe[] = [
 const HQ_HIT_MS = 450;
 /** Several leaks in a row flash once, not in a flicker */
 const HQ_HIT_MIN_INTERVAL_MS = 300;
-/** The credits plate's edge when a buy was refused for too few credits: red, then back */
+/** The credits figure when a buy was refused for too few credits: red, then back */
 const CREDITS_REFUSED_FLASH: Keyframe[] = [
-  { backgroundColor: TD_THEME.healthRed },
-  { backgroundColor: TD_THEME.healthRed, offset: 0.5 },
-  { backgroundColor: TD_THEME.lineSteel },
+  { color: TD_THEME.loss },
+  { color: TD_THEME.loss, offset: 0.5 },
+  { color: TD_THEME.textValue },
 ];
 const CREDITS_REFUSED_MS = 600;
-/** The wave plate's brass edge when a wave starts */
+/** How long the wave figure lights in brass when a wave starts */
 const WAVE_START_EDGE_MS = 600;
 
 function prefersReducedMotion(): boolean {
@@ -205,7 +206,7 @@ export class GameHeaderComponent {
   readonly creditsShownText = computed(() =>
     statReadout(this.creditsShown() ?? this.credits(), CREDITS_EXACT_BELOW).text,
   );
-  readonly waveStat = computed(() => statReadout(this.waveNumber(), COUNT_EXACT_BELOW));
+  readonly waveStat = computed(() => statReadout(this.waveNumber(), WAVE_EXACT_BELOW));
   readonly waveProgress = computed(() =>
     waveProgressPercent(this.waveActive(), this.waveEnemyTotal(), this.waveEnemiesLeft()),
   );

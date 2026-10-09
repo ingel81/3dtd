@@ -21,7 +21,7 @@ und wo es vom Vorschlag abweicht; die Einzelheiten stehen in der Fach-Doku (Tabe
 
 1. **Eine Komponente, zwei Lagen.** Gebaut: `app-main-menu` ersetzt das Esc-Spielmenü (`game-menu`) und den
    Ladebildschirm (`loading-screen`); beide sind gelöscht. Lage Start mit großem Logo und Zeile „Tower defense on real
-   streets“, Lage Pause mit kleinem Logo und „Paused · Ort · wave N“.
+   streets“, Lage Pause mit kleinem Logo und „Paused | Ort | wave N“.
 2. **Im Spielbaum.** Gebaut: Overlay im Template von `TowerDefenseComponent`, `MainMenuService` dort bereitgestellt;
    Rolle `dialog`, `aria-modal`, Fokusfalle, Name aus dem Seitentitel.
 3. **Zustand** in `UIStore.mainMenu` (`open`, `layer`, `page`), geschrieben nur vom `MainMenuService`. HUD, Hotkeys,
@@ -29,7 +29,7 @@ und wo es vom Vorschlag abweicht; die Einzelheiten stehen in der Fach-Doku (Tabe
    Routenanimation, Intro-Flug), wartet bis zum Schließen (`StartShowService`).
 4. **Liste.** Gebaut wie vorgeschlagen, mit diesen Abweichungen: Coop steht in der Pause unter der Linie; Save nur mit
    begonnenem Lauf; im Coop-Spiel fallen Save, Load, Restart und New game weg. Continue an einem anderen Ort heißt
-   „in Paris · wave 7“ und fragt „Leaves Heilbronn: the save plays in Paris.“ (E120); der Vergleich läuft über das HQ,
+   „in Paris | wave 7“ und fragt „Leaves Heilbronn: the save plays in Paris.“ (E120); der Vergleich läuft über das HQ,
    das jeder Slot jetzt mitführt (`SaveSlotInfo.hq`), bei älteren Slots über den Ortsnamen.
 5. **Start ohne Ort im Link.** Gebaut: keine ungefragte Ortung mehr, „Use my location“ steht auf New game. Ohne `?l=`
    wartet der Start auf die Wahl im Menü (`LocationChangeCoordinatorService.choosePlace`); als Vorschlag lädt dahinter
@@ -75,23 +75,10 @@ Abweichungen vom Vorschlag:
 
 ### Optik
 
-1. **Fundament** `src/app/styles/_game-ui.scss` gebaut (Platten, Titelplatten, Dialoghülle, Knöpfe, Menüeintrag,
-   Segmentbalken, Eckwinkel, Glas-Streifen, Eingaben, Notizen, Banner); die alten Knopf- und Glasrezepte aus
-   `_td-mixins.scss` sind entfernt. Die Menüseiten haben ihre gemeinsamen Teile in `pages/_menu-page.scss`.
-2. **Tokens** einmal auf `:root` (`TD_CSS_VARS`), keine Kopie je Komponente mehr; Kontrast geprüft in
-   `styles/td-theme.contrast.spec.ts`.
-3. **Schrift:** Oswald lokal gebündelt (`src/fonts/oswald-var.woff2`) als `--td-font-display`.
-4. **Form:** Platten mit abgeschrägten Ecken; Eckwinkel am Start-Menü und am Game Over; die cdk-Schale der Dialoge ist
-   transparent.
-5. **Knöpfe** wie vorgeschlagen (`btn-primary`, `btn-secondary`, `btn-danger`, `btn-ghost`, Menüeintrag mit
-   Messingbalken).
-6. **HUD-Kopfleiste:** drei Stat-Platten HQ, Credits, Wave mit gleichem Aufbau (Icon, Label, Zahl in Oswald 22px,
-   4px-Balken); Zustände, Credits-Änderung und Wellenstart wie vorgeschlagen, Einzelheiten in
-   [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#header-stat-platten).
-7. **Logo** als SVG (`public/assets/images/logo/logo.svg`, vektorisiert mit `tools/logo/vectorize_logo.py`),
-   `public/favicon.svg` aus derselben Form.
-8. **Kontrast:** HP-Zahl `--td-hp-text` #E87A6A (der vorgeschlagene #E36A5A fiel in der Kontrast-Spec durch), Warntext
-   `--td-warn-text`.
+Die Optik dieses Umbaus (Oswald, Platten mit Eckwinkeln, Glas-Streifen, `_td-mixins.scss`, `pages/_menu-page.scss`) ist
+mit E124 durch das Design System ersetzt: Putz, Basalt, Steinknöpfe, Barlow Semi Condensed, Tokens, Rezepte und
+`td-*`-Klassen. Stand und Regeln in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md); das Logo als SVG
+(`public/assets/images/logo/logo.svg`, `tools/logo/vectorize_logo.py`) bleibt.
 
 ## Wo es steht
 
@@ -103,8 +90,8 @@ Abweichungen vom Vorschlag:
 | Show erst nach dem Menü | `services/world/start-show.service.ts` | |
 | Coop-Wege, Dock nur im Raum | `pages/coop/`, `components/coop-dock/` | [COOP_PLAN.md](COOP_PLAN.md), [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#coop-dock-squad-chat-canvas) |
 | HQ im Slot (E120) | `services/save-game/save-slot.store.ts`, `save-game.ts` | [SAVE_LOAD_PLAN.md](SAVE_LOAD_PLAN.md) |
-| Fundament, Tokens, Schrift, Logo | `styles/_game-ui.scss`, `styles/td-theme.ts`, `src/styles.scss`, `tools/logo/` | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#fundament-styles_game-uiscss) |
-| Kopfleiste | `components/game-header/` | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#header-stat-platten) |
+| Design System, Tokens, Schrift, Logo | `styles/td-theme.ts`, `styles/ui/`, `src/styles.scss`, `tools/logo/` | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#übersicht) |
+| Kopfleiste | `components/game-header/` | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#kopfleiste) |
 | Legal & privacy (E119) | `utils/public-url.ts` (`LEGAL_URL`), Links in Extras und im Attributions-Dialog | |
 | E2E: Helfer, Bildtour | `e2e/support/game.ts`, `e2e/tests/ui-tour.e2e.ts` | [E2E.md](E2E.md) |
 

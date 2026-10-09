@@ -1,0 +1,229 @@
+// Surfaces: the plaster panel, its strip variant over the map, the dialog,
+// titles, engraved rules, section heads, wells and cards.
+@use 'base';
+
+// A panel: tinted plaster, sunken fill, strong drop shadow
+@mixin panel {
+  background: var(--td-surface);
+  box-shadow: var(--td-panel-recess), var(--td-panel-drop);
+  color: var(--td-text-secondary);
+}
+
+// A strip over the map: the same plaster, a little of the map shows through.
+// The plaster sits on a ::before, so the content stays fully opaque.
+@mixin panel-overlay {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--td-radius);
+  box-shadow: var(--td-panel-drop);
+  color: var(--td-text-secondary);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--td-surface-overlay);
+    box-shadow: var(--td-panel-recess);
+    opacity: var(--td-overlay-opacity);
+    pointer-events: none;
+  }
+
+  // A strip that warns (a refusal, a lost connection): a dark red edge
+  &.is-error {
+    outline: 1px solid var(--td-danger-edge);
+    outline-offset: -1px;
+  }
+}
+
+// A chip over the map: icon, title, a line under it (blood moon, moving the
+// HQ); a strip that lets a little of the map through
+@mixin chip {
+  @include panel-overlay;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px 10px 12px;
+  overflow: hidden;
+}
+
+// A small popup over everything: tooltip, open select, context menu
+@mixin popup {
+  border-radius: var(--td-radius);
+  background: var(--td-surface);
+  box-shadow: var(--td-panel-recess), var(--td-popup-drop);
+  color: var(--td-text-secondary);
+}
+
+// A popup that opens on demand: hidden until .is-open, then it fades in and
+// slides 4px into place (from above; .is-up from below). Hidden also from
+// Tab and screen readers while closed, after the fade.
+@mixin reveal {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition:
+    opacity var(--td-dur-mid) var(--td-ease-out),
+    transform var(--td-dur-mid) var(--td-ease-out),
+    visibility 0s linear var(--td-dur-mid);
+
+  &.is-up {
+    transform: translateY(8px);
+  }
+
+  &.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition-delay: 0s;
+  }
+}
+
+// === Dialog ===
+
+@mixin dialog {
+  @include panel;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 560px;
+  max-width: calc(100vw - 32px);
+  // Under the top bar, with room above and below
+  max-height: calc(100vh - var(--td-h-topbar) - 32px);
+  font-size: var(--td-fs-text);
+  line-height: 1.4;
+}
+
+// Head of a dialog: the title left, the close button right, an engraved line
+// under it that runs out before the close button
+@mixin dialog-head {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--td-sp-3);
+  margin: 18px 22px 0;
+  padding-bottom: 8px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(var(--td-line-width) + var(--td-line-gap));
+    background:
+      linear-gradient(90deg, var(--td-line-dark) 60%, transparent) 0 0 / 100% var(--td-line-width) no-repeat,
+      linear-gradient(90deg, var(--td-line-light) 60%, transparent) 0 var(--td-line-gap) / 100% var(--td-line-width) no-repeat;
+    pointer-events: none;
+  }
+}
+
+// A title cut into the plaster
+@mixin title($size: var(--td-fs-title)) {
+  margin: 0;
+  font-family: var(--td-font);
+  font-size: $size;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--td-text-engraved);
+  text-shadow: var(--td-engrave);
+}
+
+// The body scrolls between head and foot; its blocks in a column
+@mixin dialog-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--td-sp-3);
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 22px;
+
+  strong,
+  b {
+    color: var(--td-text-primary);
+    font-weight: 600;
+  }
+}
+
+@mixin dialog-foot {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 4px 22px 18px;
+}
+
+// An engraved divider (<hr>)
+@mixin rule {
+  height: 0;
+  margin: var(--td-sp-1) 0;
+  border: 0;
+  @include base.engraved-line;
+}
+
+// A section head inside a dialog: brass, no line
+@mixin section {
+  margin: 0;
+  font-size: var(--td-fs-text);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--td-brass);
+}
+
+// A section head in the sidebar: brass with a hairline under it
+@mixin head {
+  @include section;
+  padding-bottom: 4px;
+  @include base.hairline-bottom;
+}
+
+// A sunken area: slots, card grids, a chart
+@mixin well {
+  border-radius: var(--td-radius);
+  background: var(--td-well-soft);
+  box-shadow: var(--td-well-soft-shadow);
+}
+
+// A deep well, like a field: a ready mark, the tree's board, a node's icon
+@mixin well-deep {
+  border-radius: var(--td-radius);
+  background: var(--td-well);
+  box-shadow: var(--td-well-shadow);
+}
+
+// A card in a grid (build cards): sunken; chosen with a brass edge. As a
+// <button> it is the whole card: hover lights its text, a locked one dims.
+@mixin card {
+  @include well;
+  color: var(--td-text-primary);
+  @include base.motion(box-shadow, color);
+
+  // A <button> keeps the well: only the native frame goes
+  @at-root button#{&} {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    text-align: inherit;
+    cursor: pointer;
+    // Inside: cards fill scrolling grids that would clip a ring outside
+    @include base.focus-ring(calc(-1 * var(--td-focus-width)));
+    @include base.disabled;
+
+    &:hover#{base.$enabled} {
+      color: var(--td-brass-light);
+    }
+  }
+
+  &.is-selected,
+  &[aria-pressed='true'] {
+    box-shadow: var(--td-well-deep), inset 0 0 0 1px var(--td-brass);
+    color: var(--td-brass-light);
+  }
+}

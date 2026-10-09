@@ -1,125 +1,35 @@
-@use '../sidebar-panel' as panel;
-@use '../../../styles/game-ui' as ui;
+// Layout of the Research Center section: what is done, the running
+// researches with their bars, the way into the tree, the upgrades.
 
-:host {
-  display: contents;
-}
 
-@include panel.section;
-
-@include panel.fill;
-
-@include panel.header;
-
-@include panel.content;
-
-@include panel.tower-header;
-
-@include panel.tower-section;
-
-@include panel.upgrades;
-
-/* === Research Panel === */
-.td-research-slots-header {
-  font-size: 11px;
-  color: var(--td-text-muted);
-  padding: 4px 0;
-  border-bottom: 1px solid var(--td-frame-dark);
-  margin-bottom: 6px;
-}
-.td-research-active {
-  display: flex;
-  align-items: center;
+.rp-summary {
   gap: 6px;
-  padding: 6px;
-  margin-bottom: 4px;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-teal);
 }
-.td-research-active-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+
+.rp-slots {
+  margin-left: auto;
 }
-.td-research-active-name {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--td-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.td-research-active-time {
-  font-size: var(--td-fs-micro);
-  color: var(--td-teal);
-}
-.td-research-progress-bar {
-  flex: 1;
-  height: 4px;
-  background: var(--td-frame-dark);
-  overflow: hidden;
-}
-.td-research-progress-fill {
-  height: 100%;
-  background: var(--td-teal);
-  transition: width 0.3s linear;
-}
-.td-research-cancel-btn {
-  background: none;
-  border: 1px solid var(--td-red, #cc3333);
-  color: var(--td-red, #cc3333);
-  cursor: pointer;
-  padding: 2px;
-  display: flex;
+
+.rp-active {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
-  justify-content: center;
-}
-.td-research-cancel-btn:hover { background: rgba(204,51,51,0.2); }
-
-/* Summary of the run's research, above the button */
-.td-research-summary {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-bottom: 6px;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 10px;
-}
-.td-research-summary-count { color: var(--td-text-primary); font-size: 13px; }
-.td-research-summary-label {
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
-}
-.td-research-summary-slots { margin-left: auto; color: var(--td-text-tertiary); }
-
-.td-research-idle {
-  margin: 0 0 8px;
-  font-size: 10px;
-  line-height: 1.4;
-  color: var(--td-text-muted);
+  gap: 4px 8px;
+  padding: 6px 4px 8px 8px;
 }
 
-/* The way into the tree: the gold recipe, because it is the one thing this
- * panel is for. Everything else here is status. */
-.td-research-open-btn {
-  @include ui.btn-primary(40px);
-  gap: 9px;
+.rp-cancel {
+  width: 24px;
+  height: 24px;
+}
+
+.rp-bar {
+  grid-column: 1 / -1;
+  margin-right: 4px;
+}
+
+.rp-open {
+  justify-content: space-between;
   width: 100%;
-  padding: 0 12px;
-  margin-bottom: 8px;
-}
-.td-research-open-label { flex: 1; text-align: left; }
-/* Count of what waits, as a dark cap on the gold */
-.td-research-open-queued {
-  min-width: 18px;
-  padding: 1px 5px;
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-micro);
-  text-align: center;
-  color: var(--td-gold-light);
-  background: rgba(11, 15, 12, 0.72);
 }
 
-.td-research-queue-count { color: var(--td-text-tertiary); margin-left: 4px; }

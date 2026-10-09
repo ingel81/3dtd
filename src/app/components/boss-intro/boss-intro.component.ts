@@ -23,13 +23,13 @@ import { BOSS_INTRO_TIMING } from '../../utils/boss-intro';
       <div class="scrim" [class.shown]="shown()"></div>
       <!-- The announcer reads it out when the intro starts -->
       <div class="card" [class.shown]="shown()" aria-hidden="true">
-        <span class="overline">Boss<span class="mark"></span>Wave {{ card.wave }}</span>
+        <span class="td-caps overline">Boss, wave {{ card.wave }}</span>
         <span class="name">{{ card.name }}</span>
         @if (card.epithet) {
-          <span class="epithet">{{ card.epithet }}</span>
+          <span class="td-caps epithet">{{ card.epithet }}</span>
         }
-        <span class="rule"></span>
-        <span class="hint"><kbd>Esc</kbd> or click to skip</span>
+        <span class="td-rule rule"></span>
+        <span class="td-note"><kbd class="td-kbd">Esc</kbd> or click to skip</span>
       </div>
     }
     @if (skippable()) {
@@ -66,7 +66,7 @@ import { BOSS_INTRO_TIMING } from '../../utils/boss-intro';
       right: 0;
       bottom: 0;
       height: 45%;
-      background: linear-gradient(to top, rgba(8, 11, 9, 0.72), rgba(8, 11, 9, 0));
+      background: var(--td-scrim-bottom);
       opacity: 0;
       transition: opacity 220ms ease-in;
     }
@@ -98,30 +98,18 @@ import { BOSS_INTRO_TIMING } from '../../utils/boss-intro';
     }
 
     .overline {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font: 700 11px/1 var(--td-font-mono);
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      color: var(--td-gold);
-    }
-
-    .mark {
-      width: 4px;
-      height: 4px;
-      background: var(--td-gold-dark);
-      transform: rotate(45deg);
+      color: var(--td-brass);
     }
 
     /* The left padding balances the tracking after the last letter */
     .name {
-      padding-left: 0.16em;
-      font: 700 clamp(30px, 4.6vw, 54px)/1 var(--td-font-body);
-      letter-spacing: 0.16em;
+      padding-left: 0.12em;
+      font-size: var(--td-fs-hero);
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: var(--td-text-primary);
-      text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
+      color: var(--td-text-engraved);
     }
 
     .card.shown .name {
@@ -129,41 +117,18 @@ import { BOSS_INTRO_TIMING } from '../../utils/boss-intro';
     }
 
     @keyframes name-settle {
-      from { letter-spacing: 0.3em; }
-      to { letter-spacing: 0.16em; }
+      from { letter-spacing: 0.26em; }
+      to { letter-spacing: 0.12em; }
     }
 
     /* The boss's honorific, tucked under its name (worm's "Skarnax") */
     .epithet {
       margin-top: -6px;
-      font: 600 clamp(11px, 1.5vw, 15px)/1 var(--td-font-body);
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
       color: var(--td-text-secondary);
     }
 
     .rule {
       width: 88px;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--td-gold), transparent);
-    }
-
-    .hint {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font: 400 10px/1 var(--td-font-mono);
-      letter-spacing: 0.08em;
-      color: var(--td-text-muted);
-    }
-
-    .hint kbd {
-      padding: 2px 5px;
-      border: 1px solid var(--td-frame-dark);
-      background: var(--td-panel-shadow);
-      font: inherit;
-      font-size: var(--td-fs-micro);
-      color: var(--td-text-secondary);
     }
 
     .skip-layer {
@@ -185,7 +150,6 @@ import { BOSS_INTRO_TIMING } from '../../utils/boss-intro';
       .card,
       .card.shown {
         transform: translate(-50%, 0);
-        transition: opacity 200ms linear;
       }
 
       .card.shown .name {

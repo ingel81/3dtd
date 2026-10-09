@@ -64,6 +64,7 @@ import { enemyPreviewConfig } from '../../../services/infrastructure/preview-she
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wave-panel.component.html',
   styleUrl: './wave-panel.component.scss',
+  host: { class: 'td-side-section' },
 })
 export class SidebarWavePanelComponent implements AfterViewInit {
   private readonly store = inject(TowerDefenseStore);

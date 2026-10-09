@@ -193,13 +193,13 @@ describe('World map, playtest 340 to 346', () => {
     TestBed.resetTestingModule();
   });
 
-  it('340: after wave 2 the place being played is greyed, "playing now · wave 2", and a click does nothing', async () => {
+  it('340: after wave 2 the place being played is greyed, "playing now, wave 2", and a click does nothing', async () => {
     waves(2);
     const fixture = await openWorld();
 
     const [row] = rows(fixture);
     expect(rows(fixture)).toHaveLength(1);
-    expect(rowText(row)).toBe('Heilbronn | playing now · wave 2');
+    expect(rowText(row)).toBe('Heilbronn | playing now, wave 2');
     expect(row.disabled).toBe(true);
     // The disabled button gets no click; the handler refuses the place as well
     row.click();
@@ -222,7 +222,7 @@ describe('World map, playtest 340 to 346', () => {
     location.hq.set(HEILBRONN);
     const fixture = await openWorld();
 
-    expect(rows(fixture).map(rowText)).toEqual(['Paris | wave 3', 'Heilbronn | playing now · wave 2']);
+    expect(rows(fixture).map(rowText)).toEqual(['Paris | wave 3', 'Heilbronn | playing now, wave 2']);
     expect(text(fixture)).toContain('The run at Heilbronn ends when a new place loads.');
 
     const paris = rows(fixture)[0];

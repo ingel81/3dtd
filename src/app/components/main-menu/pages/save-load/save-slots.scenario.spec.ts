@@ -144,7 +144,7 @@ describe('Save and Load pages', () => {
     it('lists the autosave first and loads at once when no run is under way', async () => {
       const { el, click, saves, loaded } = await setup({ mode: 'load' });
       expect([...el.querySelectorAll('.mp-slot-title')].map((t) => t.textContent!.trim())).toEqual(['Autosave', 'Mine']);
-      expect(el.querySelector('.mp-slot-detail')!.textContent).toContain('Wave 12 · Heilbronn');
+      expect(el.querySelector('.mp-slot-detail')!.textContent).toContain('Wave 12 | Heilbronn');
       await click('Autosave');
       expect(saves.load).toHaveBeenCalledWith(AUTOSAVE_SLOT);
       expect(loaded).toHaveBeenCalledTimes(1);

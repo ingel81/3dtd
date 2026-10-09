@@ -1,0 +1,141 @@
+// Basics every recipe builds on: motion, focus, the engraved line, hiding for
+// screen readers. Values come from the --td-* tokens (td-theme.ts).
+@use 'sass:list';
+
+// Everything inside goes into a reduced-motion query
+@mixin reduced-motion {
+  @media (prefers-reduced-motion: reduce) {
+    @content;
+  }
+}
+
+// Short state changes (hover, press). Reduced motion stops every transition
+// globally (_classes.scss).
+@mixin motion($props...) {
+  $list: ();
+  @each $p in $props {
+    $list: list.append($list, $p var(--td-dur-fast) var(--td-ease-out), comma);
+  }
+  transition: $list;
+}
+
+// A control that can act: hover and press rules read `&:hover#{$enabled}`, so
+// nothing lights up on a control that does nothing now
+$enabled: ":not(:disabled, [aria-disabled='true'], .is-locked)";
+
+// A control that does nothing now: dimmed, the cursor says so. One look for
+// every recipe; aria-disabled keeps the click (and the tooltip with the reason).
+// .is-busy is a control that waits for something it started (a running wave,
+// a charging ability): not dimmed, no hover, an arrow for a cursor.
+@mixin disabled {
+  &:disabled,
+  &[aria-disabled='true'],
+  &.is-locked {
+    opacity: var(--td-disabled-opacity);
+    cursor: not-allowed;
+  }
+
+  &.is-busy {
+    opacity: 1;
+    cursor: default;
+  }
+}
+
+// The quiet raised stone: secondary buttons, icon buttons, plates, key caps
+@mixin quiet-stone {
+  background: var(--td-stone-darker);
+  box-shadow: var(--td-raised-quiet);
+}
+
+// One line that ends in an ellipsis
+@mixin truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Resets a <button> that carries a recipe of something else (a card, a field,
+// a toggle line, a section head): no frame, no fill. Type and colour stay with
+// the recipe or class on it (form elements inherit the font family globally).
+@mixin button-reset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+// Keyboard focus: a 2px light brass outline
+@mixin focus-ring($offset: var(--td-focus-offset)) {
+  &:focus-visible {
+    outline: var(--td-focus-width) solid var(--td-focus-color);
+    outline-offset: $offset;
+  }
+}
+
+// An engraved line under the element: dark groove, light edge below it
+@mixin engraved-line {
+  border-bottom: var(--td-line-width) solid var(--td-line-dark);
+  box-shadow: 0 var(--td-line-gap) 0 var(--td-line-light);
+}
+
+// The same line over the element
+@mixin engraved-line-top {
+  border-top: var(--td-line-width) solid var(--td-line-dark);
+  box-shadow: inset 0 var(--td-line-gap) 0 var(--td-line-light);
+}
+
+// A thin engraved line right of the element (a column of labels)
+@mixin engraved-line-right {
+  border-right: 1px solid var(--td-line-dark);
+  box-shadow: 1px 0 0 var(--td-line-light);
+}
+
+// A hairline over or under a head or a foot (a quieter parting than the
+// engraved line)
+@mixin hairline-top {
+  border-top: 1px solid var(--td-hairline);
+}
+
+@mixin hairline-bottom {
+  border-bottom: 1px solid var(--td-hairline);
+}
+
+// A thin engraved line left of the element (columns side by side)
+@mixin engraved-line-left {
+  border-left: 1px solid var(--td-line-dark);
+  box-shadow: inset 1px 0 0 var(--td-line-light);
+}
+
+// A vertical engraved separator, drawn by an empty ::before or element of no
+// width: dark groove, light edge right of it
+@mixin engraved-separator {
+  border-left: 1px solid var(--td-line-dark);
+  box-shadow: 1px 0 0 var(--td-line-light);
+}
+
+// Read by screen readers only
+@mixin sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+// Thin dark scrollbars (standard properties; Chromium and Firefox read them)
+@mixin scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--td-frame-mid) transparent;
+}
+
+// Turns an icon while something loads; stands still for reduced motion
+@mixin spinner {
+  animation: td-spin 1s linear infinite;
+
+  @include reduced-motion {
+    animation: none;
+  }
+}

@@ -1,5 +1,4 @@
-<aside class="td-sidebar">
-  <div class="td-sidebar-content">
+<aside class="td-sidebar td-side">
     <app-sidebar-wave-panel
       [waveActive]="waveActive()"
       [isGameOver]="isGameOver()"
@@ -45,22 +44,21 @@
 
     <!-- Footer: the menu, the tips again, the version (opens What's new). The world
          map, the runs and the project page live in the menu. -->
-    <div class="td-sidebar-footer">
-      <button class="td-foot-btn td-foot-menu" type="button" (click)="openMenu()" aria-keyshortcuts="Escape"
+    <div class="sb-foot td-hairline-top">
+      <button class="td-btn-ghost td-btn-sm sb-menu" type="button" (click)="openMenu()" aria-keyshortcuts="Escape"
               matTooltip="Menu (Esc)" matTooltipPosition="above">
         <td-icon name="cog" [size]="14"></td-icon>
-        <span>Menu</span>
+        Menu
       </button>
-      <button class="td-foot-btn" type="button" (click)="showTips()"
+      <button class="td-btn-ghost td-btn-sm" type="button" (click)="showTips()"
               matTooltip="Show the first-run tips again" matTooltipPosition="above">
         <td-icon name="bulb" [size]="14"></td-icon>
-        <span>Tips</span>
+        Tips
       </button>
-      <button class="td-foot-btn td-version" type="button" (click)="openWhatsNew()"
+      <button class="td-btn-ghost td-btn-sm td-num" type="button" (click)="openWhatsNew()"
               [attr.aria-label]="versionLabel"
               matTooltip="What's new in this version" matTooltipPosition="above">
-        <span>{{ buildVersion }}</span>
+        {{ buildVersion }}
       </button>
     </div>
-  </div>
 </aside>

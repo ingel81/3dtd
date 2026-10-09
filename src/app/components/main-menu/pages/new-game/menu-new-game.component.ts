@@ -21,14 +21,10 @@ import { PlacePickerComponent } from './place-picker.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (ui.coopMapLocked()) {
-      <p class="note">The host picks the place of this room.</p>
+      <p class="td-note">The host picks the place of this room.</p>
     } @else {
       <app-place-picker (chosen)="choose($event)" />
     }
-  `,
-  styles: `
-    :host { display: block; }
-    .note { margin: 0; font-size: 13px; color: var(--td-text-secondary); }
   `,
 })
 export class MenuNewGameComponent {

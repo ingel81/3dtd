@@ -279,7 +279,7 @@ function explain(
   if (mutator) reasons.push(`Blood moon: ${mutator.name}. ${mutator.description}`);
   if (row.note) reasons.push(row.note);
   return {
-    summary: `Wave ${wave}: ${row.name} · ${totalCount} enemies · HP ×${shared}`,
+    summary: `Wave ${wave}: ${row.name} | ${totalCount} enemies | HP ×${shared}`,
     reasons,
   };
 }

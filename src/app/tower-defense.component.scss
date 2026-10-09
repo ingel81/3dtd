@@ -1,5 +1,8 @@
 @use './styles/game-ui' as ui;
 
+// Layout of the game: header, map, sidebar; the overlays over the map. The
+// look comes from the td-* classes.
+
 /* === Container === */
 .td-container {
   display: flex;
@@ -9,11 +12,7 @@
   height: 85vh;
   max-height: 900px;
   background: var(--td-bg-dark);
-  border: 2px solid var(--td-frame-mid);
-  border-top-color: var(--td-frame-light);
-  border-radius: 4px;
   overflow: hidden;
-  font-family: 'JetBrains Mono', monospace;
 }
 
 .td-container.td-fullscreen {
@@ -21,8 +20,6 @@
   max-width: 100vw;
   height: 100vh;
   max-height: 100vh;
-  border-radius: 0;
-  border: none;
 }
 
 /* === Main Layout === */
@@ -81,7 +78,7 @@
 .td-hud-top.td-hud-muted {
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+  transition: opacity var(--td-dur-mid) var(--td-ease-out), visibility 0s linear var(--td-dur-mid);
 }
 
 /* Bottom centre of the map, stacked upwards (skip intro, LOS legend, hint box).
@@ -128,21 +125,14 @@
   position: absolute;
   bottom: 5px;
   right: 10px;
-  padding: 0 6px;
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 2px;
-  font-size: 9px;
-  color: #444;
+  padding: 1px 8px;
   z-index: 5;
   max-width: 500px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* === Overlays === */
 /* The engine failed where no menu stands, or the key screen did not load:
- * a danger plate over the dark page, the menu's plate says it otherwise */
+ * a dialog over the dark page, the menu's plate says it otherwise */
 .td-error-overlay {
   position: absolute;
   inset: 0;
@@ -152,47 +142,16 @@
   justify-content: center;
   padding: 40px 16px;
   background: var(--td-bg-dark);
-  font-family: var(--td-font-body);
 }
 
 .td-error-plate {
-  @include ui.plate(var(--td-cut), var(--td-plate-danger), var(--td-danger-edge));
-  display: flex;
-  flex-direction: column;
-  gap: var(--td-sp-3);
-  width: 460px;
-  max-width: 100%;
-  box-sizing: border-box;
-  padding: var(--td-sp-5);
-
-  h3 {
-    @include ui.title;
-    color: var(--td-danger-text);
-  }
-
-  p {
-    margin: 0;
-    font-size: var(--td-fs-body);
-    line-height: 1.5;
-    color: var(--td-text-secondary);
-  }
-}
-
-.td-error-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--td-sp-2);
-  margin-top: var(--td-sp-2);
-
-  .btn-primary { @include ui.btn-primary; }
-  .btn-secondary { @include ui.btn-secondary; }
+  width: 480px;
 }
 
 /* === Game over and connection lost ===
- * A danger plate over the dimmed map (Dialog design, right half): hazard
- * stripe on top, the title in Oswald, place and wave, the run's numbers,
- * the buttons in one row. The overlays take the focus to be announced
- * (tdFocusOnShow); they are no control to ring. */
+ * A dialog over the darkened map: the title, place and wave, the run's
+ * figures, the buttons at the foot. The overlays take the focus to be
+ * announced (tdFocusOnShow); they are no control to ring. */
 .td-gameover-overlay:focus,
 .td-lost-overlay:focus {
   outline: none;
@@ -205,13 +164,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--td-panel-shadow) 72%, transparent);
-  font-family: var(--td-font-body);
+  padding: 32px 16px;
 }
 
 .td-gameover-overlay {
   z-index: 20;
-  @include ui.corner-brackets;
   animation: td-fade-in var(--td-dur-slow) var(--td-ease-out);
 
   @include ui.reduced-motion {
@@ -229,159 +186,26 @@
   z-index: 19;
 }
 
-.td-gameover-content,
 .td-lost-content {
-  @include ui.plate(14px, var(--td-plate-danger), var(--td-danger-edge));
-  margin: 0 var(--td-sp-4);
-  text-align: center;
-
-  // Hazard stripe along the top
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 6px;
-    background: var(--td-hazard);
-  }
-}
-
-.td-lost-content {
-  max-width: 480px;
-  padding: 32px 32px 26px;
-
-  h2 {
-    @include ui.title(28px);
-    margin-bottom: var(--td-sp-3);
-    color: var(--td-hp-low);
-  }
-
-  p {
-    margin: 0 0 var(--td-sp-5);
-    font-size: 14px;
-    line-height: 1.5;
-    color: var(--td-text-secondary);
-  }
+  width: 520px;
 }
 
 .td-gameover-content {
-  display: flex;
-  max-width: calc(100% - 32px);
-  max-height: calc(100% - 64px);
+  width: 760px;
+  max-height: 100%;
 }
 
-/* The plate stays, the content scrolls inside it */
+/* The dialog stands, its body scrolls */
 .td-gameover-scroll {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: var(--td-sp-4);
-  min-width: min(620px, 80vw);
-  padding: 38px 40px 28px;
-  overflow-y: auto;
-  @include ui.scrollbar;
 }
 
-.td-gameover-content h1 {
-  margin: 0;
-  font-family: var(--td-font-display);
-  font-size: 56px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--td-hp-low);
-  animation: td-shake 0.5s ease-in-out;
-
-  @include ui.reduced-motion {
-    animation: none;
-  }
-}
-
-@keyframes td-shake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-6px); }
-  40% { transform: translateX(6px); }
-  60% { transform: translateX(-3px); }
-  80% { transform: translateX(3px); }
-}
-
-.td-gameover-where {
-  margin: 0;
-  font-family: var(--td-font-mono);
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--td-text-secondary);
-}
-
-.td-end-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-
-  .btn-primary { @include ui.btn-primary(44px); font-size: 16px; padding: 0 22px; }
-  .btn-secondary { @include ui.btn-secondary(44px); font-size: 16px; padding: 0 18px; }
-}
-
-.td-gameover-files {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--td-sp-1);
-  margin-top: calc(-1 * var(--td-sp-2));
-
-  .btn-ghost { @include ui.btn-ghost(30px); font-size: 13px; }
-}
-
-/* Coop: each player's part of the run (R16) */
-.td-coop-summary {
-  margin: 10px auto 4px;
-  border-collapse: collapse;
-  font-size: 12px;
-  color: var(--td-text-secondary);
-
-  th,
-  td {
-    padding: 3px 10px;
-    text-align: right;
-  }
-
-  th:first-child,
-  td:first-child {
-    text-align: left;
-  }
-
-  th {
-    font: 600 10px/1.2 var(--td-font-mono);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--td-text-muted);
-  }
-
-  tr.is-me td {
-    color: var(--td-gold-light);
-  }
-
-  tr.has-left td {
-    opacity: 0.5;
-  }
-}
-
-.td-coop-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-right: 6px;
-  border-radius: 50%;
-}
-
-.td-gameover-wait {
-  margin: 0;
-  font-size: 13px;
-  color: var(--td-text-secondary);
+/* Coop: each player's part of the run (R16); colour dot and name */
+.td-coop-player {
+  flex-wrap: nowrap;
+  gap: 6px;
 }
 
 /* === Start menu ===
@@ -428,90 +252,16 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 15;
-  display: flex;
-  gap: 6px;
   padding: 6px;
-  @include ui.glass-strip;
 }
 
-.td-photo-saved {
-  align-self: center;
-  padding: 0 6px;
-  color: var(--td-text-secondary);
-  font-family: var(--td-font-mono);
-  font-size: 11px;
-}
-
-.td-photo-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.2);
-  color: var(--td-text-secondary);
-  font-family: var(--td-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.td-photo-btn:hover:not(:disabled) {
-  color: var(--td-text-primary);
-  border-color: var(--td-frame-mid);
-}
-
-.td-photo-btn {
-  @include ui.focus-ring;
-}
-
-.td-photo-btn:disabled {
-  color: var(--td-text-disabled);
-  cursor: progress;
-}
-
-.td-photo-key {
-  padding: 0 4px;
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  color: var(--td-gold-light);
-  font-family: inherit;
-  font-size: var(--td-fs-micro);
-  line-height: 14px;
-}
-
-/* Phase 5.10: AI error banner */
-/* The one message banner: the foundation's error banner across the top,
-   a danger strip with a close cross and, where it helps, Reload */
+/* The one message banner across the top, with Reload where it helps */
 .notice-banner {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 1000;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 20px;
-  background: var(--td-danger-bg);
-  border-bottom: 1px solid var(--td-danger-edge);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  color: var(--td-danger-text);
-  font-size: 14px;
-}
-.notice-banner span {
-  flex: 1;
-}
-.notice-banner .notice-close {
-  @include ui.icon-btn(30px);
-  font-size: 20px;
-  line-height: 1;
-}
-.notice-banner .notice-reload {
-  @include ui.btn-danger(30px);
-  flex-shrink: 0;
-  font-size: 12px;
+  width: min(720px, calc(100% - 32px));
+  box-sizing: border-box;
 }

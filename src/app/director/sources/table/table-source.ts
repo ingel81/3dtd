@@ -134,7 +134,7 @@ function explain(wave: number, lookup: TableLookup, totalCount: number): Decisio
   if (lookup.row.note) reasons.push(lookup.row.note);
 
   return {
-    summary: `Wave ${wave}: ${lookup.row.name} · ${totalCount} enemies · HP ×${lookup.hpMult}`,
+    summary: `Wave ${wave}: ${lookup.row.name} | ${totalCount} enemies | HP ×${lookup.hpMult}`,
     reasons,
     // No sizing: nothing here ramped, capped or corrected anything.
   };

@@ -11,60 +11,60 @@
   >
     @if (cameraInfo(); as cam) {
       <div class="camera-debug-content">
-        <div class="section">
-          <span class="section-label">Position</span>
-          <div class="row">
-            <span class="key">X:</span>
-            <span class="value">{{ cam.posX | number:'1.0-0' }}m</span>
+        <div class="td-group">
+          <span class="td-section">Position</span>
+          <div class="td-kv">
+            <span>X:</span>
+            <b>{{ cam.posX | number:'1.0-0' }}m</b>
           </div>
-          <div class="row">
-            <span class="key">Y:</span>
-            <span class="value">{{ cam.posY | number:'1.0-0' }}m</span>
+          <div class="td-kv">
+            <span>Y:</span>
+            <b>{{ cam.posY | number:'1.0-0' }}m</b>
           </div>
-          <div class="row">
-            <span class="key">Z:</span>
-            <span class="value">{{ cam.posZ | number:'1.0-0' }}m</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <span class="section-label">Angle</span>
-          <div class="row">
-            <span class="key">Heading:</span>
-            <span class="value">{{ cam.heading | number:'1.0-0' }}°</span>
-          </div>
-          <div class="row">
-            <span class="key">Pitch:</span>
-            <span class="value">{{ cam.pitch | number:'1.1-1' }}°</span>
+          <div class="td-kv">
+            <span>Z:</span>
+            <b>{{ cam.posZ | number:'1.0-0' }}m</b>
           </div>
         </div>
 
-        <div class="section">
-          <span class="section-label">Distance</span>
-          <div class="row">
-            <span class="key">Height:</span>
-            <span class="value">{{ cam.altitude | number:'1.0-0' }}m</span>
+        <div class="td-group">
+          <span class="td-section">Angle</span>
+          <div class="td-kv">
+            <span>Heading:</span>
+            <b>{{ cam.heading | number:'1.0-0' }}°</b>
           </div>
-          <div class="row">
-            <span class="key">Distance:</span>
-            <span class="value">{{ cam.distanceToCenter | number:'1.0-0' }}m</span>
-          </div>
-          <div class="row">
-            <span class="key">Terrain:</span>
-            <span class="value">{{ cam.terrainHeight | number:'1.0-0' }}m</span>
+          <div class="td-kv">
+            <span>Pitch:</span>
+            <b>{{ cam.pitch | number:'1.1-1' }}°</b>
           </div>
         </div>
 
-        <div class="section">
-          <span class="section-label">Optics</span>
-          <div class="row">
-            <span class="key">FOV:</span>
-            <span class="value">{{ cam.fov | number:'1.0-0' }}°</span>
+        <div class="td-group">
+          <span class="td-section">Distance</span>
+          <div class="td-kv">
+            <span>Height:</span>
+            <b>{{ cam.altitude | number:'1.0-0' }}m</b>
+          </div>
+          <div class="td-kv">
+            <span>Distance:</span>
+            <b>{{ cam.distanceToCenter | number:'1.0-0' }}m</b>
+          </div>
+          <div class="td-kv">
+            <span>Terrain:</span>
+            <b>{{ cam.terrainHeight | number:'1.0-0' }}m</b>
+          </div>
+        </div>
+
+        <div class="td-group">
+          <span class="td-section">Optics</span>
+          <div class="td-kv">
+            <span>FOV:</span>
+            <b>{{ cam.fov | number:'1.0-0' }}°</b>
           </div>
         </div>
       </div>
     } @else {
-      <div class="no-data">No camera data</div>
+      <div class="td-note">No camera data</div>
     }
   </app-draggable-debug-panel>
 }

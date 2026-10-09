@@ -15,7 +15,6 @@ import { DamageType, ArmorType } from './combat.types';
 export interface DamageTypeUIMeta {
   id: DamageType;
   label: string;
-  icon: string;
   color: string;
   description: string;
 }
@@ -25,63 +24,54 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
   physical: {
     id: 'physical',
     label: 'Physical',
-    icon: '\u2694\uFE0F',
     color: '#B0B0B0',
     description: 'Solid allrounder, falls off vs armor',
   },
   pierce: {
     id: 'pierce',
     label: 'Pierce',
-    icon: '\uD83C\uDFAF',
     color: '#FFD700',
     description: 'High fire rate, anti-swarm',
   },
   siege: {
     id: 'siege',
     label: 'Siege',
-    icon: '\uD83D\uDCA5',
     color: '#FF6600',
     description: 'Slow AoE, anti-heavy/fortified',
   },
   magic: {
     id: 'magic',
     label: 'Magic',
-    icon: '\u2728',
     color: '#9B59B6',
     description: 'Ethereal counter, utility',
   },
   fire: {
     id: 'fire',
     label: 'Fire',
-    icon: '\uD83D\uDD25',
     color: '#FF4400',
     description: 'DoT/Burn, anti-regen',
   },
   ice: {
     id: 'ice',
     label: 'Ice',
-    icon: '\u2744\uFE0F',
     color: '#00BFFF',
     description: 'Low DPS, strong slow/CC',
   },
   poison: {
     id: 'poison',
     label: 'Poison',
-    icon: '\u2620\uFE0F',
     color: '#44CC22',
     description: 'DoT specialist, anti-regen',
   },
   lightning: {
     id: 'lightning',
     label: 'Lightning',
-    icon: '\u26A1',
     color: '#7DD3FC',
     description: 'Chain hitscan, anti-swarm/air',
   },
   chaos: {
     id: 'chaos',
     label: 'Chaos',
-    icon: '🌀',
     color: '#D946EF',
     description: 'Full damage vs every armor, no weak spot',
   },

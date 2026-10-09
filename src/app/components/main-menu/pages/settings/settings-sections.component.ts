@@ -49,6 +49,7 @@ interface SwitchRow {
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './settings-sections.component.html',
   styleUrl: './settings-sections.component.scss',
+  host: { class: 'td-stack is-loose' },
 })
 export class SettingsSectionsComponent {
   readonly ui = inject(UIStore);

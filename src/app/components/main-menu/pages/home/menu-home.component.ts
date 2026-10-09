@@ -10,6 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { RovingGroupDirective } from '../../../roving-group.directive';
+import { TdIconComponent, type TdIconName } from '../../../icon/icon.component';
 import { MainMenuService } from '../../main-menu.service';
 import { EngineInitializationService } from '../../../../services/infrastructure/engine-initialization.service';
 import { GameStore } from '../../../../store/game.store';
@@ -23,13 +24,27 @@ export type HomeEntryId =
 export interface HomeEntry {
   id: HomeEntryId;
   label: string;
-  /** The line under it in mono: "Heilbronn · wave 12" */
+  /** The line under it: "Heilbronn, wave 12" */
   sub: string | null;
   /** Below the line of the list (New game in the pause layer, Restart, Quit) */
   below: boolean;
   /** Loads with the place: its bar shows while it does */
   loads: boolean;
 }
+
+/** The icon before each entry */
+export const HOME_ENTRY_ICON: Record<HomeEntryId, TdIconName> = {
+  continue: 'play',
+  play: 'play',
+  'new-game': 'flag',
+  coop: 'users',
+  save: 'download',
+  load: 'filing',
+  settings: 'cog',
+  extras: 'manual',
+  restart: 'refresh',
+  quit: 'power',
+};
 
 /** What the list asks before it does it, in its own place under the list */
 export type HomeConfirm =
@@ -61,7 +76,7 @@ const PAGE_OF: Partial<Record<HomeEntryId, MenuPage>> = {
 @Component({
   selector: 'app-menu-home',
   standalone: true,
-  imports: [RovingGroupDirective],
+  imports: [RovingGroupDirective, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './menu-home.component.html',
   styleUrl: './menu-home.component.scss',
@@ -70,6 +85,7 @@ const PAGE_OF: Partial<Record<HomeEntryId, MenuPage>> = {
 export class MenuHomeComponent {
   /** The layer the menu stands in: some entries differ before a run and in it */
   readonly layer = input.required<MenuLayer>();
+  readonly icons = HOME_ENTRY_ICON;
   readonly menu = inject(MainMenuService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly store = inject(GameStore);
@@ -84,11 +100,11 @@ export class MenuHomeComponent {
 
   readonly plate = computed(() => loadingPlateView(this.engineInit.loadingSteps()));
 
-  /** What the run loaded here is: "Heilbronn · wave 12" */
+  /** What the run loaded here is: "Heilbronn | wave 12" */
   private readonly runLine = computed(() => {
     const place = this.menu.placeName();
     const wave = Math.max(1, this.store.waveNumber());
-    return place ? `${place} · wave ${wave}` : `wave ${wave}`;
+    return place ? `${place} | wave ${wave}` : `wave ${wave}`;
   });
 
   readonly entries = computed<HomeEntry[]>(() => {
@@ -113,7 +129,7 @@ export class MenuHomeComponent {
     const offer = menu.autosaveOffer();
     const head: HomeEntry[] = [];
     if (offer) {
-      const line = `${offer.place} · wave ${offer.wave}`;
+      const line = `${offer.place} | wave ${offer.wave}`;
       head.push(entry('continue', 'Continue', offer.elsewhere ? `in ${line}` : line, false, !offer.elsewhere));
     } else if (menu.hasPlace() && menu.underWay()) {
       head.push(entry('continue', 'Continue', this.runLine(), false, true));
@@ -133,8 +149,8 @@ export class MenuHomeComponent {
     return list;
   });
 
-  /** The line under the pause list's logo: "Paused · Heilbronn · wave 12", in coop not paused */
-  readonly pauseLine = computed(() => `${this.menu.inCoop() ? 'Coop' : 'Paused'} · ${this.runLine()}`);
+  /** The line under the pause list's logo: "Paused | Heilbronn | wave 12", in coop not paused */
+  readonly pauseLine = computed(() => `${this.menu.inCoop() ? 'Coop' : 'Paused'} | ${this.runLine()}`);
 
   /** Play or Continue waits for the place: the bar shows in the entry */
   showsBar(entry: HomeEntry): boolean {

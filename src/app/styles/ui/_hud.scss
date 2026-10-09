@@ -1,0 +1,220 @@
+// The top bar in basalt: the place field, values parted by engraved lines,
+// caps labels, big numbers.
+@use 'base';
+
+@mixin topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-2);
+  box-sizing: border-box;
+  height: var(--td-h-topbar);
+  padding: 0 14px;
+  background: var(--td-surface-topbar);
+  box-shadow: var(--td-topbar-edge);
+  color: var(--td-text-secondary);
+}
+
+// A value in the top bar: icon, caps label, number. A value after a value has
+// an engraved line before it.
+@mixin stat {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-2);
+  height: calc(var(--td-h-topbar) - 12px);
+  padding: 0 12px;
+
+  & + &::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 6px;
+    bottom: 6px;
+    @include base.engraved-separator;
+  }
+}
+
+// A caps label: in the top bar, over a number, over a column
+@mixin caps {
+  font-size: var(--td-fs-micro);
+  font-weight: 600;
+  letter-spacing: var(--td-track-caps);
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+// A big number: top bar values, results
+@mixin value($size: var(--td-fs-hud)) {
+  font-size: $size;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--td-text-value);
+  font-variant-numeric: tabular-nums;
+}
+
+// The place field: sunken, with an engraved edge. As a <button> the place
+// name lights on hover.
+@mixin sunk-field {
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-2);
+  height: calc(var(--td-h-topbar) - 12px);
+  padding: 0 14px;
+  border-radius: var(--td-radius);
+  background: var(--td-well-soft);
+  box-shadow: var(--td-well-shadow), 0 0 0 1px var(--td-line-dark), 0 1px 0 1px var(--td-hairline);
+
+  @at-root button#{&} {
+    border: 0;
+    font-size: inherit;
+    cursor: pointer;
+    @include base.focus-ring;
+
+    &:hover#{base.$enabled} .td-loc-name {
+      color: var(--td-brass-light);
+    }
+
+    // Locked (a coop room plays this map) it still names the place: no dimming
+    &:disabled,
+    &[aria-disabled='true'] {
+      cursor: not-allowed;
+    }
+  }
+}
+
+// The dim caps label before the place, an engraved line after it
+@mixin loc-label {
+  padding-right: 10px;
+  margin-right: 2px;
+  font-size: var(--td-fs-small);
+  font-weight: 600;
+  letter-spacing: var(--td-track-caps);
+  text-transform: uppercase;
+  color: var(--td-text-dim);
+  @include base.engraved-line-right;
+}
+
+@mixin loc-name {
+  font-size: var(--td-fs-small);
+  font-weight: 600;
+  color: var(--td-text-primary);
+  @include base.motion(color);
+  @include base.truncate;
+}
+
+// A thin engraved gap between groups of tools
+@mixin tool-gap {
+  align-self: stretch;
+  width: 0;
+  margin: 10px 4px;
+  @include base.engraved-separator;
+}
+
+// A segmented bar in a well (loading, HQ): the children are the segments,
+// .is-on lit in brass
+@mixin meter($height: 8px) {
+  display: flex;
+  gap: 2px;
+  box-sizing: border-box;
+  height: $height;
+  padding: 2px;
+  border-radius: var(--td-radius);
+  background: var(--td-well);
+  box-shadow: var(--td-well-shadow);
+
+  > * {
+    flex: 1;
+    background: var(--td-line-dark);
+  }
+
+  > .is-on {
+    background: var(--td-brass);
+  }
+}
+
+// A thin progress bar in a well; its one child is the fill, width in %
+@mixin progress($height: 6px) {
+  display: block;
+  box-sizing: border-box;
+  height: $height;
+  padding: 1px;
+  border-radius: var(--td-radius);
+  background: var(--td-well);
+  box-shadow: var(--td-well-shadow);
+
+  > * {
+    display: block;
+    height: 100%;
+    max-width: 100%;
+    background: var(--td-brass);
+    transition: width var(--td-dur-mid) linear;
+  }
+
+  // A 2px bar on the bottom edge of its button or strip (the wave button,
+  // moving the HQ): a dark groove instead of the well; .is-tick follows a
+  // once-a-second count, .is-teal shows a running wave
+  &.is-edge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    padding: 0;
+    border-radius: 0;
+    background: var(--td-line-dark);
+    box-shadow: none;
+    pointer-events: none;
+  }
+
+  &.is-tick > * {
+    transition-duration: var(--td-dur-tick);
+  }
+
+  &.is-teal > * {
+    background: var(--td-teal);
+  }
+}
+
+// An arrow at the view edge: a round plate over the map, its ring and icon in
+// --td-mark (the text in --td-mark-text when it differs). The button around
+// it (.td-marker-btn) moves the focus ring and the hover onto the plate.
+@mixin marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  outline: 2px solid var(--td-mark, var(--td-brass));
+  outline-offset: -2px;
+  color: var(--td-mark-text, var(--td-mark, var(--td-brass-light)));
+  @include base.motion(transform);
+
+  &.is-sm {
+    width: 24px;
+    height: 24px;
+    outline-width: 1px;
+    outline-offset: -1px;
+  }
+}
+
+@mixin marker-btn {
+  @include base.button-reset;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+
+  &:focus-visible {
+    outline: none;
+  }
+
+  &:hover > .td-marker {
+    transform: scale(1.15);
+  }
+
+  &:focus-visible > .td-marker {
+    outline: var(--td-focus-width) solid var(--td-focus-color);
+    outline-offset: var(--td-focus-offset);
+  }
+}

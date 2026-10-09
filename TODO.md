@@ -43,8 +43,21 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
       bis zur Ebene geprüft, Mindestlänge etwa 25 bis 30 m fehlt) oder die Gegnerlinie schwenkt am Start vom OSM-Punkt
       zur Bandmitte. Erst mit URL oder Snapshot eines neuen Falls debuggen.
 
+- [ ] **E123 Forschungszentrum erst ab der Bauphase vor Welle 2** (User, 2026-10-08): Mit 100 Startgold geht das
+      Zentrum (75) vor Welle 1 zu bauen, danach bleiben 25 und kein Archer (45) ist mehr drin: Welle 1 läuft ohne Tower.
+      Die Karte sperren, bis Welle 1 vorbei ist, mit Grund im Tooltip, wie die Wellen-Sperre der Forschung („Wave 7“);
+      die Sperre gilt auch für Befehle (Bot, Coop) in der Simulation, nicht nur in der Oberfläche.
+
 ### Features
 
+- [ ] **E126 Weltkugel als Ladegrund und Ortswechsel** (User, 2026-10-09): Solange keine Tiles da sind, steht hinter
+      dem Menü eine realistische 3D-Erde, anspruchsvoll umgesetzt. Entschieden: echte Erde (NASA-Texturen Tag, Nacht mit
+      Stadtlichtern, Wolken mit eigenem Drift, glänzende Ozeane), Atmosphärensaum, Sternenhimmel, Sonne; echter Sonnenstand
+      zur Uhrzeit des Spielers; Ortsmarken (zuletzt gespielt, Favoriten, Rekorde); Anflug: Kugel dreht zum Ort, Markierung
+      rastet ein, eingetaucht wird erst, wenn die Tiles wirklich da sind, nahtlos in sie hinein. Bei jedem Ortswechsel:
+      Kamera steigt vom alten Ort auf, Kugel dreht zum neuen. Texturen sehr scharf, gestaffelt nachgeladen (klein sofort,
+      groß danach, nah am Ort eine scharfe Kachel der Region). Quelltexturen liegen in `tmp/globe-textures/`, Konzept-Canvas
+      (vier Varianten, C ist die Kugel) in der Notiz `tmp/plan/LADEGRUND_GLOBUS.md`.
 - [ ] **E102 Neue Tower aus den Meshy-Kandidaten** (User, 2026-10-02; Modelle in
       `public/assets/models/towers/candidates/`, Zerlegung mit `tools/blender/split_tower.py` und `towers/*.json`):
       Iron Bastion und Sentinel Laser abgenommen. Chainsaw mit Roboter-Tentakeln statt Armen (bis 14 m, eingefahren wie
@@ -86,6 +99,9 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 
 ### Beim nächsten Release testen
 
+- [ ] **E124 Design System gebaut** ([DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)): Putz, Basalt, Steinknöpfe, Barlow
+      Semi Condensed über die ganze UI, zentral als Tokens, Rezepte und `td-*`-Klassen; ansehen, ob etwas fremd wirkt
+      (Forschungsbaum, Leisten über der Karte, Debug-Fenster), PLAYTEST H6.
 - [ ] **Coop-Reste aus dem Playtest 2026-10-04**: PLAYTEST N18 (Coop-Start nach Solo-Lauf), N21 (Coop-Replay als
       Datei), T70 (Beitreten ohne eigenen Ort, E30), T71 (öffentliche Raumliste, E31), T79 (Run-Log ans Relay, E38),
       K8.4 (Laptop mit zwei Grafikkarten).
@@ -129,6 +145,10 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 - [ ] **E18 Die tote Strecke beim Könner** und **E19 Abwechslung gegen Passung**: Der Regler steuert den Erwartungswert,
       nicht die Verteilung; Serien ohne HP-Verlust häufen sich bei W15 bis W19 und W30 bis W34. Hebel wäre die
       Template-Wahl (öfter schicken, wogegen die Abwehr schwach ist), Tausch: weniger Abwechslung. User kommt darauf zurück.
+- [ ] **E125 Mit den Pfaden spielen, um Läufe spannender zu machen** (User, 2026-10-09): Routen sind rein automatisch
+      (A* auf dem OSM-Straßengraph vom Portal zum HQ, Spawns und HQ verschiebbar, keine Zwischenwegpunkte). Lange gerade
+      Strecken geben Towern viel freien Schaden, die Wellengröße richtet sich nach der Abwehr, nicht nach der
+      Routenform. Ideen: erzwungene Ecken oder Umwege, wenn eine Route zu gerade ist, ggf. manuelle Wegpunkte.
 - [ ] **E20 Kamerapositionen 1 bis 5 speichern** wie in RTS-Spielen: 1 bis 9 wählen heute Tower (`hotkey-map.ts`),
       Ctrl+Zahl wechselt im Browser den Tab; Tasten unklar.
 - [ ] **E29 Coop-Rest**: Egoperspektive im Coop zäher als allein (T19), vielleicht Turm-Modell lokal vorausdrehen;

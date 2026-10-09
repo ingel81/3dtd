@@ -1,58 +1,36 @@
-@use '../../styles/td-mixins' as td;
-@use '../coop-ui/coop-ui' as ui;
-
-@include ui.classes;
+// Layout of the lanes and players: a row per lane (colour bar, lane with its
+// length, player, ready, ping, tools), then the players without a lane, then
+// a free seat. Lane colours are data.
 
 :host {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--td-frame-dark);
+  padding: 12px var(--td-dock-gutter);
 }
 
 .sec {
-  margin: 0;
-  @include td.section-label;
-
-  white-space: nowrap;
-
-  small {
-    order: 2;
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: none;
-    color: var(--td-text-muted);
-  }
-}
-
-.rows {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  align-items: baseline;
+  justify-content: space-between;
+  white-space: nowrap;
 }
 
-/* Colour bar · lane · player · ready · ping · tools */
+/* Colour bar, lane, player, ready, ping, tools */
 .row-lane {
-  @include ui.list-row(48px);
+  display: grid;
   grid-template-columns: 4px 76px minmax(96px, 1fr) 20px auto auto;
   gap: 8px;
-
-  &.is-free:hover { border-color: var(--td-gold-dark); }
+  min-height: 48px;
+  padding-left: 0;
 
   &.is-seatless {
-    border-style: dashed;
-
-    .lane b { color: var(--td-text-muted); }
+    border-bottom-style: dashed;
   }
+}
 
-  &.is-gone .who b {
-    color: var(--td-text-disabled);
-    text-decoration: line-through;
-  }
+.lane-bar {
+  align-self: stretch;
 }
 
 .lane {
@@ -62,9 +40,7 @@
   min-width: 0;
 
   b {
-    font-family: var(--td-font-mono);
-    font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--td-text-secondary);
   }
 }
@@ -73,16 +49,13 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-family: var(--td-font-mono);
-  font-size: 10px;
   white-space: nowrap;
-  color: var(--td-text-muted);
 
   u {
     position: relative;
     display: block;
     height: 3px;
-    background: var(--td-frame-dark);
+    background: var(--td-line-dark);
     text-decoration: none;
   }
 
@@ -93,62 +66,27 @@
 }
 
 .who {
-  @include ui.name-stack(13.5px);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 
-  small { text-transform: uppercase; }
+  .td-sub {
+    gap: 6px;
+  }
 }
 
 /* What the player's client is doing (loading, reloading, map key) */
 .doing {
-  text-transform: none;
-  color: var(--td-gold-light);
+  color: var(--td-brass-light);
 }
 
 /* The own name in the lobby: a sunken field with a pencil, so it reads as editable */
 .name-edit {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 24px;
-  padding: 0 6px;
-  @include td.sunken;
-  color: var(--td-text-muted);
   cursor: text;
-
-  input {
-    flex: 1;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: 600 13.5px var(--td-font-body);
-    color: var(--td-text-primary);
-    outline: none;
-  }
-
-  &:hover,
-  &:focus-within {
-    border-color: var(--td-gold);
-    color: var(--td-gold-light);
-  }
 }
 
 .take {
   justify-self: start;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: 12.5px var(--td-font-body);
-  color: var(--td-gold);
-  cursor: pointer;
-  @include td.focus-ring;
-
-  &:hover { color: var(--td-gold-light); }
-}
-
-.free {
-  font-size: 12.5px;
-  color: var(--td-text-muted);
 }
 
 .ready {
@@ -156,36 +94,22 @@
   place-items: center;
   width: 20px;
   height: 20px;
-  border: 1px solid var(--td-frame-dark);
   color: var(--td-teal-light);
-
-  &.is-on {
-    border-color: var(--td-teal-dark);
-    background: color-mix(in srgb, var(--td-teal) 12%, transparent);
-  }
 }
 
 .ops {
   display: flex;
   justify-content: flex-end;
-  gap: 4px;
+  gap: 2px;
 }
 
 .empty-seat {
-  display: flex;
-  align-items: center;
+  justify-content: flex-start;
   gap: 12px;
-  height: 48px;
-  padding: 0 14px;
-  border: 1px dashed var(--td-frame-mid);
-  font-size: 13px;
-  color: var(--td-text-muted);
-
-  .btn-xs { margin-left: auto; }
+  min-height: 48px;
+  border-bottom-style: dashed;
 }
 
 .seat-hint {
   margin-left: auto;
-  font-size: 12px;
-  color: var(--td-text-muted);
 }

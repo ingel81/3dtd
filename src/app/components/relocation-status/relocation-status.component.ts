@@ -15,7 +15,7 @@ import { RelocationStatusService } from '../../services/world/relocation-status.
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './relocation-status.component.html',
   styleUrl: './relocation-status.component.scss',
-  host: { role: 'status' },
+  host: { role: 'status', class: 'td-chip-slot' },
 })
 export class RelocationStatusComponent {
   readonly status = inject(RelocationStatusService).status;

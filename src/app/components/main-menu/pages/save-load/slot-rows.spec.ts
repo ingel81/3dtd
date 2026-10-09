@@ -12,10 +12,10 @@ const slot = (id: string, name: string, wave: number, savedAt = '2026-10-05T14:3
 
 describe('slot rows of the Save and Load pages', () => {
   it('words a slot as wave and place, the time apart so a long place cannot cut it', () => {
-    expect(slotDetail(slot('slot-1', 'x', 7))).toBe('Wave 7 · Heilbronn');
+    expect(slotDetail(slot('slot-1', 'x', 7))).toBe('Wave 7 | Heilbronn');
     expect(slotWhen(slot('slot-1', 'x', 7))).toBe('5 Oct, 14:32');
     expect(slotWhen(slot('slot-1', 'x', 7, 'not a date'))).toBe('');
-    expect(slotDetail({ ...slot('slot-1', 'x', 2), location: 'Hauptstraße 51, Bad Wimpfen, Deutschland' })).toBe('Wave 2 · Bad Wimpfen');
+    expect(slotDetail({ ...slot('slot-1', 'x', 2), location: 'Hauptstraße 51, Bad Wimpfen, Deutschland' })).toBe('Wave 2 | Bad Wimpfen');
   });
 
   it('Save shows every manual slot, empty or filled', () => {

@@ -1,8 +1,7 @@
 @if (visible()) {
-  <div class="td-ability-bar" role="group" aria-label="Abilities">
+  <div class="td-ability-bar td-overlay" role="group" aria-label="Abilities">
     @if (hero(); as hero) {
-      <button type="button" class="td-bar-btn td-bar-hero"
-              [class.td-bar-hero-selected]="hero.selected"
+      <button type="button" class="td-icon-btn td-bar-btn td-bar-hero"
               [attr.aria-pressed]="hero.selected"
               [attr.aria-label]="hero.name"
               [attr.aria-keyshortcuts]="hero.hotkey"
@@ -11,18 +10,19 @@
               (click)="heroPressed.emit()">
         <td-icon [name]="hero.icon" [size]="22"></td-icon>
         @if (hero.hotkey) {
-          <span class="td-bar-key" aria-hidden="true">{{ hero.hotkey.toUpperCase() }}</span>
+          <span class="td-bar-key td-caps" aria-hidden="true">{{ hero.hotkey.toUpperCase() }}</span>
         }
       </button>
       @if (buttons().length > 0) {
-        <span class="td-bar-rule" aria-hidden="true"></span>
+        <span class="td-bar-rule td-rule" aria-hidden="true"></span>
       }
     }
 
     @for (button of buttons(); track button.id) {
-      <button type="button" class="td-bar-btn td-ability-btn"
+      <button type="button" class="td-icon-btn td-bar-btn td-ability-btn"
               [attr.data-state]="button.view.state"
               [attr.aria-disabled]="!button.view.enabled"
+              [class.is-busy]="!button.view.enabled"
               [attr.aria-pressed]="button.view.state === 'armed'"
               [attr.aria-label]="button.view.label"
               [attr.aria-keyshortcuts]="button.hotkey"
@@ -30,13 +30,13 @@
               tdRichTooltipPosition="right"
               (click)="press(button.id)">
         <td-icon [name]="button.icon" [size]="20"></td-icon>
-        <span class="td-bar-key" aria-hidden="true">{{ button.hotkey }}</span>
+        <span class="td-bar-key td-caps" aria-hidden="true">{{ button.hotkey }}</span>
         @if (button.view.charges !== null) {
-          <span class="td-ability-charges" aria-hidden="true">{{ button.view.charges }}</span>
+          <span class="td-ability-charges td-figure" aria-hidden="true">{{ button.view.charges }}</span>
         }
         <span class="td-ability-pips" aria-hidden="true">
           @for (lit of button.view.pips; track $index) {
-            <span class="td-ability-pip" [class.td-ability-pip-lit]="lit"></span>
+            <span class="td-ability-pip" [class.is-on]="lit"></span>
           }
         </span>
       </button>

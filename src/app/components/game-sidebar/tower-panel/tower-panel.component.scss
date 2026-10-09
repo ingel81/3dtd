@@ -1,251 +1,82 @@
-@use '../sidebar-panel' as panel;
+// Layout of the tower section: figures three over four, rank, targeting,
+// upgrades, paths; the body scrolls. Damage type in its own colour (data).
 
-:host {
-  display: contents;
+
+/* Three tiles over four on a 12-column track */
+.tp-stats {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+
+  > * {
+    grid-column: span 4;
+  }
+
+  > :nth-child(n + 4) {
+    grid-column: span 3;
+  }
 }
 
-@include panel.section;
+.tp-type {
+  outline: 1px solid var(--damage-color);
+  outline-offset: -1px;
 
-@include panel.fill;
-
-@include panel.header;
-
-@include panel.content;
-
-/* Label und Wert der Stat-Kacheln, verfeinert durch .td-stat-tile unten */
-.td-stat-label {
-  color: var(--td-text-secondary);
-  font-size: 10px;
-  text-transform: uppercase;
+  td-icon {
+    color: var(--damage-color);
+  }
 }
 
-.td-stat-value {
-  color: var(--td-text-primary);
-  font-size: 12px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.tp-type-name {
+  font-size: var(--td-fs-body);
 }
 
-/* === Tower Section ===
- * Header inherits the typographic divider style from .td-panel-header,
- * with a teal accent for the title color (was a heavy teal gradient bar). */
-.td-tower-panel .td-panel-header {
-  color: var(--td-teal-light);
-}
-.td-tower-panel .td-panel-header .td-tower-header-name {
-  color: var(--td-teal-light);
-}
-
-@include panel.tower-header;
-
-@include panel.matrix-btn;
-
-@include panel.tower-section;
-
-/* Stats Grid: three tiles over four on a 12-column track, damage-type tile at pos 0 */
-.td-stats-grid {
+/* Veteran rank: insignia and name left, kills to the next rank right, the
+   way there under it. Silver like the badge over the tower, brass from
+   Champion on. */
+.tp-rank {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-}
-.td-stats-grid.td-stats-grid-7 {
-  grid-template-columns: repeat(12, 1fr);
-  gap: 4px;
-}
-.td-stats-grid-7 > .td-stat-tile {
-  grid-column: span 4;
-}
-.td-stats-grid-7 > .td-stat-tile:nth-child(n + 4) {
-  grid-column: span 3;
-}
-
-.td-stat-tile {
-  display: flex;
-  flex-direction: column;
+  grid-template-columns: auto auto 1fr;
   align-items: center;
-  gap: 2px;
-  padding: 6px 4px;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  min-width: 0;
-}
-.td-stat-tile-dmgtype {
-  border-width: 1px;
-  border-style: solid;
-}
-.td-stat-value-small {
-  font-size: 11px !important;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  gap: 4px 8px;
+  padding: 6px 8px;
 }
 
-.td-stat-icon {
-  font-size: 18px;
-  width: 18px;
-  height: 18px;
-  opacity: 0.7;
+.tp-rank-icon {
+  color: var(--td-text-secondary);
 }
 
-.td-icon-damage { color: var(--td-health-red); }
-.td-icon-range { color: var(--td-teal); }
-.td-icon-firerate { color: var(--td-gold); }
-.td-icon-kills { color: var(--td-gold); }
-
-.td-stat-tile .td-stat-value {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--td-text-primary);
+.tp-rank-count {
+  justify-self: end;
 }
 
-.td-stat-tile .td-val-damage { color: var(--td-health-red); }
-.td-stat-tile .td-val-kills { color: var(--td-gold); }
+.tp-rank-bar {
+  grid-column: 1 / -1;
+  height: 4px;
 
-.td-stat-tile .td-stat-label {
-  font-size: var(--td-fs-micro);
-  color: var(--td-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  > * {
+    background: var(--td-text-secondary);
+  }
 }
 
-/* === Veteran Rank Row ===
- * Insignia and name left, kills to the next rank right, a 2px bar of the
- * way there along the bottom edge. Silver (--td-edge-highlight) like the
- * badge over the tower, gold from Champion on. */
-.td-rank-row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px 7px;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  font-family: var(--td-font-mono);
-}
+.tp-rank.is-gold {
+  .tp-rank-icon,
+  .tp-rank-name {
+    color: var(--td-brass-light);
+  }
 
-.td-rank-icon {
-  color: var(--td-edge-highlight);
-}
-
-.td-rank-name {
-  color: var(--td-text-primary);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.td-rank-count {
-  margin-left: auto;
-  color: var(--td-text-muted);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
-
-.td-rank-bar {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 3px;
-  height: 2px;
-  background: var(--td-frame-dark);
-}
-
-.td-rank-bar-fill {
-  display: block;
-  height: 100%;
-  max-width: 100%;
-  background: var(--td-edge-highlight);
-}
-
-.td-rank-gold .td-rank-icon,
-.td-rank-gold .td-rank-name {
-  color: var(--td-gold-light);
-}
-
-.td-rank-gold .td-rank-bar-fill {
-  background: var(--td-gold);
+  .tp-rank-bar > * {
+    background: var(--td-brass);
+  }
 }
 
 /* Below the first rank: the chevron to come, greyed out */
-.td-rank-recruit .td-rank-icon {
+.tp-rank.is-recruit .tp-rank-icon {
   color: var(--td-text-disabled);
 }
 
-.td-rank-recruit .td-rank-name {
-  color: var(--td-text-secondary);
+.tp-targets > button {
+  padding: 0;
 }
 
-/* === Targeting Strategy Row === */
-.td-targeting-row {
-  display: flex;
-  gap: 4px;
-}
-
-.td-targeting-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  color: var(--td-text-muted);
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: inherit;
-}
-
-.td-targeting-btn:hover {
-  border-color: var(--td-teal);
-  color: var(--td-text-secondary);
-}
-
-.td-targeting-btn.active {
-  border-color: var(--td-teal);
-  background: color-mix(in srgb, var(--td-teal) 15%, transparent);
-  color: var(--td-teal-light);
-}
-
-.td-hold-fire-btn {
-  margin-left: 4px;
-}
-
-.td-hold-fire-btn.active {
-  border-color: var(--td-health-red);
-  background: color-mix(in srgb, var(--td-health-red) 15%, transparent);
+.tp-hold[aria-pressed='true'] {
   color: var(--td-hp-text);
 }
 
-.td-sub-targeting-row {
-  padding-top: 2px;
-  border-top: 1px dashed var(--td-frame-dark);
-}
-
-@include panel.upgrades;
-
-/* Path: below the upgrade tracks, a tile until bought, then a line */
-.td-path-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--td-frame-mid);
-}
-
-.td-path-chosen {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  color: var(--td-text-primary);
-}
-
-.td-path-tag {
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.6;
-}

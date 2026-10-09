@@ -1,13 +1,13 @@
 @for (arrow of arrows(); track $index) {
-  <button type="button" class="osi" [class.osi-boss]="arrow.boss" [style.left.px]="arrow.x" [style.top.px]="arrow.y"
+  <button type="button" class="osi td-marker-btn" [class.osi-boss]="arrow.boss" [style.left.px]="arrow.x" [style.top.px]="arrow.y"
           [attr.aria-label]="arrow.boss ? 'Camera to the boss' : 'Camera to the enemy closest to the HQ'"
           (click)="goTo($index)">
-    <span class="osi-chip">
+    <span class="td-overlay td-marker" [class.is-sm]="!arrow.boss">
       <td-icon name="caretR" [size]="14" [strokeWidth]="2.5"
                [style.transform]="'rotate(' + arrow.angle + 'deg)'"></td-icon>
     </span>
     @if (arrow.count > 1) {
-      <span class="osi-count"
+      <span class="osi-count td-overlay td-num"
             [style.transform]="'translate(' + arrow.labelX + 'px, ' + arrow.labelY + 'px)'">{{ arrow.count }}</span>
     }
   </button>

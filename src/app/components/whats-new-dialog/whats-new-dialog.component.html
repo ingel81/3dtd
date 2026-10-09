@@ -1,20 +1,20 @@
-<div class="dlg">
-  <header class="dlg-head">
-    <h2 class="dlg-title" [id]="titleId">What's new</h2>
-    <button class="icon-btn" type="button" aria-label="Close" (click)="close()">
-      <td-icon name="cross" [size]="16"></td-icon>
+<div class="td-dlg">
+  <header class="td-dlg-head">
+    <h2 class="td-dlg-title" [id]="titleId">What's new</h2>
+    <button class="td-close" type="button" aria-label="Close" (click)="close()">
+      <td-icon name="close" [size]="12"></td-icon>
     </button>
   </header>
 
-  <div class="dlg-body">
+  <div class="td-dlg-body is-loose">
     @for (release of releases; track release.version) {
       <ng-container *ngTemplateOutlet="releaseSection; context: { $implicit: release }" />
     } @empty {
-      <p class="empty">No notes for this version.</p>
+      <p class="td-note">No notes for this version.</p>
     }
     @if (earlier.length > 0) {
-      <details class="earlier">
-        <summary>Earlier versions</summary>
+      <details class="wn-earlier td-stack">
+        <summary class="td-link">Earlier versions</summary>
         @for (release of earlier; track release.version) {
           <ng-container *ngTemplateOutlet="releaseSection; context: { $implicit: release }" />
         }
@@ -22,29 +22,29 @@
     }
   </div>
 
-  <footer class="dlg-foot">
-    <a class="btn-secondary" [href]="changelogUrl" target="_blank" rel="noopener">Full changelog</a>
-    <button class="btn-primary" type="button" (click)="close()">Got it</button>
+  <footer class="td-dlg-foot">
+    <a class="td-btn-secondary" [href]="changelogUrl" target="_blank" rel="noopener">Full changelog</a>
+    <button class="td-btn-primary" type="button" (click)="close()">Got it</button>
   </footer>
 </div>
 
 <ng-template #releaseSection let-release>
-  <section class="release" [class.current]="release.version === current">
-    <div class="release-header">
-      <span class="release-version">v{{ release.version }}</span>
+  <section class="td-group wn-release" [class.is-current]="release.version === current">
+    <div class="wn-head">
+      <span class="wn-version td-value">v{{ release.version }}</span>
       @if (release.version === current) {
-        <span class="release-tag">This version</span>
+        <span class="td-caps wn-tag">This version</span>
       }
       @if (release.date) {
-        <span class="release-date">{{ release.date }}</span>
+        <span class="td-note wn-date">{{ release.date }}</span>
       }
     </div>
-    <div class="release-body">
+    <div class="td-stack">
       @for (group of release.groups; track $index) {
         @if (group.title) {
-          <span class="group-title">{{ group.title }}</span>
+          <span class="td-section">{{ group.title }}</span>
         }
-        <ul>
+        <ul class="td-text wn-list">
           @for (item of group.items; track $index) {
             <li>{{ item }}</li>
           }

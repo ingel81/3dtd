@@ -1,0 +1,183 @@
+// Lists and tables: rows parted by hairlines, a plain head, the chosen row
+// as a lighter raised plate with brass text.
+@use 'base';
+
+// The chosen row: the lighter raised plate with brass text; quiet text on it
+// turns lighter, so it keeps its contrast
+@mixin selected-plate {
+  border-bottom-color: transparent;
+  background: var(--td-stone-lit);
+  box-shadow: var(--td-raised-lit);
+  color: var(--td-brass-light);
+
+  :is(.td-muted, .td-note, .td-sub, .td-caps) {
+    color: var(--td-text-secondary);
+  }
+}
+
+// The player's own row and a player who left (coop): a soft well; struck
+// through with a dashed line
+@mixin own-row {
+  background: var(--td-well-soft);
+}
+
+@mixin gone-row {
+  border-bottom-style: dashed;
+
+  .td-name {
+    color: var(--td-text-disabled);
+    text-decoration: line-through;
+  }
+}
+
+// A list of rows: a <ul> without bullets, or any column of rows
+@mixin rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--td-row-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// One row: a name left, details right; a component may lay out its own
+// columns (grid). A <button> row is full width and clickable.
+@mixin row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--td-sp-4);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--td-h-row);
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--td-hairline);
+  border-radius: var(--td-radius);
+  font-size: var(--td-fs-text);
+  font-weight: 500;
+  color: var(--td-text-primary);
+  @include base.motion(background-color, box-shadow, color);
+
+  &[role='option'],
+  &[role='button'] {
+    cursor: pointer;
+
+    &:hover#{base.$enabled} {
+      color: var(--td-brass-light);
+    }
+  }
+
+  &.is-selected,
+  &[aria-selected='true'] {
+    @include selected-plate;
+  }
+
+  &.is-own {
+    @include own-row;
+  }
+
+  &.is-gone {
+    @include gone-row;
+  }
+}
+
+// A row that is a <button>: clickable, the button's frame gone
+@mixin row-button {
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+  background: none;
+  font-family: var(--td-font);
+  text-align: left;
+  cursor: pointer;
+  @include base.focus-ring(-2px);
+
+  &:hover#{base.$enabled} {
+    color: var(--td-brass-light);
+  }
+
+  // Locked, the row still says why: only its name dims, the note stays readable
+  &:disabled,
+  &[aria-disabled='true'] {
+    cursor: not-allowed;
+
+    > :not(.td-note) {
+      opacity: var(--td-disabled-opacity);
+    }
+  }
+}
+
+// The main button inside a row that has tools at its right (save slots,
+// rooms): fills the row, name over a detail line
+@mixin row-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: var(--td-h-row);
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  @include base.focus-ring(-2px);
+  @include base.motion(color);
+
+  &:hover#{base.$enabled} {
+    color: var(--td-brass-light);
+  }
+
+  @include base.disabled;
+}
+
+// The head over the rows: plain, quiet
+@mixin row-head {
+  box-sizing: border-box;
+  padding: 0 12px 4px;
+  font-size: var(--td-fs-body);
+  font-weight: 600;
+  color: var(--td-text-muted);
+}
+
+// A real <table> in the same look
+@mixin table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 var(--td-row-gap);
+  font-size: var(--td-fs-text);
+  color: var(--td-text-primary);
+
+  th {
+    @include row-head;
+    text-align: left;
+  }
+
+  td {
+    height: var(--td-h-row);
+    padding: 0 12px;
+    border-bottom: 1px solid var(--td-hairline);
+  }
+
+  // Chosen, own and gone rows as in a list
+  tr.is-selected > *,
+  tr[aria-selected='true'] > * {
+    @include selected-plate;
+  }
+
+  tr.is-own > * {
+    @include own-row;
+  }
+
+  tr.is-gone > * {
+    @include gone-row;
+  }
+
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}

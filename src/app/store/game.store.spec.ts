@@ -211,7 +211,7 @@ describe('GameStore', () => {
       store.waveEnemiesLeft.set(22);
       store.towerCount.set(8);
       store.showGameOverScreen.set(true);
-      store.waveExplanation.set({ summary: 'Wave 1: Zombie Horde · 20 enemies · HP ×0.50', reasons: [] });
+      store.waveExplanation.set({ summary: 'Wave 1: Zombie Horde | 20 enemies | HP ×0.50', reasons: [] });
       store.paused.set(true);
       store.autoWaveSecondsLeft.set(7);
       store.mannedTowerId.set('tower-3');

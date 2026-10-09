@@ -12,7 +12,7 @@ const template = readFileSync(resolve('src/app/components/debug-window/enemy-deb
  */
 describe('Enemy debugger sliders', () => {
   const sliders = [...template.matchAll(
-    /<input type="range" min="([-\d.]+)" max="([-\d.]+)"[^>]*\(input\)="onSelectedSliderChange\('(\w+)'/g,
+    /<input class="td-slider" type="range" min="([-\d.]+)" max="([-\d.]+)"[^>]*\(input\)="onSelectedSliderChange\('(\w+)'/g,
   )].map(([, min, max, key]) => ({ key, min: Number(min), max: Number(max) }));
 
   it('reaches every value a type sets', () => {

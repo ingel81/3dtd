@@ -125,7 +125,7 @@ export class CoopSquadComponent {
     if (notReady.length === 0) return line('Everyone is ready.', '', auto);
     if (!this.myReady()) {
       const others = this.present().filter((r) => !r.me && r.ready).map((r) => r.name);
-      return line(others.length ? `${others.join(', ')} ready · ` : '', 'Ready up for the next wave', auto, false, true);
+      return line(others.length ? `${others.join(', ')} ready | ` : '', 'Ready up for the next wave', auto, false, true);
     }
     return line('Waiting for ', notReady.map((r) => r.name).join(', '), auto);
   });
@@ -134,10 +134,10 @@ export class CoopSquadComponent {
   subLine(row: { lane: string | null; ready: boolean; leaks: number; state: RowState }): string {
     const lane = row.lane ?? 'No lane';
     if (row.state === 'left') return 'Left the match';
-    if (row.state === 'lag') return `${lane} · lagging`;
-    if (row.state === 'slow') return `${lane} · catching up`;
-    if (this.waveActive()) return row.leaks > 0 ? `${lane} · ${row.leaks} through` : lane;
-    return `${lane} · ${row.ready ? 'ready' : 'building'}`;
+    if (row.state === 'lag') return `${lane} | lagging`;
+    if (row.state === 'slow') return `${lane} | catching up`;
+    if (this.waveActive()) return row.leaks > 0 ? `${lane} | ${row.leaks} through` : lane;
+    return `${lane} | ${row.ready ? 'ready' : 'building'}`;
   }
 
   /** "3 enemies got through Bob's lane this wave" */

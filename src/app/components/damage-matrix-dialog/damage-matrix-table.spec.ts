@@ -150,10 +150,10 @@ describe('buildEffectivenessLegend', () => {
     const t = EFFECTIVENESS_THRESHOLDS;
     expect(legend.map((e) => e.effectiveness)).toEqual(['weak', 'normal', 'strong', 'devastating']);
     expect(legend.map((e) => e.range)).toEqual([
-      `< ${formatMultiplier(t.weak)}`,
+      `below ${formatMultiplier(t.weak)}`,
       '',
-      `≥ ${formatMultiplier(t.strong)}`,
-      `≥ ${formatMultiplier(t.devastating)}`,
+      `${formatMultiplier(t.strong)} and up`,
+      `${formatMultiplier(t.devastating)} and up`,
     ]);
     for (const entry of legend) expect(entry.color).toBe(matrixTierColor(entry.effectiveness));
   });

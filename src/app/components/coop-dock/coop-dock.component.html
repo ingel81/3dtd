@@ -1,19 +1,19 @@
-<header class="head">
-  <div class="title">
+<header class="head td-dlg-head">
+  <div class="title td-stack">
     @if (joining()) {
-      <h2 id="td-coop-dock-title">Joining {{ room()?.code ?? coop.roomFromUrl ?? '' }}</h2>
-      <p>{{ room() ? 'Host: ' + hostName() : 'Finding the room' }}</p>
+      <h2 class="td-dlg-title" id="td-coop-dock-title">Joining {{ room()?.code ?? coop.roomFromUrl ?? '' }}</h2>
+      <p class="td-note td-trunc">{{ room() ? 'Host: ' + hostName() : 'Finding the room' }}</p>
     } @else if (room(); as r) {
-      <h2 id="td-coop-dock-title">Coop room</h2>
-      <p>PvE Coop · {{ placeName() }} · {{ r.spawnIds.length }} lane{{ r.spawnIds.length === 1 ? '' : 's' }}</p>
+      <h2 class="td-dlg-title" id="td-coop-dock-title">Coop room</h2>
+      <p class="td-note td-trunc">PvE coop, {{ placeName() }}, {{ r.spawnIds.length }} lane{{ r.spawnIds.length === 1 ? '' : 's' }}</p>
     } @else {
-      <h2 id="td-coop-dock-title">Coop</h2>
-      <p>Not in a room</p>
+      <h2 class="td-dlg-title" id="td-coop-dock-title">Coop</h2>
+      <p class="td-note td-trunc">Not in a room</p>
     }
   </div>
-  <button class="icon-btn close" type="button" (click)="close()"
-          [matTooltip]="room() ? 'Close (the room stays open) · Tab or Esc' : 'Close · Tab or Esc'" aria-label="Close the coop dock">
-    <td-icon name="cross" [size]="16"></td-icon>
+  <button class="td-close" type="button" (click)="close()"
+          [matTooltip]="room() ? 'Close (the room stays open), Tab or Esc' : 'Close, Tab or Esc'" aria-label="Close the coop dock">
+    <td-icon name="close" [size]="12"></td-icon>
   </button>
 </header>
 
@@ -24,35 +24,35 @@
     <div class="cols">
       <div class="main">
         <!-- Room: code and invite -->
-        <section class="blk">
+        <section class="td-group blk">
           <div class="code-row">
-            <div class="code">
-              <span>Room code</span>
-              <b>{{ r.code }}</b>
+            <div class="code td-stack">
+              <span class="td-caps">Room code</span>
+              <b class="td-code">{{ r.code }}</b>
             </div>
-            <div class="acts">
-              <button class="btn-xs" type="button" (click)="copy('code')" aria-label="Copy the room code">
+            <div class="td-actions acts">
+              <button class="td-btn-secondary td-btn-sm" type="button" (click)="copy('code')" aria-label="Copy the room code">
                 <td-icon [name]="copied() === 'code' ? 'check' : 'copy'" [size]="14"></td-icon>
                 {{ copied() === 'code' ? 'Copied' : 'Code' }}
               </button>
               @if (!r.started && !coop.lanAvailable) {
-                <button class="btn-xs" type="button" (click)="copy('link')" aria-label="Copy the invite link">
+                <button class="td-btn-secondary td-btn-sm" type="button" (click)="copy('link')" aria-label="Copy the invite link">
                   <td-icon [name]="copied() === 'link' ? 'check' : 'link'" [size]="14"></td-icon>
                   {{ copied() === 'link' ? 'Copied' : 'Invite link' }}
                 </button>
               }
             </div>
           </div>
-          <div class="meta">
+          <div class="meta td-note">
             @if (coop.lanAddresses().length) {
               <span [matTooltip]="lanAddressText()">LAN <b>{{ coop.lanAddresses()[0].address }}</b></span>
             } @else if (coop.reachedVia(); as via) {
-              <span>{{ via === 'LAN' ? 'Over' : 'Online ·' }} <b>{{ via }}</b></span>
+              <span>{{ via === 'LAN' ? 'Over' : 'Online,' }} <b>{{ via }}</b></span>
             }
             @if (coop.isHost() && !r.started) {
-              <button class="toggle" type="button" [class.is-on]="!r.locked" [attr.aria-pressed]="!r.locked"
+              <button class="td-check toggle" type="button" [attr.aria-pressed]="!r.locked"
                       (click)="coop.setLocked(!r.locked)">
-                <i aria-hidden="true"></i>{{ r.locked ? 'Locked' : 'Open to new players' }}
+                <span class="td-switch" aria-hidden="true"></span>Open to new players
               </button>
             } @else {
               <span class="meta-end">Host <b>{{ hostName() }}</b></span>
@@ -62,24 +62,24 @@
 
         @if (coop.isHost() && !r.started && coop.reachedVia() !== 'LAN') {
           <!-- The lobby's public list (D62, D63): whether the room shows there, and its title -->
-          <section class="blk listing">
-            <div class="row">
-              <button class="toggle" type="button" [class.is-on]="r.listing.public" [attr.aria-pressed]="r.listing.public"
+          <section class="td-group blk listing">
+            <div class="td-inline listing-row">
+              <button class="td-check toggle" type="button" [attr.aria-pressed]="r.listing.public"
                       (click)="coop.setListing({ public: !r.listing.public })">
-                <i aria-hidden="true"></i>{{ r.listing.public ? 'In the public list' : 'Private: code only' }}
+                <span class="td-switch" aria-hidden="true"></span>In the public list
               </button>
-              <input class="inp title-in" type="text" maxlength="32" [value]="r.listing.title" aria-label="Room title"
+              <input class="td-input is-sm title-in" type="text" maxlength="32" [value]="r.listing.title" aria-label="Room title"
                      (change)="coop.setListing({ title: $any($event.target).value })" (keydown.enter)="$any($event.target).blur()" />
             </div>
             @if (r.listing.public) {
-              <p class="note">Players you don't know see this room and, once in it, this place. If this is your home, pick another place for public rooms.</p>
+              <p class="td-note">Players you don't know see this room and, once in it, this place. If this is your home, pick another place for public rooms.</p>
             }
           </section>
         }
 
         @if (!r.started && status(); as s) {
-          <div class="status" [class.is-go]="s.go" role="status">
-            <span class="segs" aria-hidden="true">
+          <div class="status td-banner is-row" [class.is-ok]="s.go" role="status">
+            <span class="td-meter segs" aria-hidden="true">
               @for (on of s.segments; track $index) { <i [class.is-on]="on"></i> }
             </span>
             <span>{{ s.lead }}<b>{{ s.bold }}</b>{{ s.text }}</span>
@@ -89,10 +89,10 @@
         <!-- One warning at a time, the worst; the others behind "+n" (plan G7) -->
         @for (banner of banners(); track banner.kind; let first = $first) {
           @if (first || allBanners()) {
-            <p class="banner" [class.is-warn]="banner.warn" [attr.role]="banner.kind === 'map' ? 'status' : 'alert'">
+            <p class="td-banner is-row dock-banner" [class.is-warn]="banner.warn" [attr.role]="banner.kind === 'map' ? 'status' : 'alert'">
               <span>{{ banner.text }}</span>
               @if (first && banners().length > 1) {
-                <button class="btn-xs" type="button" (click)="allBanners.set(!allBanners())" [attr.aria-expanded]="allBanners()">
+                <button class="td-btn-secondary td-btn-sm" type="button" (click)="allBanners.set(!allBanners())" [attr.aria-expanded]="allBanners()">
                   {{ allBanners() ? 'Less' : '+' + (banners().length - 1) }}
                 </button>
               }
@@ -103,46 +103,46 @@
         <app-coop-room-table [inviteCopied]="copied() === 'link'" (invite)="copy('link')" />
         <app-coop-room-options />
       </div>
-      <app-coop-lobby-chat class="chat-col" />
+      <app-coop-lobby-chat class="chat-col td-line-left" />
     </div>
   }
   @if (coop.error(); as error) {
-    <p class="banner is-error" role="alert">{{ error }}</p>
+    <p class="td-banner is-error dock-banner" role="alert">{{ error }}</p>
   }
 </div>
 
 @if (room() || joining()) {
-  <footer class="foot">
-    <button class="btn ghost danger" type="button" (click)="leave()">{{ joining() ? 'Cancel' : 'Leave' }}</button>
+  <footer class="foot td-dlg-foot td-line-top">
+    <button class="td-btn-danger" type="button" (click)="leave()">{{ joining() ? 'Cancel' : 'Leave' }}</button>
     <span class="spacer"></span>
     @if (room(); as r) {
       @if (!r.started && !joining()) {
         @if (coop.isHost()) {
           <div class="more" #more>
-            <button class="icon-btn big" type="button" (click)="moreOpen.set(!moreOpen())" [attr.aria-expanded]="moreOpen()"
+            <button class="td-icon-btn" type="button" (click)="moreOpen.set(!moreOpen())" [attr.aria-expanded]="moreOpen()"
                     matTooltip="More" aria-label="More">
               <td-icon name="more" [size]="16"></td-icon>
             </button>
             @if (moreOpen()) {
-              <div class="more-menu">
-                <button type="button" (click)="resendMap()">Resend map to the players</button>
+              <div class="more-menu td-popup td-rows">
+                <button class="td-row" type="button" (click)="resendMap()">Resend map to the players</button>
               </div>
             }
           </div>
           @if (confirmStart()) {
-            <span class="confirm-text" role="alert">This ends your solo run (wave {{ soloRunWave() }}).</span>
-            <button class="btn ghost big" type="button" (click)="confirmStart.set(false)">Cancel</button>
-            <button class="btn-primary big" type="button" (click)="start()" tdFocusOnShow>Start anyway</button>
+            <span class="td-note is-warn" role="alert">This ends your solo run (wave {{ soloRunWave() }}).</span>
+            <button class="td-btn-secondary" type="button" (click)="confirmStart.set(false)">Cancel</button>
+            <button class="td-btn-primary" type="button" (click)="start()" tdFocusOnShow>Start anyway</button>
           } @else {
-            <button class="btn-primary big" type="button" (click)="start()"
+            <button class="td-btn-primary" type="button" (click)="start()"
                     [attr.aria-disabled]="startBlocked() !== null || null" [matTooltip]="startBlocked() ?? ''">Start match</button>
           }
         } @else if (me()?.ready) {
-          <button class="btn-done big" type="button" (click)="coop.setLobbyReady(false)">
-            <td-icon name="check" [size]="16"></td-icon>Ready · undo
+          <button class="td-btn-secondary is-on" type="button" (click)="coop.setLobbyReady(false)">
+            <td-icon name="check" [size]="16"></td-icon>Ready, undo
           </button>
         } @else {
-          <button class="btn-primary big" type="button" (click)="readyUp()"
+          <button class="td-btn-primary" type="button" (click)="readyUp()"
                   [attr.aria-disabled]="!me()?.spawnIds?.length || null" [matTooltip]="me()?.spawnIds?.length ? '' : 'Take a lane first'">Ready up</button>
         }
       }

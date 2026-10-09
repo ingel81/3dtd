@@ -1,5 +1,4 @@
-<aside #box class="td-info" [class.td-info--expanded]="uiStore.infoOverlayVisible()"
-       [class.td-info--wide]="uiStore.infoOverlayVisible() && uiStore.infoOverlayWide()"
+<aside #box class="td-info td-overlay" [class.td-info--expanded]="uiStore.infoOverlayVisible()"
        (click)="uiStore.toggleInfoOverlay()"
        (keydown.enter)="onKey($event)"
        (keydown.space)="onKey($event)"
@@ -8,32 +7,32 @@
   <div class="td-info__col">
     <div class="td-info__row td-info__row--head">
       @if (uiStore.infoOverlayVisible()) {
-        <span class="k">FPS</span>
+        <span class="k td-caps">FPS</span>
       }
-      <span class="v">{{ fps() | number:'1.0-0' }}</span>
+      <span class="v td-num">{{ fps() | number:'1.0-0' }}</span>
       <td-icon class="caret" [name]="caret()" [size]="10"></td-icon>
     </div>
     @if (uiStore.infoOverlayVisible()) {
       <div class="td-info__row" title="Game speed reached / set, and how busy the simulation's worker is">
-        <span class="k">Speed</span>
-        <span class="v">
+        <span class="k td-caps">Speed</span>
+        <span class="v td-num">
           @if (sample(); as s) {
             @if (s.paused) {
               paused
             } @else {
               <span [class.bad]="speedShort()">{{ s.speed | number:'1.1-1' }}</span> / {{ s.speedSet | number:'1.0-2' }}
             }
-            · Sim {{ s.workerLoad * 100 | number:'1.0-0' }}%
+            , sim {{ s.workerLoad * 100 | number:'1.0-0' }}%
           } @else {
             –
           }
         </span>
       </div>
-      <div class="td-info__row"><span class="k">Tiles</span><span class="v">{{ tileStats().visible }}/{{ tileStats().total }}</span></div>
-      <div class="td-info__row"><span class="k">Cache</span><span class="v">{{ tileStats().cacheMB }} MB</span></div>
+      <div class="td-info__row"><span class="k td-caps">Tiles</span><span class="v td-num">{{ tileStats().visible }}/{{ tileStats().total }}</span></div>
+      <div class="td-info__row"><span class="k td-caps">Cache</span><span class="v td-num">{{ tileStats().cacheMB }} MB</span></div>
       <div class="td-info__row" title="Sounds per second: asked for / actually played">
-        <span class="k">Sounds/s</span>
-        <span class="v">
+        <span class="k td-caps">Sounds/s</span>
+        <span class="v td-num">
           @if (sample(); as s) {
             {{ s.soundsRequestedPerS | number:'1.0-0' }} / {{ s.soundsPlayedPerS | number:'1.0-0' }}
           } @else {
@@ -41,22 +40,22 @@
           }
         </span>
       </div>
-      <div class="td-info__row"><span class="k">Streets</span><span class="v">{{ streetCount() }}</span></div>
+      <div class="td-info__row"><span class="k td-caps">Streets</span><span class="v td-num">{{ streetCount() }}</span></div>
     }
   </div>
   @if (uiStore.infoOverlayVisible() && uiStore.infoOverlayWide()) {
-    <div class="td-info__col td-info__col--side">
-      <div class="td-info__row" title="Packets per second from the simulation: about 30, more while commands come in"><span class="k">Packets/s</span><span class="v">{{ (sample()?.ticksPerS ?? 0) | number:'1.0-0' }}</span></div>
+    <div class="td-info__col td-info__col--side td-line-left">
+      <div class="td-info__row" title="Packets per second from the simulation: about 30, more while commands come in"><span class="k td-caps">Packets/s</span><span class="v td-num">{{ (sample()?.ticksPerS ?? 0) | number:'1.0-0' }}</span></div>
       <div class="td-info__row" title="Tables in shared memory (cross-origin isolated), else copied every frame">
-        <span class="k">Memory</span><span class="v">{{ meter.sharedMemory ? 'shared' : 'copy' }}</span>
+        <span class="k td-caps">Memory</span><span class="v td-num">{{ meter.sharedMemory ? 'shared' : 'copy' }}</span>
       </div>
       <div class="td-info__row" title="Main-thread ms to apply one packet of the simulation">
-        <span class="k">Packet</span><span class="v">{{ (sample()?.applyPerPacketMs ?? 0) | number:'1.2-2' }} ms</span>
+        <span class="k td-caps">Packet</span><span class="v td-num">{{ (sample()?.applyPerPacketMs ?? 0) | number:'1.2-2' }} ms</span>
       </div>
-      <div class="td-info__row"><span class="k">Enemies</span><span class="v">{{ (sample()?.enemies ?? 0) | number:'1.0-0' }}</span></div>
+      <div class="td-info__row"><span class="k td-caps">Enemies</span><span class="v td-num">{{ (sample()?.enemies ?? 0) | number:'1.0-0' }}</span></div>
       @for (c of chartRows(); track c.label) {
         <div class="td-info__row td-info__row--chart">
-          <span class="k">{{ c.label }}</span>
+          <span class="k td-caps">{{ c.label }}</span>
           <svg class="chart" [attr.width]="chartW" [attr.height]="chartH" [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH" aria-hidden="true">
             <rect class="band" x="0" [attr.y]="c.chart.band.y" [attr.width]="chartW" [attr.height]="c.chart.band.height" />
             <polyline [attr.points]="c.chart.points" />
@@ -64,9 +63,9 @@
               <circle class="dot" [attr.cx]="dot.x" [attr.cy]="dot.y" r="2" />
             }
           </svg>
-          <span class="v now">{{ c.now }}</span>
+          <span class="v now td-num">{{ c.now }}</span>
         </div>
-        <div class="td-info__row td-info__row--range"><span class="k"></span><span class="range">{{ c.range }}</span></div>
+        <div class="td-info__row td-info__row--range"><span class="k td-caps"></span><span class="range td-note td-num">{{ c.range }}</span></div>
       }
     </div>
   }

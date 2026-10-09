@@ -1,86 +1,15 @@
-@use '../menu-page' as page;
+// Layout of the save slots: name and time on one line, the detail under it.
 
-@include page.classes;
-
-.mp-slot-row {
-  display: flex;
-  align-items: stretch;
-}
-
-.mp-slot {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  padding: 10px 12px;
-  border: 0;
-  background: none;
-  font: inherit;
-  text-align: left;
-  color: var(--td-text-primary);
-  cursor: pointer;
-
-  &:hover:not(:disabled) { background: color-mix(in srgb, var(--td-gold) 8%, transparent); }
-
-  &:focus-visible {
-    outline: var(--td-focus-width) solid var(--td-focus-color);
-    outline-offset: -2px;
-  }
-
-  &:disabled { cursor: not-allowed; color: var(--td-text-muted); }
-
-  &.is-empty .mp-slot-title { color: var(--td-text-secondary); }
-}
-
-.mp-slot-head {
+.ss-head {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-
-  .mp-meta { margin-left: auto; }
+  gap: var(--td-sp-2);
 }
 
-.mp-slot-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.ss-title {
+  font-weight: 600;
 }
 
-.mp-slot-note { color: var(--td-text-secondary); }
-
-.mp-slot-detail {
-  font-size: 13px;
-  color: var(--td-text-secondary);
+.mp-meta {
+  margin-left: auto;
 }
-
-.mp-slot-tool {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 40px;
-  border: 0;
-  border-left: 1px solid var(--td-frame-dark);
-  background: none;
-  color: var(--td-text-secondary);
-  cursor: pointer;
-
-  &:hover:not(:disabled) { color: var(--td-text-primary); background: color-mix(in srgb, var(--td-gold) 8%, transparent); }
-
-  &:focus-visible {
-    outline: var(--td-focus-width) solid var(--td-focus-color);
-    outline-offset: -2px;
-  }
-
-  &:disabled { cursor: not-allowed; opacity: 0.5; }
-}
-
-
-.mp-ask {
-  margin: 0;
-  font-size: 15px;
-  color: var(--td-text-primary);
-}
-
-.mp-file { display: none; }

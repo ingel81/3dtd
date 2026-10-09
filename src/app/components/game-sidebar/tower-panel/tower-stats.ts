@@ -90,7 +90,7 @@ export function veteranView(kills: number): VeteranView {
 /** Tooltip of the rank row: the ladder, and that it changes nothing in combat. */
 export const VETERAN_TOOLTIP =
   'Rank from killing blows, cosmetic only: ' +
-  VETERAN_RANKS.map((rank) => `${rank.name} ${rank.minKills}`).join(' · ');
+  VETERAN_RANKS.map((rank) => `${rank.name} ${rank.minKills}`).join(' | ');
 
 /**
  * Targeting-Buttons eines Towers. Air-Priorität gibt es nur für Tower, die

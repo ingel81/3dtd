@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TD_THEME } from '../styles/td-theme';
 
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
@@ -18,7 +19,7 @@ import { ResearchStore } from '../store/research.store';
 import { requiredUpgradeTier, type UpgradeId } from '../configs/tower-types.config';
 import type { Tower } from '../entities/tower.entity';
 
-const GOLD = '#D9BC68';
+const GOLD = TD_THEME.brassLight;
 const ORANGE = '#C96A3A';
 
 describe('TowerUpgradeService', () => {

@@ -9,7 +9,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { DecimalPipe, UpperCasePipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
@@ -57,10 +57,11 @@ const DAMAGE_DEALT_REFRESH_MS = 250;
 @Component({
   selector: 'app-sidebar-tower-panel',
   standalone: true,
-  imports: [DecimalPipe, UpperCasePipe, MatTooltipModule, TdIconComponent],
+  imports: [DecimalPipe, MatTooltipModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-panel.component.html',
   styleUrl: './tower-panel.component.scss',
+  host: { class: 'td-side-section is-fill' },
 })
 export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   private readonly dialog = inject(MatDialog);

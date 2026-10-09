@@ -39,6 +39,7 @@ export type HostWay = 'online' | 'lan';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './coop-ways.component.html',
   styleUrl: './coop-ways.component.scss',
+  host: { class: 'td-stack is-loose' },
 })
 export class CoopWaysComponent {
   private readonly game = inject(GameStore);

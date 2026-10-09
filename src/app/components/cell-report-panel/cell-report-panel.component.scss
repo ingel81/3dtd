@@ -1,8 +1,9 @@
-@use '../../styles/game-ui' as ui;
+// Layout of the cell report: over the whole canvas area, clickable only on
+// the panel at the top centre (below the HUD column). The box of a Shift drag
+// comes in client pixels and is drawn position: fixed; nothing between the
+// host and the page transforms. The selection colour is the one of the cells
+// on the map (--td-cell-selection).
 
-/* Over the whole canvas area, clickable only on the panel. The box of a
-   Shift drag comes in client pixels and is drawn position: fixed; nothing
-   between the host and the page transforms. */
 :host {
   position: absolute;
   inset: 0;
@@ -10,23 +11,18 @@
   z-index: 21;
 }
 
-/* Glass panel at the top centre, below the HUD column (game speed, PAUSED,
-   boss bar) */
 .crp {
-  @include ui.glass-strip;
   position: absolute;
   top: 120px;
   left: 50%;
   transform: translateX(-50%);
-  width: 300px;
-  box-sizing: border-box;
-  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-sizing: border-box;
+  width: 320px;
+  padding: 10px 12px;
   pointer-events: auto;
-  font-family: var(--td-font-mono);
-  color: var(--td-text-secondary);
 }
 
 .crp-head {
@@ -36,97 +32,25 @@
   gap: 12px;
 }
 
-.crp-title {
-  font: 600 14px/16px var(--td-font-display);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--td-text-primary);
-}
-
-/* In the frame colour of the selected cells (LOS_VIZ_CONFIG.gridOverlay.selection) */
 .crp-count {
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: #e69f00;
+  color: var(--td-cell-selection);
 }
 
-.crp-hint,
-.crp-status {
-  margin: 0;
-  font-size: 10px;
-  line-height: 13px;
-  color: var(--td-text-muted);
-}
-
-/* Input recipe: sunken field on the shadow panel */
 .crp-note {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 5px 8px;
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(74, 84, 77, 0.13);
-  color: var(--td-text-primary);
-  font: 12px var(--td-font-mono);
-}
-
-.crp-note:focus {
-  outline: none;
-  border-color: var(--td-frame-mid);
+  height: 32px;
 }
 
 .crp-actions {
-  display: flex;
-  gap: 6px;
-}
+  justify-content: stretch;
 
-/* Frame button recipe */
-.crp-btn {
-  @include ui.focus-ring;
-  flex: 1;
-  padding: 5px 0;
-  background: var(--td-panel-main);
-  border: 1px solid var(--td-frame-dark);
-  color: var(--td-text-secondary);
-  font: 700 11px var(--td-font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.crp-btn:hover:not(:disabled) {
-  border-color: var(--td-frame-mid);
-  color: var(--td-text-primary);
-}
-
-.crp-btn:disabled {
-  color: var(--td-text-disabled);
-  cursor: default;
-}
-
-/* Gold recipe for the one action the panel is there for */
-.crp-btn-gold {
-  flex: 1.4;
-  background: linear-gradient(180deg, var(--td-gold-light), var(--td-gold) 55%, var(--td-gold-dark));
-  border-color: rgba(26, 20, 10, 0.8);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), var(--td-shadow-key);
-  color: #1a140a;
-}
-
-.crp-btn-gold:hover:not(:disabled) {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 0 1px var(--td-gold);
-  color: #1a140a;
-}
-
-.crp-btn-gold:disabled {
-  background: var(--td-panel-secondary);
-  border-color: var(--td-frame-dark);
-  box-shadow: none;
+  > * {
+    flex: 1;
+  }
 }
 
 .crp-box {
   position: fixed;
-  border: 1px dashed #e69f00;
-  background: rgba(230, 159, 0, 0.12);
+  border: 1px dashed var(--td-cell-selection);
+  background: color-mix(in srgb, var(--td-cell-selection) 12%, transparent);
   pointer-events: none;
 }

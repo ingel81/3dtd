@@ -1,124 +1,31 @@
-@use '../menu-page' as page;
-
-@include page.classes;
+// Layout of the settings page: volume lines as a grid, the switches in two
+// columns, the lobby form in a row. The look comes from the td-* classes.
 
 .set-volume {
   display: grid;
-  grid-template-columns: 110px 1fr 40px 32px;
-  align-items: center;
-  gap: 12px;
+  grid-template-columns: 110px 1fr 44px 26px;
 }
 
-.set-volume-value { text-align: right; }
-
-.set-slider {
-  width: 100%;
-  accent-color: var(--td-gold);
-
-  &:focus-visible {
-    outline: var(--td-focus-width) solid var(--td-focus-color);
-    outline-offset: 2px;
-  }
-}
-
-.set-mute,
-.set-lobby-remove {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--td-frame-mid);
-  background: var(--td-panel-dark);
-  color: var(--td-text-secondary);
-  cursor: pointer;
-
-  &:hover { color: var(--td-text-primary); }
-
-  &[aria-pressed='true'] { color: var(--td-warn-orange); }
-
-  &:focus-visible {
-    outline: var(--td-focus-width) solid var(--td-focus-color);
-    outline-offset: 2px;
-  }
+.set-volume-value {
+  text-align: right;
 }
 
 .set-switches {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px 28px;
+  gap: 0 28px;
 
   @media (max-width: 640px) {
     grid-template-columns: 1fr;
   }
 }
 
-.set-switch {
-  cursor: pointer;
-
-  > span { text-wrap: pretty; }
-
-  input {
-    flex: none;
-    width: 18px;
-    height: 18px;
-    margin: 0;
-    accent-color: var(--td-gold);
-    cursor: pointer;
-
-    &:focus-visible {
-      outline: var(--td-focus-width) solid var(--td-focus-color);
-      outline-offset: 2px;
-    }
-  }
-}
-
-.set-seg-small {
-  flex: none;
-
-  > button { flex: none; min-width: 56px; }
-}
-
-.set-select {
-  height: 32px;
-  padding: 0 8px;
-  border: 1px solid var(--td-frame-mid);
-  background: var(--td-panel-dark);
-  color: var(--td-text-primary);
-  font: inherit;
-  font-size: 13px;
-
-  &:focus-visible {
-    outline: var(--td-focus-width) solid var(--td-focus-color);
-    outline-offset: 2px;
-  }
-}
-
-.set-key {
-  margin-left: 6px;
-  padding: 1px 5px;
-  border: 1px solid var(--td-frame-mid);
-  font-family: var(--td-font-mono);
-  font-size: 10px;
-  color: var(--td-text-secondary);
-}
-
-.set-name { width: 220px; }
-
-.set-lobby {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 6px 6px 6px 12px;
-  min-height: 32px;
+.set-name {
+  width: 220px;
 }
 
 .set-lobby-url {
   flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   text-align: right;
 }
 

@@ -43,11 +43,6 @@ const NOTE_ITEMS = 3;
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './update-hint.component.html',
   styleUrl: './update-hint.component.scss',
-  // In the overlay the chip is outside the game's host, so it brings the theme along
-  styles: `
-    .uh {
-    }
-  `,
 })
 export class UpdateHintComponent {
   private readonly bridge = readDesktopBridge();

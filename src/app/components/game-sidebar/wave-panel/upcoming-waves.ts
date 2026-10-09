@@ -162,7 +162,7 @@ function tooltip(fact: WavePeekFacts, weights: [ArmorType, number][]): TdTooltip
         const many = fact.count && shares > 0 ? Math.round((fact.count * share) / shares) : null;
         return {
           label: many ? `${many}× ${name}` : name,
-          detail: [ARMOR_TYPE_UI[armor].label, ...(cfg.isAirUnit ? ['air'] : [])].join(' · '),
+          detail: [ARMOR_TYPE_UI[armor].label, ...(cfg.isAirUnit ? ['air'] : [])].join(' | '),
           color: ARMOR_DOT_COLOR[armor],
           value: `−${Math.round(leakDamageOf(id) * scale(id) * 10) / 10}`,
           note: enemyTraitLabel(id) ?? undefined,

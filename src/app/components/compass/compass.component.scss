@@ -1,3 +1,7 @@
+// Layout of the compass at the top right of the map: a round td-overlay
+// plate with the rose, the needle turning with the camera, a reset button on
+// its edge once it turned.
+
 :host {
   display: block;
   position: absolute;
@@ -13,56 +17,33 @@
 }
 
 .td-compass {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: radial-gradient(circle,
-    var(--td-panel-main) 0%,
-    var(--td-panel-shadow) 100%);
-  border: 1px solid var(--td-frame-mid);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.4),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.5),
-    var(--td-shadow-key),
-    0 4px 8px rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
 }
 
 .td-compass__svg {
+  display: block;
   width: 100%;
   height: 100%;
-  display: block;
+}
+
+.td-compass__letters {
+  font-family: inherit;
 }
 
 .td-compass__needle {
-  transition: transform 0.25s cubic-bezier(.4, 0, .2, 1);
+  transition: transform var(--td-dur-mid) var(--td-ease-out);
 }
 
 .td-compass__reset {
   position: absolute;
   top: -6px;
   right: -6px;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  border: 1px solid var(--td-frame-dark);
-  background: var(--td-panel-main);
-  color: var(--td-gold-light);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.25),
-    0 1px 0 rgba(0, 0, 0, 0.6);
-  transition: color 0.15s, box-shadow 0.15s;
-}
-
-.td-compass__reset:hover {
-  color: #FFF;
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.25),
-    0 0 10px rgba(194, 160, 85, 0.4);
 }

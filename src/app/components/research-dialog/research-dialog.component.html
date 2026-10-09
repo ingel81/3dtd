@@ -1,54 +1,55 @@
-<div class="td-rd">
+<div class="td-rd td-panel">
 
   <!-- Head: what the run has done, and what it can spend -->
-  <header class="td-rd-bar td-rd-head">
-    <h2 [id]="titleId">Research</h2>
+  <header class="td-rd-head td-line-bottom">
+    <h2 class="td-dlg-title" [id]="titleId">Research</h2>
     <div class="td-rd-prog">
-      <span>Researched</span>
-      <b>{{ progress().done }}/{{ progress().total }}</b>
-      <span class="td-rd-segs" aria-hidden="true">
+      <span class="td-caps">Researched</span>
+      <b class="td-value is-sm">{{ progress().done }}/{{ progress().total }}</b>
+      <span class="td-meter td-rd-segs" aria-hidden="true">
         @for (state of segments(); track $index) {
           <i [class]="'td-seg-' + state"></i>
         }
       </span>
     </div>
     <span class="td-rd-seam"></span>
-    <div class="td-rd-readout"><span>Slots</span><b>{{ slotsUsed() }}/{{ slotsTotal() }}</b></div>
+    <div class="td-rd-readout"><span class="td-caps">Slots</span><b class="td-value is-sm">{{ slotsUsed() }}/{{ slotsTotal() }}</b></div>
     @if (viewOnly()) {
       <div class="td-rd-readout">
-        <span>Center</span><b>{{ partnerCenter() > 0 ? 'Lv ' + partnerCenter() : 'None' }}</b>
+        <span class="td-caps">Center</span><b class="td-value is-sm">{{ partnerCenter() > 0 ? 'Level ' + partnerCenter() : 'None' }}</b>
       </div>
-      <span class="td-rd-viewonly">View only</span>
+      <span class="td-rd-viewonly td-tag is-caps">View only</span>
     } @else {
-      <div class="td-rd-readout td-gold">
-        <span class="td-rd-dia" aria-hidden="true"></span><span>Credits</span><b>{{ credits() }}</b>
+      <div class="td-rd-readout">
+        <span class="td-caps">Credits</span><b class="td-value is-sm td-rd-credits">{{ credits() }}</b>
       </div>
     }
-    <button type="button" class="td-rd-close" mat-dialog-close>Close</button>
+    <button type="button" class="td-close" mat-dialog-close aria-label="Close">
+      <td-icon name="close" [size]="12" />
+    </button>
   </header>
 
   <!-- One rubric so far. The strip is here because the tree is one of several
        things a run researches, and the others get a tab beside this one. -->
-  <div class="td-rd-bar td-rd-tabs">
+  <div class="td-rd-tabs">
     <!-- Coop: whose research, one tab a player (TODO E35) -->
     @if (tabs().length > 1) {
-      <div class="td-rd-players" role="tablist" tdRovingGroup aria-label="Whose research">
+      <div class="td-seg is-compact td-rd-players" role="tablist" tdRovingGroup aria-label="Whose research">
         @for (tab of tabs(); track tab.id) {
           @let on = tab.me ? partnerId() === null : partnerId() === tab.id;
-          <button type="button" role="tab" class="td-rd-tab" [class.td-on]="on" [attr.aria-selected]="on"
+          <button type="button" role="tab" class="td-rd-tab" [attr.aria-selected]="on"
                   (click)="selectTab(tab.me ? null : tab.id)">
             <td-icon [name]="tab.me ? 'user' : 'users'" [size]="15" />{{ tab.label }}
           </button>
         }
       </div>
-      <span class="td-rd-tabsep" aria-hidden="true"></span>
     }
-    <span class="td-rd-tab td-on" aria-current="true">
-      <td-icon name="tower" [size]="17" />Tower Tech
+    <span class="td-section td-inline td-rd-rubric">
+      <td-icon name="tower" [size]="17" />Tower tech
     </span>
   </div>
 
-  <p [id]="descId" class="td-rd-sr">
+  <p [id]="descId" class="td-sr-only">
     @if (partnerName(); as name) {
       {{ name }}'s research, view only.
     }
@@ -59,16 +60,16 @@
   <div class="td-rd-row">
 
     <!-- The board: tier marks and the tree scroll and drag as one -->
-    <div class="td-rd-well" tdDragScroll>
+    <div class="td-rd-well td-well is-deep" tdDragScroll>
       <div class="td-rd-board">
-        <div class="td-rd-tiers" aria-hidden="true">
+        <div class="td-rd-tiers td-line-right" aria-hidden="true">
           @for (tier of tiers(); track $index) {
             <div class="td-rd-tier" [class.td-on]="tier.open" [style.top.px]="tier.top">
               <b>{{ tier.numeral }}</b>
-              <i>Tier</i>
+              <i class="td-caps">Tier</i>
               <span class="td-rd-dots">
                 @for (dot of tier.dots; track $index) {
-                  <u [class]="'td-dot-' + dot"></u>
+                  <u class="td-diamond is-sm" [class]="'td-dot-' + dot"></u>
                 }
               </span>
             </div>
@@ -82,40 +83,40 @@
 
     <!-- Queue above, detail below -->
     <div class="td-rd-side">
-      <section class="td-rd-bar td-rd-queue" aria-labelledby="td-research-queue-heading">
-        <div class="td-rd-panhead">
-          <h3 id="td-research-queue-heading">Queue</h3>
-          <span class="td-rd-r">{{ queue().length ? queue().length + ' pending' : 'empty' }}</span>
-        </div>
+      <section class="td-rd-queue" aria-labelledby="td-research-queue-heading">
+        <h3 class="td-head td-rd-panhead" id="td-research-queue-heading">
+          Queue
+          <span class="td-note td-rd-r">{{ queue().length ? queue().length + ' pending' : 'empty' }}</span>
+        </h3>
         <div class="td-rd-panbody">
           @if (queue().length === 0) {
-            <p class="td-rd-empty">Nothing queued</p>
+            <p class="td-note">Nothing queued</p>
           } @else {
             @if (!viewOnly()) {
-              <p class="td-rd-hint">
+              <p class="td-note td-rd-hint">
                 Starts in this order. Credits are charged when a research begins, and an entry waits
                 until you can pay for it.
               </p>
             }
-            <ol>
+            <ol class="td-rows">
               @for (id of queue(); track id; let i = $index; let first = $first; let last = $last) {
-                <li>
-                  <span class="td-rd-qn">{{ i + 1 }}</span>
-                  <span class="td-rd-qi"><td-icon [name]="$any(researchIcon(id))" [size]="17" /></span>
-                  <span class="td-rd-qname">{{ researchName(id) }}</span>
-                  <span class="td-rd-qcost" [class.td-short]="!viewOnly() && tooShort(id)">{{ researchCost(id) }}</span>
+                <li class="td-row td-rd-qrow">
+                  <span class="td-tag td-num">{{ i + 1 }}</span>
+                  <td-icon class="td-rd-qi" [name]="$any(researchIcon(id))" [size]="17" />
+                  <span class="td-name td-rd-qname">{{ researchName(id) }}</span>
+                  <span class="td-figure" [class.td-rd-short]="!viewOnly() && tooShort(id)">{{ researchCost(id) }}</span>
                   @if (!viewOnly()) {
                     <span class="td-rd-qmove">
-                      <button type="button" [disabled]="first"
+                      <button type="button" class="td-tool" [disabled]="first"
                               [attr.aria-label]="'Move up: ' + researchName(id)" (click)="onMove(id, -1)">
                         <td-icon name="caretU" [size]="12" />
                       </button>
-                      <button type="button" [disabled]="last"
+                      <button type="button" class="td-tool" [disabled]="last"
                               [attr.aria-label]="'Move down: ' + researchName(id)" (click)="onMove(id, 1)">
                         <td-icon name="caret" [size]="12" />
                       </button>
                     </span>
-                    <button type="button" class="td-rd-qx"
+                    <button type="button" class="td-tool td-rd-qx"
                             [attr.aria-label]="'Remove from queue: ' + researchName(id)" (click)="onUnqueue(id)">
                       <td-icon name="cross" [size]="13" />
                     </button>
@@ -127,52 +128,52 @@
         </div>
       </section>
 
-      <section class="td-rd-bar td-rd-insp" aria-live="polite">
-        <div class="td-rd-panhead">
-          <h3>Detail</h3>
+      <section class="td-rd-insp" aria-live="polite">
+        <h3 class="td-head td-rd-panhead">
+          Detail
           @if (detail()) {
-            <span class="td-rd-r">Tier {{ tierNumeral() }}</span>
+            <span class="td-note td-rd-r">Tier {{ tierNumeral() }}</span>
           }
-        </div>
+        </h3>
         <div class="td-rd-panbody">
           @if (detail(); as d) {
             <div class="td-rd-id">
-              <span class="td-rd-idico" [attr.data-branch]="d.branch"><td-icon [name]="d.icon" [size]="27" /></span>
+              <span class="td-well td-rd-idico" [attr.data-branch]="d.branch"><td-icon [name]="d.icon" [size]="27" /></span>
               <div>
-                <h4>{{ d.name }}</h4>
-                <p class="td-rd-idcat">{{ d.branchLabel }} · Tier {{ tierNumeral() }}</p>
+                <h4 class="td-section">{{ d.name }}</h4>
+                <p class="td-caps td-rd-idcat">{{ d.branchLabel }}, tier {{ tierNumeral() }}</p>
               </div>
             </div>
 
-            <span class="td-rd-state" [attr.data-s]="d.state">
-              <span class="td-rd-dot" aria-hidden="true"></span>{{ d.stateLabel }}
+            <span class="td-tag is-caps td-rd-state" [attr.data-s]="d.state">
+              <i class="td-diamond is-sm" aria-hidden="true"></i>{{ d.stateLabel }}
             </span>
 
-            <p class="td-rd-eff">{{ d.effect }}</p>
+            <p class="td-text">{{ d.effect }}</p>
 
-            <div class="td-rd-stats">
+            <div class="td-rd-stats td-tiles">
               @if (d.state === 'active' && d.remaining !== null) {
-                <div><span>Remaining</span><b>{{ d.remaining.toFixed(1) }}s</b></div>
-                <div><span>Paid</span><b class="td-gold">{{ d.cost }}</b></div>
+                <div class="td-tile"><b class="td-value is-sm">{{ d.remaining.toFixed(1) }} s</b><span class="td-caps">Remaining</span></div>
+                <div class="td-tile"><b class="td-value is-sm td-rd-credits">{{ d.cost }}</b><span class="td-caps">Paid</span></div>
               } @else {
-                <div>
-                  <span>Cost</span>
-                  <b [class.td-gold]="d.state !== 'poor'" [class.td-warn]="d.state === 'poor'">{{ d.cost }}</b>
+                <div class="td-tile">
+                  <b class="td-value is-sm" [class.td-rd-credits]="d.state !== 'poor'" [class.td-rd-short]="d.state === 'poor'">{{ d.cost }}</b>
+                  <span class="td-caps">Cost</span>
                 </div>
-                <div><span>Time</span><b>{{ d.duration }}s</b></div>
+                <div class="td-tile"><b class="td-value is-sm">{{ d.duration }} s</b><span class="td-caps">Time</span></div>
                 @if (d.opensAtWave !== null) {
-                  <div class="td-rd-wide"><span>Opens</span><b class="td-warn">Wave {{ d.opensAtWave }}</b></div>
+                  <div class="td-tile td-rd-wide"><b class="td-value is-sm td-rd-short">Wave {{ d.opensAtWave }}</b><span class="td-caps">Opens</span></div>
                 }
               }
             </div>
 
             @if (d.prerequisites.length > 0) {
-              <div>
-                <p class="td-rd-lab">Requires</p>
+              <div class="td-stack td-rd-reqs">
+                <p class="td-caps">Requires</p>
                 <ul class="td-rd-req">
                   @for (req of d.prerequisites; track req.id) {
-                    <li [class.td-ok]="req.done" [class.td-no]="!req.done">
-                      <b>{{ req.done ? '✓' : '·' }}</b>{{ req.name }}
+                    <li class="td-note" [class.td-ok]="req.done" [class.td-no]="!req.done">
+                      <td-icon [name]="req.done ? 'check' : 'cross'" [size]="12" />{{ req.name }}
                     </li>
                   }
                 </ul>
@@ -181,44 +182,44 @@
 
             <div class="td-rd-act">
               @if (viewOnly()) {
-                <p class="td-rd-note">{{ viewOnlyNote(d) }}</p>
+                <p class="td-note">{{ viewOnlyNote(d) }}</p>
               } @else {
                 @switch (d.action) {
                   @case ('start') {
-                    <button type="button" class="td-rd-btn" (click)="onDetailAction()">Start research</button>
+                    <button type="button" class="td-btn-primary" (click)="onDetailAction()">Start research</button>
                   }
                   @case ('queue') {
-                    <button type="button" class="td-rd-btn" (click)="onDetailAction()">Add to queue</button>
+                    <button type="button" class="td-btn-primary" (click)="onDetailAction()">Add to queue</button>
                     @if (slotsUsed() >= slotsTotal()) {
-                      <p class="td-rd-note">Every slot is busy, so this starts once one is free.</p>
+                      <p class="td-note">Every slot is busy, so this starts once one is free.</p>
                     } @else {
-                      <p class="td-rd-note">
+                      <p class="td-note">
                         {{ d.missingCredits }} credits short. Costs are charged the moment a research starts.
                       </p>
                     }
                   }
                   @case ('unqueue') {
-                    <button type="button" class="td-rd-btn td-ghost" (click)="onDetailAction()">
+                    <button type="button" class="td-btn-secondary" (click)="onDetailAction()">
                       Remove from queue
                     </button>
-                    <p class="td-rd-note">Position {{ d.queuePosition }} in the queue.</p>
+                    <p class="td-note">Position {{ d.queuePosition }} in the queue.</p>
                   }
                   @default {
                     @if (d.state === 'active' && d.remaining !== null) {
-                      <p class="td-rd-note">Finishes in {{ d.remaining.toFixed(1) }} seconds.</p>
+                      <p class="td-note">Finishes in {{ d.remaining.toFixed(1) }} seconds.</p>
                     } @else if (d.state === 'completed') {
-                      <p class="td-rd-note">Active for the rest of the run.</p>
+                      <p class="td-note">Active for the rest of the run.</p>
                     } @else if (d.opensAtWave !== null) {
-                      <p class="td-rd-note">Opens at wave {{ d.opensAtWave }}.</p>
+                      <p class="td-note">Opens at wave {{ d.opensAtWave }}.</p>
                     } @else {
-                      <p class="td-rd-note">Research everything connected above this node first.</p>
+                      <p class="td-note">Research everything connected above this node first.</p>
                     }
                   }
                 }
               }
             </div>
           } @else {
-            <p class="td-rd-note">Point at a node to see what it does.</p>
+            <p class="td-note">Point at a node to see what it does.</p>
           }
         </div>
       </section>
@@ -226,18 +227,18 @@
   </div>
 
   <!-- Legend and the tally per strand -->
-  <footer class="td-rd-bar td-rd-foot">
+  <footer class="td-rd-foot td-line-top">
     <div class="td-rd-legend">
-      <i class="td-l-done">Researched</i>
-      <i class="td-l-act">In progress</i>
-      <i class="td-l-open">Open path</i>
-      <i class="td-l-lock">Locked</i>
+      <i class="td-caps td-l-done"><span class="td-swatch is-line"></span>Researched</i>
+      <i class="td-caps td-l-act"><span class="td-swatch is-line"></span>In progress</i>
+      <i class="td-caps td-l-open"><span class="td-swatch is-line"></span>Open path</i>
+      <i class="td-caps td-l-lock"><span class="td-swatch is-line"></span>Locked</i>
     </div>
-    <div class="td-rd-chips">
+    <div class="td-inline td-rd-chips td-line-left">
       @for (branch of branches(); track branch.branch) {
-        <span [attr.data-branch]="branch.branch">{{ branch.label }} <b>{{ branch.done }}/{{ branch.total }}</b></span>
+        <span class="td-tag" [attr.data-branch]="branch.branch"><i class="td-diamond" aria-hidden="true"></i>{{ branch.label }} <b class="td-num">{{ branch.done }}/{{ branch.total }}</b></span>
       }
     </div>
-    <p class="td-rd-foothint">Point at a node to trace its path</p>
+    <p class="td-note td-rd-foothint">Point at a node to trace its path</p>
   </footer>
 </div>

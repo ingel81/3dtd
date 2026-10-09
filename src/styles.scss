@@ -1,38 +1,20 @@
-// Include theming for Angular Material with `mat.theme()`.
-// This Sass mixin will define CSS variables that are used for styling Angular Material
-// components according to the Material 3 design spec.
-// Learn more about theming and how to use it for your application's
-// custom components at https://material.angular.dev/guide/theming
-@use '@angular/material' as mat;
-
-// Self-hosted fonts (no Google Fonts CDN)
-// Roboto is Material's typography; its M3 tokens use only 400 and 500
-@import '@fontsource/roboto/400.css';
-@import '@fontsource/roboto/500.css';
-
-// Inter Tight — humanistic body / label typography
-@import '@fontsource/inter-tight/400.css';
-@import '@fontsource/inter-tight/500.css';
-@import '@fontsource/inter-tight/600.css';
-@import '@fontsource/inter-tight/700.css';
-
-// JetBrains Mono — --td-font-mono: numbers, codes, labels, hotkeys (User 2026-09-25,
-// before it fell back to the system monospace). The Gold-Button recipe uses 700
-@import '@fontsource/jetbrains-mono/400.css';
-@import '@fontsource/jetbrains-mono/500.css';
-@import '@fontsource/jetbrains-mono/700.css';
-
-// Oswald: titles, menu, buttons, HUD numbers (--td-font-display). Bundled
-// from src/fonts by a relative URL, so it works under any base href.
-@font-face {
-  font-family: 'Oswald';
-  src: url('./fonts/oswald-var.woff2') format('woff2');
-  font-weight: 400 700;
-  font-display: swap;
-}
-
+// Global styles: fonts, the td-* classes of the design system
+// (docs/DESIGN_SYSTEM.md), Material's tooltip and dialog shell in that look.
 // The --td-* tokens stand on :root, set from TD_CSS_VARS by installThemeVars
-// (main.ts). This sheet only reads them.
+// (main.ts); this sheet only reads them.
+@use '@angular/material' as mat;
+@use 'app/styles/ui/classes';
+@use 'app/styles/ui/surface';
+
+// Self-hosted fonts (CSP font-src 'self', the desktop app runs offline).
+// Barlow Semi Condensed for all text (500 also italic: traits, flavour lines);
+// JetBrains Mono for codes and keys.
+@import '@fontsource/barlow-semi-condensed/latin-500.css';
+@import '@fontsource/barlow-semi-condensed/latin-500-italic.css';
+@import '@fontsource/barlow-semi-condensed/latin-600.css';
+@import '@fontsource/barlow-semi-condensed/latin-700.css';
+@import '@fontsource/jetbrains-mono/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-600.css';
 
 html {
   height: 100%;
@@ -42,75 +24,66 @@ html {
       primary: mat.$orange-palette,
       tertiary: mat.$cyan-palette,
     ),
-    typography: Roboto,
+    typography: 'Barlow Semi Condensed',
     density: 0,
   ));
 
-  // Every tooltip in the game's look (dark glass, Inter Tight) instead of
-  // Material's light pill in Roboto, which fell back to a serif face
+  // Every tooltip a small plaster popup
   @include mat.tooltip-overrides((
-    container-color: color-mix(in srgb, var(--td-bg-dark) 94%, transparent),
-    container-shape: 0,
+    container-color: transparent,
+    container-shape: 3px,
     supporting-text-color: var(--td-text-primary),
-    supporting-text-font: var(--td-font-body),
-    supporting-text-size: 12px,
+    supporting-text-font: var(--td-font),
+    supporting-text-size: var(--td-fs-body),
     supporting-text-weight: 500,
-    supporting-text-line-height: 1.4,
-    supporting-text-tracking: 0.01em,
+    supporting-text-line-height: 1.35,
+    supporting-text-tracking: 0,
   ));
 }
 
 .mat-mdc-tooltip .mdc-tooltip__surface {
-  border: 1px solid var(--td-line-steel);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  @include surface.popup;
+}
+
+// Material's spinner in brass
+.mat-mdc-progress-spinner {
+  --mdc-circular-progress-active-indicator-color: var(--td-brass);
 }
 
 body {
-  // Default the application to a light color theme. This can be changed to
-  // `dark` to enable the dark color theme, or to `light dark` to defer to the
-  // user's system settings.
   color-scheme: dark;
-
-  // Set a default background, font and text colors for the application using
-  // Angular Material's system-level CSS variables. Learn more about these
-  // variables at https://material.angular.dev/guide/system-variables
-  background-color: var(--mat-sys-surface);
-  color: var(--mat-sys-on-surface);
-  font: var(--mat-sys-body-medium);
-
-  // Reset the user agent margin.
   margin: 0;
   height: 100%;
-
-  // Prevent text selection in UI
+  background: var(--td-bg-dark);
+  font-size: var(--td-fs-body);
   user-select: none;
 }
 
-// Allow text selection in input fields
-input, textarea {
+input,
+textarea {
   user-select: text;
 }
 
+@include classes.all;
+
 // Dialog shell (panelClass 'td-dialog-panel' in MatDialog): transparent, the
-// dialog draws its own plate (dialog-shell in styles/_game-ui.scss). Text
-// colour and font for dialogs that are not on the foundation yet.
+// dialog draws its own panel (.td-dlg)
 .td-dialog-panel .mdc-dialog__surface {
   background: transparent;
-  border: 0;
   border-radius: 0;
   box-shadow: none;
-  color: var(--td-text-primary);
-  font-family: var(--td-font-body);
+  color: var(--td-text-secondary);
 }
 
-.td-dialog-panel .mat-mdc-dialog-container {
-  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+// A dialog never covers the top bar: it stands under it (the research tree
+// fills the window by itself)
+.td-dialog-panel:not(.td-research-panel) {
+  margin-top: var(--td-h-topbar);
 }
 
-// Research tree: fills the window and scrolls nowhere but in its own board.
-// The surface of MatDialog scrolls by itself, which puts a second scrollbar
-// around a dialog that is already the size of the screen
-// (panelClass: 'td-research-panel', openResearchDialog).
+// Research tree: fills the window and scrolls only in its own board. The
+// surface of MatDialog scrolls by itself, which would put a second scrollbar
+// around a dialog the size of the screen (panelClass 'td-research-panel').
 .td-research-panel .mdc-dialog__surface {
   overflow: hidden;
   border-radius: 0;
@@ -122,27 +95,6 @@ input, textarea {
   max-height: none;
   padding: 0;
 }
-
-// Fills the window: no shadow to cast, and a filter over the whole screen
-// would cost a layer on every drag of the board
-.td-research-panel .mat-mdc-dialog-container {
-  filter: none;
-}
-
-// Multiline tooltip: string content in mono, so the armor table lines up.
-// Surface and border come from the tooltip overrides above.
-.td-tooltip-multiline .mdc-tooltip__surface {
-  max-width: 300px;
-  padding: 10px 12px;
-  font-family: var(--td-font-mono);
-  font-size: 11px;
-  line-height: 1.55;
-  letter-spacing: 0.01em;
-  text-align: left;
-  white-space: pre-line;
-}
-
-/* You can add global styles to this file, and also import other style files */
 
 // The update hint of the desktop app (UpdateHintComponent) above every dialog,
 // also one opened after it: a modal backdrop must not swallow "Restart now".

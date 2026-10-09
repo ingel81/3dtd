@@ -1,294 +1,176 @@
+// Layout of the rich tooltip: a td-popup plaster plate, its parts parted by
+// hairlines: head (title in the accent colour, category, key), figures,
+// targeting, banners, armor, sections, flavour. Colours of rows, dots and
+// chips are data.
+@use '../../styles/game-ui' as ui;
+
 :host {
   display: block;
 }
 
 .td-tooltip {
-  width: 260px;
-  font-family: var(--td-font-body);
+  width: 270px;
+  font-size: var(--td-fs-body);
   color: var(--td-text-primary);
-  background: rgba(17, 22, 19, 0.92);
-  backdrop-filter: blur(8px) saturate(1.1);
-  -webkit-backdrop-filter: blur(8px) saturate(1.1);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.33),
-    var(--td-shadow-soft);
   pointer-events: none;
+  @include ui.divided;
 }
 
 .td-tooltip__header {
-  padding: 8px 10px;
-  background: linear-gradient(180deg, var(--td-panel-dark), var(--td-panel-shadow));
-  border-bottom: 1px solid var(--td-rune-amber-muted);
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 8px 10px;
 }
 
 .td-tooltip__title {
   flex: 1;
-  font: 700 12px/1 var(--td-font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.td-tooltip__category {
-  font: 10px/1 var(--td-font-mono);
-  color: var(--td-text-muted);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
-
-/* Key cap, same look as the keys in the shortcut overview */
-.td-tooltip__key {
-  flex-shrink: 0;
-  min-width: 10px;
-  padding: 2px 5px;
-  font: 700 10px/1 var(--td-font-mono);
-  text-align: center;
-  color: var(--td-gold-light);
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  border-bottom-color: #050705;
-  border-radius: 3px;
 }
 
 .td-tooltip__stats {
   display: grid;
   gap: 6px;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--td-frame-dark);
 }
 
 .td-tooltip__stat {
   display: flex;
   flex-direction: column;
+  gap: 3px;
   min-width: 0;
+
+  dd {
+    margin: 0;
+  }
 }
 
-.td-tooltip__stat dt {
-  font: 9px/1 var(--td-font-mono);
-  color: var(--td-text-muted);
-  letter-spacing: 0.08em;
-  margin-bottom: 3px;
-}
-
-.td-tooltip__stat dd {
-  font: 600 14px/1 var(--td-font-mono);
-  color: var(--td-text-primary);
-  font-variant-numeric: tabular-nums;
-  margin: 0;
-}
-
-/* Targeting capability banner — sits between stats and armor. Non-dezent
- * by design: icon + full label + accent stripe on the left edge so the
- * spec is readable at a glance. Three modes get distinct accents:
- *   ground-only → neutral grey
- *   air-ground  → teal-dark   (anti-air capable)
- *   air-only    → teal-light  (specialist) */
+/* What the tower can target: a mark on the left edge, teal for anti-air */
 .td-tooltip__targeting {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--td-frame-dark);
-  font: 11px/1.2 var(--td-font-mono);
-  color: var(--td-text-primary);
-  border-left: 3px solid var(--td-frame-mid);
 }
+
 .td-tooltip__targeting--air-ground {
-  border-left-color: var(--td-teal-dark);
+  --td-mark: var(--td-teal-dark);
 }
+
 .td-tooltip__targeting--air-only {
-  border-left-color: var(--td-teal-light);
-  background: color-mix(in srgb, var(--td-teal) 8%, transparent);
+  --td-mark: var(--td-teal-light);
 }
+
 .td-tooltip__targeting-icon {
   flex-shrink: 0;
   color: var(--td-text-muted);
 }
-.td-tooltip__targeting--air-ground .td-tooltip__targeting-icon {
-  color: var(--td-teal-light);
-}
+
+.td-tooltip__targeting--air-ground .td-tooltip__targeting-icon,
 .td-tooltip__targeting--air-only .td-tooltip__targeting-icon {
   color: var(--td-teal-light);
 }
+
 .td-tooltip__targeting-label {
   flex: 1;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  font-weight: 700;
 }
-.td-tooltip__targeting-note {
-  font: 9px/1 var(--td-font-mono);
-  color: var(--td-text-muted);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 2px 5px;
-  border: 1px solid var(--td-frame-dark);
-  background: var(--td-panel-shadow);
+
+/* A rule-changing line (a wave's mutator, the blood moon): the mark on the
+   left like the targeting, red for danger */
+.td-tooltip__banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 10px;
+}
+
+.td-tooltip__banner-icon {
   flex-shrink: 0;
+  margin-top: 1px;
 }
 
-.td-tooltip__armor {
+.td-tooltip__banner--danger {
+  --td-mark: var(--td-danger-edge);
+
+  .td-tooltip__banner-icon {
+    color: var(--td-health-red);
+  }
+}
+
+.td-tooltip__armor,
+.td-tooltip__section {
   padding: 8px 10px;
-  border-bottom: 1px solid var(--td-frame-dark);
-}
-.td-tooltip__armor:last-child {
-  border-bottom: none;
-}
 
-.td-tooltip__armor h4 {
-  font: 9px/1 var(--td-font-mono);
-  color: var(--td-text-muted);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin: 0 0 6px;
+  h4 {
+    display: flex;
+    justify-content: space-between;
+    margin: 0 0 6px;
+  }
 }
 
 .td-tooltip__armor-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  font: 11px/1.4 var(--td-font-mono);
-  padding: 3px 0;
-  color: var(--td-text-secondary);
-}
-.td-tooltip__armor-row.dim {
-  opacity: 0.55;
+  padding: 2px 0;
+
+  &.dim {
+    opacity: 0.55;
+  }
+
+  .armor-label {
+    flex: 1;
+  }
+
+  .armor-mul {
+    flex-shrink: 0;
+    font-weight: 700;
+    color: var(--td-text-primary);
+  }
 }
 
-.td-tooltip__armor-row .dot {
-  width: 8px;
-  height: 8px;
-  background: var(--dot-color);
-  border: 1px solid var(--td-panel-shadow);
-  box-shadow: 0 0 4px color-mix(in srgb, var(--dot-color) 40%, transparent);
-  flex-shrink: 0;
-}
+.td-tooltip__row {
+  padding: 2px 0;
 
-.td-tooltip__armor-row .armor-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  .row-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
 
-.td-tooltip__armor-row .armor-mul {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
+    .row-detail {
+    flex-shrink: 0;
+  }
+
+  .row-value {
+    flex-shrink: 0;
+    margin-left: auto;
+    font-weight: 700;
+    color: var(--td-text-secondary);
+  }
+
+  .row-chips {
+    display: inline-flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 2px 8px;
+    margin-left: auto;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+  }
+
+  .row-note {
+    margin: 1px 0 0 14px;
+  }
 }
 
 .td-tooltip__flavor {
   padding: 6px 10px 8px;
   font-style: italic;
-  font-size: 11px;
-  color: var(--td-text-muted);
-  line-height: 1.45;
-  font-family: var(--td-font-body);
-}
-
-/* A rule-changing line under the stats (a wave's mutator, the blood moon):
- * the stripe on the left like the targeting banner, red for danger */
-.td-tooltip__banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--td-frame-dark);
-  border-left: 3px solid var(--td-frame-mid);
-  font: 11px/1.4 var(--td-font-body);
-  color: var(--td-text-secondary);
-}
-.td-tooltip__banner-icon {
-  flex-shrink: 0;
-  margin-top: 1px;
-  color: var(--td-text-muted);
-}
-.td-tooltip__banner--danger {
-  border-left-color: var(--td-health-red);
-  background: color-mix(in srgb, var(--td-health-red) 8%, transparent);
-}
-.td-tooltip__banner--danger .td-tooltip__banner-icon {
-  color: var(--td-health-red);
-}
-
-/* A titled list: dot, label, muted detail, value or chips right */
-.td-tooltip__section {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--td-frame-dark);
-}
-.td-tooltip__section:last-child {
-  border-bottom: none;
-}
-.td-tooltip__section h4 {
-  display: flex;
-  justify-content: space-between;
-  font: 9px/1 var(--td-font-mono);
-  color: var(--td-text-muted);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin: 0 0 6px;
-}
-.td-tooltip__row {
-  padding: 3px 0;
-}
-.td-tooltip__row .row-main {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  font: 11px/1.4 var(--td-font-mono);
-  color: var(--td-text-primary);
-}
-.td-tooltip__row .dot {
-  width: 8px;
-  height: 8px;
-  flex-shrink: 0;
-  background: var(--dot-color);
-  border: 1px solid var(--td-panel-shadow);
-}
-.td-tooltip__row .row-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.td-tooltip__row .row-detail {
-  flex-shrink: 0;
-  color: var(--td-text-muted);
-  font-size: 10px;
-}
-.td-tooltip__row .row-value {
-  flex-shrink: 0;
-  margin-left: auto;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--td-text-secondary);
-}
-.td-tooltip__row .row-chips {
-  display: inline-flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 2px 8px;
-  margin-left: auto;
-}
-.td-tooltip__row .chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  white-space: nowrap;
-}
-.td-tooltip__row .row-note {
-  margin: 1px 0 0 14px;
-  font: 10px/1.35 var(--td-font-body);
-  color: var(--td-text-muted);
 }

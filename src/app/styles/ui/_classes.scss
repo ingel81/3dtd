@@ -1,0 +1,281 @@
+// The td-* classes of the design system. src/styles.scss includes this once,
+// globally; templates use the classes, component stylesheets only lay out.
+// Global rules pass the emulated view encapsulation, so every component and
+// every overlay (dialogs, tooltips) sees them.
+@use 'base';
+@use 'surface';
+@use 'buttons';
+@use 'forms';
+@use 'lists';
+@use 'menu';
+@use 'hud';
+@use 'text';
+@use 'layout';
+@use 'sidebar';
+
+@mixin all {
+  // === Document ===
+  body {
+    font-family: var(--td-font);
+    color: var(--td-text-primary);
+  }
+
+  // Form elements take the page's font, not the browser's
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+  }
+
+  * {
+    @include base.scrollbar;
+  }
+
+  // hidden wins over any display a class sets
+  [hidden] {
+    display: none !important;
+  }
+
+  :where(button, a, summary, [tabindex]) {
+    @include base.focus-ring;
+  }
+
+  @keyframes td-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  // Reduced motion: every transition jumps; animations stop in their recipe
+  // or component, which knows what to show instead
+  @include base.reduced-motion {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0s !important;
+      transition-delay: 0s !important;
+    }
+  }
+
+  // The dense variant: every td-* class inside, smaller (debug windows)
+  .td-dense {
+    --td-fs-text: var(--td-dense-text);
+    --td-fs-button: var(--td-dense-button);
+    --td-fs-lead: var(--td-dense-lead);
+    --td-fs-title: var(--td-dense-title);
+    --td-h-button: var(--td-dense-h-button);
+    --td-h-button-sm: var(--td-dense-h-button-sm);
+    --td-h-field: var(--td-dense-h-field);
+    --td-h-row: var(--td-dense-h-row);
+    --td-tool-size: var(--td-dense-tool);
+    font-size: var(--td-fs-small);
+
+    .td-group {
+      gap: var(--td-sp-1);
+    }
+
+    .td-group + .td-group {
+      padding-top: var(--td-sp-2);
+    }
+
+    .td-dlg-head {
+      margin: 10px 12px 0;
+      padding-bottom: 6px;
+    }
+
+    .td-dlg-body {
+      gap: var(--td-sp-2);
+      padding: 8px 12px;
+    }
+
+    .td-dlg-foot {
+      padding: 4px 12px 10px;
+    }
+
+    .td-table td {
+      height: auto;
+      padding: 2px 6px;
+    }
+  }
+
+  // The colours of the strands of the research tree, for whatever marks one
+  [data-branch='arcane'] { --td-mark: var(--td-teal); }
+  [data-branch='biology'] { --td-mark: var(--td-branch-biology); }
+  [data-branch='engineering'] { --td-mark: var(--td-branch-engineering); }
+
+  // === Layout ===
+  .td-stack { @include layout.stack; }
+  .td-stack.is-loose { gap: var(--td-sp-5); }
+  .td-inline { @include layout.inline; }
+  .td-actions { @include layout.actions; }
+  .td-group { @include layout.group; }
+  .td-setting { @include layout.setting; }
+  .td-chip-slot { @include layout.chip-slot; }
+
+  // === Surfaces ===
+  .td-backdrop { background: var(--td-backdrop); }
+  .td-panel { @include surface.panel; }
+  .td-overlay { @include surface.panel-overlay; }
+  .td-chip { @include surface.chip; }
+  .td-popup { @include surface.popup; }
+  .td-reveal { @include surface.reveal; }
+  .td-reveal.is-fade { transform: none; }
+  .td-dlg { @include surface.dialog; }
+  .td-dlg-head { @include surface.dialog-head; }
+  .td-dlg-title { @include surface.title; }
+  .td-dlg-body { @include surface.dialog-body; @include base.scrollbar; }
+  .td-dlg-body.is-loose { gap: var(--td-sp-4); }
+  .td-dlg-foot { @include surface.dialog-foot; }
+  .td-rule { @include surface.rule; }
+  .td-line-top { @include base.engraved-line-top; }
+  .td-line-bottom { @include base.engraved-line; }
+  .td-line-left { @include base.engraved-line-left; }
+  .td-line-right { @include base.engraved-line-right; }
+  .td-hairline-top { @include base.hairline-top; }
+  .td-hairline-bottom { @include base.hairline-bottom; }
+  // A mark on the left edge; its colour from --td-mark
+  .td-marked { box-shadow: inset 3px 0 0 var(--td-mark, var(--td-frame-mid)); }
+  .td-section { @include surface.section; }
+  .td-head { @include surface.head; }
+  .td-well { @include surface.well; }
+  .td-well.is-deep { @include surface.well-deep; }
+  .td-card { @include surface.card; }
+
+  // === Buttons ===
+  .td-btn-primary { @include buttons.primary; }
+  .td-btn-secondary { @include buttons.secondary; }
+  .td-btn-danger { @include buttons.danger; }
+  .td-btn-ghost { @include buttons.ghost; }
+  .td-btn-sm { @include buttons.small; }
+  .td-icon-btn { @include buttons.icon; }
+  .td-icon-btn.is-sm { width: var(--td-icon-sm); height: var(--td-icon-sm); }
+  .td-close { @include buttons.icon(var(--td-close-size)); }
+  .td-tool { @include buttons.tool; }
+  .td-tool.is-sm { width: var(--td-icon-sm); height: var(--td-icon-sm); }
+  .td-tool-gap { @include hud.tool-gap; }
+
+  // === Forms ===
+  .td-field { @include forms.field; }
+  .td-label { @include forms.label; }
+  .td-input { @include forms.input; }
+  .td-input.is-code { @include forms.input-code; }
+  .td-input.is-sm { @include forms.input-small; }
+  .td-input.is-group { @include forms.input-group; }
+  .td-select { @include forms.select; }
+  .td-select.is-auto { width: auto; }
+  .td-error { @include forms.error; }
+  .td-seg { @include forms.segmented; }
+  .td-seg.is-compact > * { flex: 0 0 auto; min-width: 56px; }
+  .td-seg.is-sm > * { height: var(--td-h-button-sm); font-size: var(--td-fs-body); }
+  // Buttons with two lines (a name over a detail): as high as they need
+  .td-seg.is-stacked > * {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    height: auto;
+    padding: 6px 7px;
+  }
+  .td-switch { @include forms.switch; }
+  .td-check { @include forms.check; }
+  .td-slider { @include forms.slider; }
+  // A value to dial: its name, the slider, the number field, a unit
+  .td-range-row {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) 64px auto;
+    align-items: center;
+    gap: 8px;
+    color: var(--td-text-secondary);
+
+    > .td-input {
+      @include forms.input-small;
+      text-align: right;
+    }
+  }
+
+  // === Lists ===
+  .td-rows { @include lists.rows; }
+  .td-row { @include lists.row; }
+  button.td-row { @include lists.row-button; }
+  a.td-row { @include lists.row-button; text-decoration: none; }
+  .td-row-main { @include lists.row-main; }
+  .td-table { @include lists.table; }
+
+  // === Sidebar ===
+  .td-side { @include sidebar.sidebar; }
+  .td-side-section { @include sidebar.section; }
+  .td-side-section.is-fill { @include sidebar.section-fill; }
+  .td-side-head { @include sidebar.head; }
+  .td-side-body { @include sidebar.body; }
+  .td-side-name { flex: 1 1 auto; min-width: 0; @include base.truncate; }
+  .td-side-name.is-armed { color: var(--td-error-text); }
+  .td-tiles { @include sidebar.tiles; }
+  .td-tile { @include sidebar.tile; }
+  .td-plate-btn { @include sidebar.plate-btn; }
+
+  // Two names, so the next flash restarts the animation by swapping the class
+  @keyframes td-plate-flash {
+    from { opacity: 1; filter: brightness(1.5); }
+  }
+
+  @keyframes td-plate-flash-alt {
+    from { opacity: 1; filter: brightness(1.5); }
+  }
+
+  // === Menu ===
+  .td-menu { @include menu.menu; }
+  .td-menu-item { @include menu.menu-item; }
+  .td-menu-rule { @include menu.menu-rule; }
+
+  // === HUD ===
+  .td-topbar { @include hud.topbar; }
+  .td-stat { @include hud.stat; }
+  .td-caps { @include hud.caps; }
+  .td-value { @include hud.value; }
+  .td-value.is-sm { font-size: var(--td-fs-lead); }
+  .td-sunk { @include hud.sunk-field; }
+  .td-meter { @include hud.meter; }
+  .td-progress { @include hud.progress; }
+  .td-marker { @include hud.marker; }
+  .td-marker-btn { @include hud.marker-btn; }
+  .td-loc-label { @include hud.loc-label; }
+  .td-loc-name { @include hud.loc-name; }
+
+  // === Text ===
+  .td-text { @include text.text; }
+  .td-muted { color: var(--td-text-muted); }
+  // Text tones that carry meaning: what hurts the HQ, what a wave is weak to
+  // or a strong value, what runs
+  .td-tone-hurt { color: var(--td-hp-text); }
+  .td-tone-brass { color: var(--td-brass); }
+  .td-tone-teal { color: var(--td-teal); }
+  .td-num { font-variant-numeric: tabular-nums; }
+  .td-figure { font-weight: 700; color: var(--td-brass); font-variant-numeric: tabular-nums; }
+  .td-note { @include text.note; }
+  .td-banner { @include text.banner; }
+  .td-banner.is-row { display: flex; align-items: center; gap: 10px; > span { flex: 1; } }
+  .td-name { display: block; font-weight: 600; @include base.truncate; }
+  .td-trunc { min-width: 0; @include base.truncate; }
+  .td-sub { display: block; margin-top: 2px; font-size: var(--td-fs-small); font-weight: 500; color: var(--td-text-muted); }
+  .td-code { @include forms.input-code; color: var(--td-brass-light); }
+  .td-kbd { @include text.kbd; }
+  .td-diamond { @include text.diamond; }
+  .td-swatch { @include text.swatch; }
+  .td-legend { @include text.legend; }
+  .td-divided { @include text.divided; }
+  .td-tag { @include text.tag; }
+  .td-kv { @include text.kv; }
+  // A log: mono lines that cut off at the edge (debug windows)
+  .td-log {
+    font-family: var(--td-font-mono);
+    font-size: var(--td-fs-micro);
+    line-height: 1.45;
+    color: var(--td-text-secondary);
+
+    > * {
+      @include base.truncate;
+    }
+  }
+  .td-link { @include text.link; }
+  .td-spin { @include base.spinner; }
+  .td-sr-only { @include base.sr-only; }
+}

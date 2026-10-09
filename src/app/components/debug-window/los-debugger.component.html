@@ -13,15 +13,15 @@
       <!-- Header: Tower-Info + Layer-Toggle -->
       <div class="los-header">
         @if (losDebug.activeTower(); as t) {
-          <span class="active-tower">{{ t.typeConfig.id }} · {{ losDebug.cellCount() }} cells</span>
+          <span class="td-section">{{ t.typeConfig.id }}, {{ losDebug.cellCount() }} cells</span>
         } @else if (mapperReady()) {
-          <span class="active-tower">Build-Preview (no cell-hover)</span>
+          <span class="td-section">Build preview (no cell hover)</span>
         } @else {
-          <span class="active-tower muted">No tower selected</span>
+          <span class="td-note">No tower selected</span>
         }
-        <div class="layer-toggle" role="group" aria-label="LOS layer">
-          <button [class.active]="layer() === 'ground'" [attr.aria-pressed]="layer() === 'ground'" (click)="setLayer('ground')">Ground</button>
-          <button [class.active]="layer() === 'air'" [attr.aria-pressed]="layer() === 'air'" (click)="setLayer('air')">Air</button>
+        <div class="td-seg is-compact" role="group" aria-label="LOS layer">
+          <button type="button" [attr.aria-pressed]="layer() === 'ground'" (click)="setLayer('ground')">Ground</button>
+          <button type="button" [attr.aria-pressed]="layer() === 'air'" (click)="setLayer('air')">Air</button>
         </div>
       </div>
 
@@ -35,7 +35,7 @@
       >
         @for (f of faceOrder; track f.face) {
           <div
-            class="face-slot"
+            class="td-well face-slot"
             [style.grid-column]="f.col + 1"
             [style.grid-row]="f.row + 1"
             [style.width.px]="faceDisplayPx()"
@@ -49,14 +49,14 @@
               (mousemove)="onCanvasMove($event, f.face)"
               (mouseleave)="onCanvasLeave()"
             ></canvas>
-            <span class="face-label">{{ f.label }}</span>
+            <span class="td-tag face-label">{{ f.label }}</span>
           </div>
         }
       </div>
 
       <!-- Color-Legende: Mapping depth → color (single source of truth
            passt zum Shader in TowerShadowMapper.ensureDebugResources) -->
-      <div class="legend">
+      <div class="td-note legend">
         <span class="legend-label">Blocker near</span>
         <span class="legend-gradient"></span>
         <span class="legend-label">clear (far/no hit)</span>
@@ -64,37 +64,37 @@
 
       <!-- Hover-Readout + Zoom-Viewport -->
       <div class="readout-row">
-      <div class="readout">
+      <div class="td-well td-log readout">
         @if (losDebug.hoveredPixel(); as p) {
-          <div class="row">
-            <span class="key">Pixel</span>
-            <span class="val">face={{ p.face }} ({{ faceLabel(p.face) }}) · ({{ p.px }}, {{ p.py }})</span>
+          <div class="td-kv">
+            <span>Pixel</span>
+            <b>face={{ p.face }} ({{ faceLabel(p.face) }}), ({{ p.px }}, {{ p.py }})</b>
           </div>
           @if (pixelRgb(); as rgb) {
-            <div class="row">
-              <span class="key">Color</span>
-              <span class="val">
-                <span class="swatch" [style.background]="rgb.css"></span>
-                R={{ rgb.r }} G={{ rgb.g }} B={{ rgb.b }} · depth={{ rgb.depth }}
-              </span>
+            <div class="td-kv">
+              <span>Color</span>
+              <b>
+                <span class="td-swatch is-lg los-swatch" [style.--td-mark]="rgb.css"></span>
+                R={{ rgb.r }} G={{ rgb.g }} B={{ rgb.b }}, depth={{ rgb.depth }}
+              </b>
             </div>
           }
-          <div class="row">
-            <span class="key">Cells</span>
-            <span class="val">{{ losDebug.cellsAtHoveredPixel().length }}</span>
+          <div class="td-kv">
+            <span>Cells</span>
+            <b>{{ losDebug.cellsAtHoveredPixel().length }}</b>
           </div>
           @if (hoverCellInfo(); as info) {
-            <div class="row">
-              <span class="key">Cell</span>
-              <span class="val">key={{ info.key }} · dist={{ info.dist }}m · y={{ info.y }}m</span>
+            <div class="td-kv">
+              <span>Cell</span>
+              <b>key={{ info.key }}, dist={{ info.dist }}m, y={{ info.y }}m</b>
             </div>
-            <div class="row">
-              <span class="key">Blocker</span>
-              <span class="val">{{ info.blockerDist }} ({{ info.visible }})</span>
+            <div class="td-kv">
+              <span>Blocker</span>
+              <b>{{ info.blockerDist }} ({{ info.visible }})</b>
             </div>
           }
         } @else {
-          <div class="row muted">Hover a face (or a cell on the route) to inspect</div>
+          <div class="td-muted">Hover a face (or a cell on the route) to inspect</div>
         }
       </div>
       <div class="zoom-wrap">
@@ -102,9 +102,9 @@
           #zoomCanvas
           [width]="zoomCanvasPx"
           [height]="zoomCanvasPx"
-          class="zoom-canvas"
+          class="td-well zoom-canvas"
         ></canvas>
-        <span class="zoom-label">{{ zoomSourcePx }}px → {{ zoomFactor }}×</span>
+        <span class="td-note td-num">{{ zoomSourcePx }}px to {{ zoomFactor }}×</span>
       </div>
       </div>
     </div>

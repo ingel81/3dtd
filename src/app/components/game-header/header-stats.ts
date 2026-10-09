@@ -1,6 +1,7 @@
 /**
- * Figures of the header stat bar. The bar has a fixed width and three equal
- * cells, so every figure has to fit its cell at any size, cheats included.
+ * Figures of the header stat bar. Each cell keeps room for as many digits as
+ * its threshold allows (game-header.component.scss), so every figure fits
+ * its cell at any size, cheats included, and never shifts its neighbours.
  * Pure, the component feeds in the store values.
  */
 import { formatCompact } from '../../utils/format-compact';
@@ -8,8 +9,10 @@ import { formatCompact } from '../../utils/format-compact';
 // Below its threshold a figure stays exact; from there on it reads short ("101k", "1.2M")
 /** Buying depends on the exact credits, and six digits fit the cell */
 export const CREDITS_EXACT_BELOW = 1_000_000;
-/** Wave number and enemies alive */
+/** Enemies alive */
 export const COUNT_EXACT_BELOW = 100_000;
+/** The wave number; past 999 only through a cheat or a very long run */
+export const WAVE_EXACT_BELOW = 1_000;
 /** HQ health past 9999 only comes from the +HP cheat */
 export const HQ_EXACT_BELOW = 10_000;
 

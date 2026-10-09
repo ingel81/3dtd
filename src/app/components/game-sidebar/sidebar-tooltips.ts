@@ -6,6 +6,7 @@ import { TowerTypeConfig } from '../../configs/tower-types.config';
 import { canTargetAirEffective } from '../../entities/tower-targeting.util';
 import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
 import { TdTooltipData } from '../tooltip/tooltip-data.types';
+import { TD_THEME } from '../../styles/td-theme';
 
 /**
  * Tooltip-Aufbereitung der Sidebar: Tower-Karten im BUILD-Panel, Gegnergruppen
@@ -22,15 +23,14 @@ export interface TowerCardTooltipContext {
   hotkey?: string | null;
 }
 
-// Armor identity colors per mockup (tmp/td-components.jsx ArmorChip).
-// The dot color reflects the ARMOR TYPE, not the effectiveness; the dim
-// flag (faded row) communicates "weak matchup" instead.
+// The dot colour of each armor type, from the theme. It names the ARMOR
+// TYPE, not the effectiveness; the dim flag (faded row) says "weak matchup".
 export const ARMOR_DOT_COLOR: Readonly<Record<ArmorType, string>> = {
-  'unarmored': '#7DBE82',
-  'light': '#5BA4D9',
-  'heavy': '#C46B3A',
-  'fortified': '#5A6258',
-  'ethereal': '#9A78C7',
+  'unarmored': TD_THEME.greenDark,
+  'light': TD_THEME.cold,
+  'heavy': TD_THEME.warnOrange,
+  'fortified': TD_THEME.frameLight,
+  'ethereal': TD_THEME.ethereal,
 };
 
 // Complete per damage type, so a new type without an accent does not compile.
@@ -195,7 +195,7 @@ export function enemyGroupTooltip(group: WaveGroupDisplay): TdTooltipData | null
   const flavorParts: string[] = [];
   if (group.healthMultiplier !== 1) flavorParts.push(`HP ×${group.healthMultiplier.toFixed(1)}`);
   if (group.speedMultiplier !== 1) flavorParts.push(`Speed ×${group.speedMultiplier.toFixed(2)}`);
-  const scaled = flavorParts.length > 0 ? `Scaled: ${flavorParts.join(' · ')}` : null;
+  const scaled = flavorParts.length > 0 ? `Scaled: ${flavorParts.join(' | ')}` : null;
   const lines = [enemyTraitLabel(group.enemyType), scaled].filter((line): line is string => line !== null);
   const flavor = lines.length > 0 ? lines.join('. ') : undefined;
 

@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { getTowerPath, type TowerPathId } from '../configs/tower-paths.config';
 import type { UpgradeId } from '../configs/tower-types.config';
+import { TD_THEME } from '../styles/td-theme';
 import { pathUnlockedBy } from '../configs/research/research-tree.config';
 import type { Tower } from '../entities/tower.entity';
 import { SimClient } from '../sim/client/sim-client.service';
@@ -18,13 +19,13 @@ import { uiSound } from './ui-sound';
 import { refuseForCredits } from './credits-refusal';
 
 /**
- * Text rising over the tower after a purchase: --td-gold-light for what it
- * bought, --td-warn-orange when it bought nothing. Starts `lift` metres above
+ * Text rising over the tower after a purchase: brass light for what it
+ * bought, warn orange when it bought nothing. Starts `lift` metres above
  * the tower's shoot height.
  */
 const UPGRADE_TEXT = {
-  bought: '#D9BC68',
-  refused: '#C96A3A',
+  bought: TD_THEME.brassLight,
+  refused: TD_THEME.warnOrange,
   durationMs: 1600,
   floatSpeed: 1.3,
   scale: 0.8,

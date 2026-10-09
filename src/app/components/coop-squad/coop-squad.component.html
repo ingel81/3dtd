@@ -1,28 +1,28 @@
 @if (coop.roster().length > 0) {
-  <section class="squad" [class.is-error]="coop.lostInGame()" aria-label="Squad">
-    <header class="sq-head">
+  <section class="squad td-overlay" [class.is-error]="coop.lostInGame()" aria-label="Squad">
+    <header class="sq-head td-section td-hairline-bottom">
       Squad
       @if (collapsed()) {
-        <small>
+        <small class="td-note">
           @if (issue()) {
-            <span class="is-warn issue"><td-icon name="warn" [size]="11"></td-icon>Issue</span>
+            <span class="td-note is-warn issue"><td-icon name="warn" [size]="11"></td-icon>Issue</span>
           } @else {
             {{ readyCount() }}/{{ rows().length }} ready
           }
         </small>
       } @else {
-        <small>
+        <small class="td-note">
           @if (issue(); as text) {
-            <span [class.is-error]="coop.lostInGame()" [class.is-warn]="!coop.lostInGame()">{{ text }}</span>
+            <span class="td-note" [class.is-error]="coop.lostInGame()" [class.is-warn]="!coop.lostInGame()">{{ text }}</span>
           } @else {
-            PvE Coop · {{ coop.room()?.code }}
+            PvE coop, {{ coop.room()?.code }}
           }
         </small>
         @if (coop.cheatsOn()) {
-          <span class="chip is-warn" [matTooltip]="'Cheats allowed: ' + (coop.options().cheats === 'host' ? 'host only' : 'everyone')">Cheats on</span>
+          <span class="chip td-tag is-caps is-warn" [matTooltip]="'Cheats allowed: ' + (coop.options().cheats === 'host' ? 'host only' : 'everyone')">Cheats on</span>
         }
       }
-      <button class="icon-btn toggle" type="button" (click)="collapsed.set(!collapsed())"
+      <button class="td-tool is-sm toggle" type="button" (click)="collapsed.set(!collapsed())"
               [attr.aria-expanded]="!collapsed()" [attr.aria-label]="collapsed() ? 'Expand the squad' : 'Collapse the squad'">
         <td-icon [name]="collapsed() ? 'plus' : 'minus'" [size]="14"></td-icon>
       </button>
@@ -30,50 +30,50 @@
 
     @if (!collapsed()) {
       @if (coop.lostInGame()) {
-        <p class="banner is-error" role="alert"><b>Connection to the coop server lost.</b> The game stands still.</p>
+        <p class="td-banner is-error sq-banner" role="alert"><b>Connection to the coop server lost.</b> The game stands still.</p>
       } @else if (coop.desync()) {
-        <p class="banner" role="alert"><b>Out of sync.</b> What you see may differ from what the others see.</p>
+        <p class="td-banner is-warn sq-banner" role="alert"><b>Out of sync.</b> What you see may differ from what the others see.</p>
       }
 
-      <ul class="rows">
+      <ul class="td-rows sq-rows">
         @for (row of rows(); track row.id) {
-          <li class="sq" [class.is-me]="row.me" [class.is-lag]="row.state === 'lag' || row.state === 'slow'"
+          <li class="td-row sq" [class.is-own]="row.me" [class.is-lag]="row.state === 'lag' || row.state === 'slow'"
               [class.is-gone]="row.state === 'left'" [class.is-stale]="coop.lostInGame()">
             <i class="lane-bar" [style.background]="row.color"></i>
             <div class="who">
               <b>
-                <span class="name">{{ row.name }}</span>
-                @if (row.me) { <i class="tag is-you">You</i> }
-                @if (row.host) { <i class="tag is-host">Host</i> }
+                <span class="td-name name">{{ row.name }}</span>
+                @if (row.me) { <i class="td-tag is-caps is-ok">You</i> }
+                @if (row.host) { <i class="td-tag is-caps is-brass">Host</i> }
               </b>
-              <small [class.is-warn]="row.state !== 'ok' || row.leaks > 0" [matTooltip]="leaksTip(row)">{{ subLine(row) }}</small>
+              <small class="td-note" [class.is-warn]="row.state !== 'ok' || row.leaks > 0" [matTooltip]="leaksTip(row)">{{ subLine(row) }}</small>
             </div>
-            <span class="credits" [class.is-gone]="row.state === 'left'">
-              @if (row.state !== 'left') { <span class="sr-only">Credits </span>{{ row.gold }} }
+            <span class="credits td-figure">
+              @if (row.state !== 'left') { <i class="td-diamond" aria-hidden="true"></i><span class="td-sr-only">Credits </span>{{ row.gold }} }
             </span>
             <app-ping-bars [ms]="row.state === 'left' || coop.lostInGame() ? null : row.latency" [warn]="row.state === 'lag' || row.state === 'slow'"
                            [matTooltip]="row.me ? 'Your round trip to the coop server' : 'To them and back over the coop server, about'" />
             @if (row.me) {
-              <button class="check" type="button" [class.is-on]="row.ready" [disabled]="waveActive()"
+              <button class="td-icon-btn is-sm check" type="button" [disabled]="waveActive()"
                       (click)="coop.toggleReady()" [attr.aria-pressed]="row.ready"
-                      [matTooltip]="row.ready ? 'Ready for the next wave · Space undoes' : 'Ready for the next wave · Space'"
+                      [matTooltip]="row.ready ? 'Ready for the next wave, Space undoes' : 'Ready for the next wave, Space'"
                       aria-label="Ready for the next wave">
                 <td-icon name="check" [size]="13"></td-icon>
               </button>
             } @else if (row.state !== 'left') {
               <span class="tools">
-                <button class="icon-btn sm" type="button" (click)="openResearch(row.id)"
+                <button class="td-tool is-sm" type="button" (click)="openResearch(row.id)"
                         [matTooltip]="researchTip(row.name)" [attr.aria-label]="researchTip(row.name)">
                   <td-icon name="flask" [size]="14"></td-icon>
                 </button>
-                <button class="icon-btn sm" type="button" (click)="toggleGift(row.id)" [class.is-open]="giftTo() === row.id"
+                <button class="td-tool is-sm" type="button" (click)="toggleGift(row.id)"
                         [matTooltip]="'Send ' + row.name + ' credits'" [attr.aria-label]="'Send ' + row.name + ' credits'"
                         [attr.aria-expanded]="giftTo() === row.id">
                   <td-icon name="coin" [size]="14"></td-icon>
                 </button>
                 @if (coop.isHost()) {
                   <!-- Two clicks: a player who holds everyone up goes, their lane closes (relay review M4) -->
-                  <button class="icon-btn sm" type="button" (click)="kick(row.id)" [class.is-armed]="armedKick() === row.id"
+                  <button class="td-tool is-sm" type="button" (click)="kick(row.id)" [class.is-armed]="armedKick() === row.id"
                           [matTooltip]="armedKick() === row.id ? 'Click again to take ' + row.name + ' out of the game' : 'Take ' + row.name + ' out of the game'"
                           [attr.aria-label]="armedKick() === row.id ? 'Click again to take ' + row.name + ' out of the game' : 'Take ' + row.name + ' out of the game'">
                     <td-icon name="cross" [size]="14"></td-icon>
@@ -88,29 +88,29 @@
       </ul>
 
       @if (giftTo(); as to) {
-        <div class="gift" role="group" [attr.aria-label]="'Send ' + nameOf(to) + ' credits'">
-          <span>To {{ nameOf(to) }}</span>
+        <div class="gift td-inline" role="group" [attr.aria-label]="'Send ' + nameOf(to) + ' credits'">
+          <span class="td-note">To {{ nameOf(to) }}</span>
           @for (amount of amounts; track amount) {
-            <button class="btn-xs" type="button" [disabled]="amount > myGold()" (click)="give(to, amount)">{{ amount }}</button>
+            <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="amount > myGold()" (click)="give(to, amount)">{{ amount }}</button>
           }
           <!-- Any amount (TODO E36) -->
           <form class="gift-any" (submit)="$event.preventDefault(); giveAny(to)">
-            <input class="gift-input" type="number" min="1" [max]="myGold()" step="1" inputmode="numeric"
+            <input class="td-input is-sm gift-input" type="number" min="1" [max]="myGold()" step="1" inputmode="numeric"
                    aria-label="Credits to send" placeholder="Amount"
                    [value]="anyAmount() ?? ''" (input)="setAnyAmount($any($event.target).value)">
-            <button class="btn-xs" type="submit" [disabled]="!canGiveAny()">Send</button>
+            <button class="td-btn-secondary td-btn-sm" type="submit" [disabled]="!canGiveAny()">Send</button>
           </form>
         </div>
       }
 
       <!-- Always there, one line high: a note coming and going must not move the box and the chat below -->
-      <footer class="sq-foot" [class.is-alert]="footer()?.alert" [class.is-empty]="!footer()">
+      <footer class="sq-foot td-note td-hairline-top" [class.is-alert]="footer()?.alert">
         @if (footer(); as f) {
           <span>{{ f.lead }}<b>{{ f.bold }}</b>{{ f.text }}</span>
           @if (coop.lostInGame()) {
-            <button class="btn-xs primary" type="button" (click)="coop.continueAlone()">Continue alone</button>
+            <button class="td-btn-primary td-btn-sm" type="button" (click)="coop.continueAlone()">Continue alone</button>
           } @else if (f.key) {
-            <kbd>Space</kbd>
+            <kbd class="td-kbd">Space</kbd>
           }
         }
       </footer>

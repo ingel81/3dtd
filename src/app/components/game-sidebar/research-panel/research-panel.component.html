@@ -1,100 +1,86 @@
-<!-- RESEARCH CENTER Panel -->
-<section class="td-panel td-research-panel">
-  <div class="td-panel-header td-tower-header">
-    <span class="td-tower-header-name" [class.td-sell-armed-text]="sellArmed()" aria-live="polite">
-      {{ sellArmed() ? 'Click again to sell' : 'RESEARCH CENTER · Lv.' + researchStore.centerLevel() }}
-    </span>
-    @if (sellValue() > 0) {
-      <button class="td-header-sell-btn"
-              [class.armed]="sellArmed()"
-              aria-keyshortcuts="Delete"
-              [matTooltip]="sellArmed() ? 'Click again to sell for ' + sellValue() + ' credits' : 'Sell: refunds 75% of total invested (base + upgrades)'"
-              matTooltipPosition="left"
-              [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + sellValue() + ' credits'"
-              (click)="onSell()">
-        <td-icon name="coin" [size]="14"></td-icon>
-        <span class="td-header-sell-value">+{{ sellValue() }}</span>
+<!-- RESEARCH CENTER section -->
+<h2 class="td-side-head">
+  <span class="td-side-name" [class.is-armed]="sellArmed()" aria-live="polite">
+    {{ sellArmed() ? 'Click again to sell' : 'Research Center, level ' + researchStore.centerLevel() }}
+  </span>
+  @if (sellValue() > 0) {
+    <button class="td-btn-danger td-btn-sm"
+            [class.is-armed]="sellArmed()"
+            aria-keyshortcuts="Delete"
+            [matTooltip]="sellArmed() ? 'Click again to sell for ' + sellValue() + ' credits' : 'Sell: refunds 75% of total invested (base + upgrades)'"
+            matTooltipPosition="left"
+            [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + sellValue() + ' credits'"
+            (click)="onSell()">
+      Sell <span class="td-num">{{ sellValue() }}</span>
+    </button>
+  }
+</h2>
+
+<div class="td-side-body">
+  <!-- What the run has researched so far -->
+  <div class="td-inline rp-summary">
+    <span class="td-value is-sm">{{ researchDone() }}/{{ researchTotal }}</span>
+    <span class="td-caps">researched</span>
+    <span class="td-note td-num rp-slots">Slots {{ store.activeResearches().length }}/{{ researchStore.researchSlots() }}</span>
+  </div>
+
+  <!-- Running researches -->
+  @for (active of store.activeResearches(); track active.researchId) {
+    <div class="td-well rp-active">
+      <span class="td-name">{{ getResearchName(active.researchId) }}</span>
+      <span class="td-note td-num">{{ getActiveResearchRemaining(active) | number:'1.0-0' }} s</span>
+      <button class="td-tool rp-cancel" type="button" (click)="cancelResearch.emit(active.researchId)"
+              [attr.aria-label]="'Cancel research: ' + getResearchName(active.researchId)">
+        <td-icon name="cross" [size]="14"></td-icon>
+      </button>
+      <span class="td-progress rp-bar"><span [style.width.%]="getActiveResearchProgress(active) * 100"></span></span>
+    </div>
+  }
+
+  @if (store.activeResearches().length === 0) {
+    <p class="td-note">
+      @if (openCount() > 0) {
+        {{ openCount() }} {{ openCount() === 1 ? 'research is' : 'researches are' }} open right now.
+      } @else {
+        Nothing is open yet.
+      }
+    </p>
+  }
+
+  <!-- The tree, the queue and the picking live in the dialog -->
+  <button class="td-btn-primary rp-open" type="button" (click)="openTechTree()" aria-keyshortcuts="q"
+          matTooltip="Pick what to research and order the queue (Q)"
+          matTooltipPosition="left">
+    <span class="td-inline"><td-icon name="layers" [size]="16"></td-icon>Research tree</span>
+    @if (queue().length > 0) {
+      <span class="td-tag td-num">{{ queue().length }}</span>
+    }
+  </button>
+
+  <!-- Upgrades (Research Wing) -->
+  <div class="td-stack rp-upgrades">
+    @if (hintView().refusalText; as reason) {
+      <p class="td-banner is-warn" role="status">{{ reason }}</p>
+    }
+    @for (upgrade of tower().getAvailableUpgrades(); track upgrade.id) {
+      @let refused = isUpgradeRefused(upgrade.id);
+      <!-- aria-disabled, not disabled: a click on a plate it cannot buy says why -->
+      <button
+        class="td-plate-btn upgrade-tile"
+        [class.is-flash]="hintView().flashId === upgrade.id && !hintView().flashAlt"
+        [class.is-flash-alt]="hintView().flashId === upgrade.id && hintView().flashAlt"
+        [attr.aria-disabled]="refused"
+        (click)="onUpgradeTower(upgrade.id, $event)"
+        [matTooltip]="upgrade.description + upgradeManyHint"
+        matTooltipPosition="left"
+      >
+        <td-icon name="arrowUp" [size]="18"></td-icon>
+        <span class="td-plate-label">
+          <span class="td-name">{{ upgrade.name }}</span>
+          <span class="td-sub">Level {{ tower().getUpgradeLevel(upgrade.id) + 1 }} of {{ upgrade.maxLevel }}</span>
+        </span>
+        <span class="td-figure">{{ tower().getNextUpgradeCost(upgrade.id) }}</span>
       </button>
     }
   </div>
-  <div class="td-panel-content td-tower-section">
-    <!-- What the run has researched so far -->
-    <div class="td-research-summary">
-      <span class="td-research-summary-count">{{ researchDone() }}/{{ researchTotal }}</span>
-      <span class="td-research-summary-label">researched</span>
-      <span class="td-research-summary-slots">Slots {{ store.activeResearches().length }}/{{ researchStore.researchSlots() }}</span>
-    </div>
-
-    <!-- Active Researches -->
-    @for (active of store.activeResearches(); track active.researchId) {
-      <div class="td-research-active">
-        <div class="td-research-active-info">
-          <span class="td-research-active-name">{{ getResearchName(active.researchId) }}</span>
-          <span class="td-research-active-time">{{ getActiveResearchRemaining(active) | number:'1.0-0' }}s</span>
-        </div>
-        <div class="td-research-progress-bar">
-          <div class="td-research-progress-fill" [style.width.%]="getActiveResearchProgress(active) * 100"></div>
-        </div>
-        <button class="td-research-cancel-btn" (click)="cancelResearch.emit(active.researchId)"
-                [attr.aria-label]="'Cancel research: ' + getResearchName(active.researchId)">
-          <td-icon name="cross" [size]="14"></td-icon>
-        </button>
-      </div>
-    }
-
-    @if (store.activeResearches().length === 0) {
-      <p class="td-research-idle">
-        @if (openCount() > 0) {
-          {{ openCount() }} {{ openCount() === 1 ? 'research is' : 'researches are' }} open right now.
-        } @else {
-          Nothing is open yet.
-        }
-      </p>
-    }
-
-    <!-- The tree, the queue and the picking live in the dialog -->
-    <button class="td-research-open-btn" (click)="openTechTree()" aria-keyshortcuts="q"
-            matTooltip="Pick what to research and order the queue (Q)"
-            matTooltipPosition="left">
-      <td-icon name="layers" [size]="18"></td-icon>
-      <span class="td-research-open-label">Research tree</span>
-      @if (queue().length > 0) {
-        <span class="td-research-open-queued">{{ queue().length }}</span>
-      }
-    </button>
-
-    <!-- Upgrades (Research Wing) -->
-    <div class="td-upgrades-section">
-      @if (hintView().refusalText; as reason) {
-        <div class="td-upgrade-hint" role="status">
-          <td-icon name="warn" [size]="12"></td-icon>
-          <span>{{ reason }}</span>
-        </div>
-      }
-      @if (tower().getAvailableUpgrades().length > 0) {
-        @for (upgrade of tower().getAvailableUpgrades(); track upgrade.id) {
-          @let refused = isUpgradeRefused(upgrade.id);
-          <!-- aria-disabled, not disabled: a click on a tile it cannot buy says why -->
-          <button
-            class="td-upgrade-tile"
-            [class.td-upgrade-affordable]="!refused"
-            [class.td-upgrade-flash]="hintView().flashId === upgrade.id && !hintView().flashAlt"
-            [class.td-upgrade-flash-alt]="hintView().flashId === upgrade.id && hintView().flashAlt"
-            [attr.aria-disabled]="refused"
-            (click)="onUpgradeTower(upgrade.id, $event)"
-            [matTooltip]="upgrade.description + upgradeManyHint"
-            matTooltipPosition="left"
-          >
-            <td-icon class="td-upgrade-icon" name="arrowUp" [size]="18"></td-icon>
-            <div class="td-upgrade-info">
-              <span class="td-upgrade-name">{{ upgrade.name }}</span>
-              <span class="td-upgrade-desc">Lv.{{ tower().getUpgradeLevel(upgrade.id) + 1 }}/{{ upgrade.maxLevel }}</span>
-            </div>
-            <span class="td-upgrade-cost">{{ tower().getNextUpgradeCost(upgrade.id) }}</span>
-          </button>
-        }
-      }
-    </div>
-
-  </div>
-</section>
+</div>

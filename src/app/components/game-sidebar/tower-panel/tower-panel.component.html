@@ -1,209 +1,190 @@
-<!-- NORMAL TOWER Panel -->
-<section class="td-panel td-tower-panel">
-  <div class="td-panel-header td-tower-header">
-    <span class="td-tower-header-name" [class.td-sell-armed-text]="sellArmed()" aria-live="polite">
-      @if (owner(); as name) {
-        {{ name + "'s " + tower().typeConfig.name | uppercase }}
+<!-- TOWER section -->
+<h2 class="td-side-head">
+  <span class="td-side-name" [class.is-armed]="sellArmed()" aria-live="polite">
+    @if (owner(); as name) {
+      {{ name + "'s " + tower().typeConfig.name }}
+    } @else {
+      {{ sellArmed() ? 'Click again to sell' : tower().typeConfig.name }}
+    }
+  </span>
+  @if (viewOnly()) {
+    <span class="td-caps" matTooltip="A partner's tower: you can look, not change it" matTooltipPosition="left">view only</span>
+  } @else if (stats().sellValue > 0) {
+    <button class="td-btn-danger td-btn-sm"
+            [class.is-armed]="sellArmed()"
+            aria-keyshortcuts="Delete"
+            [matTooltip]="sellArmed() ? 'Click again to sell for ' + stats().sellValue + ' credits' : 'Sell tower: refunds 75% of total invested (base + upgrades)'"
+            matTooltipPosition="left"
+            [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + stats().sellValue + ' credits'"
+            (click)="onSell()">
+      Sell <span class="td-num">{{ stats().sellValue }}</span>
+    </button>
+  }
+  <button class="td-tool" type="button" (click)="openDamageMatrix()"
+          aria-label="Damage vs armor" matTooltip="Damage vs armor" matTooltipPosition="left">
+    <td-icon name="info" [size]="16"></td-icon>
+  </button>
+</h2>
+
+<div class="td-side-body">
+  <!-- Stats: type, damage, fire rate on top; range, DPS, kills, damage dealt below -->
+  <div class="tp-stats td-tiles">
+    <div class="td-tile tp-type" [style.--damage-color]="damageTypeUI[tower().typeConfig.damageType].color">
+      <td-icon [size]="18" [name]="damageTypeIcon(tower().typeConfig.damageType)"></td-icon>
+      <span class="td-value is-sm tp-type-name">{{ damageTypeUI[tower().typeConfig.damageType].label }}</span>
+      <span class="td-caps">Type</span>
+    </div>
+    <div class="td-tile">
+      <td-icon class="td-tone-hurt" name="flame" [size]="18"></td-icon>
+      <span class="td-value is-sm td-tone-hurt">{{ stats().damage | number:'1.0-0' }}</span>
+      <span class="td-caps">Damage</span>
+    </div>
+    <div class="td-tile">
+      <td-icon class="td-tone-brass" name="speed" [size]="18"></td-icon>
+      <span class="td-value is-sm">{{ stats().fireRate | number:'1.2-2' }}/s</span>
+      <span class="td-caps">Fire rate</span>
+    </div>
+    <div class="td-tile">
+      <td-icon class="td-tone-teal" name="target" [size]="18"></td-icon>
+      <span class="td-value is-sm">{{ stats().range | number:'1.0-0' }} m</span>
+      <span class="td-caps">Range</span>
+    </div>
+    <div class="td-tile">
+      <td-icon class="td-tone-brass" name="bolt" [size]="18"></td-icon>
+      <span class="td-value is-sm">{{ stats().dps | number:'1.0-0' }}</span>
+      <span class="td-caps">DPS</span>
+    </div>
+    <div class="td-tile" matTooltip="Killing blows since it was built" matTooltipPosition="above">
+      <td-icon class="td-tone-brass" name="shield" [size]="18"></td-icon>
+      <span class="td-value is-sm td-tone-brass">{{ stats().kills }}</span>
+      <span class="td-caps">Kills</span>
+    </div>
+    <div class="td-tile" matTooltip="Damage dealt since it was built, overkill not counted" matTooltipPosition="above">
+      <td-icon class="td-tone-brass" name="sword" [size]="18"></td-icon>
+      <span class="td-value is-sm td-tone-brass">{{ damageDealt() }}</span>
+      <span class="td-caps">Dealt</span>
+    </div>
+  </div>
+
+  <!-- Veteran rank from killing blows, cosmetic: insignia as over the tower, kills to the next rank -->
+  <div class="td-well tp-rank" [class.is-gold]="veteran().gold" [class.is-recruit]="veteran().level === 0"
+       [matTooltip]="veteranTooltip" matTooltipPosition="above">
+    <td-icon class="tp-rank-icon" [name]="veteran().icon" [size]="16" [strokeWidth]="2"></td-icon>
+    <span class="td-caps tp-rank-name">{{ veteran().name }}</span>
+    <span class="td-note td-num tp-rank-count">
+      @if (veteran().nextAt !== null) {
+        {{ veteran().kills }} / {{ veteran().nextAt }} kills
       } @else {
-        {{ sellArmed() ? 'Click again to sell' : (tower().typeConfig.name | uppercase) }}
+        {{ veteran().kills }} kills
       }
     </span>
-    @if (viewOnly()) {
-      <span class="td-view-only" matTooltip="A partner's tower: you can look, not change it" matTooltipPosition="left">view only</span>
-    } @else if (stats().sellValue > 0) {
-      <button class="td-header-sell-btn"
-              [class.armed]="sellArmed()"
-              aria-keyshortcuts="Delete"
-              [matTooltip]="sellArmed() ? 'Click again to sell for ' + stats().sellValue + ' credits' : 'Sell tower: refunds 75% of total invested (base + upgrades)'"
-              matTooltipPosition="left"
-              [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + stats().sellValue + ' credits'"
-              (click)="onSell()">
-        <td-icon name="coin" [size]="14"></td-icon>
-        <span class="td-header-sell-value">+{{ stats().sellValue }}</span>
+    <span class="td-progress tp-rank-bar" aria-hidden="true">
+      <span [style.width.%]="veteran().progress * 100"></span>
+    </span>
+  </div>
+
+  <!-- Targeting -->
+  <div class="td-seg tp-targets">
+    @for (s of targetingStrategies(); track s.id) {
+      <button type="button" [disabled]="viewOnly()"
+              [matTooltip]="s.tooltip" matTooltipPosition="above"
+              [attr.aria-label]="'Target: ' + s.label"
+              [attr.aria-pressed]="tower().targetingStrategy === s.id"
+              (click)="onChangeTargeting(s.id)">
+        <td-icon [name]="$any(s.icon)" [size]="18"></td-icon>
       </button>
     }
-    <button class="td-matrix-btn" type="button" (click)="openDamageMatrix()"
-            aria-label="Damage vs armor" matTooltip="Damage vs armor" matTooltipPosition="left">
-      <td-icon name="info" [size]="12"></td-icon>
+    <button type="button" class="tp-hold" [disabled]="viewOnly()"
+            [matTooltip]="tower().holdFire ? 'Holding fire: click to attack again' : 'Hold fire: the tower stops attacking'"
+            matTooltipPosition="above"
+            aria-label="Hold fire" [attr.aria-pressed]="tower().holdFire"
+            (click)="onToggleHoldFire()">
+      <td-icon name="pause" [size]="18"></td-icon>
     </button>
+    @if (canMan() && !viewOnly()) {
+      <button type="button"
+              matTooltip="Get in and fire it yourself (C): mouse aims, left button fires, Esc gets out"
+              matTooltipPosition="above"
+              aria-label="Get into the tower and fire it yourself"
+              (click)="takeControl.emit(tower())">
+        <td-icon name="gamepad" [size]="18"></td-icon>
+      </button>
+    }
   </div>
-  <div class="td-panel-content td-tower-section">
-    <!-- Stats grid: type, damage, fire rate on top; range, DPS, kills, damage dealt below -->
-    <div class="td-stats-grid td-stats-grid-7">
-      <div class="td-stat-tile td-stat-tile-dmgtype"
-           [style.border-color]="damageTypeUI[tower().typeConfig.damageType].color">
-        <td-icon class="td-stat-icon" [size]="18"
-          [style.color]="damageTypeUI[tower().typeConfig.damageType].color"
-          [name]="damageTypeIcon(tower().typeConfig.damageType)"></td-icon>
-        <span class="td-stat-value td-stat-value-small">{{ damageTypeUI[tower().typeConfig.damageType].label }}</span>
-        <span class="td-stat-label">Type</span>
-      </div>
-      <div class="td-stat-tile">
-        <td-icon class="td-stat-icon td-icon-damage" name="flame" [size]="18"></td-icon>
-        <span class="td-stat-value td-val-damage">{{ stats().damage | number:'1.0-0' }}</span>
-        <span class="td-stat-label">Damage</span>
-      </div>
-      <div class="td-stat-tile">
-        <td-icon class="td-stat-icon td-icon-firerate" name="speed" [size]="18"></td-icon>
-        <span class="td-stat-value">{{ stats().fireRate | number:'1.2-2' }}/s</span>
-        <span class="td-stat-label">Fire Rate</span>
-      </div>
-      <div class="td-stat-tile">
-        <td-icon class="td-stat-icon td-icon-range" name="target" [size]="18"></td-icon>
-        <span class="td-stat-value">{{ stats().range | number:'1.0-0' }}m</span>
-        <span class="td-stat-label">Range</span>
-      </div>
-      <div class="td-stat-tile">
-        <td-icon class="td-stat-icon td-icon-firerate" name="bolt" [size]="18"></td-icon>
-        <span class="td-stat-value">{{ stats().dps | number:'1.0-0' }}</span>
-        <span class="td-stat-label">DPS</span>
-      </div>
-      <div class="td-stat-tile"
-           matTooltip="Killing blows since it was built" matTooltipPosition="above">
-        <td-icon class="td-stat-icon td-icon-kills" name="shield" [size]="18"></td-icon>
-        <span class="td-stat-value td-val-kills">{{ stats().kills }}</span>
-        <span class="td-stat-label">Kills</span>
-      </div>
-      <div class="td-stat-tile"
-           matTooltip="Damage dealt since it was built, overkill not counted" matTooltipPosition="above">
-        <td-icon class="td-stat-icon td-icon-kills" name="sword" [size]="18"></td-icon>
-        <span class="td-stat-value td-val-kills">{{ damageDealt() }}</span>
-        <span class="td-stat-label">Dealt</span>
-      </div>
-    </div>
 
-    <!-- Veteran rank from killing blows, cosmetic: insignia as over the tower, kills to the next rank -->
-    <div class="td-rank-row" [class.td-rank-gold]="veteran().gold" [class.td-rank-recruit]="veteran().level === 0"
-         [matTooltip]="veteranTooltip" matTooltipPosition="above">
-      <td-icon class="td-rank-icon" [name]="veteran().icon" [size]="16" [strokeWidth]="2"></td-icon>
-      <span class="td-rank-name">{{ veteran().name }}</span>
-      <span class="td-rank-count">
-        @if (veteran().nextAt !== null) {
-          {{ veteran().kills }} / {{ veteran().nextAt }} kills
-        } @else {
-          {{ veteran().kills }} kills
-        }
-      </span>
-      <span class="td-rank-bar" aria-hidden="true">
-        <span class="td-rank-bar-fill" [style.width.%]="veteran().progress * 100"></span>
-      </span>
-    </div>
-
-    <!-- Targeting Strategy -->
-    <div class="td-targeting-row">
-      @for (s of targetingStrategies(); track s.id) {
-        <button class="td-targeting-btn" [class.active]="tower().targetingStrategy === s.id"
-                [disabled]="viewOnly()"
+  <!-- Air targets (only while air priority is on) -->
+  @if (tower().targetingStrategy === 'air-priority') {
+    <div class="td-seg tp-targets">
+      @for (s of airSubStrategies; track s.id) {
+        <button type="button" [disabled]="viewOnly()"
                 [matTooltip]="s.tooltip" matTooltipPosition="above"
-                [attr.aria-label]="'Target: ' + s.label"
-                [attr.aria-pressed]="tower().targetingStrategy === s.id"
-                (click)="onChangeTargeting(s.id)">
+                [attr.aria-label]="'Air target: ' + s.label"
+                [attr.aria-pressed]="tower().airSubStrategy === s.id"
+                (click)="onChangeAirSubStrategy(s.id)">
           <td-icon [name]="$any(s.icon)" [size]="18"></td-icon>
         </button>
       }
-      <button class="td-targeting-btn td-hold-fire-btn" [class.active]="tower().holdFire"
-              [disabled]="viewOnly()"
-              [matTooltip]="tower().holdFire ? 'Holding fire: click to attack again' : 'Hold fire: the tower stops attacking'"
-              matTooltipPosition="above"
-              aria-label="Hold fire" [attr.aria-pressed]="tower().holdFire"
-              (click)="onToggleHoldFire()">
-        <td-icon name="pause" [size]="18"></td-icon>
-      </button>
-      @if (canMan() && !viewOnly()) {
-        <button class="td-targeting-btn td-man-btn"
-                matTooltip="Get in and fire it yourself (C): mouse aims, left button fires, Esc gets out"
-                matTooltipPosition="above"
-                aria-label="Get into the tower and fire it yourself"
-                (click)="takeControl.emit(tower())">
-          <td-icon name="gamepad" [size]="18"></td-icon>
-        </button>
-      }
     </div>
+  }
 
-    <!-- Air Sub-Strategy (only when air-priority active) -->
-    @if (tower().targetingStrategy === 'air-priority') {
-      <div class="td-targeting-row td-sub-targeting-row">
-        @for (s of airSubStrategies; track s.id) {
-          <button class="td-targeting-btn" [class.active]="tower().airSubStrategy === s.id"
-                  [disabled]="viewOnly()"
-                  [matTooltip]="s.tooltip" matTooltipPosition="above"
-                  [attr.aria-label]="'Air target: ' + s.label"
-                  [attr.aria-pressed]="tower().airSubStrategy === s.id"
-                  (click)="onChangeAirSubStrategy(s.id)">
-            <td-icon [name]="$any(s.icon)" [size]="18"></td-icon>
-          </button>
-        }
-      </div>
+  <!-- Upgrades -->
+  <div class="td-stack tp-upgrades">
+    @if (!viewOnly() && hintView().refusalText; as reason) {
+      <p class="td-banner is-warn" role="status">{{ reason }}</p>
     }
+    @for (upgrade of tower().getAvailableUpgrades(); track upgrade.id) {
+      @let refused = isUpgradeRefused(upgrade.id);
+      <!-- aria-disabled, not disabled: a click on a plate it cannot buy says why -->
+      <button
+        class="td-plate-btn upgrade-tile"
+        [class.is-locked]="!isUpgradeTierUnlocked(upgrade.id)"
+        [class.is-flash]="hintView().flashId === upgrade.id && !hintView().flashAlt"
+        [class.is-flash-alt]="hintView().flashId === upgrade.id && hintView().flashAlt"
+        [attr.aria-disabled]="refused || viewOnly()"
+        (click)="onUpgradeTower(upgrade.id, $event)"
+        [matTooltip]="(getUpgradeTierLockReason(upgrade.id) ?? upgrade.description) + (viewOnly() ? '' : upgradeManyHint)"
+        matTooltipPosition="left"
+      >
+        <td-icon [size]="18" [name]="isUpgradeTierUnlocked(upgrade.id) ? 'arrowUp' : 'lock'"></td-icon>
+        <span class="td-plate-label">
+          <span class="td-name">{{ upgrade.name }} <span class="td-caps">T{{ getRequiredUpgradeTier(upgrade.id) }}</span></span>
+          <span class="td-sub">Level {{ tower().getUpgradeLevel(upgrade.id) + 1 }} of {{ upgrade.maxLevel }}</span>
+        </span>
+        @if (!viewOnly()) {
+          <span class="td-figure">{{ tower().getNextUpgradeCost(upgrade.id) }}</span>
+        }
+      </button>
+    }
+  </div>
 
-    <!-- Upgrades Section -->
-    <div class="td-upgrades-section">
-      @if (!viewOnly() && hintView().refusalText; as reason) {
-        <div class="td-upgrade-hint" role="status">
-          <td-icon name="warn" [size]="12"></td-icon>
-          <span>{{ reason }}</span>
+  <!-- Path: a one-click upgrade bought once per tower (configs/tower-paths.config.ts) -->
+  @if (paths().length > 0) {
+    <div class="td-stack tp-paths">
+      @if (chosenPath(); as path) {
+        <div class="td-inline tp-path-chosen" [matTooltip]="path.description" matTooltipPosition="left">
+          <td-icon class="td-tone-brass" name="eye" [size]="16"></td-icon>
+          <span class="td-name">{{ path.name }}</span>
+          <span class="td-caps">path</span>
         </div>
-      }
-      @if (tower().getAvailableUpgrades().length > 0) {
-        @for (upgrade of tower().getAvailableUpgrades(); track upgrade.id) {
-          @let refused = isUpgradeRefused(upgrade.id);
-          <!-- aria-disabled, not disabled: a click on a tile it cannot buy says why -->
-          <button
-            class="td-upgrade-tile"
-            [class.td-upgrade-affordable]="!refused"
-            [class.td-upgrade-tier-locked]="!isUpgradeTierUnlocked(upgrade.id)"
-            [class.td-upgrade-flash]="hintView().flashId === upgrade.id && !hintView().flashAlt"
-            [class.td-upgrade-flash-alt]="hintView().flashId === upgrade.id && hintView().flashAlt"
-            [attr.aria-disabled]="refused || viewOnly()"
-            (click)="onUpgradeTower(upgrade.id, $event)"
-            [matTooltip]="(getUpgradeTierLockReason(upgrade.id) ?? upgrade.description) + (viewOnly() ? '' : upgradeManyHint)"
-            matTooltipPosition="left"
-          >
-            <td-icon class="td-upgrade-icon" [size]="18"
-              [name]="isUpgradeTierUnlocked(upgrade.id) ? 'arrowUp' : 'lock'"></td-icon>
-            <div class="td-upgrade-info">
-              <span class="td-upgrade-name">{{ upgrade.name }} <span class="td-upgrade-tier-badge">T{{ getRequiredUpgradeTier(upgrade.id) }}</span></span>
-              <span class="td-upgrade-desc">Lv.{{ tower().getUpgradeLevel(upgrade.id) + 1 }}/{{ upgrade.maxLevel }}</span>
-            </div>
+      } @else {
+        @for (path of paths(); track path.id) {
+          @let unlocked = isPathUnlocked(path);
+          <button class="td-plate-btn"
+                  [class.is-locked]="!unlocked"
+                  [attr.aria-disabled]="!unlocked || store.credits() < path.cost || viewOnly()"
+                  [matTooltip]="pathTooltip(path)" matTooltipPosition="left"
+                  (click)="onChoosePath(path.id)">
+            <td-icon [size]="18" [name]="unlocked ? 'eye' : 'lock'"></td-icon>
+            <span class="td-plate-label">
+              <span class="td-name">{{ path.name }} <span class="td-caps">path</span></span>
+              <span class="td-sub">once per tower</span>
+            </span>
             @if (!viewOnly()) {
-              <span class="td-upgrade-cost">{{ tower().getNextUpgradeCost(upgrade.id) }}</span>
+              <span class="td-figure">{{ path.cost }}</span>
             }
           </button>
         }
       }
     </div>
-
-    <!-- Path: a one-click upgrade bought once per tower (configs/tower-paths.config.ts) -->
-    @if (paths().length > 0) {
-      <div class="td-path-section">
-        @if (chosenPath(); as path) {
-          <div class="td-path-chosen" [matTooltip]="path.description" matTooltipPosition="left">
-            <td-icon name="eye" [size]="16"></td-icon>
-            <span class="td-upgrade-name">{{ path.name }}</span>
-            <span class="td-path-tag">path</span>
-          </div>
-        } @else {
-          @for (path of paths(); track path.id) {
-            @let unlocked = isPathUnlocked(path);
-            <button class="td-upgrade-tile td-path-tile"
-                    [class.td-upgrade-affordable]="unlocked && store.credits() >= path.cost"
-                    [class.td-upgrade-tier-locked]="!unlocked"
-                    [attr.aria-disabled]="!unlocked || store.credits() < path.cost || viewOnly()"
-                    [matTooltip]="pathTooltip(path)" matTooltipPosition="left"
-                    (click)="onChoosePath(path.id)">
-              <td-icon class="td-upgrade-icon" [size]="18" [name]="unlocked ? 'eye' : 'lock'"></td-icon>
-              <div class="td-upgrade-info">
-                <span class="td-upgrade-name">{{ path.name }} <span class="td-path-tag">path</span></span>
-                <span class="td-upgrade-desc">once per tower</span>
-              </div>
-              @if (!viewOnly()) {
-                <span class="td-upgrade-cost">{{ path.cost }}</span>
-              }
-            </button>
-          }
-        }
-      </div>
-    }
-
-  </div>
-</section>
+  }
+</div>

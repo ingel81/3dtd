@@ -68,7 +68,7 @@ src/app/
 ├── sim/                        # Simulation im Worker: core/ (SimCore), worker/, protocol/ (Paket, Ops, Events), client/ (SimClient, Spiegel)
 ├── services/                   # Angular Services (Subfolders: combat/, debug/, facade/, infrastructure/, location/, onboarding/, world/)
 ├── store/                      # Signal Stores (Game, UI, Engine, Location, Research, Debug)
-├── styles/                     # Theme-Tokens (td-theme.ts)
+├── styles/                     # Design System: Tokens (td-theme.ts), Rezepte und td-*-Klassen (ui/), Wächter-Spec
 ├── three-engine/               # 3D Rendering: Engine, CameraRig, Tiles, renderers/ (inkl. Shader), post-processing/
 ├── utils/                      # Shared Utilities (geo-utils, damage-calculator, global-route-grid, route-corridor, game-rng)
 └── workers/                    # Web Worker: Heartbeat für den Loop im versteckten Tab
@@ -141,7 +141,7 @@ Partikel; Game Design und Balance; Berichte und Sprint-Handover; Pläne; Archiv)
 | Framework | Angular 22 (Node >= 22.22.3 bzw. 24.15, npm 11) |
 | 3D Engine | Three.js 0.186 |
 | 3D Tiles | 3DTilesRendererJS 0.5.2 |
-| UI | Angular Material 22 |
+| UI | Eigenes Design System (`styles/`, [DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)); Angular Material 22 nur für Dialog, Tooltip, Spinner |
 | Maps | Google Photorealistic 3D Tiles über Cesium Ion (Standard) oder die Google Maps API |
 | Straßen | OpenStreetMap über Overpass |
 | Geocoding | OpenStreetMap Nominatim |

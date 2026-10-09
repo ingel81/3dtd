@@ -1,0 +1,72 @@
+// Layout pieces that recur in every dialog and page: a column, a wrapping
+// line, the action row, groups parted by engraved lines, a setting line.
+// Spacing comes from the --td-sp-* tokens.
+@use 'base';
+
+// Children in a column
+@mixin stack($gap: var(--td-sp-3)) {
+  display: flex;
+  flex-direction: column;
+  gap: $gap;
+  min-width: 0;
+}
+
+// Children in a line that wraps
+@mixin inline($gap: var(--td-sp-2) var(--td-sp-4)) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $gap;
+  min-width: 0;
+}
+
+// The buttons of a place, right-aligned; is-start puts them left, is-split
+// puts the first group left and the rest right
+@mixin actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+
+  &.is-start { justify-content: flex-start; }
+  &.is-split { justify-content: space-between; }
+}
+
+// A group of a page or dialog: its head and content in a column; a group
+// after a group has an engraved line over it
+@mixin group {
+  @include stack(10px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  & + & {
+    padding-top: var(--td-sp-4);
+    @include base.engraved-line-top;
+  }
+}
+
+// Where a chip over the map stands (blood moon, moving the HQ): centred, 18 %
+// under the top of the map, never in the way of a click. On the host.
+@mixin chip-slot {
+  position: absolute;
+  top: 18%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+// A setting: its name left, its control right
+@mixin setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--td-sp-4);
+  min-height: var(--td-h-field);
+  font-size: var(--td-fs-text);
+  color: var(--td-text-primary);
+}

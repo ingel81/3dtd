@@ -29,7 +29,7 @@ export function pingBarCount(ms: number | null): number {
         <i [class.is-off]="bar > lit()"></i>
       }
     </span>
-    <b aria-hidden="true">{{ ms() === null ? '-' : ms() + ' ms' }}</b>
+    <b class="td-note td-num" aria-hidden="true">{{ ms() === null ? '-' : ms() + ' ms' }}</b>
   `,
   styles: `
     :host {
@@ -53,18 +53,17 @@ export function pingBarCount(ms: number | null): number {
     i:nth-child(3) { height: 10px; }
     i:nth-child(4) { height: 12px; }
     i.is-off {
-      background: var(--td-frame-dark);
+      background: var(--td-line-dark);
     }
     b {
-      font: 400 11px var(--td-font-mono);
+      font-weight: 500;
       white-space: nowrap;
-      color: var(--td-text-secondary);
     }
     :host(.is-warn) i:not(.is-off) {
       background: var(--td-warn-orange);
     }
     :host(.is-warn) b {
-      color: var(--td-warn-orange);
+      color: var(--td-warn-text);
     }
   `,
 })

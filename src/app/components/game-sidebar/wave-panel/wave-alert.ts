@@ -168,7 +168,7 @@ export function waveAlertView(alert: WaveAlert, airTargetingUnlocked: boolean): 
     return {
       kind: 'camo',
       icon: 'eyeOff',
-      title: `Camo · Wave ${alert.wave}`,
+      title: `Camo | Wave ${alert.wave}`,
       when,
       defense: n === 0 ? 'No scout yet' : `${n} ${n === 1 ? 'scout' : 'scouts'}`,
       covered: n > 0,
@@ -180,7 +180,7 @@ export function waveAlertView(alert: WaveAlert, airTargetingUnlocked: boolean): 
     return {
       kind: 'air',
       icon: 'plane',
-      title: `Air · Wave ${alert.wave}`,
+      title: `Air | Wave ${alert.wave}`,
       when,
       defense: n === 0 ? 'No tower hits air yet' : `${n} ${n === 1 ? 'tower hits' : 'towers hit'} air`,
       covered: n > 0,
@@ -190,7 +190,7 @@ export function waveAlertView(alert: WaveAlert, airTargetingUnlocked: boolean): 
   return {
     kind: 'ethereal',
     icon: 'ghost',
-    title: `Ethereal · Wave ${alert.wave}`,
+    title: `Ethereal | Wave ${alert.wave}`,
     when,
     defense: n === 0 ? 'No tower hurts ethereal yet' : `${n} ${n === 1 ? 'tower hurts' : 'towers hurt'} ethereal`,
     covered: n > 0,

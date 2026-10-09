@@ -1,10 +1,8 @@
-@use '../../styles/game-ui' as mix;
-
-// Research dialog, after the research-tree design: a head bar with the run's
-// numbers, a tier gutter, the tree in a sunken well, queue and detail beside
-// it, a legend below. Bars and panels are plates of the foundation
-// (styles/_game-ui.scss), the head a title plate; the well is the only thing
-// that scrolls.
+// Layout of the research screen: one plaster panel over the whole window; a
+// head with the run's numbers, the rubric, the tree in a sunken well with
+// the tier gutter, queue and detail beside it, a legend at the foot. The
+// well is the only thing that scrolls. State and strand colours are data
+// (--td-node-*, --td-branch-*); everything else comes from the td-* classes.
 
 :host {
   display: block;
@@ -17,28 +15,7 @@
   flex-direction: column;
   gap: 12px;
   height: 100%;
-  padding: 18px 20px 16px;
-  background: color-mix(in srgb, var(--td-bg-dark) 96%, transparent);
-  font-family: var(--td-font-body);
-  color: var(--td-text-primary);
-}
-
-// Screen readers get the instructions; on screen the legend says it shorter.
-.td-rd-sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-// === Plate: the frame every strip and panel shares ===
-
-.td-rd-bar {
-  @include mix.plate(var(--td-cut-sm));
+  padding: 18px 22px 14px;
 }
 
 // === Head ===
@@ -48,111 +25,44 @@
   display: flex;
   align-items: center;
   gap: 20px;
-  height: 58px;
-  padding: 0 18px;
-
-  // Title plate: the brass edge on top
-  &::before {
-    background:
-      linear-gradient(var(--td-line-brass), var(--td-line-brass)) top / 100% 2px no-repeat,
-      var(--td-plate-head);
-  }
-
-  h2 {
-    @include mix.title;
-  }
+  padding-bottom: 10px;
 }
 
 .td-rd-seam {
   flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, var(--td-rune-amber-muted), rgba(107, 83, 32, 0.25) 60%, transparent);
 }
 
-.td-rd-prog {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-
-  > span {
-    font-family: var(--td-font-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--td-text-muted);
-  }
-
-  > b {
-    font-family: var(--td-font-mono);
-    font-size: 13px;
-    font-weight: 500;
-  }
-}
-
-// One segment per research, in tree order.
-.td-rd-segs {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  background: rgba(11, 15, 12, 0.55);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
-
-  i {
-    width: 6px;
-    height: 12px;
-    background: var(--td-panel-main);
-    box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.08);
-  }
-
-  .td-seg-completed {
-    background: linear-gradient(180deg, var(--td-green), var(--td-green-dark));
-  }
-
-  .td-seg-active {
-    background: linear-gradient(180deg, var(--td-gold-light), var(--td-gold-dark));
-  }
-}
-
+.td-rd-prog,
 .td-rd-readout {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 7px 14px;
-  background: rgba(11, 15, 12, 0.55);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.1);
+}
 
-  span {
-    font-family: var(--td-font-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--td-text-muted);
+// One segment per research, in tree order
+.td-rd-segs {
+  width: auto;
+  height: 14px;
+
+  i {
+    flex: 0 0 6px;
   }
 
-  b {
-    font-family: var(--td-font-mono);
-    font-size: 14px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
+  .td-seg-completed {
+    background: var(--td-green-dark);
   }
 
-  &.td-gold b {
-    color: var(--td-gold-light);
+  .td-seg-active {
+    background: var(--td-brass);
   }
 }
 
-.td-rd-dia {
-  width: 7px;
-  height: 7px;
-  transform: rotate(45deg);
-  background: var(--td-rune-amber);
-  box-shadow: 0 0 0 1px var(--td-gold-dark);
+.td-rd-credits {
+  color: var(--td-brass-light);
 }
 
-.td-rd-close {
-  @include mix.btn-secondary;
+.td-rd-short {
+  color: var(--td-warn-text);
 }
 
 // === Rubric strip ===
@@ -161,76 +71,20 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 13px;
+  gap: 16px;
+}
+
+.td-rd-players {
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .td-rd-tab {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 18px;
-  font-family: var(--td-font-display);
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--td-text-secondary);
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-
-  &.td-on {
-    color: var(--td-gold-light);
-    background: var(--td-plate);
-    border-color: var(--td-frame-mid);
-    box-shadow:
-      inset 3px 0 0 var(--td-rune-amber),
-      inset 0 1px 0 rgba(167, 179, 168, 0.14);
-  }
-
-  td-icon {
-    color: var(--td-gold);
-  }
+  gap: 8px;
 }
 
-// Coop: one tab a player (TODO E35). The same tab, as a button.
-.td-rd-players {
-  display: flex;
-  gap: 6px;
-  min-width: 0;
-  overflow-x: auto;
-
-  .td-rd-tab {
-    flex: none;
-    cursor: pointer;
-
-    &:not(.td-on):hover {
-      color: var(--td-text-primary);
-      border-color: var(--td-frame-mid);
-    }
-
-    @include mix.focus-ring;
-  }
-}
-
-.td-rd-tabsep {
-  flex: none;
-  width: 1px;
-  height: 24px;
-  margin: 0 6px;
-  background: var(--td-frame-mid);
-}
-
-// A partner's tree in the head, where this player's credits would be
-.td-rd-viewonly {
-  padding: 5px 9px;
-  font-family: var(--td-font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--td-text-secondary);
-  border: 1px solid var(--td-frame-dark);
+.td-rd-rubric {
+  gap: 8px;
 }
 
 // === Body ===
@@ -239,8 +93,8 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
 }
 
 // The board holds both: the tier marks in a lane on the left and the tree
@@ -258,7 +112,6 @@
   bottom: 0;
   left: 0;
   width: 44px;
-  border-right: 1px solid var(--td-frame-dark);
 }
 
 .td-rd-tier {
@@ -270,38 +123,29 @@
   gap: 2px;
 
   b {
-    font-family: var(--td-font-display);
-    font-size: 16px;
+    font-size: var(--td-fs-lead);
     font-weight: 700;
-    letter-spacing: 0.06em;
     color: var(--td-frame-light);
   }
 
   i {
-    font-family: var(--td-font-mono);
-    font-size: 8.5px;
     font-style: normal;
-    letter-spacing: 0.2em;
-    color: var(--td-text-disabled);
   }
 
-  // The tick that ties the mark to its row.
+  // The tick that ties the mark to its row
   &::after {
     content: '';
     position: absolute;
-    top: 9px;
+    top: 10px;
     right: -14px;
     width: 9px;
     height: 1px;
-    background: var(--td-frame-mid);
+    background: var(--td-line-dark);
   }
 
-  &.td-on b {
-    color: var(--td-gold);
-  }
-
+  &.td-on b,
   &.td-on i {
-    color: var(--td-rune-amber);
+    color: var(--td-brass);
   }
 }
 
@@ -311,61 +155,28 @@
   margin-top: 2px;
 
   u {
-    width: 4px;
-    height: 4px;
-    transform: rotate(45deg);
-    background: var(--td-tree-line);
+    --td-mark: var(--td-tree-line);
     text-decoration: none;
   }
 
   .td-dot-completed {
-    background: var(--td-green-dark);
+    --td-mark: var(--td-green-dark);
   }
 
   .td-dot-available,
   .td-dot-poor,
   .td-dot-active,
   .td-dot-queued {
-    background: var(--td-rune-amber);
+    --td-mark: var(--td-brass);
   }
 }
 
-// The well: the tree lies in it, and it is the only thing that scrolls.
+// The well: the tree lies in it, and it is the only thing that scrolls
 .td-rd-well {
   position: relative;
   overflow: auto;
   padding: 24px;
-  background-color: var(--td-tree-well);
-  // Blueprint grid, barely there: gives the board a surface to lie on.
-  background-image:
-    linear-gradient(rgba(167, 179, 168, 0.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(167, 179, 168, 0.028) 1px, transparent 1px);
-  background-size: 100% 40px, 40px 100%;
-  border: 1px solid var(--td-frame-mid);
-  box-shadow:
-    inset 0 2px 8px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(167, 179, 168, 0.06);
-  @include mix.scrollbar;
-
-  &::-webkit-scrollbar {
-    @include mix.webkit-scrollbar;
-  }
-
-  &::-webkit-scrollbar-track {
-    @include mix.webkit-scrollbar-track;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    @include mix.webkit-scrollbar-thumb;
-  }
-
-  &::-webkit-scrollbar-thumb:hover {
-    @include mix.webkit-scrollbar-thumb-hover;
-  }
-
-  &::-webkit-scrollbar-corner {
-    @include mix.webkit-scrollbar-corner;
-  }
+  background: var(--td-tree-well);
 }
 
 // === Right column ===
@@ -374,40 +185,21 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .td-rd-panhead {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
-  padding: 9px 13px;
-  background: linear-gradient(180deg, rgba(47, 54, 49, 0.55), rgba(26, 31, 27, 0.55));
-  border-bottom: 1px solid var(--td-panel-shadow);
-  box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.12);
-
-  h3 {
-    margin: 0;
-    font-family: var(--td-font-display);
-    font-size: 12.5px;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--td-gold-light);
-  }
 }
 
 .td-rd-r {
   margin-left: auto;
-  font-family: var(--td-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
 }
 
 .td-rd-panbody {
-  padding: 13px;
+  padding-top: 10px;
 }
 
 // Queue
@@ -420,134 +212,46 @@
   .td-rd-panbody {
     min-height: 0;
     overflow: auto;
-    @include mix.scrollbar;
   }
 
   ol {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
     margin: 0;
     padding: 0;
     list-style: none;
   }
-
-  li {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 8px 9px;
-    background: rgba(11, 15, 12, 0.4);
-    border: 1px dashed var(--td-frame-dark);
-    box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.07);
-  }
-
-  // The glyph decides the box, not the other way round: a 12px icon needs
-  // more than 10px of height or it sits off centre.
-  button {
-    flex: none;
-    display: grid;
-    place-items: center;
-    width: 20px;
-    height: 13px;
-    padding: 0;
-    line-height: 0;
-    color: var(--td-text-muted);
-    background: rgba(11, 15, 12, 0.5);
-    border: 1px solid var(--td-frame-dark);
-    cursor: pointer;
-    transition: border-color 120ms ease, color 120ms ease;
-
-    &:hover:not(:disabled) {
-      border-color: var(--td-frame-light);
-      color: var(--td-gold);
-    }
-
-    &:disabled {
-      opacity: 0.35;
-      cursor: default;
-    }
-  }
 }
 
 .td-rd-hint {
-  margin: 0 0 10px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--td-text-muted);
+  margin-bottom: 8px;
 }
 
-.td-rd-empty {
-  margin: 0;
-  padding: 14px 10px;
-  font-family: var(--td-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-align: center;
-  text-transform: uppercase;
-  color: var(--td-text-disabled);
-  border: 1px dashed var(--td-frame-dark);
-}
-
-.td-rd-qn {
-  flex: none;
-  width: 19px;
-  height: 19px;
-  display: grid;
-  place-items: center;
-  font-family: var(--td-font-mono);
-  font-size: 10.5px;
-  color: var(--td-gold);
-  background: rgba(11, 15, 12, 0.6);
-  border: 1px solid var(--td-gold-dark);
+.td-rd-qrow {
+  justify-content: flex-start;
+  gap: 8px;
 }
 
 .td-rd-qi {
   flex: none;
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  color: var(--td-rune-amber);
-  background: rgba(11, 15, 12, 0.5);
-  border: 1px solid var(--td-frame-dark);
+  color: var(--td-brass);
 }
 
 .td-rd-qname {
   flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12.5px;
-  color: var(--td-text-secondary);
-}
-
-.td-rd-qcost {
-  font-family: var(--td-font-mono);
-  font-size: 11.5px;
-  color: var(--td-rune-amber);
-
-  &.td-short {
-    color: var(--td-warn-orange);
-  }
 }
 
 .td-rd-qmove {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+
+  .td-tool {
+    width: 22px;
+    height: 14px;
+  }
 }
 
-.td-rd-queue .td-rd-qx {
-  // As tall as the two move buttons and the gap between them.
-  height: 27px;
-  width: 22px;
-
-  &:hover {
-    border-color: var(--td-node-poor-hover);
-    color: var(--td-warn-orange);
-  }
+.td-rd-qx {
+  width: 24px;
+  height: 28px;
 }
 
 // Detail panel
@@ -564,7 +268,6 @@
     flex-direction: column;
     gap: 12px;
     overflow: auto;
-    @include mix.scrollbar;
   }
 }
 
@@ -574,150 +277,47 @@
   gap: 11px;
 
   h4 {
-    margin: 0;
-    font-family: var(--td-font-display);
-    font-size: 16px;
-    font-weight: 600;
-    line-height: 1.2;
+    font-size: var(--td-fs-lead);
   }
 }
 
 .td-rd-idico {
   flex: none;
-  width: 46px;
-  height: 46px;
   display: grid;
   place-items: center;
-  color: var(--td-gold);
-  background: rgba(11, 15, 12, 0.5);
-  border: 1px solid var(--td-frame-mid);
-  box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.1);
-
-  &[data-branch='arcane'] {
-    color: var(--td-teal);
-  }
-
-  &[data-branch='biology'] {
-    color: var(--td-branch-biology);
-  }
-
-  &[data-branch='engineering'] {
-    color: var(--td-branch-engineering);
-  }
+  width: 46px;
+  height: 46px;
+  // The strand's colour (data-branch sets --td-mark), brass for ballistics
+  color: var(--td-mark, var(--td-brass));
 }
 
 .td-rd-idcat {
-  margin: 4px 0 0;
-  font-family: var(--td-font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
+  margin-top: 4px;
 }
 
 .td-rd-state {
-  display: inline-flex;
   align-self: flex-start;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 9px;
-  font-family: var(--td-font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
-  border: 1px solid var(--td-frame-dark);
 
-  .td-rd-dot {
-    width: 5px;
-    height: 5px;
-    transform: rotate(45deg);
-    background: currentcolor;
-  }
+  --td-mark: currentcolor;
 
-  &[data-s='available'] {
-    color: var(--td-gold);
-    border-color: var(--td-gold-dark);
-  }
-
-  &[data-s='active'] {
-    color: var(--td-teal);
-    border-color: var(--td-teal-dark);
-  }
-
-  &[data-s='queued'] {
-    color: var(--td-rune-amber);
-    border-color: var(--td-gold-dark);
-  }
-
-  &[data-s='completed'] {
-    color: var(--td-green);
-    border-color: var(--td-green-dark);
-  }
-
-  &[data-s='poor'] {
-    color: var(--td-warn-orange);
-    border-color: var(--td-node-poor-mark);
-  }
-}
-
-.td-rd-eff {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--td-text-secondary);
+  &[data-s='available'] { color: var(--td-brass); }
+  &[data-s='active'] { color: var(--td-teal); }
+  &[data-s='queued'] { color: var(--td-brass-dark); }
+  &[data-s='completed'] { color: var(--td-green); }
+  &[data-s='poor'] { color: var(--td-warn-text); }
 }
 
 .td-rd-stats {
-  display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1px;
-  background: var(--td-frame-dark);
-  border: 1px solid var(--td-frame-dark);
-
-  div {
-    padding: 9px 11px;
-    background: var(--td-panel-secondary);
-  }
 
   // A third line (the wave a research opens at) takes the whole width
   .td-rd-wide {
     grid-column: 1 / -1;
   }
-
-  span {
-    display: block;
-    font-family: var(--td-font-mono);
-    font-size: var(--td-fs-micro);
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--td-text-muted);
-  }
-
-  b {
-    display: block;
-    margin-top: 3px;
-    font-family: var(--td-font-mono);
-    font-size: 15px;
-    font-weight: 500;
-  }
-
-  .td-gold {
-    color: var(--td-gold-light);
-  }
-
-  .td-warn {
-    color: var(--td-warn-orange);
-  }
 }
 
-.td-rd-lab {
-  margin: 0 0 6px;
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-micro);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
+.td-rd-reqs {
+  gap: 6px;
 }
 
 .td-rd-req {
@@ -732,28 +332,18 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12.5px;
-    color: var(--td-text-muted);
-  }
-
-  b {
-    width: 12px;
-    text-align: center;
-    font-family: var(--td-font-mono);
-    font-size: 11px;
-    font-weight: 400;
   }
 
   .td-ok {
     color: var(--td-text-secondary);
 
-    b {
+    td-icon {
       color: var(--td-teal);
     }
   }
 
-  .td-no b {
-    color: var(--td-warn-orange);
+  .td-no td-icon {
+    color: var(--td-warn-text);
   }
 }
 
@@ -762,25 +352,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
 
-.td-rd-btn {
-  @include mix.btn-primary(40px);
-  width: 100%;
-
-  &.td-ghost {
-    @include mix.btn-secondary(40px);
+  button {
     width: 100%;
-    box-shadow: none;
-    filter: none;
   }
-}
-
-.td-rd-note {
-  margin: 0;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--td-text-muted);
 }
 
 // === Footer ===
@@ -790,8 +365,7 @@
   display: flex;
   align-items: center;
   gap: 24px;
-  height: 46px;
-  padding: 0 18px;
+  padding-top: 10px;
 }
 
 .td-rd-legend {
@@ -803,93 +377,31 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    font-family: var(--td-font-mono);
-    font-size: 9.5px;
     font-style: normal;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--td-text-muted);
   }
 
-  i::before {
-    content: '';
-    width: 16px;
-    height: 2px;
-    background: var(--td-frame-mid);
-  }
-
-  .td-l-done::before {
-    background: var(--td-green-dark);
-  }
-
-  .td-l-act::before {
-    background: var(--td-teal);
-  }
-
-  .td-l-open::before {
-    background: var(--td-rune-amber);
-  }
-
-  .td-l-lock::before {
-    background: repeating-linear-gradient(90deg, var(--td-frame-mid) 0 3px, transparent 3px 8px);
-  }
+  .td-l-done { --td-mark: var(--td-green-dark); }
+  .td-l-act { --td-mark: var(--td-teal); }
+  .td-l-open { --td-mark: var(--td-brass); }
+  .td-l-lock { --td-mark: var(--td-tree-line); }
 }
 
 .td-rd-chips {
-  display: flex;
   gap: 7px;
   padding-left: 20px;
-  border-left: 1px solid var(--td-frame-dark);
 
-  span {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 6px 12px;
-    font-family: var(--td-font-mono);
-    font-size: 9.5px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--td-text-muted);
-    background: rgba(11, 15, 12, 0.4);
-    border: 1px solid var(--td-frame-dark);
-    box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.07);
-  }
-
-  span::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    transform: rotate(45deg);
-    background: var(--td-gold);
-  }
-
-  span[data-branch='arcane']::before {
-    background: var(--td-teal);
-  }
-
-  span[data-branch='biology']::before {
-    background: var(--td-branch-biology);
-  }
-
-  span[data-branch='engineering']::before {
-    background: var(--td-branch-engineering);
-  }
 
   b {
-    font-size: 10px;
-    font-weight: 400;
+    font-weight: 500;
     color: var(--td-text-secondary);
   }
 }
 
 .td-rd-foothint {
   margin-left: auto;
-  font-size: 12.5px;
-  color: var(--td-text-muted);
 }
 
-// Narrow window: the board keeps the room, the side column steps aside.
+// Narrow window: the board keeps the room, the side column steps aside
 @media (max-width: 1100px) {
   .td-rd-row {
     grid-template-columns: minmax(0, 1fr);

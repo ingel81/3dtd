@@ -1,34 +1,8 @@
-@use '../menu-page' as page;
-@use '../../../../styles/game-ui' as ui;
+// Layout of the coop page: each way with its text left and its button right,
+// the room table's columns, the IP probe. The look comes from the td-* classes.
 
-@include page.classes;
-
-.cw-top { gap: 8px; }
-
-.cw-name { width: 220px; }
-
-.cw-lobby {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.cw-select {
-  height: 32px;
-  padding: 0 8px;
-  border: 1px solid var(--td-line-steel);
-  border-radius: 0;
-  background: var(--td-panel-secondary);
-  color: var(--td-text-primary);
-  font: inherit;
-  font-size: 13px;
-  @include ui.focus-ring;
-}
-
-.cw-code {
-  font-family: var(--td-font-mono);
-  color: var(--td-gold-light);
-  letter-spacing: 0.12em;
+.cw-name {
+  width: 220px;
 }
 
 // One way: its title and line left, its button right
@@ -40,148 +14,33 @@
 }
 
 .cw-way-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
+  gap: var(--td-sp-1);
 }
 
-.cw-way-title {
-  margin: 0;
-  font-family: var(--td-font-display);
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: var(--td-track-title);
-  text-transform: uppercase;
-  color: var(--td-text-primary);
-}
-
-.code-row {
-  display: flex;
-  gap: 8px;
-
-  .codein {
-    width: 120px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-  }
+.codein {
+  width: 130px;
 }
 
 .cw-rooms {
-  width: 100%;
-  border: 1px solid var(--td-frame-dark);
-  border-collapse: collapse;
   table-layout: fixed;
-}
 
-.cw-room {
-  font-size: 14px;
-
-  th,
-  td {
-    padding: 8px 6px;
-    text-align: left;
-    vertical-align: middle;
-    font-weight: inherit;
-  }
-
-  th:first-child,
-  td:first-child { padding-left: 12px; }
-
-  > :last-child {
-    width: 64px;
-    padding-right: 12px;
-    text-align: right;
-  }
-
-  > :nth-child(2) { width: 120px; }
-  > :nth-child(3) { width: 70px; }
-
-  & + .cw-room { border-top: 1px solid var(--td-frame-dark); }
-
-  &.is-off { color: var(--td-text-muted); }
-}
-
-.cw-room-head {
-  background: var(--td-panel-shadow);
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-micro);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
-
-  th,
-  td { padding-top: 4px; padding-bottom: 4px; }
-}
-
-tbody .cw-room:first-child { border-top: 1px solid var(--td-frame-dark); }
-
-.cw-room-empty td {
-  color: var(--td-text-secondary);
-  font-size: 13px;
-  text-align: left;
-}
-
-.cw-sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  th:nth-child(2) { width: 120px; }
+  th:nth-child(3) { width: 70px; }
+  .cw-room-head > :last-child { width: 72px; text-align: right; }
+  td:last-child { text-align: right; }
 }
 
 .cw-room-name {
   min-width: 0;
-
-  b,
-  small {
-    display: block;
-  }
-
-  small {
-    margin-top: 2px;
-  }
-
-  b {
-    overflow: hidden;
-    font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  small {
-    font-family: var(--td-font-mono);
-    font-size: 11px;
-    color: var(--td-text-muted);
-  }
-
-  .why { color: var(--td-warn-text); }
-}
-
-.cw-dim { color: var(--td-text-secondary); }
-
-.cw-lan {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
-
-  &.is-off { color: var(--td-text-muted); }
 }
 
 .cw-probe {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 8px;
+  gap: var(--td-sp-2);
   max-width: 360px;
 }
 
 .cw-checks {
-  margin: 0;
   padding-left: 18px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--td-text-secondary);
 }

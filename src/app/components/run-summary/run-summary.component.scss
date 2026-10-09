@@ -1,56 +1,24 @@
+// Layout of the run's balance: the figures in a row of tiles, leaks per wave
+// as bars (height to the worst wave), the top towers as a table.
+
 .run-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  width: min(560px, 80vw);
-  margin: 0 auto;
-  text-align: left;
-  font-family: var(--td-font-body);
-  color: var(--td-text-secondary);
+  gap: var(--td-sp-4);
 }
 
-/* Key figures: one row of dark cells, the number in Oswald over a mono label */
 .run-figures {
-  display: flex;
-  gap: 4px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin: 0;
 }
 
 .run-figure {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: center;
-  gap: 4px;
   padding: 10px 8px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid color-mix(in srgb, var(--td-danger-edge) 25%, var(--td-frame-dark));
-}
-
-.run-figure dt,
-.run-caption {
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-micro);
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
 }
 
 .run-figure dd {
   margin: 0;
-  font-family: var(--td-font-display);
-  font-size: 26px;
-  font-weight: 600;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  color: var(--td-text-primary);
 }
 
 .run-block {
-  display: flex;
-  flex-direction: column;
   gap: 6px;
 }
 
@@ -60,18 +28,11 @@
   margin: 0;
 }
 
-.run-caption-total {
-  letter-spacing: 0.06em;
-  text-transform: none;
-}
-
-/* Leaks per wave: one bar per wave, height relative to the worst wave */
 .run-leaks {
   display: flex;
   align-items: flex-end;
   gap: 1px;
   height: 36px;
-  border-bottom: 1px solid var(--td-frame-mid);
 }
 
 .run-leak-bar {
@@ -79,72 +40,18 @@
   max-width: 14px;
   min-height: 2px;
   background: var(--td-hp-text);
-}
 
-.run-leak-bar.run-leak-none {
-  height: 2px;
-  background: var(--td-frame-dark);
+  &.run-leak-none {
+    height: 2px;
+    background: var(--td-line-dark);
+  }
 }
 
 .run-axis {
   display: flex;
   justify-content: space-between;
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-micro);
-  color: var(--td-text-muted);
-}
-
-/* Top towers */
-.run-towers {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.run-towers td {
-  padding: 4px 0;
-  border-bottom: 1px solid var(--td-frame-dark);
-}
-
-.run-towers tr:last-child td {
-  border-bottom: none;
 }
 
 .run-rank {
   width: 18px;
-  font-family: var(--td-font-mono);
-  color: var(--td-text-muted);
-}
-
-.run-tower-name {
-  color: var(--td-text-primary);
-}
-
-.run-sold {
-  margin-left: 6px;
-  font-size: 10px;
-  color: var(--td-text-muted);
-}
-
-.run-num {
-  padding-left: 12px !important;
-  text-align: right;
-  white-space: nowrap;
-  font-family: var(--td-font-mono);
-  font-variant-numeric: tabular-nums;
-  color: var(--td-text-primary);
-}
-
-.run-unit {
-  font-size: var(--td-fs-micro);
-  color: var(--td-text-muted);
-}
-
-.run-visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
 }

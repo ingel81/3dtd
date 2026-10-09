@@ -1,7 +1,5 @@
-@use '../../styles/td-mixins' as td;
-@use '../coop-ui/coop-ui' as ui;
-
-@include ui.classes;
+// Layout of the join steps: a row per step (mark, label, detail), the one
+// under way lit, the map's progress under it.
 
 :host {
   display: flex;
@@ -9,48 +7,26 @@
 }
 
 .blk {
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--td-frame-dark);
-
-  &.plain { border-bottom: 0; }
-}
-
-.steps {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  padding: 12px var(--td-dock-gutter);
 }
 
 .step {
   display: grid;
   grid-template-columns: 20px 1fr auto;
-  align-items: center;
   gap: 10px;
-  height: 36px;
-  padding: 0 10px;
-  font-size: 13.5px;
-  color: var(--td-text-secondary);
 
-  .mark { display: grid; place-items: center; color: var(--td-teal); }
-  small { font-family: var(--td-font-mono); font-size: 11px; color: var(--td-text-muted); }
-
-  &.is-now {
-    border-left: 2px solid var(--td-gold);
-    background: color-mix(in srgb, var(--td-gold) 7%, transparent);
-    font-weight: 600;
-    color: var(--td-text-primary);
-
-    .mark { color: var(--td-gold); }
-    small { color: var(--td-gold-light); }
+  .mark {
+    display: grid;
+    place-items: center;
+    color: var(--td-teal);
   }
 
   &.is-todo {
     color: var(--td-text-disabled);
 
-    .mark { color: var(--td-text-disabled); }
+    .mark {
+      color: var(--td-text-disabled);
+    }
   }
 }
 
@@ -61,14 +37,6 @@
 }
 
 .bar {
-  height: 6px;
   margin: 4px 10px 0 40px;
-  @include td.sunken;
-
-  i {
-    display: block;
-    height: 100%;
-    background: linear-gradient(90deg, var(--td-gold-dark), var(--td-gold-light));
-    transition: width 0.3s ease;
-  }
+  list-style: none;
 }

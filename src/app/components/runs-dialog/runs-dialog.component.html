@@ -1,45 +1,46 @@
-<div class="dlg">
-  <header class="dlg-head">
-    <h2 class="dlg-title" id="td-runs-dialog-title">Runs</h2>
+<div class="td-dlg">
+  <header class="td-dlg-head">
+    <h2 class="td-dlg-title" id="td-runs-dialog-title">Runs</h2>
     @if (!loading()) {
-      <span class="runs-count">{{ runs().length }} / {{ maxRuns }}</span>
+      <span class="td-note td-num runs-count">{{ runs().length }} / {{ maxRuns }}</span>
     }
-    <button class="icon-btn" type="button" aria-label="Close" (click)="close()">
-      <td-icon name="cross" [size]="16"></td-icon>
+    <button class="td-close" type="button" aria-label="Close" (click)="close()">
+      <td-icon name="close" [size]="12"></td-icon>
     </button>
   </header>
 
-  <div class="dlg-body">
-    <p class="note runs-hint">
+  <div class="td-dlg-body">
+    <p class="td-note">
       The last {{ maxRuns }} runs of this browser. Saving gives you the run as a file.
     </p>
-    <p class="note runs-upload">
+    <p class="td-note">
       Coop run logs to the coop server: {{ uploadRuns ? 'on' : 'off' }}. Change it under Settings, Privacy.
     </p>
 
     @if (loading()) {
-      <p class="runs-empty">Reading…</p>
+      <p class="td-note">Reading…</p>
     } @else if (runs().length === 0) {
-      <p class="runs-empty">No run kept yet. One is written per finished wave.</p>
+      <p class="td-note">No run kept yet. One is written per finished wave.</p>
     } @else {
-      <ul class="runs-list">
+      <ul class="td-rows">
         @for (run of runs(); track run.runId) {
-          <li class="runs-row">
+          <li class="td-row runs-row">
             <span class="runs-wave" role="img" [attr.aria-label]="'Wave ' + run.waveReached">
-              <span class="runs-wave-label">W</span>{{ run.waveReached }}
+              <span class="td-value is-sm" aria-hidden="true">{{ run.waveReached }}</span>
+              <span class="td-caps" aria-hidden="true">Wave</span>
             </span>
             <div class="runs-text">
-              <span class="runs-where" [title]="place(run)">{{ place(run) }}</span>
-              <span class="runs-meta">
+              <span class="td-name runs-where" [title]="place(run)">{{ place(run) }}</span>
+              <span class="td-sub td-inline runs-meta">
                 {{ run.startedAt | date: 'short' }}
-                <span class="runs-who" [class.runs-bot]="run.head.player === 'bot'">{{ who(run) }}</span>
+                <span class="td-caps" [class.runs-human]="run.head.player !== 'bot'">{{ who(run) }}</span>
               </span>
             </div>
-            <button class="icon-btn" type="button" (click)="save(run)"
+            <button class="td-tool" type="button" (click)="save(run)"
                     matTooltip="Save as file" aria-label="Save run as file">
               <td-icon name="download" [size]="16"></td-icon>
             </button>
-            <button class="icon-btn is-danger" type="button" (click)="remove(run)"
+            <button class="td-tool" type="button" (click)="remove(run)"
                     matTooltip="Delete" aria-label="Delete run">
               <td-icon name="trash" [size]="16"></td-icon>
             </button>
@@ -49,19 +50,18 @@
     }
   </div>
 
-  <footer class="dlg-foot">
+  <footer class="td-dlg-foot">
     @if (confirmingClear()) {
-      <span class="confirm-text" role="alert">Delete all {{ runs().length }} runs? This cannot be undone.</span>
-      <button class="btn-secondary" type="button" (click)="confirmingClear.set(false)">Cancel</button>
-      <button class="btn-danger" type="button" (click)="clearAll()">Delete all</button>
+      <span class="td-note is-warn runs-confirm" role="alert">Delete all {{ runs().length }} runs? This cannot be undone.</span>
+      <button class="td-btn-secondary" type="button" (click)="confirmingClear.set(false)">Cancel</button>
+      <button class="td-btn-danger" type="button" (click)="clearAll()">Delete all</button>
     } @else {
-      <button class="btn-ghost" type="button" (click)="confirmingClear.set(true)"
+      <button class="td-btn-danger runs-clear" type="button" (click)="confirmingClear.set(true)"
               [disabled]="loading() || runs().length === 0">
-        <td-icon name="trash" [size]="14"></td-icon>
         Delete all
       </button>
-      <span class="footer-spacer"></span>
-      <button class="btn-primary" type="button" (click)="close()">Close</button>
+      
+      <button class="td-btn-primary" type="button" (click)="close()">Close</button>
     }
   </footer>
 </div>

@@ -21,44 +21,44 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
   template: `
     <div class="engine-test-container">
       <div #canvasContainer class="canvas-container"></div>
-      <div class="controls">
-        <h2>Engine Test Sandbox</h2>
+      <div class="controls td-side td-dense">
+        <h2 class="td-dlg-title">Engine test sandbox</h2>
 
-        <div class="control-group">
-          <h3>Spawn Particles</h3>
-          <button (click)="spawnAdditive()">Spawn Additive (Fire)</button>
-          <button (click)="spawnNormal()">Spawn Normal (Smoke)</button>
-          <button (click)="spawnBoth()">Spawn Both</button>
-          <button (click)="clearParticles()">Clear All</button>
+        <div class="td-group">
+          <h3 class="td-section">Spawn particles</h3>
+          <button class="td-btn-secondary td-btn-sm" (click)="spawnAdditive()">Spawn additive (fire)</button>
+          <button class="td-btn-secondary td-btn-sm" (click)="spawnNormal()">Spawn normal (smoke)</button>
+          <button class="td-btn-secondary td-btn-sm" (click)="spawnBoth()">Spawn both</button>
+          <button class="td-btn-danger td-btn-sm" (click)="clearParticles()">Clear all</button>
         </div>
 
-        <div class="control-group">
-          <h3>Material Settings</h3>
-          <label>
-            Additive Size: {{ additiveSize }}
-            <input type="range" min="0.1" max="5" step="0.1"
+        <div class="td-group">
+          <h3 class="td-section">Material settings</h3>
+          <label class="td-field">
+            <span class="td-label">Additive size: {{ additiveSize }}</span>
+            <input class="td-slider" type="range" min="0.1" max="5" step="0.1"
                    [value]="additiveSize"
                    (input)="updateAdditiveSize($event)">
           </label>
-          <label>
-            Normal Size: {{ normalSize }}
-            <input type="range" min="0.1" max="5" step="0.1"
+          <label class="td-field">
+            <span class="td-label">Normal size: {{ normalSize }}</span>
+            <input class="td-slider" type="range" min="0.1" max="5" step="0.1"
                    [value]="normalSize"
                    (input)="updateNormalSize($event)">
           </label>
         </div>
 
-        <div class="control-group">
-          <h3>Shader Test</h3>
-          <button (click)="toggleShaderMode()">
-            {{ useShaders ? 'Using Shaders' : 'Using PointsMaterial' }}
+        <div class="td-group">
+          <h3 class="td-section">Shader test</h3>
+          <button class="td-btn-secondary td-btn-sm" (click)="toggleShaderMode()">
+            {{ useShaders ? 'Using shaders' : 'Using PointsMaterial' }}
           </button>
         </div>
 
-        <div class="stats">
-          <p>Additive particles: {{ additiveCount }}</p>
-          <p>Normal particles: {{ normalCount }}</p>
-          <p>FPS: {{ fps }}</p>
+        <div class="td-group">
+          <div class="td-kv"><span>Additive particles</span><b>{{ additiveCount }}</b></div>
+          <div class="td-kv"><span>Normal particles</span><b>{{ normalCount }}</b></div>
+          <div class="td-kv"><span>FPS</span><b>{{ fps }}</b></div>
         </div>
       </div>
     </div>
@@ -76,45 +76,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
     }
     .controls {
       width: 300px;
+      gap: 12px;
       padding: 20px;
-      background: var(--td-panel-secondary);
-      color: var(--td-text-primary);
       overflow-y: auto;
     }
-    .control-group {
-      margin-bottom: 20px;
-      padding: 10px;
-      background: var(--td-bg-surface);
-      border-radius: 8px;
-    }
-    h2 { margin: 0 0 20px 0; }
-    h3 { margin: 0 0 10px 0; font-size: 14px; color: var(--td-text-muted); }
-    button {
-      display: block;
-      width: 100%;
-      padding: 10px;
-      margin: 5px 0;
-      background: var(--td-health-red);
-      color: var(--td-text-primary);
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    button:hover { background: var(--td-warn-orange); }
-    label {
-      display: block;
-      margin: 10px 0;
-      font-size: 12px;
-    }
-    input[type="range"] {
-      width: 100%;
-      margin-top: 5px;
-    }
-    .stats {
-      font-size: 12px;
-      color: var(--td-text-muted);
-    }
-    .stats p { margin: 5px 0; }
   `]
 })
 export class EngineTestComponent implements OnInit, OnDestroy {

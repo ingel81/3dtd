@@ -84,13 +84,13 @@ export function stampScreenshot(
     const stripHeight = Math.round(fontPx * 1.5);
     const stripY = canvas.height - margin - stripHeight;
     const padX = Math.round(fontPx * 0.5);
-    ctx.font = `${fontPx}px sans-serif`;
+    ctx.font = `500 ${fontPx}px ${TD_FONTS.ui}`;
     ctx.textBaseline = 'middle';
     const textWidth = Math.min(ctx.measureText(attribution).width, canvas.width * 0.6);
     const stripX = canvas.width - margin - textWidth - 2 * padX;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.fillStyle = TD_THEME.panelMain;
     ctx.fillRect(stripX, stripY, textWidth + 2 * padX, stripHeight);
-    ctx.fillStyle = '#444';
+    ctx.fillStyle = TD_THEME.textMuted;
     ctx.fillText(attribution, stripX + padX, stripY + stripHeight / 2, textWidth);
     rowHeight = Math.max(rowHeight, stripHeight);
   }
@@ -115,7 +115,7 @@ function stampBrand(
 ): void {
   const urlPx = Math.round(fontPx * URL_SIZE);
   ctx.save();
-  ctx.font = `500 ${urlPx}px ${TD_FONTS.body}`;
+  ctx.font = `500 ${urlPx}px ${TD_FONTS.ui}`;
   const urlWidth = Math.min(ctx.measureText(brand.url).width, width - 2 * margin);
   const mark = brand.logo && brand.logo.naturalWidth > 0 && brand.logo.naturalHeight > 0 ? brand.logo : null;
   const markHeight = fontPx * WATERMARK_HEIGHT;

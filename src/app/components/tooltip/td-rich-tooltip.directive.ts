@@ -30,8 +30,9 @@ const SHOW_DELAY = 200;
 const HIDE_DELAY = 80;
 
 const POSITION_PRESETS: Record<string, ConnectedPosition[]> = {
+  // Left of a sidebar card: clear of the sidebar's gutter (14px) as well
   left: [
-    { originX: 'start', originY: 'center', overlayX: 'end', overlayY: 'center', offsetX: -8 },
+    { originX: 'start', originY: 'center', overlayX: 'end', overlayY: 'center', offsetX: -24 },
     { originX: 'end', originY: 'center', overlayX: 'start', overlayY: 'center', offsetX: 8 },
   ],
   right: [

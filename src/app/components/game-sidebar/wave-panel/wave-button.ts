@@ -56,7 +56,7 @@ export function waveButtonView(
   const plain = { coopReady: null, pressed: false };
   if (!running && coop) {
     // "Auto 10 s" counts on every client alike (D44)
-    const auto = countdownSeconds !== null ? ` · ${Math.max(countdownSeconds, 0)}s` : '';
+    const auto = countdownSeconds !== null ? ` | ${Math.max(countdownSeconds, 0)}s` : '';
     const count = `${coop.readyCount}/${coop.playerCount} ready${auto}`;
     if (coop.hostStarts) {
       return {

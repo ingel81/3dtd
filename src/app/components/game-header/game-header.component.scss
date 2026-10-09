@@ -1,103 +1,50 @@
+// Layout of the top bar: logo, place, tools left; enemies and the three
+// values right, flush with the sidebar's content below. The look comes from
+// the td-* classes (td-topbar, td-sunk, td-tool, td-stat).
 @use '../../styles/game-ui' as ui;
 
 :host {
   display: block;
-  /* The three stat plates; header-stats explains why wider than the sidebar */
-  --td-hud-stats-width: 400px;
 }
 
 .header {
-  display: flex;
-  align-items: center;
   gap: 12px;
-  /* Right padding = sidebar gutter, so the stat plates end flush with the
-     sidebar content below them; 6px above and below the 42px plates make
-     the header 54px high */
-  padding: 6px var(--td-sidebar-gutter) 6px 12px;
-  background:
-    linear-gradient(rgba(15, 19, 15, 0.8), rgba(15, 19, 15, 0.8)),
-    url('../../../styles/textures/stone-wall.jpg') repeat;
-  background-size: auto, 64px 64px;
-  border-bottom: 3px solid var(--td-panel-shadow);
-  border-top: 1px solid var(--td-gold-dark);
-  box-shadow:
-    0 4px 8px rgba(0, 0, 0, 0.5),
-    0 2px 4px rgba(0, 0, 0, 0.3),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+  /* Right padding = sidebar gutter: the values end flush with the sidebar content */
+  padding-right: var(--td-sidebar-gutter);
 }
 
 .logo {
-  width: 74px;
-  height: 74px;
-  object-fit: contain;
-  margin: -25px 0;
+  height: calc(var(--td-h-topbar) - 12px);
   flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-  filter:
-    drop-shadow(0 -1px 0 rgba(255, 255, 220, 0.45))
-    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.9));
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 4px;
-  /* On a narrow window the place name gives way, not the actions or the plates */
+  gap: 10px;
+  /* On a narrow window the place name gives way, not the tools or the values */
   min-width: 0;
 }
 
-/* A rectangle, not a cut plate: a cut would clip the focus ring */
 .location-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  box-sizing: border-box;
-  padding: 0 12px;
-  border: 1px solid var(--td-line-steel);
-  background: var(--td-plate);
-  color: var(--td-gold-light);
-  cursor: pointer;
-  font-family: var(--td-font-display);
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: 0.03em;
   min-width: 0;
-  @include ui.motion(border-color, color);
-
-  &:hover:not(:disabled) {
-    border-color: var(--td-gold);
-    color: var(--td-text-primary);
-  }
-
-  &:disabled {
-    cursor: default;
-  }
 }
 
-.location-label {
-  @include ui.caps-label;
+.location-pin {
   flex-shrink: 0;
+  color: var(--td-brass);
 }
 
 .location-name {
   /* Street, city and country; on a narrow window the end gives way */
   max-width: 34vw;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.location-edit {
-  font-size: 16px;
-  width: 16px;
-  height: 16px;
-  opacity: 0.5;
-}
-
-.location-btn:hover .location-edit {
-  opacity: 1;
+.location-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .header-right {
@@ -108,168 +55,96 @@
   flex-shrink: 0;
 }
 
-/* Three stat plates, HQ, Credits, Wave (Hud.dc.html). The right edge ends
-   flush with the sidebar content below (the header's right padding is the
-   sidebar gutter); the plates need more room than the sidebar is wide, so
-   the bar reaches further left, over the canvas. Three equal columns that
-   never grow past their share (minmax(0, 1fr)), so a growing value never
-   shifts or overlaps its neighbours. */
+/* HQ, Credits, Wave: the right edge ends flush with the sidebar content
+   below. Each figure keeps room for the digits header-stats allows it
+   (HQ_EXACT_BELOW, CREDITS_EXACT_BELOW, WAVE_EXACT_BELOW), so a growing
+   value never shifts its neighbours. */
 .header-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  flex-shrink: 0;
-  width: var(--td-hud-stats-width);
-  height: 42px;
-}
-
-/* A plate: the steel edge is its background, the stone face its ::before */
-.stat-plate {
-  @include ui.stat-plate;
-  min-width: 0;
-  font-variant-numeric: tabular-nums;
-  @include ui.motion(background-color);
-}
-
-/* One anatomy on every plate (Hud.dc.html): label (10px) over figure
-   (21px row) over a 4px bar, left-aligned, 38px of the plate's 40 inside */
-.stat-text {
   display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.stat-label {
-  @include ui.caps-label;
+  gap: 10px;
   flex-shrink: 0;
-  line-height: 10px;
 }
 
-.stat-bar {
-  flex-shrink: 0;
-  height: 4px;
-  margin-top: 1px;
-}
-
-/* One line: the value and, on the HQ plate, the max. What does not fit
-   wraps onto a second line that the fixed height hides, so "/500" drops
-   out whole before the value is cut; a value too long for the plate on
-   its own ends in an ellipsis. */
 .stat-value {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-start;
   align-items: baseline;
   column-gap: 2px;
-  min-width: 0;
-  height: 21px;
-  overflow: hidden;
-  font-family: var(--td-font-display);
-  font-size: var(--td-fs-hud);
-  font-weight: 600;
-  line-height: 21px;
 }
 
 .stat-num {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.stat-max {
-  white-space: nowrap;
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-small);
-  font-weight: 400;
-  color: var(--td-text-muted);
+/* The HQ figure sits right in its room, so the max hangs right after it */
+.hp .stat-num { min-width: 4ch; text-align: right; }
+.credits .stat-num { min-width: 6ch; }
+.wave .stat-num { min-width: 3ch; }
+
+/* A thin bar at the foot of HQ and Wave */
+.stat-bar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 1px;
+  height: 5px;
+  padding: 1px;
 }
 
-.sr-only {
-  @include ui.sr-only;
-}
-
-/* HQ: ten segments, one per tenth of the start health. Warm below 30 %
-   with a slow pulse, a hazard stripe at the foot below 10 %. A loss of
-   health flashes and jolts the plate (Web Animations, see the component). */
+/* HQ: ten segments, one per tenth of the start health. Warm below 30 % with
+   a slow pulse, a hazard stripe at the foot below 10 %. A loss of health
+   flashes and jolts it (Web Animations, see the component). */
 .hp {
-  --hp-color: var(--td-hp-text);
-  color: var(--hp-color);
-}
+  color: var(--td-hp-text);
 
-.seg-bar {
-  display: flex;
-  gap: 2px;
-  height: 4px;
-
-  i {
-    flex: 1;
-    background: var(--td-frame-dark);
+  .td-value {
+    color: var(--td-hp-text);
   }
 
-  i.lit {
-    background: var(--hp-color);
+  .stat-bar > .is-on {
+    background: var(--td-hp-text);
   }
 }
 
 .hp[data-level='low'],
 .hp[data-level='critical'] {
-  --hp-color: var(--td-hp-low);
-  background: var(--td-health-red);
-
-  &::before {
-    background: var(--td-hp-plate);
+  .td-value {
+    color: var(--td-hp-low);
     animation: hq-warm 2.4s ease-in-out infinite;
+  }
+
+  .stat-bar > .is-on {
+    background: var(--td-hp-low);
   }
 }
 
 @keyframes hq-warm {
-  50% { filter: brightness(1.3); }
+  50% { filter: brightness(1.35); }
 }
 
 .hazard {
   position: absolute;
-  left: 1px;
-  right: 1px;
+  left: 12px;
+  right: 12px;
   bottom: 1px;
-  height: 4px;
+  height: 5px;
   background: var(--td-hazard);
 }
 
-/* Credits: the figure counts to a new value, a change rises over the
-   plate for a moment, a refused buy flashes the edge red (component) */
-.credits {
-  color: var(--td-gold-light);
-
-  td-icon {
-    color: var(--td-gold);
-  }
-}
-
-/* The plate and, below it, the rising change. The change stands outside
-   the plate (whose clip-path would cut it) and over the top of the map,
-   right-aligned under the plate, on a dark chip: it never covers the label
-   or the figure, however long either gets. */
-.credits-cell {
-  position: relative;
-  display: grid;
-  min-width: 0;
+/* Credits: the figure counts to a new value, a change rises under it, a
+   refused buy flashes the figure red (component) */
+.credits td-icon {
+  color: var(--td-brass);
 }
 
 .credits-delta {
   position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
+  top: calc(100% + 8px);
+  right: 12px;
   /* Over the map like the header's menus, under the favorites (100) */
   z-index: 90;
-  padding: 3px 7px;
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  font-family: var(--td-font-display);
-  font-size: 14px;
-  font-weight: 600;
+  padding: 3px 8px;
+  font-size: var(--td-fs-body);
+  font-weight: 700;
   line-height: 1;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -282,7 +157,7 @@
   color: var(--td-loss);
 }
 
-/* Rises from below towards the plate's bottom edge and fades there */
+/* Rises from below towards the figure and fades there */
 @keyframes credits-delta {
   0% { opacity: 0; transform: translateY(8px); }
   15% { opacity: 1; transform: translateY(3px); }
@@ -291,45 +166,34 @@
 }
 
 /* Wave: the share of the running wave that is gone; a wave that starts
-   lights the edge in brass for 600 ms */
-.wave {
-  color: var(--td-text-primary);
-
-  td-icon {
-    color: var(--td-teal);
-  }
+   lights the figure in brass for 600 ms */
+.wave td-icon {
+  color: var(--td-teal);
 }
 
-.wave.starting {
-  background: var(--td-gold);
+.wave.starting .td-value {
+  color: var(--td-brass-light);
 }
 
-.wave-bar {
-  position: relative;
-  height: 4px;
-  background: var(--td-panel-shadow);
+/* Enemies alive, only during a wave */
+.enemies-chip {
+  color: var(--td-warn-text);
 }
 
-.wave-bar-fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: var(--td-teal);
-  transition: width var(--td-dur-slow) var(--td-ease-out);
+.enemies-num {
+  font-size: var(--td-fs-lead);
+  color: var(--td-warn-text);
 }
 
 /* Reduced motion: colour and stripe stay, nothing moves or pulses */
 @include ui.reduced-motion {
-  .hp[data-level='low']::before,
-  .hp[data-level='critical']::before {
+  .hp[data-level='low'] .td-value,
+  .hp[data-level='critical'] .td-value {
     animation: none;
   }
 
   .credits-delta {
     animation: credits-delta-still 900ms linear forwards;
-  }
-
-  .wave-bar-fill {
-    transition: none;
   }
 }
 
@@ -338,127 +202,15 @@
   100% { opacity: 0; }
 }
 
-/* Enemies alive, only during a wave: a small plate of its own */
-.enemies-chip {
-  @include ui.stat-plate;
-  height: 42px;
-  box-sizing: border-box;
-  color: var(--td-warn-text);
-  font-family: var(--td-font-display);
-  font-size: 18px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.18),
-    inset 0 -1px 0 var(--td-panel-shadow),
-    var(--td-shadow-key);
-  color: var(--td-text-secondary);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, box-shadow 0.18s;
-}
-
-.close-btn mat-icon {
-  font-size: 16px;
-  width: 16px;
-  height: 16px;
-}
-
-.close-btn:hover {
-  background: var(--td-health-red);
-  color: var(--td-text-primary);
-}
-
-/* Location Actions */
-.location-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-/* Keyboard focus: a 2px ring outside the button; inside on the rows of the
-   menus, whose neighbours would cover it */
-.location-btn,
-.action-btn,
-.close-btn {
-  @include ui.focus-ring;
-}
-
-.fav-select,
-.fav-tool,
-.fav-add,
-.spawn-menu-item {
-  @include ui.focus-ring(-2px);
-}
-
-/* Between the groups of actions (the place, editing the map, coop): a
-   carved line, dark with a lit edge, tall enough to read at a glance */
-.action-divider {
-  width: 0;
-  height: 24px;
-  margin: 0 9px;
-  border-left: 1px solid rgba(0, 0, 0, 0.6);
-  border-right: 1px solid var(--td-frame-mid);
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--td-text-secondary);
-  cursor: pointer;
-  @include ui.motion(background-color, border-color, color);
-}
-
-.action-btn:hover, .action-btn.active {
-  background: color-mix(in srgb, var(--td-gold) 12%, transparent);
-  border-color: var(--td-line-brass);
-  color: var(--td-gold-light);
-}
-
-.action-btn mat-icon {
-  font-size: 22px;
-  width: 22px;
-  height: 22px;
-}
-
-.action-btn:disabled {
-  opacity: 0.3;
-  pointer-events: none;
-}
-
-/* Coop room (docs/COOP_PLAN.md, C8): code, a square per player, seats; the
-   coop button in its active state, no chip of its own */
+/* Coop room (docs/COOP_PLAN.md, C8): code, a square per player, seats */
 .coop-btn {
   width: auto;
-  min-width: 34px;
-  gap: 5px;
+  min-width: var(--td-tool-size);
+  gap: 6px;
+  display: inline-flex;
   padding: 0 6px;
   white-space: nowrap;
-
-  small {
-    font: 10.5px var(--td-font-mono);
-    color: var(--td-text-muted);
-  }
-}
-
-.room-code {
-  font: 600 12px/1 var(--td-font-mono);
-  letter-spacing: 0.06em;
+  filter: none;
 }
 
 .room-dots {
@@ -478,202 +230,38 @@
 
 .spawn-menu {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 8px);
   left: 0;
   z-index: 30;
-  margin-top: 4px;
-  min-width: 200px;
-  display: flex;
-  flex-direction: column;
-  background: var(--td-panel-main);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: var(--td-shadow-soft);
-}
-
-.spawn-menu-item {
-  padding: 8px 10px;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--td-frame-dark);
-  color: var(--td-text-secondary);
-  font: inherit;
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.spawn-menu-item:last-child {
-  border-bottom: none;
-}
-
-.spawn-menu-item:hover {
-  background: color-mix(in srgb, var(--td-gold) 12%, transparent);
-  color: var(--td-gold);
+  min-width: 220px;
+  padding: 6px;
 }
 
 .fav-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 8px);
   left: 0;
-  margin-top: 4px;
-  width: 300px;
-  background: var(--td-panel-main);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.2),
-    inset 0 -1px 0 var(--td-panel-shadow),
-    var(--td-shadow-soft);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-4px);
-  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
   z-index: 100;
+  width: 320px;
+  padding: 6px;
 }
 
-.fav-dropdown.expanded {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-/* No limit on the favorites: the list scrolls, "Save location" stays on top */
+/* No limit on the favorites: the list scrolls, "Save this place" stays on top */
 .fav-list {
   max-height: min(60vh, 440px);
   overflow-y: auto;
-  @include ui.scrollbar;
 }
 
-.fav-list::-webkit-scrollbar { @include ui.webkit-scrollbar; }
-.fav-list::-webkit-scrollbar-track { @include ui.webkit-scrollbar-track; }
-.fav-list::-webkit-scrollbar-thumb { @include ui.webkit-scrollbar-thumb; }
-.fav-list::-webkit-scrollbar-thumb:hover { @include ui.webkit-scrollbar-thumb-hover; }
-
-.fav-item {
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid var(--td-frame-dark);
-}
-
-.fav-item:last-child {
-  border-bottom: none;
-}
-
-.fav-select {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 8px 10px;
-  background: transparent;
-  border: none;
-  color: var(--td-text-secondary);
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-}
-
-.fav-select:hover {
-  background: color-mix(in srgb, var(--td-gold) 12%, transparent);
-  color: var(--td-gold);
-}
-
-.fav-name {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.fav-coords {
-  font-size: var(--td-fs-micro);
-  opacity: 0.6;
-}
-
-/* Move up, move down, rename, delete; and save or cancel next to the name field */
-.fav-tool {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  padding: 8px 4px;
-  background: transparent;
-  border: none;
-  color: var(--td-text-secondary);
-  cursor: pointer;
-  opacity: 0.5;
-}
-
-.fav-tool:last-child {
-  padding-right: 8px;
-}
-
-.fav-tool:hover:not(:disabled) {
-  color: var(--td-gold);
-  opacity: 1;
-}
-
-.fav-tool:disabled {
-  opacity: 0.2;
-  cursor: default;
-}
-
-.fav-delete:hover:not(:disabled) {
-  color: var(--td-health-red);
-}
-
-/* Name field: the inset recipe for inputs */
+.fav-item,
 .fav-edit {
   gap: 2px;
-  padding: 5px 0 5px 8px;
+  padding-right: 4px;
 }
 
 .fav-input {
   flex: 1;
-  min-width: 0;
-  padding: 5px 6px;
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.5),
-    inset 0 -1px 0 rgba(74, 84, 77, 0.13);
-  color: var(--td-text-primary);
-  font: 11px var(--td-font-mono);
 }
 
-.fav-input:focus {
-  outline: none;
-  border-color: var(--td-gold);
-  box-shadow: 0 0 0 1px var(--td-gold);
-}
-
-.fav-add, .fav-empty {
-  padding: 8px 10px;
-  font-size: 10px;
-  color: var(--td-text-secondary);
-}
-
-.fav-add {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--td-frame-dark);
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.fav-add:hover {
-  background: color-mix(in srgb, var(--td-gold) 12%, transparent);
-  color: var(--td-gold);
-}
-
-.fav-add mat-icon {
-  font-size: 14px;
-  width: 14px;
-  height: 14px;
+.fav-empty {
+  padding: 8px 12px;
 }

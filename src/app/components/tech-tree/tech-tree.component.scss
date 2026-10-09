@@ -4,9 +4,11 @@
 // positioned from the same layout numbers, so nothing here may add offsets of
 // its own; padding and borders live inside the node box.
 //
-// Follows the research-tree design: a node is a plate with its icon, its name
-// and a state flag, cost and time underneath in the mono font, and the whole
-// signal for "you can take this" is the gold edge down its left side.
+// A node is a stone plate (the raised relief of the design system) with its
+// icon in a sunken square, its name and a state flag, cost and time under it.
+// Its state shows in its fill and in a mark down its left side; the state and
+// strand colours are tokens (--td-node-*, --td-branch-*) because they carry
+// information.
 
 .td-tech-tree {
   position: relative;
@@ -26,7 +28,7 @@
 .td-tech-edge {
   fill: none;
   stroke-width: 1.5;
-  transition: opacity 160ms ease;
+  transition: opacity var(--td-dur-fast) var(--td-ease-out);
 
   &.td-edge-locked {
     stroke: var(--td-tree-line);
@@ -34,14 +36,14 @@
   }
 
   &.td-edge-open {
-    stroke: var(--td-rune-amber-muted);
+    stroke: var(--td-brass-dark);
   }
 
   &.td-edge-done {
     stroke: var(--td-green-dark);
   }
 
-  // Its source is running or queued: the path is coming, not open yet.
+  // Its source is running or queued: the path is coming, not open yet
   &.td-edge-pending {
     stroke: var(--td-teal-dark);
     stroke-dasharray: 4 6;
@@ -63,7 +65,7 @@
 
 .td-tech-edge-cap {
   fill: var(--td-tree-line);
-  transition: opacity 160ms ease;
+  transition: opacity var(--td-dur-fast) var(--td-ease-out);
 
   &.td-edge-done {
     fill: var(--td-green-dark);
@@ -75,7 +77,7 @@
   }
 
   &.td-edge-open {
-    fill: var(--td-rune-amber);
+    fill: var(--td-brass);
   }
 }
 
@@ -87,23 +89,33 @@
   flex-direction: column;
   justify-content: space-between;
   box-sizing: border-box;
-  padding: 10px 11px 9px;
-  text-align: left;
-  font-family: var(--td-font-body);
-  color: var(--td-text-primary);
+  padding: 10px 11px 9px 13px;
+  border: 1px solid var(--td-node-locked-edge);
+  border-radius: var(--td-radius);
   background: var(--td-node);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(167, 179, 168, 0.08),
-    0 1px 0 var(--td-panel-shadow);
+  box-shadow: var(--td-raised-quiet);
+  font-family: inherit;
+  font-size: var(--td-fs-body);
+  text-align: left;
+  color: var(--td-text-primary);
   cursor: default;
   transition:
-    border-color 130ms ease,
-    transform 90ms ease,
-    box-shadow 130ms ease,
-    opacity 160ms ease;
-
+    border-color var(--td-dur-fast) var(--td-ease-out),
+    transform var(--td-dur-fast) var(--td-ease-out),
+    opacity var(--td-dur-fast) var(--td-ease-out);
   @include ui.focus-ring;
+
+  // The state mark down the left side
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    border-radius: var(--td-radius) 0 0 var(--td-radius);
+    background: var(--node-mark, transparent);
+  }
 }
 
 .td-tech-node-top {
@@ -113,26 +125,19 @@
   min-width: 0;
 }
 
-// Icon plate: its own recessed square, tinted by the strand of the tree.
+// The icon in a sunken square, tinted by the strand of the tree
 .td-tech-node-plate {
   flex: none;
-  width: 30px;
-  height: 30px;
   display: grid;
   place-items: center;
+  width: 30px;
+  height: 30px;
   color: var(--td-text-disabled);
-  background: rgba(11, 15, 12, 0.5);
-  border: 1px solid var(--td-frame-dark);
 }
 
 .td-tech-node-title {
   flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--td-text-secondary);
 }
 
@@ -145,15 +150,10 @@
 .td-tech-node-foot {
   display: flex;
   align-items: baseline;
-  gap: 7px;
-  font-family: var(--td-font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.03em;
+  gap: 10px;
+  font-size: var(--td-fs-small);
+  font-weight: 600;
   color: var(--td-text-disabled);
-
-  .td-sep {
-    color: var(--td-frame-dark);
-  }
 
   .td-time {
     color: var(--td-text-muted);
@@ -161,43 +161,23 @@
 }
 
 .td-tech-node-bar {
-  position: relative;
-  display: block;
-  height: 5px;
-  background: rgba(11, 15, 12, 0.75);
-  border: 1px solid var(--td-teal-dark);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
-
-  i {
-    position: absolute;
-    inset: 0 auto 0 0;
-    background: linear-gradient(180deg, var(--td-teal-light), var(--td-teal) 60%, var(--td-teal-dark));
-  }
+  height: 6px;
 }
 
-// Position in the queue, in the corner of the node.
+// Position in the queue, in the corner of the node
 .td-tech-node-ord {
   position: absolute;
-  top: -1px;
-  right: -1px;
-  min-width: 20px;
-  padding: 1px 5px;
-  font-family: var(--td-font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  text-align: center;
-  color: var(--td-ink);
-  background: linear-gradient(180deg, var(--td-gold-light), var(--td-gold));
-  border: 1px solid var(--td-gold-dark);
+  top: -6px;
+  right: -6px;
+  color: var(--td-brass-light);
 }
 
 // === States ===
 
-// Locked is the resting state: shut, but still readable.
+// Locked is the resting state: shut, but still readable
 .td-state-locked,
 .td-state-pending {
   background: var(--td-node-locked);
-  border-color: var(--td-node-locked-edge);
 
   .td-tech-node-title {
     color: var(--td-node-locked-title);
@@ -205,21 +185,14 @@
 
   .td-tech-node-foot {
     color: var(--td-node-locked-foot);
-
-    .td-sep {
-      color: var(--td-frame-mid);
-    }
   }
 }
 
-// Open and affordable. The gold left edge carries the whole signal.
+// Open and affordable: the brass mark carries the whole signal
 .td-state-available {
+  --node-mark: var(--td-brass);
   background: var(--td-node-open);
   border-color: var(--td-frame-mid);
-  box-shadow:
-    inset 3px 0 0 var(--td-rune-amber),
-    inset 0 1px 0 rgba(167, 179, 168, 0.12),
-    0 1px 0 var(--td-panel-shadow);
   cursor: pointer;
 
   .td-tech-node-title {
@@ -227,16 +200,15 @@
   }
 
   .td-tech-node-plate {
-    color: var(--td-gold);
-    border-color: var(--td-gold-dark);
+    color: var(--td-brass);
   }
 
   .td-cost {
-    color: var(--td-gold-light);
+    color: var(--td-brass-light);
   }
 
   &:hover {
-    border-color: var(--td-gold-dark);
+    border-color: var(--td-brass-dark);
     transform: translateY(-1px);
   }
 
@@ -247,11 +219,8 @@
 
 // Open, but the purse is short. Same shape, warmer and dimmer.
 .td-state-poor {
+  --node-mark: var(--td-node-poor-mark);
   border-color: var(--td-node-poor-edge);
-  box-shadow:
-    inset 3px 0 0 var(--td-node-poor-mark),
-    inset 0 1px 0 rgba(167, 179, 168, 0.1),
-    0 1px 0 var(--td-panel-shadow);
   cursor: pointer;
 
   .td-tech-node-title {
@@ -260,11 +229,10 @@
 
   .td-tech-node-plate {
     color: var(--td-node-poor-glyph);
-    border-color: var(--td-node-poor-mark);
   }
 
   .td-cost {
-    color: var(--td-warn-orange);
+    color: var(--td-warn-text);
   }
 
   &:hover {
@@ -273,12 +241,9 @@
 }
 
 .td-state-active {
+  --node-mark: var(--td-teal);
   background: var(--td-node-active);
   border-color: var(--td-teal);
-  box-shadow:
-    inset 0 1px 0 rgba(143, 217, 198, 0.18),
-    0 0 0 1px rgba(107, 182, 164, 0.14),
-    0 1px 0 var(--td-panel-shadow);
 
   .td-tech-node-title {
     color: var(--td-teal-light);
@@ -286,8 +251,6 @@
 
   .td-tech-node-plate {
     color: var(--td-teal-light);
-    background: rgba(107, 182, 164, 0.08);
-    border-color: var(--td-teal-dark);
   }
 
   .td-tech-node-foot {
@@ -300,27 +263,26 @@
 }
 
 .td-state-queued {
+  --node-mark: var(--td-brass-dark);
   background: var(--td-node-queued);
-  border-color: var(--td-gold-dark);
+  border-color: var(--td-brass-dark);
   border-style: dashed;
   cursor: pointer;
 
   .td-tech-node-title {
-    color: var(--td-gold-light);
+    color: var(--td-brass-light);
   }
 
   .td-tech-node-plate {
-    color: var(--td-gold);
-    border-color: var(--td-gold-dark);
-    border-style: dashed;
+    color: var(--td-brass);
   }
 
   .td-tech-node-foot {
-    color: var(--td-rune-amber);
+    color: var(--td-brass-dark);
   }
 
   &:hover {
-    border-color: var(--td-gold);
+    border-color: var(--td-brass);
   }
 
   &:active {
@@ -328,63 +290,39 @@
   }
 }
 
-// Done: green, the theme's colour for "positive". Green edge on the left like
-// the gold one on an open node, so a finished chain reads at a glance and
-// never looks like a locked one.
+// Done: green, the theme's colour for "positive", with a green mark like the
+// brass one on an open node, so a finished chain reads at a glance and never
+// looks like a locked one
 .td-state-completed {
+  --node-mark: var(--td-green-dark);
   background: var(--td-node-done);
   border-color: var(--td-node-done-edge);
-  box-shadow:
-    inset 3px 0 0 var(--td-green-dark),
-    inset 0 1px 0 rgba(158, 214, 160, 0.1),
-    0 1px 0 var(--td-panel-shadow);
 
   .td-tech-node-title {
     color: var(--td-text-primary);
   }
 
-  .td-tech-node-plate {
-    color: var(--td-green);
-    background: rgba(158, 214, 160, 0.08);
-    border-color: var(--td-green-dark);
-  }
-
-  .td-tech-node-flag {
-    color: var(--td-green);
-  }
-
+  .td-tech-node-plate,
+  .td-tech-node-flag,
   .td-tech-node-foot {
-    font-size: 9.5px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
     color: var(--td-green);
   }
 }
 
-// Strand tint on the icon plate, for everything still in play.
+// Strand tint on the icon, for everything still in play (data-branch sets
+// --td-mark globally; ballistics keeps the plate's colour)
 .td-tech-node:not(.td-state-locked):not(.td-state-pending):not(.td-state-completed) {
-  .td-tech-node-plate[data-branch='biology'] {
-    color: var(--td-branch-biology);
-    border-color: var(--td-branch-biology-edge);
-  }
-
-  .td-tech-node-plate[data-branch='engineering'] {
-    color: var(--td-branch-engineering);
-    border-color: var(--td-branch-engineering-edge);
-  }
-
-  .td-tech-node-plate[data-branch='arcane'] {
-    color: var(--td-teal);
-    border-color: var(--td-teal-dark);
+  .td-tech-node-plate[data-branch]:not([data-branch='ballistics']) {
+    color: var(--td-mark);
   }
 }
 
-// The node the panel beside the tree is showing.
+// The node the panel beside the tree is showing
 .td-sel {
   border-color: var(--td-frame-light);
 
   &.td-state-available {
-    border-color: var(--td-gold);
+    border-color: var(--td-brass);
   }
 
   &.td-state-active {
@@ -406,9 +344,7 @@
   }
 
   .td-tech-node.td-chain {
-    box-shadow:
-      inset 0 0 0 1px rgba(194, 160, 85, 0.35),
-      inset 0 1px 0 rgba(167, 179, 168, 0.1);
+    border-color: var(--td-brass-dark);
   }
 
   .td-tech-edge {
@@ -417,7 +353,7 @@
 
   .td-tech-edge.td-rel {
     opacity: 1;
-    stroke: var(--td-gold);
+    stroke: var(--td-brass);
     stroke-width: 2;
     stroke-dasharray: none;
     animation: none;
@@ -428,8 +364,13 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@include ui.reduced-motion {
   .td-tech-edge.td-edge-active {
     animation: none;
+  }
+
+  .td-tech-node:hover,
+  .td-tech-node:active {
+    transform: none;
   }
 }

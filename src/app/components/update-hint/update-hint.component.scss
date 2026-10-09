@@ -1,10 +1,7 @@
-@use '../../styles/game-ui' as ui;
-
 /* The anchor, top right of the map, under the compass (12px from the top,
-   88px high) and under the build chip of the loading screen (46px, about
-   22px high). The chip itself hangs in the CDK overlay from here, above
-   the loading screen, the game over overlay and every dialog: a restart may
-   be the way out of an error. */
+   88px high) and under the build chip of the loading screen. The chip hangs
+   in the CDK overlay from here, above the loading screen, the game over
+   overlay and every dialog: a restart may be the way out of an error. */
 :host {
   position: absolute;
   top: 112px;
@@ -14,88 +11,34 @@
   pointer-events: none;
 }
 
-/* Glass chip like the relocation status, the icon in gold */
 .uh {
-  @include ui.glass-strip;
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  max-width: 260px;
-  padding: 8px 14px 10px 12px;
+  max-width: 280px;
+  padding: 10px 14px 12px 12px;
   pointer-events: auto;
 }
 
 .uh-icon {
-  margin-top: 1px;
-  color: var(--td-gold);
+  margin-top: 2px;
+  color: var(--td-brass);
 }
 
 .uh-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: var(--td-sp-1);
 }
 
-.uh-title {
-  font: 600 14px/16px var(--td-font-display);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--td-text-primary);
-}
-
-.uh-line {
-  font: 10px/13px var(--td-font-mono);
-  color: var(--td-text-muted);
-}
-
-/* The first items of the release notes, in the chip's small print */
 .uh-notes {
-  margin: 4px 0 0;
-  padding-left: 14px;
-  font: 10px/13px var(--td-font-body);
-  color: var(--td-text-secondary);
-}
-
-.uh-notes li {
-  margin: 2px 0;
+  margin: 2px 0 0;
+  padding-left: 16px;
 }
 
 .uh-more {
   list-style: none;
-  margin-left: -14px;
-  color: var(--td-text-muted);
+  margin-left: -16px;
 }
 
-/* Text buttons like the actions of the context hint box */
 .uh-actions {
-  display: flex;
-  gap: 16px;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--td-frame-dark);
-}
-
-.uh-action {
-  padding: 0;
-  background: none;
-  border: none;
-  color: var(--td-text-muted);
-  font-family: var(--td-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.uh-action:hover,
-.uh-action:focus-visible {
-  color: var(--td-text-primary);
-}
-
-.uh-action {
-  @include ui.focus-ring;
-}
-
-.uh-restart {
-  color: var(--td-gold);
+  margin-top: var(--td-sp-1);
 }

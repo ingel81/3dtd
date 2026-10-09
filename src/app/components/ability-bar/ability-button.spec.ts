@@ -104,6 +104,6 @@ describe('heroTooltip', () => {
   it('says what a press does unless the hero feature says more', () => {
     const hero = { icon: 'user' as const, name: 'Mercenary', hotkey: 'g', selected: false };
     expect(heroTooltip(hero)).toMatchObject({ title: 'Mercenary', category: 'HERO', hotkey: 'G' });
-    expect(heroTooltip({ ...hero, detail: 'Level 2 · Siege' }).flavor).toBe('Level 2 · Siege');
+    expect(heroTooltip({ ...hero, detail: 'Level 2 | Siege' }).flavor).toBe('Level 2 | Siege');
   });
 });

@@ -1,47 +1,47 @@
-<div class="mm-root" [class.mm-start]="layer() === 'start'" [class.mm-pause]="layer() === 'pause'"
+<div class="mm-root td-backdrop" [class.mm-start]="layer() === 'start'" [class.mm-pause]="layer() === 'pause'"
      role="dialog" aria-modal="true" aria-labelledby="td-menu-title" tabindex="-1"
      cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
      (keydown.escape)="onEscape($event)">
   <div class="mm-column">
     <img class="mm-logo" src="assets/images/logo/logo.svg" alt="3DTD" width="480" height="272">
     @if (layer() === 'start') {
-      <p class="mm-tagline">Tower defense on real streets</p>
+      <p class="mm-tagline td-caps">Tower defense on real streets</p>
     }
     @if (page() === 'home') {
-      <h2 class="mm-sr-only" id="td-menu-title">{{ title() }}</h2>
+      <h2 class="td-sr-only" id="td-menu-title">{{ title() }}</h2>
     }
     <app-menu-home [layer]="layer()" />
   </div>
 
   @if (page() !== 'home') {
-    <div class="mm-page-wrap">
-      <section class="mm-page" aria-labelledby="td-menu-title">
-        <header class="mm-page-head">
-          <h2 id="td-menu-title">{{ title() }}</h2>
-          <button type="button" class="mm-back" (click)="menu.back()" aria-label="Back (Esc)">Esc</button>
-        </header>
-        <!-- A menu opened on a page (header, quick bar) starts there: the trap's first focus -->
-        <div class="mm-page-body" cdkFocusInitial>
-          @switch (page()) {
-            @case ('new-game') { <app-menu-new-game [layer]="layer()" /> }
-            @case ('coop') { <app-menu-coop [layer]="layer()" /> }
-            @case ('save') { <app-menu-save [layer]="layer()" /> }
-            @case ('load') { <app-menu-load [layer]="layer()" /> }
-            @case ('settings') { <app-menu-settings [layer]="layer()" /> }
-            @case ('extras') { <app-menu-extras [layer]="layer()" /> }
-          }
-        </div>
-      </section>
-    </div>
+    <section class="mm-page td-dlg" aria-labelledby="td-menu-title">
+      <header class="td-dlg-head">
+        <h2 class="td-dlg-title" id="td-menu-title">{{ title() }}</h2>
+        <button type="button" class="mm-back td-close" (click)="menu.back()" aria-label="Back (Esc)">
+          <td-icon name="close" [size]="12" />
+        </button>
+      </header>
+      <!-- A menu opened on a page (header, quick bar) starts there: the trap's first focus -->
+      <div class="mm-page-body td-dlg-body" cdkFocusInitial>
+        @switch (page()) {
+          @case ('new-game') { <app-menu-new-game [layer]="layer()" /> }
+          @case ('coop') { <app-menu-coop [layer]="layer()" /> }
+          @case ('save') { <app-menu-save [layer]="layer()" /> }
+          @case ('load') { <app-menu-load [layer]="layer()" /> }
+          @case ('settings') { <app-menu-settings [layer]="layer()" /> }
+          @case ('extras') { <app-menu-extras [layer]="layer()" /> }
+        }
+      </div>
+    </section>
   }
 
   @if (layer() === 'start') {
     <div class="mm-foot">
-      <p class="mm-tip">
-        <span class="mm-tip-label">Tip</span>
-        <span class="mm-tip-text">@for (part of tips[tipIndex()].parts; track $index) {@if (part.accent) {<b [class]="'mm-tip-' + part.accent">{{ part.text }}</b>} @else {<span>{{ part.text }}</span>}}</span>
+      <p class="mm-tip td-text">
+        <span class="mm-tip-label td-caps">Tip</span>
+        <span>@for (part of tips[tipIndex()].parts; track $index) {@if (part.accent) {<b [class]="'mm-tip-' + part.accent">{{ part.text }}</b>} @else {<span>{{ part.text }}</span>}}</span>
       </p>
-      <p class="mm-version">{{ version() }}</p>
+      <p class="mm-version td-caps">{{ version() }}</p>
     </div>
   }
 

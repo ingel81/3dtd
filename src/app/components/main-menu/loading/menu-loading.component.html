@@ -1,39 +1,39 @@
-<section class="ml-plate" aria-labelledby="td-menu-loading-place">
+<section class="ml-plate td-panel" aria-labelledby="td-menu-loading-place">
   <div class="ml-head">
-    <h3 class="ml-place" id="td-menu-loading-place">{{ placeName() }}</h3>
+    <h3 class="ml-place td-dlg-title td-trunc" id="td-menu-loading-place">{{ placeName() }}</h3>
     @if (!problem()) {
-      <span class="ml-percent">{{ view().percent }}%</span>
+      <span class="ml-percent td-figure">{{ view().percent }}%</span>
     }
   </div>
 
   @if (problem(); as problem) {
-    <div class="ml-problem" role="alert">
+    <div class="ml-problem td-banner is-warn td-stack" role="alert">
       <p>{{ problem.text }}</p>
-      <div class="ml-actions">
-        <button type="button" class="btn-primary" (click)="retry()">Retry</button>
-        <button type="button" class="btn-secondary" (click)="otherPlace()">Other place</button>
+      <div class="td-actions is-start">
+        <button type="button" class="td-btn-primary" (click)="retry()">Retry</button>
+        <button type="button" class="td-btn-secondary" (click)="otherPlace()">Other place</button>
         @if (offersMapKey()) {
-          <button type="button" class="btn-secondary" (click)="mapKey()">Map key</button>
+          <button type="button" class="td-btn-secondary" (click)="mapKey()">Map key</button>
         }
       </div>
     </div>
   } @else {
-    <div class="ml-bar" role="progressbar" aria-label="Loading the place"
+    <div class="ml-bar td-meter" role="progressbar" aria-label="Loading the place"
          aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="view().percent">
       @for (filled of segments(); track $index) {
         <span [class.is-on]="filled"></span>
       }
     </div>
-    <div class="ml-step" aria-live="polite">
-      <span class="ml-step-title">{{ view().current?.title ?? 'Ready' }}@if (view().current?.meta; as meta) {<span class="ml-step-meta"> · {{ meta }}</span>}</span>
-      <span class="ml-step-count">{{ view().position > view().total ? view().total : view().position }} of {{ view().total }}</span>
+    <div class="ml-step td-note" aria-live="polite">
+      <span class="ml-step-title">{{ view().current?.title ?? 'Ready' }}@if (view().current?.meta; as meta) {<span class="ml-step-meta">, {{ meta }}</span>}</span>
+      <span class="ml-step-count td-num">{{ view().position > view().total ? view().total : view().position }} of {{ view().total }}</span>
     </div>
-    <button type="button" class="ml-toggle" (click)="toggleSteps()" [attr.aria-expanded]="stepsOpen()"
+    <button type="button" class="ml-toggle td-link" (click)="toggleSteps()" [attr.aria-expanded]="stepsOpen()"
             aria-controls="td-menu-loading-steps">
       {{ stepsOpen() ? 'Hide steps' : 'Show steps' }}
     </button>
     @if (stepsOpen()) {
-      <ol class="ml-steps" id="td-menu-loading-steps">
+      <ol class="ml-steps td-note" id="td-menu-loading-steps">
         @for (step of steps(); track step.id) {
           <li class="ml-steps-row" [class.ml-done]="step.status === 'done'" [class.ml-current]="step.status === 'current'">
             <span class="ml-steps-mark" aria-hidden="true">{{ step.status === 'done' ? '+' : step.status === 'current' ? '>' : '-' }}</span>
@@ -41,7 +41,7 @@
             @if (step.meta) {
               <span class="ml-steps-meta">{{ step.meta }}</span>
             }
-            <span class="ml-sr-only">{{ step.status === 'done' ? 'done' : step.status === 'current' ? 'under way' : 'waiting' }}</span>
+            <span class="td-sr-only">{{ step.status === 'done' ? 'done' : step.status === 'current' ? 'under way' : 'waiting' }}</span>
           </li>
         }
       </ol>

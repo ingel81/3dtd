@@ -5,12 +5,14 @@
      (contextmenu)="$event.preventDefault()">
   <!-- The one message banner (UIStore.notice) -->
   @if (uiStore.notice(); as notice) {
-    <div class="notice-banner" role="alert">
+    <div class="notice-banner td-banner is-error is-row" role="alert">
       <span>{{ notice.text }}</span>
       @if (notice.reload) {
-        <button type="button" class="notice-reload" (click)="reloadPage()">Reload</button>
+        <button type="button" class="td-btn-secondary td-btn-sm" (click)="reloadPage()">Reload</button>
       }
-      <button type="button" class="notice-close" (click)="uiStore.notice.set(null)" aria-label="Close the message">×</button>
+      <button type="button" class="td-close" (click)="uiStore.notice.set(null)" aria-label="Close the message">
+        <td-icon name="close" [size]="12"></td-icon>
+      </button>
     </div>
   }
 
@@ -65,11 +67,11 @@
           <td-token-setup (tokenSaved)="onCredentialsSaved()" />
         } @error {
           <div class="td-error-overlay" role="alert">
-            <div class="td-error-plate">
-              <h3>The map key screen did not load</h3>
-              <p>Check the connection and reload the page.</p>
-              <div class="td-error-actions">
-                <button type="button" class="btn-primary" (click)="reloadPage()">Reload</button>
+            <div class="td-dlg td-error-plate">
+              <header class="td-dlg-head"><h3 class="td-dlg-title">The map key screen did not load</h3></header>
+              <p class="td-dlg-body td-text">Check the connection and reload the page.</p>
+              <div class="td-dlg-foot">
+                <button type="button" class="td-btn-primary" (click)="reloadPage()">Reload</button>
               </div>
             </div>
           </div>
@@ -79,12 +81,12 @@
       <!-- The engine failed where no menu stands (an automated run): the menu's plate says it otherwise -->
       @if (error() && !loading() && !uiStore.mainMenuOpen()) {
         <div class="td-error-overlay" role="alert">
-          <div class="td-error-plate">
-            <h3>The map did not load</h3>
-            <p>{{ error() }}</p>
-            <div class="td-error-actions">
-              <button type="button" class="btn-primary" (click)="reloadPage()">Reload</button>
-              <button type="button" class="btn-secondary" (click)="awaitingCredentials.set(true)">Map key</button>
+          <div class="td-dlg td-error-plate">
+            <header class="td-dlg-head"><h3 class="td-dlg-title">The map did not load</h3></header>
+            <p class="td-dlg-body td-text">{{ error() }}</p>
+            <div class="td-dlg-foot">
+              <button type="button" class="td-btn-secondary" (click)="awaitingCredentials.set(true)">Map key</button>
+              <button type="button" class="td-btn-primary" (click)="reloadPage()">Reload</button>
             </div>
           </div>
         </div>
@@ -119,7 +121,7 @@
             <img src="assets/images/ui/cesium-ion-logo.svg" alt="Cesium ion" class="td-cesium-logo">
           }
         </div>
-        <div class="td-map-attribution">{{ mapAttribution() }} · {{ osmAttribution }}</div>
+        <div class="td-map-attribution td-overlay td-note td-trunc">{{ mapAttribution() }}, {{ osmAttribution }}</div>
 
         <!-- Compass Overlay -->
         <app-compass [rotation]="compassRotation()" (resetBearing)="resetCamera()" />
@@ -298,13 +300,13 @@
 
       <!-- Coop: the connection broke in the game, which stands still until the player decides (TODO E40) -->
       @if (coop.lostInGame() && !store.showGameOverScreen()) {
-        <div class="td-lost-overlay" role="alertdialog" aria-modal="true" aria-labelledby="td-lost-title" tabindex="-1" tdFocusOnShow>
-          <div class="td-lost-content">
-            <h2 id="td-lost-title">Connection lost</h2>
-            <p>The connection to the coop server closed, the game stands still. Go on alone with this run, or start a new one alone.</p>
-            <div class="td-end-actions">
-              <button type="button" class="btn-primary" (click)="coop.continueAlone()">Continue alone</button>
-              <button type="button" class="btn-secondary" (click)="restartGame()">Start over alone</button>
+        <div class="td-lost-overlay td-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="td-lost-title" tabindex="-1" tdFocusOnShow cdkTrapFocus>
+          <div class="td-dlg td-lost-content">
+            <header class="td-dlg-head"><h2 class="td-dlg-title" id="td-lost-title">Connection lost</h2></header>
+            <p class="td-dlg-body td-text">The connection to the coop server closed, the game stands still. Go on alone with this run, or start a new one alone.</p>
+            <div class="td-dlg-foot">
+              <button type="button" class="td-btn-secondary" (click)="restartGame()">Start over alone</button>
+              <button type="button" class="td-btn-primary" (click)="coop.continueAlone()">Continue alone</button>
             </div>
           </div>
         </div>
@@ -312,30 +314,30 @@
 
       <!-- Game Over Overlay -->
       @if (store.showGameOverScreen()) {
-        <div class="td-gameover-overlay" role="dialog" aria-modal="true" aria-labelledby="td-gameover-title" tabindex="-1" tdFocusOnShow>
-          <div class="td-gameover-content">
-           <div class="td-gameover-scroll">
-            <h1 id="td-gameover-title">HQ lost</h1>
-            <p class="td-gameover-where">{{ currentLocationName() }} · wave {{ store.waveNumber() }}</p>
+        <div class="td-gameover-overlay td-backdrop" role="dialog" aria-modal="true" aria-labelledby="td-gameover-title" tabindex="-1" tdFocusOnShow cdkTrapFocus>
+          <div class="td-dlg td-gameover-content">
+           <header class="td-dlg-head"><h1 class="td-dlg-title" id="td-gameover-title">HQ lost</h1></header>
+           <div class="td-dlg-body td-gameover-scroll">
+            <p class="td-note td-gameover-where">{{ currentLocationName() }}, wave {{ store.waveNumber() }}</p>
             @if (store.runSummary(); as summary) {
               <app-run-summary [summary]="summary" />
             }
             <!-- Coop: each player's part of the run (docs/COOP_PLAN.md, R16) -->
             @if (coop.summary(); as rows) {
-              <table class="td-coop-summary" aria-label="Players">
+              <table class="td-table td-coop-summary" aria-label="Players">
                 <thead>
-                  <tr><th>Player</th><th>Kills</th><th>Leaks</th><th>Towers</th><th>Earned</th><th>Gold given</th><th>Gold</th></tr>
+                  <tr><th>Player</th><th class="num">Kills</th><th class="num">Leaks</th><th class="num">Towers</th><th class="num">Earned</th><th class="num">Gold given</th><th class="num">Gold</th></tr>
                 </thead>
                 <tbody>
                   @for (row of rows; track row.id) {
-                    <tr [class.is-me]="row.me" [class.has-left]="row.left">
-                      <td><span class="td-coop-dot" [style.background]="row.color"></span>{{ row.name }}{{ row.me ? ' (you)' : '' }}</td>
-                      <td>{{ row.kills }}</td>
-                      <td>{{ row.leaks }}</td>
-                      <td>{{ row.towers }}</td>
-                      <td>{{ goldEarnedOf(row.id) }}</td>
-                      <td>{{ row.goldGiven }}</td>
-                      <td>{{ row.gold }}</td>
+                    <tr [class.is-own]="row.me" [class.is-gone]="row.left">
+                      <td><span class="td-inline td-coop-player"><span class="td-swatch is-round" [style.--td-mark]="row.color"></span><span class="td-name">{{ row.name }}{{ row.me ? ' (you)' : '' }}</span></span></td>
+                      <td class="num">{{ row.kills }}</td>
+                      <td class="num">{{ row.leaks }}</td>
+                      <td class="num">{{ row.towers }}</td>
+                      <td class="num">{{ goldEarnedOf(row.id) }}</td>
+                      <td class="num">{{ row.goldGiven }}</td>
+                      <td class="num">{{ row.gold }}</td>
                     </tr>
                   }
                 </tbody>
@@ -344,35 +346,11 @@
             <!-- Each player's run wave by wave (TODO E46) -->
             <app-run-charts [points]="waveSeries()" [players]="chartPlayers()" />
             @if (coop.lostInGame()) {
-              <p class="td-gameover-wait">The connection to the coop server is lost: Restart plays alone.</p>
+              <p class="td-note td-gameover-wait">The connection to the coop server is lost: Restart plays alone.</p>
             }
             @if (coop.inGame() && !coop.isHost()) {
-              <p class="td-gameover-wait">The host starts the next run.</p>
+              <p class="td-note td-gameover-wait">The host starts the next run.</p>
             }
-            <div class="td-end-actions">
-              @if (!coop.inGame() || coop.isHost()) {
-                <button type="button" class="btn-primary" (click)="restartGame()">Restart here</button>
-              }
-              <!-- The wave that broke the HQ, once more, while the replay is offered -->
-              @if (replay.offered()) {
-                <button type="button" class="btn-secondary" (click)="replay.enter()">Replay wave {{ replay.recordedWave() }}</button>
-              }
-              <button type="button" class="btn-secondary" (click)="openMainMenu()">Main menu</button>
-            </div>
-            <div class="td-gameover-files">
-              <!-- The run as a file: the analysis reads it, and it can be sent (docs/RUN_LOG.md) -->
-              <button type="button" class="btn-ghost" (click)="exportRunLog()">
-                <td-icon name="filing" [size]="14"></td-icon>
-                <span>{{ runLogExported() ? 'Run log saved' : 'Save the run log' }}</span>
-              </button>
-              <!-- Coop: no replay to watch here, but the host saves the waves as a file -->
-              @if (coopReplaySave()) {
-                <button type="button" class="btn-ghost" (click)="saveCoopReplay()">
-                  <td-icon name="replay" [size]="14"></td-icon>
-                  <span>{{ coopReplaySaved() ? 'Replay saved' : 'Save the replay' }}</span>
-                </button>
-              }
-            </div>
             <!-- New record of this place: under Restart, fades in after a moment, Skip hides it.
                  on immediate like the other @defer blocks; a timer trigger would add core code to the initial bundle. -->
             @if (bestWaves.newRecord(); as record) {
@@ -385,23 +363,42 @@
               }
             }
            </div>
+           <footer class="td-dlg-foot td-actions is-split">
+            <span class="td-inline td-gameover-files">
+              <!-- The run as a file: the analysis reads it, and it can be sent (docs/RUN_LOG.md) -->
+              <button type="button" class="td-btn-secondary" (click)="exportRunLog()">{{ runLogExported() ? 'Run log saved' : 'Save the run log' }}</button>
+              <!-- Coop: no replay to watch here, but the host saves the waves as a file -->
+              @if (coopReplaySave()) {
+                <button type="button" class="td-btn-secondary" (click)="saveCoopReplay()">{{ coopReplaySaved() ? 'Replay saved' : 'Save the replay' }}</button>
+              }
+            </span>
+            <span class="td-inline td-end-actions">
+              <button type="button" class="td-btn-secondary" (click)="openMainMenu()">Main menu</button>
+              <!-- The wave that broke the HQ, once more, while the replay is offered -->
+              @if (replay.offered()) {
+                <button type="button" class="td-btn-secondary" (click)="replay.enter()">Replay wave {{ replay.recordedWave() }}</button>
+              }
+              @if (!coop.inGame() || coop.isHost()) {
+                <button type="button" class="td-btn-primary" (click)="restartGame()">Restart here</button>
+              }
+            </span>
+           </footer>
           </div>
         </div>
       }
 
       <!-- Photo mode: only the map, its attribution and this bar stay -->
       @if (photoMode.active()) {
-        <div class="td-photo-bar" role="toolbar" aria-label="Photo mode">
-          <button type="button" class="td-photo-btn" (click)="photoMode.saveScreenshot()" [disabled]="photoMode.saving()">
+        <div class="td-photo-bar td-overlay td-inline" role="toolbar" aria-label="Photo mode">
+          <button type="button" class="td-btn-primary td-btn-sm" (click)="photoMode.saveScreenshot()" [disabled]="photoMode.saving()">
             <td-icon name="camera" [size]="16"></td-icon>
-            <span>Save screenshot</span>
+            Save screenshot
           </button>
-          <button type="button" class="td-photo-btn" (click)="photoMode.exit()">
-            <span>Exit</span>
-            <kbd class="td-photo-key">Esc</kbd>
+          <button type="button" class="td-btn-secondary td-btn-sm" (click)="photoMode.exit()">
+            Exit <kbd class="td-kbd">Esc</kbd>
           </button>
           @if (photoMode.savedAs(); as saved) {
-            <span class="td-photo-saved">Saved to Downloads: {{ saved }}</span>
+            <span class="td-note">Saved to Downloads: {{ saved }}</span>
           }
         </div>
       }

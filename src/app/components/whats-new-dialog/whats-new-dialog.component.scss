@@ -1,90 +1,32 @@
-@use '../../styles/game-ui' as ui;
+// Layout of What's new: one group per release, version and date on a line.
 
-@include ui.classes;
-
-.dlg {
-  width: 520px;
-}
-
-.dlg-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--td-sp-4);
-}
-
-/* One release: version line, then its groups */
-.release + .release {
-  padding-top: var(--td-sp-4);
-  border-top: 1px solid var(--td-frame-dark);
-}
-
-.release-header {
+.wn-head {
   display: flex;
   align-items: baseline;
   gap: var(--td-sp-2);
-  margin-bottom: var(--td-sp-2);
 }
 
-.release-version {
-  font-family: var(--td-font-display);
+.wn-version {
   font-size: var(--td-fs-lead);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--td-text-primary);
 }
 
-.release.current .release-version {
-  color: var(--td-gold-light);
+.wn-release.is-current .wn-version,
+.wn-tag {
+  color: var(--td-brass-light);
 }
 
-.release-tag {
-  @include ui.caps-label;
-  color: var(--td-gold);
-}
-
-.release-date {
-  @include ui.caps-label;
+.wn-date {
   margin-left: auto;
 }
 
-.group-title {
-  @include ui.caps-label;
-  display: block;
-  margin: var(--td-sp-3) 0 var(--td-sp-1);
-  color: var(--td-teal);
-}
-
-.group-title:first-child {
-  margin-top: 0;
-}
-
-ul {
+.wn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin: 0;
-  padding-left: 18px;
+  padding-left: 20px;
 }
 
-li {
-  margin: 4px 0;
-  font-size: var(--td-fs-body);
-  line-height: 1.5;
-}
-
-/* Releases the player already knows, folded away after an update */
-.earlier summary {
-  @include ui.caps-label;
+.wn-earlier summary {
   cursor: pointer;
-  @include ui.focus-ring;
-}
-
-.earlier summary:hover {
-  color: var(--td-text-primary);
-}
-
-.earlier .release {
-  margin-top: var(--td-sp-4);
-}
-
-.empty {
-  margin: 0;
-  color: var(--td-text-muted);
 }

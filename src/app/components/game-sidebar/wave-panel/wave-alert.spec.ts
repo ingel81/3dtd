@@ -153,7 +153,7 @@ describe('waveAlertView', () => {
   it('flags a defense without anti-air', () => {
     const view = waveAlertView({ kind: 'air', wave: 7, wavesAhead: 2, answering: 0 }, false);
     expect(view).toMatchObject({
-      title: 'Air · Wave 7',
+      title: 'Air | Wave 7',
       when: 'in 2 waves',
       defense: 'No tower hits air yet',
       covered: false,
@@ -179,7 +179,7 @@ describe('waveAlertView', () => {
     const view = waveAlertView({ kind: 'ethereal', wave: 13, wavesAhead: 1, answering: 0 }, false);
     expect(view).toMatchObject({
       icon: 'ghost',
-      title: 'Ethereal · Wave 13',
+      title: 'Ethereal | Wave 13',
       when: 'next wave',
       defense: 'No tower hurts ethereal yet',
       covered: false,

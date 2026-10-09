@@ -116,7 +116,7 @@ describe('veteranView', () => {
 
   it('names every rank with its threshold in the tooltip', () => {
     expect(VETERAN_TOOLTIP).toBe(
-      'Rank from killing blows, cosmetic only: Blooded 10 · Veteran 50 · Elite 150 · Champion 400 · Legend 1000',
+      'Rank from killing blows, cosmetic only: Blooded 10 | Veteran 50 | Elite 150 | Champion 400 | Legend 1000',
     );
   });
 });

@@ -17,7 +17,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { StreetNetwork } from './services/location/osm-street.service';
 import { ModelPreviewService } from './services/infrastructure/model-preview.service';
@@ -148,7 +148,7 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
     CommonModule,
     FocusOnShowDirective,
     MatDialogModule,
-    MatButtonModule,
+    CdkTrapFocus,
     MatTooltipModule,
     GameSidebarComponent,
     CompassComponent,
@@ -1066,7 +1066,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     const rows = this.coop.summary();
     if (rows) return rows.map((row) => ({ id: row.id, name: row.me ? `${row.name} (you)` : row.name, color: row.color }));
     const last = this.waveSeries().at(-1);
-    return last ? Object.keys(last.players).map((id) => ({ id, name: 'You', color: 'var(--td-gold)' })) : [];
+    return last ? Object.keys(last.players).map((id) => ({ id, name: 'You', color: 'var(--td-brass)' })) : [];
   });
 
   /** Gold a player earned in the run (kills and wave bonuses), for the coop table */

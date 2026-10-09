@@ -24,7 +24,7 @@ export function startMenuSkipped(search: string): boolean {
   return (bot !== null && bot !== 'manual') || params.has('benchmark') || params.get('menu') === 'skip';
 }
 
-/** The autosave as the list offers it: "Heilbronn · wave 12" */
+/** The autosave as the list offers it: "Heilbronn | wave 12" */
 export interface AutosaveOffer {
   place: string;
   wave: number;

@@ -14,9 +14,8 @@ import { IntroCameraFlightService } from '../../services/world/intro-camera-flig
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <button class="intro-skip-btn" type="button" (click)="skip()">
-      Skip Intro
-      <span class="intro-skip-hint">ESC</span>
+    <button class="td-btn-secondary" type="button" (click)="skip()">
+      Skip intro <kbd class="td-kbd">Esc</kbd>
     </button>
   `,
   styles: [`
@@ -30,41 +29,6 @@ import { IntroCameraFlightService } from '../../services/world/intro-camera-flig
       /* Clickable, so above the band of the off-screen arrows */
       margin-bottom: 36px;
       pointer-events: auto;
-    }
-
-    .intro-skip-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 16px;
-      cursor: pointer;
-      background: var(--td-glass-tint);
-      backdrop-filter: blur(8px) saturate(1.1);
-      -webkit-backdrop-filter: blur(8px) saturate(1.1);
-      border: 1px solid var(--td-frame-mid);
-      box-shadow:
-        inset 0 1px 0 rgba(122, 133, 128, 0.33),
-        var(--td-shadow-soft);
-      color: var(--td-text-primary);
-      font-family: var(--td-font-display);
-      font-size: 14px;
-      font-weight: 500;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      transition: border-color 120ms ease, color 120ms ease;
-    }
-
-    .intro-skip-btn:hover {
-      border-color: var(--td-gold-light);
-      color: var(--td-gold-light);
-    }
-
-    .intro-skip-hint {
-      padding: 1px 5px;
-      border: 1px solid var(--td-frame-dark);
-      font-size: var(--td-fs-micro);
-      letter-spacing: 0.04em;
-      opacity: 0.7;
     }
   `],
 })

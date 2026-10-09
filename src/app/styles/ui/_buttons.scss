@@ -1,0 +1,185 @@
+// Buttons: stone plates with engraved text. Main (darker stone, brass text),
+// secondary (darker still, quiet text), danger (like secondary, red text),
+// ghost (text only), icon buttons, the close button and engraved tools.
+// Hover and press only on a control that can act (base.$enabled); pressed
+// also shows a toggle that is on (.is-on, aria-pressed).
+@use 'base';
+
+// A toggle that is on: sunk into a deep well with brass, like a chosen
+// segment, so it reads at a glance among raised neighbours
+@mixin on-state {
+  background: color-mix(in srgb, var(--td-ink) 45%, transparent);
+  box-shadow: var(--td-well-deep);
+  color: var(--td-brass-light);
+}
+
+// Shape and type of every button
+@mixin shape($height: var(--td-h-button)) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--td-sp-2);
+  box-sizing: border-box;
+  height: $height;
+  // 3px at the bottom lifts the text by 1.5px onto the optical middle
+  padding: 0 16px 3px;
+  border: 0;
+  border-radius: var(--td-radius);
+  font-family: var(--td-font);
+  font-size: var(--td-fs-button);
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  text-shadow: var(--td-engrave);
+  white-space: nowrap;
+  cursor: pointer;
+  @include base.focus-ring;
+  @include base.motion(color, filter, box-shadow, transform);
+  @include base.disabled;
+}
+
+// The one main action of a place
+@mixin primary($height: var(--td-h-button)) {
+  @include shape($height);
+  background: var(--td-stone-dark);
+  box-shadow: var(--td-raised);
+  color: var(--td-brass-light);
+
+  &:hover#{base.$enabled} {
+    filter: brightness(1.12);
+  }
+
+  &:active#{base.$enabled} {
+    transform: translateY(1px);
+    box-shadow: var(--td-pressed);
+    filter: brightness(0.95);
+  }
+
+  &.is-on,
+  &[aria-pressed='true'] {
+    box-shadow: var(--td-pressed);
+  }
+}
+
+// Every other action
+@mixin secondary($height: var(--td-h-button)) {
+  @include shape($height);
+  @include base.quiet-stone;
+  color: var(--td-text-quiet);
+
+  &:hover#{base.$enabled} {
+    color: var(--td-brass-light);
+  }
+
+  &:active#{base.$enabled} {
+    box-shadow: var(--td-pressed);
+  }
+
+  &.is-on,
+  &[aria-pressed='true'] {
+    @include on-state;
+  }
+}
+
+// Destructive: delete, leave, kick. Armed (a first click on Sell) it stands
+// pressed and asks for the second.
+@mixin danger($height: var(--td-h-button)) {
+  @include secondary($height);
+  color: var(--td-danger-text);
+
+  &:hover#{base.$enabled},
+  &.is-armed {
+    color: var(--td-error-text);
+  }
+
+  &.is-armed {
+    box-shadow: var(--td-pressed);
+  }
+}
+
+// Text only, for a third action. Tools and ghost buttons have no plate, so
+// they show a press by their colour, not by depth.
+@mixin ghost($height: var(--td-h-button)) {
+  @include shape($height);
+  background: none;
+  color: var(--td-text-quiet);
+
+  &:hover#{base.$enabled} {
+    color: var(--td-brass-light);
+  }
+}
+
+// Small: in 30px rows (copy code, row actions)
+@mixin small {
+  height: var(--td-h-button-sm);
+  padding: 0 10px 2px;
+  font-size: var(--td-fs-body);
+}
+
+// A square stone button with an icon: back, row tools, the close button
+@mixin icon($size: var(--td-icon-btn)) {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: $size;
+  height: $size;
+  padding: 0;
+  border: 0;
+  border-radius: var(--td-radius);
+  @include base.quiet-stone;
+  color: var(--td-text-muted);
+  cursor: pointer;
+  @include base.focus-ring;
+  @include base.motion(color, box-shadow);
+
+  &:hover#{base.$enabled} {
+    color: var(--td-brass-light);
+  }
+
+  &:active#{base.$enabled} {
+    box-shadow: var(--td-pressed);
+    color: var(--td-brass-light);
+  }
+
+  &.is-on,
+  &[aria-pressed='true'],
+  &[aria-expanded='true'] {
+    @include on-state;
+  }
+
+  @include base.disabled;
+}
+
+// An icon cut into the surface, no plate: tools in the top bar and on strips.
+// On (.is-on, aria-pressed, an open menu) in brass; armed (a first click on a
+// kick or delete) red.
+@mixin tool($size: var(--td-tool-size)) {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: $size;
+  height: $size;
+  padding: 0;
+  border: 0;
+  border-radius: var(--td-radius);
+  background: none;
+  color: var(--td-text-muted);
+  filter: var(--td-engrave-icon);
+  cursor: pointer;
+  @include base.focus-ring;
+  @include base.motion(color);
+
+  &:hover#{base.$enabled},
+  &.is-on,
+  &[aria-pressed='true'],
+  &[aria-expanded='true'] {
+    color: var(--td-brass-light);
+  }
+
+  &.is-armed {
+    color: var(--td-error-text);
+  }
+
+  @include base.disabled;
+}

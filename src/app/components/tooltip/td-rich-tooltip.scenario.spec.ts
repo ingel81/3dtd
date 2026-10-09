@@ -188,7 +188,7 @@ describe('Rich tooltip', () => {
     expect(sections.map((s) => s.querySelector('h4 span')!.textContent)).toEqual(['Enemies', 'Weak to']);
     expect(sections[0].querySelector('h4 .aside')!.textContent).toBe('HQ each');
     const enemy = sections[0].querySelector('.td-tooltip__row')!;
-    expect(enemy.querySelector('.dot')).not.toBeNull();
+    expect(enemy.querySelector('.td-swatch')).not.toBeNull();
     expect(enemy.querySelector('.row-label')!.textContent).toBe('6× Mammoth');
     expect(enemy.querySelector('.row-detail')!.textContent).toBe('Fortified');
     expect(enemy.querySelector('.row-value')!.textContent).toBe('−6.8');

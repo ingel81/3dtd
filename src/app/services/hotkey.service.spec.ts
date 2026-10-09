@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TD_THEME } from '../styles/td-theme';
 
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
@@ -491,7 +492,7 @@ describe('HotkeyService', () => {
       service.handleKeyDown(event);
       expect(event.defaultPrevented).toBe(true);
       expect(spawnFloatingText).toHaveBeenCalledWith(
-        'SPEED LV 1', 48.7, 9.1, 305, expect.objectContaining({ color: '#D9BC68' }),
+        'SPEED LV 1', 48.7, 9.1, 305, expect.objectContaining({ color: TD_THEME.brassLight }),
       );
       expect(upgradeHint.hint()).toMatchObject({ towerId: 't1', upgradeId: 'speed', refusal: null });
     });
@@ -504,7 +505,7 @@ describe('HotkeyService', () => {
       expect(facade.upgradeTower).not.toHaveBeenCalled();
       expect(event.defaultPrevented).toBe(true);
       expect(spawnFloatingText).toHaveBeenCalledWith(
-        'NEED 20 CREDITS', 48.7, 9.1, 305, expect.objectContaining({ color: '#C96A3A' }),
+        'NEED 20 CREDITS', 48.7, 9.1, 305, expect.objectContaining({ color: TD_THEME.warnOrange }),
       );
       expect(upgradeHint.hint()).toMatchObject({
         towerId: 't1',

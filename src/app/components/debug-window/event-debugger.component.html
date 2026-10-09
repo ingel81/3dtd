@@ -11,35 +11,27 @@
   >
     <div class="event-debug-content">
       <!-- Filter Buttons -->
-      <div class="filter-row" role="group" aria-label="Event categories">
+      <div class="td-seg is-compact filter-row" role="group" aria-label="Event categories">
         @for (cat of categories; track cat) {
           <button
-            class="filter-btn"
-            [class.active]="selectedCategory() === cat"
+            type="button"
             [attr.aria-pressed]="selectedCategory() === cat"
             (click)="selectCategory(cat)"
           >
-            {{ cat | uppercase }}
+            {{ cat }}
           </button>
         }
       </div>
 
       <!-- Stats Row -->
-      <div class="stats-row">
-        <span class="stat">
-          <span class="label">Total:</span>
-          <span class="value">{{ totalEvents() }}</span>
-        </span>
-        <span class="stat">
-          <span class="label">Shown:</span>
-          <span class="value">{{ filteredEvents().length }}</span>
-        </span>
-        <button class="clear-btn" (click)="clearLog()" title="Clear log" aria-label="Clear log">
+      <div class="td-inline stats-row">
+        <span class="td-kv"><span>Total</span><b>{{ totalEvents() }}</b></span>
+        <span class="td-kv"><span>Shown</span><b>{{ filteredEvents().length }}</b></span>
+        <button class="td-tool clear-btn" (click)="clearLog()" title="Clear log" aria-label="Clear log">
           <td-icon name="trash" [size]="14"></td-icon>
         </button>
         <button
-          class="pause-btn"
-          [class.active]="isPaused()"
+          class="td-tool"
           (click)="togglePause()"
           [title]="isPaused() ? 'Resume' : 'Pause'"
           [attr.aria-label]="isPaused() ? 'Resume' : 'Pause'"
@@ -50,17 +42,17 @@
       </div>
 
       <!-- Event Log -->
-      <div class="event-log">
+      <div class="td-rows event-log">
         @for (entry of filteredEvents(); track entry.id) {
-          <div class="event-entry" [class]="getEventClass(entry.event.type)">
-            <span class="time">{{ formatTime(entry.timestamp) }}</span>
-            <span class="type">{{ entry.event.type }}</span>
-            <span class="details">{{ getEventDetails(entry.event) }}</span>
+          <div class="td-row td-marked event-entry" [class]="getEventClass(entry.event.type)">
+            <span class="td-note td-num time">{{ formatTime(entry.timestamp) }}</span>
+            <span class="td-name type">{{ entry.event.type }}</span>
+            <span class="td-note details td-trunc">{{ getEventDetails(entry.event) }}</span>
           </div>
         } @empty {
-          <div class="empty-state">
+          <div class="td-note empty-state">
             @if (eventLog().length === 0) {
-              Waiting for events...
+              Waiting for events
             } @else {
               No events for filter "{{ selectedCategory() }}"
             }

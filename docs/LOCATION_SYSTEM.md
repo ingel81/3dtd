@@ -612,7 +612,7 @@ Wenn das HQ außerhalb der Bounds platziert wird (z.B. 10km entfernt):
 
 ### Rückmeldung (Hinweis über der Karte)
 
-Solange das HQ umzieht, steht oben mittig ein Hinweis "MOVING HQ" mit dem laufenden Schritt (`RelocationStatusService`, `components/relocation-status/`, Aussehen in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#umzugs-hinweis-canvas)):
+Solange das HQ umzieht, steht oben mittig ein Hinweis "MOVING HQ" mit dem laufenden Schritt (`RelocationStatusService`, `components/relocation-status/`, Aussehen in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#weitere-teile-über-der-karte)):
 
 - **Fast Path:** "Finding the route", bevor der Umbau beginnt. Der Umbau blockiert den Hauptthread bis zum Ende, deshalb wartet er zwei Animation-Frames (`painted()`), damit der Browser den Hinweis vorher zeichnet. Danach zeigt er die Schritte des Korridor-Baus mit Prozent und 2px-Balken ("Loading the corridor tiles", "Measuring the corridor", "Building the corridor"; `CorridorBuild` meldet sie an `RelocationStatusService.follow()`, je Frame außerhalb von Angular gelesen, das Signal ändert sich nur mit Schritt und Prozentzahl). Mit dem Einfrieren des Korridors verschwindet der Hinweis, danach startet die Routen-Animation auf den eingefrorenen Routen. Ein Tower oder Wellenstart wartet währenddessen auf den Bau (`GameStateManager.corridorPending`), statt ihn abzukürzen; einen Flush gibt es nicht mehr
 - **Slow Path:** "Loading streets", solange Straßen und Zufalls-Spawn vor dem Ladescreen gesucht werden; bleibt der alte Spawn, erscheint er nicht. Der Ladescreen des Ortswechsels löst ihn ab, und der Korridor entsteht dort hinter dem Ladescreen

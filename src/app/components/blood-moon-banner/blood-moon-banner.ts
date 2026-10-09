@@ -2,7 +2,7 @@ import { isBloodMoonWave } from '../../configs/blood-moon.config';
 import type { WaveMutator } from '../../configs/wave-mutators.config';
 
 export interface BloodMoonBanner {
-  /** Under the title: "Wave 14", with a mutator "Wave 14 · Swift" */
+  /** Under the title: "Wave 14", with a mutator "Wave 14 | Swift" */
   wave: string;
   /** For screen readers */
   announcement: string;
@@ -22,7 +22,7 @@ export function bloodMoonBanner(
   if (!isBloodMoonWave(wave) || (!lookEnabled && !mutator)) return null;
   if (!mutator) return { wave: `Wave ${wave}`, announcement: `Blood moon, wave ${wave}.` };
   return {
-    wave: `Wave ${wave} · ${mutator.name}`,
+    wave: `Wave ${wave} | ${mutator.name}`,
     announcement: `Blood moon, wave ${wave}. ${mutator.name}: ${mutator.description}`,
   };
 }

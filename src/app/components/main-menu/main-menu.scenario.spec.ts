@@ -24,6 +24,7 @@ import { MainMenuComponent } from './main-menu.component';
 import { MainMenuService, startMenuSkipped } from './main-menu.service';
 import { MenuHomeComponent } from './pages/home/menu-home.component';
 import { MenuLoadingComponent } from './loading/menu-loading.component';
+import { RovingGroupDirective } from '../roving-group.directive';
 import type { BootStep } from './loading/boot-step.model';
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
@@ -49,6 +50,15 @@ function pageStub(selector: string) {
   return PageStub;
 }
 const PAGES = ['new-game', 'coop', 'save', 'load', 'settings', 'extras'].map((page) => pageStub(`app-menu-${page}`));
+
+/** The icon stands in empty; its name and size are all the menu binds */
+@Component({ selector: 'td-icon', standalone: true, template: '' })
+class IconStub {
+  readonly name = input('');
+  readonly size = input(16);
+}
+Input({ alias: 'name', isSignal: true } as Input)(IconStub.prototype, 'name');
+Input({ alias: 'size', isSignal: true } as Input)(IconStub.prototype, 'size');
 
 // The @Input annotation the JIT transform adds for input() (see world-map.scenario.spec.ts)
 Input({ alias: 'layer', isSignal: true, required: true } as Input)(MenuHomeComponent.prototype, 'layer');
@@ -143,11 +153,14 @@ describe('The main menu', () => {
     TestBed.overrideComponent(MainMenuComponent, {
       set: {
         template: read('main-menu.component.html'), templateUrl: undefined, styleUrl: undefined, styles: [],
-        imports: [CdkTrapFocus, MenuHomeComponent, MenuLoadingComponent, ...PAGES],
+        imports: [CdkTrapFocus, IconStub, MenuHomeComponent, MenuLoadingComponent, ...PAGES],
       },
     });
     TestBed.overrideComponent(MenuHomeComponent, {
-      set: { template: read('pages/home/menu-home.component.html'), templateUrl: undefined, styleUrl: undefined, styles: [] },
+      set: {
+        template: read('pages/home/menu-home.component.html'), templateUrl: undefined, styleUrl: undefined, styles: [],
+        imports: [RovingGroupDirective, IconStub],
+      },
     });
     TestBed.overrideComponent(MenuLoadingComponent, {
       set: { template: read('loading/menu-loading.component.html'), templateUrl: undefined, styleUrl: undefined, styles: [] },
@@ -326,7 +339,7 @@ describe('The main menu', () => {
       await setup();
 
       expect(entries().slice(0, 2)).toEqual(['Continue', 'Play']);
-      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('Heilbronn · wave 12');
+      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('Heilbronn | wave 12');
       await click(entry('continue'));
 
       expect(saves.continueAutosave).toHaveBeenCalledTimes(1);
@@ -340,7 +353,7 @@ describe('The main menu', () => {
       saves.slots.set([autosaveAt(PARIS, 'Rue de Rivoli, Paris, France', 7)]);
       await setup();
 
-      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Paris · wave 7');
+      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Paris | wave 7');
       await click(entry('continue'));
       expect(saves.continueAutosave).not.toHaveBeenCalled();
       expect(text()).toContain('Leaves Heilbronn: the save plays in Paris.');
@@ -362,7 +375,7 @@ describe('The main menu', () => {
       saves.hasAutosave.set(true);
       saves.slots.set([autosaveAt(null, 'Rue de Rivoli, Paris, France')]);
       await setup();
-      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Paris · wave 7');
+      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Paris | wave 7');
     });
 
     it('says why the autosave did not load, and stays', async () => {
@@ -472,7 +485,7 @@ describe('The main menu', () => {
       await settle();
 
       expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'Restart here']);
-      expect(text()).toContain('Paused · Heilbronn · wave 1');
+      expect(text()).toContain('Paused | Heilbronn | wave 1');
     });
 
     it('Continue and Esc go back to the game', async () => {
@@ -510,7 +523,7 @@ describe('The main menu', () => {
       await settle();
       expect(game.paused()).toBe(false);
       expect(entries()).toEqual(['Continue', 'Settings', 'Extras', 'Coop']);
-      expect(text()).toContain('Coop · Heilbronn');
+      expect(text()).toContain('Coop | Heilbronn');
     });
   });
 

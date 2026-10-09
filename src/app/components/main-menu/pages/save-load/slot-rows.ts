@@ -12,7 +12,7 @@ export interface SlotRow {
   id: string;
   /** "Slot 2" for an empty one, the save's name otherwise; "Autosave" for the autosave */
   title: string;
-  /** "Wave 7 · Heilbronn"; "Empty" for an empty slot */
+  /** "Wave 7 | Heilbronn"; "Empty" for an empty slot */
   detail: string;
   /** "5 Oct, 14:32", beside the title so a long place cannot cut it; "" for an empty slot or a broken date */
   when: string;
@@ -24,9 +24,9 @@ export interface SlotRow {
 
 const WHEN = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-/** "Wave 7 · Heilbronn", the town of the saved place */
+/** "Wave 7 | Heilbronn", the town of the saved place */
 export function slotDetail(info: SaveSlotInfo): string {
-  return [`Wave ${info.wave}`, shortPlaceName(info.location)].filter((part) => part !== '').join(' · ');
+  return [`Wave ${info.wave}`, shortPlaceName(info.location)].filter((part) => part !== '').join(' | ');
 }
 
 /** "5 Oct, 14:32"; "" for a broken date */

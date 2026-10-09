@@ -32,6 +32,7 @@ export const REPO_URL = 'https://github.com/ingel81/3dtd';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './extras-list.component.html',
   styleUrl: './extras-list.component.scss',
+  host: { class: 'td-stack is-loose' },
 })
 export class ExtrasListComponent {
   private readonly dialog = inject(MatDialog);

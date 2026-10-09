@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { TD_THEME } from '../styles/td-theme';
 import { Group, Vector3 } from 'three';
 import { createMainEventBus, type MainEventBus } from '../sim/client/view-events';
 import { VFXService } from './vfx.service';
@@ -109,7 +110,7 @@ describe('VFXService hero level-up', () => {
     };
     const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
     eventBus.emit({ type: 'hero:level-up', playerId: 'local', local: true, level: 3, position: { lat: 48.1, lon: 9.2 } });
-    expect(spawnFloatingText).toHaveBeenCalledWith('LEVEL 3', 48.1, 9.2, 310, expect.objectContaining({ color: '#D9BC68' }));
+    expect(spawnFloatingText).toHaveBeenCalledWith('LEVEL 3', 48.1, 9.2, 310, expect.objectContaining({ color: TD_THEME.brassLight }));
     service.destroy();
   });
 

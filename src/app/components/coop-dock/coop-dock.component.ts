@@ -40,6 +40,7 @@ const COPIED_MS = 1200;
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
+    class: 'td-panel',
     '[style.left.px]': 'left',
     '[style.top.px]': 'top()',
     '[style.--td-dock-top]': "top() + 'px'",
@@ -71,7 +72,7 @@ export class CoopDockComponent {
   readonly allBanners = signal(false);
   /** All of the host's addresses, for the tooltip: "192.168.1.20 (Ethernet)"; the first is shown */
   readonly lanAddressText = computed(() =>
-    this.coop.lanAddresses().map((a) => `${a.address} (${a.name})`).join(' · '));
+    this.coop.lanAddresses().map((a) => `${a.address} (${a.name})`).join(' | '));
 
   readonly room = this.coop.room;
   readonly me = computed(() => this.room()?.players.find((p) => p.id === this.coop.playerId()) ?? null);

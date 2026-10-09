@@ -38,7 +38,7 @@ export class QuickActionsComponent {
     const mode = this.uiStore.perTowerLosFilter();
     const current = mode === 'both' ? 'Both layers' : mode === 'ground' ? 'Ground only' : 'Air only';
     const next = mode === 'both' ? 'Ground only' : mode === 'ground' ? 'Air only' : 'Both layers';
-    return `Per-tower LOS: ${current} (click → ${next})`;
+    return `Per-tower LOS: ${current} (click: ${next})`;
   });
 
   // Outputs for actions that need parent handling

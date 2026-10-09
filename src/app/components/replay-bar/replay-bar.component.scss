@@ -1,6 +1,7 @@
-@use '../../styles/game-ui' as ui;
+// Layout of the replay bar: bottom centre over the map, above the logos and
+// the attribution line; two rows, the title line and the controls. The look
+// is a td-overlay strip with td-* buttons, slider and segments.
 
-/* Bottom centre over the map, above the logo and attribution line */
 :host {
   position: absolute;
   left: 50%;
@@ -10,14 +11,11 @@
   width: min(760px, calc(100% - 32px));
 }
 
-/* Glass like the photo bar: two rows, the title line and the controls */
 .td-replay-bar {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 8px 10px;
-  @include ui.glass-strip;
-  font-family: var(--td-font-mono);
 }
 
 .td-replay-row {
@@ -28,207 +26,70 @@
 }
 
 .td-replay-title {
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
+  gap: 4px;
   white-space: nowrap;
 }
 
-.td-replay-wave {
-  margin-left: 4px;
-  color: var(--td-gold-light);
-  font-weight: 700;
-  letter-spacing: 0.08em;
+.rb-step {
+  width: 22px;
+  height: 22px;
 }
 
 .td-replay-stats {
-  display: flex;
   gap: 12px;
   margin-left: auto;
-  font-size: 11px;
-  color: var(--td-text-secondary);
-  font-variant-numeric: tabular-nums;
 }
 
-.td-replay-stat {
-  display: inline-flex;
-  align-items: center;
+.rb-stat {
   gap: 4px;
   cursor: default;
 }
 
-.td-replay-stat td-icon {
-  color: var(--td-text-muted);
-}
-
-/* Buttons: the photo bar's recipe (slot surface, raised edge, mono caps) */
-.td-replay-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 9px;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.2);
-  color: var(--td-text-secondary);
-  font-family: var(--td-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
+.td-replay-play {
   flex-shrink: 0;
 }
 
-.td-replay-btn:hover {
-  color: var(--td-text-primary);
-  border-color: var(--td-frame-mid);
-}
-
-.td-replay-btn:focus-visible,
-.td-replay-speed:focus-visible {
-  outline: var(--td-focus-width) solid var(--td-focus-color);
-  outline-offset: 1px;
-}
-
-.td-replay-play {
-  justify-content: center;
-  width: 30px;
-  padding: 0;
-  color: var(--td-gold-light);
-}
-
-.td-replay-key {
-  padding: 0 4px;
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  color: var(--td-gold-light);
-  font-family: inherit;
-  font-size: var(--td-fs-micro);
-  line-height: 14px;
-}
-
-/* Progress bar: a sunk 4px track filled with dark gold up to the moment
- * shown, the gold thumb on top. Command ticks sit under the input, in teal
- * like the running wave. */
+/* The scrubber; the ticks over it mark the player's commands */
 .td-replay-track {
-  --td-replay-done: 0%;
   position: relative;
   flex: 1;
   min-width: 80px;
-  height: 18px;
+  height: 20px;
   display: flex;
   align-items: center;
 }
 
 .td-replay-mark {
   position: absolute;
-  top: 3px;
+  top: 2px;
   width: 1px;
-  height: 12px;
+  height: 16px;
   margin-left: -0.5px;
   background: var(--td-teal-light);
-  opacity: 0.75;
   pointer-events: none;
 }
 
 .td-replay-scrub {
   position: relative;
   z-index: 1;
-  width: 100%;
-  height: 18px;
-  margin: 0;
-  background: transparent;
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-}
-
-.td-replay-scrub:focus-visible {
-  outline: var(--td-focus-width) solid var(--td-focus-color);
-  outline-offset: 2px;
-}
-
-.td-replay-scrub::-webkit-slider-runnable-track {
-  height: 4px;
-  background: linear-gradient(
-    90deg,
-    var(--td-gold-dark) 0 var(--td-replay-done),
-    var(--td-panel-shadow) var(--td-replay-done) 100%
-  );
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-.td-replay-scrub::-moz-range-track {
-  height: 4px;
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-.td-replay-scrub::-moz-range-progress {
-  height: 4px;
-  background: var(--td-gold-dark);
-}
-
-.td-replay-scrub::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 10px;
-  height: 14px;
-  margin-top: -6px;
-  background: linear-gradient(180deg, var(--td-gold-light) 0%, var(--td-gold) 55%, var(--td-gold-dark) 100%);
-  border: 1px solid #11140F;
-}
-
-.td-replay-scrub::-moz-range-thumb {
-  width: 10px;
-  height: 14px;
-  background: linear-gradient(180deg, var(--td-gold-light) 0%, var(--td-gold) 55%, var(--td-gold-dark) 100%);
-  border: 1px solid #11140F;
-}
-
-.td-replay-seeking {
-  color: var(--td-gold-light);
 }
 
 .td-replay-time {
   flex-shrink: 0;
   min-width: 86px;
   text-align: right;
-  font-size: 11px;
-  color: var(--td-text-secondary);
-  font-variant-numeric: tabular-nums;
+
+  &.is-seeking {
+    color: var(--td-brass-light);
+  }
 }
 
-/* Speeds as a segmented row; the one on is held in like the pause button */
 .td-replay-speeds {
-  display: flex;
-  gap: 1px;
   flex-shrink: 0;
-}
 
-.td-replay-speed {
-  height: 22px;
-  padding: 0 6px;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  color: var(--td-text-muted);
-  font: 10px/1 var(--td-font-mono);
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-}
-
-.td-replay-speed:hover {
-  color: var(--td-text-primary);
-}
-
-.td-replay-speed.td-replay-speed-on {
-  background: var(--td-panel-shadow);
-  border-color: var(--td-gold-dark);
-  color: var(--td-gold-light);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  > button {
+    min-width: 44px;
+  }
 }
 
 /* Narrow canvas: the speeds take a line of their own */
@@ -236,52 +97,9 @@
   .td-replay-controls {
     flex-wrap: wrap;
   }
+
   .td-replay-speeds {
     width: 100%;
     justify-content: flex-end;
   }
-}
-
-// Step to the wave before or after, next to the wave's name
-.td-replay-wave-step {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin: 0 2px;
-  padding: 0;
-  vertical-align: middle;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  color: var(--td-text-muted);
-  cursor: pointer;
-
-  &:hover:not(:disabled) {
-    color: var(--td-gold-light);
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    cursor: default;
-  }
-
-  &:focus-visible {
-    outline: var(--td-focus-width) solid var(--td-focus-color);
-    outline-offset: 1px;
-  }
-}
-
-// The replay stopped matching the game that was played: a bug, shown plainly
-.td-replay-diverged {
-  font-size: 10px;
-  color: var(--td-warn-orange);
-  white-space: nowrap;
-}
-
-// A replay loaded from a file, not the run under way
-.td-replay-file {
-  margin-left: 4px;
-  color: var(--td-text-muted);
-  letter-spacing: 0.08em;
 }

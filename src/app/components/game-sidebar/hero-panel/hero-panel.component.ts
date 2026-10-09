@@ -19,6 +19,7 @@ import { RovingGroupDirective } from '../../roving-group.directive';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './hero-panel.component.html',
   styleUrl: './hero-panel.component.scss',
+  host: { class: 'td-side-section is-fill' },
 })
 export class SidebarHeroPanelComponent {
   private readonly store = inject(TowerDefenseStore);

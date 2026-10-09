@@ -375,14 +375,25 @@ async function runTour(page: Page, size: string): Promise<Tour> {
         outlineWidth: parseFloat(s.outlineWidth) || 0,
         borderLeftWidth: parseFloat(s.borderLeftWidth) || 0,
         borderLeftColor: s.borderLeftColor,
+        // A menu item shows the focus as the raised stone plate: its own
+        // surface and relief, unlike a sibling item at rest
+        plate: (() => {
+          if (!el.classList.contains('td-menu-item')) return false;
+          const rest = [...(el.parentElement?.querySelectorAll<HTMLElement>('.td-menu-item') ?? [])].find(
+            (other) => other !== el && !other.classList.contains('is-active') && !other.matches('[aria-current]'),
+          );
+          if (!rest) return false;
+          const r = getComputedStyle(rest);
+          return s.boxShadow !== 'none' && s.boxShadow !== r.boxShadow && s.backgroundImage !== r.backgroundImage;
+        })(),
       };
     });
     expect(ring, 'something has the focus').not.toBeNull();
-    // A ring of 2px or more, or the menu item's 2px+ bar in the focus colour
+    // A ring of 2px or more, the 2px+ bar in the focus colour, or the menu item's stone plate
     const min = TWO_PX;
     const outline = ring!.outlineStyle !== 'none' && ring!.outlineWidth >= min;
     const bar = ring!.borderLeftWidth >= min && ring!.borderLeftColor === FOCUS_COLOR;
-    expect(outline || bar, `visible focus on ${ring!.tag} "${ring!.text}": ${JSON.stringify(ring)}`).toBe(true);
+    expect(outline || bar || ring!.plate, `visible focus on ${ring!.tag} "${ring!.text}": ${JSON.stringify(ring)}`).toBe(true);
     await toGame(page);
   });
 
@@ -432,6 +443,41 @@ async function runTour(page: Page, size: string): Promise<Tour> {
       await toGame(page);
     });
   }
+
+  // --- Research tree, debug windows, a rich tooltip ---
+  await tour.step('research tree', async () => {
+    await toGame(page);
+    // The tree is open to look at without a Center: straight through the build panel
+    await page.evaluate(() => {
+      const w = window as unknown as { ng: { getComponent(el: Element | null): { openResearch(): void } } };
+      w.ng.getComponent(document.querySelector('app-sidebar-build-panel')).openResearch();
+    });
+    await expect(page.locator('mat-dialog-container')).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(800);
+    await tour.shot('research-tree');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('mat-dialog-container')).toHaveCount(0, { timeout: 5000 });
+  });
+
+  await tour.step('debug windows', async () => {
+    for (const name of [/^Wave spawner$/, /^Performance$/, /^Enemy inspector$/]) {
+      await (await devButton(page, name)).click();
+    }
+    await closeDev(page);
+    await page.waitForTimeout(800);
+    await tour.shot('debug-windows');
+    for (const name of [/^Wave spawner$/, /^Performance$/, /^Enemy inspector$/]) {
+      await (await devButton(page, name)).click();
+    }
+    await closeDev(page);
+  });
+
+  await tour.step('rich tooltip on a build card', async () => {
+    await page.locator('app-sidebar-build-panel .td-card').first().hover();
+    await page.waitForTimeout(900);
+    await tour.shot('tooltip-build-card');
+    await page.mouse.move(Math.round((page.viewportSize()?.width ?? 1600) / 3), 400);
+  });
 
   // --- Coop: the page from the header, a room of this machine and its dock ---
   await tour.step('coop page from the header', async () => {

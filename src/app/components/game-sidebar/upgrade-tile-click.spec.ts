@@ -17,7 +17,7 @@ describe('Upgrade tiles take the click they cannot buy', () => {
 
   /** The start tags of the upgrade tiles in `path` */
   const tiles = (path: string): string[] =>
-    readFileSync(resolve(path), 'utf8').match(/<button\b[^>]*class="td-upgrade-tile"[^>]*>/g) ?? [];
+    readFileSync(resolve(path), 'utf8').match(/<button\b[^>]*class="td-plate-btn upgrade-tile"[^>]*>/g) ?? [];
 
   it.each(PANELS)('%s: every tile binds the click and aria-disabled, none disabled', (path) => {
     const found = tiles(path);

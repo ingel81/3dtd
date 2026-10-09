@@ -45,6 +45,7 @@ import { towerPreviewConfig } from '../../../services/infrastructure/preview-she
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './build-panel.component.html',
   styleUrl: './build-panel.component.scss',
+  host: { class: 'td-side-section is-fill', '[hidden]': '!!store.selectedTower()' },
 })
 export class SidebarBuildPanelComponent implements AfterViewInit {
   private readonly dialog = inject(MatDialog);

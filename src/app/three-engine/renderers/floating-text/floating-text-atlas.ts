@@ -1,4 +1,5 @@
 import { CanvasTexture, LinearFilter } from 'three';
+import { TD_FONTS } from '../../../styles/td-theme';
 
 /** Atlas configuration */
 const ATLAS_SIZE = 2048;
@@ -157,12 +158,12 @@ export class FloatingTextAtlas {
     // then scale fontSize down so the entire string fits — long labels
     // simply render smaller, never cropped.
     const maxTextWidth = SLOT_WIDTH - outlineWidth * 2 - 4;
-    this.ctx.font = `bold ${effectiveFontSize}px Arial, sans-serif`;
+    this.ctx.font = `700 ${effectiveFontSize}px ${TD_FONTS.ui}`;
     const measured = this.ctx.measureText(text).width;
     if (measured > maxTextWidth) {
       const scale = maxTextWidth / measured;
       effectiveFontSize = Math.max(10, Math.floor(effectiveFontSize * scale));
-      this.ctx.font = `bold ${effectiveFontSize}px Arial, sans-serif`;
+      this.ctx.font = `700 ${effectiveFontSize}px ${TD_FONTS.ui}`;
     }
 
     this.ctx.textAlign = 'center';

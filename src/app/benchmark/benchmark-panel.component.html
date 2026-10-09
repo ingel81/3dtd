@@ -1,36 +1,36 @@
 @if (state(); as s) {
   @if (s.phase !== 'idle') {
-    <section class="bm" role="dialog" aria-labelledby="td-benchmark-title">
-      <header class="bm-head">
-        <h2 id="td-benchmark-title">Benchmark</h2>
+    <section class="bm td-dlg td-dense" role="dialog" aria-labelledby="td-benchmark-title">
+      <header class="bm-head td-dlg-head">
+        <h2 class="td-dlg-title" id="td-benchmark-title">Benchmark</h2>
         @if (s.phase === 'running') {
-          <span class="bm-count">{{ s.index }} / {{ s.total }}</span>
+          <span class="td-note td-num">{{ s.index }} / {{ s.total }}</span>
         }
       </header>
 
       @if (s.phase === 'running') {
-        <p class="bm-doing" aria-live="polite">{{ s.doing }}</p>
-        <div class="bm-bar" aria-hidden="true">
-          <div class="bm-bar-fill" [style.width.%]="s.total ? (100 * s.rows.length) / s.total : 0"></div>
+        <p class="td-text" aria-live="polite">{{ s.doing }}</p>
+        <div class="td-progress" aria-hidden="true">
+          <div [style.width.%]="s.total ? (100 * s.rows.length) / s.total : 0"></div>
         </div>
-        <p class="bm-note">Keep the camera still and the window in front until it ends.</p>
+        <p class="td-note">Keep the camera still and the window in front until it ends.</p>
       }
 
       @if (s.phase === 'failed') {
-        <p class="bm-doing">The benchmark stopped: {{ s.error }}</p>
+        <p class="td-note is-error">The benchmark stopped: {{ s.error }}</p>
       }
       @if (s.phase === 'cancelled') {
-        <p class="bm-doing">Cancelled after {{ s.rows.length }} of {{ s.total }} measurements.</p>
+        <p class="td-note">Cancelled after {{ s.rows.length }} of {{ s.total }} measurements.</p>
       }
 
       @if (s.env; as env) {
         @if (s.rows.length > 0) {
-          <p class="bm-env">
-            {{ env.version }} ({{ env.commit }}) · {{ env.browser }}, {{ env.os }} · {{ env.threads ?? '?' }} threads ·
-            {{ env.gpu }} · {{ env.viewport[0] }}x{{ env.viewport[1] }} at {{ env.devicePixelRatio }}x ·
+          <p class="td-note td-num">
+            {{ env.version }} ({{ env.commit }}), {{ env.browser }}, {{ env.os }}, {{ env.threads ?? '?' }} threads,
+            {{ env.gpu }}, {{ env.viewport[0] }}x{{ env.viewport[1] }} at {{ env.devicePixelRatio }}x,
             memory {{ env.sharedMemory ? 'shared' : 'copied' }}
           </p>
-          <table class="bm-table">
+          <table class="td-table bm-table">
             <thead>
               <tr>
                 @for (h of head; track h) {
@@ -49,28 +49,28 @@
             </tbody>
           </table>
           @if (unsettled()) {
-            <p class="bm-note">* the frame rate had not settled after 30 s, measured anyway</p>
+            <p class="td-note">* the frame rate had not settled after 30 s, measured anyway</p>
           }
         }
       }
 
       @if (s.phase === 'running') {
-        <div class="bm-actions">
-          <button class="bm-btn" type="button" (click)="benchmark.cancel()">Cancel</button>
+        <div class="td-actions">
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="benchmark.cancel()">Cancel</button>
         </div>
       } @else {
         @if (s.phase === 'done' || s.rows.length > 0) {
-          <p class="bm-note">The browser cannot read the CPU model: add it when you send the results.</p>
+          <p class="td-note">The browser cannot read the CPU model: add it when you send the results.</p>
         }
-        <div class="bm-actions">
+        <div class="td-actions">
           @if (s.env && s.rows.length > 0) {
-            <button class="bm-btn bm-btn-gold" type="button" (click)="copy()">Copy results</button>
+            <button class="td-btn-primary td-btn-sm" type="button" (click)="copy()">Copy results</button>
           }
-          <button class="bm-btn" type="button" (click)="close()">{{ benchmark.returnHref ? 'Back to your place' : 'Close' }}</button>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="close()">{{ benchmark.returnHref ? 'Back to your place' : 'Close' }}</button>
           @if (copied() === true) {
-            <span class="bm-copied" role="status">Copied</span>
+            <span class="td-note is-ok" role="status">Copied</span>
           } @else if (copied() === false) {
-            <span class="bm-copied bm-copied-no" role="status">The browser refused the clipboard</span>
+            <span class="td-note is-error" role="status">The browser refused the clipboard</span>
           }
         </div>
       }

@@ -1,10 +1,8 @@
-@use '../../styles/game-ui' as ui;
-
-@include ui.classes;
+// Layout of the token step: it covers the whole page (header and sidebar
+// too: a half-visible HUD behind a screen that blocks play reads as a broken
+// game), the dialog in the middle.
 
 :host {
-  /* Covers header and sidebar too: a half-visible HUD behind a screen that
-     blocks play reads as a broken game rather than a prompt. */
   position: fixed;
   inset: 0;
   z-index: 2000;
@@ -21,25 +19,16 @@
   padding: var(--td-sp-5);
 }
 
-.dlg {
-  width: 540px;
+.td-dlg {
   max-height: none;
-  @include ui.plate-shadow;
 }
 
-.dlg-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--td-sp-3);
+.td-dlg-body {
   overflow: visible;
 }
 
-.token-lead {
-  margin: 0;
-}
-
 .token-coop {
-  color: var(--td-gold-light);
+  color: var(--td-brass-light);
 }
 
 .token-tabs {
@@ -49,41 +38,14 @@
 .token-steps {
   margin: 0;
   padding: var(--td-sp-3) var(--td-sp-4) var(--td-sp-3) 34px;
-  @include ui.sunken;
-  font-size: var(--td-fs-body);
   line-height: 1.75;
 }
 
-a {
-  @include ui.link;
-}
-
 .token-form {
-  display: flex;
+  flex-wrap: nowrap;
   gap: var(--td-sp-2);
 }
 
 .token-input {
   flex: 1;
-}
-
-.token-note {
-  font-size: var(--td-fs-small);
-}
-
-.token-link {
-  margin-left: 6px;
-  padding: 0;
-  background: none;
-  border: none;
-  color: var(--td-text-secondary);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-  @include ui.focus-ring;
-}
-
-.token-back kbd {
-  margin-left: var(--td-sp-1);
-  letter-spacing: 0.04em;
 }

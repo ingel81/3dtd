@@ -14,7 +14,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { TD_FONTS, TD_THEME } from '../../styles/td-theme';
+import { TD_FONTS, TD_TYPE, TD_THEME } from '../../styles/td-theme';
 import { BestWave, byBestWave } from '../../services/location/best-waves';
 import { isSamePlace } from '../../services/location/recent-locations';
 import { BORDERS, COASTLINES, OUTLINE_FACTOR } from './world-outlines.data';
@@ -341,7 +341,7 @@ export class WorldGlobeComponent implements OnDestroy {
     }
 
     const labels: { box: LabelBox; text: string; color: string; alpha: number; rank: number }[] = [];
-    ctx.font = `10px ${TD_FONTS.mono}`;
+    ctx.font = `600 ${TD_TYPE.micro} ${TD_FONTS.ui}`;
     records.forEach((r, i) => {
       const p = this.markerPoints[i];
       if (p.depth <= 0) return;
@@ -351,13 +351,13 @@ export class WorldGlobeComponent implements OnDestroy {
       const strong = isHighlight || r === hovered;
 
       if (isCurrent) this.ring(ctx, p, 7, TD_THEME.textSecondary, 1, alpha);
-      if (isHighlight) this.ring(ctx, p, 9, TD_THEME.gold, 1.5, alpha);
+      if (isHighlight) this.ring(ctx, p, 9, TD_THEME.brass, 1.5, alpha);
       ctx.globalAlpha = alpha;
       ctx.beginPath();
       ctx.arc(p.x, p.y, strong ? 4.5 : 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = strong ? TD_THEME.goldLight : TD_THEME.gold;
+      ctx.fillStyle = strong ? TD_THEME.brassLight : TD_THEME.brass;
       ctx.fill();
-      ctx.strokeStyle = '#1A140A';
+      ctx.strokeStyle = TD_THEME.ink;
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.globalAlpha = 1;
@@ -367,7 +367,7 @@ export class WorldGlobeComponent implements OnDestroy {
       labels.push({
         box: { x: p.x + 7, y: p.y - 6, w, h: 11 },
         text,
-        color: strong ? TD_THEME.goldLight : TD_THEME.textSecondary,
+        color: strong ? TD_THEME.brassLight : TD_THEME.textSecondary,
         alpha,
         rank: strong ? Number.MAX_SAFE_INTEGER : r.bestWave,
       });

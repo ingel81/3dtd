@@ -115,7 +115,7 @@ GameStateManager.runSubStep
 | `hero:state-changed` | GameStateSyncService → `GameStore.hero` |
 | `hero:kill` | HeroManager (Kills, Stufe) |
 | `hero:level-up` | VFXService ("LEVEL N" über seinem Kopf) |
-| `hero:rejected` | RefusalHintService: Grund in der Kontext-Hinweis-Box, nicht für Befehle des Bots ([DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#context-hint-box)) |
+| `hero:rejected` | RefusalHintService: Grund in der Kontext-Hinweis-Box, nicht für Befehle des Bots ([DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#hinweisbox)) |
 
 Gründe für `hero:rejected`: `locked`, `hired`, `credits`, `no-hero`,
 `no-route`, `unknown-ammo`.

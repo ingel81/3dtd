@@ -1,11 +1,11 @@
-<div class="record">
+<div class="record td-line-top">
   <app-world-globe [records]="records()" [highlight]="record().hq" [size]="112" [selectable]="false" />
-  <div class="record-text" role="status">
-    <span class="record-kicker">World map</span>
-    <span class="record-title">New record for {{ record().name }}: wave {{ record().wave }}</span>
-    <span class="record-detail">
+  <div class="td-stack record-text" role="status">
+    <span class="td-caps">World map</span>
+    <span class="td-section">New record for {{ record().name }}: wave {{ record().wave }}</span>
+    <span class="td-note">
       {{ record().previous > 0 ? 'Best before: wave ' + record().previous : 'First run here' }}
     </span>
   </div>
-  <button type="button" class="record-skip" (click)="dismissed.emit()" aria-label="Hide the new record">Skip</button>
+  <button type="button" class="td-btn-ghost td-btn-sm record-skip" (click)="dismissed.emit()" aria-label="Hide the new record">Skip</button>
 </div>

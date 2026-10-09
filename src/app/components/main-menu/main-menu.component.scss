@@ -1,8 +1,6 @@
-// The main menu's frame on the foundation (docs/MAIN_MENU_UI_PLAN.md, Optik):
-// start layer with logo, gold corner brackets and the scene free on the
-// right; pause layer over an evenly darkened map; a page as a plate with its
-// title plate beside the list.
-@use '../../styles/game-ui' as ui;
+// Layout of the main menu (docs/MAIN_MENU_UI_PLAN.md): the column with logo
+// and list on the left, a page as a dialog beside it, tip and version at the
+// foot, the loading plate bottom right. The look comes from the td-* classes.
 
 :host {
   position: fixed;
@@ -14,123 +12,79 @@
   position: absolute;
   inset: 0;
   display: flex;
-  gap: 48px;
+  gap: 40px;
   align-items: flex-start;
   box-sizing: border-box;
-  padding: 72px 88px 168px;
+  padding: 56px 90px 0;
   overflow: auto;
-  color: var(--td-text-primary);
-  font-family: var(--td-font-body);
-  font-size: var(--td-fs-body);
 
   &:focus {
     outline: none;
   }
 }
 
-// The scene shows through on the right; the list reads on stone
-.mm-start {
-  background:
-    linear-gradient(0deg, color-mix(in srgb, var(--td-bg-dark) 70%, transparent) 0%, transparent 26%),
-    linear-gradient(90deg,
-      color-mix(in srgb, var(--td-bg-dark) 94%, transparent) 0%,
-      color-mix(in srgb, var(--td-bg-dark) 86%, transparent) 30%,
-      color-mix(in srgb, var(--td-bg-dark) 25%, transparent) 52%,
-      transparent 70%);
-  @include ui.corner-brackets;
-}
-
-.mm-pause {
-  background: color-mix(in srgb, var(--td-bg-dark) 72%, transparent);
-}
-
 .mm-column {
   display: flex;
+  flex: 0 0 var(--td-menu-width);
   flex-direction: column;
-  flex: 0 0 auto;
+  gap: 40px;
+  /* Room for tip and version under the list */
+  padding-bottom: 168px;
 }
 
 .mm-logo {
   display: block;
-  width: 420px;
+  width: 240px;
   max-width: calc(100vw - 32px);
   height: auto;
 }
 
-.mm-pause .mm-logo {
-  width: 200px;
-}
-
 .mm-tagline {
-  margin: 14px 0 0;
-  @include ui.caps-label;
-  font-size: var(--td-fs-small);
-  letter-spacing: 0.18em;
+  margin: -28px 0 0;
 }
 
-.mm-page-wrap {
-  flex: 0 1 640px;
-  min-width: 0;
-  @include ui.plate-shadow;
-}
+.mm-pause {
+  /* The top bar stays in view behind the pause menu: start under it */
+  padding-top: calc(var(--td-h-topbar) + 16px);
 
-.mm-page {
-  @include ui.plate;
-  max-height: calc(100vh - 144px);
-  display: flex;
-  flex-direction: column;
-}
-
-.mm-page-head {
-  @include ui.plate-head;
-
-  h2 {
-    @include ui.title;
+  .mm-logo {
+    width: 180px;
   }
 }
 
-.mm-back {
-  @include ui.icon-btn(32px);
-  width: 40px;
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-small);
+.mm-page {
+  flex: 0 1 720px;
+  width: auto;
+  /* Ends above the window's foot; only the page body scrolls */
+  max-height: calc(100vh - 56px - 32px);
 }
 
-.mm-page-body {
-  padding: 18px 20px 22px;
-  overflow: auto;
-  @include ui.scrollbar;
+.mm-pause .mm-page {
+  max-height: calc(100vh - var(--td-h-topbar) - 16px - 32px);
 }
 
 .mm-foot {
   position: absolute;
-  left: 88px;
+  left: 90px;
   bottom: 48px;
-  width: 420px;
+  /* As wide as the list: the tip never runs under a page beside it */
+  width: var(--td-menu-width);
   max-width: calc(100vw - 32px);
 }
 
 .mm-tip {
   display: flex;
   gap: var(--td-sp-3);
-  margin: 0;
-  font-size: var(--td-fs-body);
-  line-height: 1.45;
-  color: var(--td-text-secondary);
+  align-items: baseline;
 }
 
 .mm-tip-label {
-  padding-top: 2px;
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-micro);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--td-gold);
+  color: var(--td-brass);
 }
 
 .mm-tip-gold {
   font-weight: 600;
-  color: var(--td-gold-light);
+  color: var(--td-brass-light);
 }
 
 .mm-tip-teal {
@@ -140,7 +94,6 @@
 
 .mm-version {
   margin: var(--td-sp-4) 0 0;
-  @include ui.caps-label;
 }
 
 .mm-loading {
@@ -149,38 +102,50 @@
   bottom: 56px;
 }
 
-.mm-sr-only {
-  @include ui.sr-only;
-}
-
-// Short windows (1280x720 and the like): logo, list and the tip under it
-// did not fit, the tip lay over the last entries and took their clicks. A
-// smaller logo, less padding, and the tip makes way for the list; the
-// version stays at the foot.
+// Short windows (1280x720 and the like): logo, list and tip did not fit, the
+// tip lay over the last entries and took their clicks. Less padding, and the
+// tip makes way for the list; the version stays at the foot.
 @media (max-height: 820px) and (min-width: 761px) {
   .mm-root {
-    padding-top: 32px;
+    padding-top: 28px;
+  }
+
+  .mm-root.mm-pause {
+    padding-top: calc(var(--td-h-topbar) + 12px);
+  }
+
+  .mm-column {
+    gap: 24px;
     padding-bottom: 72px;
   }
 
-  .mm-logo {
-    width: 280px;
+  .mm-page {
+    max-height: calc(100vh - 28px - 24px);
+  }
+
+  .mm-pause .mm-page {
+    max-height: calc(100vh - var(--td-h-topbar) - 12px - 24px);
+  }
+
+  .mm-pause .mm-logo {
+    width: 140px;
+  }
+
+  .mm-tagline {
+    margin-top: -16px;
   }
 
   .mm-tip {
     display: none;
   }
 
-  .mm-foot {
-    bottom: 24px;
-  }
-
+  .mm-foot,
   .mm-loading {
     bottom: 24px;
   }
 }
 
-// Phone width: one column, the plates under the list
+// Phone width: one column, the page under the list
 @media (max-width: 760px) {
   .mm-root {
     flex-direction: column;
@@ -188,15 +153,12 @@
     padding: var(--td-sp-5) 16px;
   }
 
-  .mm-start::after {
-    display: none;
+  .mm-column {
+    flex-basis: auto;
+    width: 100%;
   }
 
-  .mm-logo {
-    width: 240px;
-  }
-
-  .mm-page-wrap {
+  .mm-page {
     flex: 0 0 auto;
     width: 100%;
   }

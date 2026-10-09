@@ -1,10 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
-import { UpperCasePipe } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
-import { TdIconComponent } from '../../icon/icon.component';
 import { buildingAbilityRows } from './building-panel';
 
 /**
@@ -16,10 +14,10 @@ import { buildingAbilityRows } from './building-panel';
 @Component({
   selector: 'app-sidebar-building-panel',
   standalone: true,
-  imports: [UpperCasePipe, MatTooltipModule, TdIconComponent],
+  imports: [MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './building-panel.component.html',
-  styleUrl: './building-panel.component.scss',
+  host: { class: 'td-side-section is-fill' },
 })
 export class SidebarBuildingPanelComponent {
   private readonly store = inject(TowerDefenseStore);

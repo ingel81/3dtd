@@ -1,117 +1,37 @@
-@use '../../styles/game-ui' as ui;
-
-@include ui.classes;
-
-.dlg {
-  width: 540px;
-}
+// Layout of the runs: the wave reached left, place and time, the tools right.
 
 .runs-count {
   margin-left: auto;
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-small);
-  color: var(--td-text-muted);
-}
-
-.runs-hint {
-  margin-bottom: var(--td-sp-3);
-}
-
-.runs-upload {
-  margin: 0 0 var(--td-sp-4);
-}
-
-.runs-empty {
-  margin: var(--td-sp-4) 0;
-  font-size: var(--td-fs-body);
-  text-align: center;
-  color: var(--td-text-secondary);
-}
-
-.runs-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--td-frame-dark);
+  margin-right: var(--td-sp-3);
 }
 
 .runs-row {
-  display: flex;
-  align-items: center;
-  gap: var(--td-sp-3);
-  padding: var(--td-sp-2) 0;
-  border-bottom: 1px solid var(--td-frame-dark);
+  justify-content: flex-start;
 }
 
-// The wave reached is the number a run is remembered by.
+// The wave reached is the number a run is remembered by
 .runs-wave {
-  flex: none;
-  width: 56px;
-  font-family: var(--td-font-display);
-  font-size: var(--td-fs-hud);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--td-gold-light);
-  text-align: right;
-}
-
-.runs-wave-label {
-  margin-right: 3px;
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-micro);
-  font-weight: 500;
-  color: var(--td-text-muted);
+  display: flex;
+  flex: 0 0 48px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
 }
 
 .runs-text {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
-.runs-where {
-  font-size: var(--td-fs-body);
-  color: var(--td-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .runs-meta {
-  display: flex;
-  align-items: center;
   gap: var(--td-sp-2);
-  font-family: var(--td-font-mono);
-  font-size: var(--td-fs-micro);
-  color: var(--td-text-muted);
 }
 
-.runs-who {
-  padding: 0 5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.runs-human {
   color: var(--td-teal-light);
-  border: 1px solid var(--td-teal-dark);
 }
 
-.runs-who.runs-bot {
-  color: var(--td-text-secondary);
-  border-color: var(--td-frame-mid);
-}
-
-.icon-btn.is-danger:hover {
-  color: var(--td-danger-text);
-  border-color: var(--td-danger-edge);
-}
-
-.footer-spacer {
-  flex: 1;
-}
-
-.confirm-text {
-  flex: 1;
-  font-size: var(--td-fs-body);
-  color: var(--td-warn-text);
+.runs-clear,
+.runs-confirm {
+  margin-right: auto;
 }

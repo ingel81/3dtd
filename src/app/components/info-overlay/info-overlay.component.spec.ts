@@ -63,8 +63,8 @@ describe('InfoOverlayComponent', () => {
     const info = overlay();
     meter.history.set([sample({ fps: 30, ticksPerS: 28, workerLoad: 0.95 }), sample({ fps: 144.4, ticksPerS: 31, workerLoad: 0.42 })]);
     expect(info.chartRows().map(({ label, now, range }) => ({ label, now, range }))).toEqual([
-      { label: 'FPS', now: '144', range: 'min 30 · max 144' },
-      { label: 'Packets', now: '31', range: 'min 28 · max 31' },
+      { label: 'FPS', now: '144', range: 'min 30 | max 144' },
+      { label: 'Packets', now: '31', range: 'min 28 | max 31' },
       { label: 'Sim', now: '42%', range: 'max 95%' },
     ]);
   });

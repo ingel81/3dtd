@@ -153,7 +153,7 @@ describe('Coop research view of a partner (TODO E35)', () => {
     expect(tabs().map((t) => t.textContent!.trim())).toEqual(['You', 'Bravo']);
     expect(selectedTab()).toBe('Bravo');
     expect(overlay().querySelector('.td-rd-viewonly')?.textContent?.trim()).toBe('View only');
-    expect(readouts()).toEqual(['Slots 1/1', 'Center Lv 1']);
+    expect(readouts()).toEqual(['Slots 1/1', 'Center Level 1']);
     expect(nodeState('biology')).toBe('completed');
     expect(nodeState('gatling-tech')).toBe('active');
     expect(nodeState('ice-magic')).toBe('queued');

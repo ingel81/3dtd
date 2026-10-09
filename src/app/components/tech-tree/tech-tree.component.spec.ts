@@ -35,7 +35,7 @@ beforeAll(() => {
 });
 
 const NODES: TechTreeNode[] = [
-  { id: 'root', title: 'Gatling Technology', subtitle: '400 · 15s', state: 'completed' },
+  { id: 'root', title: 'Gatling Technology', subtitle: '400 | 15s', state: 'completed' },
   { id: 'running', title: 'Siege Engineering', state: 'active', progress: 0.5 },
   { id: 'waiting', title: 'Rocketry', state: 'queued', badge: '1' },
   { id: 'shut', title: 'Chaos Rift', state: 'locked', hint: 'Requires: Storm Mastery' },

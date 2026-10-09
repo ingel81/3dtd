@@ -4,9 +4,8 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 /**
  * Inline-SVG icon set, 24×24 viewBox, currentColor, ~1.5px stroke.
  *
- * Set is curated from the design refinements bundle (tmp/td-components.jsx, `Ico` map).
- * Used as a refined alternative to material-symbols for game-HUD / tooltips / sidebar.
- * Debug views may continue using <mat-icon> for backwards compatibility.
+ * The game's only icon set: every view uses <td-icon>. A few shapes follow
+ * Lucide (ISC, named where they are; see the attributions).
  *
  * Usage: `<td-icon name="heart" size="20" />`
  *
@@ -22,7 +21,7 @@ export type TdIconName =
   | 'caret' | 'caretL' | 'caretR' | 'caretU' | 'play' | 'pause' | 'stop' | 'power'
   | 'cog' | 'eye' | 'eyeOff' | 'speed' | 'fullscreen' | 'layers' | 'grid'
   | 'audio' | 'audioOff' | 'music' | 'build' | 'refresh' | 'text' | 'bulb' | 'user'
-  | 'sliders' | 'chart' | 'share' | 'filing' | 'case' | 'cross' | 'check'
+  | 'sliders' | 'chart' | 'share' | 'filing' | 'case' | 'cross' | 'close' | 'check'
   | 'info' | 'warn' | 'random' | 'manual' | 'edit'
   // additions for full mat-icon migration
   | 'lock' | 'bookmark' | 'plus' | 'minus' | 'terrain' | 'copyright'
@@ -119,6 +118,8 @@ const ICONS: Record<TdIconName, IconDef> = {
   filing: { body: '<path d="M4 4h16v6H4zM4 14h16v6H4zM8 7h2M8 17h2" />' },
   case: { body: '<path d="M3 7h18v13H3zM8 7V4h8v3M3 13h18" />' },
   cross: { body: '<path d="M6 6l12 12M18 6 6 18" />' },
+  // The close button of the design system: a heavy square cross, drawn at 12px
+  close: { body: '<path d="M3 3l18 18M21 3 3 21" stroke-width="6" stroke-linecap="square" />' },
   check: { body: '<path d="M5 12l5 5 9-11" />' },
   info: { body: '<circle cx="12" cy="12" r="9" /><path d="M12 8v.01M12 11v6" />' },
   warn: { body: '<path d="M12 4 2 20h20L12 4ZM12 10v5M12 18v.01" />' },

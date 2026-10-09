@@ -1,111 +1,109 @@
 @if (confirm(); as c) {
   <!-- What overwrites, ends the run or deletes, asked on the page itself -->
-  <div class="mp-sec mp-confirm" role="alertdialog" aria-labelledby="td-slot-ask">
+  <div class="td-group mp-confirm" role="alertdialog" aria-labelledby="td-slot-ask">
     @switch (c.kind) {
       @case ('overwrite') {
-        <p class="mp-ask" id="td-slot-ask">Overwrite "{{ c.title }}"?</p>
-        <div class="mp-actions">
-          <button class="btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="btn-primary" type="button" (click)="saveTo(c.slotId, true, c.title)">Overwrite</button>
+        <p class="td-text" id="td-slot-ask">Overwrite "{{ c.title }}"?</p>
+        <div class="td-actions">
+          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
+          <button class="td-btn-primary" type="button" (click)="saveTo(c.slotId, true, c.title)">Overwrite</button>
         </div>
       }
       @case ('load') {
-        <p class="mp-ask" id="td-slot-ask">Load "{{ c.title }}"?</p>
-        <p class="note">The run under way ends; save it first to keep it.</p>
-        <div class="mp-actions">
-          <button class="btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="btn-primary" type="button" (click)="loadSlot(c.slotId)">Load</button>
+        <p class="td-text" id="td-slot-ask">Load "{{ c.title }}"?</p>
+        <p class="td-note">The run under way ends; save it first to keep it.</p>
+        <div class="td-actions">
+          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
+          <button class="td-btn-primary" type="button" (click)="loadSlot(c.slotId)">Load</button>
         </div>
       }
       @case ('import') {
-        <p class="mp-ask" id="td-slot-ask">Load a save from a file?</p>
-        <p class="note">The run under way ends; save it first to keep it.</p>
-        <div class="mp-actions">
-          <button class="btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="btn-primary" type="button" (click)="askImport()">Pick file</button>
+        <p class="td-text" id="td-slot-ask">Load a save from a file?</p>
+        <p class="td-note">The run under way ends; save it first to keep it.</p>
+        <div class="td-actions">
+          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
+          <button class="td-btn-primary" type="button" (click)="askImport()">Pick file</button>
         </div>
       }
       @case ('delete') {
-        <p class="mp-ask" id="td-slot-ask">Delete "{{ c.title }}"?</p>
-        <div class="mp-actions">
-          <button class="btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="btn-danger" type="button" (click)="deleteSlot(c.slotId)">Delete</button>
+        <p class="td-text" id="td-slot-ask">Delete "{{ c.title }}"?</p>
+        <div class="td-actions">
+          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
+          <button class="td-btn-danger" type="button" (click)="deleteSlot(c.slotId)">Delete</button>
         </div>
       }
     }
   </div>
 } @else if (mode() === 'save') {
-  <section class="mp-sec">
+  <section class="td-group">
     @if (saves.cannotSaveReason(); as reason) {
-      <p class="note">{{ reason }}</p>
+      <p class="td-note">{{ reason }}</p>
     }
-    <ul class="mp-list" aria-label="Save slots">
+    <ul class="td-rows" aria-label="Save slots">
       @for (row of saveRows(); track row.id) {
-        <li class="mp-slot-row">
-          <button class="mp-slot" type="button" [class.is-empty]="!row.filled"
+        <li class="td-row mp-slot-row">
+          <button class="mp-slot td-row-main" type="button" [class.td-muted]="!row.filled"
                   [disabled]="!saves.canSave() || busy()"
                   (click)="saveTo(row.id, row.filled, row.title)">
-            <span class="mp-slot-head">
-              <span class="mp-slot-title">{{ row.title }}</span>
+            <span class="ss-head">
+              <span class="mp-slot-title ss-title td-trunc">{{ row.title }}</span>
               @if (row.when) {
-                <span class="mp-meta">{{ row.when }}</span>
+                <span class="mp-meta td-note td-num">{{ row.when }}</span>
               }
             </span>
-            <span class="mp-slot-detail">{{ row.detail }}</span>
+            <span class="mp-slot-detail td-note">{{ row.detail }}</span>
           </button>
         </li>
       }
     </ul>
   </section>
 } @else {
-  <section class="mp-sec">
+  <section class="td-group">
     @if (cannotLoadReason(); as reason) {
-      <p class="note">{{ reason }}</p>
+      <p class="td-note">{{ reason }}</p>
     }
     @if (loadRows().length === 0) {
-      <p class="note">No saved game in this browser yet.</p>
+      <p class="td-note">No saved game in this browser yet.</p>
     } @else {
-      <ul class="mp-list" aria-label="Saved games">
+      <ul class="td-rows" aria-label="Saved games">
         @for (row of loadRows(); track row.id) {
-          <li class="mp-slot-row">
-            <button class="mp-slot" type="button" [disabled]="!canLoad() || busy()"
+          <li class="td-row mp-slot-row">
+            <button class="mp-slot td-row-main" type="button" [disabled]="!canLoad() || busy()"
                     (click)="askLoad(row.id, row.title)">
-              <span class="mp-slot-head">
-                <span class="mp-slot-title">{{ row.title }}</span>
+              <span class="ss-head">
+                <span class="mp-slot-title ss-title td-trunc">{{ row.title }}</span>
                 @if (row.note) {
-                  <td-icon class="mp-slot-note" name="info" [size]="12" [matTooltip]="row.note"></td-icon>
+                  <td-icon class="td-muted" name="info" [size]="12" [matTooltip]="row.note"></td-icon>
                 }
                 @if (row.when) {
-                  <span class="mp-meta">{{ row.when }}</span>
+                  <span class="mp-meta td-note td-num">{{ row.when }}</span>
                 }
               </span>
-              <span class="mp-slot-detail">{{ row.detail }}</span>
+              <span class="mp-slot-detail td-note">{{ row.detail }}</span>
             </button>
-            <button class="mp-slot-tool" type="button" [disabled]="busy()" (click)="exportSlot(row.id)"
+            <button class="mp-slot-tool td-tool" type="button" [disabled]="busy()" (click)="exportSlot(row.id)"
                     [attr.aria-label]="'Save ' + row.title + ' as a file'" matTooltip="Save as a file">
-              <td-icon name="download" [size]="14"></td-icon>
+              <td-icon name="download" [size]="16"></td-icon>
             </button>
             @if (!row.autosave) {
-              <button class="mp-slot-tool" type="button" [disabled]="busy()" (click)="askDelete(row.id, row.title)"
+              <button class="mp-slot-tool td-tool" type="button" [disabled]="busy()" (click)="askDelete(row.id, row.title)"
                       [attr.aria-label]="'Delete ' + row.title" matTooltip="Delete">
-                <td-icon name="trash" [size]="14"></td-icon>
+                <td-icon name="trash" [size]="16"></td-icon>
               </button>
             }
           </li>
         }
       </ul>
     }
-    <div class="mp-actions mp-actions-start">
-      <button class="btn-secondary" type="button" [disabled]="!canLoad() || busy()" (click)="askImport()">
-        <td-icon name="filing" [size]="14"></td-icon>Load from a file
-      </button>
+    <div class="td-actions is-start">
+      <button class="td-btn-secondary" type="button" [disabled]="!canLoad() || busy()" (click)="askImport()">Load from a file</button>
     </div>
   </section>
 }
 
 <!-- Outside the pages: the question before a load from a file replaces the list, Pick file still finds it -->
-<input #importInput class="mp-file" type="file" tabindex="-1" aria-hidden="true" (change)="onImportFile($event)">
+<input #importInput class="mp-file" type="file" tabindex="-1" aria-hidden="true" hidden (change)="onImportFile($event)">
 
 @if (status(); as s) {
-  <p class="note mp-status" [class.is-error]="s.bad" role="status">{{ s.text }}</p>
+  <p class="td-note mp-status" [class.is-error]="s.bad" role="status">{{ s.text }}</p>
 }

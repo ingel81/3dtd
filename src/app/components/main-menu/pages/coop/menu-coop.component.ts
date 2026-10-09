@@ -30,7 +30,6 @@ import { CoopAppHintComponent } from './coop-app-hint.component';
       }
     }
   `,
-  styles: `:host { display: block; }`,
 })
 export class MenuCoopComponent {
   /** The layer the menu stands in: some entries differ before a run and in it */
