@@ -86,7 +86,12 @@ test('M5 a new place starts the pressure loop at ×1.00 and counts only its own 
     await expect(waveButton(page)).toContainText(/left/i);
     await clearWave(page);
   }
-  await page.keyboard.press('Space');
+  // The eighth wave starts: the loop takes its sample of wave 7 then. Wait for it as for the others; a Space
+  // right after the last kill could fall before the wave counted as over and start nothing
+  await expect(async () => {
+    if (!/left/i.test(await waveButton(page).innerText())) await page.keyboard.press('Space');
+    await expect(waveButton(page)).toContainText(/left/i, { timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
   const regulator = () => page.evaluate(() => {
     const w = window as unknown as { ng: { getComponent(el: Element | null): Record<string, never> } };
     const source = (w.ng.getComponent(document.querySelector('app-tower-defense')) as never as {
