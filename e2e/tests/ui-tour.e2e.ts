@@ -196,6 +196,7 @@ async function runTour(page: Page, size: string): Promise<Tour> {
     localStorage.setItem('td_seen_version', '9999.0.0');
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
   });
+  const loadStart = Date.now();
   await page.goto('/?devworld&bot=manual');
 
   // --- Start menu ---
@@ -209,6 +210,23 @@ async function runTour(page: Page, size: string): Promise<Tour> {
     await expect(play).toBeEnabled({ timeout: 120_000 });
     await page.waitForTimeout(1500);
     await tour.shot('start-ready');
+  });
+
+  // The load behind the open menu runs to its end: the loading plate goes
+  // once the engine has loaded (MainMenuService.placeLoading); it would stay
+  // with a problem. Nothing here closes the menu, so a step that waits for
+  // the intro flight (which starts only when the menu closes) shows as a hang.
+  await tour.step('start menu fully loaded', async () => {
+    const plate = page.locator('app-main-menu app-menu-loading');
+    const done = await plate.waitFor({ state: 'detached', timeout: 120_000 }).then(() => true, () => false);
+    const seconds = ((Date.now() - loadStart) / 1000).toFixed(1);
+    if (!done) {
+      const where = (await plate.innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+      throw new Error(`loading plate still up after ${seconds} s from the page load: ${where}`);
+    }
+    console.log(`[ui-tour] ${tour.size} loaded behind the menu ${seconds} s after the page load`);
+    await page.waitForTimeout(800);
+    await tour.shot('start-loaded');
   });
 
   for (const p of PAGES) {
