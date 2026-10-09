@@ -35,6 +35,7 @@ import { LocationChangeCoordinatorService } from '../../services/location/locati
 import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-facade.service';
 import { ConfigService } from '../../core/services/config.service';
 import { DevWorldService } from '../../devworld/devworld.service';
+import { MatDialog } from '@angular/material/dialog';
 
 const read = (path: string) => readFileSync(resolve('src/app/components/main-menu', path), 'utf8');
 
@@ -97,6 +98,8 @@ describe('The main menu', () => {
   const coop = { inGame: signal(false), hostPlace: signal(null), room: signal<{ code: string } | null>(null) };
   const facade = { restartGame: vi.fn() };
   const config = { tileProvider: signal('cesium'), setupRequested: signal(false) };
+  /** Dialogs over the menu (Extras, Settings) */
+  const dialog = { openDialogs: [] as unknown[] };
 
   beforeAll(() => {
     getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
@@ -114,6 +117,7 @@ describe('The main menu', () => {
     coop.inGame.set(false);
     coop.room.set(null);
     config.setupRequested.set(false);
+    dialog.openDialogs = [];
   });
 
   afterEach(() => {
@@ -133,6 +137,7 @@ describe('The main menu', () => {
         { provide: TowerDefenseFacadeService, useValue: facade },
         { provide: ConfigService, useValue: config },
         { provide: DevWorldService, useValue: { isActive: false } },
+        { provide: MatDialog, useValue: dialog },
       ],
     });
     TestBed.overrideComponent(MainMenuComponent, {
@@ -401,6 +406,44 @@ describe('The main menu', () => {
       onPage.focus();
       entry('coop')!.dispatchEvent(new MouseEvent('mouseenter'));
       expect(document.activeElement).toBe(onPage);
+    });
+
+    it('takes Esc from the page once when the focus fell out of the menu, and the focus back', async () => {
+      locationMgmt.hq.set(HEILBRONN);
+      await setup('pause');
+      await click(entry('extras'));
+      (document.activeElement as HTMLElement | null)?.blur();
+      expect(document.activeElement).toBe(document.body);
+
+      await press('Escape', document.body);
+      expect(menu.page()).toBe('home');
+      expect(menu.isOpen()).toBe(true);
+      expect(el().querySelector('.mm-root')!.contains(document.activeElement)).toBe(true);
+    });
+
+    it('leaves Esc to a dialog over the menu, and Esc inside the menu goes one step only', async () => {
+      locationMgmt.hq.set(HEILBRONN);
+      await setup('pause');
+      await click(entry('extras'));
+      dialog.openDialogs = [{}];
+      await press('Escape', document.body);
+      expect(menu.page()).toBe('extras');
+
+      dialog.openDialogs = [];
+      await press('Escape', el().querySelector<HTMLElement>('app-menu-extras button')!);
+      expect(menu.page()).toBe('home');
+      expect(menu.isOpen()).toBe(true);
+    });
+
+    it('a focus dropped to the page goes back into the menu', async () => {
+      locationMgmt.hq.set(HEILBRONN);
+      await setup('pause');
+      const button = entry('settings')!;
+      button.focus();
+      button.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+      button.blur();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(el().querySelector('.mm-root')!.contains(document.activeElement)).toBe(true);
     });
 
     it('moves between the entries with the arrows, wrapping, without choosing', async () => {

@@ -12,6 +12,7 @@ import {
   untracked,
 } from '@angular/core';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
+import { MatDialog } from '@angular/material/dialog';
 import { MainMenuService } from './main-menu.service';
 import { MENU_PAGE_TITLES, type MenuPage } from './menu-page';
 import { MenuHomeComponent } from './pages/home/menu-home.component';
@@ -62,6 +63,10 @@ export const TIP_ROTATE_MS = 8000;
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './main-menu.component.html',
   styleUrl: './main-menu.component.scss',
+  host: {
+    '(document:keydown.escape)': 'onDocumentEscape($event)',
+    '(focusout)': 'onFocusOut($event)',
+  },
 })
 export class MainMenuComponent {
   readonly menu = inject(MainMenuService);
@@ -69,6 +74,8 @@ export class MainMenuComponent {
   private readonly devWorld = inject(DevWorldService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly injector = inject(Injector);
+  /** A dialog over the menu (Extras, Settings) keeps its own Esc and focus */
+  private readonly dialog = inject(MatDialog);
 
   readonly layer = this.menu.layer;
   readonly page = this.menu.page;
@@ -125,5 +132,40 @@ export class MainMenuComponent {
       event.preventDefault();
       event.stopPropagation();
     }
+  }
+
+  /**
+   * Esc that reached the document from outside the menu: the focus fell to
+   * the page (a button disabled while it works), where the game ignores
+   * keys while the menu stands. Taken once: not when the menu's own
+   * listener had it (it comes from inside), not under a dialog over the menu.
+   */
+  onDocumentEscape(event: Event): void {
+    if (event.defaultPrevented || this.dialog.openDialogs.length > 0) return;
+    if (event.target instanceof Node && this.root()?.contains(event.target)) return;
+    this.onEscape(event);
+    this.focusBack();
+  }
+
+  /** The focus left the menu for nowhere (a focused control disabled, removed): back into the menu */
+  onFocusOut(event: FocusEvent): void {
+    if (event.relatedTarget !== null) return;
+    setTimeout(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      if (this.dialog.openDialogs.length > 0) return;
+      this.focusBack();
+    });
+  }
+
+  private root(): HTMLElement | null {
+    return this.host.querySelector<HTMLElement>('.mm-root');
+  }
+
+  /** Into the focus trap again: the menu itself, the next Tab goes to its first control */
+  private focusBack(): void {
+    const active = document.activeElement;
+    if (active && active !== document.body && this.root()?.contains(active)) return;
+    this.root()?.focus({ preventScroll: true });
   }
 }
