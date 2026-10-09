@@ -11,7 +11,7 @@
             [class.mh-lead]="first && layer() === 'start'" [class.mh-below]="entry.below"
             [attr.data-entry]="entry.id" [attr.aria-disabled]="entry.loads && menu.playBlocked() ? true : null"
             [attr.aria-busy]="showsBar(entry) || (entry.id === 'continue' && busy()) ? true : null"
-            (click)="activate(entry)">
+            (click)="activate(entry)" (mouseenter)="followPointer($event)">
       <span class="mh-label">{{ entry.label }}</span>
       @if (subOf(entry); as sub) {
         <span class="mh-sub">{{ sub }}</span>

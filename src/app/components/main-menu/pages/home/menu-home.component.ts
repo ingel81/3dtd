@@ -230,6 +230,20 @@ export class MenuHomeComponent {
     this.host.querySelector<HTMLElement>(`[data-entry="${id}"]`)?.focus();
   }
 
+  /**
+   * The pointer over an entry takes the focus along while it is on the list,
+   * so hover and keyboard focus never mark two entries at once. Not while the
+   * focus is elsewhere (a page's search field): crossing the list with the
+   * mouse must not pull it out.
+   */
+  followPointer(event: MouseEvent): void {
+    const entry = event.currentTarget as HTMLElement;
+    const focused = document.activeElement;
+    if (focused === entry || !(focused instanceof HTMLElement) || focused.getAttribute('role') !== 'menuitem') return;
+    if (!this.host.contains(focused)) return;
+    entry.focus({ preventScroll: true });
+  }
+
   /** Esc on a question takes it back, before the menu steps back */
   onEscape(event: Event): void {
     if (!this.confirm()) return;

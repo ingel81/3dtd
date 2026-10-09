@@ -388,6 +388,20 @@ describe('The main menu', () => {
       await vi.waitFor(() => expect(document.activeElement).toBe(entry('extras')));
     });
 
+    it('the pointer over an entry takes the focus along from the list, never from a page', async () => {
+      coordinator.awaitingStartChoice.set(true);
+      await setup();
+      entry('new-game')!.focus();
+      entry('settings')!.dispatchEvent(new MouseEvent('mouseenter'));
+      expect(document.activeElement).toBe(entry('settings'));
+
+      await click(entry('extras'));
+      const onPage = el().querySelector<HTMLElement>('app-menu-extras button')!;
+      onPage.focus();
+      entry('coop')!.dispatchEvent(new MouseEvent('mouseenter'));
+      expect(document.activeElement).toBe(onPage);
+    });
+
     it('moves between the entries with the arrows, wrapping, without choosing', async () => {
       coordinator.awaitingStartChoice.set(true);
       await setup();
