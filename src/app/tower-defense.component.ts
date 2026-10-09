@@ -612,6 +612,9 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   onKeyDown(event: KeyboardEvent): void {
     // Taken already on its way down, past a tooltip (escapePastTooltip)
     if (event === this.escapeTakenEarly) return;
+    // The main menu owns the keyboard (its Esc steps back, MainMenuComponent):
+    // no boss-intro skip, no Tab trapped in the photo or replay bar behind it
+    if (this.uiStore.mainMenuOpen()) return;
     // A running boss intro takes Esc (skip) and holds the other game keys back
     if (this.bossIntro.handleKeyDown(event)) return;
     // So does the intro flight

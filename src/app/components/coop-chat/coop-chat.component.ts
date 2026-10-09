@@ -66,6 +66,9 @@ export class CoopChatComponent {
   }
 
   onKey(event: KeyboardEvent): void {
+    // The main menu is modal and owns the keyboard: in coop the game runs on
+    // behind it, but Tab, Enter and X are the menu's (its Esc steps back)
+    if (this.uiStore.mainMenuOpen()) return;
     const key = event.key.toLowerCase();
     if (key === 'escape' && this.coop.pingArmed()) {
       // Taken here: the Esc chain of the HotkeyService would close the dock as well

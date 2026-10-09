@@ -143,6 +143,20 @@ describe('Coop keys', () => {
     expect(coop.armPing).toHaveBeenCalledTimes(1);
   });
 
+  it('leaves Tab, Enter and X to the main menu while it stands (coop runs on behind it)', () => {
+    const { chat, coop, ui } = setup(true);
+    ui.mainMenu.set({ open: true, layer: 'pause', page: 'home' });
+    const el = button();
+    clickFocus(el);
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(press('Enter', el).defaultPrevented).toBe(false);
+    expect(chat.writing()).toBe(false);
+    expect(press('Tab', el).defaultPrevented).toBe(false);
+    expect(ui.coopDockOpen()).toBe(false);
+    press('x', el);
+    expect(coop.armPing).not.toHaveBeenCalled();
+  });
+
   it('Esc takes back an armed ping and keeps the key from the Esc chain', () => {
     const { coop } = setup(true);
     coop.pingArmed.set(true);
