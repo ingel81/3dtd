@@ -180,7 +180,7 @@
          less than that. Bars, the rising credit change and the flashes are
          aria-hidden: the figures say it. -->
     <div class="header-stats">
-      <div class="stat-plate hp" #hqPlate [attr.data-level]="hqLevel()" [matTooltip]="hq().tooltip">
+      <div class="stat-plate hp" data-stat="hq" #hqPlate [attr.data-level]="hqLevel()" [matTooltip]="hq().tooltip">
         <td-icon name="hqSolid" [size]="20"></td-icon>
         <div class="stat-text">
           <span class="stat-label">HQ</span>
@@ -200,7 +200,7 @@
         }
       </div>
       <div class="credits-cell">
-        <div class="stat-plate credits" #creditsPlate [matTooltip]="creditsStat().tooltip">
+        <div class="stat-plate credits" data-stat="credits" #creditsPlate [matTooltip]="creditsStat().tooltip">
           <td-icon name="coinSolid" [size]="20"></td-icon>
           <div class="stat-text">
             <span class="stat-label">Credits</span>
@@ -221,7 +221,7 @@
           }
         }
       </div>
-      <div class="stat-plate wave" [class.starting]="waveStarting()" [matTooltip]="waveStat().tooltip">
+      <div class="stat-plate wave" data-stat="wave" [class.starting]="waveStarting()" [matTooltip]="waveStat().tooltip">
         <td-icon name="waveSolid" [size]="20"></td-icon>
         <div class="stat-text">
           <span class="stat-label">Wave</span>
