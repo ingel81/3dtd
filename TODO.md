@@ -43,30 +43,8 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
       bis zur Ebene geprüft, Mindestlänge etwa 25 bis 30 m fehlt) oder die Gegnerlinie schwenkt am Start vom OSM-Punkt
       zur Bandmitte. Erst mit URL oder Snapshot eines neuen Falls debuggen.
 
-- [ ] **E120 Continue an einem anderen Ort** (User, 2026-10-07): Frisch geladen, steht im Spielmenü (und in der
-      Continue-Leiste) „Continue“ für den Autosave eines anderen Orts. Ein Klick wechselt ohne Rückfrage dorthin und
-      wirft den gerade geladenen Ort weg. Der Ortswechsel muss am Knopf sichtbar sein (Ortsname, Hinweis „other place“),
-      davor eine Rückfrage. Betrifft `game-menu.component.ts` (`continueAutosave`) und `continue-bar.component.ts`.
-      Wird mit dem Umbau E121 gebaut, nicht vorher (User, 2026-10-07).
-
 ### Features
 
-- [ ] **E121 Spielmenü als Dreh- und Angelpunkt** (User, 2026-10-07; gröberer Umbau): Nach dem Laden läuft alles
-      über das Menü: Weiterspielen, neues Spiel, Ort wählen, Coop, Laden, Einstellungen. Richtung: klassisches
-      Hauptmenü wie bei PC-Spielen, mit großem Logo. Das Spiel lädt im Hintergrund schon (Ort, Tiles, Initialisierung), das Menü liegt
-      davor und präsentiert. Klare Führung vom Hauptmenü in die Spielarten: Einzelspieler, Coop im LAN, Coop online
-      usw., jede mit eigenem Weg statt verteilter Knöpfe. Heute führen Ortsdialog,
-      Continue-Leiste, Coop-Dock und Kopfzeile je eigene Wege. Vor dem Bau Plan-Doc und Abstimmung, welche Wege ins
-      Menü wandern; E120 und E119 hängen daran.
-      **Ein gesamtheitliches Konzept** (User, 2026-10-07) für E120 bis E122: Hauptmenü, Wege in die Spielarten, Optik
-      von Menü, Dialogen, Panels und HUD aus einem Guss, als `docs/MAIN_MENU_UI_PLAN.md`, nicht Stück für Stück.
-      Darin auch der Ladedialog: wie er ins Hauptmenü passt, wenn das Spiel dahinter lädt, und was von seinen Anzeigen
-      woanders hingehört (Fortschritt im Menü, Schritte, Fehler).
-- [ ] **E122 Spielerische Optik für Menü, Dialoge, Panels und HUD** (User, 2026-10-07): Das Spielmenü und generell alle Dialoge und
-      Panels sehen noch zu sehr nach der Claude-Oberfläche aus statt nach einem Spiel. Ebenso die drei Anzeigen in der
-      Kopfleiste (HP, Credits, Wave): zu steril, zu wenig spielerisch; gilt in Teilen für die ganze UI. Eigene Gestaltung über
-      [DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) und die Theme-Tokens; Varianten vorher in Claude Design, Vorher/Nachher
-      als Bilderserie. Sinnvoll zusammen mit E121.
 - [ ] **E102 Neue Tower aus den Meshy-Kandidaten** (User, 2026-10-02; Modelle in
       `public/assets/models/towers/candidates/`, Zerlegung mit `tools/blender/split_tower.py` und `towers/*.json`):
       Iron Bastion und Sentinel Laser abgenommen. Chainsaw mit Roboter-Tentakeln statt Armen (bis 14 m, eingefahren wie
@@ -74,10 +52,6 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
       Döner-Strahl (dreht aus dem Stand hoch, Fett-Spritzer später als Pfad). Magma Reactor zurückgestellt. Alle auf das
       Modell-Budget reduzieren (heute 0,8 bis 2,5 Mio. Dreiecke).
 - [ ] **E103 Ego-Steuerung des Helden** (User, 2026-10-02).
-- [ ] **E119 Datenschutz im Spiel verlinken** (User, 2026-10-06): Die Erklärung steht auf der Projektseite
-      (`landing/legal.html`, deutsch `rechtliches.html`, live unter `https://3dtd.sgeht.net/legal.html`), verlinkt nur
-      im Footer der Startseite. Im Spiel (`/play/`) und in der Desktop-App fehlt jeder Weg dorthin. Link „Legal &
-      privacy“ ins Spielmenü und in den Attributions-Dialog, in der App im System-Browser öffnen.
 - [ ] **E83 AppImage und AUR** (2026-09-30): gebaut 2026-10-05 (statische Laufzeit, Update-Information und `.zsync`,
       AUR-Paket `3dtd-bin` mit CI-Job). Offen beim User: einmal auf Linux starten, AUR-Konto und Secret einrichten
       (PLAYTEST S5); in der CI ist der neue Teil noch nie gelaufen.
@@ -135,6 +109,12 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 
 - [ ] **E93 Route, Zellen, Spawn und HQ schweben nach dem Laden**: Neubau der Region im neuen Rahmen gebaut; im Spiel
       bestätigen. Tritt es wieder auf: [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md), „Vorgehen, wenn die Route wieder schwebt“.
+
+### Hauptmenü und Spieloptik (2026-10-09, Branch `menu/main-menu-2026-10-08`)
+
+- [ ] **E119 bis E122** gebaut: Hauptmenü als Dreh- und Angelpunkt mit dem Laden dahinter, Continue mit Ortsprüfung,
+      Legal-Link, eine Optik für Menü, Dialoge, Panels und HUD ([MAIN_MENU_UI_PLAN.md](docs/MAIN_MENU_UI_PLAN.md)).
+      PLAYTEST H1 bis H5.
 
 ### Nach dem Release 0.6 (2026-10-05, auf `next`)
 
