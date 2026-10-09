@@ -150,6 +150,12 @@ export class MainMenuService {
         this.close();
       });
     });
+    // In a coop room the place is the room's (a guest joining or following the
+    // host, the host's dice in the lobby): nobody waits behind Play, the menu
+    // goes once the place stands and the dock or the game is in front again
+    effect(() => {
+      if (this.coop?.room() && this.placeLoading()) untracked(() => this.pendingPlay.set(true));
+    });
     // Another place starts to load (header, dice, favourite, a save elsewhere,
     // a coop guest following the host): the start layer shows its plate. A
     // page open stays (the Load page waits for its load to say how it went),

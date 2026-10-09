@@ -15,7 +15,7 @@ import { COOP } from '../../services/coop.token';
 function setup(inCoop = false) {
   const coopInGame = signal(inCoop);
   TestBed.configureTestingModule({
-    providers: [MainMenuService, { provide: COOP, useValue: { inGame: coopInGame } }],
+    providers: [MainMenuService, { provide: COOP, useValue: { inGame: coopInGame, room: signal(null) } }],
   });
   const menu = TestBed.inject(MainMenuService);
   const ui = TestBed.inject(UIStore);

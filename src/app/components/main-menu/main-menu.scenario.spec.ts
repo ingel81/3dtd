@@ -94,7 +94,7 @@ describe('The main menu', () => {
     startPlace: signal(null),
     continueAutosave: vi.fn(async (): Promise<LoadResult> => ({ ok: true, note: null })),
   };
-  const coop = { inGame: signal(false), hostPlace: signal(null) };
+  const coop = { inGame: signal(false), hostPlace: signal(null), room: signal<{ code: string } | null>(null) };
   const facade = { restartGame: vi.fn() };
   const config = { tileProvider: signal('cesium'), setupRequested: signal(false) };
 
@@ -112,6 +112,7 @@ describe('The main menu', () => {
     saves.slots.set([]);
     saves.hasAutosave.set(false);
     coop.inGame.set(false);
+    coop.room.set(null);
     config.setupRequested.set(false);
   });
 
@@ -543,6 +544,41 @@ describe('The main menu', () => {
       engineInit.loading.set(true);
       await settle();
       expect(ui.mainMenuOpen()).toBe(true);
+    });
+
+    it('in a coop room a new place shows its plate and then goes by itself: nobody waits behind Play', async () => {
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+      coop.room.set({ code: 'ABC123' });
+      await setup('pause');
+      menu.close();
+      await settle();
+
+      // The host moved the room to another place: the guest follows
+      engineInit.loading.set(true);
+      await settle();
+      expect(menu.layer()).toBe('start');
+      expect(el().querySelector('app-menu-loading')).not.toBeNull();
+      expect(menu.pendingPlay()).toBe(true);
+
+      engineInit.loading.set(false);
+      await settle();
+      expect(ui.mainMenuOpen()).toBe(false);
+    });
+
+    it('a guest who joined a room before any place plays once the place of the host stands', async () => {
+      coordinator.awaitingStartChoice.set(true);
+      await setup('start');
+      coop.room.set({ code: 'ABC123' });
+      // The host's place comes and loads behind the menu
+      coordinator.awaitingStartChoice.set(false);
+      locationMgmt.hq.set(HEILBRONN);
+      await settle();
+      expect(menu.pendingPlay()).toBe(true);
+
+      engineInit.loading.set(false);
+      await settle();
+      expect(ui.mainMenuOpen()).toBe(false);
     });
   });
 });
