@@ -123,6 +123,23 @@ describe('Save and Load pages', () => {
     });
   });
 
+  it('gives the focus back to the slot after a save: the disabled button dropped it to the page, Esc would miss the menu', async () => {
+    const { fixture, el, saves, settle } = await setup({ mode: 'save', canSave: true, slots: [] });
+    document.body.appendChild(fixture.nativeElement);
+    const slot = el.querySelectorAll<HTMLButtonElement>('.mp-slot')[0];
+    slot.focus();
+    saves.save.mockImplementationOnce(async () => {
+      // What the browser does when the focused button turns disabled
+      (document.activeElement as HTMLElement | null)?.blur();
+      return { ok: true as const };
+    });
+    slot.click();
+    await settle();
+    await settle();
+    expect(document.activeElement).toBe(el.querySelectorAll<HTMLButtonElement>('.mp-slot')[0]);
+    fixture.nativeElement.remove();
+  });
+
   describe('Load', () => {
     it('lists the autosave first and loads at once when no run is under way', async () => {
       const { el, click, saves, loaded } = await setup({ mode: 'load' });

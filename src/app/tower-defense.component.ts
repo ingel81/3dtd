@@ -1035,13 +1035,21 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * The header's Coop button: in a room the dock opens and closes
-   * (docs/COOP_PLAN.md, D41); without one the menu's Coop page, where
-   * hosting and joining start.
+   * The header's Coop button: in a room, or while joining one, the dock
+   * opens and closes (docs/COOP_PLAN.md, D41); otherwise the menu's Coop
+   * page, where hosting and joining start. A guest taken out of a room keeps
+   * the join intent, so the intent alone does not count: the dock with the
+   * reason gives way to the page.
    */
   openCoop(): void {
-    if (this.coop.room() || this.coop.intent() === 'join') this.uiStore.coopDockOpen.update((open) => !open);
-    else this.mainMenu.open('coop');
+    const status = this.coop.status();
+    const joining = this.coop.intent() === 'join' && (status === 'connecting' || status === 'loading-world');
+    if (this.coop.room() || joining) {
+      this.uiStore.coopDockOpen.update((open) => !open);
+      return;
+    }
+    this.uiStore.coopDockOpen.set(false);
+    this.mainMenu.open('coop');
   }
 
   /** The quick bar's Settings button: the menu's Settings page */

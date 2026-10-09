@@ -146,13 +146,29 @@ export class SaveSlotsComponent {
     }, { injector: this.injector });
   }
 
+  /**
+   * One save, load, export or delete at a time. Its button is disabled
+   * meanwhile, which drops the focus to the page; it goes back to that
+   * button afterwards (or to the first one, when the question that started
+   * it is gone), so Esc and Tab still reach the menu.
+   */
   private async run(work: () => Promise<void>): Promise<void> {
+    const before = typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null);
     this.busy.set(true);
     this.status.set(null);
     try {
       await work();
     } finally {
       this.busy.set(false);
+      afterNextRender(() => {
+        const lost = !document.activeElement || document.activeElement === document.body;
+        if (!lost) return;
+        const host = this.host.nativeElement;
+        const back = before?.isConnected && host.contains(before) && !(before as HTMLButtonElement).disabled
+          ? before
+          : host.querySelector<HTMLElement>('button:not([disabled])');
+        back?.focus();
+      }, { injector: this.injector });
     }
   }
 }
