@@ -52,14 +52,7 @@
     color: var(--td-brass-light);
   }
 
-  // The plate shows the focus for the pointer too; the keyboard gets the ring
-  // on top, so focus and the open page never read alike
-  &:focus {
-    outline: none;
-  }
-
-  @include base.focus-ring(calc(-1 * var(--td-focus-width)));
-
+  // The plate shows the focus, for the pointer and the keyboard alike (no ring)
   &:focus,
   &[aria-current='page'] {
     background: var(--td-stone-plate);

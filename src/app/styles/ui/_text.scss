@@ -141,7 +141,6 @@
   text-decoration-color: color-mix(in srgb, var(--td-brass) 45%, transparent);
   text-underline-offset: 2px;
   cursor: pointer;
-  @include base.focus-ring;
 
   &:hover#{base.$enabled} {
     color: var(--td-brass-light);

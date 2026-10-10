@@ -1,4 +1,5 @@
-<aside #box class="td-info td-overlay" [class.td-info--expanded]="uiStore.infoOverlayVisible()"
+<aside #box class="td-info" [class.td-info--expanded]="uiStore.infoOverlayVisible()"
+       [class.td-overlay]="uiStore.infoOverlayVisible()" [class.td-stone-chip]="!uiStore.infoOverlayVisible()"
        (click)="uiStore.toggleInfoOverlay()"
        (keydown.enter)="onKey($event)"
        (keydown.space)="onKey($event)"

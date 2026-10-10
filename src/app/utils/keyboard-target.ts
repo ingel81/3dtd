@@ -58,7 +58,9 @@ export class FocusOrigin {
     // A key press moves on from the last click: the next focus is the keyboard's
     doc.addEventListener('keydown', () => { this.pointerAt = -Infinity; }, true);
     doc.addEventListener('focusin', (event) => {
-      this.byKeyboard = performance.now() - this.pointerAt < POINTER_FOCUS_MS ? null : (event.target as Element);
+      const target = event.target as Element;
+      const byPointer = performance.now() - this.pointerAt < POINTER_FOCUS_MS;
+      this.byKeyboard = byPointer || focusIsQuiet(target) ? null : target;
     }, true);
   }
 
@@ -74,6 +76,30 @@ export class FocusOrigin {
 }
 
 let origin: FocusOrigin | null = null;
+
+/** The element focusQuietly is focusing right now */
+let quietTarget: Element | null = null;
+
+/**
+ * Focuses `el` as a script giving the focus back (a menu closing), not as
+ * the keyboard: no tooltip opens on it, and the next Escape belongs to the
+ * game, not to a tooltip. Focus events fire during the call, so the mark
+ * holds exactly while they do. `focus` does the focusing (FocusMonitor's
+ * focusVia with 'program' keeps a matTooltip shut as well).
+ */
+export function focusQuietly(el: HTMLElement, focus: () => void = () => el.focus({ preventScroll: true })): void {
+  quietTarget = el;
+  try {
+    focus();
+  } finally {
+    quietTarget = null;
+  }
+}
+
+/** focusQuietly is focusing `el` right now: a tooltip opening on focus stays shut */
+export function focusIsQuiet(el: Element): boolean {
+  return el === quietTarget;
+}
 
 /** The page's FocusOrigin, set up on first use */
 function pageFocusOrigin(): FocusOrigin | null {

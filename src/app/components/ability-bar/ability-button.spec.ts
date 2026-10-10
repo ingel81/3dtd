@@ -93,10 +93,10 @@ describe('abilityTooltip', () => {
 });
 
 describe('ABILITY_BAR_EDGE_PX', () => {
-  it('is the bar drawn from ABILITY_BAR_PX: 12 px left, 1 px border, 5 px padding, a 44 px button', () => {
-    expect(ABILITY_BAR_PX).toEqual({ left: 12, border: 1, padding: 5, button: 44, clear: 8 });
+  it('is the bar drawn from ABILITY_BAR_PX: 7 px left, no border, 5 px padding for the shadow, a 48 px button', () => {
+    expect(ABILITY_BAR_PX).toEqual({ left: 7, border: 0, padding: 5, button: 48, clear: 3 });
     // `clear` is room above and below the bar, not part of its width
-    expect(ABILITY_BAR_EDGE_PX).toBe(68);
+    expect(ABILITY_BAR_EDGE_PX).toBe(65);
   });
 });
 

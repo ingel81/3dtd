@@ -1,6 +1,7 @@
 // Layout of the performance info at the top left of the map: collapsed only
-// the frame rate and a caret, expanded a column of figures, wide a second
-// column with the simulation and its charts. The look is a td-overlay strip.
+// the frame rate and a caret on a small stone (td-stone-chip), expanded a
+// column of figures, wide a second column with the simulation and its
+// charts on a td-overlay strip.
 
 .td-info {
   position: absolute;
@@ -85,15 +86,21 @@
   color: var(--td-brass-light);
 }
 
-/* Collapsed: just the frame rate and the caret */
+/* Collapsed: just the frame rate and the caret, the stone chip's padding */
 .td-info:not(.td-info--expanded) {
-  padding: 3px 8px;
+  padding: 3px 6px 4px 9px;
+  font-size: var(--td-fs-small);
 
   .td-info__row {
-    gap: 6px;
+    gap: 5px;
+    line-height: 1.3;
   }
 
   .td-info__row .v {
     flex: 0 0 auto;
   }
+}
+
+.td-info:hover .td-info__row--head .v {
+  color: var(--td-brass-light);
 }

@@ -148,7 +148,7 @@ describe('Ability bar after the research, playtest 510, 511 and 513 replayed', (
     bus.emitDeferred({ type: 'debug:ready-hero' });
     bus.processQueue();
     expect(heroButton()).toMatchObject({ action: 'summon', icon: 'user', hotkey: 'G' });
-    // ability-bar.component.html: the rule under the hero only with a button after it
+    // ability-bar.component.html: the hero stands apart only with a button after it
     expect(bar.buttons()).toEqual([]);
 
     // DebugFacadeService.readyAbilities: one event per ability

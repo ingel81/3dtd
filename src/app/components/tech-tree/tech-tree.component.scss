@@ -103,7 +103,6 @@
     border-color var(--td-dur-fast) var(--td-ease-out),
     transform var(--td-dur-fast) var(--td-ease-out),
     opacity var(--td-dur-fast) var(--td-ease-out);
-  @include ui.focus-ring;
 
   // The state mark down the left side
   &::before {

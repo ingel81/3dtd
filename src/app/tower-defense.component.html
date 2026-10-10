@@ -317,11 +317,13 @@
 
       <!-- Game Over Overlay -->
       @if (store.showGameOverScreen()) {
-        <div class="td-gameover-overlay td-backdrop" role="dialog" aria-modal="true" aria-labelledby="td-gameover-title" tabindex="-1" tdFocusOnShow cdkTrapFocus>
-          <div class="td-dlg td-gameover-content">
-           <header class="td-dlg-head"><h1 class="td-dlg-title" id="td-gameover-title">HQ lost</h1></header>
+        <div class="td-gameover-overlay td-gameover-veil" role="dialog" aria-modal="true" aria-labelledby="td-gameover-title" aria-describedby="td-gameover-sub" tabindex="-1" tdFocusOnShow cdkTrapFocus>
+          <div class="td-gameover-title">
+            <h1 class="td-gameover-word" id="td-gameover-title">Game over</h1>
+            <p class="td-gameover-sub" id="td-gameover-sub">HQ lost | {{ currentLocationName() }} | wave <b>{{ store.waveNumber() }}</b></p>
+          </div>
+          <div class="td-dlg td-gameover-content td-gameover-rise">
            <div class="td-dlg-body td-gameover-scroll">
-            <p class="td-note td-gameover-where">{{ currentLocationName() }}, wave {{ store.waveNumber() }}</p>
             @if (store.runSummary(); as summary) {
               <app-run-summary [summary]="summary" />
             }

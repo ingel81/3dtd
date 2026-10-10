@@ -69,8 +69,9 @@ const PAGE_OF: Partial<Record<HomeEntryId, MenuPage>> = {
  * Extras, and below the line New game, Coop, Restart here, Quit. Not in a
  * coop game: Save, Load, Restart, New game (the map is the room's).
  *
- * Play and Continue show the loading bar while the place loads; a click
- * then waits and plays once it stands. Continue to an autosave at another
+ * While the place loads, one entry shows the bar: the one the player chose,
+ * else the first that loads (Play and Continue both can); a click then
+ * waits and plays once it stands. Continue to an autosave at another
  * place asks first (E120), Restart and Quit with a run under way too.
  */
 @Component({
@@ -97,11 +98,13 @@ export class MenuHomeComponent {
   readonly status = signal<string | null>(null);
   /** The autosave loads */
   readonly busy = signal(false);
+  /** The entry that loads the player last chose: it carries the bar */
+  private readonly chosen = signal<HomeEntryId | null>(null);
 
   readonly plate = computed(() => loadingPlateView(this.engineInit.loadingSteps()));
 
   /** What the run loaded here is: "Heilbronn | wave 12" */
-  private readonly runLine = computed(() => {
+  readonly runLine = computed(() => {
     const place = this.menu.placeName();
     const wave = Math.max(1, this.store.waveNumber());
     return place ? `${place} | wave ${wave}` : `wave ${wave}`;
@@ -149,23 +152,31 @@ export class MenuHomeComponent {
     return list;
   });
 
-  /** The line under the pause list's logo: "Paused | Heilbronn | wave 12", in coop not paused */
-  readonly pauseLine = computed(() => `${this.menu.inCoop() ? 'Coop' : 'Paused'} | ${this.runLine()}`);
+  /** The head of the pause list: "Paused" left, the run's line right; in coop the game goes on */
+  readonly pauseWord = computed(() => (this.menu.inCoop() ? 'Coop' : 'Paused'));
 
-  /** Play or Continue waits for the place: the bar shows in the entry */
+  /** The one entry that shows the loading: the one chosen, else the first that loads */
+  private readonly loadingEntry = computed<HomeEntryId | null>(() => {
+    const loading = this.entries().filter((entry) => entry.loads);
+    const chosen = this.chosen();
+    return loading.find((entry) => entry.id === chosen)?.id ?? loading[0]?.id ?? null;
+  });
+
+  /** Play or Continue waits for the place: the bar shows in one entry, not in both */
   showsBar(entry: HomeEntry): boolean {
-    return entry.loads && this.menu.placeLoading();
+    return entry.id === this.loadingEntry() && this.menu.placeLoading();
   }
 
   /** The line under an entry: what it plays, or that it waits */
   subOf(entry: HomeEntry): string | null {
-    if (entry.loads && this.menu.pendingPlay()) return 'Starts when loaded';
+    if (entry.id === this.loadingEntry() && this.menu.pendingPlay()) return 'Starts when loaded';
     if (entry.id === 'continue' && this.busy()) return 'Loading the save';
     return entry.sub;
   }
 
   activate(entry: HomeEntry): void {
     this.status.set(null);
+    if (entry.loads) this.chosen.set(entry.id);
     const page = PAGE_OF[entry.id];
     if (page) {
       this.menu.open(page);

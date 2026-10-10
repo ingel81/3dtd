@@ -4,6 +4,9 @@ export const SITE_URL = 'https://3dtd.sgeht.net';
 /** Imprint, privacy and licences on the public site (E119); the desktop app opens it in the system browser */
 export const LEGAL_URL = `${SITE_URL}/legal.html`;
 
+/** The privacy policy, a section of the legal page. */
+export const PRIVACY_URL = `${LEGAL_URL}#privacy`;
+
 /** The web version on the public site. */
 export const PUBLIC_GAME_URL = `${SITE_URL}/play/`;
 

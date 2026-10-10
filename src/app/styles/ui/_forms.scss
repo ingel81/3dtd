@@ -180,10 +180,15 @@
   }
 }
 
-// Segments: one button per choice; the chosen one sunken with brass text
+// Segments: one button per choice in a shared well; the chosen one a raised
+// stone plate with brass text, like a slider in its groove
 @mixin segmented {
   display: flex;
-  gap: 3px;
+  gap: 0;
+  padding: 3px;
+  border-radius: var(--td-radius);
+  background: var(--td-well);
+  box-shadow: var(--td-well-shadow);
 
   > button {
     display: grid;
@@ -194,14 +199,13 @@
     padding: 0 12px 2px;
     border: 0;
     border-radius: var(--td-radius);
-    background: color-mix(in srgb, var(--td-ink) 14%, transparent);
+    background: color-mix(in srgb, var(--td-ink) 20%, transparent);
     color: var(--td-text-quiet);
     font-family: var(--td-font);
     font-size: var(--td-fs-text);
     font-weight: 600;
     white-space: nowrap;
     cursor: pointer;
-    @include base.focus-ring(-2px);
     @include base.motion(color, background-color, box-shadow);
 
     &:hover#{base.$enabled} {
@@ -212,8 +216,8 @@
     &[aria-pressed='true'],
     &[aria-checked='true'],
     &[aria-selected='true'] {
-      background: color-mix(in srgb, var(--td-ink) 30%, transparent);
-      box-shadow: var(--td-well-deep);
+      background: var(--td-stone-plate);
+      box-shadow: var(--td-raised-plate);
       color: var(--td-brass-light);
     }
 
@@ -240,7 +244,6 @@
   box-shadow: var(--td-well-shadow);
   appearance: none;
   cursor: pointer;
-  @include base.focus-ring;
 
   &::before {
     content: '';
@@ -278,7 +281,6 @@
   @at-root button#{&} {
     @include base.button-reset;
     font-size: inherit;
-    @include base.focus-ring;
 
     // The switch in a toggle button shows the button's state
     &[aria-pressed='true'] > .td-switch::before {
@@ -301,7 +303,6 @@
   background: none;
   appearance: none;
   cursor: pointer;
-  @include base.focus-ring;
 
   &::-webkit-slider-runnable-track {
     height: var(--track);

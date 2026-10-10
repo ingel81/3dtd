@@ -9,8 +9,9 @@
  * the info overlay (--td-bar-top: its measured bottom plus `clear`), the
  * room below it (the pseudo-element) keeps clear of the logo row
  * (--td-logo-bottom and --td-logo-height of the game component). On a
- * canvas too low for all of it, the bar shrinks and scrolls. The look is a
- * td-overlay strip with td-icon-btn stones. */
+ * canvas too low for all of it, the bar shrinks and scrolls. No strip behind
+ * it: td-icon-btn stones stand alone on the map, each with its shadow (the
+ * padding keeps room for it inside the scrolling column). */
 :host {
   position: absolute;
   top: 0;
@@ -37,7 +38,7 @@
 .td-ability-bar {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -47,10 +48,6 @@
   border: var(--td-bar-border) solid transparent;
 }
 
-.td-bar-rule {
-  flex-shrink: 0;
-  margin: 0 4px;
-}
 
 /* A stone per ability. Key top right, a stroke per wave to the next charge
  * at the bottom. Brass while it is ready, pressed while it aims. Without
@@ -114,8 +111,13 @@
   }
 }
 
-/* The hero: a plain switch, pressed while he is selected */
+/* The hero: a plain switch, pressed while he is selected; set a little apart
+ * from the abilities after him */
 .td-bar-hero {
   padding: 0;
   color: var(--td-text-secondary);
+
+  &.is-apart {
+    margin-bottom: 6px;
+  }
 }

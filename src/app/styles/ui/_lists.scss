@@ -90,7 +90,6 @@
   font-family: var(--td-font);
   text-align: left;
   cursor: pointer;
-  @include base.focus-ring(-2px);
 
   &:hover#{base.$enabled} {
     color: var(--td-brass-light);
@@ -124,7 +123,6 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  @include base.focus-ring(-2px);
   @include base.motion(color);
 
   &:hover#{base.$enabled} {

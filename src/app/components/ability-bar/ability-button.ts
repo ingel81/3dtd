@@ -117,7 +117,9 @@ export function heroTooltip(hero: AbilityBarHero): TdTooltipData {
  * overlay and above the logo row (`clear`). AbilityBarComponent hands them
  * to its SCSS as custom properties, so the bar is drawn from these numbers.
  */
-export const ABILITY_BAR_PX = { left: 12, border: 1, padding: 5, button: 44, clear: 8 } as const;
+// No strip behind the stones: no border, and the padding is room for their
+// shadow, so the stones stand 12 px from the canvas edge (left + padding)
+export const ABILITY_BAR_PX = { left: 7, border: 0, padding: 5, button: 48, clear: 3 } as const;
 
 /**
  * Outer right edge of the bar in px from the left edge of the canvas: its

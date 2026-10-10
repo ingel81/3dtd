@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { FocusOrigin, controlTakesKey, escapeBelongsToGame, ownsKey } from './keyboard-target';
+import { FocusOrigin, controlTakesKey, escapeBelongsToGame, focusIsQuiet, focusQuietly, ownsKey } from './keyboard-target';
 
 function input(type?: string): HTMLInputElement {
   const el = document.createElement('input');
@@ -114,6 +114,18 @@ describe('FocusOrigin', () => {
     next.focus();
     expect(origin.byKeyboardFocus(next)).toBe(true);
     expect(origin.byKeyboardFocus(clicked)).toBe(false);
+  });
+
+  it('a focus given back quietly is no keyboard focus, and no tooltip opens on it', () => {
+    const el = button();
+    let quietDuringFocus = false;
+    el.addEventListener('focus', () => { quietDuringFocus = focusIsQuiet(el); });
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    focusQuietly(el);
+    expect(document.activeElement).toBe(el);
+    expect(quietDuringFocus).toBe(true);
+    expect(focusIsQuiet(el)).toBe(false);
+    expect(origin.byKeyboardFocus(el)).toBe(false);
   });
 
   it('knows whether the page has seen a pointer press at all', () => {

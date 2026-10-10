@@ -33,7 +33,6 @@
   text-shadow: var(--td-engrave);
   white-space: nowrap;
   cursor: pointer;
-  @include base.focus-ring;
   @include base.motion(color, filter, box-shadow, transform);
   @include base.disabled;
 }
@@ -130,7 +129,6 @@
   @include base.quiet-stone;
   color: var(--td-text-muted);
   cursor: pointer;
-  @include base.focus-ring;
   @include base.motion(color, box-shadow);
 
   &:hover#{base.$enabled} {
@@ -167,7 +165,6 @@
   color: var(--td-text-muted);
   filter: var(--td-engrave-icon);
   cursor: pointer;
-  @include base.focus-ring;
   @include base.motion(color);
 
   &:hover#{base.$enabled},
@@ -182,4 +179,25 @@
   }
 
   @include base.disabled;
+}
+
+// A small raised stone over the map that opens something (the closed frame
+// rate): quiet at rest, full and brass under the pointer
+@mixin stone-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px 4px 9px;
+  border-radius: var(--td-radius);
+  background: var(--td-stone-dark);
+  box-shadow: var(--td-raised);
+  font-size: var(--td-fs-small);
+  opacity: var(--td-chip-rest-opacity);
+  cursor: pointer;
+  @include base.motion(opacity, color);
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+  }
 }

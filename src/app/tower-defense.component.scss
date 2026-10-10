@@ -149,8 +149,10 @@
 }
 
 /* === Game over and connection lost ===
- * A dialog over the darkened map: the title, place and wave, the run's
- * figures, the buttons at the foot. The overlays take the focus to be
+ * Game over: GAME OVER over the greyed map under a red vignette, the line
+ * with place and wave under it, the plate with the run's figures and the
+ * buttons below (td-gameover-* recipes); connection lost: a dialog over the
+ * darkened map. The overlays take the focus to be
  * announced (tdFocusOnShow); they are no control to ring. */
 .td-gameover-overlay:focus,
 .td-lost-overlay:focus {
@@ -169,16 +171,17 @@
 
 .td-gameover-overlay {
   z-index: 20;
-  animation: td-fade-in var(--td-dur-slow) var(--td-ease-out);
-
-  @include ui.reduced-motion {
-    animation: none;
-  }
+  flex-direction: column;
+  gap: 22px;
 }
 
-@keyframes td-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.td-gameover-title {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
 }
 
 /* Coop: the connection broke in the game (TODO E40); above the map, below the game over screen */
@@ -192,6 +195,7 @@
 
 .td-gameover-content {
   width: 760px;
+  min-height: 0;
   max-height: 100%;
 }
 

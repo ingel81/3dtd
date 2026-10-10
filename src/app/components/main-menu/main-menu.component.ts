@@ -10,8 +10,9 @@ import {
   inject,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
-import { CdkTrapFocus } from '@angular/cdk/a11y';
+import { CdkTrapFocus, FocusMonitor } from '@angular/cdk/a11y';
 import { MatDialog } from '@angular/material/dialog';
 import { MainMenuService } from './main-menu.service';
 import { MENU_PAGE_TITLES, type MenuPage } from './menu-page';
@@ -28,6 +29,8 @@ import { FIELD_TIPS } from './loading/field-tips';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { ConfigService } from '../../core/services/config.service';
 import { DevWorldService } from '../../devworld/devworld.service';
+import { focusQuietly } from '../../utils/keyboard-target';
+import { LEGAL_URL, PRIVACY_URL } from '../../utils/public-url';
 import { TdIconComponent } from '../icon/icon.component';
 
 /** How long a field tip stands before the next, ms */
@@ -42,7 +45,9 @@ export const TIP_ROTATE_MS = 8000;
  * bottom left.
  *
  * A modal dialog named by the page showing: the focus stays inside
- * (cdkTrapFocus) and goes back where it was when the menu closes. Esc steps
+ * (cdkTrapFocus) and goes back where it was when the menu closes, quietly:
+ * a button of the game shows no tooltip then, and the next Esc opens the
+ * menu again instead of closing that tooltip. Esc steps
  * back (MainMenuService.back): page, list, and from the list in the game
  * back to the game. A page opened takes the focus; back on the list, the
  * entry that opened it has it again.
@@ -78,6 +83,10 @@ export class MainMenuComponent {
   private readonly injector = inject(Injector);
   /** A dialog over the menu (Extras, Settings) keeps its own Esc and focus */
   private readonly dialog = inject(MatDialog);
+  private readonly focusMonitor = inject(FocusMonitor);
+  private readonly trap = viewChild.required(CdkTrapFocus);
+  /** What had the focus when the menu opened: it gets it back when the menu closes */
+  private readonly focusedBefore = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
   readonly layer = this.menu.layer;
   readonly page = this.menu.page;
@@ -96,6 +105,10 @@ export class MainMenuComponent {
     return `${BUILD_VERSION} | ${tiles}`;
   });
 
+  /** Legal notice and privacy policy, beside the version at the foot */
+  readonly legalUrl = LEGAL_URL;
+  readonly privacyUrl = PRIVACY_URL;
+
   readonly tips = FIELD_TIPS;
   readonly tipIndex = signal(Math.floor(Math.random() * FIELD_TIPS.length));
 
@@ -103,7 +116,12 @@ export class MainMenuComponent {
     // A start without a place takes the host's place of a coop join or a save's place
     followStartPlaces();
     const timer = setInterval(() => this.tipIndex.update((i) => (i + 1) % this.tips.length), TIP_ROTATE_MS);
-    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+    const destroyRef = inject(DestroyRef);
+    destroyRef.onDestroy(() => clearInterval(timer));
+
+    // Into the menu on open, back where it was on close: cdkTrapFocusAutoCapture would give it back loud
+    afterNextRender(() => void this.trap().focusTrap.focusInitialElementWhenReady(), { injector: this.injector });
+    destroyRef.onDestroy(() => this.giveFocusBack());
 
     // The focus follows the page: into a page opened, back to its entry on the list
     let shown: MenuPage = this.page();
@@ -158,6 +176,21 @@ export class MainMenuComponent {
       if (this.dialog.openDialogs.length > 0) return;
       this.focusBack();
     });
+  }
+
+  /**
+   * The focus back to what had it before the menu, as a script and not as
+   * the keyboard: Esc closing the menu is a key press, and a plain focus()
+   * right after it would count as keyboard focus and open the button's
+   * tooltip, which then takes the next Esc. Not when the focus already went
+   * elsewhere outside the menu, or what had it is gone.
+   */
+  private giveFocusBack(): void {
+    const el = this.focusedBefore;
+    if (!el || !el.isConnected || el === document.body) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && !this.host.contains(active)) return;
+    focusQuietly(el, () => this.focusMonitor.focusVia(el, 'program', { preventScroll: true }));
   }
 
   private root(): HTMLElement | null {

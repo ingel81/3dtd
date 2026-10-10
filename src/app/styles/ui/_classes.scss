@@ -37,8 +37,8 @@
     display: none !important;
   }
 
-  :where(button, a, summary, [tabindex]) {
-    @include base.focus-ring;
+  :where(button, a, summary, [tabindex], input[type='checkbox'], input[type='radio'], input[type='range']) {
+    @include base.no-focus-ring;
   }
 
   @keyframes td-spin {
@@ -148,8 +148,11 @@
   .td-btn-sm { @include buttons.small; }
   .td-icon-btn { @include buttons.icon; }
   .td-icon-btn.is-sm { width: var(--td-icon-sm); height: var(--td-icon-sm); }
+  // A stone standing alone on the map (the ability buttons): its shadow falls on the map
+  .td-icon-btn.is-over-map:not(.is-on, [aria-pressed='true'], [aria-expanded='true'], :active) { box-shadow: var(--td-raised-over-map); }
   .td-close { @include buttons.icon(var(--td-close-size)); }
   .td-tool { @include buttons.tool; }
+  .td-stone-chip { @include buttons.stone-chip; }
   .td-tool.is-sm { width: var(--td-icon-sm); height: var(--td-icon-sm); }
   .td-tool-gap { @include hud.tool-gap; }
 
@@ -238,6 +241,11 @@
   .td-marker { @include hud.marker; }
   .td-marker-btn { @include hud.marker-btn; }
   .td-loc-label { @include hud.loc-label; }
+  .td-gameover-veil { @include hud.gameover-veil; }
+  .td-gameover-word { @include hud.gameover-word; }
+  .td-gameover-sub { @include hud.gameover-sub; }
+  .td-gameover-rise { @include hud.gameover-rise; }
+  @include hud.gameover-keyframes;
   .td-globe-mark { @include hud.globe-mark; }
   .td-globe-readout { @include hud.globe-readout; }
   .td-loc-name { @include hud.loc-name; }

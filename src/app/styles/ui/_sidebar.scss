@@ -1,11 +1,17 @@
 // The sidebar: one plaster panel like the dialogs; its sections parted by
 // engraved lines, each with a brass head over a hairline. The last section
-// fills the rest and scrolls in itself.
+// fills the rest and scrolls in itself. An engraved groove runs down its
+// edge against the map.
 @use 'base';
 @use 'surface';
 
 @mixin sidebar {
   @include surface.panel;
+  box-shadow:
+    inset var(--td-line-width) 0 0 var(--td-edge-dark),
+    inset calc(var(--td-line-width) + var(--td-line-gap)) 0 0 var(--td-edge-light),
+    var(--td-panel-recess),
+    var(--td-panel-drop);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -93,7 +99,6 @@
   text-align: left;
   cursor: pointer;
   // Inside: plates fill scrolling sections that would clip a ring outside
-  @include base.focus-ring(calc(-1 * var(--td-focus-width)));
   @include base.motion(color, box-shadow, filter);
 
   > td-icon {

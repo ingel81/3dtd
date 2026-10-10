@@ -136,6 +136,12 @@ export const TD_RELIEF = {
   lineGap: '1px',
   // A hairline between rows and under a sidebar head
   hairline: 'rgba(255,255,255,.07)',
+  // The deeper groove between the values of the top bar
+  sepDark: 'rgba(0,0,0,.75)',
+  sepLight: 'rgba(255,255,255,.26)',
+  // The groove down the sidebar's edge against the map
+  edgeDark: 'rgba(0,0,0,.6)',
+  edgeLight: 'rgba(255,255,255,.18)',
 
   // Text and icons cut into the surface
   engrave: '0 -1px 0 rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.14)',
@@ -152,6 +158,8 @@ export const TD_RELIEF = {
   raisedQuiet: 'inset 0 1px 0 rgba(255,255,255,.14), inset 0 -3px 0 rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45)',
   raisedLit: 'inset 0 1px 0 rgba(255,255,255,.18), inset 0 -2px 0 rgba(0,0,0,.55), 0 2px 3px rgba(0,0,0,.5)',
   raisedPlate: 'inset 0 1px 0 rgba(255,255,255,.16), inset 0 -2px 0 rgba(0,0,0,.6), 0 2px 3px rgba(0,0,0,.5)',
+  // A stone standing alone on the map (the ability buttons): raised, with a soft shadow on the map
+  raisedOverMap: 'inset 0 1px 0 rgba(255,255,255,.16), inset 0 -2px 0 rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.55)',
   pressed: 'inset 0 3px 6px rgba(0,0,0,.75)',
 
   // Sunken: fields, segments, switches, cards
@@ -164,6 +172,11 @@ export const TD_RELIEF = {
   // The top bar: plate edge at the bottom
   topbarEdge: 'inset 0 -3px 0 rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.1), 0 4px 10px rgba(0,0,0,.55)',
 
+  // Game over: the map greyed and darkened under a red vignette, the words with a red glow
+  gameoverVeil: 'radial-gradient(ellipse at 50% 46%, rgba(40,8,6,.25) 0%, rgba(60,8,5,.63) 75%, rgba(20,3,2,.95) 100%)',
+  gameoverMap: 'grayscale(.65) brightness(.7)',
+  gameoverWord: '0 3px 0 rgba(0,0,0,.85), 0 0 28px rgba(200,70,58,.55), 0 0 2px rgba(0,0,0,.9)',
+
   // A popup over the panel: tooltip, open select, context menu
   popupDrop: '0 0 0 1px #0B0F0C, 0 8px 16px rgba(0,0,0,.6)',
 } as const;
@@ -174,6 +187,7 @@ export const TD_TINT = {
   panel: '.65', // a panel or dialog
   overlay: '.55', // a strip over the map, the map shows through
   overlayOpacity: '.86', // how much of the plaster such a strip keeps
+  chipRestOpacity: '.6', // a stone chip over the map at rest (the closed frame rate), full under the pointer
   // Behind the open menu: dark from the left, fading out over 65 % of the
   // width onto an even base darkening
   menuFade: 0.8,
@@ -199,6 +213,7 @@ export const TD_TYPE = {
   menu: '22px', // menu entries
   hud: '29px', // numbers in the top bar
   hero: '44px', // the boss's name in the boss intro
+  gameover: '118px', // GAME OVER over the map
   trackCaps: '0.1em',
 } as const;
 
@@ -364,6 +379,7 @@ export const TD_CSS_VARS = `
   --td-tint: rgba(${T.rgb}, ${T.panel});
   --td-tint-overlay: rgba(${T.rgb}, ${T.overlay});
   --td-overlay-opacity: ${T.overlayOpacity};
+  --td-chip-rest-opacity: ${T.chipRestOpacity};
 
   --td-backdrop: linear-gradient(90deg, rgba(${T.rgb}, ${T.menuFade}) 0%, rgba(${T.rgb}, ${(T.menuFade * 0.75).toFixed(2)}) ${T.menuFadeWidth * 0.55}%, rgba(${T.rgb}, ${T.menuBase}) ${T.menuFadeWidth}%, rgba(${T.rgb}, ${T.menuBase}) 100%);
 
@@ -380,6 +396,10 @@ export const TD_CSS_VARS = `
   --td-line-width: ${R.lineWidth};
   --td-line-gap: ${R.lineGap};
   --td-hairline: ${R.hairline};
+  --td-sep-dark: ${R.sepDark};
+  --td-sep-light: ${R.sepLight};
+  --td-edge-dark: ${R.edgeDark};
+  --td-edge-light: ${R.edgeLight};
   --td-engrave: ${R.engrave};
   --td-engrave-icon: ${R.engraveIcon};
   --td-over-image: ${R.overImage};
@@ -389,6 +409,7 @@ export const TD_CSS_VARS = `
   --td-raised-quiet: ${R.raisedQuiet};
   --td-raised-lit: ${R.raisedLit};
   --td-raised-plate: ${R.raisedPlate};
+  --td-raised-over-map: ${R.raisedOverMap};
   --td-pressed: ${R.pressed};
   --td-well: ${R.well};
   --td-well-shadow: ${R.wellShadow};
@@ -397,6 +418,9 @@ export const TD_CSS_VARS = `
   --td-well-deep: ${R.wellDeep};
   --td-topbar-edge: ${R.topbarEdge};
   --td-popup-drop: ${R.popupDrop};
+  --td-gameover-veil: ${R.gameoverVeil};
+  --td-gameover-map: ${R.gameoverMap};
+  --td-gameover-word: ${R.gameoverWord};
 
   --td-font: ${TD_FONTS.ui};
   --td-font-mono: ${TD_FONTS.mono};
@@ -410,6 +434,7 @@ export const TD_CSS_VARS = `
   --td-fs-menu: ${TD_TYPE.menu};
   --td-fs-hud: ${TD_TYPE.hud};
   --td-fs-hero: ${TD_TYPE.hero};
+  --td-fs-gameover: ${TD_TYPE.gameover};
   --td-track-caps: ${TD_TYPE.trackCaps};
 
   --td-sp-1: ${TD_SPACE[0]};
@@ -451,7 +476,6 @@ export const TD_CSS_VARS = `
 
   --td-focus-color: ${TD_THEME.brassLight};
   --td-focus-width: 2px;
-  --td-focus-offset: 2px;
 
   --td-sidebar-width: ${TD_LAYOUT.sidebarWidth};
   --td-sidebar-gutter: ${TD_LAYOUT.sidebarGutter};

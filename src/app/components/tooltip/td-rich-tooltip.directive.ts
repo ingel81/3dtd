@@ -18,7 +18,7 @@ import {
 } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
 import { AriaDescriber } from '@angular/cdk/a11y';
-import { focusedByKeyboard, trackFocusOrigin } from '../../utils/keyboard-target';
+import { focusIsQuiet, focusedByKeyboard, trackFocusOrigin } from '../../utils/keyboard-target';
 import { tooltipText } from './tooltip-text';
 import { TdTooltipContentComponent } from './td-tooltip-content.component';
 import { TdTooltipData } from './tooltip-data.types';
@@ -99,8 +99,13 @@ export class TdRichTooltipDirective implements OnDestroy {
     });
   }
 
-  @HostListener('mouseenter')
+  /** Focus opens the card, not a focus given back quietly (a menu closing, focusQuietly) */
   @HostListener('focus')
+  onFocus(): void {
+    if (!focusIsQuiet(this.host.nativeElement)) this.onShow();
+  }
+
+  @HostListener('mouseenter')
   onShow(): void {
     if (this.tdRichTooltipDisabled() || !this.tdRichTooltip()) return;
     this.cancelHide();

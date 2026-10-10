@@ -34,13 +34,17 @@
 
 .mm-logo {
   display: block;
-  width: 240px;
+  /* Centred over the list's panel, the tagline under it on the same axis */
+  align-self: center;
+  width: 180px;
   max-width: calc(100vw - 32px);
   height: auto;
 }
 
 .mm-tagline {
+  align-self: center;
   margin: -28px 0 0;
+  text-align: center;
 }
 
 .mm-pause {
@@ -48,7 +52,7 @@
   padding-top: calc(var(--td-h-topbar) + 16px);
 
   .mm-logo {
-    width: 180px;
+    width: 135px;
   }
 }
 
@@ -94,6 +98,15 @@
 
 .mm-version {
   margin: var(--td-sp-4) 0 0;
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--td-brass-light);
+  }
 }
 
 .mm-loading {
@@ -128,7 +141,7 @@
   }
 
   .mm-pause .mm-logo {
-    width: 140px;
+    width: 120px;
   }
 
   .mm-tagline {

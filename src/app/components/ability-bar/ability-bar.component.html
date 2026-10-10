@@ -1,7 +1,8 @@
 @if (visible()) {
-  <div class="td-ability-bar td-overlay" role="group" aria-label="Abilities">
+  <div class="td-ability-bar" role="group" aria-label="Abilities">
     @if (hero(); as hero) {
-      <button type="button" class="td-icon-btn td-bar-btn td-bar-hero"
+      <button type="button" class="td-icon-btn is-over-map td-bar-btn td-bar-hero"
+              [class.is-apart]="buttons().length > 0"
               [attr.aria-pressed]="hero.selected"
               [attr.aria-label]="hero.name"
               [attr.aria-keyshortcuts]="hero.hotkey"
@@ -13,13 +14,10 @@
           <span class="td-bar-key td-caps" aria-hidden="true">{{ hero.hotkey.toUpperCase() }}</span>
         }
       </button>
-      @if (buttons().length > 0) {
-        <span class="td-bar-rule td-rule" aria-hidden="true"></span>
-      }
     }
 
     @for (button of buttons(); track button.id) {
-      <button type="button" class="td-icon-btn td-bar-btn td-ability-btn"
+      <button type="button" class="td-icon-btn is-over-map td-bar-btn td-ability-btn"
               [attr.data-state]="button.view.state"
               [attr.aria-disabled]="!button.view.enabled"
               [class.is-busy]="!button.view.enabled"

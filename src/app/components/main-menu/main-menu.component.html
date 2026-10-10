@@ -1,6 +1,6 @@
 <div class="mm-root td-backdrop" [class.mm-start]="layer() === 'start'" [class.mm-pause]="layer() === 'pause'"
      role="dialog" aria-modal="true" aria-labelledby="td-menu-title" tabindex="-1"
-     cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
+     cdkTrapFocus
      (keydown.escape)="onEscape($event)">
   <div class="mm-column">
     <img class="mm-logo" src="assets/images/logo/logo.svg" alt="3DTD" width="480" height="272">
@@ -41,7 +41,7 @@
         <span class="mm-tip-label td-caps">Tip</span>
         <span>@for (part of tips[tipIndex()].parts; track $index) {@if (part.accent) {<b [class]="'mm-tip-' + part.accent">{{ part.text }}</b>} @else {<span>{{ part.text }}</span>}}</span>
       </p>
-      <p class="mm-version td-caps">{{ version() }}</p>
+      <p class="mm-version td-caps">{{ version() }} | <a [href]="legalUrl" target="_blank" rel="noopener">Legal</a> | <a [href]="privacyUrl" target="_blank" rel="noopener">Privacy</a></p>
     </div>
   }
 

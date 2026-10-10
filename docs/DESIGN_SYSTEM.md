@@ -19,7 +19,7 @@ Eckwinkel, Glow, Emoji, Glas. Teile einer Textzeile trennt „ | “ („Paused 
 |-------|----|----------------|
 | Werte | `src/app/styles/td-theme.ts` | Farben, Materialien (Texturen), Linien, Schatten, Schrift, Größen, Bewegung als `--td-*` |
 | Rezepte | `src/app/styles/ui/*.scss` | Mixins je Thema: Fläche, Knöpfe, Felder, Listen, Menü, HUD, Sidebar, Text, Layout |
-| Klassen | `src/app/styles/ui/_classes.scss`, einmal eingebunden in `src/styles.scss` | die globalen `td-*`-Klassen, Scrollbar, Fokusring, `[hidden]` |
+| Klassen | `src/app/styles/ui/_classes.scss`, einmal eingebunden in `src/styles.scss` | die globalen `td-*`-Klassen, Scrollbar, kein Fokusring, `[hidden]` |
 | Komponenten | ihre Templates und Stylesheets | setzen `td-*`-Klassen; im eigenen SCSS nur Layout |
 
 **Was in ein Komponenten-Stylesheet darf:** Anordnung (Flex, Grid, Position, Größe, Abstand, Überlauf), Zustände, die
@@ -51,6 +51,7 @@ zahlen, Tower-Abzeichen, LOS-Zellen), liest `TD_THEME` und `TD_FONTS` direkt.
 | `--td-tint`, `--td-tint-overlay` | Tönung über dem Putz: `rgba(12,15,13,.65)` für Panels, `.55` für Leisten über der Karte |
 | `--td-surface` | Panel: Tönung über Putz |
 | `--td-surface-overlay` | Leiste über der Karte; der Putz liegt mit `--td-overlay-opacity` (.86) auf einem `::before`, die Karte scheint leicht durch |
+| `--td-chip-rest-opacity` | Ein Stein über der Karte in Ruhe (zugeklappte FPS-Anzeige), .6 |
 | `--td-surface-topbar` | Kopfleiste: Tönung über Basalt |
 | `--td-stone-dark`, `--td-stone-darker` | Hauptknopf (Putz −22 %), Nebenknopf, Gefahrknopf, Schließen, Icon-Knöpfe (−36 %) |
 | `--td-stone-lit`, `--td-stone-plate` | gewählte Tabellenzeile (Putz +10 %), gewählter Menüeintrag (+7 % nach +2 %) |
@@ -64,13 +65,15 @@ Für Kontrast und als Grundfarbe stehen die Flächen auch als Farbe in `TD_THEME
 |-------|------------|
 | `--td-line-dark`, `--td-line-light`, `--td-line-width`, `--td-line-gap` | Eingeritzte Linie: 2 px dunkel (50 %), 1 px darunter hell (15 %) |
 | `--td-hairline` | Haarlinie zwischen Zeilen und unter Sidebar-Köpfen (7 %) |
+| `--td-sep-dark`, `--td-sep-light` | Tiefere Rille zwischen den Werten der Kopfleiste (75 %, Licht 26 %) |
+| `--td-edge-dark`, `--td-edge-light` | Rille an der Kante der Sidebar zur Karte (60 %, Licht 18 %) |
 | `--td-engrave`, `--td-engrave-icon` | Eingravierte Schrift (Titel, Knöpfe), eingravierte Symbole (Werkzeuge) |
 | `--td-panel-recess`, `--td-panel-drop` | Panel: vertiefte Füllung, starker Schlagschatten |
-| `--td-raised`, `--td-raised-quiet`, `--td-raised-lit`, `--td-raised-plate` | Erhabener Stein: Hauptknopf (Tiefe 2), Nebenknopf (Tiefe 3), gewählte Zeile, gewählter Menüeintrag |
+| `--td-raised`, `--td-raised-quiet`, `--td-raised-lit`, `--td-raised-plate`, `--td-raised-over-map` | Erhabener Stein: Hauptknopf (Tiefe 2), Nebenknopf (Tiefe 3), gewählte Zeile, gewählter Menüeintrag und gewählte Stufe; ein Stein allein auf der Karte mit weichem Schatten |
 | `--td-pressed` | Gedrückt, eingedrückt (Knopf, aktiver Schalter-Knopf) |
 | `--td-well`, `--td-well-shadow`, `--td-well-soft`, `--td-well-soft-shadow`, `--td-well-deep` | Vertieft: Felder, Schalter, Regler (40 %, Tiefe 4); Karten und Kacheln (24 %); gewählte Karte |
 | `--td-topbar-edge`, `--td-popup-drop` | Plattenkante unten an der Kopfleiste; Schatten eines Popups |
-| `--td-backdrop` | Hintergrund bei offenem Menü und über Game Over: von links 80 % auf 35 % bei 65 % Breite |
+| `--td-backdrop` | Hintergrund bei offenem Menü und hinter Connection lost: von links 80 % auf 35 % bei 65 % Breite |
 | `--td-scrim-bottom`, `--td-leak-vignette`, `--td-hazard`, `--td-los-depth-ramp` | Abdunklung unter der Boss-Karte, roter Rand bei einem Leck, Warnstreifen, Tiefenrampe des LOS-Debuggers |
 
 ### Farben
@@ -124,7 +127,7 @@ Gegenüber dem Baukasten sind zwei Farben für 4,5:1 angehoben: Gefahrtext `#D86
 | `--td-disabled-opacity` | .45 | Deckkraft von allem, was gerade nichts tut |
 | `--td-dense-*` | | Dichte Variante: Text und Knopfschrift 14, Abschnitt 15, Titel 16, Knopf 28 (klein 24), Feld 28, Zeile 26, Werkzeug 24 px; der Container setzt die Schrift auf `--td-fs-small` |
 | `--td-dur-fast`, `--td-dur-mid`, `--td-dur-slow`, `--td-dur-tick`, `--td-ease-out` | 120, 250, 450, 900 ms | Hover und Druck; Popup und Balken; eine Ebene ein- und ausblenden; Balken zu einem Sekundenzähler (linear) |
-| `--td-focus-color`, `-width`, `-offset` | `#F2DD9A`, 2 px, 2 px | Fokusring |
+| `--td-focus-color`, `-width` | `#F2DD9A`, 2 px | Fokuskante der Textfelder |
 
 Barlow Semi Condensed (500, 500 kursiv, 600, 700) und JetBrains Mono (400, 600) kommen als lateinische Untermengen über
 `@fontsource` aus `node_modules` und werden in `styles.scss` gebündelt (CSP `font-src 'self'`, die Desktop-App läuft
@@ -166,7 +169,8 @@ Bei `prefers-reduced-motion` springen alle Übergänge (globale Regel); Animatio
 | `td-overlay` (`is-error`) | Leiste über der Karte: derselbe Putz, leicht durchscheinend, 6 px Unschärfe dahinter; mit Fehler ein dunkelroter Rand |
 | `td-popup` | Kleines Popup: Tooltip, Dropdown, Menü am Knopf |
 | `td-chip` (`is-error`), `td-chip-slot` | Hinweis über der Karte mit Symbol, Titel, Zeile (Blutmond mit rotem Rand, HQ-Umzug); sein Platz 18 % unter der Oberkante (als Host-Klasse) |
-| `td-backdrop` | Verlauf hinter Menü und Game Over |
+| `td-backdrop` | Verlauf hinter Menü und Connection lost |
+| `td-gameover-veil`, `td-gameover-word`, `td-gameover-sub`, `td-gameover-rise` | Game Over über der Karte: rote Vignette über der entsättigten Karte, GAME OVER groß, die Zeile darunter, der nachsteigende Dialog (siehe [Game Over](#game-over-und-connection-lost)) |
 | `td-well` (`is-deep`), `td-card` | Vertiefte Fläche, tief wie ein Feld; Karte im Raster (gewählt mit Messingkante; als `<button>` ganz anklickbar, Hover hellt den Text) |
 | `td-reveal` (`is-up`, `is-fade`, `is-open`) | Popup, das auf Wunsch aufgeht: verborgen, mit `is-open` blendet es ein und rückt an seinen Platz (4 px von oben, `is-up` 8 px von unten, `is-fade` ohne Verschieben) |
 | `td-dlg`, `td-dlg-head`, `td-dlg-title`, `td-dlg-body` (`is-loose`), `td-dlg-foot` | Dialog: Panel, steht unter der Kopfleiste; Kopf mit eingeritzter Linie, die vor dem Schließen-Kreuz ausläuft; eingravierter Titel 21 px/700; scrollender Körper als Spalte (12 px, `is-loose` 16 px); Fuß rechtsbündig |
@@ -190,7 +194,8 @@ Bei `prefers-reduced-motion` springen alle Übergänge (globale Regel); Animatio
 | `td-btn-danger` | Wie Nebenknopf, roter Text; `.is-armed` eingedrückt (erster Klick auf Sell) |
 | `td-btn-ghost` | Nur Text, dritte Aktion |
 | `td-btn-sm` | Kleine Größe (30 px) zu einem der Knöpfe |
-| `td-icon-btn` (`is-sm`) | Quadratischer Steinknopf mit Symbol (`--td-icon-btn` 32 px, klein `--td-icon-sm` 26 px); an bei `aria-pressed`, `aria-expanded`, `.is-on` |
+| `td-icon-btn` (`is-sm`, `is-over-map`) | Quadratischer Steinknopf mit Symbol (`--td-icon-btn` 32 px, klein `--td-icon-sm` 26 px); an bei `aria-pressed`, `aria-expanded`, `.is-on`; `is-over-map` steht allein auf der Karte und wirft einen weichen Schatten (`--td-raised-over-map`) |
+| `td-stone-chip` | Kleiner erhabener Stein über der Karte, der etwas aufklappt (die zugeklappte FPS-Anzeige): `--td-stone-dark`, `--td-raised`, 13 px, in Ruhe `--td-chip-rest-opacity` (.6), unter dem Zeiger voll |
 | `td-close` | Schließen: gezeichnetes Kreuz (`td-icon name="close" size=12`), erhaben, 24 px, gedämpft, in der Kopfzeile |
 | `td-tool` (`is-sm`), `td-tool-gap` | Eingraviertes Werkzeug ohne Platte (Kopfleiste, Zeilen; klein 26 px); eingeritzter Abstand zwischen Gruppen. Werkzeug und Textknopf zeigen einen Druck nur über die Farbe |
 | `td-plate-btn`, `td-plate-label` | Steinplatte mit Name, Zeile und Kosten (Upgrade, Pfad); blitzt nach dem Kauf (`is-flash`, `is-flash-alt`), `is-locked` |
@@ -203,7 +208,7 @@ Bei `prefers-reduced-motion` springen alle Übergänge (globale Regel); Animatio
 | `td-input` (`is-sm`, `is-code`, `is-group`, `is-error` / `aria-invalid`) | Vertieftes Feld 40 px, Fokus mit Messingrahmen (auch bei Maus); klein 30 px; Code in Mono-Versalien; Feld mit Symbol und Knopf darin (zeigt Fehler und Sperre seines Felds); Fehler mit dunkelrotem Rahmen. Zahlenfelder ohne Pfeile |
 | `td-select` (`is-auto`) | Auswahlliste mit Messingwinkel; so breit wie ihr Inhalt |
 | `td-error` | Meldung unter einem Feld mit Warnzeichen |
-| `td-seg` (`is-compact`, `is-sm`, `is-stacked`) | Stufen: ein Knopf je Wahl, gewählt vertieft mit Messingtext; für Radiogruppen, Reiter, Umschalter; schmal, klein (30 px), zweizeilig (Name über einer Zeile) |
+| `td-seg` (`is-compact`, `is-sm`, `is-stacked`) | Stufen: ein Knopf je Wahl in einer gemeinsamen Mulde, gewählt eine erhabene Steinplatte mit Messingtext (wie ein Schieber in seiner Rille); für Radiogruppen, Reiter, Umschalter; schmal, klein (30 px), zweizeilig (Name über einer Zeile) |
 | `td-switch`, `td-check` | Schieber auf einer Checkbox (oder `<span>` mit `.is-on` in einem Umschalt-Knopf); Schieber mit Text, als `<label>` oder als Umschalt-`<button>` (ohne Knopfrahmen, Schriftgröße der Umgebung) |
 | `td-slider`, `td-range-row` | Regler mit Skala, Messingfüllung bis zum Griff (Chromium per Border-Image des Griffs, Firefox `::-moz-range-progress`); Zeile aus Name, Regler, Zahl, Einheit |
 
@@ -220,12 +225,12 @@ Bei `prefers-reduced-motion` springen alle Übergänge (globale Regel); Animatio
 
 | Klasse | Rezept |
 |--------|--------|
-| `td-menu`, `td-menu-item`, `td-menu-rule` | Hauptmenü: Einträge 48 px, 22 px/600, Symbol in Messing; Fokus und offene Seite (`aria-current`) als erhabene Steinplatte mit Messingtext, Tastaturfokus mit Ring; steht der Fokus woanders in der Liste, liegt die Platte der offenen Seite flach; Abstand 5 px |
-| `td-topbar`, `td-stat`, `td-sunk`, `td-loc-label`, `td-loc-name`, `td-meter` | Kopfleiste in Basalt 48 px mit Plattenkante; Wert mit eingeritztem Trenner davor; vertieftes Ortsfeld mit eingeritzter Kante (als Knopf hellt Hover den Ort); „Defend“ dunkler in Versalien mit Trenner; Ort halbfett; Segmentbalken |
+| `td-menu`, `td-menu-item`, `td-menu-rule` | Hauptmenü: Einträge 48 px, 22 px/600, Symbol in Messing; Fokus und offene Seite (`aria-current`) als erhabene Steinplatte mit Messingtext; steht der Fokus woanders in der Liste, liegt die Platte der offenen Seite flach; Abstand 5 px |
+| `td-topbar`, `td-stat`, `td-sunk`, `td-loc-label`, `td-loc-name`, `td-meter` | Kopfleiste in Basalt 48 px mit Plattenkante; Wert mit tiefer eingeritztem Trenner davor (2 px `--td-sep-dark`, Licht `--td-sep-light`, 4 px Rand oben und unten); vertieftes Ortsfeld mit eingeritzter Kante (als Knopf hellt Hover den Ort); „Defend“ dunkler in Versalien mit Trenner; Ort halbfett; Segmentbalken |
 | `td-progress` (`is-edge`, `is-tick`, `is-teal`) | Fortschrittsbalken in einer Mulde, sein Kind ist die Füllung; `is-edge` 2 px an der Unterkante eines Knopfs oder einer Leiste; `is-tick` folgt einem Sekundenzähler; `is-teal` für eine laufende Welle |
 | `td-globe-mark`, `td-globe-readout` | Weltkugel hinter dem Menü: Punkt und Name eines Ortes (Rekord und Favorit Messing, der ladende Ort Teal mit Ring, zuletzt gespielt matt), die Anzeige oben rechts in Versalien (Ziel Messing, Status Teal); beide mit dem Schatten `--td-over-image` über dem Bild |
-| `td-marker`, `td-marker-btn` | Pfeil am Kartenrand: runde Platte, Ring und Symbol in `--td-mark` (Text `--td-mark-text`), `is-sm` 24 px; der Knopf darum gibt Fokus und Hover an die Platte |
-| `td-side`, `td-side-section` (`is-fill`), `td-side-head`, `td-side-name`, `td-side-body` | Sidebar wie die Dialoge; Sektionen durch eingeritzte Linien getrennt, die letzte füllt und scrollt; Kopf mit Haarlinie; Name mit Ellipse (`is-armed` rot); scrollender Körper |
+| `td-marker`, `td-marker-btn` | Pfeil am Kartenrand: runde Platte, Ring und Symbol in `--td-mark` (Text `--td-mark-text`), `is-sm` 24 px; der Knopf darum gibt Hover an die Platte |
+| `td-side`, `td-side-section` (`is-fill`), `td-side-head`, `td-side-name`, `td-side-body` | Sidebar wie die Dialoge, an der Kante zur Karte eine eingeritzte Rille (`--td-edge-dark`, `--td-edge-light`); Sektionen durch eingeritzte Linien getrennt, die letzte füllt und scrollt; Kopf mit Haarlinie; Name mit Ellipse (`is-armed` rot); scrollender Körper |
 | `td-stack` (`is-loose`), `td-inline`, `td-actions` (`is-start`, `is-split`), `td-group`, `td-setting` | Spalte; umbrechende Zeile; Knopfreihe; Gruppe mit eingeritzter Linie vor der nächsten; Einstellung (Name links, Steuerung rechts) |
 | `td-dense` | Dichte Variante: setzt Schrift-, Knopf-, Feld-, Zeilen- und Werkzeuggrößen per Token kleiner; alle Klassen darin werden kompakter, auch Dialogkopf, -körper, -fuß und Tabellenzellen (Debug-Fenster, Benchmark, Engine-Test) |
 
@@ -287,19 +292,25 @@ Sektionen greift.
 
 ### Über der Karte
 
-Alles, was auf dem Canvas liegt (Fähigkeitenleiste, Replay-Leiste, Info-Overlay, Hinweisbox, Boss-Leiste, Chips,
-Squad, Chat, Kompass, Pfeile am Rand), ist `td-overlay`: derselbe Putz wie die Panels, die Karte scheint leicht durch.
-Knöpfe darauf sind dieselben Steinknöpfe.
+Alles, was auf dem Canvas liegt (Replay-Leiste, aufgeklapptes Info-Overlay, Hinweisbox, Boss-Leiste, Chips, Squad,
+Chat, Kompass, Pfeile am Rand), ist `td-overlay`: derselbe Putz wie die Panels, die Karte scheint leicht durch. Knöpfe
+darauf sind dieselben Steinknöpfe. Ohne Leiste stehen die Fähigkeitenleiste (einzelne Steine, `is-over-map`) und die
+zugeklappte FPS-Anzeige (`td-stone-chip`).
 
 ---
 
 ## Game Over und Connection lost
 
-Ein Dialog (`td-dlg`) über `td-backdrop`. Game Over: „HQ lost“ als eingravierter Titel, darunter Ort und Welle
-(`td-note`), die [Bilanz](#game-over-bilanz), Coop-Tabelle (`td-table`, eigene Zeile in Messing) und Diagramme; der
-Körper scrollt, Kopf und Fuß stehen. Im Fuß links „Save the run log“ (und im Coop „Save the replay“), rechts Main menu,
+Game Over (`td-gameover-veil` über dem Spielfeld): die Karte entsättigt und dunkler (`--td-gameover-map`) unter einer
+roten Vignette (`--td-gameover-veil`), darauf „GAME OVER“ (`td-gameover-word`, `--td-fs-gameover` 118 px, Versalien,
+`--td-danger-text` mit rotem Schein `--td-gameover-word`), darunter „HQ lost | Ort | wave n“ (`td-gameover-sub`, die
+Welle in Messing). Darunter ein Dialog (`td-dlg`) ohne Kopf mit der [Bilanz](#game-over-bilanz), der Coop-Tabelle
+(`td-table`, eigene Zeile in Messing) und den Diagrammen; der Körper scrollt, der Fuß steht. Auftritt einmal beim
+Öffnen: die Vignette blendet ein, der Schriftzug schlägt aus 1,9-facher Größe ein, das Bild wackelt kurz, der Dialog
+steigt nach (`td-gameover-rise`). Im Fuß links „Save the run log“ (und im Coop „Save the replay“), rechts Main menu,
 „Replay wave N“ (solange angeboten) und als Hauptknopf „Restart here“ (nur allein oder als Host). Connection lost:
-derselbe Dialog mit „Start over alone“ und „Continue alone“. Einblenden steht bei `prefers-reduced-motion` still.
+ein Dialog über `td-backdrop` mit „Start over alone“ und „Continue alone“. Der Auftritt steht bei
+`prefers-reduced-motion` still.
 
 ---
 
@@ -326,7 +337,7 @@ derselbe Dialog mit „Start over alone“ und „Continue alone“. Einblenden 
 | **Kopfleiste** | Logo, Ortsfeld („Defend Straße, Stadt, Land“; der Name kommt aus `formatAddressShort`, höchstens 34 % der Fensterbreite, danach Ellipse; Klick öffnet die Menüseite New game), Werkzeuge (Link kopieren, Favoriten, Zufallsort, HQ versetzen, Spawn setzen, Spawn hinzufügen, Coop), rechts HQ, Credits und Wave, während einer Welle links davon die Gegnerzahl (siehe [Kopfleiste](#kopfleiste)) |
 | **Canvas** | 3D-Spielfeld mit Google Photorealistic Tiles |
 | **Sidebar** | Rechts: Welle, darunter Build, Tower-Detail, Held oder Research (siehe [Sidebar](#sidebar)) |
-| **Info-Overlay** | Oben links: FPS, per Caret aufklappbar. Misst seine Unterkante (`ResizeObserver`, `UIStore.infoOverlayBottom`), die Fähigkeitenleiste bleibt darunter |
+| **Info-Overlay** | Oben links: zugeklappt ein kleiner Stein (`td-stone-chip`) mit FPS und Winkel, aufgeklappt eine `td-overlay`-Leiste mit den Werten. Misst seine Unterkante (`ResizeObserver`, `UIStore.infoOverlayBottom`), die Fähigkeitenleiste bleibt darunter |
 | **Game Speed** | Oben mittig, in Bauphase und Welle: Pause (`td-icon-btn`, gedrückt solange pausiert) und Tempo (`td-btn-secondary`, 1x, 2x, 4x reihum; über 1x gedrückt). In der Bauphase beschleunigt es die Forschung, die in Spielzeit läuft. Pausiert ein Chip „Paused“ darunter. In derselben Spalte (`.td-hud-top`) die Boss-Leiste; während eines [Boss-Intros](#boss-intro-canvas) blendet die Spalte aus (`.td-hud-muted`, 250 ms) |
 | **Kompass** | Oben rechts, runde Platte; Klick setzt die Kamera zurück, der Knopf am Rand nach einer Drehung die Ausrichtung |
 | **Fähigkeitenleiste** | Linker Rand: Held und ein Knopf je erforschter Fähigkeit, siehe [Fähigkeitenleiste](#fähigkeitenleiste-canvas) |
@@ -401,7 +412,7 @@ und ist ohne Intro durchsichtig und klickdurchlässig.
 dann die Werkzeuge als `td-tool` (eingraviert, gedämpft, 32 px, 4 px Abstand), Gruppen durch `td-tool-gap` getrennt.
 Aktive Werkzeuge (Favoriten offen, HQ oder Spawn setzen) stehen in Messing.
 
-Rechts HQ, Credits und Wave als `td-stat` ohne Platte, eingeritzte Linie zwischen ihnen: Symbol 20 px, Beschriftung in
+Rechts HQ, Credits und Wave als `td-stat` ohne Platte, eine tiefer eingeritzte Rille zwischen ihnen: Symbol 20 px, Beschriftung in
 Versalien (`td-caps`), Zahl `td-value` (29 px, 700). Ihre rechte Kante schließt mit dem Sidebar-Inhalt ab (rechtes
 Padding `--td-sidebar-gutter`). Jede Zahl hält Platz für so viele Ziffern, wie `header-stats.ts` sie genau zeigt
 (HQ 4, Credits 6, Wave 3, als `min-width` in `ch`), damit wachsende Werte die Nachbarn nicht verschieben.
@@ -544,13 +555,17 @@ Wurzel in Messing und alles andere blendet auf 30 % ab. Das Brett scrollt in bei
 
 ## Fähigkeitenleiste (Canvas)
 
-`app-ability-bar`: eine `td-overlay`-Leiste am linken Rand, direkt unter dem Info-Overlay. Oben der Held, sobald es
-einen gibt, eine eingeritzte Linie, dann ein Knopf je Fähigkeit, deren Forschung fertig ist und deren Abschussort steht
+`app-ability-bar`: einzelne Steine am linken Rand, ohne Leiste dahinter, direkt unter dem Info-Overlay. Oben der Held,
+sobald es einen gibt, mit 6 px mehr Abstand, dann ein Knopf je Fähigkeit, deren Forschung fertig ist und deren
+Abschussort steht
 ([ABILITIES.md](ABILITIES.md#fähigkeitenleiste)). Rand, Innenabstand, Knopfgröße und Abstand kommen aus `ABILITY_BAR_PX`
 (`ability-button.ts`) als Host-Bindings; die Pfeile am Kartenrand rechnen mit `ABILITY_BAR_EDGE_PX`. Ist das Spielfeld
 zu niedrig, schrumpft die Leiste und scrollt ohne sichtbare Scrollbar.
 
-Knopf: `td-icon-btn`, 44 px, oben rechts die Taste (`td-caps`), unten ein Strich je Welle bis zur nächsten Ladung
+Der Innenabstand (5 px) hält Platz für die Schatten der Steine in der scrollenden Spalte; die Steine stehen 12 px vom
+Kartenrand, 4 px auseinander.
+
+Knopf: `td-icon-btn is-over-map`, 48 px, oben rechts die Taste (`td-caps`), unten ein Strich je Welle bis zur nächsten Ladung
 (Messing, sobald die Welle geschafft ist); mehr als eine Ladung oben links als `td-figure`.
 
 | Zustand | Darstellung |
@@ -594,11 +609,12 @@ kam, sagt `FocusOrigin` (`utils/keyboard-target.ts`). Stapelung über `--td-z-ma
 Ein Menü für alles, was nicht Spielen ist (`components/main-menu/`, Plan [MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md)),
 als Overlay über dem ganzen Fenster, Rolle `dialog` mit dem Namen der Seite, Fokusfalle. Hintergrund `td-backdrop`.
 
-- **Start** (vor einem Lauf, bei jedem Ortswechsel): Logo 240 px, „Tower defense on real streets“, die Liste auf einer
-  Putzplatte (`td-panel`, 320 px) darunter; unten links ein Feldtipp und die Version, unten rechts die Ladeplatte.
+- **Start** (vor einem Lauf, bei jedem Ortswechsel): Logo 180 px und „Tower defense on real streets“ mittig über der
+  Liste, die auf einer Putzplatte (`td-panel`, 320 px) steht; unten links ein Feldtipp, darunter die Version mit den
+  Links Legal und Privacy („v0.6.0 | tiles cesium | Legal | Privacy“), unten rechts die Ladeplatte.
   Kopfleiste und Sidebar sind ausgeblendet.
-- **Pause** (Esc, Zahnrad im Sidebar-Fuß, „Main menu“ am Game Over): kleineres Logo, über der Liste „Paused | Ort | wave n“
-  (im Coop „Coop“ statt „Paused“).
+- **Pause** (Esc, Zahnrad im Sidebar-Fuß, „Main menu“ am Game Over): Logo 135 px, oben in der Platte eine Kopfzeile:
+  „Paused“ als Titel in Messing-Versalien links, „Ort | wave n“ rechts, eingeritzte Linie darunter (im Coop „Coop“).
 
 Die Liste (`pages/home`) ist ein `role="menu"` aus `td-menu-item` mit Symbol je Eintrag (`HOME_ENTRY_ICON`), ein
 Tab-Halt, Pfeile wandern ohne zu wählen (`tdRovingGroup`), der Zeiger nimmt den Fokus mit. Der Eintrag mit dem Fokus und
@@ -774,10 +790,11 @@ blendet 1,2 s nach dem Dialog ein. Details: [LOCATION_SYSTEM.md](LOCATION_SYSTEM
 
 ## Accessibility
 
-Fokus: 2 px `--td-focus-color` mit 2 px Abstand bei `:focus-visible`, global für Knöpfe, Links, `summary` und
-`[tabindex]`; Felder zeigen ihn als 2 px-Rahmen innen auch bei Maus (`forms.focus-edge`); Menüeinträge als Steinplatte
-und für die Tastatur mit Ring. Plattenknöpfe und Karten, die in scrollenden Sektionen liegen, zeichnen den Ring innen,
-damit er nicht abgeschnitten wird. Kein `outline: none` ohne Ersatz. Overlays mit `aria-modal` halten den Fokus
+Fokus: Knöpfe, Links, `summary`, `[tabindex]`, Häkchen, Radios und Regler zeigen keinen Fokusring (`base.no-focus-ring`,
+global; Entscheidung des Users 2026-10-10: Chrome schaltet `:focus-visible` für einen geklickten Knopf beim nächsten
+Tastendruck ein, in einem Spiel mit Hotkeys ständig). Textfelder zeigen den Fokus als 2 px-Rahmen innen
+(`forms.focus-edge`), Menüeinträge als Steinplatte. Gibt ein Menü den Fokus beim Schließen zurück, dann leise
+(`focusQuietly` in `utils/keyboard-target.ts`): kein Tooltip, das nächste Esc gehört dem Spiel. Overlays mit `aria-modal` halten den Fokus
 (`cdkTrapFocus`). Gewählte Zeilen und Menüplatten hellen gedämpften Text auf. Kontraste prüft
 `td-theme.contrast.spec.ts`.
 

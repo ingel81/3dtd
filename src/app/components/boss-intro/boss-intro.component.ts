@@ -141,10 +141,6 @@ import { BOSS_INTRO_TIMING } from '../../utils/boss-intro';
       pointer-events: auto;
     }
 
-    .skip-layer:focus-visible {
-      outline: var(--td-focus-width) solid var(--td-focus-color);
-      outline-offset: -4px;
-    }
 
     @media (prefers-reduced-motion: reduce) {
       .card,

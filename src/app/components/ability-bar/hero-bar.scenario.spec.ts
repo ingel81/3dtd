@@ -41,7 +41,7 @@ const ROUTE: GeoPosition[] = [{ lat: HQ.lat - 300 / METERS_PER_DEGREE_LAT, lon: 
  * (tower-defense.component.ts heroBar), its press as HeroControlService.hire
  * sends it (command:hire-hero), the real HeroManager answering.
  *
- * Since 586f493e the rule under the hero stands only when an ability button
+ * The hero stands apart from the abilities only when an ability button
  * follows (ability-bar.component.html); with the contract alone there is none.
  */
 describe('Hero button after the Mercenary Contract, playtest 384 and 385 replayed', () => {
@@ -142,7 +142,7 @@ describe('Hero button after the Mercenary Contract, playtest 384 and 385 replaye
     expect(research.isCompleted(HERO.researchId)).toBe(true);
   });
 
-  it('384: then a coin without a key cap, "Hire Mercenary", "1,000 credits, N short.", and no rule under it', () => {
+  it('384: then a coin without a key cap, "Hire Mercenary", "1,000 credits, N short.", and nothing after it', () => {
     researchNow('gatling-tech');
     researchNow('siege-engineering');
     researchNow(HERO.researchId);
@@ -154,7 +154,7 @@ describe('Hero button after the Mercenary Contract, playtest 384 and 385 replaye
     expect(tooltip.title).toBe('Hire Mercenary');
     expect(tooltip.hotkey).toBeUndefined();
     expect(tooltip.flavor).toBe('1,000 credits, 600 short.');
-    // ability-bar.component.html: the rule only with an ability button after the hero
+    // ability-bar.component.html: no ability button after the hero
     expect(bar.buttons()).toEqual([]);
   });
 

@@ -66,11 +66,13 @@ $enabled: ":not(:disabled, [aria-disabled='true'], .is-locked)";
   cursor: pointer;
 }
 
-// Keyboard focus: a 2px light brass outline
-@mixin focus-ring($offset: var(--td-focus-offset)) {
+// No focus ring on controls (user decision 2026-10-10): Chrome turns
+// :focus-visible on for a clicked button at the next key press, in a game
+// of hotkeys all the time; text fields keep their edge (forms.focus-edge)
+@mixin no-focus-ring {
+  &:focus,
   &:focus-visible {
-    outline: var(--td-focus-width) solid var(--td-focus-color);
-    outline-offset: $offset;
+    outline: none;
   }
 }
 

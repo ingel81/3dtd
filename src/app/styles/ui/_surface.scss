@@ -213,7 +213,6 @@
     text-align: inherit;
     cursor: pointer;
     // Inside: cards fill scrolling grids that would clip a ring outside
-    @include base.focus-ring(calc(-1 * var(--td-focus-width)));
     @include base.disabled;
 
     &:hover#{base.$enabled} {

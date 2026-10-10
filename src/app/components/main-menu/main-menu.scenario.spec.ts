@@ -37,6 +37,7 @@ import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-f
 import { ConfigService } from '../../core/services/config.service';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { MatDialog } from '@angular/material/dialog';
+import { focusIsQuiet, focusedByKeyboard } from '../../utils/keyboard-target';
 
 const read = (path: string) => readFileSync(resolve('src/app/components/main-menu', path), 'utf8');
 
@@ -251,6 +252,22 @@ describe('The main menu', () => {
       expect(ui.mainMenuOpen()).toBe(false);
     });
 
+    it('shows the loading in one entry: the first that loads, then the one chosen', async () => {
+      locationMgmt.hq.set(HEILBRONN);
+      saves.hasAutosave.set(true);
+      saves.slots.set([autosaveAt(HEILBRONN, 'Kiliansplatz, Heilbronn, Deutschland', 12)]);
+      await setup();
+      expect(entries().slice(0, 2)).toEqual(['Continue', 'Play']);
+      expect(el().querySelectorAll('.mh-bar')).toHaveLength(1);
+      expect(entry('continue')?.querySelector('.mh-bar')).not.toBeNull();
+
+      await click(entry('play'));
+      expect(el().querySelectorAll('.mh-bar')).toHaveLength(1);
+      expect(entry('play')?.querySelector('.mh-bar')).not.toBeNull();
+      expect(entry('play')?.textContent).toContain('Starts when loaded');
+      expect(entry('continue')?.textContent).not.toContain('Starts when loaded');
+    });
+
     it('Play on a place that stands closes the menu at once', async () => {
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);
@@ -448,6 +465,23 @@ describe('The main menu', () => {
       expect(menu.isOpen()).toBe(true);
     });
 
+    it('gives the focus back to the button of the game on close, quietly: no tooltip, the next Esc for the game', async () => {
+      locationMgmt.hq.set(HEILBRONN);
+      const gameButton = document.body.appendChild(document.createElement('button'));
+      const quiet: boolean[] = [];
+      gameButton.addEventListener('focus', () => quiet.push(focusIsQuiet(gameButton)));
+      gameButton.focus();
+      quiet.length = 0;
+      await setup('pause');
+      entry('settings')!.focus();
+
+      fixture.destroy();
+      expect(document.activeElement).toBe(gameButton);
+      expect(quiet).toEqual([true]);
+      expect(focusedByKeyboard(gameButton)).toBe(false);
+      gameButton.remove();
+    });
+
     it('a focus dropped to the page goes back into the menu', async () => {
       locationMgmt.hq.set(HEILBRONN);
       await setup('pause');
@@ -485,7 +519,8 @@ describe('The main menu', () => {
       await settle();
 
       expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'Restart here']);
-      expect(text()).toContain('Paused | Heilbronn | wave 1');
+      expect(el().querySelector('.mh-pause-word')?.textContent).toBe('Paused');
+      expect(el().querySelector('.mh-pause-place')?.textContent).toBe('Heilbronn | wave 1');
     });
 
     it('Continue and Esc go back to the game', async () => {
@@ -523,7 +558,8 @@ describe('The main menu', () => {
       await settle();
       expect(game.paused()).toBe(false);
       expect(entries()).toEqual(['Continue', 'Settings', 'Extras', 'Coop']);
-      expect(text()).toContain('Coop | Heilbronn');
+      expect(el().querySelector('.mh-pause-word')?.textContent).toBe('Coop');
+      expect(el().querySelector('.mh-pause-place')?.textContent).toContain('Heilbronn');
     });
   });
 

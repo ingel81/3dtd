@@ -24,13 +24,15 @@
   height: calc(var(--td-h-topbar) - 12px);
   padding: 0 12px;
 
+  // A deeper groove than the engraved lines elsewhere: the values read apart
   & + &::before {
     content: '';
     position: absolute;
     left: -5px;
-    top: 6px;
-    bottom: 6px;
-    @include base.engraved-separator;
+    top: 4px;
+    bottom: 4px;
+    border-left: var(--td-line-width) solid var(--td-sep-dark);
+    box-shadow: var(--td-line-gap) 0 0 var(--td-sep-light);
   }
 }
 
@@ -69,7 +71,6 @@
     border: 0;
     font-size: inherit;
     cursor: pointer;
-    @include base.focus-ring;
 
     &:hover#{base.$enabled} .td-loc-name {
       color: var(--td-brass-light);
@@ -178,7 +179,7 @@
 
 // An arrow at the view edge: a round plate over the map, its ring and icon in
 // --td-mark (the text in --td-mark-text when it differs). The button around
-// it (.td-marker-btn) moves the focus ring and the hover onto the plate.
+// it (.td-marker-btn) moves the hover onto the plate.
 @mixin marker {
   display: flex;
   align-items: center;
@@ -205,17 +206,91 @@
   transform: translate(-50%, -50%);
   pointer-events: auto;
 
-  &:focus-visible {
-    outline: none;
-  }
-
   &:hover > .td-marker {
     transform: scale(1.15);
   }
+}
 
-  &:focus-visible > .td-marker {
-    outline: var(--td-focus-width) solid var(--td-focus-color);
-    outline-offset: var(--td-focus-offset);
+// Game over over the map: a red vignette over the greyed map, GAME OVER
+// slams in from large, the view shakes once, the plate with the figures rises
+// after it. Played once as the screen opens; still under reduced motion.
+@mixin gameover-veil {
+  background: var(--td-gameover-veil);
+  backdrop-filter: var(--td-gameover-map);
+  -webkit-backdrop-filter: var(--td-gameover-map);
+  animation:
+    td-gameover-fade var(--td-dur-slow) var(--td-ease-out) both,
+    td-gameover-shake 450ms 300ms linear both;
+
+  @include base.reduced-motion {
+    animation: none;
+  }
+}
+
+@mixin gameover-word {
+  margin: 0;
+  font-size: var(--td-fs-gameover);
+  font-weight: 700;
+  line-height: .95;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--td-danger-text);
+  text-shadow: var(--td-gameover-word);
+  animation: td-gameover-slam 420ms cubic-bezier(.2, 1.4, .4, 1) both;
+
+  @include base.reduced-motion {
+    animation: none;
+  }
+}
+
+// The line under it: "HQ lost | York | wave 23", the wave in brass
+@mixin gameover-sub {
+  margin: 0;
+  font-size: var(--td-fs-lead);
+  font-weight: 600;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--td-text-secondary);
+  text-shadow: var(--td-over-image);
+
+  b {
+    font-weight: 700;
+    color: var(--td-brass-light);
+  }
+}
+
+// What follows the words: rises into place after the slam
+@mixin gameover-rise {
+  animation: td-gameover-rise 400ms 450ms var(--td-ease-out) both;
+
+  @include base.reduced-motion {
+    animation: none;
+  }
+}
+
+@mixin gameover-keyframes {
+  @keyframes td-gameover-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes td-gameover-slam {
+    0% { opacity: 0; transform: scale(1.9); }
+    60% { opacity: 1; }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes td-gameover-shake {
+    0%, 100% { transform: none; }
+    20% { transform: translate(-6px, 3px); }
+    40% { transform: translate(5px, -4px); }
+    60% { transform: translate(-3px, 2px); }
+    80% { transform: translate(2px, -1px); }
+  }
+
+  @keyframes td-gameover-rise {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: none; }
   }
 }
 
