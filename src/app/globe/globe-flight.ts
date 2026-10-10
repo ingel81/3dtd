@@ -1,5 +1,5 @@
 import { MathUtils, Quaternion, Vector3, type Matrix4 } from 'three';
-import { ecefOf, upOf, type LatLon } from './globe-geo';
+import { EARTH_A, ecefOf, upOf, type LatLon } from './globe-geo';
 
 /**
  * Where the globe's camera stands (docs/GLOBE_PLAN.md, Ablauf): above a
@@ -20,12 +20,48 @@ export interface GlobeShot {
   roll: number;
 }
 
-/** Whole earth, beside the menu: about 70 % of the height (fov 60) */
-export const IDLE_ALTITUDE = 11_500_000;
-/** Over the place while it loads, the whole earth still in view */
-export const WAIT_ALTITUDE = 10_000_000;
-/** The earth's centre right of the canvas' middle, as a share of its width */
-export const MENU_SHIFT = 0.17;
+/** The globe camera's vertical field of view in every shot, degrees */
+export const SHOT_FOV = 60;
+/**
+ * Height of the rim shell above the ellipsoid, metres: the air (the shaders'
+ * RA - RP, 100 km) and the glow beyond it; the fit keeps it in view
+ */
+export const RIM_HEIGHT = 350_000;
+/** The menu column on a wide canvas, CSS px from the left: its padding, width and a gap */
+export const MENU_INSET = 90 + 320 + 40;
+/** At most this width the menu fills the screen: the earth stands in the middle behind it */
+const NARROW_WIDTH = 760;
+/** Share of the free height, and of the free width, the earth with its rim spans */
+const FILL_HEIGHT = 0.86;
+const FILL_WIDTH = 0.9;
+
+/** Altitude and sideways shift of the menu's shots for one canvas size */
+export interface GlobeFrame {
+  altitude: number;
+  shift: number;
+}
+
+/**
+ * The whole earth beside the menu, as large as the free room allows: the
+ * canvas right of the menu column, the earth with its rim filling most of
+ * its height or width, whichever is smaller, in its middle. The earth stays
+ * on the camera's axis and the shift moves the picture (a film offset), so
+ * it stays round.
+ */
+export function fitFrame(width: number, height: number): GlobeFrame {
+  const w = Math.max(width, 1);
+  const h = Math.max(height, 1);
+  const inset = w > NARROW_WIDTH ? MENU_INSET : 0;
+  const free = Math.max(w - inset, w * 0.4);
+  const radiusPx = Math.min((FILL_HEIGHT * h) / 2, (FILL_WIDTH * free) / 2);
+  // A sphere on the axis shows a disc of f * tan(angular radius), f the focal length in px
+  const focal = h / 2 / Math.tan((SHOT_FOV / 2) * MathUtils.DEG2RAD);
+  const angular = Math.atan(radiusPx / focal);
+  const altitude = (EARTH_A + RIM_HEIGHT) / Math.sin(angular) - EARTH_A;
+  const centre = w - free / 2;
+  return { altitude, shift: (centre - w / 2) / w };
+}
+
 /** Degrees per second the idle earth turns */
 export const IDLE_TURN_RATE = 1.5;
 

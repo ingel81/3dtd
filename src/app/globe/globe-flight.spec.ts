@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Matrix4, Vector3 } from 'three';
-import { arcDegrees, blendShot, headingFromMatrix, shotPose, slerpLatLon, type GlobeShot } from './globe-flight';
+import { RIM_HEIGHT, MENU_INSET, SHOT_FOV, arcDegrees, blendShot, fitFrame, headingFromMatrix, shotPose, slerpLatLon, type GlobeShot } from './globe-flight';
+import { EARTH_A } from './globe-geo';
 import { ecefOf, upOf } from './globe-geo';
 import { regionTilesAround, type RegionIndex } from './globe-textures';
 import { ellipsoidGeometry, starColor } from './globe-view';
@@ -48,6 +49,38 @@ describe('globe-flight', () => {
   it('reads the screen top from a camera matrix', () => {
     const m = new Matrix4().lookAt(new Vector3(0, 0, 10), new Vector3(0, 0, 0), new Vector3(1, 0, 0));
     expect(headingFromMatrix(m, new Vector3()).x).toBeCloseTo(1, 9);
+  });
+});
+
+describe('fitFrame', () => {
+  /** The disc's radius in px for a frame on a canvas `height` px high */
+  const discRadius = (altitude: number, height: number) => {
+    const angular = Math.asin((EARTH_A + RIM_HEIGHT) / (EARTH_A + altitude));
+    return (height / 2) * (Math.tan(angular) / Math.tan(((SHOT_FOV / 2) * Math.PI) / 180));
+  };
+
+  it('fills most of the height of a wide canvas, the earth in the middle of the room beside the menu', () => {
+    const frame = fitFrame(2000, 960);
+    const r = discRadius(frame.altitude, 960);
+    expect(r).toBeGreaterThan(0.4 * 960);
+    expect(r).toBeLessThan(0.5 * 960);
+    const centre = 1000 + frame.shift * 2000;
+    expect(centre).toBeCloseTo(MENU_INSET + (2000 - MENU_INSET) / 2, 6);
+    expect(centre - r).toBeGreaterThan(MENU_INSET);
+  });
+
+  it('keeps the whole earth in a tall canvas, held by its width', () => {
+    const frame = fitFrame(1000, 1400);
+    const r = discRadius(frame.altitude, 1400);
+    const centre = 500 + frame.shift * 1000;
+    expect(centre - r).toBeGreaterThan(MENU_INSET);
+    expect(centre + r).toBeLessThan(1000);
+  });
+
+  it('stands in the middle on a phone, where the menu fills the screen', () => {
+    const frame = fitFrame(400, 800);
+    expect(frame.shift).toBe(0);
+    expect(discRadius(frame.altitude, 800)).toBeLessThan(200);
   });
 });
 

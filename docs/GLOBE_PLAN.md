@@ -21,7 +21,7 @@ eingetaucht wird erst, wenn dessen Tiles da sind, nahtlos in sie hinein. High-En
 
 ```
 idle        Start ohne Ort: die Erde dreht langsam, Start über der Zeitzone des Spielers
-turning     Ort gewählt (oder vom Ortswechsel angekündigt): Drehung zum Ort, die ganze Erde im Bild (10 000 km);
+turning     Ort gewählt (oder vom Ortswechsel angekündigt): Drehung zum Ort, die ganze Erde im Bild (Höhe aus der Fenstergröße);
             liegt der Ort in der Nacht, geht die Sonne dabei im Zeitraffer über ihm auf (D2)
 waiting     über dem Ort im Tag, die Ladeplatte läuft; ab den ersten Tiles wird der obere Abstieg vorgeladen
 warming     geladen: der Rest des Abstiegs wird vorgeladen
@@ -146,7 +146,9 @@ Abstimmung vom 2026-10-09 (AUQ):
   dunkel abends während Laden“), neu entschieden: die Sonne geht schon auf, während die Kugel zum Ort dreht; das
   ganze Laden über steht er im Tag. Ohne Ortswahl echter Sonnenstand. Der Aufstieg zeigt die Kugel im Tag.
 - **Feinschliff 2026-10-10** (User): beim Laden die ganze Erde im Bild (10 000 km statt 5000 km), flüssig während
-  des Ladens (Worker).
+  des Ladens (Worker). Nachtest am selben Tag: die Erde füllt den Platz neben dem Menü, ganz sichtbar
+  (`fitFrame`: Höhe und Versatz aus der Fenstergröße, Erde mit Saum über 86 % der Höhe oder 90 % der freien Breite,
+  unter 760 px mittig).
 - **D3 Bedienung**: nur Kulisse, keine Eingabe.
 - **D4 Texturen**: alles mitliefern unter `public/assets/globe/` (65 MB), keine fremden Server.
 - **Performance** (User): High-End und performant zugleich.

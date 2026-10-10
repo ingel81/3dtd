@@ -2,7 +2,7 @@ import { Injectable, NgZone, computed, effect, inject, signal, untracked } from 
 import { MathUtils, Matrix4, Vector3 } from 'three';
 import type { GlobeQuality } from '../../globe/globe-textures';
 import { landingSun, subsolarPoint, sweptSun, type LatLon } from '../../globe/globe-geo';
-import { IDLE_ALTITUDE, MENU_SHIFT, WAIT_ALTITUDE, arcDegrees, headingFromMatrix, type GlobeShot } from '../../globe/globe-flight';
+import { arcDegrees, fitFrame, headingFromMatrix, type GlobeFrame, type GlobeShot } from '../../globe/globe-flight';
 import { createGlobeHost, type GlobeHost } from '../../globe/globe-host';
 import { epochNow, type GlobeCommand, type GlobeEvent, type SunRun } from '../../globe/globe-runtime';
 import { DiveView } from '../../three-engine/dive-view';
@@ -183,13 +183,15 @@ export class GlobeDirectorService {
   private primeWaiter: (() => void) | null = null;
 
   /** Idle over the player's part of the world (by the clock's offset): their own day or night */
-  private shot: GlobeShot = { over: { lat: 30, lon: homeLongitude() }, altitude: IDLE_ALTITUDE, aim: 0, shift: MENU_SHIFT, roll: 0 };
+  /** The menu's shots for the canvas' size: the whole earth, as large as the room beside the menu allows */
+  private frame: GlobeFrame = fitFrame(window.innerWidth, window.innerHeight);
+  private shot: GlobeShot = { over: { lat: 30, lon: homeLongitude() }, altitude: this.frame.altitude, aim: 0, shift: this.frame.shift, roll: 0 };
   private place: LatLon | null = null;
   /** The sun's run as last sent, to start the next one from where it stands */
   private sunRun: SunRun | null = null;
   private animId = 0;
   private animDone = new Map<number, () => void>();
-  private altitude = IDLE_ALTITUDE;
+  private altitude = this.frame.altitude;
 
   private marks: GlobeMark[] = [];
 
@@ -295,6 +297,9 @@ export class GlobeDirectorService {
   /** The canvas' size changed */
   resize(width: number, height: number): void {
     this.send({ type: 'resize', width, height });
+    this.frame = fitFrame(width, height);
+    if (this.shot.aim < 1) this.shot = { ...this.shot, altitude: this.frame.altitude, shift: this.frame.shift };
+    this.send({ type: 'fit', frame: this.frame });
   }
 
   // ---- The runtime ----
@@ -451,7 +456,7 @@ export class GlobeDirectorService {
     this.send({ type: 'idle', on: false });
     this.send({ type: 'hole', place, radius: 0, durationMs: 0 });
     this.runSun(landingSun(place, subsolarPoint(new Date())));
-    const to: GlobeShot = { over: place, altitude: WAIT_ALTITUDE, aim: 0.15, shift: MENU_SHIFT, roll: 0 };
+    const to: GlobeShot = { over: place, altitude: this.frame.altitude, aim: 0.15, shift: this.frame.shift, roll: 0 };
     const arc = arcDegrees(this.shot.over, place);
     this.phase.set('turning');
     this.animate(to, MathUtils.clamp(arc * 25, 1600, 3200), 'inOut', () => {

@@ -2,7 +2,7 @@ import { MathUtils, Matrix4, Vector3 } from 'three';
 import { GlobeView, type ScreenSpot } from './globe-view';
 import type { GlobeQuality } from './globe-textures';
 import { ecefOf, subsolarPoint, sweptSun, type LatLon } from './globe-geo';
-import { IDLE_TURN_RATE, blendShot, easeInOut, shotPose, type GlobeShot } from './globe-flight';
+import { IDLE_TURN_RATE, blendShot, easeInOut, shotPose, type GlobeFrame, type GlobeShot } from './globe-flight';
 import { altitudeAt, divePoseAt, easeIn, easeOut, type DivePlan } from './dive-path';
 
 /**
@@ -53,6 +53,8 @@ export type GlobeCommand =
       shot: GlobeShot;
     }
   | { type: 'resize'; width: number; height: number }
+  /** The menu's shots for a new canvas size: the shot shown and the one flown to take it (globe-flight.ts fitFrame) */
+  | { type: 'fit'; frame: GlobeFrame }
   /** Jump to a shot; `heading` (ECEF) is where `roll` turns the screen's top */
   | { type: 'shot'; shot: GlobeShot; heading: [number, number, number] | null }
   | { type: 'animate'; id: number; to: GlobeShot; durationMs: number; ease: 'inOut' | 'in'; heading: [number, number, number] | null }
@@ -134,6 +136,14 @@ export class GlobeRuntime {
         return this.init(command);
       case 'resize':
         this.view?.resize(command.width, command.height);
+        return;
+      case 'fit':
+        // Only the menu's shots: a dive's or a rise's (straight down, aim 1) keep theirs
+        for (const shot of [this.shot, this.anim?.from, this.anim?.to]) {
+          if (!shot || shot.aim >= 1) continue;
+          shot.altitude = command.frame.altitude;
+          shot.shift = command.frame.shift;
+        }
         return;
       case 'shot':
         this.anim = null;

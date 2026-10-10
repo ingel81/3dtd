@@ -36,6 +36,7 @@ import {
   SUN_FRAGMENT,
   SUN_VERTEX,
 } from './globe-shaders';
+import { RIM_HEIGHT, SHOT_FOV } from './globe-flight';
 import { GLOBE_ASSETS, GlobeTextures, type GlobeMaps, type GlobeQuality, type RegionTile } from './globe-textures';
 
 /** Where the view runs: the canvas' pixel ratio and the app's base for its assets */
@@ -48,8 +49,6 @@ export interface GlobeViewOptions {
 const CLOUDS_GONE_BELOW = 450_000;
 const CLOUDS_FULL_ABOVE = 1_800_000;
 
-/** Height of the atmosphere's top above the ellipsoid, metres (the shaders' RA - RP) */
-const ATMOSPHERE_HEIGHT = 100_000;
 
 /** What a quality tier costs: pixel ratio cap, scattering steps, the sharp stage */
 const TIERS: Record<GlobeQuality, { pixelRatio: number; steps: number; sharp: boolean; segments: [number, number] }> = {
@@ -147,7 +146,7 @@ export interface ScreenSpot {
  * one; nothing here runs a loop of its own.
  */
 export class GlobeView {
-  readonly camera = new PerspectiveCamera(60, 1, 1000, 1e9);
+  readonly camera = new PerspectiveCamera(SHOT_FOV, 1, 1000, 1e9);
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
   private readonly textures: GlobeTextures;
@@ -234,7 +233,7 @@ export class GlobeView {
     this.earth.visible = false;
 
     this.rim = new Mesh(
-      ellipsoidGeometry(128, 64, ATMOSPHERE_HEIGHT),
+      ellipsoidGeometry(128, 64, RIM_HEIGHT),
       new ShaderMaterial({
         vertexShader: RIM_VERTEX,
         fragmentShader: RIM_FRAGMENT,
@@ -378,6 +377,11 @@ export class GlobeView {
 
   /** Camera position (ECEF), looking at `target`, `up` as the screen's top */
   setPose(position: Vector3, target: Vector3, up: Vector3): void {
+    // Back to the shots' own after a follow of the game camera
+    if (this.camera.fov !== SHOT_FOV) {
+      this.camera.fov = SHOT_FOV;
+      this.camera.updateProjectionMatrix();
+    }
     this.camera.position.copy(position);
     this.camera.up.copy(up);
     this.camera.lookAt(target);
