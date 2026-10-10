@@ -136,10 +136,16 @@
   color: var(--td-brass);
 }
 
+.credits .stat-value {
+  position: relative;
+}
+
+/* Below the header like before (the figure ends 3px above the plate), left
+   on the figure: a wide plate put it by the next plate's edge */
 .credits-delta {
   position: absolute;
-  top: calc(100% + 8px);
-  right: 12px;
+  top: calc(100% + 11px);
+  left: 0;
   /* Over the map like the header's menus, under the favorites (100) */
   z-index: 90;
   padding: 3px 8px;

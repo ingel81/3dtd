@@ -198,15 +198,16 @@
         <span class="td-caps">Credits</span>
         <span class="stat-value" aria-hidden="true">
           <span class="td-value stat-num" #creditsPlate>{{ creditsShownText() }}</span>
+          <!-- Under the figure, left on its first digit, rising towards it: it
+               never covers label or figure. Keyed by the delta's id: a sum
+               that grows keeps its text. -->
+          @if (creditsDelta(); as delta) {
+            @for (d of [delta]; track d.id) {
+              <span class="credits-delta td-popup" [class.loss]="d.kind === 'loss'">{{ d.text }}</span>
+            }
+          }
         </span>
         <span class="td-sr-only">{{ creditsStat().exact }}</span>
-        <!-- Under the figure, rising towards it: it never covers label or
-             figure. Keyed by the delta's id: a sum that grows keeps its text. -->
-        @if (creditsDelta(); as delta) {
-          @for (d of [delta]; track d.id) {
-            <span class="credits-delta td-popup" [class.loss]="d.kind === 'loss'" aria-hidden="true">{{ d.text }}</span>
-          }
-        }
       </div>
       <div class="td-stat stat-plate wave" data-stat="wave" [class.starting]="waveStarting()" [matTooltip]="waveStat().tooltip">
         <td-icon name="waveSolid" [size]="20"></td-icon>
