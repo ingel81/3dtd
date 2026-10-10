@@ -377,7 +377,7 @@ Paket S5, Linux (vor dem nächsten Release):
 
 ## H Hauptmenü und Spieloptik (2026-10-09)
 
-Branch `menu/main-menu-2026-10-08`, Plan [MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md). Die Abläufe (Liste, Rückfragen,
+Auf `next` (seit 2026-10-10), Plan [MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md). Die Abläufe (Liste, Rückfragen,
 Seiten, Esc) belegen Szenario-Specs und die Bildtour `e2e/tests/ui-tour.e2e.ts`; hier nur, was echte Karte, Augen,
 Ohren oder die Desktop-App braucht.
 
@@ -390,10 +390,13 @@ Paket H1, Laden hinter dem Menü (echte Karte):
   Klick bis „Play“ ohne Balken notieren. „Play“: erst jetzt Intro-Flug, Musikwechsel und HUD.
 - **H1.2 Play beim Laden:** wie H1.1 mit einem anderen Showcase-Ort, „Play“ sofort klicken. Erwartung: unter Play
   „Starts when loaded“, das Spiel startet von selbst, sobald der Ort steht.
+  Per Browser-Probe 2026-10-10: „Starts when loaded“ unter Play, das Spiel startet von selbst (Heilbronn, echte Karte). Offen: nur das Gefühl.
 - **H1.3 Mit Link:** `http://localhost:4200/?l=49.14227,9.21878` mit F5. Erwartung: „Play“ mit „Heilbronn“ darunter steht
   oben (vor „Continue“, falls es ein Autosave gibt), der Ort lädt hinter dem Menü.
+  Per Browser-Probe 2026-10-10: Play mit Heilbronn oben, der Ort lädt hinter dem Menü. Offen: nur das Gefühl.
 - **H1.4 Wieder ohne Link:** in H1.3 eine Welle spielen, dann `http://localhost:4200/` mit F5. Erwartung: hinter dem
   Menü lädt Heilbronn, oben „Continue“ mit „Heilbronn | wave N“ darunter; Continue lädt den Lauf und startet ihn.
+  Per Browser-Probe 2026-10-10: nach einer Welle oben „Continue“ mit „Heilbronn | wave N“, Heilbronn lädt dahinter. Offen: nur das Gefühl.
 - **H1.5 Ortswechsel im Lauf:** im Spiel nacheinander den Ortsnamen im Kopf (öffnet „New game“, dort einen Ort
   wählen), den Würfel „Random location“ und einen Favoriten (Stern im Kopf) wählen. Erwartung: jedes Mal das
   Start-Menü mit Ladeplatte, danach „Play“; der alte Ort zeigt keinen Intro-Flug dazwischen.
@@ -404,6 +407,7 @@ Paket H2, Continue an einem anderen Ort (E120):
   Erwartung: oben „Play“ mit „Paris“, darunter „Continue“ mit „in Heilbronn | wave N“. „Continue“: Rückfrage „Leaves
   Paris: the save plays in Heilbronn.“ „Cancel“ lässt alles, „Continue anyway“ lädt Heilbronn mit Platte, der Lauf steht
   vor der Welle des Autosaves.
+  Per Browser-Probe 2026-10-10: **ok**: Play Paris, darunter Continue „in Heilbronn | wave N“; Rückfrage wörtlich, Cancel lässt alles, „Continue anyway“ lädt Heilbronn und startet den Lauf.
 
 Paket H3, Coop:
 
@@ -435,12 +439,15 @@ Paket H5, HUD und Lesbarkeit:
   Der Wave-Balken füllt sich mit der Welle, ihr Start lässt die Zahl kurz Messing werden. Gegner durchlassen: die
   HQ-Segmente gehen zurück, jeder Treffer blitzt und ruckt den Wert; unter 30 % pulsiert er warm, unter 10 % steht
   der Warnstreifen. Nichts davon soll stören oder hektisch wirken.
+  Seit 2026-10-10 steht „+N“/„−N“ links unter der Credits-Zahl statt rechts an der Platte (war missverständlich).
 - **H5.2 Ton:** in Settings die vier Regler bewegen und je Kanal stummschalten. Erwartung: wirkt sofort hörbar und
   hält nach F5. Beim ersten Start (H1.1) kommt der Musikwechsel zur Bauphase erst mit „Play“, nicht schon beim
   Laden.
+  Per Browser-Probe 2026-10-10: Regler und Stummschalten halten nach F5 (Logik). Offen: ob es sofort hörbar wirkt, Musikwechsel erst mit Play.
 - **H5.3 1280x720:** Fenster auf 1280x720 (DevTools, Gerätesymbolleiste, Maße eintragen). Start-Menü mit den Seiten
   „New game“ (Liste World), „Coop“ und „Settings“, Pause-Menü, HUD im Spiel ansehen. Erwartung: nichts abgeschnitten
   oder überlappend, eine lange Seite scrollt in ihrer Platte, alle Beschriftungen lesbar.
+  Per Browser-Probe 2026-10-10: Start- und Pause-Menü mit New game, Coop, Settings, Extras, Load ohne abgeschnittenes Element, HUD ganz im Bild. Offen: nur die Lesbarkeit.
 
 Paket H6, Design System (E124, [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)):
 
@@ -456,28 +463,33 @@ Paket H6, Design System (E124, [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)):
 
 ## U UI-Feinschliff (2026-10-10)
 
-Branch `globe/e126-2026-10-09`, E127. Logik per Spec geprüft (ein Balken, leiser Fokus), Optik per Bildtour; hier,
+Auf `next`, E127. Logik per Spec geprüft (ein Balken, leiser Fokus), Optik per Bildtour; hier,
 was Augen und Hände brauchen.
 
 Paket U1:
 - **U1.1 Esc im Spiel:** im Spiel einen Knopf der Kopfleiste anklicken, dann Esc, Esc. Erwartung: Menü auf und zu,
   kein Tooltip am Knopf, kein Rahmen; das dritte Esc öffnet das Menü sofort wieder.
+  Per Browser-Probe 2026-10-10: **ok**: Esc öffnet, Esc schließt, kein Tooltip (sobald der Zeiger vom Knopf weg ist; darauf zeigt er den Hover-Tooltip), kein Rahmen, das dritte Esc öffnet sofort.
 - **U1.2 Fokusrahmen:** im Spiel und in den Einstellungen klicken und danach Hotkeys drücken (Leertaste, Zahlen).
   Erwartung: nirgends ein Messingrahmen um einen Knopf; Textfelder zeigen ihre Kante weiter.
+  Per Browser-Probe 2026-10-10: nach Klick und Tasten kein Ring an Stufenwahl, Reglern, Stummschaltern, Layers, Favorites. Offen: ansehen.
 - **U1.3 Startmenü:** frischer Start mit Autosave am selben Ort. Erwartung: nur ein Ladebalken (oben, nach Klick auf
   den anderen Eintrag dort); Logo 180 px mittig über der Liste; am Fuß „… | Legal | Privacy“, beide öffnen die Seite.
+  Per Browser-Probe 2026-10-10: höchstens ein Ladebalken, Logo 180 px mittig, Fuß „v… | Legal | Privacy“ mit Links auf legal.html und #privacy. Offen: ansehen.
 - **U1.4 Im Spiel:** FPS oben links als kleiner Stein, leise, unter dem Zeiger hell, Klick klappt auf; Fähigkeiten als
   einzelne Steine ohne Leiste; tiefere Trenner in der Kopfleiste; Rille an der Sidebar-Kante; Pause-Menü mit
   „PAUSED“ links und Ort rechts; Stufenwahl in den Einstellungen als Schieber in der Mulde.
+  Per Browser-Probe 2026-10-10: FPS als `td-stone-chip`, Klick klappt auf; Pause-Kopf „PAUSED“ mit Ort; Stufenwahl als `td-seg`. Offen: ansehen (auch hell unter dem Zeiger), Fähigkeiten-Steine.
 
 Paket U2:
 - **U2.1 Game Over:** einen Lauf verlieren (oder HQ per Debug auf 0). Erwartung: Karte grau unter roter Vignette,
   GAME OVER schlägt groß ein, das Bild wackelt kurz, die Platte mit den Werten steigt nach; „HQ lost | Ort | wave n“
   darunter. Auch in 1280×720: alles sichtbar, die Platte scrollt.
+  Per Browser-Probe 2026-10-10: in 1280×720 Titel und Platte im Bild, Knöpfe sichtbar, die Werte scrollen in der Platte; Zeile „HQ lost | Ort | wave n“. Offen: Einschlag, Wackeln, Vignette ansehen.
 
 ## G Weltkugel als Ladegrund (2026-10-09)
 
-Branch `globe/e126-2026-10-09`, Plan [GLOBE_PLAN.md](GLOBE_PLAN.md). Ablauf, Übergabe und Ruckler sind per
+Auf `next`, Plan [GLOBE_PLAN.md](GLOBE_PLAN.md). Ablauf, Übergabe und Ruckler sind per
 Browser-Probe auf echter Karte gemessen (Stuttgart, Paris); hier, was Augen, andere Rechner und die Desktop-App brauchen.
 
 Paket G1, Anflug (echte Karte):

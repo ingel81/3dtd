@@ -118,13 +118,13 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 - [ ] **E93 Route, Zellen, Spawn und HQ schweben nach dem Laden**: Neubau der Region im neuen Rahmen gebaut; im Spiel
       bestätigen. Tritt es wieder auf: [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md), „Vorgehen, wenn die Route wieder schwebt“.
 
-### Hauptmenü und Spieloptik (2026-10-09, Branch `menu/main-menu-2026-10-08`)
+### Hauptmenü und Spieloptik (2026-10-09, auf `next`)
 
 - [ ] **E119 bis E122** gebaut: Hauptmenü als Dreh- und Angelpunkt mit dem Laden dahinter, Continue mit Ortsprüfung,
       Legal-Link, eine Optik für Menü, Dialoge, Panels und HUD ([MAIN_MENU_UI_PLAN.md](docs/MAIN_MENU_UI_PLAN.md)).
       PLAYTEST H1 bis H5.
 
-### Weltkugel als Ladegrund (2026-10-09, Branch `globe/e126-2026-10-09`)
+### Weltkugel als Ladegrund (2026-10-09 und 10-10, auf `next`)
 
 - [ ] **E126** gebaut: realistische Erde hinter dem Menü, Abtauchen in die Tiles, Aufstieg beim Ortswechsel
       ([GLOBE_PLAN.md](docs/GLOBE_PLAN.md)). PLAYTEST G1 bis G3.
