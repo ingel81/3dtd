@@ -326,17 +326,76 @@
     color: var(--td-brass-light);
   }
 
+  transition: opacity 200ms ease-out;
+
+  // Under the target's label: back, so its name reads clear
+  &.is-behind {
+    opacity: .2;
+  }
+
+  // The place that loads: larger, over the others, a ring that pulses
+  // while it loads and a line under the name that says how far
   &.is-target {
+    z-index: 1;
+    gap: 10px;
     font-size: var(--td-fs-text);
+    font-weight: 700;
     color: var(--td-teal-light);
 
     > i {
+      position: relative;
       width: 10px;
       height: 10px;
       margin-left: -5px;
       outline: 1px solid currentColor;
       outline-offset: 5px;
+
+      &::after {
+        content: '';
+        position: absolute;
+        inset: -6px;
+        border: 2px solid currentColor;
+        border-radius: 50%;
+        opacity: 0;
+      }
     }
+
+    > span {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    small {
+      font-size: var(--td-fs-small);
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--td-text-primary);
+      font-variant-numeric: tabular-nums;
+
+      &:empty {
+        display: none;
+      }
+    }
+
+    &.is-busy > i::after {
+      animation: td-globe-ping 1.6s ease-out infinite;
+    }
+
+    @include base.reduced-motion {
+      &.is-busy > i::after {
+        animation: none;
+        opacity: .6;
+      }
+    }
+  }
+}
+
+@mixin globe-mark-keyframes {
+  @keyframes td-globe-ping {
+    0% { opacity: .9; transform: scale(.6); }
+    100% { opacity: 0; transform: scale(2.6); }
   }
 }
 

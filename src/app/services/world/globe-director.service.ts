@@ -66,6 +66,8 @@ export interface GlobeHud {
   lon: number | null;
   altitudeKm: number;
   status: string;
+  /** Share of the place's loading steps done, percent, while it loads */
+  progress: number | null;
 }
 
 /** Whole dive in ms, globe and game camera together; shorter when Play waits for it */
@@ -660,6 +662,12 @@ export class GlobeDirectorService {
     return name === NO_LOCATION_NAME || name === LOADING_NAME ? null : shortPlaceName(name);
   }
 
+  private loadingPercent(): number {
+    const steps = this.engineInit.loadingSteps();
+    const done = steps.filter((step) => step.status === 'done').length;
+    return steps.length === 0 ? 0 : Math.round((done / steps.length) * 100);
+  }
+
   private updateHud(): void {
     const now = performance.now();
     if (now - this.hudAtMs < HUD_MS) return;
@@ -683,6 +691,7 @@ export class GlobeDirectorService {
       lon: place?.lon ?? null,
       altitudeKm: Math.max(0, Math.round(this.altitude / 1000)),
       status: status[this.phase()],
+      progress: this.engineInit.loading() ? this.loadingPercent() : null,
     };
     this.zone.run(() => this.hud.set(hud));
   }

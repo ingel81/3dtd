@@ -247,6 +247,7 @@
   .td-gameover-rise { @include hud.gameover-rise; }
   @include hud.gameover-keyframes;
   .td-globe-mark { @include hud.globe-mark; }
+  @include hud.globe-mark-keyframes;
   .td-globe-readout { @include hud.globe-readout; }
   .td-loc-name { @include hud.loc-name; }
 
