@@ -84,7 +84,7 @@ async function loadingWithoutMenu(page: Page): Promise<boolean> {
 
 /** The player's credits as the header has them (the exact screen reader text of its Credits plate) */
 export async function credits(page: Page): Promise<number> {
-  const text = await page.locator('app-game-header [data-stat="credits"] .sr-only').innerText();
+  const text = await page.locator('app-game-header [data-stat="credits"] .td-sr-only').innerText();
   return Number(text.replace(/[^0-9-]/g, ''));
 }
 

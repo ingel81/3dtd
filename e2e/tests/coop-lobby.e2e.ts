@@ -56,9 +56,11 @@ test('the host sees a guest come by the invite link and load; name, options, kic
     await host.getByRole('button', { name: 'Take Bob out of the room' }).click();
     await expect(guest.locator('app-coop-dock')).toContainText('The host took you out of the room.');
     // The lock, not the public listing beside it
-    const lock = host.getByRole('button', { name: /^(Open to new players|Locked)$/ });
+    const lock = host.getByRole('button', { name: /^Open to new players$/ });
+    await expect(lock).toHaveAttribute('aria-pressed', 'true');
     await lock.click();
-    await expect(lock).toContainText('Locked');
+    // The switch keeps its label; off means the room is closed
+    await expect(lock).toHaveAttribute('aria-pressed', 'false');
     await joinByCode(guest, code);
     await expect(guest.locator('app-coop-ways')).toContainText('The host closed the room to new players.');
   });

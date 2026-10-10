@@ -397,7 +397,7 @@ async function runTour(page: Page, size: string): Promise<Tour> {
     await toGame(page);
   });
 
-  await tour.step('focus on a header button', async () => {
+  await tour.step('no focus ring on a header button', async () => {
     await page.evaluate(() => (document.querySelector('app-game-header .action-btn') as HTMLElement | null)?.focus());
     // :focus-visible needs a key press after programmatic focus in Chrome
     await page.keyboard.press('Shift');
@@ -405,9 +405,13 @@ async function runTour(page: Page, size: string): Promise<Tour> {
     await tour.shot('focus-header', page.locator('app-game-header'));
     const width = await page.evaluate(() => {
       const el = document.activeElement as HTMLElement | null;
-      return el ? parseFloat(getComputedStyle(el).outlineWidth) || 0 : 0;
+      if (!el) return -1;
+      const s = getComputedStyle(el);
+      return s.outlineStyle === 'none' ? 0 : parseFloat(s.outlineWidth) || 0;
     });
-    expect(width, 'outline width of the focused header button (2px, snapped to device pixels)').toBeGreaterThanOrEqual(TWO_PX);
+    // No focus ring on controls (user decision 2026-10-10, E127): Chrome turns
+    // :focus-visible on for a clicked button at the next hotkey
+    expect(width, 'outline width of the focused header button').toBe(0);
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   });
 
