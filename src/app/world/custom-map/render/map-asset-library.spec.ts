@@ -1,0 +1,98 @@
+import { describe, expect, it, vi } from 'vitest';
+import { parseCatalog } from './asset-catalog';
+import { MapAssetLibrary, packMaterial, type ImagePixels } from './map-asset-library';
+
+const catalog = {
+  version: 1,
+  materials: [
+    {
+      id: 'grass',
+      name: 'Grass',
+      category: 'grass',
+      files: { color: 'grass/color.jpg', normal: 'grass/normal.jpg', arh: 'grass/arh.jpg' },
+      scale: 4,
+      average: '#406020',
+    },
+  ],
+  objects: [
+    {
+      id: 'pine',
+      name: 'Pine',
+      category: 'tree',
+      file: 'models/pine.glb',
+      footprint: 2,
+      height: 12,
+      blocksLos: true,
+      blocksBuild: true,
+      scaleRange: [0.8, 1.2],
+      randomRotation: true,
+      wind: 0.6,
+      drawDistance: 1500,
+    },
+  ],
+};
+
+function jsonResponse(body: unknown): Response {
+  return { ok: true, status: 200, json: () => Promise.resolve(body) } as Response;
+}
+
+function image(size: number, rgba: [number, number, number, number]): ImagePixels {
+  const data = new Uint8Array(size * size * 4);
+  for (let q = 0; q < data.length; q += 4) data.set(rgba, q);
+  return { width: size, height: size, data };
+}
+
+describe('asset catalogue', () => {
+  it('rejects other versions and duplicate ids', () => {
+    expect(() => parseCatalog({ ...catalog, version: 2 })).toThrow(/version/);
+    expect(() => parseCatalog({ ...catalog, objects: [{ ...catalog.objects[0], id: 'grass' }] })).toThrow(/duplicate/);
+    expect(parseCatalog(catalog).materials[0].id).toBe('grass');
+  });
+});
+
+describe('MapAssetLibrary', () => {
+  it('loads the catalogue once and resolves files against the base url', async () => {
+    const fetchFn = vi.fn(() => Promise.resolve(jsonResponse(catalog)));
+    const decodeImage = vi.fn((url: string, size: number) =>
+      Promise.resolve(image(size, url.endsWith('arh.jpg') ? [200, 100, 50, 255] : [10, 20, 30, 255])),
+    );
+    const lib = new MapAssetLibrary('base/', { fetch: fetchFn as unknown as typeof fetch, decodeImage, textureSize: 4 });
+    const [a, b] = await Promise.all([lib.material('grass'), lib.material('grass')]);
+    expect(a).toBe(b);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(fetchFn).toHaveBeenCalledWith('base/catalog.json');
+    expect(decodeImage.mock.calls.map((c) => c[0]).sort()).toEqual([
+      'base/grass/arh.jpg',
+      'base/grass/color.jpg',
+      'base/grass/normal.jpg',
+    ]);
+    // color: albedo + height (arh blue); data: normal xy, roughness (arh green), AO (arh red)
+    expect(Array.from(a.color.subarray(0, 4))).toEqual([10, 20, 30, 50]);
+    expect(Array.from(a.data.subarray(0, 4))).toEqual([10, 20, 100, 200]);
+  });
+
+  it('falls back to flat materials and placeholder models', async () => {
+    const fetchFn = vi.fn(() => Promise.resolve(jsonResponse(catalog)));
+    const lib = new MapAssetLibrary('base/', {
+      fetch: fetchFn as unknown as typeof fetch,
+      decodeImage: () => Promise.reject(new Error('404')),
+      loadModel: () => Promise.reject(new Error('404')),
+      textureSize: 2,
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const m = await lib.material('grass');
+    expect(Array.from(m.color.subarray(0, 3))).toEqual([0x40, 0x60, 0x20]);
+    const model = await lib.model('pine');
+    expect(model.placeholder).toBe(true);
+    expect(model.parts.length).toBe(2);
+    expect(model.height).toBeCloseTo(12, 0);
+    const unknown = await lib.model('nope');
+    expect(unknown.entry.category).toBe('prop');
+  });
+
+  it('packs material maps', () => {
+    const p = packMaterial('x', 1, image(1, [1, 2, 3, 255]), image(1, [4, 5, 6, 255]), image(1, [7, 8, 9, 255]), [0, 0, 0]);
+    expect(Array.from(p.color)).toEqual([1, 2, 3, 9]);
+    expect(Array.from(p.data)).toEqual([4, 5, 8, 7]);
+  });
+});
