@@ -712,6 +712,7 @@ export class ThreeTilesEngine {
   }
 
   private readonly prerenderViewport = new Vector4();
+  private readonly prerenderScissor = new Vector4();
 
   /**
    * Draw the scene once from `camera` into a corner of 4 x 4 pixels of the
@@ -720,16 +721,25 @@ export class ThreeTilesEngine {
    * globe, so the first frames of the dive do not. The canvas, not a render
    * target: a target draws without tone mapping and in linear colour, and
    * every material would compile a variant of its own for it. Fog is pushed
-   * away for the same reason, not taken off.
+   * away for the same reason, not taken off. The scissor keeps the render's
+   * clear in the corner too: a clear ignores the viewport, and on a rise the
+   * globe does not cover the canvas yet, each warm-up step flashed it empty.
    */
   private prerender(camera: PerspectiveCamera): void {
     const fog = this.scene.fog instanceof Fog ? this.scene.fog : null;
     const [near, far] = [fog?.near ?? 0, fog?.far ?? 0];
     if (fog) [fog.near, fog.far] = [1e9, 2e9];
-    this.renderer.getViewport(this.prerenderViewport);
-    this.renderer.setViewport(0, 0, 4, 4);
-    this.renderer.render(this.scene, camera);
-    this.renderer.setViewport(this.prerenderViewport);
+    const renderer = this.renderer;
+    const scissorTest = renderer.getScissorTest();
+    renderer.getViewport(this.prerenderViewport);
+    renderer.getScissor(this.prerenderScissor);
+    renderer.setViewport(0, 0, 4, 4);
+    renderer.setScissor(0, 0, 4, 4);
+    renderer.setScissorTest(true);
+    renderer.render(this.scene, camera);
+    renderer.setScissorTest(scissorTest);
+    renderer.setScissor(this.prerenderScissor);
+    renderer.setViewport(this.prerenderViewport);
     if (fog) [fog.near, fog.far] = [near, far];
   }
 
