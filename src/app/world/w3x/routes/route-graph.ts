@@ -46,7 +46,7 @@ export interface RawRoutes {
 }
 
 export const SPAWN_WORDS = /spawn|start|creep|enemy|enter|portal|gate|wave/i;
-export const END_WORDS = /throne|\bend\b|end_|finish|castle|leak|goal|base|king|queen|exit|core|life|lives|home/i;
+export const END_WORDS = /throne|\bend\b|end_|finish|castle|leak|goal|\bbase\b|king|queen|exit|core|home/i;
 
 export function emptyRaw(): RawRoutes {
   return { nodes: new Map(), edges: [], spawnHints: new Set(), endHints: new Set() };

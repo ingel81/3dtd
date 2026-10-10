@@ -6,7 +6,7 @@
 
 import { W3xFormatError } from './binary-reader';
 import { type DooFile, type W3Unit, parseDoo, parseUnits } from './formats/doo';
-import { type W3eTerrain, parseW3e } from './formats/w3e';
+import { type W3eTerrain, W3_TILE, parseW3e } from './formats/w3e';
 import { type W3iInfo, isReforged, parseW3i } from './formats/w3i';
 import { type W3Region, parseW3r } from './formats/w3r';
 import { type PathingMap, parseWpm } from './formats/wpm';
@@ -85,4 +85,17 @@ export function readW3xFiles(bytes: Uint8Array): W3xMapFiles {
   if (!script) warnings.push('no map script found: routes come from the terrain only');
 
   return { info, strings, terrain, doodads, units, regions, pathing, script, warnings };
+}
+
+/** The playable area in world units: the terrain minus the w3i margins (the whole terrain without a w3i) */
+export function playableBounds(map: W3xMapFiles): { minX: number; minY: number; maxX: number; maxY: number } {
+  const t = map.terrain;
+  const [left, right, bottom, top] = map.info?.margins ?? [0, 0, 0, 0];
+  const tiles = (n: number, max: number): number => Math.max(0, Math.min(max, n));
+  return {
+    minX: t.offsetX + tiles(left, t.width - 2) * W3_TILE,
+    maxX: t.offsetX + (t.width - 1 - tiles(right, t.width - 2)) * W3_TILE,
+    minY: t.offsetY + tiles(bottom, t.height - 2) * W3_TILE,
+    maxY: t.offsetY + (t.height - 1 - tiles(top, t.height - 2)) * W3_TILE,
+  };
 }
