@@ -122,7 +122,7 @@ export function starGeometry(data: Float32Array): BufferGeometry {
     starColor(data[i * 4 + 3], color);
     const brightness = Math.min(1.6, 0.12 + flux * 0.9);
     colors.set([color.r * brightness, color.g * brightness, color.b * brightness], i * 3);
-    sizes[i] = Math.min(7, 1.6 + Math.sqrt(flux) * 2.2);
+    sizes[i] = Math.min(8, 2 + Math.sqrt(flux) * 2.6);
   }
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new BufferAttribute(positions, 3));
@@ -187,7 +187,7 @@ export class GlobeView {
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.toneMapping = ACESFilmicToneMapping;
     // The ground is lit physically (albedo E / pi under a sun of 22): bright, the exposure takes it down
-    this.renderer.toneMappingExposure = 0.17;
+    this.renderer.toneMappingExposure = 0.21;
     this.renderer.setPixelRatio(Math.min(options.pixelRatio, this.tier.pixelRatio));
     this.scene.matrixAutoUpdate = false;
     this.textures = new GlobeTextures(this.renderer, options.baseUrl);
@@ -221,7 +221,7 @@ export class GlobeView {
           holeDir: { value: new Vector3(1, 0, 0) },
           holeRadius: { value: 0 },
           nightGain: { value: 14 },
-          nightAmbient: { value: 0.08 },
+          nightAmbient: { value: 0.14 },
           bumpScale: { value: 60_000 },
         },
         side: FrontSide,
@@ -238,7 +238,7 @@ export class GlobeView {
         vertexShader: RIM_VERTEX,
         fragmentShader: RIM_FRAGMENT,
         // The thin blue band at the limb reads stronger than one scattering pass gives
-        uniforms: { ...common, rimGain: { value: 3 } },
+        uniforms: { ...common, rimGain: { value: 3 }, airglow: { value: 1.6 }, glowHeight: { value: RIM_HEIGHT / 1000 } },
         side: BackSide,
         transparent: true,
         blending: CustomBlending,
@@ -311,7 +311,7 @@ export class GlobeView {
         new ShaderMaterial({
           vertexShader: STAR_VERTEX,
           fragmentShader: STAR_FRAGMENT,
-          uniforms: { pixelRatio: { value: this.renderer.getPixelRatio() }, starGain: { value: 1 } },
+          uniforms: { pixelRatio: { value: this.renderer.getPixelRatio() }, starGain: { value: 2.2 } },
           transparent: true,
           blending: AdditiveBlending,
           depthTest: false,

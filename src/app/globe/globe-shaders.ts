@@ -44,6 +44,12 @@ vec2 raySphere(vec3 o, vec3 d, float r) {
   return vec2(-b - h, -b + h);
 }
 
+/** The ray meets the ground ahead (a miss gives (1e9, -1e9), whose x alone reads as a hit) */
+bool hitsGround(vec3 o, vec3 d) {
+  vec2 t = raySphere(o, d, RP);
+  return t.x > 0.0 && t.y >= t.x;
+}
+
 vec3 transmittance(vec2 od) {
   return exp(-(BETA_R * od.x + BETA_M * 1.1 * od.y));
 }
@@ -53,7 +59,7 @@ vec3 transmittance(vec2 od) {
  * shadow. Steps grow quadratically: the air is densest at p.
  */
 vec2 lightDepth(vec3 p, vec3 l) {
-  if (raySphere(p, l, RP).x > 0.0) return vec2(1e4);
+  if (hitsGround(p, l)) return vec2(1e4);
   float len = raySphere(p, l, RA).y;
   vec2 od = vec2(0.0);
   for (int j = 0; j < 4; j++) {
@@ -257,20 +263,27 @@ ${SCATTER}
 uniform vec3 sunDir;
 uniform vec3 camPos;
 uniform float rimGain;
+uniform float airglow;
+uniform float glowHeight;
 varying vec3 vPos;
 
 void main() {
   vec3 os = toSphere(camPos);
   vec3 ds = normalize(toSphere(vPos) - os);
   // The earth shader draws the air in front of the ground
-  if (raySphere(os, ds, RP).x > 0.0) discard;
+  if (hitsGround(os, ds)) discard;
   vec3 l = normalize(sunDir);
   vec3 ls = normalize(vec3(l.xy, l.z * SPHERE_Z));
   vec3 inscatter;
   vec3 through;
   scatter(os, ds, 1e9, ls, ign(gl_FragCoord.xy), inscatter, through);
   float alpha = 1.0 - (through.r + through.g + through.b) / 3.0;
-  gl_FragColor = vec4(inscatter * rimGain, alpha);
+  // A thin glow all round the limb, by day and by night: the earth's outline
+  // never sinks into the black on its night side
+  float edge = (length(cross(os, ds)) - RP) / glowHeight;
+  float air = edge > 0.0 ? exp(-edge * 7.0) * smoothstep(1.0, 0.5, edge) : 0.0;
+  vec3 glow = vec3(0.3, 0.55, 1.0) * airglow * air;
+  gl_FragColor = vec4(inscatter * rimGain + glow, max(alpha, air * 0.6));
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }

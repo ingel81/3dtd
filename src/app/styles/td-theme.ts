@@ -193,6 +193,10 @@ export const TD_TINT = {
   menuFade: 0.8,
   menuFadeWidth: 65,
   menuBase: 0.35,
+  // Behind the start menu only the menu column darkens, px from the left:
+  // the earth beside it stands in full light
+  startFadeFrom: 420,
+  startFadeTo: 640,
 } as const;
 
 /** Fonts: Barlow Semi Condensed for all text, mono only for codes and keys */
@@ -382,6 +386,7 @@ export const TD_CSS_VARS = `
   --td-chip-rest-opacity: ${T.chipRestOpacity};
 
   --td-backdrop: linear-gradient(90deg, rgba(${T.rgb}, ${T.menuFade}) 0%, rgba(${T.rgb}, ${(T.menuFade * 0.75).toFixed(2)}) ${T.menuFadeWidth * 0.55}%, rgba(${T.rgb}, ${T.menuBase}) ${T.menuFadeWidth}%, rgba(${T.rgb}, ${T.menuBase}) 100%);
+  --td-backdrop-start: linear-gradient(90deg, rgba(${T.rgb}, ${T.menuFade}) 0, rgba(${T.rgb}, ${(T.menuFade * 0.75).toFixed(2)}) ${T.startFadeFrom}px, rgba(${T.rgb}, 0) ${T.startFadeTo}px);
 
   --td-surface: linear-gradient(var(--td-tint), var(--td-tint)), var(--td-tex-plaster) 0 0 / var(--td-tex-size), ${TD_THEME.panelMain};
   --td-surface-overlay: linear-gradient(var(--td-tint-overlay), var(--td-tint-overlay)), var(--td-tex-plaster) 0 0 / var(--td-tex-size), ${TD_THEME.panelMain};

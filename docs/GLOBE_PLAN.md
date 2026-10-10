@@ -102,13 +102,13 @@ unsichtbar vorweggenommen). In Vorladen, Abtauchen,
 | Teil | Umsetzung | Kosten |
 |---|---|---|
 | Erde | Gitter 384×192 auf dem Ellipsoid; ein Shader: Tag, bis zu vier Regionskacheln, Relief aus Höhendaten, Wasserglanz, Wolken als Schicht mit Schatten, Stadtlichter, Mondlicht-Hauch, Dunst | 1 Draw |
-| Saum | Schale 100 km über dem Ellipsoid, nur wo der Strahl die Erde verfehlt | 1 Draw |
+| Saum | Schale 350 km über dem Ellipsoid, nur wo der Strahl die Erde verfehlt: Streuung bis 100 km, darüber ein schwacher blauer Schein rundum, auch nachts | 1 Draw |
 | Streuung | Rayleigh und Mie, Einfachstreuung, 12 Schritte (Low 6), zur dichtesten Stelle verdichtet, Lichtweg 4 Schritte, Rauschen gegen Bänder; in km im „Kugelraum“ | in Erde und Saum |
 | Sterne | Yale Bright Star Catalogue, 9096 Sterne, Farbe aus B-V, gedreht nach Sternzeit | 1 Draw |
 | Sonne | Richtung aus UTC, Scheibe und Halo | 1 Draw |
 | Marken | HTML, je Frame projiziert, hinter der Erde ausgeblendet; das Ziel liegt über allen anderen, Marken unter seinem Namen treten zurück, beim Laden pulsiert ein Ring und eine Zeile sagt den Stand („Loading 80 %“) | DOM |
 
-Kein Tiefenpuffer: feste Zeichenreihenfolge, die Erde ist konvex. Belichtung 0,17 (der Boden ist physikalisch beleuchtet,
+Kein Tiefenpuffer: feste Zeichenreihenfolge, die Erde ist konvex. Belichtung 0,21 (der Boden ist physikalisch beleuchtet,
 Albedo · E / π unter Sonne 22). Wolken lösen sich unter 1800 km auf und sind unter 450 km fort (grobe Textur aus der
 Nähe, die Tiles haben keine); über dem Ziel öffnet sich ein Wolkenloch.
 
@@ -148,7 +148,7 @@ Abstimmung vom 2026-10-09 (AUQ):
 - **Feinschliff 2026-10-10** (User): beim Laden die ganze Erde im Bild (10 000 km statt 5000 km), flüssig während
   des Ladens (Worker). Nachtest am selben Tag: die Erde füllt den Platz neben dem Menü, ganz sichtbar
   (`fitFrame`: Höhe und Versatz aus der Fenstergröße, Erde mit Saum über 86 % der Höhe oder 90 % der freien Breite,
-  unter 760 px mittig).
+  unter 760 px mittig); das Startmenü dunkelt nur seine Spalte ab, nicht die Erde.
 - **D3 Bedienung**: nur Kulisse, keine Eingabe.
 - **D4 Texturen**: alles mitliefern unter `public/assets/globe/` (65 MB), keine fremden Server.
 - **Performance** (User): High-End und performant zugleich.

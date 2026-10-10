@@ -23,6 +23,11 @@
   }
 }
 
+// The start menu stands over the globe (or the place loading): dark only behind the column
+.mm-root.mm-start {
+  background: var(--td-backdrop-start);
+}
+
 .mm-column {
   display: flex;
   flex: 0 0 var(--td-menu-width);
