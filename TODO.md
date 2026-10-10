@@ -50,14 +50,11 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 
 ### Features
 
-- [ ] **E126 Weltkugel als Ladegrund und Ortswechsel** (User, 2026-10-09): Solange keine Tiles da sind, steht hinter
-      dem Menü eine realistische 3D-Erde, anspruchsvoll umgesetzt. Entschieden: echte Erde (NASA-Texturen Tag, Nacht mit
-      Stadtlichtern, Wolken mit eigenem Drift, glänzende Ozeane), Atmosphärensaum, Sternenhimmel, Sonne; echter Sonnenstand
-      zur Uhrzeit des Spielers; Ortsmarken (zuletzt gespielt, Favoriten, Rekorde); Anflug: Kugel dreht zum Ort, Markierung
-      rastet ein, eingetaucht wird erst, wenn die Tiles wirklich da sind, nahtlos in sie hinein. Bei jedem Ortswechsel:
-      Kamera steigt vom alten Ort auf, Kugel dreht zum neuen. Texturen sehr scharf, gestaffelt nachgeladen (klein sofort,
-      groß danach, nah am Ort eine scharfe Kachel der Region). Quelltexturen liegen in `tmp/globe-textures/`, Konzept-Canvas
-      (vier Varianten, C ist die Kugel) in der Notiz `tmp/plan/LADEGRUND_GLOBUS.md`.
+- [ ] **E127 UI-Feinschliff nach der Weltkugel** (User, 2026-10-10, gesammelt, Notiz und Bilder in
+      `tmp/plan/ui-feinschliff-2026-10-10/`): im Code zwei Ladebalken im Start-Menü (Play und Continue) und Esc mit
+      Tab-Fokus im Spiel (Tooltip, zweimal Esc; Tab-Fokus überhaupt?); im Rahmen-Baukasten (auffrischen) Varianten für
+      Logo und Menüplatte, Kante Sidebar zum Canvas, Trenner der Kopfleiste, FPS-Anzeige minimiert, Fähigkeitenleiste
+      ohne Platte, aktiver Zustand der Stufenwahl, „Paused | Ort | wave“, Legal & Privacy prominenter.
 - [ ] **E102 Neue Tower aus den Meshy-Kandidaten** (User, 2026-10-02; Modelle in
       `public/assets/models/towers/candidates/`, Zerlegung mit `tools/blender/split_tower.py` und `towers/*.json`):
       Iron Bastion und Sentinel Laser abgenommen. Chainsaw mit Roboter-Tentakeln statt Armen (bis 14 m, eingefahren wie
@@ -131,6 +128,11 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 - [ ] **E119 bis E122** gebaut: Hauptmenü als Dreh- und Angelpunkt mit dem Laden dahinter, Continue mit Ortsprüfung,
       Legal-Link, eine Optik für Menü, Dialoge, Panels und HUD ([MAIN_MENU_UI_PLAN.md](docs/MAIN_MENU_UI_PLAN.md)).
       PLAYTEST H1 bis H5.
+
+### Weltkugel als Ladegrund (2026-10-09, Branch `globe/e126-2026-10-09`)
+
+- [ ] **E126** gebaut: realistische Erde hinter dem Menü, Abtauchen in die Tiles, Aufstieg beim Ortswechsel
+      ([GLOBE_PLAN.md](docs/GLOBE_PLAN.md)). PLAYTEST G1 bis G3.
 
 ### Nach dem Release 0.6 (2026-10-05, auf `next`)
 
