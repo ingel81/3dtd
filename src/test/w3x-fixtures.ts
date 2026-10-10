@@ -31,23 +31,28 @@ export class ByteWriter {
     return this;
   }
   i16(v: number): this {
-    this.view.setInt16(this.grow(2), v, true);
+    const at = this.grow(2);
+    this.view.setInt16(at, v, true);
     return this;
   }
   u16(v: number): this {
-    this.view.setUint16(this.grow(2), v, true);
+    const at = this.grow(2);
+    this.view.setUint16(at, v, true);
     return this;
   }
   i32(v: number): this {
-    this.view.setInt32(this.grow(4), v, true);
+    const at = this.grow(4);
+    this.view.setInt32(at, v, true);
     return this;
   }
   u32(v: number): this {
-    this.view.setUint32(this.grow(4), v >>> 0, true);
+    const at = this.grow(4);
+    this.view.setUint32(at, v >>> 0, true);
     return this;
   }
   f32(v: number): this {
-    this.view.setFloat32(this.grow(4), v, true);
+    const at = this.grow(4);
+    this.view.setFloat32(at, v, true);
     return this;
   }
   id4(s: string): this {
