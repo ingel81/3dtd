@@ -1,0 +1,58 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Cover</title>
+<style>
+  html, body { margin: 0; padding: 0; background: var(--td-bg-dark); }
+  .cv { position: relative; width: 960px; height: 288px; overflow: hidden; background: var(--td-bg-dark); }
+  .cv svg { position: absolute; left: 0; top: 0; }
+  .brass { fill: var(--td-brass); }
+  .brass-light { fill: var(--td-brass-light); }
+  .stone { fill: var(--td-frame-mid); }
+  .stone-lit { fill: var(--td-frame-light); }
+  .teal { fill: var(--td-teal); }
+  .danger { fill: var(--td-danger-edge); }
+  .groove { stroke: var(--td-sep-dark); stroke-width: 2; }
+  .tile { rx: var(--td-radius); }
+  .txt { position: absolute; left: 48px; bottom: 40px; max-width: 440px; display: flex; flex-direction: column; gap: 10px; }
+  .name { margin: 0; font-family: var(--font-ui); font-size: 120px; line-height: .92; font-weight: 700; letter-spacing: .02em; color: var(--td-text-primary); }
+  .tag { margin: 0; font-family: var(--font-ui); font-size: 14px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--td-text-muted); }
+</style>
+</head>
+<body>
+<div class="cv">
+  <!--
+    blocks: brass slab 152x196 (td-brass), brass-light bar 152x56 (td-brass-light), teal tile 136x56 (td-teal), one danger tile 64x56 (td-danger-edge); together about a third of the cover
+    arrangement: one tall slab bleeding off the top with a grid of build tiles beside it bleeding off the right, like the sidebar's build panel beside the map
+    pattern: geometric, modular, dense UI (the build grid of td-tile stones), so tiles cut by td-radius, some merged two-wide like the components; one deep groove (td-sep-dark) under the slab like the top bar's grooves
+    scales: tiles 64x56 at a pitch of 72 (td-sp-2 = 8px gaps), radius td-radius 3px, slab gap td-sp-3 = 12px
+  -->
+  <svg width="960" height="288" viewBox="0 0 960 288" aria-hidden="true">
+    <rect class="brass tile" x="520" y="-8" width="152" height="204"/>
+    <line class="groove" x1="520" y1="202" x2="672" y2="202"/>
+    <rect class="brass-light tile" x="520" y="208" width="152" height="56"/>
+
+    <rect class="stone tile" x="684" y="16" width="64" height="56"/>
+    <rect class="teal tile" x="756" y="16" width="136" height="56"/>
+    <rect class="stone tile" x="900" y="16" width="64" height="56"/>
+
+    <rect class="stone-lit tile" x="684" y="80" width="136" height="56"/>
+    <rect class="stone tile" x="828" y="80" width="64" height="56"/>
+    <rect class="stone tile" x="900" y="80" width="64" height="56"/>
+
+    <rect class="stone tile" x="684" y="144" width="64" height="56"/>
+    <rect class="danger tile" x="756" y="144" width="64" height="56"/>
+    <rect class="stone tile" x="828" y="144" width="136" height="56"/>
+
+    <rect class="stone tile" x="684" y="208" width="64" height="56"/>
+    <rect class="stone tile" x="756" y="208" width="64" height="56"/>
+    <rect class="stone-lit tile" x="828" y="208" width="64" height="56"/>
+    <rect class="stone tile" x="900" y="208" width="64" height="56"/>
+  </svg>
+  <div class="txt">
+    <h1 class="name">3DTD</h1>
+    <p class="tag">Tower defense on real streets</p>
+  </div>
+</div>
+</body>
+</html>
