@@ -218,3 +218,74 @@
     outline-offset: var(--td-focus-offset);
   }
 }
+
+// A place on the menu globe (docs/GLOBE_PLAN.md): a dot and its name, placed
+// by the globe each frame. Brass for records and favourites, teal for the
+// place that loads, quiet for the recent ones.
+@mixin globe-mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+  font-size: var(--td-fs-small);
+  font-weight: 600;
+  color: var(--td-text-muted);
+  text-shadow: var(--td-over-image);
+  will-change: transform;
+
+  > i {
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    margin-left: -3px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: var(--td-over-image);
+  }
+
+  &.is-record,
+  &.is-favorite {
+    color: var(--td-brass-light);
+  }
+
+  &.is-target {
+    font-size: var(--td-fs-text);
+    color: var(--td-teal-light);
+
+    > i {
+      width: 10px;
+      height: 10px;
+      margin-left: -5px;
+      outline: 1px solid currentColor;
+      outline-offset: 5px;
+    }
+  }
+}
+
+// The read-out beside the globe: target, coordinates, altitude, what happens
+@mixin globe-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+  font-size: var(--td-fs-small);
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+  text-shadow: var(--td-over-image);
+  font-variant-numeric: tabular-nums;
+
+  b {
+    font-weight: 700;
+    color: var(--td-brass-light);
+  }
+
+  em {
+    font-style: normal;
+    color: var(--td-teal-light);
+  }
+}

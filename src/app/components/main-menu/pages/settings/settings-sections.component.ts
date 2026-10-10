@@ -7,6 +7,7 @@ import { GameStore } from '../../../../store/game.store';
 import { COOP } from '../../../../services/coop.token';
 import { ConfigService } from '../../../../core/services/config.service';
 import { DebugFacadeService, FPS_LIMITS } from '../../../../services/debug/debug-facade.service';
+import { GlobeDirectorService, type GlobeSetting } from '../../../../services/world/globe-director.service';
 import { VFX_PRESET_CHOICES, matchingVfxPreset, type VfxPreset, type VfxSettings } from '../../../../three-engine/vfx-settings';
 import { COLOR_GRADING_PRESETS, type ColorGradingPreset } from '../../../../three-engine/post-processing/color-grading';
 import { GAME_SPEEDS } from '../../../../configs/game-speed.config';
@@ -56,6 +57,13 @@ export class SettingsSectionsComponent {
   private readonly store = inject(GameStore);
   private readonly config = inject(ConfigService);
   private readonly display = inject(DebugFacadeService);
+  /** The menu globe's quality (docs/GLOBE_PLAN.md) */
+  readonly globe = inject(GlobeDirectorService);
+  readonly globeOptions: { id: GlobeSetting; label: string }[] = [
+    { id: 'high', label: 'High' },
+    { id: 'low', label: 'Low' },
+    { id: 'off', label: 'Off' },
+  ];
   /** The game's coop service; the Coop section needs it */
   readonly coop = inject(COOP, { optional: true });
   private readonly bridge = readDesktopBridge();

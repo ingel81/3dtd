@@ -454,6 +454,36 @@ Paket H6, Design System (E124, [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)):
 - **H6.4 Schrift:** im Spiel und in der Desktop-App ohne Netz. Erwartung: überall Barlow Semi Condensed, keine
   Ersatzschrift beim ersten Bild, Mono nur bei Raumcodes, Tasten und Logs.
 
+## G Weltkugel als Ladegrund (2026-10-09)
+
+Branch `globe/e126-2026-10-09`, Plan [GLOBE_PLAN.md](GLOBE_PLAN.md). Ablauf, Übergabe und Ruckler sind per
+Browser-Probe auf echter Karte gemessen (Stuttgart, Paris); hier, was Augen, andere Rechner und die Desktop-App brauchen.
+
+Paket G1, Anflug (echte Karte):
+
+- **G1.1 Erster Start:** `http://localhost:4200/` ohne Parameter. Erwartung: hinter dem Menü die Erde rechts, über
+  deiner Weltgegend, mit Sternen und Atmosphärensaum; ist bei dir Nacht, die Nachtseite mit Stadtlichtern. Die
+  Ortsmarken (zuletzt gespielt, Favoriten, Rekorde) stehen auf der Erde.
+- **G1.2 Ort wählen:** „New game“, einen Showcase-Ort. Erwartung: die Erde dreht zum Ort, die ganze Kugel bleibt im
+  Bild; liegt der Ort in der Nacht, geht die Sonne dabei über ihm auf, das Laden über steht er im Tag. Oben rechts
+  „Target | Ort“, Koordinaten, Höhe, „Loading“. Die Erde dreht und die Wolken ziehen auch dann flüssig, wenn die
+  Ladeplatte kurz hängt. Nach dem Laden taucht die Kamera ab, die Erde blendet ohne Sprung in die Tiles über, die
+  Kamera landet in der gewohnten Menüansicht, erst dann ist „Play“ frei. Auf Ruckler beim Überblenden achten.
+- **G1.3 Play vorgemerkt:** wie G1.2, „Play“ gleich klicken. Erwartung: kürzerer Abstieg, danach startet das Spiel.
+
+Paket G2, Ortswechsel:
+
+- **G2.1** Im Spiel über den Ortsnamen im Kopf einen anderen Ort wählen. Erwartung: die Kamera steigt aus dem Ort auf,
+  die Erde blendet ein (im Tag), dreht zum neuen Ort (die Sonne über ihm), dann wie G1.2.
+- **G2.2** Den Würfel „Random location“. Erwartung: die Erde dreht schon, während die Straßen laden.
+
+Paket G3, Rechner und Einstellung:
+
+- **G3.1** Settings, Graphics, „Menu globe“: Low und Off. Low: weichere Erde, gleicher Ablauf; Off: dunkler Grund wie
+  vorher, kein Abtauchen. Auf einem schwächeren Rechner (Laptop, integrierte Grafik) die Stufe High: läuft die Kugel
+  flüssig?
+- **G3.2** Desktop-App: G1.2 einmal. Erwartung: wie im Browser (Texturen und Transcoder kommen mit der App).
+
 ## K8 Desktop-Build
 
 K8.1 bis K8.3 und K8.5 sind ok und im [Archiv](archive/PLAYTEST_2026-09.md). Offen nur, was ein Rechner mit zwei

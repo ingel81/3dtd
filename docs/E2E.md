@@ -52,6 +52,9 @@ Jeder Coop-Test mit Spiel prüft am Ende das Relay-Log auf `DESYNC`. Die Nummern
 - Das Spiel lädt hinter dem Start-Menü; `gameReady` drückt Play, das bis zum Ende des Ladens wartet, und bricht mit
   dem Text eines Ladeproblems ab. Ein neuer Ort öffnet das Menü wieder. Skripte ohne Menü (Perf, Vorschau-Bake)
   hängen `&menu=skip` an und warten auf die HUD.
+- `openGame` schaltet die Weltkugel hinter dem Menü ab (`td_globe_quality_v1` = off, [GLOBE_PLAN.md](GLOBE_PLAN.md)):
+  ihr Abtauchen kostete je Ladung Sekunden und gut 250 Tile-Requests. Ein Test für die Kugel setzt den Schlüssel in
+  `storage` selbst.
 - Was zwischen Finden und Lesen verschwinden kann (Fuß der Squad-Box, der Chat beim Ortswechsel), lesen die Helfer
   direkt aus dem DOM (`chatText`, `evaluate`), ohne zu warten.
 - Nach jedem Test räumt `tidyUp` beide Seiten auf (Meldung oben, Raum, Dock, Entwicklermenü).

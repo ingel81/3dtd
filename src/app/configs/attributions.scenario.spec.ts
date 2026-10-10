@@ -29,6 +29,10 @@ describe('Attributions of the hero and the world map (playtest 302)', () => {
   it('302: has a section "Map Data" with Natural Earth, Public Domain, and OpenStreetMap under the ODbL', () => {
     expect(category('Map Data')!.items).toEqual([
       expect.objectContaining({ author: 'Natural Earth', license: 'Public Domain' }),
+      // The menu globe (docs/GLOBE_PLAN.md): NASA's earth, GEBCO's relief, the Yale star catalogue
+      expect.objectContaining({ author: 'NASA Earth Observatory, NASA Visible Earth', license: 'Public domain (NASA)' }),
+      expect.objectContaining({ author: 'GEBCO, NASA Visible Earth' }),
+      expect.objectContaining({ license: 'Public domain', sourceUrl: 'http://tdc-www.harvard.edu/catalogs/bsc5.html' }),
       expect.objectContaining({ author: 'OpenStreetMap contributors', license: 'ODbL 1.0' }),
     ]);
   });

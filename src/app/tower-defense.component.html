@@ -94,6 +94,9 @@
 
       <canvas #gameCanvas class="td-canvas" [class.hidden]="error()" [class.td-placement-cursor]="!!mapPlacementMode()"></canvas>
 
+      <!-- The menu globe while no place stands, and the dive into it (docs/GLOBE_PLAN.md) -->
+      <app-globe-backdrop />
+
       <!-- Google Attribution (required) -->
       @if (hudShown()) {
         <!-- Red edge when an enemy reaches the HQ -->

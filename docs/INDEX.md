@@ -83,6 +83,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
+| [GLOBE_PLAN.md](GLOBE_PLAN.md) | Gebaut 2026-10-09, wartet auf den Nachtest (PLAYTEST G) | Weltkugel als Ladegrund (E126): Erde hinter dem Menü, Abtauchen in die Tiles, Aufstieg beim Ortswechsel; Architektur, Messwerte (Vorladen, Ruckler, Kosten), Texturen und Werkzeug, Entscheidungen |
 | [MAIN_MENU_UI_PLAN.md](MAIN_MENU_UI_PLAN.md) | Gebaut 2026-10-09, wartet auf den Nachtest (PLAYTEST H) | Hauptmenü als Ort für alles außer Spielen (Lagen Start und Pause, Laden hinter dem Menü, Seiten New game, Coop, Save, Load, Settings, Extras) und die Optik aus einem Fundament (E119 bis E122); was gebaut ist, Abweichungen, wo es steht |
 | [BALANCING_PLAN.md](BALANCING_PLAN.md) | Plan (Phase 1 und 2 gebaut, Phase 3 offen) | Balancing aufrollen: Begriffe (Wellenplan statt Kampagne), eine Wellenquelle, Seeds und Determinismus, Datensammlung von Menschen und Bots (Run-Log), Zielwerte und Tuning; offene Entscheidungen |
 

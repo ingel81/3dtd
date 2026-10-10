@@ -11,6 +11,7 @@ import {
   Fog,
   MathUtils,
   Matrix4,
+  Vector4,
 } from 'three';
 import type { TilesRenderer, GlobeControls } from '3d-tiles-renderer';
 import type { ReorientationPlugin } from '3d-tiles-renderer/plugins';
@@ -23,9 +24,10 @@ import { RenderLoop } from './render-loop';
 import { CanvasSizeFollower } from './canvas-size-follower';
 import { TerrainQueries } from './terrain-queries';
 import { SkyBackground, addSceneLights } from './scene-environment';
+import { DiveView, FOG_FAR, FOG_NEAR, VIEW_DISTANCE } from './dive-view';
 import { ScreenPicker } from './screen-picker';
 import { skipLostContextDeletes } from './lost-context-deletes';
-import { applyStreamingBudget, createTilesRenderer } from './tiles-renderer-setup';
+import { applyQueueBudget, applyStreamingBudget, createTilesRenderer } from './tiles-renderer-setup';
 import {
   CoordinateSync,
   ThreeTowerRenderer,
@@ -193,6 +195,15 @@ export class ThreeTilesEngine {
   // Added to scene root, but synced with tiles movement each frame
   private overlayGroup: Group;
 
+  /**
+   * The dive from the menu globe into the tiles and the rise back out
+   * (docs/GLOBE_PLAN.md): view distance and fog over the altitude, the
+   * warm-up of the dive's tiles. Driven by DiveFlightService.
+   */
+  readonly dive: DiveView;
+  /** The globe covers the canvas: frames skip the draw (the tiles still update), see setDrawSuppressed() */
+  private drawSuppressed = false;
+
   // Track initial tiles position to calculate movement delta
   private initialTilesPos = new Vector3();
   /** Reused scratch for the per-frame overlay-sync delta (avoids clone()). */
@@ -213,6 +224,8 @@ export class ThreeTilesEngine {
 
   // Callback for per-frame updates (animations)
   private onUpdateCallback: ((deltaTime: number) => void) | null = null;
+  /** Camera choreographies of their own (the dive from the menu globe), after the game's update, see addFrameHook() */
+  private readonly frameHooks = new Set<() => void>();
 
   /**
    * Drives update() and render(): rAF, the hidden-tab heartbeat for
@@ -279,15 +292,10 @@ export class ThreeTilesEngine {
     // would delete their lost handles in the restored context when disposed.
     this.restoreGLDeletes = skipLostContextDeletes(this.renderer.getContext() as WebGL2RenderingContext, canvas);
 
-    // Distance limits - keep in sync!
-    const VIEW_DISTANCE = 8000; // Max tile loading distance
-    const FOG_START = VIEW_DISTANCE * 0.25; // 2000m - fog begins
-    const FOG_END = VIEW_DISTANCE * 0.75; // 6000m - fully in fog
-
-    // Create scene with distance fog
+    // Create scene with distance fog: 2000 m to 6000 m, the view ends at 8000 m (dive-view.ts)
     this.scene = new Scene();
     const fogColor = 0x1a1f25; // Slightly lighter than background for depth
-    this.scene.fog = new Fog(fogColor, FOG_START, FOG_END);
+    this.scene.fog = new Fog(fogColor, FOG_NEAR, FOG_FAR);
 
     // R1: the scene root is permanently at the origin. Disabling matrixAutoUpdate
     // stops Three.js from re-composing its (identity) matrix every frame and, more
@@ -312,6 +320,14 @@ export class ThreeTilesEngine {
 
     // Controls kommen erst in initialize() dazu, der Rig hält bis dahin nur Kamera und Canvas
     this.cameraRig = new CameraRig(this.camera, this.renderer.domElement);
+
+    this.dive = new DiveView({
+      tiles: () => this.tilesRenderer,
+      renderer: this.renderer,
+      camera: this.camera,
+      fog: () => (this.scene.fog instanceof Fog ? this.scene.fog : null),
+      prerender: (camera) => this.prerender(camera),
+    });
 
     // Lade-Events hängen sich erst in initialize() an den TilesRenderer
     this.tileLoading = new TileLoadingTracker(this.camera, this.renderer, {
@@ -505,6 +521,8 @@ export class ThreeTilesEngine {
 
     // Refinement error, distance falloff, download and parse queues, LRU cache
     applyStreamingBudget(this.tilesRenderer);
+    // Made under the menu globe: it loads with the wider queues already
+    applyQueueBudget(this.tilesRenderer, this.drawSuppressed);
 
     // tiles-load-end (first load, debounce), load-tileset, load-error (auth)
     this.tileLoading.attach(this.tilesRenderer);
@@ -619,6 +637,15 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Run `hook` every drawn frame, after the game's update and before the
+   * draw; returns the function that takes it off again.
+   */
+  addFrameHook(hook: () => void): () => void {
+    this.frameHooks.add(hook);
+    return () => this.frameHooks.delete(hook);
+  }
+
+  /**
    * Register a callback to be called each frame for animations
    */
   setOnUpdateCallback(callback: (deltaTime: number) => void): void {
@@ -682,6 +709,49 @@ export class ThreeTilesEngine {
     this.tilesPosInitialized = false;
     this.initialTilesPos.set(0, 0, 0);
 
+  }
+
+  private readonly prerenderViewport = new Vector4();
+
+  /**
+   * Draw the scene once from `camera` into a corner of 4 x 4 pixels of the
+   * canvas, which the menu globe covers. The tiles it shows upload their
+   * geometry now: the warm-up of the dive (DiveView) does it behind the
+   * globe, so the first frames of the dive do not. The canvas, not a render
+   * target: a target draws without tone mapping and in linear colour, and
+   * every material would compile a variant of its own for it. Fog is pushed
+   * away for the same reason, not taken off.
+   */
+  private prerender(camera: PerspectiveCamera): void {
+    const fog = this.scene.fog instanceof Fog ? this.scene.fog : null;
+    const [near, far] = [fog?.near ?? 0, fog?.far ?? 0];
+    if (fog) [fog.near, fog.far] = [1e9, 2e9];
+    this.renderer.getViewport(this.prerenderViewport);
+    this.renderer.setViewport(0, 0, 4, 4);
+    this.renderer.render(this.scene, camera);
+    this.renderer.setViewport(this.prerenderViewport);
+    if (fog) [fog.near, fog.far] = [near, far];
+  }
+
+  /**
+   * Skip drawing frames while the menu globe covers the canvas (docs/GLOBE_PLAN.md):
+   * the tiles go on updating and loading, the GPU draws nothing here.
+   */
+  setDrawSuppressed(suppressed: boolean): void {
+    if (this.drawSuppressed === suppressed) return;
+    this.drawSuppressed = suppressed;
+    // Nothing to keep smooth here meanwhile: the tiles may load faster
+    if (this.tilesRenderer) applyQueueBudget(this.tilesRenderer, suppressed);
+  }
+
+  /**
+   * The matrix from the scene's frame to ECEF (the tiles' own frame), for a
+   * pose handed to the menu globe. Null without tiles (DevWorld).
+   */
+  sceneToEcef(target: Matrix4): Matrix4 | null {
+    if (!this.tilesRenderer) return null;
+    this.tilesRenderer.group.updateMatrixWorld();
+    return target.copy(this.tilesRenderer.group.matrixWorld).invert();
   }
 
   /**
@@ -830,10 +900,11 @@ export class ThreeTilesEngine {
     // Update controls
     this.cameraRig.update();
 
-    // Force camera far plane to limit tile loading (GlobeControls may override it)
-    const VIEW_DISTANCE = 8000;
-    if (this.camera.far > VIEW_DISTANCE) {
-      this.camera.far = VIEW_DISTANCE;
+    // Force camera far plane to limit tile loading (GlobeControls may override it);
+    // a dive reaches further, see DiveView
+    const viewDistance = this.dive.viewDistance();
+    if (this.camera.far > viewDistance || (viewDistance > VIEW_DISTANCE && this.camera.far !== viewDistance)) {
+      this.camera.far = viewDistance;
       this.camera.updateProjectionMatrix();
     }
 
@@ -870,6 +941,10 @@ export class ThreeTilesEngine {
       // scene-Y now, there is no separate base-terrain offset any more.
       this.overlayGroup.position.copy(deltaPos);
     }
+
+    // Under the menu globe nothing shows: no draw, unless a frame is waited for
+    // (the shader warm-up uploads in a drawn frame, a screenshot reads one)
+    if (this.drawSuppressed && !this.renderLoop.hasFrameWaiters()) return;
 
     // Render scene, shaken if a screen shake runs
     this.drawFrame();
@@ -945,6 +1020,9 @@ export class ThreeTilesEngine {
     }
 
     if (!this._renderingEnabled) return;
+
+    // After the game moved its camera, before anything is drawn for it
+    for (const hook of this.frameHooks) hook();
 
     const realDeltaSeconds = deltaTime / 1000;
     const gameDeltaSeconds = realDeltaSeconds * this.gameTimescale;
@@ -1232,6 +1310,7 @@ export class ThreeTilesEngine {
 
   dispose(): void {
     this.disposed = true;
+    this.dive.dispose();
     this.renderLoop.dispose();
     this.canvasSize.dispose();
 

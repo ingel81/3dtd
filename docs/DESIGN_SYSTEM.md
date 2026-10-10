@@ -223,6 +223,7 @@ Bei `prefers-reduced-motion` springen alle Übergänge (globale Regel); Animatio
 | `td-menu`, `td-menu-item`, `td-menu-rule` | Hauptmenü: Einträge 48 px, 22 px/600, Symbol in Messing; Fokus und offene Seite (`aria-current`) als erhabene Steinplatte mit Messingtext, Tastaturfokus mit Ring; steht der Fokus woanders in der Liste, liegt die Platte der offenen Seite flach; Abstand 5 px |
 | `td-topbar`, `td-stat`, `td-sunk`, `td-loc-label`, `td-loc-name`, `td-meter` | Kopfleiste in Basalt 48 px mit Plattenkante; Wert mit eingeritztem Trenner davor; vertieftes Ortsfeld mit eingeritzter Kante (als Knopf hellt Hover den Ort); „Defend“ dunkler in Versalien mit Trenner; Ort halbfett; Segmentbalken |
 | `td-progress` (`is-edge`, `is-tick`, `is-teal`) | Fortschrittsbalken in einer Mulde, sein Kind ist die Füllung; `is-edge` 2 px an der Unterkante eines Knopfs oder einer Leiste; `is-tick` folgt einem Sekundenzähler; `is-teal` für eine laufende Welle |
+| `td-globe-mark`, `td-globe-readout` | Weltkugel hinter dem Menü: Punkt und Name eines Ortes (Rekord und Favorit Messing, der ladende Ort Teal mit Ring, zuletzt gespielt matt), die Anzeige oben rechts in Versalien (Ziel Messing, Status Teal); beide mit dem Schatten `--td-over-image` über dem Bild |
 | `td-marker`, `td-marker-btn` | Pfeil am Kartenrand: runde Platte, Ring und Symbol in `--td-mark` (Text `--td-mark-text`), `is-sm` 24 px; der Knopf darum gibt Fokus und Hover an die Platte |
 | `td-side`, `td-side-section` (`is-fill`), `td-side-head`, `td-side-name`, `td-side-body` | Sidebar wie die Dialoge; Sektionen durch eingeritzte Linien getrennt, die letzte füllt und scrollt; Kopf mit Haarlinie; Name mit Ellipse (`is-armed` rot); scrollender Körper |
 | `td-stack` (`is-loose`), `td-inline`, `td-actions` (`is-start`, `is-split`), `td-group`, `td-setting` | Spalte; umbrechende Zeile; Knopfreihe; Gruppe mit eingeritzter Linie vor der nächsten; Einstellung (Name links, Steuerung rechts) |
@@ -607,6 +608,10 @@ in der Platte unter den Einträgen. Unter einer eingeritzten Linie in der Pause 
 
 Eine Seite öffnet als `td-dlg` rechts neben der Liste, mit Titel und Schließen-Kreuz („Back (Esc)“). Esc geht eine Seite
 zurück, auf der Liste der Pause zurück ins Spiel.
+
+Weltkugel (`components/globe-backdrop`, [GLOBE_PLAN.md](GLOBE_PLAN.md)): hinter der Start-Lage die Erde, ihr Mittelpunkt
+17 % der Breite rechts der Mitte, unter `td-backdrop`; Ortsmarken `td-globe-mark`, oben rechts `td-globe-readout`
+(„Target | Ort“, Koordinaten, „Alt … km | Status“). Reine Kulisse, keine Eingabe.
 
 Ladeplatte (`loading/menu-loading`): `td-panel` mit Ort als Titel, Prozent, `td-meter` mit zehn Segmenten, laufender
 Schritt mit „4 of 10“, „Show steps“. Ein Fehler steht statt des Balkens als `td-banner is-warn` mit Retry, Other place

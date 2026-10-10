@@ -1,0 +1,15 @@
+@if (director.mounted()) {
+  @for (generation of [director.generation()]; track generation) {
+    <canvas #globeCanvas class="gb-canvas"></canvas>
+  }
+  <div #marks class="gb-marks"></div>
+  @if (director.hud(); as hud) {
+    <div class="gb-readout td-globe-readout">
+      @if (hud.name) {
+        <span>Target | <b>{{ hud.name }}</b></span>
+        <span>{{ hud.lat! | number: '1.4-4' }} | {{ hud.lon! | number: '1.4-4' }}</span>
+      }
+      <span>Alt {{ hud.altitudeKm | number: '1.0-0' }} km@if (hud.status) { | <em>{{ hud.status }}</em>}</span>
+    </div>
+  }
+}

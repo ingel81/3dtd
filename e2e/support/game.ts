@@ -37,6 +37,9 @@ export async function openGame(browser: Browser, options: OpenOptions = {}): Pro
   await page.addInitScript((extra) => {
     localStorage.setItem('td_seen_version', '9999.0.0');
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
+    // The menu globe (docs/GLOBE_PLAN.md) off: the tests play the game, and its dive would add
+    // seconds and tile requests to every load; a test that wants it passes the key in `storage`
+    localStorage.setItem('td_globe_quality_v1', '"off"');
     for (const [key, value] of Object.entries(extra)) localStorage.setItem(key, value);
   }, storage);
   await page.goto(`/?l=${place}${query}`);

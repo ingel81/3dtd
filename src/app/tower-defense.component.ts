@@ -1,3 +1,4 @@
+import { GlobeBackdropComponent } from './components/globe-backdrop/globe-backdrop.component';
 import {
   Component,
   OnDestroy,
@@ -146,6 +147,7 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
   standalone: true,
   imports: [
     CommonModule,
+    GlobeBackdropComponent,
     FocusOnShowDirective,
     MatDialogModule,
     CdkTrapFocus,

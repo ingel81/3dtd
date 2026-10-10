@@ -117,12 +117,7 @@ export function applyStreamingBudget(tilesRenderer: TilesRenderer): void {
   tilesRenderer.errorFalloff = 24;
   tilesRenderer.errorFalloffDensity = 2.5e-4;
 
-  // Lib defaults: 25 downloads per server origin, 5 parses. Google serves all
-  // tiles from one origin, so the per-origin cap is the global cap. Parsing is
-  // async but finalization lands on the main thread, so one at a time keeps
-  // frame times flat.
-  tilesRenderer.downloadQueue.maxJobsPerOrigin = 4;
-  tilesRenderer.parseQueue.maxJobs = 1;
+  applyQueueBudget(tilesRenderer, false);
 
   // Item caps stay at the lib defaults (6000/8000); on photorealistic tiles
   // the byte cap binds first. Raised from 0.3/0.4 GiB so the route corridor
@@ -131,4 +126,16 @@ export function applyStreamingBudget(tilesRenderer: TilesRenderer): void {
   // the one engine per page we run.
   tilesRenderer.lruCache.minBytesSize = 0.5 * 2 ** 30;
   tilesRenderer.lruCache.maxBytesSize = 0.7 * 2 ** 30;
+}
+
+/**
+ * Download and parse queues. Lib defaults: 25 downloads per server origin, 5
+ * parses. Google serves all tiles from one origin, so the per-origin cap is
+ * the global cap. Parsing is async but finalization lands on the main thread,
+ * so one at a time keeps frame times flat. While the menu globe covers the
+ * game (`hidden`) no frame of the game needs to stay smooth: twice as many.
+ */
+export function applyQueueBudget(tilesRenderer: TilesRenderer, hidden: boolean): void {
+  tilesRenderer.downloadQueue.maxJobsPerOrigin = hidden ? 8 : 4;
+  tilesRenderer.parseQueue.maxJobs = hidden ? 2 : 1;
 }

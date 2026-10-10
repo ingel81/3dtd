@@ -17,7 +17,7 @@
     "e2e": "npm --prefix e2e test --",
     "e2e:report": "npm --prefix e2e run report",
     "coop-server": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON coop-server/src/main.ts",
-    "postinstall": "node -e \"const fs=require('fs');const src='node_modules/three/examples/jsm/libs/draco/gltf';const dst='public/draco/gltf';fs.mkdirSync(dst,{recursive:true});['draco_decoder.js','draco_decoder.wasm','draco_wasm_wrapper.js'].forEach(f=>fs.copyFileSync(src+'/'+f,dst+'/'+f));console.log('Draco decoder copied')\"",
+    "postinstall": "node -e \"const fs=require('fs');const src='node_modules/three/examples/jsm/libs/draco/gltf';const dst='public/draco/gltf';fs.mkdirSync(dst,{recursive:true});['draco_decoder.js','draco_decoder.wasm','draco_wasm_wrapper.js'].forEach(f=>fs.copyFileSync(src+'/'+f,dst+'/'+f));console.log('Draco decoder copied');const bsrc='node_modules/three/examples/jsm/libs/basis';const bdst='public/basis';fs.mkdirSync(bdst,{recursive:true});['basis_transcoder.js','basis_transcoder.wasm'].forEach(f=>fs.copyFileSync(bsrc+'/'+f,bdst+'/'+f));console.log('Basis transcoder copied')\"",
     "economy-chart": "vitest run tools/economy-chart/generate.spec.ts",
     "tower-stats-chart": "vitest run tools/tower-stats-chart/generate.spec.ts",
     "wave-planner": "vitest run tools/wave-planner/generate.spec.ts",

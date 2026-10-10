@@ -51,6 +51,14 @@
       }
     </div>
   </div>
+  <div class="td-setting" matTooltip="The earth behind the menu while a place loads, and the flight into it. Low: smaller textures; Off: a dark background." matTooltipPosition="left">
+    <span id="td-set-globe">Menu globe</span>
+    <div class="td-seg is-compact" role="radiogroup" aria-labelledby="td-set-globe" tdRovingGroup>
+      @for (option of globeOptions; track option.id) {
+        <button type="button" role="radio" [attr.aria-checked]="globe.setting() === option.id" (click)="globe.setSetting(option.id)">{{ option.label }}</button>
+      }
+    </div>
+  </div>
   <div class="td-setting">
     <span>Fullscreen <kbd class="td-kbd">F11</kbd></span>
     <button class="td-btn-secondary td-btn-sm" type="button" (click)="toggleFullscreen()">

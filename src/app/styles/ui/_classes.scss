@@ -238,6 +238,8 @@
   .td-marker { @include hud.marker; }
   .td-marker-btn { @include hud.marker-btn; }
   .td-loc-label { @include hud.loc-label; }
+  .td-globe-mark { @include hud.globe-mark; }
+  .td-globe-readout { @include hud.globe-readout; }
   .td-loc-name { @include hud.loc-name; }
 
   // === Text ===

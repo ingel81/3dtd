@@ -1,0 +1,29 @@
+// Layout of the menu globe (docs/GLOBE_PLAN.md): the canvas over the game's,
+// the marks and the read-out over it; the look comes from td-globe-*.
+
+:host {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gb-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.gb-marks {
+  position: absolute;
+  inset: 0;
+}
+
+.gb-readout {
+  position: absolute;
+  top: 32px;
+  right: 40px;
+}

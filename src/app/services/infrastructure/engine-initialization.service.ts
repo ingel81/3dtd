@@ -5,6 +5,7 @@ import { AssetManagerService } from './asset-manager.service';
 import { OsmStreetService, STREET_RADIUS_M, StreetNetwork } from '../location/osm-street.service';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { DevStreetProvider } from '../../devworld/dev-street.provider';
+import { GLOBE_LINK } from '../world/globe-link';
 import { BootStep } from '../../components/main-menu/loading/boot-step.model';
 
 /**
@@ -41,6 +42,7 @@ export class EngineInitializationService {
   private readonly assetManager = inject(AssetManagerService);
   private readonly osmService = inject(OsmStreetService);
   private readonly devWorld = inject(DevWorldService);
+  private readonly globe = inject(GLOBE_LINK, { optional: true });
 
   // ========================================
   // SIGNALS
@@ -265,6 +267,8 @@ export class EngineInitializationService {
         this.tileProvider,
         this.googleMapsApiKey ?? '',
       );
+      // Behind the menu globe the game draws nothing, not even its first frame
+      if (this.globe?.coversGame()) this.engine.setDrawSuppressed(true);
 
       this.updateStepMeta('engine', '3D-Tiles Renderer...');
 

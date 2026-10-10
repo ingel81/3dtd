@@ -50,6 +50,7 @@ src/app/
 ├── director/                   # Wellenquellen: Vertrag (wave-source.ts), Regeln je Welle (wave-rules.ts), WaveDirector,
 │                               # Druck-Regler, Snapshot, Verteidigungsanalyse; sources/budget (Standard) + sources/table
 ├── game-engine/                # Event Bus, VFX/Audio/BackgroundMusic/ScreenShake Services (Three.js-coupled, Angular-frei)
+├── globe/                      # Weltkugel hinter dem Menü: Ansicht, Shader, Texturen, Sonnenstand (docs/GLOBE_PLAN.md)
 ├── coop/                       # Coop: Lockstep, Relay-Protokoll, Weltpaket, Prüfsummen, Raum-Optionen (docs/COOP_PLAN.md)
 ├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)
 ├── configs/                    # Tower/Enemy/Projectile/Combat/Research/Audio + Kampagne (campaign.config.ts)

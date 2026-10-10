@@ -15,6 +15,7 @@ import {
   LocationChangeContext,
   LocationChangeInput,
 } from './location-change-executor.service';
+import { GLOBE_LINK } from '../world/globe-link';
 import { canonicalCoords } from '../../utils/geo-utils';
 import type { NominatimAddress } from './geocoding.service';
 
@@ -54,6 +55,8 @@ export class LocationChangeCoordinatorService {
   private readonly worldDice = inject(WorldDiceService);
   private readonly executor = inject(LocationChangeExecutorService);
   private readonly uiStore = inject(UIStore);
+  /** The menu globe hears where a change goes (globe-link.ts) */
+  private readonly globe = inject(GLOBE_LINK, { optional: true });
 
   /** Favorite display names (resolved via geocoding) */
   readonly favoriteNamesMap = signal<Record<string, string>>({});
@@ -156,6 +159,8 @@ export class LocationChangeCoordinatorService {
     spawn: { lat: number; lon: number; name?: string; portalBearing?: number } | null,
   ): Promise<void> {
       this.uiStore.loadProblem.set(null);
+      // The globe turns to the place while its streets load
+      this.globe?.nextPlace.set({ lat: target.lat, lon: target.lon });
       // Show loading overlay IMMEDIATELY before any async operations
       this.engineInit.loading.set(true);
       this.engineInit.resetLoadingSteps();
@@ -375,6 +380,7 @@ export class LocationChangeCoordinatorService {
     }
 
     const callbacks = this.delegate.getChangeCallbacks();
+    this.globe?.nextPlace.set({ lat: data.hq.lat, lon: data.hq.lon });
     const input: LocationChangeInput = {
       hq: canonicalCoords(data.hq),
       spawn: canonicalCoords(data.spawn),

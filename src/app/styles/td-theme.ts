@@ -140,6 +140,8 @@ export const TD_RELIEF = {
   // Text and icons cut into the surface
   engrave: '0 -1px 0 rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.14)',
   engraveIcon: 'drop-shadow(0 -1px 0 rgba(0,0,0,.8)) drop-shadow(0 1px 0 rgba(255,255,255,.12))',
+  // Text over a picture (the menu globe): a soft dark halo keeps it legible on land, sea and cloud
+  overImage: '0 1px 2px rgba(0,0,0,.95), 0 0 10px rgba(0,0,0,.7)',
 
   // A panel: sunken fill, strong drop
   panelRecess: 'inset 0 3px 8px rgba(0,0,0,.75), inset 0 0 0 1px rgba(0,0,0,.6)',
@@ -380,6 +382,7 @@ export const TD_CSS_VARS = `
   --td-hairline: ${R.hairline};
   --td-engrave: ${R.engrave};
   --td-engrave-icon: ${R.engraveIcon};
+  --td-over-image: ${R.overImage};
   --td-panel-recess: ${R.panelRecess};
   --td-panel-drop: ${R.panelDrop};
   --td-raised: ${R.raised};

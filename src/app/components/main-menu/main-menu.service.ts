@@ -6,23 +6,15 @@ import { AUTOSAVE_SLOT, SAVE_GAME, type LoadResult } from '../../services/save-g
 import { shortPlaceName } from '../../services/save-game/slot-name';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
+import { GLOBE_LINK } from '../../services/world/globe-link';
 import { LocationChangeCoordinatorService } from '../../services/location/location-change-coordinator.service';
 import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-facade.service';
 import { readDesktopBridge } from '../../core/desktop-bridge';
 import { autosaveElsewhere } from './autosave-place';
 import type { MenuLayer, MenuPage } from './menu-page';
+import { startMenuSkipped } from './start-menu-skipped';
 
-/**
- * The start menu stays away for automated runs (docs/MAIN_MENU_UI_PLAN.md,
- * Menü 10): a bot (`?bot=`, except `bot=manual`, where a person plays), the
- * benchmark (`&benchmark`) and `&menu=skip`. The game then starts as soon as
- * its place stands, as before the menu.
- */
-export function startMenuSkipped(search: string): boolean {
-  const params = new URLSearchParams(search);
-  const bot = params.get('bot');
-  return (bot !== null && bot !== 'manual') || params.has('benchmark') || params.get('menu') === 'skip';
-}
+export { startMenuSkipped } from './start-menu-skipped';
 
 /** The autosave as the list offers it: "Heilbronn | wave 12" */
 export interface AutosaveOffer {
@@ -58,6 +50,7 @@ export class MainMenuService {
   private readonly engineInit = inject(EngineInitializationService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly location = inject(LocationChangeCoordinatorService);
+  private readonly globe = inject(GLOBE_LINK, { optional: true });
   private readonly facade = inject(TowerDefenseFacadeService, { optional: true });
   private readonly bridge = readDesktopBridge();
 
@@ -84,8 +77,10 @@ export class MainMenuService {
    * longer while the next place loads.
    */
   readonly placeLoading = computed(() => this.hasPlace() && this.engineInit.loading());
-  /** The place stands: Play starts the game there */
-  readonly ready = computed(() => this.hasPlace() && !this.engineInit.loading() && !this.playBlocked());
+  /** The place stands, and the dive from the menu globe has landed in it: Play starts the game there */
+  readonly ready = computed(
+    () => this.hasPlace() && !this.engineInit.loading() && !this.playBlocked() && !this.globe?.holdsPlay(),
+  );
   /**
    * The last load went wrong (UIStore.loadProblem), or the engine failed.
    * The engine's error waits while another place loads: the plate shows that
@@ -137,6 +132,8 @@ export class MainMenuService {
   private pausedByMenu = false;
 
   constructor() {
+    // Play waiting for the landing makes the dive quicker
+    effect(() => this.globe?.playWaits.set(this.pendingPlay()));
     effect(() => {
       const hold = this.isOpen() && !this.inCoop();
       const paused = this.store.paused();

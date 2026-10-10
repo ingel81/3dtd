@@ -70,8 +70,9 @@ logs/
 # Build-Info: wird vor build/start aus git erzeugt (Commit im Run-Log)
 public/build-info.json
 
-# Draco-Decoder: wird beim postinstall aus node_modules kopiert
+# Draco-Decoder und Basis-Transcoder: werden beim postinstall aus node_modules kopiert
 public/draco/
+public/basis/
 .profiles/
 
 # Hero-Video der Landing Page: 15 MB, wird per FTP hochgeladen statt versioniert

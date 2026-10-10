@@ -333,6 +333,11 @@ export class RenderLoop {
     });
   }
 
+  /** Someone waits for the next drawn frame (waitForRenderedFrame, onNextFrameRendered) */
+  hasFrameWaiters(): boolean {
+    return this.frameWaiters.length > 0 || this.frameCallbacks.length > 0;
+  }
+
   /** Releases the waiters of waitForRenderedFrame(). */
   private notifyFrameRendered(): void {
     if (this.frameWaiters.length === 0) return;

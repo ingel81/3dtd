@@ -14,6 +14,7 @@ import { CameraControlService } from '../camera-control.service';
 import { CameraFramingService, GeoPoint } from '../camera-framing.service';
 import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import { StartShowService } from '../world/start-show.service';
+import { GLOBE_LINK } from '../world/globe-link';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
 import { LocationManagementService } from './location-management.service';
@@ -115,6 +116,8 @@ export class LocationChangeExecutorService {
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly uiStore = inject(UIStore);
+  /** The menu globe, if one runs (globe-link.ts) */
+  private readonly globe = inject(GLOBE_LINK, { optional: true });
 
   /**
    * Execute the complete location change sequence
@@ -188,6 +191,11 @@ export class LocationChangeExecutorService {
     callbacks.clearMapEntities();
     this.pathRoute.clearCache();
     callbacks.setSpawnPoints([]);
+
+    // The camera rises out of the old place into the menu globe first
+    // (docs/GLOBE_PLAN.md); without a globe this resolves at once
+    this.engineInit.updateStepMeta('engine', 'Leaving the place...');
+    await this.globe?.beforeOriginChange();
 
     // Update engine origin
     ctx.engine.setOrigin(input.hq.lat, input.hq.lon);
