@@ -50,11 +50,6 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 
 ### Features
 
-- [ ] **E127 UI-Feinschliff nach der Weltkugel** (User, 2026-10-10, gesammelt, Notiz und Bilder in
-      `tmp/plan/ui-feinschliff-2026-10-10/`): im Code zwei Ladebalken im Start-Menü (Play und Continue) und Esc mit
-      Tab-Fokus im Spiel (Tooltip, zweimal Esc; Tab-Fokus überhaupt?); im Rahmen-Baukasten (auffrischen) Varianten für
-      Logo und Menüplatte, Kante Sidebar zum Canvas, Trenner der Kopfleiste, FPS-Anzeige minimiert, Fähigkeitenleiste
-      ohne Platte, aktiver Zustand der Stufenwahl, „Paused | Ort | wave“, Legal & Privacy prominenter.
 - [ ] **E102 Neue Tower aus den Meshy-Kandidaten** (User, 2026-10-02; Modelle in
       `public/assets/models/towers/candidates/`, Zerlegung mit `tools/blender/split_tower.py` und `towers/*.json`):
       Iron Bastion und Sentinel Laser abgenommen. Chainsaw mit Roboter-Tentakeln statt Armen (bis 14 m, eingefahren wie
@@ -133,6 +128,9 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 
 - [ ] **E126** gebaut: realistische Erde hinter dem Menü, Abtauchen in die Tiles, Aufstieg beim Ortswechsel
       ([GLOBE_PLAN.md](docs/GLOBE_PLAN.md)). PLAYTEST G1 bis G3.
+- [ ] **E127** gebaut: ein Ladebalken im Start-Menü, Fokus nach dem Menü leise zurück, kein Fokusring auf Knöpfen,
+      acht Stellen der Optik nach dem Baukasten, Game Over als Schriftzug über der Karte
+      ([DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)). PLAYTEST U1, U2.
 
 ### Nach dem Release 0.6 (2026-10-05, auf `next`)
 

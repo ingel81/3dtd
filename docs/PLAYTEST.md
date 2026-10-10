@@ -454,6 +454,27 @@ Paket H6, Design System (E124, [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)):
 - **H6.4 Schrift:** im Spiel und in der Desktop-App ohne Netz. Erwartung: überall Barlow Semi Condensed, keine
   Ersatzschrift beim ersten Bild, Mono nur bei Raumcodes, Tasten und Logs.
 
+## U UI-Feinschliff (2026-10-10)
+
+Branch `globe/e126-2026-10-09`, E127. Logik per Spec geprüft (ein Balken, leiser Fokus), Optik per Bildtour; hier,
+was Augen und Hände brauchen.
+
+Paket U1:
+- **U1.1 Esc im Spiel:** im Spiel einen Knopf der Kopfleiste anklicken, dann Esc, Esc. Erwartung: Menü auf und zu,
+  kein Tooltip am Knopf, kein Rahmen; das dritte Esc öffnet das Menü sofort wieder.
+- **U1.2 Fokusrahmen:** im Spiel und in den Einstellungen klicken und danach Hotkeys drücken (Leertaste, Zahlen).
+  Erwartung: nirgends ein Messingrahmen um einen Knopf; Textfelder zeigen ihre Kante weiter.
+- **U1.3 Startmenü:** frischer Start mit Autosave am selben Ort. Erwartung: nur ein Ladebalken (oben, nach Klick auf
+  den anderen Eintrag dort); Logo 180 px mittig über der Liste; am Fuß „… | Legal | Privacy“, beide öffnen die Seite.
+- **U1.4 Im Spiel:** FPS oben links als kleiner Stein, leise, unter dem Zeiger hell, Klick klappt auf; Fähigkeiten als
+  einzelne Steine ohne Leiste; tiefere Trenner in der Kopfleiste; Rille an der Sidebar-Kante; Pause-Menü mit
+  „PAUSED“ links und Ort rechts; Stufenwahl in den Einstellungen als Schieber in der Mulde.
+
+Paket U2:
+- **U2.1 Game Over:** einen Lauf verlieren (oder HQ per Debug auf 0). Erwartung: Karte grau unter roter Vignette,
+  GAME OVER schlägt groß ein, das Bild wackelt kurz, die Platte mit den Werten steigt nach; „HQ lost | Ort | wave n“
+  darunter. Auch in 1280×720: alles sichtbar, die Platte scrollt.
+
 ## G Weltkugel als Ladegrund (2026-10-09)
 
 Branch `globe/e126-2026-10-09`, Plan [GLOBE_PLAN.md](GLOBE_PLAN.md). Ablauf, Übergabe und Ruckler sind per
