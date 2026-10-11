@@ -146,6 +146,34 @@ export class MapAssetLibrary {
     return p;
   }
 
+  /**
+   * The lower detail models of a catalogue object (`lod` entries), nearest
+   * first, with the distance each one starts at. Broken files are skipped.
+   */
+  async lodModels(id: string): Promise<{ model: ObjectModel; distance: number }[]> {
+    const entry = await this.objectEntry(id);
+    const out: { model: ObjectModel; distance: number }[] = [];
+    if (!entry?.lod) return out;
+    for (const lod of [...entry.lod].sort((a, b) => a.distance - b.distance)) {
+      const key = `${id}#${lod.file}`;
+      let p = this.models.get(key);
+      if (!p) {
+        p = this.loadModelFn(this.url(lod.file)).then((root) => {
+          const parts = collectParts(root);
+          return { id, entry, parts, height: partsHeight(parts), placeholder: false };
+        });
+        this.models.set(key, p);
+      }
+      try {
+        const model = await p;
+        if (model.parts.length) out.push({ model, distance: lod.distance });
+      } catch (error) {
+        console.warn(`[MapAssetLibrary] LOD ${lod.file} of ${id} not loaded`, error);
+      }
+    }
+    return out;
+  }
+
   /** Frees the GPU side of every loaded model */
   dispose(): void {
     for (const p of this.models.values()) {
