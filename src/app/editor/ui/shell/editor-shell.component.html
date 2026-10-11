@@ -125,11 +125,11 @@
   </main>
 
   <aside class="es-side td-side td-dense" aria-label="Tool options">
-    <div class="td-seg is-sm es-side-tabs" role="tablist" aria-label="Side column">
-      <button type="button" role="tab" [attr.aria-selected]="sideView() === 'tool'" (click)="sideView.set('tool')" data-test="side-tool">{{ toolLabel() }}</button>
-      <button type="button" role="tab" [attr.aria-selected]="sideView() === 'outline'" (click)="sideView.set('outline')" data-test="side-outline">Outline</button>
+    <div class="td-seg is-sm es-side-tabs" role="tablist" aria-label="Side column" tdRovingGroup>
+      <button type="button" role="tab" id="es-tab-tool" aria-controls="es-panel-tool" [attr.aria-selected]="sideView() === 'tool'" (click)="sideView.set('tool')" data-test="side-tool">{{ toolLabel() }}</button>
+      <button type="button" role="tab" id="es-tab-outline" aria-controls="es-panel-outline" [attr.aria-selected]="sideView() === 'outline'" (click)="sideView.set('outline')" data-test="side-outline">Outline</button>
     </div>
-    <section class="td-side-section es-options is-fill" [hidden]="sideView() !== 'tool'">
+    <section class="td-side-section es-options is-fill" id="es-panel-tool" role="tabpanel" aria-labelledby="es-tab-tool" [hidden]="sideView() !== 'tool'">
       <div class="td-side-body">
         <!-- Panels stay once made and only hide: switching tools does not build them again -->
         @if (mounted().has('landscape')) {
@@ -170,7 +170,7 @@
         }
       </div>
     </section>
-    <app-editor-outliner class="td-side-section is-fill" [hidden]="sideView() !== 'outline'" />
+    <app-editor-outliner class="td-side-section is-fill" id="es-panel-outline" role="tabpanel" aria-labelledby="es-tab-outline" [hidden]="sideView() !== 'outline'" />
   </aside>
 
   <app-editor-status class="es-status" />

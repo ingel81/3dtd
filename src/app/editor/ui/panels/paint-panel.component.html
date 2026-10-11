@@ -37,9 +37,9 @@
           <span class="td-name">Add a ground</span>
           <button class="td-btn-ghost td-btn-sm" type="button" (click)="adding.set(false)">Cancel</button>
         </div>
-        <div class="pp-groups" role="tablist" aria-label="Materials by landscape">
+        <div class="pp-groups" role="group" aria-label="Materials by landscape">
           @for (g of materialGroups(); track g.name) {
-            <button type="button" class="pp-group" role="tab" [attr.aria-selected]="group() === g.name" (click)="groupPick.set(g.name)">{{ g.name }}</button>
+            <button type="button" class="pp-group" [attr.aria-pressed]="group() === g.name" (click)="groupPick.set(g.name)">{{ g.name }}</button>
           }
         </div>
         <div class="pp-mats">

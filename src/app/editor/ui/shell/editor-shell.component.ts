@@ -23,6 +23,7 @@ import type { EditorCommand } from './commands';
 import { KEY_ACTIONS, actionFor, bindable, loadKeymap, rebind, saveKeymap, type Keymap } from './keymap';
 import { LEVEL_GUIDE } from './level-guide';
 import { TOUR_STEPS, markTourDone, tourAdvance, tourPending, type TourEvent } from './tour';
+import { RovingGroupDirective } from '../../../components/roving-group.directive';
 import { ContextHintComponent, type HintAction } from '../../../components/context-hint/context-hint.component';
 import { EditorSession } from '../editor-session.service';
 import { CheckPanelComponent } from '../panels/check-panel.component';
@@ -77,7 +78,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
 @Component({
   selector: 'app-editor-shell',
   standalone: true,
-  imports: [
+  imports: [RovingGroupDirective, 
     TdIconComponent,
     MatTooltipModule,
     LandscapePanelComponent,

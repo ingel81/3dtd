@@ -55,6 +55,8 @@ export class EditorOverlay {
   private readonly markers = new Group();
   private readonly nodes = new Group();
   private readonly selection = new Group();
+  /** Name tag pictures by colour and text, kept while the overlay lives */
+  private readonly tags = new Map<string, { material: SpriteMaterial; width: number }>();
   /** What the pointer is over in Select: a click would take it */
   private readonly hover = ring(TD_THEME.brassLight, 0.45);
   private readonly routes = new Group();
@@ -197,14 +199,14 @@ export class EditorOverlay {
       marker.scale.setScalar(this.markerScale);
       marker.userData = { pick: { kind: 'spawn', id: s.id } };
       this.markers.add(marker);
-      this.markers.add(nameTag(s.name, '#' + color.getHexString(), -s.x, this.height(s.x, s.y), 22, this.markerScale, s.y));
+      this.markers.add(this.nameTag(s.name, '#' + color.getHexString(), -s.x, this.height(s.x, s.y), 22, this.markerScale, s.y));
     });
     const hq = hqMarker(selection?.kind === 'hq');
     hq.position.set(-doc.hq.x, this.height(doc.hq.x, doc.hq.y), doc.hq.y);
     hq.scale.setScalar(this.markerScale);
     hq.userData = { pick: { kind: 'hq' } };
     this.markers.add(hq);
-    this.markers.add(nameTag('HQ', TD_THEME.brassLight, -doc.hq.x, this.height(doc.hq.x, doc.hq.y), 18, this.markerScale, doc.hq.y));
+    this.markers.add(this.nameTag('HQ', TD_THEME.brassLight, -doc.hq.x, this.height(doc.hq.x, doc.hq.y), 18, this.markerScale, doc.hq.y));
 
     clear(this.nodes);
     this.nodes.visible = this.showNodes;
@@ -248,6 +250,53 @@ export class EditorOverlay {
         }
       }
     }
+  }
+
+  /**
+   * A name over a marker, the same size on the screen from near and far, in
+   * front of the land: spawns and the HQ are found by name in an overview.
+   * Markers are rebuilt on every change of the map (a brush stroke too): the
+   * picture of a name is drawn once and kept.
+   */
+  private nameTag(text: string, color: string, x: number, ground: number, lift: number, scale: number, z: number): Sprite {
+    const id = `${color}|${text}`;
+    let tag = this.tags.get(id);
+    if (!tag) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const font = '600 30px "Barlow Semi Condensed", "Barlow", sans-serif';
+      let width = 64;
+      if (ctx) {
+        ctx.font = font;
+        width = Math.ceil(ctx.measureText(text).width) + 28;
+      }
+      canvas.width = width;
+      canvas.height = 44;
+      if (ctx) {
+        ctx.font = font;
+        ctx.fillStyle = 'rgba(14, 16, 14, 0.78)';
+        ctx.beginPath();
+        ctx.roundRect(1, 1, width - 2, 42, 6);
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#f0ece0';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 14, 23);
+      }
+      tag = { material: new SpriteMaterial({ map: new CanvasTexture(canvas), depthTest: false, sizeAttenuation: false, transparent: true }), width };
+      this.tags.set(id, tag);
+    }
+    const sprite = new Sprite(tag.material);
+    // About 15 px high on a 900 px tall view
+    const h = 0.034;
+    sprite.scale.set((h * tag.width) / 44, h, 1);
+    sprite.center.set(0.5, 0);
+    sprite.position.set(x, ground + lift * scale, z);
+    sprite.userData = { ground, lift };
+    sprite.renderOrder = 10;
+    return sprite;
   }
 
   /** A faint ring around what a click would pick, or none */
@@ -450,6 +499,11 @@ export class EditorOverlay {
     clear(this.selection);
     clear(this.routes);
     this.nodeGeometry.dispose();
+    for (const t of this.tags.values()) {
+      t.material.map?.dispose();
+      t.material.dispose();
+    }
+    this.tags.clear();
     this.group.removeFromParent();
   }
 }
@@ -512,55 +566,11 @@ function baseRing(color: string): LineLoop {
   return r;
 }
 
-/**
- * A name over a marker, the same size on the screen from near and far, in
- * front of the land: spawns and the HQ are found by name in an overview.
- */
-function nameTag(text: string, color: string, x: number, ground: number, lift: number, scale: number, z: number): Sprite {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  const font = '600 30px "Barlow Semi Condensed", "Barlow", sans-serif';
-  let width = 64;
-  if (ctx) {
-    ctx.font = font;
-    width = Math.ceil(ctx.measureText(text).width) + 28;
-  }
-  canvas.width = width;
-  canvas.height = 44;
-  if (ctx) {
-    ctx.font = font;
-    ctx.fillStyle = 'rgba(14, 16, 14, 0.78)';
-    ctx.beginPath();
-    ctx.roundRect(1, 1, width - 2, 42, 6);
-    ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle = '#f0ece0';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, 14, 23);
-  }
-  const texture = new CanvasTexture(canvas);
-  const sprite = new Sprite(new SpriteMaterial({ map: texture, depthTest: false, sizeAttenuation: false, transparent: true }));
-  // About 15 px high on a 900 px tall view
-  const h = 0.034;
-  sprite.scale.set((h * width) / 44, h, 1);
-  sprite.center.set(0.5, 0);
-  sprite.position.set(x, ground + lift * scale, z);
-  sprite.userData = { ground, lift };
-  sprite.renderOrder = 10;
-  return sprite;
-}
-
 function clear(group: Group): void {
   for (const child of [...group.children]) {
     group.remove(child);
-    if (child instanceof Sprite) {
-      // The sprite geometry is three's own and shared: only the tag's material and picture go
-      child.material.map?.dispose();
-      child.material.dispose();
-      continue;
-    }
+    // A name tag's geometry is three's own and its material is kept by the overlay (tags)
+    if (child instanceof Sprite) continue;
     child.traverse((o) => {
       const mesh = o as Mesh;
       if (mesh.geometry && mesh.geometry.type !== 'SphereGeometry') mesh.geometry.dispose();

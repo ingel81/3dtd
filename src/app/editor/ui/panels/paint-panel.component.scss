@@ -56,7 +56,7 @@
   font-size: var(--td-fs-small);
   cursor: pointer;
 
-  &[aria-selected='true'] {
+  &[aria-pressed='true'] {
     color: var(--td-brass-light);
     border-color: color-mix(in srgb, var(--td-brass-light) 55%, transparent);
   }
