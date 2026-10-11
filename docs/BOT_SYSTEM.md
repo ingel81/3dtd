@@ -774,6 +774,7 @@ prüft `bot-client.service.spec.ts`; das Budget `bot-session` in
 |---|---|
 | `?devworld` (ohne `?bot=manual`) | `botAutoMode = true` **und** `enableBot('expert')`: der Tab spielt sofort selbst |
 | `?devworld&bot=manual` | kein Bot, kein Auto-Wave |
+| `?bot=trial[&waves=N]` auf einer Welt ohne echten Ort (eigene Karte, DevWorld) | Kartenprobe: `enableBot('expert')` mit Auto-Wave, Timescale 75, kein Bot-Server; endet nach N Wellen (Standard 10), siehe `world/map-trial.ts` und [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) |
 | sonst mit `?bot=auto` | nur `botAutoMode = true`; der Bot selbst wird über die Debug-UI oder das Dashboard aktiviert |
 | Dashboard-Kommando `start` | Timescale 75 + `enableBot('expert')` |
 

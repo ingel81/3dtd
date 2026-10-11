@@ -53,6 +53,29 @@ Tower-Typen und die Wellen. Keine Weiche auf die Weltart, die Werte gehen über 
 Offen: die Prozentwerte des Druck-Reglers und der Ausgänge rechnen weiter mit
 `GAME_BALANCE.player.startHealth`, nicht mit der HP der Karte.
 
+## Kartenprobe (`?bot=trial`)
+
+`?world=map:<id>&bot=trial&waves=N` lässt den Experten-Bot die ersten N Wellen (Standard 10, höchstens
+50) der Karte allein spielen, mit Timescale 75 und ohne Bot-Server; der Tab läuft auch versteckt weiter.
+Die Probe gilt für jede Welt ohne echten Ort (`capabilities.realPlace` aus), also auch DevWorld. Sie
+zählt ab `game:started`, die Start-HP kommen aus den Spielwerten der Karte (`MapTrial`,
+`world/map-trial.ts`). Ergebnis `MapTrialResult`:
+
+- `passed`: N Wellen gehalten
+- `lost`: das HQ fiel vorher
+- `stuck`: fünf Minuten Wanduhr lang endete keine Welle
+
+Dazu kommen die HQ-HP am Ende, die verlorenen HP je Welle, die Zahl der Tower und die Spielzeit. Danach
+stoppt der Bot, die Spielgeschwindigkeit geht auf 1, und das Spiel bleibt stehen, wie es ist. Das
+Ergebnis landet an vier Stellen:
+
+- als Zeile im Banner
+- auf der Konsole (`[MapTrial] {...}`)
+- in `window.__mapTrial`
+- per `postMessage({ type: '3dtd-map-trial', result })` an das öffnende Fenster oder den Rahmen. Darüber
+  kann der Editor später mit „Karte prüfen“ die Probe in einem Tab oder iframe öffnen und das Ergebnis
+  lesen.
+
 ## Darstellung
 
 `CustomMapView` (Renderer der Karte, `render/`) wird beim ersten Anhängen nachgeladen und so

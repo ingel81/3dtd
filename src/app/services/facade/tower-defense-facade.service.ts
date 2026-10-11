@@ -21,6 +21,8 @@ import { TowerLosRegistry } from '../tower-los-registry';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { MainWorldService } from '../world/main-world.service';
 import { BotClientService } from '../../bots/bot-client.service';
+import { MAP_TRIAL_MESSAGE, MAP_TRIAL_SPEED, MapTrial, mapTrialSummary, mapTrialWaves, type MapTrialResult } from '../../world/map-trial';
+import { GameStore } from '../../store/game.store';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { UIStore } from '../../store/ui.store';
 import { GameStateSyncService } from '../infrastructure/game-state-sync.service';
@@ -158,6 +160,12 @@ export class TowerDefenseFacadeService {
   /** Pending auto-restart timeout (bot mode), cleared in dispose() */
   private autoRestartTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  private readonly gameStore = inject(GameStore);
+  /** The bot's trial of this world (`?bot=trial`), null outside one */
+  private mapTrial: MapTrial | null = null;
+  /** The page plays a trial: it keeps running in a hidden tab like a DevWorld bot run */
+  private trialRun = false;
+
   /**
    * Initialize the facade with component bridge, game state, and injector.
    */
@@ -235,7 +243,11 @@ export class TowerDefenseFacadeService {
     // Bot runs and their training are what DevWorld is for (docs/BOT_SYSTEM.md):
     // the bot plays there on its own, on no other world
     const botWorld = this.worldContext.ref().kind === 'devworld';
-    if (botWorld && botMode === 'coop') {
+    // A trial of a world with no real place (a custom map, DevWorld): the bot plays its waves without a bot server
+    const trialWaves = this.worldContext.capabilities().realPlace ? null : mapTrialWaves(window.location.search);
+    if (trialWaves !== null) {
+      this.startMapTrial(trialWaves);
+    } else if (botWorld && botMode === 'coop') {
       // One seat of a coop room (e2e/coop-bots): no bot server, whose
       // controls and restarts belong to single player runs. The bot waits for
       // the room's game (BotSignals.botCoop).
@@ -281,6 +293,47 @@ export class TowerDefenseFacadeService {
   }
 
   /**
+   * The expert bot plays the world's first `waves` waves on its own at the
+   * dashboard's speed (bots/map-trial.ts). The trial counts from the run's
+   * start; the HQ starts with the world's run rules.
+   */
+  private startMapTrial(waves: number): void {
+    this.trialRun = true;
+    this.store.directorEnabled.set(true);
+    // Waves start on their own; the run log files the run as the bot's
+    this.botClient.botAutoMode.set(true);
+    this.botClient.enableBot('expert');
+    this.gameStore.setGameSpeed(MAP_TRIAL_SPEED);
+    const started = this.sim.bus.onLive('game:started', () => {
+      started.dispose();
+      this.mapTrial = new MapTrial(waves, this.worldContext.runRules().hqHealth, {
+        hqHealth: () => this.mirror.scalars.baseHealth,
+        towers: () => this.mirror.towers().length,
+        gameTimeMs: () => this.mirror.scalars.gameTimeMs,
+      }, this.sim.bus, (result) => this.endMapTrial(result));
+    });
+    this.eventBusSubs.add(started);
+  }
+
+  /** The trial is over: the bot stops, the game stays as it is, the result goes out */
+  private endMapTrial(result: MapTrialResult): void {
+    this.botClient.botAutoMode.set(false);
+    this.botClient.disableBot();
+    if (this.autoRestartTimeout !== null) {
+      clearTimeout(this.autoRestartTimeout);
+      this.autoRestartTimeout = null;
+    }
+    this.gameStore.setGameSpeed(1);
+    this.uiStore.notice.set({ text: mapTrialSummary(result) });
+    console.info('[MapTrial]', JSON.stringify(result));
+    (window as { __mapTrial?: MapTrialResult }).__mapTrial = result;
+    // The page that opened the trial (the editor's check) hears the result
+    const message = { type: MAP_TRIAL_MESSAGE, result };
+    window.opener?.postMessage(message, window.location.origin);
+    if (window.parent !== window) window.parent.postMessage(message, window.location.origin);
+  }
+
+  /**
    * A start without a place in its link loads the main menu's guess
    * (startPlaceGuess: the autosave's place, else the last one played) as
    * the menu's choice, once the start waits for one; the player can still
@@ -316,6 +369,8 @@ export class TowerDefenseFacadeService {
       this.autoRestartTimeout = null;
     }
     this.eventBusSubs.disposeAll();
+    this.mapTrial?.dispose();
+    this.mapTrial = null;
     this.gameStateSync.dispose();
     this.onboarding.disconnect();
     this.bestWaves.disconnect();
@@ -421,7 +476,7 @@ export class TowerDefenseFacadeService {
         // once-a-second status push keeps reporting the client as healthy.
         // The normal game keeps the browser's throttling; it should not run
         // when nobody is watching.
-        engine.renderLoop.setBackgroundLoopEnabled(this.worldContext.ref().kind === 'devworld');
+        engine.renderLoop.setBackgroundLoopEnabled(this.worldContext.ref().kind === 'devworld' || this.trialRun);
 
         // Fix race condition: if tiles loaded during initEngine() before the
         // onTilesLoadCallback was set, the route refresh was skipped.
