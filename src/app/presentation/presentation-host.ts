@@ -20,6 +20,7 @@ import { OpPlayer } from './op-player';
 import { FramePresenter } from './frame-presenter';
 import { FlameSounds } from './flame-sounds';
 import { HqDamagePresenter } from './hq-damage-presenter';
+import { DEFAULT_RUN_RULES } from '../sim/protocol/run-rules';
 import { registerCombatSounds } from './combat-sounds';
 import { ManualShots } from './manual-shots';
 import { iceDecal, iceExplosion } from './ice-effects';
@@ -84,7 +85,7 @@ export class PresentationHost implements SimPresenterApi {
     this.backgroundMusic = new BackgroundMusicService(bus, engine);
     this.backgroundMusic.setGameSpeedSource(() => this.gameSpeed);
     this.bloodMoon = new BloodMoonService(bus, engine.bloodMoon);
-    this.hq = new HqDamagePresenter(engine, bus);
+    this.hq = new HqDamagePresenter(engine, bus, () => (engine.world.runRules() ?? DEFAULT_RUN_RULES).hqHealth);
     this.manualShots = new ManualShots(bus, source);
 
     // Scorch marks sit on route cells at the grid's ground height, the hero

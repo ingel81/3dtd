@@ -28,6 +28,9 @@ export class GameStore {
   /** Base health points */
   readonly baseHealth = signal<number>(GAME_BALANCE.player.startHealth);
 
+  /** The run's HQ maximum: the game's, or the world's (RunRules.hqHealth), set when the world opens */
+  readonly maxHealth = signal<number>(GAME_BALANCE.player.startHealth);
+
   /** Current game phase */
   readonly phase = signal<GamePhase>('setup');
 
@@ -171,12 +174,12 @@ export class GameStore {
 
   /** Health percentage (0..100) */
   readonly healthPercent = computed(() =>
-    Math.round((this.baseHealth() / GAME_BALANCE.player.startHealth) * 100)
+    Math.round((this.baseHealth() / this.maxHealth()) * 100)
   );
 
   /** Health is critical — same threshold the close-call bonus uses */
   readonly healthCritical = computed(
-    () => this.baseHealth() <= closeCallHp()
+    () => this.baseHealth() <= closeCallHp(this.maxHealth())
   );
 
   /**
@@ -186,7 +189,7 @@ export class GameStore {
   resetGameState(): void {
     this.stateJumps.update((n) => n + 1);
     this.credits.set(GAME_BALANCE.player.startCredits);
-    this.baseHealth.set(GAME_BALANCE.player.startHealth);
+    this.baseHealth.set(this.maxHealth());
     this.phase.set('setup');
     this.waveNumber.set(0);
     this.enemiesAlive.set(0);

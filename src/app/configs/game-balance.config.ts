@@ -138,7 +138,8 @@ export const GAME_BALANCE = {
  * Beide Leser — der GameStore für seine Kritisch-Anzeige und der WaveManager
  * für den Bonus — rechnen sie hierüber aus, sonst driften sie auseinander,
  * sobald jemand `startHealth` anfasst. Genau das ist am 2026-09-22 passiert.
+ * `maxHealth` ist die HQ-HP des Laufs (RunRules.hqHealth einer eigenen Karte).
  */
-export function closeCallHp(): number {
-  return GAME_BALANCE.player.startHealth * GAME_BALANCE.economy.closeCallHpShare;
+export function closeCallHp(maxHealth: number = GAME_BALANCE.player.startHealth): number {
+  return maxHealth * GAME_BALANCE.economy.closeCallHpShare;
 }

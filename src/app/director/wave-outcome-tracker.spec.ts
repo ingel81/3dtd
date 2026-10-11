@@ -100,6 +100,22 @@ describe('WaveOutcomeTracker', () => {
     expect(tracker.finalize('completed', 0).wasCloseCall).toBe(true);
   });
 
+  it("measures damage and close calls against the run's HQ maximum", () => {
+    const own = new WaveOutcomeTracker(() => 80);
+    own.start(0, 80, 0);
+    own.healthChanged(20, -60);
+    const outcome = own.finalize('completed', 0);
+    expect(outcome.damagePercent).toBe(60 / 80);
+    // 20 of 80 is below 30 %; of the game's 500 it would be too, but 30 of 80 is not
+    expect(outcome.wasCloseCall).toBe(true);
+    own.start(0, 80, 0);
+    own.healthChanged(30, -50);
+    expect(own.finalize('completed', 0).wasCloseCall).toBe(false);
+    tracker.start(0, START_HP, 0);
+    tracker.healthChanged(30, -(START_HP - 30));
+    expect(tracker.finalize('completed', 0).wasCloseCall).toBe(true);
+  });
+
   it('marks a wave that destroyed the base as lost and a close call at zero health', () => {
     tracker.start(1, 10, 0);
     tracker.healthChanged(0, -10);

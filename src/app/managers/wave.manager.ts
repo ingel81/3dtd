@@ -5,7 +5,7 @@ import { ENEMY_TYPES, EnemyTypeId, enemyRewardWeight, lineageRewardWeight, spawn
 import { GamePhase, GeoPosition } from '../models/game.types';
 import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
 import type { IGameManager } from '../game-engine/game-manager.interface';
-import { closeCallHp } from '../configs/game-balance.config';
+import { GAME_BALANCE, closeCallHp } from '../configs/game-balance.config';
 import type { WaveGoldBreakdown } from '../game-engine/game-event-bus';
 import { waveGoldTotal } from '../services/economy.service';
 import type { SpawnerState } from '../simulator/wave-snapshot';
@@ -183,6 +183,8 @@ export class WaveManager implements IGameManager {
   // Track Perfect/CloseCall signals per wave
   private damageTakenThisWave = 0;
   private currentHealthProvider: (() => number) | null = null;
+  /** The run's HQ maximum (RunRules.hqHealth), the close call's reference */
+  private maxHealthProvider: () => number = () => GAME_BALANCE.player.startHealth;
   private waveGoldProvider: ((result: WaveEndResult) => WaveGoldBreakdown) | null = null;
 
   /** EventBus subscriptions — disposed in destroy(). */
@@ -223,8 +225,9 @@ export class WaveManager implements IGameManager {
    * Set the current-health provider (from GameStateManager).
    * Used for CloseCall-detection at wave end.
    */
-  setCurrentHealthProvider(provider: () => number): void {
+  setCurrentHealthProvider(provider: () => number, maxHealth: () => number = () => GAME_BALANCE.player.startHealth): void {
     this.currentHealthProvider = provider;
+    this.maxHealthProvider = maxHealth;
   }
 
   /**
@@ -662,7 +665,7 @@ export class WaveManager implements IGameManager {
     const hpLost = this.damageTakenThisWave;
     const perfect = hpLost === 0;
     const hpAtEnd = this.currentHealthProvider ? this.currentHealthProvider() : 100;
-    const closeCall = !perfect && hpAtEnd <= closeCallHp();
+    const closeCall = !perfect && hpAtEnd <= closeCallHp(this.maxHealthProvider());
 
     const result: WaveEndResult = { wave: waveNum, perfect, closeCall, hpLost };
     // Book the completion gold here, so the event carries what was paid.

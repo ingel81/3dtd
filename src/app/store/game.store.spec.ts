@@ -169,6 +169,18 @@ describe('GameStore', () => {
       expect(store.healthPercent()).toBe(50);
     });
 
+    it("measures health against the run's maximum (a custom map's HQ health)", () => {
+      store.maxHealth.set(80);
+      store.baseHealth.set(40);
+      expect(store.healthPercent()).toBe(50);
+      store.baseHealth.set(20);
+      expect(store.healthCritical()).toBe(true);
+      store.baseHealth.set(21);
+      expect(store.healthCritical()).toBe(false);
+      store.resetGameState();
+      expect(store.baseHealth()).toBe(80);
+    });
+
     it('healthPercent is 0 when health is 0', () => {
       store.baseHealth.set(0);
       expect(store.healthPercent()).toBe(0);

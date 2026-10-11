@@ -371,6 +371,20 @@ describe('WaveManager', () => {
   });
 
   describe('endWave()', () => {
+    it("calls a close call against the run's HQ maximum", () => {
+      const endAt = (health: number, max?: number) => {
+        wm.setCurrentHealthProvider(() => health, max === undefined ? undefined : () => max);
+        wm.startWave(makeWaveConfig());
+        bus.emit({ type: 'enemy:reached-base', enemy: {} as never, damage: 10 });
+        bus.processQueue();
+        return wm.endWave().closeCall;
+      };
+      // 30 HP left: a close call of the game's 500, not of a map's 80 (below 20 is)
+      expect(endAt(30)).toBe(true);
+      expect(endAt(30, 80)).toBe(false);
+      expect(endAt(20, 80)).toBe(true);
+    });
+
     it('sets phase back to setup', () => {
       wm.startWave(makeWaveConfig());
       wm.endWave();

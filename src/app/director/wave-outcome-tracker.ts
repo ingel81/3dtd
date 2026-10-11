@@ -18,6 +18,9 @@ const CLOSE_CALL_THRESHOLD = 0.3;
 export type WaveEnd = 'completed' | 'base-destroyed';
 
 export class WaveOutcomeTracker {
+  /** @param maxHealth the run's HQ maximum (RunRules.hqHealth), what damage and close calls are measured against */
+  constructor(private readonly maxHealth: () => number = () => GAME_BALANCE.player.startHealth) {}
+
   private outcome: Partial<WaveOutcome> = {};
   private startTime = 0;
   private lowestHealth = 100;
@@ -156,7 +159,7 @@ export class WaveOutcomeTracker {
       this.outcome.cheated = true;
     } else if (delta < 0) {
       this.outcome.damageToPlayer = (this.outcome.damageToPlayer || 0) - delta;
-      this.outcome.damagePercent = (this.outcome.damageToPlayer || 0) / GAME_BALANCE.player.startHealth;
+      this.outcome.damagePercent = (this.outcome.damageToPlayer || 0) / this.maxHealth();
     }
 
     if (health < this.lowestHealth) {
@@ -182,7 +185,7 @@ export class WaveOutcomeTracker {
       outcome.playerSurvived = false;
       outcome.wasCloseCall = this.lowestHealth <= 0;
     } else {
-      outcome.wasCloseCall = this.lowestHealth / GAME_BALANCE.player.startHealth < CLOSE_CALL_THRESHOLD;
+      outcome.wasCloseCall = this.lowestHealth / this.maxHealth() < CLOSE_CALL_THRESHOLD;
     }
 
     outcome.avgEnemyLifetimeMs = this.averageLifetimeMs(now);

@@ -836,7 +836,7 @@ export class GameStateManager {
     // Alone every spawn point is a lane, with its share of the start credits
     this.followStartCredits();
     // Wire health-provider for CloseCall detection at wave end
-    this.waveManager.setCurrentHealthProvider(() => this.baseHealth());
+    this.waveManager.setCurrentHealthProvider(() => this.baseHealth(), () => this.runRules.hqHealth);
     // The wave books its completion gold through here, so wave:completed can
     // carry the real amount and its parts.
     this.waveManager.setWaveGoldProvider((result) => this.applyWaveCompletionBonus(result));
@@ -1494,7 +1494,7 @@ export class GameStateManager {
 
   /** Apply Wave-Completion-Bonus via EconomyService (delegates the math). */
   private applyWaveCompletionBonus(result: { wave: number; perfect: boolean; closeCall: boolean; hpLost: number }): WaveGoldBreakdown {
-    const breakdown = this.economy.computeWaveCompletionBonus(result);
+    const breakdown = this.economy.computeWaveCompletionBonus(result, this.runRules.hqHealth);
     this.creditsLedger.addEach(waveGoldTotal(breakdown), 'wave-bonus');
     return breakdown;
   }

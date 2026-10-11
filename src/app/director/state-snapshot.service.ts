@@ -85,7 +85,7 @@ export class StateSnapshotService {
   /** Game-time start of the current run (ms), for the encoder's gameTime feature. */
   private gameStartTime = 0;
   private currentWaveConfig: WaveConfig | null = null;
-  private readonly currentWave = new WaveOutcomeTracker();
+  private readonly currentWave = new WaveOutcomeTracker(() => this.store.maxHealth());
 
   // === HISTORY ===
   private readonly history = new WaveHistory();
@@ -164,7 +164,7 @@ export class StateSnapshotService {
       gameTimeSeconds: (this.now() - this.gameStartTime) / 1000,
       phase: this.store.phase() as GamePhase,
 
-      player: playerState(this.store.baseHealth(), credits),
+      player: playerState(this.store.baseHealth(), credits, this.store.maxHealth()),
       defense,
       vulnerabilities,
       recentHistory: this.history.summary(),

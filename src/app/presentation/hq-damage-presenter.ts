@@ -30,9 +30,11 @@ export class HqDamagePresenter {
   private hqTerrainHeight: number | null = null;
   private lastDamageSoundTime = Number.NEGATIVE_INFINITY;
 
+  /** @param maxHealth the run's HQ maximum (RunRules.hqHealth): full health shows no fire */
   constructor(
     private readonly engine: HqEngine,
     bus: MainEventBus,
+    private readonly maxHealth: () => number = () => GAME_BALANCE.player.startHealth,
   ) {
     const audio = engine.spatialAudio;
     if (audio) {
@@ -76,7 +78,7 @@ export class HqDamagePresenter {
     if (!base) return;
     const effects = this.engine.effects;
 
-    if (currentHealth >= GAME_BALANCE.player.startHealth) {
+    if (currentHealth >= this.maxHealth()) {
       if (this.activeFireId) {
         effects.stopFire(this.activeFireId);
         this.activeFireId = null;

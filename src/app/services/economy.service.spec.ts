@@ -286,6 +286,19 @@ describe('EconomyService', () => {
       expect(result).toBe(base + comebackBonus(10, base));
     });
 
+    it("measures the loss against the run's HQ maximum (a custom map's)", () => {
+      const base = waveBase(1);
+      const lost = { wave: 1, perfect: false, closeCall: false, hpLost: 10 };
+      // The game's maximum is the default: the same gold as before
+      expect(service.computeWaveCompletionBonus(lost, GAME_BALANCE.player.startHealth))
+        .toEqual(service.computeWaveCompletionBonus(lost));
+      // 10 of 100 is five times the share of 10 of 500
+      const share = 10 / 100;
+      const expected = Math.round(base * Math.min(GAME_BALANCE.economy.comebackBonusCap, share * GAME_BALANCE.economy.comebackBonusSlope));
+      expect(service.computeWaveCompletionBonus(lost, 100).comeback).toBe(expected);
+      expect(expected).toBeGreaterThan(comebackBonus(10, base));
+    });
+
     it('awards no comeback bonus when hpLost is 0', () => {
       const base = waveBase(1);
       const result = waveGoldTotal(service.computeWaveCompletionBonus({

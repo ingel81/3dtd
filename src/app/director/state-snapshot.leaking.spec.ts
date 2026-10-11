@@ -36,7 +36,7 @@ describe('StateSnapshotService oozes flowing in', () => {
     bus = new GameEventBus();
     injections['SimClient'] = { bus };
     injections['SimMirror'] = { gameTimeMs: 0 };
-    injections['TowerDefenseStore'] = { baseHealth: () => 100 };
+    injections['TowerDefenseStore'] = { baseHealth: () => 100, maxHealth: () => 100 };
     const collector = new StateSnapshotService();
     results = [];
     collector.onWaveResult((r) => results.push(r));

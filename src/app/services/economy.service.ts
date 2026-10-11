@@ -58,7 +58,7 @@ export class EconomyService {
     perfect: boolean;
     closeCall: boolean;
     hpLost: number;
-  }): WaveGoldBreakdown {
+  }, maxHealth: number = GAME_BALANCE.player.startHealth): WaveGoldBreakdown {
     const cfg = GAME_BALANCE.economy;
     const base = waveRules().gold(result.wave).complete;
     const perfectBonus = result.perfect ? Math.round(base * cfg.perfectBonusRatio) : 0;
@@ -68,7 +68,7 @@ export class EconomyService {
     // des verlorenen HP-Anteils. Beides war vorher absolut (Deckel 15 Gold,
     // Steigung je HP-Punkt) und damit gegen Budgets in Zehntausenden
     // wirkungslos: gemessen 0,02 % des Wellengolds.
-    const lostShare = result.hpLost / GAME_BALANCE.player.startHealth;
+    const lostShare = result.hpLost / maxHealth;
     const comebackBonus = result.hpLost > 0
       ? Math.round(base * Math.min(cfg.comebackBonusCap, lostShare * cfg.comebackBonusSlope))
       : 0;

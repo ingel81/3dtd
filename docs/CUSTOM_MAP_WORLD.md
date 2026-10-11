@@ -47,8 +47,18 @@ Tower-Typen und die Wellen. Keine Weiche auf die Weltart, die Werte gehen über 
   `WaveDirector.useWorldWaves`, der Worker bekommt die Liste über `SimConfig.waveTable`. Eine Liste
   mit Fehlern (`validateWaveTable`) wird mit Warnung übergangen, dann spielt die Wahl des Spielers.
 
-Offen: die Prozentwerte des Druck-Reglers und der Ausgänge rechnen weiter mit
-`GAME_BALANCE.player.startHealth`, nicht mit der HP der Karte.
+Alle Anteile an der HQ-HP rechnen mit der HP des Laufs (`RunRules.hqHealth`), nicht mit
+`GAME_BALANCE.player.startHealth`:
+
+- in der Simulation die Knapp-Grenze am Wellenende (`closeCallHp(max)`, `WaveManager`) und der
+  Trostpreis (`EconomyService.computeWaveCompletionBonus`)
+- auf dem Hauptthread die Ausgänge der Welle (`WaveOutcomeTracker`: `damagePercent`, `wasCloseCall`),
+  der Spielerzustand des Snapshots (`playerState`), `GameStore.healthPercent` und `healthCritical`
+  (aus `GameStore.maxHealth`, gesetzt beim Öffnen der Welt) und das HQ-Feuer
+
+Der Druck-Regler selbst misst gegen die HP zu Wellenbeginn und braucht kein Maximum. Ohne eigene
+Regeln ist das Maximum `startHealth`, die Rechnung bleibt bitgleich: Tiles, DevWorld und alte Replays
+ändern sich nicht.
 
 ## Kartenprobe (`?bot=trial`)
 

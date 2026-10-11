@@ -61,6 +61,7 @@ export class TowerDefenseStore {
 
   /** Base health points */
   readonly baseHealth = this.gameStore.baseHealth;
+  readonly maxHealth = this.gameStore.maxHealth;
 
   /** Current game phase */
   readonly phase = this.gameStore.phase;

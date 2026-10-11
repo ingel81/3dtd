@@ -439,7 +439,11 @@ export class TowerDefenseFacadeService {
       const waves = world.worldWaves();
       this.waveDirector.useWorldWaves(waves?.table ? { table: waves.table } : {}, waves?.source ?? null);
       // The build menu locks what the world's rules leave out, as the simulation does
-      this.researchStore.runRules.set(world.runRules() ?? DEFAULT_RUN_RULES);
+      const rules = world.runRules() ?? DEFAULT_RUN_RULES;
+      this.researchStore.runRules.set(rules);
+      // Percentages of the HQ's health (the director's outcomes, the header) against the run's maximum
+      this.store.maxHealth.set(rules.hqHealth);
+      this.store.baseHealth.set(rules.hqHealth);
       this.engineInit.configure(canvas, { lat: base.lat, lon: base.lon }, world);
       // The streets load while the engine is built and the tiles stream (TODO H13); onLoadStreets takes it
       const center = this.store.centerCoords();

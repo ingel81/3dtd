@@ -25,8 +25,8 @@ export type ResearchReader = Pick<
   | 'isTowerUnlocked'
 > & Partial<Pick<ResearchStore, 'lanes'>>;
 
-export function playerState(baseHealth: number, credits: number): PlayerState {
-  const maxHealth = GAME_BALANCE.player.startHealth;
+/** `maxHealth`: the run's HQ maximum (RunRules.hqHealth) */
+export function playerState(baseHealth: number, credits: number, maxHealth: number = GAME_BALANCE.player.startHealth): PlayerState {
   return {
     credits,
     lives: baseHealth,

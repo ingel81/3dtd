@@ -69,6 +69,7 @@ describe('StateSnapshotService', () => {
     waveNumber: ReturnType<typeof signal<number>>;
     phase: ReturnType<typeof signal<string>>;
     baseHealth: ReturnType<typeof signal<number>>;
+    maxHealth: ReturnType<typeof signal<number>>;
     credits: ReturnType<typeof signal<number>>;
   };
   let research: {
@@ -154,7 +155,7 @@ describe('StateSnapshotService', () => {
     gameTimeMs = 0;
     wallPerGameMs = 1;
     routes = [];
-    store = { waveNumber: signal(0), phase: signal('setup'), baseHealth: signal(HP), credits: signal(250) };
+    store = { waveNumber: signal(0), phase: signal('setup'), baseHealth: signal(HP), maxHealth: signal(HP), credits: signal(250) };
     research = {
       airTargetingUnlocked: signal(false),
       completedResearches: signal(new Set<string>()),
