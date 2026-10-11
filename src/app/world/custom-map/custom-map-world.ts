@@ -1,5 +1,5 @@
 import { isDevMode } from '@angular/core';
-import { type Group, type Matrix4, type Object3D, type PerspectiveCamera, Vector3, type WebGLRenderer } from 'three';
+import { type Group, type Matrix4, type Object3D, type PerspectiveCamera, type Scene, Vector3, type WebGLRenderer } from 'three';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import type { CameraBounds, CameraRig } from '../../three-engine/camera-rig';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
@@ -9,6 +9,7 @@ import type {
   WorldAttachContext,
   IntroTour,
   WorldCapabilities,
+  WorldMinimap,
   WorldProvider,
   WorldStartLayout,
   WorldWaves,
@@ -20,6 +21,7 @@ import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
 import { type CustomMapDocument, type MapObject, geoToMap, mapToGeo } from './map-document';
 import { CustomMapDestruction, FALLEN_SCALE, type StructureEntry } from './custom-map-destruction';
+import { renderMinimapPicture } from './custom-map-minimap';
 import { MapStore } from './map-store';
 import type { MapAssetLibrary } from './render/map-asset-library';
 import type { CustomMapView } from './render/custom-map-view';
@@ -150,6 +152,10 @@ export class CustomMapWorld implements WorldProvider {
   private catalogObjects: readonly (StructureEntry & { blocksBuild: boolean })[] = [];
   /** The scale a fallen object had, to stand it up again */
   private readonly fallenScale = new Map<string, number>();
+  /** What the minimap picture renders: the scene and the children the map put into it */
+  private stage: { scene: Scene; renderer: WebGLRenderer; owned: Set<Object3D> } | null = null;
+  private minimapPicture: HTMLCanvasElement | null = null;
+  private highest: number | null = null;
 
   constructor(
     private readonly map: LoadedCustomMap,
@@ -191,11 +197,17 @@ export class CustomMapWorld implements WorldProvider {
     });
     this.view = view;
     this.placeView();
+    const before = new Set(ctx.scene.children);
     // The group and the sight blockers as direct children of the scene: the LOS cube renders only the latter
     view.attach(ctx.scene);
     // The map's sky, sun with shadows, fill light and fog; the engine added none (capabilities.ownEnvironment)
     CustomMapEnvironment.enableShadows(ctx.renderer);
     view.environment.apply(ctx.scene, ctx.renderer);
+    this.stage = {
+      scene: ctx.scene,
+      renderer: ctx.renderer,
+      owned: new Set(ctx.scene.children.filter((child) => !before.has(child))),
+    };
     // Over the HQ at the scene origin, controls that raycast the map's ground and objects
     ctx.cameraRig.setupEnvironmentControls(ctx.scene, view.losBlockers);
     this.rig = ctx.cameraRig;
@@ -349,6 +361,32 @@ export class CustomMapWorld implements WorldProvider {
     return { points: [hq, ...ordered], portals: ordered };
   }
 
+  /**
+   * The map from above, rendered once after its first drawn frame (its
+   * levels of detail set) from the map's own scene children only
+   */
+  minimap(): WorldMinimap | null {
+    const { width, depth } = this.doc.terrain;
+    const area = {
+      left: this.frame.sceneX(-width / 2),
+      right: this.frame.sceneX(width / 2),
+      top: this.frame.sceneZ(depth / 2),
+      bottom: this.frame.sceneZ(-depth / 2),
+    };
+    if (!this.minimapPicture) {
+      if (!this.prepared || !this.stage || !this.view || this.lastUpdate === 0) return null;
+      const { scene, renderer, owned } = this.stage;
+      try {
+        this.minimapPicture = renderMinimapPicture(renderer, scene, owned, area, this.topHeight());
+      } catch (err) {
+        console.warn('[CustomMap] no minimap picture', err);
+        this.stage = null;
+        return null;
+      }
+    }
+    return { picture: this.minimapPicture, ...area };
+  }
+
   regenerate(): Promise<void> {
     return Promise.reject(new Error('A custom map cannot be rolled again'));
   }
@@ -358,6 +396,8 @@ export class CustomMapWorld implements WorldProvider {
     this.rig = null;
     this.view?.dispose();
     this.view = null;
+    this.stage = null;
+    this.minimapPicture = null;
   }
 
   /**
@@ -370,9 +410,7 @@ export class CustomMapWorld implements WorldProvider {
     const { width, depth } = this.doc.terrain;
     const size = Math.max(width, depth);
     const margin = size / 3;
-    const heights = this.doc.terrain.grid.heights;
-    let top = -Infinity;
-    for (const h of heights) if (h > top) top = h;
+    const top = this.topHeight();
     return {
       minX: this.frame.sceneX(width / 2) - margin,
       maxX: this.frame.sceneX(-width / 2) + margin,
@@ -412,6 +450,16 @@ export class CustomMapWorld implements WorldProvider {
       this.view?.updateObject(o);
     }
     this.surface.setObjectCatalog(this.catalogObjects);
+  }
+
+  /** The highest ground sample */
+  private topHeight(): number {
+    if (this.highest === null) {
+      let top = -Infinity;
+      for (const h of this.doc.terrain.grid.heights) if (h > top) top = h;
+      this.highest = top;
+    }
+    return this.highest;
   }
 
   /** The map's middle where the frame puts map (0, 0) */

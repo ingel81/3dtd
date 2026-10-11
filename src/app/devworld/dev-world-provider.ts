@@ -168,6 +168,11 @@ export class DevWorldProvider implements WorldProvider {
     return null;
   }
 
+  /** No picture from above: the minimap stays away */
+  minimap(): null {
+    return null;
+  }
+
   startLayout(): WorldStartLayout {
     const hq = { lat: FLAT_WORLD_ORIGIN.lat, lon: FLAT_WORLD_ORIGIN.lon };
     if (!this.attached) return { hq, spawns: [] };

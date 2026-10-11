@@ -273,4 +273,11 @@ export class EllipsoidSync {
     return target;
   }
 
+  /** The inverse of geoToLocalSimple() on the ground: lat/lon of the scene point (x, z) */
+  localSimpleToGeo(x: number, z: number): { lat: number; lon: number } {
+    return {
+      lat: this.originLatDeg + z / METERS_PER_DEGREE_LAT,
+      lon: this.originLonDeg - x / (METERS_PER_DEGREE_LAT * this.originLatCos),
+    };
+  }
 }

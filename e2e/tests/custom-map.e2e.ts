@@ -26,6 +26,9 @@ test('plays the shipped demo valley: a tower, a wave, kills', async ({ browser }
   await page.goto(`/?world=map:${MAP}`);
   await gameReady(page);
   await expect(page.locator('.td-map-attribution')).toContainText('Demo');
+  // The map from above in the corner; a click on it glides the camera there
+  const minimap = page.locator('[data-test=world-minimap]');
+  await expect(minimap).toBeVisible();
   await shot(testInfo, page, 'loaded');
 
   expect(await buildArcher(page), 'a tower stands').toBe(true);
@@ -38,6 +41,8 @@ test('plays the shipped demo valley: a tower, a wave, kills', async ({ browser }
     intervals: [2000],
   }).toBe(true);
   await shot(testInfo, page, 'wave');
+  await minimap.click({ position: { x: 20, y: 20 } });
+  await shot(testInfo, page, 'minimap-jump');
   expect(errors).toEqual([]);
   await page.context().close();
 });

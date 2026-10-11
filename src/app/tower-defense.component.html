@@ -130,6 +130,8 @@
 
         <!-- Compass Overlay -->
         <app-compass [rotation]="compassRotation()" (resetBearing)="resetCamera()" />
+        <!-- Minimap under it, for worlds with a picture from above (custom maps) -->
+        <app-world-minimap />
 
         <!-- Debug Windows (draggable), one lazy chunk, see debugWindowsRequested -->
         @defer (when debugWindowsRequested()) {

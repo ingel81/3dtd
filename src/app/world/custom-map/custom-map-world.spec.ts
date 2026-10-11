@@ -263,6 +263,11 @@ describe('CustomMapWorld', () => {
     expect(customMapDestructible('?world=map:x')).toBe(false);
   });
 
+  it('has no minimap picture before the map stands', () => {
+    const doc = testMap();
+    expect(new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3).minimap()).toBeNull();
+  });
+
   it('reads the spawn limit from the link', () => {
     expect(customMapSpawnLimit('?world=map:x')).toBe(MAX_SPAWN_PORTALS);
     expect(customMapSpawnLimit('?world=map:x&spawns=2')).toBe(2);

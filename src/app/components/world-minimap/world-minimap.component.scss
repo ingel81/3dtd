@@ -1,0 +1,21 @@
+// Layout of the minimap: a td-overlay plate under the compass at the top
+// right of the map, the canvas inside it. Only the canvas takes a click.
+
+:host {
+  position: absolute;
+  top: 112px;
+  right: 12px;
+  z-index: 5;
+}
+
+.wm-plate {
+  padding: 4px;
+}
+
+.wm-canvas {
+  position: relative;
+  display: block;
+  width: 176px;
+  height: 176px;
+  cursor: pointer;
+}

@@ -152,6 +152,11 @@ export class SimMirror implements SimMirrorApi {
     }
   }
 
+  /** The routes by spawn id as setWorld got them; a new map with every world */
+  routes(): ReadonlyMap<string, readonly GeoPosition[]> {
+    return this.paths;
+  }
+
   private readonly losAwaitingSignal = signal(0);
   /** Towers waiting for their line of sight (SimScalars.losAwaiting), as a signal: a save waits for them */
   readonly losAwaiting = this.losAwaitingSignal.asReadonly();

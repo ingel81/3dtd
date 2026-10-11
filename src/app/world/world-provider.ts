@@ -196,6 +196,20 @@ export interface WorldAttachContext {
   groundChanged(): void;
 }
 
+/**
+ * A world's map from straight above, north up: the picture and the scene
+ * area it covers. West is +x in the scene, so `left` is the larger x.
+ */
+export interface WorldMinimap {
+  picture: HTMLCanvasElement | ImageBitmap;
+  /** Scene x at the picture's left (west) and right (east) edge */
+  left: number;
+  right: number;
+  /** Scene z at the picture's top (north) and bottom (south) edge */
+  top: number;
+  bottom: number;
+}
+
 /** The 3D tiles of a world that streams them: the renderer, the route corridor, the stats */
 export interface WorldTiles {
   renderer(): TilesRenderer | null;
@@ -273,6 +287,8 @@ export interface WorldProvider {
    * map: from the HQ past every spawn), null for the longest route
    */
   introTour(): IntroTour | null;
+  /** The map from straight above for the minimap, null for a world without one (tiles, DevWorld) or before it stands */
+  minimap(): WorldMinimap | null;
   /** The world's own run rules (start credits, HQ health, tower types), null: the game's */
   runRules(): RunRules | null;
   /** The world's waves: the source it asks for and its own wave list, null: the game's choice */

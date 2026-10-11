@@ -294,6 +294,11 @@ export class TilesWorld implements WorldProvider, WorldTiles {
     return null;
   }
 
+  /** No picture from above: the minimap stays away */
+  minimap(): null {
+    return null;
+  }
+
   startLayout(): WorldStartLayout | null {
     return null;
   }

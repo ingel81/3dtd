@@ -137,6 +137,19 @@ aus). Himmel, Sonne mit Schatten, Licht und Nebel bringt die Karte mit
 (`view.environment.apply`); die Fähigkeit `ownEnvironment` sagt der Engine, dass sie ihre eigenen
 Lichter und ihren Himmel weglässt.
 
+## Minikarte
+
+`WorldProvider.minimap()` gibt die Draufsicht einer Welt mit dem Szenen-Rechteck, das sie zeigt (Norden oben,
+Westen links); Tiles und DevWorld geben `null`, dann bleibt die Minikarte weg. Die eigene Karte rendert sie einmal
+nach ihrem ersten gezeichneten Bild (`custom-map-minimap.ts`): orthografisch von oben, nur die Szenenkinder, die
+`view.attach` und `environment.apply` angehängt haben (Gelände, Wasser, Objekte, Licht), ohne Nebel, 512 px an der
+längeren Seite, aus dem linearen Render-Target nach sRGB gewandelt.
+
+`app-world-minimap` (unter dem Kompass, `td-overlay`) zeichnet in ein Canvas mit eigenem 10-Hz-Takt außerhalb
+Angulars: Bild, Routen in der Farbe ihres Spawns, Spawns und HQ einmal in ein Grundbild (neu, wenn Welt, Routen
+oder HQ wechseln), je Takt darauf Tower, Gegner (Bosse größer, alle in einem Pfad je Farbe) und das Sichtfeld der
+Kamera (die vier Bildecken auf der Bodenhöhe des HQ). Ein Klick führt die Kamera per `focusGeo` dorthin.
+
 ## Laden
 
 - `startHq` öffnet die Karte und beginnt sofort, ihre Bodenmaterialien und Modelle zu laden

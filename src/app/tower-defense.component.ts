@@ -25,6 +25,7 @@ import { ModelPreviewService } from './services/infrastructure/model-preview.ser
 import { getAllEnemyTypes } from './configs/enemy-types.config';
 import { GameSidebarComponent } from './components/game-sidebar/game-sidebar.component';
 import { CompassComponent } from './components/compass/compass.component';
+import { WorldMinimapComponent } from './components/world-minimap/world-minimap.component';
 import { GameHeaderComponent } from './components/game-header/game-header.component';
 // Deferred as one chunk, see debugWindowsRequested and debug-windows.ts
 import {
@@ -152,6 +153,7 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
     MatTooltipModule,
     GameSidebarComponent,
     CompassComponent,
+    WorldMinimapComponent,
     GameHeaderComponent,
     CameraDebuggerComponent,
     WaveDebuggerComponent,
