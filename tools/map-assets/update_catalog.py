@@ -22,11 +22,13 @@ DEFAULTS = {
     'building': {'blocksLos': True, 'blocksBuild': True, 'scaleRange': [1, 1], 'randomRotation': False, 'wind': 0, 'drawDistance': 3000},
     'wall': {'blocksLos': True, 'blocksBuild': True, 'scaleRange': [1, 1], 'randomRotation': False, 'wind': 0, 'drawDistance': 1500},
     'prop': {'blocksLos': False, 'blocksBuild': True, 'scaleRange': [0.9, 1.1], 'randomRotation': True, 'wind': 0, 'drawDistance': 500},
+    'structure': {'blocksLos': False, 'blocksBuild': False, 'scaleRange': [1, 1], 'randomRotation': False, 'wind': 0, 'drawDistance': 3000},
+    'fx': {'blocksLos': False, 'blocksBuild': False, 'scaleRange': [0.7, 1.5], 'randomRotation': True, 'wind': 0, 'drawDistance': 1500},
 }
 # Share of the half extent that counts as occupied ground (a crown overhangs, a trunk does not)
 FOOTPRINT_SHARE = {'tree': 0.3, 'plant': 0.6}
 ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'blocksLos', 'blocksBuild', 'scaleRange',
-         'randomRotation', 'wind', 'drawDistance', 'tags', 'source']
+         'randomRotation', 'wind', 'drawDistance', 'tags', 'effects', 'light', 'lod', 'source']
 
 
 def main():
@@ -35,7 +37,11 @@ def main():
     report = json.load(open(os.path.join(raw, 'report.json'), encoding='utf8'))
     objects = []
     for o in spec:
+        # Effect-only entries (`"file": ""` in objects.json) have no model; they need footprint and height
         e = {'file': f'models/{o["id"]}.glb', **DEFAULTS[o['category']], **o}
+        if e['file'] == '':
+            objects.append({k: e[k] for k in ORDER if k in e})
+            continue
         e.pop('textureSize', None)
         m = report.get(o['id'])
         if m is None and ('footprint' not in o or 'height' not in o):

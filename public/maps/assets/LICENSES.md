@@ -308,3 +308,11 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | table | https://polyhaven.com/a/WoodenTable_01 |
 | pickaxe | https://polyhaven.com/a/picke_dirty_01 |
 | ship | https://polyhaven.com/a/dutch_ship_medium |
+| fx-fireflies | Effekt des Renderers, kein Modell |
+| fx-smoke | Effekt des Renderers, kein Modell |
+| fx-embers | Effekt des Renderers, kein Modell |
+| fx-fog | Effekt des Renderers, kein Modell |
+| fx-leaves | Effekt des Renderers, kein Modell |
+| fx-snow | Effekt des Renderers, kein Modell |
+| fx-sparkle | Effekt des Renderers, kein Modell |
+| fx-waterfall | Effekt des Renderers, kein Modell |

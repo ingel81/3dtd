@@ -130,6 +130,8 @@ def entry(m, out):
     e.update({'scale': m['scale'], 'average': '#%02x%02x%02x' % avg})
     if m.get('tags'):
         e['tags'] = m['tags']
+    if m.get('flow'):
+        e['flow'] = m['flow']
     e['source'] = url
     return e
 

@@ -835,7 +835,7 @@
     {
       "id": "volcanic-rock",
       "name": "Volcanic rock",
-      "category": "rock",
+      "category": "volcanic",
       "files": {
         "color": "materials/volcanic-rock/color.jpg",
         "normal": "materials/volcanic-rock/normal.jpg",
@@ -851,7 +851,7 @@
     {
       "id": "scorched-ground",
       "name": "Scorched ground",
-      "category": "soil",
+      "category": "volcanic",
       "files": {
         "color": "materials/scorched-ground/color.jpg",
         "normal": "materials/scorched-ground/normal.jpg",
@@ -867,7 +867,7 @@
     {
       "id": "lava",
       "name": "Molten lava",
-      "category": "rock",
+      "category": "volcanic",
       "files": {
         "color": "materials/lava/color.jpg",
         "normal": "materials/lava/normal.jpg",
@@ -878,14 +878,16 @@
       "scale": 6,
       "average": "#ac452f",
       "tags": [
-        "volcanic"
+        "volcanic",
+        "hell"
       ],
+      "flow": 0.05,
       "source": "https://ambientcg.com/view?id=Lava004"
     },
     {
       "id": "lava-crust",
       "name": "Lava crust",
-      "category": "rock",
+      "category": "volcanic",
       "files": {
         "color": "materials/lava-crust/color.jpg",
         "normal": "materials/lava-crust/normal.jpg",
@@ -896,7 +898,8 @@
       "scale": 5,
       "average": "#4a383c",
       "tags": [
-        "volcanic"
+        "volcanic",
+        "hell"
       ],
       "source": "https://ambientcg.com/view?id=Lava001"
     },
@@ -970,7 +973,7 @@
     {
       "id": "ice",
       "name": "Ice",
-      "category": "snow",
+      "category": "ice",
       "files": {
         "color": "materials/ice/color.jpg",
         "normal": "materials/ice/normal.jpg",
@@ -986,7 +989,7 @@
     {
       "id": "ice-cracked",
       "name": "Cracked ice",
-      "category": "snow",
+      "category": "ice",
       "files": {
         "color": "materials/ice-cracked/color.jpg",
         "normal": "materials/ice-cracked/normal.jpg",
@@ -1158,7 +1161,7 @@
     {
       "id": "planks-weathered",
       "name": "Weathered planks",
-      "category": "road",
+      "category": "wood",
       "files": {
         "color": "materials/planks-weathered/color.jpg",
         "normal": "materials/planks-weathered/normal.jpg",
@@ -1176,7 +1179,7 @@
     {
       "id": "planks-old",
       "name": "Old planks",
-      "category": "road",
+      "category": "wood",
       "files": {
         "color": "materials/planks-old/color.jpg",
         "normal": "materials/planks-old/normal.jpg",
@@ -1407,7 +1410,8 @@
       "drawDistance": 2500,
       "tags": [
         "temperate",
-        "mountain"
+        "mountain",
+        "conifer"
       ],
       "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
@@ -1429,7 +1433,8 @@
       "drawDistance": 2500,
       "tags": [
         "temperate",
-        "mountain"
+        "mountain",
+        "conifer"
       ],
       "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
@@ -1474,7 +1479,8 @@
       "drawDistance": 600,
       "tags": [
         "temperate",
-        "village"
+        "village",
+        "undergrowth"
       ],
       "source": "procedural (tools/map-assets/build_models.py); Blätter https://ambientcg.com/view?id=LeafSet002"
     },
@@ -1496,7 +1502,8 @@
       "drawDistance": 250,
       "tags": [
         "temperate",
-        "swamp"
+        "swamp",
+        "undergrowth"
       ],
       "source": "https://polyhaven.com/a/fern_02"
     },
@@ -1560,7 +1567,8 @@
       "wind": 0,
       "drawDistance": 500,
       "tags": [
-        "temperate"
+        "temperate",
+        "undergrowth"
       ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/bark_brown_02, https://polyhaven.com/a/rough_wood"
     },
@@ -1603,7 +1611,8 @@
       "drawDistance": 600,
       "tags": [
         "temperate",
-        "mountain"
+        "mountain",
+        "scree"
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_04"
     },
@@ -1817,6 +1826,12 @@
       "tags": [
         "village"
       ],
+      "light": {
+        "color": "#ffc070",
+        "intensity": 1.0,
+        "distance": 10,
+        "height": 3.2
+      },
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/dark_planks"
     },
     {
@@ -2095,7 +2110,8 @@
       "drawDistance": 2500,
       "tags": [
         "winter",
-        "mountain"
+        "mountain",
+        "conifer"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
@@ -2117,7 +2133,8 @@
       "drawDistance": 2500,
       "tags": [
         "winter",
-        "mountain"
+        "mountain",
+        "conifer"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
@@ -2139,7 +2156,8 @@
       "drawDistance": 2500,
       "tags": [
         "temperate",
-        "mountain"
+        "mountain",
+        "conifer"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
@@ -2161,7 +2179,8 @@
       "drawDistance": 2500,
       "tags": [
         "winter",
-        "mountain"
+        "mountain",
+        "conifer"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
@@ -2320,7 +2339,7 @@
       "category": "tree",
       "file": "models/tree-quiver-small.glb",
       "footprint": 0.6,
-      "height": 3.0,
+      "height": 3,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -2502,7 +2521,8 @@
       "drawDistance": 600,
       "tags": [
         "temperate",
-        "coast"
+        "coast",
+        "undergrowth"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet002, LeafSet016, LeafSet024"
     },
@@ -2524,7 +2544,8 @@
       "drawDistance": 600,
       "tags": [
         "temperate",
-        "coast"
+        "coast",
+        "undergrowth"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet002, LeafSet016, LeafSet024"
     },
@@ -2545,7 +2566,8 @@
       "wind": 0.5,
       "drawDistance": 600,
       "tags": [
-        "autumn"
+        "autumn",
+        "undergrowth"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet027, LeafSet028"
     },
@@ -2568,7 +2590,8 @@
       "tags": [
         "castle",
         "swamp",
-        "temperate"
+        "temperate",
+        "undergrowth"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet029"
     },
@@ -2634,7 +2657,8 @@
       "drawDistance": 300,
       "tags": [
         "temperate",
-        "swamp"
+        "swamp",
+        "undergrowth"
       ],
       "source": "https://polyhaven.com/a/nettle_plant"
     },
@@ -2656,7 +2680,8 @@
       "drawDistance": 300,
       "tags": [
         "temperate",
-        "village"
+        "village",
+        "undergrowth"
       ],
       "source": "https://polyhaven.com/a/periwinkle_plant"
     },
@@ -2675,10 +2700,11 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 200,
+      "drawDistance": 140,
       "tags": [
         "temperate",
-        "mountain"
+        "mountain",
+        "undergrowth"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage001, Foliage004, Foliage006"
     },
@@ -2697,7 +2723,7 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 200,
+      "drawDistance": 140,
       "tags": [
         "desert",
         "autumn",
@@ -2720,7 +2746,7 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 200,
+      "drawDistance": 140,
       "tags": [
         "autumn"
       ],
@@ -2741,7 +2767,7 @@
       ],
       "randomRotation": true,
       "wind": 0.6,
-      "drawDistance": 200,
+      "drawDistance": 140,
       "tags": [
         "winter",
         "mountain"
@@ -2763,9 +2789,10 @@
       ],
       "randomRotation": true,
       "wind": 0.9,
-      "drawDistance": 200,
+      "drawDistance": 140,
       "tags": [
-        "swamp"
+        "swamp",
+        "shore"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage002, Foliage003"
     },
@@ -2788,7 +2815,8 @@
       "tags": [
         "swamp",
         "temperate",
-        "coast"
+        "coast",
+        "shore"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage001, Foliage008; Kolben gezeichnet"
     },
@@ -2809,7 +2837,8 @@
       "wind": 0.9,
       "drawDistance": 500,
       "tags": [
-        "swamp"
+        "swamp",
+        "shore"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage001, Foliage008; Kolben gezeichnet"
     },
@@ -2849,7 +2878,7 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 180,
+      "drawDistance": 140,
       "tags": [
         "temperate",
         "village"
@@ -2871,7 +2900,7 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 180,
+      "drawDistance": 140,
       "tags": [
         "temperate",
         "mountain"
@@ -2893,7 +2922,7 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 180,
+      "drawDistance": 140,
       "tags": [
         "temperate",
         "desert"
@@ -2917,7 +2946,9 @@
       "wind": 0,
       "drawDistance": 400,
       "tags": [
-        "swamp"
+        "swamp",
+        "shore",
+        "water"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); gezeichnet (make_foliage.py)"
     },
@@ -2940,7 +2971,8 @@
       "tags": [
         "temperate",
         "autumn",
-        "swamp"
+        "swamp",
+        "undergrowth"
       ],
       "source": "procedural (tools/map-assets/build_nature.py)"
     },
@@ -2962,7 +2994,8 @@
       "drawDistance": 150,
       "tags": [
         "autumn",
-        "swamp"
+        "swamp",
+        "undergrowth"
       ],
       "source": "procedural (tools/map-assets/build_nature.py)"
     },
@@ -2986,6 +3019,12 @@
         "swamp",
         "crystal"
       ],
+      "light": {
+        "color": "#40c8e6",
+        "intensity": 0.4,
+        "distance": 4,
+        "height": 0.4
+      },
       "source": "procedural (tools/map-assets/build_nature.py)"
     },
     {
@@ -3008,6 +3047,21 @@
         "swamp",
         "crystal"
       ],
+      "effects": [
+        {
+          "kind": "fireflies",
+          "radius": 4,
+          "height": 2.5,
+          "rate": 3,
+          "color": "#c8a0ff"
+        }
+      ],
+      "light": {
+        "color": "#8a40e0",
+        "intensity": 0.8,
+        "distance": 10,
+        "height": 3.0
+      },
       "source": "procedural (tools/map-assets/build_nature.py)"
     },
     {
@@ -3028,7 +3082,8 @@
       "drawDistance": 500,
       "tags": [
         "temperate",
-        "swamp"
+        "swamp",
+        "undergrowth"
       ],
       "source": "https://polyhaven.com/a/tree_stump_01"
     },
@@ -3050,7 +3105,8 @@
       "drawDistance": 500,
       "tags": [
         "temperate",
-        "swamp"
+        "swamp",
+        "undergrowth"
       ],
       "source": "https://polyhaven.com/a/tree_stump_02"
     },
@@ -3095,7 +3151,8 @@
       "drawDistance": 250,
       "tags": [
         "temperate",
-        "swamp"
+        "swamp",
+        "undergrowth"
       ],
       "source": "https://polyhaven.com/a/pine_roots"
     },
@@ -3117,7 +3174,8 @@
       "drawDistance": 200,
       "tags": [
         "temperate",
-        "autumn"
+        "autumn",
+        "undergrowth"
       ],
       "source": "https://polyhaven.com/a/dry_branches_medium_01"
     },
@@ -3140,7 +3198,8 @@
       "tags": [
         "temperate",
         "mountain",
-        "winter"
+        "winter",
+        "scree"
       ],
       "source": "https://polyhaven.com/a/boulder_01"
     },
@@ -3184,7 +3243,8 @@
       "drawDistance": 800,
       "tags": [
         "mountain",
-        "temperate"
+        "temperate",
+        "scree"
       ],
       "source": "https://polyhaven.com/a/rock_09"
     },
@@ -3206,7 +3266,8 @@
       "drawDistance": 800,
       "tags": [
         "temperate",
-        "coast"
+        "coast",
+        "scree"
       ],
       "source": "https://polyhaven.com/a/stone_01"
     },
@@ -3420,7 +3481,8 @@
       "wind": 0,
       "drawDistance": 800,
       "tags": [
-        "volcanic"
+        "volcanic",
+        "scree"
       ],
       "source": "https://polyhaven.com/a/moon_rock_01 (getönt)"
     },
@@ -3534,7 +3596,8 @@
       "tags": [
         "temperate",
         "desert",
-        "mountain"
+        "mountain",
+        "scree"
       ],
       "source": "https://polyhaven.com/a/namaqualand_stones_01"
     },
@@ -3555,7 +3618,8 @@
       "wind": 0,
       "drawDistance": 800,
       "tags": [
-        "coast"
+        "coast",
+        "shore"
       ],
       "source": "https://polyhaven.com/a/coast_rocks_01"
     },
@@ -3855,6 +3919,21 @@
       "tags": [
         "crystal"
       ],
+      "effects": [
+        {
+          "kind": "sparkle",
+          "radius": 1.0,
+          "height": 1.2,
+          "rate": 2,
+          "color": "#4a8cff"
+        }
+      ],
+      "light": {
+        "color": "#4a8cff",
+        "intensity": 0.8,
+        "distance": 8,
+        "height": 1.0
+      },
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock"
     },
     {
@@ -3876,6 +3955,21 @@
       "tags": [
         "crystal"
       ],
+      "effects": [
+        {
+          "kind": "sparkle",
+          "radius": 1.0,
+          "height": 1.2,
+          "rate": 2,
+          "color": "#a050ff"
+        }
+      ],
+      "light": {
+        "color": "#a050ff",
+        "intensity": 0.8,
+        "distance": 8,
+        "height": 1.0
+      },
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock"
     },
     {
@@ -3898,6 +3992,21 @@
         "winter",
         "crystal"
       ],
+      "effects": [
+        {
+          "kind": "sparkle",
+          "radius": 1.0,
+          "height": 1.2,
+          "rate": 2,
+          "color": "#c8e6ff"
+        }
+      ],
+      "light": {
+        "color": "#c8e6ff",
+        "intensity": 0.8,
+        "distance": 8,
+        "height": 1.0
+      },
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock"
     },
     {
@@ -3919,6 +4028,27 @@
       "tags": [
         "volcanic"
       ],
+      "effects": [
+        {
+          "kind": "embers",
+          "radius": 3.5,
+          "height": 0.3,
+          "rate": 6
+        },
+        {
+          "kind": "smoke",
+          "radius": 3.0,
+          "height": 0.5,
+          "rate": 1
+        }
+      ],
+      "light": {
+        "color": "#ff5a1e",
+        "intensity": 1.8,
+        "distance": 16,
+        "height": 1.0,
+        "flicker": true
+      },
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock_02"
     },
     {
@@ -4577,7 +4707,7 @@
     {
       "id": "bridge-stone",
       "name": "Stone arch bridge (20 m, set height to the banks)",
-      "category": "prop",
+      "category": "structure",
       "file": "models/bridge-stone.glb",
       "footprint": 9.0,
       "height": 4.8,
@@ -4600,7 +4730,7 @@
     {
       "id": "bridge-wood",
       "name": "Wooden footbridge (14 m)",
-      "category": "prop",
+      "category": "structure",
       "file": "models/bridge-wood.glb",
       "footprint": 6.3,
       "height": 4.1,
@@ -4624,7 +4754,7 @@
     {
       "id": "boardwalk",
       "name": "Boardwalk (4 m)",
-      "category": "prop",
+      "category": "structure",
       "file": "models/boardwalk.glb",
       "footprint": 1.8,
       "height": 0.6,
@@ -4639,14 +4769,15 @@
       "drawDistance": 1500,
       "tags": [
         "swamp",
-        "coast"
+        "coast",
+        "shore"
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow"
     },
     {
       "id": "boardwalk-platform",
       "name": "Boardwalk platform",
-      "category": "prop",
+      "category": "structure",
       "file": "models/boardwalk-platform.glb",
       "footprint": 1.8,
       "height": 0.6,
@@ -4668,7 +4799,7 @@
     {
       "id": "pier",
       "name": "Pier section",
-      "category": "prop",
+      "category": "structure",
       "file": "models/pier.glb",
       "footprint": 1.5,
       "height": 3.8,
@@ -4683,14 +4814,15 @@
       "drawDistance": 1500,
       "tags": [
         "coast",
-        "swamp"
+        "swamp",
+        "shore"
       ],
       "source": "https://polyhaven.com/a/modular_wooden_pier"
     },
     {
       "id": "pier-end",
       "name": "Pier end with ladder",
-      "category": "prop",
+      "category": "structure",
       "file": "models/pier-end.glb",
       "footprint": 1.6,
       "height": 4.3,
@@ -4704,7 +4836,8 @@
       "wind": 0,
       "drawDistance": 1500,
       "tags": [
-        "coast"
+        "coast",
+        "shore"
       ],
       "source": "https://polyhaven.com/a/modular_wooden_pier"
     },
@@ -5064,6 +5197,13 @@
         "mountain",
         "winter"
       ],
+      "light": {
+        "color": "#ffb060",
+        "intensity": 0.4,
+        "distance": 3,
+        "height": 1.4,
+        "flicker": true
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/clay_roof_tiles_02"
     },
     {
@@ -5157,6 +5297,21 @@
         "village",
         "volcanic"
       ],
+      "effects": [
+        {
+          "kind": "fire",
+          "radius": 0.15,
+          "height": 2.05,
+          "rate": 12
+        }
+      ],
+      "light": {
+        "color": "#ff9a3c",
+        "intensity": 1.2,
+        "distance": 9,
+        "height": 2.3,
+        "flicker": true
+      },
       "source": "procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/dark_planks; Flamme gezeichnet (make_foliage.py)"
     },
     {
@@ -5180,6 +5335,27 @@
         "arena",
         "volcanic"
       ],
+      "effects": [
+        {
+          "kind": "fire",
+          "radius": 0.35,
+          "height": 1.05,
+          "rate": 20
+        },
+        {
+          "kind": "embers",
+          "radius": 0.3,
+          "height": 1.3,
+          "rate": 4
+        }
+      ],
+      "light": {
+        "color": "#ff9a3c",
+        "intensity": 1.5,
+        "distance": 12,
+        "height": 1.6,
+        "flicker": true
+      },
       "source": "procedural (tools/map-assets/build_props.py); Flamme gezeichnet (make_foliage.py)"
     },
     {
@@ -5204,6 +5380,33 @@
         "swamp",
         "desert"
       ],
+      "effects": [
+        {
+          "kind": "fire",
+          "radius": 0.45,
+          "height": 0.1,
+          "rate": 25
+        },
+        {
+          "kind": "smoke",
+          "radius": 0.4,
+          "height": 1.2,
+          "rate": 3
+        },
+        {
+          "kind": "embers",
+          "radius": 0.4,
+          "height": 0.6,
+          "rate": 5
+        }
+      ],
+      "light": {
+        "color": "#ff9a3c",
+        "intensity": 1.6,
+        "distance": 14,
+        "height": 1.0,
+        "flicker": true
+      },
       "source": "procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/dark_rock; https://polyhaven.com/a/bark_brown_02; Flamme gezeichnet (make_foliage.py)"
     },
     {
@@ -5227,11 +5430,19 @@
         "winter",
         "mountain"
       ],
+      "effects": [
+        {
+          "kind": "smoke",
+          "radius": 0.3,
+          "height": 0.3,
+          "rate": 1
+        }
+      ],
       "source": "procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/dark_rock; https://polyhaven.com/a/bark_brown_02"
     },
     {
       "id": "waterfall",
-      "name": "Waterfall (12 m, back to the cliff)",
+      "name": "Waterfall sheet (12 m, back to the cliff)",
       "category": "prop",
       "file": "models/waterfall.glb",
       "footprint": 2.7,
@@ -5254,7 +5465,7 @@
     },
     {
       "id": "waterfall-tall",
-      "name": "Waterfall (20 m, back to the cliff)",
+      "name": "Waterfall sheet (20 m, back to the cliff)",
       "category": "prop",
       "file": "models/waterfall-tall.glb",
       "footprint": 3.6,
@@ -5691,6 +5902,13 @@
         "swamp",
         "castle"
       ],
+      "light": {
+        "color": "#ffc070",
+        "intensity": 0.6,
+        "distance": 5,
+        "height": 0.25,
+        "flicker": true
+      },
       "source": "https://polyhaven.com/a/wooden_lantern_01"
     },
     {
@@ -5890,6 +6108,255 @@
         "coast"
       ],
       "source": "https://polyhaven.com/a/dutch_ship_medium"
+    },
+    {
+      "id": "fx-fireflies",
+      "name": "Fireflies",
+      "category": "fx",
+      "file": "",
+      "footprint": 8,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "swamp",
+        "temperate",
+        "autumn"
+      ],
+      "effects": [
+        {
+          "kind": "fireflies",
+          "radius": 8,
+          "height": 1.5,
+          "rate": 6,
+          "color": "#e6ff8c"
+        }
+      ],
+      "source": "Effekt des Renderers, kein Modell"
+    },
+    {
+      "id": "fx-smoke",
+      "name": "Smoke column",
+      "category": "fx",
+      "file": "",
+      "footprint": 1,
+      "height": 6,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "village",
+        "volcanic",
+        "wasteland",
+        "hell",
+        "city"
+      ],
+      "effects": [
+        {
+          "kind": "smoke",
+          "radius": 1,
+          "height": 0,
+          "rate": 4
+        }
+      ],
+      "source": "Effekt des Renderers, kein Modell"
+    },
+    {
+      "id": "fx-embers",
+      "name": "Embers",
+      "category": "fx",
+      "file": "",
+      "footprint": 3,
+      "height": 1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "volcanic",
+        "hell",
+        "wasteland"
+      ],
+      "effects": [
+        {
+          "kind": "embers",
+          "radius": 3,
+          "height": 0.5,
+          "rate": 8
+        }
+      ],
+      "source": "Effekt des Renderers, kein Modell"
+    },
+    {
+      "id": "fx-fog",
+      "name": "Ground fog",
+      "category": "fx",
+      "file": "",
+      "footprint": 15,
+      "height": 2,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "swamp",
+        "mountain",
+        "autumn"
+      ],
+      "effects": [
+        {
+          "kind": "fog",
+          "radius": 15,
+          "height": 0.5,
+          "rate": 2
+        }
+      ],
+      "source": "Effekt des Renderers, kein Modell"
+    },
+    {
+      "id": "fx-leaves",
+      "name": "Falling leaves",
+      "category": "fx",
+      "file": "",
+      "footprint": 8,
+      "height": 8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "autumn",
+        "temperate"
+      ],
+      "effects": [
+        {
+          "kind": "leaves",
+          "radius": 8,
+          "height": 8,
+          "rate": 3,
+          "color": "#c86e28"
+        }
+      ],
+      "source": "Effekt des Renderers, kein Modell"
+    },
+    {
+      "id": "fx-snow",
+      "name": "Snow flurry",
+      "category": "fx",
+      "file": "",
+      "footprint": 10,
+      "height": 10,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "winter",
+        "arctic",
+        "mountain"
+      ],
+      "effects": [
+        {
+          "kind": "snow",
+          "radius": 10,
+          "height": 10,
+          "rate": 10
+        }
+      ],
+      "source": "Effekt des Renderers, kein Modell"
+    },
+    {
+      "id": "fx-sparkle",
+      "name": "Sparkles",
+      "category": "fx",
+      "file": "",
+      "footprint": 2,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "crystal",
+        "arena"
+      ],
+      "effects": [
+        {
+          "kind": "sparkle",
+          "radius": 2,
+          "height": 1,
+          "rate": 3
+        }
+      ],
+      "source": "Effekt des Renderers, kein Modell"
+    },
+    {
+      "id": "fx-waterfall",
+      "name": "Waterfall (12 m drop, 3 m each side)",
+      "category": "fx",
+      "file": "",
+      "footprint": 3,
+      "height": 12,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "mountain",
+        "temperate",
+        "coast"
+      ],
+      "effects": [
+        {
+          "kind": "waterfall",
+          "radius": 3,
+          "height": 12
+        }
+      ],
+      "source": "Effekt des Renderers, kein Modell"
     }
   ]
 }

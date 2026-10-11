@@ -29,7 +29,8 @@ describe('shipped asset catalogue', () => {
     for (const m of shipped.materials) {
       for (const file of Object.values(m.files)) expect(existsSync(ROOT + file), file).toBe(true);
     }
-    for (const o of shipped.objects) expect(existsSync(ROOT + o.file), o.file).toBe(true);
+    // Effect-only entries (category fx) have no model
+    for (const o of shipped.objects) if (o.file) expect(existsSync(ROOT + o.file), o.file).toBe(true);
   });
 
   it('gives every object a size, a draw distance and at least one biome tag', () => {
