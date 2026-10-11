@@ -173,9 +173,9 @@ export class CustomMapView {
       return;
     }
     if (this.water) {
-      this.water.set(water);
+      this.water.set(water, this.terrain.apronProfile);
     } else {
-      this.water = new WaterSurface(this.heights, water);
+      this.water = new WaterSurface(this.heights, water, this.terrain.apronProfile);
       this.group.add(this.water.mesh);
     }
     this.lightWater();

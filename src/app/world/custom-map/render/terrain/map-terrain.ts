@@ -3,7 +3,7 @@ import type { MapTerrain as MapTerrainDoc, MapPaths } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
 import { pathMaskResolution, rasterizePathMask } from '../paths/path-mask';
-import { buildTerrainApron } from './terrain-apron';
+import { ApronProfile, buildTerrainApron } from './terrain-apron';
 import { TerrainChunks, type GridRect } from './terrain-chunks';
 import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots } from './terrain-material';
 import { GridNormalTexture, MaterialArrays, SplatTextures, maskTexture } from './terrain-textures';
@@ -47,6 +47,8 @@ export class MapTerrainLayer {
   readonly chunks: TerrainChunks;
   /** Land beyond the border, not part of the map (no LOS, no queries) */
   readonly apron: Mesh;
+  /** Height profile of the apron, shared with the water that leaves the map */
+  apronProfile: ApronProfile;
   private material: TerrainMaterial | null = null;
   private arrays: MaterialArrays | null = null;
   private splat: SplatTextures | null = null;
@@ -60,7 +62,8 @@ export class MapTerrainLayer {
     private readonly field: HeightField,
   ) {
     this.chunks = new TerrainChunks(field, this.placeholder);
-    this.apron = buildTerrainApron(field, this.placeholder);
+    this.apronProfile = new ApronProfile(field);
+    this.apron = buildTerrainApron(this.apronProfile, this.placeholder);
     this.normals = new GridNormalTexture(field);
   }
 
@@ -115,10 +118,16 @@ export class MapTerrainLayer {
   rebuild(rect?: GridRect): void {
     this.chunks.rebuild(rect);
     this.normals.update(rect);
+    this.refreshApron(rect);
+  }
+
+  /** Rebuilds the apron when heights at the border may have changed */
+  refreshApron(rect?: GridRect): void {
     const f = this.field;
     if (!rect || rect.i0 <= 0 || rect.j0 <= 0 || rect.i1 >= f.columns - 1 || rect.j1 >= f.rows - 1) {
+      this.apronProfile = new ApronProfile(f);
       this.apron.geometry.dispose();
-      this.apron.geometry = buildTerrainApron(f, this.apron.material as Material).geometry;
+      this.apron.geometry = buildTerrainApron(this.apronProfile, this.apron.material as Material).geometry;
     }
   }
 

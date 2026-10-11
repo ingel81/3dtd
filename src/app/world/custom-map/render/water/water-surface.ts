@@ -18,6 +18,7 @@ import {
 } from 'three';
 import type { MapWater } from '../../map-document';
 import type { HeightField } from '../height-field';
+import { APRON_RINGS, RIVER_REACH, type ApronProfile } from '../terrain/terrain-apron';
 
 /**
  * The water of a map: one surface at `water.level` over the grid cells the
@@ -40,6 +41,7 @@ export class WaterSurface {
   constructor(
     private readonly field: HeightField,
     water: MapWater,
+    apron: ApronProfile,
   ) {
     const material = new ShaderMaterial({
       uniforms: UniformsUtils.merge([
@@ -70,17 +72,17 @@ export class WaterSurface {
     this.mesh.userData['losTransparent'] = true;
     this.mesh.renderOrder = 1;
     this.mesh.matrixAutoUpdate = false;
-    this.set(water);
+    this.set(water, apron);
   }
 
   /** Rebuilds the surface for changed water or heights */
-  set(water: MapWater): void {
+  set(water: MapWater, apron: ApronProfile): void {
     const u = this.mesh.material.uniforms;
     const deep = new Color(water.color || '#2d5a5e');
     u['uDeep'].value.copy(deep);
     u['uShallow'].value.copy(deep).lerp(new Color(0x6f9a88), 0.3);
     this.mesh.geometry.dispose();
-    this.mesh.geometry = this.buildGeometry(water);
+    this.mesh.geometry = this.buildGeometry(water, apron);
     this.mesh.visible = (this.mesh.geometry.index?.count ?? 0) > 0;
   }
 
@@ -106,7 +108,7 @@ export class WaterSurface {
     this.mesh.removeFromParent();
   }
 
-  private buildGeometry(water: MapWater): BufferGeometry {
+  private buildGeometry(water: MapWater, apron: ApronProfile): BufferGeometry {
     const f = this.field;
     const cols = f.columns;
     const rows = f.rows;
@@ -145,6 +147,42 @@ export class WaterSurface {
         const v01 = vertex(i, j + 1);
         const v11 = vertex(i + 1, j + 1);
         indices.push(v00, v10, v11, v00, v11, v01);
+      }
+    }
+    // Water that reaches the border runs on beyond it over the apron's rings; it ends where the
+    // apron's blurred bed rises above the level (negative depth, discarded in the shader)
+    const p = apron;
+    const rings = APRON_RINGS.filter((d) => d <= RIVER_REACH).length;
+    const n = p.count;
+    const wetBorder = (k: number): boolean => {
+      const [x, y] = p.position(0, k);
+      const i = Math.round((x - f.originX) / f.cellSize);
+      const j = Math.round((y - f.originY) / f.cellSize);
+      return mask[j * cols + i] > 0 && f.sample(i, j) < water.level;
+    };
+    const ringVertex = new Map<number, number>();
+    const apronVertex = (r: number, k: number): number => {
+      const key = r * n + (k % n);
+      let v = ringVertex.get(key);
+      if (v === undefined) {
+        v = positions.length / 3;
+        const [x, y] = p.position(r, k % n);
+        positions.push(-x, water.level, y);
+        depths.push(water.level - p.height(r, k % n));
+        wets.push(1);
+        ringVertex.set(key, v);
+      }
+      return v;
+    };
+    for (let k = 0; k < n; k++) {
+      if (!wetBorder(k) || !wetBorder((k + 1) % n)) continue;
+      for (let r = 0; r < rings - 1; r++) {
+        const a = apronVertex(r, k);
+        const b = apronVertex(r, k + 1);
+        const c = apronVertex(r + 1, k);
+        const e = apronVertex(r + 1, k + 1);
+        // Both windings; the material draws one side
+        indices.push(a, c, b, b, c, e, a, b, c, b, e, c);
       }
     }
     const g = new BufferGeometry();

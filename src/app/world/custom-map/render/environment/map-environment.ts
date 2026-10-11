@@ -291,7 +291,8 @@ export class CustomMapEnvironment {
         if (dir.y >= 0) {
           c.copy(horizon).lerp(zenith, Math.pow(dir.y, 0.45));
         } else {
-          c.copy(horizon).lerp(ground, Math.min(1, Math.pow(-dir.y * 4, 0.6)));
+          // Below the horizon only the fogged far land shows: stay near the fog colour
+          c.copy(horizon).lerp(ground, Math.min(1, Math.pow(-dir.y * 4, 0.6)) * 0.25);
         }
         const cosSun = Math.max(0, dir.dot(sun));
         const glow = (Math.pow(cosSun, 6) * 0.25 + Math.pow(cosSun, 48) * 0.45) * p.glow;
