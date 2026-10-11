@@ -63,6 +63,8 @@ export interface ViewportCallbacks {
   stats(stats: FrameStats): void;
   /** The camera moved (minimap frame) */
   camera(): void;
+  /** The map's models and textures are in and its programs compiled */
+  viewReady(): void;
 }
 
 
@@ -139,7 +141,7 @@ export class EditorViewport {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.view = new EditorMapView(editor.doc, this.scene, this.renderer);
-    void this.view.warmUp(this.renderer, this.scene, this.camera).catch(() => undefined);
+    void this.view.warmUp(this.renderer, this.scene, this.camera).then(() => this.callbacks.viewReady(), () => undefined);
     this.scene.add(this.overlay.group);
     this.trial = new TrialRunners((x, y) => this.heightAt(x, y));
     this.scene.add(this.trial.group);
@@ -180,7 +182,7 @@ export class EditorViewport {
   rebuildView(): void {
     this.view.dispose();
     this.view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
-    void this.view.warmUp(this.renderer, this.scene, this.camera).catch(() => undefined);
+    void this.view.warmUp(this.renderer, this.scene, this.camera).then(() => this.callbacks.viewReady(), () => undefined);
     // The new view shows everything until the hidden categories are applied again
     this.hiddenKey = '';
     this.pending = null;

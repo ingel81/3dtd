@@ -46,7 +46,7 @@ export class MinimapComponent implements OnDestroy {
 
   constructor() {
     effect(() => {
-      const rev = this.session.docRev();
+      const rev = this.session.docRev() * 1000 + this.session.viewRev();
       this.session.cameraRev();
       this.session.selection();
       this.schedulePicture(rev);
@@ -117,7 +117,7 @@ export class MinimapComponent implements OnDestroy {
       }
       const b = this.box(doc.terrain.width, doc.terrain.depth);
       this.picture = vp.renderTopDown(Math.max(8, Math.round(b.w)), Math.max(8, Math.round(b.h)), false);
-      this.pictureRev = this.session.docRev();
+      this.pictureRev = this.session.docRev() * 1000 + this.session.viewRev();
       this.pictureAt = performance.now();
       this.draw();
     }, wait || 50);

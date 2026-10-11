@@ -60,6 +60,8 @@ const BOT_CHECK_WAVES = 5;
 
 @Injectable()
 export class EditorSession implements OnDestroy {
+  /** Counts the times the map view became ready (models and textures in): pictures of it are worth retaking */
+  readonly viewRev = signal(0);
   /** The bot's check of the map: running (no result yet) or done */
   readonly botTrial = signal<{ waves: number; result: MapTrialResult | null } | null>(null);
   private stopBotListener: (() => void) | null = null;
@@ -330,6 +332,7 @@ export class EditorSession implements OnDestroy {
         hover: (h) => this.hover.set(h),
         stats: (s) => this.stats.set(s),
         camera: () => this.cameraRev.update((n) => n + 1),
+        viewReady: () => this.zone.run(() => this.viewRev.update((n) => n + 1)),
       });
       this.viewport.setTool(this.tools[this.tool()]);
     });

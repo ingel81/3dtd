@@ -319,9 +319,9 @@ export const BIOMES: readonly BiomeDef[] = [
     relief: { kind: 'flatten', amplitude: 1, wave: 40 },
     pattern: 'streets',
     objects: [
-      { assets: ['apartment-block', 'apartment-block-tall', 'brick-block', 'brick-house', 'shop', 'office-tower', 'house-tall'], perHectare: 0.85, scale: [0.95, 1.1], zone: 'block', spacing: 12 },
-      { assets: ['street-lamp', 'lamp-post'], perHectare: 0.95, scale: [1, 1], zone: 'street', spacing: 8 },
-      { assets: ['tree-street', 'bench', 'trash-can', 'hydrant', 'bus-stop', 'street-sign', 'bollards'], perHectare: 0.55, scale: [0.95, 1.05], zone: 'walk', spacing: 4 },
+      { assets: ['apartment-block', 'apartment-block-tall', 'brick-block', 'brick-house', 'shop', 'office-tower', 'house-tall'], perHectare: 0.6, scale: [0.95, 1.1], zone: 'block', spacing: 12 },
+      { assets: ['street-lamp', 'lamp-post'], perHectare: 0.5, scale: [1, 1], zone: 'street', spacing: 8 },
+      { assets: ['tree-street', 'bench', 'trash-can', 'hydrant', 'bus-stop', 'street-sign', 'bollards'], perHectare: 0.4, scale: [0.95, 1.05], zone: 'walk', spacing: 4 },
       { assets: ['car-red', 'car-blue', 'car-white', 'car-grey', 'pickup', 'truck', 'bus'], perHectare: 0.35, scale: [1, 1], zone: 'curb', spacing: 5 },
       { assets: ['tree-street', 'tree-oak-young', 'tree-maple'], perHectare: 6, scale: [0.8, 1], zone: 'core', spacing: 10 },
       { assets: ['crate', 'barrel-small', 'crate-long', 'trash-can'], perHectare: 5, scale: [0.9, 1.1], zone: 'core', spacing: 4, clump: 0.8 },
