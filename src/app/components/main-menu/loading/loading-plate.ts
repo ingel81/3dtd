@@ -24,3 +24,15 @@ export function loadingPlateView(steps: readonly BootStep[]): LoadingPlateView {
     position: current ? steps.indexOf(current) + 1 : total + 1,
   };
 }
+
+/**
+ * The line under the plate while the custom maps' files load from the site
+ * (map-data.ts, TODO E134): how many have come and how much from the
+ * network. Null once all have come, or when none came from the network
+ * (all from the cache: nothing worth saying).
+ */
+export function mapDataLine(p: { requested: number; done: number; fetched: number; bytes: number }): string | null {
+  if (p.done >= p.requested || p.fetched === 0) return null;
+  const mb = p.bytes / 1_000_000;
+  return `Map data ${p.done} of ${p.requested} files, ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+}

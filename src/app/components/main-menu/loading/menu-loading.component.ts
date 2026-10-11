@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { EngineInitializationService } from '../../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../../services/location/location-management.service';
 import { ConfigService } from '../../../core/services/config.service';
@@ -6,7 +6,8 @@ import { UIStore } from '../../../store/ui.store';
 import { WorldContext } from '../../../world/world-context.service';
 import { worldPlaceName } from '../../../world/world-ref';
 import { MainMenuService } from '../main-menu.service';
-import { loadingPlateView } from './loading-plate';
+import { loadingPlateView, mapDataLine } from './loading-plate';
+import { onMapDataProgress, type MapDataProgress } from '../../../world/custom-map/map-data';
 
 /**
  * The loading plate of the start menu, bottom right (docs/MAIN_MENU_UI_PLAN.md,
@@ -51,6 +52,16 @@ export class MenuLoadingComponent {
   /** Another place to load from New game; on a world of its own another map */
   readonly otherLabel = computed(() => (this.world.capabilities().realPlace ? 'Other place' : 'Other map'));
   readonly stepsOpen = signal(false);
+
+  /** The custom maps' files loading from the site (TODO E134), counted since the page opened */
+  private readonly mapData = signal<MapDataProgress>({ requested: 0, done: 0, fetched: 0, bytes: 0 });
+  /** "Map data 12 of 48 files, 3.4 MB" while files still come, null otherwise */
+  readonly mapDataLine = computed(() => mapDataLine(this.mapData()));
+
+  constructor() {
+    const off = onMapDataProgress((p) => this.mapData.set(p));
+    inject(DestroyRef).onDestroy(off);
+  }
 
   toggleSteps(): void {
     this.stepsOpen.update((open) => !open);

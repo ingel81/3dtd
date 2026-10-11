@@ -12,6 +12,7 @@ import {
   Texture,
   type Object3D,
 } from 'three';
+import { mapDataFetch, mapDataUrl } from '../map-data';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -76,8 +77,8 @@ export interface AssetLibraryOptions {
 export class MapAssetLibrary {
   private static readonly instances = new Map<string, MapAssetLibrary>();
 
-  /** The library for a base URL, created on first use */
-  static shared(baseUrl = DEFAULT_ASSET_BASE): MapAssetLibrary {
+  /** The library for a base URL (the map data's assets, map-data.ts, by default), created on first use */
+  static shared(baseUrl = mapDataUrl(DEFAULT_ASSET_BASE)): MapAssetLibrary {
     let lib = MapAssetLibrary.instances.get(baseUrl);
     if (!lib) {
       lib = new MapAssetLibrary(baseUrl);
@@ -99,9 +100,9 @@ export class MapAssetLibrary {
     options: AssetLibraryOptions = {},
   ) {
     this.textureSize = options.textureSize ?? 1024;
-    this.fetchFn = options.fetch ?? ((input, init) => fetch(input, init));
+    this.fetchFn = options.fetch ?? ((input, init) => mapDataFetch(input, init));
     this.decodeImageFn = options.decodeImage ?? ((url, size) => decodeImage(this.fetchFn, url, size));
-    this.loadModelFn = options.loadModel ?? ((url) => loadGlb(url));
+    this.loadModelFn = options.loadModel ?? ((url) => loadGlb(url, this.fetchFn));
   }
 
   /** The catalogue; an unreachable catalogue gives an empty one (with a warning) */
@@ -300,9 +301,12 @@ async function decodeImage(fetchFn: typeof fetch, url: string, size: number): Pr
 
 let gltfLoader: GLTFLoader | null = null;
 
-async function loadGlb(url: string): Promise<Object3D> {
+/** A model's file through `fetchFn` (the map data's cache), then parsed: a .glb carries everything in itself */
+async function loadGlb(url: string, fetchFn: typeof fetch): Promise<Object3D> {
   gltfLoader ??= new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-  const gltf = await gltfLoader.loadAsync(url);
+  const response = await fetchFn(url);
+  if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+  const gltf = await gltfLoader.parseAsync(await response.arrayBuffer(), url.slice(0, url.lastIndexOf('/') + 1));
   return gltf.scene;
 }
 

@@ -28,6 +28,9 @@
       <span class="ml-step-title">{{ view().current?.title ?? 'Ready' }}@if (view().current?.meta; as meta) {<span class="ml-step-meta">, {{ meta }}</span>}</span>
       <span class="ml-step-count td-num">{{ view().position > view().total ? view().total : view().position }} of {{ view().total }}</span>
     </div>
+    @if (mapDataLine(); as line) {
+      <p class="ml-step td-note" role="status">{{ line }}</p>
+    }
     <button type="button" class="ml-toggle td-link" (click)="toggleSteps()" [attr.aria-expanded]="stepsOpen()"
             aria-controls="td-menu-loading-steps">
       {{ stepsOpen() ? 'Hide steps' : 'Show steps' }}

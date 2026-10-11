@@ -1,4 +1,5 @@
 import { computed, Injectable, signal } from '@angular/core';
+import { dropOldMapData, setMapDataBase } from '../../world/custom-map/map-data';
 import { environment } from '../../../environments/environment';
 import { readJson, removeKey, writeJson } from '../../utils/storage';
 import { parseOwnTilesets, type OwnTileset } from '../../world/tileset/own-tileset';
@@ -15,6 +16,8 @@ interface RuntimeConfig {
   coopRelay?: string;
   /** The site's online lobbies, `{ name, url }` (docs/COOP_PLAN.md, D58) */
   coopLobbies?: unknown;
+  /** Where the custom maps' files come from (TODO E134); beside the page when missing */
+  mapData?: string;
 }
 
 /** What environment.ts may hold besides the keys; older copies of it lack the field */
@@ -198,6 +201,9 @@ export class ConfigService {
       if (config.ownTilesets !== undefined) this.ownTilesets.set(parseOwnTilesets(config.ownTilesets));
       if (config.coopRelay) this.coopRelay.set(config.coopRelay);
       if (config.coopLobbies) this.coopLobbies.set(config.coopLobbies);
+      if (typeof config.mapData === 'string' && config.mapData) setMapDataBase(config.mapData);
+      // The map files kept by an earlier build go (map-data.ts)
+      void dropOldMapData();
     } catch {
       /* no file, offline, or not JSON, the other two sources still apply */
     }

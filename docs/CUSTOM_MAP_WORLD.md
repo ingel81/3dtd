@@ -247,6 +247,17 @@ Kamera (die vier Bildecken auf der Bodenhöhe des HQ). Ein Klick führt die Kame
 
 ## Laden
 
+**Kartendaten nachladen (Vorbereitung E134, 2026-10-12):** `world/custom-map/map-data.ts`. `maps/index.json`, die
+mitgelieferten Karten und `maps/assets/` (rund 190 MB) kommen über `mapDataFetch`: aus der Cache Storage des Browsers
+(`3dtd-map-data-<Version>`), sonst vom Netz und dann dort abgelegt. Der Index fragt zuerst das Netz (offline der
+Cache), eine mitgelieferte Karte wird mit ihrem Inhalts-Hash angefragt (`?v=`), Modelle laufen über denselben Weg
+(`loadGlb` mit `parseAsync`). Woher: `mapData` in `runtime-config.json`, sonst neben der Seite (der Dev-Server liefert
+`public/maps`). Ein neuer Build beginnt mit leerem Cache, `dropOldMapData` räumt die alten (beim Lesen der
+runtime-config). Die Ladeplatte zeigt „Map data 12 of 48 files, 3.4 MB“, solange Dateien vom Netz kommen. Die
+Desktop-App hält die Cache Storage im Profil auf der Platte (`app://` ist als sicheres Schema registriert).
+Offen für die Freigabe: die Daten auf den Webserver legen, dort CORS für die Seite und `app://`, im CSP der
+Desktop-App (`desktop/src/protocol.js`, `connect-src`) den Host eintragen, `mapData` in die runtime-config.
+
 - `startHq` öffnet die Karte und beginnt sofort, ihre Bodenmaterialien und Modelle zu laden
   (`prefetchCustomMapAssets`), während Engine, Straßen und Routen entstehen
 - Die Karte zeichnet ihr erstes Bild erst, wenn ihre Texturen und Modelle da sind und alle ihre

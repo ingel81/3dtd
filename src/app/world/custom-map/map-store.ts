@@ -9,6 +9,7 @@
  * `MapStore.load(id)` is what the game uses for `?world=map:<id>`: an own map
  * of that id wins over a shipped one.
  */
+import { mapDataFetch, mapDataRoot } from './map-data';
 import { defaultMapBackend, FolderMapBackend, mapFolderId } from './folder-map-backend';
 import type { CustomMapDocument, MapBiome } from './map-document';
 import { contentHash, packMapFile, unpackMapFile } from './map-file';
@@ -96,22 +97,22 @@ export class MapStoreError extends Error {
 
 export interface MapStoreOptions {
   backend?: MapStorageBackend;
-  /** Fetches shipped files; relative to `baseUrl` */
+  /** Fetches shipped files; relative to `baseUrl`. The map data's cache by default (map-data.ts) */
   fetch?: (url: string) => Promise<Response>;
-  /** Base for `maps/…`, the document's base URI by default */
+  /** Base for `maps/…`, the map data's root by default (mapDataRoot: runtime-config.json `mapData`, else the page) */
   baseUrl?: string;
 }
 
 export class MapStore {
   private readonly backend: MapStorageBackend;
   private readonly fetcher: (url: string) => Promise<Response>;
-  private readonly baseUrl: string;
+  private readonly baseUrl: string | null;
   private shippedIndex: Promise<ShippedMapEntry[]> | null = null;
 
   constructor(options: MapStoreOptions = {}) {
     this.backend = options.backend ?? defaultMapBackend();
-    this.fetcher = options.fetch ?? ((url) => fetch(url));
-    this.baseUrl = options.baseUrl ?? (typeof document !== 'undefined' ? document.baseURI : '/');
+    this.fetcher = options.fetch ?? ((url) => mapDataFetch(url));
+    this.baseUrl = options.baseUrl ?? null;
   }
 
   async listOwn(): Promise<MapSummary[]> {
@@ -154,7 +155,9 @@ export class MapStore {
     }
     const entry = (await this.readIndex()).find((e) => e.id === id);
     if (!entry) throw new MapStoreError(`There is no map "${id}" in this browser; it may have been deleted.`);
-    const response = await this.fetcher(this.url(`maps/${entry.file}`));
+    // Named with its content: the cache keeps each version of the map apart
+    const version = entry.contentHash ? `?v=${encodeURIComponent(entry.contentHash)}` : '';
+    const response = await this.fetcher(this.url(`maps/${entry.file}${version}`));
     if (!response.ok) throw new MapStoreError(`The map "${entry.name}" did not load (${response.status}).`);
     const { doc, preview } = unpackMapFile(new Uint8Array(await response.arrayBuffer()));
     const hash = await contentHash(doc);
@@ -243,7 +246,7 @@ export class MapStore {
   }
 
   private url(path: string): string {
-    return new URL(path, this.baseUrl).toString();
+    return new URL(path, this.baseUrl ?? mapDataRoot()).toString();
   }
 }
 
