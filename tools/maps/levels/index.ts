@@ -3,6 +3,7 @@
  * with the editor's operations; tools/maps/shipped-maps.spec.ts packs them.
  */
 import type { CustomMapDocument } from '../../../src/app/world/custom-map/map-document';
+import { buildArchipelago } from './archipelago';
 import { buildAutumnKeep } from './autumn-keep';
 import { buildRedCanyon } from './red-canyon';
 import { buildMountainPass } from './mountain-pass';
@@ -13,4 +14,5 @@ export const SHOWCASE_LEVELS: { id: string; build: () => CustomMapDocument }[] =
   { id: 'witch-marsh', build: buildWitchMarsh },
   { id: 'autumn-keep', build: buildAutumnKeep },
   { id: 'red-canyon', build: buildRedCanyon },
+  { id: 'archipelago', build: buildArchipelago },
 ];

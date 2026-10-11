@@ -82,6 +82,12 @@ im Canyon-Boden, Türme stehen oben auf den Tafelbergen (Plateaus mit Rampen). T
 Karawanenzelte. Spawns: 2. Bauflächen: Plateaus über dem Canyon (Sichtlinie nach unten).
 
 ### 5 Inselarchipel (`archipelago`)
+**Gebaut** (`tools/maps/levels/archipelago.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 400,9 von 500,
+19 Tower), Spielansicht 539 fps, Laden 9,8 s am Dev-Server. Spuren 365 und 363 m. Bilder:
+`docs/images/levels/archipelago.jpg`, `archipelago-game.jpg`. Strände, Felsufer und Wiesen mit „Auto paint“ nach
+Höhe und Neigung; der Hafen ist bis ans Südufer ausgebaggert (Level-Pinsel unter Wasser), die Furt ein Pfad über eine
+Sandbank knapp unter dem Spiegel (die Prüfung warnt dort bewusst „under water“).
+
 Biom gemäßigt/Küste, Meer rundum, Look `day` klar. Fünf Inseln, verbunden durch Holzbrücken und Furten; Hafen mit
 Kaimauer, Kran, Fischerhütten, Leuchtturm. Gegner kommen über zwei Brückenketten zur Hauptinsel. Spawns: 2. Bauflächen:
 Inselränder an den Brückenköpfen.

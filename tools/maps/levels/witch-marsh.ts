@@ -5,8 +5,7 @@
  * reeds. Two spawns come out of the fog in the north and the west; the
  * northern walk splits round two islands, all meet on the big island.
  */
-import type { CustomMapDocument, MapPathKind, MapPoint } from '../../../src/app/world/custom-map/map-document';
-import { resample, simplify } from '../../../src/app/editor/ops/landscape/lines';
+import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
 import { edgePolyline, pointAt, polylineLength } from '../../../src/app/editor/ops/path-graph';
 import { facing, LevelKit } from './kit';
 
@@ -62,27 +61,7 @@ export function buildWitchMarsh(): CustomMapDocument {
   k.sea(marsh);
 
   // ---- Walks: paths over the islands, boardwalks (bridges) over the water
-  // A walk along a line: path where the ground is dry, boardwalk (a bridge) where it runs over the water
-  const walk = (line: MapPoint[]) => {
-    const pts = resample(line, 2);
-    const wet = pts.map((p) => k.h(p.x, p.y) < 0.4);
-    // Dry gaps shorter than 8 m stay boardwalk
-    for (let i = 0; i < pts.length; ) {
-      let j = i;
-      while (j < pts.length && wet[j] === wet[i]) j++;
-      if (!wet[i] && i > 0 && j < pts.length && j - i < 4) for (let q = i; q < j; q++) wet[q] = true;
-      i = j;
-    }
-    let start = 0;
-    for (let i = 1; i <= pts.length; i++) {
-      if (i < pts.length && wet[i] === wet[start]) continue;
-      const end = Math.min(i, pts.length - 1);
-      const kind: MapPathKind = wet[start] ? 'bridge' : 'path';
-      const seg = pts.slice(start, end + 1);
-      if (seg.length >= 2) k.path(simplify(seg, 0.8), kind === 'bridge' ? 4 : 5, kind, 3);
-      start = end;
-    }
-  };
+  const walk = (line: MapPoint[]) => k.walk(line);
   const j = { x: 25, y: -12 };
   const hq = { x: 100, y: -172 };
   const north = { x: -12, y: 244 };

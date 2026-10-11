@@ -69,6 +69,20 @@
       "biome": "desert",
       "updatedAt": "2026-10-11T00:00:00.000Z",
       "contentHash": "a155860f900b143b608890738a4c2065b3d677c27cd02a9845a5a528424a8dbb"
+    },
+    {
+      "id": "archipelago",
+      "name": "Archipelago",
+      "file": "archipelago.3dtdmap",
+      "preview": "archipelago.png",
+      "author": "3DTD",
+      "description": "Five islands in a clear sea, linked by wooden bridges and a ford. A harbour with a quay, crane and lighthouse below the HQ.",
+      "width": 512,
+      "depth": 512,
+      "spawns": 2,
+      "biome": "temperate",
+      "updatedAt": "2026-10-11T00:00:00.000Z",
+      "contentHash": "a11531d5a44dc6b960981d06c1caa526ee7b9bcbae59cf0a584fabb7ce1df692"
     }
   ]
 }

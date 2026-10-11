@@ -26,7 +26,7 @@ import { cracksDab } from '../../../src/app/editor/ops/landscape/cracks';
 import { erosionDab } from '../../../src/app/editor/ops/landscape/erosion';
 import { hashCell, LandscapeNoise } from '../../../src/app/editor/ops/landscape/landscape-noise';
 import { LandscapeStroke } from '../../../src/app/editor/ops/landscape/landscape-stroke';
-import { resample } from '../../../src/app/editor/ops/landscape/lines';
+import { resample, simplify } from '../../../src/app/editor/ops/landscape/lines';
 import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from '../../../src/app/editor/ops/landscape/river';
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from '../../../src/app/editor/ops/landscape/road';
 import { cliffAlong, formDab, type FormKind } from '../../../src/app/editor/ops/landscape/shapes';
@@ -560,7 +560,7 @@ export class LevelKit {
   // ---- Paths tool and markers ----------------------------------------------------------------------------------
 
   /** A plain path (Paths tool, Draw): nodes at the points, joined to nodes and roads within `snap` metres */
-  path(points: readonly MapPoint[], width: number, kind: MapPathKind = 'road', snap = 6): string {
+  path(points: readonly MapPoint[], width: number, kind: MapPathKind = 'road', snap = 6): string | null {
     const paths = this.doc.paths;
     const nodeAt = (q: MapPoint): string => {
       const p = { x: r2(q.x), y: r2(q.y) };
@@ -572,10 +572,39 @@ export class LevelKit {
     };
     const a = nodeAt(points[0]);
     const b = nodeAt(points[points.length - 1]);
-    const edge = connect(paths, a, b, width, kind)!;
+    // Both ends on one node: a stub too short to keep, as the tool drops it
+    const edge = connect(paths, a, b, width, kind);
+    if (!edge) return null;
     if (points.length > 2) edge.via = points.slice(1, -1).map((p) => ({ x: r2(p.x), y: r2(p.y) }));
     this.freeCheck = null;
     return edge.id;
+  }
+
+  /**
+   * Paths drawn along a line that turn into bridges wherever the line runs
+   * over water (ground below `wetBelow`): the Paths tool with the kind
+   * switched at each shore. Dry gaps shorter than 8 m stay bridge.
+   */
+  walk(line: readonly MapPoint[], o: { width?: number; bridgeWidth?: number; dry?: MapPathKind; wetBelow?: number } = {}): void {
+    const pts = resample(line, 2);
+    const wet = pts.map((p) => this.h(p.x, p.y) < (o.wetBelow ?? 0.4));
+    for (let i = 0; i < pts.length; ) {
+      let j = i;
+      while (j < pts.length && wet[j] === wet[i]) j++;
+      if (!wet[i] && i > 0 && j < pts.length && j - i < 4) for (let q = i; q < j; q++) wet[q] = true;
+      i = j;
+    }
+    let start = 0;
+    for (let i = 1; i <= pts.length; i++) {
+      if (i < pts.length && wet[i] === wet[start]) continue;
+      const end = Math.min(i, pts.length - 1);
+      const seg = pts.slice(start, end + 1);
+      if (seg.length >= 2) {
+        const bridge = wet[start];
+        this.path(simplify(seg, 0.8), bridge ? (o.bridgeWidth ?? 4) : (o.width ?? 5), bridge ? 'bridge' : (o.dry ?? 'path'), 3);
+      }
+      start = end;
+    }
   }
 
   /** "Flatten road" for the given edges (all when none) */
