@@ -1,0 +1,112 @@
+/**
+ * Twin gates: a strictly mirrored coop map at dusk, built with the
+ * editor's Mirror X symmetry. Each player holds a castle with two lanes
+ * that meet in its bailey and leave through the east or west gate to the
+ * shared HQ in the middle. Everything left of the axis is painted once and
+ * lands mirrored on the right, so both players get the same ground, the
+ * same lanes and the same build places.
+ */
+import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
+import { facing, LevelKit } from './kit';
+
+export function buildTwinGates(): CustomMapDocument {
+  const k = new LevelKit({
+    id: 'twin-gates',
+    name: 'Twin Gates',
+    description: 'A mirrored coop map at dusk: two castles, two lanes each through the bailey, one shared HQ in the middle. Four spawns.',
+    size: 512,
+    base: 'grass',
+    seed: 8808,
+  });
+  for (const m of ['grass', 'grass-lush', 'meadow', 'forest-floor', 'cobblestone-grey', 'castle-floor', 'dirt', 'rocky-ground']) k.layer(m);
+  k.cliffs('cliff', 40);
+  k.symmetry = 'x';
+
+  // ---- Ground: rolling land, the west half copied to the east; castle mounds and the HQ mound
+  k.generate('hills', 88, 0.3);
+  k.mirrorFrom({ x: -1, y: 0 });
+  const castle = { x: -140, y: 0 };
+  k.plateau(castle, { radius: 52, falloff: 0.5 }, k.h(castle.x, castle.y) + 5);
+  k.level(castle, { radius: 40, falloff: 0.3 }, k.h(castle.x, castle.y));
+  const hq = { x: 0, y: 0 };
+  k.level(hq, { radius: 34, falloff: 0.6 }, k.h(0, 0) + 2);
+
+  // ---- Lanes: from the north-west and south-west corners into the bailey, out of the east gate to the HQ
+  const road = { width: 8, surface: [] as string[], lamps: false };
+  const bailey = { x: castle.x, y: 0 };
+  const eastGate = { x: castle.x + 30, y: 0 };
+  k.road([{ x: -244, y: 214 }, { x: -160, y: 216 }, { x: -96, y: 172 }, { x: -108, y: 96 }, { x: castle.x, y: 50 }, { x: castle.x, y: 30 }, bailey], road);
+  k.road([{ x: -244, y: -214 }, { x: -160, y: -216 }, { x: -96, y: -172 }, { x: -108, y: -96 }, { x: castle.x, y: -50 }, { x: castle.x, y: -30 }, bailey], road);
+  k.road([bailey, eastGate, { x: -70, y: 12 }, { x: -30, y: 4 }, hq], road);
+  // Spawns are set one by one (a mirrored map names its own)
+  k.spawn('North-West', -244, 214);
+  k.spawn('South-West', -244, -214);
+  k.spawn('North-East', 244, 214);
+  k.spawn('South-East', 244, -214);
+  k.hq(hq.x, hq.y);
+
+  // ---- Land: woods along the outer edges, meadows between, the baileys and the HQ paved
+  // Woods in the outer corners and on the axis ends (each spot a dab of its own, not a line)
+  for (const at of [{ x: -236, y: 70 }, { x: -236, y: -70 }, { x: -40, y: 236 }, { x: -40, y: -236 }, { x: -200, y: 236 }, { x: -200, y: -236 }]) {
+    k.biome('forest', at, { radius: 34, strength: 0.9 });
+  }
+  for (const at of [{ x: -200, y: 160 }, { x: -60, y: 120 }, { x: -60, y: -120 }, { x: -200, y: -160 }, { x: -60, y: 0 }]) k.biome('meadow', at, { radius: 60, strength: 0.7 });
+  k.paint('castle-floor', castle, { radius: 30, falloff: 0.5 }, 0.9);
+  k.paint('cobblestone-grey', hq, { radius: 22, falloff: 0.6 }, 0.9);
+  k.paint('rocky-ground', castle, { radius: 58, falloff: 0.2 }, 0.3);
+
+  // ---- The west castle (mirrored east): curtain walls, corner towers, three gates
+  const [x0, x1, y0, y1] = [castle.x - 30, castle.x + 30, -30, 30];
+  const wall = (from: MapPoint, to: MapPoint, rotation: number, gap?: MapPoint) => {
+    const n = Math.round(Math.hypot(to.x - from.x, to.y - from.y) / 8);
+    for (let i = 0; i < n; i++) {
+      const f = (i + 0.5) / n;
+      const p = { x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f };
+      if (gap && Math.hypot(p.x - gap.x, p.y - gap.y) < 9) continue;
+      k.place('castle-wall', p.x, p.y, { rotation });
+    }
+  };
+  wall({ x: x0 + 4, y: y1 }, { x: x1 - 4, y: y1 }, 0, { x: castle.x, y: y1 });
+  wall({ x: x0 + 4, y: y0 }, { x: x1 - 4, y: y0 }, Math.PI, { x: castle.x, y: y0 });
+  wall({ x: x0, y: y0 + 4 }, { x: x0, y: y1 - 4 }, Math.PI / 2);
+  wall({ x: x1, y: y0 + 4 }, { x: x1, y: y1 - 4 }, -Math.PI / 2, { x: x1, y: 0 });
+  for (const [x, y] of [[x0, y0], [x0, y1], [x1, y0], [x1, y1]] as const) k.place('castle-tower-roof', x, y);
+  k.place('castle-gate', castle.x, y1, { rotation: 0 });
+  k.place('castle-gate', castle.x, y0, { rotation: Math.PI });
+  k.place('castle-gate', x1, 0, { rotation: -Math.PI / 2 });
+  for (const [x, y, a, r] of [
+    [castle.x - 18, 16, 'tent-large', 0.4],
+    [castle.x - 18, -16, 'weapon-rack', 1.57],
+    [castle.x - 22, 0, 'well', 0],
+    [castle.x + 18, 18, 'banner-red', 0],
+    [castle.x + 18, -18, 'banner-red', 0],
+    [castle.x + 12, 22, 'brazier', 0],
+    [castle.x + 12, -22, 'brazier', 0],
+    [castle.x - 8, 22, 'barrel', 0.3],
+    [castle.x - 6, -22, 'crate', 0.6],
+  ] as const) {
+    k.place(a, x, y, { rotation: r });
+  }
+  // Groves and lone oaks between the lanes, hedges along the avenue, field walls
+  for (const at of [{ x: -60, y: 70 }, { x: -60, y: -70 }, { x: -190, y: 110 }, { x: -190, y: -110 }, { x: -110, y: 200 }, { x: -110, y: -200 }]) {
+    k.scatter(['tree-oak', 'tree-maple', 'tree-birch', 'bush', 'shrub-wide'], at, { radius: 24, strength: 1 }, { density: 12, minDistance: 5 });
+  }
+  k.row('hedge-long', [{ x: -100, y: 26 }, { x: -40, y: 22 }], 6, { turn: Math.PI / 2 });
+  k.row('hedge-long', [{ x: -100, y: -22 }, { x: -40, y: -18 }], 6, { turn: Math.PI / 2 });
+  k.row('wall-dry-stone', [{ x: -230, y: 30 }, { x: -200, y: 60 }, { x: -180, y: 110 }], 5.4, { turn: Math.PI / 2 });
+  k.row('wall-dry-stone', [{ x: -230, y: -30 }, { x: -200, y: -60 }, { x: -180, y: -110 }], 5.4, { turn: Math.PI / 2 });
+  // Torches along the way to the HQ
+  for (const [x, y] of [[-95, 14], [-60, 20], [-36, 14]] as const) k.place('torch', x, y);
+
+  // ---- The middle (on the axis, once): the keep behind the HQ, banners, statues
+  k.symmetry = 'none';
+  k.place('castle-keep', 0, 42, { rotation: facing({ x: 0, y: 42 }, hq) });
+  for (const [x, y, a] of [[-12, -20, 'statue-knight'], [12, -20, 'statue-knight'], [-16, 26, 'banner-blue'], [16, 26, 'banner-blue']] as const) {
+    k.place(a, x, y, { rotation: Math.PI });
+  }
+
+  // Four lanes split the first waves four ways: a little more money per lane to open with
+  k.gameplay({ startCredits: 250 });
+  k.environment({ biome: 'temperate', sky: 'dusk', sunAzimuth: 180, sunElevation: 9, fogDensity: 0.0006, tint: '#ffe0c8' });
+  return k.finish();
+}

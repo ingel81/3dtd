@@ -9,6 +9,7 @@ import { buildRedCanyon } from './red-canyon';
 import { buildEmberCrater } from './ember-crater';
 import { buildFrostHamlet } from './frost-hamlet';
 import { buildMountainPass } from './mountain-pass';
+import { buildTwinGates } from './twin-gates';
 import { buildWitchMarsh } from './witch-marsh';
 
 export const SHOWCASE_LEVELS: { id: string; build: () => CustomMapDocument }[] = [
@@ -19,4 +20,5 @@ export const SHOWCASE_LEVELS: { id: string; build: () => CustomMapDocument }[] =
   { id: 'archipelago', build: buildArchipelago },
   { id: 'frost-hamlet', build: buildFrostHamlet },
   { id: 'ember-crater', build: buildEmberCrater },
+  { id: 'twin-gates', build: buildTwinGates },
 ];

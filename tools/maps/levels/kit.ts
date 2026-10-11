@@ -17,7 +17,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CatalogIndex, normalizeCatalog } from '../../../src/app/editor/catalog/asset-catalog';
 import { EditorDocument } from '../../../src/app/editor/model/editor-document';
-import { heightAt, slopeAt } from '../../../src/app/editor/model/grid';
+import { heightAt, slopeAt, type GridRect } from '../../../src/app/editor/model/grid';
 import { BRUSH_LIMITS, type BrushSettings } from '../../../src/app/editor/ops/brush';
 import { finishGenerated, generateTerrain, type TerrainPreset } from '../../../src/app/editor/ops/generate';
 import { biomeBand, biomeDab, finishBiome } from '../../../src/app/editor/ops/landscape/biome-brush';
@@ -34,7 +34,7 @@ import { ObjectGrid, ObjectIds, scatterDab, type ScatterOptions, DEFAULT_SCATTER
 import { autoPaint, defaultAutoRules, paintDab, type AutoPaintRule } from '../../../src/app/editor/ops/paint-ops';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from '../../../src/app/editor/ops/path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../../../src/app/editor/ops/path-terrain';
-import { objectImages, symmetryImages, type SymmetryMode } from '../../../src/app/editor/ops/symmetry';
+import { mirrorChange, objectImages, symmetryImages, type SymmetryMode } from '../../../src/app/editor/ops/symmetry';
 import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, terraceDab, erodeDab } from '../../../src/app/editor/ops/terrain-ops';
 import { BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, waterMaskDab } from '../../../src/app/editor/ops/water-ops';
 import { validateMap, type MapIssue } from '../../../src/app/editor/validation/map-validation';
@@ -309,48 +309,74 @@ export class LevelKit {
 
   // ---- Terrain tool --------------------------------------------------------------------------------------------
 
-  private terrainDabs(where: Where, brush: Brush, fn: (c: MapPoint, b: BrushSettings) => void): void {
+  /**
+   * Dabs of a Terrain, Paint or Water brush along `where`; with symmetry the
+   * cells each dab changed are copied to their images, as the editor does
+   */
+  private terrainDabs(where: Where, brush: Brush, part: 'heights' | 'splat' | 'water', fn: (c: MapPoint, b: BrushSettings) => GridRect): void {
     const b = brushOf(brush);
-    for (const c of dabs(where, b.radius / 3)) fn(c, b);
+    const touch = { heights: () => undefined, splat: () => undefined, water: () => undefined };
+    for (const c of dabs(where, b.radius / 3)) {
+      const rect = fn(c, b);
+      if (this.symmetry === 'none') continue;
+      const change = part === 'splat' ? { splat: rect } : part === 'water' ? { heights: rect, water: true } : { heights: rect };
+      mirrorChange(this.doc, this.symmetry, c, change, touch, part === 'water' ? rect : undefined);
+    }
   }
 
   /** Raise (negative: lower) by up to `metres` per dab */
   raise(where: Where, brush: Brush, metres: number): void {
-    this.terrainDabs(where, brush, (c, b) => raiseDab(this.doc.terrain, c.x, c.y, b, metres));
+    this.terrainDabs(where, brush, 'heights', (c, b) => raiseDab(this.doc.terrain, c.x, c.y, b, metres));
   }
 
   smooth(where: Where, brush: Brush, passes = 4): void {
-    this.terrainDabs(where, brush, (c, b) => {
-      for (let k = 0; k < passes; k++) smoothDab(this.doc.terrain, c.x, c.y, b, 1);
+    this.terrainDabs(where, brush, 'heights', (c, b) => {
+      let rect = smoothDab(this.doc.terrain, c.x, c.y, b, 1);
+      for (let k = 1; k < passes; k++) rect = smoothDab(this.doc.terrain, c.x, c.y, b, 1);
+      return rect;
     });
   }
 
   /** Flatten toward a height (the Level brush), `pull` 0..1 per dab */
   level(where: Where, brush: Brush, height: number, pull = 1): void {
-    this.terrainDabs(where, brush, (c, b) => flattenDab(this.doc.terrain, c.x, c.y, b, height, pull));
+    this.terrainDabs(where, brush, 'heights', (c, b) => flattenDab(this.doc.terrain, c.x, c.y, b, height, pull));
   }
 
   roughen(where: Where, brush: Brush, metres: number, seed = this.spec.seed): void {
-    this.terrainDabs(where, brush, (c, b) => noiseDab(this.doc.terrain, c.x, c.y, b, metres, seed));
+    this.terrainDabs(where, brush, 'heights', (c, b) => noiseDab(this.doc.terrain, c.x, c.y, b, metres, seed));
   }
 
   /** Thermal erosion of the Terrain tool: steep slopes slide into scree */
   slide(where: Where, brush: Brush, passes = 3): void {
-    this.terrainDabs(where, brush, (c, b) => erodeDab(this.doc.terrain, c.x, c.y, b, passes));
+    this.terrainDabs(where, brush, 'heights', (c, b) => erodeDab(this.doc.terrain, c.x, c.y, b, passes));
   }
 
   terrace(where: Where, brush: Brush, step: number, base = 0, pull = 1): void {
-    this.terrainDabs(where, brush, (c, b) => terraceDab(this.doc.terrain, c.x, c.y, b, step, pull, base));
+    this.terrainDabs(where, brush, 'heights', (c, b) => terraceDab(this.doc.terrain, c.x, c.y, b, step, pull, base));
   }
 
   /** The Cliff brush: a hard-edged plateau at `height` */
   plateau(where: Where, brush: Brush, height: number, pull = 1): void {
-    this.terrainDabs(where, brush, (c, b) => plateauDab(this.doc.terrain, c.x, c.y, b, height, pull));
+    this.terrainDabs(where, brush, 'heights', (c, b) => plateauDab(this.doc.terrain, c.x, c.y, b, height, pull));
   }
 
   /** A ramp between two ground points at their own heights (or the given ones) */
   ramp(a: MapPoint & { h?: number }, b: MapPoint & { h?: number }, width: number, falloff = 0.5): void {
     rampBetween(this.doc.terrain, { x: a.x, y: a.y, h: a.h ?? this.h(a.x, a.y) }, { x: b.x, y: b.y, h: b.h ?? this.h(b.x, b.y) }, width, falloff);
+  }
+
+  /**
+   * Copies the whole sector of `from` (heights, ground paint, main water) to
+   * its symmetric images: what a symmetric brush does per dab, at once, for
+   * ground that was not painted symmetrically (the generator)
+   */
+  mirrorFrom(from: MapPoint): void {
+    if (this.symmetry === 'none') return;
+    const t = this.doc.terrain;
+    const all = { i0: 0, j0: 0, i1: t.grid.columns - 1, j1: t.grid.rows - 1 };
+    const texels = { i0: 0, j0: 0, i1: t.splat.resolution - 1, j1: t.splat.resolution - 1 };
+    const touch = { heights: () => undefined, splat: () => undefined, water: () => undefined };
+    mirrorChange(this.doc, this.symmetry, from, { heights: all, splat: texels, water: !!t.water }, touch, all);
   }
 
   // ---- Paint tool ----------------------------------------------------------------------------------------------
@@ -369,7 +395,7 @@ export class LevelKit {
   /** Paint a material under the brush, `amount` 0..1 per dab */
   paint(material: string, where: Where, brush: Brush, amount = 1): void {
     const layer = this.layer(material);
-    this.terrainDabs(where, brush, (c, b) => paintDab(this.doc.terrain, c.x, c.y, b, layer, amount));
+    this.terrainDabs(where, brush, 'splat', (c, b) => paintDab(this.doc.terrain, c.x, c.y, b, layer, amount));
   }
 
   /** "Auto paint the map" with the panel's rules, or own ones by material */
@@ -421,14 +447,16 @@ export class LevelKit {
 
   /** Dig lake: the bed sinks to `depth` under the body's level */
   lake(where: Where, brush: Brush, depth: number, body = -1, rounds = 10): void {
-    this.terrainDabs(where, brush, (c, b) => {
-      for (let k = 0; k < rounds; k++) lakeDab(this.doc.terrain, c.x, c.y, b, depth, 0.3, body);
+    this.terrainDabs(where, brush, 'water', (c, b) => {
+      let rect = lakeDab(this.doc.terrain, c.x, c.y, b, depth, 0.3, body);
+      for (let k = 1; k < rounds; k++) rect = lakeDab(this.doc.terrain, c.x, c.y, b, depth, 0.3, body);
+      return rect;
     });
   }
 
   /** Paint or erase a body's mask */
   waterMask(where: Where, brush: Brush, on: boolean, body = -1): void {
-    this.terrainDabs(where, brush, (c, b) => waterMaskDab(this.doc.terrain, c.x, c.y, b, on, body));
+    this.terrainDabs(where, brush, 'water', (c, b) => waterMaskDab(this.doc.terrain, c.x, c.y, b, on, body));
   }
 
   /** Sea from the edge */

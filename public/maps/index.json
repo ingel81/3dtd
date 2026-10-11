@@ -111,6 +111,20 @@
       "biome": "hell",
       "updatedAt": "2026-10-11T00:00:00.000Z",
       "contentHash": "112d127f11f249f03ceda3ad6166dbe0d8923a25156745c92520c1d12da37555"
+    },
+    {
+      "id": "twin-gates",
+      "name": "Twin Gates",
+      "file": "twin-gates.3dtdmap",
+      "preview": "twin-gates.png",
+      "author": "3DTD",
+      "description": "A mirrored coop map at dusk: two castles, two lanes each through the bailey, one shared HQ in the middle. Four spawns.",
+      "width": 512,
+      "depth": 512,
+      "spawns": 4,
+      "biome": "temperate",
+      "updatedAt": "2026-10-11T00:00:00.000Z",
+      "contentHash": "d243a073580396c262acbbf63d8d9bf6c9ceda2b66cbea3a992095b394d8d698"
     }
   ]
 }

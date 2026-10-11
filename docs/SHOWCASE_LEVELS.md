@@ -115,6 +115,14 @@ einer Obsidianinsel im Lavasee, über eine Lavabrücke. Glutrisse, Lavaströme, 
 am Kraterrand, die Wege münden in die Spirale. Bauflächen: Terrassen zwischen den Spiralwindungen.
 
 ### 8 Spiegel-Arena (`twin-gates`)
+**Gebaut** (`tools/maps/levels/twin-gates.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden, allein mit vier Spuren
+knapp (HQ 197,4 von 500, 19 Tower; Verluste fast nur in den Wellen 1 bis 3), Spielansicht 416 fps, Laden 4,2 s am
+Dev-Server. Vier Spuren zu je 474 m, Startgeld 250 je Spur (`gameplay.startCredits`; mit 100 und 150 hielt der Bot
+ebenfalls, aber mit 124 und 140 HP). Bilder: `docs/images/levels/twin-gates.jpg`, `twin-gates-castle.jpg`,
+`twin-gates-game.jpg`. Gebaut mit Mirror X: Pinsel kopieren ihre Zellen, Linien und Objekte entstehen gespiegelt; den
+Generator-Boden spiegelt `mirrorFrom` einmal von West nach Ost. Was auf der Achse steht (Bergfried hinter dem HQ),
+ist ohne Symmetrie gesetzt.
+
 Biom gemäßigt mit Burgmauern, Look `dusk`. Streng symmetrische Coop-Karte (Spiegelung an X): zwei Burgen, je zwei
 Spuren pro Spieler, die sich in der Mitte am gemeinsamen HQ treffen. Gestaltet mit dem Symmetrie-Modus. Spawns: 4.
 Bauflächen gespiegelt, gleiche Chancen für beide Spieler.
