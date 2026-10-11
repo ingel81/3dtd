@@ -222,6 +222,14 @@ describe('CustomMapWorld', () => {
     expect(world().runRules()).toBeNull();
     expect(world().worldWaves()).toEqual({ source: 'table', table });
 
+    // The lanes' share of a wave goes along, with the map's source or the player's
+    doc.gameplay = { laneScaling: 'sqrt' };
+    expect(world().worldWaves()).toEqual({ source: null, laneScaling: 'sqrt' });
+    doc.gameplay = { waves: { kind: 'table', table }, laneScaling: 'sqrt' };
+    expect(world().worldWaves()).toEqual({ source: 'table', table, laneScaling: 'sqrt' });
+    doc.gameplay = { laneScaling: 'none' };
+    expect(world().worldWaves()).toBeNull();
+
     // A list with mistakes is left out: the game's choice plays
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     doc.gameplay = { waves: { kind: 'table', table: { ...table, cycle: { fromWave: 5, hpGrowth: 0 } } } };

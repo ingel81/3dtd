@@ -12,14 +12,22 @@ import type { WaveSource, WaveSourceId } from './wave-source';
 import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
 import type { WaveTable } from './sources/table/wave-table';
 
-/** What a world gives its sources: a custom map's own wave list for the table source */
+/**
+ * How one lane's wave of the budget source shrinks with the lanes of the
+ * run: 'none' the whole wave on every lane, 'sqrt' 1/sqrt(lanes) of its
+ * bodies (docs/CUSTOM_MAP_WORLD.md, "Viele Spuren")
+ */
+export type LaneScaling = 'none' | 'sqrt';
+
+/** What a world gives its sources: a custom map's own wave list for the table source, its lane scaling for the budget source */
 export interface WaveSourceOptions {
   table?: WaveTable;
+  laneScaling?: LaneScaling;
 }
 
 /** A fresh source per run; they hold per-run state. */
 export const WAVE_SOURCES: Record<WaveSourceId, (options: WaveSourceOptions) => WaveSource> = {
-  budget: () => new BudgetWaveSource(),
+  budget: (options) => new BudgetWaveSource(options.laneScaling),
   table: (options) => new TableWaveSource(options.table),
 };
 

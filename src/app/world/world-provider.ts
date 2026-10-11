@@ -18,6 +18,7 @@ import type { RunRules } from '../sim/protocol/run-rules';
 import type { WorldCoverage } from './world-coverage';
 import type { WaveSourceId } from '../director/wave-source';
 import type { WaveTable } from '../director/sources/table/wave-table';
+import type { LaneScaling } from '../director/wave-source.registry';
 
 /**
  * What a world can do, read by the services and the UI instead of asking
@@ -174,8 +175,11 @@ export interface WorldStartLayout {
 
 /** The waves a world brings (a custom map's gameplay): the source to play, its own list for the table source */
 export interface WorldWaves {
-  source: WaveSourceId;
+  /** The source the world plays; null: the player's choice */
+  source: WaveSourceId | null;
   table?: WaveTable;
+  /** How a lane's wave shrinks with many lanes; absent: the whole wave */
+  laneScaling?: LaneScaling;
 }
 
 /** A sightseeing flight over a world, local coordinates, starting at the HQ */

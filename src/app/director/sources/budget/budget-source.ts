@@ -30,6 +30,7 @@ import { PressureController, targetPressure, wavePressure, type PressureState } 
 import { directorParams } from '../../director-params';
 import { RUN_PLAN_RULES, planEnemies, planMutator, planRowForWave, waveLeakScale, type RunPlanRow } from './run-plan';
 import { BOSS_MIN_HP_MULT, BOSS_OVER_ESCORT, CAP_FOLLOWS_REGULATOR, bodyParts, sizeWave, type BudgetResult } from './budget';
+import type { LaneScaling } from '../../wave-source.registry';
 
 /**
  * The loop moves the budget, and the cap with it, between half and two and a half. At 1.5 with a fixed cap
@@ -55,6 +56,9 @@ export class BudgetWaveSource implements WaveSource {
   readonly rules = RUN_PLAN_RULES;
 
   private readonly pressure = new PressureController(BUDGET_REGULATOR_LIMITS, BUDGET_REGULATOR_START);
+
+  /** @param laneScaling a world's choice how a lane's wave shrinks with the lanes (LaneScaling); the whole wave by default */
+  constructor(private readonly laneScaling: LaneScaling = 'none') {}
   /** Did the cap cut the last wave? Then opening the loop would not have helped (anti-windup). */
   private lastCapped = false;
 
@@ -100,10 +104,14 @@ export class BudgetWaveSource implements WaveSource {
     const hurt = Object.keys(sized.hpMult).filter((type) => !sized.unhurt.includes(type));
     this.lastCapped = (!CAP_FOLLOWS_REGULATOR && sized.capped) || (hurt.length > 0 && hurt.every((type) => sized.clamped.includes(type)));
 
+    // Many lanes, one player: each lane gets its share of the bodies, their HP as sized (laneScaling 'sqrt')
+    const laneShare = this.laneScaling === 'sqrt' && lanes > 1 ? 1 / Math.sqrt(lanes) : 1;
     const enemies: WaveEnemyGroup[] = Object.entries(planned)
       .filter(([, count]) => count > 0)
-      .map(([type, count]) => {
-        const elite = sized.elites[type];
+      .map(([type, planCount]) => {
+        const count = laneShare === 1 ? planCount : Math.max(1, Math.round(planCount * laneShare));
+        const sizedElite = sized.elites[type];
+        const elite = sizedElite && { ...sizedElite, count: Math.min(sizedElite.count, count) };
         const camoShare = row.camo?.[type] ?? 0;
         const camo = camoShare > 0 && !ENEMY_TYPES[type as EnemyTypeId]?.chain
           ? Math.min(count, Math.max(1, Math.round(count * camoShare)))

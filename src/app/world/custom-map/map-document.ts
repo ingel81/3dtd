@@ -227,6 +227,12 @@ export interface MapGameplay {
   /** Tower type ids the player may build (configs/tower-types.config.ts); all when missing */
   towers?: string[];
   waves?: MapWaveSource;
+  /**
+   * One player on many lanes (docs/CUSTOM_MAP_WORLD.md, "Viele Spuren"):
+   * 'sqrt' gives each lane of the budget source 1/sqrt(lanes) of a wave's
+   * bodies; 'none' (default) the whole wave on every lane. Prepared, off.
+   */
+  laneScaling?: 'none' | 'sqrt';
 }
 
 export interface CustomMapDocument {

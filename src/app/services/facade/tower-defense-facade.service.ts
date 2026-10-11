@@ -437,7 +437,10 @@ export class TowerDefenseFacadeService {
       const world = this.worldContext.open({ lat: base.lat, lon: base.lon, height: 0 });
       // The world's waves (a custom map's source and list) from the first run on; the game's choice without
       const waves = world.worldWaves();
-      this.waveDirector.useWorldWaves(waves?.table ? { table: waves.table } : {}, waves?.source ?? null);
+      this.waveDirector.useWorldWaves({
+        ...(waves?.table ? { table: waves.table } : {}),
+        ...(waves?.laneScaling ? { laneScaling: waves.laneScaling } : {}),
+      }, waves?.source ?? null);
       // The build menu locks what the world's rules leave out, as the simulation does
       const rules = world.runRules() ?? DEFAULT_RUN_RULES;
       this.researchStore.runRules.set(rules);
