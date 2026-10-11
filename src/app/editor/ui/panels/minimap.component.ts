@@ -72,8 +72,8 @@ export class MinimapComponent implements OnDestroy {
     const x = ((u - box.x) / box.w - 0.5) * doc.terrain.width;
     const y = (0.5 - (v - box.y) / box.h) * doc.terrain.depth;
     const c = vp.controller.goal;
-    c.target.x = Math.max(-doc.terrain.width / 2, Math.min(doc.terrain.width / 2, x));
-    c.target.z = -Math.max(-doc.terrain.depth / 2, Math.min(doc.terrain.depth / 2, y));
+    c.target.x = -Math.max(-doc.terrain.width / 2, Math.min(doc.terrain.width / 2, x));
+    c.target.z = Math.max(-doc.terrain.depth / 2, Math.min(doc.terrain.depth / 2, y));
   }
 
   /** The map's rectangle inside the square canvas */
@@ -144,7 +144,7 @@ export class MinimapComponent implements OnDestroy {
     if (target) {
       c.strokeStyle = TD_THEME.brassLight;
       c.beginPath();
-      c.arc(px(target.x), py(-target.z), 3, 0, Math.PI * 2);
+      c.arc(px(-target.x), py(target.z), 3, 0, Math.PI * 2);
       c.stroke();
     }
   }

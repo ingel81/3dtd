@@ -3,8 +3,9 @@
  * (`world/custom-map/render/`) is the real one; `PlaceholderMapView` draws
  * the same document with plain colours until it is there.
  *
- * Scene space: three.js y is up; map x is scene x, map y (north) is scene
- * -z, heights are scene y.
+ * Scene space is the game's (`geoToLocalSimple` around the origin): y is
+ * up, scene x = -map x (east), scene z = map y (north). A half turn, not a
+ * mirror, so a map rotation r is rotation.y = r in the scene.
  */
 import { Vector3, type Camera, type Object3D, type Ray } from 'three';
 import type { MapPoint } from '../../world/custom-map/map-document';
@@ -34,9 +35,9 @@ export interface EditorMapView {
 }
 
 export function mapToScene(x: number, y: number, h: number, target = new Vector3()): Vector3 {
-  return target.set(x, h, -y);
+  return target.set(-x, h, y);
 }
 
 export function sceneToMap(v: Vector3): MapPoint & { z: number } {
-  return { x: v.x, y: -v.z, z: v.y };
+  return { x: -v.x, y: v.z, z: v.y };
 }

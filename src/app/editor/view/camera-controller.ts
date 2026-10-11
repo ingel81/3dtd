@@ -46,16 +46,14 @@ export class CameraController {
   pan(dxPixels: number, dyPixels: number, viewportHeight: number, fovDeg: number): void {
     const visible = 2 * this.goal.distance * Math.tan(MathUtils.degToRad(fovDeg / 2));
     const k = visible / Math.max(1, viewportHeight);
-    const right = new Vector3(Math.cos(this.goal.yaw), 0, Math.sin(this.goal.yaw));
-    const forward = new Vector3(Math.sin(this.goal.yaw), 0, -Math.cos(this.goal.yaw));
+    const { right, forward } = axes(this.goal.yaw);
     this.goal.target.addScaledVector(right, -dxPixels * k);
     this.goal.target.addScaledVector(forward, dyPixels * k);
   }
 
   /** Pan in metres along the view's right and forward (arrow keys) */
   move(rightMetres: number, forwardMetres: number): void {
-    const right = new Vector3(Math.cos(this.goal.yaw), 0, Math.sin(this.goal.yaw));
-    const forward = new Vector3(Math.sin(this.goal.yaw), 0, -Math.cos(this.goal.yaw));
+    const { right, forward } = axes(this.goal.yaw);
     this.goal.target.addScaledVector(right, rightMetres).addScaledVector(forward, forwardMetres);
   }
 
@@ -115,17 +113,22 @@ export class CameraController {
   apply(camera: PerspectiveCamera): void {
     const c = this.current;
     const horizontal = Math.cos(c.pitch) * c.distance;
-    camera.position.set(
-      c.target.x - Math.sin(c.yaw) * horizontal,
-      c.target.y + Math.sin(c.pitch) * c.distance,
-      c.target.z + Math.cos(c.yaw) * horizontal,
-    );
-    // Straight down needs a defined up: north stays at the top of the screen when yaw is 0
-    camera.up.set(Math.sin(c.yaw), c.pitch > MAX_PITCH - 0.01 ? 0 : 1, -Math.cos(c.yaw)).normalize();
-    if (c.pitch <= MAX_PITCH - 0.01) camera.up.set(0, 1, 0);
+    const { forward } = axes(c.yaw);
+    camera.position.set(c.target.x - forward.x * horizontal, c.target.y + Math.sin(c.pitch) * c.distance, c.target.z - forward.z * horizontal);
+    // Looking almost straight down, world up is no use as the screen's up: the view's forward takes over
+    if (c.pitch > 1.45) camera.up.copy(forward);
+    else camera.up.set(0, 1, 0);
     camera.lookAt(c.target);
     camera.near = Math.max(0.5, c.distance / 2000);
     camera.far = Math.max(20000, c.distance * 20);
     camera.updateProjectionMatrix();
   }
+}
+
+/** The view's ground axes in scene space (x is west, z is north): yaw 0 looks north */
+function axes(yaw: number): { right: Vector3; forward: Vector3 } {
+  return {
+    forward: new Vector3(-Math.sin(yaw), 0, Math.cos(yaw)),
+    right: new Vector3(-Math.cos(yaw), 0, -Math.sin(yaw)),
+  };
 }

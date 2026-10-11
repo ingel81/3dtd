@@ -27,7 +27,7 @@ import { edgePolyline, nearestOnPolyline, spawnRoutes } from '../ops/path-graph'
 import type { EditorSettings, EditorTool, MapHit, PickResult, ToolContext, ToolPointer } from '../tools/tool';
 import { CameraController } from './camera-controller';
 import { EditorOverlay } from './editor-overlay';
-import type { EditorMapView } from './map-view';
+import { mapToScene, type EditorMapView } from './map-view';
 import { PlaceholderMapView } from './placeholder-map-view';
 
 export interface HoverInfo {
@@ -155,7 +155,7 @@ export class EditorViewport {
   }
 
   focusOn(p: MapPoint, radius = 60): void {
-    this.controller.focus(new Vector3(p.x, this.heightAt(p.x, p.y), -p.y), radius);
+    this.controller.focus(mapToScene(p.x, p.y, this.heightAt(p.x, p.y)), radius);
   }
 
   /** Frame what is selected, else the whole map */
@@ -254,7 +254,8 @@ export class EditorViewport {
     this.flush();
     const cam = new OrthographicCamera(-t.width / 2, t.width / 2, t.depth / 2, -t.depth / 2, 1, 20000);
     cam.position.set(0, 5000, 0);
-    cam.up.set(0, 0, -1);
+    // North (+z) at the top, east (-x) to the right
+    cam.up.set(0, 0, 1);
     cam.lookAt(0, 0, 0);
     const target = new WebGLRenderTarget(width, height, { colorSpace: SRGBColorSpace });
     const fog = this.scene.fog;
@@ -406,7 +407,7 @@ export class EditorViewport {
     e.preventDefault();
     const steps = Math.sign(e.deltaY) * Math.min(3, Math.abs(e.deltaY) / 100 || 1);
     const hit = this.raycastClient(e.clientX, e.clientY);
-    this.controller.zoom(steps, hit ? new Vector3(hit.x, hit.z, -hit.y) : null);
+    this.controller.zoom(steps, hit ? mapToScene(hit.x, hit.y, hit.z) : null);
   }
 
   private trackPointer(e: PointerEvent): void {
@@ -526,7 +527,7 @@ export class EditorViewport {
     const g = this.controller.goal.target;
     g.x = Math.max(-t.width / 2, Math.min(t.width / 2, g.x));
     g.z = Math.max(-t.depth / 2, Math.min(t.depth / 2, g.z));
-    this.controller.setGroundHeight(this.heightAt(g.x, -g.z));
+    this.controller.setGroundHeight(this.heightAt(-g.x, g.z));
     if (this.controller.update(dt)) this.callbacks.camera();
     this.controller.apply(this.camera);
 

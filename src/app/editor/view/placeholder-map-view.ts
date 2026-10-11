@@ -167,7 +167,7 @@ export class PlaceholderMapView implements EditorMapView {
         const y0 = -t.depth / 2 + j * g.cellSize;
         const x1 = x0 + g.cellSize;
         const y1 = y0 + g.cellSize;
-        pos.push(x0, w.level, -y0, x1, w.level, -y0, x1, w.level, -y1, x0, w.level, -y0, x1, w.level, -y1, x0, w.level, -y1);
+        pos.push(-x0, w.level, y0, -x1, w.level, y0, -x1, w.level, y1, -x0, w.level, y0, -x1, w.level, y1, -x0, w.level, y1);
       }
     }
     if (!pos.length) return;
@@ -204,7 +204,7 @@ export class PlaceholderMapView implements EditorMapView {
       mesh.name = `objects:${asset}`;
       list.forEach((o, k) => {
         q.setFromAxisAngle(up, o.rotation);
-        p.set(o.x, heightAt(doc.terrain, o.x, o.y) + o.z, -o.y);
+        p.set(-o.x, heightAt(doc.terrain, o.x, o.y) + o.z, o.y);
         s.set(entry.radius * o.scale, entry.height * o.scale, entry.radius * o.scale);
         mesh.setMatrixAt(k, m.compose(p, q, s));
       });
@@ -247,7 +247,7 @@ export class PlaceholderMapView implements EditorMapView {
         const r = { x: a.x - nx, y: a.y - ny };
         const lh = edge.kind === 'bridge' ? this.bridgeHeight(a.x, a.y) : heightAt(doc.terrain, l.x, l.y);
         const rh = edge.kind === 'bridge' ? lh : heightAt(doc.terrain, r.x, r.y);
-        pos.set([l.x, lh + lift, -l.y, r.x, rh + lift, -r.y], k * 6);
+        pos.set([-l.x, lh + lift, l.y, -r.x, rh + lift, r.y], k * 6);
         if (k > 0) {
           const v = k * 2;
           index.push(v - 2, v - 1, v, v - 1, v + 1, v);
@@ -276,7 +276,8 @@ export class PlaceholderMapView implements EditorMapView {
     const az = (env.sunAzimuth * Math.PI) / 180;
     const el = (Math.max(1, env.sunElevation) * Math.PI) / 180;
     const r = Math.max(this.doc.terrain.width, this.doc.terrain.depth);
-    this.sun.position.set(Math.sin(az) * Math.cos(el) * r, Math.sin(el) * r, -Math.cos(az) * Math.cos(el) * r);
+    // Azimuth from north (+z) clockwise toward east (-x)
+    this.sun.position.set(-Math.sin(az) * Math.cos(el) * r, Math.sin(el) * r, Math.cos(az) * Math.cos(el) * r);
     this.sun.target.position.set(0, 0, 0);
     this.scene.background = new Color(preset.sky).multiply(tint);
     this.scene.fog = env.fogDensity > 0 ? new FogExp2(new Color(preset.fog).getHex(), env.fogDensity) : new Fog(0x000000, 1e9, 1e9 + 1);
@@ -383,17 +384,17 @@ export class PlaceholderMapView implements EditorMapView {
       for (let x = 0; x <= c.w; x++) {
         const i = c.i0 + x;
         const hx = at(i, j);
-        pos[v * 3] = -t.width / 2 + i * g.cellSize;
+        pos[v * 3] = -(-t.width / 2 + i * g.cellSize);
         pos[v * 3 + 1] = hx;
-        pos[v * 3 + 2] = -(-t.depth / 2 + j * g.cellSize);
-        // Normal from central differences, in scene axes (z is -north)
+        pos[v * 3 + 2] = -t.depth / 2 + j * g.cellSize;
+        // Normal from central differences, in scene axes (x is -east, z is north)
         const dx = (at(i + 1, j) - at(i - 1, j)) / (2 * g.cellSize);
         const dy = (at(i, j + 1) - at(i, j - 1)) / (2 * g.cellSize);
         const len = Math.hypot(dx, 1, dy);
         const ny = 1 / len;
-        nor[v * 3] = -dx / len;
+        nor[v * 3] = dx / len;
         nor[v * 3 + 1] = ny;
-        nor[v * 3 + 2] = dy / len;
+        nor[v * 3 + 2] = -dy / len;
         // Colour from the splat weights
         const u = Math.min(res - 1, Math.floor((i / (g.columns - 1)) * res));
         const s = Math.min(res - 1, Math.floor((j / (g.rows - 1)) * res));
@@ -522,7 +523,7 @@ export function raycastHeightfield(doc: CustomMapDocument, ray: Ray): { x: numbe
   if (!clip(o.y, d.y, minH - 1, maxH + 1)) return null;
   if (!clip(o.z, d.z, -t.depth / 2, t.depth / 2)) return null;
   const step = t.grid.cellSize / 2;
-  const above = (s: number) => o.y + d.y * s - heightAt(t, o.x + d.x * s, -(o.z + d.z * s));
+  const above = (s: number) => o.y + d.y * s - heightAt(t, -(o.x + d.x * s), o.z + d.z * s);
   let prev = t0;
   if (above(prev) < 0) return toMap(o, d, prev);
   for (let s = t0 + step; s <= t1 + step; s += step) {
@@ -544,7 +545,7 @@ export function raycastHeightfield(doc: CustomMapDocument, ray: Ray): { x: numbe
 }
 
 function toMap(o: Vector3, d: Vector3, s: number): { x: number; y: number; z: number } {
-  return { x: o.x + d.x * s, y: -(o.z + d.z * s), z: o.y + d.y * s };
+  return { x: -(o.x + d.x * s), y: o.z + d.z * s, z: o.y + d.y * s };
 }
 
 const boundsCache = new WeakMap<Float32Array, { min: number; max: number; stamp: number }>();

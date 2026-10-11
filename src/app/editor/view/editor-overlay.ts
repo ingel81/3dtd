@@ -101,7 +101,7 @@ export class EditorOverlay {
       return;
     }
     const pos = new Float32Array(points.length * 3);
-    points.forEach((p, k) => pos.set([p.x, this.height(p.x, p.y) + 0.8, -p.y], k * 3));
+    points.forEach((p, k) => pos.set([-p.x, this.height(p.x, p.y) + 0.8, p.y], k * 3));
     this.draft.geometry.dispose();
     this.draft.geometry = new BufferGeometry();
     this.draft.geometry.setAttribute('position', new BufferAttribute(pos, 3));
@@ -120,13 +120,13 @@ export class EditorOverlay {
       const color = new Color(SPAWN_COLORS[k % SPAWN_COLORS.length]);
       const chosen = selection?.kind === 'spawn' && selection.id === s.id;
       const marker = spawnMarker(color, chosen);
-      marker.position.set(s.x, this.height(s.x, s.y), -s.y);
+      marker.position.set(-s.x, this.height(s.x, s.y), s.y);
       marker.scale.setScalar(this.markerScale);
       marker.userData = { pick: { kind: 'spawn', id: s.id } };
       this.markers.add(marker);
     });
     const hq = hqMarker(selection?.kind === 'hq');
-    hq.position.set(doc.hq.x, this.height(doc.hq.x, doc.hq.y), -doc.hq.y);
+    hq.position.set(-doc.hq.x, this.height(doc.hq.x, doc.hq.y), doc.hq.y);
     hq.scale.setScalar(this.markerScale);
     hq.userData = { pick: { kind: 'hq' } };
     this.markers.add(hq);
@@ -139,7 +139,7 @@ export class EditorOverlay {
       const degree = doc.paths.edges.reduce((d, e) => d + (e.a === n.id || e.b === n.id ? 1 : 0), 0);
       mesh.userData['size'] = degree > 2 ? 2.4 : 1.8;
       mesh.scale.setScalar(mesh.userData['size'] * this.markerScale);
-      mesh.position.set(n.x, this.height(n.x, n.y) + 1, -n.y);
+      mesh.position.set(-n.x, this.height(n.x, n.y) + 1, n.y);
       mesh.renderOrder = 11;
       this.nodes.add(mesh);
     }
@@ -166,7 +166,7 @@ export class EditorOverlay {
           const pts = [a, ...(edge.via ?? []), b];
           const line = new Line(new BufferGeometry(), this.selectMaterial);
           const pos = new Float32Array(pts.length * 3);
-          pts.forEach((p, k) => pos.set([p.x, this.height(p.x, p.y) + 1.2, -p.y], k * 3));
+          pts.forEach((p, k) => pos.set([-p.x, this.height(p.x, p.y) + 1.2, p.y], k * 3));
           line.geometry.setAttribute('position', new BufferAttribute(pos, 3));
           line.renderOrder = 10;
           this.selection.add(line);
@@ -184,7 +184,7 @@ export class EditorOverlay {
     for (const r of routes) {
       if (!r || r.points.length < 2) continue;
       const pos = new Float32Array(r.points.length * 3);
-      r.points.forEach((p, k) => pos.set([p.x, this.height(p.x, p.y) + 1.6, -p.y], k * 3));
+      r.points.forEach((p, k) => pos.set([-p.x, this.height(p.x, p.y) + 1.6, p.y], k * 3));
       const line = new Line(new BufferGeometry(), this.routeMaterial);
       line.geometry.setAttribute('position', new BufferAttribute(pos, 3));
       line.renderOrder = 9;
@@ -223,7 +223,7 @@ export class EditorOverlay {
       for (let along = shift; along <= r.length && k < dots.count; along += ROUTE_DOT_SPACING) {
         const p = pointAt(r.points, along);
         const d = 0.9 * this.markerScale;
-        m.makeScale(d, d, d).setPosition(p.x, this.height(p.x, p.y) + 1.8, -p.y);
+        m.makeScale(d, d, d).setPosition(-p.x, this.height(p.x, p.y) + 1.8, p.y);
         dots.setMatrixAt(k++, m);
       }
     }
@@ -261,7 +261,7 @@ function drape(loop: LineLoop, c: MapPoint, radius: number, height: GroundHeight
     const a = (k / RING_SEGMENTS) * Math.PI * 2;
     const x = c.x + Math.cos(a) * radius;
     const y = c.y + Math.sin(a) * radius;
-    pos.setXYZ(k, x, height(x, y) + 0.4, -y);
+    pos.setXYZ(k, -x, height(x, y) + 0.4, y);
   }
   pos.needsUpdate = true;
   loop.geometry.computeBoundingSphere();
