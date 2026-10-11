@@ -15,12 +15,16 @@ zuletzt geändert), rechts die gewählte mit Beschreibung und den Knöpfen Open,
 bestätigen). Mitgelieferte Karten (`public/maps/index.json`) sind schreibgeschützt: „Copy and edit“ legt eine eigene
 Kopie an und öffnet sie.
 
-- **New map:** Name, Autor, Größe (Small 512 m, Medium 1024 m, Large 2048 m, Wide 2048 x 1024 m), Boden (Flat,
-  Hills, Valleys, Islands, Canyon, Terraces mit Seed und Stärke, siehe [Generator](#gelände-generator)),
-  Grundmaterial. Jede neue Karte hat eine Straße von West zum HQ und einen Spawn an ihrem Ende, damit sie sofort
+- **New map:** Name, Autor, Größe (Small 512 m, Medium 1024 m, Large 2048 m, Wide 2048 x 1024 m), Vorlage oder Boden
+  (Flat, Hills, Valleys, Islands, Canyon, Terraces mit Seed und Stärke, siehe [Generator](#gelände-generator)) mit
+  Grundmaterial. Eine Vorlage (Meadows, Woods, Mountains, Swamp, Desert, Arctic, City, Hell, Wasteland, Moon, Mars)
+  legt Gelände aus dem Generator an, malt die ganze Karte mit ihrem Biom (Boden, Relief, Becken, Objekte) und setzt
+  Himmel, Licht, Nebel, Tönung und Wetter; das Biom läuft in Bändern über die Karte (`biomeBand`), eine Karte von
+  1024 m braucht dafür unter einer halben Sekunde. Jede neue Karte hat eine Straße von West zum HQ und einen Spawn an ihrem Ende, damit sie sofort
   spielbar ist; der Generator ebnet die Straße und legt sie, wo sie unter Wasser liefe, auf einen Damm
 - **Import file:** `.3dtdmap` oder `.w3x` per Dateiwahl oder per Ablegen auf der Seite. Ein Warcraft-3-Import fragt
-  erst nach Metern je Kachel (4), höchstens Objekten (6000) und „Playable area only“, läuft dann im Web Worker
+  erst nach Metern je Kachel (4), höchstens Objekten (6000), „Playable area only“ und „Enhance ground“ (Boden nach
+  Spielrolle neu malen, aus: Kacheln wie im Original), läuft dann im Web Worker
   ([W3X_IMPORT.md](W3X_IMPORT.md)) und zeigt den Bericht: Größe, Bodenschichten, Wasser, woher die
   Straßen kamen, Spawns und Spurlängen, übernommene Doodads, Warnungen; „Open the map“ öffnet sie. Die Karte landet bei den eigenen
 - Die Adresse trägt die offene Karte (`/editor?map=<id>`); Neuladen öffnet sie wieder
@@ -58,10 +62,14 @@ zeigt Größe und den harten Kern.
 **Landscape (1).** Landschaft malen: Höhe, Bodenfarbe, Wasser und Objekte entstehen gemeinsam, jeder Strich ist
 ein Schritt im Verlauf. Jeder Strich hat einen Seed (im Panel und in der Statuszeile, „Roll“ würfelt, der Schalter
 würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben dieselbe Landschaft.
-- Biome: Meadow, Forest, Pine forest, Rocks, Swamp, Desert, Snow, Village. Halten malt; die Stärke bestimmt Dichte und
-  Ausprägung, der Rand franst aus. Unterholz, Büsche und Zäune wachsen am Rand des Strichs, Bäume und Häuser innen.
-  Objekte meiden Straßen, Wasser, Spawns und HQ; der Boden unter Straßen bleibt. Der Sumpf legt flache Wasserlachen an
-  (ohne Wasser auf der Karte entsteht es knapp unter dem Startpunkt). Unter dem Zeiger zeigen Punkte, wo der nächste
+- Biome: Meadow, Forest, Pine forest, Rocks, Mountains, Swamp, Desert, Snow, Arctic, Village, City, Hell, Wasteland,
+  Moon, Mars. Halten malt; die Stärke bestimmt Dichte und Ausprägung, der Rand franst aus. Unterholz, Büsche und Zäune
+  wachsen am Rand des Strichs, Bäume und Häuser innen; eine Objektart mischt alle ihre Kandidaten aus dem Katalog.
+  Objekte meiden Straßen, Wasser, Spawns und HQ; der Boden unter Straßen bleibt. Sumpf, Hölle und Arktis legen Becken
+  an, gefüllt mit einem eigenen Gewässer der Art Swamp, Lava oder Ice (ein vorhandenes in der Nähe des Startpunkts
+  wird mitbenutzt). City legt ein Straßenraster fest auf die Karte (alle 64 m, Asphalt und Gehwege), Häuser stehen an
+  den Blockrändern zur Straße gewandt, Laternen auf den Gehwegen; Hell legt Glutrisse über den Boden; Wasteland und
+  Moon haben Kraterfelder. Sind die acht Bodenschichten voll, sagt die Statuszeile, welche Materialien fehlen. Unter dem Zeiger zeigen Punkte, wo der nächste
   Strich Pflanzen setzen würde
 - Mountain (gratige Gipfel, Höhe nach Größe und Stärke), Valley, Plateau (Tafel mit steilem Rand), Crater (Schüssel mit
   Wall am Startpunkt des Strichs), Dunes (runde Kämme quer zum Wind, flache Luv-, steile Leeseite), Erode (Regen gräbt
@@ -79,7 +87,7 @@ eingestellte Höhe; Strg+Klick nimmt sie vom Boden), Roughen (Rauschen), Erode (
 Terrace (Stufen in einstellbarer Höhe), Cliff (Plateau eine Stufe über dem Strichanfang, Shift eine darunter, harte
 Kante wie Warcraft-Klippen), Ramp (zwei Klicks: Rampe zwischen den beiden Höhen, Breite einstellbar).
 
-**Paint (3).** Bis zu acht Bodenschichten aus dem Katalog; die Liste wählt die Schicht zum Malen, tauscht ihr Material,
+**Paint (3).** Bis zu acht Bodenschichten aus dem Katalog (beim Hinzufügen nach Biom gruppiert); die Liste wählt die Schicht zum Malen, tauscht ihr Material,
 verschiebt und entfernt sie (ihr Gewicht geht an die anderen). Halten malt, Shift oder der Schalter radiert. „Auto paint
 the map“ malt die ganze Karte neu: die erste Schicht überall, felsartige Schichten an steilen Hängen, sandartige am
 Ufer, schneeartige auf den Gipfeln (nach dem Materialnamen). Darunter das Klippenmaterial und ab welcher Neigung es
@@ -92,7 +100,8 @@ sie. Ohne Wasser (oder mit Strg) wird der Spiegel knapp unter den Rand der Mulde
 Erase malen die Maske von Hand. Sea from the edge flutet das Gewässer vom Kartenrand her über alles unter seinem
 Spiegel.
 
-**Objects (5).** Palette aus dem Katalog mit Bildern, Kategorien und Suche.
+**Objects (5).** Palette aus dem Katalog mit Bildern, Kategorien (auch Structures und Effects), Biom-Filter nach den
+Tags des Katalogs und Suche (Name, Id oder Tag).
 - Place: ein Klick setzt das gewählte Objekt (Raster-Fang 1 bis 8 m, zufällige Drehung)
 - Scatter: halten streut die gewählten Assets (mehrere wählbar) mit Dichte, Größenbereich, Mindestabstand, zufälliger
   Drehung und Einsinken am Hang; Shift dünnt aus
@@ -264,6 +273,5 @@ und gesetztes Stück, Prüfen, Speichern, Neuladen, Löschen; ohne Kartensitzung
 
 - Objekte haben nur eine Drehung um die Hochachse; „Align to slope“ fehlt im Kartendokument, der Streupinsel lässt
   Objekte am Hang stattdessen einsinken
-- Biom-Tags des Katalogs nutzt der Editor noch nicht
 - Ein gezeichneter Fluss lässt sich danach nicht als Linie bearbeiten, nur rückgängig machen und neu ziehen
 - Gameplay-Regeln liest das Spiel noch nicht
