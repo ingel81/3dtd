@@ -19,6 +19,8 @@ export const HEIGHT_FOG_UNIFORMS = {
   uFogBase: { value: 0 },
   uFogSunColor: { value: new Color(1, 0.9, 0.75) },
   uFogSunDir: { value: new Vector3(0, 1, 0) },
+  /** The map's own fog density (the scene's FogExp2 carries a matched one for other materials) */
+  uFogDensity: { value: 0.001 },
   /** Colour grade of the map's look, after the fog: contrast, saturation, and a multiply tint */
   uGradeContrast: { value: 1 },
   uGradeSaturation: { value: 1 },
@@ -30,6 +32,7 @@ uniform float uFogFalloff;
 uniform float uFogBase;
 uniform vec3 uFogSunColor;
 uniform vec3 uFogSunDir;
+uniform float uFogDensity;
 uniform float uGradeContrast;
 uniform float uGradeSaturation;
 uniform vec3 uGradeTint;
@@ -55,11 +58,7 @@ export function heightFogFragment(worldPos: string): string {
   float camHeight = cameraPosition.y - uFogBase;
   // Integral of density * exp(-k * height) along the ray, closed form
   float along = abs(kdy) > 1e-4 ? (1.0 - exp(-kdy)) / kdy : 1.0;
-  #ifdef FOG_EXP2
-  float fogBaseDensity = fogDensity * 2.0;
-  #else
-  float fogBaseDensity = 3.0 / fogFar;
-  #endif
+  float fogBaseDensity = uFogDensity * 2.0;
   // Height fog, plus thin air everywhere: far land turns hazy blue even seen from high above
   float amount = fogBaseDensity * fogDist * (exp(-k * max(camHeight, -50.0)) * along + 0.25);
   float fogFactor = 1.0 - exp(-max(amount, 0.0));

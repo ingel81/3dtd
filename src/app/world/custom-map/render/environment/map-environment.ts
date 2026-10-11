@@ -227,6 +227,7 @@ export class CustomMapEnvironment {
       this.fog.color.lerp(new Color(0xc0c6ca), 0.4 * k);
     }
     this.weather.set(weather, k, 1 - this.darkness * 0.85);
+    HEIGHT_FOG_UNIFORMS.uFogDensity.value = this.fog.density;
     this.placeSun(this.sun.target.position);
     HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(this.sun.color).lerp(this.fog.color, 0.35);
     HEIGHT_FOG_UNIFORMS.uFogSunDir.value.copy(this.sunDir);
@@ -291,6 +292,25 @@ export class CustomMapEnvironment {
     const base = { day: 0, overcast: 0.2, dusk: 0.6, night: 1 }[this.env.sky] ?? 0;
     // A low sun darkens any sky
     return Math.min(1, Math.max(base, 1 - this.env.sunElevation / 12));
+  }
+
+  /**
+   * The scene's FogExp2 density that gives other materials (towers, enemies,
+   * effects of the game) the same fog as the map's height fog at `point`
+   * seen from `eye` (both group space): the map's own materials use the
+   * height fog, everything else exponential fog, and where the action is
+   * both agree.
+   */
+  matchFog(eye: Vector3, point: Vector3): void {
+    const u = HEIGHT_FOG_UNIFORMS;
+    const k = u.uFogFalloff.value;
+    const dist = eye.distanceTo(point);
+    const kdy = k * (point.y - eye.y);
+    const along = Math.abs(kdy) > 1e-4 ? (1 - Math.exp(-kdy)) / kdy : 1;
+    const camHeight = Math.max(eye.y - u.uFogBase.value, -50);
+    const amount = u.uFogDensity.value * 2 * dist * (Math.exp(-k * camHeight) * along + 0.25);
+    // FogExp2: factor = 1 - exp(-(density * d)^2); the height fog: 1 - exp(-amount)
+    this.fog.density = dist > 1 ? Math.sqrt(Math.max(amount, 0)) / dist : u.uFogDensity.value;
   }
 
   /** Height the fog is densest at (the map's low ground), metres in the scene */
