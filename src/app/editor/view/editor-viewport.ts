@@ -616,6 +616,13 @@ export class EditorViewport {
 
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
+    // Ctrl and the wheel size the brush where one shows (Ctrl+wheel would zoom the page otherwise)
+    if ((e.ctrlKey || e.metaKey) && this.tool?.brushVisible(this.ctx)) {
+      const b = this.settings.brush;
+      b.radius = stepRadius(b.radius, e.deltaY < 0 ? 1 : -1);
+      this.callbacks.settingsChanged();
+      return;
+    }
     const steps = Math.sign(e.deltaY) * Math.min(3, Math.abs(e.deltaY) / 100 || 1);
     const hit = this.raycastClient(e.clientX, e.clientY);
     this.controller.zoom(steps, hit ? mapToScene(hit.x, hit.y, hit.z) : null);

@@ -595,6 +595,7 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
     group: 'Brushes',
     keys: [
       ['[ ]', 'Smaller, larger'],
+      ['Ctrl+wheel', 'Brush size in the view'],
       ['{ }', 'Weaker, stronger'],
       ['Shift', 'Reverse (lower, erase, thin out)'],
       ['Ctrl click', 'Pick the height (Level, Terrace)'],
