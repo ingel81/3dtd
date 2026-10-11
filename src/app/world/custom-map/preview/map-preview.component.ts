@@ -102,7 +102,7 @@ export class MapPreviewComponent implements OnDestroy {
       anisotropy: renderer.capabilities.getMaxAnisotropy(),
     });
     this.view = view;
-    scene.add(view.group);
+    view.attach(scene);
     view.environment.apply(scene, renderer);
 
     const spot = VIEWS[params.get('view') ?? 'overview'] ?? VIEWS['overview'];

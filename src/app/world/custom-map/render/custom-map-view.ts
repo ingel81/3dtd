@@ -1,4 +1,4 @@
-import { Group, Ray, Vector3, type Camera } from 'three';
+import { Group, Ray, Vector3, type Camera, type Object3D } from 'three';
 import type { CustomMapDocument, MapEnvironment, MapObject } from '../map-document';
 import { HeightField } from './height-field';
 import type { MapAssetLibrary } from './map-asset-library';
@@ -16,7 +16,7 @@ import type { GridRect } from './terrain/terrain-chunks';
  *
  * ```ts
  * const view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy });
- * scene.add(view.group);
+ * view.attach(scene);                     // group + losBlockers as direct scene children
  * view.environment.apply(scene, renderer); // sky, environment light, sun with shadows, fog
  * await view.ready;                        // ground materials and models are in
  * view.update(dt, camera, focus?);         // every frame: LOD, wind, water, culling, shadow box
@@ -36,7 +36,10 @@ import type { GridRect } from './terrain/terrain-chunks';
  * Line of sight: `losBlockers` holds the terrain and the objects that block
  * sight; it is the group a world provider hands to the LOS cube. Everything
  * else in `group` (water, decoration, bridges, the apron) is outside it and
- * marked `userData.losTransparent`.
+ * marked `userData.losTransparent`. The LOS cube hides every direct scene
+ * child except its group, so `losBlockers` must be a direct child of the
+ * scene: `attach(scene)` adds `group` and lifts `losBlockers` beside it
+ * (same transform, the group sits at the origin).
  */
 
 /** Rectangle in map metres */
@@ -105,6 +108,17 @@ export class CustomMapView {
     this.bridges = new BridgeLayer(this.heights, assets);
     this.group.add(this.bridges.group);
     this.ready = this.load();
+  }
+
+  /**
+   * Adds the map to a scene: `group`, and `losBlockers` as a direct child of
+   * the scene (the LOS cube renders only one direct child). Without it,
+   * `scene.add(view.group)` draws the same but the LOS cube would hide the
+   * blockers with the group.
+   */
+  attach(scene: Object3D): void {
+    scene.add(this.group);
+    scene.add(this.losBlockers);
   }
 
   /** Surface height at map point (x, y), the surface the finest terrain level shows */
@@ -216,6 +230,7 @@ export class CustomMapView {
     this.bridges.dispose();
     this.environment.dispose();
     this.group.removeFromParent();
+    this.losBlockers.removeFromParent();
     this.group.clear();
   }
 

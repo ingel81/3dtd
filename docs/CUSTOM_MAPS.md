@@ -27,7 +27,7 @@ Das ist eine halbe Drehung um die Hochachse, keine Spiegelung. `map-coords.ts`: 
 
 ```ts
 const view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy() });
-scene.add(view.group);
+view.attach(scene);                        // group + losBlockers als direkte Kinder der Szene
 view.environment.apply(scene, renderer);   // Himmel, Umgebungslicht, Sonne mit Schatten, Nebel
 renderer.shadowMap.enabled = true;         // für die Schatten der Sonne
 await view.ready;                          // Materialien und Modelle geladen (vorher: grüner Platzhalter)
@@ -39,6 +39,7 @@ view.heightAt(x, y);                       // Kartenraum, allokationsfrei, exakt
 view.raycast(ray);                         // Szene-Strahl gegen das Gelände: { point, distance, x, y, height } | null
 view.raycastObjects(ray);                  // erstes platziertes Objekt: { object, point, distance } | null
 view.losBlockers;                          // Gruppe für den LOS-Würfel: Gelände + sichtblockierende Objekte
+                                           // (muss direktes Kind der Szene sein: der Würfel blendet alle anderen aus)
 
 // Editor: Dokument an Ort und Stelle ändern, dann
 view.updateHeights(rect?);                 // rect in Kartenmetern { minX, minY, maxX, maxY }; Objekte, Wasser, Brücken folgen
@@ -72,7 +73,9 @@ Nebel der Szene wieder her.
   `cliffAngle` mit verrauschter Kante; Höhen-Blend (eine Schicht zeigt sich, wo Höhe + Gewicht nahe am Besten
   liegt); jede Schicht zweimal mit verschobenen UVs je nach langsamem Rauschen (kein sichtbares Kachelmuster, nach
   Inigo Quilez); Klippen triplanar; Makrovariation und in der Ferne die Durchschnittsfarbe
-- **Rand** (`terrain-apron.ts`): Land jenseits der Karte bis 3 km, Randhöhen gehen in flache Hügel über, im Shader
+- **Rand** (`terrain-apron.ts`): Land jenseits der Karte bis 3 km, ein Punkt je Randsample (der innere Ring trifft die
+  Geländekante genau). Nach außen wird das Randprofil entlang der Kante mit wachsendem Radius geglättet und geht in
+  flache Hügel über; Wasser am Rand läuft darüber weiter, bis das geglättete Bett über den Spiegel steigt. Im Shader
   mit der ersten Schicht bemalt. Nicht Teil der Karte (keine Abfragen, `losTransparent`)
 
 ### Wege (`paths/`)

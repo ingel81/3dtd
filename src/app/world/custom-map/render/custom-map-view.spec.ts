@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { InstancedMesh, Mesh, PerspectiveCamera, Ray, Vector3, type Object3D } from 'three';
+import { InstancedMesh, Mesh, PerspectiveCamera, Ray, Scene, Vector3, type Object3D } from 'three';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createDemoMap } from '../demo-map';
 import type { CustomMapDocument } from '../map-document';
@@ -193,6 +193,12 @@ describe('CustomMapView', () => {
       expect(mesh!.instanceMatrix.count).toBe(n);
     }
 
+    // attach() puts the blockers beside the group, as the LOS cube needs a direct scene child
+    const scene = new Scene();
+    view.attach(scene);
+    expect(view.group.parent).toBe(scene);
+    expect(view.losBlockers.parent).toBe(scene);
+
     // Frame update and editor updates run
     const camera = new PerspectiveCamera(55, 1.6, 0.5, 8000);
     camera.position.copy(mapToScene(0, -300, 200, new Vector3()));
@@ -206,5 +212,6 @@ describe('CustomMapView', () => {
     view.updatePaths();
     view.setEnvironment({ ...doc.environment, sky: 'dusk' });
     view.dispose();
+    expect(scene.children.length).toBe(0);
   }, 30_000);
 });
