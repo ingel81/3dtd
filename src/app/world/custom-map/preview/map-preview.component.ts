@@ -22,6 +22,7 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
   bridge: [-70, -15, 14, -36, 22, 0],
   edge: [-180, 60, 60, -330, 170, 0],
   falls: [110, -150, 18, 130, -108, 8],
+  stream: [-110, -110, 30, -90, -60, 0],
   showcase: [0, -150, 30, 0, -80, 0],
 };
 

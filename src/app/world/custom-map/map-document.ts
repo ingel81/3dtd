@@ -64,8 +64,11 @@ export interface MapSplat {
   maps: [Uint8Array, Uint8Array];
 }
 
-/** What fills a body: water, glowing lava, or ice (walkable look, no waves) */
-export type MapWaterKind = 'water' | 'lava' | 'ice';
+/**
+ * What fills a body: water (lake, pond, river), sea (surf at the shore),
+ * swamp (murky, algae), ice (frozen, still) or lava (glowing crust)
+ */
+export type MapWaterKind = 'water' | 'sea' | 'swamp' | 'ice' | 'lava';
 
 export interface MapWater {
   /** Water surface height in metres */
@@ -75,6 +78,21 @@ export interface MapWater {
   color: string;
   /** Default 'water' */
   kind?: MapWaterKind;
+}
+
+export interface MapRiverPoint extends MapPoint {
+  /** Width of the surface in metres */
+  width: number;
+  /** Surface height in metres; the river flows from the first point to the last */
+  height: number;
+}
+
+export interface MapRiver {
+  id: string;
+  kind: 'water' | 'lava';
+  /** At least two points */
+  points: MapRiverPoint[];
+  color?: string;
 }
 
 export interface MapTerrain {
@@ -91,6 +109,8 @@ export interface MapTerrain {
    * sea); wet banks and the river running on beyond the border follow it only.
    */
   waterBodies?: MapWater[];
+  /** Rivers and lava flows along a line, each point with its own width and surface height */
+  rivers?: MapRiver[];
   /** Slopes steeper than this (degrees) show the cliff material */
   cliffAngle: number;
   /** Material id for steep faces */

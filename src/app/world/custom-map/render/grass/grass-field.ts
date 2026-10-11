@@ -1,22 +1,16 @@
 import {
-  ClampToEdgeWrapping,
   Color,
-  DataTexture,
   DoubleSide,
-  FloatType,
   InstancedBufferAttribute,
   InstancedBufferGeometry,
   BufferAttribute,
   Mesh,
   MeshStandardMaterial,
-  NearestFilter,
-  NoColorSpace,
-  RedFormat,
   Vector2,
   Vector4,
   type Texture,
 } from 'three';
-import type { HeightField } from '../height-field';
+import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
 import { addHeightFog } from '../environment/height-fog';
 
 /**
@@ -51,16 +45,12 @@ const ROWS = 4;
 
 export class GrassField {
   readonly mesh: Mesh<InstancedBufferGeometry, MeshStandardMaterial>;
-  private readonly heights: DataTexture;
   private hasGrass = false;
   private near = true;
   private readonly uniforms = {
     uGrassCenter: { value: new Vector2() },
     uGrassTile: { value: TILE },
     uGrassTime: { value: 0 },
-    uGrassHeights: { value: null as Texture | null },
-    uGrassGrid: { value: new Vector4() },
-    uGrassGridSize: { value: new Vector2() },
     uGrassSplat0: { value: null as Texture | null },
     uGrassSplat1: { value: null as Texture | null },
     uGrassPath: { value: null as Texture | null },
@@ -71,17 +61,7 @@ export class GrassField {
     uGrassTip: { value: new Color() },
   };
 
-  constructor(private readonly field: HeightField) {
-    this.heights = new DataTexture(field.grid.heights, field.columns, field.rows, RedFormat, FloatType);
-    this.heights.colorSpace = NoColorSpace;
-    this.heights.magFilter = this.heights.minFilter = NearestFilter;
-    this.heights.wrapS = this.heights.wrapT = ClampToEdgeWrapping;
-    this.heights.generateMipmaps = false;
-    this.heights.needsUpdate = true;
-    const u = this.uniforms;
-    u.uGrassHeights.value = this.heights;
-    u.uGrassGrid.value.set(field.originX, field.originY, field.cellSize, 0);
-    u.uGrassGridSize.value.set(field.columns, field.rows);
+  constructor(heights: HeightTexture) {
 
     const g = new InstancedBufferGeometry();
     // A tapering strip: (ROWS + 1) pairs of vertices, x across, y up
@@ -118,7 +98,7 @@ export class GrassField {
     const material = new MeshStandardMaterial({ roughness: 0.85, metalness: 0, side: DoubleSide });
     material.name = 'custom-map-grass';
     material.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, this.uniforms);
+      Object.assign(shader.uniforms, this.uniforms, heights.uniforms);
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>\n${GRASS_VERTEX_PARS}`)
         .replace('#include <beginnormal_vertex>', GRASS_NORMAL)
@@ -158,12 +138,6 @@ export class GrassField {
     this.mesh.visible = this.hasGrass && near;
   }
 
-  /** Heights changed: re-upload the grid */
-  refreshHeights(): void {
-    this.heights.image.data = this.field.grid.heights;
-    this.heights.needsUpdate = true;
-  }
-
   /** `focus` in the map group's space */
   update(dt: number, focus: { x: number; z: number }): void {
     this.uniforms.uGrassTime.value += dt;
@@ -173,7 +147,6 @@ export class GrassField {
   dispose(): void {
     this.mesh.geometry.dispose();
     this.mesh.material.dispose();
-    this.heights.dispose();
     this.mesh.removeFromParent();
   }
 }
@@ -184,9 +157,6 @@ attribute vec4 aBladeRand;
 uniform vec2 uGrassCenter;
 uniform float uGrassTile;
 uniform float uGrassTime;
-uniform sampler2D uGrassHeights;
-uniform vec4 uGrassGrid;
-uniform vec2 uGrassGridSize;
 uniform sampler2D uGrassSplat0;
 uniform sampler2D uGrassSplat1;
 uniform sampler2D uGrassPath;
@@ -197,18 +167,7 @@ uniform vec3 uGrassRoot;
 uniform vec3 uGrassTip;
 varying vec3 vBladeColor;
 
-// Bilinear height of the grid at map point m (the grid is exact at samples)
-float grassHeight(vec2 m) {
-  vec2 g = clamp((m - uGrassGrid.xy) / uGrassGrid.z, vec2(0.0), uGrassGridSize - 1.001);
-  ivec2 i = ivec2(floor(g));
-  vec2 f = g - vec2(i);
-  float h00 = texelFetch(uGrassHeights, i, 0).r;
-  float h10 = texelFetch(uGrassHeights, i + ivec2(1, 0), 0).r;
-  float h01 = texelFetch(uGrassHeights, i + ivec2(0, 1), 0).r;
-  float h11 = texelFetch(uGrassHeights, i + ivec2(1, 1), 0).r;
-  // Same two triangles as the terrain mesh
-  return f.x >= f.y ? h00 + f.x * (h10 - h00) + f.y * (h11 - h10) : h00 + f.y * (h01 - h00) + f.x * (h11 - h01);
-}
+${TERRAIN_HEIGHT_GLSL}
 `;
 
 const GRASS_NORMAL = /* glsl */ `
@@ -231,8 +190,8 @@ float grass = (dot(s0, uGrassMask0) + dot(s1, uGrassMask1)) / max(total, 1e-3);
 vec2 pm = texture2D(uGrassPath, uvMap).rg;
 grass *= 1.0 - max(pm.r, pm.g);
 // No grass on steep ground or outside the map
-float hx = grassHeight(mapPos + vec2(1.0, 0.0)) - grassHeight(mapPos - vec2(1.0, 0.0));
-float hy = grassHeight(mapPos + vec2(0.0, 1.0)) - grassHeight(mapPos - vec2(0.0, 1.0));
+float hx = terrainHeightAt(mapPos + vec2(1.0, 0.0)) - terrainHeightAt(mapPos - vec2(1.0, 0.0));
+float hy = terrainHeightAt(mapPos + vec2(0.0, 1.0)) - terrainHeightAt(mapPos - vec2(0.0, 1.0));
 float slope = length(vec2(hx, hy)) * 0.5;
 grass *= smoothstep(0.9, 0.5, slope);
 grass *= step(abs(mapPos.x), uGrassMapSize.x * 0.5) * step(abs(mapPos.y), uGrassMapSize.y * 0.5);
@@ -250,7 +209,7 @@ float gust = sin(uGrassTime * 1.3 + dot(sceneXZ, vec2(0.11, 0.07))) * 0.5 + 0.5;
 vec2 sway = vec2(0.8, 0.3) * (0.15 + 0.35 * gust) + vec2(sin(uGrassTime * 2.7 + aBladeRand.w * 20.0), cos(uGrassTime * 2.1 + aBladeRand.w * 13.0)) * 0.08;
 vec2 lean = vec2(-dir.y, dir.x) * (aBladeRand.w - 0.5) * 0.5;
 transformed.xz += (lean + sway) * t * t * bladeHeight;
-transformed += vec3(sceneXZ.x, grassHeight(mapPos), sceneXZ.y);
+transformed += vec3(sceneXZ.x, terrainHeightAt(mapPos), sceneXZ.y);
 // Dark root to light tip, each blade a little different
 vec3 bladeTip = uGrassTip * (1.05 + aBladeRand.z * 0.35) * mix(vec3(1.0), vec3(1.12, 1.05, 0.8), step(0.85, aBladeRand.y));
 vBladeColor = mix(uGrassRoot * 0.75, bladeTip, smoothstep(0.0, 0.8, t));

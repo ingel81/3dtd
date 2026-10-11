@@ -8,6 +8,7 @@ import { EffectLayer } from './effects/effect-layer';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { BridgeLayer } from './paths/path-bridges';
 import { MapTerrainLayer } from './terrain/map-terrain';
+import { RiverSurface } from './water/river-surface';
 import { WaterSurface } from './water/water-surface';
 import type { GridRect } from './terrain/terrain-chunks';
 
@@ -84,6 +85,7 @@ export class CustomMapView {
   private readonly terrain: MapTerrainLayer;
   /** Main water body first (null without one), then the further bodies */
   private readonly waters: (WaterSurface | null)[] = [];
+  private rivers: RiverSurface[] = [];
   private readonly objects: MapObjectLayer;
   private readonly bridges: BridgeLayer;
   private readonly effects: EffectLayer;
@@ -154,6 +156,7 @@ export class CustomMapView {
   update(dtSeconds: number, camera: Camera, focus?: Vector3): void {
     if (this.disposed) return;
     for (const w of this.waters) w?.update(dtSeconds);
+    for (const r of this.rivers) r.update(dtSeconds);
     this.objects.update(dtSeconds, camera);
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
@@ -180,7 +183,7 @@ export class CustomMapView {
   updateHeights(rect?: MapRect): void {
     this.terrain.rebuild(rect ? this.gridRect(rect) : undefined);
     this.objects.refreshHeights();
-    if (this.waters.some((w) => w)) this.updateWater();
+    if (this.waters.some((w) => w) || this.rivers.length) this.updateWater();
     void this.bridges.set(this.doc.paths, this.doc.terrain.water);
   }
 
@@ -201,7 +204,7 @@ export class CustomMapView {
 
   /**
    * Water changed: level, mask, colour or kind of the main body or of the
-   * further bodies (`terrain.waterBodies`), or heights under them
+   * further bodies (`terrain.waterBodies`), the rivers, or heights under them
    */
   updateWater(): void {
     this.terrain.refreshWater();
@@ -219,11 +222,17 @@ export class CustomMapView {
       if (surface) {
         surface.set(body, apron);
       } else {
-        const created = new WaterSurface(this.heights, body, apron);
+        const created = new WaterSurface(this.heights, this.terrain.heightTexture, body, apron);
         this.waters[k] = created;
         this.group.add(created.mesh);
       }
     });
+    // Rivers: rebuilt from their lines each time (cheap: a ribbon per river)
+    for (const r of this.rivers) r.dispose();
+    this.rivers = (this.doc.terrain.rivers ?? [])
+      .filter((r) => r.points.length >= 2)
+      .map((r) => new RiverSurface(this.heights, this.terrain.heightTexture, r));
+    for (const r of this.rivers) this.group.add(r.mesh);
     this.lightWater();
   }
 
@@ -276,12 +285,14 @@ export class CustomMapView {
   private lightWater(): void {
     const e = this.environment;
     for (const w of this.waters) w?.setSky(e.skyDome.uniforms, e.sun.intensity);
+    for (const r of this.rivers) r.setSky(e.skyDome.uniforms, e.sun.intensity);
   }
 
   dispose(): void {
     this.disposed = true;
     this.terrain.dispose();
     for (const w of this.waters) w?.dispose();
+    for (const r of this.rivers) r.dispose();
     this.effects.dispose();
     this.objects.dispose();
     this.bridges.dispose();

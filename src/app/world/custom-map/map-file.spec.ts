@@ -56,11 +56,23 @@ describe('map file', () => {
       { level: 6, mask: new Uint8Array(n).fill(255, 20, 30), color: '#223344', kind: 'ice' },
       { level: 9, mask: new Uint8Array(n).fill(255, 40, 45), color: '#ff5a10', kind: 'lava' },
     ];
+    doc.terrain.rivers = [
+      {
+        id: 'r1',
+        kind: 'water',
+        points: [
+          { x: 0, y: 0, width: 6, height: 2 },
+          { x: 10, y: 4, width: 7, height: 1.5 },
+        ],
+      },
+    ];
     const { doc: back } = unpackMapFile(packMapFile(doc));
     expect(back).toEqual(doc);
     expect(back.terrain.waterBodies?.[1].mask).toBeInstanceOf(Uint8Array);
     doc.terrain.waterBodies[0].mask = new Uint8Array(3);
     expect(validateMapDocument(doc).some((m) => m.includes('water body 1'))).toBe(true);
+    doc.terrain.rivers[0].points.pop();
+    expect(validateMapDocument(doc).some((m) => m.includes('river r1'))).toBe(true);
   });
 
   it('refuses an invalid document when packing', () => {

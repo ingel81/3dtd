@@ -18,6 +18,7 @@ import { TerrainChunks, type GridRect } from './terrain-chunks';
 import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots } from './terrain-material';
 import { GrassField, type GrassInputs } from '../grass/grass-field';
 import { GroundOcclusion } from './ground-occlusion';
+import { HeightTexture } from './height-texture';
 import { GridNormalTexture, MaterialArrays, SplatTextures, maskTexture } from './terrain-textures';
 
 /** Materials the path mask paints, by channel */
@@ -69,6 +70,8 @@ export class MapTerrainLayer {
   readonly occlusion: GroundOcclusion;
   /** Blades near the camera on the grass layers */
   readonly grass: GrassField;
+  /** The height grid on the GPU (water depth, grass) */
+  readonly heightTexture: HeightTexture;
   private grassInputs: Omit<GrassInputs, 'splat' | 'pathMask'> | null = null;
   private generation = 0;
   private readonly placeholder = new MeshStandardMaterial({ color: 0x5f7a3c, roughness: 0.95 });
@@ -82,7 +85,8 @@ export class MapTerrainLayer {
     this.apron = buildTerrainApron(this.apronProfile, this.placeholder);
     this.normals = new GridNormalTexture(field);
     this.occlusion = new GroundOcclusion(field);
-    this.grass = new GrassField(field);
+    this.heightTexture = new HeightTexture(field);
+    this.grass = new GrassField(this.heightTexture);
     this.grass.mesh.visible = false;
     this.normals.setWater(terrain.water?.mask ?? null);
   }
@@ -171,7 +175,7 @@ export class MapTerrainLayer {
     this.chunks.rebuild(rect);
     this.normals.update(rect);
     this.occlusion.updateTerrain(rect);
-    this.grass.refreshHeights();
+    this.heightTexture.refresh();
     this.refreshApron(rect);
   }
 
@@ -223,6 +227,7 @@ export class MapTerrainLayer {
     this.normals.dispose();
     this.occlusion.dispose();
     this.grass.dispose();
+    this.heightTexture.dispose();
   }
 
   private buildPathMask(paths: MapPaths): DataTexture {

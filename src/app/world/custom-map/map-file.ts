@@ -234,7 +234,17 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     }
   }
   for (const body of [t.water, ...(t.waterBodies ?? [])]) {
-    if (body?.kind && !['water', 'lava', 'ice'].includes(body.kind)) p.push(`water kind ${body.kind} is unknown`);
+    if (body?.kind && !['water', 'sea', 'swamp', 'lava', 'ice'].includes(body.kind)) {
+      p.push(`water kind ${body.kind} is unknown`);
+    }
+  }
+  for (const river of t.rivers ?? []) {
+    if (!river.id) p.push('a river has no id');
+    if (!['water', 'lava'].includes(river.kind)) p.push(`river ${river.id}: kind ${river.kind} is unknown`);
+    if (!Array.isArray(river.points) || river.points.length < 2) p.push(`river ${river.id} needs two points`);
+    else if (river.points.some((q) => ![q.x, q.y, q.width, q.height].every(finite) || q.width <= 0)) {
+      p.push(`river ${river.id} has a bad point`);
+    }
   }
   if (!finite(t.cliffAngle)) p.push('cliffAngle is not a number');
 
