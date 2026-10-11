@@ -41,10 +41,10 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   // Terrain: hold the raise brush
   await page.keyboard.press('1');
   const before = await heightAt(page, cx, cy);
+  // Held until the ground rose: a page still loading textures draws few frames
   await page.mouse.down();
-  await page.waitForTimeout(1200);
+  await expect.poll(async () => numberIn(await page.locator('[data-test=height]').textContent()), { timeout: 15_000 }).toBeGreaterThan(before + 1);
   await page.mouse.up();
-  expect(await heightAt(page, cx, cy)).toBeGreaterThan(before + 1);
   await shot(testInfo, page, 'raised');
 
   // Objects: place one, undo, redo
