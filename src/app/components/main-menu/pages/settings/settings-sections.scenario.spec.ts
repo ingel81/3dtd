@@ -110,14 +110,34 @@ describe('Settings page', () => {
     const byText = (text: string) => [...el.querySelectorAll('button')].find((b) => b.textContent?.trim() === text);
     const switchOf = (label: string) =>
       [...el.querySelectorAll<HTMLLabelElement>('label')].find((l) => l.textContent!.trim() === label)!.querySelector('input')!;
-    return { fixture, el, display, config, coopService, bridge, leave, settle, byText, switchOf };
+    /** Open the tab named `label` (TODO E138) */
+    const show = (label: string) => {
+      [...el.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((b) => b.textContent?.trim() === label)!.click();
+      fixture.detectChanges();
+    };
+    return { fixture, el, display, config, coopService, bridge, leave, settle, byText, switchOf, show };
   }
 
   const radios = (el: HTMLElement, group: string) =>
     [...el.querySelectorAll<HTMLButtonElement>(`[role="radiogroup"][aria-label="${group}"] [role="radio"], [role="radiogroup"][aria-labelledby="${group}"] [role="radio"]`)];
 
+  it('shows one section per tab and opens on the tab it was left on (TODO E138)', async () => {
+    const first = await setup();
+    expect([...first.el.querySelectorAll('[role="tab"]')].map((t) => t.textContent?.trim()))
+      .toEqual(['Audio', 'Graphics', 'Gameplay', 'Map', 'Coop', 'Privacy']);
+    first.show('Map');
+    expect(first.el.textContent).toContain('Change key');
+    expect(first.el.querySelector('input[type="range"]')).toBeNull();
+    expect(first.el.querySelector('[role="tab"][aria-selected="true"]')!.textContent?.trim()).toBe('Map');
+
+    TestBed.resetTestingModule();
+    const again = await setup();
+    expect(again.el.querySelector('[role="tab"][aria-selected="true"]')!.textContent?.trim()).toBe('Map');
+  });
+
   it('has a slider and a mute for each of master, effects, music and interface', async () => {
-    const { el, fixture } = await setup();
+    const { el, fixture, show } = await setup();
+    show('Audio');
     const ui = TestBed.inject(UIStore);
     const sliders = [...el.querySelectorAll<HTMLInputElement>('input[type="range"]')];
     expect(sliders.map((s) => s.getAttribute('aria-label'))).toEqual([
@@ -134,7 +154,8 @@ describe('Settings page', () => {
   });
 
   it('picks the effect preset and sets every display switch of the former Display menu', async () => {
-    const { el, display, switchOf, fixture } = await setup();
+    const { el, display, switchOf, fixture, show } = await setup();
+    show('Graphics');
     expect(radios(el, 'Effect quality').map((r) => r.getAttribute('aria-checked'))).toEqual(['false', 'false', 'true']);
     radios(el, 'Effect quality')[0].click();
     expect(display.onVfxPresetSelected).toHaveBeenCalledWith('low');
@@ -165,7 +186,8 @@ describe('Settings page', () => {
   });
 
   it('switches the app window to fullscreen and says so', async () => {
-    const { bridge, byText, settle } = await setup();
+    const { bridge, byText, settle, show } = await setup();
+    show('Graphics');
     byText('Go fullscreen')!.click();
     await settle();
     expect(bridge.toggleFullscreen).toHaveBeenCalledTimes(1);
@@ -173,7 +195,8 @@ describe('Settings page', () => {
   });
 
   it('sets the game speed and the auto-start; in coop the speed is the host\'s', async () => {
-    const { el, switchOf } = await setup();
+    const { el, switchOf, show } = await setup();
+    show('Gameplay');
     const store = TestBed.inject(GameStore);
     radios(el, 'td-set-speed')[2].click();
     expect(store.gameSpeed()).toBe(4);
@@ -184,6 +207,7 @@ describe('Settings page', () => {
 
     TestBed.resetTestingModule();
     const guest = await setup({ inCoop: true, host: false });
+    guest.show('Gameplay');
     const fast = radios(guest.el, 'td-set-speed')[2];
     expect(fast.getAttribute('aria-disabled')).toBe('true');
     fast.click();
@@ -192,7 +216,8 @@ describe('Settings page', () => {
   });
 
   it('names the tile provider; Change key asks for the key step and makes way', async () => {
-    const { el, byText, config, leave } = await setup();
+    const { el, byText, config, leave, show } = await setup();
+    show('Map');
     expect(el.textContent).toContain('Cesium ion');
     byText('Change key')!.click();
     expect(config.setupRequested()).toBe(true);
@@ -200,7 +225,8 @@ describe('Settings page', () => {
   });
 
   it('keeps the coop name, lists the lobbies, adds one and removes one of the player\'s own', async () => {
-    const { el, coopService, byText, settle } = await setup();
+    const { el, coopService, byText, settle, show } = await setup();
+    show('Coop');
     const name = el.querySelector<HTMLInputElement>('.set-name')!;
     expect(name.value).toBe('Ann');
     name.value = 'Bo';
@@ -232,11 +258,14 @@ describe('Settings page', () => {
 
   it('has no Coop section without the game\'s coop service', async () => {
     const { el } = await setup({ coop: false });
+    expect([...el.querySelectorAll('[role="tab"]')].map((t) => t.textContent?.trim()))
+      .toEqual(['Audio', 'Graphics', 'Gameplay', 'Map', 'Privacy']);
     expect(el.textContent).not.toContain('Your name');
   });
 
   it('keeps the answer about sending coop run logs', async () => {
-    const { switchOf } = await setup();
+    const { switchOf, show } = await setup();
+    show('Privacy');
     const box = switchOf('After a coop game, send its log to the coop server, to find errors and improve the game (kept 90 days)');
     expect(box.checked).toBe(false);
     box.click();

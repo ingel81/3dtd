@@ -641,7 +641,8 @@ Die Hosts der Seiten tragen `td-stack is-loose`; Inhalt aus `td-group`, `td-sect
   Coordinates, Use my location, Roll a random city, Move the spawn), nach einer Wahl Spawn und „Load place“; darunter
   Reiter Recent, Favorites, Showcase, World und die Liste, World mit Globus
 - Save und Load (`app-save-slots`): Slots als `td-row` mit `td-row-main` und Werkzeugen, Rückfragen ersetzen die Liste
-- Settings (`app-settings-sections`): Audio (Regler mit Wert und Stumm-Knopf), Graphics (Preset als Stufen, Schalter in
+- Settings (`app-settings-sections`): je Abschnitt ein Tab (`td-seg`, role tab, E138; öffnet auf dem zuletzt
+  gewählten): Audio (Regler mit Wert und Stumm-Knopf), Graphics (Preset als Stufen, Schalter in
   zwei Spalten, Color grading, Frame limit, Fullscreen), Gameplay, Map, Coop (Name, Lobbys), Privacy
 - Extras (`app-extras-list`): Zeilen in Gruppen (Replays and runs, The game, About)
 - Coop (`app-coop-ways`, im Browser der Website nur `app-coop-app-hint`)

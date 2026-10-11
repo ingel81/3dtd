@@ -34,9 +34,16 @@ interface SwitchRow {
   toggle: () => void;
 }
 
+/** A tab of the Settings page (TODO E138) */
+export type SettingsTab = 'audio' | 'graphics' | 'gameplay' | 'map' | 'coop' | 'privacy';
+
+/** The tab the page opens on next time, for this page load */
+let lastTab: SettingsTab = 'audio';
+
 /**
  * The menu's Settings page (plan E121: Audio, Graphics, Gameplay, Map,
- * Coop, Privacy on one page). Every setting is stored where it was before:
+ * Coop, Privacy; one tab each since E138, the page had run long). The page
+ * opens on the tab it was left on. Every setting is stored where it was before:
  * the volumes and the auto-start in the UI state (td-ui-state), the display
  * switches in td_display_options through the DebugFacadeService, the tile
  * key in ConfigService, the coop name and lobbies in the CoopService, the
@@ -70,6 +77,25 @@ export class SettingsSectionsComponent {
 
   /** "Change key" was pressed: the menu makes way for the key step */
   readonly leave = output<void>();
+
+  /** The tabs; Coop only with the game's coop service */
+  readonly tabs = computed((): { id: SettingsTab; label: string }[] => [
+    { id: 'audio', label: 'Audio' },
+    { id: 'graphics', label: 'Graphics' },
+    { id: 'gameplay', label: 'Gameplay' },
+    { id: 'map', label: 'Map' },
+    ...(this.coop ? [{ id: 'coop' as const, label: 'Coop' }] : []),
+    { id: 'privacy', label: 'Privacy' },
+  ]);
+  /** The tab shown */
+  readonly tab = signal<SettingsTab>(lastTab === 'coop' && !this.coop ? 'audio' : lastTab);
+
+  /** Show tab `id`; the page opens on it again next time */
+  selectTab(id: SettingsTab): void {
+    lastTab = id;
+    this.tab.set(id);
+  }
+
 
   // ---- Audio ----
 
