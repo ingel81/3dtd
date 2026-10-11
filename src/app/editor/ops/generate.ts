@@ -88,16 +88,28 @@ export function presetHeight(t: MapTerrain, noise: LandscapeNoise, o: GenerateOp
 
 /** Writes the preset into the terrain heights (all of them) */
 export function generateTerrain(t: MapTerrain, o: GenerateOptions): GenerateResult {
-  const noise = new LandscapeNoise(o.seed);
+  generateRows(t, o, 0, t.grid.rows);
+  return presetResult(o);
+}
+
+/**
+ * Writes the preset into rows `j0` to `j1` (exclusive) of the heights; a
+ * worker generates a big map in bands this way and shows each as it comes
+ */
+export function generateRows(t: Pick<MapTerrain, 'width' | 'depth' | 'grid'>, o: GenerateOptions, j0: number, j1: number, noise = new LandscapeNoise(o.seed)): void {
   const g = t.grid;
-  for (let j = 0; j < g.rows; j++) {
-    const y = sampleY(t, j);
+  for (let j = j0; j < Math.min(j1, g.rows); j++) {
+    const y = sampleY(t as MapTerrain, j);
     for (let i = 0; i < g.columns; i++) {
       const k = j * g.columns + i;
-      const h = presetHeight(t, noise, o, sampleX(t, i), y) + (o.add ? g.heights[k] : 0);
+      const h = presetHeight(t as MapTerrain, noise, o, sampleX(t as MapTerrain, i), y) + (o.add ? g.heights[k] : 0);
       g.heights[k] = Math.min(HEIGHT_LIMITS.max, Math.max(HEIGHT_LIMITS.min, h));
     }
   }
+}
+
+/** Water and extra ground layers a preset wants */
+export function presetResult(o: GenerateOptions): GenerateResult {
   switch (o.preset) {
     case 'islands':
       return { water: 0, materials: [['sand'], ['rocky-ground', 'gravel']] };

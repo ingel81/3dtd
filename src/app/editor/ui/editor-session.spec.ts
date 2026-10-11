@@ -17,12 +17,13 @@ function session(): { s: EditorSession; backend: MemoryMapBackend; history: Vers
   return { s, backend, history, versions };
 }
 
-describe('editor session saving', () => {
-  beforeAll(() => {
-    getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
-  });
+beforeAll(() => {
+  getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
+});
 
-  afterAll(() => getTestBed().resetTestEnvironment());
+afterAll(() => getTestBed().resetTestEnvironment());
+
+describe('editor session saving', () => {
 
   it('a save asked for during another waits for it instead of getting lost', async () => {
     const { s, backend } = session();
@@ -67,5 +68,38 @@ describe('save errors in plain words', () => {
     expect(full).toMatch(/still here/);
     expect(saveErrorText(new MapFileError('The map is not valid: a river needs two points'))).toMatch(/Fix it \(Check, V\)/);
     expect(saveErrorText(new Error('boom'))).toMatch(/boom.*still here/);
+  });
+});
+
+describe('terrain jobs in the session', () => {
+
+  it('generates in bands as one undo step, and Cancel puts the land back', async () => {
+    const { s } = session();
+    const heights = () => Array.from(s.editor!.doc.terrain.grid.heights);
+    const flat = heights();
+    expect(await s.generate({ preset: 'hills', seed: 4, strength: 0.6 }, false)).toBe(true);
+    expect(heights()).not.toEqual(flat);
+    expect(s.terrainJob()).toBeNull();
+    s.undo();
+    expect(heights()).toEqual(flat);
+    // Stopped after its first band: nothing changed, nothing to undo
+    const steps = s.editor!.historySteps;
+    const run = s.generate({ preset: 'valleys', seed: 2, strength: 0.6 }, false);
+    s.cancelTerrainJob();
+    expect(await run).toBe(false);
+    expect(heights()).toEqual(flat);
+    expect(s.editor!.historySteps).toBe(steps);
+    s.ngOnDestroy();
+  });
+
+  it('erodes the whole map as one undo step', async () => {
+    const { s } = session();
+    await s.generate({ preset: 'hills', seed: 4, strength: 0.9 }, false);
+    const before = Array.from(s.editor!.doc.terrain.grid.heights);
+    expect(await s.erodeWholeMap(0.3, 7)).toBe(true);
+    expect(Array.from(s.editor!.doc.terrain.grid.heights)).not.toEqual(before);
+    s.undo();
+    expect(Array.from(s.editor!.doc.terrain.grid.heights)).toEqual(before);
+    s.ngOnDestroy();
   });
 });

@@ -71,8 +71,22 @@ import { EditorSession } from '../editor-session.service';
         <span>Repaint by slope and height</span>
         <input class="td-switch" type="checkbox" [checked]="repaint()" (change)="repaint.set($any($event.target).checked)" aria-label="Repaint" />
       </div>
-      <button class="td-btn-secondary td-btn-sm" type="button" (click)="generate()" data-test="generate">Generate</button>
-      <p class="td-note">Roads keep a level bed; one undo step takes it all back.</p>
+      @if (job(); as j) {
+        <div class="mp-job" role="status" data-test="terrain-job">
+          <span class="td-note">{{ j.label }} {{ percent(j.progress) }} %</span>
+          <progress class="mp-progress" max="100" [value]="percent(j.progress)"></progress>
+          <button class="td-btn-ghost td-btn-sm" type="button" (click)="cancel()" data-test="terrain-cancel">Cancel</button>
+        </div>
+      } @else {
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="generate()" data-test="generate">Generate</button>
+      }
+      <p class="td-note">Roads keep a level bed; one undo step takes it all back. Big maps build in the background, band by band.</p>
+    </div>
+    <div class="td-group">
+      <h3 class="td-section">Erode the whole map</h3>
+      <app-editor-range label="Rain" unit="%" [min]="10" [max]="100" [value]="rain()" (changing)="rain.set($event)" />
+      <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="!!job()" (click)="erode()" data-test="erode-map">Erode</button>
+      <p class="td-note">Rain carves gullies down every slope and leaves fans of scree at their feet; flat land stays. Cancel or one undo step takes it back.</p>
     </div>
     <div class="td-group">
       <h3 class="td-section">Versions</h3>
@@ -90,7 +104,8 @@ import { EditorSession } from '../editor-session.service';
     </div>
   `,
   styles: [
-    `.mp-version { gap: 8px; min-height: 30px; } .mp-version > .td-trunc { flex: 1 1 auto; }
+    `.mp-job { display: flex; align-items: center; gap: 8px; } .mp-progress { flex: 1 1 auto; height: 6px; accent-color: var(--td-brass); }
+     .mp-version { gap: 8px; min-height: 30px; } .mp-version > .td-trunc { flex: 1 1 auto; }
      .mp-text { height: auto; padding-top: 8px; resize: vertical; } .mp-size { display: flex; align-items: flex-end; gap: 8px; }
      .mp-presets { flex-wrap: wrap; height: auto; } .mp-presets > * { flex: 1 0 30%; }`,
   ],
@@ -149,9 +164,24 @@ export class MapPanelComponent {
     this.seed.set(Math.floor(Math.random() * 100000));
   }
 
-  generate(): void {
-    this.session.generate({ preset: this.preset(), seed: this.seed(), strength: this.strength() / 100, add: this.add() }, this.repaint());
-    this.session.flash('Terrain generated; Ctrl+Z takes it back');
+  readonly job = this.session.terrainJob;
+  readonly rain = signal(50);
+
+  percent(p: number): number {
+    return Math.round(p * 100);
+  }
+
+  async generate(): Promise<void> {
+    const done = await this.session.generate({ preset: this.preset(), seed: this.seed(), strength: this.strength() / 100, add: this.add() }, this.repaint());
+    if (done) this.session.flash('Terrain generated; Ctrl+Z takes it back');
+  }
+
+  async erode(): Promise<void> {
+    if (await this.session.erodeWholeMap(this.rain() / 100)) this.session.flash('The map is eroded; Ctrl+Z takes it back');
+  }
+
+  cancel(): void {
+    this.session.cancelTerrainJob();
   }
 
   num(e: Event): number {

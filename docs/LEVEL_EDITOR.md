@@ -149,7 +149,12 @@ Sonnenrichtung und -höhe, Nebel, Tönung, Wetter (Clear, Rain, Snow, Fog mit St
 beim Loslassen ein Schritt im Verlauf.
 
 **Map (9).** Name, Autor, Beschreibung; Größe ändern (die Mitte bleibt, kleiner schneidet die Ränder ab, größer setzt
-sie in Randhöhe fort); Gelände-Generator über die offene Karte.
+sie in Randhöhe fort); Gelände-Generator über die offene Karte und „Erode the whole map“ (Regen gräbt Rinnen an allen
+Hängen, Stärke „Rain“). Beide laufen im Terrain-Worker (`editor/workers/terrain.worker.ts`): der Generator schickt
+Bänder von 48 Zeilen, die Ansicht zeigt sie sofort; die Erosion läuft in Scheiben zu 4000 Tropfen, die Ansicht zeigt
+den Stand etwa einmal pro Sekunde und zeichnet ihn bandweise neu. Ein Fortschrittsbalken mit „Cancel“ stellt den
+alten Boden wieder her; fertig ist es ein Undo-Schritt. Während ein Job läuft, nehmen die Werkzeuge keine Eingaben an,
+die Ansicht lässt sich drehen.
 
 **Copy and stamps (0).** Select: ein Rechteck auf der Karte ziehen, Strg+C kopiert es; danach folgt das Stück dem
 Zeiger als Umriss, R und Shift+R drehen um 90 Grad, Komma und Punkt um 15, ein Klick setzt es (Strg+V aus jedem

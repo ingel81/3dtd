@@ -117,6 +117,8 @@ export class EditorViewport {
   private readonly keysDown = new Set<string>();
   /** Set once the viewport is gone: late promises (the warm-up) must not reach the page */
   private disposed = false;
+  /** Tools take no input (a terrain job runs) */
+  private locked = false;
   /** The view before the game camera took over, to go back to */
   private beforeGameView: OrbitState | null = null;
   /** The trial wave's runners */
@@ -327,6 +329,15 @@ export class EditorViewport {
       for (const o of hidden) o.visible = false;
     }
     await done.catch(() => undefined);
+  }
+
+  /** While a terrain job runs, tools take no input (the view still turns and zooms) */
+  setLocked(on: boolean): void {
+    this.locked = on;
+    if (on && this.toolDrag) {
+      this.toolDrag = false;
+      this.tool?.cancel?.(this.ctx);
+    }
   }
 
   /** Whether a tool holds the pointer (a stroke, a drag): slow extras wait */
@@ -545,7 +556,7 @@ export class EditorViewport {
     this.canvas.focus({ preventScroll: true });
     this.trackPointer(e);
     const pan = e.button === 1 || (e.button === 2 && e.shiftKey);
-    if (e.button === 0 && this.tool) {
+    if (e.button === 0 && this.tool && !this.locked) {
       const hit = this.raycastClient(e.clientX, e.clientY);
       this.lastHit = hit;
       if (this.tool.pointerDown?.(this.toolPointer(e, hit), this.ctx)) {

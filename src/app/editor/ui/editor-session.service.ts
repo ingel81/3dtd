@@ -5,6 +5,8 @@
  * the map check and the file actions. The panels read its signals; the
  * editing itself happens in the Angular-free model, ops and tools.
  */
+import type { GridRect } from '../model/grid';
+import { startTerrainJob, type TerrainJob, type TerrainJobMessage } from '../workers/terrain-job';
 import type { DocChange } from '../model/editor-document';
 import { MAP_TRIAL_MESSAGE, MAP_TRIAL_WAVES_PARAM, type MapTrialResult } from '../../world/map-trial';
 import { VersionHistory, type MapVersion } from '../model/version-store';
@@ -27,7 +29,7 @@ import { StampTool } from '../tools/stamp-tool';
 import { MeasureTool } from '../tools/measure-tool';
 import { StampLibrary } from '../model/stamp-store';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
-import { finishGenerated, generateTerrain, type GenerateOptions } from '../ops/generate';
+import { finishGenerated, generateTerrain, type GenerateOptions, type GenerateResult } from '../ops/generate';
 import type { Stamp, StampRect } from '../ops/stamp';
 import { ObjectTool } from '../tools/object-tool';
 import { PaintTool } from '../tools/paint-tool';
@@ -59,8 +61,14 @@ export interface ImportState {
 /** Waves the bot plays for the map check */
 const BOT_CHECK_WAVES = 5;
 
+/** Milliseconds between two looks at the map while it erodes (each redraws all the ground) */
+const EROSION_SHOW_MS = 1000;
+
 @Injectable()
 export class EditorSession implements OnDestroy {
+  /** The terrain job running (generate, erode the map) and how far it is */
+  readonly terrainJob = signal<{ label: string; progress: number } | null>(null);
+  private terrainAbort: AbortController | null = null;
   /** The latest change of the document (a new object each time, for the tour) */
   readonly lastChange = signal<{ change: DocChange } | null>(null);
   /** The save running now, if any */
@@ -180,10 +188,14 @@ export class EditorSession implements OnDestroy {
     return this.thumbRenderer;
   }
 
-  /** Generates terrain over the whole map as one undo step */
-  generate(options: GenerateOptions, repaint: boolean): void {
+  /**
+   * Generates terrain over the whole map as one undo step. The terrain
+   * worker builds it in bands that show as they come; Cancel puts the land
+   * back. Resolves true when it finished.
+   */
+  async generate(options: GenerateOptions, repaint: boolean): Promise<boolean> {
     const editor = this.editor;
-    if (!editor) return;
+    if (!editor || this.terrainJob()) return false;
     const t = editor.doc.terrain;
     const catalog = this.catalog();
     const stroke = new LandscapeStroke(editor, 'Generate terrain', options.seed, catalog);
@@ -191,7 +203,121 @@ export class EditorSession implements OnDestroy {
     const texels = { i0: 0, j0: 0, i1: t.splat.resolution - 1, j1: t.splat.resolution - 1 };
     stroke.touchHeights(all);
     stroke.touchSplat(texels);
-    const result = generateTerrain(t, options);
+    const g = t.grid;
+    let result: GenerateResult | null = null;
+    const ok = await this.runTerrainJob(
+      'Generating the terrain',
+      { kind: 'generate', width: t.width, depth: t.depth, columns: g.columns, rows: g.rows, cellSize: g.cellSize, heights: g.heights, options },
+      (m) => {
+        if (m.kind === 'rows') {
+          g.heights.set(m.heights, m.j0 * g.columns);
+          editor.emit({ heights: { i0: 0, i1: g.columns - 1, j0: m.j0, j1: m.j1 - 1 } });
+        } else if (m.kind === 'done') result = m.result;
+      },
+    );
+    if (!ok || !result) return false;
+    this.finishGenerate(stroke, result, repaint, all, texels);
+    return true;
+  }
+
+  /**
+   * Erodes the whole map in the terrain worker: rain drops carve gullies and
+   * fans everywhere, `strength` 0..1 sets how many and how hard. Shows the
+   * land between slices; Cancel puts it back; one undo step.
+   */
+  async erodeWholeMap(strength: number, seed = Math.floor(Math.random() * 1e9)): Promise<boolean> {
+    const editor = this.editor;
+    if (!editor || this.terrainJob()) return false;
+    const t = editor.doc.terrain;
+    const g = t.grid;
+    const stroke = new LandscapeStroke(editor, 'Erode the map', seed, this.catalog());
+    const all = { i0: 0, j0: 0, i1: g.columns - 1, j1: g.rows - 1 };
+    stroke.touchHeights(all);
+    const drops = Math.round(g.columns * g.rows * (0.15 + 0.85 * strength));
+    let latest: Float32Array | null = null;
+    let shownAt = performance.now();
+    const ok = await this.runTerrainJob(
+      'Eroding the map',
+      { kind: 'erode', columns: g.columns, rows: g.rows, cellSize: g.cellSize, heights: g.heights, seed, strength: 0.4 + 0.6 * strength, drops },
+      (m) => {
+        // The whole ground redraws for each look: about one a second, and the last one always
+        if (m.kind === 'heights') {
+          latest = m.heights;
+          if (performance.now() - shownAt < EROSION_SHOW_MS) return;
+        } else if (!latest) return;
+        g.heights.set(latest);
+        latest = null;
+        shownAt = performance.now();
+        this.redrawInBands(g.columns, g.rows);
+      },
+    );
+    if (!ok) return false;
+    stroke.finish();
+    this.refresh();
+    return true;
+  }
+
+  /**
+   * Tells the view about new heights all over the map a band of rows per
+   * frame: one whole-map update stalls a big map's frame for a quarter of
+   * a second, bands spread it out
+   */
+  private redrawInBands(columns: number, rows: number, band = 64): void {
+    const editor = this.editor;
+    if (!editor) return;
+    let j0 = 0;
+    const next = () => {
+      if (this.editor !== editor || j0 >= rows) return;
+      const j1 = Math.min(rows - 1, j0 + band - 1);
+      editor.emit({ heights: { i0: 0, i1: columns - 1, j0, j1 } });
+      j0 = j1 + 1;
+      requestAnimationFrame(next);
+    };
+    next();
+  }
+
+  /** Stops the running terrain job; the land goes back to how it was */
+  cancelTerrainJob(): void {
+    this.terrainAbort?.abort();
+  }
+
+  /** Runs a job, the viewport locked meanwhile; on Cancel or an error the heights go back */
+  private async runTerrainJob(label: string, job: TerrainJob, onMessage: (m: TerrainJobMessage) => void): Promise<boolean> {
+    const editor = this.editor!;
+    const heights = editor.doc.terrain.grid.heights;
+    const before = heights.slice();
+    const abort = new AbortController();
+    this.terrainAbort = abort;
+    this.terrainJob.set({ label, progress: 0 });
+    this.viewport?.setLocked(true);
+    try {
+      await startTerrainJob(
+        job,
+        (m) =>
+          this.zone.run(() => {
+            if (m.kind !== 'done') this.terrainJob.set({ label, progress: m.progress });
+            onMessage(m);
+          }),
+        abort.signal,
+      );
+      return true;
+    } catch (e) {
+      heights.set(before);
+      editor.emit({ heights: { i0: 0, j0: 0, i1: editor.doc.terrain.grid.columns - 1, j1: editor.doc.terrain.grid.rows - 1 } });
+      if ((e as Error).name === 'AbortError') this.flash(`${label.replace(/^\w/, (c) => c.toUpperCase())} stopped; the land is as it was`);
+      else this.error.set(`${label} failed (${(e as Error).message}); the land is as it was.`);
+      return false;
+    } finally {
+      this.terrainAbort = null;
+      this.terrainJob.set(null);
+      this.viewport?.setLocked(false);
+    }
+  }
+
+  private finishGenerate(stroke: LandscapeStroke, result: GenerateResult, repaint: boolean, all: GridRect, texels: GridRect): void {
+    const editor = this.editor!;
+    const t = editor.doc.terrain;
+    const catalog = this.catalog();
     if (result.water !== null) {
       stroke.ensureWater(result.water);
       stroke.touchWater(all);
