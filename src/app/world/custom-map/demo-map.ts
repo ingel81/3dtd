@@ -334,6 +334,20 @@ export function createDemoMap(seed = 7): CustomMapDocument {
     smoothstep(18, 30, riverDist.at(x, y)) *
     smoothstep(70, 100, Math.hypot(x - villageCenter.x, y - villageCenter.y));
 
+  // Village houses: their yards are painted below, the houses placed with the objects
+  const houses: [number, number, string][] = [
+    [-20, -95, 'house'],
+    [-30, -132, 'house-large'],
+    [25, -88, 'house'],
+    [35, -158, 'house'],
+    [70, -112, 'house-large'],
+    [5, -150, 'barn'],
+    [120, -140, 'house'],
+    [100, -105, 'house'],
+    [140, -170, 'barn'],
+    [55, -185, 'house'],
+  ];
+
   // Splat
   const s0 = new Uint8Array(SPLAT_RES * SPLAT_RES * 4);
   const s1 = new Uint8Array(SPLAT_RES * SPLAT_RES * 4);
@@ -356,10 +370,14 @@ export function createDemoMap(seed = 7): CustomMapDocument {
       w[L['rocky-ground']] = smoothstep(18, 32, slope) * 1.6 + smoothstep(32, 50, h) * 0.9;
       w[L.sand] = smoothstep(21, 14, dr) * 2.6 * (0.6 + n2 * 0.8);
       const dv = Math.hypot(x - villageCenter.x, y - villageCenter.y);
+      // Packed earth in each yard and on the village square around the well, worn verges along the
+      // village roads; smooth weights, the terrain's height blend frays their edges
+      let yard = 0;
+      for (const [hx, hy] of houses) yard = Math.max(yard, smoothstep(13, 7, Math.hypot(x - hx, y - hy)));
+      yard = Math.max(yard, smoothstep(15, 8, Math.hypot(x - 32, y + 148)));
       w[L.dirt] =
-        // Smooth weights: the terrain's height blend frays the edges, noise here only blotched them
-        smoothstep(62, 30, dv) * 2.2 +
-        smoothstep(9, 5, roadDist.at(x, y)) * 0.6 +
+        yard * 2.4 +
+        smoothstep(9, 5, roadDist.at(x, y)) * 0.8 * smoothstep(90, 50, dv) +
         smoothstep(16, 10, dr) * 0.9;
       let sum = 0;
       for (let k = 0; k < 8; k++) sum += w[k];
@@ -458,19 +476,7 @@ export function createDemoMap(seed = 7): CustomMapDocument {
     place('rock-small', x, y, 0.4 + rand() * 0.5, rand() * Math.PI * 2, -0.2);
   });
 
-  // Village: houses along the roads near the junction and HQ, facing the road
-  const houses: [number, number, string][] = [
-    [-20, -95, 'house'],
-    [-30, -132, 'house-large'],
-    [25, -88, 'house'],
-    [35, -158, 'house'],
-    [70, -112, 'house-large'],
-    [5, -150, 'barn'],
-    [120, -140, 'house'],
-    [100, -105, 'house'],
-    [140, -170, 'barn'],
-    [55, -185, 'house'],
-  ];
+  // Village: houses along the roads near the junction and HQ, facing the road (placed below)
   // Level the ground under each house (a platform blending into the slope), as a builder would
   for (const [x, y] of houses) {
     const r = 7;
