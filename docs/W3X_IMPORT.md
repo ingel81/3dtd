@@ -43,6 +43,7 @@ const { doc, report } = await importW3xInWorker(file, { fileName: file.name });
 | `catalog` | geplante Katalog-IDs | `{ materials, objects }` mit `id` und `category`; fehlende IDs fallen auf die Kategorie zurück |
 | `maxObjects` | 6000 | mehr Objekte werden gleichmäßig ausgedünnt (Hash, reproduzierbar) |
 | `routeStrategy` | - | eine Wege-Strategie erzwingen (Vergleich, Tests) |
+| `style` | `enhanced` | `enhanced`: Boden nach seiner Rolle im Spiel neu gemalt (siehe unten), `original`: Warcraft-Kacheln eins zu eins |
 
 **Warum 4 m je Kachel:** Tower-Defense-Karten haben Spuren von zwei bis vier Kacheln Breite und Wege
 von 10 000 bis 21 000 Einheiten. Mit 4 m werden daraus Straßen von 8 bis 16 m und Wege von 300 bis
@@ -186,6 +187,16 @@ mit Smoothstep-Gewichten. Steile Flächen zeigen `cliff`.
 Breite: Median der Querläufe durch die Spurmaske an sieben Stellen der Kante (1 bis 6 Kacheln, ohne
 Maske 2,5). Spawns heißen wie ihre Region; das HQ steht in der Mitte der Ende-Region. Das Spiel zeigt
 Portale für bis zu 32 Spawns (`MAX_SPAWN_PORTALS`); das Dokument enthält alle, der Bericht warnt.
+
+**Verschönern** (`convert/enhance.ts`, Stil `enhanced`, Standard): Statt der Kacheltexturen malt der
+Import den Boden nach seiner Rolle im Spiel. Baugrund (begehbar und bebaubar) wird Wiese mit ruhigen
+satten und trockenen Flecken aus Value-Noise, Straßen (die Kanten des Wegenetzes) bekommen eine
+gepflasterte Mitte und einen Kiesrand, der ins Gras ausfranst. Nicht begehbare Ränder und nicht
+bebaubarer Grund abseits der Straßen (der äußere Ring einer Karte) werden Waldboden und bekommen
+zusätzliche Bäume: je 7 m ein Kandidat mit Versatz, per Hash ausgedünnt, fern von Straßen, Wasser,
+Klippen und den Objekten der Karte, innerhalb von `maxObjects`. Die Farbwahl folgt dem Biom des
+Tilesets (gemäßigt, Winter: Northrend/Icecrown/Lordaeron-Winter, Wüste: Barrens/Outland, Herbst:
+Lordaeron-Herbst/Felwood/Dorf-Herbst). Steile Flächen behalten das Klippenmaterial, Wasser bleibt.
 
 **Objekte** (`convert/doodad-assets.ts`, zweiter Buchstabe der ID):
 

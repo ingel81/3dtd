@@ -80,9 +80,28 @@ Ergebnis landet an vier Stellen:
 
 `CustomMapView` (Renderer der Karte, `render/`) wird beim ersten Anhängen nachgeladen und so
 verschoben, dass der Ursprung des Laufs (das HQ) der Ursprung der Szene ist. Darüber
-`EnvironmentControls` wie in DevWorld, die Kamera beginnt über dem HQ. `losBlockers()` gibt die ganze
-Gruppe der Ansicht (direktes Kind der Szene, der Sichtlinien-Würfel blendet alle anderen aus). Die
-Umgebung des Dokuments geht an `view.setEnvironment`.
+`EnvironmentControls` wie in DevWorld, die Kamera beginnt über dem HQ; der Intro-Flug startet am HQ
+und landet in der Übersicht über HQ, Spawns und Routen, wie auf echten Orten. `view.attach(scene)`
+hängt die Gruppe und die Sichtblocker (Gelände, blockierende Objekte) als direkte Kinder an die
+Szene; `losBlockers()` gibt die Sichtblocker (der Sichtlinien-Würfel blendet alle anderen Kinder
+aus). Himmel, Sonne mit Schatten, Licht und Nebel bringt die Karte mit
+(`view.environment.apply`); die Fähigkeit `ownEnvironment` sagt der Engine, dass sie ihre eigenen
+Lichter und ihren Himmel weglässt.
+
+## Laden
+
+- `startHq` öffnet die Karte und beginnt sofort, ihre Bodenmaterialien und Modelle zu laden
+  (`prefetchCustomMapAssets`), während Engine, Straßen und Routen entstehen
+- Die Karte zeichnet ihr erstes Bild erst, wenn ihre Texturen und Modelle da sind und alle ihre
+  Shader-Programme parallel abseits des Hauptthreads übersetzt sind (`compileAsync` mit
+  `KHR_parallel_shader_compile`); bis dahin hält `ready()` die Bilder zurück. Vorher übersetzte jedes
+  neue Material sein Programm synchron im ersten Bild, das es zeigte
+- Höhen für das Overlay: eine Runde sofort statt vier Runden zu 500 ms, weil der Boden nicht streamt
+  (`HeightUpdateService`, `capabilities.streaming`)
+- Messen: `e2e/perf/map-load.ts` gegen einen Produktions-Build (Schritte als `performance.mark`
+  `load:<schritt>`, mit `--profile` die CPU-Zeit je Funktion). Stand 2026-10-11, Chromium mit Fenster:
+  2,3 bis 2,9 s bis spielbar, beim ersten Start des Browsers 3,1 bis 3,8 s (vorher 7,6 bis 9,3 s beim
+  Demo-Tal)
 
 ## Abfragen (`CustomMapSurface`)
 
@@ -93,6 +112,10 @@ Umgebung des Dokuments geht an `view.setEnvironment`.
   Boden darunter
 - Sichtlinie über das Gelände (Schritte von einer halben Zelle); Objekte sieht der Sichtlinien-Würfel
 - Kein Streaming, keine LOD-Stufen, kein Messen der Straßenbreite (die Kanten haben ihre Breite)
+- `isBuildBlocked`: Objekte, die das Bauen verbieten (eigenes `blocksBuild`, sonst das ihres
+  Katalogeintrags), als Scheiben aus Grundfläche mal Skala in 16-m-Feldern; die Platzierungsregel
+  fragt mit dem Radius eines Towers (3 m, `PLACEMENT_CONFIG.TOWER_BUILD_RADIUS`): „Something stands
+  there“. Tiles und DevWorld antworten immer nein (Tower stehen dort auf Dächern)
 
 `CustomMapFrame` rechnet Szene und Karte ineinander um: Szene x = Ursprung x - Karte x, Szene z =
 Karte y - Ursprung y. Der Kosinus der Ursprungsbreite fehlt: eine Karte reicht höchstens wenige
