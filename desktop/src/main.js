@@ -12,7 +12,7 @@ const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { existsSync, mkdirSync } = require('node:fs');
-const { app, BrowserWindow, Menu, Notification, ipcMain, nativeTheme, protocol, screen, session, shell, utilityProcess } = require('electron');
+const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, nativeTheme, protocol, screen, session, shell, utilityProcess } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log/main');
 const { APP_ID } = require('./app-id');
@@ -448,6 +448,20 @@ if (!app.requestSingleInstanceLock()) {
       folder: mapsFolder,
       isAppSender: (event) => classifyNavigation(event.senderFrame?.url ?? '', appOrigin) === 'allow',
       log,
+    });
+    // The editor holds the page while unsaved changes are written (beforeunload): ask instead of
+    // dropping the navigation silently, as Electron does without this (a double-clicked map, a reload)
+    mainWindow.webContents.on('will-prevent-unload', (event) => {
+      const choice = dialog.showMessageBoxSync(mainWindow, {
+        type: 'question',
+        buttons: ['Leave', 'Stay'],
+        defaultId: 1,
+        cancelId: 1,
+        title: '3DTD',
+        message: 'Leave the map editor?',
+        detail: 'The editor is still saving your last changes.',
+      });
+      if (choice === 0) event.preventDefault();
     });
     // A map the app was started with goes to the page once it has loaded
     mainWindow.webContents.on('did-finish-load', () => {

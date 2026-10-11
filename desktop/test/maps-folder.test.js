@@ -8,10 +8,12 @@ const { afterEach, beforeEach, describe, it } = require('node:test');
 const { createMapsFolder, folderNameFor, mapFileArg, mapFileName } = require('../src/maps-folder');
 
 describe('mapFileName', () => {
-  it('takes plain map file names only', () => {
-    assert.equal(mapFileName('mountain-pass.3dtdmap'), 'mountain-pass.3dtdmap');
-    assert.equal(mapFileName('My_Map-2.3DTDMAP'), 'My_Map-2.3DTDMAP');
-    for (const bad of ['../x.3dtdmap', '..\\x.3dtdmap', 'a/b.3dtdmap', 'x.exe', '.3dtdmap', '-x.3dtdmap', 'x.3dtdmap.part', 42, null]) {
+  it('takes any map file name of the folder itself, as the player or Explorer gave it', () => {
+    for (const ok of ['mountain-pass.3dtdmap', 'My_Map-2.3DTDMAP', 'Marsh - Copy.3dtdmap', 'Grün (2).3dtdmap']) assert.equal(mapFileName(ok), ok);
+  });
+
+  it('refuses names that leave the folder or that Windows refuses', () => {
+    for (const bad of ['../x.3dtdmap', '..\\x.3dtdmap', 'a/b.3dtdmap', 'a:b.3dtdmap', 'con.3dtdmap', 'x.exe', '.3dtdmap', 'x.3dtdmap.part', 42, null]) {
       assert.equal(mapFileName(bad), null, String(bad));
     }
   });

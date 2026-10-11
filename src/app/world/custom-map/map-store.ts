@@ -9,7 +9,7 @@
  * `MapStore.load(id)` is what the game uses for `?world=map:<id>`: an own map
  * of that id wins over a shipped one.
  */
-import { defaultMapBackend } from './folder-map-backend';
+import { defaultMapBackend, FolderMapBackend, mapFolderId } from './folder-map-backend';
 import type { CustomMapDocument, MapBiome } from './map-document';
 import { contentHash, packMapFile, unpackMapFile } from './map-file';
 import { slugMapId } from './map-create';
@@ -183,6 +183,11 @@ export class MapStore {
     const summary = summarize(doc, 'shared', await contentHash(doc));
     await this.backend.put({ summary, file, preview });
     return summary;
+  }
+
+  /** The id of the own map a file of the desktop map folder holds (a double-clicked map) */
+  async folderMapId(fileName: string): Promise<string> {
+    return (this.backend instanceof FolderMapBackend ? await this.backend.idOfFile(fileName) : null) ?? mapFolderId(fileName);
   }
 
   /** Whether the game ships a map of this id (maps/index.json) */

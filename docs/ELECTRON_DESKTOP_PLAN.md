@@ -186,12 +186,16 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   `Dokumente/3DTD/Maps`. Das Spiel spiegelt seine eigenen Karten dorthin (`FolderMapBackend`,
   `src/app/world/custom-map/folder-map-backend.ts`): beim ersten Zugriff je Seite kommt eine neue oder geänderte Datei
   herein, eine gelöschte nimmt ihre Karte mit, eine Karte ohne Datei wird geschrieben; Speichern und Löschen gehen an
-  beide. Welche Datei das Spiel kennt, merkt es mit der Änderungszeit in `localStorage` (`3dtd-map-folder-marks`). Der
-  Dateiname ist die Kartenkennung; ein anderer Name („Witch Marsh.3dtdmap“) wird zur Kennung umbenannt. Karten aus dem
-  Coop bleiben im Browser-Speicher. Doppelklick auf eine `.3dtdmap` (`fileAssociations`) kopiert sie in den Ordner und
-  startet sie (`desktop:open-map`, auch bei laufender App). Der Hauptprozess prüft jeden Namen
-  (`^[a-z0-9][a-z0-9_-]*\.3dtdmap$`), nichts verlässt den Ordner. „Map folder“ in der Kartenliste des Editors öffnet
-  ihn im Explorer.
+  beide. Die Marken in `localStorage` (`3dtd-map-folder-marks`) binden je Kartenkennung ihre Datei und deren
+  Änderungszeit; eine Datei behält den Namen, den der Spieler ihr gab („Marsh - Copy.3dtdmap“), das Spiel benennt und
+  löscht keine fremden Dateien. Namen vergleicht es ohne Groß- und Kleinschreibung, zwei Dateien mit derselben
+  vorgeschlagenen Kennung bekommen zwei Kennungen. Fehlen auf einmal alle oder viele markierte Dateien (Ordner verschoben,
+  anderes Dokumente-Verzeichnis), schreibt es die Karten wieder hinaus statt sie zu löschen. Karten aus dem Coop bleiben
+  im Browser-Speicher. Doppelklick auf eine `.3dtdmap` (`fileAssociations`) kopiert sie in den Ordner und startet sie
+  (`desktop:open-map`); in einem laufenden Spiel fragt das Spiel vorher, im Editor mit offenen Änderungen fragt die App
+  (`will-prevent-unload`). Der Hauptprozess prüft jeden Namen (`mapFileName`: ein Name ohne Pfadteile, keine unter
+  Windows verbotenen Zeichen oder Gerätenamen), nichts verlässt den Ordner. „Map folder“ in der Kartenliste des
+  Editors öffnet ihn im Explorer.
 
 ### Externe Dienste
 

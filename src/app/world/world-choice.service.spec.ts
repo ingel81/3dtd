@@ -80,7 +80,7 @@ describe('WorldChoiceService', () => {
     expect(service.tilesets()).toEqual([TILESET]);
   });
 
-  it('plays a map double-clicked in the desktop app, under the id of its file in the map folder', () => {
+  it('plays a map double-clicked in the desktop app, under the id of its file in the map folder', async () => {
     let opened: ((name: string) => void) | null = null;
     const desktop = {
       version: '0.7.0',
@@ -102,6 +102,7 @@ describe('WorldChoiceService', () => {
       const onDesktop = runInInjectionContext(injector, () => new WorldChoiceService());
       const stop = onDesktop.playOpenedMaps();
       opened!('Witch Marsh.3dtdmap');
+      await vi.waitFor(() => expect(went).toHaveLength(1));
       expect(worldRefFromSearch(new URL(went[0]).search)).toEqual({ kind: 'custom-map', mapId: 'witch-marsh', contentHash: '' });
       onDesktop.revealMapFolder();
       expect(desktop.maps.reveal).toHaveBeenCalledOnce();

@@ -1,7 +1,6 @@
 import { Injectable, InjectionToken, computed, inject } from '@angular/core';
 import { ConfigService } from '../core/services/config.service';
 import { readDesktopBridge } from '../core/desktop-bridge';
-import { mapFolderId } from './custom-map/folder-map-backend';
 import { coordKey } from '../utils/geo-utils';
 import { MapStore, type MapSummary } from './custom-map/map-store';
 import type { OwnTileset } from './tileset/own-tileset';
@@ -109,11 +108,17 @@ export class WorldChoiceService {
 
   /**
    * A map the player double-clicked (desktop app): the app copied it into
-   * the map folder, the store takes it in when the page loads on it. Called
-   * once at the page's start; returns the unsubscribe.
+   * the map folder, the store takes it in when the page loads on it.
+   * `mayLeave` asks before a running game is left. Called once at the
+   * page's start; returns the unsubscribe.
    */
-  playOpenedMaps(): () => void {
-    return this.mapFolder?.onOpen((name) => this.playMap(mapFolderId(name))) ?? (() => undefined);
+  playOpenedMaps(mayLeave: (mapName: string) => boolean = () => true): () => void {
+    return (
+      this.mapFolder?.onOpen((name) => {
+        if (!mayLeave(name)) return;
+        void this.store.folderMapId(name).then((id) => this.playMap(id));
+      }) ?? (() => undefined)
+    );
   }
 
   /** Back to the real places of the 3D tiles; the menu then asks where */
