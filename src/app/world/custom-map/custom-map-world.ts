@@ -164,6 +164,8 @@ export class CustomMapWorld implements WorldProvider {
     ]);
     const view = new CustomMapView(this.doc, this.assets ? this.assets() : MapAssetLibrary.shared(), {
       anisotropy: ctx.renderer.capabilities.getMaxAnisotropy(),
+      // Bakes the impostors of far trees
+      renderer: ctx.renderer,
     });
     this.view = view;
     this.placeView();
