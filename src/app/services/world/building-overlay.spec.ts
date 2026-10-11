@@ -166,6 +166,23 @@ describe('BuildingOverlay', () => {
       expect(deps.osm.loadBuildingsNearRoutes).toHaveBeenCalledTimes(2);
     });
 
+    it('loads the buildings of new routes while hidden too, for the minimap, and shows them only on toggle-on (TODO E142)', async () => {
+      vi.useFakeTimers();
+      try {
+        expect(overlay.footprints()).toBeNull();
+        overlay.routesChanged();
+        await vi.advanceTimersByTimeAsync(BUILDING_RELOAD_DELAY_MS);
+        expect(deps.osm.loadBuildingsNearRoutes).toHaveBeenCalledTimes(1);
+        expect(overlay.footprints()).toEqual(['near']);
+        expect(deps.buildingRendering.renderBuildings).toHaveBeenLastCalledWith(engine, ['near'], HQ, false);
+        // Other routes: not theirs any more
+        cachedPaths = new Map([['spawn-1', OTHER]]);
+        expect(overlay.footprints()).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('never draws the old cache on the new place after a tile load', async () => {
       await show();
       deps.store.baseCoords.set({ lat: 40.64, lon: 22.93 });

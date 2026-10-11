@@ -54,6 +54,7 @@ import { IntroLoadingGate } from '../world/intro-loading-gate';
 import { CameraOverview } from '../camera-overview';
 import { DpsBinsOverlay } from '../debug/dps-bins-overlay';
 import { BuildingOverlay } from '../world/building-overlay';
+import type { BuildingFootprint } from '../location/osm-street.service';
 import { cameraTimeline } from '../../utils/camera-timeline';
 import { corridorTrace } from '../../utils/corridor-trace';
 import { perfTrace } from '../../utils/perf-trace';
@@ -901,6 +902,11 @@ export class VisualizationFacadeService {
    */
   onStreetsToggled(): void {
     this.streetRendering.toggleVisibility();
+  }
+
+  /** The OSM building footprints of the routes now, null while none are loaded (the minimap, TODO E142) */
+  buildingFootprints(): BuildingFootprint[] | null {
+    return this.buildings.footprints();
   }
 
   /**

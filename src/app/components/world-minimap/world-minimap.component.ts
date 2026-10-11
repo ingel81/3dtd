@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, NgZone, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, NgZone, inject, input, signal } from '@angular/core';
 import { Vector3 } from 'three';
 import { CameraControlService } from '../../services/camera-control.service';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
@@ -8,6 +8,8 @@ import type { StoreSpawnPoint } from '../../store/tower-defense.store.types';
 import { TD_THEME } from '../../styles/td-theme';
 import type { WorldMinimap } from '../../world/world-provider';
 import { MinimapFrame, ViewFootprint } from './minimap-frame';
+import { drawOsmPicture, osmArea, type OsmMinimapSource } from './osm-minimap';
+import type { ThreeTilesEngine } from '../../three-engine';
 
 /** Redraw interval: enemies, towers and the view at most 10 Hz */
 const TICK_MS = 100;
@@ -17,10 +19,11 @@ export const MINIMAP_CSS_PX = 176;
 const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`;
 
 /**
- * The map from above in a corner, for worlds with a picture of their own
- * (`WorldProvider.minimap()`; a custom map, not the tiles): the routes in
- * their spawn's colour, spawns, HQ, towers, enemy dots and what the camera
- * sees. A click glides the camera there.
+ * The map from above in a corner: the routes in their spawn's colour, spawns,
+ * HQ, towers, enemy dots and what the camera sees. A click glides the camera
+ * there. The picture under them is the world's own (`WorldProvider.minimap()`,
+ * a custom map) or, on a real place, drawn from OSM (`osm`, TODO E142): dark
+ * ground, buildings as areas, streets as lines, around HQ, spawns and routes.
  *
  * One canvas, redrawn on its own 10 Hz timer outside Angular: the picture
  * with routes, spawns and HQ is composed once into a base canvas (again when
@@ -47,6 +50,9 @@ export class WorldMinimapComponent {
   private readonly cameraControl = inject(CameraControlService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
+  /** A real place's streets and buildings, for worlds without a picture of their own */
+  readonly osm = input<OsmMinimapSource | null>(null);
+
   readonly shown = signal(false);
   /** Canvas pixels: sharp on a high-density screen */
   readonly pixels = Math.round(MINIMAP_CSS_PX * Math.min(2, Math.max(1, globalThis.devicePixelRatio || 1)));
@@ -58,6 +64,8 @@ export class WorldMinimapComponent {
   private groundY = 0;
   private readonly footprint = new ViewFootprint();
   private readonly scratch = new Vector3();
+  /** The OSM picture and what it was drawn from; a change of any draws it again */
+  private osmPicture: { minimap: WorldMinimap; key: readonly unknown[] } | null = null;
 
   constructor() {
     const timer = inject(NgZone).runOutsideAngular(() => setInterval(() => this.tick(), TICK_MS));
@@ -67,7 +75,7 @@ export class WorldMinimapComponent {
   /** One redraw; public for the spec */
   tick(): void {
     const engine = this.engineInit.getEngine();
-    const minimap = engine?.world.minimap() ?? null;
+    const minimap = engine ? (engine.world.minimap() ?? this.osmMinimap(engine)) : null;
     if (!engine || !minimap) {
       if (this.shown()) this.shown.set(false);
       return;
@@ -144,6 +152,44 @@ export class WorldMinimapComponent {
       c.fillStyle = pass === 0 ? TD_THEME.ink : fill;
       c.fill();
     }
+  }
+
+  /**
+   * A real place from above, from its OSM streets and buildings (TODO E142),
+   * null before its streets and routes are there. Drawn again when the
+   * streets, the buildings, the routes, the spawns or the HQ change.
+   */
+  private osmMinimap(engine: ThreeTilesEngine): WorldMinimap | null {
+    const source = this.osm();
+    const streets = source?.streets() ?? null;
+    if (!source || !streets || !engine.world.capabilities.realPlace) return null;
+    const buildings = source.buildings();
+    const routes = this.mirror.routes();
+    const spawns = this.location.spawnPoints();
+    const hq = this.location.baseCoords();
+    const key = [streets, buildings, routes, spawns, hq] as const;
+    const kept = this.osmPicture;
+    if (kept && kept.key.every((k, i) => k === key[i])) return kept.minimap;
+
+    const sync = engine.sync;
+    const toScene = (lat: number, lon: number) => {
+      const v = sync.geoToLocalSimple(lat, lon, 0);
+      return { x: v.x, z: v.z };
+    };
+    const points = [toScene(hq.lat, hq.lon), ...spawns.map((s) => toScene(s.lat, s.lon))];
+    for (const path of routes.values()) for (const g of path) points.push(toScene(g.lat, g.lon));
+    const north = toScene(hq.lat + 0.001, hq.lon).z < points[0].z;
+    const area = osmArea(points, north);
+    if (!area) return null;
+    // A new canvas each time: the base canvas tells pictures apart by identity
+    const picture = document.createElement('canvas');
+    picture.width = this.pixels;
+    picture.height = this.pixels;
+    const c = picture.getContext('2d');
+    if (c) drawOsmPicture(c, new MinimapFrame(area, this.pixels), toScene, streets, buildings, this.pixels / MINIMAP_CSS_PX);
+    const minimap: WorldMinimap = { picture, ...area };
+    this.osmPicture = { minimap, key };
+    return minimap;
   }
 
   /** A click: the camera glides to that point of the map */

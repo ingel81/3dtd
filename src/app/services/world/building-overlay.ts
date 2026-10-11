@@ -39,11 +39,12 @@ export const BUILDING_RELOAD_DELAY_MS = 1500;
 
 /**
  * OSM building footprints within BUILDING_CORRIDOR_RADIUS of the routes, and
- * only those: loaded on the first toggle-on once routes exist, drawn again
- * after tile loads. They belong to the routes and the place they were loaded
- * for: when either changes (another place, a new or moved spawn) they leave
- * the map, and while the layer is on the buildings of the new routes load
- * by themselves (routesChanged). Dropped on dispose.
+ * only those: loaded once the routes have settled (routesChanged; the
+ * minimap draws them, TODO E142) or on the first toggle-on, shown while the
+ * layer is on, drawn again after tile loads. They belong to the routes and
+ * the place they were loaded for: when either changes (another place, a new
+ * or moved spawn) they leave the map and those of the new routes load.
+ * Dropped on dispose.
  */
 export class BuildingOverlay {
   /** Cached building footprints of the route corridor */
@@ -71,17 +72,21 @@ export class BuildingOverlay {
 
   /**
    * The routes changed (PathAndRouteService.routesVersion): buildings of
-   * other routes or another place leave the map; while the layer is on, the
-   * new routes' buildings load once the routes have settled.
+   * other routes or another place leave the map; the new routes' buildings
+   * load once the routes have settled, shown only while the layer is on.
    */
   routesChanged(): void {
     if (this.cachedBuildings && !this.loadedForNow()) this.drop();
     this.cancelReload();
-    if (!this.deps.uiStore.buildingsVisible()) return;
     this.reloadTimer = setTimeout(() => {
       this.reloadTimer = null;
-      if (this.deps.uiStore.buildingsVisible() && !this.loadedForNow()) this.loadAndRenderBuildings();
+      if (!this.loadedForNow()) this.loadAndRenderBuildings();
     }, BUILDING_RELOAD_DELAY_MS);
+  }
+
+  /** The footprints of the routes now, null while none are loaded for them (the minimap, TODO E142) */
+  footprints(): BuildingFootprint[] | null {
+    return this.loadedForNow() ? this.cachedBuildings : null;
   }
 
   /** Draw the loaded buildings again on the tiles just streamed, if they are shown and still those of the routes. */

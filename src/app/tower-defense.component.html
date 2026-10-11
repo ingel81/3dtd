@@ -131,8 +131,8 @@
 
         <!-- Compass Overlay -->
         <app-compass [rotation]="compassRotation()" (resetBearing)="resetCamera()" />
-        <!-- Minimap under it, for worlds with a picture from above (custom maps) -->
-        <app-world-minimap />
+        <!-- Minimap under it: a custom map's picture, or a real place drawn from OSM -->
+        <app-world-minimap [osm]="minimapOsm" />
 
         <!-- Debug Windows (draggable), one lazy chunk, see debugWindowsRequested -->
         @defer (when debugWindowsRequested()) {

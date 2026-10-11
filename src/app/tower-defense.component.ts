@@ -78,6 +78,7 @@ import { LocationChangeCoordinatorService } from './services/location/location-c
 import { TowerDefenseFacadeService, FacadeComponentBridge } from './services/facade/tower-defense-facade.service';
 import { GameLoopFacadeService } from './services/facade/game-loop-facade.service';
 import { VisualizationFacadeService } from './services/facade/visualization-facade.service';
+import type { OsmMinimapSource } from './components/world-minimap/osm-minimap';
 import { TowerDefenseStore } from './store/tower-defense.store';
 import { UIStore, noticeLingerMs } from './store/ui.store';
 import { ConfigService } from './core/services/config.service';
@@ -274,6 +275,12 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   /** The world the game plays: its credentials, its logos */
   readonly worldContext = inject(WorldContext);
   readonly facade = inject(TowerDefenseFacadeService);
+  private readonly vizFacade = inject(VisualizationFacadeService);
+  /** A real place's streets and buildings for the minimap (TODO E142) */
+  readonly minimapOsm: OsmMinimapSource = {
+    streets: () => this.streetNetwork,
+    buildings: () => this.vizFacade.buildingFootprints(),
+  };
   readonly store = inject(TowerDefenseStore);
   /** Best wave per place; a new record shows on the game-over screen */
   readonly bestWaves = inject(BestWaveService);

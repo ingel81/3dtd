@@ -206,7 +206,11 @@ Lichter und ihren Himmel weglässt.
 ## Minikarte
 
 `WorldProvider.minimap()` gibt die Draufsicht einer Welt mit dem Szenen-Rechteck, das sie zeigt (Norden oben,
-Westen links); Tiles und DevWorld geben `null`, dann bleibt die Minikarte weg. Die eigene Karte rendert sie einmal
+Westen links); Tiles und DevWorld geben `null`. Auf echten Orten (E142) zeichnet die Minikarte ihr Bild selbst aus OSM
+(`components/world-minimap/osm-minimap.ts`): dunkler Grund, Gebäude als Flächen (die Footprints nahe der Routen, die
+`BuildingOverlay` jetzt nach jedem Routenwechsel lädt, auch bei ausgeschalteter Ebene), Straßen als Linien (Hauptstraßen
+breiter, Fußwege nicht), als Quadrat um HQ, Spawns und Routen mit Rand, mindestens 400 m. Ohne Straßen bleibt sie weg
+(DevWorld). Die eigene Karte rendert sie einmal
 nach ihrem ersten gezeichneten Bild (`custom-map-minimap.ts`): orthografisch von oben, nur die Szenenkinder, die
 `view.attach` und `environment.apply` angehängt haben (Gelände, Wasser, Objekte, Licht), 512 px an der längeren
 Seite. Sie braucht keine eigenen Shader-Programme: der Nebel bleibt mit Dichte 0 an der Szene, alle Lichter bleiben an
