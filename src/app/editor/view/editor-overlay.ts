@@ -55,6 +55,8 @@ export class EditorOverlay {
   private readonly markers = new Group();
   private readonly nodes = new Group();
   private readonly selection = new Group();
+  /** What the pointer is over in Select: a click would take it */
+  private readonly hover = ring(TD_THEME.brassLight, 0.45);
   private readonly routes = new Group();
   private readonly draft: Line;
   private readonly routeMaterial = new LineBasicMaterial({ color: TD_THEME.tealLight, depthTest: false, transparent: true, opacity: 0.7 });
@@ -113,7 +115,8 @@ export class EditorOverlay {
     this.measure.renderOrder = 13;
     this.measure.frustumCulled = false;
     this.measure.visible = false;
-    this.group.add(this.contours, this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview, this.transform.group, this.riverHandles);
+    this.hover.visible = false;
+    this.group.add(this.hover,  this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview, this.transform.group, this.riverHandles);
   }
 
   /** Handles on the points of the map's rivers (the water tool's river mode); null hides them */
@@ -245,6 +248,16 @@ export class EditorOverlay {
         }
       }
     }
+  }
+
+  /** A faint ring around what a click would pick, or none */
+  setHover(at: MapPoint | null, radius = 0): void {
+    if (!at) {
+      this.hover.visible = false;
+      return;
+    }
+    drape(this.hover, at, Math.max(1, radius), this.height);
+    this.hover.visible = true;
   }
 
   /** The routes to show, with dots moving toward the HQ */

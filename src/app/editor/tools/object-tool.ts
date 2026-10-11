@@ -47,6 +47,8 @@ type Drag =
 const GIZMO_PIXELS = 90;
 
 export class ObjectTool implements EditorTool {
+  /** Where the pointer was when the hover ring was last picked */
+  private hoverAt: { x: number; y: number } | null = null;
   readonly id = 'objects' as const;
   private brushing: { added: MapObject[]; removed: ObjectEdit[]; grid: ObjectGrid; ids: ObjectIds; erase: boolean; origin?: MapPoint } | null = null;
   private drag: Drag | null = null;
@@ -58,6 +60,8 @@ export class ObjectTool implements EditorTool {
 
 
   deactivate(ctx: ToolContext): void {
+    ctx.overlay.setHover(null);
+    this.hoverAt = null;
     this.endBrush(ctx);
     this.cancel(ctx);
   }
@@ -173,6 +177,7 @@ export class ObjectTool implements EditorTool {
       ctx.overlay.setGizmo(null, 0);
       gizmo.hide();
     }
+    this.hoverFrame(p, ctx);
 
     const b = this.brushing;
     if (!b || !p?.hit) return;
@@ -267,6 +272,21 @@ export class ObjectTool implements EditorTool {
       return true;
     }
     return false;
+  }
+
+  /** In Select, a faint ring shows the object a click would take; picked only when the pointer moved */
+  private hoverFrame(p: ToolPointer | null, ctx: ToolContext): void {
+    if (ctx.settings.objects.mode !== 'select' || this.drag || !p?.hit) {
+      if (this.hoverAt) ctx.overlay.setHover(null);
+      this.hoverAt = null;
+      return;
+    }
+    if (this.hoverAt && this.hoverAt.x === p.clientX && this.hoverAt.y === p.clientY) return;
+    this.hoverAt = { x: p.clientX, y: p.clientY };
+    const picked = ctx.pick(p);
+    const o = picked?.kind === 'object' ? ctx.editor.doc.objects.find((x) => x.id === picked.id) : undefined;
+    if (!o) ctx.overlay.setHover(null);
+    else ctx.overlay.setHover(o, ctx.catalog.object(o.asset).radius * o.scale * 1.15);
   }
 
   cancel(ctx: ToolContext): void {
