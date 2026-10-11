@@ -4,7 +4,7 @@
  * distances, choke points and sight lines can be judged without starting
  * the game. Ground enemies follow the roads; nothing fights, nothing dies.
  */
-import { AnimationMixer, Group, type AnimationClip, type Object3D } from 'three';
+import { AnimationMixer, CanvasTexture, Group, Sprite, SpriteMaterial, type AnimationClip, type Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { ENEMY_TYPES, type EnemyTypeConfig } from '../../configs/enemy-types.config';
@@ -24,6 +24,8 @@ interface Runner {
   along: number;
   model: Object3D;
   mixer: AnimationMixer | null;
+  /** The same size on the screen from near and far: the models alone vanish in an overview */
+  dot: Sprite;
 }
 
 interface LoadedModel {
@@ -34,7 +36,12 @@ interface LoadedModel {
 export interface TrialRoute {
   points: MapPoint[];
   length: number;
+  /** Colour of its runners' dots (the spawn's), CSS */
+  color?: string;
 }
+
+/** On-screen size of a runner's dot, as a share of the view's height */
+const DOT_SIZE = 0.014;
 
 export class TrialRunners {
   readonly group = new Group();
@@ -46,6 +53,7 @@ export class TrialRunners {
   private clock = 0;
   private spawned = 0;
   private running = false;
+  private readonly dotMaterials = new Map<string, SpriteMaterial>();
 
   constructor(private readonly heightAt: (x: number, y: number) => number) {
     this.group.name = 'trial-runners';
@@ -78,7 +86,7 @@ export class TrialRunners {
 
   stop(): void {
     this.running = false;
-    for (const r of this.runners) this.group.remove(r.model);
+    for (const r of this.runners) this.group.remove(r.model, r.dot);
     this.runners = [];
   }
 
@@ -101,6 +109,7 @@ export class TrialRunners {
       const q = pointAt(route.points, Math.min(route.length, r.along + 1));
       const h = this.heightAt(p.x, p.y);
       r.model.position.set(-p.x, h, p.y);
+      r.dot.position.set(-p.x, h + 1.5, p.y);
       // Facing along the road: scene x is west, so the map heading turns into the scene's
       const heading = Math.atan2(-(q.x - p.x), q.y - p.y);
       r.model.rotation.y = heading + (r.type.headingOffset ?? 0);
@@ -110,15 +119,23 @@ export class TrialRunners {
 
   dispose(): void {
     this.stop();
+    for (const m of this.dotMaterials.values()) {
+      m.map?.dispose();
+      m.dispose();
+    }
+    this.dotMaterials.clear();
     this.group.removeFromParent();
   }
 
   private spawn(route: number, type: EnemyTypeConfig): void {
     const holder = new Group();
     holder.scale.setScalar(type.scale);
-    const runner: Runner = { route, type, along: 0, model: holder, mixer: null };
+    const dot = new Sprite(this.dotMaterial(this.routes[route].color ?? '#e8c060'));
+    dot.scale.set(DOT_SIZE, DOT_SIZE, 1);
+    dot.renderOrder = 9;
+    const runner: Runner = { route, type, along: 0, model: holder, mixer: null, dot };
     this.runners.push(runner);
-    this.group.add(holder);
+    this.group.add(holder, dot);
     void this.model(type).then((loaded) => {
       if (!loaded || !this.runners.includes(runner)) return;
       const body = cloneSkinned(loaded.scene);
@@ -132,6 +149,27 @@ export class TrialRunners {
         runner.mixer.setTime(Math.random() * clip.duration);
       }
     });
+  }
+
+  /** A round dot with a dark rim in the route's colour, one material per colour */
+  private dotMaterial(color: string): SpriteMaterial {
+    let m = this.dotMaterials.get(color);
+    if (m) return m;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.beginPath();
+      ctx.arc(16, 16, 13, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(10, 12, 10, 0.85)';
+      ctx.stroke();
+    }
+    m = new SpriteMaterial({ map: new CanvasTexture(canvas), sizeAttenuation: false, depthTest: false, transparent: true });
+    this.dotMaterials.set(color, m);
+    return m;
   }
 
   private model(type: EnemyTypeConfig): Promise<LoadedModel | null> {

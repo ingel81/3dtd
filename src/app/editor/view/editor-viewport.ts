@@ -7,6 +7,7 @@
  */
 import { TRIAL_TYPES, TrialRunners } from './trial-runners';
 import {
+  Color,
   MathUtils,
   PCFShadowMap,
   OrthographicCamera,
@@ -19,6 +20,7 @@ import {
   WebGLRenderTarget,
   WebGLRenderer,
 } from 'three';
+import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { MapObject, MapPoint } from '../../world/custom-map/map-document';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import { mergeChanges, type DocChange, type EditorDocument } from '../model/editor-document';
@@ -371,7 +373,12 @@ export class EditorViewport {
       return;
     }
     const doc = this.editor.doc;
-    const routes = [...spawnRoutes(doc).values()].filter((r): r is NonNullable<typeof r> => !!r);
+    // Each route's runners in the colour of its spawn, as on the minimap
+    const found = spawnRoutes(doc);
+    const routes = doc.spawns.flatMap((sp, k) => {
+      const r = found.get(sp.id);
+      return r ? [{ ...r, color: '#' + new Color(SPAWN_COLORS[k % SPAWN_COLORS.length]).getHexString() }] : [];
+    });
     if (!routes.length) {
       this.callbacks.status('No spawn reaches the HQ: draw a road first');
       return;
