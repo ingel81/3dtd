@@ -37,7 +37,7 @@ export interface BiomeGround {
  * along the edges of city blocks, facing the street; street: on the
  * sidewalks.
  */
-export type BiomeZone = 'core' | 'edge' | 'any' | 'shore' | 'block' | 'street';
+export type BiomeZone = 'core' | 'edge' | 'any' | 'shore' | 'pool' | 'block' | 'street' | 'walk' | 'curb';
 
 export interface BiomeObject {
   assets: readonly string[];
@@ -218,6 +218,7 @@ export const BIOMES: readonly BiomeDef[] = [
       { assets: ['mushrooms', 'mushrooms-red', 'roots', 'stump-mossy'], perHectare: 20, scale: [0.8, 1.2], zone: 'core', spacing: 2.5, clump: 0.6 },
       { assets: ['bush-ivy', 'bush'], perHectare: 25, scale: [0.7, 1.2], zone: 'edge', spacing: 3 },
       { assets: ['log-fallen', 'rock-mossy-flat'], perHectare: 6, scale: [0.8, 1.2], zone: 'any', spacing: 5 },
+      { assets: ['lily-pads'], perHectare: 120, scale: [0.7, 1.3], zone: 'pool', spacing: 2, clump: 0.7 },
       { assets: ['fx-fireflies'], perHectare: 1.5, scale: [1, 1.4], zone: 'core', spacing: 18 },
     ],
   },
@@ -275,9 +276,11 @@ export const BIOMES: readonly BiomeDef[] = [
     pools: 0.3,
     water: 'ice',
     objects: [
-      { assets: ['crystals-ice'], perHectare: 3, scale: [0.6, 1.4], zone: 'core', spacing: 10, clump: 0.6 },
-      { assets: ['rock-snow', 'boulder'], perHectare: 6, scale: [0.6, 1.5], zone: 'any', spacing: 6 },
-      { assets: ['tree-fir-young-snow'], perHectare: 1.5, scale: [0.6, 1], zone: 'edge', spacing: 10 },
+      { assets: ['ice-spikes', 'ice-blocks', 'crystals-ice'], perHectare: 3, scale: [0.6, 1.4], zone: 'core', spacing: 10, clump: 0.6 },
+      { assets: ['snow-drift-mound', 'rock-snow', 'boulder'], perHectare: 6, scale: [0.6, 1.5], zone: 'any', spacing: 6 },
+      { assets: ['tree-frozen', 'tree-fir-young-snow'], perHectare: 1.5, scale: [0.6, 1], zone: 'edge', spacing: 10 },
+      { assets: ['iceberg', 'ice-floe'], perHectare: 1, scale: [0.6, 1.2], zone: 'pool', spacing: 14 },
+      { assets: ['igloo', 'research-station'], perHectare: 0.1, scale: [1, 1], zone: 'core', spacing: 60 },
       { assets: ['fx-snow'], perHectare: 0.6, scale: [1, 1.5], zone: 'core', spacing: 30 },
     ],
   },
@@ -316,10 +319,12 @@ export const BIOMES: readonly BiomeDef[] = [
     relief: { kind: 'flatten', amplitude: 1, wave: 40 },
     pattern: 'streets',
     objects: [
-      { assets: ['house-tall', 'house-stone', 'house-large', 'house'], perHectare: 0.85, scale: [0.95, 1.15], zone: 'block', spacing: 9 },
-      { assets: ['lamp-post'], perHectare: 0.9, scale: [1, 1], zone: 'street', spacing: 8 },
-      { assets: ['tree-oak-young', 'tree-maple'], perHectare: 6, scale: [0.8, 1], zone: 'core', spacing: 10 },
-      { assets: ['crate', 'barrel-small', 'crate-long', 'cart'], perHectare: 6, scale: [0.9, 1.1], zone: 'core', spacing: 4, clump: 0.8 },
+      { assets: ['apartment-block', 'apartment-block-tall', 'brick-block', 'brick-house', 'shop', 'office-tower', 'house-tall'], perHectare: 0.85, scale: [0.95, 1.1], zone: 'block', spacing: 12 },
+      { assets: ['street-lamp', 'lamp-post'], perHectare: 0.95, scale: [1, 1], zone: 'street', spacing: 8 },
+      { assets: ['tree-street', 'bench', 'trash-can', 'hydrant', 'bus-stop', 'street-sign', 'bollards'], perHectare: 0.55, scale: [0.95, 1.05], zone: 'walk', spacing: 4 },
+      { assets: ['car-red', 'car-blue', 'car-white', 'car-grey', 'pickup', 'truck', 'bus'], perHectare: 0.35, scale: [1, 1], zone: 'curb', spacing: 5 },
+      { assets: ['tree-street', 'tree-oak-young', 'tree-maple'], perHectare: 6, scale: [0.8, 1], zone: 'core', spacing: 10 },
+      { assets: ['crate', 'barrel-small', 'crate-long', 'trash-can'], perHectare: 5, scale: [0.9, 1.1], zone: 'core', spacing: 4, clump: 0.8 },
     ],
   },
   {
@@ -339,10 +344,12 @@ export const BIOMES: readonly BiomeDef[] = [
     water: 'lava',
     pattern: 'cracks',
     objects: [
-      { assets: ['rock-volcanic', 'rock-volcanic-large', 'rock-pumice'], perHectare: 20, scale: [0.6, 1.6], zone: 'any', spacing: 4, clump: 0.6 },
-      { assets: ['basalt-columns', 'rock-basalt-large'], perHectare: 2, scale: [0.7, 1.4], zone: 'core', spacing: 12, clump: 0.5 },
-      { assets: ['tree-dead-pale', 'tree-dead'], perHectare: 3, scale: [0.8, 1.2], zone: 'any', spacing: 10 },
-      { assets: ['bones'], perHectare: 5, scale: [0.8, 1.3], zone: 'any', spacing: 5 },
+      { assets: ['lava-rock', 'rock-volcanic', 'rock-pumice'], perHectare: 10, scale: [0.6, 1.5], zone: 'any', spacing: 4, clump: 0.6 },
+      { assets: ['obsidian-spikes', 'obsidian-slabs', 'hell-spires', 'lava-rock-large'], perHectare: 3, scale: [0.7, 1.3], zone: 'core', spacing: 9, clump: 0.6 },
+      { assets: ['basalt-columns'], perHectare: 0.8, scale: [0.7, 1.4], zone: 'core', spacing: 14 },
+      { assets: ['tree-dead-pale', 'tree-dead', 'tree-charred'], perHectare: 2.5, scale: [0.8, 1.2], zone: 'any', spacing: 10 },
+      { assets: ['bone-pile', 'bones', 'chains', 'cage'], perHectare: 4, scale: [0.8, 1.2], zone: 'any', spacing: 6 },
+      { assets: ['hell-gate', 'altar'], perHectare: 0.12, scale: [1, 1], zone: 'core', spacing: 50 },
       { assets: ['brazier', 'torch'], perHectare: 0.8, scale: [1, 1.2], zone: 'core', spacing: 20 },
       { assets: ['fx-embers'], perHectare: 1.5, scale: [1, 1.5], zone: 'core', spacing: 16 },
       { assets: ['fx-smoke'], perHectare: 0.4, scale: [1, 1.5], zone: 'core', spacing: 30 },
@@ -360,11 +367,13 @@ export const BIOMES: readonly BiomeDef[] = [
     ],
     relief: { kind: 'craters', amplitude: 2.5, wave: 26 },
     objects: [
-      { assets: ['ruin-wall', 'wall-dry-stone-ruined', 'castle-wall-ruined-b'], perHectare: 3, scale: [0.8, 1.1], zone: 'core', spacing: 14 },
-      { assets: ['barrels-broken', 'barrel-old', 'crate', 'cart'], perHectare: 10, scale: [0.9, 1.2], zone: 'any', spacing: 3, clump: 0.8 },
-      { assets: ['tree-dead', 'tree-dead-pale'], perHectare: 3, scale: [0.7, 1.1], zone: 'any', spacing: 10 },
+      { assets: ['brick-block-ruined', 'apartment-block-ruined', 'ruin-wall', 'wall-dry-stone-ruined'], perHectare: 2.5, scale: [0.8, 1.1], zone: 'core', spacing: 16 },
+      { assets: ['car-wreck', 'car-wreck-b', 'car-burnt', 'pickup-wreck', 'truck-wreck', 'bus-wreck', 'tank-wreck'], perHectare: 3, scale: [0.95, 1.05], zone: 'any', spacing: 8, clump: 0.6 },
+      { assets: ['tyres', 'barrel-rusty', 'barrel-rusty-tipped', 'toxic-barrel', 'barrels-broken', 'rubble-pile'], perHectare: 12, scale: [0.9, 1.2], zone: 'any', spacing: 3, clump: 0.8 },
+      { assets: ['fence-broken', 'fence-chainlink-barbed', 'barbed-wire', 'road-barrier'], perHectare: 6, scale: [1, 1], zone: 'edge', spacing: 5 },
+      { assets: ['tree-charred', 'tree-dead', 'tree-dead-pale'], perHectare: 3, scale: [0.7, 1.1], zone: 'any', spacing: 10 },
       { assets: ['grass-tall-dry', 'nettles', 'grass-autumn'], perHectare: 50, scale: [0.7, 1.2], zone: 'any', spacing: 2, clump: 0.8 },
-      { assets: ['bones', 'stones'], perHectare: 6, scale: [0.8, 1.2], zone: 'any', spacing: 4 },
+      { assets: ['rubble-pile-large', 'bones', 'stones'], perHectare: 4, scale: [0.8, 1.2], zone: 'any', spacing: 6 },
       { assets: ['fx-smoke'], perHectare: 0.6, scale: [1, 1.6], zone: 'core', spacing: 26 },
     ],
   },
@@ -381,8 +390,9 @@ export const BIOMES: readonly BiomeDef[] = [
     steepGround: ['moon-basalt', 'regolith-rough'],
     relief: { kind: 'craters', amplitude: 5, wave: 42 },
     objects: [
-      { assets: ['boulder', 'rock-granite', 'rock-round'], perHectare: 6, scale: [0.5, 1.6], zone: 'any', spacing: 5, clump: 0.6 },
-      { assets: ['stones', 'rock-small'], perHectare: 20, scale: [0.6, 1.4], zone: 'any', spacing: 2.5, clump: 0.7 },
+      { assets: ['moon-boulder', 'moon-rock'], perHectare: 6, scale: [0.5, 1.6], zone: 'any', spacing: 5, clump: 0.6 },
+      { assets: ['moon-rocks-small', 'moon-rock'], perHectare: 18, scale: [0.6, 1.4], zone: 'any', spacing: 2.5, clump: 0.7 },
+      { assets: ['lander', 'antenna-mast', 'antenna-dish', 'base-hub'], perHectare: 0.12, scale: [1, 1], zone: 'core', spacing: 60 },
     ],
   },
   {
@@ -398,9 +408,10 @@ export const BIOMES: readonly BiomeDef[] = [
     steepGround: ['mars-rock', 'cliff-ochre', 'rock-red-granite'],
     relief: { kind: 'dunes', amplitude: 3, wave: 55 },
     objects: [
-      { assets: ['rock-desert', 'rock-sandstone', 'rock-desert-large'], perHectare: 6, scale: [0.6, 1.5], zone: 'any', spacing: 6, clump: 0.6 },
-      { assets: ['stones', 'rock-small'], perHectare: 18, scale: [0.6, 1.4], zone: 'any', spacing: 2.5, clump: 0.7 },
+      { assets: ['mars-boulder', 'mars-rock-large', 'mars-stone'], perHectare: 6, scale: [0.6, 1.5], zone: 'any', spacing: 6, clump: 0.6 },
+      { assets: ['mars-stone', 'stones'], perHectare: 18, scale: [0.6, 1.4], zone: 'any', spacing: 2.5, clump: 0.7 },
       { assets: ['mesa', 'sandstone-pillar'], perHectare: 0.25, scale: [0.6, 1], zone: 'core', spacing: 40 },
+      { assets: ['dome-glass', 'greenhouse-dome', 'rover'], perHectare: 0.1, scale: [1, 1], zone: 'core', spacing: 60 },
     ],
   },
 ];

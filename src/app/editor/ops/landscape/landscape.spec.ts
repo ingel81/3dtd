@@ -159,7 +159,8 @@ describe('biome brush', () => {
     const layers = t.layers.map((l) => l.material);
     expect(layers).toContain('asphalt');
     expect(layers).toContain('sidewalk');
-    const houses = ed.doc.objects.filter((o) => o.asset.startsWith('house'));
+    const blockAssets = def.objects.find((o) => o.zone === 'block')!.assets;
+    const houses = ed.doc.objects.filter((o) => blockAssets.includes(o.asset));
     expect(houses.length).toBeGreaterThan(6);
     for (const h of houses) {
       expect(streetDistance(h.x, h.y)).toBeGreaterThan(10);
@@ -168,7 +169,11 @@ describe('biome brush', () => {
       const fy = Math.cos(h.rotation);
       expect(streetDistance(h.x + fx * 6, h.y + fy * 6)).toBeLessThan(streetDistance(h.x, h.y));
     }
-    expect(ed.doc.objects.filter((o) => o.asset === 'lamp-post').every((o) => streetDistance(o.x, o.y) < 8.5)).toBe(true);
+    expect(ed.doc.objects.filter((o) => o.asset === 'street-lamp').every((o) => streetDistance(o.x, o.y) < 8.5)).toBe(true);
+    // Parked cars stand at the curb, lengthwise
+    const cars = ed.doc.objects.filter((o) => o.asset.startsWith('car-'));
+    expect(cars.length).toBeGreaterThan(2);
+    for (const c of cars) expect(streetDistance(c.x, c.y)).toBeCloseTo(3.6, 1);
     expect(citySlots('street', -64, 64, -64, 64).length).toBeGreaterThan(8);
   });
 

@@ -90,6 +90,12 @@ export function craterField(n: LandscapeNoise, x: number, y: number, wave: numbe
   return h;
 }
 
+type SlotZone = 'block' | 'street' | 'walk' | 'curb';
+
+function isSlotZone(zone: BiomeObject['zone']): zone is SlotZone {
+  return zone === 'block' || zone === 'street' || zone === 'walk' || zone === 'curb';
+}
+
 /** The pattern layers of a biome, resolved once per dab */
 interface PatternLayers {
   kind: BiomeDef['pattern'];
@@ -402,8 +408,13 @@ function zoneChance(zone: BiomeObject['zone'], w: number, shore = 0): number {
     case 'edge':
       // A band at the rim: weights between a touch and the middle
       return w <= 0.02 ? 0 : smooth(0.02, 0.15, w) * (1 - smooth(0.45, 0.75, w));
+    case 'pool':
+      // Out on the water of the pools (lily pads)
+      return smooth(0.3, 0.6, w) * smooth(0.5, 0.8, shore);
     case 'block':
     case 'street':
+    case 'walk':
+    case 'curb':
       // Slots of the street grid, decided in growSlots
       return smooth(0.45, 0.85, w);
   }
@@ -422,7 +433,7 @@ function growObjects(stroke: LandscapeStroke, reach: BiomeReach | null, strength
   biome.objects.forEach((o, kind) => {
     const assets = o.assets.filter((a) => stroke.catalog.objects.has(a));
     if (!assets.length) return;
-    if (o.zone === 'block' || o.zone === 'street') {
+    if (isSlotZone(o.zone)) {
       if (reach) placed.push(...growSlots(stroke, reach, strength, o, kind, assets));
       return;
     }
@@ -439,7 +450,7 @@ function growObjects(stroke: LandscapeStroke, reach: BiomeReach | null, strength
         return;
       }
       const clump = o.clump ? 1 - o.clump + o.clump * 2 * (0.5 + 0.5 * n.fbm(px, py, 30, 2, 'n3')) : 1;
-      const shore = o.zone === 'shore' ? poolShore(stroke, biome, px, py) : 0;
+      const shore = o.zone === 'shore' ? poolShore(stroke, biome, px, py) : o.zone === 'pool' ? poolDepth(stroke, biome, px, py) : 0;
       const chance = zoneChance(o.zone, w, shore) * strength * clump;
       const roll = n.hash(ci, cj, kind * 4 + 3);
       if (roll >= chance) {
@@ -452,7 +463,7 @@ function growObjects(stroke: LandscapeStroke, reach: BiomeReach | null, strength
       const asset = assets[Math.floor(n.hash(ci, cj, kind * 4 + 6) * assets.length) % assets.length];
       const footprint = stroke.catalog.object(asset).radius;
       if (streets && streetDistance(px, py) < CITY_GRID.sidewalk + footprint + 0.5) return;
-      if (!stroke.freeForObject(px, py, footprint)) return;
+      if (!stroke.freeForObject(px, py, footprint, o.zone === 'pool')) return;
       if (stroke.grid.near({ x: px, y: py }, o.spacing)) return;
       const s = o.scale[0] + (o.scale[1] - o.scale[0]) * n.hash(ci, cj, kind * 4 + 4);
       const slope = slopeAt(t, px, py);
@@ -493,7 +504,7 @@ function growSlots(stroke: LandscapeStroke, reach: BiomeReach, strength: number,
   const t = stroke.doc.terrain;
   const n = stroke.noise;
   const placed: string[] = [];
-  for (const slot of citySlots(o.zone as 'block' | 'street', reach.minX, reach.maxX, reach.minY, reach.maxY)) {
+  for (const slot of citySlots(o.zone as SlotZone, reach.minX, reach.maxX, reach.minY, reach.maxY)) {
     const key = `${kind}:${slot.key}`;
     if (stroke.decided.has(key)) continue;
     const w = reach.weight(slot.x, slot.y);
@@ -524,7 +535,7 @@ export function previewSpots(
   const out: { x: number; y: number }[] = [];
   biome.objects.forEach((o, kind) => {
     if (!o.assets.some((a) => catalog.objects.has(a))) return;
-    if (o.zone === 'block' || o.zone === 'street') {
+    if (isSlotZone(o.zone)) {
       const r = brush.radius;
       for (const slot of citySlots(o.zone, center.x - r, center.x + r, center.y - r, center.y + r)) {
         const w = frayedWeight(noise, Math.hypot(slot.x - center.x, slot.y - center.y), slot.x, slot.y, brush);

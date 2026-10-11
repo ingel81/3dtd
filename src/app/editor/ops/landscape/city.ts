@@ -2,7 +2,8 @@
  * The city biome's street grid: streets every `CITY_GRID.block` metres
  * along both axes, fixed to the map so separate strokes line up, with
  * sidewalks on both sides. Buildings stand in slots along the block edges,
- * facing the street; lamps in slots along the sidewalks.
+ * facing the street; lamps, furniture, trees and parked cars in slots along
+ * the streets.
  */
 import { CITY_GRID } from './biomes';
 
@@ -22,11 +23,21 @@ export interface CitySlot {
 }
 
 /** Metres between building slots along a block edge, and their depth from the street's middle */
-const BUILDING_STEP = 12;
-const BUILDING_DEPTH = CITY_GRID.sidewalk + 6.5;
-/** Metres between lamps along a street, and their distance from its middle */
-const LAMP_STEP = 24;
-const LAMP_OFFSET = CITY_GRID.sidewalk - 1.5;
+const BUILDING_STEP = 15;
+const BUILDING_DEPTH = CITY_GRID.sidewalk + 8;
+/**
+ * Slots along the streets: lamps on the sidewalk's outer edge, furniture
+ * and street trees on its inner side, parked cars at the curb. Step and
+ * offset in metres from the street's middle; `along` turns the object
+ * with the street (cars), else it faces the street.
+ */
+const STREET_SLOTS = {
+  street: { step: 24, offset: CITY_GRID.sidewalk - 1.5, along: false, phase: 0.5 },
+  walk: { step: 9, offset: CITY_GRID.sidewalk - 3, along: false, phase: 0.2 },
+  curb: { step: 7, offset: CITY_GRID.street - 1.4, along: true, phase: 0 },
+} as const;
+
+export type StreetZone = keyof typeof STREET_SLOTS;
 
 /** Turn for a front facing (dx, dy) */
 function facing(dx: number, dy: number): number {
@@ -34,7 +45,7 @@ function facing(dx: number, dy: number): number {
 }
 
 /** The building or lamp slots inside a rectangle of the map */
-export function citySlots(zone: 'block' | 'street', minX: number, maxX: number, minY: number, maxY: number): CitySlot[] {
+export function citySlots(zone: 'block' | StreetZone, minX: number, maxX: number, minY: number, maxY: number): CitySlot[] {
   const b = CITY_GRID.block;
   const out: CitySlot[] = [];
   const inside = (x: number, y: number) => x >= minX && x <= maxX && y >= minY && y <= maxY;
@@ -62,17 +73,20 @@ export function citySlots(zone: 'block' | 'street', minX: number, maxX: number, 
     }
     return out;
   }
-  // Lamps along both kinds of street, both sides, away from the crossings
+  // Along both kinds of street, both sides, away from the crossings
+  const z = STREET_SLOTS[zone];
   for (let m = Math.min(i0, j0); m <= Math.max(i1, j1); m++) {
     const line = m * b;
-    for (let s = Math.floor(Math.min(minX, minY) / LAMP_STEP) - 1; s <= Math.ceil(Math.max(maxX, maxY) / LAMP_STEP) + 1; s++) {
-      const along = (s + 0.5) * LAMP_STEP;
+    for (let s = Math.floor(Math.min(minX, minY) / z.step) - 1; s <= Math.ceil(Math.max(maxX, maxY) / z.step) + 1; s++) {
+      const along = (s + z.phase) * z.step;
       if (Math.abs(along - Math.round(along / b) * b) < CITY_GRID.sidewalk + 2) continue;
       for (const side of [-1, 1]) {
-        const off = side * LAMP_OFFSET;
-        // A street along x (at y = line) and one along y (at x = line)
-        if (inside(along, line + off)) out.push({ key: `l:x:${m}:${s}:${side}`, x: along, y: line + off, rotation: facing(0, -side) });
-        if (inside(line + off, along)) out.push({ key: `l:y:${m}:${s}:${side}`, x: line + off, y: along, rotation: facing(-side, 0) });
+        const off = side * z.offset;
+        // A street along x (at y = line) and one along y (at x = line); cars keep to the right
+        const alongX = z.along ? facing(-side, 0) : facing(0, -side);
+        const alongY = z.along ? facing(0, side) : facing(-side, 0);
+        if (inside(along, line + off)) out.push({ key: `${zone}:x:${m}:${s}:${side}`, x: along, y: line + off, rotation: alongX });
+        if (inside(line + off, along)) out.push({ key: `${zone}:y:${m}:${s}:${side}`, x: line + off, y: along, rotation: alongY });
       }
     }
   }

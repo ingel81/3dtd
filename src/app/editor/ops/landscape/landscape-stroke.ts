@@ -124,8 +124,8 @@ export class LandscapeStroke {
     return best;
   }
 
-  /** Whether an object may stand here: off roads, away from spawns and HQ, not in water */
-  freeForObject(x: number, y: number, footprint: number): boolean {
+  /** Whether an object may stand here: off roads, away from spawns and HQ, not in water (unless it floats) */
+  freeForObject(x: number, y: number, footprint: number, onWater = false): boolean {
     if (this.symmetry !== 'none' && this.anchor && !sameSector(this.symmetry, { x, y }, this.anchor)) return false;
     if (this.roadDistance(x, y, footprint + 2) < footprint + 1) return false;
     for (const m of this.markers) if (Math.hypot(m.x - x, m.y - y) < MARKER_CLEARANCE + footprint) return false;
@@ -133,7 +133,7 @@ export class LandscapeStroke {
     const g = t.grid;
     const i = Math.round((x + t.width / 2) / g.cellSize);
     const j = Math.round((y + t.depth / 2) / g.cellSize);
-    if (i >= 0 && j >= 0 && i < g.columns && j < g.rows) {
+    if (!onWater && i >= 0 && j >= 0 && i < g.columns && j < g.rows) {
       const k = j * g.columns + i;
       const wet = (w: MapWater | null | undefined) => !!w && !!w.mask[k] && g.heights[k] < w.level + 0.2;
       if (wet(t.water) || t.waterBodies?.some(wet)) return false;

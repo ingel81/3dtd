@@ -22,6 +22,8 @@ describe('map templates', () => {
       expect(doc.terrain.layers.length).toBeLessThanOrEqual(8);
       expect(doc.terrain.layers[0].material).toBe(base);
       expect(doc.environment).toMatchObject(template.environment);
+      // Lily pads float out on the swamp's pools, ice floes on the arctic's
+      if (template.id === 'swamp') expect(doc.objects.some((o) => o.asset === 'lily-pads')).toBe(true);
       if (biome.pools) expect(doc.terrain.waterBodies?.[0].kind ?? doc.terrain.water?.kind ?? 'water').toBe(biome.water ?? 'water');
     }
   });
