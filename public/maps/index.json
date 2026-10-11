@@ -26,7 +26,7 @@
       "spawns": 2,
       "biome": "mountain",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "bf9f35c8bda7857e4412f00d94938175d5af4cd89dcd7ccb32af27b6d1fdf236"
+      "contentHash": "67fbdeefaea373cdfd199299454547fa2446cbcbe3e6ed8e665f596e4ae7b534"
     },
     {
       "id": "witch-marsh",
@@ -68,7 +68,7 @@
       "spawns": 2,
       "biome": "desert",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "cdfe63ce02d34a3ec1a890fe64ad152fa5df22b8407cc1681a2fe51dda3e7f51"
+      "contentHash": "11132bdf32827b01faaf2f636e87d5f604d3bcc9418d7ccbc7aa231fc95a1fcb"
     },
     {
       "id": "archipelago",
@@ -82,7 +82,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "981ba5808254db6b8fdebdd8b5c9c262a5b6182a8fc4a1f3099ec1e438823ab0"
+      "contentHash": "3c3b9841f607f4bd737276e82bfc4fc90edf4f9b3759bf41b01c632597173622"
     },
     {
       "id": "frost-hamlet",
@@ -124,7 +124,7 @@
       "spawns": 4,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "32c986858a1a440d79008806c238ed0117d234b1359f88d97b4634db957e8079"
+      "contentHash": "35e7c40a2b1246c926de808f07ad48dbbe322e9dcbe8afb2d1047db0089cd84b"
     }
   ]
 }
