@@ -262,7 +262,8 @@
 /* The one message banner across the top, with Reload where it helps */
 .notice-banner {
   position: absolute;
-  top: 8px;
+  // Under the header, over the map (TODO E137)
+  top: calc(var(--td-h-topbar) + 10px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;

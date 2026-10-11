@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { UIStore } from './ui.store';
+import { NOTICE_LINGER_MS, UIStore, noticeLingerMs } from './ui.store';
+
+describe('noticeLingerMs (TODO E137)', () => {
+  it('closes a notice after a few seconds, but keeps one that offers a reload', () => {
+    expect(noticeLingerMs({ text: 'The coop game goes on as a single player game.' })).toBe(NOTICE_LINGER_MS);
+    expect(noticeLingerMs({ text: 'Saved', tone: 'ok' })).toBe(NOTICE_LINGER_MS);
+    expect(noticeLingerMs({ text: 'Models missing', reload: true })).toBeNull();
+  });
+});
 
 describe('UIStore', () => {
   let store: UIStore;

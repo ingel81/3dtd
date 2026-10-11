@@ -79,7 +79,7 @@ import { TowerDefenseFacadeService, FacadeComponentBridge } from './services/fac
 import { GameLoopFacadeService } from './services/facade/game-loop-facade.service';
 import { VisualizationFacadeService } from './services/facade/visualization-facade.service';
 import { TowerDefenseStore } from './store/tower-defense.store';
-import { UIStore } from './store/ui.store';
+import { UIStore, noticeLingerMs } from './store/ui.store';
 import { ConfigService } from './core/services/config.service';
 // The simulation as the main thread sees it (docs/SIM_WORKER.md)
 import { SimClient } from './sim/client/sim-client.service';
@@ -509,6 +509,16 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       const failed = assets.failedModels();
       if (failed.length > 0) untracked(() => this.uiStore.notice.set({ text: modelsMissingText(failed), reload: true }));
+    });
+    // A notice closes by itself after a few seconds, unless it waits for a reload (TODO E137)
+    effect((onCleanup) => {
+      const notice = this.uiStore.notice();
+      const linger = notice ? noticeLingerMs(notice) : null;
+      if (linger === null) return;
+      const timer = setTimeout(() => {
+        if (this.uiStore.notice() === notice) this.uiStore.notice.set(null);
+      }, linger);
+      onCleanup(() => clearTimeout(timer));
     });
     // Every dialog sounds as it opens and closes
     inject(MatDialog).afterOpened.pipe(takeUntilDestroyed()).subscribe((ref) => {

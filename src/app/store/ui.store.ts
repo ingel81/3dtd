@@ -69,6 +69,17 @@ export interface UiNotice {
   tone?: 'error' | 'warn' | 'ok';
 }
 
+/** How long a notice stays before it closes by itself, ms (TODO E137) */
+export const NOTICE_LINGER_MS = 6000;
+
+/**
+ * How long `notice` stays on its own, null while it waits for the player: one
+ * that offers a reload says the game is broken until then and stays.
+ */
+export function noticeLingerMs(notice: UiNotice): number | null {
+  return notice.reload ? null : NOTICE_LINGER_MS;
+}
+
 /**
  * A place that did not load, or a load that went wrong: said in the main
  * menu's loading plate with the ways on (Retry, Other place, Map key)
@@ -251,8 +262,10 @@ export class UIStore {
   readonly viewOnly = computed(() => this.photoMode() || this.replayMode());
 
   /**
-   * The one message banner over the game until closed, null for none. Not
-   * persisted; a newer message replaces the one showing.
+   * The one message over the game, under the header in the middle, null for
+   * none. Closes after a few seconds or by its X (noticeLingerMs; one that
+   * offers a reload stays). Not persisted; a newer message replaces the one
+   * showing.
    */
   readonly notice = signal<UiNotice | null>(null);
 
