@@ -113,7 +113,7 @@ describe('importW3x', () => {
     expect(doc.meta.name).toBe('Mafa TD Queen v14.6');
     expect(report.strategy).toBe('script-eval');
     expect(doc.spawns.length).toBe(10);
-    expect(report.warnings.join()).toMatch(/10 spawns/);
+    expect(report.warnings.join()).not.toMatch(/spawns; the game shows portals/);
     // The Throne's centre (-16, -1280) around the playable area's centre (64, -448), 4 m a tile
     const s = 4 / 128;
     expect(doc.hq.x).toBeCloseTo((-16 - 64) * s, 1);

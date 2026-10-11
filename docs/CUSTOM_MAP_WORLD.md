@@ -26,7 +26,7 @@ Import aus Warcraft 3 [W3X_IMPORT.md](W3X_IMPORT.md).
 ## Startaufstellung
 
 HQ aus `doc.hq`, Spawns aus `doc.spawns` in ihrer Reihenfolge: die ersten `?spawns=N`, ohne Angabe
-alle bis `MAX_SPAWN_PORTALS` (8), mehr Portale kann das Spiel nicht zeigen. Weitere Spawns der Karte
+alle bis `MAX_SPAWN_PORTALS` (32), mehr Portale kann das Spiel nicht zeigen. Weitere Spawns der Karte
 bleiben ungenutzt; eine Auswahl im Spiel kommt später.
 
 ## Darstellung

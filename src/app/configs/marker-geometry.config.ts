@@ -61,7 +61,7 @@ export const PORTAL_MIN_SCALE = 0.75;
 export const PORTAL_MAX_SCALE = 1.75;
 
 /** Spawn portals drawn at most (SpawnPortalManager), and so the clip boxes the enemies' shaders hold. */
-export const MAX_SPAWN_PORTALS = 8;
+export const MAX_SPAWN_PORTALS = 32;
 
 /**
  * Depth of the portal's clip space at scale 1 (m), see PORTAL_CLIP. The

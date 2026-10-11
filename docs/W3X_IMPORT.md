@@ -175,7 +175,7 @@ mit Smoothstep-Gewichten. Steile Flächen zeigen `cliff`.
 **Wege:** Knoten und Kanten des Weggraphs, Richtung vom Spawn zum Ende (`a` nach `b`), Art `road`.
 Breite: Median der Querläufe durch die Spurmaske an sieben Stellen der Kante (1 bis 6 Kacheln, ohne
 Maske 2,5). Spawns heißen wie ihre Region; das HQ steht in der Mitte der Ende-Region. Das Spiel zeigt
-Portale für bis zu 8 Spawns (`MAX_SPAWN_PORTALS`); das Dokument enthält alle, der Bericht warnt.
+Portale für bis zu 32 Spawns (`MAX_SPAWN_PORTALS`); das Dokument enthält alle, der Bericht warnt.
 
 **Objekte** (`convert/doodad-assets.ts`, zweiter Buchstabe der ID):
 

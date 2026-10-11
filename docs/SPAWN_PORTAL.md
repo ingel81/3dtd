@@ -130,7 +130,7 @@ Nur Optik: Zielwahl und Schaden kennen den Clip nicht, das Portal ist Sperrzone 
   (`geoToLocalSimple`; Routenlinie und Animation hängen wie die Portale in der Overlay-Gruppe und
   prüfen ihre eigenen Koordinaten). `SpawnPortalManager` schreibt sie beim Hinzufügen, Setzen,
   Drehen und Entfernen eines Portals (`setPortalClips`), nicht je Frame; höchstens
-  `MAX_SPAWN_PORTALS` (8), so viele zeichnet er.
+  `MAX_SPAWN_PORTALS` (32), so viele zeichnet er.
 - **Kosten:** je Fragment eines Gegners eine Schleife über die Portale, die nach dem letzten und
   im ersten Quader endet, ohne Portal sofort, dazu ein `fwidth` für die Breite des Saums; dieselbe
   Schleife ohne `fwidth` je Fragment der Routenlinien und der Platten des Overlays.
