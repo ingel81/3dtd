@@ -78,6 +78,13 @@ Nebel der Szene wieder her.
   flache Hügel über; Wasser am Rand läuft darüber weiter, bis das geglättete Bett über den Spiegel steigt. Im Shader
   mit der ersten Schicht bemalt. Nicht Teil der Karte (keine Abfragen, `losTransparent`)
 
+- **Bodenverdeckung** (`ground-occlusion.ts`): je Rasterpunkt gebacken, Horizontwinkel in acht Richtungen bis 32 m
+  (Mulden, Rinnen, Hangfüße dunkler) mal weiche Kontaktschatten unter Bäumen, Felsen, Gebäuden und Mauern nach
+  Fußabdruck; dämpft das Umgebungslicht und teils das direkte
+- **Gras** (`grass/grass-field.ts`): 70 000 instanzierte Halme in einer 64-m-Kachel, die zwischen Kamera und Fokus
+  mitwandert (jeder Halm hat einen festen Weltort), auf dem Höhenraster, so dicht wie die Grasschichten der Splat-Map
+  (nicht auf Wegen, steilem Boden, außerhalb der Karte), mit Wind, zum Kachelrand hin kleiner. Ab 140 m Kameraabstand
+  zum Fokus aus; Ansichtsoption `grass: false`
 - **Nasse Ufer**: die Alpha-Komponente der Normalentextur markiert Raster­punkte nahe Wasser (Maske um zwei Samples
   gewachsen); dort wird Boden bis etwa 1,3 m über dem Spiegel dunkler und glänzender
 
@@ -148,11 +155,14 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   beleuchtet). Voreinstellungen `day`, `dusk`, `night`, `overcast` setzen Farben und Bedeckung. Dahinter bleibt ein
   auf der CPU gerechneter Equirect-Verlauf als Hintergrund und, vorgefiltert (PMREM), als Umgebungslicht. Das Wasser
   spiegelt dieselbe Himmelsfunktion (geteilte Uniforms)
-- **Sonne**: `DirectionalLight` mit 4096er Schattenkarte (PCF, Radius 2,5 Texel), deren Box dem Fokus folgt, auf
+- **Sonne**: `DirectionalLight` mit 4096er Schattenkarte (PCF, Radius 1,5 Texel), deren Box dem Fokus folgt, auf
   Texel einrastet und mit dem Kameraabstand wächst (70 bis 450 m): nah scharf, von oben weit
 - **Höhennebel** (`height-fog.ts`): die Materialien der Karte ersetzen das Nebel-Fragment der Szene; die Dichte nimmt
-  über dem tiefen Boden der Karte ab und wird entlang des Blickstrahls geschlossen integriert, zur Sonne hin färbt
-  sich der Dunst. Die Szene behält `FogExp2` für Farbe und Dichte
+  über dem tiefen Boden der Karte ab und wird entlang des Blickstrahls geschlossen integriert, dazu eine dünne
+  Luftschicht überall (Fernes wird auch von oben dunstig), zur Sonne hin färbt sich der Dunst. Die Nebelfarbe wird in
+  den Ausgaberaum umgerechnet (three mischt Nebel nach der Farbraumumrechnung) und neigt zum Blau des Zenits. Die
+  Szene behält `FogExp2` für Farbe und Dichte
+- **Grading** je Himmel (Kontrast, Sättigung, Tönung) in allen Kartenmaterialien nach dem Nebel und auf der Kuppel
 - **Wetter** (`weather.ts`, `environment.weather`: `rain`, `snow`, `fog`, Stärke `weatherStrength`): Regen und
   Schnee füllen einen Kasten um den Kamerafokus, der beim Bewegen umklappt (zustandslos), Teilchen wachsen mit dem
   Abstand, damit man sie aus der Spielkamera sieht. Regen und Schnee schließen die Wolken, dämpfen die Sonne und
