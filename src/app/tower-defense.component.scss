@@ -262,8 +262,10 @@
 /* The one message banner across the top, with Reload where it helps */
 .notice-banner {
   position: absolute;
-  // Under the header, over the map (TODO E137)
-  top: calc(var(--td-h-topbar) + 10px);
+  // Under the header and the game speed, over the map (TODO E137)
+  top: calc(var(--td-h-topbar) + 58px);
+  // Solid over the map: the banner's own well is see-through
+  background: var(--td-surface);
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;

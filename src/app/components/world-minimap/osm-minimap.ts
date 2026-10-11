@@ -61,7 +61,7 @@ export function drawOsmPicture(
   c.fillRect(frame.x, frame.y, frame.w, frame.h);
 
   if (buildings && buildings.length > 0) {
-    c.fillStyle = TD_THEME.stoneDarker;
+    c.fillStyle = TD_THEME.stoneLit;
     c.beginPath();
     for (const building of buildings) {
       building.nodes.forEach((node, k) => {
