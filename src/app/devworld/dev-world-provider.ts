@@ -162,6 +162,11 @@ export class DevWorldProvider implements WorldProvider {
    * and measurements play the game that ships, `?devworld&spawns=N` gives a
    * lane per coop player), else the configured fallback spawn.
    */
+  /** The intro flies the longest route */
+  introTour(): null {
+    return null;
+  }
+
   startLayout(): WorldStartLayout {
     const hq = { lat: FLAT_WORLD_ORIGIN.lat, lon: FLAT_WORLD_ORIGIN.lon };
     if (!this.attached) return { hq, spawns: [] };

@@ -204,6 +204,35 @@ describe('CustomMapWorld', () => {
     warn.mockRestore();
   });
 
+  it('keeps the camera over the map, between the ground and a whole-map view', () => {
+    const doc = testMap();
+    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    const b = world.cameraBounds();
+    // 200 x 100 m, a third of the larger side beyond the edge; the HQ (x 90) is the scene origin, -x east
+    expect(b.minX).toBeCloseTo(90 - 100 - 200 / 3, 3);
+    expect(b.maxX).toBeCloseTo(90 + 100 + 200 / 3, 3);
+    expect(b.minZ).toBeCloseTo(-50 - 200 / 3, 3);
+    expect(b.groundAt(0, 0)).toBeCloseTo(19);
+    expect(b.maxHeight).toBeGreaterThan(280);
+  });
+
+  it('tours from the HQ past every spawn of the run, farthest first and round the HQ', () => {
+    const doc = testMap();
+    doc.spawns = [
+      { id: 'a', name: 'A', x: -90, y: 30 },
+      { id: 'b', name: 'B', x: 0, y: -45 },
+      { id: 'c', name: 'C', x: 60, y: 45 },
+    ];
+    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 8);
+    const tour = world.introTour()!;
+    expect(tour.points[0].x).toBeCloseTo(0, 1);
+    expect(tour.points[0].z).toBeCloseTo(0, 1);
+    // Scene x = HQ x - map x: A at 180, B at 90, C at 30
+    // A (farthest) first, then counter-clockwise in the scene's x/z: C, B
+    expect(tour.portals.map((p) => Math.round(p.x))).toEqual([180, 30, 90]);
+    expect(new CustomMapWorld({ doc: { ...doc, spawns: doc.spawns.slice(0, 1) }, contentHash: '' }, hqOrigin(doc)).introTour()).toBeNull();
+  });
+
   it('reads the spawn limit from the link', () => {
     expect(customMapSpawnLimit('?world=map:x')).toBe(MAX_SPAWN_PORTALS);
     expect(customMapSpawnLimit('?world=map:x&spawns=2')).toBe(2);

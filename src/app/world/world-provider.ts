@@ -174,6 +174,13 @@ export interface WorldWaves {
   table?: WaveTable;
 }
 
+/** A sightseeing flight over a world, local coordinates, starting at the HQ */
+export interface IntroTour {
+  points: { x: number; z: number }[];
+  /** Spawn portals along it, for the flight's clearance */
+  portals: { x: number; z: number }[];
+}
+
 /** What a world gets from the engine when it is attached */
 export interface WorldAttachContext {
   scene: Scene;
@@ -256,6 +263,11 @@ export interface WorldProvider {
   onLoadFailure(callback: (failure: RootLoadFailure) => void): void;
   /** Fixed HQ and spawns, null where the player picks them */
   startLayout(): WorldStartLayout | null;
+  /**
+   * The intro flight's path where the world has one of its own (a custom
+   * map: from the HQ past every spawn), null for the longest route
+   */
+  introTour(): IntroTour | null;
   /** The world's own run rules (start credits, HQ health, tower types), null: the game's */
   runRules(): RunRules | null;
   /** The world's waves: the source it asks for and its own wave list, null: the game's choice */

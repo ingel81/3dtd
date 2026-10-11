@@ -279,6 +279,11 @@ export class TilesWorld implements WorldProvider, WorldTiles {
   }
 
   /** The player picks HQ and spawns on a real place */
+  /** The intro flies the longest route */
+  introTour(): null {
+    return null;
+  }
+
   startLayout(): WorldStartLayout | null {
     return null;
   }

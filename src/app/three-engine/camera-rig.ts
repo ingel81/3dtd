@@ -20,12 +20,32 @@ import { GroundPickRoot, SceneGraphVersion, TileSetVersion } from './ground-pick
  * Vom Engine besessen: `update()` pro Frame vor dem Tiles-Update, `dispose()` aus dem
  * Engine-dispose().
  */
+/**
+ * Where the camera may go over a world of limited extent (a custom map), in
+ * local coordinates: its position stays in the box, its height above the
+ * ground between `minHeight` and `maxHeight`
+ */
+export interface CameraBounds {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  /** Least height above the ground under the camera (m) */
+  minHeight: number;
+  /** Most height above the local zero (m) */
+  maxHeight: number;
+  /** Ground height under a local point, for minHeight */
+  groundAt(x: number, z: number): number;
+}
+
 export class CameraRig {
   private controls: GlobeControls | null = null;
   /** Szene der Controls (nur der Boden, mit Cache), hängt in der Engine-Szene */
   private groundPick: GroundPickRoot | null = null;
   /** Leert den Raycast-Cache von groundPick, sobald sich die Tiles ändern */
   private tileSetVersion: TileSetVersion | null = null;
+  /** Limits of the camera over a world of limited extent, null where it roams freely */
+  private bounds: CameraBounds | null = null;
 
   constructor(
     private readonly camera: PerspectiveCamera,
@@ -136,10 +156,35 @@ export class CameraRig {
     this.canvas.removeAttribute('tabindex');
   }
 
-  /** Per Frame vor dem Tiles-Update: Damping und Eingaben der Controls anwenden. */
+  /** Per Frame vor dem Tiles-Update: Damping und Eingaben der Controls anwenden, dann die Grenzen der Welt. */
   update(): void {
     if (this.controls) {
       this.controls.update();
+    }
+    this.applyBounds();
+  }
+
+  /** Keep the camera over a world of limited extent (custom maps); null lifts the limits */
+  setBounds(bounds: CameraBounds | null): void {
+    this.bounds = bounds;
+    this.applyBounds();
+  }
+
+  /**
+   * The camera back into the box and between the heights. Moved, not turned:
+   * a pan against the edge stops there, the view keeps its direction.
+   */
+  private applyBounds(): void {
+    const b = this.bounds;
+    if (!b) return;
+    const p = this.camera.position;
+    const x = Math.min(b.maxX, Math.max(b.minX, p.x));
+    const z = Math.min(b.maxZ, Math.max(b.minZ, p.z));
+    const ground = b.groundAt(x, z);
+    const y = Math.min(b.maxHeight, Math.max(ground + b.minHeight, p.y));
+    if (x !== p.x || y !== p.y || z !== p.z) {
+      p.set(x, y, z);
+      this.camera.updateMatrixWorld();
     }
   }
 

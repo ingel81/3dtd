@@ -1,11 +1,13 @@
 import { isDevMode } from '@angular/core';
 import { type Group, type Matrix4, type Object3D, type PerspectiveCamera, Vector3, type WebGLRenderer } from 'three';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
+import type { CameraBounds, CameraRig } from '../../three-engine/camera-rig';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
 import type { RootLoadFailure } from '../../three-engine/tile-loading-tracker';
 import type {
   StreetStyle,
   WorldAttachContext,
+  IntroTour,
   WorldCapabilities,
   WorldProvider,
   WorldStartLayout,
@@ -16,7 +18,7 @@ import { runRulesOf, type RunRules } from '../../sim/protocol/run-rules';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
-import { type CustomMapDocument, mapToGeo } from './map-document';
+import { type CustomMapDocument, geoToMap, mapToGeo } from './map-document';
 import { MapStore } from './map-store';
 import type { MapAssetLibrary } from './render/map-asset-library';
 import type { CustomMapView } from './render/custom-map-view';
@@ -129,6 +131,7 @@ export class CustomMapWorld implements WorldProvider {
   private view: CustomMapView | null = null;
   private lastUpdate = 0;
   private prepared = false;
+  private rig: CameraRig | null = null;
   private readonly focus = new Vector3();
   private readonly lookDirection = new Vector3();
   private readonly firstGroundWaiters: (() => void)[] = [];
@@ -171,6 +174,8 @@ export class CustomMapWorld implements WorldProvider {
     view.environment.apply(ctx.scene, ctx.renderer);
     // Over the HQ at the scene origin, controls that raycast the map's ground and objects
     ctx.cameraRig.setupEnvironmentControls(ctx.scene, view.losBlockers);
+    this.rig = ctx.cameraRig;
+    ctx.cameraRig.setBounds(this.cameraBounds());
 
     // The catalogue tells which objects forbid building
     view.assets
@@ -214,6 +219,7 @@ export class CustomMapWorld implements WorldProvider {
     this.sync.setOrigin(lat, lon, height);
     this.frame.setOrigin(lat, lon);
     this.placeView();
+    this.rig?.setBounds(this.cameraBounds());
   }
 
   /** LOD, wind and water of the view; the overlay stands at the scene's zero, nothing moves under it */
@@ -300,13 +306,58 @@ export class CustomMapWorld implements WorldProvider {
     };
   }
 
+  /**
+   * From the HQ past every spawn of the run, in turn around the HQ starting
+   * with the farthest: the whole map in one flight
+   */
+  introTour(): IntroTour | null {
+    const spawns = this.startLayout().spawns.map((s) => {
+      const p = geoToMap(s.lat, s.lon);
+      return { x: this.frame.sceneX(p.x), z: this.frame.sceneZ(p.y) };
+    });
+    if (spawns.length < 2) return null;
+    const hq = { x: this.frame.sceneX(this.doc.hq.x), z: this.frame.sceneZ(this.doc.hq.y) };
+    const angle = (p: { x: number; z: number }): number => Math.atan2(p.z - hq.z, p.x - hq.x);
+    const far = spawns.reduce((a, b) => (Math.hypot(b.x - hq.x, b.z - hq.z) > Math.hypot(a.x - hq.x, a.z - hq.z) ? b : a));
+    const start = angle(far);
+    const turn = (p: { x: number; z: number }): number => (angle(p) - start + Math.PI * 4) % (Math.PI * 2);
+    const ordered = [...spawns].sort((a, b) => turn(a) - turn(b));
+    return { points: [hq, ...ordered], portals: ordered };
+  }
+
   regenerate(): Promise<void> {
     return Promise.reject(new Error('A custom map cannot be rolled again'));
   }
 
   dispose(): void {
+    this.rig?.setBounds(null);
+    this.rig = null;
     this.view?.dispose();
     this.view = null;
+  }
+
+  /**
+   * The camera over the map: its position at most a third of the map's
+   * larger side beyond the edge (the steep view from there still shows the
+   * edge), at least 3 m over the ground, at most high enough for the whole
+   * map in view
+   */
+  cameraBounds(): CameraBounds {
+    const { width, depth } = this.doc.terrain;
+    const size = Math.max(width, depth);
+    const margin = size / 3;
+    const heights = this.doc.terrain.grid.heights;
+    let top = -Infinity;
+    for (const h of heights) if (h > top) top = h;
+    return {
+      minX: this.frame.sceneX(width / 2) - margin,
+      maxX: this.frame.sceneX(-width / 2) + margin,
+      minZ: this.frame.sceneZ(-depth / 2) - margin,
+      maxZ: this.frame.sceneZ(depth / 2) + margin,
+      minHeight: 3,
+      maxHeight: Math.max(0, top) + Math.max(300, size * 1.4),
+      groundAt: (x, z) => this.surface.heightAtMap(this.frame.mapX(x), this.frame.mapY(z)),
+    };
   }
 
   /** The map's middle where the frame puts map (0, 0) */

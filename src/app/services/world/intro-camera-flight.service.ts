@@ -482,7 +482,9 @@ export class IntroCameraFlightService {
 
     this.stop();
 
-    const points = this.pickLongestRoute(engine, cachedPaths);
+    // A world's own tour (a custom map: past every spawn), else the longest route
+    const tour = engine.world.introTour();
+    const points = tour ? tour.points.map((p) => new Vector3(p.x, 0, p.z)) : this.pickLongestRoute(engine, cachedPaths);
     if (!points || points.length < 2) return this.skip('route-too-short');
 
     // Horizontal curve: the route heights are cell heights at build time,
@@ -501,10 +503,9 @@ export class IntroCameraFlightService {
     // HQ is the local origin (ReorientationPlugin recenters on it); the spawn
     // portal stands on the path's own end (MarkerVisualizationService.placeSpawnPortal).
     curve.getPointAt(1, this.samplePoint);
-    this.markers = [
-      hqObstacle(0, 0),
-      portalObstacle(this.samplePoint.x, this.samplePoint.z),
-    ];
+    this.markers = tour
+      ? [hqObstacle(0, 0), ...tour.portals.map((p) => portalObstacle(p.x, p.z))]
+      : [hqObstacle(0, 0), portalObstacle(this.samplePoint.x, this.samplePoint.z)];
 
     // Back off far enough that each marker (body + label) fits the frame
     // with the configured margin, but never closer than the explicit minimum.
@@ -516,7 +517,7 @@ export class IntroCameraFlightService {
     this.travelStart = -Math.max(this.cfg.standoffStart, framingDistance(this.markers[0]));
     this.travelEnd = Math.max(
       this.cfg.sampleSpacing,
-      totalLength - Math.max(this.cfg.standoffEnd, framingDistance(this.markers[1])),
+      totalLength - Math.max(this.cfg.standoffEnd, framingDistance(this.markers[this.markers.length - 1])),
     );
     // Profile covers the opening standoff too, so the camera has real ground
     // and skyline data before it reaches the path proper.
@@ -793,7 +794,7 @@ export class IntroCameraFlightService {
     // near the top edge of the frame — the marker floats 30 m up while the
     // generic aim sits at ground + lookAtLift.
     const holdMarker =
-      this.phase === 'enter' || this.phase === 'hold-start' ? 0 : this.phase === 'hold-end' ? 1 : -1;
+      this.phase === 'enter' || this.phase === 'hold-start' ? 0 : this.phase === 'hold-end' ? this.markers.length - 1 : -1;
     if (holdMarker < 0 || !this.markerAim(holdMarker, this.aimPoint)) {
       this.computeAim(this.distance + cfg.lookAhead);
     }
@@ -892,7 +893,7 @@ export class IntroCameraFlightService {
   }
 
   /**
-   * Centre of the framed subject for marker `i` (0 = HQ, 1 = spawn), written
+   * Centre of the framed subject for marker `i` (0 = HQ, the last = the spawn the path ends at), written
    * to `out`. Returns false when there is no such marker.
    *
    * Aims at the middle of the subject (see MarkerObstacle): for the HQ the
