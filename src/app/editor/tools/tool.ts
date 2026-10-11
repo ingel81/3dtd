@@ -57,13 +57,16 @@ export const TERRAIN_MODES: readonly { id: TerrainMode; label: string; hint: str
   { id: 'ramp', label: 'Ramp', hint: 'Click the start, click the end: a ramp between the two heights' },
 ];
 
-export type LandscapeMode = 'biome' | 'mountain' | 'valley' | 'plateau' | 'cliff' | 'erode' | 'river' | 'road';
+export type LandscapeMode = 'biome' | 'mountain' | 'valley' | 'plateau' | 'crater' | 'dunes' | 'cracks' | 'cliff' | 'erode' | 'river' | 'road';
 
 export const LANDSCAPE_MODES: readonly { id: LandscapeMode; label: string; hint: string; line?: boolean }[] = [
   { id: 'biome', label: 'Biome', hint: 'Hold to paint the chosen landscape: ground, paint and plants together' },
   { id: 'mountain', label: 'Mountain', hint: 'Hold to grow a ridged mountain; size and strength set its height' },
   { id: 'valley', label: 'Valley', hint: 'Hold to sink a valley' },
   { id: 'plateau', label: 'Plateau', hint: 'Hold to raise a table with a steep rim' },
+  { id: 'crater', label: 'Crater', hint: 'Click or hold for a crater with a raised rim; size sets its width' },
+  { id: 'dunes', label: 'Dunes', hint: 'Hold to heap rounded dunes across the wind' },
+  { id: 'cracks', label: 'Glow cracks', hint: 'Hold to break the ground into glowing lava cracks with a crust' },
   { id: 'cliff', label: 'Cliff edge', hint: 'Drag a line: the ground left of it rises as a cliff', line: true },
   { id: 'erode', label: 'Erode', hint: 'Hold to let rain carve gullies and fans of scree' },
   { id: 'river', label: 'River', hint: 'Drag a line: a river with banks, reeds and bridges over roads', line: true },

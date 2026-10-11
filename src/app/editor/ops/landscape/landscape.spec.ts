@@ -12,7 +12,9 @@ import { erosionDab } from './erosion';
 import { LandscapeStroke } from './landscape-stroke';
 import { carveRiver, DEFAULT_RIVER } from './river';
 import { buildRoad, DEFAULT_ROAD } from './road';
-import { cliffAlong, formDab, formHeight } from './shapes';
+import { cliffAlong, craterProfile, formDab, formHeight } from './shapes';
+import { cracksDab } from './cracks';
+import { readWeights } from '../paint-ops';
 
 const catalog = new CatalogIndex(
   normalizeCatalog(JSON.parse(readFileSync(resolve('public/maps/assets/catalog.json'), 'utf8')), 'http://x/maps/assets/'),
@@ -202,6 +204,66 @@ describe('landforms', () => {
     expect(moved).toBeGreaterThan(1);
     // Soil moves; it does not vanish: a drop may carry some off at the brush's edge
     expect(Math.abs(sum(a.after) - sum(a.before))).toBeLessThan(moved);
+  });
+});
+
+describe('crater, dunes and glow cracks', () => {
+  it('digs a crater where the stroke began, with a raised rim', () => {
+    const ed = map();
+    const stroke = new LandscapeStroke(ed, 'Crater', 2, catalog);
+    // The pointer wanders; the crater stays at the first spot
+    for (let k = 0; k < 80; k++) formDab(stroke, 'crater', { x: 50 + k * 0.5, y: -100 }, brush, 0.1);
+    stroke.finish();
+    const t = ed.doc.terrain;
+    const depth = formHeight('crater', brush);
+    expect(heightAt(t, 50, -100)).toBeLessThan(-depth * 0.7);
+    const rim = Math.max(...[0, 1, 2, 3].map((q) => heightAt(t, 50 + Math.cos(q) * 24, -100 + Math.sin(q) * 24)));
+    expect(rim).toBeGreaterThan(depth * 0.15);
+    expect(heightAt(t, 50 + 39, -100)).toBeCloseTo(0, 1);
+    expect(craterProfile(0)).toBeLessThan(craterProfile(0.5));
+    expect(craterProfile(1)).toBeGreaterThan(craterProfile(1.4));
+  });
+
+  it('heaps dunes in rows across the wind', () => {
+    const ed = map();
+    const stroke = new LandscapeStroke(ed, 'Dunes', 4, catalog);
+    for (let k = 0; k < 60; k++) formDab(stroke, 'dunes', { x: 0, y: -100 }, brush, 0.1);
+    stroke.finish();
+    const t = ed.doc.terrain;
+    const row = Array.from({ length: 30 }, (_, k) => heightAt(t, -30 + k * 2, -100));
+    expect(Math.max(...row)).toBeGreaterThan(1.5);
+    expect(Math.min(...row)).toBeLessThan(Math.max(...row) * 0.4);
+    expect(row.every((h) => h >= 0)).toBe(true);
+  });
+
+  it('breaks the ground into thin glowing cracks on scorched rock', () => {
+    const ed = map();
+    const stroke = new LandscapeStroke(ed, 'Cracks', 6, catalog);
+    for (let k = 0; k < 40; k++) cracksDab(stroke, { x: 0, y: -100 }, brush, 0.1);
+    stroke.finish();
+    const t = ed.doc.terrain;
+    const layers = t.layers.map((l) => l.material);
+    const lava = layers.indexOf('lava');
+    const rock = layers.indexOf('scorched-ground');
+    expect(lava).toBeGreaterThanOrEqual(0);
+    expect(rock).toBeGreaterThanOrEqual(0);
+    const res = t.splat.resolution;
+    const w = new Float32Array(8);
+    let inside = 0;
+    let glowing = 0;
+    for (let v = 0; v < res; v++)
+      for (let u = 0; u < res; u++) {
+        const x = ((u + 0.5) / res) * t.width - t.width / 2;
+        const y = ((v + 0.5) / res) * t.depth - t.depth / 2;
+        if (Math.hypot(x, y + 100) > 30) continue;
+        inside++;
+        readWeights(t, v * res + u, w);
+        if (w[lava] > w.reduce((a, b) => a + b, 0) * 0.5) glowing++;
+      }
+    expect(glowing / inside).toBeGreaterThan(0.03);
+    expect(glowing / inside).toBeLessThan(0.3);
+    expect(Math.min(...Array.from(t.grid.heights))).toBeLessThan(-0.2);
+    expect(ed.historySteps).toBe(1);
   });
 });
 

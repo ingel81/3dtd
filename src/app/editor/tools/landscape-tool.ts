@@ -7,6 +7,7 @@
 import type { MapPoint } from '../../world/custom-map/map-document';
 import { finishBiome, biomeDab, previewSpots } from '../ops/landscape/biome-brush';
 import { biomeById } from '../ops/landscape/biomes';
+import { cracksDab } from '../ops/landscape/cracks';
 import { erosionDab } from '../ops/landscape/erosion';
 import { LandscapeNoise, randomSeed } from '../ops/landscape/landscape-noise';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
@@ -101,8 +102,15 @@ export class LandscapeTool implements EditorTool {
       case 'mountain':
       case 'valley':
       case 'plateau':
+      case 'crater':
+      case 'dunes':
         stroke.changed({ heights: formDab(stroke, s.mode, center, brush, dt) }, center);
         return;
+      case 'cracks': {
+        const r = cracksDab(stroke, center, brush, dt);
+        stroke.changed({ heights: r.heights, splat: r.splat ?? undefined }, center);
+        return;
+      }
       case 'erode':
         stroke.changed({ heights: erosionDab(stroke, center, brush, this.dab++) }, center);
         return;
