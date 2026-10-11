@@ -8,6 +8,9 @@ Der Importer macht aus einer Warcraft-3-Karte (`.w3x`, `.w3m`) ein Kartendokumen
 Bodenschichten, Wegenetz mit Spawns und HQ, Objekte und Stimmung. Er liegt in `src/app/world/w3x/`,
 kommt ohne Angular und ohne DOM aus und läuft im Web Worker, in Node und in den Specs.
 
+Im Release steht er allen offen, als Beta markiert (Marke „Beta“ im Importbereich der Kartenliste, Entscheidung
+2026-10-11): Skript-Wellen, Maze-Karten und eigenes Gelände kommen je nach Karte nur zum Teil herüber.
+
 ## Lizenz und Grenzen der Nutzung
 
 Der Importer liest nur die **Struktur** einer Karte: Höhen, Kachelarten, Regionen, Wegpunkte,

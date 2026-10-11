@@ -4,7 +4,7 @@
       <h1 class="td-dlg-title" id="mb-title">Map editor</h1>
       <div class="td-actions">
         <button class="td-btn-ghost" type="button" (click)="backToGame()">Back to the game</button>
-        <label class="td-btn-secondary" matTooltip="A 3DTD map (.3dtdmap) or a Warcraft 3 map (.w3x)">
+        <label class="td-btn-secondary" matTooltip="A 3DTD map (.3dtdmap) or a Warcraft 3 map (.w3x, beta)">
           Import file
           <input class="td-sr-only" type="file" accept=".3dtdmap,.w3x,.w3m" multiple (change)="onPick($event)" data-test="import-input" />
         </label>
@@ -27,6 +27,7 @@
       <div class="mb-import td-banner td-stack" [class.is-error]="!!imp.error" [class.is-ok]="imp.phase === 'done'" role="status" data-test="import-panel">
         <div class="td-inline mb-import-head">
           <strong class="td-trunc">{{ imp.file }}</strong>
+          <span class="td-tag" matTooltip="Warcraft maps vary a lot: scripted waves, maze maps and custom terrain may come over only in part. Check the report and the map before playing" data-test="w3x-beta">Beta</span>
           @if (imp.phase === 'running' && !imp.error) {
             <span class="td-note"><span class="td-spin" aria-hidden="true"></span> {{ imp.step }}</span>
           }
