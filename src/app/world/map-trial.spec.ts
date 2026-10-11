@@ -1,5 +1,5 @@
 import { GameEventBus } from '../game-engine/game-event-bus';
-import { MAP_TRIAL_STALL_MS, MAP_TRIAL_WAVES, MAX_MAP_TRIAL_WAVES, MapTrial, mapTrialSummary, mapTrialWaves, type MapTrialResult } from './map-trial';
+import { MAP_TRIAL_STALL_MS, MAP_TRIAL_TONE, MAP_TRIAL_WAVES, MAX_MAP_TRIAL_WAVES, MapTrial, mapTrialSummary, mapTrialWaves, type MapTrialResult } from './map-trial';
 
 describe('map trial', () => {
   let bus: GameEventBus;
@@ -37,6 +37,7 @@ describe('map trial', () => {
       hpLostByWave: [0, 30, 50], towers: 7, gameTimeMs: 123_457,
     }]);
     expect(mapTrialSummary(results[0])).toBe('Map check passed: 3 of 3 waves held (HQ 420/500, 7 towers)');
+    expect(MAP_TRIAL_TONE[results[0].outcome]).toBe('ok');
   });
 
   it('fails where the HQ falls', () => {

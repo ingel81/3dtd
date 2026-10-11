@@ -132,6 +132,9 @@ export class MapTrial {
 /** HQ health to a tenth: what the run lost, without the float noise of the sums */
 const tenths = (hp: number): number => Math.round(hp * 10) / 10;
 
+/** The banner's tone for a result: good news when it held */
+export const MAP_TRIAL_TONE: Record<MapTrialOutcome, 'ok' | 'warn' | 'error'> = { passed: 'ok', stuck: 'warn', lost: 'error' };
+
 /** The banner's line for a result */
 export function mapTrialSummary(result: MapTrialResult): string {
   const hq = `HQ ${result.hqEnd}/${result.hqStart}, ${result.towers} towers`;

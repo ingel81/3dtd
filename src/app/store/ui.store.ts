@@ -65,6 +65,8 @@ export interface UiNotice {
   text: string;
   /** Offer a reload of the page: what the message says goes away with one */
   reload?: boolean;
+  /** How the banner reads: a problem (default), a warning, or good news */
+  tone?: 'error' | 'warn' | 'ok';
 }
 
 /**

@@ -21,7 +21,7 @@ import { TowerLosRegistry } from '../tower-los-registry';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { MainWorldService } from '../world/main-world.service';
 import { BotClientService } from '../../bots/bot-client.service';
-import { MAP_TRIAL_MESSAGE, MAP_TRIAL_SPEED, MapTrial, mapTrialSummary, mapTrialWaves, type MapTrialResult } from '../../world/map-trial';
+import { MAP_TRIAL_MESSAGE, MAP_TRIAL_TONE, MAP_TRIAL_SPEED, MapTrial, mapTrialSummary, mapTrialWaves, type MapTrialResult } from '../../world/map-trial';
 import { GameStore } from '../../store/game.store';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { UIStore } from '../../store/ui.store';
@@ -324,7 +324,7 @@ export class TowerDefenseFacadeService {
       this.autoRestartTimeout = null;
     }
     this.gameStore.setGameSpeed(1);
-    this.uiStore.notice.set({ text: mapTrialSummary(result) });
+    this.uiStore.notice.set({ text: mapTrialSummary(result), tone: MAP_TRIAL_TONE[result.outcome] });
     console.info('[MapTrial]', JSON.stringify(result));
     (window as { __mapTrial?: MapTrialResult }).__mapTrial = result;
     // The page that opened the trial (the editor's check) hears the result
