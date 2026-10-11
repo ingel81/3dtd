@@ -7,7 +7,17 @@
 
 export const CATALOG_VERSION = 1;
 
-export type MaterialCategory = 'grass' | 'soil' | 'rock' | 'sand' | 'snow' | 'road' | 'forest';
+export type MaterialCategory =
+  | 'grass'
+  | 'soil'
+  | 'rock'
+  | 'sand'
+  | 'snow'
+  | 'road'
+  | 'forest'
+  | 'ice'
+  | 'volcanic'
+  | 'wood';
 
 /**
  * One PBR ground material. Files are relative to the catalogue:
@@ -26,15 +36,62 @@ export interface CatalogMaterial {
   average: string;
   /** Where the files came from (licence record) */
   source?: string;
+  /** Biome tags for palettes and generators: temperate, autumn, winter, desert, swamp, volcanic, coast, castle, ... */
+  tags?: string[];
+  /**
+   * Glow of the albedo, 0..1 (lava): the terrain lights this layer itself,
+   * strongest where the texture's height is low (cracks), pulsing slowly
+   */
+  emissive?: number;
+  /** Scroll speed of the layer in m/s (flowing lava), along map +x */
+  flow?: number;
 }
 
-export type ObjectCategory = 'tree' | 'rock' | 'plant' | 'building' | 'prop' | 'wall';
+export type ObjectCategory = 'tree' | 'rock' | 'plant' | 'building' | 'prop' | 'wall' | 'structure' | 'fx';
+
+export type EffectKind =
+  | 'fire'
+  | 'smoke'
+  | 'embers'
+  | 'fireflies'
+  | 'fog'
+  | 'leaves'
+  | 'snow'
+  | 'sparkle'
+  | 'waterfall';
+
+/**
+ * A particle or sheet effect an object carries. Sizes are at scale 1 and
+ * scale with the object. A `waterfall` builds a falling sheet `radius` wide
+ * on each side and `height` high (from the object's base up) with spray at
+ * its foot; the others emit particles from a disc of `radius` at `height`.
+ */
+export interface CatalogEffect {
+  kind: EffectKind;
+  radius?: number;
+  height?: number;
+  /** Particles per second */
+  rate?: number;
+  /** #rrggbb tint */
+  color?: string;
+}
+
+/** A light an object gives: an additive glow always, a real point light for the nearest few at night */
+export interface CatalogLight {
+  color: string;
+  intensity: number;
+  /** Reach in metres */
+  distance: number;
+  /** Height of the light above the object's base, metres */
+  height: number;
+  flicker?: boolean;
+}
 
 export interface CatalogObject {
   id: string;
   name: string;
   category: ObjectCategory;
-  /** GLB relative to the catalogue, pivot at the base centre, metres, +Y up, front towards +Z */
+  /** GLB relative to the catalogue, pivot at the base centre, metres, +Y up, front towards +Z; '' for effect-only entries */
   file: string;
   /** Radius in metres that the object occupies on the ground at scale 1 */
   footprint: number;
@@ -51,6 +108,11 @@ export interface CatalogObject {
   drawDistance: number;
   /** Where the model came from (licence record) */
   source?: string;
+  tags?: string[];
+  effects?: CatalogEffect[];
+  light?: CatalogLight;
+  /** Lower detail models by camera distance (reserved; not drawn yet) */
+  lod?: { file: string; distance: number }[];
 }
 
 export interface AssetCatalog {

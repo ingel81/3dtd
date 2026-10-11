@@ -184,6 +184,10 @@ export class MapAssetLibrary {
 
   private async loadObject(id: string): Promise<ObjectModel> {
     const entry = (await this.objectEntry(id)) ?? placeholderEntry(id);
+    // Effect-only entries (waterfall, fireflies, fog bank) have no mesh at all
+    if (!entry.file && (entry.effects?.length || entry.light)) {
+      return { id, entry, parts: [], height: entry.height, placeholder: false };
+    }
     if (entry.file) {
       try {
         const root = await this.loadModelFn(this.url(entry.file));
