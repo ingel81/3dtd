@@ -28,8 +28,11 @@ export interface DocChange {
   heights?: GridRect;
   /** Splat texels */
   splat?: GridRect;
-  /** Water level or mask */
+  /** Water level or mask (all water: main, bodies, rivers) */
   water?: boolean;
+  /** Only the masks of these further bodies changed, within `bodyRect` (samples); the view redraws just them */
+  bodies?: number[];
+  bodyRect?: GridRect;
   /** Object ids added, removed or changed, or all of them */
   objects?: 'all' | string[];
   paths?: boolean;
@@ -54,6 +57,8 @@ export function mergeChanges(a: DocChange, b: DocChange): DocChange {
     heights: rectUnion(a.heights ?? null, b.heights ?? null) ?? undefined,
     splat: rectUnion(a.splat ?? null, b.splat ?? null) ?? undefined,
     water: a.water || b.water || undefined,
+    bodies: a.bodies || b.bodies ? [...new Set([...(a.bodies ?? []), ...(b.bodies ?? [])])] : undefined,
+    bodyRect: rectUnion(a.bodyRect ?? null, b.bodyRect ?? null) ?? undefined,
     objects,
     paths: a.paths || b.paths || undefined,
     markers: a.markers || b.markers || undefined,

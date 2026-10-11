@@ -19,8 +19,8 @@ export function mapToScene(x: number, y: number, height: number, target = new Ve
 
 export class EditorMapView {
   readonly view: CustomMapView;
-  /** Object ids the renderer holds, so a new or removed one asks for a full rebuild */
-  private known = new Set<string>();
+  /** Objects the renderer holds by id (removing needs the objects themselves) */
+  private known = new Map<string, MapObject>();
   /** Which objects the view shows (hidden categories left out); null shows all */
   private visible: ((o: MapObject) => boolean) | null = null;
   /**
@@ -29,9 +29,6 @@ export class EditorMapView {
    * so it gets a view of the document whose `objects` is its own
    */
   private shown: MapObject[] | null = null;
-  /** A full rebuild of the objects is due, and when the last one ran */
-  private rebuildDue = false;
-  private rebuiltAt = -Infinity;
 
   constructor(
     private readonly doc: CustomMapDocument,
@@ -49,7 +46,7 @@ export class EditorMapView {
     this.view = new CustomMapView(own, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer });
     this.view.attach(scene);
     this.view.environment.apply(scene, renderer);
-    this.rememberObjects();
+    this.known = new Map(doc.objects.map((o) => [o.id, o]));
   }
 
   get group(): CustomMapView['group'] {
@@ -111,42 +108,57 @@ export class EditorMapView {
     this.view.updateWater();
   }
 
+  /** Only further body k (0..) changed, within `rect` (samples) */
+  updateWaterBody(k: number, rect: GridRect): void {
+    const t = this.doc.terrain;
+    const cell = t.grid.cellSize;
+    this.view.updateWater(metres(t.width, t.depth, rect.i0 * cell, rect.j0 * cell, rect.i1 * cell, rect.j1 * cell), k + 1);
+  }
+
   setObjects(): void {
     const shown = this.visible ? this.doc.objects.filter(this.visible) : this.doc.objects;
     void this.view.setObjects(shown);
-    this.known = new Set(shown.map((o) => o.id));
-    this.rebuildDue = false;
-    this.rebuiltAt = performance.now();
-  }
-
-  /**
-   * Every frame: a rebuild asked for while a brush adds objects runs at
-   * most every OBJECT_REBUILD_MS, so painting a forest does not rebuild all
-   * batches each frame
-   */
-  flushObjects(now: number): void {
-    if (this.rebuildDue && now - this.rebuiltAt >= OBJECT_REBUILD_MS) this.setObjects();
+    this.known = new Map(shown.map((o) => [o.id, o]));
   }
 
   /** Show only the objects `visible` accepts (null: all); rebuilds the batches */
-  setVisible(visible: ((o: CustomMapDocument['objects'][number]) => boolean) | null): void {
+  setVisible(visible: ((o: MapObject) => boolean) | null): void {
     this.visible = visible;
     this.setObjects();
   }
 
-  /** Some objects changed; a new, removed or hidden one rebuilds the batches once */
+  /**
+   * Some objects changed: new ones go in and gone ones out cell by cell (the
+   * renderer rebuilds only their 192 m cells), the others move in place
+   */
   updateObjects(ids: readonly string[]): void {
     const byId = new Map(this.doc.objects.map((o) => [o.id, o]));
-    const shown = (id: string) => {
+    const added: MapObject[] = [];
+    const removed: MapObject[] = [];
+    for (const id of ids) {
       const o = byId.get(id);
-      return !!o && (!this.visible || this.visible(o));
-    };
-    if (ids.some((id) => this.known.has(id) !== shown(id))) {
-      this.rebuildDue = true;
-      this.flushObjects(performance.now());
-      return;
+      const shown = !!o && (!this.visible || this.visible(o));
+      const had = this.known.get(id);
+      if (shown && !had) added.push(o!);
+      else if (!shown && had) removed.push(had);
+      else if (shown && had) {
+        this.view.updateObject(o!);
+        this.known.set(id, o!);
+      }
     }
-    for (const id of ids) if (this.known.has(id)) this.view.updateObject(byId.get(id)!);
+    if (removed.length) {
+      this.view.removeObjects(removed);
+      for (const o of removed) this.known.delete(o.id);
+    }
+    if (added.length) {
+      for (const o of added) this.known.set(o.id, o);
+      void this.view.addObjects(added);
+    }
+  }
+
+  /** Compiles the programs of assets not on the map yet (a biome or asset about to be placed) */
+  warmUpAssets(renderer: WebGLRenderer, scene: Scene, camera: Camera, assetIds: string[]): Promise<number> {
+    return this.view.warmUpAssets(renderer, scene, camera, assetIds);
   }
 
   updatePaths(): void {
@@ -163,13 +175,7 @@ export class EditorMapView {
     this.view.losBlockers.removeFromParent();
   }
 
-  private rememberObjects(): void {
-    this.known = new Set(this.doc.objects.map((o) => o.id));
-  }
 }
-
-/** Milliseconds between two full object rebuilds while objects keep coming */
-const OBJECT_REBUILD_MS = 150;
 
 /** A rectangle given from the map's south-west corner, as map metres around the middle */
 function metres(width: number, depth: number, x0: number, y0: number, x1: number, y1: number): MapRect {

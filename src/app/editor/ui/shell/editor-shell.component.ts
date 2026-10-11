@@ -17,7 +17,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent, type TdIconName } from '../../../components/icon/icon.component';
 import { SYMMETRY_MODES, type SymmetryMode } from '../../ops/symmetry';
 import { LANDSCAPE_MODES, TOOLS, type ToolId } from '../../tools/tool';
-import { BIOMES } from '../../ops/landscape/biomes';
+import { BIOMES, biomeById } from '../../ops/landscape/biomes';
 import { CommandPaletteComponent } from './command-palette.component';
 import type { EditorCommand } from './commands';
 import { KEY_ACTIONS, actionFor, bindable, loadKeymap, rebind, saveKeymap, type Keymap } from './keymap';
@@ -163,6 +163,22 @@ export class EditorShellComponent implements OnDestroy {
       });
     });
     afterNextRender(() => this.mountIdlePanels());
+    // The assets a biome or the object palette is about to place get their programs compiled ahead
+    effect(() => {
+      this.session.settingsRev();
+      const tool = this.session.tool();
+      const catalog = this.session.catalog();
+      untracked(() => {
+        const vp = this.session.viewport;
+        const st = this.session.settings;
+        if (!vp) return;
+        const ids: string[] = [];
+        if (tool === 'landscape' && st.landscape.mode === 'biome') ids.push(...biomeById(st.landscape.biome).objects.flatMap((o) => o.assets));
+        if (tool === 'objects') ids.push(...(st.objects.asset ? [st.objects.asset] : []), ...st.objects.scatter.assets);
+        const known = ids.filter((id) => catalog.objects.has(id));
+        if (known.length) vp.warmUpAssets(known);
+      });
+    });
     // A change of the map may finish the step the tour is on
     effect(() => {
       const last = this.session.lastChange();

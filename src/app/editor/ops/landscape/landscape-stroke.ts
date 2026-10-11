@@ -187,11 +187,11 @@ export class LandscapeStroke {
    * added when the map has none. Returns the body and a function that
    * records a rect of its mask before the stroke writes there.
    */
-  poolWater(level: number, kind: MapWaterKind): { water: MapWater; touch: (rect: GridRect) => void } {
+  poolWater(level: number, kind: MapWaterKind): { water: MapWater; touch: (rect: GridRect) => void; index: number } {
     const t = this.doc.terrain;
     if (kind === 'water') {
       this.ensureWater(level);
-      return { water: t.water!, touch: (r) => this.touchWater(r) };
+      return { water: t.water!, touch: (r) => this.touchWater(r), index: -1 };
     }
     const bodies = (t.waterBodies ??= []);
     let index = this.poolBodies.get(kind) ?? bodies.findIndex((b) => b.kind === kind && Math.abs(b.level - level) < 2);
@@ -208,7 +208,7 @@ export class LandscapeStroke {
       this.bodyRecorders.set(index, recorder);
     }
     const r = recorder;
-    return { water: bodies[index], touch: (rect) => r.touch(rect) };
+    return { water: bodies[index], touch: (rect) => r.touch(rect), index };
   }
 
   /** Call before the stroke changes the road network (river bridges, a new road) */
@@ -255,6 +255,7 @@ export class LandscapeStroke {
 
   /** Tell the view what a dab changed; with the pointer's position the dab is copied to its symmetric images */
   changed(dab: DocChange, center?: MapPoint): void {
+    if (dab.bodies && this.symmetry !== 'none') dab = { ...dab, bodies: undefined, bodyRect: undefined, water: true };
     const change =
       center && this.symmetry !== 'none'
         ? mirrorChange(

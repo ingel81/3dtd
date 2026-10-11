@@ -17,6 +17,7 @@
  *   A kind mixes all its candidate assets the catalogue has, one per spot.
  *   City buildings and lamps take fixed slots along the street grid.
  */
+import type { DocChange } from '../../model/editor-document';
 import type { MapTerrain } from '../../../world/custom-map/map-document';
 import { sampleX, sampleY, slopeAt, texelX, texelY, type GridRect } from '../../model/grid';
 import { brushWeight, type BrushSettings } from '../brush';
@@ -235,7 +236,9 @@ function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef,
 
   // Objects
   const placed = growObjects(stroke, reach, strength, biome, false);
-  stroke.changed({ heights: rect, splat: trect, water: wet || undefined, objects: placed.length ? placed : undefined }, reach.center);
+  // A pool body of its own redraws alone; the main water redraws all water
+  const water: DocChange = !wet ? {} : pool && pool.index >= 0 ? { bodies: [pool.index], bodyRect: rect } : { water: true };
+  stroke.changed({ heights: rect, splat: trect, ...water, objects: placed.length ? placed : undefined }, reach.center);
 }
 
 /** Edge plants: decided once the stroke is over, where the brush only grazed */

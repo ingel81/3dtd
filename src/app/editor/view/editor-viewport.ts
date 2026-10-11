@@ -117,6 +117,8 @@ export class EditorViewport {
   private readonly keysDown = new Set<string>();
   /** Set once the viewport is gone: late promises (the warm-up) must not reach the page */
   private disposed = false;
+  /** Assets whose programs were compiled ahead */
+  private readonly warmed = new Set<string>();
   /** Tools take no input (a terrain job runs) */
   private locked = false;
   /** The view before the game camera took over, to go back to */
@@ -343,6 +345,14 @@ export class EditorViewport {
   /** Whether a tool holds the pointer (a stroke, a drag): slow extras wait */
   get dragging(): boolean {
     return this.toolDrag;
+  }
+
+  /** Compiles the programs of assets before they are placed, so the first stroke with them does not stall */
+  warmUpAssets(assetIds: string[]): void {
+    const fresh = assetIds.filter((id) => !this.warmed.has(id));
+    if (!fresh.length) return;
+    for (const id of fresh) this.warmed.add(id);
+    void this.view.warmUpAssets(this.renderer, this.scene, this.camera, fresh).catch(() => undefined);
   }
 
   /** Whether the trial wave walks */
@@ -712,6 +722,9 @@ export class EditorViewport {
       if (c.water) {
         if (performance.now() - this.waterAt >= WATER_INTERVAL_MS) this.applyWater();
         else this.waterWaiting = true;
+      } else if (c.bodies && c.bodyRect) {
+        // A pool brush on one body: just that surface (about a millisecond)
+        for (const k of c.bodies) v.updateWaterBody(k, c.bodyRect);
       }
       if (c.objects) {
         // A list goes in place where it can; new objects rebuild at most every few frames
@@ -791,7 +804,6 @@ export class EditorViewport {
     this.overlay.update(dt);
     this.view.update(dt, this.camera, this.controller.current.target);
     this.trial.update(dt);
-    this.view.flushObjects(performance.now());
     this.renderer.render(this.scene, this.camera);
 
     this.reportHover(time, tp?.hit ?? null);

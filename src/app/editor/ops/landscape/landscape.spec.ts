@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { createMapDocument } from '../../../world/custom-map/map-create';
 import type { CustomMapDocument } from '../../../world/custom-map/map-document';
 import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
-import { EditorDocument } from '../../model/editor-document';
+import { EditorDocument, mergeChanges, type DocChange } from '../../model/editor-document';
 import { heightAt } from '../../model/grid';
 import { edgePolyline, nearestOnEdges } from '../path-graph';
 import { biomeDab, finishBiome, previewSpots } from './biome-brush';
@@ -138,6 +138,20 @@ describe('biome brush', () => {
     expect(ed.doc.terrain.waterBodies).toBeUndefined();
     ed.redo();
     expect(ed.doc.terrain.waterBodies![0].mask.some((v) => v > 0)).toBe(true);
+  });
+
+  it('tells the view which pool body changed, so only it redraws', () => {
+    const ed = map();
+    const seen: DocChange[] = [];
+    ed.onChange((c) => seen.push(c));
+    paint(ed, 'swamp', 11);
+    const pools = seen.filter((c) => c.bodies);
+    expect(pools.length).toBeGreaterThan(0);
+    expect(pools.every((c) => c.bodies!.join() === '0' && !!c.bodyRect)).toBe(true);
+    // Only the new body itself made all water redraw, once
+    expect(seen.filter((c) => c.water)).toHaveLength(1);
+    const merged = mergeChanges({ bodies: [0], bodyRect: { i0: 0, j0: 0, i1: 2, j1: 2 } }, { bodies: [1], bodyRect: { i0: 5, j0: 5, i1: 6, j1: 6 } });
+    expect(merged).toMatchObject({ bodies: [0, 1], bodyRect: { i0: 0, j0: 0, i1: 6, j1: 6 } });
   });
 
   it('every biome paints with the shipped catalogue', () => {

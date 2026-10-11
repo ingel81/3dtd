@@ -9,7 +9,7 @@
  */
 import type { CustomMapDocument, MapRiver, MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
 import type { DocChange, EditCommand, EditorDocument, PatchTarget } from '../model/editor-document';
-import { nearestSample, sampleRectAround } from '../model/grid';
+import { nearestSample, sampleRectAround, type GridRect } from '../model/grid';
 import { basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, waterBody, waterMaskDab } from '../ops/water-ops';
 import { insertPoint, movePoint, nearestRiverPoint, nearestRiverSegment, removePoint } from '../ops/river-edit';
 import { symmetryImages } from '../ops/symmetry';
@@ -158,11 +158,11 @@ export class WaterTool implements EditorTool {
     if (s.mode === 'lake' && this.on) {
       stroke.touch('heights', rect);
       lakeDab(t, p.hit.x, p.hit.y, ctx.settings.brush, s.depth, DIG_RATE * Math.min(dt, 0.1), s.body);
-      stroke.changed({ water: true, heights: rect }, p.hit, rect);
+      stroke.changed({ ...waterChange(s.body, rect, ctx), heights: rect }, p.hit, rect);
       return;
     }
     waterMaskDab(t, p.hit.x, p.hit.y, ctx.settings.brush, this.on, s.body);
-    stroke.changed({ water: true }, p.hit, rect);
+    stroke.changed(waterChange(s.body, rect, ctx), p.hit, rect);
   }
 
   hint(ctx: ToolContext): string {
@@ -330,4 +330,9 @@ export function riverEdit(editor: EditorDocument, label: string, edit: (rivers: 
   const list = structuredClone(t.rivers ?? []);
   edit(list);
   return new RiverListCommand(label, before, list.length ? list : undefined);
+}
+
+/** What a dab on a body's mask changed: one further body redraws alone (without symmetry), the main water all water */
+function waterChange(body: number, rect: GridRect, ctx: ToolContext): DocChange {
+  return body >= 0 && ctx.settings.symmetry === 'none' ? { bodies: [body], bodyRect: rect } : { water: true };
 }
