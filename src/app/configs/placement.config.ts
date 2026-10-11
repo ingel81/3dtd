@@ -20,7 +20,7 @@ export const PLACEMENT_CONFIG = {
   /** Minimum distance between towers in meters */
   MIN_DISTANCE_TO_OTHER_TOWER: 8,
 
-  /** Ground a tower takes in meters (radius), against a world's objects that forbid building (WorldSurface.isBuildBlocked) */
+  /** Ground a tower takes in meters (radius), against a world's objects that forbid building (WorldSurface.buildBlocker) */
   TOWER_BUILD_RADIUS: 3,
 } as const;
 

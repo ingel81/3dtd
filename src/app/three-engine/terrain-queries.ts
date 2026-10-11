@@ -785,8 +785,8 @@ export class TerrainQueries implements WorldSurface {
   }
 
   /** On the tiles a tower stands on whatever is there, roofs included */
-  isBuildBlocked(): boolean {
-    return false;
+  buildBlocker(): null {
+    return null;
   }
 
   /** The column under a tower's footprint probe, booked as `towerFootprint` */

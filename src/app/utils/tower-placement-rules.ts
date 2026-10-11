@@ -26,8 +26,8 @@ export interface TowerPlacementContext {
   routes: LatLon[][];
   /** Distanz in Metern, liefert der Street-Provider (OSM oder DevWorld) */
   geo: { haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number };
-  /** Steht dort etwas der Welt, auf dem nicht gebaut wird (Häuser und Bäume einer eigenen Karte)? */
-  blocked?: (lat: number, lon: number) => boolean;
+  /** Warum die Welt dort keinen Tower erlaubt (Häuser, Bäume, Wasser einer eigenen Karte; WorldSurface.buildBlocker), sonst null */
+  blocked?: (lat: number, lon: number) => string | null;
 }
 
 /** UI-Text je FootprintRefusal: warum der Grund unter der Grundfläche den Platz ausschließt */
@@ -85,8 +85,9 @@ export function checkTowerPlacement(
     }
   }
 
-  if (ctx.blocked?.(lat, lon)) {
-    return { valid: false, reason: 'Something stands there' };
+  const forbidden = ctx.blocked?.(lat, lon);
+  if (forbidden) {
+    return { valid: false, reason: forbidden };
   }
 
   if (footprint?.refusal) {

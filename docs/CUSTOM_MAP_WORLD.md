@@ -176,10 +176,15 @@ Kamera (die vier Bildecken auf der Bodenhöhe des HQ). Ein Klick führt die Kame
   Boden darunter
 - Sichtlinie über das Gelände (Schritte von einer halben Zelle); Objekte sieht der Sichtlinien-Würfel
 - Kein Streaming, keine LOD-Stufen, kein Messen der Straßenbreite (die Kanten haben ihre Breite)
-- `isBuildBlocked`: Objekte, die das Bauen verbieten (eigenes `blocksBuild`, sonst das ihres
-  Katalogeintrags), als Scheiben aus Grundfläche mal Skala in 16-m-Feldern; die Platzierungsregel
-  fragt mit dem Radius eines Towers (3 m, `PLACEMENT_CONFIG.TOWER_BUILD_RADIUS`): „Something stands
-  there“. Tiles und DevWorld antworten immer nein (Tower stehen dort auf Dächern)
+- `buildBlocker` sagt, warum ein Tower nicht stehen darf, `null` wo er darf. Die Platzierungsregel fragt mit
+  dem Radius eines Towers (3 m, `PLACEMENT_CONFIG.TOWER_BUILD_RADIUS`) und zeigt den Grund als Hinweis:
+  - „Water there“ (`inWater`): die Mitte oder ein Punkt des Rings (0,7 x Radius) liegt in einem Gewässer
+    (`terrain.water` und `waterBodies`, jede Art auch Eis und Lava: Maske gesetzt und Boden mehr als
+    0,3 m unter dem Spiegel, `WATER_DEPTH_M`), oder näher an der Linie eines Flusses (`terrain.rivers`)
+    als seine halbe Breite plus der halbe Towerradius. Flache Ufer bleiben bebaubar, Brücken nicht
+  - „Something stands there“: Objekte, die das Bauen verbieten (eigenes `blocksBuild`, sonst das ihres
+    Katalogeintrags), als Scheiben aus Grundfläche mal Skala in 16-m-Feldern
+  - Tiles und DevWorld antworten immer `null` (Tower stehen dort auf Dächern)
 
 `CustomMapFrame` rechnet Szene und Karte ineinander um: Szene x = Ursprung x - Karte x, Szene z =
 Karte y - Ursprung y. Der Kosinus der Ursprungsbreite fehlt: eine Karte reicht höchstens wenige

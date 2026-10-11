@@ -131,7 +131,7 @@ describe('Towers at roof edges and walls (playtest 12 to 17, C10)', () => {
       terrain: {
         raycastColumnSample: columnSample,
         roofAt: () => null,
-        isBuildBlocked: () => false,
+        buildBlocker: () => null,
         footprintColumn: (x: number, z: number) => columnSample(x, z, 'towerFootprint'),
       },
       getOverlayGroup: () => overlay,

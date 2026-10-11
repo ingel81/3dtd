@@ -8,6 +8,7 @@ import { createMapDocument } from './map-create';
 import { FALLEN_SCALE } from './custom-map-destruction';
 import { type CustomMapDocument, mapToGeo } from './map-document';
 import { MapStore, MemoryMapBackend } from './map-store';
+import { BUILD_BLOCKED_OBJECT, BUILD_BLOCKED_WATER } from '../world-provider';
 
 /**
  * 200 x 100 m, 2 m cells, ground rising 0.1 m per metre to the east, a
@@ -118,18 +119,42 @@ describe('CustomMapSurface', () => {
       const g = mapToGeo({ x, y });
       return [g.lat, g.lon];
     };
-    expect(blocking.isBuildBlocked(...at(-50, 20), 3)).toBe(false);
+    expect(blocking.buildBlocker(...at(-50, 20), 3)).toBeNull();
     blocking.setObjectCatalog([
       { id: 'house', footprint: 5, blocksBuild: true },
       { id: 'bush', footprint: 1, blocksBuild: false },
     ]);
     // The house's 5 m disc and a tower's 3 m
-    expect(blocking.isBuildBlocked(...at(-50, 27.9), 3)).toBe(true);
-    expect(blocking.isBuildBlocked(...at(-50, 28.1), 3)).toBe(false);
+    expect(blocking.buildBlocker(...at(-50, 27.9), 3)).toBe(BUILD_BLOCKED_OBJECT);
+    expect(blocking.buildBlocker(...at(-50, 28.1), 3)).toBeNull();
     // Bushes do not block, unless the map says so for one (scaled twice: 2 m)
-    expect(blocking.isBuildBlocked(...at(-50, -20), 3)).toBe(false);
-    expect(blocking.isBuildBlocked(...at(24.9, 20), 3)).toBe(true);
-    expect(blocking.isBuildBlocked(...at(25.1, 20), 3)).toBe(false);
+    expect(blocking.buildBlocker(...at(-50, -20), 3)).toBeNull();
+    expect(blocking.buildBlocker(...at(24.9, 20), 3)).toBe(BUILD_BLOCKED_OBJECT);
+    expect(blocking.buildBlocker(...at(25.1, 20), 3)).toBeNull();
+  });
+
+  it('forbids building in water: a body under the tower or a river along it, not on the dry bank', () => {
+    const map = testMap();
+    const g = map.terrain.grid;
+    // The ditch at x = 40 holds water up to 12 m (ground 8 m in it), the mask over x 30..50 reaches the banks
+    const mask = new Uint8Array(g.columns * g.rows);
+    for (let j = 0; j < g.rows; j++) {
+      for (let i = 0; i < g.columns; i++) if (Math.abs(-100 + i * 2 - 40) <= 10) mask[j * g.columns + i] = 255;
+    }
+    map.terrain.water = { level: 12, mask, color: '#335566', kind: 'swamp' };
+    map.terrain.rivers = [{ id: 'r', kind: 'water', points: [{ x: -20, y: -50, width: 10, height: 9 }, { x: -20, y: 50, width: 10, height: 9 }] }];
+    const wet = new CustomMapSurface(map, frame);
+    const at = (x: number, y: number): [number, number] => {
+      const p = mapToGeo({ x, y });
+      return [p.lat, p.lon];
+    };
+    expect(wet.buildBlocker(...at(40, -30), 3)).toBe(BUILD_BLOCKED_WATER);
+    // In the mask, but the bank (ground 13 m) stands above the level
+    expect(wet.buildBlocker(...at(49, -30), 1)).toBeNull();
+    expect(wet.buildBlocker(...at(70, -30), 3)).toBeNull();
+    // The river: half its 10 m and half the tower's 3 m from its line
+    expect(wet.buildBlocker(...at(-14, 0), 3)).toBe(BUILD_BLOCKED_WATER);
+    expect(wet.buildBlocker(...at(-26.6, 0), 3)).toBeNull();
   });
 
   it('picks the ground under a ray', () => {
@@ -247,18 +272,18 @@ describe('CustomMapWorld', () => {
     const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3, null, true);
     expect(world.capabilities.destructible).toBe(true);
     world.useCatalog(catalog);
-    expect(world.surface.isBuildBlocked(geo.lat, geo.lon, 1)).toBe(true);
+    expect(world.surface.buildBlocker(geo.lat, geo.lon, 1)).toBe(BUILD_BLOCKED_OBJECT);
 
     const fallen = world.destruction!.damage(geo, 1, 1e6);
     expect(fallen.map((s) => s.id)).toEqual(['barn']);
     // Gone from the run's map and its build blocking; the opened map keeps its barn
     expect(world.doc.objects[0].scale).toBe(FALLEN_SCALE);
-    expect(world.surface.isBuildBlocked(geo.lat, geo.lon, 1)).toBe(false);
+    expect(world.surface.buildBlocker(geo.lat, geo.lon, 1)).toBeNull();
     expect(doc.objects[0].scale).toBe(1);
 
     world.destruction!.reset();
     expect(world.doc.objects[0].scale).toBe(1);
-    expect(world.surface.isBuildBlocked(geo.lat, geo.lon, 1)).toBe(true);
+    expect(world.surface.buildBlocker(geo.lat, geo.lon, 1)).toBe(BUILD_BLOCKED_OBJECT);
     expect(customMapDestructible('?world=map:x&destructible')).toBe(true);
     expect(customMapDestructible('?world=map:x')).toBe(false);
   });

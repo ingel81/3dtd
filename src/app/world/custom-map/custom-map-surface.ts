@@ -4,7 +4,7 @@ import { streetHeightAt, type StreetHeightGround } from '../../three-engine/terr
 import type { StreetSurface } from '../../utils/carried-height';
 import type { StationProbe } from '../../utils/route-corridor';
 import type { FootprintColumn } from '../../utils/tower-footprint';
-import type { WorldSurface } from '../world-provider';
+import { BUILD_BLOCKED_OBJECT, BUILD_BLOCKED_WATER, WATER_DEPTH_M, type WorldSurface } from '../world-provider';
 import type { CustomMapDocument, MapPoint } from './map-document';
 import { MAP_METERS_PER_DEGREE } from './map-document';
 import { HeightField } from './render/height-field';
@@ -221,14 +221,66 @@ export class CustomMapSurface implements WorldSurface {
   }
 
   /**
-   * Objects that forbid building (their own `blocksBuild`, else their
-   * catalogue entry's) whose ground disc (footprint x scale) comes within
-   * `radius` of the point. False until the catalogue is known
-   * (setObjectCatalog).
+   * Why a tower of `radius` may not stand at the point: water under it
+   * (inWater), or an object that forbids building (its own `blocksBuild`,
+   * else its catalogue entry's) whose ground disc (footprint x scale) comes
+   * within `radius`; objects count once the catalogue is known
+   * (setObjectCatalog). Null where it may.
    */
-  isBuildBlocked(lat: number, lon: number, radius: number): boolean {
+  buildBlocker(lat: number, lon: number, radius: number): string | null {
     const x = lon * MAP_METERS_PER_DEGREE;
     const y = lat * MAP_METERS_PER_DEGREE;
+    if (this.inWater(x, y, radius)) return BUILD_BLOCKED_WATER;
+    return this.objectAt(x, y, radius) ? BUILD_BLOCKED_OBJECT : null;
+  }
+
+  /**
+   * Water under a tower at map (x, y): its middle or a point of its ring
+   * (radius) in a body (lake, sea, swamp, ice, lava; mask set and the ground
+   * WATER_DEPTH_M below the level) or within half a river's width of its
+   * line. A bridge deck carries the road, not a tower: no exception.
+   */
+  inWater(x: number, y: number, radius: number): boolean {
+    const t = this.doc.terrain;
+    const bodies = t.waterBodies?.length ? (t.water ? [t.water, ...t.waterBodies] : t.waterBodies) : t.water ? [t.water] : [];
+    if (bodies.length > 0) {
+      const r = radius * 0.7;
+      for (const [px, py] of [[x, y], [x + r, y], [x - r, y], [x, y + r], [x, y - r]]) {
+        const ground = this.field.heightAt(px, py);
+        const k = this.sampleIndex(px, py);
+        for (const body of bodies) {
+          if (body.mask[k] > 0 && ground < body.level - WATER_DEPTH_M) return true;
+        }
+      }
+    }
+    for (const river of t.rivers ?? []) {
+      const p = river.points;
+      for (let n = 0; n + 1 < p.length; n++) {
+        const a = p[n];
+        const b = p[n + 1];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len2 = dx * dx + dy * dy;
+        const u = len2 > 0 ? Math.min(1, Math.max(0, ((x - a.x) * dx + (y - a.y) * dy) / len2)) : 0;
+        const half = (a.width + (b.width - a.width) * u) / 2 + radius / 2;
+        const ex = a.x + dx * u - x;
+        const ey = a.y + dy * u - y;
+        if (ex * ex + ey * ey < half * half) return true;
+      }
+    }
+    return false;
+  }
+
+  /** The height sample nearest a map point, as the water masks index it */
+  private sampleIndex(x: number, y: number): number {
+    const f = this.field;
+    const i = Math.min(f.columns - 1, Math.max(0, Math.round((x - f.originX) / f.cellSize)));
+    const j = Math.min(f.rows - 1, Math.max(0, Math.round((y - f.originY) / f.cellSize)));
+    return j * f.columns + i;
+  }
+
+  /** An object that forbids building within `radius` of map (x, y) */
+  private objectAt(x: number, y: number, radius: number): boolean {
     const g = this.blockers;
     if (!g) return false;
     const reach = radius + g.maxRadius;
@@ -253,7 +305,7 @@ export class CustomMapSurface implements WorldSurface {
 
   /**
    * The catalogue's objects (footprint radius at scale 1, whether they forbid
-   * building): from now on isBuildBlocked sees the map's objects
+   * building): from now on buildBlocker sees the map's objects
    */
   setObjectCatalog(entries: readonly { id: string; footprint: number; blocksBuild: boolean }[]): void {
     const byId = new Map(entries.map((e) => [e.id, e]));

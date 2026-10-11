@@ -100,8 +100,8 @@ export class DevWorldSurface implements WorldSurface {
   }
 
   /** DevWorld's buildings carry towers on their roofs */
-  isBuildBlocked(): boolean {
-    return false;
+  buildBlocker(): null {
+    return null;
   }
 
   /** The same raycastDown as the cursor surface for the top, the terrain height for the ground */

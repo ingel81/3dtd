@@ -124,7 +124,7 @@ describe('TowerPlacementService', () => {
   let terrain: {
     raycastColumnSample: ReturnType<typeof vi.fn<(x: number, z: number, caller: string) => { groundY: number; topY: number } | null>>;
     roofAt: (x: number, z: number) => number | null;
-    isBuildBlocked: (lat: number, lon: number, radius: number) => boolean;
+    buildBlocker: (lat: number, lon: number, radius: number) => string | null;
     footprintColumn: (x: number, z: number) => { groundY: number; topY: number } | null;
   };
   let terrainHeight: ReturnType<typeof vi.fn>;
@@ -240,7 +240,7 @@ describe('TowerPlacementService', () => {
     terrain = {
       raycastColumnSample: tileColumns,
       roofAt: (x, z) => (devTerrain ? devSurface().roofAt(x, z) : null),
-      isBuildBlocked: () => false,
+      buildBlocker: () => null,
       footprintColumn: (x, z) => (devTerrain ? devSurface().footprintColumn(x, z) : terrain.raycastColumnSample(x, z, 'towerFootprint')),
     };
     terrainHeight = vi.fn((): number | null => 0);

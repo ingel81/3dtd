@@ -103,11 +103,12 @@ export interface WorldSurface {
    */
   roofAt(localX: number, localZ: number): number | null;
   /**
-   * Something of the world that forbids building stands within `radius`
-   * metres of a geographic point (a custom map's houses and trees); false
-   * where the ground itself decides (tiles: towers stand on roofs)
+   * Why a tower of `radius` metres may not stand at a geographic point
+   * (BUILD_BLOCKED_OBJECT: a custom map's houses and trees, BUILD_BLOCKED_WATER:
+   * its lakes and rivers); null where it may, and always where the ground
+   * itself decides (tiles: towers stand on roofs)
    */
-  isBuildBlocked(lat: number, lon: number, radius: number): boolean;
+  buildBlocker(lat: number, lon: number, radius: number): string | null;
   /** Ground and highest surface under a tower's footprint probe */
   footprintColumn(localX: number, localZ: number): FootprintColumn | null;
   /** The loaded ground changed (a settled tile load) */
@@ -297,6 +298,13 @@ export interface WorldProvider {
   regenerate(): Promise<void>;
   dispose(): void;
 }
+
+/** What the build hint says where an object of the world forbids building */
+export const BUILD_BLOCKED_OBJECT = 'Something stands there';
+/** What the build hint says over water */
+export const BUILD_BLOCKED_WATER = 'Water there';
+/** How far the ground lies under a body's level before a spot counts as water, m (shallow banks stay dry) */
+export const WATER_DEPTH_M = 0.3;
 
 /** A structure of a destructible world: a building, a wall, a tower of the map */
 export interface WorldStructure {

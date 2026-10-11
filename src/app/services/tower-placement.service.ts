@@ -900,7 +900,7 @@ export class TowerPlacementService {
     };
     // Objects of the world that forbid building (a custom map's houses and trees)
     const terrain = this.engine?.terrain;
-    if (terrain) ctx.blocked = (lat, lon) => terrain.isBuildBlocked(lat, lon, PLACEMENT_CONFIG.TOWER_BUILD_RADIUS);
+    if (terrain) ctx.blocked = (lat, lon) => terrain.buildBlocker(lat, lon, PLACEMENT_CONFIG.TOWER_BUILD_RADIUS);
     return (lat, lon, footprint) => checkTowerPlacement(lat, lon, ctx, footprint);
   }
 
