@@ -6,6 +6,7 @@ import { createDemoMap } from '../demo-map';
 import { createPerfMap } from '../perf-map';
 import type { MapBiome } from '../map-document';
 import { createAssetShowcase } from './asset-showcase';
+import { MapStore } from '../map-store';
 import { CustomMapView } from '../render/custom-map-view';
 import { MapAssetLibrary } from '../render/map-asset-library';
 import { mapToScene } from '../render/map-coords';
@@ -36,7 +37,9 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
  * `?weather=rain|snow|fog` (`&strength=0.7`), `?biome=hell|moon|mars|arctic|…`, `?post=bloom` through the game's
  * post-processing chain. `?showcase=winter` (a catalogue tag) or
  * `?assets=tree-*,rock-large&materials=snow,ice` lines up catalogue assets on a
- * flat map instead (asset-showcase.ts). E2E probes read
+ * flat map instead (asset-showcase.ts). `?map=<id>` shows a shipped map instead
+ * of the demo valley, `?cam=x,y,h,tx,ty,th` puts the camera and its target at
+ * map points (heights over the ground there), `?clean` hides the numbers. E2E probes read
  * `window.__mapPreview` (view, renderer, stats).
  */
 @Component({
@@ -44,7 +47,9 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <canvas #canvas class="canvas"></canvas>
-    <div class="stats">{{ stats() }}</div>
+    @if (!clean) {
+      <div class="stats">{{ stats() }}</div>
+    }
   `,
   styles: `
     :host { position: fixed; inset: 0; display: block; background: var(--td-bg-dark); }
@@ -61,6 +66,7 @@ export class MapPreviewComponent implements OnDestroy {
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private readonly zone = inject(NgZone);
   readonly stats = signal('lädt …');
+  readonly clean = new URLSearchParams(location.search).has('clean');
   private renderer: WebGLRenderer | null = null;
   private view: CustomMapView | null = null;
   private controls: OrbitControls | null = null;
@@ -106,8 +112,10 @@ export class MapPreviewComponent implements OnDestroy {
     const showcase = params.get('showcase') ?? undefined;
     const assets = params.get('assets')?.split(',');
     const showMaterials = params.get('materials')?.split(',');
-    const doc =
-      showcase || assets || showMaterials
+    const mapId = params.get('map');
+    const doc = mapId
+      ? (await new MapStore().load(mapId, 'shipped')).doc
+      : showcase || assets || showMaterials
         ? createAssetShowcase(await MapAssetLibrary.shared().catalog(), {
             tag: showcase,
             objects: assets,
@@ -137,7 +145,11 @@ export class MapPreviewComponent implements OnDestroy {
     view.attach(scene);
     view.environment.apply(scene, renderer);
 
-    const spot = VIEWS[params.get('view') ?? (doc.meta.id === 'asset-showcase' ? 'showcase' : 'overview')] ?? VIEWS['overview'];
+    const cam = params.get('cam')?.split(',').map(Number);
+    const spot =
+      cam?.length === 6 && cam.every(Number.isFinite)
+        ? (cam as [number, number, number, number, number, number])
+        : (VIEWS[params.get('view') ?? (doc.meta.id === 'asset-showcase' ? 'showcase' : 'overview')] ?? VIEWS['overview']);
     const lift = (x: number, y: number, h: number): Vector3 => mapToScene(x, y, view.heightAt(x, y) + h, new Vector3());
     camera.position.copy(lift(spot[0], spot[1], spot[2]));
     controls.target.copy(lift(spot[3], spot[4], spot[5]));

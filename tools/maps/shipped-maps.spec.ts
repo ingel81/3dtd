@@ -6,7 +6,7 @@
  *
  * Runs with `npm test`; packing is deterministic, so the files only change
  * when a map's code does:
- *   npx vitest run tools/maps/shipped-maps.spec.ts
+ *   npx vitest run tools/maps/shipped-maps.spec.ts [-t <id>]
  */
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -15,14 +15,16 @@ import { fileURLToPath } from 'node:url';
 import { createDemoMap } from '../../src/app/world/custom-map/demo-map';
 import type { CustomMapDocument } from '../../src/app/world/custom-map/map-document';
 import { contentHash, packMapFile, unpackMapFile, validateMapDocument } from '../../src/app/world/custom-map/map-file';
-import type { ShippedMapIndex } from '../../src/app/world/custom-map/map-store';
+import type { ShippedMapEntry, ShippedMapIndex } from '../../src/app/world/custom-map/map-store';
 import { writeGeneratedFile } from '../generated-file';
+import { SHOWCASE_LEVELS } from './levels';
 import { mapPicture } from './map-picture';
 
 const MAPS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../public/maps');
+const INDEX = resolve(MAPS_DIR, 'index.json');
 
-/** The shipped maps, in list order */
-const SHIPPED: (() => CustomMapDocument)[] = [() => createDemoMap(7)];
+/** The shipped maps, in list order: the demo valley, then the showcase levels (tools/maps/levels/) */
+const SHIPPED: { id: string; build: () => CustomMapDocument }[] = [{ id: 'demo-valley', build: () => createDemoMap(7) }, ...SHOWCASE_LEVELS];
 
 /** Writes binary content unless the file holds the same bytes */
 function writeBytes(path: string, bytes: Uint8Array): boolean {
@@ -34,11 +36,25 @@ function writeBytes(path: string, bytes: Uint8Array): boolean {
   return true;
 }
 
+/** Puts a map's entry into maps/index.json, in list order; one map can be packed alone (`-t <id>`) */
+function listInIndex(entry: ShippedMapEntry): void {
+  const current: ShippedMapEntry[] = existsSync(INDEX) ? ((JSON.parse(readFileSync(INDEX, 'utf8')) as ShippedMapIndex).maps ?? []) : [];
+  const byId = new Map(current.map((m) => [m.id, m]));
+  byId.set(entry.id, entry);
+  const index: ShippedMapIndex = { maps: SHIPPED.map((m) => byId.get(m.id)).filter((m): m is ShippedMapEntry => !!m) };
+  writeGeneratedFile(INDEX, `${JSON.stringify(index, null, 2)}
+`);
+}
+
 describe('shipped maps', () => {
-  it('packs every shipped map with its picture and lists it in maps/index.json', async () => {
-    const index: ShippedMapIndex = { maps: [] };
-    for (const build of SHIPPED) {
-      const doc = build();
+  it('has one entry per id', () => {
+    expect(new Set(SHIPPED.map((m) => m.id)).size).toBe(SHIPPED.length);
+  });
+
+  for (const map of SHIPPED) {
+    it(`packs ${map.id} with its picture and lists it in maps/index.json`, async () => {
+      const doc = map.build();
+      expect(doc.meta.id).toBe(map.id);
       expect(validateMapDocument(doc)).toEqual([]);
       const id = doc.meta.id;
       const png = mapPicture(doc, 256, resolve(MAPS_DIR, 'assets/catalog.json'));
@@ -47,7 +63,7 @@ describe('shipped maps', () => {
       writeBytes(resolve(MAPS_DIR, `${id}.png`), png);
       const hash = await contentHash(doc);
       expect(await contentHash(unpackMapFile(file).doc)).toBe(hash);
-      index.maps.push({
+      listInIndex({
         id,
         name: doc.meta.name,
         file: `${id}.3dtdmap`,
@@ -61,8 +77,6 @@ describe('shipped maps', () => {
         updatedAt: doc.meta.updatedAt,
         contentHash: hash,
       });
-    }
-    writeGeneratedFile(resolve(MAPS_DIR, 'index.json'), `${JSON.stringify(index, null, 2)}\n`);
-    expect(new Set(index.maps.map((m) => m.id)).size).toBe(index.maps.length);
-  });
+    });
+  }
 });
