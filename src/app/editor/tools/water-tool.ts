@@ -21,7 +21,15 @@ const RIM_MARGIN = 0.3;
 const DIG_RATE = 3;
 
 /** Default look of a new body by kind */
-export const BODY_COLORS: Record<MapWaterKind, string> = { water: '#2f5f6f', lava: '#ff5a14', ice: '#cfe6ef' };
+export const BODY_COLORS: Record<MapWaterKind, string> = {
+  water: '#2f5f6f',
+  sea: '#1f4f6a',
+  swamp: '#4a5a2c',
+  ice: '#cfe6ef',
+  lava: '#ff5a14',
+};
+
+const ADD_LABELS: Record<MapWaterKind, string> = { water: 'Add lake', sea: 'Add sea', swamp: 'Add swamp', ice: 'Add ice', lava: 'Add lava' };
 
 /** The patch target of a body's mask */
 function maskTarget(body: number): PatchTarget {
@@ -215,7 +223,7 @@ export const waterCommands = {
   },
   /** A new, empty body of a kind; its level comes with its first fill */
   addBody(editor: EditorDocument, kind: MapWaterKind, level: number): EditCommand {
-    return recordWater(editor, kind === 'lava' ? 'Add lava' : kind === 'ice' ? 'Add ice' : 'Add lake', (t) => {
+    return recordWater(editor, ADD_LABELS[kind], (t) => {
       const body: MapWater = { ...emptyWater(t, level), color: BODY_COLORS[kind], kind };
       t.waterBodies = [...(t.waterBodies ?? []), body];
     });

@@ -7,7 +7,7 @@ import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
 
-const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', lava: 'Lava', ice: 'Ice' };
+const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', swamp: 'Swamp', ice: 'Ice', lava: 'Lava' };
 
 /**
  * Water and lava bodies: the main water and further bodies, each with its
@@ -40,6 +40,7 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', lava: 'Lava',
       <div class="td-actions is-start">
         <button class="td-btn-secondary td-btn-sm" type="button" (click)="add('water')" data-test="add-lake">Add lake</button>
         <button class="td-btn-secondary td-btn-sm" type="button" (click)="add('lava')" data-test="add-lava">Add lava</button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="add('swamp')">Add swamp</button>
         <button class="td-btn-secondary td-btn-sm" type="button" (click)="add('ice')">Add ice</button>
       </div>
     </div>
@@ -83,7 +84,7 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', lava: 'Lava',
 })
 export class WaterPanelComponent {
   private readonly session = inject(EditorSession);
-  readonly kinds: MapWaterKind[] = ['water', 'lava', 'ice'];
+  readonly kinds: MapWaterKind[] = ['water', 'sea', 'swamp', 'ice', 'lava'];
   readonly mode = computed(() => (this.session.settingsRev(), this.session.settings.water.mode));
   readonly active = computed(() => (this.session.settingsRev(), this.session.settings.water.body));
   readonly depth = computed(() => (this.session.settingsRev(), this.session.settings.water.depth));
