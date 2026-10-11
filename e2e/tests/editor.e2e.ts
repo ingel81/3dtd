@@ -37,6 +37,8 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   const name = `E2E map ${Date.now()}`;
   await page.locator('[data-test=new-map]').click();
   await page.locator('[data-test=new-name]').fill(name);
+  // Bare ground: a new map starts from a landscape full of objects otherwise
+  await page.locator('[data-template=""]').click();
   await page.locator('[data-test=create-map]').click();
   await expect(page.locator('[data-test=map-name]')).toHaveText(name);
   await expect(page).toHaveURL(/\/editor\?map=e2e-map-/);
@@ -168,7 +170,8 @@ test('makes a map from a template and uses the pro tools on it', async ({ page }
   // A selection: its panel offers to drop it to the ground
   await expect(page.getByRole('button', { name: 'Drop to the ground' })).toBeVisible();
   await page.keyboard.press('Control+g');
-  // The group shows in the outline (the flash line is gone again after a few seconds)
+  // The group shows in the outline, the panel's second tab (the flash line is gone again after a few seconds)
+  await page.getByRole('tab', { name: 'Outline' }).click();
   await expect(page.locator('[data-group=g1]')).toBeVisible();
 
   // A save lands in the version list
