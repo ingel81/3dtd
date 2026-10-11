@@ -24,7 +24,7 @@ export function buildWitchMarsh(): CustomMapDocument {
     base: 'swamp-ground',
     seed: 2202,
   });
-  for (const m of ['swamp-ground', 'mud-wet', 'moss', 'mud-dark', 'grass-lush', 'leaves-brown', 'coast-mossy', 'forest-moss']) k.layer(m);
+  for (const m of ['swamp-ground', 'moss', 'grass-lush', 'mud', 'coast-mossy', 'forest-moss', 'grass', 'leaves-brown']) k.layer(m);
   k.cliffs('rock-lichen', 45);
 
   // ---- Ground: the marsh floor under the water, islands rising out of it
@@ -91,8 +91,9 @@ export function buildWitchMarsh(): CustomMapDocument {
 
   // Ground under the trees: moss and dark mud in patches, roots and stumps
   for (const isl of islands) {
+    k.paint('grass', isl.at, { radius: isl.radius * 0.8, falloff: 1 }, 0.6);
     k.paint('moss', { x: isl.at.x + isl.radius * 0.3, y: isl.at.y }, { radius: isl.radius * 0.5, falloff: 1 }, 0.6);
-    k.paint('mud-dark', { x: isl.at.x - isl.radius * 0.3, y: isl.at.y + isl.radius * 0.2 }, { radius: isl.radius * 0.4, falloff: 1 }, 0.5);
+    k.paint('grass-lush', { x: isl.at.x - isl.radius * 0.3, y: isl.at.y + isl.radius * 0.2 }, { radius: isl.radius * 0.6, falloff: 1 }, 0.7);
     k.paint('forest-moss', { x: isl.at.x, y: isl.at.y - isl.radius * 0.35 }, { radius: isl.radius * 0.4, falloff: 1 }, 0.5);
   }
   k.scatter(['roots', 'stump-mossy', 'mushrooms', 'stones-mossy-scatter', 'fern'], islands.map((i) => i.at), { radius: 40, strength: 1 }, { density: 5, minDistance: 2.5 });
@@ -115,29 +116,32 @@ export function buildWitchMarsh(): CustomMapDocument {
     if (e.kind !== 'bridge') continue;
     const line = edgePolyline(k.doc.paths, e);
     const len = polylineLength(line);
-    for (let s = 10, n = 0; s < len - 6; s += 24, n++) {
+    for (let s = 8, n = 0; s < len - 5; s += 16, n++) {
       const p = pointAt(line, s);
       const q = pointAt(line, s + 1);
       const d = Math.hypot(q.x - p.x, q.y - p.y) || 1;
       const side = n % 2 ? 1 : -1;
       const at = { x: p.x - ((q.y - p.y) / d) * 2.6 * side, y: p.y + ((q.x - p.x) / d) * 2.6 * side };
       k.place('torch', at.x, at.y, { z: Math.max(0, 0.6 - k.h(at.x, at.y)), rotation: n });
+      k.place('lantern', p.x - ((q.y - p.y) / d) * 2.2 * -side, p.y + ((q.x - p.x) / d) * 2.2 * -side, { z: Math.max(0, 1.2 - k.h(p.x, p.y)) });
     }
   }
-  // Fog banks in the north and west where the enemies come from, fireflies over the water
-  for (const [x, y, sc] of [[-20, 225, 1.5], [30, 250, 1.4], [-60, 250, 1.3], [-230, 20, 1.5], [-245, -50, 1.4], [-220, -15, 1.3], [-150, 200, 1.2], [180, 120, 1], [-80, 60, 1], [150, -40, 1]] as const) {
-    k.place('fx-fog', x, y, { scale: sc });
+  // Fog only where the enemies come in, small and low; the flat banks over the water come from the swamp look's
+  // ground-hugging haze, so the middle stays readable
+  for (const [x, y] of [[-20, 235], [30, 245], [-235, 10], [-240, -40]] as const) k.place('fx-fog', x, y, { scale: 0.7 });
+  // Clouds of fireflies over the open water between the islands
+  for (let y = -220; y <= 220; y += 45) for (let x = -220; x <= 220; x += 45) {
+    const p = { x: x + 18 * k.noise.fbm(x, y, 40), y: y + 18 * k.noise.fbm(y, x, 40) };
+    if (k.h(p.x, p.y) < -0.2 && k.noise.hash(x, y, 61) < 0.6) k.place('fx-fireflies', p.x, p.y, { scale: 1.4 });
   }
-  // Low fog drifting over the open water everywhere
-  for (let y = -220; y <= 220; y += 55) for (let x = -220; x <= 220; x += 55) {
-    const p = { x: x + 20 * k.noise.fbm(x, y, 40), y: y + 20 * k.noise.fbm(y, x, 40) };
-    if (k.h(p.x, p.y) < 0) k.place('fx-fog', p.x, p.y, { scale: 1.1 });
-  }
-  for (const [x, y] of [[-100, 80], [0, 80], [140, 40], [-90, -90], [40, -120], [160, -230], [-180, 60], [70, 180]] as const) k.place('fx-fireflies', x, y, { scale: 1.3 });
+  // Campfires on the big islands, warm light the enemies walk past
+  for (const [x, y] of [[50, 5], [-20, 20], [120, -150], [-225, 0], [-40, 150]] as const) if (k.free(x, y, 2)) k.place('campfire', x, y);
 
   // Five ground materials load faster than eight; the least used go
   k.trimLayers(5);
-  // The plain night sky (the swamp look lights its clouds pale even at night); the green lives in the low fog banks
-  k.environment({ biome: 'temperate', sky: 'night', sunAzimuth: 200, sunElevation: 20, fogDensity: 0.0009, tint: '#cfe6c8' });
+  // Night as film makes it ("day for night"): the dusk light tinted deep blue, so walks, islands and enemies read
+  // from the game camera, and the swamp look lays its haze flat over the water. The night preset is too dark for
+  // that (a moonlight setting is wished from the renderer); lanterns, fires and fireflies are the warm points
+  k.environment({ biome: 'swamp', sky: 'dusk', sunAzimuth: 210, sunElevation: 40, fogDensity: 0.0006, tint: '#7890ea' });
   return k.finish();
 }

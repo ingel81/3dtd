@@ -38,9 +38,9 @@
       "width": 512,
       "depth": 512,
       "spawns": 2,
-      "biome": "temperate",
+      "biome": "swamp",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "0e013c2b75666f96e15c301f22a83be1a15bae9a9daa0fae4e63ffff1c9f85de"
+      "contentHash": "c559905f31095efea7b3a48e87d6848f1ff337a2a43aa1c884db8123543ed30f"
     },
     {
       "id": "autumn-keep",
