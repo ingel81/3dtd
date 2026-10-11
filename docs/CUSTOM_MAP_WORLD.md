@@ -16,12 +16,9 @@ Import aus Warcraft 3 [W3X_IMPORT.md](W3X_IMPORT.md).
   Ladebildschirms ohne Ende
 - `create` baut die Welt aus der geöffneten Karte; `WorldContext.open` übernimmt danach `contentHash`
   und Namen der Karte in den Ref
-- Ursprung des Laufs ist das HQ der Karte, verschoben auf einen Punkt, dessen Grad die Umrechnung über
-  Bogenmaß unverändert übersteht (`stableGeo`, höchstens 11 cm). Grund: die Simulation bekommt den
-  Ursprung über `EllipsoidSync.getOrigin` (Grad, Bogenmaß, Grad), der Hauptthread rechnet mit den
-  Grad selbst; ein Unterschied im letzten Bit legt Wegpunkte, die genau auf einer 2-m-Zellgrenze liegen
-  (Knoten einer Karte auf ganzen Metern), auf beiden Seiten in verschiedene Zellen, und die Simulation
-  lehnt die Welt ab
+- Ursprung des Laufs ist das HQ der Karte. `EllipsoidSync` legt den Ursprung einmal über Grad, Bogenmaß,
+  Grad fest; Hauptthread und Simulation rechnen mit denselben Bits, sodass Wegpunkte auf 2-m-Zellgrenzen
+  (Knoten einer Karte auf ganzen Metern) auf beiden Seiten in derselben Zelle liegen
 
 ## Startaufstellung
 
