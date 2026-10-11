@@ -1,7 +1,7 @@
 /**
  * Map templates for a new map: a terrain from the generator, the whole map
- * painted with one biome (ground, relief, pools, objects) and a mood for
- * sky, light, fog and weather. The starting point for themed maps.
+ * painted with one biome (ground, relief, pools, objects) and the
+ * renderer's look for sky, light, haze and particles. The starting point for themed maps.
  */
 import type { CustomMapDocument, MapEnvironment } from '../../../world/custom-map/map-document';
 import type { CatalogIndex } from '../../catalog/asset-catalog';
@@ -19,7 +19,10 @@ export interface MapTemplate {
   terrain: TerrainPreset;
   /** 0..1, how high and rough the terrain */
   strength: number;
+  /** The renderer's look sets sky colours, haze and particles; this adds sky, sun and weather */
   environment: Partial<MapEnvironment>;
+  /** No water from the generator (a dry canyon) */
+  dry?: boolean;
 }
 
 export const MAP_TEMPLATES: readonly MapTemplate[] = [
@@ -39,7 +42,7 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'forest',
     terrain: 'valleys',
     strength: 0.6,
-    environment: { biome: 'temperate', sky: 'day', fogDensity: 0.0008 },
+    environment: { biome: 'temperate', sky: 'day' },
   },
   {
     id: 'mountains',
@@ -57,14 +60,7 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'swamp',
     terrain: 'flat',
     strength: 0.3,
-    environment: {
-      biome: 'swamp',
-      sky: 'overcast',
-      fogDensity: 0.0025,
-      tint: '#c8d2b0',
-      weather: 'fog',
-      weatherStrength: 0.5,
-    },
+    environment: { biome: 'swamp', sky: 'overcast' },
   },
   {
     id: 'desert',
@@ -73,13 +69,7 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'desert',
     terrain: 'hills',
     strength: 0.4,
-    environment: {
-      biome: 'desert',
-      sky: 'day',
-      sunElevation: 60,
-      tint: '#fff0d8',
-      fogDensity: 0.0006,
-    },
+    environment: { biome: 'desert', sky: 'day', sunElevation: 60 },
   },
   {
     id: 'arctic',
@@ -88,14 +78,7 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'arctic',
     terrain: 'hills',
     strength: 0.5,
-    environment: {
-      biome: 'arctic',
-      sky: 'overcast',
-      tint: '#dce8f0',
-      weather: 'snow',
-      weatherStrength: 0.5,
-      fogDensity: 0.0012,
-    },
+    environment: { biome: 'arctic', sky: 'overcast', weather: 'snow', weatherStrength: 0.3 },
   },
   {
     id: 'city',
@@ -113,7 +96,7 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'hell',
     terrain: 'terraces',
     strength: 0.6,
-    environment: { biome: 'hell', sky: 'night', tint: '#ffb08c', fogDensity: 0.0015 },
+    environment: { biome: 'hell', sky: 'day' },
   },
   {
     id: 'wasteland',
@@ -122,14 +105,7 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'wasteland',
     terrain: 'hills',
     strength: 0.3,
-    environment: {
-      biome: 'apocalypse',
-      sky: 'overcast',
-      tint: '#d8cbb0',
-      fogDensity: 0.0015,
-      weather: 'fog',
-      weatherStrength: 0.3,
-    },
+    environment: { biome: 'apocalypse', sky: 'overcast' },
   },
   {
     id: 'moon',
@@ -138,7 +114,7 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'moon',
     terrain: 'flat',
     strength: 0.2,
-    environment: { biome: 'moon', sky: 'night', sunElevation: 25, fogDensity: 0, tint: '#e8eaf0' },
+    environment: { biome: 'moon', sky: 'day', sunElevation: 25 },
   },
   {
     id: 'mars',
@@ -147,7 +123,8 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'mars',
     terrain: 'canyon',
     strength: 0.7,
-    environment: { biome: 'mars', sky: 'day', tint: '#ffc8a8', fogDensity: 0.001 },
+    dry: true,
+    environment: { biome: 'mars', sky: 'day' },
   },
 ];
 
@@ -172,9 +149,14 @@ export async function applyTemplate(
 ): Promise<void> {
   const t = doc.terrain;
   if (template.terrain !== 'flat') {
+    const generated = generateTerrain(t, {
+      preset: template.terrain,
+      seed,
+      strength: template.strength,
+    });
     finishGenerated(
       doc,
-      generateTerrain(t, { preset: template.terrain, seed, strength: template.strength }),
+      template.dry ? { ...generated, water: null } : generated,
       () => false,
       false,
     );
