@@ -45,6 +45,12 @@ export class RunUploadDialogComponent {
   }
 }
 
+/**
+ * How long the question waits after the Game Over screen came up (TODO E144): its word slams in
+ * (420 ms) and its panel rises (450 ms delay, 400 ms), then a moment to read it.
+ */
+export const RUN_UPLOAD_AFTER_GAME_OVER_MS = 1500;
+
 /** Ask the player; resolves with the answer, false when the dialog is closed without one */
 export function askRunUpload(dialog: MatDialog): Promise<boolean> {
   const ref = dialog.open<RunUploadDialogComponent, void, boolean>(RunUploadDialogComponent, {

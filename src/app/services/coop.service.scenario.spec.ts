@@ -72,6 +72,7 @@ import { ConfigService } from '../core/services/config.service';
 import { GameStore } from '../store/game.store';
 import { UIStore, type UiNotice } from '../store/ui.store';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
+import { RUN_UPLOAD_AFTER_GAME_OVER_MS } from '../components/run-upload-dialog/run-upload-dialog.component';
 import { LocationManagementService } from './location/location-management.service';
 import { UrlLocationService } from './location/url-location.service';
 import { PathAndRouteService } from './world/path-route.service';
@@ -119,6 +120,8 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
     corridorPending: () => false,
   });
   const los = { setRole: vi.fn() };
+  const gameStore = { gameSpeed: signal(1), paused: signal(false), showGameOverScreen: signal(false) };
+  const dialog = { open: vi.fn(() => ({ afterClosed: () => of(true) })) };
   // The engine's loop: a coop game keeps it going in a hidden window (E136)
   const renderLoop = { setBackgroundLoopEnabled: vi.fn() };
   const mirror = new SimMirror();
@@ -152,7 +155,7 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
       { provide: PresentationService, useValue: { host: null } },
       { provide: ConfigService, useValue: { coopRelay: signal(null), coopLobbies: signal(null), needsCredentials: signal(false), tileProvider: signal('cesium') } },
       { provide: WorldContext, useValue: fakeWorldContext() },
-      { provide: GameStore, useValue: { gameSpeed: signal(1), paused: signal(false) } },
+      { provide: GameStore, useValue: gameStore },
       { provide: UIStore, useValue: { coopMapLocked: signal(false), notice: signal<UiNotice | null>(null), coopDockOpen: signal(false) } },
       { provide: EngineInitializationService, useValue: { getEngine: () => ({ renderLoop }), loading: () => false } },
       { provide: LocationManagementService, useValue: { hq, spawns: signal(SPAWNS.map(({ lat, lon }) => ({ lat, lon }))), missionInfo: signal({ city: 'Stuttgart', country: 'Deutschland', address: 'Marktplatz 1' }) } },
@@ -162,7 +165,7 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
       { provide: LocationChangeCoordinatorService, useValue: locationChange },
       { provide: InputHandlerService, useValue: withAutoStubs({}) },
       { provide: RunLogFacade, useValue: runLog },
-      { provide: MatDialog, useValue: { open: () => ({ afterClosed: () => of(true) }) } },
+      { provide: MatDialog, useValue: dialog },
       ...(director ? [{ provide: WaveDirector, useValue: director }] : []),
     ],
   });
@@ -172,7 +175,7 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
     const head = coopHead();
     if (head) runLog.collector.markCoop(head.players, head.you);
   });
-  return { coop, sim, los, mirror, hq, locationChange, closedRun, director, runs, renderLoop };
+  return { coop, sim, los, mirror, hq, locationChange, closedRun, director, runs, renderLoop, gameStore, dialog };
 }
 
 /** Wait for `ok`, flushing effects, up to 15 s: under a loaded suite the sockets answer late */
@@ -333,7 +336,12 @@ describe('CoopService over a real relay (review R21)', () => {
         enemiesAtStart: 0, enemiesSpawned: 1, enemiesAlive: 0, leaked: 0, towers: [],
       };
       expect(reconcileWave(wave as never)).toEqual([]);
+      // The run ended with the HQ: the question waits for the Game Over screen to stand (TODO E144)
+      guest.gameStore.showGameOverScreen.set(true);
+      const closedAt = Date.now();
       guest.closedRun.set({ head, records: [head, wave] } as unknown as RunLog);
+      await until(() => guest.dialog.open.mock.calls.length > 0);
+      expect(Date.now() - closedAt).toBeGreaterThanOrEqual(RUN_UPLOAD_AFTER_GAME_OVER_MS - 50);
 
       // Asked once (the dialog says yes), the answer kept, the log on the relay
       await until(() => localStorage.getItem('3dtd-run-upload') === 'yes');

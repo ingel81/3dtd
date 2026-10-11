@@ -69,7 +69,7 @@ import {
 } from '../coop/room-options';
 import { readText, writeText } from '../utils/storage';
 import { MatDialog } from '@angular/material/dialog';
-import { askRunUpload } from '../components/run-upload-dialog/run-upload-dialog.component';
+import { askRunUpload, RUN_UPLOAD_AFTER_GAME_OVER_MS } from '../components/run-upload-dialog/run-upload-dialog.component';
 import { packRunLog, readRunUploadConsent, writeRunUploadConsent } from '../run-log/run-upload';
 import { toJsonl } from '../run-log/run-log.export';
 import type { RunLog } from '../run-log/run-log.types';
@@ -995,6 +995,11 @@ export class CoopService {
     if (!run.head.coop || !session?.collectRuns) return;
     let consent = readRunUploadConsent();
     if (consent === null) {
+      // Not before the Game Over screen stands: the question came a moment before it (TODO E144)
+      if (this.gameStore.showGameOverScreen()) {
+        await new Promise((resolve) => setTimeout(resolve, RUN_UPLOAD_AFTER_GAME_OVER_MS));
+        if (this.session !== session) return;
+      }
       consent = (await askRunUpload(this.dialog)) ? 'yes' : 'no';
       writeRunUploadConsent(consent);
     }
