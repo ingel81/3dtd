@@ -15,8 +15,8 @@ import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
 import { type CustomMapDocument, mapToGeo } from './map-document';
 import { MapStore } from './map-store';
-import { MapAssetLibrary } from './render/map-asset-library';
-import { CustomMapView } from './render/custom-map-view';
+import type { MapAssetLibrary } from './render/map-asset-library';
+import type { CustomMapView } from './render/custom-map-view';
 
 /** A map of its own: no real place, nothing streams, no credentials, nothing to roll again */
 export const CUSTOM_MAP_CAPABILITIES: WorldCapabilities = {
@@ -57,6 +57,29 @@ export interface LoadedCustomMap {
 export function customMapSpawnLimit(search: string): number {
   const n = Number.parseInt(new URLSearchParams(search).get('spawns') ?? '', 10);
   return Number.isFinite(n) && n >= 1 ? Math.min(n, MAX_SPAWN_PORTALS) : MAX_SPAWN_PORTALS;
+}
+
+/**
+ * A geographic point near `geo` whose degrees come back unchanged through
+ * radians. The simulation gets the run's origin through
+ * `EllipsoidSync.getOrigin` (degrees to radians and back) while the main
+ * thread converts with the degrees it was given; where they differ by the
+ * last bit, route points that lie exactly on a 2 m cell border (a map's
+ * nodes at whole metres do) fall into different cells on the two sides, and
+ * the simulation refuses the world. Rounded to the location's 6 decimals,
+ * then nudged by 1e-9 degrees (0.1 mm) until the round trip is exact.
+ */
+export function stableGeo(geo: { lat: number; lon: number }): { lat: number; lon: number } {
+  const stable = (v: number): number => {
+    const base = Math.round(v * 1e6) / 1e6;
+    for (let k = 0; k < 64; k++) {
+      for (const c of [base + k * 1e-9, base - k * 1e-9]) {
+        if (((c * Math.PI) / 180) * (180 / Math.PI) === c) return c;
+      }
+    }
+    return base;
+  };
+  return { lat: stable(geo.lat), lon: stable(geo.lon) };
 }
 
 /** Maps opened before their world is made (WorldFactory.startHq loads, create takes), by map id */
@@ -110,7 +133,8 @@ export class CustomMapWorld implements WorldProvider {
     private readonly map: LoadedCustomMap,
     origin: { lat: number; lon: number; height: number },
     private readonly spawnLimit = MAX_SPAWN_PORTALS,
-    private readonly assets: () => MapAssetLibrary = () => MapAssetLibrary.shared(),
+    /** The asset library the view loads from; the shared one by default */
+    private readonly assets: (() => MapAssetLibrary) | null = null,
   ) {
     this.doc = map.doc;
     this.sync = new EllipsoidSync(origin.lat, origin.lon, origin.height);
@@ -125,7 +149,12 @@ export class CustomMapWorld implements WorldProvider {
 
   async attach(ctx: WorldAttachContext): Promise<void> {
     if (isDevMode()) console.log(`[CustomMap] ${this.doc.meta.name} instead of 3D tiles`);
-    const view = new CustomMapView(this.doc, this.assets());
+    // The renderer loads with the first map: the registry and the game start stay light without it
+    const [{ CustomMapView }, { MapAssetLibrary }] = await Promise.all([
+      import('./render/custom-map-view'),
+      import('./render/map-asset-library'),
+    ]);
+    const view = new CustomMapView(this.doc, this.assets ? this.assets() : MapAssetLibrary.shared());
     this.view = view;
     this.placeView();
     ctx.scene.add(view.group);
@@ -190,10 +219,10 @@ export class CustomMapWorld implements WorldProvider {
     // never fails to load
   }
 
-  /** HQ and the first `spawnLimit` spawns of the map (customMapSpawnLimit) */
+  /** HQ (as stableGeo moves it, where the start flow put the origin) and the first `spawnLimit` spawns (customMapSpawnLimit) */
   startLayout(): WorldStartLayout {
     return {
-      hq: mapToGeo(this.doc.hq),
+      hq: stableGeo(mapToGeo(this.doc.hq)),
       spawns: this.doc.spawns.slice(0, this.spawnLimit).map((s) => ({ id: s.id, name: s.name, ...mapToGeo(s) })),
     };
   }

@@ -3,7 +3,14 @@ import { ConfigService } from '../core/services/config.service';
 import { DEV_WORLD_CAPABILITIES, DevWorldProvider } from '../devworld/dev-world-provider';
 import { DevWorldService } from '../devworld/devworld.service';
 import { OsmStreetService } from '../services/location/osm-street.service';
-import { CUSTOM_MAP_CAPABILITIES, CustomMapWorld, customMapSpawnLimit, openCustomMap, openedCustomMap } from './custom-map/custom-map-world';
+import {
+  CUSTOM_MAP_CAPABILITIES,
+  CustomMapWorld,
+  customMapSpawnLimit,
+  openCustomMap,
+  openedCustomMap,
+  stableGeo,
+} from './custom-map/custom-map-world';
 import { mapToGeo } from './custom-map/map-document';
 import { FLAT_WORLD_ORIGIN } from './flat-frame';
 import { TILES_CAPABILITIES, TilesWorld, tilesLogos } from './tiles/tiles-world';
@@ -81,7 +88,8 @@ const CUSTOM_MAP_FACTORY: WorldFactory = {
   startHq: async (ref) => {
     if (ref.kind !== 'custom-map') throw new WorldUnavailableError(ref, 'not a custom map');
     try {
-      return mapToGeo((await openCustomMap(ref)).doc.hq);
+      // The run's origin: the HQ, at a point the simulation's frame takes over exactly
+      return stableGeo(mapToGeo((await openCustomMap(ref)).doc.hq));
     } catch (err) {
       throw new WorldUnavailableError(ref, err instanceof Error ? err.message : String(err));
     }
