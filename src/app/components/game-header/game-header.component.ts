@@ -148,6 +148,8 @@ export class GameHeaderComponent {
   // Outputs
   readonly locationClick = output<void>();
   readonly closeClick = output<void>();
+  /** The logo: opens the menu, as Esc does (TODO E143) */
+  readonly menuClick = output<void>();
   readonly shareClick = output<void>();
   readonly diceClick = output<void>();
   /** Save the current location, with the name from the field (may be empty) */

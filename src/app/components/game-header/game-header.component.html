@@ -1,5 +1,9 @@
 <header class="header td-topbar">
-  <img class="logo" src="assets/images/logo/logo.svg" alt="3DTD">
+  <!-- The logo opens the menu, as Esc does (TODO E143) -->
+  <button class="logo-btn" type="button" (click)="menuClick.emit()" aria-keyshortcuts="Escape"
+          matTooltip="Menu (Esc)" matTooltipPosition="below">
+    <img class="logo" src="assets/images/logo/logo.svg" alt="3DTD menu">
+  </button>
   <div class="header-left">
     <button class="location-btn td-sunk" (click)="!locationLocked() && locationClick.emit()" [attr.aria-disabled]="locationLocked() ? true : null"
             [matTooltip]="locationLocked() ? 'The coop room plays this map' : 'Change place'">

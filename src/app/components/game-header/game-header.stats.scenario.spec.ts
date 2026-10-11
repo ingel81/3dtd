@@ -91,6 +91,13 @@ describe('Header stat plates', () => {
   const plate = (kind: string) => el().querySelector(`.stat-plate.${kind}`) as HTMLElement;
   const lit = () => el().querySelectorAll('.stat-bar i.is-on').length;
 
+  it('opens the menu from the logo, as Esc does (TODO E143)', () => {
+    const opened = vi.fn();
+    fixture.componentInstance.menuClick.subscribe(opened);
+    (el().querySelector('.logo-btn') as HTMLButtonElement).click();
+    expect(opened).toHaveBeenCalledTimes(1);
+  });
+
   it('lights ten segments at full health, warms below 30 % and stripes below 10 %', () => {
     expect(plate('hp').dataset['level']).toBe('ok');
     expect(lit()).toBe(10);

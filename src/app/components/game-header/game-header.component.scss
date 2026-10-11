@@ -13,6 +13,18 @@
   padding-right: var(--td-sidebar-gutter);
 }
 
+.logo-btn {
+  display: flex;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: filter var(--td-dur-fast) ease;
+
+  &:hover { filter: brightness(1.15); }
+}
+
 .logo {
   height: calc(var(--td-h-topbar) - 12px);
   flex-shrink: 0;
