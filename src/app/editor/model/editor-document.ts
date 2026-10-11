@@ -272,7 +272,8 @@ function sameSelection(a: Selection, b: Selection): boolean {
 // ---------------------------------------------------------------------------
 // Commands
 
-export type PatchTarget = 'heights' | 'splat0' | 'splat1' | 'water';
+/** `water` is the main water body's mask, `body0`, `body1` … the further bodies' masks */
+export type PatchTarget = 'heights' | 'splat0' | 'splat1' | 'water' | `body${number}`;
 
 export function patchArray(doc: CustomMapDocument, target: PatchTarget): PatchArray {
   const t = doc.terrain;
@@ -286,6 +287,11 @@ export function patchArray(doc: CustomMapDocument, target: PatchTarget): PatchAr
     case 'water':
       if (!t.water) throw new Error('The map has no water');
       return t.water.mask;
+    default: {
+      const body = t.waterBodies?.[Number(target.slice(4))];
+      if (!body) throw new Error(`The map has no water body ${target}`);
+      return body.mask;
+    }
   }
 }
 
@@ -326,7 +332,7 @@ export class PatchCommand implements EditCommand {
       const rect = applyPatches(patchArray(doc, part.target), patchLayout(doc, part.target), part.patches, side);
       if (!rect) continue;
       if (part.target === 'heights') change = mergeChanges(change, { heights: rect });
-      else if (part.target === 'water') change = mergeChanges(change, { water: true });
+      else if (part.target === 'water' || part.target.startsWith('body')) change = mergeChanges(change, { water: true });
       else change = mergeChanges(change, { splat: rect });
     }
     return change;

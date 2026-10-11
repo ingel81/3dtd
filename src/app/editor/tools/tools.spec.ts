@@ -9,7 +9,7 @@ import { paintCommands } from './paint-tool';
 import { PathTool } from './path-tool';
 import { TerrainTool } from './terrain-tool';
 import { defaultSettings, type ToolContext, type ToolPointer } from './tool';
-import { WaterTool } from './water-tool';
+import { WaterTool, waterCommands } from './water-tool';
 
 function context(editor: EditorDocument): ToolContext & { messages: string[] } {
   const messages: string[] = [];
@@ -161,5 +161,49 @@ describe('ground layer commands', () => {
     ed.undo();
     expect(terrain.layers.map((l) => l.material)).toEqual(['grass']);
     expect(maps[0]).toBe(255);
+  });
+});
+
+describe('water and lava bodies', () => {
+  it('adds a lava body, fills a hollow with it at its rim, digs a lake into it, undoes', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    const t = ed.doc.terrain;
+    // A hollow at (0, 100)
+    const terrain = new TerrainTool();
+    ctx.settings.terrain.mode = 'lower';
+    ctx.settings.brush = { radius: 30, strength: 1, falloff: 0.3 };
+    terrain.pointerDown(at(0, 100), ctx);
+    for (let k = 0; k < 10; k++) terrain.frame(0.1, at(0, 100), ctx);
+    terrain.pointerUp();
+    ed.execute(waterCommands.addBody(ed, 'lava', 0));
+    expect(t.waterBodies?.[0].kind).toBe('lava');
+    ctx.settings.water = { mode: 'fill', body: 0, depth: 3 };
+    const water = new WaterTool();
+    water.pointerDown(at(0, 100), ctx);
+    const lava = ed.doc.terrain.waterBodies![0];
+    expect(lava.level).toBeLessThan(0);
+    expect(lava.mask.some((v) => v > 0)).toBe(true);
+    expect(ed.doc.terrain.water).toBeNull();
+    // Dig a lake somewhere else into the same body
+    ctx.settings.water.mode = 'lake';
+    water.pointerDown(at(-100, -100), ctx);
+    for (let k = 0; k < 20; k++) water.frame!(0.1, at(-100, -100), ctx);
+    water.pointerUp();
+    expect(heightAt(ed.doc.terrain, -100, -100)).toBeLessThan(lava.level - 1);
+    const steps = ed.historySteps;
+    ed.undo();
+    expect(heightAt(ed.doc.terrain, -100, -100)).toBe(0);
+    expect(ed.historySteps).toBe(steps - 1);
+  });
+
+  it('floods a sea in from the edge below the level', () => {
+    const ed = fresh();
+    ed.doc.terrain.grid.heights.fill(-1);
+    ed.doc.terrain.grid.heights[(ed.doc.terrain.grid.rows >> 1) * ed.doc.terrain.grid.columns + (ed.doc.terrain.grid.columns >> 1)] = 5;
+    ed.execute(waterCommands.enable(ed, 0));
+    ed.execute(waterCommands.sea(ed, -1));
+    const mask = ed.doc.terrain.water!.mask;
+    expect(mask.filter((v) => v > 0).length).toBe(mask.length - 1);
   });
 });

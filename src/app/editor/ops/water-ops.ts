@@ -1,7 +1,10 @@
 /**
- * Water: one level for the whole map and a mask per height sample that says
- * where water stands. The mask brush paints it; the basin fill floods from a
- * sample across every connected sample below the level.
+ * Water: the main body (`terrain.water`) and further bodies
+ * (`terrain.waterBodies`: a lake up the hill, a lava pool, a frozen pond),
+ * each with its own level and a mask per height sample that says where it
+ * stands. The mask brush paints a body, the basin fill floods from a sample
+ * across every connected sample below its level, the lake brush digs a bed
+ * under it, the sea fill floods in from the map's edge.
  */
 import type { MapTerrain, MapWater } from '../../world/custom-map/map-document';
 import { sampleRectAround, sampleX, sampleY, type GridRect } from '../model/grid';
@@ -13,9 +16,14 @@ export function emptyWater(terrain: MapTerrain, level = 0): MapWater {
   return { level, mask: new Uint8Array(terrain.grid.columns * terrain.grid.rows), color: DEFAULT_WATER_COLOR };
 }
 
+/** The body a tool works on: -1 the main water, 0, 1 … the further bodies */
+export function waterBody(terrain: MapTerrain, body = -1): MapWater | null {
+  return body < 0 ? terrain.water : (terrain.waterBodies?.[body] ?? null);
+}
+
 /** Paint (or clear) the mask under the brush; samples past half weight flip */
-export function waterMaskDab(terrain: MapTerrain, x: number, y: number, brush: BrushSettings, on: boolean): GridRect {
-  const water = terrain.water;
+export function waterMaskDab(terrain: MapTerrain, x: number, y: number, brush: BrushSettings, on: boolean, body = -1): GridRect {
+  const water = waterBody(terrain, body);
   const rect = sampleRectAround(terrain, x, y, brush.radius);
   if (!water) return rect;
   const c = terrain.grid.columns;
@@ -33,8 +41,8 @@ export function waterMaskDab(terrain: MapTerrain, x: number, y: number, brush: B
  * water level and mark them wet. Returns the filled samples' rectangle, or
  * null when the start sample is above the level.
  */
-export function fillBasin(terrain: MapTerrain, i: number, j: number): GridRect | null {
-  const water = terrain.water;
+export function fillBasin(terrain: MapTerrain, i: number, j: number, body = -1): GridRect | null {
+  const water = waterBody(terrain, body);
   if (!water) return null;
   const g = terrain.grid;
   const c = g.columns;
@@ -175,4 +183,65 @@ export function wetShare(terrain: MapTerrain): number {
   let n = 0;
   for (let k = 0; k < w.mask.length; k++) if (w.mask[k] && terrain.grid.heights[k] < w.level) n++;
   return n / w.mask.length;
+}
+
+/**
+ * Dig a lake bed under a body: the ground under the brush sinks toward
+ * `depth` below the body's level (soft toward the rim), and the mask marks
+ * where it ends up under the level.
+ */
+export function lakeDab(terrain: MapTerrain, x: number, y: number, brush: BrushSettings, depth: number, rate: number, body = -1): GridRect {
+  const water = waterBody(terrain, body);
+  const rect = sampleRectAround(terrain, x, y, brush.radius);
+  if (!water) return rect;
+  const g = terrain.grid;
+  const c = g.columns;
+  for (let j = rect.j0; j <= rect.j1; j++) {
+    for (let i = rect.i0; i <= rect.i1; i++) {
+      const w = brushWeight(Math.hypot(sampleX(terrain, i) - x, sampleY(terrain, j) - y), brush.radius, Math.max(0.3, brush.falloff));
+      if (w <= 0) continue;
+      const k = j * c + i;
+      const target = water.level - depth * w;
+      if (g.heights[k] > target) g.heights[k] += (target - g.heights[k]) * Math.min(1, rate * brush.strength);
+      if (g.heights[k] < water.level - 0.05) water.mask[k] = 255;
+    }
+  }
+  return rect;
+}
+
+/** Flood a body in from the map's edge over every connected sample below its level (a sea) */
+export function fillFromEdge(terrain: MapTerrain, body = -1): number {
+  const water = waterBody(terrain, body);
+  if (!water) return 0;
+  const g = terrain.grid;
+  const c = g.columns;
+  const seen = new Uint8Array(c * g.rows);
+  const stack: number[] = [];
+  const push = (k: number) => {
+    if (!seen[k] && g.heights[k] < water.level) {
+      seen[k] = 1;
+      stack.push(k);
+    }
+  };
+  for (let i = 0; i < c; i++) {
+    push(i);
+    push((g.rows - 1) * c + i);
+  }
+  for (let j = 0; j < g.rows; j++) {
+    push(j * c);
+    push(j * c + c - 1);
+  }
+  let n = 0;
+  while (stack.length) {
+    const k = stack.pop()!;
+    water.mask[k] = 255;
+    n++;
+    const ki = k % c;
+    const kj = (k - ki) / c;
+    if (ki > 0) push(k - 1);
+    if (ki < c - 1) push(k + 1);
+    if (kj > 0) push(k - c);
+    if (kj < g.rows - 1) push(k + c);
+  }
+  return n;
 }

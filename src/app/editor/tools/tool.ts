@@ -97,7 +97,13 @@ export interface EditorSettings {
   };
   terrain: { mode: TerrainMode; level: number; step: number; rampWidth: number };
   paint: { layer: number; erase: boolean };
-  water: { mode: 'paint' | 'erase' | 'fill' };
+  water: {
+    mode: 'fill' | 'lake' | 'paint' | 'erase';
+    /** The body the tool works on: -1 the main water, 0, 1 … the further bodies */
+    body: number;
+    /** Depth of a dug lake bed below the level, metres */
+    depth: number;
+  };
   objects: {
     mode: ObjectMode;
     gizmo: GizmoMode;
@@ -144,7 +150,7 @@ export function defaultSettings(): EditorSettings {
     },
     terrain: { mode: 'raise', level: 0, step: 6, rampWidth: 16 },
     paint: { layer: 0, erase: false },
-    water: { mode: 'fill' },
+    water: { mode: 'fill', body: -1, depth: 3 },
     objects: { mode: 'place', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true },
     paths: { mode: 'draw', width: 8, kind: 'road', snap: 10, showRoutes: true },
     markers: { mode: 'spawn' },
