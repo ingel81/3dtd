@@ -319,7 +319,9 @@ export async function openRoom(page: Page): Promise<void> {
 export async function inviteLink(page: Page): Promise<string> {
   await openDock(page);
   await page.getByRole('button', { name: 'Copy the invite link' }).first().click();
-  return page.evaluate(() => navigator.clipboard.readText());
+  const link = await page.evaluate(() => navigator.clipboard.readText());
+  // A link leaves a relay on this machine out (relayForLink): the guest looks on 3003, the tests' relay may sit elsewhere
+  return link.includes('&relay=') ? link : `${link}${relayQuery()}`;
 }
 
 /** The room code in the dock */
