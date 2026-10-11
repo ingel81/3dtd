@@ -126,7 +126,10 @@ export class CustomMapView {
     this.environment.weather.setCover(this.cover);
     this.environment.setFogBase(lowGround(t.grid.heights, t.water?.level));
     this.updateWater();
-    this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers, { renderer: options.renderer });
+    this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers, {
+      renderer: options.renderer,
+      waterLevelAt: (x, y) => this.waterLevelAt(x, y),
+    });
     this.group.add(this.objects.group);
     this.bridges = new BridgeLayer(this.heights, assets);
     this.group.add(this.bridges.group);
@@ -162,7 +165,63 @@ export class CustomMapView {
     if (this.disposed) return 0;
     const before = renderer.info.programs?.length ?? 0;
     await renderer.compileAsync(scene, camera);
+    // compileAsync leaves out the shadow pass: its depth programs (instanced, alpha-tested cards,
+    // per material) compiled on the first frame a caster entered the sun's box, a stall of seconds.
+    // One frame with a cell of every asset casting compiles them now, during loading.
+    if (renderer.shadowMap.enabled) {
+      this.objects.showAllForWarmUp(true);
+      const wasAuto = renderer.shadowMap.autoUpdate;
+      renderer.shadowMap.autoUpdate = true;
+      renderer.shadowMap.needsUpdate = true;
+      renderer.render(scene, camera);
+      renderer.shadowMap.autoUpdate = wasAuto;
+      this.objects.showAllForWarmUp(false);
+    }
     return (renderer.info.programs?.length ?? 0) - before;
+  }
+
+  /**
+   * Shows or hides everything in the air: weather and ambient particles
+   * (rain, snow, embers, ash, dust), object effects and light glows. For
+   * renders that are not the player's view, like a top-down minimap, where the
+   * particle box around the focus would show as a square.
+   */
+  setParticlesVisible(visible: boolean): void {
+    this.environment.weather.mesh.visible = visible && this.environment.weather.active;
+    this.effects.group.visible = visible;
+  }
+
+  /**
+   * The highest water surface over the terrain at map point (x, y), null on
+   * dry ground: the main water, further bodies (by their masks) and rivers
+   */
+  waterLevelAt(x: number, y: number): number | null {
+    const t = this.doc.terrain;
+    const f = this.heights;
+    const ground = f.heightAt(x, y);
+    const i = Math.round((x - f.originX) / f.cellSize);
+    const j = Math.round((y - f.originY) / f.cellSize);
+    let best: number | null = null;
+    if (i >= 0 && j >= 0 && i < f.columns && j < f.rows) {
+      const k = j * f.columns + i;
+      for (const body of [t.water, ...(t.waterBodies ?? [])]) {
+        if (body && body.mask[k] && body.level > ground && (best === null || body.level > best)) best = body.level;
+      }
+    }
+    for (const r of t.rivers ?? []) {
+      for (let s = 0; s < r.points.length - 1; s++) {
+        const a = r.points[s];
+        const b = r.points[s + 1];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const u = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+        const half = (a.width + (b.width - a.width) * u) / 2;
+        if (Math.hypot(x - a.x - dx * u, y - a.y - dy * u) > half) continue;
+        const level = a.height + (b.height - a.height) * u;
+        if (level > ground && (best === null || level > best)) best = level;
+      }
+    }
+    return best;
   }
 
   /** Surface height at map point (x, y), the surface the finest terrain level shows */
@@ -329,6 +388,8 @@ export class CustomMapView {
     for (const r of this.rivers) this.group.add(r.mesh);
     // The constructor sets up the water before the effects exist and lights the lava after
     if (this.effects) this.effects.setLavaLights(this.lavaLightPoints());
+    // Floating objects follow the water
+    if (this.objects) this.objects.refreshHeights(undefined, true);
     this.lightWater();
   }
 

@@ -16,7 +16,7 @@ import {
   type Camera,
   type Fog,
   type Scene,
-  type Texture,
+  type WebGLRenderTarget,
   type WebGLRenderer,
 } from 'three';
 import type { MapEnvironment } from '../../map-document';
@@ -68,7 +68,7 @@ export class CustomMapEnvironment {
   readonly zenith = new Color();
   readonly horizon = new Color();
   readonly sunDir = new Vector3();
-  private envMap: Texture | null = null;
+  private envTarget: WebGLRenderTarget | null = null;
   private pmrem: PMREMGenerator | null = null;
   private shadowRadius = 300;
   private scene: Scene | null = null;
@@ -180,8 +180,10 @@ export class CustomMapEnvironment {
       aurora: p.aurora,
     });
     if (skyChanged) {
-      this.sky.dispose();
-      this.sky = this.buildSky();
+      // The same texture and the same environment target, refilled: a new object would make three
+      // re-check every material (and on the first change compile programs for a frame of seconds)
+      this.fillSky(this.sky.image.data as Uint8Array);
+      this.sky.needsUpdate = true;
       if (this.scene) this.installSky();
     }
   }
@@ -281,7 +283,7 @@ export class CustomMapEnvironment {
   dispose(): void {
     this.detach();
     this.sky.dispose();
-    this.envMap?.dispose();
+    this.envTarget?.dispose();
     this.pmrem?.dispose();
     this.sun.shadow.dispose();
     this.skyDome.dispose();
@@ -313,14 +315,30 @@ export class CustomMapEnvironment {
     if (!scene || !renderer) return;
     const p = this.look();
     scene.background = this.sky;
-    this.pmrem ??= new PMREMGenerator(renderer);
-    this.envMap?.dispose();
-    this.envMap = this.pmrem.fromEquirectangular(this.sky).texture;
-    scene.environment = this.envMap;
+    if (!this.pmrem) {
+      this.pmrem = new PMREMGenerator(renderer);
+      this.pmrem.compileEquirectangularShader();
+    }
+    this.envTarget = this.pmrem.fromEquirectangular(this.sky, this.envTarget);
+    scene.environment = this.envTarget.texture;
     scene.environmentIntensity = p.envIntensity;
   }
 
   private buildSky(): DataTexture {
+    const data = new Uint8Array(SKY_WIDTH * SKY_HEIGHT * 4);
+    this.fillSky(data);
+    const t = new DataTexture(data, SKY_WIDTH, SKY_HEIGHT, RGBAFormat, UnsignedByteType);
+    t.colorSpace = SRGBColorSpace;
+    t.mapping = EquirectangularReflectionMapping;
+    t.magFilter = LinearFilter;
+    t.minFilter = LinearFilter;
+    t.generateMipmaps = false;
+    t.needsUpdate = true;
+    return t;
+  }
+
+  /** The sky's pixels for the current environment */
+  private fillSky(data: Uint8Array): void {
     const p = this.look();
     const tint = new Color(this.env.tint || '#ffffff');
     const zenith = new Color(p.zenith).multiply(tint);
@@ -328,7 +346,6 @@ export class CustomMapEnvironment {
     const ground = new Color(p.ground);
     const sunCol = new Color(p.sun);
     const sun = sunDirection(this.env.sunAzimuth, this.env.sunElevation, new Vector3());
-    const data = new Uint8Array(SKY_WIDTH * SKY_HEIGHT * 4);
     const c = new Color();
     const dir = new Vector3();
     for (let py = 0; py < SKY_HEIGHT; py++) {
@@ -359,19 +376,19 @@ export class CustomMapEnvironment {
         data[q + 3] = 255;
       }
     }
-    const t = new DataTexture(data, SKY_WIDTH, SKY_HEIGHT, RGBAFormat, UnsignedByteType);
-    t.colorSpace = SRGBColorSpace;
-    t.mapping = EquirectangularReflectionMapping;
-    t.magFilter = LinearFilter;
-    t.minFilter = LinearFilter;
-    t.generateMipmaps = false;
-    t.needsUpdate = true;
-    return t;
   }
 }
 
+/** Linear 0..1 to sRGB bytes, by table (4096 steps): a pow per channel and pixel cost milliseconds per sky */
+const SRGB_TABLE = (() => {
+  const t = new Uint8Array(4097);
+  for (let i = 0; i <= 4096; i++) {
+    const v = i / 4096;
+    t[i] = Math.round((v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055) * 255);
+  }
+  return t;
+})();
+
 function toSrgbByte(linear: number): number {
-  const v = Math.min(1, Math.max(0, linear));
-  const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
-  return Math.round(s * 255);
+  return SRGB_TABLE[linear <= 0 ? 0 : linear >= 1 ? 4096 : (linear * 4096) | 0];
 }

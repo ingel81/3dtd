@@ -40,6 +40,11 @@ const KINDS: Record<string, { id: number; max: number }> = {
 
 export class WeatherLayer {
   readonly mesh: Mesh<InstancedBufferGeometry, ShaderMaterial>;
+
+  /** Whether the current weather shows any particles */
+  get active(): boolean {
+    return this.mesh.geometry.instanceCount > 0;
+  }
   private readonly cam = new Vector3();
 
   constructor() {
@@ -103,7 +108,7 @@ export class WeatherLayer {
     }
     const k = Math.min(1, Math.max(0, strength));
     this.mesh.geometry.instanceCount = spec ? Math.round(spec.max * k) : 0;
-    this.mesh.visible = this.mesh.geometry.instanceCount > 0;
+    this.mesh.visible = this.active;
     m.uniforms['uLight'].value = light;
   }
 

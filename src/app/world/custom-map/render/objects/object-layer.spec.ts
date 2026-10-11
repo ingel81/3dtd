@@ -72,3 +72,31 @@ describe('MapObjectLayer levels of detail', () => {
     layer.dispose();
   });
 });
+
+describe('MapObjectLayer floating objects', () => {
+  it('puts a floating object at the water level, on dry ground at the terrain', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4).fill(-3) }, 1000, 1000);
+    const boat = { ...catalog.objects[0], id: 'boat', category: 'prop' as const, float: true, lod: undefined, file: 'boat.glb' };
+    const lib = new MapAssetLibrary('base/', {
+      fetch: (() =>
+        Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ...catalog, objects: [boat] }) } as Response)) as typeof fetch,
+      loadModel: () => {
+        const root = new Group();
+        root.add(new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial()));
+        return Promise.resolve(root);
+      },
+    });
+    let level: number | null = 1.5;
+    const los = new Group();
+    const layer = new MapObjectLayer(field, lib, los, { waterLevelAt: () => level });
+    await layer.setObjects([{ id: 'b', asset: 'boat', x: 0, y: 0, z: 0.2, rotation: 0, scale: 1 }]);
+    const mesh = (): InstancedMesh =>
+      [...layer.group.children, ...los.children].find((c): c is InstancedMesh => c instanceof InstancedMesh)!;
+    const y = (): number => mesh().instanceMatrix.array[13];
+    expect(y()).toBeCloseTo(1.7);
+    level = null;
+    layer.refreshHeights(undefined, true);
+    expect(y()).toBeCloseTo(-2.8);
+    layer.dispose();
+  });
+});

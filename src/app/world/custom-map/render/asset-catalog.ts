@@ -111,7 +111,13 @@ export interface CatalogObject {
   tags?: string[];
   effects?: CatalogEffect[];
   light?: CatalogLight;
-  /** Lower detail models by camera distance (reserved; not drawn yet) */
+  /**
+   * Floats on water: the model's origin is its waterline, placed at the
+   * level of the water under it (on dry ground at the terrain), plus the
+   * object's own z. Boats, buoys, lily pads, floes, piers.
+   */
+  float?: boolean;
+  /** Lower detail models by camera distance */
   lod?: { file: string; distance: number }[];
 }
 

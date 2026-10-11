@@ -89,6 +89,8 @@ export interface ObjectHit {
 export interface ObjectLayerOptions {
   /** Renderer for baking tree impostors; without one far trees keep their model */
   renderer?: WebGLRenderer;
+  /** Level of the water at a map point, null on dry ground (floating objects) */
+  waterLevelAt?: (x: number, y: number) => number | null;
 }
 
 export class MapObjectLayer {
@@ -169,8 +171,9 @@ export class MapObjectLayer {
    * Objects stand on the terrain: call after heights changed, with the
    * changed rectangle in map metres to touch only the objects on it
    */
-  refreshHeights(rect?: { minX: number; minY: number; maxX: number; maxY: number }): void {
+  refreshHeights(rect?: { minX: number; minY: number; maxX: number; maxY: number }, floatingOnly = false): void {
     for (const b of this.batches) {
+      if (floatingOnly && !b.entry.float) continue;
       const reach = b.entry.footprint * 3 + 2;
       const changed: number[] = [];
       for (let i = 0; i < b.objects.length; i++) {
@@ -192,6 +195,30 @@ export class MapObjectLayer {
     this.group.worldToLocal(this.camPos);
     this.focus.copy(focus ?? this.camPos);
     this.applyLevels(false);
+  }
+
+  /**
+   * Shows one cell of every level of every asset with shadows on (or puts the
+   * normal per-frame choice back): a single render then compiles every
+   * program the objects can need, shadow depth variants included
+   */
+  showAllForWarmUp(on: boolean): void {
+    if (!on) {
+      this.applyLevels(true);
+      return;
+    }
+    for (const b of this.batches) {
+      const cell = b.cells.values().next().value as Cell | undefined;
+      for (const c of b.cells.values()) for (const meshes of c.levels) for (const m of meshes) m.visible = false;
+      if (!cell) continue;
+      for (const meshes of cell.levels) {
+        for (const m of meshes) {
+          m.visible = true;
+          m.castShadow = true;
+          m.frustumCulled = false;
+        }
+      }
+    }
   }
 
   /** First object a scene-space ray hits */
@@ -374,7 +401,10 @@ export class MapObjectLayer {
         }
         if (level !== cell.level || force) {
           cell.levels.forEach((meshes, l) => {
-            for (const m of meshes) m.visible = l === level;
+            for (const m of meshes) {
+              m.visible = l === level;
+              m.frustumCulled = true;
+            }
           });
           cell.level = level;
         }
@@ -393,7 +423,10 @@ export class MapObjectLayer {
     const e = b.entry;
     const s = o.scale || 1;
     let ground = this.field.heightAt(o.x, o.y);
-    if (e.category === 'building' || e.category === 'wall' || e.category === 'prop') {
+    if (e.float) {
+      // The waterline at the water's level; on dry ground on the terrain
+      ground = this.options.waterLevelAt?.(o.x, o.y) ?? ground;
+    } else if (e.category === 'building' || e.category === 'wall' || e.category === 'prop') {
       // Eight points on the footprint circle, so a turned house finds its lowest corner too;
       // the models' foundations reach below 0 and fill the gap on the uphill side
       const r = e.footprint * s;
