@@ -3,7 +3,7 @@
   "materials": [
     {
       "id": "grass",
-      "name": "Gras",
+      "name": "Grass",
       "category": "grass",
       "files": {
         "color": "materials/grass/color.jpg",
@@ -16,7 +16,7 @@
     },
     {
       "id": "grass-lush",
-      "name": "Sattes Gras",
+      "name": "Lush grass",
       "category": "grass",
       "files": {
         "color": "materials/grass-lush/color.jpg",
@@ -29,7 +29,7 @@
     },
     {
       "id": "grass-dry",
-      "name": "Trockenes Gras",
+      "name": "Dry grass",
       "category": "grass",
       "files": {
         "color": "materials/grass-dry/color.jpg",
@@ -42,7 +42,7 @@
     },
     {
       "id": "meadow",
-      "name": "Wiese mit Erde",
+      "name": "Meadow",
       "category": "grass",
       "files": {
         "color": "materials/meadow/color.jpg",
@@ -55,7 +55,7 @@
     },
     {
       "id": "dirt",
-      "name": "Erde",
+      "name": "Dirt",
       "category": "soil",
       "files": {
         "color": "materials/dirt/color.jpg",
@@ -68,7 +68,7 @@
     },
     {
       "id": "mud",
-      "name": "Schlamm",
+      "name": "Mud",
       "category": "soil",
       "files": {
         "color": "materials/mud/color.jpg",
@@ -81,7 +81,7 @@
     },
     {
       "id": "forest-floor",
-      "name": "Laubboden",
+      "name": "Leaf litter",
       "category": "forest",
       "files": {
         "color": "materials/forest-floor/color.jpg",
@@ -94,7 +94,7 @@
     },
     {
       "id": "forest-ground",
-      "name": "Waldboden",
+      "name": "Forest floor",
       "category": "forest",
       "files": {
         "color": "materials/forest-ground/color.jpg",
@@ -107,7 +107,7 @@
     },
     {
       "id": "rocky-ground",
-      "name": "Steiniger Boden",
+      "name": "Rocky ground",
       "category": "rock",
       "files": {
         "color": "materials/rocky-ground/color.jpg",
@@ -120,7 +120,7 @@
     },
     {
       "id": "gravel",
-      "name": "Kies",
+      "name": "Gravel",
       "category": "rock",
       "files": {
         "color": "materials/gravel/color.jpg",
@@ -133,7 +133,7 @@
     },
     {
       "id": "cliff",
-      "name": "Fels",
+      "name": "Cliff rock",
       "category": "rock",
       "files": {
         "color": "materials/cliff/color.jpg",
@@ -146,7 +146,7 @@
     },
     {
       "id": "rock-mossy",
-      "name": "Moosiger Fels",
+      "name": "Mossy rock",
       "category": "rock",
       "files": {
         "color": "materials/rock-mossy/color.jpg",
@@ -172,7 +172,7 @@
     },
     {
       "id": "snow",
-      "name": "Schnee",
+      "name": "Snow",
       "category": "snow",
       "files": {
         "color": "materials/snow/color.jpg",
@@ -185,7 +185,7 @@
     },
     {
       "id": "cobblestone",
-      "name": "Kopfsteinpflaster",
+      "name": "Cobblestone",
       "category": "road",
       "files": {
         "color": "materials/cobblestone/color.jpg",
@@ -198,7 +198,7 @@
     },
     {
       "id": "paving",
-      "name": "Steinplatten",
+      "name": "Flagstones",
       "category": "road",
       "files": {
         "color": "materials/paving/color.jpg",
@@ -211,7 +211,7 @@
     },
     {
       "id": "dirt-path",
-      "name": "Feldweg",
+      "name": "Dirt path",
       "category": "road",
       "files": {
         "color": "materials/dirt-path/color.jpg",
@@ -226,7 +226,7 @@
   "objects": [
     {
       "id": "tree-oak",
-      "name": "Eiche",
+      "name": "Oak",
       "category": "tree",
       "file": "models/tree-oak.glb",
       "footprint": 2.0,
@@ -244,7 +244,7 @@
     },
     {
       "id": "tree-birch",
-      "name": "Birke",
+      "name": "Birch",
       "category": "tree",
       "file": "models/tree-birch.glb",
       "footprint": 1.2,
@@ -262,7 +262,7 @@
     },
     {
       "id": "tree-pine",
-      "name": "Kiefer",
+      "name": "Pine",
       "category": "tree",
       "file": "models/tree-pine.glb",
       "footprint": 1.6,
@@ -280,7 +280,7 @@
     },
     {
       "id": "tree-fir",
-      "name": "Tanne",
+      "name": "Fir",
       "category": "tree",
       "file": "models/tree-fir.glb",
       "footprint": 1.8,
@@ -298,7 +298,7 @@
     },
     {
       "id": "tree-dead",
-      "name": "Toter Baum",
+      "name": "Dead tree",
       "category": "tree",
       "file": "models/tree-dead.glb",
       "footprint": 1.2,
@@ -316,7 +316,7 @@
     },
     {
       "id": "bush",
-      "name": "Busch",
+      "name": "Bush",
       "category": "plant",
       "file": "models/bush.glb",
       "footprint": 1.2,
@@ -334,7 +334,7 @@
     },
     {
       "id": "fern",
-      "name": "Farn",
+      "name": "Fern",
       "category": "plant",
       "file": "models/fern.glb",
       "footprint": 0.6,
@@ -352,7 +352,7 @@
     },
     {
       "id": "grass-clump",
-      "name": "Grasbüschel",
+      "name": "Grass clump",
       "category": "plant",
       "file": "models/grass-clump.glb",
       "footprint": 0.5,
@@ -370,7 +370,7 @@
     },
     {
       "id": "flowers",
-      "name": "Blumen",
+      "name": "Flowers",
       "category": "plant",
       "file": "models/flowers.glb",
       "footprint": 0.5,
@@ -388,7 +388,7 @@
     },
     {
       "id": "stump",
-      "name": "Baumstumpf",
+      "name": "Stump",
       "category": "plant",
       "file": "models/stump.glb",
       "footprint": 0.45,
@@ -406,7 +406,7 @@
     },
     {
       "id": "log",
-      "name": "Baumstamm",
+      "name": "Log",
       "category": "plant",
       "file": "models/log.glb",
       "footprint": 1.6,
@@ -424,7 +424,7 @@
     },
     {
       "id": "rock-small",
-      "name": "Stein",
+      "name": "Stone",
       "category": "rock",
       "file": "models/rock-small.glb",
       "footprint": 0.6,
@@ -442,7 +442,7 @@
     },
     {
       "id": "rock-large",
-      "name": "Fels",
+      "name": "Boulder",
       "category": "rock",
       "file": "models/rock-large.glb",
       "footprint": 1.8,
@@ -460,7 +460,7 @@
     },
     {
       "id": "house",
-      "name": "Fachwerkhaus",
+      "name": "Timber house",
       "category": "building",
       "file": "models/house.glb",
       "footprint": 4.5,
@@ -478,7 +478,7 @@
     },
     {
       "id": "house-large",
-      "name": "Großes Haus",
+      "name": "Large house",
       "category": "building",
       "file": "models/house-large.glb",
       "footprint": 6.0,
@@ -496,7 +496,7 @@
     },
     {
       "id": "barn",
-      "name": "Scheune",
+      "name": "Barn",
       "category": "building",
       "file": "models/barn.glb",
       "footprint": 6.5,
@@ -514,7 +514,7 @@
     },
     {
       "id": "tower-ruin",
-      "name": "Turmruine",
+      "name": "Tower ruin",
       "category": "building",
       "file": "models/tower-ruin.glb",
       "footprint": 4.0,
@@ -532,7 +532,7 @@
     },
     {
       "id": "wall-stone",
-      "name": "Steinmauer",
+      "name": "Stone wall",
       "category": "wall",
       "file": "models/wall-stone.glb",
       "footprint": 2.0,
@@ -550,7 +550,7 @@
     },
     {
       "id": "fence-wood",
-      "name": "Holzzaun",
+      "name": "Wooden fence",
       "category": "wall",
       "file": "models/fence-wood.glb",
       "footprint": 2.0,
@@ -568,7 +568,7 @@
     },
     {
       "id": "crate",
-      "name": "Kiste",
+      "name": "Crate",
       "category": "prop",
       "file": "models/crate.glb",
       "footprint": 0.6,
@@ -586,7 +586,7 @@
     },
     {
       "id": "barrel",
-      "name": "Fass",
+      "name": "Barrel",
       "category": "prop",
       "file": "models/barrel.glb",
       "footprint": 0.4,
@@ -604,7 +604,7 @@
     },
     {
       "id": "lamp-post",
-      "name": "Laterne",
+      "name": "Lamp post",
       "category": "prop",
       "file": "models/lamp-post.glb",
       "footprint": 0.3,
@@ -622,7 +622,7 @@
     },
     {
       "id": "well",
-      "name": "Brunnen",
+      "name": "Well",
       "category": "prop",
       "file": "models/well.glb",
       "footprint": 1.3,
@@ -640,7 +640,7 @@
     },
     {
       "id": "bridge-deck",
-      "name": "Brückenstück",
+      "name": "Bridge piece",
       "category": "prop",
       "file": "models/bridge-deck.glb",
       "footprint": 2.0,
