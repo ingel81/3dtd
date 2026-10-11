@@ -30,7 +30,7 @@
           @if (imp.phase === 'running' && !imp.error) {
             <span class="td-note"><span class="td-spin" aria-hidden="true"></span> {{ imp.step }}</span>
           }
-          <button class="td-btn-ghost td-btn-sm" type="button" (click)="closeImport()">{{ imp.phase === 'options' ? 'Cancel' : 'Close' }}</button>
+          <button class="td-btn-ghost td-btn-sm" type="button" (click)="closeImport()">{{ imp.phase === 'options' || (imp.phase === 'running' && !imp.error) ? 'Cancel' : 'Close' }}</button>
         </div>
         @if (imp.phase === 'options' || (imp.error && imp.phase === 'running')) {
           <div class="mb-w3x">

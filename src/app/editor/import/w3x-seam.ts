@@ -37,12 +37,13 @@ export interface W3xImportResult {
   report: W3xImportReport;
 }
 
-export type W3xImporter = (bytes: ArrayBuffer, options: W3xImportOptions) => Promise<W3xImportResult>;
+/** `signal` aborts the import; it also ends by itself after two minutes */
+export type W3xImporter = (bytes: ArrayBuffer, options: W3xImportOptions, signal?: AbortSignal) => Promise<W3xImportResult>;
 
 export async function loadW3xImporter(): Promise<W3xImporter> {
   const { importW3xInWorker } = await import('../../world/w3x/w3x-import-client');
-  return async (bytes, options) => {
-    const { doc, report } = await importW3xInWorker(bytes, { ...options });
+  return async (bytes, options, signal) => {
+    const { doc, report } = await importW3xInWorker(bytes, { ...options }, { signal });
     return { doc, report: summarizeReport(report) };
   };
 }

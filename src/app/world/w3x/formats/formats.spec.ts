@@ -45,6 +45,15 @@ describe('w3x formats', () => {
     expect(plainText('|c007733ffMafa TD|r Queen')).toBe('Mafa TD Queen');
   });
 
+  it('reads a large wts without closing braces in linear time', () => {
+    // 5 MB of strings that never close: a regular expression over the text took minutes here
+    const text = 'STRING 1\n{\nkept\n}\n' + `STRING 9\n{\n${'y'.repeat(40)}\n`.repeat(100000);
+    const t0 = performance.now();
+    const t = parseWts(new TextEncoder().encode(text));
+    expect(performance.now() - t0).toBeLessThan(2000);
+    expect([...t.keys()]).toEqual([1]);
+  });
+
   it.each([18, 25, 28, 31] as const)('reads w3i version %i', (version) => {
     const wts = parseWts(new TextEncoder().encode('STRING 1\n{\nMy Map\n}\n'));
     const info = parseW3i(w3iBytes(version), wts);

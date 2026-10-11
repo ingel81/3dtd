@@ -129,6 +129,8 @@ export class EditorSession implements OnDestroy {
   private changed = false;
   /** A Warcraft map waiting for its import options */
   private pendingW3x: File | null = null;
+  /** Aborts the running Warcraft import, null when none runs */
+  private importAbort: AbortController | null = null;
   private tick: ReturnType<typeof setInterval> | null = null;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   private statusTimer: ReturnType<typeof setTimeout> | null = null;
@@ -584,11 +586,22 @@ export class EditorSession implements OnDestroy {
     return null;
   }
 
+  /** Ends a running Warcraft import (its worker stops) and closes the panel */
+  cancelImport(): void {
+    this.importAbort?.abort();
+    this.importAbort = null;
+    this.pendingW3x = null;
+    this.importState.set(null);
+  }
+
   /** Converts the Warcraft map waiting in the import panel with its options */
   async importW3x(options: Partial<W3xImportOptions> = {}): Promise<string | null> {
     const file = this.pendingW3x;
     const current = this.importState();
     if (!file || !current) return null;
+    this.importAbort?.abort();
+    const abort = new AbortController();
+    this.importAbort = abort;
     const state: ImportState = {
       ...current,
       phase: 'running',
@@ -599,15 +612,18 @@ export class EditorSession implements OnDestroy {
     this.importState.set(state);
     try {
       const importer = await loadW3xImporter();
-      const { doc, report } = await importer(await file.arrayBuffer(), state.options);
+      const { doc, report } = await importer(await file.arrayBuffer(), state.options, abort.signal);
+      if (abort.signal.aborted) return null;
       doc.meta.id = await this.store.freeId(slugMapId(doc.meta.name || file.name.replace(/\.w3[xm]$/i, '')));
       await this.store.save(doc);
       this.pendingW3x = null;
       this.importState.set({ ...state, phase: 'done', step: 'Done', report, mapId: doc.meta.id });
       return doc.meta.id;
     } catch (e) {
-      this.importState.set({ ...state, error: (e as Error).message });
+      if (!abort.signal.aborted) this.importState.set({ ...state, error: (e as Error).message });
       return null;
+    } finally {
+      if (this.importAbort === abort) this.importAbort = null;
     }
   }
 

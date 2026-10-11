@@ -14,6 +14,7 @@ export function documentTransferables(doc: CustomMapDocument): ArrayBuffer[] {
   const t = doc.terrain;
   const arrays: ArrayBufferView[] = [t.grid.heights, t.splat.maps[0], t.splat.maps[1]];
   if (t.water) arrays.push(t.water.mask);
+  for (const body of t.waterBodies ?? []) arrays.push(body.mask);
   const buffers = new Set<ArrayBuffer>();
   for (const a of arrays) if (a.buffer instanceof ArrayBuffer) buffers.add(a.buffer);
   return [...buffers];

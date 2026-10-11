@@ -236,8 +236,9 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Closes the panel; a running import stops */
   closeImport(): void {
-    this.session.importState.set(null);
+    this.session.cancelImport();
   }
 
   readonly asValue = (e: Event) => (e.target as HTMLInputElement).value;

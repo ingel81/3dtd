@@ -13,12 +13,28 @@
 
 export type WtsTable = Map<number, string>;
 
+/**
+ * Line by line in one pass: `STRING n`, comment lines, `{`, the text up to
+ * a line that is `}`. A regular expression over the whole text took
+ * quadratic time on a table without closing braces (minutes for 5 MB).
+ */
 export function parseWts(bytes: Uint8Array): WtsTable {
-  let text = new TextDecoder('utf-8').decode(bytes).replace(/\r\n?/g, '\n');
+  let text = new TextDecoder('utf-8').decode(bytes);
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  const lines = text.split(/\r\n?|\n/);
   const out: WtsTable = new Map();
-  const re = /^STRING\s+(\d+)[^\n]*\n(?:\/\/[^\n]*\n)*\{\n([\s\S]*?)\n?^\}/gm;
-  for (let m = re.exec(text); m; m = re.exec(text)) out.set(Number(m[1]), m[2]);
+  let i = 0;
+  while (i < lines.length) {
+    const head = /^STRING\s+(\d+)/.exec(lines[i++]);
+    if (!head) continue;
+    while (i < lines.length && lines[i].startsWith('//')) i++;
+    if (lines[i] !== '{') continue;
+    const start = ++i;
+    while (i < lines.length && !lines[i].startsWith('}')) i++;
+    // A string without its closing brace is left out
+    if (i < lines.length) out.set(Number(head[1]), lines.slice(start, i).join('\n'));
+    i++;
+  }
   return out;
 }
 
