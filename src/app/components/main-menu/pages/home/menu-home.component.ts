@@ -19,7 +19,7 @@ import type { MenuLayer, MenuPage } from '../../menu-page';
 
 /** An entry of the list */
 export type HomeEntryId =
-  | 'continue' | 'play' | 'new-game' | 'coop' | 'save' | 'load' | 'settings' | 'extras' | 'restart' | 'quit';
+  | 'continue' | 'play' | 'new-game' | 'coop' | 'save' | 'load' | 'settings' | 'extras' | 'editor' | 'restart' | 'quit';
 
 export interface HomeEntry {
   id: HomeEntryId;
@@ -42,6 +42,7 @@ export const HOME_ENTRY_ICON: Record<HomeEntryId, TdIconName> = {
   load: 'filing',
   settings: 'cog',
   extras: 'manual',
+  editor: 'terrain',
   restart: 'refresh',
   quit: 'power',
 };
@@ -50,6 +51,7 @@ export const HOME_ENTRY_ICON: Record<HomeEntryId, TdIconName> = {
 export type HomeConfirm =
   | { kind: 'leave'; from: string; to: string }
   | { kind: 'restart' }
+  | { kind: 'editor' }
   | { kind: 'quit' };
 
 const PAGE_OF: Partial<Record<HomeEntryId, MenuPage>> = {
@@ -148,6 +150,7 @@ export class MenuHomeComponent {
     if (solo && menu.underWay()) list.push(entry('save', 'Save game'));
     if (solo) list.push(entry('load', 'Load game'));
     list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
+    list.push(entry('editor', 'Map editor', null, true));
     if (menu.canQuit) list.push(entry('quit', 'Quit 3DTD', null, true));
     return list;
   });
@@ -193,6 +196,10 @@ export class MenuHomeComponent {
         if (this.menu.underWay()) this.ask({ kind: 'restart' });
         else this.menu.restart();
         return;
+      case 'editor':
+        if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'editor' });
+        else openMapEditor();
+        return;
       case 'quit':
         if (this.menu.underWay() || this.menu.inCoop()) this.ask({ kind: 'quit' });
         else this.menu.quit();
@@ -225,6 +232,7 @@ export class MenuHomeComponent {
     if (!confirm) return;
     if (confirm.kind === 'leave') void this.loadAutosave();
     else if (confirm.kind === 'restart') this.menu.restart();
+    else if (confirm.kind === 'editor') openMapEditor();
     else this.menu.quit();
   }
 
@@ -286,8 +294,15 @@ export class MenuHomeComponent {
         return { question: `Leaves ${confirm.from}: the save plays in ${confirm.to}.`, yes: 'Continue anyway' };
       case 'restart':
         return { question: 'Restart here? The run ends.', yes: 'Restart' };
+      case 'editor':
+        return { question: 'Open the map editor? The run ends.', yes: 'Open the editor' };
       case 'quit':
         return { question: 'Quit 3DTD? The run ends.', yes: 'Quit' };
     }
   }
+}
+
+/** The map editor is its own page (`/editor`): leave the game for it */
+export function openMapEditor(): void {
+  window.location.assign(new URL('editor', document.baseURI).toString());
 }

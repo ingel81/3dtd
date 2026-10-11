@@ -17,6 +17,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'editor',
+    loadComponent: () =>
+      import('./editor/ui/editor-page.component').then(
+        m => m.EditorPageComponent
+      ),
+  },
+  {
     path: 'engine-test',
     loadComponent: () =>
       import('./components/engine-test/engine-test.component').then(

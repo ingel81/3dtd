@@ -203,7 +203,7 @@ describe('The main menu', () => {
       coordinator.awaitingStartChoice.set(true);
       await setup();
 
-      expect(entries()).toEqual(['New game', 'Coop', 'Load game', 'Settings', 'Extras']);
+      expect(entries()).toEqual(['New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor']);
       expect(el().querySelector('app-menu-loading')).toBeNull();
     });
 
@@ -503,7 +503,7 @@ describe('The main menu', () => {
       expect(document.activeElement).toBe(entry('coop'));
       await press('ArrowUp');
       await press('ArrowUp');
-      expect(document.activeElement).toBe(entry('extras'));
+      expect(document.activeElement).toBe(entry('editor'));
       expect(menu.page()).toBe('home');
     });
   });

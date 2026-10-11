@@ -1,0 +1,23 @@
+// Layout of a layer row: picture, material, tools
+.pp-layer {
+  justify-content: flex-start;
+  gap: var(--td-sp-2);
+  padding: 0 var(--td-sp-1);
+  cursor: pointer;
+}
+
+.pp-thumb {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+}
+
+.pp-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pp-tools {
+  display: flex;
+  flex: 0 0 auto;
+}

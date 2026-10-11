@@ -1,0 +1,118 @@
+<div class="td-seg is-sm" role="radiogroup" aria-label="Object tool">
+  @for (m of modes; track m.id) {
+    <button type="button" role="radio" [attr.aria-checked]="s().mode === m.id" (click)="setMode(m.id)" [attr.data-mode]="m.id">{{ m.label }}</button>
+  }
+</div>
+
+@if (s().mode === 'select') {
+  <div class="td-seg is-sm" role="radiogroup" aria-label="Drag does">
+    <button type="button" role="radio" [attr.aria-checked]="s().gizmo === 'move'" (click)="setGizmo('move')">Move <kbd class="td-kbd">W</kbd></button>
+    <button type="button" role="radio" [attr.aria-checked]="s().gizmo === 'rotate'" (click)="setGizmo('rotate')">Turn <kbd class="td-kbd">E</kbd></button>
+    <button type="button" role="radio" [attr.aria-checked]="s().gizmo === 'scale'" (click)="setGizmo('scale')">Scale <kbd class="td-kbd">R</kbd></button>
+  </div>
+}
+
+@if (selected().length) {
+  <div class="td-group">
+    <h3 class="td-section">
+      @if (single(); as o) { {{ name(o.asset) }} } @else { {{ selected().length }} objects }
+    </h3>
+    @if (single(); as o) {
+      <div class="op-grid">
+        <label class="td-field"><span class="td-label">East</span>
+          <input class="td-input is-sm" type="number" step="0.5" [value]="o.x" (change)="setNumber('x', $event)" /></label>
+        <label class="td-field"><span class="td-label">North</span>
+          <input class="td-input is-sm" type="number" step="0.5" [value]="o.y" (change)="setNumber('y', $event)" /></label>
+        <label class="td-field"><span class="td-label">Lift</span>
+          <input class="td-input is-sm" type="number" step="0.1" [value]="o.z" (change)="setNumber('z', $event)" /></label>
+        <label class="td-field"><span class="td-label">Turn</span>
+          <input class="td-input is-sm" type="number" step="5" [value]="deg(o.rotation)" (change)="setRotation($event)" /></label>
+        <label class="td-field"><span class="td-label">Scale</span>
+          <input class="td-input is-sm" type="number" step="0.05" min="0.05" [value]="o.scale" (change)="setNumber('scale', $event)" /></label>
+      </div>
+    }
+    <div class="td-setting">
+      <span matTooltip="Whether towers see through it; Default follows the catalogue">Blocks sight <span class="td-note">default {{ catalogFlag('blocksLos') }}</span></span>
+      <div class="td-seg is-compact is-sm" role="radiogroup" aria-label="Blocks sight">
+        <button type="button" role="radio" [attr.aria-checked]="flag('blocksLos') === 'auto'" (click)="setFlag('blocksLos', 'auto')">Default</button>
+        <button type="button" role="radio" [attr.aria-checked]="flag('blocksLos') === 'on'" (click)="setFlag('blocksLos', 'on')">Yes</button>
+        <button type="button" role="radio" [attr.aria-checked]="flag('blocksLos') === 'off'" (click)="setFlag('blocksLos', 'off')">No</button>
+      </div>
+    </div>
+    <div class="td-setting">
+      <span matTooltip="Whether towers may stand on it; Default follows the catalogue">Blocks building <span class="td-note">default {{ catalogFlag('blocksBuild') }}</span></span>
+      <div class="td-seg is-compact is-sm" role="radiogroup" aria-label="Blocks building">
+        <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'auto'" (click)="setFlag('blocksBuild', 'auto')">Default</button>
+        <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'on'" (click)="setFlag('blocksBuild', 'on')">Yes</button>
+        <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'off'" (click)="setFlag('blocksBuild', 'off')">No</button>
+      </div>
+    </div>
+    <div class="td-actions is-start">
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="duplicate()">Duplicate <kbd class="td-kbd">Ctrl+D</kbd></button>
+      <button class="td-btn-danger td-btn-sm" type="button" (click)="remove()">Delete <kbd class="td-kbd">Del</kbd></button>
+    </div>
+  </div>
+}
+
+@if (s().mode === 'scatter') {
+  <div class="td-group">
+    <h3 class="td-section">Scatter</h3>
+    <p class="td-note">Pick one or more assets below; the brush mixes them.</p>
+    <app-editor-range label="Density" unit="/1000 m2" [min]="0.5" [max]="60" [step]="0.5" [value]="s().scatter.density" (changing)="setScatter('density', $event)" />
+    <app-editor-range label="Min size" unit="x" [min]="0.2" [max]="4" [step]="0.05" [value]="s().scatter.scaleMin" (changing)="setScatter('scaleMin', $event)" />
+    <app-editor-range label="Max size" unit="x" [min]="0.2" [max]="4" [step]="0.05" [value]="s().scatter.scaleMax" (changing)="setScatter('scaleMax', $event)" />
+    <app-editor-range label="Spacing" unit="m" [min]="0.5" [max]="40" [step]="0.5" [value]="s().scatter.minDistance" (changing)="setScatter('minDistance', $event)" />
+    <div class="td-setting">
+      <span>Turn at random</span>
+      <input class="td-switch" type="checkbox" [checked]="s().scatter.randomRotation" (change)="setScatterFlag('randomRotation', $any($event.target).checked)" aria-label="Turn at random" />
+    </div>
+    <div class="td-setting">
+      <span matTooltip="Objects on a slope sink in a little, so they do not float on the low side">Sink into slopes</span>
+      <input class="td-switch" type="checkbox" [checked]="s().scatter.sinkOnSlope" (change)="setScatterFlag('sinkOnSlope', $any($event.target).checked)" aria-label="Sink into slopes" />
+    </div>
+  </div>
+}
+
+@if (s().mode === 'scatter' || s().mode === 'erase') {
+  <app-brush-panel />
+}
+
+@if (s().mode === 'place' || s().mode === 'select') {
+  <div class="td-group">
+    <div class="td-setting">
+      <span id="op-snap">Grid snap</span>
+      <div class="td-seg is-compact is-sm" role="radiogroup" aria-labelledby="op-snap">
+        @for (step of snaps; track step) {
+          <button type="button" role="radio" [attr.aria-checked]="s().snap === step" (click)="setSnap(step)">{{ step ? step + ' m' : 'Off' }}</button>
+        }
+      </div>
+    </div>
+    @if (s().mode === 'place') {
+      <div class="td-setting">
+        <span>Turn at random</span>
+        <input class="td-switch" type="checkbox" [checked]="s().randomRotation" (change)="setRandomRotation($any($event.target).checked)" aria-label="Turn at random" />
+      </div>
+    }
+  </div>
+}
+
+<div class="td-group">
+  <h3 class="td-section">Assets</h3>
+  <input class="td-input is-sm" type="search" placeholder="Search" [value]="search()" (input)="search.set(value($event))" aria-label="Search assets" />
+  <div class="op-cats td-inline" role="radiogroup" aria-label="Category">
+    @for (c of categories(); track c) {
+      <button class="td-tag is-caps op-cat" type="button" role="radio" [attr.aria-checked]="category() === c" [class.is-brass]="category() === c" (click)="category.set(c)">{{ c }}</button>
+    }
+  </div>
+  <div class="op-palette">
+    @for (a of assets(); track a.id) {
+      <button class="td-card op-asset" type="button" [attr.aria-pressed]="isChosen(a)" (click)="chooseAsset(a)" [matTooltip]="a.name + ' | ' + a.category"
+              [attr.data-asset]="a.id">
+        <img [src]="thumb(a)" alt="" />
+        <span class="td-trunc">{{ a.name }}</span>
+      </button>
+    } @empty {
+      <p class="td-note">No asset matches.</p>
+    }
+  </div>
+</div>

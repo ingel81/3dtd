@@ -1,0 +1,69 @@
+<div class="td-group">
+  <h3 class="td-section">Layers <span class="td-note">{{ layers().length }} of {{ max }}</span></h3>
+  <div class="td-rows" role="listbox" aria-label="Ground layers">
+    @for (l of layers(); track l.index) {
+      <div class="td-row pp-layer" role="option" tabindex="0" [attr.aria-selected]="settings().layer === l.index" (click)="pick(l.index)"
+           (keydown.enter)="pick(l.index)" [attr.data-layer]="l.index">
+        <img class="pp-thumb" [src]="thumb(l.material)" alt="" />
+        <select class="td-select pp-select" [value]="l.layer.material" (click)="$event.stopPropagation()"
+                (change)="setMaterial(l.index, selectValue($event))" [attr.aria-label]="'Material of layer ' + (l.index + 1)">
+          @for (m of materials(); track m.id) {
+            <option [value]="m.id" [selected]="m.id === l.layer.material">{{ m.name }}</option>
+          }
+        </select>
+        <span class="pp-tools">
+          <button class="td-tool is-sm" type="button" aria-label="Move up" matTooltip="Move up (paints under the next)"
+                  [attr.aria-disabled]="l.index === 0 || null" (click)="$event.stopPropagation(); move(l.index, -1)">
+            <td-icon name="caretU" [size]="14" />
+          </button>
+          <button class="td-tool is-sm" type="button" aria-label="Move down" matTooltip="Move down"
+                  [attr.aria-disabled]="l.index === layers().length - 1 || null" (click)="$event.stopPropagation(); move(l.index, 1)">
+            <td-icon name="caret" [size]="14" />
+          </button>
+          <button class="td-tool is-sm" type="button" aria-label="Remove layer" matTooltip="Remove; its paint goes to the others"
+                  [attr.aria-disabled]="layers().length <= 1 || null" (click)="$event.stopPropagation(); layers().length > 1 && remove(l.index)">
+            <td-icon name="trash" [size]="14" />
+          </button>
+        </span>
+      </div>
+    }
+  </div>
+  @if (layers().length < max) {
+    <label class="td-setting">
+      <span>Add layer</span>
+      <select class="td-select is-auto" (change)="add(selectValue($event)); $any($event.target).value = ''" aria-label="Add a layer">
+        <option value="" selected disabled>Material</option>
+        @for (m of materials(); track m.id) {
+          <option [value]="m.id">{{ m.name }}</option>
+        }
+      </select>
+    </label>
+  }
+</div>
+
+<div class="td-group">
+  <div class="td-setting">
+    <span>Erase instead of paint</span>
+    <input class="td-switch" type="checkbox" [checked]="settings().erase" (change)="setErase($any($event.target).checked)" aria-label="Erase" />
+  </div>
+  <app-brush-panel />
+</div>
+
+<div class="td-group">
+  <h3 class="td-section">Auto paint</h3>
+  <p class="td-note">Repaints the whole map: the first layer everywhere, rock-like layers on steep slopes, sand-like ones at the shore, snow-like ones on the peaks.</p>
+  <button class="td-btn-secondary td-btn-sm" type="button" (click)="autoPaint()" data-test="auto-paint">Auto paint the map</button>
+</div>
+
+<div class="td-group">
+  <h3 class="td-section">Cliffs</h3>
+  <label class="td-setting">
+    <span>Material</span>
+    <select class="td-select is-auto" [value]="cliff().material" (change)="setCliff(selectValue($event), cliff().angle)" aria-label="Cliff material">
+      @for (m of materials(); track m.id) {
+        <option [value]="m.id" [selected]="m.id === cliff().material">{{ m.name }}</option>
+      }
+    </select>
+  </label>
+  <app-editor-range label="From" unit="deg" [min]="15" [max]="80" [value]="cliff().angle" (changed)="setCliff(cliff().material, $event)" />
+</div>

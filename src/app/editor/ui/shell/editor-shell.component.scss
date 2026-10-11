@@ -1,0 +1,138 @@
+// Layout of the editor: top bar, tool column, view, side column, status bar
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.es-root {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 320px;
+  grid-template-rows: var(--td-h-topbar) minmax(0, 1fr) 30px;
+  grid-template-areas:
+    'top top top'
+    'tools view side'
+    'status status status';
+  width: 100%;
+  height: 100%;
+}
+
+.es-top {
+  grid-area: top;
+  position: relative;
+  z-index: 3;
+}
+
+.es-name {
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-2);
+  max-width: 34vw;
+  min-width: 0;
+}
+
+.es-save {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.es-redo td-icon {
+  transform: scaleX(-1);
+}
+
+.es-file {
+  position: relative;
+}
+
+.es-file-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  width: 260px;
+  padding: var(--td-sp-1);
+}
+
+.es-spacer {
+  flex: 1 1 auto;
+}
+
+.es-tools {
+  grid-area: tools;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--td-sp-1);
+  padding: var(--td-sp-2) 0;
+  background: var(--td-bg-surface);
+}
+
+.es-tools-gap {
+  width: 28px;
+  height: 0;
+  margin: var(--td-sp-1) 0;
+}
+
+.es-tool {
+  width: 38px;
+  height: 38px;
+}
+
+.es-view {
+  grid-area: view;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.es-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  cursor: crosshair;
+}
+
+.es-box {
+  position: fixed;
+  z-index: 2;
+  border: 1px dashed var(--td-brass-light);
+  pointer-events: none;
+}
+
+.es-minimap {
+  position: absolute;
+  left: var(--td-sp-3);
+  bottom: var(--td-sp-3);
+}
+
+.es-check {
+  position: absolute;
+  top: var(--td-sp-3);
+  left: var(--td-sp-3);
+  width: min(420px, calc(100% - 24px));
+}
+
+.es-flash {
+  position: absolute;
+  top: var(--td-sp-3);
+  left: 50%;
+  margin: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.es-side {
+  grid-area: side;
+  min-height: 0;
+}
+
+.es-options {
+  max-height: 62%;
+  flex: 0 1 auto;
+}
+
+.es-status {
+  grid-area: status;
+}

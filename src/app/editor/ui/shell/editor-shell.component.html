@@ -1,0 +1,96 @@
+<div class="es-root">
+  <header class="es-top td-topbar">
+    <button class="td-tool" type="button" aria-label="Back to the maps" matTooltip="Back to the maps" (click)="leave()" data-test="back">
+      <td-icon name="caretL" [size]="18" />
+    </button>
+    <div class="es-name td-sunk">
+      <span class="td-loc-label">Map</span>
+      <span class="td-loc-name td-trunc" data-test="map-name">{{ title() }}</span>
+      <span class="es-save td-note" [class.is-warn]="session.dirty() && session.origin() === 'own'" data-test="save-state">{{ saveLine() }}</span>
+    </div>
+    <button class="td-tool" type="button" aria-label="Undo" [matTooltip]="session.undoLabel() ? 'Undo ' + session.undoLabel() + ' (Ctrl+Z)' : 'Nothing to undo'"
+            [attr.aria-disabled]="!session.canUndo() || null" (click)="session.undo()" data-test="undo">
+      <td-icon name="undo" [size]="18" />
+    </button>
+    <button class="td-tool es-redo" type="button" aria-label="Redo" [matTooltip]="session.redoLabel() ? 'Redo ' + session.redoLabel() + ' (Ctrl+Y)' : 'Nothing to redo'"
+            [attr.aria-disabled]="!session.canRedo() || null" (click)="session.redo()" data-test="redo">
+      <td-icon name="undo" [size]="18" />
+    </button>
+    <span class="td-tool-gap"></span>
+    <button class="td-tool" type="button" aria-label="Save" matTooltip="Save now (Ctrl+S); the editor also saves on its own"
+            [attr.aria-disabled]="session.origin() !== 'own' || null" (click)="session.save(true)" data-test="save">
+      <td-icon name="download" [size]="18" />
+    </button>
+    <div class="es-file">
+      <button class="td-tool" type="button" aria-label="File" matTooltip="File" [attr.aria-expanded]="fileMenu()" (click)="toggleFile()">
+        <td-icon name="more" [size]="18" />
+      </button>
+      @if (fileMenu()) {
+        <div class="es-file-menu td-popup td-rows" role="menu">
+          <button class="td-row" role="menuitem" type="button" (click)="fileAction('download')">Download map file</button>
+          <button class="td-row" role="menuitem" type="button" (click)="fileAction('png')">Export top view as picture</button>
+          <button class="td-row" role="menuitem" type="button" (click)="fileAction('frame')">Frame the whole map</button>
+          <button class="td-row" role="menuitem" type="button" (click)="fileAction('top')">Top view on or off <kbd class="td-kbd">T</kbd></button>
+        </div>
+      }
+    </div>
+    <span class="es-spacer"></span>
+    <button class="td-btn-secondary td-btn-sm" type="button" (click)="check()" matTooltip="Check the map for problems (V)" data-test="check">
+      Check
+      @if (session.issues(); as issues) {
+        <span class="td-tag" [class.is-error]="issueCount() > 0" [class.is-ok]="!issues.length">{{ issues.length }}</span>
+      }
+    </button>
+    <button class="td-btn-primary td-btn-sm" type="button" (click)="session.testPlay()" matTooltip="Save and play this map in a new tab" data-test="test-play">
+      <td-icon name="play" [size]="14" /> Test map
+    </button>
+  </header>
+
+  <nav class="es-tools" aria-label="Tools">
+    @for (t of tools; track t.id) {
+      @if (t.id === 'environment') {
+        <span class="es-tools-gap td-line-top" aria-hidden="true"></span>
+      }
+      <button class="td-icon-btn es-tool" type="button" [attr.aria-pressed]="session.tool() === t.id" [attr.aria-label]="t.label"
+              [matTooltip]="t.label + ' (' + t.key + ')'" matTooltipPosition="right" (click)="pick(t.id)" [attr.data-tool]="t.id">
+        <td-icon [name]="icons[t.id]" [size]="18" />
+      </button>
+    }
+  </nav>
+
+  <main class="es-view">
+    <canvas #canvas class="es-canvas" tabindex="0" aria-label="Map view" data-test="viewport"></canvas>
+    @if (session.box(); as b) {
+      <div class="es-box" [style.left.px]="b.x0 < b.x1 ? b.x0 : b.x1" [style.top.px]="b.y0 < b.y1 ? b.y0 : b.y1"
+           [style.width.px]="b.x1 > b.x0 ? b.x1 - b.x0 : b.x0 - b.x1" [style.height.px]="b.y1 > b.y0 ? b.y1 - b.y0 : b.y0 - b.y1"></div>
+    }
+    @if (session.issues()) {
+      <app-editor-check class="es-check" />
+    }
+    <app-editor-minimap class="es-minimap" />
+    @if (session.status()) {
+      <p class="es-flash td-chip" role="status">{{ session.status() }}</p>
+    }
+  </main>
+
+  <aside class="es-side td-side td-dense" aria-label="Tool options">
+    <section class="td-side-section es-options">
+      <header class="td-side-head"><span class="td-side-name">{{ toolLabel() }}</span></header>
+      <div class="td-side-body">
+        @switch (session.tool()) {
+          @case ('terrain') { <app-terrain-panel /> }
+          @case ('paint') { <app-paint-panel /> }
+          @case ('water') { <app-water-panel /> }
+          @case ('objects') { <app-object-panel /> }
+          @case ('paths') { <app-path-panel /> }
+          @case ('markers') { <app-marker-panel /> }
+          @case ('environment') { <app-environment-panel /> }
+          @case ('settings') { <app-map-panel /> }
+        }
+      </div>
+    </section>
+    <app-editor-outliner class="td-side-section is-fill" />
+  </aside>
+
+  <app-editor-status class="es-status" />
+</div>
