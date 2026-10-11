@@ -24,7 +24,8 @@
     "model-budget": "vitest run tools/model-budget/generate.spec.ts",
     "previews": "node e2e/previews/bake.ts",
     "shader-check": "vitest run tools/shader-check/shader-check.spec.ts --reporter=verbose",
-    "balance-calc": "vitest run tools/balance-calc/balance-calc.spec.ts"
+    "balance-calc": "vitest run tools/balance-calc/balance-calc.spec.ts",
+    "w3x-import": "vitest run tools/w3x/import.spec.ts --mode w3x --silent=false"
   },
   "prettier": {
     "printWidth": 100,
