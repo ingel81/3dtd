@@ -130,7 +130,7 @@ Seitenproben), `carryOffStreet` (Abzweig zum HQ trägt die Straßenhöhe weiter)
 
 - `WorldContext` (`world/world-context.service.ts`, root): `ref` (Signal, aus der URL; Tiles folgen der eingestellten
   Quelle), `capabilities`, `logos`, `provider`, `streets`, `startHq()`, `open(origin)` (macht den Provider vor dem
-  Engine), `close()`, `select(ref)`, `refreshRef()` (nach einer Neugenerierung)
+  Engine), `close()`, `refreshRef()` (nach einer Neugenerierung)
 - `WorldProviderRegistry` (`world/world-provider-registry.ts`): je Art eine `WorldFactory` mit `capabilities`,
   `create(ref, { injector, origin })`, optional `startHq(ref)`, `logos(ref)` und `coverage(ref)` (das Gebiet, in dem
   die Welt Boden hat; `WorldContext.coverage`, `world-coverage.ts`); `WorldUnavailableError` für eine

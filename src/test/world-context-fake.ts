@@ -38,7 +38,6 @@ export function fakeWorldContext(streets: Partial<WorldStreetSource> = {}) {
     startHq: vi.fn(() => (ref().kind === 'tiles' ? null : Promise.resolve({ lat: 0, lon: 0 }))),
     open: vi.fn(),
     close: vi.fn(),
-    select: vi.fn(),
     refreshRef: vi.fn(),
     /** Play DevWorld from here on */
     useDevWorld(): void {

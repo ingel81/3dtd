@@ -84,11 +84,6 @@ export class WorldContext {
     this.active.set(null);
   }
 
-  /** Play another world from the next start on (a coop host's map, the editor's "test map") */
-  select(ref: WorldRef): void {
-    this.chosen.set(ref.kind === 'tiles' ? null : ref);
-  }
-
   /** The open world's ref changed in place (a DevWorld regeneration): take it over */
   refreshRef(): void {
     const provider = this.active();

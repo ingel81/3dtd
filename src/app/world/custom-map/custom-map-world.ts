@@ -79,7 +79,11 @@ export function customMapDestructible(search: string): boolean {
   return new URLSearchParams(search).has('destructible');
 }
 
-/** Maps opened before their world is made (WorldFactory.startHq loads, create takes), by map id */
+/**
+ * The map opened before its world is made (WorldFactory.startHq loads,
+ * create takes; the coop host packs it), by map id. Only the last one:
+ * a page plays one map, and another world reloads the page
+ */
 const opened = new Map<string, LoadedCustomMap>();
 
 /**
@@ -94,6 +98,7 @@ export async function openCustomMap(ref: WorldRef & { kind: 'custom-map' }, stor
     throw new Error(`the map "${doc.meta.name}" here is not the one this run was played on`);
   }
   const loaded = { doc, contentHash: summary.contentHash };
+  opened.clear();
   opened.set(ref.mapId, loaded);
   return loaded;
 }

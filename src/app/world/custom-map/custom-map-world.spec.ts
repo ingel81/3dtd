@@ -349,5 +349,13 @@ describe('CustomMapWorld', () => {
     expect(openedCustomMap(ref)?.doc.meta.name).toBe('Test Map');
     await expect(openCustomMap({ ...ref, mapId: 'nope' }, store)).rejects.toThrow(/no map "nope"/);
     await expect(openCustomMap({ ...ref, contentHash: 'other' }, store)).rejects.toThrow(/not the one this run was played on/);
+
+    // Only the last map opened is kept: a page plays one
+    const other = testMap();
+    other.meta.id = 'other-map';
+    await store.save(other);
+    await openCustomMap({ kind: 'custom-map', mapId: 'other-map', contentHash: '' }, store);
+    expect(openedCustomMap({ kind: 'custom-map', mapId: 'other-map', contentHash: '' })).not.toBeNull();
+    expect(openedCustomMap(ref)).toBeNull();
   });
 });
