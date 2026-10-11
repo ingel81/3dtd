@@ -1108,6 +1108,52 @@ def tent(name, large=False):
 
 # ---------------------------------------------------------------- catalogue
 
+def bridge_deck_stone(name):
+    """Stone bridge piece in the bridge-deck format: 4 m along +X, 1 m wide (stretched to the path), deck
+    top at z = 0. Cut slabs with joints, a deep voussoir course below, low parapet stones on both edges"""
+    clear_scene()
+    rnd = random.Random(21)
+    slabs = Part(pbr_material('road-paving-slabs', 'castle_wall_slates', (1.0, 0.98, 0.95)), uv_metres=1.0, bevel=0.015)
+    body = Part(pbr_material('stone-stacked', 'stacked_stone_wall'), uv_metres=1.5)
+    cap = Part(pbr_material('stone-slates', 'castle_wall_slates'), uv_metres=1.0, bevel=0.02)
+    for k in range(5):
+        x = -2.0 + 0.4 + k * 0.8
+        box(slabs, x, 0, -0.1, 0.78, 0.9, 0.1 + rnd.uniform(-0.01, 0.0))
+    box(body, 0, 0, -0.75, 4.0, 1.0, 0.65)
+    for k in range(10):
+        x = -2.0 + 0.2 + k * 0.4
+        box(body, x, 0, -1.05, 0.38, 0.92, 0.35)
+    for y in (-0.46, 0.46):
+        for k in range(5):
+            x = -2.0 + 0.4 + k * 0.8
+            box(cap, x, y, 0.0, 0.76, 0.08, 0.42 + rnd.uniform(-0.02, 0.02))
+        box(cap, 0, y, 0.42, 4.0, 0.1, 0.08)
+    export(name, [slabs.to_object(name), body.to_object(name + '-body'), cap.to_object(name + '-parapet')])
+
+
+def bridge_deck_lava(name):
+    """Basalt bridge piece in the bridge-deck format with glowing seams between the slabs and along the
+    underside; deck top at z = 0"""
+    clear_scene()
+    rnd = random.Random(22)
+    rock = Part(pbr_material('rock-dark_rock-deck', 'dark_rock', (0.8, 0.78, 0.78)), uv_metres=1.0, bevel=0.02)
+    glow = Part(flat_material('lava-seam', (1.0, 0.32, 0.05), 0.4, emission=(1.0, 0.3, 0.04), strength=0.55))
+    k = 0
+    x = -2.0
+    while x < 1.95:
+        ln = min(2.0 - x, rnd.uniform(0.5, 0.9))
+        box(rock, x + ln / 2, rnd.uniform(-0.02, 0.02), -0.14, ln - 0.06, 0.94, 0.14 + rnd.uniform(-0.015, 0.0))
+        box(glow, x + ln - 0.03, 0, -0.16, 0.05, 0.9, 0.13)
+        x += ln
+        k += 1
+    box(rock, 0, 0, -0.9, 4.0, 0.98, 0.76)
+    box(glow, 0, 0, -0.93, 3.9, 0.7, 0.04)
+    for y in (-0.47, 0.47):
+        for j in range(4):
+            box(rock, -1.5 + j, y, -0.02, 0.8, 0.07, 0.3 + rnd.uniform(-0.05, 0.05))
+    export(name, [rock.to_object(name), glow.to_object(name + '-seams')])
+
+
 def models():
     def watermill_wheel(w, d, wall_h, pitch):
         return mill_wheel(w, d, wall_h, pitch)
@@ -1156,6 +1202,8 @@ def models():
         'pier-end': lambda: import_model('modular_wooden_pier', None, 7000, 'pier-end', objects=['modular_wooden_pier_section_01'], keep_scale=True,
                                          rot=90, extra=waterline(1.4)),
         # Walls, fences, gates
+        'bridge-deck-stone': lambda: bridge_deck_stone('bridge-deck-stone'),
+        'bridge-deck-lava': lambda: bridge_deck_lava('bridge-deck-lava'),
         'palisade': lambda: palisade('palisade'),
         'palisade-gate': lambda: palisade('palisade-gate', gate=True),
         'fence-picket': lambda: picket_fence('fence-picket'),

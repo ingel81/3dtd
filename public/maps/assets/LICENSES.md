@@ -155,6 +155,8 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | lamp-post | procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/dark_planks |
 | well | procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/castle_wall_slates, rough_wood, clay_roof_tiles_02 |
 | bridge-deck | procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_07, dark_planks |
+| bridge-deck-stone | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/stacked_stone_wall |
+| bridge-deck-lava | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/dark_rock |
 | tree-oak-autumn | procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_02; Blätter https://ambientcg.com/view?id=LeafSet012, LeafSet030 |
 | tree-oak-young | procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_02; Blätter https://ambientcg.com/view?id=LeafSet024, LeafSet016 |
 | tree-maple | procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet010 |
