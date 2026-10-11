@@ -329,20 +329,59 @@ def finish(name, objects, ao_size=512):
     return obj
 
 
+def flat_copy(material):
+    """A texture-free stand-in for a material: the average colour of its base colour image (times its tint)"""
+    import numpy as np
+    nt = material.node_tree
+    bsdf = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None) if nt else None
+    if bsdf is None:
+        return material
+    src = bsdf.inputs['Base Color']
+    colour = list(src.default_value)[:3]
+    img_node = None
+    if src.is_linked:
+        node = src.links[0].from_node
+        if node.type == 'TEX_IMAGE':
+            img_node = node
+        elif node.type == 'MIX':
+            a = node.inputs['A']
+            img_node = a.links[0].from_node if a.is_linked and a.links[0].from_node.type == 'TEX_IMAGE' else None
+            colour = list(node.inputs['B'].default_value)[:3]
+    if img_node is None or img_node.image is None:
+        return material
+    img = img_node.image
+    px = np.empty(img.size[0] * img.size[1] * 4, dtype=np.float32)
+    img.pixels.foreach_get(px)
+    mean = px.reshape(-1, 4)[:, :3].mean(axis=0)
+    tint = colour if src.links[0].from_node.type == 'MIX' else (1.0, 1.0, 1.0)
+    rough = bsdf.inputs['Roughness'].default_value if not bsdf.inputs['Roughness'].is_linked else 0.8
+    flat = flat_material(material.name + '-lod', tuple(float(m * t) for m, t in zip(mean, tint)), rough)
+    if material.name.startswith('foliage-'):
+        return material
+    return flat
+
+
 def export_lod(name, obj, ratio=0.3, suffix='-lod1'):
-    """A decimated copy for distant views (catalogue `lod`), exported next to the model"""
+    """A decimated copy for distant views (catalogue `lod`), exported next to the model. Textured
+    materials become their average colour, so the LOD file carries no second copy of the textures"""
     lod = obj.copy()
     lod.data = obj.data.copy()
     bpy.context.collection.objects.link(lod)
+    for slot in lod.material_slots:
+        source = slot.material
+        if source is not None:
+            # Object-level slot: the shared mesh data keeps the textured materials for the full model
+            slot.link = 'OBJECT'
+            slot.material = flat_copy(source)
     mod = lod.modifiers.new('decimate', 'DECIMATE')
     mod.ratio = ratio
     bpy.ops.object.select_all(action='DESELECT')
     lod.select_set(True)
     bpy.context.view_layer.objects.active = lod
     bpy.ops.object.modifier_apply(modifier=mod.name)
-    obj.hide_set(True)
+    while len(lod.data.uv_layers):
+        lod.data.uv_layers.remove(lod.data.uv_layers[0])
     export(name + suffix, [lod])
-    obj.hide_set(False)
     bpy.data.objects.remove(lod)
 
 

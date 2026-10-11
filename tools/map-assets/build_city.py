@@ -121,6 +121,31 @@ def cornice(part, w, d, z, steps=((0.15, 0.2), (0.32, 0.12), (0.45, 0.14))):
         z += h
 
 
+ROOF = {}
+
+
+def flat_roof(w, d, z, rnd, inset=0.3):
+    """Tar-paper membrane with a gravel strip along the edge, skylights with frames, a drain"""
+    if 'felt' not in ROOF:
+        ROOF['felt'] = Part(pbr_material('roof-bitumen', 'bitumen', (0.8, 0.8, 0.8)), uv_metres=3.0, bevel=0.0)
+        ROOF['gravel'] = Part(pbr_material('roof-gravel_floor_02', 'gravel_floor_02', (0.85, 0.85, 0.85)), uv_metres=2.0, bevel=0.0)
+        ROOF['sky'] = Part(flat_material('skylight', (0.2, 0.26, 0.3), 0.1, 0.5))
+        ROOF['frame'] = Part(flat_material('skylight-frame', (0.55, 0.56, 0.57), 0.4, 0.7), bevel=0.01)
+    box(ROOF['felt'], 0, 0, z, w - 2 * inset, d - 2 * inset, 0.04)
+    for sy in (-1, 1):
+        box(ROOF['gravel'], 0, sy * (d / 2 - inset - 0.5), z + 0.04, w - 2 * inset - 0.2, 0.8, 0.03)
+    for k in range(2 if w > 9 else 1):
+        x = (k - 0.5) * w * 0.35 if w > 9 else w * 0.15
+        y = rnd.uniform(-d * 0.12, d * 0.12)
+        box(ROOF['frame'], x, y, z + 0.04, 1.6, 1.2, 0.35)
+        box(ROOF['sky'], x, y, z + 0.39, 1.4, 1.0, 0.05)
+
+
+def roof_parts(name):
+    parts = [(ROOF.pop(k), name + '-' + k) for k in ('felt', 'gravel', 'sky', 'frame') if k in ROOF]
+    return [p.to_object(n) for p, n in parts]
+
+
 def roof_units(kit, w, d, z, rnd, water_tank=False):
     """Plant on a flat roof: stair house, air conditioners, vent pipes, optionally a water tank on legs"""
     box(kit.trim, -w * 0.25, d * 0.15, z, 2.6, 2.2, 2.4)
@@ -257,9 +282,12 @@ def city_block(name, style='modern', floors=4, w=14.0, d=10.0, ruined=False, see
             for side in range(4):
                 face = Face(side, w, d)
                 face.box(kit.trim, 0, -0.1, z0 + h + 0.25, face.length + 0.1, 0.25, 0.7)
+            roof_z = z0 + h + 0.25
         else:
             cornice(kit.trim, w, d, z0 + h)
-        roof_units(kit, w * 0.85, d * 0.8, z0 + h + 0.25, rnd, water_tank=style == 'old')
+            roof_z = z0 + h + 0.46
+        flat_roof(w, d, roof_z, rnd, inset=0.5 if style == 'modern' else 0.25)
+        roof_units(kit, w * 0.85, d * 0.8, roof_z, rnd, water_tank=style == 'old')
         # Inner box so the building is closed behind the windows
         box(kit.dark, 0, 0, z0, w - 0.9, d - 0.9, h - 0.4)
     else:
@@ -273,7 +301,7 @@ def city_block(name, style='modern', floors=4, w=14.0, d=10.0, ruined=False, see
             r = rnd.uniform(0.55, 1.05)
             box(rubble, math.cos(a) * (w / 2 + 1.6) * r, math.sin(a) * (d / 2 + 1.6) * r, -0.3, rnd.uniform(0.4, 1.4),
                 rnd.uniform(0.3, 1.0), rnd.uniform(0.2, 0.7), rnd.uniform(0, 3))
-    objects = kit.objects(name)
+    objects = kit.objects(name) + roof_parts(name)
     joined = bake_ao(name, objects, size=1024 if floors > 4 else 512)
     export(name, [joined])
     export_lod(name, joined)

@@ -6731,7 +6731,7 @@
       "category": "building",
       "file": "models/brick-block.glb",
       "footprint": 5.5,
-      "height": 15.9,
+      "height": 16.2,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6759,7 +6759,7 @@
       "category": "building",
       "file": "models/brick-house.glb",
       "footprint": 4.7,
-      "height": 12.6,
+      "height": 12.9,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6835,7 +6835,7 @@
       "category": "building",
       "file": "models/shop.glb",
       "footprint": 4.6,
-      "height": 9.4,
+      "height": 9.6,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
