@@ -206,14 +206,20 @@ describe('landforms', () => {
 });
 
 describe('river and road', () => {
-  it('carves a river with water, banks and a bridge where it crosses the road', () => {
+  it('carves a river that flows downhill, with banks and a bridge where it crosses the road', () => {
     const ed = map();
     const stroke = new LandscapeStroke(ed, 'River', 3, catalog);
     const result = carveRiver(stroke, [{ x: -20, y: -150 }, { x: 0, y: 0 }, { x: 20, y: 150 }], DEFAULT_RIVER)!;
     stroke.finish();
     const t = ed.doc.terrain;
-    expect(t.water).not.toBeNull();
-    expect(heightAt(t, 10, 75)).toBeLessThan(result.level - 1);
+    expect(t.water).toBeNull();
+    expect(t.rivers).toEqual([result.river]);
+    const pts = result.river.points;
+    expect(pts.length).toBeGreaterThan(30);
+    for (let k = 1; k < pts.length; k++) expect(pts[k].height).toBeLessThan(pts[k - 1].height);
+    expect(pts.every((p) => p.width > 6 && p.width < 20)).toBe(true);
+    const mid = pts[Math.floor(pts.length / 2)];
+    expect(heightAt(t, mid.x, mid.y)).toBeLessThan(mid.height - 1);
     expect(result.bridges).toBe(1);
     const bridge = ed.doc.paths.edges.find((e) => e.kind === 'bridge')!;
     const line = edgePolyline(ed.doc.paths, bridge);
@@ -223,7 +229,40 @@ describe('river and road', () => {
     expect(ed.historySteps).toBe(1);
     ed.undo();
     expect(ed.doc.paths.edges.every((e) => e.kind !== 'bridge')).toBe(true);
-    expect(ed.doc.terrain.water).toBeNull();
+    expect(ed.doc.terrain.rivers).toBeUndefined();
+    ed.redo();
+    expect(ed.doc.terrain.rivers?.[0].points).toEqual(pts);
+  });
+
+  it('turns a river drawn uphill round and puts a waterfall over a step', () => {
+    const ed = map();
+    const t = ed.doc.terrain;
+    const g = t.grid;
+    // A 12 m step across the map: high ground in the south
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) if (j * g.cellSize - t.depth / 2 < 0) g.heights[j * g.columns + i] = 12;
+    const stroke = new LandscapeStroke(ed, 'River', 5, catalog);
+    const result = carveRiver(stroke, [{ x: 100, y: 150 }, { x: 100, y: -150 }], { ...DEFAULT_RIVER, bridges: false })!;
+    stroke.finish();
+    const pts = result.river.points;
+    expect(pts[0].y).toBeLessThan(0);
+    expect(pts[0].height).toBeGreaterThan(pts[pts.length - 1].height + 10);
+    expect(result.waterfalls).toBe(1);
+    const fall = ed.doc.objects.find((o) => o.asset === 'fx-waterfall')!;
+    expect(Math.abs(fall.y)).toBeLessThan(10);
+    // Faces downstream (north, +y): front +y at turn 0
+    expect(Math.abs(fall.rotation)).toBeLessThan(0.4);
+    expect(fall.scale).toBeGreaterThan(0.5);
+  });
+
+  it('lets a lava flow run with scorched banks, without reeds, falls or bridges', () => {
+    const ed = map();
+    const stroke = new LandscapeStroke(ed, 'Lava', 3, catalog);
+    const result = carveRiver(stroke, [{ x: -20, y: -150 }, { x: 0, y: 0 }, { x: 20, y: 150 }], { ...DEFAULT_RIVER, kind: 'lava' })!;
+    stroke.finish();
+    expect(result.river.kind).toBe('lava');
+    expect(result.bridges).toBe(0);
+    expect(ed.doc.objects.some((o) => o.asset.includes('reed'))).toBe(false);
+    expect(ed.doc.terrain.layers.map((l) => l.material)).toContain('scorched-ground');
   });
 
   it('builds a road joined to the network, levels it and lines it with lamps', () => {

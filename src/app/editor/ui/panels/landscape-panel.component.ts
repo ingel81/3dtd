@@ -63,6 +63,10 @@ export class LandscapePanelComponent {
     this.session.patchSettings((s) => (s.landscape.river[key] = v));
   }
 
+  setRiverKind(kind: 'water' | 'lava'): void {
+    this.session.patchSettings((s) => (s.landscape.river.kind = kind));
+  }
+
   setRiverFlag(key: 'reeds' | 'bridges', on: boolean): void {
     this.session.patchSettings((s) => (s.landscape.river[key] = on));
   }

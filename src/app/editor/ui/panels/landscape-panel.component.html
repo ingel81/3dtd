@@ -31,6 +31,10 @@
 @if (s().mode === 'river') {
   <div class="td-group">
     <h3 class="td-section">River</h3>
+    <div class="td-seg is-sm" role="radiogroup" aria-label="What flows">
+      <button type="button" role="radio" [attr.aria-checked]="s().river.kind === 'water'" (click)="setRiverKind('water')">Water</button>
+      <button type="button" role="radio" [attr.aria-checked]="s().river.kind === 'lava'" (click)="setRiverKind('lava')" data-test="river-lava">Lava</button>
+    </div>
     <app-editor-range label="Width" unit="m" [min]="4" [max]="60" [step]="1" [value]="s().river.width" (changing)="setRiver('width', $event)" />
     <app-editor-range label="Depth" unit="m" [min]="0.5" [max]="8" [step]="0.5" [value]="s().river.depth" (changing)="setRiver('depth', $event)" />
     <app-editor-range label="Banks" unit="m" [min]="2" [max]="40" [step]="1" [value]="s().river.bank" (changing)="setRiver('bank', $event)" />
@@ -38,7 +42,7 @@
       <input class="td-switch" type="checkbox" [checked]="s().river.reeds" (change)="setRiverFlag('reeds', checked($event))" aria-label="Reeds" /></div>
     <div class="td-setting"><span>Bridges over roads</span>
       <input class="td-switch" type="checkbox" [checked]="s().river.bridges" (change)="setRiverFlag('bridges', checked($event))" aria-label="Bridges" /></div>
-    <p class="td-note">The river lies at the map's water level (or just under the lowest ground along it) and cuts its bed through higher ground.</p>
+    <p class="td-note">It flows downhill whichever way you draw, cuts its bed into the ground and falls over steep steps as a waterfall.</p>
   </div>
 }
 

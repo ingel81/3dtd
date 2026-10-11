@@ -1,9 +1,9 @@
 /**
  * Small terrain commands that swap one part of the terrain object in place:
- * the ground layer list, the water record. The terrain object itself stays,
+ * the ground layer list, the water record, the rivers. The terrain object itself stays,
  * so the renderer keeps its ground.
  */
-import type { CustomMapDocument, MapGroundLayer, MapWater } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapGroundLayer, MapRiver, MapWater } from '../../world/custom-map/map-document';
 import type { DocChange, EditCommand } from './editor-document';
 
 /** The list of ground layers before and after (the splat weights are not part of it) */
@@ -48,4 +48,32 @@ export class WaterSwapCommand implements EditCommand {
     doc.terrain.water = this.before ? structuredClone(this.before) : null;
     return { water: true };
   }
+}
+
+/** The list of rivers and lava flows before and after */
+export class RiverListCommand implements EditCommand {
+  readonly bytes: number;
+
+  constructor(
+    readonly label: string,
+    private readonly before: readonly MapRiver[] | undefined,
+    private readonly after: readonly MapRiver[] | undefined,
+  ) {
+    const size = (l: readonly MapRiver[] | undefined) => (l ?? []).reduce((n, r) => n + 64 + r.points.length * 32, 0);
+    this.bytes = size(before) + size(after);
+  }
+
+  apply(doc: CustomMapDocument): DocChange {
+    return setRivers(doc, this.after);
+  }
+
+  revert(doc: CustomMapDocument): DocChange {
+    return setRivers(doc, this.before);
+  }
+}
+
+function setRivers(doc: CustomMapDocument, rivers: readonly MapRiver[] | undefined): DocChange {
+  if (rivers?.length) doc.terrain.rivers = structuredClone(rivers) as MapRiver[];
+  else delete doc.terrain.rivers;
+  return { water: true };
 }

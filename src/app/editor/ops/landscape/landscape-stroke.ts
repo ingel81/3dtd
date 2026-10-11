@@ -7,7 +7,7 @@
  * every brush pulls toward a target from the original ground instead of
  * piling up dab by dab.
  */
-import type { CustomMapDocument, MapGroundLayer, MapObject, MapPaths, MapPoint, MapWater } from '../../../world/custom-map/map-document';
+import type { CustomMapDocument, MapGroundLayer, MapObject, MapPaths, MapPoint, MapRiver, MapWater } from '../../../world/custom-map/map-document';
 import type { CatalogIndex } from '../../catalog/asset-catalog';
 import {
   CompoundCommand,
@@ -22,7 +22,7 @@ import {
 } from '../../model/editor-document';
 import type { GridRect } from '../../model/grid';
 import { RegionRecorder } from '../../model/region-patch';
-import { LayerListCommand, WaterSwapCommand } from '../../model/terrain-commands';
+import { LayerListCommand, RiverListCommand, WaterSwapCommand } from '../../model/terrain-commands';
 import { MAX_LAYERS } from '../paint-ops';
 import { ObjectGrid, ObjectIds } from '../object-ops';
 import { edgePolyline, nearestOnPolyline } from '../path-graph';
@@ -51,6 +51,7 @@ export class LandscapeStroke {
   private readonly waterBefore: MapWater | null;
   private createdWater: MapWater | null = null;
   private pathsBefore: MapPaths | null = null;
+  private riversBefore: { list: MapRiver[] | undefined } | null = null;
   readonly added: MapObject[] = [];
   readonly grid: ObjectGrid;
   private readonly ids: ObjectIds;
@@ -172,6 +173,12 @@ export class LandscapeStroke {
     this.pathsBefore ??= structuredClone(this.doc.paths);
   }
 
+  /** Call before the stroke adds or changes a river */
+  markRivers(): void {
+    const list = this.doc.terrain.rivers;
+    this.riversBefore ??= { list: list ? structuredClone(list) : undefined };
+  }
+
   touchHeights(rect: GridRect): void {
     this.heights.touch(rect);
   }
@@ -234,6 +241,7 @@ export class LandscapeStroke {
       ...(this.waterRecorder ? [{ target: 'water' as const, patches: this.waterRecorder.finish() }] : []),
     ]);
     if (!patches.empty) parts.push(patches);
+    if (this.riversBefore) parts.push(new RiverListCommand('Rivers', this.riversBefore.list, t.rivers ? structuredClone(t.rivers) : undefined));
     if (this.pathsBefore) parts.push(new SnapshotCommand('Roads', { paths: this.pathsBefore }, { paths: structuredClone(doc.paths) }));
     if (this.added.length) {
       const start = doc.objects.length - this.added.length;

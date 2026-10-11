@@ -170,8 +170,14 @@ export class LandscapeTool implements EditorTool {
       case 'river': {
         const r = carveRiver(stroke, line, s.river);
         if (!r) ctx.status('Draw a longer line for a river');
-        else if (r.bridges)
-          ctx.status(`River with ${r.bridges} ${r.bridges === 1 ? 'bridge' : 'bridges'}`);
+        else {
+          const extras = [
+            r.waterfalls ? `${r.waterfalls} ${r.waterfalls === 1 ? 'waterfall' : 'waterfalls'}` : '',
+            r.bridges ? `${r.bridges} ${r.bridges === 1 ? 'bridge' : 'bridges'}` : '',
+          ].filter((e) => e);
+          const fall = Math.round(r.river.points[0].height - r.river.points[r.river.points.length - 1].height);
+          ctx.status(`${r.river.kind === 'lava' ? 'Lava flow' : 'River'} falling ${fall} m${extras.length ? `, ${extras.join(', ')}` : ''}`);
+        }
         break;
       }
       case 'road': {

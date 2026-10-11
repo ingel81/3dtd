@@ -1,19 +1,18 @@
 /**
- * The river brush: a drawn line becomes a natural river: the hand's line
- * smoothed into a Catmull-Rom curve that meanders a little, a width that
- * swells and narrows along it, a bed deep in the middle with shallow
- * shelves at the sides, banks that slope into the land through sand and
- * gravel to grass, reeds in clumps at the water's edge and stones on the
- * banks, and a bridge wherever it crosses a road.
- *
- * Maps have one main water level, so the river surface lies at it (or, on
- * a map without water, just under the lowest ground along the line); the
- * bed is cut below it through higher ground, and low land gets a bank.
+ * The river brush: a drawn line becomes a natural river or a lava flow: the
+ * hand's line smoothed into a Catmull-Rom curve that meanders a little, a
+ * width that swells and narrows, a surface that only ever falls (the river
+ * runs downhill whichever way it was drawn), a bed deep in the middle with
+ * shallow shelves, banks that slope into the land through sand and gravel
+ * (scorched rock around lava), reeds in clumps and stones on the banks, a
+ * waterfall where the surface drops steeply, and a bridge wherever it
+ * crosses a road. The river itself is a `MapRiver` of the map: points with
+ * width and surface height that the renderer draws as a flowing ribbon.
  */
-import type { MapPoint } from '../../../world/custom-map/map-document';
-import { sampleX, sampleY, texelX, texelY, type GridRect } from '../../model/grid';
+import type { MapPoint, MapRiver } from '../../../world/custom-map/map-document';
+import { heightAt, sampleX, sampleY, texelX, texelY, type GridRect } from '../../model/grid';
 import { MAX_LAYERS, readWeights, writeWeights } from '../paint-ops';
-import { edgePolyline, nearestOnPolyline, pointAt, polylineLength, splitEdge } from '../path-graph';
+import { edgePolyline, nearestOnPolyline, newId, pointAt, polylineLength, splitEdge } from '../path-graph';
 import { resample, segmentCross } from './lines';
 import { smooth } from './landscape-noise';
 import type { LandscapeStroke } from './landscape-stroke';
@@ -29,14 +28,28 @@ export interface RiverOptions {
   reeds: boolean;
   /** Turn crossed roads into bridges */
   bridges: boolean;
+  /** Water, or a lava flow with scorched banks */
+  kind: 'water' | 'lava';
 }
 
-export const DEFAULT_RIVER: RiverOptions = { width: 14, depth: 2.5, bank: 10, reeds: true, bridges: true };
+export const DEFAULT_RIVER: RiverOptions = { width: 14, depth: 2.5, bank: 10, reeds: true, bridges: true, kind: 'water' };
+
+/** Metres the surface falls at least per metre of course */
+const MIN_FALL = 0.004;
+/** Metres the surface stays under the ground along the centre line */
+const UNDER = 0.5;
+/** A surface falling steeper than this (metres per metre) gets a waterfall */
+const FALL_SLOPE = 0.25;
+/** Metres a waterfall drops at least */
+const FALL_MIN = 1.5;
+/** Metres between the points of a river */
+const POINT_STEP = 8;
 
 export interface RiverResult {
   line: MapPoint[];
-  level: number;
+  river: MapRiver;
   bridges: number;
+  waterfalls: number;
   heights: GridRect | null;
   splat: GridRect | null;
 }
@@ -87,25 +100,55 @@ export function riverCourse(
   return { line, half };
 }
 
+/**
+ * The surface along a course: just under the ground at the top, never
+ * rising, falling at least a little. A line drawn uphill is turned round so
+ * the river flows from its first point.
+ */
+export function riverSurface(stroke: LandscapeStroke, line: readonly MapPoint[]): { line: MapPoint[]; surface: number[]; reversed: boolean } {
+  const t = stroke.doc.terrain;
+  const last = line[line.length - 1];
+  const reversed = heightAt(t, line[0].x, line[0].y) < heightAt(t, last.x, last.y);
+  const course = reversed ? [...line].reverse() : [...line];
+  const surface: number[] = [];
+  for (let k = 0; k < course.length; k++) {
+    const under = heightAt(t, course[k].x, course[k].y) - UNDER;
+    if (k === 0) surface.push(under);
+    else {
+      const run = Math.hypot(course[k].x - course[k - 1].x, course[k].y - course[k - 1].y);
+      surface.push(Math.min(surface[k - 1] - MIN_FALL * run, under));
+    }
+  }
+  return { line: course, surface, reversed };
+}
+
 export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], options: RiverOptions): RiverResult | null {
   const doc = stroke.doc;
   const t = doc.terrain;
   const g = t.grid;
   if (drawn.length < 2 || polylineLength(drawn) < g.cellSize * 3) return null;
-  const { line, half } = riverCourse(stroke, drawn, options, g.cellSize);
+  const lava = options.kind === 'lava';
+  const course = riverCourse(stroke, drawn, options, g.cellSize);
+  const { line, surface, reversed } = riverSurface(stroke, course.line);
+  const length = polylineLength(line);
+  const half = (s: number) => course.half(reversed ? length - s : s);
+  const along: number[] = [0];
+  for (let k = 1; k < line.length; k++) along.push(along[k - 1] + Math.hypot(line[k].x - line[k - 1].x, line[k].y - line[k - 1].y));
+  /** Surface height at a distance along the course */
+  const surfaceAt = (s: number) => {
+    let lo = 0;
+    let hi = along.length - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (along[mid] <= s) lo = mid;
+      else hi = mid;
+    }
+    const f = Math.min(1, Math.max(0, (s - along[lo]) / Math.max(1e-6, along[hi] - along[lo])));
+    return surface[lo] + (surface[hi] - surface[lo]) * f;
+  };
   const maxHalf = options.width * 0.65;
   const reach = maxHalf + options.bank * 1.4;
   const n = stroke.noise;
-
-  // The water surface
-  let lowest = Infinity;
-  for (const p of line) {
-    const i = Math.min(g.columns - 1, Math.max(0, Math.round((p.x + t.width / 2) / g.cellSize)));
-    const j = Math.min(g.rows - 1, Math.max(0, Math.round((p.y + t.depth / 2) / g.cellSize)));
-    lowest = Math.min(lowest, stroke.baseHeight(i, j));
-  }
-  const level = stroke.ensureWater(lowest - 0.4);
-  const shore = level + 0.35;
 
   const xs = line.map((p) => p.x);
   const ys = line.map((p) => p.y);
@@ -116,8 +159,6 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
     j1: Math.min(g.rows - 1, Math.ceil((Math.max(...ys) + reach + t.depth / 2) / g.cellSize)),
   };
   stroke.touchHeights(rect);
-  stroke.touchWater(rect);
-  const water = t.water!;
   /** Bank width at a point: wider and narrower along the river */
   const bankAt = (x: number, y: number) => options.bank * (0.7 + 0.6 * (0.5 + 0.5 * n.fbm(x, y, 40, 2, 'n3')));
   for (let j = rect.j0; j <= rect.j1; j++) {
@@ -132,23 +173,24 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
       if (d >= h + bank) continue;
       const k = j * g.columns + i;
       const base = stroke.baseHeight(i, j);
+      const level = surfaceAt(hit.along);
       if (d < h) {
         // Deep in the middle, a shallow shelf toward the sides
         const deep = Math.pow(1 - smooth(0.2, 1, d / h), 1.3);
         g.heights[k] = Math.min(base, level - 0.25 - options.depth * deep);
       } else {
-        // The bank: from just above the water into the land, a soft S curve
+        // The bank: from just above the surface into the land, a soft S curve (a levee where the land lies lower)
+        const shore = level + 0.35;
         const s = smooth(0, 1, (d - h) / bank);
         g.heights[k] = shore + (base - shore) * s;
       }
-      if (d < h + g.cellSize * 1.5) water.mask[k] = 255;
     }
   }
 
-  // Ground: gravel and mud under water, sand and gravel on the inner bank, fading into the land
-  const sand = stroke.layerOf(['sand', 'gravel']);
-  const gravel = stroke.layerOf(['gravel', 'rocky-ground', 'sand']);
-  const mud = stroke.layerOf(['mud', 'dirt']);
+  // Ground: mud and gravel in the bed, sand and gravel on the inner bank (scorched rock by lava), fading into the land
+  const sand = stroke.layerOf(lava ? ['scorched-ground', 'volcanic-rock', 'basalt'] : ['sand', 'gravel']);
+  const gravel = stroke.layerOf(lava ? ['volcanic-rock', 'basalt', 'scorched-ground'] : ['gravel', 'rocky-ground', 'sand']);
+  const mud = stroke.layerOf(lava ? ['lava-crust', 'basalt'] : ['mud', 'dirt']);
   let splat: GridRect | null = null;
   if (sand !== null) {
     const res = t.splat.resolution;
@@ -167,11 +209,9 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
         const x = texelX(t, u);
         const hit = nearestOnPolyline(line, { x, y });
         if (!hit) continue;
-        const h = half(hit.along);
-        const bank = bankAt(x, y);
-        const s = (hit.dist - h) / bank;
+        const s = (hit.dist - half(hit.along)) / bankAt(x, y);
         if (s > 0.85) continue;
-        // How much of the river ground: full under water, fading out over the outer half of the bank
+        // How much of the river ground: full in the bed, fading out over the outer half of the bank
         const a = 1 - smooth(0.25, 0.85, s);
         if (a <= 0) continue;
         target.fill(0);
@@ -193,12 +233,23 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
     }
   }
 
-  // Reeds in clumps at the water's edge, stones on the banks
+  // The river itself: points with width and surface height, flowing from the first
+  stroke.markRivers();
+  const round = (v: number) => Math.round(v * 100) / 100;
+  const points = resample(line, POINT_STEP).map((p) => {
+    const s = nearestOnPolyline(line, p)?.along ?? 0;
+    return { x: round(p.x), y: round(p.y), width: round(half(s) * 2), height: round(surfaceAt(s)) };
+  });
+  const rivers = (t.rivers ??= []);
+  const river: MapRiver = { id: newId('river', rivers), kind: lava ? 'lava' : 'water', points };
+  rivers.push(river);
+
+  // Reeds in clumps at the edge and stones on the banks; by lava only scattered volcanic rock
   const placed: string[] = [];
-  const reed = ['reeds', 'cattails', 'grass-clump'].find((a) => stroke.catalog.objects.has(a));
-  const stone = ['rock-small', 'stone'].find((a) => stroke.catalog.objects.has(a));
+  const has = (ids: string[]) => ids.find((a) => stroke.catalog.objects.has(a));
+  const reed = lava ? undefined : has(['reed-bed', 'reeds', 'grass-swamp', 'grass-clump']);
+  const stone = lava ? has(['rock-volcanic', 'rock-basalt', 'rock-pumice']) : has(['stones', 'rock-round', 'rock-small']);
   if (options.reeds) {
-    const length = polylineLength(line);
     for (let s = 0, k = 0; s < length; s += 1.6, k++) {
       const p = pointAt(line, s);
       const q = pointAt(line, Math.min(length, s + 1));
@@ -211,8 +262,8 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
           if (!stroke.freeForObject(x, y, 0.3) || stroke.grid.near({ x, y }, 0.9)) return;
           const o = stroke.addObject({
             asset,
-            x: Math.round(x * 100) / 100,
-            y: Math.round(y * 100) / 100,
+            x: round(x),
+            y: round(y),
             z: 0,
             rotation: Math.round(n.hash(k, side, 43) * 6283) / 1000,
             scale: Math.round(scale * 1000) / 1000,
@@ -227,9 +278,38 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
     }
   }
 
-  const bridges = options.bridges ? bridgeCrossings(stroke, line, maxHalf + options.bank) : 0;
+  // A waterfall over each steep stretch of the surface, facing downstream, as tall as the drop
+  let waterfalls = 0;
+  const fall = lava ? undefined : has(['fx-waterfall', 'waterfall']);
+  if (fall) {
+    const tall = Math.max(0.5, stroke.catalog.object(fall).height);
+    const steep = (a: number) => {
+      const run = Math.hypot(points[a].x - points[a - 1].x, points[a].y - points[a - 1].y);
+      return run > 0 && (points[a - 1].height - points[a].height) / run >= FALL_SLOPE;
+    };
+    for (let k = 1; k < points.length; k++) {
+      if (!steep(k)) continue;
+      const top = points[k - 1];
+      while (k + 1 < points.length && steep(k + 1)) k++;
+      const foot = points[k];
+      const drop = top.height - foot.height;
+      if (drop < FALL_MIN) continue;
+      const o = stroke.addObject({
+        asset: fall,
+        x: round((top.x + foot.x) / 2),
+        y: round((top.y + foot.y) / 2),
+        z: 0,
+        rotation: Math.round((Math.atan2(foot.y - top.y, foot.x - top.x) - Math.PI / 2) * 1000) / 1000,
+        scale: round(drop / tall),
+      });
+      placed.push(o.id);
+      waterfalls++;
+    }
+  }
+
+  const bridges = options.bridges && !lava ? bridgeCrossings(stroke, line, maxHalf + options.bank) : 0;
   stroke.changed({ heights: rect, splat: splat ?? undefined, water: true, objects: placed.length ? placed : undefined, paths: bridges > 0 || undefined });
-  return { line, level, bridges, heights: rect, splat };
+  return { line, river, bridges, waterfalls, heights: rect, splat };
 }
 
 /** Splits every road the river crosses and makes the crossing stretch a bridge; returns how many */
