@@ -296,7 +296,7 @@ void main() {
   // Faint by day (a lit lamp), full at night
   vColor = aCol.rgb * flicker * mix(0.25, 1.0, uDarkness);
   vUv = uv;
-  vec4 mvPosition = viewMatrix * vec4(aPos.xyz, 1.0);
+  vec4 mvPosition = modelViewMatrix * vec4(aPos.xyz, 1.0);
   mvPosition.xy += position.xy * aPos.w * mix(0.6, 1.0, uDarkness);
   // Pulled towards the camera a little, so the halo is not cut by the lamp's own mesh
   mvPosition.xyz *= 1.0 - min(0.4 / max(-mvPosition.z, 1.0), 0.3);

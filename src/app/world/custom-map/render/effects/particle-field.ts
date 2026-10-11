@@ -246,7 +246,7 @@ if (uKind == 1 || uKind == 4 || uKind == 5 || uKind == 6 || uKind == 8) {
   vColor = color;
   vAlpha = alpha;
   // Camera-facing quad around p
-  vec4 mvPosition = viewMatrix * vec4(p, 1.0);
+  vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
   mvPosition.xy += position.xy * size;
   gl_Position = projectionMatrix * mvPosition;
   #include <logdepthbuf_vertex>
