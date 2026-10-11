@@ -258,6 +258,13 @@ export class CustomMapEnvironment {
     this.placeSun(point);
   }
 
+  /** 0 by day, 1 at night: how much map lights (lanterns, torches) matter */
+  get darkness(): number {
+    const base = { day: 0, overcast: 0.2, dusk: 0.6, night: 1 }[this.env.sky] ?? 0;
+    // A low sun darkens any sky
+    return Math.min(1, Math.max(base, 1 - this.env.sunElevation / 12));
+  }
+
   /** Height the fog is densest at (the map's low ground), metres in the scene */
   setFogBase(height: number): void {
     HEIGHT_FOG_UNIFORMS.uFogBase.value = height;

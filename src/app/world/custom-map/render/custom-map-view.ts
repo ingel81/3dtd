@@ -4,6 +4,7 @@ import { HeightField } from './height-field';
 import type { MapAssetLibrary } from './map-asset-library';
 import { sceneToMap } from './map-coords';
 import { CustomMapEnvironment } from './environment/map-environment';
+import { EffectLayer } from './effects/effect-layer';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { BridgeLayer } from './paths/path-bridges';
 import { MapTerrainLayer } from './terrain/map-terrain';
@@ -80,6 +81,7 @@ export class CustomMapView {
   private readonly waters: (WaterSurface | null)[] = [];
   private readonly objects: MapObjectLayer;
   private readonly bridges: BridgeLayer;
+  private readonly effects: EffectLayer;
   private readonly camPos = new Vector3();
   private readonly hitPoint = new Vector3();
   private readonly mapPoint = { x: 0, y: 0 };
@@ -109,6 +111,8 @@ export class CustomMapView {
     this.group.add(this.objects.group);
     this.bridges = new BridgeLayer(this.heights, assets);
     this.group.add(this.bridges.group);
+    this.effects = new EffectLayer(this.heights);
+    this.group.add(this.effects.group);
     this.ready = this.load();
   }
 
@@ -157,6 +161,7 @@ export class CustomMapView {
     // Shadow box sized to what the camera sees around the focus: sharp up close, wide from high up
     const reach = this.camPos.distanceTo(this.focusPoint);
     this.environment.focus(this.focusPoint, Math.min(450, Math.max(70, reach * 0.9)));
+    this.effects.update(dtSeconds, this.focusPoint);
     this.environment.update(dtSeconds, camera);
   }
 
@@ -214,12 +219,13 @@ export class CustomMapView {
   /** Replaces the placed objects (also `doc.objects`); resolves when their models are in */
   setObjects(objects: MapObject[]): Promise<void> {
     this.doc.objects = objects;
-    return this.objects.setObjects(objects);
+    return Promise.all([this.objects.setObjects(objects), this.refreshEffects()]).then(() => undefined);
   }
 
   /** One object moved, turned, scaled or changed asset (already changed in `doc.objects`) */
   updateObject(object: MapObject): void {
     if (!this.objects.updateObject(object)) void this.objects.setObjects(this.doc.objects);
+    void this.refreshEffects(object.asset);
   }
 
   updatePaths(): void {
@@ -231,6 +237,19 @@ export class CustomMapView {
     this.doc.environment = env;
     this.environment.set(env);
     this.lightWater();
+    this.effects.setDarkness(this.environment.darkness);
+  }
+
+  /** Rebuilds effects and lights; with an asset id only when that asset has any */
+  private async refreshEffects(asset?: string): Promise<void> {
+    const catalog = await this.assets.catalog();
+    if (this.disposed) return;
+    if (asset) {
+      const e = catalog.objects.find((o) => o.id === asset);
+      if (!e?.effects && !e?.light) return;
+    }
+    this.effects.set(this.doc.objects, catalog);
+    this.effects.setDarkness(this.environment.darkness);
   }
 
   private lightWater(): void {
@@ -242,6 +261,7 @@ export class CustomMapView {
     this.disposed = true;
     this.terrain.dispose();
     for (const w of this.waters) w?.dispose();
+    this.effects.dispose();
     this.objects.dispose();
     this.bridges.dispose();
     this.environment.dispose();
@@ -265,6 +285,7 @@ export class CustomMapView {
     await Promise.all([
       this.terrain.load(this.assets, this.doc.paths, this.options.anisotropy ?? 8),
       this.objects.setObjects(this.doc.objects),
+      this.refreshEffects(),
       this.bridges.set(this.doc.paths, this.doc.terrain.water),
     ]);
   }
