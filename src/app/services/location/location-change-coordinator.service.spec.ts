@@ -187,6 +187,8 @@ describe('LocationChangeCoordinatorService', () => {
     };
 
     worldContext = fakeWorldContext(osm as never);
+    // The engine stands with its world: a change of place goes there
+    worldContext.setProvider({});
     const injector = Injector.create({
       providers: [
         { provide: EngineInitializationService, useValue: engineInit },
@@ -652,6 +654,18 @@ describe('LocationChangeCoordinatorService', () => {
       expect(await coordinator.choosePlace({ kind: 'dice' })).toBe(true);
       await expect(waiting).resolves.toMatchObject({ kind: 'place', hq: { lat: HQ.lat + 0.1, lon: HQ.lon }, spawn: null });
       expect(worldDice.rollRandomCity).not.toHaveBeenCalled();
+    });
+
+    it('changes nothing while no world is open yet, the start goes on with its place', async () => {
+      worldContext.setProvider(null);
+      coordinator.initializeFlow(delegate);
+      expect(await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'HQ' }, spawn: null })).toBe(false);
+      await coordinator.onWorldDice();
+      // No streets asked for: they said "did not load" before
+      expect(osm.loadStreets).not.toHaveBeenCalled();
+      expect(worldDice.rollRandomCity).not.toHaveBeenCalled();
+      expect(uiStore.loadProblem()).toBeNull();
+      expect(engine.setOrigin).not.toHaveBeenCalled();
     });
 
     it('a start that gave up takes no choice', async () => {

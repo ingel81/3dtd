@@ -128,7 +128,7 @@ export class LocationChangeCoordinatorService {
       resolve(placed);
       return true;
     }
-    if (this.uiStore.coopMapLocked()) return false;
+    if (this.uiStore.coopMapLocked() || !this.worldOpen()) return false;
     if (!this.delegate) {
       console.error('[LocationCoordinator] No delegate registered');
       return false;
@@ -156,6 +156,18 @@ export class LocationChangeCoordinatorService {
     if (isInsideCoverage(this.worldContext.coverage(), hq.lat, hq.lon)) return false;
     this.uiStore.loadProblem.set({ text: outsideCoverageText() });
     return true;
+  }
+
+  /**
+   * A world stands to change the place in: between the start's choice and
+   * WorldContext.open there is none, and a second choice in that window
+   * found no streets ("Streets of X did not load"). It changes nothing then;
+   * the start goes on with its place.
+   */
+  private worldOpen(): boolean {
+    if (this.worldContext.provider() !== null) return true;
+    console.warn('[LocationCoordinator] No world open yet: the place loading now stays');
+    return false;
   }
 
   /** The world dice before the first place: a city with a random spawn, or a problem in the menu when none came */
@@ -262,7 +274,7 @@ export class LocationChangeCoordinatorService {
    * Roll for a random city from Wikidata and go there, in this page
    */
   async onWorldDice(): Promise<void> {
-    if (this.uiStore.coopMapLocked()) return;
+    if (this.uiStore.coopMapLocked() || !this.worldOpen()) return;
     // A world with one area has no earth to roll in: its middle with a random spawn
     const coverage = this.worldContext.coverage();
     if (coverage) {
@@ -331,7 +343,7 @@ export class LocationChangeCoordinatorService {
    * Apply a favorite location
    */
   async onSelectFavorite(fav: FavoriteLocation): Promise<void> {
-    if (this.uiStore.coopMapLocked() || this.outsideCoverage(fav.hq)) return;
+    if (this.uiStore.coopMapLocked() || !this.worldOpen() || this.outsideCoverage(fav.hq)) return;
     await this.loadPlace(fav.hq, fav.spawns);
   }
 

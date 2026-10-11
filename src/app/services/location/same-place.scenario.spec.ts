@@ -251,7 +251,8 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
 
     const injector: Injector = Injector.create({
       providers: [
-        { provide: WorldContext, useValue: fakeWorldContext(osm as never) },
+        // The engine stands with its world: a change of place goes there
+        { provide: WorldContext, useValue: (() => { const w = fakeWorldContext(osm as never); w.setProvider({ startLayout: () => null }); return w; })() },
         { provide: PathAndRouteService, useValue: pathRoute },
         { provide: MarkerVisualizationService, useValue: markerViz },
         { provide: EngineInitializationService, useValue: engineInit },
