@@ -56,8 +56,8 @@ Karten (200 bis 1500 m). Eine Klippenstufe (128 Einheiten) wird 4 m hoch.
 - `strategy`: welche Wege-Strategie die Wege geliefert hat (`script-pattern`, `script-eval`,
   `terrain`) oder `null`
 - `attempts`: jede versuchte Strategie mit Ergebnis
-- `warnings`: was fehlt oder weggelassen wurde (Archiv-Auffälligkeiten, fehlende Dateien, Wasser auf
-  anderen Höhen, mehr als 8 Spawns, ausgedünnte Objekte)
+- `warnings`: was fehlt, geraten oder weggelassen wurde (Archiv-Auffälligkeiten, fehlende Dateien, mehr Spawns
+  als Portale, ausgedünnte Objekte, geratene Wege oder Wellenwerte)
 - `stats`: Fläche, Höhenwerte, Splat-Auflösung, Schichten mit Kachel-Zuordnung, Wasser, Spawns, Knoten,
   Kanten, Weglängen je Spawn in Metern, Spurbreiten, Objektzählung nach Grund, Kategorie und Asset
 
@@ -159,7 +159,8 @@ enemy, enter, portal, gate, wave.
 Bodenhöhe ist bilinear, die Klippenebene springt in der Kachelmitte auf die der nächsten Ecke: Klippen
 werden fast senkrechte Stufen von einem Abstand Breite. Kacheln mit Rampen-Ecke mischen die Ebene
 bilinear zur Rampe. Wasser: Ecken mit Wasser-Flag, deren Spiegel über dem Boden liegt; das Dokument hat
-einen Wasserspiegel, behalten wird der häufigste, andere Höhen fallen mit Warnung weg. Wasserfarbe nach
+einen Hauptspiegel (`terrain.water`, die häufigste Höhe); jede andere Höhe wird ein eigenes Gewässer
+(`terrain.waterBodies`), etwa Becken auf einer erhöhten Plattform. Wasserfarbe nach
 Tileset, mit der w3i-Tönung multipliziert.
 
 **Bodenschichten** (`convert/ground-materials.ts`, nach den letzten drei Buchstaben der Kachel-ID):
@@ -284,7 +285,6 @@ aus (weniger als ein Viertel der Entfernung des fernsten Spawns: sie würden sof
 
 ## Grenzen
 
-- Ein Wasserspiegel je Karte; Becken auf anderen Höhen fallen weg
 - Lua-Skripte nur über Muster (a); die Auswertung (b) kann nur JASS
 - Wege aus Skripten, die Befehle erst zur Laufzeit berechnen (Zufall, Spielerzahl, Einheitenzähler),
   findet (b) nur, soweit die Werte aus der Initialisierung folgen; sonst greift (c)

@@ -9,8 +9,9 @@
  * layer bilinearly into slopes.
  *
  * Water: corners with the water flag whose water surface lies above the
- * ground. The document has one water level; the most common one is kept and
- * water at other levels is dropped with a warning.
+ * ground. The most common level is the map's water (`terrain.water`), every
+ * other level a water body of its own (`terrain.waterBodies`), such as basins
+ * on a raised platform.
  *
  * Splat: each texel blends the ground textures of its tile's four corners
  * with smoothstep weights, like Warcraft's corner-based tiles but softer.
@@ -173,14 +174,14 @@ export function convertTerrain(t: W3eTerrain, frame: ImportFrame, options: Terra
 
   const splat = buildSplat(t, frame, Math.max(columns, rows), layerOfTexture);
 
-  // Water at the most common level
+  // Water: the most common level is the map's water, every other level a water body of its own
   let water: MapWater | null = null;
+  const waterBodies: MapWater[] = [];
   let waterSamples = 0;
   if (waterLevels.size > 0) {
-    const top = [...waterLevels.values()].sort((x, y) => y.count - x.count)[0];
-    const level = top.sum / top.count;
-    const mask = new Uint8Array(columns * rows);
-    let dropped = 0;
+    const levels = [...waterLevels.values()].sort((x, y) => y.count - x.count).map((l) => l.sum / l.count);
+    const masks = levels.map(() => new Uint8Array(columns * rows));
+    const counts = levels.map(() => 0);
     for (let j = 0; j < rows; j++) {
       for (let i = 0; i < columns; i++) {
         const wx = b.minX + i * step;
@@ -189,18 +190,21 @@ export function convertTerrain(t: W3eTerrain, frame: ImportFrame, options: Terra
         const c = s.v < 0.5 ? (s.u < 0.5 ? s.c00 : s.c10) : s.u < 0.5 ? s.c01 : s.c11;
         if (!(t.flags[c] & W3E_FLAG.WATER)) continue;
         const z = cornerWaterZ(t, c);
-        if (Math.abs(z - level) > 16) {
-          dropped++;
-          continue;
-        }
-        if (z * frame.scale > heights[j * columns + i]) {
-          mask[j * columns + i] = 255;
-          waterSamples++;
-        }
+        if (z * frame.scale <= heights[j * columns + i]) continue;
+        // The body whose level is nearest
+        let k = 0;
+        for (let n = 1; n < levels.length; n++) if (Math.abs(levels[n] - z) < Math.abs(levels[k] - z)) k = n;
+        masks[k][j * columns + i] = 255;
+        counts[k]++;
+        waterSamples++;
       }
     }
-    if (dropped > 0) warnings.push(`terrain: water at ${waterLevels.size - 1} other level(s) dropped (${dropped} samples), one level per map`);
-    if (waterSamples > 0) water = { level: level * frame.scale, mask, color: options.waterColor };
+    levels.forEach((level, k) => {
+      if (counts[k] === 0) return;
+      const body: MapWater = { level: level * frame.scale, mask: masks[k], color: options.waterColor };
+      if (!water) water = body;
+      else waterBodies.push(body);
+    });
   }
 
   return {
@@ -211,6 +215,7 @@ export function convertTerrain(t: W3eTerrain, frame: ImportFrame, options: Terra
       layers,
       splat,
       water,
+      ...(waterBodies.length ? { waterBodies } : {}),
       cliffAngle: options.cliffAngle,
       cliffMaterial: resolveMaterial(CLIFF_MATERIAL, options.catalog),
     },

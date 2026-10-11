@@ -149,6 +149,9 @@ describe('importW3x', () => {
     expect(doc.objects.length).toBeGreaterThan(1400);
     expect(report.stats.objects.byCategory['tree']).toBeGreaterThan(700);
     expect(doc.terrain.water).not.toBeNull();
+    // The basins on the throne platform stand higher: water bodies of their own
+    expect(doc.terrain.waterBodies?.length).toBeGreaterThanOrEqual(1);
+    expect(doc.terrain.waterBodies![0].level).toBeGreaterThan(doc.terrain.water!.level);
   });
 
   it.skipIf(!GREEN_TD)('imports Green TD (2005): nine lanes from GUI triggers, one spawn on another lane', async () => {
