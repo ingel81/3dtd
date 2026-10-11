@@ -23,7 +23,7 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
 /**
  * Dev page `/map-preview`: the demo map in the custom map renderer with an
  * orbit camera and frame numbers. `?view=village` picks a camera spot
- * (VIEWS), `?seed=3` another demo map. E2E probes read
+ * (VIEWS), `?seed=3` another demo map, `?sky=dusk` another sky preset. E2E probes read
  * `window.__mapPreview` (view, renderer, stats).
  */
 @Component({
@@ -92,6 +92,11 @@ export class MapPreviewComponent implements OnDestroy {
     const t0 = performance.now();
     const doc = createDemoMap(Number(params.get('seed') ?? 7));
     const tGen = performance.now() - t0;
+    const sky = params.get('sky');
+    if (sky === 'day' || sky === 'dusk' || sky === 'night' || sky === 'overcast') {
+      doc.environment.sky = sky;
+      if (sky === 'dusk') doc.environment.sunElevation = 9;
+    }
     const view = new CustomMapView(doc, MapAssetLibrary.shared(), {
       anisotropy: renderer.capabilities.getMaxAnisotropy(),
     });

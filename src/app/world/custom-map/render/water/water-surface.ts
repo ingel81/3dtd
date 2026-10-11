@@ -54,6 +54,7 @@ export class WaterSurface {
           uSunDir: { value: new Vector3(0, 1, 0) },
           uSunColor: { value: new Color(0xffffff) },
           uFlow: { value: new Vector2(0.6, 0.25) },
+          uLight: { value: 1 },
         },
       ]),
       vertexShader: WATER_VERTEX,
@@ -90,6 +91,8 @@ export class WaterSurface {
     u['uSkyHorizon'].value.copy(horizon);
     u['uSunDir'].value.copy(sunDir);
     u['uSunColor'].value.copy(sunColor).multiplyScalar(sunIntensity / 3);
+    // The water's own colour is lit like the ground: dim at night, full by day
+    u['uLight'].value = Math.min(1.1, Math.max(0.12, (sunIntensity / 3.4) * 0.85 + 0.15));
   }
 
   update(dt: number): void {
@@ -243,6 +246,7 @@ uniform vec3 uSkyHorizon;
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
 uniform vec2 uFlow;
+uniform float uLight;
 varying float vDepth;
 varying float vWet;
 varying vec3 vWorldPos;
@@ -267,7 +271,7 @@ void main() {
   float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
   vec3 r = reflect(-v, n);
   vec3 sky = mix(uSkyHorizon, uSkyZenith, pow(max(r.y, 0.0), 0.5));
-  vec3 body = mix(uShallow, uDeep, smoothstep(0.2, 3.5, vDepth));
+  vec3 body = mix(uShallow, uDeep, smoothstep(0.2, 3.5, vDepth)) * uLight;
   vec3 color = mix(body, sky, fresnel * 0.9 + 0.05);
   // Sun glint
   float spec = pow(max(dot(r, uSunDir), 0.0), 320.0) * 6.0 + pow(max(dot(r, uSunDir), 0.0), 40.0) * 0.25;
@@ -276,7 +280,7 @@ void main() {
   float foamNoise = texture2D(uWaves, vWorldPos.xz / 2.3 + uTime * 0.03).x;
   float foamBreak = texture2D(uWaves, vWorldPos.xz / 17.0 - uTime * 0.01).y;
   float foam = smoothstep(0.25, 0.0, vDepth) * smoothstep(0.45, 0.75, foamNoise * 0.6 + foamBreak * 0.6 - vDepth);
-  color = mix(color, vec3(0.85, 0.88, 0.86), foam * 0.6);
+  color = mix(color, vec3(0.85, 0.88, 0.86) * uLight, foam * 0.6);
   float alpha = mix(0.55, 0.96, smoothstep(0.0, 1.6, vDepth));
   alpha = max(alpha, fresnel);
   alpha = max(alpha, foam * 0.8);

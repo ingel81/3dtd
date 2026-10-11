@@ -12,29 +12,31 @@ import type { GridRect } from './terrain/terrain-chunks';
 
 /**
  * CustomMapView: draws a custom map document. The editor and the game use
- * the same view.
+ * the same view (docs/CUSTOM_MAPS.md).
  *
  * ```ts
- * const view = new CustomMapView(doc, MapAssetLibrary.shared());
+ * const view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy });
  * scene.add(view.group);
- * await view.ready;                      // textures and models are in
- * view.update(dt, camera);               // every frame: LOD, wind, water
- * view.heightAt(x, y);                   // map space, metres
+ * view.environment.apply(scene, renderer); // sky, environment light, sun with shadows, fog
+ * await view.ready;                        // ground materials and models are in
+ * view.update(dt, camera, focus?);         // every frame: LOD, wind, water, culling, shadow box
+ * view.heightAt(x, y);                     // map space, metres
+ * view.raycast(ray); view.raycastObjects(ray);
  * ```
  *
  * Frame: see map-coords.ts (scene x = -map x, scene z = map y, y up). The
- * group sits at the scene origin; moving it moves everything, and the map
- * space queries (`heightAt`) do not follow such a move.
+ * group sits at the scene origin; it may be moved but not rotated, and the
+ * map space queries (`heightAt`) do not follow a move.
  *
  * Editor updates: change the document in place, then call the matching
  * update with the changed rectangle in map metres (`updateHeights`,
- * `updateSplat`), or the whole part (`updateWater`, `setObjects`,
- * `updatePaths`, `setEnvironment`).
+ * `updateSplat`), or the whole part (`updateLayers`, `updateWater`,
+ * `setObjects`, `updateObject`, `updatePaths`, `setEnvironment`).
  *
  * Line of sight: `losBlockers` holds the terrain and the objects that block
  * sight; it is the group a world provider hands to the LOS cube. Everything
- * else in `group` (water, decoration) is outside it or marked
- * `userData.losTransparent`.
+ * else in `group` (water, decoration, bridges, the apron) is outside it and
+ * marked `userData.losTransparent`.
  */
 
 /** Rectangle in map metres */
