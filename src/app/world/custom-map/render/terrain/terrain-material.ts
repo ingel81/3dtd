@@ -105,7 +105,8 @@ export class TerrainMaterial extends MeshStandardMaterial {
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>\n${TERRAIN_FRAGMENT_PARS}`)
         .replace('#include <map_fragment>', TERRAIN_SAMPLE)
-        .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = terrainRough;')
+        // The marker lets addHeightFog add wetness after the terrain's own roughness
+        .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = terrainRough;\n// map-roughness-done')
         .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += accGlow;')
         .replace(
           '#include <normal_fragment_maps>',

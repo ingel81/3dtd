@@ -175,6 +175,8 @@ export interface MapEnvironment {
   weatherStrength?: number;
   /** Look of sky, light and air (default temperate) */
   biome?: MapBiome;
+  /** 0..1 snow lying on everything that faces up (default: from biome and weather) */
+  snowCover?: number;
 }
 
 export type MapBiome =

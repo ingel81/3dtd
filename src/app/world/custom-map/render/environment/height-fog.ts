@@ -25,6 +25,9 @@ export const HEIGHT_FOG_UNIFORMS = {
   uGradeContrast: { value: 1 },
   uGradeSaturation: { value: 1 },
   uGradeTint: { value: new Color(1, 1, 1) },
+  /** 0..1 snow on surfaces facing up, and wetness (darker, glossier) */
+  uSnowCover: { value: 0 },
+  uWetness: { value: 0 },
 };
 
 export const HEIGHT_FOG_PARS = /* glsl */ `
@@ -36,6 +39,8 @@ uniform float uFogDensity;
 uniform float uGradeContrast;
 uniform float uGradeSaturation;
 uniform vec3 uGradeTint;
+uniform float uSnowCover;
+uniform float uWetness;
 
 // The map's grade in output (sRGB) space, like three's fog: saturation, contrast around mid grey, tint
 vec3 mapGrade(vec3 c) {
@@ -73,6 +78,29 @@ gl_FragColor.rgb = mapGrade(gl_FragColor.rgb);
 `;
 }
 
+/**
+ * Snow and wetness on the map's materials (before lighting): snow settles on
+ * whatever faces up, broken up by a little noise; wet surfaces are darker
+ * and glossier.
+ */
+const SURFACE_WEATHER_COLOR = /* glsl */ `
+float surfaceUp = 1.0;
+#ifndef FLAT_SHADED
+surfaceUp = dot(normalize(vNormal), normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz));
+#endif
+if (uSnowCover > 0.0) {
+  vec2 sp = vFogWorldPos.xz * 0.7;
+  float grain = fract(sin(dot(floor(sp), vec2(12.9898, 78.233))) * 43758.5453) * 0.15 + sin(sp.x * 0.37 + sp.y * 0.21) * 0.08;
+  float snow = smoothstep(0.75 - uSnowCover * 0.55, 0.95 - uSnowCover * 0.45, surfaceUp + grain) * min(1.0, uSnowCover * 1.6);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.95), snow);
+}
+diffuseColor.rgb *= 1.0 - uWetness * 0.3;
+`;
+
+const SURFACE_WEATHER_ROUGHNESS = /* glsl */ `
+roughnessFactor = mix(roughnessFactor, min(roughnessFactor, 0.35), uWetness * smoothstep(0.2, 0.8, surfaceUp));
+`;
+
 const patched = new WeakSet<Material>();
 
 /**
@@ -100,6 +128,10 @@ export function addHeightFog(material: Material): void {
       );
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <fog_pars_fragment>', `#include <fog_pars_fragment>\nvarying vec3 vFogWorldPos;\n${HEIGHT_FOG_PARS}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>\n${SURFACE_WEATHER_COLOR}`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\n${SURFACE_WEATHER_ROUGHNESS}`)
+      // The terrain replaces the roughness chunk and leaves this marker
+      .replace('// map-roughness-done', SURFACE_WEATHER_ROUGHNESS)
       .replace('#include <fog_fragment>', heightFogFragment('vFogWorldPos'));
   };
   material.customProgramCacheKey = () => `${prevKey.call(material)}-hfog`;

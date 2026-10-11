@@ -138,6 +138,21 @@ export class CustomMapView {
     scene.add(this.losBlockers);
   }
 
+  /**
+   * Compiles every shader the map needs once its assets are in, off the
+   * main thread where the driver allows (KHR_parallel_shader_compile), so
+   * the first frames do not stall on compiles. Hidden levels, cells and
+   * effects count too (three's compile walks hidden objects). Resolves with
+   * the number of programs it built.
+   */
+  async warmUp(renderer: WebGLRenderer, scene: Object3D, camera: Camera): Promise<number> {
+    await this.ready;
+    if (this.disposed) return 0;
+    const before = renderer.info.programs?.length ?? 0;
+    await renderer.compileAsync(scene, camera);
+    return (renderer.info.programs?.length ?? 0) - before;
+  }
+
   /** Surface height at map point (x, y), the surface the finest terrain level shows */
   heightAt(x: number, y: number): number {
     return this.heights.heightAt(x, y);

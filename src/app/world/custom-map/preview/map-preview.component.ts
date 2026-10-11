@@ -165,10 +165,14 @@ export class MapPreviewComponent implements OnDestroy {
     let fps = 0;
     let ready = false;
     let tReady = 0;
-    void view.ready.then(() => {
-      ready = true;
-      tReady = performance.now() - t0;
-    });
+    let programs = 0;
+    void view.ready
+      .then(() => view.warmUp(renderer, scene, camera))
+      .then((n) => {
+        programs = n;
+        ready = true;
+        tReady = performance.now() - t0;
+      });
     (window as unknown as { __mapPreview: unknown }).__mapPreview = {
       view,
       renderer,
@@ -197,7 +201,7 @@ export class MapPreviewComponent implements OnDestroy {
           this.stats.set(
             `${doc.meta.name}  ${ready ? 'bereit' : 'lädt'}\n` +
               `${fps.toFixed(0)} fps  ${info.calls} draws  ${(info.triangles / 1000).toFixed(0)}k tris\n` +
-              `Objekte ${doc.objects.length}  Generator ${tGen.toFixed(0)} ms  geladen ${tReady.toFixed(0)} ms`,
+              `Objekte ${doc.objects.length}  Generator ${tGen.toFixed(0)} ms  geladen ${tReady.toFixed(0)} ms  Shader ${programs}`,
           ),
         );
       }

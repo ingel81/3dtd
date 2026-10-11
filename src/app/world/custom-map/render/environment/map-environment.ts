@@ -146,6 +146,11 @@ export class CustomMapEnvironment {
     else if (p.particles) this.weather.set(p.particles, p.particles === 'snow' ? 0.25 : 0.5, 1 - this.darkness * 0.85);
     else this.weather.set('clear', 0, 1);
     HEIGHT_FOG_UNIFORMS.uFogDensity.value = this.fog.density;
+    // Snow on everything facing up, wetness in rain (and a little in a swamp)
+    const snowFromWeather = weather === 'snow' ? k * 0.9 : 0;
+    const snowFromBiome = env.biome === 'arctic' ? 0.65 : 0;
+    HEIGHT_FOG_UNIFORMS.uSnowCover.value = Math.min(1, Math.max(0, env.snowCover ?? Math.max(snowFromWeather, snowFromBiome)));
+    HEIGHT_FOG_UNIFORMS.uWetness.value = weather === 'rain' ? k * 0.85 : env.biome === 'swamp' ? 0.25 : 0;
     this.placeSun(this.sun.target.position);
     HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(this.sun.color).lerp(this.fog.color, 0.35);
     HEIGHT_FOG_UNIFORMS.uFogSunDir.value.copy(this.sunDir);

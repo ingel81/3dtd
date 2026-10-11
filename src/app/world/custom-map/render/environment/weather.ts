@@ -152,7 +152,10 @@ void main() {
   vFade = min(1.0, vFade * 1.6);
   vUv = uv;
   // Far from the camera particles grow (a game camera looks from 100 m and more), and thin out
-  float grow = max(1.0, length(cameraPosition - p) / 35.0);
+  float camDist = length(cameraPosition - p);
+  float grow = max(1.0, camDist / 35.0);
+  // Right in front of the lens a streak or flake would fill the screen
+  vFade *= smoothstep(3.0, 9.0, camDist);
 #if KIND == 4
   // Dust stays low: fade with height over the box's floor
   vFade *= 1.0 - smoothstep(0.0, 0.5, (p.y - (uCam.y - uBox.y * 0.5)) / uBox.y);
