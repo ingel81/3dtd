@@ -90,6 +90,23 @@ describe('importW3x', () => {
     expect(s.maps[0][off] + s.maps[0][off + 1] + s.maps[0][off + 2]).toBeGreaterThan(200);
   });
 
+  it.each([
+    { name: 'JASS', lua: false },
+    { name: 'Lua', lua: true },
+  ])('imports a Reforged map (w3i v31, skin ids) with its $name script, by pattern and by evaluation', async ({ lua }) => {
+    const bytes = buildSyntheticMap({ reforged: true, lua });
+    for (const strategy of ['script-pattern', 'script-eval'] as const) {
+      const { doc, report } = await importW3x(bytes, { now: NOW, routeStrategy: strategy });
+      expect(validateMapDocument(doc)).toEqual([]);
+      expect(report.strategy).toBe(strategy);
+      expect(doc.spawns).toEqual([{ id: 's1', name: 'Spawn West', x: -20, y: 0 }]);
+      expect(doc.hq).toEqual({ x: 20, y: 0 });
+      expect(spawnsReachHq(doc)).toBe(true);
+      // The doodads read with their skin ids: the same objects as the classic map
+      expect(report.stats.objects).toMatchObject({ doodads: 6, placed: 2 });
+    }
+  });
+
   it('finds the same lane from the terrain when the map has no script', async () => {
     const { doc, report } = await importW3x(buildSyntheticMap({ script: false }), { now: NOW });
     expect(report.strategy).toBe('terrain');

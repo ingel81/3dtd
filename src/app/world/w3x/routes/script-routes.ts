@@ -14,7 +14,7 @@
 
 import type { W3Region } from '../formats/w3r';
 import { JassEvaluator, type LocValue, type RectValue } from '../jass/jass-evaluator';
-import { parseScript } from '../jass/jass-parser';
+import { parseScript } from '../jass/script-program';
 import type { MapScript } from '../map-files';
 import {
   LEAK_ACTION,

@@ -121,6 +121,12 @@ function known(v: Value): boolean {
   return !(typeof v === 'object' && v !== null && v.kind === 'unknown');
 }
 
+/** Lua truth: nil and false are false, any other known value true */
+function truthy(v: Value): Value {
+  if (!known(v)) return UNKNOWN;
+  return v !== null && v !== false;
+}
+
 function num(v: Value): number | null {
   return typeof v === 'number' ? v : null;
 }
@@ -407,6 +413,11 @@ export class JassEvaluator {
       case 'un': {
         const v = this.eval(e.e, f);
         if (e.op === 'not') return typeof v === 'boolean' ? !v : UNKNOWN;
+        if (e.op === 'truthy') return truthy(v);
+        if (e.op === 'lnot') {
+          const t = truthy(v);
+          return typeof t === 'boolean' ? !t : UNKNOWN;
+        }
         return typeof v === 'number' ? -v : UNKNOWN;
       }
       case 'bin':
@@ -420,6 +431,14 @@ export class JassEvaluator {
   }
 
   private binary(e: JassExpr & { k: 'bin' }, f: Frame): Value {
+    // Lua's and/or give one of their operands (`x and a or b`)
+    if (e.op === 'land' || e.op === 'lor') {
+      const l = this.eval(e.l, f);
+      const t = truthy(l);
+      if (typeof t !== 'boolean') return UNKNOWN;
+      if (e.op === 'land') return t ? this.eval(e.r, f) : l;
+      return t ? l : this.eval(e.r, f);
+    }
     if (e.op === 'and' || e.op === 'or') {
       const l = this.eval(e.l, f);
       if (e.op === 'and' && l === false) return false;
@@ -436,6 +455,12 @@ export class JassEvaluator {
       if (!known(l) || !known(r)) return UNKNOWN;
       const eq = l === r;
       return e.op === '==' ? eq : !eq;
+    }
+    // Lua's concatenation (lua-parser.ts) joins any two known values
+    if (e.op === '..') {
+      if (!known(l) || !known(r) || typeof l === 'object' || typeof r === 'object') return UNKNOWN;
+      const joined = `${l}${r}`;
+      return joined.length > MAX_JASS_STRING ? UNKNOWN : joined;
     }
     if (e.op === '+' && (typeof l === 'string' || typeof r === 'string')) {
       if (!known(l) || !known(r)) return UNKNOWN;

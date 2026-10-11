@@ -33,7 +33,7 @@ import { AssetPicker, BLOCKER_IDS, type AssetCategory, doodadCategory, hashIndex
 import { mapEnvironment, tilesetMood, waterColor } from './convert/environment';
 import { ImportFrame, convertTerrain } from './convert/terrain-convert';
 import { type ImportStyle, enhanceGround, rimTrees } from './convert/enhance';
-import { parseScript } from './jass/jass-parser';
+import { parseScript } from './jass/script-program';
 import { convertWaves } from './waves/wave-convert';
 import { wavesFromScript } from './waves/wave-script';
 import { HeightField } from '../custom-map/render/height-field';
@@ -451,7 +451,7 @@ function importWaves(
   spawnCount: number,
   warnings: string[],
 ): { gameplay: CustomMapDocument['gameplay']; waveReport: W3xWaveReport | undefined } {
-  const found = map.script?.language === 'jass' ? wavesFromScript(parseScript(map.script)) : null;
+  const found = map.script ? wavesFromScript(parseScript(map.script)) : null;
   if (!found) {
     warnings.push('waves: no wave arrays found in the script; the map plays the budget waves of the game');
     return { gameplay: undefined, waveReport: undefined };

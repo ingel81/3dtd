@@ -1,6 +1,6 @@
 /**
  * Picks the route strategy: script patterns (a), then script evaluation (b,
- * JASS only), then the terrain's lanes (c), then open walkable ground (d,
+ * JASS or Lua), then the terrain's lanes (c), then open walkable ground (d,
  * maze and circuit maps, starting and ending where the script's ways do).
  * The first that yields a way from a spawn to an end wins; the report names
  * it and keeps what the others said.
@@ -48,7 +48,7 @@ export function extractRoutes(map: W3xMapFiles, bounds: Bounds, options: RouteOp
     attempts.push({ strategy: 'script-pattern', result: g ? `${g.spawns.length} spawns` : `${raw.edges.length} orders, no route` });
     if (g) return done(g);
   }
-  if (map.script?.language === 'jass' && want('script-eval')) {
+  if (map.script && want('script-eval')) {
     try {
       const ev = routesFromEvaluation(map.script, regions);
       scriptRaws.push(ev.raw);

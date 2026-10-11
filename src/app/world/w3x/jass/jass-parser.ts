@@ -15,7 +15,8 @@ export type JassExpr =
   | { k: 'index'; name: string; index: JassExpr }
   | { k: 'call'; name: string; args: JassExpr[] }
   | { k: 'fref'; name: string }
-  | { k: 'un'; op: '-' | 'not'; e: JassExpr }
+  /** `truthy` and `lnot` are Lua's (nil and false are false, any other value true), from lua-parser.ts */
+  | { k: 'un'; op: '-' | 'not' | 'truthy' | 'lnot'; e: JassExpr }
   | { k: 'bin'; op: string; l: JassExpr; r: JassExpr };
 
 export type JassStmt =
@@ -446,21 +447,6 @@ class Parser {
     if (this.peek().t !== 'eof') this.pos++;
     this.skipNewlines();
   }
-}
-
-const parsedScripts = new WeakMap<object, JassProgram>();
-
-/**
- * The script's program, parsed once however many steps of the import read
- * it (routes, waves); the program is read only
- */
-export function parseScript(script: { text: string }): JassProgram {
-  let program = parsedScripts.get(script);
-  if (!program) {
-    program = parseJass(script.text);
-    parsedScripts.set(script, program);
-  }
-  return program;
 }
 
 export function parseJass(src: string): JassProgram {

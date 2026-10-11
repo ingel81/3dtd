@@ -41,14 +41,20 @@ function wpm(): Uint8Array {
   return w.done();
 }
 
-function w3i(): Uint8Array {
-  const w = new ByteWriter().i32(25).i32(1).i32(6061).cstr('TRIGSTR_001').cstr('Tester').cstr('A test map').cstr('1');
+/** v25 (The Frozen Throne) or, for a Reforged map, v31 saved by 1.33 with its script language */
+function w3i(reforged: boolean, lua: boolean): Uint8Array {
+  const w = new ByteWriter().i32(reforged ? 31 : 25).i32(1).i32(6061);
+  if (reforged) w.i32(1).i32(33).i32(0).i32(18975);
+  w.cstr('TRIGSTR_001').cstr('Tester').cstr('A test map').cstr('1');
   for (let i = 0; i < 8; i++) w.f32(0);
   w.i32(2).i32(2).i32(2).i32(2).i32(12).i32(12).u32(0).u8('L'.charCodeAt(0));
   w.i32(-1).cstr('').cstr('').cstr('').cstr('').i32(0).cstr('').cstr('').cstr('').cstr('');
   w.i32(0).f32(0).f32(0).f32(0).u8(0).u8(0).u8(0).u8(255).u32(0).cstr('').u8(0).u8(255).u8(255).u8(255).u8(255);
+  if (reforged) w.i32(lua ? 1 : 0).i32(1).i32(1);
   w.i32(1).i32(0).i32(1).i32(1).i32(1).cstr('Player').f32(0).f32(0).u32(0).u32(0);
-  w.i32(0);
+  if (reforged) w.u32(0).u32(0);
+  // Forces, upgrades, techs, random unit tables, random item tables
+  w.i32(0).i32(0).i32(0).i32(0).i32(0);
   return w.done();
 }
 
@@ -64,7 +70,7 @@ function w3r(): Uint8Array {
   return w.done();
 }
 
-function doo(): Uint8Array {
+function doo(skins: boolean): Uint8Array {
   const items: [string, number, number, number][] = [
     ['LTlt', 0, 640, 2], // tree north of the lane
     ['LTlt', 0, 0, 2], // tree on the lane: dropped
@@ -75,7 +81,9 @@ function doo(): Uint8Array {
   ];
   const w = new ByteWriter().id4('W3do').i32(8).i32(11).i32(items.length);
   for (const [id, x, y, flags] of items) {
-    w.id4(id).i32(0).f32(x).f32(y).f32(0).f32(0.5).f32(1.2).f32(1.2).f32(1.2).u8(flags).u8(100).i32(-1).i32(0).i32(0);
+    w.id4(id).i32(0).f32(x).f32(y).f32(0).f32(0.5).f32(1.2).f32(1.2).f32(1.2);
+    if (skins) w.id4(id);
+    w.u8(flags).u8(100).i32(-1).i32(0).i32(0);
   }
   w.i32(0).i32(0);
   return w.done();
@@ -100,16 +108,45 @@ function main takes nothing returns nothing
 endfunction
 `;
 
-export function buildSyntheticMap(options: { script?: boolean } = {}): Uint8Array {
+/** The same trigger as the World Editor writes it in Lua mode */
+const LUA_SCRIPT = `gg_rct_Spawn_West = nil
+gg_rct_Castle = nil
+gg_trg_Walk = nil
+function InitGlobals()
+end
+
+function Trig_Walk_Actions()
+    IssuePointOrderLocBJ(GetTriggerUnit(), "move", GetRectCenter(gg_rct_Castle))
+end
+
+function main()
+    InitGlobals()
+    gg_rct_Spawn_West = Rect(-736.0, -96.0, -544.0, 96.0)
+    gg_rct_Castle = Rect(544.0, -96.0, 736.0, 96.0)
+    gg_trg_Walk = CreateTrigger()
+    TriggerRegisterEnterRectSimple(gg_trg_Walk, gg_rct_Spawn_West)
+    TriggerAddAction(gg_trg_Walk, Trig_Walk_Actions)
+end
+`;
+
+/**
+ * `script: false` leaves the script out; `reforged` saves as 1.33 does (w3i v31, skin ids in the doodads);
+ * `lua` writes war3map.lua instead of war3map.j
+ */
+export function buildSyntheticMap(options: { script?: boolean; reforged?: boolean; lua?: boolean } = {}): Uint8Array {
+  const reforged = options.reforged ?? false;
+  const lua = options.lua ?? false;
   const enc = new TextEncoder();
   const files = [
     { name: 'war3map.w3e', data: w3e() },
     { name: 'war3map.wpm', data: wpm() },
-    { name: 'war3map.w3i', data: w3i() },
+    { name: 'war3map.w3i', data: w3i(reforged, lua) },
     { name: 'war3map.wts', data: enc.encode('STRING 1\r\n{\r\n|cffffcc00Lane Test|r\r\n}\r\n') },
     { name: 'war3map.w3r', data: w3r() },
-    { name: 'war3map.doo', data: doo() },
+    { name: 'war3map.doo', data: doo(reforged) },
   ];
-  if (options.script !== false) files.push({ name: 'war3map.j', data: enc.encode(SCRIPT) });
+  if (options.script !== false) {
+    files.push(lua ? { name: 'war3map.lua', data: enc.encode(LUA_SCRIPT) } : { name: 'war3map.j', data: enc.encode(SCRIPT) });
+  }
   return buildMpq(files);
 }

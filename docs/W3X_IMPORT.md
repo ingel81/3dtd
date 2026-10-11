@@ -102,14 +102,15 @@ Karten (200 bis 1500 m). Eine Klippenstufe (128 Einheiten) wird 4 m hoch.
 
 | Datei | Versionen | Gelesen |
 |-------|-----------|---------|
-| `war3map.w3i` | 18, 25, 28, 31 | Name, Autor, Beschreibung (TRIGSTR über `war3map.wts`), Ränder der spielbaren Fläche, Tileset, Nebel, Wasserfarbe, Skriptsprache, Spielversion (Reforged-Erkennung) |
-| `war3map.w3e` | 11 | Ecken: Höhe, Wasser, Kartenrand, Textur, Flags (Rampe, Wasser, Rand), Klippenebene |
-| `war3map.doo` | 7, 8 (Subversion 9/11) | Doodads und Zerstörbares: ID, Position, Winkel, Skala, Flags; Spezial-Doodads gezählt |
-| `war3mapUnits.doo` | 7, 8 | vorplatzierte Einheiten (nur gezählt) |
+| `war3map.w3i` | 18, 25, 28, 31 | bis zum Ende: Name, Autor, Beschreibung (TRIGSTR über `war3map.wts`), Ränder der spielbaren Fläche, Tileset, Nebel, Wasserfarbe, Skriptsprache, Spielversion (Reforged-Erkennung), Modi und Datenversion (v31), Spieler, Kräfte; Upgrade- und Tech-Verfügbarkeit, Zufallstabellen für Einheiten und Gegenstände nur gezählt. Abgeschnittene Tabellen (Optimierer) lassen den Rest stehen |
+| `war3map.w3e` | 11 | Ecken: Höhe, Wasser, Kartenrand, Textur, Flags (Rampe, Wasser, Rand), Klippenebene; eigene Tilesets und alle 16 Bodentexturen |
+| `war3map.doo` | 7, 8 (Subversion 9/11) | Doodads und Zerstörbares: ID, Position, Winkel, Skala, Flags, mit und ohne Skin-ID; Spezial-Doodads gezählt |
+| `war3mapUnits.doo` | 7, 8 | vorplatzierte Einheiten mit und ohne Skin-ID (nur gezählt) |
+| `war3map.w3u` | 1, 2, 3 | geänderte und eigene Einheitentypen; Version 3 (1.33+) mit Sätzen je Skin, der erste gilt |
 | `war3map.w3r` | 5 | Regionen mit Skriptname `gg_rct_<Name>` |
 | `war3map.wpm` | 0 | Wegekarte, 4 Zellen je Kachel |
-| `war3map.j`, `scripts\war3map.j` | - | JASS (Strategien a und b) |
-| `war3map.lua` | - | Lua, nur Strategie a |
+| `war3map.j`, `scripts\war3map.j` | - | JASS (Strategien a und b, Wellen) |
+| `war3map.lua`, `scripts\war3map.lua` | - | Lua (Strategien a und b, Wellen); die w3i-Skriptsprache wählt, wenn beide da sind |
 
 Reforged-Dateien (1.32+) tragen nach der Skala eine Skin-ID. Der Hinweis kommt aus der w3i
 (Spielversion ab 1.32); passt das Layout nicht genau bis zum Dateiende, liest der Parser das andere.
@@ -126,8 +127,9 @@ GUI-Auslöser schreibt. `TriggerRegisterEnterRectSimple(trg, gg_rct_A)` plus `Tr
 wobei F die betretende Einheit (`GetTriggerUnit`/`GetEnteringUnit`) mit "move", "attack", "smart" oder
 "patrol" zu `GetRectCenter(gg_rct_B)` (oder dessen X/Y) schickt, ergibt die Kante A nach B.
 
-**(b) Auswertung des Skripts** (`script-eval`, nur JASS): `jass-parser.ts` liest Globals und
-Funktionen, `jass-evaluator.ts` führt die Initialisierung aus: `main`, Funktionen über `ExecuteFunc`,
+**(b) Auswertung des Skripts** (`script-eval`, JASS und Lua): `jass-parser.ts` liest Globals und
+Funktionen, `lua-parser.ts` übersetzt Lua in denselben Syntaxbaum (`script-program.ts` wählt nach der
+Sprache), `jass-evaluator.ts` führt die Initialisierung aus: `main`, Funktionen über `ExecuteFunc`,
 Auslöser über `TriggerExecute`/`ConditionalTriggerExecute`, einmalige Zeitauslöser und `TimerStart`
 nach Zeit geordnet. So bekommen Rects und Orte in Variablen und Arrays ihre Werte, auch aus Schleifen.
 Danach laufen die Aktionen jedes Auslösers einmal mit abstrakten Ereignisdaten; jeder Punktbefehl wird
@@ -237,7 +239,7 @@ ergibt sich die Dichte aus seinem Ende: `1,5 / Ende in Metern`, höchstens 0,002
 ## Wellen (Option `waves`)
 
 `waves/wave-script.ts` sucht im Skript die Aufrufe, die Gegner erzeugen (`CreateNUnitsAtLoc`, `CreateUnitAtLoc`,
-`CreateUnit`), und liest nach der Initialisierung (JASS-Auswertung) deren Quellen:
+`CreateUnit`), und liest nach der Initialisierung (Auswertung, JASS oder Lua) deren Quellen:
 
 - **Arrays je Level**: Einheitentyp `Unit[Level]` und Anzahl `Count[Level]`, das Array mit den meisten
   Einheiten-Rawcodes gewinnt (Mafa: `udg_integers01`/`udg_integers02`)
@@ -294,9 +296,28 @@ Gegner im Kreis, kein Weg endet; Strategie (d) führt die vier Spawns der Ecken 
 Spuren zum HQ in der Kartenmitte, mit Warnungen. Die vier Spawn-Felder direkt neben der Mitte lässt sie
 aus (weniger als ein Viertel der Entfernung des fernsten Spawns: sie würden sofort lecken).
 
+
+## Unterstützung
+
+Was der Import kann, Stand 2026-10-11. Alle Fälle sind mit erzeugten Testdaten abgesichert
+(`src/test/w3x-fixtures.ts`, `w3x-synthetic-map.ts`, keine fremden Karten im Repo).
+
+| Bereich | Unterstützt | Nicht unterstützt |
+|---------|-------------|-------------------|
+| Spielversion | Reign of Chaos, The Frozen Throne, 1.31 (w3i 28), 1.32+ Reforged (w3i 31) | spätere w3i-Versionen nur, soweit sie wie 31 aufgebaut sind |
+| Archiv | MPQ-Kopf v0 bis v3, verschlüsselte Tabellen und Dateien, Sektoren, Single-Unit, zlib, bzip2, implode, gekürzte Tabellen geschützter Karten | Huffman/ADPCM (Audio), Sparse, LZMA, Dateien über 64 MB |
+| Karteninfo | alle Felder von w3i 18/25/28/31 bis zum Ende, Tabellen nach den Kräften auch abgeschnitten | - |
+| Gelände | w3e 11, eigene Tilesets, 16 Bodentexturen, Klippen, Rampen, Wasser, Kartenrand | andere w3e-Versionen |
+| Doodads, Einheiten | doo 7/8, Subversion 9/11, mit und ohne Skin-ID (1.32+), automatisch erkannt | Spezial-Doodads (Klippen-, Rampenmodelle) nur gezählt; Einheiten nur gezählt |
+| Objektdaten | w3u 1/2/3 (Sätze je Skin, der erste gilt) | Fähigkeiten, Gegenstände, Upgrades (w3a, w3t, w3q) |
+| Skript JASS | Muster (a), Auswertung (b), Wellen | Code, der Befehle erst im Spiel berechnet (Zufall, Spielerzahl) |
+| Skript Lua | wie JASS: Muster (a), Auswertung (b), Wellen. Globals, Locals mit Gültigkeit, Funktionen auch lokal und anonym, `if`/`while`/`repeat`/numerisches `for`/`for in ipairs/pairs`, `break`, Tabellen und `__jarray` als Arrays, `FourCC`, `..`, `//`, `%`, `and`/`or` als Wert | Felder und Methoden (`a.b`, `a:b()`), Metatabellen, Varargs, Bit- und Längenoperatoren, Closures über Locals, `goto` |
+| Grenzen gegen feindliche Karten | Entpacken auf Sektorgröße begrenzt, Schrittbudget je Phase und Auslöser, 500 Ebenen Verschachtelung, Zeichenketten bis 64 KB, Worker-Abbruch nach 2 Minuten | - |
+
 ## Grenzen
 
-- Lua-Skripte nur über Muster (a); die Auswertung (b) kann nur JASS
+- Lua: Felder, Methoden, Metatabellen, Varargs, Bit- und Längenoperatoren gelten als unbekannt;
+  anonyme Funktionen sehen die Locals ihrer Umgebung nicht (Closures); `pairs` läuft die Indizes 0 bis 8191 ab
 - Wege aus Skripten, die Befehle erst zur Laufzeit berechnen (Zufall, Spielerzahl, Einheitenzähler),
   findet (b) nur, soweit die Werte aus der Initialisierung folgen; sonst greift (c)
 - Kanten sind gerade Linien zwischen Regionsmitten bzw. Skelett-Ecken; Kurven kommen nicht mit
