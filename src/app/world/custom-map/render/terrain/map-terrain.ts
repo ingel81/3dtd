@@ -7,6 +7,7 @@ import { addHeightFog } from '../environment/height-fog';
 import { ApronProfile, buildTerrainApron } from './terrain-apron';
 import { TerrainChunks, type GridRect } from './terrain-chunks';
 import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots } from './terrain-material';
+import { GroundOcclusion } from './ground-occlusion';
 import { GridNormalTexture, MaterialArrays, SplatTextures, maskTexture } from './terrain-textures';
 
 /** Materials the path mask paints, by channel */
@@ -55,6 +56,7 @@ export class MapTerrainLayer {
   private splat: SplatTextures | null = null;
   private pathMask: DataTexture | null = null;
   private readonly normals: GridNormalTexture;
+  readonly occlusion: GroundOcclusion;
   private generation = 0;
   private readonly placeholder = new MeshStandardMaterial({ color: 0x5f7a3c, roughness: 0.95 });
 
@@ -66,6 +68,7 @@ export class MapTerrainLayer {
     this.apronProfile = new ApronProfile(field);
     this.apron = buildTerrainApron(this.apronProfile, this.placeholder);
     this.normals = new GridNormalTexture(field);
+    this.occlusion = new GroundOcclusion(field);
     this.normals.setWater(terrain.water?.mask ?? null);
   }
 
@@ -106,6 +109,7 @@ export class MapTerrainLayer {
       splat: this.splat.maps,
       pathMask: this.pathMask,
       gridNormals: this.normals.texture,
+      gridOcclusion: this.occlusion.texture,
       grid: this.field.grid,
       slots,
       scales,
@@ -130,6 +134,7 @@ export class MapTerrainLayer {
   rebuild(rect?: GridRect): void {
     this.chunks.rebuild(rect);
     this.normals.update(rect);
+    this.occlusion.updateTerrain(rect);
     this.refreshApron(rect);
   }
 
@@ -177,6 +182,7 @@ export class MapTerrainLayer {
     this.splat?.dispose();
     this.pathMask?.dispose();
     this.normals.dispose();
+    this.occlusion.dispose();
   }
 
   private buildPathMask(paths: MapPaths): DataTexture {

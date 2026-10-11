@@ -219,13 +219,16 @@ export class CustomMapView {
   /** Replaces the placed objects (also `doc.objects`); resolves when their models are in */
   setObjects(objects: MapObject[]): Promise<void> {
     this.doc.objects = objects;
-    return Promise.all([this.objects.setObjects(objects), this.refreshEffects()]).then(() => undefined);
+    return Promise.all([this.objects.setObjects(objects), this.refreshEffects(), this.refreshContact()]).then(
+      () => undefined,
+    );
   }
 
   /** One object moved, turned, scaled or changed asset (already changed in `doc.objects`) */
   updateObject(object: MapObject): void {
     if (!this.objects.updateObject(object)) void this.objects.setObjects(this.doc.objects);
     void this.refreshEffects(object.asset);
+    void this.refreshContact();
   }
 
   updatePaths(): void {
@@ -238,6 +241,13 @@ export class CustomMapView {
     this.environment.set(env);
     this.lightWater();
     this.effects.setDarkness(this.environment.darkness);
+  }
+
+  /** Contact shadows of the objects in the baked ground occlusion */
+  private async refreshContact(): Promise<void> {
+    const catalog = await this.assets.catalog();
+    if (this.disposed) return;
+    this.terrain.occlusion.setObjects(this.doc.objects, new Map(catalog.objects.map((o) => [o.id, o])));
   }
 
   /** Rebuilds effects and lights; with an asset id only when that asset has any */
@@ -286,6 +296,7 @@ export class CustomMapView {
       this.terrain.load(this.assets, this.doc.paths, this.options.anisotropy ?? 8),
       this.objects.setObjects(this.doc.objects),
       this.refreshEffects(),
+      this.refreshContact(),
       this.bridges.set(this.doc.paths, this.doc.terrain.water),
     ]);
   }

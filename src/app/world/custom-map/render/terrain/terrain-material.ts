@@ -43,6 +43,8 @@ export interface TerrainMaterialParams {
   pathMask: Texture;
   /** Grid normals (GridNormalTexture) and the grid's columns, rows and cell size */
   gridNormals: Texture;
+  /** Baked ground occlusion on the same grid (GroundOcclusion) */
+  gridOcclusion: Texture;
   grid: { columns: number; rows: number; cellSize: number };
   slots: TerrainLayerSlots;
   /** Metres per texture repeat, by array layer */
@@ -65,6 +67,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uSplat1: { value: null as Texture | null },
     uPathMask: { value: null as Texture | null },
     uGridNormals: { value: null as Texture | null },
+    uGridOcclusion: { value: null as Texture | null },
     uGridUv: { value: new Vector4() },
     uWaterLevel: { value: -1e4 },
     uMapSize: { value: new Vector2() },
@@ -119,6 +122,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     u.uSplat1.value = p.splat[1];
     u.uPathMask.value = p.pathMask;
     u.uGridNormals.value = p.gridNormals;
+    u.uGridOcclusion.value = p.gridOcclusion;
     // Map metres to the grid texture: sample i sits at texel centre (i + 0.5) / columns
     const sx = 1 / (p.grid.cellSize * p.grid.columns);
     const sy = 1 / (p.grid.cellSize * p.grid.rows);
@@ -168,6 +172,7 @@ uniform sampler2D uSplat0;
 uniform sampler2D uSplat1;
 uniform sampler2D uPathMask;
 uniform sampler2D uGridNormals;
+uniform sampler2D uGridOcclusion;
 uniform vec4 uGridUv;
 uniform float uWaterLevel;
 uniform vec2 uMapSize;
@@ -373,6 +378,8 @@ albedo = mix(albedo, accAvg * mix(0.8, 1.15, macro), far * 0.45);
 
 albedo *= mix(1.0, 0.6, wetBank);
 float terrainRough = mix(clamp(accD.b, 0.3, 1.0), 0.28, wetBank);
-float terrainAO = mix(1.0, accD.a, 0.85);
+// Texture AO and the baked ground occlusion (hollows, slope feet, contact shadows of objects)
+float groundAO = mix(texture2D(uGridOcclusion, mapPos * uGridUv.xy + uGridUv.zw).r, 1.0, outside);
+float terrainAO = mix(1.0, accD.a, 0.85) * groundAO;
 diffuseColor.rgb = albedo;
 `;
