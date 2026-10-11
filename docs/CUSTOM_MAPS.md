@@ -261,6 +261,13 @@ Ohne GPU gemessen (jsdom, Texturen und Modelle als Platzhalter); dazu kommen im 
 (Laden bis `ready` 1 bis 3,5 s) und `warmUp()` (compileAsync aller Programme, 11 für das Demo-Tal). Pinsel laden nur
 die Zeilen ihres Rechtecks hoch und setzen nur Objekte in ihrer Nähe neu.
 
+**Speicher** (`node e2e/perf/map-cycles.ts --url http://localhost:4211`, 20-mal Ansicht öffnen, aufwärmen, schließen):
+Geometrien, Texturen und Programme bleiben nach dem ersten Zyklus gleich, der Heap wächst über 19 Zyklen um 0,6 MB
+(Demo-Tal; ebenso Hölle bei Nacht mit Regen). Was bleibt, ist der Cache der geteilten `MapAssetLibrary`: die
+Bodenmaterialien als Pixel (8 MB je Material bei 1024 px, 88 MB für die 11 des Demo-Tals, dazu dieselbe Menge in
+den Textur-Arrays der offenen Ansicht, die three für einen Kontextverlust behält) und die Modelle.
+`MapAssetLibrary.dispose()` gibt ihn frei; `shared()` legt danach eine neue an.
+
 ## Grenzen
 
 - Höchstens 8 Splat-Schichten plus Klippe und zwei Wegmaterialien (12 Array-Ebenen), alle Materialien in einer Größe
