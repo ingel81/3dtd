@@ -100,7 +100,9 @@ export function buildArchipelago(): CustomMapDocument {
   k.place('lighthouse', light.x + 6, light.y - 4, { rotation: 0 });
   k.place('house-stone', light.x - 12, light.y - 14, { rotation: facing({ x: light.x - 12, y: light.y - 14 }, hq) });
   // A small village round the HQ
-  for (const [x, y, a] of [[30, -40, 'cottage'], [104, -78, 'house'], [36, -96, 'cottage'], [108, -40, 'house-stone']] as const) k.place(a, x, y, { rotation: facing({ x, y }, hq) });
+  for (const [x, y, a] of [[30, -40, 'cottage'], [104, -78, 'house'], [36, -96, 'cottage'], [108, -40, 'house-stone']] as const) {
+    k.chimney(k.place(a, x, y, { rotation: facing({ x, y }, hq) }));
+  }
   k.place('windmill', 130, -10, { rotation: 0.7 });
   k.place('well', 52, -62);
 

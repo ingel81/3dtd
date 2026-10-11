@@ -72,7 +72,10 @@ export function buildFrostHamlet(): CustomMapDocument {
     [100, 150, 'log-cabin-snow'],
     [-55, 110, 'house-stone-snow'],
   ];
-  for (const [x, y, a] of houses) k.place(a, x, y, { rotation: facing({ x, y }, hq) });
+  for (const [x, y, a] of houses) {
+    const house = k.place(a, x, y, { rotation: facing({ x, y }, hq) });
+    if (a !== 'chapel' && a !== 'barn-snow') k.chimney(house);
+  }
   for (const [x, y, a, r] of [
     [-6, 126, 'woodpile-snow', 0.3],
     [46, 150, 'woodpile-snow', 1.9],

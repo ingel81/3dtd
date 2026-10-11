@@ -19,8 +19,8 @@ export function buildMountainPass(): CustomMapDocument {
   });
 
   // Ground layers first, so every brush paints into this palette
-  for (const m of ['grass', 'grass-lush', 'forest-ground', 'rocky-ground', 'scree', 'grass-sparse', 'gravel', 'cobblestone']) k.layer(m);
-  k.cliffs('limestone', 41);
+  for (const m of ['grass', 'grass-lush', 'forest-ground', 'rocky-ground', 'scree', 'snow-fresh', 'gravel', 'cobblestone']) k.layer(m);
+  k.cliffs('limestone', 50);
 
   // ---- Ground: the valley floor in the south, a steep face to the pass, ridges and two peaks
   k.generate('hills', 11, 0.22);
@@ -32,6 +32,15 @@ export function buildMountainPass(): CustomMapDocument {
   k.form('mountain', { x: -175, y: 178 }, { radius: 160, strength: 1 }, 6);
   k.form('mountain', { x: 182, y: 172 }, { radius: 150, strength: 1 }, 6);
   k.smooth([{ x: -175, y: 178 }, { x: 182, y: 172 }], { radius: 170, falloff: 0.7 }, 4);
+  // Rain cuts gullies down the flanks; rock bands step the faces below the summits
+  k.erode([{ x: -240, y: 70 }, { x: -175, y: 150 }, { x: -110, y: 210 }], { radius: 60, strength: 1 }, 10);
+  k.erode([{ x: 240, y: 60 }, { x: 182, y: 140 }, { x: 115, y: 210 }], { radius: 60, strength: 1 }, 10);
+  for (const [cx, cy, r0, h] of [[-175, 178, 70, 7], [-175, 178, 110, 6], [182, 172, 65, 7], [182, 172, 105, 6]] as const) {
+    // An arc of cliff edge facing the valley: the ground inside (uphill) steps up
+    const arc: MapPoint[] = [];
+    for (let a = -150; a <= -30; a += 15) arc.push({ x: cx + Math.cos((a * Math.PI) / 180) * r0, y: cy + Math.sin((a * Math.PI) / 180) * r0 });
+    k.cliff(arc, h, 9);
+  }
   // The cliff the waterfall drops over, north of the lake
   k.cliff([{ x: 95, y: 18 }, { x: 150, y: 8 }, { x: 225, y: 0 }], 16, 26);
   // The pass: a broad level shoulder for the village
@@ -88,19 +97,31 @@ export function buildMountainPass(): CustomMapDocument {
   k.paint('scree', [{ x: -250, y: 70 }, { x: -150, y: 95 }, { x: -95, y: 140 }], { radius: 30, falloff: 1 }, 0.6);
   k.paint('scree', [{ x: 245, y: 60 }, { x: 150, y: 90 }, { x: 95, y: 140 }], { radius: 30, falloff: 1 }, 0.6);
   k.paint('cobblestone', pass, { radius: 26, falloff: 0.8 }, 0.7);
+  // Snow on the summits, scree fans at the feet of the faces
+  for (const peak of [{ x: -175, y: 178 }, { x: 182, y: 172 }]) {
+    k.paint('snow-fresh', peak, { radius: 70, falloff: 0.6 }, 1);
+    k.biome('snow', peak, { radius: 45, strength: 0.5 }, 0.3);
+  }
+  k.scatter(['scree-scatter', 'scree-scatter', 'rock-granite', 'rock-granite-flat'], [{ x: -240, y: 40 }, { x: -160, y: 110 }, { x: -125, y: 175 }, { x: 240, y: 30 }, { x: 160, y: 105 }, { x: 125, y: 180 }], { radius: 30, strength: 1 }, { density: 2.5, minDistance: 6, scaleMin: 0.8, scaleMax: 1.6 });
+  // Mountain meadow: blue and white flowers between the bends and in the valley
+  k.scatter(['flowers-blue', 'flowers', 'grass-green', 'flowers-yellow'], [{ x: -60, y: -120 }, { x: 60, y: -95 }, { x: -40, y: -30 }, { x: 40, y: 30 }, { x: -150, y: -215 }, { x: 60, y: -225 }], { radius: 40, strength: 1 }, { density: 14, minDistance: 1.4 });
+  // Denser woods in the hollows on both sides
+  k.biome('conifer', [{ x: -230, y: -40 }, { x: -200, y: 30 }], { radius: 45, strength: 1 });
+  k.biome('conifer', [{ x: 215, y: -60 }, { x: 160, y: -170 }], { radius: 40, strength: 1 });
 
   // ---- The village on the pass: stone houses with balconies, a chapel on the knoll, a cable car down to the valley
   const face = (x: number, y: number) => facing({ x, y }, { x: 0, y: -200 });
   k.place('chapel-mountain', -32, 128, { rotation: face(-32, 128) });
-  for (const [x, y, asset] of [
+  const houses = [
     [-42, 92, 'house-stone-balcony'],
     [48, 118, 'house-stone-balcony'],
     [-12, 135, 'house-stone'],
     [60, 92, 'alpine-hut'],
     [24, 140, 'house-stone-balcony'],
     [-62, 112, 'alpine-hut'],
-  ] as const) {
-    k.place(asset, x, y, { rotation: face(x, y) + (k.noise.fbm(x, y, 30) * 0.4) });
+  ] as const;
+  for (const [x, y, asset] of houses) {
+    k.chimney(k.place(asset, x, y, { rotation: face(x, y) + (k.noise.fbm(x, y, 30) * 0.4) }));
   }
   for (const [x, y, asset, r] of [
     [-24, 104, 'well', 0],

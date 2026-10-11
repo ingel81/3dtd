@@ -35,11 +35,13 @@ dem Boden). Bilder unter `docs/images/levels/`.
 ## Die Level
 
 ### 1 Bergpass (`mountain-pass`)
-**Gebaut** (`tools/maps/levels/mountain-pass.ts`, Small 512 m, 0,8 MB). Kartenprobe 10 Wellen bestanden (HQ 433,8 von
-500, 19 Tower), Spielansicht 312 fps, Laden 12,6 s am Dev-Server. Spuren 765 und 770 m. Bilder:
-`docs/images/levels/mountain-pass.jpg`, `mountain-pass-game.jpg`. Abweichungen: Gipfel aus Kalkfels ohne Schnee, die
-Brücke ist das Holzdeck der Wege (eine Steinbrücke als Brückenart fehlt), die Seilbahn hat keine Seile (Objekte
-lassen sich nicht neigen). Der Erosionspinsel blieb weg (er macht Nadelspitzen, an den Editor gemeldet).
+**Gebaut** (`tools/maps/levels/mountain-pass.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 448 von 500,
+19 Tower), Spielansicht 268 fps, Laden 5,8 s am Dev-Server. Spuren 765 und 770 m. Bilder:
+`docs/images/levels/mountain-pass.jpg`, `mountain-pass-game.jpg`. Feinschliff: Erosion mit Rinnen und Felsbänder
+(Cliff-Edge-Bögen) an den Gipfeln, Geröllfelder, dichterer Wald in den Senken, Bergwiese mit Blumen, Rauch aus den
+Kaminen. Abweichungen: Schnee liegt nur auf den flacheren Gipfelpartien (an den Wänden deckt das Klippenmaterial ihn
+zu; eine Schneegrenze ist beim Renderer gewünscht), die Brücke ist das Holzdeck der Wege, die Seilbahn hat keine Seile
+(Objekte lassen sich nicht neigen).
 
 Biom Berge, Look `mountain`, später Nachmittag. Ein Pass zwischen zwei Gipfeln; die Straße windet sich in Serpentinen
 vom Tal zum Pass, wo das HQ in einem Bergdorf steht (Steinhäuser mit Holzbalkon, Kapelle, Stützmauern). Ein Wasserfall
@@ -48,11 +50,12 @@ stürzt von einer Klippe in einen Bergsee, der Fluss läuft talwärts unter eine
 und Felsterrassen über der Straße.
 
 ### 2 Sumpf bei Nacht (`witch-marsh`)
-**Gebaut** (`tools/maps/levels/witch-marsh.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 410,9 von 500,
-19 Tower), Spielansicht 558 fps, Laden 5,1 s am Dev-Server. Spuren 459 und 457 m. Bilder:
+**Gebaut** (`tools/maps/levels/witch-marsh.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 416,1 von 500,
+19 Tower), Spielansicht 453 fps, Laden 5,9 s am Dev-Server. Spuren 459 und 457 m. Bilder:
 `docs/images/levels/witch-marsh.jpg`, `witch-marsh-game.jpg`. Die Stege sind Wege der Art Bridge (das Holzdeck mit
-Geländer), gelegt, wo die Linie übers Wasser läuft; Fackeln statt Laternen an den Stegen. Wasser verbietet das Bauen
-im Spiel noch nicht (an den Welt-Worker gemeldet); der Probe-Bot baut auf den Inseln.
+Geländer), gelegt, wo die Linie übers Wasser läuft; Fackeln an den Stegen. Feinschliff: dunkler Sternenhimmel (Look
+`temperate` bei Nacht, weil der Sumpf-Look nachts helle Wolken hat; an den Renderer gemeldet), tiefe Nebelbänke übers
+offene Wasser, Moos, Schlamm und Wurzeln auf den Inseln, Laternen an den Pfahlhütten, Kessel und Leuchtpilze.
 
 Biom Sumpf, Look `swamp`, Nacht mit Bodennebel und Glühwürmchen. Ein Bohlenweg über Sumpfwasser, Inseln mit
 Pfahlhütten, die Hexenhütte mit grün leuchtenden Fenstern als HQ-Kulisse, Laternen an den Stegen als einzige
@@ -60,9 +63,11 @@ Lichtinseln. Spawns: 2 aus dem Nebel im Norden und Westen; die Stege verzweigen 
 Insel. Bauflächen: die Inseln; das Wasser selbst ist nicht bebaubar.
 
 ### 3 Burgruine im Herbst (`autumn-keep`)
-**Gebaut** (`tools/maps/levels/autumn-keep.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 346,9 von 500,
-19 Tower), Spielansicht 541 fps, Laden 4,9 s am Dev-Server. Spuren 356, 377 und 363 m. Bilder:
-`docs/images/levels/autumn-keep.jpg`, `autumn-keep-bailey.jpg`, `autumn-keep-game.jpg`. Der Herbstwald ist der
+**Gebaut** (`tools/maps/levels/autumn-keep.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 299,4 von 500,
+19 Tower), Spielansicht 362 fps, Laden 5,7 s am Dev-Server. Spuren 356, 377 und 363 m. Bilder:
+`docs/images/levels/autumn-keep.jpg` (Burghof), `autumn-keep-bailey.jpg`, `autumn-keep-game.jpg`. Feinschliff: Burg
+84 x 76 m statt 60 x 60 m, Mauern und Torhaus größer, Bergfried höher, sechs Turmruinen an Ecken und Mauern, Lücken
+im Mauerzug; Felsen, Efeu und Gestrüpp um die Hügelkrone; Laub und Farbflecken auf der Wiese. Der Herbstwald ist der
 Wald-Pinsel, dessen Sommerbäume danach gegen ihre Herbstvarianten getauscht werden (ein Herbst-Biom fehlt dem
 Landscape-Werkzeug); Morgennebel nur als wenige kleine Nebelfelder, größere wirken von oben wie Schnee.
 
@@ -71,7 +76,7 @@ Torhaus. Drei Wege kommen aus den Wäldern und treffen sich vor dem Tor; das HQ 
 Nebel in den Senken am Morgen. Spawns: 3. Bauflächen: Mauerkronen-Nähe, Lichtungen.
 
 ### 4 Wüstencanyon (`red-canyon`)
-**Gebaut** (`tools/maps/levels/red-canyon.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 422,6 von 500,
+**Gebaut** (`tools/maps/levels/red-canyon.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 416 von 500,
 19 Tower), Spielansicht 673 fps, Laden 6,3 s am Dev-Server. Spuren 506 und 553 m. Bilder:
 `docs/images/levels/red-canyon.jpg` (Tempelbecken), `red-canyon-floor.jpg`, `red-canyon-game.jpg`. Die Schluchten
 sind mit dem Level-Pinsel entlang einer Linie geschnitten und mit dem Terrace-Pinsel gestuft; Tafelberge mit dem
@@ -82,8 +87,8 @@ im Canyon-Boden, Türme stehen oben auf den Tafelbergen (Plateaus mit Rampen). T
 Karawanenzelte. Spawns: 2. Bauflächen: Plateaus über dem Canyon (Sichtlinie nach unten).
 
 ### 5 Inselarchipel (`archipelago`)
-**Gebaut** (`tools/maps/levels/archipelago.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 400,9 von 500,
-19 Tower), Spielansicht 539 fps, Laden 9,8 s am Dev-Server. Spuren 365 und 363 m. Bilder:
+**Gebaut** (`tools/maps/levels/archipelago.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 336,2 von 500,
+18 Tower), Spielansicht 539 fps, Laden 9,8 s am Dev-Server. Spuren 365 und 363 m. Bilder:
 `docs/images/levels/archipelago.jpg`, `archipelago-game.jpg`. Strände, Felsufer und Wiesen mit „Auto paint“ nach
 Höhe und Neigung; der Hafen ist bis ans Südufer ausgebaggert (Level-Pinsel unter Wasser), die Furt ein Pfad über eine
 Sandbank knapp unter dem Spiegel (die Prüfung warnt dort bewusst „under water“).
@@ -93,7 +98,7 @@ Kaimauer, Kran, Fischerhütten, Leuchtturm. Gegner kommen über zwei Brückenket
 Inselränder an den Brückenköpfen.
 
 ### 6 Winterdorf (`frost-hamlet`)
-**Gebaut** (`tools/maps/levels/frost-hamlet.ts`, Small 512 m, 1,0 MB). Kartenprobe 10 Wellen bestanden (HQ 331,8 von
+**Gebaut** (`tools/maps/levels/frost-hamlet.ts`, Small 512 m, 1,0 MB). Kartenprobe 10 Wellen bestanden (HQ 342,4 von
 500, 19 Tower), Spielansicht 513 fps, Laden 4,5 s am Dev-Server. Spuren 686 (Straße mit Laternen) und 394 m (übers
 Eis). Bilder: `docs/images/levels/frost-hamlet.jpg`, `frost-hamlet-game.jpg`. Unter dem Eisweg liegt ein Rücken knapp
 unter der Eisfläche, so laufen die Gegner auf dem Eis; die Prüfung warnt dort bewusst „under water“.
@@ -103,7 +108,7 @@ einen zugefrorenen See (Eisfläche), Eisfischerhütten, Holzstapel, Schlitten. D
 über das Eis (Gegner laufen übers Eis). Spawns: 2. Bauflächen: Seeufer, Dorfplatz.
 
 ### 7 Vulkankrater (`ember-crater`)
-**Gebaut** (`tools/maps/levels/ember-crater.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 454 von 500,
+**Gebaut** (`tools/maps/levels/ember-crater.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 463,3 von 500,
 19 Tower), Spielansicht 698 fps, Laden 4,7 s am Dev-Server. Spuren 772, 402 und 609 m. Bilder:
 `docs/images/levels/ember-crater.jpg`, `ember-crater-game.jpg`. Der Krater ist ein Strich des Crater-Pinsels (200 m),
 der Lavasee mit „Dig lake“ in einen Lava-Körper gegraben; die Lavabrücke ist das Modell über einem Damm aus zwei
@@ -116,7 +121,7 @@ am Kraterrand, die Wege münden in die Spirale. Bauflächen: Terrassen zwischen 
 
 ### 8 Spiegel-Arena (`twin-gates`)
 **Gebaut** (`tools/maps/levels/twin-gates.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden, allein mit vier Spuren
-knapp (HQ 197,4 von 500, 19 Tower; Verluste fast nur in den Wellen 1 bis 3), Spielansicht 416 fps, Laden 4,2 s am
+knapp (HQ 164,5 von 500, 19 Tower; Verluste fast nur in den Wellen 1 bis 3), Spielansicht 416 fps, Laden 4,2 s am
 Dev-Server. Vier Spuren zu je 474 m, Startgeld 250 je Spur (`gameplay.startCredits`; mit 100 und 150 hielt der Bot
 ebenfalls, aber mit 124 und 140 HP). Bilder: `docs/images/levels/twin-gates.jpg`, `twin-gates-castle.jpg`,
 `twin-gates-game.jpg`. Gebaut mit Mirror X: Pinsel kopieren ihre Zellen, Linien und Objekte entstehen gespiegelt; den
@@ -126,6 +131,12 @@ ist ohne Symmetrie gesetzt.
 Biom gemäßigt mit Burgmauern, Look `dusk`. Streng symmetrische Coop-Karte (Spiegelung an X): zwei Burgen, je zwei
 Spuren pro Spieler, die sich in der Mitte am gemeinsamen HQ treffen. Gestaltet mit dem Symmetrie-Modus. Spawns: 4.
 Bauflächen gespiegelt, gleiche Chancen für beide Spieler.
+
+## Probe nach dem Rebase (2026-10-11)
+
+Alle acht Karten neu gepackt auf dem Editor mit den neuen Biomen, Wasserfällen und der Erosion ohne Nadeln, alle
+acht Proben erneut bestanden (Werte oben). Die Regel „kein Bauen auf Wasser“ (Welt-Worker) war dabei noch nicht auf
+dem Branch; Sumpf, Archipel und Winterdorf sollten danach noch einmal geprüft werden.
 
 ## Laden im Produktions-Build
 

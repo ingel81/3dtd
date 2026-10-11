@@ -89,6 +89,14 @@ export function buildWitchMarsh(): CustomMapDocument {
   // Remove whatever grew on a walk
   k.doc.objects = k.doc.objects.filter((o) => k.free(o.x, o.y, 0.6) || o.asset === 'lily-pads');
 
+  // Ground under the trees: moss and dark mud in patches, roots and stumps
+  for (const isl of islands) {
+    k.paint('moss', { x: isl.at.x + isl.radius * 0.3, y: isl.at.y }, { radius: isl.radius * 0.5, falloff: 1 }, 0.6);
+    k.paint('mud-dark', { x: isl.at.x - isl.radius * 0.3, y: isl.at.y + isl.radius * 0.2 }, { radius: isl.radius * 0.4, falloff: 1 }, 0.5);
+    k.paint('forest-moss', { x: isl.at.x, y: isl.at.y - isl.radius * 0.35 }, { radius: isl.radius * 0.4, falloff: 1 }, 0.5);
+  }
+  k.scatter(['roots', 'stump-mossy', 'mushrooms', 'stones-mossy-scatter', 'fern'], islands.map((i) => i.at), { radius: 40, strength: 1 }, { density: 5, minDistance: 2.5 });
+
   // ---- The witch's hut beside the HQ, stilt huts at the shores, lanterns on the walks
   k.place('witch-hut', 122, -190, { rotation: facing({ x: 122, y: -190 }, j) });
   for (const [x, y] of [[132, -168], [114, -200], [88, -200]] as const) k.place('mushrooms-glow', x, y, { rotation: x });
@@ -97,7 +105,11 @@ export function buildWitchMarsh(): CustomMapDocument {
   for (const [x, y] of [[-30, 182], [70, 70], [-200, 30], [150, -130], [-110, -160], [200, 30], [-150, 140]] as const) {
     const shore = { x, y };
     k.place('hut-stilts', shore.x, shore.y, { rotation: facing(shore, j) });
+    // A lantern at every hut's door
+    k.place('lantern', shore.x + 3, shore.y - 2, { z: 2.4 });
   }
+  k.place('cauldron', 128, -178, { rotation: 0.5 });
+  for (const [x, y] of [[-40, 120], [20, 0], [-150, -40], [95, 98], [-195, 70], [60, -30]] as const) k.place('mushrooms-glow', x, y, { scale: 1.3 });
   // Lanterns: on posts beside every boardwalk, every 24 m
   for (const e of k.doc.paths.edges) {
     if (e.kind !== 'bridge') continue;
@@ -116,8 +128,14 @@ export function buildWitchMarsh(): CustomMapDocument {
   for (const [x, y, sc] of [[-20, 225, 1.5], [30, 250, 1.4], [-60, 250, 1.3], [-230, 20, 1.5], [-245, -50, 1.4], [-220, -15, 1.3], [-150, 200, 1.2], [180, 120, 1], [-80, 60, 1], [150, -40, 1]] as const) {
     k.place('fx-fog', x, y, { scale: sc });
   }
+  // Low fog drifting over the open water everywhere
+  for (let y = -220; y <= 220; y += 55) for (let x = -220; x <= 220; x += 55) {
+    const p = { x: x + 20 * k.noise.fbm(x, y, 40), y: y + 20 * k.noise.fbm(y, x, 40) };
+    if (k.h(p.x, p.y) < 0) k.place('fx-fog', p.x, p.y, { scale: 1.1 });
+  }
   for (const [x, y] of [[-100, 80], [0, 80], [140, 40], [-90, -90], [40, -120], [160, -230], [-180, 60], [70, 180]] as const) k.place('fx-fireflies', x, y, { scale: 1.3 });
 
-  k.environment({ biome: 'swamp', sky: 'night', sunAzimuth: 200, sunElevation: 20, fogDensity: 0.0008, tint: '#d8ecd0', weather: 'fog', weatherStrength: 0.12 });
+  // The plain night sky (the swamp look lights its clouds pale even at night); the green lives in the low fog banks
+  k.environment({ biome: 'temperate', sky: 'night', sunAzimuth: 200, sunElevation: 20, fogDensity: 0.0009, tint: '#cfe6c8' });
   return k.finish();
 }

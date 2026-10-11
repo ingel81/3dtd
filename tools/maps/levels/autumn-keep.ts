@@ -25,9 +25,9 @@ export function buildAutumnKeep(): CustomMapDocument {
   k.raise(c, { radius: 130, falloff: 1 }, 16);
   k.raise(c, { radius: 80, falloff: 0.8 }, 8);
   const top = k.h(c.x, c.y);
-  k.plateau(c, { radius: 72, falloff: 0.55 }, top);
+  k.plateau(c, { radius: 84, falloff: 0.5 }, top);
   k.smooth(c, { radius: 100, falloff: 0.5 }, 5);
-  k.level(c, { radius: 54, falloff: 0.3 }, top);
+  k.level(c, { radius: 64, falloff: 0.3 }, top);
   for (const p of [{ x: -130, y: -150 }, { x: 140, y: -160 }, { x: -170, y: 110 }, { x: 170, y: 120 }]) k.form('valley', p, { radius: 60, strength: 0.6 }, 3);
 
   // ---- Roads out of the woods to the green before the gate, then up through the gate to the bailey
@@ -81,22 +81,25 @@ export function buildAutumnKeep(): CustomMapDocument {
       if (skip.includes(i)) continue;
       const f = (i + 0.5) / n;
       const asset = i % 2 ? 'castle-wall-ruined-b' : 'castle-wall-ruined';
-      k.place(asset, from.x + (to.x - from.x) * f, from.y + (to.y - from.y) * f, { rotation });
+      k.place(asset, from.x + (to.x - from.x) * f, from.y + (to.y - from.y) * f, { rotation, scale: 1.2 });
     }
   };
-  const [x0, x1, y0, y1] = [-30, 30, 32, 92];
-  k.place('castle-ruin-corner', x1, y1, { rotation: 0 });
-  k.place('castle-ruin-corner', x0, y1, { rotation: Math.PI / 2 });
-  k.place('castle-ruin-corner', x0, y0, { rotation: Math.PI });
-  k.place('castle-ruin-corner', x1, y0, { rotation: -Math.PI / 2 });
-  walls({ x: x0 + 8, y: y1 }, { x: x1 - 8, y: y1 }, 0, [3]);
+  const [x0, x1, y0, y1] = [-42, 42, 32, 108];
+  k.place('castle-ruin-corner', x1, y1, { rotation: 0, scale: 1.2 });
+  k.place('castle-ruin-corner', x0, y1, { rotation: Math.PI / 2, scale: 1.2 });
+  k.place('castle-ruin-corner', x0, y0, { rotation: Math.PI, scale: 1.2 });
+  k.place('castle-ruin-corner', x1, y0, { rotation: -Math.PI / 2, scale: 1.2 });
+  walls({ x: x0 + 8, y: y1 }, { x: x1 - 8, y: y1 }, 0, [3, 6]);
   walls({ x: x1, y: y0 + 8 }, { x: x1, y: y1 - 8 }, -Math.PI / 2, [1]);
   walls({ x: x0, y: y0 + 8 }, { x: x0, y: y1 - 8 }, Math.PI / 2, [4]);
   walls({ x: x0 + 8, y: y0 }, { x: -8, y: y0 }, Math.PI, []);
   walls({ x: 8, y: y0 }, { x: x1 - 8, y: y0 }, Math.PI, []);
-  k.place('gate-ruin', gate.x, gate.y, { rotation: Math.PI });
-  k.place('keep-ruin', 16, 80, { rotation: 0.12 });
-  k.place('castle-tower-ruined', x0 - 1, 62, { rotation: 0.4 });
+  k.place('gate-ruin', gate.x, gate.y, { rotation: Math.PI, scale: 1.25 });
+  // The keep high in the north-east of the bailey, towers on the corners and in the long walls
+  k.place('keep-ruin', 20, 88, { rotation: 0.12, scale: 1.5 });
+  for (const [x, y, a] of [[x0 - 2, y1 + 2, 'castle-tower-ruined'], [x1 + 2, y1 + 2, 'castle-tower-ruined'], [x0 - 2, y0 - 2, 'castle-tower-ruined'], [x1 + 2, y0 - 2, 'castle-tower-ruined'], [x0 - 1, 70, 'castle-tower-ruined'], [x1 + 1, 72, 'castle-tower-ruined']] as const) {
+    k.place(a, x, y, { rotation: x * 0.07, scale: 1.25 });
+  }
   for (const [x, y, a, r] of [
     [-18, 78, 'well', 0],
     [-20, 44, 'leaf-pile', 1],
@@ -121,6 +124,17 @@ export function buildAutumnKeep(): CustomMapDocument {
     k.place(a, x, y, { rotation: r });
   }
   k.scatter(['bush-maple-autumn', 'bush-maple-autumn', 'shrub', 'rock-mossy-flat'], [{ x: -80, y: 70 }, { x: 80, y: 30 }, { x: -40, y: 140 }, { x: 40, y: 150 }, { x: -110, y: 20 }], { radius: 35, strength: 0.7 }, { density: 2, minDistance: 6 });
+  // The hill: rock outcrops, ivy and autumn scrub round the crown instead of a bare dome
+  const ring: MapPoint[] = [];
+  for (let a = 0; a <= 360; a += 20) ring.push({ x: c.x + Math.cos((a * Math.PI) / 180) * 88, y: c.y + Math.sin((a * Math.PI) / 180) * 88 });
+  k.scatter(['rock-mossy-a', 'rock-mossy-b', 'rock-mossy-c', 'rock-large', 'stones-mossy-scatter'], ring, { radius: 18, strength: 0.8 }, { density: 3, minDistance: 5, scaleMin: 0.9, scaleMax: 2 });
+  k.scatter(['bush-maple-autumn', 'bush-ivy', 'shrub', 'grass-autumn', 'grass-autumn'], ring, { radius: 22, strength: 1 }, { density: 8, minDistance: 2.5 });
+  // Leaves and autumn grass on the green, the colours patchy
+  for (const [x, y] of [[-90, -30], [-30, -60], [40, -40], [100, -50], [-60, 20], [70, 20]] as const) {
+    k.paint('leaves-scattered', { x, y }, { radius: 26, falloff: 1 }, 0.45);
+    k.paint('grass-withered', { x: x + 15, y: y + 18 }, { radius: 18, falloff: 1 }, 0.3);
+  }
+  k.scatter(['grass-autumn', 'leaf-pile', 'flowers-yellow'], [{ x: -80, y: -40 }, { x: 0, y: -60 }, { x: 80, y: -40 }, { x: -40, y: 10 }, { x: 40, y: 10 }], { radius: 35, strength: 1 }, { density: 10, minDistance: 1.8 });
   // A few fallen blocks down the hill
   k.scatter(['rock-mossy-a', 'rock-mossy-b', 'rock-mossy-c'], [{ x: -45, y: 15 }, { x: 45, y: 15 }, { x: -50, y: 100 }, { x: 50, y: 105 }], { radius: 16, strength: 0.8 }, { density: 2.5, minDistance: 5 });
 

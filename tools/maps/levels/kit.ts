@@ -525,6 +525,12 @@ export class LevelKit {
     return placed;
   }
 
+  /** Smoke from a house's chimney: a smoke effect just over its roof */
+  chimney(house: MapObject, scale = 0.6): MapObject {
+    const top = this.catalog.object(house.asset).height * house.scale * 0.95;
+    return this.place('fx-smoke', house.x + 1.5, house.y - 1, { z: house.z + top, scale });
+  }
+
   /** Objects one after another along a line, turned along it (walls, fences, boardwalks) */
   row(asset: string, line: readonly MapPoint[], spacing: number, o: PlaceOptions & { offset?: number; turn?: number; zFrom?: (p: MapPoint) => number } = {}): MapObject[] {
     const length = polylineLength(line);

@@ -26,7 +26,7 @@
       "spawns": 2,
       "biome": "mountain",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "ecf889c0f0a52b07bc96bafdd0a975e4b43c2b2bf27865581a5bca30d3180e5d"
+      "contentHash": "a8cfff8e5110f357e5412730f027e034c4cce5e7ec7b089f85d70cc2ae73494f"
     },
     {
       "id": "witch-marsh",
@@ -38,9 +38,9 @@
       "width": 512,
       "depth": 512,
       "spawns": 2,
-      "biome": "swamp",
+      "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "622a1fa79826d63e81baaf7fc2c2bea33710f35651a30cbd3582700f11f10511"
+      "contentHash": "af61952c0e94600c3ac8a0d83684891a5d7b506caed05f63f2246b908e5db5c3"
     },
     {
       "id": "autumn-keep",
@@ -54,7 +54,7 @@
       "spawns": 3,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "3ac1312420fb27e1a2761efacbd9682b6116b984581ef9d3617b26ed96132cd7"
+      "contentHash": "f2c6d5d7995635db2d9dc7a0efd0dc0a9eea97af359669fcbc0df73207466441"
     },
     {
       "id": "red-canyon",
@@ -82,7 +82,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "faf4b5c50099be734b5764311d197f123479f1276c8425419dfd734b3f780ab6"
+      "contentHash": "d26bf97998e927e4ea9ab8194d2cfb8b9b1d55f0e6b181ac2ae9bb359c091971"
     },
     {
       "id": "frost-hamlet",
@@ -96,7 +96,7 @@
       "spawns": 2,
       "biome": "arctic",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "670fcaac5b8514a389574ae8733809c769cee0dff02433853abd96c1b3ae165a"
+      "contentHash": "6a96dc90f8ea5d37be2655ad290f378fc7069780f37016a8ec6925c26f2c81a4"
     },
     {
       "id": "ember-crater",
