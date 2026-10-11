@@ -185,7 +185,7 @@ export const BIOMES: readonly BiomeDef[] = [
     ],
     relief: { kind: 'flatten', amplitude: 1, wave: 40 },
     objects: [
-      { assets: ['house', 'house-large'], perHectare: 7, scale: [0.9, 1.1], zone: 'core', spacing: 16 },
+      { assets: ['house', 'house-large'], perHectare: 16, scale: [0.9, 1.1], zone: 'core', spacing: 14 },
       { assets: ['barn'], perHectare: 1.5, scale: [0.9, 1.1], zone: 'core', spacing: 22 },
       { assets: ['well'], perHectare: 0.8, scale: [1, 1], zone: 'core', spacing: 25 },
       { assets: ['lamp-post'], perHectare: 4, scale: [1, 1], zone: 'core', spacing: 12 },

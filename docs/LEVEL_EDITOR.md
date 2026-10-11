@@ -35,7 +35,7 @@ Kopie an und öffnet sie.
 | Pfeiltasten | Ansicht verschieben |
 | F | Auswahl ins Bild holen, ohne Auswahl die ganze Karte |
 | T | Draufsicht an und aus |
-| 1 bis 8 | Werkzeug: Terrain, Paint, Water, Objects, Paths, Spawns and HQ, Environment, Map |
+| 1 bis 9 | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Paths, Spawns and HQ, Environment, Map |
 | [ und ] | Pinsel kleiner, größer; { und } Stärke |
 | Strg+Z, Strg+Y (Strg+Shift+Z) | Rückgängig, Wiederholen |
 | Strg+S | Speichern mit neuem Vorschaubild |
@@ -47,22 +47,37 @@ zeigt Größe und den harten Kern.
 
 ## Werkzeuge
 
-**Terrain (1).** Raise und Lower (Shift kehrt um), Smooth, Flatten (auf die Höhe am Strichanfang), Level (auf eine
+**Landscape (1).** Landschaft malen: Höhe, Bodenfarbe, Wasser und Objekte entstehen gemeinsam, jeder Strich ist
+ein Schritt im Verlauf. Jeder Strich hat einen Seed (im Panel und in der Statuszeile, „Roll“ würfelt, der Schalter
+würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben dieselbe Landschaft.
+- Biome: Meadow, Forest, Pine forest, Rocks, Swamp, Desert, Snow, Village. Halten malt; die Stärke bestimmt Dichte und
+  Ausprägung, der Rand franst aus. Unterholz, Büsche und Zäune wachsen am Rand des Strichs, Bäume und Häuser innen.
+  Objekte meiden Straßen, Wasser, Spawns und HQ; der Boden unter Straßen bleibt. Der Sumpf legt flache Wasserlachen an
+  (ohne Wasser auf der Karte entsteht es knapp unter dem Startpunkt). Unter dem Zeiger zeigen Punkte, wo der nächste
+  Strich Pflanzen setzen würde
+- Mountain (gratige Gipfel, Höhe nach Größe und Stärke), Valley, Plateau (Tafel mit steilem Rand), Erode (Regen gräbt
+  Rinnen und Schuttfächer). Halten lässt die Form bis zu ihrer vollen Größe wachsen, nicht darüber hinaus
+- Linien (ziehen, auch vom Kartenrand her): Cliff edge hebt den Boden links der Zeichenrichtung als Klippe, die
+  Pinselgröße ist die Breite oben; River gräbt ein Flussbett mit Wasser, Sand- und Schlammufern, Schilf und einer
+  Brücke an jeder Straße, die er kreuzt; Road legt eine Straße ins Wegenetz (Anfang und Ende rasten an Knoten oder
+  Straßen), passt den Boden als Damm oder Einschnitt an, pflastert sie und stellt Laternen oder Zäune an den Rand
+
+**Terrain (2).** Raise und Lower (Shift kehrt um), Smooth, Flatten (auf die Höhe am Strichanfang), Level (auf eine
 eingestellte Höhe; Strg+Klick nimmt sie vom Boden), Roughen (Rauschen), Erode (steile Hänge rutschen zu Geröll),
 Terrace (Stufen in einstellbarer Höhe), Cliff (Plateau eine Stufe über dem Strichanfang, Shift eine darunter, harte
 Kante wie Warcraft-Klippen), Ramp (zwei Klicks: Rampe zwischen den beiden Höhen, Breite einstellbar).
 
-**Paint (2).** Bis zu acht Bodenschichten aus dem Katalog; die Liste wählt die Schicht zum Malen, tauscht ihr Material,
+**Paint (3).** Bis zu acht Bodenschichten aus dem Katalog; die Liste wählt die Schicht zum Malen, tauscht ihr Material,
 verschiebt und entfernt sie (ihr Gewicht geht an die anderen). Halten malt, Shift oder der Schalter radiert. „Auto paint
 the map“ malt die ganze Karte neu: die erste Schicht überall, felsartige Schichten an steilen Hängen, sandartige am
 Ufer, schneeartige auf den Gipfeln (nach dem Materialnamen). Darunter das Klippenmaterial und ab welcher Neigung es
 greift.
 
-**Water (3).** Fill basin: ein Klick in eine Mulde flutet sie. Ohne Wasser (oder mit Strg) wird der Spiegel knapp unter
+**Water (4).** Fill basin: ein Klick in eine Mulde flutet sie. Ohne Wasser (oder mit Strg) wird der Spiegel knapp unter
 den Rand der Mulde gesetzt, also die Höhe, an der sie überlaufen würde. Paint und Erase malen die Wassermaske von Hand.
 Spiegel und Farbe im Panel; Wasser lässt sich dort auch ganz abschalten.
 
-**Objects (4).** Palette aus dem Katalog mit Bildern, Kategorien und Suche.
+**Objects (5).** Palette aus dem Katalog mit Bildern, Kategorien und Suche.
 - Place: ein Klick setzt das gewählte Objekt (Raster-Fang 1 bis 8 m, zufällige Drehung)
 - Scatter: halten streut die gewählten Assets (mehrere wählbar) mit Dichte, Größenbereich, Mindestabstand, zufälliger
   Drehung und Einsinken am Hang; Shift dünnt aus
@@ -72,21 +87,21 @@ Spiegel und Farbe im Panel; Wasser lässt sich dort auch ganz abschalten.
   dupliziert. Im Panel stehen Lage, Drehung, Größe und die Schalter „Blocks sight“ und „Blocks building“ (Default folgt
   dem Katalog)
 
-**Paths (5).** Draw: jeder Klick setzt einen Knoten und verbindet ihn mit dem letzten; ein Klick nahe einem Knoten
+**Paths (6).** Draw: jeder Klick setzt einen Knoten und verbindet ihn mit dem letzten; ein Klick nahe einem Knoten
 schließt dort an, nahe einer Straße entsteht eine Kreuzung (Alt setzt frei). Enter, Rechtsklick oder Doppelklick
 beendet die Linie. Edit: Knoten ziehen (auf einem anderen abgelegt verschmelzen sie), Straße wählen; Breite und Art
 (Road, Path, Bridge), S glättet als Kurve, X begradigt, J löst einen Knoten zwischen zwei Straßen auf, Entf löscht.
 „Flatten road“ ebnet den Boden quer und glättet ihn längs, „Paint road“ malt eine Schicht darunter (gewählte Straße oder
 alle). Die Routen von jedem Spawn zum HQ laufen als Punkte über die Karte (abschaltbar).
 
-**Spawns and HQ (6).** Q: Klick setzt einen Spawn (Name nach Himmelsrichtung, im Panel änderbar), H: Klick versetzt das
+**Spawns and HQ (7).** Q: Klick setzt einen Spawn (Name nach Himmelsrichtung, im Panel änderbar), H: Klick versetzt das
 HQ. Ziehen verschiebt beide; sie rasten auf die nächste Straße (Alt frei). Das Panel zeigt je Spawn die Länge seiner
 Spur oder „no route“.
 
-**Environment (7).** Himmel (Day, Dusk, Night, Overcast), Sonnenrichtung und -höhe, Nebel, Tönung; Regler wirken
+**Environment (8).** Himmel (Day, Dusk, Night, Overcast), Sonnenrichtung und -höhe, Nebel, Tönung; Regler wirken
 sofort und werden beim Loslassen ein Schritt im Verlauf.
 
-**Map (8).** Name, Autor, Beschreibung; Größe ändern (die Mitte bleibt, kleiner schneidet die Ränder ab, größer setzt
+**Map (9).** Name, Autor, Beschreibung; Größe ändern (die Mitte bleibt, kleiner schneidet die Ränder ab, größer setzt
 sie in Randhöhe fort).
 
 ## Prüfen
@@ -127,6 +142,7 @@ src/app/world/custom-map/
 src/app/editor/
   model/            EditorDocument (Befehle, Verlauf, Auswahl), Raster-Helfer, Kachel-Patches
   ops/              Operationen ohne Angular: Pinsel, Gelände, Farbe, Wasser, Objekte, Wegenetz, Straßen-Boden, Größe
+  ops/landscape/    Landschafts-Pinsel: Biome, Formen, Erosion, Fluss, Straße, LandscapeStroke (ein Undo-Schritt)
   tools/            Werkzeuge: Zeigereingaben zu Befehlen
   validation/       Prüfen
   view/             EditorViewport (Renderer, Kamera, Eingabe), Overlay, Kamera, EditorMapView
@@ -152,6 +168,14 @@ neu) und wählt Objekte per Strahl auf ihr Modell. Eine neue Schichtliste oder e
 Szene-Rahmen wie im Spiel: Szene x = minus Karte Ost,
 Szene z = Karte Nord, y oben.
 
+**Landschafts-Pinsel.** Ein `LandscapeStroke` nimmt Höhen, Splat, Wassermaske (Kachel-Patches), neue Schichten,
+neues Wasser, neue Objekte und geänderte Straßen eines Strichs auf und legt sie als einen `CompoundCommand` in den
+Verlauf. Höhen ziehen zu einem Ziel aus dem Boden vor dem Strich (`RegionRecorder.original`), daher türmt sich
+nichts auf. Objekte stehen auf einem verwackelten Raster je Objektart und Seed (eine Stelle und ein Würfel je Zelle,
+einmal entschieden); Kern-Objekte wachsen, sobald der Pinsel stark genug war, Rand-Objekte werden am Strichende nach
+dem stärksten erreichten Gewicht entschieden. Rauschen aus `devworld/utils/seeded-random.ts`. Ein Fluss liegt auf dem
+einen Wasserspiegel der Karte (das Kartendokument kennt kein Gefälle) und schneidet sich durch höheres Gelände.
+
 **Angular.** `EditorSession` (je Seite) hält Karte, Werkzeuge, Einstellungen und Signale für die Panels; Viewport und
 Taktgeber laufen außerhalb der Zone, Änderungen am Dokument erreichen die Panels höchstens alle 150 ms.
 
@@ -162,7 +186,9 @@ und die Arrays; Umbenennen und erneutes Speichern ändern ihn nicht. Beim Lesen 
 (`MAP_MIGRATIONS`, je Version ein Schritt), dann die Prüfung; Fehler kommen als `MapFileError` mit Klartext.
 
 **Tests.** Vitest: `map-file.spec.ts`, `map-store.spec.ts`, `editor-document.spec.ts`, `ops.spec.ts`,
-`path-graph.spec.ts`, `map-validation.spec.ts`. Browser: `e2e/tests/editor.e2e.ts` (neue Karte, Gelände, Objekt mit
+`path-graph.spec.ts`, `map-validation.spec.ts`, `tools.spec.ts`, `ops/landscape/landscape.spec.ts` (Gleichheit bei
+gleichem Seed, Rand, Dichte, Freihalten von Straßen und Markern, ein Undo-Schritt, Formen, Erosion, Fluss mit Brücke,
+Straße). Browser: `e2e/tests/editor.e2e.ts` (neue Karte, Gelände, Objekt mit
 Rückgängig, Straße, Spawn, Prüfen, Speichern, Neuladen, Löschen; ohne Kartensitzung).
 
 ## Grenzen
