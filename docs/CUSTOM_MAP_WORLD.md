@@ -124,15 +124,10 @@ Eine Spur in allen Varianten: 474/342/263/191.
   der einzige der drei Hebel mit vergleichbarer Last. Er ist nicht gebaut: Der Leckschaden entsteht in der
   Simulation, er gehörte als Lauf-Regel in die `RunRules` (Weltschlüssel) und gilt nur für Karten, die ihn wählen.
 
-**Vorbereitet, aus:** `gameplay.laneScaling` im Kartendokument, `'none'` (Standard) oder `'sqrt'`.
-
-- Der Weg: `CustomMapWorld.worldWaves()` → `WaveSourceOptions.laneScaling` → `BudgetWaveSource`. Die Quelle teilt
-  die Körperzahl jeder Spur nach dem Bemessen durch Wurzel(Spuren), mindestens einer je Typ; HP je Körper bleiben.
-- Ohne das Feld ist alles wie vorher (Spec in `budget-source.spec.ts`). Die Tabellen-Quelle bleibt unberührt.
-- Offen:
-  - Die Vorschau der nächsten Wellen (`peek`) zeigt die ungeteilten Zahlen.
-  - Im Koop zählt N die Spuren des Raums, die Option würde dort auch die Wellen jedes Spielers teilen.
-  - (c) als zweite Option, oder (a) und (c) zusammen, ist nicht gerechnet.
+**Entschieden (2026-10-11):** volle Last je offener Spur bleibt, auch kein Leckschaden 1/N. Die vorbereitete Option
+`gameplay.laneScaling: 'sqrt'` ist entfernt (E130); ein altes Kartendokument mit dem Feld liest sich weiter, das Feld
+wirkt nicht. Stattdessen wählt der Spieler vor Welle 1, welche Spuren offen sind (siehe Spurenwahl). Die Variante (a)
+rechnet nur noch `tools/balance-calc/lanes.ts`.
 
 ## Kartenprobe (`?bot=trial`)
 

@@ -339,18 +339,16 @@ export class CustomMapWorld implements WorldProvider {
    * warning: the game's choice plays instead.
    */
   worldWaves(): WorldWaves | null {
-    const play = this.doc.gameplay;
-    const lanes = play?.laneScaling === 'sqrt' ? { laneScaling: 'sqrt' as const } : {};
-    const waves = play?.waves;
-    if (!waves) return lanes.laneScaling ? { source: null, ...lanes } : null;
-    if (waves.kind === 'budget') return { source: 'budget', ...lanes };
+    const waves = this.doc.gameplay?.waves;
+    if (!waves) return null;
+    if (waves.kind === 'budget') return { source: 'budget' };
     const table = waves.table as unknown as WaveTable;
     const problems = validateWaveTable(table);
     if (problems.length > 0) {
       console.warn(`[CustomMap] the map's wave list is not used: ${problems.slice(0, 3).join('; ')}`);
-      return lanes.laneScaling ? { source: null, ...lanes } : null;
+      return null;
     }
-    return { source: 'table', table, ...lanes };
+    return { source: 'table', table };
   }
 
   /** HQ (where the start flow put the origin) and the first `spawnLimit` spawns (customMapSpawnLimit) */

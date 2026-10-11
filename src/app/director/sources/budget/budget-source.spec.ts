@@ -149,20 +149,4 @@ describe('BudgetWaveSource', () => {
     expect(all.camo?.count).toBe(all.count);
     expect(plan(new BudgetWaveSource(), 21).config.enemies.every((g) => g.camo === undefined)).toBe(true);
   });
-
-  it("gives each of many lanes 1/sqrt(lanes) of the wave's bodies only when the world asks for it", () => {
-    const onLanes = (source: BudgetWaveSource, lanes: number) => {
-      const s = state(12);
-      s.lanes = lanes;
-      return Object.fromEntries(source.plan({ wave: 12, state: s, random: () => 0.5 }).config.enemies.map((g) => [g.type, g.count]));
-    };
-    const row = planRowForWave(12)!.enemies;
-    // The default: every lane the whole wave
-    expect(onLanes(new BudgetWaveSource(), 4)).toEqual(row);
-    expect(onLanes(new BudgetWaveSource('none'), 4)).toEqual(row);
-    // sqrt on 4 lanes: half the bodies each, at least one; one lane is the whole wave
-    const half = Object.fromEntries(Object.entries(row).map(([type, n]) => [type, Math.max(1, Math.round(n / 2))]));
-    expect(onLanes(new BudgetWaveSource('sqrt'), 4)).toEqual(half);
-    expect(onLanes(new BudgetWaveSource('sqrt'), 1)).toEqual(row);
-  });
 });

@@ -82,10 +82,6 @@ export class GameplayPanelComponent {
     this.edit('Towers', (g) => (g.towers = on ? undefined : []));
   }
 
-  setLaneScaling(mode: 'none' | 'sqrt'): void {
-    this.edit('Many lanes', (g) => (g.laneScaling = mode === 'none' ? undefined : mode));
-  }
-
   setSource(kind: 'budget' | 'table'): void {
     this.edit('Wave source', (g) => {
       if (kind === 'budget') g.waves = undefined;

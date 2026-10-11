@@ -268,8 +268,6 @@ Spiel mit `?world=map:<id>`.
   Sichtlinien merken einen Fall erst beim nächsten Rendern des Würfels; Schaden nur durch Einschläge
   ([CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md), Zerstörbarkeit).
 - **Ältere empfangene Karten:** Was vor `45dcb491` empfangen wurde, steht als `'own'` im Store.
-- **`laneScaling`:** Die Wellenvorschau (`peek`) zeigt die ungeteilten Zahlen. Im Koop zählt N die Spuren des ganzen
-  Raums.
 - **Relay-Budget:** Ein Joiner nach erschöpftem Budget bekommt die Karte nicht (Log-Zeile im Relay).
 - **Bot-Ausnahmen:** Bot-Training, Hintergrund-Schleife und Headless-Schalter hängen weiter an
   `ref.kind === 'devworld'` (begründet unter „Entscheidungen beim Bau“).
@@ -281,8 +279,8 @@ Spiel mit `?world=map:<id>`.
 - **Leckschaden 1/N bei vielen Spuren:** Laut Rechnung (`81a96256`, `tools/balance-calc/lanes.ts`) der einzige Hebel,
   der jede Spurzahl auf der Kurve einer Spur hält (höchstens 28 HP Abweichung bis W40). Nicht gebaut; er gehörte als
   Lauf-Regel in `RunRules`.
-- **`laneScaling: 'sqrt'`:** vorbereitet und aus (`9a25b3fc`). Bei 10 Spuren hält die Option durch die Aufbauwellen,
-  ist aber nicht lastgleich: 68 HP nach W10, Tod in W30. Offen ist, ob Karten sie nutzen dürfen.
+- **`laneScaling: 'sqrt'`:** entschieden 2026-10-11: entfällt (E130), stattdessen Spurenwahl vor Welle 1. Auch
+  Leckschaden 1/N ist verworfen.
 
 ## Kopplungsstellen vor dem Umbau (Erkundung 2026-10-11, inzwischen aufgelöst)
 

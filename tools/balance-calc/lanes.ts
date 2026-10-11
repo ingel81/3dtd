@@ -16,7 +16,8 @@ import { BudgetWaveSource } from '../../src/app/director/sources/budget/budget-s
 import { mulberry32 } from '../../src/app/utils/game-rng';
 import { defenseDps, estimateLeak, scaleArmor, waveBodies, type LeakModel } from './model';
 import type { Trajectory } from './trajectory';
-import type { LaneScaling } from '../../src/app/director/wave-source.registry';
+/** How each lane's wave shrinks: the whole wave, or 1/sqrt(N) of its bodies (variant (a); the game has no such option) */
+export type LaneScaling = 'none' | 'sqrt';
 
 export interface LaneOptions {
   readonly lanes: number;
@@ -61,8 +62,13 @@ function snapshot(dps: EffectiveDPSPerArmor, metres: number, towerShare: number,
  */
 export function runLanes(trajectory: Trajectory, options: LaneOptions): LaneRow[] {
   const { lanes, economy, laneScaling, leakShare, model } = options;
-  const source = new BudgetWaveSource(laneScaling);
+  const source = new BudgetWaveSource();
   const share = laneScaling === 'sqrt' ? 1 / Math.sqrt(lanes) : 1;
+  // Variant (a): each lane gets 1/sqrt(N) of the planned bodies, at least one of a type, HP as sized
+  const shrink = (wave: PlannedWave): PlannedWave => share === 1 ? wave : {
+    ...wave,
+    config: { ...wave.config, enemies: wave.config.enemies.map((g) => ({ ...g, count: Math.max(1, Math.round(g.count * share)) })) },
+  };
   const random = mulberry32(1);
   const metres = new Map(trajectory.waves.map((w) => [w.wave, w.metres]));
   const perLane = economy / lanes;
@@ -80,6 +86,7 @@ export function runLanes(trajectory: Trajectory, options: LaneOptions): LaneRow[
     if (source.sizeAtStart) {
       planned = source.sizeAtStart(planned, { wave: w.wave, state: snapshot(startDps, startMetres, model.towerShare, hp, w.wave, lanes), random });
     }
+    planned = shrink(planned);
     const bodies = waveBodies(w.wave, planned.config, startMetres);
     const leak = estimateLeak(w.wave, bodies, startDps, startMetres, model);
     const recorded = Math.max(0, w.actual.healthStart - w.actual.healthEnd);

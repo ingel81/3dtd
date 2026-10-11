@@ -376,9 +376,6 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
       if (gp.towers !== undefined && (!Array.isArray(gp.towers) || gp.towers.some((t) => typeof t !== 'string'))) {
         p.push('gameplay.towers must be a list of tower ids');
       }
-      if (gp.laneScaling !== undefined && gp.laneScaling !== 'none' && gp.laneScaling !== 'sqrt') {
-        p.push('gameplay.laneScaling must be none or sqrt');
-      }
       const w = gp.waves;
       if (w !== undefined && w.kind !== 'budget' && w.kind !== 'table') p.push('gameplay.waves.kind must be budget or table');
       if (w?.kind === 'table') {
