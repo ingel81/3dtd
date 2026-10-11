@@ -243,8 +243,8 @@ export class TowerDefenseStore {
   // DEVWORLD
   // ════════════════════════════════════════════════════════════
 
-  /** DevWorld is regenerating terrain */
-  readonly isDevWorldRegenerating = this.gameStore.isDevWorldRegenerating;
+  /** The world rolls itself anew in place (capabilities.regenerate, DevWorld) */
+  readonly worldRegenerating = this.gameStore.worldRegenerating;
 
   // ════════════════════════════════════════════════════════════
   // RESEARCH STATE

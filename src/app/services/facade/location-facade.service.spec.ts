@@ -170,7 +170,7 @@ describe('LocationFacadeService', () => {
     heightDebugVisible: ReturnType<typeof signal<boolean>>;
     phase: ReturnType<typeof signal<string>>;
     waveNumber: ReturnType<typeof signal<number>>;
-    isDevWorldRegenerating: ReturnType<typeof signal<boolean>>;
+    worldRegenerating: ReturnType<typeof signal<boolean>>;
   };
 
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -223,7 +223,7 @@ describe('LocationFacadeService', () => {
       heightDebugVisible: signal(false),
       phase: signal('setup'),
       waveNumber: signal(0),
-      isDevWorldRegenerating: signal(false),
+      worldRegenerating: signal(false),
     };
     vizCallbacks = {
       initializeTowerPlacement: vi.fn(),
@@ -888,7 +888,7 @@ describe('LocationFacadeService', () => {
 
       facade.refreshTerrainHeights(onTilesLoaded);
 
-      expect(store.isDevWorldRegenerating()).toBe(true);
+      expect(store.worldRegenerating()).toBe(true);
       expect(world.resetRun).toHaveBeenCalled();
       expect(gridViz.disposeVisualization).toHaveBeenCalled();
       expect(markerViz.clearAllMarkers).toHaveBeenCalled();
@@ -900,7 +900,7 @@ describe('LocationFacadeService', () => {
       finish();
       await settle();
 
-      expect(store.isDevWorldRegenerating()).toBe(false);
+      expect(store.worldRegenerating()).toBe(false);
       expect(spawnIds()).toEqual(['dev-n']);
       // The new streets before the spawns, the ref follows the new configuration
       expect(bridge.setStreetNetwork).toHaveBeenCalledWith(newNetwork);
@@ -917,7 +917,7 @@ describe('LocationFacadeService', () => {
       facade.refreshTerrainHeights(vi.fn());
       await settle();
 
-      expect(store.isDevWorldRegenerating()).toBe(false);
+      expect(store.worldRegenerating()).toBe(false);
       expect(console.error).toHaveBeenCalledWith('[LocationFacade] world regeneration failed:', expect.any(Error));
       expect(world.sendToSim).not.toHaveBeenCalled();
     });
@@ -967,7 +967,7 @@ describe('LocationFacadeService', () => {
       finish();
       await settle();
 
-      expect(store.isDevWorldRegenerating()).toBe(false);
+      expect(store.worldRegenerating()).toBe(false);
       expect(markerViz.addBaseMarker).not.toHaveBeenCalled();
       expect(world.sendToSim).not.toHaveBeenCalled();
     });

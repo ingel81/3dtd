@@ -368,8 +368,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   readonly enemyTypes = getAllEnemyTypes();
 
-  /** DevWorld regeneration in progress, from Store */
-  readonly isDevWorldRegenerating = this.store.isDevWorldRegenerating;
+  /** The world rolling itself anew, from the store */
+  readonly worldRegenerating = this.store.worldRegenerating;
 
   // Game state signals, sourced from Store (single source of truth via GSM→Store sync)
   readonly waveActive = this.store.waveActive;

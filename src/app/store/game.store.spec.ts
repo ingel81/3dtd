@@ -67,8 +67,8 @@ describe('GameStore', () => {
       expect(store.waveExplanation()).toBeNull();
     });
 
-    it('isDevWorldRegenerating starts as false', () => {
-      expect(store.isDevWorldRegenerating()).toBe(false);
+    it('worldRegenerating starts as false', () => {
+      expect(store.worldRegenerating()).toBe(false);
     });
   });
 
@@ -263,7 +263,7 @@ describe('GameStore', () => {
       store.phase.set('gameover');
       store.gameSpeed.set(50);
       store.directorEnabled.set(false);   // non-default, so the assert below bites
-      store.isDevWorldRegenerating.set(true);
+      store.worldRegenerating.set(true);
 
       store.resetAll();
 
@@ -273,7 +273,7 @@ describe('GameStore', () => {
       // Set to the NON-default before the reset in the arrange block, so this
       // fails if resetAll stops touching the field at all.
       expect(store.directorEnabled()).toBe(true);
-      expect(store.isDevWorldRegenerating()).toBe(false);
+      expect(store.worldRegenerating()).toBe(false);
     });
   });
 });

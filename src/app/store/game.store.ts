@@ -160,8 +160,8 @@ export class GameStore {
    */
   readonly waveExplanation = signal<DecisionExplanation | null>(null);
 
-  /** DevWorld is regenerating terrain */
-  readonly isDevWorldRegenerating = signal<boolean>(false);
+  /** The world rolls itself anew in place (capabilities.regenerate, DevWorld) */
+  readonly worldRegenerating = signal<boolean>(false);
 
   /** Whether a wave is currently active */
   readonly waveActive = computed(() => this.phase() === 'wave');
@@ -217,6 +217,6 @@ export class GameStore {
     this.resetGameState();
     this.gameSpeed.set(1.0);
     this.directorEnabled.set(true);
-    this.isDevWorldRegenerating.set(false);
+    this.worldRegenerating.set(false);
   }
 }

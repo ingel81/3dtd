@@ -136,7 +136,7 @@
         <!-- Debug Windows (draggable), one lazy chunk, see debugWindowsRequested -->
         @defer (when debugWindowsRequested()) {
           <app-camera-debugger />
-          <app-devworld-debugger [isRegenerating]="isDevWorldRegenerating()" (terrainRefresh)="refreshTerrainHeights()" />
+          <app-devworld-debugger [isRegenerating]="worldRegenerating()" (terrainRefresh)="refreshTerrainHeights()" />
           <app-wave-debugger [eventBus]="sim.bus" />
           <app-sound-debugger />
           <app-event-debugger [eventBus]="sim.bus" />

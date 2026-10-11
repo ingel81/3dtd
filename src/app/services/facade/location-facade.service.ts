@@ -454,7 +454,7 @@ export class LocationFacadeService {
 
     const world = engine.world;
     if (world.capabilities.regenerate) {
-      this.store.isDevWorldRegenerating.set(true);
+      this.store.worldRegenerating.set(true);
       this.clearWorldVisuals();
       engine.terrain.clearHeightCache();
 
@@ -466,10 +466,10 @@ export class LocationFacadeService {
           this.store.streetCount.set(network.streets.length);
           this.worldContext.refreshRef();
           this.onWorldRegenerated();
-          this.store.isDevWorldRegenerating.set(false);
+          this.store.worldRegenerating.set(false);
         }).catch((error) => {
           console.error('[LocationFacade] world regeneration failed:', error);
-          this.store.isDevWorldRegenerating.set(false);
+          this.store.worldRegenerating.set(false);
         });
       return;
     }
