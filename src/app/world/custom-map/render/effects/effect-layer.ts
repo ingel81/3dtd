@@ -74,7 +74,8 @@ export class EffectLayer {
   private extraSpots: LightSpot[] = [];
   private readonly pool: PointLight[] = [];
   private darkness = 0;
-  private readonly tmp = new Vector3();
+  private readonly nearestSpots: LightSpot[] = [];
+  private readonly nearestDistances = new Float64Array(POINT_LIGHTS);
 
   constructor(private readonly field: HeightField) {
     this.group.name = 'custom-map-effects';
@@ -82,6 +83,7 @@ export class EffectLayer {
     for (let k = 0; k < POINT_LIGHTS; k++) {
       const light = new PointLight(0xffffff, 0, 10, 2);
       light.castShadow = false;
+      light.visible = false;
       this.pool.push(light);
       this.group.add(light);
     }
@@ -156,6 +158,7 @@ export class EffectLayer {
       this.glows = buildGlows(this.spots, this.time);
       this.group.add(this.glows);
     }
+    this.showPool();
   }
 
   /**
@@ -174,6 +177,7 @@ export class EffectLayer {
       flicker: true,
       seed: 100 + k * 2.3,
     }));
+    this.showPool();
   }
 
   /** 0 by day, 1 at night: how strongly the lights glow and light the ground */
@@ -181,16 +185,26 @@ export class EffectLayer {
     this.darkness = Math.min(1, Math.max(0, darkness));
     this.light.value = 1 - this.darkness * 0.85;
     if (this.glows) this.glows.material.uniforms['uDarkness'].value = this.darkness;
+    this.showPool();
+  }
+
+  /**
+   * The pool is in use only in the dark on a map with lights. Hidden lights do not count for three:
+   * by day every lit material would otherwise pay for six point lights at zero. While in use all six
+   * stay visible (unused at zero), as a change in the number of lights recompiles every lit material.
+   * Set as soon as darkness or lights change, so a warm-up compiles the programs the frames use
+   */
+  private showPool(): void {
+    const active = this.darkness > 0.05 && this.spots.length + this.extraSpots.length > 0;
+    for (const light of this.pool) light.visible = active;
   }
 
   /** Advances the effects and moves the point lights to the lights nearest `focus` (group space) */
   update(dt: number, focus: Vector3): void {
     this.time.value += dt;
-    const live = this.darkness > 0.05 ? this.nearest(focus) : [];
+    const live = this.pool[0].visible ? this.nearest(focus) : 0;
     this.pool.forEach((light, k) => {
-      const spot = live[k];
-      // Unused lights stay in the scene at zero: a change in the number of lights three sees
-      // would recompile every lit material
+      const spot = k < live ? this.nearestSpots[k] : undefined;
       if (!spot) {
         light.intensity = 0;
         return;
@@ -212,14 +226,31 @@ export class EffectLayer {
     this.group.removeFromParent();
   }
 
-  private nearest(focus: Vector3): LightSpot[] {
-    const all = this.extraSpots.length ? [...this.spots, ...this.extraSpots] : this.spots;
-    if (all.length <= POINT_LIGHTS) return all;
-    return all
-      .map((s) => ({ s, d: this.tmp.copy(s.position).sub(focus).lengthSq() }))
-      .sort((a, b) => a.d - b.d)
-      .slice(0, POINT_LIGHTS)
-      .map((x) => x.s);
+  /**
+   * The POINT_LIGHTS spots nearest to `focus` into `nearestSpots` (nearest
+   * first), without allocating; returns how many there are
+   */
+  private nearest(focus: Vector3): number {
+    return this.nearestOf(this.extraSpots, focus, this.nearestOf(this.spots, focus, 0));
+  }
+
+  private nearestOf(list: LightSpot[], focus: Vector3, count: number): number {
+    const out = this.nearestSpots;
+    const dist = this.nearestDistances;
+    for (const s of list) {
+      const d = s.position.distanceToSquared(focus);
+      if (count === POINT_LIGHTS && d >= dist[count - 1]) continue;
+      // Insert in order; when full the farthest drops out
+      let k = count < POINT_LIGHTS ? count++ : count - 1;
+      while (k > 0 && dist[k - 1] > d) {
+        dist[k] = dist[k - 1];
+        out[k] = out[k - 1];
+        k--;
+      }
+      dist[k] = d;
+      out[k] = s;
+    }
+    return count;
   }
 
   private clear(): void {

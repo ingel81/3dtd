@@ -67,6 +67,8 @@ describe('EffectLayer', () => {
     layer.setDarkness(0);
     layer.update(0.1, new Vector3());
     expect(lights.every((l) => l.intensity === 0)).toBe(true);
+    // By day the pool is hidden: hidden lights do not count in three's light setup of every material
+    expect(lights.every((l) => !l.visible)).toBe(true);
 
     layer.setDarkness(1);
     layer.update(0.1, new Vector3(20, 0, 0)); // scene x = -map x: near the torches at map x -20 .. 0
@@ -74,6 +76,24 @@ describe('EffectLayer', () => {
     expect(lit.length).toBe(POINT_LIGHTS);
     expect(Math.max(...lit.map((l) => l.position.x))).toBeLessThanOrEqual(20);
     expect(Math.min(...lit.map((l) => l.position.x))).toBeGreaterThanOrEqual(0);
+    // In use, all six count (a changing number would recompile every lit material)
+    expect(lights.every((l) => l.visible)).toBe(true);
+    layer.dispose();
+  });
+
+  it('keeps the pool hidden at night on a map without lights, and picks the nearest without allocating', () => {
+    const layer = new EffectLayer(flat());
+    layer.set([place('r', 'rock', 0)], catalog);
+    const lights = layer.group.children.filter((c): c is PointLight => c instanceof PointLight);
+    layer.setDarkness(1);
+    layer.update(0.1, new Vector3());
+    expect(lights.every((l) => !l.visible)).toBe(true);
+
+    // Lava lights at known spots: the six nearest light up, nearest first
+    layer.setLavaLights(Array.from({ length: 10 }, (_, k) => new Vector3(k * 10, 0, 0)));
+    layer.update(0.1, new Vector3(31, 0, 0));
+    const xs = lights.filter((l) => l.intensity > 0).map((l) => l.position.x);
+    expect(xs).toEqual([30, 40, 20, 50, 10, 60]);
     layer.dispose();
   });
 
