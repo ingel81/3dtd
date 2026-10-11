@@ -68,6 +68,8 @@ export interface ViewportCallbacks {
 
 /** Milliseconds between two sky rebuilds while an environment slider moves */
 const ENV_INTERVAL_MS = 100;
+/** Milliseconds between two water rebuilds while a brush changes the masks */
+const WATER_INTERVAL_MS = 120;
 const FOV = 50;
 /**
  * The game's start view (three-engine/camera-rig.ts applyStartPosition):
@@ -90,6 +92,9 @@ export class EditorViewport {
   /** When the view last took the environment, and whether a newer one waits (sliders move faster than the sky rebuilds) */
   private envAt = 0;
   private envWaiting = false;
+  /** The same for water: a brush that fills pools changes the masks every frame */
+  private waterAt = 0;
+  private waterWaiting = false;
   private routesDirty = true;
   /** The symmetry the guides show, and whether the ground under them moved */
   private guideMode: string | null = null;
@@ -308,6 +313,11 @@ export class EditorViewport {
   keyUp(e: KeyboardEvent): void {
     this.keysDown.delete(e.key);
     this.keysDown.delete(`fly:${e.key.toLowerCase()}`);
+  }
+
+  /** Whether a tool holds the pointer (a stroke, a drag): slow extras wait */
+  get dragging(): boolean {
+    return this.toolDrag;
   }
 
   /** Whether the trial wave walks */
@@ -636,6 +646,12 @@ export class EditorViewport {
     this.camera.updateProjectionMatrix();
   }
 
+  private applyWater(): void {
+    this.waterWaiting = false;
+    this.waterAt = performance.now();
+    this.view.updateWater();
+  }
+
   private applyEnvironment(): void {
     this.envWaiting = false;
     this.envAt = performance.now();
@@ -645,6 +661,7 @@ export class EditorViewport {
   /** Hand the collected changes to the view */
   private flush(): void {
     if (this.envWaiting && performance.now() - this.envAt >= ENV_INTERVAL_MS) this.applyEnvironment();
+    if (this.waterWaiting && performance.now() - this.waterAt >= WATER_INTERVAL_MS) this.applyWater();
     const c = this.pending;
     if (!c) {
       if (this.markersDirty) this.refreshMarkers();
@@ -659,9 +676,13 @@ export class EditorViewport {
       if (c.layers) v.updateLayers();
       if (c.heights) v.updateHeights(c.heights);
       if (c.splat) v.updateSplat(c.splat);
-      if (c.water) v.updateWater();
+      if (c.water) {
+        if (performance.now() - this.waterAt >= WATER_INTERVAL_MS) this.applyWater();
+        else this.waterWaiting = true;
+      }
       if (c.objects) {
-        if (c.objects === 'all' || c.objects.length > 32) v.setObjects();
+        // A list goes in place where it can; new objects rebuild at most every few frames
+        if (c.objects === 'all') v.setObjects();
         else v.updateObjects(c.objects);
       }
       if (c.paths) v.updatePaths();
@@ -737,6 +758,7 @@ export class EditorViewport {
     this.overlay.update(dt);
     this.view.update(dt, this.camera, this.controller.current.target);
     this.trial.update(dt);
+    this.view.flushObjects(performance.now());
     this.renderer.render(this.scene, this.camera);
 
     this.reportHover(time, tp?.hit ?? null);

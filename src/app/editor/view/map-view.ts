@@ -6,7 +6,7 @@
  * y up.
  */
 import { Vector3, type Camera, type Ray, type Scene, type WebGLRenderer } from 'three';
-import type { CustomMapDocument } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapObject } from '../../world/custom-map/map-document';
 import { CustomMapView, type MapRect } from '../../world/custom-map/render/custom-map-view';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import { mapToScene as toScene } from '../../world/custom-map/render/map-coords';
@@ -22,14 +22,31 @@ export class EditorMapView {
   /** Object ids the renderer holds, so a new or removed one asks for a full rebuild */
   private known = new Set<string>();
   /** Which objects the view shows (hidden categories left out); null shows all */
-  private visible: ((o: CustomMapDocument['objects'][number]) => boolean) | null = null;
+  private visible: ((o: MapObject) => boolean) | null = null;
+  /**
+   * The object list the renderer holds when it is not the document's own
+   * (hidden categories): the renderer writes its list into its document,
+   * so it gets a view of the document whose `objects` is its own
+   */
+  private shown: MapObject[] | null = null;
+  /** A full rebuild of the objects is due, and when the last one ran */
+  private rebuildDue = false;
+  private rebuiltAt = -Infinity;
 
   constructor(
     private readonly doc: CustomMapDocument,
     scene: Scene,
     renderer: WebGLRenderer,
   ) {
-    this.view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer });
+    const own = new Proxy(doc, {
+      get: (target, key, receiver) => (key === 'objects' ? (this.shown ?? target.objects) : Reflect.get(target, key, receiver)),
+      set: (target, key, value, receiver) => {
+        if (key !== 'objects') return Reflect.set(target, key, value, receiver);
+        this.shown = value === target.objects ? null : (value as MapObject[]);
+        return true;
+      },
+    });
+    this.view = new CustomMapView(own, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer });
     this.view.attach(scene);
     this.view.environment.apply(scene, renderer);
     this.rememberObjects();
@@ -87,6 +104,17 @@ export class EditorMapView {
     const shown = this.visible ? this.doc.objects.filter(this.visible) : this.doc.objects;
     void this.view.setObjects(shown);
     this.known = new Set(shown.map((o) => o.id));
+    this.rebuildDue = false;
+    this.rebuiltAt = performance.now();
+  }
+
+  /**
+   * Every frame: a rebuild asked for while a brush adds objects runs at
+   * most every OBJECT_REBUILD_MS, so painting a forest does not rebuild all
+   * batches each frame
+   */
+  flushObjects(now: number): void {
+    if (this.rebuildDue && now - this.rebuiltAt >= OBJECT_REBUILD_MS) this.setObjects();
   }
 
   /** Show only the objects `visible` accepts (null: all); rebuilds the batches */
@@ -103,7 +131,8 @@ export class EditorMapView {
       return !!o && (!this.visible || this.visible(o));
     };
     if (ids.some((id) => this.known.has(id) !== shown(id))) {
-      this.setObjects();
+      this.rebuildDue = true;
+      this.flushObjects(performance.now());
       return;
     }
     for (const id of ids) if (this.known.has(id)) this.view.updateObject(byId.get(id)!);
@@ -127,6 +156,9 @@ export class EditorMapView {
     this.known = new Set(this.doc.objects.map((o) => o.id));
   }
 }
+
+/** Milliseconds between two full object rebuilds while objects keep coming */
+const OBJECT_REBUILD_MS = 150;
 
 /** A rectangle given from the map's south-west corner, as map metres around the middle */
 function metres(width: number, depth: number, x0: number, y0: number, x1: number, y1: number): MapRect {

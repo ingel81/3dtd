@@ -110,6 +110,11 @@ export class MinimapComponent implements OnDestroy {
       const vp = this.session.viewport;
       const doc = this.session.doc;
       if (!vp || !doc) return;
+      // A whole-map render costs a frame: not while a brush is held
+      if (vp.dragging) {
+        this.schedulePicture(rev);
+        return;
+      }
       const b = this.box(doc.terrain.width, doc.terrain.depth);
       this.picture = vp.renderTopDown(Math.max(8, Math.round(b.w)), Math.max(8, Math.round(b.h)), false);
       this.pictureRev = this.session.docRev();
