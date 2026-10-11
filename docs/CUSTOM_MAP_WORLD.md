@@ -68,6 +68,72 @@ Der Druck-Regler selbst misst gegen die HP zu Wellenbeginn und braucht kein Maxi
 Regeln ist das Maximum `startHealth`, die Rechnung bleibt bitgleich: Tiles, DevWorld und alte Replays
 ändern sich nicht.
 
+## Viele Spuren: Optionen
+
+**Stand:** Rechnung und vorbereitete Option (2026-10-11), standardmäßig aus. Entscheidung offen für den User.
+
+**Wie das Spiel heute rechnet:**
+
+- Allein ist jeder Spawn eine Spur, und jede Spur bekommt die ganze Welle.
+- Die Budget-Quelle plant jede Spur gegen 1/N der Abwehr (`shareDefense`) und 1/N der HQ-HP (`hpRemaining`).
+- Startgeld und Kill-Gold kommen je Spur, also N-fach; das Abschlussgold kommt einmal.
+- Die Lecks aller Spuren gehen auf das eine HQ.
+
+Der w3x-Import schneidet seine Wellen schon auf 1/Wurzel(N) je Spur (`wave-convert.ts`). Eine Karte mit 10 Spuren und
+Budget-Wellen (Mafa) war ab Welle 3 verloren.
+
+**Rechnung:** `tools/balance-calc/lanes.ts`, Tabelle mit
+`BALANCE_OUT=<dir> npx vitest run tools/balance-calc/lanes.spec.ts`. Grundlage ist die echte Budget-Quelle gegen die
+Abwehr des menschlichen Laufs vom 2026-10-01:
+
+- Die Abwehr wird mit dem Gold mal N genommen und gleichmäßig auf die Spuren verteilt.
+- Die Leck-Schätzung ist die des Rechners (`tools/balance-calc/README.md`).
+- Die Aufbauwellen W1 bis W7 kosten je Spur ihren aufgezeichneten Verlust mal dem Anteil der Körper.
+
+Die Annahme zu den Aufbauwellen ist die unsicherste; deshalb steht die Rechnung auch ohne sie da (`buildUpWaves` 0).
+
+HQ nach W3 / 5 / 10 / 20 / 30 / 40 und Tod, mit den aufgezeichneten Aufbauverlusten:
+
+| Variante | 1 Spur | 2 Spuren | 4 Spuren | 10 Spuren |
+|---|---|---|---|---|
+| heute | 500/485/363/331/247/166, lebt | 469/227/217/132/41 bei W40, Tod W44 | Tod W7 | Tod W6 (W5: 346) |
+| (a) Wellenanteil 1/Wurzel(N) | wie heute | 307 bei W10 und W20, 181 bei W30, 156 bei W40, Tod W60 | 227 bei W10 und W20, 1 ab W30, Tod W60 | 68 bei W10 bis W29, Tod W30 |
+| (b) doppeltes Start- und Kill-Gold | wie heute | wie heute | wie heute | wie heute |
+| (c) Leckschaden 1/N (nicht gebaut) | wie heute | 485/363/331/243/167, lebt | 485/363/333/249/172, lebt | 485/363/342/219/169, lebt |
+
+Ohne Aufbauverluste:
+
+| Variante | 2 Spuren | 4 Spuren | 10 Spuren |
+|---|---|---|---|
+| heute | Tod W55 | 397 bei W10, Tod W44 | 443 bei W10, 69 bei W20, Tod W22 |
+| (a) Wurzel | 460 bei W10, 280 bei W40 | 420 bei W10, 194 bei W30, Tod W60 | 300 bei W10, Tod W30 |
+| (c) 1/N | 474/349/243/175 | 474/354/249/180 | 474/357/253/183 |
+
+Eine Spur in allen Varianten: 474/342/263/191.
+
+**Was die Zahlen sagen:**
+
+- **(a) Wurzel** hält einen Spieler auf vielen Spuren über die ersten Wellen, aber nicht bei vergleichbarer Last.
+  Bei 10 Spuren kosten die Aufbauwellen 432 HP (eine Spur: 137). Danach liegt die Last je Spur bei 0,3 bis 0,55 und
+  es leckt nichts mehr. Der Druck-Regler öffnet bis 2,5, und die erste schwere Welle (W30, Last 1,23) beendet den
+  Lauf auf dem Rest-HQ. Zwischen W11 und W29 hat der Spieler keine Spannung, danach eine Wand.
+- **(b) Gold** ändert in der Rechnung nichts: Die Budget-Quelle bemisst die HP gegen die Abwehr, mehr Tower bringen
+  mehr HP. Die Aufbauverluste hängen in der Rechnung nicht vom Gold ab; im Spiel hilft mehr Startgeld dort,
+  wie viel, kann die Rechnung nicht sagen. Startgeld und Kill-Gold je Spur sind heute schon so gebaut.
+- **(c) Leckschaden 1/N** hält jede Spurzahl auf der Kurve einer Spur (Abweichung höchstens 28 HP bis W40). Das ist
+  der einzige der drei Hebel mit vergleichbarer Last. Er ist nicht gebaut: Der Leckschaden entsteht in der
+  Simulation, er gehörte als Lauf-Regel in die `RunRules` (Weltschlüssel) und gilt nur für Karten, die ihn wählen.
+
+**Vorbereitet, aus:** `gameplay.laneScaling` im Kartendokument, `'none'` (Standard) oder `'sqrt'`.
+
+- Der Weg: `CustomMapWorld.worldWaves()` → `WaveSourceOptions.laneScaling` → `BudgetWaveSource`. Die Quelle teilt
+  die Körperzahl jeder Spur nach dem Bemessen durch Wurzel(Spuren), mindestens einer je Typ; HP je Körper bleiben.
+- Ohne das Feld ist alles wie vorher (Spec in `budget-source.spec.ts`). Die Tabellen-Quelle bleibt unberührt.
+- Offen:
+  - Die Vorschau der nächsten Wellen (`peek`) zeigt die ungeteilten Zahlen.
+  - Im Koop zählt N die Spuren des Raums, die Option würde dort auch die Wellen jedes Spielers teilen.
+  - (c) als zweite Option, oder (a) und (c) zusammen, ist nicht gerechnet.
+
 ## Kartenprobe (`?bot=trial`)
 
 `?world=map:<id>&bot=trial&trialWaves=N` lässt den Experten-Bot die ersten N Wellen (Standard 10, höchstens
