@@ -97,6 +97,12 @@ export class DevWorldProvider implements WorldProvider {
 
     // Terrain directly into the group at local coordinates: Y-up, centred at the origin
     await this.terrain.initialize(group);
+    // Disposed while the terrain was generated: it goes with the group, nothing more is set up
+    if (this.disposed) {
+      this.terrain.dispose();
+      ctx.scene.remove(group);
+      return;
+    }
     this.streets.setGeneratedStreets(this.terrain.getStreetSegments());
 
     ctx.cameraRig.setupEnvironmentControls(ctx.scene, group);
@@ -209,6 +215,10 @@ export class DevWorldProvider implements WorldProvider {
    * meshes that live outside the scene graph; nothing else disposes them.
    */
   dispose(): void {
+    this.disposed = true;
     this.terrain.dispose();
   }
+
+  /** dispose() ran: an attach still generating the terrain sets up nothing more */
+  private disposed = false;
 }

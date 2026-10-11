@@ -1,4 +1,4 @@
-import { Raycaster, Vector3 } from 'three';
+import { Raycaster, Scene, Vector3 } from 'three';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
@@ -318,6 +318,19 @@ describe('CustomMapWorld', () => {
   it('has no minimap picture before the map stands', () => {
     const doc = testMap();
     expect(new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3).minimap()).toBeNull();
+  });
+
+  it('builds nothing into the scene when it is disposed while the renderer still loads', async () => {
+    const doc = testMap();
+    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    const scene = new Scene();
+    const cameraRig = { setupEnvironmentControls: vi.fn(), setBounds: vi.fn() };
+    const attached = world.attach({ scene, renderer: {}, cameraRig } as never);
+    world.dispose();
+    await attached;
+    expect(scene.children).toHaveLength(0);
+    expect(cameraRig.setupEnvironmentControls).not.toHaveBeenCalled();
+    expect(world.ready()).toBe(false);
   });
 
   it('reads the spawn limit from the link', () => {

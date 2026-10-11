@@ -148,6 +148,8 @@ export class CustomMapWorld implements WorldProvider {
   private readonly focus = new Vector3();
   private readonly lookDirection = new Vector3();
   private readonly firstGroundWaiters: (() => void)[] = [];
+  /** dispose() ran: an attach still waiting for the renderer's code builds nothing */
+  private disposed = false;
   /** The catalogue's objects once loaded: the build blocking is redone with them when a structure falls */
   private catalogObjects: readonly (StructureEntry & { blocksBuild: boolean })[] = [];
   /** The scale a fallen object had, to stand it up again */
@@ -191,6 +193,8 @@ export class CustomMapWorld implements WorldProvider {
       import('./render/environment/map-environment'),
       import('./render/environment/height-fog'),
     ]);
+    // Disposed while the renderer loaded (the start gave up, another world): nothing into a scene that is gone
+    if (this.disposed) return;
     const view = new CustomMapView(this.doc, this.assets ? this.assets() : MapAssetLibrary.shared(), {
       anisotropy: ctx.renderer.capabilities.getMaxAnisotropy(),
       // Bakes the impostors of far trees
@@ -219,7 +223,9 @@ export class CustomMapWorld implements WorldProvider {
     // The catalogue tells which objects forbid building
     view.assets
       .catalog()
-      .then((catalog) => this.useCatalog(catalog.objects))
+      .then((catalog) => {
+        if (this.view === view) this.useCatalog(catalog.objects);
+      })
       .catch((err) => console.warn('[CustomMap] no catalogue, objects do not block building', err));
 
     // Streets, spawns and routes go on while the map's textures and models load and its shaders compile
@@ -408,6 +414,7 @@ export class CustomMapWorld implements WorldProvider {
   }
 
   dispose(): void {
+    this.disposed = true;
     this.rig?.setBounds(null);
     this.rig = null;
     // The shared library keeps every material's pixels (some 88 MB); the next map's shared() makes a new one
