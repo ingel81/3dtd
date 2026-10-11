@@ -1,3 +1,4 @@
+import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Texture } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { parseCatalog } from './asset-catalog';
 import { MapAssetLibrary, packMaterial, type ImagePixels } from './map-asset-library';
@@ -69,6 +70,33 @@ describe('MapAssetLibrary', () => {
     // color: albedo + height (arh blue); data: normal xy, roughness (arh green), AO (arh red)
     expect(Array.from(a.color.subarray(0, 4))).toEqual([10, 20, 30, 50]);
     expect(Array.from(a.data.subarray(0, 4))).toEqual([10, 20, 100, 200]);
+  });
+
+  it('frees the textures of its models and their detail levels on dispose', async () => {
+    const withLod = { ...catalog, objects: [{ ...catalog.objects[0], lod: [{ file: 'models/pine-lod1.glb', distance: 100 }] }] };
+    const textures: Texture[] = [];
+    const lib = new MapAssetLibrary('base/', {
+      fetch: (() => Promise.resolve(jsonResponse(withLod))) as unknown as typeof fetch,
+      loadModel: () => {
+        const map = new Texture();
+        const normalMap = new Texture();
+        textures.push(map, normalMap);
+        const root = new Group();
+        root.add(new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ map, normalMap })));
+        return Promise.resolve(root);
+      },
+    });
+    await lib.model('pine');
+    await lib.lodModels('pine');
+    expect(textures).toHaveLength(4);
+    const disposed = textures.map((t) => {
+      const spy = vi.fn();
+      t.addEventListener('dispose', spy);
+      return spy;
+    });
+    lib.dispose();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(disposed.every((spy) => spy.mock.calls.length === 1)).toBe(true);
   });
 
   it('falls back to flat materials and placeholder models', async () => {

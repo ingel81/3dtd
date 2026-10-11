@@ -9,6 +9,7 @@ import {
   Material,
   Mesh,
   MeshStandardMaterial,
+  Texture,
   type Object3D,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -174,12 +175,13 @@ export class MapAssetLibrary {
     return out;
   }
 
-  /** Frees the GPU side of every loaded model */
+  /** Frees the GPU side of every loaded model, LOD models included: geometry, material and its textures */
   dispose(): void {
     for (const p of this.models.values()) {
       void p.then((m) => {
         for (const part of m.parts) {
           part.geometry.dispose();
+          disposeTextures(part.material);
           part.material.dispose();
         }
       });
@@ -409,4 +411,9 @@ function placeholderParts(entry: CatalogObject): ModelPart[] {
     default:
       return [{ geometry: new BoxGeometry(r * 1.4, h, r * 1.4).translate(0, h / 2, 0), material: mat(0x9a8a70) }];
   }
+}
+
+/** Disposes every texture a material holds (map, normalMap, roughnessMap, ...) */
+function disposeTextures(material: Material): void {
+  for (const value of Object.values(material)) if (value instanceof Texture) value.dispose();
 }
