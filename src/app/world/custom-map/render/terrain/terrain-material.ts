@@ -421,6 +421,23 @@ albedo *= mix(vec3(1.0), vec3(0.86, 1.04, 0.92), greenLead);
 albedo = mix(vec3(dot(albedo, vec3(0.299, 0.587, 0.114))), albedo, 0.94);
 float far = smoothstep(120.0, 900.0, length(vViewPosition));
 albedo = mix(albedo, accAvg * mix(0.8, 1.15, macro), far * 0.45);
+// Rock faces: strata along the height, warped by noise, and weathering streaks running down. The
+// cliff texture alone repeats every few metres and from afar blurs into one flat colour; the bands
+// give a mountain side its structure at any distance
+if (cliff > 0.01) {
+  float warp = (valueNoise(mapPos * 0.006) - 0.5) * 40.0 + (valueNoise(mapPos * 0.03 + 7.0) - 0.5) * 10.0 + (n3 - 0.5) * 4.0;
+  float bandNoise = valueNoise(vec2((tPos.y + warp) * 0.16, 3.7));
+  float fine = valueNoise(vec2((tPos.y + warp * 0.5) * 0.9, 9.1));
+  // Bands show in patches, not around the whole mountain
+  float patches = smoothstep(0.3, 0.7, valueNoise(mapPos * 0.009 + 11.0));
+  float strata = mix(1.0, mix(0.78, 1.1, smoothstep(0.25, 0.75, bandNoise)) * (0.92 + 0.14 * fine), 0.35 + 0.65 * patches);
+  // Gullies: dark streaks running down the face, broken along their length
+  float streak = valueNoise(vec2(dot(mapPos, vec2(0.11, 0.07)) * 2.3, tPos.y * 0.012 + 5.0));
+  float gully = mix(0.74, 1.06, smoothstep(0.15, 0.65, streak));
+  float shade = strata * gully;
+  vec3 bandTint = mix(vec3(0.93, 0.95, 0.99), vec3(1.06, 1.0, 0.91), bandNoise);
+  albedo = mix(albedo, albedo * shade * bandTint, cliff);
+}
 
 albedo *= mix(1.0, 0.6, wetBank);
 // Soil, grass and rock are rough and barely shiny: against the sun at a grazing angle the full
