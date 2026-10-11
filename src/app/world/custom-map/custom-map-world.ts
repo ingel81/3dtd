@@ -153,7 +153,7 @@ export class CustomMapWorld implements WorldProvider {
   /** The scale a fallen object had, to stand it up again */
   private readonly fallenScale = new Map<string, number>();
   /** What the minimap picture renders: the scene and the children the map put into it */
-  private stage: { scene: Scene; renderer: WebGLRenderer; owned: Set<Object3D> } | null = null;
+  private stage: { scene: Scene; renderer: WebGLRenderer; owned: Set<Object3D>; fog: { value: number } } | null = null;
   private minimapPicture: HTMLCanvasElement | null = null;
   private highest: number | null = null;
 
@@ -185,10 +185,11 @@ export class CustomMapWorld implements WorldProvider {
   async attach(ctx: WorldAttachContext): Promise<void> {
     if (isDevMode()) console.log(`[CustomMap] ${this.doc.meta.name} instead of 3D tiles`);
     // The renderer loads with the first map: the registry and the game start stay light without it
-    const [{ CustomMapView }, { MapAssetLibrary }, { CustomMapEnvironment }] = await Promise.all([
+    const [{ CustomMapView }, { MapAssetLibrary }, { CustomMapEnvironment }, { HEIGHT_FOG_UNIFORMS }] = await Promise.all([
       import('./render/custom-map-view'),
       import('./render/map-asset-library'),
       import('./render/environment/map-environment'),
+      import('./render/environment/height-fog'),
     ]);
     const view = new CustomMapView(this.doc, this.assets ? this.assets() : MapAssetLibrary.shared(), {
       anisotropy: ctx.renderer.capabilities.getMaxAnisotropy(),
@@ -207,6 +208,7 @@ export class CustomMapWorld implements WorldProvider {
       scene: ctx.scene,
       renderer: ctx.renderer,
       owned: new Set(ctx.scene.children.filter((child) => !before.has(child))),
+      fog: HEIGHT_FOG_UNIFORMS.uFogDensity,
     };
     // Over the HQ at the scene origin, controls that raycast the map's ground and objects
     ctx.cameraRig.setupEnvironmentControls(ctx.scene, view.losBlockers);
@@ -375,9 +377,9 @@ export class CustomMapWorld implements WorldProvider {
     };
     if (!this.minimapPicture) {
       if (!this.prepared || !this.stage || !this.view || this.lastUpdate === 0) return null;
-      const { scene, renderer, owned } = this.stage;
+      const { scene, renderer, owned, fog } = this.stage;
       try {
-        this.minimapPicture = renderMinimapPicture(renderer, scene, owned, area, this.topHeight());
+        this.minimapPicture = renderMinimapPicture(renderer, scene, owned, area, this.topHeight(), fog);
       } catch (err) {
         console.warn('[CustomMap] no minimap picture', err);
         this.stage = null;

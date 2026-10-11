@@ -142,8 +142,10 @@ Lichter und ihren Himmel weglässt.
 `WorldProvider.minimap()` gibt die Draufsicht einer Welt mit dem Szenen-Rechteck, das sie zeigt (Norden oben,
 Westen links); Tiles und DevWorld geben `null`, dann bleibt die Minikarte weg. Die eigene Karte rendert sie einmal
 nach ihrem ersten gezeichneten Bild (`custom-map-minimap.ts`): orthografisch von oben, nur die Szenenkinder, die
-`view.attach` und `environment.apply` angehängt haben (Gelände, Wasser, Objekte, Licht), ohne Nebel, 512 px an der
-längeren Seite, aus dem linearen Render-Target nach sRGB gewandelt.
+`view.attach` und `environment.apply` angehängt haben (Gelände, Wasser, Objekte, Licht), 512 px an der längeren
+Seite. Sie braucht keine eigenen Shader-Programme: der Nebel bleibt mit Dichte 0 an der Szene, alle Lichter bleiben an
+(Nebel und Zahl der Lichter gehören zum Programm), das Ziel gilt three als Bildschirm (`isXRRenderTarget`, sRGB
+heraus). Mit eigenem Programm je Material warteten kalte Ladevorgänge 3 bis 4 s auf deren Linken.
 
 `app-world-minimap` (unter dem Kompass, `td-overlay`) zeichnet in ein Canvas mit eigenem 10-Hz-Takt außerhalb
 Angulars: Bild, Routen in der Farbe ihres Spawns, Spawns und HQ einmal in ein Grundbild (neu, wenn Welt, Routen

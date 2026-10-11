@@ -1,13 +1,16 @@
 // How long a custom map takes from the link to a playable game (docs/CUSTOM_MAP_WORLD.md): a production build,
 // `?world=map:<id>&menu=skip`, the loading steps' performance marks (`load:<step>:start|done`, `load:ready`,
-// EngineInitializationService) per run, optionally the main thread's CPU time over the load by function (from a
-// Chromium trace: a profiler session does not survive the navigation into the cross-origin isolated page).
+// EngineInitializationService) per run, the shader programs linked and the main thread's wait on them, optionally
+// the main thread's CPU time over the load by function (from a Chromium trace: a profiler session does not survive
+// the navigation into the cross-origin isolated page).
 //
 //   npm run build
 //   node e2e/perf/serve.mjs dist/3DTD/browser 4227 --isolate
 //   node e2e/perf/map-load.ts --url http://localhost:4227 --map demo-valley [--runs 3] [--profile [--trace out.json]]
 //   Through the start menu as a player starts: --menu; a picture of the loaded map: --shot map.png
 //   An own map (not shipped): --seed tmp/w3x-out/<id>.3dtdmap (with <id>.summary.json beside it, `npm run w3x-import`)
+//   The editor's templates (biomes) on the demo valley's roads: `npx vitest run tools/w3x/templates-dump.spec.ts --mode w3x`,
+//   then --map tpl-<template> --seed tmp/w3x-out/tpl-<template>.3dtdmap
 //
 // Headed Chromium: the terrain and the models compile their shaders on the GPU the player has, not in SwiftShader.
 import { chromium, type Page } from '@playwright/test';
@@ -146,6 +149,24 @@ for (let run = 0; run < RUNS; run++) {
     localStorage.setItem('td_seen_version', '9999.0.0');
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
     localStorage.setItem('td_globe_quality_v1', '"off"');
+    // Shader programs linked, and the main thread's wait on their results (a cold driver cache links them here)
+    const gl = WebGL2RenderingContext.prototype;
+    const stats = { links: 0, waitMs: 0 };
+    (window as unknown as { __links: typeof stats }).__links = stats;
+    const link = gl.linkProgram;
+    gl.linkProgram = function (program) {
+      stats.links++;
+      return link.call(this, program);
+    };
+    for (const name of ['getProgramParameter', 'getProgramInfoLog'] as const) {
+      const original = gl[name] as (...args: unknown[]) => unknown;
+      (gl as unknown as Record<string, unknown>)[name] = function (this: WebGL2RenderingContext, ...args: unknown[]) {
+        const t0 = performance.now();
+        const result = original.apply(this, args);
+        stats.waitMs += performance.now() - t0;
+        return result;
+      };
+    }
   });
   // On the game's origin first: the map store needs it
   await page.goto(`${URL_BASE}/build-info.json`);
@@ -173,7 +194,11 @@ for (let run = 0; run < RUNS; run++) {
     return { dom: Math.round(n.domContentLoadedEventEnd), load: Math.round(n.loadEventEnd) };
   });
   const ready = found.find((m) => m.name === 'ready')?.at;
-  console.log(`\nrun ${run + 1}: ${ready !== undefined ? `ready at ${ready} ms` : 'not ready'} (DOM ${nav.dom} ms, load ${nav.load} ms)`);
+  const links = await page.evaluate(() => (window as unknown as { __links: { links: number; waitMs: number } }).__links);
+  console.log(
+    `\nrun ${run + 1}: ${ready !== undefined ? `ready at ${ready} ms` : 'not ready'} (DOM ${nav.dom} ms, load ${nav.load} ms, ` +
+      `${links.links} programs linked, ${Math.round(links.waitMs)} ms waited on them)`,
+  );
   let last = 0;
   for (const m of found.sort((a, b) => a.at - b.at)) {
     console.log(`  ${String(m.at).padStart(6)} ms  +${String(m.at - last).padStart(5)}  ${m.name}`);
