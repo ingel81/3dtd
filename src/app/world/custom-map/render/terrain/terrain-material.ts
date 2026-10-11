@@ -217,9 +217,19 @@ for (int k = 0; k < 8; k++) if (uSplatLayer[k] >= 0) w[uSplatLayer[k]] += sw[k] 
 w[max(uSplatLayer[0], 0)] += outside;
 
 // Roads and paths replace the painted ground
-vec2 pm = texture2D(uPathMask, tuv).rg * (1.0 - outside);
-float road = uRoadLayer >= 0 ? pm.r : 0.0;
-float path = uPathLayer >= 0 ? pm.g * (1.0 - road) : 0.0;
+vec4 pmask = texture2D(uPathMask, tuv + wobble * 0.5);
+vec2 pm = pmask.rg * (1.0 - outside);
+// Frayed edges: noise eats into the soft rim of the mask, grass grows in from the side
+float fray = (valueNoise(mapPos * 0.9 + 11.0) - 0.5) * 0.9 + (n3 - 0.5) * 0.4;
+pm = clamp(pm + fray * pm * (1.0 - pm) * 2.5, 0.0, 1.0);
+// Across position: 0 on the centre line, 1 at the edges
+float across = abs(pmask.b * 2.0 - 1.0) * 1.15;
+// Wheel ruts on roads, worn into the path material
+float ruts = exp(-pow((across - 0.42) / 0.11, 2.0)) * smoothstep(0.6, 0.9, pm.r);
+// Paths: a grass strip down the middle between the tracks
+float strip = smoothstep(0.22, 0.08, across + (valueNoise(mapPos * 1.7) - 0.5) * 0.12) * smoothstep(0.7, 1.0, pm.g);
+float road = uRoadLayer >= 0 ? pm.r * (1.0 - ruts * 0.55) : 0.0;
+float path = uPathLayer >= 0 ? max(pm.g * (1.0 - strip * 0.85), ruts * 0.55 * pm.r) * (1.0 - road) : 0.0;
 float keep = 1.0 - road - path;
 for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] *= keep;
 if (uRoadLayer >= 0) w[uRoadLayer] += road;

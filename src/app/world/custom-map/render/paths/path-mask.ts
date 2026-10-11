@@ -1,9 +1,11 @@
 import type { MapPathEdge, MapPaths, MapPoint } from '../../map-document';
 
 /**
- * Paths are painted into the terrain, not laid on it as strips: a two-channel
- * mask over the map (red = road, green = path) tells the terrain shader where
- * to blend in the road materials. The surface stays the terrain's own, so a
+ * Paths are painted into the terrain, not laid on it as strips: an RGBA
+ * mask over the map (red = road, green = path, blue = position across the
+ * strongest path at that texel, 0 left edge, 0.5 centre line, 1 right edge)
+ * tells the terrain shader where to blend in the road materials and where
+ * the wheel ruts and the grass strip between them run. The surface stays the terrain's own, so a
  * road follows every bump without z-fighting, and the height blend gives
  * cobbles poking through grass at the edges instead of a hard border.
  *
@@ -28,12 +30,12 @@ export function edgePolyline(edge: MapPathEdge, nodes: Map<string, MapPoint>): M
 }
 
 /**
- * Rasterises the paths into an RG mask of `resolution`^2 texels over a map of
+ * Rasterises the paths into an RGBA mask (see above) of `resolution`^2 texels over a map of
  * `width` x `depth` metres (texel (0, 0) at the south-west corner). Full
  * strength up to 80% of the half width, fading out to 115%.
  */
 export function rasterizePathMask(paths: MapPaths, width: number, depth: number, resolution: number): Uint8Array {
-  const out = new Uint8Array(resolution * resolution * 2);
+  const out = new Uint8Array(resolution * resolution * 4);
   const nodes = new Map<string, MapPoint>(paths.nodes.map((n) => [n.id, n]));
   const sx = resolution / width;
   const sy = resolution / depth;
@@ -65,8 +67,14 @@ export function rasterizePathMask(paths: MapPaths, width: number, depth: number,
           if (d >= outer) continue;
           const f = d <= inner ? 1 : 1 - (d - inner) / (outer - inner);
           const v = Math.round(f * f * (3 - 2 * f) * 255);
-          const k = (ty * resolution + tx) * 2 + channel;
-          if (v > out[k]) out[k] = v;
+          const q = (ty * resolution + tx) * 4;
+          if (v <= out[q + channel]) continue;
+          // The strongest path at a texel also owns its across position
+          if (v >= out[q] && v >= out[q + 1]) {
+            const side = (x - p.x) * dy - (y - p.y) * dx >= 0 ? 1 : -1;
+            out[q + 2] = Math.round((0.5 + (side * Math.min(d, outer)) / (2 * outer)) * 255);
+          }
+          out[q + channel] = v;
         }
       }
     }

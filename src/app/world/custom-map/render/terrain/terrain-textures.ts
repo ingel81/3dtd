@@ -9,7 +9,6 @@ import {
   NoColorSpace,
   RepeatWrapping,
   RGBAFormat,
-  RGFormat,
   SRGBColorSpace,
   UnsignedByteType,
 } from 'three';
@@ -110,9 +109,9 @@ export class SplatTextures {
   }
 }
 
-/** Two-channel mask texture (road, path) over the whole map */
+/** Path mask texture (road, path, across position) over the whole map */
 export function maskTexture(pixels: Uint8Array, resolution: number): DataTexture {
-  const t = new DataTexture(pixels, resolution, resolution, RGFormat, UnsignedByteType);
+  const t = new DataTexture(pixels, resolution, resolution, RGBAFormat, UnsignedByteType);
   t.colorSpace = NoColorSpace;
   t.wrapS = t.wrapT = ClampToEdgeWrapping;
   t.magFilter = LinearFilter;

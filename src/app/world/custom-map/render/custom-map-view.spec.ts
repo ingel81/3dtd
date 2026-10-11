@@ -42,7 +42,7 @@ describe('path mask', () => {
   const res = 100;
   const mask = rasterizePathMask(paths, 100, 100, res);
   const at = (x: number, y: number, ch: number): number =>
-    mask[(Math.floor((y + 50) * (res / 100)) * res + Math.floor((x + 50) * (res / 100))) * 2 + ch];
+    mask[(Math.floor((y + 50) * (res / 100)) * res + Math.floor((x + 50) * (res / 100))) * 4 + ch];
 
   it('paints roads in red and paths in green, full inside and soft at the edge', () => {
     expect(at(0, 0, 0)).toBe(255);
@@ -53,6 +53,15 @@ describe('path mask', () => {
     // The path runs over its via point (40, 40)
     expect(at(40, 20, 1)).toBe(255);
     expect(at(20, 20, 1)).toBe(0);
+  });
+
+  it('records the position across the road: centre line 0.5, sides apart', () => {
+    expect(at(0, 0.2, 2)).toBeGreaterThan(108);
+    expect(at(0, 0.2, 2)).toBeLessThan(148);
+    const left = at(0, 3, 2);
+    const right = at(0, -3, 2);
+    expect(Math.abs(left - 128)).toBeGreaterThan(40);
+    expect(Math.sign(left - 128)).toBe(-Math.sign(right - 128));
   });
 
   it('leaves bridges to the deck mesh', () => {
