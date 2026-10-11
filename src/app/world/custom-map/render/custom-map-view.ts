@@ -152,6 +152,11 @@ export class CustomMapView {
     return this.objects.raycast(ray);
   }
 
+  /** The ground layers or the cliff material changed: reloads the terrain's materials */
+  updateLayers(): Promise<void> {
+    return this.terrain.load(this.assets, this.doc.paths, this.options.anisotropy ?? 8);
+  }
+
   /** Splat weights changed inside `rect` */
   updateSplat(_rect?: MapRect): void {
     this.terrain.refreshSplat();

@@ -13,6 +13,32 @@ export const ROAD_MATERIAL = 'cobblestone';
 export const PATH_MATERIAL = 'dirt-path';
 
 /**
+ * Texture-array layer of every material the terrain shows: the map's splat
+ * layers (at most 8), the cliff material and the two path materials, each
+ * material once. Layers past TERRAIN_MAX_LAYERS get -1 (not drawn).
+ */
+export function assignLayerSlots(t: MapTerrainDoc): { ids: string[]; slots: TerrainLayerSlots } {
+  const ids: string[] = [];
+  const slotOf = (id: string): number => {
+    let k = ids.indexOf(id);
+    if (k < 0 && ids.length < TERRAIN_MAX_LAYERS) {
+      ids.push(id);
+      k = ids.length - 1;
+    }
+    return k;
+  };
+  const slots: TerrainLayerSlots = {
+    count: 0,
+    splat: t.layers.slice(0, 8).map((l) => slotOf(l.material)),
+    cliff: slotOf(t.cliffMaterial),
+    road: slotOf(ROAD_MATERIAL),
+    path: slotOf(PATH_MATERIAL),
+  };
+  slots.count = ids.length;
+  return { ids, slots };
+}
+
+/**
  * The terrain of a map view: chunk meshes, and once the materials are in,
  * the splat material with its texture arrays, splat maps and path mask.
  * Until then the chunks show a plain green.
@@ -26,6 +52,7 @@ export class MapTerrainLayer {
   private splat: SplatTextures | null = null;
   private pathMask: DataTexture | null = null;
   private readonly normals: GridNormalTexture;
+  private generation = 0;
   private readonly placeholder = new MeshStandardMaterial({ color: 0x5f7a3c, roughness: 0.95 });
 
   constructor(
@@ -37,26 +64,14 @@ export class MapTerrainLayer {
     this.normals = new GridNormalTexture(field);
   }
 
-  /** Loads the layer materials and switches the chunks to the splat material */
+  /**
+   * Loads the layer materials and switches the chunks to the splat material.
+   * Called again after the map's layers or cliff material changed.
+   */
   async load(assets: MapAssetLibrary, paths: MapPaths, anisotropy: number): Promise<void> {
     const t = this.terrain;
-    const ids: string[] = [];
-    const slotOf = (id: string): number => {
-      let k = ids.indexOf(id);
-      if (k < 0 && ids.length < TERRAIN_MAX_LAYERS) {
-        ids.push(id);
-        k = ids.length - 1;
-      }
-      return k;
-    };
-    const slots: TerrainLayerSlots = {
-      count: 0,
-      splat: t.layers.slice(0, 8).map((l) => slotOf(l.material)),
-      cliff: slotOf(t.cliffMaterial),
-      road: slotOf(ROAD_MATERIAL),
-      path: slotOf(PATH_MATERIAL),
-    };
-    slots.count = ids.length;
+    const generation = ++this.generation;
+    const { ids, slots } = assignLayerSlots(t);
     const [pixels, catalog] = await Promise.all([Promise.all(ids.map((id) => assets.material(id))), assets.catalog()]);
     const scales = ids.map((id) => {
       const layer = t.layers.find((l) => l.material === id && l.scale);
@@ -67,6 +82,11 @@ export class MapTerrainLayer {
       return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
     });
 
+    if (generation !== this.generation) return;
+    this.material?.dispose();
+    this.arrays?.dispose();
+    this.splat?.dispose();
+    this.pathMask?.dispose();
     this.arrays = new MaterialArrays(pixels, anisotropy);
     this.splat = new SplatTextures(t.splat);
     this.pathMask = this.buildPathMask(paths);
