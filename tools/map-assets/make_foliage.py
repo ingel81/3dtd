@@ -139,9 +139,10 @@ def grass_card(size_w, size_h, seed, flowers=False):
         h = rnd.uniform(0.45, 0.98) * size_h
         lean = rnd.uniform(-0.25, 0.25) * h
         w = rnd.uniform(3, 7) * size_w / 512
-        base_col = np.array([rnd.uniform(60, 95), rnd.uniform(95, 130), rnd.uniform(30, 50)])
+        # Close to the ground grass (Grass004 averages #606d30), some blades dry
+        base_col = np.array([rnd.uniform(78, 100), rnd.uniform(96, 118), rnd.uniform(34, 50)])
         if rnd.random() < 0.2:
-            base_col = np.array([rnd.uniform(120, 150), rnd.uniform(120, 140), rnd.uniform(60, 80)])
+            base_col = np.array([rnd.uniform(118, 140), rnd.uniform(116, 132), rnd.uniform(58, 74)])
         steps = 10
         for k in range(steps):
             t0 = k / steps
@@ -149,7 +150,7 @@ def grass_card(size_w, size_h, seed, flowers=False):
             def pt(t, side):
                 bend = lean * t * t
                 return (x + bend + side * w * (1 - t) / 2, size_h - h * t)
-            shade = 0.75 + 0.45 * t1
+            shade = 0.85 + 0.3 * t1
             col = tuple(int(c) for c in (base_col * shade).clip(0, 255)) + (255,)
             draw.polygon([pt(t0, -1), pt(t0, 1), pt(t1, 1), pt(t1, -1)], fill=col)
     if flowers:

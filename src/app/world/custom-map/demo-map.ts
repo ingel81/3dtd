@@ -422,7 +422,7 @@ export function createDemoMap(seed = 7): CustomMapDocument {
     place(rand() < 0.6 ? 'tree-oak' : 'bush', x, y, 0.8 + rand() * 0.5);
   });
   // Grass clumps and flowers in meadows and along the river
-  scatter(3.2, (x, y) => {
+  scatter(2.4, (x, y) => {
     if (!inside(x, y, 1) || rand() > 0.42 || !roadClear(x, y, 0.5) || !dryLand(x, y)) return;
     if (!clearOfMarks(x, y, 1) || slopeAt(x, y) > 28 || forestAt(x, y) > 0.5) return;
     const lush = noise.fbm(x / 40, y / 40, 4);

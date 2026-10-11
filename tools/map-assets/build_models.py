@@ -429,8 +429,8 @@ def grass(name, png, width, height, seed):
         side = Vector((-out.y, out.x, 0)) * width / 2
         base = out * width * 0.08
         up = Vector((0, 0, height)) + out * height * rnd.uniform(0.35, 0.6)
-        # Normals mostly up: clumps light like the ground they stand on
-        nrm = lambda co: Vector((co.x * 0.3, co.y * 0.3, 1)).normalized()
+        # Normals straight up: clumps light exactly like the ground they stand on
+        nrm = lambda co: Vector((0, 0, 1))
         foliage.quad([base - side, base + side, base + side + up, base - side + up], [(0, 0), (1, 0), (1, 1), (0, 1)], nrm)
     export(name, [foliage.to_object(name)])
 

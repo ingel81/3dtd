@@ -372,20 +372,29 @@ export class MapObjectLayer {
     if (m.name.startsWith('foliage-')) {
       // Cards seen edge-on smear their texture into streaks: fade them out by the flat face normal
       const prev = m.onBeforeCompile;
+      const fadeStart = (entry.drawDistance * 0.55).toFixed(1);
+      const fadeEnd = entry.drawDistance.toFixed(1);
       m.onBeforeCompile = (shader, renderer) => {
         prev.call(m, shader, renderer);
-        shader.fragmentShader = shader.fragmentShader.replace(
-          '#include <alphatest_fragment>',
-          /* glsl */ `{
+        shader.fragmentShader = shader.fragmentShader
+          // Card normals are authored (bent out of the crown, up for grass); three flips them on
+          // back faces of double-sided materials, which turned every card's back black
+          .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal = normalize(vNormal);')
+          .replace(
+            '#include <alphatest_fragment>',
+            /* glsl */ `{
             vec3 faceNormal = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));
             float facing = abs(dot(faceNormal, normalize(vViewPosition)));
             diffuseColor.a *= smoothstep(0.08, 0.3, facing);
+            // Fade out towards the draw distance: thin far cards turn into dark lines otherwise
+            diffuseColor.a *= 1.0 - smoothstep(${fadeStart}, ${fadeEnd}, length(vViewPosition));
           }
           #include <alphatest_fragment>`,
-        );
+          );
       };
     }
-    m.customProgramCacheKey = () => `custom-map-wind-${strength.toFixed(5)}-${m.name.startsWith('foliage-') ? 'card' : 'solid'}`;
+    m.customProgramCacheKey = () =>
+      `custom-map-wind-${strength.toFixed(5)}-${m.name.startsWith('foliage-') ? `card-${entry.drawDistance}` : 'solid'}`;
     this.windMaterials.set(key, m);
     return m;
   }

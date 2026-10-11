@@ -365,7 +365,7 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 180,
+      "drawDistance": 140,
       "source": "procedural (tools/map-assets/build_models.py)"
     },
     {
@@ -383,7 +383,7 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 180,
+      "drawDistance": 140,
       "source": "procedural (tools/map-assets/build_models.py)"
     },
     {
