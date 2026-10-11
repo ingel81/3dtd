@@ -8,7 +8,9 @@ import {
   ShaderMaterial,
   UniformsLib,
   UniformsUtils,
+  Vector2,
   Vector3,
+  Vector4,
   type Camera,
 } from 'three';
 import type { MapWeather } from '../../map-document';
@@ -70,9 +72,15 @@ export class WeatherLayer {
           uCam: { value: new Vector3() },
           uBox: { value: BOX.clone() },
           uLight: { value: 1 },
+          // Kind and cover are uniforms, not defines: a change of weather never compiles a program
+          uKind: { value: 0 },
+          uHasCover: { value: 0 },
+          uCover: { value: null },
+          uCoverGrid: { value: new Vector4() },
+          uCoverSize: { value: new Vector2(1, 1) },
+          uCoverFrame: { value: new Vector2() },
         },
       ]),
-      defines: { KIND: 0 },
       vertexShader: WEATHER_VERTEX,
       fragmentShader: WEATHER_FRAGMENT,
       transparent: true,
@@ -92,19 +100,17 @@ export class WeatherLayer {
   /** The terrain and roof tops particles stop at (no rain indoors or under the ground) */
   setCover(cover: CoverMap): void {
     Object.assign(this.mesh.material.uniforms, cover.uniforms);
-    this.mesh.material.defines['COVER'] = 1;
-    this.mesh.material.needsUpdate = true;
+    this.mesh.material.uniforms['uHasCover'].value = 1;
   }
 
   /** Particle kind and strength 0..1 (clear and fog show none); `light` dims lit particles at night */
   set(kind: WeatherParticles, strength: number, light: number): void {
     const m = this.mesh.material;
     const spec = KINDS[kind];
-    if (spec && m.defines['KIND'] !== spec.id) {
-      m.defines['KIND'] = spec.id;
+    if (spec) {
+      m.uniforms['uKind'].value = spec.id;
       // Embers glow: added, not blended
       m.blending = kind === 'embers' ? AdditiveBlending : NormalBlending;
-      m.needsUpdate = true;
     }
     const k = Math.min(1, Math.max(0, strength));
     this.mesh.geometry.instanceCount = spec ? Math.round(spec.max * k) : 0;
@@ -142,63 +148,55 @@ uniform vec3 uCam;
 uniform vec3 uBox;
 varying vec2 vUv;
 varying float vFade;
-#ifdef COVER
+uniform int uKind;
+uniform float uHasCover;
 ${COVER_GLSL}
-#endif
 void main() {
-#if KIND == 1
-  vec3 fall = vec3(sin(uTime * 0.6 + aSeed.x * 20.0) * 0.6 + uTime * 0.4, -uTime * 1.1, cos(uTime * 0.5 + aSeed.z * 20.0) * 0.6);
-#elif KIND == 2
-  // Embers rise and wander
-  vec3 fall = vec3(sin(uTime * 0.9 + aSeed.x * 30.0) * 1.5, uTime * 1.6, cos(uTime * 0.7 + aSeed.z * 30.0) * 1.5);
-#elif KIND == 3
-  // Ash sinks slowly, tumbling
-  vec3 fall = vec3(sin(uTime * 0.4 + aSeed.x * 20.0) * 1.2 + uTime * 0.6, -uTime * 0.45, cos(uTime * 0.3 + aSeed.z * 20.0) * 1.2);
-#elif KIND == 4
-  // Dust blows along near the ground
-  vec3 fall = vec3(uTime * 5.0, sin(uTime * 0.8 + aSeed.y * 20.0) * 0.8, uTime * 1.5 + sin(uTime + aSeed.x * 10.0));
-#else
   vec3 fall = vec3(uTime * 1.2, -uTime * 11.0, uTime * 0.4);
-#endif
+  if (uKind == 1) {
+    fall = vec3(sin(uTime * 0.6 + aSeed.x * 20.0) * 0.6 + uTime * 0.4, -uTime * 1.1, cos(uTime * 0.5 + aSeed.z * 20.0) * 0.6);
+  } else if (uKind == 2) {
+    // Embers rise and wander
+    fall = vec3(sin(uTime * 0.9 + aSeed.x * 30.0) * 1.5, uTime * 1.6, cos(uTime * 0.7 + aSeed.z * 30.0) * 1.5);
+  } else if (uKind == 3) {
+    // Ash sinks slowly, tumbling
+    fall = vec3(sin(uTime * 0.4 + aSeed.x * 20.0) * 1.2 + uTime * 0.6, -uTime * 0.45, cos(uTime * 0.3 + aSeed.z * 20.0) * 1.2);
+  } else if (uKind == 4) {
+    // Dust blows along near the ground
+    fall = vec3(uTime * 5.0, sin(uTime * 0.8 + aSeed.y * 20.0) * 0.8, uTime * 1.5 + sin(uTime + aSeed.x * 10.0));
+  }
   vec3 local = aSeed * uBox + fall;
   vec3 p = uCam + mod(local - uCam, uBox) - uBox * 0.5;
   // Thin out at the edges of the box, so its walls never show
   vec3 rel = abs(p - uCam) / (uBox * 0.5);
   vFade = 1.0 - smoothstep(0.7, 1.0, max(rel.x, max(rel.y, rel.z)));
   vFade = min(1.0, vFade * 1.6);
-#ifdef COVER
   // Under a roof or below the ground: not drawn (ash and dust stay above the ground as well)
-  vFade *= step(coverTopAt(p), p.y);
-#endif
+  if (uHasCover > 0.5) vFade *= step(coverTopAt(p), p.y);
   vUv = uv;
   // Far from the camera particles grow (a game camera looks from 100 m and more), and thin out
   float camDist = length(cameraPosition - p);
   float grow = max(1.0, camDist / 35.0);
   // Right in front of the lens a streak or flake would fill the screen
   vFade *= smoothstep(3.0, 9.0, camDist);
-#if KIND == 4
-  // Dust stays low: fade with height over the box's floor
-  vFade *= 1.0 - smoothstep(0.0, 0.5, (p.y - (uCam.y - uBox.y * 0.5)) / uBox.y);
-#endif
-#if KIND != 0
-  vFade /= sqrt(grow);
-  #if KIND == 4
-  float size = 0.6;
-  #elif KIND == 2
-  float size = 0.12;
-  #else
-  float size = 0.14;
-  #endif
-  vec4 mvPosition = viewMatrix * vec4(p, 1.0);
-  mvPosition.xy += position.xy * size * grow * 1.6;
-#else
-  vFade /= grow;
-  // A streak standing upright, turned towards the camera
-  vec3 toCam = normalize(cameraPosition - p);
-  vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), toCam) + 1e-5);
-  vec3 world = p + right * position.x * 0.035 * grow + vec3(0.12, 1.0, 0.04) * position.y * 1.3 * sqrt(grow);
-  vec4 mvPosition = viewMatrix * vec4(world, 1.0);
-#endif
+  if (uKind == 4) {
+    // Dust stays low: fade with height over the box's floor
+    vFade *= 1.0 - smoothstep(0.0, 0.5, (p.y - (uCam.y - uBox.y * 0.5)) / uBox.y);
+  }
+  vec4 mvPosition;
+  if (uKind != 0) {
+    vFade /= sqrt(grow);
+    float size = uKind == 4 ? 0.6 : uKind == 2 ? 0.12 : 0.14;
+    mvPosition = viewMatrix * vec4(p, 1.0);
+    mvPosition.xy += position.xy * size * grow * 1.6;
+  } else {
+    vFade /= grow;
+    // A streak standing upright, turned towards the camera
+    vec3 toCam = normalize(cameraPosition - p);
+    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), toCam) + 1e-5);
+    vec3 world = p + right * position.x * 0.035 * grow + vec3(0.12, 1.0, 0.04) * position.y * 1.3 * sqrt(grow);
+    mvPosition = viewMatrix * vec4(world, 1.0);
+  }
   gl_Position = projectionMatrix * mvPosition;
   #include <logdepthbuf_vertex>
   #include <fog_vertex>
@@ -210,33 +208,30 @@ const WEATHER_FRAGMENT = /* glsl */ `
 #include <fog_pars_fragment>
 #include <logdepthbuf_pars_fragment>
 uniform float uLight;
+uniform int uKind;
 varying vec2 vUv;
 varying float vFade;
 void main() {
   #include <logdepthbuf_fragment>
-#if KIND == 1
-  float a = pow(max(1.0 - length(vUv - 0.5) * 2.0, 0.0), 1.5) * 0.9;
-  vec3 c = vec3(1.0);
-#elif KIND == 2
-  float a = pow(max(1.0 - length(vUv - 0.5) * 2.0, 0.0), 2.0);
-  vec3 c = vec3(1.0, 0.55, 0.18) * 2.0;
-#elif KIND == 3
-  float a = pow(max(1.0 - length(vUv - 0.5) * 2.0, 0.0), 1.2) * 0.8;
-  vec3 c = vec3(0.55, 0.54, 0.5);
-#elif KIND == 4
-  float a = pow(max(1.0 - length(vUv - 0.5) * 2.0, 0.0), 1.0) * 0.18;
-  vec3 c = vec3(0.82, 0.68, 0.5);
-#else
+  float disc = max(1.0 - length(vUv - 0.5) * 2.0, 0.0);
   float a = (1.0 - abs(vUv.x - 0.5) * 2.0) * smoothstep(0.0, 0.3, vUv.y) * 0.3;
   vec3 c = vec3(0.75, 0.8, 0.85);
-#endif
+  if (uKind == 1) {
+    a = pow(disc, 1.5) * 0.9;
+    c = vec3(1.0);
+  } else if (uKind == 2) {
+    a = pow(disc, 2.0);
+    c = vec3(1.0, 0.55, 0.18) * 2.0;
+  } else if (uKind == 3) {
+    a = pow(disc, 1.2) * 0.8;
+    c = vec3(0.55, 0.54, 0.5);
+  } else if (uKind == 4) {
+    a = disc * 0.18;
+    c = vec3(0.82, 0.68, 0.5);
+  }
   a *= vFade;
   if (a < 0.004) discard;
-#if KIND == 2
-  gl_FragColor = vec4(c * a, 1.0);
-#else
-  gl_FragColor = vec4(c * uLight, a);
-#endif
+  gl_FragColor = uKind == 2 ? vec4(c * a, 1.0) : vec4(c * uLight, a);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>

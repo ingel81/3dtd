@@ -105,15 +105,18 @@ export class ParticleField {
     g.boundingSphere = null;
 
     const material = new ShaderMaterial({
-      uniforms: UniformsUtils.merge([UniformsLib.fog, { uLife: { value: look.life } }]),
-      defines: { KIND: KIND_ID[kind] },
+      // Kind and fog are uniforms, not defines: every kind shares one program
+      uniforms: UniformsUtils.merge([
+        UniformsLib.fog,
+        { uLife: { value: look.life }, uKind: { value: KIND_ID[kind] }, uFogged: { value: look.additive ? 0 : 1 } },
+      ]),
       vertexShader: PARTICLE_VERTEX,
       fragmentShader: PARTICLE_FRAGMENT,
       transparent: true,
       depthWrite: false,
       blending: look.additive ? AdditiveBlending : NormalBlending,
-      // Fog would add its colour to additive light; those fade by distance in their own colour instead
-      fog: !look.additive,
+      // Fog would add its colour to additive light; those fade by distance in their own colour instead (uFogged)
+      fog: true,
     });
     material.uniforms['uTime'] = time;
     material.uniforms['uLight'] = light;
@@ -160,6 +163,7 @@ attribute vec3 aColor;
 uniform float uTime;
 uniform float uLife;
 uniform float uLight;
+uniform int uKind;
 varying vec2 vUv;
 varying vec3 vColor;
 varying float vAlpha;
@@ -180,65 +184,65 @@ void main() {
   vec3 p = aOrigin + vec3(cos(a) * r, 0.0, sin(a) * r);
   float alpha = 1.0;
   vec3 color = aColor;
-#if KIND == 0
+if (uKind == 0) {
   // Fire: rises fast, narrows, red at the top
   p.y += height + phase * size * 2.6;
   p.xz += vec2(sin(uTime * 7.0 + seed * 20.0), cos(uTime * 6.0 + seed * 13.0)) * 0.05 * phase;
   size *= (1.0 - phase * 0.7);
   color = mix(vec3(1.0, 0.85, 0.45), aColor * vec3(1.0, 0.45, 0.25), phase);
   alpha = smoothstep(0.0, 0.15, phase) * (1.0 - phase);
-#elif KIND == 1
+} else if (uKind == 1) {
   // Smoke: rises slowly, grows, drifts with the wind
   p.y += height + phase * 9.0;
   p.xz += vec2(0.8, 0.3) * phase * 4.0;
   size *= 0.5 + phase * 1.6;
   alpha = smoothstep(0.0, 0.2, phase) * (1.0 - phase) * 0.45;
-#elif KIND == 2
+} else if (uKind == 2) {
   // Embers: rise and wander, cool down
   p.y += height + phase * 5.0;
   p.xz += vec2(sin(phase * 9.0 + seed * 30.0), cos(phase * 7.0 + seed * 17.0)) * 0.6;
   color = mix(vec3(1.0, 0.8, 0.4), aColor * 0.6, phase);
   alpha = (1.0 - phase) * (0.6 + 0.4 * sin(uTime * 20.0 + seed * 50.0));
-#elif KIND == 3
+} else if (uKind == 3) {
   // Fireflies: hover and wander in the area, blink
   p = aOrigin + vec3(
     sin(uTime * 0.31 + seed * 40.0) * radius,
     height + 0.5 + sin(uTime * 0.53 + seed * 17.0) * 0.8 + rnd(seed) * 1.5,
     cos(uTime * 0.27 + seed * 23.0) * radius);
   alpha = smoothstep(0.55, 1.0, sin(uTime * (1.1 + rnd(seed) * 1.4) + seed * 60.0));
-#elif KIND == 4
+} else if (uKind == 4) {
   // Fog bank: big soft sheets drifting slowly near the ground
   p.y += height + 1.5 + rnd(seed * 7.0) * 3.0;
   p.xz += vec2(1.0, 0.35) * (phase - 0.5) * radius * 0.6;
   alpha = sin(phase * 3.1416) * 0.18;
-#elif KIND == 5
+} else if (uKind == 5) {
   // Falling leaves: from the crown height, tumbling and swaying
   p.y += height * (1.0 - phase);
   p.xz += vec2(sin(phase * 8.0 + seed * 9.0), cos(phase * 6.0 + seed * 5.0)) * 1.2 + vec2(0.6, 0.2) * phase * 4.0;
   size *= 0.6 + 0.4 * abs(sin(uTime * 3.0 + seed * 30.0));
   alpha = smoothstep(0.0, 0.05, phase) * smoothstep(1.0, 0.92, phase);
-#elif KIND == 6
+} else if (uKind == 6) {
   // Snow over an area: drifting down
   p.y += height * (1.0 - phase);
   p.xz += vec2(sin(phase * 5.0 + seed * 11.0), cos(phase * 4.0 + seed * 7.0)) * 0.8;
   alpha = smoothstep(0.0, 0.05, phase) * smoothstep(1.0, 0.9, phase) * 0.9;
-#elif KIND == 7
+} else if (uKind == 7) {
   // Sparkle: twinkles in place
   p.y += height * rnd(seed * 5.0 + cycle);
   alpha = sin(phase * 3.1416);
   alpha *= alpha;
-#else
+} else {
   // Spray at a waterfall's foot: billows up and out from where the water lands
   p.xz += vec2(cos(a), sin(a)) * phase * 2.5;
   p.y += height + phase * 3.5 - phase * phase * 2.0;
   size *= 0.4 + phase * 1.2;
   alpha = smoothstep(0.0, 0.15, phase) * (1.0 - phase) * 0.75;
-#endif
+}
   vUv = uv;
-#if KIND == 1 || KIND == 4 || KIND == 5 || KIND == 6 || KIND == 8
+if (uKind == 1 || uKind == 4 || uKind == 5 || uKind == 6 || uKind == 8) {
   // Lit things (smoke, fog, leaves, snow, spray) follow the scene's light; glowing ones do not
   color *= uLight;
-#endif
+}
   vColor = color;
   vAlpha = alpha;
   // Camera-facing quad around p
@@ -254,6 +258,8 @@ const PARTICLE_FRAGMENT = /* glsl */ `
 #include <common>
 #include <fog_pars_fragment>
 #include <logdepthbuf_pars_fragment>
+uniform int uKind;
+uniform float uFogged;
 varying vec2 vUv;
 varying vec3 vColor;
 varying float vAlpha;
@@ -262,20 +268,23 @@ void main() {
   #include <logdepthbuf_fragment>
   vec2 d = vUv - 0.5;
   float r = length(d) * 2.0;
-#if KIND == 5
+  float shape;
+if (uKind == 5) {
   // Leaf: a small pointed oval
-  float shape = smoothstep(1.0, 0.8, length(d * vec2(2.4, 1.2)) * 2.0);
-#elif KIND == 1 || KIND == 4 || KIND == 8
+  shape = smoothstep(1.0, 0.8, length(d * vec2(2.4, 1.2)) * 2.0);
+} else if (uKind == 1 || uKind == 4 || uKind == 8) {
   // Smoke and fog: very soft puffs
-  float shape = pow(max(1.0 - r, 0.0), 1.6);
-#else
-  float shape = pow(max(1.0 - r, 0.0), 2.2);
-#endif
+  shape = pow(max(1.0 - r, 0.0), 1.6);
+} else {
+  shape = pow(max(1.0 - r, 0.0), 2.2);
+}
   float alpha = shape * vAlpha;
   if (alpha < 0.003) discard;
   gl_FragColor = vec4(vColor, alpha);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
-  #include <fog_fragment>
+  if (uFogged > 0.5) {
+    #include <fog_fragment>
+  }
 }
 `;

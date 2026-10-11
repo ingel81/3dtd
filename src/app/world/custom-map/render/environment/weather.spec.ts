@@ -14,7 +14,7 @@ describe('weather', () => {
     e.set({ ...env, weather: 'rain', weatherStrength: 0.5 });
     expect(count()).toBe(Math.round(full / 2));
     e.set({ ...env, weather: 'snow', weatherStrength: 1 });
-    expect(e.weather.mesh.material.defines['KIND']).toBe(1);
+    expect(e.weather.mesh.material.uniforms['uKind'].value).toBe(1);
     e.set({ ...env, weather: 'fog', weatherStrength: 1 });
     expect(count()).toBe(0);
     e.dispose();
@@ -49,7 +49,7 @@ describe('weather', () => {
     expect(e.skyDome.uniforms['uPlanet'].value).toBe(1);
     e.set({ ...env, biome: 'hell' });
     expect(e.weather.mesh.visible).toBe(true);
-    expect(e.weather.mesh.material.defines['KIND']).toBe(2);
+    expect(e.weather.mesh.material.uniforms['uKind'].value).toBe(2);
     e.set({ ...env, biome: 'arctic', sky: 'night' });
     expect(e.skyDome.uniforms['uAurora'].value).toBe(1);
     e.set({ ...env, biome: 'swamp' });

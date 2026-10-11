@@ -27,7 +27,8 @@ import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-textu
  * surface: smooth, whatever the grid. Area bodies also fade out by their
  * mask (bilinear), so a mask edge over low ground is rounded, not stepped.
  *
- * Kinds (define KIND):
+ * Kinds (uniform uKind, not a define: every body shares one program per
+ * opacity):
  * - water: clear at the shore, the body colour in the deep, waves, sky
  *   reflection with fresnel, sun glint, foam where it gets shallow
  * - sea: like water with stronger waves and surf bands running to the shore
@@ -38,7 +39,7 @@ import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-textu
  *   runs dark red, orange to yellow by heat; capped so only the hottest
  *   veins pass a bloom threshold; cools to crust at the shore
  *
- * Rivers (define RIVER) carry their flow per vertex and fade at the
+ * Rivers (uniform uRiver) carry their flow per vertex and fade at the
  * ribbon's sides.
  */
 
@@ -70,9 +71,10 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
         uMaskUv: { value: new Vector4() },
         uHasMask: { value: 0 },
         uMapHalf: { value: o.mapHalf.clone() },
+        uKind: { value: KIND_ID[o.kind] ?? 0 },
+        uRiver: { value: o.river ? 1 : 0 },
       },
     ]),
-    defines: { KIND: KIND_ID[o.kind] ?? 0, RIVER: o.river ? 1 : 0 },
     vertexShader: WATER_VERTEX,
     fragmentShader: WATER_FRAGMENT,
     transparent: o.kind === 'water' || o.kind === 'sea' || o.kind === 'swamp',
@@ -194,12 +196,11 @@ const WATER_VERTEX = /* glsl */ `
 #include <fog_pars_vertex>
 #include <logdepthbuf_pars_vertex>
 attribute float aDepth;
-#if RIVER == 1
+// Rivers only; other bodies read the default 0
 attribute vec2 aFlow;
 attribute float aAcross;
 varying vec2 vFlow;
 varying float vAcross;
-#endif
 varying float vApronDepth;
 varying vec3 vWorldPos;
 varying vec3 vMapPos;
@@ -207,10 +208,8 @@ void main() {
   vApronDepth = aDepth;
   // The map's own frame (the view's group may sit anywhere in the scene): terrain lookups use it
   vMapPos = position;
-#if RIVER == 1
   vFlow = aFlow;
   vAcross = aAcross;
-#endif
   vec4 worldPos = modelMatrix * vec4(position, 1.0);
   vWorldPos = worldPos.xyz;
   vec4 mvPosition = viewMatrix * worldPos;
@@ -234,6 +233,8 @@ uniform sampler2D uMask;
 uniform vec4 uMaskUv;
 uniform float uHasMask;
 uniform vec2 uMapHalf;
+uniform int uKind;
+uniform int uRiver;
 ${HEIGHT_FOG_PARS}
 ${SHADER_NOISE}
 ${SKY_FUNCTIONS}
@@ -241,10 +242,8 @@ ${TERRAIN_HEIGHT_GLSL}
 varying float vApronDepth;
 varying vec3 vWorldPos;
 varying vec3 vMapPos;
-#if RIVER == 1
 varying vec2 vFlow;
 varying float vAcross;
-#endif
 
 vec3 waveNormal(vec2 p, vec2 flow, float strength) {
   vec3 a = texture2D(uWaves, p / 23.0 + flow * 0.021).xyz * 2.0 - 1.0;
@@ -263,19 +262,18 @@ void main() {
   float depth = outside ? vApronDepth : vMapPos.y - terrainHeightAt(m);
   float edge = 1.0;
   if (uHasMask > 0.5 && !outside) edge = smoothstep(0.3, 0.6, texture2D(uMask, m * uMaskUv.xy + uMaskUv.zw).r);
-#if RIVER == 1
-  edge *= 1.0 - smoothstep(0.82, 1.0, abs(vAcross));
-  // Wave patterns move downstream
-  vec2 flow = -vFlow * uTime;
-#else
   vec2 flow = uFlow * uTime;
-#endif
+  if (uRiver == 1) {
+    edge *= 1.0 - smoothstep(0.82, 1.0, abs(vAcross));
+    // Wave patterns move downstream
+    flow = -vFlow * uTime;
+  }
   if (depth <= 0.0 || edge <= 0.001) discard;
   vec3 v = normalize(cameraPosition - vWorldPos);
   vec3 color;
   float alpha = 1.0;
 
-#if KIND == 1
+if (uKind == 1) {
   // Lava: veins glow by heat, crust plates drift over them, cooled crust at the shore
   vec2 lp = vWorldPos.xz;
   vec2 drift = flow * 0.12 + uFlow * uTime * 0.03;
@@ -295,7 +293,7 @@ void main() {
   // A faint sheen on the crust
   color += skyColor(vec3(0.0, 1.0, 0.0), false) * 0.03 * (1.0 - heat) * uLight;
   alpha = edge;
-#elif KIND == 2
+} else if (uKind == 2) {
   // Ice: light over shallows, dark over depth, fresnel glint, cracks, snow drifted into the shallows
   vec2 ip = vWorldPos.xz;
   vec3 n = normalize(vec3((valueNoise(ip * 0.3) - 0.5) * 0.05, 1.0, (valueNoise(ip * 0.3 + 7.0) - 0.5) * 0.05));
@@ -312,15 +310,9 @@ void main() {
   color = mix(body * uLight, sky, fresnel * 0.5);
   color += uSunColor * pow(max(dot(r, uSunDir), 0.0), 80.0) * 0.6;
   alpha = edge;
-#else
+} else {
   // Water, sea, swamp
-  #if KIND == 3
-  float waveStrength = 1.5;
-  #elif KIND == 4
-  float waveStrength = 0.25;
-  #else
-  float waveStrength = 1.0;
-  #endif
+  float waveStrength = uKind == 3 ? 1.5 : uKind == 4 ? 0.25 : 1.0;
   vec3 n = waveNormal(vWorldPos.xz, flow, waveStrength);
   float calm = smoothstep(0.0, 1.2, depth);
   n = normalize(mix(vec3(0.0, 1.0, 0.0), n, 0.35 + 0.65 * calm));
@@ -328,50 +320,48 @@ void main() {
   vec3 r = reflect(-v, n);
   vec3 sky = skyColor(vec3(r.x, max(r.y, 0.02), r.z), false);
   vec3 body = mix(uShallow, uDeep, smoothstep(0.2, 3.5, depth)) * uLight;
-  #if KIND == 4
-  color = mix(body, sky, fresnel * 0.4 + 0.02);
-  // Algae and duckweed drifting in patches
-  float algae = smoothstep(0.52, 0.68, skyFbm(vWorldPos.xz * 0.22 + uFlow * uTime * 0.01));
-  color = mix(color, vec3(0.16, 0.24, 0.06) * uLight, algae * 0.85);
-  #else
-  color = mix(body, sky, fresnel * 0.9 + 0.05);
-  #endif
+  if (uKind == 4) {
+    color = mix(body, sky, fresnel * 0.4 + 0.02);
+    // Algae and duckweed drifting in patches
+    float algae = smoothstep(0.52, 0.68, skyFbm(vWorldPos.xz * 0.22 + uFlow * uTime * 0.01));
+    color = mix(color, vec3(0.16, 0.24, 0.06) * uLight, algae * 0.85);
+  } else {
+    color = mix(body, sky, fresnel * 0.9 + 0.05);
+  }
   // Sun glint, weaker in the shallows: there the surface is calm and flat, and a flat mirror against the
   // sun drew white streaks along every shore
   float spec = (pow(max(dot(r, uSunDir), 0.0), 320.0) * 3.0 + pow(max(dot(r, uSunDir), 0.0), 40.0) * 0.2) * smoothstep(0.1, 1.5, depth);
-  #if KIND == 4
-  spec *= 0.3;
-  #endif
+  if (uKind == 4) spec *= 0.3;
   color += uSunColor * spec;
   // Foam where it gets shallow, broken up by the waves
   float foamNoise = texture2D(uWaves, vWorldPos.xz / 2.3 + uTime * 0.03).x;
   float foamBreak = texture2D(uWaves, vWorldPos.xz / 17.0 - uTime * 0.01).y;
   float foam = smoothstep(0.25, 0.0, depth) * smoothstep(0.45, 0.75, foamNoise * 0.6 + foamBreak * 0.6 - depth);
-  #if KIND == 3
-  // Surf: bands rolling in to the shore
-  float band = sin(depth * 2.6 - uTime * 1.3 + foamBreak * 3.0);
-  foam = max(foam, smoothstep(0.86, 0.99, band) * smoothstep(2.5, 0.3, depth) * (0.35 + foamNoise * 0.5));
-  #endif
-  #if RIVER == 1
-  // Ripples where the river runs fast and shallow
-  foam = max(foam, smoothstep(0.7, 0.95, foamNoise) * smoothstep(1.2, 0.3, depth) * min(length(vFlow), 1.0));
-  #endif
+  if (uKind == 3) {
+    // Surf: bands rolling in to the shore
+    float band = sin(depth * 2.6 - uTime * 1.3 + foamBreak * 3.0);
+    foam = max(foam, smoothstep(0.86, 0.99, band) * smoothstep(2.5, 0.3, depth) * (0.35 + foamNoise * 0.5));
+  }
+  if (uRiver == 1) {
+    // Ripples where the river runs fast and shallow
+    foam = max(foam, smoothstep(0.7, 0.95, foamNoise) * smoothstep(1.2, 0.3, depth) * min(length(vFlow), 1.0));
+  }
   color = mix(color, vec3(0.85, 0.88, 0.86) * uLight, foam * 0.65);
-  #if KIND == 4
-  alpha = mix(0.75, 0.97, smoothstep(0.0, 0.8, depth));
-  #else
-  alpha = mix(0.55, 0.96, smoothstep(0.0, 1.6, depth));
-  alpha = max(alpha, fresnel);
-  #endif
+  if (uKind == 4) {
+    alpha = mix(0.75, 0.97, smoothstep(0.0, 0.8, depth));
+  } else {
+    alpha = mix(0.55, 0.96, smoothstep(0.0, 1.6, depth));
+    alpha = max(alpha, fresnel);
+  }
   alpha = max(alpha, foam * 0.8);
   // A soft seam where the terrain cuts the surface
   alpha *= smoothstep(0.0, 0.06, depth) * edge;
-#endif
-#if KIND == 1 || KIND == 2
+}
+if (uKind == 1 || uKind == 2) {
   // Opaque bodies: the mask edge cuts, rounded by the bilinear mask
   if (alpha < 0.5) discard;
   alpha = 1.0;
-#endif
+}
   gl_FragColor = vec4(color, alpha);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
