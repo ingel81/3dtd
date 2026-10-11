@@ -50,11 +50,10 @@ import { WorldPackageLoader } from './world/world-package-loader.service';
 import { WorldContext } from '../world/world-context.service';
 import { WORLD_URL_PARAM, worldUrlValue, worldsMatch, type WorldRef } from '../world/world-ref';
 import { packageWorldRef } from '../coop/world-package';
-import { MapAssembler, splitMapFile, type MapPart } from '../coop/map-transfer';
+import { MapAssembler, PacedMapSend, splitMapFile, type MapPart } from '../coop/map-transfer';
 import { packOpenedMap, storeSharedMap } from '../world/custom-map/map-share';
 
 /** Pause between two pieces of a map the host sends: the relay takes some 4 MB a second from one connection */
-const MAP_PART_GAP_MS = 250;
 /** How long a guest on the host's map waits for its own start to stand or fail before it reloads into the map */
 const MAP_START_WAIT_MS = 30_000;
 import {
@@ -261,6 +260,8 @@ export class CoopService {
   private readonly mapAssembler = new MapAssembler();
   /** Host: the map (id and hash) this room has from us already, sent once per room */
   private sentMapKey: string | null = null;
+  /** Host: the map's pieces paced through the relay, the world after them */
+  private readonly mapSend = new PacedMapSend();
   /** The signals of a room, back to their start in leave() */
   private readonly perRoom = new ResettableSignals();
   /** What this client told the room it is doing, see tellStatus */
@@ -775,10 +776,19 @@ export class CoopService {
     }
     const world = buildWorldPackage(source, this.head());
     this.sharedWaveSource = world.waveSource ?? null;
-    // A custom map goes ahead of the world that names it, so a guest without it gets it from the room
-    const mapParts = this.mapPartsToSend();
-    if (mapParts) void this.sendMapThenWorld(this.session, mapParts, world);
-    else this.session.sendWorld(world, world.spawns.map((spawn) => spawn.id));
+    // A custom map goes ahead of the world that names it, so a guest without it gets it from the room;
+    // the world after the pieces is the one of the moment they are out (PacedMapSend)
+    const session = this.session;
+    this.mapSend.share(
+      this.mapPartsToSend(),
+      (part) => session.sendMapPart(part),
+      () => {
+        const now = this.world.source();
+        const latest = now ? buildWorldPackage(now, this.head()) : world;
+        session.sendWorld(latest, latest.spawns.map((spawn) => spawn.id));
+      },
+      () => this.session === session,
+    );
     this.lanes.set(laneStats(this.pathRoute.getCachedPaths(), LANE_WALK_SPEED_MPS));
     this.sharedMap = this.mapSignature();
     this.sharedMapNow.set(this.sharedMap);
@@ -1201,17 +1211,6 @@ export class CoopService {
     }
     this.sentMapKey = key;
     return parts;
-  }
-
-  /** Host: the map's pieces, paced for the relay, then the world; nothing once this session is gone */
-  private async sendMapThenWorld(session: CoopSession, parts: MapPart[], world: WorldPackage): Promise<void> {
-    for (const [i, part] of parts.entries()) {
-      if (this.session !== session) return;
-      if (i > 0) await new Promise((resolve) => setTimeout(resolve, MAP_PART_GAP_MS));
-      if (this.session !== session) return;
-      session.sendMapPart(part);
-    }
-    if (this.session === session) session.sendWorld(world, world.spawns.map((spawn) => spawn.id));
   }
 
   /**

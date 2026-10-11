@@ -87,3 +87,55 @@ export class MapAssembler {
     this.count = 0;
   }
 }
+
+/** Pause between two pieces, ms: the relay's rate limit and a guest's main thread breathe between them */
+export const MAP_PART_GAP_MS = 250;
+
+/**
+ * The host's map pieces, paced, and the world after them (coop.service
+ * shareWorld). The world that follows is built when the last piece is out,
+ * not when the pieces set off: a share while they are under way only asks
+ * for it, so an older world can never arrive after a newer one and
+ * overwrite it at the relay (review 2026-10-11). Nothing more is sent once
+ * `alive` says the session is gone.
+ */
+export class PacedMapSend {
+  /** The world to send after the pieces under way; null while none go */
+  private worldAfter: (() => void) | null = null;
+
+  /** Pieces under way */
+  get busy(): boolean {
+    return this.worldAfter !== null;
+  }
+
+  /**
+   * Share the world: with `parts` the pieces first, then `sendWorld`; while
+   * pieces are under way the world they end with is the newest asked for;
+   * else the world at once.
+   */
+  share(parts: readonly MapPart[] | null, sendPart: (part: MapPart) => void, sendWorld: () => void, alive: () => boolean): void {
+    if (this.worldAfter) {
+      this.worldAfter = sendWorld;
+      return;
+    }
+    if (!parts || parts.length === 0) {
+      sendWorld();
+      return;
+    }
+    this.worldAfter = sendWorld;
+    void this.send(parts, sendPart, alive);
+  }
+
+  private async send(parts: readonly MapPart[], sendPart: (part: MapPart) => void, alive: () => boolean): Promise<void> {
+    try {
+      for (const [i, part] of parts.entries()) {
+        if (i > 0) await new Promise((resolve) => setTimeout(resolve, MAP_PART_GAP_MS));
+        if (!alive()) return;
+        sendPart(part);
+      }
+      if (alive()) this.worldAfter?.();
+    } finally {
+      this.worldAfter = null;
+    }
+  }
+}
