@@ -83,6 +83,8 @@ export class EditorOverlay {
   private readonly nodeMaterial = new MeshBasicMaterial({ color: TD_THEME.knobLight, depthTest: false, transparent: true, opacity: 0.9 });
   private readonly nodeSelected = new MeshBasicMaterial({ color: TD_THEME.brass, depthTest: false });
   private readonly selectMaterial = new LineBasicMaterial({ color: TD_THEME.brassLight, depthTest: false, transparent: true });
+  /** Every road as a line while the nodes show: a road under another or one that was bent away stays in sight */
+  private readonly edgeMaterial = new LineBasicMaterial({ color: TD_THEME.knobLight, depthTest: false, transparent: true, opacity: 0.55 });
   private routeTime = 0;
   /** Points of the rivers while they are edited */
   private readonly riverHandles: InstancedMesh;
@@ -219,6 +221,19 @@ export class EditorOverlay {
       mesh.position.set(-n.x, this.height(n.x, n.y) + 1, n.y);
       mesh.renderOrder = 11;
       this.nodes.add(mesh);
+    }
+    for (const e of doc.paths.edges) {
+      const a = doc.paths.nodes.find((n) => n.id === e.a);
+      const b = doc.paths.nodes.find((n) => n.id === e.b);
+      if (!a || !b) continue;
+      const pts = [a, ...(e.via ?? []), b];
+      const pos = new Float32Array(pts.length * 3);
+      pts.forEach((p, k) => pos.set([-p.x, this.height(p.x, p.y) + 1, p.y], k * 3));
+      const line = new Line(new BufferGeometry(), this.edgeMaterial);
+      line.geometry.setAttribute('position', new BufferAttribute(pos, 3));
+      line.renderOrder = 10;
+      line.frustumCulled = false;
+      this.nodes.add(line);
     }
   }
 
@@ -464,7 +479,7 @@ export class EditorOverlay {
       if (m instanceof Sprite) m.position.y = m.userData['ground'] + m.userData['lift'] * scale;
       else m.scale.setScalar(scale);
     }
-    for (const n of this.nodes.children) n.scale.setScalar(n.userData['size'] * scale);
+    for (const n of this.nodes.children) if (n instanceof Mesh) n.scale.setScalar(n.userData['size'] * scale);
   }
 
   /** Moves the dots along the routes, spawn to HQ */
