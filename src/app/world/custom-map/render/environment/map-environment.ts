@@ -145,6 +145,14 @@ export class CustomMapEnvironment {
     this.hemi.color.set(p.hemiSky).multiply(tint);
     this.hemi.groundColor.set(p.hemiGround);
     this.hemi.intensity = p.hemiIntensity;
+    // Moonlight: a night map lit cool and bright enough to read from the game camera; sky untouched
+    const moon = env.sky === 'night' ? Math.min(1, Math.max(0, env.moonlight ?? 0)) : 0;
+    if (moon > 0) {
+      this.sun.color.lerp(new Color(0xa8c0ff).multiply(tint), moon * 0.7);
+      this.sun.intensity += 1.5 * moon;
+      this.hemi.color.lerp(new Color(0x6078b0).multiply(tint), moon * 0.5);
+      this.hemi.intensity += 0.8 * moon;
+    }
     this.ambient.color.set(p.hemiSky).multiply(tint);
     this.ambient.intensity = p.ambient;
     // Haze: the horizon lifted a little towards the zenith's blue, so distance reads blue, not green

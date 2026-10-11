@@ -191,6 +191,11 @@ export interface MapEnvironment {
   biome?: MapBiome;
   /** 0..1 snow lying on everything that faces up (default: from biome and weather) */
   snowCover?: number;
+  /**
+   * 0..1 night maps only: a cool moonlight on the land ("day for night"), the
+   * sky and stars stay dark and lanterns still stand out. Default 0
+   */
+  moonlight?: number;
 }
 
 export type MapBiome =

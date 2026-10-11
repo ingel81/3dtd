@@ -93,3 +93,24 @@ describe('one full-screen sky (review 2026-10-11)', () => {
     expect(backdrop.getHex()).not.toBe(dusk);
   });
 });
+
+describe('moonlight', () => {
+  const night = { sky: 'night' as const, sunAzimuth: 200, sunElevation: 30, fogDensity: 0.001, tint: '#ffffff' };
+
+  it('lights a night map cool and brighter, leaves the sky dark and day maps alone', () => {
+    const plain = new CustomMapEnvironment(night);
+    const lit = new CustomMapEnvironment({ ...night, moonlight: 0.8 });
+    expect(lit.sun.intensity).toBeCloseTo(plain.sun.intensity + 1.2);
+    expect(lit.hemi.intensity).toBeCloseTo(plain.hemi.intensity + 0.64);
+    // A cool light
+    expect(lit.sun.color.b).toBeGreaterThan(lit.sun.color.r);
+    // The sky keeps its colours
+    expect(lit.zenith.getHex()).toBe(plain.zenith.getHex());
+    expect(lit.horizon.getHex()).toBe(plain.horizon.getHex());
+    // Only at night
+    const day = new CustomMapEnvironment({ ...night, sky: 'day' });
+    const dayMoon = new CustomMapEnvironment({ ...night, sky: 'day', moonlight: 1 });
+    expect(dayMoon.sun.intensity).toBe(day.sun.intensity);
+    for (const e of [plain, lit, day, dayMoon]) e.dispose();
+  });
+});
