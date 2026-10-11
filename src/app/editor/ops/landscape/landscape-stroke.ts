@@ -28,6 +28,7 @@ import { ObjectGrid, ObjectIds } from '../object-ops';
 import { edgePolyline, nearestOnPolyline } from '../path-graph';
 import { BODY_COLORS, emptyWater } from '../water-ops';
 import { mirrorChange, objectImages, sameSector, symmetryImages, type SymmetryMode } from '../symmetry';
+import { FieldCache } from './field-cache';
 import { LandscapeNoise } from './landscape-noise';
 
 interface RoadLine {
@@ -71,6 +72,8 @@ export class LandscapeStroke {
   /** Per stroke memory of the brushes (decided object cells, strongest weights) */
   readonly decided = new Set<string>();
   readonly strongest = new Map<string, number>();
+  /** Position-only values the brushes worked out already (noise per texel), by name */
+  readonly fields = new Map<string, FieldCache>();
   /** Materials the stroke wanted but found no room for in the full layer list */
   readonly layersFull: string[] = [];
 

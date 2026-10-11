@@ -25,6 +25,7 @@ import { HEIGHT_LIMITS } from '../terrain-ops';
 import { CITY_GRID, type BiomeDef, type BiomeObject } from './biomes';
 import { citySlots, streetDistance } from './city';
 import { crackAt } from './cracks';
+import { FieldCache } from './field-cache';
 import { craterProfile } from './shapes';
 import type { CatalogIndex } from '../../catalog/asset-catalog';
 import { smooth, type LandscapeNoise } from './landscape-noise';
@@ -34,12 +35,19 @@ import type { LandscapeStroke } from './landscape-stroke';
 const SHAPE_RATE = 2.5;
 const PAINT_RATE = 3;
 
-/** Brush weight with a ragged rim: noise moves the edge in and out */
-export function frayedWeight(noise: LandscapeNoise, d: number, x: number, y: number, brush: BrushSettings): number {
+/** Brush weight with a ragged rim: noise moves the edge in and out (`fray` given saves the noise) */
+export function frayedWeight(noise: LandscapeNoise, d: number, x: number, y: number, brush: BrushSettings, fray?: number): number {
   const w = brushWeight(d, brush.radius, Math.max(0.35, brush.falloff));
   if (w <= 0 || w >= 1) return w;
-  return smooth(0.1, 0.9, w + (noise.fray(x, y) - 0.5) * 0.7);
+  return smooth(0.1, 0.9, w + ((fray ?? noise.fray(x, y)) - 0.5) * 0.7);
 }
+
+/** Channels the ground cache keeps per texel: the base mix, then shore, crack, crust, fray */
+const MIX_CHANNELS = MAX_LAYERS + 4;
+const SHORE = MAX_LAYERS;
+const CRACK = MAX_LAYERS + 1;
+const CRUST = MAX_LAYERS + 2;
+const FRAY = MAX_LAYERS + 3;
 
 /** Relief offset of a biome at a map point, metres at full strength */
 function relief(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number): number {
@@ -116,8 +124,10 @@ export interface BiomeReach {
   maxX: number;
   minY: number;
   maxY: number;
-  /** 0..1 at a map point */
-  weight(x: number, y: number): number;
+  /** 0..1 at a map point; `fray` is the rim noise there when known */
+  weight(x: number, y: number, fray?: number): number;
+  /** Whether a point can get any weight at all (inside the brush circle) */
+  inside(x: number, y: number): boolean;
   /** Where the change is centred, for symmetry; none for a band */
   center?: { x: number; y: number };
 }
@@ -129,7 +139,8 @@ function dabReach(noise: LandscapeNoise, center: { x: number; y: number }, brush
     maxX: center.x + r,
     minY: center.y - r,
     maxY: center.y + r,
-    weight: (x, y) => frayedWeight(noise, Math.hypot(x - center.x, y - center.y), x, y, brush),
+    weight: (x, y, fray) => frayedWeight(noise, Math.hypot(x - center.x, y - center.y), x, y, brush, fray),
+    inside: (x, y) => (x - center.x) ** 2 + (y - center.y) ** 2 < r * r,
     center,
   };
 }
@@ -153,7 +164,7 @@ export function biomeDab(
 export function biomeBand(stroke: LandscapeStroke, biome: BiomeDef, minY: number, maxY: number): void {
   const t = stroke.doc.terrain;
   stroke.anchor ??= { x: 0, y: 0, h: stroke.baseHeight(...sampleIndex(t, 0, 0)) };
-  applyBiome(stroke, { minX: -t.width / 2, maxX: t.width / 2, minY, maxY, weight: () => 1 }, biome, 1, 1, 1);
+  applyBiome(stroke, { minX: -t.width / 2, maxX: t.width / 2, minY, maxY, weight: () => 1, inside: () => true }, biome, 1, 1, 1);
 }
 
 function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef, strength: number, pull: number, paintRate: number): void {
@@ -274,13 +285,35 @@ function paintBiome(
   const w8 = new Float32Array(MAX_LAYERS);
   const target = new Float32Array(MAX_LAYERS);
   const noiseOf = ['n6', 'n5', 'n3', 'n2'] as const;
+  // The noise parts per texel are worked out once per stroke and kept as bytes
+  const key = `ground:${biome.id}`;
+  let cache = stroke.fields.get(key);
+  if (!cache) stroke.fields.set(key, (cache = new FieldCache(res, MIX_CHANNELS)));
   for (let v = rect.j0; v <= rect.j1; v++) {
     const y = texelY(t, v);
     for (let u = rect.i0; u <= rect.i1; u++) {
       const x = texelX(t, u);
-      const w = reach.weight(x, y);
+      if (!reach.inside(x, y)) continue;
+      cache.at(u, v);
+      const c = cache.data;
+      const o = cache.offset;
+      if (cache.fresh) {
+        baseMix(stroke, usable, x, y, target, noiseOf);
+        for (let k = 0; k < MAX_LAYERS; k++) c[o + k] = Math.round(target[k] * 255);
+        c[o + SHORE] = biome.pools ? Math.round(poolShore(stroke, biome, x, y) * 255) : 0;
+        if (pattern.kind === 'cracks') {
+          const cr = crackAt(stroke, x, y);
+          c[o + CRACK] = Math.round(cr.crack * 255);
+          c[o + CRUST] = Math.round(cr.crust * 255);
+        }
+        c[o + FRAY] = Math.round(stroke.noise.fray(x, y) * 255);
+      }
+      const w = reach.weight(x, y, c[o + FRAY] / 255);
       if (w <= 0) continue;
-      groundMix(stroke, t, biome, usable, steep, mud, pattern, x, y, target, noiseOf);
+      let sum = 0;
+      for (let k = 0; k < MAX_LAYERS; k++) sum += c[o + k];
+      for (let k = 0; k < MAX_LAYERS; k++) target[k] = sum > 0 ? c[o + k] / sum : 0;
+      foldOver(t, biome, steep, mud, pattern, x, y, target, c[o + SHORE] / 255, c[o + CRACK] / 255, c[o + CRUST] / 255);
       const a = Math.min(1, rate * w * (0.5 + 0.5 * strength));
       const texel = v * res + u;
       readWeights(t, texel, w8);
@@ -293,18 +326,11 @@ function paintBiome(
 /**
  * The biome's ground at a point as a soft mix: each material grows in
  * broad clusters of its own noise (wavelength about 50 m) weighted by its
- * share, so patches have soft, irregular rims instead of salt and pepper;
- * the steep material takes over smoothly on slopes, mud (or the biome's
- * shore ground) rings the pools, and the pattern goes on top.
+ * share, so patches have soft, irregular rims instead of salt and pepper.
  */
-function groundMix(
+function baseMix(
   stroke: LandscapeStroke,
-  t: MapTerrain,
-  biome: BiomeDef,
   usable: { layer: number; share: number }[],
-  steep: number | null,
-  mud: number | null,
-  pattern: PatternLayers,
   x: number,
   y: number,
   out: Float32Array,
@@ -322,21 +348,40 @@ function groundMix(
     sum += v;
   });
   if (sum > 0) for (let k = 0; k < MAX_LAYERS; k++) out[k] /= sum;
+}
+
+/**
+ * On top of the base mix: the steep material takes over smoothly on slopes
+ * (the slope changes while the brush works, so it is never kept), mud or
+ * the biome's shore ground rings the pools, and the pattern goes on top.
+ */
+function foldOver(
+  t: MapTerrain,
+  biome: BiomeDef,
+  steep: number | null,
+  mud: number | null,
+  pattern: PatternLayers,
+  x: number,
+  y: number,
+  out: Float32Array,
+  shore: number,
+  crack: number,
+  crust: number,
+): void {
   const fold = (layer: number, share: number) => {
     if (share <= 0) return;
     for (let k = 0; k < MAX_LAYERS; k++) out[k] *= 1 - share;
     out[layer] += share;
   };
   if (steep !== null) fold(steep, smooth(24, 36, slopeAt(t, x, y)));
-  if (mud !== null && biome.pools) fold(mud, poolShore(stroke, biome, x, y) * 0.9);
+  if (mud !== null && biome.pools) fold(mud, shore * 0.9);
   if (pattern.kind === 'streets') {
     const d = streetDistance(x, y);
     if (pattern.b !== null) fold(pattern.b, 1 - smooth(CITY_GRID.sidewalk - 0.4, CITY_GRID.sidewalk + 0.4, d));
     if (pattern.a !== null) fold(pattern.a, 1 - smooth(CITY_GRID.street - 0.3, CITY_GRID.street + 0.3, d));
   } else if (pattern.kind === 'cracks') {
-    const c = crackAt(stroke, x, y);
-    if (pattern.b !== null) fold(pattern.b, c.crust * 0.4);
-    if (pattern.a !== null) fold(pattern.a, c.crack);
+    if (pattern.b !== null) fold(pattern.b, crust * 0.4);
+    if (pattern.a !== null) fold(pattern.a, crack);
   }
 }
 
