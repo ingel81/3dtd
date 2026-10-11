@@ -30,6 +30,16 @@ export const MAX_PLAYERS = 4;
 export const MAX_RESYNC_PARTS = 16;
 
 /**
+ * A custom map the host sends along (coop/map-transfer.ts): its `.3dtdmap`
+ * file in pieces of at most MAP_PART_BYTES before base64, at most
+ * MAX_MAP_PARTS of them (4 MB; the shipped demo valley is 1.6 MB). Every
+ * piece stays under the relay's message size, and a joiner gets all of them
+ * at once well under its unread limit.
+ */
+export const MAP_PART_BYTES = 512 * 1024;
+export const MAX_MAP_PARTS = 8;
+
+/**
  * What a player's client is doing in the lobby, as it tells the room (User,
  * 2026-09-25): entering a map key, loading the host's map, reloading the page
  * for a new place, or the map stands. Null before it said anything.
@@ -128,6 +138,11 @@ export type ClientMessage =
   | { t: 'world'; world: unknown; spawnIds: string[] }
   /** Host, lobby: the map is changing here, a new world follows (PLAYTEST T25) */
   | { t: 'moving' }
+  /**
+   * Host, lobby: a piece of the custom map the room plays (its `.3dtdmap`
+   * file, base64), before the world that names it; `hash` its content hash
+   */
+  | { t: 'map'; mapId: string; hash: string; part: number; parts: number; data: string }
   /** Lobby: what this client is doing now (PlayerStatus) */
   | { t: 'status'; status: PlayerStatus }
   /** Lobby: take a free spawn as one more lane, or give one back (`take` false); null gives every lane back */
@@ -183,6 +198,8 @@ export type ServerMessage =
   | { t: 'world'; world: unknown }
   /** Lobby: the host changes the map, its world follows */
   | { t: 'moving' }
+  /** A piece of the host's custom map, to a player who joins (all of them, before the world) or as the host sends it */
+  | { t: 'map'; mapId: string; hash: string; part: number; parts: number; data: string }
   /** The game starts: seed, roster and lanes ([player, spawn], a player in as many as they took); ticks follow */
   | {
     t: 'started';

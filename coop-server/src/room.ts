@@ -198,6 +198,11 @@ export class Room {
   private readonly players: (Omit<CoopPlayerInfo, 'client'> & { client: ClientInfo | null; gameVersion: string; configHash: string })[] = [];
   private hostId: string;
   private world: unknown = null;
+  /**
+   * The pieces of the custom map the host sent last (coop/map-transfer.ts),
+   * for players who join later; at most MAX_MAP_PARTS of one map
+   */
+  private map: { mapId: string; hash: string; parts: (string | undefined)[] } | null = null;
   private spawnIds: string[] = [];
   private started = false;
 
@@ -318,9 +323,21 @@ export class Room {
     this.players.push({ ...player, client: player.client ?? null, name: this.freeName(player.name), spawnIds: [], ready: false, status: null });
     this.aloneSince = null;
     this.log(`${this.who(player.id)} joined (${this.players.length} players)${this.clientOf(player.id)}`);
+    // The map first: the world that names it comes after
+    this.sendMap(player.id);
     if (this.world !== null) this.send(player.id, { t: 'world', world: this.world });
     this.broadcastRoom();
     return null;
+  }
+
+  /** Every piece of the host's map there is, to one player */
+  private sendMap(playerId: string): void {
+    const map = this.map;
+    if (!map) return;
+    const parts = map.parts.length;
+    map.parts.forEach((data, part) => {
+      if (data !== undefined) this.send(playerId, { t: 'map', mapId: map.mapId, hash: map.hash, part, parts, data });
+    });
   }
 
   /**
@@ -365,6 +382,20 @@ export class Room {
         // At most one a second goes out (review H2); a newer one waits and replaces what waits
         this.pendingWorld = { world: message.world, spawnIds: [...message.spawnIds] };
         return this.flushWorld();
+      case 'map': {
+        if (!host) return this.refuse(playerId, 'not-host');
+        if (this.started) return this.refuse(playerId, 'started');
+        // Another map (or other content) replaces the pieces kept so far
+        if (!this.map || this.map.mapId !== message.mapId || this.map.hash !== message.hash || this.map.parts.length !== message.parts) {
+          this.map = { mapId: message.mapId, hash: message.hash, parts: new Array<string | undefined>(message.parts) };
+        }
+        this.map.parts[message.part] = message.data;
+        if (message.part === message.parts - 1) {
+          this.noisy(playerId, `map ${message.mapId} from the host, ${message.parts} pieces`);
+        }
+        for (const p of this.players) if (p.id !== this.hostId) this.send(p.id, message);
+        return;
+      }
       case 'pick': {
         if (this.started) return this.refuse(playerId, 'started');
         const spawnId = message.spawnId;

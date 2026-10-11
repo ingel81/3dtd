@@ -11,6 +11,16 @@ describe('parseClientMessage (relay review K1, H1, N1)', () => {
       .toEqual({ t: 'cmd', command: { type: 'command:sell-tower', towerId: 't1' } });
   });
 
+  it('takes a piece of a custom map within the piece limits only', () => {
+    const piece = { t: 'map', mapId: 'demo-valley', hash: 'abc', part: 1, parts: 4, data: 'AAAA' };
+    expect(parseClientMessage(piece)).toEqual(piece);
+    expect(parseClientMessage({ ...piece, part: 4 })).toBeNull();
+    expect(parseClientMessage({ ...piece, parts: 9 })).toBeNull();
+    expect(parseClientMessage({ ...piece, data: 'not base64!' })).toBeNull();
+    expect(parseClientMessage({ ...piece, data: 'A'.repeat(800 * 1024) })).toBeNull();
+    expect(parseClientMessage({ ...piece, mapId: '' })).toBeNull();
+  });
+
   it('passes a command on with its own fields only, and no unknown command', () => {
     const position = { lat: 1, lon: 2, extra: 'stays: the client checks what a field holds' };
     expect(parseClientMessage({ t: 'cmd', command: { type: 'command:place-tower', position, typeId: 'basic', x: 1, note: 'y' } }))

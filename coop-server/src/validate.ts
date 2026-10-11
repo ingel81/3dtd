@@ -11,7 +11,7 @@
  * forwards them (the world, bounded by the relay's message size). A
  * command keeps its type's fields only (command-fields.ts).
  */
-import { MAX_RESYNC_PARTS, type ClientMessage } from '../../src/app/coop/protocol.ts';
+import { MAP_PART_BYTES, MAX_MAP_PARTS, MAX_RESYNC_PARTS, type ClientMessage } from '../../src/app/coop/protocol.ts';
 import { knownFields } from '../../src/app/coop/command-fields.ts';
 
 /** Longest name, as the client allows it */
@@ -85,6 +85,16 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
       const spawnIds = spawns.map((id) => cleanText(id, ID_MAX));
       if (spawnIds.some((id) => id === null || id === '')) return null;
       return { t: 'world', world: m['world'], spawnIds: spawnIds as string[] };
+    }
+    case 'map': {
+      const mapId = cleanText(m['mapId'], ID_MAX);
+      const hash = cleanText(m['hash'], VERSION_MAX);
+      const { part, parts, data } = m;
+      if (mapId === null || mapId === '' || hash === null || !Number.isInteger(parts) || !Number.isInteger(part)) return null;
+      if ((parts as number) < 1 || (parts as number) > MAX_MAP_PARTS || (part as number) < 0 || (part as number) >= (parts as number)) return null;
+      // A piece of at most MAP_PART_BYTES as base64
+      if (typeof data !== 'string' || data.length === 0 || data.length > Math.ceil(MAP_PART_BYTES / 3) * 4 || !BASE64.test(data)) return null;
+      return { t: 'map', mapId, hash, part: part as number, parts: parts as number, data };
     }
     case 'status': {
       const status = cleanText(m['status'], 16);

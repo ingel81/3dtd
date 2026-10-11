@@ -67,6 +67,27 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(lines[1]).toBe('B (b) joined (2 players), on Firefox 143.0, Linux');
   });
 
+  it("passes the host's map on to the guests and gives a later joiner every piece before the world", () => {
+    room.join(player('b'));
+    const piece = (part: number, mapId = 'm1') => ({ t: 'map' as const, mapId, hash: 'h1', part, parts: 2, data: `P${part}` });
+    room.receive('a', piece(0));
+    room.receive('a', piece(1));
+    room.receive('a', { t: 'world', world: { any: 'thing' }, spawnIds: ['s1'] });
+    expect(all('b', 'map').map((m) => m.data)).toEqual(['P0', 'P1']);
+    expect(all('a', 'map')).toEqual([]);
+
+    room.join(player('c'));
+    const kinds = (inbox.get('c') ?? []).map((m) => m.t).filter((t) => t === 'map' || t === 'world');
+    expect(kinds).toEqual(['map', 'map', 'world']);
+
+    // Only the host sends one; another map replaces the pieces kept
+    room.receive('b', piece(0, 'm2'));
+    expect(last('b', 'refused')!.reason).toBe('not-host');
+    room.receive('a', { ...piece(0, 'm2'), parts: 1 });
+    room.join(player('d'));
+    expect(all('d', 'map').map((m) => [m.mapId, m.part])).toEqual([['m2', 0]]);
+  });
+
   it('numbers a name that is in the room already', () => {
     room.join(player('b', { name: 'A' }));
     room.join(player('c', { name: 'A' }));
