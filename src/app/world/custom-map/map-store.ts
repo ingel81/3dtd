@@ -142,9 +142,8 @@ export class MapStore {
     return { doc, summary: { ...summarize(doc, 'shipped', hash) }, preview };
   }
 
-  /** Packs and stores an own map; returns its new summary */
-  async save(doc: CustomMapDocument, preview: Uint8Array | null = null): Promise<MapSummary> {
-    const file = packMapFile(doc);
+  /** Packs and stores an own map (or stores `file`, packed already); returns its new summary */
+  async save(doc: CustomMapDocument, preview: Uint8Array | null = null, file: Uint8Array = packMapFile(doc)): Promise<MapSummary> {
     const summary = summarize(doc, 'own', await contentHash(doc));
     const keep = preview ?? (await this.backend.get(doc.meta.id))?.preview ?? null;
     await this.backend.put({ summary, file, preview: keep });

@@ -5,12 +5,13 @@
  * the map check and the file actions. The panels read its signals; the
  * editing itself happens in the Angular-free model, ops and tools.
  */
+import { VersionHistory, type MapVersion } from '../model/version-store';
 import { biomeById } from '../ops/landscape/biomes';
 import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
 import { Injectable, NgZone, OnDestroy, inject, signal } from '@angular/core';
 import type { CustomMapDocument, MapMeta } from '../../world/custom-map/map-document';
 import { createMapDocument, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
-import { MAP_FILE_EXTENSION, MapFileError, packMapFile } from '../../world/custom-map/map-file';
+import { MAP_FILE_EXTENSION, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
 import { MapStore, type MapOrigin } from '../../world/custom-map/map-store';
 import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog, type GroundMaterialEntry, type ObjectAssetEntry } from '../catalog/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
@@ -55,6 +56,9 @@ export interface ImportState {
 
 @Injectable()
 export class EditorSession implements OnDestroy {
+  private readonly history = new VersionHistory();
+  /** The open map's kept versions, newest first */
+  readonly versions = signal<MapVersion[]>([]);
   /** Share of a template painted while a new map is made from one, null otherwise */
   readonly templateProgress = signal<number | null>(null);
   private readonly zone = inject(NgZone);
@@ -274,6 +278,8 @@ export class EditorSession implements OnDestroy {
     this.origin.set(origin);
     this.savedState = editor.stateId;
     this.loadBookmarks(doc.meta.id);
+    this.versions.set([]);
+    void this.loadVersions(doc.meta.id);
     this.issues.set(null);
     this.unsubscribe.push(
       editor.onChange(() => (this.changed = true)),
@@ -414,7 +420,13 @@ export class EditorSession implements OnDestroy {
       const doc = editor.doc;
       doc.meta.updatedAt = new Date().toISOString();
       const preview = manual ? await this.thumbnail() : null;
-      await this.store.save(doc, preview);
+      const file = packMapFile(doc);
+      await this.store.save(doc, preview, file);
+      // A version for the history; a full browser store must not fail the save
+      void this.history
+        .record(doc.meta.id, file, manual)
+        .then((v) => (v ? this.loadVersions(doc.meta.id) : undefined))
+        .catch(() => undefined);
       this.savedState = state;
       editor.markSaved();
       this.savedAt.set(doc.meta.updatedAt);
@@ -426,6 +438,35 @@ export class EditorSession implements OnDestroy {
     } finally {
       this.saving.set(false);
       this.refresh();
+    }
+  }
+
+  /** The map's kept versions, newest first */
+  async loadVersions(mapId = this.doc?.meta.id): Promise<void> {
+    if (!mapId) return;
+    try {
+      const list = await this.history.list(mapId);
+      if (this.doc?.meta.id === mapId) this.versions.set(list);
+    } catch {
+      this.versions.set([]);
+    }
+  }
+
+  /** Puts a kept version back as one undo step (terrain, objects, roads, markers, look, rules) */
+  restoreVersion(version: MapVersion): void {
+    const editor = this.editor;
+    if (!editor) return;
+    try {
+      const { doc } = unpackMapFile(version.bytes);
+      const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay'] as const;
+      editor.execute(
+        SnapshotCommand.record(editor.doc, 'Restore version', parts, (d) => {
+          for (const k of parts) (d as unknown as Record<string, unknown>)[k] = structuredClone(doc[k]);
+        }),
+      );
+      this.flash(`Back to the version of ${new Date(version.savedAt).toLocaleString()}`);
+    } catch (e) {
+      this.error.set(`This version could not be read: ${(e as Error).message}`);
     }
   }
 

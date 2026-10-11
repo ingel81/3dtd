@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import type { MapVersion } from '../../model/version-store';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TERRAIN_PRESETS, type TerrainPreset } from '../../ops/generate';
 import { RangeRowComponent } from './range-row.component';
@@ -73,9 +74,24 @@ import { EditorSession } from '../editor-session.service';
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="generate()" data-test="generate">Generate</button>
       <p class="td-note">Roads keep a level bed; one undo step takes it all back.</p>
     </div>
+    <div class="td-group">
+      <h3 class="td-section">Versions</h3>
+      <div class="td-rows" data-test="versions">
+        @for (v of versions(); track v.key) {
+          <div class="td-row mp-version">
+            <span class="td-trunc">{{ when(v.savedAt) }}</span>
+            <span class="td-muted">{{ v.manual ? 'Saved' : 'Autosave' }} | {{ kb(v.bytes.byteLength) }}</span>
+            <button class="td-btn-ghost td-btn-sm" type="button" (click)="restore(v)" [matTooltip]="'Put this version back (one undo step)'">Restore</button>
+          </div>
+        } @empty {
+          <p class="td-note">Every save and an autosave every few minutes land here, the last 20.</p>
+        }
+      </div>
+    </div>
   `,
   styles: [
-    `.mp-text { height: auto; padding-top: 8px; resize: vertical; } .mp-size { display: flex; align-items: flex-end; gap: 8px; }
+    `.mp-version { gap: 8px; min-height: 30px; } .mp-version > .td-trunc { flex: 1 1 auto; }
+     .mp-text { height: auto; padding-top: 8px; resize: vertical; } .mp-size { display: flex; align-items: flex-end; gap: 8px; }
      .mp-presets { flex-wrap: wrap; height: auto; } .mp-presets > * { flex: 1 0 30%; }`,
   ],
 })
@@ -95,6 +111,22 @@ export class MapPanelComponent {
     const t = this.session.doc?.terrain;
     return t ? { width: t.width, depth: t.depth, columns: t.grid.columns, rows: t.grid.rows, cell: t.grid.cellSize } : null;
   });
+
+  readonly versions = this.session.versions;
+
+  when(iso: string): string {
+    const d = new Date(iso);
+    const today = new Date().toDateString() === d.toDateString();
+    return today ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  kb(bytes: number): string {
+    return bytes > 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1000))} kB`;
+  }
+
+  restore(v: MapVersion): void {
+    this.session.restoreVersion(v);
+  }
 
   edit(key: 'name' | 'author' | 'description', e: Event): void {
     const value = (e.target as HTMLInputElement).value.trim();
