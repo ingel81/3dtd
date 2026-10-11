@@ -229,3 +229,20 @@ describe('CustomMapView', () => {
     expect(scene.children.length).toBe(0);
   }, 30_000);
 });
+
+describe('grass blades', () => {
+  it('stay off on a map without grass layers', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const doc = createDemoMap();
+    doc.terrain.layers = [{ material: 'sand' }, { material: 'dirt' }];
+    const view = new CustomMapView(doc, offlineLibrary());
+    await view.ready;
+    let grass: Mesh | null = null;
+    view.group.traverse((o) => {
+      if (o.name === 'custom-map-grass') grass = o as Mesh;
+    });
+    expect(grass).not.toBeNull();
+    expect(grass!.visible).toBe(false);
+    view.dispose();
+  }, 30_000);
+});

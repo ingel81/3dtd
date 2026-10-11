@@ -145,7 +145,8 @@ export class MapTerrainLayer {
     this.apron.material = this.material;
 
     // Grass blades where the splat paints grass layers, coloured like them
-    const mask: [Vector4, Vector4] = [new Vector4(), new Vector4()];
+    // Vector4 defaults to w = 1, which marked the eighth layer as grass on every map
+    const mask: [Vector4, Vector4] = [new Vector4(0, 0, 0, 0), new Vector4(0, 0, 0, 0)];
     const tip = new Color(0, 0, 0);
     let grassLayers = 0;
     t.layers.slice(0, 8).forEach((layer, k) => {
