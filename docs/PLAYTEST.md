@@ -26,6 +26,21 @@ warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). 
 - Orte immer per URL mit F5 kalt laden (`http://localhost:4200/` plus die Parameter unten), keine Tower, keine Welle,
   wenn nicht anders gesagt.
 
+## V Normales Spiel nach dem Welt-Umbau (2026-10-11, auf `next`)
+
+Unter der Haube läuft jede Welt über einen Welt-Anbieter (WorldProvider), auch die echten Orte; die eigenen Karten
+sind gebaut, aber gesperrt (`CUSTOM_MAPS_OPEN`). E2E 35/35 grün; hier geht es um das Gefühl im echten Spiel.
+
+- **V1 Echter Ort kalt laden:** Seite neu laden, New game, Tab „Real places“, einen Ort wählen, Play. *Erde, Abtauchen,
+  Ladebalken mit dem Ortsnamen, das Spiel startet, eine Welle läuft wie vorher. Unten im Menü steht `tiles cesium`
+  (oder `google`). „Map editor“ ist grau mit „Coming soon“, der Tab „Maps“ ebenfalls grau.*
+- **V2 Ortswechsel im Spiel:** Im Lauf Esc, New game, einen anderen Ort. *Der Aufstieg, der neue Ort lädt, Continue
+  führt nach einem abgebrochenen Wechsel zum alten Lauf.*
+- **V3 Speichern, Laden, Replay:** Zwischen zwei Wellen „Save game“, Platz 1, einen Tower verkaufen, „Load game“,
+  Platz 1; danach bis Game Over und das Replay ansehen. *Tower, Gold und HP wie beim Speichern; das Replay zeigt den Lauf.*
+- **V4 Coop Browser gegen App:** Relay lokal (`npm run coop-server`), im Browser hosten, die App tritt bei, bis Welle 3.
+  *Beide laden denselben Ort, kein `DESYNC` im Relay-Log, gleiche Gegner an gleichen Stellen.*
+
 ## W Simulation im Worker (seit 2026-09-30 auf `next`)
 
 Die Simulation läuft in einem Web Worker ([SIM_WORKER.md](SIM_WORKER.md)). Geprüft per Spec, E2E und Bot-Lauf; offen
