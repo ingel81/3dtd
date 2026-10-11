@@ -95,6 +95,7 @@ export class CustomMapView {
   private readonly hitPoint = new Vector3();
   private readonly mapPoint = { x: 0, y: 0 };
   private readonly focusPoint = new Vector3();
+  private readonly worldFocus = new Vector3();
   private readonly grassCenter = new Vector3();
   private readonly viewRay = new Ray();
   private disposed = false;
@@ -192,8 +193,10 @@ export class CustomMapView {
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
     this.terrain.update(this.camPos, dtSeconds);
+    // focusPoint is in the group's frame (the map's), worldFocus in the scene's: the game moves the
+    // group so that its HQ sits at the scene origin, and the lights and sky live in the scene
     if (focus) {
-      this.focusPoint.copy(focus);
+      this.group.worldToLocal(this.focusPoint.copy(focus));
     } else {
       this.viewRay.origin.copy(this.camPos);
       camera.getWorldDirection(this.viewRay.direction);
@@ -201,7 +204,8 @@ export class CustomMapView {
     }
     // Shadow box sized to what the camera sees around the focus: sharp up close, wide from high up
     const reach = this.camPos.distanceTo(this.focusPoint);
-    this.environment.focus(this.focusPoint, Math.min(450, Math.max(70, reach * 0.9)));
+    this.group.localToWorld(this.worldFocus.copy(this.focusPoint));
+    this.environment.focus(this.worldFocus, Math.min(450, Math.max(70, reach * 0.9)));
     this.effects.update(dtSeconds, this.focusPoint);
     this.objects.shadowRadius = Math.min(450, Math.max(70, reach * 0.9)) * 1.2;
     this.objects.update(dtSeconds, camera, this.focusPoint);
@@ -209,7 +213,7 @@ export class CustomMapView {
     this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);
     this.terrain.grass.update(dtSeconds, this.grassCenter);
     this.terrain.grass.setNear(reach < GRASS_MAX_VIEW_DISTANCE);
-    this.environment.update(dtSeconds, camera, this.focusPoint);
+    this.environment.update(dtSeconds, camera, this.worldFocus);
     this.environment.matchFog(this.camPos, this.focusPoint);
     this.environment.setFogMap(this.group.position.x, this.group.position.z, this.doc.terrain.width / 2, this.doc.terrain.depth / 2);
   }

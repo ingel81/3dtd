@@ -202,8 +202,11 @@ varying float vAcross;
 #endif
 varying float vApronDepth;
 varying vec3 vWorldPos;
+varying vec3 vMapPos;
 void main() {
   vApronDepth = aDepth;
+  // The map's own frame (the view's group may sit anywhere in the scene): terrain lookups use it
+  vMapPos = position;
 #if RIVER == 1
   vFlow = aFlow;
   vAcross = aAcross;
@@ -237,6 +240,7 @@ ${SKY_FUNCTIONS}
 ${TERRAIN_HEIGHT_GLSL}
 varying float vApronDepth;
 varying vec3 vWorldPos;
+varying vec3 vMapPos;
 #if RIVER == 1
 varying vec2 vFlow;
 varying float vAcross;
@@ -253,10 +257,10 @@ vec3 waveNormal(vec2 p, vec2 flow, float strength) {
 
 void main() {
   #include <logdepthbuf_fragment>
-  vec2 m = vec2(-vWorldPos.x, vWorldPos.z);
+  vec2 m = vec2(-vMapPos.x, vMapPos.z);
   bool outside = abs(m.x) > uMapHalf.x || abs(m.y) > uMapHalf.y;
   // Depth per pixel: the shore is where the terrain cuts the surface
-  float depth = outside ? vApronDepth : vWorldPos.y - terrainHeightAt(m);
+  float depth = outside ? vApronDepth : vMapPos.y - terrainHeightAt(m);
   float edge = 1.0;
   if (uHasMask > 0.5 && !outside) edge = smoothstep(0.3, 0.6, texture2D(uMask, m * uMaskUv.xy + uMaskUv.zw).r);
 #if RIVER == 1

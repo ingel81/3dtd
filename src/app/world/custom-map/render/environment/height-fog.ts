@@ -84,9 +84,9 @@ export function heightFogFragment(worldPos: string): string {
   float farPath = max(fogDist - uFogStart * 3.0, 0.0);
   float amount = fogBaseDensity * (fogPath * (exp(-k * max(camHeight, -50.0)) * along + 0.1) + farPath * 0.9);
   float fogFactor = 1.0 - exp(-max(amount, 0.0));
-  // Land beyond the map's border is backdrop: it sinks into the haze within a few hundred metres
+  // Land beyond the map's border is backdrop: it sinks into the haze within 160 m, so the map stands out as the place
   vec2 beyond = abs(${worldPos}.xz - uFogMap.xy) - uFogMap.zw;
-  fogFactor = max(fogFactor, smoothstep(0.0, 400.0, max(beyond.x, beyond.y)) * 0.95);
+  fogFactor = max(fogFactor, smoothstep(-20.0, 160.0, max(beyond.x, beyond.y)) * 0.97);
   float sunward = pow(max(dot(fogRay / max(fogDist, 1e-3), uFogSunDir), 0.0), 8.0);
   // Fog is applied in output space (as three does); its colours are linear, so convert them,
   // or the haze ends up darker and greener than the sky it should meet
