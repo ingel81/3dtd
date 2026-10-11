@@ -5,8 +5,12 @@
  * 31 as far as the fields the importer needs (they come before the player
  * list's extensions).
  *
- * Only the fields the importer uses are kept; the upgrade, tech, random unit
- * and item tables after the forces are not read.
+ * The whole file is read: header, players, forces, then the upgrade and
+ * tech availability and the random unit and item tables. The importer keeps
+ * the fields it uses and the tables' sizes; `trailing` counts bytes past the
+ * known layout (0 for a file read to its end). Tables that do not read (a
+ * protector's junk, an optimiser that cut them off) leave `tablesRead` false
+ * and the rest intact; forces that do not read are left empty.
  */
 
 import { BinaryReader, W3xFormatError } from '../binary-reader';
@@ -50,7 +54,37 @@ export interface W3iInfo {
   waterTint: [number, number, number, number];
   /** 0 JASS, 1 Lua (v28+) */
   scriptLanguage: number;
+  /** Supported modes and game data version (v31+), else null */
+  supportedModes: number | null;
+  gameDataVersion: number | null;
   players: W3iPlayer[];
+  forces: W3iForce[];
+  /** Entries of the upgrade and tech availability and the random unit and item tables */
+  upgrades: number;
+  techs: number;
+  randomUnitTables: number;
+  randomItemTables: number;
+  /** The tables after the forces read as the layout says */
+  tablesRead: boolean;
+  /** Bytes past the known layout */
+  trailing: number;
+}
+
+export interface W3iForce {
+  name: string;
+  /** 1 allied, 2 allied victory, 4 shared vision, 16 shared unit control, 32 shared advanced control */
+  flags: number;
+  /** Bit per player id */
+  players: number;
+}
+
+/** Most entries of one table; more is a damaged or hostile file */
+const MAX_ENTRIES = 100000;
+
+function count(r: BinaryReader, what: string): number {
+  const n = r.i32();
+  if (n < 0 || n > MAX_ENTRIES) throw new W3xFormatError(`war3map.w3i: bad ${what} count ${n}`);
+  return n;
 }
 
 export function parseW3i(bytes: Uint8Array, strings: WtsTable | null = null): W3iInfo {
@@ -93,7 +127,16 @@ export function parseW3i(bytes: Uint8Array, strings: WtsTable | null = null): W3
     lightEnvironment: '',
     waterTint: [255, 255, 255, 255],
     scriptLanguage: 0,
+    supportedModes: null,
+    gameDataVersion: null,
     players: [],
+    forces: [],
+    upgrades: 0,
+    techs: 0,
+    randomUnitTables: 0,
+    randomItemTables: 0,
+    tablesRead: false,
+    trailing: 0,
   };
 
   if (version === 18) {
@@ -129,8 +172,8 @@ export function parseW3i(bytes: Uint8Array, strings: WtsTable | null = null): W3
     info.waterTint = [r.u8(), r.u8(), r.u8(), r.u8()];
     if (version >= 28) info.scriptLanguage = r.i32();
     if (version >= 31) {
-      r.i32(); // supported modes
-      r.i32(); // game data version
+      info.supportedModes = r.i32();
+      info.gameDataVersion = r.i32();
     }
   }
 
@@ -152,7 +195,59 @@ export function parseW3i(bytes: Uint8Array, strings: WtsTable | null = null): W3
     }
     info.players.push({ id, type, race, name: playerName, startX, startY });
   }
+
+  // Older and protected maps may end here or carry junk (optimisers cut the tables off); what came before stays
+  const forcesAt = r.pos;
+  try {
+    if (r.left >= 4) {
+      const forces = count(r, 'force');
+      for (let i = 0; i < forces; i++) {
+        const flags = r.u32();
+        const players = r.u32();
+        info.forces.push({ flags, players, name: str() });
+      }
+    }
+  } catch {
+    r.pos = forcesAt;
+    info.forces = [];
+  }
+  const tablesAt = r.pos;
+  try {
+    readTables(r, info);
+    info.tablesRead = true;
+  } catch {
+    r.pos = tablesAt;
+    info.upgrades = info.techs = info.randomUnitTables = info.randomItemTables = 0;
+  }
+  info.trailing = r.left;
   return info;
+}
+
+/** Upgrade and tech availability, random unit tables, random item tables (v25+) */
+function readTables(r: BinaryReader, info: W3iInfo): void {
+  if (r.left === 0) return;
+  if (r.left < 4) throw new W3xFormatError('war3map.w3i: tables cut off');
+  info.upgrades = count(r, 'upgrade');
+  r.skip(info.upgrades * 16); // player flags, id, level, availability
+  info.techs = count(r, 'tech');
+  r.skip(info.techs * 8); // player flags, id
+  info.randomUnitTables = count(r, 'random unit table');
+  for (let i = 0; i < info.randomUnitTables; i++) {
+    r.i32(); // number
+    r.cstr(); // name
+    const positions = count(r, 'position');
+    r.skip(positions * 4); // column types
+    const lines = count(r, 'line');
+    r.skip(lines * (4 + positions * 4)); // chance, a unit id per position
+  }
+  if (info.version < 25 || r.left === 0) return;
+  info.randomItemTables = count(r, 'random item table');
+  for (let i = 0; i < info.randomItemTables; i++) {
+    r.i32(); // number
+    r.cstr(); // name
+    const sets = count(r, 'item set');
+    for (let s = 0; s < sets; s++) r.skip(count(r, 'item') * 8); // chance, item id
+  }
 }
 
 /** True when the map was saved by 1.32 or later (Reforged layouts with skin ids) */

@@ -6,11 +6,12 @@ import { cornerWaterZ, cornerZ, parseW3e } from './w3e';
 import { isReforged, parseW3i } from './w3i';
 import { parseW3r, regionVariable } from './w3r';
 import { laneCell, parseWpm } from './wpm';
+import { parseW3u } from './w3u';
 import { parseWts, plainText, resolveTrigStr } from './wts';
 
 const TEST_MAP = findTestMap(existsSync);
 
-function w3iBytes(version: 18 | 25 | 28 | 31): Uint8Array {
+function w3iBytes(version: 18 | 25 | 28 | 31, tables: 'none' | 'full' | 'junk' | 'cut' = 'none'): Uint8Array {
   const w = new ByteWriter().i32(version).i32(3).i32(6061);
   if (version >= 28) w.i32(1).i32(32).i32(10).i32(18000);
   w.cstr('TRIGSTR_001').cstr('Author').cstr('Desc').cstr('Any');
@@ -30,7 +31,24 @@ function w3iBytes(version: 18 | 25 | 28 | 31): Uint8Array {
     w.i32(p).i32(1).i32(0).i32(1).cstr(`P${p}`).f32(p * 64).f32(-p * 64).u32(0).u32(0);
     if (version >= 31) w.u32(0).u32(0);
   }
-  w.i32(0); // forces
+  if (tables === 'none') {
+    w.i32(0); // forces
+    return w.done();
+  }
+  if (tables === 'junk') {
+    w.i32(-7).u32(0xdeadbeef);
+    return w.done();
+  }
+  // Two forces, one upgrade, one tech, a random unit table of two positions and two lines
+  w.i32(2).u32(1).u32(0b01).cstr('Defenders').u32(0).u32(0b10).cstr('Creeps');
+  // An optimiser cut the tables off after the forces, one stray byte left
+  if (tables === 'cut') return w.u8(0xff).done();
+  w.i32(1).u32(0xffff).id4('Rhme').i32(1).i32(2);
+  w.i32(1).u32(0xffff).id4('hkni');
+  w.i32(1).i32(0).cstr('Group').i32(2).i32(0).i32(1);
+  w.i32(2).i32(50).id4('hfoo').id4('hrif').i32(50).id4('hkni').id4('hmpr');
+  // A random item table with two sets (TFT on)
+  if (version >= 25) w.i32(1).i32(0).cstr('Drops').i32(2).i32(1).i32(100).id4('ratc').i32(2).i32(50).id4('rde1').i32(50).id4('rde2');
   return w.done();
 }
 
@@ -72,6 +90,32 @@ describe('w3x formats', () => {
     }
     expect(info.scriptLanguage).toBe(version >= 28 ? 1 : 0);
     expect(isReforged(info)).toBe(version >= 28);
+    expect(info.supportedModes).toBe(version >= 31 ? 0 : null);
+    expect(info.gameDataVersion).toBe(version >= 31 ? 1 : null);
+    expect([info.tablesRead, info.trailing]).toEqual([true, 0]);
+  });
+
+  it.each([18, 25, 28, 31] as const)('reads w3i version %i to its end: forces, availability, random tables', (version) => {
+    const info = parseW3i(w3iBytes(version, 'full'));
+    expect(info.forces).toEqual([
+      { name: 'Defenders', flags: 1, players: 1 },
+      { name: 'Creeps', flags: 0, players: 2 },
+    ]);
+    expect([info.upgrades, info.techs, info.randomUnitTables, info.randomItemTables]).toEqual([1, 1, 1, version >= 25 ? 1 : 0]);
+    expect([info.tablesRead, info.trailing]).toEqual([true, 0]);
+  });
+
+  it('keeps the players of a w3i whose tables are junk', () => {
+    const info = parseW3i(w3iBytes(31, 'junk'));
+    expect(info.players.map((p) => p.name)).toEqual(['P0', 'P1']);
+    expect(info.tablesRead).toBe(false);
+    expect(info.forces).toEqual([]);
+  });
+
+  it('keeps the forces of a w3i an optimiser cut off after them', () => {
+    const cut = parseW3i(w3iBytes(25, 'cut'));
+    expect(cut.forces.map((f) => f.name)).toEqual(['Defenders', 'Creeps']);
+    expect([cut.tablesRead, cut.trailing]).toEqual([false, 1]);
   });
 
   it('reads w3e corners and their heights', () => {
@@ -125,6 +169,61 @@ describe('w3x formats', () => {
       expect(doo.doodads[0].angle).toBeCloseTo(1.5);
       expect(doo.special).toEqual([{ id: 'YTpb', x: 5, y: 6 }]);
     }
+  });
+
+  it('reads w3e with custom tilesets and all sixteen ground tiles', () => {
+    const tiles = Array.from({ length: 16 }, (_, k) => `X${String.fromCharCode(97 + k)}tl`);
+    const w = new ByteWriter().id4('W3E!').i32(11).u8('X'.charCodeAt(0)).i32(1).i32(16);
+    for (const t of tiles) w.id4(t);
+    w.i32(0).i32(2).i32(2).f32(0).f32(0);
+    for (let i = 0; i < 4; i++) w.i16(0x2000).u16(0x2000).u8(15).u8(0).u8(0x02);
+    const t = parseW3e(w.done());
+    expect([t.customTilesets, t.groundTiles.length, t.cliffTiles.length]).toEqual([true, 16, 0]);
+    expect(t.groundTiles[t.texture[3]]).toBe('Xptl');
+  });
+
+  it('refuses a w3e of another version and a giant size', () => {
+    expect(() => parseW3e(new ByteWriter().id4('W3E!').i32(12).done())).toThrow(/unsupported version 12/);
+    const big = new ByteWriter().id4('W3E!').i32(11).u8(76).i32(0).i32(0).i32(0).i32(4000).i32(4000).f32(0).f32(0);
+    expect(() => parseW3e(big.done())).toThrow(/bad size/);
+  });
+
+  function unit(w: ByteWriter, id: string, x: number, skin: boolean): void {
+    w.id4(id).i32(0).f32(x).f32(-200).f32(0).f32(0).f32(1).f32(1).f32(1);
+    if (skin) w.id4(id);
+    w.u8(2).i32(3).u8(0).u8(0);
+    w.i32(-1).i32(-1).i32(-1).i32(0).i32(0).f32(-1).i32(1).i32(0).i32(0).i32(0).i32(0).i32(0);
+    w.i32(0).u32(0).i32(-1).i32(-1).i32(0);
+  }
+
+  it.each([false, true])('reads preplaced units with skins %s whatever the hint', (skin) => {
+    const w = new ByteWriter().id4('W3do').i32(8).i32(11).i32(2);
+    unit(w, 'sloc', 100, skin);
+    unit(w, 'hfoo', 300, skin);
+    for (const hint of [false, true]) {
+      expect(parseUnits(w.done(), hint).map((u) => [u.id, u.x, u.player])).toEqual([
+        ['sloc', 100, 3],
+        ['hfoo', 300, 3],
+      ]);
+    }
+  });
+
+  it('reads w3u object data of versions 2 and 3 (changes in sets, the first one kept)', () => {
+    const v2 = new ByteWriter().i32(2).i32(1).id4('hfoo').id4('\0\0\0\0').i32(1).id4('uhpm').i32(0).i32(500).id4('hfoo').i32(0);
+    expect(parseW3u(v2.done()).get('hfoo')!.fields.get('uhpm')).toBe(500);
+    const v3 = new ByteWriter().i32(3).i32(0).i32(2);
+    v3.id4('hfoo').id4('h000').i32(2);
+    v3.i32(0).i32(2).id4('uhpm').i32(0).i32(900).id4('h000').id4('unam').i32(3).cstr('TRIGSTR_001').id4('h000');
+    v3.i32(1).i32(1).id4('uhpm').i32(0).i32(1).id4('h000');
+    v3.id4('hrif').id4('h001').i32(0);
+    const units = parseW3u(v3.done(), parseWts(new TextEncoder().encode('STRING 1\n{\nBrute\n}\n')));
+    expect(units.get('h000')).toMatchObject({ base: 'hfoo' });
+    expect([...units.get('h000')!.fields]).toEqual([
+      ['uhpm', 900],
+      ['unam', 'Brute'],
+    ]);
+    expect(units.get('h001')!.fields.size).toBe(0);
+    expect(() => parseW3u(new ByteWriter().i32(4).done())).toThrow(/unsupported version 4/);
   });
 
   it('reads preplaced units', () => {
