@@ -80,6 +80,7 @@ describe('editor tools', () => {
     const ctx = context(ed);
     const tool = new ObjectTool();
     ctx.settings.objects.asset = 'tree-oak';
+    ctx.settings.objects.mode = 'place';
     tool.pointerDown(at(10, 10), ctx);
     expect(ed.doc.objects).toHaveLength(1);
     ctx.settings.objects.mode = 'scatter';
@@ -102,6 +103,7 @@ describe('editor tools', () => {
     ctx.toScreen = (x, y) => ({ x, y });
     const tool = new ObjectTool();
     ctx.settings.objects.asset = 'tree-oak';
+    ctx.settings.objects.mode = 'place';
     ctx.settings.objects.randomRotation = false;
     for (const [x, y] of [[10, 10], [20, 12], [80, 80]]) tool.pointerDown(at(x, y), ctx);
     ctx.settings.objects.mode = 'select';
@@ -135,6 +137,7 @@ describe('editor tools', () => {
     const ctx = context(ed);
     const tool = new ObjectTool();
     ctx.settings.objects.asset = 'tree-oak';
+    ctx.settings.objects.mode = 'place';
     for (const [x, y] of [[10, 10], [20, 12], [80, 80]]) tool.pointerDown(at(x, y), ctx);
     const [a, b, c] = ed.doc.objects.map((o) => o.id);
     ctx.settings.objects.mode = 'select';

@@ -201,7 +201,7 @@ export function defaultSettings(): EditorSettings {
     terrain: { mode: 'raise', level: 0, step: 6, rampWidth: 16 },
     paint: { layer: 0, erase: false },
     water: { mode: 'fill', body: -1, depth: 3, river: -1, riverPoint: -1 },
-    objects: { mode: 'place', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, space: 'global' },
+    objects: { mode: 'select', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, space: 'global' },
     paths: { mode: 'draw', width: 8, kind: 'road', snap: 10, showRoutes: true },
     markers: { mode: 'spawn' },
     stamp: { mode: 'select', parts: { ...ALL_PARTS }, rotation: 0, feather: 0.25, region: null, current: null, currentName: '' },

@@ -101,6 +101,7 @@ describe('symmetry', () => {
     const { ed, ctx } = setup('xy');
     const objects = new ObjectTool();
     ctx.settings.objects.asset = 'tree-oak';
+    ctx.settings.objects.mode = 'place';
     ctx.settings.objects.randomRotation = false;
     objects.pointerDown(at(50, 60), ctx);
     const placed = ed.doc.objects.map((o) => [o.x, o.y].join()).sort();

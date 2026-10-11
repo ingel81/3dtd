@@ -58,7 +58,7 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
   host: { class: 'td-stack is-loose' },
   template: `
     <label class="td-setting">
-      <span>Look</span>
+      <span>Landscape look</span>
       <select class="td-select is-auto" [value]="env()?.biome ?? 'temperate'" (change)="commit({ biome: $any($event.target).value }, 'Look')" aria-label="Look" data-test="look">
         @for (l of looks; track l.id) {
           <option [value]="l.id">{{ l.label }}</option>
