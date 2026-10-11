@@ -47,7 +47,7 @@ test('the bot holds the first waves of the demo valley (map trial)', async ({ br
   const errors: string[] = [];
   const page = await openPage(browser, errors);
   // A trial skips the start menu and plays on its own at high speed
-  await page.goto(`/?world=map:${MAP}&bot=trial&waves=3`);
+  await page.goto(`/?world=map:${MAP}&bot=trial&trialWaves=3`);
   const result = await page.waitForFunction(() => (window as { __mapTrial?: { outcome: string } }).__mapTrial ?? null, null, {
     timeout: 7 * 60_000,
     polling: 1000,
