@@ -517,6 +517,27 @@ def nomad_tent(name):
     export(name, [cloth.to_object(name), poles.to_object(name + '-poles'), rug.to_object(name + '-rug')])
 
 
+def cage(name, height=2.6, radius=0.9):
+    """Hanging gibbet cage: iron bands and bars, a ring and a chain up to a gallows post"""
+    clear_scene()
+    metal = Part(flat_material('iron-dark', (0.1, 0.09, 0.09), 0.45, 0.85), smooth=True)
+    wood = Part(pbr_material('planks-dark', 'dark_planks', (0.7, 0.6, 0.5)), uv_metres=1.0)
+    z0 = 1.2
+    for z in (z0, z0 + height * 0.5, z0 + height):
+        pts = [Vector((math.cos(k / 16 * math.tau) * radius, math.sin(k / 16 * math.tau) * radius, z)) for k in range(17)]
+        for a, b in zip(pts, pts[1:]):
+            oriented_box(metal, a, b, 0.06)
+    for k in range(10):
+        a = k / 10 * math.tau
+        p = Vector((math.cos(a) * radius, math.sin(a) * radius, 0))
+        oriented_box(metal, p + Vector((0, 0, z0)), p * 0.3 + Vector((0, 0, z0 + height + 0.5)), 0.05)
+    oriented_box(metal, Vector((0, 0, z0 + height + 0.5)), Vector((0, 0, 6.0)), 0.04)
+    box(wood, 2.2, 0, -0.5, 0.3, 0.3, 7.0)
+    oriented_box(wood, Vector((2.2, 0, 6.2)), Vector((-0.3, 0, 6.2)), 0.25)
+    oriented_box(wood, Vector((2.2, 0, 4.8)), Vector((1.0, 0, 6.2)), 0.15)
+    export(name, [metal.to_object(name), wood.to_object(name + '-gallows')])
+
+
 def models():
     return {
         # Arctic
@@ -534,6 +555,7 @@ def models():
         'tree-charred': lambda: dead_tree('tree-charred', 87, tint=(0.12, 0.1, 0.1)),
         'thorns': lambda: thorns('thorns', 88),
         'chains': lambda: chains('chains'),
+        'cage': lambda: cage('cage'),
         'hell-gate': lambda: hell_gate('hell-gate'),
         'altar': lambda: altar('altar'),
         'lava-rock': lambda: lava_rock('lava-rock', 89),

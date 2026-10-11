@@ -3719,6 +3719,12 @@
         "winter",
         "scree"
       ],
+      "lod": [
+        {
+          "file": "models/boulder-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/boulder_01"
     },
     {
@@ -3740,6 +3746,12 @@
       "tags": [
         "mountain",
         "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/rock-granite-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/rock_07"
     },
@@ -3764,6 +3776,12 @@
         "temperate",
         "scree"
       ],
+      "lod": [
+        {
+          "file": "models/rock-granite-flat-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/rock_09"
     },
     {
@@ -3787,6 +3805,12 @@
         "coast",
         "scree"
       ],
+      "lod": [
+        {
+          "file": "models/rock-round-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/stone_01"
     },
     {
@@ -3808,6 +3832,12 @@
       "tags": [
         "desert"
       ],
+      "lod": [
+        {
+          "file": "models/rock-desert-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03"
     },
     {
@@ -3828,6 +3858,12 @@
       "drawDistance": 2500,
       "tags": [
         "desert"
+      ],
+      "lod": [
+        {
+          "file": "models/rock-desert-large-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_06"
     },
@@ -3851,6 +3887,12 @@
         "desert",
         "coast"
       ],
+      "lod": [
+        {
+          "file": "models/rock-sandstone-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_05 (getönt)"
     },
     {
@@ -3871,6 +3913,12 @@
       "drawDistance": 2500,
       "tags": [
         "desert"
+      ],
+      "lod": [
+        {
+          "file": "models/rock-sandstone-large-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_02 (getönt)"
     },
@@ -3895,6 +3943,12 @@
         "coast",
         "hell"
       ],
+      "lod": [
+        {
+          "file": "models/rock-basalt-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03 (getönt)"
     },
     {
@@ -3917,6 +3971,12 @@
         "volcanic",
         "coast",
         "hell"
+      ],
+      "lod": [
+        {
+          "file": "models/rock-basalt-large-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_06 (getönt)"
     },
@@ -3941,6 +4001,12 @@
         "mountain",
         "arctic"
       ],
+      "lod": [
+        {
+          "file": "models/rock-snow-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_05 (aufgehellt)"
     },
     {
@@ -3962,6 +4028,12 @@
       "tags": [
         "volcanic",
         "hell"
+      ],
+      "lod": [
+        {
+          "file": "models/rock-volcanic-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/moon_rock_03 (getönt)"
     },
@@ -3985,6 +4057,12 @@
         "volcanic",
         "hell"
       ],
+      "lod": [
+        {
+          "file": "models/rock-volcanic-large-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/moon_rock_05 (getönt)"
     },
     {
@@ -4006,6 +4084,12 @@
       "tags": [
         "volcanic",
         "scree"
+      ],
+      "lod": [
+        {
+          "file": "models/rock-pumice-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/moon_rock_01 (getönt)"
     },
@@ -4030,6 +4114,12 @@
         "swamp",
         "mountain"
       ],
+      "lod": [
+        {
+          "file": "models/rock-mossy-a-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/rock_moss_set_01"
     },
     {
@@ -4052,6 +4142,12 @@
         "temperate",
         "swamp",
         "mountain"
+      ],
+      "lod": [
+        {
+          "file": "models/rock-mossy-b-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_01"
     },
@@ -4076,6 +4172,12 @@
         "swamp",
         "mountain"
       ],
+      "lod": [
+        {
+          "file": "models/rock-mossy-c-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/rock_moss_set_01"
     },
     {
@@ -4097,6 +4199,12 @@
       "tags": [
         "temperate",
         "swamp"
+      ],
+      "lod": [
+        {
+          "file": "models/rock-mossy-flat-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_02"
     },
@@ -4123,6 +4231,12 @@
         "scree",
         "wasteland"
       ],
+      "lod": [
+        {
+          "file": "models/stones-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/namaqualand_stones_01"
     },
     {
@@ -4145,6 +4259,12 @@
         "coast",
         "shore"
       ],
+      "lod": [
+        {
+          "file": "models/rock-coast-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/coast_rocks_01"
     },
     {
@@ -4165,6 +4285,12 @@
       "drawDistance": 2500,
       "tags": [
         "mountain"
+      ],
+      "lod": [
+        {
+          "file": "models/cliff-face-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/rock_face_01"
     },
@@ -4187,6 +4313,12 @@
       "tags": [
         "mountain"
       ],
+      "lod": [
+        {
+          "file": "models/cliff-face-b-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/rock_face_02"
     },
     {
@@ -4207,6 +4339,12 @@
       "drawDistance": 2500,
       "tags": [
         "mountain"
+      ],
+      "lod": [
+        {
+          "file": "models/cliff-wall-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_01"
     },
@@ -4229,6 +4367,12 @@
       "tags": [
         "mountain"
       ],
+      "lod": [
+        {
+          "file": "models/cliff-wall-b-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_02"
     },
     {
@@ -4249,6 +4393,12 @@
       "drawDistance": 2500,
       "tags": [
         "desert"
+      ],
+      "lod": [
+        {
+          "file": "models/cliff-wall-sandstone-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_01 (getönt)"
     },
@@ -4273,6 +4423,12 @@
         "coast",
         "hell"
       ],
+      "lod": [
+        {
+          "file": "models/cliff-wall-basalt-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_02 (getönt)"
     },
     {
@@ -4293,6 +4449,12 @@
       "drawDistance": 2500,
       "tags": [
         "coast"
+      ],
+      "lod": [
+        {
+          "file": "models/cliff-coast-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/coastal_cliff_02"
     },
@@ -4315,6 +4477,12 @@
       "tags": [
         "desert"
       ],
+      "lod": [
+        {
+          "file": "models/sandstone-pillar-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
     },
     {
@@ -4335,6 +4503,12 @@
       "drawDistance": 2500,
       "tags": [
         "desert"
+      ],
+      "lod": [
+        {
+          "file": "models/sandstone-pillar-tall-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
     },
@@ -4357,6 +4531,12 @@
       "tags": [
         "desert"
       ],
+      "lod": [
+        {
+          "file": "models/mesa-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
     },
     {
@@ -4378,6 +4558,12 @@
       "tags": [
         "desert",
         "coast"
+      ],
+      "lod": [
+        {
+          "file": "models/rock-arch-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
     },
@@ -8371,6 +8557,12 @@
       "tags": [
         "moon"
       ],
+      "lod": [
+        {
+          "file": "models/moon-boulder-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/moon_rock_05"
     },
     {
@@ -8391,6 +8583,12 @@
       "drawDistance": 800,
       "tags": [
         "moon"
+      ],
+      "lod": [
+        {
+          "file": "models/moon-rock-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/moon_rock_03"
     },
@@ -8434,6 +8632,12 @@
       "tags": [
         "mars"
       ],
+      "lod": [
+        {
+          "file": "models/mars-boulder-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/moon_rock_05 (getönt)"
     },
     {
@@ -8454,6 +8658,12 @@
       "drawDistance": 800,
       "tags": [
         "mars"
+      ],
+      "lod": [
+        {
+          "file": "models/mars-stone-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03 (getönt)"
     },
@@ -8476,6 +8686,12 @@
       "tags": [
         "mars"
       ],
+      "lod": [
+        {
+          "file": "models/mars-rock-large-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_06 (getönt)"
     },
     {
@@ -8496,6 +8712,12 @@
       "drawDistance": 2500,
       "tags": [
         "mars"
+      ],
+      "lod": [
+        {
+          "file": "models/mars-cliff-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_02 (getönt)"
     },
@@ -10002,6 +10224,185 @@
         "castle"
       ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/leaves_forest_ground; Blätter https://ambientcg.com/view?id=LeafSet027, LeafSet028"
+    },
+    {
+      "id": "tree-street",
+      "name": "Street tree",
+      "category": "tree",
+      "file": "models/tree-street.glb",
+      "footprint": 0.8,
+      "height": 7.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 2500,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_platanus; Blätter https://ambientcg.com/view?id=LeafSet010"
+    },
+    {
+      "id": "office-tower",
+      "name": "Office tower (12 floors)",
+      "category": "building",
+      "file": "models/office-tower.glb",
+      "footprint": 7.4,
+      "height": 39.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/office-tower-lod1.glb",
+          "distance": 350
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/gravel_floor_02"
+    },
+    {
+      "id": "street-sign",
+      "name": "Street sign",
+      "category": "prop",
+      "file": "models/street-sign.glb",
+      "footprint": 0.5,
+      "height": 3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 500,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py)"
+    },
+    {
+      "id": "bollards",
+      "name": "Bollards",
+      "category": "prop",
+      "file": "models/bollards.glb",
+      "footprint": 2.1,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py)"
+    },
+    {
+      "id": "fence-broken",
+      "name": "Broken fence",
+      "category": "wall",
+      "file": "models/fence-broken.glb",
+      "footprint": 1.9,
+      "height": 1.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "wasteland",
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/weathered_planks"
+    },
+    {
+      "id": "barrel-rusty",
+      "name": "Rusty barrel",
+      "category": "prop",
+      "file": "models/barrel-rusty.glb",
+      "footprint": 0.3,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 500,
+      "tags": [
+        "wasteland",
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "barrel-rusty-tipped",
+      "name": "Rusty barrel, tipped",
+      "category": "prop",
+      "file": "models/barrel-rusty-tipped.glb",
+      "footprint": 0.4,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 500,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "cage",
+      "name": "Gibbet cage",
+      "category": "prop",
+      "file": "models/cage.glb",
+      "footprint": 1.5,
+      "height": 6.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1200,
+      "tags": [
+        "hell",
+        "castle",
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_planks"
     },
     {
       "id": "fx-fireflies",

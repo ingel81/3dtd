@@ -483,6 +483,14 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | keep-ruin | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029 |
 | gate-ruin | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/mossy_stone_wall |
 | leaf-pile | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/leaves_forest_ground; Blätter https://ambientcg.com/view?id=LeafSet027, LeafSet028 |
+| tree-street | procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_platanus; Blätter https://ambientcg.com/view?id=LeafSet010 |
+| office-tower | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/gravel_floor_02 |
+| street-sign | procedural (tools/map-assets/build_city.py) |
+| bollards | procedural (tools/map-assets/build_city.py) |
+| fence-broken | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/weathered_planks |
+| barrel-rusty | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
+| barrel-rusty-tipped | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
+| cage | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_planks |
 | fx-fireflies | Effekt des Renderers, kein Modell |
 | fx-smoke | Effekt des Renderers, kein Modell |
 | fx-embers | Effekt des Renderers, kein Modell |

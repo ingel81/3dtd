@@ -618,4 +618,7 @@ def import_model(asset, target_height, target_faces, name, desaturate=0.0, tint=
     if extra:
         objects += extra(obj) or []
     export(name, objects)
+    if ground and len(objects) == 1 and len(obj.data.polygons) > 1000:
+        # Rocks are placed by the hundred: a 300-triangle copy for distance
+        export_lod(name, obj, ratio=300 / len(obj.data.polygons))
     return obj

@@ -56,7 +56,8 @@ class Kit:
     def __init__(self, wall_asset, wall_tint=None, trim_asset='brushed_concrete', trim_tint=None, frame=(0.85, 0.85, 0.82),
                  broken=False, uv=3.0, bevel=0.03):
         self.walls = Part(pbr_material('wall-' + wall_asset + ('-t' if wall_tint else ''), wall_asset, wall_tint), uv_metres=uv, bevel=bevel)
-        self.trim = Part(pbr_material('trim-' + trim_asset + ('-t' if trim_tint else ''), trim_asset, trim_tint), uv_metres=2.0, bevel=0.025)
+        self.trim = Part(pbr_material('trim-' + trim_asset + ('-t' if trim_tint else ''), trim_asset, trim_tint), uv_metres=2.0,
+                         bevel=0.025 if bevel else 0.0)
         self.frames = Part(flat_material('frame-' + '-'.join('%.2f' % c for c in frame), frame, 0.5, 0.2))
         self.glass = Part(glass() if not broken else hole())
         self.dark = Part(hole())
@@ -270,7 +271,7 @@ def city_block(name, style='modern', floors=4, w=14.0, d=10.0, ruined=False, see
                    transom=not tall)
         if k == 0 and not ruined and not shopfront:
             entrance(kit, face, z0, -face.length / 2 + (door + 0.5) * face.length / bays)
-        if k == 0 and style == 'modern' and not ruined:
+        if k == 0 and style == 'modern' and not ruined and floors <= 8:
             balconies(kit, face, z0, floors, fh, bays, every=2)
         if k == 1 and style == 'old' and floors > 1:
             fire_escape(kit, face, z0, floors, fh, face.length * 0.1)
@@ -577,10 +578,75 @@ def power_pole(name, fallen=False):
     import_model('modular_electricity_poles', None, 4000, name, objects=['preset_01_*'], keep_scale=True, extra=fall)
 
 
+def street_sign(name):
+    """Signpost with a street name plate and a round traffic sign"""
+    clear_scene()
+    pole = Part(flat_material('pole-grey', (0.42, 0.43, 0.45), 0.45, 0.7), smooth=True)
+    plate = Part(flat_material('sign-blue', (0.08, 0.2, 0.5), 0.4), bevel=0.01)
+    disc = Part(flat_material('sign-white', (0.9, 0.9, 0.88), 0.4), smooth=True)
+    ring = Part(flat_material('sign-red', (0.7, 0.06, 0.05), 0.4), smooth=True)
+    tube(pole, [Vector((0, 0, -0.4)), Vector((0, 0, 3.0))], [0.04, 0.04], 8, cap=True)
+    box(plate, 0.45, 0, 2.6, 0.9, 0.03, 0.22)
+    tube(ring, [Vector((0, -0.05, 2.05)), Vector((0, -0.08, 2.05))], [0.32, 0.32], 20, cap=True)
+    tube(disc, [Vector((0, -0.081, 2.05)), Vector((0, -0.09, 2.05))], [0.25, 0.25], 20, cap=True)
+    export(name, [pole.to_object(name), plate.to_object(name + '-plate'), disc.to_object(name + '-disc'), ring.to_object(name + '-ring')])
+
+
+def bollards(name, count=4):
+    """A row of steel bollards with a reflective band, 1.5 m apart along X"""
+    clear_scene()
+    steel = Part(flat_material('bollard-grey', (0.3, 0.31, 0.33), 0.4, 0.7), smooth=True)
+    band = Part(flat_material('bollard-band', (0.9, 0.85, 0.75), 0.3), smooth=True)
+    for k in range(count):
+        x = (k - (count - 1) / 2) * 1.5
+        tube(steel, [Vector((x, 0, -0.3)), Vector((x, 0, 0.9)), Vector((x, 0, 0.95))], [0.09, 0.09, 0.06], 12, cap=True)
+        tube(band, [Vector((x, 0, 0.7)), Vector((x, 0, 0.78))], [0.092, 0.092], 12)
+    export(name, [steel.to_object(name), band.to_object(name + '-band')])
+
+
+def broken_fence(name, length=4.0):
+    """Wooden fence with missing and leaning boards, one post knocked over"""
+    clear_scene()
+    rnd = random.Random(12)
+    wood = Part(pbr_material('planks-weathered', 'weathered_planks', (0.7, 0.66, 0.6)), uv_metres=1.0)
+    box(wood, -length / 2, 0, -0.4, 0.12, 0.12, 1.8)
+    oriented_box(wood, Vector((length / 2, 0, -0.1)), Vector((length / 2 - 0.4, -1.1, 0.9)), 0.12)
+    box(wood, -length / 4, 0.07, 0.95, length * 0.55, 0.05, 0.1, 0.05)
+    n = int(length / 0.2)
+    for k in range(n):
+        if rnd.random() < 0.3:
+            continue
+        x = -length / 2 + (k + 0.5) * length / n
+        lean = rnd.uniform(-0.15, 0.15) if rnd.random() < 0.3 else 0.0
+        oriented_box(wood, Vector((x, 0, 0)), Vector((x + lean, 0, rnd.uniform(0.8, 1.4))), 0.14)
+    for k in range(3):
+        box(wood, rnd.uniform(-1, 1.5), -rnd.uniform(0.4, 1.0), 0, 0.14, 1.2, 0.03, rnd.uniform(0, 3))
+    export(name, [wood.to_object(name)])
+
+
+def rusty_barrel(name, tipped=False):
+    clear_scene()
+    steel = Part(pbr_material('metal-rusty_metal_03-barrel', 'rusty_metal_03', (0.75, 0.62, 0.5)), smooth=True, uv_scale=0.6)
+    for z0, z1 in ((0.0, 0.29), (0.3, 0.58), (0.59, 0.88)):
+        tube(steel, [Vector((0, 0, z0)), Vector((0, 0, z1))], [0.29, 0.29], 16, cap=True)
+    for z in (0.29, 0.585):
+        tube(steel, [Vector((0, 0, z - 0.01)), Vector((0, 0, z + 0.01))], [0.305, 0.305], 16)
+    objects = [steel.to_object(name)]
+    if tipped:
+        tilt(objects, x=90, lift=0.29)
+    export(name, objects)
+
+
 def models():
     return {
         'apartment-block': lambda: city_block('apartment-block', 'modern', 4, 14.0, 10.0, seed=1),
         'apartment-block-tall': lambda: city_block('apartment-block-tall', 'modern', 8, 16.0, 12.0, seed=2),
+        'office-tower': lambda: city_block('office-tower', 'modern', 12, 14.0, 14.0, seed=7),
+        'street-sign': lambda: street_sign('street-sign'),
+        'bollards': lambda: bollards('bollards'),
+        'fence-broken': lambda: broken_fence('fence-broken'),
+        'barrel-rusty': lambda: rusty_barrel('barrel-rusty'),
+        'barrel-rusty-tipped': lambda: rusty_barrel('barrel-rusty-tipped', tipped=True),
         'apartment-block-ruined': lambda: city_block('apartment-block-ruined', 'modern', 5, 14.0, 10.0, ruined=True, seed=3),
         'brick-block': lambda: city_block('brick-block', 'old', 3, 10.0, 9.0, seed=4, shopfront=True),
         'brick-house': lambda: city_block('brick-house', 'old', 2, 8.0, 8.0, seed=5),

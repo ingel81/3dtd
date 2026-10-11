@@ -5,7 +5,7 @@ import random
 from mathutils import Matrix, Vector
 
 from blender_kit import (
-    Part, box, box_uv, card, card_material, clear_scene, export, flat_material, image_material, import_model,
+    Part, box, box_uv, card, card_material, clear_scene, export, export_lod, flat_material, image_material, import_model,
     oriented_box, pbr_material, tube,
 )
 import blender_kit
@@ -460,6 +460,8 @@ def rock_shape(name, asset, seed, pieces, tint=None, uv=3.0, subdiv=3):
     for p in obj.data.polygons:
         p.use_smooth = True
     export(name, [obj])
+    if len(obj.data.polygons) > 1000:
+        export_lod(name, obj, ratio=max(0.1, 400 / len(obj.data.polygons)))
 
 
 def hoodoo(name, seed, height=12.0, asset='cliff_side'):
@@ -592,6 +594,7 @@ def models():
     return {
         # Temperate and autumn broadleaves
         'tree-oak-autumn': lambda: broadleaf('tree-oak-autumn', 1, 12.0, 4.2, 0.42, 'bark_brown_02', 'leaves-oak-autumn'),
+        'tree-street': lambda: broadleaf('tree-street', 41, 7.5, 2.4, 0.18, 'bark_platanus', 'leaves-maple', bark_tint=(0.9, 0.85, 0.8)),
         'tree-oak-young': lambda: broadleaf('tree-oak-young', 31, 7.0, 2.6, 0.24, 'bark_brown_02', 'leaves-oak'),
         'tree-maple': lambda: broadleaf('tree-maple', 21, 11.0, 3.9, 0.36, 'bark_brown_01', 'leaves-maple'),
         'tree-maple-autumn': lambda: broadleaf('tree-maple-autumn', 21, 11.0, 3.9, 0.36, 'bark_brown_01', 'leaves-maple-autumn'),
