@@ -1,6 +1,6 @@
 # Vorzeige-Level
 
-**Status:** Entwurf, Bau auf `exp/custom-maps` (2026-10-11)
+**Status:** Alle acht gebaut auf `exp/custom-maps` (2026-10-11), Nachtest im Spiel offen
 
 Acht Karten, die zeigen, was der Editor kann, und die sich gut spielen. Jede wird mit den Werkzeugen des Editors gebaut
 (dieselben Operationen wie im Editor: Landschafts-Pinsel, Fluss, Straße, Biome, Objekte), als Bauskript unter
@@ -126,6 +126,12 @@ ist ohne Symmetrie gesetzt.
 Biom gemäßigt mit Burgmauern, Look `dusk`. Streng symmetrische Coop-Karte (Spiegelung an X): zwei Burgen, je zwei
 Spuren pro Spieler, die sich in der Mitte am gemeinsamen HQ treffen. Gestaltet mit dem Symmetrie-Modus. Spawns: 4.
 Bauflächen gespiegelt, gleiche Chancen für beide Spieler.
+
+## Laden im Produktions-Build
+
+`e2e/perf/map-load.ts` gegen `ng build` (Chromium mit Fenster, je zwei Läufe): erster Start des Browsers 3,9 bis
+4,5 s, zweiter Lauf 2,8 bis 3,2 s bis spielbar. Die Grenze von 4 s hält damit nur der warme Lauf; der kalte liegt bei
+sieben von acht Karten knapp darüber (wie beim Demo-Tal, 3,1 bis 3,8 s). Die acht Dateien sind zusammen 6,4 MB.
 
 ## Weitere bei Bedarf
 Mondbasis (Krater, Habitate, Erde am Himmel), Mars-Canyon (rote Dünen, Rover), Endzeit-Stadt (Ruinen, Wracks, Smog),
