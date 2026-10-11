@@ -88,9 +88,10 @@ export function heightFogFragment(worldPos: string): string {
   vec2 beyond = abs(${worldPos}.xz - uFogMap.xy) - uFogMap.zw;
   fogFactor = max(fogFactor, smoothstep(-20.0, 160.0, max(beyond.x, beyond.y)) * 0.97);
   float sunward = pow(max(dot(fogRay / max(fogDist, 1e-3), uFogSunDir), 0.0), 8.0);
-  // Fog is applied in output space (as three does); its colours are linear, so convert them,
-  // or the haze ends up darker and greener than the sky it should meet
-  vec3 haze = linearToOutputTexel(vec4(mix(fogColor, uFogSunColor, sunward * 0.2), 1.0)).rgb;
+  // Fog is applied in output space (as three does). three hands fogColor over in that space already
+  // (getUnlitUniformColorSpace: sRGB into the canvas, linear into a post target); only the sun's
+  // colour is ours and linear. Converting fogColor again lifted every haze into a pale band
+  vec3 haze = mix(fogColor, linearToOutputTexel(vec4(uFogSunColor, 1.0)).rgb, sunward * 0.2);
   gl_FragColor.rgb = mix(gl_FragColor.rgb, haze, fogFactor);
 }
 #endif
