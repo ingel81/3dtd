@@ -160,7 +160,7 @@ describe('MapObjectLayer incremental changes', () => {
     expect(instances()).toBe(4);
     expect(meshes()).toContain(far);
     // The moved object is still found by id and can move in place
-    expect(layer.updateObject({ ...tree('e', 45) })).toBe(true);
+    expect(layer.updateObjects([{ ...tree('e', 45) }])).toEqual([]);
 
     layer.removeObjects(['b', 'c', 'd', 'e']);
     expect(instances()).toBe(0);

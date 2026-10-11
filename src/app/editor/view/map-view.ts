@@ -135,6 +135,8 @@ export class EditorMapView {
     const byId = new Map(this.doc.objects.map((o) => [o.id, o]));
     const added: MapObject[] = [];
     const removed: MapObject[] = [];
+    const moved: MapObject[] = [];
+    const was: MapObject[] = [];
     for (const id of ids) {
       const o = byId.get(id);
       const shown = !!o && (!this.visible || this.visible(o));
@@ -142,10 +144,12 @@ export class EditorMapView {
       if (shown && !had) added.push(o!);
       else if (!shown && had) removed.push(had);
       else if (shown && had) {
-        this.view.updateObject(o!);
+        moved.push(o!);
+        was.push(had);
         this.known.set(id, o!);
       }
     }
+    this.view.updateObjects(moved, was);
     if (removed.length) {
       this.view.removeObjects(removed);
       for (const o of removed) this.known.delete(o.id);

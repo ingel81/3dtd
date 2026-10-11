@@ -459,8 +459,8 @@ export class CustomMapWorld implements WorldProvider {
     for (const o of objects) {
       this.fallenScale.set(o.id, o.scale);
       o.scale = FALLEN_SCALE;
-      this.view?.updateObject(o);
     }
+    this.view?.updateObjects(objects);
     this.surface.setObjectCatalog(this.catalogObjects);
   }
 
@@ -469,8 +469,8 @@ export class CustomMapWorld implements WorldProvider {
     for (const o of objects) {
       o.scale = this.fallenScale.get(o.id) ?? o.scale;
       this.fallenScale.delete(o.id);
-      this.view?.updateObject(o);
     }
+    this.view?.updateObjects(objects);
     this.surface.setObjectCatalog(this.catalogObjects);
   }
 

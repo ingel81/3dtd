@@ -756,6 +756,11 @@ export class EditorViewport {
       this.guideMode = null;
       this.overlayKey = '';
     }
+    if (Object.entries(c).every(([k, v]) => k === 'objects' || v === undefined)) {
+      // Objects alone leave spawns, HQ and roads as they are (a gizmo drag every frame): only the rings follow
+      this.overlay.updateSelection(this.editor.doc, this.editor.selection, (asset) => this.catalog.object(asset).radius);
+      return;
+    }
     this.markersDirty = true;
     this.refreshMarkers();
   }

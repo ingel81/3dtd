@@ -157,22 +157,34 @@ export class MapObjectLayer {
   }
 
   /**
-   * Moves, turns or scales one object in place. Returns false when the
-   * object is unknown, changed its asset or LOS flag, or left its cell; the
-   * caller then calls `setObjects`.
+   * Moves, turns or scales objects in place, one upload per asset. Returns
+   * the ones it could not: unknown, another asset or LOS flag, or out of
+   * their cell; the caller moves those out and in again.
    */
-  updateObject(o: MapObject): boolean {
-    const slot = this.byId.get(o.id);
-    if (!slot) return false;
-    const b = slot.batch;
-    const blocks = o.blocksLos ?? b.entry.blocksLos;
-    if (o.asset !== b.objects[slot.index].asset || blocks !== b.blocksLos) return false;
-    if (this.cellKey(o.x, o.y) !== b.slots[slot.index].cell) return false;
-    b.objects[slot.index] = o;
-    this.writeInstance(b, slot.index);
-    this.uploadInstances(b, [slot.index], true);
-    this.version++;
-    return true;
+  updateObjects(objects: readonly MapObject[]): MapObject[] {
+    const rest: MapObject[] = [];
+    const changed = new Map<AssetBatch, number[]>();
+    for (const o of objects) {
+      const slot = this.byId.get(o.id);
+      const b = slot?.batch;
+      if (!slot || !b) {
+        rest.push(o);
+        continue;
+      }
+      const blocks = o.blocksLos ?? b.entry.blocksLos;
+      if (o.asset !== b.objects[slot.index].asset || blocks !== b.blocksLos || this.cellKey(o.x, o.y) !== b.slots[slot.index].cell) {
+        rest.push(o);
+        continue;
+      }
+      b.objects[slot.index] = o;
+      this.writeInstance(b, slot.index);
+      let list = changed.get(b);
+      if (!list) changed.set(b, (list = []));
+      list.push(slot.index);
+    }
+    for (const [b, list] of changed) this.uploadInstances(b, list, true);
+    if (changed.size) this.version++;
+    return rest;
   }
 
   /**

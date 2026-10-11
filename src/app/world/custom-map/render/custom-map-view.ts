@@ -506,7 +506,6 @@ export class CustomMapView {
     );
   }
 
-  /** One object moved, turned, scaled or changed asset (already changed in `doc.objects`) */
   /**
    * Objects added to `doc.objects` by the caller: only the object cells
    * (192 m) they land in are rebuilt, and the contact shadows around them.
@@ -528,10 +527,22 @@ export class CustomMapView {
     void this.hasEffects(objects).then((has) => (has ? this.refreshEffects() : undefined));
   }
 
-  updateObject(object: MapObject): void {
-    if (!this.objects.updateObject(object)) void this.objects.setObjects(this.doc.objects);
-    void this.refreshEffects(object.asset);
-    void this.refreshContact();
+  /**
+   * Objects moved, turned, scaled or changed asset (already changed in
+   * `doc.objects`), `before` their last states: in place where they can, else
+   * out of their cells and into the new ones; effects and contact shadows
+   * once for all of them, the shadows only around the old and new spots.
+   */
+  updateObjects(objects: readonly MapObject[], before: readonly MapObject[] = objects): void {
+    if (!objects.length) return;
+    const rest = this.objects.updateObjects(objects);
+    if (rest.length) {
+      this.objects.removeObjects(rest.map((o) => o.id));
+      void this.objects.addObjects(rest);
+    }
+    const all = [...before, ...objects];
+    void this.hasEffects(all).then((has) => (has ? this.refreshEffects() : undefined));
+    void this.refreshContact(all);
   }
 
   updatePaths(): void {
