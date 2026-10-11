@@ -85,6 +85,23 @@ describe('map file', () => {
     expect(() => migrateMapJson({ version: 1 }, {}, 2)).toThrow(/No way to read/);
   });
 
+  it('reads version 1 maps and keeps gameplay rules through a round trip', () => {
+    const doc = sample();
+    const v1 = JSON.parse(JSON.stringify({ format: '3dtd-map', version: 1 }));
+    expect(migrateMapJson(v1)['version']).toBe(2);
+    doc.gameplay = {
+      startCredits: 250,
+      hqHealth: 300,
+      towers: ['archer', 'cannon'],
+      waves: { kind: 'table', table: { cycle: { fromWave: 1, hpGrowth: 1.5 }, waves: [{ wave: 1, name: 'First', enemies: { zombie: 10 }, hpMult: 1, spawnDelay: 800 }] } },
+    };
+    const { doc: back } = unpackMapFile(packMapFile(doc));
+    expect(back.gameplay).toEqual(doc.gameplay);
+    doc.gameplay = { hqHealth: 0, waves: { kind: 'table', table: { cycle: { fromWave: 1, hpGrowth: 0 }, waves: [] } } };
+    const problems = validateMapDocument(doc);
+    expect(problems).toEqual(expect.arrayContaining(['gameplay.hqHealth must be above 0', 'the wave list is empty', 'the wave list has no valid repeat rule']));
+  });
+
   it('validates the grid and the references', () => {
     const doc = sample();
     expect(validateMapDocument(doc)).toEqual([]);

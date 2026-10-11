@@ -11,7 +11,8 @@
  */
 
 export const MAP_FORMAT = '3dtd-map';
-export const MAP_VERSION = 1;
+/** 2: optional `gameplay` rules (version 1 files have none and read unchanged) */
+export const MAP_VERSION = 2;
 
 /** Metres per degree in the synthetic frame, the factor `geoToLocalSimple` uses at latitude 0 */
 export const MAP_METERS_PER_DEGREE = 111320;
@@ -156,6 +157,40 @@ export interface MapEnvironment {
 
 export type MapWeather = 'clear' | 'rain' | 'snow' | 'fog';
 
+/**
+ * One wave of a map's own wave list, the shape of the table wave source
+ * (`director/sources/table/wave-table.ts`): enemy type to count, absolute.
+ */
+export interface MapWaveRow {
+  wave: number;
+  name: string;
+  enemies: Record<string, number>;
+  hpMult: number;
+  /** Milliseconds between two enemies */
+  spawnDelay: number;
+  spawnDelayVariation?: number;
+  note?: string;
+}
+
+export interface MapWaveTable {
+  /** After the last row the waves from `fromWave` repeat, their HP times `hpGrowth` per round */
+  cycle: { fromWave: number; hpGrowth: number };
+  waves: MapWaveRow[];
+}
+
+/** Where a map's waves come from: the game's budget source, or the map's own list */
+export type MapWaveSource = { kind: 'budget' } | { kind: 'table'; table: MapWaveTable };
+
+/** Rules a map sets for its games; every field is optional, the game's defaults fill the rest */
+export interface MapGameplay {
+  startCredits?: number;
+  /** HQ hit points */
+  hqHealth?: number;
+  /** Tower type ids the player may build (configs/tower-types.config.ts); all when missing */
+  towers?: string[];
+  waves?: MapWaveSource;
+}
+
 export interface CustomMapDocument {
   format: typeof MAP_FORMAT;
   version: number;
@@ -166,6 +201,8 @@ export interface CustomMapDocument {
   spawns: MapSpawn[];
   hq: MapPoint;
   environment: MapEnvironment;
+  /** The map's own game rules (version 2); none means the game's defaults */
+  gameplay?: MapGameplay;
 }
 
 /** Synthetic lat/lon of a map point (origin (0, 0)) */

@@ -36,8 +36,11 @@ export class MapFileError extends Error {
 /** A migration lifts the parsed `map.json` of version n to n + 1 */
 export type MapMigration = (json: Record<string, unknown>) => Record<string, unknown>;
 
-/** Keyed by the version they read; empty while there is only version 1 */
-export const MAP_MIGRATIONS: Readonly<Record<number, MapMigration>> = {};
+/** Keyed by the version they read */
+export const MAP_MIGRATIONS: Readonly<Record<number, MapMigration>> = {
+  // 1 to 2: version 2 adds the optional gameplay rules; a version 1 map has none
+  1: (json) => json,
+};
 
 interface BinaryRef {
   $bin: string;
@@ -261,6 +264,34 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     if (!finite(sp.x) || !finite(sp.y)) p.push(`spawn ${sp.id} has no position`);
   }
   if (!doc.hq || !finite(doc.hq.x) || !finite(doc.hq.y)) p.push('the HQ has no position');
+  const gp = doc.gameplay;
+  if (gp !== undefined) {
+    if (gp === null || typeof gp !== 'object') p.push('gameplay is not an object');
+    else {
+      if (gp.startCredits !== undefined && (!finite(gp.startCredits) || gp.startCredits < 0)) p.push('gameplay.startCredits must be 0 or more');
+      if (gp.hqHealth !== undefined && (!finite(gp.hqHealth) || gp.hqHealth <= 0)) p.push('gameplay.hqHealth must be above 0');
+      if (gp.towers !== undefined && (!Array.isArray(gp.towers) || gp.towers.some((t) => typeof t !== 'string'))) {
+        p.push('gameplay.towers must be a list of tower ids');
+      }
+      const w = gp.waves;
+      if (w !== undefined && w.kind !== 'budget' && w.kind !== 'table') p.push('gameplay.waves.kind must be budget or table');
+      if (w?.kind === 'table') {
+        const table = w.table;
+        if (!table || !Array.isArray(table.waves) || !table.waves.length) p.push('the wave list is empty');
+        else {
+          table.waves.forEach((row, k) => {
+            if (row.wave !== k + 1) p.push(`wave list row ${k + 1} is numbered ${row.wave}`);
+            if (!row.enemies || !Object.keys(row.enemies).length) p.push(`wave ${row.wave} has no enemies`);
+            if (!finite(row.hpMult) || row.hpMult <= 0) p.push(`wave ${row.wave} has no HP factor`);
+            if (!finite(row.spawnDelay) || row.spawnDelay < 0) p.push(`wave ${row.wave} has no spawn delay`);
+          });
+        }
+        if (!table?.cycle || !finite(table.cycle.fromWave) || !finite(table.cycle.hpGrowth) || table.cycle.hpGrowth <= 0) {
+          p.push('the wave list has no valid repeat rule');
+        }
+      }
+    }
+  }
   const env = doc.environment;
   if (!env || !['day', 'dusk', 'night', 'overcast'].includes(env.sky)) p.push('environment sky is unknown');
   return p;
