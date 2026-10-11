@@ -59,6 +59,28 @@ const BIN = {
   water: 'terrain/water-mask.u8',
 } as const;
 
+/**
+ * Limits a file is read within, so a small zip that claims huge entries
+ * cannot take the tab down: samples and splat texels per side, bytes per
+ * entry (a 4097 x 4097 float grid, just over 67 MB) and for all entries.
+ */
+export const MAX_GRID_SIDE = 4097;
+export const MAX_SPLAT_RESOLUTION = 4096;
+export const MAX_ENTRY_BYTES = MAX_GRID_SIDE * MAX_GRID_SIDE * 4;
+export const MAX_FILE_BYTES = 512 * 1024 * 1024;
+/** Water bodies a file may carry */
+export const MAX_WATER_BODIES = 64;
+
+/** Whether a zip entry is one a map file has */
+function knownEntry(name: string): boolean {
+  return (
+    name === MAP_JSON_ENTRY ||
+    name === MAP_PREVIEW_ENTRY ||
+    (Object.values(BIN) as string[]).includes(name) ||
+    /^terrain\/water-([1-9]\d?)-mask\.u8$/.test(name)
+  );
+}
+
 /** Zip path of further water body k's mask */
 function waterBodyPath(k: number): string {
   return `terrain/water-${k + 1}-mask.u8`;
@@ -94,11 +116,25 @@ export function packMapFile(doc: CustomMapDocument, options: PackOptions = {}): 
 export function unpackMapFile(bytes: Uint8Array | ArrayBuffer): UnpackedMap {
   const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   let entries: Record<string, Uint8Array>;
+  let total = 0;
+  let tooBig: string | null = null;
   try {
-    entries = unzipSync(data);
+    // Only the entries a map has, each and all together within the limits, checked before anything is inflated
+    entries = unzipSync(data, {
+      filter: (f) => {
+        if (!knownEntry(f.name)) return false;
+        total += f.originalSize;
+        if (f.originalSize > MAX_ENTRY_BYTES || total > MAX_FILE_BYTES) {
+          tooBig = f.name;
+          return false;
+        }
+        return true;
+      },
+    });
   } catch {
     throw new MapFileError('This is not a map file (no zip archive).');
   }
+  if (tooBig) throw new MapFileError(`The map file is too large to read (${tooBig}).`);
   const jsonBytes = entries[MAP_JSON_ENTRY];
   if (!jsonBytes) throw new MapFileError('This is not a map file (map.json is missing).');
   let parsed: unknown;
@@ -150,7 +186,9 @@ export async function contentHash(doc: CustomMapDocument): Promise<string> {
 /** The bytes `contentHash` digests: canonical JSON of the world, then the arrays */
 export function contentBytes(doc: CustomMapDocument): Uint8Array {
   const { json, binaries } = splitDocument(doc);
-  const world = { ...json, meta: { id: doc.meta.id } };
+  // Neither the file's version nor its format is world content: a new file version keeps the hashes of unchanged maps
+  const { version: _version, format: _format, ...rest } = json;
+  const world = { ...rest, meta: { id: doc.meta.id } };
   const head = strToU8(canonicalJson(world));
   let size = head.length;
   for (const [, b] of binaries) size += b.length;
@@ -186,6 +224,14 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     p.push('meta.id must be lowercase letters, digits and dashes');
   }
   if (!meta || typeof meta.name !== 'string' || !meta.name.trim()) p.push('meta.name is empty');
+  if (meta) {
+    for (const key of ['author', 'description'] as const) {
+      if (meta[key] !== undefined && typeof meta[key] !== 'string') p.push(`meta.${key} must be text`);
+    }
+    for (const key of ['createdAt', 'updatedAt'] as const) {
+      if (typeof meta[key] !== 'string' || !Number.isFinite(Date.parse(meta[key]))) p.push(`meta.${key} must be a date`);
+    }
+  }
 
   const t = doc.terrain;
   if (!t || !t.grid) {
@@ -195,6 +241,9 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   const g = t.grid;
   if (!Number.isInteger(g.columns) || !Number.isInteger(g.rows) || g.columns < 2 || g.rows < 2) {
     p.push('terrain grid needs at least 2 x 2 samples');
+  } else if (g.columns > MAX_GRID_SIDE || g.rows > MAX_GRID_SIDE) {
+    p.push(`terrain grid has more than ${MAX_GRID_SIDE} samples on a side`);
+    return p;
   } else if (!isTyped(g.heights, 'Float32Array') || g.heights.length !== g.columns * g.rows) {
     p.push(`terrain heights hold ${g.heights?.length ?? 0} values, the grid needs ${g.columns * g.rows}`);
   } else {
@@ -218,6 +267,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   const s = t.splat;
   const texels = (s?.resolution ?? 0) ** 2 * 4;
   if (!s || !Number.isInteger(s.resolution) || s.resolution < 1) p.push('splat resolution is missing');
+  else if (s.resolution > MAX_SPLAT_RESOLUTION) p.push(`splat resolution is above ${MAX_SPLAT_RESOLUTION}`);
   else if (!s.maps || s.maps.length !== 2 || s.maps.some((m) => !isTyped(m, 'Uint8Array') || m.length !== texels)) {
     p.push(`splat needs two maps of ${s.resolution} x ${s.resolution} RGBA`);
   }
@@ -227,7 +277,19 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
       p.push('water mask does not match the grid');
     }
   }
+  if (t.waterBodies !== undefined && (!Array.isArray(t.waterBodies) || t.waterBodies.length > MAX_WATER_BODIES)) {
+    p.push(`waterBodies must be a list of at most ${MAX_WATER_BODIES}`);
+    return p;
+  }
+  if (t.rivers !== undefined && !Array.isArray(t.rivers)) {
+    p.push('rivers must be a list');
+    return p;
+  }
   for (const [k, body] of (t.waterBodies ?? []).entries()) {
+    if (!body || typeof body !== 'object') {
+      p.push(`water body ${k + 1} is not an object`);
+      continue;
+    }
     if (!finite(body.level)) p.push(`water body ${k + 1}: level is not a number`);
     if (!isTyped(body.mask, 'Uint8Array') || body.mask.length !== g.columns * g.rows) {
       p.push(`water body ${k + 1}: mask does not match the grid`);
@@ -239,6 +301,10 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     }
   }
   for (const river of t.rivers ?? []) {
+    if (!river || typeof river !== 'object') {
+      p.push('a river is not an object');
+      continue;
+    }
     if (!river.id) p.push('a river has no id');
     if (!['water', 'lava'].includes(river.kind)) p.push(`river ${river.id}: kind ${river.kind} is unknown`);
     if (!Array.isArray(river.points) || river.points.length < 2) p.push(`river ${river.id} needs two points`);
@@ -248,8 +314,24 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   }
   if (!finite(t.cliffAngle)) p.push('cliffAngle is not a number');
 
+  if (!Array.isArray(doc.objects)) {
+    p.push('objects must be a list');
+    return p;
+  }
+  if (!doc.paths || !Array.isArray(doc.paths.nodes) || !Array.isArray(doc.paths.edges)) {
+    p.push('paths must have lists of nodes and edges');
+    return p;
+  }
+  if (!Array.isArray(doc.spawns)) {
+    p.push('spawns must be a list');
+    return p;
+  }
   const ids = new Set<string>();
-  for (const o of doc.objects ?? []) {
+  for (const o of doc.objects) {
+    if (!o || typeof o !== 'object') {
+      p.push('an object entry is not an object');
+      continue;
+    }
     if (!o.id || ids.has(o.id)) p.push(`object id "${o.id}" is missing or twice`);
     ids.add(o.id);
     if (!o.asset) p.push(`object ${o.id} has no asset`);
@@ -257,22 +339,30 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     if (o.group !== undefined && typeof o.group !== 'string') p.push(`object ${o.id} has a bad group`);
   }
   const nodes = new Set<string>();
-  for (const n of doc.paths?.nodes ?? []) {
+  for (const n of doc.paths.nodes) {
+    if (!n || typeof n !== 'object') {
+      p.push('a path node is not an object');
+      continue;
+    }
     if (!n.id || nodes.has(n.id)) p.push(`path node id "${n.id}" is missing or twice`);
     nodes.add(n.id);
     if (!finite(n.x) || !finite(n.y)) p.push(`path node ${n.id} has no position`);
   }
   const edges = new Set<string>();
-  for (const e of doc.paths?.edges ?? []) {
+  for (const e of doc.paths.edges) {
+    if (!e || typeof e !== 'object') {
+      p.push('a path edge is not an object');
+      continue;
+    }
     if (!e.id || edges.has(e.id)) p.push(`path edge id "${e.id}" is missing or twice`);
     edges.add(e.id);
     if (!nodes.has(e.a) || !nodes.has(e.b)) p.push(`path edge ${e.id} names a node that does not exist`);
     if (e.a === e.b) p.push(`path edge ${e.id} starts and ends at one node`);
     if (!finite(e.width) || e.width <= 0) p.push(`path edge ${e.id} has no width`);
-    if (e.via && e.via.some((v) => !finite(v.x) || !finite(v.y))) p.push(`path edge ${e.id} has a bad curve point`);
+    if (e.via !== undefined && (!Array.isArray(e.via) || e.via.some((v) => !finite(v?.x) || !finite(v?.y)))) p.push(`path edge ${e.id} has a bad curve point`);
   }
-  for (const sp of doc.spawns ?? []) {
-    if (!finite(sp.x) || !finite(sp.y)) p.push(`spawn ${sp.id} has no position`);
+  for (const sp of doc.spawns) {
+    if (!sp || !finite(sp.x) || !finite(sp.y)) p.push(`spawn ${sp.id} has no position`);
   }
   if (!doc.hq || !finite(doc.hq.x) || !finite(doc.hq.y)) p.push('the HQ has no position');
   const gp = doc.gameplay;
@@ -308,6 +398,8 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   }
   const env = doc.environment;
   if (!env || !['day', 'dusk', 'night', 'overcast'].includes(env.sky)) p.push('environment sky is unknown');
+  const looks = ['temperate', 'hell', 'moon', 'mars', 'arctic', 'apocalypse', 'swamp', 'desert', 'mountain', 'city'];
+  if (env?.biome !== undefined && !looks.includes(env.biome)) p.push(`environment biome ${String(env.biome)} is unknown`);
   return p;
 }
 

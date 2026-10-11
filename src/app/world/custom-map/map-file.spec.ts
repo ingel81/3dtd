@@ -1,7 +1,9 @@
-import { zipSync, strToU8 } from 'fflate';
+import { unzipSync, zipSync, strToU8 } from 'fflate';
 import { createMapDocument } from './map-create';
 import type { CustomMapDocument } from './map-document';
 import {
+  MAX_ENTRY_BYTES,
+  MAX_GRID_SIDE,
   MapFileError,
   canonicalJson,
   cloneMapDocument,
@@ -28,6 +30,57 @@ function sample(): CustomMapDocument {
   doc.objects.push({ id: 'o1', asset: 'tree-oak', x: 3, y: -4, z: 0, rotation: 1.2, scale: 1.1, blocksLos: true });
   return doc;
 }
+
+/** A zip whose one entry claims `size` bytes uncompressed (local and central header patched) */
+function zipClaiming(name: string, size: number): Uint8Array {
+  const zip = zipSync({ [name]: new Uint8Array(16) }, { level: 0 });
+  const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  for (let i = 0; i + 4 <= zip.length; i++) {
+    const sig = view.getUint32(i, true);
+    if (sig === 0x04034b50) view.setUint32(i + 22, size, true);
+    if (sig === 0x02014b50) view.setUint32(i + 24, size, true);
+  }
+  return zip;
+}
+
+describe('map file limits', () => {
+  it('refuses a small file that claims huge entries, before inflating them', () => {
+    expect(() => unpackMapFile(zipClaiming('terrain/heights.f32', 0x7fff0000))).toThrow(/too large/);
+    expect(MAX_ENTRY_BYTES).toBeLessThan(0x7fff0000);
+  });
+
+  it('skips entries a map does not have', () => {
+    const doc = sample();
+    const file = packMapFile(doc);
+    const extra = zipSync({ ...Object.fromEntries(Object.entries(unzipSync(file))), 'junk/big.bin': new Uint8Array(1000) });
+    expect(unpackMapFile(extra).doc.meta.id).toBe(doc.meta.id);
+  });
+
+  it('refuses grids past the limit and checks meta, lists and the look', () => {
+    const doc = sample();
+    doc.terrain.grid.columns = MAX_GRID_SIDE + 1;
+    expect(validateMapDocument(doc).join()).toMatch(/more than/);
+    const bad = sample() as unknown as { meta: Record<string, unknown>; objects: unknown; environment: Record<string, unknown> };
+    bad.meta['updatedAt'] = 5;
+    bad.environment['biome'] = 'pluto';
+    const problems = validateMapDocument(bad as unknown as CustomMapDocument);
+    expect(problems).toContain('meta.updatedAt must be a date');
+    expect(problems.join()).toMatch(/biome pluto/);
+    bad.objects = { o1: {} };
+    expect(() => validateMapDocument(bad as unknown as CustomMapDocument)).not.toThrow();
+    expect(validateMapDocument(bad as unknown as CustomMapDocument)).toContain('objects must be a list');
+    const rivers = sample();
+    (rivers.terrain as unknown as Record<string, unknown>)['rivers'] = { a: 1 };
+    expect(validateMapDocument(rivers)).toContain('rivers must be a list');
+  });
+
+  it('hashes the same world the same in every file version', async () => {
+    const doc = sample();
+    const before = await contentHash(doc);
+    (doc as unknown as { version: number }).version = 99;
+    expect(await contentHash(doc)).toBe(before);
+  });
+});
 
 describe('map file', () => {
   it('round-trips every field and array', () => {
