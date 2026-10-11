@@ -66,6 +66,12 @@ function arrayTexture(
   t.generateMipmaps = true;
   t.anisotropy = anisotropy;
   t.needsUpdate = true;
+  // The pixels live on the GPU from the upload on: the CPU copy (some 96 MB for eight 2k
+  // materials twice) goes. The arrays never change after they are built
+  t.onUpdate = () => {
+    (t.image as { data: Uint8Array | null }).data = null;
+    t.onUpdate = null;
+  };
   return t;
 }
 
