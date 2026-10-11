@@ -39,8 +39,8 @@ describe('HqDamagePresenter', () => {
     vi.useRealTimers();
   });
 
-  function make(engine = makeEngine()) {
-    const hq = new HqDamagePresenter(engine as never, bus);
+  function make(engine = makeEngine(), maxHealth?: number) {
+    const hq = new HqDamagePresenter(engine as never, bus, maxHealth === undefined ? undefined : () => maxHealth);
     hq.setBase(BASE);
     return { hq, engine };
   }
@@ -92,6 +92,20 @@ describe('HqDamagePresenter', () => {
     expect(engine.effects.spawnScaledFire.mock.calls[0][3]).toBeCloseTo(0.5);
 
     hq.updateFireIntensity(FULL_HEALTH);
+    expect(engine.effects.stopFire).toHaveBeenCalledWith('fire-id-1');
+  });
+
+  it("puts the lasting fire at the same share of a map's own HQ health", () => {
+    // Of 100 HP the threshold is the same share as FIRE_THRESHOLD of the game's health
+    const threshold = (FIRE_THRESHOLD * 100) / FULL_HEALTH;
+    const { hq, engine } = make(makeEngine(), 100);
+    hq.updateFireIntensity(threshold + 1);
+    expect(engine.effects.spawnFireFlash).toHaveBeenCalledTimes(1);
+    expect(engine.effects.spawnScaledFire).not.toHaveBeenCalled();
+    hq.updateFireIntensity(threshold / 2);
+    expect(engine.effects.spawnScaledFire.mock.calls[0][3]).toBeCloseTo(0.5);
+    // Full health of the map: no fire, though far below the game's
+    hq.updateFireIntensity(100);
     expect(engine.effects.stopFire).toHaveBeenCalledWith('fire-id-1');
   });
 

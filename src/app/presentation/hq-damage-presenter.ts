@@ -71,7 +71,9 @@ export class HqDamagePresenter {
   /**
    * The fire of `currentHealth`: none at full health, a brief flash above
    * GAME_BALANCE.fire.permanentThreshold, below it a lasting fire that
-   * grows with the damage.
+   * grows with the damage. The threshold is a share of the run's maximum
+   * (a custom map's HQ health): at the game's startHealth it is the
+   * configured value exactly.
    */
   updateFireIntensity(currentHealth: number): void {
     const base = this.basePosition;
@@ -87,7 +89,8 @@ export class HqDamagePresenter {
     }
 
     const fireY = this.groundY(base);
-    if (currentHealth > GAME_BALANCE.fire.permanentThreshold) {
+    const threshold = (GAME_BALANCE.fire.permanentThreshold * this.maxHealth()) / GAME_BALANCE.player.startHealth;
+    if (currentHealth > threshold) {
       if (this.activeFireId) {
         effects.stopFire(this.activeFireId);
         this.activeFireId = null;
@@ -97,7 +100,7 @@ export class HqDamagePresenter {
     }
 
     if (this.activeFireId) effects.stopFireImmediate(this.activeFireId);
-    const scale = 1 - currentHealth / GAME_BALANCE.fire.permanentThreshold;
+    const scale = 1 - currentHealth / threshold;
     this.activeFireId = effects.spawnScaledFire(base.lat, base.lon, fireY, scale);
   }
 
