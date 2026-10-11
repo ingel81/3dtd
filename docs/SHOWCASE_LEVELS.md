@@ -7,6 +7,19 @@ Acht Karten, die zeigen, was der Editor kann, und die sich gut spielen. Jede wir
 `tools/maps/levels/<id>.ts`, damit sie nachvollziehbar und reproduzierbar ist. `tools/maps/shipped-maps.spec.ts` packt
 sie nach `public/maps/` mit Vorschaubild und Eintrag in `index.json`.
 
+## Bauskripte
+
+`tools/maps/levels/kit.ts` (`LevelKit`) fährt die Operationen des Editors ohne Oberfläche: jeder Landschafts-Aufruf
+ist ein Strich des Landscape-Werkzeugs (`LandscapeStroke`, ein Schritt im Verlauf), dazu die Pinsel von Terrain,
+Paint, Water, Objects, Paths und Spawns, der Gelände-Generator und das Prüfen des Editors. Die Seeds der Striche
+kommen aus dem Seed des Levels und einem Zähler, ein Skript ergibt also immer dieselbe Karte. Bewährte Reihenfolge:
+Bodenschichten festlegen (höchstens acht; Pinsel nehmen dann ihre Kandidaten aus dieser Liste), Gelände, Straßen,
+Flüsse (sie machen Kreuzungen zu Brücken), Spawns und HQ, Biome und Farbe, einzelne Objekte.
+
+Packen: `npx vitest run tools/maps/shipped-maps.spec.ts -t <id>` (ein Level allein; die Liste in `index.json` behält
+die anderen). Ansehen: `/map-preview?map=<id>&cam=x,y,h,tx,ty,th&clean` (Kamera und Ziel in Kartenmetern, Höhen über
+dem Boden). Bilder unter `docs/images/levels/`.
+
 ## Regeln für alle Level
 
 - **Spielbarkeit vor Kulisse:** Wege 350 bis 800 m je Spawn, klare Bauflächen entlang der Wege (Plateaus, Lichtungen),
@@ -22,6 +35,12 @@ sie nach `public/maps/` mit Vorschaubild und Eintrag in `index.json`.
 ## Die Level
 
 ### 1 Bergpass (`mountain-pass`)
+**Gebaut** (`tools/maps/levels/mountain-pass.ts`, Small 512 m, 0,8 MB). Kartenprobe 10 Wellen bestanden (HQ 433,8 von
+500, 19 Tower), Spielansicht 312 fps, Laden 12,6 s am Dev-Server. Spuren 765 und 770 m. Bilder:
+`docs/images/levels/mountain-pass.jpg`, `mountain-pass-game.jpg`. Abweichungen: Gipfel aus Kalkfels ohne Schnee, die
+Brücke ist das Holzdeck der Wege (eine Steinbrücke als Brückenart fehlt), die Seilbahn hat keine Seile (Objekte
+lassen sich nicht neigen). Der Erosionspinsel blieb weg (er macht Nadelspitzen, an den Editor gemeldet).
+
 Biom Berge, Look `mountain`, später Nachmittag. Ein Pass zwischen zwei Gipfeln; die Straße windet sich in Serpentinen
 vom Tal zum Pass, wo das HQ in einem Bergdorf steht (Steinhäuser mit Holzbalkon, Kapelle, Stützmauern). Ein Wasserfall
 stürzt von einer Klippe in einen Bergsee, der Fluss läuft talwärts unter einer Steinbrücke durch. Seilbahn als Kulisse
