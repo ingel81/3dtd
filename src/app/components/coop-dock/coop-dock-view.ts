@@ -1,4 +1,5 @@
 import type { CoopStatus } from '../../services/coop.service';
+import type { VacantLanes } from '../../world/custom-map/lane-choice';
 import { MAX_PLAYERS, type CoopRoomInfo, type PlayerStatus } from '../../coop/protocol';
 import type { ClientInfo } from '../../coop/client-info';
 import type { LaneStat } from '../../coop/lane-stats';
@@ -72,6 +73,8 @@ export interface StatusInput {
   myId: string | null;
   worldReady: boolean;
   hostName: string;
+  /** The map's rule for lanes nobody holds (TODO E130); null or missing: every lane needs a player */
+  vacant?: VacantLanes | null;
 }
 
 /** Every guest is ready; the host always is (D40) */
@@ -99,7 +102,7 @@ export function roomStatus(i: StatusInput): RoomStatus | null {
   if (noLane) return line('Waiting for ', noLane.name, ' to take a lane');
   // Every lane needs a player (docs/WAVE_SYSTEM.md (Spuren), L4); anyone may take one more
   const free = room.spawnIds.findIndex((id) => !room.players.some((p) => p.spawnIds.includes(id)));
-  if (free >= 0) return line('', `Spawn ${free + 1}`, ' has nobody yet | anyone can take it');
+  if (free >= 0 && !i.vacant) return line('', `Spawn ${free + 1}`, ' has nobody yet | anyone can take it');
   if (guestsReady(room)) {
     return i.isHost
       ? line('', 'Everyone is ready.', ' Start when you like.', true)
@@ -117,6 +120,8 @@ export function startBlocked(
   worldReady: boolean,
   /** Lanes a player took that have no route to the base (TODO E34, point 7) */
   routeless: readonly string[] = [],
+  /** The map's rule for lanes nobody holds (TODO E130); null: every lane needs a player */
+  vacant: VacantLanes | null = null,
 ): string | null {
   if (!room) return 'No room';
   if (room.players.length < 2) return 'Needs a second player';
@@ -124,7 +129,7 @@ export function startBlocked(
   const lost = room.spawnIds.findIndex((id) => routeless.includes(id));
   if (lost >= 0) return `Spawn ${lost + 1} has no route`;
   const free = room.spawnIds.findIndex((id) => !room.players.some((p) => p.spawnIds.includes(id)));
-  if (free >= 0) return `Spawn ${free + 1} has nobody`;
+  if (free >= 0 && vacant === null) return `Spawn ${free + 1} has nobody`;
   const waiting = room.players.find((p) => p.spawnIds.length === 0 || (p.id !== room.hostId && !p.ready));
   return waiting ? `Waiting for ${waiting.name}` : null;
 }

@@ -390,15 +390,16 @@ export class LocationFacadeService {
   /**
    * Open these lanes of the world in place of the ones open, before wave 1
    * (WorldLanes, TODO E130): the spawns, routes and the run are built anew.
-   * False when the world has no lane choice, refuses the set, or a wave was played.
+   * False when the world has no lanes, refuses the set, or a wave was played.
+   * `vacancy`: a coop room closes the lanes nobody holds (WorldLanes.setOpen).
    */
-  async setOpenLanes(ids: readonly string[]): Promise<boolean> {
+  async setOpenLanes(ids: readonly string[], vacancy = false): Promise<boolean> {
     const lanes = this.worldContext.provider()?.lanes() ?? null;
     if (!lanes || this.store.waveNumber() > 0) return false;
     const before = [...lanes.open()];
-    if (!lanes.setOpen(ids)) return false;
+    if (!lanes.setOpen(ids, vacancy)) return false;
     if (await this.mapRelocation.applyLayoutSpawns(this.relocationHost)) return true;
-    lanes.setOpen(before);
+    lanes.setOpen(before, true);
     return false;
   }
 

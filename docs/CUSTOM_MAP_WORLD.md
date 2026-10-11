@@ -32,7 +32,33 @@ Import aus Warcraft 3 [W3X_IMPORT.md](W3X_IMPORT.md).
 
 HQ aus `doc.hq`, Spawns aus `doc.spawns` in ihrer Reihenfolge: die ersten `?spawns=N`, ohne Angabe
 alle bis `MAX_SPAWN_PORTALS` (32), mehr Portale kann das Spiel nicht zeigen. Weitere Spawns der Karte
-bleiben ungenutzt; eine Auswahl im Spiel kommt später.
+bleiben ungenutzt.
+
+## Spurenwahl (E130)
+
+Volle Last je offener Spur: jede offene Spur bringt die ganze Welle. Dafür wählt der Spieler vor Welle 1, welche Spuren
+offen sind.
+
+- **Karte:** ein Spawn mit `optional: true` darf geschlossen werden, ohne das Feld ist er immer offen.
+  `gameplay.lanes`: `min` (Standard 1), `max` (Standard alle) offene Spuren, `vacant` für Spuren, die im Koop niemand
+  hält: `close` (Standard), `host`, `split`. Die gemeinsame Regel steht in `world/custom-map/lane-choice.ts`
+  (`laneChoiceOf` hält die Grenzen in dem, was die Spawns erlauben; `defaultOpenLanes`: immer offene, dann optionale
+  in Reihenfolge bis `max`; `laneChoiceProblem`, `toggledLanes`).
+- **Welt:** `WorldProvider.lanes()` (`WorldLanes`: Wahl, offene Spuren, `setOpen`), `null` auf echten Orten und in
+  DevWorld. `CustomMapWorld.startLayout()` gibt nur die offenen Spawns, jeder mit `slot` (Platz in der Liste der
+  Karte, der die Farbe bestimmt, damit eine Spur ihre Farbe behält).
+- **Spiel:** `app-lane-choice` im Wellen-Panel vor Welle 1, nur auf Karten mit optionalen Spuren, nicht für einen
+  Koop-Gast und nicht im Koop-Spiel (`coopMapLocked`). Ein Schalter ruft `LocationFacadeService.setOpenLanes`;
+  `MapRelocationService.applyLayoutSpawns` baut Spawns, Routen und den Lauf mit den eigenen Ids und Namen neu. Eine
+  geschlossene Spur ist wie entfernt: kein Portal, keine Route. Darunter der Hinweis zur Last
+  („3 lanes open: each brings a full wave, 3 times the enemies“).
+- **Koop:** Der Host wählt in der Lobby (die Karte geht wie bei jeder Spawn-Änderung an die Gäste). Freie Spuren
+  halten den Start nicht auf, wenn die Karte Spuren bringt (`CoopService.vacantRule`). Beim Start:
+  `close` schließt sie (auch immer offene; eine bleibt), die Gäste bekommen die Karte neu und sagen wieder bereit, der
+  Host startet erneut; `host` lässt den Host sie vor dem Start nehmen; `split` schickt `vacant: 'split'` mit dem
+  Start, das Relay verteilt sie reihum ab dem Host (`Room.shareOutLanes`). Ein Relay vor diesem Stand kennt das Feld
+  nicht und lehnt den Start ab.
+- Die Wahl gilt für die Seite: ein Neuladen beginnt wieder bei `defaultOpenLanes`.
 
 ## Spielwerte (`gameplay`)
 

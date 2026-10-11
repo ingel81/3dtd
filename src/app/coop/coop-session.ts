@@ -322,9 +322,9 @@ export class CoopSession {
     this.out({ t: 'ready', ready });
   }
 
-  /** Host: start with `seed` once everyone is ready. */
-  start(seed: number): void {
-    this.out({ t: 'start', seed });
+  /** Host: start with `seed` once everyone is ready; `vacant` 'split' shares out the lanes nobody holds first */
+  start(seed: number, vacant?: 'split'): void {
+    this.out(vacant ? { t: 'start', seed, vacant } : { t: 'start', seed });
   }
 
   /** Host: game speed, 0 pauses (D15). */

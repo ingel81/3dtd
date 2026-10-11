@@ -45,6 +45,10 @@ describe('roomStatus and startBlocked', () => {
     const freeLane = room([player('ann', 's1'), player('bob', 's2', { ready: true })]);
     expect(roomStatus({ ...base, room: freeLane })).toMatchObject({ bold: 'Spawn 3', text: ' has nobody yet | anyone can take it' });
     expect(startBlocked(freeLane, true)).toBe('Spawn 3 has nobody');
+    // A map with a rule for lanes nobody holds starts anyway: the rule takes them (TODO E130)
+    expect(startBlocked(freeLane, true, [], 'close')).toBeNull();
+    expect(startBlocked(freeLane, true, [], 'split')).toBeNull();
+    expect(roomStatus({ ...base, room: freeLane, vacant: 'host' })).toMatchObject({ go: true, bold: 'Everyone is ready.' });
     const notReady = room([player('ann', 's1'), player('bob', 's2')], ['s1', 's2']);
     expect(roomStatus({ ...base, room: notReady })).toMatchObject({ bold: 'BOB', text: ' to ready up (1/2)' });
     expect(startBlocked(notReady, true)).toBe('Waiting for BOB');

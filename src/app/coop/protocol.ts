@@ -160,8 +160,12 @@ export type ClientMessage =
   /** Host, lobby: the room's options (D38); the guests' ready falls */
   | { t: 'options'; options: CoopRoomOptions }
   | { t: 'ready'; ready: boolean }
-  /** Host: start the game once everyone has a lane and is ready */
-  | { t: 'start'; seed: number }
+  /**
+   * Host: start the game once everyone has a lane and is ready. `vacant`
+   * 'split': lanes nobody holds go to the players in turn first (a map's rule,
+   * TODO E130); a relay before it ignores the field and refuses the start
+   */
+  | { t: 'start'; seed: number; vacant?: 'split' }
   /** In the game: a command, stamped into the next tick by the relay */
   | { t: 'cmd'; command: StampedCommand['command'] }
   /** In the game: the state hash at the boundary of `tick`, every HASH_EVERY_TICKS ticks (C5), with the hash per part (HASH_PARTS) */

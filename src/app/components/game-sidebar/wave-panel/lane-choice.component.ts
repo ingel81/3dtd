@@ -6,7 +6,7 @@ import { EngineInitializationService } from '../../../services/infrastructure/en
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { UIStore } from '../../../store/ui.store';
 import { WorldContext } from '../../../world/world-context.service';
-import { laneLoadHint, toggledLanes } from '../../../world/custom-map/lane-choice';
+import { hasLaneChoice, laneLoadHint, toggledLanes } from '../../../world/custom-map/lane-choice';
 
 /** A lane as the list shows it */
 interface LaneRow {
@@ -63,9 +63,11 @@ export class LaneChoiceComponent {
   /** A change builds the routes anew; the switches wait for it */
   readonly busy = signal(false);
 
+  /** The world's lanes where the player has a choice (hasLaneChoice) */
   private readonly lanes = computed(() => {
     this.rev();
-    return this.world.provider()?.lanes() ?? null;
+    const lanes = this.world.provider()?.lanes() ?? null;
+    return lanes && hasLaneChoice(lanes.choice) ? lanes : null;
   });
 
   /** Before wave 1, not while the place loads, not for a coop guest or in a coop game (coopMapLocked) */

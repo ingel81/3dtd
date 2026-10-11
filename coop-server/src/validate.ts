@@ -129,7 +129,8 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
     case 'ready':
       return typeof m['ready'] === 'boolean' ? { t: 'ready', ready: m['ready'] } : null;
     case 'start':
-      return finite(m['seed']) ? { t: 'start', seed: m['seed'] } : null;
+      if (!finite(m['seed'])) return null;
+      return m['vacant'] === 'split' ? { t: 'start', seed: m['seed'], vacant: 'split' } : { t: 'start', seed: m['seed'] };
     case 'cmd': {
       const command = m['command'];
       if (!isObject(command) || typeof command['type'] !== 'string' || command['type'].length > ID_MAX) return null;

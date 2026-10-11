@@ -537,6 +537,8 @@ export class Room {
         if (!host) return this.refuse(playerId, 'not-host');
         if (this.started) return this.refuse(playerId, 'started');
         if (this.players.length < 2) return this.refuse(playerId, 'alone');
+        // The map shares out the lanes nobody holds, in turn from the host (TODO E130)
+        if (message.vacant === 'split') this.shareOutLanes();
         // The host is always ready (D40); every guest says so. Every player has
         // a lane and every lane a player (docs/WAVE_SYSTEM.md (Spuren), L4)
         if (this.world === null || this.players.some((p) => p.spawnIds.length === 0 || (p.id !== this.hostId && !p.ready))
@@ -833,6 +835,16 @@ export class Room {
       const values = d.values.map(([id, v]) => `${this.who(id)} ${v ? JSON.stringify(v.slice(1)).slice(0, 200) : 'missing'}`).join(' / ');
       this.log(`  differs at tick ${tick}: ${d.part} ${d.id}: ${values}`);
     }
+  }
+
+  /** Every lane nobody holds to a player, in turn in the room's order (a map's rule, TODO E130) */
+  private shareOutLanes(): void {
+    const free = this.spawnIds.filter((id) => !this.players.some((p) => p.spawnIds.includes(id)));
+    free.forEach((id, k) => {
+      const player = this.players[k % this.players.length];
+      player.spawnIds = [...player.spawnIds, id];
+    });
+    if (free.length > 0) this.log(`shared out ${free.length} free lanes`);
   }
 
   /** Send the waiting world, where the last went out at least WORLD_EVERY_MS ago. */

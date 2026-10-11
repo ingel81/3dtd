@@ -1,5 +1,5 @@
 import { isDevMode } from '@angular/core';
-import { defaultOpenLanes, hasLaneChoice, laneChoiceOf, laneChoiceProblem, type LaneChoice } from './lane-choice';
+import { defaultOpenLanes, laneChoiceOf, laneChoiceProblem, type LaneChoice } from './lane-choice';
 import { type Group, type Matrix4, type Object3D, type PerspectiveCamera, type Scene, Vector3, type WebGLRenderer, WebGLRenderTarget } from 'three';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import type { CameraBounds, CameraRig } from '../../three-engine/camera-rig';
@@ -373,15 +373,16 @@ export class CustomMapWorld implements WorldProvider {
     };
   }
 
-  /** The lanes the player may switch before wave 1 (TODO E130), null on a map whose spawns are all always open */
+  /** The map's lanes (TODO E130): switched before wave 1 where some are optional, closed when a coop room leaves them free */
   lanes(): WorldLanes | null {
     const choice = this.laneChoice;
-    if (!hasLaneChoice(choice)) return null;
+    if (choice.lanes.length === 0) return null;
     return {
       choice,
       open: () => this.openLanes(),
-      setOpen: (ids) => {
-        if (laneChoiceProblem(choice, ids) !== null) return false;
+      setOpen: (ids, vacancy = false) => {
+        const known = ids.length > 0 && ids.every((id) => choice.lanes.some((l) => l.id === id));
+        if (vacancy ? !known : laneChoiceProblem(choice, ids) !== null) return false;
         this.chosenLanes = choice.lanes.filter((l) => ids.includes(l.id)).map((l) => l.id);
         return true;
       },

@@ -1,4 +1,5 @@
 import { DestroyRef, Injectable, Injector, NgZone, computed, effect, inject, isDevMode, signal, untracked } from '@angular/core';
+import type { VacantLanes } from '../world/custom-map/lane-choice';
 import { SimClient } from '../sim/client/sim-client.service';
 import type { WaveSnapshot } from '../simulator/wave-snapshot';
 import type { HashBreakdown } from '../simulator/state-hash';
@@ -1112,7 +1113,34 @@ export class CoopService {
   start(): void {
     // The source changed since the world went out (debug window): send it again, or the guests plan another run
     if (this.sharedWaveSource !== null && this.sharedWaveSource !== this.head().waveSource) this.shareWorld();
-    this.session?.start(newRunSeed());
+    // Lanes nobody holds, by the map's rule (TODO E130): to the host, shared out by the relay, or closed
+    const room = this.room();
+    const free = room ? room.spawnIds.filter((id) => !room.players.some((p) => p.spawnIds.includes(id))) : [];
+    const rule = free.length > 0 ? this.vacantRule() : null;
+    if (rule === 'close') {
+      void this.closeFreeLanes(free);
+      return;
+    }
+    if (rule === 'host') for (const id of free) this.session?.pick(id);
+    this.session?.start(newRunSeed(), rule === 'split' ? 'split' : undefined);
+  }
+
+  /**
+   * What the map does with lanes nobody holds at the start (MapLanes.vacant),
+   * null on a world that brings no lanes of its own: there every lane needs
+   * a player (startBlocked)
+   */
+  vacantRule(): VacantLanes | null {
+    return this.worldContext.provider()?.lanes()?.choice.vacant ?? null;
+  }
+
+  /** Host, start: the lanes nobody holds close; the guests take the new map and say ready again */
+  private async closeFreeLanes(free: readonly string[]): Promise<void> {
+    const open = this.world.spawnPoints.map((s) => s.id).filter((id) => !free.includes(id));
+    const closed = await this.locationFacade.setOpenLanes(open, true);
+    this.notify(closed
+      ? `${free.length === 1 ? 'The free lane is' : `${free.length} free lanes are`} closed. Start once everyone is ready again.`
+      : 'The free lanes could not be closed.', closed ? 'info' : 'warn');
   }
 
   /** Host: game speed, 0 pauses. */

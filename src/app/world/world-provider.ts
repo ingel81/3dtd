@@ -185,8 +185,12 @@ export interface WorldStartLayout {
 export interface WorldLanes {
   readonly choice: LaneChoice;
   open(): readonly string[];
-  /** Open these lanes in place of the ones open; false when the world does not allow it (laneChoiceProblem) */
-  setOpen(ids: readonly string[]): boolean;
+  /**
+   * Open these lanes in place of the ones open; false when the world does
+   * not allow it (laneChoiceProblem). `vacancy`: a coop room closes the lanes
+   * nobody holds, always-open ones and the fewest included; one stays
+   */
+  setOpen(ids: readonly string[], vacancy?: boolean): boolean;
 }
 
 /** The waves a world brings (a custom map's gameplay): the source to play, its own list for the table source */
@@ -313,7 +317,11 @@ export interface WorldProvider {
   introTour(): IntroTour | null;
   /** The map from straight above for the minimap, null for a world without one (tiles, DevWorld) or before it stands */
   minimap(): WorldMinimap | null;
-  /** The lanes the player may open or close before wave 1, null where every spawn is a lane (tiles, DevWorld, a map without optional lanes) */
+  /**
+   * The lanes of a world with its own spawns (a custom map), null where the
+   * player places them (tiles, DevWorld). The player switches them before
+   * wave 1 where the map has optional lanes (hasLaneChoice)
+   */
   lanes(): WorldLanes | null;
   /** The world's own run rules (start credits, HQ health, tower types), null: the game's */
   runRules(): RunRules | null;

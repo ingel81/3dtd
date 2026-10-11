@@ -121,6 +121,20 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(budget.used).toBe(0);
   });
 
+  it("shares out the lanes nobody holds in turn when the host's start asks for it (TODO E130)", () => {
+    room.join(player('b'));
+    room.receive('a', { t: 'world', world: { any: 'thing' }, spawnIds: ['s1', 's2', 's3', 's4', 's5'] });
+    room.receive('a', { t: 'pick', spawnId: 's1' });
+    room.receive('b', { t: 'pick', spawnId: 's2' });
+    room.receive('b', { t: 'ready', ready: true });
+    // Without the rule a free lane holds the start up
+    room.receive('a', { t: 'start', seed: 1 });
+    expect(last('a', 'refused')!.reason).toBe('not-ready');
+    room.receive('a', { t: 'start', seed: 1, vacant: 'split' });
+    const started = last('b', 'started')!;
+    expect(started.lanes).toEqual([['a', 's1'], ['a', 's3'], ['a', 's5'], ['b', 's2'], ['b', 's4']]);
+  });
+
   it('numbers a name that is in the room already', () => {
     room.join(player('b', { name: 'A' }));
     room.join(player('c', { name: 'A' }));

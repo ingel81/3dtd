@@ -1,4 +1,5 @@
 import { Raycaster, Scene, Vector3 } from 'three';
+import { hasLaneChoice } from './lane-choice';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
@@ -228,8 +229,13 @@ describe('CustomMapWorld', () => {
 
   it('opens the lanes the player picks before wave 1: the start layout has them, each in its colour slot (TODO E130)', () => {
     const doc = testMap();
-    // Without an optional lane there is no choice
-    expect(new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3).lanes()).toBeNull();
+    // Without an optional lane there is no choice; a coop room may still close a lane nobody holds
+    const fixed = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3).lanes()!;
+    expect(hasLaneChoice(fixed.choice)).toBe(false);
+    expect(fixed.setOpen([doc.spawns[0].id])).toBe(false);
+    expect(fixed.setOpen([doc.spawns[0].id], true)).toBe(true);
+    expect(fixed.open()).toEqual([doc.spawns[0].id]);
+    expect(fixed.setOpen([], true)).toBe(false);
 
     doc.spawns[1].optional = true;
     doc.spawns[2].optional = true;
