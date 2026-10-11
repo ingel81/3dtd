@@ -9827,6 +9827,72 @@
       "source": "procedural (tools/map-assets/build_levels.py)"
     },
     {
+      "id": "cable-span",
+      "name": "Cable span (10 m, two cables 5.2 m apart)",
+      "category": "structure",
+      "file": "models/cable-span.glb",
+      "footprint": 2.6,
+      "height": 0.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.8,
+        1.25
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mountain",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_levels.py)"
+    },
+    {
+      "id": "cable-span-20",
+      "name": "Cable span (20 m, two cables 5.2 m apart)",
+      "category": "structure",
+      "file": "models/cable-span-20.glb",
+      "footprint": 2.6,
+      "height": 0.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.8,
+        1.25
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mountain",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_levels.py)"
+    },
+    {
+      "id": "cable-span-40",
+      "name": "Cable span (40 m, two cables 5.2 m apart)",
+      "category": "structure",
+      "file": "models/cable-span-40.glb",
+      "footprint": 2.6,
+      "height": 0.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.8,
+        1.25
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mountain",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_levels.py)"
+    },
+    {
       "id": "boardwalk-lantern",
       "name": "Boardwalk with lantern",
       "category": "structure",

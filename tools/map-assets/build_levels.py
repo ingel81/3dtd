@@ -783,6 +783,18 @@ def leaf_pile(name, seed):
     export(name, [smooth(heap.to_object(name)), leaves.to_object(name + '-leaves')])
 
 
+def cable_span(name, length=10.0, spacing=5.2, sag=0.0):
+    """Two parallel steel cables along +Z (glTF), centred on the origin, `spacing` apart in X (the sheave
+    spacing of cablecar-pylon), 2.5 cm thick, sagging `sag` metres in the middle"""
+    clear_scene()
+    steel = Part(flat_material('cable-steel', (0.12, 0.12, 0.13), 0.35, 0.85), smooth=True)
+    n = 16
+    for x in (-spacing / 2, spacing / 2):
+        pts = [Vector((x, -length / 2 + length * k / n, -sag * 4 * (k / n) * (1 - k / n))) for k in range(n + 1)]
+        tube(steel, pts, [0.0125] * len(pts), 6)
+    blender_kit.export(name, [steel.to_object(name)])
+
+
 def models():
     return {
         'house-stone-balcony': lambda: house('house-stone-balcony', 9.0, 6.5, 6.0, 'roof_planks', 'stacked_stone_wall', storeys=2,
@@ -796,6 +808,9 @@ def models():
         'cablecar-station': lambda: cable_station('cablecar-station'),
         'cablecar-pylon': lambda: cable_pylon('cablecar-pylon'),
         'cablecar-gondola': lambda: gondola('cablecar-gondola'),
+        'cable-span': lambda: cable_span('cable-span'),
+        'cable-span-20': lambda: cable_span('cable-span-20', 20.0, sag=0.15),
+        'cable-span-40': lambda: cable_span('cable-span-40', 40.0, sag=0.5),
         'boardwalk-lantern': lambda: boardwalk_lantern('boardwalk-lantern'),
         'witch-hut': lambda: witch_hut('witch-hut'),
         'boat-rotten': lambda: rowboat('boat-rotten', rotten=True),
