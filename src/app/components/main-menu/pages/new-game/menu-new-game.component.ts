@@ -7,6 +7,7 @@ import type { PlaceChoice } from '../../../../services/location/place-choice';
 import { RovingGroupDirective } from '../../../roving-group.directive';
 import { WorldContext } from '../../../../world/world-context.service';
 import { WorldChoiceService } from '../../../../world/world-choice.service';
+import { CUSTOM_MAPS_OPEN } from '../../../../world/custom-maps-open';
 import { MapPickerComponent } from './map-picker.component';
 import { PlacePickerComponent } from './place-picker.component';
 
@@ -37,7 +38,8 @@ export type NewGameView = 'places' | 'maps';
           <button type="button" role="tab" id="td-play-tab-places" aria-controls="td-play-panel"
                   [attr.aria-selected]="view() === 'places'" (click)="view.set('places')">Real places</button>
           <button type="button" role="tab" id="td-play-tab-maps" aria-controls="td-play-panel"
-                  [attr.aria-selected]="view() === 'maps'" (click)="view.set('maps')">Maps</button>
+                  [attr.aria-selected]="view() === 'maps'" [disabled]="!mapsOpen && view() !== 'maps'"
+                  [attr.title]="mapsOpen ? null : 'Coming soon'" (click)="view.set('maps')">Maps</button>
         </div>
         <div role="tabpanel" id="td-play-panel" class="td-stack" [attr.aria-labelledby]="'td-play-tab-' + view()">
           @if (view() === 'maps') {
@@ -63,6 +65,8 @@ export class MenuNewGameComponent {
   readonly ui = inject(UIStore);
   readonly world = inject(WorldContext);
   readonly worlds = inject(WorldChoiceService);
+  /** The maps open; until their release the tab shows disabled (but not on a map the page already plays) */
+  readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
   private readonly menu = inject(MainMenuService);
   private readonly coordinator = inject(LocationChangeCoordinatorService);
 

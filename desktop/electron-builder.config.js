@@ -36,8 +36,9 @@ module.exports = {
   // other ~50 locales are 47 MB nobody reads.
   electronLanguages: ['en-US', 'de'],
 
-  // Double-clicking a map opens it in the game (desktop/src/maps-folder.js)
-  fileAssociations: [{ ext: '3dtdmap', name: '3DTD map', description: '3DTD map', role: 'Viewer' }],
+  // Double-clicking a map opens it in the game (desktop/src/maps-folder.js). Off until the
+  // custom maps are released (src/app/world/custom-maps-open.ts)
+  // fileAssociations: [{ ext: '3dtdmap', name: '3DTD map', description: '3DTD map', role: 'Viewer' }],
 
   win: {
     target: [{ target: 'nsis', arch: ['x64'] }],

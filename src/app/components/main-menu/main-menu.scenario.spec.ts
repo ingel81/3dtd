@@ -208,6 +208,8 @@ describe('The main menu', () => {
 
       expect(entries()).toEqual(['New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor']);
       expect(el().querySelector('app-menu-loading')).toBeNull();
+      // The map editor shows, not yet open
+      expect(entry('editor')!.getAttribute('aria-disabled')).toBe('true');
     });
 
     // The focus moving in on open is cdkTrapFocus's (autoCapture), which jsdom's layout-less tabbable check never finds
@@ -521,7 +523,8 @@ describe('The main menu', () => {
       expect(document.activeElement).toBe(entry('coop'));
       await press('ArrowUp');
       await press('ArrowUp');
-      expect(document.activeElement).toBe(entry('editor'));
+      // Wraps to the last entry; the map editor, not yet open, is skipped
+      expect(document.activeElement).toBe(entry('extras'));
       expect(menu.page()).toBe('home');
     });
   });

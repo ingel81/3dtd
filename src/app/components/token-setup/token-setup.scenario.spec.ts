@@ -32,6 +32,7 @@ vi.mock('../../../environments/environment', () => ({
 import { ConfigService } from '../../core/services/config.service';
 import { TokenSetupComponent } from './token-setup.component';
 import { WORLD_NAVIGATE } from '../../world/world-choice.service';
+import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 
 const template = readFileSync(resolve('src/app/components/token-setup/token-setup.component.html'), 'utf8');
 const STORAGE_KEY = '3dtd-tile-credentials';
@@ -54,7 +55,7 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     // No runtime-config.json next to the page
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false })));
     navigated = [];
-    TestBed.configureTestingModule({ providers: [{ provide: WORLD_NAVIGATE, useValue: (url: string) => navigated.push(url) }] });
+    TestBed.configureTestingModule({ providers: [{ provide: WORLD_NAVIGATE, useValue: (url: string) => navigated.push(url) }, { provide: CUSTOM_MAPS_OPEN, useValue: true }] });
     TestBed.overrideComponent(TokenSetupComponent, {
       set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [CdkTrapFocus] },
     });

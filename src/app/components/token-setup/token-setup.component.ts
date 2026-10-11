@@ -5,6 +5,7 @@ import { RovingGroupDirective } from '../roving-group.directive';
 import { APP_DOWNLOADS, coopAccess, type CoopAccess } from '../../coop/coop-access';
 import { readDesktopBridge } from '../../core/desktop-bridge';
 import { FIRST_MAP_ID, WorldChoiceService } from '../../world/world-choice.service';
+import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 
 /**
  * First-run screen that asks the player for their own tile credentials.
@@ -35,6 +36,8 @@ import { FIRST_MAP_ID, WorldChoiceService } from '../../world/world-choice.servi
 export class TokenSetupComponent {
   readonly config = inject(ConfigService);
   private readonly worlds = inject(WorldChoiceService);
+  /** The maps open; until their release "Play the maps" shows disabled */
+  readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
   /** The coop room of an invite link this page came with (?room=), to say why a key is asked for (review R8) */
   readonly coopRoom = new URLSearchParams(window.location.search).get('room');
   /** Where coop may be played: in a browser on the site the invite points to the desktop app (E114) */
@@ -93,6 +96,7 @@ export class TokenSetupComponent {
 
   /** The custom maps need no key: the page loads on a shipped one, the menu then lists them all */
   playMaps(): void {
+    if (!this.mapsOpen) return;
     this.config.setupRequested.set(false);
     this.worlds.playMap(FIRST_MAP_ID);
   }

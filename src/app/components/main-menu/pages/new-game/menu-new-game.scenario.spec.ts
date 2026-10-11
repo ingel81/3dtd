@@ -15,6 +15,7 @@ import { LocationChangeCoordinatorService } from '../../../../services/location/
 import type { PlaceChoice } from '../../../../services/location/place-choice';
 import { MenuNewGameComponent } from './menu-new-game.component';
 import { WorldContext } from '../../../../world/world-context.service';
+import { CUSTOM_MAPS_OPEN } from '../../../../world/custom-maps-open';
 import { WorldChoiceService } from '../../../../world/world-choice.service';
 import { fakeWorldContext } from '../../../../../test/world-context-fake';
 
@@ -45,6 +46,7 @@ describe('New game page', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: MainMenuService, useValue: menu },
+        { provide: CUSTOM_MAPS_OPEN, useValue: true },
         { provide: LocationChangeCoordinatorService, useValue: coordinator },
         { provide: WorldContext, useValue: world },
         { provide: WorldChoiceService, useValue: worlds },

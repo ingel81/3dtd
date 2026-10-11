@@ -13,7 +13,7 @@
       }
       <button type="button" role="menuitem" class="mh-item td-menu-item"
               [attr.aria-current]="menu.page() === entry.id ? 'page' : null"
-              [attr.data-entry]="entry.id" [attr.aria-disabled]="entry.loads && menu.playBlocked() ? true : null"
+              [attr.data-entry]="entry.id" [attr.aria-disabled]="entry.off || (entry.loads && menu.playBlocked()) ? true : null"
               [attr.aria-busy]="showsBar(entry) || (entry.id === 'continue' && busy()) ? true : null"
               (click)="activate(entry)" (mouseenter)="followPointer($event)">
         <td-icon [name]="icons[entry.id]" [size]="18" />

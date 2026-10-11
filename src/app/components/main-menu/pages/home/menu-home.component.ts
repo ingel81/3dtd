@@ -16,6 +16,7 @@ import { EngineInitializationService } from '../../../../services/infrastructure
 import { GameStore } from '../../../../store/game.store';
 import { loadingPlateView } from '../../loading/loading-plate';
 import type { MenuLayer, MenuPage } from '../../menu-page';
+import { CUSTOM_MAPS_OPEN } from '../../../../world/custom-maps-open';
 
 /** An entry of the list */
 export type HomeEntryId =
@@ -30,6 +31,8 @@ export interface HomeEntry {
   below: boolean;
   /** Loads with the place: its bar shows while it does */
   loads: boolean;
+  /** Shown but not yet open (the map editor before its release) */
+  off?: boolean;
 }
 
 /** The icon before each entry */
@@ -90,6 +93,8 @@ export class MenuHomeComponent {
   readonly layer = input.required<MenuLayer>();
   readonly icons = HOME_ENTRY_ICON;
   readonly menu = inject(MainMenuService);
+  /** The map editor opens; until its release the entry shows disabled */
+  private readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly store = inject(GameStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
@@ -150,7 +155,7 @@ export class MenuHomeComponent {
     if (solo && menu.underWay()) list.push(entry('save', 'Save game'));
     if (solo) list.push(entry('load', 'Load game'));
     list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
-    list.push(entry('editor', 'Map editor', null, true));
+    list.push({ ...entry('editor', 'Map editor', this.mapsOpen ? null : 'Coming soon', true), off: !this.mapsOpen });
     if (menu.canQuit) list.push(entry('quit', 'Quit 3DTD', null, true));
     return list;
   });
@@ -178,6 +183,7 @@ export class MenuHomeComponent {
   }
 
   activate(entry: HomeEntry): void {
+    if (entry.off) return;
     this.status.set(null);
     if (entry.loads) this.chosen.set(entry.id);
     const page = PAGE_OF[entry.id];
