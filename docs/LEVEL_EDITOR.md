@@ -35,11 +35,15 @@ Kopie an und öffnet sie.
 |---------|---------|
 | Linke Maustaste | Werkzeug (halten bei Pinseln) |
 | Rechte Maustaste ziehen | Ansicht drehen |
+| Rechte Maustaste halten + W A S D, Q E | Fliegen: vor, zurück, seitwärts; Q E senken und heben; Shift schneller |
 | Mittlere Maustaste ziehen, Shift + rechte | Ansicht verschieben |
 | Mausrad | Zoom zum Punkt unter dem Zeiger |
 | Pfeiltasten | Ansicht verschieben |
 | F | Auswahl ins Bild holen, ohne Auswahl die ganze Karte |
 | T | Draufsicht an und aus |
+| C | Spielansicht: die Startansicht des Spiels über dem HQ (70 Grad, 60 Grad Bildwinkel), noch einmal C zurück |
+| P | Probewelle: die Gegner laufen die Routen ab (auch der Knopf „Trial wave“) |
+| Strg+K | Befehle: Werkzeuge, Pinsel, Biome, Ansichten, Symmetrie, Marker und die Objekte der Karte nach Namen |
 | 1 bis 9, 0, G, D | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Paths, Spawns and HQ, Environment, Map, Copy and stamps, Gameplay, Measure |
 | M | Symmetrie reihum: aus, Mirror X, Mirror Y, Both, Turn 2, Turn 4 (auch oben in der Kopfleiste) |
 | Alt+1 bis 9 (Strg+Ziffer, wo der Browser sie lässt) | Kamera-Ansicht merken; Shift+Ziffer fliegt hin; die Knöpfe 1 bis 9 unter der Minikarte ebenso (Alt-Klick merkt) |
@@ -53,6 +57,10 @@ Kopie an und öffnet sie.
 Die Paletten zeigen gerenderte Bilder: Objekte mit ihrem Modell schräg von oben, Bodenmaterialien als beleuchtete
 Kugel, Biome als kleines Stück Boden mit ihren Pflanzen. Ein kleiner eigener Renderer zeichnet sie im Hintergrund und
 hebt sie in IndexedDB (`3dtd-editor-thumbs`) auf; bis ein Bild fertig ist, steht ein gezeichnetes Symbol.
+
+Die Gliederung rechts (Outline) hat eine Suche und zeigt Marker, Straßen, Objekte nach Kategorie und Asset (ein Klick
+wählt alle eines Assets; das Auge blendet eine Kategorie in der Ansicht aus, die Karte behält sie), Gruppen, Boden und
+Gewässer.
 
 Jeder Pinsel hat Größe (1 bis 200 m), Stärke und Weichheit (Anteil des Radius, der ausblendet). Der Ring auf dem Boden
 zeigt Größe und den harten Kern.
@@ -106,10 +114,15 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
 - Scatter: halten streut die gewählten Assets (mehrere wählbar) mit Dichte, Größenbereich, Mindestabstand, zufälliger
   Drehung und Einsinken am Hang; Shift dünnt aus
 - Erase: entfernt, was der Pinsel trifft
-- Select: Klick wählt, Shift+Klick ergänzt, Ziehen auf freiem Grund wählt per Rahmen, Strg+A alles. Ziehen auf der
-  Auswahl verschiebt, dreht oder skaliert sie (W, E, R; Strg rastet die Drehung in 15 Grad). Entf löscht, Strg+D
-  dupliziert. Im Panel stehen Lage, Drehung, Größe und die Schalter „Blocks sight“ und „Blocks building“ (Default folgt
-  dem Katalog)
+- Select: Klick wählt (die ganze Gruppe, Strg+Klick ein Mitglied), Shift+Klick ergänzt, Ziehen auf freiem Grund
+  wählt per Rahmen, Alt+Ziehen per Lasso, Strg+A alles; Rahmen und Lasso nehmen, was auf dem Bildschirm darin steht.
+  Über der Auswahl steht ein Gizmo: bei Move (W) Pfeile für Ost (rot), Nord (grün) und Höhe (blau) und ein Quadrat
+  für freies Verschieben, bei Turn (E) ein Ring, bei Scale (R) ein Würfel; Ziehen auf dem Grund im Ring verschiebt
+  frei. L schaltet die Pfeile zwischen Kartenachsen und den Achsen des ersten gewählten Objekts. Der Raster-Fang gilt
+  für Pfeile und freies Verschieben, Strg rastet Drehung (15 Grad), Höhe (halbe Meter) und Größe (Zehntel). Entf
+  löscht, Strg+D dupliziert, Ende setzt die Auswahl auf den Boden zurück (Höhe 0), Strg+G gruppiert, Strg+Shift+G
+  löst die Gruppe. Im Panel stehen Lage, Drehung, Größe und die Schalter „Blocks sight“ und „Blocks building“
+  (Default folgt dem Katalog)
 
 **Paths (6).** Draw: jeder Klick setzt einen Knoten und verbindet ihn mit dem letzten; ein Klick nahe einem Knoten
 schließt dort an, nahe einer Straße entsteht eine Kreuzung (Alt setzt frei). Enter, Rechtsklick oder Doppelklick
@@ -195,6 +208,12 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
 - Datei-Menü (drei Punkte): Download map file (`.3dtdmap`), Export top view as picture (PNG, 2048 px an der längeren
   Seite), Frame the whole map, Top view
 - „Test map“ speichert und öffnet das Spiel mit `?world=map:<id>` in einem neuen Tab
+- Versionen: jedes Speichern und höchstens alle drei Minuten ein Autosave landen als gepackte Datei in IndexedDB
+  (`3dtd-editor-versions`), die letzten 20 je Karte; das Map-Panel (9) listet sie, „Restore“ holt eine zurück (ein
+  Undo-Schritt). Ein Absturz kostet so höchstens die Minuten seit dem letzten Autosave
+- Probewelle (P, „Trial wave“): die Gegnermodelle des Spiels laufen jede Route vom Spawn zum HQ mit ihrer echten
+  Geschwindigkeit und Animation, die Typen der ersten Welle der eigenen Wellenliste oder eine Mischung (Zombie, Ratte,
+  Panzer, Spinne, Skelett); die Statuszeile nennt, wie lange der schnellste und der langsamste bis zum HQ brauchen
 
 ## Architektur
 
@@ -236,6 +255,16 @@ neu) und wählt Objekte per Strahl auf ihr Modell. Eine neue Schichtliste oder e
 Szene-Rahmen wie im Spiel: Szene x = minus Karte Ost,
 Szene z = Karte Nord, y oben.
 
+**Leistung.** Ein Pinselschritt bleibt unter 2 ms auf Karten mit 256, 512 und 1024 Samples je Seite
+(`editor-brushes.perf.spec.ts`, Budgets in `npm run test:perf`): Biom-Pinsel merken sich je Strich das Rauschen jedes
+Texels (Grundmischung, Ufer, Risse, Rand) in Kacheln von 64 x 64 (`FieldCache`), statt es bei jedem Tupfer neu zu
+rechnen (Wald 2,3 auf 1,1 ms). Die Ansicht baut Objekt-Batches höchstens alle 150 ms neu, Wasser alle 120 ms, den
+Himmel alle 100 ms; die Minikarte wartet, bis kein Pinsel mehr gehalten wird. Gemessen im Browser (1024 m, zweiter
+Strich mit einem Biom): p50 6,9 ms, p90 7,7 ms je Bild; der erste Strich übersetzt die Shader neuer Modelle.
+Ganze Karten (Vorlagen) malt `biomeBand` in Bändern mit Pausen dazwischen: 1024 m in 0,3 bis 0,4 s.
+Ausgeblendete Kategorien bekommt der Renderer als eigene Liste über einen Proxy des Dokuments, da er sie in sein
+Dokument schreibt.
+
 **Landschafts-Pinsel.** Ein `LandscapeStroke` nimmt Höhen, Splat, Wassermaske (Kachel-Patches), neue Schichten,
 neues Wasser, neue Objekte und geänderte Straßen eines Strichs auf und legt sie als einen `CompoundCommand` in den
 Verlauf. Höhen ziehen zu einem Ziel aus dem Boden vor dem Strich (`RegionRecorder.original`), daher türmt sich
@@ -274,4 +303,7 @@ und gesetztes Stück, Prüfen, Speichern, Neuladen, Löschen; ohne Kartensitzung
 - Objekte haben nur eine Drehung um die Hochachse; „Align to slope“ fehlt im Kartendokument, der Streupinsel lässt
   Objekte am Hang stattdessen einsinken
 - Ein gezeichneter Fluss lässt sich danach nicht als Linie bearbeiten, nur rückgängig machen und neu ziehen
+- Neue Objekte während eines Strichs erscheinen bis zu 150 ms verzögert, Wasser bis zu 120 ms: der Renderer baut sie
+  bisher nur ganz neu (inkrementelles Hinzufügen ist bei der Kartenansicht angefragt)
+- Gruppen, ausgeblendete Kategorien und Versionen kennt nur der Editor; das Spiel ignoriert `group`
 - Gameplay-Regeln liest das Spiel noch nicht
