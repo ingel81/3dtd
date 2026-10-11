@@ -562,12 +562,13 @@ export class LevelKit {
   /** A plain path (Paths tool, Draw): nodes at the points, joined to nodes and roads within `snap` metres */
   path(points: readonly MapPoint[], width: number, kind: MapPathKind = 'road', snap = 6): string {
     const paths = this.doc.paths;
-    const nodeAt = (p: MapPoint): string => {
+    const nodeAt = (q: MapPoint): string => {
+      const p = { x: r2(q.x), y: r2(q.y) };
       const n = nearestNode(paths, p, snap);
       if (n) return n.id;
       const hit = nearestOnEdges(paths, p, snap);
       if (hit) return splitEdge(paths, hit.edge.id, p)!.id;
-      return addNode(paths, { x: r2(p.x), y: r2(p.y) }).id;
+      return addNode(paths, p).id;
     };
     const a = nodeAt(points[0]);
     const b = nodeAt(points[points.length - 1]);
@@ -622,7 +623,12 @@ export class LevelKit {
 
   /** The finished document; throws on the editor check's errors */
   finish(): CustomMapDocument {
-    const errors = this.issues().filter((i) => i.severity === 'error');
+    const issues = this.issues();
+    // LEVEL_LOG=1 prints what the editor's panels would show: lanes, objects, warnings, layers left out
+    if (process.env['LEVEL_LOG']) {
+      console.log(this.spec.id, { lanes: this.lanes(), objects: this.doc.objects.length, leftOut: [...this.leftOut], warnings: issues.map((i) => i.message) });
+    }
+    const errors = issues.filter((i) => i.severity === 'error');
     if (errors.length) throw new Error(`${this.spec.id}: ${errors.map((e) => e.message).join('; ')}`);
     return this.doc;
   }

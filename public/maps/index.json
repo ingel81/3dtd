@@ -25,6 +25,18 @@
       "depth": 512,
       "updatedAt": "2026-10-11T00:00:00.000Z",
       "contentHash": "411f12c56a561a26a9d5232b84f37dc126817d8eaa256e05904e1e9eb5c806bf"
+    },
+    {
+      "id": "witch-marsh",
+      "name": "Witch Marsh",
+      "file": "witch-marsh.3dtdmap",
+      "preview": "witch-marsh.png",
+      "author": "3DTD",
+      "description": "Boardwalks over a swamp at night, islands with stilt huts and the witch's glowing hut by the HQ. Two spawns come out of the fog.",
+      "width": 512,
+      "depth": 512,
+      "updatedAt": "2026-10-11T00:00:00.000Z",
+      "contentHash": "db526242e15d5f452c021d61c0bb56d79f8e872a91bf24b1483bf261000119a8"
     }
   ]
 }

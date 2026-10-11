@@ -4,5 +4,9 @@
  */
 import type { CustomMapDocument } from '../../../src/app/world/custom-map/map-document';
 import { buildMountainPass } from './mountain-pass';
+import { buildWitchMarsh } from './witch-marsh';
 
-export const SHOWCASE_LEVELS: { id: string; build: () => CustomMapDocument }[] = [{ id: 'mountain-pass', build: buildMountainPass }];
+export const SHOWCASE_LEVELS: { id: string; build: () => CustomMapDocument }[] = [
+  { id: 'mountain-pass', build: buildMountainPass },
+  { id: 'witch-marsh', build: buildWitchMarsh },
+];

@@ -16,7 +16,7 @@ kommen aus dem Seed des Levels und einem Zähler, ein Skript ergibt also immer d
 Bodenschichten festlegen (höchstens acht; Pinsel nehmen dann ihre Kandidaten aus dieser Liste), Gelände, Straßen,
 Flüsse (sie machen Kreuzungen zu Brücken), Spawns und HQ, Biome und Farbe, einzelne Objekte.
 
-Packen: `npx vitest run tools/maps/shipped-maps.spec.ts -t <id>` (ein Level allein; die Liste in `index.json` behält
+Packen: `npx vitest run tools/maps/shipped-maps.spec.ts -t <id>` (mit `LEVEL_LOG=1` Spuren, Objekte, Warnungen) (ein Level allein; die Liste in `index.json` behält
 die anderen). Ansehen: `/map-preview?map=<id>&cam=x,y,h,tx,ty,th&clean` (Kamera und Ziel in Kartenmetern, Höhen über
 dem Boden). Bilder unter `docs/images/levels/`.
 
@@ -48,6 +48,12 @@ stürzt von einer Klippe in einen Bergsee, der Fluss läuft talwärts unter eine
 und Felsterrassen über der Straße.
 
 ### 2 Sumpf bei Nacht (`witch-marsh`)
+**Gebaut** (`tools/maps/levels/witch-marsh.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 410,9 von 500,
+19 Tower), Spielansicht 558 fps, Laden 5,1 s am Dev-Server. Spuren 459 und 457 m. Bilder:
+`docs/images/levels/witch-marsh.jpg`, `witch-marsh-game.jpg`. Die Stege sind Wege der Art Bridge (das Holzdeck mit
+Geländer), gelegt, wo die Linie übers Wasser läuft; Fackeln statt Laternen an den Stegen. Wasser verbietet das Bauen
+im Spiel noch nicht (an den Welt-Worker gemeldet); der Probe-Bot baut auf den Inseln.
+
 Biom Sumpf, Look `swamp`, Nacht mit Bodennebel und Glühwürmchen. Ein Bohlenweg über Sumpfwasser, Inseln mit
 Pfahlhütten, die Hexenhütte mit grün leuchtenden Fenstern als HQ-Kulisse, Laternen an den Stegen als einzige
 Lichtinseln. Spawns: 2 aus dem Nebel im Norden und Westen; die Stege verzweigen und treffen sich auf einer großen
