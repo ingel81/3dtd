@@ -79,10 +79,13 @@ export function buildMountainPass(): CustomMapDocument {
   const lakeAt = { x: 158, y: -30 };
   const lakeLevel = Math.round(k.h(lakeAt.x, lakeAt.y - 20) * 10) / 10;
   k.level(lakeAt, { radius: 42, falloff: 0.6 }, lakeLevel + 0.6);
-  const lake = k.water(lakeLevel, 'water', '#2c5a66');
+  // A body of its own: the main water's level would lift every bridge deck on the map to it
+  const lake = k.body(lakeLevel, 'water', '#2c5a66');
   k.lake(lakeAt, { radius: 30, falloff: 0.8 }, 3.5, lake);
   k.river([{ x: 176, y: 40 }, { x: 166, y: 18 }, { x: 160, y: 2 }, { x: 157, y: -14 }], { width: 7, depth: 1.5, bank: 6 });
   k.river([{ x: 150, y: -60 }, { x: 142, y: -110 }, { x: 125, y: -160 }, { x: 115, y: -205 }, { x: 108, y: -262 }], { width: 9, depth: 2, bank: 8 });
+  // The road crosses the stream on a stone bridge
+  k.bridgeStyle('stone');
 
 
   // ---- Land: meadows in the valley, pine woods on the flanks, scree and bare limestone above

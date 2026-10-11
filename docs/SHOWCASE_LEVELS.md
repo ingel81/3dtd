@@ -40,8 +40,9 @@ dem Boden). Bilder unter `docs/images/levels/`.
 `docs/images/levels/mountain-pass.jpg`, `mountain-pass-game.jpg`. Feinschliff: Erosion mit Rinnen und Felsbänder
 (Cliff-Edge-Bögen) an den Gipfeln, Geröllfelder, dichterer Wald in den Senken, Bergwiese mit Blumen, Rauch aus den
 Kaminen. Abweichungen: Schnee liegt nur auf den flacheren Gipfelpartien (an den Wänden deckt das Klippenmaterial ihn
-zu; eine Schneegrenze ist beim Renderer gewünscht), die Brücke ist das Holzdeck der Wege, die Seilbahn hat keine Seile
-(Objekte lassen sich nicht neigen).
+zu; eine Schneegrenze ist beim Renderer gewünscht), die Seilbahn hat noch keine Seile (ein Seil-Stück ist bei
+assets gewünscht). Steinbrücke über den Bach (`style: 'stone'`, Bild `mountain-pass-bridge.jpg`); der Bergsee ist ein
+eigenes Gewässer, weil der Spiegel des Hauptwassers jedes Brückendeck der Karte auf seine Höhe hebt.
 
 Biom Berge, Look `mountain`, später Nachmittag. Ein Pass zwischen zwei Gipfeln; die Straße windet sich in Serpentinen
 vom Tal zum Pass, wo das HQ in einem Bergdorf steht (Steinhäuser mit Holzbalkon, Kapelle, Stützmauern). Ein Wasserfall
@@ -116,8 +117,8 @@ einen zugefrorenen See (Eisfläche), Eisfischerhütten, Holzstapel, Schlitten. D
 **Gebaut** (`tools/maps/levels/ember-crater.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 463,3 von 500,
 19 Tower), Spielansicht 698 fps, Laden 4,7 s am Dev-Server. Spuren 772, 402 und 609 m. Bilder:
 `docs/images/levels/ember-crater.jpg`, `ember-crater-game.jpg`. Der Krater ist ein Strich des Crater-Pinsels (200 m),
-der Lavasee mit „Dig lake“ in einen Lava-Körper gegraben; die Lavabrücke ist das Modell über einem Damm aus zwei
-Rampen bis zu seinem Deck, der Weg ist eine Straße darauf. Lavaströme nur außen am Hang (sie würden die Spirale
+der Lavasee mit „Dig lake“ in einen Lava-Körper gegraben; die Lavabrücke ist eine Wegkante der Art Bridge mit
+`style: 'lava'` vom Ufer zur Insel. Lavaströme nur außen am Hang (sie würden die Spirale
 schneiden).
 
 Biom Hölle/Vulkan, Look `hell`. Ein großer Krater mit Lavasee; ein Spiralweg führt vom Kraterrand hinab zum HQ auf

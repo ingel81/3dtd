@@ -66,18 +66,14 @@ export function buildEmberCrater(): CustomMapDocument {
   k.road([east, { x: (east.x + ej.x) / 2, y: (east.y + ej.y) / 2 - 10 }, ej], road);
   // The bridge: a basalt arch over the lava, the ground under it built up to its deck
   const toIsland = { x: end.x * 0.42, y: end.y * 0.42 };
-  const span = Math.hypot(end.x - toIsland.x, end.y - toIsland.y);
-  const mid = { x: (end.x + toIsland.x) / 2, y: (end.y + toIsland.y) / 2 };
-  const scale = Math.min(1.4, Math.max(0.8, span / 14));
-  const deckEnd = Math.max(k.h(end.x, end.y), lavaLevel + 0.6);
-  k.ramp({ ...end, h: deckEnd }, { ...mid, h: lavaLevel + 0.5 + 2.6 * scale }, 6, 0.3);
-  k.ramp({ ...mid, h: lavaLevel + 0.5 + 2.6 * scale }, { ...toIsland, h: lavaLevel + 3.5 }, 6, 0.3);
-  k.road([end, mid, toIsland, island], { ...road, adapt: false, snap: 3 });
+  // The bridge: a path edge of kind bridge in basalt, the renderer lays its deck from the shore to the island
+  k.path([end, toIsland], 8, 'bridge', 3, 'lava');
+  k.path([toIsland, island], 8, 'road', 3);
   k.spawn('South Slope', south.x, south.y);
   k.spawn('West Slope', west.x, west.y);
   k.spawn('East Slope', east.x, east.y);
   k.hq(island.x, island.y);
-  k.place('lava-bridge', mid.x, mid.y, { rotation: facing(end, toIsland) + Math.PI / 2, scale, z: lavaLevel + 0.5 - k.h(mid.x, mid.y) });
+
 
   // ---- Ground: hell outside, cracked crater walls, lava flows down the outer slopes
   k.biome('hell', [{ x: -200, y: -200 }, { x: -220, y: 180 }, { x: 0, y: 220 }, { x: 210, y: 190 }, { x: 210, y: -190 }], { radius: 70, strength: 0.6 });
@@ -96,7 +92,7 @@ export function buildEmberCrater(): CustomMapDocument {
   for (let i = 0; i < 9; i++) {
     const a = (i / 9) * Math.PI * 2 + 0.3;
     const p = { x: Math.cos(a) * 24, y: Math.sin(a) * 24 };
-    if (nearestOnPolyline([end, mid, toIsland, island], p)!.dist < 8) continue;
+    if (nearestOnPolyline([end, toIsland, island], p)!.dist < 8) continue;
     k.place(i % 2 ? 'obsidian-spikes' : 'obsidian-slabs', p.x, p.y, { rotation: a, scale: 1.2 });
   }
   k.place('hell-gate', -12, 12, { rotation: facing({ x: -12, y: 12 }, end) });

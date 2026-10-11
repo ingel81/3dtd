@@ -42,6 +42,7 @@ import { createMapDocument } from '../../../src/app/world/custom-map/map-create'
 import type {
   CustomMapDocument,
   MapEnvironment,
+  MapBridgeStyle,
   MapGameplay,
   MapObject,
   MapPathKind,
@@ -635,7 +636,7 @@ export class LevelKit {
   // ---- Paths tool and markers ----------------------------------------------------------------------------------
 
   /** A plain path (Paths tool, Draw): nodes at the points, joined to nodes and roads within `snap` metres */
-  path(points: readonly MapPoint[], width: number, kind: MapPathKind = 'road', snap = 6): string | null {
+  path(points: readonly MapPoint[], width: number, kind: MapPathKind = 'road', snap = 6, style?: MapBridgeStyle): string | null {
     const paths = this.doc.paths;
     const nodeAt = (q: MapPoint): string => {
       const p = { x: r2(q.x), y: r2(q.y) };
@@ -650,6 +651,7 @@ export class LevelKit {
     // Both ends on one node: a stub too short to keep, as the tool drops it
     const edge = connect(paths, a, b, width, kind);
     if (!edge) return null;
+    if (style) edge.style = style;
     if (points.length > 2) edge.via = points.slice(1, -1).map((p) => ({ x: r2(p.x), y: r2(p.y) }));
     this.freeCheck = null;
     return edge.id;
@@ -679,6 +681,16 @@ export class LevelKit {
         this.path(simplify(seg, 0.8), bridge ? (o.bridgeWidth ?? 4) : (o.width ?? 5), bridge ? 'bridge' : (o.dry ?? 'path'), 3);
       }
       start = end;
+    }
+  }
+
+  /** The bridge style (wood, stone, lava) of every bridge edge, or of those near a point */
+  bridgeStyle(style: MapBridgeStyle, near?: MapPoint, within = 40): void {
+    const paths = this.doc.paths;
+    for (const e of paths.edges) {
+      if (e.kind !== 'bridge') continue;
+      if (near && Math.min(...edgePolyline(paths, e).map((p) => Math.hypot(p.x - near.x, p.y - near.y))) > within) continue;
+      e.style = style;
     }
   }
 
