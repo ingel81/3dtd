@@ -26,11 +26,15 @@ Das ist eine halbe Drehung um die Hochachse, keine Spiegelung. `map-coords.ts`: 
 ## API
 
 ```ts
-const view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy() });
+const view = new CustomMapView(doc, MapAssetLibrary.shared(), {
+  anisotropy: renderer.capabilities.getMaxAnisotropy(),
+  renderer,                                // backt Impostoren für ferne Bäume
+});
 view.attach(scene);                        // group + losBlockers als direkte Kinder der Szene
 view.environment.apply(scene, renderer);   // Himmel, Umgebungslicht, Sonne mit Schatten, Nebel
 renderer.shadowMap.enabled = true;         // für die Schatten der Sonne
 await view.ready;                          // Materialien und Modelle geladen (vorher: grüner Platzhalter)
+await view.warmUp(renderer, scene, camera); // alle Shader vorab kompilieren (compileAsync)
 
 // je Frame
 view.update(dt, camera, focus?);           // Gelände-LOD, Wind, Wasser, Objekt-Culling, Schattenbox um focus
@@ -63,7 +67,11 @@ Nebel der Szene wieder her.
 
 - **Kacheln** (`terrain-chunks.ts`): 64 × 64 Zellen je Kachel, LOD-Stufen mit Schritt 1, 2, 4, 8 Samples nach
   Kameraabstand (Stufe n ab 2^(n-1) × 1,6 Kachelkanten, mit Hysterese), Schürzen an den Kanten gegen Risse. Die
-  Zellen sind entlang der Diagonale (i, j) → (i+1, j+1) geteilt, wie `HeightField.heightAt` rechnet
+  Zellen sind entlang der Diagonale (i, j) → (i+1, j+1) geteilt, wie `HeightField.heightAt` rechnet.
+  **Geomorphing**: jeder Vertex trägt die Höhe der nächstgröberen Stufe und gleitet im letzten Drittel vor dem
+  Wechsel dorthin (nach seinem eigenen Kameraabstand), Stufenwechsel springen nicht
+- **Höhentextur** (`height-texture.ts`): das Raster als Float-Textur; Wasser und Gras lesen die Geländehöhe darunter
+  mit denselben zwei Dreiecken je Zelle wie das Mesh
 - **Normalen** kommen aus einer Half-Float-Textur über das Raster (`GridNormalTexture`), bilinear gelesen: Klippenkanten
   folgen nicht der Dreiecksdiagonale (vorher Sägezähne)
 - **Material** (`terrain-material.ts`): `MeshStandardMaterial` mit `onBeforeCompile`, damit Licht, Schatten, Nebel,
@@ -85,6 +93,8 @@ Nebel der Szene wieder her.
   mitwandert (jeder Halm hat einen festen Weltort), auf dem Höhenraster, so dicht wie die Grasschichten der Splat-Map
   (nicht auf Wegen, steilem Boden, außerhalb der Karte), mit Wind, zum Kachelrand hin kleiner. Ab 140 m Kameraabstand
   zum Fokus aus; Ansichtsoption `grass: false`
+- **Schnee und Nässe** (alle Kartenmaterialien, `height-fog.ts`): Schnee liegt auf allem, was nach oben zeigt
+  (`environment.snowCover`, sonst aus Biom arctic oder Schneewetter), Regen macht Flächen dunkler und glänzender
 - **Nasse Ufer**: die Alpha-Komponente der Normalentextur markiert Raster­punkte nahe Wasser (Maske um zwei Samples
   gewachsen); dort wird Boden bis etwa 1,3 m über dem Spiegel dunkler und glänzender
 
@@ -100,38 +110,49 @@ leichtem Bogen und mindestens 1 m über dem Wasser.
 
 ### Wasser (`water/`)
 
-Eine Fläche auf `water.level` über den nassen Zellen der Maske. Jeder Vertex trägt die Tiefe (Spiegel minus Gelände)
-an seinem Rasterpunkt, linear interpoliert wie das Gelände: der Shader kennt die Tiefe je Pixel ohne Tiefentextur.
-Klar und hell am Ufer, Schaum im Flachen, Kartenfarbe in der Tiefe; Normalen aus einer kachelbaren Wellentextur in
-zwei Richtungen; Spiegelung des Himmels (Fresnel) und Sonnenglanz. `losTransparent`.
+Ein Material für alle Gewässer (`water-material.ts`). Die Tiefe je Pixel ist Spiegelhöhe minus Geländehöhe aus der
+Höhentextur: das Ufer liegt dort, wo das Gelände die Fläche schneidet, glatt, unabhängig vom Raster. Flächen-Gewässer
+werden über ihrer Maske plus zwei Zellen gezeichnet und mit der bilinearen Maske ausgeblendet (runde Kanten), mit
+weichem Saum. `losTransparent`.
 
-Weitere Gewässer: `terrain.waterBodies` (je Körper eigener Spiegel und eigene Maske, in der Datei als
-`terrain/water-<n>-mask.u8`), z. B. ein See am Hang oder ein Lavabecken. `kind` je Körper:
+- `terrain.water`: der Hauptkörper; nur er läuft über den Kartenrand weiter und macht Ufer nass
+- `terrain.waterBodies`: weitere Körper mit eigenem Spiegel und eigener Maske (Datei: `terrain/water-<n>-mask.u8`)
+- `terrain.rivers`: Flüsse und Lavaströme als Linie, je Punkt Breite und Spiegelhöhe, fließen vom ersten zum letzten
+  Punkt; ein Band entlang der Linie (Catmull-Rom, alle 2 m), Wellen bzw. Kruste wandern stromab, schneller wo es fällt
 
-- `water` (Standard): wie oben. Nur der Hauptkörper `terrain.water` läuft über den Kartenrand weiter und macht Ufer
-  nass
-- `lava`: deckend und glühend, Krustenplatten treiben über pulsierenden Rissen in der Körperfarbe, am Ufer erkaltet;
-  mit Bloom leuchtet es
-- `ice`: deckend und still, graublau mit feinem Reif (zum Ufer dichter), Rissen und schwacher Spiegelung
+`kind` je Körper:
+
+- `water` (Standard): klar am Ufer, Kartenfarbe in der Tiefe, Wellen, Spiegelung des Himmels mit Fresnel, Sonnenglanz,
+  Schaum im Flachen
+- `sea`: stärkere Wellen und Brandungsbänder zum Ufer
+- `swamp`: trüb, schwache Spiegelung, treibende Algen
+- `ice`: deckend und still; hell über flachem, dunkles Petrol über tiefem Grund, mattierte Spiegelung, Risse, Schnee
+  im Flachen
+- `lava`: deckend und glühend; Krustenplatten über Adern, Farbverlauf Kruste, Dunkelrot, Orange, Gelb nur in den
+  heißesten Adern (die Bloom-Schwelle fängt nur diese), am Ufer erkaltet. Lava-Körper und -Ströme bekommen
+  orange flackernde Punktlichter (je 40-m-Fleck bzw. alle 30 m) aus dem Lichter-Pool
 
 Lava als Bodenschicht: Katalog-Materialien mit `emissive` (0..1) glühen in den tiefen Stellen ihrer Textur (Risse)
 und pulsieren, `flow` (m/s) lässt die Schicht entlang Karten-+x fließen.
 
 ### Objekte (`objects/`)
 
-Je Asset und Modellteil ein `InstancedMesh`. Laubkarten behalten ihre gesetzten Normalen auch auf der Rückseite
-(three dreht sie bei doppelseitigen Materialien um, das machte Kartenrücken schwarz); Gras- und Blumenkarten zeigen
-mit der Normalen nach oben und blenden zur Sichtweite hin aus. Sichtblocker (Katalog `blocksLos`, je Objekt überschreibbar) liegen in
-`losBlockers` und behalten immer alle Instanzen, denn der LOS-Würfel rendert von den Türmen aus, nicht von der Kamera.
-Alles andere (Gras, Blumen, kleine Requisiten) wird je Instanz auf der CPU nach Sichtweite (`drawDistance`) und
-Frustum ausgesiebt. Bäume und Pflanzen wiegen sich im Wind (Vertex-Shader, nach Höhe im Modell und Phase aus der
-Position); Laubkarten werden alpha-getestet, doppelseitig, mit Alpha-to-Coverage, und blenden aus, wenn man sie
-von der Kante sieht. Vegetation bekommt je Instanz eine leicht andere Helligkeit und einen Farbton. Gebäude stehen auf
-dem tiefsten von acht Punkten ihres Fußabdrucks, ihre Fundamente reichen bis 1,5 m in den Boden.
+Je Asset, **Zelle** (192 m) und Detailstufe ein `InstancedMesh` je Modellteil, mit engen Grenzen: das Frustum-Culling
+von three wirft ganze Zellen weg, für Kamera, Sonnenschatten und LOS-Würfel gleichermaßen; nichts wird je Frame
+umgepackt. Je Frame zeigt eine Zelle eine Stufe nach ihrem Abstand (Modell, `lod`-Modelle des Katalogs, **Impostor**
+für ferne Bäume ab 380 m) und verschwindet hinter der Sichtweite (`drawDistance`); nur Zellen nahe dem Fokus werfen
+Schatten. Sichtblocker (Katalog `blocksLos`, je Objekt überschreibbar) liegen in `losBlockers`.
 
-Detailstufen: Katalogeinträge mit `lod` (Datei und Kameraabstand, ab dem sie gilt) bekommen je Stufe eigene
-Instanz-Meshes; bei jeder Kamerabewegung wandert jede Instanz in die Stufe ihres Abstands (auch Sichtblocker, der
-LOS-Würfel sieht dann die Stufe der Kamera). Ohne `lod` bleiben die Puffer statisch.
+Impostor (`impostor.ts`): das Baummodell einmal von der Seite und von oben in eine kleine Textur gerendert, als zwei
+gekreuzte und eine waagerechte Karte gezeigt (4 Dreiecke). Braucht den Renderer (Ansichtsoption `renderer`).
+
+Materialien (`objectMaterial`): Bäume und Pflanzen wiegen sich im Wind; Laubkarten (`foliage-*`) behalten ihre
+Normalen auch auf der Rückseite (three dreht sie bei doppelseitigen Materialien um, das machte Kartenrücken schwarz),
+werden alpha-getestet mit Alpha-to-Coverage und blenden aus, wenn man sie von der Kante sieht oder sie die Sichtweite
+erreichen; Wasserfall-Karten (`foliage-waterfall*`) fließen, leuchtende Laubkarten (Flammen) flackern. Windstärke und
+Ausblendung sind Uniforms, alle Assets teilen sich wenige Shader-Programme. Vegetation bekommt je Instanz eine
+leicht andere Helligkeit und einen Farbton. Gebäude stehen auf dem tiefsten von acht Punkten ihres Fußabdrucks, ihre
+Fundamente reichen bis 1,5 m in den Boden.
 
 ### Effekte und Lichter (`effects/`)
 
@@ -167,6 +188,14 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Schnee füllen einen Kasten um den Kamerafokus, der beim Bewegen umklappt (zustandslos), Teilchen wachsen mit dem
   Abstand, damit man sie aus der Spielkamera sieht. Regen und Schnee schließen die Wolken, dämpfen die Sonne und
   verdichten den Dunst; Nebelwetter verdichtet bis zum Sechsfachen
+- **Biome** (`biomes.ts`, `environment.biome`): `temperate`, `hell`, `moon`, `mars`, `arctic`, `apocalypse`,
+  `swamp`, `desert`, `mountain`, `city` setzen auf die Himmelsvoreinstellung Himmels- und Lichtfarben, Wolken,
+  Dunstdichte und wie eng er am Boden liegt, Grading sowie Sterne, Planet (Mond: die Erde), Polarlicht und
+  Umgebungspartikel um den Fokus (Glut, Asche, Staub, Schneetreiben)
+- **Nebel für Türme und Gegner**: die Kartenmaterialien nutzen den Höhennebel, alles andere den `FogExp2` der
+  Szene; dessen Dichte setzt `matchFog` je Frame so, dass beide am Kamerafokus gleich dicht sind
+- **Grading** wird immer im sRGB-Raum gerechnet, auch durch die Post-Processing-Kette des Spiels (lineares
+  Float-Ziel), sonst würde der Kontrast dunkle Werte schwarz drücken
 - Halbkugellicht, `tint` färbt Licht und Himmel. Abgestimmt auf den Renderer des Spiels (kein Tone-Mapping, sRGB);
   `/map-preview?post=bloom` rendert durch die Post-Processing-Kette des Spiels
 
@@ -209,16 +238,36 @@ headless, gltf-transform).
 
 ## Leistung
 
-Demo-Tal (257 × 257 Raster, 2 m, rund 13 000 Objekte, Schatten, Himmelskuppel, Höhennebel), 1920 × 1080, RTX 5080, ohne VSync gemessen
-(`tmp/perf.mjs` im Worktree, Chromium mit `--disable-gpu-vsync --disable-frame-rate-limit`): 500 bis 530 fps, 55 bis
-125 Draw Calls, 1,7 bis 1,8 Mio. Dreiecke je Frame (mit Schattenpass). Einmalig: Demo erzeugen ~0,5 s, Laden bis
-`ready` ~1 bis 2,5 s (Texturen dekodieren und packen).
+**GPU**, Chromium ohne VSync (`tmp/perf.mjs` im Worktree, `--disable-gpu-vsync --disable-frame-rate-limit`), RTX 5080:
+
+| Karte | Ansicht | fps | Draw Calls | Dreiecke |
+|-------|---------|-----|------------|----------|
+| Demo-Tal (257², rund 13 000 Objekte), 1080p | Übersicht / Spielkamera / Wald | 545 / 490 / 465 | 418 / 367 / 168 | 1,9 / 2,4 / 2,3 Mio. |
+| 1025² (2 km), 50 000 Objekte, 1080p | Übersicht / Spielkamera | 352 / 432 | 886 / 391 | 5,8 / 3,9 Mio. |
+
+**Im Spiel** (`node e2e/perf/sim-load.ts --world demo-valley`, Dev-Server, 1600 × 900, ohne VSync, Spieltempo 1):
+mit 2000 Gegnern 359 fps mit Karte, 941 ohne; mit 5000 Gegnern 268 fps mit, 393 ohne. Die Karte kostet also
+1,2 bis 1,7 ms je Frame, fast alles GPU: `update()` braucht 0,02 ms Hauptthread.
+
+**CPU-Budgets** (`custom-map-view.perf.spec.ts`, `npm run test:perf` hält sie wörtlich, sonst zehnfach locker):
+
+| Raster, Objekte | Aufbau | `update()` je Frame | 32-m-Pinsel Höhe | 32-m-Pinsel Splat |
+|-----------------|--------|---------------------|------------------|-------------------|
+| 257², 5 000 | ~90 ms | 0,1 ms | 1,3 ms | < 0,1 ms |
+| 513², 20 000 | ~120 ms | 0,2 ms | 1,7 ms | < 0,1 ms |
+| 1025², 50 000 | ~430 ms | 0,1 ms | 1,7 ms | < 0,1 ms |
+
+Ohne GPU gemessen (jsdom, Texturen und Modelle als Platzhalter); dazu kommen im Browser das Dekodieren der Texturen
+(Laden bis `ready` 1 bis 3,5 s) und `warmUp()` (compileAsync aller Programme, 11 für das Demo-Tal). Pinsel laden nur
+die Zeilen ihres Rechtecks hoch und setzen nur Objekte in ihrer Nähe neu.
 
 ## Grenzen
 
 - Höchstens 8 Splat-Schichten plus Klippe und zwei Wegmaterialien (12 Array-Ebenen), alle Materialien in einer Größe
 - Laubkarten werfen Schatten ohne Windbewegung (Schatten und Krone gehen bei Wind minimal auseinander)
 - Gelände-LOD wechselt hart (Schürzen verdecken Risse, kein Morphing)
-- Der LOS-Würfel sieht Gelände und Objekte in der LOD-Stufe der Kamera
+- Der LOS-Würfel sieht Gelände und Objekte in der LOD-Stufe der Kamera (Impostoren als Karten)
+- Die Splat-Map ist eine Textur über die ganze Karte (keine virtuellen Kacheln); auf 2-km-Karten mit 1024er Splat
+  sind das 2 m je Texel
 - Partikel und Wetter werfen keine Schatten und kennen kein Gelände (Regen fällt durch Dächer)
 - Lichter: höchstens 6 echte Punktlichter gleichzeitig, ohne Schatten
