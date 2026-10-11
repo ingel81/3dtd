@@ -98,7 +98,7 @@ export function createMapDocument(options: NewMapOptions): CustomMapDocument {
       splat: { resolution, maps: [splat0, new Uint8Array(resolution * resolution * 4)] },
       water: null,
       cliffAngle: DEFAULT_CLIFF_ANGLE,
-      cliffMaterial: 'rock',
+      cliffMaterial: 'cliff',
     },
     objects: [],
     paths: starter

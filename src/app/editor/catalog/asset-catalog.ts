@@ -40,7 +40,7 @@ export interface MapAssetCatalog {
   objects: ObjectAssetEntry[];
 }
 
-export const OBJECT_CATEGORIES = ['Trees', 'Plants', 'Rocks', 'Buildings', 'Props'] as const;
+export const OBJECT_CATEGORIES = ['Trees', 'Plants', 'Rocks', 'Buildings', 'Walls', 'Props'] as const;
 
 export const BUILTIN_CATALOG: MapAssetCatalog = {
   materials: [
@@ -52,6 +52,7 @@ export const BUILTIN_CATALOG: MapAssetCatalog = {
     { id: 'sand', name: 'Sand', color: '#c2b080' },
     { id: 'gravel', name: 'Gravel', color: '#8a867c' },
     { id: 'rock', name: 'Rock', color: '#6d6a66' },
+    { id: 'cliff', name: 'Cliff', color: '#5f5c58' },
     { id: 'cobble', name: 'Cobblestone', color: '#77736b' },
     { id: 'road', name: 'Road dirt', color: '#8f7656' },
     { id: 'snow', name: 'Snow', color: '#e6ebef' },
@@ -70,51 +71,81 @@ export const BUILTIN_CATALOG: MapAssetCatalog = {
     { id: 'house', name: 'House', category: 'Buildings', color: '#9c8466', shape: 'house', blocksLos: true, blocksBuild: true, radius: 6, height: 8 },
     { id: 'barn', name: 'Barn', category: 'Buildings', color: '#7c4b3a', shape: 'house', blocksLos: true, blocksBuild: true, radius: 9, height: 10 },
     { id: 'tower-ruin', name: 'Ruined tower', category: 'Buildings', color: '#8a8478', shape: 'tower', blocksLos: true, blocksBuild: true, radius: 4, height: 14 },
-    { id: 'wall', name: 'Stone wall', category: 'Buildings', color: '#87827a', shape: 'wall', blocksLos: true, blocksBuild: true, radius: 4, height: 2.5 },
-    { id: 'fence', name: 'Fence', category: 'Props', color: '#7a6247', shape: 'wall', blocksLos: false, blocksBuild: true, radius: 3, height: 1.2 },
+    { id: 'wall-stone', name: 'Stone wall', category: 'Walls', color: '#87827a', shape: 'wall', blocksLos: true, blocksBuild: true, radius: 4, height: 2.5 },
+    { id: 'fence-wood', name: 'Fence', category: 'Walls', color: '#7a6247', shape: 'wall', blocksLos: false, blocksBuild: true, radius: 3, height: 1.2 },
     { id: 'crate', name: 'Crates', category: 'Props', color: '#8c6d45', shape: 'crate', blocksLos: false, blocksBuild: true, radius: 1.2, height: 1.2 },
     { id: 'barrel', name: 'Barrels', category: 'Props', color: '#6e5235', shape: 'crate', blocksLos: false, blocksBuild: true, radius: 0.8, height: 1.1 },
   ],
 };
 
-/** Joins a catalogue over the built-in one: entries of the same id are replaced */
-export function mergeCatalogs(base: MapAssetCatalog, over: Partial<MapAssetCatalog>): MapAssetCatalog {
-  const byId = <T extends { id: string }>(a: T[], b: T[] | undefined): T[] => {
-    const map = new Map(a.map((e) => [e.id, e]));
-    for (const e of b ?? []) map.set(e.id, { ...map.get(e.id), ...e });
-    return [...map.values()];
-  };
-  return { materials: byId(base.materials, over.materials), objects: byId(base.objects, over.objects) };
-}
-
-/** Reads `maps/assets/catalog.json` over the built-in list; the built-in list alone when it is missing */
+/**
+ * Reads `maps/assets/catalog.json`, the renderer's catalogue; the built-in
+ * list only when there is none (the maps then show stand-ins). The two are
+ * not mixed: an entry the renderer has no files for would draw nothing.
+ */
 export async function loadAssetCatalog(baseUrl: string = document.baseURI): Promise<MapAssetCatalog> {
   try {
     const response = await fetch(new URL('maps/assets/catalog.json', baseUrl).toString());
     if (!response.ok) return BUILTIN_CATALOG;
-    const json = (await response.json()) as Partial<MapAssetCatalog>;
-    return mergeCatalogs(BUILTIN_CATALOG, normalize(json, baseUrl));
+    const catalog = normalizeCatalog((await response.json()) as RawCatalog, new URL('maps/assets/', baseUrl).toString());
+    return catalog.materials.length && catalog.objects.length ? catalog : BUILTIN_CATALOG;
   } catch {
     return BUILTIN_CATALOG;
   }
 }
 
-/** Fills what a catalogue file may leave out and resolves thumbnail paths */
-function normalize(json: Partial<MapAssetCatalog>, baseUrl: string): Partial<MapAssetCatalog> {
-  const url = (p?: string) => (p ? new URL(p, new URL('maps/assets/', baseUrl)).toString() : undefined);
+/** A catalogue file as the renderer writes it (`render/asset-catalog.ts`), with the editor's own fields optional */
+interface RawCatalog {
+  materials?: (Partial<GroundMaterialEntry> & { id: string; average?: string; files?: { color?: string } })[];
+  objects?: (Partial<ObjectAssetEntry> & { id: string; footprint?: number; file?: string })[];
+}
+
+const CATEGORY_NAMES: Record<string, string> = {
+  tree: 'Trees',
+  plant: 'Plants',
+  rock: 'Rocks',
+  building: 'Buildings',
+  wall: 'Walls',
+  prop: 'Props',
+};
+
+const CATEGORY_LOOK: Record<string, { color: string; shape: ObjectShape }> = {
+  Trees: { color: '#3f6b2a', shape: 'tree' },
+  Plants: { color: '#5f8f3c', shape: 'bush' },
+  Rocks: { color: '#7d7a74', shape: 'rock' },
+  Buildings: { color: '#9c8466', shape: 'house' },
+  Walls: { color: '#87827a', shape: 'wall' },
+  Props: { color: '#8c6d45', shape: 'crate' },
+};
+
+/** The editor's entries from a catalogue file: colours, shapes and pictures where the file has none */
+export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetCatalog {
+  const url = (p?: string) => (p ? new URL(p, assetsUrl).toString() : undefined);
   return {
-    materials: json.materials?.map((m) => ({ ...m, color: m.color ?? '#777777', thumbnail: url(m.thumbnail) })),
-    objects: json.objects?.map((o) => ({
-      ...o,
-      category: o.category ?? 'Props',
-      color: o.color ?? '#888888',
-      shape: o.shape ?? 'generic',
-      radius: o.radius ?? 1,
-      height: o.height ?? 2,
-      blocksLos: o.blocksLos ?? false,
-      blocksBuild: o.blocksBuild ?? true,
-      thumbnail: url(o.thumbnail),
+    materials: (json.materials ?? []).map((m) => ({
+      id: m.id,
+      name: m.name ?? m.id,
+      color: m.color ?? m.average ?? '#777777',
+      thumbnail: url(m.thumbnail ?? m.files?.color),
+      scale: m.scale,
     })),
+    objects: (json.objects ?? []).map((o) => {
+      const category = CATEGORY_NAMES[o.category ?? ''] ?? o.category ?? 'Props';
+      const look = CATEGORY_LOOK[category] ?? CATEGORY_LOOK['Props'];
+      return {
+        id: o.id,
+        name: o.name ?? o.id,
+        category,
+        color: o.color ?? look.color,
+        shape: o.shape ?? (o.id.includes('pine') || o.id.includes('fir') ? 'pine' : look.shape),
+        thumbnail: url(o.thumbnail),
+        model: url(o.model ?? o.file),
+        blocksLos: o.blocksLos ?? false,
+        blocksBuild: o.blocksBuild ?? true,
+        radius: o.radius ?? o.footprint ?? 1,
+        height: o.height ?? 2,
+      };
+    }),
   };
 }
 
