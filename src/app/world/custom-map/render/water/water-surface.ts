@@ -23,8 +23,8 @@ import type { HeightField } from '../height-field';
 import { APRON_RINGS, RIVER_REACH, type ApronProfile } from '../terrain/terrain-apron';
 
 /**
- * The water of a map: one surface at `water.level` over the grid cells the
- * mask marks wet.
+ * One body of water (or lava, or ice) of a map: one surface at `water.level`
+ * over the grid cells the mask marks wet.
  *
  * Every vertex carries the water depth over the terrain at its grid sample
  * (level minus terrain height), interpolated like the terrain itself, so the
@@ -32,6 +32,11 @@ import { APRON_RINGS, RIVER_REACH, type ApronProfile } from '../terrain/terrain-
  * light at the shore, foam where it gets shallow, the map's water colour in
  * the deep. Normals come from a tiling wave texture scrolled in two
  * directions; reflections are the sky colours (fresnel) and a sun glint.
+ *
+ * Lava (`kind: 'lava'`) is opaque and glows: crust plates drift over hot
+ * cracks in the body's colour, pulsing, cooling to crust at the shore.
+ * Ice is opaque and still: pale, cracked, with a frosty reflection.
+ * Only the main body runs on beyond the map's border (pass the apron).
  *
  * Not a line-of-sight blocker (`userData.losTransparent`).
  */
@@ -43,7 +48,7 @@ export class WaterSurface {
   constructor(
     private readonly field: HeightField,
     water: MapWater,
-    apron: ApronProfile,
+    apron: ApronProfile | null,
   ) {
     const material = new ShaderMaterial({
       uniforms: UniformsUtils.merge([
@@ -59,6 +64,7 @@ export class WaterSurface {
       ]),
       vertexShader: WATER_VERTEX,
       fragmentShader: WATER_FRAGMENT,
+      defines: { KIND: -1 },
       transparent: true,
       fog: true,
       depthWrite: true,
@@ -76,8 +82,14 @@ export class WaterSurface {
   }
 
   /** Rebuilds the surface for changed water or heights */
-  set(water: MapWater, apron: ApronProfile): void {
-    const u = this.mesh.material.uniforms;
+  set(water: MapWater, apron: ApronProfile | null): void {
+    const m = this.mesh.material;
+    const kind = water.kind === 'lava' ? 1 : water.kind === 'ice' ? 2 : 0;
+    if (m.defines['KIND'] !== kind) {
+      m.defines['KIND'] = kind;
+      m.needsUpdate = true;
+    }
+    const u = m.uniforms;
     const deep = new Color(water.color || '#2d5a5e');
     u['uDeep'].value.copy(deep);
     u['uShallow'].value.copy(deep).lerp(new Color(0x6f9a88), 0.3);
@@ -112,7 +124,7 @@ export class WaterSurface {
     this.mesh.removeFromParent();
   }
 
-  private buildGeometry(water: MapWater, apron: ApronProfile): BufferGeometry {
+  private buildGeometry(water: MapWater, apron: ApronProfile | null): BufferGeometry {
     const f = this.field;
     const cols = f.columns;
     const rows = f.rows;
@@ -157,9 +169,9 @@ export class WaterSurface {
     // apron's blurred bed rises above the level (negative depth, discarded in the shader)
     const p = apron;
     const rings = APRON_RINGS.filter((d) => d <= RIVER_REACH).length;
-    const n = p.count;
+    const n = p?.count ?? 0;
     const wetBorder = (k: number): boolean => {
-      const [x, y] = p.position(0, k);
+      const [x, y] = p!.position(0, k);
       const i = Math.round((x - f.originX) / f.cellSize);
       const j = Math.round((y - f.originY) / f.cellSize);
       return mask[j * cols + i] > 0 && f.sample(i, j) < water.level;
@@ -170,9 +182,9 @@ export class WaterSurface {
       let v = ringVertex.get(key);
       if (v === undefined) {
         v = positions.length / 3;
-        const [x, y] = p.position(r, k % n);
+        const [x, y] = p!.position(r, k % n);
         positions.push(-x, water.level, y);
-        depths.push(water.level - p.height(r, k % n));
+        depths.push(water.level - p!.height(r, k % n));
         wets.push(1);
         ringVertex.set(key, v);
       }
@@ -304,11 +316,43 @@ vec3 waveNormal(vec2 p) {
 void main() {
   #include <logdepthbuf_fragment>
   if (vWet < 0.5 || vDepth <= 0.0) discard;
+  vec3 v = normalize(cameraPosition - vWorldPos);
+#if KIND == 1
+  // Lava: crust plates drifting over hot cracks, pulsing, cooling at the shore
+  vec2 lp = vWorldPos.xz;
+  vec2 drift = uFlow * uTime * 0.12;
+  float plates = skyFbm(lp * 0.16 + drift);
+  float cracks = smoothstep(0.38, 0.62, skyFbm(lp * 0.42 - drift * 1.6 + 3.0));
+  float crust = smoothstep(0.46, 0.66, plates) * (1.0 - cracks * 0.8);
+  crust = max(crust, smoothstep(1.0, 0.0, vDepth) * 0.75);
+  float pulse = 0.78 + 0.22 * sin(uTime * 1.4 + plates * 11.0);
+  vec3 hot = mix(uDeep, vec3(1.0, 0.82, 0.35), cracks * 0.6) * 3.2 * pulse;
+  vec3 crustColor = vec3(0.06, 0.035, 0.03) * (0.5 + 0.5 * uLight);
+  vec3 color = mix(hot, crustColor, crust);
+  // Faint sky sheen on the crust only
+  color += skyColor(vec3(0.0, 1.0, 0.0), false) * 0.04 * crust * uLight;
+  // Soft rim: the shore line runs through grid triangles, a hard cut would show their steps
+  float alpha = smoothstep(0.0, 0.2, vDepth);
+#elif KIND == 2
+  // Ice: still, pale, cracked, frosted reflection
+  vec2 ip = vWorldPos.xz;
+  vec3 n = normalize(vec3((valueNoise(ip * 0.3) - 0.5) * 0.06, 1.0, (valueNoise(ip * 0.3 + 7.0) - 0.5) * 0.06));
+  float fresnel = 0.04 + 0.96 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
+  vec3 r = reflect(-v, n);
+  vec3 sky = skyColor(vec3(r.x, max(r.y, 0.02), r.z), false);
+  // Fine frost grain, thicker towards the shore; coarse noise would read as reflected clouds
+  float frost = smoothstep(0.55, 0.9, skyFbm(ip * 1.3)) * 0.45 + smoothstep(0.8, 0.0, vDepth) * 0.5;
+  float crack = 1.0 - smoothstep(0.0, 0.012, abs(skyFbm(ip * 0.08 + 5.0) - 0.5));
+  vec3 body = mix(mix(vec3(0.2, 0.3, 0.36), uDeep * 0.6, smoothstep(0.3, 4.0, vDepth) * 0.6), vec3(0.55, 0.6, 0.64), frost * 0.55);
+  body *= 1.0 - crack * 0.4;
+  vec3 color = mix(body * uLight, sky * 0.8, fresnel * 0.6 + 0.04);
+  color += uSunColor * pow(max(dot(r, uSunDir), 0.0), 60.0) * 0.5;
+  float alpha = smoothstep(0.0, 0.2, vDepth);
+#else
   vec3 n = waveNormal(vWorldPos.xz);
   // Calmer right at the shore
   float shore = smoothstep(0.0, 1.2, vDepth);
   n = normalize(mix(vec3(0.0, 1.0, 0.0), n, 0.35 + 0.65 * shore));
-  vec3 v = normalize(cameraPosition - vWorldPos);
   float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
   vec3 r = reflect(-v, n);
   // Reflect the real sky (with clouds); below the horizon reflected rays see the haze
@@ -327,6 +371,7 @@ void main() {
   alpha = max(alpha, fresnel);
   alpha = max(alpha, foam * 0.8);
   alpha *= smoothstep(0.0, 0.08, vDepth);
+#endif
   gl_FragColor = vec4(color, alpha);
   ${heightFogFragment('vWorldPos')}
   #include <tonemapping_fragment>

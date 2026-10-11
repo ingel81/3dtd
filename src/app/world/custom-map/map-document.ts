@@ -63,12 +63,17 @@ export interface MapSplat {
   maps: [Uint8Array, Uint8Array];
 }
 
+/** What fills a body: water, glowing lava, or ice (walkable look, no waves) */
+export type MapWaterKind = 'water' | 'lava' | 'ice';
+
 export interface MapWater {
   /** Water surface height in metres */
   level: number;
   /** One byte per height sample (same grid as the terrain): 0 dry, 255 water */
   mask: Uint8Array;
   color: string;
+  /** Default 'water' */
+  kind?: MapWaterKind;
 }
 
 export interface MapTerrain {
@@ -79,6 +84,12 @@ export interface MapTerrain {
   layers: MapGroundLayer[];
   splat: MapSplat;
   water: MapWater | null;
+  /**
+   * Further bodies, each on its own level with its own mask: a lake up the
+   * hill, a lava pool, a frozen pond. `water` stays the main body (river,
+   * sea); wet banks and the river running on beyond the border follow it only.
+   */
+  waterBodies?: MapWater[];
   /** Slopes steeper than this (degrees) show the cliff material */
   cliffAngle: number;
   /** Material id for steep faces */
@@ -137,7 +148,13 @@ export interface MapEnvironment {
   fogDensity: number;
   /** Colour grading tint for the map's mood */
   tint: string;
+  /** Weather over the whole map; default 'clear' */
+  weather?: MapWeather;
+  /** 0..1, default 0.6 */
+  weatherStrength?: number;
 }
+
+export type MapWeather = 'clear' | 'rain' | 'snow' | 'fog';
 
 export interface CustomMapDocument {
   format: typeof MAP_FORMAT;

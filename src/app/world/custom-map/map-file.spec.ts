@@ -48,6 +48,21 @@ describe('map file', () => {
     expect(back).toEqual(doc);
   });
 
+  it('round-trips further water bodies with their kinds', () => {
+    const doc = sample();
+    const n = doc.terrain.grid.heights.length;
+    doc.terrain.water!.kind = 'water';
+    doc.terrain.waterBodies = [
+      { level: 6, mask: new Uint8Array(n).fill(255, 20, 30), color: '#223344', kind: 'ice' },
+      { level: 9, mask: new Uint8Array(n).fill(255, 40, 45), color: '#ff5a10', kind: 'lava' },
+    ];
+    const { doc: back } = unpackMapFile(packMapFile(doc));
+    expect(back).toEqual(doc);
+    expect(back.terrain.waterBodies?.[1].mask).toBeInstanceOf(Uint8Array);
+    doc.terrain.waterBodies[0].mask = new Uint8Array(3);
+    expect(validateMapDocument(doc).some((m) => m.includes('water body 1'))).toBe(true);
+  });
+
   it('refuses an invalid document when packing', () => {
     const doc = sample();
     doc.paths.edges.push({ id: 'bad', a: 'n1', b: 'nope', width: 4, kind: 'road' });

@@ -76,7 +76,8 @@ export class CustomMapView {
   readonly environment: CustomMapEnvironment;
 
   private readonly terrain: MapTerrainLayer;
-  private water: WaterSurface | null = null;
+  /** Main water body first (null without one), then the further bodies */
+  private readonly waters: (WaterSurface | null)[] = [];
   private readonly objects: MapObjectLayer;
   private readonly bridges: BridgeLayer;
   private readonly camPos = new Vector3();
@@ -141,7 +142,7 @@ export class CustomMapView {
    */
   update(dtSeconds: number, camera: Camera, focus?: Vector3): void {
     if (this.disposed) return;
-    this.water?.update(dtSeconds);
+    for (const w of this.waters) w?.update(dtSeconds);
     this.objects.update(dtSeconds, camera);
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
@@ -163,7 +164,7 @@ export class CustomMapView {
   updateHeights(rect?: MapRect): void {
     this.terrain.rebuild(rect ? this.gridRect(rect) : undefined);
     this.objects.refreshHeights();
-    if (this.water) this.updateWater();
+    if (this.waters.some((w) => w)) this.updateWater();
     void this.bridges.set(this.doc.paths, this.doc.terrain.water);
   }
 
@@ -182,21 +183,31 @@ export class CustomMapView {
     this.terrain.refreshSplat();
   }
 
-  /** Water level, mask or colour changed, or heights under the water */
+  /**
+   * Water changed: level, mask, colour or kind of the main body or of the
+   * further bodies (`terrain.waterBodies`), or heights under them
+   */
   updateWater(): void {
-    const water = this.doc.terrain.water;
     this.terrain.refreshWater();
-    if (!water) {
-      this.water?.dispose();
-      this.water = null;
-      return;
-    }
-    if (this.water) {
-      this.water.set(water, this.terrain.apronProfile);
-    } else {
-      this.water = new WaterSurface(this.heights, water, this.terrain.apronProfile);
-      this.group.add(this.water.mesh);
-    }
+    const bodies = [this.doc.terrain.water, ...(this.doc.terrain.waterBodies ?? [])];
+    // Slot 0 is the main body (it may be null); further bodies follow
+    while (this.waters.length > bodies.length) this.waters.pop()?.dispose();
+    bodies.forEach((body, k) => {
+      const surface = this.waters[k] ?? null;
+      if (!body) {
+        surface?.dispose();
+        this.waters[k] = null;
+        return;
+      }
+      const apron = k === 0 ? this.terrain.apronProfile : null;
+      if (surface) {
+        surface.set(body, apron);
+      } else {
+        const created = new WaterSurface(this.heights, body, apron);
+        this.waters[k] = created;
+        this.group.add(created.mesh);
+      }
+    });
     this.lightWater();
   }
 
@@ -224,13 +235,13 @@ export class CustomMapView {
 
   private lightWater(): void {
     const e = this.environment;
-    this.water?.setSky(e.skyDome.uniforms, e.sun.intensity);
+    for (const w of this.waters) w?.setSky(e.skyDome.uniforms, e.sun.intensity);
   }
 
   dispose(): void {
     this.disposed = true;
     this.terrain.dispose();
-    this.water?.dispose();
+    for (const w of this.waters) w?.dispose();
     this.objects.dispose();
     this.bridges.dispose();
     this.environment.dispose();

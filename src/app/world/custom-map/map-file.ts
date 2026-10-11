@@ -56,6 +56,11 @@ const BIN = {
   water: 'terrain/water-mask.u8',
 } as const;
 
+/** Zip path of further water body k's mask */
+function waterBodyPath(k: number): string {
+  return `terrain/water-${k + 1}-mask.u8`;
+}
+
 export interface PackOptions {
   /** A PNG to carry as `preview.png` (map lists, the file browser) */
   preview?: Uint8Array;
@@ -219,6 +224,15 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
       p.push('water mask does not match the grid');
     }
   }
+  for (const [k, body] of (t.waterBodies ?? []).entries()) {
+    if (!finite(body.level)) p.push(`water body ${k + 1}: level is not a number`);
+    if (!isTyped(body.mask, 'Uint8Array') || body.mask.length !== g.columns * g.rows) {
+      p.push(`water body ${k + 1}: mask does not match the grid`);
+    }
+  }
+  for (const body of [t.water, ...(t.waterBodies ?? [])]) {
+    if (body?.kind && !['water', 'lava', 'ice'].includes(body.kind)) p.push(`water kind ${body.kind} is unknown`);
+  }
   if (!finite(t.cliffAngle)) p.push('cliffAngle is not a number');
 
   const ids = new Set<string>();
@@ -261,12 +275,15 @@ function splitDocument(doc: CustomMapDocument): { json: Record<string, unknown>;
     [BIN.splat1, t.splat.maps[1]],
   ];
   if (t.water) binaries.push([BIN.water, t.water.mask]);
+  const bodies = t.waterBodies ?? [];
+  bodies.forEach((body, k) => binaries.push([waterBodyPath(k), body.mask]));
   const ref = (name: string): BinaryRef => ({ $bin: name });
   const terrain = {
     ...t,
     grid: { ...t.grid, heights: ref(BIN.heights) },
     splat: { ...t.splat, maps: [ref(BIN.splat0), ref(BIN.splat1)] },
     water: t.water ? { ...t.water, mask: ref(BIN.water) } : null,
+    ...(bodies.length ? { waterBodies: bodies.map((body, k) => ({ ...body, mask: ref(waterBodyPath(k)) })) } : {}),
   };
   return { json: { ...doc, terrain } as unknown as Record<string, unknown>, binaries };
 }
@@ -292,6 +309,15 @@ function joinDocument(json: Record<string, unknown>, entries: Record<string, Uin
   const water = t['water'];
   if (isRecord(water)) water['mask'] = bin(water['mask'], 'the water mask');
   else t['water'] = null;
+  const bodies = t['waterBodies'];
+  if (Array.isArray(bodies)) {
+    bodies.forEach((body, k) => {
+      if (!isRecord(body)) throw new MapFileError(`Water body ${k + 1} is not an object.`);
+      body['mask'] = bin(body['mask'], `the mask of water body ${k + 1}`);
+    });
+  } else {
+    delete t['waterBodies'];
+  }
   doc.objects ??= [];
   doc.paths ??= { nodes: [], edges: [] };
   doc.spawns ??= [];
