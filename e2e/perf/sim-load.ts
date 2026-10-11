@@ -45,6 +45,8 @@ const ZOOM = argument('zoom', '');
 /** More of the page's query, e.g. a measurement switch: `--query hashEvery=1` */
 const QUERY = argument('query', '');
 const BROWSER = argument('browser', 'chromium');
+/** A custom map instead of the DevWorld, by id: `--world demo-valley` opens `?world=map:demo-valley` */
+const WORLD = argument('world', '');
 const STEPS = argument('steps', '').split(',').filter(Boolean).map(Number);
 const SPEEDS = argument('speeds', '').split(',').filter(Boolean).map(Number);
 const HIDE = process.argv.includes('--hide-enemies');
@@ -218,8 +220,15 @@ const browser = await engine.launch({
 });
 const context = await browser.newContext({ viewport: { width: 1600, height: 900 }, ...(DPR ? { deviceScaleFactor: Number(DPR) } : {}) });
 const page = await context.newPage();
+// A custom map hands its view to `__mapProbe` (CustomMapView.attach): its update cost and a draw without it
+if (WORLD) await page.addInitScript(() => ((globalThis as { __mapProbe?: unknown }).__mapProbe = true));
 page.on('pageerror', (e) => console.log('pageerror', e.message));
-await page.goto((MAP ? `${URL_BASE}/?l=${PLACE}&menu=skip` : `${URL_BASE}/?devworld&bot=manual&menu=skip`) + (QUERY ? `&${QUERY}` : ''));
+const startUrl = MAP
+  ? `${URL_BASE}/?l=${PLACE}&menu=skip`
+  : WORLD
+    ? `${URL_BASE}/?world=map:${WORLD}&bot=manual&menu=skip`
+    : `${URL_BASE}/?devworld&bot=manual&menu=skip`;
+await page.goto(startUrl + (QUERY ? `&${QUERY}` : ''));
 await gameReady(page);
 console.log('isolated', await page.evaluate(() => globalThis.crossOriginIsolated));
 // What the numbers were measured on: from the OS and from the page (the GPU as WebGL names it; Firefox rounds it to a
@@ -351,5 +360,29 @@ if (SHOT && ZOOM) {
   await page.waitForTimeout(4000);
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-zoom.png') });
 }
-console.log(JSON.stringify({ build, machine, browser: BROWSER, url: URL_BASE, uncapped: UNCAPPED, speedAsked: SPEED, towers: placed.towers, ...result }));
+// The map's share of a frame: its update() on the main thread, and the frame rate with its meshes hidden
+let map: { updateMs: number; fpsWithout: number } | null = null;
+if (WORLD) {
+  interface Probe {
+    stats: { updateMs: number };
+    group: { visible: boolean };
+    losBlockers: { visible: boolean };
+  }
+  const updateMs = await page.evaluate(() => (globalThis as unknown as { __mapProbe: Probe }).__mapProbe.stats.updateMs);
+  await page.evaluate(() => {
+    const v = (globalThis as unknown as { __mapProbe: Probe }).__mapProbe;
+    v.group.visible = false;
+    v.losBlockers.visible = false;
+  });
+  await page.waitForTimeout(1000);
+  const without = await measure(page, SECONDS);
+  await page.evaluate(() => {
+    const v = (globalThis as unknown as { __mapProbe: Probe }).__mapProbe;
+    v.group.visible = true;
+    v.losBlockers.visible = true;
+  });
+  map = { updateMs, fpsWithout: without.fps };
+  console.log(`MAP update ${updateMs.toFixed(3)} ms per frame, ${result.fps.toFixed(1)} fps with the map, ${without.fps.toFixed(1)} without`);
+}
+console.log(JSON.stringify({ build, machine, browser: BROWSER, url: URL_BASE, uncapped: UNCAPPED, speedAsked: SPEED, towers: placed.towers, world: WORLD || null, map, ...result }));
 await browser.close();
