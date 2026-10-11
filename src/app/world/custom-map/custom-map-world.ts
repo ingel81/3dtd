@@ -227,8 +227,8 @@ export class CustomMapWorld implements WorldProvider {
 
   /**
    * The map's first frame without stalls: its ground materials and models
-   * loaded (view.ready), then every program of the map compiled in parallel
-   * off the main thread (compileAsync, KHR_parallel_shader_compile) before
+   * loaded (view.ready), then every program of the scene compiled in parallel
+   * off the main thread (view.warmUp: compileAsync, KHR_parallel_shader_compile) before
    * the first draw. Drawn before, each new material links its program
    * synchronously in the frame that first shows it: some 3 s on the main
    * thread for the demo valley. Until then `ready()` holds the frames back.
@@ -237,11 +237,8 @@ export class CustomMapWorld implements WorldProvider {
     await view.ready.catch((err) => console.warn('[CustomMap] assets did not load', err));
     if (this.view !== view) return;
     performance.mark('load:map-assets:done');
-    // The map's own programs (with the scene's lights and fog); the engine warms its pools up itself
-    await Promise.all([
-      ctx.renderer.compileAsync(view.group, ctx.camera, ctx.scene),
-      ctx.renderer.compileAsync(view.losBlockers, ctx.camera, ctx.scene),
-    ]).catch((err) => console.warn('[CustomMap] shaders did not compile ahead', err));
+    // Every program the scene needs, the map's hidden levels, cells and effects included (view.warmUp)
+    await view.warmUp(ctx.renderer, ctx.scene, ctx.camera).catch((err) => console.warn('[CustomMap] shaders did not compile ahead', err));
     if (this.view !== view) return;
     performance.mark('load:map-shaders:done');
     this.prepared = true;
