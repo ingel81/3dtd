@@ -384,6 +384,9 @@ albedo *= mix(0.86, 1.1, macro) * mix(0.93, 1.06, n3);
 // Large patches: drier and yellower in some, deeper and cooler in others
 albedo = mix(albedo, albedo * vec3(1.1, 1.04, 0.8), smoothstep(0.5, 0.85, n2) * 0.5);
 albedo = mix(albedo, albedo * vec3(0.84, 0.92, 0.95), smoothstep(0.45, 0.15, n1) * 0.6);
+// Photo grass reads olive under a warm sun: where green leads, pull red and blue back a little
+float greenLead = smoothstep(0.0, 0.08, albedo.g - max(albedo.r, albedo.b));
+albedo *= mix(vec3(1.0), vec3(0.86, 1.04, 0.92), greenLead);
 // A little less saturated overall: photo textures under a strong sun read too green
 albedo = mix(vec3(dot(albedo, vec3(0.299, 0.587, 0.114))), albedo, 0.94);
 float far = smoothstep(120.0, 900.0, length(vViewPosition));

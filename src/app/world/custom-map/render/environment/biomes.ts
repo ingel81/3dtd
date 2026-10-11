@@ -49,7 +49,7 @@ export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     zenith: 0x3f78c4,
     horizon: 0xc4d8e6,
     ground: 0x6b6a5c,
-    sun: 0xffe6c4,
+    sun: 0xfff0dc,
     sunIntensity: 3.8,
     hemiSky: 0xd6e2ee,
     hemiGround: 0x5a5236,

@@ -157,6 +157,8 @@ export class MapTerrainLayer {
       grassLayers++;
     });
     if (grassLayers) tip.multiplyScalar(1 / grassLayers);
+    // The same green correction the ground gets (terrain-material.ts): photo grass averages read olive
+    if (tip.g > Math.max(tip.r, tip.b)) tip.multiply(new Color(0.86, 1.04, 0.92));
     this.grassInputs = { mask, root: tip.clone().multiplyScalar(0.7), tip, width: t.width, depth: t.depth };
     this.updateGrassInputs();
   }
