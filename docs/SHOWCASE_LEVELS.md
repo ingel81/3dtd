@@ -172,8 +172,11 @@ im ersten Lauf warm mit 6,7 s und 120 fps.
 
 ## Weitere vier (E133, 2026-10-12)
 
-Gebaut als Bauskript und gepackt, Spuren und Prüfung des Editors grün; Kartenprobe, Bildschirmbild im Spiel, fps und
-Ladezeit stehen noch aus.
+Gebaut als Bauskript und gepackt, Spuren und Prüfung des Editors grün. Kartenprobe (`?bot=trial&trialWaves=10`,
+Dev-Server, 2026-10-12) bei allen vier bestanden, je 19 Tower: HQ am Ende Mondbasis 326, Mars-Canyon 327, Endzeit-Stadt
+294, Hafenstadt 206 von 500. Spielansicht um 130 fps (Bildwiederholrate des Monitors). Laden am Dev-Server 8 bis 9 s,
+die Hafenstadt 38 s (noch nicht untersucht). Offen: Augen-Nachtest im Spiel; an der Hafenstadt die Kaikante (ein
+breites braunes Band zwischen Stadt und Wasser, die Kai-Stücke stehen schräg im Wasser).
 
 ### 9 Mondbasis (`moon-base`)
 `tools/maps/levels/moon-base.ts`, Small 512 m. Spuren 424, 425 und 509 m. Eine Forschungsstation in einem weiten
