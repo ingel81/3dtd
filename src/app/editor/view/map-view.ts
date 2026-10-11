@@ -60,6 +60,17 @@ export class EditorMapView {
     return this.view.ready;
   }
 
+  /** Compiles every program the map needs (models, shadows) once it is in, so the first stroke does not stall */
+  async warmUp(renderer: WebGLRenderer, scene: Scene, camera: Camera): Promise<void> {
+    await this.view.ready;
+    await this.view.warmUp(renderer, scene, camera);
+  }
+
+  /** Weather, ambient particles, effects and glows on or off (off for pictures from above) */
+  setParticlesVisible(visible: boolean): void {
+    this.view.setParticlesVisible(visible);
+  }
+
   /** Where a scene ray meets the ground, in map space (z is the height) */
   raycast(ray: Ray): { x: number; y: number; z: number } | null {
     const hit = this.view.raycast(ray);

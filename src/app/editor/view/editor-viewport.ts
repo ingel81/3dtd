@@ -139,6 +139,7 @@ export class EditorViewport {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.view = new EditorMapView(editor.doc, this.scene, this.renderer);
+    void this.view.warmUp(this.renderer, this.scene, this.camera).catch(() => undefined);
     this.scene.add(this.overlay.group);
     this.trial = new TrialRunners((x, y) => this.heightAt(x, y));
     this.scene.add(this.trial.group);
@@ -179,6 +180,7 @@ export class EditorViewport {
   rebuildView(): void {
     this.view.dispose();
     this.view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
+    void this.view.warmUp(this.renderer, this.scene, this.camera).catch(() => undefined);
     // The new view shows everything until the hidden categories are applied again
     this.hiddenKey = '';
     this.pending = null;
@@ -408,8 +410,13 @@ export class EditorViewport {
     const fog = this.scene.fog;
     this.scene.fog = null;
     this.overlay.group.visible = overlay;
+    // Particles and glows seen from above would cover the ground as a bright square
+    this.view.setParticlesVisible(false);
+    this.trial.group.visible = false;
     this.renderer.setRenderTarget(target);
     this.renderer.render(this.scene, cam);
+    this.view.setParticlesVisible(true);
+    this.trial.group.visible = true;
     const pixels = new Uint8Array(width * height * 4);
     this.renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
     this.renderer.setRenderTarget(null);
