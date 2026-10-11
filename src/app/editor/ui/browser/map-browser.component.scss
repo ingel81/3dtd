@@ -38,6 +38,17 @@
   padding-bottom: var(--td-sp-3);
 }
 
+.mb-w3x {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--td-sp-3);
+
+  .td-field {
+    width: 140px;
+  }
+}
+
 .mb-import-head {
   justify-content: space-between;
 }

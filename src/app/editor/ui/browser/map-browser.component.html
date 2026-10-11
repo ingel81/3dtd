@@ -24,14 +24,32 @@
       </p>
     }
     @if (session.importState(); as imp) {
-      <div class="mb-import td-banner td-stack" [class.is-error]="!!imp.error" [class.is-ok]="!!imp.report" role="status">
+      <div class="mb-import td-banner td-stack" [class.is-error]="!!imp.error" [class.is-ok]="imp.phase === 'done'" role="status" data-test="import-panel">
         <div class="td-inline mb-import-head">
           <strong class="td-trunc">{{ imp.file }}</strong>
-          @if (!imp.error && !imp.report) {
+          @if (imp.phase === 'running' && !imp.error) {
             <span class="td-note"><span class="td-spin" aria-hidden="true"></span> {{ imp.step }}</span>
           }
-          <button class="td-btn-ghost td-btn-sm" type="button" (click)="closeImport()">Close</button>
+          <button class="td-btn-ghost td-btn-sm" type="button" (click)="closeImport()">{{ imp.phase === 'options' ? 'Cancel' : 'Close' }}</button>
         </div>
+        @if (imp.phase === 'options' || (imp.error && imp.phase === 'running')) {
+          <div class="mb-w3x">
+            <label class="td-field">
+              <span class="td-label" matTooltip="One Warcraft tile (128 units) becomes this many metres; heights scale the same">Metres per tile</span>
+              <input class="td-input is-sm" type="number" min="1" max="16" step="0.5" [value]="imp.options.metresPerTile" #mpt />
+            </label>
+            <label class="td-field">
+              <span class="td-label" matTooltip="Thin out evenly beyond this many doodads">Most objects</span>
+              <input class="td-input is-sm" type="number" min="0" max="20000" step="500" [value]="imp.options.maxObjects" #maxo />
+            </label>
+            <label class="td-check" matTooltip="Leave out the black border around the playable area">
+              <input class="td-switch" type="checkbox" [checked]="imp.options.cropToPlayable" #crop />
+              Playable area only
+            </label>
+            <button class="td-btn-primary td-btn-sm" type="button" data-test="w3x-import"
+                    (click)="startW3x(+mpt.value, +maxo.value, crop.checked)">Import</button>
+          </div>
+        }
         @if (imp.error) {
           <p>{{ imp.error }}</p>
         } @else if (imp.report) {
@@ -45,6 +63,11 @@
             <ul class="td-legend">
               @for (line of imp.report.warnings; track $index) { <li class="td-note is-warn">{{ line }}</li> }
             </ul>
+          }
+          @if (imp.mapId) {
+            <div class="td-actions is-start">
+              <button class="td-btn-primary td-btn-sm" type="button" (click)="open.emit(imp.mapId)" data-test="open-imported">Open the map</button>
+            </div>
           }
         }
       </div>

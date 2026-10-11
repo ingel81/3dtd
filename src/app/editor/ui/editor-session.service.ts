@@ -22,7 +22,7 @@ import { PanelTool, TOOLS, defaultSettings, type EditorSettings, type EditorTool
 import { WaterTool } from '../tools/water-tool';
 import { validateMap, type MapIssue } from '../validation/map-validation';
 import { EditorViewport, type FrameStats, type HoverInfo } from '../view/editor-viewport';
-import { loadW3xImporter, type W3xImportReport } from '../import/w3x-seam';
+import { DEFAULT_W3X_OPTIONS, loadW3xImporter, type W3xImportOptions, type W3xImportReport } from '../import/w3x-seam';
 import { WORLD_URL_PARAM, worldUrlValue } from '../../world/world-ref';
 
 export const AUTOSAVE_DELAY_MS = 2000;
@@ -30,8 +30,13 @@ const THUMBNAIL_SIZE = 256;
 
 export interface ImportState {
   file: string;
+  /** `options` waits for the player to start it, `running` converts, `done` has the report */
+  phase: 'options' | 'running' | 'done';
   step: string;
+  options: W3xImportOptions;
   report: W3xImportReport | null;
+  /** The new map, once imported */
+  mapId?: string;
   error: string | null;
 }
 
@@ -80,6 +85,8 @@ export class EditorSession implements OnDestroy {
   readonly error = signal<string | null>(null);
 
   private changed = false;
+  /** A Warcraft map waiting for its import options */
+  private pendingW3x: File | null = null;
   private tick: ReturnType<typeof setInterval> | null = null;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   private statusTimer: ReturnType<typeof setTimeout> | null = null;
@@ -329,20 +336,43 @@ export class EditorSession implements OnDestroy {
         return null;
       }
     }
-    if (lower.endsWith('.w3x') || lower.endsWith('.w3m')) return this.importW3x(file);
+    if (lower.endsWith('.w3x') || lower.endsWith('.w3m')) {
+      // Warcraft maps first show their options; importW3x starts the conversion
+      this.pendingW3x = file;
+      this.importState.set({
+        file: file.name,
+        phase: 'options',
+        step: 'Choose how to import',
+        options: { fileName: file.name, ...DEFAULT_W3X_OPTIONS },
+        report: null,
+        error: null,
+      });
+      return null;
+    }
     this.error.set(`${name} is neither a 3DTD map (${MAP_FILE_EXTENSION}) nor a Warcraft 3 map (.w3x).`);
     return null;
   }
 
-  private async importW3x(file: File): Promise<string | null> {
-    const state: ImportState = { file: file.name, step: 'Converting the Warcraft map', report: null, error: null };
+  /** Converts the Warcraft map waiting in the import panel with its options */
+  async importW3x(options: Partial<W3xImportOptions> = {}): Promise<string | null> {
+    const file = this.pendingW3x;
+    const current = this.importState();
+    if (!file || !current) return null;
+    const state: ImportState = {
+      ...current,
+      phase: 'running',
+      step: 'Converting the Warcraft map',
+      options: { ...current.options, ...options },
+      error: null,
+    };
     this.importState.set(state);
     try {
       const importer = await loadW3xImporter();
-      const { doc, report } = await importer(await file.arrayBuffer(), { fileName: file.name });
+      const { doc, report } = await importer(await file.arrayBuffer(), state.options);
       doc.meta.id = await this.store.freeId(slugMapId(doc.meta.name || file.name.replace(/\.w3[xm]$/i, '')));
       await this.store.save(doc);
-      this.importState.set({ ...state, step: 'Done', report });
+      this.pendingW3x = null;
+      this.importState.set({ ...state, phase: 'done', step: 'Done', report, mapId: doc.meta.id });
       return doc.meta.id;
     } catch (e) {
       this.importState.set({ ...state, error: (e as Error).message });

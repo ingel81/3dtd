@@ -11,8 +11,15 @@ export interface W3xImportOptions {
   /** File name, for the map's source and the report */
   fileName: string;
   /** Metres per Warcraft tile (128 units) */
-  metresPerTile?: number;
+  metresPerTile: number;
+  /** Only the playable area, without the black border */
+  cropToPlayable: boolean;
+  /** Most objects; more are thinned evenly */
+  maxObjects: number;
 }
+
+/** The importer's defaults (docs/W3X_IMPORT.md) */
+export const DEFAULT_W3X_OPTIONS = { metresPerTile: 4, cropToPlayable: true, maxObjects: 6000 } as const;
 
 export interface W3xImportReport {
   /** What came over: "312 x 256 tiles to 1248 x 1024 m", "4120 of 4500 doodads placed" */
@@ -31,7 +38,7 @@ export type W3xImporter = (bytes: ArrayBuffer, options: W3xImportOptions) => Pro
 export async function loadW3xImporter(): Promise<W3xImporter> {
   const { importW3xInWorker } = await import('../../world/w3x/w3x-import-client');
   return async (bytes, options) => {
-    const { doc, report } = await importW3xInWorker(bytes, { fileName: options.fileName, metresPerTile: options.metresPerTile });
+    const { doc, report } = await importW3xInWorker(bytes, { ...options });
     return { doc, report: summarizeReport(report) };
   };
 }
@@ -57,6 +64,7 @@ export function summarizeReport(report: ImporterReport): W3xImportReport {
   const lengths = Object.values(s.routeLengths);
   if (lengths.length) mapped.push(`Lanes ${Math.round(Math.min(...lengths))} to ${Math.round(Math.max(...lengths))} m long`);
   mapped.push(`${s.objects.placed} of ${s.objects.doodads} doodads placed as objects`);
+  for (const a of report.attempts) if (a.strategy !== report.strategy) mapped.push(`Tried ${STRATEGY_NAMES[a.strategy] ?? a.strategy}: ${a.result}`);
   const warnings = [...report.warnings];
   if (!report.strategy) warnings.unshift('No roads found: draw them with the path tool, then place spawns and the HQ.');
   return { mapped, warnings };
