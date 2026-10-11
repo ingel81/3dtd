@@ -198,7 +198,7 @@ Bedienung im Header (Lesezeichen-Knopf):
 - Ein `effect()` im Konstruktor schreibt einen Eintrag, sobald HQ, mindestens ein Spawn und ein aufgelöster Name vorliegen. Damit ist jeder Weg abgedeckt (URL, Ortswahl im Menü, Use my location, Favorit, World Dice, HQ versetzen), ohne jeden einzeln anzufassen
 - Max. 8 Einträge, neueste zuerst. HQs näher als 150 m gelten als derselbe Ort: der Eintrag rückt nach oben und übernimmt Spawn und Namen, statt eine zweite Zeile anzulegen
 - Der Name wird mitgespeichert (anders als bei Favoriten), die Liste braucht also kein Geocoding
-- DevWorld (Fake-Origin 0,0) wird nicht gespeichert; defekte Einträge im Storage werden beim Laden übersprungen
+- Eine Welt ohne echten Ort (DevWorld, eigene Karte; `capabilities.realPlace` falsch) wird nicht gespeichert; defekte Einträge im Storage werden beim Laden übersprungen
 
 ## Weltkarte (beste Welle je Ort)
 
@@ -215,7 +215,7 @@ Ein Globus mit allen verteidigten Orten und der besten Welle je Ort; ein Klick l
 
 - Hängt am Event-Bus, verbunden in `TowerDefenseFacadeService` neben dem Onboarding
 - Geschrieben wird bei `wave:started`: Welle N gestartet heißt Welle N erreicht, dieselbe Zahl, die die Game-Over-Bilanz als Wave zeigt. So bleibt der Stand auch bei Läufen, die nicht mit Game Over enden (Restart, anderer Ort, World Dice mit Reload, Reload, Tab geschlossen), ohne einen Hook für jeden dieser Wege
-- Nichts in DevWorld und nichts, solange der Bot spielt (`BotClientService.botEnabled`). Cheats und Debug-Wellen zählen mit, ein Wellensprung (Dev-Cheat, `wave:jumped`) nicht: ab dem Sprung schreibt der Lauf keinen Rekord mehr und bekommt bei `game:over` keinen `newRecord`. Was vor dem Sprung erreicht war, bleibt stehen; `game:reset` hebt die Sperre auf
+- Nichts auf einer Welt ohne echten Ort (DevWorld, eigene Karte) und nichts, solange der Bot spielt (`BotClientService.botEnabled`). Cheats und Debug-Wellen zählen mit, ein Wellensprung (Dev-Cheat, `wave:jumped`) nicht: ab dem Sprung schreibt der Lauf keinen Rekord mehr und bekommt bei `game:over` keinen `newRecord`. Was vor dem Sprung erreicht war, bleibt stehen; `game:reset` hebt die Sperre auf
 - Neuer Rekord: beim ersten Wellenstart eines Laufs merkt sich der Service den bisherigen Rekord des Ortes. Liegt die erreichte Welle bei `game:over` darüber, steht in `newRecord` Ort, Welle und der alte Rekord (0 beim ersten Lauf dort). `game:reset` und Skip leeren ihn
 
 ### Einstiege
@@ -252,7 +252,7 @@ URL ist die Single Source of Truth. Format:
 - `s` = Spawns (Semikolon-getrennt), optional; je Spawn `lat,lon` und, wenn der Spieler sein Portal beim Setzen mit R gedreht hat, der Kompasskurs des Portals in Grad (im Uhrzeigersinn ab Nord, 1 Dezimalstelle, `SavedSpawn.portalBearing`)
 - Kein `s`-Parameter = Random Spawn wird generiert
 - Ein Spawn ohne Kurs (auch in allen URLs von vor 2026-09-14) folgt mit seinem Portal der Route. Ein Kurs, der keine Zahl ist, fällt weg, der Spawn bleibt
-- In DevWorld schreibt `LocationFacadeService.syncUrlWithLocation()` nichts in die URL
+- Auf einer Welt ohne echten Ort schreibt `LocationFacadeService.syncUrlWithLocation()` nichts in die URL (sie behält `?devworld…` oder `?world=map:<id>`)
 
 Die Drehung des Spawn-Portals:
 
@@ -281,14 +281,14 @@ Gerundet wird dort, wo Koordinaten ins Spiel kommen, bevor Origin, Routen oder K
 |--------|----------------------|
 | `LocationManagementService.setLocation`, `setGeneratedSpawns` | Der Ort beim Start (URL oder die Wahl im Menü) und nach jedem Wechsel; URL, Favoriten, Zuletzt gespielt und Weltkarte speichern ihn von hier |
 | `LocationChangeCoordinatorService.applyNewLocation` | Jeder Ortswechsel: Ortswahl im Menü (Suche, Koordinaten, Zuletzt gespielt, Favorit, Showcase, Weltkarte, Würfel), HQ außerhalb der Straßen, erneuter Versuch. Der Zweig mit Zufalls-Spawn rundet das HQ schon davor, weil er die Straßen für den Spawn um das HQ lädt |
-| `OsmStreetService.findRandomStreetPoint` | Der Zufalls-Spawn: der OSM-Knoten (7 Stellen) gerundet, bevor Abstand und Route geprüft werden. Gerundet kann der Punkt näher an einem anderen Weg liegen; geprüft wird die Route, die der Spawn dann wirklich bekommt |
+| `StreetRouter.findRandomStreetPoint` (OsmStreetService erbt es) | Der Zufalls-Spawn: der OSM-Knoten (7 Stellen) gerundet, bevor Abstand und Route geprüft werden. Gerundet kann der Punkt näher an einem anderen Weg liegen; geprüft wird die Route, die der Spawn dann wirklich bekommt |
 | `LocationFacadeService.addSpawnPoint` | Jeder Spawn im Spiel |
 | `MapPlacementService.updatePreviewPosition` | HQ und Spawn per Klick: Prüfung und Vorschau sehen den Punkt, der gesetzt wird; die Vorschau folgt dem Cursor dadurch in Schritten von rund einem Meter |
 
 - Gespeicherte Orte mit mehr Stellen (Favoriten, Zuletzt gespielt, Weltkarte) bleiben im Speicher, wie sie sind, und werden gerundet, wenn der Ort geladen wird. Neue Einträge kommen aus `LocationManagementService` und sind schon kanonisch; eine Migration gibt es nicht
 - Das Runden versetzt einen Punkt um höchstens 0,000005° je Achse: bei 49° N bis 0,56 m nach Nord oder Süd und 0,36 m nach Ost oder West (zusammen 0,66 m), am Äquator bis 0,79 m
 - Ein Ort, der bis 2026-09-16 mit voller Genauigkeit geladen wurde (etwa ein Favorit von einem per Klick versetzten HQ), kann dadurch einen anderen Korridor bekommen als bisher, dafür denselben wie über seine URL
-- DevWorld: der Origin 0/0 bleibt, die Spawns des Straßengenerators laufen ebenfalls durch `addSpawnPoint`
+- Welt mit eigener Aufstellung (DevWorld, Karte): das HQ der Welt bleibt, ihre Spawns laufen ebenfalls durch `addSpawnPoint`; der Name bleibt, wo die Straßen keine Namen haben (`WorldStreetSource.spawnLabel`)
 
 ## GeolocationService
 
@@ -359,9 +359,10 @@ formatAddressShort(addr: NominatimAddress): string
 Beim App-Start in `LocationFacadeService.initializeLocation()`:
 
 ```
-1. DevWorld aktiv?
-   → Fake-Origin (DEV_WORLD_ORIGIN) ohne Spawn setzen, fertig
-     (der Spawn kommt später aus dem Straßengenerator, siehe DEVWORLD.md)
+1. Bringt die Welt ihr HQ mit? (WorldContext.startHq(): DevWorld am Ursprung 0/0,
+   eine eigene Karte ihr HQ)
+   → dieses HQ ohne Spawn setzen, fertig (die Spawns kommen später aus der
+     Startaufstellung der Welt); fehlt die Karte hier, Fehlermeldung statt Laden
 
 2. URL-Parameter vorhanden? (UrlLocationService.parseFromUrl())
    → Location aus URL laden, fertig
@@ -472,7 +473,7 @@ STEP 6: Calculate Routes
     am Ende eines Korridor-Baus); STEP 2 hat sie mit den alten Zellen
     entsorgt
   - TowerPlacement neu initialisieren
-  - Street-Network auf Route-Korridor filtern (nicht in DevWorld)
+  - Street-Network auf Route-Korridor filtern (nicht in DevWorld und auf Karten: ihre Straßenquelle gibt das ganze Netz zurück)
   - Höhen liegen in den Zellen des GlobalRouteGrid, jede mit Tiefe und
     geometricError des Tiles, aus dem ihr Sample stammt. Eine Zelle wird
     einmal beim Erzeugen gesampelt; danach schreibt nur noch der
@@ -540,19 +541,19 @@ Sub-Facade für Location-Management. Verbindet Coordinator mit Component-State.
 - **Coordinator-Initialisierung**: Baut `LocationFlowDelegate` für den Coordinator
 - **Spawn-Management**: `addPredefinedSpawns()`, `addSpawnPoint()`
 - **Map Cleanup**: `clearMapEntities()` (Marker, Routes, Streets, Route-Zellen mit ihren Overlays)
-- **DevWorld**: Regeneration, Visual Cleanup
+- **Neugenerierung** (`capabilities.regenerate`, DevWorld): Regeneration, Visual Cleanup
 - **Map-Platzierung**: `handleMapPlacementClick()` gibt an `MapRelocationService` weiter (siehe HQ-Relocation)
 
 ### Spawn-Point-Logik (`addPredefinedSpawns`)
 
 ```
 needsRandomSpawn && streetNetwork vorhanden?
-  ├─ DevWorld aktiv?
-  │   → ersten generierten Spawn vom DevTerrainProvider nehmen (der Generator liefert bis zu 4)
-  │   → Fallback: DEV_WORLD_SPAWNS[devWorld.config.spawn]
+  ├─ Bringt die Welt eine Startaufstellung mit? (WorldProvider.startLayout())
+  │   → ihre Spawns setzen (DevWorld: die ersten `spawns` des Generators, Fallback
+  │     DEV_WORLD_SPAWNS[spawn]; Karte: ihre Spawns)
   │
-  └─ Real World
-      → osmService.findRandomStreetPoint(network, hq, 500m, 1000m)
+  └─ Echter Ort
+      → worldContext.streets.findRandomStreetPoint(network, hq, 500m, 1000m)
         (Knoten auf befahrbaren Straßentypen, bis zu 50 zufällige Kandidaten per findPath() geprüft)
       → URL mit generiertem Spawn synchronisieren
 

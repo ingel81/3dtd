@@ -299,7 +299,7 @@ Die OSM-Breite gilt:
 - an Stationen ohne Messung (kein oder zu grobes Tile),
 - in Tunneln, Durchgängen und unter einer fremden Brücke,
 - als Obergrenze auf dem Endstück zum HQ,
-- in DevWorld. Dort liefert `TerrainQueries.measureStreetClearance` keine Probe (`sources.devTerrain()`), und die
+- in DevWorld und auf eigenen Karten. Dort liefert `measureStreetClearance` der Weltoberfläche keine Probe (`DevWorldSurface`, `CustomMapSurface`), und die
   Straßen werden in der Breite gezeichnet, die der Korridor ohnehin nimmt
   (siehe [DEVWORLD.md](DEVWORLD.md)).
 

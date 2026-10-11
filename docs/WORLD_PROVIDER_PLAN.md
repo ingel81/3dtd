@@ -4,9 +4,10 @@
 
 ## Ziel
 
-Das Spiel läuft heute auf zwei Welten: Google Photorealistic 3D Tiles (über Cesium Ion oder die Google Maps API) und
-DevWorld. Beide sind über `DevWorldService.isActive` und `engine.devTerrainProvider != null` an rund 60 Stellen
-verdrahtet, Straßen kommen fest aus `OsmStreetService`. Dazu sollen kommen:
+Das Spiel lief auf zwei Welten: Google Photorealistic 3D Tiles (über Cesium Ion oder die Google Maps API) und
+DevWorld, über `DevWorldService.isActive` und `engine.devTerrainProvider != null` an rund 60 Stellen verdrahtet,
+Straßen fest aus `OsmStreetService`. Seit 2026-10-11 laufen sie über austauschbare Weltprovider (Bausteine unten).
+Dazu kommen:
 
 - **Eigene Karten**: eigenständige Welten mit Höhenfeld, Texturschichten, Wasser, Objekten (Bäume, Felsen,
   Gebäude), Wegenetz, Spawns und HQ. Mitgelieferte Karten unter `public/maps/`, eigene im Browser oder als Datei
@@ -31,7 +32,11 @@ Bots tragen dasselbe Feld.
 - **Geo-Rahmen bleibt.** Die Simulation rechnet in lat/lon. Synthetische Welten (DevWorld, eigene Karten) liegen um
   einen festen Ursprung (0, 0); ihre Identität kommt aus dem `WorldRef`, nie aus Koordinatenvergleichen
 
-## Bausteine
+## Bausteine (gebaut, Stand 2026-10-11)
+
+Engine, Abfragen, Straßen und Startablauf laufen über die Bausteine unten; die früheren Weichen
+(`DevWorldService.isActive`, `engine.getDevTerrainProvider()`, `TerrainSources.devTerrain()`, `DEV_WORLD_ORIGIN`,
+`TerrainProvider`- und `StreetNetworkProvider`-Interface, `DevStreetProvider` in der Komponenten-Brücke) sind entfernt.
 
 ### WorldRef (`src/app/world/world-ref.ts`)
 
@@ -44,68 +49,109 @@ type WorldRef =
   | { kind: 'custom-map'; mapId: string; contentHash: string; name?: string };
 ```
 
-- URL: `?world=map:<id>` (eigene Karte), `?devworld…` bleibt als Kurzform für DevWorld
-- `WorldPackage`, Spielstand, Replay-Datei und Run-Log bekommen `world: WorldRef`. Dateien ohne das Feld werden beim
-  Lesen abgebildet: Ursprung (0, 0) mit `map: 'devworld'` → DevWorld, sonst Tiles
-- `WorldProviderRegistry.create(ref)` liefert den Provider; fehlt eine Karte oder passt der Hash nicht, kommt eine
-  klare Meldung
+- URL: `?world=map:<id>` (`customMapRefFromSearch`, `worldUrlValue`), `?devworld…` bleibt die Kurzform für DevWorld
+- Getragen von `WorldPackage.world` (Coop, auch im Spielstand), `ReplayFile.world`, `RunLogHead.world` (neben dem
+  alten `map`); Bot-Läufe schicken ihn mit dem Run-Log an den Bot-Server
+- Dateien ohne das Feld: `legacyWorldRef(origin, tilesSource)` bildet Ursprung (0, 0) auf DevWorld mit den Vorgaben
+  von `?devworld` ab (`LEGACY_DEV_WORLD_REF`), sonst Tiles der eingestellten Quelle; Run-Logs über `runWorld(head)`
+- `worldsMatch(a, b)`: Tiles beider Quellen sind derselbe Ort, alle anderen Welten müssen gleich sein; ein Ref ohne
+  Inhalts-Hash (aus der URL) passt zu jedem Inhalt seiner Karte. `sameWorld` bleibt die strenge Gleichheit
+- `worldRefShape` prüft einen Ref aus einer Datei; `worldLabel` (Logs, Menü-Fuß), `worldPlaceName` (Ortsname einer
+  Welt ohne echten Ort)
 
 ### WorldProvider (`src/app/world/world-provider.ts`)
 
-Eine Welt auf dem Hauptthread: Darstellung, Abfragen, Straßen, Startaufstellung.
-
 ```ts
 interface WorldProvider {
-  readonly ref: WorldRef;
+  readonly ref: WorldRef;                 // DevWorld: folgt einer Neugenerierung
   readonly capabilities: WorldCapabilities;
-  readonly surface: WorldSurface;        // Höhen, Raycasts, Spalten, Sichtlinie
-  readonly streets: WorldStreetSource;   // Wegenetz, Pfadsuche, Zufallspunkte, Filter
-  readonly streetStyle: StreetStyle;     // Anhebung, Unterteilung, Brücken
-  attach(ctx: WorldAttachContext): Promise<void>; // Szene, Kamera, Renderer, CameraRig, Sync
-  setOrigin(lat: number, lon: number, height: number): void;
-  update(dt: number, camera: Camera): void;
-  beforeRender(camera: Camera): void;
-  losBlockers(): Object3D | null;        // Gruppe für den LOS-Würfel
-  pickRoot(): Object3D | null;           // Boden für die Kamera-Steuerung
-  startLayout(): WorldStartLayout | null; // feste HQ/Spawns (Karte, DevWorld) oder null (Tiles: Spieler wählt)
+  readonly sync: EllipsoidSync;           // Geo ↔ Szene um den Ursprung der Welt (engine.sync)
+  readonly surface: WorldSurface;         // engine.terrain
+  readonly streets: WorldStreetSource;
+  readonly streetStyle: StreetStyle;
+  readonly tiles: WorldTiles | null;      // die gestreamten Tiles: Renderer, Korridor, Statistik
+  attach(ctx: WorldAttachContext): Promise<void>; // Szene, Kamera, Renderer, CameraRig, groundChanged()
+  ready(): boolean;                       // zeichnet (Tiles: sobald der Renderer steht)
+  setOrigin(lat, lon, height): void;
+  update(camera, overlay): void;          // je gezeichnetem Frame: Boden streamen, Overlay mitführen
+  resize(camera, renderer): void;
+  setDrawSuppressed(suppressed): void;    // Menü-Globus deckt das Bild
+  losBlockers(): Object3D | null;         // direktes Szenen-Kind für den LOS-Würfel
+  sceneToEcef(target): Matrix4 | null;
   attribution(): string;
-  events: WorldLoadEvents;               // erster Boden geladen, geladen, Auth-Fehler
+  onFirstGround(cb): void;                // mit Nachholen
+  onLoadFailure(cb): void;                // 'credentials' | 'unreachable', mit Nachholen
+  startLayout(): WorldStartLayout | null; // HQ + Spawns der Welt, null: Spieler wählt (Tiles)
+  regenerate(): Promise<void>;            // capabilities.regenerate
   dispose(): void;
 }
 
 interface WorldCapabilities {
-  realPlace: boolean;      // echter Ort: Nominatim, zuletzt besucht, Bestwellen, ?l=, Ortswechsel, Globus
-  streaming: boolean;      // Boden lädt nach (Tiles): Ladeanzeige, LOD-Korridor, Neuabtastung
-  ecef: boolean;           // sceneToEcef für Tauchflug und Globus
-  credentials: boolean;    // braucht Token/Key
-  regenerate: boolean;     // DevWorld: neu würfeln
-  destructible: boolean;   // Gebäude zerstörbar (später)
+  realPlace; streaming; ecef; credentials; regenerate; destructible: boolean;
   controls: 'globe' | 'environment';
 }
 ```
 
-Implementierungen:
+`WorldSurface` hat die Abfragen, die `TerrainQueries` vorher hatte: `getTerrainHeightAtGeo`,
+`getStreetHeightEstimate`, `getGroundHeightEstimate`, `sampleColumn`, `raycastTerrainHeight`,
+`raycastColumnSample`, `inspectColumn`, `measureStreetClearance`, `peekBestTileLODAtLocal`, `raycastLineOfSight`,
+`markTileSetChanged`, `clearHeightCache`, `lodVersion`; dazu `pickRay(raycaster)` (Bildschirm-Pick, den Strahl baut
+der `ScreenPicker`), `roofAt` und `footprintColumn` (Turmplatzierung). Die Regel der Straßenhöhe ohne den Boden steht
+einmal in `streetHeightAt` (`terrain-queries.ts`) und wird von allen Oberflächen benutzt.
 
-| Provider | Ordner | Herkunft |
-|----------|--------|----------|
-| `TilesWorld` | `world/tiles/` | Tiles-Teil von `ThreeTilesEngine`, `TerrainQueries`, `ScreenPicker`, `RouteCorridorTiles`, `TileLoadingTracker`, OSM |
-| `DevWorldProvider` | `devworld/` | `DevTerrainProvider`, `DevStreetProvider`, Teile von `LocationFacadeService` |
-| `CustomMapWorld` | `world/custom-map/` | neu: Kartendokument, Renderer, Wegenetz der Karte |
+`StreetStyle` (Daten statt Weichen): `overlayLift` (gelbes Overlay), `routeLineLift` (rote Linie), `subdivideM`
+(Routen und Overlay in Stücke dieser Länge), `plainGround` (Höhen aus dem reinen Gelände, ohne Brücken und
+Seitenproben), `carryOffStreet` (Abzweig zum HQ trägt die Straßenhöhe weiter).
 
-Spätere: `OwnTilesWorld` (eigene Tilesets, Variante von `TilesWorld` mit anderer Quelle), Zerstörung als
-`capabilities.destructible` plus Hook am Provider.
+| Provider | Datei | Fähigkeiten | Inhalt |
+|----------|-------|-------------|--------|
+| `TilesWorld` | `world/tiles/tiles-world.ts` | realPlace, streaming, ecef, credentials, globe | TilesRenderer und Plugins, `TileLoadingTracker`, `RouteCorridorTiles`, `SettleHold`, Overlay folgt der Tiles-Gruppe, GlobeControls, Zugangsdaten, Logos (`tilesLogos`); Oberfläche `TerrainQueries`, Straßen `OsmStreetService` |
+| `DevWorldProvider` | `devworld/dev-world-provider.ts` | regenerate, environment | `DevTerrainProvider` in einer Gruppe am Ursprung, EnvironmentControls, Oberfläche `DevWorldSurface`, Straßen `DevStreetProvider`, Startaufstellung aus dem Straßengenerator |
+| `CustomMapWorld` | `world/custom-map/custom-map-world.ts` | environment | `CustomMapView` (beim Anhängen nachgeladen), Himmel/Licht/Nebel der Karte, Oberfläche `CustomMapSurface` (Höhenraster), Straßen `MapStreetSource` (Wegegraph), HQ und Spawns der Karte |
 
 ### WorldStreetSource
 
-Ersetzt die direkte Injektion von `OsmStreetService` in rund acht Diensten. Enthält `loadStreets`, `findPath`,
-`findNearestStreetPoint`, `findRandomStreetPoint`, `filterStreetsNearRoutes`, `segmentRoutes`, `spawnLabel`,
-`prefetch`, `loadBuildingsNearRoutes` (Tiles: Overpass; Karten: keine, Gebäude sind Objekte der Karte).
-`OsmStreetService` implementiert sie für Tiles, `DevStreetProvider` für DevWorld, das Wegenetz der Karte für eigene
-Karten. Dienste holen sie über `WorldContext.streets`.
+`prefetchStreets`, `loadStreets`, `findNearestStreetPoint`, `findPath`, `segmentRoutes`, `findRandomStreetPoint`,
+`filterStreetsNearRoutes`, `haversineDistance`, `loadBuildingsNearRoutes`, `spawnLabel`. Die Netzalgorithmen
+(Segment-A*, Zufallspunkt mit Routenprüfung, Filter, nächster Punkt) stehen in `StreetRouter`
+(`services/location/street-router.ts`); `OsmStreetService`, `DevStreetProvider` und `MapStreetSource` erben sie.
+`findRandomStreetPoint` prüft in jeder Welt mit dem Segment-A* (`routeAlongSegments`), wie DevWorld es vorher über
+`OsmStreetService` tat; `DevStreetProvider.findPath` bleibt sein eigenes A* auf dem Gitter.
 
-### WorldContext (Angular-Dienst)
+### WorldContext und Registry
 
-Hält den aktiven Provider und seinen `WorldRef` als Signal. Einzige Stelle, an der Dienste die Welt erreichen.
+- `WorldContext` (`world/world-context.service.ts`, root): `ref` (Signal, aus der URL; Tiles folgen der eingestellten
+  Quelle), `capabilities`, `logos`, `provider`, `streets`, `startHq()`, `open(origin)` (macht den Provider vor dem
+  Engine), `close()`, `select(ref)`, `refreshRef()` (nach einer Neugenerierung)
+- `WorldProviderRegistry` (`world/world-provider-registry.ts`): je Art eine `WorldFactory` mit `capabilities`,
+  `create(ref, { injector, origin })`, optional `startHq(ref)` und `logos(ref)`; `WorldUnavailableError` für eine
+  Welt, die es hier nicht gibt. Eine neue Art registriert nur ihre Factory
+- `WorldPackageLoader.worldHere(package)`: warum die Welt eines Pakets (Coop, Spielstand) hier nicht steht, sonst
+  null. Hier wird später das Kartenpaket des Hosts geholt, statt abzulehnen
+
+### Geo-Rahmen
+
+`world/flat-frame.ts` (`FLAT_WORLD_ORIGIN`, `flatLocalToGeo`, `flatGeoToLocal`) ist das eine Paar der synthetischen
+Welten, bei Breite 0 genau `geoToLocalSimple` und seine Umkehrung; `DevWorldService.localToGeo/geoToLocal` sind
+entfernt. Die Karten haben `mapToGeo`/`geoToMap` im Kartendokument, mit demselben Faktor. `EllipsoidSync.localToGeo`
+(Erdradius statt 111320) und die Simulation (`sim-coords.ts`) bleiben unverändert, wegen Replay-Prüfsummen.
+
+### Entscheidungen beim Bau
+
+- **Provider besitzt `sync`**: der Rahmen einer Welt ist ihr Ursprung; der Engine nimmt `world.sync` und
+  `world.surface`. Der Provider wird vor dem Engine gemacht (`WorldContext.open`), damit der Straßen-Prefetch
+  (TODO H13) vor dem Engine beginnt
+- **Fähigkeit statt Art**: Zugangsdaten nur bei `credentials` (der Fake-Token der E2E-Läufe ist weg), Globus und
+  Tauchflug nur bei `realPlace` und `ecef`, Zuletzt-besucht, Bestwellen, Ortssuche-URL nur bei `realPlace`.
+  Bewusste Ausnahme: Bot-Training, Hintergrund-Schleife und Rendering-Schalter hängen an `ref.kind === 'devworld'`,
+  weil DevWorld die Welt der Bots ist und eine eigene Karte keinen Bot-Server ansprechen soll
+- **Spielstand in DevWorld** ist jetzt möglich (nur gleiche Welt); die Autosicherung bleibt auf echten Orten, damit
+  Bot-Läufe nie den Platz belegen, den das Menü zum Fortsetzen und Raten des Startorts nimmt
+- **`TerrainQueries` bleibt in `three-engine/`** (viele Specs und Werkzeuge importieren ihn); er ist die Oberfläche
+  der Tiles-Welt. Ebenso `RouteCorridorTiles`, `TileLoadingTracker`, `tiles-renderer-setup`
+- **Karten**: Ursprung der Szene ist das HQ des Laufs wie bei den Tiles; die Kartenansicht wird um den Versatz
+  verschoben, die Höhenabfragen rechnen in Kartenmetern. Brücken sind vorerst Dekoration (Routen folgen dem
+  Gelände darunter), Türme stehen auf dem Gelände
 
 ## Eigene Karten
 
@@ -154,11 +200,12 @@ Spiel mit `?world=map:<id>`.
 ## Reihenfolge
 
 1. Typen und Plan (dieses Dokument), `WorldRef`, Kartendokument
-2. Engine und Abfragen auf `WorldProvider` (Tiles, DevWorld), Straßenquelle, Startablauf, `WorldRef` überall
+2. Engine und Abfragen auf `WorldProvider` (Tiles, DevWorld), Straßenquelle, Startablauf, `WorldRef` überall (gebaut)
 3. parallel: W3X-Leser und Konverter, Karten-Renderer und Assets, Editor
-4. `CustomMapWorld` im Spiel, Coop mit eigener Karte (Host schickt das Kartenpaket)
+4. `CustomMapWorld` im Spiel (gebaut: `?world=map:<id>`, `demo` für die Demo-Karte), Coop mit eigener Karte (offen:
+   der Host schickt das Kartenpaket, Einstieg `WorldPackageLoader.worldHere`)
 
-## Kopplungsstellen heute (Erkundung 2026-10-11)
+## Kopplungsstellen vor dem Umbau (Erkundung 2026-10-11, inzwischen aufgelöst)
 
 Schlimmste zuerst: `ThreeTilesEngine` (DevWorld-Parameter, Zugangsdaten, `getDevTerrainProvider()`,
 Render/LOS/ECEF-Zweige); `TerrainQueries`/`ScreenPicker`/`TowerPlacementService` (`tiles()` vs `devTerrain()`);

@@ -2,7 +2,7 @@
 
 **Status:** Implementiert
 **Zugriff:** `?devworld` URL-Parameter
-**Stand:** 2026-09-15
+**Stand:** 2026-10-11
 
 ---
 
@@ -34,51 +34,60 @@ DevWorld ist eine alternative Spielwelt die ohne Google 3D Tiles funktioniert. S
 (`terrain`, `seed`, `buildings` immer, `spawn` nur wenn nicht `north`). Unbekannte Werte fallen auf `flat`, `dense`, `north` und Seed 42 zurück.
 
 `spawn` wirkt nur, wenn der Straßengenerator keinen Spawn liefert: Normalerweise nimmt
-`LocationFacadeService.addPredefinedSpawns()` die ersten `spawns` generierten Spawns (Standard einer, damit Bots
-das ausgelieferte Spiel mit einer Route spielen), erst ohne sie gilt `DEV_WORLD_SPAWNS[spawn]`.
+`DevWorldProvider.startLayout()` die ersten `spawns` generierten Spawns (Standard einer, damit Bots das
+ausgelieferte Spiel mit einer Route spielen), `LocationFacadeService.addPredefinedSpawns()` setzt sie; erst ohne
+sie gilt `DEV_WORLD_SPAWNS[spawn]`.
 
 **Coop in DevWorld (seit 2026-09-26):** zwei Seiten auf `?devworld&spawns=2&bot=manual`, ein Relay
 (`npm run coop-server`), Host öffnet einen Raum, der Gast tritt per Code bei; ohne Kartensitzung. Ein Tab mit
 `bot=manual` ignoriert die Befehle eines laufenden Bot-Servers (vorher spielte der Bot mit und kaufte beim Start das
 Research Center).
 
+**Zugang und Spielstand (seit 2026-10-11):** DevWorld braucht keinen Tile-Token (`capabilities.credentials` ist
+falsch); ein Tab ohne gespeicherte Zugangsdaten startet ohne Token-Abfrage, auch im Produktions-Build. Spielstände
+lassen sich speichern und laden, auf derselben DevWorld (`WorldRef` mit Terrain, Seed, Gebäuden, Spawns); die
+Autosicherung bleibt echten Orten vorbehalten. Ein Coop-Gast in einer anderen DevWorld als der Host bekommt eine
+Meldung statt eines abweichenden Weltschlüssels.
+
 ---
 
 ## Architektur
 
-DevWorld klinkt sich an zwei Stellen ein, beide über `DevWorldService.isActive`:
+DevWorld ist ein Weltprovider ([WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md)): `?devworld` setzt den `WorldRef`
+`{ kind: 'devworld', terrain, seed, buildings, spawns }` im `WorldContext`, die `WorldProviderRegistry` macht daraus
+einen `DevWorldProvider`. Engine und Dienste fragen nie, ob DevWorld läuft; sie lesen Fähigkeiten
+(`realPlace: false`, `credentials: false`, `regenerate: true`, `controls: 'environment'`) und Daten (`streetStyle`).
 
 ```
-ThreeTilesEngine
+WorldContext.open(origin)  ->  DevWorldProvider (devworld/dev-world-provider.ts)
     |
-    +-- Produktion: TilesRenderer (Google 3D Tiles), direkt in der Engine
-    +-- DevWorld:   initializeDevWorld() -> DevTerrainProvider (implements TerrainProvider)
-                    Höhen-, LOS- und Screen-Raycasts der Engine verzweigen auf den Provider,
-                    Kamera über EnvironmentControls statt GlobeControls
-
-EngineInitializationService.loadStreets()
-    |
-    +-- Produktion: OsmStreetService.loadStreets(lat, lon, 2000)   (Overpass, IndexedDB-Cache)
-    +-- DevWorld:   DevStreetProvider (implements StreetNetworkProvider),
-                    Straßen und Spawns vom DevTerrainProvider
+    +-- attach(): DevTerrainProvider erzeugt Gelände, Straßen, Gebäude (Web Worker)
+    |             in einer Gruppe am Ursprung (direktes Szenen-Kind, LOS-Blocker),
+    |             EnvironmentControls darüber
+    +-- surface:  DevWorldSurface (engine.terrain): Höhen vom Mesh, synthetische
+    |             LOD, keine Clearance-Strahlen, Dach per raycastDown für Türme
+    +-- streets:  DevStreetProvider (WorldStreetSource), Netz aus den Segmenten
+    |             des Generators; Pfadsuche A* auf dem Gitter
+    +-- startLayout(): HQ am Ursprung, die ersten `spawns` Spawns des Generators
+    +-- regenerate(): neu würfeln aus der aktuellen Konfiguration
 ```
 
-Die Interfaces liegen in `src/app/interfaces/` (`terrain-provider.interface.ts`,
-`street-network-provider.interface.ts`). `OsmStreetService` hat dieselben Methoden,
-implementiert das Interface aber nicht formal. `PathAndRouteService` bekommt in DevWorld
-den `DevStreetProvider` als Pathfinding-Service (`VisualizationFacadeService`).
+`DevWorldService` ist nur noch Konfiguration: URL lesen (`inUrl`, `config`), Debug-Panel (`updateConfig`),
+Share-URL. Geo-Umrechnung: `world/flat-frame.ts` (bei Breite 0 genau `geoToLocalSimple`).
 
 ### Kernkomponenten
 
 | Datei | Beschreibung |
 |-------|--------------|
 | `devworld.service.ts` | URL-Parameter Parsing, Config, Konstanten |
-| `dev-terrain.provider.ts` | TerrainProvider-Implementierung, Meshes, Web Worker Steuerung |
-| `dev-street.provider.ts` | StreetNetworkProvider mit A* Pathfinding (Gewichtung nach Straßentyp) |
+| `dev-world-provider.ts` | WorldProvider: Anhängen, Startaufstellung, Neugenerierung, Fähigkeiten, StreetStyle |
+| `dev-world-surface.ts` | WorldSurface: alle Bodenabfragen auf dem DevTerrainProvider |
+| `dev-terrain.provider.ts` | Meshes, Höhen- und Sichtlinien-Raycasts, Web Worker Steuerung |
+| `dev-street.provider.ts` | WorldStreetSource mit A* Pathfinding (Gewichtung nach Straßentyp); Zufallspunkte und Spawn-Vorschau über `StreetRouter` |
 | `devworld.worker.ts` | Web Worker für Off-Main-Thread Generation |
 | `devworld-worker.types.ts` | Worker Message Types |
 | `devworld-debug-panel.component.ts` | UI Panel: Terrain, Seed, Gebäude, Regenerate, Share-URL |
-| `devworld-debugger.component.ts` | Draggable Debug Window Wrapper |
+| `devworld-debugger.component.ts` | Draggable Debug Window Wrapper (nur bei `capabilities.regenerate`) |
 
 ### Generatoren
 
@@ -170,9 +179,9 @@ Features:
 - A* Pathfinding mit Straßentyp-Gewichtung
 
 Spawns: Der Generator legt bis zu 4 an Straßenenden an (mindestens 0,7 x `minSpawnDistance`
-vom HQ, Default 300 m). Das Spiel nutzt nur den ersten, beim Laden
-(`addPredefinedSpawns()`) wie nach dem Regenerieren (`onDevWorldRegenerated()`), passend
-zum Ein-Spawn-Spiel der echten Welt.
+vom HQ, Default 300 m). Das Spiel nutzt die ersten `spawns` (Standard einer) aus
+`DevWorldProvider.startLayout()`, beim Laden (`addPredefinedSpawns()`) wie nach dem Regenerieren
+(`onWorldRegenerated()`), passend zum Ein-Spawn-Spiel der echten Welt.
 
 ---
 
@@ -198,7 +207,8 @@ Main Thread                    Worker
 ```
 
 Jede Phase meldet nur 0 und 100 %; `DevTerrainProvider` wertet die Progress-Nachrichten
-derzeit nicht aus. Die Three.js-Meshes baut der Main Thread aus dem Ergebnis.
+derzeit nicht aus. Die Three.js-Meshes baut der Main Thread aus dem Ergebnis; die Straßen gibt
+`DevWorldProvider` danach an seinen `DevStreetProvider`.
 
 ---
 
@@ -209,7 +219,7 @@ DEV_WORLD_SIZE = 1000          // 1km x 1km Spielfeld
 DEV_WORLD_HEIGHTMAP_SIZE = 1024 // ~1m Aufloesung
 DEV_WORLD_MAX_HEIGHT = 150     // Max. Terrain-Höhe in Metern
 DEV_WORLD_DEFAULT_SEED = 42    // Standard-Seed
-DEV_WORLD_ORIGIN = { lat: 0.0, lon: 0.0, height: 0 }  // Fake Geo-Koordinaten
+FLAT_WORLD_ORIGIN = { lat: 0, lon: 0, height: 0 }  // world/flat-frame.ts, Ursprung der synthetischen Welten
 ```
 
 ---
@@ -227,20 +237,23 @@ Das Debug-Fenster ist nicht automatisch offen: Mit `?devworld` zeigen die Quick 
 Kachel "DevWorld", die es umschaltet.
 
 Regenerieren: `LocationFacadeService.refreshTerrainHeights()` räumt die Szene
-(`clearDevWorldVisuals()`), ruft `DevTerrainProvider.regenerate()` und danach
-`onDevWorldRegenerated()`: HQ-Marker, ein Spawn, Route-Grid vor den Routenlinien, dann
-`GameStateManager.reseatWavePipeline()`, damit die nächste Welle auf der neuen Karte startet.
+(`clearWorldVisuals()`), ruft `WorldProvider.regenerate()` (bei `capabilities.regenerate`), lädt die neuen
+Straßen, übernimmt den neuen `WorldRef` (`WorldContext.refreshRef()`) und ruft `onWorldRegenerated()`: HQ-Marker,
+die Spawns der Startaufstellung, Route-Grid vor den Routenlinien, dann die neue Welt an die Simulation.
 
 ---
 
 ## Route-Grid und Korridor
 
-- `filterStreetNetworkToRoutes()` filtert in DevWorld nicht, das ganze Netz bleibt.
+- `filterStreetNetworkToRoutes()` filtert in DevWorld nicht, das ganze Netz bleibt
+  (`DevStreetProvider.filterStreetsNearRoutes` gibt es zurück).
+- Straßen-Darstellung über `DEV_WORLD_STREET_STYLE`: Overlay 3 m und rote Linie 3 m über dem Boden, Routen und
+  Overlay in 2-m-Stücken, Höhen aus dem reinen Gelände, kein Abzweig mit getragener Straßenhöhe.
 - Die Höhen kommen in einem Schritt vom Mesh, es gibt keine Tile-Batches. Die Zellen tasten
   einmal beim Aufbau des Grids ab; beim Neugenerieren baut
   `LocationFacadeService.onDevWorldRegenerated()` erst das Grid und legt dann die Routenlinien
   darauf (`PathRouteService.refreshRouteLines()`).
-- Korridor: `engine.terrain.measureStreetClearance()` (`TerrainQueries`) gibt in DevWorld `null` zurück, es
+- Korridor: `engine.terrain.measureStreetClearance()` (`DevWorldSurface`) gibt `null` zurück, es
   laufen keine Clearance-Rays. Der Korridor behält die Breite aus `DEV_STREET_WIDTHS`.
   Details: [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md).
 - LOS: Fahrbahn-Stempel und Terrain-Skirt tragen `userData.losTransparent` und fehlen in
@@ -250,7 +263,7 @@ Regenerieren: `LocationFacadeService.refreshTerrainHeights()` räumt die Szene
 
 ## Training
 
-Mit `?devworld` schaltet `TowerDefenseFacadeService` den AI-Director ein
+Mit `?devworld` (`WorldRef` der Art `devworld`) schaltet `TowerDefenseFacadeService` den AI-Director ein
 (`directorEnabled`), verbindet `BotClientService` mit dem Backend und startet den Bot
 `strategist` mit Auto-Waves, außer bei `?bot=manual`. Die Engine läuft auch im
 Hintergrund-Tab weiter (`setBackgroundLoopEnabled`), und nur in DevWorld zeigt der Header

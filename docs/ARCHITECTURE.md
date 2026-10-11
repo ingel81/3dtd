@@ -28,10 +28,31 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 | Effekte, Post-Processing, Screen Shake | `three-engine/renderers/`, `three-engine/post-processing/` | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) |
 | Ton und Musik | `managers/audio/`, `game-engine/background-music.service.ts` | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) |
 | UI, Tasten, Photo Mode, Onboarding | `components/`, `services/` | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
+| Welten: Tiles, DevWorld, eigene Karten (WorldProvider, WorldRef) | `world/`, `devworld/` | [WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md) |
 | Offline-Welt | `devworld/` | [DEVWORLD.md](DEVWORLD.md) |
 
 Offen aus der früheren Feature-Liste: Projektil-LoS (ein Projektil trifft nur bei
 Sichtverbindung).
+
+
+## Welten (WorldProvider)
+
+Der Engine zeichnet eine Welt, die er fertig bekommt: `new ThreeTilesEngine(canvas, world, assets)`. Ein
+`WorldProvider` (`world/world-provider.ts`) bringt seinen Geo-Rahmen (`sync`), seine Bodenabfragen (`surface`, als
+`engine.terrain`), seine Straßen (`streets`, eine `WorldStreetSource`), seine Straßen-Darstellung (`streetStyle`),
+seine Startaufstellung und, wenn er Tiles streamt, die Tiles-Facette (`tiles`: Renderer, Routen-Korridor,
+Statistik). `attach()` hängt Boden und Kamera-Controls in die Szene, `update()` streamt je Frame.
+
+| Welt | Provider | Was sie kann |
+|------|----------|--------------|
+| Google 3D Tiles | `TilesWorld` (`world/tiles/`) | echter Ort, Streaming, ECEF, braucht Zugangsdaten |
+| DevWorld | `DevWorldProvider` (`devworld/`) | neu würfeln, offline |
+| Eigene Karte | `CustomMapWorld` (`world/custom-map/`) | Karte aus dem Kartenspeicher, offline |
+
+Dienste erreichen die Welt nur über `WorldContext` (`ref`, `capabilities`, `streets`, `provider`); welche Welt läuft,
+sagt der `WorldRef` (`world/world-ref.ts`), den auch Coop-Paket, Spielstand, Replay und Run-Log tragen. Die UI fragt
+Fähigkeiten ab (`credentials`, `realPlace`, `ecef`, `regenerate`), nicht die Art. Einzelheiten:
+[WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md).
 
 ### Laufzeit-Abhängigkeiten
 
@@ -223,7 +244,7 @@ Injector der App.
 | **LocationChangeExecutorService** | Die 7 Schritte eines Location-Wechsels (Reset, Straßen, HQ, Spawn, Routen, Finalize) |
 | **GeocodingService** | Nominatim Geocoding & Reverse-Geocoding |
 | **GeolocationService** | Browser Geolocation API Wrapper, nur auf Wunsch („Use my location“ auf New game) |
-| **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
+| **OsmStreetService** | OpenStreetMap Straßen-Loading (die Straßenquelle der Tiles-Welt); A* Pathfinding und Zufallspunkte erbt es von `StreetRouter` |
 | **StreetCacheService** | IndexedDB Cache für Straßendaten |
 | **UrlLocationService** | URL-Parameter für Location-Sharing |
 | **WorldDiceService** | Zufällige Städte für Random-Location |
@@ -388,13 +409,13 @@ Es wird nur für die Authentifizierung zum Cesium Ion Hosting-Service verwendet.
 | Datei | Beschreibung |
 |-------|--------------|
 | `three-tiles-engine.ts` | Haupt-Engine: Scene, Renderer, TilesRenderer, Overlays |
-| `camera-rig.ts` | Kamera-Controls (GlobeControls, in DevWorld EnvironmentControls), Startposition, lokaler Kamera-Setter. Vom Engine besessen, die Kamera selbst bleibt beim Engine. Die GlobeControls raycasten nur gegen die Tiles (`ground-pick-root.ts`) |
+| `camera-rig.ts` | Kamera-Controls (GlobeControls auf den Tiles, EnvironmentControls über DevWorld und eigenen Karten; die Welt richtet sie in `attach()` ein), Startposition, lokaler Kamera-Setter. Vom Engine besessen, die Kamera selbst bleibt beim Engine. Die GlobeControls raycasten nur gegen die Tiles (`ground-pick-root.ts`) |
 | `ground-pick-root.ts` | Szene der GlobeControls: Gruppe ohne Transform in der Engine-Szene, beantwortet ihre Strahlen (Punkt unter der Kamera, Zoom-Punkt, Pivot) nur mit der Tiles-Gruppe und trägt ihr Pivot-Mesh. three prüft beim Raycast `visible` nicht; mit der ganzen Szene trafen die Controls die versteckten Reichweiten-Scheiben der Tower an der Route. Raycast-Cache (seit 2026-09-14): die letzten vier Strahlen samt Treffern; ein gleicher Strahl (`near`, `far`, `firstHitOnly`, Layer gleich, neuer Strahl höchstens 1 mm am alten Treffer vorbei) kommt aus dem Speicher, als Kopie. `TileSetVersion` im selben File zählt jede Traversierung (`frameCount` bei `update-after`), `load-tileset`, `load-model`, `dispose-model`, `tile-visibility-change` und `needs-update`; eine neue Version oder eine bewegte Tiles-Gruppe (`matrixWorld`) leert den Cache. In Ruhe überspringt der UpdateOnChangePlugin die Traversierung, die zwei Strahlen pro Frame unter die Kamera kommen dann aus dem Cache; bewegt sich die Kamera oder streamen Tiles, wird wie vorher gecastet |
 | `tile-loading-tracker.ts` | Tile-Loading-State: erster Tile-Load (Debounce 500 ms, Retry 200 ms x 50, Force-Update x 3), Auth-Fehler, Tile-Stats. Hintergrund: [TILES_LOADING_BUG.md](archive/TILES_LOADING_BUG.md) |
 | `render-loop.ts` | Render-Loop: rAF-Treiber mit FPS-Cap (`FramePacer`), Heartbeat-Worker für versteckte Trainings-Tabs, FPS-Zähler, Warten auf den nächsten gezeichneten Frame. Als `engine.renderLoop` erreichbar |
 | `terrain-queries.ts` | Raycasts gegen Boden und Tiles: Säulen-Probe `sampleColumn()` mit Cache pro 0,5-m-Säule (Strahl in deren Mitte, `columnCentre`) und `lodVersion`, `getGroundHeightEstimate()`, Tile-LOD-Peek ohne Raycast, Straßen-Freiraum für den Routen-Korridor (`measureStreetClearance()`, Säulen am genauen Punkt am Cache vorbei), Line-of-Sight. Als `engine.terrain` erreichbar, nur `getTerrainHeightAtGeo()` reicht der Engine durch |
 | `scene-environment.ts` | Statische Szenen-Lichter (`addSceneLights()`) und der Himmel als Cube-Textur aus `day.webp` (`SkyBackground`, nach einem WebGL-Context-Restore neu umgerechnet) |
-| `screen-picker.ts` | Screen-Picking: Boden unter dem Mauszeiger (`raycastTerrain()`, in DevWorld über den DevTerrainProvider) und der vorderste Tower unter dem Punkt (`raycastTowers()`, bei gleichem Abstand der erste der Liste), je Aufruf ein frischer Raycaster. Als `engine.picker` erreichbar |
+| `screen-picker.ts` | Screen-Picking: Boden unter dem Mauszeiger (`raycastTerrain()`: frischer Strahl, den Boden trifft `WorldSurface.pickRay` der Welt) und der vorderste Tower unter dem Punkt (`raycastTowers()`, bei gleichem Abstand der erste der Liste), je Aufruf ein frischer Raycaster. Als `engine.picker` erreichbar |
 | `tiles-renderer-setup.ts` | Aufbau des TilesRenderers (`createTilesRenderer()`: Auth je Provider, Kompression, Update-on-Change, verzögertes Entladen, Fade, glTF/Draco, Reorientation, Load-Regions, Gruppe auf Y-oben) und Streaming-Budget (`applyStreamingBudget()`) |
 | `ellipsoid-sync.ts` | WGS84 - Three.js Koordinatentransformation |
 | `renderers/index.ts` | CoordinateSync Interface + Renderer Exports |
@@ -483,16 +504,14 @@ useHeight() {
 
 ### Terrain-Höhenermittlung
 
-Senkrechte Säulen-Probe gegen die geladenen 3D Tiles in lokalen Koordinaten, in
-`TerrainQueries` (`three-engine/terrain-queries.ts`); `engine.getTerrainHeightAtGeo()`
-reicht nur durch:
+Die Bodenabfragen sind die `WorldSurface` der Welt (`engine.terrain`, siehe Abschnitt Welten).
+Auf den Tiles ist das `TerrainQueries` (`three-engine/terrain-queries.ts`): senkrechte
+Säulen-Probe gegen die geladenen 3D Tiles in lokalen Koordinaten; `engine.getTerrainHeightAtGeo()`
+reicht nur durch. DevWorld (`DevWorldSurface`) und eigene Karten (`CustomMapSurface`) lesen ihr
+Höhenraster ohne Strahl.
 
 ```typescript
 getTerrainHeightAtGeo(lat: number, lon: number): number | null {
-  // DevWorld: Höhe kommt vom Provider
-  const devTerrain = this.sources.devTerrain();
-  if (devTerrain) return devTerrain.getHeightAtGeo(lat, lon);
-
   // Lokale X/Z, dann Säulen-Probe (Cache pro Säule, Key = lokales x/z),
   // gebucht unter 'heightAtGeo' in __raycastStats()
   const localPos = this.sync.geoToLocalSimple(lat, lon, 0);
