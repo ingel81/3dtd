@@ -78,10 +78,15 @@ Nebel der Szene wieder her.
   flache Hügel über; Wasser am Rand läuft darüber weiter, bis das geglättete Bett über den Spiegel steigt. Im Shader
   mit der ersten Schicht bemalt. Nicht Teil der Karte (keine Abfragen, `losTransparent`)
 
+- **Nasse Ufer**: die Alpha-Komponente der Normalentextur markiert Raster­punkte nahe Wasser (Maske um zwei Samples
+  gewachsen); dort wird Boden bis etwa 1,3 m über dem Spiegel dunkler und glänzender
+
 ### Wege (`paths/`)
 
-Wege werden **ins Gelände gemalt**, nicht als Streifen aufgelegt: eine RG-Maske (rot Straße, grün Pfad, 0,5 m je
-Texel, höchstens 2048²) sagt dem Gelände-Shader, wo die Wegmaterialien (`cobblestone`, `dirt-path`) liegen. So folgt
+Wege werden **ins Gelände gemalt**, nicht als Streifen aufgelegt: eine RGBA-Maske (rot Straße, grün Pfad, blau die
+Lage quer zum stärksten Weg, 0,5 m je Texel, höchstens 2048²) sagt dem Gelände-Shader, wo die Wegmaterialien
+(`cobblestone`, `dirt-path`) liegen. Straßen bekommen Spurrillen, Feldwege zwei Fahrspuren mit Grasstreifen, die
+weichen Ränder werden von Rauschen angefressen (Gras wächst herein). So folgt
 ein Weg jeder Unebenheit ohne Z-Fighting, und der Höhen-Blend lässt Pflastersteine am Rand ins Gras auslaufen.
 Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
 leichtem Bogen und mindestens 1 m über dem Wasser.
@@ -95,7 +100,9 @@ zwei Richtungen; Spiegelung als Himmelsfarbe (Fresnel) und Sonnenglanz. `losTran
 
 ### Objekte (`objects/`)
 
-Je Asset und Modellteil ein `InstancedMesh`. Sichtblocker (Katalog `blocksLos`, je Objekt überschreibbar) liegen in
+Je Asset und Modellteil ein `InstancedMesh`. Laubkarten behalten ihre gesetzten Normalen auch auf der Rückseite
+(three dreht sie bei doppelseitigen Materialien um, das machte Kartenrücken schwarz); Gras- und Blumenkarten zeigen
+mit der Normalen nach oben und blenden zur Sichtweite hin aus. Sichtblocker (Katalog `blocksLos`, je Objekt überschreibbar) liegen in
 `losBlockers` und behalten immer alle Instanzen, denn der LOS-Würfel rendert von den Türmen aus, nicht von der Kamera.
 Alles andere (Gras, Blumen, kleine Requisiten) wird je Instanz auf der CPU nach Sichtweite (`drawDistance`) und
 Frustum ausgesiebt. Bäume und Pflanzen wiegen sich im Wind (Vertex-Shader, nach Höhe im Modell und Phase aus der
@@ -105,10 +112,18 @@ Punkt unter ihrem Fußabdruck.
 
 ### Umgebung (`environment/`)
 
-Himmel als Equirect-Verlauf mit Sonnenhof, auf der CPU gerechnet (Voreinstellungen `day`, `dusk`, `night`,
-`overcast`), als Hintergrund und vorgefiltert (PMREM) als Umgebungslicht. Sonne als `DirectionalLight` mit 4096er
-Schattenkarte, deren Box (±300 m) dem Fokus folgt und auf Texel einrastet. Halbkugellicht, exponentieller Nebel in der
-Horizontfarbe, `tint` färbt Licht und Himmel. Abgestimmt auf den Renderer des Spiels (kein Tone-Mapping, sRGB).
+- **Himmel**: eine Kuppel um die Kamera (`sky-dome.ts`), zuerst und ohne Tiefentest gezeichnet: Verlauf vom Dunst am
+  Horizont zum Zenit, Sonne mit Hof, prozedurale Wolken (zwei fbm-Lagen, ziehen mit dem Wind, von der Sonnenseite
+  beleuchtet). Voreinstellungen `day`, `dusk`, `night`, `overcast` setzen Farben und Bedeckung. Dahinter bleibt ein
+  auf der CPU gerechneter Equirect-Verlauf als Hintergrund und, vorgefiltert (PMREM), als Umgebungslicht. Das Wasser
+  spiegelt dieselbe Himmelsfunktion (geteilte Uniforms)
+- **Sonne**: `DirectionalLight` mit 4096er Schattenkarte (PCF, Radius 2,5 Texel), deren Box dem Fokus folgt, auf
+  Texel einrastet und mit dem Kameraabstand wächst (70 bis 450 m): nah scharf, von oben weit
+- **Höhennebel** (`height-fog.ts`): die Materialien der Karte ersetzen das Nebel-Fragment der Szene; die Dichte nimmt
+  über dem tiefen Boden der Karte ab und wird entlang des Blickstrahls geschlossen integriert, zur Sonne hin färbt
+  sich der Dunst. Die Szene behält `FogExp2` für Farbe und Dichte
+- Halbkugellicht, `tint` färbt Licht und Himmel. Abgestimmt auf den Renderer des Spiels (kein Tone-Mapping, sRGB);
+  `/map-preview?post=bloom` rendert durch die Post-Processing-Kette des Spiels
 
 ## Assets
 
@@ -130,9 +145,9 @@ headless, gltf-transform).
 
 ## Leistung
 
-Demo-Tal (257 × 257 Raster, 2 m, 8000 Objekte, Schatten an), 1920 × 1080, RTX 5080, ohne VSync gemessen
-(`tmp/perf.mjs` im Worktree, Chromium mit `--disable-gpu-vsync --disable-frame-rate-limit`): 610 bis 730 fps, 75 bis
-125 Draw Calls, 1,3 bis 1,5 Mio. Dreiecke je Frame (mit Schattenpass). Einmalig: Demo erzeugen ~0,5 s, Laden bis
+Demo-Tal (257 × 257 Raster, 2 m, rund 13 000 Objekte, Schatten, Himmelskuppel, Höhennebel), 1920 × 1080, RTX 5080, ohne VSync gemessen
+(`tmp/perf.mjs` im Worktree, Chromium mit `--disable-gpu-vsync --disable-frame-rate-limit`): 500 bis 530 fps, 55 bis
+125 Draw Calls, 1,7 bis 1,8 Mio. Dreiecke je Frame (mit Schattenpass). Einmalig: Demo erzeugen ~0,5 s, Laden bis
 `ready` ~1 bis 2,5 s (Texturen dekodieren und packen).
 
 ## Grenzen

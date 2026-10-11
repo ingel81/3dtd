@@ -543,9 +543,9 @@ export function createDemoMap(seed = 7): CustomMapDocument {
     version: MAP_VERSION,
     meta: {
       id: 'demo-valley',
-      name: 'Demo-Tal',
+      name: 'Demo Valley',
       author: '3DTD',
-      description: 'Flusstal mit Dorf, Wald, Brücke und Felsen; zwei Straßen führen zum HQ.',
+      description: 'River valley with a village, woods, a bridge and cliffs; two roads lead to the HQ.',
       createdAt: now,
       updatedAt: now,
     },
@@ -562,8 +562,8 @@ export function createDemoMap(seed = 7): CustomMapDocument {
     objects,
     paths: { nodes, edges },
     spawns: [
-      { id: 'west', name: 'Weststraße', ...spawnWest },
-      { id: 'north', name: 'Nordstraße', ...spawnNorth },
+      { id: 'west', name: 'West road', ...spawnWest },
+      { id: 'north', name: 'North road', ...spawnNorth },
     ],
     hq,
     environment: { sky: 'day', sunAzimuth: 215, sunElevation: 38, fogDensity: 0.0007, tint: '#ffffff' },
