@@ -60,6 +60,8 @@ const BOT_CHECK_WAVES = 5;
 
 @Injectable()
 export class EditorSession implements OnDestroy {
+  /** A save asked for while one ran, done right after it */
+  private saveAgain: 'manual' | 'auto' | null = null;
   /** Counts the times the map view became ready (models and textures in): pictures of it are worth retaking */
   readonly viewRev = signal(0);
   /** The bot's check of the map: running (no result yet) or done */
@@ -422,7 +424,11 @@ export class EditorSession implements OnDestroy {
   async save(manual = false): Promise<boolean> {
     const editor = this.editor;
     if (!editor || this.origin() !== 'own') return false;
-    if (this.saving()) return false;
+    if (this.saving()) {
+      // Ctrl+S during an autosave: save again right after it, with the picture
+      this.saveAgain = this.saveAgain === 'manual' || manual ? 'manual' : 'auto';
+      return false;
+    }
     this.clearAutosave();
     this.saving.set(true);
     const state = editor.stateId;
@@ -448,6 +454,9 @@ export class EditorSession implements OnDestroy {
     } finally {
       this.saving.set(false);
       this.refresh();
+      const again = this.saveAgain;
+      this.saveAgain = null;
+      if (again) void this.save(again === 'manual');
     }
   }
 
