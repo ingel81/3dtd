@@ -118,7 +118,7 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
         { provide: SimClient, useValue: { bus } },
-        { provide: SimMirror, useValue: { rng: new GameRng(1), localPlayerId: 'local', scalars: { gameTimeMs: 0 }, onTowerChange: () => () => {} } },
+        { provide: SimMirror, useValue: { rng: new GameRng(1), localPlayerId: 'local', scalars: { gameTimeMs: 0 }, onTowerChange: () => () => undefined } },
         { provide: MainWorldService, useValue: { corridorPending: () => false } },
         { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: TowerDefenseStore, useValue: store },

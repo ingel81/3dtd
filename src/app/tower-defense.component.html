@@ -5,7 +5,7 @@
      (contextmenu)="$event.preventDefault()">
   <!-- The one message banner (UIStore.notice) -->
   @if (uiStore.notice(); as notice) {
-    <div class="notice-banner td-banner is-row" role="alert" [class.is-error]="(notice.tone ?? 'error') === 'error'"
+    <div class="notice-banner td-overlay td-banner is-row" role="alert" [class.is-error]="(notice.tone ?? 'error') === 'error'"
          [class.is-warn]="notice.tone === 'warn'" [class.is-ok]="notice.tone === 'ok'">
       <span>{{ notice.text }}</span>
       @if (notice.reload) {
