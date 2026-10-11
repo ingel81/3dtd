@@ -53,6 +53,10 @@
         <span class="td-tag" [class.is-error]="issueCount() > 0" [class.is-ok]="!issues.length">{{ issues.length }}</span>
       }
     </button>
+    <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.viewport?.toggleTrial()" [attr.aria-pressed]="session.viewport?.trialRunning ?? false"
+            matTooltip="The enemies walk the routes at their real speed, here in the editor (P)" data-test="trial">
+      Trial wave
+    </button>
     <button class="td-btn-primary td-btn-sm" type="button" (click)="session.testPlay()" matTooltip="Save and play this map in a new tab" data-test="test-play">
       <td-icon name="play" [size]="14" /> Test map
     </button>

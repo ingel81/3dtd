@@ -5,6 +5,7 @@
  * them to the map view once per frame (only the touched chunks), and keeps
  * the overlay (brush, markers, routes) in step.
  */
+import { TRIAL_TYPES, TrialRunners } from './trial-runners';
 import {
   MathUtils,
   PCFShadowMap,
@@ -109,6 +110,8 @@ export class EditorViewport {
   private readonly keysDown = new Set<string>();
   /** The view before the game camera took over, to go back to */
   private beforeGameView: OrbitState | null = null;
+  /** The trial wave's runners */
+  private readonly trial: TrialRunners;
   /** The hidden categories the view last showed */
   private hiddenKey = '';
   private readonly raycaster = new Raycaster();
@@ -132,6 +135,8 @@ export class EditorViewport {
     this.renderer.shadowMap.type = PCFShadowMap;
     this.view = new EditorMapView(editor.doc, this.scene, this.renderer);
     this.scene.add(this.overlay.group);
+    this.trial = new TrialRunners((x, y) => this.heightAt(x, y));
+    this.scene.add(this.trial.group);
     this.ctx = this.buildContext();
     this.unsubscribe.push(
       editor.onChange((change) => {
@@ -286,6 +291,10 @@ export class EditorViewport {
       case 'C':
         this.toggleGameView();
         return true;
+      case 'p':
+      case 'P':
+        this.toggleTrial();
+        return true;
       case 'ArrowUp':
       case 'ArrowDown':
       case 'ArrowLeft':
@@ -299,6 +308,37 @@ export class EditorViewport {
   keyUp(e: KeyboardEvent): void {
     this.keysDown.delete(e.key);
     this.keysDown.delete(`fly:${e.key.toLowerCase()}`);
+  }
+
+  /** Whether the trial wave walks */
+  get trialRunning(): boolean {
+    return this.trial.active;
+  }
+
+  /**
+   * The trial wave on or off: the enemies of the map's first wave (or a
+   * mix of speeds) walk every spawn's route at their real speed.
+   */
+  toggleTrial(): void {
+    if (this.trial.active) {
+      this.trial.stop();
+      this.callbacks.status('Trial wave stopped');
+      return;
+    }
+    const doc = this.editor.doc;
+    const routes = [...spawnRoutes(doc).values()].filter((r): r is NonNullable<typeof r> => !!r);
+    if (!routes.length) {
+      this.callbacks.status('No spawn reaches the HQ: draw a road first');
+      return;
+    }
+    const waves = doc.gameplay?.waves;
+    const first = waves?.kind === 'table' ? waves.table.waves[0] : undefined;
+    const types = this.trial.start(routes, first ? Object.keys(first.enemies) : TRIAL_TYPES);
+    const t = TrialRunners.timing(routes, types);
+    this.callbacks.status(
+      `Trial wave: ${types.map((x) => x.name).join(', ')} on ${routes.length} ${routes.length === 1 ? 'route' : 'routes'}; ` +
+        `the HQ in ${Math.round(t.fastest)} to ${Math.round(t.slowest)} s (P stops)`,
+    );
   }
 
   /** Whether the right button is turning the view (keys fly then) */
@@ -396,6 +436,7 @@ export class EditorViewport {
     this.tool?.deactivate?.(this.ctx);
     this.view.dispose();
     this.overlay.dispose();
+    this.trial.dispose();
     this.renderer.dispose();
   }
 
@@ -695,6 +736,7 @@ export class EditorViewport {
     this.overlay.setViewDistance(this.controller.current.distance);
     this.overlay.update(dt);
     this.view.update(dt, this.camera, this.controller.current.target);
+    this.trial.update(dt);
     this.renderer.render(this.scene, this.camera);
 
     this.reportHover(time, tp?.hit ?? null);

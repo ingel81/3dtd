@@ -233,6 +233,7 @@ export class EditorShellComponent implements OnDestroy {
       add('View', 'Frame the selection', () => vp.focusSelection(), 'F');
       add('View', 'Top view on or off', () => vp.controller.setTopDown(!vp.controller.isTopDown), 'T');
       add('View', 'Game view on or off', () => vp.toggleGameView(), 'C');
+      add('Map', 'Trial wave: enemies walk the routes', () => vp.toggleTrial(), 'P');
     }
     add('View', 'Height lines on or off', () => s.patchSettings((st) => (st.view.contours = !st.view.contours)));
     add('View', 'Grid on or off', () => s.patchSettings((st) => (st.view.grid = !st.view.grid)));
@@ -348,6 +349,7 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
       ['Right drag', 'Turn the view'],
       ['Right held + W A S D', 'Fly; Q E lower, raise; Shift faster'],
       ['C', 'Game view: where the game starts, and back'],
+      ['P', 'Trial wave: the enemies walk the routes at their speed'],
       ['Middle drag, Shift+right drag', 'Pan'],
       ['Wheel', 'Zoom to the pointer'],
       ['Arrow keys', 'Pan'],
