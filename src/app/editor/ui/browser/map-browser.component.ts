@@ -5,7 +5,7 @@ import { DEFAULT_CELL_SIZE } from '../../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, packMapFile } from '../../../world/custom-map/map-file';
 import type { MapSummary } from '../../../world/custom-map/map-store';
 import { download, EditorSession } from '../editor-session.service';
-import { materialThumbnail } from '../thumbnails';
+import type { GroundMaterialEntry } from '../../catalog/asset-catalog';
 
 export interface SizePreset {
   id: string;
@@ -57,7 +57,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   readonly newGround = signal<'flat' | 'noise'>('noise');
   readonly newMaterial = signal('grass');
   readonly materials = computed(() => this.session.catalog().catalog.materials);
-  readonly thumb = materialThumbnail;
+  readonly thumb = (m: GroundMaterialEntry) => this.session.materialPicture(m);
 
   private urls: string[] = [];
 

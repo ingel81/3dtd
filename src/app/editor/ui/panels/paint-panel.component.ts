@@ -4,7 +4,7 @@ import { TdIconComponent } from '../../../components/icon/icon.component';
 import { MAX_LAYERS } from '../../ops/paint-ops';
 import { paintCommands } from '../../tools/paint-tool';
 import { EditorSession } from '../editor-session.service';
-import { materialThumbnail } from '../thumbnails';
+import type { GroundMaterialEntry } from '../../catalog/asset-catalog';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
 
@@ -24,7 +24,7 @@ import { RangeRowComponent } from './range-row.component';
 export class PaintPanelComponent {
   readonly session = inject(EditorSession);
   readonly max = MAX_LAYERS;
-  readonly thumb = materialThumbnail;
+  readonly thumb = (m: GroundMaterialEntry) => this.session.materialPicture(m);
   readonly settings = computed(() => (this.session.settingsRev(), { ...this.session.settings.paint }));
   readonly layers = computed(() => {
     this.session.docRev();

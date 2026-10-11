@@ -5,7 +5,6 @@ import { BIOMES, type BiomeDef, type BiomeId } from '../../ops/landscape/biomes'
 import { randomSeed } from '../../ops/landscape/landscape-noise';
 import { LANDSCAPE_MODES, type LandscapeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
-import { biomeThumbnail } from '../thumbnails';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
 
@@ -33,7 +32,7 @@ export class LandscapePanelComponent {
   readonly hasMaterials = computed(() => this.session.catalog().catalog.materials.length > 0);
 
   thumb(b: BiomeDef): string {
-    return biomeThumbnail(b, this.session.catalog());
+    return this.session.biomePicture(b);
   }
 
   setMode(mode: LandscapeMode): void {

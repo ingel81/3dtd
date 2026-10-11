@@ -10,7 +10,10 @@ import type { CustomMapDocument, MapMeta } from '../../world/custom-map/map-docu
 import { createMapDocument, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, MapFileError, packMapFile } from '../../world/custom-map/map-file';
 import { MapStore, type MapOrigin } from '../../world/custom-map/map-store';
-import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog } from '../catalog/asset-catalog';
+import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog, type GroundMaterialEntry, type ObjectAssetEntry } from '../catalog/asset-catalog';
+import type { BiomeDef } from '../ops/landscape/biomes';
+import { ThumbnailRenderer } from '../view/thumbnail-renderer';
+import { biomeThumbnail, materialThumbnail, objectThumbnail } from './thumbnails';
 import { EditorDocument, SnapshotCommand, type EditCommand, type Selection } from '../model/editor-document';
 import { resizeMap } from '../ops/resize';
 import { LandscapeTool } from '../tools/landscape-tool';
@@ -85,6 +88,9 @@ export class EditorSession implements OnDestroy {
   readonly cameraRev = signal(0);
   readonly importState = signal<ImportState | null>(null);
   readonly error = signal<string | null>(null);
+  /** Bumps when a rendered palette picture is ready */
+  readonly thumbRev = signal(0);
+  private thumbRenderer: ThumbnailRenderer | null = null;
 
   private changed = false;
   /** A Warcraft map waiting for its import options */
@@ -106,6 +112,33 @@ export class EditorSession implements OnDestroy {
 
   get doc(): CustomMapDocument | null {
     return this.editor?.doc ?? null;
+  }
+
+  // ---------------------------------------------------------------- pictures
+
+  /** Picture of an object for the palette: rendered when ready, a drawn symbol until then */
+  objectPicture(entry: ObjectAssetEntry): string {
+    this.thumbRev();
+    return this.thumbs.object(entry) ?? objectThumbnail(entry);
+  }
+
+  materialPicture(entry: GroundMaterialEntry): string {
+    this.thumbRev();
+    return this.thumbs.material(entry) ?? materialThumbnail(entry);
+  }
+
+  biomePicture(biome: BiomeDef): string {
+    this.thumbRev();
+    const catalog = this.catalog();
+    if (!catalog.catalog.objects.length) return biomeThumbnail(biome, catalog);
+    return this.thumbs.biome(biome, catalog) ?? biomeThumbnail(biome, catalog);
+  }
+
+  private get thumbs(): ThumbnailRenderer {
+    this.thumbRenderer ??= this.zone.runOutsideAngular(
+      () => new ThumbnailRenderer(() => this.thumbRev.update((n) => n + 1)),
+    );
+    return this.thumbRenderer;
   }
 
   // ---------------------------------------------------------------- map life
@@ -438,6 +471,7 @@ export class EditorSession implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.thumbRenderer?.dispose();
     if (this.tick) clearInterval(this.tick);
     this.clearAutosave();
     if (this.statusTimer) clearTimeout(this.statusTimer);

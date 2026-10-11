@@ -6,7 +6,6 @@ import { ObjectsCommand } from '../../model/editor-document';
 import { duplicateObjects } from '../../ops/object-ops';
 import type { GizmoMode, ObjectMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
-import { objectThumbnail } from '../thumbnails';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
 
@@ -36,7 +35,7 @@ export class ObjectPanelComponent {
   readonly session = inject(EditorSession);
   readonly modes = MODES;
   readonly snaps = SNAPS;
-  readonly thumb = objectThumbnail;
+  readonly thumb = (a: ObjectAssetEntry) => this.session.objectPicture(a);
   readonly search = signal('');
   readonly category = signal<string>('All');
 
