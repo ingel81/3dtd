@@ -49,6 +49,8 @@ import { bakeImpostor, type Impostor } from './impostor';
 export const CELL_SIZE = 192;
 /** Height (metres) at which a model of wind strength 1 sways by 1 m */
 const WIND_REFERENCE_HEIGHT = 18;
+/** Strongest glow of an object surface (emissive colour times intensity, linear) */
+const MAX_EMISSIVE = 0.55;
 
 interface Level {
   from: number;
@@ -479,10 +481,18 @@ export class MapObjectLayer {
     const waterfall = m0.name.startsWith('foliage-waterfall');
     const flame = card && !waterfall && !!m0.emissive && m0.emissive.getHex() !== 0;
     const wind = waterfall ? 0 : entry.wind;
-    const key = `${source.uuid}|${wind}|${card ? entry.drawDistance : 0}`;
+    // Floating objects that are not moored structures rock on the water
+    const bob = !!entry.float && entry.category !== 'structure';
+    const key = `${source.uuid}|${wind}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
-    if (!card && wind <= 0) {
+    if (!card && m0.emissive) {
+      // Glowing surfaces (lava, crystals, windows) stay under a cap: at night a full glow
+      // reads as a flat bright disc instead of a lit surface
+      const peak = Math.max(m0.emissive.r, m0.emissive.g, m0.emissive.b) * m0.emissiveIntensity;
+      if (peak > MAX_EMISSIVE) m0.emissiveIntensity *= MAX_EMISSIVE / peak;
+    }
+    if (!card && wind <= 0 && !bob) {
       addHeightFog(source);
       this.materials.set(key, source);
       return source;
@@ -493,7 +503,7 @@ export class MapObjectLayer {
       uFadeRange: { value: new Vector2(entry.drawDistance * 0.55, entry.drawDistance) },
     };
     const shared = this.objectUniforms;
-    const variant = `${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}`;
+    const variant = `${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}`;
     m.onBeforeCompile = (shader) => {
       shader.uniforms['uWindTime'] = shared.uWindTime;
       shader.uniforms['uWindStrength'] = local.uWindStrength;
@@ -518,6 +528,24 @@ export class MapObjectLayer {
             float flutter = sin(t * 7.0 + dot(transformed, vec3(3.1, 2.3, 4.7))) * 0.03 * min(h, 3.0) / 3.0;
             transformed.x += swayX * bend + flutter;
             transformed.z += swayZ * bend * 0.6 + flutter;
+          }`,
+        );
+      }
+      if (bob) {
+        // Rocking on the water: a slow heave, roll and pitch, each object with its own phase
+        shader.vertexShader = shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          /* glsl */ `#include <begin_vertex>
+          {
+            float phase = 0.0;
+            #ifdef USE_INSTANCING
+            phase = dot(instanceMatrix[3].xz, vec2(0.13, 0.17));
+            #endif
+            float t = uWindTime;
+            float heave = sin(t * 0.9 + phase) * 0.06;
+            float roll = sin(t * 0.7 + phase * 1.3) * 0.035;
+            float pitch = sin(t * 0.55 + phase * 0.7) * 0.025;
+            transformed.y += heave + transformed.x * roll + transformed.z * pitch;
           }`,
         );
       }

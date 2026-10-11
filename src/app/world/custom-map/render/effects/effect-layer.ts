@@ -33,11 +33,30 @@ import { buildWaterfalls, type WaterfallSpec } from './waterfall';
 
 export const POINT_LIGHTS = 6;
 
+/** Catalogue intensity 1 in three's units (candela-ish): a lantern */
+const CANDELA = 18;
+/**
+ * Most light a point light may throw on the ground right under it. A low,
+ * strong light (lava pool, campfire) otherwise burns a white disc into what
+ * it stands on at night, far brighter than the glow it stands for.
+ */
+const PEAK_ILLUMINANCE = 6;
+/** Lights sit at least this high when they cap, so a lantern on the ground does not count as a point on it */
+const MIN_LIGHT_HEIGHT = 0.75;
+
+/** Strongest candela a light `height` metres over the ground may have */
+export function lightCap(height: number): number {
+  const h = Math.max(height, MIN_LIGHT_HEIGHT);
+  return PEAK_ILLUMINANCE * h * h;
+}
+
 interface LightSpot {
   position: Vector3;
   color: Color;
   intensity: number;
   distance: number;
+  /** Most candela the point light gets (`lightCap`) */
+  cap: number;
   flicker: boolean;
   seed: number;
 }
@@ -118,6 +137,7 @@ export class EffectLayer {
           color: new Color(e.light.color),
           intensity: e.light.intensity,
           distance: e.light.distance * s,
+          cap: lightCap(e.light.height * s),
           flicker: e.light.flicker ?? false,
           seed: this.spots.length * 1.618,
         });
@@ -149,6 +169,8 @@ export class EffectLayer {
       // Strong and wide: a lava pool lights the slopes around it
       intensity: 14,
       distance: 45,
+      // The points float 5 m over the lava
+      cap: lightCap(5),
       flicker: true,
       seed: 100 + k * 2.3,
     }));
@@ -179,8 +201,7 @@ export class EffectLayer {
       const flicker = spot.flicker
         ? 0.82 + 0.12 * Math.sin(this.time.value * 9 + spot.seed) + 0.06 * Math.sin(this.time.value * 23 + spot.seed * 3)
         : 1;
-      // Physical units: candela-ish; the catalogue's intensity 1 is a lantern
-      light.intensity = spot.intensity * 18 * flicker * this.darkness;
+      light.intensity = Math.min(spot.intensity * CANDELA, spot.cap) * flicker * this.darkness;
       light.updateMatrixWorld();
     });
   }

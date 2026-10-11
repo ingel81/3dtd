@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { MapObject } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
-import { EffectLayer, POINT_LIGHTS } from './effect-layer';
+import { EffectLayer, lightCap, POINT_LIGHTS } from './effect-layer';
 import { particleCount } from './particle-field';
 
 const base: Omit<CatalogObject, 'id' | 'name'> = {
@@ -74,6 +74,21 @@ describe('EffectLayer', () => {
     expect(lit.length).toBe(POINT_LIGHTS);
     expect(Math.max(...lit.map((l) => l.position.x))).toBeLessThanOrEqual(20);
     expect(Math.min(...lit.map((l) => l.position.x))).toBeGreaterThanOrEqual(0);
+    layer.dispose();
+  });
+
+  it('caps a low strong light so it does not burn a white disc into the ground under it', () => {
+    const pool = { ...base, id: 'pool', name: 'Pool', light: { color: '#ff5a1e', intensity: 1.8, distance: 16, height: 1 } };
+    const layer = new EffectLayer(flat());
+    layer.set([place('p', 'pool', 0), place('t', 'torch', 2)], { ...catalog, objects: [...catalog.objects, pool] });
+    layer.setDarkness(1);
+    layer.update(0.1, new Vector3());
+    const lights = layer.group.children.filter((c): c is PointLight => c instanceof PointLight && c.intensity > 0);
+    const low = lights.find((l) => Math.abs(l.position.y - 5) < 0.01)!;
+    expect(low.intensity).toBeCloseTo(lightCap(1));
+    // A torch at 2.5 m stays under its cap and keeps its catalogue strength (18, flickering)
+    expect(lights.find((l) => Math.abs(l.position.y - 6.5) < 0.01)!.intensity).toBeGreaterThan(15);
+    expect(lightCap(0.1)).toBe(lightCap(0.75));
     layer.dispose();
   });
 

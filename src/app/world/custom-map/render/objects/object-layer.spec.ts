@@ -97,6 +97,34 @@ describe('MapObjectLayer floating objects', () => {
     level = null;
     layer.refreshHeights(undefined, true);
     expect(y()).toBeCloseTo(-2.8);
+    // Boats rock: their own program that moves the vertices with time
+    const material = mesh().material as MeshStandardMaterial;
+    expect(material.customProgramCacheKey()).toMatch(/^custom-map-object-b-/);
+    layer.dispose();
+  });
+});
+
+describe('MapObjectLayer glowing surfaces', () => {
+  it('caps a strong emissive so a lava pool does not burn into a flat disc at night', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const pool = { ...catalog.objects[0], id: 'pool', category: 'rock' as const, lod: undefined, file: 'pool.glb' };
+    const melt = new MeshStandardMaterial({ emissive: 0xff4c08, emissiveIntensity: 1 });
+    const lib = new MapAssetLibrary('base/', {
+      fetch: (() =>
+        Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ...catalog, objects: [pool] }) } as Response)) as typeof fetch,
+      loadModel: () => {
+        const root = new Group();
+        root.add(new Mesh(new BoxGeometry(1, 1, 1), melt));
+        return Promise.resolve(root);
+      },
+    });
+    const los = new Group();
+    const layer = new MapObjectLayer(field, lib, los);
+    await layer.setObjects([{ id: 'p', asset: 'pool', x: 0, y: 0, z: 0, rotation: 0, scale: 1 }]);
+    const mesh = [...layer.group.children, ...los.children].find((c): c is InstancedMesh => c instanceof InstancedMesh)!;
+    const m = mesh.material as MeshStandardMaterial;
+    expect(m.emissive.r * m.emissiveIntensity).toBeLessThanOrEqual(0.551);
+    expect(m.emissive.r * m.emissiveIntensity).toBeGreaterThan(0.5);
     layer.dispose();
   });
 });
