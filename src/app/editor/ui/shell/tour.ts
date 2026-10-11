@@ -1,5 +1,5 @@
 /**
- * The first-run tour of the editor: six steps from painting land to
+ * The first-run tour of the editor: seven steps from the view to
  * playing the map, each with the tool it needs. A step goes on by itself
  * when the player did what it asks (a stroke, a road, a spawn, the check,
  * the trial, the test), or with Next; Skip ends it. Done or skipped, it
