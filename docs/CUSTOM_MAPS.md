@@ -212,7 +212,9 @@ baut der Asset-Worker aus; Stand beim Schreiben:
   Sandstein, Basalt und Kalk, Geröll, Vulkangestein, Obsidian, Asche, Schwefel, Lava, Schnee, Eis, Packeis, Gletschereis,
   Asphalt (ganz und kaputt), Gehwegplatten, Pflaster, Beton, Schutt, Mond-Regolith, Mars-Staub und -Fels, Burgböden,
   Bohlen, Kies, Flusskiesel
-- **317 Objekte** (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px), je Biom: Laub- und Nadelbäume mit Herbst-
+- **374 Katalog-Objekte**, davon 366 Modelle (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px) und 8 Effekt-Marker; je
+  Kategorie 118 Requisiten, 68 Felsen, 64 Gebäude, 42 Pflanzen, 31 Bäume, 29 Mauern und Zäune, 14 Bauwerke
+  (`structure`). Je Biom: Laub- und Nadelbäume mit Herbst-
   und Schneevarianten, Trauerweide, Mangrove, Palmen, Kakteen, Köcherbäume; Sträucher, Hecken, Gras je Biom, Schilf,
   Weizen, Blumen, Seerosen, Pilze; Felsen je Gesteinsart, modulare Klippen, Sandsteinsäulen, Tafelberg, Felsbogen,
   Kristalle, Lavabecken; Burgbaukasten, Dorfhäuser auch mit Schnee, Mühlen, Kapelle, Leuchtturm, Pfahlhütte,
@@ -220,15 +222,20 @@ baut der Asset-Worker aus; Stand beim Schreiben:
   Lagerhalle, Container, Autos, Ampel, Laternen, Bänke, Betonbrücke, Strommasten); Endzeit (Ruinen, Hochhausstumpf,
   Wracks, Schutt, Stacheldraht, Barrikaden, Giftfässer); Mond und Mars (Stationsmodule, Kuppeln, Gewächshaus,
   Antennen, Lander, Rover, Solarfelder, Landeplatz, Kraterränder); Arktis (Iglu, Forschungsstation, Eisberg,
-  Eisschollen, Eiszapfen); Hölle (Höllentor, Altar, Lavafelsen, Dornen, Ketten, Obsidian); Fackeln, Feuer, Wasserfall
+  Eisschollen, Eiszapfen); Hölle (Höllentor, Altar, Lavafelsen, Dornen, Ketten, Obsidian, Galgenkäfig); Fahrzeuge
+  (Auto, Pickup, Lkw, Bus, Panzerwrack, je intakt, verrostet, ausgebrannt); Teile der Vorzeige-Level (Seilbahn,
+  Hexenhütte, Hafen, Karawanenzelt, Schmiede, Burgruine); Streu-Steine; Fackeln, Feuer, Wasserfall
 - **8 Effekt-Marker** (`fx-*`, `file: ''`): Glühwürmchen, Rauch, Glut, Bodennebel, Laub, Schnee, Funkeln, Wasserfall
 - **Tags**: Biome `temperate`, `autumn`, `winter`, `mountain`, `desert`, `swamp`, `coast`, `volcanic`, `village`,
   `castle`, `crystal`, `arena`, `city`, `wasteland`, `moon`, `mars`, `arctic`, `hell`; Rollen für Pinsel `conifer`,
   `shore`, `water`, `undergrowth`, `scree`. `category` bleibt die Art. Material- und Objekt-Ids teilen sich einen
   Namensraum
+- 73 Objekte haben eine Fernstufe (`lod`, `-lod1.glb` ohne Texturen, ab 350 m bzw. 40 % der Sichtweite), 32 ein
+  Licht (`light`), 24 Effekte (`effects`); 10 schwimmen (`float`: Boote, Schiff, Bojen, Seerosen, Eisscholle,
+  Steg, Pier; Ursprung des Modells ist die Wasserlinie)
 - Flammen sind alpha-getestete `foliage-*`-Karten mit Eigenleuchten, der Wasserfall eine Karte `foliage-waterfall`;
-  Seerosen, Eisschollen, Schiff und Brücken brauchen eine Höhenangabe (Wasserspiegel, Ufer)
-- Größe: Materialien 94 MB, Modelle 55 MB. Ansehen: `/map-preview?showcase=<tag>` oder `?assets=a,b*&materials=c,d`
+  Brücken und Stege brauchen eine Höhenangabe, wenn sie nicht schwimmen
+- Größe: `public/maps/assets` rund 178 MB (Materialien 94 MB, Modelle 84 MB). Ansehen: `/map-preview?showcase=<tag>` oder `?assets=a,b*&materials=c,d`
 
 `MapAssetLibrary.shared()` lädt Katalog, Materialpixel und Modelle einmal und teilt sie zwischen Ansichten. Fehlt eine
 Datei, zeichnet die Karte trotzdem: Material in der Durchschnittsfarbe, Modell als Platzhalterform.
@@ -272,9 +279,10 @@ den Textur-Arrays der offenen Ansicht, die three für einen Kontextverlust behä
 
 - Höchstens 8 Splat-Schichten plus Klippe und zwei Wegmaterialien (12 Array-Ebenen), alle Materialien in einer Größe
 - Laubkarten werfen Schatten ohne Windbewegung (Schatten und Krone gehen bei Wind minimal auseinander)
-- Gelände-LOD wechselt hart (Schürzen verdecken Risse, kein Morphing)
+- Gelände-LOD: Geomorphing gleicht die Stufen in einem Abstandsband an, Schürzen verdecken Risse an Kachelkanten
 - Der LOS-Würfel sieht Gelände und Objekte in der LOD-Stufe der Kamera (Impostoren als Karten)
 - Die Splat-Map ist eine Textur über die ganze Karte (keine virtuellen Kacheln); auf 2-km-Karten mit 1024er Splat
   sind das 2 m je Texel
-- Partikel und Wetter werfen keine Schatten und kennen kein Gelände (Regen fällt durch Dächer)
+- Partikel und Wetter werfen keine Schatten; Regen, Schnee, Asche und Staub enden an Dächern und am Boden (CoverMap
+  über Gelände und Fußabdrücke der Gebäude), andere Partikel kennen das Gelände nicht
 - Lichter: höchstens 6 echte Punktlichter gleichzeitig, ohne Schatten
