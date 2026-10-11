@@ -252,6 +252,36 @@ describe('landforms', () => {
   });
 });
 
+describe('erosion on a high peak', () => {
+  it('carves the flank without leaving needles', () => {
+    const ed = map();
+    const t = ed.doc.terrain;
+    const g = t.grid;
+    // A smooth bell 100 m high, radius 120 m
+    for (let j = 0; j < g.rows; j++)
+      for (let i = 0; i < g.columns; i++) {
+        const d = Math.hypot(i * g.cellSize - t.width / 2, j * g.cellSize - t.depth / 2 - 100) / 120;
+        g.heights[j * g.columns + i] = d < 1 ? 100 * (1 - d * d) ** 2 : 0;
+      }
+    const before = Float32Array.from(g.heights);
+    const stroke = new LandscapeStroke(ed, 'Erode', 4, catalog);
+    for (let k = 0; k < 16; k++) erosionDab(stroke, { x: -60 + k * 8, y: 40 }, { radius: 70, strength: 1, falloff: 0.5 }, k);
+    stroke.finish();
+    let moved = 0;
+    let worst = 0;
+    for (let j = 1; j < g.rows - 1; j++)
+      for (let i = 1; i < g.columns - 1; i++) {
+        const k = j * g.columns + i;
+        moved += Math.abs(g.heights[k] - before[k]);
+        const n = [g.heights[k - 1], g.heights[k + 1], g.heights[k - g.columns], g.heights[k + g.columns]];
+        worst = Math.max(worst, g.heights[k] - Math.max(...n), Math.min(...n) - g.heights[k]);
+      }
+    expect(moved).toBeGreaterThan(10);
+    // No sample stands more than about a cell above or below all its neighbours
+    expect(worst).toBeLessThan(g.cellSize);
+  });
+});
+
 describe('crater, dunes and glow cracks', () => {
   it('digs a crater where the stroke began, with a raised rim', () => {
     const ed = map();
@@ -360,6 +390,33 @@ describe('river and road', () => {
     // Faces downstream (north, +y): front +y at turn 0
     expect(Math.abs(fall.rotation)).toBeLessThan(0.4);
     expect(fall.scale).toBeGreaterThan(0.5);
+  });
+
+  it('lets a river run as rapids down a long slope, and cascades over a high cliff', () => {
+    const slope = map();
+    let t = slope.doc.terrain;
+    let g = t.grid;
+    // 40 m down over 50 m in the middle of the map: steep, but no cliff
+    for (let j = 0; j < g.rows; j++)
+      for (let i = 0; i < g.columns; i++) {
+        const y = j * g.cellSize - t.depth / 2;
+        g.heights[j * g.columns + i] = 40 * (1 - Math.min(1, Math.max(0, (y + 25) / 50)));
+      }
+    let stroke = new LandscapeStroke(slope, 'River', 5, catalog);
+    expect(carveRiver(stroke, [{ x: 100, y: -150 }, { x: 100, y: 150 }], { ...DEFAULT_RIVER, bridges: false })!.waterfalls).toBe(0);
+    const cliff = map();
+    t = cliff.doc.terrain;
+    g = t.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) if (j * g.cellSize - t.depth / 2 < 0) g.heights[j * g.columns + i] = 30;
+    stroke = new LandscapeStroke(cliff, 'River', 5, catalog);
+    const result = carveRiver(stroke, [{ x: 100, y: -150 }, { x: 100, y: 150 }], { ...DEFAULT_RIVER, bridges: false })!;
+    stroke.finish();
+    expect(result.waterfalls).toBe(3);
+    // Each sheet stands below its lip, none hangs over the low ground
+    for (const f of cliff.doc.objects.filter((o) => o.asset === 'fx-waterfall')) {
+      expect(f.z).toBeLessThan(0);
+      expect(Math.abs(f.y)).toBeLessThan(6);
+    }
   });
 
   it('lets a lava flow run with scorched banks, without reeds, falls or bridges', () => {

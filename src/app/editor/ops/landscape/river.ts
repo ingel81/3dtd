@@ -38,8 +38,10 @@ export const DEFAULT_RIVER: RiverOptions = { width: 14, depth: 2.5, bank: 10, re
 const MIN_FALL = 0.004;
 /** Metres the surface stays under the ground along the centre line */
 const UNDER = 0.5;
-/** A surface falling steeper than this (metres per metre) gets a waterfall */
-const FALL_SLOPE = 0.25;
+/** A surface falling at least as much as it runs gets a waterfall (a cliff); gentler is rapids */
+const FALL_STEEP = 1;
+/** Metres one waterfall drops at most; a higher cliff gets a cascade */
+const MAX_FALL = 12;
 /** Metres a waterfall drops at least */
 const FALL_MIN = 1.5;
 /** Metres between the points of a river */
@@ -280,32 +282,44 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
     }
   }
 
-  // A waterfall over each steep stretch of the surface, facing downstream, as tall as the drop
+  // Waterfalls where the surface drops more than it runs (a cliff), at the lip, one per step of at most
+  // MAX_FALL metres; gentler steep stretches stay rapids on the ribbon
   let waterfalls = 0;
   const fall = lava ? undefined : has(['fx-waterfall', 'waterfall']);
   if (fall) {
     const tall = Math.max(0.5, stroke.catalog.object(fall).height);
-    const steep = (a: number) => {
-      const run = Math.hypot(points[a].x - points[a - 1].x, points[a].y - points[a - 1].y);
-      return run > 0 && (points[a - 1].height - points[a].height) / run >= FALL_SLOPE;
+    const steep = (k: number) => {
+      const run = along[k] - along[k - 1];
+      return run > 0 && (surface[k - 1] - surface[k]) / run >= FALL_STEEP;
     };
-    for (let k = 1; k < points.length; k++) {
+    for (let k = 1; k < line.length; k++) {
       if (!steep(k)) continue;
-      const top = points[k - 1];
-      while (k + 1 < points.length && steep(k + 1)) k++;
-      const foot = points[k];
-      const drop = top.height - foot.height;
+      const top = k - 1;
+      while (k + 1 < line.length && steep(k + 1)) k++;
+      const drop = surface[top] - surface[k];
       if (drop < FALL_MIN) continue;
-      const o = stroke.addObject({
-        asset: fall,
-        x: round((top.x + foot.x) / 2),
-        y: round((top.y + foot.y) / 2),
-        z: 0,
-        rotation: Math.round((Math.atan2(foot.y - top.y, foot.x - top.x) - Math.PI / 2) * 1000) / 1000,
-        scale: round(drop / tall),
-      });
-      placed.push(o.id);
-      waterfalls++;
+      const steps = Math.max(1, Math.ceil(drop / MAX_FALL - 0.05));
+      const heading = Math.atan2(line[k].y - line[top].y, line[k].x - line[top].x) - Math.PI / 2;
+      for (let n = 0; n < steps; n++) {
+        // The lip of this step: where the surface has fallen n steps' worth
+        const lipLevel = surface[top] - (drop * n) / steps;
+        let at = top;
+        while (at < k && surface[at + 1] > lipLevel - 1e-3) at++;
+        const lip = line[at];
+        const foot = lipLevel - drop / steps;
+        const ground = heightAt(t, lip.x, lip.y);
+        const o = stroke.addObject({
+          asset: fall,
+          x: round(lip.x),
+          y: round(lip.y),
+          // The sheet stands from its foot up to the lip
+          z: round(foot - ground),
+          rotation: Math.round(heading * 1000) / 1000,
+          scale: round(drop / steps / tall),
+        });
+        placed.push(o.id);
+        waterfalls++;
+      }
     }
   }
 

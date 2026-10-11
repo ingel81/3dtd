@@ -75,6 +75,8 @@ export function erosionDab(stroke: LandscapeStroke, center: MapPoint, brush: Bru
       const next =
         h[nk] * (1 - nu) * (1 - nv) + h[nk + 1] * nu * (1 - nv) + h[nk + cols] * (1 - nu) * nv + h[nk + cols + 1] * nu * nv;
       const drop = next - here;
+      // Speed from the slope (drop per metre), not the raw drop, and capped: a steep peak must not fling drops
+      const slope = drop / cell;
       const capacity = Math.max(-drop, 0.01) * speed * water * CAPACITY;
       let change: number;
       if (sediment > capacity || drop > 0) {
@@ -85,16 +87,64 @@ export function erosionDab(stroke: LandscapeStroke, center: MapPoint, brush: Bru
         change = -Math.min((capacity - sediment) * ERODE * brush.strength, -drop);
         sediment -= change;
       }
-      // Spread the change over the four corners of the cell left behind
-      h[k] += change * (1 - u) * (1 - v);
-      h[k + 1] += change * u * (1 - v);
-      h[k + cols] += change * (1 - u) * v;
-      h[k + cols + 1] += change * u * v;
-      speed = Math.sqrt(Math.max(0, speed * speed - drop));
+      if (change > 0) {
+        // Deposit on the four corners of the cell left behind
+        h[k] += change * (1 - u) * (1 - v);
+        h[k + 1] += change * u * (1 - v);
+        h[k + cols] += change * (1 - u) * v;
+        h[k + cols + 1] += change * u * v;
+      } else {
+        // Erode over a small disc, so a drop carves a gully and not a single pit
+        spread(h, cols, x, y, change, rect);
+      }
+      speed = Math.min(MAX_SPEED, Math.sqrt(Math.max(0, speed * speed - slope)));
       water *= 1 - EVAPORATE;
       x = nx;
       y = ny;
     }
   }
+  flattenSpikes(h, cols, rect, cell);
   return rect;
+}
+
+/** Cells a drop erodes around itself */
+const ERODE_RADIUS = 2;
+const MAX_SPEED = 4;
+
+/** Adds `amount` (negative) over the samples within ERODE_RADIUS cells of (x, y), weighted toward the middle */
+function spread(h: Float32Array, cols: number, x: number, y: number, amount: number, rect: GridRect): void {
+  const i0 = Math.max(rect.i0, Math.ceil(x - ERODE_RADIUS));
+  const i1 = Math.min(rect.i1, Math.floor(x + ERODE_RADIUS));
+  const j0 = Math.max(rect.j0, Math.ceil(y - ERODE_RADIUS));
+  const j1 = Math.min(rect.j1, Math.floor(y + ERODE_RADIUS));
+  let total = 0;
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) total += Math.max(0, ERODE_RADIUS - Math.hypot(i - x, j - y));
+  if (total <= 0) return;
+  for (let j = j0; j <= j1; j++) {
+    for (let i = i0; i <= i1; i++) {
+      const w = Math.max(0, ERODE_RADIUS - Math.hypot(i - x, j - y));
+      if (w > 0) h[j * cols + i] += (amount * w) / total;
+    }
+  }
+}
+
+/**
+ * A sample standing far above (or below) all four neighbours is a needle the
+ * drops left, not landscape: it goes to its neighbours' mean
+ */
+function flattenSpikes(h: Float32Array, cols: number, rect: GridRect, cell: number): void {
+  const limit = cell * 0.75;
+  for (let j = rect.j0 + 1; j < rect.j1; j++) {
+    for (let i = rect.i0 + 1; i < rect.i1; i++) {
+      const k = j * cols + i;
+      const a = h[k - 1];
+      const b = h[k + 1];
+      const c = h[k - cols];
+      const d = h[k + cols];
+      const v = h[k];
+      const lo = Math.min(a, b, c, d);
+      const hi = Math.max(a, b, c, d);
+      if (v > hi + limit || v < lo - limit) h[k] = (a + b + c + d) / 4;
+    }
+  }
 }
