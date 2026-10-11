@@ -18,9 +18,10 @@ Kopie an und öffnet sie.
 - **New map:** Name, Autor, Größe (Small 512 m, Medium 1024 m, Large 2048 m, Wide 2048 x 1024 m), Boden flach oder
   hügelig, Grundmaterial. Jede neue Karte hat eine Straße von West zum HQ und einen Spawn an ihrem Ende, damit sie sofort
   spielbar ist
-- **Import file:** `.3dtdmap` oder `.w3x` per Dateiwahl oder per Ablegen auf der Seite. Ein Warcraft-3-Import läuft
-  im Web Worker ([W3X_IMPORT.md](W3X_IMPORT.md)) und zeigt danach den Bericht: Größe, Bodenschichten, Wasser, woher die
-  Straßen kamen, Spawns und Spurlängen, übernommene Doodads, Warnungen. Die Karte landet bei den eigenen
+- **Import file:** `.3dtdmap` oder `.w3x` per Dateiwahl oder per Ablegen auf der Seite. Ein Warcraft-3-Import fragt
+  erst nach Metern je Kachel (4), höchstens Objekten (6000) und „Playable area only“, läuft dann im Web Worker
+  ([W3X_IMPORT.md](W3X_IMPORT.md)) und zeigt den Bericht: Größe, Bodenschichten, Wasser, woher die
+  Straßen kamen, Spawns und Spurlängen, übernommene Doodads, Warnungen; „Open the map“ öffnet sie. Die Karte landet bei den eigenen
 - Die Adresse trägt die offene Karte (`/editor?map=<id>`); Neuladen öffnet sie wieder
 
 ## Bedienung
