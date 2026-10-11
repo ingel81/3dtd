@@ -332,7 +332,8 @@ void main() {
   color = mix(body, sky, fresnel * 0.4 + 0.02);
   // Algae and duckweed drifting in patches
   float algae = smoothstep(0.52, 0.68, skyFbm(vWorldPos.xz * 0.22 + uFlow * uTime * 0.01));
-  color = mix(color, vec3(0.16, 0.24, 0.06) * uLight, algae * 0.85);
+  // Lit like the land around: at night the patches must not glow over the dark water
+  color = mix(color, vec3(0.16, 0.24, 0.06) * uLight * uLight, algae * 0.85);
   #else
   color = mix(body, sky, fresnel * 0.9 + 0.05);
   #endif

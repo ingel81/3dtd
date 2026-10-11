@@ -119,6 +119,30 @@ const PLAIN = { fogScale: 1, fogFalloff: 1 / 70, stars: 0, planet: false, aurora
 
 /** The look of a biome under a sky preset */
 export function biomeLook(biome: MapBiome | undefined, sky: MapEnvironment['sky']): BiomeLook {
+  const look = biomeLookUnclamped(biome, sky);
+  // Biomes colour their clouds and sky light by day; at night those must not outshine the night
+  // preset, or the sky glows (a swamp's pale green clouds over a black marsh). Hell and the moon
+  // set their own dark skies
+  if (sky !== 'night' || biome === 'hell' || biome === 'moon') return look;
+  const p = SKY_PRESETS.night;
+  for (const key of ['cloudColor', 'cloudShadow', 'hemiSky', 'horizon', 'zenith'] as const) {
+    look[key] = noBrighterThan(look[key], p[key]);
+  }
+  return look;
+}
+
+/** `color` scaled down to the luminance of `limit` when it is brighter, keeping its hue */
+function noBrighterThan(color: number, limit: number): number {
+  const lum = (c: number): number => (((c >> 16) & 255) * 0.299 + ((c >> 8) & 255) * 0.587 + (c & 255) * 0.114) / 255;
+  const l = lum(color);
+  const max = lum(limit);
+  if (l <= max || l === 0) return color;
+  const k = max / l;
+  const ch = (shift: number): number => Math.round(((color >> shift) & 255) * k);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
+
+function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sky']): BiomeLook {
   const p = SKY_PRESETS[sky] ?? SKY_PRESETS.day;
   const night = sky === 'night';
   const nightStars = night ? 0.8 : 0;

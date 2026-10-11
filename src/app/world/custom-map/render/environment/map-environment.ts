@@ -161,16 +161,18 @@ export class CustomMapEnvironment {
     const weather = env.weather ?? 'clear';
     const k = weather === 'clear' ? 0 : Math.min(1, Math.max(0, env.weatherStrength ?? 0.6));
     let cover = p.cover;
+    // Rain, snow and fog grey the air towards their own colour, which at night is dark as well
+    const airLight = 1 - this.darkness * 0.85;
     if (weather === 'rain' || weather === 'snow') {
       cover = Math.max(0.15, p.cover - 0.35 * k);
       this.sun.intensity *= 1 - 0.55 * k;
       this.hemi.intensity *= 1 + 0.3 * k;
       this.fog.density = baseFog * (1 + 2 * k);
-      this.fog.color.lerp(new Color(weather === 'snow' ? 0xd8dde2 : 0x8e969c), 0.5 * k);
+      this.fog.color.lerp(new Color(weather === 'snow' ? 0xd8dde2 : 0x8e969c).multiplyScalar(airLight), 0.5 * k);
     } else if (weather === 'fog') {
       this.sun.intensity *= 1 - 0.4 * k;
       this.fog.density = Math.max(baseFog, 0.0008) * (1 + 5 * k);
-      this.fog.color.lerp(new Color(0xc0c6ca), 0.4 * k);
+      this.fog.color.lerp(new Color(0xc0c6ca).multiplyScalar(airLight), 0.4 * k);
     }
     // The weather's particles, or the biome's own ambient ones (embers, ash, dust, drifting snow)
     if (weather === 'rain' || weather === 'snow') this.weather.set(weather, k, 1 - this.darkness * 0.85);
@@ -185,7 +187,8 @@ export class CustomMapEnvironment {
     HEIGHT_FOG_UNIFORMS.uSnowCover.value = Math.min(1, Math.max(0, env.snowCover ?? Math.max(snowFromWeather, snowFromBiome)));
     HEIGHT_FOG_UNIFORMS.uWetness.value = weather === 'rain' ? k * 0.85 : env.biome === 'swamp' ? 0.25 : 0;
     this.placeSun(this.sun.target.position, true);
-    HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(this.sun.color).lerp(this.fog.color, 0.35);
+    // The haze towards the sun takes its light; the moon's is faint, or a night horizon glows in a pale band
+    HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(this.sun.color).multiplyScalar(airLight).lerp(this.fog.color, 0.35);
     HEIGHT_FOG_UNIFORMS.uFogSunDir.value.copy(this.sunDir);
     HEIGHT_FOG_UNIFORMS.uGradeContrast.value = p.grade[0];
     HEIGHT_FOG_UNIFORMS.uGradeSaturation.value = p.grade[1];
