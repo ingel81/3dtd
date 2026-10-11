@@ -106,7 +106,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   line(m: MapSummary): string {
     const parts = [`${Math.round(m.width)} x ${Math.round(m.depth)} m`];
     if (m.origin === 'own') parts.push(`${m.spawns} ${m.spawns === 1 ? 'spawn' : 'spawns'}`, `${m.objects} objects`);
-    if (m.updatedAt) parts.push(formatDate(m.updatedAt));
+    // Generated maps carry the epoch as their time: no date then
+    if (m.updatedAt && Date.parse(m.updatedAt) > Date.UTC(2000, 0, 1)) parts.push(formatDate(m.updatedAt));
     return parts.join(' | ');
   }
 
