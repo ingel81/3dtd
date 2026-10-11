@@ -1,8 +1,9 @@
-import { MeshStandardMaterial, type DataTexture, type Vector3 } from 'three';
+import { MeshStandardMaterial, type DataTexture, type Material, type Mesh, type Vector3 } from 'three';
 import type { MapTerrain as MapTerrainDoc, MapPaths } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
 import { pathMaskResolution, rasterizePathMask } from '../paths/path-mask';
+import { buildTerrainApron } from './terrain-apron';
 import { TerrainChunks, type GridRect } from './terrain-chunks';
 import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots } from './terrain-material';
 import { GridNormalTexture, MaterialArrays, SplatTextures, maskTexture } from './terrain-textures';
@@ -18,6 +19,8 @@ export const PATH_MATERIAL = 'dirt-path';
  */
 export class MapTerrainLayer {
   readonly chunks: TerrainChunks;
+  /** Land beyond the border, not part of the map (no LOS, no queries) */
+  readonly apron: Mesh;
   private material: TerrainMaterial | null = null;
   private arrays: MaterialArrays | null = null;
   private splat: SplatTextures | null = null;
@@ -30,6 +33,7 @@ export class MapTerrainLayer {
     private readonly field: HeightField,
   ) {
     this.chunks = new TerrainChunks(field, this.placeholder);
+    this.apron = buildTerrainApron(field, this.placeholder);
     this.normals = new GridNormalTexture(field);
   }
 
@@ -81,6 +85,7 @@ export class MapTerrainLayer {
       cliffAngle: t.cliffAngle,
     });
     this.chunks.setMaterial(this.material);
+    this.apron.material = this.material;
   }
 
   update(cameraPos: Vector3): void {
@@ -90,6 +95,11 @@ export class MapTerrainLayer {
   rebuild(rect?: GridRect): void {
     this.chunks.rebuild(rect);
     this.normals.update(rect);
+    const f = this.field;
+    if (!rect || rect.i0 <= 0 || rect.j0 <= 0 || rect.i1 >= f.columns - 1 || rect.j1 >= f.rows - 1) {
+      this.apron.geometry.dispose();
+      this.apron.geometry = buildTerrainApron(f, this.apron.material as Material).geometry;
+    }
   }
 
   /** Splat weights changed (painted in place or replaced) */
@@ -112,6 +122,8 @@ export class MapTerrainLayer {
 
   dispose(): void {
     this.chunks.dispose();
+    this.apron.geometry.dispose();
+    this.apron.removeFromParent();
     this.material?.dispose();
     this.placeholder.dispose();
     this.arrays?.dispose();

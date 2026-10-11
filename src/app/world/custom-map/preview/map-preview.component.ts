@@ -15,6 +15,9 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
   cliff: [60, 70, 45, 160, 160, 30],
   forest: [-200, 20, 40, -150, 80, 10],
   ground: [20, -100, 6, 45, -128, 2],
+  trees: [30, -20, 12, 70, 20, 6],
+  houses: [30, -115, 14, 55, -150, 2],
+  bridge: [-70, -15, 14, -36, 22, 0],
 };
 
 /**

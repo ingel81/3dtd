@@ -369,7 +369,23 @@ export class MapObjectLayer {
           }`,
         );
     };
-    m.customProgramCacheKey = () => `custom-map-wind-${strength.toFixed(5)}`;
+    if (m.name.startsWith('foliage-')) {
+      // Cards seen edge-on smear their texture into streaks: fade them out by the flat face normal
+      const prev = m.onBeforeCompile;
+      m.onBeforeCompile = (shader, renderer) => {
+        prev.call(m, shader, renderer);
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <alphatest_fragment>',
+          /* glsl */ `{
+            vec3 faceNormal = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));
+            float facing = abs(dot(faceNormal, normalize(vViewPosition)));
+            diffuseColor.a *= smoothstep(0.08, 0.3, facing);
+          }
+          #include <alphatest_fragment>`,
+        );
+      };
+    }
+    m.customProgramCacheKey = () => `custom-map-wind-${strength.toFixed(5)}-${m.name.startsWith('foliage-') ? 'card' : 'solid'}`;
     this.windMaterials.set(key, m);
     return m;
   }

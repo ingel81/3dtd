@@ -5,6 +5,7 @@ import type { MapAssetLibrary } from './map-asset-library';
 import { sceneToMap } from './map-coords';
 import { CustomMapEnvironment } from './environment/map-environment';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
+import { BridgeLayer } from './paths/path-bridges';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { WaterSurface } from './water/water-surface';
 import type { GridRect } from './terrain/terrain-chunks';
@@ -72,6 +73,7 @@ export class CustomMapView {
   private readonly terrain: MapTerrainLayer;
   private water: WaterSurface | null = null;
   private readonly objects: MapObjectLayer;
+  private readonly bridges: BridgeLayer;
   private readonly camPos = new Vector3();
   private readonly hitPoint = new Vector3();
   private readonly mapPoint = { x: 0, y: 0 };
@@ -92,11 +94,14 @@ export class CustomMapView {
 
     this.terrain = new MapTerrainLayer(t, this.heights);
     this.losBlockers.add(this.terrain.chunks.group);
+    this.group.add(this.terrain.apron);
 
     this.environment = new CustomMapEnvironment(doc.environment);
     this.updateWater();
     this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers);
     this.group.add(this.objects.group);
+    this.bridges = new BridgeLayer(this.heights, assets);
+    this.group.add(this.bridges.group);
     this.ready = this.load();
   }
 
@@ -139,6 +144,7 @@ export class CustomMapView {
     this.terrain.rebuild(rect ? this.gridRect(rect) : undefined);
     this.objects.refreshHeights();
     if (this.water) this.updateWater();
+    void this.bridges.set(this.doc.paths, this.doc.terrain.water);
   }
 
   /** First placed object a scene-space ray hits (editor picking) */
@@ -181,6 +187,7 @@ export class CustomMapView {
 
   updatePaths(): void {
     this.terrain.refreshPaths(this.doc.paths);
+    void this.bridges.set(this.doc.paths, this.doc.terrain.water);
   }
 
   setEnvironment(env: MapEnvironment): void {
@@ -199,6 +206,7 @@ export class CustomMapView {
     this.terrain.dispose();
     this.water?.dispose();
     this.objects.dispose();
+    this.bridges.dispose();
     this.environment.dispose();
     this.group.removeFromParent();
     this.group.clear();
@@ -219,6 +227,7 @@ export class CustomMapView {
     await Promise.all([
       this.terrain.load(this.assets, this.doc.paths, this.options.anisotropy ?? 8),
       this.objects.setObjects(this.doc.objects),
+      this.bridges.set(this.doc.paths, this.doc.terrain.water),
     ]);
   }
 }

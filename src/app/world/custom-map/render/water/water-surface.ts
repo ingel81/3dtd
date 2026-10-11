@@ -77,7 +77,7 @@ export class WaterSurface {
     const u = this.mesh.material.uniforms;
     const deep = new Color(water.color || '#2d5a5e');
     u['uDeep'].value.copy(deep);
-    u['uShallow'].value.copy(deep).lerp(new Color(0x8fb8a8), 0.35);
+    u['uShallow'].value.copy(deep).lerp(new Color(0x6f9a88), 0.3);
     this.mesh.geometry.dispose();
     this.mesh.geometry = this.buildGeometry(water);
     this.mesh.visible = (this.mesh.geometry.index?.count ?? 0) > 0;
@@ -268,7 +268,7 @@ void main() {
   vec3 r = reflect(-v, n);
   vec3 sky = mix(uSkyHorizon, uSkyZenith, pow(max(r.y, 0.0), 0.5));
   vec3 body = mix(uShallow, uDeep, smoothstep(0.2, 3.5, vDepth));
-  vec3 color = mix(body, sky, fresnel * 0.85);
+  vec3 color = mix(body, sky, fresnel * 0.9 + 0.05);
   // Sun glint
   float spec = pow(max(dot(r, uSunDir), 0.0), 320.0) * 6.0 + pow(max(dot(r, uSunDir), 0.0), 40.0) * 0.25;
   color += uSunColor * spec;
@@ -277,7 +277,7 @@ void main() {
   float foamBreak = texture2D(uWaves, vWorldPos.xz / 17.0 - uTime * 0.01).y;
   float foam = smoothstep(0.25, 0.0, vDepth) * smoothstep(0.45, 0.75, foamNoise * 0.6 + foamBreak * 0.6 - vDepth);
   color = mix(color, vec3(0.85, 0.88, 0.86), foam * 0.6);
-  float alpha = mix(0.35, 0.94, smoothstep(0.0, 2.0, vDepth));
+  float alpha = mix(0.55, 0.96, smoothstep(0.0, 1.6, vDepth));
   alpha = max(alpha, fresnel);
   alpha = max(alpha, foam * 0.8);
   alpha *= smoothstep(0.0, 0.08, vDepth);

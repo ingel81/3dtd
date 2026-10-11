@@ -82,11 +82,11 @@ export class TerrainMaterial extends MeshStandardMaterial {
       shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
-          '#include <common>\nvarying vec3 vTerrainPos;',
+          '#include <common>\nvarying vec3 vTerrainPos;\nvarying vec3 vTerrainNormal;',
         )
         .replace(
           '#include <begin_vertex>',
-          '#include <begin_vertex>\nvTerrainPos = position;',
+          '#include <begin_vertex>\nvTerrainPos = position;\nvTerrainNormal = normal;',
         );
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>\n${TERRAIN_FRAGMENT_PARS}`)
@@ -140,6 +140,7 @@ const TERRAIN_FRAGMENT_PARS = /* glsl */ `
 precision highp sampler2DArray;
 #define TERRAIN_LAYERS ${TERRAIN_MAX_LAYERS}
 varying vec3 vTerrainPos;
+varying vec3 vTerrainNormal;
 uniform sampler2DArray uColorArray;
 uniform sampler2DArray uDataArray;
 uniform sampler2D uSplat0;
@@ -188,7 +189,10 @@ vec3 unpackTerrainNormal(vec4 dat) {
 const TERRAIN_SAMPLE = /* glsl */ `
 vec3 tPos = vTerrainPos;
 vec2 mapPos = vec2(-tPos.x, tPos.z);
-vec3 nGeo = normalize(texture2D(uGridNormals, mapPos * uGridUv.xy + uGridUv.zw).xyz);
+// Beyond the map (the apron) there is no grid: vertex normals and the first layer
+vec2 edgeDist = abs(mapPos) - uMapSize * 0.5;
+float outside = smoothstep(0.0, 12.0, max(edgeDist.x, edgeDist.y));
+vec3 nGeo = normalize(mix(texture2D(uGridNormals, mapPos * uGridUv.xy + uGridUv.zw).xyz, normalize(vTerrainNormal), outside));
 vec2 tuv = mapPos / uMapSize + 0.5;
 vec2 dPosX = dFdx(tPos.xz);
 vec2 dPosY = dFdy(tPos.xz);
@@ -208,10 +212,11 @@ float sw[8] = float[8](s0.r, s0.g, s0.b, s0.a, s1.r, s1.g, s1.b, s1.a);
 float sum = 0.0;
 for (int k = 0; k < 8; k++) if (uSplatLayer[k] >= 0) sum += sw[k];
 if (sum < 0.001) { sw[0] = 1.0; sum = 1.0; }
-for (int k = 0; k < 8; k++) if (uSplatLayer[k] >= 0) w[uSplatLayer[k]] += sw[k] / sum;
+for (int k = 0; k < 8; k++) if (uSplatLayer[k] >= 0) w[uSplatLayer[k]] += sw[k] / sum * (1.0 - outside);
+w[max(uSplatLayer[0], 0)] += outside;
 
 // Roads and paths replace the painted ground
-vec2 pm = texture2D(uPathMask, tuv).rg;
+vec2 pm = texture2D(uPathMask, tuv).rg * (1.0 - outside);
 float road = uRoadLayer >= 0 ? pm.r : 0.0;
 float path = uPathLayer >= 0 ? pm.g * (1.0 - road) : 0.0;
 float keep = 1.0 - road - path;

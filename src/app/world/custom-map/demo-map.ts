@@ -349,7 +349,7 @@ export function createDemoMap(seed = 7): CustomMapDocument {
       const n2 = noise.fbm(x / 13 + 50, y / 13, 3);
       w.fill(0);
       w[L.grass] = 1;
-      w[L['grass-lush']] = smoothstep(0.45, 0.7, n) * 1.3 + smoothstep(40, 18, dr) * 0.8;
+      w[L['grass-lush']] = (smoothstep(0.45, 0.75, n) * 0.6 + smoothstep(0.5, 0.7, n2) * 0.6) + smoothstep(40, 18, dr) * 0.8;
       w[L.meadow] = smoothstep(0.55, 0.75, n2) * 0.9;
       w[L['grass-dry']] = smoothstep(14, 30, h) * smoothstep(0.35, 0.6, n) * 1.2;
       w[L['forest-floor']] = forestAt(x, y) * 2.2;
@@ -357,7 +357,7 @@ export function createDemoMap(seed = 7): CustomMapDocument {
       w[L.sand] = smoothstep(21, 14, dr) * 2.6 * (0.6 + n2 * 0.8);
       const dv = Math.hypot(x - villageCenter.x, y - villageCenter.y);
       w[L.dirt] =
-        smoothstep(55, 20, dv) * (0.5 + n2) * 1.2 +
+        smoothstep(60, 22, dv) * (0.7 + n2 * 0.8) * 1.8 +
         smoothstep(9, 5, roadDist.at(x, y)) * 0.8 * n2 +
         smoothstep(16, 10, dr) * 0.9;
       let sum = 0;
@@ -478,7 +478,7 @@ export function createDemoMap(seed = 7): CustomMapDocument {
     place('barrel', x + Math.cos(rotation) * 5, y + Math.sin(rotation) * 5, 1);
     if (rand() < 0.6) place('crate', x - Math.cos(rotation) * 5, y - Math.sin(rotation) * 5, 1);
   }
-  place('well', 40, -128, 1);
+  place('well', 32, -148, 1);
   // Lamps along the village road
   for (const line of roadLines) {
     for (let k = 0; k < line.length; k += 7) {
@@ -518,7 +518,7 @@ export function createDemoMap(seed = 7): CustomMapDocument {
       grid: { columns: COLS, rows: COLS, cellSize: CELL, heights },
       layers: DEMO_LAYERS.map((material) => ({ material })),
       splat: { resolution: SPLAT_RES, maps: [s0, s1] },
-      water: { level: WATER_LEVEL, mask, color: '#2d5a5e' },
+      water: { level: WATER_LEVEL, mask, color: '#1f4246' },
       cliffAngle: 38,
       cliffMaterial: 'cliff',
     },
