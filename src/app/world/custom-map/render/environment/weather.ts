@@ -12,6 +12,7 @@ import {
   type Camera,
 } from 'three';
 import type { MapWeather } from '../../map-document';
+import { COVER_GLSL, type CoverMap } from './cover-map';
 
 /**
  * Rain or snow where the camera looks: a box of streaks or flakes around the
@@ -83,6 +84,13 @@ export class WeatherLayer {
     this.mesh.visible = false;
   }
 
+  /** The terrain and roof tops particles stop at (no rain indoors or under the ground) */
+  setCover(cover: CoverMap): void {
+    Object.assign(this.mesh.material.uniforms, cover.uniforms);
+    this.mesh.material.defines['COVER'] = 1;
+    this.mesh.material.needsUpdate = true;
+  }
+
   /** Particle kind and strength 0..1 (clear and fog show none); `light` dims lit particles at night */
   set(kind: WeatherParticles, strength: number, light: number): void {
     const m = this.mesh.material;
@@ -129,6 +137,9 @@ uniform vec3 uCam;
 uniform vec3 uBox;
 varying vec2 vUv;
 varying float vFade;
+#ifdef COVER
+${COVER_GLSL}
+#endif
 void main() {
 #if KIND == 1
   vec3 fall = vec3(sin(uTime * 0.6 + aSeed.x * 20.0) * 0.6 + uTime * 0.4, -uTime * 1.1, cos(uTime * 0.5 + aSeed.z * 20.0) * 0.6);
@@ -150,6 +161,10 @@ void main() {
   vec3 rel = abs(p - uCam) / (uBox * 0.5);
   vFade = 1.0 - smoothstep(0.7, 1.0, max(rel.x, max(rel.y, rel.z)));
   vFade = min(1.0, vFade * 1.6);
+#ifdef COVER
+  // Under a roof or below the ground: not drawn (ash and dust stay above the ground as well)
+  vFade *= step(coverTopAt(p), p.y);
+#endif
   vUv = uv;
   // Far from the camera particles grow (a game camera looks from 100 m and more), and thin out
   float camDist = length(cameraPosition - p);

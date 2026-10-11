@@ -5,6 +5,7 @@ import type { MapAssetLibrary } from './map-asset-library';
 import { mapToScene, sceneToMap } from './map-coords';
 import { CustomMapEnvironment } from './environment/map-environment';
 import { EffectLayer } from './effects/effect-layer';
+import { CoverMap } from './environment/cover-map';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { BridgeLayer } from './paths/path-bridges';
 import { MapTerrainLayer } from './terrain/map-terrain';
@@ -91,6 +92,10 @@ export class CustomMapView {
   private readonly objects: MapObjectLayer;
   private readonly bridges: BridgeLayer;
   private readonly effects: EffectLayer;
+  /** Terrain and roof tops for the weather; rebuilt lazily (coverDirty) */
+  private readonly cover: CoverMap;
+  private coverDirty = true;
+  private coverAge = 0;
   private readonly camPos = new Vector3();
   private readonly hitPoint = new Vector3();
   private readonly mapPoint = { x: 0, y: 0 };
@@ -117,6 +122,8 @@ export class CustomMapView {
     if (options.grass !== false) this.group.add(this.terrain.grass.mesh);
 
     this.environment = new CustomMapEnvironment(doc.environment);
+    this.cover = new CoverMap(this.heights);
+    this.environment.weather.setCover(this.cover);
     this.environment.setFogBase(lowGround(t.grid.heights, t.water?.level));
     this.updateWater();
     this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers, { renderer: options.renderer });
@@ -213,6 +220,10 @@ export class CustomMapView {
     this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);
     this.terrain.grass.update(dtSeconds, this.grassCenter);
     this.terrain.grass.setNear(reach < GRASS_MAX_VIEW_DISTANCE);
+    // The weather's cover: at most four times a second, and only when something changed
+    this.coverAge += dtSeconds;
+    if (this.coverDirty && this.coverAge > 0.25) void this.refreshCover();
+    this.cover.setFrame(this.group.position.x, this.group.position.z);
     this.environment.update(dtSeconds, camera, this.worldFocus);
     this.environment.matchFog(this.camPos, this.focusPoint);
     this.environment.setFogMap(this.group.position.x, this.group.position.z, this.doc.terrain.width / 2, this.doc.terrain.depth / 2);
@@ -222,6 +233,7 @@ export class CustomMapView {
   updateHeights(rect?: MapRect): void {
     this.terrain.rebuild(rect ? this.gridRect(rect) : undefined);
     this.objects.refreshHeights(rect);
+    this.coverDirty = true;
     // Water and bridges only when the change reaches them: a brush on a big map must stay cheap
     if (!rect || this.waterNear(rect)) this.updateWater();
     if (!rect || this.bridgeNear(rect)) void this.bridges.set(this.doc.paths, this.doc.terrain.water);
@@ -388,8 +400,17 @@ export class CustomMapView {
     return out.slice(0, 256);
   }
 
+  private async refreshCover(): Promise<void> {
+    this.coverDirty = false;
+    this.coverAge = 0;
+    const catalog = await this.assets.catalog();
+    if (this.disposed) return;
+    this.cover.set(this.doc.objects, new Map(catalog.objects.map((o) => [o.id, o])));
+  }
+
   /** Contact shadows of the objects in the baked ground occlusion */
   private async refreshContact(): Promise<void> {
+    this.coverDirty = true;
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
     this.terrain.occlusion.setObjects(this.doc.objects, new Map(catalog.objects.map((o) => [o.id, o])));
@@ -419,6 +440,7 @@ export class CustomMapView {
     for (const w of this.waters) w?.dispose();
     for (const r of this.rivers) r.dispose();
     this.effects.dispose();
+    this.cover.dispose();
     this.objects.dispose();
     this.bridges.dispose();
     this.environment.dispose();
