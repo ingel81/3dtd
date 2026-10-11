@@ -177,24 +177,29 @@ Schema (Version 1, alle neuen Felder optional): Materialien mit `tags`, `emissiv
 `volcanic`, `wood`; Objekte mit `tags`, `effects`, `light`, `lod`, Kategorien auch `structure` und `fx`. Den Bestand
 baut der Asset-Worker aus; Stand beim Schreiben:
 
-- **80 Bodenmaterialien** (Poly Haven, ambientCG), je `color.jpg`, `normal.jpg` (OpenGL), `arh.jpg` (AO, Rauheit,
-  Höhe), 1024 px; die beiden Lava-Sätze zusätzlich `emissive.jpg` (`files.emissive` und `emissive` im Eintrag, vom
-  Renderer noch nicht gelesen). Gras- und Waldböden, Herbstlaub, Sumpf und Schlamm, Acker, Dünen- und Rotsand,
-  rissige Wüstenerde, Klippen aus Granit, Sandstein, Basalt und Kalk, Vulkangestein, Lava, Schnee, Eis, Pflaster- und
-  Plattenwege, Burgböden, Bohlen, Kies, Flusskiesel
-- **208 Objekte** (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px), je Biom: Laub- und Nadelbäume mit Herbst-
+- **111 Bodenmaterialien** (Poly Haven, ambientCG), je `color.jpg`, `normal.jpg` (OpenGL), `arh.jpg` (AO, Rauheit,
+  Höhe), 1024 px; Lava mit `emissive` (Risse tief im Höhenkanal) und `flow`, zusätzlich `emissive.jpg`. Gras- und
+  Waldböden, Herbstlaub, Sumpf und Schlamm, Acker, Sande, rissige Wüstenerde, Salzkruste, Klippen aus Granit,
+  Sandstein, Basalt und Kalk, Geröll, Vulkangestein, Obsidian, Asche, Schwefel, Lava, Schnee, Eis, Packeis, Gletschereis,
+  Asphalt (ganz und kaputt), Gehwegplatten, Pflaster, Beton, Schutt, Mond-Regolith, Mars-Staub und -Fels, Burgböden,
+  Bohlen, Kies, Flusskiesel
+- **317 Objekte** (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px), je Biom: Laub- und Nadelbäume mit Herbst-
   und Schneevarianten, Trauerweide, Mangrove, Palmen, Kakteen, Köcherbäume; Sträucher, Hecken, Gras je Biom, Schilf,
-  Weizen, Blumen, Seerosen, Pilze (auch leuchtend); Felsen je Gesteinsart, modulare Klippen, Sandsteinsäulen,
-  Tafelberg, Felsbogen, Basaltsäulen, Kristalle, Lavabecken; Burgbaukasten (Mauer, Turm, Torhaus, Bergfried, Treppe,
-  Ruinen), Dorfhäuser auch mit Schnee, Mühlen, Kapelle, Wachturm, Leuchtturm, Pfahlhütte, Lehmhäuser, Marktstände,
-  Zelte; Stein- und Holzbrücke, Bohlenweg, Steg, Palisade, Zäune, Trockenmauern; Ruinen, Obelisk, Schrein, Gräber,
-  Statuen; Fackel, Feuerschale, Lagerfeuer, Wasserfall, Requisiten, Segelschiff
-- **Biom-Tags**: jeder Eintrag trägt `tags` (`temperate`, `autumn`, `winter`, `mountain`, `desert`, `swamp`, `coast`,
-  `volcanic`, `village`, `castle`, `crystal`, `arena`) für Paletten; `category` bleibt die Art. Material- und
-  Objekt-Ids teilen sich einen Namensraum
-- Flammen und Kerzen sind alpha-getestete `foliage-*`-Karten mit Eigenleuchten, der Wasserfall eine stehende Karte;
-  Seerosen, Schiff und Brücken brauchen eine Höhenangabe (Wasserspiegel, Ufer), sonst stehen sie auf dem Grund
-- Größe: Materialien 71 MB, Modelle 44 MB. Ansehen: `/map-preview?showcase=<tag>` oder `?assets=a,b*&materials=c,d`
+  Weizen, Blumen, Seerosen, Pilze; Felsen je Gesteinsart, modulare Klippen, Sandsteinsäulen, Tafelberg, Felsbogen,
+  Kristalle, Lavabecken; Burgbaukasten, Dorfhäuser auch mit Schnee, Mühlen, Kapelle, Leuchtturm, Pfahlhütte,
+  Lehmhäuser; Brücken, Bohlenweg, Steg, Seilbrücke, Palisade, Zäune; Stadt (Wohnblöcke, Backsteinhäuser, Laden,
+  Lagerhalle, Container, Autos, Ampel, Laternen, Bänke, Betonbrücke, Strommasten); Endzeit (Ruinen, Hochhausstumpf,
+  Wracks, Schutt, Stacheldraht, Barrikaden, Giftfässer); Mond und Mars (Stationsmodule, Kuppeln, Gewächshaus,
+  Antennen, Lander, Rover, Solarfelder, Landeplatz, Kraterränder); Arktis (Iglu, Forschungsstation, Eisberg,
+  Eisschollen, Eiszapfen); Hölle (Höllentor, Altar, Lavafelsen, Dornen, Ketten, Obsidian); Fackeln, Feuer, Wasserfall
+- **8 Effekt-Marker** (`fx-*`, `file: ''`): Glühwürmchen, Rauch, Glut, Bodennebel, Laub, Schnee, Funkeln, Wasserfall
+- **Tags**: Biome `temperate`, `autumn`, `winter`, `mountain`, `desert`, `swamp`, `coast`, `volcanic`, `village`,
+  `castle`, `crystal`, `arena`, `city`, `wasteland`, `moon`, `mars`, `arctic`, `hell`; Rollen für Pinsel `conifer`,
+  `shore`, `water`, `undergrowth`, `scree`. `category` bleibt die Art. Material- und Objekt-Ids teilen sich einen
+  Namensraum
+- Flammen sind alpha-getestete `foliage-*`-Karten mit Eigenleuchten, der Wasserfall eine Karte `foliage-waterfall`;
+  Seerosen, Eisschollen, Schiff und Brücken brauchen eine Höhenangabe (Wasserspiegel, Ufer)
+- Größe: Materialien 94 MB, Modelle 55 MB. Ansehen: `/map-preview?showcase=<tag>` oder `?assets=a,b*&materials=c,d`
 
 `MapAssetLibrary.shared()` lädt Katalog, Materialpixel und Modelle einmal und teilt sie zwischen Ansichten. Fehlt eine
 Datei, zeichnet die Karte trotzdem: Material in der Durchschnittsfarbe, Modell als Platzhalterform.
