@@ -50,9 +50,7 @@ export class RunsDialogComponent {
   /** Where it was played. A world of its own first (DevWorld, a map): its HQ sits at 0,0 and would read as coordinates. */
   place(run: StoredRun): string {
     const world = runWorld(run.head);
-    if (world?.kind === 'devworld') return 'DevWorld';
-    if (world?.kind === 'custom-map') return worldPlaceName(world) ?? 'Map';
-    return run.head.location?.name ?? 'Unknown place';
+    return (world && worldPlaceName(world)) ?? run.head.location?.name ?? 'Unknown place';
   }
 
   /** Who played it. */

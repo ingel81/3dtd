@@ -66,8 +66,8 @@ export class MenuNewGameComponent {
   private readonly menu = inject(MainMenuService);
   private readonly coordinator = inject(LocationChangeCoordinatorService);
 
-  /** The maps first on a world of its own (a map, DevWorld), the places on the tiles */
-  readonly view = signal<NewGameView>(this.world.ref().kind === 'custom-map' ? 'maps' : 'places');
+  /** The places first on a world with real places (the tiles, an own tileset), else the maps */
+  readonly view = signal<NewGameView>(this.world.capabilities().realPlace ? 'places' : 'maps');
 
   choose(choice: PlaceChoice): void {
     this.menu.home('start');
