@@ -7826,8 +7826,8 @@
       "name": "Station module",
       "category": "building",
       "file": "models/base-module.glb",
-      "footprint": 4.4,
-      "height": 5.2,
+      "footprint": 4.6,
+      "height": 7.5,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -7855,8 +7855,8 @@
       "name": "Station hub",
       "category": "building",
       "file": "models/base-hub.glb",
-      "footprint": 4.4,
-      "height": 5.9,
+      "footprint": 4.9,
+      "height": 8.5,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8045,8 +8045,8 @@
       "name": "Rover",
       "category": "prop",
       "file": "models/rover.glb",
-      "footprint": 1.3,
-      "height": 3.2,
+      "footprint": 1.5,
+      "height": 3.1,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -8634,8 +8634,8 @@
       "name": "Hell gate",
       "category": "building",
       "file": "models/hell-gate.glb",
-      "footprint": 7.6,
-      "height": 17.5,
+      "footprint": 8.9,
+      "height": 17.4,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8663,15 +8663,15 @@
         "height": 5.0,
         "flicker": true
       },
-      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02; https://polyhaven.com/a/beige_wall_001"
     },
     {
       "id": "altar",
       "name": "Altar",
       "category": "prop",
       "file": "models/altar.glb",
-      "footprint": 2.7,
-      "height": 2.1,
+      "footprint": 3.0,
+      "height": 3.0,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -8693,7 +8693,30 @@
         "height": 1.8,
         "flicker": true
       },
-      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02; https://polyhaven.com/a/beige_wall_001"
+    },
+    {
+      "id": "bone-pile",
+      "name": "Bone pile",
+      "category": "prop",
+      "file": "models/bone-pile.glb",
+      "footprint": 1.2,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "hell",
+        "wasteland",
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/beige_wall_001"
     },
     {
       "id": "lava-rock",

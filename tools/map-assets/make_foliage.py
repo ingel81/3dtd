@@ -452,6 +452,31 @@ def moss_strands(size_w, size_h, seed):
     return bleed(img)
 
 
+def hull_panels(size, seed):
+    """Station hull: off-white panels of slightly different tone, dark seams, rivet rows, grime collecting low"""
+    rnd = np.random.default_rng(seed)
+    arr = np.zeros((size, size, 3), np.float32)
+    n = 4
+    cell = size // n
+    for i in range(n):
+        for j in range(n):
+            tone = rnd.uniform(0.86, 0.97)
+            arr[j * cell:(j + 1) * cell, i * cell:(i + 1) * cell] = np.array((206, 208, 210), np.float32) * tone
+    grime = ndimage.gaussian_filter(rnd.random((size, size)), 18)
+    grime = (grime - grime.min()) / (grime.max() - grime.min())
+    arr *= (0.88 + 0.14 * grime)[..., None]
+    arr *= np.linspace(1.0, 0.9, size)[:, None, None]
+    img = Image.fromarray(arr.clip(0, 255).astype(np.uint8), 'RGB')
+    draw = ImageDraw.Draw(img)
+    for k in range(n + 1):
+        draw.line([(k * cell, 0), (k * cell, size)], fill=(95, 98, 102), width=3)
+        draw.line([(0, k * cell), (size, k * cell)], fill=(95, 98, 102), width=3)
+        for t in range(6, size, 16):
+            draw.ellipse([k * cell + 5, t, k * cell + 8, t + 3], fill=(140, 142, 146))
+            draw.ellipse([t, k * cell + 5, t + 3, k * cell + 8], fill=(140, 142, 146))
+    return img
+
+
 def chainlink(size, cells=8):
     """Chain-link mesh: galvanised wire diamonds on transparent ground (one tile = 1 m at uv 1)"""
     img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
@@ -559,6 +584,7 @@ def main():
     solar_cells(512, 40).save(os.path.join(out, 'solar.jpg'), quality=90)
     hazard_stripes(256).save(os.path.join(out, 'hazard.jpg'), quality=90)
     gold_foil(512, 41).save(os.path.join(out, 'gold-foil.jpg'), quality=90)
+    hull_panels(512, 43).save(os.path.join(out, 'hull-panels.jpg'), quality=90)
     print('foliage ok', file=sys.stderr)
 
 

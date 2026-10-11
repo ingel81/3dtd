@@ -16,68 +16,136 @@ from blender_kit import (
 import blender_kit
 from build_nature import lump
 
-WHITE = (0.78, 0.79, 0.8)
 
 
-def hull(name='hull-white'):
-    return flat_material(name, WHITE, 0.45, 0.2)
+def hull(name='hull-panels'):
+    return image_material(name, blender_kit.FOLIAGE + '/hull-panels.jpg', 0.5)
 
 
 def trim():
-    return flat_material('hull-trim', (0.18, 0.19, 0.2), 0.5, 0.6)
+    return flat_material('hull-trim', (0.2, 0.21, 0.22), 0.5, 0.6)
 
 
 def window():
     return flat_material('station-window', (0.55, 0.7, 0.85), 0.15, emission=(0.45, 0.6, 0.75), strength=0.35)
 
 
+def hatch(frame, dark, centre, normal, radius=0.7):
+    """Round hatch: a framed ring with a dark door and a wheel"""
+    n = normal.normalized()
+    tube(frame, [centre - n * 0.05, centre + n * 0.12], [radius + 0.12, radius + 0.12], 16, cap=True)
+    tube(dark, [centre + n * 0.12, centre + n * 0.16], [radius, radius], 16, cap=True)
+    tube(frame, [centre + n * 0.16, centre + n * 0.2], [radius * 0.35, radius * 0.35], 10, cap=True)
+
+
+def cable(part, a, b, sag=0.3, radius=0.04):
+    pts = [a.lerp(b, t) - Vector((0, 0, sag * 4 * t * (1 - t))) for t in [k / 8 for k in range(9)]]
+    tube(part, pts, [radius] * 9, 5)
+
+
+def solar_wing(cells, frame, root, direction, length=5.0, width=1.8):
+    """A boom from `root` along `direction` carrying two solar panels"""
+    d = direction.normalized()
+    side = Vector((0, 0, 1)).cross(d).normalized()
+    oriented_box(frame, root, root + d * length, 0.1)
+    for k in range(2):
+        a = root + d * (0.6 + k * (length - 0.6) / 2)
+        b = a + d * ((length - 0.6) / 2 - 0.1)
+        corners = [a - side * width / 2, b - side * width / 2, b + side * width / 2, a + side * width / 2]
+        corners = [c + Vector((0, 0, 0.02)) for c in corners]
+        cells.quad(corners, [(0, 0), (1, 0), (1, 1), (0, 1)])
+        cells.quad(list(reversed(corners)), [(0, 1), (1, 1), (1, 0), (0, 0)])
+        for c0, c1 in zip(corners, corners[1:] + corners[:1]):
+            oriented_box(frame, c0, c1, 0.05)
+
+
 def base_module(name, length=8.0, radius=2.2):
-    """Horizontal habitat cylinder along X on skids, ribbed, a strip of lit windows, end caps"""
+    """Habitat cylinder on legs: panelled hull, ribs, end domes with a hatch, a window strip, cable runs,
+    radiator fins on top and a solar wing on one side"""
     clear_scene()
-    shell = Part(hull(), smooth=True)
-    ribs = Part(trim(), smooth=True)
+    shell = Part(hull(), smooth=True, uv_scale=0.3)
+    ribs = Part(trim(), smooth=True, bevel=0.02)
+    dark = Part(flat_material('hatch-dark', (0.06, 0.06, 0.07), 0.6))
     win = Part(window())
-    z = radius + 0.8
-    tube(shell, [Vector((-length / 2, 0, z)), Vector((length / 2, 0, z))], [radius, radius], 20)
+    cells = Part(image_material('solar-cells', blender_kit.FOLIAGE + '/solar.jpg', 0.25))
+    z = radius + 0.9
+    tube(shell, [Vector((-length / 2, 0, z)), Vector((length / 2, 0, z))], [radius, radius], 24)
     for sx in (-1, 1):
-        tube(shell, [Vector((sx * length / 2, 0, z)), Vector((sx * (length / 2 + 0.6), 0, z)), Vector((sx * (length / 2 + 0.9), 0, z))],
-             [radius, radius * 0.75, 0.02], 20)
+        prof = [(0.0, 1.0), (0.35, 0.94), (0.7, 0.75), (0.95, 0.4), (1.05, 0.02)]
+        tube(shell, [Vector((sx * (length / 2 + p * 0.9), 0, z)) for p, _ in prof], [radius * r for _, r in prof], 24)
+    hatch(ribs, dark, Vector((-(length / 2 + 0.93), 0, z)), Vector((-1, 0, 0)), 0.65)
     for k in range(5):
-        x = -length / 2 + 0.3 + k * (length - 0.6) / 4
-        tube(ribs, [Vector((x - 0.08, 0, z)), Vector((x + 0.08, 0, z))], [radius + 0.06, radius + 0.06], 20)
+        x = -length / 2 + 0.25 + k * (length - 0.5) / 4
+        tube(ribs, [Vector((x - 0.1, 0, z)), Vector((x + 0.1, 0, z))], [radius + 0.07, radius + 0.07], 24)
     for k in range(6):
         x = -length / 2 + 1.0 + k * (length - 2.0) / 5
-        box(win, x, -radius - 0.02, z + 0.2, 0.6, 0.08, 0.4)
+        box(ribs, x, -radius + 0.12, z + 0.05, 0.75, 0.25, 0.55)
+        box(win, x, -radius - 0.02, z + 0.12, 0.6, 0.08, 0.4)
+    for y in (-0.5, 0.5):
+        cable(ribs, Vector((-length / 2, y - radius * 0.2, z - radius * 0.95)), Vector((length / 2, y - radius * 0.2, z - radius * 0.95)), 0.25)
+    for k in range(4):
+        x = -length / 2 + 1.2 + k * (length - 2.4) / 3
+        box(ribs, x, 0, z + radius - 0.05, 0.08, 1.6, 0.6)
     for x in (-length / 2 + 1.0, length / 2 - 1.0):
-        for y in (-radius * 0.7, radius * 0.7):
-            oriented_box(ribs, Vector((x, y, 0)), Vector((x, y * 0.6, z - radius * 0.7)), 0.18)
-        box(ribs, x, 0, 0, 0.4, radius * 1.8, 0.15)
-    export(name, [shell.to_object(name), ribs.to_object(name + '-ribs'), win.to_object(name + '-windows')])
+        for y in (-radius * 0.75, radius * 0.75):
+            foot = Vector((x, y * 1.25, 0.05))
+            oriented_box(ribs, Vector((x, y * 0.7, z - radius * 0.7)), foot, 0.16)
+            tube(ribs, [foot - Vector((0, 0, 0.05)), foot + Vector((0, 0, 0.06))], [0.35, 0.35], 10, cap=True)
+    solar_wing(cells, ribs, Vector((0, radius + 0.05, z + 0.4)), Vector((0, 1, 0.12)), 5.5, 1.8)
+    tube(ribs, [Vector((length / 2 - 1.2, 0, z + radius)), Vector((length / 2 - 1.2, 0, z + radius + 2.2))], [0.03, 0.02], 5)
+    export(name, [shell.to_object(name), ribs.to_object(name + '-ribs'), dark.to_object(name + '-hatch'), win.to_object(name + '-windows'),
+                  cells.to_object(name + '-solar')])
 
 
 def base_hub(name, radius=4.0, height=4.0):
-    """Upright hub: cylinder with a shallow dome, airlock door, lights"""
+    """Upright hub: panelled drum on a ring footing, shallow dome with a hatch, airlock with a round door,
+    window ring, cable reels and a mast"""
     clear_scene()
-    shell = Part(hull(), smooth=True)
-    ribs = Part(trim(), smooth=True)
+    shell = Part(hull(), smooth=True, uv_scale=0.3)
+    ribs = Part(trim(), smooth=True, bevel=0.02)
+    dark = Part(flat_material('hatch-dark', (0.06, 0.06, 0.07), 0.6))
     win = Part(window())
-    tube(ribs, [Vector((0, 0, -0.3)), Vector((0, 0, 0.6))], [radius + 0.3, radius + 0.3], 24, cap=True)
-    tube(shell, [Vector((0, 0, 0.6)), Vector((0, 0, height))], [radius, radius], 24)
+    tube(ribs, [Vector((0, 0, -0.3)), Vector((0, 0, 0.6))], [radius + 0.35, radius + 0.35], 28, cap=True)
+    tube(shell, [Vector((0, 0, 0.6)), Vector((0, 0, height))], [radius, radius], 28)
     dome = [(0.0, 1.0), (0.4, 0.95), (0.9, 0.8), (1.4, 0.55), (1.8, 0.25), (1.95, 0.02)]
-    tube(shell, [Vector((0, 0, height + z)) for z, _ in dome], [radius * r for _, r in dome], 24)
-    for k in range(8):
-        a = k / 8 * math.tau
-        box(win, math.cos(a) * (radius + 0.02), math.sin(a) * (radius + 0.02), 2.4, 0.7, 0.7, 0.5, a)
-    box(ribs, 0, -radius - 0.6, 0.6, 2.2, 1.4, 2.6)
-    box(win, 0, -radius - 1.32, 0.7, 1.2, 0.05, 2.1)
-    export(name, [shell.to_object(name), ribs.to_object(name + '-trim'), win.to_object(name + '-windows')])
+    tube(shell, [Vector((0, 0, height + z)) for z, _ in dome], [radius * r for _, r in dome], 28)
+    for z in (0.62, height - 0.1):
+        tube(ribs, [Vector((0, 0, z)), Vector((0, 0, z + 0.15))], [radius + 0.06, radius + 0.06], 28)
+    for k in range(10):
+        a = k / 10 * math.tau
+        box(ribs, math.cos(a) * (radius - 0.05), math.sin(a) * (radius - 0.05), 2.3, 0.25, 0.9, 0.6, a)
+        box(win, math.cos(a) * (radius + 0.03), math.sin(a) * (radius + 0.03), 2.4, 0.08, 0.7, 0.4, a)
+    hatch(ribs, dark, Vector((0, 0, height + 1.95)), Vector((0, 0, 1)), 0.6)
+    box(shell, 0, -radius - 0.7, 0.6, 2.4, 1.6, 2.8)
+    box(ribs, 0, -radius - 0.7, 3.4, 2.6, 1.8, 0.15)
+    hatch(ribs, dark, Vector((0, -radius - 1.5, 1.8)), Vector((0, -1, 0)), 0.8)
+    for k in range(2):
+        x = (k - 0.5) * 3.0
+        tube(ribs, [Vector((x, radius + 0.7, 0.0)), Vector((x, radius + 0.7, 0.8))], [0.5, 0.5], 12, cap=True)
+        cable(ribs, Vector((x, radius + 0.7, 0.7)), Vector((x * 0.6, radius - 0.05, 1.6)), 0.2, 0.05)
+    tube(ribs, [Vector((radius * 0.4, radius * 0.4, height + 1.0)), Vector((radius * 0.4, radius * 0.4, height + 4.5))], [0.05, 0.03], 6)
+    export(name, [shell.to_object(name), ribs.to_object(name + '-trim'), dark.to_object(name + '-hatches'), win.to_object(name + '-windows')])
+
+
+def wheel(tyre, hub, centre, axis, radius=0.42, width=0.32, cleats=16):
+    """Rover wheel: drum with raised cleats and a hub"""
+    a = axis.normalized()
+    tube(tyre, [centre - a * width / 2, centre + a * width / 2], [radius, radius], 18, cap=True)
+    tube(tyre, [centre + a * width / 2, centre - a * width / 2], [radius, radius], 18, cap=True)
+    side = a.orthogonal().normalized()
+    up = a.cross(side).normalized()
+    for k in range(cleats):
+        t = k / cleats * math.tau
+        r = side * math.cos(t) + up * math.sin(t)
+        oriented_box(tyre, centre + r * radius - a * width / 2, centre + r * radius + a * width / 2, 0.06)
+    tube(hub, [centre + a * (width / 2), centre + a * (width / 2 + 0.06)], [radius * 0.45, radius * 0.3], 10, cap=True)
 
 
 def dome(name, radius=6.0, glass=True, greenhouse=False):
     """Geodesic-looking dome: a ring wall, hemisphere of struts, glass or white panels"""
     clear_scene()
     struts = Part(trim(), smooth=True)
-    panel = Part(flat_material('dome-glass', (0.35, 0.45, 0.5), 0.08, 0.4) if glass else hull(), smooth=True)
+    panel = Part(flat_material('dome-glass', (0.35, 0.45, 0.5), 0.08, 0.4) if glass else hull(), smooth=True, uv_scale=0.3)
     tube(struts, [Vector((0, 0, -0.3)), Vector((0, 0, 0.8))], [radius + 0.2, radius + 0.2], 24, cap=False)
     prof = [(math.sin(t) * radius, math.cos(t)) for t in [k / 10 * math.pi / 2 for k in range(11)]]
     tube(panel, [Vector((0, 0, 0.8 + z)) for z, _ in prof], [radius * r + 0.001 for _, r in prof], 24)
@@ -106,7 +174,7 @@ def dome(name, radius=6.0, glass=True, greenhouse=False):
 
 def tunnel(name, length=6.0):
     clear_scene()
-    shell = Part(hull(), smooth=True)
+    shell = Part(hull(), smooth=True, uv_scale=0.3)
     ribs = Part(trim(), smooth=True)
     tube(shell, [Vector((-length / 2, 0, 1.6)), Vector((length / 2, 0, 1.6))], [1.1, 1.1], 14)
     for x in (-length / 2, 0, length / 2):
@@ -118,7 +186,7 @@ def tunnel(name, length=6.0):
 def antenna_dish(name):
     """Parabolic dish on a turret, tilted to the sky (towards -Y)"""
     clear_scene()
-    shell = Part(hull('dish-white'), smooth=True)
+    shell = Part(hull('dish-white'), smooth=True, uv_scale=0.3)
     metal = Part(trim(), smooth=True)
     tube(metal, [Vector((0, 0, -0.3)), Vector((0, 0, 3.0))], [0.5, 0.4], 10, cap=True)
     c = Vector((0, -0.3, 4.2))
@@ -183,24 +251,40 @@ def lander(name):
 
 
 def rover(name, colour=(0.82, 0.8, 0.76)):
-    """Six-wheeled rover along Y (front -Y): chassis, rocker arms, mast with camera head, solar deck"""
+    """Six-wheeled rover (front -Y): panelled body with chamfered edges, rocker-bogie arms, cleated wheels,
+    a mast with a camera head, a high-gain dish and a solar deck in a frame"""
     clear_scene()
-    body = Part(flat_material('rover-body-' + '-'.join('%.2f' % c for c in colour), colour, 0.5, 0.2))
+    body = Part(hull('rover-panels'), uv_metres=1.2, bevel=0.04)
     metal = Part(trim(), smooth=True)
-    wheel = Part(flat_material('rover-wheel', (0.35, 0.35, 0.36), 0.6, 0.6), smooth=True)
+    tyre = Part(flat_material('rover-wheel', (0.38, 0.38, 0.39), 0.6, 0.6), smooth=True)
     cells = Part(image_material('solar-cells', blender_kit.FOLIAGE + '/solar.jpg', 0.25))
-    box(body, 0, 0, 0.9, 1.6, 2.4, 0.7)
-    box(cells, 0, 0.2, 1.62, 2.2, 2.6, 0.04)
+    dish = Part(flat_material('dish-white', (0.82, 0.83, 0.84), 0.4, 0.2), smooth=True)
+    lens = Part(flat_material('camera-lens', (0.05, 0.08, 0.12), 0.1, 0.8))
+    box(body, 0, 0, 0.95, 1.6, 2.4, 0.7)
+    box(body, 0, 0.9, 1.65, 1.0, 0.6, 0.35)
+    corners = [Vector((-1.15, -1.25, 1.72)), Vector((1.15, -1.25, 1.72)), Vector((1.15, 1.55, 1.72)), Vector((-1.15, 1.55, 1.72))]
+    cells.quad(corners, [(0, 0), (1, 0), (1, 1), (0, 1)])
+    for c0, c1 in zip(corners, corners[1:] + corners[:1]):
+        oriented_box(metal, c0, c1, 0.05)
     for sx in (-1, 1):
-        for y in (-1.1, 0.0, 1.1):
-            x = sx * 1.15
-            tube(wheel, [Vector((x - 0.2, y, 0.4)), Vector((x + 0.2, y, 0.4))], [0.4, 0.4], 14, cap=True)
-            tube(wheel, [Vector((x + 0.2, y, 0.4)), Vector((x - 0.2, y, 0.4))], [0.4, 0.4], 14, cap=True)
-            oriented_box(metal, Vector((sx * 0.8, y * 0.5, 1.0)), Vector((x, y, 0.45)), 0.08)
-    oriented_box(metal, Vector((0.5, -0.9, 1.6)), Vector((0.5, -0.9, 2.9)), 0.1)
-    box(body, 0.5, -0.95, 2.9, 0.6, 0.35, 0.35)
-    box(metal, 0.5, -1.13, 2.97, 0.4, 0.04, 0.15)
-    export(name, [body.to_object(name), metal.to_object(name + '-metal'), wheel.to_object(name + '-wheels'), cells.to_object(name + '-solar')])
+        x = sx * 1.25
+        pivot = Vector((sx * 0.85, 0.2, 1.05))
+        for y in (-1.15, 0.05, 1.2):
+            c = Vector((x, y, 0.42))
+            wheel(tyre, metal, c, Vector((sx, 0, 0)))
+            oriented_box(metal, pivot, Vector((x - sx * 0.2, y, 0.75)), 0.09)
+            oriented_box(metal, Vector((x - sx * 0.2, y, 0.75)), c + Vector((-sx * 0.18, 0, 0)), 0.07)
+    oriented_box(metal, Vector((0.5, -0.9, 1.3)), Vector((0.5, -0.9, 2.8)), 0.09)
+    box(body, 0.5, -0.92, 2.8, 0.55, 0.32, 0.3)
+    for s in (-1, 1):
+        tube(lens, [Vector((0.5 + s * 0.12, -1.08, 2.95)), Vector((0.5 + s * 0.12, -1.13, 2.95))], [0.06, 0.06], 8, cap=True)
+    oriented_box(metal, Vector((-0.5, 0.9, 1.95)), Vector((-0.5, 0.9, 2.5)), 0.06)
+    prof = [(0.0, 0.05), (0.1, 0.35), (0.22, 0.55)]
+    c = Vector((-0.5, 0.9, 2.5))
+    ax = Vector((0, -0.4, 1)).normalized()
+    tube(dish, [c + ax * z for z, _ in prof], [r for _, r in prof], 16)
+    export(name, [body.to_object(name), metal.to_object(name + '-metal'), tyre.to_object(name + '-wheels'), cells.to_object(name + '-solar'),
+                  dish.to_object(name + '-dish'), lens.to_object(name + '-lens')])
 
 
 def solar_array(name, panels=4):
@@ -223,7 +307,7 @@ def solar_array(name, panels=4):
 
 def fuel_tanks(name):
     clear_scene()
-    shell = Part(hull('tank-white'), smooth=True)
+    shell = Part(hull('tank-white'), smooth=True, uv_scale=0.3)
     metal = Part(trim(), smooth=True)
     for k, x in enumerate((-1.6, 0.0, 1.6)):
         tube(shell, [Vector((x, 0, 0.4)), Vector((x, 0, 0.6)), Vector((x, 0, 3.4)), Vector((x, 0, 3.8))], [0.5, 0.75, 0.75, 0.3], 14, cap=True)

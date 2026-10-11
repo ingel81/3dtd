@@ -147,15 +147,15 @@ def thorns(name, seed, radius=1.6, height=1.8):
     clear_scene()
     rnd = random.Random(seed)
     cane = Part(flat_material('thorn-black', (0.05, 0.035, 0.03), 0.6), smooth=True)
-    for k in range(14):
+    for k in range(24):
         a = rnd.uniform(0, math.tau)
         out = Vector((math.cos(a), math.sin(a), 0))
         reach = radius * rnd.uniform(0.6, 1.2)
         h = height * rnd.uniform(0.6, 1.0)
         pts = [Vector((0, 0, -0.1)) + out * 0.1, out * reach * 0.3 + Vector((0, 0, h * 0.7)), out * reach * 0.7 + Vector((0, 0, h)),
                out * reach + Vector((0, 0, h * 0.6))]
-        tube(cane, pts, [0.05, 0.04, 0.03, 0.005], 5)
-        for t in (0.35, 0.55, 0.75, 0.9):
+        tube(cane, pts, [0.08, 0.06, 0.035, 0.005], 6)
+        for t in (0.2, 0.3, 0.45, 0.55, 0.65, 0.75, 0.85, 0.92):
             i = int(t * 3)
             p = pts[i].lerp(pts[i + 1], t * 3 - i)
             d = (out * rnd.uniform(-0.5, 0.5) + Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-0.2, 0.8)))).normalized()
@@ -181,50 +181,195 @@ def chains(name, length=5.0, sag=1.2):
     export(name, [iron.to_object(name)])
 
 
-def hell_gate(name):
-    """Towering arch of black rock with spikes, a glowing portal sheet in the opening"""
-    clear_scene()
-    rock = Part(pbr_material('rock-dark_rock_02-hell', 'dark_rock_02', (0.55, 0.42, 0.4)), uv_metres=3.0)
-    glow = Part(flat_material('portal', (1.0, 0.3, 0.05), 0.3, emission=(1.0, 0.25, 0.04), strength=1.4))
-    arch_wall(rock, -7, 7, 0, 3.0, -1.0, 14.0, 0, 7.0, 6.0, steps=16)
+def hell_rock():
+    return Part(pbr_material('rock-dark_rock_02-hell', 'dark_rock_02', (0.62, 0.45, 0.42)), uv_metres=2.5, smooth=True)
+
+
+def bone_part():
+    return Part(pbr_material('bone-beige_wall_001', 'beige_wall_001', (1.0, 0.93, 0.78)), uv_metres=0.6, smooth=True)
+
+
+def ember(strength=1.3):
+    return flat_material('hell-glow', (1.0, 0.32, 0.05), 0.4, emission=(1.0, 0.28, 0.04), strength=strength)
+
+
+def skull(part, sockets, centre, size, facing, glow=None, jaw=True):
+    """A skull: rounded cranium, cheek block and jaw, dark (or glowing) eye sockets and nose, looking along `facing`"""
+    f = facing.normalized()
+    side = Vector((0, 0, 1)).cross(f).normalized()
+    up = f.cross(side).normalized()
+    tmp = bmesh.new()
+    bmesh.ops.create_icosphere(tmp, subdivisions=2, radius=1.0)
+    for v in tmp.verts:
+        p = v.co
+        # Back of the head longer, face flatter, brow ridge
+        x, y, z = p.x * 0.85, p.y * (1.15 if p.y < 0 else 0.85), p.z * 0.95
+        v.co = (side * x + f * y + up * z) * size + centre
+    part.add_bmesh(tmp)
+    tmp.free()
+    face = centre + f * size * 0.62 - up * size * 0.35
+    oriented_box(part, face - up * size * 0.2, face + up * size * 0.25, size * 0.9)
+    if jaw:
+        oriented_box(part, face - up * size * 0.55 + f * size * 0.05, face - up * size * 0.25 + f * size * 0.05, size * 0.7)
+    eye_mat = sockets
+    for s in (-1, 1):
+        e = centre + f * size * 0.72 + side * s * size * 0.33 - up * size * 0.05
+        tmp = bmesh.new()
+        bmesh.ops.create_icosphere(tmp, subdivisions=1, radius=size * 0.2)
+        bmesh.ops.translate(tmp, vec=e, verts=tmp.verts)
+        (glow or eye_mat).add_bmesh(tmp)
+        tmp.free()
+    oriented_box(eye_mat, face + f * size * 0.42 - up * size * 0.05, face + f * size * 0.42 + up * size * 0.12, size * 0.14)
+
+
+def twisted_pillar(rock, veins, base, height, radius, seed, turns=0.7):
+    """Rough rock pillar of stacked lumps turning around its axis, with glowing veins winding up it"""
+    rnd = random.Random(seed)
+    n = int(height / (radius * 0.9)) + 1
+    for k in range(n):
+        t = k / max(1, n - 1)
+        a = t * turns * math.tau
+        off = Vector((math.cos(a), math.sin(a), 0)) * radius * 0.2
+        r = radius * (1.15 - 0.3 * t) * rnd.uniform(0.9, 1.1)
+        lump(rock, base + off + Vector((0, 0, height * t - radius * 0.3)), Vector((r, r * 0.9, radius * 0.75)), seed + k, roughness=0.3,
+             flat_bottom=False, subdiv=2)
+    for v in range(3):
+        pts = []
+        for k in range(14):
+            t = k / 13
+            a = t * (turns + 0.5) * math.tau + v * math.tau / 3
+            r = radius * (1.02 - 0.3 * t)
+            pts.append(base + Vector((math.cos(a) * r, math.sin(a) * r, height * t * 0.92)))
+        tube(veins, pts, [0.07] * len(pts), 4)
+
+
+def horn(part, base, direction, length, radius, curl=0.6):
+    """Tapered horn curving upwards"""
+    d = direction.normalized()
+    pts = []
     for k in range(7):
-        x = -6 + k * 2
-        tube(rock, [Vector((x, 0, 14.0)), Vector((x * 1.1, 0, 14.0 + 2.0 + 1.5 * (k % 2)))], [0.6, 0.0], 6)
-    for sx in (-1, 1):
-        tube(rock, [Vector((sx * 7.5, -1.6, -0.5)), Vector((sx * 8.0, -2.4, 6.0))], [1.0, 0.0], 6)
-    r = 3.5
-    pts = [Vector((math.cos(k / 16 * math.pi) * r, 0.2, 6.0 + math.sin(k / 16 * math.pi) * r)) for k in range(17)]
-    bm = glow.bm
-    base_l = bm.verts.new((-r, 0.2, 0.0))
-    base_r = bm.verts.new((r, 0.2, 0.0))
-    ring = [bm.verts.new(p) for p in pts]
-    bm.faces.new([base_r] + ring + [base_l])
-    bm.faces.new(list(reversed([base_r] + [bm.verts.new(p) for p in pts] + [bm.verts.new((-r, 0.2, 0.0))])))
-    export(name, [rock.to_object(name), glow.to_object(name + '-portal')])
+        t = k / 6
+        pts.append(base + d * length * t + Vector((0, 0, length * curl * t * t)))
+    tube(part, pts, [radius * (1 - t) + 0.01 for t in [k / 6 for k in range(7)]], 7)
+
+
+def hell_gate(name):
+    """Gate as a sculpture: two twisted rock pillars with horns and glowing veins, a thick arch with a great
+    skull as keystone and skulls set into the pillars, spikes along the arch, a stepped base and a glowing
+    rift inside with a hotter core"""
+    clear_scene()
+    rnd = random.Random(7)
+    rock = hell_rock()
+    veins = Part(ember(1.0), smooth=True)
+    bones = bone_part()
+    sockets = Part(flat_material('socket', (0.02, 0.01, 0.01), 0.9))
+    eyes = Part(ember(1.6))
+    rift = Part(ember(1.4))
+    core = Part(flat_material('rift-core', (1.0, 0.75, 0.3), 0.4, emission=(1.0, 0.7, 0.25), strength=1.8))
+    span, h = 9.0, 11.0
+    for k, (w, d, z) in enumerate(((16.0, 7.0, -0.8), (13.0, 5.5, -0.3), (10.5, 4.2, 0.2))):
+        lump(rock, Vector((0, 0, z - 0.4)), Vector((w / 2, d / 2, 0.55)), 30 + k, roughness=0.15, flat_top=0.55, subdiv=3)
+    for s in (-1, 1):
+        base = Vector((s * span / 2, 0, 0.6))
+        twisted_pillar(rock, veins, base, h, 1.6, 40 + s, turns=0.6 * s)
+        horn(rock, base + Vector((s * 1.0, 0, h - 0.5)), Vector((s * 1.0, -0.2, 0.2)), 4.5, 0.55)
+        for k in range(3):
+            skull(bones, sockets, base + Vector((0, -1.55, 2.2 + k * 2.6)), 0.42, Vector((0, -1, 0)), glow=eyes)
+    # Arch of lumps from pillar top to pillar top
+    n = 11
+    for k in range(n):
+        t = k / (n - 1)
+        a = math.pi * t
+        p = Vector((-math.cos(a) * span / 2, 0, h + math.sin(a) * 3.2))
+        lump(rock, p - Vector((0, 0, 0.8)), Vector((1.4, 1.5, 1.2)), 60 + k, roughness=0.3, flat_bottom=False, subdiv=2)
+        if 0 < k < n - 1:
+            out = Vector((-math.cos(a) * 0.6, 0, math.sin(a))).normalized()
+            tube(rock, [p + out * 1.0, p + out * (2.6 + rnd.uniform(0, 1.2))], [0.32, 0.0], 6)
+    skull(bones, sockets, Vector((0, -1.3, h + 3.0)), 1.2, Vector((0, -1, -0.15)), glow=eyes)
+    # The rift: a jagged outline filling the opening, a smaller hotter core in front
+    for part, scale, y in ((rift, 1.0, 0.0), (core, 0.55, -0.15)):
+        ring = []
+        for k in range(40):
+            a = k / 40 * math.tau
+            r = 1.0 + 0.12 * noise.noise(Vector((math.cos(a) * 3, math.sin(a) * 3, 0.5)))
+            ring.append(Vector((math.cos(a) * (span / 2 - 1.3) * r * scale, y, (h * 0.55) + math.sin(a) * (h * 0.58) * r * scale)))
+        c = Vector((0, y, h * 0.55))
+        for flip in (False, True):
+            verts = [part.bm.verts.new(p) for p in ring]
+            centre = part.bm.verts.new(c)
+            for k in range(40):
+                tri = (centre, verts[k], verts[(k + 1) % 40])
+                part.bm.faces.new(tri if not flip else tuple(reversed(tri)))
+    objects = [smooth(rock.to_object(name)), veins.to_object(name + '-veins'), smooth(bones.to_object(name + '-skulls')),
+               sockets.to_object(name + '-sockets'), eyes.to_object(name + '-eyes'), rift.to_object(name + '-rift'),
+               core.to_object(name + '-core')]
+    export(name, objects)
 
 
 def altar(name):
-    """Stepped black altar with a slab, candles and a glowing rune channel"""
+    """Sacrificial altar: stepped base, a carved slab with a bevelled rim and a skull, horns at the corners,
+    candles in drips of wax, a glowing rune channel round the slab"""
     clear_scene()
-    rock = Part(pbr_material('rock-dark_rock_02-hell', 'dark_rock_02', (0.55, 0.42, 0.4)), uv_metres=2.0)
-    glow = Part(flat_material('rune-glow', (1.0, 0.25, 0.05), 0.3, emission=(1.0, 0.22, 0.04), strength=1.2))
-    wax = Part(flat_material('candle-wax', (0.75, 0.7, 0.6), 0.7), smooth=True)
+    rock = Part(pbr_material('rock-dark_rock_02-hell', 'dark_rock_02', (0.62, 0.45, 0.42)), uv_metres=2.0, bevel=0.06)
+    rough = hell_rock()
+    glow = Part(ember(1.2))
+    bones = bone_part()
+    sockets = Part(flat_material('socket', (0.02, 0.01, 0.01), 0.9))
+    wax = Part(pbr_material('wax-beige_wall_001', 'beige_wall_001', (1.0, 0.95, 0.85)), smooth=True)
     fire = Part(glow_card_material('flame', 'flame.png'))
-    for k, (w, h) in enumerate(((6.0, 0.4), (4.6, 0.4), (3.2, 0.4))):
-        box(rock, 0, 0, -0.3 + k * 0.4, w, w * 0.7, h + 0.3)
-    box(rock, 0, 0, 1.2, 2.6, 1.2, 0.9)
-    box(glow, 0, -0.61, 1.45, 2.0, 0.03, 0.12)
+    for k, (w, h) in enumerate(((6.4, 0.45), (5.0, 0.45), (3.8, 0.4))):
+        box(rock, 0, 0, -0.35 + k * 0.45, w, w * 0.72, h + 0.35)
+    box(rock, 0, 0, 1.25, 2.8, 1.4, 0.75)
+    box(rock, 0, 0, 2.0, 3.1, 1.7, 0.18)
+    for s in (-1, 1):
+        box(glow, 0, s * 0.86, 2.02, 2.7, 0.04, 0.06)
+        box(glow, s * 1.56, 0, 2.02, 0.04, 1.4, 0.06)
+    skull(bones, sockets, Vector((0, 0.1, 2.5)), 0.32, Vector((0, -1, 0.1)), glow=glow)
     for sx in (-1, 1):
         for sy in (-1, 1):
-            p = Vector((sx * 1.5, sy * 0.8, 1.2))
-            tube(wax, [p, p + Vector((0, 0, 0.4))], [0.06, 0.06], 6, cap=True)
+            horn(rough, Vector((sx * 2.3, sy * 1.6, 0.95)), Vector((sx, sy, 0.6)), 1.6, 0.22, curl=0.9)
+            p = Vector((sx * 1.3, sy * 0.6, 2.18))
+            tube(wax, [p - Vector((0, 0, 0.02)), p + Vector((0, 0, 0.35))], [0.07, 0.065], 7, cap=True)
+            tube(wax, [p - Vector((0, 0, 0.0)), p + Vector((0, 0, 0.04))], [0.12, 0.08], 7, cap=True)
             up = lambda co: Vector((0, 0, 1))
+            b = p + Vector((0, 0, 0.35))
             for a in (0.0, 1.57):
                 side = Vector((math.cos(a), math.sin(a), 0)) * 0.06
-                b = p + Vector((0, 0, 0.4))
-                fire.quad([b - side, b + side, b + side + Vector((0, 0, 0.18)), b - side + Vector((0, 0, 0.18))],
+                fire.quad([b - side, b + side, b + side + Vector((0, 0, 0.2)), b - side + Vector((0, 0, 0.2))],
                           [(0, 0), (1, 0), (1, 1), (0, 1)], up)
-    export(name, [rock.to_object(name), glow.to_object(name + '-runes'), wax.to_object(name + '-candles'), fire.to_object(name + '-flames')])
+    export(name, [rock.to_object(name), smooth(rough.to_object(name + '-horns')), glow.to_object(name + '-runes'),
+                  smooth(bones.to_object(name + '-skull')),
+                  sockets.to_object(name + '-sockets'), wax.to_object(name + '-candles'), fire.to_object(name + '-flames')])
+
+
+def bone_pile(name, seed, size=2.4):
+    """Heap of skulls, long bones with knobbed ends and ribs"""
+    clear_scene()
+    rnd = random.Random(seed)
+    bones = bone_part()
+    sockets = Part(flat_material('socket', (0.02, 0.01, 0.01), 0.9))
+    lump(bones, Vector((0, 0, -0.3)), Vector((size * 0.5, size * 0.42, size * 0.18)), seed, roughness=0.3, subdiv=2)
+    for k in range(14):
+        a = rnd.uniform(0, math.tau)
+        r = rnd.uniform(0, size * 0.45)
+        z = (1 - r / (size * 0.5)) * size * 0.25
+        p = Vector((math.cos(a) * r, math.sin(a) * r, z))
+        d = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-0.3, 0.3))).normalized()
+        l = rnd.uniform(0.5, 0.9)
+        tube(bones, [p - d * l / 2, p + d * l / 2], [0.045, 0.04], 6)
+        for e in (-1, 1):
+            q = p + d * e * l / 2
+            tmp = bmesh.new()
+            bmesh.ops.create_icosphere(tmp, subdivisions=1, radius=0.075)
+            bmesh.ops.translate(tmp, vec=q, verts=tmp.verts)
+            bones.add_bmesh(tmp)
+            tmp.free()
+    for k in range(5):
+        a = rnd.uniform(0, math.tau)
+        r = rnd.uniform(0, size * 0.35)
+        p = Vector((math.cos(a) * r, math.sin(a) * r, size * 0.22 * (1 - r / (size * 0.5)) + 0.12))
+        skull(bones, sockets, p, rnd.uniform(0.14, 0.2), Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-0.2, 0.4))))
+    export(name, [smooth(bones.to_object(name)), sockets.to_object(name + '-sockets')])
 
 
 def lava_rock(name, seed, size=(1.6, 1.3, 1.1)):
@@ -393,6 +538,7 @@ def models():
         'hell-gate': lambda: hell_gate('hell-gate'),
         'altar': lambda: altar('altar'),
         'lava-rock': lambda: lava_rock('lava-rock', 89),
+        'bone-pile': lambda: bone_pile('bone-pile', 97),
         'lava-rock-large': lambda: lava_rock('lava-rock-large', 90, size=(3.2, 2.6, 2.2)),
         'obsidian-spikes': lambda: crystals('obsidian-spikes', 91, (0.03, 0.025, 0.035), None, count=8, height=3.2),
         'hell-spires': lambda: stalagmites('hell-spires', 92, asset='dark_rock_02', count=5, height=9.0),

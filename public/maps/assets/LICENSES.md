@@ -425,8 +425,9 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | tree-charred | procedural (tools/map-assets/build_extreme.py); Rinde https://polyhaven.com/a/bark_brown_02 |
 | thorns | procedural (tools/map-assets/build_extreme.py) |
 | chains | procedural (tools/map-assets/build_extreme.py) |
-| hell-gate | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02 |
-| altar | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02 |
+| hell-gate | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02; https://polyhaven.com/a/beige_wall_001 |
+| altar | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02; https://polyhaven.com/a/beige_wall_001 |
+| bone-pile | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/beige_wall_001 |
 | lava-rock | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02 |
 | lava-rock-large | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02 |
 | obsidian-spikes | procedural (tools/map-assets/build_extreme.py) |

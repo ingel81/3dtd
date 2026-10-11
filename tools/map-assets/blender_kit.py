@@ -182,8 +182,9 @@ def flat_material(name, color, roughness=0.8, metallic=0.0, emission=None, stren
 class Part:
     """Collects faces of one material; becomes one mesh object"""
 
-    def __init__(self, material, uv_metres=None, smooth=False, bevel=0.0):
+    def __init__(self, material, uv_metres=None, smooth=False, bevel=0.0, uv_scale=1.0):
         self.material = material
+        self.uv_scale = uv_scale  # multiplies the UVs of tubes and cards (larger texture repeats on hulls)
         self.uv_metres = uv_metres
         self.bevel = bevel  # chamfer width in metres on hard edges (no toy-like razor edges)
         self.smooth = smooth  # keep the smooth flags of tube faces (round shapes), else flat shading
@@ -220,6 +221,9 @@ class Part:
             chamfer(obj, self.bevel)
         if self.uv_metres:
             box_uv(obj, self.uv_metres)
+        if self.uv_scale != 1.0 and mesh.uv_layers:
+            for d in mesh.uv_layers[0].data:
+                d.uv = d.uv * self.uv_scale
         if self.normals:
             mesh.normals_split_custom_set(self.normals)
         elif not self.smooth:
