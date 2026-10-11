@@ -63,6 +63,8 @@ export interface ViewportCallbacks {
 }
 
 
+/** Milliseconds between two sky rebuilds while an environment slider moves */
+const ENV_INTERVAL_MS = 100;
 const FOV = 50;
 
 export class EditorViewport {
@@ -74,6 +76,9 @@ export class EditorViewport {
   view: EditorMapView;
   private tool: EditorTool | null = null;
   private pending: DocChange | null = null;
+  /** When the view last took the environment, and whether a newer one waits (sliders move faster than the sky rebuilds) */
+  private envAt = 0;
+  private envWaiting = false;
   private routesDirty = true;
   /** The symmetry the guides show, and whether the ground under them moved */
   private guideMode: string | null = null;
@@ -506,8 +511,15 @@ export class EditorViewport {
     this.camera.updateProjectionMatrix();
   }
 
+  private applyEnvironment(): void {
+    this.envWaiting = false;
+    this.envAt = performance.now();
+    this.view.setEnvironment();
+  }
+
   /** Hand the collected changes to the view */
   private flush(): void {
+    if (this.envWaiting && performance.now() - this.envAt >= ENV_INTERVAL_MS) this.applyEnvironment();
     const c = this.pending;
     if (!c) {
       if (this.markersDirty) this.refreshMarkers();
@@ -528,7 +540,10 @@ export class EditorViewport {
         else v.updateObjects(c.objects);
       }
       if (c.paths) v.updatePaths();
-      if (c.environment) v.setEnvironment();
+      if (c.environment) {
+        if (performance.now() - this.envAt >= ENV_INTERVAL_MS) this.applyEnvironment();
+        else this.envWaiting = true;
+      }
     }
     if (c.paths || c.markers || c.heights || c.terrain) this.routesDirty = true;
     if (c.heights || c.terrain) {

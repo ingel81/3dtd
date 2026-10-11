@@ -27,7 +27,7 @@ export class EditorMapView {
     scene: Scene,
     renderer: WebGLRenderer,
   ) {
-    this.view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy() });
+    this.view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer });
     this.view.attach(scene);
     this.view.environment.apply(scene, renderer);
     this.rememberObjects();

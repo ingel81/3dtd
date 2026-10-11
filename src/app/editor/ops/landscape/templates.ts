@@ -23,9 +23,33 @@ export interface MapTemplate {
 }
 
 export const MAP_TEMPLATES: readonly MapTemplate[] = [
-  { id: 'meadows', label: 'Meadows', hint: 'Rolling green hills under a summer sky', biome: 'meadow', terrain: 'hills', strength: 0.5, environment: { sky: 'day' } },
-  { id: 'woods', label: 'Woods', hint: 'Forested valleys', biome: 'forest', terrain: 'valleys', strength: 0.6, environment: { sky: 'day', fogDensity: 0.0008 } },
-  { id: 'mountains', label: 'Mountains', hint: 'High ridges, scree and lone pines', biome: 'mountains', terrain: 'valleys', strength: 0.9, environment: { sky: 'day', sunElevation: 35 } },
+  {
+    id: 'meadows',
+    label: 'Meadows',
+    hint: 'Rolling green hills under a summer sky',
+    biome: 'meadow',
+    terrain: 'hills',
+    strength: 0.5,
+    environment: { biome: 'temperate', sky: 'day' },
+  },
+  {
+    id: 'woods',
+    label: 'Woods',
+    hint: 'Forested valleys',
+    biome: 'forest',
+    terrain: 'valleys',
+    strength: 0.6,
+    environment: { biome: 'temperate', sky: 'day', fogDensity: 0.0008 },
+  },
+  {
+    id: 'mountains',
+    label: 'Mountains',
+    hint: 'High ridges, scree and lone pines',
+    biome: 'mountains',
+    terrain: 'valleys',
+    strength: 0.9,
+    environment: { biome: 'mountain', sky: 'day', sunElevation: 35 },
+  },
   {
     id: 'swamp',
     label: 'Swamp',
@@ -33,9 +57,30 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'swamp',
     terrain: 'flat',
     strength: 0.3,
-    environment: { sky: 'overcast', fogDensity: 0.0025, tint: '#c8d2b0', weather: 'fog', weatherStrength: 0.5 },
+    environment: {
+      biome: 'swamp',
+      sky: 'overcast',
+      fogDensity: 0.0025,
+      tint: '#c8d2b0',
+      weather: 'fog',
+      weatherStrength: 0.5,
+    },
   },
-  { id: 'desert', label: 'Desert', hint: 'Dunes and wind-cut rocks in a hot haze', biome: 'desert', terrain: 'hills', strength: 0.4, environment: { sky: 'day', sunElevation: 60, tint: '#fff0d8', fogDensity: 0.0006 } },
+  {
+    id: 'desert',
+    label: 'Desert',
+    hint: 'Dunes and wind-cut rocks in a hot haze',
+    biome: 'desert',
+    terrain: 'hills',
+    strength: 0.4,
+    environment: {
+      biome: 'desert',
+      sky: 'day',
+      sunElevation: 60,
+      tint: '#fff0d8',
+      fogDensity: 0.0006,
+    },
+  },
   {
     id: 'arctic',
     label: 'Arctic',
@@ -43,9 +88,24 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'arctic',
     terrain: 'hills',
     strength: 0.5,
-    environment: { sky: 'overcast', tint: '#dce8f0', weather: 'snow', weatherStrength: 0.5, fogDensity: 0.0012 },
+    environment: {
+      biome: 'arctic',
+      sky: 'overcast',
+      tint: '#dce8f0',
+      weather: 'snow',
+      weatherStrength: 0.5,
+      fogDensity: 0.0012,
+    },
   },
-  { id: 'city', label: 'City', hint: 'A street grid with blocks, at dusk', biome: 'city', terrain: 'flat', strength: 0.2, environment: { sky: 'dusk', sunElevation: 12 } },
+  {
+    id: 'city',
+    label: 'City',
+    hint: 'A street grid with blocks, at dusk',
+    biome: 'city',
+    terrain: 'flat',
+    strength: 0.2,
+    environment: { biome: 'city', sky: 'dusk', sunElevation: 12 },
+  },
   {
     id: 'hell',
     label: 'Hell',
@@ -53,7 +113,7 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'hell',
     terrain: 'terraces',
     strength: 0.6,
-    environment: { sky: 'night', tint: '#ffb08c', fogDensity: 0.0015 },
+    environment: { biome: 'hell', sky: 'night', tint: '#ffb08c', fogDensity: 0.0015 },
   },
   {
     id: 'wasteland',
@@ -62,10 +122,33 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'wasteland',
     terrain: 'hills',
     strength: 0.3,
-    environment: { sky: 'overcast', tint: '#d8cbb0', fogDensity: 0.0015, weather: 'fog', weatherStrength: 0.3 },
+    environment: {
+      biome: 'apocalypse',
+      sky: 'overcast',
+      tint: '#d8cbb0',
+      fogDensity: 0.0015,
+      weather: 'fog',
+      weatherStrength: 0.3,
+    },
   },
-  { id: 'moon', label: 'Moon', hint: 'A cratered plain in hard light under black sky', biome: 'moon', terrain: 'flat', strength: 0.2, environment: { sky: 'night', sunElevation: 25, fogDensity: 0, tint: '#e8eaf0' } },
-  { id: 'mars', label: 'Mars', hint: 'Rust dunes and a canyon in dusty light', biome: 'mars', terrain: 'canyon', strength: 0.7, environment: { sky: 'day', tint: '#ffc8a8', fogDensity: 0.001 } },
+  {
+    id: 'moon',
+    label: 'Moon',
+    hint: 'A cratered plain in hard light under black sky',
+    biome: 'moon',
+    terrain: 'flat',
+    strength: 0.2,
+    environment: { biome: 'moon', sky: 'night', sunElevation: 25, fogDensity: 0, tint: '#e8eaf0' },
+  },
+  {
+    id: 'mars',
+    label: 'Mars',
+    hint: 'Rust dunes and a canyon in dusty light',
+    biome: 'mars',
+    terrain: 'canyon',
+    strength: 0.7,
+    environment: { biome: 'mars', sky: 'day', tint: '#ffc8a8', fogDensity: 0.001 },
+  },
 ];
 
 export function templateById(id: string): MapTemplate | undefined {
@@ -89,7 +172,12 @@ export async function applyTemplate(
 ): Promise<void> {
   const t = doc.terrain;
   if (template.terrain !== 'flat') {
-    finishGenerated(doc, generateTerrain(t, { preset: template.terrain, seed, strength: template.strength }), () => false, false);
+    finishGenerated(
+      doc,
+      generateTerrain(t, { preset: template.terrain, seed, strength: template.strength }),
+      () => false,
+      false,
+    );
   }
   doc.environment = { ...doc.environment, ...template.environment };
   const editor = new EditorDocument(doc);

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import type { MapEnvironment, MapWeather } from '../../../world/custom-map/map-document';
+import type { MapBiome, MapEnvironment, MapWeather } from '../../../world/custom-map/map-document';
 import { SnapshotCommand } from '../../model/editor-document';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
@@ -25,6 +25,20 @@ export function timeOfDay(hour: number, sky: MapEnvironment['sky']): Partial<Map
   return { sunAzimuth: Math.round(azimuth), sunElevation: Math.round(Math.max(2, elevation)), sky: nextSky };
 }
 
+/** The renderer's looks: sky, light, haze, grading, stars and particles in the air */
+const LOOKS: { id: MapBiome; label: string }[] = [
+  { id: 'temperate', label: 'Temperate' },
+  { id: 'mountain', label: 'Mountain' },
+  { id: 'swamp', label: 'Swamp' },
+  { id: 'desert', label: 'Desert' },
+  { id: 'arctic', label: 'Arctic' },
+  { id: 'city', label: 'City' },
+  { id: 'apocalypse', label: 'Wasteland' },
+  { id: 'hell', label: 'Hell' },
+  { id: 'moon', label: 'Moon' },
+  { id: 'mars', label: 'Mars' },
+];
+
 const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
   { id: 'day', label: 'Day' },
   { id: 'dusk', label: 'Dusk' },
@@ -43,6 +57,14 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   template: `
+    <label class="td-setting">
+      <span>Look</span>
+      <select class="td-select is-auto" [value]="env()?.biome ?? 'temperate'" (change)="commit({ biome: $any($event.target).value }, 'Look')" aria-label="Look" data-test="look">
+        @for (l of looks; track l.id) {
+          <option [value]="l.id">{{ l.label }}</option>
+        }
+      </select>
+    </label>
     <div class="td-field">
       <span class="td-label" id="ep-sky">Sky</span>
       <div class="td-seg is-sm" role="radiogroup" aria-labelledby="ep-sky">
@@ -86,6 +108,8 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
           <app-editor-range label="Strength" unit="%" [min]="5" [max]="100" [value]="(e.weatherStrength ?? 0.6) * 100"
                             (changing)="live({ weatherStrength: $event / 100 })" (changed)="commit({ weatherStrength: $event / 100 }, 'Weather strength')" />
         }
+        <app-editor-range label="Snow cover" unit="%" [min]="0" [max]="100" [value]="(e.snowCover ?? 0) * 100"
+                          (changing)="live({ snowCover: $event / 100 })" (changed)="commit({ snowCover: $event / 100 }, 'Snow cover')" />
       </div>
     }
   `,
@@ -93,6 +117,7 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
 export class EnvironmentPanelComponent {
   private readonly session = inject(EditorSession);
   readonly skies = SKIES;
+  readonly looks = LOOKS;
   readonly weathers = WEATHERS;
   readonly timeOfDay = timeOfDay;
   readonly env = computed(() => (this.session.docRev(), this.session.doc ? { ...this.session.doc.environment } : null));
