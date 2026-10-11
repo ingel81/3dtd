@@ -26,6 +26,11 @@ import { SHADER_NOISE } from '../shader-noise';
 
 export const TERRAIN_MAX_LAYERS = 12;
 
+/** Layers the terrain shader loops over for `depth` array layers (TerrainMaterial.layerCount) */
+export function terrainLayerCount(depth: number): number {
+  return Math.min(TERRAIN_MAX_LAYERS, Math.max(4, Math.ceil(depth / 4) * 4));
+}
+
 export interface TerrainLayerSlots {
   /** Number of array layers in use */
   count: number;
@@ -86,9 +91,18 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uCliffCos: { value: Math.cos((40 * Math.PI) / 180) },
   };
 
+  /**
+   * Layers the shader loops over: the array's layers rounded up to a multiple
+   * of four. The loops unroll in the driver's compiler, so a map with few
+   * materials links its program faster; the rounding keeps the editor from
+   * recompiling for every material it adds.
+   */
+  readonly layerCount: number;
+
   constructor(params: TerrainMaterialParams) {
     super({ roughness: 1, metalness: 0 });
     this.name = 'custom-map-terrain';
+    this.layerCount = terrainLayerCount(params.colorArray.image.depth);
     this.setParams(params);
     this.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, this.terrainUniforms);
@@ -106,7 +120,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
             'vTerrainPos = transformed;\nvTerrainNormal = normal;',
         );
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', `#include <common>\n${TERRAIN_FRAGMENT_PARS}`)
+        .replace('#include <common>', `#include <common>\n#define TERRAIN_LAYERS ${this.layerCount}\n${TERRAIN_FRAGMENT_PARS}`)
         .replace('#include <map_fragment>', TERRAIN_SAMPLE)
         // The marker lets addHeightFog add wetness after the terrain's own roughness
         .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = terrainRough;\n// map-roughness-done')
@@ -166,13 +180,12 @@ export class TerrainMaterial extends MeshStandardMaterial {
   }
 
   override customProgramCacheKey(): string {
-    return 'custom-map-terrain-1';
+    return `custom-map-terrain-1-${this.layerCount}`;
   }
 }
 
 const TERRAIN_FRAGMENT_PARS = /* glsl */ `
 precision highp sampler2DArray;
-#define TERRAIN_LAYERS ${TERRAIN_MAX_LAYERS}
 varying vec3 vTerrainPos;
 varying vec3 vTerrainNormal;
 uniform sampler2DArray uColorArray;
@@ -322,6 +335,16 @@ vec2 sideXdx = dFdx(sideX);
 vec2 sideXdy = dFdy(sideX);
 vec2 sideZdx = dFdx(sideZ);
 vec2 sideZdy = dFdy(sideZ);
+// The cliff layer's side planes, sampled once before the loop: inside it the driver's compiler
+// unrolls the sampling for every layer, which made this program take seconds to link
+vec4 cliffX = vec4(0.0); vec4 cliffXd = vec4(0.5, 0.5, 1.0, 1.0);
+vec4 cliffZ = vec4(0.0); vec4 cliffZd = vec4(0.5, 0.5, 1.0, 1.0);
+bool cliffSides = uCliffLayer >= 0 && tri.y < 0.98 && w[uCliffLayer] >= 0.004;
+if (cliffSides) {
+  float s = uInvScale[uCliffLayer];
+  sampleNoTile(uCliffLayer, sideX * s, sideXdx * s, sideXdy * s, sel, cliffX, cliffXd);
+  sampleNoTile(uCliffLayer, sideZ * s, sideZdx * s, sideZdy * s, sel, cliffZ, cliffZd);
+}
 for (int k = 0; k < TERRAIN_LAYERS; k++) {
   if (w[k] < 0.004) continue;
   float s = uInvScale[k];
@@ -332,11 +355,9 @@ for (int k = 0; k < TERRAIN_LAYERS; k++) {
   vec3 tn = unpackTerrainNormal(dat);
   // Top projection: tangent x along scene +x, tangent y along scene +z (whiteout blend)
   vec3 nTop = safeNormalize(vec3(tn.x + nGeo.x, tn.z * nGeo.y, tn.y + nGeo.z), nGeo);
-  if (k == uCliffLayer && tri.y < 0.98) {
+  if (k == uCliffLayer && cliffSides) {
     // Triplanar on the side planes (after Ben Golus, whiteout blend)
-    vec4 cx; vec4 dx4; vec4 cz; vec4 dz4;
-    sampleNoTile(k, sideX * s, sideXdx * s, sideXdy * s, sel, cx, dx4);
-    sampleNoTile(k, sideZ * s, sideZdx * s, sideZdy * s, sel, cz, dz4);
+    vec4 cx = cliffX; vec4 dx4 = cliffXd; vec4 cz = cliffZ; vec4 dz4 = cliffZd;
     vec3 tx = unpackTerrainNormal(dx4);
     vec3 tz = unpackTerrainNormal(dz4);
     tx.x *= sgn.x;
