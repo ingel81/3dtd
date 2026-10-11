@@ -21,6 +21,7 @@ import {
 } from 'three';
 import type { MapEnvironment } from '../../map-document';
 import { HEIGHT_FOG_UNIFORMS } from './height-fog';
+import { biomeLook, type BiomeLook } from './biomes';
 import { SkyDome } from './sky-dome';
 import { WeatherLayer } from './weather';
 
@@ -42,98 +43,6 @@ import { WeatherLayer } from './weather';
  * (no tone mapping, sRGB output). The renderer needs `shadowMap.enabled`
  * for the sun's shadows (see `enableShadows`).
  */
-
-interface SkyPreset {
-  zenith: number;
-  horizon: number;
-  ground: number;
-  sun: number;
-  sunIntensity: number;
-  hemiSky: number;
-  hemiGround: number;
-  hemiIntensity: number;
-  ambient: number;
-  envIntensity: number;
-  /** Strength of the glow around the sun in the sky */
-  glow: number;
-  /** Cloud threshold: lower = more clouds */
-  cover: number;
-  cloudColor: number;
-  cloudShadow: number;
-  /** Grade: contrast, saturation, tint */
-  grade: [number, number, number];
-}
-
-const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
-  day: {
-    zenith: 0x3f78c4,
-    horizon: 0xc4d8e6,
-    ground: 0x6b6a5c,
-    sun: 0xffe6c4,
-    sunIntensity: 3.8,
-    hemiSky: 0xd6e2ee,
-    hemiGround: 0x5a5236,
-    hemiIntensity: 0.45,
-    ambient: 0.05,
-    envIntensity: 0.35,
-    glow: 0.6,
-    cover: 0.52,
-    cloudColor: 0xffffff,
-    cloudShadow: 0x9aa6b4,
-    grade: [1.08, 0.94, 0xfff8ee],
-  },
-  dusk: {
-    zenith: 0x2a3c6e,
-    horizon: 0xf0a070,
-    ground: 0x403530,
-    sun: 0xffb070,
-    sunIntensity: 2.2,
-    hemiSky: 0xa0a8d0,
-    hemiGround: 0x503828,
-    hemiIntensity: 0.8,
-    ambient: 0.12,
-    envIntensity: 0.5,
-    glow: 1.2,
-    cover: 0.5,
-    cloudColor: 0xffd2b0,
-    cloudShadow: 0x6a5a68,
-    grade: [1.1, 1.0, 0xffe8d8],
-  },
-  night: {
-    zenith: 0x060b1c,
-    horizon: 0x1c2a44,
-    ground: 0x10141a,
-    sun: 0x9fb4ff,
-    sunIntensity: 0.7,
-    hemiSky: 0x40508a,
-    hemiGround: 0x101418,
-    hemiIntensity: 0.6,
-    ambient: 0.1,
-    envIntensity: 0.35,
-    glow: 0.3,
-    cover: 0.55,
-    cloudColor: 0x3a4460,
-    cloudShadow: 0x141a28,
-    grade: [1.1, 0.8, 0xdfe6ff],
-  },
-  overcast: {
-    zenith: 0x8a96a2,
-    horizon: 0xc2c8cc,
-    ground: 0x5e6058,
-    sun: 0xf0f0ee,
-    sunIntensity: 1.0,
-    hemiSky: 0xdde4ea,
-    hemiGround: 0x5a5a4c,
-    hemiIntensity: 1.6,
-    ambient: 0.2,
-    envIntensity: 0.7,
-    glow: 0.15,
-    cover: 0.22,
-    cloudColor: 0xd8dde2,
-    cloudShadow: 0x7d858e,
-    grade: [1.04, 0.85, 0xf4f6f8],
-  },
-};
 
 const SKY_WIDTH = 512;
 const SKY_HEIGHT = 256;
@@ -192,9 +101,13 @@ export class CustomMapEnvironment {
 
   /** Recomputes lights, fog and sky for a changed environment */
   set(env: MapEnvironment): void {
-    const skyChanged = env.sky !== this.env.sky || env.sunAzimuth !== this.env.sunAzimuth || env.sunElevation !== this.env.sunElevation;
+    const skyChanged =
+      env.sky !== this.env.sky ||
+      env.biome !== this.env.biome ||
+      env.sunAzimuth !== this.env.sunAzimuth ||
+      env.sunElevation !== this.env.sunElevation;
     this.env = env;
-    const p = SKY_PRESETS[env.sky] ?? SKY_PRESETS.day;
+    const p = this.look();
     const tint = new Color(env.tint || '#ffffff');
     sunDirection(env.sunAzimuth, env.sunElevation, this.sunDir);
     // Low sun: warmer and weaker
@@ -210,7 +123,9 @@ export class CustomMapEnvironment {
     this.fog.color.set(p.horizon).lerp(new Color(p.zenith), 0.18).multiply(tint);
     this.zenith.set(p.zenith).multiply(tint);
     this.horizon.set(p.horizon).multiply(tint);
-    this.fog.density = env.fogDensity;
+    const baseFog = env.fogDensity * p.fogScale;
+    this.fog.density = baseFog;
+    HEIGHT_FOG_UNIFORMS.uFogFalloff.value = p.fogFalloff;
     // Weather: rain and snow close the sky, dim the sun and thicken the air; fog weather thickens it most
     const weather = env.weather ?? 'clear';
     const k = weather === 'clear' ? 0 : Math.min(1, Math.max(0, env.weatherStrength ?? 0.6));
@@ -219,14 +134,17 @@ export class CustomMapEnvironment {
       cover = Math.max(0.15, p.cover - 0.35 * k);
       this.sun.intensity *= 1 - 0.55 * k;
       this.hemi.intensity *= 1 + 0.3 * k;
-      this.fog.density = env.fogDensity * (1 + 2 * k);
+      this.fog.density = baseFog * (1 + 2 * k);
       this.fog.color.lerp(new Color(weather === 'snow' ? 0xd8dde2 : 0x8e969c), 0.5 * k);
     } else if (weather === 'fog') {
       this.sun.intensity *= 1 - 0.4 * k;
-      this.fog.density = env.fogDensity * (1 + 5 * k);
+      this.fog.density = Math.max(baseFog, env.fogDensity) * (1 + 5 * k);
       this.fog.color.lerp(new Color(0xc0c6ca), 0.4 * k);
     }
-    this.weather.set(weather, k, 1 - this.darkness * 0.85);
+    // The weather's particles, or the biome's own ambient ones (embers, ash, dust, drifting snow)
+    if (weather === 'rain' || weather === 'snow') this.weather.set(weather, k, 1 - this.darkness * 0.85);
+    else if (p.particles) this.weather.set(p.particles, p.particles === 'snow' ? 0.25 : 0.5, 1 - this.darkness * 0.85);
+    else this.weather.set('clear', 0, 1);
     HEIGHT_FOG_UNIFORMS.uFogDensity.value = this.fog.density;
     this.placeSun(this.sun.target.position);
     HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(this.sun.color).lerp(this.fog.color, 0.35);
@@ -243,6 +161,9 @@ export class CustomMapEnvironment {
       glow: p.glow * (1 - k * 0.7),
       cloudColor: new Color(p.cloudColor).multiply(tint),
       cloudShadow: new Color(p.cloudShadow).multiply(tint),
+      stars: p.stars,
+      planet: p.planet,
+      aurora: p.aurora,
     });
     if (skyChanged) {
       this.sky.dispose();
@@ -313,6 +234,11 @@ export class CustomMapEnvironment {
     this.fog.density = dist > 1 ? Math.sqrt(Math.max(amount, 0)) / dist : u.uFogDensity.value;
   }
 
+  /** Sky preset with the biome's look on top */
+  private look(): BiomeLook {
+    return biomeLook(this.env.biome, this.env.sky);
+  }
+
   /** Height the fog is densest at (the map's low ground), metres in the scene */
   setFogBase(height: number): void {
     HEIGHT_FOG_UNIFORMS.uFogBase.value = height;
@@ -362,7 +288,7 @@ export class CustomMapEnvironment {
     const scene = this.scene;
     const renderer = this.renderer;
     if (!scene || !renderer) return;
-    const p = SKY_PRESETS[this.env.sky] ?? SKY_PRESETS.day;
+    const p = this.look();
     scene.background = this.sky;
     this.pmrem ??= new PMREMGenerator(renderer);
     this.envMap?.dispose();
@@ -372,7 +298,7 @@ export class CustomMapEnvironment {
   }
 
   private buildSky(): DataTexture {
-    const p = SKY_PRESETS[this.env.sky] ?? SKY_PRESETS.day;
+    const p = this.look();
     const tint = new Color(this.env.tint || '#ffffff');
     const zenith = new Color(p.zenith).multiply(tint);
     const horizon = new Color(p.horizon).multiply(tint);

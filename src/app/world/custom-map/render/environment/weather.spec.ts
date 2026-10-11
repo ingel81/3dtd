@@ -14,7 +14,7 @@ describe('weather', () => {
     e.set({ ...env, weather: 'rain', weatherStrength: 0.5 });
     expect(count()).toBe(Math.round(full / 2));
     e.set({ ...env, weather: 'snow', weatherStrength: 1 });
-    expect(e.weather.mesh.material.defines['SNOW']).toBe(1);
+    expect(e.weather.mesh.material.defines['KIND']).toBe(1);
     e.set({ ...env, weather: 'fog', weatherStrength: 1 });
     expect(count()).toBe(0);
     e.dispose();
@@ -38,6 +38,24 @@ describe('weather', () => {
     expect(e.darkness).toBe(1);
     e.set({ ...env, sunElevation: 3 });
     expect(e.darkness).toBeGreaterThan(0.7);
+    e.dispose();
+  });
+
+  it('biomes change sky, air and particles', () => {
+    const e = new CustomMapEnvironment(env);
+    e.set({ ...env, biome: 'moon' });
+    expect(e.fog.density).toBe(0);
+    expect(e.skyDome.uniforms['uStars'].value).toBe(1);
+    expect(e.skyDome.uniforms['uPlanet'].value).toBe(1);
+    e.set({ ...env, biome: 'hell' });
+    expect(e.weather.mesh.visible).toBe(true);
+    expect(e.weather.mesh.material.defines['KIND']).toBe(2);
+    e.set({ ...env, biome: 'arctic', sky: 'night' });
+    expect(e.skyDome.uniforms['uAurora'].value).toBe(1);
+    e.set({ ...env, biome: 'swamp' });
+    expect(e.fog.density).toBeGreaterThan(env.fogDensity * 2);
+    e.set(env);
+    expect(e.weather.mesh.visible).toBe(false);
     e.dispose();
   });
 });

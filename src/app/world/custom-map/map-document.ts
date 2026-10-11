@@ -173,7 +173,21 @@ export interface MapEnvironment {
   weather?: MapWeather;
   /** 0..1, default 0.6 */
   weatherStrength?: number;
+  /** Look of sky, light and air (default temperate) */
+  biome?: MapBiome;
 }
+
+export type MapBiome =
+  | 'temperate'
+  | 'hell'
+  | 'moon'
+  | 'mars'
+  | 'arctic'
+  | 'apocalypse'
+  | 'swamp'
+  | 'desert'
+  | 'mountain'
+  | 'city';
 
 export type MapWeather = 'clear' | 'rain' | 'snow' | 'fog';
 

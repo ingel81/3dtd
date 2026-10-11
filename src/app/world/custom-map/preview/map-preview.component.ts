@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { PostProcessingPipeline } from '../../../three-engine/post-processing/post-processing-pipeline';
 import { createDemoMap } from '../demo-map';
 import { createPerfMap } from '../perf-map';
+import type { MapBiome } from '../map-document';
 import { createAssetShowcase } from './asset-showcase';
 import { CustomMapView } from '../render/custom-map-view';
 import { MapAssetLibrary } from '../render/map-asset-library';
@@ -31,7 +32,7 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
  * Dev page `/map-preview`: the demo map in the custom map renderer with an
  * orbit camera and frame numbers. `?view=village` picks a camera spot
  * (VIEWS), `?seed=3` another demo map, `?sky=dusk` another sky preset,
- * `?weather=rain|snow|fog` (`&strength=0.7`), `?post=bloom` through the game's
+ * `?weather=rain|snow|fog` (`&strength=0.7`), `?biome=hell|moon|mars|arctic|…`, `?post=bloom` through the game's
  * post-processing chain. `?showcase=winter` (a catalogue tag) or
  * `?assets=tree-*,rock-large&materials=snow,ice` lines up catalogue assets on a
  * flat map instead (asset-showcase.ts). E2E probes read
@@ -120,6 +121,8 @@ export class MapPreviewComponent implements OnDestroy {
       doc.environment.weather = weather;
       doc.environment.weatherStrength = Number(params.get('strength') ?? 0.7);
     }
+    const biome = params.get('biome');
+    if (biome) doc.environment.biome = biome as MapBiome;
     const sky = params.get('sky');
     if (sky === 'day' || sky === 'dusk' || sky === 'night' || sky === 'overcast') {
       doc.environment.sky = sky;

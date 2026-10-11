@@ -115,7 +115,20 @@ export function setWaterMask(material: ShaderMaterial, mask: Texture | null, uv:
  */
 export function setWaterSky(material: ShaderMaterial, skyUniforms: ShaderMaterial['uniforms'], sunIntensity: number): void {
   const u = material.uniforms;
-  for (const key of ['uZenith', 'uHorizon', 'uSunDir', 'uSunColor', 'uCloudColor', 'uCloudShadow', 'uCover', 'uGlow', 'uSkyTime']) {
+  for (const key of [
+    'uZenith',
+    'uHorizon',
+    'uSunDir',
+    'uSunColor',
+    'uCloudColor',
+    'uCloudShadow',
+    'uCover',
+    'uGlow',
+    'uSkyTime',
+    'uStars',
+    'uPlanet',
+    'uAurora',
+  ]) {
     u[key] = skyUniforms[key];
   }
   u['uLight'].value = Math.min(1.1, Math.max(0.12, (sunIntensity / 3.4) * 0.85 + 0.15));

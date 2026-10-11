@@ -3,6 +3,7 @@ import {
   InstancedBufferGeometry,
   Mesh,
   NormalBlending,
+  AdditiveBlending,
   PlaneGeometry,
   ShaderMaterial,
   UniformsLib,
@@ -23,7 +24,18 @@ import type { MapWeather } from '../../map-document';
 
 const BOX = new Vector3(160, 70, 160);
 const MAX_RAIN = 24000;
-const MAX_SNOW = 14000;
+
+/** What the layer shows: the map's weather, or a biome's ambient particles */
+export type WeatherParticles = MapWeather | 'embers' | 'ash' | 'dust';
+
+/** Shader kind and particles at full strength */
+const KINDS: Record<string, { id: number; max: number }> = {
+  rain: { id: 0, max: 24000 },
+  snow: { id: 1, max: 14000 },
+  embers: { id: 2, max: 3000 },
+  ash: { id: 3, max: 9000 },
+  dust: { id: 4, max: 7000 },
+};
 
 export class WeatherLayer {
   readonly mesh: Mesh<InstancedBufferGeometry, ShaderMaterial>;
@@ -54,7 +66,7 @@ export class WeatherLayer {
           uLight: { value: 1 },
         },
       ]),
-      defines: { SNOW: 0 },
+      defines: { KIND: 0 },
       vertexShader: WEATHER_VERTEX,
       fragmentShader: WEATHER_FRAGMENT,
       transparent: true,
@@ -71,17 +83,18 @@ export class WeatherLayer {
     this.mesh.visible = false;
   }
 
-  /** Weather kind and strength 0..1; `light` dims the particles at night */
-  set(weather: MapWeather, strength: number, light: number): void {
+  /** Particle kind and strength 0..1 (clear and fog show none); `light` dims lit particles at night */
+  set(kind: WeatherParticles, strength: number, light: number): void {
     const m = this.mesh.material;
-    const snow = weather === 'snow' ? 1 : 0;
-    if (m.defines['SNOW'] !== snow) {
-      m.defines['SNOW'] = snow;
+    const spec = KINDS[kind];
+    if (spec && m.defines['KIND'] !== spec.id) {
+      m.defines['KIND'] = spec.id;
+      // Embers glow: added, not blended
+      m.blending = kind === 'embers' ? AdditiveBlending : NormalBlending;
       m.needsUpdate = true;
     }
     const k = Math.min(1, Math.max(0, strength));
-    this.mesh.geometry.instanceCount =
-      weather === 'rain' ? Math.round(MAX_RAIN * k) : weather === 'snow' ? Math.round(MAX_SNOW * k) : 0;
+    this.mesh.geometry.instanceCount = spec ? Math.round(spec.max * k) : 0;
     this.mesh.visible = this.mesh.geometry.instanceCount > 0;
     m.uniforms['uLight'].value = light;
   }
@@ -117,8 +130,17 @@ uniform vec3 uBox;
 varying vec2 vUv;
 varying float vFade;
 void main() {
-#if SNOW == 1
+#if KIND == 1
   vec3 fall = vec3(sin(uTime * 0.6 + aSeed.x * 20.0) * 0.6 + uTime * 0.4, -uTime * 1.1, cos(uTime * 0.5 + aSeed.z * 20.0) * 0.6);
+#elif KIND == 2
+  // Embers rise and wander
+  vec3 fall = vec3(sin(uTime * 0.9 + aSeed.x * 30.0) * 1.5, uTime * 1.6, cos(uTime * 0.7 + aSeed.z * 30.0) * 1.5);
+#elif KIND == 3
+  // Ash sinks slowly, tumbling
+  vec3 fall = vec3(sin(uTime * 0.4 + aSeed.x * 20.0) * 1.2 + uTime * 0.6, -uTime * 0.45, cos(uTime * 0.3 + aSeed.z * 20.0) * 1.2);
+#elif KIND == 4
+  // Dust blows along near the ground
+  vec3 fall = vec3(uTime * 5.0, sin(uTime * 0.8 + aSeed.y * 20.0) * 0.8, uTime * 1.5 + sin(uTime + aSeed.x * 10.0));
 #else
   vec3 fall = vec3(uTime * 1.2, -uTime * 11.0, uTime * 0.4);
 #endif
@@ -131,10 +153,21 @@ void main() {
   vUv = uv;
   // Far from the camera particles grow (a game camera looks from 100 m and more), and thin out
   float grow = max(1.0, length(cameraPosition - p) / 35.0);
-#if SNOW == 1
+#if KIND == 4
+  // Dust stays low: fade with height over the box's floor
+  vFade *= 1.0 - smoothstep(0.0, 0.5, (p.y - (uCam.y - uBox.y * 0.5)) / uBox.y);
+#endif
+#if KIND != 0
   vFade /= sqrt(grow);
+  #if KIND == 4
+  float size = 0.6;
+  #elif KIND == 2
+  float size = 0.12;
+  #else
+  float size = 0.14;
+  #endif
   vec4 mvPosition = viewMatrix * vec4(p, 1.0);
-  mvPosition.xy += position.xy * 0.14 * grow * 1.6;
+  mvPosition.xy += position.xy * size * grow * 1.6;
 #else
   vFade /= grow;
   // A streak standing upright, turned towards the camera
@@ -158,16 +191,29 @@ varying vec2 vUv;
 varying float vFade;
 void main() {
   #include <logdepthbuf_fragment>
-#if SNOW == 1
+#if KIND == 1
   float a = pow(max(1.0 - length(vUv - 0.5) * 2.0, 0.0), 1.5) * 0.9;
   vec3 c = vec3(1.0);
+#elif KIND == 2
+  float a = pow(max(1.0 - length(vUv - 0.5) * 2.0, 0.0), 2.0);
+  vec3 c = vec3(1.0, 0.55, 0.18) * 2.0;
+#elif KIND == 3
+  float a = pow(max(1.0 - length(vUv - 0.5) * 2.0, 0.0), 1.2) * 0.8;
+  vec3 c = vec3(0.55, 0.54, 0.5);
+#elif KIND == 4
+  float a = pow(max(1.0 - length(vUv - 0.5) * 2.0, 0.0), 1.0) * 0.18;
+  vec3 c = vec3(0.82, 0.68, 0.5);
 #else
   float a = (1.0 - abs(vUv.x - 0.5) * 2.0) * smoothstep(0.0, 0.3, vUv.y) * 0.3;
   vec3 c = vec3(0.75, 0.8, 0.85);
 #endif
   a *= vFade;
   if (a < 0.004) discard;
+#if KIND == 2
+  gl_FragColor = vec4(c * a, 1.0);
+#else
   gl_FragColor = vec4(c * uLight, a);
+#endif
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
