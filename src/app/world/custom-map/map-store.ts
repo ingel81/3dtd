@@ -2,8 +2,9 @@
  * Where maps live: the player's own in IndexedDB (database `3dtd-maps`), the
  * shipped ones under `public/maps/` (listed in `maps/index.json`, read-only;
  * the editor duplicates one to change it). Own maps are kept packed as
- * `.3dtdmap` bytes with a small summary beside them, so the list reads
- * without unpacking every map.
+ * `.3dtdmap` bytes with a small summary and the thumbnail beside them, so
+ * the list reads neither files nor unpacks a map. The content hash of an
+ * own map may be left out at an autosave; loading fills it in.
  *
  * `MapStore.load(id)` is what the game uses for `?world=map:<id>`: an own map
  * of that id wins over a shipped one.
@@ -54,9 +55,18 @@ export interface LoadedMap {
 /** The storage the store needs; IndexedDB in the browser, a Map in tests */
 export interface MapStorageBackend {
   get(id: string): Promise<StoredMap | undefined>;
-  put(map: StoredMap): Promise<void>;
+  /** Stores file and summary; the thumbnail too unless `preview` is undefined (it stays as it is) */
+  put(map: Omit<StoredMap, 'preview'> & { preview?: Uint8Array | null }): Promise<void>;
   delete(id: string): Promise<void>;
   list(): Promise<MapSummary[]>;
+  /** The thumbnail alone, without reading the file */
+  preview(id: string): Promise<Uint8Array | null>;
+  setPreview(id: string, preview: Uint8Array | null): Promise<void>;
+}
+
+export interface SaveOptions {
+  /** Work out the content hash now (default); an autosave leaves it for loading */
+  hash?: boolean;
 }
 
 /** An entry of `maps/index.json` */
@@ -105,7 +115,9 @@ export class MapStore {
 
   async listOwn(): Promise<MapSummary[]> {
     const list = await this.backend.list();
-    return list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    // A broken summary must not empty the list: missing times sort last
+    const time = (m: MapSummary) => (typeof m.updatedAt === 'string' ? m.updatedAt : '');
+    return list.filter((m) => m && typeof m.id === 'string').sort((a, b) => time(b).localeCompare(time(a)));
   }
 
   async listShipped(): Promise<MapSummary[]> {
@@ -120,7 +132,7 @@ export class MapStore {
   }
 
   async previewOf(id: string): Promise<Uint8Array | null> {
-    return (await this.backend.get(id))?.preview ?? null;
+    return this.backend.preview(id);
   }
 
   async has(id: string): Promise<boolean> {
@@ -134,7 +146,8 @@ export class MapStore {
       const own = await this.backend.get(id);
       if (own) {
         const { doc, preview } = unpackMapFile(own.file);
-        return { doc, summary: own.summary, preview: own.preview ?? preview };
+        const summary = own.summary.contentHash ? own.summary : { ...own.summary, contentHash: await contentHash(doc) };
+        return { doc, summary, preview: own.preview ?? preview };
       }
       if (origin === 'own') throw new MapStoreError(`There is no own map "${id}".`);
     }
@@ -148,10 +161,15 @@ export class MapStore {
   }
 
   /** Packs and stores an own map (or stores `file`, packed already); returns its new summary */
-  async save(doc: CustomMapDocument, preview: Uint8Array | null = null, file: Uint8Array = packMapFile(doc)): Promise<MapSummary> {
-    const summary = summarize(doc, 'own', await contentHash(doc));
-    const keep = preview ?? (await this.backend.get(doc.meta.id))?.preview ?? null;
-    await this.backend.put({ summary, file, preview: keep });
+  async save(
+    doc: CustomMapDocument,
+    preview: Uint8Array | null = null,
+    file: Uint8Array = packMapFile(doc),
+    options: SaveOptions = {},
+  ): Promise<MapSummary> {
+    const summary = summarize(doc, 'own', options.hash === false ? '' : await contentHash(doc));
+    // Without a new picture the stored one stays: the file is not read for it
+    await this.backend.put({ summary, file, ...(preview ? { preview } : {}) });
     return summary;
   }
 
@@ -181,8 +199,7 @@ export class MapStore {
 
   /** A new thumbnail for an own map, its content untouched */
   async setPreview(id: string, preview: Uint8Array): Promise<void> {
-    const stored = await this.backend.get(id);
-    if (stored) await this.backend.put({ ...stored, preview });
+    await this.backend.setPreview(id, preview);
   }
 
   async delete(id: string): Promise<void> {
@@ -265,11 +282,19 @@ export class MemoryMapBackend implements MapStorageBackend {
   async get(id: string): Promise<StoredMap | undefined> {
     return this.maps.get(id);
   }
-  async put(map: StoredMap): Promise<void> {
-    this.maps.set(map.summary.id, map);
+  async put(map: Omit<StoredMap, 'preview'> & { preview?: Uint8Array | null }): Promise<void> {
+    const preview = map.preview !== undefined ? map.preview : (this.maps.get(map.summary.id)?.preview ?? null);
+    this.maps.set(map.summary.id, { summary: map.summary, file: map.file, preview });
   }
   async delete(id: string): Promise<void> {
     this.maps.delete(id);
+  }
+  async preview(id: string): Promise<Uint8Array | null> {
+    return this.maps.get(id)?.preview ?? null;
+  }
+  async setPreview(id: string, preview: Uint8Array | null): Promise<void> {
+    const m = this.maps.get(id);
+    if (m) m.preview = preview;
   }
   async list(): Promise<MapSummary[]> {
     return [...this.maps.values()].map((m) => m.summary);
@@ -277,39 +302,62 @@ export class MemoryMapBackend implements MapStorageBackend {
 }
 
 const DB_NAME = '3dtd-maps';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 /** Packed maps by id */
 const FILES = 'files';
 /** Summaries by id, so the list never reads the files */
 const SUMMARIES = 'summaries';
+/** Thumbnails by id (version 2; before, they sat in the file records) */
+const PREVIEWS = 'previews';
 
 export class IndexedDbMapBackend implements MapStorageBackend {
   private db: Promise<IDBDatabase> | null = null;
 
   async get(id: string): Promise<StoredMap | undefined> {
     const db = await this.open();
-    const tx = db.transaction([FILES, SUMMARIES], 'readonly');
-    const [file, summary] = await Promise.all([
-      request<{ id: string; file: Uint8Array; preview: Uint8Array | null } | undefined>(tx.objectStore(FILES).get(id)),
+    const tx = db.transaction([FILES, SUMMARIES, PREVIEWS], 'readonly');
+    const [file, summary, preview] = await Promise.all([
+      request<{ id: string; file: Uint8Array; preview?: Uint8Array | null } | undefined>(tx.objectStore(FILES).get(id)),
       request<MapSummary | undefined>(tx.objectStore(SUMMARIES).get(id)),
+      request<{ id: string; preview: Uint8Array } | undefined>(tx.objectStore(PREVIEWS).get(id)),
     ]);
     if (!file || !summary) return undefined;
-    return { summary, file: file.file, preview: file.preview };
+    return { summary, file: file.file, preview: preview?.preview ?? file.preview ?? null };
   }
 
-  async put(map: StoredMap): Promise<void> {
+  async put(map: Omit<StoredMap, 'preview'> & { preview?: Uint8Array | null }): Promise<void> {
     const db = await this.open();
-    const tx = db.transaction([FILES, SUMMARIES], 'readwrite');
-    tx.objectStore(FILES).put({ id: map.summary.id, file: map.file, preview: map.preview });
+    const tx = db.transaction([FILES, SUMMARIES, PREVIEWS], 'readwrite');
+    tx.objectStore(FILES).put({ id: map.summary.id, file: map.file });
     tx.objectStore(SUMMARIES).put(map.summary);
+    if (map.preview) tx.objectStore(PREVIEWS).put({ id: map.summary.id, preview: map.preview });
+    else if (map.preview === null) tx.objectStore(PREVIEWS).delete(map.summary.id);
     await done(tx);
   }
 
   async delete(id: string): Promise<void> {
     const db = await this.open();
-    const tx = db.transaction([FILES, SUMMARIES], 'readwrite');
+    const tx = db.transaction([FILES, SUMMARIES, PREVIEWS], 'readwrite');
     tx.objectStore(FILES).delete(id);
     tx.objectStore(SUMMARIES).delete(id);
+    tx.objectStore(PREVIEWS).delete(id);
+    await done(tx);
+  }
+
+  async preview(id: string): Promise<Uint8Array | null> {
+    const db = await this.open();
+    const row = await request<{ preview: Uint8Array } | undefined>(db.transaction(PREVIEWS, 'readonly').objectStore(PREVIEWS).get(id));
+    if (row) return row.preview;
+    // A map saved before the thumbnails had their own store
+    const old = await request<{ preview?: Uint8Array | null } | undefined>(db.transaction(FILES, 'readonly').objectStore(FILES).get(id));
+    return old?.preview ?? null;
+  }
+
+  async setPreview(id: string, preview: Uint8Array | null): Promise<void> {
+    const db = await this.open();
+    const tx = db.transaction(PREVIEWS, 'readwrite');
+    if (preview) tx.objectStore(PREVIEWS).put({ id, preview });
+    else tx.objectStore(PREVIEWS).delete(id);
     await done(tx);
   }
 
@@ -329,6 +377,7 @@ export class IndexedDbMapBackend implements MapStorageBackend {
         const db = req.result;
         if (!db.objectStoreNames.contains(FILES)) db.createObjectStore(FILES, { keyPath: 'id' });
         if (!db.objectStoreNames.contains(SUMMARIES)) db.createObjectStore(SUMMARIES, { keyPath: 'id' });
+        if (!db.objectStoreNames.contains(PREVIEWS)) db.createObjectStore(PREVIEWS, { keyPath: 'id' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error ?? new MapStoreError('The map storage did not open.'));

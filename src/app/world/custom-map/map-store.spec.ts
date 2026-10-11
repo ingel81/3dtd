@@ -36,6 +36,20 @@ describe('MapStore', () => {
     await expect(store.load('valley')).rejects.toBeInstanceOf(MapStoreError);
   });
 
+  it('leaves the hash out at an autosave and fills it in on loading; a broken summary does not empty the list', async () => {
+    const backend = new MemoryMapBackend();
+    const store = new MapStore({ backend, fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/game/' });
+    const summary = await store.save(doc(), null, packMapFile(doc(), { level: 1 }), { hash: false });
+    expect(summary.contentHash).toBe('');
+    expect((await store.load('valley')).summary.contentHash).toBe(await contentHash(doc()));
+    // A summary with a number for its time (an old or tampered entry)
+    const other = createMapDocument({ id: 'other', name: 'Other', width: 32, depth: 32, now: new Date(0) });
+    await store.save(other);
+    const stored = (await backend.get('other'))!;
+    await backend.put({ ...stored, summary: { ...stored.summary, updatedAt: 5 as unknown as string } });
+    expect((await store.listOwn()).map((m) => m.id).sort()).toEqual(['other', 'valley']);
+  });
+
   it('reads shipped maps from maps/index.json under the base URL', async () => {
     const shipped = createMapDocument({ id: 'harbour', name: 'Harbour', width: 16, depth: 16 });
     const { fetcher, calls } = shippedFetch(
