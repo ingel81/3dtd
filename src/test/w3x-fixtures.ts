@@ -289,17 +289,17 @@ export function implode(data: Uint8Array, dictBits: 4 | 5 | 6): Uint8Array {
 }
 
 /**
- * The Warcraft test map (not in the repo: tmp/ is ignored), or null; specs
+ * A Warcraft test map (not in the repo: tmp/ is ignored; Mafa TD by default), or null; specs
  * that read it skip without it. W3X_TEST_MAP overrides; worktrees find the
  * main checkout's copy. The caller passes `existsSync` (this file is also
  * compiled without Node types).
  */
-export function findTestMap(exists: (path: string) => boolean): string | null {
+export function findTestMap(exists: (path: string) => boolean, file = 'Mafa-Td-Queen-v14.6.w3x'): string | null {
   const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env;
   const candidates = [
-    env?.['W3X_TEST_MAP'],
-    'tmp/wc3/Mafa-Td-Queen-v14.6.w3x',
-    'D:/Source/3dtd/tmp/wc3/Mafa-Td-Queen-v14.6.w3x',
+    file === 'Mafa-Td-Queen-v14.6.w3x' ? env?.['W3X_TEST_MAP'] : undefined,
+    `tmp/wc3/${file}`,
+    `D:/Source/3dtd/tmp/wc3/${file}`,
   ];
   return candidates.find((c): c is string => !!c && exists(c)) ?? null;
 }

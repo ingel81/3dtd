@@ -111,7 +111,7 @@ Höhen: `ground = (h - 0x2000) / 4 + (layer - 2) * 128`, Wasser: `(w - 0x2000) /
 
 ## Wege
 
-Drei Strategien in fester Reihenfolge; die erste mit einem Weg von einem Spawn zum Ende gewinnt.
+Vier Strategien in fester Reihenfolge; die erste mit einem Weg von einem Spawn zum Ende gewinnt.
 
 **(a) Muster im Skript** (`script-pattern`, JASS und Lua): der Code, den der World Editor für
 GUI-Auslöser schreibt. `TriggerRegisterEnterRectSimple(trg, gg_rct_A)` plus `TriggerAddAction(trg, F)`,
@@ -135,9 +135,18 @@ Auslöser Leben kostet) und die Spawns (Regionen mit Spawn-Namen ohne Richtungsw
 Skelett-Enden) werden darauf gesetzt; ein Dijkstra-Baum zum Ende liefert die Wege, die sich an
 Einmündungen Pixel und damit Knoten teilen. Douglas-Peucker behält die Ecken.
 
+**(d) Offenes Gelände** (`maze`, `maze-routes.ts`): für Karten ohne feste Spuren (Maze-TDs, in
+denen die Spieler mit Türmen Wände bauen) und Rundkurs-TDs, deren Skript die Gegner im Kreis schickt
+(kein Weg endet). Spawns: wo das Skript Einheiten erzeugt oder seine Wege beginnen, sonst Regionen mit
+Spawn-Namen; Ende: was das Skript als Leck markiert, sonst eine Region mit Ende-Namen, sonst die Mitte
+der Fläche (mit Warnung). Der kürzeste Weg über begehbares Land auf halben Kacheln; nicht bebaubare
+Pixel (die Spuren der Karte) kosten ein Achtel der bebaubaren, wandnahe mehr, so laufen Wege auf den
+Spuren und in der Mitte der Gänge. Der Bericht warnt immer, dass die Wege im Editor zu prüfen sind.
+
 **Weggraph** (`route-graph.ts`): Ende ist der Knoten, den die meisten Starts erreichen (Leck-Auslöser,
-Ende-Namen und Sackgassen entscheiden Gleichstände), Spawns sind die Starts, die ihn erreichen; es
-bleiben nur Kanten auf solchen Wegen. Gemeinsame Wegpunkte sind ein Knoten. Wörter für Enden: throne,
+Ende-Namen und Sackgassen entscheiden Gleichstände), Spawns sind die Starts, die ihn erreichen, und
+die Orte, an denen das Skript Einheiten erzeugt, auch wenn andere Spuren durch sie laufen; es
+bleiben nur Kanten auf solchen Wegen. Spawns in der Reihenfolge der Regionen der Karte. Gemeinsame Wegpunkte sind ein Knoten. Wörter für Enden: throne,
 end, finish, castle, leak, goal, base, king, queen, exit, core, home; für Spawns: spawn, start, creep,
 enemy, enter, portal, gate, wave.
 
@@ -183,14 +192,14 @@ Portale für bis zu 32 Spawns (`MAX_SPAWN_PORTALS`); das Dokument enthält alle,
 |-----------|-----------|--------|
 | T | tree | tree-oak, tree-birch, tree-pine, tree-fir (Nadelbäume auf Schnee-Tilesets, kahle auf Barrens) |
 | R | rock | rock-small, rock-large |
-| P, W | plant | bush |
-| S | building | house, house-large, tower-ruin, well |
-| O, Z, sonst | prop | barrel, crate |
+| P, W | plant | bush, fern, flowers, grass-clump |
+| S | building | house, house-large, barn, tower-ruin, well |
+| O, Z, sonst | prop | barrel, crate, stump, log, lamp-post |
 | D, B | wall | wall-stone, fence-wood |
 
 Die Wahl in der Liste kommt aus einem Hash des Doodad-Index (jeder Import gleich). Skala = Mittel der
-drei Skalen (0,3 bis 3), Drehung = Warcraft-Winkel (Bogenmaß gegen den Uhrzeigersinn ab Osten, wie im
-Kartenraum), Höhe 0 (auf dem Boden). Weggelassen: Doodads außerhalb der Fläche, unsichtbare (Flags 0)
+drei Skalen (0,3 bis 3), Drehung = Warcraft-Winkel minus 90 Grad (Warcraft zählt gegen den
+Uhrzeigersinn ab Osten, Katalogmodelle schauen bei 0 nach Norden), Höhe 0 (auf dem Boden). Weggelassen: Doodads außerhalb der Fläche, unsichtbare (Flags 0)
 und Hilfsobjekte (Wege-, Luft- und Sichtblocker `YT?b/YT?c`, `Ytlb`, Plattformen), Bäume, Felsen,
 Gebäude und Mauern auf einer Straße. Baumwände bleiben als Kulisse.
 
@@ -211,6 +220,13 @@ Dichte aus seinem Ende: `1,5 / Ende in Metern`. `fogDensity` ist exponentiell je
 Testkarte "Mafa TD Queen v14.6": Strategie (b) findet die 10 Spuren in 29 Kanten (10 600 bis 20 900
 Einheiten, 332 bis 652 m), (c) allein dieselben 10 Spuren bis auf 3 % Länge; Spuren 16 m breit,
 1499 von 1506 Doodads platziert, Import in 0,1 bis 0,25 s.
+
+"Green TD" (2005, w3i v25, GUI-Auslöser): Strategie (a) findet 9 Spuren (285 bis 698 m) zum Ziel unten
+in der Mitte; Spawn 6 liegt auf der Spur der oberen Spawns und zählt über die Erzeugung von Einheiten.
+
+"Green Circle TD Mega 2025" (optimiertes Skript mit kurzen Namen, keine w3r): das Skript schickt die
+Gegner im Kreis, kein Weg endet; Strategie (d) führt die 8 Spawns (vier Ecken, vier Felder in der Mitte)
+über die gepflasterten Spuren zum HQ in der Kartenmitte, mit Warnungen.
 
 ## Grenzen
 

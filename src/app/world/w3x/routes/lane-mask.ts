@@ -22,7 +22,7 @@ export interface LaneMask {
   originX: number;
   originY: number;
   data: Uint8Array;
-  source: 'pathing' | 'sunken' | 'road';
+  source: 'pathing' | 'sunken' | 'road' | 'walkable';
 }
 
 export interface Bounds {
@@ -146,4 +146,44 @@ export function laneWidth(m: LaneMask, a: { x: number; y: number }, b: { x: numb
   if (runs.length === 0) return null;
   runs.sort((p, q) => p - q);
   return runs[Math.floor(runs.length / 2)];
+}
+
+/**
+ * Every walkable land pixel of the area (half tiles, majority of its pathing
+ * cells), for ways over open ground (maze maps). `lane` marks the pixels
+ * that are also unbuildable: ways prefer them.
+ */
+export function buildWalkMask(pathing: PathingMap | null, terrain: W3eTerrain, bounds: Bounds): (LaneMask & { lane: Uint8Array }) | null {
+  if (!pathing) return null;
+  const cell = WPM_CELL * DOWNSAMPLE;
+  const width = Math.floor(pathing.width / DOWNSAMPLE);
+  const height = Math.floor(pathing.height / DOWNSAMPLE);
+  const data = new Uint8Array(width * height);
+  const lane = new Uint8Array(width * height);
+  let count = 0;
+  for (let py = 0; py < height; py++) {
+    const y = terrain.offsetY + (py + 0.5) * cell;
+    if (y < bounds.minY || y > bounds.maxY) continue;
+    for (let px = 0; px < width; px++) {
+      const x = terrain.offsetX + (px + 0.5) * cell;
+      if (x < bounds.minX || x > bounds.maxX) continue;
+      let walk = 0;
+      let unbuildable = 0;
+      for (let dy = 0; dy < DOWNSAMPLE; dy++) {
+        for (let dx = 0; dx < DOWNSAMPLE; dx++) {
+          const v = pathing.cells[(py * DOWNSAMPLE + dy) * pathing.width + px * DOWNSAMPLE + dx];
+          if (walkable(v) && (v & WPM.LAND) !== 0) walk++;
+          if (laneCell(v)) unbuildable++;
+        }
+      }
+      const half = (DOWNSAMPLE * DOWNSAMPLE) / 2;
+      if (walk > half) {
+        data[py * width + px] = 1;
+        if (unbuildable > half) lane[py * width + px] = 1;
+        count++;
+      }
+    }
+  }
+  if (count === 0) return null;
+  return { width, height, cell, originX: terrain.offsetX, originY: terrain.offsetY, data, lane, source: 'walkable' };
 }

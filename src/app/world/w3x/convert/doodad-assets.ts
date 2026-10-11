@@ -35,9 +35,9 @@ const LETTER_CATEGORY: Record<string, AssetCategory> = {
 export const DEFAULT_ASSETS: Record<AssetCategory, string[]> = {
   tree: ['tree-oak', 'tree-birch', 'tree-pine', 'tree-fir'],
   rock: ['rock-small', 'rock-large'],
-  plant: ['bush'],
-  building: ['house', 'house-large', 'tower-ruin', 'well'],
-  prop: ['barrel', 'crate'],
+  plant: ['bush', 'fern', 'flowers', 'grass-clump'],
+  building: ['house', 'house-large', 'barn', 'tower-ruin', 'well'],
+  prop: ['barrel', 'crate', 'stump', 'log', 'lamp-post'],
   wall: ['wall-stone', 'fence-wood'],
 };
 

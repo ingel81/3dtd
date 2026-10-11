@@ -317,7 +317,8 @@ function convertDoodads(
       x,
       y,
       z: 0,
-      rotation: normaliseAngle(d.angle),
+      // Warcraft faces counter-clockwise from east, catalogue models face north at 0
+      rotation: normaliseAngle(d.angle - Math.PI / 2),
       scale: round2(Math.max(0.3, Math.min(3, size || 1))),
     });
     stats.byCategory[category] = (stats.byCategory[category] ?? 0) + 1;

@@ -268,7 +268,7 @@ end
     expect(names(g)).toEqual(['Spawn A > Turn', 'Spawn B > Turn', 'Turn > Castle']);
     expect(g!.end).toBe('gg_rct_Castle');
     // Units are created in both spawn rects
-    expect([...raw.spawnHints].sort()).toEqual(['gg_rct_Spawn_A', 'gg_rct_Spawn_B']);
+    expect([...raw.creationHints].sort()).toEqual(['gg_rct_Spawn_A', 'gg_rct_Spawn_B']);
   });
 
   it('(b) follows units ordered right after they are created', () => {

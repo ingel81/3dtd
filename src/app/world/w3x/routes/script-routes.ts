@@ -95,7 +95,7 @@ export function routesFromPatterns(script: MapScript, regions: W3Region[]): RawR
   const createRe = /Create\w*Unit\w*\([^\n]*?GetRectCenter\(\s*(gg_rct_\w+)\s*\)/g;
   for (let m = createRe.exec(text); m; m = createRe.exec(text)) {
     const r = byVar.get(m[1]);
-    if (r) raw.spawnHints.add(regionNode(raw, r));
+    if (r) raw.creationHints.add(regionNode(raw, r));
   }
   return raw;
 }
@@ -153,7 +153,7 @@ export function routesFromEvaluation(script: MapScript, mapRegions: W3Region[]):
       raw.edges.push({ from, to });
     }
   }
-  for (const c of ev.creations) raw.spawnHints.add(locNode(c.at));
+  for (const c of ev.creations) raw.creationHints.add(locNode(c.at));
   for (const t of ev.triggers) {
     if (t.enterRects.length === 0) continue;
     const ordersHere = ev.orders.some((o) => o.trigger === t);

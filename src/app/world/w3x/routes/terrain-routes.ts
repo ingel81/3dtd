@@ -62,8 +62,17 @@ const NEIGHBOURS = [
   [-1, -1, Math.SQRT2],
 ] as const;
 
-/** Distances and next-pixel pointers towards `target` over the skeleton */
-function shortestTree(sk: Uint8Array, w: number, h: number, target: number): { dist: Float64Array; next: Int32Array } {
+export interface ShortestTree {
+  dist: Float64Array;
+  next: Int32Array;
+}
+
+/**
+ * Distances and next-pixel pointers towards `target` over the set pixels of
+ * `sk`; `cost` (per pixel, optional) scales each step by the mean of its two
+ * pixels' costs
+ */
+export function shortestTree(sk: Uint8Array, w: number, h: number, target: number, cost?: Float32Array): ShortestTree {
   const dist = new Float64Array(w * h).fill(Infinity);
   const next = new Int32Array(w * h).fill(-1);
   dist[target] = 0;
@@ -105,13 +114,13 @@ function shortestTree(sk: Uint8Array, w: number, h: number, target: number): { d
     done[i] = 1;
     const x = i % w;
     const y = (i - x) / w;
-    for (const [dx, dy, cost] of NEIGHBOURS) {
+    for (const [dx, dy, step] of NEIGHBOURS) {
       const nx = x + dx;
       const ny = y + dy;
       if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
       const j = ny * w + nx;
       if (!sk[j] || done[j]) continue;
-      const d = dist[i] + cost;
+      const d = dist[i] + (cost ? step * (cost[i] + cost[j]) * 0.5 : step);
       if (d < dist[j]) {
         dist[j] = d;
         next[j] = i;
@@ -122,8 +131,8 @@ function shortestTree(sk: Uint8Array, w: number, h: number, target: number): { d
   return { dist, next };
 }
 
-/** The skeleton pixel nearest to a world point, within `maxPx` pixels */
-function snap(sk: Uint8Array, m: LaneMask, x: number, y: number, maxPx: number): number {
+/** The set pixel of `sk` nearest to a world point, within `maxPx` pixels */
+export function snap(sk: Uint8Array, m: LaneMask, x: number, y: number, maxPx: number): number {
   const cx = Math.floor((x - m.originX) / m.cell);
   const cy = Math.floor((y - m.originY) / m.cell);
   let best = -1;
@@ -251,7 +260,25 @@ export function routesFromTerrain(input: TerrainRouteInput): TerrainRoutes | nul
   }
   if (starts.length === 0) return null;
 
-  // Walk every start to the end; pixels where ways meet become shared nodes
+  addWays(raw, m, starts, endPx, tree, pixelNode);
+  return { raw, warnings };
+}
+
+/**
+ * Walks every start down the tree to the end and adds the ways to `raw`:
+ * pixels where ways meet become shared nodes, each piece between them keeps
+ * its corners (Douglas-Peucker). `pixelNode` names pixels that already have
+ * a node (the end).
+ */
+export function addWays(
+  raw: RawRoutes,
+  m: LaneMask,
+  starts: { px: number; id: string }[],
+  endPx: number,
+  tree: ShortestTree,
+  pixelNode: Map<number, string>,
+): void {
+  const w = m.width;
   const ways: number[][] = [];
   const visits = new Map<number, number>();
   for (const s of starts) {
@@ -284,10 +311,9 @@ export function routesFromTerrain(input: TerrainRouteInput): TerrainRoutes | nul
       for (let i = 0; i + 1 < piece.length; i++) raw.edges.push({ from: nodeOf(piece[i]), to: nodeOf(piece[i + 1]) });
     }
   });
-  return { raw, warnings };
 }
 
-function pixelCentre(m: LaneMask, px: number): { x: number; y: number } {
+export function pixelCentre(m: LaneMask, px: number): { x: number; y: number } {
   const x = px % m.width;
   const y = (px - x) / m.width;
   return { x: m.originX + (x + 0.5) * m.cell, y: m.originY + (y + 0.5) * m.cell };

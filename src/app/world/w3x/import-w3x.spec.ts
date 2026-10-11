@@ -6,6 +6,8 @@ import { buildSyntheticMap } from '../../../test/w3x-synthetic-map';
 import { importW3x } from './import-w3x';
 
 const TEST_MAP = findTestMap(existsSync);
+const GREEN_TD = findTestMap(existsSync, 'Green TD.w3x');
+const GREEN_CIRCLE = findTestMap(existsSync, 'Green Circle TD Mega 2025.w3x');
 const NOW = new Date('2026-10-11T00:00:00Z');
 
 function heightAt(doc: CustomMapDocument, x: number, y: number): number {
@@ -129,5 +131,24 @@ describe('importW3x', () => {
     expect(doc.objects.length).toBeGreaterThan(1400);
     expect(report.stats.objects.byCategory['tree']).toBeGreaterThan(700);
     expect(doc.terrain.water).not.toBeNull();
+  });
+
+  it.skipIf(!GREEN_TD)('imports Green TD (2005): nine lanes from GUI triggers, one spawn on another lane', async () => {
+    const { doc, report } = await importW3x(new Uint8Array(readFileSync(GREEN_TD!)), { now: NOW });
+    expect(validateMapDocument(doc)).toEqual([]);
+    expect(report.strategy).toBe('script-pattern');
+    expect(doc.spawns.map((s) => s.name)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9']);
+    expect(spawnsReachHq(doc)).toBe(true);
+  });
+
+  it.skipIf(!GREEN_CIRCLE)('imports Green Circle TD (2025), a circuit without an end, over open ground', async () => {
+    const { doc, report } = await importW3x(new Uint8Array(readFileSync(GREEN_CIRCLE!)), { now: NOW });
+    expect(validateMapDocument(doc)).toEqual([]);
+    expect(report.strategy).toBe('maze');
+    expect(report.warnings.join(' ')).toMatch(/round in circles/);
+    expect(doc.spawns.length).toBe(8);
+    expect(spawnsReachHq(doc)).toBe(true);
+    // The HQ in the middle of the map
+    expect(Math.hypot(doc.hq.x, doc.hq.y)).toBeLessThan(10);
   });
 });

@@ -10,7 +10,7 @@
 
 import type { W3Region } from '../formats/w3r';
 
-export type RouteStrategy = 'script-pattern' | 'script-eval' | 'terrain';
+export type RouteStrategy = 'script-pattern' | 'script-eval' | 'terrain' | 'maze';
 
 export interface RouteNode {
   id: string;
@@ -41,6 +41,11 @@ export interface RawRoutes {
   edges: RouteEdge[];
   /** Nodes where the script creates units or that are named like spawns */
   spawnHints: Set<string>;
+  /**
+   * Nodes where the script creates units: spawns even where other lanes
+   * walk through them (a spawn square on another lane's way)
+   */
+  creationHints: Set<string>;
   /** Nodes whose enter trigger costs lives, or named like an end */
   endHints: Set<string>;
 }
@@ -49,7 +54,7 @@ export const SPAWN_WORDS = /spawn|start|creep|enemy|enter|portal|gate|wave/i;
 export const END_WORDS = /throne|\bend\b|end_|finish|castle|leak|goal|\bbase\b|king|queen|exit|core|home/i;
 
 export function emptyRaw(): RawRoutes {
-  return { nodes: new Map(), edges: [], spawnHints: new Set(), endHints: new Set() };
+  return { nodes: new Map(), edges: [], spawnHints: new Set(), creationHints: new Set(), endHints: new Set() };
 }
 
 function reach(from: string[], adj: Map<string, string[]>): Set<string> {
@@ -108,9 +113,13 @@ export function buildRouteGraph(raw: RawRoutes, strategy: RouteStrategy): RouteG
   }
   const toEnd = reach([end], backward);
   let spawns = starts.filter((s) => toEnd.has(s) && s !== end);
-  // Start hints that are only reached through other hints (a spawn rect fed by a creation point) are not spawns
+  // Units created on another lane's way start there too
+  for (const n of ids) if (raw.creationHints.has(n) && toEnd.has(n) && n !== end && !spawns.includes(n)) spawns.push(n);
   const hinted = ids.filter((n) => raw.spawnHints.has(n) && toEnd.has(n) && n !== end);
   if (spawns.length === 0) spawns = hinted;
+  // In the map's order of regions (spawn 1, 2, ...), points after them
+  const order = (n: string): number => raw.nodes.get(n)!.region?.index ?? Number.MAX_SAFE_INTEGER;
+  spawns.sort((a, b) => order(a) - order(b) || raw.nodes.get(a)!.name.localeCompare(raw.nodes.get(b)!.name, undefined, { numeric: true }));
   if (spawns.length === 0) return null;
   const lost = starts.filter((s) => !toEnd.has(s));
   if (lost.length) warnings.push(`routes: ${lost.length} start(s) never reach the end and were dropped`);
