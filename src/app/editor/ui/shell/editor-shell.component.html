@@ -22,8 +22,8 @@
       <td-icon name="download" [size]="18" />
     </button>
     <div class="es-file">
-      <button class="td-tool" type="button" aria-label="File" matTooltip="File" [attr.aria-expanded]="fileMenu()" (click)="toggleFile()">
-        <td-icon name="more" [size]="18" />
+      <button class="td-btn-ghost td-btn-sm" type="button" aria-label="File" matTooltip="Download, export, frame the map" [attr.aria-expanded]="fileMenu()" (click)="toggleFile()">
+        File <td-icon name="caret" [size]="12" />
       </button>
       @if (fileMenu()) {
         <div class="es-file-menu td-popup td-rows" role="menu">
@@ -44,8 +44,8 @@
       </select>
     </label>
     <span class="es-spacer"></span>
-    <button class="td-tool" type="button" aria-label="Keys" matTooltip="Keys (?)" [attr.aria-expanded]="help()" (click)="help.set(!help())" data-test="help">
-      <td-icon name="keyboard" [size]="18" />
+    <button class="td-btn-ghost td-btn-sm" type="button" aria-label="Help" matTooltip="Keys, tips for good levels and the tour (?)" [attr.aria-expanded]="help()" (click)="help.set(!help())" data-test="help">
+      <td-icon name="keyboard" [size]="16" /> Help
     </button>
     <button class="td-btn-secondary td-btn-sm" type="button" (click)="check()" matTooltip="Check the map for problems (V)" data-test="check" data-tour="check">
       Check
@@ -63,14 +63,16 @@
   </header>
 
   <nav class="es-tools" aria-label="Tools">
-    @for (t of tools; track t.id) {
-      @if (t.id === 'environment') {
-        <span class="es-tools-gap td-line-top" aria-hidden="true"></span>
+    @for (g of toolGroups; track g.label) {
+      <span class="es-tools-head td-caps" aria-hidden="true">{{ g.label }}</span>
+      @for (t of g.tools; track t.id) {
+        @let info = toolInfo(t.id);
+        <button class="es-tool" type="button" [attr.aria-pressed]="session.tool() === t.id" [attr.aria-label]="info.label"
+                [matTooltip]="info.label + ' (' + info.key + '): ' + info.about" matTooltipPosition="right" (click)="pick(t.id)" [attr.data-tool]="t.id" [attr.data-tour]="'tool-' + t.id">
+          <td-icon [name]="icons[t.id]" [size]="18" />
+          <span class="es-tool-name">{{ t.short }}</span>
+        </button>
       }
-      <button class="td-icon-btn es-tool" type="button" [attr.aria-pressed]="session.tool() === t.id" [attr.aria-label]="t.label"
-              [matTooltip]="t.label + ' (' + t.key + '): ' + t.about" matTooltipPosition="right" (click)="pick(t.id)" [attr.data-tool]="t.id" [attr.data-tour]="'tool-' + t.id">
-        <td-icon [name]="icons[t.id]" [size]="18" />
-      </button>
     }
   </nav>
 
@@ -108,8 +110,11 @@
   </main>
 
   <aside class="es-side td-side td-dense" aria-label="Tool options">
-    <section class="td-side-section es-options">
-      <header class="td-side-head"><span class="td-side-name">{{ toolLabel() }}</span></header>
+    <div class="td-seg is-sm es-side-tabs" role="tablist" aria-label="Side column">
+      <button type="button" role="tab" [attr.aria-selected]="sideView() === 'tool'" (click)="sideView.set('tool')" data-test="side-tool">{{ toolLabel() }}</button>
+      <button type="button" role="tab" [attr.aria-selected]="sideView() === 'outline'" (click)="sideView.set('outline')" data-test="side-outline">Outline</button>
+    </div>
+    <section class="td-side-section es-options is-fill" [hidden]="sideView() !== 'tool'">
       <div class="td-side-body">
         <!-- Panels stay once made and only hide: switching tools does not build them again -->
         @if (mounted().has('landscape')) {
@@ -150,7 +155,7 @@
         }
       </div>
     </section>
-    <app-editor-outliner class="td-side-section is-fill" />
+    <app-editor-outliner class="td-side-section is-fill" [hidden]="sideView() !== 'outline'" />
   </aside>
 
   <app-editor-status class="es-status" />

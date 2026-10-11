@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, effect, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, computed, Component, ElementRef, OnDestroy, effect, inject, viewChild } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { SPAWN_COLORS } from '../../../configs/map-constants.config';
 import { TD_THEME } from '../../../styles/td-theme';
@@ -22,16 +22,22 @@ const PICTURE_EVERY_MS = 1200;
   host: { class: 'td-overlay' },
   template: `<canvas #canvas class="mm-canvas" [width]="size" [height]="size" aria-label="Minimap, click to move the view"
                      (pointerdown)="down($event)" (pointermove)="move($event)" (pointerup)="up($event)" data-test="minimap"></canvas>
-    <div class="mm-views" role="group" aria-label="Camera views">
+    <div class="mm-views" role="group" aria-label="Kept views">
       @for (v of session.bookmarks(); track $index) {
-        <button class="td-tool is-sm mm-view" type="button" [class.td-tone-brass]="!!v" [attr.aria-label]="'View ' + ($index + 1)"
-                [matTooltip]="v ? 'Show view ' + ($index + 1) + ' (Shift+' + ($index + 1) + '); Alt click keeps the current one' : 'Alt click or Alt+' + ($index + 1) + ' keeps the current view here'"
-                (click)="view($index, $event)" [attr.data-view]="$index + 1">{{ $index + 1 }}</button>
+        @if (v) {
+          <button class="td-tool is-sm mm-view td-tone-brass" type="button" [attr.aria-label]="'View ' + ($index + 1)"
+                  [matTooltip]="'Fly to view ' + ($index + 1) + ' (Shift+' + ($index + 1) + '); Alt click keeps the current view here instead'"
+                  (click)="view($index, $event)" [attr.data-view]="$index + 1">{{ $index + 1 }}</button>
+        }
+      }
+      @if (freeSlot() >= 0) {
+        <button class="td-btn-ghost td-btn-sm mm-keep" type="button" (click)="keep()" data-test="keep-view"
+                [matTooltip]="'Keep the current view to fly back later (Alt+' + (freeSlot() + 1) + ')'">+ Keep view</button>
       }
     </div>`,
   styles: [
     `:host { display: block; padding: 6px; } .mm-canvas { display: block; width: 200px; height: 200px; cursor: pointer; }
-     .mm-views { display: flex; justify-content: space-between; margin-top: 4px; } .mm-view { width: 20px; font-size: var(--td-fs-small); }`,
+     .mm-views { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; width: 200px; } .mm-view { width: 22px; font-size: var(--td-fs-small); } .mm-keep { margin-left: auto; }`,
   ],
 })
 export class MinimapComponent implements OnDestroy {
@@ -52,6 +58,14 @@ export class MinimapComponent implements OnDestroy {
       this.schedulePicture(rev);
       this.draw();
     });
+  }
+
+  /** The first slot without a kept view, -1 when all nine hold one */
+  readonly freeSlot = computed(() => this.session.bookmarks().findIndex((v) => !v));
+
+  keep(): void {
+    const slot = this.freeSlot();
+    if (slot >= 0) this.session.saveBookmark(slot);
   }
 
   view(slot: number, e: MouseEvent): void {

@@ -1,3 +1,4 @@
+import { ModePickerComponent } from './mode-picker.component';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TERRAIN_MODES, type TerrainMode } from '../../tools/tool';
@@ -8,16 +9,11 @@ import { RangeRowComponent } from './range-row.component';
 @Component({
   selector: 'app-terrain-panel',
   standalone: true,
-  imports: [BrushPanelComponent, RangeRowComponent, MatTooltipModule],
+  imports: [ModePickerComponent, BrushPanelComponent, RangeRowComponent, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   template: `
-    <div class="td-seg is-sm ep-wrap" role="radiogroup" aria-label="Terrain brush">
-      @for (m of modes; track m.id) {
-        <button type="button" role="radio" [attr.aria-checked]="t().mode === m.id" [matTooltip]="m.hint"
-                (click)="setMode(m.id)" [attr.data-terrain-mode]="m.id">{{ m.label }}</button>
-      }
-    </div>
+    <app-editor-modes label="Terrain brush" [modes]="modes" [value]="t().mode" (picked)="setMode($any($event))" />
     @if (t().mode === 'level' || t().mode === 'terrace') {
       <app-editor-range [label]="t().mode === 'level' ? 'Height' : 'Base'" unit="m" [min]="-100" [max]="400" [step]="0.5"
                         [value]="t().level" (changing)="set('level', $event)" />

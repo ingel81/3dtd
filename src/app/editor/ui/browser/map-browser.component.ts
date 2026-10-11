@@ -65,7 +65,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   readonly presets2 = TERRAIN_PRESETS;
   readonly newPreset = signal<TerrainPreset>('hills');
   /** A template for the new map, '' for none */
-  readonly newTemplate = signal('');
+  /** A ready landscape by default: an empty plain says little about what the editor can do */
+  readonly newTemplate = signal('meadows');
   readonly templates = MAP_TEMPLATES;
   readonly templatePicture = (t: MapTemplate) => this.session.biomePicture(biomeById(t.biome));
   readonly progress = this.session.templateProgress;

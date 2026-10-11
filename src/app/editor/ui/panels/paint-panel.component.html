@@ -29,19 +29,29 @@
     }
   </div>
   @if (layers().length < max) {
-    <label class="td-setting">
-      <span>Add layer</span>
-      <select class="td-select is-auto" (change)="add(selectValue($event)); $any($event.target).value = ''" aria-label="Add a layer">
-        <option value="" selected disabled>Material</option>
-        @for (g of materialGroups(); track g.name) {
-          <optgroup [label]="g.name">
-            @for (m of g.materials; track m.id) {
-              <option [value]="m.id">{{ m.name }}</option>
-            }
-          </optgroup>
-        }
-      </select>
-    </label>
+    @if (!adding()) {
+      <button class="td-btn-secondary td-btn-sm pp-add" type="button" (click)="adding.set(true)" data-test="add-layer">+ Add a ground</button>
+    } @else {
+      <div class="pp-palette td-well" data-test="layer-palette">
+        <div class="pp-palette-head">
+          <span class="td-name">Add a ground</span>
+          <button class="td-btn-ghost td-btn-sm" type="button" (click)="adding.set(false)">Cancel</button>
+        </div>
+        <div class="pp-groups" role="tablist" aria-label="Materials by landscape">
+          @for (g of materialGroups(); track g.name) {
+            <button type="button" class="pp-group" role="tab" [attr.aria-selected]="group() === g.name" (click)="groupPick.set(g.name)">{{ g.name }}</button>
+          }
+        </div>
+        <div class="pp-mats">
+          @for (m of groupMaterials(); track m.id) {
+            <button class="td-card pp-mat" type="button" [matTooltip]="m.name" (click)="add(m.id); adding.set(false)" [attr.data-material]="m.id">
+              <img [src]="thumb(m)" alt="" />
+              <span class="td-trunc">{{ m.name }}</span>
+            </button>
+          }
+        </div>
+      </div>
+    }
   }
 </div>
 

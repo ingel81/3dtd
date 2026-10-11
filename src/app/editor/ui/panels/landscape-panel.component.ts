@@ -1,3 +1,4 @@
+import { ModePickerComponent } from './mode-picker.component';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapPathKind } from '../../../world/custom-map/map-document';
@@ -12,7 +13,7 @@ import { RangeRowComponent } from './range-row.component';
 @Component({
   selector: 'app-landscape-panel',
   standalone: true,
-  imports: [BrushPanelComponent, RangeRowComponent, MatTooltipModule],
+  imports: [ModePickerComponent, BrushPanelComponent, RangeRowComponent, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   templateUrl: './landscape-panel.component.html',

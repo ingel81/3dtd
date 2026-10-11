@@ -173,3 +173,12 @@
   border: 1px dashed var(--td-line-light);
   border-radius: var(--td-radius);
 }
+
+// Create stays in reach however long the form gets
+.mb-new-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding: var(--td-sp-2) 0;
+  background: var(--td-bg-surface);
+}

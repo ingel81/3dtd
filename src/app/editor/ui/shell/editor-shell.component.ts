@@ -16,7 +16,7 @@ import type { DocChange } from '../../model/editor-document';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent, type TdIconName } from '../../../components/icon/icon.component';
 import { SYMMETRY_MODES, type SymmetryMode } from '../../ops/symmetry';
-import { LANDSCAPE_MODES, TOOLS, type ToolId } from '../../tools/tool';
+import { LANDSCAPE_MODES, TOOL_GROUPS, TOOLS, type ToolId } from '../../tools/tool';
 import { BIOMES, biomeById } from '../../ops/landscape/biomes';
 import { CommandPaletteComponent } from './command-palette.component';
 import type { EditorCommand } from './commands';
@@ -46,14 +46,14 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
   landscape: 'terrain',
   stamp: 'copy',
   gameplay: 'coin',
-  measure: 'route',
+  measure: 'pin',
   terrain: 'sliders',
   paint: 'edit',
   water: 'splash',
   objects: 'build',
   paths: 'route',
   markers: 'portal',
-  environment: 'bulb',
+  environment: 'sparkle',
   settings: 'cog',
 };
 
@@ -102,7 +102,10 @@ export class EditorShellComponent implements OnDestroy {
   readonly session = inject(EditorSession);
   readonly closed = output<void>();
   readonly tools = TOOLS;
+  readonly toolGroups = TOOL_GROUPS;
   readonly icons = TOOL_ICON;
+  /** What the side column shows: the tool's options or the outline of the map */
+  readonly sideView = signal<'tool' | 'outline'>('tool');
   readonly fileMenu = signal(false);
   readonly help = signal(false);
   readonly helpView = signal<'keys' | 'guide'>('keys');
@@ -200,6 +203,12 @@ export class EditorShellComponent implements OnDestroy {
 
   pick(id: ToolId): void {
     this.session.selectTool(id);
+    this.sideView.set('tool');
+  }
+
+  /** The tool's name, key and what it is for, for its button in the column */
+  toolInfo(id: ToolId): (typeof TOOLS)[number] {
+    return TOOLS.find((t) => t.id === id)!;
   }
 
   /** Makes the other panels in idle moments, one at a time, so the first switch to them is quick too */

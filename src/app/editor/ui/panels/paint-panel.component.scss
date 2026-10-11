@@ -21,3 +21,69 @@
   display: flex;
   flex: 0 0 auto;
 }
+
+// The palette for a new layer: landscape groups, then the materials as pictures
+.pp-add {
+  align-self: flex-start;
+}
+
+.pp-palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--td-sp-2);
+  padding: var(--td-sp-2);
+}
+
+.pp-palette-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pp-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.pp-group {
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: var(--td-radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--td-fs-small);
+  cursor: pointer;
+
+  &[aria-selected='true'] {
+    color: var(--td-brass-light);
+    border-color: color-mix(in srgb, var(--td-brass-light) 55%, transparent);
+  }
+}
+
+.pp-mats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.pp-mat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  font-size: var(--td-fs-small);
+
+  img {
+    width: 48px;
+    height: 48px;
+  }
+
+  span {
+    max-width: 100%;
+  }
+}

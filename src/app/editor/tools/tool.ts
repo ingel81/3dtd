@@ -34,44 +34,78 @@ export const TOOLS: readonly ToolInfo[] = [
   { id: 'paint', label: 'Paint', key: '3', about: 'Ground layers and auto paint' },
   { id: 'water', label: 'Water', key: '4', about: 'Fill hollows, paint water, lava or ice' },
   { id: 'objects', label: 'Objects', key: '5', about: 'Place, scatter, select, move, turn and scale' },
-  { id: 'paths', label: 'Paths', key: '6', about: 'Draw and edit the roads enemies walk' },
+  { id: 'paths', label: 'Roads', key: '6', about: 'Draw and edit the roads enemies walk' },
   { id: 'markers', label: 'Spawns and HQ', key: '7', about: 'Where enemies come from and what they attack' },
-  { id: 'environment', label: 'Environment', key: '8', about: 'Sky, time of day, fog and weather' },
-  { id: 'settings', label: 'Map', key: '9', about: 'Name, size and the terrain generator' },
+  { id: 'environment', label: 'Sky and weather', key: '8', about: 'Sky, time of day, fog and weather' },
+  { id: 'settings', label: 'Map', key: '9', about: 'Name, size, terrain generator and versions' },
   { id: 'stamp', label: 'Copy and stamps', key: '0', about: 'Copy a rectangle, place it turned, keep stamps' },
-  { id: 'gameplay', label: 'Gameplay', key: 'G', about: 'Start credits, HQ health, towers and waves of this map' },
+  { id: 'gameplay', label: 'Rules', key: 'G', about: 'Start credits, HQ health, towers and waves of this map' },
   { id: 'measure', label: 'Measure', key: 'D', about: 'Lengths, lane walking times, height lines and grid' },
+];
+
+/**
+ * The tool column: short names under the icons, in three groups by what
+ * a map maker does (shape the land, make it playable, the map as a whole)
+ */
+export const TOOL_GROUPS: readonly { label: string; tools: readonly { id: ToolId; short: string }[] }[] = [
+  {
+    label: 'Shape',
+    tools: [
+      { id: 'landscape', short: 'Landscape' },
+      { id: 'terrain', short: 'Terrain' },
+      { id: 'paint', short: 'Paint' },
+      { id: 'water', short: 'Water' },
+      { id: 'objects', short: 'Objects' },
+    ],
+  },
+  {
+    label: 'Play',
+    tools: [
+      { id: 'paths', short: 'Roads' },
+      { id: 'markers', short: 'Spawns' },
+      { id: 'gameplay', short: 'Rules' },
+    ],
+  },
+  {
+    label: 'Map',
+    tools: [
+      { id: 'environment', short: 'Sky' },
+      { id: 'settings', short: 'Map' },
+      { id: 'stamp', short: 'Stamps' },
+      { id: 'measure', short: 'Measure' },
+    ],
+  },
 ];
 
 export type TerrainMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'level' | 'noise' | 'erode' | 'terrace' | 'plateau' | 'ramp';
 
-export const TERRAIN_MODES: readonly { id: TerrainMode; label: string; hint: string }[] = [
-  { id: 'raise', label: 'Raise', hint: 'Hold to raise; Shift lowers' },
-  { id: 'lower', label: 'Lower', hint: 'Hold to lower; Shift raises' },
-  { id: 'smooth', label: 'Smooth', hint: 'Evens out bumps' },
-  { id: 'flatten', label: 'Flatten', hint: 'Levels to the height where the stroke starts; Ctrl picks a height' },
-  { id: 'level', label: 'Level', hint: 'Pulls to the set height; Ctrl click picks it from the ground' },
-  { id: 'noise', label: 'Roughen', hint: 'Adds bumps' },
-  { id: 'erode', label: 'Erode', hint: 'Slides steep slopes down into scree' },
-  { id: 'terrace', label: 'Terrace', hint: 'Snaps heights to steps of the set height' },
-  { id: 'plateau', label: 'Cliff', hint: 'Builds a cliff level one step above where the stroke starts; Shift one below' },
-  { id: 'ramp', label: 'Ramp', hint: 'Click the start, click the end: a ramp between the two heights' },
+export const TERRAIN_MODES: readonly { id: TerrainMode; label: string; hint: string; group: string }[] = [
+  { id: 'raise', label: 'Raise', hint: 'Hold to raise the ground; Shift lowers', group: 'Sculpt' },
+  { id: 'lower', label: 'Lower', hint: 'Hold to lower the ground; Shift raises', group: 'Sculpt' },
+  { id: 'smooth', label: 'Smooth', hint: 'Hold to even out bumps', group: 'Sculpt' },
+  { id: 'noise', label: 'Roughen', hint: 'Hold to add small bumps', group: 'Sculpt' },
+  { id: 'erode', label: 'Erode', hint: 'Hold to let steep slopes slide down into scree', group: 'Sculpt' },
+  { id: 'flatten', label: 'Flatten', hint: 'Levels to the height where the stroke starts; Ctrl picks a height', group: 'Level out' },
+  { id: 'level', label: 'Level', hint: 'Pulls to the height set below; Ctrl click picks it from the ground', group: 'Level out' },
+  { id: 'terrace', label: 'Terrace', hint: 'Snaps heights to steps of the height set below', group: 'Level out' },
+  { id: 'plateau', label: 'Cliff', hint: 'Builds a cliff level one step above where the stroke starts; Shift one below', group: 'Level out' },
+  { id: 'ramp', label: 'Ramp', hint: 'Click the start, then the end: a ramp between the two heights', group: 'Level out' },
 ];
 
 export type LandscapeMode = 'biome' | 'mountain' | 'valley' | 'plateau' | 'crater' | 'dunes' | 'cracks' | 'cliff' | 'erode' | 'river' | 'road';
 
-export const LANDSCAPE_MODES: readonly { id: LandscapeMode; label: string; hint: string; line?: boolean }[] = [
-  { id: 'biome', label: 'Biome', hint: 'Hold to paint the chosen landscape: ground, paint and plants together' },
-  { id: 'mountain', label: 'Mountain', hint: 'Hold to grow a ridged mountain; size and strength set its height' },
-  { id: 'valley', label: 'Valley', hint: 'Hold to sink a valley' },
-  { id: 'plateau', label: 'Plateau', hint: 'Hold to raise a table with a steep rim' },
-  { id: 'crater', label: 'Crater', hint: 'Click or hold for a crater with a raised rim; size sets its width' },
-  { id: 'dunes', label: 'Dunes', hint: 'Hold to heap rounded dunes across the wind' },
-  { id: 'cracks', label: 'Glow cracks', hint: 'Hold to break the ground into glowing lava cracks with a crust' },
-  { id: 'cliff', label: 'Cliff edge', hint: 'Drag a line: the ground left of it rises as a cliff', line: true },
-  { id: 'erode', label: 'Erode', hint: 'Hold to let rain carve gullies and fans of scree' },
-  { id: 'river', label: 'River', hint: 'Drag a line: a river with banks, reeds and bridges over roads', line: true },
-  { id: 'road', label: 'Road', hint: 'Drag a line: a road joined to the network, levelled and lit', line: true },
+export const LANDSCAPE_MODES: readonly { id: LandscapeMode; label: string; hint: string; group: string; line?: boolean }[] = [
+  { id: 'biome', label: 'Biome', hint: 'Hold to paint the chosen landscape: ground, colour and plants together', group: 'Paint a landscape' },
+  { id: 'mountain', label: 'Mountain', hint: 'Hold to grow a ridged mountain; size and strength set its height', group: 'Shapes' },
+  { id: 'valley', label: 'Valley', hint: 'Hold to sink a valley', group: 'Shapes' },
+  { id: 'plateau', label: 'Plateau', hint: 'Hold to raise a table with a steep rim', group: 'Shapes' },
+  { id: 'crater', label: 'Crater', hint: 'Click or hold for a crater with a raised rim; size sets its width', group: 'Shapes' },
+  { id: 'dunes', label: 'Dunes', hint: 'Hold to heap rounded dunes across the wind', group: 'Shapes' },
+  { id: 'erode', label: 'Erode', hint: 'Hold to let rain carve gullies and fans of scree', group: 'Shapes' },
+  { id: 'cracks', label: 'Glow cracks', hint: 'Hold to break the ground into glowing lava cracks with a crust', group: 'Shapes' },
+  { id: 'river', label: 'River', hint: 'Drag a line: a river with banks, reeds and bridges over roads', group: 'Draw a line', line: true },
+  { id: 'road', label: 'Road', hint: 'Drag a line: a road joined to the network, levelled and lit', group: 'Draw a line', line: true },
+  { id: 'cliff', label: 'Cliff edge', hint: 'Drag a line: the ground left of it rises as a cliff', group: 'Draw a line', line: true },
 ];
 
 export type ObjectMode = 'select' | 'place' | 'scatter' | 'erase';

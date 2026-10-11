@@ -9,6 +9,15 @@ import { riverEdit, waterCommands } from '../../tools/water-tool';
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
+import { ModePickerComponent, type EditorMode } from './mode-picker.component';
+
+const WATER_MODES: readonly EditorMode[] = [
+  { id: 'fill', label: 'Fill a hollow', hint: 'Click into a hollow: every connected spot below the level floods. Without water yet, the hollow\'s rim sets the level' },
+  { id: 'lake', label: 'Dig a lake', hint: 'Hold to dig a lake bed to the depth set below and fill it' },
+  { id: 'paint', label: 'Paint', hint: 'Hold to paint water of the chosen body by hand' },
+  { id: 'erase', label: 'Erase', hint: 'Hold to take water away' },
+  { id: 'river', label: 'Rivers', hint: 'Edit rivers drawn with Landscape, River: move points, width, water or lava' },
+];
 
 const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', swamp: 'Swamp', ice: 'Ice', lava: 'Lava' };
 
@@ -19,12 +28,14 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
 @Component({
   selector: 'app-water-panel',
   standalone: true,
-  imports: [BrushPanelComponent, RangeRowComponent, TdIconComponent, MatTooltipModule],
+  imports: [ModePickerComponent, BrushPanelComponent, RangeRowComponent, TdIconComponent, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   template: `
+    <app-editor-modes label="Water tool" [modes]="modes" [value]="mode()" (picked)="setMode($any($event))" />
+
     <div class="td-group">
-      <h3 class="td-section">Bodies</h3>
+      <h3 class="td-section">Water bodies <span class="td-note">the tool works on the chosen one</span></h3>
       <div class="td-rows" role="listbox" aria-label="Water bodies">
         @for (b of bodies(); track b.index) {
           <div class="td-row wp-row" role="option" tabindex="0" [attr.aria-selected]="active() === b.index" (click)="choose(b.index)"
@@ -68,13 +79,7 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
       </div>
     }
 
-    <div class="td-seg is-sm" role="radiogroup" aria-label="Water tool">
-      <button type="button" role="radio" [attr.aria-checked]="mode() === 'fill'" (click)="setMode('fill')">Fill basin</button>
-      <button type="button" role="radio" [attr.aria-checked]="mode() === 'lake'" (click)="setMode('lake')" data-water-mode="lake">Dig lake</button>
-      <button type="button" role="radio" [attr.aria-checked]="mode() === 'paint'" (click)="setMode('paint')">Paint</button>
-      <button type="button" role="radio" [attr.aria-checked]="mode() === 'erase'" (click)="setMode('erase')">Erase</button>
-      <button type="button" role="radio" [attr.aria-checked]="mode() === 'river'" (click)="setMode('river')" data-water-mode="river">Rivers</button>
-    </div>
+
     @if (mode() === 'river') {
       <div class="td-group">
         <h3 class="td-section">Rivers <span class="td-note">drawn with Landscape, River</span></h3>
@@ -106,9 +111,7 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
         </div>
       }
       <p class="td-note">Drag a point to move it, Shift click on a river adds one, Del removes the chosen point. The bed the brush carved stays; widen the banks with the terrain tools.</p>
-    } @else if (mode() === 'fill') {
-      <p class="td-note">A click into a hollow floods every connected spot below the level. A body without water takes the hollow's rim as its level.</p>
-    } @else {
+    } @else if (mode() !== 'fill') {
       @if (mode() === 'lake') {
         <app-editor-range label="Depth" unit="m" [min]="0.5" [max]="20" [step]="0.5" [value]="depth()" (changing)="setDepth($event)" />
       }
@@ -120,6 +123,7 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
 export class WaterPanelComponent {
   private readonly session = inject(EditorSession);
   readonly kinds: MapWaterKind[] = ['water', 'sea', 'swamp', 'ice', 'lava'];
+  readonly modes = WATER_MODES;
   readonly mode = computed(() => (this.session.settingsRev(), this.session.settings.water.mode));
   readonly active = computed(() => (this.session.settingsRev(), this.session.settings.water.body));
   readonly depth = computed(() => (this.session.settingsRev(), this.session.settings.water.depth));

@@ -62,6 +62,9 @@ export function sunDirection(azimuthDeg: number, elevationDeg: number, target: V
 }
 
 export class CustomMapEnvironment {
+  /** Where the haze starts (the map's look and weather) and the clear air the editor asks for on top */
+  private fogStart = 450;
+  private clearAir = 0;
   readonly lights = new Group();
   readonly sun: DirectionalLight;
   readonly hemi: HemisphereLight;
@@ -194,7 +197,8 @@ export class CustomMapEnvironment {
     // The clear behind the dome follows the haze (the scene holds this Color)
     this.backdrop.copy(this.fog.color);
     // Clear air before the haze: shorter in fog weather and in a swamp
-    HEIGHT_FOG_UNIFORMS.uFogStart.value = weather === 'fog' ? 450 * (1 - 0.85 * k) : env.biome === 'swamp' ? 120 : 450;
+    this.fogStart = weather === 'fog' ? 450 * (1 - 0.85 * k) : env.biome === 'swamp' ? 120 : 450;
+    HEIGHT_FOG_UNIFORMS.uFogStart.value = Math.max(this.fogStart, this.clearAir);
     // Snow on everything facing up, wetness in rain (and a little in a swamp)
     const snowFromWeather = weather === 'snow' ? k * 0.9 : 0;
     const snowFromBiome = env.biome === 'arctic' ? 0.65 : 0;
@@ -291,6 +295,16 @@ export class CustomMapEnvironment {
     if (this.env.biome === 'hell' || this.env.biome === 'apocalypse') base = Math.max(base, 0.5);
     // A low sun darkens any sky
     return Math.min(1, Math.max(base, 1 - this.env.sunElevation / 12));
+  }
+
+  /**
+   * Clear air out to `distance` (the editor's camera distance): the haze
+   * starts no nearer, so an overview of the whole map is not lost in it.
+   * 0 gives the map's own start back. The game never sets it.
+   */
+  setClearAir(distance: number): void {
+    this.clearAir = Math.max(0, distance);
+    HEIGHT_FOG_UNIFORMS.uFogStart.value = Math.max(this.fogStart, this.clearAir);
   }
 
   /**

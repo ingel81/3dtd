@@ -44,7 +44,7 @@ Kopie an und öffnet sie.
 | C | Spielansicht: die Startansicht des Spiels über dem HQ (70 Grad, 60 Grad Bildwinkel), noch einmal C zurück |
 | P | Probewelle: die Gegner laufen die Routen ab (auch der Knopf „Trial wave“) |
 | Strg+K | Befehle: Werkzeuge, Pinsel, Biome, Ansichten, Symmetrie, Marker und die Objekte der Karte nach Namen |
-| 1 bis 9, 0, G, D | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Paths, Spawns and HQ, Environment, Map, Copy and stamps, Gameplay, Measure |
+| 1 bis 9, 0, G, D | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Roads, Spawns and HQ, Sky and weather, Map, Copy and stamps, Rules, Measure |
 | M | Symmetrie reihum: aus, Mirror X, Mirror Y, Both, Turn 2, Turn 4 (auch oben in der Kopfleiste) |
 | Alt+1 bis 9 (Strg+Ziffer, wo der Browser sie lässt) | Kamera-Ansicht merken; Shift+Ziffer fliegt hin; die Knöpfe 1 bis 9 unter der Minikarte ebenso (Alt-Klick merkt) |
 | ? | Übersicht aller Tasten; unter „Your keys“ lassen sich die Einzeltasten (Werkzeuge, F, T, C, P, V, M) umlegen, gespeichert in `3dtd-editor-keys` |
@@ -58,7 +58,16 @@ Die Paletten zeigen gerenderte Bilder: Objekte mit ihrem Modell schräg von oben
 Kugel, Biome als kleines Stück Boden mit ihren Pflanzen. Ein kleiner eigener Renderer zeichnet sie im Hintergrund und
 hebt sie in IndexedDB (`3dtd-editor-thumbs`) auf; bis ein Bild fertig ist, steht ein gezeichnetes Symbol.
 
-Die Gliederung rechts (Outline) hat eine Suche und zeigt Marker, Straßen, Objekte nach Kategorie und Asset (ein Klick
+Die linke Leiste zeigt jedes Werkzeug mit Symbol und Namen, in drei Gruppen: Shape (Landscape, Terrain, Paint, Water,
+Objects), Play (Roads, Spawns, Rules) und Map (Sky, Map, Stamps, Measure). Rechts stehen zwei Reiter: die Optionen des
+Werkzeugs und die Gliederung; ein Werkzeug zu wählen zeigt seine Optionen. Werkzeuge mit Modi (Landscape, Terrain,
+Water) zeigen sie gruppiert als Knöpfe und darunter, was der gewählte tut. Unter der Minikarte stehen nur gemerkte
+Ansichten, „+ Keep view“ merkt die aktuelle. Eine neue Karte startet mit der Vorlage Meadows; „Empty“ ganz hinten
+fragt nach Boden und Material. Paint legt eine neue Schicht über „+ Add a ground“ aus einer Palette mit Bildern an,
+nach Landschaft gruppiert. Der Editor hält die Luft bis zur Kameraentfernung klar (`setClearAir`), damit die Übersicht
+über die ganze Karte nicht im Dunst liegt.
+
+Die Gliederung (Reiter Outline) hat eine Suche und zeigt Marker, Straßen, Objekte nach Kategorie und Asset (ein Klick
 wählt alle eines Assets; das Auge blendet eine Kategorie in der Ansicht aus, die Karte behält sie), Gruppen, Boden und
 Gewässer.
 
@@ -132,7 +141,7 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   löst die Gruppe. Im Panel stehen Lage, Drehung, Größe und die Schalter „Blocks sight“ und „Blocks building“
   (Default folgt dem Katalog)
 
-**Paths (6).** Draw: jeder Klick setzt einen Knoten und verbindet ihn mit dem letzten; ein Klick nahe einem Knoten
+**Roads (6).** Draw: jeder Klick setzt einen Knoten und verbindet ihn mit dem letzten; ein Klick nahe einem Knoten
 schließt dort an, nahe einer Straße entsteht eine Kreuzung (Alt setzt frei). Enter, Rechtsklick oder Doppelklick
 beendet die Linie. Edit: Knoten ziehen (auf einem anderen abgelegt verschmelzen sie), Straße wählen; Breite und Art
 (Road, Path, Bridge), S glättet als Kurve, X begradigt, J löst einen Knoten zwischen zwei Straßen auf, Entf löscht.
@@ -143,7 +152,7 @@ alle). Die Routen von jedem Spawn zum HQ laufen als Punkte über die Karte (absc
 HQ. Ziehen verschiebt beide; sie rasten auf die nächste Straße (Alt frei). Das Panel zeigt je Spawn die Länge seiner
 Spur oder „no route“.
 
-**Environment (8).** Himmel (Day, Dusk, Night, Overcast), Tageszeit (ein Sommertag: Aufgang 6 Uhr im Osten, 13 Uhr im
+**Sky and weather (8).** Himmel (Day, Dusk, Night, Overcast), Tageszeit (ein Sommertag: Aufgang 6 Uhr im Osten, 13 Uhr im
 Süden 60 Grad hoch, Untergang 20 Uhr im Westen; tiefe Sonne ist Dämmerung, eine Stunde nach Untergang Nacht),
 Sonnenrichtung und -höhe, Nebel, Tönung, Wetter (Clear, Rain, Snow, Fog mit Stärke); Regler wirken sofort und werden
 beim Loslassen ein Schritt im Verlauf.
@@ -164,7 +173,7 @@ gelten relativ zum Rand des Stücks: ein Hügel landet auf dem Boden, auf den ma
 dazu, solange Platz ist. „Save the copy“ legt das Stück mit Name und Bild in die Stempel-Bibliothek (IndexedDB
 `3dtd-editor-stamps`); Stempel gelten auf jeder Karte, ein Klick wählt einen zum Setzen.
 
-**Gameplay (G).** Die eigenen Regeln der Karte: Startgeld und HQ-Leben (leer heißt Spiel-Standard: 100 und 500), die
+**Rules (G).** Die eigenen Regeln der Karte: Startgeld und HQ-Leben (leer heißt Spiel-Standard: 100 und 500), die
 erlaubten Tower und die Wellen: die Wellen des Spiels (Budget-Source) oder eine eigene Liste in der Form der Table-
 Source ([WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md)): je Welle Name, HP-Faktor, Abstand, Gegnertyp mit Anzahl, dazu die
 Wiederholregel nach der letzten Welle; „Start from the game's list“ übernimmt die Liste des Spiels als Anfang. Prüfen

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { tagName } from '../../catalog/asset-catalog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
@@ -42,6 +42,16 @@ export class PaintPanelComponent {
     const untagged = all.filter((m) => !m.tags?.length);
     return [...groups.filter((g) => g.materials.length), ...(untagged.length ? [{ name: 'Other', materials: untagged }] : [])];
   });
+  /** The palette for a new layer is open */
+  readonly adding = signal(false);
+  /** The landscape group the palette shows; the first one until one is picked */
+  readonly groupPick = signal<string | null>(null);
+  readonly group = computed(() => {
+    const groups = this.materialGroups();
+    const pick = this.groupPick();
+    return groups.some((g) => g.name === pick) ? pick! : (groups[0]?.name ?? '');
+  });
+  readonly groupMaterials = computed(() => this.materialGroups().find((g) => g.name === this.group())?.materials ?? []);
   readonly cliff = computed(() => {
     this.session.docRev();
     const t = this.session.doc?.terrain;

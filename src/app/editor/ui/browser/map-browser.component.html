@@ -154,7 +154,7 @@
           </label>
           <label class="td-field">
             <span class="td-label">Author</span>
-            <input class="td-input" type="text" maxlength="60" [value]="newAuthor()" (input)="newAuthor.set(asValue($event))" />
+            <input class="td-input" type="text" maxlength="60" placeholder="Optional" [value]="newAuthor()" (input)="newAuthor.set(asValue($event))" />
           </label>
           <div class="td-field">
             <span class="td-label" id="mb-size">Size</span>
@@ -167,13 +167,8 @@
             </div>
           </div>
           <div class="td-field">
-            <span class="td-label" id="mb-template">Template</span>
+            <span class="td-label" id="mb-template">Start from <span class="td-note">a landscape with a road, a spawn and the HQ, ready to play</span></span>
             <div class="mb-templates" role="radiogroup" aria-labelledby="mb-template">
-              <button class="td-card mb-material" type="button" role="radio" [attr.aria-checked]="newTemplate() === ''" [attr.aria-pressed]="newTemplate() === ''"
-                      (click)="newTemplate.set('')" data-template="">
-                <span class="mb-blank" aria-hidden="true"></span>
-                <span class="td-trunc">Blank</span>
-              </button>
               @for (t of templates; track t.id) {
                 <button class="td-card mb-material" type="button" role="radio" [attr.aria-checked]="newTemplate() === t.id" [attr.aria-pressed]="newTemplate() === t.id"
                         [matTooltip]="t.hint" (click)="newTemplate.set(t.id)" [attr.data-template]="t.id">
@@ -181,6 +176,11 @@
                   <span class="td-trunc">{{ t.label }}</span>
                 </button>
               }
+              <button class="td-card mb-material" type="button" role="radio" [attr.aria-checked]="newTemplate() === ''" [attr.aria-pressed]="newTemplate() === ''"
+                      matTooltip="Start from bare ground of your choice" (click)="newTemplate.set('')" data-template="">
+                <span class="mb-blank" aria-hidden="true"></span>
+                <span class="td-trunc">Empty</span>
+              </button>
             </div>
           </div>
           @if (!newTemplate()) {
@@ -220,7 +220,7 @@
           @if (progress() !== null) {
             <p class="td-note"><span class="td-spin" aria-hidden="true"></span> Painting the land {{ percent() }} %</p>
           }
-          <div class="td-actions">
+          <div class="td-actions mb-new-actions">
             <button class="td-btn-secondary" type="button" (click)="mode.set('details')">Cancel</button>
             <button class="td-btn-primary" type="button" [disabled]="busy()" (click)="createMap()" data-test="create-map">Create map</button>
           </div>

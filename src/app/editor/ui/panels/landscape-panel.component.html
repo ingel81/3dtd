@@ -1,9 +1,4 @@
-<div class="td-seg is-sm lp-modes" role="radiogroup" aria-label="Landscape brush">
-  @for (m of modes; track m.id) {
-    <button type="button" role="radio" [attr.aria-checked]="s().mode === m.id" [matTooltip]="m.hint" (click)="setMode(m.id)"
-            [attr.data-mode]="m.id">{{ m.label }}</button>
-  }
-</div>
+<app-editor-modes label="Landscape brush" [modes]="modes" [value]="s().mode" (picked)="setMode($any($event))" />
 
 @if (s().mode === 'biome') {
   <div class="td-group">

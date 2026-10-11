@@ -216,7 +216,7 @@ export class EditorViewport {
   frameMap(snap = false): void {
     const t = this.editor.doc.terrain;
     this.controller.maxDistance = Math.max(t.width, t.depth) * 3;
-    this.controller.focus(new Vector3(0, this.heightAt(0, 0), 0), Math.max(t.width, t.depth) * 0.42);
+    this.controller.focus(new Vector3(0, this.heightAt(0, 0), 0), Math.max(t.width, t.depth) * 0.52);
     if (snap) this.controller.snap();
   }
 
@@ -777,6 +777,8 @@ export class EditorViewport {
     this.controller.setGroundHeight(this.heightAt(-g.x, g.z));
     if (this.controller.update(dt)) this.callbacks.camera();
     this.controller.apply(this.camera);
+    // The map's haze starts behind what the camera looks at: from afar the whole map stays readable
+    this.view.view.environment.setClearAir(this.controller.current.distance * 1.15);
 
     // One ground raycast per frame for the tool and the cursor
     const p = this.pointer;

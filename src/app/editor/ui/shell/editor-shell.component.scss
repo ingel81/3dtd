@@ -7,7 +7,7 @@
 
 .es-root {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) 320px;
+  grid-template-columns: 76px minmax(0, 1fr) 340px;
   grid-template-rows: var(--td-h-topbar) minmax(0, 1fr) 30px;
   grid-template-areas:
     'top top top'
@@ -67,21 +67,60 @@
   grid-area: tools;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--td-sp-1);
-  padding: var(--td-sp-2) 0;
+  align-items: stretch;
+  gap: 2px;
+  padding: var(--td-sp-2) var(--td-sp-1);
+  overflow-y: auto;
   background: var(--td-bg-surface);
 }
 
-.es-tools-gap {
-  width: 28px;
-  height: 0;
-  margin: var(--td-sp-1) 0;
+.es-tools-head {
+  padding: var(--td-sp-2) 0 2px;
+  text-align: center;
+  font-size: 9px;
+  opacity: 0.6;
+
+  &:first-child {
+    padding-top: 0;
+  }
 }
 
+// Icon over its name: a tool is found by what it says, not by guessing its picture
 .es-tool {
-  width: 38px;
-  height: 38px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px 5px;
+  border: 1px solid transparent;
+  border-radius: var(--td-radius);
+  background: none;
+  color: inherit;
+  opacity: 0.78;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 1;
+    background: color-mix(in srgb, currentColor 7%, transparent);
+  }
+
+  &[aria-pressed='true'] {
+    opacity: 1;
+    color: var(--td-brass-light);
+    border-color: color-mix(in srgb, var(--td-brass-light) 45%, transparent);
+    background: color-mix(in srgb, var(--td-brass-light) 10%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--td-brass-light);
+    outline-offset: 1px;
+  }
+}
+
+.es-tool-name {
+  font-size: 11px;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
 .es-view {
@@ -149,9 +188,22 @@
   min-height: 0;
 }
 
-.es-options {
-  max-height: 62%;
-  flex: 0 1 auto;
+.es-side {
+  display: flex;
+  flex-direction: column;
+}
+
+.es-side-tabs {
+  flex: 0 0 auto;
+  margin: var(--td-sp-2) var(--td-sp-2) 0;
+
+  > button {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .es-help-veil {
