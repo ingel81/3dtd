@@ -26,6 +26,8 @@ export interface TowerPlacementContext {
   routes: LatLon[][];
   /** Distanz in Metern, liefert der Street-Provider (OSM oder DevWorld) */
   geo: { haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number };
+  /** Steht dort etwas der Welt, auf dem nicht gebaut wird (Häuser und Bäume einer eigenen Karte)? */
+  blocked?: (lat: number, lon: number) => boolean;
 }
 
 /** UI-Text je FootprintRefusal: warum der Grund unter der Grundfläche den Platz ausschließt */
@@ -36,8 +38,9 @@ const FOOTPRINT_REASONS: Record<FootprintRefusal, string> = {
 
 /**
  * Platzierungsregeln für Tower, gemeinsam für Maus-Vorschau, Klick und Bot.
- * Reihenfolge: Spielbereich, HQ, Spawns, andere Tower, Routen, dann der
- * Grund unter der Grundfläche, sofern `footprint` mitkommt. Die erste
+ * Reihenfolge: Spielbereich, HQ, Spawns, andere Tower, Routen, Objekte der
+ * Welt (`blocked`), dann der Grund unter der Grundfläche, sofern `footprint`
+ * mitkommt. Die erste
  * verletzte Regel liefert den Grund.
  *
  * Ein Gebäude ist kein Hindernis: der Service hebt den Tower auf Dachhöhe,
@@ -80,6 +83,10 @@ export function checkTowerPlacement(
     if (routeDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_ROUTE) {
       return { valid: false, reason: 'Too close to route' };
     }
+  }
+
+  if (ctx.blocked?.(lat, lon)) {
+    return { valid: false, reason: 'Something stands there' };
   }
 
   if (footprint?.refusal) {

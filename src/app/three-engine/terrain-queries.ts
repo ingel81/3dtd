@@ -784,6 +784,11 @@ export class TerrainQueries implements WorldSurface {
     return null;
   }
 
+  /** On the tiles a tower stands on whatever is there, roofs included */
+  isBuildBlocked(): boolean {
+    return false;
+  }
+
   /** The column under a tower's footprint probe, booked as `towerFootprint` */
   footprintColumn(localX: number, localZ: number): FootprintColumn | null {
     return this.raycastColumnSample(localX, localZ, 'towerFootprint');

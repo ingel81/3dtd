@@ -105,6 +105,32 @@ describe('CustomMapSurface', () => {
     expect(surface.raycastLineOfSight(a.x, 2.5, a.z, frame.sceneX(80), 2.5, a.z)).toBe(true);
   });
 
+  it('forbids building near objects that block it, once the catalogue is known', () => {
+    const map = testMap();
+    map.objects = [
+      { id: 'o1', asset: 'house', x: -50, y: 20, z: 0, rotation: 0, scale: 1 },
+      { id: 'o2', asset: 'bush', x: -50, y: -20, z: 0, rotation: 0, scale: 1 },
+      { id: 'o3', asset: 'bush', x: 20, y: 20, z: 0, rotation: 0, scale: 2, blocksBuild: true },
+    ];
+    const blocking = new CustomMapSurface(map, frame);
+    const at = (x: number, y: number): [number, number] => {
+      const g = mapToGeo({ x, y });
+      return [g.lat, g.lon];
+    };
+    expect(blocking.isBuildBlocked(...at(-50, 20), 3)).toBe(false);
+    blocking.setObjectCatalog([
+      { id: 'house', footprint: 5, blocksBuild: true },
+      { id: 'bush', footprint: 1, blocksBuild: false },
+    ]);
+    // The house's 5 m disc and a tower's 3 m
+    expect(blocking.isBuildBlocked(...at(-50, 27.9), 3)).toBe(true);
+    expect(blocking.isBuildBlocked(...at(-50, 28.1), 3)).toBe(false);
+    // Bushes do not block, unless the map says so for one (scaled twice: 2 m)
+    expect(blocking.isBuildBlocked(...at(-50, -20), 3)).toBe(false);
+    expect(blocking.isBuildBlocked(...at(24.9, 20), 3)).toBe(true);
+    expect(blocking.isBuildBlocked(...at(25.1, 20), 3)).toBe(false);
+  });
+
   it('picks the ground under a ray', () => {
     const raycaster = new Raycaster(new Vector3(frame.sceneX(-50), 100, frame.sceneZ(10)), new Vector3(0, -1, 0));
     const hit = surface.pickRay(raycaster)!;

@@ -9,6 +9,7 @@ import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { TowerSelectionService } from './tower-selection.service';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
+import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { AssetManagerService } from './infrastructure/asset-manager.service';
 import { UIStore } from '../store/ui.store';
@@ -897,6 +898,9 @@ export class TowerPlacementService {
       routes: this.getActiveRoutes(),
       geo: streets,
     };
+    // Objects of the world that forbid building (a custom map's houses and trees)
+    const terrain = this.engine?.terrain;
+    if (terrain) ctx.blocked = (lat, lon) => terrain.isBuildBlocked(lat, lon, PLACEMENT_CONFIG.TOWER_BUILD_RADIUS);
     return (lat, lon, footprint) => checkTowerPlacement(lat, lon, ctx, footprint);
   }
 

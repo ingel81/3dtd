@@ -172,6 +172,12 @@ export class CustomMapWorld implements WorldProvider {
     // Over the HQ at the scene origin, controls that raycast the map's ground and objects
     ctx.cameraRig.setupEnvironmentControls(ctx.scene, view.losBlockers);
 
+    // The catalogue tells which objects forbid building
+    view.assets
+      .catalog()
+      .then((catalog) => this.surface.setObjectCatalog(catalog.objects))
+      .catch((err) => console.warn('[CustomMap] no catalogue, objects do not block building', err));
+
     // Streets, spawns and routes go on while the map's textures and models load and its shaders compile
     void this.prepare(ctx, view);
   }

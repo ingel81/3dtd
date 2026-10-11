@@ -107,6 +107,15 @@ describe('checkTowerPlacement', () => {
       expect(result.reason).toBe('Too close to another tower');
     });
 
+    it('objects of the world after the routes, before the ground under the footprint', () => {
+      const footprint = { footY: 0, plinthHeight: 0, refusal: 'edge' as const };
+      const blocked = (): boolean => true;
+      const far = { ...atDistances(1000, 1000, 1000), blocked };
+      expect(checkTowerPlacement(48.137, 11.575, { ...far, routes: [ROUTE] }).reason).toBe('Too close to route');
+      expect(checkTowerPlacement(48.137, 11.575, far, footprint).reason).toBe('Something stands there');
+      expect(checkTowerPlacement(48.137, 11.575, { ...far, blocked: () => false }, footprint).reason).toBe('Too far over the edge');
+    });
+
     it('routes before the ground under the footprint', () => {
       const footprint = { footY: 0, plinthHeight: 0, refusal: 'edge' as const };
       const result = checkTowerPlacement(48.137, 11.575, { ...atDistances(1000, 1000, 1000), routes: [ROUTE] }, footprint);

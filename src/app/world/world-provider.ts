@@ -101,6 +101,12 @@ export interface WorldSurface {
    * better than the screen pick (DevWorld: a roof); null to keep the pick's height.
    */
   roofAt(localX: number, localZ: number): number | null;
+  /**
+   * Something of the world that forbids building stands within `radius`
+   * metres of a geographic point (a custom map's houses and trees); false
+   * where the ground itself decides (tiles: towers stand on roofs)
+   */
+  isBuildBlocked(lat: number, lon: number, radius: number): boolean;
   /** Ground and highest surface under a tower's footprint probe */
   footprintColumn(localX: number, localZ: number): FootprintColumn | null;
   /** The loaded ground changed (a settled tile load) */

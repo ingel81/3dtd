@@ -82,6 +82,16 @@ export class CustomMapSurface implements WorldSurface {
   readonly field: HeightField;
 
   private readonly bridges: BridgeDeck[];
+  /** Discs (x, y, radius) of the objects that forbid building, in 16 m buckets */
+  private blockers: {
+    cell: number;
+    minX: number;
+    minY: number;
+    columns: number;
+    rows: number;
+    buckets: (number[] | undefined)[];
+    maxRadius: number;
+  } | null = null;
   private readonly ray = new Ray();
   private readonly hit = new Vector3();
   private readonly streetGround: StreetHeightGround = {
@@ -207,6 +217,63 @@ export class CustomMapSurface implements WorldSurface {
   /** Towers stand on the picked ground */
   roofAt(): number | null {
     return null;
+  }
+
+  /**
+   * Objects that forbid building (their own `blocksBuild`, else their
+   * catalogue entry's) whose ground disc (footprint x scale) comes within
+   * `radius` of the point. False until the catalogue is known
+   * (setObjectCatalog).
+   */
+  isBuildBlocked(lat: number, lon: number, radius: number): boolean {
+    const x = lon * MAP_METERS_PER_DEGREE;
+    const y = lat * MAP_METERS_PER_DEGREE;
+    const g = this.blockers;
+    if (!g) return false;
+    const reach = radius + g.maxRadius;
+    const i0 = Math.floor((x - reach - g.minX) / g.cell);
+    const i1 = Math.floor((x + reach - g.minX) / g.cell);
+    const j0 = Math.floor((y - reach - g.minY) / g.cell);
+    const j1 = Math.floor((y + reach - g.minY) / g.cell);
+    for (let j = Math.max(0, j0); j <= Math.min(g.rows - 1, j1); j++) {
+      for (let i = Math.max(0, i0); i <= Math.min(g.columns - 1, i1); i++) {
+        const bucket = g.buckets[j * g.columns + i];
+        if (!bucket) continue;
+        for (let k = 0; k < bucket.length; k += 3) {
+          const r = bucket[k + 2] + radius;
+          const dx = bucket[k] - x;
+          const dy = bucket[k + 1] - y;
+          if (dx * dx + dy * dy < r * r) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * The catalogue's objects (footprint radius at scale 1, whether they forbid
+   * building): from now on isBuildBlocked sees the map's objects
+   */
+  setObjectCatalog(entries: readonly { id: string; footprint: number; blocksBuild: boolean }[]): void {
+    const byId = new Map(entries.map((e) => [e.id, e]));
+    const cell = 16;
+    const t = this.doc.terrain;
+    const minX = -t.width / 2;
+    const minY = -t.depth / 2;
+    const columns = Math.max(1, Math.ceil(t.width / cell));
+    const rows = Math.max(1, Math.ceil(t.depth / cell));
+    const buckets: (number[] | undefined)[] = new Array(columns * rows);
+    let maxRadius = 0;
+    for (const o of this.doc.objects) {
+      const entry = byId.get(o.asset);
+      if (!(o.blocksBuild ?? entry?.blocksBuild ?? false)) continue;
+      const r = (entry?.footprint ?? 1) * o.scale;
+      maxRadius = Math.max(maxRadius, r);
+      const i = Math.min(columns - 1, Math.max(0, Math.floor((o.x - minX) / cell)));
+      const j = Math.min(rows - 1, Math.max(0, Math.floor((o.y - minY) / cell)));
+      (buckets[j * columns + i] ??= []).push(o.x, o.y, r);
+    }
+    this.blockers = { cell, minX, minY, columns, rows, buckets, maxRadius };
   }
 
   footprintColumn(localX: number, localZ: number): FootprintColumn | null {

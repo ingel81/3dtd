@@ -99,6 +99,11 @@ export class DevWorldSurface implements WorldSurface {
     return this.terrain.raycastDown(localX, localZ, 10000)?.y ?? null;
   }
 
+  /** DevWorld's buildings carry towers on their roofs */
+  isBuildBlocked(): boolean {
+    return false;
+  }
+
   /** The same raycastDown as the cursor surface for the top, the terrain height for the ground */
   footprintColumn(localX: number, localZ: number): FootprintColumn | null {
     const top = this.terrain.raycastDown(localX, localZ, 10000);
