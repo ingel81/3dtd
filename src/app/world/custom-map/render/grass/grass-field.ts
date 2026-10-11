@@ -1,0 +1,257 @@
+import {
+  ClampToEdgeWrapping,
+  Color,
+  DataTexture,
+  DoubleSide,
+  FloatType,
+  InstancedBufferAttribute,
+  InstancedBufferGeometry,
+  BufferAttribute,
+  Mesh,
+  MeshStandardMaterial,
+  NearestFilter,
+  NoColorSpace,
+  RedFormat,
+  Vector2,
+  Vector4,
+  type Texture,
+} from 'three';
+import type { HeightField } from '../height-field';
+import { addHeightFog } from '../environment/height-fog';
+
+/**
+ * Grass blades near the camera: a tile of instanced blades that wraps
+ * around the camera's focus (each blade's spot is fixed in the world and
+ * folded into the tile), standing on the height grid (fetched in the vertex
+ * shader), as dense as the grass layers of the splat there (none on roads,
+ * paths and cliffs), swaying in the wind and shrinking away towards the
+ * tile's edge so the switch to the painted ground is not seen.
+ *
+ * Lit like any standard material (shadows received, fog, grade); blades do
+ * not cast shadows. Not part of line of sight.
+ */
+
+export interface GrassInputs {
+  splat: [Texture, Texture];
+  pathMask: Texture;
+  /** Grass share per splat channel (1 for grass layers, 0 otherwise), maps 0 and 1 */
+  mask: [Vector4, Vector4];
+  /** Root and tip colour (linear), from the grass layers' average */
+  root: Color;
+  tip: Color;
+  width: number;
+  depth: number;
+}
+
+/** Edge of the tile around the focus, metres */
+const TILE = 64;
+const BLADES = 70000;
+/** Rows of the blade strip */
+const ROWS = 4;
+
+export class GrassField {
+  readonly mesh: Mesh<InstancedBufferGeometry, MeshStandardMaterial>;
+  private readonly heights: DataTexture;
+  private hasGrass = false;
+  private near = true;
+  private readonly uniforms = {
+    uGrassCenter: { value: new Vector2() },
+    uGrassTile: { value: TILE },
+    uGrassTime: { value: 0 },
+    uGrassHeights: { value: null as Texture | null },
+    uGrassGrid: { value: new Vector4() },
+    uGrassGridSize: { value: new Vector2() },
+    uGrassSplat0: { value: null as Texture | null },
+    uGrassSplat1: { value: null as Texture | null },
+    uGrassPath: { value: null as Texture | null },
+    uGrassMask0: { value: new Vector4() },
+    uGrassMask1: { value: new Vector4() },
+    uGrassMapSize: { value: new Vector2() },
+    uGrassRoot: { value: new Color() },
+    uGrassTip: { value: new Color() },
+  };
+
+  constructor(private readonly field: HeightField) {
+    this.heights = new DataTexture(field.grid.heights, field.columns, field.rows, RedFormat, FloatType);
+    this.heights.colorSpace = NoColorSpace;
+    this.heights.magFilter = this.heights.minFilter = NearestFilter;
+    this.heights.wrapS = this.heights.wrapT = ClampToEdgeWrapping;
+    this.heights.generateMipmaps = false;
+    this.heights.needsUpdate = true;
+    const u = this.uniforms;
+    u.uGrassHeights.value = this.heights;
+    u.uGrassGrid.value.set(field.originX, field.originY, field.cellSize, 0);
+    u.uGrassGridSize.value.set(field.columns, field.rows);
+
+    const g = new InstancedBufferGeometry();
+    // A tapering strip: (ROWS + 1) pairs of vertices, x across, y up
+    const pos = new Float32Array((ROWS + 1) * 2 * 3);
+    for (let r = 0; r <= ROWS; r++) {
+      const t = r / ROWS;
+      const w = 0.5 * (1 - t * 0.85);
+      pos.set([-w, t, 0, w, t, 0], r * 6);
+    }
+    const index: number[] = [];
+    for (let r = 0; r < ROWS; r++) {
+      const a = r * 2;
+      index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+    g.setAttribute('position', new BufferAttribute(pos, 3));
+    g.setAttribute('normal', new BufferAttribute(new Float32Array(pos.length).map((_, k) => (k % 3 === 1 ? 1 : 0)), 3));
+    g.setIndex(index);
+    const offsets = new Float32Array(BLADES * 2);
+    const rnd = new Float32Array(BLADES * 4);
+    let s = 12345;
+    const next = (): number => {
+      s = (s * 16807) % 2147483647;
+      return s / 2147483647;
+    };
+    for (let i = 0; i < BLADES; i++) {
+      offsets[i * 2] = next() * TILE;
+      offsets[i * 2 + 1] = next() * TILE;
+      rnd.set([next(), next(), next(), next()], i * 4);
+    }
+    g.setAttribute('aBladeOffset', new InstancedBufferAttribute(offsets, 2));
+    g.setAttribute('aBladeRand', new InstancedBufferAttribute(rnd, 4));
+    g.instanceCount = BLADES;
+
+    const material = new MeshStandardMaterial({ roughness: 0.85, metalness: 0, side: DoubleSide });
+    material.name = 'custom-map-grass';
+    material.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, this.uniforms);
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', `#include <common>\n${GRASS_VERTEX_PARS}`)
+        .replace('#include <beginnormal_vertex>', GRASS_NORMAL)
+        .replace('#include <begin_vertex>', GRASS_BEGIN);
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vBladeColor;')
+        .replace('#include <map_fragment>', 'diffuseColor.rgb = vBladeColor;');
+    };
+    material.customProgramCacheKey = () => 'custom-map-grass-1';
+    addHeightFog(material);
+    this.mesh = new Mesh(g, material);
+    this.mesh.name = 'custom-map-grass';
+    this.mesh.frustumCulled = false;
+    this.mesh.castShadow = false;
+    this.mesh.receiveShadow = true;
+    this.mesh.matrixAutoUpdate = false;
+    this.mesh.userData['losTransparent'] = true;
+  }
+
+  setInputs(p: GrassInputs): void {
+    const u = this.uniforms;
+    u.uGrassSplat0.value = p.splat[0];
+    u.uGrassSplat1.value = p.splat[1];
+    u.uGrassPath.value = p.pathMask;
+    u.uGrassMask0.value.copy(p.mask[0]);
+    u.uGrassMask1.value.copy(p.mask[1]);
+    u.uGrassRoot.value.copy(p.root);
+    u.uGrassTip.value.copy(p.tip);
+    u.uGrassMapSize.value.set(p.width, p.depth);
+    this.hasGrass = p.mask[0].lengthSq() + p.mask[1].lengthSq() > 0;
+    this.mesh.visible = this.hasGrass && this.near;
+  }
+
+  /** Whether the camera is close enough for blades to show */
+  setNear(near: boolean): void {
+    this.near = near;
+    this.mesh.visible = this.hasGrass && near;
+  }
+
+  /** Heights changed: re-upload the grid */
+  refreshHeights(): void {
+    this.heights.image.data = this.field.grid.heights;
+    this.heights.needsUpdate = true;
+  }
+
+  /** `focus` in the map group's space */
+  update(dt: number, focus: { x: number; z: number }): void {
+    this.uniforms.uGrassTime.value += dt;
+    this.uniforms.uGrassCenter.value.set(focus.x, focus.z);
+  }
+
+  dispose(): void {
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+    this.heights.dispose();
+    this.mesh.removeFromParent();
+  }
+}
+
+const GRASS_VERTEX_PARS = /* glsl */ `
+attribute vec2 aBladeOffset;
+attribute vec4 aBladeRand;
+uniform vec2 uGrassCenter;
+uniform float uGrassTile;
+uniform float uGrassTime;
+uniform sampler2D uGrassHeights;
+uniform vec4 uGrassGrid;
+uniform vec2 uGrassGridSize;
+uniform sampler2D uGrassSplat0;
+uniform sampler2D uGrassSplat1;
+uniform sampler2D uGrassPath;
+uniform vec4 uGrassMask0;
+uniform vec4 uGrassMask1;
+uniform vec2 uGrassMapSize;
+uniform vec3 uGrassRoot;
+uniform vec3 uGrassTip;
+varying vec3 vBladeColor;
+
+// Bilinear height of the grid at map point m (the grid is exact at samples)
+float grassHeight(vec2 m) {
+  vec2 g = clamp((m - uGrassGrid.xy) / uGrassGrid.z, vec2(0.0), uGrassGridSize - 1.001);
+  ivec2 i = ivec2(floor(g));
+  vec2 f = g - vec2(i);
+  float h00 = texelFetch(uGrassHeights, i, 0).r;
+  float h10 = texelFetch(uGrassHeights, i + ivec2(1, 0), 0).r;
+  float h01 = texelFetch(uGrassHeights, i + ivec2(0, 1), 0).r;
+  float h11 = texelFetch(uGrassHeights, i + ivec2(1, 1), 0).r;
+  // Same two triangles as the terrain mesh
+  return f.x >= f.y ? h00 + f.x * (h10 - h00) + f.y * (h11 - h10) : h00 + f.y * (h01 - h00) + f.x * (h11 - h01);
+}
+`;
+
+const GRASS_NORMAL = /* glsl */ `
+// Normals point up: blades light like the ground they grow from
+vec3 objectNormal = vec3(0.0, 1.0, 0.0);
+#ifdef USE_TANGENT
+vec3 objectTangent = vec3(1.0, 0.0, 0.0);
+#endif
+`;
+
+const GRASS_BEGIN = /* glsl */ `
+// The blade's spot in the world, folded into the tile around the focus
+vec2 sceneXZ = uGrassCenter + mod(aBladeOffset - uGrassCenter, vec2(uGrassTile)) - 0.5 * uGrassTile;
+vec2 mapPos = vec2(-sceneXZ.x, sceneXZ.y);
+vec2 uvMap = mapPos / uGrassMapSize + 0.5;
+vec4 s0 = texture2D(uGrassSplat0, uvMap);
+vec4 s1 = texture2D(uGrassSplat1, uvMap);
+float total = dot(s0, vec4(1.0)) + dot(s1, vec4(1.0));
+float grass = (dot(s0, uGrassMask0) + dot(s1, uGrassMask1)) / max(total, 1e-3);
+vec2 pm = texture2D(uGrassPath, uvMap).rg;
+grass *= 1.0 - max(pm.r, pm.g);
+// No grass on steep ground or outside the map
+float hx = grassHeight(mapPos + vec2(1.0, 0.0)) - grassHeight(mapPos - vec2(1.0, 0.0));
+float hy = grassHeight(mapPos + vec2(0.0, 1.0)) - grassHeight(mapPos - vec2(0.0, 1.0));
+float slope = length(vec2(hx, hy)) * 0.5;
+grass *= smoothstep(0.9, 0.5, slope);
+grass *= step(abs(mapPos.x), uGrassMapSize.x * 0.5) * step(abs(mapPos.y), uGrassMapSize.y * 0.5);
+// Shrink towards the tile's edge
+float edge = length(sceneXZ - uGrassCenter) / (0.5 * uGrassTile);
+float keep = smoothstep(0.45, 0.8, grass) * (1.0 - smoothstep(0.55, 0.95, edge));
+float bladeHeight = (0.35 + aBladeRand.y * 0.45) * keep;
+float bladeWidth = (0.07 + aBladeRand.z * 0.05) * step(0.001, keep);
+// Turned at random, bent by its own lean and the wind
+float a = aBladeRand.x * 6.2832;
+vec2 dir = vec2(cos(a), sin(a));
+float t = position.y;
+vec3 transformed = vec3(dir.x * position.x * bladeWidth, t * bladeHeight, dir.y * position.x * bladeWidth);
+float gust = sin(uGrassTime * 1.3 + dot(sceneXZ, vec2(0.11, 0.07))) * 0.5 + 0.5;
+vec2 sway = vec2(0.8, 0.3) * (0.15 + 0.35 * gust) + vec2(sin(uGrassTime * 2.7 + aBladeRand.w * 20.0), cos(uGrassTime * 2.1 + aBladeRand.w * 13.0)) * 0.08;
+vec2 lean = vec2(-dir.y, dir.x) * (aBladeRand.w - 0.5) * 0.5;
+transformed.xz += (lean + sway) * t * t * bladeHeight;
+transformed += vec3(sceneXZ.x, grassHeight(mapPos), sceneXZ.y);
+// Dark root to light tip, each blade a little different
+vec3 bladeTip = uGrassTip * (1.05 + aBladeRand.z * 0.35) * mix(vec3(1.0), vec3(1.12, 1.05, 0.8), step(0.85, aBladeRand.y));
+vBladeColor = mix(uGrassRoot * 0.75, bladeTip, smoothstep(0.0, 0.8, t));
+`;

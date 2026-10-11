@@ -1,4 +1,13 @@
-import { MeshStandardMaterial, type DataTexture, type Material, type Mesh, type Vector3 } from 'three';
+import {
+  Color,
+  MeshStandardMaterial,
+  SRGBColorSpace,
+  Vector4,
+  type DataTexture,
+  type Material,
+  type Mesh,
+  type Vector3,
+} from 'three';
 import type { MapTerrain as MapTerrainDoc, MapPaths } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
@@ -7,6 +16,7 @@ import { addHeightFog } from '../environment/height-fog';
 import { ApronProfile, buildTerrainApron } from './terrain-apron';
 import { TerrainChunks, type GridRect } from './terrain-chunks';
 import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots } from './terrain-material';
+import { GrassField, type GrassInputs } from '../grass/grass-field';
 import { GroundOcclusion } from './ground-occlusion';
 import { GridNormalTexture, MaterialArrays, SplatTextures, maskTexture } from './terrain-textures';
 
@@ -57,6 +67,9 @@ export class MapTerrainLayer {
   private pathMask: DataTexture | null = null;
   private readonly normals: GridNormalTexture;
   readonly occlusion: GroundOcclusion;
+  /** Blades near the camera on the grass layers */
+  readonly grass: GrassField;
+  private grassInputs: Omit<GrassInputs, 'splat' | 'pathMask'> | null = null;
   private generation = 0;
   private readonly placeholder = new MeshStandardMaterial({ color: 0x5f7a3c, roughness: 0.95 });
 
@@ -69,6 +82,8 @@ export class MapTerrainLayer {
     this.apron = buildTerrainApron(this.apronProfile, this.placeholder);
     this.normals = new GridNormalTexture(field);
     this.occlusion = new GroundOcclusion(field);
+    this.grass = new GrassField(field);
+    this.grass.mesh.visible = false;
     this.normals.setWater(terrain.water?.mask ?? null);
   }
 
@@ -124,17 +139,39 @@ export class MapTerrainLayer {
     this.material.setWaterLevel(t.water?.level ?? null);
     this.chunks.setMaterial(this.material);
     this.apron.material = this.material;
+
+    // Grass blades where the splat paints grass layers, coloured like them
+    const mask: [Vector4, Vector4] = [new Vector4(), new Vector4()];
+    const tip = new Color(0, 0, 0);
+    let grassLayers = 0;
+    t.layers.slice(0, 8).forEach((layer, k) => {
+      if (entryOf(layer.material)?.category !== 'grass') return;
+      mask[k >> 2].setComponent(k & 3, 1);
+      const px = pixels[slots.splat[k]];
+      if (px) tip.add(new Color().setRGB(px.average[0], px.average[1], px.average[2], SRGBColorSpace));
+      grassLayers++;
+    });
+    if (grassLayers) tip.multiplyScalar(1 / grassLayers);
+    this.grassInputs = { mask, root: tip.clone().multiplyScalar(0.7), tip, width: t.width, depth: t.depth };
+    this.updateGrassInputs();
   }
 
-  update(cameraPos: Vector3, dt = 0): void {
+  private updateGrassInputs(): void {
+    if (!this.grassInputs || !this.splat || !this.pathMask) return;
+    this.grass.setInputs({ ...this.grassInputs, splat: this.splat.maps, pathMask: this.pathMask });
+  }
+
+  update(cameraPos: Vector3, dt = 0, focus?: Vector3): void {
     this.chunks.update(cameraPos);
     this.material?.tick(dt);
+    if (focus) this.grass.update(dt, focus);
   }
 
   rebuild(rect?: GridRect): void {
     this.chunks.rebuild(rect);
     this.normals.update(rect);
     this.occlusion.updateTerrain(rect);
+    this.grass.refreshHeights();
     this.refreshApron(rect);
   }
 
@@ -163,6 +200,7 @@ export class MapTerrainLayer {
       u.uSplat1.value = this.splat.maps[1];
     }
     this.material?.setCliffAngle(this.terrain.cliffAngle);
+    this.updateGrassInputs();
   }
 
   refreshPaths(paths: MapPaths): void {
@@ -170,6 +208,7 @@ export class MapTerrainLayer {
     this.pathMask?.dispose();
     this.pathMask = this.buildPathMask(paths);
     this.material.terrainUniforms.uPathMask.value = this.pathMask;
+    this.updateGrassInputs();
   }
 
   dispose(): void {
@@ -183,6 +222,7 @@ export class MapTerrainLayer {
     this.pathMask?.dispose();
     this.normals.dispose();
     this.occlusion.dispose();
+    this.grass.dispose();
   }
 
   private buildPathMask(paths: MapPaths): DataTexture {

@@ -43,6 +43,9 @@ import type { GridRect } from './terrain/terrain-chunks';
  * (same transform, the group sits at the origin).
  */
 
+/** Beyond this camera distance to its focus the grass blades are not drawn */
+const GRASS_MAX_VIEW_DISTANCE = 140;
+
 /** Rectangle in map metres */
 export interface MapRect {
   minX: number;
@@ -64,6 +67,8 @@ export interface MapRayHit {
 export interface CustomMapViewOptions {
   /** Anisotropic filtering of the ground textures (renderer.capabilities.getMaxAnisotropy()) */
   anisotropy?: number;
+  /** Grass blades near the camera (default on) */
+  grass?: boolean;
 }
 
 export class CustomMapView {
@@ -86,6 +91,7 @@ export class CustomMapView {
   private readonly hitPoint = new Vector3();
   private readonly mapPoint = { x: 0, y: 0 };
   private readonly focusPoint = new Vector3();
+  private readonly grassCenter = new Vector3();
   private readonly viewRay = new Ray();
   private disposed = false;
 
@@ -103,6 +109,7 @@ export class CustomMapView {
     this.terrain = new MapTerrainLayer(t, this.heights);
     this.losBlockers.add(this.terrain.chunks.group);
     this.group.add(this.terrain.apron);
+    if (options.grass !== false) this.group.add(this.terrain.grass.mesh);
 
     this.environment = new CustomMapEnvironment(doc.environment);
     this.environment.setFogBase(lowGround(t.grid.heights, t.water?.level));
@@ -162,6 +169,10 @@ export class CustomMapView {
     const reach = this.camPos.distanceTo(this.focusPoint);
     this.environment.focus(this.focusPoint, Math.min(450, Math.max(70, reach * 0.9)));
     this.effects.update(dtSeconds, this.focusPoint);
+    // Grass between the camera's foot and the focus; from far up blades are below a pixel, skip them
+    this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);
+    this.terrain.grass.update(dtSeconds, this.grassCenter);
+    this.terrain.grass.setNear(reach < GRASS_MAX_VIEW_DISTANCE);
     this.environment.update(dtSeconds, camera, this.focusPoint);
   }
 
