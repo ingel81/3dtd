@@ -75,8 +75,9 @@ def main():
     import build_props
     import build_space
     import build_structures
+    import build_vehicles
     registry = base_models()
-    for module in (build_nature, build_structures, build_props, build_city, build_space, build_extreme):
+    for module in (build_nature, build_structures, build_props, build_city, build_space, build_extreme, build_vehicles):
         for name, fn in module.models().items():
             assert name not in registry, name
             registry[name] = fn

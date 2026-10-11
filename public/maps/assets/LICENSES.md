@@ -353,14 +353,22 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | container-red | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side |
 | container-blue | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side |
 | container-rusty | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
-| car-red | procedural (tools/map-assets/build_city.py) |
-| car-blue | procedural (tools/map-assets/build_city.py) |
-| car-white | procedural (tools/map-assets/build_city.py) |
-| car-grey | procedural (tools/map-assets/build_city.py) |
-| car-wreck | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
-| car-wreck-b | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
-| car-burnt | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
-| bus-wreck | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
+| car-red | procedural (tools/map-assets/build_vehicles.py) |
+| car-blue | procedural (tools/map-assets/build_vehicles.py) |
+| car-white | procedural (tools/map-assets/build_vehicles.py) |
+| car-grey | procedural (tools/map-assets/build_vehicles.py) |
+| car-wreck | procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03 |
+| car-wreck-b | procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03 |
+| car-burnt | procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03 |
+| bus-wreck | procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03 |
+| pickup | procedural (tools/map-assets/build_vehicles.py) |
+| pickup-wreck | procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03 |
+| truck | procedural (tools/map-assets/build_vehicles.py) |
+| truck-wreck | procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03 |
+| bus | procedural (tools/map-assets/build_vehicles.py) |
+| bus-burnt | procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03 |
+| tank-wreck | procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03 |
+| tank-burnt | procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03 |
 | car-covered | https://polyhaven.com/a/covered_car |
 | traffic-light | procedural (tools/map-assets/build_city.py) |
 | street-lamp | https://polyhaven.com/a/street_lamp_01 |

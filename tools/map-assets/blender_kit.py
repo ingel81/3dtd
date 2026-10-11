@@ -285,6 +285,8 @@ def bake_ao(name, objects, size=512, distance=2.0, samples=24):
         group.interface.new_socket('Occlusion', in_out='INPUT', socket_type='NodeSocketFloat')
     for slot in obj.material_slots:
         m = slot.material
+        if m is None:
+            continue
         nt = m.node_tree
         uvn = nt.nodes.new('ShaderNodeUVMap')
         uvn.uv_map = 'AO'

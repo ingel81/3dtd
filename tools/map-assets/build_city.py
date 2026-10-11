@@ -352,78 +352,6 @@ def container(name, tint, rusty=False):
     export(name, [body.to_object(name), frame.to_object(name + '-frame')])
 
 
-# ---------------------------------------------------------------- cars
-
-def car(name, paint, state='whole', seed=0):
-    """Compact car along Y (front -Y): body, cabin with glass, wheels; `wreck` rusty without glass and
-    sagging on flat tyres, `burnt` charred, on its rims"""
-    clear_scene()
-    rnd = random.Random(seed)
-    if state == 'whole':
-        body = Part(flat_material('paint-' + '-'.join('%.2f' % c for c in paint), paint, 0.35, 0.3), smooth=False)
-    elif state == 'wreck':
-        body = Part(pbr_material('metal-rusty_metal_03-car', 'rusty_metal_03', (0.6, 0.52, 0.48)), uv_metres=1.5)
-    else:
-        body = Part(pbr_material('metal-burnt', 'rusty_metal_03', (0.3, 0.24, 0.22)), uv_metres=1.5)
-    win = Part(glass() if state == 'whole' else flat_material('car-hole', (0.02, 0.02, 0.02), 0.95))
-    tyre = Part(flat_material('tyre', (0.04, 0.04, 0.04), 0.9), smooth=True)
-    rim = Part(flat_material('rim', (0.5, 0.5, 0.52), 0.4, 0.8))
-    L, W = 4.2, 1.76
-    z0 = 0.32
-    # Lower body with sloped nose and tail
-    hexa(body, [(-W / 2, -L / 2, z0), (W / 2, -L / 2, z0), (W / 2, L / 2, z0), (-W / 2, L / 2, z0)],
-         [(-W / 2, -L / 2 + 0.15, z0 + 0.55), (W / 2, -L / 2 + 0.15, z0 + 0.55), (W / 2, L / 2 - 0.1, z0 + 0.62),
-          (-W / 2, L / 2 - 0.1, z0 + 0.62)])
-    # Cabin
-    cz = z0 + 0.6
-    bottom = [(-W / 2 + 0.05, -0.65, cz), (W / 2 - 0.05, -0.65, cz), (W / 2 - 0.05, 1.45, cz), (-W / 2 + 0.05, 1.45, cz)]
-    top = [(-W / 2 + 0.2, -0.05, cz + 0.62), (W / 2 - 0.2, -0.05, cz + 0.62), (W / 2 - 0.2, 1.2, cz + 0.62), (-W / 2 + 0.2, 1.2, cz + 0.62)]
-    hexa(body, bottom, top)
-    # Glass slightly outside the cabin faces
-    hexa(win, [(-W / 2 + 0.03, -0.6, cz + 0.05), (W / 2 - 0.03, -0.6, cz + 0.05), (W / 2 - 0.03, 1.42, cz + 0.05),
-               (-W / 2 + 0.03, 1.42, cz + 0.05)],
-         [(-W / 2 + 0.18, -0.08, cz + 0.57), (W / 2 - 0.18, -0.08, cz + 0.57), (W / 2 - 0.18, 1.17, cz + 0.57),
-          (-W / 2 + 0.18, 1.17, cz + 0.57)])
-    for y in (-1.3, 1.35):
-        for sx in (-1, 1):
-            x = sx * (W / 2 - 0.12)
-            flat = state != 'whole'
-            r = 0.32 if not flat else 0.26
-            if state != 'burnt':
-                tube(tyre, [Vector((x - 0.12, y, 0.32)), Vector((x + 0.12, y, 0.32))], [r, r], 14, cap=True)
-                tube(tyre, [Vector((x + 0.12, y, 0.32)), Vector((x - 0.12, y, 0.32))], [r, r], 14, cap=True)
-            tube(rim, [Vector((x - 0.13 * sx, y, 0.32)), Vector((x + 0.13 * sx, y, 0.32))], [0.2, 0.2], 10, cap=True)
-    if state == 'whole':
-        lights = Part(flat_material('headlight', (1.0, 0.95, 0.8), 0.2, emission=(1.0, 0.95, 0.8), strength=0.4))
-        tail = Part(flat_material('taillight', (0.6, 0.05, 0.04), 0.3, emission=(0.8, 0.05, 0.03), strength=0.3))
-        for sx in (-1, 1):
-            box(lights, sx * 0.6, -L / 2 - 0.01, z0 + 0.35, 0.3, 0.05, 0.12)
-            box(tail, sx * 0.65, L / 2 + 0.01, z0 + 0.4, 0.3, 0.05, 0.12)
-        objects = [body.to_object(name), win.to_object(name + '-glass'), tyre.to_object(name + '-tyres'),
-                   rim.to_object(name + '-rims'), lights.to_object(name + '-lights'), tail.to_object(name + '-tail')]
-        export(name, objects)
-        return
-    objects = [body.to_object(name), win.to_object(name + '-holes'), tyre.to_object(name + '-tyres'), rim.to_object(name + '-rims')]
-    tilt(objects, x=rnd.uniform(-2, 2), y=rnd.uniform(3, 6), z=rnd.uniform(-8, 8), lift=-0.08)
-    export(name, objects)
-
-
-def bus_wreck(name):
-    clear_scene()
-    body = Part(pbr_material('metal-rusty_metal_03-bus', 'rusty_metal_03', (0.55, 0.55, 0.58)), uv_metres=2.0)
-    holes = Part(flat_material('car-hole', (0.02, 0.02, 0.02), 0.95))
-    L, W, H = 11.0, 2.5, 2.9
-    box(body, 0, 0, 0.3, W, L, H)
-    for side in (-1, 1):
-        for k in range(8):
-            y = -L / 2 + 1.0 + k * 1.3
-            box(holes, side * (W / 2 + 0.02), y, 1.6, 0.08, 1.0, 1.0)
-    box(holes, 0, -L / 2 - 0.02, 1.4, 2.1, 0.08, 1.2)
-    objects = [body.to_object(name), holes.to_object(name + '-holes')]
-    tilt(objects, x=1.5, y=4, z=6, lift=-0.2)
-    export(name, objects)
-
-
 # ---------------------------------------------------------------- street furniture
 
 def traffic_light(name):
@@ -622,7 +550,6 @@ def power_pole(name, fallen=False):
 
 
 def models():
-    grey, red, blue, white = (0.55, 0.57, 0.6), (0.55, 0.08, 0.06), (0.1, 0.22, 0.5), (0.85, 0.85, 0.83)
     return {
         'apartment-block': lambda: city_block('apartment-block', 'modern', 4, 14.0, 10.0, seed=1),
         'apartment-block-tall': lambda: city_block('apartment-block-tall', 'modern', 8, 16.0, 12.0, seed=2),
@@ -638,14 +565,6 @@ def models():
         'container-red': lambda: container('container-red', (1.6, 0.45, 0.4)),
         'container-blue': lambda: container('container-blue', (0.5, 0.75, 1.5)),
         'container-rusty': lambda: container('container-rusty', (1.0, 0.95, 0.9), rusty=True),
-        'car-red': lambda: car('car-red', red),
-        'car-blue': lambda: car('car-blue', blue),
-        'car-white': lambda: car('car-white', white),
-        'car-grey': lambda: car('car-grey', grey),
-        'car-wreck': lambda: car('car-wreck', grey, 'wreck', 1),
-        'car-wreck-b': lambda: car('car-wreck-b', grey, 'wreck', 2),
-        'car-burnt': lambda: car('car-burnt', grey, 'burnt', 3),
-        'bus-wreck': lambda: bus_wreck('bus-wreck'),
         'car-covered': lambda: import_model('covered_car', None, 3000, 'car-covered', keep_scale=True),
         'traffic-light': lambda: traffic_light('traffic-light'),
         'street-lamp': lambda: import_model('street_lamp_01', None, 2500, 'street-lamp', keep_scale=True),

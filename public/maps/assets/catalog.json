@@ -6991,8 +6991,8 @@
       "name": "Car (red)",
       "category": "prop",
       "file": "models/car-red.glb",
-      "footprint": 1.9,
-      "height": 1.5,
+      "footprint": 2.1,
+      "height": 1.4,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -7005,15 +7005,15 @@
       "tags": [
         "city"
       ],
-      "source": "procedural (tools/map-assets/build_city.py)"
+      "source": "procedural (tools/map-assets/build_vehicles.py)"
     },
     {
       "id": "car-blue",
       "name": "Car (blue)",
       "category": "prop",
       "file": "models/car-blue.glb",
-      "footprint": 1.9,
-      "height": 1.5,
+      "footprint": 2.1,
+      "height": 1.4,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -7026,15 +7026,15 @@
       "tags": [
         "city"
       ],
-      "source": "procedural (tools/map-assets/build_city.py)"
+      "source": "procedural (tools/map-assets/build_vehicles.py)"
     },
     {
       "id": "car-white",
       "name": "Car (white)",
       "category": "prop",
       "file": "models/car-white.glb",
-      "footprint": 1.9,
-      "height": 1.5,
+      "footprint": 2.1,
+      "height": 1.4,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -7047,15 +7047,15 @@
       "tags": [
         "city"
       ],
-      "source": "procedural (tools/map-assets/build_city.py)"
+      "source": "procedural (tools/map-assets/build_vehicles.py)"
     },
     {
       "id": "car-grey",
       "name": "Car (grey)",
       "category": "prop",
       "file": "models/car-grey.glb",
-      "footprint": 1.9,
-      "height": 1.5,
+      "footprint": 2.1,
+      "height": 1.4,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -7068,15 +7068,15 @@
       "tags": [
         "city"
       ],
-      "source": "procedural (tools/map-assets/build_city.py)"
+      "source": "procedural (tools/map-assets/build_vehicles.py)"
     },
     {
       "id": "car-wreck",
       "name": "Car wreck",
       "category": "prop",
       "file": "models/car-wreck.glb",
-      "footprint": 1.9,
-      "height": 1.5,
+      "footprint": 2.2,
+      "height": 1.4,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -7089,15 +7089,15 @@
       "tags": [
         "wasteland"
       ],
-      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
+      "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
     },
     {
       "id": "car-wreck-b",
       "name": "Car wreck, tilted",
       "category": "prop",
       "file": "models/car-wreck-b.glb",
-      "footprint": 2.0,
-      "height": 1.6,
+      "footprint": 2.2,
+      "height": 1.4,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -7110,15 +7110,15 @@
       "tags": [
         "wasteland"
       ],
-      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
+      "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
     },
     {
       "id": "car-burnt",
       "name": "Burnt-out car",
       "category": "prop",
       "file": "models/car-burnt.glb",
-      "footprint": 1.9,
-      "height": 1.5,
+      "footprint": 2.2,
+      "height": 1.3,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -7132,14 +7132,14 @@
         "wasteland",
         "hell"
       ],
-      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
+      "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
     },
     {
       "id": "bus-wreck",
       "name": "Bus wreck",
       "category": "prop",
       "file": "models/bus-wreck.glb",
-      "footprint": 5.1,
+      "footprint": 5.2,
       "height": 3.2,
       "blocksLos": false,
       "blocksBuild": true,
@@ -7153,7 +7153,180 @@
       "tags": [
         "wasteland"
       ],
-      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
+      "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "pickup",
+      "name": "Pickup truck",
+      "category": "prop",
+      "file": "models/pickup.glb",
+      "footprint": 2.4,
+      "height": 1.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 900,
+      "tags": [
+        "city",
+        "village",
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_vehicles.py)"
+    },
+    {
+      "id": "pickup-wreck",
+      "name": "Pickup wreck",
+      "category": "prop",
+      "file": "models/pickup-wreck.glb",
+      "footprint": 2.5,
+      "height": 1.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 900,
+      "tags": [
+        "wasteland",
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "truck",
+      "name": "Box truck",
+      "category": "prop",
+      "file": "models/truck.glb",
+      "footprint": 3.3,
+      "height": 3.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_vehicles.py)"
+    },
+    {
+      "id": "truck-wreck",
+      "name": "Truck wreck",
+      "category": "prop",
+      "file": "models/truck-wreck.glb",
+      "footprint": 3.5,
+      "height": 3.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "bus",
+      "name": "Bus",
+      "category": "prop",
+      "file": "models/bus.glb",
+      "footprint": 5.1,
+      "height": 3.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_vehicles.py)"
+    },
+    {
+      "id": "bus-burnt",
+      "name": "Burnt-out bus",
+      "category": "prop",
+      "file": "models/bus-burnt.glb",
+      "footprint": 5.2,
+      "height": 3.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "wasteland",
+        "hell"
+      ],
+      "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "tank-wreck",
+      "name": "Tank wreck",
+      "category": "prop",
+      "file": "models/tank-wreck.glb",
+      "footprint": 3.8,
+      "height": 2.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "tank-burnt",
+      "name": "Burnt-out tank",
+      "category": "prop",
+      "file": "models/tank-burnt.glb",
+      "footprint": 3.8,
+      "height": 2.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "wasteland",
+        "hell"
+      ],
+      "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
     },
     {
       "id": "car-covered",
