@@ -1,6 +1,5 @@
 import {
   Color,
-  Frustum,
   Group,
   InstancedMesh,
   Matrix4,
@@ -8,10 +7,13 @@ import {
   Ray,
   Raycaster,
   Sphere,
+  Vector2,
   Vector3,
+  type BufferGeometry,
   type Camera,
   type Material,
   type MeshStandardMaterial,
+  type WebGLRenderer,
 } from 'three';
 import type { MapObject } from '../../map-document';
 import type { CatalogObject } from '../asset-catalog';
@@ -19,48 +21,63 @@ import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
 import { mapToScene } from '../map-coords';
+import { bakeImpostor, type Impostor } from './impostor';
 
 /**
- * The placed objects of a map, drawn instanced: one InstancedMesh per model
- * part and asset, split by whether the objects block line of sight.
+ * The placed objects of a map, drawn instanced and split into square cells
+ * of the map (CELL_SIZE): per asset, cell and detail level one InstancedMesh
+ * per model part, each with tight bounds. three's frustum culling then drops
+ * whole cells for the camera, the sun's shadow and the LOS cube alike, and
+ * nothing is repacked per frame:
  *
- * - Sight blockers (trees, big rocks, buildings) go into the LOS group and
- *   always hold every instance: the LOS cube renders from the towers, not
- *   from the camera, so they must not be culled by the camera.
- * - Everything else (grass, flowers, small props) is culled per instance
- *   on the CPU by the asset's draw distance and the camera frustum; the
- *   visible instances are packed to the front of the buffer.
- * - Assets with lower detail models (`lod` in the catalogue) get meshes per
- *   level; each instance goes to the level of its camera distance (sight
- *   blockers too: the LOS cube then sees the level the camera sees).
+ * - each frame a cell shows one detail level by its distance (the model,
+ *   the catalogue's `lod` models, an impostor for far trees) and hides
+ *   beyond the asset's draw distance
+ * - only cells near the camera's focus cast shadows (the sun's shadow box
+ *   covers no more)
+ * - sight blockers (trees, big rocks, buildings) live in the LOS group:
+ *   the LOS cube renders from the towers with its own frustum, and sees
+ *   the level the camera chose
  *
- * Trees and plants sway in the wind (vertex shader, by height in the model
- * and a phase from the instance position). Vegetation gets a small random
- * brightness per instance, so a forest of one model does not look cloned.
+ * Trees and plants sway in the wind, foliage cards keep their normals and
+ * fade when seen edge-on or near their draw distance, waterfall cards flow
+ * and flames flicker (all in objectMaterial). Vegetation gets a brightness
+ * and hue per instance, so a forest of one model does not look cloned.
  */
 
+/** Edge of an object cell in metres */
+export const CELL_SIZE = 192;
 /** Height (metres) at which a model of wind strength 1 sways by 1 m */
 const WIND_REFERENCE_HEIGHT = 18;
 
+interface Level {
+  from: number;
+  parts: { geometry: BufferGeometry; material: Material }[];
+}
+
+interface Cell {
+  /** Object indices of the batch in this cell */
+  indices: number[];
+  /** Meshes per level */
+  levels: InstancedMesh[][];
+  sphere: Sphere;
+  level: number;
+}
+
 interface AssetBatch {
-  key: string;
   entry: CatalogObject;
   model: ObjectModel;
   blocksLos: boolean;
   objects: MapObject[];
-  /** Detail levels, nearest first: the meshes of each and the camera distance it starts at */
-  levels: { meshes: InstancedMesh[]; from: number }[];
-  /** Every level's meshes */
-  meshes: InstancedMesh[];
+  levels: Level[];
   /** Instance matrices of all objects (16 per object) */
   matrices: Float32Array;
   /** Bounding sphere centre and radius per object (4 per object) */
   spheres: Float32Array;
   colors: Float32Array | null;
-  /** Instances culled by draw distance and frustum (not sight blockers) */
-  culled: boolean;
-  /** Instances re-packed when the camera moves (culled, or more than one level) */
-  dynamic: boolean;
+  cells: Map<number, Cell>;
+  /** Cell and slot of each object */
+  slots: { cell: number; slot: number }[];
 }
 
 export interface ObjectHit {
@@ -69,30 +86,36 @@ export interface ObjectHit {
   distance: number;
 }
 
+export interface ObjectLayerOptions {
+  /** Renderer for baking tree impostors; without one far trees keep their model */
+  renderer?: WebGLRenderer;
+}
+
 export class MapObjectLayer {
   /** Non-blocking objects; blocking ones are added to the LOS group given to the constructor */
   readonly group = new Group();
   private batches: AssetBatch[] = [];
   private readonly byId = new Map<string, { batch: AssetBatch; index: number }>();
-  private readonly windUniforms = { uWindTime: { value: 0 } };
-  private readonly windMaterials = new Map<Material, Material>();
+  private readonly objectUniforms = { uWindTime: { value: 0 } };
+  private readonly materials = new Map<string, Material>();
+  private readonly impostors = new Map<string, Impostor | null>();
   private generation = 0;
-  private readonly frustum = new Frustum();
-  private readonly projScreen = new Matrix4();
-  private readonly lastCamera = new Matrix4();
   private readonly camPos = new Vector3();
+  private readonly focus = new Vector3();
   private readonly tmpMatrix = new Matrix4();
   private readonly tmpPos = new Vector3();
   private readonly tmpQuat = new Quaternion();
   private readonly tmpScale = new Vector3();
   private readonly up = new Vector3(0, 1, 0);
   private readonly sphere = new Sphere();
-  private forceCull = true;
+  /** Cells within this distance of the focus cast shadows */
+  shadowRadius = 400;
 
   constructor(
     private readonly field: HeightField,
     private readonly assets: MapAssetLibrary,
     private readonly losGroup: Group,
+    private readonly options: ObjectLayerOptions = {},
   ) {
     this.group.name = 'custom-map-objects';
     this.group.userData['losTransparent'] = true;
@@ -115,22 +138,19 @@ export class MapObjectLayer {
     for (const [key, list] of groups) {
       const [model, lods] = await Promise.all([this.assets.model(list[0].asset), this.assets.lodModels(list[0].asset)]);
       if (generation !== this.generation) return;
-      built.push(this.buildBatch(key, model, lods, key.endsWith('|1'), list));
+      built.push(this.buildBatch(model, lods, key.endsWith('|1'), list));
     }
     if (generation !== this.generation) return;
     this.clear();
     this.batches = built;
-    for (const b of built) {
-      b.objects.forEach((o, index) => this.byId.set(o.id, { batch: b, index }));
-      for (const m of b.meshes) (b.blocksLos ? this.losGroup : this.group).add(m);
-    }
-    this.forceCull = true;
+    for (const b of built) b.objects.forEach((o, index) => this.byId.set(o.id, { batch: b, index }));
+    this.applyLevels(true);
   }
 
   /**
    * Moves, turns or scales one object in place. Returns false when the
-   * object is unknown or changed its asset or LOS flag; the caller then
-   * calls `setObjects`.
+   * object is unknown, changed its asset or LOS flag, or left its cell; the
+   * caller then calls `setObjects`.
    */
   updateObject(o: MapObject): boolean {
     const slot = this.byId.get(o.id);
@@ -138,16 +158,10 @@ export class MapObjectLayer {
     const b = slot.batch;
     const blocks = o.blocksLos ?? b.entry.blocksLos;
     if (o.asset !== b.objects[slot.index].asset || blocks !== b.blocksLos) return false;
+    if (this.cellKey(o.x, o.y) !== b.slots[slot.index].cell) return false;
     b.objects[slot.index] = o;
     this.writeInstance(b, slot.index);
-    if (!b.dynamic) {
-      for (const m of b.meshes) {
-        m.instanceMatrix.array.set(b.matrices.subarray(slot.index * 16, slot.index * 16 + 16), slot.index * 16);
-        m.instanceMatrix.needsUpdate = true;
-        m.computeBoundingSphere();
-      }
-    }
-    this.forceCull = true;
+    this.uploadInstances(b, [slot.index], true);
     return true;
   }
 
@@ -167,49 +181,31 @@ export class MapObjectLayer {
         this.writeInstance(b, i);
         changed.push(i);
       }
-      if (!changed.length || b.dynamic) continue;
-      for (const m of b.meshes) {
-        const dst = m.instanceMatrix.array as Float32Array;
-        if (!rect) m.instanceMatrix.clearUpdateRanges();
-        for (const i of changed) {
-          dst.set(b.matrices.subarray(i * 16, i * 16 + 16), i * 16);
-          if (rect) m.instanceMatrix.addUpdateRange(i * 16, 16);
-        }
-        m.instanceMatrix.needsUpdate = true;
-        // A brush moves objects up or down a little: grow the bounds instead of walking every instance
-        if (!rect || !m.boundingSphere) m.computeBoundingSphere();
-        else for (const i of changed) m.boundingSphere.union(this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3] + 1));
-      }
+      if (changed.length) this.uploadInstances(b, changed, !!rect);
     }
-    this.forceCull = true;
   }
 
-  /** Wind time and per-instance culling of the non-blocking objects */
-  update(dt: number, camera: Camera): void {
-    this.windUniforms.uWindTime.value += dt;
-    camera.updateMatrixWorld();
-    this.projScreen.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-    if (!this.forceCull && this.projScreen.equals(this.lastCamera)) return;
-    this.lastCamera.copy(this.projScreen);
-    this.forceCull = false;
-    this.frustum.setFromProjectionMatrix(this.projScreen);
+  /** Wind time, detail level and draw distance per cell, shadows near `focus` (group space) */
+  update(dt: number, camera: Camera, focus?: Vector3): void {
+    this.objectUniforms.uWindTime.value += dt;
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
-    for (const b of this.batches) if (b.dynamic) this.assign(b);
+    this.focus.copy(focus ?? this.camPos);
+    this.applyLevels(false);
   }
 
   /** First object a scene-space ray hits */
   raycast(ray: Ray): ObjectHit | null {
     const raycaster = new Raycaster(ray.origin, ray.direction);
-    const meshes = this.batches.flatMap((b) => b.meshes);
+    const meshes: InstancedMesh[] = [];
+    for (const b of this.batches) for (const c of b.cells.values()) meshes.push(...c.levels[0]);
     const hits = raycaster.intersectObjects(meshes, false);
     for (const hit of hits) {
-      const batch = this.batches.find((b) => b.meshes.includes(hit.object as InstancedMesh));
-      if (!batch || hit.instanceId === undefined) continue;
-      // Culled batches pack visible instances; their order is kept in userData
-      const order = (hit.object as InstancedMesh).userData['order'] as Int32Array | undefined;
-      const index = order ? order[hit.instanceId] : hit.instanceId;
-      return { object: batch.objects[index], point: hit.point, distance: hit.distance };
+      const mesh = hit.object as InstancedMesh;
+      const batch = mesh.userData['batch'] as AssetBatch | undefined;
+      const cell = mesh.userData['cell'] as Cell | undefined;
+      if (!batch || !cell || hit.instanceId === undefined) continue;
+      return { object: batch.objects[cell.indices[hit.instanceId]], point: hit.point, distance: hit.distance };
     }
     return null;
   }
@@ -217,76 +213,176 @@ export class MapObjectLayer {
   dispose(): void {
     this.generation++;
     this.clear();
-    for (const m of this.windMaterials.values()) m.dispose();
-    this.windMaterials.clear();
+    for (const m of this.materials.values()) m.dispose();
+    this.materials.clear();
+    for (const imp of this.impostors.values()) imp?.dispose();
+    this.impostors.clear();
     this.group.removeFromParent();
   }
 
   private clear(): void {
     for (const b of this.batches) {
-      for (const m of b.meshes) {
-        m.removeFromParent();
-        m.dispose();
+      for (const c of b.cells.values()) {
+        for (const meshes of c.levels) {
+          for (const m of meshes) {
+            m.removeFromParent();
+            m.dispose();
+          }
+        }
       }
     }
     this.batches = [];
     this.byId.clear();
   }
 
-  private buildBatch(
-    key: string,
-    model: ObjectModel,
-    lods: { model: ObjectModel; distance: number }[],
-    blocksLos: boolean,
-    objects: MapObject[],
-  ): AssetBatch {
+  private cellKey(x: number, y: number): number {
+    return Math.floor(x / CELL_SIZE) * 4096 + Math.floor(y / CELL_SIZE);
+  }
+
+  /** Detail levels of an asset: its model, the catalogue's LOD models, an impostor for far trees */
+  private levelsFor(model: ObjectModel, lods: { model: ObjectModel; distance: number }[]): Level[] {
+    const entry = model.entry;
+    const levels: Level[] = [{ from: 0, parts: model.parts.map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry) })) }];
+    for (const lod of lods) {
+      levels.push({ from: lod.distance, parts: lod.model.parts.map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry) })) });
+    }
+    if (entry.category === 'tree' && this.options.renderer && !model.placeholder) {
+      let imp = this.impostors.get(entry.id);
+      if (imp === undefined) {
+        imp = bakeImpostor(this.options.renderer, model);
+        if (imp) addHeightFog(imp.material);
+        this.impostors.set(entry.id, imp);
+      }
+      if (imp) {
+        // Beyond the game camera's usual distance (200 to 300 m), where a tree is a few pixels wide
+        const from = Math.max(lods.length ? lods[lods.length - 1].distance * 1.5 : 0, 380, entry.height * 25);
+        levels.push({ from, parts: [{ geometry: imp.geometry, material: imp.material }] });
+      }
+    }
+    return levels;
+  }
+
+  private buildBatch(model: ObjectModel, lods: { model: ObjectModel; distance: number }[], blocksLos: boolean, objects: MapObject[]): AssetBatch {
     const entry = model.entry;
     const n = objects.length;
     const vegetation = entry.category === 'tree' || entry.category === 'plant';
     const tinted = vegetation || objects.some((o) => o.tint);
     const b: AssetBatch = {
-      key,
       entry,
       model,
       blocksLos,
       objects: objects.slice(),
-      levels: [],
-      meshes: [],
+      levels: this.levelsFor(model, lods),
       matrices: new Float32Array(n * 16),
       spheres: new Float32Array(n * 4),
       colors: tinted ? new Float32Array(n * 3) : null,
-      culled: !blocksLos,
-      dynamic: !blocksLos || lods.length > 0,
+      cells: new Map(),
+      slots: new Array(n),
     };
     for (let i = 0; i < n; i++) this.writeInstance(b, i);
-    for (const [level, m] of [{ model, distance: 0 }, ...lods].entries()) {
-      const meshes: InstancedMesh[] = [];
-      for (const part of m.model.parts) {
-        const material = entry.wind > 0 ? this.windMaterial(part.material, entry) : part.material;
-        addHeightFog(material);
-        const mesh = new InstancedMesh(part.geometry, material, n);
-        mesh.name = `${entry.id}${blocksLos ? '' : '-decor'}${level ? `-lod${level}` : ''}`;
-        (mesh.instanceMatrix.array as Float32Array).set(b.matrices);
-        if (b.colors) {
-          for (let i = 0; i < n; i++) mesh.setColorAt(i, new Color(b.colors[i * 3], b.colors[i * 3 + 1], b.colors[i * 3 + 2]));
-        }
-        mesh.castShadow = entry.category !== 'plant' || entry.height > 0.8;
-        mesh.receiveShadow = true;
-        mesh.matrixAutoUpdate = false;
-        if (b.dynamic) {
-          mesh.frustumCulled = false;
-          mesh.userData['order'] = new Int32Array(n);
-          if (level > 0) mesh.count = 0;
-        } else {
+    // Objects into cells
+    const lists = new Map<number, number[]>();
+    for (let i = 0; i < n; i++) {
+      const key = this.cellKey(objects[i].x, objects[i].y);
+      let list = lists.get(key);
+      if (!list) lists.set(key, (list = []));
+      b.slots[i] = { cell: key, slot: list.length };
+      list.push(i);
+    }
+    const parent = blocksLos ? this.losGroup : this.group;
+    for (const [key, indices] of lists) {
+      const cell: Cell = { indices, levels: [], sphere: new Sphere(), level: -1 };
+      for (const [li, level] of b.levels.entries()) {
+        const meshes: InstancedMesh[] = [];
+        for (const part of level.parts) {
+          const mesh = new InstancedMesh(part.geometry, part.material, indices.length);
+          mesh.name = `${entry.id}${blocksLos ? '' : '-decor'}${li ? `-lod${li}` : ''}`;
+          const arr = mesh.instanceMatrix.array as Float32Array;
+          indices.forEach((i, k) => arr.set(b.matrices.subarray(i * 16, i * 16 + 16), k * 16));
+          if (b.colors) {
+            const c = new Color();
+            indices.forEach((i, k) => mesh.setColorAt(k, c.setRGB(b.colors![i * 3], b.colors![i * 3 + 1], b.colors![i * 3 + 2])));
+          }
+          mesh.castShadow = entry.category !== 'plant' || entry.height > 0.8;
+          mesh.receiveShadow = true;
+          mesh.matrixAutoUpdate = false;
+          mesh.visible = false;
           mesh.computeBoundingSphere();
+          mesh.userData['batch'] = b;
+          mesh.userData['cell'] = cell;
+          if (!blocksLos) mesh.userData['losTransparent'] = true;
+          parent.add(mesh);
+          meshes.push(mesh);
         }
-        if (b.culled) mesh.userData['losTransparent'] = true;
-        meshes.push(mesh);
+        cell.levels.push(meshes);
       }
-      b.levels.push({ meshes, from: m.distance });
-      b.meshes.push(...meshes);
+      this.cellBounds(b, cell);
+      b.cells.set(key, cell);
     }
     return b;
+  }
+
+  /** The cell's bounding sphere, from its instances */
+  private cellBounds(b: AssetBatch, cell: Cell): void {
+    cell.sphere.makeEmpty();
+    for (const i of cell.indices) {
+      this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3]);
+      if (cell.sphere.isEmpty()) cell.sphere.copy(this.sphere);
+      else cell.sphere.union(this.sphere);
+    }
+  }
+
+  /** Re-uploads the instances of changed objects into their cells' meshes */
+  private uploadInstances(b: AssetBatch, changed: number[], ranged: boolean): void {
+    const touched = new Set<Cell>();
+    for (const i of changed) {
+      const { cell: key, slot } = b.slots[i];
+      const cell = b.cells.get(key);
+      if (!cell) continue;
+      touched.add(cell);
+      for (const meshes of cell.levels) {
+        for (const m of meshes) {
+          (m.instanceMatrix.array as Float32Array).set(b.matrices.subarray(i * 16, i * 16 + 16), slot * 16);
+          if (ranged) m.instanceMatrix.addUpdateRange(slot * 16, 16);
+          m.instanceMatrix.needsUpdate = true;
+        }
+      }
+    }
+    for (const cell of touched) {
+      this.cellBounds(b, cell);
+      for (const meshes of cell.levels) for (const m of meshes) m.computeBoundingSphere();
+    }
+  }
+
+  /** Per cell: the level for its distance, hidden beyond the draw distance, shadows only near the focus */
+  private applyLevels(force: boolean): void {
+    for (const b of this.batches) {
+      const draw = b.entry.drawDistance;
+      for (const cell of b.cells.values()) {
+        const d = Math.max(0, cell.sphere.distanceToPoint(this.camPos));
+        let level = -1;
+        if (d <= draw) {
+          level = 0;
+          for (let l = b.levels.length - 1; l > 0; l--) {
+            if (d >= b.levels[l].from) {
+              level = l;
+              break;
+            }
+          }
+        }
+        if (level !== cell.level || force) {
+          cell.levels.forEach((meshes, l) => {
+            for (const m of meshes) m.visible = l === level;
+          });
+          cell.level = level;
+        }
+        if (level >= 0) {
+          const shadow = cell.sphere.distanceToPoint(this.focus) < this.shadowRadius;
+          const casts = b.entry.category !== 'plant' || b.entry.height > 0.8;
+          for (const m of cell.levels[level]) m.castShadow = casts && shadow;
+        }
+      }
+    }
   }
 
   /** Instance matrix, bounding sphere and colour of object i from the document */
@@ -294,7 +390,6 @@ export class MapObjectLayer {
     const o = b.objects[i];
     const e = b.entry;
     const s = o.scale || 1;
-    // Buildings and walls sit on the lowest point under their footprint, so no corner floats
     let ground = this.field.heightAt(o.x, o.y);
     if (e.category === 'building' || e.category === 'wall' || e.category === 'prop') {
       // Eight points on the footprint circle, so a turned house finds its lowest corner too;
@@ -335,88 +430,42 @@ export class MapObjectLayer {
   }
 
   /**
-   * Sorts the instances into their detail levels by camera distance and
-   * packs each level's instances to the front of its meshes; culled batches
-   * also drop instances beyond the draw distance or outside the frustum.
+   * The material an object part is drawn with: a copy of the model's,
+   * shared by every asset with the same source material and look. Adds
+   * wind sway (wind > 0), the foliage card fixes (materials `foliage-*`:
+   * authored normals on both sides, fade when edge-on and towards the draw
+   * distance), flowing waterfall cards (`foliage-waterfall*`) and flicker
+   * for flames (foliage cards that glow). The per-asset numbers are
+   * uniforms, so all of them share a handful of shader programs.
    */
-  private assign(b: AssetBatch): void {
-    const maxD2 = b.culled ? b.entry.drawDistance * b.entry.drawDistance : Infinity;
-    const cx = this.camPos.x;
-    const cy = this.camPos.y;
-    const cz = this.camPos.z;
-    const levels = b.levels;
-    const orders = levels.map((l) => l.meshes[0]?.userData['order'] as Int32Array | undefined);
-    const counts = new Array<number>(levels.length).fill(0);
-    for (let i = 0; i < b.objects.length; i++) {
-      const sx = b.spheres[i * 4];
-      const sy = b.spheres[i * 4 + 1];
-      const sz = b.spheres[i * 4 + 2];
-      const dx = sx - cx;
-      const dy = sy - cy;
-      const dz = sz - cz;
-      const d2 = dx * dx + dy * dy + dz * dz;
-      if (d2 > maxD2) continue;
-      if (b.culled) {
-        this.sphere.center.set(sx, sy, sz);
-        this.sphere.radius = b.spheres[i * 4 + 3];
-        if (!this.frustum.intersectsSphere(this.sphere)) continue;
-      }
-      let level = 0;
-      for (let l = levels.length - 1; l > 0; l--) {
-        if (d2 >= levels[l].from * levels[l].from) {
-          level = l;
-          break;
-        }
-      }
-      const order = orders[level];
-      if (order) order[counts[level]++] = i;
-    }
-    levels.forEach((l, li) => {
-      const order = orders[li];
-      if (order) this.pack(b, l.meshes, order, counts[li]);
-    });
-  }
-
-  /** Writes the instances listed in `order` to the front of the meshes */
-  private pack(b: AssetBatch, meshes: InstancedMesh[], order: Int32Array, count: number): void {
-    for (const m of meshes) {
-      const dst = m.instanceMatrix.array as Float32Array;
-      const colors = m.instanceColor?.array as Float32Array | undefined;
-      for (let k = 0; k < count; k++) {
-        const i = order[k];
-        dst.set(b.matrices.subarray(i * 16, i * 16 + 16), k * 16);
-        if (colors && b.colors) {
-          colors[k * 3] = b.colors[i * 3];
-          colors[k * 3 + 1] = b.colors[i * 3 + 1];
-          colors[k * 3 + 2] = b.colors[i * 3 + 2];
-        }
-      }
-      if (m !== meshes[0]) (m.userData['order'] as Int32Array).set(order.subarray(0, count));
-      m.count = count;
-      m.instanceMatrix.clearUpdateRanges();
-      m.instanceMatrix.addUpdateRange(0, count * 16);
-      m.instanceMatrix.needsUpdate = true;
-      if (m.instanceColor) {
-        m.instanceColor.clearUpdateRanges();
-        m.instanceColor.addUpdateRange(0, count * 3);
-        m.instanceColor.needsUpdate = true;
-      }
-    }
-  }
-
-  /** A copy of the model's material that sways with the wind (one per source material) */
-  private windMaterial(source: Material, entry: CatalogObject): Material {
-    const key = source;
-    const cached = this.windMaterials.get(key);
+  private objectMaterial(source: Material, entry: CatalogObject): Material {
+    const m0 = source as MeshStandardMaterial;
+    const card = m0.name.startsWith('foliage-');
+    const waterfall = m0.name.startsWith('foliage-waterfall');
+    const flame = card && !waterfall && !!m0.emissive && m0.emissive.getHex() !== 0;
+    const wind = waterfall ? 0 : entry.wind;
+    const key = `${source.uuid}|${wind}|${card ? entry.drawDistance : 0}`;
+    const cached = this.materials.get(key);
     if (cached) return cached;
+    if (!card && wind <= 0) {
+      addHeightFog(source);
+      this.materials.set(key, source);
+      return source;
+    }
     const m = source.clone() as MeshStandardMaterial;
-    const strength = entry.wind / WIND_REFERENCE_HEIGHT;
-    const uniforms = this.windUniforms;
+    const local = {
+      uWindStrength: { value: wind / WIND_REFERENCE_HEIGHT },
+      uFadeRange: { value: new Vector2(entry.drawDistance * 0.55, entry.drawDistance) },
+    };
+    const shared = this.objectUniforms;
+    const variant = `${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}`;
     m.onBeforeCompile = (shader) => {
-      shader.uniforms['uWindTime'] = uniforms.uWindTime;
-      shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nuniform float uWindTime;')
-        .replace(
+      shader.uniforms['uWindTime'] = shared.uWindTime;
+      shader.uniforms['uWindStrength'] = local.uWindStrength;
+      shader.uniforms['uFadeRange'] = local.uFadeRange;
+      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nuniform float uWindTime;\nuniform float uWindStrength;');
+      if (wind > 0) {
+        shader.vertexShader = shader.vertexShader.replace(
           '#include <begin_vertex>',
           /* glsl */ `#include <begin_vertex>
           {
@@ -425,7 +474,7 @@ export class MapObjectLayer {
             phase = dot(instanceMatrix[3].xz, vec2(0.071, 0.093));
             #endif
             float h = max(transformed.y, 0.0);
-            float bend = h * h * ${strength.toFixed(5)};
+            float bend = h * h * uWindStrength;
             float t = uWindTime;
             float gust = sin(t * 0.7 + phase * 0.5) * 0.5 + 0.5;
             float swayX = (sin(t * 1.4 + phase) * 0.7 + sin(t * 2.9 + phase * 1.7) * 0.3) * (0.6 + gust * 0.6);
@@ -436,34 +485,44 @@ export class MapObjectLayer {
             transformed.z += swayZ * bend * 0.6 + flutter;
           }`,
         );
-    };
-    if (m.name.startsWith('foliage-')) {
-      // Cards seen edge-on smear their texture into streaks: fade them out by the flat face normal
-      const prev = m.onBeforeCompile;
-      const fadeStart = (entry.drawDistance * 0.55).toFixed(1);
-      const fadeEnd = entry.drawDistance.toFixed(1);
-      m.onBeforeCompile = (shader, renderer) => {
-        prev.call(m, shader, renderer);
+      }
+      if (waterfall) {
+        // Water runs down the card: scroll the texture
+        shader.vertexShader = shader.vertexShader.replace(
+          '#include <uv_vertex>',
+          '#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv.y += uWindTime * 0.6;\n#endif',
+        );
+      }
+      if (card) {
         shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', '#include <common>\nuniform vec2 uFadeRange;\nuniform float uWindTime;')
           // Card normals are authored (bent out of the crown, up for grass); three flips them on
           // back faces of double-sided materials, which turned every card's back black
           .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal = normalize(vNormal);')
           .replace(
             '#include <alphatest_fragment>',
             /* glsl */ `{
+            // Cards seen edge-on smear their texture into streaks: fade them out by the flat face normal
             vec3 faceNormal = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));
             float facing = abs(dot(faceNormal, normalize(vViewPosition)));
             diffuseColor.a *= smoothstep(0.08, 0.3, facing);
             // Fade out towards the draw distance: thin far cards turn into dark lines otherwise
-            diffuseColor.a *= 1.0 - smoothstep(${fadeStart}, ${fadeEnd}, length(vViewPosition));
+            diffuseColor.a *= 1.0 - smoothstep(uFadeRange.x, uFadeRange.y, length(vViewPosition));
           }
           #include <alphatest_fragment>`,
           );
-      };
-    }
-    m.customProgramCacheKey = () =>
-      `custom-map-wind-${strength.toFixed(5)}-${m.name.startsWith('foliage-') ? `card-${entry.drawDistance}` : 'solid'}`;
-    this.windMaterials.set(key, m);
+        if (flame) {
+          shader.fragmentShader = shader.fragmentShader.replace(
+            '#include <emissivemap_fragment>',
+            /* glsl */ `#include <emissivemap_fragment>
+            totalEmissiveRadiance *= 0.75 + 0.18 * sin(uWindTime * 11.0 + vViewPosition.x * 3.0) + 0.1 * sin(uWindTime * 23.0 + vViewPosition.y * 5.0);`,
+          );
+        }
+      }
+    };
+    m.customProgramCacheKey = () => `custom-map-object-${variant}`;
+    addHeightFog(m);
+    this.materials.set(key, m);
     return m;
   }
 }

@@ -40,7 +40,7 @@ function library(): MapAssetLibrary {
 }
 
 describe('MapObjectLayer levels of detail', () => {
-  it('puts each tree into the level of its camera distance, all of them in the LOS group', async () => {
+  it('shows each cell of trees at the level of its camera distance, all in the LOS group', async () => {
     const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
     const los = new Group();
     const layer = new MapObjectLayer(field, library(), los);
@@ -60,11 +60,15 @@ describe('MapObjectLayer levels of detail', () => {
     camera.position.set(0, 5, 0); // above map x = 0
     camera.updateMatrixWorld();
     layer.update(0.016, camera);
-    const near = los.children.find((c) => c.name === 'tree') as InstancedMesh;
-    const far = los.children.find((c) => c.name === 'tree-lod1') as InstancedMesh;
-    // Trees at map x 0..80 are within 100 m, 100..380 beyond
-    expect(near.count).toBe(5);
-    expect(far.count).toBe(15);
+    const visible = (name: string): number =>
+      los.children
+        .filter((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === name && c.visible)
+        .reduce((n, m) => n + m.count, 0);
+    // Cells of 192 m: trees at map x 0..180 are in the camera's cell, 200..380 in the next, past 100 m
+    expect(visible('tree')).toBe(10);
+    expect(visible('tree-lod1')).toBe(10);
+    // Every tree is drawn exactly once
+    expect(visible('tree') + visible('tree-lod1')).toBe(20);
     layer.dispose();
   });
 });

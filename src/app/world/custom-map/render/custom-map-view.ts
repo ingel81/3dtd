@@ -1,4 +1,4 @@
-import { Group, Ray, Vector3, type Camera, type Object3D } from 'three';
+import { Group, Ray, Vector3, type Camera, type Object3D, type WebGLRenderer } from 'three';
 import type { CustomMapDocument, MapEnvironment, MapObject } from '../map-document';
 import { HeightField } from './height-field';
 import type { MapAssetLibrary } from './map-asset-library';
@@ -70,6 +70,8 @@ export interface CustomMapViewOptions {
   anisotropy?: number;
   /** Grass blades near the camera (default on) */
   grass?: boolean;
+  /** The renderer the map is drawn with: bakes impostors for far trees (without it they keep their model) */
+  renderer?: WebGLRenderer;
 }
 
 export class CustomMapView {
@@ -116,7 +118,7 @@ export class CustomMapView {
     this.environment = new CustomMapEnvironment(doc.environment);
     this.environment.setFogBase(lowGround(t.grid.heights, t.water?.level));
     this.updateWater();
-    this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers);
+    this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers, { renderer: options.renderer });
     this.group.add(this.objects.group);
     this.bridges = new BridgeLayer(this.heights, assets);
     this.group.add(this.bridges.group);
@@ -157,7 +159,6 @@ export class CustomMapView {
     if (this.disposed) return;
     for (const w of this.waters) w?.update(dtSeconds);
     for (const r of this.rivers) r.update(dtSeconds);
-    this.objects.update(dtSeconds, camera);
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
     this.terrain.update(this.camPos, dtSeconds);
@@ -172,6 +173,8 @@ export class CustomMapView {
     const reach = this.camPos.distanceTo(this.focusPoint);
     this.environment.focus(this.focusPoint, Math.min(450, Math.max(70, reach * 0.9)));
     this.effects.update(dtSeconds, this.focusPoint);
+    this.objects.shadowRadius = Math.min(450, Math.max(70, reach * 0.9)) * 1.2;
+    this.objects.update(dtSeconds, camera, this.focusPoint);
     // Grass between the camera's foot and the focus; from far up blades are below a pixel, skip them
     this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);
     this.terrain.grass.update(dtSeconds, this.grassCenter);

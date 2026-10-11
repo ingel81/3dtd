@@ -190,16 +190,21 @@ describe('CustomMapView', () => {
     expect(water!.userData['losTransparent']).toBe(true);
     expect(inLos.includes(water!)).toBe(false);
 
-    // Every asset of the map has its instanced meshes, as many instances as objects
+    // Every object sits in one cell mesh of its asset (level 0 meshes, summed over the cells)
     const counts = new Map<string, number>();
     for (const o of doc.objects) counts.set(o.asset, (counts.get(o.asset) ?? 0) + 1);
     for (const [asset, n] of counts) {
-      let mesh: InstancedMesh | null = null;
+      // A model has one mesh per part: count each cell once
+      const cells = new Set<unknown>();
+      let total = 0;
       view.group.traverse((o) => {
-        if (o instanceof InstancedMesh && (o.name === asset || o.name === `${asset}-decor`)) mesh = o;
+        const cell = o.userData['cell'];
+        if (o instanceof InstancedMesh && (o.name === asset || o.name === `${asset}-decor`) && !cells.has(cell)) {
+          cells.add(cell);
+          total += o.instanceMatrix.count;
+        }
       });
-      expect(mesh, asset).not.toBeNull();
-      expect(mesh!.instanceMatrix.count).toBe(n);
+      expect(total, asset).toBe(n);
     }
 
     // attach() puts the blockers beside the group, as the LOS cube needs a direct scene child

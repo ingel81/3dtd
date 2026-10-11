@@ -127,6 +127,7 @@ export class MapPreviewComponent implements OnDestroy {
     }
     const view = new CustomMapView(doc, MapAssetLibrary.shared(), {
       anisotropy: renderer.capabilities.getMaxAnisotropy(),
+      renderer,
     });
     this.view = view;
     view.attach(scene);
