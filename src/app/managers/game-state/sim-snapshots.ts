@@ -1,4 +1,5 @@
 import { GameObject } from '../../core/game-object';
+import type { StructureLedger } from './structure-ledger';
 import type { GameEventBus } from '../../game-engine/game-event-bus';
 import type { EnemyManager } from '../enemy.manager';
 import type { ProjectileManager } from '../projectile.manager';
@@ -44,6 +45,8 @@ export interface SnapshotWorld {
   readonly towerCombat: TowerCombatService;
   readonly debugEnemies: DebugEnemies;
   readonly sink: SimSink;
+  /** The structures' HP of a destructible world */
+  readonly structures: StructureLedger;
   /** Every player's research, abilities and hero in roster order */
   research(): readonly ResearchManager[];
   abilities(): readonly AbilityManager[];
@@ -104,6 +107,7 @@ export class SimSnapshots {
       credits: w.creditsLedger.credits(),
       accounts: w.creditsLedger.saveAccounts(),
       baseHealth: w.healthLedger.baseHealth(),
+      structures: w.structures.hpList(),
       waveNumber: w.waveManager.waveNumber(),
       phase: w.waveManager.phase(),
       runStarted: w.runStarted(),
@@ -198,6 +202,7 @@ export class SimSnapshots {
 
     w.creditsLedger.restore(snapshot.accounts ?? [[w.creditsLedger.players[0], snapshot.credits]]);
     w.healthLedger.restore(snapshot.baseHealth);
+    w.structures.restore(snapshot.structures);
     w.economy.restorePerfectStreak(snapshot.economyPerfectStreak);
     w.waveManager.waveNumber.set(snapshot.waveNumber);
     w.waveManager.phase.set(snapshot.phase);

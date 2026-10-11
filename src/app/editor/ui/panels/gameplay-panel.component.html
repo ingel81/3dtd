@@ -42,6 +42,14 @@
 </div>
 
 <div class="td-group">
+  <h3 class="td-section">World</h3>
+  <label class="td-check">
+    <input class="td-switch" type="checkbox" [checked]="gp().destructible === true" (change)="setDestructible($any($event.target).checked)" data-test="destructible" />
+    <span>Buildings, walls and structures take damage from shots and fall</span>
+  </label>
+</div>
+
+<div class="td-group">
   <h3 class="td-section">Towers <span class="td-note">{{ gp().towers ? gp().towers!.length + ' allowed' : 'all allowed' }}</span></h3>
   <div class="gp-towers">
     @for (t of towers; track t.id) {

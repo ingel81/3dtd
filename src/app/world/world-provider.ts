@@ -354,17 +354,16 @@ export interface WorldStructure {
 }
 
 /**
- * The hook of a destructible world (capabilities.destructible): damage
- * reaches its structures, and one at zero HP falls, out of the picture and
- * the build blocking. What deals the damage is the presentation's
- * (presentation/world-damage-presenter.ts), from the simulation's events on
- * the main bus.
+ * The hook of a destructible world (capabilities.destructible): which of its
+ * structures can fall, and showing the ones that lie fallen, out of the
+ * picture and the build blocking. The simulation keeps their HP
+ * (StructureLedger, RunRules.structures) and says which lie fallen
+ * (`structures.setFallen`, presentation/world-damage-presenter.ts); a
+ * fallen one's `hp` reads 0, a standing one's its full HP.
  */
 export interface WorldDestruction {
   /** Every structure that can take damage, standing or fallen */
   structures(): readonly WorldStructure[];
-  /** `amount` HP off every standing structure within `radius` m of the point (plus its own radius); the ones that fell */
-  damage(at: { lat: number; lon: number }, radius: number, amount: number): WorldStructure[];
-  /** Every structure stands again at full HP (a new run) */
-  reset(): void;
+  /** These lie fallen now, all others stand; the ones that fell with this call */
+  setFallen(ids: readonly string[]): WorldStructure[];
 }

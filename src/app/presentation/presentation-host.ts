@@ -62,7 +62,7 @@ export class PresentationHost implements SimPresenterApi {
   readonly backgroundMusic: BackgroundMusicService;
   readonly bloodMoon: BloodMoonService;
   readonly hq: HqDamagePresenter;
-  /** Impacts wear down the structures of a destructible world */
+  /** The structures of a destructible world as the simulation has them */
   readonly worldDamage: WorldDamagePresenter;
   readonly frame: FramePresenter;
   readonly ops: OpPlayer;
@@ -317,5 +317,9 @@ export class PresentationHost implements SimPresenterApi {
     });
     ops.override('show.clear', () => this.clearShow());
     ops.override('main.iceDecal', (args) => iceDecal(engine, args[0] as number, args[1] as number, args[2] as number));
+    // The structures of a destructible world as the simulation has them (TODO E131)
+    ops.override('structures.setFallen', (args) => this.worldDamage.setFallen(args[0] as string[]));
+    ops.override('main.structureFell', (args) =>
+      this.worldDamage.fell(args[0] as number, args[1] as number, args[2] as number, args[3] as number));
   }
 }

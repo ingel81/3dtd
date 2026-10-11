@@ -226,8 +226,8 @@ Spiel mit `?world=map:<id>`.
 4. `CustomMapWorld` im Spiel (gebaut: `?world=map:<id>`, die Demo-Karte liegt als `demo-valley` in `public/maps/` bei),
    Coop mit eigener Karte (gebaut: der Host schickt die Karte über das Relay, COOP_PLAN.md C1c)
 5. Gebaut 2026-10-11: Spielwerte je Karte, Kartenprobe mit dem Bot, eigene 3D-Tilesets, Zerstörbarkeit als
-   Fähigkeit, Kartenauswahl im Hauptmenü. Offen: Zerstörung in der Simulation (Entscheidung des Users), ein
-   Zerstörbar-Schalter im Kartendokument statt `?destructible`
+   Fähigkeit, Kartenauswahl im Hauptmenü. Seit 2026-10-12 auch Zerstörung in der Simulation mit Schalter im
+   Kartendokument (`gameplay.destructible`, E131, [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md#zerstörbarkeit-e131))
 
 ## Stand 2026-10-11 morgens (Bereich Welten)
 
@@ -252,8 +252,8 @@ Spiel mit `?world=map:<id>`.
 - **Kartenprobe:** `?bot=trial&trialWaves=N` (`626f1374`, `c49f3a54`, Banner `c1bfa109`).
 - **Eigene 3D-Tilesets:** eigene Welt `{ kind: 'tileset', id }` (`48b5aaee`). Ein Link-Ort außerhalb des Gebiets
   startet in dessen Mitte (`46bbaaf1`). Doku in [OWN_TILESETS.md](OWN_TILESETS.md).
-- **Zerstörbarkeit:** als Fähigkeit mit `WorldProvider.destruction`; bei eigenen Karten nur mit `?destructible`
-  (`8cb5da0b`).
+- **Zerstörbarkeit:** als Fähigkeit mit `WorldProvider.destruction` (`8cb5da0b`); seit E131 (2026-10-12) in der
+  Simulation und per Karte (`gameplay.destructible`), der Link-Schalter `?destructible` ist entfallen.
 - **Kartenauswahl im Hauptmenü:** New game, Reiter „Maps“ (`03e38b6e`, Summaries mit Spawns und Biom `b7e6c4b5`).
 - **Keine Tower im Wasser** eigener Karten (`8502623d`).
 - **Routen:** Neue Editor-Karten bekommen ihre Route (`ec1ba23b`, Regressionstest `b96dbdfc`).
@@ -274,8 +274,7 @@ Spiel mit `?world=map:<id>`.
 
 ### Entscheidungen beim User
 
-- **Zerstörung in die Simulation:** Bauwerke in Weltschlüssel und Sichtlinien aufnehmen, damit Replay-Sprünge und
-  Sichtlinien stimmen. Heute nur Darstellung, Schalter `?destructible`.
+- **Zerstörung in die Simulation:** entschieden 2026-10-11, gebaut 2026-10-12 (E131).
 - **Leckschaden 1/N bei vielen Spuren:** Laut Rechnung (`81a96256`, `tools/balance-calc/lanes.ts`) der einzige Hebel,
   der jede Spurzahl auf der Kurve einer Spur hält (höchstens 28 HP Abweichung bis W40). Nicht gebaut; er gehörte als
   Lauf-Regel in `RunRules`.

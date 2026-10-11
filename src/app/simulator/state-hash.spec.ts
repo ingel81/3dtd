@@ -49,6 +49,7 @@ function source(
     perfectStreak: () => 0,
     killRewards: () => ({ remainingKillBudget: wave.killBudget ?? 120, paidRewardWeight: 30 }),
     baseHealth: () => 480,
+    structureHp: () => [],
     waveNumber: () => 3,
     spawner: () => (wave.running === false ? null
       : { accumulatedMs: 400, nextDelayMs: wave.nextDelayMs ?? 800, spawnIndex: wave.spawnIndex ?? 5 }),

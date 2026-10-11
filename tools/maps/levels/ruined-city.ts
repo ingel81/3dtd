@@ -108,6 +108,9 @@ export function buildRuinedCity(): CustomMapDocument {
   }
   for (const [x, y] of [[-96, 96], [160, 96], [-160, -96], [96, -160], [-200, 40], [30, 30]] as const) k.place('fx-smoke', x, y, { scale: 1.5 });
 
+  // The ruins still take hits: shots wear the standing blocks down until they fall (TODO E131)
+  k.gameplay({ destructible: true });
+
   k.trimLayers(5);
   // Overcast, ash in the air
   k.environment({ biome: 'apocalypse', sky: 'overcast', sunAzimuth: 200, sunElevation: 35, fogDensity: 0.0016, tint: '#e6dccb', weather: 'fog', weatherStrength: 0.3 });

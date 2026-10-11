@@ -131,7 +131,7 @@ describe('SimCore in the same thread', () => {
 
   it("plays by a world's own run rules: start credits, HQ health, the tower types it allows; the game's again after", () => {
     const main = mainWorld();
-    const rules = { startCredits: 250, hqHealth: 80, towers: ['archer', 'cannon'] as const };
+    const rules = { startCredits: 250, hqHealth: 80, towers: ['archer', 'cannon'] as const, structures: null };
     const ruled: SimWorld = {
       ...main.world,
       rules: { ...rules, towers: [...rules.towers] },
@@ -155,6 +155,48 @@ describe('SimCore in the same thread', () => {
     core.loadWorld(main.world);
     expect(core.gsm.creditsOf(core.gsm.localPlayerId)).toBe(200);
     expect(core.gsm.baseHealth()).toBe(500);
+  });
+
+  it("wears down a destructible world's structures, shows the fallen set, makes towers near it look anew, and restores it (TODO E131)", () => {
+    const main = mainWorld();
+    const barn = { id: 'barn', lat: 140 / M, lon: 20 / M, radius: 5, height: 6, hp: 100 };
+    const rules = { startCredits: 100, hqHealth: 500, towers: null, structures: [barn] };
+    const world: SimWorld = {
+      ...main.world,
+      rules,
+      worldKey: worldKeyOf(main.grid.snapshotHeights(), main.world.paths.map(([, p]) => p), main.sync.getOrigin(), rules),
+    };
+    const core = newCore(world);
+    const drive = new Driver(core);
+    drive.send({ type: 'debug:add-credits', amount: 5000 });
+    drive.send({ type: 'debug:complete-all-research' });
+    drive.send({ type: 'command:place-tower', typeId: 'cannon', position: { lat: 140 / M, lon: -9 / M, height: 0 } });
+    drive.tick();
+    const before = core.gsm.captureSnapshot();
+    const hashBefore = core.gsm.stateHash();
+
+    // Two hits of 60 in reach: the barn falls with the second
+    drive.send({ type: 'debug:hit-structures', lat: 140 / M, lon: 22 / M, reach: 1, amount: 60 });
+    let packet = drive.tick();
+    // Worn down, still standing: nothing for the main thread yet
+    expect(packet.ops.filter((op) => op[0] === 'structures.setFallen')).toEqual([]);
+    expect(core.gsm.stateHash()).not.toBe(hashBefore);
+    drive.send({ type: 'debug:hit-structures', lat: 140 / M, lon: 22 / M, reach: 1, amount: 60 });
+    packet = drive.tick();
+    expect(packet.ops.filter((op) => op[0].startsWith('structures.') || op[0] === 'main.structureFell')).toEqual([
+      ['structures.setFallen', ['barn']],
+      ['main.structureFell', barn.lat, barn.lon, 5, 6],
+    ]);
+    // The cannon 29 m off asks for its sight again (still its first, so as 'place'), to see past where the barn stood
+    const cannon = core.gsm.towerManager.getAll()[0];
+    expect(drive.needs(packet).map((n) => n.towerId)).toContain(cannon.id);
+    expect(core.gsm.captureSnapshot().structures).toEqual([0]);
+
+    // Back to before: the barn stands, the main thread hears so
+    core.gsm.restoreSnapshot(before, 'live');
+    expect(core.gsm.captureSnapshot().structures).toEqual([100]);
+    expect(core.gsm.stateHash()).toBe(hashBefore);
+    expect(drive.tick().ops.filter((op) => op[0] === 'structures.setFallen')).toEqual([['structures.setFallen', []]]);
   });
 
   it('plays a wave from commands to packets, answers lines of sight by command, and re-simulates it bit for bit', () => {

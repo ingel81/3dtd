@@ -147,35 +147,37 @@ test('the replay of a wave on a custom map opens and closes', async ({ browser }
 /** `__worldDamage` of a destructible world in development (presentation/world-damage-presenter.ts) */
 interface WorldDamageHook {
   structures(): { id: string; lat: number; lon: number; hp: number }[];
-  hit(lat: number, lon: number, radius?: number, amount?: number): string[];
+  hit(lat: number, lon: number, reach?: number, amount?: number): void;
 }
 
 test('a building of a destructible map falls to a hit and stands again after a restart', async ({ browser }) => {
   test.setTimeout(5 * 60_000);
   const errors: string[] = [];
   const page = await openPage(browser, errors);
-  await page.goto(`/?world=map:${MAP}&destructible`);
+  // The ruined city says its buildings fall (gameplay.destructible, TODO E131)
+  await page.goto('/?world=map:ruined-city');
   await gameReady(page);
   await page.waitForFunction(
     () => ((globalThis as { __worldDamage?: WorldDamageHook }).__worldDamage?.structures().length ?? 0) > 0,
     null,
     { timeout: 60_000 },
   );
-  const hit = await page.evaluate(() => {
+  // The hit goes through the simulation; its fallen set comes back with a packet
+  const id = await page.evaluate(() => {
     const damage = (globalThis as unknown as { __worldDamage: WorldDamageHook }).__worldDamage;
     const s = damage.structures()[0];
-    return { id: s.id, fell: damage.hit(s.lat, s.lon, 0.5, 1e6) };
+    damage.hit(s.lat, s.lon, 0.5, 1e6);
+    return s.id;
   });
-  expect(hit.fell).toContain(hit.id);
-  const hpOf = (id: string) => page.evaluate((i) =>
-    (globalThis as unknown as { __worldDamage: WorldDamageHook }).__worldDamage.structures().find((s) => s.id === i)!.hp, id);
-  expect(await hpOf(hit.id)).toBe(0);
+  const hpOf = (i: string) => page.evaluate((x) =>
+    (globalThis as unknown as { __worldDamage: WorldDamageHook }).__worldDamage.structures().find((s) => s.id === x)!.hp, i);
+  await expect.poll(() => hpOf(id), { timeout: 30_000 }).toBe(0);
 
   // Restart here: a new run stands every structure up again
   await openGameMenu(page);
   await page.locator('app-main-menu [data-entry="restart"]').click();
   await confirmIfAsked(page, 'Restart');
-  await expect.poll(() => hpOf(hit.id), { timeout: 60_000 }).toBeGreaterThan(0);
+  await expect.poll(() => hpOf(id), { timeout: 60_000 }).toBeGreaterThan(0);
   expect(errors).toEqual([]);
   await page.context().close();
 });

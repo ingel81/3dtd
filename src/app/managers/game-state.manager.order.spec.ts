@@ -377,10 +377,10 @@ describe('GameStateManager order of operations (characterization)', () => {
         'enemy:reached-base', 'enemy:leaking', 'enemy:died',
         'research:completed', 'wave:completed',
         'research:completed', 'hero:kill',
-        // GameStateManager: LOS masks for the re-simulation, AA retrofit, guard turns, kill reward
+        // GameStateManager: LOS masks for the re-simulation, AA retrofit, structures hit, guard turns, kill reward
         'enemy:reached-base', 'enemy:leaking',
         'tower:los-resolved',
-        'research:completed', 'wave:completed',
+        'research:completed', 'vfx:projectile-impact', 'wave:completed',
         'enemy:died', 'enemy:reached-base', 'enemy:died',
         // GameCommandsHandler
         'command:place-tower', 'command:sell-tower', 'command:upgrade-tower', 'command:choose-path', 'command:set-targeting',
@@ -392,7 +392,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'command:hire-hero', 'command:hero-move', 'command:hero-ammo',
         'command:start-wave', 'command:los-mask', 'command:leave-game', 'command:set-ready', 'command:give-credits',
         'command:restart-game',
-        'debug:add-credits', 'debug:add-health', 'debug:complete-all-research', 'debug:kill-all', 'debug:spawn-enemy',
+        'debug:add-credits', 'debug:add-health', 'debug:hit-structures', 'debug:complete-all-research', 'debug:kill-all', 'debug:spawn-enemy',
         'debug:remove-enemy', 'debug:max-upgrade-all-towers',
         'debug:ready-ability', 'debug:jump-to-wave', 'debug:enemy-move', 'debug:movement', 'debug:enemy-speed',
         'debug:ready-hero',

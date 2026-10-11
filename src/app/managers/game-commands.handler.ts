@@ -387,6 +387,10 @@ export class GameCommandsHandler {
       this.gsm.adjustBaseHealth(event.amount);
     });
 
+    this.on('debug:hit-structures', (event) => {
+      this.gsm.hitStructures(event.lat, event.lon, event.reach, event.amount);
+    });
+
     this.on('debug:complete-all-research', () => {
       this.gsm.researchOf(this.gsm.actingPlayerId).completeAllResearch();
     });

@@ -250,6 +250,8 @@ export interface MapGameplay {
   waves?: MapWaveSource;
   /** How many lanes may be open, and what a coop room does with lanes nobody holds (lane-choice.ts) */
   lanes?: MapLanes;
+  /** Buildings, walls and structures take damage from shots and fall (TODO E131); off when missing */
+  destructible?: boolean;
 }
 
 export interface CustomMapDocument {

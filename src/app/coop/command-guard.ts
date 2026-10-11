@@ -192,6 +192,9 @@ export function commandProblem(c: Command): string | null {
     case 'debug:add-credits':
     case 'debug:add-health':
       return finite(c['amount']) && Math.abs(c['amount']) <= MAX_AMOUNT ? null : 'amount';
+    case 'debug:hit-structures':
+      return finite(c['lat']) && finite(c['lon']) && finite(c['reach']) && c['reach'] >= 0 && c['reach'] <= 1000
+        && finite(c['amount']) && c['amount'] >= 0 && c['amount'] <= 1e9 ? null : 'structures';
     case 'debug:ready-ability':
       return known(c['abilityId'], ABILITIES) ? null : 'ability';
     case 'debug:jump-to-wave':

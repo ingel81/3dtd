@@ -156,6 +156,14 @@ export interface SimSink {
     /** A one-shot at a local position (the sound registered on the main thread) */
     playAt(soundId: string, position: OpVec3): void;
   };
+  readonly structures: {
+    /**
+     * The structures lying fallen now, all of them (StructureLedger, TODO
+     * E131): the player hands them to the world's destruction, which shows
+     * the new ones falling and stands up any no longer in the set
+     */
+    setFallen(ids: readonly string[]): void;
+  };
   readonly show: {
     /**
      * Take the show off the field before a snapshot restore or after a
@@ -184,6 +192,8 @@ export interface SimSink {
     iceExplosion(lat: number, lon: number, explosionHeight: number, groundHeight: number, air: boolean): void;
     /** One frost decal under a splash target of the ice shard, as iceExplosion's small ones */
     iceDecal(lat: number, lon: number, groundHeight: number): void;
+    /** A structure of a destructible world fell just now (StructureLedger): an explosion of its size */
+    structureFell(lat: number, lon: number, radius: number, height: number): void;
   };
 }
 

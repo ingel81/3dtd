@@ -16,9 +16,10 @@ import { HASH_PARTS, type HashedEntities, type HashPart } from '../coop/hash-che
  * 3: the simulation computes with DetMath instead of the native Math (E28),
  * so the same run gives other bits. 4: a tower's build end (Tower.builtAtMs) and path.
  * 5: the wave's spawner, the kill gold left and paid, an enemy's walk and
- * run phase (TODO E94) and its camouflage.
+ * run phase (TODO E94) and its camouflage. 6: the HP of a destructible
+ * world's structures (TODO E131), in the health part.
  */
-export const STATE_HASH_VERSION = 5;
+export const STATE_HASH_VERSION = 6;
 
 /** Takes what a manager hands to the hash (Hashable). */
 export interface HashSink {
@@ -52,6 +53,8 @@ export interface StateHashSource {
   /** The wave's kill gold not yet paid and the reward weight paid so far (EnemyManager); null between waves */
   killRewards(): { remainingKillBudget: number; paidRewardWeight: number } | null;
   baseHealth(): number;
+  /** The HP of a destructible world's structures (StructureLedger); none where nothing falls */
+  structureHp(): readonly number[];
   waveNumber(): number;
   /** The running wave's spawner, null while none runs (WaveManager) */
   spawner(): { accumulatedMs: number; nextDelayMs: number; spawnIndex: number } | null;
@@ -145,6 +148,7 @@ export class StateHasher {
     }
     this.part('health');
     this.num(source.baseHealth());
+    for (const hp of source.structureHp()) this.num(hp);
     this.part('wave');
     this.num(source.waveNumber());
     // The spawner: a difference shows only once the next enemy comes out, or does not

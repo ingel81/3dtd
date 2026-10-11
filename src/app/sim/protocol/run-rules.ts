@@ -17,12 +17,33 @@ export interface RunRules {
   hqHealth: number;
   /** The tower types that may be built at all (research still unlocks them); null: every type */
   towers: readonly TowerTypeId[] | null;
+  /**
+   * The structures that take damage and fall (a custom map with
+   * `gameplay.destructible`, TODO E131), null where nothing falls. The
+   * simulation keeps their HP (StructureLedger)
+   */
+  structures: readonly RunStructure[] | null;
+}
+
+/** A structure that takes damage: a custom map's building, wall or structure object */
+export interface RunStructure {
+  /** The map object's id */
+  id: string;
+  /** Map degrees (custom-map map-document: map metres over MAP_METERS_PER_DEGREE) */
+  lat: number;
+  lon: number;
+  /** Ground radius and height, m */
+  radius: number;
+  height: number;
+  /** HP when standing */
+  hp: number;
 }
 
 export const DEFAULT_RUN_RULES: RunRules = {
   startCredits: GAME_BALANCE.player.startCredits,
   hqHealth: GAME_BALANCE.player.startHealth,
   towers: null,
+  structures: null,
 };
 
 /** Bounds a world's values are held in */
@@ -39,15 +60,26 @@ const clamp = (value: unknown, { min, max }: { min: number; max: number }, fallb
  * whole numbers, known tower types only (an empty or unknown list: every
  * type), in the order TOWER_TYPES lists them.
  */
-export function runRulesOf(asked: Partial<{ startCredits: unknown; hqHealth: unknown; towers: unknown }> | null | undefined): RunRules {
+export function runRulesOf(
+  asked: Partial<{ startCredits: unknown; hqHealth: unknown; towers: unknown; structures: unknown }> | null | undefined,
+): RunRules {
   if (!asked) return DEFAULT_RUN_RULES;
   const listed = Array.isArray(asked.towers) ? new Set(asked.towers.filter((t): t is string => typeof t === 'string')) : null;
   const towers = listed ? (Object.keys(TOWER_TYPES) as TowerTypeId[]).filter((id) => listed.has(id)) : [];
+  const structures = Array.isArray(asked.structures) ? asked.structures.filter(isRunStructure) : [];
   return {
     startCredits: clamp(asked.startCredits, RUN_RULE_LIMITS.startCredits, DEFAULT_RUN_RULES.startCredits),
     hqHealth: clamp(asked.hqHealth, RUN_RULE_LIMITS.hqHealth, DEFAULT_RUN_RULES.hqHealth),
     towers: towers.length > 0 ? towers : null,
+    structures: structures.length > 0 ? structures : null,
   };
+}
+
+function isRunStructure(s: unknown): s is RunStructure {
+  if (!s || typeof s !== 'object') return false;
+  const r = s as Record<string, unknown>;
+  const finite = (k: string) => typeof r[k] === 'number' && Number.isFinite(r[k]);
+  return typeof r['id'] === 'string' && finite('lat') && finite('lon') && finite('radius') && finite('height') && finite('hp') && (r['hp'] as number) > 0;
 }
 
 /** Whether the rules allow building `towerId` at all */
@@ -58,7 +90,16 @@ export function towerAllowed(rules: RunRules, towerId: TowerTypeId): boolean {
 /** The rules as a stable text for the world key; empty for the game's own */
 export function runRulesKey(rules: RunRules | undefined): string {
   if (!rules) return '';
-  return `r=${rules.startCredits},${rules.hqHealth},${rules.towers?.join('+') ?? '*'}`;
+  const base = `r=${rules.startCredits},${rules.hqHealth},${rules.towers?.join('+') ?? '*'}`;
+  // The structures as one digest: which can fall, where, with what HP
+  if (!rules.structures?.length) return base;
+  let h = 0x811c9dc5;
+  for (const s of rules.structures) {
+    for (const part of [s.id, s.lat.toFixed(7), s.lon.toFixed(7), s.radius.toFixed(2), String(s.hp)]) {
+      for (let i = 0; i < part.length; i++) h = Math.imul(h ^ part.charCodeAt(i), 0x01000193) >>> 0;
+    }
+  }
+  return `${base},s=${rules.structures.length}:${h.toString(16)}`;
 }
 
 /**

@@ -41,29 +41,26 @@ describe('CustomMapDestruction', () => {
     expect(structureHp(100, 100)).toBe(STRUCTURE_HP.max);
   });
 
-  it('wears down what is in reach and lets it fall at zero, once', () => {
-    const wall = destruction.structures()[2];
-    // 3 m from the wall's middle, its radius 2 plus a reach of 1.5
-    const hits = Math.ceil(wall.maxHp / 25);
-    for (let i = 0; i < hits - 1; i++) expect(destruction.damage(at(13, 0), 1.5, 25)).toEqual([]);
-    expect(wall.hp).toBeGreaterThan(0);
-    expect(destruction.damage(at(13, 0), 1.5, 25).map((s) => s.id)).toEqual(['w1']);
+  it('shows the fallen set the simulation says, each fall once, and stands up what is no longer in it (TODO E131)', () => {
+    expect(destruction.setFallen(['w1']).map((s) => s.id)).toEqual(['w1']);
     expect(fell).toEqual([['w1']]);
-    // Fallen: no more damage, no second fall
-    expect(destruction.damage(at(13, 0), 1.5, 25)).toEqual([]);
+    expect(destruction.structures()[2].hp).toBe(0);
+    // The same set again: nothing new falls
+    expect(destruction.setFallen(['w1'])).toEqual([]);
     expect(fell).toHaveLength(1);
-    // The house 13 m off was never in reach
-    expect(destruction.structures()[0].hp).toBe(destruction.structures()[0].maxHp);
+    // A restore with another set: the wall stands, the house falls
+    destruction.setFallen(['h1']);
+    expect(fell).toEqual([['w1'], ['h1']]);
+    expect(rose).toEqual([['w1']]);
+    // A new run: everything stands at full HP
+    destruction.setFallen([]);
+    expect(rose).toEqual([['w1'], ['h1']]);
+    expect(destruction.structures().every((s) => s.hp === s.maxHp)).toBe(true);
   });
 
-  it('stands the fallen up again at full HP', () => {
-    destruction.damage(at(0, 0), 1, 1e6);
-    expect(fell).toEqual([['h1']]);
-    destruction.reset();
-    expect(rose).toEqual([['h1']]);
-    expect(destruction.structures().every((s) => s.hp === s.maxHp)).toBe(true);
-    // Nothing fallen: nothing to raise
-    destruction.reset();
-    expect(rose).toHaveLength(1);
+  it('hands the simulation its structures for the run rules, in map degrees with their full HP', () => {
+    const [h1] = destruction.asRunStructures();
+    expect(h1).toEqual({ id: 'h1', ...at(0, 0), radius: 4, height: 6, hp: structureHp(4, 6) });
+    expect(destruction.asRunStructures().map((s) => s.id)).toEqual(['h1', 'h2', 'w1']);
   });
 });

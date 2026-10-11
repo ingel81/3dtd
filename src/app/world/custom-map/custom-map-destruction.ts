@@ -1,4 +1,5 @@
 import type { WorldDestruction, WorldStructure } from '../world-provider';
+import type { RunStructure } from '../../sim/protocol/run-rules';
 import { type MapObject, MAP_METERS_PER_DEGREE } from './map-document';
 
 /** Catalogue categories whose objects take damage and fall */
@@ -42,9 +43,11 @@ export function structureHp(radius: number, height: number): number {
 /**
  * The destructible structures of a custom map (WorldDestruction): every
  * object whose catalogue category is a building, a wall or a structure.
- * A fallen one is handed to `fall` (CustomMapWorld takes it out of the
- * picture and the build blocking), `rise` gets the ones a reset stands up
- * again. Pure bookkeeping; the catalogue arrives with `setCatalog`.
+ * The simulation wears them down (StructureLedger, from the run rules
+ * `asRunStructures` gives); the set it says lies fallen comes to
+ * `setFallen`. A newly fallen one is handed to `fall` (CustomMapWorld takes
+ * it out of the picture and the build blocking), `rise` gets the ones that
+ * stand again. Pure bookkeeping; the catalogue arrives with `setCatalog`.
  */
 export class CustomMapDestruction implements WorldDestruction {
   private list: MapStructure[] = [];
@@ -84,27 +87,27 @@ export class CustomMapDestruction implements WorldDestruction {
     return this.list;
   }
 
-  damage(at: { lat: number; lon: number }, radius: number, amount: number): WorldStructure[] {
-    if (amount <= 0) return [];
-    const x = at.lon * MAP_METERS_PER_DEGREE;
-    const y = at.lat * MAP_METERS_PER_DEGREE;
+  setFallen(ids: readonly string[]): WorldStructure[] {
+    const down = new Set(ids);
     const fallen: MapStructure[] = [];
+    const risen: MapStructure[] = [];
     for (const s of this.list) {
-      if (s.hp <= 0) continue;
-      const reach = radius + s.radius;
-      const dx = s.x - x;
-      const dy = s.y - y;
-      if (dx * dx + dy * dy > reach * reach) continue;
-      s.hp = Math.max(0, s.hp - amount);
-      if (s.hp === 0) fallen.push(s);
+      const lies = down.has(s.id);
+      if (lies && s.hp > 0) {
+        s.hp = 0;
+        fallen.push(s);
+      } else if (!lies && s.hp <= 0) {
+        s.hp = s.maxHp;
+        risen.push(s);
+      }
     }
     if (fallen.length > 0) this.fall(fallen.map((s) => s.object));
+    if (risen.length > 0) this.rise(risen.map((s) => s.object));
     return fallen;
   }
 
-  reset(): void {
-    const risen = this.list.filter((s) => s.hp <= 0).map((s) => s.object);
-    for (const s of this.list) s.hp = s.maxHp;
-    if (risen.length > 0) this.rise(risen);
+  /** The structures for the run rules (RunRules.structures): what the simulation wears down */
+  asRunStructures(): RunStructure[] {
+    return this.list.map((s) => ({ id: s.id, lat: s.lat, lon: s.lon, radius: s.radius, height: s.height, hp: s.maxHp }));
   }
 }

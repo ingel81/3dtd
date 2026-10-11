@@ -74,14 +74,6 @@ export function customMapSpawnLimit(search: string): number {
 }
 
 /**
- * Whether the link asks for a map whose buildings, walls and structures
- * fall (`?destructible`, an experiment until a map can say so itself)
- */
-export function customMapDestructible(search: string): boolean {
-  return new URLSearchParams(search).has('destructible');
-}
-
-/**
  * The map opened before its world is made (WorldFactory.startHq loads,
  * create takes; the coop host packs it), by map id. Only the last one:
  * a page plays one map, and another world reloads the page
@@ -145,7 +137,7 @@ export class CustomMapWorld implements WorldProvider {
   readonly streetStyle = CUSTOM_MAP_STREET_STYLE;
   readonly tiles = null;
   readonly doc: CustomMapDocument;
-  /** Its buildings, walls and structures that fall; null unless the run asked for it (customMapDestructible) */
+  /** Its buildings, walls and structures that fall; null unless the map says so (gameplay.destructible) */
   readonly destruction: CustomMapDestruction | null;
 
   private view: CustomMapView | null = null;
@@ -176,8 +168,8 @@ export class CustomMapWorld implements WorldProvider {
     private readonly spawnLimit = MAX_SPAWN_PORTALS,
     /** The asset library the view loads from; the shared one by default */
     private readonly assets: (() => MapAssetLibrary) | null = null,
-    /** Buildings, walls and structures take damage and fall (customMapDestructible) */
-    destructible = false,
+    /** Buildings, walls and structures take damage and fall (TODO E131); the map's own say by default */
+    destructible = map.doc.gameplay?.destructible === true,
   ) {
     // A fallen object leaves the run's own copy of the list, never the opened map
     this.doc = destructible ? { ...map.doc, objects: map.doc.objects.map((o) => ({ ...o })) } : map.doc;
@@ -232,13 +224,14 @@ export class CustomMapWorld implements WorldProvider {
     this.rig = ctx.cameraRig;
     ctx.cameraRig.setBounds(this.cameraBounds());
 
-    // The catalogue tells which objects forbid building
-    view.assets
-      .catalog()
-      .then((catalog) => {
-        if (this.view === view) this.useCatalog(catalog.objects);
-      })
-      .catch((err) => console.warn('[CustomMap] no catalogue, objects do not block building', err));
+    // The catalogue tells which objects forbid building and which can fall: before the world goes to the
+    // simulation, whose run rules carry the structures (runRules)
+    try {
+      const catalog = await view.assets.catalog();
+      if (this.view === view) this.useCatalog(catalog.objects);
+    } catch (err) {
+      console.warn('[CustomMap] no catalogue, objects do not block building', err);
+    }
 
     // Streets, spawns and routes go on while the map's textures and models load and its shaders compile
     void this.prepare(ctx, view);
@@ -336,8 +329,10 @@ export class CustomMapWorld implements WorldProvider {
    */
   runRules(): RunRules | null {
     const play = this.doc.gameplay;
-    if (!play || (play.startCredits === undefined && play.hqHealth === undefined && !play.towers?.length)) return null;
-    return runRulesOf(play);
+    // A destructible map's structures: the simulation keeps their HP (TODO E131)
+    const structures = this.destruction?.asRunStructures() ?? [];
+    if (!structures.length && (!play || (play.startCredits === undefined && play.hqHealth === undefined && !play.towers?.length))) return null;
+    return runRulesOf({ ...play, structures });
   }
 
   /**

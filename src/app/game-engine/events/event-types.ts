@@ -19,7 +19,8 @@ export type CreditsSource =
   | 'reset';          // back to the starting gold of a new run
 
 /** What made a tower resolve its line of sight, see `tower:los-resolved`. */
-export type LosResolveReason = 'place' | 'upgrade' | 'retrofit';
+/** Why a tower asks for its sight: placed, upgraded, air retrofit, or a structure near it fell (TODO E131) */
+export type LosResolveReason = 'place' | 'upgrade' | 'retrofit' | 'world';
 
 /** Who killed an enemy. `null` for a death nobody is credited with. */
 export type KilledBy =

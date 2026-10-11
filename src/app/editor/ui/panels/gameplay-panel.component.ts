@@ -89,6 +89,10 @@ export class GameplayPanelComponent {
     });
   }
 
+  setDestructible(on: boolean): void {
+    this.edit('Destructible', (g) => (g.destructible = on ? true : undefined));
+  }
+
   setVacant(vacant: VacantLanes): void {
     this.edit('Coop lanes', (g) => (g.lanes = pruned({ ...g.lanes, vacant: vacant === 'close' ? undefined : vacant })));
   }

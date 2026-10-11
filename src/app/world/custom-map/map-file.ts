@@ -378,6 +378,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
       if (gp.towers !== undefined && (!Array.isArray(gp.towers) || gp.towers.some((t) => typeof t !== 'string'))) {
         p.push('gameplay.towers must be a list of tower ids');
       }
+      if (gp.destructible !== undefined && typeof gp.destructible !== 'boolean') p.push('gameplay.destructible must be true or false');
       const lanes = gp.lanes;
       if (lanes !== undefined) {
         const count = (v: unknown) => v === undefined || (Number.isInteger(v) && (v as number) >= 1);

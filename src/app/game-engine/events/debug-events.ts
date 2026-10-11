@@ -43,6 +43,14 @@ export type DebugEvent =
       amount: number;
     }
   | {
+      // Take `amount` off the structures of a destructible world within `reach` m of a point (TODO E131)
+      type: 'debug:hit-structures';
+      lat: number;
+      lon: number;
+      reach: number;
+      amount: number;
+    }
+  | {
       type: 'debug:complete-all-research';
     }
   | {

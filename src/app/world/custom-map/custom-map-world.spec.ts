@@ -4,7 +4,7 @@ import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
-import { CUSTOM_MAP_ASSET_CREDIT, CustomMapWorld, customMapDestructible, customMapSpawnLimit, openCustomMap, openedCustomMap } from './custom-map-world';
+import { CUSTOM_MAP_ASSET_CREDIT, CustomMapWorld, customMapSpawnLimit, openCustomMap, openedCustomMap } from './custom-map-world';
 import { createMapDocument } from './map-create';
 import { FALLEN_SCALE } from './custom-map-destruction';
 import { type CustomMapDocument, mapToGeo } from './map-document';
@@ -307,7 +307,7 @@ describe('CustomMapWorld', () => {
     expect(new CustomMapWorld({ doc: { ...doc, spawns: doc.spawns.slice(0, 1) }, contentHash: '' }, hqOrigin(doc)).introTour()).toBeNull();
   });
 
-  it('lets its buildings fall in a run that asks for it, on its own copy of the map', () => {
+  it('lets its buildings fall when the map says so, on its own copy of the map (TODO E131)', () => {
     const doc = testMap();
     doc.objects = [{ id: 'barn', asset: 'barn', x: 20, y: 20, z: 0, rotation: 0, scale: 1 }];
     const catalog = [{ id: 'barn', category: 'building', footprint: 5, height: 6, blocksBuild: true }];
@@ -317,23 +317,24 @@ describe('CustomMapWorld', () => {
     expect(plain.destruction).toBeNull();
     expect(plain.capabilities.destructible).toBe(false);
 
-    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3, null, true);
+    doc.gameplay = { destructible: true };
+    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
     expect(world.capabilities.destructible).toBe(true);
     world.useCatalog(catalog);
     expect(world.surface.buildBlocker(geo.lat, geo.lon, 1)).toBe(BUILD_BLOCKED_OBJECT);
+    // The simulation gets the barn in the run rules
+    expect(world.runRules()!.structures).toEqual([expect.objectContaining({ id: 'barn', lat: geo.lat, lon: geo.lon, radius: 5, height: 6 })]);
 
-    const fallen = world.destruction!.damage(geo, 1, 1e6);
+    const fallen = world.destruction!.setFallen(['barn']);
     expect(fallen.map((s) => s.id)).toEqual(['barn']);
     // Gone from the run's map and its build blocking; the opened map keeps its barn
     expect(world.doc.objects[0].scale).toBe(FALLEN_SCALE);
     expect(world.surface.buildBlocker(geo.lat, geo.lon, 1)).toBeNull();
     expect(doc.objects[0].scale).toBe(1);
 
-    world.destruction!.reset();
+    world.destruction!.setFallen([]);
     expect(world.doc.objects[0].scale).toBe(1);
     expect(world.surface.buildBlocker(geo.lat, geo.lon, 1)).toBe(BUILD_BLOCKED_OBJECT);
-    expect(customMapDestructible('?world=map:x&destructible')).toBe(true);
-    expect(customMapDestructible('?world=map:x')).toBe(false);
   });
 
   it('has no minimap picture before the map stands', () => {

@@ -33,6 +33,8 @@ export interface SimSnapshot {
   /** Every player's credits in roster order; absent in a snapshot from before coop, then `credits` is the one player's */
   accounts?: [string, number][];
   baseHealth: number;
+  /** The HP of a destructible world's structures, in the run rules' order (StructureLedger); absent before them */
+  structures?: number[];
   waveNumber: number;
   phase: GamePhase;
   /** A wave has started in this run (game:started went out) */

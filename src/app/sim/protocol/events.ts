@@ -107,7 +107,7 @@ export function isWormGroupRef(v: unknown): v is WormGroupRef {
  */
 export interface LosNeededPayload {
   towerId: string;
-  reason: 'place' | 'upgrade' | 'retrofit';
+  reason: 'place' | 'upgrade' | 'retrofit' | 'world';
   /** Of this request, for command:los-mask to bring back (TowerLos) */
   generation: number;
   range: number;

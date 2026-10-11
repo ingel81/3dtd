@@ -1,4 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
+import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
+import { StructureLedger } from './game-state/structure-ledger';
 import { Vector3 } from 'three';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
@@ -249,6 +251,9 @@ export class GameStateManager {
     this.globalRouteGrid, this.coords, this.eventBus, (playerId) => this.simResearch.airTargetingFor(playerId),
   );
 
+  /** The HP of a destructible world's structures (RunRules.structures, TODO E131), see StructureLedger */
+  readonly structures = new StructureLedger(this.sink, (x, y, radius) => this.seeAroundFall(x, y, radius));
+
   /** Place, sell and upgrade rules, range refresh and guard heading of the towers */
   private readonly towerLifecycle = new TowerLifecycle(
     this.towerManager,
@@ -378,6 +383,7 @@ export class GameStateManager {
     towerCombat: this.towerCombat,
     debugEnemies: this.debugEnemies,
     sink: this.sink,
+    structures: this.structures,
     research: () => this.researchSeats.map((seat) => seat.research),
     abilities: () => this.abilitySeats,
     heroes: () => this.heroSeats,
@@ -404,6 +410,7 @@ export class GameStateManager {
     // Between waves the next kill's wave starts the budget afresh; a restore resets it (resetKillRewards)
     killRewards: () => (this.waveManager.phase() === 'wave' ? this.enemyManager.killRewardState() : null),
     baseHealth: () => this.baseHealth(),
+    structureHp: () => this.structures.hpList(),
     waveNumber: () => this.waveManager.waveNumber(),
     spawner: () => this.waveManager.spawnerProgress(),
     idCounter: () => GameObject.getIdCounter(),
@@ -717,6 +724,8 @@ export class GameStateManager {
     const same = next.startCredits === this.runRules.startCredits && next.hqHealth === this.runRules.hqHealth
       && (next.towers?.join('+') ?? '*') === (this.runRules.towers?.join('+') ?? '*');
     this.runRules = next;
+    // The world's structures, all standing (a world where nothing falls has none)
+    this.structures.load(next.structures);
     if (same) return;
     this.healthLedger.setStart(next.hqHealth);
     this.healthLedger.resetToStart();
@@ -792,6 +801,9 @@ export class GameStateManager {
     this.eventBusSubs.add(this.eventBus.on('research:completed', (event) => {
       this.towerLifecycle.scheduleAirRetrofit(event.effects, event.playerId);
     }));
+
+    // A projectile that came down wears down the structures of a destructible world near it (TODO E131)
+    this.eventBusSubs.add(this.eventBus.on('vfx:projectile-impact', (event) => this.structures.impact(event.lat, event.lon)));
 
     // Once a wave is over, turn the towers to where the route enters their
     // range. During the wave a tower keeps the heading of its last target.
@@ -1184,6 +1196,7 @@ export class GameStateManager {
   resyncPresentation(): void {
     this.towerManager.refreshInnerFires();
     this.towerLifecycle.announceBuilds();
+    this.structures.publish();
     const phase = this.waveManager.phase();
     const wave = this.waveManager.waveNumber();
     for (const seat of this.abilitySeats) seat.announceState();
@@ -1317,6 +1330,21 @@ export class GameStateManager {
    */
   healBase(): void {
     this.healthLedger.resetToStart();
+  }
+
+  /** Debug: take `amount` off the structures within `reach` m of a point (StructureLedger.hit); the ids that fell */
+  hitStructures(lat: number, lon: number, reach: number, amount: number): string[] {
+    return this.structures.hit(lat, lon, reach, amount);
+  }
+
+  /** A structure fell at map metres `x`, `y`: the towers that may see past it now ask for their sight anew */
+  private seeAroundFall(x: number, y: number, radius: number): void {
+    for (const tower of this.towerManager.getAll()) {
+      const dx = tower.position.lon * MAP_METERS_PER_DEGREE - x;
+      const dy = tower.position.lat * MAP_METERS_PER_DEGREE - y;
+      const reach = tower.combat.range + radius;
+      if (dx * dx + dy * dy <= reach * reach) this.towerLos.recompute(tower, 'world');
+    }
   }
 
   /** Debug: add (or take) base HP, emits health:changed. */
@@ -1474,6 +1502,7 @@ export class GameStateManager {
     this.sink.oozes.clear();
 
     this.healthLedger.resetToStart();
+    this.structures.reset();
     this.creditsLedger.reset();
     this.clock.reset();
     // Coop: the new run goes on at the relay's next tick

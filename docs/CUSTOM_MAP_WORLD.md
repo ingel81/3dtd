@@ -178,39 +178,28 @@ Ergebnis landet an vier Stellen:
   kann der Editor später mit „Karte prüfen“ die Probe in einem Tab oder iframe öffnen und das Ergebnis
   lesen.
 
-## Zerstörbarkeit (`?destructible`, Experiment)
+## Zerstörbarkeit (E131)
 
-Die Schnittstelle gilt für jede Welt: `capabilities.destructible` und `WorldProvider.destruction`
-(`WorldDestruction`: `structures()`, `damage(at, radius, amount)` gibt die gefallenen zurück, `reset()`).
-Tiles und DevWorld haben `null`.
+Eine Karte sagt es selbst: `gameplay.destructible: true` (im Editor unter Rules, „World“). Der frühere Link-Schalter
+`?destructible` ist entfallen. Mitgeliefert zerstörbar: die Endzeit-Stadt (`ruined-city`).
 
-Eine eigene Karte wird zerstörbar, wenn der Link `?destructible` trägt (`customMapDestructible`). Eine
-Einstellung im Kartendokument gibt es dafür noch nicht.
-
-- **Bauwerke:** Bauwerke sind die Objekte, deren Katalogeintrag `building`, `wall` oder `structure` ist
-  (`CustomMapDestruction`). Ihre HP folgen dem Volumen als Zylinder aus Grundradius und Höhe, 60 bis 3000.
-- **Schaden:** Ihn verteilt `WorldDamagePresenter` (presentation/) auf dem Hauptthread. Jeder
-  `vfx:projectile-impact` des Main-Bus, auf einem Gegner oder auf dem Boden, nimmt jedem stehenden Bauwerk im
-  Umkreis 20 HP. Der Umkreis ist 4 m plus der Radius des Bauwerks.
-- **Fallen:** Ein Bauwerk bei 0 HP explodiert in seiner Größe. Danach schrumpft es in der Ansicht auf
-  fast nichts (`FALLEN_SCALE`, `view.updateObject`) und blockiert das Bauen nicht mehr. Der Boden darunter
-  bleibt.
-- **Neuer Lauf:** `game:reset` stellt alle wieder auf.
-- **Kopie der Karte:** Die Welt arbeitet auf ihrer eigenen Kopie der Objektliste. Die geöffnete Karte und ihr
-  Inhalts-Hash bleiben unberührt.
-- **Debug:** In der Entwicklung listet `__worldDamage` in DevTools die Bauwerke und trifft einen Punkt
-  (`structures()`, `hit(lat, lon, radius, amount)`).
-
-Grenzen:
-
-- Nur Darstellung und Bausperre: Die Simulation weiß von keinem Bauwerk. Die Fälle folgen den Ereignissen
-  der Simulation und sind damit in Koop und Replay dieselben. Ein Sprung im Replay (Snapshot) stellt sie
-  aber nicht wieder her.
-- Die Sichtlinien der Tower lesen die Ansicht: Wann ein gefallenes Bauwerk dort fehlt, hängt davon ab,
-  wann der Sichtwürfel des Towers neu gerendert wird. Für ein Spielfeature müsste der Fall in die
-  Simulation (Weltschlüssel, Sichtlinien neu je Fall).
-- Gegner richten keinen eigenen Schaden an, nur Einschläge. Auf der Demo-Karte stehen die Häuser abseits
-  der Straßen; dort fiel in 8 Wellen nichts.
+- **Bauwerke:** die Objekte, deren Katalogeintrag `building`, `wall` oder `structure` ist (`CustomMapDestruction`);
+  HP nach dem Volumen als Zylinder aus Grundradius und Höhe, 60 bis 3000. Die Welt lädt den Katalog vor dem Senden an
+  die Simulation (`attach` wartet darauf).
+- **In der Simulation:** Die Bauwerke reisen in den Lauf-Regeln (`RunRules.structures`, `asRunStructures`) und damit
+  im Weltschlüssel (`runRulesKey`, ein Digest aus Id, Ort, Radius, HP); ein Koop-Gast baut dieselbe Liste aus derselben
+  Karte. `StructureLedger` (managers/game-state) hält die HP: jeder `vfx:projectile-impact` der Simulation nimmt jedem
+  stehenden Bauwerk in 4 m plus seinem Radius 20 HP, bei 0 fällt es. Snapshot (`SimSnapshot.structures`) und
+  Zustands-Hash (Teil `health`, `STATE_HASH_VERSION` 6) tragen die HP; ein neuer Lauf stellt alle auf.
+- **Zum Hauptthread:** Op `structures.setFallen(ids)` mit der ganzen Menge der gefallenen (auch nach Restore und
+  Replay-Sprung, `resyncPresentation`), dazu im Moment des Falls der flüchtige Op `main.structureFell` (Explosion in
+  der Größe, im stummen Replay-Sprung weggelassen). `WorldDamagePresenter` reicht die Menge an
+  `WorldDestruction.setFallen`: Neues fällt (schrumpft auf `FALLEN_SCALE`, blockiert das Bauen nicht mehr), was nicht
+  mehr in der Menge ist, steht wieder.
+- **Sichtlinien:** Tower, deren Reichweite plus Bauwerksradius den Fall erreicht, fragen ihre Sicht neu an
+  (`TowerLos.recompute`, Grund `world`; ein Tower, der noch auf seine erste wartet, bleibt bei `place`).
+- **Debug:** In der Entwicklung trifft `__worldDamage.hit(lat, lon, reach, amount)` über die Simulation
+  (`debug:hit-structures`, im Koop ein Cheat); `structures()` zeigt die HP (gefallen 0, stehend die volle).
 
 ## Darstellung
 

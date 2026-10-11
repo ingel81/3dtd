@@ -45,6 +45,7 @@ export const COMMAND_FIELDS = {
   'debug:kill-all': [],
   'debug:add-credits': ['amount'],
   'debug:add-health': ['amount'],
+  'debug:hit-structures': ['lat', 'lon', 'reach', 'amount'],
   'debug:complete-all-research': [],
   'debug:max-upgrade-all-towers': [],
   'debug:ready-ability': ['abilityId'],
