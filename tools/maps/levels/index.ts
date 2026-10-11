@@ -9,6 +9,10 @@ import { buildRedCanyon } from './red-canyon';
 import { buildEmberCrater } from './ember-crater';
 import { buildFrostHamlet } from './frost-hamlet';
 import { buildMountainPass } from './mountain-pass';
+import { buildMoonBase } from './moon-base';
+import { buildMarsCanyon } from './mars-canyon';
+import { buildRuinedCity } from './ruined-city';
+import { buildHarborTown } from './harbor-town';
 import { buildTwinGates } from './twin-gates';
 import { buildWitchMarsh } from './witch-marsh';
 
@@ -21,4 +25,8 @@ export const SHOWCASE_LEVELS: { id: string; build: () => CustomMapDocument }[] =
   { id: 'frost-hamlet', build: buildFrostHamlet },
   { id: 'ember-crater', build: buildEmberCrater },
   { id: 'twin-gates', build: buildTwinGates },
+  { id: 'moon-base', build: buildMoonBase },
+  { id: 'mars-canyon', build: buildMarsCanyon },
+  { id: 'ruined-city', build: buildRuinedCity },
+  { id: 'harbor-town', build: buildHarborTown },
 ];

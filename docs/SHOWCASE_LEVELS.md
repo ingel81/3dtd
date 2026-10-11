@@ -170,6 +170,35 @@ Bodenschichten statt acht (`kit.trimLayers`, die am wenigsten genutzten gehen; b
 weg). Die Werte streuen auf dem geteilten Rechner stark: ein zweiter Lauf maß Mountain Pass kalt mit 7,9 s, Twin Gates
 im ersten Lauf warm mit 6,7 s und 120 fps.
 
+## Weitere vier (E133, 2026-10-12)
+
+Gebaut als Bauskript und gepackt, Spuren und Prüfung des Editors grün; Kartenprobe, Bildschirmbild im Spiel, fps und
+Ladezeit stehen noch aus.
+
+### 9 Mondbasis (`moon-base`)
+`tools/maps/levels/moon-base.ts`, Small 512 m. Spuren 424, 425 und 509 m. Eine Forschungsstation in einem weiten
+Krater auf einer grauen Ebene voller Krater; drei Rover-Pisten von Landezonen im Norden, Westen und Osten winden
+sich zwischen den Kratern zum Hub. Kuppeln, Module und Tunnel um das HQ, Landeplatz mit Lander und Tanks,
+Solarfelder auf dem Kraterrand, Antennen, Rover. Bauflächen: die Kraterränder und Rücken zwischen den Kratern.
+Look `moon`, tiefe Sonne (22°), schwarzer Himmel.
+
+### 10 Mars-Canyon (`mars-canyon`)
+`tools/maps/levels/mars-canyon.ts`, Small 512 m. Spuren 365, 417 und 358 m. Zwei rostrote Canyons treffen sich in
+einem Becken, eine dritte Spur kommt vom Ostrand; die Kolonie (Hub, Gewächshauskuppeln, Landeplatz, Windräder,
+Solarfeld auf einer Bank darüber) steht am Südende. Dünen, Krater und Tafelberge auf der Ebene. Look `mars`, staubiger
+Nachmittag.
+
+### 11 Endzeit-Stadt (`ruined-city`)
+`tools/maps/levels/ruined-city.ts`, Small 512 m. Spuren 572, 444 und 444 m. Das Straßenraster der Stadt (64 m)
+steht noch, die Blöcke sind ausgebrannt: der Stadt-Pinsel legt Raster und Häuser, die Häuser, Autos, Bäume und
+Laternen werden gegen Ruinen, Wracks, verkohlte Bäume und umgestürzte Masten getauscht. Fünf eingestürzte Blöcke
+sind Trümmerfelder zum Bauen. Die Spuren laufen als gerade Pfade auf den Straßen (nicht die Kurven der Straßenlinie)
+zur gehaltenen Kreuzung mit Sandsäcken, Barrikaden und Panzersperren. Look `apocalypse`, bedeckt, Dunst.
+
+### 12 Hafenstadt (`harbor-town`)
+`tools/maps/levels/harbor-town.ts`, Small 512 m. Spuren 444, 380 und 508 m. Eine Stadt am Hang über einer Bucht, die
+Straßen im Raster hinunter zum Kai; das HQ hält den Platz am Wasser zwischen Kai, Kränen und Containerlager. Piers mit
+Fischerbooten, ein Schiff am Kai, eine Mole mit Leuchtturm, Bojen an der Hafeneinfahrt. Look `city`, Abend.
+
 ## Weitere bei Bedarf
-Mondbasis (Krater, Habitate, Erde am Himmel), Mars-Canyon (rote Dünen, Rover), Endzeit-Stadt (Ruinen, Wracks, Smog),
-Hafenstadt (Kanäle mit Brücken).
+Hafenstadt mit Kanälen und Brücken, Erde am Himmel der Mondbasis.

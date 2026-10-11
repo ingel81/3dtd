@@ -125,6 +125,62 @@
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
       "contentHash": "35e7c40a2b1246c926de808f07ad48dbbe322e9dcbe8afb2d1047db0089cd84b"
+    },
+    {
+      "id": "moon-base",
+      "name": "Moon Base",
+      "file": "moon-base.3dtdmap",
+      "preview": "moon-base.png",
+      "author": "3DTD",
+      "description": "A research station in a crater on the Moon. Rover tracks wind between the craters from three landing zones; build on the rims.",
+      "width": 512,
+      "depth": 512,
+      "spawns": 3,
+      "biome": "moon",
+      "updatedAt": "2026-10-11T00:00:00.000Z",
+      "contentHash": "709de49f536661b15fb61c383f9c0c2a235ce52005009efedf332faec449c9b5"
+    },
+    {
+      "id": "mars-canyon",
+      "name": "Mars Canyon",
+      "file": "mars-canyon.3dtdmap",
+      "preview": "mars-canyon.png",
+      "author": "3DTD",
+      "description": "A colony where two rust-red canyons meet. Enemies walk the canyon floors, towers stand on the benches and mesas above.",
+      "width": 512,
+      "depth": 512,
+      "spawns": 3,
+      "biome": "mars",
+      "updatedAt": "2026-10-11T00:00:00.000Z",
+      "contentHash": "a3f41f081ac94671fe890a2e575b4108c155e24fd11db7334c2aa243aa10a2b3"
+    },
+    {
+      "id": "ruined-city",
+      "name": "Ruined City",
+      "file": "ruined-city.3dtdmap",
+      "preview": "ruined-city.png",
+      "author": "3DTD",
+      "description": "A downtown after the end: three columns come down the avenues to the survivors' barricaded crossroads. Build on the corners and in the fallen blocks.",
+      "width": 512,
+      "depth": 512,
+      "spawns": 3,
+      "biome": "apocalypse",
+      "updatedAt": "2026-10-11T00:00:00.000Z",
+      "contentHash": "6a595e4743cc67ba65b85e780a0e5e209609ecc801b9f6634416fb702b44a582"
+    },
+    {
+      "id": "harbor-town",
+      "name": "Harbor Town",
+      "file": "harbor-town.3dtdmap",
+      "preview": "harbor-town.png",
+      "author": "3DTD",
+      "description": "A port on a bay at dusk. Three columns come down the streets to the HQ on the waterfront, between quay, cranes and the container yard.",
+      "width": 512,
+      "depth": 512,
+      "spawns": 3,
+      "biome": "city",
+      "updatedAt": "2026-10-11T00:00:00.000Z",
+      "contentHash": "f2fa27c585f3b46c2b0ec96887f286efe518d75d290c1756e6d82bcfac32d7fe"
     }
   ]
 }
