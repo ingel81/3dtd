@@ -112,6 +112,7 @@ export const KNOWN_MAP_FILES = [
   'war3map.j',
   'scripts\\war3map.j',
   'war3map.lua',
+  'scripts\\war3map.lua',
   'war3map.wts',
   'war3mapUnits.doo',
   'war3map.w3u',
