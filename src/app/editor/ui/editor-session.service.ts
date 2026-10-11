@@ -5,6 +5,7 @@
  * the map check and the file actions. The panels read its signals; the
  * editing itself happens in the Angular-free model, ops and tools.
  */
+import { MAP_TRIAL_MESSAGE, MAP_TRIAL_WAVES_PARAM, type MapTrialResult } from '../../world/map-trial';
 import { VersionHistory, type MapVersion } from '../model/version-store';
 import { biomeById } from '../ops/landscape/biomes';
 import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
@@ -54,8 +55,14 @@ export interface ImportState {
   error: string | null;
 }
 
+/** Waves the bot plays for the map check */
+const BOT_CHECK_WAVES = 5;
+
 @Injectable()
 export class EditorSession implements OnDestroy {
+  /** The bot's check of the map: running (no result yet) or done */
+  readonly botTrial = signal<{ waves: number; result: MapTrialResult | null } | null>(null);
+  private stopBotListener: (() => void) | null = null;
   private readonly history = new VersionHistory();
   /** The open map's kept versions, newest first */
   readonly versions = signal<MapVersion[]>([]);
@@ -495,6 +502,34 @@ export class EditorSession implements OnDestroy {
   }
 
   /** Saves, then opens the game on this map */
+  /**
+   * The game's bot plays the first waves of this map in a new tab at high
+   * speed (`?bot=trial&trialWaves=N`) and sends its result back
+   */
+  async botCheck(waves = BOT_CHECK_WAVES): Promise<void> {
+    const doc = this.doc;
+    if (!doc) return;
+    if (this.origin() === 'own') await this.save(true);
+    const url = new URL(document.baseURI);
+    url.searchParams.set(WORLD_URL_PARAM, worldUrlValue({ kind: 'custom-map', mapId: doc.meta.id, contentHash: '' })!);
+    url.searchParams.set('bot', 'trial');
+    url.searchParams.set(MAP_TRIAL_WAVES_PARAM, String(waves));
+    this.botTrial.set({ waves, result: null });
+    this.stopBotListener?.();
+    const listen = (e: MessageEvent) => {
+      const data = e.data as { type?: string; result?: MapTrialResult } | null;
+      if (e.origin !== window.location.origin || data?.type !== MAP_TRIAL_MESSAGE || !data.result) return;
+      this.zone.run(() => this.botTrial.set({ waves, result: data.result! }));
+      this.stopBotListener?.();
+    };
+    window.addEventListener('message', listen);
+    this.stopBotListener = () => {
+      window.removeEventListener('message', listen);
+      this.stopBotListener = null;
+    };
+    window.open(url.toString(), '_blank');
+  }
+
   async testPlay(): Promise<void> {
     const doc = this.doc;
     if (!doc) return;
