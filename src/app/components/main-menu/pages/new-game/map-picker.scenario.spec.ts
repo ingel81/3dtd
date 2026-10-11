@@ -56,7 +56,11 @@ describe('Map picker of New game', () => {
 
   async function open(setup: { maps?: MapChoices; current?: string; tilesets?: boolean; underWay?: boolean } = {}) {
     worlds = {
-      listMaps: vi.fn(async () => setup.maps ?? { own: [{ summary: OWN, picture: 'blob:bay' }], shipped: [{ summary: SHIPPED, picture: 'maps/demo-valley.png' }] }),
+      listMaps: vi.fn(async () => setup.maps ?? {
+        own: [{ summary: OWN, picture: 'blob:bay' }],
+        shared: [{ summary: { ...OWN, id: 'hosted', name: 'Ann\'s map', origin: 'shared' }, picture: null }],
+        shipped: [{ summary: SHIPPED, picture: 'maps/demo-valley.png' }],
+      }),
       playMap: vi.fn(),
       playTileset: vi.fn(),
       isCurrent: (ref) => ref.kind === 'custom-map' && ref.mapId === setup.current,
@@ -90,11 +94,13 @@ describe('Map picker of New game', () => {
   it('lists own and shipped maps with picture, name, author, size, spawns and biome', async () => {
     const f = await open();
     const rows = Array.from(el(f).querySelectorAll<HTMLElement>('[data-map]'));
-    expect(rows.map((r) => r.dataset['map'])).toEqual(['bay', 'demo-valley']);
+    // Own, then those coop hosts sent, then the shipped
+    expect(rows.map((r) => r.dataset['map'])).toEqual(['bay', 'hosted', 'demo-valley']);
+    expect(line(el(f))).toContain('From coop hosts');
     expect(parts(rows[0])).toEqual(['My bay', 'by Ann | 1024 x 512 m | 3 spawns | Desert', 'Edit', 'Play']);
     expect(rows[0].querySelector('img')!.getAttribute('src')).toBe('blob:bay');
-    expect(parts(rows[1])).toEqual(['Demo Valley', 'by 3DTD | 512 x 512 m | 2 spawns | Temperate', 'Edit', 'Play']);
-    expect(rows[1].querySelector('a')!.getAttribute('href')).toBe('http://x/editor?map=demo-valley');
+    expect(parts(rows[2])).toEqual(['Demo Valley', 'by 3DTD | 512 x 512 m | 2 spawns | Temperate', 'Edit', 'Play']);
+    expect(rows[2].querySelector('a')!.getAttribute('href')).toBe('http://x/editor?map=demo-valley');
   });
 
   it('plays a map on Play, and the one played now says so', async () => {
@@ -107,7 +113,7 @@ describe('Map picker of New game', () => {
   });
 
   it('points to the editor without own maps, and shows the own tilesets when there are', async () => {
-    const f = await open({ maps: { own: [], shipped: [] }, tilesets: true });
+    const f = await open({ maps: { own: [], shared: [], shipped: [] }, tilesets: true });
     expect(line(el(f))).toContain('Maps you make in the map editor show up here.');
     const set = row(f, 'data-tileset');
     expect(parts(set)).toEqual(['Test ground', 'City survey | 1.4 km around its middle', 'Play']);

@@ -12,7 +12,12 @@ import type { CustomMapDocument, MapBiome } from './map-document';
 import { contentHash, packMapFile, unpackMapFile } from './map-file';
 import { slugMapId } from './map-create';
 
-export type MapOrigin = 'own' | 'shipped';
+/**
+ * Where a map came from: made or imported here ('own'), shipped with the
+ * game, or received from a coop host ('shared', a copy the next version of
+ * the host's map replaces; the editor opens it only as a copy)
+ */
+export type MapOrigin = 'own' | 'shipped' | 'shared';
 
 export interface MapSummary {
   id: string;
@@ -148,6 +153,22 @@ export class MapStore {
     const keep = preview ?? (await this.backend.get(doc.meta.id))?.preview ?? null;
     await this.backend.put({ summary, file, preview: keep });
     return summary;
+  }
+
+  /**
+   * Stores a map a coop host sent (`file` as it came) as 'shared': the
+   * host's next version replaces it, an own map is never written over
+   * (map-share.ts decides)
+   */
+  async saveShared(doc: CustomMapDocument, preview: Uint8Array | null, file: Uint8Array): Promise<MapSummary> {
+    const summary = summarize(doc, 'shared', await contentHash(doc));
+    await this.backend.put({ summary, file, preview });
+    return summary;
+  }
+
+  /** Whether the game ships a map of this id (maps/index.json) */
+  async isShipped(id: string): Promise<boolean> {
+    return (await this.readIndex()).some((e) => e.id === id);
   }
 
   /** Stores a `.3dtdmap` file as an own map, under a fresh id when the id is taken */

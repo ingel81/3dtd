@@ -22,9 +22,11 @@ export interface MapChoice {
   picture: string | null;
 }
 
-/** Own maps first, then the shipped ones */
+/** Own maps first, then those coop hosts sent, then the shipped ones */
 export interface MapChoices {
   own: MapChoice[];
+  /** Maps received in coop (origin 'shared') */
+  shared: MapChoice[];
   shipped: MapChoice[];
 }
 
@@ -50,11 +52,11 @@ export class WorldChoiceService {
   /** The world the page plays on */
   readonly current = this.world.ref;
 
-  /** Own and shipped maps with their pictures; an own list that does not load is empty */
+  /** Own, received and shipped maps with their pictures; a stored list that does not load is empty */
   async listMaps(): Promise<MapChoices> {
     const [own, shipped] = await Promise.all([this.store.listOwn().catch(() => []), this.store.listShipped().catch(() => [])]);
     for (const url of this.pictureUrls.splice(0)) URL.revokeObjectURL(url);
-    const ownChoices = await Promise.all(own.map(async (summary) => {
+    const stored = await Promise.all(own.map(async (summary) => {
       const bytes = await this.store.previewOf(summary.id).catch(() => null);
       if (!bytes) return { summary, picture: null };
       const url = URL.createObjectURL(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'image/png' }));
@@ -67,7 +69,11 @@ export class WorldChoiceService {
       summary,
       picture: await this.store.shippedPreviewUrl(summary.id).catch(() => null),
     })));
-    return { own: ownChoices, shipped: shippedChoices };
+    return {
+      own: stored.filter((m) => m.summary.origin !== 'shared'),
+      shared: stored.filter((m) => m.summary.origin === 'shared'),
+      shipped: shippedChoices,
+    };
   }
 
   /** Whether the page plays this map or set now */

@@ -19,6 +19,17 @@
     }
   </section>
 
+  @if (maps.shared.length) {
+    <section class="td-group" aria-labelledby="mk-shared">
+      <h3 class="td-section" id="mk-shared">From coop hosts</h3>
+      <ul class="td-rows mk-list" aria-labelledby="mk-shared">
+        @for (m of maps.shared; track m.summary.id) {
+          <ng-container *ngTemplateOutlet="mapRow; context: { $implicit: m }" />
+        }
+      </ul>
+    </section>
+  }
+
   @if (maps.shipped.length) {
     <section class="td-group" aria-labelledby="mk-shipped">
       <h3 class="td-section" id="mk-shipped">Shipped maps</h3>

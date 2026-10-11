@@ -21,9 +21,11 @@ export function packOpenedMap(ref: WorldRef): { bytes: Uint8Array; hash: string 
 /**
  * Keep a map another player sent, so this page can open it as
  * `?world=map:<id>`: the file must be a map, with the id and content hash
- * named. A map here with that id and content is left as it is; an own map of
- * that id with other content is never overwritten. Returns why it was not
- * kept, null when the map is here now.
+ * named. It is kept as 'shared': a map here with that id and content is left
+ * as it is, an earlier shared version is replaced (the host changed the
+ * map), an own map of that id with other content is never overwritten, nor
+ * is a shipped one hidden. Returns why it was not kept (a storage that
+ * fails included), null when the map is here now.
  */
 export async function storeSharedMap(
   bytes: Uint8Array,
@@ -37,15 +39,23 @@ export async function storeSharedMap(
     return `The host's map did not arrive whole (${error instanceof Error ? error.message : String(error)}).`;
   }
   const { doc, preview } = unpacked;
-  if (doc.meta.id !== expected.mapId || (await contentHash(doc)) !== expected.hash) {
-    return 'The host\'s map did not arrive as the host has it.';
+  try {
+    if (doc.meta.id !== expected.mapId || (await contentHash(doc)) !== expected.hash) {
+      return 'The host\'s map did not arrive as the host has it.';
+    }
+    const here = await store.load(expected.mapId).catch(() => null);
+    if (here?.summary.contentHash === expected.hash) return null;
+    if (here?.summary.origin === 'own') {
+      return `You have a map of your own called "${here.doc.meta.name}" under the same id (${expected.mapId}). `
+        + 'Rename or remove it in the editor to join this room.';
+    }
+    if (here?.summary.origin === 'shipped' || (await store.isShipped(expected.mapId))) {
+      return `The host plays a changed copy of the shipped map "${doc.meta.name}" under its id (${expected.mapId}). `
+        + 'The host can save it under another name in the editor and open the room again.';
+    }
+    await store.saveShared(doc, preview, bytes);
+    return null;
+  } catch (error) {
+    return `The host's map could not be kept here (${error instanceof Error ? error.message : String(error)}).`;
   }
-  const here = await store.load(expected.mapId).catch(() => null);
-  if (here?.summary.contentHash === expected.hash) return null;
-  if (here?.summary.origin === 'own') {
-    return `You have a map of your own called "${here.doc.meta.name}" under the same id (${expected.mapId}). `
-      + 'Rename or remove it in the editor to join this room.';
-  }
-  await store.save(doc, preview);
-  return null;
 }

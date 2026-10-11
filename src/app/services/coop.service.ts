@@ -1232,7 +1232,9 @@ export class CoopService {
   /** Guest: the host's map into the store, then this page on it (takeMapPart) */
   private async keepHostMap(bytes: Uint8Array, piece: MapPart): Promise<void> {
     const generation = this.generation;
-    const problem = await storeSharedMap(bytes, { mapId: piece.mapId, hash: piece.hash });
+    // Whatever goes wrong is said: the guest would wait on 'loading-world' for good
+    const problem = await storeSharedMap(bytes, { mapId: piece.mapId, hash: piece.hash })
+      .catch((error: unknown) => `The host's map could not be kept here (${error instanceof Error ? error.message : String(error)}).`);
     if (generation !== this.generation) return;
     if (problem) {
       this.ngZone.run(() => this.error.set(problem));

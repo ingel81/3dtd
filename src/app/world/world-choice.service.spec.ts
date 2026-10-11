@@ -47,8 +47,12 @@ describe('WorldChoiceService', () => {
   it('lists own maps with their pictures first, then the shipped ones an own map does not hide', async () => {
     const bay = createMapDocument({ id: 'bay', name: 'My bay', width: 64, depth: 32 });
     await store.save(bay, new Uint8Array([1, 2, 3]));
+    const hosted = createMapDocument({ id: 'hosted', name: "Ann's map", width: 64, depth: 64 });
+    await store.saveShared(hosted, null, new Uint8Array([1]));
     const maps = await service.listMaps();
     expect(maps.own.map((m) => [m.summary.name, m.picture])).toEqual([['My bay', 'blob:picture']]);
+    // A map a coop host sent is kept apart from the own ones
+    expect(maps.shared.map((m) => [m.summary.name, m.picture])).toEqual([["Ann's map", null]]);
     expect(maps.own[0].summary).toMatchObject({ width: 64, depth: 32, spawns: 1, biome: 'temperate' });
     expect(maps.shipped.map((m) => [m.summary.id, m.picture])).toEqual([['demo-valley', 'http://x/game/maps/demo-valley.png']]);
     expect(maps.shipped[0].summary).toMatchObject({ author: '3DTD', spawns: 2, biome: 'temperate' });
