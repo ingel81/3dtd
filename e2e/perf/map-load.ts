@@ -6,6 +6,7 @@
 //   npm run build
 //   node e2e/perf/serve.mjs dist/3DTD/browser 4227 --isolate
 //   node e2e/perf/map-load.ts --url http://localhost:4227 --map demo-valley [--runs 3] [--profile [--trace out.json]]
+//   Through the start menu as a player starts: --menu
 //   An own map (not shipped): --seed tmp/w3x-out/<id>.3dtdmap (with <id>.summary.json beside it, `npm run w3x-import`)
 //
 // Headed Chromium: the terrain and the models compile their shaders on the GPU the player has, not in SwiftShader.
@@ -24,6 +25,8 @@ const RUNS = Number(argument('runs', '1'));
 const PROFILE = process.argv.includes('--profile');
 const TRACE_FILE = argument('trace', '');
 const TOP = Number(argument('top', '40'));
+/** Through the start menu (Play pressed as soon as it shows) instead of `&menu=skip` */
+const MENU = process.argv.includes('--menu');
 
 interface Mark {
   name: string;
@@ -151,12 +154,13 @@ for (let run = 0; run < RUNS; run++) {
       categories: ['devtools.timeline', 'v8.execute', 'disabled-by-default-v8.cpu_profiler', 'disabled-by-default-devtools.timeline', 'gpu'],
     });
   }
-  await page.goto(`${URL_BASE}/?world=map:${MAP}&menu=skip`);
+  await page.goto(`${URL_BASE}/?world=map:${MAP}${MENU ? '' : '&menu=skip'}`);
   const end = Date.now() + 180_000;
   let found: Mark[] = [];
   while (Date.now() < end) {
     found = await marks(page);
     if (found.some((m) => m.name === 'ready')) break;
+    if (MENU) await page.locator('.mm-start [data-entry="play"]').first().click({ timeout: 50 }).catch(() => undefined);
     const alert = page.locator('[role="alert"]');
     if (await alert.count()) problems.push((await alert.first().innerText()).slice(0, 200));
     if (problems.length) break;

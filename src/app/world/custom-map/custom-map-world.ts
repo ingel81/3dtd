@@ -85,6 +85,23 @@ export async function openCustomMap(ref: WorldRef & { kind: 'custom-map' }, stor
   return loaded;
 }
 
+/**
+ * Starts fetching and decoding the map's ground materials and models (and
+ * the renderer's code) while the start flow builds the engine, streets and
+ * routes; the view takes them from the library's cache when it attaches.
+ */
+export function prefetchCustomMapAssets(doc: CustomMapDocument): void {
+  void import('./render/custom-map-view');
+  void import('./render/map-asset-library')
+    .then(({ MapAssetLibrary }) => {
+      const library = MapAssetLibrary.shared();
+      const materials = new Set([...doc.terrain.layers.map((l) => l.material), doc.terrain.cliffMaterial]);
+      for (const id of materials) library.material(id).catch(() => undefined);
+      for (const id of new Set(doc.objects.map((o) => o.asset))) library.model(id).catch(() => undefined);
+    })
+    .catch(() => undefined);
+}
+
 /** The map `openCustomMap` loaded for this ref, null before */
 export function openedCustomMap(ref: WorldRef & { kind: 'custom-map' }): LoadedCustomMap | null {
   return opened.get(ref.mapId) ?? null;
@@ -161,7 +178,7 @@ export class CustomMapWorld implements WorldProvider {
 
   /**
    * The map's first frame without stalls: its ground materials and models
-   * loaded (view.ready), then every program of the scene compiled in parallel
+   * loaded (view.ready), then every program of the map compiled in parallel
    * off the main thread (compileAsync, KHR_parallel_shader_compile) before
    * the first draw. Drawn before, each new material links its program
    * synchronously in the frame that first shows it: some 3 s on the main
@@ -171,7 +188,11 @@ export class CustomMapWorld implements WorldProvider {
     await view.ready.catch((err) => console.warn('[CustomMap] assets did not load', err));
     if (this.view !== view) return;
     performance.mark('load:map-assets:done');
-    await ctx.renderer.compileAsync(ctx.scene, ctx.camera).catch((err) => console.warn('[CustomMap] shaders did not compile ahead', err));
+    // The map's own programs (with the scene's lights and fog); the engine warms its pools up itself
+    await Promise.all([
+      ctx.renderer.compileAsync(view.group, ctx.camera, ctx.scene),
+      ctx.renderer.compileAsync(view.losBlockers, ctx.camera, ctx.scene),
+    ]).catch((err) => console.warn('[CustomMap] shaders did not compile ahead', err));
     if (this.view !== view) return;
     performance.mark('load:map-shaders:done');
     this.prepared = true;

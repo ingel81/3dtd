@@ -9,6 +9,7 @@ import {
   customMapSpawnLimit,
   openCustomMap,
   openedCustomMap,
+  prefetchCustomMapAssets,
 } from './custom-map/custom-map-world';
 import { mapToGeo } from './custom-map/map-document';
 import { FLAT_WORLD_ORIGIN } from './flat-frame';
@@ -87,7 +88,10 @@ const CUSTOM_MAP_FACTORY: WorldFactory = {
   startHq: async (ref) => {
     if (ref.kind !== 'custom-map') throw new WorldUnavailableError(ref, 'not a custom map');
     try {
-      return mapToGeo((await openCustomMap(ref)).doc.hq);
+      const { doc } = await openCustomMap(ref);
+      // Textures and models load while the engine, streets and routes are built
+      prefetchCustomMapAssets(doc);
+      return mapToGeo(doc.hq);
     } catch (err) {
       throw new WorldUnavailableError(ref, err instanceof Error ? err.message : String(err));
     }
