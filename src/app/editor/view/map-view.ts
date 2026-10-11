@@ -28,6 +28,7 @@ export class EditorMapView {
     renderer: WebGLRenderer,
   ) {
     this.view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy() });
+    this.view.attach(scene);
     this.view.environment.apply(scene, renderer);
     this.rememberObjects();
   }
@@ -51,8 +52,14 @@ export class EditorMapView {
     return this.view.raycastObjects(ray)?.object.id ?? null;
   }
 
-  update(dt: number, camera: Camera): void {
-    this.view.update(dt, camera);
+  /** Every frame; `focus` (scene space) is where the camera orbits, the sun's shadow box follows it */
+  update(dt: number, camera: Camera, focus?: Vector3): void {
+    this.view.update(dt, camera, focus);
+  }
+
+  /** The layer list, a layer's material or the cliff material changed (splat weights follow) */
+  updateLayers(): void {
+    void this.view.updateLayers();
   }
 
   /** Height samples changed */
@@ -98,7 +105,9 @@ export class EditorMapView {
   }
 
   dispose(): void {
+    this.view.environment.detach();
     this.view.dispose();
+    this.view.losBlockers.removeFromParent();
   }
 
   private rememberObjects(): void {

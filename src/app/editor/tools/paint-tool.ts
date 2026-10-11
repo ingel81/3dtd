@@ -3,8 +3,8 @@
  * erase switch) takes it away. The layer list and auto paint live in the
  * panel, which runs them as commands (`paintCommands`).
  */
-import type { MapGroundLayer } from '../../world/custom-map/map-document';
-import { SnapshotCommand, type EditCommand, type EditorDocument } from '../model/editor-document';
+import type { CustomMapDocument, MapGroundLayer, MapTerrain } from '../../world/custom-map/map-document';
+import type { DocChange, EditCommand, EditorDocument } from '../model/editor-document';
 import { texelRectAround } from '../model/grid';
 import { autoPaint, defaultAutoRules, moveLayer, paintDab, removeLayer, type AutoPaintRule } from '../ops/paint-ops';
 import { BrushStroke } from './brush-stroke';
@@ -66,41 +66,96 @@ export class PaintTool implements EditorTool {
   }
 }
 
-/** Layer list and auto paint as undoable steps; they rewrite the splat maps, so they keep the terrain whole */
+/** What a layer edit changes: the list, the splat weights and the cliff material */
+interface GroundState {
+  layers: MapGroundLayer[];
+  maps: [Uint8Array, Uint8Array];
+  cliffMaterial: string;
+  cliffAngle: number;
+}
+
+function groundState(t: MapTerrain): GroundState {
+  return {
+    layers: t.layers.map((l) => ({ ...l })),
+    maps: [t.splat.maps[0].slice(), t.splat.maps[1].slice()],
+    cliffMaterial: t.cliffMaterial,
+    cliffAngle: t.cliffAngle,
+  };
+}
+
+/**
+ * A change of the ground layers, written into the terrain in place: the
+ * renderer keeps its terrain and only reloads the layers (`updateLayers`).
+ */
+class GroundCommand implements EditCommand {
+  readonly bytes: number;
+
+  constructor(
+    readonly label: string,
+    private readonly before: GroundState,
+    private readonly after: GroundState,
+  ) {
+    this.bytes = (before.maps[0].byteLength + before.maps[1].byteLength) * 2;
+  }
+
+  static record(editor: EditorDocument, label: string, edit: (t: MapTerrain) => void): GroundCommand {
+    const t = editor.doc.terrain;
+    const before = groundState(t);
+    edit(t);
+    const after = groundState(t);
+    // The edit ran on the live terrain: put it back, apply() writes it again
+    write(t, before);
+    return new GroundCommand(label, before, after);
+  }
+
+  apply(doc: CustomMapDocument): DocChange {
+    return write(doc.terrain, this.after);
+  }
+
+  revert(doc: CustomMapDocument): DocChange {
+    return write(doc.terrain, this.before);
+  }
+}
+
+function write(t: MapTerrain, state: GroundState): DocChange {
+  t.layers = state.layers.map((l) => ({ ...l }));
+  t.splat.maps[0].set(state.maps[0]);
+  t.splat.maps[1].set(state.maps[1]);
+  t.cliffMaterial = state.cliffMaterial;
+  t.cliffAngle = state.cliffAngle;
+  const r = t.splat.resolution - 1;
+  return { layers: true, splat: { i0: 0, j0: 0, i1: r, j1: r } };
+}
+
+/** Layer list, auto paint and cliff as undoable steps; the terrain stays the same object */
 export const paintCommands = {
   addLayer(editor: EditorDocument, material: string): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Add layer', ['terrain'], (d) => {
-      d.terrain.layers.push({ material } satisfies MapGroundLayer);
-    });
+    return GroundCommand.record(editor, 'Add layer', (t) => t.layers.push({ material }));
   },
   setMaterial(editor: EditorDocument, index: number, material: string): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Change material', ['terrain'], (d) => {
-      d.terrain.layers[index] = { ...d.terrain.layers[index], material };
-    });
+    return GroundCommand.record(editor, 'Change material', (t) => (t.layers[index] = { ...t.layers[index], material }));
   },
   setScale(editor: EditorDocument, index: number, scale: number | undefined): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Texture size', ['terrain'], (d) => {
-      const layer = { ...d.terrain.layers[index] };
+    return GroundCommand.record(editor, 'Texture size', (t) => {
+      const layer = { ...t.layers[index] };
       if (scale && scale > 0) layer.scale = scale;
       else delete layer.scale;
-      d.terrain.layers[index] = layer;
+      t.layers[index] = layer;
     });
   },
   removeLayer(editor: EditorDocument, index: number): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Remove layer', ['terrain'], (d) => removeLayer(d.terrain, index));
+    return GroundCommand.record(editor, 'Remove layer', (t) => removeLayer(t, index));
   },
   moveLayer(editor: EditorDocument, from: number, to: number): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Move layer', ['terrain'], (d) => moveLayer(d.terrain, from, to));
+    return GroundCommand.record(editor, 'Move layer', (t) => moveLayer(t, from, to));
   },
   autoPaint(editor: EditorDocument, rules?: AutoPaintRule[]): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Auto paint', ['terrain'], (d) => {
-      autoPaint(d.terrain, rules ?? defaultAutoRules(d.terrain));
-    });
+    return GroundCommand.record(editor, 'Auto paint', (t) => autoPaint(t, rules ?? defaultAutoRules(t)));
   },
   setCliff(editor: EditorDocument, material: string, angle: number): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Cliff material', ['terrain'], (d) => {
-      d.terrain.cliffMaterial = material;
-      d.terrain.cliffAngle = angle;
+    return GroundCommand.record(editor, 'Cliff material', (t) => {
+      t.cliffMaterial = material;
+      t.cliffAngle = angle;
     });
   },
 };

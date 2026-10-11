@@ -5,6 +5,7 @@ import { heightAt } from '../model/grid';
 import type { EditorOverlay } from '../view/editor-overlay';
 import { MarkerTool } from './marker-tool';
 import { ObjectTool } from './object-tool';
+import { paintCommands } from './paint-tool';
 import { PathTool } from './path-tool';
 import { TerrainTool } from './terrain-tool';
 import { defaultSettings, type ToolContext, type ToolPointer } from './tool';
@@ -141,5 +142,24 @@ describe('editor tools', () => {
     expect(ed.doc.terrain.water!.mask.some((v) => v > 0)).toBe(true);
     ed.undo();
     expect(ed.doc.terrain.water).toBeNull();
+  });
+});
+
+describe('ground layer commands', () => {
+  it('change layers in place and undo them', () => {
+    const ed = fresh();
+    const terrain = ed.doc.terrain;
+    const maps = terrain.splat.maps[0];
+    ed.execute(paintCommands.addLayer(ed, 'dirt'));
+    ed.execute(paintCommands.autoPaint(ed));
+    ed.execute(paintCommands.moveLayer(ed, 1, 0));
+    expect(ed.doc.terrain).toBe(terrain);
+    expect(ed.doc.terrain.splat.maps[0]).toBe(maps);
+    expect(terrain.layers.map((l) => l.material)).toEqual(['dirt', 'grass']);
+    ed.undo();
+    ed.undo();
+    ed.undo();
+    expect(terrain.layers.map((l) => l.material)).toEqual(['grass']);
+    expect(maps[0]).toBe(255);
   });
 });

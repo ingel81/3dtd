@@ -97,7 +97,7 @@ export class EditorViewport {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.view = new EditorMapView(editor.doc, this.scene, this.renderer);
-    this.scene.add(this.view.group, this.overlay.group);
+    this.scene.add(this.overlay.group);
     this.ctx = this.buildContext();
     this.unsubscribe.push(
       editor.onChange((change) => {
@@ -135,7 +135,6 @@ export class EditorViewport {
   rebuildView(): void {
     this.view.dispose();
     this.view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
-    this.scene.add(this.view.group);
     this.pending = null;
     this.routesDirty = true;
     this.markersDirty = true;
@@ -482,10 +481,11 @@ export class EditorViewport {
     }
     this.pending = null;
     const v = this.view;
-    if (c.terrain || c.layers) {
-      // A new terrain or another layer list: the renderer builds its ground anew
+    if (c.terrain) {
+      // A new terrain (resize): the renderer builds its ground anew
       this.rebuildView();
     } else {
+      if (c.layers) v.updateLayers();
       if (c.heights) v.updateHeights(c.heights);
       if (c.splat) v.updateSplat(c.splat);
       if (c.water) v.updateWater();
@@ -550,7 +550,7 @@ export class EditorViewport {
     this.overlay.setBrush(showBrush ? tp!.hit : null, brush.radius, brush.falloff);
     this.overlay.setViewDistance(this.controller.current.distance);
     this.overlay.update(dt);
-    this.view.update(dt, this.camera);
+    this.view.update(dt, this.camera, this.controller.current.target);
     this.renderer.render(this.scene, this.camera);
 
     this.reportHover(time, tp?.hit ?? null);
