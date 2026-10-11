@@ -129,7 +129,7 @@ import { WhatsNewService } from './services/onboarding/whats-new.service';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
-import { OSM_MAP_ATTRIBUTION } from './configs/attributions.config';
+import { mapCreditLine } from './configs/attributions.config';
 import { ABILITIES } from './configs/abilities.config';
 import { RefusalHintService } from './services/refusal-hint.service';
 import { FocusOnShowDirective } from './components/focus-on-show.directive';
@@ -358,7 +358,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly fps = this.store.fps;
   readonly tileStats = this.store.tileStats;
   readonly mapAttribution = this.store.mapAttribution;
-  readonly osmAttribution = OSM_MAP_ATTRIBUTION;
+  /** The map's credit, with the OSM credit where the routes run on OSM streets */
+  readonly creditLine = computed(() => mapCreditLine(this.mapAttribution(), this.worldContext.capabilities().realPlace));
 
   // Camera, from Store
   readonly compassRotation = this.store.compassRotation;

@@ -205,8 +205,11 @@ describe('PhotoModeService screenshot', () => {
         { provide: EngineInitializationService, useValue: { getEngine: () => ({ captureFrame: async () => frame }) } },
         { provide: LocationManagementService, useValue: { displayName: () => 'Paris' } },
         { provide: ConfigService, useValue: { tileProvider: () => tileProvider } },
-        // The world's logos: the tiles' by their source, none in DevWorld
-        { provide: WorldContext, useValue: { logos: () => (devWorld ? [] : tilesLogos(tileProvider)) } },
+        // The world's logos: the tiles' by their source, none in DevWorld; only the tiles are a real place
+        {
+          provide: WorldContext,
+          useValue: { logos: () => (devWorld ? [] : tilesLogos(tileProvider)), capabilities: () => ({ realPlace: !devWorld }) },
+        },
         { provide: LiveAnnouncer, useValue: { announce: vi.fn() } },
         { provide: ElementRef, useValue: new ElementRef(document.createElement('div')) },
       ],
@@ -250,11 +253,11 @@ describe('PhotoModeService screenshot', () => {
     }
   });
 
-  it('stamps the game mark in DevWorld too, where no provider logo shows', async () => {
+  it('stamps the game mark in DevWorld too, where no provider logo shows and no OSM street runs', async () => {
     await build(true, 'cesium').saveScreenshot();
     expect(screenshot.stampScreenshot).toHaveBeenCalledWith(
       frame,
-      'Map data ©2026 Google | Routes © OpenStreetMap contributors',
+      'Map data ©2026 Google',
       [],
       { logo: { src: 'assets/images/logo/logo.png' }, url: 'https://3dtd.sgeht.net' },
     );

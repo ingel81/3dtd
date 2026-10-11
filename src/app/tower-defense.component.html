@@ -123,7 +123,7 @@
             <img [src]="logo.src" [alt]="logo.alt" [class]="logo.cssClass">
           }
         </div>
-        <div class="td-map-attribution td-overlay td-note td-trunc">{{ mapAttribution() }}, {{ osmAttribution }}</div>
+        <div class="td-map-attribution td-overlay td-note td-trunc">{{ creditLine() }}</div>
 
         <!-- Compass Overlay -->
         <app-compass [rotation]="compassRotation()" (resetBearing)="resetCamera()" />

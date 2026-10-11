@@ -19,6 +19,15 @@ export interface AttributionCategory {
  */
 export const OSM_MAP_ATTRIBUTION = 'Routes © OpenStreetMap contributors';
 
+/**
+ * The credit line under the map: the world's own (tiles: Google's data, a
+ * custom map: its name and author) and the OSM credit where the routes run
+ * on OSM streets, a real place; empty parts left out.
+ */
+export function mapCreditLine(worldCredit: string, osmStreets: boolean, separator = ', '): string {
+  return [worldCredit, osmStreets ? OSM_MAP_ATTRIBUTION : ''].filter((part) => part).join(separator);
+}
+
 export const ATTRIBUTIONS: AttributionCategory[] = [
   {
     title: '3D Models',
