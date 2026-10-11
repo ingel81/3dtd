@@ -149,10 +149,10 @@ export class MapStore {
         const summary = own.summary.contentHash ? own.summary : { ...own.summary, contentHash: await contentHash(doc) };
         return { doc, summary, preview: own.preview ?? preview };
       }
-      if (origin === 'own') throw new MapStoreError(`There is no own map "${id}".`);
+      if (origin === 'own') throw new MapStoreError(`There is no own map "${id}" in this browser; it may have been deleted.`);
     }
     const entry = (await this.readIndex()).find((e) => e.id === id);
-    if (!entry) throw new MapStoreError(`There is no map "${id}".`);
+    if (!entry) throw new MapStoreError(`There is no map "${id}" in this browser; it may have been deleted.`);
     const response = await this.fetcher(this.url(`maps/${entry.file}`));
     if (!response.ok) throw new MapStoreError(`The map "${entry.name}" did not load (${response.status}).`);
     const { doc, preview } = unpackMapFile(new Uint8Array(await response.arrayBuffer()));

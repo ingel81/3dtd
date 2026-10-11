@@ -55,7 +55,7 @@ import { EditorSession } from '../editor-session.service';
             }
           </div>
         } @empty {
-          <p class="td-note">{{ query() ? 'Nothing matches.' : 'None yet.' }}</p>
+          <p class="td-note">{{ query() ? 'Nothing matches.' : 'No objects yet: paint a biome (1) or place objects (5).' }}</p>
         }
         @if (d.groups.length) {
           <h3 class="td-head">Groups <span class="td-note">Ctrl+G</span></h3>

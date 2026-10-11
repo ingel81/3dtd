@@ -65,6 +65,14 @@ Gewässer.
 Jeder Pinsel hat Größe (1 bis 200 m), Stärke und Weichheit (Anteil des Radius, der ausblendet). Der Ring auf dem Boden
 zeigt Größe und den harten Kern.
 
+**Einstieg.** Beim ersten Öffnen einer Karte führt eine Tour in sieben Schritten durch den Editor: Ansicht, Landschaft
+malen, Weg ziehen, Spawn und HQ, Check, Probewelle, Test map. Ein Schritt geht von selbst weiter, wenn man tut, was
+er sagt (ein Strich, eine Straße, ein Spawn, der Check, die Probewelle, der Test), sonst mit „Next“; „Skip the
+tour“ beendet sie. Danach kommt sie nicht mehr von selbst (localStorage `3dtd-editor-tour`), die Hilfe (?) und
+Strg+K starten sie wieder. Die Hilfe hat neben den Tasten die Seite „Good levels“: Weglänge, Engstellen, Bauflächen,
+Sichtlinien, Spurzahl und Testen, jeweils mit einem Knopf, der das passende Werkzeug öffnet. Kann eine Karte nicht
+gespeichert werden, sagt ein Banner im Editor, was passiert ist, dass die Änderungen noch da sind und was zu tun ist.
+
 ## Werkzeuge
 
 **Landscape (1).** Landschaft malen: Höhe, Bodenfarbe, Wasser und Objekte entstehen gemeinsam, jeder Strich ist

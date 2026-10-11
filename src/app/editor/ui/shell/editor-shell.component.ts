@@ -5,11 +5,14 @@ import {
   OnDestroy,
   afterNextRender,
   computed,
+  effect,
+  untracked,
   inject,
   output,
   signal,
   viewChild,
 } from '@angular/core';
+import type { DocChange } from '../../model/editor-document';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent, type TdIconName } from '../../../components/icon/icon.component';
 import { SYMMETRY_MODES, type SymmetryMode } from '../../ops/symmetry';
@@ -18,6 +21,9 @@ import { BIOMES } from '../../ops/landscape/biomes';
 import { CommandPaletteComponent } from './command-palette.component';
 import type { EditorCommand } from './commands';
 import { KEY_ACTIONS, actionFor, bindable, loadKeymap, rebind, saveKeymap, type Keymap } from './keymap';
+import { LEVEL_GUIDE } from './level-guide';
+import { TOUR_STEPS, markTourDone, tourAdvance, tourPending, type TourEvent } from './tour';
+import { ContextHintComponent, type HintAction } from '../../../components/context-hint/context-hint.component';
 import { EditorSession } from '../editor-session.service';
 import { CheckPanelComponent } from '../panels/check-panel.component';
 import { EnvironmentPanelComponent } from '../panels/environment-panel.component';
@@ -81,6 +87,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
     CheckPanelComponent,
     StatusBarComponent,
     CommandPaletteComponent,
+    ContextHintComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './editor-shell.component.html',
@@ -98,12 +105,27 @@ export class EditorShellComponent implements OnDestroy {
   readonly icons = TOOL_ICON;
   readonly fileMenu = signal(false);
   readonly help = signal(false);
+  readonly helpView = signal<'keys' | 'guide'>('keys');
+  readonly guide = LEVEL_GUIDE;
   /** The command palette's list while it is open */
   readonly palette = signal<readonly EditorCommand[] | null>(null);
   /** The keys of the rebindable actions, and the action waiting for its new key */
   readonly keymap = signal<Keymap>(loadKeymap());
   readonly capturing = signal<string | null>(null);
   readonly keyActions = KEY_ACTIONS;
+  /** The tour's step, null when it does not run */
+  readonly tourStep = signal<number | null>(null);
+  readonly tour = computed(() => {
+    const k = this.tourStep();
+    return k === null ? null : { step: TOUR_STEPS[k], counter: `${k + 1}/${TOUR_STEPS.length}`, last: k === TOUR_STEPS.length - 1 };
+  });
+  readonly tourActions = computed<HintAction[]>(() => [
+    ...(this.tourStep() ? [{ id: 'back', label: 'Back' }] : []),
+    { id: 'next', label: this.tour()?.last ? 'Done' : 'Next' },
+    { id: 'skip', label: 'Skip the tour' },
+  ]);
+  /** Where the step's element sits on the screen, for the ring around it */
+  readonly tourRing = signal<{ left: number; top: number; width: number; height: number } | null>(null);
   readonly shortcuts = SHORTCUTS;
   readonly symmetryModes = SYMMETRY_MODES;
   readonly symmetry = computed(() => (this.session.settingsRev(), this.session.settings.symmetry));
@@ -128,6 +150,12 @@ export class EditorShellComponent implements OnDestroy {
     afterNextRender(() => {
       this.session.attachViewport(this.canvas().nativeElement);
       this.canvas().nativeElement.focus();
+      if (tourPending()) this.startTour();
+    });
+    // A change of the map may finish the step the tour is on
+    effect(() => {
+      const last = this.session.lastChange();
+      if (last) untracked(() => this.tourEvent('change', last.change));
     });
   }
 
@@ -144,7 +172,72 @@ export class EditorShellComponent implements OnDestroy {
     this.session.selectTool(id);
   }
 
+  openGuide(): void {
+    this.palette.set(null);
+    this.helpView.set('guide');
+    this.help.set(true);
+  }
+
+  guideTool(id: ToolId): void {
+    this.help.set(false);
+    this.pick(id);
+  }
+
+  startTour(): void {
+    this.help.set(false);
+    this.palette.set(null);
+    this.showTourStep(0);
+  }
+
+  onTourAction(id: string): void {
+    const k = this.tourStep();
+    if (k === null) return;
+    if (id === 'skip') return this.endTour();
+    if (id === 'back') return this.showTourStep(Math.max(0, k - 1));
+    if (k >= TOUR_STEPS.length - 1) return this.endTour();
+    this.showTourStep(k + 1);
+  }
+
+  /** Something the tour may wait for happened */
+  tourEvent(event: TourEvent, change: DocChange | null = null): void {
+    const k = this.tourStep();
+    if (k === null) return;
+    const next = tourAdvance(k, event, change);
+    if (next === k) return;
+    if (next >= TOUR_STEPS.length) this.endTour();
+    else this.showTourStep(next);
+  }
+
+  private showTourStep(k: number): void {
+    const step = TOUR_STEPS[k];
+    this.tourStep.set(k);
+    if (step.tool) this.pick(step.tool);
+    // The ring around the step's element, once the page shows it
+    requestAnimationFrame(() => {
+      const el = step.target ? document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`) : null;
+      const r = el?.getBoundingClientRect();
+      this.tourRing.set(r ? { left: r.left - 4, top: r.top - 4, width: r.width + 8, height: r.height + 8 } : null);
+    });
+  }
+
+  private endTour(): void {
+    this.tourStep.set(null);
+    this.tourRing.set(null);
+    markTourDone();
+  }
+
+  trial(): void {
+    this.session.viewport?.toggleTrial();
+    if (this.session.viewport?.trialRunning) this.tourEvent('trial');
+  }
+
+  testPlay(): void {
+    void this.session.testPlay();
+    this.tourEvent('test');
+  }
+
   async check(): Promise<void> {
+    this.tourEvent('check');
     const issues = this.session.runCheck();
     this.session.flash(issues.length ? `${issues.length} ${issues.length === 1 ? 'thing' : 'things'} to look at` : 'The map checks out');
   }
@@ -228,7 +321,7 @@ export class EditorShellComponent implements OnDestroy {
         vp?.toggleGameView();
         return !!vp;
       case 'map:trial':
-        vp?.toggleTrial();
+        this.trial();
         return !!vp;
     }
     return false;
@@ -294,6 +387,8 @@ export class EditorShellComponent implements OnDestroy {
     add('View', 'Grid on or off', () => s.patchSettings((st) => (st.view.grid = !st.view.grid)));
     for (const m of SYMMETRY_MODES) add('Symmetry', m.label, () => this.setSymmetry(m.id), 'M');
     add('Editor', 'Keys', () => this.help.set(true), '?');
+    add('Editor', 'Tour: the editor in seven steps', () => this.startTour());
+    add('Editor', 'How to build a good level', () => this.openGuide());
     const doc = s.doc;
     if (doc && vp) {
       add('Go to', 'HQ', () => vp.focusOn(doc.hq));

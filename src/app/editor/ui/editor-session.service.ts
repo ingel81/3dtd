@@ -5,6 +5,7 @@
  * the map check and the file actions. The panels read its signals; the
  * editing itself happens in the Angular-free model, ops and tools.
  */
+import type { DocChange } from '../model/editor-document';
 import { MAP_TRIAL_MESSAGE, MAP_TRIAL_WAVES_PARAM, type MapTrialResult } from '../../world/map-trial';
 import { VersionHistory, type MapVersion } from '../model/version-store';
 import { biomeById } from '../ops/landscape/biomes';
@@ -60,6 +61,8 @@ const BOT_CHECK_WAVES = 5;
 
 @Injectable()
 export class EditorSession implements OnDestroy {
+  /** The latest change of the document (a new object each time, for the tour) */
+  readonly lastChange = signal<{ change: DocChange } | null>(null);
   /** The save running now, if any */
   private saveRun: Promise<boolean> | null = null;
   /** Counts the times the map view became ready (models and textures in): pictures of it are worth retaking */
@@ -295,7 +298,10 @@ export class EditorSession implements OnDestroy {
     void this.loadVersions();
     this.issues.set(null);
     this.unsubscribe.push(
-      editor.onChange(() => (this.changed = true)),
+      editor.onChange((change) => {
+        this.changed = true;
+        this.lastChange.set({ change });
+      }),
       editor.onSelection((s) => this.selection.set(s)),
     );
     this.refresh();
@@ -472,7 +478,7 @@ export class EditorSession implements OnDestroy {
       if (manual) this.flash('Saved');
       return true;
     } catch (e) {
-      this.error.set(e instanceof MapFileError ? e.message : `Saving failed: ${(e as Error).message}`);
+      this.error.set(saveErrorText(e));
       return false;
     } finally {
       this.saving.set(false);
@@ -517,7 +523,7 @@ export class EditorSession implements OnDestroy {
       );
       this.flash(`Back to the version of ${new Date(version.savedAt).toLocaleString()}`);
     } catch (e) {
-      this.error.set(`This version could not be read: ${(e as Error).message}`);
+      this.error.set(`This version could not be read (${(e as Error).message}). The map is as it was.`);
     }
   }
 
@@ -735,4 +741,14 @@ export function download(bytes: Uint8Array, name: string, type: string): void {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/** What a failed save tells the player: what happened, that nothing is lost yet, what to do */
+export function saveErrorText(e: unknown): string {
+  if (e instanceof MapFileError) return `The map was not saved: ${e.message} Fix it (Check, V) and save again.`;
+  const err = e as { name?: string; message?: string } | null;
+  if (err?.name === 'QuotaExceededError' || /quota|storage full/i.test(err?.message ?? '')) {
+    return 'The map was not saved: the browser has no more room for maps. Your changes are still here: download the map (File menu) and delete maps you no longer need.';
+  }
+  return `The map was not saved (${err?.message ?? 'unknown error'}). Your changes are still here; try again or download the map (File menu).`;
 }

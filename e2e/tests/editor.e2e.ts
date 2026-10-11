@@ -4,7 +4,8 @@
 // check, saving, a reload that brings the map back, and deleting it again in
 // the map browser. A second run builds a city from a template and tries the
 // palette, the trial wave, a lasso, a group and the version list. A third
-// runs the check's bot test on a fresh map.
+// runs the check's bot test on a fresh map, a fourth the first-run tour and
+// the level guide.
 import { test, expect, type Page } from '@playwright/test';
 import { shot } from '../support/game';
 
@@ -25,7 +26,11 @@ async function heightAt(page: Page, x: number, y: number): Promise<number> {
 
 test('builds, checks, saves and reloads a map in the editor', async ({ page }, testInfo) => {
   test.setTimeout(5 * 60_000);
-  await page.addInitScript(() => localStorage.setItem('td_seen_version', '9999.0.0'));
+  await page.addInitScript(() => {
+    localStorage.setItem('td_seen_version', '9999.0.0');
+    // The editor's first-run tour has its own test
+    localStorage.setItem('3dtd-editor-tour', 'done');
+  });
   page.on('pageerror', (e) => console.log(`pageerror: ${e.message}`));
   await page.goto('/editor');
 
@@ -125,7 +130,11 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
 
 test('makes a map from a template and uses the pro tools on it', async ({ page }) => {
   test.setTimeout(4 * 60_000);
-  await page.addInitScript(() => localStorage.setItem('td_seen_version', '9999.0.0'));
+  await page.addInitScript(() => {
+    localStorage.setItem('td_seen_version', '9999.0.0');
+    // The editor's first-run tour has its own test
+    localStorage.setItem('3dtd-editor-tour', 'done');
+  });
   page.on('pageerror', (e) => console.log(`pageerror: ${e.message}`));
   await page.goto('/editor');
 
@@ -177,7 +186,11 @@ test('makes a map from a template and uses the pro tools on it', async ({ page }
 
 test("the check's bot test plays a fresh map in a new tab and reports back", async ({ page, context }) => {
   test.setTimeout(10 * 60_000);
-  await page.addInitScript(() => localStorage.setItem('td_seen_version', '9999.0.0'));
+  await page.addInitScript(() => {
+    localStorage.setItem('td_seen_version', '9999.0.0');
+    // The editor's first-run tour has its own test
+    localStorage.setItem('3dtd-editor-tour', 'done');
+  });
   await context.addInitScript(() => localStorage.setItem('td_seen_version', '9999.0.0'));
   await page.goto('/editor');
   const name = `E2E bot ${Date.now()}`;
@@ -194,6 +207,54 @@ test("the check's bot test plays a fresh map in a new tab and reports back", asy
   await expect(page.locator('[data-test=bot-result]')).toContainText(/passed|failed|stuck/i, { timeout: 8 * 60_000 });
   await expect(page.locator('[data-test=bot-result]')).toContainText(/passed/i);
   await tab.close();
+  await page.locator('[data-test=back]').click();
+  await page.locator('.mb-row', { hasText: name }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
+  await page.locator('.td-banner').getByRole('button', { name: 'Delete', exact: true }).click();
+});
+
+test('the first-run tour leads through the editor and comes back from the help', async ({ page }) => {
+  test.setTimeout(3 * 60_000);
+  await page.addInitScript(() => {
+    localStorage.setItem('td_seen_version', '9999.0.0');
+    if (!sessionStorage.getItem('tour-test')) {
+      localStorage.removeItem('3dtd-editor-tour');
+      sessionStorage.setItem('tour-test', '1');
+    }
+  });
+  await page.goto('/editor');
+  const name = `E2E tour ${Date.now()}`;
+  await page.locator('[data-test=new-map]').click();
+  await page.locator('[data-test=new-name]').fill(name);
+  await page.locator('[data-test=create-map]').click();
+  const tour = page.locator('[data-test=tour]');
+  await expect(tour).toHaveAttribute('data-step', 'view');
+  await tour.getByRole('button', { name: 'Next' }).click();
+  await expect(tour).toHaveAttribute('data-step', 'land');
+  // Painting finishes the step by itself
+  const box = (await page.locator('[data-test=viewport]').boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 3);
+  await page.mouse.down();
+  await expect(tour).toHaveAttribute('data-step', 'road', { timeout: 15_000 });
+  await page.mouse.up();
+  await tour.getByRole('button', { name: 'Next' }).click();
+  await expect(tour).toHaveAttribute('data-step', 'markers');
+  await tour.getByRole('button', { name: 'Next' }).click();
+  await expect(tour).toHaveAttribute('data-step', 'check');
+  await page.locator('[data-test=check]').click();
+  await expect(tour).toHaveAttribute('data-step', 'trial');
+  await tour.getByRole('button', { name: 'Skip the tour' }).click();
+  await expect(tour).toHaveCount(0);
+  // Not by itself again, but from the help; the help also has the level guide
+  await page.reload();
+  await expect(page.locator('[data-test=map-name]')).toHaveText(name);
+  await expect(tour).toHaveCount(0);
+  await page.locator('[data-test=help]').click();
+  await page.locator('[data-test=help-guide]').click();
+  await expect(page.locator('[data-topic=chokes]')).toBeVisible();
+  await page.locator('[data-test=start-tour]').click();
+  await expect(tour).toHaveAttribute('data-step', 'view');
+  await tour.getByRole('button', { name: 'Skip the tour' }).click();
   await page.locator('[data-test=back]').click();
   await page.locator('.mb-row', { hasText: name }).click();
   await page.getByRole('button', { name: 'Delete', exact: true }).first().click();

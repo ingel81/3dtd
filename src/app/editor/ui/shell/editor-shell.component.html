@@ -47,17 +47,17 @@
     <button class="td-tool" type="button" aria-label="Keys" matTooltip="Keys (?)" [attr.aria-expanded]="help()" (click)="help.set(!help())" data-test="help">
       <td-icon name="keyboard" [size]="18" />
     </button>
-    <button class="td-btn-secondary td-btn-sm" type="button" (click)="check()" matTooltip="Check the map for problems (V)" data-test="check">
+    <button class="td-btn-secondary td-btn-sm" type="button" (click)="check()" matTooltip="Check the map for problems (V)" data-test="check" data-tour="check">
       Check
       @if (session.issues(); as issues) {
         <span class="td-tag" [class.is-error]="issueCount() > 0" [class.is-ok]="!issues.length">{{ issues.length }}</span>
       }
     </button>
-    <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.viewport?.toggleTrial()" [attr.aria-pressed]="session.viewport?.trialRunning ?? false"
-            matTooltip="The enemies walk the routes at their real speed, here in the editor (P)" data-test="trial">
+    <button class="td-btn-secondary td-btn-sm" type="button" (click)="trial()" [attr.aria-pressed]="session.viewport?.trialRunning ?? false"
+            matTooltip="The enemies walk the routes at their real speed, here in the editor (P)" data-test="trial" data-tour="trial">
       Trial wave
     </button>
-    <button class="td-btn-primary td-btn-sm" type="button" (click)="session.testPlay()" matTooltip="Save and play this map in a new tab" data-test="test-play">
+    <button class="td-btn-primary td-btn-sm" type="button" (click)="testPlay()" matTooltip="Save and play this map in a new tab" data-test="test-play" data-tour="test-play">
       <td-icon name="play" [size]="14" /> Test map
     </button>
   </header>
@@ -68,12 +68,27 @@
         <span class="es-tools-gap td-line-top" aria-hidden="true"></span>
       }
       <button class="td-icon-btn es-tool" type="button" [attr.aria-pressed]="session.tool() === t.id" [attr.aria-label]="t.label"
-              [matTooltip]="t.label + ' (' + t.key + '): ' + t.about" matTooltipPosition="right" (click)="pick(t.id)" [attr.data-tool]="t.id">
+              [matTooltip]="t.label + ' (' + t.key + '): ' + t.about" matTooltipPosition="right" (click)="pick(t.id)" [attr.data-tool]="t.id" [attr.data-tour]="'tool-' + t.id">
         <td-icon [name]="icons[t.id]" [size]="18" />
       </button>
     }
   </nav>
 
+  @if (tour(); as t) {
+    @if (tourRing(); as r) {
+      <div class="es-tour-ring" aria-hidden="true" [style.left.px]="r.left" [style.top.px]="r.top" [style.width.px]="r.width" [style.height.px]="r.height"></div>
+    }
+    <div class="es-tour" data-test="tour" [attr.data-step]="t.step.id">
+      <app-context-hint [title]="t.step.title" [counter]="t.counter" [message]="t.step.message" [hints]="t.step.hints"
+                        [actions]="tourActions()" (actionClicked)="onTourAction($event)" />
+    </div>
+  }
+  @if (session.error(); as error) {
+    <p class="td-banner is-error is-row es-error" role="alert" data-test="editor-error">
+      <span>{{ error }}</span>
+      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.error.set(null)">Dismiss</button>
+    </p>
+  }
   <main class="es-view">
     <canvas #canvas class="es-canvas" tabindex="0" aria-label="Map view" data-test="viewport"></canvas>
     @if (session.box(); as b) {
@@ -124,9 +139,28 @@
     <div class="es-help-veil" (click)="help.set(false)" aria-hidden="true"></div>
     <section class="es-help td-dlg" role="dialog" aria-modal="true" aria-labelledby="es-help-title" data-test="help-dialog">
       <header class="td-dlg-head">
-        <h2 class="td-dlg-title" id="es-help-title">Keys</h2>
+        <h2 class="td-dlg-title" id="es-help-title">Help</h2>
+        <div class="td-seg is-sm es-help-tabs" role="tablist" aria-label="Help">
+          <button type="button" role="tab" [attr.aria-selected]="helpView() === 'keys'" (click)="helpView.set('keys')">Keys</button>
+          <button type="button" role="tab" [attr.aria-selected]="helpView() === 'guide'" (click)="helpView.set('guide')" data-test="help-guide">Good levels</button>
+        </div>
+        <button class="td-btn-ghost td-btn-sm" type="button" (click)="startTour()" data-test="start-tour">Start the tour</button>
         <button class="td-close" type="button" aria-label="Close" (click)="help.set(false)"><td-icon name="close" [size]="12" /></button>
       </header>
+      @if (helpView() === 'guide') {
+        <div class="td-dlg-body es-guide">
+          <h3 class="td-section">How to build a good TD level</h3>
+          @for (g of guide; track g.id) {
+            <div class="es-guide-topic" [attr.data-topic]="g.id">
+              <h4 class="td-name">{{ g.title }}</h4>
+              <p class="td-note">{{ g.text }}</p>
+              @if (g.tool) {
+                <button class="td-btn-secondary td-btn-sm" type="button" (click)="guideTool(g.tool)">{{ g.action }}</button>
+              }
+            </div>
+          }
+        </div>
+      } @else {
       <div class="td-dlg-body es-help-body">
         @for (g of shortcuts; track g.group) {
           <div class="es-help-group">
@@ -149,6 +183,7 @@
           <div class="td-actions is-start"><button class="td-btn-ghost td-btn-sm" type="button" (click)="resetKeys()">Back to the default keys</button></div>
         </div>
       </div>
+      }
     </section>
   }
 </div>

@@ -201,3 +201,65 @@
 .es-status {
   grid-area: status;
 }
+
+// The tour: its card above the status bar, a ring around what the step points at
+.es-tour {
+  position: fixed;
+  left: 50%;
+  bottom: 48px;
+  z-index: 25;
+  width: min(520px, calc(100vw - 32px));
+  transform: translateX(-50%);
+}
+
+.es-tour-ring {
+  position: fixed;
+  z-index: 24;
+  border: 2px solid var(--td-brass-light);
+  border-radius: var(--td-radius);
+  pointer-events: none;
+}
+
+.es-help-tabs {
+  margin-left: auto;
+}
+
+.es-guide {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--td-sp-3) var(--td-sp-5);
+
+  > .td-section {
+    grid-column: 1 / -1;
+  }
+}
+
+.es-guide-topic {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--td-sp-1);
+
+  > h4 {
+    margin: 0;
+  }
+
+  > p {
+    margin: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .es-guide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.es-error {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  z-index: 26;
+  width: min(720px, calc(100vw - 32px));
+  transform: translateX(-50%);
+}

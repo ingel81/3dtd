@@ -4,7 +4,8 @@ import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { MapStore, MemoryMapBackend } from '../../world/custom-map/map-store';
 import { MemoryVersionBackend, VersionHistory } from '../model/version-store';
-import { EditorSession } from './editor-session.service';
+import { MapFileError } from '../../world/custom-map/map-file';
+import { EditorSession, saveErrorText } from './editor-session.service';
 
 function session(): { s: EditorSession; backend: MemoryMapBackend; history: VersionHistory; versions: MemoryVersionBackend } {
   const s = TestBed.runInInjectionContext(() => new EditorSession());
@@ -56,5 +57,15 @@ describe('editor session saving', () => {
     s.ngOnDestroy();
     expect(remove).toHaveBeenCalledWith('message', expect.any(Function));
     open.mockRestore();
+  });
+});
+
+describe('save errors in plain words', () => {
+  it('say what happened, that nothing is lost and what to do', () => {
+    const full = saveErrorText(Object.assign(new Error('x'), { name: 'QuotaExceededError' }));
+    expect(full).toMatch(/no more room/);
+    expect(full).toMatch(/still here/);
+    expect(saveErrorText(new MapFileError('The map is not valid: a river needs two points'))).toMatch(/Fix it \(Check, V\)/);
+    expect(saveErrorText(new Error('boom'))).toMatch(/boom.*still here/);
   });
 });
