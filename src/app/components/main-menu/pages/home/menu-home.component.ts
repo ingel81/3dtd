@@ -5,6 +5,7 @@ import {
   Injector,
   afterNextRender,
   computed,
+  effect,
   inject,
   input,
   signal,
@@ -109,6 +110,26 @@ export class MenuHomeComponent {
   private readonly chosen = signal<HomeEntryId | null>(null);
 
   readonly plate = computed(() => loadingPlateView(this.engineInit.loadingSteps()));
+
+  constructor() {
+    // The first choice is the top entry (TODO E151). The menu focuses the
+    // first entry as it opens, often before the place behind it is known;
+    // Play or Continue then come in above New game. Focus still on the old
+    // top entry means the player has not moved it: it goes to the new one.
+    let top: HomeEntryId | null = null;
+    effect(() => {
+      const now = this.entries()[0]?.id ?? null;
+      const before = top;
+      top = now;
+      if (before === null || now === null || now === before) return;
+      afterNextRender(() => {
+        const focused = document.activeElement;
+        if (focused instanceof HTMLElement && focused.dataset['entry'] === before && this.host.contains(focused)) {
+          this.focusEntry(now);
+        }
+      }, { injector: this.injector });
+    });
+  }
 
   /** What the run loaded here is: "Heilbronn | wave 12" */
   readonly runLine = computed(() => {

@@ -243,6 +243,28 @@ describe('The main menu', () => {
       expect(plate.querySelectorAll('.ml-steps-row')).toHaveLength(10);
     });
 
+    it('moves an untouched focus to Play when the place comes in above New game (TODO E151)', async () => {
+      await setup();
+      expect(entries()[0]).toBe('New game');
+      entry('new-game')!.focus();
+
+      locationMgmt.hq.set(HEILBRONN);
+      await settle();
+      await settle();
+      expect(entries()[0]).toBe('Play');
+      expect(document.activeElement).toBe(entry('play'));
+      expect(entry('play')?.getAttribute('tabindex')).toBe('0');
+    });
+
+    it('leaves a focus the player moved where it is when the place comes in (TODO E151)', async () => {
+      await setup();
+      entry('settings')!.focus();
+      locationMgmt.hq.set(HEILBRONN);
+      await settle();
+      await settle();
+      expect(document.activeElement).toBe(entry('settings'));
+    });
+
     it('keeps Play pressed while loading and plays once the place stands', async () => {
       locationMgmt.hq.set(HEILBRONN);
       await setup();
