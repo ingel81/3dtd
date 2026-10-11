@@ -57,6 +57,7 @@ export interface TerrainMaterialParams {
   width: number;
   depth: number;
   cliffAngle: number;
+  splatResolution?: number;
 }
 
 export class TerrainMaterial extends MeshStandardMaterial {
@@ -71,6 +72,8 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uGridUv: { value: new Vector4() },
     uWaterLevel: { value: -1e4 },
     uMapSize: { value: new Vector2() },
+    /** Metres per splat texel */
+    uSplatTexel: { value: 1 },
     uInvScale: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
     uAverage: { value: Array.from({ length: TERRAIN_MAX_LAYERS }, () => new Color()) },
     uEmissive: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
@@ -133,6 +136,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     const sy = 1 / (p.grid.cellSize * p.grid.rows);
     u.uGridUv.value.set(sx, sy, (p.width / 2) * sx + 0.5 / p.grid.columns, (p.depth / 2) * sy + 0.5 / p.grid.rows);
     u.uMapSize.value.set(p.width, p.depth);
+    u.uSplatTexel.value = p.splatResolution ? Math.max(p.width, p.depth) / p.splatResolution : 1;
     for (let k = 0; k < TERRAIN_MAX_LAYERS; k++) {
       u.uInvScale.value[k] = 1 / (p.scales[k] ?? 4);
       u.uAverage.value[k].set(p.averages[k] ?? '#808080');
@@ -181,6 +185,7 @@ uniform sampler2D uGridOcclusion;
 uniform vec4 uGridUv;
 uniform float uWaterLevel;
 uniform vec2 uMapSize;
+uniform float uSplatTexel;
 uniform float uInvScale[TERRAIN_LAYERS];
 uniform vec3 uAverage[TERRAIN_LAYERS];
 uniform float uEmissive[TERRAIN_LAYERS];
@@ -247,8 +252,11 @@ vec2 dPosY = dFdy(tPos.xz);
 float n1 = valueNoise(mapPos * 0.017);
 float n2 = valueNoise(mapPos * 0.0041 + 17.0);
 float n3 = valueNoise(mapPos * 0.11);
+// The splat's edges wander with noise: coarse, and fine in proportion to the splat's texel size, so a
+// big map (2 m per texel) does not show soft blurred blobs up close
 vec2 wobble = ((vec2(n3, valueNoise(mapPos * 0.11 + 31.0)) - 0.5) * 2.5
-  + (vec2(valueNoise(mapPos * 0.6 + 7.0), valueNoise(mapPos * 0.6 + 13.0)) - 0.5) * 1.2) / uMapSize;
+  + (vec2(valueNoise(mapPos * 0.6 + 7.0), valueNoise(mapPos * 0.6 + 13.0)) - 0.5) * 1.2 * max(1.0, uSplatTexel)
+  + (vec2(valueNoise(mapPos * 2.1 + 3.0), valueNoise(mapPos * 2.1 + 19.0)) - 0.5) * 0.5 * uSplatTexel) / uMapSize;
 
 float w[TERRAIN_LAYERS];
 for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] = 0.0;
@@ -348,7 +356,8 @@ for (int k = 0; k < TERRAIN_LAYERS; k++) {
 }
 
 // Height blend within a band below the best layer
-const float band = 0.26;
+// Narrower blend band on coarse splats: crisp transitions where the weights are smeared over metres
+float band = 0.26 * clamp(0.7 / uSplatTexel, 0.45, 1.0);
 float total = 0.0;
 vec4 accC = vec4(0.0);
 vec4 accD = vec4(0.0);

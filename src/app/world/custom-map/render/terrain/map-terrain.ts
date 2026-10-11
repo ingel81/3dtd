@@ -138,6 +138,7 @@ export class MapTerrainLayer {
       width: t.width,
       depth: t.depth,
       cliffAngle: t.cliffAngle,
+      splatResolution: t.splat.resolution,
     });
     addHeightFog(this.material);
     this.material.setWaterLevel(t.water?.level ?? null);
