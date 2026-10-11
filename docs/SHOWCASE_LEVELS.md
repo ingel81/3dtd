@@ -60,6 +60,12 @@ Lichtinseln. Spawns: 2 aus dem Nebel im Norden und Westen; die Stege verzweigen 
 Insel. Bauflächen: die Inseln; das Wasser selbst ist nicht bebaubar.
 
 ### 3 Burgruine im Herbst (`autumn-keep`)
+**Gebaut** (`tools/maps/levels/autumn-keep.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 346,9 von 500,
+19 Tower), Spielansicht 541 fps, Laden 4,9 s am Dev-Server. Spuren 356, 377 und 363 m. Bilder:
+`docs/images/levels/autumn-keep.jpg`, `autumn-keep-bailey.jpg`, `autumn-keep-game.jpg`. Der Herbstwald ist der
+Wald-Pinsel, dessen Sommerbäume danach gegen ihre Herbstvarianten getauscht werden (ein Herbst-Biom fehlt dem
+Landscape-Werkzeug); Morgennebel nur als wenige kleine Nebelfelder, größere wirken von oben wie Schnee.
+
 Biom Laubwald mit Herbstfarben, Look `day` warm. Eine Burgruine auf einem Hügel, Mauerreste, Bergfried-Ruine, ein
 Torhaus. Drei Wege kommen aus den Wäldern und treffen sich vor dem Tor; das HQ steht im Burghof. Laubhaufen, Efeu,
 Nebel in den Senken am Morgen. Spawns: 3. Bauflächen: Mauerkronen-Nähe, Lichtungen.

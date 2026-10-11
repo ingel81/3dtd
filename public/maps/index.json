@@ -37,6 +37,18 @@
       "depth": 512,
       "updatedAt": "2026-10-11T00:00:00.000Z",
       "contentHash": "db526242e15d5f452c021d61c0bb56d79f8e872a91bf24b1483bf261000119a8"
+    },
+    {
+      "id": "autumn-keep",
+      "name": "Autumn Keep",
+      "file": "autumn-keep.3dtdmap",
+      "preview": "autumn-keep.png",
+      "author": "3DTD",
+      "description": "A ruined castle on a hill above red and golden woods. Three roads meet before the gatehouse; the HQ stands in the bailey.",
+      "width": 512,
+      "depth": 512,
+      "updatedAt": "2026-10-11T00:00:00.000Z",
+      "contentHash": "4849c8cc86d7befbea099042173962d59ee0802d86e452fe0fb7af8b8f4811a8"
     }
   ]
 }
