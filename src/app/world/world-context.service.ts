@@ -65,6 +65,8 @@ export class WorldContext {
   open(origin: { lat: number; lon: number; height: number }): WorldProvider {
     const provider = this.registry.create(this.ref(), origin);
     this.active.set(provider);
+    // A map's ref gets its content hash and name from the opened map
+    this.refreshRef();
     return provider;
   }
 

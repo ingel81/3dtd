@@ -3,6 +3,8 @@ import { ConfigService } from '../core/services/config.service';
 import { DEV_WORLD_CAPABILITIES, DevWorldProvider } from '../devworld/dev-world-provider';
 import { DevWorldService } from '../devworld/devworld.service';
 import { OsmStreetService } from '../services/location/osm-street.service';
+import { CUSTOM_MAP_CAPABILITIES, CustomMapWorld, customMapSpawnLimit, openCustomMap, openedCustomMap } from './custom-map/custom-map-world';
+import { mapToGeo } from './custom-map/map-document';
 import { FLAT_WORLD_ORIGIN } from './flat-frame';
 import { TILES_CAPABILITIES, TilesWorld, tilesLogos } from './tiles/tiles-world';
 import type { WorldCapabilities, WorldLogo, WorldProvider } from './world-provider';
@@ -64,6 +66,29 @@ const DEV_WORLD_FACTORY: WorldFactory = {
 };
 
 /**
+ * A custom map from the map store (own maps in IndexedDB, then the shipped
+ * ones): `startHq` loads it, `create` makes the world of the loaded map.
+ * How many of its spawns a run uses: customMapSpawnLimit (`?spawns=N`).
+ */
+const CUSTOM_MAP_FACTORY: WorldFactory = {
+  capabilities: CUSTOM_MAP_CAPABILITIES,
+  create: (ref, { origin }) => {
+    const map = ref.kind === 'custom-map' ? openedCustomMap(ref) : null;
+    if (!map) throw new WorldUnavailableError(ref, 'the map was not opened before the world was made');
+    const search = typeof window === 'undefined' ? '' : window.location.search;
+    return new CustomMapWorld(map, origin, customMapSpawnLimit(search));
+  },
+  startHq: async (ref) => {
+    if (ref.kind !== 'custom-map') throw new WorldUnavailableError(ref, 'not a custom map');
+    try {
+      return mapToGeo((await openCustomMap(ref)).doc.hq);
+    } catch (err) {
+      throw new WorldUnavailableError(ref, err instanceof Error ? err.message : String(err));
+    }
+  },
+};
+
+/**
  * WorldRef to WorldProvider: one factory per kind of world. A new kind (a
  * custom map, own tilesets) registers its factory here and needs no change
  * in the engine or the services.
@@ -73,6 +98,7 @@ export class WorldProviderRegistry {
   private readonly factories = new Map<WorldKind, WorldFactory>([
     ['tiles', TILES_FACTORY],
     ['devworld', DEV_WORLD_FACTORY],
+    ['custom-map', CUSTOM_MAP_FACTORY],
   ]);
   private readonly injector = inject(Injector);
 

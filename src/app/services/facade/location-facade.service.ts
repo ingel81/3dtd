@@ -194,7 +194,15 @@ export class LocationFacadeService {
     // spawns come with the world (addPredefinedSpawns)
     const ownHq = this.worldContext.startHq();
     if (ownHq) {
-      const hq = await ownHq;
+      let hq: { lat: number; lon: number };
+      try {
+        hq = await ownHq;
+      } catch (err) {
+        // A map that is missing or changed: say so instead of loading forever
+        this.engineInit.setError(err instanceof Error ? err.message : String(err));
+        this.engineInit.setLoading(false);
+        return false;
+      }
       this.locationMgmt.setLocation({ lat: hq.lat, lon: hq.lon }, []);
       this.store.baseCoords.set({ lat: hq.lat, lon: hq.lon });
       this.store.centerCoords.set({ lat: hq.lat, lon: hq.lon, height: 400 });
