@@ -51,6 +51,8 @@ export class EffectLayer {
   private waterfalls: Mesh | null = null;
   private glows: Mesh<InstancedBufferGeometry, ShaderMaterial> | null = null;
   private spots: LightSpot[] = [];
+  /** Lights that do not come from objects: glowing lava */
+  private extraSpots: LightSpot[] = [];
   private readonly pool: PointLight[] = [];
   private darkness = 0;
   private readonly tmp = new Vector3();
@@ -136,6 +138,22 @@ export class EffectLayer {
     }
   }
 
+  /**
+   * Point lights for glowing ground (lava pools and flows): orange, flickering,
+   * competing with the object lights for the pool by distance to the focus
+   */
+  setLavaLights(points: Vector3[]): void {
+    this.extraSpots = points.map((position, k) => ({
+      position,
+      color: new Color(0xff6a20),
+      // Strong and wide: a lava pool lights the slopes around it
+      intensity: 14,
+      distance: 45,
+      flicker: true,
+      seed: 100 + k * 2.3,
+    }));
+  }
+
   /** 0 by day, 1 at night: how strongly the lights glow and light the ground */
   setDarkness(darkness: number): void {
     this.darkness = Math.min(1, Math.max(0, darkness));
@@ -149,12 +167,12 @@ export class EffectLayer {
     const live = this.darkness > 0.05 ? this.nearest(focus) : [];
     this.pool.forEach((light, k) => {
       const spot = live[k];
+      // Unused lights stay in the scene at zero: a change in the number of lights three sees
+      // would recompile every lit material
       if (!spot) {
         light.intensity = 0;
-        light.visible = false;
         return;
       }
-      light.visible = true;
       light.position.copy(spot.position);
       light.color.copy(spot.color);
       light.distance = spot.distance;
@@ -174,8 +192,9 @@ export class EffectLayer {
   }
 
   private nearest(focus: Vector3): LightSpot[] {
-    if (this.spots.length <= POINT_LIGHTS) return this.spots;
-    return this.spots
+    const all = this.extraSpots.length ? [...this.spots, ...this.extraSpots] : this.spots;
+    if (all.length <= POINT_LIGHTS) return all;
+    return all
       .map((s) => ({ s, d: this.tmp.copy(s.position).sub(focus).lengthSq() }))
       .sort((a, b) => a.d - b.d)
       .slice(0, POINT_LIGHTS)

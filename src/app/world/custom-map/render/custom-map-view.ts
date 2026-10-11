@@ -2,7 +2,7 @@ import { Group, Ray, Vector3, type Camera, type Object3D, type WebGLRenderer } f
 import type { CustomMapDocument, MapEnvironment, MapObject } from '../map-document';
 import { HeightField } from './height-field';
 import type { MapAssetLibrary } from './map-asset-library';
-import { sceneToMap } from './map-coords';
+import { mapToScene, sceneToMap } from './map-coords';
 import { CustomMapEnvironment } from './environment/map-environment';
 import { EffectLayer } from './effects/effect-layer';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
@@ -124,6 +124,7 @@ export class CustomMapView {
     this.group.add(this.bridges.group);
     this.effects = new EffectLayer(this.heights);
     this.group.add(this.effects.group);
+    this.effects.setLavaLights(this.lavaLightPoints());
     this.ready = this.load();
   }
 
@@ -295,6 +296,8 @@ export class CustomMapView {
       .filter((r) => r.points.length >= 2)
       .map((r) => new RiverSurface(this.heights, this.terrain.heightTexture, r));
     for (const r of this.rivers) this.group.add(r.mesh);
+    // The constructor sets up the water before the effects exist and lights the lava after
+    if (this.effects) this.effects.setLavaLights(this.lavaLightPoints());
     this.lightWater();
   }
 
@@ -323,6 +326,47 @@ export class CustomMapView {
     this.environment.set(env);
     this.lightWater();
     this.effects.setDarkness(this.environment.darkness);
+  }
+
+  /** Where glowing lava lights its surroundings: one point per 40 m patch of a lava body, every 30 m along lava flows */
+  private lavaLightPoints(): Vector3[] {
+    const t = this.doc.terrain;
+    const f = this.heights;
+    const out: Vector3[] = [];
+    const patch = 40;
+    for (const body of [t.water, ...(t.waterBodies ?? [])]) {
+      if (!body || body.kind !== 'lava') continue;
+      const cells = new Map<number, { x: number; y: number; n: number }>();
+      for (let j = 0; j < f.rows; j += 2) {
+        for (let i = 0; i < f.columns; i += 2) {
+          if (!body.mask[j * f.columns + i] || f.sample(i, j) > body.level) continue;
+          const x = f.originX + i * f.cellSize;
+          const y = f.originY + j * f.cellSize;
+          const key = Math.floor(x / patch) * 4096 + Math.floor(y / patch);
+          const c = cells.get(key) ?? { x: 0, y: 0, n: 0 };
+          c.x += x;
+          c.y += y;
+          c.n++;
+          cells.set(key, c);
+        }
+      }
+      for (const c of cells.values()) out.push(mapToScene(c.x / c.n, c.y / c.n, body.level + 5, new Vector3()));
+    }
+    for (const r of t.rivers ?? []) {
+      if (r.kind !== 'lava') continue;
+      let walked = 30;
+      for (let k = 0; k < r.points.length - 1; k++) {
+        const a = r.points[k];
+        const b = r.points[k + 1];
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        for (; walked < len; walked += 30) {
+          const u = walked / len;
+          out.push(mapToScene(a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u, a.height + (b.height - a.height) * u + 5, new Vector3()));
+        }
+        walked -= len;
+      }
+    }
+    return out.slice(0, 256);
   }
 
   /** Contact shadows of the objects in the baked ground occlusion */

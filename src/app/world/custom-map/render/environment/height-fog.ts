@@ -42,12 +42,19 @@ uniform vec3 uGradeTint;
 uniform float uSnowCover;
 uniform float uWetness;
 
-// The map's grade in output (sRGB) space, like three's fog: saturation, contrast around mid grey, tint
+// The map's grade on a colour after colorspace_fragment: saturation, contrast around mid grey, tint.
+// Graded in sRGB either way: into the canvas the colour is sRGB already, into the game's
+// post-processing target (linear, OutputPass converts later) it is converted there and back, or
+// the contrast would crush every dark linear value to black.
 vec3 mapGrade(vec3 c) {
+  bool linearOut = linearToOutputTexel(vec4(0.5)).r < 0.6;
+  if (linearOut) c = pow(max(c, vec3(0.0)), vec3(1.0 / 2.2));
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c = mix(vec3(l), c, uGradeSaturation);
   c = max(vec3(0.0), (c - 0.45) * uGradeContrast + 0.45);
-  return c * uGradeTint;
+  c *= uGradeTint;
+  if (linearOut) c = pow(c, vec3(2.2));
+  return c;
 }
 `;
 

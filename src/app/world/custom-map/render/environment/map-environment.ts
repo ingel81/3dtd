@@ -215,7 +215,9 @@ export class CustomMapEnvironment {
 
   /** 0 by day, 1 at night: how much map lights (lanterns, torches) matter */
   get darkness(): number {
-    const base = { day: 0, overcast: 0.2, dusk: 0.6, night: 1 }[this.env.sky] ?? 0;
+    let base = { day: 0, overcast: 0.2, dusk: 0.6, night: 1 }[this.env.sky] ?? 0;
+    // Under hell's dark sky and on the moon lights matter by day too
+    if (this.env.biome === 'hell' || this.env.biome === 'apocalypse') base = Math.max(base, 0.5);
     // A low sun darkens any sky
     return Math.min(1, Math.max(base, 1 - this.env.sunElevation / 12));
   }
