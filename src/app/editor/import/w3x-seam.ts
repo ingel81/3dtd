@@ -18,10 +18,12 @@ export interface W3xImportOptions {
   maxObjects: number;
   /** Repaint the ground by its role in play (meadow, paving with gravel rims, forest rims) or map the tiles as they are */
   style: 'enhanced' | 'original';
+  /** Take the map's own waves over as the map's wave list */
+  waves: boolean;
 }
 
 /** The importer's defaults (docs/W3X_IMPORT.md) */
-export const DEFAULT_W3X_OPTIONS = { metresPerTile: 4, cropToPlayable: true, maxObjects: 6000, style: 'enhanced' } as const;
+export const DEFAULT_W3X_OPTIONS = { metresPerTile: 4, cropToPlayable: true, maxObjects: 6000, style: 'enhanced', waves: false } as const;
 
 export interface W3xImportReport {
   /** What came over: "312 x 256 tiles to 1248 x 1024 m", "4120 of 4500 doodads placed" */
@@ -66,6 +68,13 @@ export function summarizeReport(report: ImporterReport): W3xImportReport {
   const lengths = Object.values(s.routeLengths);
   if (lengths.length) mapped.push(`Lanes ${Math.round(Math.min(...lengths))} to ${Math.round(Math.max(...lengths))} m long`);
   mapped.push(`${s.objects.placed} of ${s.objects.doodads} doodads placed as objects`);
+  const waves = report.waves;
+  if (waves?.rows.length) {
+    const bosses = waves.rows.filter((r) => r.boss).length;
+    mapped.push(`${waves.rows.length} waves taken over as the map's own list${bosses ? `, ${bosses} with a boss` : ''}`);
+    for (const r of waves.rows.slice(0, 5)) mapped.push(`Wave ${r.wave}: ${r.count} ${r.name} (${r.hp} HP) as ${r.enemy}${r.boss ? ` + boss ${r.boss.name} as ${r.boss.enemy}` : ''}`);
+    if (waves.rows.length > 5) mapped.push(`… and ${waves.rows.length - 5} more waves (Gameplay tool, G)`);
+  }
   for (const a of report.attempts) if (a.strategy !== report.strategy) mapped.push(`Tried ${STRATEGY_NAMES[a.strategy] ?? a.strategy}: ${a.result}`);
   const warnings = [...report.warnings];
   if (!report.strategy) warnings.unshift('No roads found: draw them with the path tool, then place spawns and the HQ.');

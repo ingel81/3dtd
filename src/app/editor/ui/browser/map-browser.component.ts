@@ -220,7 +220,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     window.location.href = new URL('./', document.baseURI).toString();
   }
 
-  async startW3x(metresPerTile: number, maxObjects: number, cropToPlayable: boolean, enhance: boolean): Promise<void> {
+  async startW3x(metresPerTile: number, maxObjects: number, cropToPlayable: boolean, enhance: boolean, waves: boolean): Promise<void> {
     this.busy.set(true);
     try {
       const id = await this.session.importW3x({
@@ -228,6 +228,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
         maxObjects: Math.min(20000, Math.max(0, Math.round(maxObjects))),
         cropToPlayable,
         style: enhance ? 'enhanced' : 'original',
+        waves,
       });
       if (id) await this.reload(id);
     } finally {

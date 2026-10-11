@@ -39,6 +39,16 @@
             matTooltip="The game's budget source: waves sized against the defense">Game waves</button>
     <button type="button" role="radio" [attr.aria-checked]="!!table()" (click)="setSource('table')" data-test="own-waves">Own list</button>
   </div>
+  @if (!table()) {
+    <div class="td-field">
+      <span class="td-label" id="gp-lanes">Many lanes</span>
+      <div class="td-seg is-sm" role="radiogroup" aria-labelledby="gp-lanes">
+        <button type="button" role="radio" [attr.aria-checked]="(gp().laneScaling ?? 'none') === 'none'" (click)="setLaneScaling('none')">None</button>
+        <button type="button" role="radio" [attr.aria-checked]="gp().laneScaling === 'sqrt'" (click)="setLaneScaling('sqrt')" data-test="lane-sqrt">Square root</button>
+      </div>
+      <p class="td-note">For one player on many lanes: each lane gets 1/√(lanes) of a wave's enemies. Budget waves only; off by default.</p>
+    </div>
+  }
   @if (table(); as t) {
     <div class="td-actions is-start">
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="copyGameList()" matTooltip="Replace this list with the game's fixed wave list to start from">Start from the game's list</button>

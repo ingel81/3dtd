@@ -50,8 +50,12 @@
               <input class="td-switch" type="checkbox" [checked]="imp.options.style === 'enhanced'" #enh data-test="w3x-enhance" />
               Enhance ground
             </label>
+            <label class="td-check" matTooltip="Take the Warcraft map's waves over as this map's own wave list (unit, HP, count, our enemy type, bosses)">
+              <input class="td-switch" type="checkbox" [checked]="imp.options.waves" #waves data-test="w3x-waves" />
+              Take the map's waves
+            </label>
             <button class="td-btn-primary td-btn-sm" type="button" data-test="w3x-import"
-                    (click)="startW3x(+mpt.value, +maxo.value, crop.checked, enh.checked)">Import</button>
+                    (click)="startW3x(+mpt.value, +maxo.value, crop.checked, enh.checked, waves.checked)">Import</button>
           </div>
         }
         @if (imp.error) {
