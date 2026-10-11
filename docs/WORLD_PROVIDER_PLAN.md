@@ -226,6 +226,61 @@ Spiel mit `?world=map:<id>`.
    Fähigkeit, Kartenauswahl im Hauptmenü. Offen: Zerstörung in der Simulation (Entscheidung des Users), ein
    Zerstörbar-Schalter im Kartendokument statt `?destructible`
 
+## Stand 2026-10-11 morgens (Bereich Welten)
+
+### Gebaut
+
+- **Weltprovider und `WorldRef`:** Engine, Bodenabfragen und Straßen laufen auf `WorldProvider` (`cd103c40`). Jeder Lauf
+  trägt seinen `WorldRef` in Spielstand, Replay, Run-Log und Koop-Paket (`dcc9cb77`). Zwei Menü-Abfragen hängen an
+  Fähigkeit bzw. Weltname statt an der Art (`8bded195`); das Store-Signal heißt `worldRegenerating` (`a1bb01e0`).
+- **Ursprung und Quellenzeile:**
+  - Hauptthread und Simulation rechnen mit demselben Ursprung in Grad (`b84f1157`, `ellipsoid-sync.ts`). Die
+    Simulation ist dabei unverändert, Replays und Prüfsummen bleiben gültig.
+  - Die Quellenzeile kommt nur aus `attribution()` der Welt (`05036591`).
+- **Eigene Karte im Koop:** Der Host schickt die Karte in Stücken über das Relay (`34fa2ecd`, `c81e3101`).
+  - Empfangene Karten sind `'shared'`: Die nächste Version des Hosts ersetzt sie, eine eigene Karte wird nie
+    überschrieben, und nichts verdeckt eine mitgelieferte (`45dcb491`).
+  - Die Welt nach den Stücken ist immer die neueste (`c3f0ebcf`, `PacedMapSend`).
+  - Das Relay hält Stücke nur bis zum Start und innerhalb eines Budgets (`c4fa23fe`, `MapBudget`).
+  - Nur eine Welt mit Zugangsdaten wartet auf einen Schlüssel (`bfd79b2d`).
+- **Spielwerte je Karte:** `gameplay` mit Startcredits, HQ-HP, Towern und Wellen geht über `RunRules` und die
+  Wellenquellen (`7c970150`). Alle Anteile an der HQ-HP rechnen mit der HP des Laufs (`0ac7799e`, Feuer `c711c562`).
+  Ohne eigene Regeln ist alles bitgleich.
+- **Kartenprobe:** `?bot=trial&trialWaves=N` (`626f1374`, `c49f3a54`, Banner `c1bfa109`).
+- **Eigene 3D-Tilesets:** eigene Welt `{ kind: 'tileset', id }` (`48b5aaee`). Ein Link-Ort außerhalb des Gebiets
+  startet in dessen Mitte (`46bbaaf1`). Doku in [OWN_TILESETS.md](OWN_TILESETS.md).
+- **Zerstörbarkeit:** als Fähigkeit mit `WorldProvider.destruction`; bei eigenen Karten nur mit `?destructible`
+  (`8cb5da0b`).
+- **Kartenauswahl im Hauptmenü:** New game, Reiter „Maps“ (`03e38b6e`, Summaries mit Spawns und Biom `b7e6c4b5`).
+- **Keine Tower im Wasser** eigener Karten (`8502623d`).
+- **Routen:** Neue Editor-Karten bekommen ihre Route (`ec1ba23b`, Regressionstest `b96dbdfc`).
+- **Review-Befunde:** dispose während attach (`4d84a23e`), Höhen-Zyklus (`9ceabea1`), Boot-Fenster (`23bbb2cc`),
+  `select()` entfernt und `opened`-Cache begrenzt (`694efe6d`).
+- **Tests:** `e2e/tests/custom-map.e2e.ts` ohne Kartensitzung (`8acd76bd`), 7/7 grün am 2026-10-11 gegen einen
+  Dev-Server auf 4214, Relay auf 3015 (`E2E_RELAY_PORT`).
+
+### Bewusst offen
+
+- **Zerstörung:** nur Darstellung und Bausperre. Ein Sprung im Replay stellt Gefallenes nicht wieder her; die
+  Sichtlinien merken einen Fall erst beim nächsten Rendern des Würfels; Schaden nur durch Einschläge
+  ([CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md), Zerstörbarkeit).
+- **Ältere empfangene Karten:** Was vor `45dcb491` empfangen wurde, steht als `'own'` im Store.
+- **`laneScaling`:** Die Wellenvorschau (`peek`) zeigt die ungeteilten Zahlen. Im Koop zählt N die Spuren des ganzen
+  Raums.
+- **Relay-Budget:** Ein Joiner nach erschöpftem Budget bekommt die Karte nicht (Log-Zeile im Relay).
+- **Bot-Ausnahmen:** Bot-Training, Hintergrund-Schleife und Headless-Schalter hängen weiter an
+  `ref.kind === 'devworld'` (begründet unter „Entscheidungen beim Bau“).
+
+### Entscheidungen beim User
+
+- **Zerstörung in die Simulation:** Bauwerke in Weltschlüssel und Sichtlinien aufnehmen, damit Replay-Sprünge und
+  Sichtlinien stimmen. Heute nur Darstellung, Schalter `?destructible`.
+- **Leckschaden 1/N bei vielen Spuren:** Laut Rechnung (`81a96256`, `tools/balance-calc/lanes.ts`) der einzige Hebel,
+  der jede Spurzahl auf der Kurve einer Spur hält (höchstens 28 HP Abweichung bis W40). Nicht gebaut; er gehörte als
+  Lauf-Regel in `RunRules`.
+- **`laneScaling: 'sqrt'`:** vorbereitet und aus (`9a25b3fc`). Bei 10 Spuren hält die Option durch die Aufbauwellen,
+  ist aber nicht lastgleich: 68 HP nach W10, Tod in W30. Offen ist, ob Karten sie nutzen dürfen.
+
 ## Kopplungsstellen vor dem Umbau (Erkundung 2026-10-11, inzwischen aufgelöst)
 
 Schlimmste zuerst: `ThreeTilesEngine` (DevWorld-Parameter, Zugangsdaten, `getDevTerrainProvider()`,
