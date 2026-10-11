@@ -16,6 +16,7 @@ import {
   LineBasicMaterial,
   InstancedMesh,
   LineLoop,
+  LineSegments,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
@@ -28,6 +29,7 @@ import type { CustomMapDocument, MapPoint } from '../../world/custom-map/map-doc
 import type { Selection } from '../model/editor-document';
 import { pointAt, polylineLength, type Route } from '../ops/path-graph';
 import type { SymmetryMode } from '../ops/symmetry';
+import type { Contours } from '../ops/contours';
 
 const RING_SEGMENTS = 72;
 const PREVIEW_DOTS = 600;
@@ -52,6 +54,14 @@ export class EditorOverlay {
   private dots: InstancedMesh | null = null;
   /** Where a brush would grow things, a hint under the cursor */
   private readonly preview: InstancedMesh;
+  /** Height lines and the metre grid */
+  private readonly contours = new Group();
+  private readonly grid = new Group();
+  private readonly contourMinor = new LineBasicMaterial({ color: TD_THEME.knobLight, transparent: true, opacity: 0.35 });
+  private readonly contourMajor = new LineBasicMaterial({ color: TD_THEME.brassLight, transparent: true, opacity: 0.7 });
+  private readonly gridMaterial = new LineBasicMaterial({ color: TD_THEME.frameLight, transparent: true, opacity: 0.45 });
+  /** The measured line */
+  private readonly measure: Line;
   /** The symmetry's axes, draped on the ground */
   private readonly guides = new Group();
   private readonly guideMaterial = new LineBasicMaterial({ color: TD_THEME.tealLight, depthTest: false, transparent: true, opacity: 0.55 });
@@ -81,7 +91,11 @@ export class EditorOverlay {
     this.preview.count = 0;
     this.preview.frustumCulled = false;
     this.preview.renderOrder = 12;
-    this.group.add(this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview);
+    this.measure = new Line(new BufferGeometry(), new LineBasicMaterial({ color: TD_THEME.brassLight, depthTest: false, transparent: true }));
+    this.measure.renderOrder = 13;
+    this.measure.frustumCulled = false;
+    this.measure.visible = false;
+    this.group.add(this.contours, this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview);
   }
 
   /** The brush ring at a map point, draped on the ground; radius 0 hides it */
@@ -188,6 +202,76 @@ export class EditorOverlay {
   }
 
   /** The routes to show, with dots moving toward the HQ */
+  /** Height lines (segments from contourLines) lifted a little off the ground; null hides them */
+  setContours(lines: Contours | null): void {
+    clear(this.contours);
+    if (!lines) return;
+    for (const [data, material] of [
+      [lines.minor, this.contourMinor],
+      [lines.major, this.contourMajor],
+    ] as const) {
+      if (!data.length) continue;
+      const pos = new Float32Array(data.length);
+      for (let k = 0; k < data.length; k += 3) {
+        pos[k] = -data[k];
+        pos[k + 1] = data[k + 2] + 0.3;
+        pos[k + 2] = data[k + 1];
+      }
+      const seg = new LineSegments(new BufferGeometry(), material);
+      seg.geometry.setAttribute('position', new BufferAttribute(pos, 3));
+      seg.frustumCulled = false;
+      seg.renderOrder = 7;
+      this.contours.add(seg);
+    }
+  }
+
+  /** A metre grid draped on the ground every `spacing` metres; 0 hides it */
+  setGrid(spacing: number, width: number, depth: number, sampleStep: number): void {
+    clear(this.grid);
+    if (spacing <= 0) return;
+    const pos: number[] = [];
+    const add = (ax: number, ay: number, bx: number, by: number) => {
+      pos.push(-ax, this.height(ax, ay) + 0.35, ay, -bx, this.height(bx, by) + 0.35, by);
+    };
+    const hw = width / 2;
+    const hd = depth / 2;
+    const step = Math.max(1, sampleStep);
+    for (let x = Math.ceil(-hw / spacing) * spacing; x <= hw; x += spacing) {
+      for (let y = -hd; y < hd; y += step) add(x, y, x, Math.min(hd, y + step));
+    }
+    for (let y = Math.ceil(-hd / spacing) * spacing; y <= hd; y += spacing) {
+      for (let x = -hw; x < hw; x += step) add(x, y, Math.min(hw, x + step), y);
+    }
+    const seg = new LineSegments(new BufferGeometry(), this.gridMaterial);
+    seg.geometry.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+    seg.frustumCulled = false;
+    seg.renderOrder = 7;
+    this.grid.add(seg);
+  }
+
+  /** The measured line, draped; null hides it */
+  setMeasure(points: readonly MapPoint[] | null): void {
+    if (!points || points.length < 2) {
+      this.measure.visible = false;
+      return;
+    }
+    const pos: number[] = [];
+    for (let k = 1; k < points.length; k++) {
+      const a = points[k - 1];
+      const b = points[k];
+      const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 3));
+      for (let s = k === 1 ? 0 : 1; s <= n; s++) {
+        const x = a.x + ((b.x - a.x) * s) / n;
+        const y = a.y + ((b.y - a.y) * s) / n;
+        pos.push(-x, this.height(x, y) + 1, y);
+      }
+    }
+    this.measure.geometry.dispose();
+    this.measure.geometry = new BufferGeometry();
+    this.measure.geometry.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+    this.measure.visible = true;
+  }
+
   /** Guide lines for a symmetry mode across a map of this size */
   setSymmetry(mode: SymmetryMode, width: number, depth: number): void {
     clear(this.guides);

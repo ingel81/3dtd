@@ -22,6 +22,7 @@ import { MapPanelComponent } from '../panels/map-panel.component';
 import { MarkerPanelComponent } from '../panels/marker-panel.component';
 import { StampPanelComponent } from '../panels/stamp-panel.component';
 import { GameplayPanelComponent } from '../panels/gameplay-panel.component';
+import { MeasurePanelComponent } from '../panels/measure-panel.component';
 import { MinimapComponent } from '../panels/minimap.component';
 import { ObjectPanelComponent } from '../panels/object-panel.component';
 import { OutlinerComponent } from '../panels/outliner.component';
@@ -35,6 +36,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
   landscape: 'terrain',
   stamp: 'copy',
   gameplay: 'coin',
+  measure: 'route',
   terrain: 'sliders',
   paint: 'edit',
   water: 'splash',
@@ -67,6 +69,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
     MarkerPanelComponent,
     StampPanelComponent,
     GameplayPanelComponent,
+    MeasurePanelComponent,
     EnvironmentPanelComponent,
     MapPanelComponent,
     OutlinerComponent,

@@ -28,6 +28,7 @@ import type { EditorSettings, EditorTool, MapHit, PickResult, ToolContext, ToolP
 import { CameraController } from './camera-controller';
 import { EditorOverlay } from './editor-overlay';
 import { EditorMapView, mapToScene } from './map-view';
+import { contourLines } from '../ops/contours';
 
 export interface HoverInfo {
   x: number;
@@ -67,6 +68,9 @@ export class EditorViewport {
   private routesDirty = true;
   /** The symmetry the guides show, and whether the ground under them moved */
   private guideMode: string | null = null;
+  /** What the height lines and grid show, and when they were drawn */
+  private overlayKey = '';
+  private overlayTime = 0;
   private markersDirty = true;
   private pointer: { clientX: number; clientY: number; shift: boolean; ctrl: boolean; alt: boolean; button: number } | null = null;
   private pointerMoved = false;
@@ -503,7 +507,10 @@ export class EditorViewport {
       if (c.environment) v.setEnvironment();
     }
     if (c.paths || c.markers || c.heights || c.terrain) this.routesDirty = true;
-    if (c.heights || c.terrain) this.guideMode = null;
+    if (c.heights || c.terrain) {
+      this.guideMode = null;
+      this.overlayKey = '';
+    }
     this.markersDirty = true;
     this.refreshMarkers();
   }
@@ -551,6 +558,7 @@ export class EditorViewport {
     }
     this.tool?.frame?.(dt, tp, this.ctx);
     this.flush();
+    this.refreshOverlays(time);
     if (this.guideMode !== this.settings.symmetry) {
       this.guideMode = this.settings.symmetry;
       const t = this.editor.doc.terrain;
@@ -567,6 +575,18 @@ export class EditorViewport {
 
     this.reportHover(time, tp?.hit ?? null);
     this.reportStats(time);
+  }
+
+  /** Height lines and grid, redrawn at most twice a second while the ground changes */
+  private refreshOverlays(time: number): void {
+    const v = this.settings.view;
+    const key = `${v.contours}:${v.contourStep}:${v.grid}:${v.gridStep}`;
+    if (key === this.overlayKey || time - this.overlayTime < 500) return;
+    this.overlayKey = key;
+    this.overlayTime = time;
+    const t = this.editor.doc.terrain;
+    this.overlay.setContours(v.contours ? contourLines(t, v.contourStep) : null);
+    this.overlay.setGrid(v.grid ? v.gridStep : 0, t.width, t.depth, t.grid.cellSize * 2);
   }
 
   private moveByKeys(dt: number): void {

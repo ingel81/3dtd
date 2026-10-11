@@ -19,6 +19,7 @@ import { resizeMap } from '../ops/resize';
 import { LandscapeTool } from '../tools/landscape-tool';
 import { MarkerTool } from '../tools/marker-tool';
 import { StampTool } from '../tools/stamp-tool';
+import { MeasureTool } from '../tools/measure-tool';
 import { StampLibrary } from '../model/stamp-store';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import { finishGenerated, generateTerrain, type GenerateOptions } from '../ops/generate';
@@ -62,6 +63,7 @@ export class EditorSession implements OnDestroy {
   readonly tools: Record<ToolId, EditorTool> = {
     landscape: new LandscapeTool(),
     stamp: new StampTool(),
+    measure: new MeasureTool(),
     gameplay: new PanelTool('gameplay', 'Start credits, HQ health, allowed towers and the waves of this map'),
     terrain: new TerrainTool(),
     paint: new PaintTool(),
