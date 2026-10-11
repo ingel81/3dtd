@@ -313,9 +313,11 @@ function groundMix(
   out.fill(0);
   let sum = 0;
   usable.forEach((l, k) => {
-    const n = 0.5 + 0.5 * stroke.noise.fbm(x + k * 97, y - k * 53, 50, 4, noiseOf[k % noiseOf.length]);
-    // Sharpened so a patch has a body and a soft rim
-    const v = l.share * Math.pow(smooth(0.25, 0.75, n) + 0.05, 2.2);
+    // Broad patches with ragged, finer rims: two scales of the material's own noise
+    const which = noiseOf[k % noiseOf.length];
+    const n = 0.5 + 0.5 * (0.7 * stroke.noise.fbm(x + k * 97, y - k * 53, 50, 3, which) + 0.3 * stroke.noise.fbm(x - k * 31, y + k * 17, 11, 2, which));
+    // Sharpened so a patch has a body, softly so neighbours blend at the rim
+    const v = l.share * Math.pow(smooth(0.15, 0.85, n) + 0.05, 1.7);
     out[l.layer] += v;
     sum += v;
   });

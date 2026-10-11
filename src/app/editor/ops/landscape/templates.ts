@@ -77,7 +77,7 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     hint: 'Ice, drifts and frozen pools in falling snow',
     biome: 'arctic',
     terrain: 'hills',
-    strength: 0.5,
+    strength: 0.3,
     environment: { biome: 'arctic', sky: 'overcast', weather: 'snow', weatherStrength: 0.3 },
   },
   {
@@ -94,8 +94,8 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     label: 'Hell',
     hint: 'Cinders, lava pools and glowing cracks under a black sky',
     biome: 'hell',
-    terrain: 'terraces',
-    strength: 0.6,
+    terrain: 'hills',
+    strength: 0.3,
     environment: { biome: 'hell', sky: 'day' },
   },
   {
