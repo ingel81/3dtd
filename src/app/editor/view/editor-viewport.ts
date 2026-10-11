@@ -6,7 +6,7 @@
  * the overlay (brush, markers, routes) in step.
  */
 import {
-  ACESFilmicToneMapping,
+  PCFShadowMap,
   OrthographicCamera,
   PerspectiveCamera,
   Raycaster,
@@ -17,7 +17,7 @@ import {
   WebGLRenderTarget,
   WebGLRenderer,
 } from 'three';
-import type { CustomMapDocument, MapPoint } from '../../world/custom-map/map-document';
+import type { MapPoint } from '../../world/custom-map/map-document';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import { mergeChanges, type DocChange, type EditorDocument } from '../model/editor-document';
 import { heightAt as gridHeight } from '../model/grid';
@@ -27,8 +27,7 @@ import { edgePolyline, nearestOnPolyline, spawnRoutes } from '../ops/path-graph'
 import type { EditorSettings, EditorTool, MapHit, PickResult, ToolContext, ToolPointer } from '../tools/tool';
 import { CameraController } from './camera-controller';
 import { EditorOverlay } from './editor-overlay';
-import { mapToScene, type EditorMapView } from './map-view';
-import { PlaceholderMapView } from './placeholder-map-view';
+import { EditorMapView, mapToScene } from './map-view';
 
 export interface HoverInfo {
   x: number;
@@ -53,10 +52,6 @@ export interface ViewportCallbacks {
   camera(): void;
 }
 
-/** Builds the view of a map; the placeholder until the real renderer is wired */
-export type MapViewFactory = (doc: () => CustomMapDocument, catalog: CatalogIndex, scene: Scene) => EditorMapView;
-
-export const placeholderViewFactory: MapViewFactory = (doc, catalog, scene) => new PlaceholderMapView(doc, catalog, scene);
 
 const FOV = 50;
 
@@ -94,14 +89,14 @@ export class EditorViewport {
     readonly catalog: CatalogIndex,
     readonly settings: EditorSettings,
     private readonly callbacks: ViewportCallbacks,
-    private readonly viewFactory: MapViewFactory = placeholderViewFactory,
   ) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true, preserveDrawingBuffer: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = SRGBColorSpace;
-    this.renderer.toneMapping = ACESFilmicToneMapping;
     this.overlay = new EditorOverlay((x, y) => this.heightAt(x, y));
-    this.view = this.viewFactory(() => this.editor.doc, catalog, this.scene);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = PCFShadowMap;
+    this.view = new EditorMapView(editor.doc, this.scene, this.renderer);
     this.scene.add(this.view.group, this.overlay.group);
     this.ctx = this.buildContext();
     this.unsubscribe.push(
@@ -139,7 +134,7 @@ export class EditorViewport {
   /** The whole document changed (opened another map, resized): rebuild the view */
   rebuildView(): void {
     this.view.dispose();
-    this.view = this.viewFactory(() => this.editor.doc, this.catalog, this.scene);
+    this.view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
     this.scene.add(this.view.group);
     this.pending = null;
     this.routesDirty = true;
@@ -447,10 +442,16 @@ export class EditorViewport {
       const d = Math.hypot(n.x - hit.x, n.y - hit.y);
       if (d <= reach) consider(d - 2, { kind: 'node', id: n.id });
     }
+    // Objects by their models; the footprint where the ray misses a thin one
+    const rect = this.canvas.getBoundingClientRect();
+    this.ndc.set(((p.clientX - rect.left) / rect.width) * 2 - 1, -((p.clientY - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(this.ndc, this.camera);
+    const modelHit = this.view.pickObject(this.raycaster.ray);
+    if (modelHit) consider(0, { kind: 'object', id: modelHit });
     for (const o of doc.objects) {
       const r = this.catalog.object(o.asset).radius * o.scale;
       const d = Math.hypot(o.x - hit.x, o.y - hit.y);
-      if (d <= Math.max(r, 1)) consider(d, { kind: 'object', id: o.id });
+      if (d <= Math.max(r, 1)) consider(d + 0.5, { kind: 'object', id: o.id });
     }
     if (!best) {
       for (const e of doc.paths.edges) {
@@ -481,16 +482,16 @@ export class EditorViewport {
     }
     this.pending = null;
     const v = this.view;
-    if (c.terrain) {
+    if (c.terrain || c.layers) {
+      // A new terrain or another layer list: the renderer builds its ground anew
       this.rebuildView();
     } else {
       if (c.heights) v.updateHeights(c.heights);
-      if (c.layers) v.updateLayers();
       if (c.splat) v.updateSplat(c.splat);
       if (c.water) v.updateWater();
       if (c.objects) {
         if (c.objects === 'all' || c.objects.length > 32) v.setObjects();
-        else for (const id of c.objects) v.updateObject(id);
+        else v.updateObjects(c.objects);
       }
       if (c.paths) v.updatePaths();
       if (c.environment) v.setEnvironment();

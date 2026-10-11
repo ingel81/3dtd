@@ -128,8 +128,8 @@ src/app/editor/
   ops/              Operationen ohne Angular: Pinsel, Gelände, Farbe, Wasser, Objekte, Wegenetz, Straßen-Boden, Größe
   tools/            Werkzeuge: Zeigereingaben zu Befehlen
   validation/       Prüfen
-  view/             EditorViewport (Renderer, Kamera, Eingabe), Overlay, Kamera, EditorMapView, Platzhalter-Ansicht
-  catalog/          Asset-Katalog (eingebaut, überlagert von maps/assets/catalog.json)
+  view/             EditorViewport (Renderer, Kamera, Eingabe), Overlay, Kamera, EditorMapView
+  catalog/          Paletten aus dem Katalog des Renderers (maps/assets/catalog.json), Farben, Formen, Kategorien
   import/           Warcraft-3-Import: lädt importW3xInWorker beim ersten Gebrauch, fasst den Bericht zusammen
   ui/               Angular: Seite, Kartenliste, Shell, Panels
 ```
@@ -145,8 +145,10 @@ Zustands-Ids, also ist eine Karte nach Rückgängig bis zum gespeicherten Stand 
 **Ansicht.** `EditorViewport` hat eigenen Renderer, Szene und Kamera, unabhängig von der Engine des Spiels. Es castet
 den Boden einmal je Bild, sammelt die Änderungsmeldungen eines Bilds und reicht sie gebündelt an die Kartenansicht
 (nur berührte Chunks), und hält das Overlay nach (Pinselring, Marker, Knoten, Auswahl, Gizmo-Ring, Routen). Die
-Kartenansicht steht hinter `EditorMapView`; bis der Karten-Renderer (`world/custom-map/render/`) auf dem Branch ist,
-zeichnet `PlaceholderMapView` das Dokument in Katalogfarben. Szene-Rahmen wie im Spiel: Szene x = minus Karte Ost,
+Karte zeichnet derselbe Renderer wie im Spiel (`CustomMapView`, [CUSTOM_MAPS.md](CUSTOM_MAPS.md)); `EditorMapView`
+übersetzt Raster- und Texel-Rechtecke in Meter, sammelt geänderte Objekte (neue oder entfernte bauen die Batches einmal
+neu) und wählt Objekte per Strahl auf ihr Modell. Eine neue Schichtliste oder ein neues Gelände baut die Ansicht neu.
+Szene-Rahmen wie im Spiel: Szene x = minus Karte Ost,
 Szene z = Karte Nord, y oben.
 
 **Angular.** `EditorSession` (je Seite) hält Karte, Werkzeuge, Einstellungen und Signale für die Panels; Viewport und
@@ -166,4 +168,5 @@ Rückgängig, Straße, Spawn, Prüfen, Speichern, Neuladen, Löschen; ohne Karte
 
 - Objekte haben nur eine Drehung um die Hochachse; „Align to slope“ fehlt im Kartendokument, der Streupinsel lässt
   Objekte am Hang stattdessen einsinken
-- Die Platzhalter-Ansicht zeigt Farben statt Texturen und Formen statt Modelle
+- Die Bilder der Objekte in der Palette sind Umrisse nach Kategorie, keine Renderings der Modelle; die Namen kommen
+  aus dem Katalog (deutsch)

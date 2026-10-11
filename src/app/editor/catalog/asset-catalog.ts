@@ -1,16 +1,14 @@
 /**
- * What the editor offers to paint and place: ground materials and object
- * assets. The real catalogue (`maps/assets/catalog.json`, written with the
- * map renderer's assets) wins; the built-in list keeps the editor usable
- * without it and names the ids the starter maps use. Every entry carries a
- * colour and a rough shape, which the editor draws until the renderer has
- * the model.
+ * What the editor offers to paint and place: the ground materials and
+ * object assets of the renderer's catalogue, with what the palettes need on
+ * top (a colour, a rough shape for pictures, category names).
  */
+import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 
 export interface GroundMaterialEntry {
   id: string;
   name: string;
-  /** Mean colour, for the placeholder ground, the minimap and swatches */
+  /** Mean colour, for swatches and the minimap */
   color: string;
   thumbnail?: string;
   /** Texture repeat in metres */
@@ -42,56 +40,13 @@ export interface MapAssetCatalog {
 
 export const OBJECT_CATEGORIES = ['Trees', 'Plants', 'Rocks', 'Buildings', 'Walls', 'Props'] as const;
 
-export const BUILTIN_CATALOG: MapAssetCatalog = {
-  materials: [
-    { id: 'grass', name: 'Grass', color: '#5b7a3a' },
-    { id: 'grass-dry', name: 'Dry grass', color: '#8a8a4a' },
-    { id: 'forest-floor', name: 'Forest floor', color: '#4a4a2c' },
-    { id: 'dirt', name: 'Dirt', color: '#7a5f43' },
-    { id: 'mud', name: 'Mud', color: '#4f4234' },
-    { id: 'sand', name: 'Sand', color: '#c2b080' },
-    { id: 'gravel', name: 'Gravel', color: '#8a867c' },
-    { id: 'rock', name: 'Rock', color: '#6d6a66' },
-    { id: 'cliff', name: 'Cliff', color: '#5f5c58' },
-    { id: 'cobble', name: 'Cobblestone', color: '#77736b' },
-    { id: 'road', name: 'Road dirt', color: '#8f7656' },
-    { id: 'snow', name: 'Snow', color: '#e6ebef' },
-    { id: 'ash', name: 'Ash', color: '#3d3b39' },
-  ],
-  objects: [
-    { id: 'tree-oak', name: 'Oak', category: 'Trees', color: '#3f6b2a', shape: 'tree', blocksLos: true, blocksBuild: true, radius: 3, height: 10 },
-    { id: 'tree-birch', name: 'Birch', category: 'Trees', color: '#6c8f3a', shape: 'tree', blocksLos: true, blocksBuild: true, radius: 2.2, height: 11 },
-    { id: 'tree-pine', name: 'Pine', category: 'Trees', color: '#2c4f2f', shape: 'pine', blocksLos: true, blocksBuild: true, radius: 2.5, height: 13 },
-    { id: 'tree-dead', name: 'Dead tree', category: 'Trees', color: '#5a4a3a', shape: 'pine', blocksLos: false, blocksBuild: true, radius: 1.5, height: 8 },
-    { id: 'bush', name: 'Bush', category: 'Plants', color: '#4c7a33', shape: 'bush', blocksLos: false, blocksBuild: false, radius: 1.5, height: 1.6 },
-    { id: 'fern', name: 'Fern', category: 'Plants', color: '#5f8f3c', shape: 'bush', blocksLos: false, blocksBuild: false, radius: 0.8, height: 0.8 },
-    { id: 'rock-small', name: 'Small rock', category: 'Rocks', color: '#7d7a74', shape: 'rock', blocksLos: false, blocksBuild: true, radius: 1, height: 1 },
-    { id: 'rock-large', name: 'Boulder', category: 'Rocks', color: '#6a6762', shape: 'rock', blocksLos: true, blocksBuild: true, radius: 3.5, height: 4 },
-    { id: 'rock-cliff', name: 'Cliff rock', category: 'Rocks', color: '#5d5a56', shape: 'rock', blocksLos: true, blocksBuild: true, radius: 6, height: 9 },
-    { id: 'house', name: 'House', category: 'Buildings', color: '#9c8466', shape: 'house', blocksLos: true, blocksBuild: true, radius: 6, height: 8 },
-    { id: 'barn', name: 'Barn', category: 'Buildings', color: '#7c4b3a', shape: 'house', blocksLos: true, blocksBuild: true, radius: 9, height: 10 },
-    { id: 'tower-ruin', name: 'Ruined tower', category: 'Buildings', color: '#8a8478', shape: 'tower', blocksLos: true, blocksBuild: true, radius: 4, height: 14 },
-    { id: 'wall-stone', name: 'Stone wall', category: 'Walls', color: '#87827a', shape: 'wall', blocksLos: true, blocksBuild: true, radius: 4, height: 2.5 },
-    { id: 'fence-wood', name: 'Fence', category: 'Walls', color: '#7a6247', shape: 'wall', blocksLos: false, blocksBuild: true, radius: 3, height: 1.2 },
-    { id: 'crate', name: 'Crates', category: 'Props', color: '#8c6d45', shape: 'crate', blocksLos: false, blocksBuild: true, radius: 1.2, height: 1.2 },
-    { id: 'barrel', name: 'Barrels', category: 'Props', color: '#6e5235', shape: 'crate', blocksLos: false, blocksBuild: true, radius: 0.8, height: 1.1 },
-  ],
-};
+/** Before the catalogue is in */
+export const EMPTY_CATALOG: MapAssetCatalog = { materials: [], objects: [] };
 
-/**
- * Reads `maps/assets/catalog.json`, the renderer's catalogue; the built-in
- * list only when there is none (the maps then show stand-ins). The two are
- * not mixed: an entry the renderer has no files for would draw nothing.
- */
-export async function loadAssetCatalog(baseUrl: string = document.baseURI): Promise<MapAssetCatalog> {
-  try {
-    const response = await fetch(new URL('maps/assets/catalog.json', baseUrl).toString());
-    if (!response.ok) return BUILTIN_CATALOG;
-    const catalog = normalizeCatalog((await response.json()) as RawCatalog, new URL('maps/assets/', baseUrl).toString());
-    return catalog.materials.length && catalog.objects.length ? catalog : BUILTIN_CATALOG;
-  } catch {
-    return BUILTIN_CATALOG;
-  }
+/** The renderer's catalogue (`maps/assets/catalog.json`, read once by `MapAssetLibrary`) for the palettes */
+export async function loadAssetCatalog(library = MapAssetLibrary.shared()): Promise<MapAssetCatalog> {
+  const catalog = await library.catalog();
+  return normalizeCatalog(catalog as RawCatalog, new URL(library.baseUrl, document.baseURI).toString());
 }
 
 /** A catalogue file as the renderer writes it (`render/asset-catalog.ts`), with the editor's own fields optional */

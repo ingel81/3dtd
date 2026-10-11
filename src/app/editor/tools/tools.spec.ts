@@ -1,5 +1,5 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
-import { CatalogIndex, BUILTIN_CATALOG } from '../catalog/asset-catalog';
+import { CatalogIndex } from '../catalog/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../model/grid';
 import type { EditorOverlay } from '../view/editor-overlay';
@@ -16,7 +16,7 @@ function context(editor: EditorDocument): ToolContext & { messages: string[] } {
   return {
     editor,
     settings: defaultSettings(),
-    catalog: new CatalogIndex(BUILTIN_CATALOG),
+    catalog: new CatalogIndex({ materials: [], objects: [] }),
     overlay,
     messages,
     heightAt: (x, y) => heightAt(editor.doc.terrain, x, y),

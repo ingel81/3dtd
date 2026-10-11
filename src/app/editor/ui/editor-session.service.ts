@@ -10,7 +10,7 @@ import type { CustomMapDocument, MapMeta } from '../../world/custom-map/map-docu
 import { createMapDocument, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, MapFileError, packMapFile } from '../../world/custom-map/map-file';
 import { MapStore, type MapOrigin } from '../../world/custom-map/map-store';
-import { BUILTIN_CATALOG, CatalogIndex, loadAssetCatalog } from '../catalog/asset-catalog';
+import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog } from '../catalog/asset-catalog';
 import { EditorDocument, SnapshotCommand, type EditCommand, type Selection } from '../model/editor-document';
 import { resizeMap } from '../ops/resize';
 import { MarkerTool } from '../tools/marker-tool';
@@ -39,7 +39,7 @@ export interface ImportState {
 export class EditorSession implements OnDestroy {
   private readonly zone = inject(NgZone);
   readonly store = new MapStore();
-  readonly catalog = signal(new CatalogIndex(BUILTIN_CATALOG));
+  readonly catalog = signal(new CatalogIndex(EMPTY_CATALOG));
   readonly settings = defaultSettings();
   /** Bumps when settings change from outside the panels (keys, a tool) */
   readonly settingsRev = signal(0);
