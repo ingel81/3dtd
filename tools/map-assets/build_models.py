@@ -507,6 +507,8 @@ def import_model(asset, target_height, target_faces, name, desaturate=0.0):
 
 # ---------------------------------------------------------------- buildings and props
 
+FOUNDATION = 1.5
+
 def gable_roof(part, w, d, wall_h, pitch_h, overhang, ridge_along_x=True):
     """Two roof planes with thickness 0.15 m; box-mapped UVs follow the slope"""
     hw = w / 2 + overhang
@@ -535,7 +537,8 @@ def house(name, w, d, wall_h, roof_asset, wall_asset, storeys=1, barn=False, wal
     roof = Part(pbr_material('roof-' + roof_asset, roof_asset))
     dark = Part(flat_material('window', (0.05, 0.06, 0.07), roughness=0.2, metallic=0.3))
     plinth = 0.6
-    box(stone, 0, 0, 0, w + 0.1, d + 0.1, plinth)
+    # The foundation reaches 1.5 m into the ground: on a slope it shows as a stone base instead of a gap
+    box(stone, 0, 0, -FOUNDATION, w + 0.1, d + 0.1, plinth + FOUNDATION)
     box(walls, 0, 0, plinth, w, d, wall_h - plinth)
     pitch = d * 0.45 if not barn else d * 0.5
     # Gable triangles
@@ -564,7 +567,7 @@ def house(name, w, d, wall_h, roof_asset, wall_asset, storeys=1, barn=False, wal
     else:
         for cx in (-w / 2, w / 2):
             for cy in (-d / 2, d / 2):
-                box(timber, cx, cy, 0, 0.3, 0.3, wall_h)
+                box(timber, cx, cy, plinth, 0.3, 0.3, wall_h - plinth)
     # Door on the front (-Y), windows on all sides
     door_w = 1.2 if not barn else 3.2
     door_h = 2.2 if not barn else 3.4
@@ -607,7 +610,7 @@ def tower_ruin(name, seed):
             row = []
             for s in range(sides + 1):
                 a = s / sides * math.tau
-                z = heights[s] * k / rings
+                z = -FOUNDATION + (heights[s] + FOUNDATION) * k / rings
                 row.append(bm.verts.new((math.cos(a) * r, math.sin(a) * r, z)))
             grid.append(row)
         circ = math.tau * r
@@ -618,7 +621,7 @@ def tower_ruin(name, seed):
                     q = list(reversed(q))
                 f = bm.faces.new(q)
                 for loop, (i, j) in zip(f.loops, [(s, k), (s + 1, k), (s + 1, k + 1), (s, k + 1)] if not flip else [(s, k + 1), (s + 1, k + 1), (s + 1, k), (s, k)]):
-                    loop[stone.uv].uv = (i / sides * circ / 2.0, heights[i] * j / rings / 2.0)
+                    loop[stone.uv].uv = (i / sides * circ / 2.0, (heights[i] + FOUNDATION) * j / rings / 2.0)
         if not flip:
             outer_top = grid[-1]
         else:
@@ -641,7 +644,7 @@ def wall_stone(name, seed):
     stone = Part(pbr_material('stone-stacked', 'stacked_stone_wall'), uv_metres=2.0)
     for k in range(4):
         h = 1.3 + rnd.uniform(-0.2, 0.15)
-        box(stone, -1.5 + k * 1.0, 0, 0, 1.02, 0.6 - k % 2 * 0.04, h)
+        box(stone, -1.5 + k * 1.0, 0, -0.8, 1.02, 0.6 - k % 2 * 0.04, h + 0.8)
     export(name, [stone.to_object(name)])
 
 
@@ -649,7 +652,7 @@ def fence(name):
     clear_scene()
     wood = Part(pbr_material('wood-rough', 'rough_wood', (0.8, 0.72, 0.62)), uv_metres=1.5)
     for x in (-2.0, 0.0, 2.0):
-        box(wood, x, 0, 0, 0.14, 0.14, 1.3)
+        box(wood, x, 0, -0.5, 0.14, 0.14, 1.8)
     for z in (0.45, 0.95):
         box(wood, 0, 0.09, z, 4.1, 0.05, 0.14)
     export(name, [wood.to_object(name)])
@@ -691,7 +694,7 @@ def well(name):
     wood = Part(pbr_material('wood-rough', 'rough_wood', (0.8, 0.72, 0.62)), uv_metres=1.5)
     roof = Part(pbr_material('roof-clay_roof_tiles_02', 'clay_roof_tiles_02'))
     water = Part(flat_material('well-water', (0.02, 0.05, 0.05), 0.05))
-    pts = [Vector((0, 0, 0)), Vector((0, 0, 0.9))]
+    pts = [Vector((0, 0, -0.8)), Vector((0, 0, 0.9))]
     for r in (1.2,):
         tube(stone, pts, [r, r], 14, smooth=True)
     tube(stone, [Vector((0, 0, 0.9)), Vector((0, 0, 0.0))], [0.95, 0.95], 14, smooth=True)

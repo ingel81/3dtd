@@ -254,14 +254,13 @@ export class MapObjectLayer {
     // Buildings and walls sit on the lowest point under their footprint, so no corner floats
     let ground = this.field.heightAt(o.x, o.y);
     if (e.category === 'building' || e.category === 'wall' || e.category === 'prop') {
-      const r = e.footprint * s * 0.7;
-      ground = Math.min(
-        ground,
-        this.field.heightAt(o.x + r, o.y + r),
-        this.field.heightAt(o.x - r, o.y + r),
-        this.field.heightAt(o.x + r, o.y - r),
-        this.field.heightAt(o.x - r, o.y - r),
-      );
+      // Eight points on the footprint circle, so a turned house finds its lowest corner too;
+      // the models' foundations reach below 0 and fill the gap on the uphill side
+      const r = e.footprint * s;
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2;
+        ground = Math.min(ground, this.field.heightAt(o.x + Math.cos(a) * r, o.y + Math.sin(a) * r));
+      }
     } else if (e.category === 'tree') {
       ground -= 0.15 * s;
     }

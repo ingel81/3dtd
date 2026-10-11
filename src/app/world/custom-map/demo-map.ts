@@ -458,6 +458,29 @@ export function createDemoMap(seed = 7): CustomMapDocument {
     [140, -170, 'barn'],
     [55, -185, 'house'],
   ];
+  // Level the ground under each house (a platform blending into the slope), as a builder would
+  for (const [x, y] of houses) {
+    const r = 7;
+    let sum = 0;
+    let n = 0;
+    for (let j = 0; j < COLS; j++) {
+      for (let i = 0; i < COLS; i++) {
+        const d = Math.hypot(-SIZE / 2 + i * CELL - x, -SIZE / 2 + j * CELL - y);
+        if (d < r) {
+          sum += heights[j * COLS + i];
+          n++;
+        }
+      }
+    }
+    const level = sum / Math.max(1, n);
+    for (let j = 0; j < COLS; j++) {
+      for (let i = 0; i < COLS; i++) {
+        const d = Math.hypot(-SIZE / 2 + i * CELL - x, -SIZE / 2 + j * CELL - y);
+        const f = smoothstep(r + 6, r, d);
+        if (f > 0) heights[j * COLS + i] += (level - heights[j * COLS + i]) * f;
+      }
+    }
+  }
   for (const [x, y, asset] of houses) {
     // Face the nearest road point
     let best = Infinity;
