@@ -3920,6 +3920,1220 @@
         "volcanic"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock_02"
+    },
+    {
+      "id": "castle-wall",
+      "name": "Castle wall (8 m)",
+      "category": "wall",
+      "file": "models/castle-wall.glb",
+      "footprint": 3.6,
+      "height": 8.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "castle-wall-ruined",
+      "name": "Ruined castle wall",
+      "category": "wall",
+      "file": "models/castle-wall-ruined.glb",
+      "footprint": 3.7,
+      "height": 7.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
+    },
+    {
+      "id": "castle-wall-ruined-b",
+      "name": "Ruined castle wall, low",
+      "category": "wall",
+      "file": "models/castle-wall-ruined-b.glb",
+      "footprint": 3.6,
+      "height": 6.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
+    },
+    {
+      "id": "castle-tower",
+      "name": "Castle tower",
+      "category": "building",
+      "file": "models/castle-tower.glb",
+      "footprint": 3.6,
+      "height": 14.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "castle-tower-roof",
+      "name": "Castle tower with roof",
+      "category": "building",
+      "file": "models/castle-tower-roof.glb",
+      "footprint": 3.8,
+      "height": 19.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02"
+    },
+    {
+      "id": "castle-tower-ruined",
+      "name": "Ruined castle tower",
+      "category": "building",
+      "file": "models/castle-tower-ruined.glb",
+      "footprint": 3.6,
+      "height": 9.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
+    },
+    {
+      "id": "castle-gate",
+      "name": "Gatehouse",
+      "category": "building",
+      "file": "models/castle-gate.glb",
+      "footprint": 7.2,
+      "height": 12.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "castle-keep",
+      "name": "Keep",
+      "category": "building",
+      "file": "models/castle-keep.glb",
+      "footprint": 6.5,
+      "height": 22.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02"
+    },
+    {
+      "id": "castle-stairs",
+      "name": "Wall stairs",
+      "category": "wall",
+      "file": "models/castle-stairs.glb",
+      "footprint": 3.6,
+      "height": 7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "cottage",
+      "name": "Thatched cottage",
+      "category": "building",
+      "file": "models/cottage.glb",
+      "footprint": 3.1,
+      "height": 5.7,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village",
+        "autumn"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "house-stone",
+      "name": "Stone house",
+      "category": "building",
+      "file": "models/house-stone.glb",
+      "footprint": 4.0,
+      "height": 7.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "house-tall",
+      "name": "Town house",
+      "category": "building",
+      "file": "models/house-tall.glb",
+      "footprint": 3.1,
+      "height": 11.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/clay_roof_tiles_02; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "house-snow",
+      "name": "Timber house (snow)",
+      "category": "building",
+      "file": "models/house-snow.glb",
+      "footprint": 3.7,
+      "height": 6.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "winter",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/grey_plaster_02; https://polyhaven.com/a/grey_roof_tiles; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "house-stone-snow",
+      "name": "Stone house (snow)",
+      "category": "building",
+      "file": "models/house-stone-snow.glb",
+      "footprint": 4.1,
+      "height": 7.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "winter",
+        "village",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "log-cabin",
+      "name": "Log cabin",
+      "category": "building",
+      "file": "models/log-cabin.glb",
+      "footprint": 3.6,
+      "height": 6.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "mountain",
+        "village",
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "log-cabin-snow",
+      "name": "Log cabin (snow)",
+      "category": "building",
+      "file": "models/log-cabin-snow.glb",
+      "footprint": 3.7,
+      "height": 6.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "winter",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "barn-snow",
+      "name": "Barn (snow)",
+      "category": "building",
+      "file": "models/barn-snow.glb",
+      "footprint": 5.5,
+      "height": 8.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "winter",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/brown_planks_07; https://polyhaven.com/a/grey_roof_tiles; https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "watermill",
+      "name": "Watermill",
+      "category": "building",
+      "file": "models/watermill.glb",
+      "footprint": 4.5,
+      "height": 7.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "windmill",
+      "name": "Windmill",
+      "category": "building",
+      "file": "models/windmill.glb",
+      "footprint": 6.0,
+      "height": 17.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "chapel",
+      "name": "Chapel",
+      "category": "building",
+      "file": "models/chapel.glb",
+      "footprint": 7.6,
+      "height": 20,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village",
+        "castle",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "watchtower",
+      "name": "Wooden watchtower",
+      "category": "building",
+      "file": "models/watchtower.glb",
+      "footprint": 2.1,
+      "height": 12,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village",
+        "swamp",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_planks"
+    },
+    {
+      "id": "lighthouse",
+      "name": "Lighthouse",
+      "category": "building",
+      "file": "models/lighthouse.glb",
+      "footprint": 3.6,
+      "height": 22.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/whitewashed_brick; https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "hut-stilts",
+      "name": "Hut on stilts",
+      "category": "building",
+      "file": "models/hut-stilts.glb",
+      "footprint": 3.3,
+      "height": 6.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "swamp",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow; https://polyhaven.com/a/reed_roof_04"
+    },
+    {
+      "id": "hut-round",
+      "name": "Round hut",
+      "category": "building",
+      "file": "models/hut-round.glb",
+      "footprint": 2.9,
+      "height": 5.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "swamp",
+        "desert",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/clay_plaster; https://polyhaven.com/a/reed_roof_04"
+    },
+    {
+      "id": "adobe-house",
+      "name": "Adobe house",
+      "category": "building",
+      "file": "models/adobe-house.glb",
+      "footprint": 2.9,
+      "height": 3.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/patterned_clay_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230"
+    },
+    {
+      "id": "adobe-house-large",
+      "name": "Large adobe house",
+      "category": "building",
+      "file": "models/adobe-house-large.glb",
+      "footprint": 4.1,
+      "height": 6.7,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/patterned_clay_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230"
+    },
+    {
+      "id": "market-stall-red",
+      "name": "Market stall (red)",
+      "category": "prop",
+      "file": "models/market-stall-red.glb",
+      "footprint": 1.6,
+      "height": 2.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "village",
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/hessian_230"
+    },
+    {
+      "id": "market-stall-blue",
+      "name": "Market stall (blue)",
+      "category": "prop",
+      "file": "models/market-stall-blue.glb",
+      "footprint": 1.6,
+      "height": 2.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "village",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/hessian_230"
+    },
+    {
+      "id": "tent",
+      "name": "Tent",
+      "category": "prop",
+      "file": "models/tent.glb",
+      "footprint": 1.7,
+      "height": 2.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "village",
+        "desert",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "tent-large",
+      "name": "Pavilion",
+      "category": "prop",
+      "file": "models/tent-large.glb",
+      "footprint": 3.3,
+      "height": 5.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1200,
+      "tags": [
+        "castle",
+        "desert",
+        "arena"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "bridge-stone",
+      "name": "Stone arch bridge (20 m, set height to the banks)",
+      "category": "prop",
+      "file": "models/bridge-stone.glb",
+      "footprint": 9.0,
+      "height": 4.8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.8,
+        1.3
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village",
+        "castle",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "bridge-wood",
+      "name": "Wooden footbridge (14 m)",
+      "category": "prop",
+      "file": "models/bridge-wood.glb",
+      "footprint": 6.3,
+      "height": 4.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.8,
+        1.3
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village",
+        "swamp",
+        "mountain",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/brown_planks_07; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "boardwalk",
+      "name": "Boardwalk (4 m)",
+      "category": "prop",
+      "file": "models/boardwalk.glb",
+      "footprint": 1.8,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "swamp",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow"
+    },
+    {
+      "id": "boardwalk-platform",
+      "name": "Boardwalk platform",
+      "category": "prop",
+      "file": "models/boardwalk-platform.glb",
+      "footprint": 1.8,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "swamp",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow"
+    },
+    {
+      "id": "pier",
+      "name": "Pier section",
+      "category": "prop",
+      "file": "models/pier.glb",
+      "footprint": 1.5,
+      "height": 3.8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "coast",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/modular_wooden_pier"
+    },
+    {
+      "id": "pier-end",
+      "name": "Pier end with ladder",
+      "category": "prop",
+      "file": "models/pier-end.glb",
+      "footprint": 1.6,
+      "height": 4.3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/modular_wooden_pier"
+    },
+    {
+      "id": "palisade",
+      "name": "Palisade (4 m)",
+      "category": "wall",
+      "file": "models/palisade.glb",
+      "footprint": 1.8,
+      "height": 4.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "village",
+        "swamp",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/bark_brown_02; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "palisade-gate",
+      "name": "Palisade gate",
+      "category": "wall",
+      "file": "models/palisade-gate.glb",
+      "footprint": 2.4,
+      "height": 6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "village",
+        "swamp",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/bark_brown_02; https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "fence-picket",
+      "name": "Picket fence",
+      "category": "wall",
+      "file": "models/fence-picket.glb",
+      "footprint": 1.9,
+      "height": 1.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "village",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_planks_grey"
+    },
+    {
+      "id": "fence-rail",
+      "name": "Rail fence",
+      "category": "wall",
+      "file": "models/fence-rail.glb",
+      "footprint": 1.9,
+      "height": 1.3,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "village",
+        "mountain",
+        "autumn"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/bark_brown_02"
+    },
+    {
+      "id": "gate-farm",
+      "name": "Farm gate",
+      "category": "wall",
+      "file": "models/gate-farm.glb",
+      "footprint": 1.7,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "wall-dry-stone",
+      "name": "Dry stone wall (6 m)",
+      "category": "wall",
+      "file": "models/wall-dry-stone.glb",
+      "footprint": 2.7,
+      "height": 1.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "village",
+        "mountain",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/rock_wall_10"
+    },
+    {
+      "id": "wall-dry-stone-ruined",
+      "name": "Broken dry stone wall",
+      "category": "wall",
+      "file": "models/wall-dry-stone-ruined.glb",
+      "footprint": 2.7,
+      "height": 1.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "village",
+        "mountain",
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/rock_wall_10"
+    },
+    {
+      "id": "fort-wall",
+      "name": "Fort wall (15 m)",
+      "category": "wall",
+      "file": "models/fort-wall.glb",
+      "footprint": 6.6,
+      "height": 8.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "castle",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/modular_fort_01"
+    },
+    {
+      "id": "fort-tower",
+      "name": "Fort tower",
+      "category": "building",
+      "file": "models/fort-tower.glb",
+      "footprint": 7.1,
+      "height": 13.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "castle",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/modular_fort_01"
+    },
+    {
+      "id": "iron-gate",
+      "name": "Iron gate",
+      "category": "wall",
+      "file": "models/iron-gate.glb",
+      "footprint": 1.3,
+      "height": 2.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "castle"
+      ],
+      "source": "https://polyhaven.com/a/large_iron_gate"
+    },
+    {
+      "id": "castle-door",
+      "name": "Castle door",
+      "category": "prop",
+      "file": "models/castle-door.glb",
+      "footprint": 0.9,
+      "height": 3.0,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1.5
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "castle"
+      ],
+      "source": "https://polyhaven.com/a/large_castle_door"
+    },
+    {
+      "id": "ruin-wall",
+      "name": "Ruined wall",
+      "category": "building",
+      "file": "models/ruin-wall.glb",
+      "footprint": 4.5,
+      "height": 7.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "castle",
+        "autumn",
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
+    },
+    {
+      "id": "ruin-columns",
+      "name": "Temple ruins",
+      "category": "building",
+      "file": "models/ruin-columns.glb",
+      "footprint": 5.7,
+      "height": 7.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "desert",
+        "arena",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/sandstone_cracks"
+    },
+    {
+      "id": "ruin-arch",
+      "name": "Ruined arch",
+      "category": "building",
+      "file": "models/ruin-arch.glb",
+      "footprint": 4.0,
+      "height": 7.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "castle",
+        "autumn",
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
+    },
+    {
+      "id": "obelisk",
+      "name": "Obelisk",
+      "category": "prop",
+      "file": "models/obelisk.glb",
+      "footprint": 1.2,
+      "height": 9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.5
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "desert",
+        "arena"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/sandstone_blocks_04"
+    },
+    {
+      "id": "shrine",
+      "name": "Wayside shrine",
+      "category": "prop",
+      "file": "models/shrine.glb",
+      "footprint": 0.5,
+      "height": 2.7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "village",
+        "mountain",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/clay_roof_tiles_02"
+    },
+    {
+      "id": "graves",
+      "name": "Graves",
+      "category": "prop",
+      "file": "models/graves.glb",
+      "footprint": 2.0,
+      "height": 1.3,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "village",
+        "swamp",
+        "castle",
+        "autumn"
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_rock"
+    },
+    {
+      "id": "statue-horse",
+      "name": "Horse statue",
+      "category": "prop",
+      "file": "models/statue-horse.glb",
+      "footprint": 1.0,
+      "height": 3.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.5
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "castle",
+        "village",
+        "arena"
+      ],
+      "source": "https://polyhaven.com/a/horse_statue_01; Sockel procedural (tools/map-assets/build_structures.py)"
+    },
+    {
+      "id": "statue-knight",
+      "name": "Knight statue",
+      "category": "prop",
+      "file": "models/statue-knight.glb",
+      "footprint": 1.0,
+      "height": 3.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.5
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "castle",
+        "arena"
+      ],
+      "source": "https://polyhaven.com/a/gothic_statue; Sockel procedural (tools/map-assets/build_structures.py)"
     }
   ]
 }

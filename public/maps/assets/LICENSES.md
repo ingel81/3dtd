@@ -219,3 +219,58 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | crystals-violet | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock |
 | crystals-ice | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock |
 | lava-pool | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock_02 |
+| castle-wall | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates |
+| castle-wall-ruined | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall |
+| castle-wall-ruined-b | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall |
+| castle-tower | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates |
+| castle-tower-roof | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02 |
+| castle-tower-ruined | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall |
+| castle-gate | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks |
+| castle-keep | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02 |
+| castle-stairs | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates |
+| cottage | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates |
+| house-stone | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/castle_wall_slates |
+| house-tall | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/clay_roof_tiles_02; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates |
+| house-snow | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/grey_plaster_02; https://polyhaven.com/a/grey_roof_tiles; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates |
+| house-stone-snow | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/castle_wall_slates |
+| log-cabin | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates |
+| log-cabin-snow | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates |
+| barn-snow | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/brown_planks_07; https://polyhaven.com/a/grey_roof_tiles; https://polyhaven.com/a/castle_wall_slates |
+| watermill | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/dark_planks |
+| windmill | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/dark_planks |
+| chapel | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/dark_planks |
+| watchtower | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_planks |
+| lighthouse | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/whitewashed_brick; https://polyhaven.com/a/castle_wall_slates |
+| hut-stilts | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow; https://polyhaven.com/a/reed_roof_04 |
+| hut-round | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/clay_plaster; https://polyhaven.com/a/reed_roof_04 |
+| adobe-house | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/patterned_clay_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230 |
+| adobe-house-large | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/patterned_clay_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230 |
+| market-stall-red | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/hessian_230 |
+| market-stall-blue | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/hessian_230 |
+| tent | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/dark_planks |
+| tent-large | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/dark_planks |
+| bridge-stone | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates |
+| bridge-wood | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/brown_planks_07; https://polyhaven.com/a/dark_planks |
+| boardwalk | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow |
+| boardwalk-platform | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow |
+| pier | https://polyhaven.com/a/modular_wooden_pier |
+| pier-end | https://polyhaven.com/a/modular_wooden_pier |
+| palisade | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/bark_brown_02; https://polyhaven.com/a/dark_planks |
+| palisade-gate | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/bark_brown_02; https://polyhaven.com/a/dark_planks |
+| fence-picket | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_planks_grey |
+| fence-rail | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/bark_brown_02 |
+| gate-farm | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/rough_wood |
+| wall-dry-stone | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/rock_wall_10 |
+| wall-dry-stone-ruined | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/rock_wall_10 |
+| fort-wall | https://polyhaven.com/a/modular_fort_01 |
+| fort-tower | https://polyhaven.com/a/modular_fort_01 |
+| iron-gate | https://polyhaven.com/a/large_iron_gate |
+| castle-door | https://polyhaven.com/a/large_castle_door |
+| ruin-wall | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall |
+| ruin-columns | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/sandstone_cracks |
+| ruin-arch | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall |
+| obelisk | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/sandstone_blocks_04 |
+| shrine | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/clay_roof_tiles_02 |
+| graves | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_rock |
+| statue-horse | https://polyhaven.com/a/horse_statue_01; Sockel procedural (tools/map-assets/build_structures.py) |
+| statue-knight | https://polyhaven.com/a/gothic_statue; Sockel procedural (tools/map-assets/build_structures.py) |

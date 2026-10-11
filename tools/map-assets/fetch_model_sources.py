@@ -24,7 +24,7 @@ TEXTURES = [
     'weathered_planks', 'wood_planks_grey', 'old_planks_02', 'wood_trunk_wall', 'roof_planks',
     'stone_block_wall', 'whitewashed_brick', 'beige_wall_001',
     # Cloth and metal
-    'hessian_230', 'rough_linen', 'rusty_metal_02', 'metal_plate',
+    'hessian_230', 'rusty_metal_02', 'metal_plate',
     # Rock surfaces for procedural rocks (crystals, stalagmites, mesas, pillars)
     'rock_face', 'cliff_side', 'sandstone_cracks', 'dark_rock', 'dark_rock_02', 'rock_boulder_dry',
 ]

@@ -317,7 +317,8 @@ def import_model(asset, target_height, target_faces, name, desaturate=0.0, tint=
     `objects`: names (or name prefixes ending in `*`) of the meshes to keep, for sets and kits;
     `rot`: degrees around the up axis (front towards -Y); `tint`: RGB multiplier of the colour
     textures after `desaturate`; `ground`: sink the base so the lowest 3 % of vertices sit under 0
-    (rocks on uneven terrain); `extra(obj)`: last edits before the export.
+    (rocks on uneven terrain); `extra(obj)`: last edits before the export, may return more objects
+    to export with it (a plinth).
     """
     clear_scene()
     folder = os.path.join(SOURCES, 'models', asset)
@@ -340,6 +341,8 @@ def import_model(asset, target_height, target_faces, name, desaturate=0.0, tint=
         bpy.ops.object.join()
     obj = bpy.context.view_layer.objects.active
     bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+    if obj.data.shape_keys:
+        obj.shape_key_clear()
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     # Some scans arrive with every face on its own vertices: weld them, or the decimation cannot collapse edges
     import bmesh
@@ -392,7 +395,8 @@ def import_model(asset, target_height, target_faces, name, desaturate=0.0, tint=
                     px[:, c] = np.clip(px[:, c] * tint[c], 0, 1)
             img.pixels.foreach_set(px.ravel())
             img.pack()
+    objects = [obj]
     if extra:
-        extra(obj)
-    export(name, [obj])
+        objects += extra(obj) or []
+    export(name, objects)
     return obj
