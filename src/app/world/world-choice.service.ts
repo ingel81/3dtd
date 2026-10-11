@@ -6,6 +6,9 @@ import type { OwnTileset } from './tileset/own-tileset';
 import { WorldContext } from './world-context.service';
 import { WORLD_URL_PARAM, worldUrlValue, type WorldRef } from './world-ref';
 
+/** The shipped map a player without a tile key starts on (the token screen's "Play the maps") */
+export const FIRST_MAP_ID = 'mountain-pass';
+
 /** The map store the menu lists from (IndexedDB and the shipped maps); a spec hands in its own */
 export const MAP_STORE = new InjectionToken<MapStore>('MAP_STORE', { providedIn: 'root', factory: () => new MapStore() });
 

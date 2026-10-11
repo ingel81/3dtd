@@ -31,6 +31,7 @@ vi.mock('../../../environments/environment', () => ({
 
 import { ConfigService } from '../../core/services/config.service';
 import { TokenSetupComponent } from './token-setup.component';
+import { WORLD_NAVIGATE } from '../../world/world-choice.service';
 
 const template = readFileSync(resolve('src/app/components/token-setup/token-setup.component.html'), 'utf8');
 const STORAGE_KEY = '3dtd-tile-credentials';
@@ -42,6 +43,7 @@ const screenShown = (config: ConfigService, awaitingCredentials: boolean) =>
 describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => {
   let config: ConfigService;
   let fixture: ComponentFixture<TokenSetupComponent>;
+  let navigated: string[] = [];
 
   beforeAll(() => {
     getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
@@ -51,7 +53,8 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     localStorage.clear();
     // No runtime-config.json next to the page
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false })));
-    TestBed.configureTestingModule({});
+    navigated = [];
+    TestBed.configureTestingModule({ providers: [{ provide: WORLD_NAVIGATE, useValue: (url: string) => navigated.push(url) }] });
     TestBed.overrideComponent(TokenSetupComponent, {
       set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [CdkTrapFocus] },
     });
@@ -177,5 +180,15 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     // cdkTrapFocus puts its anchors around the screen; what they do needs a browser (jsdom sees nothing focusable)
     expect(root.querySelectorAll('.cdk-focus-trap-anchor').length).toBe(2);
     expect(root.querySelector('[cdkFocusInitial]')?.classList).toContain('token-input');
+  });
+
+  it('without a key "Play the maps" loads the page on a shipped map, no key asked', () => {
+    render();
+    const root = fixture.nativeElement as HTMLElement;
+    const play = [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Play the maps')!;
+    play.click();
+    expect(navigated).toHaveLength(1);
+    expect(new URL(navigated[0]).searchParams.get('world')).toBe('map:mountain-pass');
+    expect(config.setupRequested()).toBe(false);
   });
 });

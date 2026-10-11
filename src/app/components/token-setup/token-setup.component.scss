@@ -49,3 +49,15 @@
 .token-input {
   flex: 1;
 }
+
+.token-maps {
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-3);
+  padding: var(--td-sp-3) var(--td-sp-4);
+
+  .td-text {
+    flex: 1;
+    margin: 0;
+  }
+}

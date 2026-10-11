@@ -29,6 +29,13 @@
     }
   }
 
+  @if (!coopRoom) {
+    <div class="td-well token-maps">
+      <p class="td-text">No key? The maps play without one: hand-built levels, your own from the editor, imported ones.</p>
+      <button class="td-btn-primary" type="button" (click)="playMaps()">Play the maps</button>
+    </div>
+  }
+
   <div class="td-seg token-tabs" role="tablist" tdRovingGroup aria-label="Map provider">
     <button
       type="button"
