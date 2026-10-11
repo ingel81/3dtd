@@ -348,8 +348,12 @@ export class CoopService {
   private pingSeq = 0;
   /** Each lane's length and walking time, spawn id to its stats (lobby) */
   readonly lanes = signal<ReadonlyMap<string, LaneStat>>(new Map());
-  /** This browser has no map key yet: the token screen asks for it first (review R8) */
-  readonly needsKey = computed(() => this.config.needsCredentials());
+  /**
+   * This browser has no map key yet: the token screen asks for it first
+   * (review R8). Only a world that needs one (the Google tiles; not a custom
+   * map or an own tileset)
+   */
+  readonly needsKey = computed(() => this.worldContext.capabilities().credentials && this.config.needsCredentials());
   /** The player the room waits for to catch up (the relay's cap, review R2), null while none */
   readonly waitingFor = this.perRoom.signal<string | null>(null);
   /** Each player's round trip to the relay, ms, as the relay last measured it */

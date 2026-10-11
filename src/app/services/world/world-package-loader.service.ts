@@ -65,7 +65,8 @@ export class WorldPackageLoader {
    */
   async placeLoaded(stillWanted: () => boolean = () => true): Promise<boolean> {
     let end = performance.now() + WORLD_LOAD_TIMEOUT_MS;
-    const needsKey = () => this.config.needsCredentials();
+    // Only a world that needs a key waits for one (not a custom map or an own tileset)
+    const needsKey = () => this.worldContext.capabilities().credentials && this.config.needsCredentials();
     while (needsKey() || !this.engineInit.getEngine() || this.engineInit.loading() || this.world.corridorPending()) {
       if (!stillWanted()) return false;
       if (needsKey()) end = performance.now() + WORLD_LOAD_TIMEOUT_MS;
