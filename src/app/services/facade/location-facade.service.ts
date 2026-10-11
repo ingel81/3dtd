@@ -304,7 +304,7 @@ export class LocationFacadeService {
       if (layout) {
         this.locationMgmt.setGeneratedSpawns(layout.spawns.map(({ lat, lon }) => ({ lat, lon })));
         layout.spawns.forEach((spawn, i) =>
-          this.addSpawnPoint(spawn.id, spawn.name, spawn.lat, spawn.lon, SPAWN_COLORS[i % SPAWN_COLORS.length]));
+          this.addSpawnPoint(spawn.id, spawn.name, spawn.lat, spawn.lon, SPAWN_COLORS[(spawn.slot ?? i) % SPAWN_COLORS.length]));
         return layout.spawns.length;
       }
 
@@ -385,6 +385,21 @@ export class LocationFacadeService {
   /** Take a spawn away, never the last (MapRelocationService.removeSpawn). */
   removeSpawn(index: number): Promise<boolean> {
     return this.mapRelocation.removeSpawn(index, this.relocationHost);
+  }
+
+  /**
+   * Open these lanes of the world in place of the ones open, before wave 1
+   * (WorldLanes, TODO E130): the spawns, routes and the run are built anew.
+   * False when the world has no lane choice, refuses the set, or a wave was played.
+   */
+  async setOpenLanes(ids: readonly string[]): Promise<boolean> {
+    const lanes = this.worldContext.provider()?.lanes() ?? null;
+    if (!lanes || this.store.waveNumber() > 0) return false;
+    const before = [...lanes.open()];
+    if (!lanes.setOpen(ids)) return false;
+    if (await this.mapRelocation.applyLayoutSpawns(this.relocationHost)) return true;
+    lanes.setOpen(before);
+    return false;
   }
 
   /** Set these spawns in place of the ones there, same HQ (MapRelocationService.replaceSpawns). */
@@ -517,7 +532,7 @@ export class LocationFacadeService {
     // As many spawns as on the initial load (the world's start layout)
     const layout = engine.world.startLayout();
     layout?.spawns.forEach((spawn, i) =>
-      this.addSpawnPoint(spawn.id, spawn.name, spawn.lat, spawn.lon, SPAWN_COLORS[i % SPAWN_COLORS.length]));
+      this.addSpawnPoint(spawn.id, spawn.name, spawn.lat, spawn.lon, SPAWN_COLORS[(spawn.slot ?? i) % SPAWN_COLORS.length]));
 
     // Re-filter and render streets
     bridge.setFilteredStreetNetwork(bridge.getStreetNetwork());

@@ -1,4 +1,5 @@
 import { isDevMode } from '@angular/core';
+import { defaultOpenLanes, hasLaneChoice, laneChoiceOf, laneChoiceProblem, type LaneChoice } from './lane-choice';
 import { type Group, type Matrix4, type Object3D, type PerspectiveCamera, type Scene, Vector3, type WebGLRenderer, WebGLRenderTarget } from 'three';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import type { CameraBounds, CameraRig } from '../../three-engine/camera-rig';
@@ -12,6 +13,7 @@ import type {
   WorldMinimap,
   WorldProvider,
   WorldStartLayout,
+  WorldLanes,
   WorldWaves,
 } from '../world-provider';
 import type { WorldRef } from '../world-ref';
@@ -162,6 +164,10 @@ export class CustomMapWorld implements WorldProvider {
   /** What the minimap picture renders: the scene and the children the map put into it */
   private stage: { scene: Scene; renderer: WebGLRenderer; owned: Set<Object3D>; fog: { value: number }; drawsToTarget: () => boolean } | null = null;
   private minimapPicture: HTMLCanvasElement | null = null;
+  /** The map's lanes and their bounds (lane-choice.ts) */
+  private readonly laneChoice: LaneChoice;
+  /** The lanes the player opened before wave 1, null: the map's first (TODO E130) */
+  private chosenLanes: string[] | null = null;
   private highest: number | null = null;
 
   constructor(
@@ -176,6 +182,7 @@ export class CustomMapWorld implements WorldProvider {
     // A fallen object leaves the run's own copy of the list, never the opened map
     this.doc = destructible ? { ...map.doc, objects: map.doc.objects.map((o) => ({ ...o })) } : map.doc;
     this.capabilities = destructible ? { ...CUSTOM_MAP_CAPABILITIES, destructible: true } : CUSTOM_MAP_CAPABILITIES;
+    this.laneChoice = laneChoiceOf(this.doc.spawns, this.doc.gameplay, spawnLimit);
     this.destruction = destructible
       ? new CustomMapDestruction(() => this.doc.objects, (fallen) => this.fell(fallen), (risen) => this.rose(risen))
       : null;
@@ -351,12 +358,39 @@ export class CustomMapWorld implements WorldProvider {
     return { source: 'table', table };
   }
 
-  /** HQ (where the start flow put the origin) and the first `spawnLimit` spawns (customMapSpawnLimit) */
+  /**
+   * HQ (where the start flow put the origin) and the open lanes among the
+   * first `spawnLimit` spawns (customMapSpawnLimit, lanes()), each with its
+   * place in the map's list
+   */
   startLayout(): WorldStartLayout {
+    const open = new Set(this.openLanes());
     return {
       hq: mapToGeo(this.doc.hq),
-      spawns: this.doc.spawns.slice(0, this.spawnLimit).map((s) => ({ id: s.id, name: s.name, ...mapToGeo(s) })),
+      spawns: this.doc.spawns.slice(0, this.spawnLimit)
+        .map((s, slot) => ({ id: s.id, name: s.name, ...mapToGeo(s), slot }))
+        .filter((s) => open.has(s.id)),
     };
+  }
+
+  /** The lanes the player may switch before wave 1 (TODO E130), null on a map whose spawns are all always open */
+  lanes(): WorldLanes | null {
+    const choice = this.laneChoice;
+    if (!hasLaneChoice(choice)) return null;
+    return {
+      choice,
+      open: () => this.openLanes(),
+      setOpen: (ids) => {
+        if (laneChoiceProblem(choice, ids) !== null) return false;
+        this.chosenLanes = choice.lanes.filter((l) => ids.includes(l.id)).map((l) => l.id);
+        return true;
+      },
+    };
+  }
+
+  /** The lanes open now: the player's choice, else the map's first (defaultOpenLanes) */
+  private openLanes(): readonly string[] {
+    return this.chosenLanes ?? defaultOpenLanes(this.laneChoice);
   }
 
   /**

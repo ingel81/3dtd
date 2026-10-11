@@ -226,6 +226,29 @@ describe('CustomMapWorld', () => {
     expect(world.capabilities).toMatchObject({ realPlace: false, credentials: false, ecef: false, streaming: false, destructible: false });
   });
 
+  it('opens the lanes the player picks before wave 1: the start layout has them, each in its colour slot (TODO E130)', () => {
+    const doc = testMap();
+    // Without an optional lane there is no choice
+    expect(new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3).lanes()).toBeNull();
+
+    doc.spawns[1].optional = true;
+    doc.spawns[2].optional = true;
+    doc.gameplay = { lanes: { max: 2 } };
+    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    const lanes = world.lanes()!;
+    expect(lanes.choice).toMatchObject({ min: 1, max: 2 });
+    // At first: the always-open lane, then optional ones up to the most
+    expect(lanes.open()).toEqual([doc.spawns[0].id, doc.spawns[1].id]);
+    expect(world.startLayout().spawns.map((s) => [s.name, s.slot])).toEqual([['Spawn 1', 0], ['Spawn 2', 1]]);
+
+    expect(lanes.setOpen([doc.spawns[0].id, doc.spawns[2].id])).toBe(true);
+    expect(world.startLayout().spawns.map((s) => [s.name, s.slot])).toEqual([['Spawn 1', 0], ['Spawn 3', 2]]);
+    // The always-open lane stays, the most stays the most
+    expect(lanes.setOpen([doc.spawns[2].id])).toBe(false);
+    expect(lanes.setOpen([doc.spawns[0].id, doc.spawns[1].id, doc.spawns[2].id])).toBe(false);
+    expect(lanes.open()).toEqual([doc.spawns[0].id, doc.spawns[2].id]);
+  });
+
   it("plays the game's rules and waves unless the map sets its own", () => {
     const doc = testMap();
     const world = () => new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);

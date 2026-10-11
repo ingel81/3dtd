@@ -1,4 +1,5 @@
 import type { Group, Matrix4, Object3D, PerspectiveCamera, Raycaster, Scene, Vector3, WebGLRenderer } from 'three';
+import type { LaneChoice } from './custom-map/lane-choice';
 import type { TilesRenderer } from '3d-tiles-renderer';
 import type { CameraRig } from '../three-engine/camera-rig';
 import type { ColumnHit, ColumnSample } from '../three-engine/column-sample';
@@ -168,8 +169,24 @@ export interface StreetStyle {
 /** HQ and spawns a world brings along; a world without them lets the player choose (tiles) */
 export interface WorldStartLayout {
   hq: { lat: number; lon: number };
-  /** Empty until the world is attached where they come from its ground */
-  spawns: { id: string; name: string; lat: number; lon: number }[];
+  /**
+   * Empty until the world is attached where they come from its ground.
+   * `slot`: the spawn's place in the world's own list, which picks its
+   * colour, so a lane keeps it when others are closed (TODO E130)
+   */
+  spawns: { id: string; name: string; lat: number; lon: number; slot?: number }[];
+}
+
+/**
+ * The lanes a world lets the player open before wave 1 (TODO E130): which
+ * there are and the bounds, the ones open now, and a change of them. The
+ * start layout gives the open ones only.
+ */
+export interface WorldLanes {
+  readonly choice: LaneChoice;
+  open(): readonly string[];
+  /** Open these lanes in place of the ones open; false when the world does not allow it (laneChoiceProblem) */
+  setOpen(ids: readonly string[]): boolean;
 }
 
 /** The waves a world brings (a custom map's gameplay): the source to play, its own list for the table source */
@@ -296,6 +313,8 @@ export interface WorldProvider {
   introTour(): IntroTour | null;
   /** The map from straight above for the minimap, null for a world without one (tiles, DevWorld) or before it stands */
   minimap(): WorldMinimap | null;
+  /** The lanes the player may open or close before wave 1, null where every spawn is a lane (tiles, DevWorld, a map without optional lanes) */
+  lanes(): WorldLanes | null;
   /** The world's own run rules (start credits, HQ health, tower types), null: the game's */
   runRules(): RunRules | null;
   /** The world's waves: the source it asks for and its own wave list, null: the game's choice */

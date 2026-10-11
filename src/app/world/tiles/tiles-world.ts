@@ -299,6 +299,11 @@ export class TilesWorld implements WorldProvider, WorldTiles {
     return null;
   }
 
+  /** Every spawn is a lane */
+  lanes(): null {
+    return null;
+  }
+
   startLayout(): WorldStartLayout | null {
     return null;
   }

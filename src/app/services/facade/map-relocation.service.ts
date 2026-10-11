@@ -37,6 +37,9 @@ const MOVING_HQ = 'Moving HQ';
 /** Title of the hint over the map while the spawn moves */
 const MOVING_SPAWN = 'Moving spawn';
 
+/** Title of the hint over the map while lanes open or close before wave 1 */
+const SWITCHING_LANES = 'Switching lanes';
+
 /** Title of the hint over the map while a spawn is added */
 const ADDING_SPAWN = 'Adding spawn';
 
@@ -450,6 +453,42 @@ export class MapRelocationService {
       }
     }
 
+    const entries = spawns.map((spawn, i) => ({
+      id: `spawn-${i + 1}`, name: 'Spawn', lat: spawn.lat, lon: spawn.lon, color: SPAWN_COLORS[i], portalBearing: spawn.portalBearing,
+    }));
+    return this.rebuildSpawns(entries, spawns, host, MOVING_SPAWN);
+  }
+
+  /**
+   * The world's start layout again, after its open lanes changed before wave
+   * 1 (WorldLanes, TODO E130): its spawns with their own ids, names and the
+   * colour of their place in the world's list.
+   */
+  applyLayoutSpawns(host: RelocationHost): Promise<boolean> {
+    const engine = host.context()?.bridge.getEngine();
+    const layout = engine?.world.startLayout();
+    if (!layout || layout.spawns.length === 0) return Promise.resolve(false);
+    if (this.store.waveNumber() > 0) return Promise.resolve(false);
+    const entries = layout.spawns.map((spawn, i) => ({
+      id: spawn.id, name: spawn.name, lat: spawn.lat, lon: spawn.lon,
+      color: SPAWN_COLORS[(spawn.slot ?? i) % SPAWN_COLORS.length], portalBearing: undefined,
+    }));
+    return this.rebuildSpawns(entries, entries.map(({ lat, lon }) => ({ lat, lon })), host, SWITCHING_LANES);
+  }
+
+  /** Steps 2 to 8 of applySpawns: these spawns in place of the ones there, the run and the corridor anew */
+  private async rebuildSpawns(
+    entries: { id: string; name: string; lat: number; lon: number; color: number; portalBearing: number | undefined }[],
+    spawns: SavedSpawn[],
+    host: RelocationHost,
+    title: string,
+  ): Promise<boolean> {
+    const ctx = host.context();
+    const engine = ctx?.bridge.getEngine();
+    const streetNetwork = ctx?.bridge.getStreetNetwork();
+    if (!ctx || !engine || !streetNetwork) return false;
+    const hq = this.store.baseCoords();
+
     // 2. Stop animations and clear old visuals
     this.routeAnimation.stopAnimation();
     this.markerViz.clearSpawnMarkers();
@@ -463,8 +502,7 @@ export class MapRelocationService {
     // 4. Add the spawn points; a portal faces along the route unless the
     // player turned it. The turn is kept as a compass bearing, in the
     // location and so in the URL and in favorites saved from here.
-    spawns.forEach((spawn, i) =>
-      host.addSpawnPoint(`spawn-${i + 1}`, 'Spawn', spawn.lat, spawn.lon, SPAWN_COLORS[i], spawn.portalBearing));
+    for (const e of entries) host.addSpawnPoint(e.id, e.name, e.lat, e.lon, e.color, e.portalBearing);
 
     // 5. Update location service + URL
     this.locationMgmt.setLocation(hq, spawns);
@@ -483,7 +521,7 @@ export class MapRelocationService {
     // route animation starts on the routes it froze.
     const viz = host.vizCallbacks();
     if (!viz) return true;
-    this.relocationStatus.show(MOVING_SPAWN, 'Finding the route');
+    this.relocationStatus.show(title, 'Finding the route');
     const hint = this.relocationStatus.follow();
     const result = await viz.buildCorridor('spawn moved in place', hint.report);
     hint.end();

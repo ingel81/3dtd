@@ -46,6 +46,8 @@
     </span>
   </div>
 }
+<!-- Before wave 1 on a map with optional lanes: which are open (TODO E130) -->
+<app-lane-choice />
 <!-- Running, the button waits (is-busy, pressed) and keeps the focus: aria-disabled, not disabled -->
 <button class="td-btn-primary td-wave-btn" [class.td-wave-running]="waveActive()"
         [class.is-busy]="waveActive()" [class.is-on]="waveButton().pressed || waveActive()"

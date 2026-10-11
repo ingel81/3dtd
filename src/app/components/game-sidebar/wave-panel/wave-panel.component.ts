@@ -14,6 +14,7 @@ import {
   untracked,
   ViewChildren,
 } from '@angular/core';
+import { LaneChoiceComponent } from './lane-choice.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { waveButtonAction } from '../../../coop/room-options';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -60,7 +61,7 @@ import { enemyPreviewConfig } from '../../../services/infrastructure/preview-she
 @Component({
   selector: 'app-sidebar-wave-panel',
   standalone: true,
-  imports: [MatTooltipModule, TdIconComponent, TdRichTooltipDirective, WaveTimelineComponent],
+  imports: [MatTooltipModule, TdIconComponent, TdRichTooltipDirective, WaveTimelineComponent, LaneChoiceComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wave-panel.component.html',
   styleUrl: './wave-panel.component.scss',
