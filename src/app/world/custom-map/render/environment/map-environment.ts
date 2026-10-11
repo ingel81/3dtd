@@ -20,6 +20,7 @@ import {
   type WebGLRenderer,
 } from 'three';
 import type { MapEnvironment } from '../../map-document';
+import { HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { SkyDome } from './sky-dome';
 
 /**
@@ -202,6 +203,8 @@ export class CustomMapEnvironment {
     this.horizon.set(p.horizon).multiply(tint);
     this.fog.density = env.fogDensity;
     this.placeSun(this.sun.target.position);
+    HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(this.sun.color).lerp(this.fog.color, 0.35);
+    HEIGHT_FOG_UNIFORMS.uFogSunDir.value.copy(this.sunDir);
     this.skyDome.set({
       zenith: this.zenith,
       horizon: this.horizon,
@@ -253,6 +256,11 @@ export class CustomMapEnvironment {
   focus(point: Vector3, radius = this.shadowRadius): void {
     this.shadowRadius = radius;
     this.placeSun(point);
+  }
+
+  /** Height the fog is densest at (the map's low ground), metres in the scene */
+  setFogBase(height: number): void {
+    HEIGHT_FOG_UNIFORMS.uFogBase.value = height;
   }
 
   /** Per frame: the sky dome follows the camera, clouds drift */

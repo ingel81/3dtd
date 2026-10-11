@@ -3,6 +3,7 @@ import type { MapTerrain as MapTerrainDoc, MapPaths } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
 import { pathMaskResolution, rasterizePathMask } from '../paths/path-mask';
+import { addHeightFog } from '../environment/height-fog';
 import { ApronProfile, buildTerrainApron } from './terrain-apron';
 import { TerrainChunks, type GridRect } from './terrain-chunks';
 import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots } from './terrain-material';
@@ -108,6 +109,7 @@ export class MapTerrainLayer {
       depth: t.depth,
       cliffAngle: t.cliffAngle,
     });
+    addHeightFog(this.material);
     this.material.setWaterLevel(t.water?.level ?? null);
     this.chunks.setMaterial(this.material);
     this.apron.material = this.material;

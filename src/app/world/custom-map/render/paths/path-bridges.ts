@@ -2,6 +2,7 @@ import { Group, InstancedMesh, Matrix4, Quaternion, Vector3 } from 'three';
 import type { MapPaths, MapWater } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
+import { addHeightFog } from '../environment/height-fog';
 import { mapToScene } from '../map-coords';
 import { edgePolyline } from './path-mask';
 
@@ -35,6 +36,7 @@ export class BridgeLayer {
     this.clear();
     if (!model) return;
     for (const part of model.parts) {
+      addHeightFog(part.material);
       const mesh = new InstancedMesh(part.geometry, part.material, matrices.length);
       matrices.forEach((m, i) => mesh.setMatrixAt(i, m));
       mesh.castShadow = true;

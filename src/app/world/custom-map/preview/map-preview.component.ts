@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, NgZone, OnDestroy, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { PCFShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, Timer, Vector3, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { PostProcessingPipeline } from '../../../three-engine/post-processing/post-processing-pipeline';
 import { createDemoMap } from '../demo-map';
 import { CustomMapView } from '../render/custom-map-view';
 import { MapAssetLibrary } from '../render/map-asset-library';
@@ -24,7 +25,8 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
 /**
  * Dev page `/map-preview`: the demo map in the custom map renderer with an
  * orbit camera and frame numbers. `?view=village` picks a camera spot
- * (VIEWS), `?seed=3` another demo map, `?sky=dusk` another sky preset. E2E probes read
+ * (VIEWS), `?seed=3` another demo map, `?sky=dusk` another sky preset,
+ * `?post=bloom` through the game's post-processing chain. E2E probes read
  * `window.__mapPreview` (view, renderer, stats).
  */
 @Component({
@@ -111,12 +113,19 @@ export class MapPreviewComponent implements OnDestroy {
     controls.target.copy(lift(spot[3], spot[4], spot[5]));
     controls.update();
 
+    // ?post=bloom|grade: through the game's post-processing chain, as the map renders in the game
+    const postMode = params.get('post');
+    const post = postMode ? new PostProcessingPipeline(renderer, scene, camera) : null;
+    if (post && postMode === 'bloom') post.setBloomEnabled(true);
+    if (post && postMode === 'grade') post.setColorGradingPreset('warm-sunset');
+
     const resize = (): void => {
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      post?.setSize(w, h);
     };
     resize();
     window.addEventListener('resize', resize);
@@ -146,7 +155,8 @@ export class MapPreviewComponent implements OnDestroy {
       timer.update();
       controls.update();
       view.update(timer.getDelta(), camera, controls.target);
-      renderer.render(scene, camera);
+      if (post?.needsRender()) post.render();
+      else renderer.render(scene, camera);
       frames++;
       const now = performance.now();
       if (now - fpsTime > 500) {

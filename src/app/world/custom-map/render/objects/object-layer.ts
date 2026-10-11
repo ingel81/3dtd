@@ -17,6 +17,7 @@ import type { MapObject } from '../../map-document';
 import type { CatalogObject } from '../asset-catalog';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, ObjectModel } from '../map-asset-library';
+import { addHeightFog } from '../environment/height-fog';
 import { mapToScene } from '../map-coords';
 
 /**
@@ -225,6 +226,7 @@ export class MapObjectLayer {
     for (let i = 0; i < n; i++) this.writeInstance(b, i);
     for (const part of model.parts) {
       const material = entry.wind > 0 ? this.windMaterial(part.material, entry) : part.material;
+      addHeightFog(material);
       const mesh = new InstancedMesh(part.geometry, material, n);
       mesh.name = `${entry.id}${blocksLos ? '' : '-decor'}`;
       (mesh.instanceMatrix.array as Float32Array).set(b.matrices);

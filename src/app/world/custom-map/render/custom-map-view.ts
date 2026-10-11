@@ -102,6 +102,7 @@ export class CustomMapView {
     this.group.add(this.terrain.apron);
 
     this.environment = new CustomMapEnvironment(doc.environment);
+    this.environment.setFogBase(lowGround(t.grid.heights, t.water?.level));
     this.updateWater();
     this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers);
     this.group.add(this.objects.group);
@@ -256,4 +257,11 @@ export class CustomMapView {
       this.bridges.set(this.doc.paths, this.doc.terrain.water),
     ]);
   }
+}
+
+/** The low ground of a map for the height fog: the water level, or near the lowest heights */
+function lowGround(heights: Float32Array, waterLevel: number | undefined): number {
+  if (waterLevel !== undefined) return waterLevel;
+  const sorted = Float32Array.from(heights).sort();
+  return sorted[Math.floor(sorted.length * 0.05)] ?? 0;
 }

@@ -16,6 +16,7 @@ import {
   Vector2,
 } from 'three';
 import type { MapWater } from '../../map-document';
+import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS, heightFogFragment } from '../environment/height-fog';
 import { SKY_FUNCTIONS } from '../environment/sky-dome';
 import { SHADER_NOISE } from '../shader-noise';
 import type { HeightField } from '../height-field';
@@ -63,6 +64,8 @@ export class WaterSurface {
       depthWrite: true,
     });
     material.uniforms['uWaves'].value = WaterSurface.waveTexture();
+    // Shared objects (merge above copied them): the height fog follows the environment
+    Object.assign(material.uniforms, HEIGHT_FOG_UNIFORMS);
     material.name = 'custom-map-water';
     this.mesh = new Mesh(new BufferGeometry(), material);
     this.mesh.name = 'custom-map-water';
@@ -281,6 +284,7 @@ uniform float uTime;
 uniform vec3 uDeep;
 uniform vec3 uShallow;
 uniform vec2 uFlow;
+${HEIGHT_FOG_PARS}
 ${SHADER_NOISE}
 ${SKY_FUNCTIONS}
 uniform float uLight;
@@ -324,8 +328,8 @@ void main() {
   alpha = max(alpha, foam * 0.8);
   alpha *= smoothstep(0.0, 0.08, vDepth);
   gl_FragColor = vec4(color, alpha);
+  ${heightFogFragment('vWorldPos')}
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
-  #include <fog_fragment>
 }
 `;
