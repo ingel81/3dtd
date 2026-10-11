@@ -155,7 +155,10 @@ entfernt. Die Karten haben `mapToGeo`/`geoToMap` im Kartendokument, mit demselbe
   Tauchflug nur bei `realPlace` und `ecef`, Zuletzt-besucht, Bestwellen, Ortssuche-URL nur bei `realPlace`.
   Bewusste Ausnahme: Bot-Training, Hintergrund-Schleife und Rendering-Schalter hängen an `ref.kind === 'devworld'`,
   weil DevWorld die Welt der Bots ist und eine eigene Karte keinen Bot-Server ansprechen soll. Die Kartenprobe
-  (`?bot=trial`, `world/map-trial.ts`) läuft ohne Bot-Server auf jeder Welt ohne `realPlace`
+  (`?bot=trial`, `world/map-trial.ts`) läuft ohne Bot-Server auf jeder Welt ohne `realPlace`. Zweite Ausnahme: der
+  Kartenversand im Koop fragt `kind === 'custom-map'` (`coop.service.ts` `mapPartsToSend` und der Abgleich
+  beim Beitritt; `world-package-loader.service.ts` `worldHere` für die Meldung), weil seine Nutzlast der Inhalt der
+  Karte selbst ist; im Spielablauf ist das keine Weiche
 - **Gebiet als Fähigkeit der Factory**: `WorldFactory.coverage` (`WorldContext.coverage`, `world-coverage.ts`) hält
   HQ, Spawns, Würfel und Link-Orte in dem Kreis, in dem eine Welt Boden hat (eigenes Tileset); sonst überall
 - **Welt wechseln heißt neu laden**: das Menü (New game, Maps; `WorldChoiceService`) lädt die Seite mit `?world=…`
