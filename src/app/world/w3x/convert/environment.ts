@@ -14,12 +14,23 @@ interface TilesetMood {
   water: string;
 }
 
+/** Lowest tint channel: within 10% of white, as light colour a stronger tint colours everything */
+const TINT_FLOOR = 0xe6;
+/** A map's own fog (w3i) at most this dense: thicker hides the playfield */
+const MAX_MAP_FOG = 0.002;
+
+/** `tint` with every channel lifted to TINT_FLOOR */
+export function mildTint(tint: string): string {
+  const n = parseInt(tint.slice(1), 16);
+  return `#${[16, 8, 0].map((shift) => Math.max(TINT_FLOOR, (n >> shift) & 255).toString(16).padStart(2, '0')).join('')}`;
+}
+
 const day = (tint: string, fog = 0.0005, elevation = 50): MapEnvironment => ({
   sky: 'day',
   sunAzimuth: 135,
   sunElevation: elevation,
   fogDensity: fog,
-  tint,
+  tint: mildTint(tint),
 });
 
 export const TILESETS: Record<string, TilesetMood> = {
@@ -58,7 +69,7 @@ export function mapEnvironment(tileset: string, info: W3iInfo | null, metresPerU
   const env = { ...tilesetMood(tileset).env };
   if (info && info.fogStyle && info.fogStyle > 0 && info.fogEnd > 0) {
     const end = info.fogEnd * metresPerUnit;
-    env.fogDensity = Math.min(0.02, Math.max(0.0001, 1.5 / end));
+    env.fogDensity = Math.min(MAX_MAP_FOG, Math.max(0.0001, 1.5 / end));
   }
   return env;
 }

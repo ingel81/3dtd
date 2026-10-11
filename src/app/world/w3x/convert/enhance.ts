@@ -36,14 +36,17 @@ interface Palette {
   trees: string[];
 }
 
+// Fresh green: the greenest grass as the ground, the plainer one and moss as
+// patches; under the rim's trees grey-brown ground and moss. No meadow, no
+// yellow forest moss, no orange forest floor: they turn the map olive and rust
 const TEMPERATE: Palette = {
   road: 'cobblestone',
   roadEdge: 'gravel-path',
-  grass: 'grass',
-  grassLush: 'grass-lush',
-  grassDry: 'meadow',
-  forest: 'forest-floor',
-  forestMoss: 'forest-moss',
+  grass: 'grass-lush',
+  grassLush: 'grass',
+  grassDry: 'moss',
+  forest: 'forest-ground',
+  forestMoss: 'moss',
   trees: ['tree-oak', 'tree-birch', 'tree-pine', 'tree-fir'],
 };
 

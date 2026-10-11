@@ -191,10 +191,10 @@ Maske 2,5). Spawns heißen wie ihre Region; das HQ steht in der Mitte der Ende-R
 Portale für bis zu 32 Spawns (`MAX_SPAWN_PORTALS`); das Dokument enthält alle, der Bericht warnt.
 
 **Verschönern** (`convert/enhance.ts`, Stil `enhanced`, Standard): Statt der Kacheltexturen malt der
-Import den Boden nach seiner Rolle im Spiel. Baugrund (begehbar und bebaubar) wird Wiese mit ruhigen
-satten und trockenen Flecken aus Value-Noise, Straßen (die Kanten des Wegenetzes) bekommen eine
+Import den Boden nach seiner Rolle im Spiel. Baugrund (begehbar und bebaubar) wird frisches Gras mit ruhigen
+Flecken aus schlichterem Gras und Moos (Value-Noise; gemäßigt kein Meadow, sonst wird die Karte oliv), Straßen (die Kanten des Wegenetzes) bekommen eine
 gepflasterte Mitte und einen Kiesrand, der ins Gras ausfranst. Nicht begehbare Ränder und nicht
-bebaubarer Grund abseits der Straßen (der äußere Ring einer Karte) werden Waldboden und bekommen
+bebaubarer Grund abseits der Straßen (der äußere Ring einer Karte) werden grau-brauner Waldboden mit Moos und bekommen
 zusätzliche Bäume: je 7 m ein Kandidat mit Versatz, per Hash ausgedünnt, fern von Straßen, Wasser,
 Klippen und den Objekten der Karte, innerhalb von `maxObjects`. Die Farbwahl folgt dem Biom des
 Tilesets (gemäßigt, Winter: Northrend/Icecrown/Lordaeron-Winter, Wüste: Barrens/Outland, Herbst:
@@ -218,8 +218,9 @@ und Hilfsobjekte (Wege-, Luft- und Sichtblocker `YT?b/YT?c`, `Ytlb`, Plattformen
 Gebäude und Mauern auf einer Straße. Baumwände bleiben als Kulisse.
 
 **Stimmung** (`convert/environment.ts`): Himmel, Sonnenhöhe, Nebel und Tönung je Tileset (Dalaran:
-Tag, leichter Nebel); hat die Karte eigenen Nebel (w3i-Stil linear oder exponentiell), ergibt sich die
-Dichte aus seinem Ende: `1,5 / Ende in Metern`. `fogDensity` ist exponentiell je Meter.
+Tag, Sonne 50 Grad, leichter Nebel). Jeder Kanal der Tönung bleibt bei mindestens `e6` (höchstens 10 % unter
+Weiß): als Lichtfarbe färbt eine stärkere alles. Hat die Karte eigenen Nebel (w3i-Stil linear oder exponentiell),
+ergibt sich die Dichte aus seinem Ende: `1,5 / Ende in Metern`, höchstens 0,002. `fogDensity` ist exponentiell je Meter.
 
 `meta.source = { kind: 'w3x', file, mapName, tileset }` mit dem Tileset-Namen.
 

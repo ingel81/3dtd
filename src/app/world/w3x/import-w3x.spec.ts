@@ -73,14 +73,14 @@ describe('importW3x', () => {
     expect(doc.objects[0].scale).toBeCloseTo(1.2);
   });
 
-  it('paints the enhanced ground: meadow, a paved road with gravel edges, forest rims', async () => {
+  it('paints the enhanced ground: fresh grass, a paved road with gravel edges, forest rims', async () => {
     const { doc, report } = await importW3x(buildSyntheticMap(), { now: NOW });
     expect(validateMapDocument(doc)).toEqual([]);
     expect(report.stats.style).toBe('enhanced');
     expect(doc.terrain.layers.map((l) => l.material)).toEqual([
-      'grass', 'grass-lush', 'meadow', 'cobblestone', 'gravel-path', 'forest-floor', 'forest-moss',
+      'grass-lush', 'grass', 'moss', 'cobblestone', 'gravel-path', 'forest-ground', 'moss',
     ]);
-    // The texel under the road's middle is paved, one well off it meadow
+    // The texel under the road's middle is paved, one well off it grass
     const s = doc.terrain.splat;
     const texel = (x: number, y: number): number =>
       Math.floor(((y + doc.terrain.depth / 2) / doc.terrain.depth) * s.resolution) * s.resolution +
