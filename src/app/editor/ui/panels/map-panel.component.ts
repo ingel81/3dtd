@@ -1,10 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { TERRAIN_PRESETS, type TerrainPreset } from '../../ops/generate';
+import { RangeRowComponent } from './range-row.component';
 import { EditorSession } from '../editor-session.service';
 
 /** Name, author, description; size and resize */
 @Component({
   selector: 'app-map-panel',
   standalone: true,
+  imports: [RangeRowComponent, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   template: `
@@ -41,12 +45,49 @@ import { EditorSession } from '../editor-session.service';
         <p class="td-note">Resizing keeps the middle; smaller crops the edges, larger extends them at the edge height.</p>
       </div>
     }
+    <div class="td-group">
+      <h3 class="td-section">Generate terrain</h3>
+      <div class="td-seg is-sm mp-presets" role="radiogroup" aria-label="Landscape">
+        @for (p of presets; track p.id) {
+          @if (p.id !== 'flat') {
+            <button type="button" role="radio" [attr.aria-checked]="preset() === p.id" [matTooltip]="p.hint" (click)="preset.set(p.id)">{{ p.label }}</button>
+          }
+        }
+      </div>
+      <div class="mp-size">
+        <label class="td-field">
+          <span class="td-label">Seed</span>
+          <input class="td-input is-sm" type="number" min="0" [value]="seed()" (input)="seed.set(num($event))" />
+        </label>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="roll()">Roll</button>
+      </div>
+      <app-editor-range label="Strength" unit="%" [min]="10" [max]="100" [value]="strength()" (changing)="strength.set($event)" />
+      <div class="td-seg is-sm" role="radiogroup" aria-label="Replace or add">
+        <button type="button" role="radio" [attr.aria-checked]="!add()" (click)="add.set(false)">Replace the ground</button>
+        <button type="button" role="radio" [attr.aria-checked]="add()" (click)="add.set(true)">Add to it</button>
+      </div>
+      <div class="td-setting">
+        <span>Repaint by slope and height</span>
+        <input class="td-switch" type="checkbox" [checked]="repaint()" (change)="repaint.set($any($event.target).checked)" aria-label="Repaint" />
+      </div>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="generate()" data-test="generate">Generate</button>
+      <p class="td-note">Roads keep a level bed; one undo step takes it all back.</p>
+    </div>
   `,
-  styles: [`.mp-text { height: auto; padding-top: 8px; resize: vertical; } .mp-size { display: flex; align-items: flex-end; gap: 8px; }`],
+  styles: [
+    `.mp-text { height: auto; padding-top: 8px; resize: vertical; } .mp-size { display: flex; align-items: flex-end; gap: 8px; }
+     .mp-presets { flex-wrap: wrap; height: auto; } .mp-presets > * { flex: 1 0 30%; }`,
+  ],
 })
 export class MapPanelComponent {
   private readonly session = inject(EditorSession);
   readonly meta = computed(() => this.session.meta());
+  readonly presets = TERRAIN_PRESETS;
+  readonly preset = signal<TerrainPreset>('hills');
+  readonly seed = signal(Math.floor(Math.random() * 100000));
+  readonly strength = signal(60);
+  readonly add = signal(false);
+  readonly repaint = signal(true);
   readonly width = signal<number | null>(null);
   readonly depth = signal<number | null>(null);
   readonly size = computed(() => {
@@ -70,6 +111,15 @@ export class MapPanelComponent {
     this.session.resize(w, d);
     this.width.set(null);
     this.depth.set(null);
+  }
+
+  roll(): void {
+    this.seed.set(Math.floor(Math.random() * 100000));
+  }
+
+  generate(): void {
+    this.session.generate({ preset: this.preset(), seed: this.seed(), strength: this.strength() / 100, add: this.add() }, this.repaint());
+    this.session.flash('Terrain generated; Ctrl+Z takes it back');
   }
 
   num(e: Event): number {

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { DEFAULT_CELL_SIZE } from '../../../world/custom-map/map-create';
+import { TERRAIN_PRESETS, type TerrainPreset } from '../../ops/generate';
 import { MAP_FILE_EXTENSION, packMapFile } from '../../../world/custom-map/map-file';
 import type { MapSummary } from '../../../world/custom-map/map-store';
 import { download, EditorSession } from '../editor-session.service';
@@ -54,7 +55,10 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   readonly newName = signal('New map');
   readonly newAuthor = signal('');
   readonly newSize = signal<string>('m');
-  readonly newGround = signal<'flat' | 'noise'>('noise');
+  readonly presets2 = TERRAIN_PRESETS;
+  readonly newPreset = signal<TerrainPreset>('hills');
+  readonly newSeed = signal(Math.floor(Math.random() * 100000));
+  readonly newStrength = signal(60);
   readonly newMaterial = signal('grass');
   readonly materials = computed(() => this.session.catalog().catalog.materials);
   readonly thumb = (m: GroundMaterialEntry) => this.session.materialPicture(m);
@@ -144,6 +148,10 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     download(packMapFile(loaded.doc, { preview: loaded.preview ?? undefined }), `${m.id}${MAP_FILE_EXTENSION}`, 'application/zip');
   }
 
+  rollSeed(): void {
+    this.newSeed.set(Math.floor(Math.random() * 100000));
+  }
+
   startNew(): void {
     this.mode.set('new');
     this.confirmDelete.set(null);
@@ -153,17 +161,18 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     const preset = SIZE_PRESETS.find((p) => p.id === this.newSize()) ?? SIZE_PRESETS[1];
     this.busy.set(true);
     try {
-      const id = await this.session.createNew({
-        name: this.newName().trim() || 'New map',
-        author: this.newAuthor().trim(),
-        width: preset.width,
-        depth: preset.depth,
-        cellSize: DEFAULT_CELL_SIZE,
-        ground: this.newGround(),
-        relief: preset.width >= 2048 ? 24 : 14,
-        seed: Math.floor(Math.random() * 100000),
-        baseMaterial: this.newMaterial(),
-      });
+      const id = await this.session.createNew(
+        {
+          name: this.newName().trim() || 'New map',
+          author: this.newAuthor().trim(),
+          width: preset.width,
+          depth: preset.depth,
+          cellSize: DEFAULT_CELL_SIZE,
+          ground: 'flat',
+          baseMaterial: this.newMaterial(),
+        },
+        { preset: this.newPreset(), seed: this.newSeed(), strength: this.newStrength() / 100 },
+      );
       this.open.emit(id);
     } finally {
       this.busy.set(false);

@@ -136,11 +136,25 @@
           </div>
           <div class="td-field">
             <span class="td-label" id="mb-ground">Ground</span>
-            <div class="td-seg" role="radiogroup" aria-labelledby="mb-ground">
-              <button type="button" role="radio" [attr.aria-checked]="newGround() === 'flat'" (click)="newGround.set('flat')">Flat</button>
-              <button type="button" role="radio" [attr.aria-checked]="newGround() === 'noise'" (click)="newGround.set('noise')">Rolling hills</button>
+            <div class="td-seg is-sm mb-presets" role="radiogroup" aria-labelledby="mb-ground">
+              @for (p of presets2; track p.id) {
+                <button type="button" role="radio" [attr.aria-checked]="newPreset() === p.id" [matTooltip]="p.hint" (click)="newPreset.set(p.id)" [attr.data-preset]="p.id">{{ p.label }}</button>
+              }
             </div>
           </div>
+          @if (newPreset() !== 'flat') {
+            <div class="mb-gen">
+              <label class="td-field">
+                <span class="td-label">Seed</span>
+                <input class="td-input is-sm" type="number" min="0" [value]="newSeed()" (input)="newSeed.set(+asValue($event))" />
+              </label>
+              <button class="td-btn-secondary td-btn-sm" type="button" (click)="rollSeed()">Roll</button>
+              <label class="td-field mb-strength">
+                <span class="td-label">Strength {{ newStrength() }} %</span>
+                <input class="td-slider" type="range" min="10" max="100" [value]="newStrength()" (input)="newStrength.set(+asValue($event))" aria-label="Strength" />
+              </label>
+            </div>
+          }
           <div class="td-field">
             <span class="td-label">Base material</span>
             <div class="mb-materials">

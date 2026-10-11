@@ -20,6 +20,8 @@ import { LandscapeTool } from '../tools/landscape-tool';
 import { MarkerTool } from '../tools/marker-tool';
 import { StampTool } from '../tools/stamp-tool';
 import { StampLibrary } from '../model/stamp-store';
+import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
+import { finishGenerated, generateTerrain, type GenerateOptions } from '../ops/generate';
 import type { Stamp, StampRect } from '../ops/stamp';
 import { ObjectTool } from '../tools/object-tool';
 import { PaintTool } from '../tools/paint-tool';
@@ -146,6 +148,29 @@ export class EditorSession implements OnDestroy {
     return this.thumbRenderer;
   }
 
+  /** Generates terrain over the whole map as one undo step */
+  generate(options: GenerateOptions, repaint: boolean): void {
+    const editor = this.editor;
+    if (!editor) return;
+    const t = editor.doc.terrain;
+    const catalog = this.catalog();
+    const stroke = new LandscapeStroke(editor, 'Generate terrain', options.seed, catalog);
+    const all = { i0: 0, j0: 0, i1: t.grid.columns - 1, j1: t.grid.rows - 1 };
+    const texels = { i0: 0, j0: 0, i1: t.splat.resolution - 1, j1: t.splat.resolution - 1 };
+    stroke.touchHeights(all);
+    stroke.touchSplat(texels);
+    const result = generateTerrain(t, options);
+    if (result.water !== null) {
+      stroke.ensureWater(result.water);
+      stroke.touchWater(all);
+      t.water!.mask.fill(255);
+    }
+    finishGenerated(editor.doc, { ...result, water: null }, (m) => catalog.materials.has(m), repaint);
+    stroke.changed({ heights: all, splat: texels, water: true, layers: true });
+    stroke.finish();
+    this.refresh();
+  }
+
   /** Saves a piece as a stamp with a picture of its rectangle (when it is still on this map) */
   async saveStamp(name: string, stamp: Stamp, region: StampRect | null): Promise<void> {
     let preview: string | null = null;
@@ -171,10 +196,14 @@ export class EditorSession implements OnDestroy {
     this.setDocument(loaded.doc, loaded.summary.origin);
   }
 
-  async createNew(options: Omit<NewMapOptions, 'id'>): Promise<string> {
+  async createNew(options: Omit<NewMapOptions, 'id'>, generator?: GenerateOptions): Promise<string> {
     await this.catalogReady;
     const id = await this.store.freeId(slugMapId(options.name));
     const doc = createMapDocument({ ...options, id });
+    if (generator && generator.preset !== 'flat') {
+      const catalog = this.catalog();
+      finishGenerated(doc, generateTerrain(doc.terrain, generator), (m) => catalog.materials.has(m));
+    }
     this.setDocument(doc, 'own');
     await this.save(true);
     return id;
