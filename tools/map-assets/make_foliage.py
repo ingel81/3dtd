@@ -613,6 +613,10 @@ def main():
     hull_panels(512, 43).save(os.path.join(out, 'hull-panels.jpg'), quality=90)
     stripes(512, [(150, 40, 30), (225, 205, 165), (40, 60, 110), (225, 205, 165)]).save(os.path.join(out, 'tent-stripes.jpg'), quality=90)
     save(fishing_net(256), 'net.png')
+    # Darker copies for the inside of crowns: depth without a second light pass
+    for leaf in ('oak', 'birch', 'conifer', 'bush', 'maple', 'maple-autumn', 'oak-autumn', 'birch-autumn', 'swamp', 'dry'):
+        card = Image.open(os.path.join(out, f'leaves-{leaf}.png'))
+        save(tinted(card, (0.55, 0.58, 0.5)), f'leaves-{leaf}-dark.png')
     print('foliage ok', file=sys.stderr)
 
 

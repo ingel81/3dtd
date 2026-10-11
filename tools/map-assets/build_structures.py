@@ -85,24 +85,76 @@ def house(name, w, d, wall_h, roof_asset, wall_asset, storeys=1, barn=False, wal
     door_h = 2.2 if not barn else 3.4
     box(timber, 0, -d / 2 - 0.06, plinth * 0.3 if not barn else 0, door_w + 0.3, 0.12, door_h + 0.2)
     box(dark, 0, -d / 2 - 0.09, plinth * 0.3 + 0.1 if not barn else 0.05, door_w, 0.08, door_h)
+    glass = Part(flat_material('window-glass-old', (0.08, 0.1, 0.12), 0.08, 0.6))
+    shutters = Part(pbr_material('shutter-' + ('green' if not barn else 'barn'), 'dark_planks', (0.45, 0.62, 0.45) if not frame else (0.75, 0.42, 0.3)),
+                    uv_metres=1.0)
+
+    def window(x, y, z, normal, along):
+        # Frame proud of the wall, glass set back, a cross of mullions, a sill below, shutters folded open
+        n, a = normal, along
+        def at(u, v, du, dv):
+            return u * a + v * n
+        for (u, du, zz, dz) in ((-0.5, 0.1, 0.0, 1.1), (0.5, 0.1, 0.0, 1.1), (0.0, 1.1, 0.0, 0.1), (0.0, 1.1, 1.0, 0.1)):
+            c = Vector((x, y, 0)) + a * u + n * 0.05
+            sx, sy = (du, 0.1) if abs(a.x) > 0.5 else (0.1, du)
+            box(timber, c.x, c.y, z + zz, sx, sy, dz)
+        c = Vector((x, y, 0)) + n * 0.02
+        box(glass, c.x, c.y, z + 0.1, 0.9 if abs(a.x) > 0.5 else 0.06, 0.06 if abs(a.x) > 0.5 else 0.9, 0.9)
+        c = Vector((x, y, 0)) + n * 0.06
+        box(timber, c.x, c.y, z + 0.1, 0.05 if abs(a.x) > 0.5 else 0.05, 0.05, 0.9)
+        box(timber, c.x, c.y, z + 0.5, 0.9 if abs(a.x) > 0.5 else 0.05, 0.05 if abs(a.x) > 0.5 else 0.9, 0.05)
+        c = Vector((x, y, 0)) + n * 0.12
+        box(stone, c.x, c.y, z - 0.12, 1.3 if abs(a.x) > 0.5 else 0.22, 0.22 if abs(a.x) > 0.5 else 1.3, 0.1)
+        for s in (-1, 1):
+            c = Vector((x, y, 0)) + a * s * 0.85 + n * 0.08
+            box(shutters, c.x, c.y, z, 0.55 if abs(a.x) > 0.5 else 0.06, 0.06 if abs(a.x) > 0.5 else 0.55, 1.1)
+
     if not barn:
         for z in [plinth + 1.0] + ([plinth + 1.0 + (wall_h - plinth) / 2] if storeys > 1 else []):
             for x in (-w / 3, w / 3):
                 for sy in (-1, 1):
                     if sy < 0 and abs(x) < 1.0:
                         continue
-                    y = sy * (d / 2 + 0.05)
-                    box(timber, x, y, z - 0.08, 1.1, 0.1, 1.25)
-                    box(dark, x, y + sy * 0.02, z, 0.9, 0.1, 1.05)
+                    window(x, sy * d / 2, z, Vector((0, sy, 0)), Vector((1, 0, 0)))
             for sx in (-1, 1):
-                box(timber, sx * (w / 2 + 0.05), 0, z - 0.08, 0.1, 1.1, 1.25)
-                box(dark, sx * (w / 2 + 0.07), 0, z, 0.1, 0.9, 1.05)
-        # Chimney
-        box(stone, w * 0.3, d * 0.2, wall_h, 0.7, 0.7, pitch * 0.8 + 1.0)
+                window(sx * w / 2, 0, z, Vector((sx, 0, 0)), Vector((0, 1, 0)))
+        # Chimney of stone with a projecting cap, a step at the door
+        box(stone, w * 0.3, d * 0.2, wall_h, 0.8, 0.8, pitch * 0.8 + 1.2)
+        box(stone, w * 0.3, d * 0.2, wall_h + pitch * 0.8 + 1.2, 1.0, 1.0, 0.15)
+        box(dark, w * 0.3, d * 0.2, wall_h + pitch * 0.8 + 1.3, 0.5, 0.5, 0.06)
+        box(stone, 0, -d / 2 - 0.45, -0.2, door_w + 0.8, 0.7, plinth * 0.3 + 0.25)
+    else:
+        # Vertical battens over the boards, a cross-braced door leaf, a hayloft door in the gable
+        for sy in (-1, 1):
+            for k in range(int(w / 0.6)):
+                x = -w / 2 + 0.3 + k * 0.6
+                if sy < 0 and abs(x) < door_w / 2 + 0.2:
+                    continue
+                box(timber, x, sy * (d / 2 + 0.03), plinth, 0.08, 0.06, wall_h - plinth - 0.1)
+        for s in (-1, 1):
+            oriented_box(timber, Vector((s * door_w / 4 - door_w / 4 * s * 0.9, -d / 2 - 0.14, 0.2)), Vector((s * door_w / 4 + door_w / 4 * s * 0.9, -d / 2 - 0.14, door_h - 0.2)), 0.12)
+        box(timber, 0, -d / 2 - 0.14, door_h / 2, door_w, 0.08, 0.14)
+        box(timber, w / 2 + 0.04, 0, wall_h + 0.3, 0.08, 1.6, 1.6)
+        box(dark, w / 2 + 0.06, 0, wall_h + 0.4, 0.06, 1.3, 1.3)
+    # Roof trim: fascia boards under the eaves, verge boards along the gables, a ridge cap
+    ridge = Part(pbr_material('roof-' + roof_asset + '-ridge', roof_asset, (0.7, 0.7, 0.7)), uv_metres=1.0)
+    over = 0.5
+    eave = wall_h - over * pitch / (d / 2)
+    for sy in (-1, 1):
+        box(timber, 0, sy * (d / 2 + over - 0.04), eave - 0.32, w + 2 * over, 0.08, 0.22)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            a = Vector((sx * (w / 2 + over + 0.02), sy * (d / 2 + over), eave - 0.1))
+            b = Vector((sx * (w / 2 + over + 0.02), 0, wall_h + pitch + 0.02))
+            oriented_box(timber, a, b, 0.1)
+    oriented_box(ridge, Vector((-w / 2 - over, 0, wall_h + pitch + 0.02)), Vector((w / 2 + over, 0, wall_h + pitch + 0.02)), 0.3)
     objects = [stone.to_object(name + '-stone'), walls.to_object(name + '-walls'), timber.to_object(name + '-timber')]
     # Roof UVs come from gable_roof, no box mapping
     objects.append(roof.to_object(name + '-roof'))
     objects.append(dark.to_object(name + '-dark'))
+    for p, suffix in ((glass, '-glass'), (shutters, '-shutters'), (ridge, '-ridge')):
+        if p.bm.faces:
+            objects.append(p.to_object(name + suffix))
     if snow:
         cover = Part(pbr_material('snow-snow_02', 'snow_02', (0.95, 0.97, 1.0)), uv_metres=3.0, bevel=0.0)
         gable_roof(cover, w + 0.1, d, wall_h + 0.12, pitch, 0.55)

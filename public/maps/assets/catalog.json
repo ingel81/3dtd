@@ -2395,7 +2395,7 @@
       "category": "tree",
       "file": "models/tree-oak-autumn.glb",
       "footprint": 2.0,
-      "height": 12.1,
+      "height": 12.7,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2416,7 +2416,7 @@
       "category": "tree",
       "file": "models/tree-oak-young.glb",
       "footprint": 1.0,
-      "height": 7.3,
+      "height": 7.4,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2438,7 +2438,7 @@
       "category": "tree",
       "file": "models/tree-maple.glb",
       "footprint": 1.8,
-      "height": 10.9,
+      "height": 11.8,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2459,7 +2459,7 @@
       "category": "tree",
       "file": "models/tree-maple-autumn.glb",
       "footprint": 1.8,
-      "height": 10.9,
+      "height": 11.8,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2502,7 +2502,7 @@
       "category": "tree",
       "file": "models/tree-birch-autumn.glb",
       "footprint": 1.2,
-      "height": 12.2,
+      "height": 12.8,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2545,7 +2545,7 @@
       "category": "tree",
       "file": "models/tree-mangrove.glb",
       "footprint": 2.5,
-      "height": 10.3,
+      "height": 10.7,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2612,7 +2612,7 @@
       "category": "tree",
       "file": "models/tree-pine-snow.glb",
       "footprint": 1.6,
-      "height": 17.0,
+      "height": 17.1,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2636,7 +2636,7 @@
       "category": "tree",
       "file": "models/tree-fir-snow.glb",
       "footprint": 1.8,
-      "height": 12.8,
+      "height": 12.9,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2660,7 +2660,7 @@
       "category": "tree",
       "file": "models/tree-fir-young.glb",
       "footprint": 0.9,
-      "height": 5.9,
+      "height": 5.8,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2683,7 +2683,7 @@
       "category": "tree",
       "file": "models/tree-fir-young-snow.glb",
       "footprint": 0.9,
-      "height": 5.9,
+      "height": 5.8,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5056,8 +5056,8 @@
       "name": "Thatched cottage",
       "category": "building",
       "file": "models/cottage.glb",
-      "footprint": 3.1,
-      "height": 5.7,
+      "footprint": 3.2,
+      "height": 6.0,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5078,8 +5078,8 @@
       "name": "Stone house",
       "category": "building",
       "file": "models/house-stone.glb",
-      "footprint": 4.0,
-      "height": 7.2,
+      "footprint": 4.1,
+      "height": 7.5,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5100,8 +5100,8 @@
       "name": "Town house",
       "category": "building",
       "file": "models/house-tall.glb",
-      "footprint": 3.1,
-      "height": 11.2,
+      "footprint": 3.3,
+      "height": 11.5,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5122,7 +5122,7 @@
       "category": "building",
       "file": "models/house-snow.glb",
       "footprint": 3.7,
-      "height": 6.4,
+      "height": 6.8,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5144,7 +5144,7 @@
       "category": "building",
       "file": "models/house-stone-snow.glb",
       "footprint": 4.1,
-      "height": 7.2,
+      "height": 7.5,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5166,8 +5166,8 @@
       "name": "Log cabin",
       "category": "building",
       "file": "models/log-cabin.glb",
-      "footprint": 3.6,
-      "height": 6.2,
+      "footprint": 3.7,
+      "height": 6.6,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5190,7 +5190,7 @@
       "category": "building",
       "file": "models/log-cabin-snow.glb",
       "footprint": 3.7,
-      "height": 6.2,
+      "height": 6.6,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5234,8 +5234,8 @@
       "name": "Watermill",
       "category": "building",
       "file": "models/watermill.glb",
-      "footprint": 4.5,
-      "height": 7.6,
+      "footprint": 4.6,
+      "height": 7.9,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9397,8 +9397,8 @@
       "name": "Alpine hut",
       "category": "building",
       "file": "models/alpine-hut.glb",
-      "footprint": 4.0,
-      "height": 7.2,
+      "footprint": 4.1,
+      "height": 7.5,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9420,7 +9420,7 @@
       "category": "building",
       "file": "models/alpine-hut-snow.glb",
       "footprint": 4.1,
-      "height": 7.2,
+      "height": 7.5,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9587,8 +9587,8 @@
       "name": "Stone house with balcony",
       "category": "building",
       "file": "models/house-stone-balcony.glb",
-      "footprint": 4.5,
-      "height": 9.3,
+      "footprint": 4.6,
+      "height": 9.7,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9610,7 +9610,7 @@
       "category": "building",
       "file": "models/house-stone-balcony-snow.glb",
       "footprint": 4.6,
-      "height": 9.3,
+      "height": 9.7,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9631,7 +9631,7 @@
       "name": "Mountain chapel",
       "category": "building",
       "file": "models/chapel-mountain.glb",
-      "footprint": 5.4,
+      "footprint": 5.5,
       "height": 10.1,
       "blocksLos": true,
       "blocksBuild": true,
@@ -9845,6 +9845,44 @@
         "flicker": true
       },
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/stacked_stone_wall"
+    },
+    {
+      "id": "cauldron",
+      "name": "Witch's cauldron",
+      "category": "prop",
+      "file": "models/cauldron.glb",
+      "footprint": 0.5,
+      "height": 1.0,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "swamp",
+        "hell"
+      ],
+      "effects": [
+        {
+          "kind": "smoke",
+          "radius": 0.35,
+          "height": 1.1,
+          "rate": 3,
+          "color": "#b8ffa0"
+        }
+      ],
+      "light": {
+        "color": "#7aff40",
+        "intensity": 0.7,
+        "distance": 6,
+        "height": 1.0,
+        "flicker": true
+      },
+      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/bark_brown_02"
     },
     {
       "id": "boat-rotten",
@@ -10072,7 +10110,7 @@
       "category": "building",
       "file": "models/fisher-hut.glb",
       "footprint": 4.6,
-      "height": 5.2,
+      "height": 5.6,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -10409,7 +10447,7 @@
       "category": "tree",
       "file": "models/tree-street.glb",
       "footprint": 0.8,
-      "height": 7.4,
+      "height": 7.8,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [

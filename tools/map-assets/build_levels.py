@@ -267,12 +267,40 @@ def witch_hut(name):
         t = (k + 0.5) / 6
         p = Vector((-2.3, -2.0 + t * 1.2, -0.2 + t * (z + 0.2)))
         oriented_box(posts, p - Vector((0, 0, 0)) + Vector((-0.3, 0, 0)), p + Vector((0.3, 0, 0)), 0.05)
-    tube(iron_p, [Vector((-3.2, -2.6, 0.0)), Vector((-3.2, -2.6, 0.35)), Vector((-3.2, -2.6, 0.75))], [0.35, 0.55, 0.5], 12, cap=True)
-    goo = Part(lamp_glass((0.4, 1.0, 0.2), 1.0))
-    tube(goo, [Vector((-3.2, -2.6, 0.68)), Vector((-3.2, -2.6, 0.7))], [0.46, 0.0], 12)
+    goo = Part(lamp_glass((0.4, 1.0, 0.2), 1.8), smooth=True)
+    cauldron(iron_p, goo, Vector((-3.2, -2.6, 0.0)), random.Random(5))
     objects = [wood.to_object(name), posts.to_object(name + '-posts'), reed.to_object(name + '-roof'), stone.to_object(name + '-chimney'),
                glow.to_object(name + '-windows'), iron_p.to_object(name + '-cauldron'), goo.to_object(name + '-brew')]
     export(name, objects)
+
+
+def cauldron(metal, brew, c, rnd, r=0.55):
+    """Iron cauldron on three legs, brimful of a glowing brew with bubbles breaking the surface"""
+    for k in range(3):
+        a = k / 3 * math.tau
+        oriented_box(metal, c + Vector((math.cos(a) * r * 0.7, math.sin(a) * r * 0.7, 0.3)), c + Vector((math.cos(a) * r, math.sin(a) * r, -0.05)), 0.07)
+    prof = [(0.25, 0.25), (0.35, 0.7), (0.6, 1.0), (0.85, 0.95), (0.92, 0.88), (0.95, 0.92)]
+    tube(metal, [c + Vector((0, 0, z)) for z, _ in prof], [r * f for _, f in prof], 16, cap=True)
+    surface = [(0.9, 0.86), (0.96, 0.6), (0.99, 0.0)]
+    tube(brew, [c + Vector((0, 0, z)) for z, _ in surface], [r * f for _, f in surface], 16)
+    for k in range(6):
+        a = rnd.uniform(0, math.tau)
+        d = rnd.uniform(0, r * 0.6)
+        p = c + Vector((math.cos(a) * d, math.sin(a) * d, 0.97))
+        tube(brew, [p - Vector((0, 0, 0.04)), p + Vector((0, 0, 0.03)), p + Vector((0, 0, 0.07))], [0.07, 0.07, 0.0], 8)
+
+
+def cauldron_prop(name):
+    clear_scene()
+    metal = Part(iron(), smooth=True)
+    brew = Part(lamp_glass((0.4, 1.0, 0.2), 1.8), smooth=True)
+    cauldron(metal, brew, Vector((0, 0, 0)), random.Random(7))
+    logs = Part(pbr_material('bark-bark_brown_02', 'bark_brown_02'), smooth=True)
+    for k in range(4):
+        a = k / 4 * math.pi + 0.3
+        d = Vector((math.cos(a), math.sin(a), 0))
+        tube(logs, [-d * 0.55 + Vector((0, 0, 0.06)), d * 0.55 + Vector((0, 0, 0.1))], [0.06, 0.05], 6, cap=True)
+    export(name, [metal.to_object(name), brew.to_object(name + '-brew'), logs.to_object(name + '-logs')])
 
 
 def rowboat(name, rotten=False):
@@ -771,6 +799,7 @@ def models():
         'boardwalk-lantern': lambda: boardwalk_lantern('boardwalk-lantern'),
         'witch-hut': lambda: witch_hut('witch-hut'),
         'boat-rotten': lambda: rowboat('boat-rotten', rotten=True),
+        'cauldron': lambda: cauldron_prop('cauldron'),
         'rowboat': lambda: rowboat('rowboat'),
         'fishing-boat': lambda: fishing_boat('fishing-boat'),
         'temple-ruin': lambda: temple_ruin('temple-ruin', 4),

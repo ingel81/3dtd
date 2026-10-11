@@ -460,6 +460,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | cablecar-gondola | procedural (tools/map-assets/build_levels.py) |
 | boardwalk-lantern | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow |
 | witch-hut | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/stacked_stone_wall |
+| cauldron | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/bark_brown_02 |
 | boat-rotten | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks |
 | rowboat | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks |
 | fishing-boat | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/dark_planks; Netz gezeichnet (make_foliage.py) |

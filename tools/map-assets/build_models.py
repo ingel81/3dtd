@@ -28,7 +28,7 @@ blender_kit.configure(argv[0], argv[1], argv[2])
 ONLY = argv[3:]
 
 from blender_kit import import_model  # noqa: E402
-from build_nature import broadleaf, bush, conifer, dead_tree, grass, log, stump  # noqa: E402
+from build_nature import broadleaf, conifer, dead_tree, grass, log, round_bush, stump  # noqa: E402
 from build_props import crate, lamp_post  # noqa: E402
 from build_structures import bridge_deck, fence, house, tower_ruin, wall_stone, well  # noqa: E402
 
@@ -41,7 +41,7 @@ def base_models():
         'tree-pine': lambda: conifer('tree-pine', 3, 17.0, 3.4, 0.4, 0.32),
         'tree-fir': lambda: conifer('tree-fir', 4, 13.0, 3.3, 0.08, 0.28),
         'tree-dead': lambda: dead_tree('tree-dead', 5),
-        'bush': lambda: bush('bush', 6, 1.2, 1.5),
+        'bush': lambda: round_bush('bush', 6, 1.3, 1.5, 'leaves-bush'),
         'grass-clump': lambda: grass('grass-clump', 'grass.png', 1.1, 0.55, 7),
         'flowers': lambda: grass('flowers', 'flowers.png', 1.0, 0.5, 8),
         'stump': lambda: stump('stump'),

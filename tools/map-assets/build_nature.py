@@ -1,5 +1,6 @@
 """Trees, plants and rocks of the map asset catalogue (loaded by build_models.py)."""
 import math
+import os
 import random
 
 from mathutils import Matrix, Vector
@@ -14,47 +15,65 @@ import blender_kit
 # ---------------------------------------------------------------- trees and plants
 
 def broadleaf(name, seed, height, crown_r, trunk_r, bark, leaves, bark_tint=None, slender=False, extra=None):
-    """Round crown of leaf cards on branches; `extra(wood, foliage, pts)` adds parts (roots, more cards)"""
+    """Broadleaf tree: a flared trunk splitting into primary and secondary branches; leaf cards in clusters
+    at the branch tips (the crown reads as clumps with gaps, not a ball), cards facing out of their cluster
+    with normals bent from the crown centre (soft round light), darker cards inside the crown for depth.
+    `extra(wood, foliage, pts)` adds parts (roots, more cards)"""
     clear_scene()
     rnd = random.Random(seed)
-    wood = Part(pbr_material('bark-' + bark, bark, bark_tint))
-    foliage = Part(card_material(leaves, leaves + '.png'))
-    trunk_top = height * (0.62 if not slender else 0.8)
-    pts = [Vector((0, 0, 0))]
+    wood = Part(pbr_material('bark-' + bark + ('-t' if bark_tint else ''), bark, bark_tint))
+    foliage = Part(card_material(leaves.replace('leaves-', ''), leaves + '.png'))
+    inner = Part(card_material(leaves.replace('leaves-', '') + '-dark', leaves + '-dark.png'))
+    trunk_top = height * (0.45 if not slender else 0.62)
+    pts = [Vector((0, 0, -0.3))]
     for k in range(1, 7):
         t = k / 6
-        pts.append(Vector((rnd.uniform(-0.25, 0.25) * t, rnd.uniform(-0.25, 0.25) * t, trunk_top * t)))
-    tube(wood, pts, [trunk_r * (1.25 if k == 0 else 1 - 0.65 * k / 6) for k in range(7)], 8)
-    crown_c = Vector((0, 0, height - crown_r * (0.95 if not slender else 1.1)))
-    branches = 7 if not slender else 6
-    for b in range(branches):
-        t = 0.45 + 0.5 * b / branches
-        start = pts[int(t * 6)]
-        ang = b * 2.39996 + rnd.uniform(-0.3, 0.3)
-        out = Vector((math.cos(ang), math.sin(ang), rnd.uniform(0.6, 1.3) if not slender else 1.8)).normalized()
-        length = crown_r * rnd.uniform(0.75, 1.05)
-        mid = start + out * length * 0.5 + Vector((0, 0, length * 0.15))
-        end = start + out * length + Vector((0, 0, length * 0.25))
-        tube(wood, [start, mid, end], [trunk_r * 0.45, trunk_r * 0.28, trunk_r * 0.1], 5)
-        # Cards around the branch end and along its outer half
-        for c in range(11 if not slender else 9):
-            p = mid.lerp(end, rnd.uniform(0.0, 1.0)) + Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-0.6, 0.8))) * crown_r * 0.25
-            outward = (p - crown_c)
-            outward = outward.normalized() if outward.length > 0.1 else Vector((0, 0, 1))
-            d = (outward + Vector((rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.6), rnd.uniform(0.0, 0.8)))).normalized()
-            hint = d.orthogonal().normalized()
-            hint = (hint + outward * 0.5).normalized()
-            size = crown_r * rnd.uniform(0.5, 0.7) * (0.85 if slender else 1.0)
-            card(foliage, p - d * size * 0.25, d, hint, size, size, crown_c)
-    # Inner cards fill the crown's middle
-    for c in range(16 if not slender else 10):
-        p = crown_c + Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-0.5, 0.7))) * crown_r * 0.55
-        d = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(0.2, 1))).normalized()
-        size = crown_r * 0.65
-        card(foliage, p - d * size * 0.4, d, d.orthogonal(), size, size, crown_c)
+        pts.append(Vector((rnd.uniform(-0.2, 0.2) * t, rnd.uniform(-0.2, 0.2) * t, trunk_top * t)))
+    radii = [trunk_r * (1.6 if k == 0 else (1.15 if k == 1 else 1 - 0.55 * k / 6)) for k in range(7)]
+    tube(wood, pts, radii, 9)
+    crown_c = Vector((0, 0, height - crown_r * (0.95 if not slender else 1.15)))
+    tips = []
+    primaries = 6 if not slender else 5
+    for b in range(primaries):
+        t = 0.55 + 0.45 * b / primaries
+        start = pts[min(6, int(t * 6))]
+        ang = b * 2.39996 + rnd.uniform(-0.25, 0.25)
+        rise = rnd.uniform(0.7, 1.2) if not slender else rnd.uniform(1.6, 2.2)
+        out = Vector((math.cos(ang), math.sin(ang), rise)).normalized()
+        length = crown_r * rnd.uniform(0.75, 1.0) * (1.0 if not slender else 1.2)
+        mid = start + out * length * 0.5 + Vector((0, 0, length * 0.1))
+        end = start + out * length + Vector((0, 0, length * 0.2))
+        tube(wood, [start, mid, end], [trunk_r * 0.5, trunk_r * 0.32, trunk_r * 0.14], 6)
+        tips.append((end, crown_r * 0.42))
+        for s in range(2):
+            a2 = ang + (s - 0.5) * rnd.uniform(1.0, 1.6)
+            d2 = Vector((math.cos(a2), math.sin(a2), rnd.uniform(0.5, 1.1))).normalized()
+            p0 = mid.lerp(end, rnd.uniform(0.2, 0.6))
+            l2 = length * rnd.uniform(0.45, 0.65)
+            p1 = p0 + d2 * l2
+            tube(wood, [p0, p0.lerp(p1, 0.5), p1], [trunk_r * 0.18, trunk_r * 0.11, trunk_r * 0.05], 4)
+            tips.append((p1, crown_r * rnd.uniform(0.3, 0.38)))
+    tips.append((crown_c + Vector((0, 0, crown_r * 0.55)), crown_r * 0.45))
+    # Leaf clusters at the tips
+    for c, rc in tips:
+        for k in range(10):
+            u = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-0.4, 1))).normalized()
+            p = c + u * rc * rnd.uniform(0.3, 0.8)
+            out = (p - crown_c).normalized() * 0.6 + u * 0.4
+            out.normalize()
+            d = (Vector((0, 0, 1)) + out * rnd.uniform(0.3, 1.0)).normalized()
+            hint = (out + d.cross(out) * rnd.uniform(-0.4, 0.4)).normalized()
+            size = rc * rnd.uniform(1.2, 1.7)
+            card(foliage, p - d * size * 0.5, d, hint, size, size, crown_c)
+    # Dark cards fill the inside of the crown
+    for k in range(10 if not slender else 6):
+        p = crown_c + Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-0.4, 0.6))) * crown_r * 0.5
+        d = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(0.3, 1))).normalized()
+        size = crown_r * 0.75
+        card(inner, p - d * size * 0.4, d, d.orthogonal(), size, size, crown_c)
     if extra:
         extra(wood, foliage, pts)
-    export(name, [wood.to_object(name + '-wood'), foliage.to_object(name + '-leaves')])
+    export(name, [wood.to_object(name + '-wood'), foliage.to_object(name + '-leaves'), inner.to_object(name + '-inner')])
 
 
 def conifer(name, seed, height, radius, bare, trunk_r, leaves='leaves-conifer'):
@@ -63,8 +82,10 @@ def conifer(name, seed, height, radius, bare, trunk_r, leaves='leaves-conifer'):
     rnd = random.Random(seed)
     wood = Part(pbr_material('bark-knotted_pine_bark', 'knotted_pine_bark'))
     foliage = Part(card_material(leaves.replace('leaves-', ''), leaves + '.png'))
-    tube(wood, [Vector((0, 0, 0)), Vector((0, 0, height * 0.5)), Vector((0, 0, height * 0.9))],
-         [trunk_r, trunk_r * 0.6, trunk_r * 0.1], 7)
+    dark = 'leaves-conifer-dark' if leaves == 'leaves-conifer' else leaves
+    inner = Part(card_material(dark.replace('leaves-', ''), dark + '.png'))
+    tube(wood, [Vector((0, 0, -0.3)), Vector((0, 0, 0.3)), Vector((0, 0, height * 0.5)), Vector((0, 0, height * 0.9))],
+         [trunk_r * 1.4, trunk_r, trunk_r * 0.6, trunk_r * 0.1], 8)
     h0 = height * bare
     z = h0
     whorl = 0
@@ -86,14 +107,19 @@ def conifer(name, seed, height, radius, bare, trunk_r, leaves='leaves-conifer'):
             card(foliage, base, d, hint_a, reach * 1.05, reach * 1.1, center)
             hint_b = (hint_a + out.cross(d) * 1.5).normalized()
             card(foliage, base + Vector((0, 0, 0.1)), d, hint_b, reach * 0.7, reach, center)
+            if k % 2 == 0:
+                card(inner, base + Vector((0, 0, 0.25)), (out * 0.6 + Vector((0, 0, 0.1))).normalized(), hint_a, reach * 0.8, reach * 0.65, center)
         whorl += 1
-        z += rnd.uniform(0.6, 0.85) * (1.0 if height > 10 else 0.7)
+        z += rnd.uniform(0.5, 0.7) * (1.0 if height > 10 else 0.7)
     # Tip: three narrow cards leaning out from the top of the trunk
     for k in range(3):
         ang = k / 3 * math.tau
         d = Vector((math.cos(ang) * 0.12, math.sin(ang) * 0.12, 1)).normalized()
         card(foliage, Vector((0, 0, height - 1.8)), d, Vector((-math.sin(ang), math.cos(ang), 0)), 0.5, 1.6, Vector((0, 0, height - 2.5)))
-    export(name, [wood.to_object(name + '-wood'), foliage.to_object(name + '-leaves')])
+    objects = [wood.to_object(name + '-wood'), foliage.to_object(name + '-leaves')]
+    if inner.bm.faces:
+        objects.append(inner.to_object(name + '-inner'))
+    export(name, objects)
 
 
 def dead_tree(name, seed, tint=(0.62, 0.6, 0.58), extra=None, bark='bark_brown_02'):
@@ -318,7 +344,16 @@ def round_bush(name, seed, radius, height, leaves):
         d = (Vector((0, 0, 1)) + out * rnd.uniform(-0.15, 0.45)).normalized()
         size = radius * rnd.uniform(1.0, 1.25)
         card(foliage, p - d * size * 0.5, d, out, size, min(size, height * 1.1), center)
-    export(name, [wood.to_object(name + '-wood'), foliage.to_object(name + '-leaves')])
+    dark = os.path.join(blender_kit.FOLIAGE, leaves + '-dark.png')
+    objects = [wood.to_object(name + '-wood'), foliage.to_object(name + '-leaves')]
+    if os.path.exists(dark):
+        inner = Part(card_material(leaves.replace('leaves-', 'shrub-') + '-dark', leaves + '-dark.png'))
+        for k in range(6):
+            ang = k / 6 * math.tau
+            card(inner, center + Vector((math.cos(ang), math.sin(ang), 0)) * radius * 0.15 - Vector((0, 0, height * 0.4)),
+                 Vector((0, 0, 1)), Vector((math.cos(ang), math.sin(ang), 0)), radius * 1.1, height * 0.85, center)
+        objects.append(inner.to_object(name + '-inner'))
+    export(name, objects)
 
 
 def hedge(name, seed, length=3.0, height=1.4, depth=1.0, leaves='leaves-bush'):
