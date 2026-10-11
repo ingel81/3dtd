@@ -152,7 +152,10 @@ export class CustomMapView {
       camera.getWorldDirection(this.viewRay.direction);
       if (this.heights.raycast(this.viewRay, this.focusPoint, 3000) === null) this.focusPoint.copy(this.camPos);
     }
-    this.environment.focus(this.focusPoint);
+    // Shadow box sized to what the camera sees around the focus: sharp up close, wide from high up
+    const reach = this.camPos.distanceTo(this.focusPoint);
+    this.environment.focus(this.focusPoint, Math.min(450, Math.max(70, reach * 0.9)));
+    this.environment.update(dtSeconds, camera);
   }
 
   /** Heights changed inside `rect` (map metres); whole map when omitted. Objects and water follow. */

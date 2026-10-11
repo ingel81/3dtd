@@ -13,12 +13,14 @@ import {
   SRGBColorSpace,
   UnsignedByteType,
   Vector3,
+  type Camera,
   type Fog,
   type Scene,
   type Texture,
   type WebGLRenderer,
 } from 'three';
 import type { MapEnvironment } from '../../map-document';
+import { SkyDome } from './sky-dome';
 
 /**
  * Sky, sun, fill light and fog of a custom map, from its MapEnvironment.
@@ -52,6 +54,10 @@ interface SkyPreset {
   envIntensity: number;
   /** Strength of the glow around the sun in the sky */
   glow: number;
+  /** Cloud threshold: lower = more clouds */
+  cover: number;
+  cloudColor: number;
+  cloudShadow: number;
 }
 
 const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
@@ -67,6 +73,9 @@ const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     ambient: 0.05,
     envIntensity: 0.35,
     glow: 0.6,
+    cover: 0.52,
+    cloudColor: 0xffffff,
+    cloudShadow: 0x9aa6b4,
   },
   dusk: {
     zenith: 0x2a3c6e,
@@ -80,6 +89,9 @@ const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     ambient: 0.12,
     envIntensity: 0.5,
     glow: 1.2,
+    cover: 0.5,
+    cloudColor: 0xffd2b0,
+    cloudShadow: 0x6a5a68,
   },
   night: {
     zenith: 0x060b1c,
@@ -93,6 +105,9 @@ const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     ambient: 0.1,
     envIntensity: 0.35,
     glow: 0.3,
+    cover: 0.55,
+    cloudColor: 0x3a4460,
+    cloudShadow: 0x141a28,
   },
   overcast: {
     zenith: 0x8a96a2,
@@ -106,6 +121,9 @@ const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     ambient: 0.2,
     envIntensity: 0.7,
     glow: 0.15,
+    cover: 0.22,
+    cloudColor: 0xd8dde2,
+    cloudShadow: 0x7d858e,
   },
 };
 
@@ -126,6 +144,7 @@ export class CustomMapEnvironment {
   readonly hemi: HemisphereLight;
   readonly ambient: AmbientLight;
   readonly fog: FogExp2;
+  readonly skyDome = new SkyDome();
   sky: DataTexture;
   /** Sky colours (linear) and the direction towards the sun, for materials that fake reflections */
   readonly zenith = new Color();
@@ -152,9 +171,11 @@ export class CustomMapEnvironment {
     this.sun.shadow.mapSize.set(4096, 4096);
     this.sun.shadow.bias = -0.0004;
     this.sun.shadow.normalBias = 0.6;
+    // Soft edges: PCF taps spread over this many texels
+    this.sun.shadow.radius = 2.5;
     this.sun.shadow.camera.near = 1;
     this.sun.shadow.camera.far = 2000;
-    this.lights.add(this.hemi, this.ambient, this.sun, this.sun.target);
+    this.lights.add(this.hemi, this.ambient, this.sun, this.sun.target, this.skyDome.mesh);
     this.fog = new FogExp2(0xffffff, env.fogDensity);
     this.sky = this.buildSky();
     this.set(env);
@@ -181,6 +202,16 @@ export class CustomMapEnvironment {
     this.horizon.set(p.horizon).multiply(tint);
     this.fog.density = env.fogDensity;
     this.placeSun(this.sun.target.position);
+    this.skyDome.set({
+      zenith: this.zenith,
+      horizon: this.horizon,
+      sunDir: this.sunDir,
+      sunColor: this.sun.color,
+      cover: p.cover,
+      glow: p.glow,
+      cloudColor: new Color(p.cloudColor).multiply(tint),
+      cloudShadow: new Color(p.cloudShadow).multiply(tint),
+    });
     if (skyChanged) {
       this.sky.dispose();
       this.sky = this.buildSky();
@@ -224,6 +255,11 @@ export class CustomMapEnvironment {
     this.placeSun(point);
   }
 
+  /** Per frame: the sky dome follows the camera, clouds drift */
+  update(dt: number, camera: Camera): void {
+    this.skyDome.update(dt, camera);
+  }
+
   /** Turns on soft shadow maps on a renderer that has none */
   static enableShadows(renderer: WebGLRenderer): void {
     renderer.shadowMap.enabled = true;
@@ -235,6 +271,7 @@ export class CustomMapEnvironment {
     this.envMap?.dispose();
     this.pmrem?.dispose();
     this.sun.shadow.dispose();
+    this.skyDome.dispose();
   }
 
   private placeSun(focus: Vector3): void {
