@@ -107,14 +107,14 @@ Seitenproben), `carryOffStreet` (Abzweig zum HQ trägt die Straßenhöhe weiter)
 |----------|-------|-------------|--------|
 | `TilesWorld` | `world/tiles/tiles-world.ts` | realPlace, streaming, ecef, credentials, globe | TilesRenderer und Plugins, `TileLoadingTracker`, `RouteCorridorTiles`, `SettleHold`, Overlay folgt der Tiles-Gruppe, GlobeControls, Zugangsdaten, Logos (`tilesLogos`); Oberfläche `TerrainQueries`, Straßen `OsmStreetService` |
 | `DevWorldProvider` | `devworld/dev-world-provider.ts` | regenerate, environment | `DevTerrainProvider` in einer Gruppe am Ursprung, EnvironmentControls, Oberfläche `DevWorldSurface`, Straßen `DevStreetProvider`, Startaufstellung aus dem Straßengenerator |
-| `CustomMapWorld` | `world/custom-map/custom-map-world.ts` | environment | `CustomMapView` (beim Anhängen nachgeladen), Himmel/Licht/Nebel der Karte, Oberfläche `CustomMapSurface` (Höhenraster), Straßen `MapStreetSource` (Wegegraph), HQ und Spawns der Karte |
+| `CustomMapWorld` | `world/custom-map/custom-map-world.ts` | environment | `CustomMapView` (Renderer per dynamischem Import in `attach()`), Umgebung der Karte (`setEnvironment`), Oberfläche `CustomMapSurface` (`custom-map-surface.ts`: Höhenraster, Brückendecks, Rahmen `CustomMapFrame`), Straßen `CustomMapStreets` (`custom-map-streets.ts`: Wegegraph, Brücken als `bridge`), HQ und die ersten Spawns der Karte (`customMapSpawnLimit`, `?spawns=N`) |
 
 ### WorldStreetSource
 
 `prefetchStreets`, `loadStreets`, `findNearestStreetPoint`, `findPath`, `segmentRoutes`, `findRandomStreetPoint`,
 `filterStreetsNearRoutes`, `haversineDistance`, `loadBuildingsNearRoutes`, `spawnLabel`. Die Netzalgorithmen
 (Segment-A*, Zufallspunkt mit Routenprüfung, Filter, nächster Punkt) stehen in `StreetRouter`
-(`services/location/street-router.ts`); `OsmStreetService`, `DevStreetProvider` und `MapStreetSource` erben sie.
+(`services/location/street-router.ts`); `OsmStreetService`, `DevStreetProvider` und `CustomMapStreets` erben sie.
 `findRandomStreetPoint` prüft in jeder Welt mit dem Segment-A* (`routeAlongSegments`), wie DevWorld es vorher über
 `OsmStreetService` tat; `DevStreetProvider.findPath` bleibt sein eigenes A* auf dem Gitter.
 
@@ -149,9 +149,11 @@ entfernt. Die Karten haben `mapToGeo`/`geoToMap` im Kartendokument, mit demselbe
   Bot-Läufe nie den Platz belegen, den das Menü zum Fortsetzen und Raten des Startorts nimmt
 - **`TerrainQueries` bleibt in `three-engine/`** (viele Specs und Werkzeuge importieren ihn); er ist die Oberfläche
   der Tiles-Welt. Ebenso `RouteCorridorTiles`, `TileLoadingTracker`, `tiles-renderer-setup`
-- **Karten**: Ursprung der Szene ist das HQ des Laufs wie bei den Tiles; die Kartenansicht wird um den Versatz
-  verschoben, die Höhenabfragen rechnen in Kartenmetern. Brücken sind vorerst Dekoration (Routen folgen dem
-  Gelände darunter), Türme stehen auf dem Gelände
+- **Karten**: Ursprung der Szene ist das HQ des Laufs wie bei den Tiles; `CustomMapFrame` rechnet Szene und
+  Kartenmeter um, die Kartenansicht wird um den Versatz verschoben. Die Karte lädt einmal für das Start-HQ
+  (`openCustomMap`, `WorldFactory.startHq`) und wird beim Erzeugen der Welt übernommen; `WorldContext.open` holt
+  danach Inhalts-Hash und Namen in den Ref (`refreshRef`). Brückendecks zählen als Boden (Routen laufen darüber),
+  Türme stehen auf Gelände oder Deck, nicht auf Gebäuden der Karte
 
 ## Eigene Karten
 
@@ -202,7 +204,7 @@ Spiel mit `?world=map:<id>`.
 1. Typen und Plan (dieses Dokument), `WorldRef`, Kartendokument
 2. Engine und Abfragen auf `WorldProvider` (Tiles, DevWorld), Straßenquelle, Startablauf, `WorldRef` überall (gebaut)
 3. parallel: W3X-Leser und Konverter, Karten-Renderer und Assets, Editor
-4. `CustomMapWorld` im Spiel (gebaut: `?world=map:<id>`, `demo` für die Demo-Karte), Coop mit eigener Karte (offen:
+4. `CustomMapWorld` im Spiel (gebaut: `?world=map:<id>`, die Demo-Karte liegt als `demo-valley` in `public/maps/` bei), Coop mit eigener Karte (offen:
    der Host schickt das Kartenpaket, Einstieg `WorldPackageLoader.worldHere`)
 
 ## Kopplungsstellen vor dem Umbau (Erkundung 2026-10-11, inzwischen aufgelöst)
