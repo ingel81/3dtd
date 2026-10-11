@@ -139,9 +139,8 @@ export function buildWitchMarsh(): CustomMapDocument {
 
   // Five ground materials load faster than eight; the least used go
   k.trimLayers(5);
-  // Night as film makes it ("day for night"): the dusk light tinted deep blue, so walks, islands and enemies read
-  // from the game camera, and the swamp look lays its haze flat over the water. The night preset is too dark for
-  // that (a moonlight setting is wished from the renderer); lanterns, fires and fireflies are the warm points
-  k.environment({ biome: 'swamp', sky: 'dusk', sunAzimuth: 210, sunElevation: 40, fogDensity: 0.0006, tint: '#7890ea' });
+  // Night under a bright blue moon: the swamp look lays its haze flat over the water, the moonlight lets walks,
+  // islands and enemies read from the game camera, lanterns, fires and fireflies stay the warm points
+  k.environment({ biome: 'swamp', sky: 'night', sunAzimuth: 210, sunElevation: 50, fogDensity: 0.0006, tint: '#ffffff', moonlight: 1 });
   return k.finish();
 }

@@ -56,11 +56,9 @@ und Felsterrassen über der Straße.
 `docs/images/levels/witch-marsh.jpg`, `witch-marsh-game.jpg`. Die Stege sind Wege der Art Bridge (das Holzdeck mit
 Geländer), gelegt, wo die Linie übers Wasser läuft; Fackeln an den Stegen. Feinschliff: dunkler Sternenhimmel (Look
 `temperate` bei Nacht, weil der Sumpf-Look nachts helle Wolken hat; an den Renderer gemeldet), tiefe Nebelbänke übers
-offene Wasser, Moos, Schlamm und Wurzeln auf den Inseln, Laternen an den Pfahlhütten, Kessel und Leuchtpilze. Lesbarkeit (Runde 3): Der Nacht-Himmel des Renderers ist für die Spielkamera zu dunkel (Inseln schwarz); bis ein
-Mondlicht-Regler da ist (beim Renderer gewünscht), läuft die Karte als blaue Dämmerung im Sumpf-Look („day for
-night“), dessen Dunst flach über dem Wasser liegt. Nebelbälle nur noch klein an den Spawns, Laternen und Fackeln alle
-16 m an den Stegen, Lagerfeuer auf den großen Inseln, Glühwürmchen-Wolken über dem offenen Wasser. Kartenprobe HQ 403
-von 500.
+offene Wasser, Moos, Schlamm und Wurzeln auf den Inseln, Laternen an den Pfahlhütten, Kessel und Leuchtpilze. Lesbarkeit: Nacht im Sumpf-Look mit `moonlight: 1` (kühles Mondlicht des Renderers), dessen Dunst flach über dem
+Wasser liegt; Wege, Inseln und Stege sind aus der Spielkamera klar. Nebelbälle nur noch klein an den Spawns, Laternen
+und Fackeln alle 16 m an den Stegen, Lagerfeuer auf den großen Inseln, Glühwürmchen-Wolken über dem offenen Wasser.
 
 Biom Sumpf, Look `swamp`, Nacht mit Bodennebel und Glühwürmchen. Ein Bohlenweg über Sumpfwasser, Inseln mit
 Pfahlhütten, die Hexenhütte mit grün leuchtenden Fenstern als HQ-Kulisse, Laternen an den Stegen als einzige
