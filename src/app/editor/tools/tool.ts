@@ -8,9 +8,13 @@ import type { CatalogIndex } from '../catalog/asset-catalog';
 import type { EditorDocument } from '../model/editor-document';
 import { DEFAULT_BRUSH, type BrushSettings } from '../ops/brush';
 import { DEFAULT_SCATTER, type ScatterOptions } from '../ops/object-ops';
+import type { BiomeId } from '../ops/landscape/biomes';
+import { randomSeed } from '../ops/landscape/landscape-noise';
+import { DEFAULT_RIVER, type RiverOptions } from '../ops/landscape/river';
+import { DEFAULT_ROAD, type RoadOptions } from '../ops/landscape/road';
 import type { EditorOverlay } from '../view/editor-overlay';
 
-export type ToolId = 'terrain' | 'paint' | 'water' | 'objects' | 'paths' | 'markers' | 'environment' | 'settings';
+export type ToolId = 'landscape' | 'terrain' | 'paint' | 'water' | 'objects' | 'paths' | 'markers' | 'environment' | 'settings';
 
 export interface ToolInfo {
   id: ToolId;
@@ -20,14 +24,15 @@ export interface ToolInfo {
 }
 
 export const TOOLS: readonly ToolInfo[] = [
-  { id: 'terrain', label: 'Terrain', key: '1' },
-  { id: 'paint', label: 'Paint', key: '2' },
-  { id: 'water', label: 'Water', key: '3' },
-  { id: 'objects', label: 'Objects', key: '4' },
-  { id: 'paths', label: 'Paths', key: '5' },
-  { id: 'markers', label: 'Spawns and HQ', key: '6' },
-  { id: 'environment', label: 'Environment', key: '7' },
-  { id: 'settings', label: 'Map', key: '8' },
+  { id: 'landscape', label: 'Landscape', key: '1' },
+  { id: 'terrain', label: 'Terrain', key: '2' },
+  { id: 'paint', label: 'Paint', key: '3' },
+  { id: 'water', label: 'Water', key: '4' },
+  { id: 'objects', label: 'Objects', key: '5' },
+  { id: 'paths', label: 'Paths', key: '6' },
+  { id: 'markers', label: 'Spawns and HQ', key: '7' },
+  { id: 'environment', label: 'Environment', key: '8' },
+  { id: 'settings', label: 'Map', key: '9' },
 ];
 
 export type TerrainMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'level' | 'noise' | 'erode' | 'terrace' | 'plateau' | 'ramp';
@@ -45,6 +50,19 @@ export const TERRAIN_MODES: readonly { id: TerrainMode; label: string; hint: str
   { id: 'ramp', label: 'Ramp', hint: 'Click the start, click the end: a ramp between the two heights' },
 ];
 
+export type LandscapeMode = 'biome' | 'mountain' | 'valley' | 'plateau' | 'cliff' | 'erode' | 'river' | 'road';
+
+export const LANDSCAPE_MODES: readonly { id: LandscapeMode; label: string; hint: string; line?: boolean }[] = [
+  { id: 'biome', label: 'Biome', hint: 'Hold to paint the chosen landscape: ground, paint and plants together' },
+  { id: 'mountain', label: 'Mountain', hint: 'Hold to grow a ridged mountain; size and strength set its height' },
+  { id: 'valley', label: 'Valley', hint: 'Hold to sink a valley' },
+  { id: 'plateau', label: 'Plateau', hint: 'Hold to raise a table with a steep rim' },
+  { id: 'cliff', label: 'Cliff edge', hint: 'Drag a line: the ground left of it rises as a cliff', line: true },
+  { id: 'erode', label: 'Erode', hint: 'Hold to let rain carve gullies and fans of scree' },
+  { id: 'river', label: 'River', hint: 'Drag a line: a river with banks, reeds and bridges over roads', line: true },
+  { id: 'road', label: 'Road', hint: 'Drag a line: a road joined to the network, levelled and lit', line: true },
+];
+
 export type ObjectMode = 'select' | 'place' | 'scatter' | 'erase';
 export type GizmoMode = 'move' | 'rotate' | 'scale';
 export type PathMode = 'draw' | 'edit';
@@ -52,6 +70,18 @@ export type MarkerMode = 'spawn' | 'hq';
 
 export interface EditorSettings {
   brush: BrushSettings;
+  landscape: {
+    mode: LandscapeMode;
+    biome: BiomeId;
+    /** The seed of the next stroke */
+    seed: number;
+    /** Roll a new seed after every stroke */
+    reroll: boolean;
+    river: RiverOptions;
+    road: RoadOptions;
+    /** Height of a drawn cliff in metres */
+    cliffHeight: number;
+  };
   terrain: { mode: TerrainMode; level: number; step: number; rampWidth: number };
   paint: { layer: number; erase: boolean };
   water: { mode: 'paint' | 'erase' | 'fill' };
@@ -73,6 +103,15 @@ export interface EditorSettings {
 export function defaultSettings(): EditorSettings {
   return {
     brush: { ...DEFAULT_BRUSH },
+    landscape: {
+      mode: 'biome',
+      biome: 'forest',
+      seed: randomSeed(),
+      reroll: true,
+      river: { ...DEFAULT_RIVER },
+      road: { ...DEFAULT_ROAD },
+      cliffHeight: 12,
+    },
     terrain: { mode: 'raise', level: 0, step: 6, rampWidth: 16 },
     paint: { layer: 0, erase: false },
     water: { mode: 'fill' },

@@ -13,6 +13,7 @@ import { MapStore, type MapOrigin } from '../../world/custom-map/map-store';
 import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog } from '../catalog/asset-catalog';
 import { EditorDocument, SnapshotCommand, type EditCommand, type Selection } from '../model/editor-document';
 import { resizeMap } from '../ops/resize';
+import { LandscapeTool } from '../tools/landscape-tool';
 import { MarkerTool } from '../tools/marker-tool';
 import { ObjectTool } from '../tools/object-tool';
 import { PaintTool } from '../tools/paint-tool';
@@ -48,8 +49,9 @@ export class EditorSession implements OnDestroy {
   readonly settings = defaultSettings();
   /** Bumps when settings change from outside the panels (keys, a tool) */
   readonly settingsRev = signal(0);
-  readonly tool = signal<ToolId>('terrain');
+  readonly tool = signal<ToolId>('landscape');
   readonly tools: Record<ToolId, EditorTool> = {
+    landscape: new LandscapeTool(),
     terrain: new TerrainTool(),
     paint: new PaintTool(),
     water: new WaterTool(),

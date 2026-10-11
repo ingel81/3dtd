@@ -78,6 +78,7 @@
       <header class="td-side-head"><span class="td-side-name">{{ toolLabel() }}</span></header>
       <div class="td-side-body">
         @switch (session.tool()) {
+          @case ('landscape') { <app-landscape-panel /> }
           @case ('terrain') { <app-terrain-panel /> }
           @case ('paint') { <app-paint-panel /> }
           @case ('water') { <app-water-panel /> }

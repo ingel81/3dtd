@@ -1,0 +1,43 @@
+// Layout of the landscape options: modes, biome palette, seed row
+.lp-modes {
+  flex-wrap: wrap;
+  height: auto;
+
+  > * {
+    flex: 1 0 30%;
+  }
+}
+
+.lp-biomes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--td-sp-1);
+}
+
+.lp-biome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--td-sp-1);
+  font-size: var(--td-fs-small);
+
+  img {
+    width: 52px;
+    height: 52px;
+  }
+
+  span {
+    max-width: 100%;
+  }
+}
+
+.lp-seed {
+  display: flex;
+  gap: var(--td-sp-2);
+  align-items: center;
+
+  .td-input {
+    flex: 1 1 auto;
+  }
+}

@@ -39,7 +39,7 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   await page.waitForTimeout(800);
 
   // Terrain: hold the raise brush
-  await page.keyboard.press('1');
+  await page.keyboard.press('2');
   const before = await heightAt(page, cx, cy);
   // Held until the ground rose: a page still loading textures draws few frames
   await page.mouse.down();
@@ -48,7 +48,7 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   await shot(testInfo, page, 'raised');
 
   // Objects: place one, undo, redo
-  await page.keyboard.press('4');
+  await page.keyboard.press('5');
   await page.locator('[data-asset="tree-oak"]').click();
   await page.mouse.click(cx - 140, cy + 90);
   await expect(page.locator('[data-test=objects]')).toHaveText('1 objects');
@@ -58,7 +58,7 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   await expect(page.locator('[data-test=objects]')).toHaveText('1 objects');
 
   // Paths: a road off the starter road, three clicks and Enter
-  await page.keyboard.press('5');
+  await page.keyboard.press('6');
   const roads = numberIn(await page.locator('[data-test=roads]').textContent());
   await page.mouse.click(cx, cy);
   await page.waitForTimeout(400);
@@ -69,7 +69,7 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   await expect.poll(async () => numberIn(await page.locator('[data-test=roads]').textContent())).toBeGreaterThan(roads);
 
   // A spawn at the end of the new road
-  await page.keyboard.press('6');
+  await page.keyboard.press('7');
   await page.mouse.click(cx + 180, cy + 250);
   await expect(page.locator('[data-spawn]')).toHaveCount(2);
 
@@ -85,7 +85,7 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   await page.reload();
   await expect(page.locator('[data-test=map-name]')).toHaveText(name);
   await expect(page.locator('[data-test=objects]')).toHaveText('1 objects');
-  await page.keyboard.press('6');
+  await page.keyboard.press('7');
   await expect(page.locator('[data-spawn]')).toHaveCount(2);
   await expect(page.locator('[data-test=roads]')).toHaveText(roadsSaved!);
   await shot(testInfo, page, 'reloaded');

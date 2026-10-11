@@ -16,6 +16,7 @@ import { TOOLS, type ToolId } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { CheckPanelComponent } from '../panels/check-panel.component';
 import { EnvironmentPanelComponent } from '../panels/environment-panel.component';
+import { LandscapePanelComponent } from '../panels/landscape-panel.component';
 import { MapPanelComponent } from '../panels/map-panel.component';
 import { MarkerPanelComponent } from '../panels/marker-panel.component';
 import { MinimapComponent } from '../panels/minimap.component';
@@ -28,7 +29,8 @@ import { TerrainPanelComponent } from '../panels/terrain-panel.component';
 import { WaterPanelComponent } from '../panels/water-panel.component';
 
 export const TOOL_ICON: Record<ToolId, TdIconName> = {
-  terrain: 'terrain',
+  landscape: 'terrain',
+  terrain: 'sliders',
   paint: 'edit',
   water: 'splash',
   objects: 'build',
@@ -42,7 +44,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
  * The editor around the 3D view: top bar (map, history, save, file,
  * check, test), tool column, the tool's options and the outliner on the
  * right, minimap and check over the view, status bar at the foot. Keys:
- * 1 to 8 tools, Ctrl+Z / Ctrl+Y history, Ctrl+S save; the rest goes to the
+ * 1 to 9 tools, Ctrl+Z / Ctrl+Y history, Ctrl+S save; the rest goes to the
  * view and the tool.
  */
 @Component({
@@ -51,6 +53,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
   imports: [
     TdIconComponent,
     MatTooltipModule,
+    LandscapePanelComponent,
     TerrainPanelComponent,
     PaintPanelComponent,
     WaterPanelComponent,

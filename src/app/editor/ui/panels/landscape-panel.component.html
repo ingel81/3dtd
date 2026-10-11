@@ -1,0 +1,84 @@
+<div class="td-seg is-sm lp-modes" role="radiogroup" aria-label="Landscape brush">
+  @for (m of modes; track m.id) {
+    <button type="button" role="radio" [attr.aria-checked]="s().mode === m.id" [matTooltip]="m.hint" (click)="setMode(m.id)"
+            [attr.data-mode]="m.id">{{ m.label }}</button>
+  }
+</div>
+
+@if (s().mode === 'biome') {
+  <div class="td-group">
+    <h3 class="td-section">Biome</h3>
+    <div class="lp-biomes" role="radiogroup" aria-label="Biome">
+      @for (b of biomes; track b.id) {
+        <button class="td-card lp-biome" type="button" role="radio" [attr.aria-pressed]="s().biome === b.id" [attr.aria-checked]="s().biome === b.id"
+                [matTooltip]="b.hint" (click)="setBiome(b.id)" [attr.data-biome]="b.id">
+          <img [src]="thumb(b)" alt="" />
+          <span class="td-trunc">{{ b.label }}</span>
+        </button>
+      }
+    </div>
+    @if (!hasMaterials()) {
+      <p class="td-note is-warn">The asset catalogue did not load: biomes paint no ground or plants.</p>
+    }
+  </div>
+}
+
+@if (s().mode === 'cliff') {
+  <app-editor-range label="Height" unit="m" [min]="2" [max]="60" [step]="1" [value]="s().cliffHeight" (changing)="setCliff($event)" />
+  <p class="td-note">The brush size sets how far the cliff top reaches from the line.</p>
+}
+
+@if (s().mode === 'river') {
+  <div class="td-group">
+    <h3 class="td-section">River</h3>
+    <app-editor-range label="Width" unit="m" [min]="4" [max]="60" [step]="1" [value]="s().river.width" (changing)="setRiver('width', $event)" />
+    <app-editor-range label="Depth" unit="m" [min]="0.5" [max]="8" [step]="0.5" [value]="s().river.depth" (changing)="setRiver('depth', $event)" />
+    <app-editor-range label="Banks" unit="m" [min]="2" [max]="40" [step]="1" [value]="s().river.bank" (changing)="setRiver('bank', $event)" />
+    <div class="td-setting"><span>Reeds on the banks</span>
+      <input class="td-switch" type="checkbox" [checked]="s().river.reeds" (change)="setRiverFlag('reeds', checked($event))" aria-label="Reeds" /></div>
+    <div class="td-setting"><span>Bridges over roads</span>
+      <input class="td-switch" type="checkbox" [checked]="s().river.bridges" (change)="setRiverFlag('bridges', checked($event))" aria-label="Bridges" /></div>
+    <p class="td-note">The river lies at the map's water level (or just under the lowest ground along it) and cuts its bed through higher ground.</p>
+  </div>
+}
+
+@if (s().mode === 'road') {
+  <div class="td-group">
+    <h3 class="td-section">Road</h3>
+    <app-editor-range label="Width" unit="m" [min]="3" [max]="30" [step]="0.5" [value]="s().road.width" (changing)="setRoadWidth($event)" />
+    <div class="td-seg is-sm" role="radiogroup" aria-label="Kind">
+      <button type="button" role="radio" [attr.aria-checked]="s().road.kind === 'road'" (click)="setRoadKind('road')">Road</button>
+      <button type="button" role="radio" [attr.aria-checked]="s().road.kind === 'path'" (click)="setRoadKind('path')">Path</button>
+    </div>
+    <label class="td-setting"><span>Surface</span>
+      <select class="td-select is-auto" (change)="setSurface(value($event))" aria-label="Surface">
+        <option value="" [selected]="!s().road.surface.length">None</option>
+        @for (m of surfaces(); track m.id) {
+          <option [value]="m.id" [selected]="s().road.surface[0] === m.id">{{ m.name }}</option>
+        }
+      </select>
+    </label>
+    <div class="td-setting"><span>Fit the ground (embankment, cutting)</span>
+      <input class="td-switch" type="checkbox" [checked]="s().road.adapt" (change)="setRoadFlag('adapt', checked($event))" aria-label="Fit the ground" /></div>
+    <div class="td-setting"><span>Lamps</span>
+      <input class="td-switch" type="checkbox" [checked]="s().road.lamps" (change)="setRoadFlag('lamps', checked($event))" aria-label="Lamps" /></div>
+    <div class="td-setting"><span>Fences</span>
+      <input class="td-switch" type="checkbox" [checked]="s().road.fences" (change)="setRoadFlag('fences', checked($event))" aria-label="Fences" /></div>
+  </div>
+}
+
+@if (s().mode !== 'river' && s().mode !== 'road') {
+  <app-brush-panel />
+}
+
+<div class="td-group">
+  <h3 class="td-section">Seed</h3>
+  <div class="lp-seed">
+    <input class="td-input is-sm" type="number" min="0" [value]="s().seed" (change)="setSeed($event)" aria-label="Seed" data-test="seed" />
+    <button class="td-btn-secondary td-btn-sm" type="button" (click)="roll()" matTooltip="Another seed: other trees, other ridges">Roll</button>
+  </div>
+  <div class="td-setting">
+    <span>New seed after every stroke</span>
+    <input class="td-switch" type="checkbox" [checked]="s().reroll" (change)="setReroll(checked($event))" aria-label="New seed after every stroke" />
+  </div>
+</div>

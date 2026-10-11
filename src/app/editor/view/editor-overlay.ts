@@ -29,6 +29,7 @@ import type { Selection } from '../model/editor-document';
 import { pointAt, polylineLength, type Route } from '../ops/path-graph';
 
 const RING_SEGMENTS = 72;
+const PREVIEW_DOTS = 600;
 const ROUTE_DOT_SPACING = 40;
 /** Metres per second the dots move, about a fast enemy */
 const ROUTE_DOT_SPEED = 28;
@@ -48,6 +49,9 @@ export class EditorOverlay {
   private readonly routeMaterial = new LineBasicMaterial({ color: TD_THEME.tealLight, depthTest: false, transparent: true, opacity: 0.7 });
   private readonly dotMaterial = new MeshBasicMaterial({ color: TD_THEME.tealLight, depthTest: false });
   private dots: InstancedMesh | null = null;
+  /** Where a brush would grow things, a hint under the cursor */
+  private readonly preview: InstancedMesh;
+  private readonly previewMaterial = new MeshBasicMaterial({ color: TD_THEME.brassLight, depthTest: false, transparent: true, opacity: 0.7 });
   private routePaths: { points: MapPoint[]; length: number }[] = [];
   private readonly nodeGeometry = new SphereGeometry(1, 10, 8);
   private readonly nodeMaterial = new MeshBasicMaterial({ color: TD_THEME.knobLight, depthTest: false, transparent: true, opacity: 0.9 });
@@ -69,7 +73,11 @@ export class EditorOverlay {
       o.renderOrder = 10;
       o.frustumCulled = false;
     }
-    this.group.add(this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft);
+    this.preview = new InstancedMesh(this.nodeGeometry, this.previewMaterial, PREVIEW_DOTS);
+    this.preview.count = 0;
+    this.preview.frustumCulled = false;
+    this.preview.renderOrder = 12;
+    this.group.add(this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview);
   }
 
   /** The brush ring at a map point, draped on the ground; radius 0 hides it */
@@ -176,6 +184,25 @@ export class EditorOverlay {
   }
 
   /** The routes to show, with dots moving toward the HQ */
+  /** Small dots on the ground in a colour (the biome brush's spots), none for null */
+  setPreview(points: readonly MapPoint[] | null, color: string = TD_THEME.brassLight): void {
+    if (!points?.length) {
+      this.preview.count = 0;
+      return;
+    }
+    this.previewMaterial.color.set(color);
+    const m = new Matrix4();
+    const n = Math.min(points.length, PREVIEW_DOTS);
+    const size = 0.5 * this.markerScale;
+    for (let k = 0; k < n; k++) {
+      const p = points[k];
+      m.makeScale(size, size, size).setPosition(-p.x, this.height(p.x, p.y) + 0.6, p.y);
+      this.preview.setMatrixAt(k, m);
+    }
+    this.preview.count = n;
+    this.preview.instanceMatrix.needsUpdate = true;
+  }
+
   setRoutes(routes: readonly (Route | null)[]): void {
     clear(this.routes);
     this.dots = null;

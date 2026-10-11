@@ -3,7 +3,8 @@
  * material as its colour with some grain, an object as its stand-in shape
  * in its colour. Drawn once per entry into a data URL.
  */
-import type { GroundMaterialEntry, ObjectAssetEntry } from '../catalog/asset-catalog';
+import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../catalog/asset-catalog';
+import type { BiomeDef } from '../ops/landscape/biomes';
 
 const SIZE = 64;
 const cache = new Map<string, string>();
@@ -97,4 +98,54 @@ function surface(): { canvas: HTMLCanvasElement; c: CanvasRenderingContext2D } {
   canvas.width = SIZE;
   canvas.height = SIZE;
   return { canvas, c: canvas.getContext('2d')! };
+}
+
+/** A biome as a small scene: its ground colours as bands with grain, its plants as dots in their colours */
+export function biomeThumbnail(b: BiomeDef, catalog: CatalogIndex): string {
+  const key = `b:${b.id}:${catalog.catalog.materials.length}:${catalog.catalog.objects.length}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const { canvas, c } = surface();
+  let seed = [...b.id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 3);
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const grounds = b.ground.map((g) => catalog.material(g.material.find((m) => catalog.materials.has(m)) ?? g.material[0]).color);
+  c.fillStyle = grounds[0];
+  c.fillRect(0, 0, SIZE, SIZE);
+  for (let k = 1; k < grounds.length; k++) {
+    c.fillStyle = grounds[k];
+    for (let n = 0; n < 6; n++) {
+      c.beginPath();
+      c.ellipse(rnd() * SIZE, rnd() * SIZE, 6 + rnd() * 10, 4 + rnd() * 6, rnd() * 3, 0, Math.PI * 2);
+      c.fill();
+    }
+  }
+  if (b.pools) {
+    c.fillStyle = '#2f5f6f';
+    for (let n = 0; n < 3; n++) {
+      c.beginPath();
+      c.ellipse(rnd() * SIZE, rnd() * SIZE, 6 + rnd() * 6, 3 + rnd() * 4, rnd() * 3, 0, Math.PI * 2);
+      c.fill();
+    }
+  }
+  for (let k = 0; k < 300; k++) {
+    c.fillStyle = rnd() > 0.5 ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)';
+    c.fillRect(rnd() * SIZE, rnd() * SIZE, 2, 2);
+  }
+  for (const o of b.objects) {
+    const asset = o.assets.find((a) => catalog.objects.has(a)) ?? o.assets[0];
+    const entry = catalog.object(asset);
+    const count = Math.min(14, Math.max(1, Math.round(o.perHectare / 10)));
+    const r = Math.max(1.5, Math.min(6, entry.radius * 1.4));
+    for (let n = 0; n < count; n++) {
+      c.fillStyle = entry.color;
+      c.strokeStyle = 'rgba(0,0,0,0.4)';
+      c.beginPath();
+      c.arc(4 + rnd() * (SIZE - 8), 4 + rnd() * (SIZE - 8), r, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+    }
+  }
+  const url = canvas.toDataURL('image/png');
+  cache.set(key, url);
+  return url;
 }
