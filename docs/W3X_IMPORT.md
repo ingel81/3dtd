@@ -26,8 +26,10 @@ const { doc, report } = await importW3xInWorker(file, { fileName: file.name });
 ```
 
 - `importW3x(bytes, options)` rechnet auf dem aufrufenden Thread, `importW3xSync` ebenso ohne Promise
-- `importW3xInWorker(file, options)` startet `w3x.worker.ts` und bekommt Höhen, Splat-Karten und
-  Wassermaske als Transferables zurück; ohne `Worker` (Node, Specs) importiert es direkt
+- `importW3xInWorker(file, options, { signal, timeoutMs })` startet `w3x.worker.ts` und bekommt Höhen,
+  Splat-Karten und Wassermasken als Transferables zurück; ohne `Worker` (Node, Specs) importiert es direkt.
+  Nach `timeoutMs` (2 Minuten) oder wenn `signal` abbricht, wird der Worker beendet; der Editor bricht so über
+  „Cancel“ im Importfeld ab
 - Fehler (keine Karte, geschützt, kein Gelände) kommen als `Error` mit lesbarer Meldung
 
 ### Optionen (`W3xImportOptions`)
@@ -89,6 +91,10 @@ Karten (200 bis 1500 m). Eine Klippenstufe (128 Einheiten) wird 4 m hoch.
 - Kompression je Sektor über das Maskenbyte: zlib 0x02 (fflate), PKWARE implode 0x08 (nur
   Binärmodus), bzip2 0x10; in der Reihenfolge bzip2, implode, zlib entpackt. Huffman/ADPCM (nur
   Audio), Sparse und LZMA ergeben eine klare Fehlermeldung
+- Gegen Zip-Bomben schreibt keine Stufe mehr als nötig: die letzte genau die Sektorgröße (zlib in einen
+  Puffer fester Länge), eine mittlere höchstens etwas mehr; bzip2 und implode brechen ab, sobald sie die
+  Grenze überschreiten, statt erst am Ende zu prüfen. Dateien über 64 MB und Sektoren über 4 MB lehnt der
+  Leser ab, bevor er etwas anlegt
 - Geschützte Karten: Tabellengrößen jenseits des Dateiendes werden gekürzt (Hinweis im Bericht), ohne
   Listfile findet der Leser die Kartendateien über ihre bekannten Namen (`KNOWN_MAP_FILES`)
 
@@ -128,7 +134,11 @@ Danach laufen die Aktionen jedes Auslösers einmal mit abstrakten Ereignisdaten;
 mit Herkunft gesammelt: betretende Einheit (Kante von den Rects des Auslösers) oder zuletzt erzeugte
 Einheit/Gruppe (Kante vom Erzeugungsort). Unbekannte Bedingungen führen alle Zweige aus, unbekannte
 Schleifenenden brechen ab, Schreibzugriffe der Aktionen bleiben in einer Überlagerung. Ein Schrittbudget
-(3 Mio. Anweisungen, 20 000 Durchläufe je Schleife) begrenzt feindliche Skripte.
+begrenzt feindliche Skripte: 3 Mio. Anweisungen je Phase (Initialisierung, Aktionen), davon höchstens
+300 000 je Auslöser, 20 000 Durchläufe je Schleife. Der Parser folgt höchstens 500 Ebenen
+Verschachtelung (tiefer: die Funktion fällt weg), Zeichenketten über 64 KB werden unbekannt. Routen und
+Wellen lesen dasselbe einmal geparste Programm (`parseScript`); scheitert das Lesen der Wellen, bleibt die
+Karte mit den Budget-Wellen des Spiels und einer Warnung.
 
 **(c) Gelände** (`terrain`): die Spurmaske (`lane-mask.ts`) nimmt begehbare, nicht bebaubare
 Wegezellen (halbe Kacheln), sonst begehbaren Boden unter der häufigsten Klippenebene, sonst Straßen-

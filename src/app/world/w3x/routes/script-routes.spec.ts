@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'fs';
 import type { W3Region } from '../formats/w3r';
 import { regionVariable } from '../formats/w3r';
 import { JassEvaluator } from '../jass/jass-evaluator';
-import { parseJass } from '../jass/jass-parser';
+import { MAX_JASS_NESTING, parseJass, parseScript } from '../jass/jass-parser';
 import { readW3xFiles } from '../map-files';
 import { buildRouteGraph, routeLengths } from './route-graph';
 import { routesFromEvaluation, routesFromPatterns, scriptRegions } from './script-routes';
@@ -233,6 +233,87 @@ endfunction
     ev.runInit();
     expect(ev.globals.get('n')).toBe(100);
     expect(ev.warnings.join()).toMatch(/iteration limit/);
+  });
+});
+
+describe('JASS limits against hostile scripts', () => {
+  it('skips a function nested too deep instead of overflowing the stack', () => {
+    const deep = `${'('.repeat(20000)}1${')'.repeat(20000)}`;
+    const p = parseJass(`
+function Deep takes nothing returns integer
+    return ${deep}
+endfunction
+function Fine takes nothing returns integer
+    return 2
+endfunction
+`);
+    expect(p.warnings.join()).toMatch(new RegExp(`nested deeper than ${MAX_JASS_NESTING}`));
+    expect([...p.functions.keys()]).toEqual(['Fine']);
+  });
+
+  it('parses a map script once for routes and waves', () => {
+    const script = { language: 'jass' as const, text: 'function F takes nothing returns nothing\nendfunction\n' };
+    expect(parseScript(script)).toBe(parseScript(script));
+    expect(parseScript({ ...script })).not.toBe(parseScript(script));
+  });
+
+  it('takes only real operators, not words an object knows', () => {
+    const p = parseJass(`
+function F takes integer a, integer b returns integer
+    return a constructor b
+endfunction
+`);
+    expect(p.functions.has('F')).toBe(false);
+    expect(p.warnings.length).toBe(1);
+  });
+
+  it('caps the strings a script builds', () => {
+    const p = parseJass(`
+globals
+    string s= "ab"
+endglobals
+function main takes nothing returns nothing
+    loop
+        set s=s + s
+    endloop
+endfunction
+`);
+    const ev = new JassEvaluator(p, { maxLoop: 40 });
+    expect(() => ev.runInit()).not.toThrow();
+    expect(ev.globals.get('s')).toEqual({ kind: 'unknown' });
+  });
+
+  it('gives the triggers a budget of their own, one heavy trigger not the others', () => {
+    const p = parseJass(`
+globals
+    integer n= 0
+    trigger t1= null
+    trigger t2= null
+endglobals
+function Heavy takes nothing returns nothing
+    loop
+        set n=n + 1
+    endloop
+endfunction
+function Light takes nothing returns nothing
+    set n=1
+endfunction
+function main takes nothing returns nothing
+    set t1=CreateTrigger()
+    call TriggerAddAction(t1, function Heavy)
+    set t2=CreateTrigger()
+    call TriggerAddAction(t2, function Light)
+    loop
+        set n=n + 1
+    endloop
+endfunction
+`);
+    const ev = new JassEvaluator(p, { maxSteps: 20000, maxTriggerSteps: 5000, maxLoop: 1_000_000 });
+    ev.runInit();
+    expect(ev.warnings.join()).toMatch(/budget used up in main/);
+    ev.collectOrders();
+    const used = ev.warnings.filter((w) => w.includes('budget used up in trigger'));
+    expect(used).toEqual(['script: step budget used up in trigger t1']);
   });
 });
 

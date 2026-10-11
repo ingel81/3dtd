@@ -143,23 +143,28 @@ function lex(src: string): Tok[] {
 
 // ---------------------------------------------------------------- parser
 
-const BIN_PREC: Record<string, number> = {
-  or: 1,
-  and: 2,
-  '==': 3,
-  '!=': 3,
-  '<': 4,
-  '>': 4,
-  '<=': 4,
-  '>=': 4,
-  '+': 5,
-  '-': 5,
-  '*': 6,
-  '/': 6,
-};
+/** Binary operators by precedence; a Map, so a word like `constructor` or `toString` is no operator */
+const BIN_PREC = new Map<string, number>([
+  ['or', 1],
+  ['and', 2],
+  ['==', 3],
+  ['!=', 3],
+  ['<', 4],
+  ['>', 4],
+  ['<=', 4],
+  ['>=', 4],
+  ['+', 5],
+  ['-', 5],
+  ['*', 6],
+  ['/', 6],
+]);
+
+/** Nesting of expressions and blocks the parser follows; deeper is a hostile script, not a map */
+export const MAX_JASS_NESTING = 500;
 
 class Parser {
   pos = 0;
+  private depth = 0;
 
   constructor(private readonly toks: Tok[]) {}
 
@@ -179,6 +184,19 @@ class Parser {
   isOp(o: string): boolean {
     const t = this.peek();
     return t.t === 'op' && t.v === o;
+  }
+
+  /** One level deeper into an expression or block; past MAX_JASS_NESTING the function is skipped */
+  private nested<T>(fn: () => T): T {
+    if (++this.depth > MAX_JASS_NESTING) {
+      this.depth = 0;
+      this.fail(`nested deeper than ${MAX_JASS_NESTING} levels`);
+    }
+    try {
+      return fn();
+    } finally {
+      this.depth = Math.max(0, this.depth - 1);
+    }
   }
 
   fail(msg: string): never {
@@ -233,20 +251,26 @@ class Parser {
   }
 
   expr(minPrec: number): JassExpr {
-    let left = this.unary();
-    for (;;) {
-      const t = this.peek();
-      const op = t.t === 'op' || t.t === 'id' ? t.v : '';
-      const prec = BIN_PREC[op];
-      if (prec === undefined || prec < minPrec) break;
-      this.pos++;
-      const right = this.expr(prec + 1);
-      left = { k: 'bin', op, l: left, r: right };
-    }
-    return left;
+    return this.nested(() => {
+      let left = this.unary();
+      for (;;) {
+        const t = this.peek();
+        const op = t.t === 'op' || t.t === 'id' ? t.v : '';
+        const prec = BIN_PREC.get(op);
+        if (prec === undefined || prec < minPrec) break;
+        this.pos++;
+        const right = this.expr(prec + 1);
+        left = { k: 'bin', op, l: left, r: right };
+      }
+      return left;
+    });
   }
 
   unary(): JassExpr {
+    return this.nested(() => this.unaryOnce());
+  }
+
+  private unaryOnce(): JassExpr {
     if (this.isOp('-')) {
       this.pos++;
       return { k: 'un', op: '-', e: this.unary() };
@@ -311,13 +335,15 @@ class Parser {
 
   /** Statements up to (not including) one of the `end` words */
   block(end: string[]): JassStmt[] {
-    const out: JassStmt[] = [];
-    this.skipNewlines();
-    while (!end.some((w) => this.isWord(w))) {
-      if (this.peek().t === 'eof') this.fail(`missing ${end[0]}`);
-      out.push(this.statement());
-    }
-    return out;
+    return this.nested(() => {
+      const out: JassStmt[] = [];
+      this.skipNewlines();
+      while (!end.some((w) => this.isWord(w))) {
+        if (this.peek().t === 'eof') this.fail(`missing ${end[0]}`);
+        out.push(this.statement());
+      }
+      return out;
+    });
   }
 
   statement(): JassStmt {
@@ -420,6 +446,21 @@ class Parser {
     if (this.peek().t !== 'eof') this.pos++;
     this.skipNewlines();
   }
+}
+
+const parsedScripts = new WeakMap<object, JassProgram>();
+
+/**
+ * The script's program, parsed once however many steps of the import read
+ * it (routes, waves); the program is read only
+ */
+export function parseScript(script: { text: string }): JassProgram {
+  let program = parsedScripts.get(script);
+  if (!program) {
+    program = parseJass(script.text);
+    parsedScripts.set(script, program);
+  }
+  return program;
 }
 
 export function parseJass(src: string): JassProgram {

@@ -33,7 +33,7 @@ import { AssetPicker, BLOCKER_IDS, type AssetCategory, doodadCategory, hashIndex
 import { mapEnvironment, tilesetMood, waterColor } from './convert/environment';
 import { ImportFrame, convertTerrain } from './convert/terrain-convert';
 import { type ImportStyle, enhanceGround, rimTrees } from './convert/enhance';
-import { parseJass } from './jass/jass-parser';
+import { parseScript } from './jass/jass-parser';
 import { convertWaves } from './waves/wave-convert';
 import { wavesFromScript } from './waves/wave-script';
 import { HeightField } from '../custom-map/render/height-field';
@@ -243,28 +243,11 @@ export function convertW3x(map: W3xMapFiles, options: W3xImportOptions = {}): W3
   let waveReport: W3xWaveReport | undefined;
   let gameplay: CustomMapDocument['gameplay'];
   if (options.waves) {
-    const found = map.script?.language === 'jass' ? wavesFromScript(parseJass(map.script.text)) : null;
-    if (!found) {
-      warnings.push('waves: no wave arrays found in the script; the map plays the budget waves of the game');
-    } else {
-      const lanes = Math.min(spawns.length, MAX_SPAWN_PORTALS) || 1;
-      const converted = convertWaves(found, map.unitTypes, lanes);
-      warnings.push(...converted.warnings);
-      gameplay = { waves: { kind: 'table', table: converted.table } };
-      waveReport = {
-        arrays: found.arrays,
-        k: converted.k,
-        rows: converted.waves.map((w) => ({
-          wave: w.wave,
-          unit: w.from.unit,
-          name: w.from.name,
-          hp: w.from.hp,
-          count: w.count,
-          enemy: w.enemy,
-          hpMult: w.hpMult,
-          boss: w.boss && w.bossEnemy ? { unit: w.boss.unit, name: w.boss.name, hp: w.boss.hp, count: w.boss.count, enemy: w.bossEnemy } : null,
-        })),
-      };
+    // A script that breaks the wave reader costs the waves, not the map
+    try {
+      ({ gameplay, waveReport } = importWaves(map, spawns.length, warnings));
+    } catch (e) {
+      warnings.push(`waves: the script could not be read (${(e as Error).message}); the map plays the budget waves of the game`);
     }
   }
 
@@ -460,4 +443,37 @@ function segmentDistance(px: number, py: number, ax: number, ay: number, bx: num
   const len2 = dx * dx + dy * dy;
   const t = len2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2)) : 0;
   return Math.hypot(px - ax - dx * t, py - ay - dy * t);
+}
+
+/** The map script's waves as the map's wave list; null without any (warnings say why) */
+function importWaves(
+  map: W3xMapFiles,
+  spawnCount: number,
+  warnings: string[],
+): { gameplay: CustomMapDocument['gameplay']; waveReport: W3xWaveReport | undefined } {
+  const found = map.script?.language === 'jass' ? wavesFromScript(parseScript(map.script)) : null;
+  if (!found) {
+    warnings.push('waves: no wave arrays found in the script; the map plays the budget waves of the game');
+    return { gameplay: undefined, waveReport: undefined };
+  }
+  const lanes = Math.min(spawnCount, MAX_SPAWN_PORTALS) || 1;
+  const converted = convertWaves(found, map.unitTypes, lanes);
+  warnings.push(...converted.warnings);
+  return {
+    gameplay: { waves: { kind: 'table', table: converted.table } },
+    waveReport: {
+      arrays: found.arrays,
+      k: converted.k,
+      rows: converted.waves.map((w) => ({
+        wave: w.wave,
+        unit: w.from.unit,
+        name: w.from.name,
+        hp: w.from.hp,
+        count: w.count,
+        enemy: w.enemy,
+        hpMult: w.hpMult,
+        boss: w.boss && w.bossEnemy ? { unit: w.boss.unit, name: w.boss.name, hp: w.boss.hp, count: w.boss.count, enemy: w.bossEnemy } : null,
+      })),
+    },
+  };
 }

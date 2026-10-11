@@ -84,8 +84,10 @@ export interface PointOrder {
 }
 
 export interface EvaluatorOptions {
-  /** Statement budget for the whole run (default 3 million) */
+  /** Statement budget of each phase, runInit and collectOrders (default 3 million) */
   maxSteps?: number;
+  /** Of that, the most one trigger's actions may take in collectOrders (default 300 000) */
+  maxTriggerSteps?: number;
   /** Iterations per loop (default 20000) */
   maxLoop?: number;
 }
@@ -94,6 +96,9 @@ const ORDER_IDS: Record<number, string> = { 851986: 'move', 851983: 'attack', 85
 const WALK_ORDERS = new Set(['move', 'attack', 'smart', 'patrol', 'teleport']);
 
 class BudgetExceeded extends Error {}
+
+/** Longest string the script may build; a longer one reads as unknown (`set s = s + s` in a loop) */
+export const MAX_JASS_STRING = 64 * 1024;
 
 type Signal = 0 | 1 | { value: Value }; // 0 normal, 1 exitwhen
 
@@ -133,9 +138,12 @@ export class JassEvaluator {
   readonly creations: { at: LocValue; trigger: TriggerValue }[] = [];
 
   private steps = 0;
+  /** Steps at which the running phase or trigger stops */
+  private stepLimit = 0;
   private depth = 0;
   private nextId = 1;
   private readonly maxSteps: number;
+  private readonly maxTriggerSteps: number;
   private readonly maxLoop: number;
   private readonly pendingTimers: { at: number; run: () => void }[] = [];
   private overlay: Map<string, Value> | null = null;
@@ -147,11 +155,15 @@ export class JassEvaluator {
     options: EvaluatorOptions = {},
   ) {
     this.maxSteps = options.maxSteps ?? 3_000_000;
+    this.maxTriggerSteps = options.maxTriggerSteps ?? 300_000;
+    this.stepLimit = this.maxSteps;
     this.maxLoop = options.maxLoop ?? 20_000;
   }
 
   /** Runs the globals' initialisers, main and the one-shot timers it sets up */
   runInit(): void {
+    this.steps = 0;
+    this.stepLimit = this.maxSteps;
     const top = this.frame(null, false);
     this.guard('globals', () => {
       for (const g of this.program.globals) {
@@ -183,7 +195,15 @@ export class JassEvaluator {
 
   /** Runs every trigger's actions once in action mode and records point orders */
   collectOrders(): void {
+    // A budget of its own: runInit may have used all of its one
+    this.steps = 0;
     for (const t of [...this.triggers]) {
+      if (this.steps >= this.maxSteps) {
+        this.warnings.push('script: step budget used up before every trigger ran');
+        break;
+      }
+      // One heavy trigger cannot take the others' steps
+      this.stepLimit = Math.min(this.maxSteps, this.steps + this.maxTriggerSteps);
       this.overlay = new Map();
       this.overlayArrays = new Map();
       this.guard(`trigger ${t.variable ?? t.id}`, () => this.runTrigger(t, true));
@@ -214,7 +234,7 @@ export class JassEvaluator {
   }
 
   private step(): void {
-    if (++this.steps > this.maxSteps) throw new BudgetExceeded();
+    if (++this.steps > this.stepLimit) throw new BudgetExceeded();
   }
 
   // ------------------------------------------------------------ variables
@@ -419,7 +439,8 @@ export class JassEvaluator {
     }
     if (e.op === '+' && (typeof l === 'string' || typeof r === 'string')) {
       if (!known(l) || !known(r)) return UNKNOWN;
-      return `${l ?? ''}${r ?? ''}`;
+      const joined = `${l ?? ''}${r ?? ''}`;
+      return joined.length > MAX_JASS_STRING ? UNKNOWN : joined;
     }
     if (typeof l !== 'number' || typeof r !== 'number') return UNKNOWN;
     switch (e.op) {

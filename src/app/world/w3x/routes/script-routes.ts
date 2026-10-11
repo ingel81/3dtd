@@ -14,7 +14,7 @@
 
 import type { W3Region } from '../formats/w3r';
 import { JassEvaluator, type LocValue, type RectValue } from '../jass/jass-evaluator';
-import { parseJass } from '../jass/jass-parser';
+import { parseScript } from '../jass/jass-parser';
 import type { MapScript } from '../map-files';
 import {
   LEAK_ACTION,
@@ -109,7 +109,7 @@ export interface EvaluationResult {
 export function routesFromEvaluation(script: MapScript, mapRegions: W3Region[]): EvaluationResult {
   const raw = emptyRaw();
   const regions = [...mapRegions];
-  const program = parseJass(script.text);
+  const program = parseScript(script);
   const ev = new JassEvaluator(program);
   ev.runInit();
   ev.collectOrders();
