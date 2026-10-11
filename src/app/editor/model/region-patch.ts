@@ -68,6 +68,18 @@ export class RegionRecorder<T extends PatchArray> {
     }
   }
 
+  /**
+   * The value element (i, j, channel) had before the stroke: from the saved
+   * tile, or the array itself where the stroke has not been
+   */
+  original(i: number, j: number, channel = 0): number {
+    const key = Math.floor(j / PATCH_TILE) * this.tilesX + Math.floor(i / PATCH_TILE);
+    const tile = this.saved.get(key);
+    const ch = this.layout.channels;
+    if (!tile) return this.array[(j * this.layout.columns + i) * ch + channel];
+    return tile.before[((j - tile.j0) * tile.w + (i - tile.i0)) * ch + channel];
+  }
+
   get rect(): GridRect | null {
     return this.touchedRect;
   }

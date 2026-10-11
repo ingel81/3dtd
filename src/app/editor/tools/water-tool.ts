@@ -3,8 +3,8 @@
  * mask by hand (Shift erases). The level, colour and "no water" live in the
  * panel (`waterCommands`).
  */
-import type { CustomMapDocument, MapWater } from '../../world/custom-map/map-document';
-import type { DocChange, EditCommand, EditorDocument } from '../model/editor-document';
+import type { EditCommand, EditorDocument } from '../model/editor-document';
+import { WaterSwapCommand } from '../model/terrain-commands';
 import { nearestSample, sampleRectAround } from '../model/grid';
 import { basinSpillHeight, emptyWater, fillBasin, waterMaskDab } from '../ops/water-ops';
 import { BrushStroke } from './brush-stroke';
@@ -97,7 +97,7 @@ export class WaterTool implements EditorTool {
         : 'This spot is no hollow: water would run off');
       return;
     }
-    editor.execute(new WaterCommand(before ? 'Fill basin' : 'Add water', before, after));
+    editor.execute(new WaterSwapCommand(before ? 'Fill basin' : 'Add water', before, after));
   }
 
   private end(): void {
@@ -106,39 +106,19 @@ export class WaterTool implements EditorTool {
   }
 }
 
-/** Swaps the whole water record (level, colour, mask); small next to the map */
-class WaterCommand implements EditCommand {
-  readonly bytes: number;
-  constructor(
-    readonly label: string,
-    private readonly before: MapWater | null,
-    private readonly after: MapWater | null,
-  ) {
-    this.bytes = (before?.mask.byteLength ?? 0) + (after?.mask.byteLength ?? 0);
-  }
-  apply(doc: CustomMapDocument): DocChange {
-    doc.terrain.water = this.after ? structuredClone(this.after) : null;
-    return { water: true };
-  }
-  revert(doc: CustomMapDocument): DocChange {
-    doc.terrain.water = this.before ? structuredClone(this.before) : null;
-    return { water: true };
-  }
-}
-
 export const waterCommands = {
   enable(editor: EditorDocument, level: number): EditCommand {
-    return new WaterCommand('Add water', null, emptyWater(editor.doc.terrain, level));
+    return new WaterSwapCommand('Add water', null, emptyWater(editor.doc.terrain, level));
   },
   remove(editor: EditorDocument): EditCommand {
-    return new WaterCommand('Remove water', structuredClone(editor.doc.terrain.water), null);
+    return new WaterSwapCommand('Remove water', structuredClone(editor.doc.terrain.water), null);
   },
   setLevel(editor: EditorDocument, level: number): EditCommand {
     const before = editor.doc.terrain.water ?? emptyWater(editor.doc.terrain, level);
-    return new WaterCommand('Water level', structuredClone(editor.doc.terrain.water), { ...structuredClone(before), level });
+    return new WaterSwapCommand('Water level', structuredClone(editor.doc.terrain.water), { ...structuredClone(before), level });
   },
   setColor(editor: EditorDocument, color: string): EditCommand {
     const w = editor.doc.terrain.water;
-    return new WaterCommand('Water colour', structuredClone(w), w ? { ...structuredClone(w), color } : null);
+    return new WaterSwapCommand('Water colour', structuredClone(w), w ? { ...structuredClone(w), color } : null);
   },
 };
