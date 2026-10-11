@@ -138,6 +138,35 @@ export interface RoomPlayer {
 
 type Send = (playerId: string, message: ServerMessage) => void;
 
+/**
+ * What the relay keeps of the hosts' map pieces, over all its rooms (base64
+ * characters): a room keeps its map only up to the start, and only while
+ * the relay's budget holds it (review 2026-10-11). Past the budget the
+ * pieces still go to the guests in the room, a later joiner gets none.
+ */
+export class MapBudget {
+  used = 0;
+  readonly limit: number;
+
+  constructor(limit: number) {
+    this.limit = limit;
+  }
+
+  /** Room for `n` more; booked when there is */
+  take(n: number): boolean {
+    if (this.used + n > this.limit) return false;
+    this.used += n;
+    return true;
+  }
+
+  give(n: number): void {
+    this.used = Math.max(0, this.used - n);
+  }
+}
+
+/** The relay's map budget: some twelve rooms with a map at the protocol's largest (MAX_MAP_PARTS) */
+export const RELAY_MAP_BUDGET_CHARS = 64 * 2 ** 20;
+
 export interface RoomOptions {
   /** One line per event, without the room code (the server puts it in front) */
   log?: (line: string) => void;
@@ -158,6 +187,8 @@ export interface RoomOptions {
    * the first tick that differs, not the first report.
    */
   hashEvery?: number;
+  /** The relay's budget for kept map pieces, shared by its rooms; a room of its own without it */
+  mapBudget?: MapBudget;
 }
 
 /** A room as the status page and the relay's status line show it. */
@@ -203,6 +234,9 @@ export class Room {
    * for players who join later; at most MAX_MAP_PARTS of one map
    */
   private map: { mapId: string; hash: string; parts: (string | undefined)[] } | null = null;
+  /** Characters of map pieces this room keeps, booked in mapBudget */
+  private mapChars = 0;
+  private readonly mapBudget: MapBudget;
   private spawnIds: string[] = [];
   private started = false;
 
@@ -283,6 +317,7 @@ export class Room {
     this.aloneSince = this.createdAt;
     this.cheats = options.cheats ?? false;
     this.hashEvery = options.hashEvery ?? HASH_EVERY_TICKS;
+    this.mapBudget = options.mapBudget ?? new MapBudget(RELAY_MAP_BUDGET_CHARS);
     this.drop = options.drop ?? ((playerId, reason) => this.leave(playerId, reason));
     this.removed = options.removed ?? (() => undefined);
     this.hostId = host.id;
@@ -328,6 +363,13 @@ export class Room {
     if (this.world !== null) this.send(player.id, { t: 'world', world: this.world });
     this.broadcastRoom();
     return null;
+  }
+
+  /** The map's pieces given back to the relay's budget: another map, the start, the room closed */
+  releaseMap(): void {
+    this.mapBudget.give(this.mapChars);
+    this.mapChars = 0;
+    this.map = null;
   }
 
   /** Every piece of the host's map there is, to one player */
@@ -387,9 +429,18 @@ export class Room {
         if (this.started) return this.refuse(playerId, 'started');
         // Another map (or other content) replaces the pieces kept so far
         if (!this.map || this.map.mapId !== message.mapId || this.map.hash !== message.hash || this.map.parts.length !== message.parts) {
+          this.releaseMap();
           this.map = { mapId: message.mapId, hash: message.hash, parts: new Array<string | undefined>(message.parts) };
         }
-        this.map.parts[message.part] = message.data;
+        // Kept for a later joiner while the relay's budget holds it; the guests here get it either way
+        if (this.map.parts[message.part] === undefined) {
+          if (this.mapBudget.take(message.data.length)) {
+            this.map.parts[message.part] = message.data;
+            this.mapChars += message.data.length;
+          } else if (message.part === 0) {
+            this.log(`map ${message.mapId} not kept: the relay's map budget is full, a later joiner gets no map`);
+          }
+        }
         if (message.part === message.parts - 1) {
           this.noisy(playerId, `map ${message.mapId} from the host, ${message.parts} pieces`);
         }
@@ -493,6 +544,8 @@ export class Room {
           return this.refuse(playerId, 'not-ready');
         }
         this.started = true;
+        // Nobody joins a game: the map's pieces go
+        this.releaseMap();
         this.pending = 0;
         this.lastCommandAt = this.now();
         this.log(`started, seed ${message.seed >>> 0}, speed ${this.speed}, lanes ${this.players.map((p) => `${this.who(p.id)} on ${p.spawnIds.join('+')}`).join(', ')}`);

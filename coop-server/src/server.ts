@@ -22,7 +22,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { ServerMessage } from '../../src/app/coop/protocol.ts';
 import { PROTOCOL_VERSION } from '../../src/app/coop/protocol.ts';
-import { Room, hex, type RoomPlayer, type RoomStatus } from './room.ts';
+import { MapBudget, RELAY_MAP_BUDGET_CHARS, Room, hex, type RoomPlayer, type RoomStatus } from './room.ts';
 import { clientLabel, type ClientInfo } from '../../src/app/coop/client-info.ts';
 import { parseClientMessage } from './validate.ts';
 import { RelayMetrics, SAMPLE_MS, type DropReason, type MetricsSample } from './metrics.ts';
@@ -267,6 +267,8 @@ class Relay {
   private readonly recentLines: string[] = [];
   private readonly now: () => number;
   private readonly rooms = new Map<string, Room>();
+  /** The kept map pieces of all rooms (MapBudget) */
+  private readonly mapBudget = new MapBudget(RELAY_MAP_BUDGET_CHARS);
   private readonly connections = new Map<string, Connection>();
   /** Open connections per address, in memory only (review H3, D64) */
   private readonly perAddress = new Map<string, number>();
@@ -762,6 +764,7 @@ class Relay {
       now: this.now,
       cheats: this.options.cheats,
       hashEvery: this.options.hashEvery,
+      mapBudget: this.mapBudget,
       drop: (playerId, reason) => this.dropConnection(playerId, reason, 'hanging'),
       // The room of a connection is gone for this player (left, taken out, let go)
       removed: (playerId) => {
@@ -809,6 +812,7 @@ class Relay {
     if (!room.isEmpty || !this.rooms.has(room.code)) return;
     this.rooms.delete(room.code);
     this.openedFrom.delete(room);
+    room.releaseMap();
     const s = room.status();
     this.log(`[${room.code}] closed after ${Math.round(s.ageMs / 1000)} s, tick ${s.tick}, ${s.commands} commands, ${s.desyncs} desyncs`);
   }

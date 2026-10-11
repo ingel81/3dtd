@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  Room, TICK_MS, MAX_AHEAD_TICKS, HANG_MS, MAX_RESYNCS, MAX_RESYNCS_PER_GUEST, RESYNC_GAP_MS, RESYNC_TIMEOUT_MS, type RoomPlayer,
+  MapBudget, Room, TICK_MS, MAX_AHEAD_TICKS, HANG_MS, MAX_RESYNCS, MAX_RESYNCS_PER_GUEST, RESYNC_GAP_MS, RESYNC_TIMEOUT_MS, type RoomPlayer,
 } from './room.ts';
 import { HASH_EVERY_TICKS, HASH_PARTS } from '../../src/app/coop/hash-check.ts';
 import { DEFAULT_ROOM_OPTIONS } from '../../src/app/coop/room-options.ts';
@@ -86,6 +86,39 @@ describe('Room (COOP_PLAN C4)', () => {
     room.receive('a', { ...piece(0, 'm2'), parts: 1 });
     room.join(player('d'));
     expect(all('d', 'map').map((m) => [m.mapId, m.part])).toEqual([['m2', 0]]);
+  });
+
+  it("keeps the host's map only up to the start and within the relay's budget", () => {
+    const budget = new MapBudget(10);
+    inbox = new Map();
+    room = new Room('ABCDEF', player('a'), (id, message) => {
+      if (!inbox.has(id)) inbox.set(id, []);
+      inbox.get(id)!.push(message);
+    }, { now: () => clock, mapBudget: budget });
+    const piece = (part: number, data: string, parts = 2) => ({ t: 'map' as const, mapId: 'm1', hash: 'h1', part, parts, data });
+    room.join(player('b'));
+    room.receive('a', piece(0, 'AAAAAA'));
+    // The second piece does not fit the budget: b gets it, a later joiner not
+    room.receive('a', piece(1, 'BBBBBB'));
+    expect(all('b', 'map').map((m) => m.data)).toEqual(['AAAAAA', 'BBBBBB']);
+    expect(budget.used).toBe(6);
+    room.join(player('c'));
+    expect(all('c', 'map').map((m) => m.data)).toEqual(['AAAAAA']);
+
+    // Another map gives the old pieces back first
+    room.receive('a', { ...piece(0, 'CCCCCCCC', 1), mapId: 'm2' });
+    expect(budget.used).toBe(8);
+
+    // The start frees them: nobody joins a game
+    room.receive('a', { t: 'world', world: { any: 'thing' }, spawnIds: ['s1', 's2', 's3'] });
+    room.receive('a', { t: 'pick', spawnId: 's1' });
+    room.receive('b', { t: 'pick', spawnId: 's2' });
+    room.receive('c', { t: 'pick', spawnId: 's3' });
+    room.receive('b', { t: 'ready', ready: true });
+    room.receive('c', { t: 'ready', ready: true });
+    room.receive('a', { t: 'start', seed: 1 });
+    expect(last('a', 'refused')).toBeUndefined();
+    expect(budget.used).toBe(0);
   });
 
   it('numbers a name that is in the room already', () => {
