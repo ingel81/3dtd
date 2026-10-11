@@ -63,7 +63,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uPathMask: { value: null as Texture | null },
     uGridNormals: { value: null as Texture | null },
     uGridUv: { value: new Vector4() },
-    uWaterLevel: { value: -1e9 },
+    uWaterLevel: { value: -1e4 },
     uMapSize: { value: new Vector2() },
     uInvScale: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
     uAverage: { value: Array.from({ length: TERRAIN_MAX_LAYERS }, () => new Color()) },
@@ -130,7 +130,8 @@ export class TerrainMaterial extends MeshStandardMaterial {
 
   /** Water level for the wet banks; null when the map has no water */
   setWaterLevel(level: number | null): void {
-    this.terrainUniforms.uWaterLevel.value = level ?? -1e9;
+    // Far below any terrain, but not so far that level + 1.3 and level + 0.15 round to the same float
+    this.terrainUniforms.uWaterLevel.value = level ?? -1e4;
   }
 
   setCliffAngle(degrees: number): void {
@@ -187,6 +188,12 @@ void sampleNoTile(int layer, vec2 uv, vec2 dx, vec2 dy, float k, out vec4 col, o
 
 // Normal maps are OpenGL style (green towards the image top); the arrays are
 // uploaded without a flip, so the image top is v = 0 and green flips
+// A zero vector normalises to NaN, and one NaN pixel blooms into a glowing disc
+vec3 safeNormalize(vec3 v, vec3 fallback) {
+  float l = length(v);
+  return l > 1e-5 ? v / l : fallback;
+}
+
 vec3 unpackTerrainNormal(vec4 dat) {
   // Strengthened: from game distance the ground's relief would otherwise vanish
   vec2 xy = (dat.xy * 2.0 - 1.0) * vec2(1.6, -1.6);
@@ -201,7 +208,7 @@ vec2 mapPos = vec2(-tPos.x, tPos.z);
 vec2 edgeDist = abs(mapPos) - uMapSize * 0.5;
 float outside = smoothstep(0.0, 12.0, max(edgeDist.x, edgeDist.y));
 vec4 gridSample = texture2D(uGridNormals, mapPos * uGridUv.xy + uGridUv.zw);
-vec3 nGeo = normalize(mix(gridSample.xyz, normalize(vTerrainNormal), outside));
+vec3 nGeo = safeNormalize(mix(gridSample.xyz, normalize(vTerrainNormal), outside), vec3(0.0, 1.0, 0.0));
 // Banks just above the water are wet: darker and glossier
 float wetBank = gridSample.a * smoothstep(uWaterLevel + 1.3, uWaterLevel + 0.15, tPos.y) * (1.0 - outside);
 vec2 tuv = mapPos / uMapSize + 0.5;
@@ -279,7 +286,7 @@ for (int k = 0; k < TERRAIN_LAYERS; k++) {
   sampleNoTile(k, tPos.xz * s, dPosX * s, dPosY * s, sel, col, dat);
   vec3 tn = unpackTerrainNormal(dat);
   // Top projection: tangent x along scene +x, tangent y along scene +z (whiteout blend)
-  vec3 nTop = normalize(vec3(tn.x + nGeo.x, tn.z * nGeo.y, tn.y + nGeo.z));
+  vec3 nTop = safeNormalize(vec3(tn.x + nGeo.x, tn.z * nGeo.y, tn.y + nGeo.z), nGeo);
   if (k == uCliffLayer && tri.y < 0.98) {
     // Triplanar on the side planes (after Ben Golus, whiteout blend)
     vec4 cx; vec4 dx4; vec4 cz; vec4 dz4;
@@ -291,7 +298,7 @@ for (int k = 0; k < TERRAIN_LAYERS; k++) {
     tz.x *= -sgn.z;
     tx = vec3(tx.xy + nGeo.zy, abs(tx.z) * nGeo.x);
     tz = vec3(tz.xy + nGeo.xy, abs(tz.z) * nGeo.z);
-    nTop = normalize(tx.zyx * tri.x + nTop * tri.y + tz.xyz * tri.z);
+    nTop = safeNormalize(tx.zyx * tri.x + nTop * tri.y + tz.xyz * tri.z, nGeo);
     col = cx * tri.x + col * tri.y + cz * tri.z;
     dat = dx4 * tri.x + dat * tri.y + dz4 * tri.z;
   }
@@ -319,10 +326,11 @@ for (int k = 0; k < TERRAIN_LAYERS; k++) {
   accAvg += uAverage[k] * b;
   total += b;
 }
+total = max(total, 1e-5);
 accC /= total;
 accD /= total;
 accAvg /= total;
-vec3 terrainNormal = normalize(accN);
+vec3 terrainNormal = safeNormalize(accN, nGeo);
 
 // Macro variation and far blend
 vec3 albedo = accC.rgb;
