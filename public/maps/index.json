@@ -23,8 +23,10 @@
       "description": "Hairpins up to a stone village on the pass, a waterfall into a mountain lake, a cable car over the valley. Two spawns meet at the first bend.",
       "width": 512,
       "depth": 512,
+      "spawns": 2,
+      "biome": "mountain",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "411f12c56a561a26a9d5232b84f37dc126817d8eaa256e05904e1e9eb5c806bf"
+      "contentHash": "a297b9dc9d08b701e6232d78c051d7b5207943e899ebcb73dfaa9a926dae87e5"
     },
     {
       "id": "witch-marsh",
@@ -35,8 +37,10 @@
       "description": "Boardwalks over a swamp at night, islands with stilt huts and the witch's glowing hut by the HQ. Two spawns come out of the fog.",
       "width": 512,
       "depth": 512,
+      "spawns": 2,
+      "biome": "swamp",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "db526242e15d5f452c021d61c0bb56d79f8e872a91bf24b1483bf261000119a8"
+      "contentHash": "0b6ad777229b644db417e32ecfa30163725df02a3a1415aec96da33abb5d1560"
     },
     {
       "id": "autumn-keep",
@@ -47,8 +51,10 @@
       "description": "A ruined castle on a hill above red and golden woods. Three roads meet before the gatehouse; the HQ stands in the bailey.",
       "width": 512,
       "depth": 512,
+      "spawns": 3,
+      "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "4849c8cc86d7befbea099042173962d59ee0802d86e452fe0fb7af8b8f4811a8"
+      "contentHash": "3ac1312420fb27e1a2761efacbd9682b6116b984581ef9d3617b26ed96132cd7"
     }
   ]
 }
