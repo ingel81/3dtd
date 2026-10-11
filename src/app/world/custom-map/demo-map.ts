@@ -531,7 +531,11 @@ export function createDemoMap(seed = 7): CustomMapDocument {
       const dx = q.x - p.x;
       const dy = q.y - p.y;
       const len = Math.hypot(dx, dy) || 1;
-      place('lamp-post', p.x + (-dy / len) * 5.5, p.y + (dx / len) * 5.5, 1, Math.atan2(dy, dx));
+      const lx = p.x + (-dy / len) * 5.5;
+      const ly = p.y + (dx / len) * 5.5;
+      // Not on another road that passes close by (a junction, the mill path)
+      if (roadLines.some((other) => polylineDistance(lx, ly, other) < 5)) continue;
+      place('lamp-post', lx, ly, 1, Math.atan2(dy, dx));
     }
   }
   // Fences around the farm fields and a stone wall at the ruin
