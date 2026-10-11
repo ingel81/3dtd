@@ -141,12 +141,14 @@ describe('importW3x', () => {
     expect(spawnsReachHq(doc)).toBe(true);
   });
 
-  it.skipIf(!GREEN_CIRCLE)('imports Green Circle TD (2025), a circuit without an end, over open ground', async () => {
+  it.skipIf(!GREEN_CIRCLE)('imports Green Circle TD (2025), a circuit without an end, over open ground from its corners', async () => {
     const { doc, report } = await importW3x(new Uint8Array(readFileSync(GREEN_CIRCLE!)), { now: NOW });
     expect(validateMapDocument(doc)).toEqual([]);
     expect(report.strategy).toBe('maze');
     expect(report.warnings.join(' ')).toMatch(/round in circles/);
-    expect(doc.spawns.length).toBe(8);
+    // The four corners; the four fields beside the middle would leak at once
+    expect(doc.spawns.length).toBe(4);
+    expect(report.warnings.join(' ')).toMatch(/4 spawn\(s\) right beside the end/);
     expect(spawnsReachHq(doc)).toBe(true);
     // The HQ in the middle of the map
     expect(Math.hypot(doc.hq.x, doc.hq.y)).toBeLessThan(10);

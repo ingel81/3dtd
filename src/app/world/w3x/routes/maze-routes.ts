@@ -125,7 +125,19 @@ export function routesFromMaze(input: MazeInput): TerrainRoutes | null {
     starts.push({ px, id: s.id });
   }
   if (starts.length === 0) return null;
-  const lost = spawnPoints.length - starts.length;
+  // Spawns right beside the end (a circuit's inner fields) would leak at once: keep those at a quarter of the farthest's distance or more
+  const distance = (px: number): number => Math.hypot((px % w) - (endPx % w), Math.floor(px / w) - Math.floor(endPx / w));
+  const far = Math.max(...starts.map((st) => distance(st.px)));
+  const near = starts.filter((st) => distance(st.px) < far * 0.25);
+  if (near.length > 0 && near.length < starts.length) {
+    for (const st of near) {
+      starts.splice(starts.indexOf(st), 1);
+      raw.nodes.delete(st.id);
+      raw.spawnHints.delete(st.id);
+    }
+    warnings.push(`routes: ${near.length} spawn(s) right beside the end left out`);
+  }
+  const lost = spawnPoints.length - starts.length - near.length;
   if (lost > 0) warnings.push(`routes: ${lost} spawn(s) have no walkable way to the end`);
 
   raw.nodes.set(end.id, { id: end.id, name: end.name, x: end.x, y: end.y, region: input.regions.find((r) => r.variable === end!.id) });

@@ -139,7 +139,8 @@ Einmündungen Pixel und damit Knoten teilen. Douglas-Peucker behält die Ecken.
 denen die Spieler mit Türmen Wände bauen) und Rundkurs-TDs, deren Skript die Gegner im Kreis schickt
 (kein Weg endet). Spawns: wo das Skript Einheiten erzeugt oder seine Wege beginnen, sonst Regionen mit
 Spawn-Namen; Ende: was das Skript als Leck markiert, sonst eine Region mit Ende-Namen, sonst die Mitte
-der Fläche (mit Warnung). Der kürzeste Weg über begehbares Land auf halben Kacheln; nicht bebaubare
+der Fläche (mit Warnung). Spawns näher am Ende als ein Viertel der Entfernung des fernsten fallen weg.
+Der kürzeste Weg über begehbares Land auf halben Kacheln; nicht bebaubare
 Pixel (die Spuren der Karte) kosten ein Achtel der bebaubaren, wandnahe mehr, so laufen Wege auf den
 Spuren und in der Mitte der Gänge. Der Bericht warnt immer, dass die Wege im Editor zu prüfen sind.
 
@@ -225,8 +226,9 @@ Einheiten, 332 bis 652 m), (c) allein dieselben 10 Spuren bis auf 3 % Länge; Sp
 in der Mitte; Spawn 6 liegt auf der Spur der oberen Spawns und zählt über die Erzeugung von Einheiten.
 
 "Green Circle TD Mega 2025" (optimiertes Skript mit kurzen Namen, keine w3r): das Skript schickt die
-Gegner im Kreis, kein Weg endet; Strategie (d) führt die 8 Spawns (vier Ecken, vier Felder in der Mitte)
-über die gepflasterten Spuren zum HQ in der Kartenmitte, mit Warnungen.
+Gegner im Kreis, kein Weg endet; Strategie (d) führt die vier Spawns der Ecken über die gepflasterten
+Spuren zum HQ in der Kartenmitte, mit Warnungen. Die vier Spawn-Felder direkt neben der Mitte lässt sie
+aus (weniger als ein Viertel der Entfernung des fernsten Spawns: sie würden sofort lecken).
 
 ## Grenzen
 
