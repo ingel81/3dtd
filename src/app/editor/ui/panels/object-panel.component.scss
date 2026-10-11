@@ -22,6 +22,9 @@
 }
 
 .op-asset {
+  // Off-screen cards skip layout and paint
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -29,9 +32,16 @@
   padding: var(--td-sp-1);
   font-size: var(--td-fs-small);
 
-  img {
+  img,
+  .op-ph {
     width: 40px;
     height: 40px;
+  }
+
+  .op-ph {
+    display: block;
+    border-radius: var(--td-radius);
+    opacity: 0.35;
   }
 
   span {

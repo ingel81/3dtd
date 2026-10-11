@@ -126,7 +126,12 @@
     @for (a of assets(); track a.id) {
       <button class="td-card op-asset" type="button" [attr.aria-pressed]="isChosen(a)" (click)="chooseAsset(a)" [matTooltip]="a.name + ' | ' + a.category"
               [attr.data-asset]="a.id">
-        <img [src]="thumb(a)" alt="" />
+        <!-- Pictures only for the cards in view: a big catalogue renders its thumbnails as the list scrolls -->
+        @defer (on viewport) {
+          <img [src]="thumb(a)" alt="" />
+        } @placeholder {
+          <span class="op-ph" [style.background]="a.color"></span>
+        }
         <span class="td-trunc">{{ a.name }}</span>
       </button>
     } @empty {
