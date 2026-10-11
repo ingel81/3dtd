@@ -52,6 +52,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [LOS_PIPELINE.md](LOS_PIPELINE.md) | Aktuell | Sichtlinien der Tower auf dem Route-Grid: eine GPU-Cubemap je Tower-Tip, drei Leser (Build-Vorschau, Auswahl, Kampf-Cache), Farben der Zellplatten, Regeln für jeden Eingriff am Cube, Abläufe |
 | [DEVWORLD.md](DEVWORLD.md) | Aktuell | Offline-Entwicklungsumgebung, Terrain-Presets (`?devworld`) |
 | [CUSTOM_MAPS.md](CUSTOM_MAPS.md) | In Arbeit | Eigene Karten: Renderer (Gelände, Wasser, Objekte, Himmel), Asset-Katalog, `/map-preview` |
+| [LEVEL_EDITOR.md](LEVEL_EDITOR.md) | Aktuell (Experiment `exp/custom-maps`) | Karteneditor `/editor`: Kartenliste, Werkzeuge und Tasten, Prüfen, Speichern, `.3dtdmap`, Architektur (Befehle mit Kachel-Patches, eigener Viewport) |
 
 ## Game Design
 
