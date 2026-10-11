@@ -5772,7 +5772,7 @@
       "name": "Dry stone wall (6 m)",
       "category": "wall",
       "file": "models/wall-dry-stone.glb",
-      "footprint": 2.7,
+      "footprint": 2.8,
       "height": 1.4,
       "blocksLos": false,
       "blocksBuild": true,
@@ -5795,8 +5795,8 @@
       "name": "Broken dry stone wall",
       "category": "wall",
       "file": "models/wall-dry-stone-ruined.glb",
-      "footprint": 2.7,
-      "height": 1.4,
+      "footprint": 2.8,
+      "height": 1.0,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -6440,7 +6440,7 @@
       "category": "prop",
       "file": "models/signpost.glb",
       "footprint": 0.7,
-      "height": 2.5,
+      "height": 2.7,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -10619,6 +10619,125 @@
         "swamp"
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "pebbles-scatter",
+      "name": "Pebbles",
+      "category": "rock",
+      "file": "models/pebbles-scatter.glb",
+      "footprint": 0.7,
+      "height": 0.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 150,
+      "tags": [
+        "temperate",
+        "coast",
+        "mountain",
+        "scree"
+      ],
+      "source": "procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/namaqualand_stones_01"
+    },
+    {
+      "id": "scree-scatter",
+      "name": "Scree",
+      "category": "rock",
+      "file": "models/scree-scatter.glb",
+      "footprint": 1.1,
+      "height": 0.2,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "mountain",
+        "temperate",
+        "arctic",
+        "scree"
+      ],
+      "source": "procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/namaqualand_boulder_04"
+    },
+    {
+      "id": "stones-mossy-scatter",
+      "name": "Mossy stones",
+      "category": "rock",
+      "file": "models/stones-mossy-scatter.glb",
+      "footprint": 1.1,
+      "height": 0.3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 250,
+      "tags": [
+        "temperate",
+        "swamp",
+        "castle",
+        "scree"
+      ],
+      "source": "procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/rock_moss_set_02"
+    },
+    {
+      "id": "stones-desert-scatter",
+      "name": "Desert stones",
+      "category": "rock",
+      "file": "models/stones-desert-scatter.glb",
+      "footprint": 1.1,
+      "height": 0.2,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 250,
+      "tags": [
+        "desert",
+        "mars",
+        "scree"
+      ],
+      "source": "procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/namaqualand_boulder_03"
+    },
+    {
+      "id": "stones-volcanic-scatter",
+      "name": "Volcanic stones",
+      "category": "rock",
+      "file": "models/stones-volcanic-scatter.glb",
+      "footprint": 1.0,
+      "height": 0.3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 250,
+      "tags": [
+        "volcanic",
+        "hell",
+        "moon",
+        "scree"
+      ],
+      "source": "procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/moon_rock_03 (getönt)"
     },
     {
       "id": "fx-fireflies",

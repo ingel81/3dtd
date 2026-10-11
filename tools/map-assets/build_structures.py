@@ -208,51 +208,105 @@ def tower_ruin(name, seed):
     export(name, [stone.to_object(name), rubble.to_object(name + '-rubble')])
 
 
-def wall_stone(name, seed):
+def stone_course(part, x0, x1, y, z, h, depth, rnd, seed):
+    """One course of rough stones along X: lumps of varying length, slightly out of line"""
+    from build_nature import lump
+    x = x0
+    k = 0
+    while x < x1 - 0.1:
+        ln = min(x1 - x, rnd.uniform(0.35, 0.7))
+        # lump() centres its shape 0.3 * size above the given point: the stone fills z .. z + h with some overlap
+        sz = h * 0.62 * rnd.uniform(0.95, 1.1)
+        lump(part, Vector((x + ln / 2, y + rnd.uniform(-0.04, 0.04), z + h / 2 - 0.3 * sz)),
+             Vector((ln / 2 + 0.06, depth / 2 * rnd.uniform(0.9, 1.05), sz)), seed + k, roughness=0.25, flat_bottom=False, subdiv=1)
+        x += ln
+        k += 1
+
+
+def wall_stone(name, seed, length=4.0, height=1.3, depth=0.6, ruined=False):
+    """Dry stone wall along X built of rough stones course by course, battered (narrower to the top), with a
+    row of upright cope stones; `ruined`: courses missing in the middle, fallen stones at the foot"""
+    from build_nature import lump
     clear_scene()
     rnd = random.Random(seed)
-    stone = Part(pbr_material('stone-stacked', 'stacked_stone_wall'), uv_metres=2.0)
-    for k in range(4):
-        h = 1.3 + rnd.uniform(-0.2, 0.15)
-        box(stone, -1.5 + k * 1.0, 0, -0.8, 1.02, 0.6 - k % 2 * 0.04, h + 0.8)
+    stone = Part(pbr_material('stone-slates-wall', 'castle_wall_slates', (1.05, 1.05, 1.05)), uv_metres=0.8, bevel=0.0)
+    courses = 5
+    for c in range(courses):
+        t = c / courses
+        z = -0.2 + c * height / courses
+        dep = depth * (1.0 - 0.3 * t)
+        if ruined:
+            cut = 0.3 + 0.7 * t
+            for x0, x1 in ((-length / 2, -length / 2 + length * (1 - cut) / 2), (length / 2 - length * (1 - cut) / 2, length / 2)):
+                if x1 - x0 > 0.3:
+                    stone_course(stone, x0, x1, 0, z, height / courses, dep, rnd, seed * 100 + c * 10)
+        else:
+            stone_course(stone, -length / 2, length / 2, 0, z, height / courses, dep, rnd, seed * 100 + c * 10)
+    if not ruined:
+        x = -length / 2 + 0.12
+        while x < length / 2 - 0.1:
+            box(stone, x, 0, height - 0.15, 0.14, depth * 0.62, 0.35, rnd.uniform(-0.15, 0.15))
+            x += rnd.uniform(0.17, 0.22)
+    else:
+        for k in range(8):
+            lump(stone, Vector((rnd.uniform(-1, 1), rnd.uniform(-1.2, -0.5), -0.1)), Vector((0.25, 0.18, 0.12)), seed + 50 + k, subdiv=1)
     export(name, [stone.to_object(name)])
 
 
 def fence(name):
+    """Post and rail fence along X: weathered posts with pointed caps, three rails let into the posts"""
     clear_scene()
-    wood = Part(pbr_material('wood-rough', 'rough_wood', (0.8, 0.72, 0.62)), uv_metres=1.5)
+    rnd = random.Random(3)
+    wood = Part(pbr_material('wood-rough', 'rough_wood', (0.8, 0.72, 0.62)), uv_metres=1.0)
     for x in (-2.0, 0.0, 2.0):
-        box(wood, x, 0, -0.5, 0.14, 0.14, 1.8)
-    for z in (0.45, 0.95):
-        box(wood, 0, 0.09, z, 4.1, 0.05, 0.14)
+        h = 1.35 + rnd.uniform(-0.05, 0.05)
+        box(wood, x, 0, -0.5, 0.15, 0.15, h + 0.5)
+        bm = wood.bm
+        top = [bm.verts.new((x + dx, dy, h)) for dx, dy in ((-0.075, -0.075), (0.075, -0.075), (0.075, 0.075), (-0.075, 0.075))]
+        apex = bm.verts.new((x, 0, h + 0.14))
+        for k in range(4):
+            f = bm.faces.new((top[k], top[(k + 1) % 4], apex))
+            for loop in f.loops:
+                loop[wood.uv].uv = (loop.vert.co.x * 2, loop.vert.co.z * 2)
+    for z in (0.35, 0.7, 1.05):
+        for x0 in (-2.0, 0.0):
+            sag = rnd.uniform(-0.02, 0.02)
+            oriented_box(wood, Vector((x0 + 0.05, 0.1, z + sag)), Vector((x0 + 1.95, 0.1, z - sag)), 0.09)
     export(name, [wood.to_object(name)])
 
 
 def well(name):
+    """Village well: a round wall with a cope of stones, two posts with a gabled roof, a windlass with a crank,
+    rope and bucket, dark water inside"""
     clear_scene()
-    stone = Part(pbr_material('stone-slates', 'castle_wall_slates'))
-    wood = Part(pbr_material('wood-rough', 'rough_wood', (0.8, 0.72, 0.62)), uv_metres=1.5)
+    stone = Part(pbr_material('stone-slates', 'castle_wall_slates'), uv_metres=1.0)
+    cope = Part(pbr_material('stone-stacked', 'stacked_stone_wall'), uv_metres=1.0)
+    wood = Part(pbr_material('wood-rough', 'rough_wood', (0.8, 0.72, 0.62)), uv_metres=1.0)
     roof = Part(pbr_material('roof-clay_roof_tiles_02', 'clay_roof_tiles_02'))
     water = Part(flat_material('well-water', (0.02, 0.05, 0.05), 0.05))
-    pts = [Vector((0, 0, -0.8)), Vector((0, 0, 0.9))]
-    for r in (1.2,):
-        tube(stone, pts, [r, r], 14, smooth=True)
-    tube(stone, [Vector((0, 0, 0.9)), Vector((0, 0, 0.0))], [0.95, 0.95], 14, smooth=True)
-    bm = stone.bm
-    outer = [bm.verts.new((math.cos(a / 14 * math.tau) * 1.2, math.sin(a / 14 * math.tau) * 1.2, 0.9)) for a in range(14)]
-    inner = [bm.verts.new((math.cos(a / 14 * math.tau) * 0.95, math.sin(a / 14 * math.tau) * 0.95, 0.9)) for a in range(14)]
-    for k in range(14):
-        f = bm.faces.new((outer[k], outer[(k + 1) % 14], inner[(k + 1) % 14], inner[k]))
-        for loop in f.loops:
-            loop[stone.uv].uv = (loop.vert.co.x / 2, loop.vert.co.y / 2)
+    iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8), smooth=True)
+    rope = Part(flat_material('rope', (0.55, 0.45, 0.3), 0.9), smooth=True)
+    tube(stone, [Vector((0, 0, -0.8)), Vector((0, 0, 0.85))], [1.2, 1.15], 16, smooth=True)
+    tube(stone, [Vector((0, 0, 0.85)), Vector((0, 0, 0.0))], [0.92, 0.92], 16, smooth=True)
+    for k in range(16):
+        a = (k + 0.5) / 16 * math.tau
+        box(cope, math.cos(a) * 1.06, math.sin(a) * 1.06, 0.82, 0.32, 0.46, 0.16, a)
     wb = water.bm
-    disc = [wb.verts.new((math.cos(a / 14 * math.tau) * 0.95, math.sin(a / 14 * math.tau) * 0.95, 0.5)) for a in range(14)]
+    disc = [wb.verts.new((math.cos(a / 16 * math.tau) * 0.92, math.sin(a / 16 * math.tau) * 0.92, 0.45)) for a in range(16)]
     wb.faces.new(disc)
-    for x in (-1.1, 1.1):
-        box(wood, x, 0, 0.9, 0.15, 0.15, 1.6)
-    box(wood, 0, 0, 2.3, 2.4, 0.12, 0.12)
-    gable_roof(roof, 2.8, 1.6, 2.45, 0.7, 0.1)
-    export(name, [stone.to_object(name), wood.to_object(name + '-wood'), roof.to_object(name + '-roof'), water.to_object(name + '-water')])
+    for x in (-1.15, 1.15):
+        box(wood, x, 0, 0.6, 0.16, 0.16, 1.9)
+        oriented_box(wood, Vector((x, 0, 2.1)), Vector((x * 0.7, 0, 2.5)), 0.1)
+    box(wood, 0, 0, 2.45, 2.6, 0.12, 0.12)
+    gable_roof(roof, 2.8, 1.6, 2.55, 0.7, 0.12)
+    tube(wood, [Vector((-1.05, 0, 1.75)), Vector((1.05, 0, 1.75))], [0.12, 0.12], 10, cap=True)
+    oriented_box(iron, Vector((1.1, 0, 1.75)), Vector((1.3, 0, 1.75)), 0.04)
+    oriented_box(iron, Vector((1.3, 0, 1.75)), Vector((1.3, 0, 1.45)), 0.04)
+    oriented_box(iron, Vector((1.3, 0, 1.45)), Vector((1.45, 0, 1.45)), 0.05)
+    tube(rope, [Vector((0, 0, 1.65)), Vector((0, 0, 1.15))], [0.015, 0.015], 5)
+    tube(wood, [Vector((0, 0, 0.88)), Vector((0, 0, 1.15))], [0.16, 0.19], 10, cap=True)
+    export(name, [stone.to_object(name), cope.to_object(name + '-cope'), wood.to_object(name + '-wood'), roof.to_object(name + '-roof'),
+                  water.to_object(name + '-water'), iron.to_object(name + '-iron'), rope.to_object(name + '-rope')])
 
 
 def bridge_deck(name):
@@ -861,7 +915,12 @@ def picket_fence(name, length=4.0):
     n = int(length / 0.16)
     for k in range(n):
         x = -length / 2 + (k + 0.5) * length / n
-        box(wood, x, -0.04, 0.05, 0.09, 0.03, 1.0)
+        box(wood, x, -0.04, 0.05, 0.09, 0.03, 0.92)
+        bm = wood.bm
+        tri = [bm.verts.new((x - 0.045, -0.055, 0.97)), bm.verts.new((x + 0.045, -0.055, 0.97)), bm.verts.new((x, -0.055, 1.07))]
+        f = bm.faces.new(tri)
+        for loop in f.loops:
+            loop[wood.uv].uv = (loop.vert.co.x * 2, loop.vert.co.z * 2)
     export(name, [wood.to_object(name)])
 
 
@@ -887,48 +946,6 @@ def farm_gate(name):
     box(wood, -1.6, 0, 0.2, 0.14, 0.1, 1.25)
     box(wood, 1.6, 0, 0.2, 0.14, 0.1, 1.25)
     export(name, [wood.to_object(name)])
-
-
-def dry_stone_wall(name, length=6.0, seed=0, ruined=False):
-    """Field wall of stacked stones along X; `ruined`: gaps and a lowered middle"""
-    clear_scene()
-    rnd = random.Random(seed)
-    stone = Part(pbr_material('stone-rock_wall_10', 'rock_wall_10'), uv_metres=1.5)
-    n = 8
-    for k in range(n):
-        x = -length / 2 + (k + 0.5) * length / n
-        h = 1.2 * rnd.uniform(0.9, 1.05)
-        if ruined:
-            h *= 0.35 + 0.65 * abs(math.cos(k / (n - 1) * math.pi))
-        box(stone, x, rnd.uniform(-0.04, 0.04), -0.2, length / n + 0.02, 0.7 - 0.2 * (k % 2) * 0.2, h + 0.2, rnd.uniform(-0.03, 0.03))
-        box(stone, x, 0, h, length / n * 0.9, 0.5, 0.18, rnd.uniform(-0.1, 0.1))
-    export(name, [stone.to_object(name)])
-
-
-# ---------------------------------------------------------------- ruins, monuments
-
-def ruin_wall(name, seed=0):
-    """Broken church wall 10 m long with an arched window and a ragged top"""
-    clear_scene()
-    rnd = random.Random(seed)
-    stone = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=3.0)
-    length, thick = 10.0, 1.0
-    cols = 10
-    for k in range(cols):
-        x0 = -length / 2 + k * length / cols
-        x1 = x0 + length / cols
-        xm = (x0 + x1) / 2
-        top = 3.0 + 4.5 * math.sin((k + 0.5) / cols * math.pi) * rnd.uniform(0.75, 1.05)
-        if abs(xm) < 1.2:
-            box(stone, xm, 0, -0.5, x1 - x0 + 0.01, thick, 2.6)
-            if top > 5.8:
-                box(stone, xm, 0, 5.4 + 0.4 * math.cos(xm / 1.2 * math.pi / 2), x1 - x0 + 0.01, thick, top - 5.4)
-        else:
-            box(stone, xm, 0, -0.5, x1 - x0 + 0.01, thick, top + 0.5)
-    for k in range(8):
-        box(stone, rnd.uniform(-5, 5), rnd.uniform(-2.5, -0.8), -0.15, rnd.uniform(0.3, 0.8), rnd.uniform(0.3, 0.6),
-            rnd.uniform(0.2, 0.45), rnd.uniform(0, 3))
-    export(name, [stone.to_object(name)])
 
 
 def ruin_columns(name, seed=0):
@@ -1144,8 +1161,8 @@ def models():
         'fence-picket': lambda: picket_fence('fence-picket'),
         'fence-rail': lambda: rail_fence('fence-rail'),
         'gate-farm': lambda: farm_gate('gate-farm'),
-        'wall-dry-stone': lambda: dry_stone_wall('wall-dry-stone', seed=3),
-        'wall-dry-stone-ruined': lambda: dry_stone_wall('wall-dry-stone-ruined', seed=5, ruined=True),
+        'wall-dry-stone': lambda: wall_stone('wall-dry-stone', 3, length=6.0, height=1.2, depth=0.7),
+        'wall-dry-stone-ruined': lambda: wall_stone('wall-dry-stone-ruined', 5, length=6.0, height=1.2, depth=0.7, ruined=True),
         'fort-wall': lambda: import_model('modular_fort_01', None, 3000, 'fort-wall', objects=['modular_fort_01_wall_thick_straight_01'], keep_scale=True, rot=90),
         'fort-tower': lambda: import_model('modular_fort_01', None, 5000, 'fort-tower', objects=['modular_fort_01_tower_round'], keep_scale=True),
         'iron-gate': lambda: import_model('large_iron_gate', None, 4000, 'iron-gate', keep_scale=True),

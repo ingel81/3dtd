@@ -2,6 +2,8 @@
 import math
 import random
 
+import bmesh
+
 from mathutils import Matrix, Vector
 
 from blender_kit import (
@@ -29,16 +31,27 @@ def crate(name):
 
 
 def lamp_post(name):
+    """Street lantern: a wooden post on a stone foot, an iron bracket with a stay, a four-sided lantern with
+    a cage, glass and a pointed cap hanging from a hook (front -Y)"""
     clear_scene()
     wood = Part(pbr_material('planks-dark', 'dark_planks'), uv_metres=1.0)
-    iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8))
+    stone = Part(pbr_material('stone-slates', 'castle_wall_slates'), uv_metres=1.0)
+    iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8), smooth=True)
     glass = Part(flat_material('lamp-glass', (1.0, 0.8, 0.5), 0.3, 0.0, emission=(1.0, 0.7, 0.35)))
-    box(wood, 0, 0, 0, 0.22, 0.22, 3.6)
-    oriented_box(wood, Vector((0, 0, 3.3)), Vector((0, -0.9, 3.5)), 0.12)
-    box(iron, 0, -0.85, 3.05, 0.34, 0.34, 0.06)
-    box(iron, 0, -0.85, 3.45, 0.4, 0.4, 0.06)
-    box(glass, 0, -0.85, 3.11, 0.28, 0.28, 0.34)
-    export(name, [wood.to_object(name), iron.to_object(name + '-iron'), glass.to_object(name + '-glass')])
+    box(stone, 0, 0, -0.3, 0.45, 0.45, 0.6)
+    box(wood, 0, 0, 0.3, 0.2, 0.2, 3.3)
+    box(wood, 0, 0, 3.6, 0.26, 0.26, 0.08)
+    tube(iron, [Vector((0, -0.1, 3.3)), Vector((0, -0.5, 3.42)), Vector((0, -0.85, 3.4))], [0.03, 0.03, 0.03], 5)
+    oriented_box(iron, Vector((0, -0.1, 2.9)), Vector((0, -0.45, 3.38)), 0.03)
+    c = Vector((0, -0.85, 2.95))
+    tube(iron, [c + Vector((0, 0, 0.45)), c + Vector((0, 0, 0.35))], [0.015, 0.015], 4)
+    box(iron, c.x, c.y, c.z - 0.02, 0.3, 0.3, 0.05)
+    for dx in (-0.13, 0.13):
+        for dy in (-0.13, 0.13):
+            box(iron, c.x + dx, c.y + dy, c.z, 0.03, 0.03, 0.34)
+    box(glass, c.x, c.y, c.z + 0.03, 0.24, 0.24, 0.28)
+    tube(iron, [c + Vector((0, 0, 0.32)), c + Vector((0, 0, 0.45))], [0.2, 0.02], 4, cap=True)
+    export(name, [wood.to_object(name), stone.to_object(name + '-foot'), iron.to_object(name + '-iron'), glass.to_object(name + '-glass')])
 
 
 # ---------------------------------------------------------------- flames and effect meshes
@@ -248,16 +261,30 @@ def weapon_rack(name):
 
 
 def signpost(name):
+    """Wayside signpost: a post with a little gabled cap and three pointed arrow boards with routed letters"""
     clear_scene()
     wood = Part(pbr_material('wood-rough', 'rough_wood', (0.85, 0.75, 0.65)), uv_metres=1.0)
-    box(wood, 0, 0, -0.3, 0.14, 0.14, 2.8)
-    for k, (z, a) in enumerate(((2.15, 0.4), (1.8, -0.9), (1.45, 2.3))):
+    paint = Part(flat_material('sign-letters', (0.12, 0.1, 0.08), 0.9))
+    box(wood, 0, 0, -0.4, 0.14, 0.14, 3.0)
+    for s in (-1, 1):
+        oriented_box(wood, Vector((s * 0.12, 0, 2.6)), Vector((0, 0, 2.72)), 0.05)
+    for z, a in ((2.25, 0.4), (1.9, -0.9), (1.55, 2.3)):
         r = Matrix.Rotation(a, 3, 'Z')
-        c = r @ Vector((0.45, 0, 0))
-        box(wood, c.x, c.y, z, 0.9, 0.05, 0.22, a)
-        tip = r @ Vector((0.95, 0, 0))
-        box(wood, tip.x, tip.y, z + 0.03, 0.14, 0.05, 0.16, a + math.pi / 4)
-    export(name, [wood.to_object(name)])
+        bm = wood.bm
+        pts = [Vector((0.08, -0.025, -0.11)), Vector((0.85, -0.025, -0.11)), Vector((1.0, -0.025, 0.0)), Vector((0.85, -0.025, 0.11)),
+               Vector((0.08, -0.025, 0.11))]
+        front = [bm.verts.new(r @ p + Vector((0, 0, z))) for p in pts]
+        back = [bm.verts.new(r @ (p + Vector((0, 0.05, 0))) + Vector((0, 0, z))) for p in pts]
+        faces = [bm.faces.new(list(reversed(front))), bm.faces.new(back)]
+        for i in range(5):
+            faces.append(bm.faces.new((front[i], front[(i + 1) % 5], back[(i + 1) % 5], back[i])))
+        for f in faces:
+            for loop in f.loops:
+                loop[wood.uv].uv = (loop.vert.co.x + loop.vert.co.y, loop.vert.co.z)
+        for t in range(4):
+            q = r @ Vector((0.25 + t * 0.15, -0.03, 0)) + Vector((0, 0, z - 0.04))
+            box(paint, q.x, q.y, q.z, 0.08, 0.01, 0.08, a)
+    export(name, [wood.to_object(name), paint.to_object(name + '-letters')])
 
 
 def banner(name, png):
@@ -291,6 +318,34 @@ def bones(name):
     export(name, [bone.to_object(name)])
 
 
+def scatter(name, asset, objects, count, spread, size, seed, tint=None, desaturate=0.0):
+    """Scatter of small stones from a Poly Haven scan (the same rock surfaces as the boulders): the piece is
+    decimated once, then copied at random sizes and turns over a patch `spread` metres wide"""
+    import bpy
+    rnd = random.Random(seed)
+
+    def strew(obj):
+        src = obj.data.copy()
+        height = max(obj.dimensions.z, 0.01)
+        bm = bmesh.new()
+        for k in range(count):
+            a = rnd.uniform(0, math.tau)
+            r = spread / 2 * math.sqrt(rnd.random())
+            s = size * rnd.uniform(0.4, 1.0) / height
+            m = (Matrix.Translation((math.cos(a) * r, math.sin(a) * r, -0.15 * size)) @ Matrix.Rotation(rnd.uniform(0, math.tau), 4, 'Z')
+                 @ Matrix.Rotation(rnd.uniform(-0.3, 0.3), 4, 'X') @ Matrix.Scale(s, 4))
+            tmp = src.copy()
+            tmp.transform(m)
+            bm.from_mesh(tmp)
+            bpy.data.meshes.remove(tmp)
+        bm.to_mesh(obj.data)
+        bm.free()
+        obj.data.update()
+        return []
+
+    import_model(asset, None, 160, name, objects=objects, tint=tint, desaturate=desaturate, keep_scale=True, extra=strew)
+
+
 def waterline(draft):
     """extra() for import_model: lowers the model so its origin is the waterline (catalogue float)"""
     def lower(obj):
@@ -320,6 +375,12 @@ def models():
         'banner-red': lambda: banner('banner-red', 'banner-red.png'),
         'banner-blue': lambda: banner('banner-blue', 'banner-blue.png'),
         'bones': lambda: bones('bones'),
+        'pebbles-scatter': lambda: scatter('pebbles-scatter', 'namaqualand_stones_01', ['namaqualand_stones_01_b'], 14, 1.6, 0.12, 1),
+        'scree-scatter': lambda: scatter('scree-scatter', 'namaqualand_boulder_04', None, 9, 2.5, 0.35, 2, desaturate=0.7),
+        'stones-mossy-scatter': lambda: scatter('stones-mossy-scatter', 'rock_moss_set_02', ['rock_moss_set_02_rock08'], 7, 2.2, 0.3, 3),
+        'stones-desert-scatter': lambda: scatter('stones-desert-scatter', 'namaqualand_boulder_03', None, 9, 2.4, 0.3, 4),
+        'stones-volcanic-scatter': lambda: scatter('stones-volcanic-scatter', 'moon_rock_03', None, 9, 2.4, 0.3, 5,
+                                                   tint=(0.42, 0.38, 0.36)),
         # Poly Haven props
         'barrel-wine': lambda: import_model('wine_barrel_01', None, 1500, 'barrel-wine', keep_scale=True),
         'barrel-old': lambda: import_model('Barrel_02', None, 1500, 'barrel-old', keep_scale=True),

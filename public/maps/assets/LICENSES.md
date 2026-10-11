@@ -492,6 +492,11 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | barrel-rusty | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
 | barrel-rusty-tipped | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
 | cage | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_planks |
+| pebbles-scatter | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/namaqualand_stones_01 |
+| scree-scatter | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/namaqualand_boulder_04 |
+| stones-mossy-scatter | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/rock_moss_set_02 |
+| stones-desert-scatter | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/namaqualand_boulder_03 |
+| stones-volcanic-scatter | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/moon_rock_03 (getönt) |
 | fx-fireflies | Effekt des Renderers, kein Modell |
 | fx-smoke | Effekt des Renderers, kein Modell |
 | fx-embers | Effekt des Renderers, kein Modell |
