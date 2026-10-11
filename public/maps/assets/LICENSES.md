@@ -91,6 +91,37 @@ daraus prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, 
 | riverbed-dry | https://polyhaven.com/a/dry_riverbed_rock |
 | tidal-rocks | https://polyhaven.com/a/low_tide_rocks |
 | coast-mossy | https://polyhaven.com/a/coast_sand_rocks_02 |
+| asphalt | https://polyhaven.com/a/asphalt_02 |
+| asphalt-cracked | https://polyhaven.com/a/road_damaged |
+| sidewalk | https://polyhaven.com/a/concrete_pavement |
+| pavers | https://polyhaven.com/a/concrete_pavers_02 |
+| brick-paving | https://polyhaven.com/a/pavement_03 |
+| herringbone | https://polyhaven.com/a/herringbone_pavement |
+| concrete | https://polyhaven.com/a/brushed_concrete |
+| concrete-damaged | https://polyhaven.com/a/concrete_floor_damaged_01 |
+| concrete-moss | https://polyhaven.com/a/concrete_moss |
+| rubble | https://polyhaven.com/a/rubble |
+| debris | https://polyhaven.com/a/concrete_debris |
+| regolith | https://polyhaven.com/a/moon_dusted_01 |
+| regolith-rough | https://polyhaven.com/a/moon_01 |
+| crater-floor | https://polyhaven.com/a/moon_meteor_01 |
+| regolith-tracks | https://polyhaven.com/a/moon_track_01 |
+| moon-basalt | https://polyhaven.com/a/dark_rock |
+| mars-dust | https://polyhaven.com/a/moon_dusted_04 |
+| mars-regolith | https://polyhaven.com/a/moon_01 |
+| mars-dunes | https://polyhaven.com/a/aerial_sand |
+| mars-gravel | https://polyhaven.com/a/rocky_gravel |
+| mars-rock | https://polyhaven.com/a/rock_face |
+| snow-drift | https://ambientcg.com/view?id=Snow010A |
+| pack-ice | https://ambientcg.com/view?id=Ice004 |
+| blue-ice | https://ambientcg.com/view?id=Ice001 |
+| ice-shelf | https://ambientcg.com/view?id=Rock023 |
+| obsidian | https://polyhaven.com/a/dark_rock_02 |
+| cinders | https://polyhaven.com/a/gravel_stones |
+| hell-ground | https://polyhaven.com/a/excavated_soil_wall |
+| brimstone | https://ambientcg.com/view?id=Ground054 |
+| scree | https://polyhaven.com/a/rocky_gravel |
+| salt-crust | https://polyhaven.com/a/mud_cracked_dry_riverbed_002 |
 
 ## Objekte (`models/<id>.glb`)
 

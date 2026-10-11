@@ -6,21 +6,24 @@ for the custom map renderer.
 Writes per material <out-dir>/materials/<id>/color.jpg, normal.jpg and
 arh.jpg (AO in red, roughness in green, height in blue), all 1024 px, plus
 emissive.jpg for glowing materials (lava), and replaces the materials of
-<out-dir>/catalog.json with the entries (with the average colour). Ids on
+<out-dir>/catalog.json with the entries (with the average colour) and
+rewrites LICENSES.md. Ids on
 the command line rebuild only those files; the catalogue is always written
 whole. `tint` (RGB multiplier) and `desaturate` (0..1) in materials.json
-adjust the albedo, e.g. to turn a greenish ice scan blue.
+adjust the albedo, e.g. to turn a greenish ice scan blue; `shade` (0..1)
+darkens the albedo in the hollows of the height map (flat lunar dust).
 Sources: Poly Haven (polyhaven.com) and ambientCG (ambientcg.com), both CC0.
 """
 import io
 import json
 import os
+import subprocess
 import sys
 import urllib.request
 import zipfile
 
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image, ImageFilter, ImageOps
 
 SIZE = 1024
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -104,6 +107,14 @@ def build(m, dl, out):
     target = os.path.join(out, 'materials', m['id'])
     os.makedirs(target, exist_ok=True)
     color = adjust(maps['color'].convert('RGB').resize((SIZE, SIZE), Image.LANCZOS), m)
+    if m.get('shade') and maps['height'] is not None:
+        # Nearly uniform albedo (lunar dust): darken the hollows by the height map so the relief reads from afar
+        hi = gray(maps['height'], 128)
+        # High-pass: only the small relief, a slope across the whole tile would show as stripes when tiled
+        h = np.asarray(hi).astype(np.float32) - np.asarray(hi.filter(ImageFilter.GaussianBlur(24))).astype(np.float32)
+        h = np.clip(0.5 + h / (4 * h.std() + 1e-6), 0, 1)
+        k = 1 - m['shade'] / 2 + m['shade'] * h
+        color = Image.fromarray((np.asarray(color).astype(np.float32) * k[..., None]).clip(0, 255).astype(np.uint8), 'RGB')
     color.save(os.path.join(target, 'color.jpg'), quality=88, optimize=True)
     maps['normal'].convert('RGB').resize((SIZE, SIZE), Image.LANCZOS).save(
         os.path.join(target, 'normal.jpg'), quality=85, optimize=True)
@@ -151,6 +162,7 @@ def main():
     with open(path, 'w', encoding='utf8', newline='\n') as f:
         json.dump(catalog, f, indent=2, ensure_ascii=False)
         f.write('\n')
+    subprocess.run([sys.executable, '-I', os.path.join(HERE, 'write_licenses.py'), out], check=True)
 
 
 main()

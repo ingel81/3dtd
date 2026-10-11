@@ -1347,6 +1347,518 @@
         "swamp"
       ],
       "source": "https://polyhaven.com/a/coast_sand_rocks_02"
+    },
+    {
+      "id": "asphalt",
+      "name": "Asphalt",
+      "category": "road",
+      "files": {
+        "color": "materials/asphalt/color.jpg",
+        "normal": "materials/asphalt/normal.jpg",
+        "arh": "materials/asphalt/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#5a5a55",
+      "tags": [
+        "city"
+      ],
+      "source": "https://polyhaven.com/a/asphalt_02"
+    },
+    {
+      "id": "asphalt-cracked",
+      "name": "Broken asphalt",
+      "category": "road",
+      "files": {
+        "color": "materials/asphalt-cracked/color.jpg",
+        "normal": "materials/asphalt-cracked/normal.jpg",
+        "arh": "materials/asphalt-cracked/arh.jpg"
+      },
+      "scale": 5,
+      "average": "#433933",
+      "tags": [
+        "wasteland",
+        "city"
+      ],
+      "source": "https://polyhaven.com/a/road_damaged"
+    },
+    {
+      "id": "sidewalk",
+      "name": "Sidewalk slabs",
+      "category": "road",
+      "files": {
+        "color": "materials/sidewalk/color.jpg",
+        "normal": "materials/sidewalk/normal.jpg",
+        "arh": "materials/sidewalk/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#807466",
+      "tags": [
+        "city"
+      ],
+      "source": "https://polyhaven.com/a/concrete_pavement"
+    },
+    {
+      "id": "pavers",
+      "name": "Concrete pavers",
+      "category": "road",
+      "files": {
+        "color": "materials/pavers/color.jpg",
+        "normal": "materials/pavers/normal.jpg",
+        "arh": "materials/pavers/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#726050",
+      "tags": [
+        "city"
+      ],
+      "source": "https://polyhaven.com/a/concrete_pavers_02"
+    },
+    {
+      "id": "brick-paving",
+      "name": "Brick paving",
+      "category": "road",
+      "files": {
+        "color": "materials/brick-paving/color.jpg",
+        "normal": "materials/brick-paving/normal.jpg",
+        "arh": "materials/brick-paving/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#7f6d5e",
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "https://polyhaven.com/a/pavement_03"
+    },
+    {
+      "id": "herringbone",
+      "name": "Herringbone bricks",
+      "category": "road",
+      "files": {
+        "color": "materials/herringbone/color.jpg",
+        "normal": "materials/herringbone/normal.jpg",
+        "arh": "materials/herringbone/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#5a4e41",
+      "tags": [
+        "city"
+      ],
+      "source": "https://polyhaven.com/a/herringbone_pavement"
+    },
+    {
+      "id": "concrete",
+      "name": "Concrete",
+      "category": "road",
+      "files": {
+        "color": "materials/concrete/color.jpg",
+        "normal": "materials/concrete/normal.jpg",
+        "arh": "materials/concrete/arh.jpg"
+      },
+      "scale": 5,
+      "average": "#6b6358",
+      "tags": [
+        "city",
+        "moon",
+        "mars",
+        "arctic"
+      ],
+      "source": "https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "concrete-damaged",
+      "name": "Damaged concrete",
+      "category": "road",
+      "files": {
+        "color": "materials/concrete-damaged/color.jpg",
+        "normal": "materials/concrete-damaged/normal.jpg",
+        "arh": "materials/concrete-damaged/arh.jpg"
+      },
+      "scale": 5,
+      "average": "#4f4336",
+      "tags": [
+        "wasteland",
+        "city"
+      ],
+      "source": "https://polyhaven.com/a/concrete_floor_damaged_01"
+    },
+    {
+      "id": "concrete-moss",
+      "name": "Mossy concrete",
+      "category": "road",
+      "files": {
+        "color": "materials/concrete-moss/color.jpg",
+        "normal": "materials/concrete-moss/normal.jpg",
+        "arh": "materials/concrete-moss/arh.jpg"
+      },
+      "scale": 5,
+      "average": "#58571e",
+      "tags": [
+        "wasteland",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/concrete_moss"
+    },
+    {
+      "id": "rubble",
+      "name": "Rubble",
+      "category": "rock",
+      "files": {
+        "color": "materials/rubble/color.jpg",
+        "normal": "materials/rubble/normal.jpg",
+        "arh": "materials/rubble/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#a09187",
+      "tags": [
+        "wasteland",
+        "city",
+        "castle"
+      ],
+      "source": "https://polyhaven.com/a/rubble"
+    },
+    {
+      "id": "debris",
+      "name": "Concrete debris",
+      "category": "rock",
+      "files": {
+        "color": "materials/debris/color.jpg",
+        "normal": "materials/debris/normal.jpg",
+        "arh": "materials/debris/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#928678",
+      "tags": [
+        "wasteland",
+        "city"
+      ],
+      "source": "https://polyhaven.com/a/concrete_debris"
+    },
+    {
+      "id": "regolith",
+      "name": "Regolith",
+      "category": "sand",
+      "files": {
+        "color": "materials/regolith/color.jpg",
+        "normal": "materials/regolith/normal.jpg",
+        "arh": "materials/regolith/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#787775",
+      "tags": [
+        "moon"
+      ],
+      "source": "https://polyhaven.com/a/moon_dusted_01"
+    },
+    {
+      "id": "regolith-rough",
+      "name": "Rough regolith",
+      "category": "sand",
+      "files": {
+        "color": "materials/regolith-rough/color.jpg",
+        "normal": "materials/regolith-rough/normal.jpg",
+        "arh": "materials/regolith-rough/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#787674",
+      "tags": [
+        "moon"
+      ],
+      "source": "https://polyhaven.com/a/moon_01"
+    },
+    {
+      "id": "crater-floor",
+      "name": "Cratered regolith",
+      "category": "sand",
+      "files": {
+        "color": "materials/crater-floor/color.jpg",
+        "normal": "materials/crater-floor/normal.jpg",
+        "arh": "materials/crater-floor/arh.jpg"
+      },
+      "scale": 10,
+      "average": "#7a7876",
+      "tags": [
+        "moon"
+      ],
+      "source": "https://polyhaven.com/a/moon_meteor_01"
+    },
+    {
+      "id": "regolith-tracks",
+      "name": "Regolith with tracks",
+      "category": "road",
+      "files": {
+        "color": "materials/regolith-tracks/color.jpg",
+        "normal": "materials/regolith-tracks/normal.jpg",
+        "arh": "materials/regolith-tracks/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#81807e",
+      "tags": [
+        "moon"
+      ],
+      "source": "https://polyhaven.com/a/moon_track_01"
+    },
+    {
+      "id": "moon-basalt",
+      "name": "Lunar basalt",
+      "category": "rock",
+      "files": {
+        "color": "materials/moon-basalt/color.jpg",
+        "normal": "materials/moon-basalt/normal.jpg",
+        "arh": "materials/moon-basalt/arh.jpg"
+      },
+      "scale": 8,
+      "average": "#252525",
+      "tags": [
+        "moon"
+      ],
+      "source": "https://polyhaven.com/a/dark_rock"
+    },
+    {
+      "id": "mars-dust",
+      "name": "Martian dust",
+      "category": "sand",
+      "files": {
+        "color": "materials/mars-dust/color.jpg",
+        "normal": "materials/mars-dust/normal.jpg",
+        "arh": "materials/mars-dust/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#965635",
+      "tags": [
+        "mars"
+      ],
+      "source": "https://polyhaven.com/a/moon_dusted_04"
+    },
+    {
+      "id": "mars-regolith",
+      "name": "Martian regolith",
+      "category": "sand",
+      "files": {
+        "color": "materials/mars-regolith/color.jpg",
+        "normal": "materials/mars-regolith/normal.jpg",
+        "arh": "materials/mars-regolith/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#8f5031",
+      "tags": [
+        "mars"
+      ],
+      "source": "https://polyhaven.com/a/moon_01"
+    },
+    {
+      "id": "mars-dunes",
+      "name": "Martian dunes",
+      "category": "sand",
+      "files": {
+        "color": "materials/mars-dunes/color.jpg",
+        "normal": "materials/mars-dunes/normal.jpg",
+        "arh": "materials/mars-dunes/arh.jpg"
+      },
+      "scale": 14,
+      "average": "#a86343",
+      "tags": [
+        "mars"
+      ],
+      "source": "https://polyhaven.com/a/aerial_sand"
+    },
+    {
+      "id": "mars-gravel",
+      "name": "Martian gravel",
+      "category": "rock",
+      "files": {
+        "color": "materials/mars-gravel/color.jpg",
+        "normal": "materials/mars-gravel/normal.jpg",
+        "arh": "materials/mars-gravel/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#694325",
+      "tags": [
+        "mars",
+        "hell"
+      ],
+      "source": "https://polyhaven.com/a/rocky_gravel"
+    },
+    {
+      "id": "mars-rock",
+      "name": "Rust rock",
+      "category": "rock",
+      "files": {
+        "color": "materials/mars-rock/color.jpg",
+        "normal": "materials/mars-rock/normal.jpg",
+        "arh": "materials/mars-rock/arh.jpg"
+      },
+      "scale": 10,
+      "average": "#713921",
+      "tags": [
+        "mars"
+      ],
+      "source": "https://polyhaven.com/a/rock_face"
+    },
+    {
+      "id": "snow-drift",
+      "name": "Snow drift",
+      "category": "snow",
+      "files": {
+        "color": "materials/snow-drift/color.jpg",
+        "normal": "materials/snow-drift/normal.jpg",
+        "arh": "materials/snow-drift/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#dfeefc",
+      "tags": [
+        "arctic",
+        "winter"
+      ],
+      "source": "https://ambientcg.com/view?id=Snow010A"
+    },
+    {
+      "id": "pack-ice",
+      "name": "Pack ice",
+      "category": "ice",
+      "files": {
+        "color": "materials/pack-ice/color.jpg",
+        "normal": "materials/pack-ice/normal.jpg",
+        "arh": "materials/pack-ice/arh.jpg"
+      },
+      "scale": 8,
+      "average": "#93a8bd",
+      "tags": [
+        "arctic"
+      ],
+      "source": "https://ambientcg.com/view?id=Ice004"
+    },
+    {
+      "id": "blue-ice",
+      "name": "Blue glacier ice",
+      "category": "ice",
+      "files": {
+        "color": "materials/blue-ice/color.jpg",
+        "normal": "materials/blue-ice/normal.jpg",
+        "arh": "materials/blue-ice/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#688ab6",
+      "tags": [
+        "arctic"
+      ],
+      "source": "https://ambientcg.com/view?id=Ice001"
+    },
+    {
+      "id": "ice-shelf",
+      "name": "Ice shelf",
+      "category": "ice",
+      "files": {
+        "color": "materials/ice-shelf/color.jpg",
+        "normal": "materials/ice-shelf/normal.jpg",
+        "arh": "materials/ice-shelf/arh.jpg"
+      },
+      "scale": 10,
+      "average": "#92a0b4",
+      "tags": [
+        "arctic"
+      ],
+      "source": "https://ambientcg.com/view?id=Rock023"
+    },
+    {
+      "id": "obsidian",
+      "name": "Obsidian",
+      "category": "volcanic",
+      "files": {
+        "color": "materials/obsidian/color.jpg",
+        "normal": "materials/obsidian/normal.jpg",
+        "arh": "materials/obsidian/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#1c171b",
+      "tags": [
+        "hell",
+        "volcanic"
+      ],
+      "source": "https://polyhaven.com/a/dark_rock_02"
+    },
+    {
+      "id": "cinders",
+      "name": "Cinders",
+      "category": "volcanic",
+      "files": {
+        "color": "materials/cinders/color.jpg",
+        "normal": "materials/cinders/normal.jpg",
+        "arh": "materials/cinders/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#4f4e4c",
+      "tags": [
+        "hell",
+        "volcanic"
+      ],
+      "source": "https://polyhaven.com/a/gravel_stones"
+    },
+    {
+      "id": "hell-ground",
+      "name": "Scorched red earth",
+      "category": "volcanic",
+      "files": {
+        "color": "materials/hell-ground/color.jpg",
+        "normal": "materials/hell-ground/normal.jpg",
+        "arh": "materials/hell-ground/arh.jpg"
+      },
+      "scale": 5,
+      "average": "#6c2a11",
+      "tags": [
+        "hell"
+      ],
+      "source": "https://polyhaven.com/a/excavated_soil_wall"
+    },
+    {
+      "id": "brimstone",
+      "name": "Brimstone",
+      "category": "volcanic",
+      "files": {
+        "color": "materials/brimstone/color.jpg",
+        "normal": "materials/brimstone/normal.jpg",
+        "arh": "materials/brimstone/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#9e8435",
+      "tags": [
+        "hell",
+        "volcanic"
+      ],
+      "source": "https://ambientcg.com/view?id=Ground054"
+    },
+    {
+      "id": "scree",
+      "name": "Scree",
+      "category": "rock",
+      "files": {
+        "color": "materials/scree/color.jpg",
+        "normal": "materials/scree/normal.jpg",
+        "arh": "materials/scree/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#4f4a45",
+      "tags": [
+        "mountain",
+        "arctic"
+      ],
+      "source": "https://polyhaven.com/a/rocky_gravel"
+    },
+    {
+      "id": "salt-crust",
+      "name": "Salt crust",
+      "category": "sand",
+      "files": {
+        "color": "materials/salt-crust/color.jpg",
+        "normal": "materials/salt-crust/normal.jpg",
+        "arh": "materials/salt-crust/arh.jpg"
+      },
+      "scale": 5,
+      "average": "#c9c3b8",
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/mud_cracked_dry_riverbed_002"
     }
   ],
   "objects": [
