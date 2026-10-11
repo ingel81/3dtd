@@ -89,6 +89,16 @@ export class ExtrasListComponent {
     else this.status.set({ text: replay.fileProblem() ?? 'The replay did not start.', bad: true });
   }
 
+  /** The replay was played elsewhere: go there and play it */
+  async playThere(): Promise<void> {
+    const replay = this.replay;
+    if (!replay) return;
+    this.status.set({ text: `Going to ${replay.elsewhere()?.name ?? 'its place'}...`, bad: false });
+    await replay.playThere();
+    if (replay.active()) this.leave.emit();
+    else this.status.set({ text: replay.fileProblem() ?? 'The replay did not start.', bad: true });
+  }
+
   async saveReplay(): Promise<void> {
     this.busy.set(true);
     try {

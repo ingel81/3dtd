@@ -103,7 +103,7 @@ Determinismus-Bug: bitte mit der Replay-Datei melden.
 | orig vor den Geschwindigkeiten | Original-Tempo: spielt mit dem Spieltempo, mit dem die Welle gespielt wurde (`WaveRecord.speeds`); aus, bis man es einschaltet, eine gewählte Geschwindigkeit beendet es. Fehlt in Aufnahmen ohne Tempo |
 | Fortschrittsbalken | Springen; beim Ziehen hält das Replay an. Marken zeigen Befehle des Spielers (ohne Zielen und Sichtlinien) |
 | Save in der Leiste | Alle abspielbaren Wellen des Laufs als Datei |
-| load im WAVE-Panel | Eine Datei laden; nur auf derselben Karte und mit denselben Balance-Werten |
+| load im WAVE-Panel, Extras | Eine Datei laden; mit denselben Balance-Werten. An einem anderen Ort derselben Welt bietet sie „Go to <Ort> and play“ |
 | Maus, WASD, Pos1, N | Kamera wie im Spiel |
 | Esc, Exit | Zurück ins Spiel |
 
@@ -113,9 +113,13 @@ Determinismus-Bug: bitte mit der Replay-Datei melden.
 
 `simulator/replay-file.ts`: Format und Version, Snapshot-Version, Welt-Schlüssel (`GameStateManager.worldKey`:
 Zellhöhen, Routen, Ursprung), Balance-Hash (`run-log/config-hash.ts`), Seed, die abspielbaren Wellen und der Ausschnitt
-des Befehlslogs, den sie brauchen. Die Welt selbst steht nicht darin: Ein Replay rechnet auf der Welt nach, auf der es
-gespielt wurde. Abgelehnt wird mit einem Satz, warum: keine Replay-Datei, andere Version, andere Karte, andere
-Balance, keine Welle. Ein geladenes Replay zeigt „from file“ in der Leiste; der laufende Lauf bleibt unberührt.
+des Befehlslogs, den sie brauchen. Ein Replay rechnet auf der Welt nach, auf der es gespielt wurde. Seit Version 4
+trägt die Datei den Ort (`place`: Name und Weltpaket wie ein Spielstand, `coop/world-package.ts`): Geladen an einem
+anderen Ort derselben Welt (dieselben Tiles), bietet sie „Go to <Ort> and play“; das Spiel geht dorthin
+(`WorldPackageLoader.moveTo`), übernimmt die vermessene Welt (`adopt`, der laufende Lauf endet) und spielt die Datei. Ein
+Einflug startet währenddessen nicht. Dateien der Versionen 2 und 3 ohne Ort und Dateien einer anderen Welt (eine
+eigene Karte, die anderen Tiles) werden weiter abgelehnt. Abgelehnt wird mit einem Satz, warum: keine Replay-Datei,
+andere Version, andere Karte, andere Balance, keine Welle. Ein geladenes Replay zeigt „from file“ in der Leiste; der laufende Lauf bleibt unberührt.
 Die Datei trägt auch Spielversion und Commit: Der Balance-Hash deckt die Tabellen ab, nicht den Code. Eine Datei
 einer anderen Version lädt trotzdem, die Leiste sagt dann „from file, other version“ (Tooltip: gespeichert mit
 welcher Version), weil das Replay dort abweichen kann, wo sich die Spiellogik geändert hat. Liest die Prüfsumme

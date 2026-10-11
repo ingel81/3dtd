@@ -9,6 +9,7 @@ import { Injector, NgZone, runInInjectionContext } from '@angular/core';
 import { IntroCameraFlightService } from './intro-camera-flight.service';
 import { CameraControlService } from '../camera-control.service';
 import { RouteAnimationService } from './route-animation.service';
+import { UIStore } from '../../store/ui.store';
 
 function press(key: string, target?: EventTarget): KeyboardEvent {
   const event = new KeyboardEvent('keydown', { key, cancelable: true });
@@ -36,6 +37,7 @@ describe('IntroCameraFlightService keys', () => {
       providers: [
         { provide: CameraControlService, useValue: { resetCamera } },
         { provide: RouteAnimationService, useValue: { setHoldUntilReleased: vi.fn() } },
+        { provide: UIStore, useValue: { replayMode: () => false } },
         { provide: NgZone, useValue: { run: (fn: () => void) => fn() } },
       ],
     });

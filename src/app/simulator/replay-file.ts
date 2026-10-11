@@ -4,13 +4,21 @@ import { SIM_SNAPSHOT_VERSION } from './sim-snapshot';
 import { replayable, type WaveRecord } from './sim-recorder';
 import { STATE_HASH_VERSION } from './state-hash';
 import { worldRefShape, worldsMatch, type WorldRef } from '../world/world-ref';
+import { worldPackageShape, type WorldPackage } from '../coop/world-package';
 
 /**
  * Bumped whenever the file's shape changes; another version is refused. 3 keeps each line of sight once in
- * `masks` (serializeReplayFile); a file of version 2 holds them in place and still reads.
+ * `masks` (serializeReplayFile); a file of version 2 holds them in place and still reads. 4 carries the
+ * place (`place`); files of 2 and 3 read without it.
  */
-export const REPLAY_FILE_VERSION = 3;
-const READABLE_VERSIONS: readonly number[] = [2, REPLAY_FILE_VERSION];
+export const REPLAY_FILE_VERSION = 4;
+const READABLE_VERSIONS: readonly number[] = [2, 3, REPLAY_FILE_VERSION];
+
+/** Where a replay was played: the place's name and its world as measured then (routes, cells, heights) */
+export interface ReplayPlace {
+  name: string;
+  world: WorldPackage;
+}
 const FORMAT = '3dtd-replay';
 
 /**
@@ -20,8 +28,10 @@ const FORMAT = '3dtd-replay';
  * (section 18 of docs/archive/MULTIPLAYER_CONCEPT.md): world key, config hash,
  * seed, inputs.
  *
- * The world is not in it: a replay re-simulates on the world it was played
- * on, so the file carries a key of it and only loads where the key matches.
+ * A replay re-simulates on the world it was played on: the file carries a
+ * key of it and only plays where the key matches. Since version 4 it also
+ * carries the place with its world, as a save does: loaded elsewhere, the
+ * game can go there first (ReplayService.playThere).
  */
 export interface ReplayFile {
   format: typeof FORMAT;
@@ -36,6 +46,8 @@ export interface ReplayFile {
   worldKey: string;
   /** Which world it was played on (WorldRef); absent from files before it, whose world key alone decides */
   world?: WorldRef;
+  /** The place it was played at, with its world; absent from files before version 4 */
+  place?: ReplayPlace;
   /** run-log/config-hash.ts: the balance it was played with */
   configHash: string;
   /**
@@ -119,7 +131,7 @@ function expandMasks(data: { waves: unknown[]; log: unknown[] }, table: unknown)
 export function buildReplayFile(
   records: readonly WaveRecord[],
   log: readonly CommandLogEntry[],
-  head: { worldKey: string; world: WorldRef; configHash: string; seed: number; gameVersion: string; commit: string },
+  head: { worldKey: string; world: WorldRef; configHash: string; seed: number; gameVersion: string; commit: string; place?: ReplayPlace },
   now: Date = new Date(),
 ): ReplayFile {
   const waves = records.filter(replayable);
@@ -182,7 +194,7 @@ function wellFormed(data: { waves: unknown[]; log: unknown[] }): boolean {
 export function readReplayFile(
   text: string,
   here: { worldKey: string; world: WorldRef; configHash: string; gameVersion: string },
-): { file: ReplayFile; refusal: null; note: string | null } | { file: null; refusal: ReplayFileRefusal } {
+): { file: ReplayFile; refusal: null; note: string | null } | { file: null; refusal: ReplayFileRefusal; place?: ReplayPlace } {
   // UTF-16 code units, at least the bytes of any ASCII file: a cap for a file that came another way than loadFile
   if (text.length > MAX_REPLAY_FILE_BYTES) return { file: null, refusal: 'too-big' };
   let data: Partial<ReplayFile>;
@@ -201,8 +213,12 @@ export function readReplayFile(
   if (!wellFormed(parts) || !expandMasks(parts, data.masks)) return { file: null, refusal: 'damaged' };
   delete data.masks;
   if (data.world !== undefined && !worldRefShape(data.world)) return { file: null, refusal: 'damaged' };
-  if (data.world !== undefined && !worldsMatch(data.world, here.world)) return { file: null, refusal: 'other-world' };
-  if (data.worldKey !== here.worldKey) return { file: null, refusal: 'other-world' };
+  const place = data.place === undefined ? undefined : placeShape(data.place);
+  if (place === null) return { file: null, refusal: 'damaged' };
+  // Played elsewhere: the place, when the file has it, to go there first
+  if ((data.world !== undefined && !worldsMatch(data.world, here.world)) || data.worldKey !== here.worldKey) {
+    return place ? { file: null, refusal: 'other-world', place } : { file: null, refusal: 'other-world' };
+  }
   if (data.configHash !== here.configHash) return { file: null, refusal: 'other-balance' };
   if (data.waves.length === 0) return { file: null, refusal: 'empty' };
   const notes: string[] = [];
@@ -215,6 +231,13 @@ export function readReplayFile(
     file.waves = file.waves.map((wave) => ({ ...wave, hashes: [] }));
   }
   return { file, refusal: null, note: notes.length > 0 ? notes.join(' ') : null };
+}
+
+/** `data` as a place with its world, null when it is none */
+function placeShape(data: unknown): ReplayPlace | null {
+  if (!isObject(data) || typeof data['name'] !== 'string') return null;
+  const world = worldPackageShape(data['world']);
+  return world ? { name: data['name'], world } : null;
 }
 
 /** A stream of the one chunk `bytes` (not Blob.stream, which not every runtime has) */

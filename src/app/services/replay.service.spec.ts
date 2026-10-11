@@ -22,6 +22,9 @@ vi.mock('../director/wave-director', () => ({ WaveDirector: class WaveDirector {
 vi.mock('./location/location-management.service', () => ({
   LocationManagementService: class LocationManagementService {},
 }));
+vi.mock('./world/main-world.service', () => ({ MainWorldService: class MainWorldService {} }));
+vi.mock('./world/world-package-loader.service', () => ({ WorldPackageLoader: class WorldPackageLoader {} }));
+vi.mock('./world/intro-camera-flight.service', () => ({ IntroCameraFlightService: class IntroCameraFlightService {} }));
 vi.mock('../run-log/config-hash', () => ({ balanceConfigHash: () => 'hash' }));
 
 // No change detection here: the recording's effect and the focus after layout stay idle
@@ -51,6 +54,9 @@ import { BossIntroService } from './boss-intro.service';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { WaveDirector } from '../director/wave-director';
 import { LocationManagementService } from './location/location-management.service';
+import { MainWorldService } from './world/main-world.service';
+import { WorldPackageLoader } from './world/world-package-loader.service';
+import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { WorldContext } from '../world/world-context.service';
 import { fakeWorldContext } from '../../test/world-context-fake';
 
@@ -75,6 +81,11 @@ describe('ReplayService.enter gate', () => {
   let injector: Injector;
   /** What SimScalars.snapshotRefusal says: shots still flying or a quiet field */
   let refusal: string | null;
+  /** The place loader: where it stands, what it was asked */
+  let loader: {
+    worldHere: ReturnType<typeof vi.fn>; placeLoaded: ReturnType<typeof vi.fn>; standsOn: ReturnType<typeof vi.fn>;
+    sameHq: ReturnType<typeof vi.fn>; moveTo: ReturnType<typeof vi.fn>; takeSpawns: ReturnType<typeof vi.fn>; adopt: ReturnType<typeof vi.fn>;
+  };
 
   /** A packet naming the waves the simulation can re-simulate */
   const recorded = (...waves: number[]) => {
@@ -104,6 +115,16 @@ describe('ReplayService.enter gate', () => {
       getControls: () => null,
     };
     getEngine = vi.fn(() => engine);
+    let there = false;
+    loader = {
+      worldHere: vi.fn(() => null),
+      placeLoaded: vi.fn(async () => true),
+      standsOn: vi.fn(() => there),
+      sameHq: vi.fn(() => false),
+      moveTo: vi.fn(async () => (there = true)),
+      takeSpawns: vi.fn(async () => true),
+      adopt: vi.fn((world: { worldKey: string }) => world.worldKey),
+    };
 
     injector = Injector.create({
       providers: [
@@ -143,6 +164,9 @@ describe('ReplayService.enter gate', () => {
         { provide: ElementRef, useValue: new ElementRef(host) },
         { provide: WaveDirector, useValue: { source: { id: 'budget' } } },
         { provide: LocationManagementService, useValue: { editableHqLocation: () => null } },
+        { provide: MainWorldService, useValue: { source: () => null } },
+        { provide: WorldPackageLoader, useValue: loader },
+        { provide: IntroCameraFlightService, useValue: { cancel: vi.fn() } },
       ],
     });
     service = runInInjectionContext(injector, () => new ReplayService());
@@ -295,5 +319,45 @@ describe('ReplayService.enter gate', () => {
     expect(service.fromFile()).toBe(false);
     expect(service.fileNote()).toBeNull();
     expect(rpc.mock.calls.map(([method]) => method)).toEqual(['loadReplayFile', 'replayExit']);
+  });
+
+  it('offers to go to the place a file was played at, goes there, takes its world and plays the file', async () => {
+    const place = { name: 'Heilbronn', world: { worldKey: 'w-heilbronn', hq: { lat: 49.1, lon: 9.2 }, spawns: [] } };
+    let here = 'w-here';
+    rpc.mockImplementation(async (method: string, wave?: number) => {
+      if (method === 'loadReplayFile') {
+        return here === place.world.worldKey
+          ? { refusal: null, note: null, waves: [1], place: null }
+          : { refusal: 'other-world', note: null, waves: [], place };
+      }
+      return method === 'replayEnter' ? { wave, startStep: 0, lengthInSteps: 100, waves: [1], markers: [] } : null;
+    });
+    loader.adopt.mockImplementation((world: { worldKey: string }) => (here = world.worldKey));
+
+    await service.loadFile(new Blob(['{}']));
+    expect(service.active()).toBe(false);
+    expect(service.elsewhere()).toEqual({ name: 'Heilbronn' });
+    expect(service.fileProblem()).toBe('That replay was played in Heilbronn. Going there ends the run here.');
+
+    await service.playThere();
+    expect(loader.moveTo).toHaveBeenCalledWith(place.world, 'Heilbronn');
+    expect(loader.adopt).toHaveBeenCalledWith(place.world);
+    expect(service.active()).toBe(true);
+    expect(service.fromFile()).toBe(true);
+    expect(service.elsewhere()).toBeNull();
+    expect(service.fileProblem()).toBeNull();
+  });
+
+  it('does not offer to go to a place of another world, and says why the file does not load', async () => {
+    const place = { name: 'Witch Marsh', world: { worldKey: 'w-marsh', hq: { lat: 0, lon: 0 }, spawns: [] } };
+    rpc.mockImplementation(async (method: string) =>
+      (method === 'loadReplayFile' ? { refusal: 'other-world', note: null, waves: [], place } : null));
+    loader.worldHere.mockReturnValue('It plays the map "Witch Marsh", which is not open here. Open that map first.');
+
+    await service.loadFile(new Blob(['{}']));
+    expect(service.elsewhere()).toBeNull();
+    expect(service.fileProblem()).toBe('That replay was played on another map. Load the same place first.');
+    await service.playThere();
+    expect(loader.moveTo).not.toHaveBeenCalled();
   });
 });

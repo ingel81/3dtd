@@ -115,6 +115,9 @@
 @if (replay.fileProblem(); as problem) {
   <p class="td-note is-warn" role="status">{{ problem }}</p>
 }
+@if (replay.elsewhere(); as there) {
+  <button type="button" class="td-link td-note" [disabled]="replay.goingThere()" (click)="replay.playThere()">Go to {{ there.name }} and play</button>
+}
 
 <!-- NEXT: the coming waves on a timeline, one detail line for one of them;
      past W30 what is known before the director picks -->

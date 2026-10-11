@@ -95,6 +95,7 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
         { provide: CameraControlService, useValue: { resetCamera, focusGeo } },
         { provide: RouteAnimationService, useValue: { setHoldUntilReleased: vi.fn() } },
         { provide: NgZone, useValue: { run: (fn: () => void) => fn() } },
+        { provide: UIStore, useValue: { replayMode: () => false } },
       ],
     });
     intro = runInInjectionContext(flightInjector, () => new IntroCameraFlightService());

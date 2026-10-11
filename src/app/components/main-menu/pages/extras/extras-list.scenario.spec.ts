@@ -57,14 +57,24 @@ describe('Extras page', () => {
   async function setup({ inCoop = false, recorded = false, place = true, replayStarts = true }: Setup = {}) {
     const active = signal(false);
     const fileProblem = signal<string | null>(null);
+    const elsewhere = signal<{ name: string } | null>(null);
     const replay = {
       active,
       fileProblem,
+      elsewhere,
+      goingThere: signal(false),
       recordedWave: signal(recorded ? 3 : null),
       saveFile: vi.fn(async () => true),
       loadFile: vi.fn(async () => {
         if (replayStarts) active.set(true);
-        else fileProblem.set('This replay was played on another world.');
+        else {
+          fileProblem.set('That replay was played in Heilbronn. Going there ends the run here.');
+          elsewhere.set({ name: 'Heilbronn' });
+        }
+      }),
+      playThere: vi.fn(async () => {
+        elsewhere.set(null);
+        active.set(true);
       }),
     };
     const benchmark = { start: vi.fn() };
@@ -121,7 +131,13 @@ describe('Extras page', () => {
     const refused = await setup({ replayStarts: false });
     await refused.pickFile();
     expect(refused.leave).not.toHaveBeenCalled();
-    expect(refused.el.querySelector('.mp-status')!.textContent).toContain('another world');
+    expect(refused.el.querySelector('.mp-status')!.textContent).toContain('played in Heilbronn');
+    // Its place can be gone to: the button goes there and the replay plays, the menu makes way
+    const go = [...refused.el.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Go to Heilbronn and play')!;
+    go.click();
+    await refused.settle();
+    expect(refused.replay.playThere).toHaveBeenCalledTimes(1);
+    expect(refused.leave).toHaveBeenCalledTimes(1);
   });
 
   it('no replay file without a place or in coop; the replay saves once a wave is recorded', async () => {

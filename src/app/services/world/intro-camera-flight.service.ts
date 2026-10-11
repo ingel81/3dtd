@@ -31,6 +31,7 @@ import {
 } from '../../utils/flight-altitude';
 import { CameraControlService } from '../camera-control.service';
 import { RouteAnimationService } from './route-animation.service';
+import { UIStore } from '../../store/ui.store';
 
 /**
  * Phases of the intro sequence, in order. Each runs to its own timer except
@@ -288,6 +289,7 @@ const TRACE_HEADER = 't,phase,distance,x,y,z,yaw,pitch,currentY,desiredY,groundY
 export class IntroCameraFlightService {
   private readonly cameraControl = inject(CameraControlService);
   private readonly routeAnimation = inject(RouteAnimationService);
+  private readonly uiStore = inject(UIStore);
   private readonly ngZone = inject(NgZone);
 
   readonly cfg: FlightConfig = { ...DEFAULT_CONFIG };
@@ -447,6 +449,12 @@ export class IntroCameraFlightService {
    * @param cachedPaths Routes keyed by spawn id (`PathRouteService.getCachedPaths()`)
    */
   start(cachedPaths: Map<string, GeoPosition[]>): void {
+    // A replay holds the camera (a file played at the place it just went to, ReplayService.playThere)
+    if (this.uiStore.replayMode()) {
+      this.prepared = false;
+      this.skip('replay');
+      return;
+    }
     if (!this.prepared && !this.prepare(cachedPaths)) return;
     this.prepared = false;
 

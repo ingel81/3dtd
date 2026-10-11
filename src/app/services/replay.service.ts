@@ -10,7 +10,12 @@ import { REPLAY_CONFIG } from '../configs/replay.config';
 import type { ReplayMarker } from '../replay/replay-bar-view';
 import {
   MAX_REPLAY_FILE_BYTES, replayFileBlob, replayFileName, replayFileRefusalText, replayFileText, type ReplayFile, type ReplayFileRefusal,
+  type ReplayPlace,
 } from '../simulator/replay-file';
+import { buildWorldPackage } from '../coop/world-package';
+import { MainWorldService } from './world/main-world.service';
+import { WorldPackageLoader } from './world/world-package-loader.service';
+import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { buildCommit } from '../run-log/build-commit';
 import { BUILD_VERSION } from '../configs/build-info.config';
@@ -83,6 +88,9 @@ export class ReplayService {
   private readonly announcer = inject(LiveAnnouncer);
   private readonly waveDirector = inject(WaveDirector);
   private readonly locations = inject(LocationManagementService);
+  private readonly mainWorld = inject(MainWorldService);
+  private readonly worldLoader = inject(WorldPackageLoader);
+  private readonly introFlight = inject(IntroCameraFlightService);
 
   readonly active = this.uiStore.replayMode;
   /** The newest wave a replay can show, null while there is none (SimScalars.replayableWaves) */
@@ -127,6 +135,12 @@ export class ReplayService {
   readonly fileProblem = signal<string | null>(null);
   /** A loaded file of another game version: shown in the bar, the replay may differ */
   readonly fileNote = signal<string | null>(null);
+  /** A file refused as played elsewhere, whose place this page can go to (playThere); null otherwise */
+  readonly elsewhere = signal<{ name: string } | null>(null);
+  /** Going to the place of `elsewhere` and playing the file there (playThere) */
+  readonly goingThere = signal(false);
+  /** The file and place behind `elsewhere` */
+  private there: { blob: Blob; place: ReplayPlace } | null = null;
 
   /** The wave the simulation re-simulates, null outside a replay (or while it is being entered) */
   private entered: ReplayEntered | null = null;
@@ -192,6 +206,9 @@ export class ReplayService {
     if (this.gameStore.mannedTowerId()) this.sim.bus.emit({ type: 'command:leave-tower' });
 
     if (this.photoMode.active()) this.photoMode.exit();
+    // The flight onto a place just loaded (a file played elsewhere, playThere): the camera is the replay's now,
+    // and the flight would take its Esc as a skip
+    this.introFlight.cancel('replay');
     this.focusBefore = focusedElement();
     this.menuBefore = this.uiStore.openMenu();
     // Nothing of the game UI in the replay: build preview, placement
@@ -386,6 +403,7 @@ export class ReplayService {
       gameVersion: BUILD_VERSION,
       commit: buildCommit(),
       world: this.worldContext.ref(),
+      place: this.place() ?? undefined,
     });
     if (!doc || !file || file.waves.length === 0) return false;
     const blob = await replayFileBlob(file.text);
@@ -400,12 +418,26 @@ export class ReplayService {
     return true;
   }
 
+  /** The place loaded here with its world as measured, for the file (a save takes the same) */
+  private place(): ReplayPlace | null {
+    const source = this.mainWorld.source();
+    if (!source) return null;
+    const head = { gameVersion: BUILD_VERSION, configHash: balanceConfigHash() };
+    return {
+      name: this.locations.getLocationDisplayName(),
+      world: buildWorldPackage(source, { ...head, waveSource: this.waveDirector.source.id, world: this.worldContext.ref() }),
+    };
+  }
+
   /**
    * Load a replay file and play its first wave. Only on the world and with
    * the balance it was played with, between waves or after game over;
-   * otherwise fileProblem says why.
+   * otherwise fileProblem says why. A file played at another place of this
+   * world offers to go there (elsewhere, playThere).
    */
   async loadFile(blob: Blob): Promise<void> {
+    this.elsewhere.set(null);
+    this.there = null;
     // Before reading it whole: a file far above any replay could freeze the tab
     if (blob.size > MAX_REPLAY_FILE_BYTES) {
       this.ngZone.run(() => this.fileProblem.set(replayFileRefusalText('too-big')));
@@ -428,7 +460,15 @@ export class ReplayService {
     const read = await this.sim.rpc('loadReplayFile', text, { configHash: this.configHash(), gameVersion: BUILD_VERSION, world: this.worldContext.ref() });
     await this.ngZone.run(async () => {
       if (read.refusal) {
-        const why = replayFileRefusalText(read.refusal as ReplayFileRefusal);
+        const place = read.refusal === 'other-world' ? read.place : null;
+        // Another place of this world: the game can go there; another world (a map, the other tiles) it cannot
+        const why = place && this.worldLoader.worldHere(place.world) === null
+          ? `That replay was played in ${place.name}. Going there ends the run here.`
+          : replayFileRefusalText(read.refusal as ReplayFileRefusal);
+        if (place && this.worldLoader.worldHere(place.world) === null) {
+          this.there = { blob, place };
+          this.elsewhere.set({ name: place.name });
+        }
         this.fileProblem.set(why);
         this.announcer.announce(why);
         return;
@@ -449,6 +489,39 @@ export class ReplayService {
         await this.sim.rpc('replayExit');
       }
     });
+  }
+
+  /**
+   * Go to the place a refused file was played at (elsewhere) and play it
+   * there: the place loads as for a save of it (WorldPackageLoader), its
+   * measured world takes the place of the one measured now, and a fresh run
+   * on it plays the file. The run here ends.
+   */
+  async playThere(): Promise<void> {
+    const there = this.there;
+    if (!there || this.goingThere()) return;
+    const world = there.place.world;
+    this.goingThere.set(true);
+    this.fileProblem.set(`Going to ${there.place.name}...`);
+    try {
+      let ok = await this.worldLoader.placeLoaded();
+      if (ok && !this.worldLoader.standsOn(world)) {
+        ok = this.worldLoader.sameHq(world)
+          ? await this.worldLoader.takeSpawns(world)
+          : await this.worldLoader.moveTo(world, there.place.name);
+      }
+      if (!ok || !this.worldLoader.standsOn(world)) {
+        this.fileProblem.set(`${there.place.name} did not load.`);
+        return;
+      }
+      if (this.worldLoader.adopt(world) !== world.worldKey) {
+        this.fileProblem.set(`The world of ${there.place.name} did not come out the same here.`);
+        return;
+      }
+      await this.loadFile(there.blob);
+    } finally {
+      this.goingThere.set(false);
+    }
   }
 
   /** enter() without its gate on the run's own waves: a loaded file brings its own. */

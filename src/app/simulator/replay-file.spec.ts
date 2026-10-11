@@ -7,6 +7,7 @@ import type { WaveRecord } from './sim-recorder';
 import { SIM_SNAPSHOT_VERSION } from './sim-snapshot';
 import { STATE_HASH_VERSION } from './state-hash';
 import { TEST_WORLD_REF } from '../../test/world-context-fake';
+import { buildWorldPackage, type WorldSource } from '../coop/world-package';
 
 const here = { worldKey: 'w', world: TEST_WORLD_REF, configHash: 'c', gameVersion: 'v1' };
 
@@ -33,6 +34,20 @@ describe('readReplayFile', () => {
     expect(readReplayFile(file((f) => { f['world'] = dev; }), here).refusal).toBe('other-world');
     expect(readReplayFile(file((f) => { f['world'] = { kind: 'tiles', source: 'google' }; }), here).refusal).toBeNull();
     expect(readReplayFile(file((f) => { f['world'] = { kind: 'moon' }; }), here).refusal).toBe('damaged');
+  });
+
+  it('names the place of a file played elsewhere, refuses a place that is none, reads older files without one', () => {
+    const at = (lat: number, lon: number) => ({ lat, lon, height: 0 });
+    const world = buildWorldPackage({
+      origin: at(49.14, 9.22), hq: at(49.14, 9.22), spawns: [{ id: 'spawn-1', name: 'Spawn 1', ...at(49.15, 9.23) }],
+      paths: new Map([['spawn-1', [at(49.15, 9.23), at(49.14, 9.22)]]]), heights: [[1, 160, 1]], worldKey: 'w-heilbronn',
+    } as unknown as WorldSource, { gameVersion: 'v1', configHash: 'c', world: TEST_WORLD_REF });
+    const elsewhere = readReplayFile(file((f) => { f['worldKey'] = 'w-heilbronn'; f['place'] = { name: 'Heilbronn', world }; }), here);
+    expect(elsewhere).toMatchObject({ refusal: 'other-world', place: { name: 'Heilbronn', world: { worldKey: 'w-heilbronn' } } });
+    expect(readReplayFile(file((f) => { f['place'] = { name: 'Heilbronn', world }; }), here).refusal).toBeNull();
+    expect(readReplayFile(file((f) => { f['place'] = { name: 'Heilbronn', world: {} }; }), here).refusal).toBe('damaged');
+    const old = readReplayFile(file((f) => { f['version'] = 3; f['worldKey'] = 'other'; }), here);
+    expect(old).toEqual({ file: null, refusal: 'other-world' });
   });
 
   it('refuses a text far above any replay before parsing it', () => {

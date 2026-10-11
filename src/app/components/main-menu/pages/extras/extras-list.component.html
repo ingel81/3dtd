@@ -50,6 +50,11 @@
 @if (status(); as s) {
   <p class="td-note mp-status" [class.is-error]="s.bad" role="status">{{ s.text }}</p>
 }
+@if (replay?.elsewhere(); as there) {
+  <div class="td-actions is-start">
+    <button type="button" class="td-btn-primary" [disabled]="replay?.goingThere()" (click)="playThere()">Go to {{ there.name }} and play</button>
+  </div>
+}
 
 <section class="td-group" aria-labelledby="td-extras-game">
   <h3 class="td-section" id="td-extras-game">The game</h3>

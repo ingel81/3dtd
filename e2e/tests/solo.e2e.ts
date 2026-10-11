@@ -166,3 +166,61 @@ test('S1 a save comes back as it was, from its slot and from its file, while a r
     await expect.poll(() => runState(page), { timeout: 120_000 }).toEqual(saved);
   });
 });
+
+test('a replay file saved at one place plays at another: the game goes there first', async ({ duo, relay: _relay }, testInfo) => {
+  test.setTimeout(12 * 60_000);
+  const page = duo.host;
+  const menu = gameMenu(page);
+  const extras = async () => {
+    await openGameMenu(page);
+    await menu.getByRole('menuitem', { name: /^Extras/i }).first().click();
+    await expect(menu.getByRole('button', { name: /Load a replay file/ })).toBeVisible();
+  };
+  // A fresh run on a place of its own, as M5 starts
+  await page.getByRole('button', { name: 'Random city' }).click();
+  await page.waitForTimeout(3000);
+  await gameReady(page);
+
+  await test.step('a wave played without cheats leaves a replay', async () => {
+    expect(await buildArcher(page), 'a tower stands').toBe(true);
+    const speed = page.locator('.speed-btn');
+    for (let i = 0; i < 3 && !/4x/.test(await speed.innerText()); i++) await speed.click();
+    await page.keyboard.press('Space');
+    await expect(waveButton(page)).toContainText(/left/i);
+    await expect(waveButton(page)).not.toContainText(/left/i, { timeout: 5 * 60_000 });
+    for (let i = 0; i < 3 && !/1x/.test(await speed.innerText()); i++) await speed.click();
+    await expect(page.getByRole('button', { name: /Replay wave \d+/ })).toBeVisible();
+  });
+
+  const file = await test.step('Extras saves the replay as a file', async () => {
+    await extras();
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      menu.getByRole('button', { name: /Save the replay/ }).click(),
+    ]);
+    const path = testInfo.outputPath(download.suggestedFilename());
+    await download.saveAs(path);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+    return path;
+  });
+
+  await test.step('at another place the file offers to go back there, and plays there', async () => {
+    await page.getByRole('button', { name: 'Random city' }).click();
+    await page.waitForTimeout(3000);
+    await gameReady(page);
+    await extras();
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      menu.getByRole('button', { name: /Load a replay file/ }).click(),
+    ]);
+    await chooser.setFiles(file);
+    await expect(menu.locator('.mp-status')).toContainText('That replay was played in');
+    await menu.getByRole('button', { name: /^Go to .+ and play$/ }).click();
+    await expect(page.locator('app-replay-bar, .td-replay-bar').first()).toBeVisible({ timeout: 180_000 });
+    await shot(testInfo, page, 'replay-elsewhere');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('app-replay-bar, .td-replay-bar')).toHaveCount(0, { timeout: 30_000 });
+  });
+});
