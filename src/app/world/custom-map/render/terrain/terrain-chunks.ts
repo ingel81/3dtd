@@ -150,14 +150,23 @@ export class TerrainChunks {
   rebuild(rect?: GridRect): void {
     for (const c of this.chunks) {
       if (rect && (rect.i1 < c.i0 - 1 || rect.i0 > c.i1 + 1 || rect.j1 < c.j0 - 1 || rect.j0 > c.j1 + 1)) continue;
+      const lod = c.lod;
+      // The shown level is rewritten in place for the samples the change reaches (a brush on a fine
+      // chunk rebuilt 4 000 vertices per step); the others are dropped and built when next shown
+      const kept = rect && lod >= 0 ? c.levels[lod] : null;
       for (let l = 0; l < c.levels.length; l++) {
+        if (c.levels[l] === kept) continue;
         c.levels[l]?.dispose();
         c.levels[l] = null;
       }
       this.computeBox(c);
-      const lod = c.lod;
-      c.lod = -1;
-      this.setLevel(c, lod);
+      if (kept && rect) {
+        this.updateGeometry(c, kept, 1 << lod, rect);
+        this.version++;
+      } else {
+        c.lod = -1;
+        this.setLevel(c, lod);
+      }
     }
   }
 
@@ -233,24 +242,63 @@ export class TerrainChunks {
     return out;
   }
 
-  private buildGeometry(c: Chunk, step: number): BufferGeometry {
-    const f = this.field;
+  /**
+   * Rewrites the vertices of a built level whose samples lie in `rect` or
+   * near enough to feel it (normals look one sample out, the morph target
+   * two steps), skirts included
+   */
+  private updateGeometry(c: Chunk, g: BufferGeometry, step: number, rect: GridRect): void {
     const is = TerrainChunks.axis(c.i0, c.i1, step);
     const js = TerrainChunks.axis(c.j0, c.j1, step);
     const nx = is.length;
     const ny = js.length;
-    const ring = 2 * (nx + ny) - 4;
-    const vertexCount = nx * ny + ring;
-    const pos = new Float32Array(vertexCount * 3);
-    const nor = new Float32Array(vertexCount * 3);
-    // Geomorphing (x: height to the next coarser level, y/z: the camera distance band in which the
-    // terrain material blends towards it, ending where the chunk switches), so a level change does not pop
-    const morph = new Float32Array(vertexCount * 3);
+    const pos = g.getAttribute('position') as BufferAttribute;
+    const nor = g.getAttribute('normal') as BufferAttribute;
+    const morph = g.getAttribute('aMorph') as BufferAttribute;
+    const put = this.vertexWriter(c, step, pos.array as Float32Array, nor.array as Float32Array, morph.array as Float32Array);
+    const reach = step * 2 + 1;
+    const near = (i: number, j: number): boolean =>
+      i >= rect.i0 - reach && i <= rect.i1 + reach && j >= rect.j0 - reach && j <= rect.j1 + reach;
+    for (let b = 0; b < ny; b++) {
+      if (js[b] < rect.j0 - reach || js[b] > rect.j1 + reach) continue;
+      for (let a = 0; a < nx; a++) if (near(is[a], js[b])) put(b * nx + a, is[a], js[b], 0);
+    }
+    const skirt = Math.max(2, this.field.cellSize * step * 2);
+    TerrainChunks.border(nx, ny).forEach((v, k) => {
+      const a = v % nx;
+      const b = (v - a) / nx;
+      if (near(is[a], js[b])) put(nx * ny + k, is[a], js[b], skirt);
+    });
+    pos.needsUpdate = true;
+    nor.needsUpdate = true;
+    morph.needsUpdate = true;
+    g.computeBoundingSphere();
+    g.computeBoundingBox();
+  }
+
+  /** The vertex indices of a level's border loop, counter-clockwise in grid space */
+  private static border(nx: number, ny: number): number[] {
+    const border: number[] = [];
+    for (let a = 0; a < nx; a++) border.push(a);
+    for (let b = 1; b < ny; b++) border.push(b * nx + nx - 1);
+    for (let a = nx - 2; a >= 0; a--) border.push((ny - 1) * nx + a);
+    for (let b = ny - 2; b >= 1; b--) border.push(b * nx);
+    return border;
+  }
+
+  /** Writes one vertex of a level: position (dropped for skirts), normal from the full grid, morph target and band */
+  private vertexWriter(
+    c: Chunk,
+    step: number,
+    pos: Float32Array,
+    nor: Float32Array,
+    morph: Float32Array,
+  ): (v: number, i: number, j: number, drop: number) => void {
+    const f = this.field;
     const lod = Math.round(Math.log2(step));
     const switchAt = this.chunkCells * f.cellSize * this.lodDistance * 2 ** lod;
     const bandStart = lod >= this.maxLod ? 1e9 : switchAt * 0.65;
     const bandEnd = lod >= this.maxLod ? 1e9 + 1 : switchAt;
-    const skirt = Math.max(2, f.cellSize * step * 2);
     const n = this.tmp;
 
     // Height of the next coarser level (step 2s) at a sample, on its two triangles per cell
@@ -268,7 +316,7 @@ export class TerrainChunks {
         ? h00 + u * (f.sample(ci1, cj0) - h00) + w * (h11 - f.sample(ci1, cj0))
         : h00 + w * (f.sample(ci0, cj1) - h00) + u * (h11 - f.sample(ci0, cj1));
     };
-    const put = (v: number, i: number, j: number, drop: number): void => {
+    return (v: number, i: number, j: number, drop: number): void => {
       const x = f.originX + i * f.cellSize;
       const y = f.originY + j * f.cellSize;
       const h = f.sample(i, j);
@@ -286,15 +334,28 @@ export class TerrainChunks {
       nor[v * 3 + 1] = n.y;
       nor[v * 3 + 2] = n.z;
     };
+  }
+
+  private buildGeometry(c: Chunk, step: number): BufferGeometry {
+    const f = this.field;
+    const is = TerrainChunks.axis(c.i0, c.i1, step);
+    const js = TerrainChunks.axis(c.j0, c.j1, step);
+    const nx = is.length;
+    const ny = js.length;
+    const ring = 2 * (nx + ny) - 4;
+    const vertexCount = nx * ny + ring;
+    const pos = new Float32Array(vertexCount * 3);
+    const nor = new Float32Array(vertexCount * 3);
+    // Geomorphing (x: height to the next coarser level, y/z: the camera distance band in which the
+    // terrain material blends towards it, ending where the chunk switches), so a level change does not pop
+    const morph = new Float32Array(vertexCount * 3);
+    const skirt = Math.max(2, f.cellSize * step * 2);
+    const put = this.vertexWriter(c, step, pos, nor, morph);
 
     for (let b = 0; b < ny; b++) for (let a = 0; a < nx; a++) put(b * nx + a, is[a], js[b], 0);
 
     // Border loop (counter-clockwise in grid space) and its dropped copy
-    const border: number[] = [];
-    for (let a = 0; a < nx; a++) border.push(a);
-    for (let b = 1; b < ny; b++) border.push(b * nx + nx - 1);
-    for (let a = nx - 2; a >= 0; a--) border.push((ny - 1) * nx + a);
-    for (let b = ny - 2; b >= 1; b--) border.push(b * nx);
+    const border = TerrainChunks.border(nx, ny);
     const skirtBase = nx * ny;
     border.forEach((v, k) => {
       const a = v % nx;

@@ -30,3 +30,29 @@ describe('TerrainChunks', () => {
     }
   });
 });
+
+describe('TerrainChunks brush update', () => {
+  for (const height of [10, 900]) it(`rewrites the shown level in place to what a full rebuild gives (camera ${height} m up)`, () => {
+    const n = 129;
+    const heights = new Float32Array(n * n).map((_, k) => Math.sin(k * 0.37) * 3);
+    const field = new HeightField({ columns: n, rows: n, cellSize: 2, heights }, 256, 256);
+    const a = new TerrainChunks(field, new MeshBasicMaterial());
+    const far = mapToScene(0, 0, height, new Vector3());
+    a.group.updateMatrixWorld();
+    a.update(far, far);
+    // A brush in the middle
+    for (let j = 60; j <= 70; j++) for (let i = 55; i <= 66; i++) heights[j * n + i] += 2.5;
+    const rect = { i0: 55, j0: 60, i1: 66, j1: 70 };
+    a.rebuild(rect);
+    const b = new TerrainChunks(field, new MeshBasicMaterial());
+    b.group.updateMatrixWorld();
+    b.update(far, far);
+    const ga = a.meshes.map((m) => (m as Mesh<BufferGeometry>).geometry);
+    const gb = b.meshes.map((m) => (m as Mesh<BufferGeometry>).geometry);
+    for (let k = 0; k < ga.length; k++) {
+      for (const name of ['position', 'normal', 'aMorph']) {
+        expect(Array.from(ga[k].getAttribute(name).array)).toEqual(Array.from(gb[k].getAttribute(name).array));
+      }
+    }
+  });
+});

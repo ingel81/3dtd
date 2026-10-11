@@ -274,13 +274,25 @@ export class MapObjectLayer {
       if (floatingOnly && !b.entry.float) continue;
       const reach = b.entry.footprint * 3 + 2;
       const changed: number[] = [];
-      for (let i = 0; i < b.objects.length; i++) {
+      const visit = (i: number): void => {
         const o = b.objects[i];
         if (rect && (o.x < rect.minX - reach || o.x > rect.maxX + reach || o.y < rect.minY - reach || o.y > rect.maxY + reach)) {
-          continue;
+          return;
         }
         this.writeInstance(b, i);
         changed.push(i);
+      };
+      if (rect) {
+        // Only the cells the rectangle reaches: a brush on a map of 50 000 objects touches a few dozen
+        const cx0 = Math.floor((rect.minX - reach) / CELL_SIZE);
+        const cx1 = Math.floor((rect.maxX + reach) / CELL_SIZE);
+        const cy0 = Math.floor((rect.minY - reach) / CELL_SIZE);
+        const cy1 = Math.floor((rect.maxY + reach) / CELL_SIZE);
+        for (let cx = cx0; cx <= cx1; cx++) {
+          for (let cy = cy0; cy <= cy1; cy++) b.cells.get(cx * 4096 + cy)?.indices.forEach(visit);
+        }
+      } else {
+        for (let i = 0; i < b.objects.length; i++) visit(i);
       }
       if (changed.length) {
         this.uploadInstances(b, changed, !!rect);
