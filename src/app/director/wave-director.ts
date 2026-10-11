@@ -18,7 +18,8 @@ import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { WaveConfig } from './models/wave-config';
 import { WaveResult } from './models/wave-result';
 import { formatExplanation } from './wave-explanation';
-import { createWaveSource, initialWaveSourceId } from './wave-source.registry';
+import { createWaveSource, initialWaveSourceId, type WaveSourceOptions } from './wave-source.registry';
+import type { WaveTable } from './sources/table/wave-table';
 import { setActiveWaveRules } from './wave-rules';
 import type {
   PlannedWave,
@@ -49,6 +50,11 @@ export class WaveDirector {
    * game keeps the one it started with.
    */
   private nextSourceId: WaveSourceId = this.activeSource.id;
+
+  /** What the world gives its sources (a custom map's own wave list), see useWorldWaves */
+  private worldWaves: WaveSourceOptions = {};
+  /** The options the active source was made with: other ones make it again at the next reset */
+  private activeOptions: WaveSourceOptions = this.worldWaves;
 
   /** The wave the source has committed, or null before the first one. */
   private plannedWave: PlannedWave | null = null;
@@ -107,6 +113,22 @@ export class WaveDirector {
   /** What the next run will play. `resetForNewGame` puts it into service. */
   useSourceNextRun(id: WaveSourceId): void {
     this.nextSourceId = id;
+  }
+
+  /**
+   * The world's part of the wave sources from the next run on: a custom
+   * map's own wave list (the table source plays it) and the source the map
+   * asks for, null for the game's choice. A world without (the tiles,
+   * DevWorld) passes {} and null.
+   */
+  useWorldWaves(options: WaveSourceOptions, source: WaveSourceId | null): void {
+    this.worldWaves = options;
+    if (source !== null) this.nextSourceId = source;
+  }
+
+  /** The world's wave list the table source plays, undefined for the checked-in one (the simulation's rules follow it) */
+  get worldTable(): WaveTable | undefined {
+    return this.worldWaves.table;
   }
 
   /** What the next run will play, for the debug window's own display. */
@@ -211,8 +233,9 @@ export class WaveDirector {
    * against a target of 80.
    */
   resetForNewGame(): void {
-    if (this.nextSourceId !== this.activeSource.id) {
-      this.activeSource = createWaveSource(this.nextSourceId);
+    if (this.nextSourceId !== this.activeSource.id || this.activeOptions !== this.worldWaves) {
+      this.activeSource = createWaveSource(this.nextSourceId, this.worldWaves);
+      this.activeOptions = this.worldWaves;
     } else {
       this.activeSource.reset();
     }
@@ -244,7 +267,8 @@ export class WaveDirector {
    * stood, its committed wave is the one that comes.
    */
   restoreState(save: DirectorSave): void {
-    this.activeSource = createWaveSource(save.source);
+    this.activeSource = createWaveSource(save.source, this.worldWaves);
+    this.activeOptions = this.worldWaves;
     this.nextSourceId = save.source;
     if (save.sourceState !== null) this.activeSource.restoreState?.(save.sourceState);
     setActiveWaveRules(this.activeSource.rules);

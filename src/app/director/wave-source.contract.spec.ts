@@ -74,7 +74,7 @@ describe.each(Object.keys(WAVE_SOURCES) as WaveSourceId[])('wave source contract
   let source: WaveSource;
 
   beforeEach(() => {
-    source = WAVE_SOURCES[id]();
+    source = WAVE_SOURCES[id]({});
   });
 
   it('names itself', () => {
@@ -114,7 +114,7 @@ describe.each(Object.keys(WAVE_SOURCES) as WaveSourceId[])('wave source contract
 
   it('plans the same run twice from the same seed', () => {
     const first = playRun(source);
-    const second = playRun(WAVE_SOURCES[id]());
+    const second = playRun(WAVE_SOURCES[id]({}));
     expect(second.map((p) => p.config)).toEqual(first.map((p) => p.config));
   });
 
@@ -147,7 +147,7 @@ describe.each(Object.keys(WAVE_SOURCES) as WaveSourceId[])('wave source contract
       expect(source.peek(request(5, 5))).toEqual(first);
 
       const planned = source.plan({ wave: 5, state: stateForWave(5), random: mulberry32(SEED) });
-      const fresh = WAVE_SOURCES[id]();
+      const fresh = WAVE_SOURCES[id]({});
       const expected = fresh.plan({ wave: 5, state: stateForWave(5), random: mulberry32(SEED) });
       expect(planned.config).toEqual(expected.config);
     });

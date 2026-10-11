@@ -64,7 +64,7 @@ export class WaveDebuggerComponent {
 
   /** Every source the registry knows, with the name it shows under. */
   readonly sourceOptions = (Object.keys(WAVE_SOURCES) as WaveSourceId[])
-    .map((id) => ({ id, name: WAVE_SOURCES[id]().name }));
+    .map((id) => ({ id, name: WAVE_SOURCES[id]({}).name }));
 
   /**
    * The choice for the next run, as a signal so the select follows it.

@@ -5,6 +5,7 @@ import { TILES_CAPABILITIES } from '../app/world/tiles/tiles-world';
 import type { WorldContext } from '../app/world/world-context.service';
 import type { WorldProvider, WorldStreetSource } from '../app/world/world-provider';
 import type { WorldRef } from '../app/world/world-ref';
+import { DEFAULT_RUN_RULES } from '../app/sim/protocol/run-rules';
 
 /** The DevWorld ref the fakes use */
 export const FAKE_DEV_WORLD_REF: WorldRef = { kind: 'devworld', terrain: 'flat', seed: 42, buildings: 'dense', spawns: 1 };
@@ -21,6 +22,7 @@ export function fakeWorldContext(streets: Partial<WorldStreetSource> = {}) {
     ref: ref.asReadonly(),
     capabilities: computed(() => (ref().kind === 'tiles' ? TILES_CAPABILITIES : DEV_WORLD_CAPABILITIES)),
     logos: computed(() => []),
+    runRules: computed(() => DEFAULT_RUN_RULES),
     provider: provider.asReadonly(),
     get streets(): WorldStreetSource {
       return streets as WorldStreetSource;

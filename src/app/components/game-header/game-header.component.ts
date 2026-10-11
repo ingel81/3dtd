@@ -22,7 +22,6 @@ import { LOADING_NAME, NO_LOCATION_NAME } from '../../services/location/location
 import { FAVORITE_NAME_MAX_LENGTH } from '../../services/location/favorite-locations';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { WorldContext } from '../../world/world-context.service';
-import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { PulseThrottle } from '../../utils/pulse-throttle';
 import { TdIconComponent } from '../icon/icon.component';
 import { creditsRefusals } from '../../services/credits-refusal';
@@ -186,7 +185,8 @@ export class GameHeaderComponent {
   private readonly favInput = viewChild<ElementRef<HTMLInputElement>>('favInput');
 
   /** HQ health at the start of a run. Nothing heals in play; the +HP cheat can go past it. */
-  private readonly maxHealth = GAME_BALANCE.player.startHealth;
+  /** The HQ's full health: the world's (a custom map's rules), else the game's */
+  private readonly maxHealth = computed(() => this.worldContext.runRules().hqHealth);
 
   /**
    * The credits figure on the plate: counts to a new value over
@@ -196,7 +196,7 @@ export class GameHeaderComponent {
   readonly creditsShown = signal<number | null>(null);
 
   // Figures of the stat plates and the enemies chip, short enough for their plates
-  readonly hq = computed(() => hqReadout(this.baseHealth(), this.maxHealth));
+  readonly hq = computed(() => hqReadout(this.baseHealth(), this.maxHealth()));
   readonly hqLevel = computed(() => hqLevel(this.hq().percent));
   /** One flag per segment of the HQ bar, lit or not */
   readonly hqSegments = computed(() => {

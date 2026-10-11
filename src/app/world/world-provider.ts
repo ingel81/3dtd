@@ -14,6 +14,9 @@ import type { NearestStreetPoint, Street, StreetNetwork, StreetNode } from '../i
 import type { RandomSpawnCandidate } from '../models/location.types';
 import type { BuildingData } from '../services/location/osm-street.service';
 import type { WorldRef } from './world-ref';
+import type { RunRules } from '../sim/protocol/run-rules';
+import type { WaveSourceId } from '../director/wave-source';
+import type { WaveTable } from '../director/sources/table/wave-table';
 
 /**
  * What a world can do, read by the services and the UI instead of asking
@@ -159,6 +162,12 @@ export interface WorldStartLayout {
   spawns: { id: string; name: string; lat: number; lon: number }[];
 }
 
+/** The waves a world brings (a custom map's gameplay): the source to play, its own list for the table source */
+export interface WorldWaves {
+  source: WaveSourceId;
+  table?: WaveTable;
+}
+
 /** What a world gets from the engine when it is attached */
 export interface WorldAttachContext {
   scene: Scene;
@@ -241,6 +250,10 @@ export interface WorldProvider {
   onLoadFailure(callback: (failure: RootLoadFailure) => void): void;
   /** Fixed HQ and spawns, null where the player picks them */
   startLayout(): WorldStartLayout | null;
+  /** The world's own run rules (start credits, HQ health, tower types), null: the game's */
+  runRules(): RunRules | null;
+  /** The world's waves: the source it asks for and its own wave list, null: the game's choice */
+  worldWaves(): WorldWaves | null;
   /** Roll a new world in place (`capabilities.regenerate`); the streets follow */
   regenerate(): Promise<void>;
   dispose(): void;

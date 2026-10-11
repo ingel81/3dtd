@@ -1,5 +1,6 @@
 import type { GeoPosition } from '../../models/game.types';
 import { fnv1a } from '../../utils/fnv1a';
+import { runRulesKey, type RunRules } from './run-rules';
 
 /**
  * A key of the world the simulation runs on: the frozen cell heights, the
@@ -10,12 +11,14 @@ import { fnv1a } from '../../utils/fnv1a';
  *
  * `heights` as GlobalRouteGrid.snapshotHeights gives them ([key, height]),
  * `paths` in the wave manager's order (spawn points in the order they were
- * set), `origin` the local frame's.
+ * set), `origin` the local frame's, `rules` the world's own run rules
+ * (absent for a world that plays the game's: its key is what it always was).
  */
 export function worldKeyOf(
   heights: Iterable<readonly [number, number, ...unknown[]]>,
   paths: Iterable<readonly GeoPosition[]>,
   origin: GeoPosition | null,
+  rules?: RunRules,
 ): string {
   const sorted = [...heights].sort((a, b) => a[0] - b[0]);
   const parts: string[] = sorted.map(([key, height]) => `${key}:${height.toFixed(2)}`);
@@ -23,5 +26,7 @@ export function worldKeyOf(
     parts.push(path.map((p) => `${p.lat.toFixed(7)},${p.lon.toFixed(7)}`).join(';'));
   }
   if (origin) parts.push(`o=${origin.lat.toFixed(7)},${origin.lon.toFixed(7)}`);
+  const ruled = runRulesKey(rules);
+  if (ruled) parts.push(ruled);
   return fnv1a(parts.join('|'));
 }

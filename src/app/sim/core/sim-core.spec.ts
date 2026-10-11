@@ -129,6 +129,34 @@ describe('SimCore in the same thread', () => {
     expect(() => core.loadWorld({ ...world, worldKey: 'another' })).toThrow(/world key/);
   });
 
+  it("plays by a world's own run rules: start credits, HQ health, the tower types it allows; the game's again after", () => {
+    const main = mainWorld();
+    const rules = { startCredits: 250, hqHealth: 80, towers: ['archer', 'cannon'] as const };
+    const ruled: SimWorld = {
+      ...main.world,
+      rules: { ...rules, towers: [...rules.towers] },
+      worldKey: worldKeyOf(main.grid.snapshotHeights(), main.world.paths.map(([, p]) => p), main.sync.getOrigin(), { ...rules, towers: [...rules.towers] }),
+    };
+    // The rules are part of the key: a world without them has another
+    expect(ruled.worldKey).not.toBe(main.world.worldKey);
+    const core = newCore(ruled);
+    // Start credits once per lane: the single player holds both spawns
+    expect(core.gsm.creditsOf(core.gsm.localPlayerId)).toBe(500);
+    expect(core.gsm.baseHealth()).toBe(80);
+    const drive = new Driver(core);
+    drive.send({ type: 'debug:add-credits', amount: 5000 });
+    drive.send({ type: 'debug:complete-all-research' });
+    drive.send({ type: 'command:place-tower', typeId: 'ice', position: { lat: 100 / M, lon: 191 / M, height: 0 } });
+    drive.send({ type: 'command:place-tower', typeId: 'cannon', position: { lat: 140 / M, lon: -9 / M, height: 0 } });
+    // The ice tower the rules leave out is refused like a locked one
+    expect(drive.tick().towerStates.map((t) => t.typeId)).toEqual(['cannon']);
+
+    // The next world plays the game's rules
+    core.loadWorld(main.world);
+    expect(core.gsm.creditsOf(core.gsm.localPlayerId)).toBe(200);
+    expect(core.gsm.baseHealth()).toBe(500);
+  });
+
   it('plays a wave from commands to packets, answers lines of sight by command, and re-simulates it bit for bit', () => {
     const mathRandom = Math.random;
     Math.random = mulberry32(SEED + 1);

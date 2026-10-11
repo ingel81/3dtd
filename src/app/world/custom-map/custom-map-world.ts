@@ -9,8 +9,11 @@ import type {
   WorldCapabilities,
   WorldProvider,
   WorldStartLayout,
+  WorldWaves,
 } from '../world-provider';
 import type { WorldRef } from '../world-ref';
+import { runRulesOf, type RunRules } from '../../sim/protocol/run-rules';
+import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
 import { type CustomMapDocument, mapToGeo } from './map-document';
@@ -215,6 +218,35 @@ export class CustomMapWorld implements WorldProvider {
   }
 
   /** HQ (where the start flow put the origin) and the first `spawnLimit` spawns (customMapSpawnLimit) */
+  /**
+   * The map's start credits, HQ health and tower types (MapGameplay), held
+   * in bounds (runRulesOf); null where it sets none of them, so the world
+   * plays the game's and its key stays as without
+   */
+  runRules(): RunRules | null {
+    const play = this.doc.gameplay;
+    if (!play || (play.startCredits === undefined && play.hqHealth === undefined && !play.towers?.length)) return null;
+    return runRulesOf(play);
+  }
+
+  /**
+   * The map's waves: the game's budget source, or its own list for the table
+   * source. A list with mistakes (validateWaveTable) is left out with a
+   * warning: the game's choice plays instead.
+   */
+  worldWaves(): WorldWaves | null {
+    const waves = this.doc.gameplay?.waves;
+    if (!waves) return null;
+    if (waves.kind === 'budget') return { source: 'budget' };
+    const table = waves.table as unknown as WaveTable;
+    const problems = validateWaveTable(table);
+    if (problems.length > 0) {
+      console.warn(`[CustomMap] the map's wave list is not used: ${problems.slice(0, 3).join('; ')}`);
+      return null;
+    }
+    return { source: 'table', table };
+  }
+
   startLayout(): WorldStartLayout {
     return {
       hq: mapToGeo(this.doc.hq),

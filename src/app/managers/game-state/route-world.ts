@@ -4,11 +4,14 @@ import type { SimWorld } from '../../sim/protocol/messages';
 import type { SimCoords } from '../../sim/core/sim-coords';
 import { OriginSync } from '../../sim/core/sim-coords';
 import { worldKeyOf } from '../../sim/protocol/world-key';
+import type { RunRules } from '../../sim/protocol/run-rules';
 
 /** What the route world reads of the GameStateManager */
 export interface RouteWorldHost {
   readonly grid: GlobalRouteGridService;
   readonly coords: SimCoords;
+  /** The world's own run rules, undefined for the game's (part of the key) */
+  runRules(): RunRules | undefined;
   /** New routes enter the towers' ranges elsewhere (TowerLifecycle.refreshGuardHeadings) */
   routesChanged(): void;
 }
@@ -65,6 +68,6 @@ export class RouteWorld {
   /** The key of the world the simulation stands on (worldKeyOf), its routes in the world's order */
   key(): string {
     const origin = this.host.coords.ready ? this.host.coords.sync.getOrigin() : null;
-    return worldKeyOf(this.host.grid.snapshotHeights(), this.paths.values(), origin);
+    return worldKeyOf(this.host.grid.snapshotHeights(), this.paths.values(), origin, this.host.runRules());
   }
 }

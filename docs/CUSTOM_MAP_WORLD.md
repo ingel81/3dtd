@@ -29,6 +29,30 @@ HQ aus `doc.hq`, Spawns aus `doc.spawns` in ihrer Reihenfolge: die ersten `?spaw
 alle bis `MAX_SPAWN_PORTALS` (32), mehr Portale kann das Spiel nicht zeigen. Weitere Spawns der Karte
 bleiben ungenutzt; eine Auswahl im Spiel kommt später.
 
+## Spielwerte (`gameplay`)
+
+Das optionale Feld `gameplay` des Dokuments (`MapGameplay`) setzt Startcredits, HQ-HP, erlaubte
+Tower-Typen und die Wellen. Keine Weiche auf die Weltart, die Werte gehen über die vorhandenen Wege:
+
+- `runRules()` macht daraus `RunRules` (`sim/protocol/run-rules.ts`, `runRulesOf`: ganze Zahlen in
+  Grenzen, nur bekannte Tower in der Reihenfolge von `TOWER_TYPES`, leere Liste heißt alle). Ohne
+  Startcredits, HP und Towerliste gibt es `null`: die Karte spielt die Werte des Spiels.
+- Die Regeln reisen in `SimWorld.rules` in den Worker und stehen im Weltschlüssel (`runRulesKey`),
+  nur wenn es sie gibt; Tiles und DevWorld haben den Schlüssel wie vorher, alte Replays bleiben gültig.
+  Ein Koop-Gast mit anderer Karte oder anderen Werten passt nicht zum Schlüssel des Hosts.
+- Im Worker übernimmt `GameStateManager.loadWorld` sie (`takeRunRules`): Start-HP des HQ, Startcredits
+  je Spur. Ändern sich die Regeln gegenüber dem Lauf davor, starten HQ und Konten neu.
+- Erlaubte Tower: `towerUnlockedBy` ist die eine Prüfung für Simulation (`ResearchManager`) und
+  Baumenü (`ResearchStore.runRules`). Ein ausgelassener Typ bleibt gesperrt, auch wenn die Forschung
+  ihn freischaltet. Die HQ-Anzeige liest das Maximum aus `WorldContextService.runRules`.
+- `worldWaves()`: `budget` setzt die Budget-Quelle, `table` die Tabellen-Quelle mit der Liste der
+  Karte (`WaveSourceOptions.table`, `TableWaveSource(table)`). Der Start gibt sie an
+  `WaveDirector.useWorldWaves`, der Worker bekommt die Liste über `SimConfig.waveTable`. Eine Liste
+  mit Fehlern (`validateWaveTable`) wird mit Warnung übergangen, dann spielt die Wahl des Spielers.
+
+Offen: die Prozentwerte des Druck-Reglers und der Ausgänge rechnen weiter mit
+`GAME_BALANCE.player.startHealth`, nicht mit der HP der Karte.
+
 ## Darstellung
 
 `CustomMapView` (Renderer der Karte, `render/`) wird beim ersten Anhängen nachgeladen und so
@@ -73,6 +97,6 @@ steht ihr Name und Autor; der OSM-Hinweis erscheint nur auf echten Orten.
 
 Specs in `custom-map-world.spec.ts`: Frame gegen `geoToLocalSimple`, Höhen nach Geo und Szene,
 Brückendeck, Sichtlinie, Bodenpick, Straßennetz und Route über Kurvenpunkt und Brücke,
-Startaufstellung, Spawn-Grenze, `stableGeo`, Öffnen einer gespeicherten, fehlenden und geänderten
+Startaufstellung, Spawn-Grenze, Spielwerte und Wellen der Karte, Öffnen einer gespeicherten, fehlenden und geänderten
 Karte. Im Browser (Dev-Server, die importierte Testkarte in IndexedDB): Karte lädt in 12 bis 18 s (Dev-Server),
 8 Portale, Wellen laufen die Wege zum HQ, gebaute Tower schießen.

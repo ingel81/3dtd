@@ -157,7 +157,9 @@ export class MainWorldService {
 
   /** The key of the world as it stands here, see worldKeyOf. */
   key(): string {
-    return worldKeyOf(this.grid.snapshotHeights(), this.pathRoute.getCachedPaths().values(), this.engine?.sync.getOrigin() ?? null);
+    const engine = this.engine;
+    return worldKeyOf(this.grid.snapshotHeights(), this.pathRoute.getCachedPaths().values(), engine?.sync.getOrigin() ?? null,
+      engine?.world.runRules() ?? undefined);
   }
 
   /** The finished world as a coop host packs it (coop/world-package.ts). Null before the world stands. */

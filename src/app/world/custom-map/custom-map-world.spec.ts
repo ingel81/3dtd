@@ -155,6 +155,29 @@ describe('CustomMapWorld', () => {
     expect(world.capabilities).toMatchObject({ realPlace: false, credentials: false, ecef: false, streaming: false, destructible: false });
   });
 
+  it("plays the game's rules and waves unless the map sets its own", () => {
+    const doc = testMap();
+    const world = () => new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    expect(world().runRules()).toBeNull();
+    expect(world().worldWaves()).toBeNull();
+
+    doc.gameplay = { startCredits: 300, towers: ['cannon', 'archer'], waves: { kind: 'budget' } };
+    expect(world().runRules()).toMatchObject({ startCredits: 300, towers: ['archer', 'cannon'] });
+    expect(world().worldWaves()).toEqual({ source: 'budget' });
+
+    const table = { cycle: { fromWave: 1, hpGrowth: 1.5 }, waves: [{ wave: 1, name: 'One', enemies: { zombie: 2 }, hpMult: 1, spawnDelay: 400 }] };
+    doc.gameplay = { waves: { kind: 'table', table } };
+    expect(world().runRules()).toBeNull();
+    expect(world().worldWaves()).toEqual({ source: 'table', table });
+
+    // A list with mistakes is left out: the game's choice plays
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    doc.gameplay = { waves: { kind: 'table', table: { ...table, cycle: { fromWave: 5, hpGrowth: 0 } } } };
+    expect(world().worldWaves()).toBeNull();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it('reads the spawn limit from the link', () => {
     expect(customMapSpawnLimit('?world=map:x')).toBe(MAX_SPAWN_PORTALS);
     expect(customMapSpawnLimit('?world=map:x&spawns=2')).toBe(2);

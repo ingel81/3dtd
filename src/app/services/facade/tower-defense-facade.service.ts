@@ -6,6 +6,8 @@ import { TowerPlacementService } from '../tower-placement.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { ConfigService } from '../../core/services/config.service';
 import { WorldContext } from '../../world/world-context.service';
+import { ResearchStore } from '../../store/research.store';
+import { DEFAULT_RUN_RULES } from '../../sim/protocol/run-rules';
 import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
@@ -115,6 +117,7 @@ export class TowerDefenseFacadeService {
   private readonly engineInit = inject(EngineInitializationService);
   private readonly configService = inject(ConfigService);
   private readonly worldContext = inject(WorldContext);
+  private readonly researchStore = inject(ResearchStore);
   private readonly soundDebug = inject(SoundDebugService);
   private readonly debugFacade = inject(DebugFacadeService);
   private readonly profiler = inject(PerformanceProfilerService);
@@ -377,6 +380,11 @@ export class TowerDefenseFacadeService {
       const base = this.store.baseCoords();
       // The world around the HQ: its credentials and streets come with it
       const world = this.worldContext.open({ lat: base.lat, lon: base.lon, height: 0 });
+      // The world's waves (a custom map's source and list) from the first run on; the game's choice without
+      const waves = world.worldWaves();
+      this.waveDirector.useWorldWaves(waves?.table ? { table: waves.table } : {}, waves?.source ?? null);
+      // The build menu locks what the world's rules leave out, as the simulation does
+      this.researchStore.runRules.set(world.runRules() ?? DEFAULT_RUN_RULES);
       this.engineInit.configure(canvas, { lat: base.lat, lon: base.lon }, world);
       // The streets load while the engine is built and the tiles stream (TODO H13); onLoadStreets takes it
       const center = this.store.centerCoords();

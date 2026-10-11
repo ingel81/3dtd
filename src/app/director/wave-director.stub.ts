@@ -17,6 +17,8 @@ export function waveDirectorStub(overrides: Partial<WaveDirector> = {}): WaveDir
   return {
     useRandomSource: () => undefined,
     useSourceNextRun: () => undefined,
+    useWorldWaves: () => undefined,
+    worldTable: undefined,
     sourceNextRun: 'budget',
     source: STUB_SOURCE,
     committed: null as PlannedWave | null,

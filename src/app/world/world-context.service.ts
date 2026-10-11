@@ -5,6 +5,7 @@ import { DevWorldService } from '../devworld/devworld.service';
 import type { WorldCapabilities, WorldLogo, WorldProvider, WorldStreetSource } from './world-provider';
 import { WorldProviderRegistry } from './world-provider-registry';
 import { customMapRefFromSearch, type WorldRef } from './world-ref';
+import { DEFAULT_RUN_RULES, type RunRules } from '../sim/protocol/run-rules';
 
 /** Capabilities of a kind this build has no factory for: nothing; opening it fails with a clear message */
 const NO_CAPABILITIES: WorldCapabilities = {
@@ -43,6 +44,9 @@ export class WorldContext {
 
   /** Logos shown beside the map and on photos (tiles: Google, Cesium ion) */
   readonly logos = computed<readonly WorldLogo[]>(() => this.registry.logos(this.ref()));
+
+  /** The run rules of the open world (start credits, HQ health, tower types), the game's without one */
+  readonly runRules = computed<RunRules>(() => this.active()?.runRules() ?? DEFAULT_RUN_RULES);
 
   /** The world's provider while an engine shows it, null before and after */
   readonly provider = this.active.asReadonly();

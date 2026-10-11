@@ -10,11 +10,17 @@ import { TableWaveSource } from './sources/table/table-source';
 import { BudgetWaveSource } from './sources/budget/budget-source';
 import type { WaveSource, WaveSourceId } from './wave-source';
 import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
+import type { WaveTable } from './sources/table/wave-table';
+
+/** What a world gives its sources: a custom map's own wave list for the table source */
+export interface WaveSourceOptions {
+  table?: WaveTable;
+}
 
 /** A fresh source per run; they hold per-run state. */
-export const WAVE_SOURCES: Record<WaveSourceId, () => WaveSource> = {
+export const WAVE_SOURCES: Record<WaveSourceId, (options: WaveSourceOptions) => WaveSource> = {
   budget: () => new BudgetWaveSource(),
-  table: () => new TableWaveSource(),
+  table: (options) => new TableWaveSource(options.table),
 };
 
 /** A source this build has; own keys only, so `constructor` and the like are no source. */
@@ -32,6 +38,6 @@ export function initialWaveSourceId(search = globalThis.location?.search ?? ''):
   return asked && isWaveSourceId(asked) ? asked : DEFAULT_WAVE_SOURCE;
 }
 
-export function createWaveSource(id: WaveSourceId): WaveSource {
-  return WAVE_SOURCES[id]();
+export function createWaveSource(id: WaveSourceId, options: WaveSourceOptions = {}): WaveSource {
+  return WAVE_SOURCES[id](options);
 }

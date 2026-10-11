@@ -161,4 +161,30 @@ describe('TableWaveSource', () => {
       expect(peek(air.wave).boss).toBe(false);
     });
   });
+
+  describe("a world's own list", () => {
+    const own: WaveTable = {
+      cycle: { fromWave: 2, hpGrowth: 2 },
+      waves: [
+        { wave: 1, name: 'Few', enemies: { zombie: 3 }, hpMult: 1, spawnDelay: 500 },
+        { wave: 2, name: 'Big one', enemies: { herbert: 1 }, hpMult: 1, spawnDelay: 500 },
+      ],
+    };
+
+    it('plays the list it is given, not the checked-in one', () => {
+      const source = new TableWaveSource(own);
+      const first = source.plan({ wave: 1, state, random });
+      expect(first.config.enemies.map((group) => [group.type, group.count])).toEqual([['zombie', 3]]);
+      expect(source.rules.name(1)).toBe('Few');
+      expect(source.rules.isBoss(2)).toBe(true);
+      expect(source.rules.isBoss(1)).toBe(false);
+    });
+
+    it('repeats its own cycle and names its own last row', () => {
+      const source = new TableWaveSource(own);
+      const repeat = source.plan({ wave: 3, state, random });
+      expect(repeat.config.enemies.map((group) => group.type)).toEqual(['herbert']);
+      expect(repeat.explanation!.reasons.join(' ')).toContain('last row W2');
+    });
+  });
 });

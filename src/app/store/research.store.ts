@@ -2,6 +2,7 @@ import { Injectable, signal, computed } from '@angular/core';
 import { ResearchId, ActiveResearch, ResearchEffect } from '../configs/research/research.types';
 import { TowerTypeId } from '../configs/tower-types.config';
 import { getResearch, getResearchForTower } from '../configs/research/research-tree.config';
+import { DEFAULT_RUN_RULES, towerUnlockedBy, type RunRules } from '../sim/protocol/run-rules';
 
 /**
  * ResearchStore — Reactive state for the research system.
@@ -11,6 +12,9 @@ import { getResearch, getResearchForTower } from '../configs/research/research-t
  */
 @Injectable({ providedIn: 'root' })
 export class ResearchStore {
+  /** The world's run rules: a tower type they leave out stays locked whatever the research (set at the start) */
+  readonly runRules = signal<RunRules>(DEFAULT_RUN_RULES);
+
   /** Set of completed research IDs */
   readonly completedResearches = signal<Set<ResearchId>>(new Set());
 
@@ -60,17 +64,7 @@ export class ResearchStore {
    * Check if a tower is unlocked. Returns a computed signal.
    */
   isTowerUnlocked(towerId: TowerTypeId): boolean {
-    if (towerId === 'archer' || towerId === 'research-center') return true;
-    const completed = this.completedResearches();
-    for (const researchId of completed) {
-      const config = getResearch(researchId);
-      if (config) {
-        for (const effect of config.effects) {
-          if (effect.kind === 'unlock-tower' && effect.towerId === towerId) return true;
-        }
-      }
-    }
-    return false;
+    return towerUnlockedBy(towerId, this.completedResearches(), this.runRules());
   }
 
   /**

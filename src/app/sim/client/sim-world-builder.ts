@@ -27,13 +27,16 @@ export function buildSimWorld(
     const localY = engine.getTerrainHeightAtGeo(spawn.lat, spawn.lon);
     spawnGround[spawn.id] = localY === null ? null : localY + origin.height;
   }
+  // A world's own rules (a custom map's gameplay) go along and into the key
+  const rules = engine.world.runRules() ?? undefined;
   return {
     origin: { lat: origin.lat, lon: origin.lon, height: origin.height },
     hq: { ...hq },
     spawns: spawns.map((s) => ({ ...s })),
     paths: [...paths.entries()].map(([id, path]) => [id, path.map((p) => ({ ...p }))]),
     heights: grid.exportHeights(),
-    worldKey: worldKeyOf(grid.snapshotHeights(), paths.values(), origin),
+    worldKey: worldKeyOf(grid.snapshotHeights(), paths.values(), origin, rules),
     spawnGround,
+    ...(rules ? { rules } : {}),
   };
 }

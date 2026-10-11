@@ -283,6 +283,16 @@ export class TilesWorld implements WorldProvider, WorldTiles {
     return null;
   }
 
+  /** A real place plays the game's rules */
+  runRules(): null {
+    return null;
+  }
+
+  /** The game's waves */
+  worldWaves(): null {
+    return null;
+  }
+
   regenerate(): Promise<void> {
     return Promise.reject(new Error('The 3D tiles cannot be regenerated'));
   }

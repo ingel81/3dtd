@@ -24,40 +24,56 @@ import type { DecisionExplanation } from '../../wave-explanation';
 import type { WaveConfig, WaveEnemyGroup } from '../../models/wave-config';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import type { ArmorType } from '../../../configs/combat/combat.types';
-import { LAST_TABLE_WAVE, tableRowForWave, type TableLookup } from './wave-table';
+import { WAVE_TABLE, tableRowForWave, type TableLookup, type WaveTable } from './wave-table';
 import type { WaveRules } from '../../wave-rules';
 import { enemyBaseDamageForWave, waveGold } from '../../../configs/campaign.config';
 
 /**
  * Leak in the campaign's steps, gold with the campaign's curve; what a wave
- * is, boss or not (boss gold included), from the list.
+ * is, boss or not (boss gold included), from `table`.
  */
-const TABLE_WAVE_RULES: WaveRules = {
-  leakScale: enemyBaseDamageForWave,
-  gold: (wave) => waveGold(wave, TABLE_WAVE_RULES.isBoss(wave)),
-  isBoss: (wave) => {
-    const lookup = tableRowForWave(wave);
-    return !!lookup && Object.keys(lookup.row.enemies).some((type) => ENEMY_TYPES[type as EnemyTypeId]?.isBoss);
-  },
-  enemyMix: (wave) => {
-    const lookup = tableRowForWave(wave);
-    return lookup ? factsOf(wave, lookup).enemies : null;
-  },
-  name: (wave) => tableRowForWave(wave)?.row.name ?? null,
-  // The list is the wave as written, nothing changes it
-  mutator: () => null,
-};
+export function tableWaveRules(table: WaveTable = WAVE_TABLE): WaveRules {
+  const rules: WaveRules = {
+    leakScale: enemyBaseDamageForWave,
+    gold: (wave) => waveGold(wave, rules.isBoss(wave)),
+    isBoss: (wave) => {
+      const lookup = tableRowForWave(wave, table);
+      return !!lookup && Object.keys(lookup.row.enemies).some((type) => ENEMY_TYPES[type as EnemyTypeId]?.isBoss);
+    },
+    enemyMix: (wave) => {
+      const lookup = tableRowForWave(wave, table);
+      return lookup ? factsOf(wave, lookup).enemies : null;
+    },
+    name: (wave) => tableRowForWave(wave, table)?.row.name ?? null,
+    // The list is the wave as written, nothing changes it
+    mutator: () => null,
+  };
+  return rules;
+}
 
+/** The checked-in list's rules, made once */
+const TABLE_WAVE_RULES = tableWaveRules();
+
+/**
+ * The wave source of a list: the checked-in one (wave-table.json), or a
+ * world's own (a custom map's, WaveSourceOptions.table).
+ */
 export class TableWaveSource implements WaveSource {
   readonly id: WaveSourceId = 'table';
   readonly name = 'Wave table';
   /** Nothing to read at wave start, so the wave can be named a wave early. */
   readonly plansAt: WavePlanTiming = 'wave-end';
-  readonly rules = TABLE_WAVE_RULES;
+  readonly rules: WaveRules;
+  private readonly lastRow: number;
+
+  constructor(private readonly table: WaveTable = WAVE_TABLE) {
+    this.rules = table === WAVE_TABLE ? TABLE_WAVE_RULES : tableWaveRules(table);
+    this.lastRow = table.waves.reduce((max, row) => Math.max(max, row.wave), 0);
+  }
 
   plan(request: WavePlanRequest): PlannedWave {
     const { wave } = request;
-    const lookup = tableRowForWave(wave);
+    const lookup = tableRowForWave(wave, this.table);
     if (!lookup) {
       // Only reachable for a wave below the first row, which no run asks for.
       throw new Error(`[table] no row for wave ${wave}`);
@@ -80,7 +96,7 @@ export class TableWaveSource implements WaveSource {
       ...(lookup.row.pattern ? { pattern: lookup.row.pattern } : {}),
       templateName: lookup.row.name,
       templateStrength: lookup.hpMult,
-      explanation: explain(wave, lookup, totalCount),
+      explanation: explain(wave, lookup, totalCount, this.lastRow),
     };
 
     return {
@@ -103,7 +119,7 @@ export class TableWaveSource implements WaveSource {
   peek(request: WavePeekRequest): WavePeekFacts[] {
     const facts: WavePeekFacts[] = [];
     for (let wave = request.fromWave; wave < request.fromWave + request.count; wave++) {
-      const lookup = tableRowForWave(wave);
+      const lookup = tableRowForWave(wave, this.table);
       facts.push(lookup ? factsOf(wave, lookup) : unknownFacts(wave));
     }
     return facts;
@@ -121,11 +137,11 @@ export class TableWaveSource implements WaveSource {
   }
 }
 
-function explain(wave: number, lookup: TableLookup, totalCount: number): DecisionExplanation {
+function explain(wave: number, lookup: TableLookup, totalCount: number, lastRow: number): DecisionExplanation {
   const reasons = [
     lookup.cycle === 0
       ? `Wave list, row ${lookup.row.wave}: ${describe(lookup.row.enemies)}.`
-      : `Past the list (last row W${LAST_TABLE_WAVE}): row ${lookup.row.wave} runs again, round ${lookup.cycle}.`,
+      : `Past the list (last row W${lastRow}): row ${lookup.row.wave} runs again, round ${lookup.cycle}.`,
     `HP ×${lookup.hpMult}${lookup.cycle > 0 ? ` (row ×${lookup.row.hpMult}, grown ${lookup.cycle} round(s))` : ''}.`,
     `Spawn every ${lookup.row.spawnDelay} ms, so the wave takes about `
       + `${Math.round((totalCount * lookup.row.spawnDelay) / 1000)} s.`,

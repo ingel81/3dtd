@@ -11,6 +11,8 @@ import { GAME_BALANCE } from '../../configs/game-balance.config';
  */
 export class BaseHealthLedger {
   readonly baseHealth = signal<number>(GAME_BALANCE.player.startHealth);
+  /** HP at the start of a run: the game's, or the world's (RunRules.hqHealth) */
+  private start: number = GAME_BALANCE.player.startHealth;
 
   constructor(private readonly eventBus: GameEventBus) {}
 
@@ -40,7 +42,12 @@ export class BaseHealthLedger {
   }
 
   resetToStart(): void {
-    this.baseHealth.set(GAME_BALANCE.player.startHealth);
+    this.baseHealth.set(this.start);
+  }
+
+  /** The HP a run starts with from the next resetToStart() on (the world's run rules) */
+  setStart(health: number): void {
+    this.start = health;
   }
 
   private change(newHealth: number, cause?: 'cheat'): void {

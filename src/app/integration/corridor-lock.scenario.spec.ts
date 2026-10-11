@@ -313,6 +313,8 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
       terrain,
       getTerrainHeightAtGeo: () => ground.y,
       setRouteCorridor: vi.fn(),
+      // A world that plays the game's rules
+      world: { runRules: () => null },
     } as unknown as ThreeTilesEngine;
     world.attach(engine, BASE, TEST_SPAWN_POINTS);
     world.buildCells(true);

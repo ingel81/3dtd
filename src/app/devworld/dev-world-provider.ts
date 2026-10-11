@@ -177,6 +177,16 @@ export class DevWorldProvider implements WorldProvider {
     return { hq, spawns: [{ id: `spawn-${spawnConfig}`, name: `Spawn ${spawnConfig}`, ...flatLocalToGeo(position.x, position.z) }] };
   }
 
+  /** DevWorld plays the game's rules (bot runs measure the game that ships) */
+  runRules(): null {
+    return null;
+  }
+
+  /** The game's waves (`?waves=` may pick the source) */
+  worldWaves(): null {
+    return null;
+  }
+
   /** A new world from the current configuration (debug panel); the streets follow */
   async regenerate(): Promise<void> {
     await this.terrain.regenerate();

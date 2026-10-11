@@ -352,7 +352,9 @@ export class GameLoopFacadeService {
    */
   private resetWaveSource(): void {
     this.waveDirector.resetForNewGame();
-    if (this.sim.started) this.sim.configure({ waveSource: this.waveDirector.source.id });
+    // A world's own wave list goes along: the simulation's gold and leak rules read the same rows
+    const table = this.waveDirector.worldTable;
+    if (this.sim.started) this.sim.configure({ waveSource: this.waveDirector.source.id, ...(table ? { waveTable: table } : {}) });
   }
 
   // ══════════════════════════════════════════════════════════════

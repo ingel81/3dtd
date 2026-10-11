@@ -151,7 +151,7 @@ export class SimCore implements SimCoreApi {
     const gsm = this.gsm;
     this.dirty = true;
     if (config.waveSource !== undefined && isWaveSourceId(config.waveSource)) {
-      setActiveWaveRules(createWaveSource(config.waveSource).rules);
+      setActiveWaveRules(createWaveSource(config.waveSource, config.waveTable ? { table: config.waveTable } : {}).rules);
     }
     if (config.players) {
       gsm.setPlayers(config.players.players, config.players.local);

@@ -20,6 +20,7 @@ import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
 import type { IGameManager } from '../game-engine/game-manager.interface';
 import { ResearchManager, type SimResearch } from './research.manager';
 import { researchWave } from '../configs/research/research.types';
+import { DEFAULT_RUN_RULES, runRulesOf, type RunRules } from '../sim/protocol/run-rules';
 import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
 import { AbilityManager } from './ability.manager';
 import { HeroManager } from './hero.manager';
@@ -42,7 +43,6 @@ import type { WaveSnapshot, WaveSnapshotRefusal } from '../simulator/wave-snapsh
 import { SimSnapshots } from './game-state/sim-snapshots';
 import { RouteWorld } from './game-state/route-world';
 import { CoopRoom, type Lane } from './game-state/coop-room';
-import { GAME_BALANCE } from '../configs/game-balance.config';
 import type { ResimHost } from '../simulator/resimulation';
 import { losMaskFromJson, type LosMaskJson } from '../utils/los-mask';
 import { revealCamo } from './game-state/camo-reveal';
@@ -302,11 +302,17 @@ export class GameStateManager {
 
   private basePosition: GeoPosition | null = null;
 
+  /** The run rules of the world (start credits, HQ health, tower types), the game's unless it brings its own */
+  private runRules: RunRules = DEFAULT_RUN_RULES;
+  /** The world brought rules of its own (SimWorld.rules): they are part of its key */
+  private worldRules = false;
+
   /** The routes and the route grid's cells, see RouteWorld */
   private readonly routeWorld = new RouteWorld({
     grid: this.globalRouteGrid,
     coords: this.coords,
     routesChanged: () => this.towerLifecycle.refreshGuardHeadings(),
+    runRules: () => (this.worldRules ? this.runRules : undefined),
   });
 
   /** A world stands (initialize ran): before it no tower is placed and no wave starts */
@@ -451,6 +457,7 @@ export class GameStateManager {
         this.eventBus, owner,
         () => researchWave(this.waveManager.waveNumber(), this.waveManager.phase()),
         () => this.room.laneSpawnsOf(playerId).length,
+        () => this.runRules,
       ),
       credits: () => this.creditsLedger.balance(playerId),
       spend: (cost) => this.creditsLedger.spend(cost, 'research', playerId),
@@ -530,7 +537,7 @@ export class GameStateManager {
   /** The start credits once per lane of the player (docs/WAVE_SYSTEM.md (Spuren)); one share without a lane */
   private withStartCredits(room: CoopRoom): CoopRoom {
     this.creditsLedger.setStartCredits(
-      (playerId) => GAME_BALANCE.player.startCredits * Math.max(1, room.laneSpawnsOf(playerId).length),
+      (playerId) => this.runRules.startCredits * Math.max(1, room.laneSpawnsOf(playerId).length),
     );
     return room;
   }
@@ -681,6 +688,7 @@ export class GameStateManager {
    * after a run: reset first.
    */
   loadWorld(world: SimWorld): void {
+    this.takeRunRules(world.rules);
     this.routeWorld.load(world);
     const key = this.routeWorld.key();
     if (key !== world.worldKey) {
@@ -695,6 +703,24 @@ export class GameStateManager {
       }
       return null;
     });
+  }
+
+  /**
+   * The world's run rules in place of those so far. The fresh run before
+   * loadWorld began with the old ones: where they change, the HQ and every
+   * account start again by the new. A world with the game's rules after one
+   * with the game's changes nothing (the tiles, DevWorld).
+   */
+  private takeRunRules(asked: RunRules | undefined): void {
+    this.worldRules = asked !== undefined;
+    const next = asked ? runRulesOf(asked) : DEFAULT_RUN_RULES;
+    const same = next.startCredits === this.runRules.startCredits && next.hqHealth === this.runRules.hqHealth
+      && (next.towers?.join('+') ?? '*') === (this.runRules.towers?.join('+') ?? '*');
+    this.runRules = next;
+    if (same) return;
+    this.healthLedger.setStart(next.hqHealth);
+    this.healthLedger.resetToStart();
+    this.creditsLedger.reset();
   }
 
   /**

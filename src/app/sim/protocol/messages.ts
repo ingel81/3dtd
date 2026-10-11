@@ -11,6 +11,8 @@ import type { SimFramePacket } from './packet';
 import type { ReplayMarker } from '../../replay/replay-bar-view';
 import type { WireFrame } from './wire';
 import type { WorldRef } from '../../world/world-ref';
+import type { RunRules } from './run-rules';
+import type { WaveTable } from '../../director/sources/table/wave-table';
 
 /**
  * The world the simulation stands on, from the finished world on the main
@@ -28,6 +30,8 @@ export interface SimWorld {
   worldKey: string;
   /** Ground under each spawn point (geo height), for spawns the grid has no cell for; null where the tiles had none */
   spawnGround: Record<string, number | null>;
+  /** The world's own run rules (a custom map's gameplay); absent: the game's (DEFAULT_RUN_RULES) */
+  rules?: RunRules;
 }
 
 /** A command from the main thread's bus, with the player who gave it. */
@@ -116,6 +120,8 @@ export interface PacketDemand {
 export interface SimConfig {
   /** WaveSourceId whose rules the simulation reads (setActiveWaveRules) */
   waveSource?: string;
+  /** With `waveSource`: the world's own wave list (a custom map's), absent for the checked-in one */
+  waveTable?: WaveTable;
   /** Coop roster, local player, lanes, cheat rule, line-of-sight role */
   players?: { players: string[]; local: string };
   lanes?: [string, string][];
