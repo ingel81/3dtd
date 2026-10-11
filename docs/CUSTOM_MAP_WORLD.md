@@ -62,7 +62,7 @@ Regeln ist das Maximum `startHealth`, die Rechnung bleibt bitgleich: Tiles, DevW
 
 ## Kartenprobe (`?bot=trial`)
 
-`?world=map:<id>&bot=trial&waves=N` lässt den Experten-Bot die ersten N Wellen (Standard 10, höchstens
+`?world=map:<id>&bot=trial&trialWaves=N` lässt den Experten-Bot die ersten N Wellen (Standard 10, höchstens
 50) der Karte allein spielen, mit Timescale 75 und ohne Bot-Server; der Tab läuft auch versteckt weiter.
 Die Probe gilt für jede Welt ohne echten Ort (`capabilities.realPlace` aus), also auch DevWorld. Sie
 zählt ab `game:started`, die Start-HP kommen aus den Spielwerten der Karte (`MapTrial`,

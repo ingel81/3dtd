@@ -20,9 +20,11 @@ describe('map trial', () => {
     expect(mapTrialWaves('?world=map:x')).toBeNull();
     expect(mapTrialWaves('?bot=auto')).toBeNull();
     expect(mapTrialWaves('?world=map:x&bot=trial')).toBe(MAP_TRIAL_WAVES);
-    expect(mapTrialWaves('?bot=trial&waves=3')).toBe(3);
-    expect(mapTrialWaves('?bot=trial&waves=999')).toBe(MAX_MAP_TRIAL_WAVES);
-    expect(mapTrialWaves('?bot=trial&waves=-2')).toBe(MAP_TRIAL_WAVES);
+    expect(mapTrialWaves('?bot=trial&trialWaves=3')).toBe(3);
+    expect(mapTrialWaves('?bot=trial&trialWaves=999')).toBe(MAX_MAP_TRIAL_WAVES);
+    expect(mapTrialWaves('?bot=trial&trialWaves=-2')).toBe(MAP_TRIAL_WAVES);
+    // ?waves= names the wave source, not the trial's length
+    expect(mapTrialWaves('?bot=trial&waves=table')).toBe(MAP_TRIAL_WAVES);
   });
 
   it('passes once its waves are held, and only once', () => {

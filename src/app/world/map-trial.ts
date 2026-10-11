@@ -2,7 +2,7 @@
  * Map trial
  *
  * The expert bot plays the first waves of a world on its own and says
- * whether it held (`?bot=trial`, `&waves=N`, docs/CUSTOM_MAP_WORLD.md): a
+ * whether it held (`?bot=trial`, `&trialWaves=N`, docs/CUSTOM_MAP_WORLD.md): a
  * custom map is checked for playability without a person, like the DevWorld
  * bot runs but without a bot server, and ends after its waves. The result
  * goes to the page (`window.__mapTrial`), to the page that opened it
@@ -12,6 +12,8 @@
 
 import type { EventSubscription, GameEventBus } from '../game-engine/game-event-bus';
 
+/** The link's number of waves (`?waves=` is the wave source's) */
+export const MAP_TRIAL_WAVES_PARAM = 'trialWaves';
 /** Waves a trial plays when the link names no number */
 export const MAP_TRIAL_WAVES = 10;
 /** The most a link may ask for */
@@ -44,11 +46,11 @@ export interface MapTrialResult {
   gameTimeMs: number;
 }
 
-/** The waves a link asks a trial for, null when it asks for none (`?bot=trial`, `&waves=N`) */
+/** The waves a link asks a trial for, null when it asks for none (`?bot=trial`, `&trialWaves=N`) */
 export function mapTrialWaves(search: string): number | null {
   const params = new URLSearchParams(search);
   if (params.get('bot') !== 'trial') return null;
-  const asked = Number(params.get('waves'));
+  const asked = Number(params.get(MAP_TRIAL_WAVES_PARAM));
   return Number.isInteger(asked) && asked > 0 ? Math.min(asked, MAX_MAP_TRIAL_WAVES) : MAP_TRIAL_WAVES;
 }
 
