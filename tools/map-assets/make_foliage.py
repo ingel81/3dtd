@@ -25,6 +25,26 @@ ATLASES = {
     'birch': 'LeafSet014',
     'conifer': 'LeafSet019',
     'box': 'LeafSet002',
+    'maple-red': 'LeafSet027',
+    'maple-mixed': 'LeafSet028',
+    'maple-green': 'LeafSet010',
+    'oak-autumn': 'LeafSet012',
+    'oak-rust': 'LeafSet030',
+    'birch-yellow': 'LeafSet007',
+    'birch-pale': 'LeafSet008',
+    'narrow': 'LeafSet013',
+    'ivy': 'LeafSet029',
+    'glossy': 'LeafSet022',
+}
+
+# Grass blade atlases (ambientCG FoliageNNN, CC0): single blades and stalks, cut out like leaves
+BLADES = {
+    'broad': 'Foliage001',
+    'seed': 'Foliage002',
+    'wisp': 'Foliage003',
+    'thin': 'Foliage004',
+    'mixed': 'Foliage006',
+    'long': 'Foliage008',
 }
 
 
@@ -130,7 +150,7 @@ def branch_card(sprites, size, leaf_px, count, twig, seed, conifer=False):
     return bleed(card)
 
 
-def grass_card(size_w, size_h, seed, flowers=False):
+def grass_card(size_w, size_h, seed, flowers=False, palette=None):
     rnd = random.Random(seed)
     card = Image.new('RGBA', (size_w, size_h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(card)
@@ -154,7 +174,7 @@ def grass_card(size_w, size_h, seed, flowers=False):
             col = tuple(int(c) for c in (base_col * shade).clip(0, 255)) + (255,)
             draw.polygon([pt(t0, -1), pt(t0, 1), pt(t1, 1), pt(t1, -1)], fill=col)
     if flowers:
-        palette = [(240, 240, 235), (250, 215, 60), (170, 120, 210), (235, 110, 120)]
+        palette = palette or [(240, 240, 235), (250, 215, 60), (170, 120, 210), (235, 110, 120)]
         for _ in range(26):
             x = rnd.uniform(0.08, 0.92) * size_w
             y = size_h - rnd.uniform(0.45, 0.95) * size_h
@@ -169,6 +189,184 @@ def grass_card(size_w, size_h, seed, flowers=False):
     return bleed(card)
 
 
+def tinted(sprite, tint):
+    arr = np.array(sprite).astype(np.float32)
+    arr[..., :3] *= np.array(tint, dtype=np.float32)
+    return Image.fromarray(arr.clip(0, 255).astype(np.uint8), 'RGBA')
+
+
+def upright(sprites):
+    """Blades with the long side vertical"""
+    return [s.rotate(90, expand=True) if s.size[0] > s.size[1] else s for s in sprites]
+
+
+def blade_card(sprites, size_w, size_h, count, seed, tint=(1, 1, 1), tips=None, heads=False, ears=None):
+    """Photo grass blades (ambientCG Foliage atlases) standing on the bottom edge of the card.
+
+    `tips`: colour blended onto the upper part of each blade (snow, frost);
+    `heads`: brown cattail heads on some stalks; `ears`: colour of grain ears (wheat).
+    """
+    rnd = random.Random(seed)
+    card = Image.new('RGBA', (size_w, size_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(card)
+    blades = upright(sprites)
+    for k in range(count):
+        s = rnd.choice(blades)
+        h = int(size_h * rnd.uniform(0.5, 0.98))
+        w = max(2, int(min(s.size[0] * h / s.size[1], h * 0.07) * rnd.uniform(0.8, 1.3)))
+        blade = s.resize((w, h), Image.LANCZOS)
+        if rnd.random() < 0.5:
+            blade = blade.transpose(Image.FLIP_LEFT_RIGHT)
+        jitter = rnd.uniform(0.75, 1.05)
+        blade = tinted(blade, [c * jitter for c in tint])
+        if tips:
+            arr = np.array(blade).astype(np.float32)
+            t = np.clip(1.0 - np.linspace(0, 1, h) * rnd.uniform(1.6, 2.6), 0, 1)[:, None, None]
+            arr[..., :3] = arr[..., :3] * (1 - t) + np.array(tips, dtype=np.float32) * t
+            blade = Image.fromarray(arr.clip(0, 255).astype(np.uint8), 'RGBA')
+        blade = blade.rotate(rnd.uniform(-14, 14), expand=True, resample=Image.BICUBIC)
+        x = int(rnd.uniform(0.04, 0.96) * size_w - blade.size[0] / 2)
+        card.alpha_composite(blade, (x, size_h - blade.size[1]))
+        top = (x + blade.size[0] / 2, size_h - blade.size[1])
+        if heads and k % 4 == 0:
+            r = size_w / 110
+            draw.line([top, (top[0], top[1] - r * 2)], fill=(90, 85, 50, 255), width=max(1, int(r * 0.35)))
+            draw.rounded_rectangle([top[0] - r, top[1] + r * 1.2, top[0] + r, top[1] + r * 8], radius=r,
+                                   fill=(92, 58, 34, 255))
+        if ears and k % 3 == 0:
+            r = size_w / 160
+            for e in range(7):
+                y = top[1] + e * r * 1.3
+                draw.ellipse([top[0] - r * 1.1, y, top[0] + r * 0.1, y + r * 1.6], fill=ears + (255,))
+                draw.ellipse([top[0] - r * 0.1, y + r * 0.5, top[0] + r * 1.1, y + r * 2.1], fill=ears + (255,))
+    return bleed(card)
+
+
+def strand_card(sprites, size_w, size_h, leaf_px, count, twig, seed):
+    """Willow: thin drooping twigs with narrow leaves from the base (bottom) to the tip (top) of the card"""
+    rnd = random.Random(seed)
+    card = Image.new('RGBA', (size_w, size_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(card)
+    strands = []
+    for k in range(5):
+        x0 = size_w * (0.2 + 0.6 * k / 4) + rnd.uniform(-10, 10)
+        pts = [(x0 + math.sin(t * 2.5 + k) * size_w * 0.05, size_h * (1 - t)) for t in np.linspace(0.02, 0.98, 12)]
+        strands.append(pts)
+        draw.line(pts, fill=twig, width=max(2, size_w // 128))
+    for _ in range(count):
+        pts = rnd.choice(strands)
+        i = rnd.randrange(len(pts) - 1)
+        t = rnd.random()
+        p = (pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t)
+        s = rnd.choice(sprites)
+        ratio = leaf_px * rnd.uniform(0.7, 1.1) / max(s.size)
+        leaf = s.resize((max(1, int(s.size[0] * ratio)), max(1, int(s.size[1] * ratio))), Image.LANCZOS)
+        leaf = tinted(leaf, (rnd.uniform(0.6, 0.85), rnd.uniform(0.7, 0.95), rnd.uniform(0.4, 0.6)))
+        leaf = leaf.rotate(rnd.choice((-1, 1)) * rnd.uniform(15, 40), expand=True, resample=Image.BICUBIC)
+        card.alpha_composite(leaf, (int(p[0] - leaf.size[0] / 2), int(p[1] - leaf.size[1] / 2)))
+    return bleed(card)
+
+
+def frond_card(size, seed, base_col=(58, 98, 36), dry=False):
+    """Palm frond: a curved midrib from the bottom centre with long leaflets angled towards the tip"""
+    rnd = random.Random(seed)
+    card = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(card)
+    rib = [(size * 0.5 + math.sin(t * 1.4) * size * 0.06, size * (0.99 - 0.95 * t)) for t in np.linspace(0, 1, 64)]
+    for i in range(3, len(rib) - 1):
+        t = i / len(rib)
+        for side in (-1, 1):
+            length = size * 0.42 * math.sin(math.pi * min(1.0, t * 1.1)) * rnd.uniform(0.85, 1.1)
+            ang = math.radians(rnd.uniform(48, 62)) * side
+            p = rib[i]
+            tip = (p[0] + math.sin(ang) * length, p[1] - math.cos(ang) * length - length * 0.15)
+            n = (-(tip[1] - p[1]), tip[0] - p[0])
+            ln = math.hypot(*n) or 1
+            w = size / 34
+            mid = ((p[0] + tip[0]) / 2 + n[0] / ln * w, (p[1] + tip[1]) / 2 + n[1] / ln * w)
+            mid2 = ((p[0] + tip[0]) / 2 - n[0] / ln * w * 0.4, (p[1] + tip[1]) / 2 - n[1] / ln * w * 0.4)
+            shade = rnd.uniform(0.75, 1.15) * (0.9 + 0.2 * t)
+            col = np.array(base_col) * shade
+            if dry and rnd.random() < 0.35:
+                col = np.array((140, 110, 60)) * rnd.uniform(0.8, 1.1)
+            draw.polygon([p, mid, tip, mid2], fill=tuple(int(c) for c in col.clip(0, 255)) + (255,))
+    draw.line(rib, fill=(110, 105, 60, 255), width=max(2, size // 120))
+    return bleed(card)
+
+
+def snowy(card, seed, amount=0.7):
+    """Snow on a foliage card: white blobs over the leaves, denser towards the card's tip"""
+    rnd = np.random.default_rng(seed)
+    arr = np.array(card).astype(np.float32)
+    h, w = arr.shape[:2]
+    noise = ndimage.gaussian_filter(rnd.random((h, w)), 9)
+    noise = (noise - noise.min()) / (noise.max() - noise.min() + 1e-6)
+    up = np.linspace(1.0, 0.6, h)[:, None]
+    m = np.clip((noise * up - (1 - amount)) * 6, 0, 1)
+    snow = np.array((235, 240, 248), dtype=np.float32)
+    arr[..., :3] = arr[..., :3] * (1 - m[..., None]) + snow * m[..., None]
+    return Image.fromarray(arr.clip(0, 255).astype(np.uint8), 'RGBA')
+
+
+def lily_pad(size, seed):
+    """A round floating leaf with a notch and radial veins"""
+    rnd = random.Random(seed)
+    card = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(card)
+    c = size / 2
+    r = size * 0.47
+    notch = math.radians(7)
+    pts = [(c, c)] + [(c + math.cos(a) * r, c + math.sin(a) * r) for a in np.linspace(notch, math.tau - notch, 64)]
+    draw.polygon(pts, fill=(52, 86, 34, 255))
+    for k in range(18):
+        a = notch + (math.tau - 2 * notch) * k / 17
+        draw.line([(c, c), (c + math.cos(a) * r * 0.95, c + math.sin(a) * r * 0.95)], fill=(76, 110, 50, 255), width=2)
+    arr = np.array(card).astype(np.float32)
+    n = ndimage.gaussian_filter(np.random.default_rng(seed).random((size, size)), 6)
+    arr[..., :3] *= (0.8 + 0.5 * (n - n.min()) / (n.max() - n.min()))[..., None]
+    arr[..., 0] += 18 * rnd.random()
+    return bleed(Image.fromarray(arr.clip(0, 255).astype(np.uint8), 'RGBA'))
+
+
+def blossom(size, petals, col, centre, seed):
+    """A flower seen from above (water lily): pointed petals in two rings around a centre"""
+    rnd = random.Random(seed)
+    card = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(card)
+    c = size / 2
+    for ring, r in enumerate((0.48, 0.34)):
+        for k in range(petals):
+            a = (k + 0.5 * ring) / petals * math.tau
+            tip = (c + math.cos(a) * size * r, c + math.sin(a) * size * r)
+            side = (math.cos(a + 1.57) * size * 0.07, math.sin(a + 1.57) * size * 0.07)
+            mid = (c + math.cos(a) * size * r * 0.45, c + math.sin(a) * size * r * 0.45)
+            shade = rnd.uniform(0.85, 1.0) * (1.0 if ring else 0.92)
+            fill = tuple(int(v * shade) for v in col) + (255,)
+            draw.polygon([(c, c), (mid[0] + side[0], mid[1] + side[1]), tip, (mid[0] - side[0], mid[1] - side[1])], fill=fill)
+    draw.ellipse([c - size * 0.08, c - size * 0.08, c + size * 0.08, c + size * 0.08], fill=centre + (255,))
+    return bleed(card)
+
+
+def cactus_skin(size, seed):
+    """Opaque skin for cacti: vertical ribs with spine dots (u around, v along)"""
+    rnd = np.random.default_rng(seed)
+    x = np.linspace(0, 1, size)
+    ribs = 0.5 + 0.5 * np.cos(x * math.tau * 8)
+    shade = 0.55 + 0.45 * ribs
+    n = ndimage.gaussian_filter(rnd.random((size, size)), 3)
+    n = (n - n.min()) / (n.max() - n.min())
+    base = np.array((62, 98, 52), dtype=np.float32)
+    arr = base[None, None, :] * (shade[None, :, None] * (0.85 + 0.3 * n[..., None]))
+    img = Image.fromarray(arr.clip(0, 255).astype(np.uint8), 'RGB')
+    draw = ImageDraw.Draw(img)
+    for k in range(8):
+        cx = k / 8 * size
+        for y in range(0, size, size // 24):
+            yy = y + (k % 2) * size / 48
+            draw.ellipse([cx - 2, yy - 2, cx + 2, yy + 2], fill=(215, 205, 170))
+    return img
+
+
 def main():
     dl, out = sys.argv[1], sys.argv[2]
     os.makedirs(dl, exist_ok=True)
@@ -180,6 +378,38 @@ def main():
     branch_card(sprites['box'], 512, 80, 300, (60, 48, 34, 255), 4).save(os.path.join(out, 'leaves-bush.png'))
     grass_card(512, 256, 5).save(os.path.join(out, 'grass.png'))
     grass_card(512, 256, 6, flowers=True).save(os.path.join(out, 'flowers.png'))
+
+    def save(img, name):
+        img.save(os.path.join(out, name))
+
+    # Autumn crowns and other broadleaves
+    save(branch_card(sprites['maple-red'] + sprites['maple-mixed'], 512, 70, 380, (70, 50, 36, 255), 11), 'leaves-maple-autumn.png')
+    save(branch_card(sprites['maple-green'], 512, 66, 380, (70, 52, 36, 255), 12), 'leaves-maple.png')
+    save(branch_card(sprites['oak-autumn'] + sprites['oak-rust'], 512, 60, 420, (70, 52, 36, 255), 13), 'leaves-oak-autumn.png')
+    save(branch_card(sprites['birch-yellow'] + sprites['birch-pale'], 512, 46, 480, (90, 80, 70, 255), 14), 'leaves-birch-autumn.png')
+    save(branch_card([tinted(s, (0.62, 0.7, 0.5)) for s in sprites['glossy']], 512, 58, 360, (55, 45, 34, 255), 15), 'leaves-swamp.png')
+    save(branch_card(sprites['ivy'], 512, 70, 340, (60, 48, 34, 255), 16), 'leaves-ivy.png')
+    save(branch_card([tinted(s, (0.85, 0.85, 0.6)) for s in sprites['narrow'] + sprites['birch-pale']], 512, 58, 520, (95, 80, 60, 255), 34), 'leaves-dry.png')
+    save(strand_card(sprites['narrow'], 256, 1024, 70, 520, (80, 70, 50, 255), 17), 'leaves-willow.png')
+    save(snowy(Image.open(os.path.join(out, 'leaves-conifer.png')), 18), 'leaves-conifer-snow.png')
+    save(frond_card(512, 19), 'palm-frond.png')
+    save(frond_card(512, 20, base_col=(80, 92, 40), dry=True), 'palm-frond-dry.png')
+    # Grass from photo blades, per biome
+    blades = {k: cut_leaves(*fetch_atlas(v, dl)) for k, v in BLADES.items()}
+    green = blades['broad'] + blades['mixed'] + blades['thin']
+    save(blade_card(green, 512, 256, 150, 21, tint=(0.85, 0.95, 0.8)), 'grass-green.png')
+    save(blade_card(blades['seed'] + blades['wisp'] + blades['thin'], 512, 256, 150, 22, tint=(1.15, 1.0, 0.7)), 'grass-dry.png')
+    save(blade_card(green + blades['seed'], 512, 256, 140, 23, tint=(1.25, 0.85, 0.5)), 'grass-autumn.png')
+    save(blade_card(blades['thin'] + blades['wisp'], 512, 256, 110, 24, tint=(0.8, 0.85, 0.8), tips=(235, 240, 248)), 'grass-snow.png')
+    save(blade_card(blades['long'] + blades['broad'], 512, 512, 90, 25, tint=(0.8, 0.9, 0.7), heads=True), 'reeds.png')
+    save(blade_card(blades['seed'] + blades['thin'], 512, 256, 170, 26, tint=(1.35, 1.1, 0.6), ears=(205, 170, 90)), 'wheat.png')
+    save(blade_card(blades['wisp'] + blades['seed'], 512, 256, 120, 27, tint=(0.7, 0.75, 0.55)), 'grass-swamp.png')
+    save(grass_card(512, 256, 28, flowers=True, palette=[(200, 40, 35), (215, 50, 40), (240, 235, 230)]), 'flowers-red.png')
+    save(grass_card(512, 256, 29, flowers=True, palette=[(90, 110, 210), (150, 120, 220), (245, 245, 240)]), 'flowers-blue.png')
+    save(grass_card(512, 256, 30, flowers=True, palette=[(250, 210, 60), (245, 180, 40), (250, 235, 120)]), 'flowers-yellow.png')
+    save(lily_pad(256, 31), 'lily-pad.png')
+    save(blossom(128, 8, (245, 225, 235), (240, 200, 60), 32), 'lily-flower.png')
+    cactus_skin(512, 33).save(os.path.join(out, 'cactus.jpg'), quality=90)
     print('foliage ok', file=sys.stderr)
 
 

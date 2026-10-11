@@ -1363,6 +1363,9 @@
       "randomRotation": true,
       "wind": 0.5,
       "drawDistance": 2500,
+      "tags": [
+        "temperate"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/bark_brown_02; Blätter https://ambientcg.com/view?id=LeafSet024, LeafSet016"
     },
     {
@@ -1381,6 +1384,9 @@
       "randomRotation": true,
       "wind": 0.7,
       "drawDistance": 2500,
+      "tags": [
+        "temperate"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/bark_platanus; Blätter https://ambientcg.com/view?id=LeafSet014"
     },
     {
@@ -1399,6 +1405,10 @@
       "randomRotation": true,
       "wind": 0.35,
       "drawDistance": 2500,
+      "tags": [
+        "temperate",
+        "mountain"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
     {
@@ -1417,6 +1427,10 @@
       "randomRotation": true,
       "wind": 0.35,
       "drawDistance": 2500,
+      "tags": [
+        "temperate",
+        "mountain"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
     {
@@ -1435,6 +1449,11 @@
       "randomRotation": true,
       "wind": 0.15,
       "drawDistance": 2500,
+      "tags": [
+        "swamp",
+        "autumn",
+        "volcanic"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/bark_brown_02"
     },
     {
@@ -1453,6 +1472,10 @@
       "randomRotation": true,
       "wind": 0.5,
       "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "village"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); Blätter https://ambientcg.com/view?id=LeafSet002"
     },
     {
@@ -1471,6 +1494,10 @@
       "randomRotation": true,
       "wind": 0.6,
       "drawDistance": 250,
+      "tags": [
+        "temperate",
+        "swamp"
+      ],
       "source": "https://polyhaven.com/a/fern_02"
     },
     {
@@ -1489,6 +1516,9 @@
       "randomRotation": true,
       "wind": 1.0,
       "drawDistance": 140,
+      "tags": [
+        "temperate"
+      ],
       "source": "procedural (tools/map-assets/build_models.py)"
     },
     {
@@ -1507,6 +1537,10 @@
       "randomRotation": true,
       "wind": 1.0,
       "drawDistance": 140,
+      "tags": [
+        "temperate",
+        "village"
+      ],
       "source": "procedural (tools/map-assets/build_models.py)"
     },
     {
@@ -1525,6 +1559,9 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 500,
+      "tags": [
+        "temperate"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/bark_brown_02, https://polyhaven.com/a/rough_wood"
     },
     {
@@ -1543,6 +1580,9 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 500,
+      "tags": [
+        "temperate"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/bark_brown_02"
     },
     {
@@ -1561,6 +1601,10 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "mountain"
+      ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_04"
     },
     {
@@ -1579,6 +1623,10 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 2500,
+      "tags": [
+        "temperate",
+        "mountain"
+      ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_02"
     },
     {
@@ -1597,6 +1645,9 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "tags": [
+        "village"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/clay_plaster, medieval_wood, clay_roof_tiles_02, castle_wall_slates"
     },
     {
@@ -1615,6 +1666,9 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "tags": [
+        "village"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/grey_plaster_02, medieval_wood, grey_roof_tiles, castle_wall_slates"
     },
     {
@@ -1633,6 +1687,9 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "tags": [
+        "village"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_07, grey_roof_tiles, castle_wall_slates"
     },
     {
@@ -1651,6 +1708,9 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 3000,
+      "tags": [
+        "castle"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/castle_brick_07"
     },
     {
@@ -1669,6 +1729,10 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 1500,
+      "tags": [
+        "village",
+        "castle"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/stacked_stone_wall"
     },
     {
@@ -1687,6 +1751,9 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 800,
+      "tags": [
+        "village"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/rough_wood"
     },
     {
@@ -1705,6 +1772,9 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 500,
+      "tags": [
+        "village"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_04, dark_planks"
     },
     {
@@ -1723,6 +1793,9 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 500,
+      "tags": [
+        "village"
+      ],
       "source": "https://polyhaven.com/a/Barrel_01"
     },
     {
@@ -1741,6 +1814,9 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 800,
+      "tags": [
+        "village"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/dark_planks"
     },
     {
@@ -1759,6 +1835,9 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 1500,
+      "tags": [
+        "village"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/castle_wall_slates, rough_wood, clay_roof_tiles_02"
     },
     {
@@ -1777,7 +1856,2070 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "tags": [
+        "village"
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_07, dark_planks"
+    },
+    {
+      "id": "tree-oak-autumn",
+      "name": "Oak (autumn)",
+      "category": "tree",
+      "file": "models/tree-oak-autumn.glb",
+      "footprint": 2.0,
+      "height": 12.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.75,
+        1.25
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 2500,
+      "tags": [
+        "autumn"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_02; Blätter https://ambientcg.com/view?id=LeafSet012, LeafSet030"
+    },
+    {
+      "id": "tree-oak-young",
+      "name": "Young oak",
+      "category": "tree",
+      "file": "models/tree-oak-young.glb",
+      "footprint": 1.0,
+      "height": 7.3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 2500,
+      "tags": [
+        "temperate",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_02; Blätter https://ambientcg.com/view?id=LeafSet024, LeafSet016"
+    },
+    {
+      "id": "tree-maple",
+      "name": "Maple",
+      "category": "tree",
+      "file": "models/tree-maple.glb",
+      "footprint": 1.8,
+      "height": 10.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 2500,
+      "tags": [
+        "temperate"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet010"
+    },
+    {
+      "id": "tree-maple-autumn",
+      "name": "Maple (autumn)",
+      "category": "tree",
+      "file": "models/tree-maple-autumn.glb",
+      "footprint": 1.8,
+      "height": 10.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 2500,
+      "tags": [
+        "autumn"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet027, LeafSet028"
+    },
+    {
+      "id": "tree-maple-red",
+      "name": "Small red maple",
+      "category": "tree",
+      "file": "models/tree-maple-red.glb",
+      "footprint": 1.5,
+      "height": 9.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 2500,
+      "tags": [
+        "autumn",
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet027, LeafSet028"
+    },
+    {
+      "id": "tree-birch-autumn",
+      "name": "Birch (autumn)",
+      "category": "tree",
+      "file": "models/tree-birch-autumn.glb",
+      "footprint": 1.2,
+      "height": 12.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.7,
+      "drawDistance": 2500,
+      "tags": [
+        "autumn"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_platanus; Blätter https://ambientcg.com/view?id=LeafSet007, LeafSet008"
+    },
+    {
+      "id": "tree-willow",
+      "name": "Weeping willow",
+      "category": "tree",
+      "file": "models/tree-willow.glb",
+      "footprint": 2.5,
+      "height": 12.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.8,
+      "drawDistance": 2500,
+      "tags": [
+        "swamp",
+        "temperate"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_willow; Blätter https://ambientcg.com/view?id=LeafSet013"
+    },
+    {
+      "id": "tree-mangrove",
+      "name": "Mangrove",
+      "category": "tree",
+      "file": "models/tree-mangrove.glb",
+      "footprint": 2.5,
+      "height": 10.3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.35,
+      "drawDistance": 2500,
+      "tags": [
+        "swamp",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_willow; Blätter https://ambientcg.com/view?id=LeafSet022"
+    },
+    {
+      "id": "tree-swamp-dead",
+      "name": "Dead swamp tree",
+      "category": "tree",
+      "file": "models/tree-swamp-dead.glb",
+      "footprint": 1.6,
+      "height": 8.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.1,
+      "drawDistance": 2500,
+      "tags": [
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_02; https://polyhaven.com/a/bark_willow"
+    },
+    {
+      "id": "tree-dead-pale",
+      "name": "Bleached dead tree",
+      "category": "tree",
+      "file": "models/tree-dead-pale.glb",
+      "footprint": 1.2,
+      "height": 8.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.1,
+      "drawDistance": 2500,
+      "tags": [
+        "desert",
+        "winter",
+        "volcanic"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_02"
+    },
+    {
+      "id": "tree-pine-snow",
+      "name": "Pine (snow)",
+      "category": "tree",
+      "file": "models/tree-pine-snow.glb",
+      "footprint": 1.6,
+      "height": 17.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.75,
+        1.25
+      ],
+      "randomRotation": true,
+      "wind": 0.3,
+      "drawDistance": 2500,
+      "tags": [
+        "winter",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
+    },
+    {
+      "id": "tree-fir-snow",
+      "name": "Fir (snow)",
+      "category": "tree",
+      "file": "models/tree-fir-snow.glb",
+      "footprint": 1.8,
+      "height": 12.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.75,
+        1.25
+      ],
+      "randomRotation": true,
+      "wind": 0.3,
+      "drawDistance": 2500,
+      "tags": [
+        "winter",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
+    },
+    {
+      "id": "tree-fir-young",
+      "name": "Young fir",
+      "category": "tree",
+      "file": "models/tree-fir-young.glb",
+      "footprint": 0.9,
+      "height": 5.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.4,
+      "drawDistance": 2500,
+      "tags": [
+        "temperate",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
+    },
+    {
+      "id": "tree-fir-young-snow",
+      "name": "Young fir (snow)",
+      "category": "tree",
+      "file": "models/tree-fir-young-snow.glb",
+      "footprint": 0.9,
+      "height": 5.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.35,
+      "drawDistance": 2500,
+      "tags": [
+        "winter",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
+    },
+    {
+      "id": "tree-palm",
+      "name": "Palm",
+      "category": "tree",
+      "file": "models/tree-palm.glb",
+      "footprint": 1.0,
+      "height": 10.3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.6,
+      "drawDistance": 2500,
+      "tags": [
+        "coast",
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/palm_tree_bark; Wedel gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "tree-palm-tall",
+      "name": "Tall palm",
+      "category": "tree",
+      "file": "models/tree-palm-tall.glb",
+      "footprint": 1.0,
+      "height": 13.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.7,
+      "drawDistance": 2500,
+      "tags": [
+        "coast",
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/palm_tree_bark; Wedel gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "tree-palm-dry",
+      "name": "Dry palm",
+      "category": "tree",
+      "file": "models/tree-palm-dry.glb",
+      "footprint": 1.0,
+      "height": 9.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 2500,
+      "tags": [
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/palm_tree_bark; Wedel gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "cactus",
+      "name": "Saguaro cactus",
+      "category": "tree",
+      "file": "models/cactus.glb",
+      "footprint": 0.8,
+      "height": 5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Haut gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "cactus-tall",
+      "name": "Tall saguaro",
+      "category": "tree",
+      "file": "models/cactus-tall.glb",
+      "footprint": 1.0,
+      "height": 7.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Haut gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "cactus-barrel",
+      "name": "Barrel cactus",
+      "category": "plant",
+      "file": "models/cactus-barrel.glb",
+      "footprint": 0.3,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 500,
+      "tags": [
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Haut gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "tree-quiver",
+      "name": "Quiver tree",
+      "category": "tree",
+      "file": "models/tree-quiver.glb",
+      "footprint": 0.8,
+      "height": 5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.1,
+      "drawDistance": 2500,
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/quiver_tree_01"
+    },
+    {
+      "id": "tree-quiver-small",
+      "name": "Small quiver tree",
+      "category": "tree",
+      "file": "models/tree-quiver-small.glb",
+      "footprint": 0.6,
+      "height": 3.0,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.1,
+      "drawDistance": 2500,
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/quiver_tree_02"
+    },
+    {
+      "id": "tree-quiver-dead",
+      "name": "Dead quiver trunk",
+      "category": "plant",
+      "file": "models/tree-quiver-dead.glb",
+      "footprint": 0.2,
+      "height": 2.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/dead_quiver_trunk"
+    },
+    {
+      "id": "desert-shrub",
+      "name": "Desert shrub",
+      "category": "plant",
+      "file": "models/desert-shrub.glb",
+      "footprint": 0.5,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.4,
+      "drawDistance": 300,
+      "tags": [
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet013, LeafSet008"
+    },
+    {
+      "id": "desert-tree",
+      "name": "Desert thorn tree",
+      "category": "tree",
+      "file": "models/desert-tree.glb",
+      "footprint": 0.8,
+      "height": 3.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.4,
+      "drawDistance": 2500,
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/searsia_lucida"
+    },
+    {
+      "id": "succulent",
+      "name": "Succulent",
+      "category": "plant",
+      "file": "models/succulent.glb",
+      "footprint": 0.3,
+      "height": 0.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/cheiridopsis_succulent"
+    },
+    {
+      "id": "iceplant",
+      "name": "Ice plant",
+      "category": "plant",
+      "file": "models/iceplant.glb",
+      "footprint": 0.3,
+      "height": 0.2,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "desert",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/crystalline_iceplant"
+    },
+    {
+      "id": "flower-gazania",
+      "name": "Gazania",
+      "category": "plant",
+      "file": "models/flower-gazania.glb",
+      "footprint": 0.2,
+      "height": 0.4,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.4,
+      "drawDistance": 300,
+      "tags": [
+        "desert",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/flower_gazania"
+    },
+    {
+      "id": "flower-ursinia",
+      "name": "Ursinia",
+      "category": "plant",
+      "file": "models/flower-ursinia.glb",
+      "footprint": 0.3,
+      "height": 0.4,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.4,
+      "drawDistance": 300,
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/flower_ursinia"
+    },
+    {
+      "id": "shrub",
+      "name": "Shrub",
+      "category": "plant",
+      "file": "models/shrub.glb",
+      "footprint": 0.6,
+      "height": 2.0,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.4,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet002, LeafSet016, LeafSet024"
+    },
+    {
+      "id": "shrub-wide",
+      "name": "Wide shrub",
+      "category": "plant",
+      "file": "models/shrub-wide.glb",
+      "footprint": 1.0,
+      "height": 1.7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.4,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet002, LeafSet016, LeafSet024"
+    },
+    {
+      "id": "bush-maple-autumn",
+      "name": "Autumn bush",
+      "category": "plant",
+      "file": "models/bush-maple-autumn.glb",
+      "footprint": 0.7,
+      "height": 2.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 600,
+      "tags": [
+        "autumn"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet027, LeafSet028"
+    },
+    {
+      "id": "bush-ivy",
+      "name": "Ivy bush",
+      "category": "plant",
+      "file": "models/bush-ivy.glb",
+      "footprint": 0.6,
+      "height": 1.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 600,
+      "tags": [
+        "castle",
+        "swamp",
+        "temperate"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet029"
+    },
+    {
+      "id": "hedge",
+      "name": "Hedge",
+      "category": "wall",
+      "file": "models/hedge.glb",
+      "footprint": 1.6,
+      "height": 1.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0.15,
+      "drawDistance": 1200,
+      "tags": [
+        "village",
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet002"
+    },
+    {
+      "id": "hedge-long",
+      "name": "Long hedge",
+      "category": "wall",
+      "file": "models/hedge-long.glb",
+      "footprint": 3.0,
+      "height": 1.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0.15,
+      "drawDistance": 1200,
+      "tags": [
+        "village",
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet002"
+    },
+    {
+      "id": "nettles",
+      "name": "Nettles",
+      "category": "plant",
+      "file": "models/nettles.glb",
+      "footprint": 0.2,
+      "height": 0.7,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.6,
+      "drawDistance": 300,
+      "tags": [
+        "temperate",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/nettle_plant"
+    },
+    {
+      "id": "periwinkle",
+      "name": "Periwinkle",
+      "category": "plant",
+      "file": "models/periwinkle.glb",
+      "footprint": 0.2,
+      "height": 0.4,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.6,
+      "drawDistance": 300,
+      "tags": [
+        "temperate",
+        "village"
+      ],
+      "source": "https://polyhaven.com/a/periwinkle_plant"
+    },
+    {
+      "id": "grass-green",
+      "name": "Tall grass",
+      "category": "plant",
+      "file": "models/grass-green.glb",
+      "footprint": 0.4,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 1.0,
+      "drawDistance": 200,
+      "tags": [
+        "temperate",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage001, Foliage004, Foliage006"
+    },
+    {
+      "id": "grass-tall-dry",
+      "name": "Dry tall grass",
+      "category": "plant",
+      "file": "models/grass-tall-dry.glb",
+      "footprint": 0.4,
+      "height": 0.7,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 1.0,
+      "drawDistance": 200,
+      "tags": [
+        "desert",
+        "autumn",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage002, Foliage003, Foliage004"
+    },
+    {
+      "id": "grass-autumn",
+      "name": "Autumn grass",
+      "category": "plant",
+      "file": "models/grass-autumn.glb",
+      "footprint": 0.4,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 1.0,
+      "drawDistance": 200,
+      "tags": [
+        "autumn"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage001, Foliage002, Foliage004, Foliage006"
+    },
+    {
+      "id": "grass-snow",
+      "name": "Frosted grass",
+      "category": "plant",
+      "file": "models/grass-snow.glb",
+      "footprint": 0.3,
+      "height": 0.4,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0.6,
+      "drawDistance": 200,
+      "tags": [
+        "winter",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage003, Foliage004"
+    },
+    {
+      "id": "grass-swamp",
+      "name": "Marsh grass",
+      "category": "plant",
+      "file": "models/grass-swamp.glb",
+      "footprint": 0.5,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0.9,
+      "drawDistance": 200,
+      "tags": [
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage002, Foliage003"
+    },
+    {
+      "id": "reeds",
+      "name": "Reeds",
+      "category": "plant",
+      "file": "models/reeds.glb",
+      "footprint": 0.7,
+      "height": 1.9,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.9,
+      "drawDistance": 400,
+      "tags": [
+        "swamp",
+        "temperate",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage001, Foliage008; Kolben gezeichnet"
+    },
+    {
+      "id": "reed-bed",
+      "name": "Reed bed",
+      "category": "plant",
+      "file": "models/reed-bed.glb",
+      "footprint": 1.4,
+      "height": 2.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.9,
+      "drawDistance": 500,
+      "tags": [
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage001, Foliage008; Kolben gezeichnet"
+    },
+    {
+      "id": "wheat-field",
+      "name": "Wheat patch",
+      "category": "plant",
+      "file": "models/wheat-field.glb",
+      "footprint": 1.4,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0.8,
+      "drawDistance": 500,
+      "tags": [
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage002, Foliage004; Ähren gezeichnet"
+    },
+    {
+      "id": "flowers-red",
+      "name": "Poppies",
+      "category": "plant",
+      "file": "models/flowers-red.glb",
+      "footprint": 0.3,
+      "height": 0.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 1.0,
+      "drawDistance": 180,
+      "tags": [
+        "temperate",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "flowers-blue",
+      "name": "Blue flowers",
+      "category": "plant",
+      "file": "models/flowers-blue.glb",
+      "footprint": 0.4,
+      "height": 0.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 1.0,
+      "drawDistance": 180,
+      "tags": [
+        "temperate",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "flowers-yellow",
+      "name": "Yellow flowers",
+      "category": "plant",
+      "file": "models/flowers-yellow.glb",
+      "footprint": 0.3,
+      "height": 0.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 1.0,
+      "drawDistance": 180,
+      "tags": [
+        "temperate",
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "lily-pads",
+      "name": "Lily pads (set height to the water)",
+      "category": "plant",
+      "file": "models/lily-pads.glb",
+      "footprint": 1.0,
+      "height": 0.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "mushrooms",
+      "name": "Mushrooms",
+      "category": "plant",
+      "file": "models/mushrooms.glb",
+      "footprint": 0.2,
+      "height": 0.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 150,
+      "tags": [
+        "temperate",
+        "autumn",
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py)"
+    },
+    {
+      "id": "mushrooms-red",
+      "name": "Toadstools",
+      "category": "plant",
+      "file": "models/mushrooms-red.glb",
+      "footprint": 0.3,
+      "height": 0.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 150,
+      "tags": [
+        "autumn",
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py)"
+    },
+    {
+      "id": "mushrooms-glow",
+      "name": "Glowing mushrooms",
+      "category": "plant",
+      "file": "models/mushrooms-glow.glb",
+      "footprint": 0.3,
+      "height": 0.7,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "swamp",
+        "crystal"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py)"
+    },
+    {
+      "id": "mushroom-giant",
+      "name": "Giant glowing mushrooms",
+      "category": "plant",
+      "file": "models/mushroom-giant.glb",
+      "footprint": 1.1,
+      "height": 3.3,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "swamp",
+        "crystal"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py)"
+    },
+    {
+      "id": "stump-old",
+      "name": "Old stump",
+      "category": "plant",
+      "file": "models/stump-old.glb",
+      "footprint": 0.5,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 500,
+      "tags": [
+        "temperate",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/tree_stump_01"
+    },
+    {
+      "id": "stump-mossy",
+      "name": "Mossy stump",
+      "category": "plant",
+      "file": "models/stump-mossy.glb",
+      "footprint": 0.5,
+      "height": 0.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 500,
+      "tags": [
+        "temperate",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/tree_stump_02"
+    },
+    {
+      "id": "log-fallen",
+      "name": "Fallen trunk",
+      "category": "plant",
+      "file": "models/log-fallen.glb",
+      "footprint": 1.2,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "temperate",
+        "swamp",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/dead_tree_trunk_02"
+    },
+    {
+      "id": "roots",
+      "name": "Roots",
+      "category": "plant",
+      "file": "models/roots.glb",
+      "footprint": 0.5,
+      "height": 0.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 250,
+      "tags": [
+        "temperate",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/pine_roots"
+    },
+    {
+      "id": "branches",
+      "name": "Dry branches",
+      "category": "plant",
+      "file": "models/branches.glb",
+      "footprint": 0.4,
+      "height": 0.3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 200,
+      "tags": [
+        "temperate",
+        "autumn"
+      ],
+      "source": "https://polyhaven.com/a/dry_branches_medium_01"
+    },
+    {
+      "id": "boulder",
+      "name": "Grey boulder",
+      "category": "rock",
+      "file": "models/boulder.glb",
+      "footprint": 1.1,
+      "height": 1.3,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "temperate",
+        "mountain",
+        "winter"
+      ],
+      "source": "https://polyhaven.com/a/boulder_01"
+    },
+    {
+      "id": "rock-granite",
+      "name": "Granite rock",
+      "category": "rock",
+      "file": "models/rock-granite.glb",
+      "footprint": 1.8,
+      "height": 1.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "mountain",
+        "temperate"
+      ],
+      "source": "https://polyhaven.com/a/rock_07"
+    },
+    {
+      "id": "rock-granite-flat",
+      "name": "Flat granite rock",
+      "category": "rock",
+      "file": "models/rock-granite-flat.glb",
+      "footprint": 2.4,
+      "height": 1.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "mountain",
+        "temperate"
+      ],
+      "source": "https://polyhaven.com/a/rock_09"
+    },
+    {
+      "id": "rock-round",
+      "name": "Round stone",
+      "category": "rock",
+      "file": "models/rock-round.glb",
+      "footprint": 0.8,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "temperate",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/stone_01"
+    },
+    {
+      "id": "rock-desert",
+      "name": "Desert rock",
+      "category": "rock",
+      "file": "models/rock-desert.glb",
+      "footprint": 1.7,
+      "height": 1.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_boulder_03"
+    },
+    {
+      "id": "rock-desert-large",
+      "name": "Large desert rock",
+      "category": "rock",
+      "file": "models/rock-desert-large.glb",
+      "footprint": 2.7,
+      "height": 3.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_boulder_06"
+    },
+    {
+      "id": "rock-sandstone",
+      "name": "Sandstone rock",
+      "category": "rock",
+      "file": "models/rock-sandstone.glb",
+      "footprint": 2.6,
+      "height": 2.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "desert",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_boulder_05 (getönt)"
+    },
+    {
+      "id": "rock-sandstone-large",
+      "name": "Large sandstone rock",
+      "category": "rock",
+      "file": "models/rock-sandstone-large.glb",
+      "footprint": 4.5,
+      "height": 3.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_boulder_02 (getönt)"
+    },
+    {
+      "id": "rock-basalt",
+      "name": "Basalt rock",
+      "category": "rock",
+      "file": "models/rock-basalt.glb",
+      "footprint": 1.5,
+      "height": 1.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "volcanic",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_boulder_03 (getönt)"
+    },
+    {
+      "id": "rock-basalt-large",
+      "name": "Large basalt rock",
+      "category": "rock",
+      "file": "models/rock-basalt-large.glb",
+      "footprint": 2.5,
+      "height": 2.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "volcanic",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_boulder_06 (getönt)"
+    },
+    {
+      "id": "rock-snow",
+      "name": "Frosted rock",
+      "category": "rock",
+      "file": "models/rock-snow.glb",
+      "footprint": 2.3,
+      "height": 1.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "winter",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_boulder_05 (aufgehellt)"
+    },
+    {
+      "id": "rock-volcanic",
+      "name": "Volcanic rock",
+      "category": "rock",
+      "file": "models/rock-volcanic.glb",
+      "footprint": 1.0,
+      "height": 1.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "volcanic"
+      ],
+      "source": "https://polyhaven.com/a/moon_rock_03 (getönt)"
+    },
+    {
+      "id": "rock-volcanic-large",
+      "name": "Large volcanic rock",
+      "category": "rock",
+      "file": "models/rock-volcanic-large.glb",
+      "footprint": 1.2,
+      "height": 2.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "volcanic"
+      ],
+      "source": "https://polyhaven.com/a/moon_rock_05 (getönt)"
+    },
+    {
+      "id": "rock-pumice",
+      "name": "Pumice",
+      "category": "rock",
+      "file": "models/rock-pumice.glb",
+      "footprint": 1.0,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "volcanic"
+      ],
+      "source": "https://polyhaven.com/a/moon_rock_01 (getönt)"
+    },
+    {
+      "id": "rock-mossy-a",
+      "name": "Mossy rock",
+      "category": "rock",
+      "file": "models/rock-mossy-a.glb",
+      "footprint": 1.5,
+      "height": 1.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "temperate",
+        "swamp",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/rock_moss_set_01"
+    },
+    {
+      "id": "rock-mossy-b",
+      "name": "Mossy rock, tall",
+      "category": "rock",
+      "file": "models/rock-mossy-b.glb",
+      "footprint": 1.0,
+      "height": 1.7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "temperate",
+        "swamp",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/rock_moss_set_01"
+    },
+    {
+      "id": "rock-mossy-c",
+      "name": "Mossy rock, long",
+      "category": "rock",
+      "file": "models/rock-mossy-c.glb",
+      "footprint": 1.4,
+      "height": 1.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "temperate",
+        "swamp",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/rock_moss_set_01"
+    },
+    {
+      "id": "rock-mossy-flat",
+      "name": "Mossy slab",
+      "category": "rock",
+      "file": "models/rock-mossy-flat.glb",
+      "footprint": 1.0,
+      "height": 0.7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "temperate",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/rock_moss_set_02"
+    },
+    {
+      "id": "stones",
+      "name": "Stones",
+      "category": "rock",
+      "file": "models/stones.glb",
+      "footprint": 1.9,
+      "height": 0.3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 250,
+      "tags": [
+        "temperate",
+        "desert",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_stones_01"
+    },
+    {
+      "id": "rock-coast",
+      "name": "Coastal rocks",
+      "category": "rock",
+      "file": "models/rock-coast.glb",
+      "footprint": 26.8,
+      "height": 2.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/coast_rocks_01"
+    },
+    {
+      "id": "cliff-face",
+      "name": "Cliff face",
+      "category": "rock",
+      "file": "models/cliff-face.glb",
+      "footprint": 5.0,
+      "height": 7.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/rock_face_01"
+    },
+    {
+      "id": "cliff-face-b",
+      "name": "Cliff face, broad",
+      "category": "rock",
+      "file": "models/cliff-face-b.glb",
+      "footprint": 4.4,
+      "height": 8.3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/rock_face_02"
+    },
+    {
+      "id": "cliff-wall",
+      "name": "Cliff wall",
+      "category": "rock",
+      "file": "models/cliff-wall.glb",
+      "footprint": 7.5,
+      "height": 9.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_cliff_01"
+    },
+    {
+      "id": "cliff-wall-b",
+      "name": "Cliff wall, tall",
+      "category": "rock",
+      "file": "models/cliff-wall-b.glb",
+      "footprint": 15.2,
+      "height": 11.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_cliff_02"
+    },
+    {
+      "id": "cliff-wall-sandstone",
+      "name": "Sandstone cliff",
+      "category": "rock",
+      "file": "models/cliff-wall-sandstone.glb",
+      "footprint": 7.5,
+      "height": 9.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_cliff_01 (getönt)"
+    },
+    {
+      "id": "cliff-wall-basalt",
+      "name": "Basalt cliff",
+      "category": "rock",
+      "file": "models/cliff-wall-basalt.glb",
+      "footprint": 15.2,
+      "height": 11.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "volcanic",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_cliff_02 (getönt)"
+    },
+    {
+      "id": "cliff-coast",
+      "name": "Coastal cliff",
+      "category": "rock",
+      "file": "models/cliff-coast.glb",
+      "footprint": 18.4,
+      "height": 9.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/coastal_cliff_02"
+    },
+    {
+      "id": "sandstone-pillar",
+      "name": "Sandstone pillar",
+      "category": "rock",
+      "file": "models/sandstone-pillar.glb",
+      "footprint": 2.9,
+      "height": 10.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
+    },
+    {
+      "id": "sandstone-pillar-tall",
+      "name": "Tall sandstone pillar",
+      "category": "rock",
+      "file": "models/sandstone-pillar-tall.glb",
+      "footprint": 2.6,
+      "height": 18.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
+    },
+    {
+      "id": "mesa",
+      "name": "Mesa",
+      "category": "rock",
+      "file": "models/mesa.glb",
+      "footprint": 22.1,
+      "height": 14.3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.6,
+        2.0
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
+    },
+    {
+      "id": "rock-arch",
+      "name": "Rock arch",
+      "category": "rock",
+      "file": "models/rock-arch.glb",
+      "footprint": 9.4,
+      "height": 9.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.6
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "desert",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
+    },
+    {
+      "id": "stalagmites",
+      "name": "Stalagmites",
+      "category": "rock",
+      "file": "models/stalagmites.glb",
+      "footprint": 1.1,
+      "height": 3.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "crystal",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/rock_boulder_dry"
+    },
+    {
+      "id": "basalt-columns",
+      "name": "Basalt columns",
+      "category": "rock",
+      "file": "models/basalt-columns.glb",
+      "footprint": 2.1,
+      "height": 3.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "volcanic",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock"
+    },
+    {
+      "id": "crystals-blue",
+      "name": "Blue crystals",
+      "category": "rock",
+      "file": "models/crystals-blue.glb",
+      "footprint": 0.9,
+      "height": 2.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "crystal"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock"
+    },
+    {
+      "id": "crystals-violet",
+      "name": "Violet crystals",
+      "category": "rock",
+      "file": "models/crystals-violet.glb",
+      "footprint": 0.9,
+      "height": 2.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "crystal"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock"
+    },
+    {
+      "id": "crystals-ice",
+      "name": "Ice crystals",
+      "category": "rock",
+      "file": "models/crystals-ice.glb",
+      "footprint": 0.9,
+      "height": 2.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "winter",
+        "crystal"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock"
+    },
+    {
+      "id": "lava-pool",
+      "name": "Lava pool",
+      "category": "rock",
+      "file": "models/lava-pool.glb",
+      "footprint": 4.6,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "volcanic"
+      ],
+      "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock_02"
     }
   ]
 }

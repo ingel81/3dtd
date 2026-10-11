@@ -1,28 +1,37 @@
 # Karten-Assets bauen
 
 Erzeugt Bodenmaterialien und Objektmodelle für eigene Karten (`public/maps/assets/`, Katalog `catalog.json`,
-Lizenzen `LICENSES.md`). Alle Quellen CC0 (Poly Haven, ambientCG). Downloads in ein eigenes Verzeichnis außerhalb
-des Repos (`$DL`).
+Lizenzen `LICENSES.md`). Alle Quellen CC0 (Poly Haven, ambientCG), keine KI-Generatoren. Downloads in ein eigenes
+Verzeichnis außerhalb des Repos (`$DL`). Python mit PIL/numpy/scipy, Blender 5.1 headless, Node (gltf-transform).
 
 ```bash
-# Bodenmaterialien: color.jpg, normal.jpg, arh.jpg (AO, Rauheit, Höhe) je Material, 1024 px
-python -I tools/map-assets/build_materials.py $DL/materials public/maps/assets
+# Bodenmaterialien (materials.json): color.jpg, normal.jpg, arh.jpg (AO, Rauheit, Höhe), emissive.jpg bei Lava,
+# 1024 px; schreibt die Materialien in catalog.json. Ids am Ende bauen nur diese neu.
+python -I tools/map-assets/build_materials.py $DL/materials public/maps/assets [<id> ...]
 
-# Blatt- und Graskarten (PNG mit Alpha)
+# Blatt-, Gras-, Schilf-, Wedel- und Seerosenkarten (PNG mit Alpha), Kaktushaut
 python -I tools/map-assets/make_foliage.py $DL/leafsets $DL/foliage
 
-# Quellen der Modelle (Texturen, Felsen, Farn, Fass)
+# Quellen der Modelle (Poly-Haven-Texturen und -Modelle)
 python -I tools/map-assets/fetch_model_sources.py $DL/models
 
-# Modelle in Blender bauen (GLB, unkomprimiert)
-blender --background --factory-startup --python tools/map-assets/build_models.py -- $DL/models $DL/foliage $DL/glb-raw
+# Modelle in Blender bauen (GLB, unkomprimiert); Ids oder Präfixe mit * bauen nur diese
+blender --background --factory-startup --python tools/map-assets/build_models.py -- $DL/models $DL/foliage $DL/glb-raw [<id> ...]
 
-# Komprimieren: meshopt-Geometrie, WebP-Texturen bis 512 px
-for f in $DL/glb-raw/*.glb; do
-  npx @gltf-transform/cli optimize $f public/maps/assets/models/$(basename $f) --compress meshopt \
-    --texture-compress webp --texture-size 512 --simplify false --instance false --flatten true --join true --palette false
-done
+# Komprimieren (meshopt, WebP 512 px, 1024 px für textureSize 1024 in objects.json) und vermessen
+python -I tools/map-assets/pack_models.py $DL/glb-raw public/maps/assets [<id> ...]
+
+# Objekte in catalog.json schreiben (objects.json + Messwerte), LICENSES.md neu
+python -I tools/map-assets/update_catalog.py $DL/glb-raw public/maps/assets
 ```
 
-`build_materials.py` gibt die Katalogeinträge der Materialien als JSON aus; die Objekteinträge pflegt man in
-`catalog.json` von Hand (Fußabdruck, Höhe, Sichtlinie, Wind, Sichtweite).
+Aufteilung der Blender-Skripte: `build_models.py` (Einstieg, Register, Grundbestand), `build_nature.py` (Bäume,
+Pflanzen, Felsen, Klippen, Kristalle), `build_structures.py` (Häuser, Burg, Brücken, Mauern), `build_props.py`
+(Requisiten, Effekt-Marker), gemeinsame Helfer in `blender_kit.py`.
+
+`objects.json` hält je Objekt, was ein Mensch entscheidet: Name, Kategorie, Biom-Tags, Lizenzquelle und, wo der
+Kategorie-Standard nicht passt, Sichtlinie, Bauverbot, Wind, Sichtweite, Skalierbereich. Fußabdruck und Höhe misst
+`pack_models.py`, solange `objects.json` sie nicht setzt. Material- und Objekt-Ids teilen sich einen Namensraum.
+
+Biom-Tags: `temperate`, `autumn`, `winter`, `mountain`, `desert`, `swamp`, `coast`, `volcanic`, `village`, `castle`,
+`crystal`, `arena`. Ansehen: `/map-preview?showcase=<tag>` oder `?assets=a,b*&materials=c,d` (Dev-Server).
