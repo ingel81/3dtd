@@ -133,17 +133,30 @@ Biom gemäßigt mit Burgmauern, Look `dusk`. Streng symmetrische Coop-Karte (Spi
 Spuren pro Spieler, die sich in der Mitte am gemeinsamen HQ treffen. Gestaltet mit dem Symmetrie-Modus. Spawns: 4.
 Bauflächen gespiegelt, gleiche Chancen für beide Spieler.
 
-## Probe nach dem Rebase (2026-10-11)
+## Prüfung und Messung
 
-Alle acht Karten neu gepackt auf dem Editor mit den neuen Biomen, Wasserfällen und der Erosion ohne Nadeln, alle
-acht Proben erneut bestanden (Werte oben). Die Regel „kein Bauen auf Wasser“ (Welt-Worker) war dabei noch nicht auf
-dem Branch; Sumpf, Archipel und Winterdorf sollten danach noch einmal geprüft werden.
+`tools/maps/shipped-maps-check.spec.ts` (läuft mit `npm test`) prüft jede Karte aus `index.json`: Datei gültig, Hash
+wie im Eintrag, Prüfen des Editors ohne Fehler, jeder Spawn erreicht das HQ über die Straßen, wie das Spiel routet
+(300 bis 1200 m inklusive des letzten Stücks zum HQ), keine Objekte mit `blocksBuild` auf Straßen (Tore und Bögen, durch
+die die Straße führt, ausgenommen), nur Assets und Materialien aus dem Katalog, höchstens 15 000 Objekte und 6 MB.
 
-## Laden im Produktions-Build
+`e2e/perf/shipped-maps.ts` misst alle Karten am Produktions-Build: Laden kalt (frischer Browser, kein Shader-Cache) und
+warm (derselbe Browser noch einmal), jeweils über das Startmenü bis `load:ready`, Bilder je Sekunde in der Spielansicht
+ohne Bildratengrenze, Kartenprobe `?bot=trial&trialWaves=10` mit Budget-Wellen. Druckt die Tabelle unten.
 
-`e2e/perf/map-load.ts` gegen `ng build` (Chromium mit Fenster, je zwei Läufe): erster Start des Browsers 3,9 bis
-4,5 s, zweiter Lauf 2,8 bis 3,2 s bis spielbar. Die Grenze von 4 s hält damit nur der warme Lauf; der kalte liegt bei
-sieben von acht Karten knapp darüber (wie beim Demo-Tal, 3,1 bis 3,8 s). Die acht Dateien sind zusammen 6,4 MB.
+### Messung
+
+Entwicklungsrechner, Chromium mit GPU, 1600 x 900, 2026-10-11:
+
+| Karte | Laden kalt | Laden warm | Spielansicht | Kartenprobe |
+|-------|-----------|-----------|--------------|-------------|
+| Demo Valley (`demo-valley`) | 4,1 s | 2,9 s | 450 fps | bestanden, 10/10 Wellen, HQ 464/500, 19 Tower |
+| Mountain Pass (`mountain-pass`) | 5,0 s | 3,7 s | 425 fps | bestanden, 10/10 Wellen, HQ 446/500, 19 Tower |
+| Witch Marsh (`witch-marsh`) | 6,9 s | 3,3 s | 604 fps | bestanden, 10/10 Wellen, HQ 416/500, 19 Tower |
+| Autumn Keep (`autumn-keep`) | 6,3 s | 3,1 s | 334 fps | bestanden, 10/10 Wellen, HQ 309/500, 19 Tower |
+
+Warm bleiben alle unter 4 s, kalt keine; der Unterschied ist das erste Kompilieren der Shader. Die Ladezeiten streuen
+auf dem Rechner um etwa eine Sekunde. Autumn Keep verliert in Welle 2, 3 und 10 am meisten HQ, hält aber.
 
 ## Weitere bei Bedarf
 Mondbasis (Krater, Habitate, Erde am Himmel), Mars-Canyon (rote Dünen, Rover), Endzeit-Stadt (Ruinen, Wracks, Smog),
