@@ -1,3 +1,16 @@
 {
-  "maps": []
+  "maps": [
+    {
+      "id": "demo-valley",
+      "name": "Demo-Tal",
+      "file": "demo-valley.3dtdmap",
+      "preview": "demo-valley.png",
+      "author": "3DTD",
+      "description": "Flusstal mit Dorf, Wald, Brücke und Felsen; zwei Straßen führen zum HQ.",
+      "width": 512,
+      "depth": 512,
+      "updatedAt": "1970-01-01T00:00:00.000Z",
+      "contentHash": "10e70661ab06e6a7d442a70de9c2dede2bb9d677125115e06093de7c3c39d30c"
+    }
+  ]
 }
