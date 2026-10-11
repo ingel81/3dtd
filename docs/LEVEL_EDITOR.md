@@ -18,8 +18,9 @@ Kopie an und öffnet sie.
 - **New map:** Name, Autor, Größe (Small 512 m, Medium 1024 m, Large 2048 m, Wide 2048 x 1024 m), Boden flach oder
   hügelig, Grundmaterial. Jede neue Karte hat eine Straße von West zum HQ und einen Spawn an ihrem Ende, damit sie sofort
   spielbar ist
-- **Import file:** `.3dtdmap` oder `.w3x` per Dateiwahl oder per Ablegen auf der Seite. Ein Warcraft-3-Import zeigt
-  Fortschritt und danach den Bericht (was übernommen wurde, Warnungen)
+- **Import file:** `.3dtdmap` oder `.w3x` per Dateiwahl oder per Ablegen auf der Seite. Ein Warcraft-3-Import läuft
+  im Web Worker ([W3X_IMPORT.md](W3X_IMPORT.md)) und zeigt danach den Bericht: Größe, Bodenschichten, Wasser, woher die
+  Straßen kamen, Spawns und Spurlängen, übernommene Doodads, Warnungen. Die Karte landet bei den eigenen
 - Die Adresse trägt die offene Karte (`/editor?map=<id>`); Neuladen öffnet sie wieder
 
 ## Bedienung
@@ -129,7 +130,7 @@ src/app/editor/
   validation/       Prüfen
   view/             EditorViewport (Renderer, Kamera, Eingabe), Overlay, Kamera, EditorMapView, Platzhalter-Ansicht
   catalog/          Asset-Katalog (eingebaut, überlagert von maps/assets/catalog.json)
-  import/           Naht zum Warcraft-3-Import
+  import/           Warcraft-3-Import: lädt importW3xInWorker beim ersten Gebrauch, fasst den Bericht zusammen
   ui/               Angular: Seite, Kartenliste, Shell, Panels
 ```
 
@@ -166,4 +167,3 @@ Rückgängig, Straße, Spawn, Prüfen, Speichern, Neuladen, Löschen; ohne Karte
 - Objekte haben nur eine Drehung um die Hochachse; „Align to slope“ fehlt im Kartendokument, der Streupinsel lässt
   Objekte am Hang stattdessen einsinken
 - Die Platzhalter-Ansicht zeigt Farben statt Texturen und Formen statt Modelle
-- Warcraft-3-Import: die Naht (`import/w3x-seam.ts`) meldet sich, solange der Konverter nicht verdrahtet ist
