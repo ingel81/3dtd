@@ -246,7 +246,9 @@ export class MapObjectLayer {
     for (const lod of lods) {
       levels.push({ from: lod.distance, parts: lod.model.parts.map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry) })) });
     }
-    if (entry.category === 'tree' && this.options.renderer && !model.placeholder) {
+    // Trees and big rocks (buildings get hand-made far models through the catalogue's lod)
+    const impostor = entry.category === 'tree' || (entry.category === 'rock' && entry.height >= 1.5);
+    if (impostor && this.options.renderer && !model.placeholder) {
       let imp = this.impostors.get(entry.id);
       if (imp === undefined) {
         imp = bakeImpostor(this.options.renderer, model);
