@@ -127,7 +127,8 @@ Seitenproben), `carryOffStreet` (Abzweig zum HQ trägt die Straßenhöhe weiter)
   `create(ref, { injector, origin })`, optional `startHq(ref)` und `logos(ref)`; `WorldUnavailableError` für eine
   Welt, die es hier nicht gibt. Eine neue Art registriert nur ihre Factory
 - `WorldPackageLoader.worldHere(package)`: warum die Welt eines Pakets (Coop, Spielstand) hier nicht steht, sonst
-  null. Hier wird später das Kartenpaket des Hosts geholt, statt abzulehnen
+  null. Für eine eigene Karte im Coop schickt der Host die Karte vorher über das Relay, der Gast legt sie ab und
+  öffnet sie ([COOP_PLAN.md](COOP_PLAN.md) C1c)
 
 ### Geo-Rahmen
 
@@ -204,8 +205,8 @@ Spiel mit `?world=map:<id>`.
 1. Typen und Plan (dieses Dokument), `WorldRef`, Kartendokument
 2. Engine und Abfragen auf `WorldProvider` (Tiles, DevWorld), Straßenquelle, Startablauf, `WorldRef` überall (gebaut)
 3. parallel: W3X-Leser und Konverter, Karten-Renderer und Assets, Editor
-4. `CustomMapWorld` im Spiel (gebaut: `?world=map:<id>`, die Demo-Karte liegt als `demo-valley` in `public/maps/` bei), Coop mit eigener Karte (offen:
-   der Host schickt das Kartenpaket, Einstieg `WorldPackageLoader.worldHere`)
+4. `CustomMapWorld` im Spiel (gebaut: `?world=map:<id>`, die Demo-Karte liegt als `demo-valley` in `public/maps/` bei),
+   Coop mit eigener Karte (gebaut: der Host schickt die Karte über das Relay, COOP_PLAN.md C1c)
 
 ## Kopplungsstellen vor dem Umbau (Erkundung 2026-10-11, inzwischen aufgelöst)
 

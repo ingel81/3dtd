@@ -199,6 +199,23 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
 - Testbar, sobald die Lobby das Paket liefert; vorher als Export und Import über das Dev-Menü denkbar.
 - Tiles lädt jeder selbst, sie sind nach dem Einfrieren nur Bild.
 
+**C1c Welt und eigene Karte (gebaut 2026-10-11)**
+
+- Das Paket trägt den `WorldRef` des Hosts (`WorldPackage.world`, [WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md)).
+  Ein Gast auf einer anderen Welt bekommt eine Meldung (`WorldPackageLoader.worldHere`): Tiles beider Quellen
+  gelten als dieselbe Welt, DevWorld nur mit denselben Einstellungen
+- Eigene Karte: der Host schickt vor der Welt die `.3dtdmap`-Datei der Karte (Nachricht `map`, Stücke zu höchstens
+  512 kB vor Base64, höchstens 8 Stücke = 4 MB, je Raum einmal, 250 ms Abstand wegen der Byte-Grenze des Relays).
+  Das Relay nimmt Stücke nur vom Host in der Lobby, behält die letzte Karte und gibt einem später Beitretenden alle
+  Stücke vor der Welt; eine andere Karte ersetzt sie (`coop-server/src/room.ts`)
+- Der Gast setzt die Stücke zusammen (`coop/map-transfer.ts`), prüft Kartenkennung und Inhalts-Hash und legt die
+  Karte in den Kartenspeicher (`world/custom-map/map-share.ts`; eine eigene Karte mit derselben Kennung und anderem
+  Inhalt wird nie überschrieben, der Gast soll sie umbenennen). Danach öffnet die Seite `?world=map:<id>` mit Raum,
+  Spur und Relay im Link und tritt wieder bei. Eine Seite, die schon auf der Karte steht, lädt nur neu, wenn ihr
+  Start an der fehlenden Karte gescheitert war (Einladungslink vor der Karte)
+- Der Einladungslink eines Kartenraums ist `?world=map:<id>&room=…`
+- Eine Karte über 4 MB geht nicht über das Relay: der Host liest es im Chat, Gäste mit der Karte können beitreten
+
 ### C2 Spieler im Spiel
 
 **C2a gebaut (2026-09-24):** Spieler, Gold, Tower-Besitz, Kill-Gold.
