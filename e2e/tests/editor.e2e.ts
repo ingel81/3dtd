@@ -154,7 +154,7 @@ test('makes a map from a template and uses the pro tools on it', async ({ page }
   await page.keyboard.press('Control+k');
   await page.locator('[data-test=palette-field]').fill('trial wave');
   await page.keyboard.press('Enter');
-  await expect(page.locator('.es-flash')).toContainText('Trial wave');
+  await expect(page.locator('[data-test=trial]')).toHaveAttribute('aria-pressed', 'true');
 
   // A lasso over the middle selects objects; Ctrl+G groups them
   await page.keyboard.press('5');
@@ -165,9 +165,11 @@ test('makes a map from a template and uses the pro tools on it', async ({ page }
   for (const [x, y] of [[cx + 220, cy - 160], [cx + 220, cy + 160], [cx - 220, cy + 160]]) await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.up();
   await page.keyboard.up('Alt');
-  await expect(page.locator('.es-flash')).toContainText('objects selected');
+  // A selection: its panel offers to drop it to the ground
+  await expect(page.getByRole('button', { name: 'Drop to the ground' })).toBeVisible();
   await page.keyboard.press('Control+g');
-  await expect(page.locator('.es-flash')).toContainText('Group g1');
+  // The group shows in the outline (the flash line is gone again after a few seconds)
+  await expect(page.locator('[data-group=g1]')).toBeVisible();
 
   // A save lands in the version list
   await page.keyboard.press('Control+s');

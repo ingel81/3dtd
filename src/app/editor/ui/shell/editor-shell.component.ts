@@ -115,6 +115,8 @@ export class EditorShellComponent implements OnDestroy {
   readonly keyActions = KEY_ACTIONS;
   /** The tour's step, null when it does not run */
   readonly tourStep = signal<number | null>(null);
+  /** Whether the trial wave walks (the button shows it pressed) */
+  readonly trialOn = signal(false);
   readonly tour = computed(() => {
     const k = this.tourStep();
     return k === null ? null : { step: TOUR_STEPS[k], counter: `${k + 1}/${TOUR_STEPS.length}`, last: k === TOUR_STEPS.length - 1 };
@@ -228,7 +230,9 @@ export class EditorShellComponent implements OnDestroy {
 
   trial(): void {
     this.session.viewport?.toggleTrial();
-    if (this.session.viewport?.trialRunning) this.tourEvent('trial');
+    const on = !!this.session.viewport?.trialRunning;
+    this.trialOn.set(on);
+    if (on) this.tourEvent('trial');
   }
 
   testPlay(): void {
@@ -269,6 +273,13 @@ export class EditorShellComponent implements OnDestroy {
     if (ctrl && k === 'z' && !e.shiftKey) return this.handled(e, () => s.undo());
     if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) return this.handled(e, () => s.redo());
     if (ctrl && k === 's') return this.handled(e, () => void s.save(true));
+    // Ctrl+G groups objects; the browser must not open its find bar for it, whatever the tool
+    if (ctrl && k === 'g') {
+      e.preventDefault();
+      s.viewport?.key(e);
+      s.refresh();
+      return;
+    }
     // Camera views: Alt or Ctrl with a digit keeps the view (Ctrl only where the browser leaves it), Shift with a digit shows it
     const digit = /^Digit([1-9])$/.exec(e.code);
     if (digit) {
@@ -381,7 +392,7 @@ export class EditorShellComponent implements OnDestroy {
       add('View', 'Frame the selection', () => vp.focusSelection(), this.keyOf('view:frame'));
       add('View', 'Top view on or off', () => vp.controller.setTopDown(!vp.controller.isTopDown), this.keyOf('view:top'));
       add('View', 'Game view on or off', () => vp.toggleGameView(), this.keyOf('view:game'));
-      add('Map', 'Trial wave: enemies walk the routes', () => vp.toggleTrial(), this.keyOf('map:trial'));
+      add('Map', 'Trial wave: enemies walk the routes', () => this.trial(), this.keyOf('map:trial'));
     }
     add('View', 'Height lines on or off', () => s.patchSettings((st) => (st.view.contours = !st.view.contours)));
     add('View', 'Grid on or off', () => s.patchSettings((st) => (st.view.grid = !st.view.grid)));

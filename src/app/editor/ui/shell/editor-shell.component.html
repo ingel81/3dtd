@@ -53,7 +53,7 @@
         <span class="td-tag" [class.is-error]="issueCount() > 0" [class.is-ok]="!issues.length">{{ issues.length }}</span>
       }
     </button>
-    <button class="td-btn-secondary td-btn-sm" type="button" (click)="trial()" [attr.aria-pressed]="session.viewport?.trialRunning ?? false"
+    <button class="td-btn-secondary td-btn-sm" type="button" (click)="trial()" [attr.aria-pressed]="trialOn()"
             matTooltip="The enemies walk the routes at their real speed, here in the editor (P)" data-test="trial" data-tour="trial">
       Trial wave
     </button>

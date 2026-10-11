@@ -61,7 +61,7 @@ import { EditorSession } from '../editor-session.service';
           <h3 class="td-head">Groups <span class="td-note">Ctrl+G</span></h3>
           <div class="td-rows">
             @for (g of d.groups; track g.id) {
-              <button class="td-row ol-row" type="button" (click)="selectGroup(g.id)">
+              <button class="td-row ol-row" type="button" (click)="selectGroup(g.id)" [attr.data-group]="g.id">
                 <span class="td-trunc">{{ g.id }}: {{ g.names }}</span><span class="td-muted td-num">{{ g.count }}</span>
               </button>
             }
