@@ -137,6 +137,9 @@ export class CustomMapView {
   attach(scene: Object3D): void {
     scene.add(this.group);
     scene.add(this.losBlockers);
+    // Measurement hook: a page that set `__mapProbe` before loading (Playwright init script) gets the view
+    const g = globalThis as { __mapProbe?: unknown };
+    if (g.__mapProbe) g.__mapProbe = this;
   }
 
   /**
@@ -173,6 +176,17 @@ export class CustomMapView {
    */
   update(dtSeconds: number, camera: Camera, focus?: Vector3): void {
     if (this.disposed) return;
+    const t0 = performance.now();
+    this.updateFrame(dtSeconds, camera, focus);
+    const ms = performance.now() - t0;
+    this.stats.updateMs = this.stats.frames ? this.stats.updateMs * 0.95 + ms * 0.05 : ms;
+    this.stats.frames++;
+  }
+
+  /** Main-thread cost of update(), smoothed, for measurements (sim-load --world, the preview) */
+  readonly stats = { updateMs: 0, frames: 0 };
+
+  private updateFrame(dtSeconds: number, camera: Camera, focus?: Vector3): void {
     for (const w of this.waters) w?.update(dtSeconds);
     for (const r of this.rivers) r.update(dtSeconds);
     camera.getWorldPosition(this.camPos);
