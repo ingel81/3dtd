@@ -62,6 +62,8 @@ export class LandscapeStroke {
   private pathsBefore: MapPaths | null = null;
   private riversBefore: { list: MapRiver[] | undefined } | null = null;
   readonly added: MapObject[] = [];
+  /** Objects the stroke took off the map */
+  private readonly removed: ObjectsCommand[] = [];
   readonly grid: ObjectGrid;
   private readonly ids: ObjectIds;
   private roads: RoadLine[] = [];
@@ -216,6 +218,11 @@ export class LandscapeStroke {
     this.pathsBefore ??= structuredClone(this.doc.paths);
   }
 
+  /** Whether the stroke changed the road network */
+  get pathsMarked(): boolean {
+    return this.pathsBefore !== null;
+  }
+
   /** Call before the stroke adds or changes a river */
   markRivers(): void {
     const list = this.doc.terrain.rivers;
@@ -239,6 +246,15 @@ export class LandscapeStroke {
   /** Height of sample (i, j) before the stroke */
   baseHeight(i: number, j: number): number {
     return this.heights.original(i, j);
+  }
+
+  /** Takes objects off the map, as part of the stroke's undo step; before any are added */
+  removeObjects(ids: readonly string[]): void {
+    if (!ids.length) return;
+    if (this.added.length) throw new Error('Objects are removed before the stroke adds any');
+    const command = ObjectsCommand.remove(this.label, this.doc, ids);
+    command.apply(this.doc);
+    this.removed.push(command);
   }
 
   addObject(o: Omit<MapObject, 'id'>): MapObject {
@@ -296,6 +312,7 @@ export class LandscapeStroke {
     if (!patches.empty) parts.push(patches);
     if (this.riversBefore) parts.push(new RiverListCommand('Rivers', this.riversBefore.list, t.rivers ? structuredClone(t.rivers) : undefined));
     if (this.pathsBefore) parts.push(new SnapshotCommand('Roads', { paths: this.pathsBefore }, { paths: structuredClone(doc.paths) }));
+    parts.push(...this.removed);
     if (this.added.length) {
       const start = doc.objects.length - this.added.length;
       parts.push(new ObjectsCommand('Objects', this.added.map((o, k) => ({ before: null, after: { ...o }, index: start + k }))));

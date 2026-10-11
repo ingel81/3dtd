@@ -7,10 +7,13 @@
  * (Shift reverses). Sea floods the body in from the map's edge. The body
  * list, kinds, levels and colours live in the panel (`waterCommands`).
  */
+import type { CatalogIndex } from '../catalog/asset-catalog';
 import type { CustomMapDocument, MapRiver, MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
 import type { DocChange, EditCommand, EditorDocument, PatchTarget } from '../model/editor-document';
 import { nearestSample, sampleRectAround, type GridRect } from '../model/grid';
 import { basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, waterBody, waterMaskDab } from '../ops/water-ops';
+import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
+import { removeRiver } from '../ops/landscape/river';
 import { insertPoint, movePoint, nearestRiverPoint, nearestRiverSegment, removePoint } from '../ops/river-edit';
 import { symmetryImages } from '../ops/symmetry';
 import { RiverListCommand } from '../model/terrain-commands';
@@ -104,13 +107,12 @@ export class WaterTool implements EditorTool {
     const s = ctx.settings.water;
     if (s.mode !== 'river' || (e.key !== 'Delete' && e.key !== 'Backspace') || s.river < 0) return false;
     const editor = ctx.editor;
-    editor.execute(
-      riverEdit(editor, s.riverPoint >= 0 ? 'Remove river point' : 'Remove river', (rivers) => {
-        const river = rivers[s.river];
-        if (!river) return;
-        if (s.riverPoint < 0 || !removePoint(river, s.riverPoint)) rivers.splice(s.river, 1);
-      }),
-    );
+    const river = editor.doc.terrain.rivers?.[s.river];
+    if (s.riverPoint >= 0 && river && river.points.length > 2) {
+      editor.execute(riverEdit(editor, 'Remove river point', (rivers) => rivers[s.river] && removePoint(rivers[s.river], s.riverPoint)));
+    } else {
+      removeWholeRiver(editor, s.river, ctx.catalog);
+    }
     s.riverPoint = -1;
     if (!editor.doc.terrain.rivers?.[s.river]) s.river = -1;
     ctx.settingsChanged();
@@ -324,6 +326,13 @@ export const waterCommands = {
 };
 
 /** Changes the rivers in place and records it as one step */
+/** Takes a river off the map with its bed filled, as one undo step */
+export function removeWholeRiver(editor: EditorDocument, index: number, catalog: CatalogIndex): void {
+  const stroke = new LandscapeStroke(editor, 'Remove river', 1, catalog);
+  removeRiver(stroke, index);
+  stroke.finish();
+}
+
 export function riverEdit(editor: EditorDocument, label: string, edit: (rivers: MapRiver[]) => void): EditCommand {
   const t = editor.doc.terrain;
   const before = t.rivers ? structuredClone(t.rivers) : undefined;

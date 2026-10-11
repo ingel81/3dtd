@@ -381,6 +381,156 @@ export function recarveRiver(stroke: LandscapeStroke, river: MapRiver, depth = D
   return rect;
 }
 
+/** What the river brush puts on the banks and in the falls; a removed river takes them along */
+const RIVER_ASSETS = new Set([
+  'reed-bed', 'reeds', 'grass-swamp', 'grass-clump',
+  'stones', 'rock-round', 'rock-small',
+  'rock-volcanic', 'rock-basalt', 'rock-pumice',
+  'fx-waterfall', 'waterfall',
+]);
+
+/**
+ * Takes a river off the map as if it had never been carved: across the bed
+ * and its banks the ground runs straight from the land on one side to the
+ * land on the other (a levee or a cutting goes too), and so does the ground
+ * paint, blending into the land at the edge. The reeds, stones and falls of
+ * the brush in that band go along, a bridge over it is a road again.
+ * Returns the changed height rect.
+ */
+export function removeRiver(stroke: LandscapeStroke, index: number, bankWidth = DEFAULT_RIVER.bank): GridRect | null {
+  const t = stroke.doc.terrain;
+  const g = t.grid;
+  const river = t.rivers?.[index];
+  if (!river) return null;
+  stroke.markRivers();
+  t.rivers!.splice(index, 1);
+  if (!t.rivers!.length) delete t.rivers;
+  const pts = river.points;
+  if (pts.length < 2) {
+    stroke.changed({ water: true });
+    return null;
+  }
+  const along: number[] = [0];
+  for (let k = 1; k < pts.length; k++) along.push(along[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
+  const halfAt = (s: number) => {
+    let k = 1;
+    while (k < pts.length - 1 && along[k] < s) k++;
+    const f = Math.min(1, Math.max(0, (s - along[k - 1]) / Math.max(1e-6, along[k] - along[k - 1])));
+    return (pts[k - 1].width + (pts[k].width - pts[k - 1].width) * f) / 2;
+  };
+  // The brush's banks reach up to 1.3 times their mean width
+  const reachAt = (s: number) => halfAt(s) + bankWidth * 1.4;
+  /**
+   * Where a point lies in the band: the land at its two edges straight across
+   * the course, the share of the way from the right edge to the left, and how
+   * much the fill counts (full over the bed, easing out over the outer quarter)
+   */
+  const across = (x: number, y: number) => {
+    const hit = nearestOnPolyline(pts, { x, y });
+    if (!hit) return null;
+    const e = reachAt(hit.along);
+    if (hit.dist >= e) return null;
+    const a = pts[hit.segment];
+    const b = pts[hit.segment + 1];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const nx = -(b.y - a.y) / len;
+    const ny = (b.x - a.x) / len;
+    const q = hit.point;
+    const offset = (x - q.x) * nx + (y - q.y) * ny;
+    return {
+      left: { x: q.x + nx * e, y: q.y + ny * e },
+      right: { x: q.x - nx * e, y: q.y - ny * e },
+      share: Math.min(1, Math.max(0, (offset + e) / (2 * e))),
+      weight: 1 - smooth(0.75, 1, hit.dist / e),
+    };
+  };
+  const reach = Math.max(...pts.map((q) => q.width)) / 2 + bankWidth * 1.4;
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  const x0 = Math.min(...xs) - reach + t.width / 2;
+  const x1 = Math.max(...xs) + reach + t.width / 2;
+  const y0 = Math.min(...ys) - reach + t.depth / 2;
+  const y1 = Math.max(...ys) + reach + t.depth / 2;
+
+  // Heights: worked out on the carved ground first, written after, so no fill reads another
+  const rect: GridRect = {
+    i0: Math.max(0, Math.floor(x0 / g.cellSize)),
+    i1: Math.min(g.columns - 1, Math.ceil(x1 / g.cellSize)),
+    j0: Math.max(0, Math.floor(y0 / g.cellSize)),
+    j1: Math.min(g.rows - 1, Math.ceil(y1 / g.cellSize)),
+  };
+  stroke.touchHeights(rect);
+  const fills: { k: number; h: number }[] = [];
+  for (let j = rect.j0; j <= rect.j1; j++) {
+    const y = sampleY(t, j);
+    for (let i = rect.i0; i <= rect.i1; i++) {
+      const x = sampleX(t, i);
+      const c = across(x, y);
+      if (!c) continue;
+      const left = heightAt(t, c.left.x, c.left.y);
+      const right = heightAt(t, c.right.x, c.right.y);
+      const k = j * g.columns + i;
+      fills.push({ k, h: g.heights[k] + (right + (left - right) * c.share - g.heights[k]) * c.weight });
+    }
+  }
+  for (const f of fills) g.heights[f.k] = f.h;
+
+  // Ground paint the same way, from the texels at the two edges
+  const res = t.splat.resolution;
+  const splat: GridRect = {
+    i0: Math.max(0, Math.floor((x0 / t.width) * res)),
+    i1: Math.min(res - 1, Math.ceil((x1 / t.width) * res)),
+    j0: Math.max(0, Math.floor((y0 / t.depth) * res)),
+    j1: Math.min(res - 1, Math.ceil((y1 / t.depth) * res)),
+  };
+  stroke.touchSplat(splat);
+  const texelAt = (p: MapPoint) => {
+    const u = Math.min(res - 1, Math.max(0, Math.floor(((p.x + t.width / 2) / t.width) * res)));
+    const v = Math.min(res - 1, Math.max(0, Math.floor(((p.y + t.depth / 2) / t.depth) * res)));
+    return v * res + u;
+  };
+  const left = new Float32Array(MAX_LAYERS);
+  const right = new Float32Array(MAX_LAYERS);
+  const w8 = new Float32Array(MAX_LAYERS);
+  const paints: { texel: number; w: Float32Array }[] = [];
+  for (let v = splat.j0; v <= splat.j1; v++) {
+    const y = texelY(t, v);
+    for (let u = splat.i0; u <= splat.i1; u++) {
+      const c = across(texelX(t, u), y);
+      if (!c) continue;
+      const texel = v * res + u;
+      readWeights(t, texelAt(c.left), left);
+      readWeights(t, texelAt(c.right), right);
+      readWeights(t, texel, w8);
+      const out = new Float32Array(MAX_LAYERS);
+      for (let k = 0; k < MAX_LAYERS; k++) out[k] = w8[k] + (right[k] + (left[k] - right[k]) * c.share - w8[k]) * c.weight;
+      paints.push({ texel, w: out });
+    }
+  }
+  for (const p of paints) writeWeights(t, p.texel, p.w);
+
+  // A bridge over the river is a road again
+  for (const edge of stroke.doc.paths.edges) {
+    if (edge.kind !== 'bridge') continue;
+    const line = edgePolyline(stroke.doc.paths, edge);
+    const crosses = line.some((p, k) => k > 0 && pts.some((r, m) => m > 0 && segmentCross(line[k - 1], p, pts[m - 1], r) !== null));
+    if (!crosses) continue;
+    stroke.markPaths();
+    edge.kind = 'road';
+  }
+
+  const gone = stroke.doc.objects
+    .filter((o) => RIVER_ASSETS.has(o.asset))
+    .filter((o) => {
+      const hit = nearestOnPolyline(pts, o);
+      return !!hit && hit.dist < reachAt(hit.along);
+    })
+    .map((o) => o.id);
+  stroke.removeObjects(gone);
+  stroke.changed({ heights: rect, splat, water: true, paths: stroke.pathsMarked || undefined, objects: gone.length ? gone : undefined });
+  return rect;
+}
+
 /** Splits every road the river crosses and makes the crossing stretch a bridge; returns how many */
 export function bridgeCrossings(stroke: LandscapeStroke, river: readonly MapPoint[], span: number): number {
   const paths = stroke.doc.paths;

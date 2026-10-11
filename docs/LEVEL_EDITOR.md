@@ -301,7 +301,9 @@ dem stärksten erreichten Gewicht entschieden. Rauschen aus `devworld/utils/seed
 liegt am oberen Ende knapp unter dem Boden und fällt danach nie und mindestens 0,4 cm je Meter; wo er mehr fällt, als er
 läuft (eine Klippe), steht an der Kante ein Wasserfall-Objekt (Front flussab, Größe nach Fallhöhe, über 12 m eine
 Kaskade); flachere steile Strecken bleiben Stromschnellen auf dem Band. Die Flussliste ist im Strich ein
-`RiverListCommand`.
+`RiverListCommand`. „Remove river“ (oder Entf ohne gewählten Punkt) nimmt den Fluss samt Bett ab (`removeRiver`):
+quer zum Lauf führen Höhe und Bodenanstrich gerade vom Land am einen Rand zum Land am anderen, Schilf, Steine und
+Wasserfälle im Band gehen mit, eine Brücke darüber wird wieder Straße; ein Rückgängig-Schritt.
 
 **Symmetrie und Stücke.** `mirrorChange` kopiert nach einem Tupfer die geänderten Zellen der Höhen, Splat-Karten und
 Wassermaske aus dem Sektor des Zeigers in die Bilder (das Raster ist um die Mitte gelegt, ein gespiegeltes Sample ist

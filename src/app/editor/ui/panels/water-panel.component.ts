@@ -5,7 +5,7 @@ import type { MapRiver, MapWaterKind } from '../../../world/custom-map/map-docum
 import { recarveRiver } from '../../ops/landscape/river';
 import { LandscapeStroke } from '../../ops/landscape/landscape-stroke';
 import { meanWidth, riverLength, setMeanWidth, simplifyRiver } from '../../ops/river-edit';
-import { riverEdit, waterCommands } from '../../tools/water-tool';
+import { removeWholeRiver, riverEdit, waterCommands } from '../../tools/water-tool';
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
@@ -110,7 +110,7 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
           </div>
         </div>
       }
-      <p class="td-note">Drag a point to move it, Shift click on a river adds one, Del removes the chosen point. The bed the brush carved stays; widen the banks with the terrain tools.</p>
+      <p class="td-note">Drag a point to move it, Shift click on a river adds one, Del removes the chosen point. Remove river takes it off with its bed, banks and reeds.</p>
     } @else if (mode() !== 'fill') {
       @if (mode() === 'lake') {
         <app-editor-range label="Depth" unit="m" [min]="0.5" [max]="20" [step]="0.5" [value]="depth()" (changing)="setDepth($event)" />
@@ -203,7 +203,8 @@ export class WaterPanelComponent {
     const editor = this.session.editor;
     const index = this.river();
     if (!editor || index < 0) return;
-    this.session.execute(riverEdit(editor, 'Remove river', (rivers) => rivers.splice(index, 1)));
+    removeWholeRiver(editor, index, this.session.catalog());
+    this.session.refresh();
     this.session.patchSettings((s) => {
       s.water.river = -1;
       s.water.riverPoint = -1;

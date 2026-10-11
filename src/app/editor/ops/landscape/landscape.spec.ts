@@ -10,7 +10,7 @@ import { biomeDab, finishBiome, previewSpots } from './biome-brush';
 import { biomeById, BIOMES } from './biomes';
 import { erosionDab } from './erosion';
 import { LandscapeStroke } from './landscape-stroke';
-import { carveRiver, DEFAULT_RIVER, recarveRiver } from './river';
+import { carveRiver, DEFAULT_RIVER, recarveRiver, removeRiver } from './river';
 import { movePoint, simplifyRiver } from '../river-edit';
 import { buildRoad, DEFAULT_ROAD } from './road';
 import { citySlots, streetDistance } from './city';
@@ -457,6 +457,48 @@ describe('river and road', () => {
     simplifyRiver(straight, 3);
     expect(straight.points.length).toBeLessThan(before);
     expect(straight.points[0]).toEqual(river.points[0]);
+  });
+
+  it('removes a river with its bed filled from the land on both sides, its reeds along, one undo step', () => {
+    const ed = map();
+    const t = ed.doc.terrain;
+    // Tilted land, so the fill has to follow it across and along
+    const plane = (x: number, y: number) => 0.04 * x + 0.02 * y + 10;
+    for (let j = 0; j < t.grid.rows; j++) {
+      for (let i = 0; i < t.grid.columns; i++) t.grid.heights[j * t.grid.columns + i] = plane(i * t.grid.cellSize - t.width / 2, j * t.grid.cellSize - t.depth / 2);
+    }
+    let stroke = new LandscapeStroke(ed, 'River', 3, catalog);
+    carveRiver(stroke, [{ x: -30, y: -150 }, { x: 10, y: 0 }, { x: -20, y: 150 }], DEFAULT_RIVER);
+    stroke.finish();
+    const carved = Array.from(t.grid.heights);
+    const objects = ed.doc.objects.length;
+    expect(objects).toBeGreaterThan(0);
+    expect(heightAt(t, 10, 0)).toBeLessThan(plane(10, 0) - 1.5);
+    const ground = new Float32Array(8);
+    const texel = (x: number, y: number) => {
+      const res = t.splat.resolution;
+      return Math.floor(((y + t.depth / 2) / t.depth) * res) * res + Math.floor(((x + t.width / 2) / t.width) * res);
+    };
+    readWeights(t, texel(120, -80), ground);
+    expect(ed.doc.paths.edges.some((e) => e.kind === 'bridge')).toBe(true);
+    const land = Array.from(ground);
+
+    stroke = new LandscapeStroke(ed, 'Remove river', 1, catalog);
+    removeRiver(stroke, 0);
+    stroke.finish();
+    expect(t.rivers).toBeUndefined();
+    expect(ed.doc.objects.length).toBe(0);
+    for (const [x, y] of [[10, 0], [-14, -80], [-6, 80], [16, 0], [4, 0]]) expect(Math.abs(heightAt(t, x, y) - plane(x, y))).toBeLessThan(0.4);
+    // The mud and sand went with it: the bed has the ground of the land beside it
+    readWeights(t, texel(-14, -80), ground);
+    Array.from(ground).forEach((w, k) => expect(Math.abs(w - land[k])).toBeLessThan(3));
+    expect(ed.doc.paths.edges.some((e) => e.kind === 'bridge')).toBe(false);
+
+    ed.undo();
+    expect(Array.from(t.grid.heights)).toEqual(carved);
+    expect(t.rivers).toHaveLength(1);
+    expect(ed.doc.objects.length).toBe(objects);
+    expect(ed.doc.paths.edges.some((e) => e.kind === 'bridge')).toBe(true);
   });
 
   it('lets a lava flow run with scorched banks, without reeds, falls or bridges', () => {
