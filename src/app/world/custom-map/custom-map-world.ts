@@ -111,6 +111,7 @@ export class CustomMapWorld implements WorldProvider {
 
   private view: CustomMapView | null = null;
   private lastUpdate = 0;
+  private prepared = false;
   private readonly focus = new Vector3();
   private readonly lookDirection = new Vector3();
   private readonly firstGroundWaiters: (() => void)[] = [];
@@ -151,17 +152,35 @@ export class CustomMapWorld implements WorldProvider {
     // The map's sky, sun with shadows, fill light and fog; the engine added none (capabilities.ownEnvironment)
     CustomMapEnvironment.enableShadows(ctx.renderer);
     view.environment.apply(ctx.scene, ctx.renderer);
-    // Textures and models load behind the ground, which stands at once
-    view.ready.catch((err) => console.warn('[CustomMap] assets did not load', err));
-
     // Over the HQ at the scene origin, controls that raycast the map's ground and objects
     ctx.cameraRig.setupEnvironmentControls(ctx.scene, view.losBlockers);
 
+    // Streets, spawns and routes go on while the map's textures and models load and its shaders compile
+    void this.prepare(ctx, view);
+  }
+
+  /**
+   * The map's first frame without stalls: its ground materials and models
+   * loaded (view.ready), then every program of the scene compiled in parallel
+   * off the main thread (compileAsync, KHR_parallel_shader_compile) before
+   * the first draw. Drawn before, each new material links its program
+   * synchronously in the frame that first shows it: some 3 s on the main
+   * thread for the demo valley. Until then `ready()` holds the frames back.
+   */
+  private async prepare(ctx: WorldAttachContext, view: CustomMapView): Promise<void> {
+    await view.ready.catch((err) => console.warn('[CustomMap] assets did not load', err));
+    if (this.view !== view) return;
+    performance.mark('load:map-assets:done');
+    await ctx.renderer.compileAsync(ctx.scene, ctx.camera).catch((err) => console.warn('[CustomMap] shaders did not compile ahead', err));
+    if (this.view !== view) return;
+    performance.mark('load:map-shaders:done');
+    this.prepared = true;
     for (const waiter of this.firstGroundWaiters.splice(0)) waiter();
   }
 
+  /** Frames draw once the map is prepared (prepare) */
   ready(): boolean {
-    return true;
+    return this.prepared;
   }
 
   setOrigin(lat: number, lon: number, height: number): void {
@@ -208,7 +227,7 @@ export class CustomMapWorld implements WorldProvider {
   }
 
   onFirstGround(callback: () => void): void {
-    if (this.view) callback();
+    if (this.prepared) callback();
     else this.firstGroundWaiters.push(callback);
   }
 

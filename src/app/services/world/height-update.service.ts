@@ -6,7 +6,9 @@ import { cameraTimeline } from '../../utils/camera-timeline';
  * HeightUpdateService
  *
  * Manages terrain height synchronization for overlays (markers, streets):
- * a fixed number of height updates, one every UPDATE_INTERVAL_MS.
+ * a fixed number of height updates, one every UPDATE_INTERVAL_MS, while the
+ * ground streams in (tiles). A world whose ground stands at once (DevWorld,
+ * a custom map) takes one update right away.
  */
 @Injectable({ providedIn: 'root' })
 export class HeightUpdateService {
@@ -36,6 +38,9 @@ export class HeightUpdateService {
 
   /** Height update interval ID */
   private heightUpdateIntervalId: number | null = null;
+
+  /** Updates of the cycle running: ATTEMPTS while the ground streams, else 1 */
+  private attempts = 0;
 
   /** Height update attempt counter */
   private heightUpdateAttempts = 0;
@@ -107,6 +112,8 @@ export class HeightUpdateService {
     // Reset counters for fresh location
     this.heightUpdateAttempts = 0;
     this.heightsLoading.set(true);
+    const streaming = this.engine?.world.capabilities.streaming ?? true;
+    this.attempts = streaming ? this.ATTEMPTS : 1;
 
     // Update detail for first cycle
     if (this.onUpdateDetailCallback) {
@@ -118,7 +125,7 @@ export class HeightUpdateService {
 
       this.heightUpdateIntervalId = window.setInterval(() => {
         this.performHeightUpdate();
-      }, this.UPDATE_INTERVAL_MS);
+      }, streaming ? this.UPDATE_INTERVAL_MS : 0);
     });
   }
 
@@ -135,9 +142,9 @@ export class HeightUpdateService {
 
     // Update step detail for live progress display - show what's happening
     if (this.onUpdateDetailCallback) {
-      const remaining = this.ATTEMPTS - this.heightUpdateAttempts;
+      const remaining = this.attempts - this.heightUpdateAttempts;
       if (remaining > 0) {
-        this.onUpdateDetailCallback(`Synchronizing terrain... (${this.heightUpdateAttempts}/${this.ATTEMPTS})`);
+        this.onUpdateDetailCallback(`Synchronizing terrain... (${this.heightUpdateAttempts}/${this.attempts})`);
       } else {
         this.onUpdateDetailCallback(`Finalizing terrain...`);
       }
@@ -162,7 +169,7 @@ export class HeightUpdateService {
     }
 
     // Stop after the last attempt
-    if (this.heightUpdateAttempts >= this.ATTEMPTS) {
+    if (this.heightUpdateAttempts >= this.attempts) {
       this.stopHeightUpdates();
     }
   }
