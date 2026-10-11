@@ -117,8 +117,11 @@ describe('The main menu', () => {
     getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
   });
 
+  let world = fakeWorldContext();
+
   beforeEach(() => {
     vi.clearAllMocks();
+    world = fakeWorldContext();
     engineInit.loading.set(true);
     engineInit.error.set(null);
     coordinator.awaitingStartChoice.set(false);
@@ -148,7 +151,7 @@ describe('The main menu', () => {
         { provide: COOP, useValue: coop },
         { provide: TowerDefenseFacadeService, useValue: facade },
         { provide: ConfigService, useValue: config },
-        { provide: WorldContext, useValue: fakeWorldContext() },
+        { provide: WorldContext, useValue: world },
         { provide: MatDialog, useValue: dialog },
       ],
     });
@@ -321,6 +324,21 @@ describe('The main menu', () => {
       const mapKey = Array.from(el().querySelectorAll<HTMLElement>('app-menu-loading button')).find((b) => b.textContent === 'Map key');
       await click(mapKey!);
       expect(config.setupRequested()).toBe(true);
+    });
+
+    it('names a missing custom map by its map and offers another map, no map key', async () => {
+      world.useCustomMap('no-such-map');
+      engineInit.loading.set(false);
+      engineInit.error.set('The world "map no-such-map" is not available: There is no map "no-such-map".');
+      await setup();
+
+      const plate = el().querySelector('app-menu-loading')!;
+      expect(plate.querySelector('h3')?.textContent).toContain('no-such-map');
+      const labels = Array.from(plate.querySelectorAll<HTMLElement>('button')).map((b) => b.textContent?.trim());
+      expect(labels).toContain('Other map');
+      expect(labels).not.toContain('Map key');
+      expect(labels).not.toContain('Other place');
+      engineInit.error.set(null);
     });
 
     it('shows the next load in the plate, not the failure of the change before it', async () => {

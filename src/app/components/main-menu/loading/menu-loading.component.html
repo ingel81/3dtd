@@ -11,7 +11,7 @@
       <p>{{ problem.text }}</p>
       <div class="td-actions is-start">
         <button type="button" class="td-btn-primary" (click)="retry()">Retry</button>
-        <button type="button" class="td-btn-secondary" (click)="otherPlace()">Other place</button>
+        <button type="button" class="td-btn-secondary" (click)="otherPlace()">{{ otherLabel() }}</button>
         @if (offersMapKey()) {
           <button type="button" class="td-btn-secondary" (click)="mapKey()">Map key</button>
         }
