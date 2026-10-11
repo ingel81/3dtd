@@ -1,0 +1,660 @@
+{
+  "version": 1,
+  "materials": [
+    {
+      "id": "grass",
+      "name": "Gras",
+      "category": "grass",
+      "files": {
+        "color": "materials/grass/color.jpg",
+        "normal": "materials/grass/normal.jpg",
+        "arh": "materials/grass/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#606d30",
+      "source": "https://ambientcg.com/view?id=Grass004"
+    },
+    {
+      "id": "grass-lush",
+      "name": "Sattes Gras",
+      "category": "grass",
+      "files": {
+        "color": "materials/grass-lush/color.jpg",
+        "normal": "materials/grass-lush/normal.jpg",
+        "arh": "materials/grass-lush/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#445c28",
+      "source": "https://ambientcg.com/view?id=Grass001"
+    },
+    {
+      "id": "grass-dry",
+      "name": "Trockenes Gras",
+      "category": "grass",
+      "files": {
+        "color": "materials/grass-dry/color.jpg",
+        "normal": "materials/grass-dry/normal.jpg",
+        "arh": "materials/grass-dry/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#989358",
+      "source": "https://ambientcg.com/view?id=Ground037"
+    },
+    {
+      "id": "meadow",
+      "name": "Wiese mit Erde",
+      "category": "grass",
+      "files": {
+        "color": "materials/meadow/color.jpg",
+        "normal": "materials/meadow/normal.jpg",
+        "arh": "materials/meadow/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#837d4b",
+      "source": "https://ambientcg.com/view?id=Ground003"
+    },
+    {
+      "id": "dirt",
+      "name": "Erde",
+      "category": "soil",
+      "files": {
+        "color": "materials/dirt/color.jpg",
+        "normal": "materials/dirt/normal.jpg",
+        "arh": "materials/dirt/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#735b3e",
+      "source": "https://polyhaven.com/a/brown_mud_dry"
+    },
+    {
+      "id": "mud",
+      "name": "Schlamm",
+      "category": "soil",
+      "files": {
+        "color": "materials/mud/color.jpg",
+        "normal": "materials/mud/normal.jpg",
+        "arh": "materials/mud/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#4d4437",
+      "source": "https://polyhaven.com/a/brown_mud_02"
+    },
+    {
+      "id": "forest-floor",
+      "name": "Laubboden",
+      "category": "forest",
+      "files": {
+        "color": "materials/forest-floor/color.jpg",
+        "normal": "materials/forest-floor/normal.jpg",
+        "arh": "materials/forest-floor/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#825f3b",
+      "source": "https://polyhaven.com/a/forest_leaves_04"
+    },
+    {
+      "id": "forest-ground",
+      "name": "Waldboden",
+      "category": "forest",
+      "files": {
+        "color": "materials/forest-ground/color.jpg",
+        "normal": "materials/forest-ground/normal.jpg",
+        "arh": "materials/forest-ground/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#6a5a44",
+      "source": "https://polyhaven.com/a/forest_ground_04"
+    },
+    {
+      "id": "rocky-ground",
+      "name": "Steiniger Boden",
+      "category": "rock",
+      "files": {
+        "color": "materials/rocky-ground/color.jpg",
+        "normal": "materials/rocky-ground/normal.jpg",
+        "arh": "materials/rocky-ground/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#93806b",
+      "source": "https://polyhaven.com/a/rocky_trail"
+    },
+    {
+      "id": "gravel",
+      "name": "Kies",
+      "category": "rock",
+      "files": {
+        "color": "materials/gravel/color.jpg",
+        "normal": "materials/gravel/normal.jpg",
+        "arh": "materials/gravel/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#726a5f",
+      "source": "https://polyhaven.com/a/rock_ground"
+    },
+    {
+      "id": "cliff",
+      "name": "Fels",
+      "category": "rock",
+      "files": {
+        "color": "materials/cliff/color.jpg",
+        "normal": "materials/cliff/normal.jpg",
+        "arh": "materials/cliff/arh.jpg"
+      },
+      "scale": 12,
+      "average": "#6e5c34",
+      "source": "https://polyhaven.com/a/aerial_rocks_02"
+    },
+    {
+      "id": "rock-mossy",
+      "name": "Moosiger Fels",
+      "category": "rock",
+      "files": {
+        "color": "materials/rock-mossy/color.jpg",
+        "normal": "materials/rock-mossy/normal.jpg",
+        "arh": "materials/rock-mossy/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#6c6b57",
+      "source": "https://polyhaven.com/a/mossy_rock"
+    },
+    {
+      "id": "sand",
+      "name": "Sand",
+      "category": "sand",
+      "files": {
+        "color": "materials/sand/color.jpg",
+        "normal": "materials/sand/normal.jpg",
+        "arh": "materials/sand/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#a5956f",
+      "source": "https://polyhaven.com/a/sand_01"
+    },
+    {
+      "id": "snow",
+      "name": "Schnee",
+      "category": "snow",
+      "files": {
+        "color": "materials/snow/color.jpg",
+        "normal": "materials/snow/normal.jpg",
+        "arh": "materials/snow/arh.jpg"
+      },
+      "scale": 5,
+      "average": "#b9b6b5",
+      "source": "https://polyhaven.com/a/snow_01"
+    },
+    {
+      "id": "cobblestone",
+      "name": "Kopfsteinpflaster",
+      "category": "road",
+      "files": {
+        "color": "materials/cobblestone/color.jpg",
+        "normal": "materials/cobblestone/normal.jpg",
+        "arh": "materials/cobblestone/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#79705c",
+      "source": "https://polyhaven.com/a/cobblestone_floor_05"
+    },
+    {
+      "id": "paving",
+      "name": "Steinplatten",
+      "category": "road",
+      "files": {
+        "color": "materials/paving/color.jpg",
+        "normal": "materials/paving/normal.jpg",
+        "arh": "materials/paving/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#7a7a72",
+      "source": "https://polyhaven.com/a/stone_tiles_02"
+    },
+    {
+      "id": "dirt-path",
+      "name": "Feldweg",
+      "category": "road",
+      "files": {
+        "color": "materials/dirt-path/color.jpg",
+        "normal": "materials/dirt-path/normal.jpg",
+        "arh": "materials/dirt-path/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#8d8163",
+      "source": "https://polyhaven.com/a/grass_path_2"
+    }
+  ],
+  "objects": [
+    {
+      "id": "tree-oak",
+      "name": "Eiche",
+      "category": "tree",
+      "file": "models/tree-oak.glb",
+      "footprint": 2.0,
+      "height": 12,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.75,
+        1.25
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 2500,
+      "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/bark_brown_02; Blätter https://ambientcg.com/view?id=LeafSet024, LeafSet016"
+    },
+    {
+      "id": "tree-birch",
+      "name": "Birke",
+      "category": "tree",
+      "file": "models/tree-birch.glb",
+      "footprint": 1.2,
+      "height": 13,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.7,
+      "drawDistance": 2500,
+      "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/bark_platanus; Blätter https://ambientcg.com/view?id=LeafSet014"
+    },
+    {
+      "id": "tree-pine",
+      "name": "Kiefer",
+      "category": "tree",
+      "file": "models/tree-pine.glb",
+      "footprint": 1.6,
+      "height": 17,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.75,
+        1.25
+      ],
+      "randomRotation": true,
+      "wind": 0.35,
+      "drawDistance": 2500,
+      "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
+    },
+    {
+      "id": "tree-fir",
+      "name": "Tanne",
+      "category": "tree",
+      "file": "models/tree-fir.glb",
+      "footprint": 1.8,
+      "height": 13,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.75,
+        1.25
+      ],
+      "randomRotation": true,
+      "wind": 0.35,
+      "drawDistance": 2500,
+      "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
+    },
+    {
+      "id": "tree-dead",
+      "name": "Toter Baum",
+      "category": "tree",
+      "file": "models/tree-dead.glb",
+      "footprint": 1.2,
+      "height": 9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.15,
+      "drawDistance": 2500,
+      "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/bark_brown_02"
+    },
+    {
+      "id": "bush",
+      "name": "Busch",
+      "category": "plant",
+      "file": "models/bush.glb",
+      "footprint": 1.2,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.5,
+      "drawDistance": 600,
+      "source": "procedural (tools/map-assets/build_models.py); Blätter https://ambientcg.com/view?id=LeafSet002"
+    },
+    {
+      "id": "fern",
+      "name": "Farn",
+      "category": "plant",
+      "file": "models/fern.glb",
+      "footprint": 0.6,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.6,
+      "drawDistance": 250,
+      "source": "https://polyhaven.com/a/fern_02"
+    },
+    {
+      "id": "grass-clump",
+      "name": "Grasbüschel",
+      "category": "plant",
+      "file": "models/grass-clump.glb",
+      "footprint": 0.5,
+      "height": 0.55,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 1.0,
+      "drawDistance": 180,
+      "source": "procedural (tools/map-assets/build_models.py)"
+    },
+    {
+      "id": "flowers",
+      "name": "Blumen",
+      "category": "plant",
+      "file": "models/flowers.glb",
+      "footprint": 0.5,
+      "height": 0.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 1.0,
+      "drawDistance": 180,
+      "source": "procedural (tools/map-assets/build_models.py)"
+    },
+    {
+      "id": "stump",
+      "name": "Baumstumpf",
+      "category": "plant",
+      "file": "models/stump.glb",
+      "footprint": 0.45,
+      "height": 0.55,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 500,
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/bark_brown_02, https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "log",
+      "name": "Baumstamm",
+      "category": "plant",
+      "file": "models/log.glb",
+      "footprint": 1.6,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 500,
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/bark_brown_02"
+    },
+    {
+      "id": "rock-small",
+      "name": "Stein",
+      "category": "rock",
+      "file": "models/rock-small.glb",
+      "footprint": 0.6,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.5,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "source": "https://polyhaven.com/a/namaqualand_boulder_04"
+    },
+    {
+      "id": "rock-large",
+      "name": "Fels",
+      "category": "rock",
+      "file": "models/rock-large.glb",
+      "footprint": 1.8,
+      "height": 2.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.6,
+        1.6
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "source": "https://polyhaven.com/a/namaqualand_boulder_02"
+    },
+    {
+      "id": "house",
+      "name": "Fachwerkhaus",
+      "category": "building",
+      "file": "models/house.glb",
+      "footprint": 4.5,
+      "height": 8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/clay_plaster, medieval_wood, clay_roof_tiles_02, castle_wall_slates"
+    },
+    {
+      "id": "house-large",
+      "name": "Großes Haus",
+      "category": "building",
+      "file": "models/house-large.glb",
+      "footprint": 6.0,
+      "height": 11,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/grey_plaster_02, medieval_wood, grey_roof_tiles, castle_wall_slates"
+    },
+    {
+      "id": "barn",
+      "name": "Scheune",
+      "category": "building",
+      "file": "models/barn.glb",
+      "footprint": 6.5,
+      "height": 8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_07, grey_roof_tiles, castle_wall_slates"
+    },
+    {
+      "id": "tower-ruin",
+      "name": "Turmruine",
+      "category": "building",
+      "file": "models/tower-ruin.glb",
+      "footprint": 4.0,
+      "height": 12,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/castle_brick_07"
+    },
+    {
+      "id": "wall-stone",
+      "name": "Steinmauer",
+      "category": "wall",
+      "file": "models/wall-stone.glb",
+      "footprint": 2.0,
+      "height": 1.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/stacked_stone_wall"
+    },
+    {
+      "id": "fence-wood",
+      "name": "Holzzaun",
+      "category": "wall",
+      "file": "models/fence-wood.glb",
+      "footprint": 2.0,
+      "height": 1.3,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "crate",
+      "name": "Kiste",
+      "category": "prop",
+      "file": "models/crate.glb",
+      "footprint": 0.6,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 500,
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_04, dark_planks"
+    },
+    {
+      "id": "barrel",
+      "name": "Fass",
+      "category": "prop",
+      "file": "models/barrel.glb",
+      "footprint": 0.4,
+      "height": 1.0,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 500,
+      "source": "https://polyhaven.com/a/Barrel_01"
+    },
+    {
+      "id": "lamp-post",
+      "name": "Laterne",
+      "category": "prop",
+      "file": "models/lamp-post.glb",
+      "footprint": 0.3,
+      "height": 3.7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "well",
+      "name": "Brunnen",
+      "category": "prop",
+      "file": "models/well.glb",
+      "footprint": 1.3,
+      "height": 3.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/castle_wall_slates, rough_wood, clay_roof_tiles_02"
+    },
+    {
+      "id": "bridge-deck",
+      "name": "Brückenstück",
+      "category": "prop",
+      "file": "models/bridge-deck.glb",
+      "footprint": 2.0,
+      "height": 1.0,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_07, dark_planks"
+    }
+  ]
+}
