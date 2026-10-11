@@ -178,7 +178,14 @@ export interface RampEnd {
  * height interpolated along it, fading into the ground over `falloff` of
  * the half width. Returns the touched samples.
  */
-export function rampBetween(t: MapTerrain, a: RampEnd, b: RampEnd, width: number, falloff: number): GridRect | null {
+export function rampBetween(
+  t: MapTerrain,
+  a: RampEnd,
+  b: RampEnd,
+  width: number,
+  falloff: number,
+  beforeWrite?: (rect: GridRect) => void,
+): GridRect | null {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len2 = dx * dx + dy * dy;
@@ -195,6 +202,7 @@ export function rampBetween(t: MapTerrain, a: RampEnd, b: RampEnd, width: number
     j0: clamp(Math.floor((minY + t.depth / 2) / g.cellSize), 0, g.rows - 1),
     j1: clamp(Math.ceil((maxY + t.depth / 2) / g.cellSize), 0, g.rows - 1),
   };
+  beforeWrite?.(rect);
   for (let j = rect.j0; j <= rect.j1; j++) {
     for (let i = rect.i0; i <= rect.i1; i++) {
       const px = sampleX(t, i) - a.x;

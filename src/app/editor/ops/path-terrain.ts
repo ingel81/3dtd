@@ -25,6 +25,7 @@ export function flattenUnderPaths(
   paths: MapPaths,
   edgeIds: readonly string[] | null = null,
   options: FlattenOptions = DEFAULT_FLATTEN,
+  beforeWrite?: (rect: GridRect) => void,
 ): GridRect | null {
   let rect: GridRect | null = null;
   for (const edge of selectedEdges(paths, edgeIds)) {
@@ -33,6 +34,7 @@ export function flattenUnderPaths(
     const profile = heightProfile(terrain, line, options.smoothing);
     const reach = edge.width / 2 + options.shoulder;
     const r = boundsRect(terrain, line, reach);
+    beforeWrite?.(r);
     const g = terrain.grid;
     for (let j = r.j0; j <= r.j1; j++) {
       for (let i = r.i0; i <= r.i1; i++) {
@@ -57,6 +59,7 @@ export function paintUnderPaths(
   layer: number,
   edgeIds: readonly string[] | null = null,
   softEdge = 2,
+  beforeWrite?: (rect: GridRect) => void,
 ): GridRect | null {
   let rect: GridRect | null = null;
   const res = terrain.splat.resolution;
@@ -66,6 +69,7 @@ export function paintUnderPaths(
     if (line.length < 2) continue;
     const half = edge.width / 2;
     const r = texelBounds(terrain, line, half + softEdge);
+    beforeWrite?.(r);
     for (let v = r.j0; v <= r.j1; v++) {
       for (let u = r.i0; u <= r.i1; u++) {
         const hit = nearestOnPolyline(line, { x: texelX(terrain, u), y: texelY(terrain, v) });

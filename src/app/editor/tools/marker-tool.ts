@@ -1,0 +1,151 @@
+/**
+ * Spawns and HQ: in Spawn mode a click on empty ground adds a spawn, in HQ
+ * mode it moves the HQ there. A drag on a spawn or the HQ moves it, a click
+ * selects it; Delete removes the selected spawn. Positions snap onto the
+ * nearest road within the path snap radius (Alt places freely).
+ */
+import type { MapPoint, MapSpawn } from '../../world/custom-map/map-document';
+import { SnapshotCommand, type DocParts, type EditCommand, type EditorDocument } from '../model/editor-document';
+import { insideMap } from '../model/grid';
+import { nearestOnEdges, newId } from '../ops/path-graph';
+import type { EditorTool, ToolContext, ToolPointer } from './tool';
+
+/** Names for new spawns by compass side */
+export function spawnName(doc: { terrain: { width: number; depth: number } }, p: MapPoint, taken: readonly MapSpawn[]): string {
+  const ax = p.x / (doc.terrain.width / 2);
+  const ay = p.y / (doc.terrain.depth / 2);
+  const ns = ay > 0.33 ? 'North' : ay < -0.33 ? 'South' : '';
+  const ew = ax > 0.33 ? 'east' : ax < -0.33 ? 'west' : '';
+  let base = ns && ew ? `${ns}${ew}` : ns || (ew ? ew[0].toUpperCase() + ew.slice(1) : 'Centre');
+  if (taken.some((s) => s.name === base)) {
+    let n = 2;
+    while (taken.some((s) => s.name === `${base} ${n}`)) n++;
+    base = `${base} ${n}`;
+  }
+  return base;
+}
+
+export class MarkerTool implements EditorTool {
+  readonly id = 'markers' as const;
+  private drag: { kind: 'spawn' | 'hq'; id?: string; before: Partial<DocParts>; moved: boolean } | null = null;
+
+  brushVisible(): boolean {
+    return false;
+  }
+
+
+  deactivate(ctx: ToolContext): void {
+    this.cancel(ctx);
+  }
+
+  pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
+    if (p.button !== 0 || !p.hit) return false;
+    const editor = ctx.editor;
+    const picked = ctx.pick(p);
+    if (picked?.kind === 'spawn' || picked?.kind === 'hq') {
+      editor.select(picked.kind === 'spawn' ? { kind: 'spawn', id: picked.id } : { kind: 'hq' });
+      this.drag = {
+        kind: picked.kind,
+        id: picked.kind === 'spawn' ? picked.id : undefined,
+        before: { spawns: structuredClone(editor.doc.spawns), hq: { ...editor.doc.hq } },
+        moved: false,
+      };
+      return true;
+    }
+    const point = this.snap(p, ctx);
+    if (!insideMap(editor.doc.terrain, point)) return true;
+    if (ctx.settings.markers.mode === 'hq') {
+      editor.execute(markerCommands.moveHq(editor, point));
+      editor.select({ kind: 'hq' });
+    } else {
+      const command = markerCommands.addSpawn(editor, point);
+      editor.execute(command.command);
+      editor.select({ kind: 'spawn', id: command.id });
+    }
+    return true;
+  }
+
+  pointerMove(p: ToolPointer, ctx: ToolContext): void {
+    const d = this.drag;
+    if (!d || !p.hit) return;
+    const doc = ctx.editor.doc;
+    const point = this.snap(p, ctx);
+    if (!insideMap(doc.terrain, point)) return;
+    d.moved = true;
+    if (d.kind === 'hq') doc.hq = point;
+    else doc.spawns = doc.spawns.map((s) => (s.id === d.id ? { ...s, ...point } : s));
+    ctx.editor.emit({ markers: true });
+  }
+
+  pointerUp(_p: ToolPointer, ctx: ToolContext): void {
+    const d = this.drag;
+    this.drag = null;
+    if (!d?.moved) return;
+    const doc = ctx.editor.doc;
+    ctx.editor.push(
+      new SnapshotCommand(d.kind === 'hq' ? 'Move HQ' : 'Move spawn', d.before, { spawns: structuredClone(doc.spawns), hq: { ...doc.hq } }),
+      { markers: true },
+    );
+  }
+
+
+  key(e: KeyboardEvent, ctx: ToolContext): boolean {
+    const sel = ctx.editor.selection;
+    if ((e.key === 'Delete' || e.key === 'Backspace') && sel?.kind === 'spawn') {
+      ctx.editor.execute(markerCommands.removeSpawn(ctx.editor, sel.id));
+      ctx.editor.select(null);
+      return true;
+    }
+    const k = e.key.toLowerCase();
+    if (!e.ctrlKey && !e.metaKey && (k === 'q' || k === 'h')) {
+      ctx.settings.markers.mode = k === 'h' ? 'hq' : 'spawn';
+      ctx.settingsChanged();
+      return true;
+    }
+    return false;
+  }
+
+  cancel(ctx: ToolContext): void {
+    const d = this.drag;
+    this.drag = null;
+    if (d?.moved) {
+      ctx.editor.doc.spawns = d.before.spawns!;
+      ctx.editor.doc.hq = d.before.hq!;
+      ctx.editor.emit({ markers: true });
+    }
+  }
+
+  hint(ctx: ToolContext): string {
+    return ctx.settings.markers.mode === 'hq'
+      ? 'Click to move the HQ | drag spawns and HQ | Q spawn mode | snaps onto roads, Alt places freely'
+      : 'Click to add a spawn | drag spawns and HQ | Del removes a spawn | H HQ mode | snaps onto roads, Alt places freely';
+  }
+
+  private snap(p: ToolPointer, ctx: ToolContext): MapPoint {
+    const hit = { x: Math.round(p.hit!.x * 10) / 10, y: Math.round(p.hit!.y * 10) / 10 };
+    if (p.alt) return hit;
+    const on = nearestOnEdges(ctx.editor.doc.paths, hit, ctx.settings.paths.snap);
+    return on ? { x: Math.round(on.point.x * 10) / 10, y: Math.round(on.point.y * 10) / 10 } : hit;
+  }
+}
+
+export const markerCommands = {
+  moveHq(editor: EditorDocument, p: MapPoint): EditCommand {
+    return SnapshotCommand.record(editor.doc, 'Move HQ', ['hq'], (d) => (d.hq = { x: p.x, y: p.y }));
+  },
+  addSpawn(editor: EditorDocument, p: MapPoint): { command: EditCommand; id: string } {
+    const id = newId('s', editor.doc.spawns);
+    const command = SnapshotCommand.record(editor.doc, 'Add spawn', ['spawns'], (d) => {
+      d.spawns.push({ id, name: spawnName(d, p, d.spawns), x: p.x, y: p.y });
+    });
+    return { command, id };
+  },
+  removeSpawn(editor: EditorDocument, id: string): EditCommand {
+    return SnapshotCommand.record(editor.doc, 'Delete spawn', ['spawns'], (d) => (d.spawns = d.spawns.filter((s) => s.id !== id)));
+  },
+  renameSpawn(editor: EditorDocument, id: string, name: string): EditCommand {
+    return SnapshotCommand.record(editor.doc, 'Rename spawn', ['spawns'], (d) => {
+      d.spawns = d.spawns.map((s) => (s.id === id ? { ...s, name } : s));
+    });
+  },
+};
