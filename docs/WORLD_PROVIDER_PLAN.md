@@ -12,8 +12,10 @@ Dazu kommen:
 - **Eigene Karten**: eigenständige Welten mit Höhenfeld, Texturschichten, Wasser, Objekten (Bäume, Felsen,
   Gebäude), Wegenetz, Spawns und HQ. Mitgelieferte Karten unter `public/maps/`, eigene im Browser oder als Datei
 - **Level-Editor** (`/editor`), mit dem man solche Karten baut, auch aus Warcraft-3-Karten (`.w3x`) importiert
-- später eigene 3D-Tilesets (Branch `exp/own-tiles`) und zerstörbare Welten (Branch `exp/tile-deform`) als weitere
-  Provider bzw. Fähigkeiten, ohne neue Verzweigungen in Engine und Diensten
+- eigene 3D-Tilesets als eigene Welt (`{ kind: 'tileset', id }`, [OWN_TILESETS.md](OWN_TILESETS.md)) und
+  Zerstörbarkeit als Fähigkeit (`capabilities.destructible`, `WorldProvider.destruction`, für eigene Karten mit
+  `?destructible`, [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md)), ohne neue Verzweigungen in Engine und Diensten;
+  nachgebaut aus den Experimenten `exp/own-tiles` und `exp/tile-deform`
 
 Ein Lauf weiß immer, auf welcher Welt er spielt (`WorldRef`): Spielstand, Replay, Run-Log, Coop-Weltpaket, URL und
 Bots tragen dasselbe Feld.
@@ -152,7 +154,12 @@ entfernt. Die Karten haben `mapToGeo`/`geoToMap` im Kartendokument, mit demselbe
 - **Fähigkeit statt Art**: Zugangsdaten nur bei `credentials` (der Fake-Token der E2E-Läufe ist weg), Globus und
   Tauchflug nur bei `realPlace` und `ecef`, Zuletzt-besucht, Bestwellen, Ortssuche-URL nur bei `realPlace`.
   Bewusste Ausnahme: Bot-Training, Hintergrund-Schleife und Rendering-Schalter hängen an `ref.kind === 'devworld'`,
-  weil DevWorld die Welt der Bots ist und eine eigene Karte keinen Bot-Server ansprechen soll
+  weil DevWorld die Welt der Bots ist und eine eigene Karte keinen Bot-Server ansprechen soll. Die Kartenprobe
+  (`?bot=trial`, `world/map-trial.ts`) läuft ohne Bot-Server auf jeder Welt ohne `realPlace`
+- **Gebiet als Fähigkeit der Factory**: `WorldFactory.coverage` (`WorldContext.coverage`, `world-coverage.ts`) hält
+  HQ, Spawns, Würfel und Link-Orte in dem Kreis, in dem eine Welt Boden hat (eigenes Tileset); sonst überall
+- **Welt wechseln heißt neu laden**: das Menü (New game, Maps; `WorldChoiceService`) lädt die Seite mit `?world=…`
+  neu, statt die Welt unter einer laufenden Engine zu tauschen
 - **Spielstand in DevWorld** ist jetzt möglich (nur gleiche Welt); die Autosicherung bleibt auf echten Orten, damit
   Bot-Läufe nie den Platz belegen, den das Menü zum Fortsetzen und Raten des Startorts nimmt
 - **`TerrainQueries` bleibt in `three-engine/`** (viele Specs und Werkzeuge importieren ihn); er ist die Oberfläche
@@ -176,7 +183,8 @@ lon = x / 111320 um den Ursprung (0, 0), womit `geoToLocalSimple` die Karte unve
 - `objects`: Platzierungen aus dem Asset-Katalog (Position, Drehung, Größe), mit `blocksLos`/`blocksBuild` aus dem Katalog
 - `paths`: Knoten und Kanten (Breite, Art Straße/Pfad), daraus das Straßennetz
 - `spawns`, `hq`
-- `environment`: Himmel, Sonnenstand, Nebel, Licht
+- `environment`: Himmel, Sonnenstand, Nebel, Licht, Biom, Wetter
+- `gameplay` (optional): Startcredits, HQ-HP, erlaubte Tower, Wellen (Budget oder eigene Liste)
 
 Speicher: `.3dtdmap` (gezippt mit fflate: `map.json` + Binärdateien). `contentHash` = SHA-256 über den Inhalt.
 Mitgelieferte Karten in `public/maps/<id>.3dtdmap` plus `public/maps/index.json`; eigene in IndexedDB.
@@ -214,6 +222,9 @@ Spiel mit `?world=map:<id>`.
 3. parallel: W3X-Leser und Konverter, Karten-Renderer und Assets, Editor
 4. `CustomMapWorld` im Spiel (gebaut: `?world=map:<id>`, die Demo-Karte liegt als `demo-valley` in `public/maps/` bei),
    Coop mit eigener Karte (gebaut: der Host schickt die Karte über das Relay, COOP_PLAN.md C1c)
+5. Gebaut 2026-10-11: Spielwerte je Karte, Kartenprobe mit dem Bot, eigene 3D-Tilesets, Zerstörbarkeit als
+   Fähigkeit, Kartenauswahl im Hauptmenü. Offen: Zerstörung in der Simulation (Entscheidung des Users), ein
+   Zerstörbar-Schalter im Kartendokument statt `?destructible`
 
 ## Kopplungsstellen vor dem Umbau (Erkundung 2026-10-11, inzwischen aufgelöst)
 

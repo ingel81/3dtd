@@ -200,13 +200,29 @@ das gelbe Straßen-Overlay ist eine Debug-Ebene und standardmäßig aus, es ents
 ## Fähigkeiten
 
 Kein echter Ort (keine Ortssuche, kein Speichern über den Ort, kein Globus), keine Zugangsdaten, kein
-ECEF, kein Streaming, nicht neu würfelbar, nicht zerstörbar, `controls: 'environment'`. Unter der Karte
-steht ihr Name und Autor; der OSM-Hinweis erscheint nur auf echten Orten.
+ECEF, kein Streaming, nicht neu würfelbar, zerstörbar nur mit `?destructible`, `controls: 'environment'`.
+Unter der Karte stehen ihr Name und Autor und „Assets: CC0, see licences“; der OSM-Hinweis erscheint nur
+auf echten Orten.
+
+## Koop, Spielstand, Replay
+
+- Koop: Der Host schickt die Karte über das Relay in Stücken, der Gast legt sie in seinen Map-Store und
+  lädt die Seite auf ihr neu ([COOP_PLAN.md](COOP_PLAN.md) C1c). Ein Gast ohne Cesium-Token wartet auf
+  keinen Schlüssel (`capabilities.credentials`).
+- Spielstand und Replay tragen den `WorldRef` mit `contentHash`; eine geänderte Karte lehnt der Start ab.
+  Die Spielwerte stehen im Dokument und damit im Hash.
 
 ## Geprüft
 
 Specs in `custom-map-world.spec.ts`: Frame gegen `geoToLocalSimple`, Höhen nach Geo und Szene,
 Brückendeck, Sichtlinie, Bodenpick, Straßennetz und Route über Kurvenpunkt und Brücke,
-Startaufstellung, Spawn-Grenze, Spielwerte und Wellen der Karte, Öffnen einer gespeicherten, fehlenden und geänderten
-Karte. Im Browser (Dev-Server, die importierte Testkarte in IndexedDB): Karte lädt in 12 bis 18 s (Dev-Server),
+Startaufstellung, Spawn-Grenze, Spielwerte und Wellen der Karte, Fallen und Aufstehen von Bauwerken auf
+der eigenen Kopie, Öffnen einer gespeicherten, fehlenden und geänderten Karte; dazu
+`custom-map-destruction.spec.ts`, `world-damage-presenter.spec.ts`, `map-trial.spec.ts`,
+`world-choice.service.spec.ts`, `map-picker.scenario.spec.ts`.
+
+E2E ohne Kartensitzung (`e2e/tests/custom-map.e2e.ts`): Demo-Tal per Link mit Tower und Welle, Kartenprobe
+des Bots, „Test map“ aus dem Editor, Spielstand speichern und laden, Replay einer Welle, ein Bauwerk von
+`?destructible` fällt per Debug-Treffer und steht nach „Restart here“ wieder, Koop auf einer eigenen
+Kopie des Demo-Tals mit einem Gast ohne sie (Kartenversand, eine Welle, kein DESYNC). Im Browser (Dev-Server, die importierte Testkarte in IndexedDB): Karte lädt in 12 bis 18 s (Dev-Server),
 8 Portale, Wellen laufen die Wege zum HQ, gebaute Tower schießen.
