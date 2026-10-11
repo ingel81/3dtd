@@ -23,6 +23,7 @@ import { WaterTool } from '../tools/water-tool';
 import { validateMap, type MapIssue } from '../validation/map-validation';
 import { EditorViewport, type FrameStats, type HoverInfo } from '../view/editor-viewport';
 import { loadW3xImporter, type W3xImportReport } from '../import/w3x-seam';
+import { WORLD_URL_PARAM, worldUrlValue } from '../../world/world-ref';
 
 export const AUTOSAVE_DELAY_MS = 2000;
 const THUMBNAIL_SIZE = 256;
@@ -309,7 +310,7 @@ export class EditorSession implements OnDestroy {
     if (!doc) return;
     if (this.origin() === 'own') await this.save(true);
     const url = new URL(document.baseURI);
-    url.searchParams.set('world', `map:${doc.meta.id}`);
+    url.searchParams.set(WORLD_URL_PARAM, worldUrlValue({ kind: 'custom-map', mapId: doc.meta.id, contentHash: '' })!);
     window.open(url.toString(), '_blank');
   }
 
