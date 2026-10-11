@@ -115,6 +115,8 @@ export class EditorViewport {
   private statsTime = 0;
   private hoverTime = 0;
   private readonly keysDown = new Set<string>();
+  /** Set once the viewport is gone: late promises (the warm-up) must not reach the page */
+  private disposed = false;
   /** The view before the game camera took over, to go back to */
   private beforeGameView: OrbitState | null = null;
   /** The trial wave's runners */
@@ -141,7 +143,7 @@ export class EditorViewport {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.view = new EditorMapView(editor.doc, this.scene, this.renderer);
-    void this.view.warmUp(this.renderer, this.scene, this.camera).then(() => this.callbacks.viewReady(), () => undefined);
+    void this.view.warmUp(this.renderer, this.scene, this.camera).then(() => !this.disposed && this.callbacks.viewReady(), () => undefined);
     this.scene.add(this.overlay.group);
     this.trial = new TrialRunners((x, y) => this.heightAt(x, y));
     this.scene.add(this.trial.group);
@@ -182,7 +184,7 @@ export class EditorViewport {
   rebuildView(): void {
     this.view.dispose();
     this.view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
-    void this.view.warmUp(this.renderer, this.scene, this.camera).then(() => this.callbacks.viewReady(), () => undefined);
+    void this.view.warmUp(this.renderer, this.scene, this.camera).then(() => !this.disposed && this.callbacks.viewReady(), () => undefined);
     // The new view shows everything until the hidden categories are applied again
     this.hiddenKey = '';
     this.pending = null;
@@ -433,6 +435,7 @@ export class EditorViewport {
   }
 
   dispose(): void {
+    this.disposed = true;
     cancelAnimationFrame(this.raf);
     this.resizeObserver.disconnect();
     for (const u of this.unsubscribe) u();
@@ -441,6 +444,8 @@ export class EditorViewport {
     this.overlay.dispose();
     this.trial.dispose();
     this.renderer.dispose();
+    // Browsers keep only a few WebGL contexts: give this one back now, not when it is collected
+    this.renderer.forceContextLoss();
   }
 
   // -------------------------------------------------------------------------

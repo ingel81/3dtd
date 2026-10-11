@@ -86,7 +86,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     const [own, shipped] = await Promise.all([store.listOwn().catch(() => []), store.listShipped()]);
     this.own.set(own);
     this.shipped.set(shipped);
-    const previews: Record<string, string> = { ...this.previews() };
+    // Own pictures anew: a deleted map's picture must not stay with a new map of its id
+    const previews: Record<string, string> = Object.fromEntries(Object.entries(this.previews()).filter(([k]) => !k.startsWith('own:')));
     for (const m of own) {
       const bytes = await store.previewOf(m.id).catch(() => null);
       if (bytes) {
@@ -147,7 +148,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
       return;
     }
     this.confirmDelete.set(null);
-    await this.session.store.delete(m.id);
+    await this.session.deleteMap(m.id);
     await this.reload();
   }
 

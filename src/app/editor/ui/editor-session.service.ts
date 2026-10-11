@@ -60,8 +60,8 @@ const BOT_CHECK_WAVES = 5;
 
 @Injectable()
 export class EditorSession implements OnDestroy {
-  /** A save asked for while one ran, done right after it */
-  private saveAgain: 'manual' | 'auto' | null = null;
+  /** The save running now, if any */
+  private saveRun: Promise<boolean> | null = null;
   /** Counts the times the map view became ready (models and textures in): pictures of it are worth retaking */
   readonly viewRev = signal(0);
   /** The bot's check of the map: running (no result yet) or done */
@@ -292,7 +292,7 @@ export class EditorSession implements OnDestroy {
     this.savedState = editor.stateId;
     this.loadBookmarks(doc.meta.id);
     this.versions.set([]);
-    void this.loadVersions(doc.meta.id);
+    void this.loadVersions();
     this.issues.set(null);
     this.unsubscribe.push(
       editor.onChange(() => (this.changed = true)),
@@ -305,11 +305,18 @@ export class EditorSession implements OnDestroy {
     }
   }
 
-  /** Leaves the map (back to the browser); saves first when it changed */
-  async close(): Promise<void> {
+  /**
+   * Leaves the map (back to the browser); saves first when it changed. A
+   * save that fails keeps the map open (returns false), nothing is lost.
+   */
+  async close(): Promise<boolean> {
     if (this.editor && this.origin() === 'own') {
-      if (this.dirty()) await this.save(true);
-      else {
+      if (this.dirty() || this.saveRun) {
+        if (!(await this.save(true)) || this.dirty()) {
+          this.flash('The map could not be saved; it stays open');
+          return false;
+        }
+      } else {
         // The list shows the map as it was left
         const preview = await this.thumbnail();
         if (preview) await this.store.setPreview(this.editor.doc.meta.id, preview).catch(() => undefined);
@@ -320,6 +327,7 @@ export class EditorSession implements OnDestroy {
     this.unsubscribe = [];
     this.editor = null;
     this.meta.set(null);
+    return true;
   }
 
   // ---------------------------------------------------------------- viewport
@@ -422,15 +430,26 @@ export class EditorSession implements OnDestroy {
 
   // ---------------------------------------------------------------- saving
 
-  /** Stores the map in the browser; `manual` also renders a new thumbnail */
+  /**
+   * Stores the map in the browser; `manual` also renders a new thumbnail.
+   * A save asked for while one runs waits for it (Ctrl+S during an
+   * autosave is not lost); an autosave with nothing new does nothing.
+   */
   async save(manual = false): Promise<boolean> {
-    const editor = this.editor;
-    if (!editor || this.origin() !== 'own') return false;
-    if (this.saving()) {
-      // Ctrl+S during an autosave: save again right after it, with the picture
-      this.saveAgain = this.saveAgain === 'manual' || manual ? 'manual' : 'auto';
-      return false;
+    if (!this.editor || this.origin() !== 'own') return false;
+    while (this.saveRun) await this.saveRun.catch(() => false);
+    if (!manual && !this.dirty()) return true;
+    this.saveRun = this.runSave(manual);
+    try {
+      return await this.saveRun;
+    } finally {
+      this.saveRun = null;
     }
+  }
+
+  private async runSave(manual: boolean): Promise<boolean> {
+    const editor = this.editor;
+    if (!editor) return false;
     this.clearAutosave();
     this.saving.set(true);
     const state = editor.stateId;
@@ -438,12 +457,14 @@ export class EditorSession implements OnDestroy {
       const doc = editor.doc;
       doc.meta.updatedAt = new Date().toISOString();
       const preview = manual ? await this.thumbnail() : null;
-      const file = packMapFile(doc);
-      await this.store.save(doc, preview, file);
+      // An autosave packs fast and leaves the hash for when the game asks for it
+      const file = packMapFile(doc, { level: manual ? 6 : 1 });
+      await this.store.save(doc, preview, file, { hash: manual });
       // A version for the history; a full browser store must not fail the save
+      const id = doc.meta.id;
       void this.history
-        .record(doc.meta.id, file, manual)
-        .then((v) => (v ? this.loadVersions(doc.meta.id) : undefined))
+        .record(id, doc.meta.createdAt, file, manual)
+        .then((v) => (v ? this.loadVersions() : undefined))
         .catch(() => undefined);
       this.savedState = state;
       editor.markSaved();
@@ -456,29 +477,38 @@ export class EditorSession implements OnDestroy {
     } finally {
       this.saving.set(false);
       this.refresh();
-      const again = this.saveAgain;
-      this.saveAgain = null;
-      if (again) void this.save(again === 'manual');
+      // Changes made while it ran get their own autosave
+      if (this.dirty() && this.origin() === 'own') this.scheduleAutosave();
     }
   }
 
-  /** The map's kept versions, newest first */
-  async loadVersions(mapId = this.doc?.meta.id): Promise<void> {
-    if (!mapId) return;
+  /** The open map's kept versions, newest first */
+  async loadVersions(): Promise<void> {
+    const meta = this.doc?.meta;
+    if (!meta) return;
     try {
-      const list = await this.history.list(mapId);
-      if (this.doc?.meta.id === mapId) this.versions.set(list);
+      const list = await this.history.list(meta.id, meta.createdAt);
+      if (this.doc?.meta === meta) this.versions.set(list);
     } catch {
       this.versions.set([]);
     }
   }
 
+  /** Deletes an own map with its kept versions */
+  async deleteMap(id: string): Promise<void> {
+    await this.store.delete(id);
+    await this.history.clear(id).catch(() => undefined);
+  }
+
   /** Puts a kept version back as one undo step (terrain, objects, roads, markers, look, rules) */
-  restoreVersion(version: MapVersion): void {
+  async restoreVersion(version: MapVersion): Promise<void> {
     const editor = this.editor;
     if (!editor) return;
     try {
-      const { doc } = unpackMapFile(version.bytes);
+      const bytes = await this.history.bytes(version);
+      if (!bytes) throw new Error('the version is gone');
+      if (this.editor !== editor) return;
+      const { doc } = unpackMapFile(bytes);
       const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay'] as const;
       editor.execute(
         SnapshotCommand.record(editor.doc, 'Restore version', parts, (d) => {
@@ -686,6 +716,9 @@ export class EditorSession implements OnDestroy {
     this.thumbRenderer?.dispose();
     if (this.tick) clearInterval(this.tick);
     this.clearAutosave();
+    // Leaving the page (another route): what is not saved yet goes now
+    if (this.editor && this.dirty() && this.origin() === 'own') void this.save(false);
+    this.stopBotListener?.();
     if (this.statusTimer) clearTimeout(this.statusTimer);
     this.detachViewport();
     for (const u of this.unsubscribe) u();

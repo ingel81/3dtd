@@ -80,7 +80,7 @@ import { EditorSession } from '../editor-session.service';
         @for (v of versions(); track v.key) {
           <div class="td-row mp-version">
             <span class="td-trunc">{{ when(v.savedAt) }}</span>
-            <span class="td-muted">{{ v.manual ? 'Saved' : 'Autosave' }} | {{ kb(v.bytes.byteLength) }}</span>
+            <span class="td-muted">{{ v.manual ? 'Saved' : 'Autosave' }} | {{ kb(v.size) }}</span>
             <button class="td-btn-ghost td-btn-sm" type="button" (click)="restore(v)" [matTooltip]="'Put this version back (one undo step)'">Restore</button>
           </div>
         } @empty {
@@ -125,7 +125,7 @@ export class MapPanelComponent {
   }
 
   restore(v: MapVersion): void {
-    this.session.restoreVersion(v);
+    void this.session.restoreVersion(v);
   }
 
   edit(key: 'name' | 'author' | 'description', e: Event): void {

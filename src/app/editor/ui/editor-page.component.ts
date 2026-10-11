@@ -41,7 +41,7 @@ export class EditorPageComponent implements OnInit {
   }
 
   async close(): Promise<void> {
-    await this.session.close();
+    if (!(await this.session.close())) return;
     this.opened.set(false);
     await this.router.navigate([], { relativeTo: this.route, queryParams: {} });
   }
