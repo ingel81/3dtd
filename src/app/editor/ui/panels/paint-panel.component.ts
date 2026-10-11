@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { tagName } from '../../catalog/asset-catalog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { MAX_LAYERS } from '../../ops/paint-ops';
@@ -33,6 +34,14 @@ export class PaintPanelComponent {
     return (doc?.terrain.layers ?? []).map((l, index) => ({ index, layer: l, material: catalog.material(l.material) }));
   });
   readonly materials = computed(() => this.session.catalog().catalog.materials);
+  /** The materials by biome for adding a layer; one may stand in several groups */
+  readonly materialGroups = computed(() => {
+    const index = this.session.catalog();
+    const all = index.catalog.materials;
+    const groups = index.biomes().map((b) => ({ name: tagName(b), materials: all.filter((m) => m.tags?.includes(b)) }));
+    const untagged = all.filter((m) => !m.tags?.length);
+    return [...groups.filter((g) => g.materials.length), ...(untagged.length ? [{ name: 'Other', materials: untagged }] : [])];
+  });
   readonly cliff = computed(() => {
     this.session.docRev();
     const t = this.session.doc?.terrain;

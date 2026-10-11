@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapObject } from '../../../world/custom-map/map-document';
-import type { ObjectAssetEntry } from '../../catalog/asset-catalog';
+import { tagName, type ObjectAssetEntry } from '../../catalog/asset-catalog';
 import { ObjectsCommand } from '../../model/editor-document';
 import { duplicateObjects } from '../../ops/object-ops';
 import type { GizmoMode, ObjectMode } from '../../tools/tool';
@@ -38,15 +38,26 @@ export class ObjectPanelComponent {
   readonly thumb = (a: ObjectAssetEntry) => this.session.objectPicture(a);
   readonly search = signal('');
   readonly category = signal<string>('All');
+  /** Biome tag the palette shows, '' for all */
+  readonly biome = signal('');
+  readonly biomes = computed(() => this.session.catalog().biomes());
+  readonly tagName = tagName;
 
   readonly s = computed(() => (this.session.settingsRev(), structuredClone(this.session.settings.objects)));
   readonly categories = computed(() => ['All', ...this.session.catalog().categories()]);
   readonly assets = computed(() => {
     const q = this.search().trim().toLowerCase();
     const cat = this.category();
+    const biome = this.biome();
     return this.session
       .catalog()
-      .catalog.objects.filter((o) => !o.internal && (cat === 'All' || o.category === cat) && (!q || o.name.toLowerCase().includes(q) || o.id.includes(q)));
+      .catalog.objects.filter(
+        (o) =>
+          !o.internal &&
+          (cat === 'All' || o.category === cat) &&
+          (!biome || !!o.tags?.includes(biome)) &&
+          (!q || o.name.toLowerCase().includes(q) || o.id.includes(q) || !!o.tags?.some((t) => t.startsWith(q))),
+      );
   });
   readonly selected = computed<MapObject[]>(() => {
     this.session.docRev();

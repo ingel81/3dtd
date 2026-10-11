@@ -13,6 +13,8 @@ export interface GroundMaterialEntry {
   thumbnail?: string;
   /** Texture repeat in metres */
   scale?: number;
+  /** Biomes and brush roles from the catalogue (temperate, swamp, shore, scree …) */
+  tags?: string[];
 }
 
 export type ObjectShape = 'tree' | 'pine' | 'bush' | 'rock' | 'house' | 'tower' | 'wall' | 'crate' | 'generic';
@@ -33,6 +35,35 @@ export interface ObjectAssetEntry {
   height: number;
   /** The renderer's own part (bridge decks): not offered in the palette */
   internal?: boolean;
+  /** Biomes and brush roles from the catalogue (temperate, swamp, shore, scree …) */
+  tags?: string[];
+}
+
+/** The catalogue's biome tags in the order the palettes offer them (brush roles like shore or scree are left out) */
+export const BIOME_TAGS = [
+  'temperate',
+  'autumn',
+  'winter',
+  'arctic',
+  'mountain',
+  'coast',
+  'swamp',
+  'desert',
+  'volcanic',
+  'hell',
+  'village',
+  'castle',
+  'city',
+  'wasteland',
+  'moon',
+  'mars',
+  'crystal',
+  'arena',
+] as const;
+
+/** A tag as the palettes show it */
+export function tagName(tag: string): string {
+  return tag.charAt(0).toUpperCase() + tag.slice(1);
 }
 
 /** Catalogue objects the renderer places itself */
@@ -43,7 +74,7 @@ export interface MapAssetCatalog {
   objects: ObjectAssetEntry[];
 }
 
-export const OBJECT_CATEGORIES = ['Trees', 'Plants', 'Rocks', 'Buildings', 'Walls', 'Props'] as const;
+export const OBJECT_CATEGORIES = ['Trees', 'Plants', 'Rocks', 'Buildings', 'Walls', 'Structures', 'Props', 'Effects'] as const;
 
 /** Before the catalogue is in */
 export const EMPTY_CATALOG: MapAssetCatalog = { materials: [], objects: [] };
@@ -66,7 +97,9 @@ const CATEGORY_NAMES: Record<string, string> = {
   rock: 'Rocks',
   building: 'Buildings',
   wall: 'Walls',
+  structure: 'Structures',
   prop: 'Props',
+  fx: 'Effects',
 };
 
 const CATEGORY_LOOK: Record<string, { color: string; shape: ObjectShape }> = {
@@ -75,7 +108,9 @@ const CATEGORY_LOOK: Record<string, { color: string; shape: ObjectShape }> = {
   Rocks: { color: '#7d7a74', shape: 'rock' },
   Buildings: { color: '#9c8466', shape: 'house' },
   Walls: { color: '#87827a', shape: 'wall' },
+  Structures: { color: '#7a6448', shape: 'wall' },
   Props: { color: '#8c6d45', shape: 'crate' },
+  Effects: { color: '#6fa3c8', shape: 'generic' },
 };
 
 /** The editor's entries from a catalogue file: colours, shapes and pictures where the file has none */
@@ -88,6 +123,7 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
       color: m.color ?? m.average ?? '#777777',
       thumbnail: url(m.thumbnail ?? m.files?.color),
       scale: m.scale,
+      tags: m.tags?.length ? [...m.tags] : undefined,
     })),
     objects: (json.objects ?? []).map((o) => {
       const category = CATEGORY_NAMES[o.category ?? ''] ?? o.category ?? 'Props';
@@ -105,6 +141,7 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
         radius: o.radius ?? o.footprint ?? 1,
         height: o.height ?? 2,
         internal: INTERNAL_OBJECTS.has(o.id) || undefined,
+        tags: o.tags?.length ? [...o.tags] : undefined,
       };
     }),
   };
@@ -137,6 +174,13 @@ export class CatalogIndex {
         height: 2,
       }
     );
+  }
+
+  /** The biome tags some object or material carries, in palette order */
+  biomes(): string[] {
+    const seen = new Set<string>();
+    for (const e of [...this.catalog.objects, ...this.catalog.materials]) for (const t of e.tags ?? []) seen.add(t);
+    return BIOME_TAGS.filter((t) => seen.has(t));
   }
 
   categories(): string[] {

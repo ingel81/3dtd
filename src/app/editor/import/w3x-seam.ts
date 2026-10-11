@@ -16,10 +16,12 @@ export interface W3xImportOptions {
   cropToPlayable: boolean;
   /** Most objects; more are thinned evenly */
   maxObjects: number;
+  /** Repaint the ground by its role in play (meadow, paving with gravel rims, forest rims) or map the tiles as they are */
+  style: 'enhanced' | 'original';
 }
 
 /** The importer's defaults (docs/W3X_IMPORT.md) */
-export const DEFAULT_W3X_OPTIONS = { metresPerTile: 4, cropToPlayable: true, maxObjects: 6000 } as const;
+export const DEFAULT_W3X_OPTIONS = { metresPerTile: 4, cropToPlayable: true, maxObjects: 6000, style: 'enhanced' } as const;
 
 export interface W3xImportReport {
   /** What came over: "312 x 256 tiles to 1248 x 1024 m", "4120 of 4500 doodads placed" */

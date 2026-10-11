@@ -211,13 +211,14 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     window.location.href = new URL('./', document.baseURI).toString();
   }
 
-  async startW3x(metresPerTile: number, maxObjects: number, cropToPlayable: boolean): Promise<void> {
+  async startW3x(metresPerTile: number, maxObjects: number, cropToPlayable: boolean, enhance: boolean): Promise<void> {
     this.busy.set(true);
     try {
       const id = await this.session.importW3x({
         metresPerTile: Math.min(16, Math.max(1, metresPerTile || 4)),
         maxObjects: Math.min(20000, Math.max(0, Math.round(maxObjects))),
         cropToPlayable,
+        style: enhance ? 'enhanced' : 'original',
       });
       if (id) await this.reload(id);
     } finally {

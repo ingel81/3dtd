@@ -98,7 +98,15 @@
 
 <div class="td-group">
   <h3 class="td-section">Assets</h3>
-  <input class="td-input is-sm" type="search" placeholder="Search" [value]="search()" (input)="search.set(value($event))" aria-label="Search assets" />
+  <div class="td-inline op-filter">
+    <input class="td-input is-sm" type="search" placeholder="Search" [value]="search()" (input)="search.set(value($event))" aria-label="Search assets" />
+    <select class="td-select is-sm is-auto" [value]="biome()" (change)="biome.set(value($event))" aria-label="Biome" data-test="asset-biome">
+      <option value="">All biomes</option>
+      @for (b of biomes(); track b) {
+        <option [value]="b">{{ tagName(b) }}</option>
+      }
+    </select>
+  </div>
   <div class="op-cats td-inline" role="radiogroup" aria-label="Category">
     @for (c of categories(); track c) {
       <button class="td-tag is-caps op-cat" type="button" role="radio" [attr.aria-checked]="category() === c" [class.is-brass]="category() === c" (click)="category.set(c)">{{ c }}</button>

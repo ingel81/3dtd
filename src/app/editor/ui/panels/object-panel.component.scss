@@ -38,3 +38,12 @@
     max-width: 100%;
   }
 }
+
+.op-filter {
+  flex-wrap: nowrap;
+
+  > input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}

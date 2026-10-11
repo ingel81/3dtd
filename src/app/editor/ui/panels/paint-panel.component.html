@@ -33,8 +33,12 @@
       <span>Add layer</span>
       <select class="td-select is-auto" (change)="add(selectValue($event)); $any($event.target).value = ''" aria-label="Add a layer">
         <option value="" selected disabled>Material</option>
-        @for (m of materials(); track m.id) {
-          <option [value]="m.id">{{ m.name }}</option>
+        @for (g of materialGroups(); track g.name) {
+          <optgroup [label]="g.name">
+            @for (m of g.materials; track m.id) {
+              <option [value]="m.id">{{ m.name }}</option>
+            }
+          </optgroup>
         }
       </select>
     </label>
