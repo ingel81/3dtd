@@ -93,6 +93,11 @@ Kaimauer, Kran, Fischerhütten, Leuchtturm. Gegner kommen über zwei Brückenket
 Inselränder an den Brückenköpfen.
 
 ### 6 Winterdorf (`frost-hamlet`)
+**Gebaut** (`tools/maps/levels/frost-hamlet.ts`, Small 512 m, 1,0 MB). Kartenprobe 10 Wellen bestanden (HQ 331,8 von
+500, 19 Tower), Spielansicht 513 fps, Laden 4,5 s am Dev-Server. Spuren 686 (Straße mit Laternen) und 394 m (übers
+Eis). Bilder: `docs/images/levels/frost-hamlet.jpg`, `frost-hamlet-game.jpg`. Unter dem Eisweg liegt ein Rücken knapp
+unter der Eisfläche, so laufen die Gegner auf dem Eis; die Prüfung warnt dort bewusst „under water“.
+
 Biom Schnee/Arktis, Look `arctic`, leichter Schneefall, später Abend mit Laternen. Ein Dorf mit verschneiten Häusern um
 einen zugefrorenen See (Eisfläche), Eisfischerhütten, Holzstapel, Schlitten. Die Straße führt um den See; ein zweiter Weg
 über das Eis (Gegner laufen übers Eis). Spawns: 2. Bauflächen: Seeufer, Dorfplatz.

@@ -83,6 +83,20 @@
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
       "contentHash": "a11531d5a44dc6b960981d06c1caa526ee7b9bcbae59cf0a584fabb7ce1df692"
+    },
+    {
+      "id": "frost-hamlet",
+      "name": "Frost Hamlet",
+      "file": "frost-hamlet.3dtdmap",
+      "preview": "frost-hamlet.png",
+      "author": "3DTD",
+      "description": "A snowed-in village by a frozen lake on a winter evening. One road runs round the lake, the other straight over the ice.",
+      "width": 512,
+      "depth": 512,
+      "spawns": 2,
+      "biome": "arctic",
+      "updatedAt": "2026-10-11T00:00:00.000Z",
+      "contentHash": "d136bba5ad88a4399b99eb7b8c8d393a43ff6582d954fccb87d75c8cd3e6da2d"
     }
   ]
 }
