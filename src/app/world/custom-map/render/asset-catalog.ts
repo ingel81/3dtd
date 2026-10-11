@@ -24,6 +24,8 @@ export interface CatalogMaterial {
   scale: number;
   /** Average albedo as #rrggbb: distant terrain, fallbacks and editor swatches */
   average: string;
+  /** Where the files came from (licence record) */
+  source?: string;
 }
 
 export type ObjectCategory = 'tree' | 'rock' | 'plant' | 'building' | 'prop' | 'wall';
@@ -47,6 +49,8 @@ export interface CatalogObject {
   wind: number;
   /** Beyond this camera distance in metres the object is not drawn */
   drawDistance: number;
+  /** Where the model came from (licence record) */
+  source?: string;
 }
 
 export interface AssetCatalog {

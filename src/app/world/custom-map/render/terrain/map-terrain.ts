@@ -1,0 +1,128 @@
+import { MeshStandardMaterial, type DataTexture, type Vector3 } from 'three';
+import type { MapTerrain as MapTerrainDoc, MapPaths } from '../../map-document';
+import type { HeightField } from '../height-field';
+import type { MapAssetLibrary } from '../map-asset-library';
+import { pathMaskResolution, rasterizePathMask } from '../paths/path-mask';
+import { TerrainChunks, type GridRect } from './terrain-chunks';
+import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots } from './terrain-material';
+import { GridNormalTexture, MaterialArrays, SplatTextures, maskTexture } from './terrain-textures';
+
+/** Materials the path mask paints, by channel */
+export const ROAD_MATERIAL = 'cobblestone';
+export const PATH_MATERIAL = 'dirt-path';
+
+/**
+ * The terrain of a map view: chunk meshes, and once the materials are in,
+ * the splat material with its texture arrays, splat maps and path mask.
+ * Until then the chunks show a plain green.
+ */
+export class MapTerrainLayer {
+  readonly chunks: TerrainChunks;
+  private material: TerrainMaterial | null = null;
+  private arrays: MaterialArrays | null = null;
+  private splat: SplatTextures | null = null;
+  private pathMask: DataTexture | null = null;
+  private readonly normals: GridNormalTexture;
+  private readonly placeholder = new MeshStandardMaterial({ color: 0x5f7a3c, roughness: 0.95 });
+
+  constructor(
+    private readonly terrain: MapTerrainDoc,
+    private readonly field: HeightField,
+  ) {
+    this.chunks = new TerrainChunks(field, this.placeholder);
+    this.normals = new GridNormalTexture(field);
+  }
+
+  /** Loads the layer materials and switches the chunks to the splat material */
+  async load(assets: MapAssetLibrary, paths: MapPaths, anisotropy: number): Promise<void> {
+    const t = this.terrain;
+    const ids: string[] = [];
+    const slotOf = (id: string): number => {
+      let k = ids.indexOf(id);
+      if (k < 0 && ids.length < TERRAIN_MAX_LAYERS) {
+        ids.push(id);
+        k = ids.length - 1;
+      }
+      return k;
+    };
+    const slots: TerrainLayerSlots = {
+      count: 0,
+      splat: t.layers.slice(0, 8).map((l) => slotOf(l.material)),
+      cliff: slotOf(t.cliffMaterial),
+      road: slotOf(ROAD_MATERIAL),
+      path: slotOf(PATH_MATERIAL),
+    };
+    slots.count = ids.length;
+    const [pixels, catalog] = await Promise.all([Promise.all(ids.map((id) => assets.material(id))), assets.catalog()]);
+    const scales = ids.map((id) => {
+      const layer = t.layers.find((l) => l.material === id && l.scale);
+      return layer?.scale ?? catalog.materials.find((m) => m.id === id)?.scale ?? 4;
+    });
+    const averages = pixels.map((p) => {
+      const [r, g, b] = p.average.map((v) => Math.round(v * 255));
+      return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+    });
+
+    this.arrays = new MaterialArrays(pixels, anisotropy);
+    this.splat = new SplatTextures(t.splat);
+    this.pathMask = this.buildPathMask(paths);
+    this.material = new TerrainMaterial({
+      colorArray: this.arrays.color,
+      dataArray: this.arrays.data,
+      splat: this.splat.maps,
+      pathMask: this.pathMask,
+      gridNormals: this.normals.texture,
+      grid: this.field.grid,
+      slots,
+      scales,
+      averages,
+      width: t.width,
+      depth: t.depth,
+      cliffAngle: t.cliffAngle,
+    });
+    this.chunks.setMaterial(this.material);
+  }
+
+  update(cameraPos: Vector3): void {
+    this.chunks.update(cameraPos);
+  }
+
+  rebuild(rect?: GridRect): void {
+    this.chunks.rebuild(rect);
+    this.normals.update(rect);
+  }
+
+  /** Splat weights changed (painted in place or replaced) */
+  refreshSplat(): void {
+    this.splat?.refresh(this.terrain.splat);
+    if (this.material && this.splat) {
+      const u = this.material.terrainUniforms;
+      u.uSplat0.value = this.splat.maps[0];
+      u.uSplat1.value = this.splat.maps[1];
+    }
+    this.material?.setCliffAngle(this.terrain.cliffAngle);
+  }
+
+  refreshPaths(paths: MapPaths): void {
+    if (!this.material) return;
+    this.pathMask?.dispose();
+    this.pathMask = this.buildPathMask(paths);
+    this.material.terrainUniforms.uPathMask.value = this.pathMask;
+  }
+
+  dispose(): void {
+    this.chunks.dispose();
+    this.material?.dispose();
+    this.placeholder.dispose();
+    this.arrays?.dispose();
+    this.splat?.dispose();
+    this.pathMask?.dispose();
+    this.normals.dispose();
+  }
+
+  private buildPathMask(paths: MapPaths): DataTexture {
+    const t = this.terrain;
+    const res = pathMaskResolution(t.width, t.depth);
+    return maskTexture(rasterizePathMask(paths, t.width, t.depth, res), res);
+  }
+}

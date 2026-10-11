@@ -1,9 +1,11 @@
 import {
   BoxGeometry,
+  BufferAttribute,
   BufferGeometry,
   ConeGeometry,
   CylinderGeometry,
   DodecahedronGeometry,
+  DoubleSide,
   Material,
   Mesh,
   MeshStandardMaterial,
@@ -266,6 +268,23 @@ async function loadGlb(url: string): Promise<Object3D> {
   return gltf.scene;
 }
 
+/**
+ * Foliage cards (materials named `foliage-*` by build_models.py, or any
+ * material with an alpha-blended texture) draw alpha-tested and double
+ * sided: sorting thousands of blended cards is not possible, and alpha to
+ * coverage smooths the cut edges under MSAA.
+ */
+function prepareMaterial(material: Material): void {
+  const m = material as MeshStandardMaterial;
+  if (m.name.startsWith('foliage-') || (m.transparent && m.map)) {
+    m.transparent = false;
+    m.alphaTest = 0.4;
+    m.alphaToCoverage = true;
+    m.side = DoubleSide;
+    m.depthWrite = true;
+  }
+}
+
 /** Every mesh of a model with its node transform baked into a copy of the geometry */
 function collectParts(root: Object3D): ModelPart[] {
   root.updateMatrixWorld(true);
@@ -273,7 +292,8 @@ function collectParts(root: Object3D): ModelPart[] {
   root.traverse((obj) => {
     if (!(obj instanceof Mesh)) return;
     const materials: Material[] = Array.isArray(obj.material) ? obj.material : [obj.material];
-    const geometry = (obj.geometry as BufferGeometry).clone().applyMatrix4(obj.matrixWorld);
+    materials.forEach(prepareMaterial);
+    const geometry = dequantize((obj.geometry as BufferGeometry).clone()).applyMatrix4(obj.matrixWorld);
     if (materials.length === 1) {
       parts.push({ geometry, material: materials[0] });
       return;
@@ -287,6 +307,25 @@ function collectParts(root: Object3D): ModelPart[] {
     }
   });
   return parts;
+}
+
+/**
+ * Meshopt-compressed models store positions and normals as normalised
+ * integers (KHR_mesh_quantization) with the scale on the node; baking the
+ * node transform needs floats, or the integers are overwritten with
+ * truncated metres.
+ */
+function dequantize(geometry: BufferGeometry): BufferGeometry {
+  for (const name of ['position', 'normal', 'tangent']) {
+    const attr = geometry.getAttribute(name);
+    if (!attr || (attr.array instanceof Float32Array && !attr.normalized)) continue;
+    const out = new Float32Array(attr.count * attr.itemSize);
+    for (let i = 0; i < attr.count; i++) {
+      for (let c = 0; c < attr.itemSize; c++) out[i * attr.itemSize + c] = attr.getComponent(i, c);
+    }
+    geometry.setAttribute(name, new BufferAttribute(out, attr.itemSize));
+  }
+  return geometry;
 }
 
 function partsHeight(parts: ModelPart[]): number {

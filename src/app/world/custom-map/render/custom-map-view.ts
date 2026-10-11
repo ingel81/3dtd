@@ -1,9 +1,13 @@
-import { Group, MeshStandardMaterial, Ray, Vector3, type Camera } from 'three';
+import { Group, Ray, Vector3, type Camera } from 'three';
 import type { CustomMapDocument, MapEnvironment, MapObject } from '../map-document';
 import { HeightField } from './height-field';
 import type { MapAssetLibrary } from './map-asset-library';
 import { sceneToMap } from './map-coords';
-import { TerrainChunks, type GridRect } from './terrain/terrain-chunks';
+import { CustomMapEnvironment } from './environment/map-environment';
+import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
+import { MapTerrainLayer } from './terrain/map-terrain';
+import { WaterSurface } from './water/water-surface';
+import type { GridRect } from './terrain/terrain-chunks';
 
 /**
  * CustomMapView: draws a custom map document. The editor and the game use
@@ -50,6 +54,11 @@ export interface MapRayHit {
   height: number;
 }
 
+export interface CustomMapViewOptions {
+  /** Anisotropic filtering of the ground textures (renderer.capabilities.getMaxAnisotropy()) */
+  anisotropy?: number;
+}
+
 export class CustomMapView {
   /** All render content of the map */
   readonly group = new Group();
@@ -57,16 +66,23 @@ export class CustomMapView {
   readonly losBlockers = new Group();
   readonly heights: HeightField;
   readonly ready: Promise<void>;
+  /** Sky, lights and fog; the owner applies it to its scene (`environment.apply(scene, renderer)`) */
+  readonly environment: CustomMapEnvironment;
 
-  private readonly terrain: TerrainChunks;
+  private readonly terrain: MapTerrainLayer;
+  private water: WaterSurface | null = null;
+  private readonly objects: MapObjectLayer;
   private readonly camPos = new Vector3();
   private readonly hitPoint = new Vector3();
   private readonly mapPoint = { x: 0, y: 0 };
+  private readonly focusPoint = new Vector3();
+  private readonly viewRay = new Ray();
   private disposed = false;
 
   constructor(
     readonly doc: CustomMapDocument,
     readonly assets: MapAssetLibrary,
+    private readonly options: CustomMapViewOptions = {},
   ) {
     const t = doc.terrain;
     this.heights = new HeightField(t.grid, t.width, t.depth);
@@ -74,9 +90,13 @@ export class CustomMapView {
     this.losBlockers.name = 'custom-map-los-blockers';
     this.group.add(this.losBlockers);
 
-    this.terrain = new TerrainChunks(this.heights, new MeshStandardMaterial({ color: 0x5f7a3c, roughness: 0.95 }));
-    this.losBlockers.add(this.terrain.group);
+    this.terrain = new MapTerrainLayer(t, this.heights);
+    this.losBlockers.add(this.terrain.chunks.group);
 
+    this.environment = new CustomMapEnvironment(doc.environment);
+    this.updateWater();
+    this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers);
+    this.group.add(this.objects.group);
     this.ready = this.load();
   }
 
@@ -93,47 +113,93 @@ export class CustomMapView {
     return { point: this.hitPoint.clone(), distance, x: p.x, y: p.y, height: this.hitPoint.y };
   }
 
-  /** Per frame: terrain levels by camera distance */
-  update(_dtSeconds: number, camera: Camera): void {
+  /**
+   * Per frame: terrain levels by camera distance, and the sun's shadow box
+   * around `focus` (scene space; default: where the camera looks at the ground).
+   */
+  update(dtSeconds: number, camera: Camera, focus?: Vector3): void {
     if (this.disposed) return;
+    this.water?.update(dtSeconds);
+    this.objects.update(dtSeconds, camera);
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
     this.terrain.update(this.camPos);
+    if (focus) {
+      this.focusPoint.copy(focus);
+    } else {
+      this.viewRay.origin.copy(this.camPos);
+      camera.getWorldDirection(this.viewRay.direction);
+      if (this.heights.raycast(this.viewRay, this.focusPoint, 3000) === null) this.focusPoint.copy(this.camPos);
+    }
+    this.environment.focus(this.focusPoint);
   }
 
-  /** Heights changed inside `rect` (map metres); whole map when omitted */
+  /** Heights changed inside `rect` (map metres); whole map when omitted. Objects and water follow. */
   updateHeights(rect?: MapRect): void {
     this.terrain.rebuild(rect ? this.gridRect(rect) : undefined);
+    this.objects.refreshHeights();
+    if (this.water) this.updateWater();
+  }
+
+  /** First placed object a scene-space ray hits (editor picking) */
+  raycastObjects(ray: Ray): ObjectHit | null {
+    return this.objects.raycast(ray);
   }
 
   /** Splat weights changed inside `rect` */
   updateSplat(_rect?: MapRect): void {
-    /* the splat material arrives with the terrain shader */
+    this.terrain.refreshSplat();
   }
 
+  /** Water level, mask or colour changed, or heights under the water */
   updateWater(): void {
-    /* water arrives with the water surface */
+    const water = this.doc.terrain.water;
+    if (!water) {
+      this.water?.dispose();
+      this.water = null;
+      return;
+    }
+    if (this.water) {
+      this.water.set(water);
+    } else {
+      this.water = new WaterSurface(this.heights, water);
+      this.group.add(this.water.mesh);
+    }
+    this.lightWater();
   }
 
-  setObjects(_objects: MapObject[]): void {
-    /* objects arrive with the instanced object layer */
+  /** Replaces the placed objects (also `doc.objects`); resolves when their models are in */
+  setObjects(objects: MapObject[]): Promise<void> {
+    this.doc.objects = objects;
+    return this.objects.setObjects(objects);
   }
 
-  updateObject(_object: MapObject): void {
-    /* objects arrive with the instanced object layer */
+  /** One object moved, turned, scaled or changed asset (already changed in `doc.objects`) */
+  updateObject(object: MapObject): void {
+    if (!this.objects.updateObject(object)) void this.objects.setObjects(this.doc.objects);
   }
 
   updatePaths(): void {
-    /* paths arrive with the path mask */
+    this.terrain.refreshPaths(this.doc.paths);
   }
 
   setEnvironment(env: MapEnvironment): void {
     this.doc.environment = env;
+    this.environment.set(env);
+    this.lightWater();
+  }
+
+  private lightWater(): void {
+    const e = this.environment;
+    this.water?.setLighting(e.zenith, e.horizon, e.sunDir, e.sun.color, e.sun.intensity);
   }
 
   dispose(): void {
     this.disposed = true;
     this.terrain.dispose();
+    this.water?.dispose();
+    this.objects.dispose();
+    this.environment.dispose();
     this.group.removeFromParent();
     this.group.clear();
   }
@@ -150,6 +216,9 @@ export class CustomMapView {
   }
 
   private async load(): Promise<void> {
-    await this.assets.catalog();
+    await Promise.all([
+      this.terrain.load(this.assets, this.doc.paths, this.options.anisotropy ?? 8),
+      this.objects.setObjects(this.doc.objects),
+    ]);
   }
 }
