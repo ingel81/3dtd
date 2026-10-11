@@ -40,8 +40,8 @@ dem Boden). Bilder unter `docs/images/levels/`.
 `docs/images/levels/mountain-pass.jpg`, `mountain-pass-game.jpg`. Feinschliff: Erosion mit Rinnen und Felsbänder
 (Cliff-Edge-Bögen) an den Gipfeln, Geröllfelder, dichterer Wald in den Senken, Bergwiese mit Blumen, Rauch aus den
 Kaminen. Abweichungen: Schnee liegt nur auf den flacheren Gipfelpartien (an den Wänden deckt das Klippenmaterial ihn
-zu; eine Schneegrenze ist beim Renderer gewünscht), die Seilbahn hat noch keine Seile (ein Seil-Stück ist bei
-assets gewünscht). Steinbrücke über den Bach (`style: 'stone'`, Bild `mountain-pass-bridge.jpg`); der Bergsee ist ein
+zu; eine Schneegrenze ist beim Renderer gewünscht), die Seilbahn hat Seile aus `cable-span-40`-Stücken, mit
+`pitch` entlang des Hangs geneigt, und eine Gondel je Feld (Bild `mountain-pass-cablecar.jpg`). Steinbrücke über den Bach (`style: 'stone'`, Bild `mountain-pass-bridge.jpg`); der Bergsee ist ein
 eigenes Gewässer, weil der Spiegel des Hauptwassers jedes Brückendeck der Karte auf seine Höhe hebt.
 
 Biom Berge, Look `mountain`, später Nachmittag. Ein Pass zwischen zwei Gipfeln; die Straße windet sich in Serpentinen

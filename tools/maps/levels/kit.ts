@@ -90,6 +90,10 @@ export type Where = MapPoint | readonly MapPoint[];
 
 export interface PlaceOptions {
   rotation?: number;
+  /** Tilt after the turn around the model's own x axis (radians) */
+  pitch?: number;
+  /** Tilt around the model's own z axis (radians) */
+  roll?: number;
   scale?: number;
   /** Height over the ground (the editor's Z field) */
   z?: number;
@@ -515,6 +519,8 @@ export class LevelKit {
       ...(o.blocksBuild !== undefined ? { blocksBuild: o.blocksBuild } : {}),
       ...(o.blocksLos !== undefined ? { blocksLos: o.blocksLos } : {}),
       ...(o.tint ? { tint: o.tint } : {}),
+      ...(o.pitch ? { pitch: r3(o.pitch) } : {}),
+      ...(o.roll ? { roll: r3(o.roll) } : {}),
     };
     const t = this.doc.terrain;
     const images = this.symmetry === 'none' ? [] : objectImages([object], symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);

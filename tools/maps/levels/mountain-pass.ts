@@ -146,10 +146,31 @@ export function buildMountainPass(): CustomMapDocument {
   const valley = { x: -200, y: -195 };
   k.place('cablecar-station', top.x, top.y, { rotation: facing(top, valley) });
   k.place('cablecar-station', valley.x, valley.y, { rotation: facing(valley, top) });
+  // Supports along the line: the stations' cable exits (4.8 m) and the pylons' sheaves (16.25 m at scale 1, here 1.2)
+  const supports: { x: number; y: number; h: number }[] = [{ ...top, h: k.h(top.x, top.y) + 4.8 }];
   for (const f of [0.25, 0.5, 0.75]) {
     const p = { x: top.x + (valley.x - top.x) * f, y: top.y + (valley.y - top.y) * f };
     k.erase(p, 7);
     k.place('cablecar-pylon', p.x, p.y, { rotation: facing(top, valley), scale: 1.2 });
+    supports.push({ ...p, h: k.h(p.x, p.y) + 16.25 * 1.2 });
+  }
+  supports.push({ ...valley, h: k.h(valley.x, valley.y) + 4.8 });
+  // The cables: between each pair of supports, pieces of the 40 m span tilted along the slope (pitch)
+  for (let i = 0; i < supports.length - 1; i++) {
+    const a = supports[i];
+    const b = supports[i + 1];
+    const run = Math.hypot(b.x - a.x, b.y - a.y);
+    const n = Math.max(1, Math.round(Math.hypot(run, b.h - a.h) / 40));
+    const pitch = -Math.atan2(b.h - a.h, run);
+    for (let j = 0; j < n; j++) {
+      const f = (j + 0.5) / n;
+      const m = { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+      const h = a.h + (b.h - a.h) * f;
+      k.place('cable-span-40', m.x, m.y, { rotation: facing(a, b), pitch, scale: Math.hypot(run, b.h - a.h) / n / 40, z: h - k.h(m.x, m.y) });
+    }
+    // A gondola on each span, hanging from the cable by its grip (4.4 m above its floor)
+    const g = { x: a.x + (b.x - a.x) * 0.4, y: a.y + (b.y - a.y) * 0.4 };
+    k.place('cablecar-gondola', g.x + (i % 2 ? 2.6 : -2.6) * Math.cos(facing(a, b)), g.y + (i % 2 ? 2.6 : -2.6) * Math.sin(facing(a, b)), { rotation: facing(a, b), z: a.h + (b.h - a.h) * 0.4 - 4.4 - k.h(g.x, g.y) });
   }
   // Boulders and lone pines on the slopes, kept off the bends
   k.scatter(['rock-granite', 'boulder', 'rock-large', 'rock-granite-flat'], [{ x: -120, y: -80 }, { x: 120, y: -150 }, { x: 130, y: -10 }, { x: -130, y: 20 }, { x: -60, y: 60 }], { radius: 40, strength: 0.7 }, { density: 1.2, minDistance: 9, scaleMin: 0.8, scaleMax: 1.8 });
