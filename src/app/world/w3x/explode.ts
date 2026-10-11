@@ -44,10 +44,18 @@ function lookup(codes: number[], bits: number[]): Uint16Array {
 let lenTable: Uint16Array | null = null;
 let distTable: Uint16Array | null = null;
 
+/** Most bytes a stream without a known size unpacks to */
+const EXPLODE_LIMIT = 64 * 1024 * 1024;
+
 /** Length of the stream's end marker */
 const END_LENGTH = 519;
 
-export function explode(data: Uint8Array, expectedSize?: number): Uint8Array {
+/**
+ * Unpacks a PKWARE DCL stream: to `expectedSize` bytes (an MPQ sector), or
+ * to its end marker. Never more than `limit` bytes (default the expected
+ * size, else 64 MB): a stream that wants more throws.
+ */
+export function explode(data: Uint8Array, expectedSize?: number, limit = expectedSize ?? EXPLODE_LIMIT): Uint8Array {
   if (data.length < 2) throw new W3xFormatError('implode: stream too short');
   lenTable ??= lookup(LEN_CODE, LEN_BITS);
   distTable ??= lookup(DIST_CODE, DIST_BITS);
@@ -57,7 +65,7 @@ export function explode(data: Uint8Array, expectedSize?: number): Uint8Array {
   if (literalMode !== 0) throw new W3xFormatError(`implode: bad literal mode ${literalMode}`);
   if (dictBits < 4 || dictBits > 6) throw new W3xFormatError(`implode: bad dictionary size ${dictBits}`);
 
-  let out = new Uint8Array(expectedSize ?? Math.max(64, data.length * 4));
+  let out = new Uint8Array(Math.min(limit, expectedSize ?? Math.max(64, data.length * 4)));
   let n = 0;
   let pos = 2;
   let buf = 0;
@@ -89,7 +97,8 @@ export function explode(data: Uint8Array, expectedSize?: number): Uint8Array {
   };
   const ensure = (extra: number): void => {
     if (n + extra <= out.length) return;
-    const grown = new Uint8Array(Math.max(out.length * 2, n + extra));
+    if (n + extra > limit) throw new W3xFormatError(`implode: unpacks to more than ${limit} bytes`);
+    const grown = new Uint8Array(Math.min(limit, Math.max(out.length * 2, n + extra)));
     grown.set(out.subarray(0, n));
     out = grown;
   };

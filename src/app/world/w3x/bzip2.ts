@@ -109,13 +109,18 @@ class Output {
   bytes: Uint8Array;
   n = 0;
 
-  constructor(size: number) {
-    this.bytes = new Uint8Array(Math.max(size, 64));
+  constructor(
+    size: number,
+    /** Most bytes it takes; one more throws */
+    private readonly limit: number,
+  ) {
+    this.bytes = new Uint8Array(Math.min(limit, Math.max(size, 64)));
   }
 
   push(b: number): void {
     if (this.n === this.bytes.length) {
-      const grown = new Uint8Array(this.bytes.length * 2);
+      if (this.n >= this.limit) throw new W3xFormatError(`bzip2: unpacks to more than ${this.limit} bytes`);
+      const grown = new Uint8Array(Math.min(this.limit, this.bytes.length * 2));
       grown.set(this.bytes);
       this.bytes = grown;
     }
@@ -254,9 +259,17 @@ function readBlock(r: BitReader, blockMax: number, out: Output): void {
   }
 }
 
-export function bunzip2(data: Uint8Array, expectedSize?: number): Uint8Array {
+/** Most bytes a stream without a known size unpacks to */
+const BUNZIP2_LIMIT = 64 * 1024 * 1024;
+
+/**
+ * Unpacks bzip2 data (one or more concatenated streams) to `expectedSize`
+ * bytes when given; never more than `limit` (default the expected size,
+ * else 64 MB): data that wants more throws as soon as it does.
+ */
+export function bunzip2(data: Uint8Array, expectedSize?: number, limit = expectedSize ?? BUNZIP2_LIMIT): Uint8Array {
   const r = new BitReader(data);
-  const out = new Output(expectedSize ?? data.length * 4);
+  const out = new Output(expectedSize ?? data.length * 4, limit);
   let streams = 0;
   while (!r.atEnd) {
     // Concatenated streams start on byte boundaries; trailing zero padding ends the data

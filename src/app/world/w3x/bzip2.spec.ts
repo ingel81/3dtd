@@ -35,7 +35,9 @@ describe('bunzip2', () => {
     expect(() => bunzip2(new TextEncoder().encode('PK\x03\x04 nope'))).toThrow(/bad stream header/);
   });
 
-  it('checks the expected size', () => {
-    expect(() => bunzip2(base64Bytes(MIXED_BZ2), 10)).toThrow(/expected 10/);
+  it('checks the expected size and stops as soon as the output passes it', () => {
+    expect(() => bunzip2(base64Bytes(MIXED_BZ2), 10)).toThrow(/more than 10 bytes/);
+    expect(() => bunzip2(base64Bytes(MIXED_BZ2), undefined, 1000)).toThrow(/more than 1000 bytes/);
+    expect(bunzip2(base64Bytes(MIXED_BZ2), undefined, 2596).length).toBe(2596);
   });
 });

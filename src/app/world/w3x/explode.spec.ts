@@ -16,6 +16,12 @@ describe('explode (PKWARE DCL)', () => {
     expect(explode(packed, data.length)).toEqual(data);
   });
 
+  it('stops at its limit instead of following the stream to its end marker', () => {
+    const packed = implode(new Uint8Array(100000), 6);
+    expect(() => explode(packed, undefined, 5000)).toThrow(/more than 5000 bytes/);
+    expect(explode(packed, undefined, 100000).length).toBe(100000);
+  });
+
   it('rejects coded literals with a clear message', () => {
     expect(() => explode(new Uint8Array([1, 4, 0, 0]))).toThrow(/ASCII mode/);
   });

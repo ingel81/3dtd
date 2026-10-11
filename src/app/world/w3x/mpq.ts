@@ -184,7 +184,8 @@ export class MpqArchive {
       blockPos += v.getUint16(base + 42, true) * 2 ** 32;
     }
     if (formatVersion > 3) this.notes.push(`unknown header version ${formatVersion}, read as v0`);
-    if (sectorShift > 20) throw new W3xFormatError(`MPQ: bad sector size shift ${sectorShift}`);
+    // 4 KB sectors (shift 3) in every map; past 4 MB a sector is a damaged or hostile header
+    if (sectorShift > 13) throw new W3xFormatError(`MPQ: bad sector size shift ${sectorShift}`);
 
     // Protectors write huge or wrapped table sizes; the tables cannot extend past the file
     const maxEntries = (pos: number): number => Math.max(0, Math.floor((data.length - base - pos) / 16));
@@ -280,6 +281,8 @@ export class MpqArchive {
     const block = this.blocks[index];
     const { flags, size } = block;
     if (!(flags & MPQ_FILE.EXISTS) || flags & MPQ_FILE.DELETE_MARKER) return null;
+    // The size is read from the archive: allocate nothing a map file never needs
+    if (size > MAX_FILE_SIZE) throw new W3xFormatError(`MPQ: ${name} claims ${size} bytes, more than ${MAX_FILE_SIZE}`);
     if (flags & MPQ_FILE.PATCH) throw new W3xFormatError(`MPQ: ${name} is a patch file`);
     const start = this.header.archiveOffset + block.offset;
     const end = start + block.compressedSize;
@@ -337,7 +340,23 @@ export class MpqArchive {
   }
 }
 
-/** Decompresses one MPQ sector (first byte: compression mask) */
+/** Largest file the reader unpacks; the biggest map files (war3map.w3e, .doo) stay far below */
+export const MAX_FILE_SIZE = 64 * 1024 * 1024;
+
+/**
+ * Most bytes a stage in the middle of a chain may produce on the way to
+ * `size`: its output is the next stage's compressed input, at most a little
+ * larger than what that stage unpacks to
+ */
+function chainLimit(size: number): number {
+  return size + (size >> 3) + 1024;
+}
+
+/**
+ * Decompresses one MPQ sector (first byte: compression mask). No stage
+ * writes more than the sector needs (zip bombs stop there): the last one
+ * exactly `size`, one in the middle at most `chainLimit(size)`.
+ */
 export function decompress(data: Uint8Array, size: number, name = 'file'): Uint8Array {
   const mask = data[0];
   let d = data.subarray(1);
@@ -350,9 +369,14 @@ export function decompress(data: Uint8Array, size: number, name = 'file'): Uint8
   if (mask & ~known) throw new W3xFormatError(`MPQ: ${name} uses unknown compression 0x${mask.toString(16)}`);
   // Writers apply zlib/implode first and bzip2 last; undo in reverse
   const last = (mask & (COMPRESSION.ZLIB | COMPRESSION.IMPLODE)) === 0;
-  if (mask & COMPRESSION.BZIP2) d = bunzip2(d, last ? size : undefined);
-  if (mask & COMPRESSION.IMPLODE) d = explode(d, mask & COMPRESSION.ZLIB ? undefined : size);
-  if (mask & COMPRESSION.ZLIB) d = unzlibSync(d);
+  const middle = chainLimit(size);
+  if (mask & COMPRESSION.BZIP2) d = last ? bunzip2(d, size) : bunzip2(d, undefined, middle);
+  if (mask & COMPRESSION.IMPLODE) d = mask & COMPRESSION.ZLIB ? explode(d, undefined, middle) : explode(d, size);
+  if (mask & COMPRESSION.ZLIB) {
+    // Into a buffer one byte longer than wanted: fflate stops writing at its end, a full buffer means too much
+    d = unzlibSync(d, { out: new Uint8Array(size + 1) });
+    if (d.length > size) throw new W3xFormatError(`MPQ: ${name} unpacks to more than ${size} bytes`);
+  }
   if (d.length !== size) throw new W3xFormatError(`MPQ: ${name} unpacked to ${d.length} bytes, expected ${size}`);
   return d;
 }

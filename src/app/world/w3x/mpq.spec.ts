@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { base64Bytes, buildMpq, implode, findTestMap } from '../../../test/w3x-fixtures';
-import { MpqArchive, decompress } from './mpq';
+import { zlibSync } from 'fflate';
+import { MAX_FILE_SIZE, MpqArchive, decompress, mpqCrypt, mpqHash, MpqHash } from './mpq';
 
 const TEST_MAP = findTestMap(existsSync);
 
@@ -81,6 +82,34 @@ describe('MpqArchive', () => {
   it('decompresses a bzip2 sector', () => {
     const packed = new Uint8Array([0x10, ...base64Bytes(BZ2_HELLO)]);
     expect(new TextDecoder().decode(decompress(packed, 17))).toBe('hello hello hello');
+  });
+
+  it('stops a zip bomb at the sector size, whatever the compression chain', () => {
+    const zeros = zlibSync(new Uint8Array(4 * 1024 * 1024));
+    expect(() => decompress(new Uint8Array([0x02, ...zeros]), 4096)).toThrow(/more than 4096/);
+    // Implode over zlib: the middle stage is bounded too, the zlib stage stops at the sector
+    expect(() => decompress(new Uint8Array([0x0a, ...implode(zeros, 6)]), 4096)).toThrow(/more than 4096/);
+    const noisy = bytes(20000, 5);
+    expect(() => decompress(new Uint8Array([0x0a, ...implode(noisy, 6)]), 4096)).toThrow(/more than 5632/);
+  });
+
+  it('refuses a file that claims more than it may unpack to, and a giant sector size', () => {
+    const data = buildMpq([{ name: 'war3map.w3e', data: bytes(500, 9) }]);
+    const v = new DataView(data.buffer);
+    // The block table: decrypt, claim 1 GB for the file, encrypt again
+    const blockPos = 512 + v.getUint32(512 + 20, true);
+    const count = v.getUint32(512 + 28, true);
+    const table = data.subarray(blockPos, blockPos + count * 16);
+    const key = mpqHash('(block table)', MpqHash.FileKey);
+    mpqCrypt(table, key);
+    const tv = new DataView(table.buffer, table.byteOffset, table.byteLength);
+    for (let i = 0; i < count; i++) if (tv.getUint32(i * 16 + 8, true) === 500) tv.setUint32(i * 16 + 8, 1 << 30, true);
+    mpqCrypt(table, key, true);
+    expect(() => new MpqArchive(data).read('war3map.w3e')).toThrow(new RegExp(`more than ${MAX_FILE_SIZE}`));
+
+    const big = buildMpq([{ name: 'war3map.w3e', data: bytes(500, 9) }]);
+    new DataView(big.buffer).setUint16(512 + 14, 16, true);
+    expect(() => new MpqArchive(big)).toThrow(/sector size shift 16/);
   });
 
   it('finds files without a listfile by their known names', () => {
