@@ -50,6 +50,8 @@ function makeEngine() {
   let handles = 0;
   let footstep: ((id: string) => void) | null = null;
   const engine = {
+    // A world where nothing falls (WorldDamagePresenter stays idle)
+    world: { capabilities: { destructible: false }, destruction: null, runRules: () => null },
     sync: {
       getOrigin: () => ({ lat: 0, lon: 0, height: 0 }),
       geoToLocalSimpleInto: (lat: number, lon: number, height: number, target: Vector3) => target.set(lon, height, lat),

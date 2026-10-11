@@ -34,7 +34,7 @@ export interface WorldCapabilities {
   credentials: boolean;
   /** Can roll a new world in place (DevWorld) */
   regenerate: boolean;
-  /** Buildings can be destroyed (later) */
+  /** Structures of the world take damage and fall (WorldProvider.destruction) */
   destructible: boolean;
   /**
    * The world brings its own sky, lights and fog and installs them when it
@@ -237,6 +237,8 @@ export interface WorldProvider {
   readonly streetStyle: StreetStyle;
   /** The streamed 3D tiles, null for a world without them */
   readonly tiles: WorldTiles | null;
+  /** Its structures that take damage and fall; null unless capabilities.destructible */
+  readonly destruction: WorldDestruction | null;
   /** Put the world into the engine's scene: ground, camera controls, load events */
   attach(ctx: WorldAttachContext): Promise<void>;
   /** The world draws frames (tiles: once the renderer stands) */
@@ -278,4 +280,34 @@ export interface WorldProvider {
   /** Roll a new world in place (`capabilities.regenerate`); the streets follow */
   regenerate(): Promise<void>;
   dispose(): void;
+}
+
+/** A structure of a destructible world: a building, a wall, a tower of the map */
+export interface WorldStructure {
+  readonly id: string;
+  /** Where it stands (its middle) */
+  readonly lat: number;
+  readonly lon: number;
+  /** Ground radius, m */
+  readonly radius: number;
+  /** Height above its ground, m */
+  readonly height: number;
+  readonly maxHp: number;
+  hp: number;
+}
+
+/**
+ * The hook of a destructible world (capabilities.destructible): damage
+ * reaches its structures, and one at zero HP falls, out of the picture and
+ * the build blocking. What deals the damage is the presentation's
+ * (presentation/world-damage-presenter.ts), from the simulation's events on
+ * the main bus.
+ */
+export interface WorldDestruction {
+  /** Every structure that can take damage, standing or fallen */
+  structures(): readonly WorldStructure[];
+  /** `amount` HP off every standing structure within `radius` m of the point (plus its own radius); the ones that fell */
+  damage(at: { lat: number; lon: number }, radius: number, amount: number): WorldStructure[];
+  /** Every structure stands again at full HP (a new run) */
+  reset(): void;
 }

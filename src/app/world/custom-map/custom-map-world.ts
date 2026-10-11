@@ -18,7 +18,8 @@ import { runRulesOf, type RunRules } from '../../sim/protocol/run-rules';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
-import { type CustomMapDocument, geoToMap, mapToGeo } from './map-document';
+import { type CustomMapDocument, type MapObject, geoToMap, mapToGeo } from './map-document';
+import { CustomMapDestruction, FALLEN_SCALE, type StructureEntry } from './custom-map-destruction';
 import { MapStore } from './map-store';
 import type { MapAssetLibrary } from './render/map-asset-library';
 import type { CustomMapView } from './render/custom-map-view';
@@ -66,6 +67,14 @@ export interface LoadedCustomMap {
 export function customMapSpawnLimit(search: string): number {
   const n = Number.parseInt(new URLSearchParams(search).get('spawns') ?? '', 10);
   return Number.isFinite(n) && n >= 1 ? Math.min(n, MAX_SPAWN_PORTALS) : MAX_SPAWN_PORTALS;
+}
+
+/**
+ * Whether the link asks for a map whose buildings, walls and structures
+ * fall (`?destructible`, an experiment until a map can say so itself)
+ */
+export function customMapDestructible(search: string): boolean {
+  return new URLSearchParams(search).has('destructible');
 }
 
 /** Maps opened before their world is made (WorldFactory.startHq loads, create takes), by map id */
@@ -119,7 +128,7 @@ export function openedCustomMap(ref: WorldRef & { kind: 'custom-map' }): LoadedC
  * surface converts scene and map coordinates through the same frame.
  */
 export class CustomMapWorld implements WorldProvider {
-  readonly capabilities = CUSTOM_MAP_CAPABILITIES;
+  readonly capabilities: WorldCapabilities;
   readonly sync: EllipsoidSync;
   readonly frame = new CustomMapFrame();
   readonly surface: CustomMapSurface;
@@ -127,6 +136,8 @@ export class CustomMapWorld implements WorldProvider {
   readonly streetStyle = CUSTOM_MAP_STREET_STYLE;
   readonly tiles = null;
   readonly doc: CustomMapDocument;
+  /** Its buildings, walls and structures that fall; null unless the run asked for it (customMapDestructible) */
+  readonly destruction: CustomMapDestruction | null;
 
   private view: CustomMapView | null = null;
   private lastUpdate = 0;
@@ -135,6 +146,10 @@ export class CustomMapWorld implements WorldProvider {
   private readonly focus = new Vector3();
   private readonly lookDirection = new Vector3();
   private readonly firstGroundWaiters: (() => void)[] = [];
+  /** The catalogue's objects once loaded: the build blocking is redone with them when a structure falls */
+  private catalogObjects: readonly (StructureEntry & { blocksBuild: boolean })[] = [];
+  /** The scale a fallen object had, to stand it up again */
+  private readonly fallenScale = new Map<string, number>();
 
   constructor(
     private readonly map: LoadedCustomMap,
@@ -142,8 +157,15 @@ export class CustomMapWorld implements WorldProvider {
     private readonly spawnLimit = MAX_SPAWN_PORTALS,
     /** The asset library the view loads from; the shared one by default */
     private readonly assets: (() => MapAssetLibrary) | null = null,
+    /** Buildings, walls and structures take damage and fall (customMapDestructible) */
+    destructible = false,
   ) {
-    this.doc = map.doc;
+    // A fallen object leaves the run's own copy of the list, never the opened map
+    this.doc = destructible ? { ...map.doc, objects: map.doc.objects.map((o) => ({ ...o })) } : map.doc;
+    this.capabilities = destructible ? { ...CUSTOM_MAP_CAPABILITIES, destructible: true } : CUSTOM_MAP_CAPABILITIES;
+    this.destruction = destructible
+      ? new CustomMapDestruction(() => this.doc.objects, (fallen) => this.fell(fallen), (risen) => this.rose(risen))
+      : null;
     this.sync = new EllipsoidSync(origin.lat, origin.lon, origin.height);
     this.frame.setOrigin(origin.lat, origin.lon);
     this.surface = new CustomMapSurface(this.doc, this.frame);
@@ -182,7 +204,7 @@ export class CustomMapWorld implements WorldProvider {
     // The catalogue tells which objects forbid building
     view.assets
       .catalog()
-      .then((catalog) => this.surface.setObjectCatalog(catalog.objects))
+      .then((catalog) => this.useCatalog(catalog.objects))
       .catch((err) => console.warn('[CustomMap] no catalogue, objects do not block building', err));
 
     // Streets, spawns and routes go on while the map's textures and models load and its shaders compile
@@ -271,7 +293,6 @@ export class CustomMapWorld implements WorldProvider {
     // never fails to load
   }
 
-  /** HQ (where the start flow put the origin) and the first `spawnLimit` spawns (customMapSpawnLimit) */
   /**
    * The map's start credits, HQ health and tower types (MapGameplay), held
    * in bounds (runRulesOf); null where it sets none of them, so the world
@@ -301,6 +322,7 @@ export class CustomMapWorld implements WorldProvider {
     return { source: 'table', table };
   }
 
+  /** HQ (where the start flow put the origin) and the first `spawnLimit` spawns (customMapSpawnLimit) */
   startLayout(): WorldStartLayout {
     return {
       hq: mapToGeo(this.doc.hq),
@@ -360,6 +382,36 @@ export class CustomMapWorld implements WorldProvider {
       maxHeight: Math.max(0, top) + Math.max(300, size * 1.4),
       groundAt: (x, z) => this.surface.heightAtMap(this.frame.mapX(x), this.frame.mapY(z)),
     };
+  }
+
+  /** The catalogue's objects: what blocks building, what can fall */
+  useCatalog(objects: readonly (StructureEntry & { blocksBuild: boolean })[]): void {
+    this.catalogObjects = objects;
+    this.surface.setObjectCatalog(objects);
+    if (!this.destruction) return;
+    this.destruction.setCatalog(objects);
+    if (isDevMode()) console.log(`[CustomMap] ${this.destruction.structures().length} structures can fall`);
+  }
+
+  /** Fallen structures shrink to next to nothing in the view (FALLEN_SCALE) and stop blocking the build */
+  private fell(objects: readonly MapObject[]): void {
+    if (isDevMode()) console.log(`[CustomMap] fell: ${objects.map((o) => `${o.asset} ${o.id}`).join(', ')}`);
+    for (const o of objects) {
+      this.fallenScale.set(o.id, o.scale);
+      o.scale = FALLEN_SCALE;
+      this.view?.updateObject(o);
+    }
+    this.surface.setObjectCatalog(this.catalogObjects);
+  }
+
+  /** A reset stands them up again */
+  private rose(objects: readonly MapObject[]): void {
+    for (const o of objects) {
+      o.scale = this.fallenScale.get(o.id) ?? o.scale;
+      this.fallenScale.delete(o.id);
+      this.view?.updateObject(o);
+    }
+    this.surface.setObjectCatalog(this.catalogObjects);
   }
 
   /** The map's middle where the frame puts map (0, 0) */

@@ -89,6 +89,8 @@ export class TilesWorld implements WorldProvider, WorldTiles {
   readonly surface: TerrainQueries;
   readonly streets: WorldStreetSource;
   readonly streetStyle = TILES_STREET_STYLE;
+  /** The tiles are Google's or a set's: nothing in them falls */
+  readonly destruction = null;
   /** The route corridor's load region and LOD debug, see RouteCorridorTiles */
   readonly corridor: RouteCorridorTiles;
 

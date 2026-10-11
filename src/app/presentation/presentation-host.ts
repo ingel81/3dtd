@@ -20,6 +20,7 @@ import { OpPlayer } from './op-player';
 import { FramePresenter } from './frame-presenter';
 import { FlameSounds } from './flame-sounds';
 import { HqDamagePresenter } from './hq-damage-presenter';
+import { WorldDamagePresenter } from './world-damage-presenter';
 import { DEFAULT_RUN_RULES } from '../sim/protocol/run-rules';
 import { registerCombatSounds } from './combat-sounds';
 import { ManualShots } from './manual-shots';
@@ -61,6 +62,8 @@ export class PresentationHost implements SimPresenterApi {
   readonly backgroundMusic: BackgroundMusicService;
   readonly bloodMoon: BloodMoonService;
   readonly hq: HqDamagePresenter;
+  /** Impacts wear down the structures of a destructible world */
+  readonly worldDamage: WorldDamagePresenter;
   readonly frame: FramePresenter;
   readonly ops: OpPlayer;
   readonly flames: FlameSounds;
@@ -87,6 +90,7 @@ export class PresentationHost implements SimPresenterApi {
     this.bloodMoon = new BloodMoonService(bus, engine.bloodMoon);
     this.hq = new HqDamagePresenter(engine, bus, () => (engine.world.runRules() ?? DEFAULT_RUN_RULES).hqHealth);
     this.manualShots = new ManualShots(bus, source);
+    this.worldDamage = new WorldDamagePresenter(engine, bus);
 
     // Scorch marks sit on route cells at the grid's ground height, the hero
     // and the foot of the orbital laser's beam stand on it like the enemies
@@ -226,6 +230,7 @@ export class PresentationHost implements SimPresenterApi {
     this.bloodMoon.destroy();
     this.hq.destroy();
     this.manualShots.destroy();
+    this.worldDamage.destroy();
   }
 
   /** Where the main thread supplies what an op cannot carry (sim/core/sim-sink.ts says which). */

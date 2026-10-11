@@ -6,6 +6,7 @@ import { OsmStreetService } from '../services/location/osm-street.service';
 import {
   CUSTOM_MAP_CAPABILITIES,
   CustomMapWorld,
+  customMapDestructible,
   customMapSpawnLimit,
   openCustomMap,
   openedCustomMap,
@@ -128,7 +129,7 @@ const CUSTOM_MAP_FACTORY: WorldFactory = {
     const map = ref.kind === 'custom-map' ? openedCustomMap(ref) : null;
     if (!map) throw new WorldUnavailableError(ref, 'the map was not opened before the world was made');
     const search = typeof window === 'undefined' ? '' : window.location.search;
-    return new CustomMapWorld(map, origin, customMapSpawnLimit(search));
+    return new CustomMapWorld(map, origin, customMapSpawnLimit(search), null, customMapDestructible(search));
   },
   startHq: async (ref) => {
     if (ref.kind !== 'custom-map') throw new WorldUnavailableError(ref, 'not a custom map');

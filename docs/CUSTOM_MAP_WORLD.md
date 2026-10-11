@@ -83,6 +83,40 @@ Ergebnis landet an vier Stellen:
   kann der Editor später mit „Karte prüfen“ die Probe in einem Tab oder iframe öffnen und das Ergebnis
   lesen.
 
+## Zerstörbarkeit (`?destructible`, Experiment)
+
+Die Schnittstelle gilt für jede Welt: `capabilities.destructible` und `WorldProvider.destruction`
+(`WorldDestruction`: `structures()`, `damage(at, radius, amount)` gibt die gefallenen zurück, `reset()`).
+Tiles und DevWorld haben `null`.
+
+Eine eigene Karte wird zerstörbar, wenn der Link `?destructible` trägt (`customMapDestructible`). Eine
+Einstellung im Kartendokument gibt es dafür noch nicht.
+
+- **Bauwerke:** Bauwerke sind die Objekte, deren Katalogeintrag `building`, `wall` oder `structure` ist
+  (`CustomMapDestruction`). Ihre HP folgen dem Volumen als Zylinder aus Grundradius und Höhe, 60 bis 3000.
+- **Schaden:** Ihn verteilt `WorldDamagePresenter` (presentation/) auf dem Hauptthread. Jeder
+  `vfx:projectile-impact` des Main-Bus, auf einem Gegner oder auf dem Boden, nimmt jedem stehenden Bauwerk im
+  Umkreis 20 HP. Der Umkreis ist 4 m plus der Radius des Bauwerks.
+- **Fallen:** Ein Bauwerk bei 0 HP explodiert in seiner Größe. Danach schrumpft es in der Ansicht auf
+  fast nichts (`FALLEN_SCALE`, `view.updateObject`) und blockiert das Bauen nicht mehr. Der Boden darunter
+  bleibt.
+- **Neuer Lauf:** `game:reset` stellt alle wieder auf.
+- **Kopie der Karte:** Die Welt arbeitet auf ihrer eigenen Kopie der Objektliste. Die geöffnete Karte und ihr
+  Inhalts-Hash bleiben unberührt.
+- **Debug:** In der Entwicklung listet `__worldDamage` in DevTools die Bauwerke und trifft einen Punkt
+  (`structures()`, `hit(lat, lon, radius, amount)`).
+
+Grenzen:
+
+- Nur Darstellung und Bausperre: Die Simulation weiß von keinem Bauwerk. Die Fälle folgen den Ereignissen
+  der Simulation und sind damit in Koop und Replay dieselben. Ein Sprung im Replay (Snapshot) stellt sie
+  aber nicht wieder her.
+- Die Sichtlinien der Tower lesen die Ansicht: Wann ein gefallenes Bauwerk dort fehlt, hängt davon ab,
+  wann der Sichtwürfel des Towers neu gerendert wird. Für ein Spielfeature müsste der Fall in die
+  Simulation (Weltschlüssel, Sichtlinien neu je Fall).
+- Gegner richten keinen eigenen Schaden an, nur Einschläge. Auf der Demo-Karte stehen die Häuser abseits
+  der Straßen; dort fiel in 8 Wellen nichts.
+
 ## Darstellung
 
 `CustomMapView` (Renderer der Karte, `render/`) wird beim ersten Anhängen nachgeladen und so

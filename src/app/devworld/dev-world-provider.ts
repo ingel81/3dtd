@@ -62,6 +62,7 @@ export class DevWorldProvider implements WorldProvider {
   readonly streets: DevStreetProvider;
   readonly streetStyle = DEV_WORLD_STREET_STYLE;
   readonly tiles = null;
+  readonly destruction = null;
 
   private readonly terrain: DevTerrainProvider;
   /** Holds the whole DevWorld, a direct child of the scene: the LOS cube renders it as the blockers */

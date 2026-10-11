@@ -72,6 +72,7 @@ interface WorldProvider {
   readonly streets: WorldStreetSource;
   readonly streetStyle: StreetStyle;
   readonly tiles: WorldTiles | null;      // die gestreamten Tiles: Renderer, Korridor, Statistik
+  readonly destruction: WorldDestruction | null; // Bauwerke mit HP, die fallen (capabilities.destructible)
   attach(ctx: WorldAttachContext): Promise<void>; // Szene, Kamera, Renderer, CameraRig, groundChanged()
   ready(): boolean;                       // zeichnet (Tiles: sobald der Renderer steht)
   setOrigin(lat, lon, height): void;

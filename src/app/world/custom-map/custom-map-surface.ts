@@ -8,6 +8,7 @@ import type { WorldSurface } from '../world-provider';
 import type { CustomMapDocument, MapPoint } from './map-document';
 import { MAP_METERS_PER_DEGREE } from './map-document';
 import { HeightField } from './render/height-field';
+import { FALLEN_SCALE } from './custom-map-destruction';
 
 /** A map column's LOD: nothing streams, so the finest there is; the route grid never samples a cell again */
 const MAP_LOD = { depth: 99, geometricError: 0 } as const;
@@ -266,7 +267,8 @@ export class CustomMapSurface implements WorldSurface {
     let maxRadius = 0;
     for (const o of this.doc.objects) {
       const entry = byId.get(o.asset);
-      if (!(o.blocksBuild ?? entry?.blocksBuild ?? false)) continue;
+      // A fallen structure (FALLEN_SCALE, CustomMapDestruction) blocks nothing
+      if (!(o.blocksBuild ?? entry?.blocksBuild ?? false) || o.scale <= FALLEN_SCALE) continue;
       const r = (entry?.footprint ?? 1) * o.scale;
       maxRadius = Math.max(maxRadius, r);
       const i = Math.min(columns - 1, Math.max(0, Math.floor((o.x - minX) / cell)));

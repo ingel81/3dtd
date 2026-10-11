@@ -3,8 +3,9 @@ import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
-import { CUSTOM_MAP_ASSET_CREDIT, CustomMapWorld, customMapSpawnLimit, openCustomMap, openedCustomMap } from './custom-map-world';
+import { CUSTOM_MAP_ASSET_CREDIT, CustomMapWorld, customMapDestructible, customMapSpawnLimit, openCustomMap, openedCustomMap } from './custom-map-world';
 import { createMapDocument } from './map-create';
+import { FALLEN_SCALE } from './custom-map-destruction';
 import { type CustomMapDocument, mapToGeo } from './map-document';
 import { MapStore, MemoryMapBackend } from './map-store';
 
@@ -231,6 +232,35 @@ describe('CustomMapWorld', () => {
     // A (farthest) first, then counter-clockwise in the scene's x/z: C, B
     expect(tour.portals.map((p) => Math.round(p.x))).toEqual([180, 30, 90]);
     expect(new CustomMapWorld({ doc: { ...doc, spawns: doc.spawns.slice(0, 1) }, contentHash: '' }, hqOrigin(doc)).introTour()).toBeNull();
+  });
+
+  it('lets its buildings fall in a run that asks for it, on its own copy of the map', () => {
+    const doc = testMap();
+    doc.objects = [{ id: 'barn', asset: 'barn', x: 20, y: 20, z: 0, rotation: 0, scale: 1 }];
+    const catalog = [{ id: 'barn', category: 'building', footprint: 5, height: 6, blocksBuild: true }];
+    const geo = mapToGeo({ x: 20, y: 20 });
+
+    const plain = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    expect(plain.destruction).toBeNull();
+    expect(plain.capabilities.destructible).toBe(false);
+
+    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3, null, true);
+    expect(world.capabilities.destructible).toBe(true);
+    world.useCatalog(catalog);
+    expect(world.surface.isBuildBlocked(geo.lat, geo.lon, 1)).toBe(true);
+
+    const fallen = world.destruction!.damage(geo, 1, 1e6);
+    expect(fallen.map((s) => s.id)).toEqual(['barn']);
+    // Gone from the run's map and its build blocking; the opened map keeps its barn
+    expect(world.doc.objects[0].scale).toBe(FALLEN_SCALE);
+    expect(world.surface.isBuildBlocked(geo.lat, geo.lon, 1)).toBe(false);
+    expect(doc.objects[0].scale).toBe(1);
+
+    world.destruction!.reset();
+    expect(world.doc.objects[0].scale).toBe(1);
+    expect(world.surface.isBuildBlocked(geo.lat, geo.lon, 1)).toBe(true);
+    expect(customMapDestructible('?world=map:x&destructible')).toBe(true);
+    expect(customMapDestructible('?world=map:x')).toBe(false);
   });
 
   it('reads the spawn limit from the link', () => {
