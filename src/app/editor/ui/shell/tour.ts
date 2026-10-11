@@ -30,11 +30,13 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'view',
     title: 'Your map in 3D',
-    message: 'Right drag turns the view, the wheel zooms, Ctrl+K finds any tool or command by name.',
+    message:
+      'The left button always works with the chosen tool. The view moves with the others: right drag turns, middle drag or the arrow keys pan, the wheel zooms; hold right and press W A S D to fly. The legend in the corner keeps this at hand.',
     hints: [
       { key: 'RMB', description: 'Turn' },
+      { key: 'MMB', description: 'Pan' },
       { key: 'Wheel', description: 'Zoom' },
-      { key: 'Ctrl+K', description: 'Commands' },
+      { key: 'RMB+WASD', description: 'Fly' },
     ],
   },
   {

@@ -42,6 +42,16 @@ import { StatusBarComponent } from '../panels/status-bar.component';
 import { TerrainPanelComponent } from '../panels/terrain-panel.component';
 import { WaterPanelComponent } from '../panels/water-panel.component';
 
+const LEGEND_KEY = '3dtd-editor-legend';
+
+function readLegend(): boolean {
+  try {
+    return localStorage.getItem(LEGEND_KEY) !== 'hidden';
+  } catch {
+    return true;
+  }
+}
+
 export const TOOL_ICON: Record<ToolId, TdIconName> = {
   landscape: 'terrain',
   stamp: 'copy',
@@ -104,6 +114,8 @@ export class EditorShellComponent implements OnDestroy {
   readonly tools = TOOLS;
   readonly toolGroups = TOOL_GROUPS;
   readonly icons = TOOL_ICON;
+  /** The legend of mouse and view keys in the corner of the view; hidden once the player closes it */
+  readonly legend = signal(readLegend());
   /** What the side column shows: the tool's options or the outline of the map */
   readonly sideView = signal<'tool' | 'outline'>('tool');
   readonly fileMenu = signal(false);
@@ -199,6 +211,15 @@ export class EditorShellComponent implements OnDestroy {
   setSymmetry(mode: SymmetryMode): void {
     this.session.patchSettings((s) => (s.symmetry = mode));
     this.session.flash(mode === 'none' ? 'Symmetry off' : `Symmetry: ${SYMMETRY_MODES.find((m) => m.id === mode)!.label}`);
+  }
+
+  setLegend(on: boolean): void {
+    this.legend.set(on);
+    try {
+      localStorage.setItem(LEGEND_KEY, on ? 'shown' : 'hidden');
+    } catch {
+      // Without storage it shows again on the next visit
+    }
   }
 
   pick(id: ToolId): void {

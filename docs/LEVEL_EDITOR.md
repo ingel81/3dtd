@@ -54,6 +54,10 @@ Kopie an und öffnet sie.
 | V | Prüfen (außer im Objektwerkzeug) |
 | Esc | Halbfertiges abbrechen, Auswahl aufheben |
 
+Die Steuerung folgt Unity und Unreal, nicht dem Spiel: die linke Taste gehört immer dem gewählten Werkzeug, die Ansicht
+bewegen die anderen Tasten (Entscheidung 2026-10-11). Eine Legende unten rechts in der Ansicht zeigt das ständig
+(schließbar, `localStorage` `3dtd-editor-legend`), der erste Schritt der Tour erklärt es.
+
 Die Paletten zeigen gerenderte Bilder: Objekte mit ihrem Modell schräg von oben, Bodenmaterialien als beleuchtete
 Kugel, Biome als kleines Stück Boden mit ihren Pflanzen. Ein kleiner eigener Renderer zeichnet sie im Hintergrund und
 hebt sie in IndexedDB (`3dtd-editor-thumbs`) auf; bis ein Bild fertig ist, steht ein gezeichnetes Symbol.
