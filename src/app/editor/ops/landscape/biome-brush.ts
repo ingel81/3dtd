@@ -52,9 +52,25 @@ function relief(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number):
   }
 }
 
-/** Whether a swamp pool lies here */
-function inPool(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number): boolean {
-  return !!biome.pools && 0.5 + 0.5 * stroke.noise.fbm(x, y, 22, 3, 'n5') < biome.pools;
+/** Swamp pool noise at a point, 0..1; pools lie below `biome.pools` */
+function poolNoise(stroke: LandscapeStroke, x: number, y: number): number {
+  // Domain-warped so the pools come out as rounded, lobed blobs
+  const wx = x + 9 * stroke.noise.fbm(x, y, 30, 2, 'n2');
+  const wy = y + 9 * stroke.noise.fbm(x + 71, y - 13, 30, 2, 'n3');
+  return 0.5 + 0.5 * stroke.noise.fbm(wx, wy, 26, 3, 'n5');
+}
+
+/** How deep inside a pool, 0 outside to 1 in its middle */
+export function poolDepth(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number): number {
+  if (!biome.pools) return 0;
+  return 1 - smooth(biome.pools - 0.14, biome.pools, poolNoise(stroke, x, y));
+}
+
+/** A ring around the pools (mud, reeds), 0..1 */
+export function poolShore(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number): number {
+  if (!biome.pools) return 0;
+  const n = poolNoise(stroke, x, y);
+  return smooth(biome.pools - 0.06, biome.pools + 0.01, n) * (1 - smooth(biome.pools + 0.04, biome.pools + 0.12, n));
 }
 
 export function biomeDab(
@@ -90,10 +106,18 @@ export function biomeDab(
       const base = stroke.baseHeight(i, j);
       let target = biome.relief.kind === 'flatten' ? stroke.anchor.h : base + relief(stroke, biome, x, y) * strength;
       const k = j * g.columns + i;
-      if (waterLevel !== null && w > 0.45 && inPool(stroke, biome, x, y)) {
-        target = Math.min(target, waterLevel - 0.35);
-        t.water!.mask[k] = 255;
-        wet = true;
+      if (waterLevel !== null && w > 0.3) {
+        // Pools: the ground sinks under the level toward their middle; the mask reaches a little
+        // past the shore, the renderer cuts the surface where the ground rises above it
+        const p = poolDepth(stroke, biome, x, y);
+        if (p > 0) {
+          target = Math.min(target, waterLevel + 0.25 - 1.1 * p);
+          // The mask only where the ground ends up under the level, so no water floats over the shore
+          if (p > 0.3) {
+            t.water!.mask[k] = 255;
+            wet = true;
+          }
+        }
       }
       const a = Math.min(1, pull * w * keep * (0.4 + 0.6 * strength));
       const h = g.heights[k] + (target - g.heights[k]) * a;
@@ -104,9 +128,10 @@ export function biomeDab(
   // Ground paint
   const layers = biome.ground.map((gr) => ({ layer: stroke.layerOf(gr.material), share: gr.share }));
   const steep = biome.steepGround ? stroke.layerOf(biome.steepGround) : null;
+  const mud = biome.pools ? stroke.layerOf(['mud', 'dirt']) : null;
   const trect = texelRectAround(t, center.x, center.y, brush.radius);
   stroke.touchSplat(trect);
-  paintBiome(stroke, t, trect, center, brush, layers, steep, Math.min(1, PAINT_RATE * Math.min(dt, 0.1)));
+  paintBiome(stroke, t, trect, center, brush, biome, layers, steep, mud, Math.min(1, PAINT_RATE * Math.min(dt, 0.1)));
 
   // Objects
   const placed = growObjects(stroke, center, brush, biome, false);
@@ -133,40 +158,70 @@ function paintBiome(
   rect: GridRect,
   center: { x: number; y: number },
   brush: BrushSettings,
+  biome: BiomeDef,
   layers: { layer: number | null; share: number }[],
   steep: number | null,
+  mud: number | null,
   rate: number,
 ): void {
   const usable = layers.filter((l) => l.layer !== null) as { layer: number; share: number }[];
   if (!usable.length) return;
-  const total = usable.reduce((s, l) => s + l.share, 0);
   const res = t.splat.resolution;
   const w8 = new Float32Array(MAX_LAYERS);
+  const target = new Float32Array(MAX_LAYERS);
+  const noiseOf = ['n6', 'n5', 'n3', 'n2'] as const;
   for (let v = rect.j0; v <= rect.j1; v++) {
     const y = texelY(t, v);
     for (let u = rect.i0; u <= rect.i1; u++) {
       const x = texelX(t, u);
       const w = frayedWeight(stroke.noise, Math.hypot(x - center.x, y - center.y), x, y, brush);
       if (w <= 0) continue;
-      // Which material: noise picks a slot by the shares
-      let pick = usable[0].layer;
-      const n = (0.5 + 0.5 * stroke.noise.fbm(x, y, 18, 3, 'n6')) * total;
-      let acc = 0;
-      for (const l of usable) {
-        acc += l.share;
-        if (n <= acc) {
-          pick = l.layer;
-          break;
-        }
-      }
-      if (steep !== null && slopeAt(t, x, y) > 30) pick = steep;
+      groundMix(stroke, t, biome, usable, steep, mud, x, y, target, noiseOf);
       const a = Math.min(1, rate * w * (0.5 + 0.5 * brush.strength));
       const texel = v * res + u;
       readWeights(t, texel, w8);
-      for (let k = 0; k < MAX_LAYERS; k++) w8[k] = k === pick ? w8[k] + (255 - w8[k]) * a : w8[k] * (1 - a);
+      for (let k = 0; k < MAX_LAYERS; k++) w8[k] = w8[k] * (1 - a) + target[k] * 255 * a;
       writeWeights(t, texel, w8);
     }
   }
+}
+
+/**
+ * The biome's ground at a point as a soft mix: each material grows in
+ * broad clusters of its own noise (wavelength about 50 m) weighted by its
+ * share, so patches have soft, irregular rims instead of salt and pepper;
+ * the steep material takes over smoothly on slopes, mud rings the swamp
+ * pools.
+ */
+function groundMix(
+  stroke: LandscapeStroke,
+  t: MapTerrain,
+  biome: BiomeDef,
+  usable: { layer: number; share: number }[],
+  steep: number | null,
+  mud: number | null,
+  x: number,
+  y: number,
+  out: Float32Array,
+  noiseOf: readonly ('n6' | 'n5' | 'n3' | 'n2')[],
+): void {
+  out.fill(0);
+  let sum = 0;
+  usable.forEach((l, k) => {
+    const n = 0.5 + 0.5 * stroke.noise.fbm(x + k * 97, y - k * 53, 50, 4, noiseOf[k % noiseOf.length]);
+    // Sharpened so a patch has a body and a soft rim
+    const v = l.share * Math.pow(smooth(0.25, 0.75, n) + 0.05, 2.2);
+    out[l.layer] += v;
+    sum += v;
+  });
+  if (sum > 0) for (let k = 0; k < MAX_LAYERS; k++) out[k] /= sum;
+  const fold = (layer: number, share: number) => {
+    if (share <= 0) return;
+    for (let k = 0; k < MAX_LAYERS; k++) out[k] *= 1 - share;
+    out[layer] += share;
+  };
+  if (steep !== null) fold(steep, smooth(24, 36, slopeAt(t, x, y)));
+  if (mud !== null && biome.pools) fold(mud, poolShore(stroke, biome, x, y) * 0.9);
 }
 
 /** The jittered-grid cell size for a density (one candidate per cell) */
@@ -175,8 +230,10 @@ function cellSize(o: BiomeObject, strengthScale: number): number {
 }
 
 /** Chance a candidate grows, from the brush weight it got and its zone */
-function zoneChance(zone: BiomeObject['zone'], w: number): number {
+function zoneChance(zone: BiomeObject['zone'], w: number, shore = 0): number {
   switch (zone) {
+    case 'shore':
+      return smooth(0.1, 0.4, w) * shore;
     case 'core':
       return smooth(0.45, 0.85, w);
     case 'any':
@@ -219,7 +276,8 @@ function growObjects(
         return;
       }
       const clump = o.clump ? 1 - o.clump + o.clump * 2 * (0.5 + 0.5 * n.fbm(px, py, 30, 2, 'n3')) : 1;
-      const chance = zoneChance(o.zone, w) * brush.strength * clump;
+      const shore = o.zone === 'shore' ? poolShore(stroke, biome, px, py) : 0;
+      const chance = zoneChance(o.zone, w, shore) * brush.strength * clump;
       const roll = n.hash(ci, cj, kind * 4 + 3);
       if (roll >= chance) {
         // Core plants may still grow when the brush comes closer; edge plants are final

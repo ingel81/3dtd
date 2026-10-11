@@ -14,14 +14,14 @@ export interface BiomeGround {
   share: number;
 }
 
-export type BiomeZone = 'core' | 'edge' | 'any';
+export type BiomeZone = 'core' | 'edge' | 'any' | 'shore';
 
 export interface BiomeObject {
   assets: readonly string[];
   /** Objects per hectare at full strength in their zone */
   perHectare: number;
   scale: readonly [number, number];
-  /** Core: where the brush is strong; edge: the fraying rim (undergrowth); any: both */
+  /** Core: where the brush is strong; edge: the fraying rim (undergrowth); any: both; shore: around swamp pools */
   zone: BiomeZone;
   /** No other object closer than this, metres */
   spacing: number;
@@ -140,7 +140,8 @@ export const BIOMES: readonly BiomeDef[] = [
     relief: { kind: 'sink', amplitude: 1, wave: 30 },
     pools: 0.35,
     objects: [
-      { assets: ['reeds', 'grass-clump'], perHectare: 180, scale: [0.8, 1.4], zone: 'any', spacing: 1.2, clump: 0.8 },
+      { assets: ['reeds', 'cattails', 'grass-clump'], perHectare: 900, scale: [0.8, 1.4], zone: 'shore', spacing: 1, clump: 0.3 },
+      { assets: ['grass-clump'], perHectare: 90, scale: [0.8, 1.3], zone: 'any', spacing: 1.5, clump: 0.7 },
       { assets: ['tree-dead'], perHectare: 14, scale: [0.8, 1.3], zone: 'core', spacing: 8 },
       { assets: ['bush'], perHectare: 25, scale: [0.7, 1.2], zone: 'edge', spacing: 3 },
       { assets: ['log', 'stump'], perHectare: 8, scale: [0.8, 1.2], zone: 'any', spacing: 5 },
