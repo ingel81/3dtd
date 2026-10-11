@@ -274,3 +274,37 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | graves | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_rock |
 | statue-horse | https://polyhaven.com/a/horse_statue_01; Sockel procedural (tools/map-assets/build_structures.py) |
 | statue-knight | https://polyhaven.com/a/gothic_statue; Sockel procedural (tools/map-assets/build_structures.py) |
+| torch | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/dark_planks; Flamme gezeichnet (make_foliage.py) |
+| brazier | procedural (tools/map-assets/build_props.py); Flamme gezeichnet (make_foliage.py) |
+| campfire | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/dark_rock; https://polyhaven.com/a/bark_brown_02; Flamme gezeichnet (make_foliage.py) |
+| campfire-out | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/dark_rock; https://polyhaven.com/a/bark_brown_02 |
+| waterfall | procedural (tools/map-assets/build_props.py); Wasser und Gischt gezeichnet (make_foliage.py) |
+| waterfall-tall | procedural (tools/map-assets/build_props.py); Wasser und Gischt gezeichnet (make_foliage.py) |
+| cart | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/dark_planks |
+| haystack | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/dark_planks |
+| hay-bales | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/reed_roof_04 |
+| woodpile | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/bark_brown_02; https://polyhaven.com/a/rough_wood |
+| anvil | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/bark_brown_02 |
+| weapon-rack | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/dark_planks |
+| signpost | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/rough_wood |
+| banner-red | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/dark_planks; Tuch gezeichnet (make_foliage.py) |
+| banner-blue | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/dark_planks; Tuch gezeichnet (make_foliage.py) |
+| bones | procedural (tools/map-assets/build_props.py) |
+| barrel-wine | https://polyhaven.com/a/wine_barrel_01 |
+| barrel-old | https://polyhaven.com/a/Barrel_02 |
+| barrel-small | https://polyhaven.com/a/barrel_03 |
+| barrels-broken | https://polyhaven.com/a/wooden_barrels_01 |
+| crate-long | https://polyhaven.com/a/wooden_crate_02 |
+| crate-flat | https://polyhaven.com/a/wooden_crate_01 |
+| bucket | https://polyhaven.com/a/wooden_bucket_01 |
+| tub | https://polyhaven.com/a/wooden_bucket_02 |
+| lantern | https://polyhaven.com/a/wooden_lantern_01 |
+| cannon | https://polyhaven.com/a/cannon_01 |
+| treasure-chest | https://polyhaven.com/a/treasure_chest |
+| shield | https://polyhaven.com/a/kite_shield |
+| ladder | https://polyhaven.com/a/wooden_ladder |
+| spinning-wheel | https://polyhaven.com/a/spinning_wheel_01 |
+| basket | https://polyhaven.com/a/wicker_basket_01 |
+| table | https://polyhaven.com/a/WoodenTable_01 |
+| pickaxe | https://polyhaven.com/a/picke_dirty_01 |
+| ship | https://polyhaven.com/a/dutch_ship_medium |

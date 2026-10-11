@@ -4,8 +4,10 @@
 
 Leaves come from ambientCG leaf atlases (LeafSetNNN, CC0): every leaf is cut
 out of its atlas along the opacity map and scattered along drawn twigs onto
-a card, so one card reads as a leafy branch from a distance. Grass and
-flower cards are drawn procedurally. Writes RGBA PNGs (alpha = coverage).
+a card, so one card reads as a leafy branch from a distance. Grass cards
+use the photo blades of the ambientCG Foliage atlases; flowers, reeds'
+cattails, palm fronds, lily pads, flames, falling water, foam and banners
+are drawn. Writes RGBA PNGs (alpha = coverage) and the cactus skin JPEG.
 """
 import io
 import math
@@ -367,6 +369,74 @@ def cactus_skin(size, seed):
     return img
 
 
+def flame(size_w, size_h, seed):
+    """A flame tongue: yellow core, orange edge, soft alpha towards the tip"""
+    rnd = np.random.default_rng(seed)
+    y, x = np.mgrid[0:size_h, 0:size_w].astype(np.float32)
+    t = 1.0 - y / size_h  # 0 bottom, 1 top
+    u = (x / size_w - 0.5) * 2
+    wobble = 0.08 * np.sin(t * 9 + 1.3) + 0.05 * np.sin(t * 17)
+    width = 0.95 * (1 - t) ** 0.6 * np.clip(t * 12 + 0.45, 0, 1) + 0.02
+    d = np.abs(u - wobble * t) / width
+    a = np.clip(1.2 - d, 0, 1) * np.clip((1 - t) * 3, 0, 1)
+    n = ndimage.gaussian_filter(rnd.random((size_h, size_w)), 4)
+    a *= 0.75 + 0.5 * (n - n.min()) / (n.max() - n.min())
+    core = np.clip(1.0 - d * 1.6, 0, 1)[..., None]
+    rgb = np.array((255, 120, 30), np.float32) * (1 - core) + np.array((255, 225, 140), np.float32) * core
+    img = np.dstack([rgb, np.clip(a * 300, 0, 255)]).astype(np.uint8)
+    return bleed(Image.fromarray(img, 'RGBA'))
+
+
+def water_sheet(size_w, size_h, seed):
+    """Falling water: vertical streaks of white and pale blue-green with ragged edges"""
+    rnd = np.random.default_rng(seed)
+    streaks = ndimage.gaussian_filter(rnd.random((1, size_w)), (0, 2))
+    streaks = np.repeat(streaks, size_h, axis=0)
+    flow = ndimage.gaussian_filter(rnd.random((size_h, size_w)), (12, 1.5))
+    v = (streaks - streaks.min()) / (streaks.max() - streaks.min()) * 0.6 + (flow - flow.min()) / (flow.max() - flow.min()) * 0.4
+    deep = np.array((70, 110, 115), np.float32)
+    foam = np.array((235, 242, 245), np.float32)
+    rgb = deep * (1 - v[..., None]) + foam * v[..., None]
+    edge = np.minimum(np.linspace(0, 1, size_w) * 6, (1 - np.linspace(0, 1, size_w)) * 6).clip(0, 1)
+    # Gaps between the strands and a ragged lip, so the sheet does not read as a board
+    a = np.clip((v - 0.28) * 2.2, 0, 1) * edge[None, :] * 255
+    lip = (ndimage.gaussian_filter(rnd.random(size_w), 3) * size_h * 0.15).astype(int)
+    for x in range(size_w):
+        a[:max(0, lip[x] - int(size_h * 0.04)), x] = 0
+    a[a < 70] = 0
+    return bleed(Image.fromarray(np.dstack([rgb, a]).clip(0, 255).astype(np.uint8), 'RGBA'))
+
+
+def foam(size, seed):
+    """Spray at the foot of a waterfall: white blobs with soft edges"""
+    rnd = np.random.default_rng(seed)
+    n = ndimage.gaussian_filter(rnd.random((size, size)), 5)
+    n = (n - n.min()) / (n.max() - n.min())
+    y, x = np.mgrid[0:size, 0:size] / size - 0.5
+    r = np.sqrt(x * x + y * y) * 2
+    a = np.clip((n - 0.35) * 3 - r * 1.2 + 0.6, 0, 1) * 255
+    rgb = np.ones((size, size, 3), np.float32) * np.array((235, 240, 242), np.float32)
+    return bleed(Image.fromarray(np.dstack([rgb, a]).astype(np.uint8), 'RGBA'))
+
+
+def cloth_banner(size_w, size_h, colour, trim, seed):
+    """A hanging banner: coloured field, golden trim, a simple emblem, swallow-tail bottom"""
+    img = Image.new('RGBA', (size_w, size_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    notch = size_h * 0.12
+    draw.polygon([(0, 0), (size_w, 0), (size_w, size_h), (size_w / 2, size_h - notch), (0, size_h)], fill=colour + (255,))
+    b = size_w * 0.06
+    draw.rectangle([0, 0, size_w, b], fill=trim + (255,))
+    draw.line([(b, b), (b, size_h - notch * 0.9)], fill=trim + (255,), width=int(b * 0.5))
+    draw.line([(size_w - b, b), (size_w - b, size_h - notch * 0.9)], fill=trim + (255,), width=int(b * 0.5))
+    cx, cy, r = size_w / 2, size_h * 0.42, size_w * 0.24
+    draw.polygon([(cx, cy - r), (cx + r, cy), (cx, cy + r), (cx - r, cy)], fill=trim + (255,))
+    arr = np.array(img).astype(np.float32)
+    n = ndimage.gaussian_filter(np.random.default_rng(seed).random(arr.shape[:2]), 3)
+    arr[..., :3] *= (0.85 + 0.3 * (n - n.min()) / (n.max() - n.min()))[..., None]
+    return bleed(Image.fromarray(arr.clip(0, 255).astype(np.uint8), 'RGBA'))
+
+
 def main():
     dl, out = sys.argv[1], sys.argv[2]
     os.makedirs(dl, exist_ok=True)
@@ -410,6 +480,12 @@ def main():
     save(lily_pad(256, 31), 'lily-pad.png')
     save(blossom(128, 8, (245, 225, 235), (240, 200, 60), 32), 'lily-flower.png')
     cactus_skin(512, 33).save(os.path.join(out, 'cactus.jpg'), quality=90)
+    # Effects and cloth
+    save(flame(128, 256, 35), 'flame.png')
+    save(water_sheet(256, 512, 36), 'waterfall.png')
+    save(foam(256, 37), 'foam.png')
+    save(cloth_banner(128, 384, (150, 28, 24), (215, 170, 60), 38), 'banner-red.png')
+    save(cloth_banner(128, 384, (32, 58, 130), (220, 210, 190), 39), 'banner-blue.png')
     print('foliage ok', file=sys.stderr)
 
 

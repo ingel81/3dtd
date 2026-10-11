@@ -107,6 +107,17 @@ def card_material(name, png):
     return m
 
 
+def glow_card_material(name, png, strength=0.8):
+    """Alpha-tested card that emits its own colour (flames); named `foliage-*` for the loader's alpha test"""
+    m = card_material(name, png)
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+    img = next(n for n in nt.nodes if n.type == 'TEX_IMAGE')
+    nt.links.new(img.outputs['Color'], bsdf.inputs['Emission Color'])
+    bsdf.inputs['Emission Strength'].default_value = strength
+    return m
+
+
 def image_material(name, path, roughness=0.8):
     """Opaque material from one colour image (cactus skin and other drawn textures)"""
     m = bpy.data.materials.new(name)
