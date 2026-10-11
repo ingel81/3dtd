@@ -43,3 +43,16 @@ describe('validateMap', () => {
     expect(codes(doc)).toEqual(expect.arrayContaining(['lane-short', 'path-under-water', 'object-on-path']));
   });
 });
+
+describe('validateMap, gameplay rules', () => {
+  it('checks the wave list and the allowed towers', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 800, depth: 400 });
+    doc.gameplay = {
+      towers: ['research-center', 'laser-of-doom'],
+      waves: { kind: 'table', table: { cycle: { fromWave: 1, hpGrowth: 1.2 }, waves: [{ wave: 1, name: 'x', enemies: { nobody: 3 }, hpMult: 1, spawnDelay: 500 }] } },
+    };
+    const issues = validateMap(doc);
+    expect(issues.some((i) => i.code === 'wave-list' && i.message.includes('nobody'))).toBe(true);
+    expect(issues.filter((i) => i.code === 'unknown-tower')).toHaveLength(2);
+  });
+});

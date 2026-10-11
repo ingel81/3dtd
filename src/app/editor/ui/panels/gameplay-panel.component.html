@@ -1,0 +1,107 @@
+<p class="td-note">These rules travel with the map. Empty fields keep the game's defaults.</p>
+
+<div class="td-group">
+  <h3 class="td-section">Start</h3>
+  <div class="gp-pair">
+    <label class="td-field">
+      <span class="td-label">Credits</span>
+      <input class="td-input is-sm" type="number" min="0" step="10" [placeholder]="defaults.credits" [value]="gp().startCredits ?? ''"
+             (change)="setNumber('startCredits', $event)" data-test="start-credits" />
+    </label>
+    <label class="td-field">
+      <span class="td-label">HQ health</span>
+      <input class="td-input is-sm" type="number" min="1" step="50" [placeholder]="defaults.health" [value]="gp().hqHealth ?? ''"
+             (change)="setNumber('hqHealth', $event)" />
+    </label>
+  </div>
+</div>
+
+<div class="td-group">
+  <h3 class="td-section">Towers <span class="td-note">{{ gp().towers ? gp().towers!.length + ' allowed' : 'all allowed' }}</span></h3>
+  <div class="gp-towers">
+    @for (t of towers; track t.id) {
+      <label class="td-check gp-tower">
+        <input class="td-switch" type="checkbox" [checked]="allowed(t.id)" (change)="toggleTower(t.id, $any($event.target).checked)" />
+        <span class="td-trunc">{{ t.name }}</span>
+      </label>
+    }
+  </div>
+  <div class="td-actions is-start">
+    <button class="td-btn-ghost td-btn-sm" type="button" (click)="allTowers(true)">All</button>
+    <button class="td-btn-ghost td-btn-sm" type="button" (click)="allTowers(false)">None</button>
+  </div>
+</div>
+
+<div class="td-group">
+  <h3 class="td-section">Waves</h3>
+  <div class="td-seg is-sm" role="radiogroup" aria-label="Wave source">
+    <button type="button" role="radio" [attr.aria-checked]="!table()" (click)="setSource('budget')"
+            matTooltip="The game's budget source: waves sized against the defense">Game waves</button>
+    <button type="button" role="radio" [attr.aria-checked]="!!table()" (click)="setSource('table')" data-test="own-waves">Own list</button>
+  </div>
+  @if (table(); as t) {
+    <div class="td-actions is-start">
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="copyGameList()" matTooltip="Replace this list with the game's fixed wave list to start from">Start from the game's list</button>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="addRow()">Add wave</button>
+    </div>
+    <div class="td-rows gp-rows">
+      @for (row of t.waves; track $index; let i = $index) {
+        <div class="gp-row">
+          <button class="td-row gp-head" type="button" [attr.aria-expanded]="open() === i" (click)="open.set(open() === i ? null : i)">
+            <span class="td-num gp-n">{{ row.wave }}</span>
+            <span class="td-trunc">{{ row.name }}</span>
+            <span class="td-muted td-num">{{ total(row) }} | x{{ row.hpMult }}</span>
+          </button>
+          @if (open() === i) {
+            <div class="gp-edit td-well">
+              <label class="td-field">
+                <span class="td-label">Name</span>
+                <input class="td-input is-sm" type="text" [value]="row.name" (change)="setRow(i, 'name', $event)" />
+              </label>
+              <div class="gp-pair">
+                <label class="td-field">
+                  <span class="td-label">HP factor</span>
+                  <input class="td-input is-sm" type="number" min="0.05" step="0.05" [value]="row.hpMult" (change)="setRow(i, 'hpMult', $event)" />
+                </label>
+                <label class="td-field">
+                  <span class="td-label">Spawn every (ms)</span>
+                  <input class="td-input is-sm" type="number" min="5" step="50" [value]="row.spawnDelay" (change)="setRow(i, 'spawnDelay', $event)" />
+                </label>
+              </div>
+              @for (e of entries(row); track e[0]) {
+                <div class="gp-enemy">
+                  <select class="td-select is-sm" (change)="setEnemy(i, value($event), e[1], e[0])" [attr.aria-label]="'Enemy of wave ' + row.wave">
+                    @for (en of enemies; track en.id) {
+                      <option [value]="en.id" [selected]="en.id === e[0]">{{ en.name }}</option>
+                    }
+                  </select>
+                  <input class="td-input is-sm" type="number" min="0" [value]="e[1]" (change)="setEnemy(i, e[0], num($event))" [attr.aria-label]="'Count of ' + enemyName(e[0])" />
+                  <button class="td-tool is-sm" type="button" aria-label="Remove" (click)="setEnemy(i, e[0], 0)"><td-icon name="trash" [size]="14" /></button>
+                </div>
+              }
+              <div class="td-actions is-split">
+                <button class="td-btn-ghost td-btn-sm" type="button" (click)="addEnemy(i)">Add enemy</button>
+                <button class="td-btn-danger td-btn-sm" type="button" (click)="removeRow(i)">Remove wave</button>
+              </div>
+            </div>
+          }
+        </div>
+      } @empty {
+        <p class="td-note">No waves yet: add one or start from the game's list.</p>
+      }
+    </div>
+    <div class="gp-pair">
+      <label class="td-field">
+        <span class="td-label">Then repeat from wave</span>
+        <input class="td-input is-sm" type="number" min="1" [value]="t.cycle.fromWave" (change)="setCycle('fromWave', $event)" />
+      </label>
+      <label class="td-field">
+        <span class="td-label">HP times per round</span>
+        <input class="td-input is-sm" type="number" min="1" step="0.05" [value]="t.cycle.hpGrowth" (change)="setCycle('hpGrowth', $event)" />
+      </label>
+    </div>
+    @for (p of problems(); track $index) {
+      <p class="td-note is-warn">{{ p }}</p>
+    }
+  }
+</div>

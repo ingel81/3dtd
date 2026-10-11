@@ -11,6 +11,7 @@
 import type {
   CustomMapDocument,
   MapEnvironment,
+  MapGameplay,
   MapMeta,
   MapObject,
   MapPaths,
@@ -335,6 +336,7 @@ export class PatchCommand implements EditCommand {
 /** Parts of the document small enough to keep whole before and after */
 export interface DocParts {
   objects: MapObject[];
+  gameplay: MapGameplay | undefined;
   paths: MapPaths;
   spawns: MapSpawn[];
   hq: MapPoint;
@@ -345,6 +347,7 @@ export interface DocParts {
 
 const PART_CHANGE: Record<keyof DocParts, DocChange> = {
   objects: { objects: 'all' },
+  gameplay: { meta: true },
   paths: { paths: true },
   spawns: { markers: true },
   hq: { markers: true },

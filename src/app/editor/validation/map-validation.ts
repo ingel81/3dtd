@@ -5,6 +5,8 @@
  * under water, objects on the road).
  */
 import type { CustomMapDocument, MapPoint } from '../../world/custom-map/map-document';
+import { TOWER_TYPES } from '../../configs/tower-types.config';
+import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { heightAt, insideMap } from '../model/grid';
 import { components, edgePolyline, nearestOnEdges, nearestOnPolyline, routeBetween } from '../ops/path-graph';
 
@@ -27,7 +29,9 @@ export interface MapIssue {
     | 'spawn-near-hq'
     | 'path-under-water'
     | 'object-on-path'
-    | 'path-steep';
+    | 'path-steep'
+    | 'wave-list'
+    | 'unknown-tower';
   message: string;
   /** Where to look */
   focus?: MapPoint;
@@ -190,6 +194,20 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       focus: firstBlocked,
       target: { kind: 'object', id: firstBlocked.id },
     });
+  }
+
+  const gp = doc.gameplay;
+  if (gp?.waves?.kind === 'table') {
+    for (const problem of validateWaveTable(gp.waves.table as unknown as WaveTable)) {
+      issues.push({ severity: 'error', code: 'wave-list', message: `Wave list: ${problem}` });
+    }
+  }
+  if (gp?.towers) {
+    const unknown = gp.towers.filter((t) => !(t in TOWER_TYPES));
+    if (unknown.length) issues.push({ severity: 'warning', code: 'unknown-tower', message: `Unknown tower types allowed: ${unknown.join(', ')}` });
+    if (!gp.towers.some((t) => t in TOWER_TYPES && t !== 'research-center' && t !== 'missile-silo')) {
+      issues.push({ severity: 'error', code: 'unknown-tower', message: 'No tower that shoots is allowed.' });
+    }
   }
 
   return issues.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'error' ? -1 : 1));

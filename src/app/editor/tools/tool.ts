@@ -16,7 +16,7 @@ import { DEFAULT_RIVER, type RiverOptions } from '../ops/landscape/river';
 import { DEFAULT_ROAD, type RoadOptions } from '../ops/landscape/road';
 import type { EditorOverlay } from '../view/editor-overlay';
 
-export type ToolId = 'landscape' | 'stamp' | 'terrain' | 'paint' | 'water' | 'objects' | 'paths' | 'markers' | 'environment' | 'settings';
+export type ToolId = 'landscape' | 'stamp' | 'gameplay' | 'terrain' | 'paint' | 'water' | 'objects' | 'paths' | 'markers' | 'environment' | 'settings';
 
 export interface ToolInfo {
   id: ToolId;
@@ -36,6 +36,7 @@ export const TOOLS: readonly ToolInfo[] = [
   { id: 'environment', label: 'Environment', key: '8' },
   { id: 'settings', label: 'Map', key: '9' },
   { id: 'stamp', label: 'Copy and stamps', key: '0' },
+  { id: 'gameplay', label: 'Gameplay', key: 'g' },
 ];
 
 export type TerrainMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'level' | 'noise' | 'erode' | 'terrace' | 'plateau' | 'ramp';

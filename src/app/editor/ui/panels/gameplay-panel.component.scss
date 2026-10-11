@@ -1,0 +1,51 @@
+// Layout of the gameplay rules: number pairs, tower switches, the wave list
+.gp-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--td-sp-2);
+}
+
+.gp-towers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--td-sp-1) var(--td-sp-2);
+}
+
+.gp-tower {
+  min-width: 0;
+}
+
+.gp-rows {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.gp-head {
+  justify-content: flex-start;
+  gap: var(--td-sp-2);
+  min-height: 30px;
+
+  .td-trunc {
+    flex: 1 1 auto;
+  }
+}
+
+.gp-n {
+  width: 22px;
+  flex: 0 0 auto;
+}
+
+.gp-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--td-sp-2);
+  padding: var(--td-sp-2);
+  margin-bottom: var(--td-sp-2);
+}
+
+.gp-enemy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 70px auto;
+  gap: var(--td-sp-1);
+  align-items: center;
+}

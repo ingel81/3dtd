@@ -62,6 +62,7 @@ export class EditorSession implements OnDestroy {
   readonly tools: Record<ToolId, EditorTool> = {
     landscape: new LandscapeTool(),
     stamp: new StampTool(),
+    gameplay: new PanelTool('gameplay', 'Start credits, HQ health, allowed towers and the waves of this map'),
     terrain: new TerrainTool(),
     paint: new PaintTool(),
     water: new WaterTool(),
