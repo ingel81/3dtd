@@ -306,7 +306,7 @@ vec3 terrainNormal = normalize(accN);
 // Macro variation and far blend
 vec3 albedo = accC.rgb;
 float macro = n1 * 0.6 + n2 * 0.4;
-albedo *= mix(0.86, 1.1, macro);
+albedo *= mix(0.86, 1.1, macro) * mix(0.93, 1.06, n3);
 albedo = mix(albedo, albedo * vec3(1.08, 1.04, 0.86), smoothstep(0.55, 0.85, n2) * 0.5);
 float far = smoothstep(120.0, 900.0, length(vViewPosition));
 albedo = mix(albedo, accAvg * mix(0.8, 1.15, macro), far * 0.45);
