@@ -96,7 +96,9 @@ export function riverCourse(
     const off = n.fbm(s, 0, 70, 3, 'n4') * options.width * 0.7 * fade(s);
     return { x: p.x - ((q.y - r.y) / dl) * off, y: p.y + ((q.x - r.x) / dl) * off };
   });
-  const half = (along: number) => (options.width / 2) * (0.75 + 0.5 * (0.5 + 0.5 * n.fbm(along, 0, 90, 2, 'n6')));
+  // Narrow at both ends: a spring and a mouth instead of a cut-off channel
+  const taper = (along: number) => 0.35 + 0.65 * smooth(0, 25, along) * smooth(0, 25, length - along);
+  const half = (along: number) => (options.width / 2) * taper(along) * (0.75 + 0.5 * (0.5 + 0.5 * n.fbm(along, 0, 90, 2, 'n6')));
   return { line, half };
 }
 

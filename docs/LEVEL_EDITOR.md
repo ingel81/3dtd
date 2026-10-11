@@ -63,10 +63,14 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   Objekte meiden Straßen, Wasser, Spawns und HQ; der Boden unter Straßen bleibt. Der Sumpf legt flache Wasserlachen an
   (ohne Wasser auf der Karte entsteht es knapp unter dem Startpunkt). Unter dem Zeiger zeigen Punkte, wo der nächste
   Strich Pflanzen setzen würde
-- Mountain (gratige Gipfel, Höhe nach Größe und Stärke), Valley, Plateau (Tafel mit steilem Rand), Erode (Regen gräbt
+- Mountain (gratige Gipfel, Höhe nach Größe und Stärke), Valley, Plateau (Tafel mit steilem Rand), Crater (Schüssel mit
+  Wall am Startpunkt des Strichs), Dunes (runde Kämme quer zum Wind, flache Luv-, steile Leeseite), Erode (Regen gräbt
   Rinnen und Schuttfächer). Halten lässt die Form bis zu ihrer vollen Größe wachsen, nicht darüber hinaus
+- Glow cracks: der Boden bricht in ein Netz feiner Lavarisse mit Kruste auf verbranntem Fels; die Risse sinken etwas ein
 - Linien (ziehen, auch vom Kartenrand her): Cliff edge hebt den Boden links der Zeichenrichtung als Klippe, die
-  Pinselgröße ist die Breite oben; River gräbt ein Flussbett mit Wasser, Sand- und Schlammufern, Schilf und einer
+  Pinselgröße ist die Breite oben; River (Water oder Lava) legt einen Fluss an, der immer bergab fließt (bergauf
+  gezeichnet wird er umgedreht): mäandernd, mit wechselnder Breite und schmalen Enden, Bett mit Sand- und
+  Schlammufern (bei Lava verbrannter Fels), Schilf, Steinen, einem Wasserfall über jeder steilen Stufe und einer
   Brücke an jeder Straße, die er kreuzt; Road legt eine Straße ins Wegenetz (Anfang und Ende rasten an Knoten oder
   Straßen), passt den Boden als Damm oder Einschnitt an, pflastert sie und stellt Laternen oder Zäune an den Rand
 
@@ -81,9 +85,12 @@ the map“ malt die ganze Karte neu: die erste Schicht überall, felsartige Schi
 Ufer, schneeartige auf den Gipfeln (nach dem Materialnamen). Darunter das Klippenmaterial und ab welcher Neigung es
 greift.
 
-**Water (4).** Fill basin: ein Klick in eine Mulde flutet sie. Ohne Wasser (oder mit Strg) wird der Spiegel knapp unter
-den Rand der Mulde gesetzt, also die Höhe, an der sie überlaufen würde. Paint und Erase malen die Wassermaske von Hand.
-Spiegel und Farbe im Panel; Wasser lässt sich dort auch ganz abschalten.
+**Water (4).** Das Hauptwasser und weitere Gewässer, jedes mit eigenem Spiegel, eigener Art (Water, Sea, Swamp, Ice,
+Lava) und Farbe; das Panel listet sie, das gewählte bearbeitet das Werkzeug. Fill basin: ein Klick in eine Mulde flutet
+sie. Ohne Wasser (oder mit Strg) wird der Spiegel knapp unter den Rand der Mulde gesetzt, also die Höhe, an der sie
+überlaufen würde. Dig lake gräbt unter dem Pinsel ein Seebett bis zur eingestellten Tiefe und füllt es. Paint und
+Erase malen die Maske von Hand. Sea from the edge flutet das Gewässer vom Kartenrand her über alles unter seinem
+Spiegel.
 
 **Objects (5).** Palette aus dem Katalog mit Bildern, Kategorien und Suche.
 - Place: ein Klick setzt das gewählte Objekt (Raster-Fang 1 bis 8 m, zufällige Drehung)
@@ -109,7 +116,7 @@ Spur oder „no route“.
 **Environment (8).** Himmel (Day, Dusk, Night, Overcast), Tageszeit (ein Sommertag: Aufgang 6 Uhr im Osten, 13 Uhr im
 Süden 60 Grad hoch, Untergang 20 Uhr im Westen; tiefe Sonne ist Dämmerung, eine Stunde nach Untergang Nacht),
 Sonnenrichtung und -höhe, Nebel, Tönung, Wetter (Clear, Rain, Snow, Fog mit Stärke); Regler wirken sofort und werden
-beim Loslassen ein Schritt im Verlauf. Im Water-Panel wählt man, was das Wasser ist: Water, Lava oder Ice.
+beim Loslassen ein Schritt im Verlauf.
 
 **Map (9).** Name, Autor, Beschreibung; Größe ändern (die Mitte bleibt, kleiner schneidet die Ränder ab, größer setzt
 sie in Randhöhe fort); Gelände-Generator über die offene Karte.
@@ -225,8 +232,11 @@ neues Wasser, neue Objekte und geänderte Straßen eines Strichs auf und legt si
 Verlauf. Höhen ziehen zu einem Ziel aus dem Boden vor dem Strich (`RegionRecorder.original`), daher türmt sich
 nichts auf. Objekte stehen auf einem verwackelten Raster je Objektart und Seed (eine Stelle und ein Würfel je Zelle,
 einmal entschieden); Kern-Objekte wachsen, sobald der Pinsel stark genug war, Rand-Objekte werden am Strichende nach
-dem stärksten erreichten Gewicht entschieden. Rauschen aus `devworld/utils/seeded-random.ts`. Ein Fluss liegt auf dem
-einen Wasserspiegel der Karte (das Kartendokument kennt kein Gefälle) und schneidet sich durch höheres Gelände.
+dem stärksten erreichten Gewicht entschieden. Rauschen aus `devworld/utils/seeded-random.ts`. Ein Fluss ist ein
+`MapRiver` in `terrain.rivers` (Punkte alle 8 m mit Breite und Spiegelhöhe, Fließrichtung ab Punkt 0): der Spiegel
+liegt am oberen Ende knapp unter dem Boden und fällt danach nie und mindestens 0,4 cm je Meter; wo er steiler als
+0,25 fällt, steht ein Wasserfall-Objekt (Front flussab, Größe nach Fallhöhe). Die Flussliste ist im Strich ein
+`RiverListCommand`.
 
 **Symmetrie und Stücke.** `mirrorChange` kopiert nach einem Tupfer die geänderten Zellen der Höhen, Splat-Karten und
 Wassermaske aus dem Sektor des Zeigers in die Bilder (das Raster ist um die Mitte gelegt, ein gespiegeltes Sample ist
@@ -254,6 +264,6 @@ und gesetztes Stück, Prüfen, Speichern, Neuladen, Löschen; ohne Kartensitzung
 
 - Objekte haben nur eine Drehung um die Hochachse; „Align to slope“ fehlt im Kartendokument, der Streupinsel lässt
   Objekte am Hang stattdessen einsinken
-- Ein Fluss liegt auf dem einen Wasserspiegel der Karte, Gefälle kennt das Kartendokument nicht
-- Weitere Wasserflächen (`waterBodies`) und Biom-Tags des Katalogs nutzt der Editor noch nicht
+- Biom-Tags des Katalogs nutzt der Editor noch nicht
+- Ein gezeichneter Fluss lässt sich danach nicht als Linie bearbeiten, nur rückgängig machen und neu ziehen
 - Gameplay-Regeln liest das Spiel noch nicht

@@ -53,7 +53,7 @@ export function formHeight(kind: FormKind, brush: BrushSettings): number {
     case 'crater':
       return brush.radius * CRATER_SHARE * 0.35 * brush.strength;
     case 'dunes':
-      return Math.max(1, brush.radius * 0.12 * brush.strength);
+      return Math.max(1, brush.radius * 0.16 * brush.strength);
   }
 }
 

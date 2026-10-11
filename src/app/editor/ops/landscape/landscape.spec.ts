@@ -279,7 +279,8 @@ describe('river and road', () => {
     const pts = result.river.points;
     expect(pts.length).toBeGreaterThan(30);
     for (let k = 1; k < pts.length; k++) expect(pts[k].height).toBeLessThan(pts[k - 1].height);
-    expect(pts.every((p) => p.width > 6 && p.width < 20)).toBe(true);
+    expect(pts.slice(4, -4).every((p) => p.width > 6 && p.width < 20)).toBe(true);
+    expect(pts[0].width).toBeLessThan(pts[8].width);
     const mid = pts[Math.floor(pts.length / 2)];
     expect(heightAt(t, mid.x, mid.y)).toBeLessThan(mid.height - 1);
     expect(result.bridges).toBe(1);
