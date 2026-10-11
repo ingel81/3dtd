@@ -437,6 +437,58 @@ def cloth_banner(size_w, size_h, colour, trim, seed):
     return bleed(Image.fromarray(arr.clip(0, 255).astype(np.uint8), 'RGBA'))
 
 
+def chainlink(size, cells=8):
+    """Chain-link mesh: galvanised wire diamonds on transparent ground (one tile = 1 m at uv 1)"""
+    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    step = size / cells
+    w = max(2, size // 128)
+    for k in range(-cells, 2 * cells + 1):
+        x = k * step
+        draw.line([(x, 0), (x + size, size)], fill=(170, 172, 168, 255), width=w)
+        draw.line([(x, size), (x + size, 0)], fill=(150, 152, 150, 255), width=w)
+    return bleed(img)
+
+
+def solar_cells(size, seed):
+    """Photovoltaic panel: dark blue cells in a grid with silver busbars and frame"""
+    rnd = np.random.default_rng(seed)
+    img = Image.new('RGB', (size, size), (200, 200, 205))
+    draw = ImageDraw.Draw(img)
+    n = 6
+    cell = size / n
+    for i in range(n):
+        for j in range(n):
+            shade = rnd.uniform(0.85, 1.1)
+            col = tuple(int(c * shade) for c in (24, 38, 82))
+            draw.rectangle([i * cell + 3, j * cell + 3, (i + 1) * cell - 3, (j + 1) * cell - 3], fill=col)
+            for b in (0.33, 0.66):
+                x = i * cell + cell * b
+                draw.line([(x, j * cell + 3), (x, (j + 1) * cell - 3)], fill=(150, 155, 165), width=1)
+    return img
+
+
+def hazard_stripes(size):
+    """Yellow and black warning stripes"""
+    img = Image.new('RGB', (size, size), (225, 180, 30))
+    draw = ImageDraw.Draw(img)
+    step = size / 4
+    for k in range(-4, 9):
+        x = k * step
+        draw.polygon([(x, 0), (x + step / 2, 0), (x + step / 2 + size, size), (x + size, size)], fill=(25, 25, 22))
+    return img
+
+
+def gold_foil(size, seed):
+    """Crumpled gold insulation foil (lander)"""
+    rnd = np.random.default_rng(seed)
+    n = ndimage.gaussian_filter(rnd.random((size, size)), 2) - ndimage.gaussian_filter(rnd.random((size, size)), 6)
+    n = (n - n.min()) / (n.max() - n.min())
+    base = np.array((205, 160, 60), np.float32)
+    arr = base[None, None, :] * (0.55 + 0.8 * n[..., None])
+    return Image.fromarray(arr.clip(0, 255).astype(np.uint8), 'RGB')
+
+
 def main():
     dl, out = sys.argv[1], sys.argv[2]
     os.makedirs(dl, exist_ok=True)
@@ -486,6 +538,11 @@ def main():
     save(foam(256, 37), 'foam.png')
     save(cloth_banner(128, 384, (150, 28, 24), (215, 170, 60), 38), 'banner-red.png')
     save(cloth_banner(128, 384, (32, 58, 130), (220, 210, 190), 39), 'banner-blue.png')
+    # Man-made surfaces for city, wasteland and stations
+    save(chainlink(256), 'chainlink.png')
+    solar_cells(512, 40).save(os.path.join(out, 'solar.jpg'), quality=90)
+    hazard_stripes(256).save(os.path.join(out, 'hazard.jpg'), quality=90)
+    gold_foil(512, 41).save(os.path.join(out, 'gold-foil.jpg'), quality=90)
     print('foliage ok', file=sys.stderr)
 
 

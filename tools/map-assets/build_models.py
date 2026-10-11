@@ -13,7 +13,8 @@ bent outwards from the crown centre (soft, round lighting), houses from
 boxes with box-mapped UVs. Rocks, fern and barrel are Poly Haven models,
 decimated to game budgets. Deterministic for the seeds below. The models
 of the biome sets live in build_nature.py, build_structures.py and
-build_props.py; the helpers all share are in blender_kit.py.
+build_props.py, build_city.py and build_space.py; the helpers all share are in
+blender_kit.py.
 """
 import os
 import sys
@@ -68,11 +69,13 @@ def wanted(name):
 
 
 def main():
+    import build_city
     import build_nature
     import build_props
+    import build_space
     import build_structures
     registry = base_models()
-    for module in (build_nature, build_structures, build_props):
+    for module in (build_nature, build_structures, build_props, build_city, build_space):
         for name, fn in module.models().items():
             assert name not in registry, name
             registry[name] = fn

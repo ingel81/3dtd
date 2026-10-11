@@ -27,6 +27,10 @@ TEXTURES = [
     'hessian_230',
     # Rock surfaces for procedural rocks (crystals, stalagmites, mesas, pillars)
     'cliff_side', 'sandstone_cracks', 'dark_rock', 'dark_rock_02', 'rock_boulder_dry',
+    # City, wasteland, stations
+    'brick_wall_07', 'concrete_block_wall', 'concrete_slab_wall', 'rectangular_facade_tiles', 'brushed_concrete',
+    'corrugated_iron_02', 'container_side', 'rusty_metal_03', 'green_metal_rust', 'painted_metal_shutter',
+    'concrete_floor_damaged_01', 'asphalt_02', 'moon_01',
 ]
 MODELS = [
     'namaqualand_boulder_02', 'namaqualand_boulder_04', 'fern_02', 'Barrel_01', 'dead_tree_trunk',
@@ -48,6 +52,11 @@ MODELS = [
     'spinning_wheel_01', 'wicker_basket_01', 'horse_statue_01', 'gothic_statue',
     'large_castle_door', 'large_iron_gate', 'modular_fort_01', 'modular_wooden_pier', 'dutch_ship_medium',
     'WoodenTable_01',
+    # City and wasteland
+    'street_lamp_01', 'street_lamp_02', 'fire_hydrant', 'concrete_road_barrier', 'concrete_road_barrier_02',
+    'covered_car', 'metal_trash_can', 'utility_box_01', 'utility_box_02', 'modular_chainlink_fence',
+    'modular_electricity_poles', 'old_tyre', 'barrel_stove', 'cardboard_box_01', 'metal_jerrycan', 'propane_tank',
+    'wooden_military_crate', 'old_military_crate',
 ]
 
 

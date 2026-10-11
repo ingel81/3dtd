@@ -6622,6 +6622,1646 @@
       "source": "https://polyhaven.com/a/dutch_ship_medium"
     },
     {
+      "id": "apartment-block",
+      "name": "Apartment block (4 floors)",
+      "category": "building",
+      "file": "models/apartment-block.glb",
+      "footprint": 6.4,
+      "height": 14.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "apartment-block-tall",
+      "name": "Apartment block (8 floors)",
+      "category": "building",
+      "file": "models/apartment-block-tall.glb",
+      "footprint": 7.3,
+      "height": 26.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_block_wall; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "apartment-block-ruined",
+      "name": "Ruined apartment block",
+      "category": "building",
+      "file": "models/apartment-block-ruined.glb",
+      "footprint": 7.3,
+      "height": 13.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "brick-block",
+      "name": "Brick block with shop",
+      "category": "building",
+      "file": "models/brick-block.glb",
+      "footprint": 4.7,
+      "height": 11.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/hessian_230"
+    },
+    {
+      "id": "brick-house",
+      "name": "Brick house",
+      "category": "building",
+      "file": "models/brick-house.glb",
+      "footprint": 3.8,
+      "height": 7.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "brick-block-ruined",
+      "name": "Burnt-out brick block",
+      "category": "building",
+      "file": "models/brick-block-ruined.glb",
+      "footprint": 4.6,
+      "height": 9.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "tower-stump",
+      "name": "Broken high-rise",
+      "category": "building",
+      "file": "models/tower-stump.glb",
+      "footprint": 7.6,
+      "height": 33.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_floor_damaged_01; https://polyhaven.com/a/rectangular_facade_tiles"
+    },
+    {
+      "id": "shop",
+      "name": "Corner shop",
+      "category": "building",
+      "file": "models/shop.glb",
+      "footprint": 4.2,
+      "height": 4.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "warehouse",
+      "name": "Warehouse",
+      "category": "building",
+      "file": "models/warehouse.glb",
+      "footprint": 8.4,
+      "height": 7.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "warehouse-rusty",
+      "name": "Rusty warehouse",
+      "category": "building",
+      "file": "models/warehouse-rusty.glb",
+      "footprint": 8.4,
+      "height": 7.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "container-green",
+      "name": "Shipping container (green)",
+      "category": "prop",
+      "file": "models/container-green.glb",
+      "footprint": 2.8,
+      "height": 2.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side"
+    },
+    {
+      "id": "container-red",
+      "name": "Shipping container (red)",
+      "category": "prop",
+      "file": "models/container-red.glb",
+      "footprint": 2.8,
+      "height": 2.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side"
+    },
+    {
+      "id": "container-blue",
+      "name": "Shipping container (blue)",
+      "category": "prop",
+      "file": "models/container-blue.glb",
+      "footprint": 2.8,
+      "height": 2.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city",
+        "coast",
+        "arctic"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side"
+    },
+    {
+      "id": "container-rusty",
+      "name": "Rusty container",
+      "category": "prop",
+      "file": "models/container-rusty.glb",
+      "footprint": 2.8,
+      "height": 2.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "car-red",
+      "name": "Car (red)",
+      "category": "prop",
+      "file": "models/car-red.glb",
+      "footprint": 1.9,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py)"
+    },
+    {
+      "id": "car-blue",
+      "name": "Car (blue)",
+      "category": "prop",
+      "file": "models/car-blue.glb",
+      "footprint": 1.9,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py)"
+    },
+    {
+      "id": "car-white",
+      "name": "Car (white)",
+      "category": "prop",
+      "file": "models/car-white.glb",
+      "footprint": 1.9,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py)"
+    },
+    {
+      "id": "car-grey",
+      "name": "Car (grey)",
+      "category": "prop",
+      "file": "models/car-grey.glb",
+      "footprint": 1.9,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py)"
+    },
+    {
+      "id": "car-wreck",
+      "name": "Car wreck",
+      "category": "prop",
+      "file": "models/car-wreck.glb",
+      "footprint": 1.9,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "car-wreck-b",
+      "name": "Car wreck, tilted",
+      "category": "prop",
+      "file": "models/car-wreck-b.glb",
+      "footprint": 2.0,
+      "height": 1.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "car-burnt",
+      "name": "Burnt-out car",
+      "category": "prop",
+      "file": "models/car-burnt.glb",
+      "footprint": 1.9,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "wasteland",
+        "hell"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "bus-wreck",
+      "name": "Bus wreck",
+      "category": "prop",
+      "file": "models/bus-wreck.glb",
+      "footprint": 5.1,
+      "height": 3.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "car-covered",
+      "name": "Covered car",
+      "category": "prop",
+      "file": "models/car-covered.glb",
+      "footprint": 2.0,
+      "height": 1.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "city",
+        "wasteland"
+      ],
+      "source": "https://polyhaven.com/a/covered_car"
+    },
+    {
+      "id": "traffic-light",
+      "name": "Traffic light",
+      "category": "prop",
+      "file": "models/traffic-light.glb",
+      "footprint": 1.5,
+      "height": 5.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1000,
+      "tags": [
+        "city"
+      ],
+      "light": {
+        "color": "#ff3020",
+        "intensity": 0.4,
+        "distance": 4,
+        "height": 4.8
+      },
+      "source": "procedural (tools/map-assets/build_city.py)"
+    },
+    {
+      "id": "street-lamp",
+      "name": "Street lamp",
+      "category": "prop",
+      "file": "models/street-lamp.glb",
+      "footprint": 0.3,
+      "height": 3.9,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1000,
+      "tags": [
+        "city"
+      ],
+      "light": {
+        "color": "#ffd9a0",
+        "intensity": 1.2,
+        "distance": 14,
+        "height": 3.7
+      },
+      "source": "https://polyhaven.com/a/street_lamp_01"
+    },
+    {
+      "id": "bench",
+      "name": "Park bench",
+      "category": "prop",
+      "file": "models/bench.glb",
+      "footprint": 0.9,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brown_planks_04"
+    },
+    {
+      "id": "bus-stop",
+      "name": "Bus stop",
+      "category": "prop",
+      "file": "models/bus-stop.glb",
+      "footprint": 1.8,
+      "height": 2.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py)"
+    },
+    {
+      "id": "hydrant",
+      "name": "Fire hydrant",
+      "category": "prop",
+      "file": "models/hydrant.glb",
+      "footprint": 0.2,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "city"
+      ],
+      "source": "https://polyhaven.com/a/fire_hydrant"
+    },
+    {
+      "id": "trash-can",
+      "name": "Trash can",
+      "category": "prop",
+      "file": "models/trash-can.glb",
+      "footprint": 0.3,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "city",
+        "wasteland"
+      ],
+      "source": "https://polyhaven.com/a/metal_trash_can"
+    },
+    {
+      "id": "utility-box",
+      "name": "Utility box",
+      "category": "prop",
+      "file": "models/utility-box.glb",
+      "footprint": 0.4,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "city"
+      ],
+      "source": "https://polyhaven.com/a/utility_box_02"
+    },
+    {
+      "id": "road-barrier",
+      "name": "Concrete barrier",
+      "category": "wall",
+      "file": "models/road-barrier.glb",
+      "footprint": 0.7,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "city",
+        "wasteland"
+      ],
+      "source": "https://polyhaven.com/a/concrete_road_barrier"
+    },
+    {
+      "id": "road-barrier-tall",
+      "name": "Tall concrete barrier",
+      "category": "wall",
+      "file": "models/road-barrier-tall.glb",
+      "footprint": 0.7,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "city",
+        "wasteland"
+      ],
+      "source": "https://polyhaven.com/a/concrete_road_barrier_02"
+    },
+    {
+      "id": "fence-chainlink",
+      "name": "Chain-link fence (4 m)",
+      "category": "wall",
+      "file": "models/fence-chainlink.glb",
+      "footprint": 1.8,
+      "height": 2.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "city",
+        "wasteland",
+        "arctic",
+        "moon",
+        "mars"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); Maschendraht gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "fence-chainlink-barbed",
+      "name": "Chain-link fence with barbed wire",
+      "category": "wall",
+      "file": "models/fence-chainlink-barbed.glb",
+      "footprint": 1.8,
+      "height": 2.7,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "city",
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); Maschendraht gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "bridge-concrete",
+      "name": "Concrete road bridge (30 m, deck at 6 m)",
+      "category": "structure",
+      "file": "models/bridge-concrete.glb",
+      "footprint": 14.4,
+      "height": 7.2,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.8,
+        1.3
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/asphalt_02"
+    },
+    {
+      "id": "power-pole",
+      "name": "Power pole",
+      "category": "prop",
+      "file": "models/power-pole.glb",
+      "footprint": 0.9,
+      "height": 6.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "https://polyhaven.com/a/modular_electricity_poles"
+    },
+    {
+      "id": "power-pole-fallen",
+      "name": "Fallen power pole",
+      "category": "prop",
+      "file": "models/power-pole-fallen.glb",
+      "footprint": 2.8,
+      "height": 1.2,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1200,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "https://polyhaven.com/a/modular_electricity_poles"
+    },
+    {
+      "id": "rubble-pile",
+      "name": "Rubble pile",
+      "category": "rock",
+      "file": "models/rubble-pile.glb",
+      "footprint": 2.0,
+      "height": 2.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "wasteland",
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_floor_damaged_01; https://polyhaven.com/a/brick_wall_07"
+    },
+    {
+      "id": "rubble-pile-large",
+      "name": "Large rubble pile",
+      "category": "rock",
+      "file": "models/rubble-pile-large.glb",
+      "footprint": 3.5,
+      "height": 3.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_floor_damaged_01; https://polyhaven.com/a/brick_wall_07"
+    },
+    {
+      "id": "barbed-wire",
+      "name": "Barbed wire coil",
+      "category": "wall",
+      "file": "models/barbed-wire.glb",
+      "footprint": 2.3,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/dark_planks"
+    },
+    {
+      "id": "sandbags",
+      "name": "Sandbag wall",
+      "category": "wall",
+      "file": "models/sandbags.glb",
+      "footprint": 1.9,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "wasteland",
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/hessian_230"
+    },
+    {
+      "id": "barricade",
+      "name": "Barricade",
+      "category": "wall",
+      "file": "models/barricade.glb",
+      "footprint": 1.9,
+      "height": 1.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "tank-trap",
+      "name": "Tank trap",
+      "category": "prop",
+      "file": "models/tank-trap.glb",
+      "footprint": 0.8,
+      "height": 1.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "wasteland",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
+      "id": "toxic-barrel",
+      "name": "Toxic barrel",
+      "category": "prop",
+      "file": "models/toxic-barrel.glb",
+      "footprint": 0.3,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 500,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/green_metal_rust; Warnstreifen gezeichnet"
+    },
+    {
+      "id": "toxic-barrel-leaking",
+      "name": "Leaking toxic barrel",
+      "category": "prop",
+      "file": "models/toxic-barrel-leaking.glb",
+      "footprint": 0.8,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "wasteland"
+      ],
+      "light": {
+        "color": "#5aff28",
+        "intensity": 0.5,
+        "distance": 5,
+        "height": 0.3
+      },
+      "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/green_metal_rust; Warnstreifen gezeichnet"
+    },
+    {
+      "id": "tyres",
+      "name": "Old tyre",
+      "category": "prop",
+      "file": "models/tyres.glb",
+      "footprint": 0.3,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "wasteland",
+        "city"
+      ],
+      "source": "https://polyhaven.com/a/old_tyre"
+    },
+    {
+      "id": "barrel-stove",
+      "name": "Barrel fire",
+      "category": "prop",
+      "file": "models/barrel-stove.glb",
+      "footprint": 0.3,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "wasteland"
+      ],
+      "effects": [
+        {
+          "kind": "fire",
+          "radius": 0.25,
+          "height": 0.9,
+          "rate": 15
+        },
+        {
+          "kind": "smoke",
+          "radius": 0.25,
+          "height": 1.6,
+          "rate": 2
+        }
+      ],
+      "light": {
+        "color": "#ff9a3c",
+        "intensity": 1.2,
+        "distance": 10,
+        "height": 1.2,
+        "flicker": true
+      },
+      "source": "https://polyhaven.com/a/barrel_stove"
+    },
+    {
+      "id": "jerrycan",
+      "name": "Jerrycan",
+      "category": "prop",
+      "file": "models/jerrycan.glb",
+      "footprint": 0.2,
+      "height": 0.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 200,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "https://polyhaven.com/a/metal_jerrycan"
+    },
+    {
+      "id": "gas-bottle",
+      "name": "Gas bottle",
+      "category": "prop",
+      "file": "models/gas-bottle.glb",
+      "footprint": 0.2,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 200,
+      "tags": [
+        "wasteland",
+        "city"
+      ],
+      "source": "https://polyhaven.com/a/propane_tank"
+    },
+    {
+      "id": "ammo-crate",
+      "name": "Ammunition crate",
+      "category": "prop",
+      "file": "models/ammo-crate.glb",
+      "footprint": 0.6,
+      "height": 0.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "wasteland"
+      ],
+      "source": "https://polyhaven.com/a/wooden_military_crate"
+    },
+    {
+      "id": "supply-crates",
+      "name": "Supply crates",
+      "category": "prop",
+      "file": "models/supply-crates.glb",
+      "footprint": 0.8,
+      "height": 0.3,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "wasteland",
+        "arctic"
+      ],
+      "source": "https://polyhaven.com/a/old_military_crate"
+    },
+    {
+      "id": "base-module",
+      "name": "Station module",
+      "category": "building",
+      "file": "models/base-module.glb",
+      "footprint": 4.4,
+      "height": 5.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "moon",
+        "mars",
+        "arctic"
+      ],
+      "light": {
+        "color": "#a8c8ff",
+        "intensity": 0.5,
+        "distance": 8,
+        "height": 2.5
+      },
+      "source": "procedural (tools/map-assets/build_space.py)"
+    },
+    {
+      "id": "base-hub",
+      "name": "Station hub",
+      "category": "building",
+      "file": "models/base-hub.glb",
+      "footprint": 4.4,
+      "height": 5.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "moon",
+        "mars"
+      ],
+      "light": {
+        "color": "#a8c8ff",
+        "intensity": 0.5,
+        "distance": 8,
+        "height": 2.5
+      },
+      "source": "procedural (tools/map-assets/build_space.py)"
+    },
+    {
+      "id": "base-tunnel",
+      "name": "Station tunnel",
+      "category": "structure",
+      "file": "models/base-tunnel.glb",
+      "footprint": 2.8,
+      "height": 2.8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "moon",
+        "mars"
+      ],
+      "source": "procedural (tools/map-assets/build_space.py)"
+    },
+    {
+      "id": "dome-white",
+      "name": "Habitat dome",
+      "category": "building",
+      "file": "models/dome-white.glb",
+      "footprint": 6.2,
+      "height": 6.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "moon",
+        "mars"
+      ],
+      "source": "procedural (tools/map-assets/build_space.py)"
+    },
+    {
+      "id": "dome-glass",
+      "name": "Glass dome",
+      "category": "building",
+      "file": "models/dome-glass.glb",
+      "footprint": 6.2,
+      "height": 6.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "moon",
+        "mars"
+      ],
+      "source": "procedural (tools/map-assets/build_space.py)"
+    },
+    {
+      "id": "greenhouse-dome",
+      "name": "Greenhouse dome",
+      "category": "building",
+      "file": "models/greenhouse-dome.glb",
+      "footprint": 7.1,
+      "height": 7.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "mars"
+      ],
+      "source": "procedural (tools/map-assets/build_space.py)"
+    },
+    {
+      "id": "antenna-dish",
+      "name": "Antenna dish",
+      "category": "prop",
+      "file": "models/antenna-dish.glb",
+      "footprint": 3.0,
+      "height": 7.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "moon",
+        "mars",
+        "arctic"
+      ],
+      "source": "procedural (tools/map-assets/build_space.py)"
+    },
+    {
+      "id": "antenna-mast",
+      "name": "Antenna mast",
+      "category": "prop",
+      "file": "models/antenna-mast.glb",
+      "footprint": 0.6,
+      "height": 14.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "moon",
+        "mars",
+        "arctic",
+        "city"
+      ],
+      "light": {
+        "color": "#ff2010",
+        "intensity": 0.6,
+        "distance": 6,
+        "height": 14.0,
+        "flicker": true
+      },
+      "source": "procedural (tools/map-assets/build_space.py)"
+    },
+    {
+      "id": "lander",
+      "name": "Lander",
+      "category": "prop",
+      "file": "models/lander.glb",
+      "footprint": 2.6,
+      "height": 4.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "moon"
+      ],
+      "source": "procedural (tools/map-assets/build_space.py); Goldfolie gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "rover",
+      "name": "Rover",
+      "category": "prop",
+      "file": "models/rover.glb",
+      "footprint": 1.3,
+      "height": 3.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1200,
+      "tags": [
+        "moon",
+        "mars"
+      ],
+      "source": "procedural (tools/map-assets/build_space.py); Solarzellen gezeichnet"
+    },
+    {
+      "id": "solar-array",
+      "name": "Solar array",
+      "category": "prop",
+      "file": "models/solar-array.glb",
+      "footprint": 3.9,
+      "height": 1.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "moon",
+        "mars",
+        "arctic",
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_space.py); Solarzellen gezeichnet"
+    },
+    {
+      "id": "fuel-tanks",
+      "name": "Fuel tanks",
+      "category": "prop",
+      "file": "models/fuel-tanks.glb",
+      "footprint": 2.1,
+      "height": 3.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "moon",
+        "mars"
+      ],
+      "source": "procedural (tools/map-assets/build_space.py)"
+    },
+    {
+      "id": "landing-pad",
+      "name": "Landing pad",
+      "category": "structure",
+      "file": "models/landing-pad.glb",
+      "footprint": 9.0,
+      "height": 0.4,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "moon",
+        "mars",
+        "arctic"
+      ],
+      "light": {
+        "color": "#3398ff",
+        "intensity": 0.6,
+        "distance": 12,
+        "height": 0.5
+      },
+      "source": "procedural (tools/map-assets/build_space.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "crater-rim",
+      "name": "Crater rim (over a dip)",
+      "category": "rock",
+      "file": "models/crater-rim.glb",
+      "footprint": 11.5,
+      "height": 1.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.6,
+        2.0
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "moon"
+      ],
+      "source": "procedural (tools/map-assets/build_space.py); https://polyhaven.com/a/moon_01"
+    },
+    {
+      "id": "mars-crater-rim",
+      "name": "Martian crater rim",
+      "category": "rock",
+      "file": "models/mars-crater-rim.glb",
+      "footprint": 11.3,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.6,
+        2.0
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "mars"
+      ],
+      "source": "procedural (tools/map-assets/build_space.py); https://polyhaven.com/a/moon_01"
+    },
+    {
+      "id": "moon-boulder",
+      "name": "Moon boulder",
+      "category": "rock",
+      "file": "models/moon-boulder.glb",
+      "footprint": 1.3,
+      "height": 2.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "moon"
+      ],
+      "source": "https://polyhaven.com/a/moon_rock_05"
+    },
+    {
+      "id": "moon-rock",
+      "name": "Moon rock",
+      "category": "rock",
+      "file": "models/moon-rock.glb",
+      "footprint": 1.1,
+      "height": 1.3,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "moon"
+      ],
+      "source": "https://polyhaven.com/a/moon_rock_03"
+    },
+    {
+      "id": "moon-rocks-small",
+      "name": "Moon stone",
+      "category": "rock",
+      "file": "models/moon-rocks-small.glb",
+      "footprint": 0.8,
+      "height": 0.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "moon"
+      ],
+      "source": "https://polyhaven.com/a/moon_rock_01"
+    },
+    {
+      "id": "mars-boulder",
+      "name": "Mars boulder",
+      "category": "rock",
+      "file": "models/mars-boulder.glb",
+      "footprint": 1.2,
+      "height": 2.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "mars"
+      ],
+      "source": "https://polyhaven.com/a/moon_rock_05 (getönt)"
+    },
+    {
+      "id": "mars-stone",
+      "name": "Mars rock",
+      "category": "rock",
+      "file": "models/mars-stone.glb",
+      "footprint": 1.5,
+      "height": 1.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "mars"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_boulder_03 (getönt)"
+    },
+    {
+      "id": "mars-rock-large",
+      "name": "Large Mars rock",
+      "category": "rock",
+      "file": "models/mars-rock-large.glb",
+      "footprint": 2.7,
+      "height": 3.0,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mars"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_boulder_06 (getönt)"
+    },
+    {
+      "id": "mars-cliff",
+      "name": "Mars cliff",
+      "category": "rock",
+      "file": "models/mars-cliff.glb",
+      "footprint": 15.2,
+      "height": 11.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mars"
+      ],
+      "source": "https://polyhaven.com/a/namaqualand_cliff_02 (getönt)"
+    },
+    {
       "id": "fx-fireflies",
       "name": "Fireflies",
       "category": "fx",

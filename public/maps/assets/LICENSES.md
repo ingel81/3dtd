@@ -339,6 +339,79 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | table | https://polyhaven.com/a/WoodenTable_01 |
 | pickaxe | https://polyhaven.com/a/picke_dirty_01 |
 | ship | https://polyhaven.com/a/dutch_ship_medium |
+| apartment-block | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete |
+| apartment-block-tall | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_block_wall; https://polyhaven.com/a/brushed_concrete |
+| apartment-block-ruined | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete |
+| brick-block | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/hessian_230 |
+| brick-house | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete |
+| brick-block-ruined | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete |
+| tower-stump | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_floor_damaged_01; https://polyhaven.com/a/rectangular_facade_tiles |
+| shop | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/brushed_concrete |
+| warehouse | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete |
+| warehouse-rusty | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete |
+| container-green | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side |
+| container-red | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side |
+| container-blue | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side |
+| container-rusty | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
+| car-red | procedural (tools/map-assets/build_city.py) |
+| car-blue | procedural (tools/map-assets/build_city.py) |
+| car-white | procedural (tools/map-assets/build_city.py) |
+| car-grey | procedural (tools/map-assets/build_city.py) |
+| car-wreck | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
+| car-wreck-b | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
+| car-burnt | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
+| bus-wreck | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
+| car-covered | https://polyhaven.com/a/covered_car |
+| traffic-light | procedural (tools/map-assets/build_city.py) |
+| street-lamp | https://polyhaven.com/a/street_lamp_01 |
+| bench | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brown_planks_04 |
+| bus-stop | procedural (tools/map-assets/build_city.py) |
+| hydrant | https://polyhaven.com/a/fire_hydrant |
+| trash-can | https://polyhaven.com/a/metal_trash_can |
+| utility-box | https://polyhaven.com/a/utility_box_02 |
+| road-barrier | https://polyhaven.com/a/concrete_road_barrier |
+| road-barrier-tall | https://polyhaven.com/a/concrete_road_barrier_02 |
+| fence-chainlink | procedural (tools/map-assets/build_city.py); Maschendraht gezeichnet (make_foliage.py) |
+| fence-chainlink-barbed | procedural (tools/map-assets/build_city.py); Maschendraht gezeichnet (make_foliage.py) |
+| bridge-concrete | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/asphalt_02 |
+| power-pole | https://polyhaven.com/a/modular_electricity_poles |
+| power-pole-fallen | https://polyhaven.com/a/modular_electricity_poles |
+| rubble-pile | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_floor_damaged_01; https://polyhaven.com/a/brick_wall_07 |
+| rubble-pile-large | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_floor_damaged_01; https://polyhaven.com/a/brick_wall_07 |
+| barbed-wire | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/dark_planks |
+| sandbags | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/hessian_230 |
+| barricade | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/rusty_metal_03 |
+| tank-trap | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
+| toxic-barrel | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/green_metal_rust; Warnstreifen gezeichnet |
+| toxic-barrel-leaking | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/green_metal_rust; Warnstreifen gezeichnet |
+| tyres | https://polyhaven.com/a/old_tyre |
+| barrel-stove | https://polyhaven.com/a/barrel_stove |
+| jerrycan | https://polyhaven.com/a/metal_jerrycan |
+| gas-bottle | https://polyhaven.com/a/propane_tank |
+| ammo-crate | https://polyhaven.com/a/wooden_military_crate |
+| supply-crates | https://polyhaven.com/a/old_military_crate |
+| base-module | procedural (tools/map-assets/build_space.py) |
+| base-hub | procedural (tools/map-assets/build_space.py) |
+| base-tunnel | procedural (tools/map-assets/build_space.py) |
+| dome-white | procedural (tools/map-assets/build_space.py) |
+| dome-glass | procedural (tools/map-assets/build_space.py) |
+| greenhouse-dome | procedural (tools/map-assets/build_space.py) |
+| antenna-dish | procedural (tools/map-assets/build_space.py) |
+| antenna-mast | procedural (tools/map-assets/build_space.py) |
+| lander | procedural (tools/map-assets/build_space.py); Goldfolie gezeichnet (make_foliage.py) |
+| rover | procedural (tools/map-assets/build_space.py); Solarzellen gezeichnet |
+| solar-array | procedural (tools/map-assets/build_space.py); Solarzellen gezeichnet |
+| fuel-tanks | procedural (tools/map-assets/build_space.py) |
+| landing-pad | procedural (tools/map-assets/build_space.py); https://polyhaven.com/a/brushed_concrete |
+| crater-rim | procedural (tools/map-assets/build_space.py); https://polyhaven.com/a/moon_01 |
+| mars-crater-rim | procedural (tools/map-assets/build_space.py); https://polyhaven.com/a/moon_01 |
+| moon-boulder | https://polyhaven.com/a/moon_rock_05 |
+| moon-rock | https://polyhaven.com/a/moon_rock_03 |
+| moon-rocks-small | https://polyhaven.com/a/moon_rock_01 |
+| mars-boulder | https://polyhaven.com/a/moon_rock_05 (getönt) |
+| mars-stone | https://polyhaven.com/a/namaqualand_boulder_03 (getönt) |
+| mars-rock-large | https://polyhaven.com/a/namaqualand_boulder_06 (getönt) |
+| mars-cliff | https://polyhaven.com/a/namaqualand_cliff_02 (getönt) |
 | fx-fireflies | Effekt des Renderers, kein Modell |
 | fx-smoke | Effekt des Renderers, kein Modell |
 | fx-embers | Effekt des Renderers, kein Modell |
