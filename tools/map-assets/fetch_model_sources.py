@@ -31,6 +31,8 @@ TEXTURES = [
     'brick_wall_07', 'concrete_block_wall', 'concrete_slab_wall', 'rectangular_facade_tiles', 'brushed_concrete',
     'corrugated_iron_02', 'container_side', 'rusty_metal_03', 'green_metal_rust', 'painted_metal_shutter',
     'concrete_floor_damaged_01', 'asphalt_02', 'moon_01',
+    # Arctic, hell, mountains
+    'snow_02', 'rock_face',
 ]
 MODELS = [
     'namaqualand_boulder_02', 'namaqualand_boulder_04', 'fern_02', 'Barrel_01', 'dead_tree_trunk',

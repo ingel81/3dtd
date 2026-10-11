@@ -412,6 +412,34 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | mars-stone | https://polyhaven.com/a/namaqualand_boulder_03 (getönt) |
 | mars-rock-large | https://polyhaven.com/a/namaqualand_boulder_06 (getönt) |
 | mars-cliff | https://polyhaven.com/a/namaqualand_cliff_02 (getönt) |
+| igloo | procedural (tools/map-assets/build_extreme.py) |
+| research-station | procedural (tools/map-assets/build_extreme.py) |
+| wind-turbine | procedural (tools/map-assets/build_extreme.py) |
+| ice-floe | procedural (tools/map-assets/build_extreme.py) |
+| ice-blocks | procedural (tools/map-assets/build_extreme.py) |
+| iceberg | procedural (tools/map-assets/build_extreme.py) |
+| icicles | procedural (tools/map-assets/build_extreme.py) |
+| snow-drift-mound | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/snow_02 |
+| ice-spikes | procedural (tools/map-assets/build_extreme.py) |
+| tree-frozen | procedural (tools/map-assets/build_extreme.py); Rinde https://polyhaven.com/a/bark_platanus |
+| tree-charred | procedural (tools/map-assets/build_extreme.py); Rinde https://polyhaven.com/a/bark_brown_02 |
+| thorns | procedural (tools/map-assets/build_extreme.py) |
+| chains | procedural (tools/map-assets/build_extreme.py) |
+| hell-gate | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02 |
+| altar | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02 |
+| lava-rock | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02 |
+| lava-rock-large | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02 |
+| obsidian-spikes | procedural (tools/map-assets/build_extreme.py) |
+| hell-spires | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02 |
+| rope-bridge | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/weathered_planks |
+| alpine-hut | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks |
+| alpine-hut-snow | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks |
+| rock-needle | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/rock_face |
+| cairn | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/rock_face |
+| tree-swamp-moss | procedural (tools/map-assets/build_extreme.py); Rinde https://polyhaven.com/a/bark_brown_02; Moos gezeichnet (make_foliage.py) |
+| oasis-pool | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/sandstone_cracks |
+| desert-temple | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/sandstone_cracks |
+| tent-nomad | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/hessian_230 |
 | fx-fireflies | Effekt des Renderers, kein Modell |
 | fx-smoke | Effekt des Renderers, kein Modell |
 | fx-embers | Effekt des Renderers, kein Modell |

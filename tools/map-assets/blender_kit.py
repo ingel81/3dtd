@@ -47,20 +47,25 @@ _materials = {}
 
 
 def tinted_image(img, tint):
-    """A packed copy of an sRGB image multiplied by `tint` (clamped to 1 per channel)"""
+    """An sRGB image multiplied by `tint` (clamped to 1 per channel), saved next to the GLBs as a PNG
+    (a packed copy would export the original file)"""
     import numpy as np
-    key = img.name + '-x' + '-'.join('%.2f' % c for c in tint)
+    key = os.path.splitext(img.name)[0] + '-x' + '-'.join('%.2f' % c for c in tint)
     if key in bpy.data.images:
         return bpy.data.images[key]
-    out = img.copy()
-    out.name = key
-    px = np.empty(img.size[0] * img.size[1] * 4, dtype=np.float32)
+    w, h = img.size
+    px = np.empty(w * h * 4, dtype=np.float32)
     img.pixels.foreach_get(px)
     px = px.reshape(-1, 4)
     for c in range(3):
         px[:, c] = np.clip(px[:, c] * tint[c], 0, 1)
+    out = bpy.data.images.new(key, w, h)
     out.pixels.foreach_set(px.ravel())
-    out.pack()
+    folder = os.path.join(OUT, 'tinted')
+    os.makedirs(folder, exist_ok=True)
+    out.filepath_raw = os.path.join(folder, key + '.png')
+    out.file_format = 'PNG'
+    out.save()
     return out
 
 

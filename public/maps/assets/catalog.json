@@ -1969,7 +1969,8 @@
       "tags": [
         "swamp",
         "autumn",
-        "volcanic"
+        "volcanic",
+        "wasteland"
       ],
       "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/bark_brown_02"
     },
@@ -2600,7 +2601,8 @@
       "tags": [
         "desert",
         "winter",
-        "volcanic"
+        "volcanic",
+        "wasteland"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_02"
     },
@@ -2623,7 +2625,8 @@
       "tags": [
         "winter",
         "mountain",
-        "conifer"
+        "conifer",
+        "arctic"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
@@ -2646,7 +2649,8 @@
       "tags": [
         "winter",
         "mountain",
-        "conifer"
+        "conifer",
+        "arctic"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
@@ -3282,7 +3286,8 @@
       "drawDistance": 140,
       "tags": [
         "winter",
-        "mountain"
+        "mountain",
+        "arctic"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Halme https://ambientcg.com/view?id=Foliage003, Foliage004"
     },
@@ -3687,7 +3692,8 @@
       "tags": [
         "temperate",
         "autumn",
-        "undergrowth"
+        "undergrowth",
+        "wasteland"
       ],
       "source": "https://polyhaven.com/a/dry_branches_medium_01"
     },
@@ -3886,7 +3892,8 @@
       "drawDistance": 800,
       "tags": [
         "volcanic",
-        "coast"
+        "coast",
+        "hell"
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03 (getönt)"
     },
@@ -3908,7 +3915,8 @@
       "drawDistance": 800,
       "tags": [
         "volcanic",
-        "coast"
+        "coast",
+        "hell"
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_06 (getönt)"
     },
@@ -3930,7 +3938,8 @@
       "drawDistance": 800,
       "tags": [
         "winter",
-        "mountain"
+        "mountain",
+        "arctic"
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_05 (aufgehellt)"
     },
@@ -3951,7 +3960,8 @@
       "wind": 0,
       "drawDistance": 800,
       "tags": [
-        "volcanic"
+        "volcanic",
+        "hell"
       ],
       "source": "https://polyhaven.com/a/moon_rock_03 (getönt)"
     },
@@ -3972,7 +3982,8 @@
       "wind": 0,
       "drawDistance": 800,
       "tags": [
-        "volcanic"
+        "volcanic",
+        "hell"
       ],
       "source": "https://polyhaven.com/a/moon_rock_05 (getönt)"
     },
@@ -4109,7 +4120,8 @@
         "temperate",
         "desert",
         "mountain",
-        "scree"
+        "scree",
+        "wasteland"
       ],
       "source": "https://polyhaven.com/a/namaqualand_stones_01"
     },
@@ -4258,7 +4270,8 @@
       "drawDistance": 2500,
       "tags": [
         "volcanic",
-        "coast"
+        "coast",
+        "hell"
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_02 (getönt)"
     },
@@ -4408,7 +4421,8 @@
       "drawDistance": 2500,
       "tags": [
         "volcanic",
-        "coast"
+        "coast",
+        "hell"
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock"
     },
@@ -4502,7 +4516,8 @@
       "drawDistance": 1500,
       "tags": [
         "winter",
-        "crystal"
+        "crystal",
+        "arctic"
       ],
       "effects": [
         {
@@ -4538,7 +4553,8 @@
       "wind": 0,
       "drawDistance": 2500,
       "tags": [
-        "volcanic"
+        "volcanic",
+        "hell"
       ],
       "effects": [
         {
@@ -4903,7 +4919,8 @@
       "drawDistance": 3000,
       "tags": [
         "winter",
-        "mountain"
+        "mountain",
+        "arctic"
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates"
     },
@@ -5807,7 +5824,8 @@
         "castle",
         "swamp",
         "village",
-        "volcanic"
+        "volcanic",
+        "hell"
       ],
       "effects": [
         {
@@ -5845,7 +5863,8 @@
       "tags": [
         "castle",
         "arena",
-        "volcanic"
+        "volcanic",
+        "hell"
       ],
       "effects": [
         {
@@ -5890,7 +5909,8 @@
         "village",
         "mountain",
         "swamp",
-        "desert"
+        "desert",
+        "wasteland"
       ],
       "effects": [
         {
@@ -5940,7 +5960,8 @@
       "tags": [
         "village",
         "winter",
-        "mountain"
+        "mountain",
+        "wasteland"
       ],
       "effects": [
         {
@@ -6214,7 +6235,8 @@
       "tags": [
         "desert",
         "volcanic",
-        "swamp"
+        "swamp",
+        "hell"
       ],
       "source": "procedural (tools/map-assets/build_props.py)"
     },
@@ -6303,7 +6325,8 @@
       "tags": [
         "village",
         "coast",
-        "castle"
+        "castle",
+        "wasteland"
       ],
       "source": "https://polyhaven.com/a/wooden_barrels_01"
     },
@@ -8260,6 +8283,671 @@
         "mars"
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_02 (getönt)"
+    },
+    {
+      "id": "igloo",
+      "name": "Igloo",
+      "category": "building",
+      "file": "models/igloo.glb",
+      "footprint": 2.7,
+      "height": 2.7,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "arctic",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py)"
+    },
+    {
+      "id": "research-station",
+      "name": "Research station",
+      "category": "building",
+      "file": "models/research-station.glb",
+      "footprint": 5.7,
+      "height": 10.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "arctic",
+        "moon",
+        "mars"
+      ],
+      "light": {
+        "color": "#a8c8ff",
+        "intensity": 0.5,
+        "distance": 8,
+        "height": 3.0
+      },
+      "source": "procedural (tools/map-assets/build_extreme.py)"
+    },
+    {
+      "id": "wind-turbine",
+      "name": "Wind turbine",
+      "category": "prop",
+      "file": "models/wind-turbine.glb",
+      "footprint": 4.6,
+      "height": 20.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.3
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "arctic",
+        "mars",
+        "city",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py)"
+    },
+    {
+      "id": "ice-floe",
+      "name": "Ice floe (set height to the water)",
+      "category": "rock",
+      "file": "models/ice-floe.glb",
+      "footprint": 3.9,
+      "height": 0.3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.6,
+        1.8
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "arctic"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py)"
+    },
+    {
+      "id": "ice-blocks",
+      "name": "Pack ice blocks",
+      "category": "rock",
+      "file": "models/ice-blocks.glb",
+      "footprint": 3.1,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "arctic"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py)"
+    },
+    {
+      "id": "iceberg",
+      "name": "Iceberg",
+      "category": "rock",
+      "file": "models/iceberg.glb",
+      "footprint": 9.4,
+      "height": 11.3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.6,
+        1.6
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "arctic"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py)"
+    },
+    {
+      "id": "icicles",
+      "name": "Icicle ledge",
+      "category": "prop",
+      "file": "models/icicles.glb",
+      "footprint": 1.8,
+      "height": 3.0,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "arctic",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py)"
+    },
+    {
+      "id": "snow-drift-mound",
+      "name": "Snow drift",
+      "category": "rock",
+      "file": "models/snow-drift-mound.glb",
+      "footprint": 3.8,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.6,
+        1.8
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "arctic",
+        "winter",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/snow_02"
+    },
+    {
+      "id": "ice-spikes",
+      "name": "Ice spikes",
+      "category": "rock",
+      "file": "models/ice-spikes.glb",
+      "footprint": 0.9,
+      "height": 2.3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "arctic",
+        "crystal"
+      ],
+      "effects": [
+        {
+          "kind": "sparkle",
+          "radius": 1.2,
+          "height": 1.5,
+          "rate": 1,
+          "color": "#d8f0ff"
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py)"
+    },
+    {
+      "id": "tree-frozen",
+      "name": "Frozen tree",
+      "category": "tree",
+      "file": "models/tree-frozen.glb",
+      "footprint": 1.2,
+      "height": 9.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "arctic",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); Rinde https://polyhaven.com/a/bark_platanus"
+    },
+    {
+      "id": "tree-charred",
+      "name": "Charred tree",
+      "category": "tree",
+      "file": "models/tree-charred.glb",
+      "footprint": 1.2,
+      "height": 8.5,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.05,
+      "drawDistance": 2500,
+      "tags": [
+        "hell",
+        "wasteland",
+        "volcanic"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); Rinde https://polyhaven.com/a/bark_brown_02"
+    },
+    {
+      "id": "thorns",
+      "name": "Thorn thicket",
+      "category": "plant",
+      "file": "models/thorns.glb",
+      "footprint": 1.0,
+      "height": 1.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.3
+      ],
+      "randomRotation": true,
+      "wind": 0.1,
+      "drawDistance": 500,
+      "tags": [
+        "hell",
+        "wasteland"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py)"
+    },
+    {
+      "id": "chains",
+      "name": "Hanging chains",
+      "category": "wall",
+      "file": "models/chains.glb",
+      "footprint": 2.4,
+      "height": 3,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "hell",
+        "castle"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py)"
+    },
+    {
+      "id": "hell-gate",
+      "name": "Hell gate",
+      "category": "building",
+      "file": "models/hell-gate.glb",
+      "footprint": 7.6,
+      "height": 17.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.5
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "hell"
+      ],
+      "effects": [
+        {
+          "kind": "embers",
+          "radius": 3.0,
+          "height": 1.0,
+          "rate": 10
+        }
+      ],
+      "light": {
+        "color": "#ff4a10",
+        "intensity": 2.0,
+        "distance": 25,
+        "height": 5.0,
+        "flicker": true
+      },
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
+    },
+    {
+      "id": "altar",
+      "name": "Altar",
+      "category": "prop",
+      "file": "models/altar.glb",
+      "footprint": 2.7,
+      "height": 2.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "hell",
+        "castle",
+        "arena"
+      ],
+      "light": {
+        "color": "#ff7030",
+        "intensity": 0.8,
+        "distance": 8,
+        "height": 1.8,
+        "flicker": true
+      },
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
+    },
+    {
+      "id": "lava-rock",
+      "name": "Lava rock",
+      "category": "rock",
+      "file": "models/lava-rock.glb",
+      "footprint": 1.6,
+      "height": 1.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "hell",
+        "volcanic"
+      ],
+      "light": {
+        "color": "#ff5a1e",
+        "intensity": 1.2,
+        "distance": 10,
+        "height": 1.0,
+        "flicker": true
+      },
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
+    },
+    {
+      "id": "lava-rock-large",
+      "name": "Large lava rock",
+      "category": "rock",
+      "file": "models/lava-rock-large.glb",
+      "footprint": 3.2,
+      "height": 2.7,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 800,
+      "tags": [
+        "hell",
+        "volcanic"
+      ],
+      "light": {
+        "color": "#ff5a1e",
+        "intensity": 1.2,
+        "distance": 16,
+        "height": 2.0,
+        "flicker": true
+      },
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
+    },
+    {
+      "id": "obsidian-spikes",
+      "name": "Obsidian spikes",
+      "category": "rock",
+      "file": "models/obsidian-spikes.glb",
+      "footprint": 1.0,
+      "height": 2.6,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "hell",
+        "volcanic"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py)"
+    },
+    {
+      "id": "hell-spires",
+      "name": "Black spires",
+      "category": "rock",
+      "file": "models/hell-spires.glb",
+      "footprint": 1.5,
+      "height": 6.5,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "hell",
+        "volcanic"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
+    },
+    {
+      "id": "rope-bridge",
+      "name": "Rope bridge (20 m, ends at the base height)",
+      "category": "structure",
+      "file": "models/rope-bridge.glb",
+      "footprint": 9.4,
+      "height": 1.4,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "mountain",
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/weathered_planks"
+    },
+    {
+      "id": "alpine-hut",
+      "name": "Alpine hut",
+      "category": "building",
+      "file": "models/alpine-hut.glb",
+      "footprint": 4.0,
+      "height": 7.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "mountain",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks"
+    },
+    {
+      "id": "alpine-hut-snow",
+      "name": "Alpine hut (snow)",
+      "category": "building",
+      "file": "models/alpine-hut-snow.glb",
+      "footprint": 4.1,
+      "height": 7.2,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "mountain",
+        "winter"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks"
+    },
+    {
+      "id": "rock-needle",
+      "name": "Rock needle",
+      "category": "rock",
+      "file": "models/rock-needle.glb",
+      "footprint": 2.5,
+      "height": 19.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.6,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/rock_face"
+    },
+    {
+      "id": "cairn",
+      "name": "Cairn",
+      "category": "rock",
+      "file": "models/cairn.glb",
+      "footprint": 0.5,
+      "height": 1.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "mountain",
+        "arctic"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/rock_face"
+    },
+    {
+      "id": "tree-swamp-moss",
+      "name": "Moss-hung swamp tree",
+      "category": "tree",
+      "file": "models/tree-swamp-moss.glb",
+      "footprint": 1.6,
+      "height": 8.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.8,
+        1.2
+      ],
+      "randomRotation": true,
+      "wind": 0.3,
+      "drawDistance": 2500,
+      "tags": [
+        "swamp"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); Rinde https://polyhaven.com/a/bark_brown_02; Moos gezeichnet (make_foliage.py)"
+    },
+    {
+      "id": "oasis-pool",
+      "name": "Oasis pool",
+      "category": "rock",
+      "file": "models/oasis-pool.glb",
+      "footprint": 4.4,
+      "height": 0.3,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.7,
+        1.4
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/sandstone_cracks"
+    },
+    {
+      "id": "desert-temple",
+      "name": "Desert temple",
+      "category": "building",
+      "file": "models/desert-temple.glb",
+      "footprint": 8.1,
+      "height": 9.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "desert",
+        "arena"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/sandstone_cracks"
+    },
+    {
+      "id": "tent-nomad",
+      "name": "Nomad tent",
+      "category": "prop",
+      "file": "models/tent-nomad.glb",
+      "footprint": 3.8,
+      "height": 2.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1200,
+      "tags": [
+        "desert"
+      ],
+      "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/hessian_230"
     },
     {
       "id": "fx-fireflies",

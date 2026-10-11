@@ -602,7 +602,7 @@ def models():
         'tree-mangrove': lambda: broadleaf('tree-mangrove', 24, 10.0, 3.6, 0.5, 'bark_willow', 'leaves-swamp',
                                            bark_tint=(0.8, 0.82, 0.75), extra=roots),
         'tree-swamp-dead': lambda: dead_tree('tree-swamp-dead', 25, tint=(0.5, 0.52, 0.45), extra=dead_roots),
-        'tree-dead-pale': lambda: dead_tree('tree-dead-pale', 26, tint=(1.6, 1.55, 1.45), bark='bark_platanus'),
+        'tree-dead-pale': lambda: dead_tree('tree-dead-pale', 26, tint=(2.2, 2.25, 2.3), bark='bark_platanus'),
         # Conifers with snow
         'tree-pine-snow': lambda: conifer('tree-pine-snow', 3, 17.0, 3.4, 0.4, 0.32, leaves='leaves-conifer-snow'),
         'tree-fir-snow': lambda: conifer('tree-fir-snow', 4, 13.0, 3.3, 0.08, 0.28, leaves='leaves-conifer-snow'),

@@ -437,6 +437,21 @@ def cloth_banner(size_w, size_h, colour, trim, seed):
     return bleed(Image.fromarray(arr.clip(0, 255).astype(np.uint8), 'RGBA'))
 
 
+def moss_strands(size_w, size_h, seed):
+    """Hanging moss (Spanish moss): wavy grey-green threads falling from the top edge"""
+    rnd = random.Random(seed)
+    img = Image.new('RGBA', (size_w, size_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    for _ in range(140):
+        x = rnd.uniform(0.05, 0.95) * size_w
+        length = rnd.uniform(0.35, 1.0) * size_h
+        phase = rnd.uniform(0, 6.28)
+        col = (int(rnd.uniform(95, 135)), int(rnd.uniform(110, 145)), int(rnd.uniform(85, 105)), 255)
+        pts = [(x + math.sin(t / 30 + phase) * 4 + t * rnd.uniform(-0.02, 0.02), t) for t in range(0, int(length), 6)]
+        draw.line(pts, fill=col, width=rnd.choice((1, 2, 2, 3)))
+    return bleed(img)
+
+
 def chainlink(size, cells=8):
     """Chain-link mesh: galvanised wire diamonds on transparent ground (one tile = 1 m at uv 1)"""
     img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
@@ -540,6 +555,7 @@ def main():
     save(cloth_banner(128, 384, (32, 58, 130), (220, 210, 190), 39), 'banner-blue.png')
     # Man-made surfaces for city, wasteland and stations
     save(chainlink(256), 'chainlink.png')
+    save(moss_strands(256, 512, 42), 'moss-strands.png')
     solar_cells(512, 40).save(os.path.join(out, 'solar.jpg'), quality=90)
     hazard_stripes(256).save(os.path.join(out, 'hazard.jpg'), quality=90)
     gold_foil(512, 41).save(os.path.join(out, 'gold-foil.jpg'), quality=90)
