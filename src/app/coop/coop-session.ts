@@ -4,6 +4,7 @@ import type { PlayerStatus } from './protocol';
 import type { LockstepLink, StampedCommand } from './lockstep';
 import type { ClientInfo } from './client-info';
 import type { HashedEntities, HashPart } from './hash-check';
+import type { MapPart } from './map-transfer';
 import {
   PROTOCOL_VERSION,
   type ClientMessage,
@@ -168,6 +169,8 @@ export class CoopSession {
   /** Room changes, the host's world, the start, and the rest of the stream; one handler each */
   onRoom: ((room: CoopRoomInfo) => void) | null = null;
   onWorld: ((world: unknown) => void) | null = null;
+  /** A piece of the host's custom map (coop/map-transfer.ts), before the world that names it */
+  onMap: ((piece: MapPart) => void) | null = null;
   onStarted: ((start: CoopStart) => void) | null = null;
   onSpeed: ((speed: number) => void) | null = null;
   /** Each player's round trip to the relay, ms */
@@ -278,6 +281,11 @@ export class CoopSession {
   sendWorld(world: unknown, spawnIds: string[]): void {
     this.world = world;
     this.out({ t: 'world', world, spawnIds });
+  }
+
+  /** Host, lobby: a piece of the room's custom map, ahead of the world that names it */
+  sendMapPart(piece: MapPart): void {
+    this.out({ t: 'map', ...piece });
   }
 
   /** Lobby: take a free spawn as one more lane, or give one back (`take` false); null gives every lane back */
@@ -478,6 +486,8 @@ export class CoopSession {
       case 'world':
         this.world = message.world;
         return this.onWorld?.(message.world);
+      case 'map':
+        return this.onMap?.({ mapId: message.mapId, hash: message.hash, part: message.part, parts: message.parts, data: message.data });
       case 'started': {
         const link = new WebSocketLink(this.playerId!, (m) => this.out(m));
         this.linkNow = link;

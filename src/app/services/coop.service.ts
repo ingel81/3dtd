@@ -48,7 +48,15 @@ import { coopAccess } from '../coop/coop-access';
 import { CoopLobbyList } from './coop-lobby-list';
 import { WorldPackageLoader } from './world/world-package-loader.service';
 import { WorldContext } from '../world/world-context.service';
-import type { WorldRef } from '../world/world-ref';
+import { WORLD_URL_PARAM, worldUrlValue, worldsMatch, type WorldRef } from '../world/world-ref';
+import { packageWorldRef } from '../coop/world-package';
+import { MapAssembler, splitMapFile, type MapPart } from '../coop/map-transfer';
+import { packOpenedMap, storeSharedMap } from '../world/custom-map/map-share';
+
+/** Pause between two pieces of a map the host sends: the relay takes some 4 MB a second from one connection */
+const MAP_PART_GAP_MS = 250;
+/** How long a guest on the host's map waits for its own start to stand or fail before it reloads into the map */
+const MAP_START_WAIT_MS = 30_000;
 import {
   DEFAULT_ROOM_OPTIONS,
   changedOptions,
@@ -249,6 +257,10 @@ export class CoopService {
   /** Standing on the host's world package (C1) */
   private readonly loader = inject(WorldPackageLoader);
   private readonly worldContext = inject(WorldContext);
+  /** Guest: the pieces of the host's custom map as they come */
+  private readonly mapAssembler = new MapAssembler();
+  /** Host: the map (id and hash) this room has from us already, sent once per room */
+  private sentMapKey: string | null = null;
   /** The signals of a room, back to their start in leave() */
   private readonly perRoom = new ResettableSignals();
   /** What this client told the room it is doing, see tellStatus */
@@ -759,7 +771,10 @@ export class CoopService {
     }
     const world = buildWorldPackage(source, this.head());
     this.sharedWaveSource = world.waveSource ?? null;
-    this.session.sendWorld(world, world.spawns.map((spawn) => spawn.id));
+    // A custom map goes ahead of the world that names it, so a guest without it gets it from the room
+    const mapParts = this.mapPartsToSend();
+    if (mapParts) void this.sendMapThenWorld(this.session, mapParts, world);
+    else this.session.sendWorld(world, world.spawns.map((spawn) => spawn.id));
     this.lanes.set(laneStats(this.pathRoute.getCachedPaths(), LANE_WALK_SPEED_MPS));
     this.sharedMap = this.mapSignature();
     this.sharedMapNow.set(this.sharedMap);
@@ -1127,6 +1142,8 @@ export class CoopService {
     for (const timer of this.pingTimers) clearTimeout(timer);
     this.pingTimers.clear();
     this.generation++;
+    this.mapAssembler.reset();
+    this.sentMapKey = null;
     this.pickedByHand = false;
     this.autoPicking = null;
     this.toldStatus = null;
@@ -1153,8 +1170,94 @@ export class CoopService {
     const room = this.room();
     const hq = this.locationMgmt.hq();
     if (!room || !hq) return '';
+    const ref = this.worldContext.ref();
+    const mapLink = worldUrlValue(ref);
+    // A map's link opens the map; a guest without it gets it from the room and reloads into it
+    if (mapLink) return `${window.location.origin}${window.location.pathname}?${WORLD_URL_PARAM}=${encodeURIComponent(mapLink)}${this.roomParams(room.code)}`;
     const spawns = this.world.spawnPoints.map(({ lat, lon }) => ({ lat, lon }));
     return `${window.location.origin}${this.urlLocation.urlFor(hq, spawns)}${this.roomParams(room.code)}`;
+  }
+
+  /**
+   * Host: the pieces of the custom map this page plays, null when it plays
+   * none or the room has them already. A map too big for the relay is said
+   * in the dock; the world still goes out (guests who have the map join).
+   */
+  private mapPartsToSend(): MapPart[] | null {
+    const ref = this.worldContext.ref();
+    if (ref.kind !== 'custom-map') return null;
+    const packed = packOpenedMap(ref);
+    if (!packed) return null;
+    const key = `${ref.mapId}\n${packed.hash}`;
+    if (key === this.sentMapKey) return null;
+    const parts = splitMapFile(packed.bytes, ref.mapId, packed.hash);
+    if (!parts) {
+      this.notify(`This map is too big to send over the relay (${Math.round(packed.bytes.length / 2 ** 20)} MB): only players who have it can join`, 'warn');
+      return null;
+    }
+    this.sentMapKey = key;
+    return parts;
+  }
+
+  /** Host: the map's pieces, paced for the relay, then the world; nothing once this session is gone */
+  private async sendMapThenWorld(session: CoopSession, parts: MapPart[], world: WorldPackage): Promise<void> {
+    for (const [i, part] of parts.entries()) {
+      if (this.session !== session) return;
+      if (i > 0) await new Promise((resolve) => setTimeout(resolve, MAP_PART_GAP_MS));
+      if (this.session !== session) return;
+      session.sendMapPart(part);
+    }
+    if (this.session === session) session.sendWorld(world, world.spawns.map((spawn) => spawn.id));
+  }
+
+  /**
+   * Guest: a piece of the host's map. Once all of it is here it goes into
+   * the map store (map-share.ts checks it is the map the host has); then the
+   * page opens that map with the room in its link, unless it plays it already.
+   */
+  private takeMapPart(piece: MapPart): void {
+    if (this.isHost()) return;
+    const bytes = this.mapAssembler.add(piece);
+    if (!bytes) {
+      if (piece.part === 0) this.tellStatus('loading');
+      return;
+    }
+    void this.keepHostMap(bytes, piece);
+  }
+
+  /** Guest: the host's map into the store, then this page on it (takeMapPart) */
+  private async keepHostMap(bytes: Uint8Array, piece: MapPart): Promise<void> {
+    const generation = this.generation;
+    const problem = await storeSharedMap(bytes, { mapId: piece.mapId, hash: piece.hash });
+    if (generation !== this.generation) return;
+    if (problem) {
+      this.ngZone.run(() => this.error.set(problem));
+      return;
+    }
+    const ref: WorldRef = { kind: 'custom-map', mapId: piece.mapId, contentHash: piece.hash };
+    if (!worldsMatch(ref, this.worldContext.ref())) {
+      this.ngZone.run(() => this.reloadAtMap(piece.mapId));
+      return;
+    }
+    // This page is on the map already: it stands, or its start failed for want of it (an
+    // invite link opened before the map came); the start says which within MAP_START_WAIT_MS
+    const end = performance.now() + MAP_START_WAIT_MS;
+    while (this.worldContext.provider() === null && this.engineInit.error() === null && performance.now() < end) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    if (generation === this.generation && this.worldContext.provider() === null) this.ngZone.run(() => this.reloadAtMap(piece.mapId));
+  }
+
+  /** This page on the host's custom map, back into the room (as reloadAt for a place) */
+  private reloadAtMap(mapId: string): void {
+    const room = this.room()?.code ?? this.roomFromUrl ?? '';
+    const lane = this.room()?.players.find((p) => p.id === this.playerId())?.spawnIds[0] ?? null;
+    let params = `${this.roomParams(room)}${lane ? `&lane=${encodeURIComponent(lane)}` : ''}`;
+    // The relay this page was sent to stays, also one on this machine (roomParams leaves that out)
+    if (!params.includes('&relay=') && this.relayFromUrl) params += `&relay=${encodeURIComponent(this.relayFromUrl)}`;
+    this.tellStatus('reloading');
+    this.leave();
+    window.location.assign(`${window.location.pathname}?${WORLD_URL_PARAM}=${encodeURIComponent(`map:${mapId}`)}${params}`);
   }
 
   /** `&room=` and, where the guest could not find it alone, `&relay=` (R7) */
@@ -1309,6 +1412,7 @@ export class CoopService {
       this.notify(this.inGame() ? `${name} left the game, their lane closes` : `${name} left`, 'warn');
     });
     session.onWorld = inZone((world) => void this.takeWorld(world));
+    session.onMap = inZone((piece) => this.takeMapPart(piece));
     session.onStarted = inZone((start) => this.startGame(start));
     session.onSpeed = inZone((speed) => this.applySpeed(speed));
     session.onRtt = inZone((rtt) => this.rtt.set(new Map(rtt)));
@@ -1412,6 +1516,12 @@ export class CoopService {
     }
     // The host's world must be this page's: DevWorld with the same settings, the same map
     const otherWorld = this.loader.worldHere(read.world);
+    const hostRef = packageWorldRef(read.world, this.config.tileProvider());
+    if (otherWorld && hostRef.kind === 'custom-map' && this.mapAssembler.current?.mapId === hostRef.mapId) {
+      // The host's map came ahead of the world: once it is stored the page opens it (takeMapPart)
+      this.status.set('loading-world');
+      return;
+    }
     if (otherWorld) {
       this.error.set(`The host's game: ${otherWorld}`);
       return;
