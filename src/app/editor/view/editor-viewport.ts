@@ -37,6 +37,15 @@ export interface HoverInfo {
   material: string;
 }
 
+export interface CameraBookmark {
+  x: number;
+  y: number;
+  z: number;
+  distance: number;
+  yaw: number;
+  pitch: number;
+}
+
 export interface FrameStats {
   fps: number;
   triangles: number;
@@ -144,6 +153,21 @@ export class EditorViewport {
     this.pending = null;
     this.routesDirty = true;
     this.markersDirty = true;
+  }
+
+  /** Where the camera looks from, to keep as a bookmark */
+  cameraView(): CameraBookmark {
+    const g = this.controller.goal;
+    return { x: g.target.x, y: g.target.y, z: g.target.z, distance: g.distance, yaw: g.yaw, pitch: g.pitch };
+  }
+
+  /** Fly to a kept view */
+  showView(v: CameraBookmark): void {
+    const g = this.controller.goal;
+    g.target.set(v.x, v.y, v.z);
+    g.distance = v.distance;
+    g.yaw = v.yaw;
+    g.pitch = v.pitch;
   }
 
   /** Frame the whole map */

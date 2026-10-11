@@ -147,6 +147,13 @@ export class EditorShellComponent implements OnDestroy {
     if (ctrl && k === 'z' && !e.shiftKey) return this.handled(e, () => s.undo());
     if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) return this.handled(e, () => s.redo());
     if (ctrl && k === 's') return this.handled(e, () => void s.save(true));
+    // Camera views: Alt or Ctrl with a digit keeps the view (Ctrl only where the browser leaves it), Shift with a digit shows it
+    const digit = /^Digit([1-9])$/.exec(e.code);
+    if (digit) {
+      const slot = Number(digit[1]) - 1;
+      if (e.altKey || ctrl) return this.handled(e, () => s.saveBookmark(slot));
+      if (e.shiftKey) return this.handled(e, () => s.showBookmark(slot));
+    }
     // Ctrl+V from any tool places the last copy
     if (ctrl && k === 'v' && s.tool() !== 'stamp' && s.settings.stamp.current) {
       return this.handled(e, () => {

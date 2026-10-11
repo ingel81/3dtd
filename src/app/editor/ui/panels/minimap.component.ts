@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, effect, inject, viewChild } from '@angular/core';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { SPAWN_COLORS } from '../../../configs/map-constants.config';
 import { TD_THEME } from '../../../styles/td-theme';
 import { edgePolyline } from '../../ops/path-graph';
@@ -16,14 +17,25 @@ const PICTURE_EVERY_MS = 1200;
 @Component({
   selector: 'app-editor-minimap',
   standalone: true,
+  imports: [MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-overlay' },
   template: `<canvas #canvas class="mm-canvas" [width]="size" [height]="size" aria-label="Minimap, click to move the view"
-                     (pointerdown)="down($event)" (pointermove)="move($event)" (pointerup)="up($event)" data-test="minimap"></canvas>`,
-  styles: [`:host { display: block; padding: 6px; } .mm-canvas { display: block; width: 200px; height: 200px; cursor: pointer; }`],
+                     (pointerdown)="down($event)" (pointermove)="move($event)" (pointerup)="up($event)" data-test="minimap"></canvas>
+    <div class="mm-views" role="group" aria-label="Camera views">
+      @for (v of session.bookmarks(); track $index) {
+        <button class="td-tool is-sm mm-view" type="button" [class.td-tone-brass]="!!v" [attr.aria-label]="'View ' + ($index + 1)"
+                [matTooltip]="v ? 'Show view ' + ($index + 1) + ' (Shift+' + ($index + 1) + '); Alt click keeps the current one' : 'Alt click or Alt+' + ($index + 1) + ' keeps the current view here'"
+                (click)="view($index, $event)" [attr.data-view]="$index + 1">{{ $index + 1 }}</button>
+      }
+    </div>`,
+  styles: [
+    `:host { display: block; padding: 6px; } .mm-canvas { display: block; width: 200px; height: 200px; cursor: pointer; }
+     .mm-views { display: flex; justify-content: space-between; margin-top: 4px; } .mm-view { width: 20px; font-size: var(--td-fs-small); }`,
+  ],
 })
 export class MinimapComponent implements OnDestroy {
-  private readonly session = inject(EditorSession);
+  readonly session = inject(EditorSession);
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   readonly size = SIZE;
   private picture: HTMLCanvasElement | null = null;
@@ -40,6 +52,11 @@ export class MinimapComponent implements OnDestroy {
       this.schedulePicture(rev);
       this.draw();
     });
+  }
+
+  view(slot: number, e: MouseEvent): void {
+    if (e.altKey || e.ctrlKey || e.metaKey) this.session.saveBookmark(slot);
+    else this.session.showBookmark(slot);
   }
 
   ngOnDestroy(): void {

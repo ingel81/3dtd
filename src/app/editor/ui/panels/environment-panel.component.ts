@@ -1,8 +1,28 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import type { MapEnvironment } from '../../../world/custom-map/map-document';
+import type { MapEnvironment, MapWeather } from '../../../world/custom-map/map-document';
 import { SnapshotCommand } from '../../model/editor-document';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
+
+const WEATHERS: { id: MapWeather; label: string }[] = [
+  { id: 'clear', label: 'Clear' },
+  { id: 'rain', label: 'Rain' },
+  { id: 'snow', label: 'Snow' },
+  { id: 'fog', label: 'Fog' },
+];
+
+/**
+ * A time of day as sun and sky: the sun rises in the east at 6, stands in
+ * the south at noon 60 degrees high, sets in the west at 18; before and
+ * after, the sky turns to dusk, then night. An overcast sky stays overcast.
+ */
+export function timeOfDay(hour: number, sky: MapEnvironment['sky']): Partial<MapEnvironment> {
+  const f = (hour - 6) / 12;
+  const elevation = 60 * Math.sin(Math.PI * f);
+  const azimuth = ((90 + 180 * f) % 360 + 360) % 360;
+  const nextSky: MapEnvironment['sky'] = sky === 'overcast' ? 'overcast' : elevation < 0 ? 'night' : elevation < 12 ? 'dusk' : 'day';
+  return { sunAzimuth: Math.round(azimuth), sunElevation: Math.round(Math.max(2, elevation)), sky: nextSky };
+}
 
 const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
   { id: 'day', label: 'Day' },
@@ -32,6 +52,12 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
     </div>
     @if (env(); as e) {
       <div class="td-group">
+        <h3 class="td-section">Time of day <span class="td-note">{{ clock(e) }}</span></h3>
+        <input class="td-slider" type="range" min="4" max="22" step="0.25" [value]="hourOf(e)" aria-label="Time of day"
+               (input)="live(timeOfDay(+$any($event.target).value, e.sky))" (change)="commit(timeOfDay(+$any($event.target).value, e.sky), 'Time of day')" data-test="time-of-day" />
+        <p class="td-note">Moves the sun across the sky; dawn and dusk tint it, night darkens it.</p>
+      </div>
+      <div class="td-group">
         <h3 class="td-section">Sun</h3>
         <app-editor-range label="Direction" unit="deg" [min]="0" [max]="359" [value]="e.sunAzimuth"
                           (changing)="live({ sunAzimuth: $event })" (changed)="commit({ sunAzimuth: $event }, 'Sun direction')" />
@@ -48,15 +74,40 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
                  (change)="commit({ tint: $any($event.target).value }, 'Tint')" aria-label="Tint" />
         </label>
       </div>
+      <div class="td-group">
+        <h3 class="td-section">Weather</h3>
+        <div class="td-seg is-sm" role="radiogroup" aria-label="Weather">
+          @for (w of weathers; track w.id) {
+            <button type="button" role="radio" [attr.aria-checked]="(e.weather ?? 'clear') === w.id" (click)="commit({ weather: w.id }, 'Weather')">{{ w.label }}</button>
+          }
+        </div>
+        @if ((e.weather ?? 'clear') !== 'clear') {
+          <app-editor-range label="Strength" unit="%" [min]="5" [max]="100" [value]="(e.weatherStrength ?? 0.6) * 100"
+                            (changing)="live({ weatherStrength: $event / 100 })" (changed)="commit({ weatherStrength: $event / 100 }, 'Weather strength')" />
+        }
+      </div>
     }
   `,
 })
 export class EnvironmentPanelComponent {
   private readonly session = inject(EditorSession);
   readonly skies = SKIES;
+  readonly weathers = WEATHERS;
+  readonly timeOfDay = timeOfDay;
   readonly env = computed(() => (this.session.docRev(), this.session.doc ? { ...this.session.doc.environment } : null));
   /** The environment before the slider started moving */
   private before: MapEnvironment | null = null;
+
+  /** The hour the sun's direction stands for (east 6, south 12, west 18) */
+  hourOf(e: MapEnvironment): number {
+    const h = 6 + ((e.sunAzimuth - 90) / 180) * 12;
+    return Math.min(22, Math.max(4, Math.round(h * 4) / 4));
+  }
+
+  clock(e: MapEnvironment): string {
+    const h = this.hourOf(e);
+    return `${Math.floor(h)}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+  }
 
   live(patch: Partial<MapEnvironment>): void {
     const editor = this.session.editor;

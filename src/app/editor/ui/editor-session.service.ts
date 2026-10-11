@@ -31,11 +31,12 @@ import { TerrainTool } from '../tools/terrain-tool';
 import { PanelTool, TOOLS, defaultSettings, type EditorSettings, type EditorTool, type ToolId } from '../tools/tool';
 import { WaterTool } from '../tools/water-tool';
 import { validateMap, type MapIssue } from '../validation/map-validation';
-import { EditorViewport, type FrameStats, type HoverInfo } from '../view/editor-viewport';
+import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
 import { DEFAULT_W3X_OPTIONS, loadW3xImporter, type W3xImportOptions, type W3xImportReport } from '../import/w3x-seam';
 import { WORLD_URL_PARAM, worldUrlValue } from '../../world/world-ref';
 
 export const AUTOSAVE_DELAY_MS = 2000;
+const BOOKMARK_KEY = '3dtd-editor-views:';
 const THUMBNAIL_SIZE = 256;
 
 export interface ImportState {
@@ -98,6 +99,8 @@ export class EditorSession implements OnDestroy {
   readonly cameraRev = signal(0);
   readonly importState = signal<ImportState | null>(null);
   readonly error = signal<string | null>(null);
+  /** Camera views 1 to 9 of the open map (kept per map in this browser) */
+  readonly bookmarks = signal<(CameraBookmark | null)[]>(Array(9).fill(null));
   /** Bumps when a rendered palette picture is ready */
   readonly thumbRev = signal(0);
   private thumbRenderer: ThumbnailRenderer | null = null;
@@ -174,6 +177,38 @@ export class EditorSession implements OnDestroy {
     this.refresh();
   }
 
+  saveBookmark(slot: number): void {
+    const vp = this.viewport;
+    const id = this.doc?.meta.id;
+    if (!vp || !id || slot < 0 || slot > 8) return;
+    const next = [...this.bookmarks()];
+    next[slot] = vp.cameraView();
+    this.bookmarks.set(next);
+    try {
+      localStorage.setItem(`${BOOKMARK_KEY}${id}`, JSON.stringify(next));
+    } catch {
+      // Without storage the bookmark lives until the page closes
+    }
+    this.flash(`View ${slot + 1} kept`);
+  }
+
+  showBookmark(slot: number): void {
+    const v = this.bookmarks()[slot];
+    if (v) this.viewport?.showView(v);
+    else this.flash(`No view ${slot + 1} yet: Alt+${slot + 1} keeps the current one`);
+  }
+
+  private loadBookmarks(id: string): void {
+    let list: (CameraBookmark | null)[] = Array(9).fill(null);
+    try {
+      const raw = localStorage.getItem(`${BOOKMARK_KEY}${id}`);
+      if (raw) list = (JSON.parse(raw) as (CameraBookmark | null)[]).slice(0, 9);
+    } catch {
+      // Unreadable: start empty
+    }
+    this.bookmarks.set(list.concat(Array(9).fill(null)).slice(0, 9));
+  }
+
   /** Saves a piece as a stamp with a picture of its rectangle (when it is still on this map) */
   async saveStamp(name: string, stamp: Stamp, region: StampRect | null): Promise<void> {
     let preview: string | null = null;
@@ -221,6 +256,7 @@ export class EditorSession implements OnDestroy {
     const editor = this.editor;
     this.origin.set(origin);
     this.savedState = editor.stateId;
+    this.loadBookmarks(doc.meta.id);
     this.issues.set(null);
     this.unsubscribe.push(
       editor.onChange(() => (this.changed = true)),

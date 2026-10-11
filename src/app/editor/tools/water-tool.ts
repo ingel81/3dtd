@@ -3,6 +3,7 @@
  * mask by hand (Shift erases). The level, colour and "no water" live in the
  * panel (`waterCommands`).
  */
+import type { MapWaterKind } from '../../world/custom-map/map-document';
 import type { EditCommand, EditorDocument } from '../model/editor-document';
 import { WaterSwapCommand } from '../model/terrain-commands';
 import { nearestSample, sampleRectAround } from '../model/grid';
@@ -125,6 +126,10 @@ export const waterCommands = {
   setLevel(editor: EditorDocument, level: number): EditCommand {
     const before = editor.doc.terrain.water ?? emptyWater(editor.doc.terrain, level);
     return new WaterSwapCommand('Water level', structuredClone(editor.doc.terrain.water), { ...structuredClone(before), level });
+  },
+  setKind(editor: EditorDocument, kind: MapWaterKind): EditCommand {
+    const w = editor.doc.terrain.water;
+    return new WaterSwapCommand(kind === 'lava' ? 'Lava' : kind === 'ice' ? 'Ice' : 'Water', structuredClone(w), w ? { ...structuredClone(w), kind } : null);
   },
   setColor(editor: EditorDocument, color: string): EditCommand {
     const w = editor.doc.terrain.water;
