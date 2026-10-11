@@ -70,7 +70,7 @@ export function buildAutumnKeep(): CustomMapDocument {
   k.paint('grass-withered', [{ x: -60, y: -60 }, { x: 60, y: -60 }], { radius: 50, falloff: 1 }, 0.15);
   k.paint('cobblestone-mossy', c, { radius: 30, falloff: 0.7 }, 0.6);
   k.paint('leaves-scattered', green, { radius: 22, falloff: 0.8 }, 0.35);
-  k.scatter(['leaf-pile', 'leaf-pile', 'branches', 'mushrooms-red'], [{ x: -160, y: -60 }, { x: -60, y: -90 }, { x: 60, y: -120 }, { x: 140, y: -20 }, { x: -120, y: 50 }, { x: 110, y: 60 }], { radius: 45, strength: 1 }, { density: 4, minDistance: 3 });
+  k.scatter(['branches', 'mushrooms-red'], [{ x: -160, y: -60 }, { x: -60, y: -90 }, { x: 60, y: -120 }, { x: 140, y: -20 }, { x: -120, y: 50 }, { x: 110, y: 60 }], { radius: 45, strength: 1 }, { density: 4, minDistance: 3 });
   // Lone trees on the green and the slopes
   k.scatter(['tree-maple-red', 'tree-oak-autumn', 'tree-birch-autumn', 'tree-maple-autumn'], [{ x: -110, y: -20 }, { x: -70, y: 10 }, { x: 70, y: 0 }, { x: 110, y: -10 }, { x: -60, y: 115 }, { x: 60, y: 115 }, { x: -90, y: 70 }, { x: 95, y: 60 }], { radius: 32, strength: 0.8 }, { density: 1.6, minDistance: 11 });
 
@@ -134,7 +134,22 @@ export function buildAutumnKeep(): CustomMapDocument {
     k.paint('leaves-scattered', { x, y }, { radius: 26, falloff: 1 }, 0.45);
     k.paint('grass-withered', { x: x + 15, y: y + 18 }, { radius: 18, falloff: 1 }, 0.3);
   }
-  k.scatter(['grass-autumn', 'leaf-pile', 'flowers-yellow'], [{ x: -80, y: -40 }, { x: 0, y: -60 }, { x: 80, y: -40 }, { x: -40, y: 10 }, { x: 40, y: 10 }], { radius: 35, strength: 1 }, { density: 10, minDistance: 1.8 });
+  k.scatter(['grass-autumn', 'flowers-yellow'], [{ x: -80, y: -40 }, { x: 0, y: -60 }, { x: 80, y: -40 }, { x: -40, y: 10 }, { x: 40, y: 10 }], { radius: 35, strength: 1 }, { density: 10, minDistance: 1.8 });
+  // Leaf heaps where the wind drops them: under the trees and in the lee of the walls, not spread over the green
+  const trees = k.doc.objects.filter((o) => o.asset.startsWith('tree-') && Math.abs(o.x) < 200 && Math.abs(o.y) < 200);
+  for (const [n, t] of trees.entries()) {
+    if (k.noise.hash(n, 3, 41) > 0.18) continue;
+    const count = 1 + Math.floor(k.noise.hash(n, 4, 41) * 3);
+    for (let i = 0; i < count; i++) {
+      const a = k.noise.hash(n, i, 42) * Math.PI * 2;
+      const d = 1.5 + k.noise.hash(n, i, 43) * 3;
+      const p = { x: t.x + Math.cos(a) * d, y: t.y + Math.sin(a) * d };
+      if (k.free(p.x, p.y, 1)) k.place('leaf-pile', p.x, p.y, { rotation: a, scale: 0.8 + 0.5 * k.noise.hash(n, i, 44) });
+    }
+  }
+  for (const [x, y] of [[x0 + 4, y1 - 4], [x1 - 5, y1 - 3], [x0 + 3, y0 + 5], [x1 - 4, y0 + 4], [x0 + 3, 60], [x1 - 3, 90]] as const) {
+    for (let i = 0; i < 2; i++) k.place('leaf-pile', x + i * 1.6, y - i * 1.2, { rotation: i + x, scale: 1 + 0.3 * i });
+  }
   // A few fallen blocks down the hill
   k.scatter(['rock-mossy-a', 'rock-mossy-b', 'rock-mossy-c'], [{ x: -45, y: 15 }, { x: 45, y: 15 }, { x: -50, y: 100 }, { x: 50, y: 105 }], { radius: 16, strength: 0.8 }, { density: 2.5, minDistance: 5 });
 
@@ -142,6 +157,8 @@ export function buildAutumnKeep(): CustomMapDocument {
   for (const [x, y] of [[-130, -150], [140, -160], [-170, 110], [170, 120]] as const) k.place('fx-fog', x, y, { scale: 0.7 });
   for (const [x, y] of [[-150, -100], [150, -90], [-120, 150], [130, 150], [0, -120]] as const) k.place('fx-leaves', x, y, { scale: 1.3 });
 
+  // Five ground materials load faster than eight; the least used go
+  k.trimLayers(5);
   k.environment({ biome: 'temperate', sky: 'day', sunAzimuth: 115, sunElevation: 20, fogDensity: 0.0007, tint: '#ffe6c4' });
   return k.finish();
 }

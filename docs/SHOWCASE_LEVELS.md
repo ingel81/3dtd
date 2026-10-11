@@ -146,17 +146,26 @@ ohne Bildratengrenze, Kartenprobe `?bot=trial&trialWaves=10` mit Budget-Wellen. 
 
 ### Messung
 
-Entwicklungsrechner, Chromium mit GPU, 1600 x 900, 2026-10-11:
+Entwicklungsrechner, Chromium mit GPU, 1600 x 900, 2026-10-11, nach dem Feinschliff über alle acht. Laden und
+Spielansicht am Produktions-Build (`e2e/perf/shipped-maps.ts --no-trial`), Kartenprobe am Dev-Server mit der
+Wasser-Bausperre:
 
 | Karte | Laden kalt | Laden warm | Spielansicht | Kartenprobe |
 |-------|-----------|-----------|--------------|-------------|
-| Demo Valley (`demo-valley`) | 4,1 s | 2,9 s | 450 fps | bestanden, 10/10 Wellen, HQ 464/500, 19 Tower |
-| Mountain Pass (`mountain-pass`) | 5,0 s | 3,7 s | 425 fps | bestanden, 10/10 Wellen, HQ 446/500, 19 Tower |
-| Witch Marsh (`witch-marsh`) | 6,9 s | 3,3 s | 604 fps | bestanden, 10/10 Wellen, HQ 416/500, 19 Tower |
-| Autumn Keep (`autumn-keep`) | 6,3 s | 3,1 s | 334 fps | bestanden, 10/10 Wellen, HQ 309/500, 19 Tower |
+| Demo Valley (`demo-valley`) | 4,1 s | 3,3 s | 328 fps | |
+| Mountain Pass (`mountain-pass`) | 4,7 s | 3,6 s | 373 fps | bestanden, HQ 449,9/500, 19 Tower |
+| Witch Marsh (`witch-marsh`) | 4,0 s | 3,1 s | 570 fps | bestanden, HQ 408,5/500, 19 Tower |
+| Autumn Keep (`autumn-keep`) | 4,3 s | 3,2 s | 354 fps | bestanden, HQ 298,7/500, 19 Tower |
+| Red Canyon (`red-canyon`) | 4,3 s | 3,3 s | 550 fps | bestanden, HQ 422,4/500, 19 Tower |
+| Archipelago (`archipelago`) | 4,2 s | 3,3 s | 404 fps | bestanden, HQ 325/500, 18 Tower |
+| Frost Hamlet (`frost-hamlet`) | 4,1 s | 3,5 s | 413 fps | bestanden, HQ 355,4/500, 19 Tower |
+| Ember Crater (`ember-crater`) | 4,2 s | 3,1 s | 611 fps | bestanden, HQ 440,6/500, 19 Tower |
+| Twin Gates (`twin-gates`) | 3,8 s | 3,1 s | 360 fps | bestanden, HQ 150,1/500, 19 Tower |
 
-Warm bleiben alle unter 4 s, kalt keine; der Unterschied ist das erste Kompilieren der Shader. Die Ladezeiten streuen
-auf dem Rechner um etwa eine Sekunde. Autumn Keep verliert in Welle 2, 3 und 10 am meisten HQ, hält aber.
+Kalt liegen die Karten wie das Demo-Tal knapp über 4 s, warm unter 4 s. Bis auf den Archipel haben alle Karten fünf
+Bodenschichten statt acht (`kit.trimLayers`, die am wenigsten genutzten gehen; beim Archipel fielen dabei die Strände
+weg). Die Werte streuen auf dem geteilten Rechner stark: ein zweiter Lauf maß Mountain Pass kalt mit 7,9 s, Twin Gates
+im ersten Lauf warm mit 6,7 s und 120 fps.
 
 ## Weitere bei Bedarf
 Mondbasis (Krater, Habitate, Erde am Himmel), Mars-Canyon (rote Dünen, Rover), Endzeit-Stadt (Ruinen, Wracks, Smog),

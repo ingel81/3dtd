@@ -24,13 +24,19 @@ export function buildRedCanyon(): CustomMapDocument {
   const plain = 30;
   for (let y = -300; y <= 300; y += 110) for (let x = -300; x <= 300; x += 110) k.level({ x, y }, { radius: 130, falloff: 0.4 }, plain);
   k.form('dunes', [{ x: -200, y: 190 }, { x: -60, y: 210 }], { radius: 70, strength: 0.6 }, 1);
-  // Table mountains rising over the plain, each with a stepped rim
-  for (const [x, y, r, h] of [[-170, 130, 42, 16], [170, 120, 50, 12], [-150, -160, 46, 14], [200, -30, 34, 18], [-30, 170, 30, 10]] as const) {
+  // Table mountains rising over the plain: each from a few lobes, so the rims wander, then rain breaks them up
+  for (const [n, [x, y, r, h]] of ([[-170, 130, 42, 16], [170, 120, 50, 12], [-150, -160, 46, 14], [200, -30, 34, 18], [-30, 170, 30, 10]] as const).entries()) {
     k.plateau({ x, y }, { radius: r, falloff: 0.45 }, plain + h);
-    k.terrace({ x, y }, { radius: r * 1.25, falloff: 0.5 }, 5, plain, 0.5);
+    for (let l = 0; l < 3; l++) {
+      const a = k.noise.hash(n, l, 11) * Math.PI * 2;
+      const d = r * (0.4 + 0.3 * k.noise.hash(n, l, 12));
+      k.plateau({ x: x + Math.cos(a) * d, y: y + Math.sin(a) * d }, { radius: r * 0.55, falloff: 0.45 }, plain + h - 1 - 3 * k.noise.hash(n, l, 13));
+    }
+    k.erode({ x, y }, { radius: r * 1.3, strength: 1 }, 10);
   }
 
-  // ---- The canyons: a flat floor cut along each line, stepped walls on both sides
+  // ---- The canyons: a flat floor cut along each line; the walls roughened and cut by rain into gullies
+  // with scree fans at their feet, a few ledges left as strata
   const west = { x: -252, y: -40 };
   const north = { x: 70, y: 252 };
   const j = { x: 10, y: -20 };
@@ -38,17 +44,27 @@ export function buildRedCanyon(): CustomMapDocument {
   const westCanyon: MapPoint[] = [west, { x: -200, y: -10 }, { x: -150, y: -60 }, { x: -95, y: -20 }, { x: -50, y: 10 }, j];
   const northCanyon: MapPoint[] = [north, { x: 40, y: 200 }, { x: 80, y: 140 }, { x: 30, y: 90 }, { x: -10, y: 40 }, j];
   const southCanyon: MapPoint[] = [j, { x: 40, y: -70 }, { x: 100, y: -100 }, { x: 125, y: -140 }, hq];
+  // Dead-end side canyons branching off the main ones
+  const sideCanyons: MapPoint[][] = [
+    [{ x: -150, y: -60 }, { x: -170, y: -110 }, { x: -205, y: -135 }],
+    [{ x: 80, y: 140 }, { x: 130, y: 160 }, { x: 175, y: 200 }],
+    [{ x: 100, y: -100 }, { x: 150, y: -80 }, { x: 190, y: -95 }],
+    [{ x: -50, y: 10 }, { x: -70, y: 60 }, { x: -110, y: 85 }],
+  ];
   const carve = (line: MapPoint[], floor: number, radius: number) => {
-    k.terrace(line, { radius: radius * 1.9, falloff: 0.5 }, 7, floor, 0.8);
+    k.terrace(line, { radius: radius * 1.9, falloff: 0.5 }, 6, floor, 0.35);
     k.level(line, { radius, falloff: 0.35 }, floor);
+    k.roughen(line, { radius: radius * 1.6, falloff: 0.6 }, 2.5, 4404 + line.length);
   };
   carve(westCanyon, 2, 24);
   carve(northCanyon, 2, 22);
   carve(southCanyon, 1.5, 26);
-  // The basins: where the canyons join, and the temple basin with the oasis
+  for (const side of sideCanyons) carve(side, 4, 13);
+  // The basins: where the canyons join, and the temple basin with the oasis, wider in some directions than others
   k.level(j, { radius: 46, falloff: 0.4 }, 2);
-  k.level(hq, { radius: 84, falloff: 0.45 }, 1.5);
-  k.terrace(hq, { radius: 115, falloff: 0.4 }, 7, 1.5, 0.6);
+  for (const [dx, dy, r] of [[0, 0, 70], [35, -30, 50], [-30, -35, 45], [45, 35, 40]] as const) k.level({ x: hq.x + dx, y: hq.y + dy }, { radius: r, falloff: 0.45 }, 1.5);
+  for (const line of [westCanyon, northCanyon, southCanyon, ...sideCanyons]) k.erode(line, { radius: 34, strength: 1 }, 5);
+  k.erode(hq, { radius: 110, strength: 1 }, 12);
   // Mesas left standing inside the basins, a ramp up to one of them
   k.plateau({ x: 5, y: -25 }, { radius: 16, falloff: 0.3 }, 16);
   k.plateau({ x: 200, y: -200 }, { radius: 18, falloff: 0.3 }, 22);
@@ -106,6 +122,10 @@ export function buildRedCanyon(): CustomMapDocument {
   ] as const) {
     k.place(a, x, y, { scale: s, rotation: x * 0.01 });
   }
+  // Rock needles and an arch standing in the canyons and the basin
+  for (const [x, y, a, sc] of [[-120, -45, 'sandstone-pillar-tall', 1], [60, 120, 'sandstone-pillar', 1.3], [-175, -25, 'sandstone-pillar', 1.1], [175, -140, 'sandstone-pillar-tall', 0.9], [65, -86, 'rock-arch', 1.1], [-15, 70, 'sandstone-pillar', 0.9]] as const) {
+    if (k.free(x, y, 4)) k.place(a, x, y, { scale: sc, rotation: x * 0.02 });
+  }
   for (const line of [westCanyon, northCanyon, southCanyon]) {
     k.scatter(['rock-sandstone', 'rock-desert', 'rock-desert-large', 'stones'], line, { radius: 30, strength: 0.6, falloff: 0.3 }, { density: 1.2, minDistance: 7, scaleMin: 0.7, scaleMax: 1.5 });
   }
@@ -121,6 +141,8 @@ export function buildRedCanyon(): CustomMapDocument {
   }
   k.scatter(['bones', 'bone-pile', 'cactus', 'tree-dead-pale'], [{ x: -120, y: -100 }, { x: 60, y: 60 }, { x: -40, y: 160 }], { radius: 50, strength: 0.6 }, { density: 0.6, minDistance: 12 });
 
+  // Five ground materials load faster than eight; the least used go
+  k.trimLayers(5);
   k.environment({ biome: 'desert', sky: 'day', sunAzimuth: 170, sunElevation: 68, fogDensity: 0.0006, tint: '#fff0dc' });
   return k.finish();
 }

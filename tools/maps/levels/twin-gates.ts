@@ -7,6 +7,7 @@
  * same lanes and the same build places.
  */
 import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
+import { edgePolyline, pointAt, polylineLength } from '../../../src/app/editor/ops/path-graph';
 import { facing, LevelKit } from './kit';
 
 export function buildTwinGates(): CustomMapDocument {
@@ -23,21 +24,25 @@ export function buildTwinGates(): CustomMapDocument {
   k.symmetry = 'x';
 
   // ---- Ground: rolling land, the west half copied to the east; castle mounds and the HQ mound
-  k.generate('hills', 88, 0.3);
+  k.generate('hills', 88, 0.6);
   k.mirrorFrom({ x: -1, y: 0 });
-  const castle = { x: -140, y: 0 };
-  k.plateau(castle, { radius: 52, falloff: 0.5 }, k.h(castle.x, castle.y) + 5);
-  k.level(castle, { radius: 40, falloff: 0.3 }, k.h(castle.x, castle.y));
+  const castle = { x: -118, y: 0 };
+  k.plateau(castle, { radius: 62, falloff: 0.5 }, k.h(castle.x, castle.y) + 6);
+  k.level(castle, { radius: 48, falloff: 0.3 }, k.h(castle.x, castle.y));
+  // A dry ditch round the mound and an earth rampart beyond it
+  const ringAt = (r: number): MapPoint[] => Array.from({ length: 33 }, (_, i) => ({ x: castle.x + Math.cos((i / 32) * Math.PI * 2) * r, y: Math.sin((i / 32) * Math.PI * 2) * r }));
+  k.raise(ringAt(64), { radius: 7, falloff: 0.8 }, -1.6);
+  k.raise(ringAt(76), { radius: 6, falloff: 0.9 }, 0.9);
   const hq = { x: 0, y: 0 };
   k.level(hq, { radius: 34, falloff: 0.6 }, k.h(0, 0) + 2);
 
   // ---- Lanes: from the north-west and south-west corners into the bailey, out of the east gate to the HQ
   const road = { width: 8, surface: [] as string[], lamps: false };
   const bailey = { x: castle.x, y: 0 };
-  const eastGate = { x: castle.x + 30, y: 0 };
-  k.road([{ x: -244, y: 214 }, { x: -160, y: 216 }, { x: -96, y: 172 }, { x: -108, y: 96 }, { x: castle.x, y: 50 }, { x: castle.x, y: 30 }, bailey], road);
-  k.road([{ x: -244, y: -214 }, { x: -160, y: -216 }, { x: -96, y: -172 }, { x: -108, y: -96 }, { x: castle.x, y: -50 }, { x: castle.x, y: -30 }, bailey], road);
-  k.road([bailey, eastGate, { x: -70, y: 12 }, { x: -30, y: 4 }, hq], road);
+  const eastGate = { x: castle.x + 36, y: 0 };
+  k.road([{ x: -244, y: 214 }, { x: -160, y: 216 }, { x: -96, y: 172 }, { x: -92, y: 100 }, { x: castle.x, y: 60 }, { x: castle.x, y: 36 }, bailey], road);
+  k.road([{ x: -244, y: -214 }, { x: -160, y: -216 }, { x: -96, y: -172 }, { x: -92, y: -100 }, { x: castle.x, y: -60 }, { x: castle.x, y: -36 }, bailey], road);
+  k.road([bailey, eastGate, { x: -55, y: 10 }, { x: -25, y: 4 }, hq], road);
   // Spawns are set one by one (a mirrored map names its own)
   k.spawn('North-West', -244, 214);
   k.spawn('South-West', -244, -214);
@@ -51,29 +56,29 @@ export function buildTwinGates(): CustomMapDocument {
     k.biome('forest', at, { radius: 34, strength: 0.9 });
   }
   for (const at of [{ x: -200, y: 160 }, { x: -60, y: 120 }, { x: -60, y: -120 }, { x: -200, y: -160 }, { x: -60, y: 0 }]) k.biome('meadow', at, { radius: 60, strength: 0.7 });
-  k.paint('castle-floor', castle, { radius: 30, falloff: 0.5 }, 0.9);
+  k.paint('castle-floor', castle, { radius: 36, falloff: 0.5 }, 0.9);
   k.paint('cobblestone-grey', hq, { radius: 22, falloff: 0.6 }, 0.9);
-  k.paint('rocky-ground', castle, { radius: 58, falloff: 0.2 }, 0.3);
+  k.paint('rocky-ground', castle, { radius: 70, falloff: 0.2 }, 0.3);
 
   // ---- The west castle (mirrored east): curtain walls, corner towers, three gates
-  const [x0, x1, y0, y1] = [castle.x - 30, castle.x + 30, -30, 30];
+  const [x0, x1, y0, y1] = [castle.x - 36, castle.x + 36, -36, 36];
   const wall = (from: MapPoint, to: MapPoint, rotation: number, gap?: MapPoint) => {
-    const n = Math.round(Math.hypot(to.x - from.x, to.y - from.y) / 8);
+    const n = Math.round(Math.hypot(to.x - from.x, to.y - from.y) / 9.6);
     for (let i = 0; i < n; i++) {
       const f = (i + 0.5) / n;
       const p = { x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f };
       if (gap && Math.hypot(p.x - gap.x, p.y - gap.y) < 9) continue;
-      k.place('castle-wall', p.x, p.y, { rotation });
+      k.place('castle-wall', p.x, p.y, { rotation, scale: 1.2 });
     }
   };
   wall({ x: x0 + 4, y: y1 }, { x: x1 - 4, y: y1 }, 0, { x: castle.x, y: y1 });
   wall({ x: x0 + 4, y: y0 }, { x: x1 - 4, y: y0 }, Math.PI, { x: castle.x, y: y0 });
   wall({ x: x0, y: y0 + 4 }, { x: x0, y: y1 - 4 }, Math.PI / 2);
   wall({ x: x1, y: y0 + 4 }, { x: x1, y: y1 - 4 }, -Math.PI / 2, { x: x1, y: 0 });
-  for (const [x, y] of [[x0, y0], [x0, y1], [x1, y0], [x1, y1]] as const) k.place('castle-tower-roof', x, y);
-  k.place('castle-gate', castle.x, y1, { rotation: 0 });
-  k.place('castle-gate', castle.x, y0, { rotation: Math.PI });
-  k.place('castle-gate', x1, 0, { rotation: -Math.PI / 2 });
+  for (const [x, y] of [[x0, y0], [x0, y1], [x1, y0], [x1, y1]] as const) k.place('castle-tower-roof', x, y, { scale: 1.3 });
+  k.place('castle-gate', castle.x, y1, { rotation: 0, scale: 1.25 });
+  k.place('castle-gate', castle.x, y0, { rotation: Math.PI, scale: 1.25 });
+  k.place('castle-gate', x1, 0, { rotation: -Math.PI / 2, scale: 1.25 });
   for (const [x, y, a, r] of [
     [castle.x - 18, 16, 'tent-large', 0.4],
     [castle.x - 18, -16, 'weapon-rack', 1.57],
@@ -95,8 +100,19 @@ export function buildTwinGates(): CustomMapDocument {
   k.row('hedge-long', [{ x: -100, y: -22 }, { x: -40, y: -18 }], 6, { turn: Math.PI / 2 });
   k.row('wall-dry-stone', [{ x: -230, y: 30 }, { x: -200, y: 60 }, { x: -180, y: 110 }], 5.4, { turn: Math.PI / 2 });
   k.row('wall-dry-stone', [{ x: -230, y: -30 }, { x: -200, y: -60 }, { x: -180, y: -110 }], 5.4, { turn: Math.PI / 2 });
-  // Torches along the way to the HQ
-  for (const [x, y] of [[-95, 14], [-60, 20], [-36, 14]] as const) k.place('torch', x, y);
+  // Torches along every lane, alternating sides, every 22 m
+  for (const e of k.doc.paths.edges.filter((ed) => k.doc.paths.nodes.find((n) => n.id === ed.a)!.x < 0)) {
+    const line = edgePolyline(k.doc.paths, e);
+    const len = polylineLength(line);
+    for (let d = 11, n = 0; d < len - 6; d += 22, n++) {
+      const p = pointAt(line, d);
+      const q = pointAt(line, Math.min(len, d + 1));
+      const dl = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+      const side = n % 2 ? 1 : -1;
+      const t = { x: p.x - ((q.y - p.y) / dl) * 6 * side, y: p.y + ((q.x - p.x) / dl) * 6 * side };
+      if (t.x < -2 && Math.abs(t.x - castle.x) + Math.abs(t.y) > 45 && k.free(t.x, t.y, 0.5)) k.place('torch', t.x, t.y);
+    }
+  }
 
   // ---- The middle (on the axis, once): the keep behind the HQ, banners, statues
   k.symmetry = 'none';
@@ -107,6 +123,8 @@ export function buildTwinGates(): CustomMapDocument {
 
   // Four lanes split the first waves four ways: a little more money per lane to open with
   k.gameplay({ startCredits: 250 });
-  k.environment({ biome: 'temperate', sky: 'dusk', sunAzimuth: 180, sunElevation: 9, fogDensity: 0.0006, tint: '#ffe0c8' });
+  // Five ground materials load faster than eight; the least used go
+  k.trimLayers(5);
+  k.environment({ biome: 'temperate', sky: 'day', sunAzimuth: 255, sunElevation: 12, fogDensity: 0.0005, tint: '#ffd6aa' });
   return k.finish();
 }

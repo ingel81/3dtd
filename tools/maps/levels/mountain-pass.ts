@@ -158,6 +158,8 @@ export function buildMountainPass(): CustomMapDocument {
   k.plateau({ x: 82, y: -105 }, { radius: 11, falloff: 0.3 }, k.h(82, -105));
   k.plateau({ x: -82, y: -32 }, { radius: 11, falloff: 0.3 }, k.h(-82, -32));
 
+  // Five ground materials load faster than eight; the least used go
+  k.trimLayers(5);
   k.environment({ biome: 'mountain', sky: 'day', sunAzimuth: 235, sunElevation: 28, fogDensity: 0.0005, tint: '#fff4e6' });
   return k.finish();
 }

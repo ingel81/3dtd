@@ -135,6 +135,8 @@ export function buildWitchMarsh(): CustomMapDocument {
   }
   for (const [x, y] of [[-100, 80], [0, 80], [140, 40], [-90, -90], [40, -120], [160, -230], [-180, 60], [70, 180]] as const) k.place('fx-fireflies', x, y, { scale: 1.3 });
 
+  // Five ground materials load faster than eight; the least used go
+  k.trimLayers(5);
   // The plain night sky (the swamp look lights its clouds pale even at night); the green lives in the low fog banks
   k.environment({ biome: 'temperate', sky: 'night', sunAzimuth: 200, sunElevation: 20, fogDensity: 0.0009, tint: '#cfe6c8' });
   return k.finish();

@@ -27,6 +27,10 @@ export function buildEmberCrater(): CustomMapDocument {
   k.raise({ x: 0, y: 0 }, { radius: 200, falloff: 1 }, 26);
   k.raise({ x: 0, y: 0 }, { radius: 160, falloff: 1 }, 14);
   k.form('crater', { x: 0, y: 0 }, { radius: 200, strength: 1 }, 6);
+  // Rain and rockfall: gullies and fans down the inner wall and the outer slopes, before the road is graded in
+  const ring = (r: number): MapPoint[] => Array.from({ length: 25 }, (_, i) => ({ x: Math.cos((i / 24) * Math.PI * 2) * r, y: Math.sin((i / 24) * Math.PI * 2) * r }));
+  k.erode(ring(95), { radius: 40, strength: 1 }, 4);
+  k.erode(ring(165), { radius: 45, strength: 1 }, 3);
   // The lava lake dug into the crater floor, the island left standing in it
   const lavaLevel = Math.round((k.h(0, 0) - 0.5) * 10) / 10;
   const lava = k.body(lavaLevel, 'lava');
@@ -106,9 +110,16 @@ export function buildEmberCrater(): CustomMapDocument {
   k.place('anvil', 22, -158, { rotation: 0.4 });
   k.place('altar', -150, 30, { rotation: 0.2 });
   for (const [x, y] of [[-30, -20], [25, 30], [-140, -60], [130, -40], [-60, 150], [80, -140], [0, -60]] as const) k.place('fx-smoke', x, y, { scale: 1.4 });
-  for (const [x, y] of [[-40, 30], [40, -30], [10, 45], [-50, -30]] as const) k.place('fx-embers', x, y, { scale: 1.3 });
-  k.scatter(['lava-rock', 'lava-rock-large', 'rock-volcanic', 'hell-spires'], [{ x: -80, y: -90 }, { x: 90, y: 80 }, { x: -110, y: 90 }, { x: 120, y: -80 }], { radius: 35, strength: 0.7 }, { density: 1.2, minDistance: 8 });
+  // Embers only over the lava: the brush's ember spots elsewhere go, a ring of them round the lake shore
+  k.doc.objects = k.doc.objects.filter((o) => o.asset !== 'fx-embers');
+  for (const p of ring(44).slice(0, 24).filter((_, i) => i % 2 === 0)) k.place('fx-embers', p.x, p.y, { scale: 1.2 });
+  // Glowing lava rocks and slabs on the crater wall: they light the ledges between the windings
+  k.scatter(['lava-rock', 'lava-rock', 'lava-rock-large', 'rock-volcanic', 'obsidian-slabs'], ring(80), { radius: 22, strength: 0.8 }, { density: 1.6, minDistance: 8 });
+  k.scatter(['rock-volcanic', 'rock-pumice', 'stones-volcanic-scatter'], ring(120), { radius: 25, strength: 0.8 }, { density: 2, minDistance: 6 });
 
-  k.environment({ biome: 'hell', sky: 'day', sunAzimuth: 200, sunElevation: 30, fogDensity: 0.0008, tint: '#ffd8c0' });
+  // Five ground materials load faster than eight; the least used go
+  k.trimLayers(5);
+  // Dusk over ash-dark ground: the lava and the rocks glow, and the slopes keep their shape in the low red light
+  k.environment({ biome: 'temperate', sky: 'dusk', sunAzimuth: 250, sunElevation: 14, fogDensity: 0.0006, tint: '#ffcfb0' });
   return k.finish();
 }

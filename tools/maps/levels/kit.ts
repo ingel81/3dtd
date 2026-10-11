@@ -31,7 +31,7 @@ import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from '
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from '../../../src/app/editor/ops/landscape/road';
 import { cliffAlong, formDab, type FormKind } from '../../../src/app/editor/ops/landscape/shapes';
 import { ObjectGrid, ObjectIds, scatterDab, type ScatterOptions, DEFAULT_SCATTER } from '../../../src/app/editor/ops/object-ops';
-import { autoPaint, defaultAutoRules, paintDab, type AutoPaintRule } from '../../../src/app/editor/ops/paint-ops';
+import { autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from '../../../src/app/editor/ops/paint-ops';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from '../../../src/app/editor/ops/path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../../../src/app/editor/ops/path-terrain';
 import { mirrorChange, objectImages, symmetryImages, type SymmetryMode } from '../../../src/app/editor/ops/symmetry';
@@ -402,6 +402,30 @@ export class LevelKit {
   autoPaint(rules?: (Omit<AutoPaintRule, 'layer'> & { material: string })[]): void {
     const t = this.doc.terrain;
     autoPaint(t, rules ? rules.map(({ material, ...r }) => ({ ...r, layer: this.layer(material) })) : defaultAutoRules(t));
+  }
+
+  /**
+   * Fewer ground materials load faster (each is a layer of the terrain's
+   * texture arrays and its program): removes the layers with the least
+   * weight over the map, as the Paint panel's remove does (their weight goes
+   * to the others), until at most `max` are left
+   */
+  trimLayers(max: number): string[] {
+    const t = this.doc.terrain;
+    const removed: string[] = [];
+    const w = new Float32Array(8);
+    while (t.layers.length > max) {
+      const sum = new Float64Array(8);
+      for (let k = 0; k < t.splat.resolution * t.splat.resolution; k++) {
+        readWeights(t, k, w);
+        for (let l = 0; l < 8; l++) sum[l] += w[l];
+      }
+      let least = 1;
+      for (let l = 2; l < t.layers.length; l++) if (sum[l] < sum[least]) least = l;
+      removed.push(t.layers[least].material);
+      removeLayer(t, least);
+    }
+    return removed;
   }
 
   /** The cliff material for steep faces (its own slot, not one of the eight layers) and from which angle */

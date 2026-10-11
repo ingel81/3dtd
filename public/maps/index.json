@@ -26,7 +26,7 @@
       "spawns": 2,
       "biome": "mountain",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "335aabd66a87a0fa5ea47f73272527851f8b043cb8142632ba872c3888f856b0"
+      "contentHash": "ac22f804b31be8e0f163744842508de5de20e609a174537741927b99aeb142d5"
     },
     {
       "id": "witch-marsh",
@@ -40,7 +40,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "3021738695013a38393d9d93ac67510f0f3d511c29849a52a824dd3489bcd26e"
+      "contentHash": "0e013c2b75666f96e15c301f22a83be1a15bae9a9daa0fae4e63ffff1c9f85de"
     },
     {
       "id": "autumn-keep",
@@ -54,7 +54,7 @@
       "spawns": 3,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "508e0e7e53be237c0a82b834c675e455b53791d274d5693855ab894986532895"
+      "contentHash": "cb27078f973bab2c31e666de6fb97d7fc1afeb9dfb04534b65119c8a7c1cdf1a"
     },
     {
       "id": "red-canyon",
@@ -68,7 +68,7 @@
       "spawns": 2,
       "biome": "desert",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "68f6ef07ae9a5886b813d33542b052e2450485fdd65c2f057f6cf4c0d3d5a04a"
+      "contentHash": "cdfe63ce02d34a3ec1a890fe64ad152fa5df22b8407cc1681a2fe51dda3e7f51"
     },
     {
       "id": "archipelago",
@@ -96,7 +96,7 @@
       "spawns": 2,
       "biome": "arctic",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "dcfb6459d02951a557487f31c64551c153d50fc6de5ecb97b230aa9b32451990"
+      "contentHash": "7aae65b4d3fbca30b35474ec501593dcdd3ed744afea78d0504a96986dc53986"
     },
     {
       "id": "ember-crater",
@@ -108,9 +108,9 @@
       "width": 512,
       "depth": 512,
       "spawns": 3,
-      "biome": "hell",
+      "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "97cd6bf58d7f3922b58e5d27103433e78689b40e79f617e335ed3f89f057f579"
+      "contentHash": "1d3ba4f27e328977f19041b5fff494f4609783840dc05e87a9d4b2ef0f246716"
     },
     {
       "id": "twin-gates",
@@ -124,7 +124,7 @@
       "spawns": 4,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "6af2e6e8afe30cce588b3a2a96be5379b67d2462a4de3f8dcbfe5a99e7e415ef"
+      "contentHash": "32c986858a1a440d79008806c238ed0117d234b1359f88d97b4634db957e8079"
     }
   ]
 }

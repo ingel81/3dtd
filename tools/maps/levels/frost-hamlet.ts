@@ -103,6 +103,8 @@ export function buildFrostHamlet(): CustomMapDocument {
   k.scatter(['snow-drift-mound', 'rock-snow', 'grass-snow'], [{ x: -90, y: 60 }, { x: -100, y: -50 }, { x: 110, y: 30 }, { x: 90, y: -80 }], { radius: 30, strength: 0.7 }, { density: 2, minDistance: 6 });
   for (const [x, y] of [[-200, 0], [200, 120], [-120, 210], [150, -180], [0, 230]] as const) k.place('fx-snow', x, y, { scale: 1.3 });
 
+  // Five ground materials load faster than eight; the least used go
+  k.trimLayers(5);
   k.environment({ biome: 'arctic', sky: 'dusk', sunAzimuth: 250, sunElevation: 5, fogDensity: 0.0009, tint: '#e6ecff', weather: 'snow', weatherStrength: 0.25 });
   return k.finish();
 }
