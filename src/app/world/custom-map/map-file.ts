@@ -43,6 +43,9 @@ interface BinaryRef {
   $bin: string;
 }
 
+/** Zip times start in 1980 */
+const ZIP_EPOCH = Date.UTC(1980, 0, 2);
+
 const LITTLE_ENDIAN = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
 
 /** Where the arrays live in the zip */
@@ -73,7 +76,10 @@ export function packMapFile(doc: CustomMapDocument, options: PackOptions = {}): 
   const files: Zippable = { [MAP_JSON_ENTRY]: strToU8(JSON.stringify(json)) };
   for (const [name, bytes] of binaries) files[name] = bytes;
   if (options.preview) files[MAP_PREVIEW_ENTRY] = [options.preview, { level: 0 }];
-  return zipSync(files, { level: options.level ?? 6 });
+  // The zip's file times come from the map, so packing the same map gives the same bytes
+  const updated = Date.parse(doc.meta.updatedAt);
+  const mtime = Math.max(Number.isFinite(updated) ? updated : 0, ZIP_EPOCH);
+  return zipSync(files, { level: options.level ?? 6, mtime });
 }
 
 /** A `.3dtdmap` file back into a document; throws `MapFileError` when it is not one */
@@ -181,7 +187,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   const g = t.grid;
   if (!Number.isInteger(g.columns) || !Number.isInteger(g.rows) || g.columns < 2 || g.rows < 2) {
     p.push('terrain grid needs at least 2 x 2 samples');
-  } else if (!(g.heights instanceof Float32Array) || g.heights.length !== g.columns * g.rows) {
+  } else if (!isTyped(g.heights, 'Float32Array') || g.heights.length !== g.columns * g.rows) {
     p.push(`terrain heights hold ${g.heights?.length ?? 0} values, the grid needs ${g.columns * g.rows}`);
   } else {
     for (let k = 0; k < g.heights.length; k++) {
@@ -204,12 +210,12 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   const s = t.splat;
   const texels = (s?.resolution ?? 0) ** 2 * 4;
   if (!s || !Number.isInteger(s.resolution) || s.resolution < 1) p.push('splat resolution is missing');
-  else if (!s.maps || s.maps.length !== 2 || s.maps.some((m) => !(m instanceof Uint8Array) || m.length !== texels)) {
+  else if (!s.maps || s.maps.length !== 2 || s.maps.some((m) => !isTyped(m, 'Uint8Array') || m.length !== texels)) {
     p.push(`splat needs two maps of ${s.resolution} x ${s.resolution} RGBA`);
   }
   if (t.water) {
     if (!finite(t.water.level)) p.push('water level is not a number');
-    if (!(t.water.mask instanceof Uint8Array) || t.water.mask.length !== g.columns * g.rows) {
+    if (!isTyped(t.water.mask, 'Uint8Array') || t.water.mask.length !== g.columns * g.rows) {
       p.push('water mask does not match the grid');
     }
   }
@@ -307,6 +313,11 @@ function bytesToFloat(b: Uint8Array): Float32Array {
   const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
   for (let k = 0; k < n; k++) out[k] = view.getFloat32(k * 4, true);
   return out;
+}
+
+/** Typed array check that holds across realms (structuredClone in a test DOM, workers) */
+function isTyped(v: unknown, kind: 'Float32Array' | 'Uint8Array'): boolean {
+  return Object.prototype.toString.call(v) === `[object ${kind}]`;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {

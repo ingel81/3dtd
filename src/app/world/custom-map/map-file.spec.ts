@@ -111,6 +111,14 @@ describe('map file', () => {
     expect(await contentHash(back)).toBe(await contentHash(doc));
   });
 
+  it('packs the same map into the same bytes', () => {
+    const doc = sample();
+    expect(packMapFile(doc)).toEqual(packMapFile(cloneMapDocument(doc)));
+    const old = cloneMapDocument(doc);
+    old.meta.updatedAt = new Date(0).toISOString();
+    expect(() => unpackMapFile(packMapFile(old))).not.toThrow();
+  });
+
   it('sorts keys in canonical JSON', () => {
     expect(canonicalJson({ b: 1, a: [{ d: 2, c: 3 }], u: undefined })).toBe('{"a":[{"c":3,"d":2}],"b":1}');
   });
