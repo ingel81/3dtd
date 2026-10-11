@@ -3,22 +3,29 @@
  * grows its objects under a round brush with a frayed rim.
  *
  * - Heights pull toward the original ground plus the biome's relief (rolling
- *   hills, ridges, dunes, a level village, a sunken swamp with pools), so a
- *   held brush settles instead of piling up; roads keep their ground.
+ *   hills, ridges, dunes, crater fields, a level village, a sunken swamp
+ *   with pools of swamp water, lava or ice), so a held brush settles
+ *   instead of piling up; roads keep their ground.
  * - Ground paint mixes the biome's materials by noise, a steep-slope
- *   material on slopes.
+ *   material on slopes, a shore material around pools, and a pattern on
+ *   top: the city's street grid or hell's glowing cracks.
  * - Objects come from a jittered grid per object kind and stroke seed:
  *   every grid cell has one candidate spot and one dice roll, decided once,
  *   so the forest is the same however the mouse moved over it. Core plants
  *   grow where the brush was strong, edge plants (undergrowth, fences) where
  *   it only brushed the rim; edge plants are decided when the stroke ends.
+ *   A kind mixes all its candidate assets the catalogue has, one per spot.
+ *   City buildings and lamps take fixed slots along the street grid.
  */
 import type { MapTerrain } from '../../../world/custom-map/map-document';
 import { sampleRectAround, sampleX, sampleY, slopeAt, texelRectAround, texelX, texelY, type GridRect } from '../../model/grid';
 import { brushWeight, type BrushSettings } from '../brush';
 import { MAX_LAYERS, readWeights, writeWeights } from '../paint-ops';
 import { HEIGHT_LIMITS } from '../terrain-ops';
-import type { BiomeDef, BiomeObject } from './biomes';
+import { CITY_GRID, type BiomeDef, type BiomeObject } from './biomes';
+import { citySlots, streetDistance } from './city';
+import { crackAt } from './cracks';
+import { craterProfile } from './shapes';
 import type { CatalogIndex } from '../../catalog/asset-catalog';
 import { smooth, type LandscapeNoise } from './landscape-noise';
 import type { LandscapeStroke } from './landscape-stroke';
@@ -49,7 +56,37 @@ function relief(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number):
       return -r.amplitude * (0.6 + 0.4 * n.fbm(x, y, r.wave, 3));
     case 'flatten':
       return 0;
+    case 'craters':
+      return r.amplitude * (craterField(n, x, y, r.wave) + 0.15 * n.fbm(x, y, r.wave * 2, 3));
   }
+}
+
+/**
+ * A field of craters: about half the cells of a `wave` metre grid hold one,
+ * of a random size (small ones many, big ones few); deeper the wider. In
+ * units of the relief amplitude.
+ */
+export function craterField(n: LandscapeNoise, x: number, y: number, wave: number): number {
+  const ci = Math.floor(x / wave);
+  const cj = Math.floor(y / wave);
+  let h = 0;
+  for (let j = cj - 1; j <= cj + 1; j++) {
+    for (let i = ci - 1; i <= ci + 1; i++) {
+      if (n.hash(i, j, 71) > 0.55) continue;
+      const size = n.hash(i, j, 74);
+      const radius = wave * (0.15 + 0.5 * size * size);
+      const d = Math.hypot(x - (i + n.hash(i, j, 72)) * wave, y - (j + n.hash(i, j, 73)) * wave);
+      if (d < radius * 1.8) h += craterProfile(d / radius) * (0.4 + 1.6 * (radius / wave));
+    }
+  }
+  return h;
+}
+
+/** The pattern layers of a biome, resolved once per dab */
+interface PatternLayers {
+  kind: BiomeDef['pattern'];
+  a: number | null;
+  b: number | null;
 }
 
 /** Swamp pool noise at a point, 0..1; pools lie below `biome.pools` */
@@ -86,13 +123,14 @@ export function biomeDab(
   stroke.anchor ??= { ...center, h: stroke.baseHeight(...sampleIndex(t, center.x, center.y)) };
   const strength = brush.strength;
 
-  // Water for swamp pools: the existing level, or a new one just under the stroke's start
-  const waterLevel = biome.pools ? stroke.ensureWater(stroke.anchor.h - 0.3) : null;
+  // Water for the pools: a body of the biome's kind near the stroke's start, or a new one just under it
+  const pool = biome.pools ? stroke.poolWater(stroke.anchor.h - 0.3, biome.water ?? 'water') : null;
+  const waterLevel = pool ? pool.water.level : null;
 
   // Heights
   const rect = sampleRectAround(t, center.x, center.y, brush.radius);
   stroke.touchHeights(rect);
-  if (waterLevel !== null) stroke.touchWater(rect);
+  pool?.touch(rect);
   const pull = 1 - Math.exp(-SHAPE_RATE * Math.min(dt, 0.1));
   let wet = false;
   for (let j = rect.j0; j <= rect.j1; j++) {
@@ -114,7 +152,7 @@ export function biomeDab(
           target = Math.min(target, waterLevel + 0.25 - 1.1 * p);
           // The mask only where the ground ends up under the level, so no water floats over the shore
           if (p > 0.3) {
-            t.water!.mask[k] = 255;
+            pool!.water.mask[k] = 255;
             wet = true;
           }
         }
@@ -128,10 +166,16 @@ export function biomeDab(
   // Ground paint
   const layers = biome.ground.map((gr) => ({ layer: stroke.layerOf(gr.material), share: gr.share }));
   const steep = biome.steepGround ? stroke.layerOf(biome.steepGround) : null;
-  const mud = biome.pools ? stroke.layerOf(['mud', 'dirt']) : null;
+  const mud = biome.pools ? stroke.layerOf(biome.shoreGround ?? ['mud', 'dirt']) : null;
+  const pattern: PatternLayers =
+    biome.pattern === 'streets'
+      ? { kind: 'streets', a: stroke.layerOf(['asphalt', 'asphalt-cracked', 'paving']), b: stroke.layerOf(['sidewalk', 'concrete', 'paving']) }
+      : biome.pattern === 'cracks'
+        ? { kind: 'cracks', a: stroke.layerOf(['lava', 'lava-crust']), b: stroke.layerOf(['lava-crust', 'obsidian', 'basalt']) }
+        : { kind: undefined, a: null, b: null };
   const trect = texelRectAround(t, center.x, center.y, brush.radius);
   stroke.touchSplat(trect);
-  paintBiome(stroke, t, trect, center, brush, biome, layers, steep, mud, Math.min(1, PAINT_RATE * Math.min(dt, 0.1)));
+  paintBiome(stroke, t, trect, center, brush, biome, layers, steep, mud, pattern, Math.min(1, PAINT_RATE * Math.min(dt, 0.1)));
 
   // Objects
   const placed = growObjects(stroke, center, brush, biome, false);
@@ -162,6 +206,7 @@ function paintBiome(
   layers: { layer: number | null; share: number }[],
   steep: number | null,
   mud: number | null,
+  pattern: PatternLayers,
   rate: number,
 ): void {
   const usable = layers.filter((l) => l.layer !== null) as { layer: number; share: number }[];
@@ -176,7 +221,7 @@ function paintBiome(
       const x = texelX(t, u);
       const w = frayedWeight(stroke.noise, Math.hypot(x - center.x, y - center.y), x, y, brush);
       if (w <= 0) continue;
-      groundMix(stroke, t, biome, usable, steep, mud, x, y, target, noiseOf);
+      groundMix(stroke, t, biome, usable, steep, mud, pattern, x, y, target, noiseOf);
       const a = Math.min(1, rate * w * (0.5 + 0.5 * brush.strength));
       const texel = v * res + u;
       readWeights(t, texel, w8);
@@ -190,8 +235,8 @@ function paintBiome(
  * The biome's ground at a point as a soft mix: each material grows in
  * broad clusters of its own noise (wavelength about 50 m) weighted by its
  * share, so patches have soft, irregular rims instead of salt and pepper;
- * the steep material takes over smoothly on slopes, mud rings the swamp
- * pools.
+ * the steep material takes over smoothly on slopes, mud (or the biome's
+ * shore ground) rings the pools, and the pattern goes on top.
  */
 function groundMix(
   stroke: LandscapeStroke,
@@ -200,6 +245,7 @@ function groundMix(
   usable: { layer: number; share: number }[],
   steep: number | null,
   mud: number | null,
+  pattern: PatternLayers,
   x: number,
   y: number,
   out: Float32Array,
@@ -222,6 +268,15 @@ function groundMix(
   };
   if (steep !== null) fold(steep, smooth(24, 36, slopeAt(t, x, y)));
   if (mud !== null && biome.pools) fold(mud, poolShore(stroke, biome, x, y) * 0.9);
+  if (pattern.kind === 'streets') {
+    const d = streetDistance(x, y);
+    if (pattern.b !== null) fold(pattern.b, 1 - smooth(CITY_GRID.sidewalk - 0.4, CITY_GRID.sidewalk + 0.4, d));
+    if (pattern.a !== null) fold(pattern.a, 1 - smooth(CITY_GRID.street - 0.3, CITY_GRID.street + 0.3, d));
+  } else if (pattern.kind === 'cracks') {
+    const c = crackAt(stroke, x, y);
+    if (pattern.b !== null) fold(pattern.b, c.crust * 0.8);
+    if (pattern.a !== null) fold(pattern.a, c.crack);
+  }
 }
 
 /** The jittered-grid cell size for a density (one candidate per cell) */
@@ -241,6 +296,10 @@ function zoneChance(zone: BiomeObject['zone'], w: number, shore = 0): number {
     case 'edge':
       // A band at the rim: weights between a touch and the middle
       return w <= 0.02 ? 0 : smooth(0.02, 0.15, w) * (1 - smooth(0.45, 0.75, w));
+    case 'block':
+    case 'street':
+      // Slots of the street grid, decided in growSlots
+      return smooth(0.45, 0.85, w);
   }
 }
 
@@ -259,12 +318,16 @@ function growObjects(
 ): string[] {
   const t = stroke.doc.terrain;
   const placed: string[] = [];
+  const streets = biome.pattern === 'streets';
   biome.objects.forEach((o, kind) => {
-    const asset = o.assets.find((a) => stroke.catalog.objects.has(a));
-    if (!asset) return;
+    const assets = o.assets.filter((a) => stroke.catalog.objects.has(a));
+    if (!assets.length) return;
+    if (o.zone === 'block' || o.zone === 'street') {
+      if (center) placed.push(...growSlots(stroke, center, brush, o, kind, assets));
+      return;
+    }
     // Density follows the brush strength; the grid is fixed per stroke so candidates stay put
     const cell = cellSize(o, 1);
-    const footprint = stroke.catalog.object(asset).radius;
     const visit = (ci: number, cj: number, w: number) => {
       const key = `${kind}:${ci}:${cj}`;
       if (stroke.decided.has(key)) return;
@@ -286,6 +349,9 @@ function growObjects(
       }
       stroke.decided.add(key);
       if (Math.abs(px) > t.width / 2 - 2 || Math.abs(py) > t.depth / 2 - 2) return;
+      const asset = assets[Math.floor(n.hash(ci, cj, kind * 4 + 6) * assets.length) % assets.length];
+      const footprint = stroke.catalog.object(asset).radius;
+      if (streets && streetDistance(px, py) < CITY_GRID.sidewalk + footprint + 0.5) return;
       if (!stroke.freeForObject(px, py, footprint)) return;
       if (stroke.grid.near({ x: px, y: py }, o.spacing)) return;
       const s = o.scale[0] + (o.scale[1] - o.scale[0]) * n.hash(ci, cj, kind * 4 + 4);
@@ -322,6 +388,38 @@ function growObjects(
   return placed;
 }
 
+/** City buildings and lamps: the grid's slots under the brush where it is strong, each decided once */
+function growSlots(
+  stroke: LandscapeStroke,
+  center: { x: number; y: number },
+  brush: BrushSettings,
+  o: BiomeObject,
+  kind: number,
+  assets: string[],
+): string[] {
+  const t = stroke.doc.terrain;
+  const n = stroke.noise;
+  const r = brush.radius;
+  const placed: string[] = [];
+  for (const slot of citySlots(o.zone as 'block' | 'street', center.x - r, center.x + r, center.y - r, center.y + r)) {
+    const key = `${kind}:${slot.key}`;
+    if (stroke.decided.has(key)) continue;
+    const w = frayedWeight(n, Math.hypot(slot.x - center.x, slot.y - center.y), slot.x, slot.y, brush);
+    if (w < 0.45) continue;
+    stroke.decided.add(key);
+    const [hi, hj] = [Math.round(slot.x * 10), Math.round(slot.y * 10)];
+    if (n.hash(hi, hj, kind * 4 + 3) >= Math.min(1, o.perHectare) * brush.strength) continue;
+    if (Math.abs(slot.x) > t.width / 2 - 4 || Math.abs(slot.y) > t.depth / 2 - 4) continue;
+    const asset = assets[Math.floor(n.hash(hi, hj, kind * 4 + 6) * assets.length) % assets.length];
+    if (!stroke.freeForObject(slot.x, slot.y, stroke.catalog.object(asset).radius * 0.5)) continue;
+    if (stroke.grid.near(slot, o.spacing)) continue;
+    const s = o.scale[0] + (o.scale[1] - o.scale[0]) * n.hash(hi, hj, kind * 4 + 4);
+    const obj = stroke.addObject({ asset, x: slot.x, y: slot.y, z: 0, rotation: slot.rotation, scale: Math.round(s * 1000) / 1000 });
+    placed.push(obj.id);
+  }
+  return placed;
+}
+
 /** Candidate spots the brush would grow at, for the preview under the cursor */
 export function previewSpots(
   noise: LandscapeNoise,
@@ -334,6 +432,14 @@ export function previewSpots(
   const out: { x: number; y: number }[] = [];
   biome.objects.forEach((o, kind) => {
     if (!o.assets.some((a) => catalog.objects.has(a))) return;
+    if (o.zone === 'block' || o.zone === 'street') {
+      const r = brush.radius;
+      for (const slot of citySlots(o.zone, center.x - r, center.x + r, center.y - r, center.y + r)) {
+        const w = frayedWeight(noise, Math.hypot(slot.x - center.x, slot.y - center.y), slot.x, slot.y, brush);
+        if (out.length < limit && w >= 0.45) out.push({ x: slot.x, y: slot.y });
+      }
+      return;
+    }
     const cell = cellSize(o, 1);
     const r = brush.radius;
     for (let cj = Math.floor((center.y - r) / cell); cj <= Math.floor((center.y + r) / cell) && out.length < limit; cj++) {

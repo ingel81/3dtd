@@ -50,6 +50,31 @@ export class WaterSwapCommand implements EditCommand {
   }
 }
 
+/** A water body a stroke added at the end of the list (its mask fills through the stroke's patches) */
+export class BodyAddCommand implements EditCommand {
+  readonly bytes: number;
+
+  constructor(
+    readonly label: string,
+    private readonly index: number,
+    private readonly body: MapWater,
+  ) {
+    this.bytes = body.mask.byteLength;
+  }
+
+  apply(doc: CustomMapDocument): DocChange {
+    (doc.terrain.waterBodies ??= []).splice(this.index, 0, structuredClone(this.body));
+    return { water: true };
+  }
+
+  revert(doc: CustomMapDocument): DocChange {
+    const t = doc.terrain;
+    t.waterBodies?.splice(this.index, 1);
+    if (!t.waterBodies?.length) delete t.waterBodies;
+    return { water: true };
+  }
+}
+
 /** The list of rivers and lava flows before and after */
 export class RiverListCommand implements EditCommand {
   readonly bytes: number;

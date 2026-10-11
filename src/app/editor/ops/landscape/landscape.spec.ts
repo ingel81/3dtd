@@ -12,6 +12,7 @@ import { erosionDab } from './erosion';
 import { LandscapeStroke } from './landscape-stroke';
 import { carveRiver, DEFAULT_RIVER } from './river';
 import { buildRoad, DEFAULT_ROAD } from './road';
+import { citySlots, streetDistance } from './city';
 import { cliffAlong, craterProfile, formDab, formHeight } from './shapes';
 import { cracksDab } from './cracks';
 import { readWeights } from '../paint-ops';
@@ -44,6 +45,7 @@ function snapshot(doc: CustomMapDocument) {
     layers: doc.terrain.layers.map((l) => l.material),
     objects: doc.objects.map((o) => ({ ...o })),
     water: doc.terrain.water ? Array.from(doc.terrain.water.mask) : null,
+    bodies: (doc.terrain.waterBodies ?? []).map((b) => ({ kind: b.kind, level: b.level, mask: Array.from(b.mask) })),
   };
 }
 
@@ -63,7 +65,7 @@ describe('biome brush', () => {
     const ed = map();
     paint(ed, 'forest', 1);
     const trees = ed.doc.objects.filter((o) => o.asset.startsWith('tree'));
-    const bushes = ed.doc.objects.filter((o) => o.asset === 'bush');
+    const bushes = ed.doc.objects.filter((o) => ['bush', 'shrub', 'bush-ivy'].includes(o.asset));
     expect(trees.length).toBeGreaterThan(40);
     expect(bushes.length).toBeGreaterThan(5);
     const meanDist = (list: typeof trees) => list.reduce((s, o) => s + Math.abs(o.y - 80), 0) / list.length;
@@ -103,7 +105,8 @@ describe('biome brush', () => {
     for (let k = 0; k < 10; k++) biomeDab(stroke, { x: 0, y: 100 }, brush, biomeById('desert'), 0.1);
     stroke.finish();
     const t = ed.doc.terrain;
-    const sandLayer = t.layers.findIndex((l) => l.material === 'sand');
+    // The desert's ground, whichever of its materials
+    const grass = t.layers.findIndex((l) => l.material === 'grass');
     const res = t.splat.resolution;
     let painted = 0;
     let bare = 0;
@@ -112,8 +115,8 @@ describe('biome brush', () => {
       const y = 100 + Math.sin((a / 64) * Math.PI * 2) * 34;
       const u = Math.floor(((x + 200) / 400) * res);
       const v = Math.floor(((y + 200) / 400) * res);
-      const w = t.splat.maps[sandLayer >> 2][(v * res + u) * 4 + (sandLayer & 3)];
-      if (w > 128) painted++;
+      const w = t.splat.maps[grass >> 2][(v * res + u) * 4 + (grass & 3)];
+      if (w < 128) painted++;
       else bare++;
     }
     expect(painted).toBeGreaterThan(4);
@@ -124,13 +127,16 @@ describe('biome brush', () => {
     const ed = map();
     const before = snapshot(ed.doc);
     paint(ed, 'swamp', 11);
-    expect(ed.doc.terrain.water).not.toBeNull();
+    // Swamp pools fill a body of swamp water, not the main water
+    expect(ed.doc.terrain.water).toBeNull();
+    expect(ed.doc.terrain.waterBodies?.map((b) => b.kind)).toEqual(['swamp']);
     expect(ed.doc.objects.length).toBeGreaterThan(0);
     expect(ed.historySteps).toBe(1);
     ed.undo();
     expect(snapshot(ed.doc)).toEqual(before);
+    expect(ed.doc.terrain.waterBodies).toBeUndefined();
     ed.redo();
-    expect(ed.doc.terrain.water!.mask.some((v) => v > 0)).toBe(true);
+    expect(ed.doc.terrain.waterBodies![0].mask.some((v) => v > 0)).toBe(true);
   });
 
   it('every biome paints with the shipped catalogue', () => {
@@ -140,6 +146,45 @@ describe('biome brush', () => {
       expect(ed.historySteps).toBe(1);
       expect(ed.doc.objects.length).toBeGreaterThan(0);
     }
+  });
+
+  it('lays the city on a street grid with buildings facing the streets', () => {
+    const ed = map();
+    const stroke = new LandscapeStroke(ed, 'City', 2, catalog);
+    const def = biomeById('city');
+    for (let x = -60; x <= 60; x += 6) for (let k = 0; k < 4; k++) biomeDab(stroke, { x, y: -100 }, { ...brush, radius: 60 }, def, 0.1);
+    finishBiome(stroke, brush, def);
+    stroke.finish();
+    const t = ed.doc.terrain;
+    const layers = t.layers.map((l) => l.material);
+    expect(layers).toContain('asphalt');
+    expect(layers).toContain('sidewalk');
+    const houses = ed.doc.objects.filter((o) => o.asset.startsWith('house'));
+    expect(houses.length).toBeGreaterThan(6);
+    for (const h of houses) {
+      expect(streetDistance(h.x, h.y)).toBeGreaterThan(10);
+      // Front (+y at turn 0) points at the nearer street
+      const fx = -Math.sin(h.rotation);
+      const fy = Math.cos(h.rotation);
+      expect(streetDistance(h.x + fx * 6, h.y + fy * 6)).toBeLessThan(streetDistance(h.x, h.y));
+    }
+    expect(ed.doc.objects.filter((o) => o.asset === 'lamp-post').every((o) => streetDistance(o.x, o.y) < 8.5)).toBe(true);
+    expect(citySlots('street', -64, 64, -64, 64).length).toBeGreaterThan(8);
+  });
+
+  it('fills hell pools with lava and the arctic ones with ice, and pocks the moon with craters', () => {
+    const hell = map();
+    paint(hell, 'hell', 3);
+    expect(hell.doc.terrain.waterBodies?.map((b) => b.kind)).toEqual(['lava']);
+    expect(hell.doc.terrain.layers.map((l) => l.material)).toContain('lava');
+    const arctic = map();
+    paint(arctic, 'arctic', 3);
+    expect(arctic.doc.terrain.waterBodies?.map((b) => b.kind)).toEqual(['ice']);
+    const moon = map();
+    paint(moon, 'moon', 3);
+    const row = Array.from({ length: 80 }, (_, k) => heightAt(moon.doc.terrain, -80 + k * 2, 80));
+    expect(Math.min(...row)).toBeLessThan(-1);
+    expect(Math.max(...row)).toBeGreaterThan(0.3);
   });
 
   it('previews the spots it would grow on', () => {

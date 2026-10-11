@@ -10,24 +10,17 @@
 import type { CustomMapDocument, MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
 import type { DocChange, EditCommand, EditorDocument, PatchTarget } from '../model/editor-document';
 import { nearestSample, sampleRectAround } from '../model/grid';
-import { basinSpillHeight, emptyWater, fillBasin, fillFromEdge, lakeDab, waterBody, waterMaskDab } from '../ops/water-ops';
+import { basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, waterBody, waterMaskDab } from '../ops/water-ops';
 import { symmetryImages } from '../ops/symmetry';
 import { BrushStroke } from './brush-stroke';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
+
+export { BODY_COLORS } from '../ops/water-ops';
 
 /** Metres the water stays below a hollow's rim */
 const RIM_MARGIN = 0.3;
 /** Share per second a lake bed sinks toward its depth at full strength */
 const DIG_RATE = 3;
-
-/** Default look of a new body by kind */
-export const BODY_COLORS: Record<MapWaterKind, string> = {
-  water: '#2f5f6f',
-  sea: '#1f4f6a',
-  swamp: '#4a5a2c',
-  ice: '#cfe6ef',
-  lava: '#ff5a14',
-};
 
 const ADD_LABELS: Record<MapWaterKind, string> = { water: 'Add lake', sea: 'Add sea', swamp: 'Add swamp', ice: 'Add ice', lava: 'Add lava' };
 

@@ -7,7 +7,7 @@
  * every brush pulls toward a target from the original ground instead of
  * piling up dab by dab.
  */
-import type { CustomMapDocument, MapGroundLayer, MapObject, MapPaths, MapPoint, MapRiver, MapWater } from '../../../world/custom-map/map-document';
+import type { CustomMapDocument, MapGroundLayer, MapObject, MapPaths, MapPoint, MapRiver, MapWater, MapWaterKind } from '../../../world/custom-map/map-document';
 import type { CatalogIndex } from '../../catalog/asset-catalog';
 import {
   CompoundCommand,
@@ -22,11 +22,11 @@ import {
 } from '../../model/editor-document';
 import type { GridRect } from '../../model/grid';
 import { RegionRecorder } from '../../model/region-patch';
-import { LayerListCommand, RiverListCommand, WaterSwapCommand } from '../../model/terrain-commands';
+import { BodyAddCommand, LayerListCommand, RiverListCommand, WaterSwapCommand } from '../../model/terrain-commands';
 import { MAX_LAYERS } from '../paint-ops';
 import { ObjectGrid, ObjectIds } from '../object-ops';
 import { edgePolyline, nearestOnPolyline } from '../path-graph';
-import { emptyWater } from '../water-ops';
+import { BODY_COLORS, emptyWater } from '../water-ops';
 import { mirrorChange, objectImages, sameSector, symmetryImages, type SymmetryMode } from '../symmetry';
 import { LandscapeNoise } from './landscape-noise';
 
@@ -50,6 +50,12 @@ export class LandscapeStroke {
   private readonly layersBefore: MapGroundLayer[];
   private readonly waterBefore: MapWater | null;
   private createdWater: MapWater | null = null;
+  /** Mask recorders of the further bodies the stroke touched, by index */
+  private readonly bodyRecorders = new Map<number, RegionRecorder<Uint8Array>>();
+  /** Bodies the stroke added at the end of the list */
+  private readonly bodiesAdded: number[] = [];
+  /** The body each kind of pool fills in this stroke */
+  private readonly poolBodies = new Map<MapWaterKind, number>();
   private pathsBefore: MapPaths | null = null;
   private riversBefore: { list: MapRiver[] | undefined } | null = null;
   readonly added: MapObject[] = [];
@@ -119,14 +125,13 @@ export class LandscapeStroke {
     if (this.roadDistance(x, y, footprint + 2) < footprint + 1) return false;
     for (const m of this.markers) if (Math.hypot(m.x - x, m.y - y) < MARKER_CLEARANCE + footprint) return false;
     const t = this.doc.terrain;
-    if (t.water) {
-      const g = t.grid;
-      const i = Math.round((x + t.width / 2) / g.cellSize);
-      const j = Math.round((y + t.depth / 2) / g.cellSize);
-      if (i >= 0 && j >= 0 && i < g.columns && j < g.rows) {
-        const k = j * g.columns + i;
-        if (t.water.mask[k] && g.heights[k] < t.water.level + 0.2) return false;
-      }
+    const g = t.grid;
+    const i = Math.round((x + t.width / 2) / g.cellSize);
+    const j = Math.round((y + t.depth / 2) / g.cellSize);
+    if (i >= 0 && j >= 0 && i < g.columns && j < g.rows) {
+      const k = j * g.columns + i;
+      const wet = (w: MapWater | null | undefined) => !!w && !!w.mask[k] && g.heights[k] < w.level + 0.2;
+      if (wet(t.water) || t.waterBodies?.some(wet)) return false;
     }
     return true;
   }
@@ -166,6 +171,36 @@ export class LandscapeStroke {
       this.editor.emit({ water: true });
     }
     return t.water.level;
+  }
+
+  /**
+   * The water pools of a kind fill: the main water for plain water (created
+   * at `level` when there is none), else a body of that kind near `level`,
+   * added when the map has none. Returns the body and a function that
+   * records a rect of its mask before the stroke writes there.
+   */
+  poolWater(level: number, kind: MapWaterKind): { water: MapWater; touch: (rect: GridRect) => void } {
+    const t = this.doc.terrain;
+    if (kind === 'water') {
+      this.ensureWater(level);
+      return { water: t.water!, touch: (r) => this.touchWater(r) };
+    }
+    const bodies = (t.waterBodies ??= []);
+    let index = this.poolBodies.get(kind) ?? bodies.findIndex((b) => b.kind === kind && Math.abs(b.level - level) < 2);
+    if (index < 0) {
+      bodies.push({ ...emptyWater(t, Math.round(level * 10) / 10), color: BODY_COLORS[kind], kind });
+      index = bodies.length - 1;
+      this.bodiesAdded.push(index);
+      this.editor.emit({ water: true });
+    }
+    this.poolBodies.set(kind, index);
+    let recorder = this.bodyRecorders.get(index);
+    if (!recorder) {
+      recorder = new RegionRecorder(bodies[index].mask, patchLayout(this.doc, `body${index}`));
+      this.bodyRecorders.set(index, recorder);
+    }
+    const r = recorder;
+    return { water: bodies[index], touch: (rect) => r.touch(rect) };
   }
 
   /** Call before the stroke changes the road network (river bridges, a new road) */
@@ -234,11 +269,13 @@ export class LandscapeStroke {
     const layersAfter = t.layers.map((l) => ({ ...l }));
     if (layersAfter.length !== this.layersBefore.length) parts.push(new LayerListCommand('Layers', this.layersBefore, layersAfter));
     if (this.createdWater) parts.push(new WaterSwapCommand('Water', this.waterBefore, this.createdWater));
+    for (const index of this.bodiesAdded) parts.push(new BodyAddCommand('Water', index, structuredClone(t.waterBodies![index])));
     const patches = new PatchCommand(this.label, [
       { target: 'heights', patches: this.heights.finish() },
       { target: 'splat0', patches: this.splat[0].finish() },
       { target: 'splat1', patches: this.splat[1].finish() },
       ...(this.waterRecorder ? [{ target: 'water' as const, patches: this.waterRecorder.finish() }] : []),
+      ...[...this.bodyRecorders].map(([index, r]) => ({ target: `body${index}` as const, patches: r.finish() })),
     ]);
     if (!patches.empty) parts.push(patches);
     if (this.riversBefore) parts.push(new RiverListCommand('Rivers', this.riversBefore.list, t.rivers ? structuredClone(t.rivers) : undefined));

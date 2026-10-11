@@ -6,11 +6,20 @@
  * across every connected sample below its level, the lake brush digs a bed
  * under it, the sea fill floods in from the map's edge.
  */
-import type { MapTerrain, MapWater } from '../../world/custom-map/map-document';
+import type { MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
 import { sampleRectAround, sampleX, sampleY, type GridRect } from '../model/grid';
 import { brushWeight, type BrushSettings } from './brush';
 
 export const DEFAULT_WATER_COLOR = '#2f5f6f';
+
+/** Default look of a new body by kind */
+export const BODY_COLORS: Record<MapWaterKind, string> = {
+  water: DEFAULT_WATER_COLOR,
+  sea: '#1f4f6a',
+  swamp: '#4a5a2c',
+  ice: '#cfe6ef',
+  lava: '#ff5a14',
+};
 
 export function emptyWater(terrain: MapTerrain, level = 0): MapWater {
   return { level, mask: new Uint8Array(terrain.grid.columns * terrain.grid.rows), color: DEFAULT_WATER_COLOR };
