@@ -171,5 +171,13 @@ describe('firstAffordableUpgrade', () => {
       const t = tower([{ id: 'research-slots', cost: 10, level: lockedLevel }]);
       expect(upgradeTrackRefusal(t, 'research-slots', 100, 1)).toBeNull();
     });
+
+    it('refuses every track of a tower still in its scaffold, and U as well (TODO E141)', () => {
+      const t = { ...tower([{ id: 'damage', cost: 10 }]), builtAtMs: 5000 };
+      expect(upgradeTrackRefusal(t, 'damage', 100, 1)).toEqual({ kind: 'building' });
+      expect(upgradeRefusal(t, 100, 1)).toEqual({ kind: 'building' });
+      expect(upgradePlan(t, 100, 1, 5, null)).toEqual([]);
+      expect(upgradeTrackRefusal({ ...t, builtAtMs: 0 }, 'damage', 100, 1)).toBeNull();
+    });
   });
 });

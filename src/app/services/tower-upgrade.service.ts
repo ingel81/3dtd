@@ -11,6 +11,7 @@ import {
   upgradePlan,
   upgradeRefusal,
   upgradeTrackRefusal,
+  isUnderConstruction,
   type UpgradeRefusal,
 } from '../utils/player-actions';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
@@ -38,6 +39,7 @@ function refusalLabel(refusal: UpgradeRefusal): string {
     case 'credits': return `NEED ${refusal.missing} CREDITS`;
     case 'tier': return 'NEEDS RESEARCH';
     case 'maxed': return 'FULLY UPGRADED';
+    case 'building': return 'UNDER CONSTRUCTION';
   }
 }
 
@@ -125,6 +127,11 @@ export class TowerUpgradeService {
   choosePath(tower: Tower, pathId: TowerPathId): boolean {
     const path = getTowerPath(pathId);
     if (!path || tower.pathId !== null) return false;
+    // The simulation's rule (TODO E141): the panel shows the tile disabled meanwhile
+    if (isUnderConstruction(tower)) {
+      uiSound.play('denied');
+      return false;
+    }
     // The simulation's rule, for the owner: the tower panel offers paths only on the player's own towers
     if (!pathUnlockedBy(this.researchStore.completedResearches(), path.id)) {
       uiSound.play('denied');

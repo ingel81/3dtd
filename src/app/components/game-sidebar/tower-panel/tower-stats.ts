@@ -158,5 +158,7 @@ export function upgradeRefusalText(refusal: UpgradeRefusal, upgradeName: (id: Up
       return `Research ${TIER_RESEARCH[refusal.tier] ?? `tier ${refusal.tier}`} for the next levels`;
     case 'maxed':
       return 'Fully upgraded';
+    case 'building':
+      return 'Under construction: upgrades once it stands';
   }
 }

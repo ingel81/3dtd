@@ -378,11 +378,49 @@ describe('Manning a tower, through the sub-step loop', () => {
     expect(setBuild.mock.calls).toEqual([[tower.id, DEFAULT_BUILD_TIME_MS, DEFAULT_BUILD_TIME_MS]]);
   });
 
+  it('refuses upgrades and paths, by command too, while the tower stands in its scaffold; it sells (TODO E141)', () => {
+    const gsm = createGame();
+    gsm.addCredits(5000, 'cheat');
+    const research = gsm.researchOf(gsm.localPlayerId);
+    research.restoreState({ ...research.getState(), completed: ['scouting'] });
+    const tower = gsm.placeTower(TOWER_AT, 'archer')!;
+    const credits = gsm.creditsOf(gsm.localPlayerId);
+    const bus = gsm.getEventBus();
+    const clock = { now: 1000 };
+
+    // The commands a click, the bot and a coop partner send all meet the same rule
+    bus.emit({ type: 'command:upgrade-tower', towerId: tower.id, upgradeId: 'damage' });
+    bus.emit({ type: 'command:choose-path', towerId: tower.id, pathId: 'scout' });
+    steps(gsm, clock, 1);
+    expect(tower.getUpgradeLevel('damage')).toBe(0);
+    expect(tower.pathId).toBeNull();
+    expect(gsm.creditsOf(gsm.localPlayerId)).toBe(credits);
+
+    steps(gsm, clock, Math.ceil(DEFAULT_BUILD_TIME_MS / 16) + 5);
+    expect(tower.builtAtMs).toBe(0);
+    bus.emit({ type: 'command:upgrade-tower', towerId: tower.id, upgradeId: 'damage' });
+    bus.emit({ type: 'command:choose-path', towerId: tower.id, pathId: 'scout' });
+    steps(gsm, clock, 1);
+    expect(tower.getUpgradeLevel('damage')).toBe(1);
+    expect(tower.pathId).toBe('scout');
+  });
+
+  it('sells a tower still in its scaffold as before (TODO E141)', () => {
+    const gsm = createGame();
+    const tower = gsm.placeTower(TOWER_AT, 'archer')!;
+    expect(tower.isBuilt(gsm.gameTimeMs)).toBe(false);
+    const before = gsm.creditsOf(gsm.localPlayerId);
+    expect(gsm.sellTower(tower)).toBeGreaterThan(0);
+    expect(gsm.creditsOf(gsm.localPlayerId)).toBeGreaterThan(before);
+  });
+
   it('buys the Scout path once its research is done, once per tower, and sells it back with the tower (TODO E101)', () => {
     const gsm = createGame();
     const setPath = vi.mocked(gsm.ops.sink.towers.setPath);
     gsm.addCredits(5000, 'cheat');
     const tower = gsm.placeTower(TOWER_AT, 'archer')!;
+    // Out of its scaffold first (TODO E141)
+    steps(gsm, { now: 1000 }, Math.ceil(DEFAULT_BUILD_TIME_MS / 16) + 5);
     const credits = () => gsm.creditsOf(gsm.localPlayerId);
 
     // Not before Scouting is researched

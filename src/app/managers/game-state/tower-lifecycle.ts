@@ -168,12 +168,13 @@ export class TowerLifecycle {
 
   /**
    * Buy path `pathId` for `tower` (configs/tower-paths.config.ts): of its type, opened by its owner's
-   * research, none taken yet, paid by the acting player. The model shows it (towers.setPath).
+   * research, none taken yet, the tower out of its scaffold (TODO E141), paid by the acting player. The model shows it (towers.setPath).
    * @returns false when it may not
    */
   choosePath(tower: Tower, pathId: string): boolean {
     const path = getTowerPath(pathId);
     if (!path || tower.pathId !== null || path.towerId !== tower.typeConfig.id) return false;
+    if (!tower.isBuilt(this.gameTimeMs())) return false;
     if (!this.research(tower.ownerId).isPathUnlocked(path.id)) return false;
     if (!this.creditsLedger.spend(path.cost, 'upgrade', this.actingPlayer())) return false;
     tower.pathId = path.id;
@@ -336,9 +337,10 @@ export class TowerLifecycle {
 
   /**
    * Upgrade one track of a tower by one level and emit tower:upgraded.
-   * @returns false if refused: maxed out, tier not researched, credits short
+   * @returns false if refused: still in its scaffold (TODO E141), maxed out, tier not researched, credits short
    */
   upgrade(tower: Tower, upgradeId: UpgradeId): boolean {
+    if (!tower.isBuilt(this.gameTimeMs())) return false;
     const cost = tower.getNextUpgradeCost(upgradeId);
     if (cost <= 0 || !tower.canUpgrade(upgradeId)) return false;
 

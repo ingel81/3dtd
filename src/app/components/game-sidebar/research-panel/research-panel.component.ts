@@ -107,6 +107,7 @@ export class SidebarResearchPanelComponent {
 
   /** Not buyable right now: the tile looks disabled, a click on it still says why. */
   isUpgradeRefused(upgradeId: UpgradeId): boolean {
+    this.store.selectedTowerRevision();
     return upgradeTrackRefusal(
       this.tower(), upgradeId, this.store.credits(), this.researchStore.maxUpgradeTier(),
     ) !== null;

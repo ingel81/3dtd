@@ -38,10 +38,19 @@ export interface UpgradableTower {
   getAvailableUpgrades(): readonly { id: UpgradeId }[];
   getNextUpgradeCost(upgradeId: UpgradeId): number;
   getUpgradeLevel(upgradeId: UpgradeId): number;
+  /** Game ms its build ends, 0 once it stands (Tower.builtAtMs); absent in stubs, which stand */
+  readonly builtAtMs?: number;
+}
+
+/** Still in its scaffold (Tower.builtAtMs): no upgrade and no path until it stands (TODO E141) */
+export function isUnderConstruction(tower: { readonly builtAtMs?: number }): boolean {
+  return (tower.builtAtMs ?? 0) !== 0;
 }
 
 /** Why an upgrade cannot be bought, see upgradeTrackRefusal() and upgradeRefusal(). */
 export type UpgradeRefusal =
+  /** The tower still stands in its scaffold (isUnderConstruction) */
+  | { kind: 'building' }
   /** The track (for upgradeRefusal() every track) is at its last level */
   | { kind: 'maxed' }
   /** The track (the cheapest within the unlocked tiers) costs more than the credits */
@@ -53,7 +62,7 @@ export type UpgradeRefusal =
  * Why this track cannot be bought right now, null when it can: its last
  * level is reached, its next level needs an upgrade tier not researched yet
  * (the Research Center's slot track has no tiers), or the credits are
- * short. A tier-locked track names the tier even when the credits are short
+ * short. A tower still in its scaffold buys nothing at all (TODO E141). A tier-locked track names the tier even when the credits are short
  * as well, credits alone would not buy it. The same rules as the upgrade
  * tiles and `command:upgrade-tower`.
  */
@@ -63,6 +72,7 @@ export function upgradeTrackRefusal(
   credits: number,
   maxUpgradeTier: number,
 ): UpgradeRefusal | null {
+  if (isUnderConstruction(tower)) return { kind: 'building' };
   if (!tower.getAvailableUpgrades().some((u) => u.id === upgradeId)) return { kind: 'maxed' };
   const cost = tower.getNextUpgradeCost(upgradeId);
   if (cost <= 0) return { kind: 'maxed' };
@@ -122,6 +132,7 @@ export function upgradePlan(
       return upgrade && level(id) < upgrade.maxLevel ? getUpgradeCost(upgrade, level(id)) : 0;
     },
     getUpgradeLevel: level,
+    builtAtMs: tower.builtAtMs,
   };
   const plan: UpgradeId[] = [];
   let left = credits;
@@ -145,6 +156,7 @@ export function upgradeRefusal(
   credits: number,
   maxUpgradeTier: number,
 ): UpgradeRefusal | null {
+  if (isUnderConstruction(tower)) return { kind: 'building' };
   let cheapest: Extract<UpgradeRefusal, { kind: 'credits' }> | null = null;
   let lowestLockedTier = Infinity;
   for (const upgrade of tower.getAvailableUpgrades()) {

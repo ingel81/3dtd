@@ -48,7 +48,8 @@ describe('GameStateSyncService (real service)', () => {
   let waveDebug: WaveDebugService;
   let logSubs: SubscriptionBag;
   let health = 100;
-  let mirror: { scalars: { gameTimeMs: number }; localPlayerId: string };
+  let mirror: { scalars: { gameTimeMs: number }; localPlayerId: string; onTowerChange: unknown };
+  let towerChange: ((change: { kind: string; tower: { id: string } }) => void) | null = null;
 
   beforeEach(() => {
     // TowerDefenseStore composes sub-stores via inject(). Register every
@@ -76,7 +77,15 @@ describe('GameStateSyncService (real service)', () => {
     injectionRegistry['RunLogFacade'] = { collector: log, current: () => log.current() };
 
     eventBus = createMainEventBus();
-    mirror = { scalars: { gameTimeMs: 0 }, localPlayerId: 'local' };
+    towerChange = null;
+    mirror = {
+      scalars: { gameTimeMs: 0 },
+      localPlayerId: 'local',
+      onTowerChange: (listener: (change: { kind: string; tower: { id: string } }) => void) => {
+        towerChange = listener;
+        return () => { towerChange = null; };
+      },
+    };
     injectionRegistry['SimClient'] = { bus: eventBus };
     injectionRegistry['SimMirror'] = mirror;
     injectionRegistry['DebugStore'] = new DebugStore();
@@ -355,6 +364,14 @@ describe('GameStateSyncService (real service)', () => {
     it('tower:upgraded of the selected tower → selectedTowerRevision++', () => {
       store.selectedTower.set({ id: 'sel' } as never);
       eventBus.emit({ type: 'tower:upgraded', tower: { id: 'sel' } as never, level: 2, cost: 50, upgradeId: 'damage' });
+      expect(store.selectedTowerRevision()).toBe(1);
+    });
+
+    it('a new state of the selected shadow tower (its build ended) → selectedTowerRevision++ (TODO E141)', () => {
+      store.selectedTower.set({ id: 'sel' } as never);
+      towerChange!({ kind: 'state', tower: { id: 'other' } });
+      expect(store.selectedTowerRevision()).toBe(0);
+      towerChange!({ kind: 'state', tower: { id: 'sel' } });
       expect(store.selectedTowerRevision()).toBe(1);
     });
   });

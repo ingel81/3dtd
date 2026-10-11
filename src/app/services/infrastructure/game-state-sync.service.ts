@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { SubscriptionBag } from '../../game-engine/game-event-bus';
+import { EventSubscription, SubscriptionBag } from '../../game-engine/game-event-bus';
 import { SimClient } from '../../sim/client/sim-client.service';
 import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
@@ -162,6 +162,11 @@ export class GameStateSyncService {
     };
     this.subs.add(eventBus.onLive('tower:kill', (event) => bumpIfSelected(event.tower.id)));
     this.subs.add(eventBus.onLive('tower:upgraded', (event) => bumpIfSelected(event.tower.id)));
+    // Its build ending has no event: the panel's upgrade tiles open with the
+    // shadow tower's next state (TODO E141)
+    this.subs.add(new EventSubscription(this.mirror.onTowerChange((change) => {
+      if (change.kind === 'state') bumpIfSelected(change.tower.id);
+    })));
 
     // ── Enemy lifecycle ───────────────────────────────────────────
     this.subs.add(eventBus.onLive('enemy:spawned', (_event) => {

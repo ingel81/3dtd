@@ -351,6 +351,12 @@ stehen sofort, weil ihre Wirkung nicht auf den Bau wartet. `TowerLifecycle.place
 des Bauendes), bis dahin feuert der Tower nicht (`Tower.isBuilt`, auch bemannt), `finishBuilds` setzt es je Sub-Step
 zurück auf 0. Snapshot und Prüfsumme tragen es, ein Replay baut also gleich.
 
+Im Gerüst gibt es weder Upgrade noch Pfad (E141): `TowerLifecycle.upgrade` und `choosePath` lehnen ab, für jeden
+Befehl gleich (Klick, Taste U, Bot, Coop-Mitspieler). Das Panel zeigt die Kacheln gesperrt mit „Under construction“
+(`isUnderConstruction`, Absage `building` in `utils/player-actions.ts`); das Bauende kommt ohne eigenes Event, die
+Revision des gewählten Towers zählt mit dem nächsten Zustand des Schatten-Towers hoch (`GameStateSyncService`).
+Verkaufen geht im Gerüst wie sonst (üblicher Anteil).
+
 Darstellung: Op `towers.setBuild(id, restMs, gesamtMs)`, `TowerBuild` in `tower-scaffold.ts`. Ein Gerüst aus Rohren
 und Brettern steht um das Modell, das Modell wächst schichtweise von unten (Clip-Ebene auf seinen eigenen Materialien,
 `renderer.localClippingEnabled`), gezählt in Spielzeit. Das Ende kommt von der Simulation, dann fährt das Gerüst ein.

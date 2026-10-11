@@ -42,7 +42,7 @@ import { COOP } from '../../../services/coop.token';
 import { getTowerPath, pathsOf, type TowerPath, type TowerPathId } from '../../../configs/tower-paths.config';
 import { getResearch, pathUnlockedBy } from '../../../configs/research/research-tree.config';
 import { TowerUpgradeService } from '../../../services/tower-upgrade.service';
-import { UPGRADE_MANY, upgradeTimes, upgradeTrackRefusal } from '../../../utils/player-actions';
+import { UPGRADE_MANY, isUnderConstruction, upgradeTimes, upgradeTrackRefusal } from '../../../utils/player-actions';
 
 /**
  * How often the panel re-reads the damage dealt (ms). It grows with every hit,
@@ -123,6 +123,15 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
     return towerStats(this.tower());
   });
 
+  /**
+   * Still in its scaffold: upgrades and paths wait until it stands (TODO E141). The build's end
+   * bumps the revision (GameStateSyncService), so the tiles open with it.
+   */
+  readonly underConstruction = computed(() => {
+    this.store.selectedTowerRevision();
+    return isUnderConstruction(this.tower());
+  });
+
   /** The paths of the tower's type (configs/tower-paths.config.ts) */
   readonly paths = computed(() => pathsOf(this.tower().typeConfig.id));
   /** The path it took, null while none; follows the same revision as the stats */
@@ -141,6 +150,7 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
 
   /** The tooltip of a path tile: what it does, and what it waits for */
   pathTooltip(path: TowerPath): string {
+    if (this.underConstruction()) return `${path.description} Once the tower stands.`;
     if (this.isPathUnlocked(path)) return `${path.description} Once per tower.`;
     return `${path.description} Research ${getResearch(path.research)?.name ?? path.research} first.`;
   }
@@ -191,6 +201,7 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
 
   /** Not buyable right now: the tile looks disabled, a click on it still says why. */
   isUpgradeRefused(upgradeId: UpgradeId): boolean {
+    this.store.selectedTowerRevision();
     return upgradeTrackRefusal(
       this.tower(), upgradeId, this.store.credits(), this.researchStore.maxUpgradeTier(),
     ) !== null;

@@ -129,7 +129,9 @@
 
   <!-- Upgrades -->
   <div class="td-stack tp-upgrades">
-    @if (!viewOnly() && hintView().refusalText; as reason) {
+    @if (!viewOnly() && underConstruction()) {
+      <p class="td-banner" role="status">Under construction: upgrades once it stands</p>
+    } @else if (!viewOnly() && hintView().refusalText; as reason) {
       <p class="td-banner is-warn" role="status">{{ reason }}</p>
     }
     @for (upgrade of tower().getAvailableUpgrades(); track upgrade.id) {
@@ -171,7 +173,7 @@
           @let unlocked = isPathUnlocked(path);
           <button class="td-plate-btn"
                   [class.is-locked]="!unlocked"
-                  [attr.aria-disabled]="!unlocked || store.credits() < path.cost || viewOnly()"
+                  [attr.aria-disabled]="!unlocked || underConstruction() || store.credits() < path.cost || viewOnly()"
                   [matTooltip]="pathTooltip(path)" matTooltipPosition="left"
                   (click)="onChoosePath(path.id)">
             <td-icon [size]="18" [name]="unlocked ? 'eye' : 'lock'"></td-icon>
