@@ -161,7 +161,7 @@ export class CustomMapView {
    * the number of programs it built.
    */
   async warmUp(renderer: WebGLRenderer, scene: Object3D, camera: Camera): Promise<number> {
-    await this.ready;
+    await Promise.all([this.ready, this.environment.envReady]);
     if (this.disposed) return 0;
     const before = renderer.info.programs?.length ?? 0;
     await renderer.compileAsync(scene, camera);

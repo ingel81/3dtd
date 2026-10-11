@@ -1,5 +1,7 @@
 import {
   AmbientLight,
+  BufferAttribute,
+  BufferGeometry,
   Color,
   DataTexture,
   DirectionalLight,
@@ -8,13 +10,17 @@ import {
   Group,
   HemisphereLight,
   LinearFilter,
+  Mesh,
+  OrthographicCamera,
   PMREMGenerator,
   RGBAFormat,
+  Scene as ThreeScene,
   SRGBColorSpace,
   UnsignedByteType,
   Vector3,
   type Camera,
   type Fog,
+  type Material,
   type Scene,
   type WebGLRenderTarget,
   type WebGLRenderer,
@@ -70,6 +76,14 @@ export class CustomMapEnvironment {
   readonly sunDir = new Vector3();
   private envTarget: WebGLRenderTarget | null = null;
   private pmrem: PMREMGenerator | null = null;
+  /** Whether the PMREM programs are linked; until then a sky change waits for them */
+  private pmremReady = false;
+  private envDirty = false;
+  /**
+   * Resolves once the environment map holds the sky. The first one waits for
+   * PMREM's programs to link off the main thread; `warmUp` waits for it.
+   */
+  envReady: Promise<void> = Promise.resolve();
   private shadowRadius = 300;
   private scene: Scene | null = null;
   private renderer: WebGLRenderer | null = null;
@@ -285,6 +299,8 @@ export class CustomMapEnvironment {
     this.sky.dispose();
     this.envTarget?.dispose();
     this.pmrem?.dispose();
+    this.envTarget = null;
+    this.pmrem = null;
     this.sun.shadow.dispose();
     this.skyDome.dispose();
     this.weather.dispose();
@@ -315,13 +331,32 @@ export class CustomMapEnvironment {
     if (!scene || !renderer) return;
     const p = this.look();
     scene.background = this.sky;
+    this.envDirty = true;
     if (!this.pmrem) {
-      this.pmrem = new PMREMGenerator(renderer);
-      this.pmrem.compileEquirectangularShader();
+      // PMREM links its programs (equirect to cube, GGX) on first use, synchronously: 280 to 500 ms
+      // on the main thread. The target is set up now, so materials compile with the environment map
+      // they will have, and filled once the programs have linked in parallel (then 10 to 20 ms)
+      const pmrem = new PMREMGenerator(renderer);
+      const inside = pmrem as unknown as PmremInternals;
+      inside._setSize(this.sky.image.width / 4);
+      this.pmrem = pmrem;
+      this.envTarget = inside._allocateTargets();
+      this.envReady = linkPmrem(renderer, pmrem, this.envTarget).then(() => {
+        if (this.pmrem !== pmrem) return;
+        this.pmremReady = true;
+        this.fillEnvironment();
+      });
+    } else if (this.pmremReady) {
+      this.fillEnvironment();
     }
-    this.envTarget = this.pmrem.fromEquirectangular(this.sky, this.envTarget);
-    scene.environment = this.envTarget.texture;
+    scene.environment = this.envTarget?.texture ?? null;
     scene.environmentIntensity = p.envIntensity;
+  }
+
+  private fillEnvironment(): void {
+    if (!this.envDirty || !this.pmrem || !this.envTarget) return;
+    this.envDirty = false;
+    this.pmrem.fromEquirectangular(this.sky, this.envTarget);
   }
 
   private buildSky(): DataTexture {
@@ -391,4 +426,43 @@ const SRGB_TABLE = (() => {
 
 function toSrgbByte(linear: number): number {
   return SRGB_TABLE[linear <= 0 ? 0 : linear >= 1 ? 4096 : (linear * 4096) | 0];
+}
+
+/** The parts of three's PMREMGenerator (r186) the environment sets up ahead of its first use */
+interface PmremInternals {
+  _setSize(cubeSize: number): void;
+  _allocateTargets(): WebGLRenderTarget;
+  _equirectMaterial: Material | null;
+  _ggxMaterial: Material | null;
+}
+
+/**
+ * Links PMREM's programs off the main thread: compiled for a linear render
+ * target as PMREM draws them (compileEquirectangularShader alone compiles
+ * the equirect program for the screen, a variant PMREM never uses), then
+ * awaited with compileAsync. compileEquirectangularShader compiles on a
+ * mesh without positions, also a variant PMREM never draws.
+ */
+async function linkPmrem(renderer: WebGLRenderer, pmrem: PMREMGenerator, target: WebGLRenderTarget): Promise<void> {
+  const inside = pmrem as unknown as PmremInternals;
+  const previous = renderer.getRenderTarget();
+  const scene = new ThreeScene();
+  // A position attribute is part of the program key (three r186); PMREM's planes have one
+  const geometry = new BufferGeometry().setAttribute('position', new BufferAttribute(new Float32Array(3), 3));
+  try {
+    renderer.setRenderTarget(target);
+    pmrem.compileEquirectangularShader();
+    // The blur runs only for PMREM from a scene; from a texture it is the GGX convolution
+    for (const material of [inside._equirectMaterial, inside._ggxMaterial]) {
+      if (material) scene.add(new Mesh(geometry, material));
+    }
+    const linked = renderer.compileAsync(scene, new OrthographicCamera());
+    renderer.setRenderTarget(previous);
+    await linked;
+  } catch {
+    // Without the internals PMREM links on first use as before
+    renderer.setRenderTarget(previous);
+  } finally {
+    geometry.dispose();
+  }
 }
