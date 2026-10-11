@@ -10,6 +10,7 @@ import {
   Vector4,
   type Texture,
 } from 'three';
+import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
 import { addHeightFog } from '../environment/height-fog';
 
@@ -18,8 +19,12 @@ import { addHeightFog } from '../environment/height-fog';
  * around the camera's focus (each blade's spot is fixed in the world and
  * folded into the tile), standing on the height grid (fetched in the vertex
  * shader), as dense as the grass layers of the splat there (none on roads,
- * paths and cliffs), swaying in the wind and shrinking away towards the
- * tile's edge so the switch to the painted ground is not seen.
+ * paths and cliffs), swaying in the wind. Towards a circle inside the
+ * tile the blades thin out (dithered) and shrink, so neither the tile's
+ * square nor the switch to the painted ground is seen. Each blade takes the
+ * colour the ground has under it (the splat's layer averages with the
+ * terrain's macro variation), so from high up the blades do not show as a
+ * patch of their own colour.
  *
  * Lit like any standard material (shadows received, fog, grade); blades do
  * not cast shadows. Not part of line of sight.
@@ -30,9 +35,8 @@ export interface GrassInputs {
   pathMask: Texture;
   /** Grass share per splat channel (1 for grass layers, 0 otherwise), maps 0 and 1 */
   mask: [Vector4, Vector4];
-  /** Root and tip colour (linear), from the grass layers' average */
-  root: Color;
-  tip: Color;
+  /** Average colour (linear) of the layer in each splat channel, maps 0 and 1 in order */
+  colors: Color[];
   width: number;
   depth: number;
 }
@@ -57,8 +61,7 @@ export class GrassField {
     uGrassMask0: { value: new Vector4() },
     uGrassMask1: { value: new Vector4() },
     uGrassMapSize: { value: new Vector2() },
-    uGrassRoot: { value: new Color() },
-    uGrassTip: { value: new Color() },
+    uGrassColors: { value: Array.from({ length: 8 }, () => new Color()) },
   };
 
   constructor(heights: HeightTexture) {
@@ -105,7 +108,10 @@ export class GrassField {
         .replace('#include <begin_vertex>', GRASS_BEGIN);
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\nvarying vec3 vBladeColor;')
-        .replace('#include <map_fragment>', 'diffuseColor.rgb = vBladeColor;');
+        .replace('#include <map_fragment>', 'diffuseColor.rgb = vBladeColor;')
+        // Blades are double sided and three flips the normal on back faces: half the blades then
+        // faced down and showed as dark specks over the meadow
+        .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal = normalize(vNormal);');
     };
     material.customProgramCacheKey = () => 'custom-map-grass-1';
     addHeightFog(material);
@@ -125,8 +131,7 @@ export class GrassField {
     u.uGrassPath.value = p.pathMask;
     u.uGrassMask0.value.copy(p.mask[0]);
     u.uGrassMask1.value.copy(p.mask[1]);
-    u.uGrassRoot.value.copy(p.root);
-    u.uGrassTip.value.copy(p.tip);
+    u.uGrassColors.value.forEach((c, k) => c.copy(p.colors[k] ?? c.setRGB(0.2, 0.3, 0.1)));
     u.uGrassMapSize.value.set(p.width, p.depth);
     this.hasGrass = p.mask[0].lengthSq() + p.mask[1].lengthSq() > 0;
     this.mesh.visible = this.hasGrass && this.near;
@@ -163,9 +168,9 @@ uniform sampler2D uGrassPath;
 uniform vec4 uGrassMask0;
 uniform vec4 uGrassMask1;
 uniform vec2 uGrassMapSize;
-uniform vec3 uGrassRoot;
-uniform vec3 uGrassTip;
+uniform vec3 uGrassColors[8];
 varying vec3 vBladeColor;
+${SHADER_NOISE}
 
 ${TERRAIN_HEIGHT_GLSL}
 `;
@@ -195,11 +200,13 @@ float hy = terrainHeightAt(mapPos + vec2(0.0, 1.0)) - terrainHeightAt(mapPos - v
 float slope = length(vec2(hx, hy)) * 0.5;
 grass *= smoothstep(0.9, 0.5, slope);
 grass *= step(abs(mapPos.x), uGrassMapSize.x * 0.5) * step(abs(mapPos.y), uGrassMapSize.y * 0.5);
-// Shrink towards the tile's edge
+// Towards a circle inside the tile: fewer blades (each drops out at its own threshold), and shorter
 float edge = length(sceneXZ - uGrassCenter) / (0.5 * uGrassTile);
-float keep = smoothstep(0.45, 0.8, grass) * (1.0 - smoothstep(0.55, 0.95, edge));
+float fade = 1.0 - smoothstep(0.3, 0.88, edge);
+float keep = smoothstep(0.45, 0.8, grass) * smoothstep(0.0, 0.25, fade - fract(aBladeRand.x * 7.31 + aBladeRand.y * 3.17));
+keep *= 0.4 + 0.6 * fade;
 float bladeHeight = (0.35 + aBladeRand.y * 0.45) * keep;
-float bladeWidth = (0.07 + aBladeRand.z * 0.05) * step(0.001, keep);
+float bladeWidth = (0.07 + aBladeRand.z * 0.05) * sqrt(keep);
 // Turned at random, bent by its own lean and the wind
 float a = aBladeRand.x * 6.2832;
 vec2 dir = vec2(cos(a), sin(a));
@@ -210,7 +217,29 @@ vec2 sway = vec2(0.8, 0.3) * (0.15 + 0.35 * gust) + vec2(sin(uGrassTime * 2.7 + 
 vec2 lean = vec2(-dir.y, dir.x) * (aBladeRand.w - 0.5) * 0.5;
 transformed.xz += (lean + sway) * t * t * bladeHeight;
 transformed += vec3(sceneXZ.x, terrainHeightAt(mapPos), sceneXZ.y);
-// Dark root to light tip, each blade a little different
-vec3 bladeTip = uGrassTip * (1.05 + aBladeRand.z * 0.35) * mix(vec3(1.0), vec3(1.12, 1.05, 0.8), step(0.85, aBladeRand.y));
-vBladeColor = mix(uGrassRoot * 0.75, bladeTip, smoothstep(0.0, 0.8, t));
+// The ground's colour here: the grass layers' averages by splat weight, with the terrain's macro
+// variation and grading (terrain-material.ts), so blades match the painted ground under them
+vec3 ground = vec3(0.0);
+float gw = 0.0;
+for (int k = 0; k < 4; k++) {
+  ground += uGrassColors[k] * s0[k] * uGrassMask0[k] + uGrassColors[k + 4] * s1[k] * uGrassMask1[k];
+  gw += s0[k] * uGrassMask0[k] + s1[k] * uGrassMask1[k];
+}
+ground /= max(gw, 1e-3);
+float n1 = valueNoise(mapPos * 0.017);
+float n2 = valueNoise(mapPos * 0.0041 + 17.0);
+float n3 = valueNoise(mapPos * 0.11);
+ground *= mix(0.86, 1.1, n1 * 0.6 + n2 * 0.4) * mix(0.93, 1.06, n3);
+ground = mix(ground, ground * vec3(1.1, 1.04, 0.8), smoothstep(0.5, 0.85, n2) * 0.5);
+ground = mix(ground, ground * vec3(0.84, 0.92, 0.95), smoothstep(0.45, 0.15, n1) * 0.6);
+ground *= mix(vec3(1.0), vec3(0.86, 1.04, 0.92), smoothstep(0.0, 0.08, ground.g - max(ground.r, ground.b)));
+ground = mix(vec3(dot(ground, vec3(0.299, 0.587, 0.114))), ground, 0.94);
+// The ground's texture AO darkens it a little on average
+ground *= 0.94;
+// Darker root, lighter tip, each blade a little different; the same brightness as the ground on
+// average, and flatter with distance, where single blades are below a pixel
+float near = 1.0 - smoothstep(25.0, 110.0, length((modelViewMatrix * vec4(transformed, 1.0)).xyz));
+float shade = mix(0.78, 1.18, smoothstep(0.0, 0.8, t)) * (0.94 + aBladeRand.z * 0.12);
+vec3 dry = mix(vec3(1.0), vec3(1.1, 1.04, 0.82), step(0.85, aBladeRand.y));
+vBladeColor = ground * mix(vec3(1.0), dry * shade, near);
 `;

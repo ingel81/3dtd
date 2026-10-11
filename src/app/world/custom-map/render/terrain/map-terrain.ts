@@ -145,22 +145,17 @@ export class MapTerrainLayer {
     this.chunks.setMaterial(this.material);
     this.apron.material = this.material;
 
-    // Grass blades where the splat paints grass layers, coloured like them
+    // Grass blades where the splat paints grass layers, coloured like the ground under them
     // Vector4 defaults to w = 1, which marked the eighth layer as grass on every map
     const mask: [Vector4, Vector4] = [new Vector4(0, 0, 0, 0), new Vector4(0, 0, 0, 0)];
-    const tip = new Color(0, 0, 0);
-    let grassLayers = 0;
-    t.layers.slice(0, 8).forEach((layer, k) => {
-      if (entryOf(layer.material)?.category !== 'grass') return;
-      mask[k >> 2].setComponent(k & 3, 1);
+    const colors = Array.from({ length: 8 }, (_, k) => {
       const px = pixels[slots.splat[k]];
-      if (px) tip.add(new Color().setRGB(px.average[0], px.average[1], px.average[2], SRGBColorSpace));
-      grassLayers++;
+      return px ? new Color().setRGB(px.average[0], px.average[1], px.average[2], SRGBColorSpace) : new Color();
     });
-    if (grassLayers) tip.multiplyScalar(1 / grassLayers);
-    // The same green correction the ground gets (terrain-material.ts): photo grass averages read olive
-    if (tip.g > Math.max(tip.r, tip.b)) tip.multiply(new Color(0.86, 1.04, 0.92));
-    this.grassInputs = { mask, root: tip.clone().multiplyScalar(0.7), tip, width: t.width, depth: t.depth };
+    t.layers.slice(0, 8).forEach((layer, k) => {
+      if (entryOf(layer.material)?.category === 'grass') mask[k >> 2].setComponent(k & 3, 1);
+    });
+    this.grassInputs = { mask, colors, width: t.width, depth: t.depth };
     this.updateGrassInputs();
   }
 
