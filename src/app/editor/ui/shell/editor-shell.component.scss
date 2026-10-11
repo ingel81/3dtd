@@ -139,6 +139,34 @@
   flex: 0 1 auto;
 }
 
+.es-help-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+}
+
+.es-help {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  z-index: 21;
+  width: min(860px, calc(100vw - 32px));
+  max-height: calc(100vh - 100px);
+  transform: translateX(-50%);
+}
+
+.es-help-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--td-sp-4) var(--td-sp-5);
+}
+
+.es-help-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--td-sp-1);
+}
+
 .es-status {
   grid-area: status;
 }

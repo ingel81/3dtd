@@ -12,15 +12,16 @@ const WEATHERS: { id: MapWeather; label: string }[] = [
 ];
 
 /**
- * A time of day as sun and sky: the sun rises in the east at 6, stands in
- * the south at noon 60 degrees high, sets in the west at 18; before and
- * after, the sky turns to dusk, then night. An overcast sky stays overcast.
+ * A time of day as sun and sky, a summer day: the sun rises in the east at
+ * 6, stands in the south at 13 60 degrees high, sets in the west at 20;
+ * low sun is dusk, an hour past sunset is night. An overcast sky stays
+ * overcast.
  */
 export function timeOfDay(hour: number, sky: MapEnvironment['sky']): Partial<MapEnvironment> {
-  const f = (hour - 6) / 12;
+  const f = (hour - 6) / 14;
   const elevation = 60 * Math.sin(Math.PI * f);
   const azimuth = ((90 + 180 * f) % 360 + 360) % 360;
-  const nextSky: MapEnvironment['sky'] = sky === 'overcast' ? 'overcast' : elevation < 0 ? 'night' : elevation < 12 ? 'dusk' : 'day';
+  const nextSky: MapEnvironment['sky'] = sky === 'overcast' ? 'overcast' : elevation < -6 ? 'night' : elevation < 15 ? 'dusk' : 'day';
   return { sunAzimuth: Math.round(azimuth), sunElevation: Math.round(Math.max(2, elevation)), sky: nextSky };
 }
 
@@ -100,7 +101,7 @@ export class EnvironmentPanelComponent {
 
   /** The hour the sun's direction stands for (east 6, south 12, west 18) */
   hourOf(e: MapEnvironment): number {
-    const h = 6 + ((e.sunAzimuth - 90) / 180) * 12;
+    const h = 6 + ((e.sunAzimuth - 90) / 180) * 14;
     return Math.min(22, Math.max(4, Math.round(h * 4) / 4));
   }
 

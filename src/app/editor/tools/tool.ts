@@ -23,21 +23,23 @@ export interface ToolInfo {
   label: string;
   /** The key that picks it */
   key: string;
+  /** What it is for, for the tooltip */
+  about: string;
 }
 
 export const TOOLS: readonly ToolInfo[] = [
-  { id: 'landscape', label: 'Landscape', key: '1' },
-  { id: 'terrain', label: 'Terrain', key: '2' },
-  { id: 'paint', label: 'Paint', key: '3' },
-  { id: 'water', label: 'Water', key: '4' },
-  { id: 'objects', label: 'Objects', key: '5' },
-  { id: 'paths', label: 'Paths', key: '6' },
-  { id: 'markers', label: 'Spawns and HQ', key: '7' },
-  { id: 'environment', label: 'Environment', key: '8' },
-  { id: 'settings', label: 'Map', key: '9' },
-  { id: 'stamp', label: 'Copy and stamps', key: '0' },
-  { id: 'gameplay', label: 'Gameplay', key: 'g' },
-  { id: 'measure', label: 'Measure', key: 'd' },
+  { id: 'landscape', label: 'Landscape', key: '1', about: 'Biomes, mountains, rivers and roads: ground, paint and plants at once' },
+  { id: 'terrain', label: 'Terrain', key: '2', about: 'Raise, lower, smooth, level, terrace, cliffs and ramps' },
+  { id: 'paint', label: 'Paint', key: '3', about: 'Ground layers and auto paint' },
+  { id: 'water', label: 'Water', key: '4', about: 'Fill hollows, paint water, lava or ice' },
+  { id: 'objects', label: 'Objects', key: '5', about: 'Place, scatter, select, move, turn and scale' },
+  { id: 'paths', label: 'Paths', key: '6', about: 'Draw and edit the roads enemies walk' },
+  { id: 'markers', label: 'Spawns and HQ', key: '7', about: 'Where enemies come from and what they attack' },
+  { id: 'environment', label: 'Environment', key: '8', about: 'Sky, time of day, fog and weather' },
+  { id: 'settings', label: 'Map', key: '9', about: 'Name, size and the terrain generator' },
+  { id: 'stamp', label: 'Copy and stamps', key: '0', about: 'Copy a rectangle, place it turned, keep stamps' },
+  { id: 'gameplay', label: 'Gameplay', key: 'G', about: 'Start credits, HQ health, towers and waves of this map' },
+  { id: 'measure', label: 'Measure', key: 'D', about: 'Lengths, lane walking times, height lines and grid' },
 ];
 
 export type TerrainMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'level' | 'noise' | 'erode' | 'terrace' | 'plateau' | 'ramp';

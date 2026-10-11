@@ -92,6 +92,8 @@ export class EditorShellComponent implements OnDestroy {
   readonly tools = TOOLS;
   readonly icons = TOOL_ICON;
   readonly fileMenu = signal(false);
+  readonly help = signal(false);
+  readonly shortcuts = SHORTCUTS;
   readonly symmetryModes = SYMMETRY_MODES;
   readonly symmetry = computed(() => (this.session.settingsRev(), this.session.settings.symmetry));
   readonly symmetryHint = computed(() => {
@@ -137,6 +139,7 @@ export class EditorShellComponent implements OnDestroy {
   }
 
   onKeyDown(e: KeyboardEvent): void {
+    if (this.help() && e.key === 'Escape') return this.handled(e, () => this.help.set(false));
     if (typing(e)) {
       if (e.key === 'Escape') (e.target as HTMLElement).blur();
       return;
@@ -162,7 +165,8 @@ export class EditorShellComponent implements OnDestroy {
       });
     }
     if (!ctrl && !e.altKey) {
-      const tool = TOOLS.find((t) => t.key === e.key);
+      if (e.key === '?') return this.handled(e, () => this.help.update((v) => !v));
+      const tool = TOOLS.find((t) => t.key.toLowerCase() === e.key);
       if (tool) return this.handled(e, () => this.pick(tool.id));
       if (k === 'v' && !e.shiftKey && s.tool() !== 'objects') return this.handled(e, () => void this.check());
       if (k === 'm' && !e.shiftKey) {
@@ -219,6 +223,66 @@ export class EditorShellComponent implements OnDestroy {
     fn();
   }
 }
+
+/** The keys of the editor, grouped, for the help (?) */
+export const SHORTCUTS: readonly { group: string; keys: readonly [string, string][] }[] = [
+  {
+    group: 'Everywhere',
+    keys: [
+      ['1 to 9, 0, G, D', 'Tools'],
+      ['Ctrl+Z, Ctrl+Y', 'Undo, redo'],
+      ['Ctrl+S', 'Save with a new picture'],
+      ['V', 'Check the map'],
+      ['M', 'Symmetry: off, mirror X, Y, both, turn 2, turn 4'],
+      ['Esc', 'Drop what is half done, clear the selection'],
+      ['?', 'This help'],
+    ],
+  },
+  {
+    group: 'View',
+    keys: [
+      ['Right drag', 'Turn the view'],
+      ['Middle drag, Shift+right drag', 'Pan'],
+      ['Wheel', 'Zoom to the pointer'],
+      ['Arrow keys', 'Pan'],
+      ['F', 'Frame the selection or the map'],
+      ['T', 'Top view on or off'],
+      ['Alt+1 to 9', 'Keep the current view'],
+      ['Shift+1 to 9', 'Show a kept view'],
+    ],
+  },
+  {
+    group: 'Brushes',
+    keys: [
+      ['[ ]', 'Smaller, larger'],
+      ['{ }', 'Weaker, stronger'],
+      ['Shift', 'Reverse (lower, erase, thin out)'],
+      ['Ctrl click', 'Pick the height (Level, Terrace)'],
+    ],
+  },
+  {
+    group: 'Objects, roads, spawns',
+    keys: [
+      ['W E R', 'Move, turn, scale the selection'],
+      ['Del', 'Delete the selection'],
+      ['Ctrl+D', 'Duplicate objects'],
+      ['Ctrl+A', 'Select all objects'],
+      ['Alt', 'Place without snapping'],
+      ['S X J', 'Smooth, straighten, join roads'],
+      ['Enter, right click', 'End a road'],
+      ['Q, H', 'Spawn or HQ mode'],
+    ],
+  },
+  {
+    group: 'Copy and stamps',
+    keys: [
+      ['Ctrl+C', 'Copy the rectangle'],
+      ['Ctrl+V', 'Place the copy'],
+      ['R, Shift+R', 'Turn by 90 degrees'],
+      [', .', 'Turn by 15 degrees'],
+    ],
+  },
+];
 
 function typing(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement | null;

@@ -44,6 +44,9 @@
       </select>
     </label>
     <span class="es-spacer"></span>
+    <button class="td-tool" type="button" aria-label="Keys" matTooltip="Keys (?)" [attr.aria-expanded]="help()" (click)="help.set(!help())" data-test="help">
+      <td-icon name="keyboard" [size]="18" />
+    </button>
     <button class="td-btn-secondary td-btn-sm" type="button" (click)="check()" matTooltip="Check the map for problems (V)" data-test="check">
       Check
       @if (session.issues(); as issues) {
@@ -61,7 +64,7 @@
         <span class="es-tools-gap td-line-top" aria-hidden="true"></span>
       }
       <button class="td-icon-btn es-tool" type="button" [attr.aria-pressed]="session.tool() === t.id" [attr.aria-label]="t.label"
-              [matTooltip]="t.label + ' (' + t.key + ')'" matTooltipPosition="right" (click)="pick(t.id)" [attr.data-tool]="t.id">
+              [matTooltip]="t.label + ' (' + t.key + '): ' + t.about" matTooltipPosition="right" (click)="pick(t.id)" [attr.data-tool]="t.id">
         <td-icon [name]="icons[t.id]" [size]="18" />
       </button>
     }
@@ -106,4 +109,24 @@
   </aside>
 
   <app-editor-status class="es-status" />
+
+  @if (help()) {
+    <div class="es-help-veil" (click)="help.set(false)" aria-hidden="true"></div>
+    <section class="es-help td-dlg" role="dialog" aria-modal="true" aria-labelledby="es-help-title" data-test="help-dialog">
+      <header class="td-dlg-head">
+        <h2 class="td-dlg-title" id="es-help-title">Keys</h2>
+        <button class="td-close" type="button" aria-label="Close" (click)="help.set(false)"><td-icon name="close" [size]="12" /></button>
+      </header>
+      <div class="td-dlg-body es-help-body">
+        @for (g of shortcuts; track g.group) {
+          <div class="es-help-group">
+            <h3 class="td-section">{{ g.group }}</h3>
+            @for (k of g.keys; track k[0]) {
+              <div class="td-kv"><span><kbd class="td-kbd">{{ k[0] }}</kbd></span><span>{{ k[1] }}</span></div>
+            }
+          </div>
+        }
+      </div>
+    </section>
+  }
 </div>
