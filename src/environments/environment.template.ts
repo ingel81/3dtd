@@ -12,4 +12,10 @@ export const environment = {
   // Cesium Ion (the default route to the same Google 3D Tiles)
   cesiumIonToken: '',
   cesiumAssetId: '2275207', // Google Photorealistic 3D Tiles via Cesium
+  // Own georeferenced 3D Tiles at a plain URL (no key), played with ?world=tileset:<id>,
+  // docs/OWN_TILESETS.md. Example, served by tools/own-tiles/serve.mjs:
+  // { id: 'kalasatama', name: 'Helsinki Kalasatama (2017)', url: 'http://localhost:4310/kalasatama/tileset/tileset.json',
+  //   attribution: 'Helsingin kaupunki, Kalasataman kolmioverkkomalli 2017, CC BY 4.0',
+  //   center: { lat: 60.18449, lon: 24.97745 }, radiusM: 1400, geometricErrorScale: 10 }
+  ownTilesets: [] as unknown[],
 };

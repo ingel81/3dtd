@@ -45,11 +45,13 @@ Serialisierbare Angabe, welche Welt ein Lauf benutzt:
 ```ts
 type WorldRef =
   | { kind: 'tiles'; source: 'cesium' | 'google' }          // Ort steht in HQ/Ursprung des Laufs
+  | { kind: 'tileset'; id: string }                         // eigenes 3D-Tiles-Set aus `ownTilesets`
   | { kind: 'devworld'; terrain: string; seed: number; buildings: string; spawns: number }
   | { kind: 'custom-map'; mapId: string; contentHash: string; name?: string };
 ```
 
-- URL: `?world=map:<id>` (`customMapRefFromSearch`, `worldUrlValue`), `?devworld…` bleibt die Kurzform für DevWorld
+- URL: `?world=map:<id>` und `?world=tileset:<id>` (`worldRefFromSearch`, `worldUrlValue`; die Orts-URL behält
+  `world`), `?devworld…` bleibt die Kurzform für DevWorld
 - Getragen von `WorldPackage.world` (Coop, auch im Spielstand), `ReplayFile.world`, `RunLogHead.world` (neben dem
   alten `map`); Bot-Läufe schicken ihn mit dem Run-Log an den Bot-Server
 - Dateien ohne das Feld: `legacyWorldRef(origin, tilesSource)` bildet Ursprung (0, 0) auf DevWorld mit den Vorgaben
@@ -107,7 +109,8 @@ Seitenproben), `carryOffStreet` (Abzweig zum HQ trägt die Straßenhöhe weiter)
 
 | Provider | Datei | Fähigkeiten | Inhalt |
 |----------|-------|-------------|--------|
-| `TilesWorld` | `world/tiles/tiles-world.ts` | realPlace, streaming, ecef, credentials, globe | TilesRenderer und Plugins, `TileLoadingTracker`, `RouteCorridorTiles`, `SettleHold`, Overlay folgt der Tiles-Gruppe, GlobeControls, Zugangsdaten, Logos (`tilesLogos`); Oberfläche `TerrainQueries`, Straßen `OsmStreetService` |
+| `TilesWorld` | `world/tiles/tiles-world.ts` | realPlace, streaming, ecef, credentials, globe | TilesRenderer und Plugins, `TileLoadingTracker`, `RouteCorridorTiles`, `SettleHold`, Overlay folgt der Tiles-Gruppe, GlobeControls, Zugangsdaten, Logos (`tilesLogos`); Oberfläche `TerrainQueries`, Straßen `OsmStreetService`. Die Quelle (`TileSource`: Cesium, Google, eigenes Set), Ref, Fähigkeiten und Datenvermerk kommen aus der Factory |
+| `TilesWorld` (eigenes Set) | `world/tiles/tiles-world.ts`, Factory in `world-provider-registry.ts` | realPlace, streaming, ecef, globe, ohne credentials | wie oben aus der URL des Sets ohne Auth, `UnlitTilesPlugin`, `GeometricErrorScalePlugin`, Höhenversatz; Gebiet als `coverage` ([OWN_TILESETS.md](OWN_TILESETS.md)) |
 | `DevWorldProvider` | `devworld/dev-world-provider.ts` | regenerate, environment | `DevTerrainProvider` in einer Gruppe am Ursprung, EnvironmentControls, Oberfläche `DevWorldSurface`, Straßen `DevStreetProvider`, Startaufstellung aus dem Straßengenerator |
 | `CustomMapWorld` | `world/custom-map/custom-map-world.ts` | environment | `CustomMapView` (Renderer per dynamischem Import in `attach()`), Umgebung der Karte (`setEnvironment`), Oberfläche `CustomMapSurface` (`custom-map-surface.ts`: Höhenraster, Brückendecks, Rahmen `CustomMapFrame`), Straßen `CustomMapStreets` (`custom-map-streets.ts`: Wegegraph, Brücken als `bridge`), HQ und die ersten Spawns der Karte (`customMapSpawnLimit`, `?spawns=N`) |
 
@@ -126,7 +129,8 @@ Seitenproben), `carryOffStreet` (Abzweig zum HQ trägt die Straßenhöhe weiter)
   Quelle), `capabilities`, `logos`, `provider`, `streets`, `startHq()`, `open(origin)` (macht den Provider vor dem
   Engine), `close()`, `select(ref)`, `refreshRef()` (nach einer Neugenerierung)
 - `WorldProviderRegistry` (`world/world-provider-registry.ts`): je Art eine `WorldFactory` mit `capabilities`,
-  `create(ref, { injector, origin })`, optional `startHq(ref)` und `logos(ref)`; `WorldUnavailableError` für eine
+  `create(ref, { injector, origin })`, optional `startHq(ref)`, `logos(ref)` und `coverage(ref)` (das Gebiet, in dem
+  die Welt Boden hat; `WorldContext.coverage`, `world-coverage.ts`); `WorldUnavailableError` für eine
   Welt, die es hier nicht gibt. Eine neue Art registriert nur ihre Factory
 - `WorldPackageLoader.worldHere(package)`: warum die Welt eines Pakets (Coop, Spielstand) hier nicht steht, sonst
   null. Für eine eigene Karte im Coop schickt der Host die Karte vorher über das Relay, der Gast legt sie ab und

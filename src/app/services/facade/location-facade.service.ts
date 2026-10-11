@@ -26,6 +26,7 @@ import type { CorridorBuildResult, CorridorProgress } from '../world/corridor-bu
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE } from '../../configs/map-constants.config';
 import { bearingToPortalHeading } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { canonicalCoords } from '../../utils/geo-utils';
+import { isInsideCoverage } from '../../world/world-coverage';
 
 /**
  * Callbacks to visualization sub-facade methods,
@@ -213,7 +214,8 @@ export class LocationFacadeService {
     // URL is source of truth
     const urlData = this.urlLocation.parseFromUrl();
 
-    if (urlData) {
+    // A link's place outside the world's area (an own tileset's) waits for a choice like no place
+    if (urlData && isInsideCoverage(this.worldContext.coverage(), urlData.hq.lat, urlData.hq.lon)) {
       this.locationMgmt.setLocation(urlData.hq, urlData.spawns);
       await this.engineInit.setStepDone('location', 'from URL');
     } else {
@@ -299,7 +301,9 @@ export class LocationFacadeService {
       }
 
       // A real place: a random spawn
-      const randomSpawn = this.worldContext.streets.findRandomStreetPoint(streetNetwork, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE);
+      const randomSpawn = this.worldContext.streets.findRandomStreetPoint(
+        streetNetwork, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, this.worldContext.coverage(),
+      );
       if (randomSpawn) {
         this.locationMgmt.setGeneratedSpawns([{ lat: randomSpawn.lat, lon: randomSpawn.lon }]);
         this.syncUrlWithLocation();

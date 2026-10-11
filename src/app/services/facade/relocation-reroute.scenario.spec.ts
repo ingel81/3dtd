@@ -193,7 +193,7 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
       NgZone: { runOutsideAngular: (fn: () => unknown) => fn() },
       // MapRelocationService's
       // The world's streets
-      WorldContext: { streets: osm },
+      WorldContext: { streets: osm, coverage: () => null },
       MarkerVisualizationService: { clearAllMarkers: vi.fn(), clearSpawnMarkers: vi.fn(), addBaseMarker: vi.fn() },
       LocationManagementService: { setLocation: vi.fn() },
       HeightUpdateService: { stopHeightUpdates: vi.fn() },

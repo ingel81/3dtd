@@ -12,6 +12,7 @@ import { tilesInternals } from '../../three-engine/tiles-internals';
 import { instrumentRaycasts } from '../../utils/raycast-stats';
 import { OSM_MAP_ATTRIBUTION } from '../../configs/attributions.config';
 import type { WorldRef } from '../world-ref';
+import { reorientationHeight, type TileSource } from './tile-source';
 import {
   NO_TILE_STATS,
   type StreetStyle,
@@ -55,27 +56,35 @@ export function tilesLogos(source: 'cesium' | 'google'): WorldLogo[] {
   return source === 'cesium' ? [google, cesium] : [google];
 }
 
-/** Where the tiles come from, with the credentials (they live here and in ConfigService only) */
+/**
+ * A real place from an own 3D Tiles set at a plain URL (docs/OWN_TILESETS.md):
+ * streamed and in ECEF like the Google tiles, but without credentials
+ */
+export const OWN_TILESET_CAPABILITIES: WorldCapabilities = { ...TILES_CAPABILITIES, credentials: false };
+
+/** What makes a TilesWorld: which world it is, where its tiles come from (the credentials live here and in ConfigService only) */
 export interface TilesWorldConfig {
-  source: 'cesium' | 'google';
-  cesiumIonToken: string;
-  cesiumAssetId: string;
-  googleMapsApiKey: string;
+  ref: WorldRef;
+  capabilities: WorldCapabilities;
+  source: TileSource;
+  /** The data credit while the visible tiles name none of their own (TILES_DATA_CREDIT, an own set's attribution) */
+  dataCredit: string;
   origin: { lat: number; lon: number; height: number };
   /** OsmStreetService */
   streets: WorldStreetSource;
 }
 
 /**
- * The world of Google Photorealistic 3D Tiles, through Cesium Ion or the
- * Google Maps API, with OSM streets. Holds what was the tiles path of
+ * The world of streamed 3D Tiles with OSM streets: Google Photorealistic 3D
+ * Tiles through Cesium Ion or the Google Maps API, or an own tileset
+ * (TileSource). Holds what was the tiles path of
  * ThreeTilesEngine: the TilesRenderer and its plugins, the load tracking
  * (first tiles, settled loads, refused credentials), the route corridor's
  * load region, the overlay that follows the tiles group, GlobeControls.
  */
 export class TilesWorld implements WorldProvider, WorldTiles {
   readonly ref: WorldRef;
-  readonly capabilities = TILES_CAPABILITIES;
+  readonly capabilities: WorldCapabilities;
   readonly sync: EllipsoidSync;
   readonly surface: TerrainQueries;
   readonly streets: WorldStreetSource;
@@ -100,7 +109,8 @@ export class TilesWorld implements WorldProvider, WorldTiles {
   private tilesPosInitialized = false;
 
   constructor(private readonly config: TilesWorldConfig) {
-    this.ref = { kind: 'tiles', source: config.source };
+    this.ref = config.ref;
+    this.capabilities = config.capabilities;
     const { lat, lon, height } = config.origin;
     this.sync = new EllipsoidSync(lat, lon, height);
     this.corridor = new RouteCorridorTiles(this.sync, this.settleHold);
@@ -123,13 +133,7 @@ export class TilesWorld implements WorldProvider, WorldTiles {
 
     // TilesRenderer with the auth, streaming, reorientation and region
     // plugins, group rotated to Y-up
-    const tiles = createTilesRenderer({
-      provider: this.config.source,
-      googleMapsApiKey: this.config.googleMapsApiKey,
-      cesiumIonToken: this.config.cesiumIonToken,
-      cesiumAssetId: this.config.cesiumAssetId,
-      origin: this.sync.getOrigin(),
-    });
+    const tiles = createTilesRenderer({ source: this.config.source, origin: this.sync.getOrigin() });
     this.tilesRenderer = tiles.tilesRenderer;
     this.reorientationPlugin = tiles.reorientationPlugin;
     this.corridor.attach(tiles.tilesRenderer, tiles.routeRegions);
@@ -192,7 +196,7 @@ export class TilesWorld implements WorldProvider, WorldTiles {
       this.reorientationPlugin.transformLatLonHeightToOrigin(
         lat * MathUtils.DEG2RAD,
         lon * MathUtils.DEG2RAD,
-        height
+        reorientationHeight(this.config.source, height)
       );
     }
 
@@ -256,15 +260,17 @@ export class TilesWorld implements WorldProvider, WorldTiles {
   }
 
   /**
-   * Google's data credit, the string attributions of the visible tiles
-   * joined with semicolons (TILES_DATA_CREDIT while none came yet), and the
-   * OSM credit of the routes and the street overlay
+   * The data credit: the string attributions of the visible tiles joined
+   * with semicolons (the config's dataCredit while none came, or always for
+   * a set that names none), and the OSM credit of the routes and the street
+   * overlay
    */
   attribution(): string[] {
     const strings = (this.tilesRenderer?.getAttributions() ?? [])
       .filter((a: { type: string; value: string }) => a.type === 'string')
       .map((a: { type: string; value: string }) => a.value);
-    return [strings.length > 0 ? strings.join('; ') : TILES_DATA_CREDIT, OSM_MAP_ATTRIBUTION];
+    const data = strings.length > 0 ? strings.join('; ') : this.config.dataCredit;
+    return data ? [data, OSM_MAP_ATTRIBUTION] : [OSM_MAP_ATTRIBUTION];
   }
 
   onFirstGround(callback: () => void): void {
@@ -274,8 +280,10 @@ export class TilesWorld implements WorldProvider, WorldTiles {
 
   onLoadFailure(callback: (failure: RootLoadFailure) => void): void {
     // Registration usually happens after the tileset request already failed,
-    // the tracker replays a remembered error.
-    this.tileLoading?.setOnAuthError(callback);
+    // the tracker replays a remembered error. A world without credentials
+    // has none to refuse: a refused root is one that cannot be reached.
+    const credentials = this.capabilities.credentials;
+    this.tileLoading?.setOnAuthError((failure) => callback(credentials ? failure : 'unreachable'));
   }
 
   /** The player picks HQ and spawns on a real place */

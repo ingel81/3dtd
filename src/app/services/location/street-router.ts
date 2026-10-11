@@ -13,6 +13,7 @@ import {
   haversineDistance as sharedHaversineDistance,
 } from '../../utils/street-astar';
 import { nearestStreetSegment } from '../../utils/street-grid';
+import { coveredSpawnRange, isInsideCoverage, type WorldCoverage } from '../../world/world-coverage';
 
 /**
  * Street types suitable for enemy spawning (exclude footpaths)
@@ -427,6 +428,8 @@ export class StreetRouter {
    * @param centerLon - Center longitude (HQ position)
    * @param minDistance - Minimum distance from center in meters (default 500m)
    * @param maxDistance - Maximum distance from center in meters (default 1000m)
+   * @param coverage - The area the world has ground in (an own tileset's): the range is
+   *   capped to it and a node outside it is no candidate; null: anywhere
    * @returns A random spawn candidate or null if none found
    */
   findRandomStreetPoint(
@@ -434,8 +437,11 @@ export class StreetRouter {
     centerLat: number,
     centerLon: number,
     minDistance = 500,
-    maxDistance = 1000
+    maxDistance = 1000,
+    coverage: WorldCoverage | null = null,
   ): RandomSpawnCandidate | null {
+    ({ min: minDistance, max: maxDistance } = coveredSpawnRange(coverage, { lat: centerLat, lon: centerLon }, minDistance, maxDistance));
+
     // 1. Collect all street nodes in distance range (excluding footpaths)
     const candidates: RandomSpawnCandidate[] = [];
 
@@ -448,7 +454,7 @@ export class StreetRouter {
       for (const node of street.nodes) {
         const { lat, lon } = canonicalCoords(node);
         const distance = this.haversineDistance(centerLat, centerLon, lat, lon);
-        if (distance >= minDistance && distance <= maxDistance) {
+        if (distance >= minDistance && distance <= maxDistance && isInsideCoverage(coverage, lat, lon)) {
           candidates.push({
             lat,
             lon,

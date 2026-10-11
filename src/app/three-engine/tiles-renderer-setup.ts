@@ -12,13 +12,13 @@ import {
 } from '3d-tiles-renderer/plugins';
 import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/core/plugins';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { reorientationHeight, type TileSource } from '../world/tiles/tile-source';
+import { UnlitTilesPlugin } from './unlit-tiles-plugin';
+import { GeometricErrorScalePlugin } from './geometric-error-scale-plugin';
 
 /** Woher die Tiles kommen und wo der Origin liegt. */
 export interface TilesRendererOptions {
-  provider: 'cesium' | 'google';
-  googleMapsApiKey: string;
-  cesiumIonToken: string;
-  cesiumAssetId: string;
+  source: TileSource;
   /** Origin in Grad und Metern; der ReorientationPlugin legt ihn auf (0, 0, 0). */
   origin: { lat: number; lon: number; height: number };
 }
@@ -33,7 +33,8 @@ export interface TilesRendererSetup {
 }
 
 /**
- * Baut den TilesRenderer des Tiles-Pfads: Auth-Plugin je Provider, Kompression,
+ * Baut den TilesRenderer des Tiles-Pfads: Auth-Plugin je Provider (ein eigenes
+ * Tileset lädt ohne, von seiner URL, mit unbeleuchteten Materialien), Kompression,
  * Update-on-Change, verzögertes Entladen, Fade, glTF mit Draco, Reorientation auf
  * den Origin, Load-Regions für den Routen-Korridor, Gruppe auf Y-oben gedreht.
  *
@@ -42,30 +43,38 @@ export interface TilesRendererSetup {
  * dann {@link applyStreamingBudget}, in derselben Reihenfolge wie zuvor.
  */
 export function createTilesRenderer(options: TilesRendererOptions): TilesRendererSetup {
-  // Create TilesRenderer
-  const tilesRenderer = new TilesRenderer();
+  const source = options.source;
+  // Create TilesRenderer; the auth plugins of Cesium Ion and Google set the URL themselves
+  const tilesRenderer = new TilesRenderer(source.kind === 'own' ? source.tileset.url : undefined);
   // Let three frustum-cull tile meshes. The renderer's own culling only
   // covers the main camera, but the route corridor keeps off-screen tiles
   // visible and the tower LOS cubemap renders from cameras of its own.
   tilesRenderer.autoDisableRendererCulling = false;
 
   // Register auth plugin based on tile provider
-  if (options.provider === 'google') {
+  if (source.kind === 'google') {
     if (isDevMode()) console.log('[ThreeTilesEngine] Using Google Cloud 3D Tiles (direct)');
     tilesRenderer.registerPlugin(
       // Sessions expire. Without the refresh, tiles start failing mid-game
       // with per-tile errors, which the auth-error check of the
       // TileLoadingTracker never sees.
-      new GoogleCloudAuthPlugin({ apiToken: options.googleMapsApiKey, autoRefreshToken: true })
+      new GoogleCloudAuthPlugin({ apiToken: source.apiKey, autoRefreshToken: true })
     );
-  } else {
+  } else if (source.kind === 'cesium') {
     if (isDevMode()) console.log('[ThreeTilesEngine] Using Cesium Ion 3D Tiles');
     tilesRenderer.registerPlugin(
       new CesiumIonAuthPlugin({
-        apiToken: options.cesiumIonToken,
-        assetId: options.cesiumAssetId,
+        apiToken: source.token,
+        assetId: source.assetId,
       })
     );
+  } else {
+    if (isDevMode()) console.log(`[ThreeTilesEngine] Using own tileset ${source.tileset.id} at ${source.tileset.url}`);
+    // A photo mesh carries its light in the texture; a lit material would
+    // shade it a second time with the scene lights.
+    tilesRenderer.registerPlugin(new UnlitTilesPlugin());
+    const errorScale = source.tileset.geometricErrorScale ?? 1;
+    if (errorScale !== 1) tilesRenderer.registerPlugin(new GeometricErrorScalePlugin(errorScale));
   }
   tilesRenderer.registerPlugin(new TileCompressionPlugin());
   tilesRenderer.registerPlugin(new UpdateOnChangePlugin());
@@ -86,7 +95,7 @@ export function createTilesRenderer(options: TilesRendererOptions): TilesRendere
   const reorientationPlugin = new ReorientationPlugin({
     lat: origin.lat * MathUtils.DEG2RAD,
     lon: origin.lon * MathUtils.DEG2RAD,
-    height: origin.height,
+    height: reorientationHeight(source, origin.height),
     recenter: true,
   });
   tilesRenderer.registerPlugin(reorientationPlugin);

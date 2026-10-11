@@ -8,6 +8,8 @@
  */
 export type WorldRef =
   | { kind: 'tiles'; source: 'cesium' | 'google' }
+  /** An own 3D Tiles set from the config's `ownTilesets` (docs/OWN_TILESETS.md); the place is the run's like the tiles' */
+  | { kind: 'tileset'; id: string }
   | { kind: 'devworld'; terrain: string; seed: number; buildings: string; spawns: number }
   | { kind: 'custom-map'; mapId: string; contentHash: string; name?: string };
 
@@ -18,6 +20,8 @@ export function sameWorld(a: WorldRef, b: WorldRef): boolean {
   switch (a.kind) {
     case 'tiles':
       return b.kind === 'tiles' && a.source === b.source;
+    case 'tileset':
+      return b.kind === 'tileset' && a.id === b.id;
     case 'devworld':
       return (
         b.kind === 'devworld' &&
@@ -36,6 +40,8 @@ export function worldLabel(ref: WorldRef): string {
   switch (ref.kind) {
     case 'tiles':
       return `tiles ${ref.source}`;
+    case 'tileset':
+      return `tileset ${ref.id}`;
     case 'devworld':
       return `devworld ${ref.terrain}/${ref.seed}`;
     case 'custom-map':
@@ -47,25 +53,42 @@ export function worldLabel(ref: WorldRef): string {
 export const WORLD_URL_PARAM = 'world';
 
 /**
- * The custom map a link asks for (`?world=map:<id>`), null for none. The
- * content hash comes from the stored map when it is opened; the link does
- * not carry it.
+ * The world a link asks for, null for none: a custom map (`?world=map:<id>`;
+ * the content hash comes from the stored map when it is opened, the link
+ * does not carry it) or an own tileset (`?world=tileset:<id>`).
  */
-export function customMapRefFromSearch(search: string): WorldRef | null {
-  const value = new URLSearchParams(search).get(WORLD_URL_PARAM);
-  const id = value?.startsWith('map:') ? value.slice(4).trim() : '';
-  return id ? { kind: 'custom-map', mapId: id, contentHash: '' } : null;
+export function worldRefFromSearch(search: string): WorldRef | null {
+  const value = new URLSearchParams(search).get(WORLD_URL_PARAM) ?? '';
+  const colon = value.indexOf(':');
+  const id = colon > 0 ? value.slice(colon + 1).trim() : '';
+  if (!id) return null;
+  switch (value.slice(0, colon)) {
+    case 'map':
+      return { kind: 'custom-map', mapId: id, contentHash: '' };
+    case 'tileset':
+      return { kind: 'tileset', id };
+    default:
+      return null;
+  }
 }
 
 /** The `?world=` value of a ref, null for the worlds without one (tiles, DevWorld has `?devworld`) */
 export function worldUrlValue(ref: WorldRef): string | null {
-  return ref.kind === 'custom-map' ? `map:${ref.mapId}` : null;
+  switch (ref.kind) {
+    case 'custom-map':
+      return `map:${ref.mapId}`;
+    case 'tileset':
+      return `tileset:${ref.id}`;
+    default:
+      return null;
+  }
 }
 
 /** The name a world of its own shows where a real place shows its address; null for the tiles */
 export function worldPlaceName(ref: WorldRef): string | null {
   switch (ref.kind) {
     case 'tiles':
+    case 'tileset':
       return null;
     case 'devworld':
       return 'Dev world';
@@ -107,6 +130,8 @@ export function worldRefShape(data: unknown): WorldRef | null {
   switch (ref['kind']) {
     case 'tiles':
       return ref['source'] === 'cesium' || ref['source'] === 'google' ? { kind: 'tiles', source: ref['source'] } : null;
+    case 'tileset':
+      return typeof ref['id'] === 'string' && ref['id'] ? { kind: 'tileset', id: ref['id'] } : null;
     case 'devworld':
       return typeof ref['terrain'] === 'string' && Number.isFinite(ref['seed']) && typeof ref['buildings'] === 'string'
         && Number.isInteger(ref['spawns'])

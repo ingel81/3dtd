@@ -6,6 +6,7 @@ import { CUSTOM_MAP_CAPABILITIES } from '../app/world/custom-map/custom-map-worl
 import type { WorldContext } from '../app/world/world-context.service';
 import type { WorldProvider, WorldStreetSource } from '../app/world/world-provider';
 import type { WorldRef } from '../app/world/world-ref';
+import type { WorldCoverage } from '../app/world/world-coverage';
 import { DEFAULT_RUN_RULES } from '../app/sim/protocol/run-rules';
 
 /** The DevWorld ref the fakes use */
@@ -20,6 +21,7 @@ export const FAKE_DEV_WORLD_REF: WorldRef = { kind: 'devworld', terrain: 'flat',
 export function fakeWorldContext(streets: Partial<WorldStreetSource> = {}) {
   const ref = signal<WorldRef>({ kind: 'tiles', source: 'cesium' });
   const provider = signal<WorldProvider | null>(null);
+  const coverage = signal<WorldCoverage | null>(null);
   const fake = {
     ref: ref.asReadonly(),
     capabilities: computed(() => {
@@ -28,6 +30,7 @@ export function fakeWorldContext(streets: Partial<WorldStreetSource> = {}) {
     }),
     logos: computed(() => []),
     runRules: computed(() => DEFAULT_RUN_RULES),
+    coverage: coverage.asReadonly(),
     provider: provider.asReadonly(),
     get streets(): WorldStreetSource {
       return streets as WorldStreetSource;
@@ -47,6 +50,10 @@ export function fakeWorldContext(streets: Partial<WorldStreetSource> = {}) {
     },
     useTiles(): void {
       ref.set({ kind: 'tiles', source: 'cesium' });
+    },
+    /** Give the world one area (an own tileset's), null: anywhere */
+    setCoverage(next: WorldCoverage | null): void {
+      coverage.set(next);
     },
     setProvider(next: Partial<WorldProvider> | null): void {
       provider.set(next as WorldProvider | null);

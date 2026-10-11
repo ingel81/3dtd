@@ -7,6 +7,7 @@ import { applyStreamingBudget, createTilesRenderer, type TilesRendererOptions } 
 vi.mock('3d-tiles-renderer', async () => {
   const { Group } = await vi.importActual<typeof import('three')>('three');
   class TilesRenderer {
+    constructor(readonly url?: string) {}
     readonly group = new Group();
     readonly plugins: unknown[] = [];
     autoDisableRendererCulling = true;
@@ -53,6 +54,7 @@ interface FakePlugin {
   options?: Record<string, unknown>;
 }
 interface FakeTilesRenderer {
+  url?: string;
   group: Group;
   plugins: FakePlugin[];
   autoDisableRendererCulling: boolean;
@@ -65,11 +67,21 @@ interface FakeTilesRenderer {
 }
 
 const OPTIONS: TilesRendererOptions = {
-  provider: 'google',
-  googleMapsApiKey: 'maps-key',
-  cesiumIonToken: 'ion-token',
-  cesiumAssetId: '2275207',
+  source: { kind: 'google', apiKey: 'maps-key' },
   origin: { lat: 48.78, lon: 9.18, height: 250 },
+};
+
+const OWN: TilesRendererOptions['source'] = {
+  kind: 'own',
+  tileset: {
+    id: 'kalasatama',
+    name: 'Helsinki Kalasatama',
+    url: 'http://localhost:4310/kalasatama/tileset/tileset.json',
+    attribution: 'Helsingin kaupunki, CC BY 4.0',
+    coverage: { center: { lat: 60.18449, lon: 24.97745 }, radiusM: 1400 },
+    heightOffsetM: 18,
+    geometricErrorScale: 10,
+  },
 };
 
 function create(options: Partial<TilesRendererOptions> = {}) {
@@ -109,12 +121,30 @@ describe('createTilesRenderer()', () => {
   });
 
   it('nimmt für Cesium Ion dessen Auth-Plugin mit Token und Asset-ID', () => {
-    const { names, plugin } = create({ provider: 'cesium' });
+    const { names, plugin } = create({ source: { kind: 'cesium', token: 'ion-token', assetId: '2275207' } });
 
     expect(names[0]).toBe('CesiumIonAuthPlugin');
     expect(names).not.toContain('GoogleCloudAuthPlugin');
     expect(plugin('CesiumIonAuthPlugin').options).toEqual({ apiToken: 'ion-token', assetId: '2275207' });
     expect(log).toHaveBeenCalledWith('[ThreeTilesEngine] Using Cesium Ion 3D Tiles');
+  });
+
+  it('lädt ein eigenes Tileset ohne Auth-Plugin von seiner URL, unbeleuchtet und um den Höhenversatz angehoben', () => {
+    const { tiles, names, plugin } = create({ source: OWN });
+
+    expect(tiles.url).toBe('http://localhost:4310/kalasatama/tileset/tileset.json');
+    expect(names).not.toContain('GoogleCloudAuthPlugin');
+    expect(names).not.toContain('CesiumIonAuthPlugin');
+    expect(names.slice(0, 2)).toEqual(['UnlitTilesPlugin', 'GeometricErrorScalePlugin']);
+    // 18 m höher: der Origin liegt 18 m tiefer im Tileset
+    expect(plugin('ReorientationPlugin').options?.['height']).toBe(250 - 18);
+    expect(log).toHaveBeenCalledWith(
+      '[ThreeTilesEngine] Using own tileset kalasatama at http://localhost:4310/kalasatama/tileset/tileset.json',
+    );
+  });
+
+  it('gibt Google und Cesium Ion keine URL, das Auth-Plugin setzt sie', () => {
+    expect(create().tiles.url).toBeUndefined();
   });
 
   it('entlädt verzögert und dekodiert Draco aus dem eigenen draco/gltf/', () => {

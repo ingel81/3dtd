@@ -514,7 +514,7 @@ describe('LocationFacadeService', () => {
 
       expect(facade.addPredefinedSpawns()).toBe(1);
 
-      expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(streetNetwork, HQ.lat, HQ.lon, 500, 1000);
+      expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(streetNetwork, HQ.lat, HQ.lon, 500, 1000, null);
       expect(locationMgmt.setGeneratedSpawns).toHaveBeenCalledWith([{ lat: 48.781, lon: 9.19 }]);
       expect(urlLocation.updateUrl).toHaveBeenCalled();
       expect(store.spawnPoints()).toEqual([
@@ -625,7 +625,7 @@ describe('LocationFacadeService', () => {
 
         await click('hq', INSIDE);
 
-        expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(streetNetwork, INSIDE.lat, INSIDE.lon, 500, 1000);
+        expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(streetNetwork, INSIDE.lat, INSIDE.lon, 500, 1000, null);
         expect(store.spawnPoints()).toEqual([
           { id: 'spawn-1', name: 'Damrak', lat: 48.785, lon: 9.195, color: SPAWN_COLORS[0] },
         ]);
@@ -697,7 +697,7 @@ describe('LocationFacadeService', () => {
         // Handed to the bridge so the coordinator's street step reuses them.
         expect(bridge.setStreetNetwork).toHaveBeenCalledWith(loaded);
         expect(bridge.setStreetNetworkLocation).toHaveBeenCalledWith(OUTSIDE);
-        expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(loaded, OUTSIDE.lat, OUTSIDE.lon, 500, 1000);
+        expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(loaded, OUTSIDE.lat, OUTSIDE.lon, 500, 1000, null);
         expect(coordinator.applyNewLocation).toHaveBeenCalledWith({
           hq: { ...OUTSIDE, name: 'Loading...' },
           spawn: { lat: 49.505, lon: 9.2, name: 'Spawn' },

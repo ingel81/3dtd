@@ -26,6 +26,7 @@ import {
   MAX_SPAWN_STREET_DISTANCE,
 } from '../../configs/map-constants.config';
 import { uiSound } from '../ui-sound';
+import { OUTSIDE_COVERAGE_HINT, isInsideCoverage } from '../../world/world-coverage';
 
 /**
  * Result of a successful placement click
@@ -450,6 +451,7 @@ export class MapPlacementService {
     // HQ can be placed anywhere — streets will be loaded afterwards via the slow path
     // in MapRelocationService.applyNewHqPosition()
     if (mode === 'hq') {
+      if (!this.insideCoverage(lat, lon)) return { valid: false, reason: OUTSIDE_COVERAGE_HINT };
       if (this.streetNetwork) {
         // If we have a street network, validate proximity only within loaded bounds
         if (this.isInsideStreets(lat, lon)) {
@@ -468,6 +470,11 @@ export class MapPlacementService {
     return valid ? { valid } : { valid, reason };
   }
 
+  /** Whether (lat, lon) lies in the world's area: past an own tileset's there is no ground for an HQ or a portal */
+  private insideCoverage(lat: number, lon: number): boolean {
+    return isInsideCoverage(this.worldContext.coverage(), lat, lon);
+  }
+
   /**
    * Whether a spawn may stand at (lat, lon), see validatePosition(), and
    * where it may, the route it would get.
@@ -480,6 +487,7 @@ export class MapPlacementService {
     if (!this.baseCoords) {
       return { valid: false, reason: 'No HQ placed' };
     }
+    if (!this.insideCoverage(lat, lon)) return { valid: false, reason: OUTSIDE_COVERAGE_HINT };
 
     const distToHq = this.worldContext.streets.haversineDistance(
       lat, lon,

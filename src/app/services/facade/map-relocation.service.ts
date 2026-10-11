@@ -105,7 +105,9 @@ export class MapRelocationService {
     }, Math.PI);
     let best: { lat: number; lon: number; gap: number } | null = null;
     for (let i = 0; i < RANDOM_SPAWN_CANDIDATES; i++) {
-      const candidate = this.worldContext.streets.findRandomStreetPoint(streetNetwork, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE);
+      const candidate = this.worldContext.streets.findRandomStreetPoint(
+        streetNetwork, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, this.worldContext.coverage(),
+      );
       if (!candidate) break;
       const g = gap(bearingOf(candidate.lat, candidate.lon));
       if (!best || g > best.gap) best = { lat: candidate.lat, lon: candidate.lon, gap: g };
@@ -165,7 +167,7 @@ export class MapRelocationService {
         bridge?.setStreetNetworkLocation({ lat, lon });
 
         const randomSpawn = this.worldContext.streets.findRandomStreetPoint(
-          newNetwork, lat, lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE,
+          newNetwork, lat, lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, this.worldContext.coverage(),
         );
         times.lap('spawn');
         if (randomSpawn) {
@@ -303,7 +305,7 @@ export class MapRelocationService {
       // 9. If no valid spawn, generate a random one
       if (!hasValidSpawn) {
         const randomSpawn = this.worldContext.streets.findRandomStreetPoint(
-          streetNetwork, lat, lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE,
+          streetNetwork, lat, lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, this.worldContext.coverage(),
         );
         if (randomSpawn) {
           host.addSpawnPoint('spawn-1', randomSpawn.streetName || 'Spawn', randomSpawn.lat, randomSpawn.lon, SPAWN_COLORS[0]);

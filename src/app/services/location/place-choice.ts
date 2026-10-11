@@ -1,5 +1,6 @@
 import type { SavedSpawn } from '../../models/location.types';
 import type { NominatimAddress } from './geocoding.service';
+import type { WorldCoverage } from '../../world/world-coverage';
 
 /** A spawn picked by address; null in a choice draws a random street spawn 500 to 1000 m from the HQ */
 export interface SpawnPick {
@@ -33,6 +34,11 @@ export function storedPlace(hq: { lat: number; lon: number }, spawns: readonly S
     hq: { lat: hq.lat, lon: hq.lon },
     spawns: spawns.map(({ lat, lon, portalBearing }) => (portalBearing === undefined ? { lat, lon } : { lat, lon, portalBearing })),
   };
+}
+
+/** The middle of a world's area as a place (an own tileset's), with a random spawn inside it */
+export function coveragePlace(coverage: WorldCoverage, name: string): Extract<PlaceChoice, { kind: 'place' }> {
+  return { kind: 'place', hq: { lat: coverage.center.lat, lon: coverage.center.lon, name }, spawn: null };
 }
 
 /**

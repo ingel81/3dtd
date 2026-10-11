@@ -4,8 +4,9 @@ import { devWorldRef } from '../devworld/dev-world-provider';
 import { DevWorldService } from '../devworld/devworld.service';
 import type { WorldCapabilities, WorldLogo, WorldProvider, WorldStreetSource } from './world-provider';
 import { WorldProviderRegistry } from './world-provider-registry';
-import { customMapRefFromSearch, type WorldRef } from './world-ref';
+import { worldRefFromSearch, type WorldRef } from './world-ref';
 import { DEFAULT_RUN_RULES, type RunRules } from '../sim/protocol/run-rules';
+import type { WorldCoverage } from './world-coverage';
 
 /** Capabilities of a kind this build has no factory for: nothing; opening it fails with a clear message */
 const NO_CAPABILITIES: WorldCapabilities = {
@@ -44,6 +45,9 @@ export class WorldContext {
 
   /** Logos shown beside the map and on photos (tiles: Google, Cesium ion) */
   readonly logos = computed<readonly WorldLogo[]>(() => this.registry.logos(this.ref()));
+
+  /** The area the world has ground in, where HQ and spawns may stand; null: anywhere (world-coverage.ts) */
+  readonly coverage = computed<WorldCoverage | null>(() => this.registry.coverage(this.ref()));
 
   /** The run rules of the open world (start credits, HQ health, tower types), the game's without one */
   readonly runRules = computed<RunRules>(() => this.active()?.runRules() ?? DEFAULT_RUN_RULES);
@@ -93,6 +97,6 @@ export class WorldContext {
 
   private refFromUrl(): WorldRef | null {
     if (this.devWorld.inUrl) return devWorldRef(this.devWorld);
-    return typeof window === 'undefined' ? null : customMapRefFromSearch(window.location.search);
+    return typeof window === 'undefined' ? null : worldRefFromSearch(window.location.search);
   }
 }

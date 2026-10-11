@@ -31,6 +31,7 @@ import { storedPlace } from './place-choice';
 import type { StreetNetwork } from './osm-street.service';
 import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext } from '../../../test/world-context-fake';
+import { outsideCoverageText } from '../../world/world-coverage';
 
 /**
  * The coordinator runs the 7-step location change and the location UI flows
@@ -123,6 +124,7 @@ describe('LocationChangeCoordinatorService', () => {
   let ctx: LocationChangeContext;
   let delegate: LocationFlowDelegate & { getChangeContext: ReturnType<typeof vi.fn> };
   let cachedPaths: Map<string, unknown[]>;
+  let worldContext: ReturnType<typeof fakeWorldContext>;
   let state: { spawnPoints: { id: string; name: string; lat: number; lon: number; color: number }[] };
 
   const osm = { loadStreets: vi.fn(), prefetchStreets: vi.fn(), findRandomStreetPoint: vi.fn() };
@@ -184,10 +186,11 @@ describe('LocationChangeCoordinatorService', () => {
       getChangeCallbacks: () => callbacks,
     };
 
+    worldContext = fakeWorldContext(osm as never);
     const injector = Injector.create({
       providers: [
         { provide: EngineInitializationService, useValue: engineInit },
-        { provide: WorldContext, useValue: fakeWorldContext(osm as never) },
+        { provide: WorldContext, useValue: worldContext },
         { provide: HeightUpdateService, useValue: heightUpdate },
         { provide: MarkerVisualizationService, useValue: markerViz },
         { provide: PathAndRouteService, useValue: pathRoute },
@@ -587,7 +590,7 @@ describe('LocationChangeCoordinatorService', () => {
 
       await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'HQ' }, spawn: null });
 
-      expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(loaded, HQ.lat, HQ.lon, 500, 1000);
+      expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(loaded, HQ.lat, HQ.lon, 500, 1000, null);
       expect(callbacks.setStreetNetwork).toHaveBeenCalledWith(loaded);
       expect(callbacks.setStreetNetworkLocation).toHaveBeenCalledWith(HQ);
       expect(callbacks.appendDebugLog).toHaveBeenCalledWith('Random spawn: 742m away');
@@ -636,6 +639,19 @@ describe('LocationChangeCoordinatorService', () => {
       worldDice.rollRandomCity.mockResolvedValueOnce({ name: 'Lyon', country: 'France', lat: 45.76, lon: 4.84 });
       expect(await coordinator.choosePlace({ kind: 'dice' })).toBe(true);
       await expect(waiting).resolves.toEqual({ kind: 'place', hq: { lat: 45.76, lon: 4.84, name: 'Lyon, France' }, spawn: null });
+    });
+
+    it("keeps to a world's area: a place outside does not load, the dice lands in its middle", async () => {
+      worldContext.setCoverage({ center: { lat: HQ.lat + 0.1, lon: HQ.lon }, radiusM: 1000 });
+      coordinator.initializeFlow(delegate);
+      expect(await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'HQ' }, spawn: null })).toBe(false);
+      expect(uiStore.loadProblem()?.text).toBe(outsideCoverageText());
+      expect(engine.setOrigin).not.toHaveBeenCalled();
+
+      const waiting = coordinator.waitForStartChoice();
+      expect(await coordinator.choosePlace({ kind: 'dice' })).toBe(true);
+      await expect(waiting).resolves.toMatchObject({ kind: 'place', hq: { lat: HQ.lat + 0.1, lon: HQ.lon }, spawn: null });
+      expect(worldDice.rollRandomCity).not.toHaveBeenCalled();
     });
 
     it('a start that gave up takes no choice', async () => {
@@ -816,7 +832,7 @@ describe('LocationChangeCoordinatorService', () => {
       await settle();
 
       expect(callbacks.appendDebugLog).toHaveBeenCalledWith('World Dice: Lyon, France (45.7640, 4.8357)');
-      expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(loaded, 45.764, 4.8357, 500, 1000);
+      expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(loaded, 45.764, 4.8357, 500, 1000, null);
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Rue de la République', 45.765, 4.836, SPAWN_COLORS[0], undefined);
     });
   });

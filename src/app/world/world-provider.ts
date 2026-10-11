@@ -15,6 +15,7 @@ import type { RandomSpawnCandidate } from '../models/location.types';
 import type { BuildingData } from '../services/location/osm-street.service';
 import type { WorldRef } from './world-ref';
 import type { RunRules } from '../sim/protocol/run-rules';
+import type { WorldCoverage } from './world-coverage';
 import type { WaveSourceId } from '../director/wave-source';
 import type { WaveTable } from '../director/sources/table/wave-table';
 
@@ -132,8 +133,10 @@ export interface WorldStreetSource {
   findPath(network: StreetNetwork, startLat: number, startLon: number, endLat: number, endLon: number): StreetNode[];
   /** The routes from a street segment to the end, per segment (the spawn preview) */
   segmentRoutes(network: StreetNetwork, start: { street: Street; nodeIndex: number }, endLat: number, endLon: number): SegmentRoutes | null;
+  /** A random spawn candidate in the distance range, inside `coverage` where the world has one (world-coverage.ts) */
   findRandomStreetPoint(
     network: StreetNetwork, centerLat: number, centerLon: number, minDistance?: number, maxDistance?: number,
+    coverage?: WorldCoverage | null,
   ): RandomSpawnCandidate | null;
   /** The streets near the routes, for the overlay; a world that draws all of them gives the network back */
   filterStreetsNearRoutes(network: StreetNetwork, routes: { lat: number; lon: number }[][], corridorWidth?: number): StreetNetwork;

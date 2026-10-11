@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import type { SavedSpawn } from '../../models/location.types';
 import { coordKey } from '../../utils/geo-utils';
 import { shareableUrl } from '../../utils/public-url';
+import { WORLD_URL_PARAM } from '../../world/world-ref';
 
 /**
  * URL Location Service
@@ -15,8 +16,8 @@ import { shareableUrl } from '../../utils/public-url';
  *   decimal place). A spawn without one faces along its route, as every
  *   spawn in URLs from before the bearing.
  */
-/** Query switches the location URL keeps */
-const KEPT_SWITCHES = ['waves', 'interp'];
+/** Query switches the location URL keeps; the world (an own tileset, `?world=tileset:<id>`) stays with its places */
+const KEPT_SWITCHES = ['waves', 'interp', WORLD_URL_PARAM];
 
 @Injectable({ providedIn: 'root' })
 export class UrlLocationService {

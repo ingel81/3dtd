@@ -13,7 +13,9 @@ import {
 } from './custom-map/custom-map-world';
 import { mapToGeo } from './custom-map/map-document';
 import { FLAT_WORLD_ORIGIN } from './flat-frame';
-import { TILES_CAPABILITIES, TilesWorld, tilesLogos } from './tiles/tiles-world';
+import { OWN_TILESET_CAPABILITIES, TILES_CAPABILITIES, TILES_DATA_CREDIT, TilesWorld, tilesLogos } from './tiles/tiles-world';
+import type { OwnTileset } from './tileset/own-tileset';
+import type { WorldCoverage } from './world-coverage';
 import type { WorldCapabilities, WorldLogo, WorldProvider } from './world-provider';
 import { worldLabel, type WorldKind, type WorldRef } from './world-ref';
 
@@ -38,6 +40,11 @@ export interface WorldFactory {
   startHq?(ref: WorldRef, injector: Injector): Promise<{ lat: number; lon: number }>;
   /** Logos the map data asks to be shown with it; none when absent */
   logos?(ref: WorldRef): readonly WorldLogo[];
+  /**
+   * The area the world has ground in, where HQ and spawns may stand
+   * (world-coverage.ts); absent or null: anywhere
+   */
+  coverage?(ref: WorldRef, injector: Injector): WorldCoverage | null;
 }
 
 /** A world the registry cannot make here: no factory for its kind, or a map that is missing */
@@ -52,16 +59,54 @@ const TILES_FACTORY: WorldFactory = {
   capabilities: TILES_CAPABILITIES,
   create: (ref, { injector, origin }) => {
     const config = injector.get(ConfigService);
+    const provider = ref.kind === 'tiles' ? ref.source : config.tileProvider();
     return new TilesWorld({
-      source: ref.kind === 'tiles' ? ref.source : config.tileProvider(),
-      cesiumIonToken: config.cesiumIonToken(),
-      cesiumAssetId: config.cesiumAssetId(),
-      googleMapsApiKey: config.googleMapsApiKey(),
+      ref: { kind: 'tiles', source: provider },
+      capabilities: TILES_CAPABILITIES,
+      source: provider === 'google'
+        ? { kind: 'google', apiKey: config.googleMapsApiKey() }
+        : { kind: 'cesium', token: config.cesiumIonToken(), assetId: config.cesiumAssetId() },
+      dataCredit: TILES_DATA_CREDIT,
       origin,
       streets: injector.get(OsmStreetService),
     });
   },
   logos: (ref) => tilesLogos(ref.kind === 'tiles' ? ref.source : 'cesium'),
+};
+
+/** The own tileset of `ref` from the config's list; throws WorldUnavailableError for one it does not list */
+function ownTilesetOf(ref: WorldRef, injector: Injector): OwnTileset {
+  const id = ref.kind === 'tileset' ? ref.id : '';
+  const tileset = injector.get(ConfigService).ownTilesets().find((t) => t.id === id);
+  if (!tileset) throw new WorldUnavailableError(ref, `no own tileset "${id}" in ownTilesets (docs/OWN_TILESETS.md)`);
+  return tileset;
+}
+
+/**
+ * An own 3D Tiles set (docs/OWN_TILESETS.md): a TilesWorld from its URL,
+ * without credentials, its attribution as the data credit, HQ and spawns
+ * inside its area
+ */
+const TILESET_FACTORY: WorldFactory = {
+  capabilities: OWN_TILESET_CAPABILITIES,
+  create: (ref, { injector, origin }) => {
+    const tileset = ownTilesetOf(ref, injector);
+    return new TilesWorld({
+      ref: { kind: 'tileset', id: tileset.id },
+      capabilities: OWN_TILESET_CAPABILITIES,
+      source: { kind: 'own', tileset },
+      dataCredit: tileset.attribution || tileset.name,
+      origin,
+      streets: injector.get(OsmStreetService),
+    });
+  },
+  coverage: (ref, injector) => {
+    try {
+      return ownTilesetOf(ref, injector).coverage;
+    } catch {
+      return null;
+    }
+  },
 };
 
 /** DevWorld from the DevWorldService's configuration (the URL, the debug panel) */
@@ -109,6 +154,7 @@ export class WorldProviderRegistry {
     ['tiles', TILES_FACTORY],
     ['devworld', DEV_WORLD_FACTORY],
     ['custom-map', CUSTOM_MAP_FACTORY],
+    ['tileset', TILESET_FACTORY],
   ]);
   private readonly injector = inject(Injector);
 
@@ -135,6 +181,11 @@ export class WorldProviderRegistry {
   /** The logos a world of `ref` shows beside the map (WorldFactory.logos) */
   logos(ref: WorldRef): readonly WorldLogo[] {
     return this.factories.get(ref.kind)?.logos?.(ref) ?? [];
+  }
+
+  /** The area a world of `ref` has ground in (WorldFactory.coverage), null: anywhere */
+  coverage(ref: WorldRef): WorldCoverage | null {
+    return this.factories.get(ref.kind)?.coverage?.(ref, this.injector) ?? null;
   }
 
   /** Make the world `ref` names, around `origin`; throws WorldUnavailableError */

@@ -101,6 +101,8 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
           // The world's streets
           provide: WorldContext,
           useValue: {
+            // Ground everywhere, as on the Google tiles
+            coverage: () => null,
             streets: {
               findNearestStreetPoint: () => ({ distance: 1, street: { nodes: [{ id: STREET[0].id }] }, nodeIndex: 0 }),
               haversineDistance: () => (MIN_MANUAL_SPAWN_DISTANCE + MAX_MANUAL_SPAWN_DISTANCE) / 2,

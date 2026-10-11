@@ -9,7 +9,8 @@ import { UrlLocationService } from './url-location.service';
 import { WORLD_DICE_FAILED, WorldDiceService } from './world-dice.service';
 import { UIStore } from '../../store/ui.store';
 import { FavoriteLocation, SavedSpawn } from '../../models/location.types';
-import type { PlaceChoice, PlacedChoice } from './place-choice';
+import { coveragePlace, type PlaceChoice, type PlacedChoice } from './place-choice';
+import { isInsideCoverage, outsideCoverageText } from '../../world/world-coverage';
 import {
   LocationChangeExecutorService,
   LocationChangeCallbacks,
@@ -46,6 +47,9 @@ export function streetsFailedText(place: string): string {
  * 7-step change in LocationChangeExecutorService and unwinds the loading
  * flags when it fails.
  */
+/** The place the dice and the start give in a world with one area: its middle */
+const AREA_PLACE_NAME = 'Map center';
+
 @Injectable({ providedIn: 'root' })
 export class LocationChangeCoordinatorService {
   private readonly engineInit = inject(EngineInitializationService);
@@ -107,9 +111,14 @@ export class LocationChangeCoordinatorService {
    * place it hands the choice to the start (the dice rolls first); with a
    * place it goes there in this page: a stored place with every spawn, a
    * place with its spawn or a random one, the world dice. False when nothing
-   * happens: the host sets the map, or the dice found no city.
+   * happens: the host sets the map, the dice found no city, or the place
+   * lies outside the world's area (an own tileset's, world-coverage.ts).
+   * In such a world the dice lands in its area: there is no ground past it.
    */
   async choosePlace(choice: PlaceChoice): Promise<boolean> {
+    const coverage = this.worldContext.coverage();
+    if (coverage && choice.kind === 'dice') choice = coveragePlace(coverage, AREA_PLACE_NAME);
+    if (choice.kind !== 'dice' && this.outsideCoverage(choice.hq)) return false;
     if (this.startWaiter) {
       const placed = choice.kind === 'dice' ? await this.rollStartCity() : choice;
       // The start may have given up while the dice rolled
@@ -135,6 +144,17 @@ export class LocationChangeCoordinatorService {
         await this.onWorldDice();
         break;
     }
+    return true;
+  }
+
+  /**
+   * Whether `hq` lies outside the world's area (world-coverage.ts); the menu
+   * then says so and the place does not load. False where the world has
+   * ground everywhere.
+   */
+  private outsideCoverage(hq: { lat: number; lon: number }): boolean {
+    if (isInsideCoverage(this.worldContext.coverage(), hq.lat, hq.lon)) return false;
+    this.uiStore.loadProblem.set({ text: outsideCoverageText() });
     return true;
   }
 
@@ -194,7 +214,9 @@ export class LocationChangeCoordinatorService {
         callbacks.setStreetNetwork(newNetwork);
         callbacks.setStreetNetworkLocation({ lat: hq.lat, lon: hq.lon });
 
-        const randomSpawn = this.worldContext.streets.findRandomStreetPoint(newNetwork, hq.lat, hq.lon, 500, 1000);
+        const randomSpawn = this.worldContext.streets.findRandomStreetPoint(
+          newNetwork, hq.lat, hq.lon, 500, 1000, this.worldContext.coverage(),
+        );
 
         if (randomSpawn) {
           spawnLat = randomSpawn.lat;
@@ -241,6 +263,12 @@ export class LocationChangeCoordinatorService {
    */
   async onWorldDice(): Promise<void> {
     if (this.uiStore.coopMapLocked()) return;
+    // A world with one area has no earth to roll in: its middle with a random spawn
+    const coverage = this.worldContext.coverage();
+    if (coverage) {
+      await this.moveTo(coveragePlace(coverage, AREA_PLACE_NAME).hq, null);
+      return;
+    }
     const callbacks = this.delegate?.getChangeCallbacks();
     callbacks?.appendDebugLog('World Dice: Rolling random city...');
 
@@ -303,7 +331,7 @@ export class LocationChangeCoordinatorService {
    * Apply a favorite location
    */
   async onSelectFavorite(fav: FavoriteLocation): Promise<void> {
-    if (this.uiStore.coopMapLocked()) return;
+    if (this.uiStore.coopMapLocked() || this.outsideCoverage(fav.hq)) return;
     await this.loadPlace(fav.hq, fav.spawns);
   }
 

@@ -1,6 +1,7 @@
 import { computed, Injectable, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { readJson, removeKey, writeJson } from '../../utils/storage';
+import { parseOwnTilesets, type OwnTileset } from '../../world/tileset/own-tileset';
 
 /** Shape of the optional `runtime-config.json` next to `index.html`. */
 interface RuntimeConfig {
@@ -8,14 +9,20 @@ interface RuntimeConfig {
   googleMapsApiKey?: string;
   cesiumIonToken?: string;
   cesiumAssetId?: string;
+  /** Own 3D Tiles sets, unchecked (parseOwnTilesets); the list replaces the one of the build */
+  ownTilesets?: unknown;
   /** Coop relay, ws:// or wss:// (docs/COOP_PLAN.md, C7); `coopLobbies` supersedes it */
   coopRelay?: string;
   /** The site's online lobbies, `{ name, url }` (docs/COOP_PLAN.md, D58) */
   coopLobbies?: unknown;
 }
 
+/** What environment.ts may hold besides the keys; older copies of it lack the field */
+const environmentTilesets = (environment as typeof environment & { ownTilesets?: unknown }).ownTilesets;
+
 /**
- * Tile provider credentials.
+ * Tile provider credentials, and the own tilesets (`?world=tileset:<id>`,
+ * docs/OWN_TILESETS.md), which need none.
  *
  * The values used to be inlined into the bundle at build time, which meant a
  * deployed build shipped the maintainer's Cesium token in plain JS. They are
@@ -37,6 +44,8 @@ export class ConfigService {
   readonly cesiumIonToken = signal(environment.cesiumIonToken ?? '');
   readonly cesiumAssetId = signal(environment.cesiumAssetId ?? '2275207');
   readonly tileProvider = signal<'cesium' | 'google'>(environment.tileProvider ?? 'cesium');
+  /** Own 3D Tiles sets of the build or runtime-config.json */
+  readonly ownTilesets = signal<OwnTileset[]>(parseOwnTilesets(environmentTilesets));
   readonly loaded = signal(false);
   /** The site's coop relay from runtime-config.json; null lets the client find one (coop/relay-address.ts) */
   readonly coopRelay = signal<string | null>(null);
@@ -186,6 +195,7 @@ export class ConfigService {
       if (config.googleMapsApiKey) this.googleMapsApiKey.set(config.googleMapsApiKey);
       if (config.cesiumIonToken) this.cesiumIonToken.set(config.cesiumIonToken);
       if (config.cesiumAssetId) this.cesiumAssetId.set(config.cesiumAssetId);
+      if (config.ownTilesets !== undefined) this.ownTilesets.set(parseOwnTilesets(config.ownTilesets));
       if (config.coopRelay) this.coopRelay.set(config.coopRelay);
       if (config.coopLobbies) this.coopLobbies.set(config.coopLobbies);
     } catch {
