@@ -279,11 +279,15 @@ export class MapObjectLayer {
       // Hash of the id: the same object keeps its shade across rebuilds
       let h = 2166136261;
       for (let k = 0; k < o.id.length; k++) h = Math.imul(h ^ o.id.charCodeAt(k), 16777619);
-      const v = 0.82 + ((h >>> 0) % 1000) / 1000 * 0.3;
-      const warm = ((h >>> 10) % 1000) / 1000;
-      b.colors[i * 3] = (c?.r ?? 1) * v * (0.97 + warm * 0.08);
-      b.colors[i * 3 + 1] = (c?.g ?? 1) * v;
-      b.colors[i * 3 + 2] = (c?.b ?? 1) * v * (1.02 - warm * 0.08);
+      const r1 = ((h >>> 0) % 1000) / 1000;
+      const r2 = ((h >>> 10) % 1000) / 1000;
+      const r3 = ((h >>> 20) % 1000) / 1000;
+      // Brightness, then a hue drift: some crowns yellower, some bluer, a few turning early
+      const v = 0.8 + r1 * 0.32;
+      const turning = b.entry.category === 'tree' && r3 > 0.93 ? 1 : 0;
+      b.colors[i * 3] = (c?.r ?? 1) * v * (0.92 + r2 * 0.16 + turning * 0.25);
+      b.colors[i * 3 + 1] = (c?.g ?? 1) * v * (0.96 + r3 * 0.06);
+      b.colors[i * 3 + 2] = (c?.b ?? 1) * v * (1.06 - r2 * 0.2 - turning * 0.2);
     }
   }
 

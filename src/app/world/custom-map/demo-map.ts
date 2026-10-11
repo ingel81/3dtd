@@ -405,7 +405,20 @@ export function createDemoMap(seed = 7): CustomMapDocument {
     if (r < 0.03) asset = 'tree-dead';
     else if (f < 0.45 && r < 0.35) asset = 'tree-birch';
     else asset = rand() < conifer ? (rand() < 0.5 ? 'tree-pine' : 'tree-fir') : 'tree-oak';
-    place(asset, x, y, 0.75 + rand() * 0.5);
+    // Mostly grown trees, some young ones, a few old giants
+    const age = rand();
+    place(asset, x, y, age < 0.15 ? 0.45 + rand() * 0.25 : age > 0.92 ? 1.3 + rand() * 0.25 : 0.8 + rand() * 0.4);
+  });
+  // Forest edges: a band of bushes, young birches and ferns, so woods do not end like a wall
+  scatter(3.5, (x, y) => {
+    const f = forestAt(x, y);
+    if (!inside(x, y, 2) || f < 0.04 || f > 0.4 || rand() > 0.6) return;
+    if (!roadClear(x, y, 2) || !dryLand(x, y) || !clearOfMarks(x, y, 3) || slopeAt(x, y) > 30) return;
+    const r = rand();
+    if (r < 0.5) place('bush', x, y, 0.7 + rand() * 0.7);
+    else if (r < 0.72) place('fern', x, y, 0.8 + rand() * 0.6);
+    else if (r < 0.9) place('tree-birch', x, y, 0.45 + rand() * 0.35);
+    else place(rand() < 0.5 ? 'tree-oak' : 'tree-fir', x, y, 0.4 + rand() * 0.3);
   });
   // Undergrowth in and around the forests
   scatter(5, (x, y) => {
