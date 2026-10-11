@@ -43,6 +43,7 @@ const { doc, report } = await importW3xInWorker(file, { fileName: file.name });
 | `catalog` | geplante Katalog-IDs | `{ materials, objects }` mit `id` und `category`; fehlende IDs fallen auf die Kategorie zurück |
 | `maxObjects` | 6000 | mehr Objekte werden gleichmäßig ausgedünnt (Hash, reproduzierbar) |
 | `routeStrategy` | - | eine Wege-Strategie erzwingen (Vergleich, Tests) |
+| `waves` | aus | die Wellen der Karte als eigene Wellenliste übernehmen (`gameplay.waves`, Tabellenquelle), siehe „Wellen“ |
 | `style` | `enhanced` | `enhanced`: Boden nach seiner Rolle im Spiel neu gemalt (siehe unten), `original`: Warcraft-Kacheln eins zu eins |
 
 **Warum 4 m je Kachel:** Tower-Defense-Karten haben Spuren von zwei bis vier Kacheln Breite und Wege
@@ -220,6 +221,46 @@ Tag, leichter Nebel); hat die Karte eigenen Nebel (w3i-Stil linear oder exponent
 Dichte aus seinem Ende: `1,5 / Ende in Metern`. `fogDensity` ist exponentiell je Meter.
 
 `meta.source = { kind: 'w3x', file, mapName, tileset }` mit dem Tileset-Namen.
+
+## Wellen (Option `waves`)
+
+`waves/wave-script.ts` sucht im Skript die Aufrufe, die Gegner erzeugen (`CreateNUnitsAtLoc`, `CreateUnitAtLoc`,
+`CreateUnit`), und liest nach der Initialisierung (JASS-Auswertung) deren Quellen:
+
+- **Arrays je Level**: Einheitentyp `Unit[Level]` und Anzahl `Count[Level]`, das Array mit den meisten
+  Einheiten-Rawcodes gewinnt (Mafa: `udg_integers01`/`udg_integers02`)
+- **Bosse über einen Zeiger**: `Boss[BossWave[k]]` mit parallelem Array der Wellennummern und der Anzahl
+  (Mafa: `udg_Bosses`, `udg_BossWaves`, `udg_BossesAmount`)
+- **Variable je Level-Auslöser**: `set udg_UNIT = 'hrif'` in Skriptreihenfolge, je Zuweisung eine Welle (Green TD)
+- Eine einzeln erzeugte Einheit (Anzahl 1 in einer Schleife oder einem Zeitgeber) gilt als unbekannte Anzahl
+
+Einheitenwerte kommen aus `war3map.w3u` (Version 1 bis 3): Trefferpunkte `uhpm`, Tempo `umvs`, Bewegungsart
+`umvt`, Rüstung `udef`, Name `unam`; fehlt ein Wert, gelten Warcrafts Vorgaben (420 HP, Tempo 270).
+
+`waves/wave-convert.ts` bildet ab:
+
+| Warcraft | Unser Typ (reihum je Welle) |
+|----------|-----------------------------|
+| fliegend (`fly`) | hornet, bat, dragon |
+| Boss, fliegend | dragon-matriarch |
+| Boss | herbert, golem-king |
+| schwebend (`hover`, `float`) | ghost, wraith |
+| Rüstung im oberen Viertel der Karte | tank, zombie-soldier, mech, mammoth, stone-golem |
+| Tempo ab 1,2 x Median | spider, penguin, wallsmasher |
+| sonst | zombie, bear, zombie-v2 |
+
+Größe: In Warcraft hält jeder Spieler eine Spur, hier hält einer alle, und jede Spur bekommt ihre eigene Kopie einer
+Welle. Eine Spur bekommt deshalb den Anteil 1 / Wurzel(Spuren); alle Spuren zusammen bringen das Wurzel(Spuren)-fache
+einer Spur (10 Spuren: 3,2-fach). Die Anzahlen werden so skaliert, dass die erste Welle so viele Gegner hat wie unsere
+erste, mal diesem Anteil. Die Trefferpunkte folgen der Kurve der Karte, gestaucht auf unsere: die Gesamt-HP einer
+Welle (Anzahl mal HP, Bosse eingeschlossen) relativ zur ersten Welle, hoch `k`, wobei `k` die letzte Welle der Karte
+so viel schwerer als ihre erste macht wie unsere eigene Liste an dieser Welle ist. Hat die Karte keine
+Einheitenwerte, folgen die HP unserer Kurve. Ein Boss bekommt dasselbe `hpMult` wie seine Welle (eine Zeile, ein
+Faktor); seine Stärke kommt aus seinen Grund-HP. Nach der letzten Welle wiederholt sich diese mit 1,25-fachen HP.
+
+Der Bericht (`report.waves`) nennt die Arrays, `k` und je Welle Einheit, Name, HP, Anzahl, unseren Typ, `hpMult`
+und den Boss. Mafa: 40 Wellen, Bosse in den Wellen 4, 11, 21, 30, 38, 39, 40, `k` 0,94; die Kartenprobe des
+Bots mit allen 10 Spuren hielt 4 von 10 Wellen (mit unseren Budget-Wellen 2 von 5).
 
 ## Prüfen
 

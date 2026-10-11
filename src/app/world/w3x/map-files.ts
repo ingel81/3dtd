@@ -10,6 +10,7 @@ import { type W3eTerrain, W3_TILE, parseW3e } from './formats/w3e';
 import { type W3iInfo, isReforged, parseW3i } from './formats/w3i';
 import { type W3Region, parseW3r } from './formats/w3r';
 import { type PathingMap, parseWpm } from './formats/wpm';
+import { type W3UnitType, parseW3u } from './formats/w3u';
 import { type WtsTable, parseWts } from './formats/wts';
 import { MpqArchive } from './mpq';
 
@@ -27,6 +28,8 @@ export interface W3xMapFiles {
   units: W3Unit[];
   regions: W3Region[];
   pathing: PathingMap | null;
+  /** The map's changed and custom unit types (war3map.w3u), empty without */
+  unitTypes: Map<string, W3UnitType>;
   script: MapScript | null;
   warnings: string[];
 }
@@ -71,6 +74,7 @@ export function readW3xFiles(bytes: Uint8Array): W3xMapFiles {
   const units = parse('war3mapUnits.doo', (b) => parseUnits(b, reforged)) ?? [];
   const regions = parse('war3map.w3r', parseW3r) ?? [];
   const pathing = parse('war3map.wpm', parseWpm);
+  const unitTypes = parse('war3map.w3u', (b) => parseW3u(b, strings)) ?? new Map<string, W3UnitType>();
 
   let script: MapScript | null = null;
   const preferLua = info?.scriptLanguage === 1;
@@ -84,7 +88,7 @@ export function readW3xFiles(bytes: Uint8Array): W3xMapFiles {
   }
   if (!script) warnings.push('no map script found: routes come from the terrain only');
 
-  return { info, strings, terrain, doodads, units, regions, pathing, script, warnings };
+  return { info, strings, terrain, doodads, units, regions, pathing, unitTypes, script, warnings };
 }
 
 /** The playable area in world units: the terrain minus the w3i margins (the whole terrain without a w3i) */

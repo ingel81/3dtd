@@ -33,6 +33,9 @@ import { AssetPicker, BLOCKER_IDS, type AssetCategory, doodadCategory, hashIndex
 import { mapEnvironment, tilesetMood, waterColor } from './convert/environment';
 import { ImportFrame, convertTerrain } from './convert/terrain-convert';
 import { type ImportStyle, enhanceGround, rimTrees } from './convert/enhance';
+import { parseJass } from './jass/jass-parser';
+import { convertWaves } from './waves/wave-convert';
+import { wavesFromScript } from './waves/wave-script';
 import { HeightField } from '../custom-map/render/height-field';
 import { type W3xMapFiles, playableBounds, readW3xFiles } from './map-files';
 import { type Bounds, type LaneMask, buildLaneMask, laneWidth } from './routes/lane-mask';
@@ -65,6 +68,12 @@ export interface W3xImportOptions {
    * tiles' textures mapped one to one
    */
   style?: ImportStyle;
+  /**
+   * Take the map's waves over as its own wave list (gameplay.waves, the
+   * table source), read from the script's wave arrays; off by default (the
+   * game's budget waves)
+   */
+  waves?: boolean;
   now?: Date;
 }
 
@@ -105,7 +114,26 @@ export interface W3xImportStats {
   };
 }
 
+export interface W3xWaveReport {
+  /** The script arrays the waves came from */
+  arrays: { unit: string; count: string | null; boss: string | null; bossWave: string | null };
+  /** HP curve exponent (waves/wave-convert.ts); null where the game's own curve stands in */
+  k: number | null;
+  rows: {
+    wave: number;
+    unit: string;
+    name: string;
+    hp: number;
+    count: number;
+    enemy: string;
+    hpMult: number;
+    boss: { unit: string; name: string; hp: number; count: number; enemy: string } | null;
+  }[];
+}
+
 export interface W3xImportReport {
+  /** The map's waves, when the import took them over (options.waves) */
+  waves?: W3xWaveReport;
   /** The route strategy that produced the paths, or null when none did */
   strategy: RouteStrategy | null;
   attempts: { strategy: RouteStrategy; result: string }[];
@@ -212,6 +240,34 @@ export function convertW3x(map: W3xMapFiles, options: W3xImportOptions = {}): W3
     objectList = [...objects.list, ...trees];
   }
 
+  let waveReport: W3xWaveReport | undefined;
+  let gameplay: CustomMapDocument['gameplay'];
+  if (options.waves) {
+    const found = map.script?.language === 'jass' ? wavesFromScript(parseJass(map.script.text)) : null;
+    if (!found) {
+      warnings.push('waves: no wave arrays found in the script; the map plays the budget waves of the game');
+    } else {
+      const lanes = Math.min(spawns.length, MAX_SPAWN_PORTALS) || 1;
+      const converted = convertWaves(found, map.unitTypes, lanes);
+      warnings.push(...converted.warnings);
+      gameplay = { waves: { kind: 'table', table: converted.table } };
+      waveReport = {
+        arrays: found.arrays,
+        k: converted.k,
+        rows: converted.waves.map((w) => ({
+          wave: w.wave,
+          unit: w.from.unit,
+          name: w.from.name,
+          hp: w.from.hp,
+          count: w.count,
+          enemy: w.enemy,
+          hpMult: w.hpMult,
+          boss: w.boss && w.bossEnemy ? { unit: w.boss.unit, name: w.boss.name, hp: w.boss.hp, count: w.boss.count, enemy: w.bossEnemy } : null,
+        })),
+      };
+    }
+  }
+
   const now = (options.now ?? new Date()).toISOString();
   const doc: CustomMapDocument = {
     format: MAP_FORMAT,
@@ -231,6 +287,7 @@ export function convertW3x(map: W3xMapFiles, options: W3xImportOptions = {}): W3
     spawns,
     hq,
     environment: mapEnvironment(tileset, map.info, scale),
+    ...(gameplay ? { gameplay } : {}),
   };
 
   const lengths: Record<string, number> = {};
@@ -244,6 +301,7 @@ export function convertW3x(map: W3xMapFiles, options: W3xImportOptions = {}): W3
   return {
     doc,
     report: {
+      ...(waveReport ? { waves: waveReport } : {}),
       strategy: graph?.strategy ?? null,
       attempts: routes.attempts,
       warnings,
