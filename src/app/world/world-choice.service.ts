@@ -1,5 +1,7 @@
 import { Injectable, InjectionToken, computed, inject } from '@angular/core';
 import { ConfigService } from '../core/services/config.service';
+import { readDesktopBridge } from '../core/desktop-bridge';
+import { mapFolderId } from './custom-map/folder-map-backend';
 import { coordKey } from '../utils/geo-utils';
 import { MapStore, type MapSummary } from './custom-map/map-store';
 import type { OwnTileset } from './tileset/own-tileset';
@@ -95,6 +97,23 @@ export class WorldChoiceService {
   /** Play an own tileset, starting at the middle of its area */
   playTileset(tileset: OwnTileset): void {
     this.navigate(this.worldUrl({ kind: 'tileset', id: tileset.id }, tileset.coverage.center));
+  }
+
+  /** The desktop app's map folder, or null in a browser */
+  readonly mapFolder = readDesktopBridge()?.maps ?? null;
+
+  /** Shows the map folder in the system's file manager (desktop app) */
+  revealMapFolder(): void {
+    this.mapFolder?.reveal();
+  }
+
+  /**
+   * A map the player double-clicked (desktop app): the app copied it into
+   * the map folder, the store takes it in when the page loads on it. Called
+   * once at the page's start; returns the unsubscribe.
+   */
+  playOpenedMaps(): () => void {
+    return this.mapFolder?.onOpen((name) => this.playMap(mapFolderId(name))) ?? (() => undefined);
   }
 
   /** Back to the real places of the 3D tiles; the menu then asks where */

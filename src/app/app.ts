@@ -1,5 +1,6 @@
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, DestroyRef, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { WorldChoiceService } from './world/world-choice.service';
 
 @Component({
   selector: 'app-root',
@@ -9,4 +10,9 @@ import { RouterOutlet } from '@angular/router';
   styles: [`:host { display: block; width: 100vw; height: 100vh; }`],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AppComponent {}
+export class AppComponent {
+  constructor() {
+    // A map double-clicked in the desktop app plays, wherever the page is (game or editor)
+    inject(DestroyRef).onDestroy(inject(WorldChoiceService).playOpenedMaps());
+  }
+}

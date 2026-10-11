@@ -4,6 +4,10 @@
       <h1 class="td-dlg-title" id="mb-title">Map editor</h1>
       <div class="td-actions">
         <button class="td-btn-ghost" type="button" (click)="backToGame()">Back to the game</button>
+        @if (worlds.mapFolder) {
+          <button class="td-btn-ghost" type="button" (click)="worlds.revealMapFolder()"
+                  matTooltip="Your maps as .3dtdmap files in Documents/3DTD/Maps; put files there to add them" data-test="map-folder">Map folder</button>
+        }
         <label class="td-btn-secondary" matTooltip="A 3DTD map (.3dtdmap) or a Warcraft 3 map (.w3x, beta)">
           Import file
           <input class="td-sr-only" type="file" accept=".3dtdmap,.w3x,.w3m" multiple (change)="onPick($event)" data-test="import-input" />

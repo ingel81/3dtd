@@ -79,4 +79,38 @@ describe('WorldChoiceService', () => {
     expect(service.isCurrent({ kind: 'tileset', id: 'synth' })).toBe(false);
     expect(service.tilesets()).toEqual([TILESET]);
   });
+
+  it('plays a map double-clicked in the desktop app, under the id of its file in the map folder', () => {
+    let opened: ((name: string) => void) | null = null;
+    const desktop = {
+      version: '0.7.0',
+      onUpdateReady: () => () => undefined,
+      installUpdateNow: vi.fn(),
+      saveRun: async () => true,
+      maps: { onOpen: (listener: (name: string) => void) => ((opened = listener), () => (opened = null)), reveal: vi.fn() },
+    };
+    (window as unknown as { desktop?: unknown }).desktop = desktop;
+    try {
+      const injector = Injector.create({
+        providers: [
+          { provide: MAP_STORE, useValue: store },
+          { provide: WORLD_NAVIGATE, useValue: (url: string) => went.push(url) },
+          { provide: ConfigService, useValue: { ownTilesets: signal([]) } },
+          { provide: WorldContext, useValue: { ref: current.asReadonly() } },
+        ],
+      });
+      const onDesktop = runInInjectionContext(injector, () => new WorldChoiceService());
+      const stop = onDesktop.playOpenedMaps();
+      opened!('Witch Marsh.3dtdmap');
+      expect(worldRefFromSearch(new URL(went[0]).search)).toEqual({ kind: 'custom-map', mapId: 'witch-marsh', contentHash: '' });
+      onDesktop.revealMapFolder();
+      expect(desktop.maps.reveal).toHaveBeenCalledOnce();
+      stop();
+      expect(opened).toBeNull();
+      // In a browser there is no folder: nothing to listen to
+      expect(service.mapFolder).toBeNull();
+    } finally {
+      delete (window as unknown as { desktop?: unknown }).desktop;
+    }
+  });
 });

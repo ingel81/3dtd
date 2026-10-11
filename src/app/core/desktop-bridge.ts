@@ -39,6 +39,22 @@ export interface CoopLanBridge {
   probe(ip: string): Promise<boolean>;
 }
 
+/** The player's map folder, desktop build only (Documents/3DTD/Maps, desktop/src/maps-folder.js) */
+export interface DesktopMapFolder {
+  /** Every .3dtdmap in the folder: name, size, modification time (ms) */
+  list(): Promise<{ name: string; size: number; mtime: number }[]>;
+  /** The file's bytes, or null */
+  read(name: string): Promise<Uint8Array | null>;
+  /** Writes the file; its modification time, or null when it could not */
+  write(name: string, bytes: Uint8Array): Promise<{ mtime: number } | null>;
+  /** True when the file is gone */
+  remove(name: string): Promise<boolean>;
+  /** Shows the folder in the system's file manager */
+  reveal(): void;
+  /** Calls `listener` with the file name of a map the player double-clicked; returns an unsubscribe */
+  onOpen(listener: (name: string) => void): () => void;
+}
+
 export interface DesktopBridge {
   /** Version of the installed app, the root package.json's. */
   readonly version: string;
@@ -60,6 +76,8 @@ export interface DesktopBridge {
   isFullscreen?(): Promise<boolean>;
   /** Quit the app; a downloaded update installs on the way out. Missing before 0.5.1 */
   quit?(): void;
+  /** The map folder; missing in apps before the custom maps */
+  readonly maps?: DesktopMapFolder;
 }
 
 /**

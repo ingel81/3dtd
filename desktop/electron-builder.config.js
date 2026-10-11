@@ -36,6 +36,9 @@ module.exports = {
   // other ~50 locales are 47 MB nobody reads.
   electronLanguages: ['en-US', 'de'],
 
+  // Double-clicking a map opens it in the game (desktop/src/maps-folder.js)
+  fileAssociations: [{ ext: '3dtdmap', name: '3DTD map', description: '3DTD map', role: 'Viewer' }],
+
   win: {
     target: [{ target: 'nsis', arch: ['x64'] }],
     // build/icon.ico, electron-builder's default; made by scripts/make-icon.sh.

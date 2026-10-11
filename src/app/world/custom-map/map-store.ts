@@ -9,6 +9,7 @@
  * `MapStore.load(id)` is what the game uses for `?world=map:<id>`: an own map
  * of that id wins over a shipped one.
  */
+import { defaultMapBackend } from './folder-map-backend';
 import type { CustomMapDocument, MapBiome } from './map-document';
 import { contentHash, packMapFile, unpackMapFile } from './map-file';
 import { slugMapId } from './map-create';
@@ -108,7 +109,7 @@ export class MapStore {
   private shippedIndex: Promise<ShippedMapEntry[]> | null = null;
 
   constructor(options: MapStoreOptions = {}) {
-    this.backend = options.backend ?? new IndexedDbMapBackend();
+    this.backend = options.backend ?? defaultMapBackend();
     this.fetcher = options.fetch ?? ((url) => fetch(url));
     this.baseUrl = options.baseUrl ?? (typeof document !== 'undefined' ? document.baseURI : '/');
   }

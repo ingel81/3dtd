@@ -3,8 +3,8 @@
 /**
  * The only bridge between the game and Electron. The page runs sandboxed with
  * context isolation; whatever it may know about the desktop build is listed
- * here and nowhere else: the update hint, writing a run log to disk, and
- * coop on the local network.
+ * here and nowhere else: the update hint, writing a run log to disk, coop
+ * on the local network and the map folder.
  */
 
 const { contextBridge, ipcRenderer } = require('electron');
@@ -21,6 +21,15 @@ const listeners = new Set();
 ipcRenderer.on('desktop:update-ready', (_event, update) => {
   readyUpdate = { version: String(update?.version ?? ''), notes: String(update?.notes ?? '') };
   for (const listener of listeners) listener(readyUpdate);
+});
+
+// A double-clicked map (desktop:open-map) is kept until the page listens for it
+let openedMap = null;
+const mapListeners = new Set();
+ipcRenderer.on('desktop:open-map', (_event, name) => {
+  openedMap = String(name ?? '');
+  for (const listener of mapListeners) listener(openedMap);
+  if (mapListeners.size) openedMap = null;
 });
 
 contextBridge.exposeInMainWorld(
@@ -89,6 +98,44 @@ contextBridge.exposeInMainWorld(
       /** Ask one address directly, during a scan; resolves true when its relay answered */
       probe(ip) {
         return ipcRenderer.invoke('desktop:lan-probe', String(ip ?? ''));
+      },
+    }),
+
+    /**
+     * The player's map folder (Documents/3DTD/Maps): own maps as .3dtdmap
+     * files by name; the main process keeps every name inside the folder.
+     */
+    maps: Object.freeze({
+      /** [{ name, size, mtime }] */
+      list() {
+        return ipcRenderer.invoke('desktop:maps-list');
+      },
+      /** The file's bytes, or null */
+      read(name) {
+        return ipcRenderer.invoke('desktop:maps-read', String(name ?? ''));
+      },
+      /** { mtime } once written, or null */
+      write(name, bytes) {
+        if (!(bytes instanceof Uint8Array)) return Promise.resolve(null);
+        return ipcRenderer.invoke('desktop:maps-write', { name: String(name ?? ''), bytes });
+      },
+      /** True when the file is gone */
+      remove(name) {
+        return ipcRenderer.invoke('desktop:maps-remove', String(name ?? ''));
+      },
+      /** Shows the folder in the system's file manager */
+      reveal() {
+        ipcRenderer.send('desktop:maps-reveal');
+      },
+      /** Calls `listener` with the file name of a double-clicked map (at once for one that came before); returns an unsubscribe */
+      onOpen(listener) {
+        if (typeof listener !== 'function') return () => {};
+        mapListeners.add(listener);
+        if (openedMap) {
+          listener(openedMap);
+          openedMap = null;
+        }
+        return () => mapListeners.delete(listener);
       },
     }),
 

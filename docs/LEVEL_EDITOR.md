@@ -4,7 +4,7 @@
 [WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md).
 
 Unter `/editor` baut man eigene Karten: Gelände, Bodentexturen, Wasser, Objekte, Straßen, Spawns und HQ. Eine Karte
-liegt im Browser (IndexedDB), lässt sich als `.3dtdmap` herunterladen und wieder einlesen und mit „Test map“ im Spiel
+liegt im Browser (IndexedDB; in der Desktop-App zusätzlich als Datei in `Dokumente/3DTD/Maps`, [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) E26b), lässt sich als `.3dtdmap` herunterladen und wieder einlesen und mit „Test map“ im Spiel
 öffnen (`?world=map:<id>`). Der Einstieg im Hauptmenü ist „Map editor“ (Lage Start, unter der Linie; mit laufendem Lauf
 fragt das Menü vorher). Die Oberfläche ist englisch wie das übrige Spiel.
 

@@ -19,6 +19,7 @@ const { APP_ID } = require('./app-id');
 const { setUpCoopLan } = require('./coop-lan');
 const { MAX_RUN_LOG_CHARS, runLogFileName, savesSilently, uniqueDownloadPath } = require('./downloads');
 const { errorPageUrl, isFatalLoadFailure } = require('./error-page');
+const { createMapsFolder, mapFileArg, setUpMapsFolder } = require('./maps-folder');
 const { MAX_LOG_BYTES, createRepeatFilter, describeGpus, maskValue, rendererLine } = require('./log');
 const { APP_ORIGIN, APP_SCHEME, createAppProtocolHandler } = require('./protocol');
 const { classifyNavigation, isPermissionAllowed } = require('./security');
@@ -387,10 +388,31 @@ if (!app.requestSingleInstanceLock()) {
     log.warn(`[process] ${details.type}${details.name ? ` (${details.name})` : ''} ${details.reason}, exit code ${details.exitCode}`);
   });
 
-  app.on('second-instance', () => {
+  /** The player's map folder (Documents/3DTD/Maps); a double-clicked .3dtdmap is copied in and played */
+  const mapsFolder = createMapsFolder({ dir: path.join(app.getPath('documents'), '3DTD', 'Maps'), fs });
+  /** A double-clicked map the page has not been told of yet (it may still load) */
+  let pendingMap = null;
+  const openMapFile = async (argv) => {
+    const source = mapFileArg(argv);
+    if (!source) return;
+    const name = await mapsFolder.adopt(source);
+    if (!name) {
+      log.warn(`[maps] could not take ${source} into the map folder`);
+      return;
+    }
+    log.info(`[maps] opening ${name}`);
+    pendingMap = name;
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isLoading()) {
+      mainWindow.webContents.send('desktop:open-map', name);
+      pendingMap = null;
+    }
+  };
+
+  app.on('second-instance', (_event, argv) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
+    void openMapFile(argv);
   });
 
   app.whenReady().then(() => {
@@ -420,6 +442,20 @@ if (!app.requestSingleInstanceLock()) {
 
     mainWindow = createWindow();
     setUpRunSaving();
+    setUpMapsFolder({
+      ipcMain,
+      shell,
+      folder: mapsFolder,
+      isAppSender: (event) => classifyNavigation(event.senderFrame?.url ?? '', appOrigin) === 'allow',
+      log,
+    });
+    // A map the app was started with goes to the page once it has loaded
+    mainWindow.webContents.on('did-finish-load', () => {
+      if (!pendingMap) return;
+      mainWindow.webContents.send('desktop:open-map', pendingMap);
+      pendingMap = null;
+    });
+    void openMapFile(process.argv);
     setUpUpdates(() => mainWindow);
     setUpWindowMenu(() => mainWindow);
 
