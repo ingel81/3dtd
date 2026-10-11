@@ -356,7 +356,7 @@ export class CustomMapView {
   }
 
   private async refreshBridges(): Promise<void> {
-    await this.bridges.set(this.doc.paths, this.doc.terrain.water);
+    await this.bridges.set(this.doc.paths, this.doc.terrain);
     this.environment.invalidateShadows();
   }
 
@@ -476,8 +476,9 @@ export class CustomMapView {
     for (const r of this.rivers) this.group.add(r.mesh);
     // The constructor sets up the water before the effects exist and lights the lava after
     if (this.effects) this.effects.setLavaLights(this.lavaLightPoints());
-    // Floating objects follow the water
+    // Floating objects follow the water, bridge decks clear the water they cross
     if (this.objects) this.objects.refreshHeights(undefined, true);
+    if (this.bridges) void this.refreshBridges();
     this.lightWater();
   }
 
@@ -493,6 +494,7 @@ export class CustomMapView {
     this.coverDirty = true;
     if (wasLava || water.kind === 'lava') this.effects.setLavaLights(this.lavaLightPoints());
     this.objects.refreshHeights(rect, true);
+    if (!rect || this.bridgeNear(rect)) void this.refreshBridges();
     this.lightWater();
   }
 
@@ -669,7 +671,7 @@ export class CustomMapView {
       this.objects.setObjects(this.doc.objects),
       this.refreshEffects(),
       this.refreshContact(),
-      this.bridges.set(this.doc.paths, this.doc.terrain.water),
+      this.bridges.set(this.doc.paths, this.doc.terrain),
     ]);
   }
 }

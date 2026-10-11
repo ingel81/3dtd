@@ -1,5 +1,6 @@
 import { Group, InstancedMesh, Matrix4, Quaternion, Vector3, type Material } from 'three';
-import type { MapBridgeStyle, MapPaths, MapWater } from '../../map-document';
+import type { MapBridgeStyle, MapPaths, MapTerrain } from '../../map-document';
+import { bridgeWaterLevel } from './bridge-water';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
@@ -37,9 +38,9 @@ export class BridgeLayer {
     this.group.userData['losTransparent'] = true;
   }
 
-  async set(paths: MapPaths, water: MapWater | null): Promise<void> {
+  async set(paths: MapPaths, terrain: MapTerrain): Promise<void> {
     const generation = ++this.generation;
-    const pieces = this.pieces(paths, water);
+    const pieces = this.pieces(paths, terrain);
     const catalog = pieces.size > 0 ? await this.assets.catalog() : null;
     // Pieces of styles without their own model join the wooden deck
     const byAsset = new Map<string, Matrix4[]>();
@@ -86,10 +87,9 @@ export class BridgeLayer {
   }
 
   /** Instance matrices of every bridge piece, by style */
-  private pieces(paths: MapPaths, water: MapWater | null): Map<MapBridgeStyle, Matrix4[]> {
+  private pieces(paths: MapPaths, terrain: MapTerrain): Map<MapBridgeStyle, Matrix4[]> {
     const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
     const byStyle = new Map<MapBridgeStyle, Matrix4[]>();
-    const minDeck = (water?.level ?? -Infinity) + 1.0;
     const up = new Vector3(0, 1, 0);
     const q = new Quaternion();
     const yaw = new Quaternion();
@@ -108,6 +108,8 @@ export class BridgeLayer {
       for (let s = 0; s < line.length - 1; s++) total += Math.hypot(line[s + 1].x - line[s].x, line[s + 1].y - line[s].y);
       const a = line[0];
       const b = line[line.length - 1];
+      // At least a metre over the water this bridge crosses (none: on the ground at both ends)
+      const minDeck = bridgeWaterLevel(line, terrain, this.field) + 1.0;
       const hA = Math.max(this.field.heightAt(a.x, a.y), minDeck);
       const hB = Math.max(this.field.heightAt(b.x, b.y), minDeck);
       const arch = Math.min(1.5, total * 0.04);

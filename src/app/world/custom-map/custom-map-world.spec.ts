@@ -359,3 +359,39 @@ describe('CustomMapWorld', () => {
     expect(openedCustomMap(ref)).toBeNull();
   });
 });
+
+describe('CustomMapSurface bridge decks', () => {
+  const deckAt = (doc: CustomMapDocument): number => {
+    const frame = new CustomMapFrame();
+    const origin = hqOrigin(doc);
+    frame.setOrigin(origin.lat, origin.lon);
+    return new CustomMapSurface(doc, frame).walkHeightAtMap(40, 0);
+  };
+
+  it('lifts a deck only over water it crosses, not to a lake elsewhere on the map', () => {
+    const plain = deckAt(testMap());
+    // Ground at the bridge ends (x 30 and 50) is 13 and 15 m: the deck spans the ditch in between
+    expect(plain).toBeGreaterThan(13);
+    expect(plain).toBeLessThan(16);
+
+    // A mountain lake at 30 m in the north-west corner, far from the bridge
+    const lake = testMap();
+    const g = lake.terrain.grid;
+    const mask = new Uint8Array(g.columns * g.rows);
+    for (let j = g.rows - 6; j < g.rows; j++) for (let i = 0; i < 6; i++) mask[j * g.columns + i] = 255;
+    lake.terrain.water = { level: 30, mask, color: '' };
+    expect(deckAt(lake)).toBeCloseTo(plain);
+
+    // A stream in the ditch at 16 m: the deck clears it by a metre
+    const stream = testMap();
+    const sm = new Uint8Array(g.columns * g.rows);
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) if (Math.abs(-100 + i * 2 - 40) <= 4) sm[j * g.columns + i] = 255;
+    stream.terrain.waterBodies = [{ level: 16, mask: sm, color: '' }];
+    expect(deckAt(stream)).toBeGreaterThanOrEqual(17);
+
+    // A river across the bridge at 18 m
+    const river = testMap();
+    river.terrain.rivers = [{ id: 'r', kind: 'water', points: [{ x: 40, y: -50, width: 6, height: 18 }, { x: 40, y: 50, width: 6, height: 18 }] }];
+    expect(deckAt(river)).toBeGreaterThanOrEqual(19);
+  });
+});

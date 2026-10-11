@@ -8,6 +8,7 @@ import { BUILD_BLOCKED_OBJECT, BUILD_BLOCKED_WATER, WATER_DEPTH_M, type WorldSur
 import type { CustomMapDocument, MapPoint } from './map-document';
 import { MAP_METERS_PER_DEGREE } from './map-document';
 import { HeightField } from './render/height-field';
+import { bridgeWaterLevel } from './render/paths/bridge-water';
 import { FALLEN_SCALE } from './custom-map-destruction';
 
 /** A map column's LOD: nothing streams, so the finest there is; the route grid never samples a cell again */
@@ -383,7 +384,6 @@ export class CustomMapSurface implements WorldSurface {
   private bridgeDecks(): BridgeDeck[] {
     const { paths, terrain } = this.doc;
     const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
-    const minDeck = (terrain.water?.level ?? -Infinity) + 1;
     const out: BridgeDeck[] = [];
     for (const e of paths.edges) {
       if (e.kind !== 'bridge') continue;
@@ -396,6 +396,8 @@ export class CustomMapSurface implements WorldSurface {
       const total = at[at.length - 1];
       if (total <= 0) continue;
       const half = e.width / 2;
+      // As the renderer's BridgeLayer: at least a metre over the water this bridge crosses
+      const minDeck = bridgeWaterLevel(line, terrain, this.field) + 1;
       out.push({
         line,
         at,
