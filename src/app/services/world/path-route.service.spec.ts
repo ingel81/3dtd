@@ -4,7 +4,7 @@ import { Group, Vector3 } from 'three';
 // Zellen-Stub, pro Test steuerbar: `ready` = Grid initialisiert, `cellY` = Zellhöhe,
 // `column` = die eingefrorene Säule an einem lokalen Punkt, aus der das Band gebaut wird.
 // DevWorld, pro Test umschaltbar: die Straßen-Darstellung der Welt des Engines.
-const devWorld = vi.hoisted(() => ({ isActive: false }));
+const world = vi.hoisted(() => ({ devWorld: false }));
 const grid = vi.hoisted(() => ({
   ready: false,
   cellY: (_x: number, _z: number): number | null => null,
@@ -130,7 +130,7 @@ function makeEngine(): ThreeTilesEngine {
     },
     world: {
       get streetStyle() {
-        return devWorld.isActive ? DEV_WORLD_STREET_STYLE : TILES_STREET_STYLE;
+        return world.devWorld ? DEV_WORLD_STREET_STYLE : TILES_STREET_STYLE;
       },
     },
   } as unknown as ThreeTilesEngine;
@@ -295,13 +295,13 @@ describe('PathAndRouteService route geometry', () => {
   });
 
   it('flags no leg in DevWorld, whose columns see no building on its steep terrain', () => {
-    devWorld.isActive = true;
+    world.devWorld = true;
     try {
       const route = buildRoute(network, { lat: 47.9995, lon: 9.0 }, { lat: 48.0011, lon: 9.0025 });
       expect(route.length).toBeGreaterThan(3);
       expect(route.every((p) => p.offStreet === undefined)).toBe(true);
     } finally {
-      devWorld.isActive = false;
+      world.devWorld = false;
     }
   });
 

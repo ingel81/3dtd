@@ -156,7 +156,6 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
     getTerrainHeightAtGeo: () => 0,
     getRenderer: () => ({ getSize: (target: Vector2) => target.set(1600, 900) }),
     sync: { geoToLocalSimple: makeGeoToLocal(HQ) },
-    getDevTerrainProvider: () => null,
   };
   const bridge = {
     getEngine: () => engine,
