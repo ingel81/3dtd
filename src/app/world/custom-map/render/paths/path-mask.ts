@@ -1,9 +1,11 @@
-import type { MapPathEdge, MapPaths, MapPoint } from '../../map-document';
+import type { MapPathEdge, MapPaths, MapPoint, MapRiver } from '../../map-document';
+import { sampleRiver } from '../water/river-surface';
 
 /**
  * Paths are painted into the terrain, not laid on it as strips: an RGBA
  * mask over the map (red = road, green = path, blue = position across the
- * strongest path at that texel, 0 left edge, 0.5 centre line, 1 right edge)
+ * strongest path at that texel, 0 left edge, 0.5 centre line, 1 right edge,
+ * alpha = river bank: wet gravel along both sides of every river)
  * tells the terrain shader where to blend in the road materials and where
  * the wheel ruts and the grass strip between them run. The surface stays the terrain's own, so a
  * road follows every bump without z-fighting, and the height blend gives
@@ -34,8 +36,15 @@ export function edgePolyline(edge: MapPathEdge, nodes: Map<string, MapPoint>): M
  * `width` x `depth` metres (texel (0, 0) at the south-west corner). Full
  * strength up to 80% of the half width, fading out to 115%.
  */
-export function rasterizePathMask(paths: MapPaths, width: number, depth: number, resolution: number): Uint8Array {
+export function rasterizePathMask(
+  paths: MapPaths,
+  width: number,
+  depth: number,
+  resolution: number,
+  rivers: MapRiver[] = [],
+): Uint8Array {
   const out = new Uint8Array(resolution * resolution * 4);
+  rasterizeRiverBanks(out, rivers, width, depth, resolution);
   const nodes = new Map<string, MapPoint>(paths.nodes.map((n) => [n.id, n]));
   const sx = resolution / width;
   const sy = resolution / depth;
@@ -80,4 +89,45 @@ export function rasterizePathMask(paths: MapPaths, width: number, depth: number,
     }
   }
   return out;
+}
+
+/**
+ * River banks into the mask's alpha: full inside the river and up to 1.5 m
+ * past its edge, fading out 5 m past it; lava flows leave no wet bank
+ */
+function rasterizeRiverBanks(out: Uint8Array, rivers: MapRiver[], width: number, depth: number, resolution: number): void {
+  const sx = resolution / width;
+  const sy = resolution / depth;
+  for (const river of rivers) {
+    if (river.kind !== 'water' || river.points.length < 2) continue;
+    const line = sampleRiver(river.points, 2);
+    for (let s = 0; s < line.length - 1; s++) {
+      const p = line[s];
+      const q = line[s + 1];
+      const half = Math.max(p.width, q.width) / 2;
+      const inner = half + 1.5;
+      const outer = half + 5;
+      const minX = Math.max(0, Math.floor((Math.min(p.x, q.x) - outer + width / 2) * sx));
+      const maxX = Math.min(resolution - 1, Math.ceil((Math.max(p.x, q.x) + outer + width / 2) * sx));
+      const minY = Math.max(0, Math.floor((Math.min(p.y, q.y) - outer + depth / 2) * sy));
+      const maxY = Math.min(resolution - 1, Math.ceil((Math.max(p.y, q.y) + outer + depth / 2) * sy));
+      const dx = q.x - p.x;
+      const dy = q.y - p.y;
+      const len2 = dx * dx + dy * dy || 1;
+      for (let ty = minY; ty <= maxY; ty++) {
+        const y = (ty + 0.5) / sy - depth / 2;
+        for (let tx = minX; tx <= maxX; tx++) {
+          const x = (tx + 0.5) / sx - width / 2;
+          let t = ((x - p.x) * dx + (y - p.y) * dy) / len2;
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          const d = Math.hypot(x - (p.x + t * dx), y - (p.y + t * dy));
+          if (d >= outer) continue;
+          const f = d <= inner ? 1 : 1 - (d - inner) / (outer - inner);
+          const v = Math.round(f * f * (3 - 2 * f) * 255);
+          const k = (ty * resolution + tx) * 4 + 3;
+          if (v > out[k]) out[k] = v;
+        }
+      }
+    }
+  }
 }

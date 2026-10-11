@@ -190,8 +190,9 @@ export class MapTerrainLayer {
     }
   }
 
-  /** Water changed: wet banks follow the mask and level */
-  refreshWater(): void {
+  /** Water changed: wet banks follow the mask and level, river banks the rivers */
+  refreshWater(paths?: MapPaths): void {
+    if (paths) this.refreshPaths(paths);
     this.normals.setWater(this.terrain.water?.mask ?? null);
     this.material?.setWaterLevel(this.terrain.water?.level ?? null);
   }
@@ -234,6 +235,6 @@ export class MapTerrainLayer {
   private buildPathMask(paths: MapPaths): DataTexture {
     const t = this.terrain;
     const res = pathMaskResolution(t.width, t.depth);
-    return maskTexture(rasterizePathMask(paths, t.width, t.depth, res), res);
+    return maskTexture(rasterizePathMask(paths, t.width, t.depth, res, t.rivers ?? []), res);
   }
 }

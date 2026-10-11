@@ -289,7 +289,7 @@ export class CustomMapView {
    * further bodies (`terrain.waterBodies`), the rivers, or heights under them
    */
   updateWater(): void {
-    this.terrain.refreshWater();
+    this.terrain.refreshWater(this.doc.paths);
     const bodies = [this.doc.terrain.water, ...(this.doc.terrain.waterBodies ?? [])];
     // Slot 0 is the main body (it may be null); further bodies follow
     while (this.waters.length > bodies.length) this.waters.pop()?.dispose();

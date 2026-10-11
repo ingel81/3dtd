@@ -238,6 +238,7 @@ vec4 gridSample = texture2D(uGridNormals, mapPos * uGridUv.xy + uGridUv.zw);
 vec3 nGeo = safeNormalize(mix(gridSample.xyz, normalize(vTerrainNormal), outside), vec3(0.0, 1.0, 0.0));
 // Banks just above the water are wet: darker and glossier
 float wetBank = gridSample.a * smoothstep(uWaterLevel + 1.3, uWaterLevel + 0.15, tPos.y) * (1.0 - outside);
+wetBank = max(wetBank, texture2D(uPathMask, mapPos / uMapSize + 0.5).a * (1.0 - outside) * 0.85);
 vec2 tuv = mapPos / uMapSize + 0.5;
 vec2 dPosX = dFdx(tPos.xz);
 vec2 dPosY = dFdy(tPos.xz);
@@ -274,10 +275,17 @@ float ruts = exp(-pow((across - 0.42) / 0.11, 2.0)) * smoothstep(0.6, 0.9, pm.r)
 float strip = smoothstep(0.22, 0.08, across + (valueNoise(mapPos * 1.7) - 0.5) * 0.12) * smoothstep(0.7, 1.0, pm.g);
 float road = uRoadLayer >= 0 ? pm.r * (1.0 - ruts * 0.55) : 0.0;
 float path = uPathLayer >= 0 ? max(pm.g * (1.0 - strip * 0.85), ruts * 0.55 * pm.r) * (1.0 - road) : 0.0;
+// River banks (mask alpha): wet gravel and earth along both sides, under the water a dark bed
+float riverBank = pmask.a * (1.0 - outside);
 float keep = 1.0 - road - path;
 for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] *= keep;
 if (uRoadLayer >= 0) w[uRoadLayer] += road;
 if (uPathLayer >= 0) w[uPathLayer] += path;
+if (uPathLayer >= 0 && riverBank > 0.0) {
+  float bank = riverBank * (0.55 + (n3 - 0.5) * 0.5);
+  for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] *= 1.0 - bank;
+  w[uPathLayer] += bank;
+}
 
 // Cliffs above the slope threshold, edge broken up by noise
 float cliff = 0.0;

@@ -64,6 +64,24 @@ describe('path mask', () => {
     expect(Math.sign(left - 128)).toBe(-Math.sign(right - 128));
   });
 
+  it('marks river banks in alpha, not lava flows', () => {
+    const river = (kind: 'water' | 'lava') => ({
+      id: kind,
+      kind,
+      points: [
+        { x: -40, y: -30, width: 6, height: 0 },
+        { x: 40, y: -30, width: 6, height: 0 },
+      ],
+    });
+    const m = rasterizePathMask({ nodes: [], edges: [] }, 100, 100, res, [river('water')]);
+    const a = (x: number, y: number): number => m[(Math.floor(y + 50) * res + Math.floor(x + 50)) * 4 + 3];
+    expect(a(0, -30)).toBe(255);
+    expect(a(0, -30 + 7)).toBeGreaterThan(0);
+    expect(a(0, -30 + 10)).toBe(0);
+    const lava = rasterizePathMask({ nodes: [], edges: [] }, 100, 100, res, [river('lava')]);
+    expect(lava.some((v, k) => k % 4 === 3 && v > 0)).toBe(false);
+  });
+
   it('leaves bridges to the deck mesh', () => {
     expect(at(-20, 20, 0)).toBe(0);
     expect(at(-20, 20, 1)).toBe(0);
