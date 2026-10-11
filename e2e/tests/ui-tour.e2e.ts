@@ -11,7 +11,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { leaveRoom, openCoopPage, startRelay } from '../support/game';
+import { leaveRoom, openCoopPage, relayQuery, startRelay } from '../support/game';
 
 /** UI_SHOTS_DIR for a run from a worktree whose pictures belong to the main checkout */
 const OUT = process.env['UI_SHOTS_DIR'] ?? fileURLToPath(new URL('../../tmp/ui-shots/after/', import.meta.url));
@@ -197,7 +197,8 @@ async function runTour(page: Page, size: string): Promise<Tour> {
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
   });
   const loadStart = Date.now();
-  await page.goto('/?devworld&bot=manual');
+  // The tests' relay where the room step looks for it (E2E_RELAY_PORT beside the user's own on 3003)
+  await page.goto(`/?devworld&bot=manual${relayQuery()}`);
 
   // --- Start menu ---
   await tour.step('start menu while loading', async () => {
