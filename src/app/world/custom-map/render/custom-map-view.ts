@@ -305,7 +305,6 @@ export class CustomMapView {
     for (const r of this.rivers) r.update(dtSeconds);
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
-    this.terrain.update(this.camPos, dtSeconds);
     // focusPoint is in the group's frame (the map's), worldFocus in the scene's: the game moves the
     // group so that its HQ sits at the scene origin, and the lights and sky live in the scene
     if (focus) {
@@ -315,6 +314,7 @@ export class CustomMapView {
       camera.getWorldDirection(this.viewRay.direction);
       if (this.heights.raycast(this.viewRay, this.focusPoint, 3000) === null) this.focusPoint.copy(this.camPos);
     }
+    this.terrain.update(this.camPos, dtSeconds, this.focusPoint);
     // Shadow box sized to what the camera sees around the focus: sharp up close, wide from high up
     const reach = this.camPos.distanceTo(this.focusPoint);
     this.group.localToWorld(this.worldFocus.copy(this.focusPoint));

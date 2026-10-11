@@ -140,6 +140,8 @@ export class MapTerrainLayer {
       cliffAngle: t.cliffAngle,
       splatResolution: t.splat.resolution,
     });
+    this.material.terrainUniforms.uMorphEye = this.chunks.morphEye;
+    this.material.terrainUniforms.uMorphFocus = this.chunks.morphFocus;
     addHeightFog(this.material);
     this.material.setWaterLevel(t.water?.level ?? null);
     this.chunks.setMaterial(this.material);
@@ -164,10 +166,10 @@ export class MapTerrainLayer {
     this.grass.setInputs({ ...this.grassInputs, splat: this.splat.maps, pathMask: this.pathMask });
   }
 
+  /** `focus`: the camera's point on the ground (map space), where the terrain keeps its full detail */
   update(cameraPos: Vector3, dt = 0, focus?: Vector3): void {
-    this.chunks.update(cameraPos);
+    this.chunks.update(cameraPos, focus);
     this.material?.tick(dt);
-    if (focus) this.grass.update(dt, focus);
   }
 
   rebuild(rect?: GridRect): void {

@@ -1,5 +1,36 @@
-import { Box3, BufferAttribute, BufferGeometry, Group, Mesh, Sphere, Vector3, type Material } from 'three';
+import {
+  Box3,
+  BufferAttribute,
+  BufferGeometry,
+  Group,
+  Mesh,
+  MeshDepthMaterial,
+  RGBADepthPacking,
+  Sphere,
+  Vector3,
+  type Material,
+} from 'three';
 import type { HeightField } from '../height-field';
+
+/** Declarations for TERRAIN_MORPH_VERTEX */
+export const TERRAIN_MORPH_PARS = /* glsl */ `
+attribute vec3 aMorph;
+uniform vec3 uMorphEye;
+uniform vec3 uMorphFocus;
+`;
+
+/**
+ * Geomorph towards the next coarser level by the vertex's detail distance
+ * (TerrainChunks: the nearer of the camera and, across the ground, the
+ * camera's focus; world space), after `begin_vertex`. The shadow pass uses
+ * the same points, so shadows lie on the drawn surface. Without a band (the
+ * apron has no aMorph) nothing morphs.
+ */
+export const TERRAIN_MORPH_VERTEX = /* glsl */ `
+vec3 morphWorld = (modelMatrix * vec4(position, 1.0)).xyz;
+float morphDist = min(distance(morphWorld, uMorphEye), distance(morphWorld.xz, uMorphFocus.xz));
+transformed.y += aMorph.z > aMorph.y ? aMorph.x * smoothstep(aMorph.y, aMorph.z, morphDist) : 0.0;
+`;
 
 /** Grid sample rectangle, inclusive */
 export interface GridRect {
@@ -14,7 +45,12 @@ export interface TerrainChunkOptions {
   chunkCells?: number;
   /** Coarsest level: step 2^maxLod samples */
   maxLod?: number;
-  /** Chunk edge lengths of distance per level (level n from n * this) */
+  /**
+   * Chunk edge lengths of distance per level (level n from n * this). The
+   * default keeps the finest level, unmorphed, out to about 290 m around the
+   * camera (2 m cells): the game camera's ground, where units stand on
+   * `heightAt`, which is the finest level.
+   */
   lodDistance?: number;
 }
 
@@ -32,7 +68,11 @@ interface Chunk {
 
 /**
  * The terrain as a grid of chunk meshes. Each chunk picks a level of detail
- * by camera distance (every 2^lod-th sample); skirts hang down from chunk
+ * by its detail distance (every 2^lod-th sample): the nearer of the camera
+ * and, across the ground, the camera's focus. A game camera hangs 150 m and
+ * more over the action; measured from the camera alone, the ground units
+ * stand on (`heightAt`, the finest level) was drawn coarser or morphed and
+ * they floated or sank. Skirts hang down from chunk
  * edges and hide the cracks between neighbours of different levels.
  * Normals come from the full grid at every level, so lighting does not jump
  * when a chunk changes level.
@@ -41,6 +81,12 @@ export class TerrainChunks {
   readonly group = new Group();
   /** Counts level switches and rebuilds: the sun's shadow map renders again after one */
   version = 0;
+  /** Camera and focus in world space for the geomorph, shared by the terrain material and the shadow pass */
+  readonly morphEye = { value: new Vector3() };
+  readonly morphFocus = { value: new Vector3(1e9, 0, 1e9) };
+  private readonly focusLocal = new Vector3(1e9, 0, 1e9);
+  /** The chunks' shadow depth with the geomorph, so the terrain shades itself where it is drawn */
+  private readonly depthMaterial: MeshDepthMaterial;
   private readonly chunks: Chunk[] = [];
   private readonly chunkCells: number;
   private readonly maxLod: number;
@@ -54,8 +100,17 @@ export class TerrainChunks {
   ) {
     this.chunkCells = options.chunkCells ?? 64;
     this.maxLod = options.maxLod ?? 3;
-    this.lodDistance = options.lodDistance ?? 1.6;
+    this.lodDistance = options.lodDistance ?? 3.5;
     this.group.name = 'custom-map-terrain';
+    this.depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
+    this.depthMaterial.onBeforeCompile = (shader) => {
+      shader.uniforms['uMorphEye'] = this.morphEye;
+      shader.uniforms['uMorphFocus'] = this.morphFocus;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', `#include <common>\n${TERRAIN_MORPH_PARS}`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>\n${TERRAIN_MORPH_VERTEX}`);
+    };
+    this.depthMaterial.customProgramCacheKey = () => 'custom-map-terrain-depth-1';
     this.build();
   }
 
@@ -69,10 +124,16 @@ export class TerrainChunks {
   }
 
   /** Picks each chunk's level for a camera at `cameraPos` (in the group's space) */
-  update(cameraPos: Vector3): void {
+  /** `cameraPos` and the camera's ground `focus` in the chunks' own (map) space */
+  update(cameraPos: Vector3, focus?: Vector3): void {
+    this.morphEye.value.copy(cameraPos).applyMatrix4(this.group.matrixWorld);
+    if (focus) this.focusLocal.copy(focus);
+    this.morphFocus.value.copy(this.focusLocal).applyMatrix4(this.group.matrixWorld);
     const edge = this.chunkCells * this.field.cellSize;
     for (const c of this.chunks) {
-      const d = c.box.distanceToPoint(cameraPos) / (edge * this.lodDistance);
+      // Across the ground from the focus: its height is the box's own
+      this.tmp.set(this.focusLocal.x, Math.min(Math.max(this.focusLocal.y, c.box.min.y), c.box.max.y), this.focusLocal.z);
+      const d = Math.min(c.box.distanceToPoint(cameraPos), c.box.distanceToPoint(this.tmp)) / (edge * this.lodDistance);
       // Coarser only when clearly past the threshold, so a chunk on the line does not flip every frame
       let lod = this.levelFor(d);
       if (lod > c.lod && this.levelFor(d * 0.9) <= c.lod) lod = c.lod;
@@ -124,6 +185,7 @@ export class TerrainChunks {
         c.mesh.name = `terrain-chunk-${i0}-${j0}`;
         c.mesh.receiveShadow = true;
         c.mesh.castShadow = true;
+        c.mesh.customDepthMaterial = this.depthMaterial;
         c.mesh.matrixAutoUpdate = false;
         this.computeBox(c);
         this.setLevel(c, 0);

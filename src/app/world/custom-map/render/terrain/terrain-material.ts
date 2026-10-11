@@ -1,5 +1,6 @@
-import { Color, MeshStandardMaterial, Vector2, Vector4, type DataArrayTexture, type Texture } from 'three';
+import { Color, MeshStandardMaterial, Vector2, Vector3, Vector4, type DataArrayTexture, type Texture } from 'three';
 import { SHADER_NOISE } from '../shader-noise';
+import { TERRAIN_MORPH_PARS, TERRAIN_MORPH_VERTEX } from './terrain-chunks';
 
 /**
  * The terrain's material: a MeshStandardMaterial (scene lights, shadows,
@@ -89,6 +90,9 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uRoadLayer: { value: -1 },
     uPathLayer: { value: -1 },
     uCliffCos: { value: Math.cos((40 * Math.PI) / 180) },
+    /** Replaced by TerrainChunks.morphEye and morphFocus (MapTerrainLayer) */
+    uMorphEye: { value: new Vector3() },
+    uMorphFocus: { value: new Vector3(1e9, 0, 1e9) },
   };
 
   /**
@@ -107,17 +111,10 @@ export class TerrainMaterial extends MeshStandardMaterial {
     this.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, this.terrainUniforms);
       shader.vertexShader = shader.vertexShader
-        .replace(
-          '#include <common>',
-          '#include <common>\nvarying vec3 vTerrainPos;\nvarying vec3 vTerrainNormal;\nattribute vec3 aMorph;',
-        )
+        .replace('#include <common>', `#include <common>\nvarying vec3 vTerrainPos;\nvarying vec3 vTerrainNormal;\n${TERRAIN_MORPH_PARS}`)
         .replace(
           '#include <begin_vertex>',
-          // Geomorph towards the next coarser level by the vertex's own camera distance (TerrainChunks)
-          '#include <begin_vertex>\n' +
-            'float morphDist = distance((modelMatrix * vec4(position, 1.0)).xyz, cameraPosition);\n' +
-            'transformed.y += aMorph.x * smoothstep(aMorph.y, aMorph.z, morphDist);\n' +
-            'vTerrainPos = transformed;\nvTerrainNormal = normal;',
+          `#include <begin_vertex>\n${TERRAIN_MORPH_VERTEX}\nvTerrainPos = transformed;\nvTerrainNormal = normal;`,
         );
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>\n#define TERRAIN_LAYERS ${this.layerCount}\n${TERRAIN_FRAGMENT_PARS}`)
