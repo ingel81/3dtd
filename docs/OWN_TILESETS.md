@@ -25,7 +25,8 @@ Liste ganz, wie bei den Schlüsseln (`ConfigService`). Ein Eintrag:
 Ein Eintrag ohne `id`, `url`, gültiges `center` oder positiven `radiusM` fällt mit Warnung heraus
 (`world/tileset/own-tileset.ts`).
 
-Gespielt wird ein Set über `?world=tileset:<id>` in der URL. Die Orts-URL behält den Parameter beim Ortswechsel, ein
+Gespielt wird ein Set über `?world=tileset:<id>` in der URL, aus dem Hauptmenü über New game, Reiter
+„Maps“, Abschnitt „Own tilesets“ (dort mit `l=` in der Mitte des Gebiets). Die Orts-URL behält den Parameter beim Ortswechsel, ein
 geteilter Link öffnet dieselbe Welt. Kennt die Konfiguration die `id` nicht, meldet der Start
 `WorldUnavailableError`. Im Koop brauchen Gäste dasselbe Set in ihrer Konfiguration; ein Gast ohne es sieht, dass die
 Welt des Hosts hier nicht steht.

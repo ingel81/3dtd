@@ -1,0 +1,80 @@
+@if (runEnds()) {
+  <p class="td-banner is-warn is-row" role="note">
+    <td-icon name="warn" [size]="14"></td-icon>
+    <span>The run under way ends when another map loads.</span>
+  </p>
+}
+
+@if (maps(); as maps) {
+  <section class="td-group" aria-labelledby="mk-own">
+    <h3 class="td-section" id="mk-own">Your maps</h3>
+    @if (maps.own.length) {
+      <ul class="td-rows mk-list" aria-labelledby="mk-own">
+        @for (m of maps.own; track m.summary.id) {
+          <ng-container *ngTemplateOutlet="mapRow; context: { $implicit: m }" />
+        }
+      </ul>
+    } @else {
+      <p class="td-note">Maps you make in the <a class="td-link" [href]="worlds.editorUrl()">map editor</a> show up here.</p>
+    }
+  </section>
+
+  @if (maps.shipped.length) {
+    <section class="td-group" aria-labelledby="mk-shipped">
+      <h3 class="td-section" id="mk-shipped">Shipped maps</h3>
+      <ul class="td-rows mk-list" aria-labelledby="mk-shipped">
+        @for (m of maps.shipped; track m.summary.id) {
+          <ng-container *ngTemplateOutlet="mapRow; context: { $implicit: m }" />
+        }
+      </ul>
+    </section>
+  }
+} @else {
+  <p class="td-note" role="status">Looking for maps…</p>
+}
+
+@if (tilesets().length) {
+  <section class="td-group" aria-labelledby="mk-tilesets">
+    <h3 class="td-section" id="mk-tilesets">Own tilesets</h3>
+    <ul class="td-rows mk-list" aria-labelledby="mk-tilesets">
+      @for (t of tilesets(); track t.id) {
+        <li class="td-row mk-row" [attr.data-tileset]="t.id">
+          <span class="mk-thumb td-well" aria-hidden="true"><td-icon name="terrain" [size]="20"></td-icon></span>
+          <span class="mk-text">
+            <span class="td-name td-trunc">{{ t.name }}</span>
+            <span class="td-sub td-trunc">{{ tilesetLine(t) }}</span>
+          </span>
+          <span class="td-actions mk-actions">
+            @if (isCurrentTileset(t)) {
+              <span class="td-note">Playing</span>
+            } @else {
+              <button type="button" class="td-btn-secondary td-btn-sm" (click)="playTileset(t)">Play</button>
+            }
+          </span>
+        </li>
+      }
+    </ul>
+  </section>
+}
+
+<ng-template #mapRow let-m>
+  <li class="td-row mk-row" [attr.data-map]="m.summary.id">
+    @if (m.picture) {
+      <img class="mk-thumb" [src]="m.picture" alt="" />
+    } @else {
+      <span class="mk-thumb td-well" aria-hidden="true"></span>
+    }
+    <span class="mk-text">
+      <span class="td-name td-trunc">{{ m.summary.name }}</span>
+      <span class="td-sub td-trunc">{{ mapLine(m.summary) }}</span>
+    </span>
+    <span class="td-actions mk-actions">
+      <a class="td-btn-ghost td-btn-sm" [href]="worlds.editUrl(m.summary.id)">Edit</a>
+      @if (isCurrentMap(m.summary)) {
+        <span class="td-note">Playing</span>
+      } @else {
+        <button type="button" class="td-btn-secondary td-btn-sm" (click)="play(m.summary)">Play</button>
+      }
+    </span>
+  </li>
+</ng-template>

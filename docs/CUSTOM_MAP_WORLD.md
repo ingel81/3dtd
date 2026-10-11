@@ -9,7 +9,15 @@ Import aus Warcraft 3 [W3X_IMPORT.md](W3X_IMPORT.md).
 
 ## Start
 
-- `?world=map:<id>` wählt die Karte (`customMapRefFromSearch`), `?spawns=N` begrenzt die Spawns
+- `?world=map:<id>` wählt die Karte (`worldRefFromSearch`), `?spawns=N` begrenzt die Spawns
+- Im Hauptmenü: New game, Reiter „Maps“ (`MapPickerComponent`, `WorldChoiceService`).
+  - Gelistet sind eigene Karten aus dem Map-Store, die mitgelieferten aus `maps/index.json` (eine eigene
+    gleicher id verdeckt sie) und die eigenen Tilesets der Konfiguration.
+  - Jede Zeile zeigt Bild, Name, Autor, Größe, Spawn-Zahl und Biom (`MapSummary.spawns`, `biome`; der Index
+    trägt beide).
+  - „Play“ lädt die Seite mit `?world=…` neu, ein Tileset in der Mitte seines Gebiets. „Edit“ öffnet
+    `/editor?map=<id>`.
+  - Auf einer Karte zeigt der Reiter „Real places“ statt der Ortswahl den Weg zurück zu den Kacheln.
 - `WorldFactory.startHq` öffnet die Karte über den `MapStore`: eigene Karten aus IndexedDB, sonst
   mitgelieferte aus `public/maps/`. Trägt der Ref einen `contentHash` und passt er nicht, bricht der
   Start ab. Fehlt die Karte, zeigt der Startablauf die Meldung (`WorldUnavailableError`) statt eines

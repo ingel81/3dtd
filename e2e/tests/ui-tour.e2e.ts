@@ -238,6 +238,13 @@ async function runTour(page: Page, size: string): Promise<Tour> {
       await expect(menuNamed(page, p.title)).toBeVisible({ timeout: 5000 });
       await page.waitForTimeout(400);
       await tour.shot(`start-${p.page}`);
+      // New game has the maps behind its second tab: own, shipped, own tilesets
+      if (p.page === 'new-game') {
+        await menu(page).getByRole('tab', { name: 'Maps' }).click();
+        await expect(menu(page).locator('app-map-picker [data-map]').first()).toBeVisible({ timeout: 10_000 });
+        await tour.shot('start-new-game-maps');
+        await menu(page).getByRole('tab', { name: 'Real places' }).click();
+      }
     });
   }
 

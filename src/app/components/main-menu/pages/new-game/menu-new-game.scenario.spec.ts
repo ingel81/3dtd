@@ -14,11 +14,17 @@ import { UIStore } from '../../../../store/ui.store';
 import { LocationChangeCoordinatorService } from '../../../../services/location/location-change-coordinator.service';
 import type { PlaceChoice } from '../../../../services/location/place-choice';
 import { MenuNewGameComponent } from './menu-new-game.component';
+import { WorldContext } from '../../../../world/world-context.service';
+import { WorldChoiceService } from '../../../../world/world-choice.service';
+import { fakeWorldContext } from '../../../../../test/world-context-fake';
 
 @Component({ selector: 'app-place-picker', standalone: true, template: '' })
 class PickerStub {
   readonly chosen = output<PlaceChoice>();
 }
+@Component({ selector: 'app-map-picker', standalone: true, template: '' })
+class MapPickerStub {}
+
 // The annotations the JIT transform adds for input() and output(); plain vitest runs without them
 Output('chosen')(PickerStub.prototype, 'chosen');
 Input({ alias: 'layer', required: true, isSignal: true } as Input)(MenuNewGameComponent.prototype, 'layer');
@@ -30,22 +36,27 @@ describe('New game page', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
-  function open(waiting: boolean, locked = false) {
+  function open(waiting: boolean, locked = false, onMap = false) {
     const menu = { home: vi.fn(), close: vi.fn() };
     const coordinator = { awaitingStartChoice: signal(waiting), choosePlace: vi.fn(async () => true) };
+    const world = fakeWorldContext();
+    if (onMap) world.useCustomMap('demo-valley', 'Demo Valley');
+    const worlds = { playRealPlaces: vi.fn() };
     TestBed.configureTestingModule({
       providers: [
         { provide: MainMenuService, useValue: menu },
         { provide: LocationChangeCoordinatorService, useValue: coordinator },
+        { provide: WorldContext, useValue: world },
+        { provide: WorldChoiceService, useValue: worlds },
       ],
     });
-    TestBed.overrideComponent(MenuNewGameComponent, { set: { imports: [PickerStub] } });
+    TestBed.overrideComponent(MenuNewGameComponent, { set: { imports: [PickerStub, MapPickerStub] } });
     TestBed.inject(UIStore).coopMapLocked.set(locked);
     const fixture = TestBed.createComponent(MenuNewGameComponent);
     fixture.componentRef.setInput('layer', waiting ? 'start' : 'pause');
     fixture.detectChanges();
     const picker = fixture.debugElement.query((d) => d.componentInstance instanceof PickerStub)?.componentInstance as PickerStub | undefined;
-    return { fixture, menu, coordinator, picker };
+    return { fixture, menu, coordinator, picker, worlds };
   }
 
   const CHOICE: PlaceChoice = { kind: 'place', hq: { lat: 48.78, lon: 9.18, name: 'Stuttgart' }, spawn: null };
@@ -64,6 +75,29 @@ describe('New game page', () => {
     expect(menu.home).toHaveBeenCalledWith('start');
     expect(menu.close).not.toHaveBeenCalled();
     expect(coordinator.choosePlace).toHaveBeenCalledWith({ kind: 'dice' });
+  });
+
+  it('switches between the real places and the maps', () => {
+    const { fixture } = open(true);
+    const root = fixture.nativeElement as HTMLElement;
+    const tab = (label: string) => Array.from(root.querySelectorAll<HTMLButtonElement>('[role=tab]')).find((b) => b.textContent!.trim() === label)!;
+    expect(tab('Real places').getAttribute('aria-selected')).toBe('true');
+    expect(root.querySelector('app-map-picker')).toBeNull();
+    tab('Maps').click();
+    fixture.detectChanges();
+    expect(root.querySelector('app-map-picker')).not.toBeNull();
+    expect(root.querySelector('app-place-picker')).toBeNull();
+  });
+
+  it('on a map: the maps first, and the way back to the real places instead of the place picker', () => {
+    const { fixture, worlds } = open(false, false, true);
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('app-map-picker')).not.toBeNull();
+    Array.from(root.querySelectorAll<HTMLButtonElement>('[role=tab]')).find((b) => b.textContent!.trim() === 'Real places')!.click();
+    fixture.detectChanges();
+    expect(root.querySelector('app-place-picker')).toBeNull();
+    Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent!.trim() === 'Play on real places')!.click();
+    expect(worlds.playRealPlaces).toHaveBeenCalled();
   });
 
   it('a coop guest gets no picker: the host picks the place', () => {
