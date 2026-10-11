@@ -20,7 +20,10 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
+  CanvasTexture,
   SphereGeometry,
+  Sprite,
+  SpriteMaterial,
   type Object3D,
 } from 'three';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
@@ -191,12 +194,14 @@ export class EditorOverlay {
       marker.scale.setScalar(this.markerScale);
       marker.userData = { pick: { kind: 'spawn', id: s.id } };
       this.markers.add(marker);
+      this.markers.add(nameTag(s.name, '#' + color.getHexString(), -s.x, this.height(s.x, s.y), 22, this.markerScale, s.y));
     });
     const hq = hqMarker(selection?.kind === 'hq');
     hq.position.set(-doc.hq.x, this.height(doc.hq.x, doc.hq.y), doc.hq.y);
     hq.scale.setScalar(this.markerScale);
     hq.userData = { pick: { kind: 'hq' } };
     this.markers.add(hq);
+    this.markers.add(nameTag('HQ', TD_THEME.brassLight, -doc.hq.x, this.height(doc.hq.x, doc.hq.y), 18, this.markerScale, doc.hq.y));
 
     clear(this.nodes);
     this.nodes.visible = this.showNodes;
@@ -392,7 +397,11 @@ export class EditorOverlay {
     const scale = Math.max(1, distance / 220);
     if (Math.abs(scale - this.markerScale) < 0.02) return;
     this.markerScale = scale;
-    for (const m of this.markers.children) m.scale.setScalar(scale);
+    for (const m of this.markers.children) {
+      // A tag keeps its size on the screen and rides on top of its grown marker
+      if (m instanceof Sprite) m.position.y = m.userData['ground'] + m.userData['lift'] * scale;
+      else m.scale.setScalar(scale);
+    }
     for (const n of this.nodes.children) n.scale.setScalar(n.userData['size'] * scale);
   }
 
@@ -418,7 +427,8 @@ export class EditorOverlay {
 
   /** What under the pointer is a marker: spawn or HQ */
   markerObjects(): Object3D[] {
-    return this.markers.children;
+    // Name tags are not picked (a sprite's raycast needs the camera on the raycaster)
+    return this.markers.children.filter((c) => !(c instanceof Sprite));
   }
 
   dispose(): void {
@@ -489,9 +499,55 @@ function baseRing(color: string): LineLoop {
   return r;
 }
 
+/**
+ * A name over a marker, the same size on the screen from near and far, in
+ * front of the land: spawns and the HQ are found by name in an overview.
+ */
+function nameTag(text: string, color: string, x: number, ground: number, lift: number, scale: number, z: number): Sprite {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const font = '600 30px "Barlow Semi Condensed", "Barlow", sans-serif';
+  let width = 64;
+  if (ctx) {
+    ctx.font = font;
+    width = Math.ceil(ctx.measureText(text).width) + 28;
+  }
+  canvas.width = width;
+  canvas.height = 44;
+  if (ctx) {
+    ctx.font = font;
+    ctx.fillStyle = 'rgba(14, 16, 14, 0.78)';
+    ctx.beginPath();
+    ctx.roundRect(1, 1, width - 2, 42, 6);
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#f0ece0';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 14, 23);
+  }
+  const texture = new CanvasTexture(canvas);
+  const sprite = new Sprite(new SpriteMaterial({ map: texture, depthTest: false, sizeAttenuation: false, transparent: true }));
+  // About 15 px high on a 900 px tall view
+  const h = 0.034;
+  sprite.scale.set((h * width) / 44, h, 1);
+  sprite.center.set(0.5, 0);
+  sprite.position.set(x, ground + lift * scale, z);
+  sprite.userData = { ground, lift };
+  sprite.renderOrder = 10;
+  return sprite;
+}
+
 function clear(group: Group): void {
   for (const child of [...group.children]) {
     group.remove(child);
+    if (child instanceof Sprite) {
+      // The sprite geometry is three's own and shared: only the tag's material and picture go
+      child.material.map?.dispose();
+      child.material.dispose();
+      continue;
+    }
     child.traverse((o) => {
       const mesh = o as Mesh;
       if (mesh.geometry && mesh.geometry.type !== 'SphereGeometry') mesh.geometry.dispose();
