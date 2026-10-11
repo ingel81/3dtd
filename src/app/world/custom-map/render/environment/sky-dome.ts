@@ -1,5 +1,6 @@
 import { BackSide, Color, Mesh, ShaderMaterial, SphereGeometry, Vector3, type Camera } from 'three';
 import { SHADER_NOISE } from '../shader-noise';
+import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS } from './height-fog';
 
 /**
  * The visible sky: a dome around the camera drawn first, without depth test,
@@ -40,6 +41,7 @@ export class SkyDome {
       depthWrite: false,
       fog: false,
     });
+    Object.assign(material.uniforms, HEIGHT_FOG_UNIFORMS);
     material.name = 'custom-map-sky';
     this.mesh = new Mesh(new SphereGeometry(1000, 48, 24), material);
     this.mesh.name = 'custom-map-sky';
@@ -162,11 +164,13 @@ varying vec3 vDir;
 
 ${SHADER_NOISE}
 ${SKY_FUNCTIONS}
+${HEIGHT_FOG_PARS}
 
 void main() {
   #include <logdepthbuf_fragment>
   gl_FragColor = vec4(skyColor(normalize(vDir), true), 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
+  gl_FragColor.rgb = mapGrade(gl_FragColor.rgb);
 }
 `;

@@ -19,6 +19,10 @@ export const HEIGHT_FOG_UNIFORMS = {
   uFogBase: { value: 0 },
   uFogSunColor: { value: new Color(1, 0.9, 0.75) },
   uFogSunDir: { value: new Vector3(0, 1, 0) },
+  /** Colour grade of the map's look, after the fog: contrast, saturation, and a multiply tint */
+  uGradeContrast: { value: 1 },
+  uGradeSaturation: { value: 1 },
+  uGradeTint: { value: new Color(1, 1, 1) },
 };
 
 export const HEIGHT_FOG_PARS = /* glsl */ `
@@ -26,6 +30,17 @@ uniform float uFogFalloff;
 uniform float uFogBase;
 uniform vec3 uFogSunColor;
 uniform vec3 uFogSunDir;
+uniform float uGradeContrast;
+uniform float uGradeSaturation;
+uniform vec3 uGradeTint;
+
+// The map's grade in output (sRGB) space, like three's fog: saturation, contrast around mid grey, tint
+vec3 mapGrade(vec3 c) {
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  c = mix(vec3(l), c, uGradeSaturation);
+  c = max(vec3(0.0), (c - 0.45) * uGradeContrast + 0.45);
+  return c * uGradeTint;
+}
 `;
 
 /** Fog for a fragment at world position `worldPos`, applied to gl_FragColor (needs fogColor, fogDensity) */
@@ -45,13 +60,17 @@ export function heightFogFragment(worldPos: string): string {
   #else
   float fogBaseDensity = 3.0 / fogFar;
   #endif
-  float amount = fogBaseDensity * fogDist * exp(-k * max(camHeight, -50.0)) * along;
+  // Height fog, plus thin air everywhere: far land turns hazy blue even seen from high above
+  float amount = fogBaseDensity * fogDist * (exp(-k * max(camHeight, -50.0)) * along + 0.25);
   float fogFactor = 1.0 - exp(-max(amount, 0.0));
   float sunward = pow(max(dot(fogRay / max(fogDist, 1e-3), uFogSunDir), 0.0), 8.0);
-  vec3 haze = mix(fogColor, uFogSunColor, sunward * 0.45);
+  // Fog is applied in output space (as three does); its colours are linear, so convert them,
+  // or the haze ends up darker and greener than the sky it should meet
+  vec3 haze = linearToOutputTexel(vec4(mix(fogColor, uFogSunColor, sunward * 0.35), 1.0)).rgb;
   gl_FragColor.rgb = mix(gl_FragColor.rgb, haze, fogFactor);
 }
 #endif
+gl_FragColor.rgb = mapGrade(gl_FragColor.rgb);
 `;
 }
 

@@ -60,6 +60,8 @@ interface SkyPreset {
   cover: number;
   cloudColor: number;
   cloudShadow: number;
+  /** Grade: contrast, saturation, tint */
+  grade: [number, number, number];
 }
 
 const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
@@ -68,16 +70,17 @@ const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     horizon: 0xc4d8e6,
     ground: 0x6b6a5c,
     sun: 0xffe6c4,
-    sunIntensity: 3.4,
+    sunIntensity: 3.8,
     hemiSky: 0xd6e2ee,
     hemiGround: 0x5a5236,
-    hemiIntensity: 0.55,
+    hemiIntensity: 0.45,
     ambient: 0.05,
     envIntensity: 0.35,
     glow: 0.6,
     cover: 0.52,
     cloudColor: 0xffffff,
     cloudShadow: 0x9aa6b4,
+    grade: [1.08, 0.94, 0xfff8ee],
   },
   dusk: {
     zenith: 0x2a3c6e,
@@ -94,6 +97,7 @@ const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     cover: 0.5,
     cloudColor: 0xffd2b0,
     cloudShadow: 0x6a5a68,
+    grade: [1.1, 1.0, 0xffe8d8],
   },
   night: {
     zenith: 0x060b1c,
@@ -110,6 +114,7 @@ const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     cover: 0.55,
     cloudColor: 0x3a4460,
     cloudShadow: 0x141a28,
+    grade: [1.1, 0.8, 0xdfe6ff],
   },
   overcast: {
     zenith: 0x8a96a2,
@@ -126,6 +131,7 @@ const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     cover: 0.22,
     cloudColor: 0xd8dde2,
     cloudShadow: 0x7d858e,
+    grade: [1.04, 0.85, 0xf4f6f8],
   },
 };
 
@@ -175,7 +181,7 @@ export class CustomMapEnvironment {
     this.sun.shadow.bias = -0.0004;
     this.sun.shadow.normalBias = 0.6;
     // Soft edges: PCF taps spread over this many texels
-    this.sun.shadow.radius = 2.5;
+    this.sun.shadow.radius = 1.5;
     this.sun.shadow.camera.near = 1;
     this.sun.shadow.camera.far = 2000;
     this.lights.add(this.hemi, this.ambient, this.sun, this.sun.target, this.skyDome.mesh, this.weather.mesh);
@@ -200,7 +206,8 @@ export class CustomMapEnvironment {
     this.hemi.intensity = p.hemiIntensity;
     this.ambient.color.set(p.hemiSky).multiply(tint);
     this.ambient.intensity = p.ambient;
-    this.fog.color.set(p.horizon).multiply(tint);
+    // Haze: the horizon lifted a little towards the zenith's blue, so distance reads blue, not green
+    this.fog.color.set(p.horizon).lerp(new Color(p.zenith), 0.18).multiply(tint);
     this.zenith.set(p.zenith).multiply(tint);
     this.horizon.set(p.horizon).multiply(tint);
     this.fog.density = env.fogDensity;
@@ -223,6 +230,9 @@ export class CustomMapEnvironment {
     this.placeSun(this.sun.target.position);
     HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(this.sun.color).lerp(this.fog.color, 0.35);
     HEIGHT_FOG_UNIFORMS.uFogSunDir.value.copy(this.sunDir);
+    HEIGHT_FOG_UNIFORMS.uGradeContrast.value = p.grade[0];
+    HEIGHT_FOG_UNIFORMS.uGradeSaturation.value = p.grade[1];
+    HEIGHT_FOG_UNIFORMS.uGradeTint.value.set(p.grade[2]);
     this.skyDome.set({
       zenith: this.zenith,
       horizon: this.horizon,

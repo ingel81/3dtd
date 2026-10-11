@@ -373,8 +373,8 @@ void main() {
   alpha *= smoothstep(0.0, 0.08, vDepth);
 #endif
   gl_FragColor = vec4(color, alpha);
-  ${heightFogFragment('vWorldPos')}
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
+  ${heightFogFragment('vWorldPos')}
 }
 `;
