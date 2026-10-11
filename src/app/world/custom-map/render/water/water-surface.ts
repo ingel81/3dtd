@@ -14,9 +14,10 @@ import {
   UniformsUtils,
   UnsignedByteType,
   Vector2,
-  Vector3,
 } from 'three';
 import type { MapWater } from '../../map-document';
+import { SKY_FUNCTIONS } from '../environment/sky-dome';
+import { SHADER_NOISE } from '../shader-noise';
 import type { HeightField } from '../height-field';
 import { APRON_RINGS, RIVER_REACH, type ApronProfile } from '../terrain/terrain-apron';
 
@@ -51,10 +52,6 @@ export class WaterSurface {
           uTime: { value: 0 },
           uDeep: { value: new Color() },
           uShallow: { value: new Color() },
-          uSkyZenith: { value: new Color(0x3f78c4) },
-          uSkyHorizon: { value: new Color(0xc4d8e6) },
-          uSunDir: { value: new Vector3(0, 1, 0) },
-          uSunColor: { value: new Color(0xffffff) },
           uFlow: { value: new Vector2(0.6, 0.25) },
           uLight: { value: 1 },
         },
@@ -86,15 +83,19 @@ export class WaterSurface {
     this.mesh.visible = (this.mesh.geometry.index?.count ?? 0) > 0;
   }
 
-  /** Sky and sun of the environment, for reflections */
-  setLighting(zenith: Color, horizon: Color, sunDir: Vector3, sunColor: Color, sunIntensity: number): void {
+  /**
+   * Reflect this sky: the water takes over the sky dome's uniform objects
+   * (gradient, sun, clouds), so it reflects the same clouds as they drift.
+   * `sunIntensity` dims the water's own colour at night.
+   */
+  setSky(skyUniforms: ShaderMaterial['uniforms'], sunIntensity: number): void {
     const u = this.mesh.material.uniforms;
-    u['uSkyZenith'].value.copy(zenith);
-    u['uSkyHorizon'].value.copy(horizon);
-    u['uSunDir'].value.copy(sunDir);
-    u['uSunColor'].value.copy(sunColor).multiplyScalar(sunIntensity / 3);
+    for (const key of ['uZenith', 'uHorizon', 'uSunDir', 'uSunColor', 'uCloudColor', 'uCloudShadow', 'uCover', 'uGlow', 'uSkyTime']) {
+      u[key] = skyUniforms[key];
+    }
     // The water's own colour is lit like the ground: dim at night, full by day
     u['uLight'].value = Math.min(1.1, Math.max(0.12, (sunIntensity / 3.4) * 0.85 + 0.15));
+    this.mesh.material.needsUpdate = true;
   }
 
   update(dt: number): void {
@@ -279,11 +280,9 @@ uniform sampler2D uWaves;
 uniform float uTime;
 uniform vec3 uDeep;
 uniform vec3 uShallow;
-uniform vec3 uSkyZenith;
-uniform vec3 uSkyHorizon;
-uniform vec3 uSunDir;
-uniform vec3 uSunColor;
 uniform vec2 uFlow;
+${SHADER_NOISE}
+${SKY_FUNCTIONS}
 uniform float uLight;
 varying float vDepth;
 varying float vWet;
@@ -308,7 +307,8 @@ void main() {
   vec3 v = normalize(cameraPosition - vWorldPos);
   float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
   vec3 r = reflect(-v, n);
-  vec3 sky = mix(uSkyHorizon, uSkyZenith, pow(max(r.y, 0.0), 0.5));
+  // Reflect the real sky (with clouds); below the horizon reflected rays see the haze
+  vec3 sky = skyColor(vec3(r.x, max(r.y, 0.02), r.z), false);
   vec3 body = mix(uShallow, uDeep, smoothstep(0.2, 3.5, vDepth)) * uLight;
   vec3 color = mix(body, sky, fresnel * 0.9 + 0.05);
   // Sun glint

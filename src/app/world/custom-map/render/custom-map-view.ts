@@ -184,6 +184,7 @@ export class CustomMapView {
   /** Water level, mask or colour changed, or heights under the water */
   updateWater(): void {
     const water = this.doc.terrain.water;
+    this.terrain.refreshWater();
     if (!water) {
       this.water?.dispose();
       this.water = null;
@@ -222,7 +223,7 @@ export class CustomMapView {
 
   private lightWater(): void {
     const e = this.environment;
-    this.water?.setLighting(e.zenith, e.horizon, e.sunDir, e.sun.color, e.sun.intensity);
+    this.water?.setSky(e.skyDome.uniforms, e.sun.intensity);
   }
 
   dispose(): void {

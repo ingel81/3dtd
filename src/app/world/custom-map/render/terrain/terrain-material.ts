@@ -63,6 +63,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uPathMask: { value: null as Texture | null },
     uGridNormals: { value: null as Texture | null },
     uGridUv: { value: new Vector4() },
+    uWaterLevel: { value: -1e9 },
     uMapSize: { value: new Vector2() },
     uInvScale: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
     uAverage: { value: Array.from({ length: TERRAIN_MAX_LAYERS }, () => new Color()) },
@@ -127,6 +128,11 @@ export class TerrainMaterial extends MeshStandardMaterial {
     this.setCliffAngle(p.cliffAngle);
   }
 
+  /** Water level for the wet banks; null when the map has no water */
+  setWaterLevel(level: number | null): void {
+    this.terrainUniforms.uWaterLevel.value = level ?? -1e9;
+  }
+
   setCliffAngle(degrees: number): void {
     this.terrainUniforms.uCliffCos.value = Math.cos((degrees * Math.PI) / 180);
   }
@@ -148,6 +154,7 @@ uniform sampler2D uSplat1;
 uniform sampler2D uPathMask;
 uniform sampler2D uGridNormals;
 uniform vec4 uGridUv;
+uniform float uWaterLevel;
 uniform vec2 uMapSize;
 uniform float uInvScale[TERRAIN_LAYERS];
 uniform vec3 uAverage[TERRAIN_LAYERS];
@@ -193,7 +200,10 @@ vec2 mapPos = vec2(-tPos.x, tPos.z);
 // Beyond the map (the apron) there is no grid: vertex normals and the first layer
 vec2 edgeDist = abs(mapPos) - uMapSize * 0.5;
 float outside = smoothstep(0.0, 12.0, max(edgeDist.x, edgeDist.y));
-vec3 nGeo = normalize(mix(texture2D(uGridNormals, mapPos * uGridUv.xy + uGridUv.zw).xyz, normalize(vTerrainNormal), outside));
+vec4 gridSample = texture2D(uGridNormals, mapPos * uGridUv.xy + uGridUv.zw);
+vec3 nGeo = normalize(mix(gridSample.xyz, normalize(vTerrainNormal), outside));
+// Banks just above the water are wet: darker and glossier
+float wetBank = gridSample.a * smoothstep(uWaterLevel + 1.3, uWaterLevel + 0.15, tPos.y) * (1.0 - outside);
 vec2 tuv = mapPos / uMapSize + 0.5;
 vec2 dPosX = dFdx(tPos.xz);
 vec2 dPosY = dFdy(tPos.xz);
@@ -326,7 +336,8 @@ albedo = mix(vec3(dot(albedo, vec3(0.299, 0.587, 0.114))), albedo, 0.84);
 float far = smoothstep(120.0, 900.0, length(vViewPosition));
 albedo = mix(albedo, accAvg * mix(0.8, 1.15, macro), far * 0.45);
 
-float terrainRough = clamp(accD.b, 0.3, 1.0);
+albedo *= mix(1.0, 0.6, wetBank);
+float terrainRough = mix(clamp(accD.b, 0.3, 1.0), 0.28, wetBank);
 float terrainAO = mix(1.0, accD.a, 0.85);
 diffuseColor.rgb = albedo;
 `;

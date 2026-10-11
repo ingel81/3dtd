@@ -15,6 +15,11 @@ import { SHADER_NOISE } from '../shader-noise';
 export class SkyDome {
   readonly mesh: Mesh<SphereGeometry, ShaderMaterial>;
 
+  /** The sky's uniforms; materials that reflect the sky share these objects (SKY_FUNCTIONS) */
+  get uniforms(): ShaderMaterial['uniforms'] {
+    return this.mesh.material.uniforms;
+  }
+
   constructor() {
     const material = new ShaderMaterial({
       uniforms: {
@@ -26,7 +31,7 @@ export class SkyDome {
         uCloudShadow: { value: new Color(0.55, 0.6, 0.68) },
         uCover: { value: 0.5 },
         uGlow: { value: 0.6 },
-        uTime: { value: 0 },
+        uSkyTime: { value: 0 },
       },
       vertexShader: SKY_VERTEX,
       fragmentShader: SKY_FRAGMENT,
@@ -70,7 +75,7 @@ export class SkyDome {
     this.mesh.parent?.worldToLocal(this.mesh.position);
     this.mesh.updateMatrix();
     this.mesh.updateMatrixWorld();
-    this.mesh.material.uniforms['uTime'].value += dt;
+    this.mesh.material.uniforms['uSkyTime'].value += dt;
   }
 
   dispose(): void {
@@ -93,9 +98,11 @@ void main() {
 }
 `;
 
-const SKY_FRAGMENT = /* glsl */ `
-#include <common>
-#include <logdepthbuf_pars_fragment>
+/**
+ * Sky colour for a direction (gradient, sun glow, clouds), shared by the
+ * dome and the water's reflection. Needs SHADER_NOISE before it.
+ */
+export const SKY_FUNCTIONS = /* glsl */ `
 uniform vec3 uZenith;
 uniform vec3 uHorizon;
 uniform vec3 uSunDir;
@@ -104,12 +111,9 @@ uniform vec3 uCloudColor;
 uniform vec3 uCloudShadow;
 uniform float uCover;
 uniform float uGlow;
-uniform float uTime;
-varying vec3 vDir;
+uniform float uSkyTime;
 
-${SHADER_NOISE}
-
-float fbm(vec2 p) {
+float skyFbm(vec2 p) {
   float s = 0.0;
   float a = 0.5;
   for (int i = 0; i < 5; i++) {
@@ -120,9 +124,7 @@ float fbm(vec2 p) {
   return s;
 }
 
-void main() {
-  #include <logdepthbuf_fragment>
-  vec3 dir = normalize(vDir);
+vec3 skyColor(vec3 dir, bool withSun) {
   float up = max(dir.y, 0.0);
   // Gradient: haze at the horizon, deep colour at the zenith
   vec3 sky = mix(uHorizon, uZenith, pow(up, 0.45));
@@ -132,14 +134,14 @@ void main() {
   // Clouds on a plane above the camera, thinning towards the horizon
   if (dir.y > 0.0) {
     vec2 p = dir.xz / (dir.y + 0.12) * 0.9;
-    vec2 wind = vec2(uTime * 0.004, uTime * 0.0015);
-    float base = fbm(p + wind);
-    float detail = fbm(p * 3.1 - wind * 2.0);
+    vec2 wind = vec2(uSkyTime * 0.004, uSkyTime * 0.0015);
+    float base = skyFbm(p + wind);
+    float detail = skyFbm(p * 3.1 - wind * 2.0);
     float d = base * 0.75 + detail * 0.25;
     float density = smoothstep(uCover, uCover + 0.28, d);
     // Lit from the sun's side: compare with the density a step towards the sun
     vec2 toSun = normalize(uSunDir.xz + 1e-4) * 0.06;
-    float ahead = fbm(p + wind + toSun) * 0.75 + detail * 0.25;
+    float ahead = skyFbm(p + wind + toSun) * 0.75 + detail * 0.25;
     float lit = clamp(0.55 + (d - ahead) * 3.0, 0.0, 1.0);
     vec3 cloud = mix(uCloudShadow, uCloudColor, lit);
     // Silver lining near the sun
@@ -147,9 +149,23 @@ void main() {
     float fade = smoothstep(0.0, 0.25, dir.y);
     sky = mix(sky, cloud, density * fade * 0.92);
   }
-  // Sun disc over the clouds' thin parts
-  sky += uSunColor * smoothstep(0.9996, 0.9999, cosSun) * 6.0;
-  gl_FragColor = vec4(sky, 1.0);
+  // Sun disc
+  if (withSun) sky += uSunColor * smoothstep(0.9996, 0.9999, cosSun) * 6.0;
+  return sky;
+}
+`;
+
+const SKY_FRAGMENT = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_fragment>
+varying vec3 vDir;
+
+${SHADER_NOISE}
+${SKY_FUNCTIONS}
+
+void main() {
+  #include <logdepthbuf_fragment>
+  gl_FragColor = vec4(skyColor(normalize(vDir), true), 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }

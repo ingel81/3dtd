@@ -123,13 +123,11 @@ export function maskTexture(pixels: Uint8Array, resolution: number): DataTexture
 
 /**
  * Surface normals of the height grid, one texel per sample (x and z of the
- * scene-space normal in RGB, half floats). The terrain shader reads them bilinearly:
+ * scene-space normal in RGB, half floats; alpha: near water, for wet banks). The terrain shader reads them bilinearly:
  * the cliff test and the base normal then change smoothly inside a cell
  * instead of following the mesh's diagonal, which drew saw teeth along
  * cliff edges.
  */
-const ONE_HALF = DataUtils.toHalfFloat(1);
-
 export class GridNormalTexture {
   readonly texture: DataTexture;
   private readonly pixels: Uint16Array;
@@ -143,6 +141,39 @@ export class GridNormalTexture {
     this.texture.magFilter = LinearFilter;
     this.texture.minFilter = LinearFilter;
     this.texture.generateMipmaps = false;
+    this.update();
+  }
+
+  private wet: Float32Array | null = null;
+
+  /**
+   * Marks the samples within two cells of water (mask grown by two samples),
+   * where the shader darkens banks just above the water level.
+   */
+  setWater(mask: Uint8Array | null): void {
+    const f = this.field;
+    if (!mask) {
+      this.wet = null;
+    } else {
+      const wet = new Float32Array(f.columns * f.rows);
+      for (let j = 0; j < f.rows; j++) {
+        for (let i = 0; i < f.columns; i++) {
+          let m = 0;
+          for (let dj = -2; dj <= 2 && m === 0; dj++) {
+            for (let di = -2; di <= 2; di++) {
+              const ii = i + di;
+              const jj = j + dj;
+              if (ii >= 0 && jj >= 0 && ii < f.columns && jj < f.rows && mask[jj * f.columns + ii] > 0) {
+                m = 1;
+                break;
+              }
+            }
+          }
+          wet[j * f.columns + i] = m;
+        }
+      }
+      this.wet = wet;
+    }
     this.update();
   }
 
@@ -164,7 +195,7 @@ export class GridNormalTexture {
         this.pixels[q] = DataUtils.toHalfFloat(dhdx / len);
         this.pixels[q + 1] = DataUtils.toHalfFloat(1 / len);
         this.pixels[q + 2] = DataUtils.toHalfFloat(-dhdy / len);
-        this.pixels[q + 3] = ONE_HALF;
+        this.pixels[q + 3] = this.wet ? DataUtils.toHalfFloat(this.wet[j * f.columns + i]) : 0;
       }
     }
     this.texture.needsUpdate = true;

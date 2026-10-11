@@ -65,6 +65,7 @@ export class MapTerrainLayer {
     this.apronProfile = new ApronProfile(field);
     this.apron = buildTerrainApron(this.apronProfile, this.placeholder);
     this.normals = new GridNormalTexture(field);
+    this.normals.setWater(terrain.water?.mask ?? null);
   }
 
   /**
@@ -107,6 +108,7 @@ export class MapTerrainLayer {
       depth: t.depth,
       cliffAngle: t.cliffAngle,
     });
+    this.material.setWaterLevel(t.water?.level ?? null);
     this.chunks.setMaterial(this.material);
     this.apron.material = this.material;
   }
@@ -129,6 +131,12 @@ export class MapTerrainLayer {
       this.apron.geometry.dispose();
       this.apron.geometry = buildTerrainApron(this.apronProfile, this.apron.material as Material).geometry;
     }
+  }
+
+  /** Water changed: wet banks follow the mask and level */
+  refreshWater(): void {
+    this.normals.setWater(this.terrain.water?.mask ?? null);
+    this.material?.setWaterLevel(this.terrain.water?.level ?? null);
   }
 
   /** Splat weights changed (painted in place or replaced) */
