@@ -211,6 +211,7 @@ export class CustomMapView {
     this.terrain.grass.setNear(reach < GRASS_MAX_VIEW_DISTANCE);
     this.environment.update(dtSeconds, camera, this.focusPoint);
     this.environment.matchFog(this.camPos, this.focusPoint);
+    this.environment.setFogMap(this.group.position.x, this.group.position.z, this.doc.terrain.width / 2, this.doc.terrain.depth / 2);
   }
 
   /** Heights changed inside `rect` (map metres); whole map when omitted. Objects and water follow. */

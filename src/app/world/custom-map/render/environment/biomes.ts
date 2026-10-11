@@ -60,7 +60,7 @@ export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
     cover: 0.52,
     cloudColor: 0xffffff,
     cloudShadow: 0x9aa6b4,
-    grade: [1.08, 0.94, 0xfff8ee],
+    grade: [1.1, 1.02, 0xfffaf4],
   },
   dusk: {
     zenith: 0x2a3c6e,

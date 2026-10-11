@@ -120,10 +120,17 @@ export class CustomMapEnvironment {
     this.ambient.color.set(p.hemiSky).multiply(tint);
     this.ambient.intensity = p.ambient;
     // Haze: the horizon lifted a little towards the zenith's blue, so distance reads blue, not green
-    this.fog.color.set(p.horizon).lerp(new Color(p.zenith), 0.18).multiply(tint);
-    this.zenith.set(p.zenith).multiply(tint);
-    this.horizon.set(p.horizon).multiply(tint);
-    const baseFog = env.fogDensity * p.fogScale;
+    // The map's tint colours its light fully, its sky and air only a little: a green or orange
+    // mood tint over the whole haze made the far land olive or brown
+    const airTint = new Color(1, 1, 1).lerp(tint, 0.3);
+    // Haze: between horizon and zenith, a little desaturated, so distance reads blue-grey, not the horizon's hue
+    this.fog.color.set(p.horizon).lerp(new Color(p.zenith), 0.3).multiply(airTint);
+    const fogGrey = (this.fog.color.r + this.fog.color.g + this.fog.color.b) / 3;
+    this.fog.color.lerp(new Color(fogGrey, fogGrey, fogGrey), 0.3);
+    this.zenith.set(p.zenith).multiply(airTint);
+    this.horizon.set(p.horizon).multiply(airTint);
+    // Capped: imported maps (Warcraft fog ends) can ask for densities that hide the map in milk
+    const baseFog = Math.min(env.fogDensity, 0.004) * p.fogScale;
     this.fog.density = baseFog;
     HEIGHT_FOG_UNIFORMS.uFogFalloff.value = p.fogFalloff;
     // Weather: rain and snow close the sky, dim the sun and thicken the air; fog weather thickens it most
@@ -138,7 +145,7 @@ export class CustomMapEnvironment {
       this.fog.color.lerp(new Color(weather === 'snow' ? 0xd8dde2 : 0x8e969c), 0.5 * k);
     } else if (weather === 'fog') {
       this.sun.intensity *= 1 - 0.4 * k;
-      this.fog.density = Math.max(baseFog, env.fogDensity) * (1 + 5 * k);
+      this.fog.density = Math.max(baseFog, 0.0008) * (1 + 5 * k);
       this.fog.color.lerp(new Color(0xc0c6ca), 0.4 * k);
     }
     // The weather's particles, or the biome's own ambient ones (embers, ash, dust, drifting snow)
@@ -146,6 +153,8 @@ export class CustomMapEnvironment {
     else if (p.particles) this.weather.set(p.particles, p.particles === 'snow' ? 0.25 : 0.5, 1 - this.darkness * 0.85);
     else this.weather.set('clear', 0, 1);
     HEIGHT_FOG_UNIFORMS.uFogDensity.value = this.fog.density;
+    // Clear air before the haze: shorter in fog weather and in a swamp
+    HEIGHT_FOG_UNIFORMS.uFogStart.value = weather === 'fog' ? 450 * (1 - 0.85 * k) : env.biome === 'swamp' ? 120 : 450;
     // Snow on everything facing up, wetness in rain (and a little in a swamp)
     const snowFromWeather = weather === 'snow' ? k * 0.9 : 0;
     const snowFromBiome = env.biome === 'arctic' ? 0.65 : 0;
@@ -236,14 +245,21 @@ export class CustomMapEnvironment {
     const kdy = k * (point.y - eye.y);
     const along = Math.abs(kdy) > 1e-4 ? (1 - Math.exp(-kdy)) / kdy : 1;
     const camHeight = Math.max(eye.y - u.uFogBase.value, -50);
-    const amount = u.uFogDensity.value * 2 * dist * (Math.exp(-k * camHeight) * along + 0.25);
+    const start = u.uFogStart.value;
+    const amount =
+      u.uFogDensity.value * 2 * (Math.max(dist - start, 0) * (Math.exp(-k * camHeight) * along + 0.1) + Math.max(dist - start * 3, 0) * 0.9);
     // FogExp2: factor = 1 - exp(-(density * d)^2); the height fog: 1 - exp(-amount)
-    this.fog.density = dist > 1 ? Math.sqrt(Math.max(amount, 0)) / dist : u.uFogDensity.value;
+    this.fog.density = dist > 1 ? Math.sqrt(Math.max(amount, 0)) / dist : 0;
   }
 
   /** Sky preset with the biome's look on top */
   private look(): BiomeLook {
     return biomeLook(this.env.biome, this.env.sky);
+  }
+
+  /** The map's extent in the scene: its centre and half sizes (x, z), for the haze over the land beyond */
+  setFogMap(centerX: number, centerZ: number, halfX: number, halfZ: number): void {
+    HEIGHT_FOG_UNIFORMS.uFogMap.value.set(centerX, centerZ, halfX, halfZ);
   }
 
   /** Height the fog is densest at (the map's low ground), metres in the scene */

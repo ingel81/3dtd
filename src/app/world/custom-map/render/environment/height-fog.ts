@@ -1,4 +1,4 @@
-import { Color, Vector3, type Material, type WebGLProgramParametersWithUniforms } from 'three';
+import { Color, Vector3, Vector4, type Material, type WebGLProgramParametersWithUniforms } from 'three';
 
 /**
  * Height fog with aerial perspective for the custom map's materials.
@@ -21,6 +21,10 @@ export const HEIGHT_FOG_UNIFORMS = {
   uFogSunDir: { value: new Vector3(0, 1, 0) },
   /** The map's own fog density (the scene's FogExp2 carries a matched one for other materials) */
   uFogDensity: { value: 0.001 },
+  /** Metres of clear air before the haze starts: the game camera (150 to 300 m) looks through none */
+  uFogStart: { value: 450 },
+  /** The map's extent in the scene (centre x, z and half sizes): land beyond the border fades into the haze */
+  uFogMap: { value: new Vector4(0, 0, 1e6, 1e6) },
   /** Colour grade of the map's look, after the fog: contrast, saturation, and a multiply tint */
   uGradeContrast: { value: 1 },
   uGradeSaturation: { value: 1 },
@@ -36,6 +40,8 @@ uniform float uFogBase;
 uniform vec3 uFogSunColor;
 uniform vec3 uFogSunDir;
 uniform float uFogDensity;
+uniform float uFogStart;
+uniform vec4 uFogMap;
 uniform float uGradeContrast;
 uniform float uGradeSaturation;
 uniform vec3 uGradeTint;
@@ -72,12 +78,19 @@ export function heightFogFragment(worldPos: string): string {
   float along = abs(kdy) > 1e-4 ? (1.0 - exp(-kdy)) / kdy : 1.0;
   float fogBaseDensity = uFogDensity * 2.0;
   // Height fog, plus thin air everywhere: far land turns hazy blue even seen from high above
-  float amount = fogBaseDensity * fogDist * (exp(-k * max(camHeight, -50.0)) * along + 0.25);
+  // Clear air up to uFogStart, then height fog plus a little haze everywhere
+  float fogPath = max(fogDist - uFogStart, 0.0);
+  // Aerial perspective: past a kilometre and a half the land fades into the haze at any height
+  float farPath = max(fogDist - uFogStart * 3.0, 0.0);
+  float amount = fogBaseDensity * (fogPath * (exp(-k * max(camHeight, -50.0)) * along + 0.1) + farPath * 0.9);
   float fogFactor = 1.0 - exp(-max(amount, 0.0));
+  // Land beyond the map's border is backdrop: it sinks into the haze within a few hundred metres
+  vec2 beyond = abs(${worldPos}.xz - uFogMap.xy) - uFogMap.zw;
+  fogFactor = max(fogFactor, smoothstep(0.0, 400.0, max(beyond.x, beyond.y)) * 0.95);
   float sunward = pow(max(dot(fogRay / max(fogDist, 1e-3), uFogSunDir), 0.0), 8.0);
   // Fog is applied in output space (as three does); its colours are linear, so convert them,
   // or the haze ends up darker and greener than the sky it should meet
-  vec3 haze = linearToOutputTexel(vec4(mix(fogColor, uFogSunColor, sunward * 0.35), 1.0)).rgb;
+  vec3 haze = linearToOutputTexel(vec4(mix(fogColor, uFogSunColor, sunward * 0.2), 1.0)).rgb;
   gl_FragColor.rgb = mix(gl_FragColor.rgb, haze, fogFactor);
 }
 #endif

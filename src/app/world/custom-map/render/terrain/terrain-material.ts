@@ -114,7 +114,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
         )
         .replace(
           '#include <aomap_fragment>',
-          '#include <aomap_fragment>\nreflectedLight.indirectDiffuse *= terrainAO;\nreflectedLight.indirectSpecular *= terrainAO;\nreflectedLight.directDiffuse *= mix(1.0, terrainAO, 0.6);',
+          '#include <aomap_fragment>\nreflectedLight.indirectDiffuse *= terrainAO;\nreflectedLight.indirectSpecular *= terrainAO * terrainSpec;\nreflectedLight.directDiffuse *= mix(1.0, terrainAO, 0.6);\nreflectedLight.directSpecular *= terrainSpec;',
         );
     };
   }
@@ -374,15 +374,18 @@ vec3 albedo = accC.rgb;
 float macro = n1 * 0.6 + n2 * 0.4;
 albedo *= mix(0.86, 1.1, macro) * mix(0.93, 1.06, n3);
 // Large patches: drier and yellower in some, deeper and cooler in others
-albedo = mix(albedo, albedo * vec3(1.14, 1.05, 0.72), smoothstep(0.5, 0.85, n2) * 0.65);
+albedo = mix(albedo, albedo * vec3(1.1, 1.04, 0.8), smoothstep(0.5, 0.85, n2) * 0.5);
 albedo = mix(albedo, albedo * vec3(0.84, 0.92, 0.95), smoothstep(0.45, 0.15, n1) * 0.6);
 // A little less saturated overall: photo textures under a strong sun read too green
-albedo = mix(vec3(dot(albedo, vec3(0.299, 0.587, 0.114))), albedo, 0.84);
+albedo = mix(vec3(dot(albedo, vec3(0.299, 0.587, 0.114))), albedo, 0.94);
 float far = smoothstep(120.0, 900.0, length(vViewPosition));
 albedo = mix(albedo, accAvg * mix(0.8, 1.15, macro), far * 0.45);
 
 albedo *= mix(1.0, 0.6, wetBank);
-float terrainRough = mix(clamp(accD.b, 0.3, 1.0), 0.28, wetBank);
+// Soil, grass and rock are rough and barely shiny: against the sun at a grazing angle the full
+// specular of a standard material turned meadows and yards into white sheets. Wet banks keep a sheen
+float terrainRough = mix(clamp(accD.b, 0.6, 1.0), 0.45, wetBank);
+float terrainSpec = mix(0.25, 0.6, wetBank);
 // Texture AO and the baked ground occlusion (hollows, slope feet, contact shadows of objects)
 float groundAO = mix(texture2D(uGridOcclusion, mapPos * uGridUv.xy + uGridUv.zw).r, 1.0, outside);
 float terrainAO = mix(1.0, accD.a, 0.85) * groundAO;
