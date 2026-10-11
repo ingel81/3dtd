@@ -8,7 +8,7 @@
  * `MapStore.load(id)` is what the game uses for `?world=map:<id>`: an own map
  * of that id wins over a shipped one.
  */
-import type { CustomMapDocument } from './map-document';
+import type { CustomMapDocument, MapBiome } from './map-document';
 import { contentHash, packMapFile, unpackMapFile } from './map-file';
 import { slugMapId } from './map-create';
 
@@ -26,6 +26,8 @@ export interface MapSummary {
   contentHash: string;
   objects: number;
   spawns: number;
+  /** Look of sky, light and air (MapEnvironment.biome); absent in summaries of before the field */
+  biome?: MapBiome;
   /** The w3x file a map came from */
   importedFrom?: string;
 }
@@ -64,6 +66,8 @@ export interface ShippedMapEntry {
   updatedAt?: string;
   contentHash?: string;
   preview?: string;
+  spawns?: number;
+  biome?: MapBiome;
 }
 
 export interface ShippedMapIndex {
@@ -213,6 +217,7 @@ export function summarize(doc: CustomMapDocument, origin: MapOrigin, hash: strin
     contentHash: hash,
     objects: doc.objects.length,
     spawns: doc.spawns.length,
+    biome: doc.environment.biome ?? 'temperate',
     importedFrom: doc.meta.source?.file,
   };
 }
@@ -229,7 +234,8 @@ function shippedSummary(e: ShippedMapEntry): MapSummary {
     origin: 'shipped',
     contentHash: e.contentHash ?? '',
     objects: 0,
-    spawns: 0,
+    spawns: e.spawns ?? 0,
+    ...(e.biome ? { biome: e.biome } : {}),
   };
 }
 

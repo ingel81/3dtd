@@ -56,6 +56,8 @@ describe('shipped maps', () => {
         description: doc.meta.description,
         width: doc.terrain.width,
         depth: doc.terrain.depth,
+        spawns: doc.spawns.length,
+        biome: doc.environment.biome ?? 'temperate',
         updatedAt: doc.meta.updatedAt,
         contentHash: hash,
       });

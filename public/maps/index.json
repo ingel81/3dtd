@@ -9,6 +9,8 @@
       "description": "River valley with a village, woods, a bridge and cliffs; two roads lead to the HQ.",
       "width": 512,
       "depth": 512,
+      "spawns": 2,
+      "biome": "temperate",
       "updatedAt": "1970-01-01T00:00:00.000Z",
       "contentHash": "8af9ea891685cc7d936a8db6404f52177d31833e6d50878af9405a2de3802b06"
     }
