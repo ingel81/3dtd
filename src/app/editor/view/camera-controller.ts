@@ -2,7 +2,8 @@
  * The editor camera: orbits a target on the ground. Right drag turns, middle
  * drag (or Shift with right drag) pans, the wheel zooms toward the point
  * under the pointer, arrow keys pan, F frames a point, T toggles a straight
- * top-down view. Moves ease toward their goal so the view never jumps.
+ * top-down view; while the right button is held, W A S D fly and Q E sink
+ * and climb. Moves ease toward their goal so the view never jumps.
  */
 import { MathUtils, PerspectiveCamera, Vector3 } from 'three';
 
@@ -55,6 +56,30 @@ export class CameraController {
   move(rightMetres: number, forwardMetres: number): void {
     const { right, forward } = axes(this.goal.yaw);
     this.goal.target.addScaledVector(right, rightMetres).addScaledVector(forward, forwardMetres);
+  }
+
+  /**
+   * Fly along the view: `forward` and `right` in metres over the ground in
+   * the view's direction, `up` lifts the view (closer to the ground when
+   * negative) without turning it.
+   */
+  fly(forward: number, right: number, up: number): void {
+    this.move(right, forward);
+    if (up) this.goal.distance = MathUtils.clamp(this.goal.distance + up, this.minDistance, this.maxDistance);
+  }
+
+  /** A copy of where the view goes, to come back to */
+  saveGoal(): OrbitState {
+    const g = this.goal;
+    return { target: g.target.clone(), distance: g.distance, yaw: g.yaw, pitch: g.pitch };
+  }
+
+  setGoal(state: OrbitState): void {
+    this.goal.target.copy(state.target);
+    this.goal.distance = state.distance;
+    this.goal.yaw = state.yaw;
+    this.goal.pitch = MathUtils.clamp(state.pitch, MIN_PITCH, MAX_PITCH);
+    this.topDown = false;
   }
 
   /** Zoom by wheel steps toward a point (scene space), or the target */

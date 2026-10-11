@@ -145,6 +145,8 @@ export class EditorShellComponent implements OnDestroy {
       return;
     }
     const s = this.session;
+    // While the right button turns the view, W A S D Q E fly instead of choosing tools
+    if (s.viewport?.flying && s.viewport.key(e)) return this.handled(e, () => undefined);
     const ctrl = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
     if (ctrl && k === 'z' && !e.shiftKey) return this.handled(e, () => s.undo());
@@ -242,6 +244,8 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
     group: 'View',
     keys: [
       ['Right drag', 'Turn the view'],
+      ['Right held + W A S D', 'Fly; Q E lower, raise; Shift faster'],
+      ['C', 'Game view: where the game starts, and back'],
       ['Middle drag, Shift+right drag', 'Pan'],
       ['Wheel', 'Zoom to the pointer'],
       ['Arrow keys', 'Pan'],

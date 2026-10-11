@@ -25,7 +25,7 @@ import { stepRadius } from '../ops/brush';
 import { dominantLayer } from '../ops/paint-ops';
 import { edgePolyline, nearestOnPolyline, spawnRoutes } from '../ops/path-graph';
 import type { EditorSettings, EditorTool, MapHit, PickResult, ToolContext, ToolPointer } from '../tools/tool';
-import { CameraController } from './camera-controller';
+import { CameraController, type OrbitState } from './camera-controller';
 import { EditorOverlay } from './editor-overlay';
 import { EditorMapView, mapToScene } from './map-view';
 import { contourLines } from '../ops/contours';
@@ -66,6 +66,14 @@ export interface ViewportCallbacks {
 /** Milliseconds between two sky rebuilds while an environment slider moves */
 const ENV_INTERVAL_MS = 100;
 const FOV = 50;
+/**
+ * The game's start view (three-engine/camera-rig.ts applyStartPosition):
+ * over the HQ from the south, 400 m up and 145 m back, about 70 degrees
+ * down, with the game camera's 60 degree field of view
+ */
+const GAME_VIEW = { height: 400, back: 145, fov: 60 };
+/** Keys that fly the view while the right button is held */
+const FLY_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e']);
 
 export class EditorViewport {
   readonly renderer: WebGLRenderer;
@@ -97,6 +105,8 @@ export class EditorViewport {
   private statsTime = 0;
   private hoverTime = 0;
   private readonly keysDown = new Set<string>();
+  /** The view before the game camera took over, to go back to */
+  private beforeGameView: OrbitState | null = null;
   private readonly raycaster = new Raycaster();
   private readonly ndc = new Vector2();
   private readonly unsubscribe: (() => void)[] = [];
@@ -227,6 +237,12 @@ export class EditorViewport {
 
   /** Global keys the shell passes on: the tool first, then the camera */
   key(e: KeyboardEvent): boolean {
+    // Flying with the right button held takes W A S D Q E before any tool
+    const k = e.key.toLowerCase();
+    if (this.cameraDrag?.mode === 'rotate' && FLY_KEYS.has(k) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      this.keysDown.add(`fly:${k}`);
+      return true;
+    }
     if (this.tool?.key?.(e, this.ctx)) return true;
     if (e.key === 'Escape') {
       this.tool?.cancel?.(this.ctx);
@@ -260,6 +276,10 @@ export class EditorViewport {
       case 'T':
         this.controller.setTopDown(!this.controller.isTopDown);
         return true;
+      case 'c':
+      case 'C':
+        this.toggleGameView();
+        return true;
       case 'ArrowUp':
       case 'ArrowDown':
       case 'ArrowLeft':
@@ -272,6 +292,44 @@ export class EditorViewport {
 
   keyUp(e: KeyboardEvent): void {
     this.keysDown.delete(e.key);
+    this.keysDown.delete(`fly:${e.key.toLowerCase()}`);
+  }
+
+  /** Whether the right button is turning the view (keys fly then) */
+  get flying(): boolean {
+    return this.cameraDrag?.mode === 'rotate';
+  }
+
+  /** Whether the view shows what the game shows at the start */
+  get inGameView(): boolean {
+    return this.beforeGameView !== null;
+  }
+
+  /** The game's start view over the HQ, or back to the view before */
+  toggleGameView(): void {
+    const c = this.controller;
+    if (this.beforeGameView) {
+      c.setGoal(this.beforeGameView);
+      this.beforeGameView = null;
+      this.setFov(FOV);
+      this.callbacks.status('Editor view');
+      return;
+    }
+    this.beforeGameView = c.saveGoal();
+    const hq = this.editor.doc.hq;
+    c.setGoal({
+      target: mapToScene(hq.x, hq.y, this.heightAt(hq.x, hq.y)),
+      distance: Math.hypot(GAME_VIEW.height, GAME_VIEW.back),
+      yaw: 0,
+      pitch: Math.atan2(GAME_VIEW.height, GAME_VIEW.back),
+    });
+    this.setFov(GAME_VIEW.fov);
+    this.callbacks.status('Game view: where the game starts (C goes back)');
+  }
+
+  private setFov(fov: number): void {
+    this.camera.fov = fov;
+    this.camera.updateProjectionMatrix();
   }
 
   /**
@@ -420,7 +478,7 @@ export class EditorViewport {
       drag.x = e.clientX;
       drag.y = e.clientY;
       if (drag.mode === 'rotate') this.controller.rotate(dx, dy);
-      else this.controller.pan(dx, dy, this.canvas.clientHeight, FOV);
+      else this.controller.pan(dx, dy, this.canvas.clientHeight, this.camera.fov);
     }
   }
 
@@ -433,6 +491,7 @@ export class EditorViewport {
       this.tool?.pointerMove?.(this.toolPointer(e, hit), this.ctx);
       this.tool?.pointerUp?.(this.toolPointer(e, hit), this.ctx);
     }
+    if (this.cameraDrag) for (const k of FLY_KEYS) this.keysDown.delete(`fly:${k}`);
     this.cameraDrag = null;
   }
 
@@ -637,7 +696,16 @@ export class EditorViewport {
     if (this.keysDown.has('ArrowDown')) forward -= speed;
     if (this.keysDown.has('ArrowRight')) right += speed;
     if (this.keysDown.has('ArrowLeft')) right -= speed;
-    this.controller.move(right, forward);
+    // Flying: faster with Shift, Q and E change the height above the ground
+    const fly = (this.pointer?.shift ? 3 : 1) * speed;
+    let up = 0;
+    if (this.keysDown.has('fly:w')) forward += fly;
+    if (this.keysDown.has('fly:s')) forward -= fly;
+    if (this.keysDown.has('fly:d')) right += fly;
+    if (this.keysDown.has('fly:a')) right -= fly;
+    if (this.keysDown.has('fly:e')) up += fly;
+    if (this.keysDown.has('fly:q')) up -= fly;
+    this.controller.fly(forward, right, up);
   }
 
   private reportHover(time: number, hit: MapHit | null): void {
