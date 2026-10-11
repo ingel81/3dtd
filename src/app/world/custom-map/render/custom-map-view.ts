@@ -102,6 +102,8 @@ export class CustomMapView {
   private readonly focusPoint = new Vector3();
   private readonly worldFocus = new Vector3();
   private readonly grassCenter = new Vector3();
+  /** Object and terrain versions the sun's shadow map was last rendered for */
+  private shadowVersion = -1;
   private readonly viewRay = new Ray();
   private disposed = false;
 
@@ -137,6 +139,8 @@ export class CustomMapView {
     this.group.add(this.effects.group);
     this.effects.setLavaLights(this.lavaLightPoints());
     this.ready = this.load();
+    // Ground material, objects and bridges are in: the shadow map shows them
+    void this.ready.then(() => this.environment.invalidateShadows(), () => undefined);
   }
 
   /**
@@ -283,6 +287,12 @@ export class CustomMapView {
     this.coverAge += dtSeconds;
     if (this.coverDirty && this.coverAge > 0.25) void this.refreshCover();
     this.cover.setFrame(this.group.position.x, this.group.position.z);
+    // The shadow map renders only after a change: objects moved or switched level, the ground changed
+    const shadowVersion = this.objects.version + this.terrain.chunks.version;
+    if (shadowVersion !== this.shadowVersion) {
+      this.shadowVersion = shadowVersion;
+      this.environment.invalidateShadows();
+    }
     this.environment.update(dtSeconds, camera, this.worldFocus);
     this.environment.matchFog(this.camPos, this.focusPoint);
     this.environment.setFogMap(this.group.position.x, this.group.position.z, this.doc.terrain.width / 2, this.doc.terrain.depth / 2);
@@ -295,7 +305,13 @@ export class CustomMapView {
     this.coverDirty = true;
     // Water and bridges only when the change reaches them: a brush on a big map must stay cheap
     if (!rect || this.waterNear(rect)) this.updateWater();
-    if (!rect || this.bridgeNear(rect)) void this.bridges.set(this.doc.paths, this.doc.terrain.water);
+    if (!rect || this.bridgeNear(rect)) void this.refreshBridges();
+    this.environment.invalidateShadows();
+  }
+
+  private async refreshBridges(): Promise<void> {
+    await this.bridges.set(this.doc.paths, this.doc.terrain.water);
+    this.environment.invalidateShadows();
   }
 
   /** Whether a water body's mask or a river comes within a few metres of a rectangle */
@@ -410,7 +426,7 @@ export class CustomMapView {
 
   updatePaths(): void {
     this.terrain.refreshPaths(this.doc.paths);
-    void this.bridges.set(this.doc.paths, this.doc.terrain.water);
+    void this.refreshBridges();
   }
 
   setEnvironment(env: MapEnvironment): void {

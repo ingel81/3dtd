@@ -39,6 +39,8 @@ interface Chunk {
  */
 export class TerrainChunks {
   readonly group = new Group();
+  /** Counts level switches and rebuilds: the sun's shadow map renders again after one */
+  version = 0;
   private readonly chunks: Chunk[] = [];
   private readonly chunkCells: number;
   private readonly maxLod: number;
@@ -152,6 +154,7 @@ export class TerrainChunks {
 
   private setLevel(c: Chunk, lod: number): void {
     c.lod = lod;
+    this.version++;
     let g = c.levels[lod];
     if (!g) {
       g = this.buildGeometry(c, 1 << lod);

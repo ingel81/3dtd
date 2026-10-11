@@ -114,6 +114,8 @@ export class MapObjectLayer {
   private readonly sphere = new Sphere();
   /** Cells within this distance of the focus cast shadows */
   shadowRadius = 400;
+  /** Counts every change the sun's shadow map shows: instances moved, levels or casters switched */
+  version = 0;
 
   constructor(
     private readonly field: HeightField,
@@ -166,6 +168,7 @@ export class MapObjectLayer {
     b.objects[slot.index] = o;
     this.writeInstance(b, slot.index);
     this.uploadInstances(b, [slot.index], true);
+    this.version++;
     return true;
   }
 
@@ -186,7 +189,10 @@ export class MapObjectLayer {
         this.writeInstance(b, i);
         changed.push(i);
       }
-      if (changed.length) this.uploadInstances(b, changed, !!rect);
+      if (changed.length) {
+        this.uploadInstances(b, changed, !!rect);
+        this.version++;
+      }
     }
   }
 
@@ -387,6 +393,7 @@ export class MapObjectLayer {
 
   /** Per cell: the level for its distance, hidden beyond the draw distance, shadows only near the focus */
   private applyLevels(force: boolean): void {
+    if (force) this.version++;
     for (const b of this.batches) {
       const draw = b.entry.drawDistance;
       for (const cell of b.cells.values()) {
@@ -409,11 +416,16 @@ export class MapObjectLayer {
             }
           });
           cell.level = level;
+          this.version++;
         }
         if (level >= 0) {
           const shadow = cell.sphere.distanceToPoint(this.focus) < this.shadowRadius;
           const casts = b.entry.category !== 'plant' || b.entry.height > 0.8;
-          for (const m of cell.levels[level]) m.castShadow = casts && shadow;
+          for (const m of cell.levels[level]) {
+            if (m.castShadow === (casts && shadow)) continue;
+            m.castShadow = casts && shadow;
+            this.version++;
+          }
         }
       }
     }

@@ -85,6 +85,16 @@ export class CustomMapEnvironment {
    */
   envReady: Promise<void> = Promise.resolve();
   private shadowRadius = 300;
+  /**
+   * The sun's shadow map renders only when something it shows changed: the
+   * map is static, the game's objects cast none. `invalidateShadows` for
+   * changed objects or ground; a new sun, a moved or resized shadow box
+   * set it here.
+   */
+  private shadowDirty = true;
+  private readonly shadowCenter = new Vector3(Number.NaN, 0, 0);
+  private shadowBoxRadius = 0;
+  private previousShadowAuto: boolean | null = null;
   private scene: Scene | null = null;
   private renderer: WebGLRenderer | null = null;
   private previous: {
@@ -174,7 +184,7 @@ export class CustomMapEnvironment {
     const snowFromBiome = env.biome === 'arctic' ? 0.65 : 0;
     HEIGHT_FOG_UNIFORMS.uSnowCover.value = Math.min(1, Math.max(0, env.snowCover ?? Math.max(snowFromWeather, snowFromBiome)));
     HEIGHT_FOG_UNIFORMS.uWetness.value = weather === 'rain' ? k * 0.85 : env.biome === 'swamp' ? 0.25 : 0;
-    this.placeSun(this.sun.target.position);
+    this.placeSun(this.sun.target.position, true);
     HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(this.sun.color).lerp(this.fog.color, 0.35);
     HEIGHT_FOG_UNIFORMS.uFogSunDir.value.copy(this.sunDir);
     HEIGHT_FOG_UNIFORMS.uGradeContrast.value = p.grade[0];
@@ -207,6 +217,9 @@ export class CustomMapEnvironment {
     this.detach();
     this.scene = scene;
     this.renderer = renderer;
+    this.previousShadowAuto = renderer.shadowMap.autoUpdate;
+    renderer.shadowMap.autoUpdate = false;
+    this.shadowDirty = true;
     this.previous = {
       background: scene.background,
       environment: scene.environment,
@@ -220,6 +233,10 @@ export class CustomMapEnvironment {
 
   /** Restores what `apply` replaced */
   detach(): void {
+    if (this.renderer && this.previousShadowAuto !== null) {
+      this.renderer.shadowMap.autoUpdate = this.previousShadowAuto;
+      this.previousShadowAuto = null;
+    }
     if (this.scene && this.previous) {
       this.scene.background = this.previous.background;
       this.scene.environment = this.previous.environment;
@@ -232,10 +249,20 @@ export class CustomMapEnvironment {
     this.previous = null;
   }
 
-  /** Centres the sun's shadow box on a scene point; `radius` in metres around it */
+  /**
+   * Centres the sun's shadow box on a scene point; `radius` in metres around
+   * it. The box moves only once the point left the middle of it and grows or
+   * shrinks in steps of a fifth, so a panning or zooming camera re-renders
+   * the shadow map now and then instead of every frame.
+   */
   focus(point: Vector3, radius = this.shadowRadius): void {
-    this.shadowRadius = radius;
-    this.placeSun(point);
+    this.shadowRadius = Math.pow(2, Math.round(Math.log2(Math.max(radius, 1)) * 4) / 4);
+    this.placeSun(point, false);
+  }
+
+  /** The shadow map renders again on the next frame (objects or ground changed) */
+  invalidateShadows(): void {
+    this.shadowDirty = true;
   }
 
   /** 0 by day, 1 at night: how much map lights (lanterns, torches) matter */
@@ -287,6 +314,10 @@ export class CustomMapEnvironment {
   update(dt: number, camera: Camera, focus: Vector3): void {
     this.skyDome.update(dt, camera);
     this.weather.update(dt, camera, focus);
+    if (this.shadowDirty && this.renderer) {
+      this.renderer.shadowMap.needsUpdate = true;
+      this.shadowDirty = false;
+    }
   }
 
   /** Turns on soft shadow maps on a renderer that has none */
@@ -306,8 +337,13 @@ export class CustomMapEnvironment {
     this.weather.dispose();
   }
 
-  private placeSun(focus: Vector3): void {
+  private placeSun(focus: Vector3, force: boolean): void {
     const r = this.shadowRadius;
+    const moved = Math.hypot(focus.x - this.shadowCenter.x, focus.z - this.shadowCenter.z);
+    if (!force && r === this.shadowBoxRadius && moved < r * 0.08 && Math.abs(focus.y - this.shadowCenter.y) < r * 0.1) return;
+    this.shadowCenter.copy(focus);
+    this.shadowBoxRadius = r;
+    this.shadowDirty = true;
     const cam = this.sun.shadow.camera;
     // Snap the focus to whole shadow texels, so shadows do not shimmer while the camera pans
     const texel = (2 * r) / this.sun.shadow.mapSize.x;
