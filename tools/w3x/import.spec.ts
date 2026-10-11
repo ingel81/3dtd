@@ -1,7 +1,8 @@
 /**
  * Imports a Warcraft 3 map and writes what came out to tmp/w3x-out/:
- * `<id>.png` (top-down picture), `<id>.json` (the import report) and
- * `<id>.3dtdmap` (the map file, for the editor).
+ * `<id>.png` (top-down picture), `<id>.json` (the import report),
+ * `<id>.3dtdmap` (the map file, for the editor) and `<id>.summary.json`
+ * (its map store summary, to seed IndexedDB in browser runs).
  *
  *   npm run w3x-import                       (the test map in tmp/wc3/)
  *   W3X_FILE=path/to/map.w3x npm run w3x-import
@@ -11,7 +12,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { basename, join, resolve } from 'path';
-import { packMapFile } from '../../src/app/world/custom-map/map-file';
+import { contentHash, packMapFile } from '../../src/app/world/custom-map/map-file';
+import { summarize } from '../../src/app/world/custom-map/map-store';
 import { importW3x } from '../../src/app/world/w3x/import-w3x';
 import { findTestMap } from '../../src/test/w3x-fixtures';
 import { renderTopDown } from './top-down';
@@ -30,6 +32,8 @@ describe.skipIf(mode !== 'w3x')('w3x import dump', () => {
     writeFileSync(join(outDir, `${doc.meta.id}.png`), png);
     writeFileSync(join(outDir, `${doc.meta.id}.json`), JSON.stringify({ importMs: ms, ...report }, null, 1));
     writeFileSync(join(outDir, `${doc.meta.id}.3dtdmap`), packMapFile(doc));
+    // The map store's summary of it as an own map, for seeding IndexedDB in browser runs
+    writeFileSync(join(outDir, `${doc.meta.id}.summary.json`), JSON.stringify(summarize(doc, 'own', await contentHash(doc)), null, 1));
     console.log(`${doc.meta.name}: ${ms} ms, ${width} x ${height} px, strategy ${report.strategy}, out ${outDir}`);
   });
 });
