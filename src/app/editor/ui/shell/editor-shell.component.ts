@@ -349,6 +349,9 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
     group: 'Objects, roads, spawns',
     keys: [
       ['W E R', 'Move, turn, scale the selection'],
+      ['L', 'Arrows along the map or the object'],
+      ['Alt drag', 'Lasso selection'],
+      ['End', 'Drop the selection onto the ground'],
       ['Del', 'Delete the selection'],
       ['Ctrl+D', 'Duplicate objects'],
       ['Ctrl+A', 'Select all objects'],

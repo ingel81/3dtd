@@ -107,6 +107,21 @@
   pointer-events: none;
 }
 
+.es-lasso {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+
+  polygon {
+    fill: color-mix(in srgb, var(--td-brass-light) 12%, transparent);
+    stroke: var(--td-brass-light);
+    stroke-dasharray: 4 3;
+  }
+}
+
 .es-minimap {
   position: absolute;
   left: var(--td-sp-3);

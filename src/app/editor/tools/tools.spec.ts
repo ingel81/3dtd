@@ -4,7 +4,7 @@ import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../model/grid';
 import type { EditorOverlay } from '../view/editor-overlay';
 import { MarkerTool } from './marker-tool';
-import { ObjectTool } from './object-tool';
+import { ObjectTool, insidePolygon } from './object-tool';
 import { paintCommands } from './paint-tool';
 import { PathTool } from './path-tool';
 import { TerrainTool } from './terrain-tool';
@@ -13,7 +13,7 @@ import { WaterTool, waterCommands } from './water-tool';
 
 function context(editor: EditorDocument): ToolContext & { messages: string[] } {
   const messages: string[] = [];
-  const overlay = { setDraft: () => undefined, setGizmo: () => undefined, setNodesVisible: () => undefined } as unknown as EditorOverlay;
+  const overlay = { setDraft: () => undefined, setGizmo: () => undefined, setNodesVisible: () => undefined, transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined } } as unknown as EditorOverlay;
   return {
     editor,
     settings: defaultSettings(),
@@ -26,6 +26,10 @@ function context(editor: EditorDocument): ToolContext & { messages: string[] } {
     settingsChanged: () => undefined,
     setBox: () => undefined,
     boxToMap: () => null,
+    pickGizmo: () => null,
+    metresPerPixel: () => 0.1,
+    toScreen: () => null,
+    setLasso: () => undefined,
   };
 }
 
@@ -87,6 +91,41 @@ describe('editor tools', () => {
     ed.select({ kind: 'objects', ids: [ed.doc.objects[0].id] });
     tool.key(new KeyboardEvent('keydown', { key: 'Delete' }), ctx);
     expect(ed.doc.objects).toHaveLength(0);
+  });
+
+  it('selects by lasso on the screen, moves along an arrow and lifts with the blue one', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    // The screen is the map seen from above, 1 px = 1 m
+    ctx.toScreen = (x, y) => ({ x, y });
+    const tool = new ObjectTool();
+    ctx.settings.objects.asset = 'tree-oak';
+    ctx.settings.objects.randomRotation = false;
+    for (const [x, y] of [[10, 10], [20, 12], [80, 80]]) tool.pointerDown(at(x, y), ctx);
+    ctx.settings.objects.mode = 'select';
+    // A lasso around the first two
+    tool.pointerDown(at(0, 0, { alt: true, clientX: 0, clientY: 0 }), ctx);
+    for (const [x, y] of [[40, 0], [40, 30], [0, 30]]) tool.pointerMove!(at(x, y, { clientX: x, clientY: y }), ctx);
+    tool.pointerUp(at(0, 30, { clientX: 0, clientY: 30 }), ctx);
+    const sel = ed.selection;
+    expect(sel?.kind === 'objects' && sel.ids.length).toBe(2);
+    // The x arrow: a diagonal drag moves only along x
+    ctx.pickGizmo = () => 'x';
+    tool.pointerDown(at(15, 11, { clientY: 100 }), ctx);
+    tool.pointerMove!(at(25, 31, { clientY: 100 }), ctx);
+    tool.pointerUp(at(25, 31, { clientY: 100 }), ctx);
+    expect(ed.doc.objects.slice(0, 2).map((o) => [o.x, o.y])).toEqual([[20, 10], [30, 12]]);
+    // The blue arrow lifts by the pointer's rise on screen (0.1 m per pixel here)
+    ctx.pickGizmo = () => 'z';
+    tool.pointerDown(at(15, 11, { clientY: 100 }), ctx);
+    tool.pointerMove!({ ...at(0, 0, { clientY: 60 }), hit: null }, ctx);
+    tool.pointerUp({ ...at(0, 0, { clientY: 60 }), hit: null }, ctx);
+    expect(ed.doc.objects[0].z).toBeCloseTo(4);
+    // End drops the selection back onto the ground
+    tool.key(new KeyboardEvent('keydown', { key: 'End' }), ctx);
+    expect(ed.doc.objects[0].z).toBe(0);
+    expect(insidePolygon({ x: 3, y: 3 }, [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 10 }])).toBe(true);
+    expect(insidePolygon({ x: 9, y: 9 }, [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 10 }])).toBe(false);
   });
 
   it('draws a road off the starter road with a junction', () => {

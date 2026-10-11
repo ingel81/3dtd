@@ -100,6 +100,8 @@ export class EditorSession implements OnDestroy {
   readonly stats = signal<FrameStats | null>(null);
   readonly issues = signal<MapIssue[] | null>(null);
   readonly box = signal<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  /** The lasso outline as SVG points (client pixels), or null */
+  readonly lasso = signal<string | null>(null);
   readonly cameraRev = signal(0);
   readonly importState = signal<ImportState | null>(null);
   readonly error = signal<string | null>(null);
@@ -311,6 +313,7 @@ export class EditorSession implements OnDestroy {
         status: (m) => this.flash(m),
         settingsChanged: () => this.settingsRev.update((n) => n + 1),
         box: (b) => this.box.set(b),
+        lasso: (points) => this.lasso.set(points ? points.map((q) => `${Math.round(q.x)},${Math.round(q.y)}`).join(' ') : null),
         hover: (h) => this.hover.set(h),
         stats: (s) => this.stats.set(s),
         camera: () => this.cameraRev.update((n) => n + 1),

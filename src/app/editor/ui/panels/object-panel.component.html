@@ -10,6 +10,13 @@
     <button type="button" role="radio" [attr.aria-checked]="s().gizmo === 'rotate'" (click)="setGizmo('rotate')">Turn <kbd class="td-kbd">E</kbd></button>
     <button type="button" role="radio" [attr.aria-checked]="s().gizmo === 'scale'" (click)="setGizmo('scale')">Scale <kbd class="td-kbd">R</kbd></button>
   </div>
+  @if (s().gizmo === 'move') {
+    <div class="td-seg is-sm" role="radiogroup" aria-label="Arrows follow" matTooltip="Arrows along the map or turned with the first selected object (L)">
+      <button type="button" role="radio" [attr.aria-checked]="(s().space ?? 'global') === 'global'" (click)="setSpace('global')">Map axes</button>
+      <button type="button" role="radio" [attr.aria-checked]="s().space === 'local'" (click)="setSpace('local')">Object axes <kbd class="td-kbd">L</kbd></button>
+    </div>
+  }
+  <p class="td-note">Alt drag draws a lasso, Shift adds to the selection; Ctrl snaps turns, lifts and scales.</p>
 }
 
 @if (selected().length) {
@@ -31,6 +38,9 @@
           <input class="td-input is-sm" type="number" step="0.05" min="0.05" [value]="o.scale" (change)="setNumber('scale', $event)" /></label>
       </div>
     }
+    <div class="td-actions is-start">
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="dropToGround()" matTooltip="Lift 0: back onto the ground (End)">Drop to the ground</button>
+    </div>
     <div class="td-field">
       <span class="td-label" matTooltip="Whether towers see through it; Default follows the catalogue">Blocks sight <span class="td-note">(default {{ catalogFlag('blocksLos') }})</span></span>
       <div class="td-seg is-sm" role="radiogroup" aria-label="Blocks sight">

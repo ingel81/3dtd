@@ -76,6 +76,9 @@
       <div class="es-box" [style.left.px]="b.x0 < b.x1 ? b.x0 : b.x1" [style.top.px]="b.y0 < b.y1 ? b.y0 : b.y1"
            [style.width.px]="b.x1 > b.x0 ? b.x1 - b.x0 : b.x0 - b.x1" [style.height.px]="b.y1 > b.y0 ? b.y1 - b.y0 : b.y0 - b.y1"></div>
     }
+    @if (session.lasso(); as points) {
+      <svg class="es-lasso" aria-hidden="true"><polygon [attr.points]="points" /></svg>
+    }
     @if (session.issues()) {
       <app-editor-check class="es-check" />
     }

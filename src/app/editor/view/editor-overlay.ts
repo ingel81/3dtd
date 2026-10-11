@@ -30,6 +30,7 @@ import type { Selection } from '../model/editor-document';
 import { pointAt, polylineLength, type Route } from '../ops/path-graph';
 import type { SymmetryMode } from '../ops/symmetry';
 import type { Contours } from '../ops/contours';
+import { TransformGizmo } from './transform-gizmo';
 
 const RING_SEGMENTS = 72;
 const PREVIEW_DOTS = 600;
@@ -41,6 +42,8 @@ export type GroundHeight = (x: number, y: number) => number;
 
 export class EditorOverlay {
   readonly group = new Group();
+  /** Arrows, ring or cube over the selected objects */
+  readonly transform = new TransformGizmo();
   private readonly brush: LineLoop;
   private readonly brushInner: LineLoop;
   private readonly gizmo: LineLoop;
@@ -95,7 +98,7 @@ export class EditorOverlay {
     this.measure.renderOrder = 13;
     this.measure.frustumCulled = false;
     this.measure.visible = false;
-    this.group.add(this.contours, this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview);
+    this.group.add(this.contours, this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview, this.transform.group);
   }
 
   /** The brush ring at a map point, draped on the ground; radius 0 hides it */

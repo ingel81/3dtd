@@ -3,6 +3,7 @@
  * edits of the document. Tools are plain classes without Angular; the
  * viewport feeds them, the panels change their settings.
  */
+import type { GizmoHandle } from '../view/transform-gizmo';
 import type { MapPathKind, MapPoint } from '../../world/custom-map/map-document';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import type { EditorDocument } from '../model/editor-document';
@@ -117,6 +118,8 @@ export interface EditorSettings {
     snap: number;
     /** Turn a placed object at random */
     randomRotation: boolean;
+    /** Move arrows along the map's axes, or turned with the first selected object */
+    space: 'global' | 'local';
   };
   paths: { mode: PathMode; width: number; kind: MapPathKind; /** Snap radius to nodes and edges, metres */ snap: number; showRoutes: boolean };
   markers: { mode: MarkerMode };
@@ -154,7 +157,7 @@ export function defaultSettings(): EditorSettings {
     terrain: { mode: 'raise', level: 0, step: 6, rampWidth: 16 },
     paint: { layer: 0, erase: false },
     water: { mode: 'fill', body: -1, depth: 3 },
-    objects: { mode: 'place', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true },
+    objects: { mode: 'place', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, space: 'global' },
     paths: { mode: 'draw', width: 8, kind: 'road', snap: 10, showRoutes: true },
     markers: { mode: 'spawn' },
     stamp: { mode: 'select', parts: { ...ALL_PARTS }, rotation: 0, feather: 0.25, region: null, current: null, currentName: '' },
@@ -200,6 +203,14 @@ export interface ToolContext {
   setBox(box: { x0: number; y0: number; x1: number; y1: number } | null): void;
   /** Map points of the screen box corners (for box selection) */
   boxToMap(box: { x0: number; y0: number; x1: number; y1: number }): MapPoint[] | null;
+  /** The gizmo handle under the pointer, if any */
+  pickGizmo(p: ToolPointer): GizmoHandle | null;
+  /** Metres one screen pixel covers at a map point (handle size, vertical drags) */
+  metresPerPixel(at: MapPoint): number;
+  /** Client pixel position of a map point at height z; null behind the camera */
+  toScreen(x: number, y: number, z: number): { x: number; y: number } | null;
+  /** Lasso outline in client pixels, or null */
+  setLasso(points: readonly { x: number; y: number }[] | null): void;
 }
 
 export interface EditorTool {

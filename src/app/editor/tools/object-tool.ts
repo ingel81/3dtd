@@ -1,9 +1,13 @@
 /**
  * Objects: Place puts the chosen asset down per click, Scatter sprays the
  * chosen assets under the brush (Shift thins them out), Erase removes what
- * the brush covers, Select picks by click or box and moves, turns or
- * scales the selection by dragging (W, E, R pick which). Delete removes the
- * selection, Ctrl+D duplicates it.
+ * the brush covers, Select picks by click, box or lasso (Alt drag) and
+ * moves, turns or scales the selection with the gizmo (W, E, R pick which):
+ * arrows move along one axis (map or the object's own with local space, L
+ * toggles), the blue arrow lifts and lowers, the square and the ground
+ * inside the ring move freely; Ctrl snaps turns to 15 degrees, heights to
+ * half metres and scales to tenths. Delete removes the selection, Ctrl+D
+ * duplicates it, End drops it onto the ground.
  */
 import type { MapObject, MapPoint } from '../../world/custom-map/map-document';
 import { ObjectsCommand, type ObjectEdit } from '../model/editor-document';
@@ -13,17 +17,32 @@ import {
   ObjectIds,
   centroid,
   duplicateObjects,
-  objectsInBox,
   objectsUnderBrush,
   scatterDab,
   snapTo,
 } from '../ops/object-ops';
 import { objectImages, sameSector, symmetryImages } from '../ops/symmetry';
+import { TransformGizmo, gizmoAnchor, type GizmoHandle } from '../view/transform-gizmo';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
 type Drag =
   | { kind: 'box'; x0: number; y0: number }
-  | { kind: 'gizmo'; start: MapPoint; center: MapPoint; before: Map<string, MapObject> };
+  | { kind: 'lasso'; points: { x: number; y: number }[] }
+  | {
+      kind: 'gizmo';
+      start: MapPoint;
+      center: MapPoint;
+      before: Map<string, MapObject>;
+      /** The handle taken, null for a drag inside the ring */
+      handle: GizmoHandle | null;
+      startY: number;
+      /** Turn of the arrows (local space) and metres per pixel at the start */
+      yaw: number;
+      mpp: number;
+    };
+
+/** Pixels the gizmo arrows reach on screen */
+const GIZMO_PIXELS = 90;
 
 export class ObjectTool implements EditorTool {
   readonly id = 'objects' as const;
@@ -78,7 +97,16 @@ export class ObjectTool implements EditorTool {
       ctx.setBox({ x0: drag.x0, y0: drag.y0, x1: p.clientX, y1: p.clientY });
       return;
     }
-    if (!p.hit) return;
+    if (drag.kind === 'lasso') {
+      const last = drag.points[drag.points.length - 1];
+      if (!last || Math.hypot(p.clientX - last.x, p.clientY - last.y) >= 4) {
+        drag.points.push({ x: p.clientX, y: p.clientY });
+        ctx.setLasso(drag.points);
+      }
+      return;
+    }
+    // Lifting needs no ground under the pointer
+    if (!p.hit && drag.handle !== 'z') return;
     this.applyGizmo(drag, p, ctx);
   }
 
@@ -87,18 +115,32 @@ export class ObjectTool implements EditorTool {
     const drag = this.drag;
     this.drag = null;
     if (!drag) return;
-    if (drag.kind === 'box') {
+    if (drag.kind === 'box' || drag.kind === 'lasso') {
       ctx.setBox(null);
-      const box = { x0: drag.x0, y0: drag.y0, x1: p.clientX, y1: p.clientY };
-      if (Math.abs(box.x1 - box.x0) < 4 && Math.abs(box.y1 - box.y0) < 4) {
-        if (!p.shift) ctx.editor.select(null);
-        return;
+      ctx.setLasso(null);
+      let inside: (q: { x: number; y: number }) => boolean;
+      if (drag.kind === 'box') {
+        const x0 = Math.min(drag.x0, p.clientX);
+        const x1 = Math.max(drag.x0, p.clientX);
+        const y0 = Math.min(drag.y0, p.clientY);
+        const y1 = Math.max(drag.y0, p.clientY);
+        if (x1 - x0 < 4 && y1 - y0 < 4) {
+          if (!p.shift) ctx.editor.select(null);
+          return;
+        }
+        inside = (q) => q.x >= x0 && q.x <= x1 && q.y >= y0 && q.y <= y1;
+      } else {
+        if (drag.points.length < 3) return;
+        const poly = drag.points;
+        inside = (q) => insidePolygon(q, poly);
       }
-      const corners = ctx.boxToMap(box);
-      if (!corners) return;
-      const xs = corners.map((c) => c.x);
-      const ys = corners.map((c) => c.y);
-      const ids = objectsInBox(ctx.editor.doc, { x: Math.min(...xs), y: Math.min(...ys) }, { x: Math.max(...xs), y: Math.max(...ys) });
+      // What the eye sees inside the outline: each object's foot on the screen
+      const ids = ctx.editor.doc.objects
+        .filter((o) => {
+          const q = ctx.toScreen(o.x, o.y, ctx.heightAt(o.x, o.y) + o.z);
+          return !!q && inside(q);
+        })
+        .map((o) => o.id);
       const current = p.shift ? this.selected(ctx) : [];
       const all = [...new Set([...current, ...ids])];
       ctx.editor.select(all.length ? { kind: 'objects', ids: all } : null);
@@ -112,10 +154,18 @@ export class ObjectTool implements EditorTool {
   frame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
     const s = ctx.settings.objects;
     const sel = this.selected(ctx);
+    const gizmo = ctx.overlay.transform;
     if (s.mode === 'select' && sel.length) {
-      const c = centroid(ctx.editor.doc, sel);
+      const c = centroid(ctx.editor.doc, sel)!;
       ctx.overlay.setGizmo(c, this.gizmoRadius(ctx, sel));
-    } else ctx.overlay.setGizmo(null, 0);
+      const z = this.selectionHeight(ctx, sel, c);
+      gizmo.setKind(s.gizmo);
+      gizmo.place(gizmoAnchor(c.x, c.y, z), this.axisYaw(ctx, sel), (ctx.metresPerPixel(c) * GIZMO_PIXELS) / 10);
+      if (!this.drag && p) gizmo.highlight(ctx.pickGizmo(p));
+    } else {
+      ctx.overlay.setGizmo(null, 0);
+      gizmo.hide();
+    }
 
     const b = this.brushing;
     if (!b || !p?.hit) return;
@@ -161,6 +211,16 @@ export class ObjectTool implements EditorTool {
     const s = ctx.settings.objects;
     const sel = this.selected(ctx);
     const k = e.key.toLowerCase();
+    if (!e.ctrlKey && !e.metaKey && k === 'l' && s.mode === 'select') {
+      s.space = s.space === 'local' ? 'global' : 'local';
+      ctx.settingsChanged();
+      ctx.status(s.space === 'local' ? 'Arrows follow the object' : 'Arrows follow the map');
+      return true;
+    }
+    if (e.key === 'End' && sel.length) {
+      ctx.editor.execute(ObjectsCommand.change('Drop to the ground', ctx.editor.doc, sel, (o) => ({ ...o, z: 0 })));
+      return true;
+    }
     if (!e.ctrlKey && !e.metaKey && (k === 'w' || k === 'e' || k === 'r')) {
       s.mode = 'select';
       s.gizmo = k === 'w' ? 'move' : k === 'e' ? 'rotate' : 'scale';
@@ -196,7 +256,9 @@ export class ObjectTool implements EditorTool {
     }
     this.drag = null;
     ctx.setBox(null);
+    ctx.setLasso(null);
     ctx.overlay.setGizmo(null, 0);
+    ctx.overlay.transform.hide();
   }
 
   hint(ctx: ToolContext): string {
@@ -209,7 +271,7 @@ export class ObjectTool implements EditorTool {
       case 'erase':
         return 'Hold to remove objects under the brush';
       case 'select':
-        return 'Click or drag a box to select | drag to move, turn or scale (W E R) | Del delete | Ctrl+D duplicate';
+        return 'Click, drag a box or Alt drag a lasso | arrows move along an axis, blue lifts (W E R, L local) | Del delete | Ctrl+D duplicate | End to the ground';
     }
   }
 
@@ -239,8 +301,18 @@ export class ObjectTool implements EditorTool {
   }
 
   private selectDown(p: ToolPointer, ctx: ToolContext): boolean {
-    const picked = ctx.pick(p);
     const sel = this.selected(ctx);
+    // A gizmo handle first: it draws over everything
+    const handle = sel.length ? ctx.pickGizmo(p) : null;
+    if (handle) {
+      this.startGizmo(p, ctx, sel, handle);
+      return true;
+    }
+    if (p.alt) {
+      this.drag = { kind: 'lasso', points: [{ x: p.clientX, y: p.clientY }] };
+      return true;
+    }
+    const picked = ctx.pick(p);
     if (picked?.kind === 'object') {
       if (p.shift) {
         const next = sel.includes(picked.id) ? sel.filter((id) => id !== picked.id) : [...sel, picked.id];
@@ -262,17 +334,27 @@ export class ObjectTool implements EditorTool {
     return true;
   }
 
-  private startGizmo(p: ToolPointer, ctx: ToolContext, ids: string[]): void {
+  private startGizmo(p: ToolPointer, ctx: ToolContext, ids: string[], handle: GizmoHandle | null = null): void {
     const doc = ctx.editor.doc;
     const set = new Set(ids);
     const before = new Map(doc.objects.filter((o) => set.has(o.id)).map((o) => [o.id, { ...o }]));
-    this.drag = { kind: 'gizmo', start: { x: p.hit!.x, y: p.hit!.y }, center: centroid(doc, ids)!, before };
+    const center = centroid(doc, ids)!;
+    this.drag = {
+      kind: 'gizmo',
+      start: p.hit ? { x: p.hit.x, y: p.hit.y } : { ...center },
+      center,
+      before,
+      handle,
+      startY: p.clientY,
+      yaw: this.axisYaw(ctx, ids),
+      mpp: ctx.metresPerPixel(center),
+    };
   }
 
   private applyGizmo(drag: Extract<Drag, { kind: 'gizmo' }>, p: ToolPointer, ctx: ToolContext): void {
     const s = ctx.settings.objects;
     const doc = ctx.editor.doc;
-    const hit = p.hit!;
+    const hit = p.hit ?? { x: drag.start.x, y: drag.start.y, z: 0 };
     const c = drag.center;
     let dx = hit.x - drag.start.x;
     let dy = hit.y - drag.start.y;
@@ -281,9 +363,26 @@ export class ObjectTool implements EditorTool {
     if (p.ctrl) turn = Math.round(turn / (Math.PI / 12)) * (Math.PI / 12);
     const d0 = Math.max(0.5, Math.hypot(drag.start.x - c.x, drag.start.y - c.y));
     const factor = Math.max(0.05, Math.hypot(hit.x - c.x, hit.y - c.y) / d0);
-    if (s.snap > 0) {
+    let factorSnapped = factor;
+    if (p.ctrl) factorSnapped = Math.max(0.1, Math.round(factor * 10) / 10);
+    // An arrow: only along its axis
+    if (s.gizmo === 'move' && (drag.handle === 'x' || drag.handle === 'y')) {
+      const axis = TransformGizmo.axis(drag.handle, drag.yaw);
+      const along = dx * axis.x + dy * axis.y;
+      const d = s.snap > 0 ? snapTo(along, s.snap) : along;
+      dx = axis.x * d;
+      dy = axis.y * d;
+    } else if (s.snap > 0) {
       dx = snapTo(dx, s.snap);
       dy = snapTo(dy, s.snap);
+    }
+    // The blue arrow: up and down with the pointer's height on the screen
+    let dz = 0;
+    if (drag.handle === 'z') {
+      dx = 0;
+      dy = 0;
+      dz = (drag.startY - p.clientY) * drag.mpp;
+      if (p.ctrl) dz = Math.round(dz * 2) / 2;
     }
     const changed: string[] = [];
     doc.objects = doc.objects.map((o) => {
@@ -292,7 +391,7 @@ export class ObjectTool implements EditorTool {
       changed.push(o.id);
       switch (s.gizmo) {
         case 'move':
-          return { ...b, x: round(b.x + dx), y: round(b.y + dy) };
+          return { ...b, x: round(b.x + dx), y: round(b.y + dy), z: round(b.z + dz) };
         case 'rotate': {
           // Turn around the selection's centre; each object turns with it (counter-clockwise from above)
           const rx = b.x - c.x;
@@ -304,9 +403,9 @@ export class ObjectTool implements EditorTool {
         case 'scale':
           return {
             ...b,
-            scale: round(Math.min(20, Math.max(0.05, b.scale * factor)), 1000),
-            x: round(c.x + (b.x - c.x) * (drag.before.size > 1 ? factor : 1)),
-            y: round(c.y + (b.y - c.y) * (drag.before.size > 1 ? factor : 1)),
+            scale: round(Math.min(20, Math.max(0.05, b.scale * factorSnapped)), 1000),
+            x: round(c.x + (b.x - c.x) * (drag.before.size > 1 ? factorSnapped : 1)),
+            y: round(c.y + (b.y - c.y) * (drag.before.size > 1 ? factorSnapped : 1)),
           };
       }
     });
@@ -324,6 +423,26 @@ export class ObjectTool implements EditorTool {
       r = Math.max(r, Math.hypot(o.x - c.x, o.y - c.y) + ctx.catalog.object(o.asset).radius * o.scale);
     }
     return r * 1.15;
+  }
+
+  /** The arrows' turn: the first selected object's in local space, else the map's */
+  private axisYaw(ctx: ToolContext, ids: string[]): number {
+    if (ctx.settings.objects.space !== 'local' || !ids.length) return 0;
+    const first = ctx.editor.doc.objects.find((o) => o.id === ids[0]);
+    return first?.rotation ?? 0;
+  }
+
+  /** Where the gizmo stands: on the ground at the centre, raised by the objects' mean lift */
+  private selectionHeight(ctx: ToolContext, ids: string[], c: MapPoint): number {
+    const set = new Set(ids);
+    let lift = 0;
+    let n = 0;
+    for (const o of ctx.editor.doc.objects) {
+      if (!set.has(o.id)) continue;
+      lift += o.z;
+      n++;
+    }
+    return ctx.heightAt(c.x, c.y) + (n ? lift / n : 0);
   }
 
   private selected(ctx: ToolContext): string[] {
@@ -353,6 +472,17 @@ export class ObjectTool implements EditorTool {
 
 function gizmoLabel(ctx: ToolContext): string {
   return { move: 'Move', rotate: 'Turn', scale: 'Scale' }[ctx.settings.objects.gizmo];
+}
+
+/** Whether a screen point lies inside a polygon (even-odd rule) */
+export function insidePolygon(q: { x: number; y: number }, poly: readonly { x: number; y: number }[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i];
+    const b = poly[j];
+    if (a.y > q.y !== b.y > q.y && q.x < ((b.x - a.x) * (q.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
 }
 
 function round(v: number, f = 100): number {

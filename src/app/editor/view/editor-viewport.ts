@@ -6,6 +6,7 @@
  * the overlay (brush, markers, routes) in step.
  */
 import {
+  MathUtils,
   PCFShadowMap,
   OrthographicCamera,
   PerspectiveCamera,
@@ -56,6 +57,7 @@ export interface ViewportCallbacks {
   status(message: string): void;
   settingsChanged(): void;
   box(box: { x0: number; y0: number; x1: number; y1: number } | null): void;
+  lasso(points: readonly { x: number; y: number }[] | null): void;
   hover(info: HoverInfo | null): void;
   stats(stats: FrameStats): void;
   /** The camera moved (minimap frame) */
@@ -406,6 +408,24 @@ export class EditorViewport {
       status: (m) => this.callbacks.status(m),
       settingsChanged: () => this.callbacks.settingsChanged(),
       setBox: (b) => this.callbacks.box(b),
+      setLasso: (points) => this.callbacks.lasso(points),
+      pickGizmo: (p) => {
+        const rect = this.canvas.getBoundingClientRect();
+        if (!rect.width) return null;
+        this.ndc.set(((p.clientX - rect.left) / rect.width) * 2 - 1, -((p.clientY - rect.top) / rect.height) * 2 + 1);
+        this.raycaster.setFromCamera(this.ndc, this.camera);
+        return this.overlay.transform.pick(this.raycaster);
+      },
+      metresPerPixel: (at) => {
+        const d = this.camera.position.distanceTo(mapToScene(at.x, at.y, this.heightAt(at.x, at.y)));
+        return (2 * d * Math.tan(MathUtils.degToRad(this.camera.fov / 2))) / Math.max(1, this.canvas.clientHeight);
+      },
+      toScreen: (x, y, z) => {
+        const v = mapToScene(x, y, z).project(this.camera);
+        if (v.z > 1 || v.z < -1) return null;
+        const rect = this.canvas.getBoundingClientRect();
+        return { x: rect.left + ((v.x + 1) / 2) * rect.width, y: rect.top + ((1 - v.y) / 2) * rect.height };
+      },
       boxToMap: (box) => {
         const rect = this.canvas.getBoundingClientRect();
         const corners = [

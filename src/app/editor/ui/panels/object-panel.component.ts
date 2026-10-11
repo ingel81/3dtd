@@ -113,6 +113,14 @@ export class ObjectPanelComponent {
     this.session.patchSettings((s) => (s.objects.scatter[key] = on));
   }
 
+  setSpace(space: 'global' | 'local'): void {
+    this.session.patchSettings((s) => (s.objects.space = space));
+  }
+
+  dropToGround(): void {
+    this.change('Drop to the ground', (o) => ({ ...o, z: 0 }));
+  }
+
   setSnap(step: number): void {
     this.session.patchSettings((s) => (s.objects.snap = step));
   }
