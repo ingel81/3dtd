@@ -1,10 +1,18 @@
 import { BoxGeometry, Group, Mesh, PointLight, Scene, type WebGLRenderer } from 'three';
-import { minimapPictureSize, renderMinimapPicture } from './custom-map-minimap';
+import { linearToSrgb, minimapPictureSize, renderMinimapPicture } from './custom-map-minimap';
 
 describe('custom map minimap picture', () => {
   it('sizes the picture by the area, the longer side 512 px', () => {
     expect(minimapPictureSize({ left: 100, right: -100, top: 50, bottom: -50 })).toEqual({ width: 512, height: 256 });
     expect(minimapPictureSize({ left: 0, right: -10, top: 400, bottom: 0 })).toEqual({ width: 13, height: 512 });
+  });
+
+  it('turns linear bytes into sRGB and leaves alpha alone', () => {
+    const px = new Uint8Array([0, 255, 55, 77]);
+    linearToSrgb(px);
+    expect([px[0], px[1], px[3]]).toEqual([0, 255, 77]);
+    // Linear 55/255 is about 128 in sRGB
+    expect(Math.abs(px[2] - 128)).toBeLessThan(3);
   });
 
   it("draws the map's own children only, keeps every light and puts the scene back", () => {
@@ -34,5 +42,9 @@ describe('custom map minimap picture', () => {
     expect(target).toBe(before);
     // Drawn as the screen would be: the programs the map compiled
     expect(targets[0]).toMatchObject({ isXRRenderTarget: true });
+    // Frames through the post-processing: a plain linear target
+    targets.length = 0;
+    renderMinimapPicture(renderer, scene, new Set([map]), { left: 50, right: -50, top: 20, bottom: -20 }, 10, null, false);
+    expect(targets[0]).toMatchObject({ isXRRenderTarget: false });
   });
 });

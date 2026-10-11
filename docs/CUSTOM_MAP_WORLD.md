@@ -210,8 +210,10 @@ Westen links); Tiles und DevWorld geben `null`, dann bleibt die Minikarte weg. D
 nach ihrem ersten gezeichneten Bild (`custom-map-minimap.ts`): orthografisch von oben, nur die Szenenkinder, die
 `view.attach` und `environment.apply` angehängt haben (Gelände, Wasser, Objekte, Licht), 512 px an der längeren
 Seite. Sie braucht keine eigenen Shader-Programme: der Nebel bleibt mit Dichte 0 an der Szene, alle Lichter bleiben an
-(Nebel und Zahl der Lichter gehören zum Programm), das Ziel gilt three als Bildschirm (`isXRRenderTarget`, sRGB
-heraus). Mit eigenem Programm je Material warteten kalte Ladevorgänge 3 bis 4 s auf deren Linken.
+(Nebel und Zahl der Lichter gehören zum Programm), und das Ziel ist wie das der Bilder: ohne Nachbearbeitung gilt es
+three als Bildschirm (`isXRRenderTarget`, sRGB heraus), mit Bloom oder Grading ist es ein lineares Ziel wie das des
+Composers (danach nach sRGB gewandelt). Mit eigenem Programm je Material warteten kalte Ladevorgänge 3 bis 4 s auf
+deren Linken.
 
 `app-world-minimap` (unter dem Kompass, `td-overlay`) zeichnet in ein Canvas mit eigenem 10-Hz-Takt außerhalb
 Angulars: Bild, Routen in der Farbe ihres Spawns, Spawns und HQ einmal in ein Grundbild (neu, wenn Welt, Routen
@@ -224,8 +226,13 @@ Kamera (die vier Bildecken auf der Bodenhöhe des HQ). Ein Klick führt die Kame
   (`prefetchCustomMapAssets`), während Engine, Straßen und Routen entstehen
 - Die Karte zeichnet ihr erstes Bild erst, wenn ihre Texturen und Modelle da sind und alle ihre
   Shader-Programme parallel abseits des Hauptthreads übersetzt sind (`compileAsync` mit
-  `KHR_parallel_shader_compile`); bis dahin hält `ready()` die Bilder zurück. Vorher übersetzte jedes
-  neue Material sein Programm synchron im ersten Bild, das es zeigte
+  `KHR_parallel_shader_compile`, die ganze Szene wie `view.warmUp`); bis dahin hält `ready()` die Bilder zurück.
+  Vorher übersetzte jedes neue Material sein Programm synchron im ersten Bild, das es zeigte. Zeichnen die Bilder
+  durch die Nachbearbeitung (Bloom oder Grading an, `WorldAttachContext.drawsToTarget`), wird für ein lineares Ziel
+  übersetzt, sonst linkt das erste Bild alles neu; die Engine bekommt die gespeicherten VFX-Einstellungen deshalb
+  schon beim Anlegen. Kalt mit Bloom: 9,4 bis 17,6 s vorher, 5,6 bis 5,7 s danach (Demo-Tal)
+- Beim Verlassen gibt die Welt die geteilte `MapAssetLibrary` frei (etwa 88 MB Materialpixel); die nächste Karte
+  legt eine neue an
 - Höhen für das Overlay: eine Runde sofort statt vier Runden zu 500 ms, weil der Boden nicht streamt
   (`HeightUpdateService`, `capabilities.streaming`)
 - Messen: `e2e/perf/map-load.ts` gegen einen Produktions-Build (Schritte als `performance.mark`

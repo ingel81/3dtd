@@ -199,6 +199,11 @@ export interface WorldAttachContext {
   drawSuppressed: boolean;
   /** The loaded ground changed (a settled tile load), after the world's own caches */
   groundChanged(): void;
+  /**
+   * Frames draw into the post-processing target (bloom or colour grading on)
+   * rather than the screen: linear colour out, so other shader programs
+   */
+  drawsToTarget(): boolean;
 }
 
 /**

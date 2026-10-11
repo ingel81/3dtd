@@ -1,5 +1,7 @@
 import { inject, Injectable, NgZone, signal, WritableSignal } from '@angular/core';
 import { ThreeTilesEngine } from '../../three-engine';
+import { readVfxSettings } from '../../three-engine/vfx-settings';
+import { loadDisplayOptions } from '../../utils/display-options.storage';
 import { GeoPosition } from '../../models/game.types';
 import { AssetManagerService } from './asset-manager.service';
 import { STREET_RADIUS_M, StreetNetwork } from '../location/osm-street.service';
@@ -237,6 +239,10 @@ export class EngineInitializationService {
       this.engine = new ThreeTilesEngine(this.canvas, this.world, this.assetManager);
       // Behind the menu globe the game draws nothing, not even its first frame
       if (this.globe?.coversGame()) this.engine.setDrawSuppressed(true);
+      // The stored bloom and grading before the world compiles its shaders: frames through the
+      // post-processing need other programs (WorldAttachContext.drawsToTarget); the debug facade
+      // applies all display options again once the game stands
+      this.engine.applyVfxSettings(readVfxSettings(loadDisplayOptions()));
 
       this.updateStepMeta('engine', 'World...');
 

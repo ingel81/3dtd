@@ -21,6 +21,26 @@ export function minimapPictureSize(area: MinimapArea, longest = MINIMAP_PICTURE_
   return { width: Math.max(8, Math.round(w * k)), height: Math.max(8, Math.round(h * k)) };
 }
 
+let srgbTable: Uint8Array | null = null;
+
+/** Linear bytes to sRGB in place, alpha untouched */
+export function linearToSrgb(pixels: Uint8Array): void {
+  if (!srgbTable) {
+    srgbTable = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) {
+      const c = i / 255;
+      const v = c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+      srgbTable[i] = Math.round(Math.min(1, Math.max(0, v)) * 255);
+    }
+  }
+  const t = srgbTable;
+  for (let i = 0; i < pixels.length; i += 4) {
+    pixels[i] = t[pixels[i]];
+    pixels[i + 1] = t[pixels[i + 1]];
+    pixels[i + 2] = t[pixels[i + 2]];
+  }
+}
+
 /** Something the renderer draws (not a light, a group or a camera) */
 function isDrawn(o: Object3D): boolean {
   const k = o as Partial<Record<'isMesh' | 'isLine' | 'isPoints' | 'isSprite', boolean>>;
@@ -32,11 +52,12 @@ function isDrawn(o: Object3D): boolean {
  * sight blockers, its lights) from above over `area`, without fog. Towers,
  * enemies, route lines and effects stay out of the picture.
  *
- * The programs are the ones the map compiled for the screen (prepare): the
+ * The programs are the ones the map compiled for the frames (prepare): the
  * fog stays on the scene with no reach, the game's lights stay on (fog and
- * the number of lights are part of a program) and the target counts as the
- * screen. A program of its own per material would link on the main thread,
- * some 250 ms each with a cold driver cache.
+ * the number of lights are part of a program), and the target counts as the
+ * screen when the frames draw to it (`screen`), else it is a plain linear
+ * target like the post-processing's. A program of its own per material would
+ * link on the main thread, some 250 ms each with a cold driver cache.
  */
 export function renderMinimapPicture(
   renderer: WebGLRenderer,
@@ -46,6 +67,8 @@ export function renderMinimapPicture(
   topHeight: number,
   /** The map's own fog density uniform (HEIGHT_FOG_UNIFORMS.uFogDensity), cleared for the render */
   mapFog: { value: number } | null = null,
+  /** The frames draw to the screen (no post-processing): sRGB out; else linear, converted here */
+  screen = true,
 ): HTMLCanvasElement {
   const { width, height } = minimapPictureSize(area);
   const hw = Math.abs(area.right - area.left) / 2;
@@ -82,9 +105,9 @@ export function renderMinimapPicture(
   }
   const before = renderer.getRenderTarget();
   const target = new WebGLRenderTarget(width, height, { colorSpace: SRGBColorSpace });
-  // Drawn like the screen: sRGB out (stored as is), the renderer's tone mapping. A plain target gets
-  // linear colour and every material a program of its own for it; three treats an XR target as the screen.
-  (target as WebGLRenderTarget & { isXRRenderTarget: boolean }).isXRRenderTarget = true;
+  // Drawn like the screen: sRGB out (stored as is), the renderer's tone mapping; three treats an XR
+  // target as the screen. A plain target gets linear colour, as the post-processing's does.
+  (target as WebGLRenderTarget & { isXRRenderTarget: boolean }).isXRRenderTarget = screen;
   const pixels = new Uint8Array(width * height * 4);
   try {
     renderer.setRenderTarget(target);
@@ -99,6 +122,7 @@ export function renderMinimapPicture(
     for (const child of hidden) child.visible = true;
     target.dispose();
   }
+  if (!screen) linearToSrgb(pixels);
 
   const canvas = document.createElement('canvas');
   canvas.width = width;

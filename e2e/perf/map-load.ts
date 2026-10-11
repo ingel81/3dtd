@@ -7,7 +7,7 @@
 //   npm run build
 //   node e2e/perf/serve.mjs dist/3DTD/browser 4227 --isolate
 //   node e2e/perf/map-load.ts --url http://localhost:4227 --map demo-valley [--runs 3] [--profile [--trace out.json]]
-//   Through the start menu as a player starts: --menu; a picture of the loaded map: --shot map.png
+//   Through the start menu as a player starts: --menu; a picture of the loaded map: --shot map.png; bloom on: --bloom
 //   An own map (not shipped): --seed tmp/w3x-out/<id>.3dtdmap (with <id>.summary.json beside it, `npm run w3x-import`)
 //   The editor's templates (biomes) on the demo valley's roads: `npx vitest run tools/w3x/templates-dump.spec.ts --mode w3x`,
 //   then --map tpl-<template> --seed tmp/w3x-out/tpl-<template>.3dtdmap
@@ -32,6 +32,8 @@ const TOP = Number(argument('top', '40'));
 const MENU = process.argv.includes('--menu');
 /** A screenshot 2 s after ready (first run), to see what loaded */
 const SHOT = argument('shot', '');
+/** Bloom on (the VFX setting), so frames draw through the post-processing target */
+const BLOOM = process.argv.includes('--bloom');
 
 interface Mark {
   name: string;
@@ -145,6 +147,7 @@ for (let run = 0; run < RUNS; run++) {
   const page = await context.newPage();
   const problems: string[] = [];
   page.on('pageerror', (e) => problems.push(e.message));
+  if (BLOOM) await page.addInitScript(() => localStorage.setItem('td_display_options', JSON.stringify({ bloom: true })));
   await page.addInitScript(() => {
     localStorage.setItem('td_seen_version', '9999.0.0');
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));

@@ -430,6 +430,7 @@ export class ThreeTilesEngine {
       cameraRig: this.cameraRig,
       drawSuppressed: this.drawSuppressed,
       groundChanged: () => this.onGroundChanged(),
+      drawsToTarget: () => this.postProcessing?.needsRender() ?? false,
     });
   }
 

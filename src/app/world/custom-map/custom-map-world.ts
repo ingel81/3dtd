@@ -1,5 +1,5 @@
 import { isDevMode } from '@angular/core';
-import { type Group, type Matrix4, type Object3D, type PerspectiveCamera, type Scene, Vector3, type WebGLRenderer } from 'three';
+import { type Group, type Matrix4, type Object3D, type PerspectiveCamera, type Scene, Vector3, type WebGLRenderer, WebGLRenderTarget } from 'three';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import type { CameraBounds, CameraRig } from '../../three-engine/camera-rig';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
@@ -153,7 +153,7 @@ export class CustomMapWorld implements WorldProvider {
   /** The scale a fallen object had, to stand it up again */
   private readonly fallenScale = new Map<string, number>();
   /** What the minimap picture renders: the scene and the children the map put into it */
-  private stage: { scene: Scene; renderer: WebGLRenderer; owned: Set<Object3D>; fog: { value: number } } | null = null;
+  private stage: { scene: Scene; renderer: WebGLRenderer; owned: Set<Object3D>; fog: { value: number }; drawsToTarget: () => boolean } | null = null;
   private minimapPicture: HTMLCanvasElement | null = null;
   private highest: number | null = null;
 
@@ -209,6 +209,7 @@ export class CustomMapWorld implements WorldProvider {
       renderer: ctx.renderer,
       owned: new Set(ctx.scene.children.filter((child) => !before.has(child))),
       fog: HEIGHT_FOG_UNIFORMS.uFogDensity,
+      drawsToTarget: ctx.drawsToTarget,
     };
     // Over the HQ at the scene origin, controls that raycast the map's ground and objects
     ctx.cameraRig.setupEnvironmentControls(ctx.scene, view.losBlockers);
@@ -237,8 +238,22 @@ export class CustomMapWorld implements WorldProvider {
     await view.ready.catch((err) => console.warn('[CustomMap] assets did not load', err));
     if (this.view !== view) return;
     performance.mark('load:map-assets:done');
-    // Every program the scene needs, the map's hidden levels, cells and effects included (view.warmUp)
-    await view.warmUp(ctx.renderer, ctx.scene, ctx.camera).catch((err) => console.warn('[CustomMap] shaders did not compile ahead', err));
+    // Every program the scene needs, the map's hidden levels, cells and effects included (view.warmUp's
+    // compile), for the output the frames draw to: with bloom or grading on that is the composer's linear
+    // target, and programs for the screen would all link again in the first frame. compileAsync builds the
+    // programs before it returns its promise, so the target is set only around that call.
+    const renderer = ctx.renderer;
+    const target = ctx.drawsToTarget() ? new WebGLRenderTarget(1, 1) : null;
+    const before = renderer.getRenderTarget();
+    let compiled: Promise<unknown>;
+    try {
+      if (target) renderer.setRenderTarget(target);
+      compiled = renderer.compileAsync(ctx.scene, ctx.camera);
+    } finally {
+      renderer.setRenderTarget(before);
+    }
+    await compiled.catch((err) => console.warn('[CustomMap] shaders did not compile ahead', err));
+    target?.dispose();
     if (this.view !== view) return;
     performance.mark('load:map-shaders:done');
     this.prepared = true;
@@ -376,9 +391,9 @@ export class CustomMapWorld implements WorldProvider {
     };
     if (!this.minimapPicture) {
       if (!this.prepared || !this.stage || !this.view || this.lastUpdate === 0) return null;
-      const { scene, renderer, owned, fog } = this.stage;
+      const { scene, renderer, owned, fog, drawsToTarget } = this.stage;
       try {
-        this.minimapPicture = renderMinimapPicture(renderer, scene, owned, area, this.topHeight(), fog);
+        this.minimapPicture = renderMinimapPicture(renderer, scene, owned, area, this.topHeight(), fog, !drawsToTarget());
       } catch (err) {
         console.warn('[CustomMap] no minimap picture', err);
         this.stage = null;
@@ -395,6 +410,8 @@ export class CustomMapWorld implements WorldProvider {
   dispose(): void {
     this.rig?.setBounds(null);
     this.rig = null;
+    // The shared library keeps every material's pixels (some 88 MB); the next map's shared() makes a new one
+    if (this.view && !this.assets) this.view.assets.dispose();
     this.view?.dispose();
     this.view = null;
     this.stage = null;
