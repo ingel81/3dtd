@@ -10,6 +10,7 @@ from blender_kit import (
     oriented_box, pbr_material, tube,
 )
 import blender_kit
+from build_props import waterline
 
 
 # ---------------------------------------------------------------- buildings and props
@@ -1081,8 +1082,10 @@ def models():
         'bridge-wood': lambda: wooden_bridge('bridge-wood'),
         'boardwalk': lambda: boardwalk('boardwalk'),
         'boardwalk-platform': lambda: boardwalk('boardwalk-platform', length=4.0, platform=True),
-        'pier': lambda: import_model('modular_wooden_pier', None, 6000, 'pier', objects=['modular_wooden_pier_section_02'], keep_scale=True, rot=90),
-        'pier-end': lambda: import_model('modular_wooden_pier', None, 7000, 'pier-end', objects=['modular_wooden_pier_section_01'], keep_scale=True, rot=90),
+        'pier': lambda: import_model('modular_wooden_pier', None, 6000, 'pier', objects=['modular_wooden_pier_section_02'], keep_scale=True, rot=90,
+                                     extra=waterline(1.4)),
+        'pier-end': lambda: import_model('modular_wooden_pier', None, 7000, 'pier-end', objects=['modular_wooden_pier_section_01'], keep_scale=True,
+                                         rot=90, extra=waterline(1.4)),
         # Walls, fences, gates
         'palisade': lambda: palisade('palisade'),
         'palisade-gate': lambda: palisade('palisade-gate', gate=True),

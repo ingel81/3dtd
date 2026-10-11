@@ -290,6 +290,8 @@ def rowboat(name, rotten=False):
         for s in (-1, 1):
             oriented_box(oar, Vector((s * 0.55, -0.2, 0.5)), Vector((s * 0.45, 1.8, 0.45)), 0.05)
         objects.append(oar.to_object(name + '-oars'))
+        # Origin at the waterline (catalogue float): the hull reaches 0.25 m below it
+        tilt(objects, lift=-0.25)
         export(name, objects)
         return
     tilt(objects, x=-6, y=14, z=0, lift=-0.35)
@@ -315,8 +317,10 @@ def fishing_boat(name):
     up = lambda co: Vector((0, 0, 1))
     net.quad([Vector((-1.0, -3.2, 1.35)), Vector((1.0, -3.2, 1.35)), Vector((1.0, -1.8, 1.45)), Vector((-1.0, -1.8, 1.45))],
              [(0, 0), (2, 0), (2, 1.4), (0, 1.4)], up)
-    export(name, [paint.to_object(name), wood.to_object(name + '-deck'), cabin_roof.to_object(name + '-roof'), dark.to_object(name + '-windows'),
-                  mast.to_object(name + '-mast'), net.to_object(name + '-net')])
+    objects = [paint.to_object(name), wood.to_object(name + '-deck'), cabin_roof.to_object(name + '-roof'), dark.to_object(name + '-windows'),
+               mast.to_object(name + '-mast'), net.to_object(name + '-net')]
+    tilt(objects, lift=-0.9)  # waterline at the origin
+    export(name, objects)
 
 
 # ---------------------------------------------------------------- desert canyon
@@ -575,17 +579,27 @@ def ice_fishing_hut(name):
 
 # ---------------------------------------------------------------- volcano
 
+def obsidian_material():
+    """Volcanic glass: near black with a cold blue sheen, mirror-smooth so every facet catches the sky"""
+    return flat_material('obsidian', (0.02, 0.02, 0.028), 0.14, 0.0, emission=(0.01, 0.018, 0.04), strength=0.6)
+
+
 def obsidian_slabs(name, seed):
-    """Glassy black slabs and shards tilted out of the ground"""
+    """Glassy slabs and shards tilted out of the ground; faceted (flat shaded) like conchoidal fractures"""
     clear_scene()
     rnd = random.Random(seed)
-    glass = Part(flat_material('obsidian', (0.025, 0.02, 0.03), 0.06, 0.2), bevel=0.02)
-    for k in range(7):
+    glass = Part(obsidian_material())
+    for k in range(8):
         a = rnd.uniform(0, math.tau)
         r = rnd.uniform(0, 1.8)
-        box(glass, math.cos(a) * r, math.sin(a) * r, -0.4, rnd.uniform(1.0, 2.4), rnd.uniform(0.15, 0.35), rnd.uniform(0.6, 2.2), a)
-    objects = [glass.to_object(name)]
-    export(name, objects)
+        c = Vector((math.cos(a) * r, math.sin(a) * r, -0.3))
+        lump(glass, c, Vector((rnd.uniform(0.7, 1.3), rnd.uniform(0.15, 0.3), rnd.uniform(0.6, 1.4))), seed + k, roughness=0.35,
+             flat_bottom=True, subdiv=1)
+    obj = glass.to_object(name)
+    for p in obj.data.polygons:
+        p.use_smooth = False
+    tilt([obj], z=0)
+    export(name, [obj])
 
 
 def lava_bridge(name, length=14.0, width=4.0):
@@ -654,7 +668,7 @@ def ruin_corner(name, seed=0, height=6.5, thick=2.0):
     clear_scene()
     rnd = random.Random(seed)
     stone = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=3.0)
-    ivy = Part(card_material('ivy', 'leaves-ivy.png'))
+    ivy = Part(card_material('ivy-wall', 'ivy-wall.png'))
     cols = 7
     for arm in range(2):
         for k in range(cols):
@@ -668,8 +682,10 @@ def ruin_corner(name, seed=0, height=6.5, thick=2.0):
     box(stone, 0, 0, -0.5, thick, thick, height + 0.8)
     for k in range(5):
         a = rnd.uniform(0, 2.0)
-        p = Vector((thick / 2 + a + 0.5, -thick / 2 - 0.05, rnd.uniform(0.5, 3.0)))
-        card(ivy, p, Vector((0, 0, 1)), Vector((0, -1, 0)), 1.6, 1.8, p + Vector((0, 1, 0)))
+        top = rnd.uniform(3.0, 5.0)
+        p = Vector((thick / 2 + a + 0.5, -thick / 2 - 0.04, top))
+        # Strands hanging flat on the wall face, normals out from the wall
+        card(ivy, p, Vector((0, 0, -1)), Vector((0, -1, 0)), 1.4, top - 0.1, p + Vector((0, 8, 0)))
     for k in range(8):
         box(stone, rnd.uniform(-1, 6), rnd.uniform(-3, -1.2), -0.2, rnd.uniform(0.4, 0.9), rnd.uniform(0.3, 0.6), rnd.uniform(0.3, 0.5), rnd.uniform(0, 3))
     export(name, [stone.to_object(name), ivy.to_object(name + '-ivy')])
@@ -682,7 +698,7 @@ def keep_ruin(name, seed=1):
     stone = Part(pbr_material('castle-' + RUIN, RUIN), uv_metres=3.0)
     dark = Part(flat_material('hole', (0.03, 0.03, 0.03), 0.95))
     wood = Part(pbr_material('planks-dark', 'dark_planks'), uv_metres=1.0)
-    ivy = Part(card_material('ivy', 'leaves-ivy.png'))
+    ivy = Part(card_material('ivy-wall', 'ivy-wall.png'))
     s, t, h = 11.0, 1.4, 15.0
     cols = 8
     for side in range(4):
@@ -703,8 +719,9 @@ def keep_ruin(name, seed=1):
     box(dark, 0, -s / 2 - 0.02, 0, 2.0, 0.1, 3.0)
     oriented_box(wood, Vector((-3, -3, 0.3)), Vector((3.5, 2.5, 4.5)), 0.35)
     for k in range(7):
-        p = Vector((rnd.uniform(-s / 2, s / 2), -s / 2 - 0.05, rnd.uniform(1, 8)))
-        card(ivy, p, Vector((0, 0, 1)), Vector((0, -1, 0)), 1.8, 2.2, p + Vector((0, 1, 0)))
+        top = rnd.uniform(4.0, 9.0)
+        p = Vector((rnd.uniform(-s / 2 + 1, s / 2 - 1), -s / 2 - 0.04, top))
+        card(ivy, p, Vector((0, 0, -1)), Vector((0, -1, 0)), 1.8, top - 0.2, p + Vector((0, 8, 0)))
     export(name, [stone.to_object(name), dark.to_object(name + '-holes'), wood.to_object(name + '-beam'), ivy.to_object(name + '-ivy')])
 
 

@@ -2847,6 +2847,12 @@
       "tags": [
         "desert"
       ],
+      "lod": [
+        {
+          "file": "models/tree-quiver-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/quiver_tree_01"
     },
     {
@@ -2868,6 +2874,12 @@
       "tags": [
         "desert"
       ],
+      "lod": [
+        {
+          "file": "models/tree-quiver-small-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/quiver_tree_02"
     },
     {
@@ -2888,6 +2900,12 @@
       "drawDistance": 600,
       "tags": [
         "desert"
+      ],
+      "lod": [
+        {
+          "file": "models/tree-quiver-dead-lod1.glb",
+          "distance": 240
+        }
       ],
       "source": "https://polyhaven.com/a/dead_quiver_trunk"
     },
@@ -2931,6 +2949,12 @@
       "tags": [
         "desert"
       ],
+      "lod": [
+        {
+          "file": "models/desert-tree-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "https://polyhaven.com/a/searsia_lucida"
     },
     {
@@ -2951,6 +2975,12 @@
       "drawDistance": 300,
       "tags": [
         "desert"
+      ],
+      "lod": [
+        {
+          "file": "models/succulent-lod1.glb",
+          "distance": 120
+        }
       ],
       "source": "https://polyhaven.com/a/cheiridopsis_succulent"
     },
@@ -2974,6 +3004,12 @@
         "desert",
         "coast"
       ],
+      "lod": [
+        {
+          "file": "models/iceplant-lod1.glb",
+          "distance": 120
+        }
+      ],
       "source": "https://polyhaven.com/a/crystalline_iceplant"
     },
     {
@@ -2996,6 +3032,12 @@
         "desert",
         "coast"
       ],
+      "lod": [
+        {
+          "file": "models/flower-gazania-lod1.glb",
+          "distance": 120
+        }
+      ],
       "source": "https://polyhaven.com/a/flower_gazania"
     },
     {
@@ -3016,6 +3058,12 @@
       "drawDistance": 300,
       "tags": [
         "desert"
+      ],
+      "lod": [
+        {
+          "file": "models/flower-ursinia-lod1.glb",
+          "distance": 120
+        }
       ],
       "source": "https://polyhaven.com/a/flower_ursinia"
     },
@@ -3176,6 +3224,12 @@
         "swamp",
         "undergrowth"
       ],
+      "lod": [
+        {
+          "file": "models/nettles-lod1.glb",
+          "distance": 120
+        }
+      ],
       "source": "https://polyhaven.com/a/nettle_plant"
     },
     {
@@ -3198,6 +3252,12 @@
         "temperate",
         "village",
         "undergrowth"
+      ],
+      "lod": [
+        {
+          "file": "models/periwinkle-lod1.glb",
+          "distance": 120
+        }
       ],
       "source": "https://polyhaven.com/a/periwinkle_plant"
     },
@@ -3448,7 +3508,7 @@
     },
     {
       "id": "lily-pads",
-      "name": "Lily pads (set height to the water)",
+      "name": "Lily pads",
       "category": "plant",
       "file": "models/lily-pads.glb",
       "footprint": 1.0,
@@ -3462,6 +3522,7 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 400,
+      "float": true,
       "tags": [
         "swamp",
         "shore",
@@ -3602,6 +3663,12 @@
         "swamp",
         "undergrowth"
       ],
+      "lod": [
+        {
+          "file": "models/stump-old-lod1.glb",
+          "distance": 200
+        }
+      ],
       "source": "https://polyhaven.com/a/tree_stump_01"
     },
     {
@@ -3624,6 +3691,12 @@
         "temperate",
         "swamp",
         "undergrowth"
+      ],
+      "lod": [
+        {
+          "file": "models/stump-mossy-lod1.glb",
+          "distance": 200
+        }
       ],
       "source": "https://polyhaven.com/a/tree_stump_02"
     },
@@ -3648,6 +3721,12 @@
         "swamp",
         "mountain"
       ],
+      "lod": [
+        {
+          "file": "models/log-fallen-lod1.glb",
+          "distance": 240
+        }
+      ],
       "source": "https://polyhaven.com/a/dead_tree_trunk_02"
     },
     {
@@ -3670,6 +3749,12 @@
         "temperate",
         "swamp",
         "undergrowth"
+      ],
+      "lod": [
+        {
+          "file": "models/roots-lod1.glb",
+          "distance": 100
+        }
       ],
       "source": "https://polyhaven.com/a/pine_roots"
     },
@@ -3694,6 +3779,12 @@
         "autumn",
         "undergrowth",
         "wasteland"
+      ],
+      "lod": [
+        {
+          "file": "models/branches-lod1.glb",
+          "distance": 80
+        }
       ],
       "source": "https://polyhaven.com/a/dry_branches_medium_01"
     },
@@ -3722,7 +3813,7 @@
       "lod": [
         {
           "file": "models/boulder-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/boulder_01"
@@ -3750,7 +3841,7 @@
       "lod": [
         {
           "file": "models/rock-granite-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/rock_07"
@@ -3779,7 +3870,7 @@
       "lod": [
         {
           "file": "models/rock-granite-flat-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/rock_09"
@@ -3808,7 +3899,7 @@
       "lod": [
         {
           "file": "models/rock-round-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/stone_01"
@@ -3835,7 +3926,7 @@
       "lod": [
         {
           "file": "models/rock-desert-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03"
@@ -3890,7 +3981,7 @@
       "lod": [
         {
           "file": "models/rock-sandstone-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_05 (getönt)"
@@ -3946,7 +4037,7 @@
       "lod": [
         {
           "file": "models/rock-basalt-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03 (getönt)"
@@ -3975,7 +4066,7 @@
       "lod": [
         {
           "file": "models/rock-basalt-large-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_06 (getönt)"
@@ -4004,7 +4095,7 @@
       "lod": [
         {
           "file": "models/rock-snow-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_05 (aufgehellt)"
@@ -4032,7 +4123,7 @@
       "lod": [
         {
           "file": "models/rock-volcanic-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_03 (getönt)"
@@ -4060,7 +4151,7 @@
       "lod": [
         {
           "file": "models/rock-volcanic-large-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_05 (getönt)"
@@ -4088,7 +4179,7 @@
       "lod": [
         {
           "file": "models/rock-pumice-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_01 (getönt)"
@@ -4117,7 +4208,7 @@
       "lod": [
         {
           "file": "models/rock-mossy-a-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_01"
@@ -4146,7 +4237,7 @@
       "lod": [
         {
           "file": "models/rock-mossy-b-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_01"
@@ -4175,7 +4266,7 @@
       "lod": [
         {
           "file": "models/rock-mossy-c-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_01"
@@ -4203,7 +4294,7 @@
       "lod": [
         {
           "file": "models/rock-mossy-flat-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_02"
@@ -4234,7 +4325,7 @@
       "lod": [
         {
           "file": "models/stones-lod1.glb",
-          "distance": 350
+          "distance": 100
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_stones_01"
@@ -4262,7 +4353,7 @@
       "lod": [
         {
           "file": "models/rock-coast-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/coast_rocks_01"
@@ -4763,6 +4854,12 @@
         "height": 1.0,
         "flicker": true
       },
+      "lod": [
+        {
+          "file": "models/lava-pool-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock_02"
     },
     {
@@ -5517,7 +5614,7 @@
       "category": "structure",
       "file": "models/pier.glb",
       "footprint": 1.5,
-      "height": 3.8,
+      "height": 2.4,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -5527,6 +5624,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 1500,
+      "float": true,
       "tags": [
         "coast",
         "swamp",
@@ -5540,7 +5638,7 @@
       "category": "structure",
       "file": "models/pier-end.glb",
       "footprint": 1.6,
-      "height": 4.3,
+      "height": 2.9,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -5550,6 +5648,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 1500,
+      "float": true,
       "tags": [
         "coast",
         "shore"
@@ -6811,11 +6910,11 @@
     },
     {
       "id": "ship",
-      "name": "Sailing ship (set height to the water)",
+      "name": "Sailing ship",
       "category": "building",
       "file": "models/ship.glb",
       "footprint": 10.8,
-      "height": 24.6,
+      "height": 22.2,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6825,6 +6924,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "float": true,
       "tags": [
         "coast"
       ],
@@ -8515,6 +8615,12 @@
       "tags": [
         "moon"
       ],
+      "lod": [
+        {
+          "file": "models/crater-rim-lod1.glb",
+          "distance": 320
+        }
+      ],
       "source": "procedural (tools/map-assets/build_space.py); https://polyhaven.com/a/moon_01"
     },
     {
@@ -8535,6 +8641,12 @@
       "drawDistance": 800,
       "tags": [
         "mars"
+      ],
+      "lod": [
+        {
+          "file": "models/mars-crater-rim-lod1.glb",
+          "distance": 320
+        }
       ],
       "source": "procedural (tools/map-assets/build_space.py); https://polyhaven.com/a/moon_01"
     },
@@ -8560,7 +8672,7 @@
       "lod": [
         {
           "file": "models/moon-boulder-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_05"
@@ -8587,7 +8699,7 @@
       "lod": [
         {
           "file": "models/moon-rock-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_03"
@@ -8610,6 +8722,12 @@
       "drawDistance": 800,
       "tags": [
         "moon"
+      ],
+      "lod": [
+        {
+          "file": "models/moon-rocks-small-lod1.glb",
+          "distance": 320
+        }
       ],
       "source": "https://polyhaven.com/a/moon_rock_01"
     },
@@ -8635,7 +8753,7 @@
       "lod": [
         {
           "file": "models/mars-boulder-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_05 (getönt)"
@@ -8662,7 +8780,7 @@
       "lod": [
         {
           "file": "models/mars-stone-lod1.glb",
-          "distance": 350
+          "distance": 320
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03 (getönt)"
@@ -8798,11 +8916,11 @@
     },
     {
       "id": "ice-floe",
-      "name": "Ice floe (set height to the water)",
+      "name": "Ice floe",
       "category": "rock",
       "file": "models/ice-floe.glb",
       "footprint": 3.9,
-      "height": 0.3,
+      "height": 0.2,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -8812,8 +8930,15 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 800,
+      "float": true,
       "tags": [
         "arctic"
+      ],
+      "lod": [
+        {
+          "file": "models/ice-floe-lod1.glb",
+          "distance": 320
+        }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py)"
     },
@@ -8856,6 +8981,12 @@
       "drawDistance": 2500,
       "tags": [
         "arctic"
+      ],
+      "lod": [
+        {
+          "file": "models/iceberg-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py)"
     },
@@ -8901,6 +9032,12 @@
         "arctic",
         "winter",
         "mountain"
+      ],
+      "lod": [
+        {
+          "file": "models/snow-drift-mound-lod1.glb",
+          "distance": 320
+        }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/snow_02"
     },
@@ -8999,6 +9136,12 @@
       "tags": [
         "hell",
         "wasteland"
+      ],
+      "lod": [
+        {
+          "file": "models/thorns-lod1.glb",
+          "distance": 200
+        }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py)"
     },
@@ -9140,6 +9283,12 @@
         "height": 1.0,
         "flicker": true
       },
+      "lod": [
+        {
+          "file": "models/lava-rock-lod1.glb",
+          "distance": 320
+        }
+      ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
     },
     {
@@ -9169,6 +9318,12 @@
         "height": 2.0,
         "flicker": true
       },
+      "lod": [
+        {
+          "file": "models/lava-rock-large-lod1.glb",
+          "distance": 320
+        }
+      ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
     },
     {
@@ -9300,6 +9455,12 @@
       "tags": [
         "mountain"
       ],
+      "lod": [
+        {
+          "file": "models/rock-needle-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/rock_face"
     },
     {
@@ -9321,6 +9482,12 @@
       "tags": [
         "mountain",
         "arctic"
+      ],
+      "lod": [
+        {
+          "file": "models/cairn-lod1.glb",
+          "distance": 240
+        }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/rock_face"
     },
@@ -9363,6 +9530,12 @@
       "drawDistance": 1500,
       "tags": [
         "desert"
+      ],
+      "lod": [
+        {
+          "file": "models/oasis-pool-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/sandstone_cracks"
     },
@@ -9698,11 +9871,11 @@
     },
     {
       "id": "rowboat",
-      "name": "Rowing boat (set height to the water)",
+      "name": "Rowing boat",
       "category": "prop",
       "file": "models/rowboat.glb",
       "footprint": 1.9,
-      "height": 1.1,
+      "height": 0.9,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -9712,6 +9885,7 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 800,
+      "float": true,
       "tags": [
         "coast",
         "swamp"
@@ -9720,11 +9894,11 @@
     },
     {
       "id": "fishing-boat",
-      "name": "Fishing boat (set height to the water)",
+      "name": "Fishing boat",
       "category": "prop",
       "file": "models/fishing-boat.glb",
       "footprint": 4.0,
-      "height": 7.5,
+      "height": 6.6,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9734,6 +9908,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 1500,
+      "float": true,
       "tags": [
         "coast"
       ],
@@ -9884,6 +10059,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "float": true,
       "tags": [
         "coast",
         "swamp"
@@ -9914,7 +10090,7 @@
     },
     {
       "id": "buoy-red",
-      "name": "Buoy (red, set height to the water)",
+      "name": "Buoy (red)",
       "category": "prop",
       "file": "models/buoy-red.glb",
       "footprint": 0.9,
@@ -9928,6 +10104,7 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 1200,
+      "float": true,
       "tags": [
         "coast"
       ],
@@ -9942,7 +10119,7 @@
     },
     {
       "id": "buoy-green",
-      "name": "Buoy (green, set height to the water)",
+      "name": "Buoy (green)",
       "category": "prop",
       "file": "models/buoy-green.glb",
       "footprint": 0.9,
@@ -9956,6 +10133,7 @@
       "randomRotation": true,
       "wind": 0,
       "drawDistance": 1200,
+      "float": true,
       "tags": [
         "coast"
       ],
@@ -10047,8 +10225,8 @@
       "name": "Obsidian slabs",
       "category": "rock",
       "file": "models/obsidian-slabs.glb",
-      "footprint": 1.6,
-      "height": 1.1,
+      "footprint": 1.2,
+      "height": 1.2,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -10164,7 +10342,7 @@
       "name": "Keep ruin",
       "category": "building",
       "file": "models/keep-ruin.glb",
-      "footprint": 5.3,
+      "footprint": 5.0,
       "height": 14.9,
       "blocksLos": true,
       "blocksBuild": true,

@@ -29,7 +29,7 @@ DEFAULTS = {
 FOOTPRINT_SHARE = {'tree': 0.3, 'plant': 0.6}
 LOD_DISTANCE = 350
 ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'blocksLos', 'blocksBuild', 'scaleRange',
-         'randomRotation', 'wind', 'drawDistance', 'tags', 'effects', 'light', 'lod', 'source']
+         'randomRotation', 'wind', 'drawDistance', 'float', 'tags', 'effects', 'light', 'lod', 'source']
 
 
 def main():
@@ -58,7 +58,8 @@ def main():
             e['drawDistance'] = 2500
         if o['id'] + '-lod1' in report and 'lod' not in o:
             # Decimated copy from the builders (export_lod); switched in beyond this distance
-            e['lod'] = [{'file': f'models/{o["id"]}-lod1.glb', 'distance': LOD_DISTANCE}]
+            # Small plants vanish at their draw distance: switch well before that
+            e['lod'] = [{'file': f'models/{o["id"]}-lod1.glb', 'distance': min(LOD_DISTANCE, round(e['drawDistance'] * 0.4))}]
         objects.append({k: e[k] for k in ORDER if k in e})
     path = os.path.join(out, 'catalog.json')
     catalog = json.load(open(path, encoding='utf8'))

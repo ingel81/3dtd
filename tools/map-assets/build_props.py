@@ -291,6 +291,15 @@ def bones(name):
     export(name, [bone.to_object(name)])
 
 
+def waterline(draft):
+    """extra() for import_model: lowers the model so its origin is the waterline (catalogue float)"""
+    def lower(obj):
+        for v in obj.data.vertices:
+            v.co.z -= draft
+        return []
+    return lower
+
+
 def models():
     return {
         # Fire and effects
@@ -329,5 +338,5 @@ def models():
         'basket': lambda: import_model('wicker_basket_01', None, 1500, 'basket', keep_scale=True),
         'table': lambda: import_model('WoodenTable_01', None, 1000, 'table', keep_scale=True),
         'pickaxe': lambda: import_model('picke_dirty_01', None, 1000, 'pickaxe', keep_scale=True),
-        'ship': lambda: import_model('dutch_ship_medium', None, 15000, 'ship', keep_scale=True, rot=90),
+        'ship': lambda: import_model('dutch_ship_medium', None, 15000, 'ship', keep_scale=True, rot=90, extra=waterline(2.4)),
     }

@@ -105,8 +105,9 @@ def ice_shapes(name, seed, kind):
     ice = Part(ice_material(), uv_metres=3.0)
     snow = Part(flat_material('snow-cap', (0.88, 0.92, 0.96), 0.8), uv_metres=3.0)
     if kind == 'floe':
-        lump(ice, Vector((0, 0, -0.3)), Vector((4.0, 3.0, 0.5)), seed, roughness=0.25, flat_top=0.55, subdiv=3)
-        lump(snow, Vector((0.3, 0.2, -0.15)), Vector((3.2, 2.3, 0.45)), seed + 1, roughness=0.2, flat_top=0.6, subdiv=3)
+        # Origin at the waterline (catalogue float): most of the floe lies under it
+        lump(ice, Vector((0, 0, -0.3)), Vector((4.0, 3.0, 0.5)), seed, roughness=0.25, flat_top=0.55, flat_bottom=False, subdiv=3)
+        lump(snow, Vector((0.3, 0.2, -0.18)), Vector((3.2, 2.3, 0.45)), seed + 1, roughness=0.2, flat_top=0.6, flat_bottom=False, subdiv=3)
     elif kind == 'pack':
         for k in range(9):
             a = rnd.uniform(0, math.tau)
@@ -561,7 +562,7 @@ def models():
         'lava-rock': lambda: lava_rock('lava-rock', 89),
         'bone-pile': lambda: bone_pile('bone-pile', 97),
         'lava-rock-large': lambda: lava_rock('lava-rock-large', 90, size=(3.2, 2.6, 2.2)),
-        'obsidian-spikes': lambda: crystals('obsidian-spikes', 91, (0.03, 0.025, 0.035), None, count=8, height=3.2),
+        'obsidian-spikes': lambda: crystals('obsidian-spikes', 91, (0.02, 0.02, 0.028), (0.008, 0.014, 0.035), count=8, height=3.2),
         'hell-spires': lambda: stalagmites('hell-spires', 92, asset='dark_rock_02', count=5, height=9.0),
         # Mountains
         'rope-bridge': lambda: rope_bridge('rope-bridge'),

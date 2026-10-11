@@ -250,8 +250,9 @@ def strand_card(sprites, size_w, size_h, leaf_px, count, twig, seed):
     card = Image.new('RGBA', (size_w, size_h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(card)
     strands = []
-    for k in range(5):
-        x0 = size_w * (0.2 + 0.6 * k / 4) + rnd.uniform(-10, 10)
+    for k in range(5 if size_w < 400 else 8):
+        n = 5 if size_w < 400 else 8
+        x0 = size_w * (0.12 + 0.76 * k / (n - 1)) + rnd.uniform(-10, 10)
         pts = [(x0 + math.sin(t * 2.5 + k) * size_w * 0.05, size_h * (1 - t)) for t in np.linspace(0.02, 0.98, 12)]
         strands.append(pts)
         draw.line(pts, fill=twig, width=max(2, size_w // 128))
@@ -576,6 +577,7 @@ def main():
     save(branch_card([tinted(s, (0.62, 0.7, 0.5)) for s in sprites['glossy']], 512, 58, 360, (55, 45, 34, 255), 15), 'leaves-swamp.png')
     save(branch_card(sprites['ivy'], 512, 70, 340, (60, 48, 34, 255), 16), 'leaves-ivy.png')
     save(branch_card([tinted(s, (0.85, 0.85, 0.6)) for s in sprites['narrow'] + sprites['birch-pale']], 512, 58, 520, (95, 80, 60, 255), 34), 'leaves-dry.png')
+    save(strand_card([tinted(s, (0.55, 0.62, 0.45)) for s in sprites['ivy']], 512, 1024, 95, 700, (70, 60, 45, 255), 44), 'ivy-wall.png')
     save(strand_card(sprites['narrow'], 256, 1024, 70, 520, (80, 70, 50, 255), 17), 'leaves-willow.png')
     save(snowy(Image.open(os.path.join(out, 'leaves-conifer.png')), 18), 'leaves-conifer-snow.png')
     save(frond_card(512, 19), 'palm-frond.png')
