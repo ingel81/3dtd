@@ -26,7 +26,7 @@
       "spawns": 2,
       "biome": "mountain",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "a297b9dc9d08b701e6232d78c051d7b5207943e899ebcb73dfaa9a926dae87e5"
+      "contentHash": "79ead7a5f6c1524804806221cd0083d8cd35bc9aace850c9facb389617d96b27"
     },
     {
       "id": "witch-marsh",
@@ -40,7 +40,7 @@
       "spawns": 2,
       "biome": "swamp",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "0b6ad777229b644db417e32ecfa30163725df02a3a1415aec96da33abb5d1560"
+      "contentHash": "622a1fa79826d63e81baaf7fc2c2bea33710f35651a30cbd3582700f11f10511"
     },
     {
       "id": "autumn-keep",
