@@ -49,6 +49,21 @@ export interface GlobeViewOptions {
 const CLOUDS_GONE_BELOW = 450_000;
 const CLOUDS_FULL_ABOVE = 1_800_000;
 
+/**
+ * Stars come in with the height (TODO E152): none near the ground, all of them
+ * from the edge of space up, metres. The climb out of a place showed the
+ * starry sky while the camera was still over the roofs.
+ */
+const STARS_GONE_BELOW = 60_000;
+const STARS_FULL_ABOVE = 400_000;
+/** Brightness of the stars once all are there */
+const STAR_GAIN = 2.2;
+
+/** The stars' gain at `altitude` metres: 0 near the ground, STAR_GAIN in space */
+export function starGainAt(altitude: number): number {
+  return STAR_GAIN * MathUtils.smoothstep(altitude, STARS_GONE_BELOW, STARS_FULL_ABOVE);
+}
+
 
 /** What a quality tier costs: pixel ratio cap, scattering steps, the sharp stage */
 const TIERS: Record<GlobeQuality, { pixelRatio: number; steps: number; sharp: boolean; segments: [number, number] }> = {
@@ -311,7 +326,7 @@ export class GlobeView {
         new ShaderMaterial({
           vertexShader: STAR_VERTEX,
           fragmentShader: STAR_FRAGMENT,
-          uniforms: { pixelRatio: { value: this.renderer.getPixelRatio() }, starGain: { value: 2.2 } },
+          uniforms: { pixelRatio: { value: this.renderer.getPixelRatio() }, starGain: { value: STAR_GAIN } },
           transparent: true,
           blending: AdditiveBlending,
           depthTest: false,
@@ -435,6 +450,11 @@ export class GlobeView {
     // Clouds thin out on the way down: their texture is coarse up close, and the tiles have none
     this.earth.material.uniforms['cloudCover'].value = MathUtils.smoothstep(alt, CLOUDS_GONE_BELOW, CLOUDS_FULL_ABOVE);
     this.rim.material.uniforms['camPos'].value.copy(this.camera.position);
+    if (this.stars) {
+      const gain = starGainAt(alt);
+      this.stars.material.uniforms['starGain'].value = gain;
+      this.stars.visible = gain > 0;
+    }
     const t0 = performance.now();
     const programs = this.renderer.info.programs?.length ?? 0;
     this.renderer.render(this.scene, this.camera);

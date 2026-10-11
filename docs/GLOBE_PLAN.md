@@ -104,7 +104,7 @@ unsichtbar vorweggenommen). In Vorladen, Abtauchen,
 | Erde | Gitter 384×192 auf dem Ellipsoid; ein Shader: Tag, bis zu vier Regionskacheln, Relief aus Höhendaten, Wasserglanz, Wolken als Schicht mit Schatten, Stadtlichter, Mondlicht-Hauch, Dunst | 1 Draw |
 | Saum | Schale 350 km über dem Ellipsoid, nur wo der Strahl die Erde verfehlt: Streuung bis 100 km, darüber ein schwacher blauer Schein rundum, auch nachts | 1 Draw |
 | Streuung | Rayleigh und Mie, Einfachstreuung, 12 Schritte (Low 6), zur dichtesten Stelle verdichtet, Lichtweg 4 Schritte, Rauschen gegen Bänder; in km im „Kugelraum“ | in Erde und Saum |
-| Sterne | Yale Bright Star Catalogue, 9096 Sterne, Farbe aus B-V, gedreht nach Sternzeit | 1 Draw |
+| Sterne | Yale Bright Star Catalogue, 9096 Sterne, Farbe aus B-V, gedreht nach Sternzeit; kommen mit der Höhe (`starGainAt`: unter 60 km keine, ab 400 km alle, E152), beim Abtauchen wie beim Aufstieg | 1 Draw |
 | Sonne | Richtung aus UTC, Scheibe und Halo | 1 Draw |
 | Marken | HTML, je Frame projiziert, hinter der Erde ausgeblendet; das Ziel liegt über allen anderen, Marken unter seinem Namen treten zurück, beim Laden pulsiert ein Ring und eine Zeile sagt den Stand („Loading 80 %“) | DOM |
 

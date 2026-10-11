@@ -4,7 +4,7 @@ import { RIM_HEIGHT, MENU_INSET, SHOT_FOV, arcDegrees, blendShot, fitFrame, head
 import { EARTH_A } from './globe-geo';
 import { ecefOf, upOf } from './globe-geo';
 import { regionTilesAround, type RegionIndex } from './globe-textures';
-import { ellipsoidGeometry, starColor } from './globe-view';
+import { ellipsoidGeometry, starColor, starGainAt } from './globe-view';
 import { Color } from 'three';
 
 const pose = () => ({ position: new Vector3(), target: new Vector3(), up: new Vector3() });
@@ -49,6 +49,16 @@ describe('globe-flight', () => {
   it('reads the screen top from a camera matrix', () => {
     const m = new Matrix4().lookAt(new Vector3(0, 0, 10), new Vector3(0, 0, 0), new Vector3(1, 0, 0));
     expect(headingFromMatrix(m, new Vector3()).x).toBeCloseTo(1, 9);
+  });
+});
+
+describe('starGainAt', () => {
+  it('shows no stars over the roofs and all of them from the edge of space (TODO E152)', () => {
+    expect(starGainAt(500)).toBe(0);
+    expect(starGainAt(30_000)).toBe(0);
+    expect(starGainAt(200_000)).toBeGreaterThan(0);
+    expect(starGainAt(200_000)).toBeLessThan(starGainAt(400_000));
+    expect(starGainAt(5_000_000)).toBe(starGainAt(400_000));
   });
 });
 
