@@ -51,6 +51,8 @@ import { BossIntroService } from './boss-intro.service';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { WaveDirector } from '../director/wave-director';
 import { LocationManagementService } from './location/location-management.service';
+import { WorldContext } from '../world/world-context.service';
+import { fakeWorldContext } from '../../test/world-context-fake';
 
 /**
  * The gate of ReplayService.enter(): a replay starts only with a recorded
@@ -111,6 +113,7 @@ describe('ReplayService.enter gate', () => {
         },
         { provide: TowerDefenseStore, useValue: { loading: signal(false), error: signal(null), phase } },
         { provide: GameStore, useValue: { paused, mannedTowerId: signal(null) } },
+        { provide: WorldContext, useValue: fakeWorldContext() },
         {
           provide: SimClient,
           useValue: {

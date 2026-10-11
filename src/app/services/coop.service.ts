@@ -47,6 +47,8 @@ import { readCoopLan, readDesktopBridge, type LanGame } from '../core/desktop-br
 import { coopAccess } from '../coop/coop-access';
 import { CoopLobbyList } from './coop-lobby-list';
 import { WorldPackageLoader } from './world/world-package-loader.service';
+import { WorldContext } from '../world/world-context.service';
+import type { WorldRef } from '../world/world-ref';
 import {
   DEFAULT_ROOM_OPTIONS,
   changedOptions,
@@ -246,6 +248,7 @@ export class CoopService {
   private readonly locationFacade = inject(LocationFacadeService);
   /** Standing on the host's world package (C1) */
   private readonly loader = inject(WorldPackageLoader);
+  private readonly worldContext = inject(WorldContext);
   /** The signals of a room, back to their start in leave() */
   private readonly perRoom = new ResettableSignals();
   /** What this client told the room it is doing, see tellStatus */
@@ -1161,11 +1164,11 @@ export class CoopService {
     return `&room=${encodeURIComponent(code)}${named ? `&relay=${encodeURIComponent(named)}` : ''}`;
   }
 
-  private head(): { gameVersion: string; configHash: string; waveSource: WaveSourceId } {
+  private head(): { gameVersion: string; configHash: string; waveSource: WaveSourceId; world: WorldRef } {
     // The balance without the wave source: the host decides the source, a joiner takes it over
     // with the world (takeWorld), so a different one here is no reason to refuse the room
     const waveSource = this.waveDirector?.sourceNextRun ?? initialWaveSourceId();
-    return { gameVersion: BUILD_VERSION, configHash: balanceConfigHash(), waveSource };
+    return { gameVersion: BUILD_VERSION, configHash: balanceConfigHash(), waveSource, world: this.worldContext.ref() };
   }
 
   /** Reach a relay and say hello; `lanUrls` are a LAN game's addresses instead of the usual sources. */
@@ -1405,6 +1408,12 @@ export class CoopService {
     const read = readWorldPackage(JSON.stringify(data), this.head());
     if (!read.world) {
       this.error.set(worldPackageRefusalText(read.refusal));
+      return;
+    }
+    // The host's world must be this page's: DevWorld with the same settings, the same map
+    const otherWorld = this.loader.worldHere(read.world);
+    if (otherWorld) {
+      this.error.set(`The host's game: ${otherWorld}`);
       return;
     }
     // The host decides the wave source: play it from the next run on; leave() gives this seat its own back

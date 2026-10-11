@@ -8,6 +8,8 @@ import { downloadRun } from '../../run-log/run-log.export';
 import { readRunUploadConsent } from '../../run-log/run-upload';
 import type { StoredRun } from '../../run-log/run-log.store';
 import { MAX_RUNS } from '../../run-log/run-log.store';
+import { runWorld } from '../../run-log/run-log.types';
+import { worldPlaceName } from '../../world/world-ref';
 
 /**
  * The runs this browser kept, newest first, each one to save as a file.
@@ -45,9 +47,11 @@ export class RunsDialogComponent {
     this.loading.set(false);
   }
 
-  /** Where it was played. DevWorld first: its HQ sits at 0,0 and would read as coordinates. */
+  /** Where it was played. A world of its own first (DevWorld, a map): its HQ sits at 0,0 and would read as coordinates. */
   place(run: StoredRun): string {
-    if (run.head.map === 'devworld') return 'DevWorld';
+    const world = runWorld(run.head);
+    if (world?.kind === 'devworld') return 'DevWorld';
+    if (world?.kind === 'custom-map') return worldPlaceName(world) ?? 'Map';
     return run.head.location?.name ?? 'Unknown place';
   }
 

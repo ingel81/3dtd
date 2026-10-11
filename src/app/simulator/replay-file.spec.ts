@@ -6,8 +6,9 @@ import {
 import type { WaveRecord } from './sim-recorder';
 import { SIM_SNAPSHOT_VERSION } from './sim-snapshot';
 import { STATE_HASH_VERSION } from './state-hash';
+import { TEST_WORLD_REF } from '../../test/world-context-fake';
 
-const here = { worldKey: 'w', configHash: 'c', gameVersion: 'v1' };
+const here = { worldKey: 'w', world: TEST_WORLD_REF, configHash: 'c', gameVersion: 'v1' };
 
 /** A file the game would write: one wave, one command */
 function file(patch: (f: Record<string, unknown>) => void = () => undefined): string {
@@ -25,6 +26,13 @@ function file(patch: (f: Record<string, unknown>) => void = () => undefined): st
 describe('readReplayFile', () => {
   it('reads a file the game wrote', () => {
     expect(readReplayFile(file(), here).refusal).toBeNull();
+  });
+
+  it('refuses a file of another world by its ref, a file without one by its world key alone', () => {
+    const dev = { kind: 'devworld', terrain: 'flat', seed: 42, buildings: 'dense', spawns: 1 };
+    expect(readReplayFile(file((f) => { f['world'] = dev; }), here).refusal).toBe('other-world');
+    expect(readReplayFile(file((f) => { f['world'] = { kind: 'tiles', source: 'google' }; }), here).refusal).toBeNull();
+    expect(readReplayFile(file((f) => { f['world'] = { kind: 'moon' }; }), here).refusal).toBe('damaged');
   });
 
   it('refuses a text far above any replay before parsing it', () => {

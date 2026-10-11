@@ -426,6 +426,7 @@ export class SimCore implements SimCoreApi {
       const log = this.file?.log ?? this.gsm.commandLog.entries;
       const file = buildReplayFile(records, log, {
         worldKey: this.gsm.worldKey(),
+        world: head.world,
         configHash: head.configHash,
         seed: this.gsm.rng.seed,
         gameVersion: head.gameVersion,

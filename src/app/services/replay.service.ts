@@ -1,3 +1,4 @@
+import { WorldContext } from '../world/world-context.service';
 import { DestroyRef, ElementRef, Injectable, Injector, NgZone, afterNextRender, computed, effect, inject, signal, untracked } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import type { Quaternion, Vector3 } from 'three';
@@ -61,6 +62,7 @@ interface CameraPose {
  */
 @Injectable()
 export class ReplayService {
+  private readonly worldContext = inject(WorldContext);
   private readonly uiStore = inject(UIStore);
   private readonly store = inject(TowerDefenseStore);
   private readonly gameStore = inject(GameStore);
@@ -383,6 +385,7 @@ export class ReplayService {
       configHash: this.configHash(),
       gameVersion: BUILD_VERSION,
       commit: buildCommit(),
+      world: this.worldContext.ref(),
     });
     if (!doc || !file || file.waves.length === 0) return false;
     const blob = await replayFileBlob(file.text);
@@ -422,7 +425,7 @@ export class ReplayService {
       this.ngZone.run(() => this.fileProblem.set('Replays are off in a coop game.'));
       return;
     }
-    const read = await this.sim.rpc('loadReplayFile', text, { configHash: this.configHash(), gameVersion: BUILD_VERSION });
+    const read = await this.sim.rpc('loadReplayFile', text, { configHash: this.configHash(), gameVersion: BUILD_VERSION, world: this.worldContext.ref() });
     await this.ngZone.run(async () => {
       if (read.refusal) {
         const why = replayFileRefusalText(read.refusal as ReplayFileRefusal);

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildSaveFile, readSaveFile, saveFileName, saveFileRefusalText, type SaveParts } from './save-file';
 import { buildWorldPackage } from '../coop/world-package';
 import { emptySimSnapshot } from '../../test/sim-snapshot-fixture';
+import { TEST_WORLD_REF } from '../../test/world-context-fake';
 
 const HERE = { gameVersion: '0.7.0', configHash: 'abc' };
 
@@ -21,7 +22,7 @@ function parts(): SaveParts {
       paths: new Map([['spawn-1', [{ lat: spawn.lat, lon: spawn.lon }, hq]]]),
       heights: [[1, 2.5, 1]],
       worldKey: 'w1',
-    }, HERE),
+    }, { ...HERE, world: TEST_WORLD_REF }),
     sim: emptySimSnapshot(11),
     director: { source: 'budget', sourceState: null, planned: null },
     mainRng: { seed: 1, streams: { director: 7 } },

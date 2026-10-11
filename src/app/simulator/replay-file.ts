@@ -3,6 +3,7 @@ import type { LosMaskJson } from '../utils/los-mask';
 import { SIM_SNAPSHOT_VERSION } from './sim-snapshot';
 import { replayable, type WaveRecord } from './sim-recorder';
 import { STATE_HASH_VERSION } from './state-hash';
+import { worldRefShape, worldsMatch, type WorldRef } from '../world/world-ref';
 
 /**
  * Bumped whenever the file's shape changes; another version is refused. 3 keeps each line of sight once in
@@ -33,6 +34,8 @@ export interface ReplayFile {
   hashVersion?: number;
   /** GameStateManager.worldKey of the world it was played on */
   worldKey: string;
+  /** Which world it was played on (WorldRef); absent from files before it, whose world key alone decides */
+  world?: WorldRef;
   /** run-log/config-hash.ts: the balance it was played with */
   configHash: string;
   /**
@@ -116,7 +119,7 @@ function expandMasks(data: { waves: unknown[]; log: unknown[] }, table: unknown)
 export function buildReplayFile(
   records: readonly WaveRecord[],
   log: readonly CommandLogEntry[],
-  head: { worldKey: string; configHash: string; seed: number; gameVersion: string; commit: string },
+  head: { worldKey: string; world: WorldRef; configHash: string; seed: number; gameVersion: string; commit: string },
   now: Date = new Date(),
 ): ReplayFile {
   const waves = records.filter(replayable);
@@ -178,7 +181,7 @@ function wellFormed(data: { waves: unknown[]; log: unknown[] }): boolean {
  */
 export function readReplayFile(
   text: string,
-  here: { worldKey: string; configHash: string; gameVersion: string },
+  here: { worldKey: string; world: WorldRef; configHash: string; gameVersion: string },
 ): { file: ReplayFile; refusal: null; note: string | null } | { file: null; refusal: ReplayFileRefusal } {
   // UTF-16 code units, at least the bytes of any ASCII file: a cap for a file that came another way than loadFile
   if (text.length > MAX_REPLAY_FILE_BYTES) return { file: null, refusal: 'too-big' };
@@ -197,6 +200,8 @@ export function readReplayFile(
   const parts = data as { waves: unknown[]; log: unknown[] };
   if (!wellFormed(parts) || !expandMasks(parts, data.masks)) return { file: null, refusal: 'damaged' };
   delete data.masks;
+  if (data.world !== undefined && !worldRefShape(data.world)) return { file: null, refusal: 'damaged' };
+  if (data.world !== undefined && !worldsMatch(data.world, here.world)) return { file: null, refusal: 'other-world' };
   if (data.worldKey !== here.worldKey) return { file: null, refusal: 'other-world' };
   if (data.configHash !== here.configHash) return { file: null, refusal: 'other-balance' };
   if (data.waves.length === 0) return { file: null, refusal: 'empty' };

@@ -73,3 +73,53 @@ export function worldPlaceName(ref: WorldRef): string | null {
       return ref.name ?? ref.mapId;
   }
 }
+
+/** The DevWorld a file of before the WorldRef meant: the defaults of `?devworld` */
+export const LEGACY_DEV_WORLD_REF: WorldRef = { kind: 'devworld', terrain: 'flat', seed: 42, buildings: 'dense', spawns: 1 };
+
+/**
+ * The world a file without `world` was played on (a save, replay, run log or
+ * coop package of before the field): DevWorld when its origin is the
+ * synthetic (0, 0), the 3D tiles of `tilesSource` otherwise.
+ */
+export function legacyWorldRef(origin: { lat: number; lon: number }, tilesSource: 'cesium' | 'google'): WorldRef {
+  return origin.lat === 0 && origin.lon === 0 ? LEGACY_DEV_WORLD_REF : { kind: 'tiles', source: tilesSource };
+}
+
+/**
+ * Whether a run of `a` can stand on `b`: a save, a replay or a coop room.
+ * The 3D tiles are the same place through either source (after the corridor
+ * froze they are picture only); the other worlds must be the same world.
+ * A file of before the content hash (empty) matches any content of its map.
+ */
+export function worldsMatch(a: WorldRef, b: WorldRef): boolean {
+  if (a.kind === 'tiles' || b.kind === 'tiles') return a.kind === b.kind;
+  if (a.kind === 'custom-map' && b.kind === 'custom-map' && (a.contentHash === '' || b.contentHash === '')) {
+    return a.mapId === b.mapId;
+  }
+  return sameWorld(a, b);
+}
+
+/** A WorldRef read from a file: the shape checked, null for anything else */
+export function worldRefShape(data: unknown): WorldRef | null {
+  if (typeof data !== 'object' || data === null) return null;
+  const ref = data as Record<string, unknown>;
+  switch (ref['kind']) {
+    case 'tiles':
+      return ref['source'] === 'cesium' || ref['source'] === 'google' ? { kind: 'tiles', source: ref['source'] } : null;
+    case 'devworld':
+      return typeof ref['terrain'] === 'string' && Number.isFinite(ref['seed']) && typeof ref['buildings'] === 'string'
+        && Number.isInteger(ref['spawns'])
+        ? { kind: 'devworld', terrain: ref['terrain'], seed: ref['seed'] as number, buildings: ref['buildings'], spawns: ref['spawns'] as number }
+        : null;
+    case 'custom-map':
+      return typeof ref['mapId'] === 'string' && typeof ref['contentHash'] === 'string'
+        ? {
+          kind: 'custom-map', mapId: ref['mapId'], contentHash: ref['contentHash'],
+          ...(typeof ref['name'] === 'string' ? { name: ref['name'] } : {}),
+        }
+        : null;
+    default:
+      return null;
+  }
+}

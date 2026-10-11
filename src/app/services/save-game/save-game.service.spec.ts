@@ -22,7 +22,7 @@ import { BUILD_VERSION } from '../../configs/build-info.config';
 import { balanceConfigHash } from '../../run-log/config-hash';
 import type { GamePhase } from '../../models/game.types';
 import { WorldContext } from '../../world/world-context.service';
-import { fakeWorldContext } from '../../../test/world-context-fake';
+import { fakeWorldContext, TEST_WORLD_REF } from '../../../test/world-context-fake';
 
 /**
  * The save game in the running game (TODO E110), on stand-ins: when saving
@@ -46,7 +46,7 @@ function saveFile(): SaveFile {
     world: buildWorldPackage({
       origin: hq, hq, spawns: [spawn], paths: new Map([['spawn-1', [{ lat: spawn.lat, lon: spawn.lon }, hq]]]),
       heights: [[1, 2.5, 1]], worldKey: 'w1',
-    }, HEAD),
+    }, { ...HEAD, world: TEST_WORLD_REF }),
     sim: { version: SIM_SNAPSHOT_VERSION, towers: [], rng: { seed: 9, streams: {} }, waveNumber: 4 } as unknown as SimSnapshot,
     director: { source: 'budget', sourceState: null, planned: null },
     mainRng: { seed: 9, streams: { director: 1234 } },
@@ -101,6 +101,7 @@ function setup(options: { inCoop?: boolean } = {}) {
     }),
   };
   const loader = {
+    worldHere: vi.fn((): string | null => null),
     placeLoaded: vi.fn(async () => true),
     standsOn: vi.fn(() => true),
     sameHq: vi.fn(() => true),
@@ -192,6 +193,14 @@ describe('SaveGameService (TODO E110)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('refuses a save of another world before it moves anywhere', async () => {
+    const { apply, order, loader } = setup();
+    loader.worldHere.mockReturnValue('It plays on another world (devworld flat/42), this page on tiles cesium. Open the same one first.');
+    expect(await apply(saveFile())).toContain('That save cannot load here.');
+    expect(loader.placeLoaded).not.toHaveBeenCalled();
+    expect(order).toEqual([]);
   });
 
   it('waits for the place loaded here to stand, its corridor built, before it takes the save', async () => {

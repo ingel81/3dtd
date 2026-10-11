@@ -49,6 +49,7 @@ import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { buildWorldPackage, packagePaths } from '../coop/world-package';
 import { buildSaveFile, readSaveFile } from '../simulator/save-file';
 import { buildSimWorld, worldSourceOf, type SimWorld, type SimWorldOptions } from './sim-world';
+import { TEST_WORLD_REF } from '../../test/world-context-fake';
 
 const SEED = 0x5a7e;
 const HEAD = { gameVersion: 'v9.9.9', configHash: 'cfg' };
@@ -127,7 +128,7 @@ describe('Save game: saved between waves, loaded into a fresh simulation (TODO E
       name: 'Hills, wave 2',
       wave: gsm.waveManager.waveNumber() + 1,
       place: { name: 'Hills', hq: live.hq, spawns: gsm.getSpawnPoints().map(({ lat, lon }) => ({ lat, lon })) },
-      world: buildWorldPackage(worldSourceOf(live), HEAD),
+      world: buildWorldPackage(worldSourceOf(live), { ...HEAD, world: TEST_WORLD_REF }),
       // As the save's rpc takes it: exact, the hero on his way keeps it
       sim: gsm.captureSnapshot(true),
       director: { source: 'budget', sourceState: null, planned: null },

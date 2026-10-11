@@ -56,6 +56,7 @@ import { TICK_SUB_STEPS, type LockstepLink } from '../coop/lockstep';
 import { HASH_EVERY_TICKS } from '../coop/hash-check';
 import { buildWorldPackage, packagePaths, readWorldPackage } from '../coop/world-package';
 import { buildSimWorld, worldSourceOf, type SimWorld, type SimWorldOptions } from './sim-world';
+import { TEST_WORLD_REF } from '../../test/world-context-fake';
 
 const SEED = 0xc0de;
 const PLAYERS = ['a', 'b'];
@@ -490,7 +491,7 @@ describe('Coop world package (COOP_PLAN C1)', () => {
     Math.random = mulberry32(SEED + 1);
     const host = buildClient(relay, 'a', { ground: hills });
     const source = worldSourceOf(host.world);
-    const text = JSON.stringify(buildWorldPackage(source, HEAD));
+    const text = JSON.stringify(buildWorldPackage(source, { ...HEAD, world: TEST_WORLD_REF }));
     const read = readWorldPackage(text, HEAD);
     if (!read.world) throw new Error(`refused: ${read.refusal}`);
     const world = read.world;
@@ -753,7 +754,7 @@ describe('Coop world package (COOP_PLAN C1)', () => {
 
   it('refuses a package of another game version, other balance or no world at all', () => {
     const { source } = hostAndJoiner(new LocalRelay(true));
-    const text = JSON.stringify(buildWorldPackage(source, HEAD));
+    const text = JSON.stringify(buildWorldPackage(source, { ...HEAD, world: TEST_WORLD_REF }));
     expect(readWorldPackage(text, { ...HEAD, gameVersion: 'v1.0.0' }).refusal).toBe('other-game');
     expect(readWorldPackage(text, { ...HEAD, configHash: 'other' }).refusal).toBe('other-balance');
     expect(readWorldPackage('{"format":"3dtd-replay"}', HEAD).refusal).toBe('not-a-world');

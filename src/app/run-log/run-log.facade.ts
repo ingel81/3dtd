@@ -268,6 +268,7 @@ export class RunLogFacade {
       {
         seed: mirror.scalars.seed,
         map: this.worldContext.ref().kind === 'devworld' ? 'devworld' : 'world',
+        world: this.worldContext.ref(),
         player: who.player,
         directorParams: directorParamsName(),
         waveSource: this.waveSource(),

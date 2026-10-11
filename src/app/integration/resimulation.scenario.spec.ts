@@ -55,6 +55,7 @@ import { buildReplayFile, readReplayFile } from '../simulator/replay-file';
 import { STATE_HASH_VERSION } from '../simulator/state-hash';
 import { buildSimWorld } from './sim-world';
 import { GameClock } from '../managers/game-state/game-clock';
+import { TEST_WORLD_REF } from '../../test/world-context-fake';
 
 const SEED = 0x51a1;
 
@@ -270,14 +271,14 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     const played = world.gsm;
     const liveEnd = playLive(world);
     const head = { worldKey: played.worldKey(), configHash: 'balance', seed: played.rng.seed, gameVersion: 'v0.4.0', commit: 'abc' };
-    const text = JSON.stringify(buildReplayFile(played.simRecorder.records, played.commandLog.entries, head));
+    const text = JSON.stringify(buildReplayFile(played.simRecorder.records, played.commandLog.entries, { ...head, world: TEST_WORLD_REF }));
     world.restoreMath();
 
     // Another game on the same map, nothing played in it
     world = buildWorld();
     const fresh = world.gsm;
     expect(fresh.worldKey()).toBe(head.worldKey);
-    const read = readReplayFile(text, { worldKey: fresh.worldKey(), configHash: 'balance', gameVersion: 'v0.4.0' });
+    const read = readReplayFile(text, { world: TEST_WORLD_REF, worldKey: fresh.worldKey(), configHash: 'balance', gameVersion: 'v0.4.0' });
     expect(read.refusal).toBeNull();
 
     const resim = new Resimulation(fresh.resimHost, read.file!.waves[0], read.file!.log);
@@ -294,15 +295,15 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     const { gsm } = world;
     playLive(world);
     const head = { worldKey: gsm.worldKey(), configHash: 'balance', seed: 1, gameVersion: 'v0.4.0', commit: 'abc' };
-    const text = JSON.stringify(buildReplayFile(gsm.simRecorder.records, gsm.commandLog.entries, head));
-    expect(readReplayFile(text, { worldKey: 'elsewhere', configHash: 'balance', gameVersion: 'v0.4.0' }).refusal).toBe('other-world');
-    expect(readReplayFile(text, { worldKey: head.worldKey, configHash: 'changed', gameVersion: 'v0.4.0' }).refusal).toBe('other-balance');
-    expect(readReplayFile('{"x":1}', { worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.4.0' }).refusal).toBe('not-a-replay');
+    const text = JSON.stringify(buildReplayFile(gsm.simRecorder.records, gsm.commandLog.entries, { ...head, world: TEST_WORLD_REF }));
+    expect(readReplayFile(text, { world: TEST_WORLD_REF, worldKey: 'elsewhere', configHash: 'balance', gameVersion: 'v0.4.0' }).refusal).toBe('other-world');
+    expect(readReplayFile(text, { world: TEST_WORLD_REF, worldKey: head.worldKey, configHash: 'changed', gameVersion: 'v0.4.0' }).refusal).toBe('other-balance');
+    expect(readReplayFile('{"x":1}', { world: TEST_WORLD_REF, worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.4.0' }).refusal).toBe('not-a-replay');
     // Another game version loads, with a note that it may differ
-    const other = readReplayFile(text, { worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.5.0' });
+    const other = readReplayFile(text, { world: TEST_WORLD_REF, worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.5.0' });
     expect(other.refusal).toBeNull();
     expect(other.refusal === null && other.note).toContain('v0.4.0');
-    const same = readReplayFile(text, { worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.4.0' });
+    const same = readReplayFile(text, { world: TEST_WORLD_REF, worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.4.0' });
     expect(same.refusal === null && same.note).toBeNull();
     expect(same.file!.waves[0].hashes.length).toBeGreaterThan(0);
   });
@@ -313,10 +314,10 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     playLive(world);
     const head = { worldKey: gsm.worldKey(), configHash: 'balance', seed: 1, gameVersion: 'v0.4.0', commit: 'abc' };
     // A file from before the hash version: none in it, the hashes read other state
-    const { hashVersion, ...old } = buildReplayFile(gsm.simRecorder.records, gsm.commandLog.entries, head);
+    const { hashVersion, ...old } = buildReplayFile(gsm.simRecorder.records, gsm.commandLog.entries, { ...head, world: TEST_WORLD_REF });
     expect(hashVersion).toBe(STATE_HASH_VERSION);
     old.waves[0].hashes = old.waves[0].hashes.map((hash) => hash ^ 1);
-    const read = readReplayFile(JSON.stringify(old), { worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.4.0' });
+    const read = readReplayFile(JSON.stringify(old), { world: TEST_WORLD_REF, worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.4.0' });
     expect(read.refusal).toBeNull();
     expect(read.refusal === null && read.note).toContain('older kind');
 
@@ -445,14 +446,14 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     play(played, worms(['worm', 'worm', 'zombie', 'bat']), t);
     const record = played.simRecorder.get(2)!;
     expect(record.endStep).not.toBeNull();
-    const text = JSON.stringify(buildReplayFile(played.simRecorder.records, played.commandLog.entries, {
+    const text = JSON.stringify(buildReplayFile(played.simRecorder.records, played.commandLog.entries, { world: TEST_WORLD_REF,
       worldKey: played.worldKey(), configHash: 'balance', seed: played.rng.seed, gameVersion: 'v0.4.0', commit: 'abc',
     }));
     world.restoreMath();
 
     world = buildWorld();
     const fresh = world.gsm;
-    const read = readReplayFile(text, { worldKey: fresh.worldKey(), configHash: 'balance', gameVersion: 'v0.4.0' });
+    const read = readReplayFile(text, { world: TEST_WORLD_REF, worldKey: fresh.worldKey(), configHash: 'balance', gameVersion: 'v0.4.0' });
     const wave2 = read.file!.waves.find((w) => w.wave === 2)!;
     const resim = new Resimulation(fresh.resimHost, wave2, read.file!.log);
     resim.start();

@@ -7,6 +7,7 @@ import { buildWorldPackage } from '../../coop/world-package';
 import { emptySimSnapshot } from '../../../test/sim-snapshot-fixture';
 import { MAX_SAVE_FILE_BYTES, type SaveFile, type SaveParts } from '../../simulator/save-file';
 import { replayFileBlob } from '../../simulator/replay-file';
+import { TEST_WORLD_REF } from '../../../test/world-context-fake';
 
 /**
  * The slots, names, notes and order of the save game (TODO E110), on a
@@ -49,7 +50,7 @@ function parts(wave: number): Omit<SaveParts, 'name'> {
     world: buildWorldPackage({
       origin: hq, hq, spawns: [spawn], paths: new Map([['spawn-1', [{ lat: spawn.lat, lon: spawn.lon }, hq]]]),
       heights: [[1, 2.5, 1]], worldKey: 'w1',
-    }, HERE),
+    }, { ...HERE, world: TEST_WORLD_REF }),
     sim: emptySimSnapshot(wave - 1),
     director: { source: 'budget', sourceState: null, planned: null },
     mainRng: { seed: 1, streams: {} },

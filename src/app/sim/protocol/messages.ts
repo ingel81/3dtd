@@ -10,6 +10,7 @@ import type { StampedCommand } from '../../coop/lockstep';
 import type { SimFramePacket } from './packet';
 import type { ReplayMarker } from '../../replay/replay-bar-view';
 import type { WireFrame } from './wire';
+import type { WorldRef } from '../../world/world-ref';
 
 /**
  * The world the simulation stands on, from the finished world on the main
@@ -162,8 +163,8 @@ export interface SimRpc {
   captureWaveSnapshot(): unknown;
   restoreWaveSnapshot(snapshot: unknown, reason: 'replay' | 'live'): void;
   /** The run's (or the loaded file's) replayable waves as a replay file's text; null when there is none */
-  replayFile(head: { configHash: string; gameVersion: string; commit: string }): { text: string; waves: number[] } | null;
-  loadReplayFile(text: string, here: { configHash: string; gameVersion: string }): { refusal: string | null; note: string | null; waves: number[] };
+  replayFile(head: { configHash: string; gameVersion: string; commit: string; world: WorldRef }): { text: string; waves: number[] } | null;
+  loadReplayFile(text: string, here: { configHash: string; gameVersion: string; world: WorldRef }): { refusal: string | null; note: string | null; waves: number[] };
   /**
    * Keep the live state, put the simulation at the wave's start in replay
    * mode. `file`: a replay file's text read before (loadReplayFile) instead

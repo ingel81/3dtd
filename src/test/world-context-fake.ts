@@ -50,3 +50,6 @@ export type FakeWorldContext = ReturnType<typeof fakeWorldContext>;
 export function asWorldContext(fake: FakeWorldContext): WorldContext {
   return fake as unknown as WorldContext;
 }
+
+/** The world the specs' saves, replays and packages are played on */
+export const TEST_WORLD_REF: WorldRef = { kind: 'tiles', source: 'cesium' };

@@ -53,6 +53,7 @@ vi.mock('../coop/world-package', () => ({
     ({ ...head, hq: source.hq ?? HQ, spawns: SPAWNS, worldKey: 'k', heights: [] }),
   readWorldPackage: (json: string) => ({ world: JSON.parse(json) }),
   packagePaths: () => new Map(),
+  packageWorldRef: (world: { world?: unknown }) => world.world ?? { kind: 'tiles', source: 'cesium' },
   worldPackageRefusalText: () => 'refused',
 }));
 
@@ -80,6 +81,8 @@ import { InputHandlerService } from './input-handler.service';
 import { RunLogFacade } from '../run-log/run-log.facade';
 import { WaveDirector } from '../director/wave-director';
 import type { WaveSourceId } from '../director/wave-source';
+import { WorldContext } from '../world/world-context.service';
+import { fakeWorldContext } from '../../test/world-context-fake';
 
 const HQ = { lat: 48.7758, lon: 9.1829 };
 const SPAWNS = [
@@ -145,7 +148,8 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
       { provide: GlobalRouteGridService, useValue: withAutoStubs({}) },
       { provide: TowerLosRegistry, useValue: los },
       { provide: PresentationService, useValue: { host: null } },
-      { provide: ConfigService, useValue: { coopRelay: signal(null), coopLobbies: signal(null), needsCredentials: signal(false) } },
+      { provide: ConfigService, useValue: { coopRelay: signal(null), coopLobbies: signal(null), needsCredentials: signal(false), tileProvider: signal('cesium') } },
+      { provide: WorldContext, useValue: fakeWorldContext() },
       { provide: GameStore, useValue: { gameSpeed: signal(1), paused: signal(false) } },
       { provide: UIStore, useValue: { coopMapLocked: signal(false), notice: signal<UiNotice | null>(null), coopDockOpen: signal(false) } },
       { provide: EngineInitializationService, useValue: { getEngine: () => ({}), loading: () => false } },

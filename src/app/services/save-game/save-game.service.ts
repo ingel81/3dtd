@@ -71,7 +71,6 @@ export class SaveGameService implements SaveGamePort {
     saveBlocked: computed(() => {
       if (this.inCoop()) return 'Saving is off in co-op.';
       if (this.uiStore.replayMode()) return 'Saving is off while a replay plays.';
-      if (!this.worldContext.capabilities().realPlace) return 'Saving is off on this world.';
       if (this.gameStore.isGameOver()) return 'The run is over.';
       if (this.gameStore.phase() !== 'setup') return 'Saving works only between waves.';
       if (!this.locationMgmt.hq() || this.engineInit.loading()) return 'No place is loaded yet.';
@@ -81,7 +80,6 @@ export class SaveGameService implements SaveGamePort {
     loadBlocked: computed(() => {
       if (this.inCoop()) return 'Loading is off in co-op.';
       if (this.uiStore.replayMode()) return 'Leave the replay first.';
-      if (!this.worldContext.capabilities().realPlace) return 'Loading is off on this world.';
       return null;
     }),
     collect: () => this.collect(),
@@ -148,6 +146,9 @@ export class SaveGameService implements SaveGamePort {
       await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_POLL_MS));
       // The next wave started, or the run ended: nothing to save for this one
       if (!current() || this.gameStore.phase() !== 'setup') return;
+      // Only on a real place: the autosave is what the menu offers to continue and where it guesses the start
+      // (startPlaceGuess); a bot run in DevWorld must not take its slot
+      if (!this.worldContext.capabilities().realPlace) return;
       if (this.mirror.scalars.snapshotRefusal === null && this.host.saveBlocked() === null) {
         await this.game.autosave();
         return;
@@ -177,7 +178,7 @@ export class SaveGameService implements SaveGamePort {
         hq: { lat: hq.lat, lon: hq.lon },
         spawns: this.world.spawnPoints.map(({ lat, lon }) => ({ lat, lon })),
       },
-      world: buildWorldPackage(source, { ...head, waveSource: director.source }),
+      world: buildWorldPackage(source, { ...head, waveSource: director.source, world: this.worldContext.ref() }),
       sim,
       director,
       mainRng,
@@ -194,6 +195,9 @@ export class SaveGameService implements SaveGamePort {
    */
   private async apply(file: SaveFile): Promise<string | null> {
     const world = file.world;
+    // A save of another world (DevWorld, a map, the tiles) does not stand here
+    const otherWorld = this.loader.worldHere(world);
+    if (otherWorld) return `That save cannot load here. ${otherWorld}`;
     if (!this.engineInit.getEngine() || !this.locationMgmt.hq()) {
       this.pendingPlace.set({ hq: file.place.hq, spawns: file.place.spawns });
       const loaded = await this.loader.placeLoaded();

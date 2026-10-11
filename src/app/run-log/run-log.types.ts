@@ -13,11 +13,12 @@
 
 import type { CreditsSource } from '../game-engine/game-event-bus';
 import type { WaveSourceId } from '../director/wave-source';
+import { LEGACY_DEV_WORLD_REF, type WorldRef } from '../world/world-ref';
 
 /** Bumped when a reader would have to change. */
 export { RUN_LOG_FORMAT, reconcileWave } from './run-log-check';
 
-/** Where a run was played. */
+/** Where a run was played: DevWorld or any other world (kept for the readers of before `world`). */
 export type RunMap = 'devworld' | 'world';
 
 /** Who played it. */
@@ -45,6 +46,8 @@ export interface RunLogHead {
   /** Which bot played, when one did. */
   botSkill?: string;
   map: RunMap;
+  /** Which world exactly (WorldRef); absent from logs before it, see runWorld */
+  world?: WorldRef;
   location?: { name: string; lat: number; lon: number };
   /** Fingerprint of the route corridor, so runs on the same route can be compared. */
   routeFingerprint?: string;
@@ -244,4 +247,13 @@ export type RunLogRecord = RunLogHead | RunLogEvent | RunLogSample | RunLogWave 
 export interface RunLog {
   head: RunLogHead;
   records: RunLogRecord[];
+}
+
+/**
+ * The world a run was played on: its head's `world`, for a log of before it
+ * DevWorld's defaults when `map` says DevWorld, else null (the tiles, the
+ * source unknown).
+ */
+export function runWorld(head: Pick<RunLogHead, 'world' | 'map'>): WorldRef | null {
+  return head.world ?? (head.map === 'devworld' ? LEGACY_DEV_WORLD_REF : null);
 }

@@ -7,7 +7,9 @@ import { LocationFacadeService } from '../facade/location-facade.service';
 import { PathAndRouteService } from './path-route.service';
 import { GlobalRouteGridService } from './global-route-grid.service';
 import { MainWorldService } from './main-world.service';
-import { packagePaths, type WorldPackage } from '../../coop/world-package';
+import { packagePaths, packageWorldRef, type WorldPackage } from '../../coop/world-package';
+import { WorldContext } from '../../world/world-context.service';
+import { worldLabel, worldsMatch } from '../../world/world-ref';
 import { coordKey } from '../../utils/geo-utils';
 import type { GeoPosition } from '../../models/game.types';
 
@@ -36,6 +38,24 @@ export class WorldPackageLoader {
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly grid = inject(GlobalRouteGridService);
   private readonly world = inject(MainWorldService);
+  private readonly worldContext = inject(WorldContext);
+
+  /**
+   * Why the package's world cannot stand here, null when it can: a save, a
+   * replay or a coop room of another world than this page plays (its
+   * WorldRef, or for an old package its origin). The seam for custom maps:
+   * a guest without the host's map will get it from the host here instead
+   * of a refusal (docs/WORLD_PROVIDER_PLAN.md).
+   */
+  worldHere(world: Pick<WorldPackage, 'world' | 'origin'>): string | null {
+    const theirs = packageWorldRef(world, this.config.tileProvider());
+    const mine = this.worldContext.ref();
+    if (worldsMatch(theirs, mine)) return null;
+    if (theirs.kind === 'custom-map') {
+      return `It plays the map "${theirs.name ?? theirs.mapId}", which is not open here. Open that map first.`;
+    }
+    return `It plays on another world (${worldLabel(theirs)}), this page on ${worldLabel(mine)}. Open the same one first.`;
+  }
 
   /**
    * Wait until the place stands here: an engine, loading screen gone,

@@ -32,6 +32,7 @@ import { ENEMY_STRIDE, E_FLAGS, EF_ALIVE, TOWER_STRIDE, T_KILLS } from '../proto
 import type { LosNeededPayload } from '../protocol/events';
 import type { CommandData } from '../../managers/game-state/command-data';
 import type { WaveConfig } from '../../managers/wave.manager';
+import { TEST_WORLD_REF } from '../../../test/world-context-fake';
 
 const SEED = 0x51c0;
 const HEAD = { configHash: 'spec', gameVersion: 'spec', commit: 'spec' };
@@ -183,14 +184,14 @@ describe('SimCore in the same thread', () => {
 
       // Let the last shots land, then the replay file
       for (let f = 0; f < 400 && packet.scalars.snapshotRefusal !== null; f++) packet = drive.tick();
-      const file = core.rpc('replayFile', HEAD)!;
+      const file = core.rpc('replayFile', { ...HEAD, world: TEST_WORLD_REF })!;
       expect(file.waves).toEqual([1]);
       // The live run's hashes the re-simulation is checked against
       expect(core.gsm.simRecorder.get(1)!.hashes.length).toBeGreaterThan(10);
 
       // A fresh simulation on the same world plays it again, every hash checked
       const replay = new Driver(newCore(main.world));
-      const read = replay.core.rpc('loadReplayFile', file.text, HERE);
+      const read = replay.core.rpc('loadReplayFile', file.text, { ...HERE, world: TEST_WORLD_REF });
       expect(read.refusal).toBeNull();
       const entered = replay.core.rpc('replayEnter', 1, true)!;
       expect(entered.lengthInSteps).toBeGreaterThan(100);
@@ -203,7 +204,7 @@ describe('SimCore in the same thread', () => {
       expect(replay.tick().scalars.replay).toBeNull();
 
       // The check bites: a tower that hits harder in the re-simulation parts from the record
-      replay.core.rpc('loadReplayFile', file.text, HERE);
+      replay.core.rpc('loadReplayFile', file.text, { ...HERE, world: TEST_WORLD_REF });
       replay.core.rpc('replayEnter', 1, true);
       for (const tower of replay.core.gsm.towerManager.getAll()) tower.combat.damage *= 3;
       state = replay.tick({ replay: { playing: true, speed: 10 } }).scalars.replay!;

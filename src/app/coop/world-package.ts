@@ -1,6 +1,7 @@
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 import type { WaveSourceId } from '../director/wave-source';
 import type { SpawnPoint } from '../managers/wave.manager';
+import { legacyWorldRef, worldRefShape, type WorldRef } from '../world/world-ref';
 
 /** Bumped whenever the shape changes; another version is refused. */
 export const WORLD_PACKAGE_VERSION = 1;
@@ -29,6 +30,13 @@ export interface WorldPackage {
   waveSource?: WaveSourceId;
   /** GameStateManager.worldKey of the host's world; the joiner's must come out the same */
   worldKey: string;
+  /**
+   * Which world the host plays (absent from packages before it, see
+   * packageWorldRef). A guest on another world is refused
+   * (WorldPackageLoader.worldHere); for a custom map the host will send the
+   * map itself along (docs/WORLD_PROVIDER_PLAN.md).
+   */
+  world?: WorldRef;
   /** The local frame's origin (CoordinateSync) */
   origin: GeoPosition;
   hq: GeoPosition;
@@ -52,7 +60,7 @@ export interface WorldSource {
 /** Pack the world; everything is copied, the package stays valid whatever the game does next. */
 export function buildWorldPackage(
   world: WorldSource,
-  head: { gameVersion: string; configHash: string; waveSource?: WaveSourceId },
+  head: { gameVersion: string; configHash: string; waveSource?: WaveSourceId; world: WorldRef },
 ): WorldPackage {
   const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
   return {
@@ -62,6 +70,7 @@ export function buildWorldPackage(
     configHash: head.configHash,
     ...(head.waveSource ? { waveSource: head.waveSource } : {}),
     worldKey: world.worldKey,
+    world: copy(head.world),
     origin: copy(world.origin),
     hq: copy(world.hq),
     spawns: copy([...world.spawns]),
@@ -105,7 +114,16 @@ export function worldPackageShape(data: unknown): WorldPackage | null {
   ) {
     return null;
   }
+  if (world.world !== undefined && !worldRefShape(world.world)) return null;
   return worldShapeOk(world as WorldPackage) ? (world as WorldPackage) : null;
+}
+
+/**
+ * The world a package was built on: its `world`, or for a package of before
+ * the field what its origin says (legacyWorldRef), the tiles of `tilesSource`.
+ */
+export function packageWorldRef(world: Pick<WorldPackage, 'world' | 'origin'>, tilesSource: 'cesium' | 'google'): WorldRef {
+  return world.world ?? legacyWorldRef(world.origin, tilesSource);
 }
 
 /** Routes, waypoints and grid cells a package holds at most: far above a real place */

@@ -33,6 +33,7 @@ import {
 import { balanceConfigHash } from './config-hash';
 import { BUILD_VERSION } from '../configs/build-info.config';
 import { buildCommit } from './build-commit';
+import type { WorldRef } from '../world/world-ref';
 
 /** Game time between two samples. */
 export const SAMPLE_INTERVAL_MS = 1000;
@@ -64,6 +65,8 @@ export interface RunLogWorld {
 export interface RunLogContext {
   seed: number;
   map: RunMap;
+  /** Which world the run plays (WorldRef) */
+  world?: WorldRef;
   player: RunPlayer;
   botSkill?: string;
   location?: { name: string; lat: number; lon: number };
@@ -185,6 +188,7 @@ export class RunLogCollector {
       player: context.player,
       ...(context.botSkill ? { botSkill: context.botSkill } : {}),
       map: context.map,
+      ...(context.world ? { world: context.world } : {}),
       ...(context.location ? { location: context.location } : {}),
       ...(context.routeFingerprint ? { routeFingerprint: context.routeFingerprint } : {}),
       ...(context.directorParams ? { directorParams: context.directorParams } : {}),
