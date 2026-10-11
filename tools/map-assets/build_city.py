@@ -12,151 +12,275 @@ import random
 
 from mathutils import Vector
 
+import bpy
+
 from blender_kit import (
-    Part, box, card_material, clear_scene, export, flat_material, hexa, image_material, import_model, oriented_box,
-    pbr_material, tilt, tube,
+    Part, bake_ao, box, card_material, clear_scene, export, export_lod, flat_material, hexa, image_material, import_model,
+    oriented_box, pbr_material, tilt, tube,
 )
 import blender_kit
-from build_structures import gable_roof
+from build_structures import cone_roof, gable_roof
 
 FOUNDATION = 1.0
 
 
 def glass():
-    return flat_material('window-glass', (0.06, 0.08, 0.1), 0.12, 0.6)
+    return flat_material('window-glass', (0.07, 0.09, 0.11), 0.08, 0.7)
 
 
-def window_grid(dark, frame, w, d, z0, floors, floor_h, spacing, win_w, win_h, skip_front_door=False, broken=None):
-    """Windows on all four walls of a box w x d (centre at the origin) from z0 up, one row per floor"""
-    rnd = random.Random(int(w * 13 + d * 7 + floors))
-    for f in range(floors):
-        z = z0 + f * floor_h + floor_h * 0.3
-        for side, length, normal in (('y', w, -1), ('y', w, 1), ('x', d, -1), ('x', d, 1)):
-            n = max(1, int(length // spacing))
-            for k in range(n):
-                t = -length / 2 + (k + 0.5) * length / n
-                if skip_front_door and f == 0 and side == 'y' and normal < 0 and abs(t) < spacing * 0.6:
-                    continue
-                if broken and rnd.random() < broken:
-                    continue
-                if side == 'y':
-                    box(dark, t, normal * (d / 2 + 0.02), z, win_w, 0.08, win_h)
-                    box(frame, t, normal * (d / 2 + 0.05), z - 0.08, win_w + 0.2, 0.08, 0.1)
-                else:
-                    box(dark, normal * (w / 2 + 0.02), t, z, 0.08, win_w, win_h)
-                    box(frame, normal * (w / 2 + 0.05), t, z - 0.08, 0.08, win_w + 0.2, 0.1)
+def hole():
+    return flat_material('window-hole', (0.025, 0.022, 0.02), 0.95)
 
 
-# ---------------------------------------------------------------- blocks
+class Face:
+    """One wall of a box building: u runs along the wall (left to right seen from outside), n points out"""
 
-def apartment_block(name, floors=4, w=14.0, d=10.0, wall='concrete_slab_wall', tint=None, ruined=False, seed=0):
-    """Modern block: flat roof with parapet and plant room, a window grid, an entrance canopy (front -Y).
-    `ruined`: upper floors broken off along a jagged line, windows blown out, rubble at the foot"""
-    clear_scene()
-    rnd = random.Random(seed)
-    walls = Part(pbr_material('wall-' + wall + ('-t' if tint else ''), wall, tint), uv_metres=3.0)
-    trim = Part(pbr_material('wall-brushed_concrete', 'brushed_concrete'), uv_metres=3.0)
-    dark = Part(glass() if not ruined else flat_material('hole', (0.03, 0.03, 0.03), 0.95))
-    fh = 3.0
-    h = floors * fh
-    if not ruined:
-        box(trim, 0, 0, -FOUNDATION, w + 0.2, d + 0.2, FOUNDATION + 0.6)
-        box(walls, 0, 0, 0.6, w, d, h - 0.6)
-        box(trim, 0, 0, h, w + 0.3, d + 0.3, 0.9)
-        box(trim, w * 0.2, d * 0.1, h + 0.9, 3.0, 2.5, 2.0)
-        box(trim, 0, -d / 2 - 1.0, 2.6, 3.4, 2.0, 0.25)
-        box(dark, 0, -d / 2 - 0.03, 0.2, 1.8, 0.1, 2.3)
+    def __init__(self, k, w, d):
+        # k: 0 front (-Y), 1 east (+X), 2 back (+Y), 3 west (-X)
+        self.angle = k * math.pi / 2
+        self.u = Vector((math.cos(self.angle), math.sin(self.angle), 0))
+        self.n = Vector((math.sin(self.angle), -math.cos(self.angle), 0))
+        self.length = w if k % 2 == 0 else d
+        self.depth = d if k % 2 == 0 else w
+        self.k = k
+
+    def box(self, part, u, n, z, su, sn, sz):
+        """Box centred at u along the wall, n out from the wall plane (0 = facade surface)"""
+        c = self.u * u + self.n * (self.depth / 2 + n)
+        box(part, c.x, c.y, z, su, sn, sz, self.angle)
+
+
+class Kit:
+    """Parts of a facade build: walls (bevelled), trim (bevelled), frames, glass, dark (holes, doors), extras"""
+
+    def __init__(self, wall_asset, wall_tint=None, trim_asset='brushed_concrete', trim_tint=None, frame=(0.85, 0.85, 0.82),
+                 broken=False, uv=3.0, bevel=0.03):
+        self.walls = Part(pbr_material('wall-' + wall_asset + ('-t' if wall_tint else ''), wall_asset, wall_tint), uv_metres=uv, bevel=bevel)
+        self.trim = Part(pbr_material('trim-' + trim_asset + ('-t' if trim_tint else ''), trim_asset, trim_tint), uv_metres=2.0, bevel=0.025)
+        self.frames = Part(flat_material('frame-' + '-'.join('%.2f' % c for c in frame), frame, 0.5, 0.2))
+        self.glass = Part(glass() if not broken else hole())
+        self.dark = Part(hole())
+        self.metal = Part(flat_material('roof-metal', (0.42, 0.43, 0.44), 0.45, 0.7), smooth=True)
+        self.soot = Part(flat_material('soot', (0.03, 0.025, 0.02), 0.95)) if broken else None
+
+    def objects(self, name):
+        parts = [(self.walls, ''), (self.trim, '-trim'), (self.frames, '-frames'), (self.glass, '-glass'), (self.dark, '-dark'),
+                 (self.metal, '-metal')]
+        if self.soot:
+            parts.append((self.soot, '-soot'))
+        return [p.to_object(name + suffix) for p, suffix in parts if p.bm.faces]
+
+
+def facade(kit, face, z0, floors, fh, bays, win_w, win_h, sill_h, reveal=0.18, style='modern', door_bay=None, damage=None, rnd=None,
+           transom=True):
+    """Window bays on one wall: piers between bays and bands between storeys built around real openings,
+    a recessed frame and pane, a sill (and a lintel for old buildings). `damage(b, f)` -> True hides the bay
+    (broken off); broken glass comes from the kit"""
+    L = face.length
+    bw = L / bays
+    t = 0.35
+    for b in range(bays + 1):
+        u = -L / 2 + b * bw
+        top = z0 + floors * fh
+        if damage:
+            top = min(top, damage(b, None))
+        if top > z0:
+            face.box(kit.walls, u, -t / 2, z0, (bw - win_w) if 0 < b < bays else (bw - win_w) / 2 + 0.3, t, top - z0)
+    for b in range(bays):
+        u = -L / 2 + (b + 0.5) * bw
+        for f in range(floors):
+            zf = z0 + f * fh
+            if damage and damage(b, f):
+                continue
+            wz = zf + sill_h
+            # Band below the window (sill height) and above it (lintel to the next floor)
+            face.box(kit.walls, u, -t / 2, zf, win_w + 0.02, t, sill_h)
+            face.box(kit.walls, u, -t / 2, wz + win_h, win_w + 0.02, t, fh - sill_h - win_h)
+            is_door = door_bay is not None and b == door_bay and f == 0
+            if is_door:
+                face.box(kit.dark, u, -reveal - 0.05, zf, win_w, 0.1, fh - 0.4)
+                face.box(kit.frames, u, -reveal + 0.02, zf + fh - 0.45, win_w + 0.1, 0.08, 0.1)
+                continue
+            # Reveal: frame plate set back, pane inside, mullion
+            face.box(kit.frames, u, -reveal, wz, win_w, 0.06, win_h)
+            face.box(kit.glass, u, -reveal + 0.035, wz + 0.06, win_w - 0.12, 0.02, win_h - 0.12)
+            face.box(kit.frames, u, -reveal + 0.05, wz + 0.04, 0.05, 0.03, win_h - 0.08)
+            if transom and win_h > 1.3:
+                face.box(kit.frames, u, -reveal + 0.05, wz + win_h * 0.62, win_w - 0.1, 0.03, 0.05)
+            face.box(kit.trim, u, 0.04, wz - 0.06, win_w + 0.16, 0.16, 0.07)
+            if style == 'old':
+                face.box(kit.trim, u, 0.03, wz + win_h, win_w + 0.3, 0.1, 0.22)
+            if kit.soot and rnd and rnd.random() < 0.3:
+                face.box(kit.soot, u, 0.012, wz + win_h + 0.02, win_w * 0.9, 0.01, 0.9)
+
+
+def cornice(part, w, d, z, steps=((0.15, 0.2), (0.32, 0.12), (0.45, 0.14))):
+    """Stepped cornice around the top of a box w x d"""
+    for out, h in steps:
+        box(part, 0, 0, z, w + 2 * out, d + 2 * out, h)
+        z += h
+
+
+def roof_units(kit, w, d, z, rnd, water_tank=False):
+    """Plant on a flat roof: stair house, air conditioners, vent pipes, optionally a water tank on legs"""
+    box(kit.trim, -w * 0.25, d * 0.15, z, 2.6, 2.2, 2.4)
+    box(kit.dark, -w * 0.25, d * 0.15 - 1.11, z, 0.9, 0.04, 2.0)
+    for k in range(3):
+        x, y = rnd.uniform(-w / 2 + 1.5, w / 2 - 1.5), rnd.uniform(-d / 2 + 1.2, d / 2 - 1.2)
+        box(kit.metal, x, y, z, 1.2, 0.8, 0.9, rnd.choice((0, math.pi / 2)))
+        tube(kit.metal, [Vector((x, y, z + 0.9)), Vector((x, y, z + 0.95))], [0.3, 0.3], 10, cap=True)
+    for k in range(4):
+        x, y = rnd.uniform(-w / 2 + 1, w / 2 - 1), rnd.uniform(-d / 2 + 1, d / 2 - 1)
+        tube(kit.metal, [Vector((x, y, z)), Vector((x, y, z + 0.9))], [0.1, 0.1], 8, cap=True)
+    if water_tank:
+        x, y = w * 0.22, -d * 0.12
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                box(kit.metal, x + sx * 0.9, y + sy * 0.9, z, 0.15, 0.15, 2.0)
+        tube(kit.trim, [Vector((x, y, z + 2.0)), Vector((x, y, z + 4.4))], [1.35, 1.25], 14, cap=True)
+        cone_roof(kit.metal, x, y, z + 4.4, 1.4, 0.8, 14)
+
+
+def balconies(kit, face, z0, floors, fh, bays, every=1):
+    """Concrete slabs with metal railings in front of every `every`-th bay from the first floor up"""
+    L = face.length
+    bw = L / bays
+    for b in range(0, bays, every):
+        u = -L / 2 + (b + 0.5) * bw
         for f in range(1, floors):
-            box(trim, 0, 0, f * fh - 0.1, w + 0.12, d + 0.12, 0.2)
-        window_grid(dark, trim, w, d, 0.6, floors, fh, 2.4, 1.4, 1.5, skip_front_door=True)
-        export(name, [walls.to_object(name), trim.to_object(name + '-trim'), dark.to_object(name + '-windows')])
-        return
-    # Ruin: columns of wall broken at random heights, floor slabs sticking out
-    cols = 7
-    for side in ('front', 'back', 'left', 'right'):
-        length = w if side in ('front', 'back') else d
-        for k in range(cols):
-            t = -length / 2 + (k + 0.5) * length / cols
-            top = h * (0.25 + 0.75 * abs(math.sin(k * 1.7 + seed + len(side)))) * rnd.uniform(0.8, 1.0)
-            if rnd.random() < 0.18:
-                top = rnd.uniform(0.8, 2.5)
-            seg = length / cols + 0.01
-            if side == 'front':
-                box(walls, t, -d / 2 + 0.15, -FOUNDATION, seg, 0.3, top + FOUNDATION)
-            elif side == 'back':
-                box(walls, t, d / 2 - 0.15, -FOUNDATION, seg, 0.3, top + FOUNDATION)
-            elif side == 'left':
-                box(walls, -w / 2 + 0.15, t, -FOUNDATION, 0.3, seg, top + FOUNDATION)
-            else:
-                box(walls, w / 2 - 0.15, t, -FOUNDATION, 0.3, seg, top + FOUNDATION)
+            z = z0 + f * fh
+            face.box(kit.trim, u, 0.6, z - 0.15, bw * 0.8, 1.2, 0.15)
+            face.box(kit.metal, u, 1.15, z, bw * 0.8, 0.05, 1.0)
+            for s in (-1, 1):
+                face.box(kit.metal, u + s * bw * 0.4, 0.6, z, 0.05, 1.15, 1.0)
+            for k in range(7):
+                face.box(kit.metal, u - bw * 0.36 + k * bw * 0.12, 1.15, z, 0.03, 0.03, 0.95)
+
+
+def fire_escape(kit, face, z0, floors, fh, u0, width=3.2):
+    """Steel fire escape: landings on every floor, a railing, stairs between the landings"""
     for f in range(1, floors):
-        span = w * rnd.uniform(0.3, 0.9)
-        box(trim, -w / 2 + span / 2, rnd.uniform(-1, 1), f * fh - 0.15, span, d - 0.4, 0.25, rnd.uniform(-0.04, 0.04))
-    window_grid(dark, trim, w, d, 0.6, max(1, floors - 2), fh, 2.4, 1.4, 1.5, broken=0.35)
-    rubble = Part(pbr_material('wall-' + wall + ('-t' if tint else ''), wall, tint), uv_metres=2.0)
-    for k in range(18):
-        a = rnd.uniform(0, math.tau)
-        r = rnd.uniform(0.6, 1.0)
-        box(rubble, math.cos(a) * (w / 2 + 1.5) * r, math.sin(a) * (d / 2 + 1.5) * r, -0.3, rnd.uniform(0.5, 1.6),
-            rnd.uniform(0.4, 1.2), rnd.uniform(0.3, 0.8), rnd.uniform(0, 3))
-    export(name, [walls.to_object(name), trim.to_object(name + '-slabs'), dark.to_object(name + '-holes'),
-                  rubble.to_object(name + '-rubble')])
+        z = z0 + f * fh
+        face.box(kit.metal, u0, 0.75, z - 0.1, width, 1.3, 0.08)
+        face.box(kit.metal, u0, 1.38, z, width, 0.04, 1.0)
+        face.box(kit.metal, u0, 1.38, z + 0.95, width, 0.06, 0.06)
+        for s in (-1, 1):
+            face.box(kit.metal, u0 + s * width / 2, 0.75, z, 0.05, 1.3, 1.0)
+        if f < floors - 1:
+            a = face.u * (u0 - width / 2 + 0.3) + face.n * (face.depth / 2 + 0.75) + Vector((0, 0, z))
+            b = face.u * (u0 + width / 2 - 0.3) + face.n * (face.depth / 2 + 0.75) + Vector((0, 0, z + fh))
+            oriented_box(kit.metal, a, b, 0.12)
+    # Bracket rails down to the first landing
+    for s in (-1, 1):
+        a = face.u * (u0 + s * width / 2) + face.n * (face.depth / 2 + 0.05) + Vector((0, 0, z0 + fh - 0.1))
+        oriented_box(kit.metal, a, a + face.n * 1.3, 0.06)
 
 
-def brick_block(name, floors=3, w=10.0, d=9.0, shop=True, ruined=False, seed=0):
-    """Old town house: brick walls, stone cornice, a shop front with big windows on the ground floor"""
+def entrance(kit, face, z0, u, w=2.2):
+    """Recessed entrance with a canopy slab on two brackets and steps"""
+    face.box(kit.trim, u, 0.9, z0 + 2.9, w + 1.0, 1.8, 0.18)
+    for s in (-1, 1):
+        a = face.u * (u + s * (w / 2 + 0.3)) + face.n * (face.depth / 2) + Vector((0, 0, z0 + 2.4))
+        oriented_box(kit.metal, a, a + face.n * 1.6 + Vector((0, 0, 0.5)), 0.06)
+    for k in range(2):
+        face.box(kit.trim, u, 0.25 + k * 0.3, z0 - 0.3 - k * 0.15, w + 0.8 - k * 0.3, 0.5, 0.3)
+
+
+def city_block(name, style='modern', floors=4, w=14.0, d=10.0, ruined=False, seed=0, shopfront=False):
+    """City building with real window reveals, frames and sills, storey bands, cornice or parapet, roof plant,
+    an entrance with canopy; modern: concrete with balconies on the front; old: brick with stone dressings
+    and a fire escape on one side. `ruined`: upper storeys broken off bay by bay, glass gone, soot and rubble.
+    Ambient occlusion is baked into a second UV map."""
     clear_scene()
     rnd = random.Random(seed)
-    brick = Part(pbr_material('wall-brick_wall_07', 'brick_wall_07'), uv_metres=2.5)
-    stone = Part(pbr_material('wall-brushed_concrete-warm', 'brushed_concrete', (1.1, 1.0, 0.85)), uv_metres=2.0)
-    dark = Part(glass() if not ruined else flat_material('hole', (0.03, 0.03, 0.03), 0.95))
-    fh = 3.3
+    tall = floors > 6
+    if style == 'modern':
+        # Tall blocks: no chamfer on the wall bands and no transoms, to stay near the building budget
+        kit = Kit('concrete_slab_wall', (1.05, 1.05, 1.02), 'brushed_concrete', None, (0.75, 0.76, 0.76), broken=ruined,
+                  bevel=0.0 if tall else 0.03)
+        fh, win_w, win_h, sill = 3.0, 1.6, 1.5, 0.9
+    else:
+        kit = Kit('brick_wall_07', None, 'brushed_concrete', (1.12, 1.05, 0.92), (0.88, 0.86, 0.8), broken=ruined, uv=2.4)
+        fh, win_w, win_h, sill = 3.3, 1.1, 1.8, 0.9
     h = floors * fh
-    box(stone, 0, 0, -FOUNDATION, w + 0.1, d + 0.1, FOUNDATION + 0.4)
-    if not ruined:
-        box(brick, 0, 0, 0.4, w, d, h - 0.4)
-        box(stone, 0, 0, h, w + 0.5, d + 0.5, 0.35)
-        box(stone, 0, 0, h + 0.35, w, d, 0.8)
-        window_grid(dark, stone, w, d, fh, floors - 1, fh, 2.0, 1.0, 1.7)
-        if shop:
-            for x in (-w / 4, w / 4):
-                box(dark, x, -d / 2 - 0.03, 0.6, w / 2 - 1.2, 0.1, 2.2)
-            box(dark, 0, -d / 2 - 0.03, 0.4, 1.0, 0.1, 2.4)
-            awning = Part(pbr_material('cloth-hessian-green', 'hessian_230', (0.45, 0.8, 0.5)))
-            a = Vector((-w / 2 + 0.3, -d / 2, 3.0))
-            b = Vector((w / 2 - 0.3, -d / 2, 3.0))
-            corners = [a, b, b + Vector((0, -1.3, -0.6)), a + Vector((0, -1.3, -0.6))]
-            awning.quad(corners, [(0, 0), (3, 0), (3, 1), (0, 1)])
-            awning.quad(list(reversed(corners)), [(0, 0), (0, 1), (3, 1), (3, 0)])
-            objects = [brick.to_object(name), stone.to_object(name + '-stone'), dark.to_object(name + '-windows'),
-                       awning.to_object(name + '-awning')]
+    bays_w = max(2, int(w // (3.2 if tall else 2.6)))
+    bays_d = max(2, int(d // (3.2 if tall else 2.6)))
+    z0 = 0.6
+    box(kit.trim, 0, 0, -FOUNDATION, w + 0.25, d + 0.25, FOUNDATION + z0)
+    tops = {}
+
+    def damage_of(k):
+        """Ruins: each bay column of each wall breaks off at its own height"""
+        if not ruined:
+            return None
+
+        def dmg(b, f):
+            if (k, b) not in tops:
+                tops[(k, b)] = z0 + fh * (0.8 + rnd.uniform(0.6, 1.0) * floors * abs(math.sin(b * 1.3 + seed + k)))
+            if f is None:
+                return tops[(k, b)]
+            return z0 + (f + 1) * fh > tops[(k, b)]
+        return dmg
+
+    for k in range(4):
+        face = Face(k, w, d)
+        bays = bays_w if k % 2 == 0 else bays_d
+        door = bays // 2 if k == 0 else None
+        dmg = damage_of(k)
+        if shopfront and k == 0 and not ruined:
+            # Ground floor: shop windows between stone piers, a fascia board
+            bw = face.length / bays
+            for b in range(bays):
+                u = -face.length / 2 + (b + 0.5) * bw
+                if b == door:
+                    face.box(kit.dark, u, -0.3, z0, bw - 0.9, 0.1, 2.6)
+                else:
+                    face.box(kit.glass, u, -0.25, z0 + 0.5, bw - 0.7, 0.05, 2.3)
+                    face.box(kit.frames, u, -0.28, z0 + 0.4, bw - 0.6, 0.1, 0.12)
+                face.box(kit.trim, u - bw / 2, -0.15, z0, 0.5, 0.4, 3.0)
+            face.box(kit.trim, 0, 0.05, z0 + 2.95, face.length + 0.1, 0.25, 0.6)
+            facade(kit, face, z0 + fh, floors - 1, fh, bays, win_w, win_h, sill, style=style)
         else:
-            window_grid(dark, stone, w, d, 0.4, 1, fh, 2.0, 1.0, 1.7, skip_front_door=True)
-            box(dark, 0, -d / 2 - 0.03, 0.4, 1.1, 0.1, 2.3)
-            objects = [brick.to_object(name), stone.to_object(name + '-stone'), dark.to_object(name + '-windows')]
-        export(name, objects)
-        return
-    # Burnt-out shell: walls only, ragged tops, no roof, rubble inside
-    cols = 6
-    for side in range(4):
-        length = w if side < 2 else d
-        for k in range(cols):
-            t = -length / 2 + (k + 0.5) * length / cols
-            top = h * rnd.uniform(0.35, 1.0)
-            seg = length / cols + 0.01
-            if side == 0:
-                box(brick, t, -d / 2 + 0.2, 0.4, seg, 0.4, top)
-            elif side == 1:
-                box(brick, t, d / 2 - 0.2, 0.4, seg, 0.4, top)
-            elif side == 2:
-                box(brick, -w / 2 + 0.2, t, 0.4, 0.4, seg, top)
-            else:
-                box(brick, w / 2 - 0.2, t, 0.4, 0.4, seg, top)
-    window_grid(dark, stone, w, d, fh, floors - 2, fh, 2.0, 1.0, 1.7, broken=0.2)
-    for k in range(12):
-        box(brick, rnd.uniform(-w / 3, w / 3), rnd.uniform(-d / 3, d / 3), 0.2, rnd.uniform(0.6, 1.4), rnd.uniform(0.5, 1.2),
-            rnd.uniform(0.3, 0.9), rnd.uniform(0, 3))
-    export(name, [brick.to_object(name), stone.to_object(name + '-stone'), dark.to_object(name + '-holes')])
+            facade(kit, face, z0, floors, fh, bays, win_w, win_h, sill, style=style, door_bay=door, damage=dmg, rnd=rnd,
+                   transom=not tall)
+        if k == 0 and not ruined and not shopfront:
+            entrance(kit, face, z0, -face.length / 2 + (door + 0.5) * face.length / bays)
+        if k == 0 and style == 'modern' and not ruined:
+            balconies(kit, face, z0, floors, fh, bays, every=2)
+        if k == 1 and style == 'old' and floors > 1:
+            fire_escape(kit, face, z0, floors, fh, face.length * 0.1)
+    if not ruined:
+        # Floor slabs behind the facade close the box; roof with parapet or cornice
+        box(kit.walls, 0, 0, z0 + h - 0.3, w - 0.5, d - 0.5, 0.3)
+        if style == 'modern':
+            box(kit.trim, 0, 0, z0 + h, w + 0.1, d + 0.1, 0.25)
+            for side in range(4):
+                face = Face(side, w, d)
+                face.box(kit.trim, 0, -0.1, z0 + h + 0.25, face.length + 0.1, 0.25, 0.7)
+        else:
+            cornice(kit.trim, w, d, z0 + h)
+        roof_units(kit, w * 0.85, d * 0.8, z0 + h + 0.25, rnd, water_tank=style == 'old')
+        # Inner box so the building is closed behind the windows
+        box(kit.dark, 0, 0, z0, w - 0.9, d - 0.9, h - 0.4)
+    else:
+        for f in range(1, floors):
+            span = w * rnd.uniform(0.3, 0.85)
+            box(kit.trim, -w / 2 + span / 2 + 0.2, rnd.uniform(-0.6, 0.6), z0 + f * fh - 0.25, span, d - 0.8, 0.25, rnd.uniform(-0.05, 0.05))
+        box(kit.dark, 0, 0, z0, w - 0.9, d - 0.9, fh * 0.9)
+        rubble = kit.walls
+        for k in range(22):
+            a = rnd.uniform(0, math.tau)
+            r = rnd.uniform(0.55, 1.05)
+            box(rubble, math.cos(a) * (w / 2 + 1.6) * r, math.sin(a) * (d / 2 + 1.6) * r, -0.3, rnd.uniform(0.4, 1.4),
+                rnd.uniform(0.3, 1.0), rnd.uniform(0.2, 0.7), rnd.uniform(0, 3))
+    objects = kit.objects(name)
+    joined = bake_ao(name, objects, size=1024 if floors > 4 else 512)
+    export(name, [joined])
+    export_lod(name, joined)
+
+
+def shop(name):
+    city_block(name, style='old', floors=1, w=9.0, d=7.0, shopfront=True, seed=11)
 
 
 def tower_stump(name, seed=0):
@@ -187,27 +311,6 @@ def tower_stump(name, seed=0):
             for side in (-1, 1):
                 box(facade, -s / 2 + sx / 2, side * (s / 2 + 0.1), z - fh + 0.9, sx * rnd.uniform(0.4, 0.9), 0.2, 1.0)
     export(name, [concrete.to_object(name), facade.to_object(name + '-facade'), rebar.to_object(name + '-rebar')])
-
-
-def shop(name):
-    """Single-storey corner shop: plaster walls, big windows, striped awning, a sign board"""
-    clear_scene()
-    walls = Part(pbr_material('wall-beige_wall_001', 'beige_wall_001'), uv_metres=3.0)
-    trim = Part(pbr_material('wall-brushed_concrete', 'brushed_concrete'), uv_metres=2.0)
-    dark = Part(glass())
-    sign = Part(flat_material('sign-red', (0.55, 0.1, 0.08), 0.6))
-    w, d, h = 9.0, 7.0, 4.0
-    box(trim, 0, 0, -FOUNDATION, w + 0.1, d + 0.1, FOUNDATION + 0.3)
-    box(walls, 0, 0, 0.3, w, d, h - 0.3)
-    box(trim, 0, 0, h, w + 0.3, d + 0.3, 0.4)
-    for x in (-2.6, 2.6):
-        box(dark, x, -d / 2 - 0.03, 0.7, 2.8, 0.1, 2.2)
-    box(dark, 0, -d / 2 - 0.03, 0.3, 1.4, 0.1, 2.5)
-    box(sign, 0, -d / 2 - 0.08, 3.1, w - 1.0, 0.1, 0.7)
-    for y in (-1.5, 1.5):
-        box(dark, w / 2 + 0.03, y, 1.0, 0.1, 1.6, 1.6)
-    export(name, [walls.to_object(name), trim.to_object(name + '-trim'), dark.to_object(name + '-windows'),
-                  sign.to_object(name + '-sign')])
 
 
 def warehouse(name, rusty=False):
@@ -521,13 +624,12 @@ def power_pole(name, fallen=False):
 def models():
     grey, red, blue, white = (0.55, 0.57, 0.6), (0.55, 0.08, 0.06), (0.1, 0.22, 0.5), (0.85, 0.85, 0.83)
     return {
-        'apartment-block': lambda: apartment_block('apartment-block'),
-        'apartment-block-tall': lambda: apartment_block('apartment-block-tall', floors=8, w=16.0, d=12.0, wall='concrete_block_wall',
-                                                        tint=(1.25, 1.2, 1.15)),
-        'apartment-block-ruined': lambda: apartment_block('apartment-block-ruined', floors=5, ruined=True, seed=3),
-        'brick-block': lambda: brick_block('brick-block'),
-        'brick-house': lambda: brick_block('brick-house', floors=2, w=8.0, d=8.0, shop=False),
-        'brick-block-ruined': lambda: brick_block('brick-block-ruined', ruined=True, seed=4),
+        'apartment-block': lambda: city_block('apartment-block', 'modern', 4, 14.0, 10.0, seed=1),
+        'apartment-block-tall': lambda: city_block('apartment-block-tall', 'modern', 8, 16.0, 12.0, seed=2),
+        'apartment-block-ruined': lambda: city_block('apartment-block-ruined', 'modern', 5, 14.0, 10.0, ruined=True, seed=3),
+        'brick-block': lambda: city_block('brick-block', 'old', 3, 10.0, 9.0, seed=4, shopfront=True),
+        'brick-house': lambda: city_block('brick-house', 'old', 2, 8.0, 8.0, seed=5),
+        'brick-block-ruined': lambda: city_block('brick-block-ruined', 'old', 3, 10.0, 9.0, ruined=True, seed=6),
         'tower-stump': lambda: tower_stump('tower-stump', 5),
         'shop': lambda: shop('shop'),
         'warehouse': lambda: warehouse('warehouse'),

@@ -6649,8 +6649,8 @@
       "name": "Apartment block (4 floors)",
       "category": "building",
       "file": "models/apartment-block.glb",
-      "footprint": 6.4,
-      "height": 14.9,
+      "footprint": 6.7,
+      "height": 15.2,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6662,6 +6662,12 @@
       "drawDistance": 3000,
       "tags": [
         "city"
+      ],
+      "lod": [
+        {
+          "file": "models/apartment-block-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
     },
@@ -6670,8 +6676,8 @@
       "name": "Apartment block (8 floors)",
       "category": "building",
       "file": "models/apartment-block-tall.glb",
-      "footprint": 7.3,
-      "height": 26.9,
+      "footprint": 7.9,
+      "height": 27.2,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6684,6 +6690,12 @@
       "tags": [
         "city"
       ],
+      "lod": [
+        {
+          "file": "models/apartment-block-tall-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_block_wall; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -6691,8 +6703,8 @@
       "name": "Ruined apartment block",
       "category": "building",
       "file": "models/apartment-block-ruined.glb",
-      "footprint": 7.3,
-      "height": 13.8,
+      "footprint": 7.9,
+      "height": 15.6,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6704,6 +6716,12 @@
       "drawDistance": 3000,
       "tags": [
         "wasteland"
+      ],
+      "lod": [
+        {
+          "file": "models/apartment-block-ruined-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
     },
@@ -6712,8 +6730,8 @@
       "name": "Brick block with shop",
       "category": "building",
       "file": "models/brick-block.glb",
-      "footprint": 4.7,
-      "height": 11.1,
+      "footprint": 5.5,
+      "height": 15.9,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6726,6 +6744,12 @@
       "tags": [
         "city",
         "village"
+      ],
+      "lod": [
+        {
+          "file": "models/brick-block-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/hessian_230"
     },
@@ -6734,8 +6758,8 @@
       "name": "Brick house",
       "category": "building",
       "file": "models/brick-house.glb",
-      "footprint": 3.8,
-      "height": 7.8,
+      "footprint": 4.7,
+      "height": 12.6,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6749,6 +6773,12 @@
         "city",
         "village"
       ],
+      "lod": [
+        {
+          "file": "models/brick-house-lod1.glb",
+          "distance": 350
+        }
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -6756,8 +6786,8 @@
       "name": "Burnt-out brick block",
       "category": "building",
       "file": "models/brick-block-ruined.glb",
-      "footprint": 4.6,
-      "height": 9.8,
+      "footprint": 5.8,
+      "height": 10.8,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6769,6 +6799,12 @@
       "drawDistance": 3000,
       "tags": [
         "wasteland"
+      ],
+      "lod": [
+        {
+          "file": "models/brick-block-ruined-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete"
     },
@@ -6798,8 +6834,8 @@
       "name": "Corner shop",
       "category": "building",
       "file": "models/shop.glb",
-      "footprint": 4.2,
-      "height": 4.4,
+      "footprint": 4.6,
+      "height": 9.4,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6811,6 +6847,12 @@
       "drawDistance": 3000,
       "tags": [
         "city"
+      ],
+      "lod": [
+        {
+          "file": "models/shop-lod1.glb",
+          "distance": 350
+        }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/brushed_concrete"
     },

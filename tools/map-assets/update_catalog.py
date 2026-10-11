@@ -27,6 +27,7 @@ DEFAULTS = {
 }
 # Share of the half extent that counts as occupied ground (a crown overhangs, a trunk does not)
 FOOTPRINT_SHARE = {'tree': 0.3, 'plant': 0.6}
+LOD_DISTANCE = 350
 ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'blocksLos', 'blocksBuild', 'scaleRange',
          'randomRotation', 'wind', 'drawDistance', 'tags', 'effects', 'light', 'lod', 'source']
 
@@ -55,6 +56,9 @@ def main():
             e['blocksLos'] = e['height'] >= 1.8
         if 'drawDistance' not in o and e['category'] in ('rock', 'prop') and e['height'] >= 3:
             e['drawDistance'] = 2500
+        if o['id'] + '-lod1' in report and 'lod' not in o:
+            # Decimated copy from the builders (export_lod); switched in beyond this distance
+            e['lod'] = [{'file': f'models/{o["id"]}-lod1.glb', 'distance': LOD_DISTANCE}]
         objects.append({k: e[k] for k in ORDER if k in e})
     path = os.path.join(out, 'catalog.json')
     catalog = json.load(open(path, encoding='utf8'))

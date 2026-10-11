@@ -182,9 +182,10 @@ def flat_material(name, color, roughness=0.8, metallic=0.0, emission=None, stren
 class Part:
     """Collects faces of one material; becomes one mesh object"""
 
-    def __init__(self, material, uv_metres=None, smooth=False):
+    def __init__(self, material, uv_metres=None, smooth=False, bevel=0.0):
         self.material = material
         self.uv_metres = uv_metres
+        self.bevel = bevel  # chamfer width in metres on hard edges (no toy-like razor edges)
         self.smooth = smooth  # keep the smooth flags of tube faces (round shapes), else flat shading
         self.bm = bmesh.new()
         self.uv = self.bm.loops.layers.uv.new('UVMap')
@@ -215,6 +216,8 @@ class Part:
         obj = bpy.data.objects.new(name, mesh)
         bpy.context.collection.objects.link(obj)
         obj.data.materials.append(self.material)
+        if self.bevel:
+            chamfer(obj, self.bevel)
         if self.uv_metres:
             box_uv(obj, self.uv_metres)
         if self.normals:
@@ -223,6 +226,102 @@ class Part:
             for p in mesh.polygons:
                 p.use_smooth = False
         return obj
+
+
+def chamfer(obj, width, segments=1, angle=40):
+    """Bevels the hard edges of an object (each closed shell for itself)"""
+    mod = obj.modifiers.new('chamfer', 'BEVEL')
+    mod.width = width
+    mod.segments = segments
+    mod.limit_method = 'ANGLE'
+    mod.angle_limit = math.radians(angle)
+    mod.use_clamp_overlap = True
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+
+
+def bake_ao(name, objects, size=512, distance=2.0, samples=24):
+    """Bakes ambient occlusion of the whole model into one texture on a second UV map and wires it as the
+    glTF occlusion texture (TEXCOORD_1): contact shadow in corners, under eaves, in window reveals.
+    Joins the objects (materials stay separate); returns the joined object"""
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in objects:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = objects[0]
+    if len(objects) > 1:
+        bpy.ops.object.join()
+    obj = bpy.context.view_layer.objects.active
+    mesh = obj.data
+    if not mesh.uv_layers:
+        mesh.uv_layers.new(name='UVMap')
+    base = mesh.uv_layers[0]
+    ao_uv = mesh.uv_layers.new(name='AO')
+    mesh.uv_layers.active = ao_uv
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.004)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    base.active_render = True
+    img = bpy.data.images.new(name + '-ao', size, size)
+    img.colorspace_settings.name = 'Non-Color'
+    group = bpy.data.node_groups.get('glTF Material Output')
+    if group is None:
+        group = bpy.data.node_groups.new('glTF Material Output', 'ShaderNodeTree')
+        group.interface.new_socket('Occlusion', in_out='INPUT', socket_type='NodeSocketFloat')
+    for slot in obj.material_slots:
+        m = slot.material
+        nt = m.node_tree
+        uvn = nt.nodes.new('ShaderNodeUVMap')
+        uvn.uv_map = 'AO'
+        tex = nt.nodes.new('ShaderNodeTexImage')
+        tex.image = img
+        nt.links.new(uvn.outputs['UV'], tex.inputs['Vector'])
+        sep = nt.nodes.new('ShaderNodeSeparateColor')
+        nt.links.new(tex.outputs['Color'], sep.inputs['Color'])
+        out = nt.nodes.new('ShaderNodeGroup')
+        out.node_tree = group
+        nt.links.new(sep.outputs['Red'], out.inputs['Occlusion'])
+        nt.nodes.active = tex
+    scene = bpy.context.scene
+    try:
+        scene.render.engine = 'CYCLES'
+    except TypeError:
+        pass
+    scene.cycles.samples = samples
+    scene.world = scene.world or bpy.data.worlds.new('World')
+    scene.world.light_settings.distance = distance
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    # Cycles bakes into the active UV map; the colour textures keep the first one
+    mesh.uv_layers.active = mesh.uv_layers['AO']
+    bpy.ops.object.bake(type='AO', margin=4, use_clear=True)
+    mesh.uv_layers.active = mesh.uv_layers[0]
+    folder = os.path.join(OUT, 'ao')
+    os.makedirs(folder, exist_ok=True)
+    img.filepath_raw = os.path.join(folder, name + '-ao.png')
+    img.file_format = 'PNG'
+    img.save()
+    return obj
+
+
+def export_lod(name, obj, ratio=0.3, suffix='-lod1'):
+    """A decimated copy for distant views (catalogue `lod`), exported next to the model"""
+    lod = obj.copy()
+    lod.data = obj.data.copy()
+    bpy.context.collection.objects.link(lod)
+    mod = lod.modifiers.new('decimate', 'DECIMATE')
+    mod.ratio = ratio
+    bpy.ops.object.select_all(action='DESELECT')
+    lod.select_set(True)
+    bpy.context.view_layer.objects.active = lod
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    obj.hide_set(True)
+    export(name + suffix, [lod])
+    obj.hide_set(False)
+    bpy.data.objects.remove(lod)
 
 
 def box_uv(obj, metres):

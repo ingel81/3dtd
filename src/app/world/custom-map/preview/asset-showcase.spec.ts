@@ -31,6 +31,7 @@ describe('shipped asset catalogue', () => {
     }
     // Effect-only entries (category fx) have no model
     for (const o of shipped.objects) if (o.file) expect(existsSync(ROOT + o.file), o.file).toBe(true);
+    for (const o of shipped.objects) for (const l of o.lod ?? []) expect(existsSync(ROOT + l.file), l.file).toBe(true);
   });
 
   it('gives every object a size, a draw distance and at least one biome tag', () => {
