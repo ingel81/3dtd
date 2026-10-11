@@ -121,6 +121,7 @@ export class EngineInitializationService {
    * @param stepId Step identifier
    */
   async setStepCurrent(stepId: string): Promise<void> {
+    loadMark(`${stepId}:start`);
     this.loadingSteps.update((steps) =>
       steps.map((s) => ({
         ...s,
@@ -136,6 +137,7 @@ export class EngineInitializationService {
    * @param meta Optional meta text (e.g., "5 Streets")
    */
   async setStepDone(stepId: string, meta?: string): Promise<void> {
+    loadMark(`${stepId}:done`);
     this.loadingSteps.update((steps) => steps.map((s) => (s.id === stepId ? { ...s, status: 'done' as const, meta } : s)));
     await this.tick();
   }
@@ -359,6 +361,7 @@ export class EngineInitializationService {
    */
   checkAllLoaded(heightsLoading: WritableSignal<boolean>): void {
     if (!this.tilesLoading() && !this.osmLoading() && !heightsLoading()) {
+      if (this.loading()) loadMark('ready');
       this.loading.set(false);
     }
   }
@@ -403,4 +406,12 @@ export class EngineInitializationService {
     this.error.set(null);
     this.resetLoadingSteps();
   }
+}
+
+/**
+ * A performance mark `load:<name>` per loading step, read by load
+ * measurements (e2e/perf/map-load.ts) in production builds as well
+ */
+function loadMark(name: string): void {
+  if (typeof performance !== 'undefined' && typeof performance.mark === 'function') performance.mark(`load:${name}`);
 }
