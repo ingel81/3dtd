@@ -6,7 +6,7 @@ Der Renderer zeichnet ein Kartendokument (`src/app/world/custom-map/map-document
 Wasser, Objekten, Wegen und Himmel. Editor und Spiel benutzen dieselbe Ansicht. Code unter
 `src/app/world/custom-map/render/` (ohne Angular), Assets unter `public/maps/assets/`, Werkzeuge unter
 `tools/map-assets/`. Vorschau: `/map-preview` (Demo-Tal, `?view=village|forest|trees|bridge|game|…`,
-`?sky=dusk|night|overcast`, `?seed=3`).
+`?sky=dusk|night|overcast`, `?weather=rain|snow|fog`, `?post=bloom`, `?seed=3`).
 
 ## Koordinaten
 
@@ -96,7 +96,19 @@ leichtem Bogen und mindestens 1 m über dem Wasser.
 Eine Fläche auf `water.level` über den nassen Zellen der Maske. Jeder Vertex trägt die Tiefe (Spiegel minus Gelände)
 an seinem Rasterpunkt, linear interpoliert wie das Gelände: der Shader kennt die Tiefe je Pixel ohne Tiefentextur.
 Klar und hell am Ufer, Schaum im Flachen, Kartenfarbe in der Tiefe; Normalen aus einer kachelbaren Wellentextur in
-zwei Richtungen; Spiegelung als Himmelsfarbe (Fresnel) und Sonnenglanz. `losTransparent`.
+zwei Richtungen; Spiegelung des Himmels (Fresnel) und Sonnenglanz. `losTransparent`.
+
+Weitere Gewässer: `terrain.waterBodies` (je Körper eigener Spiegel und eigene Maske, in der Datei als
+`terrain/water-<n>-mask.u8`), z. B. ein See am Hang oder ein Lavabecken. `kind` je Körper:
+
+- `water` (Standard): wie oben. Nur der Hauptkörper `terrain.water` läuft über den Kartenrand weiter und macht Ufer
+  nass
+- `lava`: deckend und glühend, Krustenplatten treiben über pulsierenden Rissen in der Körperfarbe, am Ufer erkaltet;
+  mit Bloom leuchtet es
+- `ice`: deckend und still, graublau mit feinem Reif (zum Ufer dichter), Rissen und schwacher Spiegelung
+
+Lava als Bodenschicht: Katalog-Materialien mit `emissive` (0..1) glühen in den tiefen Stellen ihrer Textur (Risse)
+und pulsieren, `flow` (m/s) lässt die Schicht entlang Karten-+x fließen.
 
 ### Objekte (`objects/`)
 
@@ -107,8 +119,27 @@ mit der Normalen nach oben und blenden zur Sichtweite hin aus. Sichtblocker (Kat
 Alles andere (Gras, Blumen, kleine Requisiten) wird je Instanz auf der CPU nach Sichtweite (`drawDistance`) und
 Frustum ausgesiebt. Bäume und Pflanzen wiegen sich im Wind (Vertex-Shader, nach Höhe im Modell und Phase aus der
 Position); Laubkarten werden alpha-getestet, doppelseitig, mit Alpha-to-Coverage, und blenden aus, wenn man sie
-von der Kante sieht. Vegetation bekommt je Instanz eine leicht andere Helligkeit. Gebäude stehen auf dem tiefsten
-Punkt unter ihrem Fußabdruck.
+von der Kante sieht. Vegetation bekommt je Instanz eine leicht andere Helligkeit und einen Farbton. Gebäude stehen auf
+dem tiefsten von acht Punkten ihres Fußabdrucks, ihre Fundamente reichen bis 1,5 m in den Boden.
+
+Detailstufen: Katalogeinträge mit `lod` (Datei und Kameraabstand, ab dem sie gilt) bekommen je Stufe eigene
+Instanz-Meshes; bei jeder Kamerabewegung wandert jede Instanz in die Stufe ihres Abstands (auch Sichtblocker, der
+LOS-Würfel sieht dann die Stufe der Kamera). Ohne `lod` bleiben die Puffer statisch.
+
+### Effekte und Lichter (`effects/`)
+
+Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `file: ''`, Kategorie `fx`):
+
+- **Partikel** `fire`, `smoke`, `embers`, `fireflies`, `fog`, `leaves`, `snow`, `sparkle`: je Art ein instanziertes
+  Feld für die ganze Karte. Zustandslos: jedes Teilchen läuft per Zeit und Zufallswert im Vertex-Shader durch sein
+  Leben, die CPU schiebt nur eine Zeit-Uniform. Leuchtende Arten additiv, beleuchtete (Rauch, Nebel, Laub, Schnee)
+  werden nachts dunkler. `radius`, `height`, `rate`, `color` je Effekt
+- **Wasserfall** (`waterfall`): gebogene Fläche von der Kante (`height`) bis zum Fuß, Breite 2 × `radius`, fällt zur
+  Vorderseite (+z) des Objekts; Streifen laufen herab, die Seiten fransen aus; Gischt am Aufprall
+- **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`): jedes bekommt einen additiven Schein (am Tag
+  schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
+  Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet
+  Shader-Neubau
 
 ### Umgebung (`environment/`)
 
@@ -122,12 +153,19 @@ Punkt unter ihrem Fußabdruck.
 - **Höhennebel** (`height-fog.ts`): die Materialien der Karte ersetzen das Nebel-Fragment der Szene; die Dichte nimmt
   über dem tiefen Boden der Karte ab und wird entlang des Blickstrahls geschlossen integriert, zur Sonne hin färbt
   sich der Dunst. Die Szene behält `FogExp2` für Farbe und Dichte
+- **Wetter** (`weather.ts`, `environment.weather`: `rain`, `snow`, `fog`, Stärke `weatherStrength`): Regen und
+  Schnee füllen einen Kasten um den Kamerafokus, der beim Bewegen umklappt (zustandslos), Teilchen wachsen mit dem
+  Abstand, damit man sie aus der Spielkamera sieht. Regen und Schnee schließen die Wolken, dämpfen die Sonne und
+  verdichten den Dunst; Nebelwetter verdichtet bis zum Sechsfachen
 - Halbkugellicht, `tint` färbt Licht und Himmel. Abgestimmt auf den Renderer des Spiels (kein Tone-Mapping, sRGB);
   `/map-preview?post=bloom` rendert durch die Post-Processing-Kette des Spiels
 
 ## Assets
 
-`public/maps/assets/catalog.json` (Typen in `render/asset-catalog.ts`), Lizenzen in `LICENSES.md`, alles CC0:
+`public/maps/assets/catalog.json` (Typen in `render/asset-catalog.ts`), Lizenzen in `LICENSES.md`, alles CC0.
+Schema (Version 1, alle neuen Felder optional): Materialien mit `tags`, `emissive`, `flow`, Kategorien auch `ice`,
+`volcanic`, `wood`; Objekte mit `tags`, `effects`, `light`, `lod`, Kategorien auch `structure` und `fx`. Den Bestand
+baut der Asset-Worker aus; Stand beim Schreiben:
 
 - **17 Bodenmaterialien** (Poly Haven, ambientCG), je `color.jpg`, `normal.jpg` (OpenGL), `arh.jpg` (AO, Rauheit,
   Höhe), 1024 px: Gras, sattes Gras, trockenes Gras, Wiese, Erde, Schlamm, Laubboden, Waldboden, steiniger Boden,
@@ -155,4 +193,6 @@ Demo-Tal (257 × 257 Raster, 2 m, rund 13 000 Objekte, Schatten, Himmelskuppel, 
 - Höchstens 8 Splat-Schichten plus Klippe und zwei Wegmaterialien (12 Array-Ebenen), alle Materialien in einer Größe
 - Laubkarten werfen Schatten ohne Windbewegung (Schatten und Krone gehen bei Wind minimal auseinander)
 - Gelände-LOD wechselt hart (Schürzen verdecken Risse, kein Morphing)
-- Der LOS-Würfel sieht das Gelände in der LOD-Stufe der Kamera
+- Der LOS-Würfel sieht Gelände und Objekte in der LOD-Stufe der Kamera
+- Partikel und Wetter werfen keine Schatten und kennen kein Gelände (Regen fällt durch Dächer)
+- Lichter: höchstens 6 echte Punktlichter gleichzeitig, ohne Schatten
