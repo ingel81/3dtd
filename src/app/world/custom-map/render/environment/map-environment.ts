@@ -434,14 +434,15 @@ interface PmremInternals {
   _allocateTargets(): WebGLRenderTarget;
   _equirectMaterial: Material | null;
   _ggxMaterial: Material | null;
+  _compileMaterial(material: Material): void;
 }
 
 /**
  * Links PMREM's programs off the main thread: compiled for a linear render
  * target as PMREM draws them (compileEquirectangularShader alone compiles
  * the equirect program for the screen, a variant PMREM never uses), then
- * awaited with compileAsync. compileEquirectangularShader compiles on a
- * mesh without positions, also a variant PMREM never draws.
+ * awaited with compileAsync. compileEquirectangularShader alone compiles
+ * on a mesh without positions, also a variant PMREM never draws.
  */
 async function linkPmrem(renderer: WebGLRenderer, pmrem: PMREMGenerator, target: WebGLRenderTarget): Promise<void> {
   const inside = pmrem as unknown as PmremInternals;
@@ -451,7 +452,10 @@ async function linkPmrem(renderer: WebGLRenderer, pmrem: PMREMGenerator, target:
   const geometry = new BufferGeometry().setAttribute('position', new BufferAttribute(new Float32Array(3), 3));
   try {
     renderer.setRenderTarget(target);
+    // Creates the equirect material; its own compile (a mesh without positions) is skipped
+    inside._compileMaterial = () => undefined;
     pmrem.compileEquirectangularShader();
+    delete (inside as Partial<PmremInternals>)._compileMaterial;
     // The blur runs only for PMREM from a scene; from a texture it is the GGX convolution
     for (const material of [inside._equirectMaterial, inside._ggxMaterial]) {
       if (material) scene.add(new Mesh(geometry, material));
