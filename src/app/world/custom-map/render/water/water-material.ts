@@ -350,7 +350,7 @@ void main() {
   #if KIND == 3
   // Surf: bands rolling in to the shore
   float band = sin(depth * 2.6 - uTime * 1.3 + foamBreak * 3.0);
-  foam = max(foam, smoothstep(0.75, 0.98, band) * smoothstep(3.0, 0.4, depth) * (0.6 + foamNoise * 0.6));
+  foam = max(foam, smoothstep(0.86, 0.99, band) * smoothstep(2.5, 0.3, depth) * (0.35 + foamNoise * 0.5));
   #endif
   #if RIVER == 1
   // Ripples where the river runs fast and shallow

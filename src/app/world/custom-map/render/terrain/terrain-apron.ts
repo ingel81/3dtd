@@ -1,4 +1,5 @@
 import { BufferAttribute, BufferGeometry, Mesh, type Material } from 'three';
+import type { MapWater } from '../../map-document';
 import type { HeightField } from '../height-field';
 
 /**
@@ -12,7 +13,8 @@ import type { HeightField } from '../height-field';
  * up, a ridge flattens) and drifts towards gentle noise hills a little
  * below the map. Water that leaves the map runs on over the same profile
  * (water-surface.ts, `ApronProfile`), so the river ends where its blurred
- * bed rises above the water.
+ * bed rises above the water. Where the border is under the main water, the
+ * apron's floor stays below it: a coast or an island lies in the sea.
  *
  * Drawn with the terrain material (the shader paints it with the first
  * layer); not part of the map for line of sight or queries.
@@ -30,7 +32,13 @@ export class ApronProfile {
   private readonly w: number;
   private readonly d: number;
 
-  constructor(private readonly field: HeightField) {
+  /** Share of the border that lies under the main water: above one half the map is an island or a coast */
+  readonly wetShare: number;
+
+  constructor(
+    private readonly field: HeightField,
+    water: MapWater | null = null,
+  ) {
     this.w = (field.columns - 1) * field.cellSize;
     this.d = (field.rows - 1) * field.cellSize;
     for (let side = 0; side < 4; side++) {
@@ -59,6 +67,21 @@ export class ApronProfile {
       else s = sum(a, b);
       return s / (2 * r + 1);
     };
+    // A coast or an island: where the border is under water, the sea goes on and its floor sinks away
+    let wet = 0;
+    const wetAt = new Uint8Array(n);
+    if (water) {
+      this.along.forEach(([side, f], k) => {
+        const [x, y] = this.point(side, f, 0);
+        const i = Math.round((x - field.originX) / field.cellSize);
+        const j = Math.round((y - field.originY) / field.cellSize);
+        if (water.mask[j * field.columns + i] && border[k] < water.level) {
+          wetAt[k] = 1;
+          wet++;
+        }
+      });
+    }
+    this.wetShare = n ? wet / n : 0;
     this.heights = new Float32Array(APRON_RINGS.length * n);
     APRON_RINGS.forEach((dist, r) => {
       const radius = Math.min(Math.floor(n / 4), Math.round((dist * 0.6) / field.cellSize));
@@ -66,7 +89,10 @@ export class ApronProfile {
       this.along.forEach(([side, f], k) => {
         const [x, y] = this.point(side, f, dist);
         const hills = mean - 4 + (smoothNoise(x * 0.004, y * 0.004) - 0.5) * 40 * Math.min(1, dist / 600);
-        this.heights[r * n + k] = windowMean(k, radius) * keep + hills * (1 - keep);
+        let h = windowMean(k, radius) * keep + hills * (1 - keep);
+        // Sea beyond a wet border (and everywhere around a mostly wet one): the floor falls off
+        if (water && r > 0 && (wetAt[k] || this.wetShare > 0.5)) h = Math.min(h, water.level - 1.5 - dist * 0.01);
+        this.heights[r * n + k] = h;
       });
     });
   }

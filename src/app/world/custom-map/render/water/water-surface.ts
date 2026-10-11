@@ -156,7 +156,8 @@ export class WaterSurface {
     // Water that reaches the border runs on beyond it over the apron's rings; it ends where the
     // apron's blurred bed rises above the level (negative depth, discarded in the shader)
     const p = apron;
-    const rings = APRON_RINGS.filter((d) => d <= RIVER_REACH).length;
+    // A river runs on a little way; a sea (most of the border wet) to the horizon
+    const rings = p && p.wetShare > 0.5 ? APRON_RINGS.length : APRON_RINGS.filter((d) => d <= RIVER_REACH).length;
     const n = p?.count ?? 0;
     const wetBorder = (k: number): boolean => {
       const [x, y] = p!.position(0, k);
@@ -178,7 +179,7 @@ export class WaterSurface {
       return v;
     };
     for (let k = 0; k < n; k++) {
-      if (!wetBorder(k) || !wetBorder((k + 1) % n)) continue;
+      if (p!.wetShare <= 0.5 && (!wetBorder(k) || !wetBorder((k + 1) % n))) continue;
       for (let r = 0; r < rings - 1; r++) {
         const a = apronVertex(r, k);
         const b = apronVertex(r, k + 1);

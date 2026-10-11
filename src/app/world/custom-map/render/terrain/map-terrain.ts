@@ -81,7 +81,7 @@ export class MapTerrainLayer {
     private readonly field: HeightField,
   ) {
     this.chunks = new TerrainChunks(field, this.placeholder);
-    this.apronProfile = new ApronProfile(field);
+    this.apronProfile = new ApronProfile(field, terrain.water);
     this.apron = buildTerrainApron(this.apronProfile, this.placeholder);
     this.normals = new GridNormalTexture(field);
     this.occlusion = new GroundOcclusion(field);
@@ -184,7 +184,7 @@ export class MapTerrainLayer {
   refreshApron(rect?: GridRect): void {
     const f = this.field;
     if (!rect || rect.i0 <= 0 || rect.j0 <= 0 || rect.i1 >= f.columns - 1 || rect.j1 >= f.rows - 1) {
-      this.apronProfile = new ApronProfile(f);
+      this.apronProfile = new ApronProfile(f, this.terrain.water);
       this.apron.geometry.dispose();
       this.apron.geometry = buildTerrainApron(this.apronProfile, this.apron.material as Material).geometry;
     }
@@ -193,6 +193,8 @@ export class MapTerrainLayer {
   /** Water changed: wet banks follow the mask and level, river banks the rivers */
   refreshWater(paths?: MapPaths): void {
     if (paths) this.refreshPaths(paths);
+    // The apron's sea floor follows the water
+    this.refreshApron();
     this.normals.setWater(this.terrain.water?.mask ?? null);
     this.material?.setWaterLevel(this.terrain.water?.level ?? null);
   }
