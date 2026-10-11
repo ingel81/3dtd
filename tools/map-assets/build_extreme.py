@@ -12,8 +12,9 @@ import random
 import bmesh
 from mathutils import Vector, noise
 
+from blender_kit import finish as export  # noqa: F401  (every structure gets baked AO)
 from blender_kit import (
-    Part, box, card, card_material, clear_scene, export, flat_material, glow_card_material, oriented_box, pbr_material,
+    Part, two_sided, box, card, card_material, clear_scene, flat_material, glow_card_material, oriented_box, pbr_material,
     tube,
 )
 from build_nature import crystals, dead_tree, hoodoo, lump, stalagmites
@@ -499,7 +500,7 @@ def desert_temple(name):
 def nomad_tent(name):
     """Low wide tent: a dark woven roof on poles, open front, rugs inside"""
     clear_scene()
-    cloth = Part(pbr_material('cloth-hessian-dark', 'hessian_230', (0.45, 0.35, 0.28)))
+    cloth = Part(two_sided(pbr_material('cloth-hessian-dark', 'hessian_230', (0.45, 0.35, 0.28))))
     poles = Part(pbr_material('planks-dark', 'dark_planks'), uv_metres=1.0)
     rug = Part(flat_material('rug-red', (0.5, 0.12, 0.08), 0.9))
     w, d, h = 8.0, 5.0, 2.2
@@ -510,10 +511,8 @@ def nomad_tent(name):
     for (y0, z0), (y1, z1) in zip(pts, pts[1:]):
         quad = [Vector((-w / 2 - 0.2, y0, z0)), Vector((w / 2 + 0.2, y0, z0)), Vector((w / 2 + 0.2, y1, z1)), Vector((-w / 2 - 0.2, y1, z1))]
         cloth.quad(quad, [(0, 0), (3, 0), (3, 1), (0, 1)])
-        cloth.quad(list(reversed(quad)), [(0, 0), (0, 1), (3, 1), (3, 0)])
     back = [Vector((-w / 2, d / 2, 0)), Vector((w / 2, d / 2, 0)), Vector((w / 2, d / 2, h - 0.6)), Vector((-w / 2, d / 2, h - 0.6))]
     cloth.quad(back, [(0, 0), (3, 0), (3, 1), (0, 1)])
-    cloth.quad(list(reversed(back)), [(0, 0), (0, 1), (3, 1), (3, 0)])
     box(rug, 0, 0.3, 0.0, w * 0.7, d * 0.6, 0.03)
     export(name, [cloth.to_object(name), poles.to_object(name + '-poles'), rug.to_object(name + '-rug')])
 

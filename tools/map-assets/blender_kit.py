@@ -112,6 +112,12 @@ def pbr_material(name, asset, tint=None, roughness_scale=1.0):
     return m
 
 
+def two_sided(material):
+    """Cloth and sheets: one face drawn from both sides (two coincident faces would occlude each other in the AO bake)"""
+    material.use_backface_culling = False
+    return material
+
+
 def card_material(name, png):
     """Alpha-tested foliage (the loader switches `foliage-*` materials to alpha test, double sided)"""
     m = bpy.data.materials.new('foliage-' + name)
@@ -182,8 +188,11 @@ def flat_material(name, color, roughness=0.8, metallic=0.0, emission=None, stren
 class Part:
     """Collects faces of one material; becomes one mesh object"""
 
-    def __init__(self, material, uv_metres=None, smooth=False, bevel=0.0, uv_scale=1.0):
+    def __init__(self, material, uv_metres=None, smooth=False, bevel=None, uv_scale=1.0):
         self.material = material
+        if bevel is None:
+            # Box-built parts (world-scale UVs) get a small chamfer by default: no razor-sharp toy edges
+            bevel = 0.02 if uv_metres else 0.0
         self.uv_scale = uv_scale  # multiplies the UVs of tubes and cards (larger texture repeats on hulls)
         self.uv_metres = uv_metres
         self.bevel = bevel  # chamfer width in metres on hard edges (no toy-like razor edges)
@@ -308,6 +317,13 @@ def bake_ao(name, objects, size=512, distance=2.0, samples=24):
     img.filepath_raw = os.path.join(folder, name + '-ao.png')
     img.file_format = 'PNG'
     img.save()
+    return obj
+
+
+def finish(name, objects, ao_size=512):
+    """Bakes ambient occlusion over the whole model, then exports it"""
+    obj = bake_ao(name, objects, size=ao_size)
+    export(name, [obj])
     return obj
 
 

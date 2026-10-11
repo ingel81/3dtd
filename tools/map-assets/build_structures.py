@@ -4,8 +4,9 @@ import random
 
 from mathutils import Matrix, Vector
 
+from blender_kit import finish as export  # noqa: F401  (every structure gets baked AO)
 from blender_kit import (
-    Part, box, box_uv, card, card_material, clear_scene, export, flat_material, image_material, import_model,
+    Part, two_sided, box, box_uv, card, card_material, clear_scene, flat_material, hexa, image_material, import_model,
     oriented_box, pbr_material, tube,
 )
 import blender_kit
@@ -102,7 +103,7 @@ def house(name, w, d, wall_h, roof_asset, wall_asset, storeys=1, barn=False, wal
     objects.append(roof.to_object(name + '-roof'))
     objects.append(dark.to_object(name + '-dark'))
     if snow:
-        cover = Part(flat_material('snow-cover', (0.66, 0.69, 0.74), 0.95))
+        cover = Part(pbr_material('snow-snow_02', 'snow_02', (0.95, 0.97, 1.0)), uv_metres=3.0, bevel=0.0)
         gable_roof(cover, w + 0.1, d, wall_h + 0.12, pitch, 0.55)
         objects.append(cover.to_object(name + '-snow'))
     if extra:
@@ -300,10 +301,21 @@ def castle_wall(name, stone_asset=CASTLE, ruined=False, seed=0, length=8.0, heig
     rnd = random.Random(seed)
     stone = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=3.0)
     if not ruined:
+        dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
         box(stone, 0, 0, -0.5, length, thick, height + 0.5)
-        merlons(stone, -length / 2, length / 2, -thick / 2 + 0.3, height, 0.6)
+        # Battered foot, a string course under the parapet, corbels carrying the battlements
+        hexa(stone, [(-length / 2, -thick / 2 - 0.7, -1.0), (length / 2, -thick / 2 - 0.7, -1.0), (length / 2, thick / 2 + 0.3, -1.0),
+                     (-length / 2, thick / 2 + 0.3, -1.0)],
+             [(-length / 2, -thick / 2, 1.6), (length / 2, -thick / 2, 1.6), (length / 2, thick / 2, 1.6), (-length / 2, thick / 2, 1.6)])
+        box(stone, 0, -thick / 2 - 0.05, height - 1.4, length, 0.2, 0.25)
+        for k in range(int(length / 1.0)):
+            box(stone, -length / 2 + 0.5 + k, -thick / 2 - 0.15, height - 0.6, 0.35, 0.3, 0.6)
+        box(stone, 0, -thick / 2 + 0.2, height - 0.05, length, 0.8, 0.3)
+        merlons(stone, -length / 2, length / 2, -thick / 2 + 0.05, height + 0.25, 0.6)
         box(stone, 0, thick / 2 - 0.25, height, length, 0.5, 0.7)
-        export(name, [stone.to_object(name)])
+        for x in (-length / 4, length / 4):
+            box(dark, x, -thick / 2 - 0.02, 3.2, 0.18, 0.1, 1.3)
+        export(name, [stone.to_object(name), dark.to_object(name + '-slits')])
         return
     # Ruined: columns of masonry broken off at different heights, rubble in front
     cols = 8
@@ -324,9 +336,13 @@ def castle_tower(name, roof=False, stone_asset=CASTLE, radius=3.6, height=12.0):
     clear_scene()
     stone = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=3.0)
     dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
-    tube(stone, [Vector((0, 0, -0.5)), Vector((0, 0, height))], [radius * 1.05, radius], 20, smooth=True, cap=True)
-    tube(stone, [Vector((0, 0, height - 0.4)), Vector((0, 0, height + 1.0))], [radius + 0.35, radius + 0.35], 20, smooth=True, cap=True)
-    ring_merlons(stone, radius + 0.15, height + 1.0, 0.6, 12)
+    tube(stone, [Vector((0, 0, -1.0)), Vector((0, 0, 2.0)), Vector((0, 0, height))], [radius * 1.22, radius * 1.02, radius], 24, smooth=True, cap=True)
+    tube(stone, [Vector((0, 0, height * 0.55)), Vector((0, 0, height * 0.55 + 0.25))], [radius * 1.04 + 0.1, radius * 1.04 + 0.1], 24, smooth=True)
+    tube(stone, [Vector((0, 0, height - 0.4)), Vector((0, 0, height + 1.0))], [radius + 0.45, radius + 0.45], 24, smooth=True, cap=True)
+    for k in range(16):
+        a = (k + 0.5) / 16 * math.tau
+        box(stone, math.cos(a) * (radius + 0.2), math.sin(a) * (radius + 0.2), height - 1.2, 0.5, 0.35, 0.8, a)
+    ring_merlons(stone, radius + 0.25, height + 1.0, 0.6, 14)
     for k in range(6):
         a = k / 6 * math.tau + 0.3
         for z in (3.0, 7.0):
@@ -357,6 +373,17 @@ def castle_gate(name, stone_asset=CASTLE):
     arch_wall(stone, -3, 3, 0, 4.4, -0.5, 9.0, 0, 4.0, 3.5)
     merlons(stone, -3, 3, -1.9, 9.0, 0.6)
     box(stone, 0, 1.9, 9.0, 6, 0.6, 0.8)
+    # Portcullis half raised in front of the doors, corbels and a string course on the towers
+    for k in range(7):
+        x = -1.8 + k * 0.6
+        box(iron, x, -1.6, 2.2, 0.08, 0.08, 3.6)
+    for z in (2.6, 3.6, 4.6, 5.6):
+        box(iron, 0, -1.6, z, 3.8, 0.07, 0.08)
+    for sx in (-1, 1):
+        x = sx * (8 - tw / 2)
+        box(stone, x, 0, 7.0, tw + 0.25, 5.75, 0.25)
+        for k in range(5):
+            box(stone, x - tw / 2 + 0.5 + k * (tw - 1.0) / 4, -2.9, 10.4, 0.35, 0.35, 0.6)
     # Doors set back in the arch, iron bands
     for sx in (-1, 1):
         box(wood, sx * 1.0, 0.6, 0, 2.0, 0.15, 5.4)
@@ -374,6 +401,14 @@ def castle_keep(name, stone_asset=CASTLE):
     dark = Part(flat_material('window', (0.04, 0.045, 0.05), 0.3))
     s, h = 12.0, 17.0
     box(stone, 0, 0, -0.5, s, s, h + 0.5)
+    hexa(stone, [(-s / 2 - 0.9, -s / 2 - 0.9, -1.0), (s / 2 + 0.9, -s / 2 - 0.9, -1.0), (s / 2 + 0.9, s / 2 + 0.9, -1.0), (-s / 2 - 0.9, s / 2 + 0.9, -1.0)],
+         [(-s / 2, -s / 2, 2.0), (s / 2, -s / 2, 2.0), (s / 2, s / 2, 2.0), (-s / 2, s / 2, 2.0)])
+    for z in (6.5, 12.0):
+        box(stone, 0, 0, z, s + 0.3, s + 0.3, 0.25)
+    for k in range(10):
+        t = -s / 2 + 0.6 + k * (s - 1.2) / 9
+        for x, y in ((t, -s / 2 - 0.15), (t, s / 2 + 0.15), (-s / 2 - 0.15, t), (s / 2 + 0.15, t)):
+            box(stone, x, y, h - 0.7, 0.35, 0.35, 0.6)
     for side in (-1, 1):
         merlons(stone, -s / 2 + 1.5, s / 2 - 1.5, side * (s / 2 - 0.3), h, 0.6)
     # Battlements on the east and west sides: rotated copies
@@ -458,7 +493,7 @@ def windmill(name):
     stone = Part(pbr_material('stone-slates', 'castle_wall_slates'), uv_metres=2.0)
     thatch = Part(pbr_material('roof-reed_roof_04', 'reed_roof_04'))
     wood = Part(pbr_material('planks-dark', 'dark_planks'), uv_metres=1.0)
-    cloth = Part(pbr_material('cloth-hessian', 'hessian_230', (1.15, 1.1, 1.0)))
+    cloth = Part(two_sided(pbr_material('cloth-hessian', 'hessian_230', (1.15, 1.1, 1.0))))
     dark = Part(flat_material('window', (0.05, 0.06, 0.07), 0.2, 0.3))
     h = 10.0
     tube(stone, [Vector((0, 0, -0.5)), Vector((0, 0, 1.0))], [3.7, 3.6], 16)
@@ -479,7 +514,6 @@ def windmill(name):
         corners = [a0, tip, tip + side * 1.6, a0 + side * 1.6]
         corners = [c + Vector((0, -0.12, 0)) for c in corners]
         cloth.quad(corners, [(0, 0), (2.8, 0), (2.8, 0.7), (0, 0.7)])
-        cloth.quad(list(reversed(corners)), [(0, 0), (0, 0.7), (2.8, 0.7), (2.8, 0)])
         for t in (0.3, 0.55, 0.8, 1.0):
             p = hub + arm * (1.4 + 5.6 * t)
             oriented_box(wood, p, p + side * 1.6, 0.08)
@@ -526,7 +560,7 @@ def adobe(name, w, d, h, upper=None, seed=0):
     clay = Part(pbr_material('wall-patterned_clay_wall', 'patterned_clay_wall', (1.15, 1.0, 0.88)), uv_metres=3.0)
     wood = Part(pbr_material('planks-dark', 'dark_planks', (0.85, 0.75, 0.6)), uv_metres=1.0)
     dark = Part(flat_material('window', (0.05, 0.05, 0.05), 0.6))
-    cloth = Part(pbr_material('cloth-hessian-red', 'hessian_230', (1.1, 0.5, 0.3)))
+    cloth = Part(two_sided(pbr_material('cloth-hessian-red', 'hessian_230', (1.1, 0.5, 0.3))))
 
     def block(cx, cy, z0, bw, bd, bh):
         box(clay, cx, cy, z0, bw, bd, bh)
@@ -550,7 +584,6 @@ def adobe(name, w, d, h, upper=None, seed=0):
     b = Vector((-w * 0.2 + 1.0, -d / 2, 2.6))
     corners = [a, b, b + Vector((0, -1.4, -0.4)), a + Vector((0, -1.4, -0.4))]
     cloth.quad(corners, [(0, 0), (1, 0), (1, 0.7), (0, 0.7)])
-    cloth.quad(list(reversed(corners)), [(0, 0), (0, 0.7), (1, 0.7), (1, 0)])
     for x in (a.x, b.x):
         oriented_box(wood, Vector((x, -d / 2 - 1.4, 0)), Vector((x, -d / 2 - 1.4, 2.2)), 0.08)
     if upper:
@@ -948,7 +981,7 @@ def market_stall(name, cloth_tint):
     clear_scene()
     wood = Part(pbr_material('planks-dark', 'dark_planks', (1.0, 0.9, 0.8)), uv_metres=1.0)
     counter = Part(pbr_material('planks-crate', 'brown_planks_04'), uv_metres=1.0)
-    cloth = Part(pbr_material('cloth-hessian-' + '-'.join('%.2f' % c for c in cloth_tint), 'hessian_230', cloth_tint))
+    cloth = Part(two_sided(pbr_material('cloth-hessian-' + '-'.join('%.2f' % c for c in cloth_tint), 'hessian_230', cloth_tint)))
     w, d = 3.2, 2.0
     for x in (-w / 2, w / 2):
         for y, h in ((-d / 2, 2.6), (d / 2, 2.2)):
@@ -958,7 +991,6 @@ def market_stall(name, cloth_tint):
     corners = [Vector((-w / 2 - 0.2, -d / 2 - 0.5, 2.5)), Vector((w / 2 + 0.2, -d / 2 - 0.5, 2.5)),
                Vector((w / 2 + 0.2, d / 2 + 0.1, 2.25)), Vector((-w / 2 - 0.2, d / 2 + 0.1, 2.25))]
     cloth.quad(corners, [(0, 0), (1.5, 0), (1.5, 1), (0, 1)])
-    cloth.quad(list(reversed(corners)), [(0, 0), (0, 1), (1.5, 1), (1.5, 0)])
     goods = Part(flat_material('goods', (0.75, 0.45, 0.15), 0.7))
     rnd = random.Random(len(name))
     for k in range(7):
@@ -970,7 +1002,7 @@ def market_stall(name, cloth_tint):
 def tent(name, large=False):
     """Canvas tent: A-frame (small) or a round pavilion with a cone top (large)"""
     clear_scene()
-    canvas = Part(pbr_material('cloth-canvas', 'hessian_230', (1.3, 1.25, 1.15)))
+    canvas = Part(two_sided(pbr_material('cloth-canvas', 'hessian_230', (1.3, 1.25, 1.15))))
     wood = Part(pbr_material('planks-dark', 'dark_planks'), uv_metres=1.0)
     dark = Part(flat_material('tent-inside', (0.08, 0.07, 0.05), 0.9))
     if not large:
@@ -981,8 +1013,7 @@ def tent(name, large=False):
             if side < 0:
                 corners = list(reversed(corners))
             canvas.quad(corners, [(0, 0), (1.5, 0), (1.5, 1), (0, 1)])
-            canvas.quad(list(reversed(corners)), [(0, 0), (0, 1), (1.5, 1), (1.5, 0)])
-        for flip in (False, True):
+        for flip in (False,):
             back = [canvas.bm.verts.new(c) for c in ((-w / 2, l / 2, 0), (w / 2, l / 2, 0), (0, l / 2, h))]
             canvas.bm.faces.new(list(reversed(back)) if flip else back)
             front = [dark.bm.verts.new(c) for c in ((-w / 2 * 0.7, -l / 2 + 0.02, 0), (w / 2 * 0.7, -l / 2 + 0.02, 0),
@@ -998,11 +1029,9 @@ def tent(name, large=False):
     cone_roof(canvas, 0, 0, wall, r + 0.3, 2.4, 16)
     box(wood, 0, 0, wall + 2.2, 0.1, 0.1, 1.2)
     box(dark, 0, -r - 0.02, 0, 1.2, 0.05, 1.6)
-    flag = Part(flat_material('flag-red', (0.6, 0.08, 0.06), 0.8))
+    flag = Part(two_sided(flat_material('flag-red', (0.6, 0.08, 0.06), 0.8)))
     flag.quad([Vector((0, 0, wall + 2.9)), Vector((0.8, 0, wall + 3.1)), Vector((0.8, 0, wall + 3.4)), Vector((0, 0, wall + 3.4))],
               [(0, 0), (1, 0), (1, 1), (0, 1)])
-    flag.quad([Vector((0, 0, wall + 3.4)), Vector((0.8, 0, wall + 3.4)), Vector((0.8, 0, wall + 3.1)), Vector((0, 0, wall + 2.9))],
-              [(0, 1), (1, 1), (1, 0), (0, 0)])
     export(name, [canvas.to_object(name), wood.to_object(name + '-pole'), dark.to_object(name + '-door'),
                   flag.to_object(name + '-flag')])
 
