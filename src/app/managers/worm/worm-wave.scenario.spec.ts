@@ -77,7 +77,7 @@ describe('Worm in a Custom Wave and in Enemy Debug (playtest 354, 355)', () => {
     const mainBus = createMainEventBus();
     m.eventBus.onAny((event) => mainBus.emit(event as unknown as ViewEvent));
     injectionRegistry['SimClient'] = { bus: mainBus };
-    injectionRegistry['SimMirror'] = { scalars: { gameTimeMs: 0 }, localPlayerId: 'local' };
+    injectionRegistry['SimMirror'] = { scalars: { gameTimeMs: 0 }, localPlayerId: 'local', onTowerChange: () => () => {} };
     sync = new GameStateSyncService();
     sync.initialize();
     worms = [];

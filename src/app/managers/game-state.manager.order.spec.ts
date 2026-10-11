@@ -474,6 +474,8 @@ describe('GameStateManager order of operations (characterization)', () => {
 
     it('upgrades range: cost, LOS request, range ring, guard heading, then tower:upgraded', () => {
       gsm.towerLos.applyMask(archer, { range: 20, ground: true, air: false, bits: new Uint8Array(0) });
+      // Out of its scaffold: no upgrade before (TODO E141)
+      archer.builtAtMs = 0;
       log.length = 0;
       bus.emit({ type: 'command:upgrade-tower', towerId: archer.id, upgradeId: 'range' });
 
@@ -490,6 +492,7 @@ describe('GameStateManager order of operations (characterization)', () => {
     });
 
     it('refuses an upgrade above the researched tier without a trace', () => {
+      archer.builtAtMs = 0;
       for (let i = 0; i < 5; i++) archer.applyUpgrade('damage');
       log.length = 0;
       const credits = gsm.credits();
