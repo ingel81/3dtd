@@ -1,4 +1,4 @@
-import { Group, InstancedMesh, Matrix4, Quaternion, Vector3 } from 'three';
+import { Group, InstancedMesh, Matrix4, Quaternion, Vector3, type Material } from 'three';
 import type { MapBridgeStyle, MapPaths, MapWater } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
@@ -26,6 +26,8 @@ const PIECE_LENGTH = 4;
 export class BridgeLayer {
   readonly group = new Group();
   private generation = 0;
+  /** Own copies of the library's deck materials (with the height fog); the library's stay untouched */
+  private readonly materials = new Map<Material, Material>();
 
   constructor(
     private readonly field: HeightField,
@@ -51,8 +53,13 @@ export class BridgeLayer {
     this.clear();
     [...byAsset.values()].forEach((matrices, k) => {
       for (const part of models[k].parts) {
-        addHeightFog(part.material);
-        const mesh = new InstancedMesh(part.geometry, part.material, matrices.length);
+        let material = this.materials.get(part.material);
+        if (!material) {
+          material = part.material.clone();
+          addHeightFog(material);
+          this.materials.set(part.material, material);
+        }
+        const mesh = new InstancedMesh(part.geometry, material, matrices.length);
         matrices.forEach((m, i) => mesh.setMatrixAt(i, m));
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -66,6 +73,8 @@ export class BridgeLayer {
   dispose(): void {
     this.generation++;
     this.clear();
+    for (const m of this.materials.values()) m.dispose();
+    this.materials.clear();
     this.group.removeFromParent();
   }
 

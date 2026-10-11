@@ -1,5 +1,5 @@
 import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, PerspectiveCamera, Scene, Vector3 } from 'three';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { MapObject } from '../../map-document';
 import type { AssetCatalog } from '../asset-catalog';
 import { HeightField } from '../height-field';
@@ -125,7 +125,13 @@ describe('MapObjectLayer glowing surfaces', () => {
     const m = mesh.material as MeshStandardMaterial;
     expect(m.emissive.r * m.emissiveIntensity).toBeLessThanOrEqual(0.551);
     expect(m.emissive.r * m.emissiveIntensity).toBeGreaterThan(0.5);
+    // The library's own material stays as it was and is not disposed with the layer
+    expect(m).not.toBe(melt);
+    expect(melt.emissiveIntensity).toBe(1);
+    const disposed = vi.fn();
+    melt.addEventListener('dispose', disposed);
     layer.dispose();
+    expect(disposed).not.toHaveBeenCalled();
   });
 });
 

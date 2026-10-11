@@ -661,18 +661,20 @@ export class MapObjectLayer {
     const key = `${source.uuid}|${wind}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
-    if (!card && m0.emissive) {
+    // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
+    // and is never changed or disposed here. Copies of one source share its textures and programs
+    const m = source.clone() as MeshStandardMaterial;
+    if (!card && m.emissive) {
       // Glowing surfaces (lava, crystals, windows) stay under a cap: at night a full glow
       // reads as a flat bright disc instead of a lit surface
-      const peak = Math.max(m0.emissive.r, m0.emissive.g, m0.emissive.b) * m0.emissiveIntensity;
-      if (peak > MAX_EMISSIVE) m0.emissiveIntensity *= MAX_EMISSIVE / peak;
+      const peak = Math.max(m.emissive.r, m.emissive.g, m.emissive.b) * m.emissiveIntensity;
+      if (peak > MAX_EMISSIVE) m.emissiveIntensity *= MAX_EMISSIVE / peak;
     }
     if (!card && wind <= 0 && !bob) {
-      addHeightFog(source);
-      this.materials.set(key, source);
-      return source;
+      addHeightFog(m);
+      this.materials.set(key, m);
+      return m;
     }
-    const m = source.clone() as MeshStandardMaterial;
     const local = {
       uWindStrength: { value: wind / WIND_REFERENCE_HEIGHT },
       uFadeRange: { value: new Vector2(entry.drawDistance * 0.55, entry.drawDistance) },
