@@ -45,6 +45,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
 
   readonly own = signal<MapSummary[]>([]);
   readonly shipped = signal<MapSummary[]>([]);
+  /** Maps a coop host sent: kept apart, opened as copies like the shipped ones */
+  readonly shared = signal<MapSummary[]>([]);
   readonly chosen = signal<MapSummary | null>(null);
   readonly mode = signal<'details' | 'new'>('details');
   readonly previews = signal<Record<string, string>>({});
@@ -83,17 +85,22 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
 
   async reload(select?: string): Promise<void> {
     const store = this.session.store;
-    const [own, shipped] = await Promise.all([store.listOwn().catch(() => []), store.listShipped()]);
+    const [stored, shipped] = await Promise.all([store.listOwn().catch(() => []), store.listShipped()]);
+    const own = stored.filter((m) => m.origin !== 'shared');
+    const shared = stored.filter((m) => m.origin === 'shared');
     this.own.set(own);
+    this.shared.set(shared);
     this.shipped.set(shipped);
-    // Own pictures anew: a deleted map's picture must not stay with a new map of its id
-    const previews: Record<string, string> = Object.fromEntries(Object.entries(this.previews()).filter(([k]) => !k.startsWith('own:')));
-    for (const m of own) {
+    // Stored pictures anew: a deleted map's picture must not stay with a new map of its id
+    const previews: Record<string, string> = Object.fromEntries(
+      Object.entries(this.previews()).filter(([k]) => !k.startsWith('own:') && !k.startsWith('shared:')),
+    );
+    for (const m of stored) {
       const bytes = await store.previewOf(m.id).catch(() => null);
       if (bytes) {
         const url = URL.createObjectURL(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'image/png' }));
         this.urls.push(url);
-        previews[`own:${m.id}`] = url;
+        previews[`${m.origin}:${m.id}`] = url;
       }
     }
     for (const m of shipped) {
@@ -101,7 +108,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
       if (url) previews[`shipped:${m.id}`] = url;
     }
     this.previews.set(previews);
-    const all = [...own, ...shipped];
+    const all = [...own, ...shared, ...shipped];
     const keep = select ?? this.chosen()?.id;
     this.chosen.set(all.find((m) => m.id === keep) ?? all[0] ?? null);
   }
@@ -118,7 +125,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
 
   line(m: MapSummary): string {
     const parts = [`${Math.round(m.width)} x ${Math.round(m.depth)} m`];
-    if (m.origin === 'own') parts.push(`${m.spawns} ${m.spawns === 1 ? 'spawn' : 'spawns'}`, `${m.objects} objects`);
+    if (m.origin !== 'shipped') parts.push(`${m.spawns} ${m.spawns === 1 ? 'spawn' : 'spawns'}`, `${m.objects} objects`);
     // Generated maps carry the epoch as their time: no date then
     if (m.updatedAt && Date.parse(m.updatedAt) > Date.UTC(2000, 0, 1)) parts.push(formatDate(m.updatedAt));
     return parts.join(' | ');
@@ -127,7 +134,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   async openChosen(): Promise<void> {
     const m = this.chosen();
     if (!m) return;
-    if (m.origin === 'shipped') return this.duplicate(m, true);
+    // Shipped maps and coop hosts' maps are edited as copies: saving under their id would make them one's own
+    if (m.origin !== 'own') return this.duplicate(m, true);
     this.open.emit(m.id);
   }
 

@@ -101,6 +101,25 @@
           <p class="td-note mb-empty">No maps yet. Start a new one, duplicate a shipped map or import a file.</p>
         }
 
+        @if (shared().length) {
+          <h2 class="td-head mb-gap">From coop hosts</h2>
+          @for (m of shared(); track m.id) {
+            <button class="td-row mb-row" type="button" role="option" [attr.aria-selected]="chosen()?.id === m.id && chosen()?.origin === 'shared'"
+                    (click)="choose(m)" [attr.data-map]="m.id" data-origin="shared">
+              @if (preview(m); as src) {
+                <img class="mb-thumb" [src]="src" alt="" />
+              } @else {
+                <span class="mb-thumb td-well" aria-hidden="true"></span>
+              }
+              <span class="mb-text">
+                <span class="td-name">{{ m.name }}</span>
+                <span class="td-sub">{{ line(m) }}</span>
+              </span>
+              <span class="td-tag is-caps" matTooltip="A coop host's map: the host's next version replaces it">Host's</span>
+            </button>
+          }
+        }
+
         <h2 class="td-head mb-gap">Shipped maps</h2>
         @for (m of shipped(); track m.id) {
           <button class="td-row mb-row" type="button" role="option" [attr.aria-selected]="chosen()?.id === m.id && chosen()?.origin === 'shipped'"
@@ -229,12 +248,12 @@
             <div class="td-inline">
               <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="busy()" (click)="duplicate(m)">Duplicate</button>
               <button class="td-btn-secondary td-btn-sm" type="button" (click)="downloadMap(m)">Download</button>
-              @if (m.origin === 'own') {
+              @if (m.origin !== 'shipped') {
                 <button class="td-btn-danger td-btn-sm" type="button" (click)="remove(m)">Delete</button>
               }
             </div>
             <button class="td-btn-primary" type="button" [disabled]="busy()" (click)="openChosen()" data-test="open-map">
-              {{ m.origin === 'shipped' ? 'Copy and edit' : 'Open' }}
+              {{ m.origin === 'own' ? 'Open' : 'Copy and edit' }}
             </button>
           </div>
         } @else {
