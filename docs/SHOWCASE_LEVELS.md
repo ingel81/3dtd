@@ -71,6 +71,12 @@ Torhaus. Drei Wege kommen aus den Wäldern und treffen sich vor dem Tor; das HQ 
 Nebel in den Senken am Morgen. Spawns: 3. Bauflächen: Mauerkronen-Nähe, Lichtungen.
 
 ### 4 Wüstencanyon (`red-canyon`)
+**Gebaut** (`tools/maps/levels/red-canyon.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 422,6 von 500,
+19 Tower), Spielansicht 673 fps, Laden 6,3 s am Dev-Server. Spuren 506 und 553 m. Bilder:
+`docs/images/levels/red-canyon.jpg` (Tempelbecken), `red-canyon-floor.jpg`, `red-canyon-game.jpg`. Die Schluchten
+sind mit dem Level-Pinsel entlang einer Linie geschnitten und mit dem Terrace-Pinsel gestuft; Tafelberge mit dem
+Cliff-Pinsel (Plateau) und einer Rampe.
+
 Biom Wüste, Look `desert`, harte Mittagssonne mit Hitzedunst. Ein verzweigter Canyon mit Tafelbergen; die Wege laufen
 im Canyon-Boden, Türme stehen oben auf den Tafelbergen (Plateaus mit Rampen). Tempelruine als HQ, Oase mit Palmen,
 Karawanenzelte. Spawns: 2. Bauflächen: Plateaus über dem Canyon (Sichtlinie nach unten).

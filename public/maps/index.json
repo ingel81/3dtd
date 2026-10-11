@@ -55,6 +55,20 @@
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
       "contentHash": "3ac1312420fb27e1a2761efacbd9682b6116b984581ef9d3617b26ed96132cd7"
+    },
+    {
+      "id": "red-canyon",
+      "name": "Red Canyon",
+      "file": "red-canyon.3dtdmap",
+      "preview": "red-canyon.png",
+      "author": "3DTD",
+      "description": "A branching canyon through a red desert plain. Enemies walk the canyon floor, towers stand on the mesas; the HQ is a temple ruin by an oasis.",
+      "width": 512,
+      "depth": 512,
+      "spawns": 2,
+      "biome": "desert",
+      "updatedAt": "2026-10-11T00:00:00.000Z",
+      "contentHash": "a155860f900b143b608890738a4c2065b3d677c27cd02a9845a5a528424a8dbb"
     }
   ]
 }
