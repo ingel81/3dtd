@@ -32,6 +32,8 @@ import { type CatalogEntryRef } from './convert/ground-materials';
 import { AssetPicker, BLOCKER_IDS, type AssetCategory, doodadCategory, hashIndex } from './convert/doodad-assets';
 import { mapEnvironment, tilesetMood, waterColor } from './convert/environment';
 import { ImportFrame, convertTerrain } from './convert/terrain-convert';
+import { type ImportStyle, enhanceGround, rimTrees } from './convert/enhance';
+import { HeightField } from '../custom-map/render/height-field';
 import { type W3xMapFiles, playableBounds, readW3xFiles } from './map-files';
 import { type Bounds, type LaneMask, buildLaneMask, laneWidth } from './routes/lane-mask';
 import { type RouteGraph, type RouteStrategy, routeLengths } from './routes/route-graph';
@@ -56,11 +58,19 @@ export interface W3xImportOptions {
   maxObjects?: number;
   /** Force one route strategy (comparisons, tests) */
   routeStrategy?: RouteStrategy;
+  /**
+   * 'enhanced' (default): the ground painted by what it is in the game
+   * (meadow on build ground, paved roads with gravel edges, forest on the
+   * rims with extra trees, convert/enhance.ts); 'original': the Warcraft
+   * tiles' textures mapped one to one
+   */
+  style?: ImportStyle;
   now?: Date;
 }
 
 export interface W3xImportStats {
   mapName: string;
+  style: ImportStyle;
   tileset: string;
   /** Imported area in tiles and metres */
   tiles: { width: number; height: number };
@@ -82,6 +92,8 @@ export interface W3xImportStats {
   objects: {
     doodads: number;
     placed: number;
+    /** Trees the enhanced style planted on the rims */
+    rimTrees: number;
     outside: number;
     helpers: number;
     onLanes: number;
@@ -162,6 +174,44 @@ export function convertW3x(map: W3xMapFiles, options: W3xImportOptions = {}): W3
   if (objects.stats.thinned > 0) warnings.push(`objects: ${objects.stats.thinned} thinned out to stay under ${options.maxObjects ?? 6000}`);
   if (objects.stats.noAsset > 0) warnings.push(`objects: ${objects.stats.noAsset} without a matching catalogue asset`);
 
+  const style = options.style ?? 'enhanced';
+  let objectList = objects.list;
+  let rimTreeCount = 0;
+  if (style === 'enhanced') {
+    const g0 = terrainResult.terrain.grid;
+    const enhanceInput = {
+      terrain: t,
+      frame,
+      pathing: map.pathing,
+      paths,
+      width: terrainResult.terrain.width,
+      depth: terrainResult.terrain.depth,
+      samples: Math.max(g0.columns, g0.rows),
+      tileset,
+      catalog: options.catalog?.materials,
+    };
+    const ground = enhanceGround(enhanceInput);
+    terrainResult.terrain.layers = ground.layers;
+    terrainResult.terrain.splat = ground.splat;
+    const field = new HeightField(g0, terrainResult.terrain.width, terrainResult.terrain.depth);
+    const water = terrainResult.terrain.water;
+    const isWater = (x: number, y: number): boolean => {
+      if (!water) return false;
+      const i = Math.round((x + terrainResult.terrain.width / 2) / g0.cellSize);
+      const j = Math.round((y + terrainResult.terrain.depth / 2) / g0.cellSize);
+      return water.mask[j * g0.columns + i] > 0;
+    };
+    const trees = rimTrees(
+      enhanceInput,
+      objects.list,
+      (x, y) => field.slopeAt(x, y),
+      isWater,
+      (options.maxObjects ?? 6000) - objects.list.length,
+    );
+    rimTreeCount = trees.length;
+    objectList = [...objects.list, ...trees];
+  }
+
   const now = (options.now ?? new Date()).toISOString();
   const doc: CustomMapDocument = {
     format: MAP_FORMAT,
@@ -176,7 +226,7 @@ export function convertW3x(map: W3xMapFiles, options: W3xImportOptions = {}): W3
       source: { kind: 'w3x', file: options.fileName ?? '', mapName, tileset: tilesetMood(tileset).name },
     },
     terrain: terrainResult.terrain,
-    objects: objects.list,
+    objects: objectList,
     paths,
     spawns,
     hq,
@@ -219,7 +269,8 @@ export function convertW3x(map: W3xMapFiles, options: W3xImportOptions = {}): W3
             }
           : null,
         laneMask: mask?.source ?? null,
-        objects: objects.stats,
+        style,
+        objects: { ...objects.stats, rimTrees: rimTreeCount },
       },
     },
   };
@@ -273,6 +324,7 @@ function convertDoodads(
   const stats: W3xImportStats['objects'] = {
     doodads: doodads.length,
     placed: 0,
+    rimTrees: 0,
     outside: 0,
     helpers: 0,
     onLanes: 0,

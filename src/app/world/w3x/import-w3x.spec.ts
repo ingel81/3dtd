@@ -41,7 +41,7 @@ function spawnsReachHq(doc: CustomMapDocument): boolean {
 
 describe('importW3x', () => {
   it('turns a synthetic map into a valid document', async () => {
-    const { doc, report } = await importW3x(buildSyntheticMap(), { fileName: 'lane-test.w3x', now: NOW });
+    const { doc, report } = await importW3x(buildSyntheticMap(), { fileName: 'lane-test.w3x', now: NOW, style: 'original' });
     expect(validateMapDocument(doc)).toEqual([]);
     expect(doc.meta).toMatchObject({
       id: 'lane-test',
@@ -73,6 +73,23 @@ describe('importW3x', () => {
     expect(doc.objects[0].scale).toBeCloseTo(1.2);
   });
 
+  it('paints the enhanced ground: meadow, a paved road with gravel edges, forest rims', async () => {
+    const { doc, report } = await importW3x(buildSyntheticMap(), { now: NOW });
+    expect(validateMapDocument(doc)).toEqual([]);
+    expect(report.stats.style).toBe('enhanced');
+    expect(doc.terrain.layers.map((l) => l.material)).toEqual([
+      'grass', 'grass-lush', 'meadow', 'cobblestone', 'gravel-path', 'forest-floor', 'forest-moss',
+    ]);
+    // The texel under the road's middle is paved, one well off it meadow
+    const s = doc.terrain.splat;
+    const texel = (x: number, y: number): number =>
+      Math.floor(((y + doc.terrain.depth / 2) / doc.terrain.depth) * s.resolution) * s.resolution +
+      Math.floor(((x + doc.terrain.width / 2) / doc.terrain.width) * s.resolution);
+    expect(s.maps[0][texel(0, 0) * 4 + 3]).toBe(255);
+    const off = texel(0, 15) * 4;
+    expect(s.maps[0][off] + s.maps[0][off + 1] + s.maps[0][off + 2]).toBeGreaterThan(200);
+  });
+
   it('finds the same lane from the terrain when the map has no script', async () => {
     const { doc, report } = await importW3x(buildSyntheticMap({ script: false }), { now: NOW });
     expect(report.strategy).toBe('terrain');
@@ -88,6 +105,7 @@ describe('importW3x', () => {
       samplesPerTile: 2,
       cropToPlayable: false,
       now: NOW,
+      style: 'original',
       catalog: {
         materials: [
           { id: 'meadow', category: 'grass' },

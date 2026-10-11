@@ -6,6 +6,7 @@
  *
  *   npm run w3x-import                       (the test map in tmp/wc3/)
  *   W3X_FILE=path/to/map.w3x npm run w3x-import
+ *   W3X_STYLE=original npm run w3x-import    (the Warcraft tiles' textures, no enhanced ground)
  *
  * Runs only in vitest's "w3x" mode, not with the normal test suite.
  */
@@ -25,7 +26,8 @@ const outDir = resolve(__dirname, '../../tmp/w3x-out');
 describe.skipIf(mode !== 'w3x')('w3x import dump', () => {
   it.skipIf(!existsSync(file))(`imports ${basename(file)}`, async () => {
     const t0 = performance.now();
-    const { doc, report } = await importW3x(new Uint8Array(readFileSync(file)), { fileName: basename(file) });
+    const style = process.env['W3X_STYLE'] === 'original' ? 'original' : 'enhanced';
+    const { doc, report } = await importW3x(new Uint8Array(readFileSync(file)), { fileName: basename(file), style });
     const ms = Math.round(performance.now() - t0);
     mkdirSync(outDir, { recursive: true });
     const { png, width, height } = renderTopDown(doc, 2);

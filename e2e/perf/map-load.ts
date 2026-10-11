@@ -6,7 +6,7 @@
 //   npm run build
 //   node e2e/perf/serve.mjs dist/3DTD/browser 4227 --isolate
 //   node e2e/perf/map-load.ts --url http://localhost:4227 --map demo-valley [--runs 3] [--profile [--trace out.json]]
-//   Through the start menu as a player starts: --menu
+//   Through the start menu as a player starts: --menu; a picture of the loaded map: --shot map.png
 //   An own map (not shipped): --seed tmp/w3x-out/<id>.3dtdmap (with <id>.summary.json beside it, `npm run w3x-import`)
 //
 // Headed Chromium: the terrain and the models compile their shaders on the GPU the player has, not in SwiftShader.
@@ -27,6 +27,8 @@ const TRACE_FILE = argument('trace', '');
 const TOP = Number(argument('top', '40'));
 /** Through the start menu (Play pressed as soon as it shows) instead of `&menu=skip` */
 const MENU = process.argv.includes('--menu');
+/** A screenshot 2 s after ready (first run), to see what loaded */
+const SHOT = argument('shot', '');
 
 interface Mark {
   name: string;
@@ -178,6 +180,12 @@ for (let run = 0; run < RUNS; run++) {
     last = m.at;
   }
   if (problems.length) console.log(`  problems: ${problems.join(' | ')}`);
+  if (SHOT && run === 0 && ready !== undefined) {
+    await page.waitForTimeout(2000);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: SHOT });
+  }
   if (ready !== undefined) totals.push(ready);
   if (tracing) {
     const trace = await browser.stopTracing();
