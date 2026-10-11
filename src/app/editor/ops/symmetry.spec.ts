@@ -37,6 +37,7 @@ function setup(mode: SymmetryMode): { ed: EditorDocument; ctx: ToolContext } {
     metresPerPixel: () => 0.1,
     toScreen: () => null,
     setLasso: () => undefined,
+    objectVisible: () => true,
   };
   return { ed, ctx };
 }

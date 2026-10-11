@@ -19,7 +19,9 @@ import {
   duplicateObjects,
   objectsUnderBrush,
   scatterDab,
+  freeGroup,
   snapTo,
+  withGroups,
 } from '../ops/object-ops';
 import { objectImages, sameSector, symmetryImages } from '../ops/symmetry';
 import { TransformGizmo, gizmoAnchor, type GizmoHandle } from '../view/transform-gizmo';
@@ -135,12 +137,17 @@ export class ObjectTool implements EditorTool {
         inside = (q) => insidePolygon(q, poly);
       }
       // What the eye sees inside the outline: each object's foot on the screen
-      const ids = ctx.editor.doc.objects
-        .filter((o) => {
-          const q = ctx.toScreen(o.x, o.y, ctx.heightAt(o.x, o.y) + o.z);
-          return !!q && inside(q);
-        })
-        .map((o) => o.id);
+      const doc = ctx.editor.doc;
+      const ids = withGroups(
+        doc.objects,
+        doc.objects
+          .filter((o) => {
+            if (!ctx.objectVisible(o)) return false;
+            const q = ctx.toScreen(o.x, o.y, ctx.heightAt(o.x, o.y) + o.z);
+            return !!q && inside(q);
+          })
+          .map((o) => o.id),
+      );
       const current = p.shift ? this.selected(ctx) : [];
       const all = [...new Set([...current, ...ids])];
       ctx.editor.select(all.length ? { kind: 'objects', ids: all } : null);
@@ -215,6 +222,22 @@ export class ObjectTool implements EditorTool {
       s.space = s.space === 'local' ? 'global' : 'local';
       ctx.settingsChanged();
       ctx.status(s.space === 'local' ? 'Arrows follow the object' : 'Arrows follow the map');
+      return true;
+    }
+    if ((e.ctrlKey || e.metaKey) && k === 'g' && sel.length) {
+      const doc = ctx.editor.doc;
+      if (e.shiftKey) {
+        ctx.editor.execute(ObjectsCommand.change('Ungroup', doc, sel, (o) => {
+          const next = { ...o };
+          delete next.group;
+          return next;
+        }));
+        ctx.status(`${sel.length} objects ungrouped`);
+      } else if (sel.length > 1) {
+        const group = freeGroup(doc.objects);
+        ctx.editor.execute(ObjectsCommand.change('Group', doc, sel, (o) => ({ ...o, group })));
+        ctx.status(`Group ${group}: ${sel.length} objects, picked and moved together (Ctrl+Shift+G ungroups)`);
+      }
       return true;
     }
     if (e.key === 'End' && sel.length) {
@@ -319,7 +342,8 @@ export class ObjectTool implements EditorTool {
         ctx.editor.select(next.length ? { kind: 'objects', ids: next } : null);
         return true;
       }
-      const ids = sel.includes(picked.id) ? sel : [picked.id];
+      // A click takes the whole group; Ctrl click one member alone
+      const ids = sel.includes(picked.id) ? sel : p.ctrl ? [picked.id] : withGroups(ctx.editor.doc.objects, [picked.id]);
       ctx.editor.select({ kind: 'objects', ids });
       if (p.hit) this.startGizmo(p, ctx, ids);
       return true;

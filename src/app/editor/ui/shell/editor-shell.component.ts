@@ -250,6 +250,27 @@ export class EditorShellComponent implements OnDestroy {
         else byAsset.set(o.asset, [o.id]);
       }
       const catalog = s.catalog();
+      const groups = new Map<string, string[]>();
+      for (const o of doc.objects) if (o.group) groups.set(o.group, [...(groups.get(o.group) ?? []), o.id]);
+      for (const [group, ids] of groups) {
+        add('Select', `Group ${group} (${ids.length})`, () => {
+          this.pick('objects');
+          s.patchSettings((st) => (st.objects.mode = 'select'));
+          s.editor?.select({ kind: 'objects', ids });
+          vp.focusSelection();
+        });
+      }
+      for (const category of catalog.categories()) {
+        const hidden = s.settings.view.hidden?.includes(category);
+        add('View', `${hidden ? 'Show' : 'Hide'} ${category.toLowerCase()}`, () =>
+          s.patchSettings((st) => {
+            const set = new Set(st.view.hidden ?? []);
+            if (set.has(category)) set.delete(category);
+            else set.add(category);
+            st.view.hidden = [...set];
+          }),
+        );
+      }
       for (const [asset, ids] of byAsset) {
         add('Select', `${catalog.object(asset).name} (${ids.length})`, () => {
           this.pick('objects');
@@ -352,6 +373,7 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
       ['L', 'Arrows along the map or the object'],
       ['Alt drag', 'Lasso selection'],
       ['End', 'Drop the selection onto the ground'],
+      ['Ctrl+G, Ctrl+Shift+G', 'Group, ungroup (Ctrl click picks one member)'],
       ['Del', 'Delete the selection'],
       ['Ctrl+D', 'Duplicate objects'],
       ['Ctrl+A', 'Select all objects'],

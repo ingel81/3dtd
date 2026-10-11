@@ -4,7 +4,7 @@
  * viewport feeds them, the panels change their settings.
  */
 import type { GizmoHandle } from '../view/transform-gizmo';
-import type { MapPathKind, MapPoint } from '../../world/custom-map/map-document';
+import type { MapObject, MapPathKind, MapPoint } from '../../world/custom-map/map-document';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import type { EditorDocument } from '../model/editor-document';
 import { DEFAULT_BRUSH, type BrushSettings } from '../ops/brush';
@@ -84,7 +84,14 @@ export interface EditorSettings {
   /** Every edit is copied to its symmetric images */
   symmetry: SymmetryMode;
   /** Overlays: height lines every `contourStep` metres, a grid every `gridStep` metres */
-  view: { contours: boolean; contourStep: number; grid: boolean; gridStep: number };
+  view: {
+    contours: boolean;
+    contourStep: number;
+    grid: boolean;
+    gridStep: number;
+    /** Object categories the view leaves out (Trees, Plants …); the map keeps them */
+    hidden: string[];
+  };
   /** The points measured so far */
   measure: MapPoint[];
   landscape: {
@@ -143,7 +150,7 @@ export function defaultSettings(): EditorSettings {
   return {
     brush: { ...DEFAULT_BRUSH },
     symmetry: 'none',
-    view: { contours: false, contourStep: 5, grid: false, gridStep: 25 },
+    view: { contours: false, contourStep: 5, grid: false, gridStep: 25, hidden: [] },
     measure: [],
     landscape: {
       mode: 'biome',
@@ -211,6 +218,8 @@ export interface ToolContext {
   toScreen(x: number, y: number, z: number): { x: number; y: number } | null;
   /** Lasso outline in client pixels, or null */
   setLasso(points: readonly { x: number; y: number }[] | null): void;
+  /** Whether the view shows an object (its category is not hidden) */
+  objectVisible(o: MapObject): boolean;
 }
 
 export interface EditorTool {

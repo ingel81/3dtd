@@ -132,6 +132,8 @@ export interface MapObject {
   blocksLos?: boolean;
   blocksBuild?: boolean;
   tint?: string;
+  /** Objects with the same group are picked and moved together in the editor; the game ignores it */
+  group?: string;
 }
 
 export type MapPathKind = 'road' | 'path' | 'bridge';

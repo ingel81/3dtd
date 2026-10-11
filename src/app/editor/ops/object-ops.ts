@@ -184,3 +184,23 @@ export function centroid(doc: CustomMapDocument, ids: readonly string[]): MapPoi
 function round(v: number, f = 100): number {
   return Math.round(v * f) / f;
 }
+
+/** The ids with every other member of their groups added */
+export function withGroups(objects: readonly MapObject[], ids: readonly string[]): string[] {
+  const set = new Set(ids);
+  const groups = new Set<string>();
+  for (const o of objects) if (set.has(o.id) && o.group) groups.add(o.group);
+  if (!groups.size) return [...ids];
+  for (const o of objects) if (o.group && groups.has(o.group)) set.add(o.id);
+  return [...set];
+}
+
+/** A group name no object uses yet: g1, g2 … */
+export function freeGroup(objects: readonly MapObject[]): string {
+  let max = 0;
+  for (const o of objects) {
+    const m = /^g(\d+)$/.exec(o.group ?? '');
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `g${max + 1}`;
+}

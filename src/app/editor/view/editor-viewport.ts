@@ -18,7 +18,7 @@ import {
   WebGLRenderTarget,
   WebGLRenderer,
 } from 'three';
-import type { MapPoint } from '../../world/custom-map/map-document';
+import type { MapObject, MapPoint } from '../../world/custom-map/map-document';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import { mergeChanges, type DocChange, type EditorDocument } from '../model/editor-document';
 import { heightAt as gridHeight } from '../model/grid';
@@ -109,6 +109,8 @@ export class EditorViewport {
   private readonly keysDown = new Set<string>();
   /** The view before the game camera took over, to go back to */
   private beforeGameView: OrbitState | null = null;
+  /** The hidden categories the view last showed */
+  private hiddenKey = '';
   private readonly raycaster = new Raycaster();
   private readonly ndc = new Vector2();
   private readonly unsubscribe: (() => void)[] = [];
@@ -167,6 +169,8 @@ export class EditorViewport {
   rebuildView(): void {
     this.view.dispose();
     this.view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
+    // The new view shows everything until the hidden categories are applied again
+    this.hiddenKey = '';
     this.pending = null;
     this.routesDirty = true;
     this.markersDirty = true;
@@ -409,6 +413,7 @@ export class EditorViewport {
       settingsChanged: () => this.callbacks.settingsChanged(),
       setBox: (b) => this.callbacks.box(b),
       setLasso: (points) => this.callbacks.lasso(points),
+      objectVisible: (o) => this.objectVisible(o),
       pickGizmo: (p) => {
         const rect = this.canvas.getBoundingClientRect();
         if (!rect.width) return null;
@@ -656,6 +661,7 @@ export class EditorViewport {
     this.lastTime = time;
 
     this.moveByKeys(dt);
+    this.syncHidden();
     const t = this.editor.doc.terrain;
     const g = this.controller.goal.target;
     g.x = Math.max(-t.width / 2, Math.min(t.width / 2, g.x));
@@ -705,6 +711,19 @@ export class EditorViewport {
     const t = this.editor.doc.terrain;
     this.overlay.setContours(v.contours ? contourLines(t, v.contourStep) : null);
     this.overlay.setGrid(v.grid ? v.gridStep : 0, t.width, t.depth, t.grid.cellSize * 2);
+  }
+
+  private objectVisible(o: MapObject): boolean {
+    const hidden = this.settings.view.hidden;
+    return !hidden?.length || !hidden.includes(this.catalog.object(o.asset).category);
+  }
+
+  /** Hidden categories changed: the view shows the rest */
+  private syncHidden(): void {
+    const key = (this.settings.view.hidden ?? []).join('|');
+    if (key === this.hiddenKey) return;
+    this.hiddenKey = key;
+    this.view.setVisible(key ? (o) => this.objectVisible(o) : null);
   }
 
   private moveByKeys(dt: number): void {

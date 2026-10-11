@@ -21,6 +21,8 @@ export class EditorMapView {
   readonly view: CustomMapView;
   /** Object ids the renderer holds, so a new or removed one asks for a full rebuild */
   private known = new Set<string>();
+  /** Which objects the view shows (hidden categories left out); null shows all */
+  private visible: ((o: CustomMapDocument['objects'][number]) => boolean) | null = null;
 
   constructor(
     private readonly doc: CustomMapDocument,
@@ -82,18 +84,29 @@ export class EditorMapView {
   }
 
   setObjects(): void {
-    void this.view.setObjects(this.doc.objects);
-    this.rememberObjects();
+    const shown = this.visible ? this.doc.objects.filter(this.visible) : this.doc.objects;
+    void this.view.setObjects(shown);
+    this.known = new Set(shown.map((o) => o.id));
   }
 
-  /** Some objects changed; a new or removed one rebuilds the batches once */
+  /** Show only the objects `visible` accepts (null: all); rebuilds the batches */
+  setVisible(visible: ((o: CustomMapDocument['objects'][number]) => boolean) | null): void {
+    this.visible = visible;
+    this.setObjects();
+  }
+
+  /** Some objects changed; a new, removed or hidden one rebuilds the batches once */
   updateObjects(ids: readonly string[]): void {
     const byId = new Map(this.doc.objects.map((o) => [o.id, o]));
-    if (ids.some((id) => !this.known.has(id) || !byId.has(id))) {
+    const shown = (id: string) => {
+      const o = byId.get(id);
+      return !!o && (!this.visible || this.visible(o));
+    };
+    if (ids.some((id) => this.known.has(id) !== shown(id))) {
       this.setObjects();
       return;
     }
-    for (const id of ids) this.view.updateObject(byId.get(id)!);
+    for (const id of ids) if (this.known.has(id)) this.view.updateObject(byId.get(id)!);
   }
 
   updatePaths(): void {

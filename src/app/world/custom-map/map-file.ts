@@ -254,6 +254,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     ids.add(o.id);
     if (!o.asset) p.push(`object ${o.id} has no asset`);
     if (![o.x, o.y, o.z, o.rotation, o.scale].every(finite) || o.scale <= 0) p.push(`object ${o.id} has a bad placement`);
+    if (o.group !== undefined && typeof o.group !== 'string') p.push(`object ${o.id} has a bad group`);
   }
   const nodes = new Set<string>();
   for (const n of doc.paths?.nodes ?? []) {

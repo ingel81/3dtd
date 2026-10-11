@@ -3,6 +3,7 @@ import { CatalogIndex } from '../catalog/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../model/grid';
 import type { EditorOverlay } from '../view/editor-overlay';
+import { freeGroup, withGroups } from '../ops/object-ops';
 import { MarkerTool } from './marker-tool';
 import { ObjectTool, insidePolygon } from './object-tool';
 import { paintCommands } from './paint-tool';
@@ -30,6 +31,7 @@ function context(editor: EditorDocument): ToolContext & { messages: string[] } {
     metresPerPixel: () => 0.1,
     toScreen: () => null,
     setLasso: () => undefined,
+    objectVisible: () => true,
   };
 }
 
@@ -126,6 +128,33 @@ describe('editor tools', () => {
     expect(ed.doc.objects[0].z).toBe(0);
     expect(insidePolygon({ x: 3, y: 3 }, [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 10 }])).toBe(true);
     expect(insidePolygon({ x: 9, y: 9 }, [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 10 }])).toBe(false);
+  });
+
+  it('groups objects so a click takes them all, Ctrl click one alone', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    const tool = new ObjectTool();
+    ctx.settings.objects.asset = 'tree-oak';
+    for (const [x, y] of [[10, 10], [20, 12], [80, 80]]) tool.pointerDown(at(x, y), ctx);
+    const [a, b, c] = ed.doc.objects.map((o) => o.id);
+    ctx.settings.objects.mode = 'select';
+    ed.select({ kind: 'objects', ids: [a, b] });
+    tool.key(new KeyboardEvent('keydown', { key: 'g', ctrlKey: true }), ctx);
+    expect(ed.doc.objects.map((o) => o.group)).toEqual(['g1', 'g1', undefined]);
+    ed.select(null);
+    ctx.pick = () => ({ kind: 'object', id: b });
+    tool.pointerDown(at(20, 12), ctx);
+    tool.pointerUp(at(20, 12), ctx);
+    expect(ed.selection).toEqual({ kind: 'objects', ids: [b, a] });
+    ed.select(null);
+    tool.pointerDown(at(20, 12, { ctrl: true }), ctx);
+    tool.pointerUp(at(20, 12, { ctrl: true }), ctx);
+    expect(ed.selection).toEqual({ kind: 'objects', ids: [b] });
+    ed.select({ kind: 'objects', ids: [a, b] });
+    tool.key(new KeyboardEvent('keydown', { key: 'G', ctrlKey: true, shiftKey: true }), ctx);
+    expect(ed.doc.objects.some((o) => o.group)).toBe(false);
+    expect(freeGroup([{ ...ed.doc.objects[0], group: 'g7' }])).toBe('g8');
+    expect(withGroups(ed.doc.objects, [c])).toEqual([c]);
   });
 
   it('draws a road off the starter road with a junction', () => {
