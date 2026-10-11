@@ -70,7 +70,10 @@ export class MapPreviewComponent implements OnDestroy {
   private renderer: WebGLRenderer | null = null;
   private view: CustomMapView | null = null;
   private controls: OrbitControls | null = null;
+  private post: PostProcessingPipeline | null = null;
+  private resize: (() => void) | null = null;
   private frame = 0;
+  /** The page went (ngOnDestroy): a start still loading its map builds nothing more */
   private stopped = false;
 
   constructor() {
@@ -80,6 +83,10 @@ export class MapPreviewComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.stopped = true;
     cancelAnimationFrame(this.frame);
+    if (this.resize) window.removeEventListener('resize', this.resize);
+    this.resize = null;
+    this.post?.dispose();
+    this.post = null;
     this.controls?.dispose();
     this.view?.dispose();
     this.renderer?.dispose();
@@ -124,6 +131,8 @@ export class MapPreviewComponent implements OnDestroy {
         : params.get('big')
           ? createPerfMap(Number(params.get('big')), Number(params.get('objects') ?? 20000))
           : createDemoMap(Number(params.get('seed') ?? 7));
+    // Left while the map loaded: ngOnDestroy took renderer and controls already, nothing more is built
+    if (this.stopped) return;
     const tGen = performance.now() - t0;
     const weather = params.get('weather');
     if (weather === 'rain' || weather === 'snow' || weather === 'fog') {
@@ -158,6 +167,7 @@ export class MapPreviewComponent implements OnDestroy {
     // ?post=bloom|grade: through the game's post-processing chain, as the map renders in the game
     const postMode = params.get('post');
     const post = postMode ? new PostProcessingPipeline(renderer, scene, camera) : null;
+    this.post = post;
     if (post && postMode === 'bloom') post.setBloomEnabled(true);
     if (post && postMode === 'grade') post.setColorGradingPreset('warm-sunset');
 
@@ -170,6 +180,7 @@ export class MapPreviewComponent implements OnDestroy {
       post?.setSize(w, h);
     };
     resize();
+    this.resize = resize;
     window.addEventListener('resize', resize);
 
     const timer = new Timer();
