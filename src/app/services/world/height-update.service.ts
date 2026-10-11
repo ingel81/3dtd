@@ -36,7 +36,7 @@ export class HeightUpdateService {
   /** Reference to the 3D engine */
   private engine: ThreeTilesEngine | null = null;
 
-  /** Height update interval ID */
+  /** The running cycle's timer: an interval while the ground streams, one timeout otherwise */
   private heightUpdateIntervalId: number | null = null;
 
   /** Updates of the cycle running: ATTEMPTS while the ground streams, else 1 */
@@ -109,6 +109,13 @@ export class HeightUpdateService {
    */
   scheduleOverlayHeightUpdate(): Promise<void> {
     cameraTimeline.record('heights.schedule', { alreadyRunning: this.heightUpdateIntervalId !== null });
+    // A cycle still running gives way: its timer stops (else it ran on, lost, for good) and its waiter goes on
+    if (this.heightUpdateIntervalId !== null) {
+      clearInterval(this.heightUpdateIntervalId);
+      this.heightUpdateIntervalId = null;
+    }
+    this.heightStableResolve?.();
+    this.heightStableResolve = null;
     // Reset counters for fresh location
     this.heightUpdateAttempts = 0;
     this.heightsLoading.set(true);
@@ -123,9 +130,10 @@ export class HeightUpdateService {
     return new Promise((resolve) => {
       this.heightStableResolve = resolve;
 
-      this.heightUpdateIntervalId = window.setInterval(() => {
-        this.performHeightUpdate();
-      }, streaming ? this.UPDATE_INTERVAL_MS : 0);
+      // The ground that stands at once takes one update, on a timeout rather than a 0 ms interval
+      this.heightUpdateIntervalId = streaming
+        ? window.setInterval(() => this.performHeightUpdate(), this.UPDATE_INTERVAL_MS)
+        : window.setTimeout(() => this.performHeightUpdate(), 0);
     });
   }
 
