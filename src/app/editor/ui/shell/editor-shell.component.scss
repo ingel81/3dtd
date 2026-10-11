@@ -53,6 +53,12 @@
   padding: var(--td-sp-1);
 }
 
+.es-sym {
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-2);
+}
+
 .es-spacer {
   flex: 1 1 auto;
 }

@@ -13,7 +13,14 @@ import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import { carveRiver } from '../ops/landscape/river';
 import { buildRoad } from '../ops/landscape/road';
 import { cliffAlong, formDab } from '../ops/landscape/shapes';
-import { LANDSCAPE_MODES, type EditorTool, type LandscapeMode, type ToolContext, type ToolPointer } from './tool';
+import { symmetryImages } from '../ops/symmetry';
+import {
+  LANDSCAPE_MODES,
+  type EditorTool,
+  type LandscapeMode,
+  type ToolContext,
+  type ToolPointer,
+} from './tool';
 
 /** A drawn line takes a point every this many metres */
 const LINE_STEP = 3;
@@ -41,7 +48,13 @@ export class LandscapeTool implements EditorTool {
     // A line may start off the map and come in; a brush needs ground under it
     if (p.button !== 0 || (!p.hit && !isLine(s.mode))) return false;
     const label = LANDSCAPE_MODES.find((m) => m.id === s.mode)!.label;
-    this.stroke = new LandscapeStroke(ctx.editor, s.mode === 'biome' ? biomeById(s.biome).label : label, s.seed, ctx.catalog);
+    this.stroke = new LandscapeStroke(
+      ctx.editor,
+      s.mode === 'biome' ? biomeById(s.biome).label : label,
+      s.seed,
+      ctx.catalog,
+    );
+    this.stroke.symmetry = ctx.settings.symmetry;
     this.dab = 0;
     if (isLine(s.mode)) this.line = p.hit ? [{ x: p.hit.x, y: p.hit.y }] : [];
     return true;
@@ -51,7 +64,8 @@ export class LandscapeTool implements EditorTool {
     const line = this.line;
     if (!line || !p.hit) return;
     const last = line[line.length - 1];
-    if (!last || Math.hypot(p.hit.x - last.x, p.hit.y - last.y) >= LINE_STEP) line.push({ x: p.hit.x, y: p.hit.y });
+    if (!last || Math.hypot(p.hit.x - last.x, p.hit.y - last.y) >= LINE_STEP)
+      line.push({ x: p.hit.x, y: p.hit.y });
   }
 
   pointerUp(p: ToolPointer, ctx: ToolContext): void {
@@ -69,7 +83,10 @@ export class LandscapeTool implements EditorTool {
     // Preview of the next biome stroke under the cursor
     if (s.mode === 'biome' && p?.hit && !this.stroke) {
       if (this.previewNoise?.seed !== s.seed) this.previewNoise = new LandscapeNoise(s.seed);
-      ctx.overlay.setPreview(previewSpots(this.previewNoise, ctx.catalog, p.hit, brush, biomeById(s.biome)), biomeById(s.biome).color);
+      ctx.overlay.setPreview(
+        previewSpots(this.previewNoise, ctx.catalog, p.hit, brush, biomeById(s.biome)),
+        biomeById(s.biome).color,
+      );
     } else if (!this.stroke) {
       ctx.overlay.setPreview(null);
     }
@@ -84,10 +101,10 @@ export class LandscapeTool implements EditorTool {
       case 'mountain':
       case 'valley':
       case 'plateau':
-        stroke.changed({ heights: formDab(stroke, s.mode, center, brush, dt) });
+        stroke.changed({ heights: formDab(stroke, s.mode, center, brush, dt) }, center);
         return;
       case 'erode':
-        stroke.changed({ heights: erosionDab(stroke, center, brush, this.dab++) });
+        stroke.changed({ heights: erosionDab(stroke, center, brush, this.dab++) }, center);
         return;
     }
   }
@@ -99,7 +116,10 @@ export class LandscapeTool implements EditorTool {
   hint(ctx: ToolContext): string {
     const s = ctx.settings.landscape;
     const mode = LANDSCAPE_MODES.find((m) => m.id === s.mode)!;
-    const what = s.mode === 'biome' ? `${biomeById(s.biome).label}: ${biomeById(s.biome).hint}` : `${mode.label}: ${mode.hint}`;
+    const what =
+      s.mode === 'biome'
+        ? `${biomeById(s.biome).label}: ${biomeById(s.biome).hint}`
+        : `${mode.label}: ${mode.hint}`;
     return `${what} | [ ] size | seed ${s.seed}`;
   }
 
@@ -114,31 +134,52 @@ export class LandscapeTool implements EditorTool {
     const s = ctx.settings.landscape;
     const brush = ctx.settings.brush;
     if (line) {
-      switch (s.mode) {
-        case 'cliff': {
-          const rect = cliffAlong(stroke, line, s.cliffHeight * (0.4 + 0.6 * brush.strength), brush.radius);
-          if (rect) stroke.changed({ heights: rect });
-          break;
-        }
-        case 'river': {
-          const r = carveRiver(stroke, line, s.river);
-          if (!r) ctx.status('Draw a longer line for a river');
-          else if (r.bridges) ctx.status(`River with ${r.bridges} ${r.bridges === 1 ? 'bridge' : 'bridges'}`);
-          break;
-        }
-        case 'road': {
-          const r = buildRoad(stroke, line, s.road);
-          if (!r) ctx.status('Draw a longer line for a road');
-          else ctx.status(`Road of ${Math.round(r.length)} m${r.lamps ? `, ${r.lamps} lamps` : ''}`);
-          break;
-        }
-      }
+      // Lines are built at every symmetric image; a mirrored line runs backwards so a cliff keeps its side
+      const t = stroke.doc.terrain;
+      const lines = symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows).map(
+        (img) => {
+          const mapped = line.map((q) => img.point(q));
+          return img.flips ? mapped.reverse() : mapped;
+        },
+      );
+      stroke.symmetry = 'none';
+      for (const l of lines) this.buildLine(stroke, l, ctx);
     } else if (s.mode === 'biome') {
       finishBiome(stroke, brush, biomeById(s.biome));
     }
     if (stroke.finish() && s.reroll) {
       s.seed = randomSeed();
       ctx.settingsChanged();
+    }
+  }
+
+  private buildLine(stroke: LandscapeStroke, line: MapPoint[], ctx: ToolContext): void {
+    const s = ctx.settings.landscape;
+    const brush = ctx.settings.brush;
+    switch (s.mode) {
+      case 'cliff': {
+        const rect = cliffAlong(
+          stroke,
+          line,
+          s.cliffHeight * (0.4 + 0.6 * brush.strength),
+          brush.radius,
+        );
+        if (rect) stroke.changed({ heights: rect });
+        break;
+      }
+      case 'river': {
+        const r = carveRiver(stroke, line, s.river);
+        if (!r) ctx.status('Draw a longer line for a river');
+        else if (r.bridges)
+          ctx.status(`River with ${r.bridges} ${r.bridges === 1 ? 'bridge' : 'bridges'}`);
+        break;
+      }
+      case 'road': {
+        const r = buildRoad(stroke, line, s.road);
+        if (!r) ctx.status('Draw a longer line for a road');
+        else ctx.status(`Road of ${Math.round(r.length)} m${r.lamps ? `, ${r.lamps} lamps` : ''}`);
+        break;
+      }
     }
   }
 }

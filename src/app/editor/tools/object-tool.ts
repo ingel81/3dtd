@@ -18,6 +18,7 @@ import {
   scatterDab,
   snapTo,
 } from '../ops/object-ops';
+import { objectImages, sameSector, symmetryImages } from '../ops/symmetry';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
 type Drag =
@@ -26,7 +27,7 @@ type Drag =
 
 export class ObjectTool implements EditorTool {
   readonly id = 'objects' as const;
-  private brushing: { added: MapObject[]; removed: ObjectEdit[]; grid: ObjectGrid; ids: ObjectIds; erase: boolean } | null = null;
+  private brushing: { added: MapObject[]; removed: ObjectEdit[]; grid: ObjectGrid; ids: ObjectIds; erase: boolean; origin?: MapPoint } | null = null;
   private drag: Drag | null = null;
 
   brushVisible(ctx: ToolContext): boolean {
@@ -140,7 +141,16 @@ export class ObjectTool implements EditorTool {
       if (removed.length) ctx.editor.emit({ objects: removed });
       return;
     }
-    const placed = scatterDab(doc.terrain, p.hit, brush, { ...s.scatter, assets: this.scatterAssets(ctx) }, b.grid, b.ids, Math.random, Math.min(dt, 0.1) * 6);
+    const t = doc.terrain;
+    const mode = ctx.settings.symmetry;
+    b.origin ??= { x: p.hit.x, y: p.hit.y };
+    const origin = b.origin;
+    // With symmetry the scatter grows in the stroke's own sector and is copied to the others
+    const own = scatterDab(t, p.hit, brush, { ...s.scatter, assets: this.scatterAssets(ctx) }, b.grid, b.ids, Math.random, Math.min(dt, 0.1) * 6)
+      .filter((o) => sameSector(mode, o, origin));
+    const images = objectImages(own, symmetryImages(mode, t.grid.columns === t.grid.rows), () => b.ids.take(), t.width / 2, t.depth / 2);
+    for (const o of images) b.grid.add(o);
+    const placed = [...own, ...images];
     if (!placed.length) return;
     doc.objects.push(...placed);
     b.added.push(...placed);
@@ -222,7 +232,10 @@ export class ObjectTool implements EditorTool {
       rotation: s.randomRotation ? Math.round(Math.random() * Math.PI * 2 * 1000) / 1000 : 0,
       scale: 1,
     };
-    ctx.editor.execute(ObjectsCommand.add(`Place ${ctx.catalog.object(s.asset).name}`, doc, [object]));
+    const t = doc.terrain;
+    const ids = new ObjectIds([...doc.objects, object]);
+    const images = objectImages([object], symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
+    ctx.editor.execute(ObjectsCommand.add(`Place ${ctx.catalog.object(s.asset).name}`, doc, [object, ...images]));
   }
 
   private selectDown(p: ToolPointer, ctx: ToolContext): boolean {

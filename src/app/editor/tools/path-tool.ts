@@ -25,6 +25,7 @@ import {
   straightenEdge,
 } from '../ops/path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../ops/path-terrain';
+import { symmetryImages } from '../ops/symmetry';
 import { BrushStroke } from './brush-stroke';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
@@ -34,6 +35,8 @@ export class PathTool implements EditorTool {
   private last: string | null = null;
   private dragging: { id: string; before: MapPaths } | null = null;
   private lastClick = 0;
+  /** The last node of each symmetric image of the line being drawn */
+  private mirrored: string[] = [];
 
   brushVisible(): boolean {
     return false;
@@ -116,7 +119,7 @@ export class PathTool implements EditorTool {
       this.last = null;
       return;
     }
-    ctx.overlay.setDraft([from, this.snapPoint(p, ctx).point]);
+    ctx.overlay.setDraft([from, snapPoint(ctx.editor.doc.paths, p.hit, p.alt, this.last, ctx.settings.paths.snap).point]);
   }
 
   key(e: KeyboardEvent, ctx: ToolContext): boolean {
@@ -155,6 +158,7 @@ export class PathTool implements EditorTool {
   cancel(ctx: ToolContext): void {
     const last = this.last;
     this.last = null;
+    this.mirrored = [];
     // A line that never got its second node takes its lone start back
     if (last && ctx.editor.undoLabel === 'Start road' && !ctx.editor.doc.paths.edges.some((e) => e.a === last || e.b === last)) {
       ctx.editor.undo();
@@ -180,33 +184,44 @@ export class PathTool implements EditorTool {
     const editor = ctx.editor;
     const s = ctx.settings.paths;
     if (!insideMap(editor.doc.terrain, p.hit!)) return;
-    const target = this.snapPoint(p, ctx);
+    const t = editor.doc.terrain;
+    const images = symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows);
+    const hit = { x: p.hit!.x, y: p.hit!.y };
     const from = this.last;
-    let end = '';
+    const ends: string[] = [];
     const command = SnapshotCommand.record(editor.doc, from ? 'Draw road' : 'Start road', ['paths'], (d) => {
-      if (target.node) end = target.node;
-      else if (target.edge) end = splitEdge(d.paths, target.edge, target.point)!.id;
-      else end = addNode(d.paths, target.point).id;
-      if (from && from !== end) connect(d.paths, from, end, s.width, s.kind);
+      // The road where the pointer is, then its symmetric images, each going on from its own last node
+      images.forEach((img, k) => {
+        const last = k === 0 ? from : (this.mirrored[k - 1] ?? null);
+        if (k > 0 && from && !last) return;
+        const target = snapPoint(d.paths, img.point(hit), p.alt, last, s.snap);
+        let end: string;
+        if (target.node) end = target.node;
+        else if (target.edge) end = splitEdge(d.paths, target.edge, target.point)!.id;
+        else end = addNode(d.paths, target.point).id;
+        if (last && last !== end) connect(d.paths, last, end, s.width, s.kind);
+        ends.push(end);
+      });
     });
     // A lone first click on empty ground leaves a node that waits for its edge
     editor.push(command, { paths: true });
-    this.last = end;
-    editor.select({ kind: 'node', id: end });
+    this.last = ends[0];
+    this.mirrored = ends.slice(1);
+    editor.select({ kind: 'node', id: ends[0] });
   }
 
-  /** Where a click would land: an existing node, a point on an edge, or free ground */
-  private snapPoint(p: ToolPointer, ctx: ToolContext): { point: MapPoint; node?: string; edge?: string } {
-    const hit = { x: p.hit!.x, y: p.hit!.y };
-    if (p.alt) return { point: hit };
-    const paths = ctx.editor.doc.paths;
-    const snap = ctx.settings.paths.snap;
-    const node = nearestNode(paths, hit, snap);
-    if (node && node.id !== this.last) return { point: { x: node.x, y: node.y }, node: node.id };
-    const edge = nearestOnEdges(paths, hit, snap * 0.7);
-    if (edge && edge.edge.a !== this.last && edge.edge.b !== this.last) return { point: edge.point, edge: edge.edge.id };
-    return { point: hit };
-  }
+
+}
+
+/** Where a click would land: an existing node, a point on an edge, or free ground (alt: always free) */
+function snapPoint(paths: MapPaths, at: MapPoint, free: boolean, last: string | null, snap: number): { point: MapPoint; node?: string; edge?: string } {
+  const point = { x: at.x, y: at.y };
+  if (free) return { point };
+  const node = nearestNode(paths, point, snap);
+  if (node && node.id !== last) return { point: { x: node.x, y: node.y }, node: node.id };
+  const edge = nearestOnEdges(paths, point, snap * 0.7);
+  if (edge && edge.edge.a !== last && edge.edge.b !== last) return { point: edge.point, edge: edge.edge.id };
+  return { point };
 }
 
 function edgesOf(editor: EditorDocument, sel: { kind: 'node' | 'edge'; id: string }): string[] {

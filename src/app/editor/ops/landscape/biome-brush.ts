@@ -110,7 +110,7 @@ export function biomeDab(
 
   // Objects
   const placed = growObjects(stroke, center, brush, biome, false);
-  stroke.changed({ heights: rect, splat: trect, water: wet || undefined, objects: placed.length ? placed : undefined });
+  stroke.changed({ heights: rect, splat: trect, water: wet || undefined, objects: placed.length ? placed : undefined }, center);
 }
 
 /** Edge plants: decided once the stroke is over, where the brush only grazed */

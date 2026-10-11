@@ -29,7 +29,7 @@ export class PaintTool implements EditorTool {
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
     if (p.button !== 0 || !p.hit) return false;
     this.erase = ctx.settings.paint.erase !== p.shift;
-    this.stroke = new BrushStroke(ctx.editor, this.erase ? 'Erase paint' : 'Paint', ['splat0', 'splat1']);
+    this.stroke = new BrushStroke(ctx.editor, this.erase ? 'Erase paint' : 'Paint', ['splat0', 'splat1'], ctx.settings.symmetry);
     return true;
   }
 
@@ -48,7 +48,7 @@ export class PaintTool implements EditorTool {
     stroke.touch('splat0', rect);
     stroke.touch('splat1', rect);
     paintDab(t, p.hit.x, p.hit.y, brush, layer, PAINT_RATE * Math.min(dt, 0.1), this.erase);
-    stroke.changed({ splat: rect });
+    stroke.changed({ splat: rect }, p.hit);
   }
 
 

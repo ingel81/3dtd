@@ -65,6 +65,8 @@ export class EditorViewport {
   private tool: EditorTool | null = null;
   private pending: DocChange | null = null;
   private routesDirty = true;
+  /** The symmetry the guides show, and whether the ground under them moved */
+  private guideMode: string | null = null;
   private markersDirty = true;
   private pointer: { clientX: number; clientY: number; shift: boolean; ctrl: boolean; alt: boolean; button: number } | null = null;
   private pointerMoved = false;
@@ -497,6 +499,7 @@ export class EditorViewport {
       if (c.environment) v.setEnvironment();
     }
     if (c.paths || c.markers || c.heights || c.terrain) this.routesDirty = true;
+    if (c.heights || c.terrain) this.guideMode = null;
     this.markersDirty = true;
     this.refreshMarkers();
   }
@@ -544,6 +547,11 @@ export class EditorViewport {
     }
     this.tool?.frame?.(dt, tp, this.ctx);
     this.flush();
+    if (this.guideMode !== this.settings.symmetry) {
+      this.guideMode = this.settings.symmetry;
+      const t = this.editor.doc.terrain;
+      this.overlay.setSymmetry(this.settings.symmetry, t.width, t.depth);
+    }
 
     const brush = this.settings.brush;
     const showBrush = !!tp?.hit && !!this.tool?.brushVisible(this.ctx);

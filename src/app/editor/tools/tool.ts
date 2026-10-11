@@ -9,6 +9,7 @@ import type { EditorDocument } from '../model/editor-document';
 import { DEFAULT_BRUSH, type BrushSettings } from '../ops/brush';
 import { DEFAULT_SCATTER, type ScatterOptions } from '../ops/object-ops';
 import type { BiomeId } from '../ops/landscape/biomes';
+import type { SymmetryMode } from '../ops/symmetry';
 import { randomSeed } from '../ops/landscape/landscape-noise';
 import { DEFAULT_RIVER, type RiverOptions } from '../ops/landscape/river';
 import { DEFAULT_ROAD, type RoadOptions } from '../ops/landscape/road';
@@ -70,6 +71,8 @@ export type MarkerMode = 'spawn' | 'hq';
 
 export interface EditorSettings {
   brush: BrushSettings;
+  /** Every edit is copied to its symmetric images */
+  symmetry: SymmetryMode;
   landscape: {
     mode: LandscapeMode;
     biome: BiomeId;
@@ -103,6 +106,7 @@ export interface EditorSettings {
 export function defaultSettings(): EditorSettings {
   return {
     brush: { ...DEFAULT_BRUSH },
+    symmetry: 'none',
     landscape: {
       mode: 'biome',
       biome: 'forest',

@@ -7,6 +7,7 @@ import type { EditCommand, EditorDocument } from '../model/editor-document';
 import { WaterSwapCommand } from '../model/terrain-commands';
 import { nearestSample, sampleRectAround } from '../model/grid';
 import { basinSpillHeight, emptyWater, fillBasin, waterMaskDab } from '../ops/water-ops';
+import { symmetryImages } from '../ops/symmetry';
 import { BrushStroke } from './brush-stroke';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
@@ -38,7 +39,7 @@ export class WaterTool implements EditorTool {
       editor.execute(waterCommands.enable(editor, Math.round(p.hit.z * 10) / 10));
     }
     this.on = mode === 'paint' ? !p.shift : mode === 'fill' ? false : p.shift;
-    this.stroke = new BrushStroke(editor, this.on ? 'Paint water' : 'Erase water', ['water']);
+    this.stroke = new BrushStroke(editor, this.on ? 'Paint water' : 'Erase water', ['water'], ctx.settings.symmetry);
     return true;
   }
 
@@ -52,8 +53,8 @@ export class WaterTool implements EditorTool {
     if (!stroke || !p?.hit) return;
     const t = stroke.doc.terrain;
     stroke.touch('water', sampleRectAround(t, p.hit.x, p.hit.y, ctx.settings.brush.radius));
-    waterMaskDab(t, p.hit.x, p.hit.y, ctx.settings.brush, this.on);
-    stroke.changed({ water: true });
+    const rect = waterMaskDab(t, p.hit.x, p.hit.y, ctx.settings.brush, this.on);
+    stroke.changed({ water: true }, p.hit, rect);
   }
 
 
@@ -89,6 +90,14 @@ export class WaterTool implements EditorTool {
     }
     t.water = water;
     const rect = fillBasin(t, i, j);
+    if (rect) {
+      // The images of the hollow fill too
+      const g = t.grid;
+      for (const img of symmetryImages(ctx.settings.symmetry, g.columns === g.rows).slice(1)) {
+        const [ii, jj] = img.cell(i, j, g.columns, g.rows);
+        fillBasin(t, ii, jj);
+      }
+    }
     const after = t.water;
     t.water = before;
     if (!rect) {

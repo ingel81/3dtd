@@ -27,6 +27,7 @@ import { MAX_LAYERS } from '../paint-ops';
 import { ObjectGrid, ObjectIds } from '../object-ops';
 import { edgePolyline, nearestOnPolyline } from '../path-graph';
 import { emptyWater } from '../water-ops';
+import { mirrorChange, objectImages, sameSector, symmetryImages, type SymmetryMode } from '../symmetry';
 import { LandscapeNoise } from './landscape-noise';
 
 interface RoadLine {
@@ -56,6 +57,8 @@ export class LandscapeStroke {
   private roads: RoadLine[] = [];
   private readonly markers: MapPoint[];
   private change: DocChange = {};
+  /** Copy every dab and object to the symmetric images; objects grow only in the sector the stroke began in */
+  symmetry: SymmetryMode = 'none';
   /** Ground height where the stroke began (levelling brushes) */
   anchor: { x: number; y: number; h: number } | null = null;
   /** Per stroke memory of the brushes (decided object cells, strongest weights) */
@@ -111,6 +114,7 @@ export class LandscapeStroke {
 
   /** Whether an object may stand here: off roads, away from spawns and HQ, not in water */
   freeForObject(x: number, y: number, footprint: number): boolean {
+    if (this.symmetry !== 'none' && this.anchor && !sameSector(this.symmetry, { x, y }, this.anchor)) return false;
     if (this.roadDistance(x, y, footprint + 2) < footprint + 1) return false;
     for (const m of this.markers) if (Math.hypot(m.x - x, m.y - y) < MARKER_CLEARANCE + footprint) return false;
     const t = this.doc.terrain;
@@ -188,14 +192,29 @@ export class LandscapeStroke {
 
   addObject(o: Omit<MapObject, 'id'>): MapObject {
     const object = { ...o, id: this.ids.take() } as MapObject;
-    this.doc.objects.push(object);
-    this.added.push(object);
-    this.grid.add(object);
+    const t = this.doc.terrain;
+    const images = this.symmetry === 'none' ? [] : objectImages([object], symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), () => this.ids.take(), t.width / 2, t.depth / 2);
+    for (const placed of [object, ...images]) {
+      this.doc.objects.push(placed);
+      this.added.push(placed);
+      this.grid.add(placed);
+    }
     return object;
   }
 
-  /** Tell the view what a dab changed */
-  changed(change: DocChange): void {
+  /** Tell the view what a dab changed; with the pointer's position the dab is copied to its symmetric images */
+  changed(dab: DocChange, center?: MapPoint): void {
+    const change =
+      center && this.symmetry !== 'none'
+        ? mirrorChange(
+            this.doc,
+            this.symmetry,
+            center,
+            dab,
+            { heights: (r) => this.touchHeights(r), splat: (r) => this.touchSplat(r), water: (r) => this.touchWater(r) },
+            dab.water ? dab.heights : undefined,
+          )
+        : dab;
     this.change = mergeChanges(this.change, change);
     this.editor.emit(change);
   }

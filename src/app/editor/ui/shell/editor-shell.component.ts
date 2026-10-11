@@ -12,6 +12,7 @@ import {
 } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent, type TdIconName } from '../../../components/icon/icon.component';
+import { SYMMETRY_MODES, type SymmetryMode } from '../../ops/symmetry';
 import { TOOLS, type ToolId } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { CheckPanelComponent } from '../panels/check-panel.component';
@@ -82,6 +83,14 @@ export class EditorShellComponent implements OnDestroy {
   readonly tools = TOOLS;
   readonly icons = TOOL_ICON;
   readonly fileMenu = signal(false);
+  readonly symmetryModes = SYMMETRY_MODES;
+  readonly symmetry = computed(() => (this.session.settingsRev(), this.session.settings.symmetry));
+  readonly symmetryHint = computed(() => {
+    const doc = (this.session.docRev(), this.session.doc);
+    const m = SYMMETRY_MODES.find((s) => s.id === this.symmetry())!;
+    const square = !doc || doc.terrain.grid.columns === doc.terrain.grid.rows;
+    return m.id === 'rot4' && !square ? 'Turn 4 needs a square map: this one turns by 180 degrees' : `${m.hint} (M cycles)`;
+  });
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
 
   readonly title = computed(() => this.session.meta()?.name ?? '');
@@ -102,6 +111,11 @@ export class EditorShellComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.session.detachViewport();
+  }
+
+  setSymmetry(mode: SymmetryMode): void {
+    this.session.patchSettings((s) => (s.symmetry = mode));
+    this.session.flash(mode === 'none' ? 'Symmetry off' : `Symmetry: ${SYMMETRY_MODES.find((m) => m.id === mode)!.label}`);
   }
 
   pick(id: ToolId): void {
@@ -128,6 +142,10 @@ export class EditorShellComponent implements OnDestroy {
       const tool = TOOLS.find((t) => t.key === e.key);
       if (tool) return this.handled(e, () => this.pick(tool.id));
       if (k === 'v' && !e.shiftKey && s.tool() !== 'objects') return this.handled(e, () => void this.check());
+      if (k === 'm' && !e.shiftKey) {
+        const i = SYMMETRY_MODES.findIndex((m) => m.id === s.settings.symmetry);
+        return this.handled(e, () => this.setSymmetry(SYMMETRY_MODES[(i + 1) % SYMMETRY_MODES.length].id));
+      }
     }
     if (s.viewport?.key(e)) {
       e.preventDefault();

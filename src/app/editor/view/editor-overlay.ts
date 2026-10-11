@@ -27,6 +27,7 @@ import { TD_THEME } from '../../styles/td-theme';
 import type { CustomMapDocument, MapPoint } from '../../world/custom-map/map-document';
 import type { Selection } from '../model/editor-document';
 import { pointAt, polylineLength, type Route } from '../ops/path-graph';
+import type { SymmetryMode } from '../ops/symmetry';
 
 const RING_SEGMENTS = 72;
 const PREVIEW_DOTS = 600;
@@ -51,6 +52,9 @@ export class EditorOverlay {
   private dots: InstancedMesh | null = null;
   /** Where a brush would grow things, a hint under the cursor */
   private readonly preview: InstancedMesh;
+  /** The symmetry's axes, draped on the ground */
+  private readonly guides = new Group();
+  private readonly guideMaterial = new LineBasicMaterial({ color: TD_THEME.tealLight, depthTest: false, transparent: true, opacity: 0.55 });
   private readonly previewMaterial = new MeshBasicMaterial({ color: TD_THEME.brassLight, depthTest: false, transparent: true, opacity: 0.7 });
   private routePaths: { points: MapPoint[]; length: number }[] = [];
   private readonly nodeGeometry = new SphereGeometry(1, 10, 8);
@@ -77,7 +81,7 @@ export class EditorOverlay {
     this.preview.count = 0;
     this.preview.frustumCulled = false;
     this.preview.renderOrder = 12;
-    this.group.add(this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview);
+    this.group.add(this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview);
   }
 
   /** The brush ring at a map point, draped on the ground; radius 0 hides it */
@@ -184,6 +188,35 @@ export class EditorOverlay {
   }
 
   /** The routes to show, with dots moving toward the HQ */
+  /** Guide lines for a symmetry mode across a map of this size */
+  setSymmetry(mode: SymmetryMode, width: number, depth: number): void {
+    clear(this.guides);
+    if (mode === 'none') return;
+    const hw = width / 2;
+    const hd = depth / 2;
+    const lines: [MapPoint, MapPoint][] = [];
+    if (mode === 'x' || mode === 'xy' || mode === 'rot2' || mode === 'rot4') lines.push([{ x: 0, y: -hd }, { x: 0, y: hd }]);
+    if (mode === 'y' || mode === 'xy' || mode === 'rot2' || mode === 'rot4') lines.push([{ x: -hw, y: 0 }, { x: hw, y: 0 }]);
+    if (mode === 'rot4') {
+      const m = Math.min(hw, hd);
+      lines.push([{ x: -m, y: -m }, { x: m, y: m }], [{ x: -m, y: m }, { x: m, y: -m }]);
+    }
+    for (const [a, b] of lines) {
+      const steps = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6));
+      const pos = new Float32Array((steps + 1) * 3);
+      for (let k = 0; k <= steps; k++) {
+        const x = a.x + ((b.x - a.x) * k) / steps;
+        const y = a.y + ((b.y - a.y) * k) / steps;
+        pos.set([-x, this.height(x, y) + 0.8, y], k * 3);
+      }
+      const line = new Line(new BufferGeometry(), this.guideMaterial);
+      line.geometry.setAttribute('position', new BufferAttribute(pos, 3));
+      line.renderOrder = 8;
+      line.frustumCulled = false;
+      this.guides.add(line);
+    }
+  }
+
   /** Small dots on the ground in a colour (the biome brush's spots), none for null */
   setPreview(points: readonly MapPoint[] | null, color: string = TD_THEME.brassLight): void {
     if (!points?.length) {

@@ -3,7 +3,8 @@
  * a dab at the pointer, written straight into the map's arrays. The tiles a
  * dab reaches are saved first; at the end the stroke becomes one undo step.
  */
-import type { CustomMapDocument } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapPoint } from '../../world/custom-map/map-document';
+import { mirrorChange, type SymmetryMode } from '../ops/symmetry';
 import { PatchCommand, patchArray, patchLayout, type DocChange, type EditorDocument, type PatchTarget } from '../model/editor-document';
 import { rectUnion, type GridRect } from '../model/grid';
 import { RegionRecorder, type PatchArray } from '../model/region-patch';
@@ -16,6 +17,8 @@ export class BrushStroke {
     private readonly editor: EditorDocument,
     private readonly label: string,
     targets: readonly PatchTarget[],
+    /** Copy every dab to its symmetric images */
+    private readonly symmetry: SymmetryMode = 'none',
   ) {
     const doc = editor.doc;
     for (const t of targets) this.recorders.set(t, new RegionRecorder(patchArray(doc, t), patchLayout(doc, t)));
@@ -30,8 +33,19 @@ export class BrushStroke {
     this.recorders.get(target)?.touch(rect);
   }
 
-  /** Tell the view about a dab */
-  changed(change: DocChange): void {
+  /** Tell the view about a dab; with the pointer's position the dab is copied to its symmetric images */
+  changed(dab: DocChange, center?: MapPoint, waterRect?: GridRect): void {
+    const change =
+      center && this.symmetry !== 'none'
+        ? mirrorChange(this.doc, this.symmetry, center, dab, {
+            heights: (r) => this.touch('heights', r),
+            splat: (r) => {
+              this.touch('splat0', r);
+              this.touch('splat1', r);
+            },
+            water: (r) => this.touch('water', r),
+          }, waterRect)
+        : dab;
     this.change = {
       ...this.change,
       ...change,

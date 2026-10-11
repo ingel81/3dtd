@@ -34,6 +34,15 @@
         </div>
       }
     </div>
+    <span class="td-tool-gap"></span>
+    <label class="es-sym" [matTooltip]="symmetryHint()">
+      <span class="td-caps">Symmetry</span>
+      <select class="td-select is-auto td-btn-sm" [value]="symmetry()" (change)="setSymmetry($any($event.target).value)" aria-label="Symmetry" data-test="symmetry">
+        @for (m of symmetryModes; track m.id) {
+          <option [value]="m.id" [selected]="symmetry() === m.id">{{ m.label }}</option>
+        }
+      </select>
+    </label>
     <span class="es-spacer"></span>
     <button class="td-btn-secondary td-btn-sm" type="button" (click)="check()" matTooltip="Check the map for problems (V)" data-test="check">
       Check

@@ -15,6 +15,7 @@ import {
   terraceDab,
   type RampEnd,
 } from '../ops/terrain-ops';
+import { symmetryImages } from '../ops/symmetry';
 import { BrushStroke } from './brush-stroke';
 import { TERRAIN_MODES, type EditorTool, type ToolContext, type ToolPointer } from './tool';
 
@@ -55,7 +56,7 @@ export class TerrainTool implements EditorTool {
       return true;
     }
     const mode = TERRAIN_MODES.find((m) => m.id === s.mode)!;
-    this.stroke = new BrushStroke(ctx.editor, mode.label, ['heights']);
+    this.stroke = new BrushStroke(ctx.editor, mode.label, ['heights'], ctx.settings.symmetry);
     this.invert = p.shift;
     this.seed = Math.floor(Math.random() * 1e6);
     if (s.mode === 'flatten') this.target = p.hit.z;
@@ -116,7 +117,7 @@ export class TerrainTool implements EditorTool {
       default:
         return;
     }
-    stroke.changed({ heights: rect });
+    stroke.changed({ heights: rect }, { x, y });
   }
 
 
@@ -144,8 +145,13 @@ export class TerrainTool implements EditorTool {
     ctx.overlay.setDraft(null);
     const stroke = new BrushStroke(ctx.editor, 'Ramp', ['heights']);
     const t = stroke.doc.terrain;
-    const rect = rampBetween(t, a, b, ctx.settings.terrain.rampWidth, ctx.settings.brush.falloff, (r) => stroke.touch('heights', r));
-    if (rect) stroke.changed({ heights: rect });
+    // A symmetric map gets the ramp at every image, each built from its own ends
+    for (const img of symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows)) {
+      const ia = { ...img.point(a), h: a.h };
+      const ib = { ...img.point(b), h: b.h };
+      const rect = rampBetween(t, ia, ib, ctx.settings.terrain.rampWidth, ctx.settings.brush.falloff, (r) => stroke.touch('heights', r));
+      if (rect) stroke.changed({ heights: rect });
+    }
     stroke.finish();
   }
 

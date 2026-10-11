@@ -8,6 +8,7 @@ import type { MapPoint, MapSpawn } from '../../world/custom-map/map-document';
 import { SnapshotCommand, type DocParts, type EditCommand, type EditorDocument } from '../model/editor-document';
 import { insideMap } from '../model/grid';
 import { nearestOnEdges, newId } from '../ops/path-graph';
+import { symmetryImages } from '../ops/symmetry';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
 /** Names for new spawns by compass side */
@@ -58,7 +59,11 @@ export class MarkerTool implements EditorTool {
       editor.execute(markerCommands.moveHq(editor, point));
       editor.select({ kind: 'hq' });
     } else {
-      const command = markerCommands.addSpawn(editor, point);
+      const t = editor.doc.terrain;
+      const points = symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows)
+        .map((img) => img.point(point))
+        .filter((q, k, all) => all.findIndex((o) => Math.hypot(o.x - q.x, o.y - q.y) < 1) === k);
+      const command = markerCommands.addSpawn(editor, points);
       editor.execute(command.command);
       editor.select({ kind: 'spawn', id: command.id });
     }
@@ -133,12 +138,17 @@ export const markerCommands = {
   moveHq(editor: EditorDocument, p: MapPoint): EditCommand {
     return SnapshotCommand.record(editor.doc, 'Move HQ', ['hq'], (d) => (d.hq = { x: p.x, y: p.y }));
   },
-  addSpawn(editor: EditorDocument, p: MapPoint): { command: EditCommand; id: string } {
-    const id = newId('s', editor.doc.spawns);
-    const command = SnapshotCommand.record(editor.doc, 'Add spawn', ['spawns'], (d) => {
-      d.spawns.push({ id, name: spawnName(d, p, d.spawns), x: p.x, y: p.y });
+  /** Spawns at the points (the first is the one clicked, the rest its symmetric images); returns the first id */
+  addSpawn(editor: EditorDocument, points: readonly MapPoint[]): { command: EditCommand; id: string } {
+    let first = '';
+    const command = SnapshotCommand.record(editor.doc, points.length > 1 ? 'Add spawns' : 'Add spawn', ['spawns'], (d) => {
+      for (const p of points) {
+        const id = newId('s', d.spawns);
+        first ||= id;
+        d.spawns.push({ id, name: spawnName(d, p, d.spawns), x: p.x, y: p.y });
+      }
     });
-    return { command, id };
+    return { command, id: first };
   },
   removeSpawn(editor: EditorDocument, id: string): EditCommand {
     return SnapshotCommand.record(editor.doc, 'Delete spawn', ['spawns'], (d) => (d.spawns = d.spawns.filter((s) => s.id !== id)));
