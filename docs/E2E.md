@@ -16,7 +16,9 @@ Einmalig: `npm install` in `e2e/` und `npm run setup` dort (Chromium von Playwri
 Ein ganzer Lauf dauert rund eine halbe Stunde; das meiste ist das Laden der Karte und Warten auf Wellen.
 
 Kein Relay darf auf Port 3003 laufen: jeder Test startet seinen eigenen (`npm run coop-server`, bei Bedarf
-`--no-cheats`) und stoppt ihn danach.
+`--no-cheats`) und stoppt ihn danach. Neben einem anderen Lauf nimmt `E2E_RELAY_PORT=<port>` einen anderen Port; die
+Seiten bekommen ihn dann als `&relay=ws://localhost:<port>` im Link (`relayQuery` in `support/game.ts`). Ein anderer
+Dev-Server geht über `GAME_URL=http://localhost:<port>`.
 
 ## Kartensitzungen
 

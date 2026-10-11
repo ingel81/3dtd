@@ -11,7 +11,18 @@ import { fileURLToPath } from 'node:url';
 /** Stuttgart centre: streets all round, quick tiles */
 export const DEFAULT_PLACE = '48.7758,9.1829';
 const REPO = fileURLToPath(new URL('../../', import.meta.url));
-const RELAY_PORT = 3003;
+/** The port the game looks for the relay on by itself (coop/relay-address.ts) */
+const DEFAULT_RELAY_PORT = 3003;
+/**
+ * The tests' relay: on 3003, or on E2E_RELAY_PORT for a run beside another
+ * relay; the pages then name it in their link (`relayQuery`)
+ */
+export const RELAY_PORT = Number(process.env['E2E_RELAY_PORT'] ?? DEFAULT_RELAY_PORT);
+
+/** `&relay=…` for a page's link when the tests' relay is not where the game looks by itself, else '' */
+export function relayQuery(): string {
+  return RELAY_PORT === DEFAULT_RELAY_PORT ? '' : `&relay=${encodeURIComponent(`ws://localhost:${RELAY_PORT}`)}`;
+}
 
 // === The game ===
 
@@ -42,7 +53,7 @@ export async function openGame(browser: Browser, options: OpenOptions = {}): Pro
     localStorage.setItem('td_globe_quality_v1', '"off"');
     for (const [key, value] of Object.entries(extra)) localStorage.setItem(key, value);
   }, storage);
-  await page.goto(`/?l=${place}${query}`);
+  await page.goto(`/?l=${place}${query}${relayQuery()}`);
   if (ready) await gameReady(page);
   return page;
 }
@@ -150,14 +161,16 @@ export async function relayUp(): Promise<boolean> {
   }
 }
 
-/** `npm run coop-server` (with --no-cheats where `cheats` is false); none may run on its port */
+/** `npm run coop-server` on RELAY_PORT (with --no-cheats where `cheats` is false); none may run on its port */
 export async function startRelay({ cheats = true } = {}): Promise<Relay> {
   // The last test's relay may still be going down
   for (let i = 0; i < 30 && (await relayUp()); i++) await new Promise((r) => setTimeout(r, 500));
   if (await relayUp()) throw new Error(`A relay runs on port ${RELAY_PORT} already; stop it first`);
   // The relay appends to the day's log: this relay's part starts where the file ends now
   const sizes = relayLogSizes();
-  const child: ChildProcess = spawn(`npm run coop-server${cheats ? '' : ' -- --no-cheats'}`, { cwd: REPO, shell: true, stdio: 'ignore' });
+  const args = [...(RELAY_PORT === DEFAULT_RELAY_PORT ? [] : ['--port', String(RELAY_PORT)]), ...(cheats ? [] : ['--no-cheats'])];
+  const command = `npm run coop-server${args.length ? ` -- ${args.join(' ')}` : ''}`;
+  const child: ChildProcess = spawn(command, { cwd: REPO, shell: true, stdio: 'ignore' });
   for (let i = 0; i < 50 && !(await relayUp()); i++) await new Promise((r) => setTimeout(r, 200));
   if (!(await relayUp())) throw new Error('The relay did not start');
   const logPath = newestRelayLog();
