@@ -103,6 +103,13 @@ einen zugefrorenen See (Eisfläche), Eisfischerhütten, Holzstapel, Schlitten. D
 über das Eis (Gegner laufen übers Eis). Spawns: 2. Bauflächen: Seeufer, Dorfplatz.
 
 ### 7 Vulkankrater (`ember-crater`)
+**Gebaut** (`tools/maps/levels/ember-crater.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 454 von 500,
+19 Tower), Spielansicht 698 fps, Laden 4,7 s am Dev-Server. Spuren 772, 402 und 609 m. Bilder:
+`docs/images/levels/ember-crater.jpg`, `ember-crater-game.jpg`. Der Krater ist ein Strich des Crater-Pinsels (200 m),
+der Lavasee mit „Dig lake“ in einen Lava-Körper gegraben; die Lavabrücke ist das Modell über einem Damm aus zwei
+Rampen bis zu seinem Deck, der Weg ist eine Straße darauf. Lavaströme nur außen am Hang (sie würden die Spirale
+schneiden).
+
 Biom Hölle/Vulkan, Look `hell`. Ein großer Krater mit Lavasee; ein Spiralweg führt vom Kraterrand hinab zum HQ auf
 einer Obsidianinsel im Lavasee, über eine Lavabrücke. Glutrisse, Lavaströme, Schmiede am Rand, Rauchsäulen. Spawns: 3
 am Kraterrand, die Wege münden in die Spirale. Bauflächen: Terrassen zwischen den Spiralwindungen.

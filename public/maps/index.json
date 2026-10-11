@@ -97,6 +97,20 @@
       "biome": "arctic",
       "updatedAt": "2026-10-11T00:00:00.000Z",
       "contentHash": "d136bba5ad88a4399b99eb7b8c8d393a43ff6582d954fccb87d75c8cd3e6da2d"
+    },
+    {
+      "id": "ember-crater",
+      "name": "Ember Crater",
+      "file": "ember-crater.3dtdmap",
+      "preview": "ember-crater.png",
+      "author": "3DTD",
+      "description": "A road spirals down a volcano's crater to the HQ on an obsidian island in a lava lake. Three spawns on the outer slopes join the spiral.",
+      "width": 512,
+      "depth": 512,
+      "spawns": 3,
+      "biome": "hell",
+      "updatedAt": "2026-10-11T00:00:00.000Z",
+      "contentHash": "112d127f11f249f03ceda3ad6166dbe0d8923a25156745c92520c1d12da37555"
     }
   ]
 }
