@@ -3,7 +3,7 @@ import { Group, Vector3 } from 'three';
 
 // Zellen-Stub, pro Test steuerbar: `ready` = Grid initialisiert, `cellY` = Zellhöhe,
 // `column` = die eingefrorene Säule an einem lokalen Punkt, aus der das Band gebaut wird.
-// DevWorld, pro Test umschaltbar.
+// DevWorld, pro Test umschaltbar: die Straßen-Darstellung der Welt des Engines.
 const devWorld = vi.hoisted(() => ({ isActive: false }));
 const grid = vi.hoisted(() => ({
   ready: false,
@@ -17,7 +17,6 @@ const grid = vi.hoisted(() => ({
 vi.mock('@angular/core', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('@angular/core');
   const stubs: Record<string, unknown> = {
-    DevWorldService: devWorld,
     UIStore: { routesVisible: () => false },
     GlobalRouteGridService: {
       isInitialized: () => grid.ready,
@@ -36,6 +35,8 @@ vi.mock('@angular/core', async () => {
 });
 
 import { PathAndRouteService } from './path-route.service';
+import { TILES_STREET_STYLE } from '../../world/tiles/tiles-world';
+import { DEV_WORLD_STREET_STYLE } from '../../devworld/dev-world-provider';
 import { OsmStreetService, StreetNetwork, StreetNode } from '../location/osm-street.service';
 import { SpawnPoint } from './marker-visualization.service';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
@@ -125,6 +126,11 @@ function makeEngine(): ThreeTilesEngine {
       geoToLocalSimple: (lat: number, lon: number, h: number) => {
         const m = toMeters({ lat, lon });
         return new Vector3(m.x, h, -m.z);
+      },
+    },
+    world: {
+      get streetStyle() {
+        return devWorld.isActive ? DEV_WORLD_STREET_STYLE : TILES_STREET_STYLE;
       },
     },
   } as unknown as ThreeTilesEngine;

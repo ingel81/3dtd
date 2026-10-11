@@ -6,14 +6,17 @@ import {
   MeshBasicMaterial,
   PerspectiveCamera,
   PlaneGeometry,
+  Raycaster,
   Vector3,
   type Object3D,
   type WebGLRenderer,
 } from 'three';
 import type { TilesRenderer } from '3d-tiles-renderer';
-import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { instrumentRaycasts, raycastStats } from '../utils/raycast-stats';
+import type { WorldSurface } from '../world/world-provider';
+import type { EllipsoidSync } from './ellipsoid-sync';
 import { ScreenPicker } from './screen-picker';
+import { TerrainQueries } from './terrain-queries';
 
 const material = new MeshBasicMaterial({ side: DoubleSide });
 
@@ -50,22 +53,22 @@ function setup() {
   group.add(floor());
   group.updateMatrixWorld(true);
   let tiles: TilesRenderer | null = { group } as unknown as TilesRenderer;
-  let devTerrain: TerrainProvider | null = null;
   let towerMeshes: { id: string; mesh: Object3D }[] = [];
+  // The tiles world's surface; another world brings its own (useOtherWorld)
+  let ground: Pick<WorldSurface, 'pickRay'> = new TerrainQueries({} as EllipsoidSync, { tiles: () => tiles });
 
   const picker = new ScreenPicker(camera, renderer, { getAllMeshes: () => towerMeshes }, {
-    tiles: () => tiles,
-    devTerrain: () => devTerrain,
+    pickRay: (raycaster) => ground.pickRay(raycaster),
   });
 
   return {
     picker, camera, renderer, group,
     setTowers: (meshes: { id: string; mesh: Object3D }[]) => { towerMeshes = meshes; },
     dropTiles: () => { tiles = null; },
-    useDevWorld: () => {
-      tiles = null;
-      devTerrain = { raycastFromScreen: vi.fn(() => new Vector3(1, 2, 3)) } as unknown as TerrainProvider;
-      return devTerrain;
+    useOtherWorld: () => {
+      const surface = { pickRay: vi.fn((_ray: Raycaster) => new Vector3(1, 2, 3)) };
+      ground = surface;
+      return surface;
     },
   };
 }
@@ -105,12 +108,14 @@ describe('ScreenPicker', () => {
       ]);
     });
 
-    it('fragt in DevWorld den DevTerrainProvider mit Kamera und Renderer', () => {
-      const { picker, camera, renderer, useDevWorld } = setup();
-      const devTerrain = useDevWorld();
+    it('gibt einer anderen Welt (DevWorld) einen frischen Strahl durch den Punkt', () => {
+      const { picker, camera, useOtherWorld } = setup();
+      const surface = useOtherWorld();
 
       expect(picker.raycastTerrain(CENTER.x, CENTER.y)?.toArray()).toEqual([1, 2, 3]);
-      expect(devTerrain.raycastFromScreen).toHaveBeenCalledWith(CENTER.x, CENTER.y, camera, renderer);
+      const ray = surface.pickRay.mock.calls[0][0];
+      expect(ray.ray.origin.toArray()).toEqual(camera.position.toArray());
+      expect(ray.far).toBe(Infinity);
     });
   });
 

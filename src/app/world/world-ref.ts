@@ -42,3 +42,34 @@ export function worldLabel(ref: WorldRef): string {
       return `map ${ref.name ?? ref.mapId}`;
   }
 }
+
+/** URL parameter naming a world other than the default: `?world=map:<id>` */
+export const WORLD_URL_PARAM = 'world';
+
+/**
+ * The custom map a link asks for (`?world=map:<id>`), null for none. The
+ * content hash comes from the stored map when it is opened; the link does
+ * not carry it.
+ */
+export function customMapRefFromSearch(search: string): WorldRef | null {
+  const value = new URLSearchParams(search).get(WORLD_URL_PARAM);
+  const id = value?.startsWith('map:') ? value.slice(4).trim() : '';
+  return id ? { kind: 'custom-map', mapId: id, contentHash: '' } : null;
+}
+
+/** The `?world=` value of a ref, null for the worlds without one (tiles, DevWorld has `?devworld`) */
+export function worldUrlValue(ref: WorldRef): string | null {
+  return ref.kind === 'custom-map' ? `map:${ref.mapId}` : null;
+}
+
+/** The name a world of its own shows where a real place shows its address; null for the tiles */
+export function worldPlaceName(ref: WorldRef): string | null {
+  switch (ref.kind) {
+    case 'tiles':
+      return null;
+    case 'devworld':
+      return 'Dev world';
+    case 'custom-map':
+      return ref.name ?? ref.mapId;
+  }
+}

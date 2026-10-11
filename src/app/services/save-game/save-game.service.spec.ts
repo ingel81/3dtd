@@ -11,7 +11,6 @@ import { LocationManagementService } from '../location/location-management.servi
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { WaveDirector } from '../../director/wave-director';
 import { RunLogFacade } from '../../run-log/run-log.facade';
-import { DevWorldService } from '../../devworld/devworld.service';
 import { GameStore } from '../../store/game.store';
 import { UIStore } from '../../store/ui.store';
 import { CoopService } from '../coop.service';
@@ -22,6 +21,8 @@ import { buildSaveFile, type SaveFile } from '../../simulator/save-file';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { balanceConfigHash } from '../../run-log/config-hash';
 import type { GamePhase } from '../../models/game.types';
+import { WorldContext } from '../../world/world-context.service';
+import { fakeWorldContext } from '../../../test/world-context-fake';
 
 /**
  * The save game in the running game (TODO E110), on stand-ins: when saving
@@ -123,7 +124,7 @@ function setup(options: { inCoop?: boolean } = {}) {
       { provide: EngineInitializationService, useValue: { getEngine: () => ({}), loading: signal(false) } },
       { provide: WaveDirector, useValue: director },
       { provide: RunLogFacade, useValue: runLog },
-      { provide: DevWorldService, useValue: { isActive: false } },
+      { provide: WorldContext, useValue: fakeWorldContext() },
       { provide: GameStore, useValue: { phase, isGameOver: signal(false) } },
       { provide: UIStore, useValue: { replayMode: signal(false) } },
       { provide: CoopService, useValue: { room: signal(options.inCoop ? {} : null), inGame: signal(false) } },

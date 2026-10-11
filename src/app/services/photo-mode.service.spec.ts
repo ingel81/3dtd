@@ -14,7 +14,7 @@ vi.mock('./location/location-management.service', () => ({
   LocationManagementService: class LocationManagementService {},
 }));
 vi.mock('../core/services/config.service', () => ({ ConfigService: class ConfigService {} }));
-vi.mock('../devworld/devworld.service', () => ({ DevWorldService: class DevWorldService {} }));
+vi.mock('../world/world-context.service', () => ({ WorldContext: class WorldContext {} }));
 vi.mock('../store/ui.store', () => ({ UIStore: class UIStore {} }));
 vi.mock('../store/tower-defense.store', () => ({ TowerDefenseStore: class TowerDefenseStore {} }));
 
@@ -48,7 +48,8 @@ import { AbilityTargetingService } from './ability-targeting.service';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { LocationManagementService } from './location/location-management.service';
 import { ConfigService } from '../core/services/config.service';
-import { DevWorldService } from '../devworld/devworld.service';
+import { WorldContext } from '../world/world-context.service';
+import { tilesLogos } from '../world/tiles/tiles-world';
 import { UIStore } from '../store/ui.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 
@@ -91,7 +92,7 @@ describe('PhotoModeService focus', () => {
         { provide: EngineInitializationService, useValue: { getEngine: () => engine } },
         { provide: LocationManagementService, useValue: {} },
         { provide: ConfigService, useValue: {} },
-        { provide: DevWorldService, useValue: {} },
+        { provide: WorldContext, useValue: { logos: () => [] } },
         { provide: LiveAnnouncer, useValue: { announce } },
         { provide: ElementRef, useValue: new ElementRef(host) },
       ],
@@ -204,7 +205,8 @@ describe('PhotoModeService screenshot', () => {
         { provide: EngineInitializationService, useValue: { getEngine: () => ({ captureFrame: async () => frame }) } },
         { provide: LocationManagementService, useValue: { displayName: () => 'Paris' } },
         { provide: ConfigService, useValue: { tileProvider: () => tileProvider } },
-        { provide: DevWorldService, useValue: { isActive: devWorld } },
+        // The world's logos: the tiles' by their source, none in DevWorld
+        { provide: WorldContext, useValue: { logos: () => (devWorld ? [] : tilesLogos(tileProvider)) } },
         { provide: LiveAnnouncer, useValue: { announce: vi.fn() } },
         { provide: ElementRef, useValue: new ElementRef(document.createElement('div')) },
       ],

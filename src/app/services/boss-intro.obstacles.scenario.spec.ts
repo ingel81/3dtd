@@ -98,7 +98,7 @@ function tilesWorld() {
   const group = new Group();
   const activeTiles = new Set<object>();
   const tiles = { group, activeTiles } as unknown as TilesRenderer;
-  const terrain = new TerrainQueries({} as EllipsoidSync, { tiles: () => tiles, devTerrain: () => null });
+  const terrain = new TerrainQueries({} as EllipsoidSync, { tiles: () => tiles });
   const material = new MeshBasicMaterial();
   const houses: House[] = [];
   const crowns: { centre: ShotPoint; radius: number }[] = [];

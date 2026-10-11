@@ -31,6 +31,7 @@ vi.mock('../utils/tower-los-viz', () => ({
   },
 }));
 
+import { DevWorldSurface } from '../devworld/dev-world-surface';
 import { TowerPlacementService } from './tower-placement.service';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
@@ -113,10 +114,10 @@ describe('Build preview with a plinth on a spot too close to the route (playtest
     };
     const engine = {
       sync,
-      terrain: { raycastColumnSample: vi.fn(() => null) },
+      // DevWorld's surface over the slope
+      terrain: new DevWorldSurface(devTerrain as never, sync as never),
       getOverlayGroup: () => overlay,
       getScene: () => ({}),
-      getDevTerrainProvider: () => devTerrain,
       getLosBlockerGroup: () => ({}),
       getTowerShadowMapper: () => ({
         invalidate: vi.fn(), update: vi.fn(), getRenderTarget: () => ({}),

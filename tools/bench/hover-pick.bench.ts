@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { PerspectiveCamera, Vector3, type Object3D, type WebGLRenderer } from 'three';
 import { TOWER_TYPES, type TowerTypeId } from '../../src/app/configs/tower-types.config';
 import { ScreenPicker, type PickableTowers } from '../../src/app/three-engine/screen-picker';
-import type { TerrainSources } from '../../src/app/three-engine/terrain-queries';
+import type { WorldSurface } from '../../src/app/world/world-provider';
 import { loadGlb } from '../model-budget/glb-node.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -48,7 +48,7 @@ camera.updateMatrixWorld(true);
 const renderer = {
   domElement: { getBoundingClientRect: () => ({ left: 0, top: 0, width: WIDTH, height: HEIGHT }) },
 } as unknown as WebGLRenderer;
-const noTerrain = {} as TerrainSources;
+const noTerrain: Pick<WorldSurface, 'pickRay'> = { pickRay: () => null };
 
 /** `count` towers on a 20 m grid around the HQ, the types in turn, like create() builds them. */
 function towers(count: number): { id: string; mesh: Object3D }[] {

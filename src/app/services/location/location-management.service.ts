@@ -2,7 +2,8 @@ import { Injectable, signal, inject, computed, effect, untracked, isDevMode } fr
 import { SpawnLocationConfig, FavoriteLocation, SavedSpawn } from '../../models/location.types';
 import { GeocodingService, NominatimAddress } from './geocoding.service';
 import { MissionInfo } from '../../components/main-menu/loading/boot-step.model';
-import { DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
+import { WorldContext } from '../../world/world-context.service';
+import { worldPlaceName } from '../../world/world-ref';
 import { COORD_DECIMALS, canonicalCoords } from '../../utils/geo-utils';
 import { PathAndRouteService } from '../world/path-route.service';
 import {
@@ -22,8 +23,6 @@ import {
 /** Header text while no location is set */
 export const NO_LOCATION_NAME = 'No location';
 
-/** What DevWorld's place is called (header, menu, loading plate) */
-export const DEV_WORLD_NAME = 'Dev world';
 /** Header text while the reverse geocode of a new HQ runs */
 export const LOADING_NAME = 'Loading...';
 
@@ -54,6 +53,7 @@ export function formatShowcaseLine(hq: { lat: number; lon: number } | null, spaw
 @Injectable({ providedIn: 'root' })
 export class LocationManagementService {
   private readonly geocoding = inject(GeocodingService);
+  private readonly worldContext = inject(WorldContext);
   private readonly pathRoute = inject(PathAndRouteService);
 
   // Current location (just coordinates) - null means no location set
@@ -181,9 +181,10 @@ export class LocationManagementService {
    */
   private async resolveDisplayName(lat: number, lon: number): Promise<void> {
     this.address.set(null);
-    // DevWorld's fake origin has no address: its name, not "0.0000, 0.0000"
-    if (lat === DEV_WORLD_ORIGIN.lat && lon === DEV_WORLD_ORIGIN.lon) {
-      this.displayName.set(DEV_WORLD_NAME);
+    // A world of its own (DevWorld, a map) has no address: its name, not "0.0000, 0.0000"
+    const ownName = worldPlaceName(this.worldContext.ref());
+    if (ownName !== null) {
+      this.displayName.set(ownName);
       return;
     }
     this.displayName.set(LOADING_NAME);
@@ -302,13 +303,13 @@ export class LocationManagementService {
     }
   }
 
-  /** Put a location on top of the recent list and persist it. DevWorld's fake origin is skipped. */
+  /** Put a location on top of the recent list and persist it. Only a real place: a world of its own is skipped. */
   recordRecent(
     hq: { lat: number; lon: number },
     spawns: { lat: number; lon: number }[],
     name: string,
   ): void {
-    if (hq.lat === DEV_WORLD_ORIGIN.lat && hq.lon === DEV_WORLD_ORIGIN.lon) return;
+    if (!this.worldContext.capabilities().realPlace) return;
     const next = addRecentLocation(this.recents(), {
       hq: { lat: hq.lat, lon: hq.lon },
       spawns: spawns.map((s) => ({ lat: s.lat, lon: s.lon })),

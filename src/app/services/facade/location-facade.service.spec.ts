@@ -6,14 +6,17 @@ vi.mock('../../utils/spawn-label', () => ({ spawnLabel: vi.fn(() => 'Damrak') })
 
 import { LocationFacadeService, VizCallbacks } from './location-facade.service';
 import { MapRelocationService } from './map-relocation.service';
-import { OsmStreetService } from '../location/osm-street.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { LocationManagementService } from '../location/location-management.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { UrlLocationService } from '../location/url-location.service';
-import { DevWorldService, DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
+import { WorldContext } from '../../world/world-context.service';
+import { TILES_CAPABILITIES } from '../../world/tiles/tiles-world';
+import { DEV_WORLD_CAPABILITIES } from '../../devworld/dev-world-provider';
+import type { WorldCapabilities, WorldStartLayout } from '../../world/world-provider';
+import { fakeWorldContext } from '../../../test/world-context-fake';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { WaveDebugService } from '../debug/wave-debug.service';
@@ -30,7 +33,6 @@ import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { PresentationService } from '../../presentation/presentation.service';
 import { storedPlace, type PlacedChoice } from '../location/place-choice';
-import type { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
 
 /**
  * The location sub-facade decides where the game starts (DevWorld, URL, the
@@ -49,6 +51,9 @@ const OLD_SPAWN: SpawnPoint = { id: 'spawn-1', name: 'Damrak', lat: 48.79, lon: 
 
 interface Spawn { lat: number; lon: number }
 
+/** DevWorld's layout in these tests: HQ at the origin, the generator's first spawn */
+const DEV_LAYOUT = { hq: { lat: 0, lon: 0 }, spawns: [{ id: 'dev-n', name: 'North', lat: 0.4, lon: 0.1 }] };
+
 describe('LocationFacadeService', () => {
   let facade: LocationFacadeService;
   let streetNetwork: { streets: unknown[]; bounds: typeof BOUNDS } | null;
@@ -58,10 +63,18 @@ describe('LocationFacadeService', () => {
   let vizCallbacks: { [K in keyof VizCallbacks]: ReturnType<typeof vi.fn> };
 
   const overlay = { name: 'overlay' };
+  /** The engine's world: the tiles, or DevWorld with its layout and regeneration (useDevWorld) */
+  const engineWorld = {
+    capabilities: TILES_CAPABILITIES as WorldCapabilities,
+    startLayout: vi.fn((): WorldStartLayout | null => null),
+    regenerate: vi.fn(async () => undefined),
+    streets: { loadStreets: vi.fn(async () => streetNetwork) },
+    sync: { getOrigin: () => ({ lat: 0, lon: 0, height: 0 }) },
+  };
   const engine = {
     getOverlayGroup: vi.fn(() => overlay),
     setOrigin: vi.fn(),
-    getDevTerrainProvider: vi.fn((): unknown => null),
+    world: engineWorld,
     terrain: { clearHeightCache: vi.fn() },
   };
   const bridge = {
@@ -80,11 +93,22 @@ describe('LocationFacadeService', () => {
   /** The presentation's host (HQ ground once the tiles are in) */
   const presentationHost = { onTilesLoaded: vi.fn() };
 
+  /** The world's streets; a spawn on the tiles is named after its street */
   const osm = {
     loadStreets: vi.fn(),
     findRandomStreetPoint: vi.fn(),
     findPath: vi.fn(),
     haversineDistance: vi.fn(() => 0),
+    spawnLabel: vi.fn((_network: unknown, _lat: number, _lon: number, _name: string) => 'Damrak'),
+  };
+  const worldContext = fakeWorldContext(osm);
+  /** Play DevWorld: its ref and capabilities, its streets keep the names, the engine's world regenerates */
+  const useDevWorld = (layout: WorldStartLayout = DEV_LAYOUT) => {
+    worldContext.useDevWorld();
+    engineWorld.capabilities = DEV_WORLD_CAPABILITIES;
+    engineWorld.startLayout.mockReturnValue(layout);
+    worldContext.setProvider(engineWorld as never);
+    osm.spawnLabel.mockImplementation((_network, _lat, _lon, name) => name);
   };
   const markerViz = {
     addSpawnMarker: vi.fn(),
@@ -123,12 +147,6 @@ describe('LocationFacadeService', () => {
     setLoading: vi.fn(),
   };
   const urlLocation = { parseFromUrl: vi.fn(), updateUrl: vi.fn() };
-  const devWorld = {
-    isActive: false,
-    config: { spawn: 'north', spawnCount: 1 },
-    localToGeo: vi.fn((x: number, z: number) => ({ lat: z / 1000, lon: x / 1000 })),
-    getSpawnPosition: vi.fn(() => ({ x: 10, z: 20 })),
-  };
   const routeAnimation = { stopAnimation: vi.fn(), startAnimation: vi.fn() };
   const streetRendering = { dispose: vi.fn() };
   const debugFacade = { appendDebugLog: vi.fn() };
@@ -176,13 +194,17 @@ describe('LocationFacadeService', () => {
     };
     bridge.getEngine.mockImplementation(() => engine);
     engineInit.getEngine.mockImplementation(() => null);
-    engine.getDevTerrainProvider.mockImplementation(() => null);
+    worldContext.useTiles();
+    worldContext.setProvider(null);
+    engineWorld.capabilities = TILES_CAPABILITIES;
+    engineWorld.startLayout.mockReturnValue(null);
+    engineWorld.streets.loadStreets.mockImplementation(async () => streetNetwork);
+    osm.spawnLabel.mockImplementation(() => 'Damrak');
     osm.findRandomStreetPoint.mockReturnValue(null);
     osm.findPath.mockReturnValue([OLD_SPAWN, HQ]);
     osm.haversineDistance.mockReturnValue(0);
     mapPlacement.handlePlacementClick.mockReturnValue(null);
     urlLocation.parseFromUrl.mockReturnValue(null);
-    devWorld.isActive = false;
     locationMgmt.hq.set(null);
     locationMgmt.spawns.set([]);
     locationMgmt.needsRandomSpawn.set(false);
@@ -211,14 +233,13 @@ describe('LocationFacadeService', () => {
 
     const injector = Injector.create({
       providers: [
-        { provide: OsmStreetService, useValue: osm },
+        { provide: WorldContext, useValue: worldContext },
         { provide: MarkerVisualizationService, useValue: markerViz },
         { provide: PathAndRouteService, useValue: pathRoute },
         { provide: LocationManagementService, useValue: locationMgmt },
         { provide: HeightUpdateService, useValue: heightUpdate },
         { provide: EngineInitializationService, useValue: engineInit },
         { provide: UrlLocationService, useValue: urlLocation },
-        { provide: DevWorldService, useValue: devWorld },
         { provide: RouteAnimationService, useValue: routeAnimation },
         { provide: StreetRenderingService, useValue: streetRendering },
         { provide: WaveDebugService, useValue: {} },
@@ -299,16 +320,16 @@ describe('LocationFacadeService', () => {
   });
 
   describe('initializeLocation', () => {
-    it('uses the fake origin in DevWorld without reading the URL', async () => {
-      devWorld.isActive = true;
+    it('uses the HQ of a world of its own (DevWorld) without reading the URL', async () => {
+      useDevWorld();
 
       await facade.initializeLocation();
 
-      const origin = { lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon };
+      const origin = { lat: 0, lon: 0 };
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(origin, []);
       expect(store.baseCoords()).toEqual(origin);
       expect(store.centerCoords()).toEqual({ ...origin, height: 400 });
-      expect(engineInit.setStepDone).toHaveBeenCalledWith('location', 'DevWorld');
+      expect(engineInit.setStepDone).toHaveBeenCalledWith('location', 'devworld flat/42');
       expect(urlLocation.parseFromUrl).not.toHaveBeenCalled();
       expect(urlLocation.updateUrl).not.toHaveBeenCalled();
     });
@@ -391,7 +412,7 @@ describe('LocationFacadeService', () => {
 
     it('skips without an HQ and in DevWorld', () => {
       facade.syncUrlWithLocation();
-      devWorld.isActive = true;
+      useDevWorld();
       locationMgmt.setLocation(INSIDE, []);
       facade.syncUrlWithLocation();
       expect(urlLocation.updateUrl).not.toHaveBeenCalled();
@@ -409,7 +430,7 @@ describe('LocationFacadeService', () => {
     });
 
     it('keeps the name it was given in DevWorld, whose streets carry ids, not names', () => {
-      devWorld.isActive = true;
+      useDevWorld();
       facade.addSpawnPoint('s1', 'North', 48.8, 9.2, 0xff0000);
       expect(markerViz.addSpawnMarker).toHaveBeenCalledWith('s1', 'North', 48.8, 9.2, 0xff0000);
     });
@@ -508,16 +529,10 @@ describe('LocationFacadeService', () => {
       expect(locationMgmt.setGeneratedSpawns).not.toHaveBeenCalled();
     });
 
-    it('uses only the first spawn the DevWorld generator offers', () => {
-      devWorld.isActive = true;
+    it('takes the spawns of the world\'s start layout (DevWorld: the generator\'s)', () => {
+      useDevWorld();
       locationMgmt.setLocation(HQ, []);
       locationMgmt.needsRandomSpawn.set(true);
-      engine.getDevTerrainProvider.mockReturnValue({
-        getSpawnPoints: () => [
-          { id: 'dev-n', name: 'North', position: { x: 100, z: 400 } },
-          { id: 'dev-s', name: 'South', position: { x: 100, z: -400 } },
-        ],
-      });
 
       expect(facade.addPredefinedSpawns()).toBe(1);
 
@@ -528,14 +543,21 @@ describe('LocationFacadeService', () => {
       expect(osm.findRandomStreetPoint).not.toHaveBeenCalled();
     });
 
-    it('falls back to the configured DevWorld spawn when the generator has none', () => {
-      devWorld.isActive = true;
+    it('places every spawn of the layout, each in its colour', () => {
+      useDevWorld({
+        hq: { lat: 0, lon: 0 },
+        spawns: [
+          { id: 'dev-n', name: 'North', lat: 0.4, lon: 0.1 },
+          { id: 'dev-s', name: 'South', lat: -0.4, lon: 0.1 },
+        ],
+      });
       locationMgmt.setLocation(HQ, []);
       locationMgmt.needsRandomSpawn.set(true);
 
-      expect(facade.addPredefinedSpawns()).toBe(1);
-      expect(store.spawnPoints()).toEqual([
-        { id: 'spawn-north', name: 'Spawn north', lat: 0.02, lon: 0.01, color: SPAWN_COLORS[0] },
+      expect(facade.addPredefinedSpawns()).toBe(2);
+      expect(store.spawnPoints().map((s) => [s.id, s.color])).toEqual([
+        ['dev-n', SPAWN_COLORS[0]],
+        ['dev-s', SPAWN_COLORS[1]],
       ]);
     });
   });
@@ -838,13 +860,11 @@ describe('LocationFacadeService', () => {
     });
 
     it('regenerates the DevWorld and rebuilds on the new terrain', async () => {
-      devWorld.isActive = true;
+      useDevWorld();
       let finish!: () => void;
-      const provider = {
-        regenerate: vi.fn(() => new Promise<void>((resolve) => { finish = resolve; })),
-        getSpawnPoints: () => [{ id: 'dev-n', name: 'North', position: { x: 100, z: 400 } }],
-      };
-      engine.getDevTerrainProvider.mockReturnValue(provider);
+      engineWorld.regenerate.mockImplementation(() => new Promise<undefined>((resolve) => { finish = () => resolve(undefined); }));
+      const newNetwork = { streets: [{}, {}], bounds: BOUNDS };
+      engineWorld.streets.loadStreets.mockImplementation(async () => newNetwork);
       store.spawnPoints.set([OLD_SPAWN]);
       const onTilesLoaded = vi.fn();
 
@@ -864,19 +884,23 @@ describe('LocationFacadeService', () => {
 
       expect(store.isDevWorldRegenerating()).toBe(false);
       expect(spawnIds()).toEqual(['dev-n']);
+      // The new streets before the spawns, the ref follows the new configuration
+      expect(bridge.setStreetNetwork).toHaveBeenCalledWith(newNetwork);
+      expect(store.streetCount()).toBe(2);
+      expect(worldContext.refreshRef).toHaveBeenCalled();
       // The new world goes to the simulation, a fresh run on it
       expect(world.sendToSim).toHaveBeenCalled();
     });
 
     it('clears the regenerating flag when the regeneration fails', async () => {
-      devWorld.isActive = true;
-      engine.getDevTerrainProvider.mockReturnValue({ regenerate: vi.fn(async () => { throw new Error('seed'); }) });
+      useDevWorld();
+      engineWorld.regenerate.mockImplementation(async () => { throw new Error('seed'); });
 
       facade.refreshTerrainHeights(vi.fn());
       await settle();
 
       expect(store.isDevWorldRegenerating()).toBe(false);
-      expect(console.error).toHaveBeenCalledWith('[LocationFacade] DevWorld regeneration failed:', expect.any(Error));
+      expect(console.error).toHaveBeenCalledWith('[LocationFacade] world regeneration failed:', expect.any(Error));
       expect(world.sendToSim).not.toHaveBeenCalled();
     });
   });
@@ -916,12 +940,9 @@ describe('LocationFacadeService', () => {
     });
 
     it('leaves the old game alone when a DevWorld regeneration finishes afterwards', async () => {
-      devWorld.isActive = true;
+      useDevWorld();
       let finish!: () => void;
-      engine.getDevTerrainProvider.mockReturnValue({
-        regenerate: vi.fn(() => new Promise<void>((resolve) => { finish = resolve; })),
-        getSpawnPoints: () => [{ id: 'dev-n', name: 'North', position: { x: 100, z: 400 } }],
-      });
+      engineWorld.regenerate.mockImplementation(() => new Promise<undefined>((resolve) => { finish = () => resolve(undefined); }));
       facade.refreshTerrainHeights(vi.fn());
       facade.dispose();
 
@@ -948,17 +969,10 @@ describe('LocationFacadeService', () => {
     });
   });
 
-  describe('onDevWorldRegenerated', () => {
-    const provider = {
-      getSpawnPoints: () => [
-        { id: 'dev-n', name: 'North', position: { x: 100, z: 400 } },
-        { id: 'dev-s', name: 'South', position: { x: 100, z: -400 } },
-      ],
-    } as unknown as DevTerrainProvider;
-
-    it('re-creates HQ and the first generated spawn and hands them to the simulation', () => {
-      devWorld.isActive = true;
-      facade.onDevWorldRegenerated(provider);
+  describe('onWorldRegenerated', () => {
+    it('re-creates HQ and the layout\'s spawn and hands them to the simulation', () => {
+      useDevWorld();
+      facade.onWorldRegenerated();
 
       const spawn = { id: 'dev-n', name: 'North', lat: 0.4, lon: 0.1, color: SPAWN_COLORS[0] };
       expect(markerViz.addBaseMarker).toHaveBeenCalled();
@@ -972,7 +986,8 @@ describe('LocationFacadeService', () => {
     });
 
     it('rebuilds the route grid before the route lines read their heights from it', () => {
-      facade.onDevWorldRegenerated(provider);
+      useDevWorld();
+      facade.onWorldRegenerated();
 
       expect(world.buildCells.mock.invocationCallOrder[0])
         .toBeLessThan(pathRoute.refreshRouteLines.mock.invocationCallOrder[0]);
@@ -981,7 +996,7 @@ describe('LocationFacadeService', () => {
 
     it('does nothing without an engine', () => {
       bridge.getEngine.mockReturnValue(null);
-      facade.onDevWorldRegenerated(provider);
+      facade.onWorldRegenerated();
       expect(markerViz.addBaseMarker).not.toHaveBeenCalled();
       expect(world.sendToSim).not.toHaveBeenCalled();
     });

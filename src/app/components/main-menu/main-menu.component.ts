@@ -28,7 +28,8 @@ import { followStartPlaces } from './pages/start-places';
 import { FIELD_TIPS } from './loading/field-tips';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { ConfigService } from '../../core/services/config.service';
-import { DevWorldService } from '../../devworld/devworld.service';
+import { WorldContext } from '../../world/world-context.service';
+import { worldLabel } from '../../world/world-ref';
 import { focusQuietly } from '../../utils/keyboard-target';
 import { LEGAL_URL, PRIVACY_URL } from '../../utils/public-url';
 import { TdIconComponent } from '../icon/icon.component';
@@ -78,7 +79,7 @@ export const TIP_ROTATE_MS = 8000;
 export class MainMenuComponent {
   readonly menu = inject(MainMenuService);
   private readonly config = inject(ConfigService);
-  private readonly devWorld = inject(DevWorldService);
+  private readonly worldContext = inject(WorldContext);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly injector = inject(Injector);
   /** A dialog over the menu (Extras, Settings) keeps its own Esc and focus */
@@ -101,8 +102,7 @@ export class MainMenuComponent {
     this.layer() === 'start' && this.page() === 'home' && (this.menu.placeLoading() || this.menu.problem() !== null));
 
   readonly version = computed(() => {
-    const tiles = this.devWorld.isActive ? 'devworld' : `tiles ${this.config.tileProvider()}`;
-    return `${BUILD_VERSION} | ${tiles}`;
+    return `${BUILD_VERSION} | ${worldLabel(this.worldContext.ref())}`;
   });
 
   /** Legal notice and privacy policy, beside the version at the foot */

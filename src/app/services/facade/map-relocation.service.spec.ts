@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 
 import { MapRelocationService, RelocationHost } from './map-relocation.service';
-import { OsmStreetService } from '../location/osm-street.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { LocationManagementService } from '../location/location-management.service';
@@ -16,6 +15,8 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { MainWorldService } from '../world/main-world.service';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { VizCallbacks } from './location-facade.service';
+import { WorldContext } from '../../world/world-context.service';
+import { fakeWorldContext } from '../../../test/world-context-fake';
 
 /**
  * The relocation flows against a fake host. The location facade spec runs
@@ -111,7 +112,7 @@ describe('MapRelocationService', () => {
 
     const injector = Injector.create({
       providers: [
-        { provide: OsmStreetService, useValue: osm },
+        { provide: WorldContext, useValue: fakeWorldContext(osm as never) },
         { provide: MarkerVisualizationService, useValue: markerViz },
         {
           provide: PathAndRouteService,

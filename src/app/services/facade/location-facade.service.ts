@@ -1,13 +1,13 @@
 import { Injectable, inject, DestroyRef, Injector } from '@angular/core';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
-import { OsmStreetService } from '../location/osm-street.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { LocationManagementService } from '../location/location-management.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { UrlLocationService } from '../location/url-location.service';
-import { DevWorldService, DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
+import { WorldContext } from '../../world/world-context.service';
+import { worldLabel } from '../../world/world-ref';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
@@ -16,7 +16,6 @@ import { startSpawns } from '../location/place-choice';
 import { MainWorldService } from '../world/main-world.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { PresentationService } from '../../presentation/presentation.service';
-import { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
 import { LocationChangeCoordinatorService, LocationFlowDelegate } from '../location/location-change-coordinator.service';
 import { LocationChangeCallbacks } from '../location/location-change-executor.service';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
@@ -27,7 +26,6 @@ import type { CorridorBuildResult, CorridorProgress } from '../world/corridor-bu
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE } from '../../configs/map-constants.config';
 import { bearingToPortalHeading } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { canonicalCoords } from '../../utils/geo-utils';
-import { spawnLabel } from '../../utils/spawn-label';
 
 /**
  * Callbacks to visualization sub-facade methods,
@@ -59,11 +57,11 @@ interface ComponentContext {
 }
 
 /**
- * Sub-facade for location management, DevWorld, spawns, and street loading.
+ * Sub-facade for location management, a world's own layout, spawns, and street loading.
  *
  * Responsibilities:
- * - Location at the start (URL, or the place chosen in the menu)
- * - DevWorld regeneration
+ * - Location at the start (the world's own HQ, the URL, or the place chosen in the menu)
+ * - Regenerating a world in place (DevWorld)
  * - Spawn point management
  * - Street network loading
  * - Map entity cleanup
@@ -76,14 +74,13 @@ export class LocationFacadeService {
   private readonly grid = inject(GlobalRouteGridService);
   private readonly gridViz = inject(RouteGridVizService);
   private readonly presentation = inject(PresentationService);
-  private readonly osmService = inject(OsmStreetService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly urlLocation = inject(UrlLocationService);
-  private readonly devWorld = inject(DevWorldService);
+  private readonly worldContext = inject(WorldContext);
   private readonly routeAnimation = inject(RouteAnimationService);
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly debugFacade = inject(DebugFacadeService);
@@ -96,7 +93,7 @@ export class LocationFacadeService {
    * The game component's bridge, game state and injector, from initialize()
    * until dispose(). This service is a root singleton and outlives the
    * component; without a component every entry point is a no-op, including
-   * async work (street loads, DevWorld regeneration) that finishes after the
+   * async work (street loads, a world's regeneration) that finishes after the
    * component went away.
    */
   private ctx: ComponentContext | null = null;
@@ -193,15 +190,15 @@ export class LocationFacadeService {
   async initializeLocation(): Promise<boolean> {
     await this.engineInit.setStepCurrent('location');
 
-    // DevWorld mode: Use fake origin, skip real location
-    if (this.devWorld.isActive) {
-      this.locationMgmt.setLocation(
-        { lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon },
-        []
-      );
-      this.store.baseCoords.set({ lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon });
-      this.store.centerCoords.set({ lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon, height: 400 });
-      await this.engineInit.setStepDone('location', 'DevWorld');
+    // A world with its own HQ (DevWorld, a map): no place to choose; its
+    // spawns come with the world (addPredefinedSpawns)
+    const ownHq = this.worldContext.startHq();
+    if (ownHq) {
+      const hq = await ownHq;
+      this.locationMgmt.setLocation({ lat: hq.lat, lon: hq.lon }, []);
+      this.store.baseCoords.set({ lat: hq.lat, lon: hq.lon });
+      this.store.centerCoords.set({ lat: hq.lat, lon: hq.lon, height: 400 });
+      await this.engineInit.setStepDone('location', worldLabel(this.worldContext.ref()));
       return true;
     }
 
@@ -254,10 +251,10 @@ export class LocationFacadeService {
 
   /**
    * Sync URL with current location (without reload).
-   * Skipped in DevWorld mode.
+   * Only for a real place: a world of its own keeps its link (`?devworld…`, `?world=`).
    */
   syncUrlWithLocation(): void {
-    if (this.devWorld.isActive) return;
+    if (!this.worldContext.capabilities().realPlace) return;
     const hq = this.locationMgmt.hq();
     if (!hq) return;
     const spawns = this.locationMgmt.spawns();
@@ -283,36 +280,18 @@ export class LocationFacadeService {
     }
 
     if (this.locationMgmt.needsRandomSpawn() && streetNetwork) {
-      // DevWorld mode
-      if (this.devWorld.isActive) {
-        const engine = ctx.bridge.getEngine() || this.engineInit.getEngine();
-        const devTerrainProvider = engine?.getDevTerrainProvider();
-
-        if (devTerrainProvider) {
-          // One spawn by default, matching the real-world default: bots and
-          // measurements play the game that ships, not four approach routes
-          // against the same tower budget. `?devworld&spawns=N` takes more of
-          // the street generator's (up to four), a lane per coop player.
-          const generatedSpawns = this.devWorldSpawns(devTerrainProvider);
-          if (generatedSpawns.length > 0) {
-            this.locationMgmt.setGeneratedSpawns(generatedSpawns.map(({ geo }) => ({ lat: geo.lat, lon: geo.lon })));
-            generatedSpawns.forEach(({ spawn, geo }, i) =>
-              this.addSpawnPoint(spawn.id, spawn.name, geo.lat, geo.lon, SPAWN_COLORS[i % SPAWN_COLORS.length]));
-            return generatedSpawns.length;
-          }
-        }
-
-        // Fallback
-        const spawnConfig = this.devWorld.config.spawn;
-        const spawnPos = this.devWorld.getSpawnPosition();
-        const spawnGeo = this.devWorld.localToGeo(spawnPos.x, spawnPos.z);
-        this.locationMgmt.setGeneratedSpawns([{ lat: spawnGeo.lat, lon: spawnGeo.lon }]);
-        this.addSpawnPoint(`spawn-${spawnConfig}`, `Spawn ${spawnConfig}`, spawnGeo.lat, spawnGeo.lon, SPAWN_COLORS[0]);
-        return 1;
+      // A world that brings its spawns (DevWorld: the street generator's,
+      // `?devworld&spawns=N` of them, a lane per coop player)
+      const layout = this.worldContext.provider()?.startLayout() ?? null;
+      if (layout) {
+        this.locationMgmt.setGeneratedSpawns(layout.spawns.map(({ lat, lon }) => ({ lat, lon })));
+        layout.spawns.forEach((spawn, i) =>
+          this.addSpawnPoint(spawn.id, spawn.name, spawn.lat, spawn.lon, SPAWN_COLORS[i % SPAWN_COLORS.length]));
+        return layout.spawns.length;
       }
 
-      // Real world: random spawn
-      const randomSpawn = this.osmService.findRandomStreetPoint(streetNetwork, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE);
+      // A real place: a random spawn
+      const randomSpawn = this.worldContext.streets.findRandomStreetPoint(streetNetwork, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE);
       if (randomSpawn) {
         this.locationMgmt.setGeneratedSpawns([{ lat: randomSpawn.lat, lon: randomSpawn.lon }]);
         this.syncUrlWithLocation();
@@ -343,8 +322,9 @@ export class LocationFacadeService {
    * Add a spawn point (delegates to services), at its canonical coordinates
    * (canonicalCoords): a random spawn on a street node comes with more
    * digits than the URL keeps of it.
-   * @param name Kept in DevWorld only. On a real map every spawn is named
-   *   after its street here (spawnLabel), whichever way it came about, so a
+   * @param name Kept where the streets have no names to tell (DevWorld). On
+   *   a real map every spawn is named after its street here
+   *   (WorldStreetSource.spawnLabel), whichever way it came about, so a
    *   reload and a location change show the same label.
    * @param portalBearing Compass bearing the player turned its portal to
    *   (SavedSpawn); without one the portal faces along its route
@@ -356,7 +336,7 @@ export class LocationFacadeService {
     const streetNetwork = ctx.bridge.getStreetNetwork();
     if (!engine || !streetNetwork) return;
 
-    if (!this.devWorld.isActive) name = spawnLabel(streetNetwork, lat, lon);
+    name = this.worldContext.streets.spawnLabel(streetNetwork, lat, lon, name);
     const spawn: SpawnPoint = canonicalCoords({ id, name, lat, lon, color });
     this.store.spawnPoints.update((points) => [...points, spawn]);
 
@@ -441,32 +421,37 @@ export class LocationFacadeService {
   }
 
   // ══════════════════════════════════════════════════════════════
-  // DevWorld
+  // Regenerating the world (DevWorld)
   // ══════════════════════════════════════════════════════════════
 
   /**
-   * Refresh terrain heights. In DevWorld: regenerates entire world.
+   * Refresh terrain heights. A world that regenerates (DevWorld) rolls
+   * itself anew from its configuration, with streets, spawns and a fresh run.
    */
   refreshTerrainHeights(onTilesLoaded: () => void): void {
     const engine = this.ctx?.bridge.getEngine();
     if (!engine) return;
 
-    if (this.devWorld.isActive) {
-      const devTerrainProvider = engine.getDevTerrainProvider();
-      if (devTerrainProvider) {
-        this.store.isDevWorldRegenerating.set(true);
-        this.clearDevWorldVisuals();
-        engine.terrain.clearHeightCache();
+    const world = engine.world;
+    if (world.capabilities.regenerate) {
+      this.store.isDevWorldRegenerating.set(true);
+      this.clearWorldVisuals();
+      engine.terrain.clearHeightCache();
 
-        devTerrainProvider.regenerate().then(() => {
-          this.onDevWorldRegenerated(devTerrainProvider);
+      world.regenerate()
+        .then(() => world.streets.loadStreets(world.sync.getOrigin().lat, world.sync.getOrigin().lon))
+        .then((network) => {
+          // The new streets before the spawns and routes are laid on them
+          this.ctx?.bridge.setStreetNetwork(network);
+          this.store.streetCount.set(network.streets.length);
+          this.worldContext.refreshRef();
+          this.onWorldRegenerated();
           this.store.isDevWorldRegenerating.set(false);
         }).catch((error) => {
-          console.error('[LocationFacade] DevWorld regeneration failed:', error);
+          console.error('[LocationFacade] world regeneration failed:', error);
           this.store.isDevWorldRegenerating.set(false);
         });
-        return;
-      }
+      return;
     }
 
     engine.terrain.clearHeightCache();
@@ -474,9 +459,9 @@ export class LocationFacadeService {
   }
 
   /**
-   * Clear all DevWorld visuals before regeneration.
+   * Clear all world visuals before a regeneration.
    */
-  clearDevWorldVisuals(): void {
+  clearWorldVisuals(): void {
     const ctx = this.ctx;
     const engine = ctx?.bridge.getEngine();
     if (!ctx || !engine) return;
@@ -497,18 +482,10 @@ export class LocationFacadeService {
     this.store.spawnPoints.set([]);
   }
 
-  /** The street generator's spawns the DevWorld map gets (DevWorldConfig.spawnCount), with their geo position. */
-  private devWorldSpawns(devTerrainProvider: DevTerrainProvider) {
-    return devTerrainProvider.getSpawnPoints().slice(0, this.devWorld.config.spawnCount).map((spawn) => ({
-      spawn,
-      geo: this.devWorld.localToGeo(spawn.position.x, spawn.position.z),
-    }));
-  }
-
   /**
-   * Called after DevWorld terrain regeneration.
+   * Called after the world regenerated and its streets were loaded again.
    */
-  onDevWorldRegenerated(devTerrainProvider: DevTerrainProvider): void {
+  onWorldRegenerated(): void {
     const ctx = this.ctx;
     const engine = ctx?.bridge.getEngine();
     if (!ctx || !engine) return;
@@ -517,9 +494,10 @@ export class LocationFacadeService {
     // Re-create base marker
     this.markerViz.addBaseMarker();
 
-    // As many spawns as on the initial load (DevWorldConfig.spawnCount)
-    this.devWorldSpawns(devTerrainProvider).forEach(({ spawn, geo }, i) =>
-      this.addSpawnPoint(spawn.id, spawn.name, geo.lat, geo.lon, SPAWN_COLORS[i % SPAWN_COLORS.length]));
+    // As many spawns as on the initial load (the world's start layout)
+    const layout = engine.world.startLayout();
+    layout?.spawns.forEach((spawn, i) =>
+      this.addSpawnPoint(spawn.id, spawn.name, spawn.lat, spawn.lon, SPAWN_COLORS[i % SPAWN_COLORS.length]));
 
     // Re-filter and render streets
     bridge.setFilteredStreetNetwork(bridge.getStreetNetwork());

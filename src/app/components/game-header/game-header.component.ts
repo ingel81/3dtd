@@ -21,7 +21,7 @@ import { FavoriteLocation } from '../../models/location.types';
 import { LOADING_NAME, NO_LOCATION_NAME } from '../../services/location/location-management.service';
 import { FAVORITE_NAME_MAX_LENGTH } from '../../services/location/favorite-locations';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
-import { DevWorldService } from '../../devworld/devworld.service';
+import { WorldContext } from '../../world/world-context.service';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { PulseThrottle } from '../../utils/pulse-throttle';
 import { TdIconComponent } from '../icon/icon.component';
@@ -81,9 +81,10 @@ export class GameHeaderComponent {
   private readonly elementRef = inject(ElementRef);
   private readonly store = inject(TowerDefenseStore);
 
-  /** True when the app runs in DevWorld mode (URL `?devworld`). Used to gate
-   *  the headless-rendering toggle, which is a training-only debug control. */
-  readonly isDevWorld = inject(DevWorldService).isActive;
+  /** True when the run plays DevWorld, the world of the bot training. Used to
+   *  gate the headless-rendering toggle, which is a training-only debug control. */
+  private readonly worldContext = inject(WorldContext);
+  readonly isDevWorld = computed(() => this.worldContext.ref().kind === 'devworld');
   /** Phase 5.14: headless rendering toggle (readable for template binding). */
   readonly renderingEnabled = this.store.renderingEnabled;
 

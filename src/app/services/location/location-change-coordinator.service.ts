@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { OsmStreetService, STREET_RADIUS_M } from './osm-street.service';
+import { WorldContext } from '../../world/world-context.service';
+import { STREET_RADIUS_M } from './osm-street.service';
 import type { StreetNetwork } from '../../interfaces/street-network-provider.interface';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { HeightUpdateService } from '../world/height-update.service';
@@ -48,7 +49,7 @@ export function streetsFailedText(place: string): string {
 @Injectable({ providedIn: 'root' })
 export class LocationChangeCoordinatorService {
   private readonly engineInit = inject(EngineInitializationService);
-  private readonly osmService = inject(OsmStreetService);
+  private readonly worldContext = inject(WorldContext);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly urlLocation = inject(UrlLocationService);
@@ -180,7 +181,7 @@ export class LocationChangeCoordinatorService {
         // instead of a loading screen that waits for good
         let newNetwork: StreetNetwork;
         try {
-          newNetwork = await this.osmService.loadStreets(hq.lat, hq.lon, STREET_RADIUS_M);
+          newNetwork = await this.worldContext.streets.loadStreets(hq.lat, hq.lon, STREET_RADIUS_M);
         } catch (err) {
           console.error('[LocationCoordinator] The streets of the new place did not load:', err);
           callbacks.appendDebugLog(`Streets of ${target.name} failed: ${err instanceof Error ? err.message : 'unknown'}`);
@@ -193,7 +194,7 @@ export class LocationChangeCoordinatorService {
         callbacks.setStreetNetwork(newNetwork);
         callbacks.setStreetNetworkLocation({ lat: hq.lat, lon: hq.lon });
 
-        const randomSpawn = this.osmService.findRandomStreetPoint(newNetwork, hq.lat, hq.lon, 500, 1000);
+        const randomSpawn = this.worldContext.streets.findRandomStreetPoint(newNetwork, hq.lat, hq.lon, 500, 1000);
 
         if (randomSpawn) {
           spawnLat = randomSpawn.lat;

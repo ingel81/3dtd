@@ -30,6 +30,7 @@ vi.mock('../utils/tower-los-viz', () => ({
   },
 }));
 
+
 import { TowerPlacementService } from './tower-placement.service';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import { PLINTH_CONFIG } from '../configs/placement.config';
@@ -76,7 +77,7 @@ describe('Towers at roof edges and walls (playtest 12 to 17, C10)', () => {
   let service: TowerPlacementService;
   let overlay: Group;
   let emit: ReturnType<typeof vi.fn>;
-  let columnSample: ReturnType<typeof vi.fn>;
+  let columnSample: ReturnType<typeof vi.fn<(x: number, z?: number, caller?: string) => { groundY: number; topY: number }>>;
 
   const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
   const emissive = (mesh: Mesh) => (mesh.material as MeshStandardMaterial).emissive;
@@ -124,13 +125,16 @@ describe('Towers at roof edges and walls (playtest 12 to 17, C10)', () => {
 
     overlay = new Group();
     emit = vi.fn();
-    columnSample = vi.fn((x: number) => ({ groundY: 5, topY: surface(x) }));
+    columnSample = vi.fn((x: number, _z?: number, _caller?: string) => ({ groundY: 5, topY: surface(x) }));
     const engine = {
       sync,
-      terrain: { raycastColumnSample: columnSample },
+      terrain: {
+        raycastColumnSample: columnSample,
+        roofAt: () => null,
+        footprintColumn: (x: number, z: number) => columnSample(x, z, 'towerFootprint'),
+      },
       getOverlayGroup: () => overlay,
       getScene: () => ({}),
-      getDevTerrainProvider: () => null,
       // The surface the bot stands a tower on, here the roof
       getTerrainHeightAtGeo: () => ROOF,
       getLosBlockerGroup: () => ({}),

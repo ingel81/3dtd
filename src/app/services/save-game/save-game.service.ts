@@ -7,7 +7,7 @@ import { LocationManagementService } from '../location/location-management.servi
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { WaveDirector } from '../../director/wave-director';
 import { RunLogFacade } from '../../run-log/run-log.facade';
-import { DevWorldService } from '../../devworld/devworld.service';
+import { WorldContext } from '../../world/world-context.service';
 import { GameStore } from '../../store/game.store';
 import { UIStore } from '../../store/ui.store';
 import { CoopService } from '../coop.service';
@@ -56,7 +56,7 @@ export class SaveGameService implements SaveGamePort {
   private readonly engineInit = inject(EngineInitializationService);
   private readonly director = inject(WaveDirector);
   private readonly runLog = inject(RunLogFacade);
-  private readonly devWorld = inject(DevWorldService);
+  private readonly worldContext = inject(WorldContext);
   private readonly gameStore = inject(GameStore);
   private readonly uiStore = inject(UIStore);
   private readonly coop = inject(CoopService, { optional: true });
@@ -71,7 +71,7 @@ export class SaveGameService implements SaveGamePort {
     saveBlocked: computed(() => {
       if (this.inCoop()) return 'Saving is off in co-op.';
       if (this.uiStore.replayMode()) return 'Saving is off while a replay plays.';
-      if (this.devWorld.isActive) return 'Saving is off in DevWorld.';
+      if (!this.worldContext.capabilities().realPlace) return 'Saving is off on this world.';
       if (this.gameStore.isGameOver()) return 'The run is over.';
       if (this.gameStore.phase() !== 'setup') return 'Saving works only between waves.';
       if (!this.locationMgmt.hq() || this.engineInit.loading()) return 'No place is loaded yet.';
@@ -81,7 +81,7 @@ export class SaveGameService implements SaveGamePort {
     loadBlocked: computed(() => {
       if (this.inCoop()) return 'Loading is off in co-op.';
       if (this.uiStore.replayMode()) return 'Leave the replay first.';
-      if (this.devWorld.isActive) return 'Loading is off in DevWorld.';
+      if (!this.worldContext.capabilities().realPlace) return 'Loading is off on this world.';
       return null;
     }),
     collect: () => this.collect(),

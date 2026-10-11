@@ -8,7 +8,7 @@ import { LocationManagementService } from './location-management.service';
 import { LocationChangeCoordinatorService } from './location-change-coordinator.service';
 import { LocationChangeExecutorService } from './location-change-executor.service';
 import { GeocodingService } from './geocoding.service';
-import { OsmStreetService, StreetNetwork } from './osm-street.service';
+import type { StreetNetwork } from './osm-street.service';
 import { WorldDiceService } from './world-dice.service';
 import { FAVORITES_KEY } from './favorite-locations';
 import { RECENT_LOCATIONS_KEY, loadRecentLocations } from './recent-locations';
@@ -27,10 +27,10 @@ import { CameraControlService } from '../camera-control.service';
 import { CameraFramingService } from '../camera-framing.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
-import { DevWorldService } from '../../devworld/devworld.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { UIStore } from '../../store/ui.store';
 import { haversineDistance } from '../../utils/geo-utils';
+import { spawnLabel } from '../../utils/spawn-label';
 import { makeGeoToLocal, fakePortalPreview } from '../../../test/portal-preview-fixture';
 import type { FacadeComponentBridge } from '../facade/tower-defense-facade.service';
 import { MainWorldService } from '../world/main-world.service';
@@ -40,6 +40,8 @@ import { PresentationService } from '../../presentation/presentation.service';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { FavoriteLocation } from '../../models/location.types';
 import type { CorridorBuildResult } from '../world/corridor-build';
+import { WorldContext } from '../../world/world-context.service';
+import { fakeWorldContext } from '../../../test/world-context-fake';
 
 /**
  * Playtest 747 (a): Rothenburg ob der Tauber loaded cold from its URL stood
@@ -211,6 +213,7 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
       findNearestStreetPoint: vi.fn(() => ({ distance: 2, street: STREET_WAY, nodeIndex: 0 })),
       // The route from a spawn at (lat, lon): from there along the street to the HQ
       segmentRoutes: vi.fn(() => ({ routeFrom: (lat: number, lon: number) => [{ id: -1, lat, lon }, ...STREET.slice(1)] })),
+      spawnLabel: (network: StreetNetwork, lat: number, lon: number) => spawnLabel(network, lat, lon),
     };
     const pathRoute = {
       initialize: vi.fn(),
@@ -249,7 +252,7 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
 
     const injector: Injector = Injector.create({
       providers: [
-        { provide: OsmStreetService, useValue: osm },
+        { provide: WorldContext, useValue: fakeWorldContext(osm as never) },
         { provide: PathAndRouteService, useValue: pathRoute },
         { provide: MarkerVisualizationService, useValue: markerViz },
         { provide: EngineInitializationService, useValue: engineInit },
@@ -261,8 +264,7 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
         { provide: KeyboardPanService, useValue: { initialize: vi.fn() } },
         { provide: GeocodingService, useValue: { reverseGeocodeDetailed: async () => null, reverseGeocodeWithCache: async () => 'Rothenburg' } },
         { provide: WorldDiceService, useValue: {} },
-        { provide: DevWorldService, useValue: { isActive: false } },
-        { provide: StreetRenderingService, useValue: { dispose: vi.fn() } },
+                { provide: StreetRenderingService, useValue: { dispose: vi.fn() } },
         { provide: DebugFacadeService, useValue: { appendDebugLog: vi.fn() } },
         {
           provide: RelocationStatusService,

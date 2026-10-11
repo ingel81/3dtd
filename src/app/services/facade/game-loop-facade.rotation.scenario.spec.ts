@@ -31,7 +31,7 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { UIStore } from '../../store/ui.store';
-import { OsmStreetService } from '../location/osm-street.service';
+import { WorldContext } from '../../world/world-context.service';
 import {
   portalCorridorWidth,
   portalLaneOffset,
@@ -98,12 +98,15 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
           useValue: { createPortalPreview: fakePortalPreview, createDiamondMarker: vi.fn(), disposePreviewMarker: vi.fn() },
         },
         {
-          provide: OsmStreetService,
+          // The world's streets
+          provide: WorldContext,
           useValue: {
-            findNearestStreetPoint: () => ({ distance: 1, street: { nodes: [{ id: STREET[0].id }] }, nodeIndex: 0 }),
-            haversineDistance: () => (MIN_MANUAL_SPAWN_DISTANCE + MAX_MANUAL_SPAWN_DISTANCE) / 2,
-            // The routes from the cursor's segment (SegmentRoutes): along STREET from its start
-            segmentRoutes: () => ({ routeFrom: () => STREET }),
+            streets: {
+              findNearestStreetPoint: () => ({ distance: 1, street: { nodes: [{ id: STREET[0].id }] }, nodeIndex: 0 }),
+              haversineDistance: () => (MIN_MANUAL_SPAWN_DISTANCE + MAX_MANUAL_SPAWN_DISTANCE) / 2,
+              // The routes from the cursor's segment (SegmentRoutes): along STREET from its start
+              segmentRoutes: () => ({ routeFrom: () => STREET }),
+            },
           },
         },
       ],

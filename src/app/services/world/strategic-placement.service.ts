@@ -6,7 +6,8 @@
  */
 
 import { Injectable, inject } from '@angular/core';
-import { OsmStreetService, StreetNetwork } from '../location/osm-street.service';
+import { WorldContext } from '../../world/world-context.service';
+import { StreetNetwork } from '../location/osm-street.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { GeoPosition } from '../../models/game.types';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
@@ -70,7 +71,7 @@ export interface PlacementCandidate {
 
 @Injectable({ providedIn: 'root' })
 export class StrategicPlacementService {
-  private osmService = inject(OsmStreetService);
+  private readonly worldContext = inject(WorldContext);
   /** Source of the placement rules, the same the player's clicks go through. */
   private towerPlacement = inject(TowerPlacementService);
   private los = inject(TowerLosRegistry);
@@ -129,7 +130,7 @@ export class StrategicPlacementService {
 
         // 2. Find nearest street segment
         if (!this.streetNetwork) continue;
-        const streetInfo = this.osmService.findNearestStreetPoint(this.streetNetwork, pathPos.lat, pathPos.lon);
+        const streetInfo = this.worldContext.streets.findNearestStreetPoint(this.streetNetwork, pathPos.lat, pathPos.lon);
         if (!streetInfo || !streetInfo.street) continue;
 
         // Get segment start and end positions
@@ -220,7 +221,7 @@ export class StrategicPlacementService {
         if (!pathPos) continue;
 
         if (!this.streetNetwork) continue;
-        const streetInfo = this.osmService.findNearestStreetPoint(this.streetNetwork, pathPos.lat, pathPos.lon);
+        const streetInfo = this.worldContext.streets.findNearestStreetPoint(this.streetNetwork, pathPos.lat, pathPos.lon);
         if (!streetInfo || !streetInfo.street) continue;
 
         const segmentStart = streetInfo.street.nodes[streetInfo.nodeIndex];
@@ -240,7 +241,7 @@ export class StrategicPlacementService {
 
             let streetScore = 0;
             if (this.streetNetwork) {
-              const si = this.osmService.findNearestStreetPoint(this.streetNetwork, position.lat, position.lon);
+              const si = this.worldContext.streets.findNearestStreetPoint(this.streetNetwork, position.lat, position.lon);
               if (si) {
                 const distDeviation = Math.abs(si.distance - 20) / 10;
                 streetScore = 1 - Math.min(distDeviation, 1);
@@ -337,7 +338,7 @@ export class StrategicPlacementService {
     let closestIdx = 0;
 
     for (let i = 0; i < path.length; i++) {
-      const d = this.osmService.haversineDistance(pos.lat, pos.lon, path[i].lat, path[i].lon);
+      const d = this.worldContext.streets.haversineDistance(pos.lat, pos.lon, path[i].lat, path[i].lon);
       if (d < minDist) {
         minDist = d;
         closestIdx = i;
@@ -350,7 +351,7 @@ export class StrategicPlacementService {
     // Estimate distance along path for this index
     let distAlongPath = 0;
     for (let i = 0; i < closestIdx && i < path.length - 1; i++) {
-      distAlongPath += this.osmService.haversineDistance(
+      distAlongPath += this.worldContext.streets.haversineDistance(
         path[i].lat, path[i].lon, path[i + 1].lat, path[i + 1].lon
       );
     }
@@ -364,7 +365,7 @@ export class StrategicPlacementService {
   private getPathLength(path: GeoPosition[]): number {
     let total = 0;
     for (let i = 0; i < path.length - 1; i++) {
-      total += this.osmService.haversineDistance(
+      total += this.worldContext.streets.haversineDistance(
         path[i].lat, path[i].lon,
         path[i+1].lat, path[i+1].lon
       );
@@ -379,7 +380,7 @@ export class StrategicPlacementService {
     let accumulated = 0;
 
     for (let i = 0; i < path.length - 1; i++) {
-      const segmentDistance = this.osmService.haversineDistance(
+      const segmentDistance = this.worldContext.streets.haversineDistance(
         path[i].lat, path[i].lon,
         path[i+1].lat, path[i+1].lon
       );
@@ -477,7 +478,7 @@ export class StrategicPlacementService {
     //    placements are unchanged, while the far end stops being the position
     //    of last resort.
     const pathLength = this.getPathLength(path);
-    const distToSpawn = this.osmService.haversineDistance(
+    const distToSpawn = this.worldContext.streets.haversineDistance(
       position.lat, position.lon, spawnPoint.lat, spawnPoint.lon
     );
     const t = Math.min(distToSpawn / Math.max(pathLength, 200), 1);   // 0 spawn, 1 HQ
@@ -490,7 +491,7 @@ export class StrategicPlacementService {
 
     // 3. Distance to street (15-25m is optimal) - 0.2 weight
     if (this.streetNetwork) {
-      const streetInfo = this.osmService.findNearestStreetPoint(this.streetNetwork, position.lat, position.lon);
+      const streetInfo = this.worldContext.streets.findNearestStreetPoint(this.streetNetwork, position.lat, position.lon);
       if (streetInfo) {
         const streetDist = streetInfo.distance;
         const optimalDist = 20;
@@ -511,7 +512,7 @@ export class StrategicPlacementService {
     let coveredWaypoints = 0;
 
     for (const waypoint of path) {
-      const dist = this.osmService.haversineDistance(
+      const dist = this.worldContext.streets.haversineDistance(
         position.lat, position.lon,
         waypoint.lat, waypoint.lon
       );

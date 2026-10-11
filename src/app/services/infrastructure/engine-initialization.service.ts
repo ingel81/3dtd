@@ -2,10 +2,9 @@ import { inject, Injectable, NgZone, signal, WritableSignal } from '@angular/cor
 import { ThreeTilesEngine } from '../../three-engine';
 import { GeoPosition } from '../../models/game.types';
 import { AssetManagerService } from './asset-manager.service';
-import { OsmStreetService, STREET_RADIUS_M, StreetNetwork } from '../location/osm-street.service';
-import { DevWorldService } from '../../devworld/devworld.service';
-import { DevStreetProvider } from '../../devworld/dev-street.provider';
+import { STREET_RADIUS_M, StreetNetwork } from '../location/osm-street.service';
 import { GLOBE_LINK } from '../world/globe-link';
+import type { WorldProvider } from '../../world/world-provider';
 import { BootStep } from '../../components/main-menu/loading/boot-step.model';
 
 /**
@@ -40,8 +39,6 @@ export class EngineInitializationService {
 
   private readonly ngZone = inject(NgZone);
   private readonly assetManager = inject(AssetManagerService);
-  private readonly osmService = inject(OsmStreetService);
-  private readonly devWorld = inject(DevWorldService);
   private readonly globe = inject(GLOBE_LINK, { optional: true });
 
   // ========================================
@@ -79,17 +76,8 @@ export class EngineInitializationService {
   /** Canvas element reference */
   private canvas: HTMLCanvasElement | null = null;
 
-  /** Cesium Ion token */
-  private cesiumToken: string | null = null;
-
-  /** Cesium Ion asset ID */
-  private cesiumAssetId: string | null = null;
-
-  /** Tile provider: 'cesium' or 'google' */
-  private tileProvider: 'cesium' | 'google' = 'cesium';
-
-  /** Google Maps API key (for direct Google 3D Tiles) */
-  private googleMapsApiKey: string | null = null;
+  /** The world the next engine draws (WorldContext.open), with its credentials and streets */
+  private world: WorldProvider | null = null;
 
   // ========================================
   // INITIALIZATION
@@ -98,24 +86,13 @@ export class EngineInitializationService {
   /**
    * Initialize the service with configuration
    * @param canvas Canvas element for rendering
-   * @param cesiumToken Cesium Ion access token
-   * @param cesiumAssetId Cesium Ion asset ID
    * @param baseCoords Base/HQ coordinates for engine origin
+   * @param world The world the engine draws, made around `baseCoords`
    */
-  configure(
-    canvas: HTMLCanvasElement,
-    cesiumToken: string,
-    cesiumAssetId: string,
-    baseCoords: GeoPosition,
-    tileProvider: 'cesium' | 'google' = 'cesium',
-    googleMapsApiKey?: string,
-  ): void {
+  configure(canvas: HTMLCanvasElement, baseCoords: GeoPosition, world: WorldProvider): void {
     this.canvas = canvas;
-    this.cesiumToken = cesiumToken;
-    this.cesiumAssetId = cesiumAssetId;
     this.baseCoords = baseCoords;
-    this.tileProvider = tileProvider;
-    this.googleMapsApiKey = googleMapsApiKey ?? null;
+    this.world = world;
   }
 
   /**
@@ -238,7 +215,7 @@ export class EngineInitializationService {
       // Reset loading steps for fresh start
       this.resetLoadingSteps();
 
-      if (!this.canvas || !this.baseCoords) {
+      if (!this.canvas || !this.baseCoords || !this.world) {
         this.error.set('Engine not configured. Please call configure() first.');
         this.loading.set(false);
         return;
@@ -255,24 +232,13 @@ export class EngineInitializationService {
       this.updateStepMeta('engine', 'Three.js Engine...');
 
       // Engine starts with default camera on HQ - final framing happens after routes are calculated
-      this.engine = new ThreeTilesEngine(
-        this.canvas,
-        this.cesiumToken ?? '',
-        this.cesiumAssetId ?? '',
-        this.baseCoords.lat,
-        this.baseCoords.lon,
-        0,
-        this.assetManager,
-        this.devWorld,
-        this.tileProvider,
-        this.googleMapsApiKey ?? '',
-      );
+      this.engine = new ThreeTilesEngine(this.canvas, this.world, this.assetManager);
       // Behind the menu globe the game draws nothing, not even its first frame
       if (this.globe?.coversGame()) this.engine.setDrawSuppressed(true);
 
-      this.updateStepMeta('engine', '3D-Tiles Renderer...');
+      this.updateStepMeta('engine', 'World...');
 
-      // Initialize 3D Tiles (camera position is now set optimally)
+      // Put the world into the scene: tiles or terrain, camera controls
       await this.engine.initialize();
       this.engine.resize(rect.width, rect.height);
 
@@ -348,61 +314,29 @@ export class EngineInitializationService {
   // ========================================
 
   /**
-   * Load street network for the given center coordinates.
-   * Handles both DevWorld (generated streets) and real-world (OSM) modes.
-   *
-   * @param centerLat Center latitude
-   * @param centerLon Center longitude
-   * @param onStreetNetworkRefreshed Callback when DevWorld streets are regenerated
-   * @returns Object with streetNetwork, streetCount, and optional devStreetProvider
+   * Begin the street load of loadStreets() now, before the engine is built
+   * and the tiles stream, so both load side by side (TODO H13);
+   * loadStreets() with the same place takes it. A world whose streets come
+   * with its ground (DevWorld) has nothing to begin.
    */
-  /**
-   * Begin the OSM street load of loadStreets() now, before the engine is
-   * built and the tiles stream, so both load side by side (TODO H13);
-   * loadStreets() with the same place takes it. Nothing in DevWorld, whose
-   * streets come from its terrain.
-   */
-  prefetchStreets(centerLat: number, centerLon: number): void {
-    if (this.devWorld.isActive) return;
-    this.osmService.prefetchStreets(centerLat, centerLon, STREET_RADIUS_M);
+  prefetchStreets(world: WorldProvider, centerLat: number, centerLon: number): void {
+    world.streets.prefetchStreets(centerLat, centerLon, STREET_RADIUS_M);
   }
 
+  /**
+   * Load the street network of the engine's world around the given centre:
+   * OSM on the tiles, the generated streets in DevWorld.
+   * @returns the network and its street count; `failed` when it did not load
+   */
   async loadStreets(
     centerLat: number,
     centerLon: number,
-    onStreetNetworkRefreshed?: (network: StreetNetwork, count: number) => void,
-  ): Promise<{ network: StreetNetwork; count: number; devStreetProvider: DevStreetProvider | null; failed: boolean }> {
+  ): Promise<{ network: StreetNetwork; count: number; failed: boolean }> {
     try {
-      // DevWorld mode: Use DevStreetProvider with generated streets from terrain
-      if (this.devWorld.isActive) {
-        const devStreetProvider = new DevStreetProvider(this.devWorld);
-
-        // Get generated streets from terrain provider
-        const devTerrainProvider = this.engine?.getDevTerrainProvider();
-
-        if (devTerrainProvider) {
-          // Set initial streets from terrain provider
-          const segments = devTerrainProvider.getStreetSegments();
-          const spawns = devTerrainProvider.getSpawnPoints();
-          devStreetProvider.setGeneratedStreets(segments, spawns);
-
-          // Set up refresh callback for live terrain regeneration
-          devTerrainProvider.setStreetRefreshCallback((newSegments, newSpawns) => {
-            devStreetProvider.setGeneratedStreets(newSegments, newSpawns);
-            // Reload street network
-            devStreetProvider.loadStreets(centerLat, centerLon, 500).then((network) => {
-              onStreetNetworkRefreshed?.(network, network.streets.length);
-            });
-          });
-        }
-
-        const network = await devStreetProvider.loadStreets(centerLat, centerLon, 500);
-        return { network, count: network.streets.length, devStreetProvider, failed: false };
-      }
-
-      // Real world: Use OSM
-      const network = await this.osmService.loadStreets(centerLat, centerLon, STREET_RADIUS_M);
-      return { network, count: network.streets.length, devStreetProvider: null, failed: false };
+      const world = this.engine?.world ?? this.world;
+      if (!world) throw new Error('No world to load streets from');
+      const network = await world.streets.loadStreets(centerLat, centerLon, STREET_RADIUS_M);
+      return { network, count: network.streets.length, failed: false };
     } catch (err) {
       console.error('[EngineInit] Failed to load streets:', err);
       const emptyNetwork: StreetNetwork = {
@@ -411,7 +345,7 @@ export class EngineInitializationService {
         bounds: { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 },
       };
       // The map loads without streets; `failed` lets the caller say so
-      return { network: emptyNetwork, count: 0, devStreetProvider: null, failed: true };
+      return { network: emptyNetwork, count: 0, failed: true };
     }
   }
 
@@ -456,10 +390,7 @@ export class EngineInitializationService {
     this.engine = null;
     this.baseCoords = null;
     this.canvas = null;
-    this.cesiumToken = null;
-    this.cesiumAssetId = null;
-    this.googleMapsApiKey = null;
-    this.tileProvider = 'cesium';
+    this.world = null;
   }
 
   /**

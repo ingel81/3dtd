@@ -15,8 +15,9 @@ import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { DebugStateDumpService } from '../../services/debug/debug-state-dump.service';
 import { CellReportService } from '../../services/debug/cell-report.service';
 import { CorridorSnapshotService } from '../../services/debug/corridor-snapshot.service';
-import { DevWorldService } from '../../devworld/devworld.service';
 import { UIStore } from '../../store/ui.store';
+import { WorldContext } from '../../world/world-context.service';
+import { fakeWorldContext } from '../../../test/world-context-fake';
 
 const template = readFileSync(resolve('src/app/components/quick-actions/quick-actions.component.html'), 'utf8');
 
@@ -33,7 +34,7 @@ describe('QuickActionsComponent', () => {
         { provide: DebugStateDumpService, useValue: {} },
         { provide: CellReportService, useValue: {} },
         { provide: CorridorSnapshotService, useValue: {} },
-        { provide: DevWorldService, useValue: {} },
+        { provide: WorldContext, useValue: fakeWorldContext() },
       ],
     });
   });

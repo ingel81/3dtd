@@ -6,9 +6,10 @@ import { GameEventBus } from '../game-engine/game-event-bus';
 import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { LocationManagementService } from '../services/location/location-management.service';
-import { DevWorldService } from '../devworld/devworld.service';
 import { RunLogFacade } from './run-log.facade';
 import type { RunLogHead } from './run-log.types';
+import { WorldContext } from '../world/world-context.service';
+import { fakeWorldContext } from '../../test/world-context-fake';
 
 /**
  * When a run opens: with the new run's first packet, not at game:reset. On a
@@ -56,7 +57,7 @@ describe('RunLogFacade opens a run with the first packet of the run', () => {
         { provide: SimClient, useValue: { bus, onFrame: (listener: () => void) => { frames.push(listener); return () => true; } } },
         { provide: SimMirror, useValue: mirror },
         { provide: LocationManagementService, useValue: { editableHqLocation: () => null } },
-        { provide: DevWorldService, useValue: { isActive: true } },
+        { provide: WorldContext, useValue: (() => { const w = fakeWorldContext(); w.useDevWorld(); return w; })() },
       ],
     });
     facade = TestBed.inject(RunLogFacade);

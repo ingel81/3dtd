@@ -35,9 +35,10 @@ import { LocationManagementService } from '../../services/location/location-mana
 import { LocationChangeCoordinatorService } from '../../services/location/location-change-coordinator.service';
 import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-facade.service';
 import { ConfigService } from '../../core/services/config.service';
-import { DevWorldService } from '../../devworld/devworld.service';
 import { MatDialog } from '@angular/material/dialog';
 import { focusIsQuiet, focusedByKeyboard } from '../../utils/keyboard-target';
+import { WorldContext } from '../../world/world-context.service';
+import { fakeWorldContext } from '../../../test/world-context-fake';
 
 const read = (path: string) => readFileSync(resolve('src/app/components/main-menu', path), 'utf8');
 
@@ -147,7 +148,7 @@ describe('The main menu', () => {
         { provide: COOP, useValue: coop },
         { provide: TowerDefenseFacadeService, useValue: facade },
         { provide: ConfigService, useValue: config },
-        { provide: DevWorldService, useValue: { isActive: false } },
+        { provide: WorldContext, useValue: fakeWorldContext() },
         { provide: MatDialog, useValue: dialog },
       ],
     });

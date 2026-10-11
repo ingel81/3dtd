@@ -111,7 +111,7 @@ function setup() {
   camera.lookAt(0, FOOT - PLINTH / 2, 0);
   camera.updateMatrixWorld();
   const renderer = { domElement: { getBoundingClientRect: () => RECT } } as unknown as WebGLRenderer;
-  const sources = { tiles: () => null, devTerrain: () => null };
+  const sources = { pickRay: () => null };
   // As the engine builds it: the tower meshes, then the plinths
   const picker = new ScreenPicker(camera, renderer, {
     getAllMeshes: () => [...towers.getAllMeshes(), ...plinths.getAllMeshes()],

@@ -5,6 +5,8 @@ import { BestWaveService } from './best-wave.service';
 import { GeocodingService, NominatimAddress, UNKNOWN_LOCATION_NAME } from './geocoding.service';
 import { LocationManagementService } from './location-management.service';
 import { BEST_WAVES_KEY, BestWave } from './best-waves';
+import { WorldContext } from '../../world/world-context.service';
+import { fakeWorldContext, type FakeWorldContext } from '../../../test/world-context-fake';
 
 const HEILBRONN = { lat: 49.1427, lon: 9.2109 };
 
@@ -22,11 +24,13 @@ describe('BestWaveService', () => {
   let bus: MainEventBus;
   let service: BestWaveService;
   let playerRun: boolean;
+  let world: FakeWorldContext;
 
   function create(): BestWaveService {
     const injector = Injector.create({
       providers: [
         { provide: LocationManagementService, useValue: location },
+        { provide: WorldContext, useValue: world },
         {
           provide: GeocodingService,
           useValue: { extractLocationName: (a: NominatimAddress) => a.city ?? UNKNOWN_LOCATION_NAME },
@@ -42,6 +46,7 @@ describe('BestWaveService', () => {
   beforeEach(() => {
     localStorage.clear();
     location = makeLocation();
+    world = fakeWorldContext();
     bus = createMainEventBus();
     playerRun = true;
     service = create();
@@ -142,9 +147,10 @@ describe('BestWaveService', () => {
     });
   });
 
-  it('records nothing in DevWorld or without an HQ', () => {
-    location.hq.set({ lat: 0, lon: 0 });
+  it('records nothing on a world without a real place (DevWorld) or without an HQ', () => {
+    world.useDevWorld();
     wave(1);
+    world.useTiles();
     location.hq.set(null);
     wave(2);
     expect(service.records()).toEqual([]);

@@ -16,7 +16,7 @@ import type { Tower } from '../entities/tower.entity';
 import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { LocationManagementService } from '../services/location/location-management.service';
-import { DevWorldService } from '../devworld/devworld.service';
+import { WorldContext } from '../world/world-context.service';
 import { GameStore } from '../store/game.store';
 import { HERO } from '../configs/hero.config';
 import { calculateTotalDPS } from '../director/defense-analyzer';
@@ -34,7 +34,7 @@ import type { RunEndReason, RunLog, RunPlayer } from './run-log.types';
 @Injectable({ providedIn: 'root' })
 export class RunLogFacade {
   private readonly locations = inject(LocationManagementService);
-  private readonly devWorld = inject(DevWorldService);
+  private readonly worldContext = inject(WorldContext);
   private readonly gameStore = inject(GameStore);
   private readonly sim = inject(SimClient);
   private readonly mirror = inject(SimMirror);
@@ -267,7 +267,7 @@ export class RunLogFacade {
     this.collector.open(
       {
         seed: mirror.scalars.seed,
-        map: this.devWorld.isActive ? 'devworld' : 'world',
+        map: this.worldContext.ref().kind === 'devworld' ? 'devworld' : 'world',
         player: who.player,
         directorParams: directorParamsName(),
         waveSource: this.waveSource(),

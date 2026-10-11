@@ -365,7 +365,8 @@ describe('OsmStreetService', () => {
         nodes: new Map([s0, s1, s2].map((n) => [n.id, n])),
         bounds: { minLat: 48.0, maxLat: 48.0046, minLon: 9.0, maxLon: 9.0 },
       };
-      const findPath = vi.spyOn(service, 'findPath');
+      // The segment A* behind findPath, which the random spawn checks with in every world (StreetRouter)
+      const findPath = vi.spyOn(service as unknown as { routeAlongSegments: OsmStreetService['findPath'] }, 'routeAlongSegments');
 
       // 20 m east of the middle of Süd; only s2 lies 300 m or more off.
       const spawn = service.findRandomStreetPoint(network, 48.0015, 9.00027, 300, 1000);

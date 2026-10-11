@@ -6,7 +6,7 @@ import { DebugStateDumpService } from '../../services/debug/debug-state-dump.ser
 import { CellReportService } from '../../services/debug/cell-report.service';
 import { CorridorSnapshotService } from '../../services/debug/corridor-snapshot.service';
 import { UIStore } from '../../store/ui.store';
-import { DevWorldService } from '../../devworld/devworld.service';
+import { WorldContext } from '../../world/world-context.service';
 import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
@@ -20,7 +20,8 @@ import { TdIconComponent } from '../icon/icon.component';
 export class QuickActionsComponent {
   readonly debugWindows = inject(DebugWindowService);
   readonly uiStore = inject(UIStore);
-  readonly devWorld = inject(DevWorldService);
+  /** The DevWorld tile opens the regeneration panel: only a world that regenerates */
+  readonly worldContext = inject(WorldContext);
   readonly debugStateDump = inject(DebugStateDumpService);
   readonly cellReport = inject(CellReportService);
   readonly corridorSnapshot = inject(CorridorSnapshotService);

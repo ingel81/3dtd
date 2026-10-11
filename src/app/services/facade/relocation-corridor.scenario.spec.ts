@@ -23,6 +23,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import { signal } from '@angular/core';
+import { TILES_STREET_STYLE } from '../../world/tiles/tiles-world';
 import { MapRelocationService, type RelocationHost } from './map-relocation.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { RelocationStatusService } from '../world/relocation-status.service';
@@ -95,6 +96,7 @@ describe('Moving the HQ while the corridor is built (playtest 543)', () => {
     const network = makeNetwork();
     const overlay = new Group();
     const engine = {
+      world: { streetStyle: TILES_STREET_STYLE },
       setOrigin: vi.fn(),
       getOverlayGroup: () => overlay,
       getTerrainHeightAtGeo: () => 0,
@@ -122,11 +124,11 @@ describe('Moving the HQ while the corridor is built (playtest 543)', () => {
 
     di.stubs = {
       // PathAndRouteService's own
-      DevWorldService: { isActive: false },
       UIStore: { routesVisible: () => false },
       GlobalRouteGridService: { isInitialized: () => false, getGroundLocalYAt: () => null },
       // MapRelocationService's
-      OsmStreetService: { findPath: () => [SPAWN, HQ], findRandomStreetPoint: () => null, haversineDistance: () => 0 },
+      // The world's streets
+      WorldContext: { streets: { findPath: () => [SPAWN, HQ], findRandomStreetPoint: () => null, haversineDistance: () => 0 } },
       MarkerVisualizationService: { clearAllMarkers: vi.fn(), clearSpawnMarkers: vi.fn(), addBaseMarker: vi.fn() },
       LocationManagementService: { setLocation: vi.fn() },
       HeightUpdateService: { stopHeightUpdates: vi.fn() },

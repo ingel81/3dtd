@@ -1,15 +1,10 @@
-import {
-  StreetNetworkProvider,
-  StreetNetwork,
-  StreetNode,
-  Street,
-  NearestStreetPoint,
-  SpawnCandidate,
-} from '../interfaces/street-network-provider.interface';
-import { DevWorldService, DEV_WORLD_SIZE } from './devworld.service';
-import { StreetSegment, SpawnPoint, DEV_STREET_WIDTHS } from './generators/street-generator';
-import { haversineDistance as sharedHaversineDistance } from '../utils/street-astar';
-import { nearestStreetSegment } from '../utils/street-grid';
+import type { StreetNetwork, StreetNode, Street } from '../interfaces/street-network-provider.interface';
+import type { BuildingData } from '../services/location/osm-street.service';
+import { StreetRouter } from '../services/location/street-router';
+import { flatGeoToLocal, flatLocalToGeo } from '../world/flat-frame';
+import type { WorldStreetSource } from '../world/world-provider';
+import { DEV_WORLD_SIZE } from './devworld.service';
+import { StreetSegment, DEV_STREET_WIDTHS } from './generators/street-generator';
 
 /**
  * Street type weights for A* pathfinding
@@ -34,34 +29,36 @@ interface GraphNode {
 /**
  * DevStreetProvider
  *
- * Implements StreetNetworkProvider for DevWorld using generated street network.
+ * The WorldStreetSource of DevWorld, on the generated street network.
  * Features:
- * - Uses streets from StreetGenerator (via DevTerrainProvider)
+ * - Uses streets from StreetGenerator (DevWorldProvider hands them over from DevTerrainProvider)
  * - Converts street segments to graph with intersection detection
- * - A* pathfinding with street type weights
- * - Spawn candidate generation
+ * - A* pathfinding with street type weights (findPath)
+ * - Nearest point, random spawn points and the spawn preview's routes as on
+ *   any network (StreetRouter); the whole network stays in the overlay, no
+ *   Overpass, no building footprints (the buildings are part of the terrain)
  */
-export class DevStreetProvider implements StreetNetworkProvider {
+export class DevStreetProvider extends StreetRouter implements WorldStreetSource {
   private network: StreetNetwork | null = null;
   private graph = new Map<number, GraphNode>();
   private nodeIdCounter = 1;
 
   // Street data from generator
   private streetSegments: StreetSegment[] = [];
-  private spawnPoints: SpawnPoint[] = [];
-
-  constructor(private devWorld: DevWorldService) {}
-
   /**
-   * Set generated streets and spawns.
-   * Called by DevTerrainProvider after generation.
+   * Set the generated streets.
+   * Called by DevWorldProvider after each generation.
    */
-  setGeneratedStreets(segments: StreetSegment[], spawns: SpawnPoint[]): void {
+  setGeneratedStreets(segments: StreetSegment[]): void {
     this.streetSegments = segments;
-    this.spawnPoints = spawns;
     this.network = null; // Clear cached network
     this.graph.clear();
     this.nodeIdCounter = 1;
+  }
+
+  /** The streets are generated with the terrain: nothing to fetch ahead */
+  prefetchStreets(): void {
+    // nothing to begin
   }
 
   async loadStreets(
@@ -78,7 +75,7 @@ export class DevStreetProvider implements StreetNetworkProvider {
     this.network = this.buildNetwork();
 
     // Build graph for pathfinding
-    this.buildGraph();
+    this.buildGridGraph();
 
     return this.network;
   }
@@ -108,10 +105,10 @@ export class DevStreetProvider implements StreetNetworkProvider {
     }
 
     // Bounds calculation - note coordinate convention: -X = East = +lon, +X = West = -lon
-    const geoSouth = this.devWorld.localToGeo(0, -halfSize);
-    const geoNorth = this.devWorld.localToGeo(0, halfSize);
-    const geoWest = this.devWorld.localToGeo(halfSize, 0);   // +X = West = -lon
-    const geoEast = this.devWorld.localToGeo(-halfSize, 0);  // -X = East = +lon
+    const geoSouth = flatLocalToGeo(0, -halfSize);
+    const geoNorth = flatLocalToGeo(0, halfSize);
+    const geoWest = flatLocalToGeo(halfSize, 0);   // +X = West = -lon
+    const geoEast = flatLocalToGeo(-halfSize, 0);  // -X = East = +lon
 
     return {
       streets,
@@ -130,8 +127,8 @@ export class DevStreetProvider implements StreetNetworkProvider {
     const [x2, z2] = segment.to;
 
     // Convert local coords to geo
-    const geo1 = this.devWorld.localToGeo(x1, z1);
-    const geo2 = this.devWorld.localToGeo(x2, z2);
+    const geo1 = flatLocalToGeo(x1, z1);
+    const geo2 = flatLocalToGeo(x2, z2);
 
     const startNode: StreetNode = {
       id: this.nodeIdCounter++,
@@ -148,7 +145,7 @@ export class DevStreetProvider implements StreetNetworkProvider {
     return [startNode, endNode];
   }
 
-  private buildGraph(): void {
+  private buildGridGraph(): void {
     this.graph.clear();
 
     // Step 1: Find all intersections between street segments
@@ -297,15 +294,8 @@ export class DevStreetProvider implements StreetNetworkProvider {
     return ((px - ax) * dx + (pz - az) * dz) / len2;
   }
 
-  findNearestStreetPoint(
-    network: StreetNetwork,
-    lat: number,
-    lon: number
-  ): NearestStreetPoint | null {
-    return nearestStreetSegment(network, lat, lon);
-  }
-
-  findPath(
+  /** A* on the generated grid, weighted by street type (the route lines and enemies follow it) */
+  override findPath(
     _network: StreetNetwork,
     startLat: number,
     startLon: number,
@@ -313,8 +303,8 @@ export class DevStreetProvider implements StreetNetworkProvider {
     endLon: number
   ): StreetNode[] {
     // Convert geo coords to local coords
-    const startLocal = this.devWorld.geoToLocal(startLat, startLon);
-    const endLocal = this.devWorld.geoToLocal(endLat, endLon);
+    const startLocal = flatGeoToLocal(startLat, startLon);
+    const endLocal = flatGeoToLocal(endLat, endLon);
 
     // Find closest graph nodes directly (not via street segments)
     let startId: number | null = null;
@@ -342,14 +332,14 @@ export class DevStreetProvider implements StreetNetworkProvider {
     }
 
     // A* pathfinding
-    return this.astar(startId, endId);
+    return this.gridAstar(startId, endId);
   }
 
-  private astar(startId: number, endId: number): StreetNode[] {
+  private gridAstar(startId: number, endId: number): StreetNode[] {
     if (startId === endId) {
       // Same node - return single point
       const node = this.graph.get(startId)!;
-      const geo = this.devWorld.localToGeo(node.x, node.z);
+      const geo = flatLocalToGeo(node.x, node.z);
       return [{ id: startId, lat: geo.lat, lon: geo.lon }];
     }
 
@@ -421,7 +411,7 @@ export class DevStreetProvider implements StreetNetworkProvider {
     while (nodeId !== undefined) {
       const graphNode = this.graph.get(nodeId);
       if (graphNode) {
-        const geo = this.devWorld.localToGeo(graphNode.x, graphNode.z);
+        const geo = flatLocalToGeo(graphNode.x, graphNode.z);
         path.unshift({
           id: nodeId,
           lat: geo.lat,
@@ -434,59 +424,18 @@ export class DevStreetProvider implements StreetNetworkProvider {
     return path;
   }
 
-  getSpawnCandidates(
-    _network: StreetNetwork,
-    _centerLat: number,
-    _centerLon: number,
-    minDistance: number,
-    maxDistance: number,
-    count = 5
-  ): SpawnCandidate[] {
-    const hqPosition = { x: 0, z: 0 }; // HQ is at origin
-
-    // Return generated spawn points that are within distance range
-    const candidates: SpawnCandidate[] = [];
-
-    for (const spawn of this.spawnPoints) {
-      const distance = Math.hypot(spawn.position.x - hqPosition.x, spawn.position.z - hqPosition.z);
-
-      if (distance >= minDistance && distance <= maxDistance) {
-        const geo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
-        candidates.push({
-          lat: geo.lat,
-          lon: geo.lon,
-          distance,
-          direction: spawn.name,
-          streetName: `DevWorld ${spawn.name}`,
-        });
-      }
-    }
-
-    // If no candidates in range, return all spawn points
-    if (candidates.length === 0) {
-      for (const spawn of this.spawnPoints) {
-        const distance = Math.hypot(spawn.position.x - hqPosition.x, spawn.position.z - hqPosition.z);
-        const geo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
-        candidates.push({
-          lat: geo.lat,
-          lon: geo.lon,
-          distance,
-          direction: spawn.name,
-          streetName: `DevWorld ${spawn.name}`,
-        });
-      }
-    }
-
-    return candidates.slice(0, count);
+  /** DevWorld draws its whole network: the routes do not thin it */
+  override filterStreetsNearRoutes(network: StreetNetwork): StreetNetwork {
+    return network;
   }
 
-  haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    return sharedHaversineDistance(lat1, lon1, lat2, lon2);
+  /** The buildings stand in the terrain (DevTerrainProvider), not in OSM */
+  loadBuildingsNearRoutes(): Promise<BuildingData> {
+    return Promise.resolve({ buildings: [] });
   }
 
-  clearCache(): void {
-    this.network = null;
-    this.graph.clear();
-    this.nodeIdCounter = 1;
+  /** The generated streets have no names to tell: a spawn keeps the one it came with */
+  spawnLabel(_network: StreetNetwork, _lat: number, _lon: number, name: string): string {
+    return name;
   }
 }

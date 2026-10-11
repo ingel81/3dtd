@@ -17,9 +17,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { GameHeaderComponent } from './game-header.component';
 import { TdIconComponent } from '../icon/icon.component';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
-import { DevWorldService } from '../../devworld/devworld.service';
 import { refuseForCredits } from '../../services/credits-refusal';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
+import { WorldContext } from '../../world/world-context.service';
+import { fakeWorldContext } from '../../../test/world-context-fake';
 
 const template = readFileSync(resolve('src/app/components/game-header/game-header.component.html'), 'utf8');
 const MAX = GAME_BALANCE.player.startHealth;
@@ -56,7 +57,7 @@ describe('Header stat plates', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: TowerDefenseStore, useValue: { renderingEnabled: signal(true) } },
-        { provide: DevWorldService, useValue: { isActive: false } },
+        { provide: WorldContext, useValue: fakeWorldContext() },
       ],
     });
     TestBed.overrideComponent(GameHeaderComponent, {

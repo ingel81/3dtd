@@ -52,6 +52,7 @@ import type { RouteCell } from '../utils/route-cell';
 import { PLINTH_EMBED_M } from '../three-engine/renderers/tower-plinth/plinth-geometry';
 import { footprintSampleOffsets } from '../utils/tower-footprint';
 import { PLINTH_CONFIG } from '../configs/placement.config';
+import { DevWorldSurface } from '../devworld/dev-world-surface';
 
 /**
  * Build mode, preview, click and grid registration of TowerPlacementService.
@@ -120,7 +121,11 @@ describe('TowerPlacementService', () => {
   let scene: object;
   let blockerGroup: object | null;
   let devTerrain: ReturnType<typeof devWorld> | null;
-  let terrain: { raycastColumnSample: ReturnType<typeof vi.fn> };
+  let terrain: {
+    raycastColumnSample: ReturnType<typeof vi.fn<(x: number, z: number, caller: string) => { groundY: number; topY: number } | null>>;
+    roofAt: (x: number, z: number) => number | null;
+    footprintColumn: (x: number, z: number) => { groundY: number; topY: number } | null;
+  };
   let terrainHeight: ReturnType<typeof vi.fn>;
   let mapper: {
     invalidate: ReturnType<typeof vi.fn>;
@@ -228,7 +233,14 @@ describe('TowerPlacementService', () => {
     devTerrain = null;
     // The tiles show flat ground at the cursor unless a test gives them something else.
     cursorY = 0;
-    terrain = { raycastColumnSample: vi.fn(() => column(cursorY)) };
+    // The world's surface: the tiles' columns, or DevWorld's (devTerrain) where a test sets it
+    const tileColumns = vi.fn((_x: number, _z: number, _caller: string): { groundY: number; topY: number } | null => column(cursorY));
+    const devSurface = () => new DevWorldSurface(devTerrain as never, sync as never);
+    terrain = {
+      raycastColumnSample: tileColumns,
+      roofAt: (x, z) => (devTerrain ? devSurface().roofAt(x, z) : null),
+      footprintColumn: (x, z) => (devTerrain ? devSurface().footprintColumn(x, z) : terrain.raycastColumnSample(x, z, 'towerFootprint')),
+    };
     terrainHeight = vi.fn((): number | null => 0);
     const referencePos = new Vector3(1, 2, 3);
     mapper = {
@@ -244,7 +256,6 @@ describe('TowerPlacementService', () => {
       terrain,
       getOverlayGroup: () => overlay,
       getScene: () => scene,
-      getDevTerrainProvider: () => devTerrain,
       getTerrainHeightAtGeo: terrainHeight,
       getLosBlockerGroup: () => blockerGroup,
       getTowerShadowMapper: () => mapper,

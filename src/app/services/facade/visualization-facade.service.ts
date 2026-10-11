@@ -1,5 +1,4 @@
 import { Injectable, inject, Injector, effect, untracked } from '@angular/core';
-import { OsmStreetService } from '../location/osm-street.service';
 import { UIStore } from '../../store/ui.store';
 import type { ThreeTilesEngine } from '../../three-engine';
 import { CameraControlService } from '../camera-control.service';
@@ -13,7 +12,7 @@ import { MapPlacementService } from '../world/map-placement.service';
 import { RelocationStatusService } from '../world/relocation-status.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
-import { DevWorldService } from '../../devworld/devworld.service';
+import { WorldContext } from '../../world/world-context.service';
 import { CameraFramingService } from '../camera-framing.service';
 import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import { StartShowService } from '../world/start-show.service';
@@ -85,7 +84,6 @@ import { perfTrace } from '../../utils/perf-trace';
  */
 @Injectable()
 export class VisualizationFacadeService {
-  private readonly osmService = inject(OsmStreetService);
   private readonly uiStore = inject(UIStore);
   private readonly cameraControl = inject(CameraControlService);
   private readonly markerViz = inject(MarkerVisualizationService);
@@ -96,7 +94,7 @@ export class VisualizationFacadeService {
   private readonly heroControl = inject(HeroControlService);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
-  private readonly devWorld = inject(DevWorldService);
+  private readonly worldContext = inject(WorldContext);
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly routeAnimation = inject(RouteAnimationService);
   private readonly introFlight = inject(IntroCameraFlightService);
@@ -213,7 +211,7 @@ export class VisualizationFacadeService {
 
   /** OSM building footprints near the routes, see BuildingOverlay. */
   private readonly buildings = new BuildingOverlay({
-    osm: this.osmService,
+    streets: () => this.worldContext.streets,
     pathRoute: this.pathRoute,
     buildingRendering: this.buildingRendering,
     uiStore: this.uiStore,
@@ -428,9 +426,7 @@ export class VisualizationFacadeService {
     this.markerViz.initialize(engine, baseCoords, this.store.heightDebugVisible);
 
     // Initialize path and route service
-    const pathfindingService = this.devWorld.isActive && this.bridge.getDevStreetProvider()
-      ? this.bridge.getDevStreetProvider()!
-      : this.osmService;
+    const pathfindingService = this.worldContext.streets;
     this.pathRoute.initialize(
       engine,
       streetNetwork,
@@ -592,7 +588,7 @@ export class VisualizationFacadeService {
     this.towerPlacement.initialize(
       engine,
       streetNetwork,
-      this.osmService,
+      this.worldContext.streets,
       { lat: base.lat, lon: base.lon },
     );
 
@@ -620,12 +616,6 @@ export class VisualizationFacadeService {
     const streetNetwork = this.bridge.getStreetNetwork();
     if (!streetNetwork) return;
 
-    // DevWorld: Don't filter
-    if (this.devWorld.isActive) {
-      this.bridge.setFilteredStreetNetwork(streetNetwork);
-      return;
-    }
-
     const cachedPaths = this.pathRoute.getCachedPaths();
     const routes: { lat: number; lon: number }[][] = [];
 
@@ -638,7 +628,8 @@ export class VisualizationFacadeService {
       return;
     }
 
-    const filtered = this.osmService.filterStreetsNearRoutes(
+    // A world that draws all its streets (DevWorld) gives the network back
+    const filtered = this.worldContext.streets.filterStreetsNearRoutes(
       streetNetwork,
       routes,
       STREET_FILTER_RADIUS

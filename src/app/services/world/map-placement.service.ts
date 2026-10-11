@@ -1,4 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { WorldContext } from '../../world/world-context.service';
 import { Group, Mesh, MeshPhongMaterial, MeshBasicMaterial, Color, Object3D } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
 import { MarkerVisualizationService } from './marker-visualization.service';
@@ -12,7 +13,7 @@ import {
   type SpawnPortalPose,
 } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { SpawnDistanceRings } from '../../three-engine/renderers/spawn-distance-rings';
-import { OsmStreetService, Street, StreetNetwork, StreetNode } from '../location/osm-street.service';
+import { Street, StreetNetwork, StreetNode } from '../location/osm-street.service';
 import type { SegmentRoutes } from '../../utils/route-start';
 import { raycastStats } from '../../utils/raycast-stats';
 import { UIStore } from '../../store/ui.store';
@@ -116,7 +117,7 @@ const MAX_RING_COLOR = VALID_COLOR;
 export class MapPlacementService {
   private readonly uiStore = inject(UIStore);
   private readonly markerViz = inject(MarkerVisualizationService);
-  private readonly osmService = inject(OsmStreetService);
+  private readonly worldContext = inject(WorldContext);
 
   /** Current validation reason (null when valid) — read by component for context hints */
   readonly validationReason = signal<string | null>(null);
@@ -452,7 +453,7 @@ export class MapPlacementService {
       if (this.streetNetwork) {
         // If we have a street network, validate proximity only within loaded bounds
         if (this.isInsideStreets(lat, lon)) {
-          const nearest = this.osmService.findNearestStreetPoint(this.streetNetwork, lat, lon);
+          const nearest = this.worldContext.streets.findNearestStreetPoint(this.streetNetwork, lat, lon);
           if (!nearest || nearest.distance > MAX_HQ_STREET_DISTANCE) {
             return { valid: false, reason: 'Too far from streets' };
           }
@@ -480,7 +481,7 @@ export class MapPlacementService {
       return { valid: false, reason: 'No HQ placed' };
     }
 
-    const distToHq = this.osmService.haversineDistance(
+    const distToHq = this.worldContext.streets.haversineDistance(
       lat, lon,
       this.baseCoords.lat, this.baseCoords.lon,
     );
@@ -491,7 +492,7 @@ export class MapPlacementService {
       return { valid: false, reason: 'Too far from HQ' };
     }
 
-    const nearest = this.osmService.findNearestStreetPoint(this.streetNetwork, lat, lon);
+    const nearest = this.worldContext.streets.findNearestStreetPoint(this.streetNetwork, lat, lon);
     if (!nearest || nearest.distance > MAX_SPAWN_STREET_DISTANCE) {
       return { valid: false, reason: this.isInsideStreets(lat, lon) ? 'Too far from streets' : 'Streets not loaded here' };
     }
@@ -517,7 +518,7 @@ export class MapPlacementService {
     let routes = this.routesFromSegment.get(key);
     if (routes === undefined) {
       const hq = this.baseCoords!;
-      routes = this.osmService.segmentRoutes(this.streetNetwork!, nearest, hq.lat, hq.lon);
+      routes = this.worldContext.streets.segmentRoutes(this.streetNetwork!, nearest, hq.lat, hq.lon);
       this.routesFromSegment.set(key, routes);
     }
     return routes && this.buildPreviewRoute(routes.routeFrom(lat, lon));

@@ -81,7 +81,7 @@ function tiles(ground: Ground): TerrainQueries {
   }
   group.updateMatrixWorld(true);
   const renderer = { group, activeTiles } as unknown as TilesRenderer;
-  return new TerrainQueries({} as EllipsoidSync, { tiles: () => renderer, devTerrain: () => null });
+  return new TerrainQueries({} as EllipsoidSync, { tiles: () => renderer });
 }
 
 /** A box `height` m high over x0..x1, z0..z1, else `under`. */

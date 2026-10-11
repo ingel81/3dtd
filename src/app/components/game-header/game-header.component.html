@@ -92,7 +92,7 @@
       </button>
 
       <!-- Rendering toggle (Phase 5.14), headless mode for bot runs, DevWorld only -->
-      @if (isDevWorld) {
+      @if (isDevWorld()) {
         <button class="action-btn td-tool" (click)="toggleRendering()"
                 [class.is-on]="!renderingEnabled()"
                 [matTooltip]="renderingEnabled() ? 'Disable 3D rendering (headless)' : 'Enable 3D rendering'"

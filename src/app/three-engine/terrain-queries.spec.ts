@@ -1,7 +1,6 @@
 import { BufferGeometry, DoubleSide, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from 'three';
 import type { TilesRenderer } from '3d-tiles-renderer';
 import { LibraryTiles } from '../../test/library-tiles-fixture';
-import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { corridorConfig, probeLowWall } from '../utils/route-corridor';
 import { instrumentRaycasts, raycastStats } from '../utils/raycast-stats';
@@ -44,21 +43,12 @@ function geo(x: number, z: number): { lat: number; lon: number } {
   return { lat: z / METERS_PER_DEGREE_LAT, lon: -x / METERS_PER_DEGREE_LAT };
 }
 
-function fakeDevTerrain(): TerrainProvider {
-  return {
-    getHeightAtGeo: vi.fn(() => 11),
-    getHeightAtLocal: vi.fn(() => 7),
-    hasLineOfSightBlocked: vi.fn(() => true),
-  } as unknown as TerrainProvider;
-}
-
 function setup() {
   const group = new Group();
   const activeTiles = new Set<FakeTile>();
   const tilesRenderer = { group, activeTiles } as unknown as TilesRenderer;
   let tiles: TilesRenderer | null = tilesRenderer;
-  let devTerrain: TerrainProvider | null = null;
-  const queries = new TerrainQueries(sync, { tiles: () => tiles, devTerrain: () => devTerrain });
+  const queries = new TerrainQueries(sync, { tiles: () => tiles });
 
   /** Hängt `mesh` als aktive Tile der Tiefe `depth` in die Tiles-Gruppe. */
   const addTile = (mesh: Mesh, depth: number, geometricError: number): FakeTile => {
@@ -75,11 +65,6 @@ function setup() {
 
   return {
     queries, group, activeTiles, addTile, rays,
-    useDevWorld: () => {
-      tiles = null;
-      devTerrain = fakeDevTerrain();
-      return devTerrain;
-    },
     dropTiles: () => { tiles = null; },
   };
 }
@@ -193,14 +178,6 @@ describe('TerrainQueries', () => {
       expect(queries.sampleColumn(0, 0)).toBeNull();
       expect(rays).not.toHaveBeenCalled();
     });
-
-    it('fragt in DevWorld den DevTerrainProvider', () => {
-      const { queries, useDevWorld } = setup();
-      const devTerrain = useDevWorld();
-
-      expect(queries.sampleColumn(4, 5)).toEqual({ groundY: 7, topY: 7, tileDepth: 99, tileGeometricError: 0 });
-      expect(devTerrain.getHeightAtLocal).toHaveBeenCalledWith(4, 5);
-    });
   });
 
   describe('peekBestTileLODAtLocal()', () => {
@@ -234,12 +211,6 @@ describe('TerrainQueries', () => {
       group.updateMatrixWorld(true);
       expect(queries.peekBestTileLODAtLocal(20, 0)).toBeNull();
       expect(queries.peekBestTileLODAtLocal(120, 0)).toEqual({ depth: 3, geometricError: 3 });
-    });
-
-    it('meldet in DevWorld eine synthetische Top-LOD', () => {
-      const { queries, useDevWorld } = setup();
-      useDevWorld();
-      expect(queries.peekBestTileLODAtLocal(0, 0)).toEqual({ depth: 99, geometricError: 0 });
     });
   });
 
@@ -484,16 +455,12 @@ describe('TerrainQueries', () => {
       });
     });
 
-    it('liefert null ohne Querrichtung, ohne Tiles und in DevWorld', () => {
+    it('liefert null ohne Querrichtung und ohne Tiles', () => {
       const world = street();
       expect(world.queries.measureStreetClearance(0, 0, 0, 0, [1], 10)).toBeNull();
 
       world.dropTiles();
       expect(world.queries.measureStreetClearance(0, 0, 1, 0, [1], 10)).toBeNull();
-
-      const dev = street();
-      dev.useDevWorld();
-      expect(dev.queries.measureStreetClearance(0, 0, 1, 0, [1], 10)).toBeNull();
     });
 
     it('bucht Säule und Seitenstrahlen einer Station auf routeCorridor', () => {
@@ -550,13 +517,6 @@ describe('TerrainQueries', () => {
       expect(raycastStats.rows().map(({ caller }) => caller)).toEqual(['towerFootprint']);
     });
 
-    it('fragt in DevWorld den DevTerrainProvider nach der Geo-Höhe', () => {
-      const { queries, useDevWorld } = setup();
-      const devTerrain = useDevWorld();
-      expect(queries.getTerrainHeightAtGeo(1, 2)).toBe(11);
-      expect(devTerrain.getHeightAtGeo).toHaveBeenCalledWith(1, 2);
-    });
-
     describe('getGroundHeightEstimate()', () => {
       // Weg nach Norden durch den Origin, die Querproben liegen auf der X-Achse.
       const prev = geo(0, -10);
@@ -579,16 +539,12 @@ describe('TerrainQueries', () => {
         expect(queries.getGroundHeightEstimate(0, 0, prev.lat, prev.lon, next.lat, next.lon)).toBeCloseTo(5, 6);
       });
 
-      it('behält die Mitte ohne Wegrichtung und in DevWorld', () => {
+      it('behält die Mitte ohne Wegrichtung', () => {
         const world = setup();
         world.addTile(floor(0, 19, -10.5, 0), 3, 2);
         world.addTile(floor(0, 19, 10.5, 0), 3, 2);
         world.addTile(floor(8, 2), 3, 2);
         expect(world.queries.getGroundHeightEstimate(0, 0, 0, 0, 0, 0)).toBeCloseTo(8, 6);
-
-        const dev = setup();
-        dev.useDevWorld();
-        expect(dev.queries.getGroundHeightEstimate(0, 0, prev.lat, prev.lon, next.lat, next.lon)).toBe(11);
       });
     });
 
@@ -704,13 +660,10 @@ describe('TerrainQueries', () => {
         expect(column.cached!.groundY).toBeCloseTo(10, 6);
       });
 
-      it('gibt ohne Treffer keine, und in DevWorld nichts', () => {
+      it('gibt ohne Treffer keine', () => {
         const world = setup();
         world.addTile(floor(0, 4), 21, 2);
         expect(world.queries.inspectColumn(30, 30)).toEqual({ hits: [], fresh: null, cached: null });
-        const dev = setup();
-        dev.useDevWorld();
-        expect(dev.queries.inspectColumn(0, 0)).toBeNull();
       });
     });
   });
@@ -726,7 +679,7 @@ describe('TerrainQueries', () => {
    * first caller showed.
    */
   describe('on the library ray path', () => {
-    const queriesOver = (tiles: LibraryTiles) => new TerrainQueries(sync, { tiles: () => tiles.renderer, devTerrain: () => null });
+    const queriesOver = (tiles: LibraryTiles) => new TerrainQueries(sync, { tiles: () => tiles.renderer });
 
     /** A slope rising 0.5 m per metre east, x and z -50 to 50, split along x = -z so no ray here meets both triangles. */
     function slope(): Mesh {
@@ -844,16 +797,11 @@ describe('TerrainQueries', () => {
       expect(far.queries.raycastLineOfSight(0, 2, 0, 10, 2, 0)).toBe(true);
     });
 
-    it('ist ohne Tiles frei und fragt in DevWorld den Provider', () => {
+    it('ist ohne Tiles frei', () => {
       const world = setup();
       world.addTile(wall(5), 3, 2);
       world.dropTiles();
       expect(world.queries.raycastLineOfSight(0, 2, 0, 10, 2, 0)).toBe(false);
-
-      const dev = setup();
-      const devTerrain = dev.useDevWorld();
-      expect(dev.queries.raycastLineOfSight(1, 2, 3, 4, 5, 6)).toBe(true);
-      expect(devTerrain.hasLineOfSightBlocked).toHaveBeenCalledWith(1, 2, 3, 4, 5, 6);
     });
   });
 });

@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { TERRAIN_PRESETS, TerrainPreset } from './terrain-presets';
 
 /**
@@ -44,23 +43,14 @@ export const DEV_WORLD_HEIGHTMAP_SIZE = 1024; // pixels (~1m resolution)
 export const DEV_WORLD_MAX_HEIGHT = 150; // meters - dramatic terrain!
 
 /**
- * Fake origin for DevWorld (somewhere in the ocean, unlikely to conflict)
- * All geo-coordinates in DevWorld are relative to this point
- */
-export const DEV_WORLD_ORIGIN = {
-  lat: 0.0,
-  lon: 0.0,
-  height: 0,
-};
-
-/**
  * Default seed for reproducible DevWorld generation.
  * Always use this when no seed is specified in URL.
  */
 export const DEV_WORLD_DEFAULT_SEED = 42;
 
 /**
- * Spawn point locations in local coordinates (meters from origin)
+ * Spawn point locations in local coordinates (meters from the origin of the
+ * synthetic frame, world/flat-frame.ts)
  *
  * Coordinate convention (same as EllipsoidSync):
  * - -X = East, +X = West
@@ -76,21 +66,26 @@ export const DEV_WORLD_SPAWNS: Record<string, { x: number; z: number }> = {
   west: { x: 400, z: -200 },    // Intersection col-w2 × row-s1
 };
 
+/**
+ * The DevWorld configuration from the URL (`?devworld&terrain=...`) and the
+ * debug panel. Whether a run plays DevWorld is the WorldContext's to say
+ * (its WorldRef); `inUrl` only tells it the link asks for it.
+ */
 @Injectable({
   providedIn: 'root',
 })
 export class DevWorldService {
-  /** Whether DevWorld mode is active */
-  readonly isActive: boolean;
+  /** The link asks for DevWorld (`?devworld`), read by WorldContext */
+  readonly inUrl: boolean;
 
   /** DevWorld configuration from URL parameters */
   readonly config: DevWorldConfig;
 
   constructor() {
     const params = new URLSearchParams(window.location.search);
-    this.isActive = params.has('devworld');
+    this.inUrl = params.has('devworld');
 
-    if (this.isActive) {
+    if (this.inUrl) {
       const rawTerrain = params.get('terrain');
       this.config = {
         terrain: this.parseTerrainParam(rawTerrain),
@@ -123,35 +118,6 @@ export class DevWorldService {
       return spawns[Math.floor(Math.random() * spawns.length)];
     }
     return DEV_WORLD_SPAWNS[this.config.spawn] || DEV_WORLD_SPAWNS['north'];
-  }
-
-  /**
-   * Convert local coordinates to fake geo coordinates
-   *
-   * Uses same convention as EllipsoidSync:
-   * - -X = East, +X = West
-   * - +Z = North, -Z = South
-   * - 1 degree lat ≈ 111320m at equator
-   */
-  localToGeo(x: number, z: number): { lat: number; lon: number } {
-    return {
-      lat: DEV_WORLD_ORIGIN.lat + z / METERS_PER_DEGREE_LAT,
-      lon: DEV_WORLD_ORIGIN.lon - x / METERS_PER_DEGREE_LAT, // -X = East = +lon
-    };
-  }
-
-  /**
-   * Convert fake geo coordinates to local coordinates
-   *
-   * Uses same convention as EllipsoidSync:
-   * - -X = East, +X = West
-   * - +Z = North, -Z = South
-   */
-  geoToLocal(lat: number, lon: number): { x: number; z: number } {
-    return {
-      x: -(lon - DEV_WORLD_ORIGIN.lon) * METERS_PER_DEGREE_LAT, // +lon = East = -X
-      z: (lat - DEV_WORLD_ORIGIN.lat) * METERS_PER_DEGREE_LAT,
-    };
   }
 
   /**

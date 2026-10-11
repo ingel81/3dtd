@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import type { MainEventBus } from '../../sim/client/view-events';
-import { DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
+import { WorldContext } from '../../world/world-context.service';
 import { GeocodingService, UNKNOWN_LOCATION_NAME } from './geocoding.service';
 import { LOADING_NAME, LocationManagementService, NO_LOCATION_NAME } from './location-management.service';
 import { BestWave, findBestWave, loadBestWaves, recordBestWave, saveBestWaves } from './best-waves';
@@ -30,6 +30,7 @@ export interface NewRecord {
 export class BestWaveService {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly geocoding = inject(GeocodingService);
+  private readonly worldContext = inject(WorldContext);
   private readonly subs = new SubscriptionBag();
 
   /** Every place with its best wave, unsorted */
@@ -95,10 +96,10 @@ export class BestWaveService {
     this.newRecord.set(null);
   }
 
-  /** The place being played, without the wave; null without an HQ and in DevWorld. */
+  /** The place being played, without the wave; null without an HQ and on a world without a real place. */
   private currentPlace(): Omit<BestWave, 'bestWave' | 'reachedAt'> | null {
     const hq = this.locationMgmt.hq();
-    if (!hq || (hq.lat === DEV_WORLD_ORIGIN.lat && hq.lon === DEV_WORLD_ORIGIN.lon)) return null;
+    if (!hq || !this.worldContext.capabilities().realPlace) return null;
 
     const display = this.locationMgmt.displayName();
     const resolved = display !== NO_LOCATION_NAME && display !== LOADING_NAME;

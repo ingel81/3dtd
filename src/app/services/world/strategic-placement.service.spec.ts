@@ -86,11 +86,12 @@ describe('StrategicPlacementService candidate filter', () => {
   let placementAt: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    injectionRegistry['OsmStreetService'] = {
+    // The world's streets (WorldContext.streets)
+    injectionRegistry['WorldContext'] = { streets: {
       haversineDistance,
       // The path is the street: every lookup lands on its one segment.
       findNearestStreetPoint: () => ({ street: { nodes: path }, nodeIndex: 0, distance: 20 }),
-    };
+    } };
     injectionRegistry['GlobalRouteGridService'] = { onCellsChanged: () => () => undefined };
     injectionRegistry['TowerLosRegistry'] = { canProbeSight: () => false };
     injectionRegistry['ResearchStore'] = { airTargetingUnlocked: () => false };

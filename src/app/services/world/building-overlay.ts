@@ -1,5 +1,6 @@
 import { BUILDING_CORRIDOR_RADIUS } from '../../configs/map-constants.config';
-import type { BuildingFootprint, OsmStreetService } from '../location/osm-street.service';
+import type { BuildingFootprint } from '../location/osm-street.service';
+import type { WorldStreetSource } from '../../world/world-provider';
 import type { PathAndRouteService } from './path-route.service';
 import type { BuildingRenderingService } from './building-rendering.service';
 import type { UIStore } from '../../store/ui.store';
@@ -8,7 +9,8 @@ import type { ThreeTilesEngine } from '../../three-engine';
 
 /** What BuildingOverlay needs; VisualizationFacadeService passes its services. */
 export interface BuildingOverlayDeps {
-  osm: Pick<OsmStreetService, 'loadBuildingsNearRoutes'>;
+  /** The world's streets, looked up at each load: OSM on the tiles, none where buildings are part of the world */
+  streets: () => Pick<WorldStreetSource, 'loadBuildingsNearRoutes'>;
   pathRoute: Pick<PathAndRouteService, 'getCachedPaths'>;
   buildingRendering: Pick<BuildingRenderingService, 'renderBuildings' | 'toggleVisibility' | 'reset' | 'clear'>;
   uiStore: Pick<UIStore, 'buildingsVisible'>;
@@ -157,7 +159,7 @@ export class BuildingOverlay {
     this.loadingFor = key;
 
     try {
-      const buildingData = await this.deps.osm.loadBuildingsNearRoutes(routes, BUILDING_CORRIDOR_RADIUS);
+      const buildingData = await this.deps.streets().loadBuildingsNearRoutes(routes, BUILDING_CORRIDOR_RADIUS);
       // The routes changed while the answer was on its way: it belongs to the old ones
       if (this.loadingFor !== key || this.routesKey() !== key) return;
       this.cachedBuildings = buildingData.buildings;

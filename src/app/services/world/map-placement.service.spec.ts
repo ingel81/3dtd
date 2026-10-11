@@ -3,7 +3,6 @@ import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { Color, Group, Mesh, MeshPhongMaterial } from 'three';
 import { MapPlacementService } from './map-placement.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
-import { OsmStreetService } from '../location/osm-street.service';
 import { UIStore } from '../../store/ui.store';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { StreetNetwork } from '../location/osm-street.service';
@@ -22,6 +21,8 @@ import { haversineDistance } from '../../utils/geo-utils';
 import { SegmentRoutes } from '../../utils/route-start';
 import { raycastStats } from '../../utils/raycast-stats';
 import { makeGeoToLocal, fakePortalPreview } from '../../../test/portal-preview-fixture';
+import { WorldContext } from '../../world/world-context.service';
+import { fakeWorldContext } from '../../../test/world-context-fake';
 
 const HQ = { lat: 48.9, lon: 9.2 };
 /** The box the streets were loaded for: 0.01 degree around the HQ. */
@@ -91,7 +92,7 @@ describe('MapPlacementService', () => {
       providers: [
         { provide: UIStore, useValue: { mapPlacementMode, coopMapLocked: signal(false) } },
         { provide: MarkerVisualizationService, useValue: markerViz },
-        { provide: OsmStreetService, useValue: osm },
+        { provide: WorldContext, useValue: fakeWorldContext(osm as never) },
       ],
     });
     service = runInInjectionContext(injector, () => new MapPlacementService());

@@ -1,4 +1,3 @@
-import { isDevMode } from '@angular/core';
 import {
   WebGLRenderer,
   Scene,
@@ -9,25 +8,21 @@ import {
   Group,
   SRGBColorSpace,
   Fog,
-  MathUtils,
   Matrix4,
   Vector4,
 } from 'three';
-import type { TilesRenderer, GlobeControls } from '3d-tiles-renderer';
-import type { ReorientationPlugin } from '3d-tiles-renderer/plugins';
+import type { GlobeControls } from '3d-tiles-renderer';
 import { ColorGradingPreset } from './post-processing/color-grading';
 import { PostProcessingPipeline } from './post-processing/post-processing-pipeline';
 import { CameraRig } from './camera-rig';
-import { TileLoadingTracker, type RootLoadFailure, type TileStats } from './tile-loading-tracker';
-import { EllipsoidSync } from './ellipsoid-sync';
+import type { RootLoadFailure, TileStats } from './tile-loading-tracker';
+import type { EllipsoidSync } from './ellipsoid-sync';
 import { RenderLoop } from './render-loop';
 import { CanvasSizeFollower } from './canvas-size-follower';
-import { TerrainQueries } from './terrain-queries';
 import { SkyBackground, addSceneLights } from './scene-environment';
 import { DiveView, FOG_FAR, FOG_NEAR, VIEW_DISTANCE } from './dive-view';
 import { ScreenPicker } from './screen-picker';
 import { skipLostContextDeletes } from './lost-context-deletes';
-import { applyQueueBudget, applyStreamingBudget, createTilesRenderer } from './tiles-renderer-setup';
 import {
   CoordinateSync,
   ThreeTowerRenderer,
@@ -56,23 +51,18 @@ import { EmpPulseRenderer } from './renderers/emp-pulse.renderer';
 import { OrbitalBeamRenderer } from './renderers/orbital-beam.renderer';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { AssetManagerService } from '../services/infrastructure/asset-manager.service';
-import { DevWorldService } from '../devworld/devworld.service';
-import { TerrainProvider } from '../interfaces/terrain-provider.interface';
-import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 import { TowerShadowMapper } from './tower-shadow-mapper';
-import { RouteCorridorTiles } from './route-corridor-tiles';
-import { SettleHold, type TilesLodDebug } from './tiles-lod-debug';
+import type { RouteCorridorTiles } from './route-corridor-tiles';
+import type { TilesLodDebug } from './tiles-lod-debug';
 import { perfTrace } from '../utils/perf-trace';
 import { warmUpScene } from './scene-warmup';
-import { logTileMaterialTypes } from './tile-material-log';
-import { instrumentRaycasts } from '../utils/raycast-stats';
 import { ScreenShake, offsetProjection } from './screen-shake';
 import { ShakeBenchmark, type ShakeBenchResult } from './screen-shake-benchmark';
 import { MISSILE_LAUNCH_LOOK, MUSHROOM_CLOUD_LOOK, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
 import { ABILITIES } from '../configs/abilities.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import type { GeoPosition } from '../models/game.types';
-import { tilesInternals } from './tiles-internals';
+import { NO_TILE_STATS, type WorldProvider, type WorldSurface } from '../world/world-provider';
 
 /** Options of the canvas renderer, without the canvas. */
 export const CANVAS_RENDERER_OPTIONS = {
@@ -90,28 +80,23 @@ export const CANVAS_RENDERER_OPTIONS = {
 /**
  * ThreeTilesEngine - Main Three.js rendering engine for Tower Defense
  *
- * Uses 3DTilesRendererJS (NASA JPL) to render Cesium Ion 3D Tiles
- * directly in Three.js.
+ * Draws the game over a world it gets ready made (WorldProvider,
+ * docs/WORLD_PROVIDER_PLAN.md): the Google 3D tiles through
+ * 3DTilesRendererJS (TilesWorld), DevWorld's procedural terrain, later
+ * custom maps. The engine never asks which world it is; the ground queries
+ * are the world's surface (`terrain`), its tiles a facet (`world.tiles`).
  *
  * Key advantages:
  * - Single WebGL context - automatic depth occlusion for all objects
- * - Native Three.js raycasting against 3D tiles
+ * - Native Three.js raycasting against the ground
  * - Simpler coordinate transformations
  */
 export class ThreeTilesEngine {
   private renderer: WebGLRenderer;
   private scene: Scene;
   private camera: PerspectiveCamera;
-  // GlobeControls/EnvironmentControls + Startposition der Kamera
+  // GlobeControls/EnvironmentControls + Startposition der Kamera; the world sets the controls up
   private readonly cameraRig: CameraRig;
-  // First-Load-Erkennung, Debounce, Retry, Auth-Fehler, Tile-Stats
-  private readonly tileLoading: TileLoadingTracker;
-  private tilesRenderer: TilesRenderer | null = null;
-  private reorientationPlugin: ReorientationPlugin | null = null;
-  /** The tiles along the enemy routes: their load region and LOD debug, see RouteCorridorTiles */
-  private readonly corridor: RouteCorridorTiles;
-  /** Holds settled tile loads back from the game while `__corridor.probeLod()` runs, see tilesLodDebug(). */
-  private readonly settleHold = new SettleHold(() => this.onTileSetSettled());
 
   // Post-processing pipeline (composer + bloom + color grading + output pass)
   private postProcessing: PostProcessingPipeline | null = null;
@@ -128,18 +113,15 @@ export class ThreeTilesEngine {
   /** Phase 5.14: headless mode, skips all per-frame rendering work. */
   private _renderingEnabled = true;
 
-  // DevWorld support
-  private devWorld: DevWorldService | null = null;
-  private devTerrainProvider: TerrainProvider | null = null;
-
-  // Coordinate sync
+  // Coordinate sync, the world's
   readonly sync: EllipsoidSync;
 
   /**
-   * Terrain and tile raycasts: ground columns with their cache, street
-   * clearance, line of sight, tile-LOD peek. Reached as `engine.terrain`.
+   * The world's ground queries: columns with their cache, street clearance,
+   * line of sight, LOD peek, screen picks (WorldSurface). Reached as
+   * `engine.terrain`.
    */
-  readonly terrain: TerrainQueries;
+  readonly terrain: WorldSurface;
 
   /**
    * Where the spawn portals hide the enemies still behind their plane
@@ -204,12 +186,6 @@ export class ThreeTilesEngine {
   /** The globe covers the canvas: frames skip the draw (the tiles still update), see setDrawSuppressed() */
   private drawSuppressed = false;
 
-  // Track initial tiles position to calculate movement delta
-  private initialTilesPos = new Vector3();
-  /** Reused scratch for the per-frame overlay-sync delta (avoids clone()). */
-  private readonly _overlayDelta = new Vector3();
-  private tilesPosInitialized = false;
-
   // Callback when tiles finish loading (for terrain height refresh)
   private onTilesLoadCallback: (() => void) | null = null;
 
@@ -240,42 +216,18 @@ export class ThreeTilesEngine {
   /** Resizes the drawing buffer with the canvas, see fitToCanvas() */
   private readonly canvasSize: CanvasSizeFollower;
 
-  // Tile provider credentials
-  private cesiumIonToken: string;
-  private cesiumAssetId: string;
-  private tileProvider: 'cesium' | 'google';
-  private googleMapsApiKey: string;
-
-
+  /**
+   * @param world The world to draw, made around the run's origin
+   *   (WorldContext.open); attached in initialize(), disposed with the engine
+   */
   constructor(
     canvas: HTMLCanvasElement,
-    cesiumIonToken: string,
-    cesiumAssetId: string,
-    originLat: number,
-    originLon: number,
-    originHeight = 0,
+    readonly world: WorldProvider,
     private assetManager?: AssetManagerService,
-    devWorldService?: DevWorldService,
-    tileProvider: 'cesium' | 'google' = 'cesium',
-    googleMapsApiKey = '',
   ) {
-    // Store DevWorld service reference
-    this.devWorld = devWorldService ?? null;
-    this.cesiumIonToken = cesiumIonToken;
-    this.cesiumAssetId = cesiumAssetId;
-    this.tileProvider = tileProvider;
-    this.googleMapsApiKey = googleMapsApiKey;
-
-    // Initialize coordinate sync
-    this.sync = new EllipsoidSync(originLat, originLon, originHeight);
-    this.corridor = new RouteCorridorTiles(this.sync, this.settleHold);
-
-    // Terrain and tile raycasts. They read tilesRenderer and devTerrainProvider,
-    // which initialize() sets.
-    this.terrain = new TerrainQueries(this.sync, {
-      tiles: () => this.tilesRenderer,
-      devTerrain: () => this.devTerrainProvider,
-    });
+    // Coordinates and ground queries are the world's
+    this.sync = world.sync;
+    this.terrain = world.surface;
 
     // Create WebGL renderer with error handling
     try {
@@ -322,17 +274,11 @@ export class ThreeTilesEngine {
     this.cameraRig = new CameraRig(this.camera, this.renderer.domElement);
 
     this.dive = new DiveView({
-      tiles: () => this.tilesRenderer,
+      tiles: () => this.world.tiles?.renderer() ?? null,
       renderer: this.renderer,
       camera: this.camera,
       fog: () => (this.scene.fog instanceof Fog ? this.scene.fog : null),
       prerender: (camera) => this.prerender(camera),
-    });
-
-    // Lade-Events hängen sich erst in initialize() an den TilesRenderer
-    this.tileLoading = new TileLoadingTracker(this.camera, this.renderer, {
-      probeOriginGround: () => this.terrain.raycastTerrainHeight(0, 0, 'tileProbe'),
-      onTileSetSettled: () => this.onTileSetSettled(),
     });
 
     // Setup lighting and sky
@@ -407,15 +353,12 @@ export class ThreeTilesEngine {
       this.sync.geoToLocalSimpleInto(lat, lon, height, target)
     );
 
-    // Screen picking against the tiles (DevWorld: its terrain) and the tower
-    // meshes; a plinth picks the tower on it
+    // Screen picking against the world's ground and the tower meshes; a
+    // plinth picks the tower on it
     const pickableTowers = {
       getAllMeshes: () => [...this.towers.getAllMeshes(), ...this.plinths.getAllMeshes()],
     };
-    this.picker = new ScreenPicker(this.camera, this.renderer, pickableTowers, {
-      tiles: () => this.tilesRenderer,
-      devTerrain: () => this.devTerrainProvider,
-    });
+    this.picker = new ScreenPicker(this.camera, this.renderer, pickableTowers, this.terrain);
 
     // Setup post-processing pipeline (bloom off by default)
     this.setupPostProcessing();
@@ -442,8 +385,8 @@ export class ThreeTilesEngine {
    * Keep the camera still while it runs. Resolves with one row per phase.
    */
   runShakeBenchmark(seconds = 5): Promise<ShakeBenchResult[]> {
-    if (this.devTerrainProvider) {
-      return Promise.reject(new Error('The shake benchmark measures the 3D tiles; DevWorld has none'));
+    if (!this.world.tiles) {
+      return Promise.reject(new Error('The shake benchmark measures the 3D tiles; this world has none'));
     }
     if (!this.shakeBench) {
       const { amplitude } = SCREEN_SHAKE_CONFIG.presets.rocket;
@@ -474,125 +417,36 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Initialize 3D Tiles (async - must be called after constructor)
+   * Put the world into the scene (async, after the constructor): its
+   * ground, the camera controls, its load events.
    */
   async initialize(): Promise<void> {
-    // ========================================
-    // DEVWORLD MODE - Use fake terrain instead of Google 3D Tiles
-    // ========================================
-    if (this.devWorld?.isActive) {
-      if (isDevMode()) console.log('[ThreeTilesEngine] DevWorld mode active - using fake terrain');
-      await this.initializeDevWorld();
-      return;
-    }
-
-    // ========================================
-    // NORMAL MODE - Load Google 3D Tiles
-    // ========================================
-
-    // TilesRenderer with the auth, streaming, reorientation and region
-    // plugins, group rotated to Y-up
-    const tiles = createTilesRenderer({
-      provider: this.tileProvider,
-      googleMapsApiKey: this.googleMapsApiKey,
-      cesiumIonToken: this.cesiumIonToken,
-      cesiumAssetId: this.cesiumAssetId,
-      origin: this.sync.getOrigin(),
+    await this.world.attach({
+      scene: this.scene,
+      camera: this.camera,
+      renderer: this.renderer,
+      cameraRig: this.cameraRig,
+      drawSuppressed: this.drawSuppressed,
+      groundChanged: () => this.onGroundChanged(),
     });
-    this.tilesRenderer = tiles.tilesRenderer;
-    this.reorientationPlugin = tiles.reorientationPlugin;
-    this.corridor.attach(tiles.tilesRenderer, tiles.routeRegions);
-
-    // Add to scene
-    this.scene.add(this.tilesRenderer.group);
-
-    // overlayGroup is already in scene (added in constructor)
-    // We'll sync its position with tiles movement in render()
-
-    // Update sync with tiles renderer reference
-    this.sync.setTilesRenderer(this.tilesRenderer);
-
-    // Setup camera and controls
-    this.cameraRig.setupGlobeControls(this.scene, this.tilesRenderer);
-
-    // Configure tiles renderer
-    this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
-    this.tilesRenderer.setCamera(this.camera);
-
-    // Refinement error, distance falloff, download and parse queues, LRU cache
-    applyStreamingBudget(this.tilesRenderer);
-    // Made under the menu globe: it loads with the wider queues already
-    applyQueueBudget(this.tilesRenderer, this.drawSuppressed);
-
-    // tiles-load-end (first load, debounce), load-tileset, load-error (auth)
-    this.tileLoading.attach(this.tilesRenderer);
-
-    // R10: do the tile materials run the scene lights? Logged once per type.
-    logTileMaterialTypes(this.tilesRenderer);
-
-    // Every raycast into the tiles is timed per caller, see `__raycastStats()`.
-    instrumentRaycasts(this.tilesRenderer.group);
   }
 
-  /** DevWorld group - contains terrain directly at local coordinates */
-  private devWorldGroup: Group | null = null;
-
   /**
-   * Initialize DevWorld mode with fake terrain
-   * Called instead of normal TilesRenderer initialization when ?devworld is set
+   * The world's loaded ground changed: on the tiles every settled
+   * tiles-load-end, after the world bumped its column cache's `lodVersion`.
    *
-   * DevWorld uses EnvironmentControls (not GlobeControls) because:
-   * - GlobeControls is designed for navigating around a globe at Earth-radius distances
-   * - DevWorld has flat terrain at local origin (0,0,0)
-   * - EnvironmentControls raycasts against scene geometry and works with local coordinates
+   * This used to sit behind a 2 m height-delta gate measured at (0,0). LOD
+   * refinement anywhere else in the world, the whole enemy corridor, for
+   * instance, never moves the origin column, so the tile-info map went
+   * stale, `peekBestTileLODAtLocal` reported outdated LODs, `sampleCellY`'s
+   * skip gate then refused to re-sample, and the convergence loop spun
+   * without healing anything. The same gate also withheld the cubemap
+   * invalidation and the route refresh, which is how a route baked during
+   * the coarse phase stayed baked (enemies walking at rooftop height in
+   * dense cities).
    */
-  private async initializeDevWorld(): Promise<void> {
-    if (!this.devWorld) return;
-
-    // Create devWorldGroup - simple group at local origin (no ECEF transformation)
-    // This is different from real game where tilesRenderer.group has inverse ENU
-    this.devWorldGroup = new Group();
-    this.devWorldGroup.name = 'DevWorldGroup';
-    this.scene.add(this.devWorldGroup);
-
-    // Create and initialize terrain provider
-    this.devTerrainProvider = new DevTerrainProvider(this.devWorld);
-
-    // Initialize terrain directly into devWorldGroup (no nested transforms)
-    // Terrain is at local coordinates: Y-up, centered at origin
-    await this.devTerrainProvider.initialize(this.devWorldGroup as unknown as Scene);
-
-    // Setup EnvironmentControls - works with flat local terrain
-    this.cameraRig.setupEnvironmentControls(this.scene, this.devWorldGroup);
-
-    // Mark as loaded immediately (no async tile loading in DevWorld)
-    this.tileLoading.markFirstTilesLoaded();
-  }
-
-  /**
-   * Called by the {@link TileLoadingTracker} on every settled tiles-load-end,
-   * after its first-tiles check.
-   */
-  private onTileSetSettled(): void {
-    // A LOD probe runs (tilesLodDebug): the game keeps its view of the tiles until it ends.
-    if (this.settleHold.intercept()) return;
-
-    // The loaded-tile set has changed, that is true on EVERY settled
-    // load-end, not only when the origin column happens to shift.
-    //
-    // This used to sit behind a 2 m height-delta gate measured at (0,0). LOD refinement anywhere else in the world
-    //, the whole enemy corridor, for instance, never moves the origin
-    // column, so the tile-info map went stale, `peekBestTileLODAtLocal`
-    // reported outdated LODs, `sampleCellY`'s skip gate then refused to
-    // re-sample, and the convergence loop spun without healing anything.
-    // The same gate also withheld the cubemap invalidation and the route
-    // refresh, which is how a route baked during the coarse phase stayed
-    // baked (enemies walking at rooftop height in dense cities).
+  private onGroundChanged(): void {
     const tPre0 = performance.now();
-
-    // Bumps `lodVersion`, which is what invalidates individual column
-    // samples, no global cache clear needed.
-    this.terrain.markTileSetChanged();
 
     this.towerShadowMapper?.invalidate();
     const tShadowInvalidate = performance.now();
@@ -623,8 +477,8 @@ export class ThreeTilesEngine {
    */
   setOnAuthErrorCallback(callback: (failure: RootLoadFailure) => void): void {
     // Registration usually happens after the tileset request already failed,
-    // the tracker replays a remembered error.
-    this.tileLoading.setOnAuthError(callback);
+    // the world replays a remembered error.
+    this.world.onLoadFailure(callback);
   }
 
   /**
@@ -632,8 +486,8 @@ export class ThreeTilesEngine {
    * Used by component to hide "loading tiles" indicator
    */
   setOnFirstTilesLoadedCallback(callback: () => void): void {
-    // If tiles already loaded, the tracker calls it immediately
-    this.tileLoading.setOnFirstTilesLoaded(callback);
+    // If the ground stands already, the world calls it immediately
+    this.world.onFirstGround(callback);
   }
 
   /**
@@ -683,32 +537,9 @@ export class ThreeTilesEngine {
    * Also resets firstTilesLoaded so the callback fires again for the new location
    */
   setOrigin(lat: number, lon: number, height = 0): void {
-    this.sync.setOrigin(lat, lon, height);
-
-    // The corridor was built in the old group frame; the new routes rebuild it.
-    this.corridor.dropForNewOrigin();
-
-    // Update ReorientationPlugin
-    if (this.reorientationPlugin && this.tilesRenderer) {
-      this.reorientationPlugin.transformLatLonHeightToOrigin(
-        lat * MathUtils.DEG2RAD,
-        lon * MathUtils.DEG2RAD,
-        height
-      );
-    }
-
-    // Clear height cache
-    this.terrain.clearHeightCache();
-
-    // Cancel pending debounce/retry timers from the previous location and
-    // reset first-load, nudge and auth state
-    this.tileLoading.reset();
-
-    // CRITICAL: Reset tiles position tracking - otherwise overlay delta calculation
-    // will use old location's initialTilesPos and position overlays incorrectly
-    this.tilesPosInitialized = false;
-    this.initialTilesPos.set(0, 0, 0);
-
+    // Sync, corridor, ground caches, first-load state, the overlay's anchor:
+    // all the world's
+    this.world.setOrigin(lat, lon, height);
   }
 
   private readonly prerenderViewport = new Vector4();
@@ -750,18 +581,16 @@ export class ThreeTilesEngine {
   setDrawSuppressed(suppressed: boolean): void {
     if (this.drawSuppressed === suppressed) return;
     this.drawSuppressed = suppressed;
-    // Nothing to keep smooth here meanwhile: the tiles may load faster
-    if (this.tilesRenderer) applyQueueBudget(this.tilesRenderer, suppressed);
+    // Nothing to keep smooth here meanwhile: the world may load faster
+    this.world.setDrawSuppressed(suppressed);
   }
 
   /**
    * The matrix from the scene's frame to ECEF (the tiles' own frame), for a
-   * pose handed to the menu globe. Null without tiles (DevWorld).
+   * pose handed to the menu globe. Null without `capabilities.ecef`.
    */
   sceneToEcef(target: Matrix4): Matrix4 | null {
-    if (!this.tilesRenderer) return null;
-    this.tilesRenderer.group.updateMatrixWorld();
-    return target.copy(this.tilesRenderer.group.matrixWorld).invert();
+    return this.world.sceneToEcef(target);
   }
 
   /**
@@ -772,9 +601,8 @@ export class ThreeTilesEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
     this.postProcessing?.setSize(width, height);
-    // Drawing-buffer size changed → refresh the tiles renderer resolution here
-    // (moved out of the per-frame render() path).
-    this.tilesRenderer?.setResolutionFromRenderer(this.camera, this.renderer);
+    // Drawing-buffer size changed: the world's tiles follow the resolution
+    this.world.resize(this.camera, this.renderer);
   }
 
   /**
@@ -823,14 +651,6 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Get DevTerrainProvider for wiring up street provider.
-   * Only available when DevWorld mode is active.
-   */
-  getDevTerrainProvider(): DevTerrainProvider | null {
-    return this.devTerrainProvider as DevTerrainProvider | null;
-  }
-
-  /**
    * Ground height at geographic coordinates, in local Y. See
    * {@link TerrainQueries.getTerrainHeightAtGeo}; stays on the engine for
    * its two dozen callers. The other terrain queries are on `terrain`.
@@ -841,67 +661,50 @@ export class ThreeTilesEngine {
 
   /** Keep the enemy route corridor loaded at fine LOD, see RouteCorridorTiles.setRoutes */
   setRouteCorridor(routes: GeoPosition[][]): void {
-    this.corridor.setRoutes(routes);
+    this.world.tiles?.corridor.setRoutes(routes);
   }
 
-  /** Debug: the LOD the tiles load at, see RouteCorridorTiles.lodDebug */
+  /** Debug: the LOD the tiles load at, see RouteCorridorTiles.lodDebug; null without tiles */
   tilesLodDebug(): TilesLodDebug | null {
-    return this.corridor.lodDebug();
+    return this.world.tiles?.corridor.lodDebug() ?? null;
   }
 
   /** How far the route corridor's tiles are refined, see RouteCorridorTiles.lod */
   routeCorridorLod(): ReturnType<RouteCorridorTiles['lod']> {
-    return this.corridor.lod();
+    return this.world.tiles?.corridor.lod() ?? null;
   }
 
   /** The corridor region in the tiles group's frame now, see RouteCorridorTiles.refreshFrame */
   refreshRouteCorridorFrame(): boolean {
-    return this.corridor.refreshFrame();
+    return this.world.tiles?.corridor.refreshFrame() ?? false;
   }
 
   /** The content paths of the corridor's fine tiles, see RouteCorridorTiles.tilePaths */
   routeCorridorTilePaths(): string[] | null {
-    return this.corridor.tilePaths();
+    return this.world.tiles?.corridor.tilePaths() ?? null;
   }
 
   /** Debug: paint tiles by geometric error, see RouteCorridorTiles.setLodDebugEnabled */
   setTileLodDebugEnabled(enabled: boolean): void {
-    this.corridor.setLodDebugEnabled(enabled);
+    this.world.tiles?.corridor.setLodDebugEnabled(enabled);
   }
 
   /**
    * Main render loop - call this each frame.
    * Headless-mode: when rendering is disabled, we skip all per-frame visual
-   * work (tilesRenderer.update, camera updates, renderer.render, FPS tracking).
+   * work (world update, camera updates, renderer.render, FPS tracking).
    * Gameplay still runs, it's driven by `onUpdateCallback` in `update()`,
    * which is called from the animate loop regardless of rendering state.
    */
   render(): void {
     if (!this._renderingEnabled) return;
 
-    // DevWorld render path
-    if (this.devTerrainProvider) {
-      // Update controls (if any)
-      this.cameraRig.update();
+    // The tiles draw nothing before their renderer stands
+    const world = this.world;
+    if (!world.ready()) return;
 
-      // Update camera
-      this.camera.updateMatrixWorld();
-
-      // Position overlayGroup at terrain base height (no tiles movement in DevWorld)
-      this.overlayGroup.position.y = 0;
-
-      // Render scene, shaken if a screen shake runs. drawFrame() has put the
-      // unshaken projection back before any frame waiter is released.
-      this.drawFrame();
-      this.renderLoop.frameRendered();
-      return;
-    }
-
-    // Normal tiles render path
-    if (!this.tilesRenderer) return;
-
-    // Shake benchmark (__perf.shakeBench): its camera-move phase moves the
-    // camera, so it starts before controls and tiles see it
+    // Shake benchmark (__perf.shakeBench, tiles only): its camera-move phase
+    // moves the camera, so it starts before controls and tiles see it
     let bench = this.shakeBench;
     if (bench && !bench.beginFrame(performance.now(), this.camera)) {
       bench = this.shakeBench = null;
@@ -911,46 +714,26 @@ export class ThreeTilesEngine {
     this.cameraRig.update();
 
     // Force camera far plane to limit tile loading (GlobeControls may override it);
-    // a dive reaches further, see DiveView
+    // a dive reaches further, see DiveView. Nothing changes the far plane
+    // over a flat world (EnvironmentControls leave it), so this holds still there.
     const viewDistance = this.dive.viewDistance();
     if (this.camera.far > viewDistance || (viewDistance > VIEW_DISTANCE && this.camera.far !== viewDistance)) {
       this.camera.far = viewDistance;
       this.camera.updateProjectionMatrix();
     }
 
-    // Update tiles. Camera matrix must be current before tilesRenderer.update()
-    // reads it for LOD/frustum (controls.update() above moved the camera).
+    // Camera matrix must be current before the world's update (the tiles'
+    // LOD and frustum) reads it: controls.update() above moved the camera.
     // setResolutionFromRenderer / setCamera are NOT per-frame work, resolution
     // only changes on resize() and the camera reference is registered once at
-    // init (and on the no-tiles nudge); calling them every frame was wasted work.
+    // attach (and on the no-tiles nudge); calling them every frame was wasted work.
     this.camera.updateMatrixWorld();
 
-    // UpdateOnChangePlugin skips the traversal while camera and tiles are unchanged.
+    // Stream the ground and keep the overlay on it
     const traversalsBefore = bench ? this.tilesTraversalCount() : 0;
     const tilesStart = bench ? performance.now() : 0;
-    this.tilesRenderer.update();
+    world.update(this.camera, this.overlayGroup);
     const tilesMs = bench ? performance.now() - tilesStart : 0;
-
-    // Capture initial tiles position only when tiles have loaded (position is non-zero)
-    if (!this.tilesPosInitialized) {
-      const pos = this.tilesRenderer.group.position;
-      // Wait until tilesGroup has a real ECEF position (Y will be negative millions)
-      if (Math.abs(pos.y) > 1000000) {
-        this.initialTilesPos.copy(pos);
-        this.tilesPosInitialized = true;
-      }
-    }
-
-    // Sync overlayGroup with tiles movement (only after initial pos is captured)
-    if (this.tilesPosInitialized) {
-      const deltaPos = this._overlayDelta
-        .copy(this.tilesRenderer.group.position)
-        .sub(this.initialTilesPos);
-
-      // Straight delta on all three axes, the overlay lives in absolute
-      // scene-Y now, there is no separate base-terrain offset any more.
-      this.overlayGroup.position.copy(deltaPos);
-    }
 
     // Under the menu globe nothing shows: no draw, unless a frame is waited for
     // (the shader warm-up uploads in a drawn frame, a screenshot reads one)
@@ -1009,7 +792,7 @@ export class ThreeTilesEngine {
    * UpdateOnChangePlugin skips one. Only the shake benchmark reads it.
    */
   private tilesTraversalCount(): number {
-    return this.tilesRenderer ? tilesInternals(this.tilesRenderer).frameCount : 0;
+    return this.world.tiles?.traversalCount() ?? 0;
   }
 
   /**
@@ -1130,18 +913,11 @@ export class ThreeTilesEngine {
 
   /**
    * Group die bei einem Cube-Render als `includeOnly` durchgereicht
-   * wird. In DevWorld der DevTerrain-Mesh-Container, sonst die
-   * 3DTilesRenderer-Group.
+   * wird: die der Welt (WorldProvider.losBlockers), ein direktes Kind der
+   * Szene. Der TowerShadowMapper hidet alle Scene-Children außer diesem.
    */
   getLosBlockerGroup(): Object3D | null {
-    if (this.devWorld?.isActive) {
-      // DevWorld: devWorldGroup ist der direkte Scene-Child, der den
-      // gesamten DevWorld-Inhalt enthält. Der TowerShadowMapper hidet
-      // alle Scene-Children außer dem includeOnly-Argument; ein nested
-      // child wie terrainGroup würde versehentlich mit-hidden werden.
-      return this.devWorldGroup;
-    }
-    return this.tilesRenderer?.group ?? null;
+    return this.world.losBlockers();
   }
 
   /**
@@ -1149,28 +925,12 @@ export class ThreeTilesEngine {
    * When hidden, tiles are removed from scene but still update in background
    */
   setTilesVisible(visible: boolean): void {
-    if (!this.tilesRenderer) return;
-
-    if (visible) {
-      if (!this.tilesRenderer.group.parent) {
-        this.scene.add(this.tilesRenderer.group);
-      }
-    } else {
-      if (this.tilesRenderer.group.parent) {
-        this.scene.remove(this.tilesRenderer.group);
-      }
-    }
+    this.world.tiles?.setVisible(visible);
   }
 
-  /**
-   * Check if 3D tiles are currently visible
-   */
+  /** Check if 3D tiles are currently visible; false in a world without them */
   areTilesVisible(): boolean {
-    // `?.` yields undefined when there is no tiles renderer at all (DevWorld),
-    // and `undefined !== null` is true, so this used to claim tiles were
-    // visible in a world that has none.
-    const group = this.tilesRenderer?.group;
-    return !!group && group.parent !== null;
+    return this.world.tiles?.visible() ?? false;
   }
 
   /**
@@ -1206,7 +966,7 @@ export class ThreeTilesEngine {
    * cache size. Cached and updated every 500ms for performance.
    */
   getTileStats(): TileStats {
-    return this.tileLoading.getTileStats();
+    return this.world.tiles?.tileStats() ?? NO_TILE_STATS;
   }
 
   /**
@@ -1214,17 +974,7 @@ export class ThreeTilesEngine {
    * Returns aggregated copyright string for display
    */
   getAttributions(): string {
-    if (!this.tilesRenderer) return '';
-
-    const attributions = this.tilesRenderer.getAttributions();
-    if (!attributions || attributions.length === 0) return '';
-
-    // Filter string attributions and join with semicolon
-    const strings = attributions
-      .filter((a: { type: string; value: string }) => a.type === 'string')
-      .map((a: { type: string; value: string }) => a.value);
-
-    return strings.join('; ');
+    return this.world.attribution();
   }
 
   /**
@@ -1324,13 +1074,7 @@ export class ThreeTilesEngine {
     this.renderLoop.dispose();
     this.canvasSize.dispose();
 
-    // DevWorld owns a generation Web Worker and a set of raycast-only building
-    // meshes that live outside the scene graph. Nothing else disposes them, so
-    // every engine teardown (a training tab reload, for instance) leaked one.
-    this.devTerrainProvider?.dispose();
-
     // Remove event listeners to prevent memory leaks
-    this.tileLoading.dispose();
     this.cameraRig.dispose();
 
     // Dispose GPU-LOS resources
@@ -1367,13 +1111,10 @@ export class ThreeTilesEngine {
     // Dispose spatial audio
     this.spatialAudio.dispose();
 
-    // Dispose tiles renderer
-    if (this.tilesRenderer) {
-      this.scene.remove(this.tilesRenderer.group);
-      this.tilesRenderer.dispose();
-      this.tilesRenderer = null;
-      this.corridor.detach();
-    }
+    // The world: tiles renderer and load listeners, DevWorld's generation
+    // worker and raycast-only meshes outside the scene graph (nothing else
+    // disposes those; every engine teardown leaked one before)
+    this.world.dispose();
 
     // Dispose scene contents
     this.scene.traverse((obj) => {

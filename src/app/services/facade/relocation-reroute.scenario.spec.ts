@@ -24,6 +24,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import { signal } from '@angular/core';
+import { TILES_STREET_STYLE } from '../../world/tiles/tiles-world';
 import { MapRelocationService, type RelocationHost } from './map-relocation.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { RelocationStatusService } from '../world/relocation-status.service';
@@ -157,6 +158,7 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
     });
     const overlay = new Group();
     const engine = {
+      world: { streetStyle: TILES_STREET_STYLE },
       setOrigin: vi.fn(),
       getOverlayGroup: () => overlay,
       getTerrainHeightAtGeo: () => 0,
@@ -185,13 +187,13 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
 
     di.stubs = {
       // PathAndRouteService's own
-      DevWorldService: { isActive: false },
       UIStore: { routesVisible: () => false },
       GlobalRouteGridService: { isInitialized: () => false, getGroundLocalYAt: () => null },
       // RelocationStatusService's
       NgZone: { runOutsideAngular: (fn: () => unknown) => fn() },
       // MapRelocationService's
-      OsmStreetService: osm,
+      // The world's streets
+      WorldContext: { streets: osm },
       MarkerVisualizationService: { clearAllMarkers: vi.fn(), clearSpawnMarkers: vi.fn(), addBaseMarker: vi.fn() },
       LocationManagementService: { setLocation: vi.fn() },
       HeightUpdateService: { stopHeightUpdates: vi.fn() },

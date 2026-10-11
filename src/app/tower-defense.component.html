@@ -119,9 +119,8 @@
         <app-cell-report-panel />
 
         <div class="td-logo-attribution">
-          <img src="assets/images/ui/google-maps-logo.svg" alt="Google Maps" class="td-google-logo">
-          @if (configService.tileProvider() === 'cesium') {
-            <img src="assets/images/ui/cesium-ion-logo.svg" alt="Cesium ion" class="td-cesium-logo">
+          @for (logo of worldContext.logos(); track logo.src) {
+            <img [src]="logo.src" [alt]="logo.alt" [class]="logo.cssClass">
           }
         </div>
         <div class="td-map-attribution td-overlay td-note td-trunc">{{ mapAttribution() }}, {{ osmAttribution }}</div>

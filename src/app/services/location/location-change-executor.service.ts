@@ -1,11 +1,12 @@
 import { Injectable, inject, WritableSignal } from '@angular/core';
+import { WorldContext } from '../../world/world-context.service';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { ThreeTilesEngine } from '../../three-engine';
 import { MainWorldService } from '../world/main-world.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
-import { StreetNetwork, OsmStreetService, STREET_RADIUS_M } from './osm-street.service';
+import { StreetNetwork, STREET_RADIUS_M } from './osm-street.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
@@ -101,7 +102,7 @@ export interface LocationChangeCallbacks {
 @Injectable({ providedIn: 'root' })
 export class LocationChangeExecutorService {
   private readonly engineInit = inject(EngineInitializationService);
-  private readonly osmService = inject(OsmStreetService);
+  private readonly worldContext = inject(WorldContext);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);
@@ -130,7 +131,7 @@ export class LocationChangeExecutorService {
     // The streets of the new place load while the engine resets and the tiles
     // stream (TODO H13): the request starts now, step 3 takes it, the same one
     if (!this.isSameStreetNetworkLocation(ctx, input.hq.lat, input.hq.lon)) {
-      this.osmService.prefetchStreets(input.hq.lat, input.hq.lon, STREET_RADIUS_M);
+      this.worldContext.streets.prefetchStreets(input.hq.lat, input.hq.lon, STREET_RADIUS_M);
     }
 
     // STEP 1: Initialize loading state
@@ -243,7 +244,7 @@ export class LocationChangeExecutorService {
     // Check if we can reuse cached street network
     if (!this.isSameStreetNetworkLocation(ctx, input.hq.lat, input.hq.lon)) {
       this.engineInit.updateStepMeta('streets', 'Loading OSM data...');
-      streetNetwork = await this.osmService.loadStreets(input.hq.lat, input.hq.lon, STREET_RADIUS_M);
+      streetNetwork = await this.worldContext.streets.loadStreets(input.hq.lat, input.hq.lon, STREET_RADIUS_M);
       callbacks.setStreetNetwork(streetNetwork);
       callbacks.setStreetNetworkLocation({ lat: input.hq.lat, lon: input.hq.lon });
     } else {
@@ -312,7 +313,7 @@ export class LocationChangeExecutorService {
       streetNetwork,
       { lat: input.hq.lat, lon: input.hq.lon },
       this.uiStore.routesVisible,
-      this.osmService,
+      this.worldContext.streets,
       (spawnId, route, startGroundY) => this.markerViz.placeSpawnPortal(spawnId, route, startGroundY)
     );
 

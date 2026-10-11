@@ -3,9 +3,10 @@ import type { TilesRenderer } from '3d-tiles-renderer';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { LOW_WALL_BEHIND_M, StationProbe, corridorConfig, lowObjectTop, lowRayAlone } from '../utils/route-corridor';
 import { StreetApproach, StreetSurface, approachY, carriedY, surfaceY } from '../utils/carried-height';
+import type { FootprintColumn } from '../utils/tower-footprint';
+import type { WorldSurface } from '../world/world-provider';
 import { raycastStats } from '../utils/raycast-stats';
 import type { ApproachPoint } from '../utils/route-cell';
-import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import type { EllipsoidSync } from './ellipsoid-sync';
 import { ColumnHit, ColumnSample, isBetterLod, selectColumnSample } from './column-sample';
 
@@ -50,12 +51,44 @@ export function columnCacheKey(localX: number, localZ: number): number {
   return a >= b ? a * a + a + b : b * b + a;
 }
 
-/** Woher die Abfragen ihren Boden nehmen. Beide Quellen setzt der Engine erst nach dem Konstruktor. */
+/** Woher die Abfragen ihren Boden nehmen. Die Tiles setzt TilesWorld erst in attach(). */
 export interface TerrainSources {
-  /** Die 3D-Tiles; null vor initialize(), nach dispose() und in DevWorld. */
+  /** Die 3D-Tiles; null vor attach() und nach dispose(). */
   tiles(): TilesRenderer | null;
-  /** Das prozedurale DevWorld-Gelände; null auf den 3D-Tiles. */
-  devTerrain(): TerrainProvider | null;
+}
+
+/** What streetHeightAt reads of a world's ground */
+export interface StreetHeightGround {
+  /** The column at a geographic point */
+  columnAtGeo(lat: number, lon: number): ColumnSample | null;
+  /** The height carried at a street point on an approach (carriedY) */
+  carriedAtGeo(approach: StreetApproach): number | null;
+  getGroundHeightEstimate(lat: number, lon: number, prevLat: number, prevLon: number, nextLat: number, nextLon: number): number | null;
+}
+
+/**
+ * Height of a street at a path point, see TerrainQueries.getStreetHeightEstimate:
+ * the rule without the ground it reads, shared by the worlds' surfaces.
+ */
+export function streetHeightAt(
+  ground: StreetHeightGround,
+  lat: number, lon: number,
+  prevLat: number, prevLon: number,
+  nextLat: number, nextLon: number,
+  surface: StreetSurface | null,
+): number | null {
+  if (surface === 'bridge') return ground.columnAtGeo(lat, lon)?.topY ?? null;
+  if (surface !== null && 'portals' in surface) {
+    const [a, b] = surface.portals;
+    const ya = ground.getGroundHeightEstimate(a.lat, a.lon, a.lat, a.lon, b.lat, b.lon);
+    const yb = ground.getGroundHeightEstimate(b.lat, b.lon, a.lat, a.lon, b.lat, b.lon);
+    if (ya !== null && yb !== null) return ya + (yb - ya) * surface.f;
+  } else if (surface !== null) {
+    const here = ground.columnAtGeo(lat, lon);
+    const carried = here === null ? null : ground.carriedAtGeo(surface);
+    if (here !== null && carried !== null) return approachY(here, carried);
+  }
+  return ground.getGroundHeightEstimate(lat, lon, prevLat, prevLon, nextLat, nextLon);
 }
 
 /**
@@ -70,13 +103,14 @@ export interface TerrainSources {
  * - `raycastLineOfSight()` für Boss-Intro und Korridor-Konsole (die Tower-LOS läuft über den Cube)
  *
  * Jede Abfrage bucht ihre Strahlen unter demselben Aufrufer wie zuvor im Engine
- * (`__raycastStats()`). In DevWorld beantwortet der DevTerrainProvider die Abfragen.
+ * (`__raycastStats()`).
  *
- * Vom Engine besessen, als `engine.terrain` erreichbar. Der Engine ruft
- * `markTileSetChanged()` nach jedem beruhigten tiles-load-end und `clearHeightCache()`
- * aus `setOrigin()`.
+ * Die `WorldSurface` der Tiles-Welt: von TilesWorld besessen, als `engine.terrain`
+ * erreichbar. TilesWorld ruft `markTileSetChanged()` nach jedem beruhigten
+ * tiles-load-end und `clearHeightCache()` aus `setOrigin()`. DevWorld hat eine
+ * eigene (DevWorldSurface).
  */
-export class TerrainQueries {
+export class TerrainQueries implements WorldSurface {
   /**
    * Lazy cache of per-tile horizontal AABB (min/max x,z). Built on demand
    * by `peekBestTileLODAtLocal` and cached for the lifetime of each tile
@@ -152,16 +186,18 @@ export class TerrainQueries {
    * @returns Height in local Y coordinates, or null if no hit
    */
   getTerrainHeightAtGeo(lat: number, lon: number): number | null {
-    // DevWorld: delegate to provider
-    const devTerrain = this.sources.devTerrain();
-    if (devTerrain) {
-      return devTerrain.getHeightAtGeo(lat, lon);
-    }
-
     // Caching happens per column in `sampleColumn`, keyed on local (x,z):
     // one keyspace for the whole engine instead of a second lat/lon one.
     return this.columnAtGeo(lat, lon)?.groundY ?? null;
   }
+
+  /** What streetHeightAt reads here */
+  private readonly streetGround: StreetHeightGround = {
+    columnAtGeo: (lat, lon) => this.columnAtGeo(lat, lon),
+    carriedAtGeo: (approach) => this.carriedAtGeo(approach),
+    getGroundHeightEstimate: (lat, lon, prevLat, prevLon, nextLat, nextLon) =>
+      this.getGroundHeightEstimate(lat, lon, prevLat, prevLon, nextLat, nextLon),
+  };
 
   /** The column at a geographic point (sampleColumn), its rays booked as `heightAtGeo`. */
   private columnAtGeo(lat: number, lon: number): ColumnSample | null {
@@ -202,18 +238,7 @@ export class TerrainQueries {
     nextLat: number, nextLon: number,
     surface: StreetSurface | null,
   ): number | null {
-    if (surface === 'bridge') return this.columnAtGeo(lat, lon)?.topY ?? null;
-    if (surface !== null && 'portals' in surface) {
-      const [a, b] = surface.portals;
-      const ya = this.getGroundHeightEstimate(a.lat, a.lon, a.lat, a.lon, b.lat, b.lon);
-      const yb = this.getGroundHeightEstimate(b.lat, b.lon, a.lat, a.lon, b.lat, b.lon);
-      if (ya !== null && yb !== null) return ya + (yb - ya) * surface.f;
-    } else if (surface !== null) {
-      const here = this.columnAtGeo(lat, lon);
-      const carried = here === null ? null : this.carriedAtGeo(surface);
-      if (here !== null && carried !== null) return approachY(here, carried);
-    }
-    return this.getGroundHeightEstimate(lat, lon, prevLat, prevLon, nextLat, nextLon);
+    return streetHeightAt(this.streetGround, lat, lon, prevLat, prevLon, nextLat, nextLon, surface);
   }
 
   /** The height carried at a street point on an approach (carriedY), its rays booked as `heightAtGeo`. */
@@ -256,9 +281,6 @@ export class TerrainQueries {
   ): number | null {
     const centerHeight = this.getTerrainHeightAtGeo(lat, lon);
     if (centerHeight === null) return null;
-
-    // DevWorld uses procedural terrain without tree/building issues
-    if (this.sources.devTerrain()) return centerHeight;
 
     // Calculate path direction vector (in degrees)
     const dLat = nextLat - prevLat;
@@ -334,14 +356,6 @@ export class TerrainQueries {
    *   callers keep whatever value they already had.
    */
   sampleColumn(localX: number, localZ: number): ColumnSample | null {
-    const devTerrain = this.sources.devTerrain();
-    if (devTerrain) {
-      const y = devTerrain.getHeightAtLocal(localX, localZ);
-      if (y === null) return null;
-      // DevWorld has no streaming LOD and no overhead clutter.
-      return { groundY: y, topY: y, tileDepth: 99, tileGeometricError: 0 };
-    }
-
     const x = columnCentre(localX);
     const z = columnCentre(localZ);
     const key = columnCacheKey(x, z);
@@ -371,11 +385,9 @@ export class TerrainQueries {
    * cells and the street overlay read. Tells
    * apart a street under a deck that no hit shows, one only in a coarser
    * tile than the deck (dropped by the finest-LOD filter), and one the
-   * cache has not seen yet. Uncached; rays booked on `corridorPick`. Null
-   * in DevWorld.
+   * cache has not seen yet. Uncached; rays booked on `corridorPick`.
    */
   inspectColumn(localX: number, localZ: number): { hits: ColumnHit[]; fresh: ColumnSample | null; cached: ColumnSample | null } | null {
-    if (this.sources.devTerrain()) return null;
     const scope = raycastStats.enter('corridorPick');
     try {
       const x = columnCentre(localX);
@@ -476,8 +488,8 @@ export class TerrainQueries {
    * measurement, the cells and the band never pay for them.
    *
    * @returns the first hit per height and side (probeFreeSpace makes the
-   *   free space of it), or null where there is nothing to measure: in
-   *   DevWorld (its roads are drawn at the width the corridor already uses).
+   *   free space of it), or null without tiles. A world without tiles
+   *   keeps its streets at their drawn width (DevWorldSurface gives null).
    */
   measureStreetClearance(
     localX: number,
@@ -491,7 +503,7 @@ export class TerrainQueries {
     walked: number[] = [],
   ): StationProbe | null {
     const tiles = this.sources.tiles();
-    if (this.sources.devTerrain() || !tiles) return null;
+    if (!tiles) return null;
     // The column under the station and all side rays count as the corridor's.
     const scope = raycastStats.enter('routeCorridor');
     try {
@@ -663,11 +675,6 @@ export class TerrainQueries {
    * cached in `tileBoundsCache` until the next tile-set change.
    */
   peekBestTileLODAtLocal(localX: number, localZ: number): { depth: number; geometricError: number } | null {
-    if (this.sources.devTerrain()) {
-      // DevWorld has no streaming LOD, synthetic high quality so the
-      // route-grid never re-raycasts stable cells in dev mode.
-      return { depth: 99, geometricError: 0 };
-    }
     const tiles = this.sources.tiles();
     if (!tiles) return null;
 
@@ -729,15 +736,6 @@ export class TerrainQueries {
     originX: number, originY: number, originZ: number,
     targetX: number, targetY: number, targetZ: number
   ): boolean {
-    // DevWorld: delegate to provider
-    const devTerrain = this.sources.devTerrain();
-    if (devTerrain) {
-      return devTerrain.hasLineOfSightBlocked(
-        originX, originY, originZ,
-        targetX, targetY, targetZ
-      );
-    }
-
     const tiles = this.sources.tiles();
     if (!tiles) return false;
 
@@ -759,6 +757,36 @@ export class TerrainQueries {
     }
 
     return this._losResults.length > 0;
+  }
+
+  /**
+   * The nearest tile surface on a screen pick's ray (ScreenPicker), booked
+   * as `screenPick`. Null without tiles or without a hit.
+   */
+  pickRay(raycaster: Raycaster): Vector3 | null {
+    const tiles = this.sources.tiles();
+    if (!tiles) return null;
+
+    // Pointer moves in build and placement mode, and clicks
+    const scope = raycastStats.enter('screenPick');
+    let results: Intersection[];
+    try {
+      results = raycaster.intersectObject(tiles.group, true);
+    } finally {
+      raycastStats.exit(scope);
+    }
+
+    return results.length > 0 ? results[0].point.clone() : null;
+  }
+
+  /** The tiles have no roof of their own apart from the ground: the screen pick's height stands */
+  roofAt(): number | null {
+    return null;
+  }
+
+  /** The column under a tower's footprint probe, booked as `towerFootprint` */
+  footprintColumn(localX: number, localZ: number): FootprintColumn | null {
+    return this.raycastColumnSample(localX, localZ, 'towerFootprint');
   }
 
   /**

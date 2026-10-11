@@ -2,7 +2,7 @@ import { Injectable, inject, signal, effect, isDevMode } from '@angular/core';
 import { Object3D } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './location/osm-street.service';
-import { OsmStreetService } from './location/osm-street.service';
+import type { WorldStreetSource } from '../world/world-provider';
 import { PathAndRouteService } from './world/path-route.service';
 import { GeoPosition } from '../models/game.types';
 import { SimClient } from '../sim/client/sim-client.service';
@@ -234,7 +234,7 @@ export class TowerPlacementService {
   /** Dependencies */
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
-  private osmService: OsmStreetService | null = null;
+  private streets: WorldStreetSource | null = null;
   private baseCoords: GeoPosition | null = null;
 
   // ========================================
@@ -244,12 +244,12 @@ export class TowerPlacementService {
   initialize(
     engine: ThreeTilesEngine,
     streetNetwork: StreetNetwork,
-    osmService: OsmStreetService,
+    streets: WorldStreetSource,
     baseCoords: GeoPosition,
   ): void {
     this.engine = engine;
     this.streetNetwork = streetNetwork;
-    this.osmService = osmService;
+    this.streets = streets;
     this.baseCoords = baseCoords;
 
     if (isDevMode() && typeof window !== 'undefined') window.__footprintDebug = this.footprintDebugHook;
@@ -386,14 +386,9 @@ export class TowerPlacementService {
       return fallbackHeight;
     }
 
-    const devProvider = this.engine.getDevTerrainProvider();
-    if (!devProvider) {
-      return fallbackHeight;
-    }
-
+    // The world's own surface where it knows it better than the pick (DevWorld: a roof)
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
-    const hit = devProvider.raycastDown(local.x, local.z, 10000);
-    return hit ? hit.y : fallbackHeight;
+    return this.engine.terrain.roofAt(local.x, local.z) ?? fallbackHeight;
   }
 
   /**
@@ -612,16 +607,12 @@ export class TowerPlacementService {
 
   /**
    * Ground and highest surface of the column at a local position, null where
-   * nothing is there: on the 3D tiles `raycastColumnSample`, in DevWorld the
-   * same raycastDown as the cursor surface for the top and the terrain height
-   * for the ground.
+   * nothing is there (WorldSurface.footprintColumn): on the 3D tiles
+   * `raycastColumnSample`, in DevWorld the same raycastDown as the cursor
+   * surface for the top and the terrain height for the ground.
    */
   private footprintColumn(engine: ThreeTilesEngine, x: number, z: number): FootprintColumn | null {
-    const devProvider = engine.getDevTerrainProvider();
-    if (!devProvider) return engine.terrain.raycastColumnSample(x, z, 'towerFootprint');
-    const top = devProvider.raycastDown(x, z, 10000);
-    if (!top) return null;
-    return { groundY: devProvider.getHeightAtLocal(x, z) ?? top.y, topY: top.y };
+    return engine.terrain.footprintColumn(x, z);
   }
 
   /**
@@ -888,8 +879,8 @@ export class TowerPlacementService {
    * Distanzformel. Ein Schnappschuss, nach einer Platzierung neu holen.
    */
   placementChecker(): (lat: number, lon: number, footprint?: TowerFootprint) => TowerPlacementResult {
-    const osmService = this.osmService;
-    if (!this.streetNetwork || !osmService || !this.baseCoords) {
+    const streets = this.streets;
+    if (!this.streetNetwork || !streets || !this.baseCoords) {
       return () => ({ valid: false, reason: 'Service not initialized' });
     }
 
@@ -904,7 +895,7 @@ export class TowerPlacementService {
       spawns: this.store.spawnPoints(),
       towers: this.mirror.towers(),
       routes: this.getActiveRoutes(),
-      geo: osmService,
+      geo: streets,
     };
     return (lat, lon, footprint) => checkTowerPlacement(lat, lon, ctx, footprint);
   }
@@ -937,7 +928,7 @@ export class TowerPlacementService {
 
     this.engine = null;
     this.streetNetwork = null;
-    this.osmService = null;
+    this.streets = null;
     this.baseCoords = null;
   }
 }

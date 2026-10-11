@@ -36,9 +36,6 @@ const load = (page: Page) => ({
 
 const browser = await (BROWSER === 'firefox' ? firefox : chromium).launch({ headless: !HEADED });
 const context = await browser.newContext({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
-await context.addInitScript(() => {
-  localStorage.setItem('3dtd-tile-credentials', JSON.stringify({ tileProvider: 'cesium', cesiumIonToken: 'devworld' }));
-});
 const page = await context.newPage();
 page.on('pageerror', (e) => console.log('pageerror', e.message));
 await page.goto(`${URL_BASE}/?devworld&bot=manual&menu=skip`);

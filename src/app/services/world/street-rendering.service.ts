@@ -15,17 +15,9 @@ import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { raycastStats } from '../../utils/raycast-stats';
 import { smoothPathHeights } from '../../utils/route-height-smoothing';
 import { GeoPosition } from '../../models/game.types';
-import { DevWorldService } from '../../devworld/devworld.service';
 import { UIStore } from '../../store/ui.store';
 import { StreetSurface, streetDeckApproaches } from '../../utils/carried-height';
 import { streetUnderpasses } from '../../utils/underpass';
-
-/**
- * Maximum distance between street points (in meters).
- * Longer segments are subdivided to follow terrain contour.
- * Smaller values = smoother terrain following but more vertices.
- */
-const MAX_SEGMENT_LENGTH = 2;
 
 /** Batch size for progressive street rendering (nodes per frame) */
 const STREET_BATCH_SIZE = 50;
@@ -35,13 +27,12 @@ interface PreparedNode {
   node: StreetNode;
   prev: StreetNode;
   next: StreetNode;
-  isDevWorld: boolean;
-  /** For DevWorld: subdivided nodes from this segment */
-  subdivided?: StreetNode[];
+  /** Height from the plain terrain (StreetStyle.plainGround), not the street estimate */
+  plainGround: boolean;
   /**
    * On a bridge way, the stretch off its end or a stretch under another
    * way, what the height compares with (TerrainQueries.getStreetHeightEstimate);
-   * null elsewhere and in DevWorld.
+   * null elsewhere and on plain ground (DevWorld).
    */
   deck: StreetSurface | null;
 }
@@ -67,7 +58,6 @@ interface PreparedNode {
 @Injectable({ providedIn: 'root' })
 export class StreetRenderingService {
   private readonly markerViz = inject(MarkerVisualizationService);
-  private readonly devWorld = inject(DevWorldService);
   private readonly uiStore = inject(UIStore);
 
   /** Single merged mesh for all street segments */
@@ -146,8 +136,9 @@ export class StreetRenderingService {
     const networkToRender = filteredNetwork || fullNetwork;
     const overlayGroup = engine.getOverlayGroup();
 
-    // Height offset above terrain
-    const heightAboveGround = this.devWorld.isActive ? 3 : 0.5;
+    // How the world draws its streets: lift, subdivision, plain heights
+    const style = engine.world.streetStyle;
+    const heightAboveGround = style.overlayLift;
 
     // Tiles have to be far enough along that the ground can be sampled at
     // all — the per-point heights below come from their own columns.
@@ -162,30 +153,30 @@ export class StreetRenderingService {
     // Prepare flat list of all nodes with prev/next context
     const allNodes: PreparedNode[] = [];
     const streetIndices: number[] = [];
-    const isDevWorld = this.devWorld.isActive;
+    const plainGround = style.plainGround;
     // The ways off the ends of bridge ways, whose deck may carry on, and the
     // stretches of streets under another way.
-    const approaches = isDevWorld ? null : streetDeckApproaches(networkToRender.streets);
-    const underpasses = isDevWorld ? null : streetUnderpasses(networkToRender.streets);
+    const approaches = plainGround ? null : streetDeckApproaches(networkToRender.streets);
+    const underpasses = plainGround ? null : streetUnderpasses(networkToRender.streets);
 
     for (let si = 0; si < networkToRender.streets.length; si++) {
       const street = networkToRender.streets[si];
       if (street.nodes.length < 2) continue;
 
-      if (isDevWorld) {
-        // DevWorld: subdivide segments, collect all subdivision nodes
+      if (plainGround) {
+        // Plain ground (DevWorld): subdivide segments to follow it, collect all subdivision nodes
         for (let nodeIdx = 0; nodeIdx < street.nodes.length - 1; nodeIdx++) {
           const nodeA = street.nodes[nodeIdx];
           const nodeB = street.nodes[nodeIdx + 1];
-          const subdivided = this.subdivideSegment(nodeA, nodeB);
+          const subdivided = this.subdivideSegment(nodeA, nodeB, style.subdivideM);
           for (const node of subdivided) {
-            allNodes.push({ node, prev: nodeA, next: nodeB, isDevWorld: true, deck: null });
+            allNodes.push({ node, prev: nodeA, next: nodeB, plainGround: true, deck: null });
             streetIndices.push(si);
           }
         }
         // Last node
         const lastNode = street.nodes[street.nodes.length - 1];
-        allNodes.push({ node: lastNode, prev: lastNode, next: lastNode, isDevWorld: true, deck: null });
+        allNodes.push({ node: lastNode, prev: lastNode, next: lastNode, plainGround: true, deck: null });
         streetIndices.push(si);
       } else {
         // Real world: use nodes directly with prev/next for lateral sampling
@@ -199,7 +190,7 @@ export class StreetRenderingService {
           const approach = street.bridge !== undefined || under !== null ? null : approaches?.get(node.id);
           const deck: StreetSurface | null = street.bridge !== undefined ? 'bridge'
             : under ?? (approach ? { path: approach.path, m: approach.distanceM, start: 'bridge' } : null);
-          allNodes.push({ node, prev: prevNode, next: nextNode, isDevWorld: false, deck });
+          allNodes.push({ node, prev: prevNode, next: nextNode, plainGround: false, deck });
           streetIndices.push(si);
         }
       }
@@ -248,7 +239,7 @@ export class StreetRenderingService {
       let terrainY: number | null;
       const scope = raycastStats.enter('streets');
       try {
-        if (prepared.isDevWorld) {
+        if (prepared.plainGround) {
           terrainY = s.engine.getTerrainHeightAtGeo(prepared.node.lat, prepared.node.lon);
         } else {
           terrainY = s.engine.terrain.getStreetHeightEstimate(
@@ -421,18 +412,20 @@ export class StreetRenderingService {
   }
 
   /**
-   * Subdivide a street segment if it's too long
+   * Subdivide a street segment longer than `maxLength` m (StreetStyle.subdivideM,
+   * 0 for none) to follow the terrain contour: smaller values follow it
+   * more smoothly with more vertices.
    */
-  private subdivideSegment(a: StreetNode, b: StreetNode): StreetNode[] {
+  private subdivideSegment(a: StreetNode, b: StreetNode, maxLength: number): StreetNode[] {
     const dLat = b.lat - a.lat;
     const dLon = b.lon - a.lon;
     const approxDist = Math.sqrt(dLat * dLat + dLon * dLon) * METERS_PER_DEGREE_LAT;
 
-    if (approxDist <= MAX_SEGMENT_LENGTH) {
+    if (maxLength <= 0 || approxDist <= maxLength) {
       return [a];
     }
 
-    const steps = Math.ceil(approxDist / MAX_SEGMENT_LENGTH);
+    const steps = Math.ceil(approxDist / maxLength);
     const result: StreetNode[] = [];
     for (let i = 0; i < steps; i++) {
       const t = i / steps;

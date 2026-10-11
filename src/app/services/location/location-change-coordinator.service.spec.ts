@@ -8,7 +8,6 @@ import {
   LocationChangeContext,
 } from './location-change-executor.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
-import { OsmStreetService } from './osm-street.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
@@ -30,6 +29,8 @@ import { canonicalCoords } from '../../utils/geo-utils';
 import type { FavoriteLocation } from '../../models/location.types';
 import { storedPlace } from './place-choice';
 import type { StreetNetwork } from './osm-street.service';
+import { WorldContext } from '../../world/world-context.service';
+import { fakeWorldContext } from '../../../test/world-context-fake';
 
 /**
  * The coordinator runs the 7-step location change and the location UI flows
@@ -186,7 +187,7 @@ describe('LocationChangeCoordinatorService', () => {
     const injector = Injector.create({
       providers: [
         { provide: EngineInitializationService, useValue: engineInit },
-        { provide: OsmStreetService, useValue: osm },
+        { provide: WorldContext, useValue: fakeWorldContext(osm as never) },
         { provide: HeightUpdateService, useValue: heightUpdate },
         { provide: MarkerVisualizationService, useValue: markerViz },
         { provide: PathAndRouteService, useValue: pathRoute },

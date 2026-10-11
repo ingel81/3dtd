@@ -188,7 +188,7 @@
         <td-icon name="audio" [size]="18"></td-icon>
         <span class="td-caps">Audio</span>
       </button>
-      @if (devWorld.isActive) {
+      @if (worldContext.capabilities().regenerate) {
         <button class="td-icon-btn qa-tile"
                 [class.is-on]="debugWindows.devworldWindow().isOpen"
                 (click)="debugWindows.toggle('devworld')"

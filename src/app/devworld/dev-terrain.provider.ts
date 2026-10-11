@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevWorldService, DEV_WORLD_SIZE, DEV_WORLD_MAX_HEIGHT, DEV_WORLD_HEIGHTMAP_SIZE } from './devworld.service';
+import { flatGeoToLocal } from '../world/flat-frame';
 import { TerrainGenerator } from './generators/terrain-generator';
 import { TerrainPreset } from './terrain-presets';
 import { BuildingConfig, BuildingDensity } from './generators/building-generator';
@@ -10,7 +10,7 @@ import type { DevWorldWorkerMessage, DevWorldWorkerResponse, DevWorldWorkerConfi
 /**
  * DevTerrainProvider
  *
- * Implements TerrainProvider for DevWorld using:
+ * The ground of DevWorld, behind DevWorldProvider and its DevWorldSurface:
  * - Runtime terrain generation (no PNG files!)
  * - Runtime building placement
  * - Grid shader for visual appearance
@@ -35,8 +35,8 @@ const ROAD_HEIGHT_OFFSET = 0.5;
  */
 const TERRAIN_MESH_SEGMENTS = 64;
 
-export class DevTerrainProvider implements TerrainProvider {
-  private scene: THREE.Scene | null = null;
+export class DevTerrainProvider {
+  private scene: THREE.Object3D | null = null;
   private terrainMesh: THREE.Mesh | null = null;
   private terrainSkirt: THREE.Mesh | null = null; // Side walls for terrain depth
   private terrainGroup: THREE.Group = new THREE.Group();
@@ -57,7 +57,6 @@ export class DevTerrainProvider implements TerrainProvider {
   // Raycaster for terrain queries
   private raycaster = new THREE.Raycaster();
   private downDirection = new THREE.Vector3(0, -1, 0);
-  private ndcCoords = new THREE.Vector2(); // Reusable for screen raycast
 
   // Reusable vectors for LOS raycasting (avoid GC pressure)
   private losOrigin = new THREE.Vector3();
@@ -74,9 +73,6 @@ export class DevTerrainProvider implements TerrainProvider {
   // Shared building material (MeshLambertMaterial for better performance)
   private buildingMaterial: THREE.MeshLambertMaterial | null = null;
 
-  // Callback for street refresh (notifies DevStreetProvider)
-  private onStreetRefreshCallback: ((segments: StreetSegment[], spawns: SpawnPoint[]) => void) | null = null;
-
   // Building color palette for visual variety
   private static readonly BUILDING_COLORS = [
     0x555566, // Default gray-blue
@@ -91,7 +87,7 @@ export class DevTerrainProvider implements TerrainProvider {
 
   constructor(private devWorld: DevWorldService) {}
 
-  async initialize(scene: THREE.Scene): Promise<void> {
+  async initialize(scene: THREE.Object3D): Promise<void> {
     this.scene = scene;
 
     // Generate everything from seed
@@ -104,16 +100,9 @@ export class DevTerrainProvider implements TerrainProvider {
   }
 
   /**
-   * Set callback for street refresh notifications.
-   * Called when streets are regenerated.
-   */
-  setStreetRefreshCallback(callback: (segments: StreetSegment[], spawns: SpawnPoint[]) => void): void {
-    this.onStreetRefreshCallback = callback;
-  }
-
-  /**
    * Regenerate entire world with current config.
-   * Called on init AND on debug panel "Regenerate" button.
+   * Called on init AND on debug panel "Regenerate" button; DevWorldProvider
+   * hands the new streets to its DevStreetProvider afterwards.
    *
    * Uses Web Worker for off-main-thread generation:
    * 1. Worker generates terrain, streets, buildings DATA
@@ -169,11 +158,6 @@ export class DevTerrainProvider implements TerrainProvider {
 
     // Clear height cache
     this.heightCache.clear();
-
-    // Notify street provider
-    if (this.onStreetRefreshCallback) {
-      this.onStreetRefreshCallback(this.streetSegments, this.spawnPoints);
-    }
   }
 
   /**
@@ -854,11 +838,11 @@ export class DevTerrainProvider implements TerrainProvider {
   }
 
   // ========================================
-  // TerrainProvider Interface Implementation
+  // Ground queries (DevWorldSurface)
   // ========================================
 
   getHeightAtGeo(lat: number, lon: number): number | null {
-    const local = this.devWorld.geoToLocal(lat, lon);
+    const local = flatGeoToLocal(lat, lon);
     return this.getHeightAtLocal(local.x, local.z);
   }
 
@@ -876,34 +860,17 @@ export class DevTerrainProvider implements TerrainProvider {
     return this.sampleMeshSurface(u, v);
   }
 
-  raycastFromScreen(
-    screenX: number,
-    screenY: number,
-    camera: THREE.Camera,
-    renderer: THREE.WebGLRenderer
-  ): THREE.Vector3 | null {
+  /** The nearest hit of a screen pick's ray (a fresh one, ScreenPicker) on terrain, roads and buildings */
+  pickRay(raycaster: THREE.Raycaster): THREE.Vector3 | null {
     if (!this.terrainMesh) {
       return null;
     }
-
-    // Convert screen coords to normalized device coordinates (reuse vector)
-    const rect = renderer.domElement.getBoundingClientRect();
-    this.ndcCoords.set(
-      ((screenX - rect.left) / rect.width) * 2 - 1,
-      -((screenY - rect.top) / rect.height) * 2 + 1
-    );
-
-    this.raycaster.setFromCamera(this.ndcCoords, camera);
-
-    // IMPORTANT: Reset raycaster range - hasLineOfSightBlocked modifies .far
-    this.raycaster.near = 0;
-    this.raycaster.far = Infinity;
 
     // Ensure world matrices are updated for raycasting
     this.terrainGroup.updateMatrixWorld(true);
 
     // Raycast against terrain group (includes terrain and buildings)
-    const intersects = this.raycaster.intersectObject(this.terrainGroup, true);
+    const intersects = raycaster.intersectObject(this.terrainGroup, true);
 
     if (intersects.length > 0) {
       return intersects[0].point.clone();
@@ -972,10 +939,6 @@ export class DevTerrainProvider implements TerrainProvider {
 
   clearHeightCache(): void {
     this.heightCache.clear();
-  }
-
-  update(_deltaTime: number, _camera: THREE.Camera, _renderer: THREE.WebGLRenderer): void {
-    // DevWorld terrain is static, no update needed
   }
 
   isReady(): boolean {

@@ -3,8 +3,7 @@ import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { TowerSelectionService } from './tower-selection.service';
 import { UIStore } from '../store/ui.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
-import { ConfigService } from '../core/services/config.service';
-import { DevWorldService } from '../devworld/devworld.service';
+import { WorldContext } from '../world/world-context.service';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { LocationManagementService } from './location/location-management.service';
 import { MapPlacementService } from './world/map-placement.service';
@@ -18,8 +17,6 @@ import { cycleTab, focusedElement } from '../utils/focus-cycle';
 /** How long the photo bar names the saved file */
 const SAVED_NOTE_MS = 5000;
 const BRAND_LOGO = 'assets/images/logo/logo.png';
-const GOOGLE_LOGO = 'assets/images/ui/google-maps-logo.svg';
-const CESIUM_LOGO = 'assets/images/ui/cesium-ion-logo.svg';
 
 /**
  * Photo mode: the HUD goes (header, sidebar, overlays), the camera controls
@@ -42,8 +39,7 @@ export class PhotoModeService {
   private readonly abilityTargeting = inject(AbilityTargetingService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly locationMgmt = inject(LocationManagementService);
-  private readonly config = inject(ConfigService);
-  private readonly devWorld = inject(DevWorldService);
+  private readonly worldContext = inject(WorldContext);
   private readonly injector = inject(Injector);
   /** The game component's element, whose template holds the photo bar */
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -144,10 +140,9 @@ export class PhotoModeService {
     this.savedTimer = setTimeout(() => this.savedAs.set(null), SAVED_NOTE_MS);
   }
 
-  /** The logos the screen shows next to the map; DevWorld has no tiles and none. */
+  /** The logos the screen shows next to the map, the world's (none in DevWorld). */
   private logoSources(): string[] {
-    if (this.devWorld.isActive) return [];
-    return this.config.tileProvider() === 'cesium' ? [GOOGLE_LOGO, CESIUM_LOGO] : [GOOGLE_LOGO];
+    return this.worldContext.logos().map((logo) => logo.src);
   }
 
   /**

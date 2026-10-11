@@ -9,7 +9,6 @@ vi.mock('@angular/core', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('@angular/core');
   const stubs: Record<string, unknown> = {
     MarkerVisualizationService: { clearHeightDebugMarkers: () => undefined, addHeightDebugMarker: () => undefined },
-    DevWorldService: { isActive: false },
     UIStore: { streetsVisible: () => ui.streets, heightDebugVisible: () => ui.heights },
   };
   return {
@@ -23,6 +22,7 @@ import type { Street, StreetNetwork, StreetNode } from '../location/osm-street.s
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { StreetSurface } from '../../utils/carried-height';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+import { TILES_STREET_STYLE } from '../../world/tiles/tiles-world';
 
 /** A node `x` metres east and `z` north of (0, 0). */
 const node = (id: number, x: number, z: number): StreetNode => ({ id, lat: z / METERS_PER_DEGREE_LAT, lon: x / METERS_PER_DEGREE_LAT });
@@ -51,6 +51,7 @@ describe('StreetRenderingService', () => {
     const overlay = new Group();
     const engine = {
       getOverlayGroup: () => overlay,
+      world: { streetStyle: TILES_STREET_STYLE },
       getTerrainHeightAtGeo: () => 70,
       sync: { geoToLocalSimple: (lat: number, lon: number, h: number) => new Vector3(lon * METERS_PER_DEGREE_LAT, h, -lat * METERS_PER_DEGREE_LAT) },
       terrain: {
@@ -102,6 +103,7 @@ describe('StreetRenderingService', () => {
     const asked = new Map<number, StreetSurface | null>();
     const engine = {
       getOverlayGroup: () => new Group(),
+      world: { streetStyle: TILES_STREET_STYLE },
       getTerrainHeightAtGeo: () => 0,
       sync: { geoToLocalSimple: (lat: number, lon: number, h: number) => new Vector3(lon * METERS_PER_DEGREE_LAT, h, -lat * METERS_PER_DEGREE_LAT) },
       terrain: {
@@ -135,6 +137,7 @@ describe('StreetRenderingService', () => {
     const asked = { count: 0 };
     const engine = {
       getOverlayGroup: () => overlay,
+      world: { streetStyle: TILES_STREET_STYLE },
       getTerrainHeightAtGeo: () => 70,
       sync: { geoToLocalSimple: (lat: number, lon: number, h: number) => new Vector3(lon * METERS_PER_DEGREE_LAT, h, -lat * METERS_PER_DEGREE_LAT) },
       terrain: { getStreetHeightEstimate: () => { asked.count++; return 70; } },

@@ -88,6 +88,8 @@ function createStubService(name: string): Record<string, unknown> {
     GeocodingService: {
       extractLocationName: (a: { city?: string }) => a.city ?? 'Unknown',
     },
+    // A real place: records are kept
+    WorldContext: { capabilities: () => ({ realPlace: true }) },
   };
   return stubs[name] ?? {};
 }

@@ -3,10 +3,13 @@ import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { LocationManagementService, formatShowcaseLine } from './location-management.service';
 import { GeocodingService } from './geocoding.service';
 import { PathAndRouteService } from '../world/path-route.service';
+import { WorldContext } from '../../world/world-context.service';
+import { fakeWorldContext, type FakeWorldContext } from '../../../test/world-context-fake';
 
 describe('LocationManagementService', () => {
   let service: LocationManagementService;
   let hasRoutes: ReturnType<typeof signal<boolean>>;
+  let world: FakeWorldContext;
 
   function create(): LocationManagementService {
     const injector = Injector.create({
@@ -14,6 +17,7 @@ describe('LocationManagementService', () => {
         // Nur für inject() im Feld-Initializer; die getesteten Pfade geocoden nicht
         { provide: GeocodingService, useValue: {} },
         { provide: PathAndRouteService, useValue: { hasRoutes } },
+        { provide: WorldContext, useValue: world },
         { provide: LocationManagementService, useFactory: () => {
           return runInInjectionContext(injector, () => new LocationManagementService());
         }},
@@ -25,6 +29,7 @@ describe('LocationManagementService', () => {
   beforeEach(() => {
     localStorage.clear();
     hasRoutes = signal(false);
+    world = fakeWorldContext();
     service = create();
   });
 
@@ -61,7 +66,8 @@ describe('LocationManagementService', () => {
     expect(service.editableSpawnLocations()[1].portalBearing).toBeUndefined();
   });
 
-  it('calls DevWorld\'s fake origin "Dev world" without asking the geocoder', () => {
+  it('calls DevWorld "Dev world" without asking the geocoder', () => {
+    world.useDevWorld();
     service.setLocation({ lat: 0, lon: 0 }, []);
     expect(service.displayName()).toBe('Dev world');
   });
@@ -129,7 +135,8 @@ describe('LocationManagementService', () => {
       expect(JSON.parse(localStorage.getItem('td_recent_locations_v1')!)).toHaveLength(2);
     });
 
-    it('skips the DevWorld origin', () => {
+    it('skips a world without a real place (DevWorld)', () => {
+      world.useDevWorld();
       service.recordRecent({ lat: 0, lon: 0 }, [{ lat: 0.005, lon: 0 }], 'DevWorld');
       expect(service.recents()).toEqual([]);
     });

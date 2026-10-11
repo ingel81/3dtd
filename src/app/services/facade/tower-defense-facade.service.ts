@@ -5,7 +5,7 @@ import { BackgroundMusicService } from '../../game-engine/background-music.servi
 import { TowerPlacementService } from '../tower-placement.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { ConfigService } from '../../core/services/config.service';
-import { DevWorldService } from '../../devworld/devworld.service';
+import { WorldContext } from '../../world/world-context.service';
 import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
@@ -35,8 +35,6 @@ import { researchSnapshotOf, type ResearchSnapshot } from '../../managers/resear
 import { watchResearchOf } from '../../sim/client/mirror/mirror-research';
 import { Vector3 } from 'three';
 import { StreetNetwork } from '../location/osm-street.service';
-import { DevStreetProvider } from '../../devworld/dev-street.provider';
-import { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
 import { isBenchmarkSearch } from '../../benchmark/benchmark-report';
 
 // Sub-facades
@@ -66,8 +64,6 @@ export interface FacadeComponentBridge {
   /** Street network state (component-owned) */
   getStreetNetwork: () => StreetNetwork | null;
   setStreetNetwork: (n: StreetNetwork | null) => void;
-  getDevStreetProvider: () => DevStreetProvider | null;
-  setDevStreetProvider: (p: DevStreetProvider | null) => void;
   getFilteredStreetNetwork: () => StreetNetwork | null;
   setFilteredStreetNetwork: (n: StreetNetwork | null) => void;
   getStreetNetworkLocation: () => { lat: number; lon: number } | null;
@@ -118,7 +114,7 @@ export class TowerDefenseFacadeService {
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly configService = inject(ConfigService);
-  private readonly devWorld = inject(DevWorldService);
+  private readonly worldContext = inject(WorldContext);
   private readonly soundDebug = inject(SoundDebugService);
   private readonly debugFacade = inject(DebugFacadeService);
   private readonly profiler = inject(PerformanceProfilerService);
@@ -233,16 +229,19 @@ export class TowerDefenseFacadeService {
     // The sheets rendered ahead are baked in this page (tools/preview-sheets/bake.ts, TODO E76)
     if (params.has('previewsheets')) installPreviewSheetHook(this.modelPreview);
 
-    if (this.devWorld.isActive && botMode === 'coop') {
+    // Bot runs and their training are what DevWorld is for (docs/BOT_SYSTEM.md):
+    // the bot plays there on its own, on no other world
+    const botWorld = this.worldContext.ref().kind === 'devworld';
+    if (botWorld && botMode === 'coop') {
       // One seat of a coop room (e2e/coop-bots): no bot server, whose
       // controls and restarts belong to single player runs. The bot waits for
       // the room's game (BotSignals.botCoop).
       this.store.directorEnabled.set(true);
       this.botClient.botCoop.set(true);
       this.botClient.enableBot('expert');
-    } else if (this.devWorld.isActive && isBenchmarkSearch(window.location.search)) {
+    } else if (botWorld && isBenchmarkSearch(window.location.search)) {
       // The in-game benchmark (TODO E74): no bot, no bot server
-    } else if (this.devWorld.isActive) {
+    } else if (botWorld) {
       this.store.directorEnabled.set(true);
       this.botClient.connectToBackend();
       // DevWorld exists to train against the backend, so the bot runs waves on
@@ -286,7 +285,8 @@ export class TowerDefenseFacadeService {
    */
   private offerStartGuess(): void {
     const injector = this.injector;
-    if (!injector || this.devWorld.isActive || this.urlLocation.parseFromUrl()) return;
+    // A world with its own HQ (DevWorld, a map) has no place to guess
+    if (!injector || !this.worldContext.capabilities().realPlace || this.urlLocation.parseFromUrl()) return;
     void this.guessStartPlace().then((guess) => {
       if (!guess) return;
       const waiting = effect(() => {
@@ -335,9 +335,11 @@ export class TowerDefenseFacadeService {
 
       const engine = this.bridge.getEngine();
       if (engine) {
+        // Disposes its world as well
         engine.dispose();
         this.bridge.setEngine(null);
       }
+      this.worldContext.close();
     }
 
     this.initialized = false;
@@ -360,30 +362,25 @@ export class TowerDefenseFacadeService {
    */
   private async initEngineSequence(canvas: HTMLCanvasElement): Promise<void> {
     try {
-      const tileProvider = this.configService.tileProvider();
-      const cesiumToken = this.configService.cesiumIonToken();
-      const cesiumAssetId = this.configService.cesiumAssetId();
-      const googleMapsApiKey = this.configService.googleMapsApiKey();
-
       // Missing credentials are normally caught before startGame and answered
       // with the token screen. Reaching this branch means something started the
       // engine anyway, so fail loudly rather than into an endless loading state.
-      if (tileProvider === 'google' && !googleMapsApiKey) {
-        this.engineInit.setError('No Google Maps API key configured.');
-        this.engineInit.setLoading(false);
-        return;
-      }
-      if (tileProvider === 'cesium' && !cesiumToken) {
-        this.engineInit.setError('No Cesium Ion token configured.');
+      // Only a world that needs them asks (the tiles).
+      if (this.worldContext.capabilities().credentials && this.configService.needsCredentials()) {
+        this.engineInit.setError(this.configService.tileProvider() === 'google'
+          ? 'No Google Maps API key configured.'
+          : 'No Cesium Ion token configured.');
         this.engineInit.setLoading(false);
         return;
       }
 
       const base = this.store.baseCoords();
-      this.engineInit.configure(canvas, cesiumToken, cesiumAssetId, { lat: base.lat, lon: base.lon }, tileProvider, googleMapsApiKey);
+      // The world around the HQ: its credentials and streets come with it
+      const world = this.worldContext.open({ lat: base.lat, lon: base.lon, height: 0 });
+      this.engineInit.configure(canvas, { lat: base.lat, lon: base.lon }, world);
       // The streets load while the engine is built and the tiles stream (TODO H13); onLoadStreets takes it
       const center = this.store.centerCoords();
-      this.engineInit.prefetchStreets(center.lat, center.lon);
+      this.engineInit.prefetchStreets(world, center.lat, center.lon);
 
       await this.engineInit.initEngine({
         onLoadStreets: () => this.loadStreetsInternal(),
@@ -416,7 +413,7 @@ export class TowerDefenseFacadeService {
         // once-a-second status push keeps reporting the client as healthy.
         // The normal game keeps the browser's throttling; it should not run
         // when nobody is watching.
-        engine.renderLoop.setBackgroundLoopEnabled(this.devWorld.isActive);
+        engine.renderLoop.setBackgroundLoopEnabled(this.worldContext.ref().kind === 'devworld');
 
         // Fix race condition: if tiles loaded during initEngine() before the
         // onTilesLoadCallback was set, the route refresh was skipped.
@@ -462,18 +459,10 @@ export class TowerDefenseFacadeService {
    */
   private async loadStreetsInternal(): Promise<number> {
     const center = this.store.centerCoords();
-    const result = await this.engineInit.loadStreets(
-      center.lat,
-      center.lon,
-      (network, count) => {
-        this.bridge.setStreetNetwork(network);
-        this.store.streetCount.set(count);
-      },
-    );
+    const result = await this.engineInit.loadStreets(center.lat, center.lon);
     // Said in the main menu; the map stands, without a route
     if (result.failed) this.uiStore.loadProblem.set({ text: FIRST_STREETS_FAILED, blocksPlay: true });
     this.bridge.setStreetNetwork(result.network);
-    this.bridge.setDevStreetProvider(result.devStreetProvider);
     this.store.streetCount.set(result.count);
     return result.count;
   }
@@ -560,19 +549,9 @@ export class TowerDefenseFacadeService {
     this.locationFacade.handleMapPlacementClick(lat, lon, height);
   }
 
-  /** Refresh terrain heights. In DevWorld: regenerates entire world. */
+  /** Refresh terrain heights. A world that regenerates (DevWorld) rolls itself anew. */
   refreshTerrainHeights(): void {
     this.locationFacade.refreshTerrainHeights(() => this.vizFacade.onTilesLoaded());
-  }
-
-  /** Clear DevWorld visuals. */
-  clearDevWorldVisuals(): void {
-    this.locationFacade.clearDevWorldVisuals();
-  }
-
-  /** DevWorld regenerated callback. */
-  onDevWorldRegenerated(devTerrainProvider: DevTerrainProvider): void {
-    this.locationFacade.onDevWorldRegenerated(devTerrainProvider);
   }
 
   /** Called when tiles finish loading. */

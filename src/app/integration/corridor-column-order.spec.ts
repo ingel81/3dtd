@@ -128,7 +128,7 @@ function build(queries: TerrainQueries, before: (queries: TerrainQueries) => voi
 describe('The cells of a corridor build, PLAYTEST 745', () => {
   it('get the same heights whether the stations were measured first, nothing was, or the street overlay was', () => {
     const world = tiles();
-    const queries = new TerrainQueries(sync as unknown as EllipsoidSync, { tiles: () => world.renderer, devTerrain: () => null });
+    const queries = new TerrainQueries(sync as unknown as EllipsoidSync, { tiles: () => world.renderer });
 
     const coldLoad = build(queries, measureStations);
     const reset = build(queries, () => undefined);

@@ -3,13 +3,13 @@ import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from '../components/debug-window/draggable-debug-panel.component';
 import { DevWorldDebugPanelComponent } from './devworld-debug-panel.component';
 import { DebugWindowService } from '../services/debug/debug-window.service';
-import { DevWorldService } from './devworld.service';
+import { WorldContext } from '../world/world-context.service';
 
 /**
  * DevWorld Debugger Window
  *
  * Draggable debug window for DevWorld mode.
- * Only visible when DevWorld is active.
+ * Only visible on a world that regenerates (DevWorld).
  */
 @Component({
   selector: 'app-devworld-debugger',
@@ -17,7 +17,7 @@ import { DevWorldService } from './devworld.service';
   imports: [CommonModule, DraggableDebugPanelComponent, DevWorldDebugPanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (devWorld.isActive && windowService.devworldWindow().isOpen) {
+    @if (worldContext.capabilities().regenerate && windowService.devworldWindow().isOpen) {
       <app-draggable-debug-panel
         windowId="devworld"
         title="DevWorld"
@@ -35,7 +35,7 @@ import { DevWorldService } from './devworld.service';
 })
 export class DevWorldDebuggerComponent {
   readonly windowService = inject(DebugWindowService);
-  readonly devWorld = inject(DevWorldService);
+  readonly worldContext = inject(WorldContext);
 
   // Input for loading state
   readonly isRegenerating = input(false);

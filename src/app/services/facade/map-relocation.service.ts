@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { OsmStreetService, STREET_RADIUS_M } from '../location/osm-street.service';
+import { WorldContext } from '../../world/world-context.service';
+import { STREET_RADIUS_M } from '../location/osm-street.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { LocationManagementService } from '../location/location-management.service';
@@ -51,7 +52,7 @@ const RANDOM_SPAWN_CANDIDATES = 8;
  */
 @Injectable({ providedIn: 'root' })
 export class MapRelocationService {
-  private readonly osmService = inject(OsmStreetService);
+  private readonly worldContext = inject(WorldContext);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly world = inject(MainWorldService);
@@ -104,7 +105,7 @@ export class MapRelocationService {
     }, Math.PI);
     let best: { lat: number; lon: number; gap: number } | null = null;
     for (let i = 0; i < RANDOM_SPAWN_CANDIDATES; i++) {
-      const candidate = this.osmService.findRandomStreetPoint(streetNetwork, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE);
+      const candidate = this.worldContext.streets.findRandomStreetPoint(streetNetwork, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE);
       if (!candidate) break;
       const g = gap(bearingOf(candidate.lat, candidate.lon));
       if (!best || g > best.gap) best = { lat: candidate.lat, lon: candidate.lon, gap: g };
@@ -139,7 +140,7 @@ export class MapRelocationService {
 
     const oldSpawn = existingSpawns.length > 0 ? existingSpawns[0] : null;
     const spawnTooFar = oldSpawn
-      ? this.osmService.haversineDistance(oldSpawn.lat, oldSpawn.lon, lat, lon) > SPAWN_DISCARD_DISTANCE
+      ? this.worldContext.streets.haversineDistance(oldSpawn.lat, oldSpawn.lon, lat, lon) > SPAWN_DISCARD_DISTANCE
       : true;
 
     if (oldSpawn && !spawnTooFar) {
@@ -154,7 +155,7 @@ export class MapRelocationService {
       // Overpass servers at 15 s each before the loading screen: say so.
       this.relocationStatus.show(MOVING_HQ, 'Loading streets');
       try {
-        const newNetwork = await this.osmService.loadStreets(lat, lon, STREET_RADIUS_M);
+        const newNetwork = await this.worldContext.streets.loadStreets(lat, lon, STREET_RADIUS_M);
         times.lap('streets');
 
         // Cache in bridge so coordinator's step3 reuses it (avoids double-load).
@@ -163,7 +164,7 @@ export class MapRelocationService {
         bridge?.setStreetNetwork(newNetwork);
         bridge?.setStreetNetworkLocation({ lat, lon });
 
-        const randomSpawn = this.osmService.findRandomStreetPoint(
+        const randomSpawn = this.worldContext.streets.findRandomStreetPoint(
           newNetwork, lat, lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE,
         );
         times.lap('spawn');
@@ -288,7 +289,7 @@ export class MapRelocationService {
       // 8. Re-add existing spawns — validate paths to new HQ
       let hasValidSpawn = false;
       for (const spawn of existingSpawns) {
-        const path = this.osmService.findPath(streetNetwork, spawn.lat, spawn.lon, lat, lon);
+        const path = this.worldContext.streets.findPath(streetNetwork, spawn.lat, spawn.lon, lat, lon);
         times.lap('paths');
         if (path && path.length >= 2) {
           host.addSpawnPoint(spawn.id, spawn.name, spawn.lat, spawn.lon, spawn.color);
@@ -301,7 +302,7 @@ export class MapRelocationService {
 
       // 9. If no valid spawn, generate a random one
       if (!hasValidSpawn) {
-        const randomSpawn = this.osmService.findRandomStreetPoint(
+        const randomSpawn = this.worldContext.streets.findRandomStreetPoint(
           streetNetwork, lat, lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE,
         );
         if (randomSpawn) {
@@ -440,7 +441,7 @@ export class MapRelocationService {
     // 1. Check that a route exists from every spawn to HQ
     if (spawns.length === 0 || spawns.length > SPAWN_COLORS.length) return false;
     for (const spawn of spawns) {
-      const path = this.osmService.findPath(streetNetwork, spawn.lat, spawn.lon, hq.lat, hq.lon);
+      const path = this.worldContext.streets.findPath(streetNetwork, spawn.lat, spawn.lon, hq.lat, hq.lon);
       if (!path || path.length < 2) {
         console.warn('[MapPlacement] No route from new spawn to HQ — placement rejected');
         return false;
@@ -511,7 +512,7 @@ export class MapRelocationService {
     }
 
     const hq = this.store.baseCoords();
-    const path = this.osmService.findPath(streetNetwork, lat, lon, hq.lat, hq.lon);
+    const path = this.worldContext.streets.findPath(streetNetwork, lat, lon, hq.lat, hq.lon);
     if (!path || path.length < 2) {
       console.warn('[MapPlacement] No route from the added spawn to HQ — placement rejected');
       return false;

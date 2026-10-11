@@ -18,10 +18,13 @@ describe('BuildingOverlay', () => {
   let overlay: BuildingOverlay;
 
   function fakeDeps() {
+    // The world's streets: OSM on the tiles
+    const osm = {
+      loadBuildingsNearRoutes: vi.fn(async (_routes: unknown, _radius: number) => ({ buildings: ['near'] as unknown[] })),
+    };
     return {
-      osm: {
-        loadBuildingsNearRoutes: vi.fn(async (_routes: unknown, _radius: number) => ({ buildings: ['near'] as unknown[] })),
-      },
+      osm,
+      streets: () => osm,
       pathRoute: { getCachedPaths: vi.fn(() => cachedPaths) },
       buildingRendering: { renderBuildings: vi.fn(), toggleVisibility: vi.fn(), reset: vi.fn(), clear: vi.fn() },
       uiStore: { buildingsVisible: signal(false) },

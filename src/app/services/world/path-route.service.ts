@@ -32,7 +32,6 @@ import { routeApproaches, segmentApproaches } from '../../utils/carried-height';
 import { UnderpassIndex, splitAtSpans } from '../../utils/underpass';
 import { haversineDistance } from '../../utils/geo-utils';
 import { SpawnPoint } from './marker-visualization.service';
-import { DevWorldService } from '../../devworld/devworld.service';
 import { extendPathToOptimalTurnoff, leavePathForBase, subdivideGeoPath } from '../../utils/route-geometry';
 import { UIStore } from '../../store/ui.store';
 import { GlobalRouteGridService } from './global-route-grid.service';
@@ -43,7 +42,7 @@ import { corridorTrace } from '../../utils/corridor-trace';
 import { ClearanceRun, type ClearanceSegment } from './clearance-run';
 
 /**
- * Interface for pathfinding services (OsmStreetService or DevStreetProvider)
+ * What the routes need of the world's streets (WorldStreetSource: OsmStreetService, DevStreetProvider)
  */
 export interface PathfindingService {
   findPath(network: StreetNetwork, startLat: number, startLon: number, endLat: number, endLon: number): StreetNode[];
@@ -239,7 +238,6 @@ export interface CorridorExplanation {
  */
 @Injectable({ providedIn: 'root' })
 export class PathAndRouteService {
-  private readonly devWorld = inject(DevWorldService);
   private readonly uiStore = inject(UIStore);
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
 
@@ -308,7 +306,7 @@ export class PathAndRouteService {
   /** Routes visibility state (from UIStore) */
   private routesVisible: WritableSignal<boolean> | null = null;
 
-  /** Pathfinding service (OsmStreetService or DevStreetProvider) */
+  /** Pathfinding service, the world's streets (WorldStreetSource) */
   private pathfindingService: PathfindingService | null = null;
 
   /** Told about every built route; the spawn portal stands on its start. */
@@ -324,7 +322,7 @@ export class PathAndRouteService {
    * @param streetNetwork Street network for pathfinding
    * @param baseCoords Base/HQ coordinates
    * @param routesVisible Signal for routes visibility state
-   * @param pathfindingService Service for pathfinding (OsmStreetService or DevStreetProvider)
+   * @param pathfindingService Service for pathfinding, the world's streets (WorldStreetSource)
    * @param onRouteBuilt Told about every built route, see SpawnRouteListener
    */
   initialize(
@@ -512,12 +510,13 @@ export class PathAndRouteService {
   }
 
   /**
-   * How far above its cells the red route line runs, m: 1, in DevWorld 3
-   * for its steep procedural terrain. `__corridor.pick()` looks at the cells
-   * from the camera at this height (CorridorConsole.coverAt).
+   * How far above its cells the red route line runs, m: the world's
+   * StreetStyle (1, in DevWorld 3 for its steep procedural terrain); 1
+   * before there is an engine. `__corridor.pick()` looks at the cells from
+   * the camera at this height (CorridorConsole.coverAt).
    */
   routeLineLift(): number {
-    return this.devWorld.isActive ? 3 : 1;
+    return this.engine?.world.streetStyle.routeLineLift ?? 1;
   }
 
   /**
@@ -539,10 +538,11 @@ export class PathAndRouteService {
     // Cut it where it passes closest to the HQ and end it at the HQ
     geoPath = leavePathForBase(geoPath, this.baseCoords, this.pathfindingService);
 
-    // DevWorld: Subdivide long segments for smooth terrain following on steep hills
-    // Real World: Use original path directly (Google Maps terrain is smoother)
-    if (this.devWorld.isActive) {
-      geoPath = subdivideGeoPath(geoPath, 2);
+    // Steep procedural ground (DevWorld): long segments subdivided to follow it;
+    // the tiles keep the original path (their terrain is smoother)
+    const subdivideM = this.engine.world.streetStyle.subdivideM;
+    if (subdivideM > 0) {
+      geoPath = subdivideGeoPath(geoPath, subdivideM);
     }
 
     // Corridor half width per segment and side, from the free space the
@@ -599,6 +599,7 @@ export class PathAndRouteService {
     const cellsReady = this.globalRouteGrid.isInitialized();
     const pathWithHeights: RouteWaypoint[] = new Array(geoPath.length);
     let startCellY: number | null = null;
+    const carryOffStreet = this.engine.world.streetStyle.carryOffStreet;
 
     for (let i = 0; i < geoPath.length; i++) {
       const pos = geoPath[i];
@@ -626,11 +627,11 @@ export class PathAndRouteService {
         if (onBridge[i]) waypoint.onBridge = true;
         if (inTunnel[i]) waypoint.inTunnel = true;
         if (passage[i]) waypoint.passage = true;
-        // Not in DevWorld: its columns are the terrain alone, no building on
-        // it, and the terrain there climbs far steeper than a step (in
-        // `gentle` some 190 % at the HQ); carried on, the leg would run into
-        // the hill.
-        if (offStreet[i] && !this.devWorld.isActive) waypoint.offStreet = true;
+        // Not where the style says so (DevWorld): its columns are the terrain
+        // alone, no building on it, and the terrain there climbs far steeper
+        // than a step (in `gentle` some 190 % at the HQ); carried on, the leg
+        // would run into the hill.
+        if (offStreet[i] && carryOffStreet) waypoint.offStreet = true;
       }
       pathWithHeights[i] = waypoint;
     }

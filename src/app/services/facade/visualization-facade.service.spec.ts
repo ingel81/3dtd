@@ -49,7 +49,6 @@ vi.mock('../../director/dps-profile-visualizer', () => ({
 import { VisualizationFacadeService } from './visualization-facade.service';
 import { CorridorBuild } from '../world/corridor-build';
 import { corridorTrace } from '../../utils/corridor-trace';
-import { OsmStreetService } from '../location/osm-street.service';
 import { UIStore } from '../../store/ui.store';
 import { StartShowService } from '../world/start-show.service';
 import { CameraControlService, type CameraView } from '../camera-control.service';
@@ -63,7 +62,8 @@ import { MapPlacementService } from '../world/map-placement.service';
 import { RelocationStatusService } from '../world/relocation-status.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
-import { DevWorldService } from '../../devworld/devworld.service';
+import { WorldContext } from '../../world/world-context.service';
+import { fakeWorldContext } from '../../../test/world-context-fake';
 import { CameraFramingService } from '../camera-framing.service';
 import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import { RouteAnimationService } from '../world/route-animation.service';
@@ -163,7 +163,6 @@ describe('VisualizationFacadeService', () => {
   const bridge = {
     getEngine: vi.fn((): unknown => engine),
     getStreetNetwork: vi.fn(() => streetNetwork),
-    getDevStreetProvider: vi.fn((): unknown => null),
     getFilteredStreetNetwork: vi.fn(() => filteredNetwork),
     setFilteredStreetNetwork: vi.fn(),
     getCanvasElement: vi.fn(() => canvas),
@@ -207,10 +206,12 @@ describe('VisualizationFacadeService', () => {
     get scalars() { return { towerCount, phase: 'setup', enemiesAlive: 0 }; },
   };
 
+  /** The world's streets (WorldContext.streets) */
   const osm = {
     filterStreetsNearRoutes: vi.fn(() => ({ filtered: true })),
     loadBuildingsNearRoutes: vi.fn(),
   };
+  const worldContext = fakeWorldContext(osm as never);
   const uiStore = { routesVisible: signal(true), buildingsVisible: signal(false), specialPointsDebugVisible: signal(false) };
   /** No menu in front: the show plays at once */
   const startShow = { whenPlayed: vi.fn((_kind: string, show: () => void) => show()), setStage: vi.fn() };
@@ -294,7 +295,6 @@ describe('VisualizationFacadeService', () => {
     checkAllLoaded: vi.fn(() => engineInit.loading.set(false)),
     getFirstTilesLoadedAt: vi.fn((): number | null => performance.now()),
   };
-  const devWorld = { isActive: false };
   const cameraFraming = {
     setEngine: vi.fn(),
     getLastFrame: vi.fn((): CameraFrame | null => null),
@@ -367,7 +367,7 @@ describe('VisualizationFacadeService', () => {
   function create(): VisualizationFacadeService {
     const injector = Injector.create({
       providers: [
-        { provide: OsmStreetService, useValue: osm },
+        { provide: WorldContext, useValue: worldContext },
         { provide: UIStore, useValue: uiStore },
         { provide: StartShowService, useValue: startShow },
         { provide: CameraControlService, useValue: cameraControl },
@@ -379,7 +379,6 @@ describe('VisualizationFacadeService', () => {
         { provide: HeroControlService, useValue: heroControl },
         { provide: HeightUpdateService, useValue: heightUpdate },
         { provide: EngineInitializationService, useValue: engineInit },
-        { provide: DevWorldService, useValue: devWorld },
         { provide: CameraFramingService, useValue: cameraFraming },
         { provide: RouteAnimationService, useValue: routeAnimation },
         { provide: IntroCameraFlightService, useValue: introFlight },
@@ -432,9 +431,7 @@ describe('VisualizationFacadeService', () => {
     cachedPaths = new Map([['spawn-1', ROUTE]]);
     towerCount = 0;
     dpsViz.instances.length = 0;
-    devWorld.isActive = false;
     bridge.getEngine.mockImplementation(() => engine);
-    bridge.getDevStreetProvider.mockImplementation(() => null);
     engineInit.getEngine.mockImplementation(() => engine);
     engineInit.loading.set(false);
     engineInit.tilesLoading.set(false);
@@ -648,16 +645,6 @@ describe('VisualizationFacadeService', () => {
       expect(keyboardPan.initialize).toHaveBeenCalledWith(engine);
     });
 
-    it('routes pathfinding through the DevWorld street provider in DevWorld', () => {
-      const devStreets = { dev: true };
-      devWorld.isActive = true;
-      bridge.getDevStreetProvider.mockReturnValue(devStreets);
-
-      facade.initializeVisualizationServices();
-
-      expect(pathRoute.initialize.mock.calls[0][4]).toBe(devStreets);
-    });
-
     it('hands the camera an overview that is computed fresh on each request', () => {
       facade.initializeVisualizationServices();
       const provider = cameraControl.setOverviewProvider.mock.calls[0][0] as () => CameraView | null;
@@ -843,15 +830,12 @@ describe('VisualizationFacadeService', () => {
       expect(bridge.setFilteredStreetNetwork).toHaveBeenCalledWith({ filtered: true });
     });
 
-    it('keeps every street without routes and in DevWorld', () => {
+    it('keeps every street without routes', () => {
       cachedPaths = new Map();
-      facade.filterStreetNetworkToRoutes();
-      cachedPaths = new Map([['spawn-1', ROUTE]]);
-      devWorld.isActive = true;
       facade.filterStreetNetworkToRoutes();
 
       expect(osm.filterStreetsNearRoutes).not.toHaveBeenCalled();
-      expect(bridge.setFilteredStreetNetwork.mock.calls).toEqual([[streetNetwork], [streetNetwork]]);
+      expect(bridge.setFilteredStreetNetwork.mock.calls).toEqual([[streetNetwork]]);
     });
 
     it('filters nothing without a street network', () => {

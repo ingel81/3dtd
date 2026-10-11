@@ -16,11 +16,6 @@ const world = vi.hoisted(() => ({ devWorld: false }));
 vi.mock('@angular/core', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('@angular/core');
   const stubs: Record<string, unknown> = {
-    DevWorldService: {
-      get isActive() {
-        return world.devWorld;
-      },
-    },
     UIStore: { routesVisible: () => false },
     GlobalRouteGridService: {
       isInitialized: () => true,
@@ -33,6 +28,8 @@ vi.mock('@angular/core', async () => {
 
 import { PathAndRouteService } from '../world/path-route.service';
 import { OsmStreetService } from '../location/osm-street.service';
+import { TILES_STREET_STYLE } from '../../world/tiles/tiles-world';
+import { DEV_WORLD_STREET_STYLE } from '../../devworld/dev-world-provider';
 import { CorridorConsole, type CorridorConsoleDeps } from './corridor-console';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import { makeNetwork } from '../../../test/route-network-fixture';
@@ -57,6 +54,8 @@ function makeEngine(): ThreeTilesEngine {
       geoToLocalSimple: (lat: number, lon: number, h: number) =>
         new Vector3((lon - ORIGIN.lon) * M_PER_DEG_LON, h, -(lat - ORIGIN.lat) * METERS_PER_DEGREE_LAT),
     },
+    // The world's street style: DevWorld lifts its line higher
+    world: { streetStyle: world.devWorld ? DEV_WORLD_STREET_STYLE : TILES_STREET_STYLE },
   } as unknown as ThreeTilesEngine;
 }
 

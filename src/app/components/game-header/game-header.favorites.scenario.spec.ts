@@ -12,11 +12,12 @@ vi.mock('@angular/core', async () => {
 import { DestroyRef, ElementRef, Injector, runInInjectionContext, signal } from '@angular/core';
 import { GameHeaderComponent } from './game-header.component';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
-import { DevWorldService } from '../../devworld/devworld.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { GeocodingService } from '../../services/location/geocoding.service';
 import { PathAndRouteService } from '../../services/world/path-route.service';
 import { ownsKey } from '../../utils/keyboard-target';
+import { WorldContext } from '../../world/world-context.service';
+import { fakeWorldContext } from '../../../test/world-context-fake';
 
 /**
  * Playtest 538 to 540 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed on the
@@ -39,6 +40,7 @@ describe('Favorites menu, playtest 538 to 540 replayed', () => {
       providers: [
         { provide: GeocodingService, useValue: {} },
         { provide: PathAndRouteService, useValue: { hasRoutes: signal(false) } },
+        { provide: WorldContext, useValue: fakeWorldContext() },
       ],
     });
     return runInInjectionContext(injector, () => new LocationManagementService());
@@ -64,7 +66,7 @@ describe('Favorites menu, playtest 538 to 540 replayed', () => {
       providers: [
         { provide: ElementRef, useValue: new ElementRef(host) },
         { provide: TowerDefenseStore, useValue: { renderingEnabled: signal(true) } },
-        { provide: DevWorldService, useValue: { isActive: false } },
+        { provide: WorldContext, useValue: fakeWorldContext() },
         { provide: DestroyRef, useValue: { onDestroy: () => () => undefined, destroyed: false } },
       ],
     });

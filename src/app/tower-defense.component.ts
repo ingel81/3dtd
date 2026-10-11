@@ -53,7 +53,7 @@ import { GameSpeedComponent } from './components/game-speed/game-speed.component
 import { BossBarComponent } from './components/boss-bar/boss-bar.component';
 import { CoopSquadComponent } from './components/coop-squad/coop-squad.component';
 import { CoopDockComponent } from './components/coop-dock/coop-dock.component';
-import { DevWorldService } from './devworld/devworld.service';
+import { WorldContext } from './world/world-context.service';
 import { WaveDebugService } from './services/debug/wave-debug.service';
 import { EnemyDebugService } from './services/debug/enemy-debug.service';
 import { DebugFacadeService } from './services/debug/debug-facade.service';
@@ -73,7 +73,6 @@ import { heroBarView } from './components/ability-bar/hero-bar';
 import { MapPlacementService } from './services/world/map-placement.service';
 import { LocationManagementService } from './services/location/location-management.service';
 import { EngineInitializationService } from './services/infrastructure/engine-initialization.service';
-import { DevStreetProvider } from './devworld/dev-street.provider';
 import { LocationChangeCoordinatorService } from './services/location/location-change-coordinator.service';
 import { TowerDefenseFacadeService, FacadeComponentBridge } from './services/facade/tower-defense-facade.service';
 import { GameLoopFacadeService } from './services/facade/game-loop-facade.service';
@@ -268,7 +267,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
-  private readonly devWorld = inject(DevWorldService);
+  /** The world the game plays: its credentials, its logos */
+  readonly worldContext = inject(WorldContext);
   readonly facade = inject(TowerDefenseFacadeService);
   readonly store = inject(TowerDefenseStore);
   /** Best wave per place; a new record shows on the game-over screen */
@@ -316,7 +316,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
-  private devStreetProvider: DevStreetProvider | null = null;
   private filteredStreetNetwork: StreetNetwork | null = null; // Filtered to route corridor for rendering
   private streetNetworkLocation: { lat: number; lon: number } | null = null; // Tracks loaded location to avoid double-loading
 
@@ -553,8 +552,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
     // No tile credentials yet: ask for them before the engine starts, otherwise
     // the player lands on an error overlay telling them to edit a source file
-    // they do not have. DevWorld needs no tiles and skips the whole question.
-    if ((forceTokenSetup || this.configService.needsCredentials()) && !this.devWorld.isActive) {
+    // they do not have. A world without credentials (DevWorld, a map) skips the whole question.
+    if ((forceTokenSetup || this.configService.needsCredentials()) && this.worldContext.capabilities().credentials) {
       this.awaitingCredentials.set(true);
       return;
     }
@@ -1095,8 +1094,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
       setEngine: (e) => { this.engine = e; },
       getStreetNetwork: () => this.streetNetwork,
       setStreetNetwork: (n) => { this.streetNetwork = n; },
-      getDevStreetProvider: () => this.devStreetProvider,
-      setDevStreetProvider: (p) => { this.devStreetProvider = p; },
       getFilteredStreetNetwork: () => this.filteredStreetNetwork,
       setFilteredStreetNetwork: (n) => { this.filteredStreetNetwork = n; },
       getStreetNetworkLocation: () => this.streetNetworkLocation,

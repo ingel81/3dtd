@@ -12,7 +12,7 @@ import { LocationChangeCoordinatorService } from '../location/location-change-co
 import { BestWaveService } from '../location/best-wave.service';
 import { loadRecentLocations, isSamePlace } from '../location/recent-locations';
 import { loadFavoriteLocations } from '../location/favorite-locations';
-import { DevWorldService } from '../../devworld/devworld.service';
+import { WorldContext } from '../../world/world-context.service';
 import { startMenuSkipped } from '../../components/main-menu/start-menu-skipped';
 import { shortPlaceName } from '../save-game/slot-name';
 import { DiveFlightService } from './dive-flight.service';
@@ -129,7 +129,7 @@ export class GlobeDirectorService {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly coordinator = inject(LocationChangeCoordinatorService);
   private readonly bestWaves = inject(BestWaveService);
-  private readonly devWorld = inject(DevWorldService);
+  private readonly worldContext = inject(WorldContext);
   private readonly diveFlight = inject(DiveFlightService);
   /** What the menu and a change of place see of the globe */
   private readonly link = inject(GLOBE_LINK);
@@ -152,7 +152,9 @@ export class GlobeDirectorService {
     () =>
       !this.failed() &&
       this.setting() !== 'off' &&
-      !this.devWorld.isActive &&
+      // Only a real place on the earth lies on the globe (ECEF frame for the dive)
+      this.worldContext.capabilities().realPlace &&
+      this.worldContext.capabilities().ecef &&
       !startMenuSkipped(typeof window === 'undefined' ? '' : window.location.search) &&
       webgl2Available(),
   );

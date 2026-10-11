@@ -217,12 +217,6 @@ const browser = await engine.launch({
   ],
 });
 const context = await browser.newContext({ viewport: { width: 1600, height: 900 }, ...(DPR ? { deviceScaleFactor: Number(DPR) } : {}) });
-// DevWorld loads no tiles, but the production build wants a key before it starts the engine; a map run takes the dev server's own
-if (!MAP) {
-  await context.addInitScript(() => {
-    localStorage.setItem('3dtd-tile-credentials', JSON.stringify({ tileProvider: 'cesium', cesiumIonToken: 'devworld' }));
-  });
-}
 const page = await context.newPage();
 page.on('pageerror', (e) => console.log('pageerror', e.message));
 await page.goto((MAP ? `${URL_BASE}/?l=${PLACE}&menu=skip` : `${URL_BASE}/?devworld&bot=manual&menu=skip`) + (QUERY ? `&${QUERY}` : ''));
