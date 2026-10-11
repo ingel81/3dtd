@@ -13,7 +13,10 @@ import {
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent, type TdIconName } from '../../../components/icon/icon.component';
 import { SYMMETRY_MODES, type SymmetryMode } from '../../ops/symmetry';
-import { TOOLS, type ToolId } from '../../tools/tool';
+import { LANDSCAPE_MODES, TOOLS, type ToolId } from '../../tools/tool';
+import { BIOMES } from '../../ops/landscape/biomes';
+import { CommandPaletteComponent } from './command-palette.component';
+import type { EditorCommand } from './commands';
 import { EditorSession } from '../editor-session.service';
 import { CheckPanelComponent } from '../panels/check-panel.component';
 import { EnvironmentPanelComponent } from '../panels/environment-panel.component';
@@ -76,6 +79,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
     MinimapComponent,
     CheckPanelComponent,
     StatusBarComponent,
+    CommandPaletteComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './editor-shell.component.html',
@@ -93,6 +97,8 @@ export class EditorShellComponent implements OnDestroy {
   readonly icons = TOOL_ICON;
   readonly fileMenu = signal(false);
   readonly help = signal(false);
+  /** The command palette's list while it is open */
+  readonly palette = signal<readonly EditorCommand[] | null>(null);
   readonly shortcuts = SHORTCUTS;
   readonly symmetryModes = SYMMETRY_MODES;
   readonly symmetry = computed(() => (this.session.settingsRev(), this.session.settings.symmetry));
@@ -139,6 +145,8 @@ export class EditorShellComponent implements OnDestroy {
   }
 
   onKeyDown(e: KeyboardEvent): void {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') return this.handled(e, () => this.togglePalette());
+    if (this.palette()) return;
     if (this.help() && e.key === 'Escape') return this.handled(e, () => this.help.set(false));
     if (typing(e)) {
       if (e.key === 'Escape') (e.target as HTMLElement).blur();
@@ -180,6 +188,78 @@ export class EditorShellComponent implements OnDestroy {
       e.preventDefault();
       s.refresh();
     }
+  }
+
+  togglePalette(): void {
+    this.palette.set(this.palette() ? null : this.buildCommands());
+  }
+
+  closePalette(): void {
+    this.palette.set(null);
+    this.session.viewport?.canvas.focus({ preventScroll: true });
+  }
+
+  /** Everything the palette offers, built when it opens: tools, brushes, view, map, objects on the map, markers */
+  private buildCommands(): EditorCommand[] {
+    const s = this.session;
+    const vp = s.viewport;
+    const out: EditorCommand[] = [];
+    const add = (group: string, label: string, run: () => void, keys?: string) => out.push({ id: `${group}:${label}`, group, label, keys, run });
+    add('Edit', 'Undo', () => s.undo(), 'Ctrl+Z');
+    add('Edit', 'Redo', () => s.redo(), 'Ctrl+Y');
+    add('Map', 'Save', () => void s.save(true), 'Ctrl+S');
+    add('Map', 'Check the map', () => void this.check(), 'V');
+    add('Map', 'Test the map in the game', () => void s.testPlay());
+    add('Map', 'Download the map file', () => s.downloadFile());
+    add('Map', 'Download a picture of the map', () => void s.downloadPng());
+    for (const t of TOOLS) add('Tools', t.label, () => this.pick(t.id), t.key);
+    for (const m of LANDSCAPE_MODES) {
+      add('Landscape', m.label, () => {
+        this.pick('landscape');
+        s.patchSettings((st) => (st.landscape.mode = m.id));
+      });
+    }
+    for (const b of BIOMES) {
+      add('Biome', b.label, () => {
+        this.pick('landscape');
+        s.patchSettings((st) => {
+          st.landscape.mode = 'biome';
+          st.landscape.biome = b.id;
+        });
+      });
+    }
+    if (vp) {
+      add('View', 'Frame the map', () => vp.frameMap());
+      add('View', 'Frame the selection', () => vp.focusSelection(), 'F');
+      add('View', 'Top view on or off', () => vp.controller.setTopDown(!vp.controller.isTopDown), 'T');
+      add('View', 'Game view on or off', () => vp.toggleGameView(), 'C');
+    }
+    add('View', 'Height lines on or off', () => s.patchSettings((st) => (st.view.contours = !st.view.contours)));
+    add('View', 'Grid on or off', () => s.patchSettings((st) => (st.view.grid = !st.view.grid)));
+    for (const m of SYMMETRY_MODES) add('Symmetry', m.label, () => this.setSymmetry(m.id), 'M');
+    add('Editor', 'Keys', () => this.help.set(true), '?');
+    const doc = s.doc;
+    if (doc && vp) {
+      add('Go to', 'HQ', () => vp.focusOn(doc.hq));
+      for (const sp of doc.spawns) add('Go to', `Spawn ${sp.name}`, () => vp.focusOn(sp));
+      // Every asset on the map: select all of its objects and frame them
+      const byAsset = new Map<string, string[]>();
+      for (const o of doc.objects) {
+        const list = byAsset.get(o.asset);
+        if (list) list.push(o.id);
+        else byAsset.set(o.asset, [o.id]);
+      }
+      const catalog = s.catalog();
+      for (const [asset, ids] of byAsset) {
+        add('Select', `${catalog.object(asset).name} (${ids.length})`, () => {
+          this.pick('objects');
+          s.patchSettings((st) => (st.objects.mode = 'select'));
+          s.editor?.select({ kind: 'objects', ids });
+          vp.focusSelection();
+        });
+      }
+    }
+    return out;
   }
 
   onKeyUp(e: KeyboardEvent): void {
@@ -237,6 +317,7 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
       ['V', 'Check the map'],
       ['M', 'Symmetry: off, mirror X, Y, both, turn 2, turn 4'],
       ['Esc', 'Drop what is half done, clear the selection'],
+      ['Ctrl+K', 'Commands: tools, biomes, views, objects by name'],
       ['?', 'This help'],
     ],
   },

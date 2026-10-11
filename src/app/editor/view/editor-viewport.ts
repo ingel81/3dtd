@@ -114,7 +114,7 @@ export class EditorViewport {
   readonly ctx: ToolContext;
 
   constructor(
-    private readonly canvas: HTMLCanvasElement,
+    readonly canvas: HTMLCanvasElement,
     readonly editor: EditorDocument,
     readonly catalog: CatalogIndex,
     readonly settings: EditorSettings,

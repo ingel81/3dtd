@@ -110,6 +110,9 @@
 
   <app-editor-status class="es-status" />
 
+  @if (palette(); as commands) {
+    <app-command-palette [commands]="commands" (closed)="closePalette()" />
+  }
   @if (help()) {
     <div class="es-help-veil" (click)="help.set(false)" aria-hidden="true"></div>
     <section class="es-help td-dlg" role="dialog" aria-modal="true" aria-labelledby="es-help-title" data-test="help-dialog">
