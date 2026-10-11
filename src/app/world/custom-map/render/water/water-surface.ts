@@ -31,7 +31,8 @@ import { createWaterMaterial, setWaterColor, setWaterMask, setWaterSky } from '.
 export class WaterSurface {
   readonly mesh: Mesh<BufferGeometry, ShaderMaterial>;
   private readonly mask: DataTexture;
-  private kind: MapWater['kind'];
+  /** What the surface shows now */
+  kind: MapWater['kind'];
 
   constructor(
     private readonly field: HeightField,

@@ -173,6 +173,96 @@ export class MapObjectLayer {
   }
 
   /**
+   * Adds objects; only the cells they land in are rebuilt (an asset new to
+   * the map loads its model first). Resolves when they show.
+   */
+  async addObjects(objects: MapObject[]): Promise<void> {
+    if (!objects.length) return;
+    const generation = this.generation;
+    const catalog = await this.assets.catalog();
+    const groups = new Map<string, MapObject[]>();
+    for (const o of objects) {
+      const entry = catalog.objects.find((e) => e.id === o.asset);
+      const blocks = o.blocksLos ?? entry?.blocksLos ?? false;
+      const key = `${o.asset}|${blocks ? 1 : 0}`;
+      let list = groups.get(key);
+      if (!list) groups.set(key, (list = []));
+      list.push(o);
+    }
+    for (const [key, list] of groups) {
+      const blocks = key.endsWith('|1');
+      const find = (): AssetBatch | undefined => this.batches.find((x) => x.model.id === list[0].asset && x.blocksLos === blocks);
+      let b = find();
+      if (!b) {
+        const [model, lods] = await Promise.all([this.assets.model(list[0].asset), this.assets.lodModels(list[0].asset)]);
+        // A setObjects in between replaced everything
+        if (generation !== this.generation) return;
+        // Another call may have made the batch meanwhile
+        b = find();
+        if (!b) {
+          const built = this.buildBatch(model, lods, blocks, list);
+          this.batches.push(built);
+          built.objects.forEach((o, index) => this.byId.set(o.id, { batch: built, index }));
+          continue;
+        }
+      }
+      const start = b.objects.length;
+      const n = start + list.length;
+      b.objects.push(...list);
+      b.matrices = grow(b.matrices, n * 16);
+      b.spheres = grow(b.spheres, n * 4);
+      // A first tinted object gives the batch colours: every cell then needs them
+      const newColors = !b.colors && list.some((o) => o.tint);
+      if (b.colors || newColors) b.colors = grow(b.colors ?? new Float32Array(0), n * 3);
+      if (newColors) for (let i = 0; i < start; i++) this.writeInstance(b, i);
+      b.slots.length = n;
+      const touched = new Set<number>();
+      for (let i = start; i < n; i++) {
+        this.writeInstance(b, i);
+        this.byId.set(b.objects[i].id, { batch: b, index: i });
+        touched.add(this.cellKey(b.objects[i].x, b.objects[i].y));
+      }
+      this.layoutCells(b, newColors ? null : touched);
+    }
+    // New cells start without a level: the normal pass picks theirs and leaves the others alone
+    this.version++;
+    this.applyLevels(false);
+  }
+
+  /** Removes objects by id; only the cells they were in are rebuilt */
+  removeObjects(ids: string[]): void {
+    const touched = new Map<AssetBatch, Set<number>>();
+    for (const id of ids) {
+      const slot = this.byId.get(id);
+      if (!slot) continue;
+      const b = slot.batch;
+      let cells = touched.get(b);
+      if (!cells) touched.set(b, (cells = new Set()));
+      const i = slot.index;
+      const last = b.objects.length - 1;
+      cells.add(b.slots[i].cell);
+      this.byId.delete(id);
+      if (i !== last) {
+        // The last object moves into the gap
+        cells.add(b.slots[last].cell);
+        b.objects[i] = b.objects[last];
+        b.slots[i] = b.slots[last];
+        b.matrices.copyWithin(i * 16, last * 16, last * 16 + 16);
+        b.spheres.copyWithin(i * 4, last * 4, last * 4 + 4);
+        b.colors?.copyWithin(i * 3, last * 3, last * 3 + 3);
+        this.byId.set(b.objects[i].id, { batch: b, index: i });
+      }
+      b.objects.length = last;
+      b.slots.length = last;
+    }
+    for (const [b, cells] of touched) this.layoutCells(b, cells);
+    const empty = this.batches.filter((b) => b.objects.length === 0);
+    if (empty.length) this.batches = this.batches.filter((b) => b.objects.length > 0);
+    this.version++;
+    this.applyLevels(false);
+  }
+
+  /**
    * Objects stand on the terrain: call after heights changed, with the
    * changed rectangle in map metres to touch only the objects on it
    */
@@ -229,6 +319,38 @@ export class MapObjectLayer {
     }
   }
 
+  /**
+   * One instance of every detail level of these assets, with the same
+   * materials and instance attributes the map's cells would get, for
+   * compiling their programs before the first one is placed. Bakes the
+   * impostors too. The caller disposes the meshes (not their geometry or
+   * materials, which the layer shares).
+   */
+  async warmUpMeshes(ids: string[]): Promise<InstancedMesh[]> {
+    const out: InstancedMesh[] = [];
+    const identity = new Matrix4();
+    const white = new Color(1, 1, 1);
+    for (const id of new Set(ids)) {
+      const [model, lods] = await Promise.all([this.assets.model(id), this.assets.lodModels(id)]);
+      const vegetation = model.entry.category === 'tree' || model.entry.category === 'plant';
+      for (const level of this.levelsFor(model, lods)) {
+        for (const part of level.parts) {
+          // Vegetation always has instance colours; other assets only when tinted, so both variants
+          for (const colored of vegetation ? [true] : [false, true]) {
+            const mesh = new InstancedMesh(part.geometry, part.material, 1);
+            mesh.setMatrixAt(0, identity);
+            if (colored) mesh.setColorAt(0, white);
+            mesh.frustumCulled = false;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            out.push(mesh);
+          }
+        }
+      }
+    }
+    return out;
+  }
+
   /** First object a scene-space ray hits */
   raycast(ray: Ray): ObjectHit | null {
     const raycaster = new Raycaster(ray.origin, ray.direction);
@@ -257,14 +379,7 @@ export class MapObjectLayer {
 
   private clear(): void {
     for (const b of this.batches) {
-      for (const c of b.cells.values()) {
-        for (const meshes of c.levels) {
-          for (const m of meshes) {
-            m.removeFromParent();
-            m.dispose();
-          }
-        }
-      }
+      for (const c of b.cells.values()) this.disposeCell(c);
     }
     this.batches = [];
     this.byId.clear();
@@ -317,46 +432,78 @@ export class MapObjectLayer {
       slots: new Array(n),
     };
     for (let i = 0; i < n; i++) this.writeInstance(b, i);
-    // Objects into cells
+    this.layoutCells(b, null);
+    return b;
+  }
+
+  /**
+   * Sorts the batch's objects into cells and builds the meshes of the cells
+   * in `touched` (every cell when null); other cells keep theirs. Cells
+   * that lost their last object go away.
+   */
+  private layoutCells(b: AssetBatch, touched: Set<number> | null): void {
     const lists = new Map<number, number[]>();
-    for (let i = 0; i < n; i++) {
-      const key = this.cellKey(objects[i].x, objects[i].y);
+    for (let i = 0; i < b.objects.length; i++) {
+      const key = this.cellKey(b.objects[i].x, b.objects[i].y);
       let list = lists.get(key);
       if (!list) lists.set(key, (list = []));
       b.slots[i] = { cell: key, slot: list.length };
       list.push(i);
     }
-    const parent = blocksLos ? this.losGroup : this.group;
-    for (const [key, indices] of lists) {
-      const cell: Cell = { indices, levels: [], sphere: new Sphere(), level: -1 };
-      for (const [li, level] of b.levels.entries()) {
-        const meshes: InstancedMesh[] = [];
-        for (const part of level.parts) {
-          const mesh = new InstancedMesh(part.geometry, part.material, indices.length);
-          mesh.name = `${entry.id}${blocksLos ? '' : '-decor'}${li ? `-lod${li}` : ''}`;
-          const arr = mesh.instanceMatrix.array as Float32Array;
-          indices.forEach((i, k) => arr.set(b.matrices.subarray(i * 16, i * 16 + 16), k * 16));
-          if (b.colors) {
-            const c = new Color();
-            indices.forEach((i, k) => mesh.setColorAt(k, c.setRGB(b.colors![i * 3], b.colors![i * 3 + 1], b.colors![i * 3 + 2])));
-          }
-          mesh.castShadow = entry.category !== 'plant' || entry.height > 0.8;
-          mesh.receiveShadow = true;
-          mesh.matrixAutoUpdate = false;
-          mesh.visible = false;
-          mesh.computeBoundingSphere();
-          mesh.userData['batch'] = b;
-          mesh.userData['cell'] = cell;
-          if (!blocksLos) mesh.userData['losTransparent'] = true;
-          parent.add(mesh);
-          meshes.push(mesh);
-        }
-        cell.levels.push(meshes);
-      }
-      this.cellBounds(b, cell);
-      b.cells.set(key, cell);
+    for (const [key, cell] of b.cells) {
+      if (lists.has(key) && touched !== null && !touched.has(key)) continue;
+      this.disposeCell(cell);
+      b.cells.delete(key);
     }
-    return b;
+    for (const [key, indices] of lists) {
+      const kept = b.cells.get(key);
+      if (kept) {
+        kept.indices = indices;
+        continue;
+      }
+      b.cells.set(key, this.buildCell(b, indices));
+    }
+  }
+
+  private buildCell(b: AssetBatch, indices: number[]): Cell {
+    const entry = b.entry;
+    const parent = b.blocksLos ? this.losGroup : this.group;
+    const cell: Cell = { indices, levels: [], sphere: new Sphere(), level: -1 };
+    for (const [li, level] of b.levels.entries()) {
+      const meshes: InstancedMesh[] = [];
+      for (const part of level.parts) {
+        const mesh = new InstancedMesh(part.geometry, part.material, indices.length);
+        mesh.name = `${entry.id}${b.blocksLos ? '' : '-decor'}${li ? `-lod${li}` : ''}`;
+        const arr = mesh.instanceMatrix.array as Float32Array;
+        indices.forEach((i, k) => arr.set(b.matrices.subarray(i * 16, i * 16 + 16), k * 16));
+        if (b.colors) {
+          const c = new Color();
+          indices.forEach((i, k) => mesh.setColorAt(k, c.setRGB(b.colors![i * 3], b.colors![i * 3 + 1], b.colors![i * 3 + 2])));
+        }
+        mesh.castShadow = entry.category !== 'plant' || entry.height > 0.8;
+        mesh.receiveShadow = true;
+        mesh.matrixAutoUpdate = false;
+        mesh.visible = false;
+        mesh.computeBoundingSphere();
+        mesh.userData['batch'] = b;
+        mesh.userData['cell'] = cell;
+        if (!b.blocksLos) mesh.userData['losTransparent'] = true;
+        parent.add(mesh);
+        meshes.push(mesh);
+      }
+      cell.levels.push(meshes);
+    }
+    this.cellBounds(b, cell);
+    return cell;
+  }
+
+  private disposeCell(cell: Cell): void {
+    for (const meshes of cell.levels) {
+      for (const m of meshes) {
+        m.removeFromParent();
+        m.dispose();
+      }
+    }
   }
 
   /** The cell's bounding sphere, from its instances */
@@ -600,4 +747,12 @@ export class MapObjectLayer {
     this.materials.set(key, m);
     return m;
   }
+}
+
+/** `a`, or a copy with room for `length` values (the old ones kept) */
+function grow(a: Float32Array, length: number): Float32Array {
+  if (a.length >= length) return a;
+  const out = new Float32Array(Math.max(length, Math.ceil(a.length * 1.5)));
+  out.set(a);
+  return out;
 }

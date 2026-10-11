@@ -50,8 +50,12 @@ view.updateHeights(rect?);                 // rect in Kartenmetern { minX, minY,
 view.updateSplat(rect?);                   // Splat-Gewichte neu hochladen (auch cliffAngle)
 view.updateLayers();                       // Bodenschichten oder Klippenmaterial geändert: Material neu laden
 view.updateWater();                        // Spiegel, Maske, Farbe; null entfernt das Wasser
+view.updateWater(rect, k);                 // nur Gewässer k (1.. = waterBodies[k-1]): Pool-Pinsel, Schwimmendes in rect
 view.setObjects(objects);                  // alle Objekte ersetzen (Promise)
+view.addObjects(objects);                  // schon in doc.objects: baut nur die 192-m-Zellen neu, in die sie fallen
+view.removeObjects(objects);               // schon aus doc.objects entfernt: nur deren Zellen und Kontaktschatten
 view.updateObject(obj);                    // eins verschoben/gedreht/skaliert; anderes Asset baut neu
+await view.warmUpAssets(renderer, scene, camera, ids); // Programme und Impostoren noch nicht platzierter Assets
 view.updatePaths();                        // Wegemaske und Brücken neu
 view.setEnvironment(env);                  // Himmel, Sonne, Nebel, Tönung
 view.dispose();

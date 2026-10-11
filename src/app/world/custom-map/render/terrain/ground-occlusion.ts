@@ -87,10 +87,27 @@ export class GroundOcclusion {
     this.upload(i0, j0, i1, j1);
   }
 
-  /** Contact shadows of the placed objects (replaces the previous ones) */
-  setObjects(objects: MapObject[], entries: Map<string, CatalogObject>): void {
+  /**
+   * Contact shadows of the placed objects (replaces the previous ones). With
+   * a sample rectangle only the samples in it are redone, from the objects
+   * that reach into it: an object placed or removed costs its own spot.
+   */
+  setObjects(
+    objects: MapObject[],
+    entries: Map<string, CatalogObject>,
+    rect?: { i0: number; j0: number; i1: number; j1: number },
+  ): void {
     const f = this.field;
-    this.objects.fill(1);
+    const i0 = Math.max(0, rect?.i0 ?? 0);
+    const j0 = Math.max(0, rect?.j0 ?? 0);
+    const i1 = Math.min(f.columns - 1, rect?.i1 ?? f.columns - 1);
+    const j1 = Math.min(f.rows - 1, rect?.j1 ?? f.rows - 1);
+    if (i0 > i1 || j0 > j1) return;
+    if (rect) {
+      for (let j = j0; j <= j1; j++) this.objects.fill(1, j * f.columns + i0, j * f.columns + i1 + 1);
+    } else {
+      this.objects.fill(1);
+    }
     for (const o of objects) {
       const e = entries.get(o.asset);
       const dark = e ? OBJECT_DARKNESS[e.category] : undefined;
@@ -99,8 +116,8 @@ export class GroundOcclusion {
       const ci = (o.x - f.originX) / f.cellSize;
       const cj = (o.y - f.originY) / f.cellSize;
       const rc = r / f.cellSize;
-      for (let j = Math.max(0, Math.floor(cj - rc)); j <= Math.min(f.rows - 1, Math.ceil(cj + rc)); j++) {
-        for (let i = Math.max(0, Math.floor(ci - rc)); i <= Math.min(f.columns - 1, Math.ceil(ci + rc)); i++) {
+      for (let j = Math.max(j0, Math.floor(cj - rc)); j <= Math.min(j1, Math.ceil(cj + rc)); j++) {
+        for (let i = Math.max(i0, Math.floor(ci - rc)); i <= Math.min(i1, Math.ceil(ci + rc)); i++) {
           const d = Math.hypot(i - ci, j - cj) / rc;
           if (d >= 1) continue;
           const t = 1 - d;
@@ -109,7 +126,7 @@ export class GroundOcclusion {
         }
       }
     }
-    this.upload(0, 0, f.columns - 1, f.rows - 1);
+    this.upload(i0, j0, i1, j1);
   }
 
   /** Occlusion at sample (i, j), 0 dark to 1 open */

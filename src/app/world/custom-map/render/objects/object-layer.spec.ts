@@ -128,3 +128,37 @@ describe('MapObjectLayer glowing surfaces', () => {
     layer.dispose();
   });
 });
+
+describe('MapObjectLayer incremental changes', () => {
+  it('adds and removes objects, rebuilding only the cells they touch', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const los = new Group();
+    const layer = new MapObjectLayer(field, library(), los);
+    const tree = (id: string, x: number): MapObject => ({ id, asset: 'tree', x, y: 0, z: 0, rotation: 0, scale: 1 });
+    await layer.setObjects([tree('a', 10), tree('b', 20), tree('c', 300)]);
+    const meshes = (): InstancedMesh[] => los.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === 'tree');
+    const instances = (): number => meshes().reduce((n, m) => n + m.count, 0);
+    expect(instances()).toBe(3);
+    const far = meshes().find((m) => m.count === 1)!;
+
+    // Into the first cell (map x 0..192): the cell at x 300 keeps its mesh
+    await layer.addObjects([tree('d', 30), tree('e', 40)]);
+    expect(instances()).toBe(5);
+    expect(meshes()).toContain(far);
+
+    // A new cell
+    await layer.addObjects([tree('f', 700)]);
+    expect(instances()).toBe(6);
+
+    layer.removeObjects(['a', 'f']);
+    expect(instances()).toBe(4);
+    expect(meshes()).toContain(far);
+    // The moved object is still found by id and can move in place
+    expect(layer.updateObject({ ...tree('e', 45) })).toBe(true);
+
+    layer.removeObjects(['b', 'c', 'd', 'e']);
+    expect(instances()).toBe(0);
+    expect(los.children.filter((c) => c instanceof InstancedMesh)).toHaveLength(0);
+    layer.dispose();
+  });
+});

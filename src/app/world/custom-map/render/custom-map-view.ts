@@ -1,4 +1,4 @@
-import { Group, Ray, Vector3, type Camera, type Object3D, type WebGLRenderer } from 'three';
+import { Group, Ray, Vector3, type Camera, type Object3D, type Scene, type WebGLRenderer } from 'three';
 import type { CustomMapDocument, MapEnvironment, MapObject } from '../map-document';
 import { HeightField } from './height-field';
 import type { MapAssetLibrary } from './map-asset-library';
@@ -181,6 +181,28 @@ export class CustomMapView {
       renderer.render(scene, camera);
       renderer.shadowMap.autoUpdate = wasAuto;
       this.objects.showAllForWarmUp(false);
+    }
+    return (renderer.info.programs?.length ?? 0) - before;
+  }
+
+  /**
+   * Compiles the programs of assets that are not on the map yet (a biome's
+   * palette, a template's objects), off the main thread where the driver
+   * allows, so placing the first one does not stall on a synchronous link.
+   * Bakes their impostors as well. `scene` gives the lights and fog the
+   * programs are built for. Resolves with the number of programs built.
+   * The sun's shadow depth programs are not part of it.
+   */
+  async warmUpAssets(renderer: WebGLRenderer, scene: Scene, camera: Camera, assetIds: string[]): Promise<number> {
+    const meshes = await this.objects.warmUpMeshes(assetIds);
+    if (this.disposed) return 0;
+    const group = new Group();
+    for (const m of meshes) group.add(m);
+    const before = renderer.info.programs?.length ?? 0;
+    try {
+      await renderer.compileAsync(group, camera, scene);
+    } finally {
+      for (const m of meshes) m.dispose();
     }
     return (renderer.info.programs?.length ?? 0) - before;
   }
@@ -378,7 +400,18 @@ export class CustomMapView {
    * Water changed: level, mask, colour or kind of the main body or of the
    * further bodies (`terrain.waterBodies`), the rivers, or heights under them
    */
-  updateWater(): void {
+  /**
+   * Water changed. With `body` (0 the main water, 1.. the `waterBodies`) only
+   * that body's surface is rebuilt, the objects floating in `rect` (map
+   * metres) follow, and lava lights only when lava is involved: a pool brush
+   * painting one mask stays cheap. Without, everything: all bodies, rivers,
+   * river banks, the apron.
+   */
+  updateWater(rect?: MapRect, body?: number): void {
+    if (body !== undefined && body > 0 && this.waters.length === 1 + (this.doc.terrain.waterBodies?.length ?? 0)) {
+      this.updateWaterBody(body, rect);
+      return;
+    }
     this.terrain.refreshWater(this.doc.paths);
     // Rain stops and grass ends at the new surfaces
     this.coverDirty = true;
@@ -414,6 +447,21 @@ export class CustomMapView {
     this.lightWater();
   }
 
+  private updateWaterBody(k: number, rect?: MapRect): void {
+    const water = this.doc.terrain.waterBodies?.[k - 1];
+    const surface = this.waters[k];
+    if (!water || !surface) {
+      this.updateWater();
+      return;
+    }
+    const wasLava = surface.kind === 'lava';
+    surface.set(water, null);
+    this.coverDirty = true;
+    if (wasLava || water.kind === 'lava') this.effects.setLavaLights(this.lavaLightPoints());
+    this.objects.refreshHeights(rect, true);
+    this.lightWater();
+  }
+
   /** Replaces the placed objects (also `doc.objects`); resolves when their models are in */
   setObjects(objects: MapObject[]): Promise<void> {
     this.doc.objects = objects;
@@ -423,6 +471,27 @@ export class CustomMapView {
   }
 
   /** One object moved, turned, scaled or changed asset (already changed in `doc.objects`) */
+  /**
+   * Objects added to `doc.objects` by the caller: only the object cells
+   * (192 m) they land in are rebuilt, and the contact shadows around them.
+   * Resolves when they show.
+   */
+  async addObjects(objects: MapObject[]): Promise<void> {
+    if (!objects.length) return;
+    const shown = this.objects.addObjects(objects);
+    void this.refreshContact(objects);
+    if (await this.hasEffects(objects)) void this.refreshEffects();
+    await shown;
+  }
+
+  /** Objects removed from `doc.objects` by the caller (pass them, not only their ids: their spots clear) */
+  removeObjects(objects: MapObject[]): void {
+    if (!objects.length) return;
+    this.objects.removeObjects(objects.map((o) => o.id));
+    void this.refreshContact(objects);
+    void this.hasEffects(objects).then((has) => (has ? this.refreshEffects() : undefined));
+  }
+
   updateObject(object: MapObject): void {
     if (!this.objects.updateObject(object)) void this.objects.setObjects(this.doc.objects);
     void this.refreshEffects(object.asset);
@@ -491,11 +560,29 @@ export class CustomMapView {
   }
 
   /** Contact shadows of the objects in the baked ground occlusion */
-  private async refreshContact(): Promise<void> {
+  /** Contact shadows of the objects; with `changed` only around those */
+  private async refreshContact(changed?: MapObject[]): Promise<void> {
     this.coverDirty = true;
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
-    this.terrain.occlusion.setObjects(this.doc.objects, new Map(catalog.objects.map((o) => [o.id, o])));
+    const entries = new Map(catalog.objects.map((o) => [o.id, o]));
+    let rect: MapRect | undefined;
+    if (changed) {
+      for (const o of changed) {
+        const r = (entries.get(o.asset)?.footprint ?? 1) * (o.scale || 1) * 1.5 + 1;
+        rect = rect
+          ? { minX: Math.min(rect.minX, o.x - r), minY: Math.min(rect.minY, o.y - r), maxX: Math.max(rect.maxX, o.x + r), maxY: Math.max(rect.maxY, o.y + r) }
+          : { minX: o.x - r, minY: o.y - r, maxX: o.x + r, maxY: o.y + r };
+      }
+    }
+    this.terrain.occlusion.setObjects(this.doc.objects, entries, rect ? this.gridRect(rect) : undefined);
+  }
+
+  /** Whether any of the objects has effects or a light */
+  private async hasEffects(objects: MapObject[]): Promise<boolean> {
+    const catalog = await this.assets.catalog();
+    const assets = new Set(objects.map((o) => o.asset));
+    return catalog.objects.some((e) => assets.has(e.id) && (!!e.effects || !!e.light));
   }
 
   /** Rebuilds effects and lights; with an asset id only when that asset has any */
