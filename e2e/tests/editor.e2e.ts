@@ -2,7 +2,8 @@
 // a raised hill, an object (undo and redo), a road branching off the starter
 // road, a spawn at its end, a mirrored object, a copied and placed piece, the
 // check, saving, a reload that brings the map back, and deleting it again in
-// the map browser.
+// the map browser. A second run builds a city from a template and tries the
+// palette, the trial wave, a lasso, a group and the version list.
 import { test, expect, type Page } from '@playwright/test';
 import { shot } from '../support/game';
 
@@ -115,6 +116,58 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   const row = page.locator('.mb-row', { hasText: name });
   await expect(row).toBeVisible();
   await expect(row.locator('img')).toBeVisible();
+  await row.click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
+  await page.locator('.td-banner').getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.locator('.mb-row', { hasText: name })).toHaveCount(0);
+});
+
+test('makes a map from a template and uses the pro tools on it', async ({ page }) => {
+  test.setTimeout(4 * 60_000);
+  await page.addInitScript(() => localStorage.setItem('td_seen_version', '9999.0.0'));
+  page.on('pageerror', (e) => console.log(`pageerror: ${e.message}`));
+  await page.goto('/editor');
+
+  const name = `E2E city ${Date.now()}`;
+  await page.locator('[data-test=new-map]').click();
+  await page.locator('[data-test=new-name]').fill(name);
+  await page.getByRole('radio', { name: /Small/ }).click();
+  await page.locator('[data-template=city]').click();
+  await page.locator('[data-test=create-map]').click();
+  await expect(page.locator('[data-test=map-name]')).toHaveText(name, { timeout: 60_000 });
+  await expect.poll(async () => numberIn(await page.locator('[data-test=objects]').textContent())).toBeGreaterThan(100);
+  const box = (await page.locator('[data-test=viewport]').boundingBox())!;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+
+  // The command palette starts the trial wave
+  await page.keyboard.press('Control+k');
+  await page.locator('[data-test=palette-field]').fill('trial wave');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.es-flash')).toContainText('Trial wave');
+
+  // A lasso over the middle selects objects; Ctrl+G groups them
+  await page.keyboard.press('5');
+  await page.locator('[data-mode=select]').click();
+  await page.keyboard.down('Alt');
+  await page.mouse.move(cx - 220, cy - 160);
+  await page.mouse.down();
+  for (const [x, y] of [[cx + 220, cy - 160], [cx + 220, cy + 160], [cx - 220, cy + 160]]) await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.up();
+  await page.keyboard.up('Alt');
+  await expect(page.locator('.es-flash')).toContainText('objects selected');
+  await page.keyboard.press('Control+g');
+  await expect(page.locator('.es-flash')).toContainText('Group g1');
+
+  // A save lands in the version list
+  await page.keyboard.press('Control+s');
+  await expect(page.locator('[data-test=save-state]')).toHaveText('Saved');
+  await page.keyboard.press('9');
+  // The first save made the map, this one the group: both are versions
+  await expect.poll(() => page.locator('[data-test=versions] .mp-version').count(), { timeout: 10_000 }).toBeGreaterThan(1);
+
+  await page.locator('[data-test=back]').click();
+  const row = page.locator('.mb-row', { hasText: name });
   await row.click();
   await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
   await page.locator('.td-banner').getByRole('button', { name: 'Delete', exact: true }).click();

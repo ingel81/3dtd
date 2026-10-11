@@ -12,7 +12,7 @@
   </div>
   @if (s().gizmo === 'move') {
     <div class="td-seg is-sm" role="radiogroup" aria-label="Arrows follow" matTooltip="Arrows along the map or turned with the first selected object (L)">
-      <button type="button" role="radio" [attr.aria-checked]="(s().space ?? 'global') === 'global'" (click)="setSpace('global')">Map axes</button>
+      <button type="button" role="radio" [attr.aria-checked]="s().space === 'global'" (click)="setSpace('global')">Map axes</button>
       <button type="button" role="radio" [attr.aria-checked]="s().space === 'local'" (click)="setSpace('local')">Object axes <kbd class="td-kbd">L</kbd></button>
     </div>
   }
