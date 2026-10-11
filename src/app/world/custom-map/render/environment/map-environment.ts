@@ -129,7 +129,9 @@ export class CustomMapEnvironment {
       env.sky !== this.env.sky ||
       env.biome !== this.env.biome ||
       env.sunAzimuth !== this.env.sunAzimuth ||
-      env.sunElevation !== this.env.sunElevation;
+      env.sunElevation !== this.env.sunElevation ||
+      // The tint colours the sky's pixels and so the environment map (fillSky)
+      (env.tint || '#ffffff') !== (this.env.tint || '#ffffff');
     this.env = env;
     const p = this.look();
     const tint = new Color(env.tint || '#ffffff');
@@ -256,11 +258,13 @@ export class CustomMapEnvironment {
    * Centres the sun's shadow box on a scene point; `radius` in metres around
    * it. The box moves only once the point left the middle of it and grows or
    * shrinks in steps of a fifth, so a panning or zooming camera re-renders
-   * the shadow map now and then instead of every frame.
+   * the shadow map now and then instead of every frame. Returns the radius
+   * in those steps, for what else follows the box (which objects cast).
    */
-  focus(point: Vector3, radius = this.shadowRadius): void {
+  focus(point: Vector3, radius = this.shadowRadius): number {
     this.shadowRadius = Math.pow(2, Math.round(Math.log2(Math.max(radius, 1)) * 4) / 4);
     this.placeSun(point, false);
+    return this.shadowRadius;
   }
 
   /** The shadow map renders again on the next frame (objects or ground changed) */

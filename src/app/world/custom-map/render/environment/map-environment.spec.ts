@@ -46,3 +46,26 @@ describe('sun shadow cache', () => {
     e.dispose();
   });
 });
+
+describe('sky and shadow box (review 2026-10-11)', () => {
+  const skyBytes = (e: CustomMapEnvironment) => (e as unknown as { sky: { image: { data: Uint8Array } } }).sky.image.data.slice();
+
+  it('paints the sky again when only the tint changed', () => {
+    const e = new CustomMapEnvironment(env);
+    const before = skyBytes(e);
+    e.set({ ...env, tint: '#ff8040' });
+    expect(skyBytes(e)).not.toEqual(before);
+    // The same tint again changes nothing
+    const tinted = skyBytes(e);
+    e.set({ ...env, tint: '#ff8040' });
+    expect(skyBytes(e)).toEqual(tinted);
+  });
+
+  it('gives the shadow radius back in its steps, the same for a camera that only drifts', () => {
+    const e = new CustomMapEnvironment(env);
+    const at = new Vector3();
+    const steps = [200, 201, 203.5, 207].map((r) => e.focus(at, r));
+    expect(new Set(steps).size).toBe(1);
+    expect(e.focus(at, 300)).toBeGreaterThan(steps[0]);
+  });
+});

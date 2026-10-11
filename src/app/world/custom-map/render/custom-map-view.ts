@@ -276,9 +276,11 @@ export class CustomMapView {
     // Shadow box sized to what the camera sees around the focus: sharp up close, wide from high up
     const reach = this.camPos.distanceTo(this.focusPoint);
     this.group.localToWorld(this.worldFocus.copy(this.focusPoint));
-    this.environment.focus(this.worldFocus, Math.min(450, Math.max(70, reach * 0.9)));
+    // The box's radius in its steps, for the casters too: following the distance every frame, objects at
+    // its edge switched casting on and off and the shadow map rendered again each frame (shimmer)
+    const shadowRadius = this.environment.focus(this.worldFocus, Math.min(450, Math.max(70, reach * 0.9)));
     this.effects.update(dtSeconds, this.focusPoint);
-    this.objects.shadowRadius = Math.min(450, Math.max(70, reach * 0.9)) * 1.2;
+    this.objects.shadowRadius = shadowRadius * 1.2;
     this.objects.update(dtSeconds, camera, this.focusPoint);
     // Grass between the camera's foot and the focus; from far up blades are below a pixel, skip them
     this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);
