@@ -11,6 +11,9 @@
 //   tops the enemies up to each step in the same window and measures every speed there; --hide-enemies measures
 //   each once more with the enemy meshes and health bars left out of the draw (the render share per enemy).
 //
+// A custom map's parts: --world <id> --map-parts measures the frame time with and without its shadows, grass, objects,
+// terrain and water, the median of four pairs in turn.
+//
 // The page needs a handle `__load` (emit a command, read the state, set the speed): the worker build has it in
 // SimClient, the main-thread build gets it from a local patch for the measurement only.
 import { chromium, firefox, type Page } from '@playwright/test';
@@ -50,6 +53,8 @@ const WORLD = argument('world', '');
 const STEPS = argument('steps', '').split(',').filter(Boolean).map(Number);
 const SPEEDS = argument('speeds', '').split(',').filter(Boolean).map(Number);
 const HIDE = process.argv.includes('--hide-enemies');
+/** With --world: the frame rate once more with each part of the map left out (shadows, grass, objects, terrain, water) */
+const MAP_PARTS = process.argv.includes('--map-parts');
 /** The machine's name in the results, to tell measurements of several computers apart (never a host name: the repo is public) */
 const MACHINE = argument('machine', 'A');
 /**
@@ -382,6 +387,52 @@ if (WORLD) {
     v.losBlockers.visible = true;
   });
   map = { updateMs, fpsWithout: without.fps };
+  if (MAP_PARTS) {
+    // Each part by its object name (custom-map-*), the shadows through the sun; hidden, measured, shown again
+    const parts: Record<string, string[]> = {
+      shadows: [],
+      grass: ['custom-map-grass'],
+      objects: ['custom-map-objects'],
+      terrain: ['custom-map-terrain', 'custom-map-apron'],
+      water: ['custom-map-water', 'custom-map-river'],
+    };
+    for (const [part, names] of Object.entries(parts)) {
+      const toggle = (on: boolean) =>
+        page.evaluate(
+          ({ names, on, shadows }) => {
+            const v = (globalThis as unknown as { __mapProbe: { group: import('three').Object3D; environment: { sun?: { castShadow: boolean } } } }).__mapProbe;
+            if (shadows && v.environment.sun) v.environment.sun.castShadow = on;
+            // Taken out of the scene, not hidden: the view sets its levels' visibility every frame
+            const g = globalThis as unknown as { __mapParts?: [import('three').Object3D, import('three').Object3D][] };
+            if (on) {
+              for (const [o, parent] of g.__mapParts ?? []) parent.add(o);
+              g.__mapParts = [];
+              return;
+            }
+            const found: [import('three').Object3D, import('three').Object3D][] = [];
+            v.group.traverse((o) => {
+              if (o.parent && names.some((n) => o.name.startsWith(n))) found.push([o, o.parent]);
+            });
+            for (const [o, parent] of found) parent.remove(o);
+            g.__mapParts = found;
+          },
+          { names, on, shadows: part === 'shadows' },
+        );
+      // Pairs with and without in turn, the median of their frame time differences: the machine's load drifts
+      const diffs: number[] = [];
+      for (let pair = 0; pair < 4; pair++) {
+        const base = await measure(page, SECONDS);
+        await toggle(false);
+        await page.waitForTimeout(500);
+        const r = await measure(page, SECONDS);
+        await toggle(true);
+        await page.waitForTimeout(500);
+        diffs.push(1000 / base.fps - 1000 / r.fps);
+      }
+      diffs.sort((a, b) => a - b);
+      console.log(`MAP ${part}: ${((diffs[1] + diffs[2]) / 2).toFixed(2)} ms per frame (pairs ${diffs.map((d) => d.toFixed(2)).join(', ')})`);
+    }
+  }
   console.log(`MAP update ${updateMs.toFixed(3)} ms per frame, ${result.fps.toFixed(1)} fps with the map, ${without.fps.toFixed(1)} without`);
 }
 console.log(JSON.stringify({ build, machine, browser: BROWSER, url: URL_BASE, uncapped: UNCAPPED, speedAsked: SPEED, towers: placed.towers, world: WORLD || null, map, ...result }));
