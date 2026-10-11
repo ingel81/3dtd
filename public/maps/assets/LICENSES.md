@@ -2,7 +2,7 @@
 
 Alle Dateien unter `public/maps/assets/` stammen aus CC0-Quellen (gemeinfrei, keine Namensnennung nötig) oder sind
 daraus prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, die sie erzeugen, liegen unter
-`tools/map-assets/` (siehe dort README.md).
+`tools/map-assets/` (siehe dort README.md); diese Datei schreibt `write_licenses.py` aus `catalog.json`.
 
 - Poly Haven (https://polyhaven.com), Lizenz CC0 1.0: https://polyhaven.com/license
 - ambientCG (https://ambientcg.com), Lizenz CC0 1.0: https://docs.ambientcg.com/license/
@@ -28,11 +28,75 @@ daraus prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, 
 | cobblestone | https://polyhaven.com/a/cobblestone_floor_05 |
 | paving | https://polyhaven.com/a/stone_tiles_02 |
 | dirt-path | https://polyhaven.com/a/grass_path_2 |
+| grass-sparse | https://polyhaven.com/a/sparse_grass |
+| grass-leafy | https://polyhaven.com/a/leafy_grass |
+| grass-withered | https://polyhaven.com/a/withered_grass |
+| moss | https://ambientcg.com/view?id=Moss002 |
+| forest-twigs | https://polyhaven.com/a/forrest_ground_01 |
+| forest-moss | https://polyhaven.com/a/forest_leaves_02 |
+| leaves-autumn | https://polyhaven.com/a/leaves_forest_ground |
+| leaves-scattered | https://polyhaven.com/a/forest_floor |
+| leaves-brown | https://polyhaven.com/a/dry_decay_leaves |
+| mud-wet | https://polyhaven.com/a/brown_mud_03 |
+| mud-dark | https://polyhaven.com/a/mud_forest |
+| swamp-ground | https://polyhaven.com/a/brown_mud_leaves_01 |
+| mud-tracks | https://polyhaven.com/a/muddy_tracks |
+| farmland | https://polyhaven.com/a/farm_furrows |
+| farm-soil | https://polyhaven.com/a/farm_soil |
+| sand-dunes | https://polyhaven.com/a/aerial_sand |
+| sand-coast | https://polyhaven.com/a/coast_sand_01 |
+| sand-gravelly | https://polyhaven.com/a/gravelly_sand |
+| sand-red | https://polyhaven.com/a/red_sand |
+| desert-cracked | https://polyhaven.com/a/mud_cracked_dry_03 |
+| desert-cracked-red | https://polyhaven.com/a/cracked_red_ground |
+| desert-hardpan | https://polyhaven.com/a/dry_ground_01 |
+| desert-stony | https://polyhaven.com/a/dry_ground_rocks |
+| red-earth | https://polyhaven.com/a/red_laterite_soil_stones |
+| cliff-granite | https://polyhaven.com/a/rock_face |
+| cliff-pale | https://polyhaven.com/a/rock_face_03 |
+| cliff-sandstone | https://polyhaven.com/a/cliff_side |
+| cliff-ochre | https://polyhaven.com/a/old_sandstone_02 |
+| sandstone | https://polyhaven.com/a/sandstone_cracks |
+| limestone | https://polyhaven.com/a/rock_boulder_dry |
+| basalt | https://polyhaven.com/a/dark_rock |
+| rock-lichen | https://polyhaven.com/a/lichen_rock |
+| rock-red-granite | https://polyhaven.com/a/tiger_rock |
+| volcanic-rock | https://polyhaven.com/a/dark_rock_02 |
+| scorched-ground | https://polyhaven.com/a/burned_ground_01 |
+| lava | https://ambientcg.com/view?id=Lava004 |
+| lava-crust | https://ambientcg.com/view?id=Lava001 |
+| snow-fresh | https://polyhaven.com/a/snow_02 |
+| snow-rocky | https://polyhaven.com/a/snow_03 |
+| snow-windswept | https://polyhaven.com/a/snow_field_aerial |
+| frozen-ground | https://polyhaven.com/a/asphalt_snow |
+| ice | https://ambientcg.com/view?id=Ice002 |
+| ice-cracked | https://ambientcg.com/view?id=Ice003 |
+| cobblestone-mossy | https://polyhaven.com/a/mossy_cobblestone |
+| cobblestone-grey | https://polyhaven.com/a/cobblestone_floor_08 |
+| crazy-paving | https://polyhaven.com/a/grassy_cobblestone |
+| stone-path | https://polyhaven.com/a/stone_pathway |
+| stone-path-grey | https://polyhaven.com/a/grey_stone_path |
+| castle-floor | https://polyhaven.com/a/monastery_stone_floor |
+| stone-blocks | https://polyhaven.com/a/rock_tile_floor |
+| sandstone-paving | https://polyhaven.com/a/sandstone_blocks_08 |
+| red-paving | https://polyhaven.com/a/red_sandstone_pavement |
+| planks-weathered | https://polyhaven.com/a/weathered_planks |
+| planks-old | https://polyhaven.com/a/old_planks_02 |
+| gravel-light | https://polyhaven.com/a/gravel_floor_02 |
+| gravel-path | https://polyhaven.com/a/stony_dirt_path |
+| wood-chips | https://polyhaven.com/a/wood_chip_path |
+| riverbed | https://polyhaven.com/a/river_small_rocks |
+| pebbles | https://polyhaven.com/a/ganges_river_pebbles |
+| pebbles-coarse | https://polyhaven.com/a/dry_river_pebbles |
+| riverbed-dry | https://polyhaven.com/a/dry_riverbed_rock |
+| tidal-rocks | https://polyhaven.com/a/low_tide_rocks |
+| coast-mossy | https://polyhaven.com/a/coast_sand_rocks_02 |
 
 ## Objekte (`models/<id>.glb`)
 
-„prozedural“: Geometrie in Blender per Skript gebaut (`build_models.py`), Texturen aus den genannten CC0-Quellen;
-Blatt-Karten aus ambientCG-Blattatlanten zusammengesetzt (`make_foliage.py`), Gras und Blumen gezeichnet.
+„prozedural“: Geometrie in Blender per Skript gebaut (`build_models.py` und die Module daneben), Texturen aus den
+genannten CC0-Quellen; Blatt-Karten aus ambientCG-Blattatlanten zusammengesetzt (`make_foliage.py`), Gras, Schilf,
+Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert und neu skaliert.
 
 | Id | Quelle |
 |----|--------|

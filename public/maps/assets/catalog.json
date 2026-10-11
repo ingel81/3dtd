@@ -12,6 +12,9 @@
       },
       "scale": 3,
       "average": "#606d30",
+      "tags": [
+        "temperate"
+      ],
       "source": "https://ambientcg.com/view?id=Grass004"
     },
     {
@@ -25,6 +28,10 @@
       },
       "scale": 3,
       "average": "#445c28",
+      "tags": [
+        "temperate",
+        "swamp"
+      ],
       "source": "https://ambientcg.com/view?id=Grass001"
     },
     {
@@ -38,6 +45,10 @@
       },
       "scale": 4,
       "average": "#989358",
+      "tags": [
+        "temperate",
+        "desert"
+      ],
       "source": "https://ambientcg.com/view?id=Ground037"
     },
     {
@@ -51,6 +62,9 @@
       },
       "scale": 4,
       "average": "#837d4b",
+      "tags": [
+        "temperate"
+      ],
       "source": "https://ambientcg.com/view?id=Ground003"
     },
     {
@@ -64,6 +78,9 @@
       },
       "scale": 4,
       "average": "#735b3e",
+      "tags": [
+        "temperate"
+      ],
       "source": "https://polyhaven.com/a/brown_mud_dry"
     },
     {
@@ -77,6 +94,10 @@
       },
       "scale": 4,
       "average": "#4d4437",
+      "tags": [
+        "temperate",
+        "swamp"
+      ],
       "source": "https://polyhaven.com/a/brown_mud_02"
     },
     {
@@ -90,6 +111,10 @@
       },
       "scale": 3,
       "average": "#825f3b",
+      "tags": [
+        "temperate",
+        "autumn"
+      ],
       "source": "https://polyhaven.com/a/forest_leaves_04"
     },
     {
@@ -103,6 +128,9 @@
       },
       "scale": 4,
       "average": "#6a5a44",
+      "tags": [
+        "temperate"
+      ],
       "source": "https://polyhaven.com/a/forest_ground_04"
     },
     {
@@ -116,6 +144,10 @@
       },
       "scale": 4,
       "average": "#93806b",
+      "tags": [
+        "temperate",
+        "mountain"
+      ],
       "source": "https://polyhaven.com/a/rocky_trail"
     },
     {
@@ -129,6 +161,10 @@
       },
       "scale": 3,
       "average": "#726a5f",
+      "tags": [
+        "temperate",
+        "mountain"
+      ],
       "source": "https://polyhaven.com/a/rock_ground"
     },
     {
@@ -142,6 +178,9 @@
       },
       "scale": 12,
       "average": "#6e5c34",
+      "tags": [
+        "mountain"
+      ],
       "source": "https://polyhaven.com/a/aerial_rocks_02"
     },
     {
@@ -155,6 +194,11 @@
       },
       "scale": 6,
       "average": "#6c6b57",
+      "tags": [
+        "temperate",
+        "mountain",
+        "swamp"
+      ],
       "source": "https://polyhaven.com/a/mossy_rock"
     },
     {
@@ -168,6 +212,10 @@
       },
       "scale": 4,
       "average": "#a5956f",
+      "tags": [
+        "coast",
+        "desert"
+      ],
       "source": "https://polyhaven.com/a/sand_01"
     },
     {
@@ -181,6 +229,9 @@
       },
       "scale": 5,
       "average": "#b9b6b5",
+      "tags": [
+        "winter"
+      ],
       "source": "https://polyhaven.com/a/snow_01"
     },
     {
@@ -194,6 +245,10 @@
       },
       "scale": 3,
       "average": "#79705c",
+      "tags": [
+        "village",
+        "castle"
+      ],
       "source": "https://polyhaven.com/a/cobblestone_floor_05"
     },
     {
@@ -206,7 +261,11 @@
         "arh": "materials/paving/arh.jpg"
       },
       "scale": 3,
-      "average": "#7a7a72",
+      "average": "#7a7a73",
+      "tags": [
+        "village",
+        "castle"
+      ],
       "source": "https://polyhaven.com/a/stone_tiles_02"
     },
     {
@@ -220,7 +279,1071 @@
       },
       "scale": 4,
       "average": "#8d8163",
+      "tags": [
+        "temperate",
+        "village"
+      ],
       "source": "https://polyhaven.com/a/grass_path_2"
+    },
+    {
+      "id": "grass-sparse",
+      "name": "Sparse grass",
+      "category": "grass",
+      "files": {
+        "color": "materials/grass-sparse/color.jpg",
+        "normal": "materials/grass-sparse/normal.jpg",
+        "arh": "materials/grass-sparse/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#4f3d15",
+      "tags": [
+        "temperate",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/sparse_grass"
+    },
+    {
+      "id": "grass-leafy",
+      "name": "Leafy grass",
+      "category": "grass",
+      "files": {
+        "color": "materials/grass-leafy/color.jpg",
+        "normal": "materials/grass-leafy/normal.jpg",
+        "arh": "materials/grass-leafy/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#978359",
+      "tags": [
+        "temperate",
+        "village"
+      ],
+      "source": "https://polyhaven.com/a/leafy_grass"
+    },
+    {
+      "id": "grass-withered",
+      "name": "Withered grass",
+      "category": "grass",
+      "files": {
+        "color": "materials/grass-withered/color.jpg",
+        "normal": "materials/grass-withered/normal.jpg",
+        "arh": "materials/grass-withered/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#ac9379",
+      "tags": [
+        "autumn",
+        "desert",
+        "winter"
+      ],
+      "source": "https://polyhaven.com/a/withered_grass"
+    },
+    {
+      "id": "moss",
+      "name": "Moss",
+      "category": "forest",
+      "files": {
+        "color": "materials/moss/color.jpg",
+        "normal": "materials/moss/normal.jpg",
+        "arh": "materials/moss/arh.jpg"
+      },
+      "scale": 2,
+      "average": "#4a6519",
+      "tags": [
+        "swamp",
+        "temperate"
+      ],
+      "source": "https://ambientcg.com/view?id=Moss002"
+    },
+    {
+      "id": "forest-twigs",
+      "name": "Twiggy forest floor",
+      "category": "forest",
+      "files": {
+        "color": "materials/forest-twigs/color.jpg",
+        "normal": "materials/forest-twigs/normal.jpg",
+        "arh": "materials/forest-twigs/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#91875d",
+      "tags": [
+        "temperate",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/forrest_ground_01"
+    },
+    {
+      "id": "forest-moss",
+      "name": "Mossy forest floor",
+      "category": "forest",
+      "files": {
+        "color": "materials/forest-moss/color.jpg",
+        "normal": "materials/forest-moss/normal.jpg",
+        "arh": "materials/forest-moss/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#8e703a",
+      "tags": [
+        "temperate",
+        "autumn",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/forest_leaves_02"
+    },
+    {
+      "id": "leaves-autumn",
+      "name": "Autumn leaves",
+      "category": "forest",
+      "files": {
+        "color": "materials/leaves-autumn/color.jpg",
+        "normal": "materials/leaves-autumn/normal.jpg",
+        "arh": "materials/leaves-autumn/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#725730",
+      "tags": [
+        "autumn"
+      ],
+      "source": "https://polyhaven.com/a/leaves_forest_ground"
+    },
+    {
+      "id": "leaves-scattered",
+      "name": "Scattered leaves",
+      "category": "forest",
+      "files": {
+        "color": "materials/leaves-scattered/color.jpg",
+        "normal": "materials/leaves-scattered/normal.jpg",
+        "arh": "materials/leaves-scattered/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#a18058",
+      "tags": [
+        "autumn",
+        "temperate"
+      ],
+      "source": "https://polyhaven.com/a/forest_floor"
+    },
+    {
+      "id": "leaves-brown",
+      "name": "Brown leaves",
+      "category": "forest",
+      "files": {
+        "color": "materials/leaves-brown/color.jpg",
+        "normal": "materials/leaves-brown/normal.jpg",
+        "arh": "materials/leaves-brown/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#724d34",
+      "tags": [
+        "autumn",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/dry_decay_leaves"
+    },
+    {
+      "id": "mud-wet",
+      "name": "Wet mud",
+      "category": "soil",
+      "files": {
+        "color": "materials/mud-wet/color.jpg",
+        "normal": "materials/mud-wet/normal.jpg",
+        "arh": "materials/mud-wet/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#53493b",
+      "tags": [
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/brown_mud_03"
+    },
+    {
+      "id": "mud-dark",
+      "name": "Dark forest mud",
+      "category": "soil",
+      "files": {
+        "color": "materials/mud-dark/color.jpg",
+        "normal": "materials/mud-dark/normal.jpg",
+        "arh": "materials/mud-dark/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#352413",
+      "tags": [
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/mud_forest"
+    },
+    {
+      "id": "swamp-ground",
+      "name": "Swamp ground",
+      "category": "soil",
+      "files": {
+        "color": "materials/swamp-ground/color.jpg",
+        "normal": "materials/swamp-ground/normal.jpg",
+        "arh": "materials/swamp-ground/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#655433",
+      "tags": [
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/brown_mud_leaves_01"
+    },
+    {
+      "id": "mud-tracks",
+      "name": "Muddy tracks",
+      "category": "road",
+      "files": {
+        "color": "materials/mud-tracks/color.jpg",
+        "normal": "materials/mud-tracks/normal.jpg",
+        "arh": "materials/mud-tracks/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#502f1c",
+      "tags": [
+        "village",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/muddy_tracks"
+    },
+    {
+      "id": "farmland",
+      "name": "Ploughed field",
+      "category": "soil",
+      "files": {
+        "color": "materials/farmland/color.jpg",
+        "normal": "materials/farmland/normal.jpg",
+        "arh": "materials/farmland/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#5b4b31",
+      "tags": [
+        "village"
+      ],
+      "source": "https://polyhaven.com/a/farm_furrows"
+    },
+    {
+      "id": "farm-soil",
+      "name": "Garden soil",
+      "category": "soil",
+      "files": {
+        "color": "materials/farm-soil/color.jpg",
+        "normal": "materials/farm-soil/normal.jpg",
+        "arh": "materials/farm-soil/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#583f28",
+      "tags": [
+        "village"
+      ],
+      "source": "https://polyhaven.com/a/farm_soil"
+    },
+    {
+      "id": "sand-dunes",
+      "name": "Rippled sand",
+      "category": "sand",
+      "files": {
+        "color": "materials/sand-dunes/color.jpg",
+        "normal": "materials/sand-dunes/normal.jpg",
+        "arh": "materials/sand-dunes/arh.jpg"
+      },
+      "scale": 12,
+      "average": "#9f8a81",
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/aerial_sand"
+    },
+    {
+      "id": "sand-coast",
+      "name": "Coastal sand",
+      "category": "sand",
+      "files": {
+        "color": "materials/sand-coast/color.jpg",
+        "normal": "materials/sand-coast/normal.jpg",
+        "arh": "materials/sand-coast/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#82725b",
+      "tags": [
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/coast_sand_01"
+    },
+    {
+      "id": "sand-gravelly",
+      "name": "Gravelly sand",
+      "category": "sand",
+      "files": {
+        "color": "materials/sand-gravelly/color.jpg",
+        "normal": "materials/sand-gravelly/normal.jpg",
+        "arh": "materials/sand-gravelly/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#926f4c",
+      "tags": [
+        "desert",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/gravelly_sand"
+    },
+    {
+      "id": "sand-red",
+      "name": "Red sand",
+      "category": "sand",
+      "files": {
+        "color": "materials/sand-red/color.jpg",
+        "normal": "materials/sand-red/normal.jpg",
+        "arh": "materials/sand-red/arh.jpg"
+      },
+      "scale": 5,
+      "average": "#815946",
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/red_sand"
+    },
+    {
+      "id": "desert-cracked",
+      "name": "Cracked clay",
+      "category": "soil",
+      "files": {
+        "color": "materials/desert-cracked/color.jpg",
+        "normal": "materials/desert-cracked/normal.jpg",
+        "arh": "materials/desert-cracked/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#cfa981",
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/mud_cracked_dry_03"
+    },
+    {
+      "id": "desert-cracked-red",
+      "name": "Cracked red earth",
+      "category": "soil",
+      "files": {
+        "color": "materials/desert-cracked-red/color.jpg",
+        "normal": "materials/desert-cracked-red/normal.jpg",
+        "arh": "materials/desert-cracked-red/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#654a34",
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/cracked_red_ground"
+    },
+    {
+      "id": "desert-hardpan",
+      "name": "Hardpan",
+      "category": "soil",
+      "files": {
+        "color": "materials/desert-hardpan/color.jpg",
+        "normal": "materials/desert-hardpan/normal.jpg",
+        "arh": "materials/desert-hardpan/arh.jpg"
+      },
+      "scale": 5,
+      "average": "#847969",
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/dry_ground_01"
+    },
+    {
+      "id": "desert-stony",
+      "name": "Stony desert",
+      "category": "soil",
+      "files": {
+        "color": "materials/desert-stony/color.jpg",
+        "normal": "materials/desert-stony/normal.jpg",
+        "arh": "materials/desert-stony/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#95734e",
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/dry_ground_rocks"
+    },
+    {
+      "id": "red-earth",
+      "name": "Red earth",
+      "category": "soil",
+      "files": {
+        "color": "materials/red-earth/color.jpg",
+        "normal": "materials/red-earth/normal.jpg",
+        "arh": "materials/red-earth/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#653e2e",
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/red_laterite_soil_stones"
+    },
+    {
+      "id": "cliff-granite",
+      "name": "Granite cliff",
+      "category": "rock",
+      "files": {
+        "color": "materials/cliff-granite/color.jpg",
+        "normal": "materials/cliff-granite/normal.jpg",
+        "arh": "materials/cliff-granite/arh.jpg"
+      },
+      "scale": 10,
+      "average": "#614631",
+      "tags": [
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/rock_face"
+    },
+    {
+      "id": "cliff-pale",
+      "name": "Pale cliff",
+      "category": "rock",
+      "files": {
+        "color": "materials/cliff-pale/color.jpg",
+        "normal": "materials/cliff-pale/normal.jpg",
+        "arh": "materials/cliff-pale/arh.jpg"
+      },
+      "scale": 10,
+      "average": "#836950",
+      "tags": [
+        "mountain",
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/rock_face_03"
+    },
+    {
+      "id": "cliff-sandstone",
+      "name": "Layered sandstone",
+      "category": "rock",
+      "files": {
+        "color": "materials/cliff-sandstone/color.jpg",
+        "normal": "materials/cliff-sandstone/normal.jpg",
+        "arh": "materials/cliff-sandstone/arh.jpg"
+      },
+      "scale": 10,
+      "average": "#7c5231",
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/cliff_side"
+    },
+    {
+      "id": "cliff-ochre",
+      "name": "Ochre sandstone",
+      "category": "rock",
+      "files": {
+        "color": "materials/cliff-ochre/color.jpg",
+        "normal": "materials/cliff-ochre/normal.jpg",
+        "arh": "materials/cliff-ochre/arh.jpg"
+      },
+      "scale": 8,
+      "average": "#89683e",
+      "tags": [
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/old_sandstone_02"
+    },
+    {
+      "id": "sandstone",
+      "name": "Sandstone",
+      "category": "rock",
+      "files": {
+        "color": "materials/sandstone/color.jpg",
+        "normal": "materials/sandstone/normal.jpg",
+        "arh": "materials/sandstone/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#d1a174",
+      "tags": [
+        "desert",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/sandstone_cracks"
+    },
+    {
+      "id": "limestone",
+      "name": "Limestone",
+      "category": "rock",
+      "files": {
+        "color": "materials/limestone/color.jpg",
+        "normal": "materials/limestone/normal.jpg",
+        "arh": "materials/limestone/arh.jpg"
+      },
+      "scale": 8,
+      "average": "#a89b8c",
+      "tags": [
+        "mountain",
+        "winter",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/rock_boulder_dry"
+    },
+    {
+      "id": "basalt",
+      "name": "Basalt",
+      "category": "rock",
+      "files": {
+        "color": "materials/basalt/color.jpg",
+        "normal": "materials/basalt/normal.jpg",
+        "arh": "materials/basalt/arh.jpg"
+      },
+      "scale": 8,
+      "average": "#211c18",
+      "tags": [
+        "volcanic",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/dark_rock"
+    },
+    {
+      "id": "rock-lichen",
+      "name": "Lichen rock",
+      "category": "rock",
+      "files": {
+        "color": "materials/rock-lichen/color.jpg",
+        "normal": "materials/rock-lichen/normal.jpg",
+        "arh": "materials/rock-lichen/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#44392e",
+      "tags": [
+        "mountain",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/lichen_rock"
+    },
+    {
+      "id": "rock-red-granite",
+      "name": "Red granite",
+      "category": "rock",
+      "files": {
+        "color": "materials/rock-red-granite/color.jpg",
+        "normal": "materials/rock-red-granite/normal.jpg",
+        "arh": "materials/rock-red-granite/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#705341",
+      "tags": [
+        "desert",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/tiger_rock"
+    },
+    {
+      "id": "volcanic-rock",
+      "name": "Volcanic rock",
+      "category": "rock",
+      "files": {
+        "color": "materials/volcanic-rock/color.jpg",
+        "normal": "materials/volcanic-rock/normal.jpg",
+        "arh": "materials/volcanic-rock/arh.jpg"
+      },
+      "scale": 8,
+      "average": "#3b342c",
+      "tags": [
+        "volcanic"
+      ],
+      "source": "https://polyhaven.com/a/dark_rock_02"
+    },
+    {
+      "id": "scorched-ground",
+      "name": "Scorched ground",
+      "category": "soil",
+      "files": {
+        "color": "materials/scorched-ground/color.jpg",
+        "normal": "materials/scorched-ground/normal.jpg",
+        "arh": "materials/scorched-ground/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#625549",
+      "tags": [
+        "volcanic"
+      ],
+      "source": "https://polyhaven.com/a/burned_ground_01"
+    },
+    {
+      "id": "lava",
+      "name": "Molten lava",
+      "category": "rock",
+      "files": {
+        "color": "materials/lava/color.jpg",
+        "normal": "materials/lava/normal.jpg",
+        "arh": "materials/lava/arh.jpg",
+        "emissive": "materials/lava/emissive.jpg"
+      },
+      "emissive": 1,
+      "scale": 6,
+      "average": "#ac452f",
+      "tags": [
+        "volcanic"
+      ],
+      "source": "https://ambientcg.com/view?id=Lava004"
+    },
+    {
+      "id": "lava-crust",
+      "name": "Lava crust",
+      "category": "rock",
+      "files": {
+        "color": "materials/lava-crust/color.jpg",
+        "normal": "materials/lava-crust/normal.jpg",
+        "arh": "materials/lava-crust/arh.jpg",
+        "emissive": "materials/lava-crust/emissive.jpg"
+      },
+      "emissive": 1,
+      "scale": 5,
+      "average": "#4a383c",
+      "tags": [
+        "volcanic"
+      ],
+      "source": "https://ambientcg.com/view?id=Lava001"
+    },
+    {
+      "id": "snow-fresh",
+      "name": "Fresh snow",
+      "category": "snow",
+      "files": {
+        "color": "materials/snow-fresh/color.jpg",
+        "normal": "materials/snow-fresh/normal.jpg",
+        "arh": "materials/snow-fresh/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#a5a5a7",
+      "tags": [
+        "winter",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/snow_02"
+    },
+    {
+      "id": "snow-rocky",
+      "name": "Snow on rocks",
+      "category": "snow",
+      "files": {
+        "color": "materials/snow-rocky/color.jpg",
+        "normal": "materials/snow-rocky/normal.jpg",
+        "arh": "materials/snow-rocky/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#9d9b95",
+      "tags": [
+        "winter",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/snow_03"
+    },
+    {
+      "id": "snow-windswept",
+      "name": "Windswept snow",
+      "category": "snow",
+      "files": {
+        "color": "materials/snow-windswept/color.jpg",
+        "normal": "materials/snow-windswept/normal.jpg",
+        "arh": "materials/snow-windswept/arh.jpg"
+      },
+      "scale": 10,
+      "average": "#878694",
+      "tags": [
+        "winter",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/snow_field_aerial"
+    },
+    {
+      "id": "frozen-ground",
+      "name": "Frozen ground",
+      "category": "snow",
+      "files": {
+        "color": "materials/frozen-ground/color.jpg",
+        "normal": "materials/frozen-ground/normal.jpg",
+        "arh": "materials/frozen-ground/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#797477",
+      "tags": [
+        "winter"
+      ],
+      "source": "https://polyhaven.com/a/asphalt_snow"
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "category": "snow",
+      "files": {
+        "color": "materials/ice/color.jpg",
+        "normal": "materials/ice/normal.jpg",
+        "arh": "materials/ice/arh.jpg"
+      },
+      "scale": 6,
+      "average": "#8197a2",
+      "tags": [
+        "winter"
+      ],
+      "source": "https://ambientcg.com/view?id=Ice002"
+    },
+    {
+      "id": "ice-cracked",
+      "name": "Cracked ice",
+      "category": "snow",
+      "files": {
+        "color": "materials/ice-cracked/color.jpg",
+        "normal": "materials/ice-cracked/normal.jpg",
+        "arh": "materials/ice-cracked/arh.jpg"
+      },
+      "scale": 5,
+      "average": "#606f7c",
+      "tags": [
+        "winter"
+      ],
+      "source": "https://ambientcg.com/view?id=Ice003"
+    },
+    {
+      "id": "cobblestone-mossy",
+      "name": "Mossy cobblestone",
+      "category": "road",
+      "files": {
+        "color": "materials/cobblestone-mossy/color.jpg",
+        "normal": "materials/cobblestone-mossy/normal.jpg",
+        "arh": "materials/cobblestone-mossy/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#776c4c",
+      "tags": [
+        "castle",
+        "village",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/mossy_cobblestone"
+    },
+    {
+      "id": "cobblestone-grey",
+      "name": "Grey setts",
+      "category": "road",
+      "files": {
+        "color": "materials/cobblestone-grey/color.jpg",
+        "normal": "materials/cobblestone-grey/normal.jpg",
+        "arh": "materials/cobblestone-grey/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#928b80",
+      "tags": [
+        "castle",
+        "village",
+        "winter"
+      ],
+      "source": "https://polyhaven.com/a/cobblestone_floor_08"
+    },
+    {
+      "id": "crazy-paving",
+      "name": "Grassy flagstones",
+      "category": "road",
+      "files": {
+        "color": "materials/crazy-paving/color.jpg",
+        "normal": "materials/crazy-paving/normal.jpg",
+        "arh": "materials/crazy-paving/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#796651",
+      "tags": [
+        "village",
+        "castle",
+        "temperate"
+      ],
+      "source": "https://polyhaven.com/a/grassy_cobblestone"
+    },
+    {
+      "id": "stone-path",
+      "name": "Stone path",
+      "category": "road",
+      "files": {
+        "color": "materials/stone-path/color.jpg",
+        "normal": "materials/stone-path/normal.jpg",
+        "arh": "materials/stone-path/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#806b57",
+      "tags": [
+        "village",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/stone_pathway"
+    },
+    {
+      "id": "stone-path-grey",
+      "name": "Grey stone path",
+      "category": "road",
+      "files": {
+        "color": "materials/stone-path-grey/color.jpg",
+        "normal": "materials/stone-path-grey/normal.jpg",
+        "arh": "materials/stone-path-grey/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#5e564c",
+      "tags": [
+        "castle",
+        "winter",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/grey_stone_path"
+    },
+    {
+      "id": "castle-floor",
+      "name": "Castle floor",
+      "category": "road",
+      "files": {
+        "color": "materials/castle-floor/color.jpg",
+        "normal": "materials/castle-floor/normal.jpg",
+        "arh": "materials/castle-floor/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#665547",
+      "tags": [
+        "castle"
+      ],
+      "source": "https://polyhaven.com/a/monastery_stone_floor"
+    },
+    {
+      "id": "stone-blocks",
+      "name": "Stone blocks",
+      "category": "road",
+      "files": {
+        "color": "materials/stone-blocks/color.jpg",
+        "normal": "materials/stone-blocks/normal.jpg",
+        "arh": "materials/stone-blocks/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#948d83",
+      "tags": [
+        "castle",
+        "arena"
+      ],
+      "source": "https://polyhaven.com/a/rock_tile_floor"
+    },
+    {
+      "id": "sandstone-paving",
+      "name": "Sandstone paving",
+      "category": "road",
+      "files": {
+        "color": "materials/sandstone-paving/color.jpg",
+        "normal": "materials/sandstone-paving/normal.jpg",
+        "arh": "materials/sandstone-paving/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#a59275",
+      "tags": [
+        "desert",
+        "arena"
+      ],
+      "source": "https://polyhaven.com/a/sandstone_blocks_08"
+    },
+    {
+      "id": "red-paving",
+      "name": "Red sandstone paving",
+      "category": "road",
+      "files": {
+        "color": "materials/red-paving/color.jpg",
+        "normal": "materials/red-paving/normal.jpg",
+        "arh": "materials/red-paving/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#66594c",
+      "tags": [
+        "desert",
+        "arena"
+      ],
+      "source": "https://polyhaven.com/a/red_sandstone_pavement"
+    },
+    {
+      "id": "planks-weathered",
+      "name": "Weathered planks",
+      "category": "road",
+      "files": {
+        "color": "materials/planks-weathered/color.jpg",
+        "normal": "materials/planks-weathered/normal.jpg",
+        "arh": "materials/planks-weathered/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#50433b",
+      "tags": [
+        "swamp",
+        "coast",
+        "village"
+      ],
+      "source": "https://polyhaven.com/a/weathered_planks"
+    },
+    {
+      "id": "planks-old",
+      "name": "Old planks",
+      "category": "road",
+      "files": {
+        "color": "materials/planks-old/color.jpg",
+        "normal": "materials/planks-old/normal.jpg",
+        "arh": "materials/planks-old/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#625547",
+      "tags": [
+        "swamp",
+        "village",
+        "castle"
+      ],
+      "source": "https://polyhaven.com/a/old_planks_02"
+    },
+    {
+      "id": "gravel-light",
+      "name": "Light gravel",
+      "category": "road",
+      "files": {
+        "color": "materials/gravel-light/color.jpg",
+        "normal": "materials/gravel-light/normal.jpg",
+        "arh": "materials/gravel-light/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#aaa69b",
+      "tags": [
+        "village",
+        "arena",
+        "winter"
+      ],
+      "source": "https://polyhaven.com/a/gravel_floor_02"
+    },
+    {
+      "id": "gravel-path",
+      "name": "Stony path",
+      "category": "road",
+      "files": {
+        "color": "materials/gravel-path/color.jpg",
+        "normal": "materials/gravel-path/normal.jpg",
+        "arh": "materials/gravel-path/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#473523",
+      "tags": [
+        "temperate",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/stony_dirt_path"
+    },
+    {
+      "id": "wood-chips",
+      "name": "Wood chips",
+      "category": "road",
+      "files": {
+        "color": "materials/wood-chips/color.jpg",
+        "normal": "materials/wood-chips/normal.jpg",
+        "arh": "materials/wood-chips/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#805b3d",
+      "tags": [
+        "temperate",
+        "village"
+      ],
+      "source": "https://polyhaven.com/a/wood_chip_path"
+    },
+    {
+      "id": "riverbed",
+      "name": "Riverbed stones",
+      "category": "rock",
+      "files": {
+        "color": "materials/riverbed/color.jpg",
+        "normal": "materials/riverbed/normal.jpg",
+        "arh": "materials/riverbed/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#796c5b",
+      "tags": [
+        "temperate",
+        "mountain",
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/river_small_rocks"
+    },
+    {
+      "id": "pebbles",
+      "name": "Pebbles",
+      "category": "rock",
+      "files": {
+        "color": "materials/pebbles/color.jpg",
+        "normal": "materials/pebbles/normal.jpg",
+        "arh": "materials/pebbles/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#7f7569",
+      "tags": [
+        "coast",
+        "temperate"
+      ],
+      "source": "https://polyhaven.com/a/ganges_river_pebbles"
+    },
+    {
+      "id": "pebbles-coarse",
+      "name": "Coarse pebbles",
+      "category": "rock",
+      "files": {
+        "color": "materials/pebbles-coarse/color.jpg",
+        "normal": "materials/pebbles-coarse/normal.jpg",
+        "arh": "materials/pebbles-coarse/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#7b6851",
+      "tags": [
+        "coast",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/dry_river_pebbles"
+    },
+    {
+      "id": "riverbed-dry",
+      "name": "Dry riverbed",
+      "category": "rock",
+      "files": {
+        "color": "materials/riverbed-dry/color.jpg",
+        "normal": "materials/riverbed-dry/normal.jpg",
+        "arh": "materials/riverbed-dry/arh.jpg"
+      },
+      "scale": 5,
+      "average": "#66554a",
+      "tags": [
+        "desert",
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/dry_riverbed_rock"
+    },
+    {
+      "id": "tidal-rocks",
+      "name": "Tidal rocks",
+      "category": "rock",
+      "files": {
+        "color": "materials/tidal-rocks/color.jpg",
+        "normal": "materials/tidal-rocks/normal.jpg",
+        "arh": "materials/tidal-rocks/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#665a47",
+      "tags": [
+        "coast"
+      ],
+      "source": "https://polyhaven.com/a/low_tide_rocks"
+    },
+    {
+      "id": "coast-mossy",
+      "name": "Mossy shore",
+      "category": "forest",
+      "files": {
+        "color": "materials/coast-mossy/color.jpg",
+        "normal": "materials/coast-mossy/normal.jpg",
+        "arh": "materials/coast-mossy/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#4b442d",
+      "tags": [
+        "coast",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/coast_sand_rocks_02"
     }
   ],
   "objects": [
