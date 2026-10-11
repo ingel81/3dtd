@@ -14,7 +14,7 @@ import { WaterTool, waterCommands } from './water-tool';
 
 function context(editor: EditorDocument): ToolContext & { messages: string[] } {
   const messages: string[] = [];
-  const overlay = { setDraft: () => undefined, setGizmo: () => undefined, setNodesVisible: () => undefined, transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined } } as unknown as EditorOverlay;
+  const overlay = { setDraft: () => undefined, setGizmo: () => undefined, setNodesVisible: () => undefined, setRiverHandles: () => undefined, transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined } } as unknown as EditorOverlay;
   return {
     editor,
     settings: defaultSettings(),
@@ -157,6 +157,46 @@ describe('editor tools', () => {
     expect(withGroups(ed.doc.objects, [c])).toEqual([c]);
   });
 
+  it('edits a river: moves, adds and removes points, each one undo step', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    ed.doc.terrain.rivers = [
+      {
+        id: 'river1',
+        kind: 'water',
+        points: [
+          { x: 0, y: -100, width: 10, height: 5 },
+          { x: 0, y: 0, width: 10, height: 3 },
+          { x: 0, y: 100, width: 10, height: 1 },
+        ],
+      },
+    ];
+    ctx.settings.water.mode = 'river';
+    const tool = new WaterTool();
+    // Drag the middle point east; its height stays between its neighbours'
+    tool.pointerDown(at(1, 1), ctx);
+    expect(ctx.settings.water).toMatchObject({ river: 0, riverPoint: 1 });
+    tool.pointerMove!(at(30, 10), ctx);
+    tool.pointerUp(at(30, 10), ctx);
+    const pts = () => ed.doc.terrain.rivers![0].points;
+    expect(pts()[1]).toMatchObject({ x: 30, y: 10 });
+    expect(pts()[1].height).toBeLessThan(5);
+    expect(pts()[1].height).toBeGreaterThan(1);
+    // Shift on the river adds a point between the first two
+    tool.pointerDown(at(15, -45, { shift: true }), ctx);
+    tool.pointerUp(at(15, -45, { shift: true }), ctx);
+    expect(pts()).toHaveLength(4);
+    expect(ctx.settings.water.riverPoint).toBe(1);
+    // Del takes it out again
+    tool.key!(new KeyboardEvent('keydown', { key: 'Delete' }), ctx);
+    expect(pts()).toHaveLength(3);
+    ed.undo();
+    expect(pts()).toHaveLength(4);
+    ed.undo();
+    ed.undo();
+    expect(pts()[1]).toMatchObject({ x: 0, y: 0 });
+  });
+
   it('draws a road off the starter road with a junction', () => {
     const ed = fresh();
     const ctx = context(ed);
@@ -246,7 +286,7 @@ describe('water and lava bodies', () => {
     terrain.pointerUp();
     ed.execute(waterCommands.addBody(ed, 'lava', 0));
     expect(t.waterBodies?.[0].kind).toBe('lava');
-    ctx.settings.water = { mode: 'fill', body: 0, depth: 3 };
+    ctx.settings.water = { mode: 'fill', body: 0, depth: 3, river: -1, riverPoint: -1 };
     const water = new WaterTool();
     water.pointerDown(at(0, 100), ctx);
     const lava = ed.doc.terrain.waterBodies![0];
@@ -257,7 +297,7 @@ describe('water and lava bodies', () => {
     ctx.settings.water.mode = 'lake';
     water.pointerDown(at(-100, -100), ctx);
     for (let k = 0; k < 20; k++) water.frame!(0.1, at(-100, -100), ctx);
-    water.pointerUp();
+    water.pointerUp(at(0, 0), ctx);
     expect(heightAt(ed.doc.terrain, -100, -100)).toBeLessThan(lava.level - 1);
     const steps = ed.historySteps;
     ed.undo();

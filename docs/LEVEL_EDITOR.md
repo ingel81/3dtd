@@ -303,7 +303,6 @@ und gesetztes Stück, Prüfen, Speichern, Neuladen, Löschen; ohne Kartensitzung
 
 - Objekte haben nur eine Drehung um die Hochachse; „Align to slope“ fehlt im Kartendokument, der Streupinsel lässt
   Objekte am Hang stattdessen einsinken
-- Ein gezeichneter Fluss lässt sich danach nicht als Linie bearbeiten, nur rückgängig machen und neu ziehen
 - Neue Objekte während eines Strichs erscheinen bis zu 150 ms verzögert, Wasser bis zu 120 ms: der Renderer baut sie
   bisher nur ganz neu (inkrementelles Hinzufügen ist bei der Kartenansicht angefragt)
 - Gruppen, ausgeblendete Kategorien und Versionen kennt nur der Editor; das Spiel ignoriert `group`

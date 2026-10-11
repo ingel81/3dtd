@@ -7,11 +7,13 @@
  * (Shift reverses). Sea floods the body in from the map's edge. The body
  * list, kinds, levels and colours live in the panel (`waterCommands`).
  */
-import type { CustomMapDocument, MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapRiver, MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
 import type { DocChange, EditCommand, EditorDocument, PatchTarget } from '../model/editor-document';
 import { nearestSample, sampleRectAround } from '../model/grid';
 import { basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, waterBody, waterMaskDab } from '../ops/water-ops';
+import { insertPoint, movePoint, nearestRiverPoint, nearestRiverSegment, removePoint } from '../ops/river-edit';
 import { symmetryImages } from '../ops/symmetry';
+import { RiverListCommand } from '../model/terrain-commands';
 import { BrushStroke } from './brush-stroke';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
@@ -32,20 +34,33 @@ function maskTarget(body: number): PatchTarget {
 export class WaterTool implements EditorTool {
   readonly id = 'water' as const;
   private stroke: BrushStroke | null = null;
+  /** A river point being dragged and the rivers before */
+  private riverDrag: { river: number; point: number; before: MapRiver[] | undefined } | null = null;
   private on = true;
 
   brushVisible(ctx: ToolContext): boolean {
-    return ctx.settings.water.mode !== 'fill';
+    return ctx.settings.water.mode !== 'fill' && ctx.settings.water.mode !== 'river';
   }
 
-  deactivate(): void {
+  frame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
+    const s = ctx.settings.water;
+    ctx.overlay.setRiverHandles(s.mode === 'river' ? (ctx.editor.doc.terrain.rivers ?? []) : null, s.river >= 0 ? { river: s.river, point: s.riverPoint } : null);
+    this.brushFrame(dt, p, ctx);
+  }
+
+  deactivate(ctx: ToolContext): void {
     this.end();
+    ctx.overlay.setRiverHandles(null, null);
   }
 
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
     if (p.button !== 0 || !p.hit) return false;
     const editor = ctx.editor;
     const s = ctx.settings.water;
+    if (s.mode === 'river') {
+      this.riverDown(p, ctx);
+      return true;
+    }
     if (s.mode === 'fill' && !p.shift) {
       this.fill(p, ctx);
       return true;
@@ -66,11 +81,74 @@ export class WaterTool implements EditorTool {
     return true;
   }
 
-  pointerUp(): void {
-    this.end();
+  pointerMove(p: ToolPointer, ctx: ToolContext): void {
+    const drag = this.riverDrag;
+    if (!drag || !p.hit) return;
+    const river = ctx.editor.doc.terrain.rivers?.[drag.river];
+    if (!river) return;
+    movePoint(river, drag.point, p.hit);
+    ctx.editor.emit({ water: true });
   }
 
-  frame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
+  pointerUp(_p: ToolPointer, ctx: ToolContext): void {
+    this.end();
+    if (this.riverDrag) {
+      const before = this.riverDrag.before;
+      this.riverDrag = null;
+      const after = ctx.editor.doc.terrain.rivers;
+      if (JSON.stringify(before) !== JSON.stringify(after)) ctx.editor.push(new RiverListCommand('Move river point', before, structuredClone(after)));
+    }
+  }
+
+  key(e: KeyboardEvent, ctx: ToolContext): boolean {
+    const s = ctx.settings.water;
+    if (s.mode !== 'river' || (e.key !== 'Delete' && e.key !== 'Backspace') || s.river < 0) return false;
+    const editor = ctx.editor;
+    editor.execute(
+      riverEdit(editor, s.riverPoint >= 0 ? 'Remove river point' : 'Remove river', (rivers) => {
+        const river = rivers[s.river];
+        if (!river) return;
+        if (s.riverPoint < 0 || !removePoint(river, s.riverPoint)) rivers.splice(s.river, 1);
+      }),
+    );
+    s.riverPoint = -1;
+    if (!editor.doc.terrain.rivers?.[s.river]) s.river = -1;
+    ctx.settingsChanged();
+    return true;
+  }
+
+  /** Choose a point (drag moves it), Shift on the river puts a new point there, a click elsewhere lets go */
+  private riverDown(p: ToolPointer, ctx: ToolContext): void {
+    const s = ctx.settings.water;
+    const editor = ctx.editor;
+    const rivers = editor.doc.terrain.rivers ?? [];
+    const before = structuredClone(editor.doc.terrain.rivers);
+    if (p.shift) {
+      const at = nearestRiverSegment(rivers, p.hit!);
+      if (at) {
+        const index = insertPoint(rivers[at.river], at.segment, at.t);
+        s.river = at.river;
+        s.riverPoint = index;
+        ctx.settingsChanged();
+        editor.emit({ water: true });
+        this.riverDrag = { river: at.river, point: index, before };
+        return;
+      }
+    }
+    const ref = nearestRiverPoint(rivers, p.hit!, ctx.metresPerPixel(p.hit!) * 12);
+    if (ref) {
+      s.river = ref.river;
+      s.riverPoint = ref.point;
+      this.riverDrag = { ...ref, before };
+    } else {
+      const on = nearestRiverSegment(rivers, p.hit!);
+      s.river = on ? on.river : -1;
+      s.riverPoint = -1;
+    }
+    ctx.settingsChanged();
+  }
+
+  private brushFrame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
     const stroke = this.stroke;
     if (!stroke || !p?.hit) return;
     const s = ctx.settings.water;
@@ -102,6 +180,8 @@ export class WaterTool implements EditorTool {
         return `Hold to paint ${name}, Shift erases | [ ] size`;
       case 'erase':
         return `Hold to erase ${name}, Shift paints | [ ] size`;
+      case 'river':
+        return 'Drag a river point to move it | Shift click on a river adds a point | Del removes the point (or the river)';
     }
     return '';
   }
@@ -242,3 +322,12 @@ export const waterCommands = {
     return recordWater(editor, 'Clear water', (t) => waterBody(t, body)?.mask.fill(0));
   },
 };
+
+/** Changes the rivers in place and records it as one step */
+export function riverEdit(editor: EditorDocument, label: string, edit: (rivers: MapRiver[]) => void): EditCommand {
+  const t = editor.doc.terrain;
+  const before = t.rivers ? structuredClone(t.rivers) : undefined;
+  const list = structuredClone(t.rivers ?? []);
+  edit(list);
+  return new RiverListCommand(label, before, list.length ? list : undefined);
+}

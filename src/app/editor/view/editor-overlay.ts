@@ -25,7 +25,7 @@ import {
 } from 'three';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import { TD_THEME } from '../../styles/td-theme';
-import type { CustomMapDocument, MapPoint } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapPoint, MapRiver } from '../../world/custom-map/map-document';
 import type { Selection } from '../model/editor-document';
 import { pointAt, polylineLength, type Route } from '../ops/path-graph';
 import type { SymmetryMode } from '../ops/symmetry';
@@ -33,6 +33,8 @@ import type { Contours } from '../ops/contours';
 import { TransformGizmo } from './transform-gizmo';
 
 const RING_SEGMENTS = 72;
+/** River points with a handle at most */
+const RIVER_HANDLES = 2048;
 const PREVIEW_DOTS = 600;
 const ROUTE_DOT_SPACING = 40;
 /** Metres per second the dots move, about a fast enemy */
@@ -75,6 +77,11 @@ export class EditorOverlay {
   private readonly nodeSelected = new MeshBasicMaterial({ color: TD_THEME.brass, depthTest: false });
   private readonly selectMaterial = new LineBasicMaterial({ color: TD_THEME.brassLight, depthTest: false, transparent: true });
   private routeTime = 0;
+  /** Points of the rivers while they are edited */
+  private readonly riverHandles: InstancedMesh;
+  private readonly handleWater = new Color(TD_THEME.tealLight);
+  private readonly handleLava = new Color('#ff7a3a');
+  private readonly handleChosen = new Color(TD_THEME.brassLight);
   /** Markers and handles grow with the view distance so they keep a size on screen */
   private markerScale = 1;
   private showNodes = true;
@@ -90,6 +97,11 @@ export class EditorOverlay {
       o.renderOrder = 10;
       o.frustumCulled = false;
     }
+    this.riverHandles = new InstancedMesh(this.nodeGeometry, new MeshBasicMaterial({ color: '#ffffff', depthTest: false, transparent: true, opacity: 0.95 }), RIVER_HANDLES);
+    this.riverHandles.count = 0;
+    this.riverHandles.visible = false;
+    this.riverHandles.frustumCulled = false;
+    this.riverHandles.renderOrder = 14;
     this.preview = new InstancedMesh(this.nodeGeometry, this.previewMaterial, PREVIEW_DOTS);
     this.preview.count = 0;
     this.preview.frustumCulled = false;
@@ -98,7 +110,33 @@ export class EditorOverlay {
     this.measure.renderOrder = 13;
     this.measure.frustumCulled = false;
     this.measure.visible = false;
-    this.group.add(this.contours, this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview, this.transform.group);
+    this.group.add(this.contours, this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview, this.transform.group, this.riverHandles);
+  }
+
+  /** Handles on the points of the map's rivers (the water tool's river mode); null hides them */
+  setRiverHandles(rivers: readonly MapRiver[] | null, chosen: { river: number; point: number } | null): void {
+    const mesh = this.riverHandles;
+    if (!rivers) {
+      mesh.visible = false;
+      return;
+    }
+    const m = new Matrix4();
+    let n = 0;
+    rivers.forEach((r, ri) =>
+      r.points.forEach((q, pi) => {
+        if (n >= RIVER_HANDLES) return;
+        const big = chosen && chosen.river === ri && chosen.point === pi ? 2.2 : chosen?.river === ri ? 1.5 : 1.1;
+        const s = big * this.markerScale;
+        m.makeScale(s, s, s).setPosition(-q.x, q.height + 0.6, q.y);
+        mesh.setMatrixAt(n, m);
+        mesh.setColorAt(n, chosen && chosen.river === ri && chosen.point === pi ? this.handleChosen : r.kind === 'lava' ? this.handleLava : this.handleWater);
+        n++;
+      }),
+    );
+    mesh.count = n;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.visible = n > 0;
   }
 
   /** The brush ring at a map point, draped on the ground; radius 0 hides it */

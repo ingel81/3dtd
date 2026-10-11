@@ -109,9 +109,12 @@ export interface EditorSettings {
   terrain: { mode: TerrainMode; level: number; step: number; rampWidth: number };
   paint: { layer: number; erase: boolean };
   water: {
-    mode: 'fill' | 'lake' | 'paint' | 'erase';
+    mode: 'fill' | 'lake' | 'paint' | 'erase' | 'river';
     /** The body the tool works on: -1 the main water, 0, 1 … the further bodies */
     body: number;
+    /** The river being edited and its chosen point, -1 for none */
+    river: number;
+    riverPoint: number;
     /** Depth of a dug lake bed below the level, metres */
     depth: number;
   };
@@ -163,7 +166,7 @@ export function defaultSettings(): EditorSettings {
     },
     terrain: { mode: 'raise', level: 0, step: 6, rampWidth: 16 },
     paint: { layer: 0, erase: false },
-    water: { mode: 'fill', body: -1, depth: 3 },
+    water: { mode: 'fill', body: -1, depth: 3, river: -1, riverPoint: -1 },
     objects: { mode: 'place', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, space: 'global' },
     paths: { mode: 'draw', width: 8, kind: 'road', snap: 10, showRoutes: true },
     markers: { mode: 'spawn' },

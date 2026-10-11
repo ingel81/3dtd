@@ -29,6 +29,7 @@ const overlay = {
   setGizmo: () => undefined,
   setNodesVisible: () => undefined,
   setPreview: () => undefined,
+  setRiverHandles: () => undefined,
   transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined },
 } as unknown as EditorOverlay;
 

@@ -10,7 +10,8 @@ import { biomeDab, finishBiome, previewSpots } from './biome-brush';
 import { biomeById, BIOMES } from './biomes';
 import { erosionDab } from './erosion';
 import { LandscapeStroke } from './landscape-stroke';
-import { carveRiver, DEFAULT_RIVER } from './river';
+import { carveRiver, DEFAULT_RIVER, recarveRiver } from './river';
+import { movePoint, simplifyRiver } from '../river-edit';
 import { buildRoad, DEFAULT_ROAD } from './road';
 import { citySlots, streetDistance } from './city';
 import { cliffAlong, craterProfile, formDab, formHeight } from './shapes';
@@ -422,6 +423,26 @@ describe('river and road', () => {
       expect(f.z).toBeLessThan(0);
       expect(Math.abs(f.y)).toBeLessThan(6);
     }
+  });
+
+  it('carves the bed again after a point moved, and thins a straight river out', () => {
+    const ed = map();
+    let stroke = new LandscapeStroke(ed, 'River', 3, catalog);
+    const river = carveRiver(stroke, [{ x: 100, y: -150 }, { x: 100, y: 150 }], { ...DEFAULT_RIVER, bridges: false })!.river;
+    stroke.finish();
+    const live = ed.doc.terrain.rivers![0];
+    const k = Math.floor(live.points.length / 2);
+    movePoint(live, k, { x: 140, y: live.points[k].y });
+    expect(heightAt(ed.doc.terrain, 140, live.points[k].y)).toBeGreaterThan(live.points[k].height);
+    stroke = new LandscapeStroke(ed, 'Carve', 1, catalog);
+    recarveRiver(stroke, live);
+    stroke.finish();
+    expect(heightAt(ed.doc.terrain, 140, live.points[k].y)).toBeLessThan(live.points[k].height - 1);
+    const before = river.points.length;
+    const straight = structuredClone(river);
+    simplifyRiver(straight, 3);
+    expect(straight.points.length).toBeLessThan(before);
+    expect(straight.points[0]).toEqual(river.points[0]);
   });
 
   it('lets a lava flow run with scorched banks, without reeds, falls or bridges', () => {

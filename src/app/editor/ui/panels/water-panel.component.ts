@@ -1,8 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
-import type { MapWaterKind } from '../../../world/custom-map/map-document';
-import { waterCommands } from '../../tools/water-tool';
+import type { MapRiver, MapWaterKind } from '../../../world/custom-map/map-document';
+import { recarveRiver } from '../../ops/landscape/river';
+import { LandscapeStroke } from '../../ops/landscape/landscape-stroke';
+import { meanWidth, riverLength, setMeanWidth, simplifyRiver } from '../../ops/river-edit';
+import { riverEdit, waterCommands } from '../../tools/water-tool';
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
@@ -70,8 +73,40 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
       <button type="button" role="radio" [attr.aria-checked]="mode() === 'lake'" (click)="setMode('lake')" data-mode="lake">Dig lake</button>
       <button type="button" role="radio" [attr.aria-checked]="mode() === 'paint'" (click)="setMode('paint')">Paint</button>
       <button type="button" role="radio" [attr.aria-checked]="mode() === 'erase'" (click)="setMode('erase')">Erase</button>
+      <button type="button" role="radio" [attr.aria-checked]="mode() === 'river'" (click)="setMode('river')" data-mode="river">Rivers</button>
     </div>
-    @if (mode() === 'fill') {
+    @if (mode() === 'river') {
+      <div class="td-group">
+        <h3 class="td-section">Rivers <span class="td-note">drawn with Landscape, River</span></h3>
+        <div class="td-rows" role="listbox" aria-label="Rivers">
+          @for (r of rivers(); track r.index) {
+            <div class="td-row wp-row" role="option" tabindex="0" [attr.aria-selected]="r.index === river()" (click)="chooseRiver(r.index)"
+                 (keydown.enter)="chooseRiver(r.index)" [attr.data-river]="r.index">
+              <span class="td-swatch is-lg" [style.--td-mark]="r.kind === 'lava' ? '#ff5a14' : '#2f6f8f'"></span>
+              <span class="td-trunc wp-name">{{ r.kind === 'lava' ? 'Lava flow' : 'River' }} {{ r.index + 1 }}</span>
+              <span class="td-muted td-num">{{ r.length }} m | {{ r.points }} points</span>
+            </div>
+          } @empty {
+            <p class="td-note">No rivers yet: draw one with the Landscape tool's River brush (1).</p>
+          }
+        </div>
+      </div>
+      @if (chosenRiver(); as c) {
+        <div class="td-group">
+          <app-editor-range label="Width" unit="m" [min]="2" [max]="80" [step]="1" [value]="c.width" (changed)="setRiverWidth($event)" />
+          <div class="td-seg is-sm" role="radiogroup" aria-label="What flows">
+            <button type="button" role="radio" [attr.aria-checked]="c.kind === 'water'" (click)="setRiverKind('water')">Water</button>
+            <button type="button" role="radio" [attr.aria-checked]="c.kind === 'lava'" (click)="setRiverKind('lava')">Lava</button>
+          </div>
+          <div class="td-actions is-start">
+            <button class="td-btn-secondary td-btn-sm" type="button" (click)="recarve()" matTooltip="Carve the bed again along the points as they are now">Carve the bed</button>
+            <button class="td-btn-secondary td-btn-sm" type="button" (click)="simplify()" matTooltip="Fewer points where the river runs straight, easier to edit">Fewer points</button>
+            <button class="td-btn-ghost td-btn-sm" type="button" (click)="removeRiver()">Remove river</button>
+          </div>
+        </div>
+      }
+      <p class="td-note">Drag a point to move it, Shift click on a river adds one, Del removes the chosen point. The bed the brush carved stays; widen the banks with the terrain tools.</p>
+    } @else if (mode() === 'fill') {
       <p class="td-note">A click into a hollow floods every connected spot below the level. A body without water takes the hollow's rim as its level.</p>
     } @else {
       @if (mode() === 'lake') {
@@ -112,7 +147,73 @@ export class WaterPanelComponent {
     this.session.patchSettings((s) => (s.water.body = index));
   }
 
-  setMode(mode: 'fill' | 'lake' | 'paint' | 'erase'): void {
+  readonly river = computed(() => (this.session.settingsRev(), this.session.settings.water.river));
+  readonly rivers = computed(() => {
+    this.session.docRev();
+    return (this.session.doc?.terrain.rivers ?? []).map((r, index) => ({
+      index,
+      kind: r.kind,
+      points: r.points.length,
+      length: Math.round(riverLength(r)),
+    }));
+  });
+  readonly chosenRiver = computed(() => {
+    this.session.docRev();
+    const r = this.session.doc?.terrain.rivers?.[this.river()];
+    return r ? { kind: r.kind, width: Math.round(meanWidth(r)) } : null;
+  });
+
+  chooseRiver(index: number): void {
+    this.session.patchSettings((s) => {
+      s.water.river = index;
+      s.water.riverPoint = -1;
+    });
+    const r = this.session.doc?.terrain.rivers?.[index];
+    if (r) this.session.viewport?.focusOn(r.points[Math.floor(r.points.length / 2)], Math.max(60, riverLength(r) / 2));
+  }
+
+  setRiverWidth(width: number): void {
+    this.editRiver('River width', (r) => setMeanWidth(r, width));
+  }
+
+  setRiverKind(kind: 'water' | 'lava'): void {
+    this.editRiver(kind === 'lava' ? 'Lava flow' : 'River', (r) => (r.kind = kind));
+  }
+
+  recarve(): void {
+    const editor = this.session.editor;
+    const river = this.session.doc?.terrain.rivers?.[this.river()];
+    if (!editor || !river) return;
+    const stroke = new LandscapeStroke(editor, 'Carve the river bed', 1, this.session.catalog());
+    recarveRiver(stroke, river);
+    stroke.finish();
+    this.session.refresh();
+  }
+
+  simplify(): void {
+    this.editRiver('Fewer river points', (r) => simplifyRiver(r, Math.max(1.5, meanWidth(r) / 6)));
+    this.session.patchSettings((s) => (s.water.riverPoint = -1));
+  }
+
+  removeRiver(): void {
+    const editor = this.session.editor;
+    const index = this.river();
+    if (!editor || index < 0) return;
+    this.session.execute(riverEdit(editor, 'Remove river', (rivers) => rivers.splice(index, 1)));
+    this.session.patchSettings((s) => {
+      s.water.river = -1;
+      s.water.riverPoint = -1;
+    });
+  }
+
+  private editRiver(label: string, edit: (r: MapRiver) => void): void {
+    const editor = this.session.editor;
+    const index = this.river();
+    if (!editor || index < 0) return;
+    this.session.execute(riverEdit(editor, label, (rivers) => rivers[index] && edit(rivers[index])));
+  }
+
+  setMode(mode: 'fill' | 'lake' | 'paint' | 'erase' | 'river'): void {
     this.session.patchSettings((s) => (s.water.mode = mode));
   }
 

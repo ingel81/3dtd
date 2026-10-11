@@ -328,6 +328,59 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
   return { line, river, bridges, waterfalls, heights: rect, splat };
 }
 
+/**
+ * Carves the bed of an existing river again along its points (after they
+ * were moved): deep in the middle, a soft bank up to the land, as the brush
+ * does, the surface and widths from the points. Returns the changed rect.
+ */
+export function recarveRiver(stroke: LandscapeStroke, river: MapRiver, depth = DEFAULT_RIVER.depth, bankWidth = DEFAULT_RIVER.bank): GridRect | null {
+  const t = stroke.doc.terrain;
+  const g = t.grid;
+  const pts = river.points;
+  if (pts.length < 2) return null;
+  const along: number[] = [0];
+  for (let k = 1; k < pts.length; k++) along.push(along[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
+  const at = (s: number, key: 'width' | 'height') => {
+    let k = 1;
+    while (k < pts.length - 1 && along[k] < s) k++;
+    const f = Math.min(1, Math.max(0, (s - along[k - 1]) / Math.max(1e-6, along[k] - along[k - 1])));
+    return pts[k - 1][key] + (pts[k][key] - pts[k - 1][key]) * f;
+  };
+  const reach = Math.max(...pts.map((q) => q.width)) / 2 + bankWidth * 1.4;
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  const rect: GridRect = {
+    i0: Math.max(0, Math.floor((Math.min(...xs) - reach + t.width / 2) / g.cellSize)),
+    i1: Math.min(g.columns - 1, Math.ceil((Math.max(...xs) + reach + t.width / 2) / g.cellSize)),
+    j0: Math.max(0, Math.floor((Math.min(...ys) - reach + t.depth / 2) / g.cellSize)),
+    j1: Math.min(g.rows - 1, Math.ceil((Math.max(...ys) + reach + t.depth / 2) / g.cellSize)),
+  };
+  stroke.touchHeights(rect);
+  for (let j = rect.j0; j <= rect.j1; j++) {
+    const y = sampleY(t, j);
+    for (let i = rect.i0; i <= rect.i1; i++) {
+      const x = sampleX(t, i);
+      const hit = nearestOnPolyline(pts, { x, y });
+      if (!hit) continue;
+      const h = at(hit.along, 'width') / 2;
+      const d = hit.dist;
+      if (d >= h + bankWidth) continue;
+      const k = j * g.columns + i;
+      const base = stroke.baseHeight(i, j);
+      const level = at(hit.along, 'height');
+      if (d < h) {
+        const deep = Math.pow(1 - smooth(0.2, 1, d / h), 1.3);
+        g.heights[k] = Math.min(base, level - 0.25 - depth * deep);
+      } else {
+        const shore = level + 0.35;
+        g.heights[k] = shore + (base - shore) * smooth(0, 1, (d - h) / bankWidth);
+      }
+    }
+  }
+  stroke.changed({ heights: rect, water: true });
+  return rect;
+}
+
 /** Splits every road the river crosses and makes the crossing stretch a bridge; returns how many */
 export function bridgeCrossings(stroke: LandscapeStroke, river: readonly MapPoint[], span: number): number {
   const paths = stroke.doc.paths;

@@ -19,7 +19,7 @@ const catalog = new CatalogIndex(
 
 function setup(mode: SymmetryMode): { ed: EditorDocument; ctx: ToolContext } {
   const ed = new EditorDocument(createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, cellSize: 4, now: new Date(0) }));
-  const overlay = { setDraft: () => undefined, setGizmo: () => undefined, setNodesVisible: () => undefined, setPreview: () => undefined, transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined } } as unknown as EditorOverlay;
+  const overlay = { setDraft: () => undefined, setGizmo: () => undefined, setNodesVisible: () => undefined, setRiverHandles: () => undefined, setPreview: () => undefined, transform: { hide: () => undefined, setKind: () => undefined, place: () => undefined, highlight: () => undefined } } as unknown as EditorOverlay;
   const settings = defaultSettings();
   settings.symmetry = mode;
   const ctx: ToolContext = {
