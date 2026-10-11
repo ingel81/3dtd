@@ -215,61 +215,75 @@ const GRASS_BEGIN = /* glsl */ `
 // The blade's spot in the world, folded into the tile around the focus
 vec2 sceneXZ = uGrassCenter + mod(aBladeOffset - uGrassCenter, vec2(uGrassTile)) - 0.5 * uGrassTile;
 vec2 mapPos = vec2(-sceneXZ.x, sceneXZ.y);
-vec2 uvMap = mapPos / uGrassMapSize + 0.5;
-vec4 s0 = texture2D(uGrassSplat0, uvMap);
-vec4 s1 = texture2D(uGrassSplat1, uvMap);
-float total = dot(s0, vec4(1.0)) + dot(s1, vec4(1.0));
-float grass = (dot(s0, uGrassMask0) + dot(s1, uGrassMask1)) / max(total, 1e-3);
-vec2 pm = texture2D(uGrassPath, uvMap).rg;
-grass *= 1.0 - max(pm.r, pm.g);
-// No grass on steep ground or outside the map
-float hx = terrainHeightAt(mapPos + vec2(1.0, 0.0)) - terrainHeightAt(mapPos - vec2(1.0, 0.0));
-float hy = terrainHeightAt(mapPos + vec2(0.0, 1.0)) - terrainHeightAt(mapPos - vec2(0.0, 1.0));
-float slope = length(vec2(hx, hy)) * 0.5;
-grass *= smoothstep(0.9, 0.5, slope);
-grass *= step(abs(mapPos.x), uGrassMapSize.x * 0.5) * step(abs(mapPos.y), uGrassMapSize.y * 0.5);
-// None in footprints of buildings, structures, rocks and pools, nor under water, lava or ice
-grass *= 1.0 - smoothstep(0.25, 0.6, grassCovered(mapPos));
 // Towards a circle inside the tile: fewer blades (each drops out at its own threshold), and shorter
 float edge = length(sceneXZ - uGrassCenter) / (0.5 * uGrassTile);
 float fade = 1.0 - smoothstep(0.3, 0.88, edge);
-float keep = smoothstep(0.45, 0.8, grass) * smoothstep(0.0, 0.25, fade - fract(aBladeRand.x * 7.31 + aBladeRand.y * 3.17));
-keep *= 0.4 + 0.6 * fade;
-float bladeHeight = (0.35 + aBladeRand.y * 0.45) * keep;
-float bladeWidth = (0.07 + aBladeRand.z * 0.05) * sqrt(keep);
-// Turned at random, bent by its own lean and the wind
-float a = aBladeRand.x * 6.2832;
-vec2 dir = vec2(cos(a), sin(a));
-float t = position.y;
-vec3 transformed = vec3(dir.x * position.x * bladeWidth, t * bladeHeight, dir.y * position.x * bladeWidth);
-float gust = sin(uGrassTime * 1.3 + dot(sceneXZ, vec2(0.11, 0.07))) * 0.5 + 0.5;
-vec2 sway = vec2(0.8, 0.3) * (0.15 + 0.35 * gust) + vec2(sin(uGrassTime * 2.7 + aBladeRand.w * 20.0), cos(uGrassTime * 2.1 + aBladeRand.w * 13.0)) * 0.08;
-vec2 lean = vec2(-dir.y, dir.x) * (aBladeRand.w - 0.5) * 0.5;
-transformed.xz += (lean + sway) * t * t * bladeHeight;
-transformed += vec3(sceneXZ.x, terrainHeightAt(mapPos), sceneXZ.y);
-// The ground's colour here: the grass layers' averages by splat weight, with the terrain's macro
-// variation and grading (terrain-material.ts), so blades match the painted ground under them
-vec3 ground = vec3(0.0);
-float gw = 0.0;
-for (int k = 0; k < 4; k++) {
-  ground += uGrassColors[k] * s0[k] * uGrassMask0[k] + uGrassColors[k + 4] * s1[k] * uGrassMask1[k];
-  gw += s0[k] * uGrassMask0[k] + s1[k] * uGrassMask1[k];
+float keepEdge = smoothstep(0.0, 0.25, fade - fract(aBladeRand.x * 7.31 + aBladeRand.y * 3.17));
+bool onMap = abs(mapPos.x) <= uGrassMapSize.x * 0.5 && abs(mapPos.y) <= uGrassMapSize.y * 0.5;
+// A dropped blade: every vertex on one point, so its triangles draw nothing. The checks run cheapest
+// first and the rest only for blades that stay (a third of the tile lies outside the circle, roads and
+// bare ground have none): splat and path mask, then the terrain, then the cover
+vec3 transformed = vec3(sceneXZ.x, -1e4, sceneXZ.y);
+vBladeColor = vec3(0.0);
+float grass = 0.0;
+vec4 s0 = vec4(0.0);
+vec4 s1 = vec4(0.0);
+if (keepEdge > 0.0 && onMap) {
+  vec2 uvMap = mapPos / uGrassMapSize + 0.5;
+  s0 = texture2D(uGrassSplat0, uvMap);
+  s1 = texture2D(uGrassSplat1, uvMap);
+  float total = dot(s0, vec4(1.0)) + dot(s1, vec4(1.0));
+  grass = (dot(s0, uGrassMask0) + dot(s1, uGrassMask1)) / max(total, 1e-3);
+  vec2 pm = texture2D(uGrassPath, uvMap).rg;
+  grass *= 1.0 - max(pm.r, pm.g);
 }
-ground /= max(gw, 1e-3);
-float n1 = valueNoise(mapPos * 0.017);
-float n2 = valueNoise(mapPos * 0.0041 + 17.0);
-float n3 = valueNoise(mapPos * 0.11);
-ground *= mix(0.86, 1.1, n1 * 0.6 + n2 * 0.4) * mix(0.93, 1.06, n3);
-ground = mix(ground, ground * vec3(1.1, 1.04, 0.8), smoothstep(0.5, 0.85, n2) * 0.5);
-ground = mix(ground, ground * vec3(0.84, 0.92, 0.95), smoothstep(0.45, 0.15, n1) * 0.6);
-ground *= mix(vec3(1.0), vec3(0.86, 1.04, 0.92), smoothstep(0.0, 0.08, ground.g - max(ground.r, ground.b)));
-ground = mix(vec3(dot(ground, vec3(0.299, 0.587, 0.114))), ground, 0.94);
-// The ground's texture AO darkens it a little on average
-ground *= 0.94;
-// Darker root, lighter tip, each blade a little different; the same brightness as the ground on
-// average, and flatter with distance, where single blades are below a pixel
-float near = 1.0 - smoothstep(25.0, 110.0, length((modelViewMatrix * vec4(transformed, 1.0)).xyz));
-float shade = mix(0.78, 1.18, smoothstep(0.0, 0.8, t)) * (0.94 + aBladeRand.z * 0.12);
-vec3 dry = mix(vec3(1.0), vec3(1.1, 1.04, 0.82), step(0.85, aBladeRand.y));
-vBladeColor = ground * mix(vec3(1.0), dry * shade, near);
+float ground0 = 0.0;
+if (grass > 0.45) {
+  // No grass on steep ground (forward differences over a metre)
+  ground0 = terrainHeightAt(mapPos);
+  vec2 rise = vec2(terrainHeightAt(mapPos + vec2(1.0, 0.0)), terrainHeightAt(mapPos + vec2(0.0, 1.0))) - ground0;
+  grass *= smoothstep(0.9, 0.5, length(rise));
+  // None in footprints of buildings, structures, rocks and pools, nor under water, lava or ice
+  if (grass > 0.45) grass *= 1.0 - smoothstep(0.25, 0.6, grassCovered(mapPos));
+}
+float keep = smoothstep(0.45, 0.8, grass) * keepEdge * (0.4 + 0.6 * fade);
+if (keep > 0.0) {
+  float bladeHeight = (0.35 + aBladeRand.y * 0.45) * keep;
+  float bladeWidth = (0.07 + aBladeRand.z * 0.05) * sqrt(keep);
+  // Turned at random, bent by its own lean and the wind
+  float a = aBladeRand.x * 6.2832;
+  vec2 dir = vec2(cos(a), sin(a));
+  float t = position.y;
+  transformed = vec3(dir.x * position.x * bladeWidth, t * bladeHeight, dir.y * position.x * bladeWidth);
+  float gust = sin(uGrassTime * 1.3 + dot(sceneXZ, vec2(0.11, 0.07))) * 0.5 + 0.5;
+  vec2 sway = vec2(0.8, 0.3) * (0.15 + 0.35 * gust) + vec2(sin(uGrassTime * 2.7 + aBladeRand.w * 20.0), cos(uGrassTime * 2.1 + aBladeRand.w * 13.0)) * 0.08;
+  vec2 lean = vec2(-dir.y, dir.x) * (aBladeRand.w - 0.5) * 0.5;
+  transformed.xz += (lean + sway) * t * t * bladeHeight;
+  transformed += vec3(sceneXZ.x, ground0, sceneXZ.y);
+  // The ground's colour here: the grass layers' averages by splat weight, with the terrain's macro
+  // variation and grading (terrain-material.ts), so blades match the painted ground under them
+  vec3 ground = vec3(0.0);
+  float gw = 0.0;
+  for (int k = 0; k < 4; k++) {
+    ground += uGrassColors[k] * s0[k] * uGrassMask0[k] + uGrassColors[k + 4] * s1[k] * uGrassMask1[k];
+    gw += s0[k] * uGrassMask0[k] + s1[k] * uGrassMask1[k];
+  }
+  ground /= max(gw, 1e-3);
+  float n1 = valueNoise(mapPos * 0.017);
+  float n2 = valueNoise(mapPos * 0.0041 + 17.0);
+  float n3 = valueNoise(mapPos * 0.11);
+  ground *= mix(0.86, 1.1, n1 * 0.6 + n2 * 0.4) * mix(0.93, 1.06, n3);
+  ground = mix(ground, ground * vec3(1.1, 1.04, 0.8), smoothstep(0.5, 0.85, n2) * 0.5);
+  ground = mix(ground, ground * vec3(0.84, 0.92, 0.95), smoothstep(0.45, 0.15, n1) * 0.6);
+  ground *= mix(vec3(1.0), vec3(0.86, 1.04, 0.92), smoothstep(0.0, 0.08, ground.g - max(ground.r, ground.b)));
+  ground = mix(vec3(dot(ground, vec3(0.299, 0.587, 0.114))), ground, 0.94);
+  // The ground's texture AO darkens it a little on average
+  ground *= 0.94;
+  // Darker root, lighter tip, each blade a little different; the same brightness as the ground on
+  // average, and flatter with distance, where single blades are below a pixel
+  float near = 1.0 - smoothstep(25.0, 110.0, length((modelViewMatrix * vec4(transformed, 1.0)).xyz));
+  float shade = mix(0.78, 1.18, smoothstep(0.0, 0.8, t)) * (0.94 + aBladeRand.z * 0.12);
+  vec3 dry = mix(vec3(1.0), vec3(1.1, 1.04, 0.82), step(0.85, aBladeRand.y));
+  vBladeColor = ground * mix(vec3(1.0), dry * shade, near);
+}
 `;
