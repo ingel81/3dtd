@@ -477,6 +477,30 @@ def hull_panels(size, seed):
     return img
 
 
+def stripes(size, colours, bands=8):
+    """Woven tent cloth in coloured stripes with a coarse weave"""
+    rnd = np.random.default_rng(len(colours) * 7 + bands)
+    arr = np.zeros((size, size, 3), np.float32)
+    for k in range(bands):
+        arr[:, k * size // bands:(k + 1) * size // bands] = colours[k % len(colours)]
+    weave = ndimage.gaussian_filter(rnd.random((size, size)), 1.2)
+    weave = (weave - weave.min()) / (weave.max() - weave.min())
+    arr *= (0.82 + 0.3 * weave)[..., None]
+    return Image.fromarray(arr.clip(0, 255).astype(np.uint8), 'RGB')
+
+
+def fishing_net(size, cells=10):
+    """Knotted net of dark twine on transparent ground"""
+    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    step = size / cells
+    for k in range(-cells, 2 * cells + 1):
+        x = k * step
+        draw.line([(x, 0), (x + size, size)], fill=(70, 62, 48, 255), width=2)
+        draw.line([(x, size), (x + size, 0)], fill=(70, 62, 48, 255), width=2)
+    return bleed(img)
+
+
 def chainlink(size, cells=8):
     """Chain-link mesh: galvanised wire diamonds on transparent ground (one tile = 1 m at uv 1)"""
     img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
@@ -585,6 +609,8 @@ def main():
     hazard_stripes(256).save(os.path.join(out, 'hazard.jpg'), quality=90)
     gold_foil(512, 41).save(os.path.join(out, 'gold-foil.jpg'), quality=90)
     hull_panels(512, 43).save(os.path.join(out, 'hull-panels.jpg'), quality=90)
+    stripes(512, [(150, 40, 30), (225, 205, 165), (40, 60, 110), (225, 205, 165)]).save(os.path.join(out, 'tent-stripes.jpg'), quality=90)
+    save(fishing_net(256), 'net.png')
     print('foliage ok', file=sys.stderr)
 
 

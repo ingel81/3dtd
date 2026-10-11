@@ -449,6 +449,40 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | oasis-pool | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/sandstone_cracks |
 | desert-temple | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/sandstone_cracks |
 | tent-nomad | procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/hessian_230 |
+| house-stone-balcony | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/castle_wall_slates |
+| house-stone-balcony-snow | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/snow_02 |
+| chapel-mountain | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/weathered_planks |
+| chapel-mountain-snow | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/snow_02 |
+| retaining-wall | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/rock_wall_10; https://polyhaven.com/a/castle_wall_slates |
+| retaining-wall-curve | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/rock_wall_10; https://polyhaven.com/a/castle_wall_slates |
+| cablecar-station | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_slates_02 |
+| cablecar-pylon | procedural (tools/map-assets/build_levels.py) |
+| cablecar-gondola | procedural (tools/map-assets/build_levels.py) |
+| boardwalk-lantern | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow |
+| witch-hut | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/stacked_stone_wall |
+| boat-rotten | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks |
+| rowboat | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks |
+| fishing-boat | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/dark_planks; Netz gezeichnet (make_foliage.py) |
+| temple-ruin | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/sandstone_cracks |
+| caravan-tent | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/dark_planks; Streifenstoff gezeichnet (make_foliage.py) |
+| camel-saddle | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230; Streifenstoff gezeichnet |
+| trade-goods | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/patterned_clay_wall; Streifenstoff gezeichnet |
+| harbor-quay | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/castle_wall_slates |
+| harbor-crane | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks |
+| jetty | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow |
+| fisher-hut | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/bark_willow; Netz gezeichnet |
+| buoy-red | procedural (tools/map-assets/build_levels.py) |
+| buoy-green | procedural (tools/map-assets/build_levels.py) |
+| sled | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks |
+| woodpile-snow | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/bark_brown_02; https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/snow_02 |
+| ice-fishing-hut | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/snow_02 |
+| obsidian-slabs | procedural (tools/map-assets/build_levels.py) |
+| lava-bridge | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/dark_rock_02 |
+| forge | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/roof_planks |
+| castle-ruin-corner | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/mossy_stone_wall; Efeu https://ambientcg.com/view?id=LeafSet029 |
+| keep-ruin | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029 |
+| gate-ruin | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/mossy_stone_wall |
+| leaf-pile | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/leaves_forest_ground; Blätter https://ambientcg.com/view?id=LeafSet027, LeafSet028 |
 | fx-fireflies | Effekt des Renderers, kein Modell |
 | fx-smoke | Effekt des Renderers, kein Modell |
 | fx-embers | Effekt des Renderers, kein Modell |
