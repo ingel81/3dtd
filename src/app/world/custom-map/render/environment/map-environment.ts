@@ -34,11 +34,11 @@ import { WeatherLayer } from './weather';
 /**
  * Sky, sun, fill light and fog of a custom map, from its MapEnvironment.
  *
- * - Sky: an equirectangular gradient with sun glow, computed on the CPU
- *   (no sky mesh, so nothing to get wrong with the log depth buffer and the
- *   LOS cube, which saves and restores `scene.background`). It is the
- *   background and, prefiltered (PMREM), the environment map that lights
- *   and reflects on every standard material.
+ * - Sky: an equirectangular gradient with sun glow, computed on the CPU;
+ *   prefiltered (PMREM), the environment map that lights and reflects on
+ *   every standard material. What shows is the SkyDome; the background is
+ *   a plain clear in the haze's colour behind it (the LOS cube saves and
+ *   restores `scene.background`).
  * - Sun: a directional light with a shadow map; its shadow box follows a
  *   focus point (`focus`), the camera's target in the game and editor.
  * - Hemisphere light for sky and ground bounce, exponential fog in the
@@ -97,6 +97,8 @@ export class CustomMapEnvironment {
   private previousShadowAuto: boolean | null = null;
   private scene: Scene | null = null;
   private renderer: WebGLRenderer | null = null;
+  /** The scene's background: a plain clear in the haze's colour, the dome over it */
+  private readonly backdrop = new Color();
   private previous: {
     background: Scene['background'];
     environment: Scene['environment'];
@@ -181,6 +183,8 @@ export class CustomMapEnvironment {
     else if (p.particles) this.weather.set(p.particles, p.particles === 'snow' ? 0.25 : 0.5, 1 - this.darkness * 0.85);
     else this.weather.set('clear', 0, 1);
     HEIGHT_FOG_UNIFORMS.uFogDensity.value = this.fog.density;
+    // The clear behind the dome follows the haze (the scene holds this Color)
+    this.backdrop.copy(this.fog.color);
     // Clear air before the haze: shorter in fog weather and in a swamp
     HEIGHT_FOG_UNIFORMS.uFogStart.value = weather === 'fog' ? 450 * (1 - 0.85 * k) : env.biome === 'swamp' ? 120 : 450;
     // Snow on everything facing up, wetness in rain (and a little in a swamp)
@@ -373,7 +377,9 @@ export class CustomMapEnvironment {
     const renderer = this.renderer;
     if (!scene || !renderer) return;
     const p = this.look();
-    scene.background = this.sky;
+    // The dome draws the visible sky (sky-dome.ts); behind it only a clear in the horizon's haze,
+    // not the equirect sky as a second full-screen pass (review 2026-10-11)
+    scene.background = this.backdrop.copy(this.fog.color);
     this.envDirty = true;
     if (!this.pmrem) {
       // PMREM links its programs (equirect to cube, GGX) on first use, synchronously: 280 to 500 ms

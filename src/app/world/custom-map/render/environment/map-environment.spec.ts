@@ -1,6 +1,7 @@
-import { Vector3, type WebGLRenderer } from 'three';
+import { Color, Vector3, type WebGLRenderer } from 'three';
 import { describe, expect, it } from 'vitest';
 import { CustomMapEnvironment } from './map-environment';
+import { SkyDome } from './sky-dome';
 
 const env = { sky: 'day' as const, sunAzimuth: 200, sunElevation: 40, fogDensity: 0.001, tint: '#ffffff' };
 
@@ -67,5 +68,28 @@ describe('sky and shadow box (review 2026-10-11)', () => {
     const steps = [200, 201, 203.5, 207].map((r) => e.focus(at, r));
     expect(new Set(steps).size).toBe(1);
     expect(e.focus(at, 300)).toBeGreaterThan(steps[0]);
+  });
+});
+
+describe('one full-screen sky (review 2026-10-11)', () => {
+  it('draws the dome last of the opaques, depth-tested and without a fragment depth', () => {
+    const dome = new SkyDome();
+    const m = dome.mesh.material;
+    expect(dome.mesh.renderOrder).toBe(1e6);
+    expect([m.depthTest, m.depthWrite, m.transparent]).toEqual([true, false, false]);
+    // logdepthbuf chunks write gl_FragDepth, which turns early-z off
+    expect(m.vertexShader + m.fragmentShader).not.toContain('#include <logdepthbuf');
+  });
+
+  it('clears behind the dome in the haze colour, which follows the sky', () => {
+    const e = new CustomMapEnvironment(env);
+    const backdrop = (e as unknown as { backdrop: Color }).backdrop;
+    const fog = e.fog;
+    e.set({ ...env, sky: 'dusk' });
+    expect(backdrop.getHex()).toBe(fog.color.getHex());
+    const dusk = backdrop.getHex();
+    e.set({ ...env, sky: 'day' });
+    expect(backdrop.getHex()).toBe(fog.color.getHex());
+    expect(backdrop.getHex()).not.toBe(dusk);
   });
 });

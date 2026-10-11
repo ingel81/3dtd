@@ -3,15 +3,19 @@ import { SHADER_NOISE } from '../shader-noise';
 import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS } from './height-fog';
 
 /**
- * The visible sky: a dome around the camera drawn first, without depth test,
- * with a gradient from horizon haze to zenith, the sun with its glow and
- * procedural clouds (two fbm layers drifting with the wind, lit from the
- * sun's side, thinning towards the horizon where the haze takes over).
+ * The visible sky: a dome around the camera with a gradient from horizon
+ * haze to zenith, the sun with its glow and procedural clouds (two fbm
+ * layers drifting with the wind, lit from the sun's side, thinning towards
+ * the horizon where the haze takes over).
  *
- * The equirect sky of CustomMapEnvironment stays the background behind it
- * and the source of the environment light; the dome only adds what a low
- * resolution texture cannot show (crisp clouds, a sharp sun). It is a
- * sibling of the map, so the LOS cube hides it.
+ * Drawn last of the opaque objects, on the far plane and with the depth
+ * test (review 2026-10-11): its noise runs only where no ground or object
+ * stands, and early-z keeps the covered pixels out. It writes no depth of
+ * its own (no logdepthbuf chunks: a fragment depth would turn early-z off;
+ * the vertex puts it on the far plane, behind every logarithmic depth the
+ * map writes). The equirect sky of CustomMapEnvironment is only the source
+ * of the environment light, no longer a second full-screen pass behind it.
+ * It is a sibling of the map, so the LOS cube hides it.
  */
 export class SkyDome {
   readonly mesh: Mesh<SphereGeometry, ShaderMaterial>;
@@ -40,7 +44,7 @@ export class SkyDome {
       vertexShader: SKY_VERTEX,
       fragmentShader: SKY_FRAGMENT,
       side: BackSide,
-      depthTest: false,
+      depthTest: true,
       depthWrite: false,
       fog: false,
     });
@@ -48,7 +52,8 @@ export class SkyDome {
     material.name = 'custom-map-sky';
     this.mesh = new Mesh(new SphereGeometry(1000, 48, 24), material);
     this.mesh.name = 'custom-map-sky';
-    this.mesh.renderOrder = -1e6;
+    // After every opaque object of the scene (three sorts opaques by renderOrder first)
+    this.mesh.renderOrder = 1e6;
     this.mesh.frustumCulled = false;
     this.mesh.userData['losTransparent'] = true;
   }
@@ -98,14 +103,13 @@ export class SkyDome {
 
 const SKY_VERTEX = /* glsl */ `
 #include <common>
-#include <logdepthbuf_pars_vertex>
 varying vec3 vDir;
 void main() {
   vDir = position;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  // On the far plane, never clipped by it (a camera with a short far plane still sees the sky)
+  // On the far plane, never clipped by it (a camera with a short far plane still sees the sky); no
+  // logdepthbuf chunks: this depth is the dome's, behind everything, and early-z stays on
   gl_Position.z = gl_Position.w * 0.99999;
-  #include <logdepthbuf_vertex>
 }
 `;
 
@@ -210,7 +214,6 @@ vec3 skyColor(vec3 dir, bool withSun) {
 
 const SKY_FRAGMENT = /* glsl */ `
 #include <common>
-#include <logdepthbuf_pars_fragment>
 varying vec3 vDir;
 
 ${SHADER_NOISE}
@@ -218,7 +221,6 @@ ${SKY_FUNCTIONS}
 ${HEIGHT_FOG_PARS}
 
 void main() {
-  #include <logdepthbuf_fragment>
   gl_FragColor = vec4(skyColor(normalize(vDir), true), 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
