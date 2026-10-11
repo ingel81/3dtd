@@ -24,9 +24,11 @@ export function uploadRect(texture: DataTexture, rect: TexelRect | undefined): v
     const i1 = Math.min(w - 1, rect.i1);
     const j1 = Math.min(h - 1, rect.j1);
     if (i1 < i0 || j1 < j0) return;
-    // A rectangle as wide as the texture is one contiguous range
-    if (i0 === 0 && i1 === w - 1) {
-      texture.addUpdateRange(j0 * w * 4, (j1 - j0 + 1) * w * 4);
+    // The whole texture goes up in one piece. three uploads each range as one
+    // row (texSubImage2D, height 1), so a range wider than a row is refused by
+    // WebGL: every other rectangle goes up row by row.
+    if (i0 === 0 && i1 === w - 1 && j0 === 0 && j1 === h - 1) {
+      texture.clearUpdateRanges();
     } else {
       for (let j = j0; j <= j1; j++) texture.addUpdateRange((j * w + i0) * 4, (i1 - i0 + 1) * 4);
     }
