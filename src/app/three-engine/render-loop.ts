@@ -59,10 +59,11 @@ export class RenderLoop {
    * Hidden-tab loop driver. Chrome freezes requestAnimationFrame outright
    * while a tab is not visible, so the render loop, and with it the bot, the
    * wave logic and every training episode, stops dead rather than slowing
-   * down. Opt in via `setBackgroundLoopEnabled(true)`; training does.
+   * down. Opt in via `setBackgroundLoopEnabled(true)`; training and a coop game do.
    */
   private heartbeatWorker: Worker | null = null;
-  private backgroundLoopEnabled = false;
+  /** Who wants the background loop ('training', 'coop'); it runs while any does */
+  private readonly backgroundReasons = new Set<string>();
   private onVisibilityChange: (() => void) | null = null;
   /** Shared between the rAF and heartbeat drivers so deltas stay continuous. */
   private lastLoopTime = 0;
@@ -102,13 +103,19 @@ export class RenderLoop {
   /**
    * Drive the loop from a worker timer while the tab is hidden.
    *
-   * Only training turns this on. The normal game has no reason to run in a
-   * tab nobody is looking at, and the browser's throttling is a feature there.
+   * Training turns this on, and a coop game: the relay drops a player whose
+   * lockstep stands for 30 s, a minimised window included (E136). The solo
+   * game has no reason to run in a tab nobody is looking at, and the browser's
+   * throttling is a feature there. Each `reason` switches on its own; the loop
+   * runs in the background while any of them is on.
    */
-  setBackgroundLoopEnabled(enabled: boolean): void {
-    if (this.backgroundLoopEnabled === enabled) return;
-    this.backgroundLoopEnabled = enabled;
-    if (!enabled) {
+  setBackgroundLoopEnabled(enabled: boolean, reason = 'training'): void {
+    const was = this.backgroundReasons.size > 0;
+    if (enabled) this.backgroundReasons.add(reason);
+    else this.backgroundReasons.delete(reason);
+    const now = this.backgroundReasons.size > 0;
+    if (was === now) return;
+    if (!now) {
       this.stopHeartbeat();
       if (this.onVisibilityChange) {
         document.removeEventListener('visibilitychange', this.onVisibilityChange);
@@ -123,7 +130,7 @@ export class RenderLoop {
 
   /** Pick the driver that actually ticks under the current visibility. */
   private syncLoopDriver(): void {
-    if (!this.backgroundLoopEnabled || !this.isRunning) {
+    if (this.backgroundReasons.size === 0 || !this.isRunning) {
       this.stopHeartbeat();
       return;
     }
@@ -249,7 +256,7 @@ export class RenderLoop {
    * loop picks the heartbeat up again.
    */
   dispose(): void {
-    this.setBackgroundLoopEnabled(false);
+    for (const reason of [...this.backgroundReasons]) this.setBackgroundLoopEnabled(false, reason);
     this.stop();
   }
 

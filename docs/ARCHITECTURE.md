@@ -1385,11 +1385,14 @@ Renderer. Einen Abruf beantwortet der Worker höchstens alle 33 ms (`MIN_PUBLISH
 Sekunde); dazwischen gleiten Gegner, Geschosse und Helden vom vorigen zum neuesten Stand
 (`three-engine/renderers/state-lerp.ts`, [SIM_WORKER.md](SIM_WORKER.md#datenfluss)).
 
-**Hintergrund-Tab (nur Training):** Mit `setBackgroundLoopEnabled(true)` ruft bei
+**Hintergrund-Tab (Training und Coop):** Mit `setBackgroundLoopEnabled(true, grund)` ruft bei
 verstecktem Tab ein Worker-Takt (`workers/heartbeat.worker.ts`, 16 ms) `update()` ohne
 `render()` auf, mit höchstens 50 ms pro Tick (`MAX_BACKGROUND_STEP_MS`). Solange der Worker
 läuft, ruft der rAF-Loop `update()` nicht. Ohne diesen Takt rechnet der Hauptthread im versteckten Tab keine
 Bilder und ruft keine Pakete ab; die Simulation wartet dann nach 250 ms (`MAX_AHEAD_MS`), das Spiel steht.
+Jeder Grund schaltet für sich: `'training'` (DevWorld, Probelauf, bei der Engine gesetzt) und `'coop'`
+(`CoopService`, solange das Coop-Spiel läuft, E136: das Relay wirft einen Spieler, dessen Lockstep 30 s steht).
+Solo bleibt die Drosselung des Browsers.
 
 **Frame-Cap (60 / 30 / unbegrenzt):** Spieler-Einstellung auf der Seite Settings des
 Menüs, persistiert von `DebugFacadeService` als `fpsLimit` in

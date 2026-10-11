@@ -119,6 +119,8 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
     corridorPending: () => false,
   });
   const los = { setRole: vi.fn() };
+  // The engine's loop: a coop game keeps it going in a hidden window (E136)
+  const renderLoop = { setBackgroundLoopEnabled: vi.fn() };
   const mirror = new SimMirror();
   // Going to another place in the page lands where it was asked to
   const locationChange = { applyNewLocation: vi.fn(async (data: { hq: { lat: number; lon: number } }) => hq.set({ lat: data.hq.lat, lon: data.hq.lon })) };
@@ -152,7 +154,7 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
       { provide: WorldContext, useValue: fakeWorldContext() },
       { provide: GameStore, useValue: { gameSpeed: signal(1), paused: signal(false) } },
       { provide: UIStore, useValue: { coopMapLocked: signal(false), notice: signal<UiNotice | null>(null), coopDockOpen: signal(false) } },
-      { provide: EngineInitializationService, useValue: { getEngine: () => ({}), loading: () => false } },
+      { provide: EngineInitializationService, useValue: { getEngine: () => ({ renderLoop }), loading: () => false } },
       { provide: LocationManagementService, useValue: { hq, spawns: signal(SPAWNS.map(({ lat, lon }) => ({ lat, lon }))), missionInfo: signal({ city: 'Stuttgart', country: 'Deutschland', address: 'Marktplatz 1' }) } },
       { provide: UrlLocationService, useValue: { urlFor: () => '/?l=48.7758,9.1829' } },
       { provide: PathAndRouteService, useValue: withAutoStubs({ getCachedPaths: () => new Map() }) },
@@ -170,7 +172,7 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
     const head = coopHead();
     if (head) runLog.collector.markCoop(head.players, head.you);
   });
-  return { coop, sim, los, mirror, hq, locationChange, closedRun, director, runs };
+  return { coop, sim, los, mirror, hq, locationChange, closedRun, director, runs, renderLoop };
 }
 
 /** Wait for `ok`, flushing effects, up to 15 s: under a loaded suite the sockets answer late */
@@ -445,6 +447,9 @@ describe('CoopService over a real relay (review R21)', () => {
     await until(() => host.coop.room()!.players.every((p) => p.ready || p.id === host.coop.room()!.hostId));
     host.coop.start();
     await until(() => host.coop.inGame() && guest.coop.inGame());
+    // A hidden window steps on in the game (E136)
+    TestBed.tick();
+    expect(guest.renderLoop.setBackgroundLoopEnabled).toHaveBeenLastCalledWith(true, 'coop');
     // The simulation runs the room's roster
     guest.mirror.applyState(packet({ scalars: { players: guest.coop.roster().map((p) => p.id), localPlayerId: guest.coop.playerId()! } }));
     await relay!.close();
@@ -455,6 +460,8 @@ describe('CoopService over a real relay (review R21)', () => {
     expect(guest.sim.configure).toHaveBeenCalledWith({ playersLeft: expect.arrayContaining([host.coop.playerId()]) });
     expect(guest.los.setRole).toHaveBeenLastCalledWith('render');
     expect(guest.coop.status()).toBe('off');
+    TestBed.tick();
+    expect(guest.renderLoop.setBackgroundLoopEnabled).toHaveBeenLastCalledWith(false, 'coop');
   });
 
   it('leaves the room when its simulation failed, so the host does not wait for this seat', async () => {

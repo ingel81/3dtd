@@ -242,6 +242,10 @@ function createWindow() {
       webSecurity: true,
       // Music may start before the first click, as in any installed game.
       autoplayPolicy: 'no-user-gesture-required',
+      // A coop game drives its lockstep from a worker timer while the window
+      // is hidden; Chromium must not slow the page's timers down meanwhile,
+      // or the relay drops the player after 30 s (E136).
+      backgroundThrottling: false,
       additionalArguments: [`--desktop-version=${version}`],
     },
   });

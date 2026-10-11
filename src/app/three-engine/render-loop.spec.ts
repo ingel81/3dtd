@@ -243,6 +243,30 @@ describe('RenderLoop', () => {
       expect(FakeWorker.instances).toHaveLength(1);
     });
 
+    it('läuft, solange ein Grund an ist: Coop aus lässt das Training stehen (E136)', () => {
+      const { loop } = setup();
+      loop.setBackgroundLoopEnabled(true);
+      loop.setBackgroundLoopEnabled(true, 'coop');
+      loop.start();
+      setHidden(true);
+      expect(FakeWorker.instances).toHaveLength(1);
+
+      loop.setBackgroundLoopEnabled(false, 'coop');
+      expect(FakeWorker.instances[0].terminate).not.toHaveBeenCalled();
+      loop.setBackgroundLoopEnabled(false);
+      expect(FakeWorker.instances[0].terminate).toHaveBeenCalledTimes(1);
+    });
+
+    it('Coop allein treibt den versteckten Tab (E136)', () => {
+      const { loop, hooks } = setup();
+      loop.setBackgroundLoopEnabled(true, 'coop');
+      loop.start();
+      setHidden(true);
+      vi.advanceTimersByTime(16);
+      FakeWorker.instances[0].tick();
+      expect(deltas(hooks.update)).toEqual([16]);
+    });
+
     it('stop() beendet auch den Worker', () => {
       const { loop } = setup();
       loop.setBackgroundLoopEnabled(true);

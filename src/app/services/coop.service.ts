@@ -610,6 +610,14 @@ export class CoopService {
       wasInRoom = inRoom;
       wasInGame = inGame;
     }, { injector: this.injector });
+    // A coop game keeps stepping in a hidden or minimised window: the relay
+    // drops a player whose lockstep stands for 30 s (E136). Read again once a
+    // load ends, so that an engine made after the start gets it too
+    effect(() => {
+      const on = this.inGame();
+      this.engineInit.loading();
+      untracked(() => this.engineInit.getEngine()?.renderLoop.setBackgroundLoopEnabled(on, 'coop'));
+    }, { injector: this.injector });
     // Host, lobby: a changed map goes to the room by itself
     effect(() => {
       const signature = this.mapSignature();
