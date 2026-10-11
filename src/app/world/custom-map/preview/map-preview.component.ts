@@ -3,6 +3,7 @@ import { PCFShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, Timer, Vector3,
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { PostProcessingPipeline } from '../../../three-engine/post-processing/post-processing-pipeline';
 import { createDemoMap } from '../demo-map';
+import { createAssetShowcase } from './asset-showcase';
 import { CustomMapView } from '../render/custom-map-view';
 import { MapAssetLibrary } from '../render/map-asset-library';
 import { mapToScene } from '../render/map-coords';
@@ -21,6 +22,7 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
   bridge: [-70, -15, 14, -36, 22, 0],
   edge: [-180, 60, 60, -330, 170, 0],
   falls: [110, -150, 18, 130, -108, 8],
+  showcase: [0, -150, 30, 0, -80, 0],
 };
 
 /**
@@ -28,7 +30,9 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
  * orbit camera and frame numbers. `?view=village` picks a camera spot
  * (VIEWS), `?seed=3` another demo map, `?sky=dusk` another sky preset,
  * `?weather=rain|snow|fog` (`&strength=0.7`), `?post=bloom` through the game's
- * post-processing chain. E2E probes read
+ * post-processing chain. `?showcase=winter` (a catalogue tag) or
+ * `?assets=tree-*,rock-large&materials=snow,ice` lines up catalogue assets on a
+ * flat map instead (asset-showcase.ts). E2E probes read
  * `window.__mapPreview` (view, renderer, stats).
  */
 @Component({
@@ -95,7 +99,17 @@ export class MapPreviewComponent implements OnDestroy {
     controls.enableDamping = true;
 
     const t0 = performance.now();
-    const doc = createDemoMap(Number(params.get('seed') ?? 7));
+    const showcase = params.get('showcase') ?? undefined;
+    const assets = params.get('assets')?.split(',');
+    const showMaterials = params.get('materials')?.split(',');
+    const doc =
+      showcase || assets || showMaterials
+        ? createAssetShowcase(await MapAssetLibrary.shared().catalog(), {
+            tag: showcase,
+            objects: assets,
+            materials: showMaterials,
+          })
+        : createDemoMap(Number(params.get('seed') ?? 7));
     const tGen = performance.now() - t0;
     const weather = params.get('weather');
     if (weather === 'rain' || weather === 'snow' || weather === 'fog') {
@@ -114,7 +128,7 @@ export class MapPreviewComponent implements OnDestroy {
     view.attach(scene);
     view.environment.apply(scene, renderer);
 
-    const spot = VIEWS[params.get('view') ?? 'overview'] ?? VIEWS['overview'];
+    const spot = VIEWS[params.get('view') ?? (doc.meta.id === 'asset-showcase' ? 'showcase' : 'overview')] ?? VIEWS['overview'];
     const lift = (x: number, y: number, h: number): Vector3 => mapToScene(x, y, view.heightAt(x, y) + h, new Vector3());
     camera.position.copy(lift(spot[0], spot[1], spot[2]));
     controls.target.copy(lift(spot[3], spot[4], spot[5]));
