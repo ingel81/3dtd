@@ -29,7 +29,14 @@
         <tr class="dm-examples td-note">
           <th scope="row">Enemies</th>
           @for (col of columns; track col.armor) {
-            <td>@for (name of col.examples; track name; let last = $last) {<span class="dm-enemy">{{ name }}{{ last ? '' : ',' }}</span> }</td>
+            <td>
+              <!-- One name a line, wrapping inside its column: in one run they ran into the next (TODO E146) -->
+              <ul class="dm-enemies" [attr.aria-label]="col.label + ' enemies'">
+                @for (name of col.examples; track name) {
+                  <li>{{ name }}</li>
+                }
+              </ul>
+            </td>
           }
         </tr>
         @for (row of rows(); track row.towerId) {

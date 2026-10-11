@@ -27,7 +27,7 @@ import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { ResearchStore } from '../../store/research.store';
 import { DamageMatrixDialogComponent } from './damage-matrix-dialog.component';
 import { openDamageMatrixDialog } from './open-damage-matrix-dialog';
-import { buildDamageMatrixRows } from './damage-matrix-table';
+import { buildDamageMatrixColumns, buildDamageMatrixRows } from './damage-matrix-table';
 
 const template = readFileSync(resolve('src/app/components/damage-matrix-dialog/damage-matrix-dialog.component.html'), 'utf8');
 
@@ -128,5 +128,16 @@ describe('Damage vs armor, logic of playtest 160 (night 1) replayed', () => {
     expect(dialog.openDialogs).toHaveLength(1);
     expect(overlay().querySelectorAll('tr.tower-row').length).toBeGreaterThan(0);
     expect(overlay().querySelectorAll('tr.is-selected')).toHaveLength(0);
+  });
+
+  it('lists the enemies of each armor one a line, every name in its own item (TODO E146)', async () => {
+    await openDamageMatrixDialog(dialog);
+    await settle();
+    const lists = [...overlay().querySelectorAll('.dm-examples ul.dm-enemies')];
+    const columns = buildDamageMatrixColumns();
+    expect(lists).toHaveLength(columns.length);
+    lists.forEach((list, i) => {
+      expect([...list.querySelectorAll('li')].map((li) => li.textContent!.trim())).toEqual(columns[i].examples);
+    });
   });
 });

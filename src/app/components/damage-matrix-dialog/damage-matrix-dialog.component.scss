@@ -45,7 +45,6 @@ tbody th {
   padding-top: 6px;
   padding-bottom: 8px;
   text-align: center;
-  text-wrap: balance;
 }
 
 .dm-examples th {
@@ -89,7 +88,15 @@ tbody th {
   margin-top: var(--td-sp-3);
 }
 
-/* An enemy's name never breaks across lines */
-.dm-enemy {
-  white-space: nowrap;
+/* The enemies of an armor, one a line; a long name wraps in its column */
+.dm-enemies {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
