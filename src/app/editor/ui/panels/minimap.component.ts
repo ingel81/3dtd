@@ -37,7 +37,8 @@ const PICTURE_EVERY_MS = 1200;
     </div>`,
   styles: [
     `:host { display: block; padding: 6px; } .mm-canvas { display: block; width: 200px; height: 200px; cursor: pointer; }
-     .mm-views { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; width: 200px; } .mm-view { width: 22px; font-size: var(--td-fs-small); } .mm-keep { margin-left: auto; }`,
+     .mm-views { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; width: 200px; } .mm-view { width: 22px; font-size: var(--td-fs-small); } .mm-keep { margin-left: auto; }
+     @media (max-height: 820px) { .mm-canvas { width: 150px; height: 150px; } .mm-views { width: 150px; } }`,
   ],
 })
 export class MinimapComponent implements OnDestroy {
