@@ -125,7 +125,7 @@
           }
         }
 
-        <h2 class="td-head mb-gap">Shipped maps</h2>
+        <h2 class="td-head mb-gap">Shipped maps <span class="td-note">open as a copy of your own</span></h2>
         @for (m of shipped(); track m.id) {
           <button class="td-row mb-row" type="button" role="option" [attr.aria-selected]="chosen()?.id === m.id && chosen()?.origin === 'shipped'"
                   (click)="choose(m)" [attr.data-map]="m.id">
@@ -138,7 +138,6 @@
               <span class="td-name">{{ m.name }}</span>
               <span class="td-sub">{{ line(m) }}</span>
             </span>
-            <span class="td-tag is-caps">Read only</span>
           </button>
         } @empty {
           <p class="td-note mb-empty">This build ships no maps.</p>
@@ -251,7 +250,10 @@
           }
           <div class="td-actions is-split">
             <div class="td-inline">
-              <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="busy()" (click)="duplicate(m)">Duplicate</button>
+              @if (m.origin === 'own') {
+                <!-- A shipped or received map is copied by its main button already -->
+                <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="busy()" (click)="duplicate(m)">Duplicate</button>
+              }
               <button class="td-btn-secondary td-btn-sm" type="button" (click)="downloadMap(m)">Download</button>
               @if (m.origin !== 'shipped') {
                 <button class="td-btn-danger td-btn-sm" type="button" (click)="remove(m)">Delete</button>
