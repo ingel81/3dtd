@@ -20,7 +20,7 @@ import { EditorSession } from '../editor-session.service';
           </button>
           @for (s of d.spawns; track s.id) {
             <button class="td-row ol-row" type="button" role="option" [attr.aria-selected]="isSel('spawn', s.id)" (click)="selectSpawn(s.id)">
-              <span class="td-trunc">Spawn {{ s.name }}</span><span class="td-muted td-num">{{ s.at }}</span>
+              <span class="td-trunc">{{ s.label }}</span><span class="td-muted td-num">{{ s.at }}</span>
             </button>
           }
         </div>
@@ -64,7 +64,7 @@ export class OutlinerComponent {
     const at = (p: { x: number; y: number }) => `${Math.round(p.x)}, ${Math.round(p.y)}`;
     return {
       hq: at(doc.hq),
-      spawns: doc.spawns.map((s) => ({ id: s.id, name: s.name, at: at(s) })),
+      spawns: doc.spawns.map((s) => ({ id: s.id, label: /spawn/i.test(s.name) ? s.name : `Spawn ${s.name}`, at: at(s) })),
       edges: doc.paths.edges.length,
       nodes: doc.paths.nodes.length,
       length: Math.round(length),

@@ -30,7 +30,6 @@ const THUMBNAIL_SIZE = 256;
 
 export interface ImportState {
   file: string;
-  share: number;
   step: string;
   report: W3xImportReport | null;
   error: string | null;
@@ -336,21 +335,14 @@ export class EditorSession implements OnDestroy {
   }
 
   private async importW3x(file: File): Promise<string | null> {
-    const state: ImportState = { file: file.name, share: 0, step: 'Reading the file', report: null, error: null };
+    const state: ImportState = { file: file.name, step: 'Converting the Warcraft map', report: null, error: null };
     this.importState.set(state);
-    const importer = await loadW3xImporter();
-    if (!importer) {
-      this.importState.set({ ...state, error: 'Warcraft 3 import is not part of this build yet.' });
-      return null;
-    }
     try {
-      const { doc, report } = await importer(await file.arrayBuffer(), {
-        fileName: file.name,
-        onProgress: (share, step) => this.importState.set({ ...state, share, step }),
-      });
+      const importer = await loadW3xImporter();
+      const { doc, report } = await importer(await file.arrayBuffer(), { fileName: file.name });
       doc.meta.id = await this.store.freeId(slugMapId(doc.meta.name || file.name.replace(/\.w3[xm]$/i, '')));
       await this.store.save(doc);
-      this.importState.set({ ...state, share: 1, step: 'Done', report });
+      this.importState.set({ ...state, step: 'Done', report });
       return doc.meta.id;
     } catch (e) {
       this.importState.set({ ...state, error: (e as Error).message });

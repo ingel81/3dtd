@@ -28,7 +28,7 @@
         <div class="td-inline mb-import-head">
           <strong class="td-trunc">{{ imp.file }}</strong>
           @if (!imp.error && !imp.report) {
-            <span class="td-note">{{ imp.step }}</span>
+            <span class="td-note"><span class="td-spin" aria-hidden="true"></span> {{ imp.step }}</span>
           }
           <button class="td-btn-ghost td-btn-sm" type="button" (click)="closeImport()">Close</button>
         </div>
@@ -46,8 +46,6 @@
               @for (line of imp.report.warnings; track $index) { <li class="td-note is-warn">{{ line }}</li> }
             </ul>
           }
-        } @else {
-          <span class="td-progress"><span [style.width.%]="imp.share * 100"></span></span>
         }
       </div>
     }
