@@ -14,6 +14,7 @@ const NO_CAPABILITIES: WorldCapabilities = {
   credentials: false,
   regenerate: false,
   destructible: false,
+  ownEnvironment: false,
   controls: 'environment',
 };
 

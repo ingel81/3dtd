@@ -1,5 +1,5 @@
 import { isDevMode } from '@angular/core';
-import type { Group, Matrix4, Object3D, PerspectiveCamera, WebGLRenderer } from 'three';
+import { type Group, type Matrix4, type Object3D, type PerspectiveCamera, Vector3, type WebGLRenderer } from 'three';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
 import type { RootLoadFailure } from '../../three-engine/tile-loading-tracker';
@@ -26,6 +26,7 @@ export const CUSTOM_MAP_CAPABILITIES: WorldCapabilities = {
   credentials: false,
   regenerate: false,
   destructible: false,
+  ownEnvironment: true,
   controls: 'environment',
 };
 
@@ -127,6 +128,8 @@ export class CustomMapWorld implements WorldProvider {
 
   private view: CustomMapView | null = null;
   private lastUpdate = 0;
+  private readonly focus = new Vector3();
+  private readonly lookDirection = new Vector3();
   private readonly firstGroundWaiters: (() => void)[] = [];
 
   constructor(
@@ -150,20 +153,26 @@ export class CustomMapWorld implements WorldProvider {
   async attach(ctx: WorldAttachContext): Promise<void> {
     if (isDevMode()) console.log(`[CustomMap] ${this.doc.meta.name} instead of 3D tiles`);
     // The renderer loads with the first map: the registry and the game start stay light without it
-    const [{ CustomMapView }, { MapAssetLibrary }] = await Promise.all([
+    const [{ CustomMapView }, { MapAssetLibrary }, { CustomMapEnvironment }] = await Promise.all([
       import('./render/custom-map-view'),
       import('./render/map-asset-library'),
+      import('./render/environment/map-environment'),
     ]);
-    const view = new CustomMapView(this.doc, this.assets ? this.assets() : MapAssetLibrary.shared());
+    const view = new CustomMapView(this.doc, this.assets ? this.assets() : MapAssetLibrary.shared(), {
+      anisotropy: ctx.renderer.capabilities.getMaxAnisotropy(),
+    });
     this.view = view;
     this.placeView();
-    ctx.scene.add(view.group);
-    view.setEnvironment(this.doc.environment);
+    // The group and the sight blockers as direct children of the scene: the LOS cube renders only the latter
+    view.attach(ctx.scene);
+    // The map's sky, sun with shadows, fill light and fog; the engine added none (capabilities.ownEnvironment)
+    CustomMapEnvironment.enableShadows(ctx.renderer);
+    view.environment.apply(ctx.scene, ctx.renderer);
     // Textures and models load behind the ground, which stands at once
     view.ready.catch((err) => console.warn('[CustomMap] assets did not load', err));
 
-    // Over the HQ at the scene origin, controls that raycast the map's ground
-    ctx.cameraRig.setupEnvironmentControls(ctx.scene, view.group);
+    // Over the HQ at the scene origin, controls that raycast the map's ground and objects
+    ctx.cameraRig.setupEnvironmentControls(ctx.scene, view.losBlockers);
 
     for (const waiter of this.firstGroundWaiters.splice(0)) waiter();
   }
@@ -184,7 +193,12 @@ export class CustomMapWorld implements WorldProvider {
     const now = performance.now();
     const dt = this.lastUpdate ? Math.min(0.25, (now - this.lastUpdate) / 1000) : 0;
     this.lastUpdate = now;
-    this.view?.update(dt, camera);
+    if (!this.view) return;
+    // The sun's shadow box around the ground the camera looks at
+    camera.getWorldPosition(this.focus);
+    camera.getWorldDirection(this.lookDirection);
+    if (!this.surface.groundAlong(this.focus, this.lookDirection, this.focus)) camera.getWorldPosition(this.focus);
+    this.view.update(dt, camera, this.focus);
   }
 
   resize(_camera: PerspectiveCamera, _renderer: WebGLRenderer): void {
@@ -195,9 +209,9 @@ export class CustomMapWorld implements WorldProvider {
     // no queues to widen
   }
 
-  /** The view's whole group, a direct child of the scene (the TowerShadowMapper hides every other child) */
+  /** Terrain and sight-blocking objects, a direct child of the scene (the TowerShadowMapper hides every other child) */
   losBlockers(): Object3D | null {
-    return this.view?.group ?? null;
+    return this.view?.losBlockers ?? null;
   }
 
   sceneToEcef(_target: Matrix4): Matrix4 | null {
@@ -238,6 +252,8 @@ export class CustomMapWorld implements WorldProvider {
 
   /** The map's middle where the frame puts map (0, 0) */
   private placeView(): void {
-    this.view?.group.position.set(this.frame.sceneX(0), 0, this.frame.sceneZ(0));
+    if (!this.view) return;
+    this.view.group.position.set(this.frame.sceneX(0), 0, this.frame.sceneZ(0));
+    this.view.losBlockers.position.copy(this.view.group.position);
   }
 }

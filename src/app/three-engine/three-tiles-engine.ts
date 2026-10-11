@@ -102,7 +102,7 @@ export class ThreeTilesEngine {
   private postProcessing: PostProcessingPipeline | null = null;
 
   // Scene background, the image arrives after the constructor
-  private readonly sky: SkyBackground;
+  private readonly sky: SkyBackground | null = null;
   // Set by dispose(); preloadModels() skips the shader warm-up then
   private disposed = false;
   /** Puts the context's delete calls back (skipLostContextDeletes). */
@@ -281,11 +281,13 @@ export class ThreeTilesEngine {
       prerender: (camera) => this.prerender(camera),
     });
 
-    // Setup lighting and sky
-    addSceneLights(this.scene);
-    this.sky = new SkyBackground(this.renderer, this.scene);
-    // The sky cube is drawn once; a restored context comes back without its pixels
-    this.sky.convertAgainOnContextRestore(this.renderer.domElement);
+    // Lighting and sky, unless the world brings its own (a custom map installs them when it attaches)
+    if (!world.capabilities.ownEnvironment) {
+      addSceneLights(this.scene);
+      this.sky = new SkyBackground(this.renderer, this.scene);
+      // The sky cube is drawn once; a restored context comes back without its pixels
+      this.sky.convertAgainOnContextRestore(this.renderer.domElement);
+    }
 
     // Initialize entity renderers with coordinate sync adapter
     // Use geoToLocalSimple for consistency with raycast results
@@ -1138,7 +1140,7 @@ export class ThreeTilesEngine {
     }
 
     // The sky cube is the scene background, the traverse above does not reach it
-    this.sky.dispose();
+    this.sky?.dispose();
 
     // Dispose renderer
     this.renderer.dispose();

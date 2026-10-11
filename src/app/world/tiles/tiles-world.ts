@@ -31,6 +31,7 @@ export const TILES_CAPABILITIES: WorldCapabilities = {
   credentials: true,
   regenerate: false,
   destructible: false,
+  ownEnvironment: false,
   controls: 'globe',
 };
 

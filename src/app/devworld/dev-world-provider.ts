@@ -24,6 +24,7 @@ export const DEV_WORLD_CAPABILITIES: WorldCapabilities = {
   credentials: false,
   regenerate: true,
   destructible: false,
+  ownEnvironment: false,
   controls: 'environment',
 };
 

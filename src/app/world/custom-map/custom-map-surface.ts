@@ -192,6 +192,18 @@ export class CustomMapSurface implements WorldSurface {
     return new Vector3(this.hit.x + this.frame.sceneX(0), this.hit.y, this.hit.z + this.frame.sceneZ(0));
   }
 
+  /**
+   * First terrain hit of a scene-space ray from `origin` along `direction`,
+   * into `target` (may be `origin`); false when it misses. Allocation-free.
+   */
+  groundAlong(origin: Vector3, direction: Vector3, target: Vector3, maxDistance = 3000): boolean {
+    this.ray.origin.set(origin.x - this.frame.sceneX(0), origin.y, origin.z - this.frame.sceneZ(0));
+    this.ray.direction.copy(direction);
+    if (this.field.raycast(this.ray, this.hit, maxDistance) === null) return false;
+    target.set(this.hit.x + this.frame.sceneX(0), this.hit.y, this.hit.z + this.frame.sceneZ(0));
+    return true;
+  }
+
   /** Towers stand on the picked ground */
   roofAt(): number | null {
     return null;

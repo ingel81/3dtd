@@ -32,6 +32,11 @@ export interface WorldCapabilities {
   regenerate: boolean;
   /** Buildings can be destroyed (later) */
   destructible: boolean;
+  /**
+   * The world brings its own sky, lights and fog and installs them when it
+   * attaches (a custom map): the engine adds none of its own
+   */
+  ownEnvironment: boolean;
   /** Camera controls: around a globe or over a flat environment */
   controls: 'globe' | 'environment';
 }
