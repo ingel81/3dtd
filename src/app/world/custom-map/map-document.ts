@@ -10,6 +10,8 @@
  * work on it; `map-file.ts` packs it into a `.3dtdmap` file.
  */
 
+import type { MapLanes } from './lane-choice';
+
 export const MAP_FORMAT = '3dtd-map';
 /** 2: optional `gameplay` rules (version 1 files have none and read unchanged) */
 export const MAP_VERSION = 2;
@@ -173,6 +175,8 @@ export interface MapPaths {
 export interface MapSpawn extends MapPoint {
   id: string;
   name: string;
+  /** The player may close this lane before wave 1 (TODO E130); always open when missing */
+  optional?: boolean;
 }
 
 export interface MapEnvironment {
@@ -244,6 +248,8 @@ export interface MapGameplay {
   /** Tower type ids the player may build (configs/tower-types.config.ts); all when missing */
   towers?: string[];
   waves?: MapWaveSource;
+  /** How many lanes may be open, and what a coop room does with lanes nobody holds (lane-choice.ts) */
+  lanes?: MapLanes;
 }
 
 export interface CustomMapDocument {

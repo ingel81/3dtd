@@ -13,6 +13,7 @@
  * through `MAP_MIGRATIONS` first; a broken file fails with `MapFileError`
  * and a message that says what is wrong.
  */
+import { VACANT_LANES } from './lane-choice';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import { MAP_FORMAT, MAP_VERSION, type CustomMapDocument } from './map-document';
 import { MAP_ID_PATTERN } from './map-create';
@@ -365,6 +366,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   }
   for (const sp of doc.spawns) {
     if (!sp || !finite(sp.x) || !finite(sp.y)) p.push(`spawn ${sp.id} has no position`);
+    if (sp?.optional !== undefined && typeof sp.optional !== 'boolean') p.push(`spawn ${sp.id} has a bad optional flag`);
   }
   if (!doc.hq || !finite(doc.hq.x) || !finite(doc.hq.y)) p.push('the HQ has no position');
   const gp = doc.gameplay;
@@ -375,6 +377,17 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
       if (gp.hqHealth !== undefined && (!finite(gp.hqHealth) || gp.hqHealth <= 0)) p.push('gameplay.hqHealth must be above 0');
       if (gp.towers !== undefined && (!Array.isArray(gp.towers) || gp.towers.some((t) => typeof t !== 'string'))) {
         p.push('gameplay.towers must be a list of tower ids');
+      }
+      const lanes = gp.lanes;
+      if (lanes !== undefined) {
+        const count = (v: unknown) => v === undefined || (Number.isInteger(v) && (v as number) >= 1);
+        if (lanes === null || typeof lanes !== 'object') p.push('gameplay.lanes is not an object');
+        else {
+          if (!count(lanes.min)) p.push('gameplay.lanes.min must be a whole number from 1');
+          if (!count(lanes.max)) p.push('gameplay.lanes.max must be a whole number from 1');
+          if (lanes.min !== undefined && lanes.max !== undefined && lanes.min > lanes.max) p.push('gameplay.lanes.min is above max');
+          if (lanes.vacant !== undefined && !VACANT_LANES.includes(lanes.vacant)) p.push('gameplay.lanes.vacant must be close, host or split');
+        }
       }
       const w = gp.waves;
       if (w !== undefined && w.kind !== 'budget' && w.kind !== 'table') p.push('gameplay.waves.kind must be budget or table');

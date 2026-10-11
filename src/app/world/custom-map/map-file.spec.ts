@@ -167,6 +167,22 @@ describe('map file', () => {
     expect(problems).toEqual(expect.arrayContaining(['gameplay.hqHealth must be above 0', 'the wave list is empty', 'the wave list has no valid repeat rule']));
   });
 
+  it('carries the lane rules and the optional flag of a spawn, and checks them (TODO E130)', () => {
+    const doc = sample();
+    doc.gameplay = { lanes: { min: 1, max: 2, vacant: 'host' } };
+    doc.spawns = [{ id: 's1', name: 'North', x: 0, y: 0, optional: true }];
+    const { doc: back } = unpackMapFile(packMapFile(doc));
+    expect(back.gameplay).toEqual(doc.gameplay);
+    expect(back.spawns[0].optional).toBe(true);
+    expect(validateMapDocument(doc)).toEqual([]);
+    doc.gameplay = { lanes: { min: 3, max: 2, vacant: 'all' as never } };
+    expect(validateMapDocument(doc)).toEqual(expect.arrayContaining([
+      'gameplay.lanes.min is above max', 'gameplay.lanes.vacant must be close, host or split',
+    ]));
+    doc.gameplay = { lanes: { min: 0.5 } };
+    expect(validateMapDocument(doc)).toContain('gameplay.lanes.min must be a whole number from 1');
+  });
+
   it('validates the grid and the references', () => {
     const doc = sample();
     expect(validateMapDocument(doc)).toEqual([]);

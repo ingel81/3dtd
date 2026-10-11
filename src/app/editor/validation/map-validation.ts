@@ -24,6 +24,7 @@ export interface MapIssue {
     | 'hq-outside'
     | 'spawn-outside'
     | 'paths-split'
+    | 'lanes'
     | 'lane-short'
     | 'lane-long'
     | 'spawn-near-hq'
@@ -211,6 +212,17 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     if (unknown.length) issues.push({ severity: 'warning', code: 'unknown-tower', message: `Unknown tower types allowed: ${unknown.join(', ')}` });
     if (!gp.towers.some((t) => t in TOWER_TYPES && t !== 'research-center' && t !== 'missile-silo')) {
       issues.push({ severity: 'error', code: 'unknown-tower', message: 'No tower that shoots is allowed.' });
+    }
+  }
+
+  const lanes = gp?.lanes;
+  if (lanes && doc.spawns.length > 0) {
+    const always = doc.spawns.filter((s) => !s.optional).length;
+    if (lanes.min !== undefined && lanes.min > doc.spawns.length) {
+      issues.push({ severity: 'warning', code: 'lanes', message: `At least ${lanes.min} lanes should be open, but the map has ${doc.spawns.length} spawns.` });
+    }
+    if (lanes.max !== undefined && lanes.max < always) {
+      issues.push({ severity: 'warning', code: 'lanes', message: `At most ${lanes.max} lanes may be open, but ${always} spawns are always open. Mark some as optional.` });
     }
   }
 

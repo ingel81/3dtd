@@ -17,6 +17,31 @@
 </div>
 
 <div class="td-group">
+  <h3 class="td-section">Lanes</h3>
+  <p class="td-note">Mark spawns as optional under Markers: the player picks which of them are open before wave 1. Every open lane brings a full wave.</p>
+  <div class="gp-pair">
+    <label class="td-field">
+      <span class="td-label">Fewest open</span>
+      <input class="td-input is-sm" type="number" min="1" step="1" placeholder="1" [value]="gp().lanes?.min ?? ''"
+             (change)="setLaneCount('min', $event)" data-test="lanes-min" />
+    </label>
+    <label class="td-field">
+      <span class="td-label">Most open</span>
+      <input class="td-input is-sm" type="number" min="1" step="1" placeholder="all" [value]="gp().lanes?.max ?? ''"
+             (change)="setLaneCount('max', $event)" data-test="lanes-max" />
+    </label>
+  </div>
+  <div class="td-field">
+    <span class="td-label" id="gp-vacant">Coop: lanes nobody holds</span>
+    <div class="td-seg is-sm" role="radiogroup" aria-labelledby="gp-vacant">
+      @for (v of vacantChoices; track v.id) {
+        <button type="button" role="radio" [attr.aria-checked]="(gp().lanes?.vacant ?? 'close') === v.id" (click)="setVacant(v.id)" [matTooltip]="v.hint">{{ v.label }}</button>
+      }
+    </div>
+  </div>
+</div>
+
+<div class="td-group">
   <h3 class="td-section">Towers <span class="td-note">{{ gp().towers ? gp().towers!.length + ' allowed' : 'all allowed' }}</span></h3>
   <div class="gp-towers">
     @for (t of towers; track t.id) {

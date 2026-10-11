@@ -27,6 +27,12 @@ import { EditorSession } from '../editor-session.service';
             <span class="td-swatch is-lg" [style.--td-mark]="s.color"></span>
             <input class="td-input is-sm mk-name" type="text" maxlength="30" [value]="s.name" (click)="$event.stopPropagation()"
                    (change)="rename(s.id, $any($event.target).value)" [attr.aria-label]="'Name of spawn ' + s.id" />
+            <label class="td-check mk-optional"
+                   matTooltip="Optional: the player may close this lane before wave 1. Off: always open">
+              <input class="td-switch" type="checkbox" [checked]="s.optional" (click)="$event.stopPropagation()" (change)="setOptional(s.id, $any($event.target).checked)"
+                     [attr.aria-label]="'Lane of spawn ' + s.name + ' optional'" />
+              <span class="td-caps">opt</span>
+            </label>
             <span class="td-num" [class.td-tone-hurt]="s.length === null" [matTooltip]="s.length === null ? 'No road leads from here to the HQ' : 'Lane length to the HQ'">
               {{ s.length === null ? 'no route' : s.length + ' m' }}
             </span>
@@ -69,6 +75,7 @@ export class MarkerPanelComponent {
       return {
         id: s.id,
         name: s.name,
+        optional: s.optional === true,
         color: `#${SPAWN_COLORS[k % SPAWN_COLORS.length].toString(16).padStart(6, '0')}`,
         length: r ? Math.round(r.length) : null,
       };
@@ -92,6 +99,11 @@ export class MarkerPanelComponent {
   rename(id: string, name: string): void {
     const editor = this.session.editor;
     if (editor && name.trim()) this.session.execute(markerCommands.renameSpawn(editor, id, name.trim()));
+  }
+
+  setOptional(id: string, optional: boolean): void {
+    const editor = this.session.editor;
+    if (editor) this.session.execute(markerCommands.setSpawnOptional(editor, id, optional));
   }
 
   remove(id: string): void {

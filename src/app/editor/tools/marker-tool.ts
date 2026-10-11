@@ -153,6 +153,16 @@ export const markerCommands = {
   removeSpawn(editor: EditorDocument, id: string): EditCommand {
     return SnapshotCommand.record(editor.doc, 'Delete spawn', ['spawns'], (d) => (d.spawns = d.spawns.filter((s) => s.id !== id)));
   },
+  /** The player may close the lane before wave 1, or it is always open (TODO E130) */
+  setSpawnOptional(editor: EditorDocument, id: string, optional: boolean): EditCommand {
+    return SnapshotCommand.record(editor.doc, optional ? 'Lane optional' : 'Lane always open', ['spawns'], (d) => {
+      d.spawns = d.spawns.map((s) => {
+        if (s.id !== id) return s;
+        const { optional: _, ...rest } = s;
+        return optional ? { ...rest, optional: true } : rest;
+      });
+    });
+  },
   renameSpawn(editor: EditorDocument, id: string, name: string): EditCommand {
     return SnapshotCommand.record(editor.doc, 'Rename spawn', ['spawns'], (d) => {
       d.spawns = d.spawns.map((s) => (s.id === id ? { ...s, name } : s));

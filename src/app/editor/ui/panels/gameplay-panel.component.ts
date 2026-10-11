@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import type { MapLanes, VacantLanes } from '../../../world/custom-map/lane-choice';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
@@ -15,6 +16,12 @@ import { EditorSession } from '../editor-session.service';
  * own. The game reads these once it plays custom maps with rules
  * (docs/LEVEL_EDITOR.md).
  */
+
+/** The lane rules without their empty fields, undefined when none is left */
+function pruned(lanes: MapLanes): MapLanes | undefined {
+  const out = Object.fromEntries(Object.entries(lanes).filter(([, v]) => v !== undefined)) as MapLanes;
+  return Object.keys(out).length ? out : undefined;
+}
 @Component({
   selector: 'app-gameplay-panel',
   standalone: true,
@@ -62,6 +69,28 @@ export class GameplayPanelComponent {
     const v = raw === '' ? undefined : Math.max(key === 'hqHealth' ? 1 : 0, Math.round(Number(raw)));
     if (v !== undefined && !Number.isFinite(v)) return;
     this.edit(key === 'startCredits' ? 'Start credits' : 'HQ health', (g) => (g[key] = v));
+  }
+
+  readonly vacantChoices: { id: VacantLanes; label: string; hint: string }[] = [
+    { id: 'close', label: 'Close', hint: 'At the start, lanes no player holds close' },
+    { id: 'host', label: 'To the host', hint: 'The host takes every lane no player holds' },
+    { id: 'split', label: 'Share out', hint: 'Lanes no player holds go to the players in turn' },
+  ];
+
+  /** Fewest or most lanes open; empty: 1 and all */
+  setLaneCount(key: 'min' | 'max', e: Event): void {
+    const raw = (e.target as HTMLInputElement).value.trim();
+    const v = raw === '' ? undefined : Math.max(1, Math.round(Number(raw)));
+    if (v !== undefined && !Number.isFinite(v)) return;
+    this.edit(key === 'min' ? 'Fewest lanes' : 'Most lanes', (g) => {
+      const lanes = { ...g.lanes, [key]: v };
+      if (lanes.min !== undefined && lanes.max !== undefined && lanes.min > lanes.max) lanes[key === 'min' ? 'max' : 'min'] = v;
+      g.lanes = pruned(lanes);
+    });
+  }
+
+  setVacant(vacant: VacantLanes): void {
+    this.edit('Coop lanes', (g) => (g.lanes = pruned({ ...g.lanes, vacant: vacant === 'close' ? undefined : vacant })));
   }
 
   allowed(id: string): boolean {
