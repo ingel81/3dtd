@@ -151,16 +151,34 @@ export class MapObjectLayer {
     return true;
   }
 
-  /** Objects stand on the terrain: call after heights changed */
-  refreshHeights(): void {
+  /**
+   * Objects stand on the terrain: call after heights changed, with the
+   * changed rectangle in map metres to touch only the objects on it
+   */
+  refreshHeights(rect?: { minX: number; minY: number; maxX: number; maxY: number }): void {
     for (const b of this.batches) {
-      for (let i = 0; i < b.objects.length; i++) this.writeInstance(b, i);
-      if (!b.dynamic) {
-        for (const m of b.meshes) {
-          (m.instanceMatrix.array as Float32Array).set(b.matrices);
-          m.instanceMatrix.needsUpdate = true;
-          m.computeBoundingSphere();
+      const reach = b.entry.footprint * 3 + 2;
+      const changed: number[] = [];
+      for (let i = 0; i < b.objects.length; i++) {
+        const o = b.objects[i];
+        if (rect && (o.x < rect.minX - reach || o.x > rect.maxX + reach || o.y < rect.minY - reach || o.y > rect.maxY + reach)) {
+          continue;
         }
+        this.writeInstance(b, i);
+        changed.push(i);
+      }
+      if (!changed.length || b.dynamic) continue;
+      for (const m of b.meshes) {
+        const dst = m.instanceMatrix.array as Float32Array;
+        if (!rect) m.instanceMatrix.clearUpdateRanges();
+        for (const i of changed) {
+          dst.set(b.matrices.subarray(i * 16, i * 16 + 16), i * 16);
+          if (rect) m.instanceMatrix.addUpdateRange(i * 16, 16);
+        }
+        m.instanceMatrix.needsUpdate = true;
+        // A brush moves objects up or down a little: grow the bounds instead of walking every instance
+        if (!rect || !m.boundingSphere) m.computeBoundingSphere();
+        else for (const i of changed) m.boundingSphere.union(this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3] + 1));
       }
     }
     this.forceCull = true;

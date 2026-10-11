@@ -178,15 +178,41 @@ export class TerrainChunks {
     const vertexCount = nx * ny + ring;
     const pos = new Float32Array(vertexCount * 3);
     const nor = new Float32Array(vertexCount * 3);
+    // Geomorphing (x: height to the next coarser level, y/z: the camera distance band in which the
+    // terrain material blends towards it, ending where the chunk switches), so a level change does not pop
+    const morph = new Float32Array(vertexCount * 3);
+    const lod = Math.round(Math.log2(step));
+    const switchAt = this.chunkCells * f.cellSize * this.lodDistance * 2 ** lod;
+    const bandStart = lod >= this.maxLod ? 1e9 : switchAt * 0.65;
+    const bandEnd = lod >= this.maxLod ? 1e9 + 1 : switchAt;
     const skirt = Math.max(2, f.cellSize * step * 2);
     const n = this.tmp;
 
+    // Height of the next coarser level (step 2s) at a sample, on its two triangles per cell
+    const coarse = (i: number, j: number): number => {
+      const s2 = step * 2;
+      const ci0 = c.i0 + Math.floor((i - c.i0) / s2) * s2;
+      const cj0 = c.j0 + Math.floor((j - c.j0) / s2) * s2;
+      const ci1 = Math.min(ci0 + s2, c.i1);
+      const cj1 = Math.min(cj0 + s2, c.j1);
+      const u = ci1 > ci0 ? (i - ci0) / (ci1 - ci0) : 0;
+      const w = cj1 > cj0 ? (j - cj0) / (cj1 - cj0) : 0;
+      const h00 = f.sample(ci0, cj0);
+      const h11 = f.sample(ci1, cj1);
+      return u >= w
+        ? h00 + u * (f.sample(ci1, cj0) - h00) + w * (h11 - f.sample(ci1, cj0))
+        : h00 + w * (f.sample(ci0, cj1) - h00) + u * (h11 - f.sample(ci0, cj1));
+    };
     const put = (v: number, i: number, j: number, drop: number): void => {
       const x = f.originX + i * f.cellSize;
       const y = f.originY + j * f.cellSize;
+      const h = f.sample(i, j);
       pos[v * 3] = -x;
-      pos[v * 3 + 1] = f.sample(i, j) - drop;
+      pos[v * 3 + 1] = h - drop;
       pos[v * 3 + 2] = y;
+      morph[v * 3] = lod >= this.maxLod ? 0 : coarse(i, j) - h;
+      morph[v * 3 + 1] = bandStart;
+      morph[v * 3 + 2] = bandEnd;
       // Central differences on the full grid, scene frame (x = -map x)
       const dhdx = (f.sample(i + 1, j) - f.sample(i - 1, j)) / (2 * f.cellSize);
       const dhdy = (f.sample(i, j + 1) - f.sample(i, j - 1)) / (2 * f.cellSize);
@@ -252,6 +278,7 @@ export class TerrainChunks {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(pos, 3));
     g.setAttribute('normal', new BufferAttribute(nor, 3));
+    g.setAttribute('aMorph', new BufferAttribute(morph, 3));
     g.setIndex(new BufferAttribute(index.subarray(0, k), 1));
     g.boundingBox = c.box.clone();
     g.boundingBox.min.y -= skirt;

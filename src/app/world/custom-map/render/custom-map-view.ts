@@ -182,9 +182,40 @@ export class CustomMapView {
   /** Heights changed inside `rect` (map metres); whole map when omitted. Objects and water follow. */
   updateHeights(rect?: MapRect): void {
     this.terrain.rebuild(rect ? this.gridRect(rect) : undefined);
-    this.objects.refreshHeights();
-    if (this.waters.some((w) => w) || this.rivers.length) this.updateWater();
-    void this.bridges.set(this.doc.paths, this.doc.terrain.water);
+    this.objects.refreshHeights(rect);
+    // Water and bridges only when the change reaches them: a brush on a big map must stay cheap
+    if (!rect || this.waterNear(rect)) this.updateWater();
+    if (!rect || this.bridgeNear(rect)) void this.bridges.set(this.doc.paths, this.doc.terrain.water);
+  }
+
+  /** Whether a water body's mask or a river comes within a few metres of a rectangle */
+  private waterNear(rect: MapRect): boolean {
+    const t = this.doc.terrain;
+    const f = this.heights;
+    const g = this.gridRect({ minX: rect.minX - 4, minY: rect.minY - 4, maxX: rect.maxX + 4, maxY: rect.maxY + 4 });
+    for (const body of [t.water, ...(t.waterBodies ?? [])]) {
+      if (!body) continue;
+      for (let j = Math.max(0, g.j0); j <= Math.min(f.rows - 1, g.j1); j++) {
+        for (let i = Math.max(0, g.i0); i <= Math.min(f.columns - 1, g.i1); i++) {
+          if (body.mask[j * f.columns + i]) return true;
+        }
+      }
+    }
+    return (t.rivers ?? []).some((r) =>
+      r.points.some(
+        (p) => p.x + p.width + 4 > rect.minX && p.x - p.width - 4 < rect.maxX && p.y + p.width + 4 > rect.minY && p.y - p.width - 4 < rect.maxY,
+      ),
+    );
+  }
+
+  private bridgeNear(rect: MapRect): boolean {
+    const nodes = new Map(this.doc.paths.nodes.map((n) => [n.id, n]));
+    return this.doc.paths.edges.some((e) => {
+      if (e.kind !== 'bridge') return false;
+      return [nodes.get(e.a), nodes.get(e.b), ...(e.via ?? [])].some(
+        (p) => p && p.x > rect.minX - 20 && p.x < rect.maxX + 20 && p.y > rect.minY - 20 && p.y < rect.maxY + 20,
+      );
+    });
   }
 
   /** First placed object a scene-space ray hits (editor picking) */
@@ -198,8 +229,20 @@ export class CustomMapView {
   }
 
   /** Splat weights changed inside `rect` */
-  updateSplat(_rect?: MapRect): void {
-    this.terrain.refreshSplat();
+  updateSplat(rect?: MapRect): void {
+    if (!rect) {
+      this.terrain.refreshSplat();
+      return;
+    }
+    // Map metres to splat texels (texel (0, 0) at the south-west corner), one texel of margin
+    const t = this.doc.terrain;
+    const r = t.splat.resolution;
+    this.terrain.refreshSplat({
+      i0: Math.floor(((rect.minX + t.width / 2) / t.width) * r) - 1,
+      j0: Math.floor(((rect.minY + t.depth / 2) / t.depth) * r) - 1,
+      i1: Math.ceil(((rect.maxX + t.width / 2) / t.width) * r) + 1,
+      j1: Math.ceil(((rect.maxY + t.depth / 2) / t.depth) * r) + 1,
+    });
   }
 
   /**

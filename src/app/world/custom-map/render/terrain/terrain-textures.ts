@@ -15,6 +15,7 @@ import {
 import type { MapSplat } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MaterialPixels } from '../map-asset-library';
+import { uploadRect, type TexelRect } from './texture-ranges';
 
 /**
  * GPU textures of the terrain: the ground materials stacked into two texture
@@ -77,16 +78,17 @@ export class SplatTextures {
   }
 
   /** Re-upload after the editor painted (same resolution) or replaced the splat */
-  refresh(splat: MapSplat): void {
+  refresh(splat: MapSplat, rect?: TexelRect): void {
     if (splat.resolution !== this.splat.resolution) {
       this.dispose();
       (this.maps as DataTexture[])[0] = this.make(splat.maps[0]);
       (this.maps as DataTexture[])[1] = this.make(splat.maps[1]);
     } else {
+      const same = this.maps[0].image.data === splat.maps[0] && this.maps[1].image.data === splat.maps[1];
       this.maps[0].image.data = splat.maps[0];
       this.maps[1].image.data = splat.maps[1];
-      this.maps[0].needsUpdate = true;
-      this.maps[1].needsUpdate = true;
+      uploadRect(this.maps[0], same ? rect : undefined);
+      uploadRect(this.maps[1], same ? rect : undefined);
     }
     this.splat = splat;
   }
@@ -198,7 +200,7 @@ export class GridNormalTexture {
         this.pixels[q + 3] = this.wet ? DataUtils.toHalfFloat(this.wet[j * f.columns + i]) : 0;
       }
     }
-    this.texture.needsUpdate = true;
+    uploadRect(this.texture, rect ? { i0, j0, i1, j1 } : undefined);
   }
 
   dispose(): void {

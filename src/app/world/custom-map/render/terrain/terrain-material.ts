@@ -92,11 +92,15 @@ export class TerrainMaterial extends MeshStandardMaterial {
       shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
-          '#include <common>\nvarying vec3 vTerrainPos;\nvarying vec3 vTerrainNormal;',
+          '#include <common>\nvarying vec3 vTerrainPos;\nvarying vec3 vTerrainNormal;\nattribute vec3 aMorph;',
         )
         .replace(
           '#include <begin_vertex>',
-          '#include <begin_vertex>\nvTerrainPos = position;\nvTerrainNormal = normal;',
+          // Geomorph towards the next coarser level by the vertex's own camera distance (TerrainChunks)
+          '#include <begin_vertex>\n' +
+            'float morphDist = distance((modelMatrix * vec4(position, 1.0)).xyz, cameraPosition);\n' +
+            'transformed.y += aMorph.x * smoothstep(aMorph.y, aMorph.z, morphDist);\n' +
+            'vTerrainPos = transformed;\nvTerrainNormal = normal;',
         );
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>\n${TERRAIN_FRAGMENT_PARS}`)

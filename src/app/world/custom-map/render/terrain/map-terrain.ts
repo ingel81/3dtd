@@ -175,7 +175,7 @@ export class MapTerrainLayer {
     this.chunks.rebuild(rect);
     this.normals.update(rect);
     this.occlusion.updateTerrain(rect);
-    this.heightTexture.refresh();
+    this.heightTexture.refresh(rect);
     this.refreshApron(rect);
   }
 
@@ -196,8 +196,8 @@ export class MapTerrainLayer {
   }
 
   /** Splat weights changed (painted in place or replaced) */
-  refreshSplat(): void {
-    this.splat?.refresh(this.terrain.splat);
+  refreshSplat(rect?: GridRect): void {
+    this.splat?.refresh(this.terrain.splat, rect);
     if (this.material && this.splat) {
       const u = this.material.terrainUniforms;
       u.uSplat0.value = this.splat.maps[0];

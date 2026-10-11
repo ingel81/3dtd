@@ -1,5 +1,6 @@
 import { ClampToEdgeWrapping, DataTexture, FloatType, NearestFilter, NoColorSpace, RedFormat, Vector2, Vector4 } from 'three';
 import type { HeightField } from '../height-field';
+import { uploadRect, type TexelRect } from './texture-ranges';
 
 /**
  * The height grid as a float texture, for shaders that need the terrain's
@@ -31,10 +32,13 @@ export class HeightTexture {
     };
   }
 
-  /** Heights changed: re-upload the grid */
-  refresh(): void {
-    this.texture.image.data = this.field.grid.heights;
-    this.texture.needsUpdate = true;
+  /** Heights changed inside a sample rectangle (all when omitted): re-upload those rows */
+  refresh(rect?: TexelRect): void {
+    if (this.texture.image.data !== this.field.grid.heights) {
+      this.texture.image.data = this.field.grid.heights;
+      rect = undefined;
+    }
+    uploadRect(this.texture, rect);
   }
 
   dispose(): void {

@@ -2,6 +2,7 @@ import { ClampToEdgeWrapping, DataTexture, LinearFilter, NoColorSpace, RedFormat
 import type { MapObject } from '../../map-document';
 import type { CatalogObject } from '../asset-catalog';
 import type { HeightField } from '../height-field';
+import { uploadRect } from './texture-ranges';
 
 /**
  * Ambient occlusion baked onto the height grid, one value per sample:
@@ -128,6 +129,7 @@ export class GroundOcclusion {
         this.pixels[k] = Math.round(Math.max(0, Math.min(1, this.terrain[k] * this.objects[k])) * 255);
       }
     }
-    this.texture.needsUpdate = true;
+    const whole = i0 === 0 && j0 === 0 && i1 === cols - 1 && j1 === this.field.rows - 1;
+    uploadRect(this.texture, whole ? undefined : { i0, j0, i1, j1 });
   }
 }

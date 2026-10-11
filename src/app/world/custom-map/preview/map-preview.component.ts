@@ -3,6 +3,7 @@ import { PCFShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, Timer, Vector3,
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { PostProcessingPipeline } from '../../../three-engine/post-processing/post-processing-pipeline';
 import { createDemoMap } from '../demo-map';
+import { createPerfMap } from '../perf-map';
 import { createAssetShowcase } from './asset-showcase';
 import { CustomMapView } from '../render/custom-map-view';
 import { MapAssetLibrary } from '../render/map-asset-library';
@@ -110,7 +111,9 @@ export class MapPreviewComponent implements OnDestroy {
             objects: assets,
             materials: showMaterials,
           })
-        : createDemoMap(Number(params.get('seed') ?? 7));
+        : params.get('big')
+          ? createPerfMap(Number(params.get('big')), Number(params.get('objects') ?? 20000))
+          : createDemoMap(Number(params.get('seed') ?? 7));
     const tGen = performance.now() - t0;
     const weather = params.get('weather');
     if (weather === 'rain' || weather === 'snow' || weather === 'fog') {
