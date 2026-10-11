@@ -215,6 +215,24 @@ describe('editor tools', () => {
     expect(ed.doc.paths.nodes.some((n) => ed.doc.paths.edges.filter((e) => e.a === n.id || e.b === n.id).length === 3)).toBe(true);
   });
 
+  it('quick clicks in different spots are nodes of one road, a double click in one spot ends it', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    const tool = new PathTool();
+    const edges = ed.doc.paths.edges.length;
+    // 100 ms apart, as fast as one clicks along a road
+    vi.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValueOnce(100).mockReturnValueOnce(200).mockReturnValueOnce(300);
+    tool.pointerDown(at(0, 150, { clientX: 100, clientY: 100 }), ctx);
+    tool.pointerDown(at(60, 150, { clientX: 200, clientY: 100 }), ctx);
+    tool.pointerDown(at(120, 150, { clientX: 300, clientY: 100 }), ctx);
+    expect(ed.doc.paths.edges.length).toBe(edges + 2);
+    // The second click of a double click on the last node ends the road and adds nothing
+    tool.pointerDown(at(120, 150, { clientX: 301, clientY: 101 }), ctx);
+    expect(ed.doc.paths.edges.length).toBe(edges + 2);
+    tool.pointerDown(at(180, 150, { clientX: 400, clientY: 100 }), ctx);
+    expect(ed.doc.paths.edges.length).toBe(edges + 2);
+  });
+
   it('a lone first road click is taken back on Esc', () => {
     const ed = fresh();
     const ctx = context(ed);

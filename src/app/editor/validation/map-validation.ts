@@ -65,7 +65,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   const { paths } = doc;
 
   if (!paths.edges.length) {
-    issues.push({ severity: 'error', code: 'no-paths', message: 'The map has no paths. Enemies walk only on paths.' });
+    issues.push({ severity: 'error', code: 'no-paths', message: 'The map has no roads. Enemies walk only on roads (Roads tool, 6).' });
   }
   if (!doc.spawns.length) {
     issues.push({ severity: 'error', code: 'no-spawns', message: 'The map has no spawn.' });
@@ -80,7 +80,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       issues.push({
         severity: 'error',
         code: 'hq-off-path',
-        message: `The HQ stands ${hqHit ? Math.round(hqHit.dist) : '?'} m from the nearest path (at most ${rules.snapDistance} m).`,
+        message: `The HQ stands ${hqHit ? Math.round(hqHit.dist) : '?'} m from the nearest road (at most ${rules.snapDistance} m).`,
         focus: doc.hq,
         target: { kind: 'hq' },
       });
@@ -92,7 +92,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       issues.push({
         severity: 'warning',
         code: 'paths-split',
-        message: `The paths fall into ${groups.length} parts that do not connect.`,
+        message: `The roads fall into ${groups.length} parts that do not connect.`,
         focus: node ? { x: node.x, y: node.y } : undefined,
         target: node ? { kind: 'node', id: node.id } : undefined,
       });
@@ -111,7 +111,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       issues.push({
         severity: 'error',
         code: 'spawn-off-path',
-        message: `Spawn ${name} stands ${hit ? Math.round(hit.dist) : '?'} m from the nearest path.`,
+        message: `Spawn ${name} stands ${hit ? Math.round(hit.dist) : '?'} m from the nearest road.`,
         focus: s,
         target: { kind: 'spawn', id: s.id },
       });
@@ -119,7 +119,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     }
     const route = routeBetween(paths, s, doc.hq);
     if (!route) {
-      issues.push({ severity: 'error', code: 'spawn-unreachable', message: `No path leads from spawn ${name} to the HQ.`, focus: s, target: { kind: 'spawn', id: s.id } });
+      issues.push({ severity: 'error', code: 'spawn-unreachable', message: `No road leads from spawn ${name} to the HQ.`, focus: s, target: { kind: 'spawn', id: s.id } });
       continue;
     }
     if (route.length < rules.minLane) {
@@ -145,7 +145,10 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   }
 
   const water = t.water;
-  for (const e of paths.edges) {
+  const KIND_NAME = { road: 'Road', path: 'Path', bridge: 'Bridge' } as const;
+  for (const [index, e] of paths.edges.entries()) {
+    // Named as the outline counts them, not by the internal id
+    const name = `${KIND_NAME[e.kind] ?? 'Road'} ${index + 1}`;
     const line = edgePolyline(paths, e);
     if (line.length < 2) continue;
     let wet: MapPoint | null = null;
@@ -160,16 +163,17 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
         const p = { x: a.x + ((b.x - a.x) * s) / steps, y: a.y + ((b.y - a.y) * s) / steps };
         const h = heightAt(t, p.x, p.y);
         const slope = (Math.atan(Math.abs(h - prevH) / (len / steps)) * 180) / Math.PI;
-        if (!steep && slope > rules.maxPathSlope) steep = p;
+        // A bridge's deck spans what lies under it: the bed is no climb
+        if (!steep && e.kind !== 'bridge' && slope > rules.maxPathSlope) steep = p;
         if (!wet && water && e.kind !== 'bridge' && h < water.level && wetAt(doc, p)) wet = p;
         prevH = h;
       }
     }
     if (wet) {
-      issues.push({ severity: 'warning', code: 'path-under-water', message: `Path ${e.id} runs under water (make it a bridge or raise the ground).`, focus: wet, target: { kind: 'edge', id: e.id } });
+      issues.push({ severity: 'warning', code: 'path-under-water', message: `${name} runs under water (make it a bridge or raise the ground).`, focus: wet, target: { kind: 'edge', id: e.id } });
     }
     if (steep) {
-      issues.push({ severity: 'warning', code: 'path-steep', message: `Path ${e.id} climbs steeper than ${rules.maxPathSlope} degrees.`, focus: steep, target: { kind: 'edge', id: e.id } });
+      issues.push({ severity: 'warning', code: 'path-steep', message: `${name} climbs steeper than ${rules.maxPathSlope} degrees.`, focus: steep, target: { kind: 'edge', id: e.id } });
     }
   }
 
@@ -190,7 +194,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     issues.push({
       severity: 'warning',
       code: 'object-on-path',
-      message: blocked === 1 ? 'An object stands on a path.' : `${blocked} objects stand on paths.`,
+      message: blocked === 1 ? 'An object stands on a road.' : `${blocked} objects stand on roads.`,
       focus: firstBlocked,
       target: { kind: 'object', id: firstBlocked.id },
     });

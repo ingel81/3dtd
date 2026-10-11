@@ -35,6 +35,7 @@ export class PathTool implements EditorTool {
   private last: string | null = null;
   private dragging: { id: string; before: MapPaths } | null = null;
   private lastClick = 0;
+  private lastClickAt = { x: -1e6, y: -1e6 };
   /** The last node of each symmetric image of the line being drawn */
   private mirrored: string[] = [];
 
@@ -57,9 +58,11 @@ export class PathTool implements EditorTool {
     }
     if (p.button !== 0 || !p.hit) return false;
     const s = ctx.settings.paths;
+    // A double click is two clicks in the same spot: quick clicks along a road are nodes, not its end
     const now = performance.now();
-    const double = now - this.lastClick < 320;
+    const double = now - this.lastClick < 320 && Math.hypot(p.clientX - this.lastClickAt.x, p.clientY - this.lastClickAt.y) < 6;
     this.lastClick = now;
+    this.lastClickAt = { x: p.clientX, y: p.clientY };
     if (s.mode === 'draw') {
       if (double && this.last) {
         this.cancel(ctx);
