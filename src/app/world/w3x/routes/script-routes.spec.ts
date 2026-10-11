@@ -1,3 +1,4 @@
+import { findTestMap } from '../../../../test/w3x-fixtures';
 import { existsSync, readFileSync } from 'fs';
 import type { W3Region } from '../formats/w3r';
 import { regionVariable } from '../formats/w3r';
@@ -7,7 +8,7 @@ import { readW3xFiles } from '../map-files';
 import { buildRouteGraph, routeLengths } from './route-graph';
 import { routesFromEvaluation, routesFromPatterns, scriptRegions } from './script-routes';
 
-const REAL_MAP = 'D:/Source/3dtd/tmp/wc3/Mafa-Td-Queen-v14.6.w3x';
+const TEST_MAP = findTestMap(existsSync);
 
 function region(name: string, x: number, y: number, size = 128): W3Region {
   const h = size / 2;
@@ -292,8 +293,8 @@ endfunction
     expect(rs[0]).toMatchObject({ left: -128, bottom: 1872, right: 128, top: 2128 });
   });
 
-  it.skipIf(!existsSync(REAL_MAP))('(b) finds the ten lanes of the test map', () => {
-    const m = readW3xFiles(new Uint8Array(readFileSync(REAL_MAP)));
+  it.skipIf(!TEST_MAP)('(b) finds the ten lanes of the test map', () => {
+    const m = readW3xFiles(new Uint8Array(readFileSync(TEST_MAP!)));
     expect(routesFromPatterns(m.script!, m.regions).edges.length).toBe(0);
     const g = buildRouteGraph(routesFromEvaluation(m.script!, m.regions).raw, 'script-eval')!;
     expect(g.spawns.length).toBe(10);

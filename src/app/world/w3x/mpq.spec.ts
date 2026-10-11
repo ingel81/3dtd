@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'fs';
-import { base64Bytes, buildMpq, implode } from '../../../test/w3x-fixtures';
+import { base64Bytes, buildMpq, implode, findTestMap } from '../../../test/w3x-fixtures';
 import { MpqArchive, decompress } from './mpq';
 
-export const REAL_MAP = 'D:/Source/3dtd/tmp/wc3/Mafa-Td-Queen-v14.6.w3x';
+const TEST_MAP = findTestMap(existsSync);
 
 function bytes(n: number, seed = 1): Uint8Array {
   const out = new Uint8Array(n);
@@ -104,8 +104,8 @@ describe('MpqArchive', () => {
     expect(() => new MpqArchive(new Uint8Array(2048))).toThrow(/no MPQ header/);
   });
 
-  it.skipIf(!existsSync(REAL_MAP))('reads the test map', () => {
-    const mpq = new MpqArchive(new Uint8Array(readFileSync(REAL_MAP)));
+  it.skipIf(!TEST_MAP)('reads the test map', () => {
+    const mpq = new MpqArchive(new Uint8Array(readFileSync(TEST_MAP!)));
     const files = mpq.list();
     for (const f of ['war3map.w3e', 'war3map.w3i', 'war3map.doo', 'war3map.j', 'war3map.w3r', 'war3map.wpm']) {
       expect(files).toContain(f);

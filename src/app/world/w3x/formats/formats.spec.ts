@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'fs';
-import { ByteWriter } from '../../../../test/w3x-fixtures';
+import { ByteWriter, findTestMap } from '../../../../test/w3x-fixtures';
 import { MpqArchive } from '../mpq';
 import { parseDoo, parseUnits } from './doo';
 import { cornerWaterZ, cornerZ, parseW3e } from './w3e';
@@ -8,7 +8,7 @@ import { parseW3r, regionVariable } from './w3r';
 import { laneCell, parseWpm } from './wpm';
 import { parseWts, plainText, resolveTrigStr } from './wts';
 
-const REAL_MAP = 'D:/Source/3dtd/tmp/wc3/Mafa-Td-Queen-v14.6.w3x';
+const TEST_MAP = findTestMap(existsSync);
 
 function w3iBytes(version: 18 | 25 | 28 | 31): Uint8Array {
   const w = new ByteWriter().i32(version).i32(3).i32(6061);
@@ -142,8 +142,8 @@ describe('w3x formats', () => {
     expect(laneCell(p.cells[1])).toBe(false);
   });
 
-  it.skipIf(!existsSync(REAL_MAP))('parses every file of the test map', () => {
-    const mpq = new MpqArchive(new Uint8Array(readFileSync(REAL_MAP)));
+  it.skipIf(!TEST_MAP)('parses every file of the test map', () => {
+    const mpq = new MpqArchive(new Uint8Array(readFileSync(TEST_MAP!)));
     const wts = parseWts(mpq.read('war3map.wts')!);
     const info = parseW3i(mpq.read('war3map.w3i')!, wts);
     expect(info.version).toBe(25);

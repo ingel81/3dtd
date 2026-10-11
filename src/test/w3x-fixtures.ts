@@ -287,3 +287,19 @@ export function implode(data: Uint8Array, dictBits: 4 | 5 | 6): Uint8Array {
   if (n) out.push(acc);
   return new Uint8Array(out);
 }
+
+/**
+ * The Warcraft test map (not in the repo: tmp/ is ignored), or null; specs
+ * that read it skip without it. W3X_TEST_MAP overrides; worktrees find the
+ * main checkout's copy. The caller passes `existsSync` (this file is also
+ * compiled without Node types).
+ */
+export function findTestMap(exists: (path: string) => boolean): string | null {
+  const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env;
+  const candidates = [
+    env?.['W3X_TEST_MAP'],
+    'tmp/wc3/Mafa-Td-Queen-v14.6.w3x',
+    'D:/Source/3dtd/tmp/wc3/Mafa-Td-Queen-v14.6.w3x',
+  ];
+  return candidates.find((c): c is string => !!c && exists(c)) ?? null;
+}

@@ -1,3 +1,4 @@
+import { findTestMap } from '../../../../test/w3x-fixtures';
 import { existsSync, readFileSync } from 'fs';
 import type { W3eTerrain } from '../formats/w3e';
 import type { W3Region } from '../formats/w3r';
@@ -8,9 +9,9 @@ import { extractRoutes } from './extract-routes';
 import { buildRouteGraph, routeLengths } from './route-graph';
 import { routesFromTerrain, thin } from './terrain-routes';
 
-const CELL = 64;
-const REAL_MAP = 'D:/Source/3dtd/tmp/wc3/Mafa-Td-Queen-v14.6.w3x';
+const TEST_MAP = findTestMap(existsSync);
 
+const CELL = 64;
 function region(name: string, x: number, y: number): W3Region {
   return { name, variable: regionVariable(name), left: x - 96, bottom: y - 96, right: x + 96, top: y + 96, index: 0, weather: '' };
 }
@@ -109,8 +110,8 @@ describe('terrain routes', () => {
     expect(count).toBe(16 * 4);
   });
 
-  it.skipIf(!existsSync(REAL_MAP))('(c) finds the ten lanes of the test map without its script', () => {
-    const m = readW3xFiles(new Uint8Array(readFileSync(REAL_MAP)));
+  it.skipIf(!TEST_MAP)('(c) finds the ten lanes of the test map without its script', () => {
+    const m = readW3xFiles(new Uint8Array(readFileSync(TEST_MAP!)));
     const r = extractRoutes(m, playableBounds(m), { only: 'terrain' });
     const g = r.graph!;
     expect(g.strategy).toBe('terrain');
