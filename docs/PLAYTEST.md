@@ -1,6 +1,6 @@
 # Playtest: offene Nachtests
 
-Stand 2026-10-07, Code-Stand `next`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
+Stand 2026-10-12, Code-Stand `next`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
 warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). Die erledigten Punkte samt Ergebnissen
 (bis 748, dazu M, Q, R, T bis 2026-09-26) liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Listen in `archive/REVIEW_*.md`.
 
@@ -25,6 +25,37 @@ warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). 
   Enemies" anklicken, unter "Movement" "Start".
 - Orte immer per URL mit F5 kalt laden (`http://localhost:4200/` plus die Parameter unten), keine Tower, keine Welle,
   wenn nicht anders gesagt.
+
+## X Nachtschicht 2026-10-12 (auf `next`)
+
+Gebaut und per Spec geprüft; Meldung, Minikarte, Settings-Tabs und „Damage vs armor“ zusätzlich per Browser-Probe
+angesehen. Hier geht es um Augen, Ohren und das Gefühl.
+
+- **X1 Coop im verdeckten Fenster (E136):** Coop-Spiel zu zweit, ein Fenster 60 s minimieren (Desktop-App und Browser).
+  *Der Raum läuft weiter, kein „did not catch up“; nach dem Zurückholen kein Sprung.*
+- **X2 Gerüst (E141):** Tower setzen, solange das Gerüst steht auf Upgrade und Pfad klicken, dann U drücken.
+  *Kacheln grau, Zeile „Under construction: upgrades once it stands“, nichts gekauft; nach dem Bau gehen sie.
+  Verkaufen geht im Gerüst.*
+- **X3 Game Over im Coop (E144):** Coop-Lauf verlieren, Speicher ohne Antwort zur Run-Log-Frage. *„Help improve
+  3DTD?“ kommt erst rund 1,5 s nach dem Game-Over-Bild.*
+- **X4 Logo (E143):** Im Spiel auf das 3DTD-Logo oben links klicken. *Das Menü geht auf wie mit Esc.*
+- **X5 Settings (E138):** Esc, Settings. *Tabs Audio, Graphics, Gameplay, Map, Coop, Privacy; nach Schließen und
+  Öffnen steht der zuletzt gewählte Tab.*
+- **X6 Startauswahl (E151):** Seite mit Ort neu laden. *Die Markierung steht auf „Play“ (oberster Eintrag), nicht auf
+  „New game“.*
+- **X7 Sterne beim Aufstieg (E152):** Im Spiel „Random city“. *Der Sternhimmel kommt erst mit der Höhe (ab 60 km),
+  nicht über den Dächern.*
+- **X8 Damage vs armor (E146):** Im Baumenü das Info-Symbol. *Gegnernamen je Spalte untereinander, lesbar.*
+- **X9 Meldungen (E137):** Etwas auslösen, das eine Meldung bringt (z. B. Coop-Verbindung trennen). *Steht unter der
+  Tempo-Leiste über der Karte, geht nach 6 s oder per X; eine mit „Reload“ bleibt.*
+- **X10 Camo (E145):** Mit Sprung auf Welle 22 (Wave Debug) die Welle starten. *Alle Zombie-Soldaten getarnt und
+  deutlich flimmernd; beim ersten kommt „Camouflaged enemies! …“ und die Kamera schaut hin; Tower schießen nicht
+  auf sie (außer neben einem Späher).*
+- **X11 Minikarte auf echten Orten (E142):** Einen Ort laden. *Rechts unter dem Kompass eine dunkle Karte mit Straßen,
+  nach ein paar Sekunden Gebäuden entlang der Routen, Route, Spawns, HQ, Tower, Gegner; Klick führt die Kamera hin.*
+
+Alte rote Punkte vom 4.10.: T73, T75, T87, W2.3 und N16 sind per Folgetest ok (F-Punkte der Abhakliste), B3 per S2.4
+(2026-10-11). Offen bleibt nur M4 als S2.3.
 
 ## V Normales Spiel nach dem Welt-Umbau (2026-10-11, auf `next`)
 

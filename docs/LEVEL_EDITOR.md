@@ -181,9 +181,9 @@ dazu, solange Platz ist. „Save the copy“ legt das Stück mit Name und Bild i
 erlaubten Tower und die Wellen: die Wellen des Spiels (Budget-Source) oder eine eigene Liste in der Form der Table-
 Source ([WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md)): je Welle Name, HP-Faktor, Abstand, Gegnertyp mit Anzahl, dazu die
 Wiederholregel nach der letzten Welle; „Start from the game's list“ übernimmt die Liste des Spiels als Anfang. Prüfen
-meldet Fehler der Liste und Regeln ohne schießenden Tower. **Das Spiel liest diese Regeln noch nicht**; sie stehen im
-Kartendokument (`gameplay`, siehe [Datei](#speichern-und-dateien)) und werden mit dem Spielstart eigener Karten
-verdrahtet.
+meldet Fehler der Liste und Regeln ohne schießenden Tower. Sie stehen im Kartendokument (`gameplay`, siehe
+[Datei](#speichern-und-dateien)); das Spiel wendet sie an, auch im Koop, wo der Host die ganze Karte sendet
+([CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md#spielwerte-gameplay)).
 
 **Measure (D).** Klicks setzen Punkte; das Panel zeigt Länge auf der Karte und am Boden entlang, Anstieg und Abstieg,
 dazu je Spawn die Spurlänge und die Laufzeit für den langsamsten, einen typischen und den schnellsten Bodengegner.
@@ -334,4 +334,3 @@ und gesetztes Stück, Prüfen, Speichern, Neuladen, Löschen; ohne Kartensitzung
 - Neue Objekte während eines Strichs erscheinen bis zu 150 ms verzögert, Wasser bis zu 120 ms: der Renderer baut sie
   bisher nur ganz neu (inkrementelles Hinzufügen ist bei der Kartenansicht angefragt)
 - Gruppen, ausgeblendete Kategorien und Versionen kennt nur der Editor; das Spiel ignoriert `group`
-- Gameplay-Regeln liest das Spiel noch nicht
