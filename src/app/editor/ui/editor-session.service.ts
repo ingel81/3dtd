@@ -18,6 +18,9 @@ import { EditorDocument, SnapshotCommand, type EditCommand, type Selection } fro
 import { resizeMap } from '../ops/resize';
 import { LandscapeTool } from '../tools/landscape-tool';
 import { MarkerTool } from '../tools/marker-tool';
+import { StampTool } from '../tools/stamp-tool';
+import { StampLibrary } from '../model/stamp-store';
+import type { Stamp, StampRect } from '../ops/stamp';
 import { ObjectTool } from '../tools/object-tool';
 import { PaintTool } from '../tools/paint-tool';
 import { PathTool } from '../tools/path-tool';
@@ -48,6 +51,7 @@ export interface ImportState {
 export class EditorSession implements OnDestroy {
   private readonly zone = inject(NgZone);
   readonly store = new MapStore();
+  readonly stamps = new StampLibrary();
   readonly catalog = signal(new CatalogIndex(EMPTY_CATALOG));
   readonly settings = defaultSettings();
   /** Bumps when settings change from outside the panels (keys, a tool) */
@@ -55,6 +59,7 @@ export class EditorSession implements OnDestroy {
   readonly tool = signal<ToolId>('landscape');
   readonly tools: Record<ToolId, EditorTool> = {
     landscape: new LandscapeTool(),
+    stamp: new StampTool(),
     terrain: new TerrainTool(),
     paint: new PaintTool(),
     water: new WaterTool(),
@@ -139,6 +144,23 @@ export class EditorSession implements OnDestroy {
       () => new ThumbnailRenderer(() => this.thumbRev.update((n) => n + 1)),
     );
     return this.thumbRenderer;
+  }
+
+  /** Saves a piece as a stamp with a picture of its rectangle (when it is still on this map) */
+  async saveStamp(name: string, stamp: Stamp, region: StampRect | null): Promise<void> {
+    let preview: string | null = null;
+    const vp = this.viewport;
+    if (vp && region) {
+      const w = Math.abs(region.x1 - region.x0);
+      const h = Math.abs(region.y1 - region.y0);
+      const k = 96 / Math.max(w, h);
+      try {
+        preview = vp.renderTopDown(Math.max(8, Math.round(w * k)), Math.max(8, Math.round(h * k)), false, region).toDataURL('image/png');
+      } catch {
+        preview = null;
+      }
+    }
+    await this.stamps.save(name, stamp, preview);
   }
 
   // ---------------------------------------------------------------- map life

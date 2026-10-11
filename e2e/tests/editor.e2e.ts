@@ -1,7 +1,8 @@
 // The map editor (/editor, docs/LEVEL_EDITOR.md), no map session: a new map,
 // a raised hill, an object (undo and redo), a road branching off the starter
-// road, a spawn at its end, the check, saving, a reload that brings the map
-// back, and deleting it again in the map browser.
+// road, a spawn at its end, a mirrored object, a copied and placed piece, the
+// check, saving, a reload that brings the map back, and deleting it again in
+// the map browser.
 import { test, expect, type Page } from '@playwright/test';
 import { shot } from '../support/game';
 
@@ -73,6 +74,25 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   await page.mouse.click(cx + 180, cy + 250);
   await expect(page.locator('[data-spawn]')).toHaveCount(2);
 
+  // Symmetry: one click places the object and its mirror image
+  await page.locator('[data-test=symmetry]').selectOption('x');
+  await page.keyboard.press('5');
+  await page.locator('[data-mode=place]').click();
+  await page.mouse.click(cx - 200, cy - 60);
+  await expect(page.locator('[data-test=objects]')).toHaveText('3 objects');
+  await page.locator('[data-test=symmetry]').selectOption('none');
+
+  // Copy a rectangle around the first tree and place it elsewhere
+  await page.keyboard.press('0');
+  await page.mouse.move(cx - 175, cy + 60);
+  await page.mouse.down();
+  await page.mouse.move(cx - 105, cy + 120, { steps: 6 });
+  await page.mouse.up();
+  await page.keyboard.press('Control+c');
+  await page.mouse.click(cx + 120, cy - 120);
+  await expect(page.locator('[data-test=objects]')).toHaveText('4 objects');
+  await shot(testInfo, page, 'symmetry-and-paste');
+
   // Check: every spawn reaches the HQ
   await page.locator('[data-test=check]').click();
   await expect(page.locator('[data-code="spawn-unreachable"], [data-code="spawn-off-path"], [data-code="hq-off-path"]')).toHaveCount(0);
@@ -84,7 +104,7 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   const roadsSaved = await page.locator('[data-test=roads]').textContent();
   await page.reload();
   await expect(page.locator('[data-test=map-name]')).toHaveText(name);
-  await expect(page.locator('[data-test=objects]')).toHaveText('1 objects');
+  await expect(page.locator('[data-test=objects]')).toHaveText('4 objects');
   await page.keyboard.press('7');
   await expect(page.locator('[data-spawn]')).toHaveCount(2);
   await expect(page.locator('[data-test=roads]')).toHaveText(roadsSaved!);

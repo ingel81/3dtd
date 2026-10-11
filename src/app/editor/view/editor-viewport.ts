@@ -245,14 +245,18 @@ export class EditorViewport {
    * The map from straight above into a canvas: the minimap, the PNG preview
    * and the thumbnails. `overlay` adds spawns, HQ and roads' markers.
    */
-  renderTopDown(width: number, height = width, overlay = false): HTMLCanvasElement {
+  renderTopDown(width: number, height = width, overlay = false, area?: { x0: number; y0: number; x1: number; y1: number }): HTMLCanvasElement {
     const t = this.editor.doc.terrain;
     this.flush();
-    const cam = new OrthographicCamera(-t.width / 2, t.width / 2, t.depth / 2, -t.depth / 2, 1, 20000);
-    cam.position.set(0, 5000, 0);
+    const a = area ?? { x0: -t.width / 2, y0: -t.depth / 2, x1: t.width / 2, y1: t.depth / 2 };
+    const hw = Math.abs(a.x1 - a.x0) / 2;
+    const hd = Math.abs(a.y1 - a.y0) / 2;
+    const cam = new OrthographicCamera(-hw, hw, hd, -hd, 1, 20000);
+    const c = mapToScene((a.x0 + a.x1) / 2, (a.y0 + a.y1) / 2, 0);
+    cam.position.set(c.x, 5000, c.z);
     // North (+z) at the top, east (-x) to the right
     cam.up.set(0, 0, 1);
-    cam.lookAt(0, 0, 0);
+    cam.lookAt(c.x, 0, c.z);
     const target = new WebGLRenderTarget(width, height, { colorSpace: SRGBColorSpace });
     const fog = this.scene.fog;
     this.scene.fog = null;

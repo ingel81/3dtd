@@ -20,6 +20,7 @@ import { EnvironmentPanelComponent } from '../panels/environment-panel.component
 import { LandscapePanelComponent } from '../panels/landscape-panel.component';
 import { MapPanelComponent } from '../panels/map-panel.component';
 import { MarkerPanelComponent } from '../panels/marker-panel.component';
+import { StampPanelComponent } from '../panels/stamp-panel.component';
 import { MinimapComponent } from '../panels/minimap.component';
 import { ObjectPanelComponent } from '../panels/object-panel.component';
 import { OutlinerComponent } from '../panels/outliner.component';
@@ -31,6 +32,7 @@ import { WaterPanelComponent } from '../panels/water-panel.component';
 
 export const TOOL_ICON: Record<ToolId, TdIconName> = {
   landscape: 'terrain',
+  stamp: 'copy',
   terrain: 'sliders',
   paint: 'edit',
   water: 'splash',
@@ -45,7 +47,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
  * The editor around the 3D view: top bar (map, history, save, file,
  * check, test), tool column, the tool's options and the outliner on the
  * right, minimap and check over the view, status bar at the foot. Keys:
- * 1 to 9 tools, Ctrl+Z / Ctrl+Y history, Ctrl+S save; the rest goes to the
+ * 1 to 9 and 0 tools, Ctrl+Z / Ctrl+Y history, Ctrl+S save; the rest goes to the
  * view and the tool.
  */
 @Component({
@@ -61,6 +63,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
     ObjectPanelComponent,
     PathPanelComponent,
     MarkerPanelComponent,
+    StampPanelComponent,
     EnvironmentPanelComponent,
     MapPanelComponent,
     OutlinerComponent,
@@ -138,6 +141,13 @@ export class EditorShellComponent implements OnDestroy {
     if (ctrl && k === 'z' && !e.shiftKey) return this.handled(e, () => s.undo());
     if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) return this.handled(e, () => s.redo());
     if (ctrl && k === 's') return this.handled(e, () => void s.save(true));
+    // Ctrl+V from any tool places the last copy
+    if (ctrl && k === 'v' && s.tool() !== 'stamp' && s.settings.stamp.current) {
+      return this.handled(e, () => {
+        this.pick('stamp');
+        s.patchSettings((st) => (st.stamp.mode = 'paste'));
+      });
+    }
     if (!ctrl && !e.altKey) {
       const tool = TOOLS.find((t) => t.key === e.key);
       if (tool) return this.handled(e, () => this.pick(tool.id));

@@ -10,12 +10,13 @@ import { DEFAULT_BRUSH, type BrushSettings } from '../ops/brush';
 import { DEFAULT_SCATTER, type ScatterOptions } from '../ops/object-ops';
 import type { BiomeId } from '../ops/landscape/biomes';
 import type { SymmetryMode } from '../ops/symmetry';
+import { ALL_PARTS, type Stamp, type StampParts, type StampRect } from '../ops/stamp';
 import { randomSeed } from '../ops/landscape/landscape-noise';
 import { DEFAULT_RIVER, type RiverOptions } from '../ops/landscape/river';
 import { DEFAULT_ROAD, type RoadOptions } from '../ops/landscape/road';
 import type { EditorOverlay } from '../view/editor-overlay';
 
-export type ToolId = 'landscape' | 'terrain' | 'paint' | 'water' | 'objects' | 'paths' | 'markers' | 'environment' | 'settings';
+export type ToolId = 'landscape' | 'stamp' | 'terrain' | 'paint' | 'water' | 'objects' | 'paths' | 'markers' | 'environment' | 'settings';
 
 export interface ToolInfo {
   id: ToolId;
@@ -34,6 +35,7 @@ export const TOOLS: readonly ToolInfo[] = [
   { id: 'markers', label: 'Spawns and HQ', key: '7' },
   { id: 'environment', label: 'Environment', key: '8' },
   { id: 'settings', label: 'Map', key: '9' },
+  { id: 'stamp', label: 'Copy and stamps', key: '0' },
 ];
 
 export type TerrainMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'level' | 'noise' | 'erode' | 'terrace' | 'plateau' | 'ramp';
@@ -101,6 +103,20 @@ export interface EditorSettings {
   };
   paths: { mode: PathMode; width: number; kind: MapPathKind; /** Snap radius to nodes and edges, metres */ snap: number; showRoutes: boolean };
   markers: { mode: MarkerMode };
+  stamp: {
+    mode: 'select' | 'paste';
+    parts: StampParts;
+    /** Turn of the stamp being placed, radians */
+    rotation: number;
+    /** Share of the half size over which the stamp's rim fades into the ground */
+    feather: number;
+    /** The chosen rectangle (select mode) */
+    region: StampRect | null;
+    /** What a paste puts down: the copy or a stamp from the library */
+    current: Stamp | null;
+    /** Name of the current piece, for the hint */
+    currentName: string;
+  };
 }
 
 export function defaultSettings(): EditorSettings {
@@ -122,6 +138,7 @@ export function defaultSettings(): EditorSettings {
     objects: { mode: 'place', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true },
     paths: { mode: 'draw', width: 8, kind: 'road', snap: 10, showRoutes: true },
     markers: { mode: 'spawn' },
+    stamp: { mode: 'select', parts: { ...ALL_PARTS }, rotation: 0, feather: 0.25, region: null, current: null, currentName: '' },
   };
 }
 
