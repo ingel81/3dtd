@@ -104,6 +104,7 @@ export function buildArchipelago(): CustomMapDocument {
   k.place('windmill', 130, -10, { rotation: 0.7 });
   k.place('well', 52, -62);
 
+  k.clearRoads();
   k.environment({ biome: 'temperate', sky: 'day', sunAzimuth: 150, sunElevation: 50, fogDensity: 0.0004, tint: '#fbfdff' });
   return k.finish();
 }

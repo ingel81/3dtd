@@ -579,6 +579,23 @@ export class LevelKit {
     return out;
   }
 
+  /**
+   * Deletes objects that would block building on a road (the check's
+   * "object stands on a path"), leaving gates and arches the road runs through
+   */
+  clearRoads(keep: readonly string[] = ['castle-gate', 'gate-ruin', 'ruin-arch', 'rock-arch', 'hell-gate', 'palisade-gate', 'iron-gate', 'gate-farm']): number {
+    this.freeCheck ??= new LandscapeStroke(this.editor, 'check', 1, this.catalog);
+    this.freeCheck.refreshRoads();
+    const check = this.freeCheck;
+    const before = this.doc.objects.length;
+    this.doc.objects = this.doc.objects.filter((o) => {
+      if (keep.includes(o.asset) || !(o.blocksBuild ?? this.catalog.object(o.asset).blocksBuild)) return true;
+      return check.roadDistance(o.x, o.y, 4) >= 0;
+    });
+    this.freeCheck = null;
+    return before - this.doc.objects.length;
+  }
+
   /** Remove objects within `radius` of a point (the Erase brush) */
   erase(p: MapPoint, radius: number, keep?: (o: MapObject) => boolean): void {
     this.doc.objects = this.doc.objects.filter((o) => Math.hypot(o.x - p.x, o.y - p.y) > radius || (keep?.(o) ?? false));
@@ -683,7 +700,7 @@ export class LevelKit {
     const issues = this.issues();
     // LEVEL_LOG=1 prints what the editor's panels would show: lanes, objects, warnings, layers left out
     if (process.env['LEVEL_LOG']) {
-      console.log(this.spec.id, { lanes: this.lanes(), objects: this.doc.objects.length, leftOut: [...this.leftOut], warnings: issues.map((i) => i.message) });
+      console.log(this.spec.id, { lanes: this.lanes(), objects: this.doc.objects.length, leftOut: [...this.leftOut], warnings: issues.map((i) => `${i.message}${i.target && 'id' in i.target ? ` [${i.target.id}]` : ''}${i.focus ? ` at ${Math.round(i.focus.x)},${Math.round(i.focus.y)}` : ''}`) });
     }
     const errors = issues.filter((i) => i.severity === 'error');
     if (errors.length) throw new Error(`${this.spec.id}: ${errors.map((e) => e.message).join('; ')}`);

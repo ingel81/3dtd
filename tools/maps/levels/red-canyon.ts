@@ -84,7 +84,7 @@ export function buildRedCanyon(): CustomMapDocument {
   // ---- The temple, the camp, palms at the oasis
   k.place('temple-ruin', hq.x + 16, hq.y - 14, { rotation: facing({ x: hq.x + 16, y: hq.y - 14 }, j) });
   k.place('desert-temple', hq.x + 34, hq.y + 22, { rotation: facing({ x: hq.x + 34, y: hq.y + 22 }, hq) });
-  for (const [x, y, r] of [[hq.x - 14, hq.y + 18, 0], [hq.x + 14, hq.y + 22, 0.2], [hq.x - 24, hq.y - 6, 0.5]] as const) k.place('ruin-columns', x, y, { rotation: r });
+  for (const [x, y, r] of [[hq.x - 26, hq.y + 4, 0], [hq.x + 14, hq.y + 22, 0.2], [hq.x - 24, hq.y - 6, 0.5]] as const) k.place('ruin-columns', x, y, { rotation: r });
   k.place('obelisk', hq.x - 6, hq.y + 34, { rotation: 0.3 });
   k.place('obelisk', hq.x + 30, hq.y + 30, { rotation: 0.3 });
   k.scatter(['tree-palm', 'tree-palm-tall', 'tree-palm-dry'], oasis, { radius: 26, strength: 1, falloff: 0.4 }, { density: 6, minDistance: 5, scaleMin: 0.85, scaleMax: 1.2 }, false);

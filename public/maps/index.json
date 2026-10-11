@@ -26,7 +26,7 @@
       "spawns": 2,
       "biome": "mountain",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "79ead7a5f6c1524804806221cd0083d8cd35bc9aace850c9facb389617d96b27"
+      "contentHash": "ecf889c0f0a52b07bc96bafdd0a975e4b43c2b2bf27865581a5bca30d3180e5d"
     },
     {
       "id": "witch-marsh",
@@ -68,7 +68,7 @@
       "spawns": 2,
       "biome": "desert",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "a155860f900b143b608890738a4c2065b3d677c27cd02a9845a5a528424a8dbb"
+      "contentHash": "9d72aad8bc25efada94828047cdce4fd96161895f4c3ad0177a6a607c84154d2"
     },
     {
       "id": "archipelago",
@@ -82,7 +82,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "a11531d5a44dc6b960981d06c1caa526ee7b9bcbae59cf0a584fabb7ce1df692"
+      "contentHash": "faf4b5c50099be734b5764311d197f123479f1276c8425419dfd734b3f780ab6"
     },
     {
       "id": "frost-hamlet",
@@ -96,7 +96,7 @@
       "spawns": 2,
       "biome": "arctic",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "d136bba5ad88a4399b99eb7b8c8d393a43ff6582d954fccb87d75c8cd3e6da2d"
+      "contentHash": "670fcaac5b8514a389574ae8733809c769cee0dff02433853abd96c1b3ae165a"
     },
     {
       "id": "ember-crater",

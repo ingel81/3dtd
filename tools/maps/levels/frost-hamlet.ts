@@ -66,7 +66,7 @@ export function buildFrostHamlet(): CustomMapDocument {
     [-22, 160, 'house-snow'],
     [-30, 128, 'house-stone-snow'],
     [62, 164, 'house-snow'],
-    [70, 128, 'log-cabin-snow'],
+    [66, 106, 'log-cabin-snow'],
     [20, 185, 'chapel'],
     [-62, 150, 'barn-snow'],
     [100, 150, 'log-cabin-snow'],

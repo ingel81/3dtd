@@ -106,7 +106,7 @@ export function buildMountainPass(): CustomMapDocument {
     [-24, 104, 'well', 0],
     [36, 104, 'woodpile', 1.2],
     [-50, 78, 'woodpile', 0.3],
-    [22, 70, 'shrine', 2.6],
+    [36, 64, 'shrine', 2.6],
     [-6, 148, 'bench', 3.1],
     [40, 132, 'cart', 0.8],
     [-20, 82, 'lamp-post', 0],
