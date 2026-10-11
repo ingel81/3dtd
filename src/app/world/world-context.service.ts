@@ -5,6 +5,7 @@ import { DevWorldService } from '../devworld/devworld.service';
 import type { WorldCapabilities, WorldLogo, WorldProvider, WorldStreetSource } from './world-provider';
 import { WorldProviderRegistry } from './world-provider-registry';
 import { worldRefFromSearch, type WorldRef } from './world-ref';
+import { customMapsByLink } from './custom-maps-open';
 import { DEFAULT_RUN_RULES, type RunRules } from '../sim/protocol/run-rules';
 import type { WorldCoverage } from './world-coverage';
 
@@ -92,6 +93,8 @@ export class WorldContext {
 
   private refFromUrl(): WorldRef | null {
     if (this.devWorld.inUrl) return devWorldRef(this.devWorld);
-    return typeof window === 'undefined' ? null : worldRefFromSearch(window.location.search);
+    const ref = typeof window === 'undefined' ? null : worldRefFromSearch(window.location.search);
+    // A map link of a release before the maps are: the real places
+    return ref?.kind === 'custom-map' && !customMapsByLink() ? null : ref;
   }
 }

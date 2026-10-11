@@ -98,7 +98,8 @@
                   "input": "public",
                   "ignore": [
                     "**/candidates/**",
-                    "**/*.psd"
+                    "**/*.psd",
+                    "maps/**"
                   ]
                 }
               ]
