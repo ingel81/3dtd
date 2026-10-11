@@ -46,6 +46,24 @@ def load_image(path, non_color=False):
 _materials = {}
 
 
+def tinted_image(img, tint):
+    """A packed copy of an sRGB image multiplied by `tint` (clamped to 1 per channel)"""
+    import numpy as np
+    key = img.name + '-x' + '-'.join('%.2f' % c for c in tint)
+    if key in bpy.data.images:
+        return bpy.data.images[key]
+    out = img.copy()
+    out.name = key
+    px = np.empty(img.size[0] * img.size[1] * 4, dtype=np.float32)
+    img.pixels.foreach_get(px)
+    px = px.reshape(-1, 4)
+    for c in range(3):
+        px[:, c] = np.clip(px[:, c] * tint[c], 0, 1)
+    out.pixels.foreach_set(px.ravel())
+    out.pack()
+    return out
+
+
 def pbr_material(name, asset, tint=None, roughness_scale=1.0):
     """Principled material from a Poly Haven texture set (diff, nor_gl, arm)"""
     key = (name, asset)
@@ -60,6 +78,10 @@ def pbr_material(name, asset, tint=None, roughness_scale=1.0):
     bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
     diff = nt.nodes.new('ShaderNodeTexImage')
     diff.image = load_image(tex_path(asset, 'diff'))
+    if tint and max(tint) > 1.0:
+        # glTF clamps baseColorFactor to 1: brightening tints go into a copy of the texture instead
+        diff.image = tinted_image(diff.image, tint)
+        tint = None
     if tint:
         mix = nt.nodes.new('ShaderNodeMix')
         mix.data_type = 'RGBA'
@@ -283,6 +305,27 @@ def oriented_box(part, a, b, thickness):
     bmesh.ops.transform(tmp, matrix=m, verts=tmp.verts)
     part.add_bmesh(tmp)
     tmp.free()
+
+
+def hexa(part, bottom, top):
+    """Closed six-sided solid from four bottom and four top corners (counter-clockwise from above)"""
+    bm = part.bm
+    b = [bm.verts.new(c) for c in bottom]
+    t = [bm.verts.new(c) for c in top]
+    bm.faces.new(list(reversed(b)))
+    bm.faces.new(t)
+    for i in range(4):
+        bm.faces.new((b[i], b[(i + 1) % 4], t[(i + 1) % 4], t[i]))
+
+
+def tilt(objects, x=0.0, y=0.0, z=0.0, lift=0.0):
+    """Rotates finished objects (degrees, about the origin) and bakes the rotation into the mesh"""
+    m = Matrix.Translation((0, 0, lift)) @ (Matrix.Rotation(math.radians(z), 4, 'Z') @ Matrix.Rotation(math.radians(y), 4, 'Y')
+                                            @ Matrix.Rotation(math.radians(x), 4, 'X'))
+    for o in objects:
+        o.data.transform(m)
+        o.data.update()
+    return objects
 
 
 def export(name, objects):
