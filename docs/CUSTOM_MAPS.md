@@ -177,13 +177,24 @@ Schema (Version 1, alle neuen Felder optional): Materialien mit `tags`, `emissiv
 `volcanic`, `wood`; Objekte mit `tags`, `effects`, `light`, `lod`, Kategorien auch `structure` und `fx`. Den Bestand
 baut der Asset-Worker aus; Stand beim Schreiben:
 
-- **17 Bodenmaterialien** (Poly Haven, ambientCG), je `color.jpg`, `normal.jpg` (OpenGL), `arh.jpg` (AO, Rauheit,
-  Höhe), 1024 px: Gras, sattes Gras, trockenes Gras, Wiese, Erde, Schlamm, Laubboden, Waldboden, steiniger Boden,
-  Kies, Fels (Klippe), moosiger Fels, Sand, Schnee, Kopfsteinpflaster, Steinplatten, Feldweg
-- **24 Objekte** (GLB, meshopt, WebP bis 512 px): Eiche, Birke, Kiefer, Tanne, toter Baum, Busch, Farn, Gras, Blumen,
-  Stumpf, Stamm, Stein, Fels, Fachwerkhaus, großes Haus, Scheune, Turmruine, Steinmauer, Holzzaun, Kiste, Fass,
-  Laterne, Brunnen, Brückenstück
-- Größe: Materialien 21 MB, Modelle 5 MB
+- **80 Bodenmaterialien** (Poly Haven, ambientCG), je `color.jpg`, `normal.jpg` (OpenGL), `arh.jpg` (AO, Rauheit,
+  Höhe), 1024 px; die beiden Lava-Sätze zusätzlich `emissive.jpg` (`files.emissive` und `emissive` im Eintrag, vom
+  Renderer noch nicht gelesen). Gras- und Waldböden, Herbstlaub, Sumpf und Schlamm, Acker, Dünen- und Rotsand,
+  rissige Wüstenerde, Klippen aus Granit, Sandstein, Basalt und Kalk, Vulkangestein, Lava, Schnee, Eis, Pflaster- und
+  Plattenwege, Burgböden, Bohlen, Kies, Flusskiesel
+- **208 Objekte** (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px), je Biom: Laub- und Nadelbäume mit Herbst-
+  und Schneevarianten, Trauerweide, Mangrove, Palmen, Kakteen, Köcherbäume; Sträucher, Hecken, Gras je Biom, Schilf,
+  Weizen, Blumen, Seerosen, Pilze (auch leuchtend); Felsen je Gesteinsart, modulare Klippen, Sandsteinsäulen,
+  Tafelberg, Felsbogen, Basaltsäulen, Kristalle, Lavabecken; Burgbaukasten (Mauer, Turm, Torhaus, Bergfried, Treppe,
+  Ruinen), Dorfhäuser auch mit Schnee, Mühlen, Kapelle, Wachturm, Leuchtturm, Pfahlhütte, Lehmhäuser, Marktstände,
+  Zelte; Stein- und Holzbrücke, Bohlenweg, Steg, Palisade, Zäune, Trockenmauern; Ruinen, Obelisk, Schrein, Gräber,
+  Statuen; Fackel, Feuerschale, Lagerfeuer, Wasserfall, Requisiten, Segelschiff
+- **Biom-Tags**: jeder Eintrag trägt `tags` (`temperate`, `autumn`, `winter`, `mountain`, `desert`, `swamp`, `coast`,
+  `volcanic`, `village`, `castle`, `crystal`, `arena`) für Paletten; `category` bleibt die Art. Material- und
+  Objekt-Ids teilen sich einen Namensraum
+- Flammen und Kerzen sind alpha-getestete `foliage-*`-Karten mit Eigenleuchten, der Wasserfall eine stehende Karte;
+  Seerosen, Schiff und Brücken brauchen eine Höhenangabe (Wasserspiegel, Ufer), sonst stehen sie auf dem Grund
+- Größe: Materialien 71 MB, Modelle 44 MB. Ansehen: `/map-preview?showcase=<tag>` oder `?assets=a,b*&materials=c,d`
 
 `MapAssetLibrary.shared()` lädt Katalog, Materialpixel und Modelle einmal und teilt sie zwischen Ansichten. Fehlt eine
 Datei, zeichnet die Karte trotzdem: Material in der Durchschnittsfarbe, Modell als Platzhalterform.
