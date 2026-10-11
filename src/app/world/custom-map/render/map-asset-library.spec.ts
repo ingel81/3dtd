@@ -99,6 +99,22 @@ describe('MapAssetLibrary', () => {
     expect(disposed.every((spy) => spy.mock.calls.length === 1)).toBe(true);
   });
 
+  it('disposes after a detail model failed to load without an unhandled rejection', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const withLod = { ...catalog, objects: [{ ...catalog.objects[0], lod: [{ file: 'models/missing.glb', distance: 100 }] }] };
+    const lib = new MapAssetLibrary('base/', {
+      fetch: (() => Promise.resolve(jsonResponse(withLod))) as unknown as typeof fetch,
+      loadModel: () => Promise.reject(new Error('404')),
+    });
+    expect(await lib.lodModels('pine')).toEqual([]);
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    lib.dispose();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    process.off('unhandledRejection', unhandled);
+    expect(unhandled).not.toHaveBeenCalled();
+  });
+
   it('falls back to flat materials and placeholder models', async () => {
     const fetchFn = vi.fn(() => Promise.resolve(jsonResponse(catalog)));
     const lib = new MapAssetLibrary('base/', {

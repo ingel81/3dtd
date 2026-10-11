@@ -178,13 +178,17 @@ export class MapAssetLibrary {
   /** Frees the GPU side of every loaded model, LOD models included: geometry, material and its textures */
   dispose(): void {
     for (const p of this.models.values()) {
-      void p.then((m) => {
-        for (const part of m.parts) {
-          part.geometry.dispose();
-          disposeTextures(part.material);
-          part.material.dispose();
-        }
-      });
+      // A detail model that failed to load stays a rejected promise: nothing to free
+      p.then(
+        (m) => {
+          for (const part of m.parts) {
+            part.geometry.dispose();
+            disposeTextures(part.material);
+            part.material.dispose();
+          }
+        },
+        () => undefined,
+      );
     }
     this.models.clear();
     this.materials.clear();
