@@ -17,7 +17,7 @@ import {
   type WebGLRenderer,
 } from 'three';
 import type { MapObject } from '../../map-document';
-import type { CatalogObject } from '../asset-catalog';
+import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
@@ -136,7 +136,7 @@ export class MapObjectLayer {
     const groups = new Map<string, MapObject[]>();
     const catalog = await this.assets.catalog();
     for (const o of objects) {
-      const entry = catalog.objects.find((e) => e.id === o.asset);
+      const entry = entriesOf(catalog).get(o.asset);
       const blocks = o.blocksLos ?? entry?.blocksLos ?? false;
       const key = `${o.asset}|${blocks ? 1 : 0}`;
       let list = groups.get(key);
@@ -185,7 +185,7 @@ export class MapObjectLayer {
     const catalog = await this.assets.catalog();
     const groups = new Map<string, MapObject[]>();
     for (const o of objects) {
-      const entry = catalog.objects.find((e) => e.id === o.asset);
+      const entry = entriesOf(catalog).get(o.asset);
       const blocks = o.blocksLos ?? entry?.blocksLos ?? false;
       const key = `${o.asset}|${blocks ? 1 : 0}`;
       let list = groups.get(key);
@@ -759,4 +759,13 @@ function grow(a: Float32Array, length: number): Float32Array {
   const out = new Float32Array(Math.max(length, Math.ceil(a.length * 1.5)));
   out.set(a);
   return out;
+}
+
+const entryMaps = new WeakMap<AssetCatalog, Map<string, CatalogObject>>();
+
+/** The catalogue's objects by id, built once per catalogue */
+function entriesOf(catalog: AssetCatalog): Map<string, CatalogObject> {
+  let map = entryMaps.get(catalog);
+  if (!map) entryMaps.set(catalog, (map = new Map(catalog.objects.map((e) => [e.id, e]))));
+  return map;
 }

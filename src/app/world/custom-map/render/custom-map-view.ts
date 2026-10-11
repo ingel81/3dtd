@@ -349,7 +349,8 @@ export class CustomMapView {
     this.objects.refreshHeights(rect);
     this.coverDirty = true;
     // Water and bridges only when the change reaches them: a brush on a big map must stay cheap
-    if (!rect || this.waterNear(rect)) this.updateWater();
+    if (!rect) this.updateWater();
+    else this.refreshWaterNear(rect);
     if (!rect || this.bridgeNear(rect)) void this.refreshBridges();
     this.environment.invalidateShadows();
   }
@@ -360,23 +361,36 @@ export class CustomMapView {
   }
 
   /** Whether a water body's mask or a river comes within a few metres of a rectangle */
-  private waterNear(rect: MapRect): boolean {
+  /**
+   * Heights changed in `rect`: only the water bodies whose mask reaches it
+   * rebuild their surface (which cells it covers, its depth per vertex),
+   * the apron's sea floor only when the change touches the border. Rivers
+   * keep theirs: a ribbon follows its line, the depth comes from the
+   * height texture per pixel.
+   */
+  private refreshWaterNear(rect: MapRect): void {
     const t = this.doc.terrain;
     const f = this.heights;
     const g = this.gridRect({ minX: rect.minX - 4, minY: rect.minY - 4, maxX: rect.maxX + 4, maxY: rect.maxY + 4 });
-    for (const body of [t.water, ...(t.waterBodies ?? [])]) {
-      if (!body) continue;
+    const near = (mask: Uint8Array): boolean => {
       for (let j = Math.max(0, g.j0); j <= Math.min(f.rows - 1, g.j1); j++) {
         for (let i = Math.max(0, g.i0); i <= Math.min(f.columns - 1, g.i1); i++) {
-          if (body.mask[j * f.columns + i]) return true;
+          if (mask[j * f.columns + i]) return true;
         }
       }
-    }
-    return (t.rivers ?? []).some((r) =>
-      r.points.some(
-        (p) => p.x + p.width + 4 > rect.minX && p.x - p.width - 4 < rect.maxX && p.y + p.width + 4 > rect.minY && p.y - p.width - 4 < rect.maxY,
-      ),
-    );
+      return false;
+    };
+    const border = g.i0 <= 0 || g.j0 <= 0 || g.i1 >= f.columns - 1 || g.j1 >= f.rows - 1;
+    let lava = false;
+    [t.water, ...(t.waterBodies ?? [])].forEach((body, k) => {
+      const surface = this.waters[k];
+      if (!body || !surface || !near(body.mask)) return;
+      if (k === 0 && border) this.terrain.refreshWater();
+      surface.set(body, k === 0 ? this.terrain.apronProfile : null);
+      lava ||= body.kind === 'lava';
+      this.coverDirty = true;
+    });
+    if (lava) this.effects.setLavaLights(this.lavaLightPoints());
   }
 
   private bridgeNear(rect: MapRect): boolean {

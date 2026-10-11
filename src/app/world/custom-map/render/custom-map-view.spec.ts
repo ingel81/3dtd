@@ -296,3 +296,27 @@ describe('CustomMapView warm-up', () => {
     view.dispose();
   });
 });
+
+describe('CustomMapView heights near water', () => {
+  it('rebuilds only the water bodies a height brush reaches', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const doc = createDemoMap();
+    const g = doc.terrain.grid;
+    // A pond in the south-west corner of the map
+    const mask = new Uint8Array(g.columns * g.rows);
+    for (let j = 2; j < 8; j++) for (let i = 2; i < 8; i++) mask[j * g.columns + i] = 255;
+    doc.terrain.waterBodies = [{ level: 50, mask, color: '' }];
+    const view = new CustomMapView(doc, offlineLibrary());
+    await view.ready;
+    const waters = (view as unknown as { waters: ({ set: (...a: unknown[]) => void } | null)[] }).waters;
+    const main = vi.spyOn(waters[0]!, 'set');
+    const pond = vi.spyOn(waters[1]!, 'set');
+    const x0 = -doc.terrain.width / 2;
+    const y0 = -doc.terrain.depth / 2;
+    const cell = g.cellSize;
+    view.updateHeights({ minX: x0 + 3 * cell, minY: y0 + 3 * cell, maxX: x0 + 5 * cell, maxY: y0 + 5 * cell });
+    expect(pond).toHaveBeenCalledTimes(1);
+    expect(main).not.toHaveBeenCalled();
+    view.dispose();
+  });
+});
