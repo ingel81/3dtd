@@ -357,8 +357,9 @@ export function createDemoMap(seed = 7): CustomMapDocument {
       w[L.sand] = smoothstep(21, 14, dr) * 2.6 * (0.6 + n2 * 0.8);
       const dv = Math.hypot(x - villageCenter.x, y - villageCenter.y);
       w[L.dirt] =
-        smoothstep(60, 22, dv) * (0.7 + n2 * 0.8) * 1.8 +
-        smoothstep(9, 5, roadDist.at(x, y)) * 0.8 * n2 +
+        // Smooth weights: the terrain's height blend frays the edges, noise here only blotched them
+        smoothstep(62, 30, dv) * 2.2 +
+        smoothstep(9, 5, roadDist.at(x, y)) * 0.6 +
         smoothstep(16, 10, dr) * 0.9;
       let sum = 0;
       for (let k = 0; k < 8; k++) sum += w[k];

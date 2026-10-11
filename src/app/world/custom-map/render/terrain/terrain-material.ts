@@ -181,7 +181,8 @@ void sampleNoTile(int layer, vec2 uv, vec2 dx, vec2 dy, float k, out vec4 col, o
 // Normal maps are OpenGL style (green towards the image top); the arrays are
 // uploaded without a flip, so the image top is v = 0 and green flips
 vec3 unpackTerrainNormal(vec4 dat) {
-  vec2 xy = (dat.xy * 2.0 - 1.0) * vec2(1.0, -1.0);
+  // Strengthened: from game distance the ground's relief would otherwise vanish
+  vec2 xy = (dat.xy * 2.0 - 1.0) * vec2(1.6, -1.6);
   return vec3(xy, sqrt(max(0.0, 1.0 - dot(xy, xy))));
 }
 `;
@@ -307,7 +308,11 @@ vec3 terrainNormal = normalize(accN);
 vec3 albedo = accC.rgb;
 float macro = n1 * 0.6 + n2 * 0.4;
 albedo *= mix(0.86, 1.1, macro) * mix(0.93, 1.06, n3);
-albedo = mix(albedo, albedo * vec3(1.08, 1.04, 0.86), smoothstep(0.55, 0.85, n2) * 0.5);
+// Large patches: drier and yellower in some, deeper and cooler in others
+albedo = mix(albedo, albedo * vec3(1.14, 1.05, 0.72), smoothstep(0.5, 0.85, n2) * 0.65);
+albedo = mix(albedo, albedo * vec3(0.84, 0.92, 0.95), smoothstep(0.45, 0.15, n1) * 0.6);
+// A little less saturated overall: photo textures under a strong sun read too green
+albedo = mix(vec3(dot(albedo, vec3(0.299, 0.587, 0.114))), albedo, 0.84);
 float far = smoothstep(120.0, 900.0, length(vViewPosition));
 albedo = mix(albedo, accAvg * mix(0.8, 1.15, macro), far * 0.45);
 
