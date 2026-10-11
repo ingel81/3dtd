@@ -77,6 +77,12 @@ export const TOOL_GROUPS: readonly { label: string; tools: readonly { id: ToolId
   },
 ];
 
+/**
+ * Each brush tool keeps its own brush; this is its size when first used.
+ * A landscape stroke shapes hills and woods, paint touches up a verge.
+ */
+export const TOOL_BRUSH_RADIUS: Partial<Record<ToolId, number>> = { landscape: 40, terrain: 16, paint: 12, water: 16, objects: 20 };
+
 export type TerrainMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'level' | 'noise' | 'erode' | 'terrace' | 'plateau' | 'ramp';
 
 export const TERRAIN_MODES: readonly { id: TerrainMode; label: string; hint: string; group: string }[] = [

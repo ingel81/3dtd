@@ -35,7 +35,8 @@ import { ObjectTool } from '../tools/object-tool';
 import { PaintTool } from '../tools/paint-tool';
 import { PathTool } from '../tools/path-tool';
 import { TerrainTool } from '../tools/terrain-tool';
-import { PanelTool, TOOLS, defaultSettings, type EditorSettings, type EditorTool, type ToolId } from '../tools/tool';
+import { PanelTool, TOOL_BRUSH_RADIUS, TOOLS, defaultSettings, type EditorSettings, type EditorTool, type ToolId } from '../tools/tool';
+import { DEFAULT_BRUSH, type BrushSettings } from '../ops/brush';
 import { WaterTool } from '../tools/water-tool';
 import { validateMap, type MapIssue } from '../validation/map-validation';
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
@@ -87,10 +88,17 @@ export class EditorSession implements OnDestroy {
   readonly store = new MapStore();
   readonly stamps = new StampLibrary();
   readonly catalog = signal(new CatalogIndex(EMPTY_CATALOG));
-  readonly settings = defaultSettings();
+  /** The editor opens on Landscape: its brush starts at Landscape's size */
+  readonly settings = (() => {
+    const s = defaultSettings();
+    s.brush.radius = TOOL_BRUSH_RADIUS.landscape ?? s.brush.radius;
+    return s;
+  })();
   /** Bumps when settings change from outside the panels (keys, a tool) */
   readonly settingsRev = signal(0);
   readonly tool = signal<ToolId>('landscape');
+  /** The brushes of the tools not in hand (selectTool swaps them) */
+  private readonly brushes = new Map<ToolId, BrushSettings>();
   readonly tools: Record<ToolId, EditorTool> = {
     landscape: new LandscapeTool(),
     stamp: new StampTool(),
@@ -489,11 +497,25 @@ export class EditorSession implements OnDestroy {
   }
 
   selectTool(id: ToolId): void {
+    const previous = this.tool();
+    if (previous !== id) {
+      // Every tool keeps its own brush: a big landscape brush is no big paint brush
+      this.brushes.set(previous, { ...this.settings.brush });
+      this.settings.brush = this.brushFor(id);
+      this.settingsRev.update((n) => n + 1);
+    }
     this.tool.set(id);
     if (this.viewport) {
       this.viewport.setTool(this.tools[id]);
       this.hint.set(this.tools[id].hint(this.viewport.ctx));
     }
+  }
+
+  /** The brush a tool had last, or its own first size */
+  private brushFor(id: ToolId): BrushSettings {
+    const kept = this.brushes.get(id);
+    if (kept) return { ...kept };
+    return { ...DEFAULT_BRUSH, radius: TOOL_BRUSH_RADIUS[id] ?? DEFAULT_BRUSH.radius };
   }
 
   /** Change settings from a panel */

@@ -103,3 +103,19 @@ describe('terrain jobs in the session', () => {
     s.ngOnDestroy();
   });
 });
+
+describe('editor session brushes', () => {
+  it('gives each tool its own brush, kept while another is in hand', () => {
+    const { s } = session();
+    expect(s.settings.brush.radius).toBe(40);
+    s.patchSettings((st) => (st.brush.radius = 70));
+    s.selectTool('paint');
+    expect(s.settings.brush.radius).toBe(12);
+    s.patchSettings((st) => (st.brush.radius = 5));
+    s.selectTool('landscape');
+    expect(s.settings.brush.radius).toBe(70);
+    s.selectTool('paint');
+    expect(s.settings.brush.radius).toBe(5);
+    s.ngOnDestroy();
+  });
+});
