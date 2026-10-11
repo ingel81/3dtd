@@ -47,7 +47,7 @@ export class ObjectPanelComponent {
     const cat = this.category();
     return this.session
       .catalog()
-      .catalog.objects.filter((o) => (cat === 'All' || o.category === cat) && (!q || o.name.toLowerCase().includes(q) || o.id.includes(q)));
+      .catalog.objects.filter((o) => !o.internal && (cat === 'All' || o.category === cat) && (!q || o.name.toLowerCase().includes(q) || o.id.includes(q)));
   });
   readonly selected = computed<MapObject[]>(() => {
     this.session.docRev();

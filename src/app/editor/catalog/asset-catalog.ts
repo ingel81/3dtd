@@ -31,7 +31,12 @@ export interface ObjectAssetEntry {
   radius: number;
   /** Height in metres at scale 1 */
   height: number;
+  /** The renderer's own part (bridge decks): not offered in the palette */
+  internal?: boolean;
 }
+
+/** Catalogue objects the renderer places itself */
+const INTERNAL_OBJECTS = new Set(['bridge-deck']);
 
 export interface MapAssetCatalog {
   materials: GroundMaterialEntry[];
@@ -99,6 +104,7 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
         blocksBuild: o.blocksBuild ?? true,
         radius: o.radius ?? o.footprint ?? 1,
         height: o.height ?? 2,
+        internal: INTERNAL_OBJECTS.has(o.id) || undefined,
       };
     }),
   };

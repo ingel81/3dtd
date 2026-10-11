@@ -8,6 +8,7 @@ describe('asset catalogue', () => {
         objects: [
           { id: 'tree-fir', name: 'Tanne', category: 'tree', footprint: 2.5, height: 14, file: 'models/fir.glb', blocksLos: true, blocksBuild: true },
           { id: 'lamp-post', category: 'prop' },
+          { id: 'bridge-deck', category: 'prop' },
         ],
       },
       'http://x/game/maps/assets/',
@@ -16,6 +17,7 @@ describe('asset catalogue', () => {
     expect(c.objects[0]).toMatchObject({ category: 'Trees', shape: 'pine', radius: 2.5, height: 14, model: 'http://x/game/maps/assets/models/fir.glb' });
     expect(c.objects[1]).toMatchObject({ name: 'lamp-post', category: 'Props', shape: 'crate', blocksBuild: true });
     expect(new CatalogIndex(c).categories()).toEqual(['Trees', 'Props']);
+    expect(c.objects[2].internal).toBe(true);
   });
 
   it('answers for ids it does not know', () => {
