@@ -263,3 +263,17 @@
   width: min(720px, calc(100vw - 32px));
   transform: translateX(-50%);
 }
+
+.es-options .td-side-body {
+  position: relative;
+}
+
+// Off panels stay laid out but unseen, so showing one costs no layout of its own
+.es-panel.is-off {
+  position: absolute;
+  inset: 0 0 auto;
+  visibility: hidden;
+  pointer-events: none;
+  overflow: hidden;
+  max-height: 100%;
+}

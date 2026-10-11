@@ -137,7 +137,7 @@ export class ThumbnailRenderer {
   }
 
   /** Renders `content` from a camera that frames `box`, stores the picture */
-  private shoot(content: Group, box: Box3, elevation = 0.55, azimuth = 0.7): void {
+  private async shoot(content: Group, box: Box3, elevation = 0.55, azimuth = 0.7): Promise<void> {
     const size = box.getSize(new Vector3());
     const center = box.getCenter(new Vector3());
     const radius = Math.max(0.01, size.length() / 2);
@@ -155,8 +155,10 @@ export class ThumbnailRenderer {
     const gl = this.gl;
     gl.render(this.scene, this.camera);
     this.scene.remove(content);
-    const url = gl.domElement.toDataURL('image/png');
-    this.store(this.currentKey, url);
+    // PNG encoding off the main thread (toBlob), not toDataURL, which stalls a frame per picture
+    const key = this.currentKey;
+    const blob = await new Promise<Blob | null>((resolve) => gl.domElement.toBlob(resolve, 'image/png'));
+    if (blob) this.store(key, blob);
   }
 
   private async drawObject(entry: ObjectAssetEntry): Promise<void> {
@@ -164,7 +166,7 @@ export class ThumbnailRenderer {
     const group = new Group();
     for (const part of model.parts) group.add(new Mesh(part.geometry, part.material));
     const box = new Box3().setFromObject(group);
-    this.shoot(group, box);
+    await this.shoot(group, box);
   }
 
   private async drawMaterial(entry: GroundMaterialEntry): Promise<void> {
@@ -173,7 +175,7 @@ export class ThumbnailRenderer {
     const ball = new Mesh(new SphereGeometry(1, 48, 32), material);
     const group = new Group();
     group.add(ball);
-    this.shoot(group, new Box3(new Vector3(-1, -1, -1), new Vector3(1, 1, 1)), 0.35, 0.5);
+    await this.shoot(group, new Box3(new Vector3(-1, -1, -1), new Vector3(1, 1, 1)), 0.35, 0.5);
     ball.geometry.dispose();
     material.dispose();
     texture?.dispose();
@@ -212,7 +214,7 @@ export class ThumbnailRenderer {
         group.add(piece);
       }
     }
-    this.shoot(group, new Box3(new Vector3(-4.5, 0, -4.5), new Vector3(4.5, 2, 4.5)), 0.75, 0.6);
+    await this.shoot(group, new Box3(new Vector3(-4.5, 0, -4.5), new Vector3(4.5, 2, 4.5)), 0.75, 0.6);
     plane.geometry.dispose();
     (plane.material as MeshStandardMaterial).dispose();
     texture?.dispose();
@@ -232,12 +234,12 @@ export class ThumbnailRenderer {
     );
   }
 
-  private store(key: string, url: string): void {
-    this.pictures.set(key, url);
+  private store(key: string, blob: Blob): void {
+    this.pictures.set(key, URL.createObjectURL(blob));
     this.onPicture();
     void this.open().then((db) => {
       if (!db) return;
-      db.transaction(STORE, 'readwrite').objectStore(STORE).put(url, key);
+      db.transaction(STORE, 'readwrite').objectStore(STORE).put(blob, key);
     });
   }
 
@@ -252,7 +254,11 @@ export class ThumbnailRenderer {
           resolve();
           return;
         }
-        if (String(cursor.key).includes(`:${VERSION}:`)) this.pictures.set(String(cursor.key), cursor.value as string);
+        if (String(cursor.key).includes(`:${VERSION}:`)) {
+          // Pictures are kept as PNG blobs; ones kept as data URLs before still read
+          const value = cursor.value as Blob | string;
+          this.pictures.set(String(cursor.key), typeof value === 'string' ? value : URL.createObjectURL(value));
+        }
         cursor.continue();
       };
       req.onerror = () => resolve();

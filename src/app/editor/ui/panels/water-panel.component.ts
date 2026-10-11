@@ -70,10 +70,10 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
 
     <div class="td-seg is-sm" role="radiogroup" aria-label="Water tool">
       <button type="button" role="radio" [attr.aria-checked]="mode() === 'fill'" (click)="setMode('fill')">Fill basin</button>
-      <button type="button" role="radio" [attr.aria-checked]="mode() === 'lake'" (click)="setMode('lake')" data-mode="lake">Dig lake</button>
+      <button type="button" role="radio" [attr.aria-checked]="mode() === 'lake'" (click)="setMode('lake')" data-water-mode="lake">Dig lake</button>
       <button type="button" role="radio" [attr.aria-checked]="mode() === 'paint'" (click)="setMode('paint')">Paint</button>
       <button type="button" role="radio" [attr.aria-checked]="mode() === 'erase'" (click)="setMode('erase')">Erase</button>
-      <button type="button" role="radio" [attr.aria-checked]="mode() === 'river'" (click)="setMode('river')" data-mode="river">Rivers</button>
+      <button type="button" role="radio" [attr.aria-checked]="mode() === 'river'" (click)="setMode('river')" data-water-mode="river">Rivers</button>
     </div>
     @if (mode() === 'river') {
       <div class="td-group">

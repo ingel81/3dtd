@@ -15,7 +15,7 @@ import { RangeRowComponent } from './range-row.component';
     <div class="td-seg is-sm ep-wrap" role="radiogroup" aria-label="Terrain brush">
       @for (m of modes; track m.id) {
         <button type="button" role="radio" [attr.aria-checked]="t().mode === m.id" [matTooltip]="m.hint"
-                (click)="setMode(m.id)" [attr.data-mode]="m.id">{{ m.label }}</button>
+                (click)="setMode(m.id)" [attr.data-terrain-mode]="m.id">{{ m.label }}</button>
       }
     </div>
     @if (t().mode === 'level' || t().mode === 'terrace') {

@@ -145,6 +145,7 @@ export class EditorViewport {
     this.view = new EditorMapView(editor.doc, this.scene, this.renderer);
     void this.view.warmUp(this.renderer, this.scene, this.camera).then(() => !this.disposed && this.callbacks.viewReady(), () => undefined);
     this.scene.add(this.overlay.group);
+    void this.warmOverlay();
     this.trial = new TrialRunners((x, y) => this.heightAt(x, y));
     this.scene.add(this.trial.group);
     this.ctx = this.buildContext();
@@ -303,6 +304,29 @@ export class EditorViewport {
   keyUp(e: KeyboardEvent): void {
     this.keysDown.delete(e.key);
     this.keysDown.delete(`fly:${e.key.toLowerCase()}`);
+  }
+
+  /**
+   * Compiles the overlay's programs (brush rings, handles, gizmo, lines)
+   * before a tool first shows them: a first compile stalled the frame of a
+   * tool switch by up to 70 ms on the GPU
+   */
+  private async warmOverlay(): Promise<void> {
+    const hidden: { visible: boolean }[] = [];
+    this.overlay.group.traverse((o) => {
+      if (!o.visible) {
+        hidden.push(o);
+        o.visible = true;
+      }
+    });
+    // compileAsync gathers the programs at once; the parts hide again before the next frame draws
+    let done: Promise<unknown>;
+    try {
+      done = this.renderer.compileAsync(this.overlay.group, this.camera, this.scene);
+    } finally {
+      for (const o of hidden) o.visible = false;
+    }
+    await done.catch(() => undefined);
   }
 
   /** Whether a tool holds the pointer (a stroke, a drag): slow extras wait */

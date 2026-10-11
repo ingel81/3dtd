@@ -117,6 +117,8 @@ export class EditorShellComponent implements OnDestroy {
   readonly tourStep = signal<number | null>(null);
   /** Whether the trial wave walks (the button shows it pressed) */
   readonly trialOn = signal(false);
+  /** Panels made so far: the current tool's at once, the others one by one when the page is idle */
+  readonly mounted = signal<ReadonlySet<ToolId>>(new Set<ToolId>());
   readonly tour = computed(() => {
     const k = this.tourStep();
     return k === null ? null : { step: TOUR_STEPS[k], counter: `${k + 1}/${TOUR_STEPS.length}`, last: k === TOUR_STEPS.length - 1 };
@@ -154,6 +156,13 @@ export class EditorShellComponent implements OnDestroy {
       this.canvas().nativeElement.focus();
       if (tourPending()) this.startTour();
     });
+    effect(() => {
+      const tool = this.session.tool();
+      untracked(() => {
+        if (!this.mounted().has(tool)) this.mounted.set(new Set([...this.mounted(), tool]));
+      });
+    });
+    afterNextRender(() => this.mountIdlePanels());
     // A change of the map may finish the step the tour is on
     effect(() => {
       const last = this.session.lastChange();
@@ -161,7 +170,10 @@ export class EditorShellComponent implements OnDestroy {
     });
   }
 
+  private destroyed = false;
+
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.session.detachViewport();
   }
 
@@ -172,6 +184,19 @@ export class EditorShellComponent implements OnDestroy {
 
   pick(id: ToolId): void {
     this.session.selectTool(id);
+  }
+
+  /** Makes the other panels in idle moments, one at a time, so the first switch to them is quick too */
+  private mountIdlePanels(): void {
+    const idle = (fn: () => void) =>
+      'requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 400 }) : setTimeout(fn, 200);
+    const next = () => {
+      const missing = this.tools.find((t) => !this.mounted().has(t.id));
+      if (!missing || this.destroyed) return;
+      this.mounted.set(new Set([...this.mounted(), missing.id]));
+      idle(next);
+    };
+    idle(next);
   }
 
   openGuide(): void {

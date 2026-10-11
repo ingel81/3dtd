@@ -111,19 +111,42 @@
     <section class="td-side-section es-options">
       <header class="td-side-head"><span class="td-side-name">{{ toolLabel() }}</span></header>
       <div class="td-side-body">
-        @switch (session.tool()) {
-          @case ('landscape') { <app-landscape-panel /> }
-          @case ('terrain') { <app-terrain-panel /> }
-          @case ('paint') { <app-paint-panel /> }
-          @case ('water') { <app-water-panel /> }
-          @case ('objects') { <app-object-panel /> }
-          @case ('paths') { <app-path-panel /> }
-          @case ('markers') { <app-marker-panel /> }
-          @case ('environment') { <app-environment-panel /> }
-          @case ('settings') { <app-map-panel /> }
-          @case ('stamp') { <app-stamp-panel /> }
-          @case ('gameplay') { <app-gameplay-panel /> }
-          @case ('measure') { <app-measure-panel /> }
+        <!-- Panels stay once made and only hide: switching tools does not build them again -->
+        @if (mounted().has('landscape')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'landscape'"><app-landscape-panel /></div>
+        }
+        @if (mounted().has('terrain')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'terrain'"><app-terrain-panel /></div>
+        }
+        @if (mounted().has('paint')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'paint'"><app-paint-panel /></div>
+        }
+        @if (mounted().has('water')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'water'"><app-water-panel /></div>
+        }
+        @if (mounted().has('objects')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'objects'"><app-object-panel /></div>
+        }
+        @if (mounted().has('paths')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'paths'"><app-path-panel /></div>
+        }
+        @if (mounted().has('markers')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'markers'"><app-marker-panel /></div>
+        }
+        @if (mounted().has('environment')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'environment'"><app-environment-panel /></div>
+        }
+        @if (mounted().has('settings')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'settings'"><app-map-panel /></div>
+        }
+        @if (mounted().has('stamp')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'stamp'"><app-stamp-panel /></div>
+        }
+        @if (mounted().has('gameplay')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'gameplay'"><app-gameplay-panel /></div>
+        }
+        @if (mounted().has('measure')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'measure'"><app-measure-panel /></div>
         }
       </div>
     </section>
