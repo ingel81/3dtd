@@ -77,7 +77,7 @@
 .es-tools-head {
   padding: var(--td-sp-2) 0 2px;
   text-align: center;
-  font-size: 9px;
+  font-size: var(--td-fs-micro);
   opacity: 0.6;
 
   &:first-child {
@@ -118,7 +118,7 @@
 }
 
 .es-tool-name {
-  font-size: 11px;
+  font-size: var(--td-fs-small);
   line-height: 1.1;
   white-space: nowrap;
 }

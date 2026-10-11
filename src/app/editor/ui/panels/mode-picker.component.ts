@@ -42,7 +42,7 @@ export interface EditorMode {
         gap: 4px;
       }
       .em-head {
-        font-size: 10px;
+        font-size: var(--td-fs-micro);
         opacity: 0.65;
         margin-top: 4px;
       }
