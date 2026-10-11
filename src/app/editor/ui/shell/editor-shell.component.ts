@@ -17,6 +17,7 @@ import { LANDSCAPE_MODES, TOOLS, type ToolId } from '../../tools/tool';
 import { BIOMES } from '../../ops/landscape/biomes';
 import { CommandPaletteComponent } from './command-palette.component';
 import type { EditorCommand } from './commands';
+import { KEY_ACTIONS, actionFor, bindable, loadKeymap, rebind, saveKeymap, type Keymap } from './keymap';
 import { EditorSession } from '../editor-session.service';
 import { CheckPanelComponent } from '../panels/check-panel.component';
 import { EnvironmentPanelComponent } from '../panels/environment-panel.component';
@@ -99,6 +100,10 @@ export class EditorShellComponent implements OnDestroy {
   readonly help = signal(false);
   /** The command palette's list while it is open */
   readonly palette = signal<readonly EditorCommand[] | null>(null);
+  /** The keys of the rebindable actions, and the action waiting for its new key */
+  readonly keymap = signal<Keymap>(loadKeymap());
+  readonly capturing = signal<string | null>(null);
+  readonly keyActions = KEY_ACTIONS;
   readonly shortcuts = SHORTCUTS;
   readonly symmetryModes = SYMMETRY_MODES;
   readonly symmetry = computed(() => (this.session.settingsRev(), this.session.settings.symmetry));
@@ -145,6 +150,17 @@ export class EditorShellComponent implements OnDestroy {
   }
 
   onKeyDown(e: KeyboardEvent): void {
+    const waiting = this.capturing();
+    if (waiting) {
+      if (e.key === 'Escape') return this.handled(e, () => this.capturing.set(null));
+      if (e.ctrlKey || e.metaKey || e.altKey || !bindable(e.key)) return;
+      return this.handled(e, () => {
+        const next = rebind(this.keymap(), waiting, e.key.toLowerCase());
+        this.keymap.set(next);
+        saveKeymap(next);
+        this.capturing.set(null);
+      });
+    }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') return this.handled(e, () => this.togglePalette());
     if (this.palette()) return;
     if (this.help() && e.key === 'Escape') return this.handled(e, () => this.help.set(false));
@@ -176,18 +192,57 @@ export class EditorShellComponent implements OnDestroy {
     }
     if (!ctrl && !e.altKey) {
       if (e.key === '?') return this.handled(e, () => this.help.update((v) => !v));
-      const tool = TOOLS.find((t) => t.key.toLowerCase() === e.key);
-      if (tool) return this.handled(e, () => this.pick(tool.id));
-      if (k === 'v' && !e.shiftKey && s.tool() !== 'objects') return this.handled(e, () => void this.check());
-      if (k === 'm' && !e.shiftKey) {
-        const i = SYMMETRY_MODES.findIndex((m) => m.id === s.settings.symmetry);
-        return this.handled(e, () => this.setSymmetry(SYMMETRY_MODES[(i + 1) % SYMMETRY_MODES.length].id));
-      }
+      const action = e.shiftKey ? null : actionFor(this.keymap(), e.key);
+      if (action && this.runAction(action)) return this.handled(e, () => undefined);
     }
     if (s.viewport?.key(e)) {
       e.preventDefault();
       s.refresh();
     }
+  }
+
+  /** Runs a rebindable action; false when it does not apply now (the key then goes on to the view) */
+  private runAction(id: string): boolean {
+    const s = this.session;
+    const vp = s.viewport;
+    if (id.startsWith('tool:')) {
+      this.pick(id.slice(5) as ToolId);
+      return true;
+    }
+    switch (id) {
+      case 'map:check':
+        void this.check();
+        return true;
+      case 'map:symmetry': {
+        const i = SYMMETRY_MODES.findIndex((m) => m.id === s.settings.symmetry);
+        this.setSymmetry(SYMMETRY_MODES[(i + 1) % SYMMETRY_MODES.length].id);
+        return true;
+      }
+      case 'view:frame':
+        vp?.focusSelection();
+        return !!vp;
+      case 'view:top':
+        vp?.controller.setTopDown(!vp.controller.isTopDown);
+        return !!vp;
+      case 'view:game':
+        vp?.toggleGameView();
+        return !!vp;
+      case 'map:trial':
+        vp?.toggleTrial();
+        return !!vp;
+    }
+    return false;
+  }
+
+  /** The key an action has now, for the help */
+  keyOf(id: string): string {
+    return this.keymap()[id]?.toUpperCase() ?? '';
+  }
+
+  resetKeys(): void {
+    const map = loadKeymap(null);
+    this.keymap.set(map);
+    saveKeymap(map);
   }
 
   togglePalette(): void {
@@ -208,11 +263,11 @@ export class EditorShellComponent implements OnDestroy {
     add('Edit', 'Undo', () => s.undo(), 'Ctrl+Z');
     add('Edit', 'Redo', () => s.redo(), 'Ctrl+Y');
     add('Map', 'Save', () => void s.save(true), 'Ctrl+S');
-    add('Map', 'Check the map', () => void this.check(), 'V');
+    add('Map', 'Check the map', () => void this.check(), this.keyOf('map:check'));
     add('Map', 'Test the map in the game', () => void s.testPlay());
     add('Map', 'Download the map file', () => s.downloadFile());
     add('Map', 'Download a picture of the map', () => void s.downloadPng());
-    for (const t of TOOLS) add('Tools', t.label, () => this.pick(t.id), t.key);
+    for (const t of TOOLS) add('Tools', t.label, () => this.pick(t.id), this.keyOf(`tool:${t.id}`));
     for (const m of LANDSCAPE_MODES) {
       add('Landscape', m.label, () => {
         this.pick('landscape');
@@ -230,10 +285,10 @@ export class EditorShellComponent implements OnDestroy {
     }
     if (vp) {
       add('View', 'Frame the map', () => vp.frameMap());
-      add('View', 'Frame the selection', () => vp.focusSelection(), 'F');
-      add('View', 'Top view on or off', () => vp.controller.setTopDown(!vp.controller.isTopDown), 'T');
-      add('View', 'Game view on or off', () => vp.toggleGameView(), 'C');
-      add('Map', 'Trial wave: enemies walk the routes', () => vp.toggleTrial(), 'P');
+      add('View', 'Frame the selection', () => vp.focusSelection(), this.keyOf('view:frame'));
+      add('View', 'Top view on or off', () => vp.controller.setTopDown(!vp.controller.isTopDown), this.keyOf('view:top'));
+      add('View', 'Game view on or off', () => vp.toggleGameView(), this.keyOf('view:game'));
+      add('Map', 'Trial wave: enemies walk the routes', () => vp.toggleTrial(), this.keyOf('map:trial'));
     }
     add('View', 'Height lines on or off', () => s.patchSettings((st) => (st.view.contours = !st.view.contours)));
     add('View', 'Grid on or off', () => s.patchSettings((st) => (st.view.grid = !st.view.grid)));
@@ -340,7 +395,7 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
       ['M', 'Symmetry: off, mirror X, Y, both, turn 2, turn 4'],
       ['Esc', 'Drop what is half done, clear the selection'],
       ['Ctrl+K', 'Commands: tools, biomes, views, objects by name'],
-      ['?', 'This help'],
+      ['?', 'This help (the single keys below can be changed)'],
     ],
   },
   {

@@ -47,7 +47,7 @@ Kopie an und öffnet sie.
 | 1 bis 9, 0, G, D | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Paths, Spawns and HQ, Environment, Map, Copy and stamps, Gameplay, Measure |
 | M | Symmetrie reihum: aus, Mirror X, Mirror Y, Both, Turn 2, Turn 4 (auch oben in der Kopfleiste) |
 | Alt+1 bis 9 (Strg+Ziffer, wo der Browser sie lässt) | Kamera-Ansicht merken; Shift+Ziffer fliegt hin; die Knöpfe 1 bis 9 unter der Minikarte ebenso (Alt-Klick merkt) |
-| ? | Übersicht aller Tasten |
+| ? | Übersicht aller Tasten; unter „Your keys“ lassen sich die Einzeltasten (Werkzeuge, F, T, C, P, V, M) umlegen, gespeichert in `3dtd-editor-keys` |
 | [ und ] | Pinsel kleiner, größer; { und } Stärke |
 | Strg+Z, Strg+Y (Strg+Shift+Z) | Rückgängig, Wiederholen |
 | Strg+S | Speichern mit neuem Vorschaubild |

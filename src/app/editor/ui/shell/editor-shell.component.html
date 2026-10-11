@@ -136,6 +136,18 @@
             }
           </div>
         }
+        <div class="es-help-group es-help-keys">
+          <h3 class="td-section">Your keys <span class="td-note">a click, then the new key; Esc keeps the old one</span></h3>
+          @for (a of keyActions; track a.id) {
+            <div class="td-kv">
+              <button class="td-btn-ghost td-btn-sm es-key" type="button" (click)="capturing.set(a.id)" [attr.aria-pressed]="capturing() === a.id" [attr.data-key-action]="a.id">
+                <kbd class="td-kbd">{{ capturing() === a.id ? '…' : keyOf(a.id) }}</kbd>
+              </button>
+              <span>{{ a.label }}</span>
+            </div>
+          }
+          <div class="td-actions is-start"><button class="td-btn-ghost td-btn-sm" type="button" (click)="resetKeys()">Back to the default keys</button></div>
+        </div>
       </div>
     </section>
   }

@@ -288,22 +288,6 @@ export class EditorViewport {
         b.strength = Math.min(1, Math.round((b.strength + 0.1) * 100) / 100);
         this.callbacks.settingsChanged();
         return true;
-      case 'f':
-      case 'F':
-        this.focusSelection();
-        return true;
-      case 't':
-      case 'T':
-        this.controller.setTopDown(!this.controller.isTopDown);
-        return true;
-      case 'c':
-      case 'C':
-        this.toggleGameView();
-        return true;
-      case 'p':
-      case 'P':
-        this.toggleTrial();
-        return true;
       case 'ArrowUp':
       case 'ArrowDown':
       case 'ArrowLeft':
