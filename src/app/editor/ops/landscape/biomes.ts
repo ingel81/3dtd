@@ -103,9 +103,10 @@ export const BIOMES: readonly BiomeDef[] = [
     hint: 'Grass with flowers and bushes, gently rolling',
     color: '#8db255',
     ground: [
-      { material: ['grass-lush', 'grass'], share: 0.45 },
-      { material: ['meadow', 'grass'], share: 0.35 },
-      { material: ['grass-leafy', 'grass'], share: 0.2 },
+      // Mostly greens: the straw-coloured meadow ground only in small patches, else a wide view reads as camouflage
+      { material: ['grass-lush', 'grass'], share: 0.55 },
+      { material: ['grass', 'grass-lush'], share: 0.33 },
+      { material: ['meadow', 'grass'], share: 0.12 },
     ],
     relief: { kind: 'rolling', amplitude: 1.2, wave: 60 },
     objects: [
