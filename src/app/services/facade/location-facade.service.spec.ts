@@ -16,6 +16,8 @@ import { WorldContext } from '../../world/world-context.service';
 import { TILES_CAPABILITIES } from '../../world/tiles/tiles-world';
 import { DEV_WORLD_CAPABILITIES } from '../../devworld/dev-world-provider';
 import type { WorldCapabilities, WorldStartLayout } from '../../world/world-provider';
+import { UIStore, type UiNotice } from '../../store/ui.store';
+import { OUTSIDE_COVERAGE_LINK_TEXT } from '../../world/world-coverage';
 import { fakeWorldContext } from '../../../test/world-context-fake';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
@@ -102,6 +104,7 @@ describe('LocationFacadeService', () => {
     spawnLabel: vi.fn((_network: unknown, _lat: number, _lon: number, _name: string) => 'Damrak'),
   };
   const worldContext = fakeWorldContext(osm);
+  const uiStore = { notice: signal<UiNotice | null>(null) };
   /** Play DevWorld: its ref and capabilities, its streets keep the names, the engine's world regenerates */
   const useDevWorld = (layout: WorldStartLayout = DEV_LAYOUT) => {
     worldContext.useDevWorld();
@@ -205,6 +208,8 @@ describe('LocationFacadeService', () => {
     osm.haversineDistance.mockReturnValue(0);
     mapPlacement.handlePlacementClick.mockReturnValue(null);
     urlLocation.parseFromUrl.mockReturnValue(null);
+    worldContext.setCoverage(null);
+    uiStore.notice.set(null);
     locationMgmt.hq.set(null);
     locationMgmt.spawns.set([]);
     locationMgmt.needsRandomSpawn.set(false);
@@ -234,6 +239,7 @@ describe('LocationFacadeService', () => {
     const injector = Injector.create({
       providers: [
         { provide: WorldContext, useValue: worldContext },
+        { provide: UIStore, useValue: uiStore },
         { provide: MarkerVisualizationService, useValue: markerViz },
         { provide: PathAndRouteService, useValue: pathRoute },
         { provide: LocationManagementService, useValue: locationMgmt },
@@ -346,6 +352,18 @@ describe('LocationFacadeService', () => {
       expect(urlLocation.updateUrl).toHaveBeenCalledWith(INSIDE, [OUTSIDE]);
       expect(store.baseCoords()).toEqual(INSIDE);
       expect(store.centerCoords()).toEqual({ ...INSIDE, height: 400 });
+    });
+
+    it("starts in the middle of a world's area when the link's place lies outside it, and says so", async () => {
+      const middle = { lat: INSIDE.lat + 0.1, lon: INSIDE.lon };
+      worldContext.setCoverage({ center: middle, radiusM: 500 });
+      urlLocation.parseFromUrl.mockReturnValue({ hq: INSIDE, spawns: [OUTSIDE] });
+
+      await facade.initializeLocation();
+
+      expect(locationMgmt.setLocation).toHaveBeenCalledWith(middle, []);
+      expect(coordinator.waitForStartChoice).not.toHaveBeenCalled();
+      expect(uiStore.notice()).toEqual({ text: OUTSIDE_COVERAGE_LINK_TEXT, tone: 'warn' });
     });
 
     it('without a place in the URL waits for the place chosen in the menu, the browser is not asked', async () => {

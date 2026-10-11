@@ -72,7 +72,8 @@ die Ortswahl liest das Gebiet über `WorldContext.coverage()`.
   OSM-Vermerk. Keine Google- und Cesium-Logos, auch nicht im Fotomodus.
 - **Gebiet** (`world/world-coverage.ts`): HQ und Spawns bleiben im Kreis, 50 m vom Rand (`COVERAGE_EDGE_MARGIN_M`).
   - Ein gewählter Ort außerhalb (Suche, Liste, Favorit) lädt nicht, und das Menü sagt warum.
-  - Ein URL-Ort außerhalb wartet wie ohne Ort auf die Wahl.
+  - Ein URL-Ort außerhalb startet wie der Würfel in der Mitte des Gebiets, mit zufälligem Spawn und einem
+    Hinweis im Banner (`OUTSIDE_COVERAGE_LINK_TEXT`).
   - Der Weltwürfel landet in der Mitte des Gebiets.
   - Der zufällige Spawn (`findRandomStreetPoint`) nimmt nur Knoten im Kreis und kappt seinen Abstand zum HQ auf die
     Gegenseite des Kreises.
@@ -112,7 +113,8 @@ glTF 2.0 steckt; `asset.gltfUpAxis`, `RTC_CENTER` und `CESIUM_RTC` werden beacht
   - Das Set lädt, und es gibt keine Anfrage an Google oder Cesium.
   - Die Kartenzeile nennt das Set, Logos erscheinen keine.
   - Die URL behält `world`, der zufällige Spawn liegt im Kreis, und Welle 1 läuft.
-  - Ein URL-Ort außerhalb wartet auf die Wahl.
+  - Ein URL-Ort außerhalb wartete damals auf die Wahl (mit `menu=skip` ein schwarzes Bild); seither startet er in
+    der Mitte des Gebiets.
 
 ## Grenzen
 

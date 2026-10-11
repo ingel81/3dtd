@@ -26,7 +26,8 @@ import type { CorridorBuildResult, CorridorProgress } from '../world/corridor-bu
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE } from '../../configs/map-constants.config';
 import { bearingToPortalHeading } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { canonicalCoords } from '../../utils/geo-utils';
-import { isInsideCoverage } from '../../world/world-coverage';
+import { OUTSIDE_COVERAGE_LINK_TEXT, isInsideCoverage } from '../../world/world-coverage';
+import { UIStore } from '../../store/ui.store';
 
 /**
  * Callbacks to visualization sub-facade methods,
@@ -82,6 +83,7 @@ export class LocationFacadeService {
   private readonly engineInit = inject(EngineInitializationService);
   private readonly urlLocation = inject(UrlLocationService);
   private readonly worldContext = inject(WorldContext);
+  private readonly uiStore = inject(UIStore);
   private readonly routeAnimation = inject(RouteAnimationService);
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly debugFacade = inject(DebugFacadeService);
@@ -214,10 +216,16 @@ export class LocationFacadeService {
     // URL is source of truth
     const urlData = this.urlLocation.parseFromUrl();
 
-    // A link's place outside the world's area (an own tileset's) waits for a choice like no place
-    if (urlData && isInsideCoverage(this.worldContext.coverage(), urlData.hq.lat, urlData.hq.lon)) {
+    const coverage = this.worldContext.coverage();
+    if (urlData && isInsideCoverage(coverage, urlData.hq.lat, urlData.hq.lon)) {
       this.locationMgmt.setLocation(urlData.hq, urlData.spawns);
       await this.engineInit.setStepDone('location', 'from URL');
+    } else if (urlData && coverage) {
+      // A link's place outside the world's area (an own tileset's): its middle with a random
+      // spawn, as the dice goes, and a word why; waiting for a choice left a black page under menu=skip
+      this.locationMgmt.setLocation({ lat: coverage.center.lat, lon: coverage.center.lon }, []);
+      this.uiStore.notice.set({ text: OUTSIDE_COVERAGE_LINK_TEXT, tone: 'warn' });
+      await this.engineInit.setStepDone('location', 'middle of the area');
     } else {
       this.engineInit.updateStepMeta('location', 'Choose a place');
       try {
