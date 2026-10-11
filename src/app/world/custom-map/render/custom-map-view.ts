@@ -1,4 +1,4 @@
-import { Group, Ray, Vector3, type Camera, type Object3D, type Scene, type WebGLRenderer } from 'three';
+import { Group, Ray, Vector3, type Camera, type Object3D, type Scene, type WebGLRenderer, type WebGLRenderTarget } from 'three';
 import type { CustomMapDocument, MapEnvironment, MapObject } from '../map-document';
 import { HeightField } from './height-field';
 import type { MapAssetLibrary } from './map-asset-library';
@@ -162,25 +162,45 @@ export class CustomMapView {
    * Compiles every shader the map needs once its assets are in, off the
    * main thread where the driver allows (KHR_parallel_shader_compile), so
    * the first frames do not stall on compiles. Hidden levels, cells and
-   * effects count too (three's compile walks hidden objects). Resolves with
-   * the number of programs it built.
+   * effects count too (three's compile walks hidden objects). `target` is
+   * what the frames draw into: a game with bloom or grading draws into a
+   * linear post-processing target, and programs built for the screen would
+   * all link again in its first frame (output colour space and tone mapping
+   * are part of a program). Resolves with the number of programs it built.
    */
-  async warmUp(renderer: WebGLRenderer, scene: Object3D, camera: Camera): Promise<number> {
+  async warmUp(renderer: WebGLRenderer, scene: Object3D, camera: Camera, target: WebGLRenderTarget | null = null): Promise<number> {
     await Promise.all([this.ready, this.environment.envReady]);
     if (this.disposed) return 0;
     const before = renderer.info.programs?.length ?? 0;
-    await renderer.compileAsync(scene, camera);
+    const previous = renderer.getRenderTarget();
+    let compiled: Promise<unknown>;
+    try {
+      // compileAsync builds the programs before it returns its promise: the target only around the call
+      renderer.setRenderTarget(target);
+      compiled = renderer.compileAsync(scene, camera);
+    } finally {
+      renderer.setRenderTarget(previous);
+    }
+    await compiled;
+    if (this.disposed) return 0;
     // compileAsync leaves out the shadow pass: its depth programs (instanced, alpha-tested cards,
     // per material) compiled on the first frame a caster entered the sun's box, a stall of seconds.
-    // One frame with a cell of every asset casting compiles them now, during loading.
+    // One frame with a cell of every asset casting compiles them now, during loading, into the same target
     if (renderer.shadowMap.enabled) {
       this.objects.showAllForWarmUp(true);
       const wasAuto = renderer.shadowMap.autoUpdate;
       renderer.shadowMap.autoUpdate = true;
       renderer.shadowMap.needsUpdate = true;
-      renderer.render(scene, camera);
-      renderer.shadowMap.autoUpdate = wasAuto;
-      this.objects.showAllForWarmUp(false);
+      try {
+        renderer.setRenderTarget(target);
+        renderer.render(scene, camera);
+      } finally {
+        renderer.setRenderTarget(previous);
+        renderer.shadowMap.autoUpdate = wasAuto;
+        this.objects.showAllForWarmUp(false);
+        // The warm-up frame drew every cell into the shadow map: the next frame draws the real one
+        this.environment.invalidateShadows();
+      }
     }
     return (renderer.info.programs?.length ?? 0) - before;
   }

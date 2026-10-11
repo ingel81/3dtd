@@ -264,3 +264,35 @@ describe('grass blades', () => {
     view.dispose();
   }, 30_000);
 });
+
+describe('CustomMapView warm-up', () => {
+  it('compiles and renders the shadow pass into the target the frames draw to', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const view = new CustomMapView(createDemoMap(), offlineLibrary());
+    const scene = new Scene();
+    view.attach(scene);
+    let current: unknown = null;
+    const seen: { call: string; target: unknown }[] = [];
+    const target = { isWebGLRenderTarget: true };
+    const renderer = {
+      info: { programs: [] },
+      shadowMap: { enabled: true, autoUpdate: false, needsUpdate: false },
+      getRenderTarget: () => current,
+      setRenderTarget: (t: unknown) => (current = t),
+      compileAsync: () => {
+        seen.push({ call: 'compile', target: current });
+        return Promise.resolve();
+      },
+      render: () => seen.push({ call: 'render', target: current }),
+    };
+    await view.warmUp(renderer as never, scene, new PerspectiveCamera(), target as never);
+    expect(seen).toEqual([
+      { call: 'compile', target },
+      { call: 'render', target },
+    ]);
+    // Back to where it was, the shadow map renders again for the real frame
+    expect(current).toBe(null);
+    expect(renderer.shadowMap.autoUpdate).toBe(false);
+    view.dispose();
+  });
+});

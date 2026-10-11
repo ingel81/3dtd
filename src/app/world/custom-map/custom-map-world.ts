@@ -249,21 +249,13 @@ export class CustomMapWorld implements WorldProvider {
     await view.ready.catch((err) => console.warn('[CustomMap] assets did not load', err));
     if (this.view !== view) return;
     performance.mark('load:map-assets:done');
-    // Every program the scene needs, the map's hidden levels, cells and effects included (view.warmUp's
-    // compile), for the output the frames draw to: with bloom or grading on that is the composer's linear
-    // target, and programs for the screen would all link again in the first frame. compileAsync builds the
-    // programs before it returns its promise, so the target is set only around that call.
-    const renderer = ctx.renderer;
+    // Every program the scene needs, the map's hidden levels, cells and effects and the sun's shadow pass
+    // included, for the output the frames draw to: with bloom or grading on that is the composer's linear
+    // target, and programs for the screen would all link again in the first frame
     const target = ctx.drawsToTarget() ? new WebGLRenderTarget(1, 1) : null;
-    const before = renderer.getRenderTarget();
-    let compiled: Promise<unknown>;
-    try {
-      if (target) renderer.setRenderTarget(target);
-      compiled = renderer.compileAsync(ctx.scene, ctx.camera);
-    } finally {
-      renderer.setRenderTarget(before);
-    }
-    await compiled.catch((err) => console.warn('[CustomMap] shaders did not compile ahead', err));
+    await view
+      .warmUp(ctx.renderer, ctx.scene, ctx.camera, target)
+      .catch((err) => console.warn('[CustomMap] shaders did not compile ahead', err));
     target?.dispose();
     if (this.view !== view) return;
     performance.mark('load:map-shaders:done');
