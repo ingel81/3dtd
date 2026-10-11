@@ -139,7 +139,14 @@ export class EditorSession implements OnDestroy {
 
   /** Leaves the map (back to the browser); saves first when it changed */
   async close(): Promise<void> {
-    if (this.editor && this.dirty() && this.origin() === 'own') await this.save(true);
+    if (this.editor && this.origin() === 'own') {
+      if (this.dirty()) await this.save(true);
+      else {
+        // The list shows the map as it was left
+        const preview = await this.thumbnail();
+        if (preview) await this.store.setPreview(this.editor.doc.meta.id, preview).catch(() => undefined);
+      }
+    }
     this.detachViewport();
     for (const u of this.unsubscribe) u();
     this.unsubscribe = [];

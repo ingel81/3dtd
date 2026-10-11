@@ -24,7 +24,7 @@ import { EditorSession } from '../editor-session.service';
             </button>
           }
         </div>
-        <h3 class="td-head">Roads <span class="td-note">{{ d.edges }} roads | {{ d.nodes }} nodes | {{ d.length }} m</span></h3>
+        <h3 class="td-head">Roads <span class="td-note" data-test="roads">{{ d.edges }} roads | {{ d.nodes }} nodes | {{ d.length }} m</span></h3>
         <h3 class="td-head">Objects <span class="td-note">{{ d.objects }}</span></h3>
         <div class="td-rows">
           @for (g of d.groups; track g.asset) {

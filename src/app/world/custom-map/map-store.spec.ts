@@ -29,6 +29,8 @@ describe('MapStore', () => {
     // Saving again without a preview keeps the old one
     await store.save(doc());
     expect(await store.previewOf('valley')).toEqual(new Uint8Array([1, 2]));
+    await store.setPreview('valley', new Uint8Array([3]));
+    expect(await store.previewOf('valley')).toEqual(new Uint8Array([3]));
     await store.delete('valley');
     expect(await store.listOwn()).toEqual([]);
     await expect(store.load('valley')).rejects.toBeInstanceOf(MapStoreError);

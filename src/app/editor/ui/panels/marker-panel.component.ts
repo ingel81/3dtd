@@ -23,7 +23,7 @@ import { EditorSession } from '../editor-session.service';
       <h3 class="td-section">Spawns</h3>
       <div class="td-rows">
         @for (s of spawns(); track s.id) {
-          <div class="td-row mk-row" role="option" tabindex="0" [attr.aria-selected]="selectedSpawn() === s.id" (click)="select(s.id)" (keydown.enter)="select(s.id)">
+          <div class="td-row mk-row" role="option" [attr.data-spawn]="s.id" tabindex="0" [attr.aria-selected]="selectedSpawn() === s.id" (click)="select(s.id)" (keydown.enter)="select(s.id)">
             <span class="td-swatch is-lg" [style.--td-mark]="s.color"></span>
             <input class="td-input is-sm mk-name" type="text" maxlength="30" [value]="s.name" (click)="$event.stopPropagation()"
                    (change)="rename(s.id, $any($event.target).value)" [attr.aria-label]="'Name of spawn ' + s.id" />

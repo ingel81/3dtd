@@ -11,10 +11,10 @@ import { EditorSession } from '../editor-session.service';
     <span class="sb-hint td-trunc">{{ session.hint() }}</span>
     @if (session.hover(); as h) {
       <span class="td-num" data-test="cursor">{{ round(h.x) }}, {{ round(h.y) }} m</span>
-      <span class="td-num">height {{ h.height.toFixed(1) }} m</span>
+      <span class="td-num" data-test="height">height {{ h.height.toFixed(1) }} m</span>
       <span class="sb-mat td-trunc">{{ h.material }}</span>
     }
-    <span class="td-num">{{ objects() }} objects</span>
+    <span class="td-num" data-test="objects">{{ objects() }} objects</span>
     @if (session.stats(); as s) {
       <span class="td-num">{{ thousands(s.triangles) }} triangles</span>
       <span class="td-num" data-test="fps">{{ s.fps }} fps</span>

@@ -155,6 +155,12 @@ export class MapStore {
     return { doc, summary, preview };
   }
 
+  /** A new thumbnail for an own map, its content untouched */
+  async setPreview(id: string, preview: Uint8Array): Promise<void> {
+    const stored = await this.backend.get(id);
+    if (stored) await this.backend.put({ ...stored, preview });
+  }
+
   async delete(id: string): Promise<void> {
     await this.backend.delete(id);
   }
