@@ -1,4 +1,4 @@
-import { BoxGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PerspectiveCamera, Scene } from 'three';
+import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, PerspectiveCamera, Scene, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import type { MapObject } from '../../map-document';
 import type { AssetCatalog } from '../asset-catalog';
@@ -159,6 +159,22 @@ describe('MapObjectLayer incremental changes', () => {
     layer.removeObjects(['b', 'c', 'd', 'e']);
     expect(instances()).toBe(0);
     expect(los.children.filter((c) => c instanceof InstancedMesh)).toHaveLength(0);
+    layer.dispose();
+  });
+});
+
+describe('MapObjectLayer tilt', () => {
+  it('tilts an object by pitch and roll after its turn', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const los = new Group();
+    const layer = new MapObjectLayer(field, library(), los);
+    await layer.setObjects([{ id: 'g', asset: 'tree', x: 0, y: 0, z: 0, rotation: 0, pitch: Math.PI / 2, scale: 1 }]);
+    const mesh = los.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === 'tree')!;
+    const m = new Matrix4().fromArray(mesh.instanceMatrix.array, 0);
+    // The model's up axis now lies along +z (a quarter turn around x)
+    const up = new Vector3(0, 1, 0).transformDirection(m);
+    expect(up.y).toBeCloseTo(0);
+    expect(Math.abs(up.z)).toBeCloseTo(1);
     layer.dispose();
   });
 });

@@ -127,6 +127,13 @@ export interface MapObject {
   z: number;
   /** Rotation around the up axis, radians */
   rotation: number;
+  /**
+   * Tilts after the turn, radians: `pitch` around the model's own x axis,
+   * `roll` around its own z axis (a gondola on a sloping cable, a boat
+   * stranded on a slope). Default 0
+   */
+  pitch?: number;
+  roll?: number;
   scale: number;
   /** Overrides of the catalogue entry */
   blocksLos?: boolean;
@@ -137,6 +144,9 @@ export interface MapObject {
 }
 
 export type MapPathKind = 'road' | 'path' | 'bridge';
+
+/** What a bridge is built of (default wood) */
+export type MapBridgeStyle = 'wood' | 'stone' | 'lava';
 
 export interface MapPathNode extends MapPoint {
   id: string;
@@ -151,6 +161,8 @@ export interface MapPathEdge {
   kind: MapPathKind;
   /** Optional curve points between a and b */
   via?: MapPoint[];
+  /** Bridges only: the deck's material, default wood */
+  style?: MapBridgeStyle;
 }
 
 export interface MapPaths {

@@ -19,6 +19,7 @@ Szene folgt `geoToLocalSimple` um den Ursprung (0, 0):
 | `y` (Nord) | `+z` |
 | Höhe | `+y` |
 | Drehung `r` (gegen den Uhrzeigersinn von oben) | `rotation.y = r` |
+| Neigung `pitch`, `roll` (optional, nach der Drehung) | um die eigene x- bzw. z-Achse des Modells |
 
 Das ist eine halbe Drehung um die Hochachse, keine Spiegelung. `map-coords.ts`: `mapToScene(x, y, h, target)`,
 `sceneToMap(position, target)`. Modelle stehen mit der Vorderseite nach `+z` (Norden bei Drehung 0).
@@ -110,7 +111,8 @@ Lage quer zum stärksten Weg, 0,5 m je Texel, höchstens 2048²) sagt dem Gelän
 weichen Ränder werden von Rauschen angefressen (Gras wächst herein). So folgt
 ein Weg jeder Unebenheit ohne Z-Fighting, und der Höhen-Blend lässt Pflastersteine am Rand ins Gras auslaufen.
 Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
-leichtem Bogen und mindestens 1 m über dem Wasser.
+leichtem Bogen und mindestens 1 m über dem Wasser. `style: 'stone' | 'lava'` an der Kante nimmt `bridge-deck-stone`
+bzw. `bridge-deck-lava`; fehlt das Stück im Katalog, bleibt es beim Holzdeck.
 
 ### Wasser (`water/`)
 

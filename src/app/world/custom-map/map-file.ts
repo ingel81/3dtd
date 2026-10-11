@@ -337,6 +337,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     if (!o.asset) p.push(`object ${o.id} has no asset`);
     if (![o.x, o.y, o.z, o.rotation, o.scale].every(finite) || o.scale <= 0) p.push(`object ${o.id} has a bad placement`);
     if (o.group !== undefined && typeof o.group !== 'string') p.push(`object ${o.id} has a bad group`);
+    if ((o.pitch !== undefined && !finite(o.pitch)) || (o.roll !== undefined && !finite(o.roll))) p.push(`object ${o.id} has a bad tilt`);
   }
   const nodes = new Set<string>();
   for (const n of doc.paths.nodes) {
@@ -360,6 +361,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
     if (e.a === e.b) p.push(`path edge ${e.id} starts and ends at one node`);
     if (!finite(e.width) || e.width <= 0) p.push(`path edge ${e.id} has no width`);
     if (e.via !== undefined && (!Array.isArray(e.via) || e.via.some((v) => !finite(v?.x) || !finite(v?.y)))) p.push(`path edge ${e.id} has a bad curve point`);
+    if (e.style !== undefined && !['wood', 'stone', 'lava'].includes(e.style)) p.push(`path edge ${e.id} has an unknown bridge style`);
   }
   for (const sp of doc.spawns) {
     if (!sp || !finite(sp.x) || !finite(sp.y)) p.push(`spawn ${sp.id} has no position`);

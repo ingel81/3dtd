@@ -1,5 +1,6 @@
 import {
   Color,
+  Euler,
   Group,
   InstancedMesh,
   Matrix4,
@@ -111,6 +112,8 @@ export class MapObjectLayer {
   private readonly tmpQuat = new Quaternion();
   private readonly tmpScale = new Vector3();
   private readonly up = new Vector3(0, 1, 0);
+  private readonly tilt = new Quaternion();
+  private readonly tiltEuler = new Euler();
   private readonly sphere = new Sphere();
   /** Cells within this distance of the focus cast shadows */
   shadowRadius = 400;
@@ -600,6 +603,7 @@ export class MapObjectLayer {
     }
     mapToScene(o.x, o.y, ground + o.z, this.tmpPos);
     this.tmpQuat.setFromAxisAngle(this.up, o.rotation);
+    if (o.pitch || o.roll) this.tmpQuat.multiply(this.tilt.setFromEuler(this.tiltEuler.set(o.pitch ?? 0, 0, o.roll ?? 0, 'XZY')));
     this.tmpScale.setScalar(s);
     this.tmpMatrix.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
     this.tmpMatrix.toArray(b.matrices, i * 16);

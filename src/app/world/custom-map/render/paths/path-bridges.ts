@@ -1,5 +1,5 @@
 import { Group, InstancedMesh, Matrix4, Quaternion, Vector3 } from 'three';
-import type { MapPaths, MapWater } from '../../map-document';
+import type { MapBridgeStyle, MapPaths, MapWater } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
@@ -8,13 +8,20 @@ import { edgePolyline } from './path-mask';
 
 /** Catalogue model of one bridge piece: 4 m along local +X, 1 m wide, deck top at 0 */
 export const BRIDGE_ASSET = 'bridge-deck';
+/** Deck pieces by bridge style; a style whose piece the catalogue lacks falls back to wood */
+export const BRIDGE_STYLE_ASSETS: Record<MapBridgeStyle, string> = {
+  wood: BRIDGE_ASSET,
+  stone: 'bridge-deck-stone',
+  lava: 'bridge-deck-lava',
+};
 const PIECE_LENGTH = 4;
 
 /**
  * Bridges: path edges of kind `bridge` get a deck of instanced bridge
  * pieces from end to end, stretched to the edge's width. The deck runs
  * from the terrain height at each end (at least a little over the water)
- * with a slight arch, so roads on both banks meet it.
+ * with a slight arch, so roads on both banks meet it. The edge's `style`
+ * picks the piece (wood, stone, basalt for lava maps).
  */
 export class BridgeLayer {
   readonly group = new Group();
@@ -30,21 +37,30 @@ export class BridgeLayer {
 
   async set(paths: MapPaths, water: MapWater | null): Promise<void> {
     const generation = ++this.generation;
-    const matrices = this.pieces(paths, water);
-    const model = matrices.length > 0 ? await this.assets.model(BRIDGE_ASSET) : null;
+    const pieces = this.pieces(paths, water);
+    const catalog = pieces.size > 0 ? await this.assets.catalog() : null;
+    // Pieces of styles without their own model join the wooden deck
+    const byAsset = new Map<string, Matrix4[]>();
+    for (const [style, matrices] of pieces) {
+      const wanted = BRIDGE_STYLE_ASSETS[style] ?? BRIDGE_ASSET;
+      const asset = catalog?.objects.some((o) => o.id === wanted) ? wanted : BRIDGE_ASSET;
+      byAsset.set(asset, [...(byAsset.get(asset) ?? []), ...matrices]);
+    }
+    const models = await Promise.all([...byAsset.keys()].map((id) => this.assets.model(id)));
     if (generation !== this.generation) return;
     this.clear();
-    if (!model) return;
-    for (const part of model.parts) {
-      addHeightFog(part.material);
-      const mesh = new InstancedMesh(part.geometry, part.material, matrices.length);
-      matrices.forEach((m, i) => mesh.setMatrixAt(i, m));
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      mesh.matrixAutoUpdate = false;
-      mesh.computeBoundingSphere();
-      this.group.add(mesh);
-    }
+    [...byAsset.values()].forEach((matrices, k) => {
+      for (const part of models[k].parts) {
+        addHeightFog(part.material);
+        const mesh = new InstancedMesh(part.geometry, part.material, matrices.length);
+        matrices.forEach((m, i) => mesh.setMatrixAt(i, m));
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.matrixAutoUpdate = false;
+        mesh.computeBoundingSphere();
+        this.group.add(mesh);
+      }
+    });
   }
 
   dispose(): void {
@@ -60,10 +76,10 @@ export class BridgeLayer {
     }
   }
 
-  /** Instance matrices of every bridge piece */
-  private pieces(paths: MapPaths, water: MapWater | null): Matrix4[] {
+  /** Instance matrices of every bridge piece, by style */
+  private pieces(paths: MapPaths, water: MapWater | null): Map<MapBridgeStyle, Matrix4[]> {
     const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
-    const out: Matrix4[] = [];
+    const byStyle = new Map<MapBridgeStyle, Matrix4[]>();
     const minDeck = (water?.level ?? -Infinity) + 1.0;
     const up = new Vector3(0, 1, 0);
     const q = new Quaternion();
@@ -76,6 +92,9 @@ export class BridgeLayer {
       if (edge.kind !== 'bridge') continue;
       const line = edgePolyline(edge, nodes);
       if (!line) continue;
+      const style = edge.style ?? 'wood';
+      let out = byStyle.get(style);
+      if (!out) byStyle.set(style, (out = []));
       let total = 0;
       for (let s = 0; s < line.length - 1; s++) total += Math.hypot(line[s + 1].x - line[s].x, line[s + 1].y - line[s].y);
       const a = line[0];
@@ -110,6 +129,6 @@ export class BridgeLayer {
         walked += len;
       }
     }
-    return out;
+    return byStyle;
   }
 }
