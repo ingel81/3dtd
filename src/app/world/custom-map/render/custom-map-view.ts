@@ -146,7 +146,7 @@ export class CustomMapView {
     this.objects.update(dtSeconds, camera);
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
-    this.terrain.update(this.camPos);
+    this.terrain.update(this.camPos, dtSeconds);
     if (focus) {
       this.focusPoint.copy(focus);
     } else {

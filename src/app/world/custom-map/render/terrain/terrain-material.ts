@@ -49,6 +49,9 @@ export interface TerrainMaterialParams {
   scales: number[];
   /** Average albedo (sRGB hex), by array layer */
   averages: string[];
+  /** Glow (0..1) and flow (m/s along map +x) by array layer, for lava */
+  emissive?: number[];
+  flow?: number[];
   width: number;
   depth: number;
   cliffAngle: number;
@@ -67,6 +70,9 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uMapSize: { value: new Vector2() },
     uInvScale: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
     uAverage: { value: Array.from({ length: TERRAIN_MAX_LAYERS }, () => new Color()) },
+    uEmissive: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
+    uFlow: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
+    uTerrainTime: { value: 0 },
     uSplatLayer: { value: new Int32Array(8).fill(-1) },
     uCliffLayer: { value: -1 },
     uRoadLayer: { value: -1 },
@@ -93,6 +99,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
         .replace('#include <common>', `#include <common>\n${TERRAIN_FRAGMENT_PARS}`)
         .replace('#include <map_fragment>', TERRAIN_SAMPLE)
         .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = terrainRough;')
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += accGlow;')
         .replace(
           '#include <normal_fragment_maps>',
           'normal = normalize((viewMatrix * vec4(terrainNormal, 0.0)).xyz);',
@@ -120,12 +127,19 @@ export class TerrainMaterial extends MeshStandardMaterial {
     for (let k = 0; k < TERRAIN_MAX_LAYERS; k++) {
       u.uInvScale.value[k] = 1 / (p.scales[k] ?? 4);
       u.uAverage.value[k].set(p.averages[k] ?? '#808080');
+      u.uEmissive.value[k] = p.emissive?.[k] ?? 0;
+      u.uFlow.value[k] = p.flow?.[k] ?? 0;
     }
     for (let k = 0; k < 8; k++) u.uSplatLayer.value[k] = p.slots.splat[k] ?? -1;
     u.uCliffLayer.value = p.slots.cliff;
     u.uRoadLayer.value = p.slots.road;
     u.uPathLayer.value = p.slots.path;
     this.setCliffAngle(p.cliffAngle);
+  }
+
+  /** Advances flowing and pulsing layers */
+  tick(dt: number): void {
+    this.terrainUniforms.uTerrainTime.value += dt;
   }
 
   /** Water level for the wet banks; null when the map has no water */
@@ -159,6 +173,9 @@ uniform float uWaterLevel;
 uniform vec2 uMapSize;
 uniform float uInvScale[TERRAIN_LAYERS];
 uniform vec3 uAverage[TERRAIN_LAYERS];
+uniform float uEmissive[TERRAIN_LAYERS];
+uniform float uFlow[TERRAIN_LAYERS];
+uniform float uTerrainTime;
 uniform int uSplatLayer[8];
 uniform int uCliffLayer;
 uniform int uRoadLayer;
@@ -283,7 +300,9 @@ for (int k = 0; k < TERRAIN_LAYERS; k++) {
   if (w[k] < 0.004) continue;
   float s = uInvScale[k];
   vec4 col; vec4 dat;
-  sampleNoTile(k, tPos.xz * s, dPosX * s, dPosY * s, sel, col, dat);
+  // Flowing layers (lava) scroll along map +x, which is scene -x
+  vec2 flowUv = vec2(uFlow[k] * uTerrainTime, 0.0);
+  sampleNoTile(k, (tPos.xz + flowUv) * s, dPosX * s, dPosY * s, sel, col, dat);
   vec3 tn = unpackTerrainNormal(dat);
   // Top projection: tangent x along scene +x, tangent y along scene +z (whiteout blend)
   vec3 nTop = safeNormalize(vec3(tn.x + nGeo.x, tn.z * nGeo.y, tn.y + nGeo.z), nGeo);
@@ -317,9 +336,16 @@ vec4 accC = vec4(0.0);
 vec4 accD = vec4(0.0);
 vec3 accN = vec3(0.0);
 vec3 accAvg = vec3(0.0);
+vec3 accGlow = vec3(0.0);
 for (int k = 0; k < TERRAIN_LAYERS; k++) {
   if (w[k] < 0.004) continue;
   float b = max(lc[k].a + w[k] - best + band, 0.0) * w[k];
+  if (uEmissive[k] > 0.0) {
+    // Glow in the low parts of the texture (cracks), cooling crust on the high parts, slow pulse
+    float hot = smoothstep(0.55, 0.15, lc[k].a);
+    float pulse = 0.75 + 0.25 * sin(uTerrainTime * 1.3 + valueNoise(mapPos * 0.08) * 9.0);
+    accGlow += lc[k].rgb * vec3(2.4, 1.5, 0.9) * hot * pulse * uEmissive[k] * 4.0 * b;
+  }
   accC += lc[k] * b;
   accD += ld[k] * b;
   accN += ln[k] * b;
@@ -330,6 +356,7 @@ total = max(total, 1e-5);
 accC /= total;
 accD /= total;
 accAvg /= total;
+accGlow /= total;
 vec3 terrainNormal = safeNormalize(accN, nGeo);
 
 // Macro variation and far blend

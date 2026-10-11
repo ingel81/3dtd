@@ -87,6 +87,11 @@ export class MapTerrainLayer {
       return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
     });
 
+    const entryOf = (id: string): (typeof catalog.materials)[number] | undefined =>
+      catalog.materials.find((m) => m.id === id);
+    const emissive = ids.map((id) => entryOf(id)?.emissive ?? 0);
+    const flow = ids.map((id) => entryOf(id)?.flow ?? 0);
+
     if (generation !== this.generation) return;
     this.material?.dispose();
     this.arrays?.dispose();
@@ -105,6 +110,8 @@ export class MapTerrainLayer {
       slots,
       scales,
       averages,
+      emissive,
+      flow,
       width: t.width,
       depth: t.depth,
       cliffAngle: t.cliffAngle,
@@ -115,8 +122,9 @@ export class MapTerrainLayer {
     this.apron.material = this.material;
   }
 
-  update(cameraPos: Vector3): void {
+  update(cameraPos: Vector3, dt = 0): void {
     this.chunks.update(cameraPos);
+    this.material?.tick(dt);
   }
 
   rebuild(rect?: GridRect): void {
