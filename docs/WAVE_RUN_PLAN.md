@@ -526,7 +526,8 @@ Gegen Bots und Menschen gemessen ist nichts davon.
 ## 18. Camo (2026-10-03, nicht nachgerechnet)
 
 Eine Zeile darf `camo` tragen: Anteil je Art, 1 für alle (mindestens einer, wo der Anteil über 0 liegt). Gesetzt ab
-W22 (Scouting öffnet ab W16): W22 ein Zehntel der Ratten, W26 alle Zombie v2, W33 ein Viertel der Spinnen, W36 alle
+W22 (Scouting öffnet ab W16): W22 alle Zombie-Soldaten (die erste Camo-Welle zeigt einen auffälligen Typ ganz
+getarnt, E145; vorher ein Zehntel der Ratten, das ging unter), W26 alle Zombie v2, W33 ein Viertel der Spinnen, W36 alle
 Zombie-Soldaten, W41 ein Viertel der Bären, W46 die Hälfte der Panzer, W52 die Hälfte der Zombies, W56 die ganze
 Welle. Getarnte kommen mit 0,75 der HP (`CAMO_HP_FACTOR`); das Budget rechnet sonst nicht mit ihnen. Ohne Späher
 laufen sie bis auf Flächenschaden durch. Bots kennen Pfade noch nicht.

@@ -235,11 +235,14 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         // Still behind a spawn portal's plane: not out yet
         float portalAhead = portalClipAhead(vWorldPosition);
         if (portalAhead < 0.0) discard;
-        // Camouflaged and hidden: a scatter of pixels, thicker in bands that run up the body
+        // Camouflaged and hidden: a scatter of pixels that flickers (a new scatter
+        // 15 times a second), thicker in bands that run up the body. Plain to the
+        // player, unseen by the towers (TODO E145; before, too thin to notice)
         if (vCamo > 0.75) {
-          float grain = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453);
+          vec2 cell = floor(gl_FragCoord.xy * 0.5) + floor(uCamoTime * 15.0) * vec2(17.0, 31.0);
+          float grain = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
           float band = 0.5 + 0.5 * sin(vWorldPosition.y * 5.0 - uCamoTime * 3.0);
-          if (grain > 0.18 + 0.32 * band) discard;
+          if (grain > 0.35 + 0.4 * band) discard;
         }
 
         // Base color + alpha: per-vertex texture flag decides texture vs vertex color
@@ -324,8 +327,9 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
           vec3 camoNormal = normalize(vNormal) * (gl_FrontFacing ? 1.0 : -1.0);
           float camoRim = 1.0 - max(dot(camoNormal, normalize(cameraPosition - vWorldPosition)), 0.0);
           vec3 camoColor = vec3(0.55, 0.85, 1.0);
+          float flicker = 0.5 + 0.5 * sin(uCamoTime * 9.0 + vWorldPosition.y * 3.0);
           litColor = vCamo > 0.75
-            ? mix(litColor, camoColor, 0.6) + camoColor * camoRim * 0.6
+            ? mix(litColor, camoColor, 0.55) + camoColor * (camoRim * 0.8 + 0.25 * flicker)
             : litColor + camoColor * camoRim * camoRim * 0.9;
         }
 

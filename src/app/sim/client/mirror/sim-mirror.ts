@@ -514,6 +514,7 @@ export class SimMirror implements SimMirrorApi {
     view.alive = ref.alive && view.active;
     if (ref.pr !== undefined) view.movement.progress = ref.pr;
     if (ref.body) view.hasBody = true;
+    if (ref.camo) view.camo = true;
     if (view.route !== ref.route) this.setRoute(view, ref.route);
     if (view.row >= 0) this.touched.push(view);
     if (ref.worm) {

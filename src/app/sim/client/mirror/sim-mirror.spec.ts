@@ -153,6 +153,20 @@ describe('SimMirror', () => {
       expect(mirror.enemy('enemy-5')).toBeNull();
     });
 
+    it('tells a listener of the spawn that the enemy is camouflaged (TODO E145)', () => {
+      const bus = createMainEventBus();
+      const camo: boolean[] = [];
+      bus.on('enemy:spawned', (e) => camo.push(e.enemy.camo));
+      feed(mirror, bus, packet({
+        enemies: [{ num: 5, type: 'zombie', lat: 48.2, hp: 80, route: 0 }, { num: 6, type: 'zombie', lat: 48.2, hp: 80, route: 0 }],
+        events: [
+          { type: 'enemy:spawned', payload: { enemy: ref(5, { camo: true }) } },
+          { type: 'enemy:spawned', payload: { enemy: ref(6) } },
+        ],
+      }));
+      expect(camo).toEqual([true, false]);
+    });
+
     it('shows an event the numbers of its moment, and those of the table after the events', () => {
       const bus = createMainEventBus();
       const hp: number[] = [];

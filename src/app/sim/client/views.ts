@@ -14,7 +14,7 @@ import type { ProjectileTypeConfig } from '../../configs/projectile-types.config
 import type { GeoPosition } from '../../models/game.types';
 import {
   E_ANIM_SPEED, E_DIST, E_EFF_SPEED, E_FLAGS, E_HOFF, E_HP, E_LAT, E_LON, E_MAXHP, E_PROGRESS, E_ROT, E_TERRAIN,
-  EF_ACTIVE, EF_ALIVE, EF_BODY, EF_MOVING, ENEMY_STRIDE,
+  EF_ACTIVE, EF_ALIVE, EF_BODY, EF_CAMO, EF_MOVING, ENEMY_STRIDE,
 } from '../protocol/packet';
 
 export class WormGroupView {
@@ -106,6 +106,8 @@ export class EnemyView {
   declare animSpeed: number;
   /** An ooze: the main thread has its stations through the renderer op, not here */
   declare hasBody: boolean;
+  /** Camouflaged (Enemy.camo), revealed or not */
+  declare camo: boolean;
   worm: { readonly group: WormGroupView; readonly slot: number; head: boolean } | null = null;
   /** Its row in the last packet's enemy table, -1 without one (the mirror's) */
   row = -1;
@@ -167,6 +169,7 @@ export class EnemyView {
       alive: flagField(this, EF_ALIVE),
       active: flagField(this, EF_ACTIVE),
       hasBody: flagField(this, EF_BODY),
+      camo: flagField(this, EF_CAMO),
       flags: numberField(this, E_FLAGS),
       animSpeed: numberField(this, E_ANIM_SPEED),
       movement: { enumerable: true, value: movement },

@@ -31,6 +31,8 @@ export interface EnemyRef {
   pr?: number;
   /** Has a body (ooze) */
   body?: boolean;
+  /** Camouflaged (Enemy.camo), revealed or not */
+  camo?: boolean;
 }
 
 /** A tower: the shadow tower of that id (its state came in the same packet, before the events). */

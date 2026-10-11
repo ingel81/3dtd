@@ -138,10 +138,13 @@ describe('BudgetWaveSource', () => {
   });
 
   it('camouflages a share of a type the row names, at least one, a whole type at 1', () => {
-    const few = plan(new BudgetWaveSource(), 22).config.enemies;
-    const rats = few.find((g) => g.type === 'rat')!;
-    expect(rats.camo?.count).toBe(Math.round(rats.count * planRowForWave(22)!.camo!['rat']));
-    expect(few.filter((g) => g.type !== 'rat').every((g) => g.camo === undefined)).toBe(true);
+    // The first camo wave hides one type that stands out, all of it (TODO E145)
+    const first = plan(new BudgetWaveSource(), 22).config.enemies;
+    const soldiers = first.find((g) => g.type === 'zombie-soldier')!;
+    expect(soldiers.camo?.count).toBe(soldiers.count);
+    expect(first.filter((g) => g.type !== 'zombie-soldier').every((g) => g.camo === undefined)).toBe(true);
+    const spiders = plan(new BudgetWaveSource(), 33).config.enemies.find((g) => g.type === 'spider')!;
+    expect(spiders.camo?.count).toBe(Math.round(spiders.count * planRowForWave(33)!.camo!['spider']));
     const all = plan(new BudgetWaveSource(), 26).config.enemies.find((g) => g.type === 'zombie-v2')!;
     expect(all.camo?.count).toBe(all.count);
     expect(plan(new BudgetWaveSource(), 21).config.enemies.every((g) => g.camo === undefined)).toBe(true);

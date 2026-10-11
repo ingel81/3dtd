@@ -654,6 +654,11 @@ Anteil, eine ganze Art oder Welle), die Gruppe trägt die Zahl (`WaveEnemyGroup.
 gleichmäßig ohne Zug aus dem Spawn-Strom (`SpawnEntry.camo`). Teilungskinder erben es. Darstellung: `EF_CAMO`,
 `EF_REVEALED`, im VAT-Shader `aTintColor.a` (1 verborgen: schimmernde, gestreute Pixel ohne Lebensbalken; 0,5 entdeckt:
 kalter Rand). Die NEXT-Leiste warnt zwei Wellen vorher (`WaveRules.camo`, Alarm „Camo“ mit der Zahl der Späher).
+Seit E145 (2026-10-11) flimmert das Streumuster (neues Muster 15-mal je Sekunde, dichter, ein pulsierender kalter
+Schimmer): der Spieler sieht getarnte Gegner deutlich, die Tower weiter nicht. Der erste getarnte Gegner eines Laufs,
+der aus seinem Portal kommt, bringt eine Meldung („Towers only see them near an Archer with the Scout path“) und einen
+Kamerablick dorthin (`services/camo-hint.service.ts`; nicht für Bots, im Tower, im Menü, bei Foto, Replay oder
+Boss-Intro). Das Event trägt die Tarnung (`EnemyRef.camo`, `EnemyView.camo`).
 
 ---
 

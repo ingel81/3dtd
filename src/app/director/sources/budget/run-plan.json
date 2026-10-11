@@ -242,7 +242,7 @@
       "rat": 300
     },
     "camo": {
-      "rat": 0.1
+      "zombie-soldier": 1
     },
     "strength": 1,
     "spawnDelay": 150,

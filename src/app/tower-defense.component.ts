@@ -121,6 +121,7 @@ import { BossIntroComponent } from './components/boss-intro/boss-intro.component
 import { BestWaveService } from './services/location/best-wave.service';
 import { PhotoModeService } from './services/photo-mode.service';
 import { BossIntroService } from './services/boss-intro.service';
+import { CamoHintService } from './services/camo-hint.service';
 import { ReplayService } from './services/replay.service';
 import { TowerControlService } from './services/tower-control.service';
 import { ReplayBarComponent } from './components/replay-bar/replay-bar.component';
@@ -217,6 +218,8 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
     ReplayService,
     // Manning a tower: commands to the simulation, ticked by the game loop, keyed by the hotkeys
     TowerControlService,
+    // The first camouflaged enemy of a run: a message and a look (TODO E145)
+    CamoHintService,
     // Coop: the relay session and what the game does with it (docs/COOP_PLAN.md, C4)
     CoopService,
     { provide: COOP, useExisting: CoopService },
@@ -502,6 +505,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   constructor() {
     this.facade.initEffects(this);
+    // Listens on its own; made here so it stands from the start
+    inject(CamoHintService);
     window.addEventListener('keydown', this.escapePastTooltip, { capture: true });
     inject(DestroyRef).onDestroy(() => window.removeEventListener('keydown', this.escapePastTooltip, { capture: true }));
     // A tower or enemy model did not load after every try: its enemies walk unseen

@@ -193,7 +193,7 @@ describe('waveAlertView', () => {
 
 describe('camo alert (TODO E100)', () => {
   it('reads the camouflaged waves from the plan and counts the scouts', () => {
-    expect(waveBrings('camo', 22)).toBe(true); // Armored Push, a tenth of the rats
+    expect(waveBrings('camo', 22)).toBe(true); // Armored Push, all of its zombie soldiers
     expect(waveBrings('camo', 23)).toBe(false);
     expect(upcomingWaveAlert('camo', 20, 0)).toEqual({ kind: 'camo', wave: 22, wavesAhead: 2, answering: 0 });
     expect(countScouts(['scout', null, 'scout'])).toBe(2);

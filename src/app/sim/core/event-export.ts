@@ -50,6 +50,7 @@ export function enemyRef(enemy: Enemy, routeIndex: RouteIndexOf): EnemyRef {
   const worm = enemy.worm;
   if (worm) ref.worm = { g: wormGroupNum(worm.group), slot: worm.slot, head: worm.head };
   if (enemy.body) ref.body = true;
+  if (enemy.camo) ref.camo = true;
   return ref;
 }
 
