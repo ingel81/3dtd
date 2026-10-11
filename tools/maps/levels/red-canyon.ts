@@ -109,6 +109,16 @@ export function buildRedCanyon(): CustomMapDocument {
   for (const line of [westCanyon, northCanyon, southCanyon]) {
     k.scatter(['rock-sandstone', 'rock-desert', 'rock-desert-large', 'stones'], line, { radius: 30, strength: 0.6, falloff: 0.3 }, { density: 1.2, minDistance: 7, scaleMin: 0.7, scaleMax: 1.5 });
   }
+  // The plain: dune fields, scrub and cactus groves, stone litter, more rock towers on the horizon
+  k.form('dunes', [{ x: 120, y: 230 }, { x: 230, y: 180 }], { radius: 60, strength: 0.7 }, 1);
+  k.form('dunes', [{ x: -240, y: -110 }, { x: -200, y: -230 }], { radius: 55, strength: 0.7 }, 1);
+  for (const [x, y] of [[-230, 120], [-60, 150], [130, 190], [230, -100], [-90, -200], [40, -230], [-240, -10], [200, 0]] as const) {
+    k.paint('desert-cracked-red', { x, y }, { radius: 30, falloff: 1 }, 0.5);
+    k.scatter(['desert-shrub', 'grass-tall-dry', 'succulent', 'cactus', 'cactus-tall', 'cactus-barrel', 'stones-desert-scatter'], { x: x + 20, y: y - 15 }, { radius: 34, strength: 1 }, { density: 5, minDistance: 3 });
+  }
+  for (const [x, y, a, sc] of [[-250, 230, 'sandstone-pillar-tall', 1.3], [250, 230, 'mesa', 0.9], [245, -240, 'sandstone-pillar-tall', 1.1], [-120, -240, 'rock-arch', 1.4], [60, 250, 'sandstone-pillar', 1.4], [-250, -250, 'mesa', 0.8]] as const) {
+    k.place(a, x, y, { scale: sc, rotation: y * 0.01 });
+  }
   k.scatter(['bones', 'bone-pile', 'cactus', 'tree-dead-pale'], [{ x: -120, y: -100 }, { x: 60, y: 60 }, { x: -40, y: 160 }], { radius: 50, strength: 0.6 }, { density: 0.6, minDistance: 12 });
 
   k.environment({ biome: 'desert', sky: 'day', sunAzimuth: 170, sunElevation: 68, fogDensity: 0.0006, tint: '#fff0dc' });
