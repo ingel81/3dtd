@@ -27,7 +27,8 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
  * Dev page `/map-preview`: the demo map in the custom map renderer with an
  * orbit camera and frame numbers. `?view=village` picks a camera spot
  * (VIEWS), `?seed=3` another demo map, `?sky=dusk` another sky preset,
- * `?post=bloom` through the game's post-processing chain. E2E probes read
+ * `?weather=rain|snow|fog` (`&strength=0.7`), `?post=bloom` through the game's
+ * post-processing chain. E2E probes read
  * `window.__mapPreview` (view, renderer, stats).
  */
 @Component({
@@ -96,6 +97,11 @@ export class MapPreviewComponent implements OnDestroy {
     const t0 = performance.now();
     const doc = createDemoMap(Number(params.get('seed') ?? 7));
     const tGen = performance.now() - t0;
+    const weather = params.get('weather');
+    if (weather === 'rain' || weather === 'snow' || weather === 'fog') {
+      doc.environment.weather = weather;
+      doc.environment.weatherStrength = Number(params.get('strength') ?? 0.7);
+    }
     const sky = params.get('sky');
     if (sky === 'day' || sky === 'dusk' || sky === 'night' || sky === 'overcast') {
       doc.environment.sky = sky;

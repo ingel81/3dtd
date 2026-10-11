@@ -162,7 +162,7 @@ export class CustomMapView {
     const reach = this.camPos.distanceTo(this.focusPoint);
     this.environment.focus(this.focusPoint, Math.min(450, Math.max(70, reach * 0.9)));
     this.effects.update(dtSeconds, this.focusPoint);
-    this.environment.update(dtSeconds, camera);
+    this.environment.update(dtSeconds, camera, this.focusPoint);
   }
 
   /** Heights changed inside `rect` (map metres); whole map when omitted. Objects and water follow. */

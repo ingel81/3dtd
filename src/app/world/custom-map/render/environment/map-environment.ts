@@ -22,6 +22,7 @@ import {
 import type { MapEnvironment } from '../../map-document';
 import { HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { SkyDome } from './sky-dome';
+import { WeatherLayer } from './weather';
 
 /**
  * Sky, sun, fill light and fog of a custom map, from its MapEnvironment.
@@ -146,6 +147,7 @@ export class CustomMapEnvironment {
   readonly ambient: AmbientLight;
   readonly fog: FogExp2;
   readonly skyDome = new SkyDome();
+  readonly weather = new WeatherLayer();
   sky: DataTexture;
   /** Sky colours (linear) and the direction towards the sun, for materials that fake reflections */
   readonly zenith = new Color();
@@ -176,7 +178,7 @@ export class CustomMapEnvironment {
     this.sun.shadow.radius = 2.5;
     this.sun.shadow.camera.near = 1;
     this.sun.shadow.camera.far = 2000;
-    this.lights.add(this.hemi, this.ambient, this.sun, this.sun.target, this.skyDome.mesh);
+    this.lights.add(this.hemi, this.ambient, this.sun, this.sun.target, this.skyDome.mesh, this.weather.mesh);
     this.fog = new FogExp2(0xffffff, env.fogDensity);
     this.sky = this.buildSky();
     this.set(env);
@@ -202,6 +204,22 @@ export class CustomMapEnvironment {
     this.zenith.set(p.zenith).multiply(tint);
     this.horizon.set(p.horizon).multiply(tint);
     this.fog.density = env.fogDensity;
+    // Weather: rain and snow close the sky, dim the sun and thicken the air; fog weather thickens it most
+    const weather = env.weather ?? 'clear';
+    const k = weather === 'clear' ? 0 : Math.min(1, Math.max(0, env.weatherStrength ?? 0.6));
+    let cover = p.cover;
+    if (weather === 'rain' || weather === 'snow') {
+      cover = Math.max(0.15, p.cover - 0.35 * k);
+      this.sun.intensity *= 1 - 0.55 * k;
+      this.hemi.intensity *= 1 + 0.3 * k;
+      this.fog.density = env.fogDensity * (1 + 2 * k);
+      this.fog.color.lerp(new Color(weather === 'snow' ? 0xd8dde2 : 0x8e969c), 0.5 * k);
+    } else if (weather === 'fog') {
+      this.sun.intensity *= 1 - 0.4 * k;
+      this.fog.density = env.fogDensity * (1 + 5 * k);
+      this.fog.color.lerp(new Color(0xc0c6ca), 0.4 * k);
+    }
+    this.weather.set(weather, k, 1 - this.darkness * 0.85);
     this.placeSun(this.sun.target.position);
     HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(this.sun.color).lerp(this.fog.color, 0.35);
     HEIGHT_FOG_UNIFORMS.uFogSunDir.value.copy(this.sunDir);
@@ -210,8 +228,8 @@ export class CustomMapEnvironment {
       horizon: this.horizon,
       sunDir: this.sunDir,
       sunColor: this.sun.color,
-      cover: p.cover,
-      glow: p.glow,
+      cover,
+      glow: p.glow * (1 - k * 0.7),
       cloudColor: new Color(p.cloudColor).multiply(tint),
       cloudShadow: new Color(p.cloudShadow).multiply(tint),
     });
@@ -270,9 +288,10 @@ export class CustomMapEnvironment {
     HEIGHT_FOG_UNIFORMS.uFogBase.value = height;
   }
 
-  /** Per frame: the sky dome follows the camera, clouds drift */
-  update(dt: number, camera: Camera): void {
+  /** Per frame: the sky dome follows the camera, clouds drift, weather follows the focus */
+  update(dt: number, camera: Camera, focus: Vector3): void {
     this.skyDome.update(dt, camera);
+    this.weather.update(dt, camera, focus);
   }
 
   /** Turns on soft shadow maps on a renderer that has none */
@@ -287,6 +306,7 @@ export class CustomMapEnvironment {
     this.pmrem?.dispose();
     this.sun.shadow.dispose();
     this.skyDome.dispose();
+    this.weather.dispose();
   }
 
   private placeSun(focus: Vector3): void {
