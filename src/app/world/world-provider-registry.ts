@@ -9,7 +9,6 @@ import {
   customMapSpawnLimit,
   openCustomMap,
   openedCustomMap,
-  stableGeo,
 } from './custom-map/custom-map-world';
 import { mapToGeo } from './custom-map/map-document';
 import { FLAT_WORLD_ORIGIN } from './flat-frame';
@@ -88,8 +87,7 @@ const CUSTOM_MAP_FACTORY: WorldFactory = {
   startHq: async (ref) => {
     if (ref.kind !== 'custom-map') throw new WorldUnavailableError(ref, 'not a custom map');
     try {
-      // The run's origin: the HQ, at a point the simulation's frame takes over exactly
-      return stableGeo(mapToGeo((await openCustomMap(ref)).doc.hq));
+      return mapToGeo((await openCustomMap(ref)).doc.hq);
     } catch (err) {
       throw new WorldUnavailableError(ref, err instanceof Error ? err.message : String(err));
     }

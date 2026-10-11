@@ -3,7 +3,7 @@ import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
-import { CustomMapWorld, customMapSpawnLimit, openCustomMap, openedCustomMap, stableGeo } from './custom-map-world';
+import { CustomMapWorld, customMapSpawnLimit, openCustomMap, openedCustomMap } from './custom-map-world';
 import { createMapDocument } from './map-create';
 import { type CustomMapDocument, mapToGeo } from './map-document';
 import { MapStore, MemoryMapBackend } from './map-store';
@@ -147,21 +147,10 @@ describe('CustomMapWorld', () => {
     const doc = testMap();
     const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
     const layout = world.startLayout();
-    expect(layout.hq).toEqual(stableGeo(mapToGeo(doc.hq)));
+    expect(layout.hq).toEqual(mapToGeo(doc.hq));
     expect(layout.spawns.map((s) => s.name)).toEqual(['Spawn 1', 'Spawn 2', 'Spawn 3']);
     expect(world.ref).toEqual({ kind: 'custom-map', mapId: 'test-map', contentHash: 'abc', name: 'Test Map' });
     expect(world.capabilities).toMatchObject({ realPlace: false, credentials: false, ecef: false, streaming: false, destructible: false });
-  });
-
-  it('puts the origin where degrees survive the trip through radians', () => {
-    const toRad = (v: number): number => ((v * Math.PI) / 180) * (180 / Math.PI);
-    for (let y = -200; y <= 200; y += 0.5) {
-      const geo = stableGeo(mapToGeo({ x: y * 0.7, y }));
-      expect(toRad(geo.lat)).toBe(geo.lat);
-      expect(toRad(geo.lon)).toBe(geo.lon);
-      // Within the location's 6 decimals (11 cm) of the point
-      expect(Math.abs(geo.lat * 111320 - y)).toBeLessThan(0.1);
-    }
   });
 
   it('reads the spawn limit from the link', () => {

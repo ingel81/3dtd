@@ -15,6 +15,15 @@ import { DetMath } from '../utils/det-math';
  * When ReorientationPlugin is used with recenter:true, the origin (HQ) is at (0,0,0)
  * and coordinates are in meters relative to that origin.
  */
+/**
+ * Degrees of an origin kept in radians, as getOrigin() has always given them
+ * to the simulation (and replays and coop recorded with). One trip: a second
+ * one gives the same bits.
+ */
+export function originDegrees(radians: number): number {
+  return radians * MathUtils.RAD2DEG;
+}
+
 export class EllipsoidSync {
   private tilesRenderer: TilesRenderer | null = null;
 
@@ -37,11 +46,25 @@ export class EllipsoidSync {
   constructor(originLat: number, originLon: number, originHeight = 0) {
     this.originLatRad = originLat * MathUtils.DEG2RAD;
     this.originLonRad = originLon * MathUtils.DEG2RAD;
-    this.originLatDeg = originLat;
-    this.originLonDeg = originLon;
-    this.originLatCos = DetMath.cos(originLat * MathUtils.DEG2RAD);
     this.originHeight = originHeight;
+    this.takeOriginDegrees();
     this.updateOriginMatrix();
+  }
+
+  /**
+   * The origin's degrees as getOrigin() gives them: through radians and back
+   * (originDegrees). The simulation builds its frame (OriginSync) from
+   * getOrigin(); the main thread's conversions take the same degrees and the
+   * same cosine, so a point lands on the same bits on both sides. Before
+   * 2026-10-11 the main thread kept the degrees as given: where the round
+   * trip changes the last bit (about one origin in eight), route points on
+   * whole metres (a custom map's nodes) fell into other 2 m cells than in the
+   * simulation, which then refused the world.
+   */
+  private takeOriginDegrees(): void {
+    this.originLatDeg = originDegrees(this.originLatRad);
+    this.originLonDeg = originDegrees(this.originLonRad);
+    this.originLatCos = DetMath.cos(this.originLatDeg * MathUtils.DEG2RAD);
   }
 
   /**
@@ -57,9 +80,7 @@ export class EllipsoidSync {
   setOrigin(lat: number, lon: number, height = 0): void {
     this.originLatRad = lat * MathUtils.DEG2RAD;
     this.originLonRad = lon * MathUtils.DEG2RAD;
-    this.originLatDeg = lat;
-    this.originLonDeg = lon;
-    this.originLatCos = DetMath.cos(lat * MathUtils.DEG2RAD);
+    this.takeOriginDegrees();
     this.originHeight = height;
     this.updateOriginMatrix();
   }
@@ -127,8 +148,8 @@ export class EllipsoidSync {
    * @returns Object with lat, lon (degrees), height (meters)
    */
   localToGeo(vec: Vector3): { lat: number; lon: number; height: number } {
-    const originLat = this.originLatRad * MathUtils.RAD2DEG;
-    const originLon = this.originLonRad * MathUtils.RAD2DEG;
+    const originLat = this.originLatDeg;
+    const originLon = this.originLonDeg;
 
     // Earth radius in meters
     const R = 6371000;
@@ -199,8 +220,8 @@ export class EllipsoidSync {
    */
   getOrigin(): { lat: number; lon: number; height: number } {
     return {
-      lat: this.originLatRad * MathUtils.RAD2DEG,
-      lon: this.originLonRad * MathUtils.RAD2DEG,
+      lat: this.originLatDeg,
+      lon: this.originLonDeg,
       height: this.originHeight,
     };
   }

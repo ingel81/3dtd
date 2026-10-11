@@ -60,29 +60,6 @@ export function customMapSpawnLimit(search: string): number {
   return Number.isFinite(n) && n >= 1 ? Math.min(n, MAX_SPAWN_PORTALS) : MAX_SPAWN_PORTALS;
 }
 
-/**
- * A geographic point near `geo` whose degrees come back unchanged through
- * radians. The simulation gets the run's origin through
- * `EllipsoidSync.getOrigin` (degrees to radians and back) while the main
- * thread converts with the degrees it was given; where they differ by the
- * last bit, route points that lie exactly on a 2 m cell border (a map's
- * nodes at whole metres do) fall into different cells on the two sides, and
- * the simulation refuses the world. Rounded to the location's 6 decimals,
- * then nudged by 1e-9 degrees (0.1 mm) until the round trip is exact.
- */
-export function stableGeo(geo: { lat: number; lon: number }): { lat: number; lon: number } {
-  const stable = (v: number): number => {
-    const base = Math.round(v * 1e6) / 1e6;
-    for (let k = 0; k < 64; k++) {
-      for (const c of [base + k * 1e-9, base - k * 1e-9]) {
-        if (((c * Math.PI) / 180) * (180 / Math.PI) === c) return c;
-      }
-    }
-    return base;
-  };
-  return { lat: stable(geo.lat), lon: stable(geo.lon) };
-}
-
 /** Maps opened before their world is made (WorldFactory.startHq loads, create takes), by map id */
 const opened = new Map<string, LoadedCustomMap>();
 
@@ -233,10 +210,10 @@ export class CustomMapWorld implements WorldProvider {
     // never fails to load
   }
 
-  /** HQ (as stableGeo moves it, where the start flow put the origin) and the first `spawnLimit` spawns (customMapSpawnLimit) */
+  /** HQ (where the start flow put the origin) and the first `spawnLimit` spawns (customMapSpawnLimit) */
   startLayout(): WorldStartLayout {
     return {
-      hq: stableGeo(mapToGeo(this.doc.hq)),
+      hq: mapToGeo(this.doc.hq),
       spawns: this.doc.spawns.slice(0, this.spawnLimit).map((s) => ({ id: s.id, name: s.name, ...mapToGeo(s) })),
     };
   }
