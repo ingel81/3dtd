@@ -81,6 +81,93 @@ export function fillBasin(terrain: MapTerrain, i: number, j: number): GridRect |
   };
 }
 
+/**
+ * The height at which a hollow overflows: flood upward from sample (i, j)
+ * in order of height (priority flood); the highest point passed before the
+ * flood first steps down into another hollow or reaches the map edge is the
+ * rim. Water up to just below it stays in the hollow.
+ */
+export function basinSpillHeight(terrain: MapTerrain, i: number, j: number): number {
+  const g = terrain.grid;
+  const c = g.columns;
+  const h = g.heights;
+  const seen = new Uint8Array(c * g.rows);
+  const heap = new MinHeap();
+  const start = j * c + i;
+  heap.push(start, h[start]);
+  seen[start] = 1;
+  let level = h[start];
+  while (heap.size) {
+    const k = heap.pop();
+    const hk = h[k];
+    // Downhill past the rim: the water would run off here
+    if (hk < level - 1e-4) return level;
+    level = Math.max(level, hk);
+    const ki = k % c;
+    const kj = (k - ki) / c;
+    if (ki === 0 || kj === 0 || ki === c - 1 || kj === g.rows - 1) return level;
+    for (const n of [k - 1, k + 1, k - c, k + c]) {
+      if (!seen[n]) {
+        seen[n] = 1;
+        heap.push(n, h[n]);
+      }
+    }
+  }
+  return level;
+}
+
+/** Binary min-heap of sample indices by height */
+class MinHeap {
+  private readonly keys: number[] = [];
+  private readonly values: number[] = [];
+
+  get size(): number {
+    return this.keys.length;
+  }
+
+  push(key: number, value: number): void {
+    const keys = this.keys;
+    const values = this.values;
+    let at = keys.length;
+    keys.push(key);
+    values.push(value);
+    while (at > 0) {
+      const up = (at - 1) >> 1;
+      if (values[up] <= value) break;
+      keys[at] = keys[up];
+      values[at] = values[up];
+      at = up;
+    }
+    keys[at] = key;
+    values[at] = value;
+  }
+
+  pop(): number {
+    const keys = this.keys;
+    const values = this.values;
+    const top = keys[0];
+    const lastKey = keys.pop()!;
+    const lastValue = values.pop()!;
+    const n = keys.length;
+    if (n) {
+      let at = 0;
+      for (;;) {
+        const l = at * 2 + 1;
+        if (l >= n) break;
+        const r = l + 1;
+        const child = r < n && values[r] < values[l] ? r : l;
+        if (values[child] >= lastValue) break;
+        keys[at] = keys[child];
+        values[at] = values[child];
+        at = child;
+      }
+      keys[at] = lastKey;
+      values[at] = lastValue;
+    }
+    return top;
+  }
+}
+
 /** Share of samples under water (for the status line and validation) */
 export function wetShare(terrain: MapTerrain): number {
   const w = terrain.water;

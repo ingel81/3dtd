@@ -6,9 +6,12 @@
 import type { CustomMapDocument, MapWater } from '../../world/custom-map/map-document';
 import type { DocChange, EditCommand, EditorDocument } from '../model/editor-document';
 import { nearestSample, sampleRectAround } from '../model/grid';
-import { emptyWater, fillBasin, waterMaskDab } from '../ops/water-ops';
+import { basinSpillHeight, emptyWater, fillBasin, waterMaskDab } from '../ops/water-ops';
 import { BrushStroke } from './brush-stroke';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
+
+/** Metres the water stays below a hollow's rim */
+const RIM_MARGIN = 0.3;
 
 export class WaterTool implements EditorTool {
   readonly id = 'water' as const;
@@ -26,23 +29,13 @@ export class WaterTool implements EditorTool {
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
     if (p.button !== 0 || !p.hit) return false;
     const editor = ctx.editor;
-    if (!editor.doc.terrain.water) {
-      editor.execute(waterCommands.enable(editor, Math.round(p.hit.z * 10) / 10));
-    }
     const mode = ctx.settings.water.mode;
     if (mode === 'fill' && !p.shift) {
-      const t = editor.doc.terrain;
-      const { i, j } = nearestSample(t, p.hit.x, p.hit.y);
-      const stroke = new BrushStroke(editor, 'Fill basin', ['water']);
-      stroke.touch('water', { i0: 0, j0: 0, i1: t.grid.columns - 1, j1: t.grid.rows - 1 });
-      const rect = fillBasin(t, i, j);
-      if (!rect) {
-        ctx.status(`The ground here lies above the water level (${t.water!.level} m)`);
-        return true;
-      }
-      stroke.changed({ water: true });
-      stroke.finish();
+      this.fill(p, ctx);
       return true;
+    }
+    if (!editor.doc.terrain.water) {
+      editor.execute(waterCommands.enable(editor, Math.round(p.hit.z * 10) / 10));
     }
     this.on = mode === 'paint' ? !p.shift : mode === 'fill' ? false : p.shift;
     this.stroke = new BrushStroke(editor, this.on ? 'Paint water' : 'Erase water', ['water']);
@@ -70,12 +63,41 @@ export class WaterTool implements EditorTool {
     const at = level === undefined ? 'the clicked height' : `${level} m`;
     switch (ctx.settings.water.mode) {
       case 'fill':
-        return `Click a hollow to fill it with water up to ${at}; Shift click erases there`;
+        return level === undefined
+          ? 'Click a hollow to fill it with water up to its rim'
+          : `Click a hollow to fill it with water up to ${at} | Ctrl click fills to the rim | Shift erases`;
       case 'paint':
         return 'Hold to paint water, Shift erases | [ ] size';
       case 'erase':
         return 'Hold to erase water, Shift paints | [ ] size';
     }
+  }
+
+  /**
+   * Fill the hollow under the pointer. Without water yet (or with Ctrl) the
+   * level becomes the hollow's rim, a little below where it would spill.
+   */
+  private fill(p: ToolPointer, ctx: ToolContext): void {
+    const editor = ctx.editor;
+    const t = editor.doc.terrain;
+    const { i, j } = nearestSample(t, p.hit!.x, p.hit!.y);
+    const before = t.water ? structuredClone(t.water) : null;
+    const water = t.water ? structuredClone(t.water) : emptyWater(t, 0);
+    if (!before || p.ctrl) {
+      const rim = basinSpillHeight(t, i, j);
+      water.level = Math.round((rim - RIM_MARGIN) * 10) / 10;
+    }
+    t.water = water;
+    const rect = fillBasin(t, i, j);
+    const after = t.water;
+    t.water = before;
+    if (!rect) {
+      ctx.status(before && !p.ctrl
+        ? `The ground here lies above the water level (${before.level} m); Ctrl click fills to the rim`
+        : 'This spot is no hollow: water would run off');
+      return;
+    }
+    editor.execute(new WaterCommand(before ? 'Fill basin' : 'Add water', before, after));
   }
 
   private end(): void {

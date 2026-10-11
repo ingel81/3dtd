@@ -3,7 +3,7 @@ import { heightAt } from '../model/grid';
 import { brushWeight, stepRadius } from './brush';
 import { autoPaint, defaultAutoRules, dominantLayer, moveLayer, paintDab, readWeights, removeLayer } from './paint-ops';
 import { erodeDab, flattenDab, noiseDab, raiseDab, rampBetween, smoothDab, terraceDab } from './terrain-ops';
-import { emptyWater, fillBasin, waterMaskDab } from './water-ops';
+import { basinSpillHeight, emptyWater, fillBasin, waterMaskDab } from './water-ops';
 import { DEFAULT_SCATTER, ObjectGrid, ObjectIds, duplicateObjects, objectsInBox, scatterDab } from './object-ops';
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
 import { resizeMap } from './resize';
@@ -224,5 +224,19 @@ describe('resize', () => {
     resizeMap(bigger, 80, 40);
     // New ground takes the edge height
     expect(heightAt(bigger.terrain, 30, 0)).toBeCloseTo(heightAt(bigger.terrain, 20, 0));
+  });
+});
+
+describe('basin rim', () => {
+  it('finds the height where a hollow overflows', () => {
+    const t = flat().terrain;
+    // A bowl 5 m deep with a 3 m wall around it
+    raiseDab(t, 0, 0, { radius: 40, strength: 1, falloff: 0 }, 3);
+    raiseDab(t, 0, 0, { radius: 25, strength: 1, falloff: 0 }, -8);
+    const g = t.grid;
+    const centre = { i: g.columns >> 1, j: g.rows >> 1 };
+    expect(basinSpillHeight(t, centre.i, centre.j)).toBeCloseTo(3, 1);
+    // On open flat ground the rim is the ground
+    expect(basinSpillHeight(t, 2, 2)).toBeCloseTo(0, 5);
   });
 });

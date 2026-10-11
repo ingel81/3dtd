@@ -31,17 +31,17 @@
           <input class="td-input is-sm" type="number" step="0.05" min="0.05" [value]="o.scale" (change)="setNumber('scale', $event)" /></label>
       </div>
     }
-    <div class="td-setting">
-      <span matTooltip="Whether towers see through it; Default follows the catalogue">Blocks sight <span class="td-note">default {{ catalogFlag('blocksLos') }}</span></span>
-      <div class="td-seg is-compact is-sm" role="radiogroup" aria-label="Blocks sight">
+    <div class="td-field">
+      <span class="td-label" matTooltip="Whether towers see through it; Default follows the catalogue">Blocks sight <span class="td-note">(default {{ catalogFlag('blocksLos') }})</span></span>
+      <div class="td-seg is-sm" role="radiogroup" aria-label="Blocks sight">
         <button type="button" role="radio" [attr.aria-checked]="flag('blocksLos') === 'auto'" (click)="setFlag('blocksLos', 'auto')">Default</button>
         <button type="button" role="radio" [attr.aria-checked]="flag('blocksLos') === 'on'" (click)="setFlag('blocksLos', 'on')">Yes</button>
         <button type="button" role="radio" [attr.aria-checked]="flag('blocksLos') === 'off'" (click)="setFlag('blocksLos', 'off')">No</button>
       </div>
     </div>
-    <div class="td-setting">
-      <span matTooltip="Whether towers may stand on it; Default follows the catalogue">Blocks building <span class="td-note">default {{ catalogFlag('blocksBuild') }}</span></span>
-      <div class="td-seg is-compact is-sm" role="radiogroup" aria-label="Blocks building">
+    <div class="td-field">
+      <span class="td-label" matTooltip="Whether towers may stand on it; Default follows the catalogue">Blocks building <span class="td-note">(default {{ catalogFlag('blocksBuild') }})</span></span>
+      <div class="td-seg is-sm" role="radiogroup" aria-label="Blocks building">
         <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'auto'" (click)="setFlag('blocksBuild', 'auto')">Default</button>
         <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'on'" (click)="setFlag('blocksBuild', 'on')">Yes</button>
         <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'off'" (click)="setFlag('blocksBuild', 'off')">No</button>
@@ -79,9 +79,9 @@
 
 @if (s().mode === 'place' || s().mode === 'select') {
   <div class="td-group">
-    <div class="td-setting">
-      <span id="op-snap">Grid snap</span>
-      <div class="td-seg is-compact is-sm" role="radiogroup" aria-labelledby="op-snap">
+    <div class="td-field">
+      <span class="td-label" id="op-snap">Grid snap</span>
+      <div class="td-seg is-sm" role="radiogroup" aria-labelledby="op-snap">
         @for (step of snaps; track step) {
           <button type="button" role="radio" [attr.aria-checked]="s().snap === step" (click)="setSnap(step)">{{ step ? step + ' m' : 'Off' }}</button>
         }
