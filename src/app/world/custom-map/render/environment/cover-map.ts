@@ -1,14 +1,15 @@
 import { ClampToEdgeWrapping, DataTexture, FloatType, NearestFilter, NoColorSpace, RedFormat, Vector2, Vector4 } from 'three';
-import type { MapObject } from '../../map-document';
+import type { MapObject, MapTerrain } from '../../map-document';
 import type { CatalogObject } from '../asset-catalog';
 import type { HeightField } from '../height-field';
 
 /**
  * The top of everything rain and snow stop on, one value per height sample:
- * the terrain, raised to the roof height inside the footprint of buildings
- * and structures. Weather particles below it are not drawn, so it does not
- * rain indoors or through the ground. Coarse by design (the grid's cells,
- * a footprint circle per building).
+ * the terrain, raised to the roof height inside the footprint of buildings,
+ * structures and rocks, and to the surface of water, lava and ice. Weather
+ * particles below it are not drawn, so it does not rain indoors or through
+ * the ground; grass grows only where the top is the ground itself. Coarse
+ * by design (the grid's cells, a footprint circle per object).
  */
 export class CoverMap {
   readonly texture: DataTexture;
@@ -37,13 +38,14 @@ export class CoverMap {
     this.set([], new Map());
   }
 
-  /** Terrain heights plus the roofs of buildings and structures */
-  set(objects: MapObject[], entries: Map<string, CatalogObject>): void {
+  /** Terrain heights plus the roofs of buildings, structures and rocks, and the surfaces of water bodies and rivers */
+  set(objects: MapObject[], entries: Map<string, CatalogObject>, terrain?: MapTerrain): void {
     const f = this.field;
     this.tops.set(f.grid.heights);
+    if (terrain) this.addWater(terrain);
     for (const o of objects) {
       const e = entries.get(o.asset);
-      if (!e || (e.category !== 'building' && e.category !== 'structure')) continue;
+      if (!e || (e.category !== 'building' && e.category !== 'structure' && e.category !== 'rock')) continue;
       const s = o.scale || 1;
       const r = e.footprint * s;
       const top = f.heightAt(o.x, o.y) + o.z + e.height * s;
@@ -59,6 +61,39 @@ export class CoverMap {
       }
     }
     this.texture.needsUpdate = true;
+  }
+
+  private addWater(t: MapTerrain): void {
+    const f = this.field;
+    const tops = this.tops;
+    for (const body of [t.water, ...(t.waterBodies ?? [])]) {
+      if (!body) continue;
+      for (let k = 0; k < tops.length; k++) if (body.mask[k] && body.level > tops[k]) tops[k] = body.level;
+    }
+    // Rivers: a disc of the surface's width every half cell along the line
+    for (const river of t.rivers ?? []) {
+      for (let p = 0; p < river.points.length - 1; p++) {
+        const a = river.points[p];
+        const b = river.points[p + 1];
+        const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / (f.cellSize * 0.5)));
+        for (let s = 0; s <= steps; s++) {
+          const u = s / steps;
+          const x = a.x + (b.x - a.x) * u;
+          const y = a.y + (b.y - a.y) * u;
+          const level = a.height + (b.height - a.height) * u;
+          const rc = ((a.width + (b.width - a.width) * u) * 0.5) / f.cellSize;
+          const ci = (x - f.originX) / f.cellSize;
+          const cj = (y - f.originY) / f.cellSize;
+          for (let j = Math.max(0, Math.floor(cj - rc)); j <= Math.min(f.rows - 1, Math.ceil(cj + rc)); j++) {
+            for (let i = Math.max(0, Math.floor(ci - rc)); i <= Math.min(f.columns - 1, Math.ceil(ci + rc)); i++) {
+              if (Math.hypot(i - ci, j - cj) > rc) continue;
+              const k = j * f.columns + i;
+              if (level > tops[k]) tops[k] = level;
+            }
+          }
+        }
+      }
+    }
   }
 
   /** Where the map group sits in the scene (the game moves it so its HQ is at the origin) */

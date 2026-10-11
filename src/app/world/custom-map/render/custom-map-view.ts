@@ -126,6 +126,7 @@ export class CustomMapView {
     this.environment = new CustomMapEnvironment(doc.environment);
     this.cover = new CoverMap(this.heights);
     this.environment.weather.setCover(this.cover);
+    this.terrain.grass.setCover(this.cover);
     this.environment.setFogBase(lowGround(t.grid.heights, t.water?.level));
     this.updateWater();
     this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers, {
@@ -377,6 +378,8 @@ export class CustomMapView {
    */
   updateWater(): void {
     this.terrain.refreshWater(this.doc.paths);
+    // Rain stops and grass ends at the new surfaces
+    this.coverDirty = true;
     const bodies = [this.doc.terrain.water, ...(this.doc.terrain.waterBodies ?? [])];
     // Slot 0 is the main body (it may be null); further bodies follow
     while (this.waters.length > bodies.length) this.waters.pop()?.dispose();
@@ -482,7 +485,7 @@ export class CustomMapView {
     this.coverAge = 0;
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
-    this.cover.set(this.doc.objects, new Map(catalog.objects.map((o) => [o.id, o])));
+    this.cover.set(this.doc.objects, new Map(catalog.objects.map((o) => [o.id, o])), this.doc.terrain);
   }
 
   /** Contact shadows of the objects in the baked ground occlusion */

@@ -12,6 +12,7 @@ import {
 } from 'three';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
+import type { CoverMap } from '../environment/cover-map';
 import { addHeightFog } from '../environment/height-fog';
 
 /**
@@ -24,7 +25,9 @@ import { addHeightFog } from '../environment/height-fog';
  * square nor the switch to the painted ground is seen. Each blade takes the
  * colour the ground has under it (the splat's layer averages with the
  * terrain's macro variation), so from high up the blades do not show as a
- * patch of their own colour.
+ * patch of their own colour. None grows where the CoverMap's top lies
+ * above the ground: in the footprints of buildings, structures and rocks
+ * (pools too) and under water, lava and ice.
  *
  * Lit like any standard material (shadows received, fog, grade); blades do
  * not cast shadows. Not part of line of sight.
@@ -62,6 +65,8 @@ export class GrassField {
     uGrassMask1: { value: new Vector4() },
     uGrassMapSize: { value: new Vector2() },
     uGrassColors: { value: Array.from({ length: 8 }, () => new Color()) },
+    uGrassCover: { value: null as Texture | null },
+    uGrassHasCover: { value: 0 },
   };
 
   constructor(heights: HeightTexture) {
@@ -137,6 +142,12 @@ export class GrassField {
     this.mesh.visible = this.hasGrass && this.near;
   }
 
+  /** Footprints and water surfaces (the CoverMap shares the height grid) */
+  setCover(cover: CoverMap): void {
+    this.uniforms.uGrassCover.value = cover.texture;
+    this.uniforms.uGrassHasCover.value = 1;
+  }
+
   /** Whether the camera is close enough for blades to show */
   setNear(near: boolean): void {
     this.near = near;
@@ -169,10 +180,27 @@ uniform vec4 uGrassMask0;
 uniform vec4 uGrassMask1;
 uniform vec2 uGrassMapSize;
 uniform vec3 uGrassColors[8];
+uniform sampler2D uGrassCover;
+uniform float uGrassHasCover;
 varying vec3 vBladeColor;
 ${SHADER_NOISE}
 
 ${TERRAIN_HEIGHT_GLSL}
+
+// 1 where something stands on the ground or water lies over it, 0 on open ground; bilinear over the grid
+float grassCovered(vec2 m) {
+  if (uGrassHasCover < 0.5) return 0.0;
+  vec2 g = (m - uTerrainGrid.xy) / uTerrainGrid.z;
+  vec2 g0 = floor(g);
+  vec2 fr = g - g0;
+  ivec2 hi = ivec2(uTerrainGridSize) - 1;
+  float c[4];
+  for (int k = 0; k < 4; k++) {
+    ivec2 p = clamp(ivec2(g0) + ivec2(k & 1, k >> 1), ivec2(0), hi);
+    c[k] = step(0.05, texelFetch(uGrassCover, p, 0).r - texelFetch(uTerrainHeights, p, 0).r);
+  }
+  return mix(mix(c[0], c[1], fr.x), mix(c[2], c[3], fr.x), fr.y);
+}
 `;
 
 const GRASS_NORMAL = /* glsl */ `
@@ -200,6 +228,8 @@ float hy = terrainHeightAt(mapPos + vec2(0.0, 1.0)) - terrainHeightAt(mapPos - v
 float slope = length(vec2(hx, hy)) * 0.5;
 grass *= smoothstep(0.9, 0.5, slope);
 grass *= step(abs(mapPos.x), uGrassMapSize.x * 0.5) * step(abs(mapPos.y), uGrassMapSize.y * 0.5);
+// None in footprints of buildings, structures, rocks and pools, nor under water, lava or ice
+grass *= 1.0 - smoothstep(0.25, 0.6, grassCovered(mapPos));
 // Towards a circle inside the tile: fewer blades (each drops out at its own threshold), and shorter
 float edge = length(sceneXZ - uGrassCenter) / (0.5 * uGrassTile);
 float fade = 1.0 - smoothstep(0.3, 0.88, edge);
