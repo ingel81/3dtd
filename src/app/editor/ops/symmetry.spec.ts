@@ -134,4 +134,27 @@ describe('symmetry', () => {
     expect(heightAt(t, 70, 104)).toBeCloseTo(heightAt(t, -70, 104), 6);
     expect(ed.historySteps).toBe(1);
   });
+
+  it('mirrors the pools of a swamp, which fill a body of their own', () => {
+    const { ed, ctx } = setup('x');
+    const tool = new LandscapeTool();
+    ctx.settings.landscape.biome = 'swamp';
+    ctx.settings.landscape.reroll = false;
+    ctx.settings.brush = { radius: 40, strength: 1, falloff: 0.5 };
+    tool.pointerDown(at(-90, 100), ctx);
+    for (let k = 0; k < 20; k++) tool.frame(0.1, at(-90 + k, 100), ctx);
+    tool.pointerUp(at(-71, 100), ctx);
+    const t = ed.doc.terrain;
+    const body = t.waterBodies![0];
+    const g = t.grid;
+    let wet = 0;
+    for (let j = 0; j < g.rows; j++)
+      for (let i = 0; i < g.columns; i++) {
+        const v = body.mask[j * g.columns + i];
+        if (v) wet++;
+        expect(v).toBe(body.mask[j * g.columns + (g.columns - 1 - i)]);
+      }
+    expect(wet).toBeGreaterThan(10);
+    expect(t.water).toBeNull();
+  });
 });

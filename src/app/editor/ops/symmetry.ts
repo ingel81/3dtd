@@ -158,7 +158,11 @@ export function mirrorCells(
 export interface SymmetryTouch {
   heights(rect: GridRect): void;
   splat(rect: GridRect): void;
-  water(rect: GridRect): void;
+  /** The main water's mask; left out when the dab did not paint it */
+  water?(rect: GridRect): void;
+  /** Further bodies whose masks the dab painted, and their recorders */
+  bodies?: readonly number[];
+  body?(index: number, rect: GridRect): void;
 }
 
 /**
@@ -188,13 +192,20 @@ export function mirrorChange(
     }));
     for (const r of rects) out = mergeChanges(out, { heights: r });
   }
-  if (change.water && t.water) {
+  if (change.water) {
     const rect = waterRect ?? change.heights ?? { i0: 0, j0: 0, i1: g.columns - 1, j1: g.rows - 1 };
-    for (const r of imageRects(images, rect, g.columns, g.rows)) touch.water(r);
-    mirrorCells(mode, images, t.water.mask, { columns: g.columns, rows: g.rows, channels: 1 }, rect, center, (i, j) => ({
-      x: sampleX(t, i),
-      y: sampleY(t, j),
-    }));
+    const at = (i: number, j: number) => ({ x: sampleX(t, i), y: sampleY(t, j) });
+    const layout = { columns: g.columns, rows: g.rows, channels: 1 };
+    if (t.water && touch.water) {
+      for (const r of imageRects(images, rect, g.columns, g.rows)) touch.water(r);
+      mirrorCells(mode, images, t.water.mask, layout, rect, center, at);
+    }
+    for (const index of touch.bodies ?? []) {
+      const body = t.waterBodies?.[index];
+      if (!body) continue;
+      for (const r of imageRects(images, rect, g.columns, g.rows)) touch.body?.(index, r);
+      mirrorCells(mode, images, body.mask, layout, rect, center, at);
+    }
   }
   if (change.splat) {
     const res = t.splat.resolution;

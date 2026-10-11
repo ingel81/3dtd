@@ -77,7 +77,7 @@ export class WaterTool implements EditorTool {
     const targets: PatchTarget[] = [maskTarget(s.body)];
     if (s.mode === 'lake') targets.push('heights');
     const label = s.mode === 'lake' ? 'Dig lake' : this.on ? 'Paint water' : 'Erase water';
-    this.stroke = new BrushStroke(editor, label, targets, s.body < 0 ? ctx.settings.symmetry : 'none');
+    this.stroke = new BrushStroke(editor, label, targets, ctx.settings.symmetry);
     return true;
   }
 
@@ -206,7 +206,7 @@ export class WaterTool implements EditorTool {
     }
     if (fresh || p.ctrl) target.level = Math.round((basinSpillHeight(t, i, j) - RIM_MARGIN) * 10) / 10;
     const rect = fillBasin(t, i, j, s.body);
-    if (rect && s.body < 0) {
+    if (rect) {
       // The images of the hollow fill too
       const g = t.grid;
       for (const img of symmetryImages(ctx.settings.symmetry, g.columns === g.rows).slice(1)) {

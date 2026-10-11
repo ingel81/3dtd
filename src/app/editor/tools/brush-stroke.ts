@@ -43,7 +43,9 @@ export class BrushStroke {
               this.touch('splat0', r);
               this.touch('splat1', r);
             },
-            water: (r) => this.touch('water', r),
+            water: this.recorders.has('water') ? (r) => this.touch('water', r) : undefined,
+            bodies: [...this.recorders.keys()].filter((k) => k.startsWith('body')).map((k) => Number(k.slice(4))),
+            body: (index, r) => this.touch(`body${index}`, r),
           }, waterRect)
         : dab;
     this.change = {

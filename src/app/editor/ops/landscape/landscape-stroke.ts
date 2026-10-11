@@ -57,6 +57,8 @@ export class LandscapeStroke {
   private readonly bodiesAdded: number[] = [];
   /** The body each kind of pool fills in this stroke */
   private readonly poolBodies = new Map<MapWaterKind, number>();
+  /** Whether the stroke painted the main water's mask (only then do its images get it) */
+  private waterTouched = false;
   private pathsBefore: MapPaths | null = null;
   private riversBefore: { list: MapRiver[] | undefined } | null = null;
   readonly added: MapObject[] = [];
@@ -230,6 +232,7 @@ export class LandscapeStroke {
   }
 
   touchWater(rect: GridRect): void {
+    this.waterTouched = true;
     this.waterRecorder?.touch(rect);
   }
 
@@ -259,7 +262,13 @@ export class LandscapeStroke {
             this.symmetry,
             center,
             dab,
-            { heights: (r) => this.touchHeights(r), splat: (r) => this.touchSplat(r), water: (r) => this.touchWater(r) },
+            {
+              heights: (r) => this.touchHeights(r),
+              splat: (r) => this.touchSplat(r),
+              water: this.waterTouched ? (r) => this.touchWater(r) : undefined,
+              bodies: [...this.bodyRecorders.keys()],
+              body: (index, r) => this.bodyRecorders.get(index)?.touch(r),
+            },
             dab.water ? dab.heights : undefined,
           )
         : dab;
