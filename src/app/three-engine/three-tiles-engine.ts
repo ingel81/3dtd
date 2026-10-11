@@ -971,11 +971,8 @@ export class ThreeTilesEngine {
     return this.world.tiles?.tileStats() ?? NO_TILE_STATS;
   }
 
-  /**
-   * Get map data attributions from visible tiles
-   * Returns aggregated copyright string for display
-   */
-  getAttributions(): string {
+  /** The credits of the map on screen, the world's (WorldProvider.attribution) */
+  getAttributions(): string[] {
     return this.world.attribution();
   }
 

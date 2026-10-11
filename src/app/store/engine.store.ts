@@ -20,8 +20,8 @@ export class EngineStore {
   /** Sound one-shots asked for and played so far */
   readonly soundCounts = signal<SoundCounts>({ requested: 0, played: 0 });
 
-  /** Map attribution text */
-  readonly mapAttribution = signal<string>('Map data ©2024 Google');
+  /** The credits of the map on screen, the world's (WorldProvider.attribution); none before an engine */
+  readonly mapAttribution = signal<readonly string[]>([]);
 
   /** Camera compass heading (0=N, 90=E, 180=S, 270=W) */
   readonly cameraHeading = signal<number>(0);
@@ -47,7 +47,7 @@ export class EngineStore {
     fps: number;
     tileStats: TileStats;
     soundCounts: SoundCounts;
-    attribution?: string;
+    attribution?: readonly string[];
     cameraHeading: number;
     cameraDebugInfo?: CameraDebugInfo | null;
   }): void {
@@ -70,8 +70,10 @@ export class EngineStore {
       this.soundCounts.set(snapshot.soundCounts);
     }
 
-    if (snapshot.attribution) {
-      this.mapAttribution.set(snapshot.attribution);
+    // Every change, also to none (a world without credits after one with)
+    const credits = snapshot.attribution;
+    if (credits && credits.join('\n') !== this.mapAttribution().join('\n')) {
+      this.mapAttribution.set(credits);
     }
 
     // Compass heading with wrap-around
@@ -95,7 +97,7 @@ export class EngineStore {
     this.fps.set(0);
     this.tileStats.set({ parsing: 0, downloading: 0, total: 0, visible: 0, cacheMB: 0 });
     this.soundCounts.set({ requested: 0, played: 0 });
-    this.mapAttribution.set('Map data ©2024 Google');
+    this.mapAttribution.set([]);
     this.cameraHeading.set(0);
     this.compassRotation.set(0);
     this.cameraDebugEnabled.set(false);

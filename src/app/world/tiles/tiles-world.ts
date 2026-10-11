@@ -10,6 +10,7 @@ import { applyQueueBudget, applyStreamingBudget, createTilesRenderer } from '../
 import { logTileMaterialTypes } from '../../three-engine/tile-material-log';
 import { tilesInternals } from '../../three-engine/tiles-internals';
 import { instrumentRaycasts } from '../../utils/raycast-stats';
+import { OSM_MAP_ATTRIBUTION } from '../../configs/attributions.config';
 import type { WorldRef } from '../world-ref';
 import {
   NO_TILE_STATS,
@@ -43,6 +44,9 @@ export const TILES_STREET_STYLE: StreetStyle = {
   plainGround: false,
   carryOffStreet: true,
 };
+
+/** The tiles' data credit until the visible tiles name their own */
+export const TILES_DATA_CREDIT = 'Map data ©Google';
 
 /** Google's logo always, Cesium ion's beside it when the tiles come through Cesium */
 export function tilesLogos(source: 'cesium' | 'google'): WorldLogo[] {
@@ -251,17 +255,16 @@ export class TilesWorld implements WorldProvider, WorldTiles {
     return target.copy(this.tilesRenderer.group.matrixWorld).invert();
   }
 
-  /** The string attributions of the visible tiles, joined with semicolons */
-  attribution(): string {
-    if (!this.tilesRenderer) return '';
-
-    const attributions = this.tilesRenderer.getAttributions();
-    if (!attributions || attributions.length === 0) return '';
-
-    return attributions
+  /**
+   * Google's data credit, the string attributions of the visible tiles
+   * joined with semicolons (TILES_DATA_CREDIT while none came yet), and the
+   * OSM credit of the routes and the street overlay
+   */
+  attribution(): string[] {
+    const strings = (this.tilesRenderer?.getAttributions() ?? [])
       .filter((a: { type: string; value: string }) => a.type === 'string')
-      .map((a: { type: string; value: string }) => a.value)
-      .join('; ');
+      .map((a: { type: string; value: string }) => a.value);
+    return [strings.length > 0 ? strings.join('; ') : TILES_DATA_CREDIT, OSM_MAP_ATTRIBUTION];
   }
 
   onFirstGround(callback: () => void): void {

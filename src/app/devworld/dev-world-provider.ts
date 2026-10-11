@@ -141,8 +141,9 @@ export class DevWorldProvider implements WorldProvider {
     return null;
   }
 
-  attribution(): string {
-    return '';
+  /** Generated here: nothing to credit */
+  attribution(): string[] {
+    return [];
   }
 
   onFirstGround(callback: () => void): void {

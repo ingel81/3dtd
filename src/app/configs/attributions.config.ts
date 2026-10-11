@@ -19,15 +19,6 @@ export interface AttributionCategory {
  */
 export const OSM_MAP_ATTRIBUTION = 'Routes © OpenStreetMap contributors';
 
-/**
- * The credit line under the map: the world's own (tiles: Google's data, a
- * custom map: its name and author) and the OSM credit where the routes run
- * on OSM streets, a real place; empty parts left out.
- */
-export function mapCreditLine(worldCredit: string, osmStreets: boolean, separator = ', '): string {
-  return [worldCredit, osmStreets ? OSM_MAP_ATTRIBUTION : ''].filter((part) => part).join(separator);
-}
-
 export const ATTRIBUTIONS: AttributionCategory[] = [
   {
     title: '3D Models',
@@ -205,6 +196,28 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
         author: 'Amal Kumar, Poly Haven',
         license: 'CC0',
         sourceUrl: 'https://polyhaven.com/a/dark_rock',
+      },
+    ],
+  },
+  {
+    // What the credit line of a custom map points to (CUSTOM_MAP_ASSET_CREDIT); every file in
+    // public/maps/assets/LICENSES.md, per material and model
+    title: 'Custom map assets',
+    icon: 'terrain',
+    items: [
+      {
+        name: 'Ground materials and models of the custom maps (list per file in public/maps/assets/LICENSES.md)',
+        author: 'Poly Haven',
+        license: 'CC0',
+        licenseUrl: 'https://polyhaven.com/license',
+        sourceUrl: 'https://polyhaven.com',
+      },
+      {
+        name: 'Ground materials of the custom maps',
+        author: 'ambientCG',
+        license: 'CC0',
+        licenseUrl: 'https://docs.ambientcg.com/license/',
+        sourceUrl: 'https://ambientcg.com',
       },
     ],
   },

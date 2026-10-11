@@ -318,7 +318,7 @@ export class TowerDefenseStore {
     fps: number;
     tileStats: TileStats;
     soundCounts: SoundCounts;
-    attribution?: string;
+    attribution?: readonly string[];
     cameraHeading: number;
     cameraDebugInfo?: CameraDebugInfo | null;
   }): void {

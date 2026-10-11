@@ -3,7 +3,7 @@ import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
-import { CustomMapWorld, customMapSpawnLimit, openCustomMap, openedCustomMap } from './custom-map-world';
+import { CUSTOM_MAP_ASSET_CREDIT, CustomMapWorld, customMapSpawnLimit, openCustomMap, openedCustomMap } from './custom-map-world';
 import { createMapDocument } from './map-create';
 import { type CustomMapDocument, mapToGeo } from './map-document';
 import { MapStore, MemoryMapBackend } from './map-store';
@@ -150,6 +150,8 @@ describe('CustomMapWorld', () => {
     expect(layout.hq).toEqual(mapToGeo(doc.hq));
     expect(layout.spawns.map((s) => s.name)).toEqual(['Spawn 1', 'Spawn 2', 'Spawn 3']);
     expect(world.ref).toEqual({ kind: 'custom-map', mapId: 'test-map', contentHash: 'abc', name: 'Test Map' });
+    // The credit line: the map (with its author where it has one) and the assets' licence, no Google, no OSM
+    expect(world.attribution()).toEqual([expect.stringContaining('Test Map'), CUSTOM_MAP_ASSET_CREDIT]);
     expect(world.capabilities).toMatchObject({ realPlace: false, credentials: false, ecef: false, streaming: false, destructible: false });
   });
 

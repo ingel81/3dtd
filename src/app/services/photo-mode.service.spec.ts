@@ -196,7 +196,7 @@ describe('PhotoModeService screenshot', () => {
         { provide: UIStore, useValue: { photoMode: signal(true), openMenu: signal(null), mapPlacementMode: signal(false) } },
         {
           provide: TowerDefenseStore,
-          useValue: { loading: signal(false), error: signal(null), mapAttribution: signal('Map data ©2026 Google') },
+          useValue: { loading: signal(false), error: signal(null), mapAttribution: signal(devWorld ? [] : ['Map data ©2026 Google', 'Routes © OpenStreetMap contributors']) },
         },
         { provide: TowerSelectionService, useValue: {} },
         { provide: TowerPlacementService, useValue: {} },
@@ -255,9 +255,10 @@ describe('PhotoModeService screenshot', () => {
 
   it('stamps the game mark in DevWorld too, where no provider logo shows and no OSM street runs', async () => {
     await build(true, 'cesium').saveScreenshot();
+    // The world has no credits: the line under the photo stays empty
     expect(screenshot.stampScreenshot).toHaveBeenCalledWith(
       frame,
-      'Map data ©2026 Google',
+      '',
       [],
       { logo: { src: 'assets/images/logo/logo.png' }, url: 'https://3dtd.sgeht.net' },
     );

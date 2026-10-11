@@ -9,7 +9,6 @@ import { LocationManagementService } from './location/location-management.servic
 import { MapPlacementService } from './world/map-placement.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { AbilityTargetingService } from './ability-targeting.service';
-import { mapCreditLine } from '../configs/attributions.config';
 import { SCREENSHOT_URL, downloadCanvasPng, loadImage, screenshotFileName, stampScreenshot } from '../utils/screenshot';
 import { cycleTab, focusedElement } from '../utils/focus-cycle';
 
@@ -125,7 +124,7 @@ export class PhotoModeService {
       const logos = providerLogos.filter((logo): logo is HTMLImageElement => logo !== null);
       const frame = await engine.captureFrame();
       if (!frame) return;
-      stampScreenshot(frame, mapCreditLine(this.store.mapAttribution(), this.worldContext.capabilities().realPlace, ' | '), logos, { logo: brandLogo, url: SCREENSHOT_URL });
+      stampScreenshot(frame, this.store.mapAttribution().join(' | '), logos, { logo: brandLogo, url: SCREENSHOT_URL });
       const fileName = screenshotFileName(this.locationMgmt.displayName(), new Date());
       if (await downloadCanvasPng(frame, fileName)) this.showSaved(fileName);
     } finally {

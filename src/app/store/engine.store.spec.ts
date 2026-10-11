@@ -26,8 +26,8 @@ describe('EngineStore', () => {
       expect(store.soundCounts()).toEqual({ requested: 0, played: 0 });
     });
 
-    it('mapAttribution has default value', () => {
-      expect(store.mapAttribution()).toBe('Map data ©2024 Google');
+    it('has no map credits before an engine', () => {
+      expect(store.mapAttribution()).toEqual([]);
     });
 
     it('cameraHeading starts at 0', () => {
@@ -89,10 +89,13 @@ describe('EngineStore', () => {
         fps: 60,
         tileStats: baseTileStats,
         soundCounts: { requested: 0, played: 0 },
-        attribution: 'OpenStreetMap',
+        attribution: ['Map data ©Google', 'Routes © OpenStreetMap contributors'],
         cameraHeading: 0,
       });
-      expect(store.mapAttribution()).toBe('OpenStreetMap');
+      expect(store.mapAttribution()).toEqual(['Map data ©Google', 'Routes © OpenStreetMap contributors']);
+      // A world without credits after one with them: the line empties
+      store.updateEngineStats({ fps: 60, tileStats: baseTileStats, soundCounts: { requested: 0, played: 0 }, attribution: [], cameraHeading: 0 });
+      expect(store.mapAttribution()).toEqual([]);
     });
 
     it('does not overwrite attribution when not provided', () => {
@@ -192,7 +195,7 @@ describe('EngineStore', () => {
       store.fps.set(120);
       store.tileStats.set({ parsing: 5, downloading: 10, total: 50, visible: 40, cacheMB: 300 });
       store.soundCounts.set({ requested: 10, played: 1 });
-      store.mapAttribution.set('Custom');
+      store.mapAttribution.set(['Custom']);
       store.cameraHeading.set(270);
       store.compassRotation.set(630);
       store.cameraDebugEnabled.set(true);
@@ -209,7 +212,7 @@ describe('EngineStore', () => {
       expect(store.fps()).toBe(0);
       expect(store.tileStats()).toEqual({ parsing: 0, downloading: 0, total: 0, visible: 0, cacheMB: 0 });
       expect(store.soundCounts()).toEqual({ requested: 0, played: 0 });
-      expect(store.mapAttribution()).toBe('Map data ©2024 Google');
+      expect(store.mapAttribution()).toEqual([]);
       expect(store.cameraHeading()).toBe(0);
       expect(store.compassRotation()).toBe(0);
       expect(store.cameraDebugEnabled()).toBe(false);

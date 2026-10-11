@@ -228,8 +228,13 @@ export interface WorldProvider {
   losBlockers(): Object3D | null;
   /** The scene frame to ECEF, null without `capabilities.ecef` */
   sceneToEcef(target: Matrix4): Matrix4 | null;
-  /** Copyright of the map data on screen */
-  attribution(): string;
+  /**
+   * The credits the map on screen asks for, in order, each one line part:
+   * the map line under the map and the photos show them and nothing else
+   * (tiles: Google's data and the OSM routes; a custom map: its name and
+   * author and the assets' licence; DevWorld none)
+   */
+  attribution(): string[];
   /** `callback` once the first ground stands, right away when it does already */
   onFirstGround(callback: () => void): void;
   /** `callback` when the world could not load (refused credentials, server not reached), replayed */

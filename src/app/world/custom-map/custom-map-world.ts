@@ -44,6 +44,9 @@ export const CUSTOM_MAP_STREET_STYLE: StreetStyle = {
   carryOffStreet: false,
 };
 
+/** The credit line's note on the assets a custom map is drawn with (public/maps/assets/LICENSES.md) */
+export const CUSTOM_MAP_ASSET_CREDIT = 'Assets: CC0, see licences';
+
 /** A map as the game plays it: the document and the hash its WorldRef carries */
 export interface LoadedCustomMap {
   doc: CustomMapDocument;
@@ -195,9 +198,10 @@ export class CustomMapWorld implements WorldProvider {
     return null;
   }
 
-  attribution(): string {
+  /** The map with its author, and the licence of the assets it is drawn with */
+  attribution(): string[] {
     const { name, author } = this.doc.meta;
-    return author ? `${name} by ${author}` : '';
+    return [author ? `${name} by ${author}` : name, CUSTOM_MAP_ASSET_CREDIT];
   }
 
   onFirstGround(callback: () => void): void {
