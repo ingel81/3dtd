@@ -23,6 +23,11 @@ export interface MapTemplate {
   environment: Partial<MapEnvironment>;
   /** No water from the generator (a dry canyon) */
   dry?: boolean;
+  /**
+   * Scales the biome's own relief over the whole map (default 1): a brush
+   * stroke of ridges is a range, the same ridges everywhere a field of pits
+   */
+  relief?: number;
 }
 
 export const MAP_TEMPLATES: readonly MapTemplate[] = [
@@ -49,8 +54,10 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     label: 'Mountains',
     hint: 'High ridges, scree and lone pines',
     biome: 'mountains',
-    terrain: 'valleys',
+    // Broad hills under the biome's ridges: sharp valleys on top made the whole map a field of pits
+    terrain: 'hills',
     strength: 0.9,
+    relief: 0.3,
     environment: { biome: 'mountain', sky: 'day', sunElevation: 35 },
   },
   {
@@ -163,7 +170,9 @@ export async function applyTemplate(
   }
   doc.environment = { ...doc.environment, ...template.environment };
   const editor = new EditorDocument(doc);
-  const biome = biomeById(template.biome);
+  const own = biomeById(template.biome);
+  const scale = template.relief ?? 1;
+  const biome = scale === 1 || !own.relief ? own : { ...own, relief: { ...own.relief, amplitude: own.relief.amplitude * scale } };
   const stroke = new LandscapeStroke(editor, biome.label, seed, catalog);
   for (let y = -t.depth / 2; y < t.depth / 2; y += BAND) {
     biomeBand(stroke, biome, y, Math.min(t.depth / 2, y + BAND));

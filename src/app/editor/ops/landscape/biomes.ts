@@ -184,9 +184,9 @@ export const BIOMES: readonly BiomeDef[] = [
     hint: 'High ridged peaks, scree and granite, sparse pines and blue flowers',
     color: '#8a8f96',
     ground: [
-      { material: ['grass-sparse', 'rocky-ground'], share: 0.35 },
-      { material: ['scree', 'gravel'], share: 0.35 },
-      { material: ['rocky-ground', 'gravel'], share: 0.3 },
+      { material: ['rocky-ground', 'gravel'], share: 0.5 },
+      { material: ['scree', 'gravel'], share: 0.32 },
+      { material: ['grass-sparse', 'rocky-ground'], share: 0.18 },
     ],
     steepGround: ['cliff-granite', 'cliff', 'rocky-ground'],
     relief: { kind: 'ridged', amplitude: 24, wave: 90 },
@@ -229,9 +229,10 @@ export const BIOMES: readonly BiomeDef[] = [
     hint: 'Dunes and cracked hardpan, cacti, succulents and wind-cut rocks',
     color: '#c2b080',
     ground: [
-      { material: ['sand-dunes', 'sand'], share: 0.55 },
-      { material: ['desert-cracked', 'desert-hardpan', 'sand'], share: 0.25 },
-      { material: ['desert-stony', 'sand-gravelly', 'sand'], share: 0.2 },
+      // Sand first; the darker hardpan and stony ground in small patches, else a wide view reads as camouflage
+      { material: ['sand-dunes', 'sand'], share: 0.86 },
+      { material: ['desert-cracked', 'desert-hardpan', 'sand'], share: 0.09 },
+      { material: ['desert-stony', 'sand-gravelly', 'sand'], share: 0.05 },
     ],
     steepGround: ['cliff-sandstone', 'sandstone', 'rocky-ground'],
     relief: { kind: 'dunes', amplitude: 4, wave: 70 },
@@ -362,9 +363,10 @@ export const BIOMES: readonly BiomeDef[] = [
     hint: 'After the end: cracked asphalt, rubble and shell craters, ruins, wrecks and smoke',
     color: '#6f675a',
     ground: [
-      { material: ['asphalt-cracked', 'concrete-damaged', 'dirt'], share: 0.3 },
-      { material: ['rubble', 'debris', 'gravel'], share: 0.4 },
-      { material: ['concrete-moss', 'grass-withered', 'dirt'], share: 0.3 },
+      // Rubble first: the dark asphalt and mossy concrete in small patches, else a wide view reads as camouflage
+      { material: ['asphalt-cracked', 'concrete-damaged', 'dirt'], share: 0.12 },
+      { material: ['rubble', 'debris', 'gravel'], share: 0.8 },
+      { material: ['concrete-moss', 'grass-withered', 'dirt'], share: 0.08 },
     ],
     relief: { kind: 'craters', amplitude: 2.5, wave: 26 },
     objects: [
@@ -384,9 +386,9 @@ export const BIOMES: readonly BiomeDef[] = [
     hint: 'Grey regolith pocked with craters, scattered boulders',
     color: '#a6a6a2',
     ground: [
-      { material: ['regolith', 'concrete'], share: 0.45 },
-      { material: ['regolith-rough', 'regolith'], share: 0.35 },
-      { material: ['moon-basalt', 'crater-floor', 'regolith'], share: 0.2 },
+      { material: ['regolith', 'concrete'], share: 0.55 },
+      { material: ['regolith-rough', 'regolith'], share: 0.37 },
+      { material: ['moon-basalt', 'crater-floor', 'regolith'], share: 0.08 },
     ],
     steepGround: ['moon-basalt', 'regolith-rough'],
     relief: { kind: 'craters', amplitude: 5, wave: 42 },

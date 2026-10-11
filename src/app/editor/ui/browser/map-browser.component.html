@@ -171,7 +171,7 @@
             <div class="mb-templates" role="radiogroup" aria-labelledby="mb-template">
               @for (t of templates; track t.id) {
                 <button class="td-card mb-material" type="button" role="radio" [attr.aria-checked]="newTemplate() === t.id" [attr.aria-pressed]="newTemplate() === t.id"
-                        [matTooltip]="t.hint" (click)="newTemplate.set(t.id)" [attr.data-template]="t.id">
+                        [matTooltip]="t.hint" matTooltipPosition="above" (click)="newTemplate.set(t.id)" [attr.data-template]="t.id">
                   <img [src]="templatePicture(t)" alt="" />
                   <span class="td-trunc">{{ t.label }}</span>
                 </button>
