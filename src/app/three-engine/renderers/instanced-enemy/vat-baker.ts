@@ -132,6 +132,7 @@ export function bakeVAT(
   const data = new Float32Array(texWidth * texHeight * 4);
   const tempVec = new Vector3();
   const bounds = emptyBounds();
+  const skinning = skins.map((skin) => new SkinningBake(skin.mesh, skin.meshToRoot));
 
   // Bake each clip using a fresh mixer
   for (const { name } of validClips) {
@@ -153,12 +154,12 @@ export function bakeVAT(
       modelRoot.updateMatrixWorld(true);
 
       // Bake vertices from ALL skinned meshes
-      for (const skin of skins) {
-        const posAttr = skin.mesh.geometry.getAttribute('position');
+      for (let s = 0; s < skins.length; s++) {
+        const skin = skins[s];
+        const bake = skinning[s];
+        bake.updateFrame();
         for (let v = 0; v < skin.vertexCount; v++) {
-          tempVec.fromBufferAttribute(posAttr, v);
-          skin.mesh.applyBoneTransform(v, tempVec);
-          tempVec.applyMatrix4(skin.meshToRoot);
+          bake.vertex(v, tempVec);
           growBounds(bounds, tempVec);
 
           const globalV = skin.vertexOffset + v;
@@ -444,4 +445,91 @@ export function bakeStaticVAT(modelRoot: Object3D, worldScale: number): VATData 
     fps: DEFAULT_BAKE_FPS,
     ...modelHeightRange(bounds),
   };
+}
+
+/**
+ * SkinnedMesh.applyBoneTransform followed by `meshToRoot`, for every vertex
+ * of a frame, without its per-vertex work: three builds each influence's
+ * bone matrix (bone.matrixWorld x boneInverse) per vertex and goes through
+ * Vector3 and Matrix4 calls; here every bone's whole transform from the
+ * bind pose (boneMatrix x bindMatrix) is composed once per frame, the
+ * vertex attributes are read into plain arrays once, and the vertex loop is
+ * plain arithmetic. Same result up to float rounding; the bake of all enemy
+ * types took some 3 s of the main thread while a map loaded.
+ */
+class SkinningBake {
+  private readonly positions: Float32Array;
+  private readonly indices: Uint16Array;
+  private readonly weights: Float32Array;
+  /** Per bone, the 12 affine entries (column-major, as Matrix4.elements) of boneMatrix x bindMatrix */
+  private readonly bones: Float64Array;
+  /** meshToRoot x bindMatrixInverse, applied after the weighted sum */
+  private readonly post = new Matrix4();
+  private readonly boneMatrix = new Matrix4();
+
+  constructor(
+    private readonly mesh: SkinnedMesh,
+    private readonly meshToRoot: Matrix4,
+  ) {
+    const g = mesh.geometry;
+    const pos = g.getAttribute('position');
+    const idx = g.getAttribute('skinIndex');
+    const wgt = g.getAttribute('skinWeight');
+    const n = pos.count;
+    this.positions = new Float32Array(n * 3);
+    this.indices = new Uint16Array(n * 4);
+    this.weights = new Float32Array(n * 4);
+    for (let v = 0; v < n; v++) {
+      this.positions[v * 3] = pos.getX(v);
+      this.positions[v * 3 + 1] = pos.getY(v);
+      this.positions[v * 3 + 2] = pos.getZ(v);
+      for (let k = 0; k < 4; k++) {
+        this.indices[v * 4 + k] = idx ? idx.getComponent(v, k) : 0;
+        this.weights[v * 4 + k] = wgt ? wgt.getComponent(v, k) : k === 0 ? 1 : 0;
+      }
+    }
+    this.bones = new Float64Array(mesh.skeleton.bones.length * 12);
+  }
+
+  /** Compose the bones' transforms for the pose the mixer just set (after updateMatrixWorld) */
+  updateFrame(): void {
+    const { skeleton, bindMatrix } = this.mesh;
+    for (let b = 0; b < skeleton.bones.length; b++) {
+      const m = this.boneMatrix.multiplyMatrices(skeleton.bones[b].matrixWorld, skeleton.boneInverses[b]).multiply(bindMatrix).elements;
+      const o = b * 12;
+      this.bones[o] = m[0];
+      this.bones[o + 1] = m[1];
+      this.bones[o + 2] = m[2];
+      this.bones[o + 3] = m[4];
+      this.bones[o + 4] = m[5];
+      this.bones[o + 5] = m[6];
+      this.bones[o + 6] = m[8];
+      this.bones[o + 7] = m[9];
+      this.bones[o + 8] = m[10];
+      this.bones[o + 9] = m[12];
+      this.bones[o + 10] = m[13];
+      this.bones[o + 11] = m[14];
+    }
+    this.post.multiplyMatrices(this.meshToRoot, this.mesh.bindMatrixInverse);
+  }
+
+  /** Vertex `v` in the model root's space for the current frame */
+  vertex(v: number, target: Vector3): Vector3 {
+    const x = this.positions[v * 3];
+    const y = this.positions[v * 3 + 1];
+    const z = this.positions[v * 3 + 2];
+    let ox = 0;
+    let oy = 0;
+    let oz = 0;
+    for (let k = 0; k < 4; k++) {
+      const w = this.weights[v * 4 + k];
+      if (w === 0) continue;
+      const o = this.indices[v * 4 + k] * 12;
+      const m = this.bones;
+      ox += w * (m[o] * x + m[o + 3] * y + m[o + 6] * z + m[o + 9]);
+      oy += w * (m[o + 1] * x + m[o + 4] * y + m[o + 7] * z + m[o + 10]);
+      oz += w * (m[o + 2] * x + m[o + 5] * y + m[o + 8] * z + m[o + 11]);
+    }
+    return target.set(ox, oy, oz).applyMatrix4(this.post);
+  }
 }
