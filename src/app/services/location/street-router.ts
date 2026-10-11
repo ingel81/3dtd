@@ -2,7 +2,7 @@ import { isDevMode } from '@angular/core';
 import type { Street, StreetNetwork, StreetNode } from '../../interfaces/street-network-provider.interface';
 import type { RandomSpawnCandidate } from '../../models/location.types';
 import { METERS_PER_DEGREE_LAT, canonicalCoords } from '../../utils/geo-utils';
-import { SegmentRoutes, type RouteTail } from '../../utils/route-start';
+import { ROUTE_END_FOOT_ID, SegmentRoutes, type RouteTail } from '../../utils/route-start';
 import { PORTAL_DEPTH, PORTAL_MAX_SCALE, portalDepthScale } from '../../configs/marker-geometry.config';
 import { closestPointOnSegment } from '../../utils/route-geometry';
 import { MAX_HQ_STREET_DISTANCE } from '../../configs/map-constants.config';
@@ -152,11 +152,13 @@ export class StreetRouter {
     const foot = closestPointOnSegment(a, b, { lat: endLat, lon: endLon });
     const weight = ROAD_TYPE_WEIGHTS[endPoint.street.type] ?? DEFAULT_ROAD_WEIGHT;
     const ends = [a, b].map((node) => ({ node, cost: this.haversineDistance(node.lat, node.lon, foot.lat, foot.lon) * weight }));
+    const footNode: StreetNode = { id: ROUTE_END_FOOT_ID, lat: foot.lat, lon: foot.lon };
     return new SegmentRoutes(
       start.street.nodes[start.nodeIndex],
       start.street.nodes[start.nodeIndex + 1],
       ROAD_TYPE_WEIGHTS[start.street.type] ?? DEFAULT_ROAD_WEIGHT,
       (node) => this.astar(graph, node, ends, endLat, endLon),
+      footNode,
     );
   }
 

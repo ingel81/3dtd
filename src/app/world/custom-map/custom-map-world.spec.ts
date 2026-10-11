@@ -194,6 +194,25 @@ describe('CustomMapStreets', () => {
   });
 });
 
+describe('CustomMapStreets on the starter road', () => {
+  it('routes one straight road whose ends are the spawn and the HQ', async () => {
+    // createMapDocument's starter: one road from the spawn at its west end to the HQ at its east end
+    const doc = createMapDocument({ id: 'starter', name: 'Starter', width: 512, depth: 512 });
+    const streets = new CustomMapStreets(doc);
+    const network = await streets.loadStreets();
+    const from = mapToGeo(doc.spawns[0]);
+    const to = mapToGeo(doc.hq);
+    const xs = streets.findPath(network, from.lat, from.lon, to.lat, to.lon).map((n) => Math.round(n.lon * 111320));
+    // It was the start node alone, which the game drops as no route
+    expect(xs).toEqual([doc.spawns[0].x, doc.hq.x]);
+
+    // The HQ beside the road's middle: along the road to its foot
+    const beside = mapToGeo({ x: 0, y: 20 });
+    const mid = streets.findPath(network, from.lat, from.lon, beside.lat, beside.lon).map((n) => Math.round(n.lon * 111320));
+    expect(mid).toEqual([doc.spawns[0].x, 0]);
+  });
+});
+
 describe('CustomMapWorld', () => {
   it('starts with the HQ and the first spawns the run allows', () => {
     const doc = testMap();

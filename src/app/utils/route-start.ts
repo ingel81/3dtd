@@ -23,6 +23,12 @@ export const ROUTE_START_SNAP_M = 1;
 /** Id of a route start between two street nodes; OSM node ids are positive. */
 export const ROUTE_START_NODE_ID = -1;
 
+/**
+ * Id of the foot of the end on its street segment, the last point of a
+ * route that reaches that segment at the node it starts from (RouteTail)
+ */
+export const ROUTE_END_FOOT_ID = -3;
+
 /** A route from a street node to the end, and what A* paid for it. */
 export interface RouteTail {
   path: StreetNode[];
@@ -41,12 +47,15 @@ export class SegmentRoutes {
   /**
    * @param weight Cost factor of the segment's street type, as A* weighs its edges
    * @param routeOn A* from a node of the segment to the end, null without a route
+   * @param endFoot The end's foot on its segment (ROUTE_END_FOOT_ID): a route that starts on a node and
+   *   reaches the end's segment right there goes on to it, rather than being that node alone
    */
   constructor(
     private readonly a: StreetNode,
     private readonly b: StreetNode,
     private readonly weight: number,
     private readonly routeOn: (node: StreetNode) => RouteTail | null,
+    private readonly endFoot: StreetNode | null = null,
   ) {}
 
   /**
@@ -71,7 +80,13 @@ export class SegmentRoutes {
    */
   routeFrom(lat: number, lon: number): StreetNode[] {
     const start = this.startAt(lat, lon);
-    if (start === this.a || start === this.b) return this.tail(start)?.path.slice() ?? [];
+    if (start === this.a || start === this.b) {
+      const path = this.tail(start)?.path.slice() ?? [];
+      // One node is no route: a straight road whose ends are the spawn and the HQ (a new custom map)
+      const foot = this.endFoot;
+      if (path.length === 1 && foot && haversineDistance(start.lat, start.lon, foot.lat, foot.lon) > ROUTE_START_SNAP_M) path.push(foot);
+      return path;
+    }
 
     const cost = (end: StreetNode): number => {
       const tail = this.tail(end);
