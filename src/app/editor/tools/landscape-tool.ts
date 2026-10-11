@@ -155,6 +155,9 @@ export class LandscapeTool implements EditorTool {
     } else if (s.mode === 'biome') {
       finishBiome(stroke, brush, biomeById(s.biome));
     }
+    if (stroke.layersFull.length) {
+      ctx.status(`The map has 8 ground layers: ${stroke.layersFull.join(', ')} left out. Remove a layer in Paint to make room`);
+    }
     if (stroke.finish() && s.reroll) {
       s.seed = randomSeed();
       ctx.settingsChanged();

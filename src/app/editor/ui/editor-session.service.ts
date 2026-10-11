@@ -5,6 +5,8 @@
  * the map check and the file actions. The panels read its signals; the
  * editing itself happens in the Angular-free model, ops and tools.
  */
+import { biomeById } from '../ops/landscape/biomes';
+import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
 import { Injectable, NgZone, OnDestroy, inject, signal } from '@angular/core';
 import type { CustomMapDocument, MapMeta } from '../../world/custom-map/map-document';
 import { createMapDocument, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
@@ -53,6 +55,8 @@ export interface ImportState {
 
 @Injectable()
 export class EditorSession implements OnDestroy {
+  /** Share of a template painted while a new map is made from one, null otherwise */
+  readonly templateProgress = signal<number | null>(null);
   private readonly zone = inject(NgZone);
   readonly store = new MapStore();
   readonly stamps = new StampLibrary();
@@ -234,12 +238,23 @@ export class EditorSession implements OnDestroy {
     this.setDocument(loaded.doc, loaded.summary.origin);
   }
 
-  async createNew(options: Omit<NewMapOptions, 'id'>, generator?: GenerateOptions): Promise<string> {
+  async createNew(options: Omit<NewMapOptions, 'id'>, generator?: GenerateOptions, template?: MapTemplate): Promise<string> {
     await this.catalogReady;
     const id = await this.store.freeId(slugMapId(options.name));
+    const catalog = this.catalog();
+    if (template) {
+      // The biome's own ground underneath, so no layer goes to a material it paints over
+      const base = biomeById(template.biome).ground[0].material.find((m) => catalog.materials.has(m));
+      if (base) options = { ...options, baseMaterial: base };
+    }
     const doc = createMapDocument({ ...options, id });
-    if (generator && generator.preset !== 'flat') {
-      const catalog = this.catalog();
+    if (template) {
+      await applyTemplate(doc, template, catalog, generator?.seed ?? 1, (done) => {
+        this.templateProgress.set(done);
+        return new Promise((r) => setTimeout(r));
+      });
+      this.templateProgress.set(null);
+    } else if (generator && generator.preset !== 'flat') {
       finishGenerated(doc, generateTerrain(doc.terrain, generator), (m) => catalog.materials.has(m));
     }
     this.setDocument(doc, 'own');

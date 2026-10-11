@@ -139,6 +139,24 @@
             </div>
           </div>
           <div class="td-field">
+            <span class="td-label" id="mb-template">Template</span>
+            <div class="mb-templates" role="radiogroup" aria-labelledby="mb-template">
+              <button class="td-card mb-material" type="button" role="radio" [attr.aria-checked]="newTemplate() === ''" [attr.aria-pressed]="newTemplate() === ''"
+                      (click)="newTemplate.set('')" data-template="">
+                <span class="mb-blank" aria-hidden="true"></span>
+                <span class="td-trunc">Blank</span>
+              </button>
+              @for (t of templates; track t.id) {
+                <button class="td-card mb-material" type="button" role="radio" [attr.aria-checked]="newTemplate() === t.id" [attr.aria-pressed]="newTemplate() === t.id"
+                        [matTooltip]="t.hint" (click)="newTemplate.set(t.id)" [attr.data-template]="t.id">
+                  <img [src]="templatePicture(t)" alt="" />
+                  <span class="td-trunc">{{ t.label }}</span>
+                </button>
+              }
+            </div>
+          </div>
+          @if (!newTemplate()) {
+          <div class="td-field">
             <span class="td-label" id="mb-ground">Ground</span>
             <div class="td-seg is-sm mb-presets" role="radiogroup" aria-labelledby="mb-ground">
               @for (p of presets2; track p.id) {
@@ -170,6 +188,10 @@
               }
             </div>
           </div>
+          }
+          @if (progress() !== null) {
+            <p class="td-note"><span class="td-spin" aria-hidden="true"></span> Painting the land {{ percent() }} %</p>
+          }
           <div class="td-actions">
             <button class="td-btn-secondary" type="button" (click)="mode.set('details')">Cancel</button>
             <button class="td-btn-primary" type="button" [disabled]="busy()" (click)="createMap()" data-test="create-map">Create map</button>

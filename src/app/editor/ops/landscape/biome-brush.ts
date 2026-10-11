@@ -18,7 +18,7 @@
  *   City buildings and lamps take fixed slots along the street grid.
  */
 import type { MapTerrain } from '../../../world/custom-map/map-document';
-import { sampleRectAround, sampleX, sampleY, slopeAt, texelRectAround, texelX, texelY, type GridRect } from '../../model/grid';
+import { sampleX, sampleY, slopeAt, texelX, texelY, type GridRect } from '../../model/grid';
 import { brushWeight, type BrushSettings } from '../brush';
 import { MAX_LAYERS, readWeights, writeWeights } from '../paint-ops';
 import { HEIGHT_LIMITS } from '../terrain-ops';
@@ -110,6 +110,30 @@ export function poolShore(stroke: LandscapeStroke, biome: BiomeDef, x: number, y
   return smooth(biome.pools - 0.06, biome.pools + 0.01, n) * (1 - smooth(biome.pools + 0.04, biome.pools + 0.12, n));
 }
 
+/** Where a biome goes and how strongly: a frayed brush dab, or a whole band of the map at full weight */
+export interface BiomeReach {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  /** 0..1 at a map point */
+  weight(x: number, y: number): number;
+  /** Where the change is centred, for symmetry; none for a band */
+  center?: { x: number; y: number };
+}
+
+function dabReach(noise: LandscapeNoise, center: { x: number; y: number }, brush: BrushSettings): BiomeReach {
+  const r = brush.radius;
+  return {
+    minX: center.x - r,
+    maxX: center.x + r,
+    minY: center.y - r,
+    maxY: center.y + r,
+    weight: (x, y) => frayedWeight(noise, Math.hypot(x - center.x, y - center.y), x, y, brush),
+    center,
+  };
+}
+
 export function biomeDab(
   stroke: LandscapeStroke,
   center: { x: number; y: number },
@@ -117,27 +141,42 @@ export function biomeDab(
   biome: BiomeDef,
   dt: number,
 ): void {
+  const step = Math.min(dt, 0.1);
+  applyBiome(stroke, dabReach(stroke.noise, center, brush), biome, brush.strength, 1 - Math.exp(-SHAPE_RATE * step), Math.min(1, PAINT_RATE * step));
+}
+
+/**
+ * The biome at full strength over a band of the map (`minY` to `maxY`, the
+ * whole width), the ground and paint set at once; for map templates. The
+ * level for pools and levelled biomes comes from the map's middle.
+ */
+export function biomeBand(stroke: LandscapeStroke, biome: BiomeDef, minY: number, maxY: number): void {
+  const t = stroke.doc.terrain;
+  stroke.anchor ??= { x: 0, y: 0, h: stroke.baseHeight(...sampleIndex(t, 0, 0)) };
+  applyBiome(stroke, { minX: -t.width / 2, maxX: t.width / 2, minY, maxY, weight: () => 1 }, biome, 1, 1, 1);
+}
+
+function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef, strength: number, pull: number, paintRate: number): void {
   const doc = stroke.doc;
   const t = doc.terrain;
   const g = t.grid;
-  stroke.anchor ??= { ...center, h: stroke.baseHeight(...sampleIndex(t, center.x, center.y)) };
-  const strength = brush.strength;
+  const start = reach.center ?? { x: (reach.minX + reach.maxX) / 2, y: (reach.minY + reach.maxY) / 2 };
+  stroke.anchor ??= { ...start, h: stroke.baseHeight(...sampleIndex(t, start.x, start.y)) };
 
   // Water for the pools: a body of the biome's kind near the stroke's start, or a new one just under it
   const pool = biome.pools ? stroke.poolWater(stroke.anchor.h - 0.3, biome.water ?? 'water') : null;
   const waterLevel = pool ? pool.water.level : null;
 
   // Heights
-  const rect = sampleRectAround(t, center.x, center.y, brush.radius);
+  const rect = sampleRectOf(t, reach);
   stroke.touchHeights(rect);
   pool?.touch(rect);
-  const pull = 1 - Math.exp(-SHAPE_RATE * Math.min(dt, 0.1));
   let wet = false;
   for (let j = rect.j0; j <= rect.j1; j++) {
     const y = sampleY(t, j);
     for (let i = rect.i0; i <= rect.i1; i++) {
       const x = sampleX(t, i);
-      const w = frayedWeight(stroke.noise, Math.hypot(x - center.x, y - center.y), x, y, brush);
+      const w = reach.weight(x, y);
       if (w <= 0) continue;
       const keep = stroke.roadKeep(x, y);
       if (keep <= 0) continue;
@@ -173,18 +212,18 @@ export function biomeDab(
       : biome.pattern === 'cracks'
         ? { kind: 'cracks', a: stroke.layerOf(['lava', 'lava-crust']), b: stroke.layerOf(['lava-crust', 'obsidian', 'basalt']) }
         : { kind: undefined, a: null, b: null };
-  const trect = texelRectAround(t, center.x, center.y, brush.radius);
+  const trect = texelRectOf(t, reach);
   stroke.touchSplat(trect);
-  paintBiome(stroke, t, trect, center, brush, biome, layers, steep, mud, pattern, Math.min(1, PAINT_RATE * Math.min(dt, 0.1)));
+  paintBiome(stroke, t, trect, reach, strength, biome, layers, steep, mud, pattern, paintRate);
 
   // Objects
-  const placed = growObjects(stroke, center, brush, biome, false);
-  stroke.changed({ heights: rect, splat: trect, water: wet || undefined, objects: placed.length ? placed : undefined }, center);
+  const placed = growObjects(stroke, reach, strength, biome, false);
+  stroke.changed({ heights: rect, splat: trect, water: wet || undefined, objects: placed.length ? placed : undefined }, reach.center);
 }
 
 /** Edge plants: decided once the stroke is over, where the brush only grazed */
 export function finishBiome(stroke: LandscapeStroke, brush: BrushSettings, biome: BiomeDef): void {
-  const placed = growObjects(stroke, null, brush, biome, true);
+  const placed = growObjects(stroke, null, brush.strength, biome, true);
   if (placed.length) stroke.changed({ objects: placed });
 }
 
@@ -196,12 +235,32 @@ function sampleIndex(t: MapTerrain, x: number, y: number): [number, number] {
   ];
 }
 
+function sampleRectOf(t: MapTerrain, r: BiomeReach): GridRect {
+  const g = t.grid;
+  return {
+    i0: Math.max(0, Math.floor((r.minX + t.width / 2) / g.cellSize)),
+    i1: Math.min(g.columns - 1, Math.ceil((r.maxX + t.width / 2) / g.cellSize)),
+    j0: Math.max(0, Math.floor((r.minY + t.depth / 2) / g.cellSize)),
+    j1: Math.min(g.rows - 1, Math.ceil((r.maxY + t.depth / 2) / g.cellSize)),
+  };
+}
+
+function texelRectOf(t: MapTerrain, r: BiomeReach): GridRect {
+  const res = t.splat.resolution;
+  return {
+    i0: Math.max(0, Math.floor(((r.minX + t.width / 2) / t.width) * res)),
+    i1: Math.min(res - 1, Math.ceil(((r.maxX + t.width / 2) / t.width) * res)),
+    j0: Math.max(0, Math.floor(((r.minY + t.depth / 2) / t.depth) * res)),
+    j1: Math.min(res - 1, Math.ceil(((r.maxY + t.depth / 2) / t.depth) * res)),
+  };
+}
+
 function paintBiome(
   stroke: LandscapeStroke,
   t: MapTerrain,
   rect: GridRect,
-  center: { x: number; y: number },
-  brush: BrushSettings,
+  reach: BiomeReach,
+  strength: number,
   biome: BiomeDef,
   layers: { layer: number | null; share: number }[],
   steep: number | null,
@@ -219,10 +278,10 @@ function paintBiome(
     const y = texelY(t, v);
     for (let u = rect.i0; u <= rect.i1; u++) {
       const x = texelX(t, u);
-      const w = frayedWeight(stroke.noise, Math.hypot(x - center.x, y - center.y), x, y, brush);
+      const w = reach.weight(x, y);
       if (w <= 0) continue;
       groundMix(stroke, t, biome, usable, steep, mud, pattern, x, y, target, noiseOf);
-      const a = Math.min(1, rate * w * (0.5 + 0.5 * brush.strength));
+      const a = Math.min(1, rate * w * (0.5 + 0.5 * strength));
       const texel = v * res + u;
       readWeights(t, texel, w8);
       for (let k = 0; k < MAX_LAYERS; k++) w8[k] = w8[k] * (1 - a) + target[k] * 255 * a;
@@ -274,7 +333,7 @@ function groundMix(
     if (pattern.a !== null) fold(pattern.a, 1 - smooth(CITY_GRID.street - 0.3, CITY_GRID.street + 0.3, d));
   } else if (pattern.kind === 'cracks') {
     const c = crackAt(stroke, x, y);
-    if (pattern.b !== null) fold(pattern.b, c.crust * 0.8);
+    if (pattern.b !== null) fold(pattern.b, c.crust * 0.4);
     if (pattern.a !== null) fold(pattern.a, c.crack);
   }
 }
@@ -304,18 +363,12 @@ function zoneChance(zone: BiomeObject['zone'], w: number, shore = 0): number {
 }
 
 /**
- * Candidates under the brush (or all remembered ones when `center` is null
- * at the stroke's end). Core and any plants are placed as soon as their
+ * Candidates in reach (or all remembered ones when `reach` is null at the
+ * stroke's end). Core and any plants are placed as soon as their
  * chance passes their roll; edge plants remember their strongest weight and
  * are decided at the end.
  */
-function growObjects(
-  stroke: LandscapeStroke,
-  center: { x: number; y: number } | null,
-  brush: BrushSettings,
-  biome: BiomeDef,
-  ending: boolean,
-): string[] {
+function growObjects(stroke: LandscapeStroke, reach: BiomeReach | null, strength: number, biome: BiomeDef, ending: boolean): string[] {
   const t = stroke.doc.terrain;
   const placed: string[] = [];
   const streets = biome.pattern === 'streets';
@@ -323,7 +376,7 @@ function growObjects(
     const assets = o.assets.filter((a) => stroke.catalog.objects.has(a));
     if (!assets.length) return;
     if (o.zone === 'block' || o.zone === 'street') {
-      if (center) placed.push(...growSlots(stroke, center, brush, o, kind, assets));
+      if (reach) placed.push(...growSlots(stroke, reach, strength, o, kind, assets));
       return;
     }
     // Density follows the brush strength; the grid is fixed per stroke so candidates stay put
@@ -340,7 +393,7 @@ function growObjects(
       }
       const clump = o.clump ? 1 - o.clump + o.clump * 2 * (0.5 + 0.5 * n.fbm(px, py, 30, 2, 'n3')) : 1;
       const shore = o.zone === 'shore' ? poolShore(stroke, biome, px, py) : 0;
-      const chance = zoneChance(o.zone, w, shore) * brush.strength * clump;
+      const chance = zoneChance(o.zone, w, shore) * strength * clump;
       const roll = n.hash(ci, cj, kind * 4 + 3);
       if (roll >= chance) {
         // Core plants may still grow when the brush comes closer; edge plants are final
@@ -374,13 +427,13 @@ function growObjects(
       }
       return;
     }
-    if (!center) return;
-    const r = brush.radius;
-    for (let cj = Math.floor((center.y - r) / cell); cj <= Math.floor((center.y + r) / cell); cj++) {
-      for (let ci = Math.floor((center.x - r) / cell); ci <= Math.floor((center.x + r) / cell); ci++) {
+    if (!reach) return;
+    for (let cj = Math.floor(reach.minY / cell); cj <= Math.floor(reach.maxY / cell); cj++) {
+      for (let ci = Math.floor(reach.minX / cell); ci <= Math.floor(reach.maxX / cell); ci++) {
         const px = (ci + stroke.noise.hash(ci, cj, kind * 4 + 1)) * cell;
         const py = (cj + stroke.noise.hash(ci, cj, kind * 4 + 2)) * cell;
-        const w = frayedWeight(stroke.noise, Math.hypot(px - center.x, py - center.y), px, py, brush);
+        if (px < reach.minX || px >= reach.maxX || py < reach.minY || py >= reach.maxY) continue;
+        const w = reach.weight(px, py);
         if (w > 0) visit(ci, cj, w);
       }
     }
@@ -388,27 +441,19 @@ function growObjects(
   return placed;
 }
 
-/** City buildings and lamps: the grid's slots under the brush where it is strong, each decided once */
-function growSlots(
-  stroke: LandscapeStroke,
-  center: { x: number; y: number },
-  brush: BrushSettings,
-  o: BiomeObject,
-  kind: number,
-  assets: string[],
-): string[] {
+/** City buildings and lamps: the grid's slots in reach where it is strong, each decided once */
+function growSlots(stroke: LandscapeStroke, reach: BiomeReach, strength: number, o: BiomeObject, kind: number, assets: string[]): string[] {
   const t = stroke.doc.terrain;
   const n = stroke.noise;
-  const r = brush.radius;
   const placed: string[] = [];
-  for (const slot of citySlots(o.zone as 'block' | 'street', center.x - r, center.x + r, center.y - r, center.y + r)) {
+  for (const slot of citySlots(o.zone as 'block' | 'street', reach.minX, reach.maxX, reach.minY, reach.maxY)) {
     const key = `${kind}:${slot.key}`;
     if (stroke.decided.has(key)) continue;
-    const w = frayedWeight(n, Math.hypot(slot.x - center.x, slot.y - center.y), slot.x, slot.y, brush);
+    const w = reach.weight(slot.x, slot.y);
     if (w < 0.45) continue;
     stroke.decided.add(key);
     const [hi, hj] = [Math.round(slot.x * 10), Math.round(slot.y * 10)];
-    if (n.hash(hi, hj, kind * 4 + 3) >= Math.min(1, o.perHectare) * brush.strength) continue;
+    if (n.hash(hi, hj, kind * 4 + 3) >= Math.min(1, o.perHectare) * strength) continue;
     if (Math.abs(slot.x) > t.width / 2 - 4 || Math.abs(slot.y) > t.depth / 2 - 4) continue;
     const asset = assets[Math.floor(n.hash(hi, hj, kind * 4 + 6) * assets.length) % assets.length];
     if (!stroke.freeForObject(slot.x, slot.y, stroke.catalog.object(asset).radius * 0.5)) continue;

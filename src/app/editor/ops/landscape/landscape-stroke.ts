@@ -71,6 +71,8 @@ export class LandscapeStroke {
   /** Per stroke memory of the brushes (decided object cells, strongest weights) */
   readonly decided = new Set<string>();
   readonly strongest = new Map<string, number>();
+  /** Materials the stroke wanted but found no room for in the full layer list */
+  readonly layersFull: string[] = [];
 
   constructor(
     readonly editor: EditorDocument,
@@ -153,6 +155,7 @@ export class LandscapeStroke {
     if (t.layers.length >= MAX_LAYERS) {
       // Full: another candidate that is there already, else nothing
       const other = t.layers.findIndex((l) => candidates.includes(l.material));
+      if (other < 0 && !this.layersFull.includes(material)) this.layersFull.push(material);
       return other >= 0 ? other : null;
     }
     t.layers.push({ material });

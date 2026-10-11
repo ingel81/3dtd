@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import { biomeById } from '../../ops/landscape/biomes';
+import { MAP_TEMPLATES, templateById, type MapTemplate } from '../../ops/landscape/templates';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { DEFAULT_CELL_SIZE } from '../../../world/custom-map/map-create';
@@ -57,6 +59,12 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   readonly newSize = signal<string>('m');
   readonly presets2 = TERRAIN_PRESETS;
   readonly newPreset = signal<TerrainPreset>('hills');
+  /** A template for the new map, '' for none */
+  readonly newTemplate = signal('');
+  readonly templates = MAP_TEMPLATES;
+  readonly templatePicture = (t: MapTemplate) => this.session.biomePicture(biomeById(t.biome));
+  readonly progress = this.session.templateProgress;
+  readonly percent = computed(() => Math.round((this.progress() ?? 0) * 100));
   readonly newSeed = signal(Math.floor(Math.random() * 100000));
   readonly newStrength = signal(60);
   readonly newMaterial = signal('grass');
@@ -172,6 +180,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
           baseMaterial: this.newMaterial(),
         },
         { preset: this.newPreset(), seed: this.newSeed(), strength: this.newStrength() / 100 },
+        templateById(this.newTemplate()),
       );
       this.open.emit(id);
     } finally {

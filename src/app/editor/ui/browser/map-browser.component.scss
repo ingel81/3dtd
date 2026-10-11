@@ -159,3 +159,17 @@
 .mb-foot {
   margin: 0;
 }
+
+.mb-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  gap: var(--td-sp-1);
+}
+
+.mb-blank {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px dashed var(--td-line-light);
+  border-radius: var(--td-radius);
+}
