@@ -27,6 +27,8 @@ export interface GlobeLink {
    * streets load): the globe turns to it meanwhile
    */
   readonly nextPlace: WritableSignal<GlobePlace | null>;
+  /** The dive's tiles load before it flies: how far, 0 to 99 percent; null while it does not */
+  readonly descent: WritableSignal<number | null>;
 }
 
 export const GLOBE_LINK = new InjectionToken<GlobeLink>('GLOBE_LINK', {
@@ -37,5 +39,6 @@ export const GLOBE_LINK = new InjectionToken<GlobeLink>('GLOBE_LINK', {
     playWaits: signal(false),
     beforeOriginChange: () => Promise.resolve(),
     nextPlace: signal(null),
+    descent: signal(null),
   }),
 });

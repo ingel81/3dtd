@@ -94,12 +94,12 @@ export class MainMenuComponent {
   readonly title = computed(() => MENU_PAGE_TITLES[this.page()]);
 
   /**
-   * The loading plate: on the start list while the place loads, or a load
-   * went wrong. Not over a page, whose plate it would cover at smaller
+   * The loading plate: on the start list while the place loads, the dive's
+   * tiles load after it, or a load went wrong. Not over a page, whose plate it would cover at smaller
    * sizes; the bar under Play and Continue goes on showing the load there.
    */
   readonly plateShown = computed(() =>
-    this.layer() === 'start' && this.page() === 'home' && (this.menu.placeLoading() || this.menu.problem() !== null));
+    this.layer() === 'start' && this.page() === 'home' && (this.menu.placeLoading() || this.menu.descent() !== null || this.menu.problem() !== null));
 
   readonly version = computed(() => {
     return `${BUILD_VERSION} | ${worldLabel(this.worldContext.ref())}`;

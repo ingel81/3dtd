@@ -4,7 +4,6 @@ import type { GlobeQuality } from '../../globe/globe-textures';
 import { landingSun, subsolarPoint, sweptSun, type LatLon } from '../../globe/globe-geo';
 import { arcDegrees, fitFrame, headingFromMatrix, type GlobeFrame, type GlobeShot } from '../../globe/globe-flight';
 import { createGlobeHost, type GlobeHost } from '../../globe/globe-host';
-import { tilesProgress } from '../../three-engine/tile-loading-tracker';
 import { epochNow, type GlobeCommand, type GlobeEvent, type SunRun } from '../../globe/globe-runtime';
 import { DiveView } from '../../three-engine/dive-view';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
@@ -392,6 +391,7 @@ export class GlobeDirectorService {
     this.primeWaiter = null;
     this.overlay?.fade(0, 0);
     this.overlay?.update(new Float32Array(0));
+    this.link.descent.set(null);
   }
 
   /** Fly the globe's camera to `to`; `done` when it is there */
@@ -671,10 +671,9 @@ export class GlobeDirectorService {
     return steps.length === 0 ? 0 : Math.round((done / steps.length) * 100);
   }
 
-  /** The descent's tiles while they stream in: the share that stands, null while none are coming */
+  /** How far the descent's tiles are warmed, over all its steps (DiveView.warmProgress) */
   private descentPercent(): number | null {
-    const engine = this.engineInit.getEngine();
-    return engine ? (tilesProgress(engine.getTileStats())?.percent ?? null) : null;
+    return this.engineInit.getEngine()?.dive.warmProgress() ?? null;
   }
 
   private updateHud(): void {
@@ -686,7 +685,8 @@ export class GlobeDirectorService {
       idle: '',
       turning: 'Locating',
       waiting: 'Loading',
-      warming: 'Loading the descent',
+      // The loading plate shows it, with how far
+      warming: '',
       diving: 'Descending',
       handover: 'Descending',
       gone: '',
@@ -700,9 +700,13 @@ export class GlobeDirectorService {
       lon: place?.lon ?? null,
       altitudeKm: Math.max(0, Math.round(this.altitude / 1000)),
       status: status[this.phase()],
-      progress: this.engineInit.loading() ? this.loadingPercent() : this.phase() === 'warming' ? this.descentPercent() : null,
+      progress: this.engineInit.loading() ? this.loadingPercent() : null,
     };
-    this.zone.run(() => this.hud.set(hud));
+    const descent = this.phase() === 'warming' ? (this.descentPercent() ?? 0) : null;
+    this.zone.run(() => {
+      this.hud.set(hud);
+      if (this.link.descent() !== descent) this.link.descent.set(descent);
+    });
   }
 
   /**

@@ -47,6 +47,11 @@ export class DiveView {
   private warming: Promise<void> = Promise.resolve();
   private warmToken = 0;
   private disposed = false;
+  /** The warm-up's progress: its steps, the one under way, that step's share of tiles in, and the most shown */
+  private warmSteps = 0;
+  private warmStep = 0;
+  private stepShare = 0;
+  private warmShown = 0;
 
   constructor(
     private readonly deps: {
@@ -108,9 +113,13 @@ export class DiveView {
     // The dive flies without the falloff high up; warm the same tiles it will show
     tiles.errorFalloff = 0;
     const scale = new Vector3();
+    this.warmSteps = poses.length;
+    this.warmShown = 0;
     try {
-      for (const pose of poses) {
+      for (const [step, pose] of poses.entries()) {
         if (!current()) return;
+        this.warmStep = step;
+        this.stepShare = 0;
         const camera = new PerspectiveCamera(this.deps.camera.fov, this.deps.camera.aspect, 1, 1e7);
         pose.decompose(camera.position, camera.quaternion, scale);
         camera.updateMatrixWorld(true);
@@ -129,10 +138,29 @@ export class DiveView {
         this.warmCamera = null;
       }
     } finally {
+      if (current()) this.warmSteps = 0;
       if (this.warmCamera) tiles.deleteCamera(this.warmCamera);
       this.warmCamera = null;
       tiles.errorFalloff = ERROR_FALLOFF / this.scale;
     }
+  }
+
+  /**
+   * How far the warm-up is, 0 to 99 percent, null without one. Over its
+   * steps: each new camera asks for tiles of its own, so the share of tiles
+   * in alone fell back at every step; this only grows.
+   */
+  warmProgress(): number | null {
+    if (this.warmSteps === 0) return null;
+    const tiles = this.deps.tiles();
+    const pending = tiles ? tilesPending(tiles) : 0;
+    if (tiles && pending > 0) {
+      const loaded = tiles.activeTiles.size;
+      this.stepShare = Math.max(this.stepShare, loaded / (loaded + pending));
+    }
+    const percent = Math.floor((100 * (this.warmStep + this.stepShare)) / this.warmSteps);
+    this.warmShown = Math.min(99, Math.max(this.warmShown, percent));
+    return this.warmShown;
   }
 
   /** The warmed tiles may leave the GPU again (after the dive) */

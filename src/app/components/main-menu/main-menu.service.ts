@@ -77,6 +77,8 @@ export class MainMenuService {
    * longer while the next place loads.
    */
   readonly placeLoading = computed(() => this.hasPlace() && this.engineInit.loading());
+  /** The menu globe loads the dive's tiles before it flies: how far in percent, null while it does not */
+  readonly descent = computed(() => this.globe?.descent() ?? null);
   /** The place stands, and the dive from the menu globe has landed in it: Play starts the game there */
   readonly ready = computed(
     () => this.hasPlace() && !this.engineInit.loading() && !this.playBlocked() && !this.globe?.holdsPlay(),
