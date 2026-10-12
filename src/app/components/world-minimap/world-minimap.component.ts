@@ -4,6 +4,8 @@ import { CameraControlService } from '../../services/camera-control.service';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { LocationStore } from '../../store/location.store';
+import { UIStore } from '../../store/ui.store';
+import { TdIconComponent } from '../icon/icon.component';
 import type { StoreSpawnPoint } from '../../store/tower-defense.store.types';
 import { TD_THEME } from '../../styles/td-theme';
 import type { WorldMinimap } from '../../world/world-provider';
@@ -19,7 +21,8 @@ const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
 /**
  * The map from above in a corner: the routes in their spawn's colour, spawns,
  * HQ, towers, enemy dots and what the camera sees. A click glides the camera
- * there, a drag with the button held moves it along at once. The picture under them is the world's own (`WorldProvider.minimap()`,
+ * there, a drag with the button held moves it along at once. It closes to a
+ * small chip; on a real place a switch draws it closer to a street map. The picture under them is the world's own (`WorldProvider.minimap()`,
  * a custom map) or, on a real place, drawn from OSM (`osm`, TODO E142): dark
  * ground, buildings as areas, streets as lines, around HQ, spawns and routes.
  *
@@ -32,13 +35,34 @@ const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
   selector: 'app-world-minimap',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [TdIconComponent],
   template: `@if (shown()) {
-    <div class="td-overlay wm-plate">
-      <canvas class="wm-canvas" [width]="pixels" [height]="pixels"
-              aria-label="Minimap, click to move the view" data-test="world-minimap"
-              (pointerdown)="jump($event)" (pointermove)="drag($event)"
-              (pointerup)="release($event)" (pointercancel)="release($event)"></canvas>
-    </div>
+    @if (ui.minimapOpen()) {
+      <div class="td-overlay wm-plate">
+        <canvas class="wm-canvas" [width]="pixels" [height]="pixels"
+                aria-label="Minimap, click to move the view" data-test="world-minimap"
+                (pointerdown)="jump($event)" (pointermove)="drag($event)"
+                (pointerup)="release($event)" (pointercancel)="release($event)"></canvas>
+        <div class="wm-tools">
+          @if (osmShown()) {
+            <button type="button" class="td-tool is-sm" [attr.aria-pressed]="ui.minimapLook() === 'map'"
+                    (click)="toggleLook()" title="Street map look" aria-label="Street map look">
+              <td-icon name="layers" [size]="12"></td-icon>
+            </button>
+          }
+          <button type="button" class="td-tool is-sm" (click)="ui.minimapOpen.set(false)"
+                  title="Hide the minimap" aria-label="Hide the minimap" data-test="world-minimap-close">
+            <td-icon name="minus" [size]="12"></td-icon>
+          </button>
+        </div>
+      </div>
+    } @else {
+      <button type="button" class="td-stone-chip" (click)="ui.minimapOpen.set(true)"
+              aria-label="Show the minimap" data-test="world-minimap-open">
+        <span>Map</span>
+        <td-icon name="caret" [size]="10"></td-icon>
+      </button>
+    }
   }`,
   styleUrl: './world-minimap.component.scss',
 })
@@ -48,11 +72,14 @@ export class WorldMinimapComponent {
   private readonly location = inject(LocationStore);
   private readonly cameraControl = inject(CameraControlService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  protected readonly ui = inject(UIStore);
 
   /** A real place's streets and buildings, for worlds without a picture of their own */
   readonly osm = input<OsmMinimapSource | null>(null);
 
   readonly shown = signal(false);
+  /** The picture is drawn from OSM (a real place): the look can be switched */
+  readonly osmShown = signal(false);
   /** Canvas pixels: sharp on a high-density screen */
   readonly pixels = Math.round(MINIMAP_CSS_PX * Math.min(2, Math.max(1, globalThis.devicePixelRatio || 1)));
 
@@ -85,6 +112,8 @@ export class WorldMinimapComponent {
       return;
     }
     if (!this.shown()) this.shown.set(true);
+    const osm = minimap === this.osmPicture?.minimap;
+    if (this.osmShown() !== osm) this.osmShown.set(osm);
     const c = this.host.nativeElement.querySelector('canvas')?.getContext('2d');
     if (!c) return;
 
@@ -171,7 +200,8 @@ export class WorldMinimapComponent {
     const routes = this.mirror.routes();
     const spawns = this.location.spawnPoints();
     const hq = this.location.baseCoords();
-    const key = [streets, buildings, routes, spawns, hq] as const;
+    const look = this.ui.minimapLook();
+    const key = [streets, buildings, routes, spawns, hq, look] as const;
     const kept = this.osmPicture;
     if (kept && kept.key.every((k, i) => k === key[i])) return kept.minimap;
 
@@ -190,10 +220,14 @@ export class WorldMinimapComponent {
     picture.width = this.pixels;
     picture.height = this.pixels;
     const c = picture.getContext('2d');
-    if (c) drawOsmPicture(c, new MinimapFrame(area, this.pixels), toScene, streets, buildings, this.pixels / MINIMAP_CSS_PX);
+    if (c) drawOsmPicture(c, new MinimapFrame(area, this.pixels), toScene, streets, buildings, this.pixels / MINIMAP_CSS_PX, look);
     const minimap: WorldMinimap = { picture, ...area };
     this.osmPicture = { minimap, key };
     return minimap;
+  }
+
+  toggleLook(): void {
+    this.ui.minimapLook.update((look) => (look === 'map' ? 'plain' : 'map'));
   }
 
   /** The pointer that holds the map, while a button is down */

@@ -4,6 +4,7 @@
  */
 // The component is partially compiled and needs the JIT compiler
 import '@angular/compiler';
+import { Input } from '@angular/core';
 import { getTestBed, TestBed } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { PerspectiveCamera } from 'three';
@@ -14,6 +15,12 @@ import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { LocationStore } from '../../store/location.store';
 import type { WorldMinimap } from '../../world/world-provider';
 import { MINIMAP_CSS_PX, WorldMinimapComponent } from './world-minimap.component';
+import { TdIconComponent } from '../icon/icon.component';
+
+// The @Input annotation the JIT transform adds for input()
+for (const name of ['name', 'size', 'strokeWidth', 'ariaLabel']) {
+  Input({ alias: name, isSignal: true } as Input)(TdIconComponent.prototype, name);
+}
 
 /** The drawing calls the minimap makes, counted */
 function fakeContext(): { ctx: CanvasRenderingContext2D; rects: number[][]; images: number } {
@@ -86,6 +93,23 @@ describe('WorldMinimapComponent', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     TestBed.resetTestingModule();
+  });
+
+  it('closes to a chip and opens again', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(fakeContext().ctx);
+    minimap = { picture: document.createElement('canvas'), left: 100, right: -100, top: 100, bottom: -100 };
+    const fixture = TestBed.createComponent(WorldMinimapComponent);
+    fixture.componentInstance.tick();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    // A custom map's own picture: no look to switch
+    expect(el.querySelectorAll('.wm-tools button').length).toBe(1);
+    (el.querySelector('[data-test="world-minimap-close"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(el.querySelector('canvas')).toBeNull();
+    (el.querySelector('[data-test="world-minimap-open"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(el.querySelector('canvas')).not.toBeNull();
   });
 
   it('stays away in a world without a picture from above', () => {

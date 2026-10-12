@@ -74,6 +74,26 @@ describe('drawOsmPicture (TODO E142)', () => {
     expect(c.moveTo).toHaveBeenCalledTimes(3);
   });
 
+  it('in the map look edges the buildings and draws roads at their width, with a dark edge under all of them', () => {
+    const streets = {
+      streets: [
+        { id: 1, name: 'A', type: 'residential', nodes: [node(10, 10), node(10, 90)] },
+        { id: 2, name: 'B', type: 'primary', nodes: [node(50, 0), node(50, 100)] },
+      ],
+      nodes: new Map(),
+      bounds: { minLat: 0, maxLat: 100, minLon: 0, maxLon: 100 },
+    } as unknown as StreetNetwork;
+    const buildings = [{ id: 7, type: 'yes', levels: 2, nodes: [node(20, 20), node(20, 30), node(30, 30)] }] as BuildingFootprint[];
+    const { c, calls } = recorder();
+    drawOsmPicture(c as unknown as CanvasRenderingContext2D, frame, toScene, streets, buildings, 1, 'map');
+    expect(calls[0]).toBe('ground');
+    expect(calls[1]).toMatch(/^fill /);
+    expect(calls[2]).toMatch(/^stroke /);
+    // Edges of both road kinds, then the roads: 2 px per m here, 7 m and 12 m
+    const widths = calls.slice(3).map((call) => Number(call.split(' ')[2]));
+    expect(widths).toEqual([15.5, 25.5, 14, 24]);
+  });
+
   it('draws the streets alone while the buildings are not loaded', () => {
     const { c, calls } = recorder();
     drawOsmPicture(c as unknown as CanvasRenderingContext2D, frame, toScene, { streets: [], nodes: new Map(), bounds: { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 } }, null, 1);

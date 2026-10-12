@@ -109,6 +109,14 @@ export const TD_THEME = {
   reticle: '#F2F0E8', // the crosshair of a manned tower
   cellSelection: '#E69F00', // cells the cell report picked, on the map and in its panel (Okabe-Ito orange)
 
+  // === The minimap's map look (a real place, closer to a street map) ===
+  mapGround: '#2C312C',
+  mapBuilding: '#6F6A5D',
+  mapBuildingEdge: '#4E4B42',
+  mapRoad: '#D9D2BC',
+  mapRoadMinor: '#A9A592',
+  mapRoadCasing: '#151815',
+
   // === Debug and event categories ===
   eventVfx: '#a855f7',
   eventAudio: '#3b82f6',

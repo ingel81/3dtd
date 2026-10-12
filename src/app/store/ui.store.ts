@@ -22,6 +22,8 @@ const QUICK_MENUS: readonly QuickMenu[] = ['layers', 'dev'];
 interface PersistedUIState {
   infoOverlayVisible: boolean;
   infoOverlayWide?: boolean;
+  minimapOpen?: boolean;
+  minimapLook?: 'plain' | 'map';
   streetsVisible: boolean;
   routesVisible: boolean;
   spatialGridDebugVisible: boolean;
@@ -170,6 +172,12 @@ export class UIStore {
   /** Info overlay (FPS, tiles, enemies, sounds) expanded; collapsed it shows the FPS only */
   readonly infoOverlayVisible = signal<boolean>(false);
 
+  /** The minimap shown; closed it is a small chip */
+  readonly minimapOpen = signal<boolean>(true);
+
+  /** How the minimap draws a real place: stylised or closer to a street map */
+  readonly minimapLook = signal<'plain' | 'map'>('plain');
+
   /**
    * The expanded info overlay's third stage: a column to the right with the
    * simulation's numbers and charts (TODO E75)
@@ -294,6 +302,8 @@ export class UIStore {
     };
     flag(state.infoOverlayVisible, this.infoOverlayVisible);
     flag(state.infoOverlayWide, this.infoOverlayWide);
+    flag(state.minimapOpen, this.minimapOpen);
+    if (state.minimapLook === 'plain' || state.minimapLook === 'map') this.minimapLook.set(state.minimapLook);
     flag(state.streetsVisible, this.streetsVisible);
     flag(state.routesVisible, this.routesVisible);
     flag(state.spatialGridDebugVisible, this.spatialGridDebugVisible);
@@ -324,6 +334,8 @@ export class UIStore {
         this.pendingState = {
           infoOverlayVisible: this.infoOverlayVisible(),
           infoOverlayWide: this.infoOverlayWide(),
+          minimapOpen: this.minimapOpen(),
+          minimapLook: this.minimapLook(),
           streetsVisible: this.streetsVisible(),
           routesVisible: this.routesVisible(),
           spatialGridDebugVisible: this.spatialGridDebugVisible(),

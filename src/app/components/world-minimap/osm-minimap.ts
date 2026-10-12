@@ -11,6 +11,18 @@ export interface OsmMinimapSource {
   buildings(): readonly BuildingFootprint[] | null;
 }
 
+/**
+ * How a real place is drawn: `plain` stylised (dark ground, lines), `map`
+ * closer to a street map (lighter ground, roads as wide as they are, with an
+ * edge).
+ */
+export type OsmMinimapLook = 'plain' | 'map';
+
+/** Road widths in the map look, m, and the thinnest they get, CSS px */
+const MAIN_ROAD_M = 12;
+const MINOR_ROAD_M = 7;
+const MIN_ROAD_PX = 1;
+
 /** Share of the span added around HQ, spawns and routes on each side */
 const MARGIN_SHARE = 0.12;
 /** The smallest edge of the area, m: a place with its spawns close by still shows its block */
@@ -47,9 +59,10 @@ export function osmArea(points: readonly { x: number; z: number }[], northIsNega
 }
 
 /**
- * The place from above, stylised as on a custom map: dark ground, buildings
- * as areas, streets as lines (main roads wider). `toScene` turns a point into
- * scene x/z. Drawn once per place, streets and buildings.
+ * The place from above: buildings as areas, streets as lines (main roads
+ * wider). `plain` is stylised as on a custom map; `map` has a lighter ground,
+ * edged buildings and roads at their width with a dark edge. `toScene` turns
+ * a point into scene x/z. Drawn once per place, streets and buildings.
  */
 export function drawOsmPicture(
   c: CanvasRenderingContext2D,
@@ -58,12 +71,14 @@ export function drawOsmPicture(
   streets: StreetNetwork | null,
   buildings: readonly BuildingFootprint[] | null,
   scale: number,
+  look: OsmMinimapLook = 'plain',
 ): void {
-  c.fillStyle = TD_THEME.bgDark;
+  const map = look === 'map';
+  c.fillStyle = map ? TD_THEME.mapGround : TD_THEME.bgDark;
   c.fillRect(frame.x, frame.y, frame.w, frame.h);
 
   if (buildings && buildings.length > 0) {
-    c.fillStyle = TD_THEME.stoneLit;
+    c.fillStyle = map ? TD_THEME.mapBuilding : TD_THEME.stoneLit;
     c.beginPath();
     for (const building of buildings) {
       building.nodes.forEach((node, k) => {
@@ -74,14 +89,17 @@ export function drawOsmPicture(
       c.closePath();
     }
     c.fill();
+    if (map) {
+      c.strokeStyle = TD_THEME.mapBuildingEdge;
+      c.lineWidth = 0.75 * scale;
+      c.stroke();
+    }
   }
 
   if (!streets) return;
   c.lineCap = 'round';
   c.lineJoin = 'round';
-  for (const main of [false, true]) {
-    c.strokeStyle = main ? TD_THEME.frameLight : TD_THEME.frameMid;
-    c.lineWidth = (main ? 1.6 : 0.9) * scale;
+  const path = (main: boolean): void => {
     c.beginPath();
     for (const street of streets.streets) {
       if (SKIPPED_STREETS.has(street.type) || MAIN_STREETS.has(street.type) !== main) continue;
@@ -91,6 +109,30 @@ export function drawOsmPicture(
         else c.moveTo(frame.u(p.x), frame.v(p.z));
       });
     }
+  };
+  if (!map) {
+    for (const main of [false, true]) {
+      c.strokeStyle = main ? TD_THEME.frameLight : TD_THEME.frameMid;
+      c.lineWidth = (main ? 1.6 : 0.9) * scale;
+      path(main);
+      c.stroke();
+    }
+    return;
+  }
+  // Canvas pixels per metre
+  const perM = frame.w / Math.max(Math.abs(frame.area.right - frame.area.left), 1e-6);
+  const width = (main: boolean): number => Math.max((main ? MAIN_ROAD_M : MINOR_ROAD_M) * perM, MIN_ROAD_PX * scale);
+  // Edges first, all of them, so a crossing reads as one road
+  c.strokeStyle = TD_THEME.mapRoadCasing;
+  for (const main of [false, true]) {
+    c.lineWidth = width(main) + 1.5 * scale;
+    path(main);
+    c.stroke();
+  }
+  for (const main of [false, true]) {
+    c.strokeStyle = main ? TD_THEME.mapRoad : TD_THEME.mapRoadMinor;
+    c.lineWidth = width(main);
+    path(main);
     c.stroke();
   }
 }

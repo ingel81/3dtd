@@ -1,5 +1,6 @@
 // Layout of the minimap: a td-overlay plate under the compass at the top
-// right of the map, the canvas inside it. Only the canvas takes a click.
+// right of the map, the canvas inside it, two tools over its top right
+// corner. Closed it is a stone chip.
 
 :host {
   position: absolute;
@@ -9,7 +10,16 @@
 }
 
 .wm-plate {
+  position: relative;
   padding: 4px;
+}
+
+.wm-tools {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
 }
 
 .wm-canvas {
