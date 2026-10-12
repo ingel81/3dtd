@@ -307,7 +307,8 @@
   white-space: nowrap;
   font-size: var(--td-fs-small);
   font-weight: 600;
-  color: var(--td-text-muted);
+  line-height: 1;
+  color: var(--td-text-engraved);
   text-shadow: var(--td-over-image);
   will-change: transform;
 
@@ -348,7 +349,7 @@
       height: 10px;
       margin-left: -5px;
       outline: 1px solid currentColor;
-      outline-offset: 5px;
+      outline-offset: 3px;
 
       &::after {
         content: '';
@@ -363,7 +364,7 @@
     > span {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 4px;
     }
 
     small {
@@ -399,19 +400,29 @@
   }
 }
 
-// The read-out beside the globe: target, coordinates, altitude, what happens
+// The read-out beside the globe: a table of label and value (target,
+// position, altitude) and what happens, the labels quiet on the left
 @mixin globe-readout {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px 14px;
+  margin: 0;
   font-size: var(--td-fs-small);
   font-weight: 600;
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--td-text-muted);
+  color: var(--td-text-secondary);
   text-shadow: var(--td-over-image);
   font-variant-numeric: tabular-nums;
+
+  dt {
+    color: var(--td-text-dim);
+  }
+
+  dd {
+    margin: 0;
+    text-align: right;
+  }
 
   b {
     font-weight: 700;

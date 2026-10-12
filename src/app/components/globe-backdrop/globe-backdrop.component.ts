@@ -36,6 +36,8 @@ const TARGET_CLEAR_RIGHT = 280;
 })
 export class GlobeBackdropComponent implements GlobeOverlay {
   readonly director = inject(GlobeDirectorService);
+  /** Coordinates read without sign, the hemisphere letter says it */
+  readonly abs = Math.abs;
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly canvas = viewChild<ElementRef<HTMLCanvasElement>>('globeCanvas');
   private readonly marksBox = viewChild<ElementRef<HTMLElement>>('marks');

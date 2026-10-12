@@ -4,12 +4,15 @@
   }
   <div #marks class="gb-marks"></div>
   @if (director.hud(); as hud) {
-    <div class="gb-readout td-globe-readout">
+    <dl class="gb-readout td-globe-readout">
       @if (hud.name) {
-        <span>Target | <b>{{ hud.name }}</b></span>
-        <span>{{ hud.lat! | number: '1.4-4' }} | {{ hud.lon! | number: '1.4-4' }}</span>
+        <dt>Target</dt><dd><b>{{ hud.name }}</b></dd>
+        <dt>Pos</dt><dd>{{ abs(hud.lat!) | number: '1.4-4' }} {{ hud.lat! < 0 ? 'S' : 'N' }}&nbsp; {{ abs(hud.lon!) | number: '1.4-4' }} {{ hud.lon! < 0 ? 'W' : 'E' }}</dd>
       }
-      <span>Alt {{ hud.altitudeKm | number: '1.0-0' }} km@if (hud.status) { | <em>{{ hud.status }}</em>}</span>
-    </div>
+      <dt>Alt</dt><dd>{{ hud.altitudeKm | number: '1.0-0' }} km</dd>
+      @if (hud.status) {
+        <dt></dt><dd><em>{{ hud.status }}@if (hud.progress !== null) { {{ hud.progress }} %}</em></dd>
+      }
+    </dl>
   }
 }
