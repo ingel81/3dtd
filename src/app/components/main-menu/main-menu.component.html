@@ -37,7 +37,7 @@
 
   @if (layer() === 'start') {
     <div class="mm-foot">
-      <div class="mm-tip td-well td-text">
+      <div class="mm-tip td-well td-text" [class.is-hidden]="!tipFits()" [attr.aria-hidden]="tipFits() ? null : 'true'">
         <div class="mm-tip-head td-caps">
           <span class="mm-tip-label">Tip</span>
           <span class="mm-tip-dots">

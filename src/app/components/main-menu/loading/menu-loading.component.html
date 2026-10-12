@@ -24,20 +24,23 @@
         <span [class.is-on]="filled"></span>
       }
     </div>
-    <div class="ml-step td-note" aria-live="polite">
-      <span class="ml-step-title">{{ view().current?.title ?? 'Ready' }}@if (view().current?.meta; as meta) {<span class="ml-step-meta">, {{ meta }}</span>}</span>
-      <span class="ml-step-count td-num">{{ view().position > view().total ? view().total : view().position }} of {{ view().total }}</span>
-    </div>
     @if (menu.descent() !== null) {
+      <!-- The place stands, the dive's tiles load: one line for it instead of "Ready" -->
       <div class="ml-tiles td-note" role="status">
         <span class="ml-tiles-bar td-progress is-teal" aria-hidden="true"><i [style.width.%]="menu.descent()"></i></span>
         <span class="td-num">Loading the descent | {{ menu.descent() }}%</span>
       </div>
-    } @else if (tiles(); as t) {
-      <div class="ml-tiles td-note" role="status">
-        <span class="ml-tiles-bar td-progress is-teal" aria-hidden="true"><i [style.width.%]="t.percent"></i></span>
-        <span class="td-num">Tiles {{ t.loaded }} | {{ t.pending }} to come | {{ t.percent }}%</span>
+    } @else {
+      <div class="ml-step td-note" aria-live="polite">
+        <span class="ml-step-title">{{ view().current?.title ?? 'Ready' }}@if (view().current?.meta; as meta) {<span class="ml-step-meta">, {{ meta }}</span>}</span>
+        <span class="ml-step-count td-num">{{ view().position > view().total ? view().total : view().position }} of {{ view().total }}</span>
       </div>
+      @if (tiles(); as t) {
+        <div class="ml-tiles td-note" role="status">
+          <span class="ml-tiles-bar td-progress is-teal" aria-hidden="true"><i [style.width.%]="t.percent"></i></span>
+          <span class="td-num">Tiles {{ t.loaded }} | {{ t.pending }} to come | {{ t.percent }}%</span>
+        </div>
+      }
     }
     @if (mapDataLine(); as line) {
       <p class="ml-step td-note" role="status">{{ line }}</p>

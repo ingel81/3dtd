@@ -40,6 +40,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { focusIsQuiet, focusedByKeyboard } from '../../utils/keyboard-target';
 import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext } from '../../../test/world-context-fake';
+import { GLOBE_LINK } from '../../services/world/globe-link';
 
 const read = (path: string) => readFileSync(resolve('src/app/components/main-menu', path), 'utf8');
 
@@ -229,6 +230,44 @@ describe('The main menu', () => {
       expect(foot.startsWith('Legal | Privacy')).toBe(true);
     });
 
+    it('hides the tip while the list reaches down to it, and shows it again with room', async () => {
+      const observers: (() => void)[] = [];
+      vi.stubGlobal('ResizeObserver', class {
+        constructor(private readonly report: () => void) { observers.push(report); }
+        observe(): void {}
+        disconnect(): void {}
+      });
+      let listBottom = 500;
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+        const top = this.classList.contains('mm-tip') ? 600 : 0;
+        const bottom = this.tagName === 'APP-MENU-HOME' ? listBottom : 700;
+        return { top, bottom, left: 0, right: 0, width: 0, height: bottom - top, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
+      });
+      try {
+        coordinator.awaitingStartChoice.set(true);
+        await setup();
+        const tip = el().querySelector<HTMLElement>('.mm-tip')!;
+        observers.forEach((report) => report());
+        await settle();
+        expect(tip.classList.contains('is-hidden')).toBe(false);
+
+        // Continue and Save game in the list on a short window: it runs under the tip
+        listBottom = 590;
+        observers.forEach((report) => report());
+        await settle();
+        expect(tip.classList.contains('is-hidden')).toBe(true);
+        expect(tip.getAttribute('aria-hidden')).toBe('true');
+
+        listBottom = 560;
+        observers.forEach((report) => report());
+        await settle();
+        expect(tip.classList.contains('is-hidden')).toBe(false);
+      } finally {
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+      }
+    });
+
     // The focus moving in on open is cdkTrapFocus's (autoCapture), which jsdom's layout-less tabbable check never finds
     it('is a modal dialog named by its page, the list one tab stop on its first entry', async () => {
       coordinator.awaitingStartChoice.set(true);
@@ -258,6 +297,24 @@ describe('The main menu', () => {
 
       await click(plate.querySelector<HTMLElement>('.ml-toggle'));
       expect(plate.querySelectorAll('.ml-steps-row')).toHaveLength(10);
+    });
+
+    it('says the descent in one line once the place stands, not "Ready" above it', async () => {
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loadingSteps.set(steps(10));
+      await setup();
+      TestBed.inject(GLOBE_LINK).descent.set(33);
+      await settle();
+
+      const plate = el().querySelector('app-menu-loading')!;
+      const said = plate.textContent!.replace(/\s+/g, ' ');
+      expect(said).toContain('Loading the descent | 33%');
+      expect(said).not.toContain('Ready');
+      expect(plate.querySelectorAll('.ml-tiles')).toHaveLength(1);
+
+      TestBed.inject(GLOBE_LINK).descent.set(0);
+      await settle();
+      expect(plate.textContent).toContain('Loading the descent | 0%');
     });
 
     it('moves an untouched focus to Play when the place comes in above New game (TODO E151)', async () => {

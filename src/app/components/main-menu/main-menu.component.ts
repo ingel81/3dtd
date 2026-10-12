@@ -36,6 +36,8 @@ import { TdIconComponent } from '../icon/icon.component';
 
 /** How long a field tip stands before the next, ms */
 export const TIP_ROTATE_MS = 8000;
+/** Room the tip keeps above it to the list, px */
+const TIP_GAP = 16;
 
 /**
  * The main menu (docs/MAIN_MENU_UI_PLAN.md): one place for everything that
@@ -112,6 +114,12 @@ export class MainMenuComponent {
   readonly tips = FIELD_TIPS;
   readonly tipIndex = signal(Math.floor(Math.random() * FIELD_TIPS.length));
   private tipTimer?: ReturnType<typeof setInterval>;
+  /**
+   * The tip fits under the list: it stands at the window's foot, so a long
+   * list on a short window would run under it. Measured, not by a window
+   * height: the list grows with Continue and Save game, the tip with its text.
+   */
+  readonly tipFits = signal(true);
 
   /** A dot under the tip: show that tip, the next one a full TIP_ROTATE_MS later */
   showTip(index: number): void {
@@ -133,6 +141,15 @@ export class MainMenuComponent {
 
     // Into the menu on open, back where it was on close: cdkTrapFocusAutoCapture would give it back loud
     afterNextRender(() => void this.trap().focusTrap.focusInitialElementWhenReady(), { injector: this.injector });
+
+    // The tip makes way when the list reaches down to it: window, list and tip each change the fit
+    if (typeof ResizeObserver !== 'undefined') {
+      const sizes = new ResizeObserver(() => this.fitTip());
+      afterNextRender(() => {
+        for (const el of this.host.querySelectorAll('.mm-root, app-menu-home, .mm-tip')) sizes.observe(el);
+      }, { injector: this.injector });
+      destroyRef.onDestroy(() => sizes.disconnect());
+    }
     destroyRef.onDestroy(() => this.giveFocusBack());
 
     // The focus follows the page: into a page opened, back to its entry on the list
@@ -144,6 +161,15 @@ export class MainMenuComponent {
       if (page === from) return;
       untracked(() => afterNextRender(() => this.focusFor(page, from), { injector: this.injector }));
     });
+  }
+
+  /** Hidden, not removed: the tip keeps its size, so the next measure sees the same tip */
+  private fitTip(): void {
+    const tip = this.host.querySelector<HTMLElement>('.mm-tip');
+    const list = this.host.querySelector<HTMLElement>('app-menu-home');
+    if (!tip || !list) return;
+    const fits = tip.getBoundingClientRect().top >= list.getBoundingClientRect().bottom + TIP_GAP;
+    if (fits !== this.tipFits()) this.tipFits.set(fits);
   }
 
   private focusFor(page: MenuPage, from: MenuPage): void {

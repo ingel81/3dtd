@@ -88,6 +88,10 @@
   padding: var(--td-sp-3) var(--td-sp-4);
 }
 
+.mm-tip.is-hidden {
+  visibility: hidden;
+}
+
 .mm-tip-head {
   display: flex;
   justify-content: space-between;
@@ -173,9 +177,8 @@
   bottom: 56px;
 }
 
-// Short windows (1280x720 and the like): logo, list and tip did not fit, the
-// tip lay over the last entries and took their clicks. Less padding, and the
-// tip makes way for the list; the version stays at the foot.
+// Short windows (1280x720 and the like): less padding, so logo and list fit;
+// the tip makes way where the list reaches it (tipFits), the version stays.
 @media (max-height: 820px) and (min-width: 761px) {
   .mm-root {
     padding-top: 28px;
@@ -204,10 +207,6 @@
 
   .mm-tagline {
     margin-top: -16px;
-  }
-
-  .mm-tip {
-    display: none;
   }
 
   .mm-foot,
