@@ -386,3 +386,22 @@ vielen Gegnern schlecht (der Speicher bremst, siehe Profil). Da die Bewegung run
 Worker die Grenze ist: Firefox ab rund 12000, Chromium ab rund 25000 Gegnern bei Tempo 4. Für den Bau im Spiel müssen
 die Bewegungsdaten den Worker verlassen können (Gegnerdaten im SAB oder Bewegungsobjekte in den Helfern), mit Snapshot,
 Prüfsumme und Coop-Resync bitgleich; das berührt 24 Dateien und ist ein eigener Umbau (TODO E72).
+
+## Benchmark im Spiel bis 25 000 Gegner (gemessen 2026-10-12)
+
+Der eingebaute Benchmark (DevWorld, 40 Tower, Gegner mit 1 000 000 HP, SAB) auf Rechner A (Ryzen 9 9950X3D), Chrome 154 im normalen
+Fenster (Pixeldichte 1,25, 2048 × 983), Stand `014f10af` mit Änderungen im Arbeitsbaum, die Stufen seitdem bis 25 000.
+FPS und langsamste 5 % als Bilder je Sekunde, Worker als Auslastung, „Apply“ als Hauptthread-Zeit je Paket:
+
+| Gegner | Tempo 4: FPS / p05 | Worker | Apply | Tempo 1: FPS / p05 | Worker | Apply |
+|---|---|---|---|---|---|---|
+| 2 000 | 144 / 143 | 8 % | 1,28 ms | 144 / 143 | 3 % | 1,19 ms |
+| 5 000 | 144 / 144 | 12 % | 2,17 ms | 144 / 143 | 5 % | 2,18 ms |
+| 10 000 | 144 / 142 | 25 % | 4,22 ms | 143 / 143 | 10 % | 4,04 ms |
+| 15 000 | 126 / 72 | 36 % | 7,62 ms | 127 / 72 | 14 % | 6,59 ms |
+| 20 000 | 97 / 48 | 51 % | 10,22 ms | 98 / 48 | 20 % | 8,43 ms |
+| 24 920 | 73 / 36 | 63 % | 12,80 ms | 74 / 36 | 25 % | 10,39 ms |
+
+- Das Tempo hält in jeder Stufe (3,97 bis 3,99 bei Tempo 4), 30 Ticks je Sekunde.
+- Die Bildrate fällt ab 15 000 Gegnern bei beiden Tempi gleich: Grenze ist der Hauptthread, nicht der Worker. Ein
+  Paket anzuwenden kostet rund 0,5 ms je 1000 Gegner und wächst linear mit (TODO E107).
