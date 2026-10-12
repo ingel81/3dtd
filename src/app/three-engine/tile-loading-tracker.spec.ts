@@ -327,14 +327,16 @@ describe('TileLoadingTracker', () => {
       expect(tiles.resetFailedTiles).toHaveBeenCalledTimes(1);
     });
 
-    it('vergisst einen gemerkten Auth-Fehler beim Standortwechsel', () => {
+    it('behält einen Fehler der Wurzel und ihren nächsten Versuch beim Standortwechsel: sie gehört dem Renderer, nicht dem Ort', () => {
       const { tiles, tracker } = setup();
       tiles.dispatchEvent({ type: 'load-error', tile: null });
       tracker.reset();
 
       const onAuthError = vi.fn();
       tracker.setOnAuthError(onAuthError);
-      expect(onAuthError).not.toHaveBeenCalled();
+      expect(onAuthError).toHaveBeenCalledWith('unreachable');
+      vi.advanceTimersByTime(15_000);
+      expect(tiles.resetFailedTiles).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -84,22 +84,25 @@ export class MainMenuService {
     () => this.hasPlace() && !this.engineInit.loading() && !this.playBlocked() && !this.globe?.holdsPlay(),
   );
   /**
-   * The last load went wrong (UIStore.loadProblem), or the engine failed.
+   * The last load went wrong (UIStore.loadProblem), the map's tiles do not
+   * come (UIStore.tilesProblem), or the engine failed.
    * The engine's error waits while another place loads: the plate shows that
    * load, not the failure before it.
    */
   readonly problem = computed(() => {
-    const problem = this.ui.loadProblem();
+    const problem = this.ui.loadProblem() ?? this.ui.tilesProblem();
     if (problem) return problem;
     const error = this.engineInit.error();
     return error && !this.engineInit.loading() ? { text: error } : null;
   });
   /**
-   * Nothing to play: the engine failed, or the place has no streets. A
+   * Nothing to play: the engine failed, the map's tiles do not come, or the place has no streets. A
    * place that did not load beside it (the dice, a change whose streets
    * did not come) leaves the old one to play on.
    */
-  readonly playBlocked = computed(() => this.engineInit.error() !== null || this.ui.loadProblem()?.blocksPlay === true);
+  readonly playBlocked = computed(
+    () => this.engineInit.error() !== null || this.ui.loadProblem()?.blocksPlay === true || this.ui.tilesProblem() !== null,
+  );
 
   /** Play was pressed while the place loaded: the menu closes when it stands */
   readonly pendingPlay = signal(false);

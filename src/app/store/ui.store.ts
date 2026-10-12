@@ -265,6 +265,13 @@ export class UIStore {
 
   /** The last load of a place went wrong; the main menu says it until the next load. Not persisted. */
   readonly loadProblem = signal<LoadProblem | null>(null);
+  /**
+   * The map's tiles did not come (a busy server, one not reached) and the
+   * game tries again by itself. Apart from loadProblem: it does not belong
+   * to one load of a place, a new place does not clear it, only the tiles
+   * coming do. Not persisted.
+   */
+  readonly tilesProblem = signal<LoadProblem | null>(null);
 
   /** Photo mode or replay: the camera moves, clicks and hover pick nothing, game keys build nothing. */
   readonly viewOnly = computed(() => this.photoMode() || this.replayMode());

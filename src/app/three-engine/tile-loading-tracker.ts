@@ -264,9 +264,8 @@ export class TileLoadingTracker {
     this.firstTilesLoaded = false;
     this.retryCount = 0;
     this.tilesetLoadCount = 0;
-    this.rootFailure = null;
-    this.rootTries = 0;
-    this.clearRootRetry();
+    // The root tileset is the renderer's, not the place's: a failure and its
+    // next try stay (a reset used to drop both, and the map never came)
     this.cameraNudgeCount = 0;
   }
 

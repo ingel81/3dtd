@@ -92,9 +92,13 @@ export interface FacadeComponentBridge {
 export const FIRST_STREETS_FAILED =
   'The streets of this place did not load: the map server is busy or out of reach. The map shows, but no route. Retry in a minute.';
 
-/** The map's tile server could not be reached (not a refused key); the world tries again by itself */
+/**
+ * The map's tile server did not answer as it should (not a refused key): out
+ * of reach, or busy in a way the libraries do not pass on (a 429 on the
+ * tileset itself arrives as a failed read); the world tries again by itself
+ */
 export const TILES_UNREACHABLE =
-  'The map server could not be reached. The game tries again by itself; check the connection.';
+  'The map server is busy or out of reach. The game tries again by itself, which can take a few minutes; check the connection if it stays.';
 
 /** The map's tile server limits the requests for now (HTTP 429); the world tries again by itself */
 export const TILES_BUSY =
@@ -473,11 +477,9 @@ export class TowerDefenseFacadeService {
         // A rejected token, or a tile server out of reach, surfaces here rather
         // than as a stuck loading screen; only the token goes to its screen
         engine.setOnAuthErrorCallback((failure) => {
-          const problem = this.uiStore.loadProblem();
-          const ours = problem?.text === TILES_BUSY || problem?.text === TILES_UNREACHABLE;
           // The map came after all: the plate goes, Play waits for nothing else from here
           if (failure === null) {
-            if (ours) this.uiStore.loadProblem.set(null);
+            this.uiStore.tilesProblem.set(null);
             return;
           }
           this.engineInit.setLoading(false);
@@ -486,7 +488,7 @@ export class TowerDefenseFacadeService {
             return;
           }
           // No ground, no game: Play waits, the plate says why and that the game keeps trying
-          this.uiStore.loadProblem.set({
+          this.uiStore.tilesProblem.set({
             text: failure === 'busy' ? TILES_BUSY : TILES_UNREACHABLE,
             retry: () => engine.retryWorldLoad(),
             blocksPlay: true,
