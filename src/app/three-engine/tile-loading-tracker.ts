@@ -68,6 +68,25 @@ export function rootLoadFailure(error: unknown): RootLoadFailure {
  */
 export const ROOT_RETRY_MS: readonly number[] = [15_000, 30_000, 60_000, 120_000];
 
+/** The map tiles while they stream in: how many stand, how many are still coming, and the share that stands */
+export interface TilesProgress {
+  loaded: number;
+  pending: number;
+  percent: number;
+}
+
+/**
+ * The tiles' line under the plate (TileStats: `total` the tiles in use,
+ * `downloading` and `parsing` the ones still coming). Null while none are
+ * coming: the line shows only while the map streams in. The share grows
+ * and can step back a little when the renderer asks for more.
+ */
+export function tilesProgress(stats: { total: number; downloading: number; parsing: number }): TilesProgress | null {
+  const pending = stats.downloading + stats.parsing;
+  if (pending === 0) return null;
+  return { loaded: stats.total, pending, percent: Math.floor((stats.total / (stats.total + pending)) * 100) };
+}
+
 /** The root tileset failed (with why) or, after a failure, came after all (null) */
 export type RootLoadListener = (failure: RootLoadFailure | null) => void;
 

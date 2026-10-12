@@ -4,6 +4,7 @@ import type { GlobeQuality } from '../../globe/globe-textures';
 import { landingSun, subsolarPoint, sweptSun, type LatLon } from '../../globe/globe-geo';
 import { arcDegrees, fitFrame, headingFromMatrix, type GlobeFrame, type GlobeShot } from '../../globe/globe-flight';
 import { createGlobeHost, type GlobeHost } from '../../globe/globe-host';
+import { tilesProgress } from '../../three-engine/tile-loading-tracker';
 import { epochNow, type GlobeCommand, type GlobeEvent, type SunRun } from '../../globe/globe-runtime';
 import { DiveView } from '../../three-engine/dive-view';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
@@ -670,6 +671,12 @@ export class GlobeDirectorService {
     return steps.length === 0 ? 0 : Math.round((done / steps.length) * 100);
   }
 
+  /** The descent's tiles while they stream in: the share that stands, null while none are coming */
+  private descentPercent(): number | null {
+    const engine = this.engineInit.getEngine();
+    return engine ? (tilesProgress(engine.getTileStats())?.percent ?? null) : null;
+  }
+
   private updateHud(): void {
     const now = performance.now();
     if (now - this.hudAtMs < HUD_MS) return;
@@ -693,7 +700,7 @@ export class GlobeDirectorService {
       lon: place?.lon ?? null,
       altitudeKm: Math.max(0, Math.round(this.altitude / 1000)),
       status: status[this.phase()],
-      progress: this.engineInit.loading() ? this.loadingPercent() : null,
+      progress: this.engineInit.loading() ? this.loadingPercent() : this.phase() === 'warming' ? this.descentPercent() : null,
     };
     this.zone.run(() => this.hud.set(hud));
   }

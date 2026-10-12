@@ -6,7 +6,8 @@ import { UIStore } from '../../../store/ui.store';
 import { WorldContext } from '../../../world/world-context.service';
 import { worldPlaceName } from '../../../world/world-ref';
 import { MainMenuService } from '../main-menu.service';
-import { loadingPlateView, mapDataLine, tilesProgress, type TilesProgress } from './loading-plate';
+import { loadingPlateView, mapDataLine } from './loading-plate';
+import { tilesProgress, type TilesProgress } from '../../../three-engine/tile-loading-tracker';
 import { onMapDataProgress, type MapDataProgress } from '../../../world/custom-map/map-data';
 
 /**

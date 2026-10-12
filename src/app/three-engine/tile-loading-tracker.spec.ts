@@ -1,6 +1,6 @@
 import { EventDispatcher, PerspectiveCamera, type WebGLRenderer } from 'three';
 import type { TilesRenderer } from '3d-tiles-renderer';
-import { TileLoadingTracker } from './tile-loading-tracker';
+import { TileLoadingTracker, tilesProgress } from './tile-loading-tracker';
 
 /** Genug TilesRenderer für den Tracker: Events, Zähler, Tile-Sets, erzwungenes Update. */
 class FakeTilesRenderer extends EventDispatcher<{
@@ -401,5 +401,13 @@ describe('TileLoadingTracker', () => {
       expect(tiles.update).not.toHaveBeenCalled();
       expect(onFirstLoaded).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('tilesProgress', () => {
+  it('counts the tiles that stand against the ones still coming, and says nothing once none are coming', () => {
+    expect(tilesProgress({ total: 300, downloading: 80, parsing: 20 })).toEqual({ loaded: 300, pending: 100, percent: 75 });
+    expect(tilesProgress({ total: 0, downloading: 5, parsing: 0 })).toEqual({ loaded: 0, pending: 5, percent: 0 });
+    expect(tilesProgress({ total: 420, downloading: 0, parsing: 0 })).toBeNull();
   });
 });
