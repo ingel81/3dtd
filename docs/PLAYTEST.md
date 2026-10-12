@@ -53,6 +53,14 @@ angesehen. Hier geht es um Augen, Ohren und das Gefühl.
   auf sie (außer neben einem Späher).*
 - **X11 Minikarte auf echten Orten (E142):** Einen Ort laden. *Rechts unter dem Kompass eine dunkle Karte mit Straßen,
   nach ein paar Sekunden Gebäuden entlang der Routen, Route, Spawns, HQ, Tower, Gegner; Klick führt die Kamera hin.*
+- **X12 Hauptmenü unten (E147, E148):** Startmenü ansehen. *Tipp als kleine Karte mit Punkten rechts oben, Klick auf
+  einen Punkt zeigt dessen Tipp; darunter links „Legal | Privacy“, rechts leiser Version und Welt.*
+- **X13 Globus (E150):** Einen Ort laden, Globus ansehen. *Oben rechts Tabelle Target, Pos (N/E), Alt, darunter Loading
+  in Türkis; Marken besuchter Orte heller, Ring am Ziel enger.*
+- **X14 Schaden und Gold (E149):** Eine Welle mit Kills spielen. *Gold kleiner, über den Schadenszahlen, steigt langsam
+  fast senkrecht; verheerende Treffer magenta statt gold.*
+- **X15 NEXT-Leiste (E140):** Sprung auf Welle 18 (Wave Debug). *20 Totenkopf, 21 türkiser Winkel mit Mond darüber,
+  22 gestricheltes Quadrat, sonst Quadrate; die gezeigte Welle gefüllt bzw. hell.*
 
 Alte rote Punkte vom 4.10.: T73, T75, T87, W2.3 und N16 sind per Folgetest ok (F-Punkte der Abhakliste), B3 per S2.4
 (2026-10-11). Offen bleibt nur M4 als S2.3.
