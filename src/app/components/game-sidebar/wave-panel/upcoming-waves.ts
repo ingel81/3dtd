@@ -44,6 +44,8 @@ export interface WavePeek {
   armorLabel: string;
   /** Air units in the wave */
   air: boolean;
+  /** Camouflaged enemies in the wave (the run rules' camo) */
+  camo: boolean;
   /** A blood moon wave (its look), false while the display option is off */
   bloodMoon: boolean;
   /** Name of the wave's mutator, "Swift"; null for none. Shown whatever the look */
@@ -83,15 +85,18 @@ export function shownPeek(peeks: readonly WavePeek[], hovered: number | null, pi
   return peeks.find((p) => p.wave === hovered) ?? peeks.find((p) => p.wave === picked) ?? peeks[0] ?? null;
 }
 
+/** The sign of a mark on the line, by what the wave brings (TODO E140) */
+export type MarkShape = 'boss' | 'air' | 'camo' | 'ground';
+
 /**
- * Size in px of the icons above a mark (boss, air, blood moon), 2 px apart
- * (wave-timeline.component.scss). Up to two fit the 28 px mark at 10 px;
- * three at 10 px would be 34 px and reach into the next mark, so three are
- * 8 px, 28 px together.
+ * A mark's sign on the line: a skull for a boss wave, a chevron for air, a
+ * dashed square for camouflaged enemies, a square for the rest. One sign per
+ * mark, in that order; the detail well below names all of it.
  */
-export function markIconSize(peek: Pick<WavePeek, 'boss' | 'air' | 'bloodMoon'>): number {
-  const icons = Number(peek.boss) + Number(peek.air) + Number(peek.bloodMoon);
-  return icons > 2 ? 8 : 10;
+export function markShape(peek: Pick<WavePeek, 'boss' | 'air' | 'camo'>): MarkShape {
+  if (peek.boss) return 'boss';
+  if (peek.air) return 'air';
+  return peek.camo ? 'camo' : 'ground';
 }
 
 function toPeek(fact: WavePeekFacts): WavePeek {
@@ -108,6 +113,7 @@ function toPeek(fact: WavePeekFacts): WavePeek {
     armors,
     armorLabel: armors.length > 1 ? `${armors[0]} +${armors.length - 1}` : (armors[0] ?? ''),
     air: fact.air,
+    camo: waveRules().camo?.(fact.wave) ?? false,
     bloodMoon: false,
     mutator: waveMutator(fact.wave)?.name ?? null,
     weakToTypes: bestDamageTypesAgainst(weights),

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, markIconSize, mutatorNote, peekUpcomingWaves, shownPeek, type WavePeek } from './upcoming-waves';
+import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, markShape, mutatorNote, peekUpcomingWaves, shownPeek, type WavePeek } from './upcoming-waves';
 import { WAVE_MUTATORS } from '../../../configs/wave-mutators.config';
 import { BudgetWaveSource } from '../../../director/sources/budget/budget-source';
 import { planRowForWave } from '../../../director/sources/budget/run-plan';
@@ -153,14 +153,12 @@ describe('shownPeek', () => {
   });
 });
 
-describe('markIconSize', () => {
-  it('keeps the icons at 10 px up to two and shrinks three to 8 px, so they fit the 28 px mark', () => {
-    const peek = (boss: boolean, air: boolean, bloodMoon: boolean) => ({ boss, air, bloodMoon });
-    expect(markIconSize(peek(true, false, false))).toBe(10);
-    expect(markIconSize(peek(true, false, true))).toBe(10);
-    expect(markIconSize(peek(true, true, true))).toBe(8);
-    // Three icons and their two 2 px gaps against the 28 px mark
-    expect(3 * markIconSize(peek(true, true, true)) + 2 * 2).toBeLessThanOrEqual(28);
-    expect(2 * markIconSize(peek(false, true, true)) + 2).toBeLessThanOrEqual(28);
+describe('markShape (TODO E140)', () => {
+  it('signs a mark by what comes: boss before air before camouflaged, else ground', () => {
+    const peek = (boss: boolean, air: boolean, camo: boolean) => ({ boss, air, camo });
+    expect(markShape(peek(true, true, true))).toBe('boss');
+    expect(markShape(peek(false, true, true))).toBe('air');
+    expect(markShape(peek(false, false, true))).toBe('camo');
+    expect(markShape(peek(false, false, false))).toBe('ground');
   });
 });

@@ -1,7 +1,9 @@
 @use '../../../styles/game-ui' as ui;
 /* Next: the coming waves on a thin line, a detail well under it. Quiet by
  * default, brass only for what matters: the wave detailed below (a filled
- * mark), boss waves (skull) and what the wave is weak to. */
+ * mark), boss waves (skull) and what the wave is weak to. Each mark's sign
+ * says what comes (markShape): square ground, chevron air, dashed square
+ * camouflaged, skull boss. */
 :host {
   display: flex;
   flex-direction: column;
@@ -9,7 +11,7 @@
 }
 
 /* The line runs through the marks, from the first centre to the last: icon
- * row 12px, then the middle of the 7px diamond */
+ * row 12px, then the middle of the 7px sign */
 .td-next-line {
   position: relative;
   display: flex;
@@ -44,29 +46,54 @@
   height: 12px;
 }
 
-.td-next-boss {
-  color: var(--td-brass);
-}
-
-.td-next-air {
-  color: var(--td-text-muted);
-}
-
 .td-next-moon {
   color: var(--td-health-red);
 }
 
-/* A diamond on the line, covering it */
+/* The sign on the line, covering it: a square for ground waves */
 .td-next-dot {
+  position: relative;
   box-sizing: border-box;
   width: 7px;
   height: 7px;
-  transform: rotate(45deg);
   background: var(--td-surface);
   border: 1px solid var(--td-frame-light);
   transition:
     background var(--td-dur-fast) var(--td-ease-out),
-    border-color var(--td-dur-fast) var(--td-ease-out);
+    border-color var(--td-dur-fast) var(--td-ease-out),
+    color var(--td-dur-fast) var(--td-ease-out);
+}
+
+/* Camouflaged: the square dashed */
+.td-next-dot.is-camo {
+  border-style: dashed;
+}
+
+/* Air: a chevron pointing up, in teal */
+.td-next-dot.is-air {
+  border-color: transparent;
+  color: var(--td-teal-light);
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: .5px;
+    top: 2.5px;
+    width: 6px;
+    height: 6px;
+    box-sizing: border-box;
+    border-top: 1.5px solid currentColor;
+    border-left: 1.5px solid currentColor;
+    transform: rotate(45deg);
+  }
+}
+
+/* Boss: the skull, over the line */
+.td-next-dot.is-boss {
+  display: grid;
+  place-items: center;
+  border-color: transparent;
+  color: var(--td-brass);
 }
 
 .td-next-num {
@@ -86,14 +113,19 @@
   color: var(--td-text-secondary);
 }
 
-.td-next-mark:hover .td-next-dot {
+.td-next-mark:hover .td-next-dot:not(.is-air, .is-boss) {
   border-color: var(--td-text-secondary);
 }
 
-/* The wave the well below details */
-.td-next-mark.td-next-mark-shown .td-next-dot {
+/* The wave the well below details: the square filled, chevron and skull light */
+.td-next-mark.td-next-mark-shown .td-next-dot:not(.is-air, .is-boss) {
   background: var(--td-brass);
   border-color: var(--td-brass-light);
+}
+
+.td-next-mark.td-next-mark-shown .td-next-dot.is-air,
+.td-next-mark.td-next-mark-shown .td-next-dot.is-boss {
+  color: var(--td-brass-light);
 }
 
 .td-next-mark.td-next-mark-shown .td-next-num {

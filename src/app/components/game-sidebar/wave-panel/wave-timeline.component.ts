@@ -2,11 +2,12 @@ import { ChangeDetectionStrategy, Component, computed, input, signal } from '@an
 import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { damageTypeIcon } from '../../icon/damage-type-icon';
-import { markIconSize, shownPeek, type WavePeek } from './upcoming-waves';
+import { markShape, shownPeek, type WavePeek } from './upcoming-waves';
 
 /**
  * NEXT in the WAVE panel: the coming waves as marks on a thin line, the
- * number under each, small icons above for boss, air and blood moon. Under
+ * number under each; each mark's sign says what comes (markShape), the moon
+ * above marks a blood moon wave. Under
  * the line two detail lines for one mark (shownPeek): the next wave, the one
  * under the pointer or keyboard focus, or the one clicked last; its card
  * (td-rich-tooltip) on hover.
@@ -29,7 +30,7 @@ export class WaveTimelineComponent {
   readonly shown = computed(() => shownPeek(this.peeks(), this.hovered(), this.picked()));
 
   readonly damageTypeIcon = damageTypeIcon;
-  readonly markIconSize = markIconSize;
+  readonly markShape = markShape;
 
   /** "Wave 7, Bat Swarm, air"; "…, Swift, blood moon" on a blood moon wave */
   markLabel(peek: WavePeek): string {
@@ -37,6 +38,7 @@ export class WaveTimelineComponent {
       `Wave ${peek.wave}`,
       peek.name,
       ...(peek.air ? ['air'] : []),
+      ...(peek.camo ? ['camouflaged'] : []),
       ...(peek.mutator ? [peek.mutator] : []),
       ...(peek.bloodMoon ? ['blood moon'] : []),
     ].join(', ');
