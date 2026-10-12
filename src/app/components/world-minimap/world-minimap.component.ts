@@ -222,14 +222,15 @@ export class WorldMinimapComponent {
   }
 
   /**
-   * A real place from above, from its OSM streets and buildings (TODO E142),
+   * A real place from above, from its OSM streets and buildings (TODO E142);
+   * the DevWorld the same way from its generated streets (the benchmark),
    * null before its streets and routes are there. Drawn again when the
    * streets, the buildings, the routes, the spawns or the HQ change.
    */
   private osmMinimap(engine: ThreeTilesEngine): WorldMinimap | null {
     const source = this.osm();
     const streets = source?.streets() ?? null;
-    if (!source || !streets || !engine.world.capabilities.realPlace) return null;
+    if (!source || !streets) return null;
     const buildings = source.buildings();
     const routes = this.mirror.routes();
     const spawns = this.location.spawnPoints();

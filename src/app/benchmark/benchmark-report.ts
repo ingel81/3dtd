@@ -18,11 +18,11 @@ export interface BenchmarkPlan {
 }
 
 /**
- * About 2 to 4 minutes: six measurements of 8 s, each after a fill with the
- * call to the simulation and a settle phase of 7 to 30 s (load-scene.ts).
+ * About 4 to 8 minutes: twelve measurements of 8 s, each after a fill with
+ * the call to the simulation and a settle phase of 7 to 30 s (load-scene.ts).
  */
 export const DEFAULT_BENCHMARK_PLAN: BenchmarkPlan = {
-  steps: [2000, 5000, 10000],
+  steps: [2000, 5000, 10000, 15000, 20000, 25000],
   speeds: [4, 1],
   seconds: 8,
   towers: 40,
