@@ -271,7 +271,8 @@ export class GlobeView {
         vertexShader: SUN_VERTEX,
         fragmentShader: SUN_FRAGMENT,
         uniforms: { sunDir: { value: this.sunDir }, size: { value: 0.35 }, glow: { value: 8 } },
-        transparent: true,
+        // In the opaque list like the stars, so the earth (renderOrder 2) covers it
+        transparent: false,
         blending: AdditiveBlending,
         depthTest: false,
         depthWrite: false,
@@ -327,7 +328,9 @@ export class GlobeView {
           vertexShader: STAR_VERTEX,
           fragmentShader: STAR_FRAGMENT,
           uniforms: { pixelRatio: { value: this.renderer.getPixelRatio() }, starGain: { value: STAR_GAIN } },
-          transparent: true,
+          // Not transparent: three draws the transparent list after the opaque one whatever the renderOrder,
+          // and without a depth buffer the stars would then shine through the earth. Additive blending stays.
+          transparent: false,
           blending: AdditiveBlending,
           depthTest: false,
           depthWrite: false,
