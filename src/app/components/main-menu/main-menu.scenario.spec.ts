@@ -234,8 +234,8 @@ describe('The main menu', () => {
       const observers: (() => void)[] = [];
       vi.stubGlobal('ResizeObserver', class {
         constructor(private readonly report: () => void) { observers.push(report); }
-        observe(): void {}
-        disconnect(): void {}
+        observe = vi.fn();
+        disconnect = vi.fn();
       });
       let listBottom = 500;
       vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
