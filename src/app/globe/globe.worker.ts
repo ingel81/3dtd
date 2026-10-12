@@ -18,6 +18,10 @@ const cancelFrame = (handle: number): void =>
 const runtime = new GlobeRuntime((event, transfer) => scope.postMessage(event, transfer ?? []), requestFrame, cancelFrame);
 
 scope.addEventListener('message', (message: MessageEvent<GlobeCommand>) => {
-  runtime.handle(message.data);
-  if (message.data.type === 'dispose') scope.close();
+  try {
+    runtime.handle(message.data);
+  } finally {
+    // Also when freeing threw: a worker left open keeps its context, textures and transcoders for good
+    if (message.data.type === 'dispose') scope.close();
+  }
 });

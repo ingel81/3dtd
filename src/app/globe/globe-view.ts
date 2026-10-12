@@ -489,8 +489,12 @@ export class GlobeView {
       object.material.dispose();
     }
     this.renderer.dispose();
-    // The context goes back to the browser at once, not with the next GC
-    this.renderer.forceContextLoss();
+    // On the main thread the context goes back to the browser at once, not with the next GC. Never in a worker:
+    // there a lost OffscreenCanvas context kept the closed worker alive, and with it the page's whole heap through
+    // every reload (+1.5 GB per F5 at a real place); the worker's end frees the context anyway
+    if (typeof HTMLCanvasElement !== 'undefined' && this.renderer.domElement instanceof HTMLCanvasElement) {
+      this.renderer.forceContextLoss();
+    }
     GlobeView.note('dispose', performance.now() - t0);
   }
 }

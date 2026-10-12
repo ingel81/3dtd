@@ -14,6 +14,9 @@ export interface GlobeHost {
   dispose(): void;
 }
 
+/** How long a disposed worker may take to close itself before it is terminated */
+export const GLOBE_WORKER_GRACE_MS = 2000;
+
 /** The browser can draw WebGL 2 into an OffscreenCanvas a worker owns */
 export function offscreenGlobeSupported(): boolean {
   // DevTools switch to compare: localStorage td_globe_main_thread = 1 keeps the globe on this thread
@@ -53,8 +56,9 @@ export function createGlobeHost(
       dispose: () => {
         if (ended) return;
         ended = true;
-        // The worker frees its context and closes itself
+        // The worker frees its context and closes itself; should it not, it goes anyway (one stayed per change of place)
         worker.postMessage({ type: 'dispose' } satisfies GlobeCommand);
+        setTimeout(() => worker.terminate(), GLOBE_WORKER_GRACE_MS);
       },
     };
   }
