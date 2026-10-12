@@ -23,8 +23,10 @@ const SKIPPED_STREETS = new Set(['footway', 'path', 'steps', 'cycleway', 'bridle
 
 /**
  * The square around `points` (scene x/z: HQ, spawns, the routes' points) with
- * a margin, at least MIN_EDGE_M a side, north up: `top` is the north edge.
- * `northIsNegativeZ` tells which way the scene's z runs.
+ * a margin, at least MIN_EDGE_M a side, north up and east right: `top` is
+ * the north edge, `right` the east edge. `northIsNegativeZ` tells which way
+ * the scene's z runs; x follows from it (the scene is right-handed, y up):
+ * with north at -z east is +x, with north at +z east is -x.
  */
 export function osmArea(points: readonly { x: number; z: number }[], northIsNegativeZ: boolean): MinimapArea | null {
   if (points.length === 0) return null;
@@ -41,7 +43,7 @@ export function osmArea(points: readonly { x: number; z: number }[], northIsNega
   const cz = (minZ + maxZ) / 2;
   return northIsNegativeZ
     ? { left: cx - half, right: cx + half, top: cz - half, bottom: cz + half }
-    : { left: cx - half, right: cx + half, top: cz + half, bottom: cz - half };
+    : { left: cx + half, right: cx - half, top: cz + half, bottom: cz - half };
 }
 
 /**

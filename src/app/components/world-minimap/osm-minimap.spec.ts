@@ -14,8 +14,12 @@ describe('osmArea (TODO E142)', () => {
     expect(area.top).toBeLessThan(-600);
     expect(area.bottom).toBeGreaterThan(0);
 
+    // North at +z (the tiles' scene): east is -x, so the right edge is the smaller x
     const flipped = osmArea([{ x: 0, z: 0 }, { x: 1000, z: 600 }], false)!;
     expect(flipped.top).toBeGreaterThan(flipped.bottom);
+    expect(flipped.right).toBeLessThan(flipped.left);
+    expect(flipped.right).toBeLessThan(0);
+    expect(flipped.left).toBeGreaterThan(1000);
   });
 
   it('shows at least a block around a place whose spawns stand close, and nothing without points', () => {
