@@ -13,6 +13,8 @@ import { MinimapFrame, ViewFootprint } from './minimap-frame';
 import { drawOsmPicture, osmArea, type OsmMinimapSource } from './osm-minimap';
 import type { ThreeTilesEngine } from '../../three-engine';
 
+/** Towers and enemies drawn again at most every this many ms (20 Hz); the view each frame */
+const DOTS_MS = 50;
 /** Edge length in CSS pixels (world-minimap.component.scss) */
 export const MINIMAP_CSS_PX = 176;
 
@@ -28,8 +30,9 @@ const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
  *
  * One canvas, redrawn each animation frame outside Angular: the picture
  * with routes, spawns and HQ is composed once into a base canvas (again when
- * the world, its routes or the HQ change), each tick copies it and adds
- * towers, enemies and the view.
+ * the world, its routes or the HQ change), towers and enemies into a dots
+ * canvas at 20 Hz, one dot per pixel however many enemies stand on it; each
+ * frame copies both and adds the view.
  */
 @Component({
   selector: 'app-world-minimap',
@@ -88,6 +91,14 @@ export class WorldMinimapComponent {
   /** What the base canvas shows; a change of any rebuilds it */
   private baseKey: { picture: WorldMinimap['picture']; routes: unknown; spawns: unknown; hq: unknown } | null = null;
   private groundY = 0;
+  /** Towers and enemies, drawn at DOTS_MS for the frame they were drawn in */
+  private dots: HTMLCanvasElement | null = null;
+  private dotsAt = -Infinity;
+  private dotsFrame: MinimapFrame | null = null;
+  /** Canvas pixels with a dot this round (bit 1 enemy, bit 2 boss) and their indices, per kind */
+  private taken = new Uint8Array(0);
+  private readonly enemyCells: number[] = [];
+  private readonly bossCells: number[] = [];
   private readonly footprint = new ViewFootprint();
   private readonly scratch = new Vector3();
   /** The OSM picture and what it was drawn from; a change of any draws it again */
@@ -120,9 +131,34 @@ export class WorldMinimapComponent {
     this.ensureBase(minimap);
     const f = this.frame!;
     const scale = this.pixels / MINIMAP_CSS_PX;
+    const now = performance.now();
+    if (!this.dots || this.dotsFrame !== f || now - this.dotsAt >= DOTS_MS) {
+      this.dots ??= document.createElement('canvas');
+      this.dots.width = this.pixels;
+      this.dots.height = this.pixels;
+      const d = this.dots.getContext('2d');
+      if (d) this.drawDots(d, engine, f, scale);
+      this.dotsAt = now;
+      this.dotsFrame = f;
+    }
     c.clearRect(0, 0, this.pixels, this.pixels);
     c.drawImage(this.base!, 0, 0);
+    c.drawImage(this.dots, 0, 0);
 
+    // What the camera sees
+    const area = f.area;
+    const reach = Math.max(Math.abs(area.right - area.left), Math.abs(area.bottom - area.top));
+    const corners = this.footprint.update(engine.getCamera(), this.groundY, reach);
+    c.strokeStyle = TD_THEME.brassLight;
+    c.lineWidth = 1.25 * scale;
+    c.beginPath();
+    corners.forEach((q, k) => (k ? c.lineTo(f.u(q.x), f.v(q.z)) : c.moveTo(f.u(q.x), f.v(q.z))));
+    c.closePath();
+    c.stroke();
+  }
+
+  /** Towers and enemies into the dots canvas */
+  private drawDots(c: CanvasRenderingContext2D, engine: ThreeTilesEngine, f: MinimapFrame, scale: number): void {
     const sync = engine.sync;
     const v = this.scratch;
     const p = { x: 0, z: 0 };
@@ -146,42 +182,40 @@ export class WorldMinimapComponent {
     c.fill();
     c.stroke();
 
-    // Enemies: light red dots with a dark ring (they cross the red lane), bosses larger in warning orange
-    this.enemyDots(c, at, false, 1.75 * scale, scale, TD_THEME.dangerText);
-    this.enemyDots(c, at, true, 3 * scale, scale, TD_THEME.warnOrange);
+    // Enemies, one per canvas pixel and kind: thousands on a lane draw as a few hundred dots
+    const size = this.pixels;
+    if (this.taken.length !== size * size) this.taken = new Uint8Array(size * size);
+    const taken = this.taken;
+    const enemies = this.enemyCells;
+    const bosses = this.bossCells;
+    enemies.length = 0;
+    bosses.length = 0;
+    for (const enemy of this.mirror.aliveEnemies()) {
+      const q = at(enemy.position.lat, enemy.position.lon);
+      const x = Math.round(q.x);
+      const y = Math.round(q.z);
+      if (x < 0 || y < 0 || x >= size || y >= size) continue;
+      const cell = y * size + x;
+      const bit = enemy.typeConfig.isBoss === true ? 2 : 1;
+      if (taken[cell] & bit) continue;
+      taken[cell] |= bit;
+      (bit === 2 ? bosses : enemies).push(cell);
+    }
+    for (const cell of enemies) taken[cell] = 0;
+    for (const cell of bosses) taken[cell] = 0;
 
-    // What the camera sees
-    const area = f.area;
-    const reach = Math.max(Math.abs(area.right - area.left), Math.abs(area.bottom - area.top));
-    const corners = this.footprint.update(engine.getCamera(), this.groundY, reach);
-    c.strokeStyle = TD_THEME.brassLight;
-    c.lineWidth = 1.25 * scale;
-    c.beginPath();
-    corners.forEach((q, k) => (k ? c.lineTo(f.u(q.x), f.v(q.z)) : c.moveTo(f.u(q.x), f.v(q.z))));
-    c.closePath();
-    c.stroke();
+    // Light red dots with a dark ring (they cross the red lane), bosses larger in warning orange
+    this.enemyDots(c, enemies, size, 1.75 * scale, scale, TD_THEME.dangerText);
+    this.enemyDots(c, bosses, size, 3 * scale, scale, TD_THEME.warnOrange);
   }
 
-  /** Enemies (bosses or the rest) as squares of half size `half`, each in a ring `ring` wide, in one path per colour */
-  private enemyDots(
-    c: CanvasRenderingContext2D,
-    at: (lat: number, lon: number) => { x: number; z: number },
-    bosses: boolean,
-    half: number,
-    ring: number,
-    fill: string,
-  ): void {
+  /** Enemies at canvas pixels `cells` as squares of half size `half`, each in a ring `ring` wide, in one path per colour */
+  private enemyDots(c: CanvasRenderingContext2D, cells: readonly number[], size: number, half: number, ring: number, fill: string): void {
+    if (cells.length === 0) return;
     for (const pass of [0, 1]) {
       const r = pass === 0 ? half + ring : half;
-      let any = false;
       c.beginPath();
-      for (const enemy of this.mirror.aliveEnemies()) {
-        if ((enemy.typeConfig.isBoss === true) !== bosses) continue;
-        const q = at(enemy.position.lat, enemy.position.lon);
-        c.rect(q.x - r, q.z - r, r * 2, r * 2);
-        any = true;
-      }
-      if (!any) return;
+      for (const cell of cells) c.rect((cell % size) - r, Math.floor(cell / size) - r, r * 2, r * 2);
       c.fillStyle = pass === 0 ? TD_THEME.ink : fill;
       c.fill();
     }
