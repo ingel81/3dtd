@@ -31,6 +31,14 @@
   flex: 0 0 auto;
 }
 
+// The tiles' thin bar and count on one line
+.ml-tiles {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--td-sp-3);
+}
+
 .ml-toggle {
   align-self: flex-start;
 }

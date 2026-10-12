@@ -28,6 +28,12 @@
       <span class="ml-step-title">{{ view().current?.title ?? 'Ready' }}@if (view().current?.meta; as meta) {<span class="ml-step-meta">, {{ meta }}</span>}</span>
       <span class="ml-step-count td-num">{{ view().position > view().total ? view().total : view().position }} of {{ view().total }}</span>
     </div>
+    @if (tiles(); as t) {
+      <div class="ml-tiles td-note" role="status">
+        <span class="ml-tiles-bar td-progress is-teal" aria-hidden="true"><i [style.width.%]="t.percent"></i></span>
+        <span class="td-num">Tiles {{ t.loaded }} | {{ t.pending }} to come | {{ t.percent }}%</span>
+      </div>
+    }
     @if (mapDataLine(); as line) {
       <p class="ml-step td-note" role="status">{{ line }}</p>
     }

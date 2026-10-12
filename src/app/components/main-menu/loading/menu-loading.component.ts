@@ -6,16 +6,20 @@ import { UIStore } from '../../../store/ui.store';
 import { WorldContext } from '../../../world/world-context.service';
 import { worldPlaceName } from '../../../world/world-ref';
 import { MainMenuService } from '../main-menu.service';
-import { loadingPlateView, mapDataLine } from './loading-plate';
+import { loadingPlateView, mapDataLine, tilesProgress, type TilesProgress } from './loading-plate';
 import { onMapDataProgress, type MapDataProgress } from '../../../world/custom-map/map-data';
 
 /**
  * The loading plate of the start menu, bottom right (docs/MAIN_MENU_UI_PLAN.md,
  * Menü 6): the place, a brass bar of the boot steps done, the step under
- * way with its detail and the steps as a list to open. A load that went
+ * way with its detail, the map tiles while they stream in (a thin bar with
+ * the share and the count) and the steps as a list to open. A load that went
  * wrong shows here as a banner with the ways on: Retry, Other place (Other
  * map on a world of its own), Map key (where the world needs one).
  */
+/** How often the plate reads the tiles' count, ms */
+const TILES_POLL_MS = 500;
+
 @Component({
   selector: 'app-menu-loading',
   standalone: true,
@@ -58,9 +62,21 @@ export class MenuLoadingComponent {
   /** "Map data 12 of 48 files, 3.4 MB" while files still come, null otherwise */
   readonly mapDataLine = computed(() => mapDataLine(this.mapData()));
 
+  /** The map tiles while they stream in, read twice a second (the engine keeps its count 500 ms) */
+  readonly tiles = signal<TilesProgress | null>(null);
+
   constructor() {
     const off = onMapDataProgress((p) => this.mapData.set(p));
-    inject(DestroyRef).onDestroy(off);
+    const timer = setInterval(() => {
+      const engine = this.engineInit.getEngine();
+      const next = engine && this.world.capabilities().streaming ? tilesProgress(engine.getTileStats()) : null;
+      const now = this.tiles();
+      if (next?.loaded !== now?.loaded || next?.pending !== now?.pending) this.tiles.set(next);
+    }, TILES_POLL_MS);
+    inject(DestroyRef).onDestroy(() => {
+      off();
+      clearInterval(timer);
+    });
   }
 
   toggleSteps(): void {
