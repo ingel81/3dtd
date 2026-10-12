@@ -94,6 +94,18 @@ async function memory(label: string): Promise<void> {
   }).catch((e) => String(e));
   console.log('  measured ' + JSON.stringify(parts));
   console.log('  page workers ' + JSON.stringify(await page.evaluate(() => (globalThis as unknown as { __workers?: unknown }).__workers ?? null).catch(() => null)));
+  // Which source each worker bundle is (dev chunk names say nothing): a marker from its code
+  const sources = await page.evaluate(async () => {
+    const urls = [...new Set(performance.getEntriesByType('resource').map((e) => e.name).filter((n) => /worker-[^/]*\.js/.test(n)))];
+    const out: Record<string, string> = {};
+    for (const url of urls) {
+      const text = await (await fetch(url)).text();
+      const marks = ['GlobeRuntime', 'SimCore', 'heartbeat', 'DevWorld', 'w3x', 'terrain.worker'].filter((m) => text.includes(m));
+      out[url.split('/').pop()!.split('?')[0]] = marks.join(',') || `${text.length} chars`;
+    }
+    return out;
+  }).catch((e) => String(e));
+  console.log('  sources ' + JSON.stringify(sources));
 }
 
 const devworld = `${URL_BASE}/?devworld&bot=manual&menu=skip`;
