@@ -11,8 +11,6 @@ import { MinimapFrame, ViewFootprint } from './minimap-frame';
 import { drawOsmPicture, osmArea, type OsmMinimapSource } from './osm-minimap';
 import type { ThreeTilesEngine } from '../../three-engine';
 
-/** Redraw interval: enemies, towers and the view at most 10 Hz */
-const TICK_MS = 100;
 /** Edge length in CSS pixels (world-minimap.component.scss) */
 export const MINIMAP_CSS_PX = 176;
 
@@ -21,11 +19,11 @@ const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
 /**
  * The map from above in a corner: the routes in their spawn's colour, spawns,
  * HQ, towers, enemy dots and what the camera sees. A click glides the camera
- * there. The picture under them is the world's own (`WorldProvider.minimap()`,
+ * there, a drag with the button held moves it along at once. The picture under them is the world's own (`WorldProvider.minimap()`,
  * a custom map) or, on a real place, drawn from OSM (`osm`, TODO E142): dark
  * ground, buildings as areas, streets as lines, around HQ, spawns and routes.
  *
- * One canvas, redrawn on its own 10 Hz timer outside Angular: the picture
+ * One canvas, redrawn each animation frame outside Angular: the picture
  * with routes, spawns and HQ is composed once into a base canvas (again when
  * the world, its routes or the HQ change), each tick copies it and adds
  * towers, enemies and the view.
@@ -38,7 +36,8 @@ const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
     <div class="td-overlay wm-plate">
       <canvas class="wm-canvas" [width]="pixels" [height]="pixels"
               aria-label="Minimap, click to move the view" data-test="world-minimap"
-              (pointerdown)="jump($event)"></canvas>
+              (pointerdown)="jump($event)" (pointermove)="drag($event)"
+              (pointerup)="release($event)" (pointercancel)="release($event)"></canvas>
     </div>
   }`,
   styleUrl: './world-minimap.component.scss',
@@ -68,8 +67,13 @@ export class WorldMinimapComponent {
   private osmPicture: { minimap: WorldMinimap; key: readonly unknown[] } | null = null;
 
   constructor() {
-    const timer = inject(NgZone).runOutsideAngular(() => setInterval(() => this.tick(), TICK_MS));
-    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+    let frame = 0;
+    const loop = (): void => {
+      this.tick();
+      frame = requestAnimationFrame(loop);
+    };
+    inject(NgZone).runOutsideAngular(() => (frame = requestAnimationFrame(loop)));
+    inject(DestroyRef).onDestroy(() => cancelAnimationFrame(frame));
   }
 
   /** One redraw; public for the spec */
@@ -192,17 +196,38 @@ export class WorldMinimapComponent {
     return minimap;
   }
 
-  /** A click: the camera glides to that point of the map */
+  /** The pointer that holds the map, while a button is down */
+  private dragging: number | null = null;
+
+  /** A click: the camera glides to that point of the map; holding the button drags on */
   jump(e: PointerEvent): void {
+    const canvas = e.currentTarget as HTMLCanvasElement | null;
+    if (!this.focus(e, false)) return;
+    this.dragging = e.pointerId;
+    canvas?.setPointerCapture?.(e.pointerId);
+  }
+
+  /** Moved with the button held: the camera follows at once */
+  drag(e: PointerEvent): void {
+    if (this.dragging === e.pointerId) this.focus(e, true);
+  }
+
+  release(e: PointerEvent): void {
+    if (this.dragging !== e.pointerId) return;
+    this.dragging = null;
+    (e.currentTarget as HTMLCanvasElement | null)?.releasePointerCapture?.(e.pointerId);
+  }
+
+  private focus(e: PointerEvent, instant: boolean): boolean {
     const engine = this.engineInit.getEngine();
     const canvas = e.currentTarget as HTMLCanvasElement | null;
-    if (!engine || !this.frame || !canvas) return;
+    if (!engine || !this.frame || !canvas) return false;
     const rect = canvas.getBoundingClientRect();
     const u = ((e.clientX - rect.left) / (rect.width || 1)) * this.pixels;
     const v = ((e.clientY - rect.top) / (rect.height || 1)) * this.pixels;
     const point = this.frame.toScene(u, v);
     const geo = engine.sync.localSimpleToGeo(point.x, point.z);
-    this.cameraControl.focusGeo(geo.lat, geo.lon);
+    return this.cameraControl.focusGeo(geo.lat, geo.lon, instant);
   }
 
   /** The picture with routes, spawns and HQ, composed when one of them changed */

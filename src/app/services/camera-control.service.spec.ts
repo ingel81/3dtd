@@ -500,6 +500,20 @@ describe('CameraControlService.focusGeo', () => {
     expect(camera.position.x).toBeCloseTo(540);
   });
 
+  it('puts the camera there at once when asked, dropping a running glide', () => {
+    const { engine, camera } = jumpEngine(0);
+    service.initialize(engine as unknown as ThreeTilesEngine, { lat: 0, lon: 0, height: 0 });
+    service.focusGeo(48.7, 9.1);
+    service.update(300);
+
+    expect(service.focusGeo(48.7, 9.1, true)).toBe(true);
+    expect(camera.position.x).toBeCloseTo(500);
+    expect(camera.position.y).toBeCloseTo(200);
+    expect(camera.position.z).toBeCloseTo(500);
+    service.update(300);
+    expect(camera.position.x).toBeCloseTo(500);
+  });
+
   it('cuts to a 45° view when the camera looks at the horizon', () => {
     const { engine, camera } = jumpEngine(10);
     camera.getWorldDirection = (target) => {

@@ -191,11 +191,12 @@ export class CameraControlService {
    * top of whatever else moves the camera (keyboard pan, the controls), so
    * nothing fights over it. Looking at the horizon there is no ground point
    * to keep, the camera then cuts to a 45° view of the target along its
-   * heading.
+   * heading. `instant` puts the camera there at once and drops a running
+   * glide (dragging on the minimap).
    *
    * @returns false without an engine
    */
-  focusGeo(lat: number, lon: number): boolean {
+  focusGeo(lat: number, lon: number, instant = false): boolean {
     if (!this.engine) return false;
 
     const ground = this.engine.sync.geoToLocalSimple(lat, lon, 0);
@@ -218,6 +219,14 @@ export class CameraControlService {
         target.z - this.jumpDirection.z * back,
         target.x, target.y, target.z,
       );
+      return true;
+    }
+
+    if (instant) {
+      this.jump = null;
+      camera.position.x = to.x;
+      camera.position.y = to.y;
+      camera.position.z = to.z;
       return true;
     }
 

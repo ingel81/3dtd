@@ -52,7 +52,7 @@ describe('WorldMinimapComponent', () => {
     getCamera: () => camera,
     getTerrainHeightAtGeo: () => 0,
   };
-  const focusGeo = vi.fn();
+  const focusGeo = vi.fn((_lat: number, _lon: number, _instant?: boolean) => true);
   const enemies = [
     { position: { lat: 0, lon: 0 }, typeConfig: {} },
     { position: { lat: 0.0001, lon: 0 }, typeConfig: { isBoss: true } },
@@ -116,8 +116,22 @@ describe('WorldMinimapComponent', () => {
     // A click on the middle's right edge: east of the HQ
     vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: MINIMAP_CSS_PX, height: MINIMAP_CSS_PX } as DOMRect);
     view.jump({ clientX: MINIMAP_CSS_PX, clientY: MINIMAP_CSS_PX / 2, currentTarget: canvas } as unknown as PointerEvent);
-    const [lat, lon] = focusGeo.mock.calls[0];
+    const [lat, lon, instant] = focusGeo.mock.calls[0];
     expect(lat).toBeCloseTo(0, 6);
     expect(lon * 111320).toBeCloseTo(100, 0);
+    expect(instant).toBe(false);
+
+    // Held and dragged to the top edge: the camera follows at once, up to the release
+    view.drag({ pointerId: 1, clientX: MINIMAP_CSS_PX / 2, clientY: 0, currentTarget: canvas } as unknown as PointerEvent);
+    expect(focusGeo).toHaveBeenCalledTimes(1);
+    view.release({ pointerId: 1, currentTarget: canvas } as unknown as PointerEvent);
+    view.jump({ pointerId: 2, clientX: MINIMAP_CSS_PX, clientY: MINIMAP_CSS_PX / 2, currentTarget: canvas } as unknown as PointerEvent);
+    view.drag({ pointerId: 2, clientX: MINIMAP_CSS_PX / 2, clientY: 0, currentTarget: canvas } as unknown as PointerEvent);
+    const [northLat, , dragged] = focusGeo.mock.calls[2];
+    expect(northLat * 111320).toBeCloseTo(100, 0);
+    expect(dragged).toBe(true);
+    view.release({ pointerId: 2, currentTarget: canvas } as unknown as PointerEvent);
+    view.drag({ pointerId: 2, clientX: 0, clientY: 0, currentTarget: canvas } as unknown as PointerEvent);
+    expect(focusGeo).toHaveBeenCalledTimes(3);
   });
 });

@@ -18,4 +18,6 @@
   width: 176px;
   height: 176px;
   cursor: pointer;
+  // A drag moves the camera, not the page
+  touch-action: none;
 }
