@@ -21,6 +21,8 @@ class FakeTilesRenderer extends EventDispatcher<{
   rootLoadingState = 1;
   rootTileset: object | null = null;
   resetFailedTiles = vi.fn();
+  /** An auth plugin holding its failed token request */
+  plugins = [{ auth: { _tokenRefreshPromise: Promise.resolve() as unknown } }];
 
   setVisible(count: number): void {
     this.visibleTiles = new Set(Array.from({ length: count }, (_, i) => i));
@@ -300,6 +302,8 @@ describe('TileLoadingTracker', () => {
       // The plugin left the root as loaded without one: the state goes back, the renderer asks again
       expect(tiles.resetFailedTiles).toHaveBeenCalledTimes(1);
       expect(tiles.rootLoadingState).toBe(0);
+      // The plugin's failed token request goes, or the new try would fail with it
+      expect(tiles.plugins[0].auth._tokenRefreshPromise).toBeNull();
       busy();
       vi.advanceTimersByTime(29_999);
       expect(tiles.resetFailedTiles).toHaveBeenCalledTimes(1);

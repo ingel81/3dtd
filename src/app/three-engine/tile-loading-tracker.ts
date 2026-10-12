@@ -167,13 +167,19 @@ export class TileLoadingTracker {
   /**
    * Ask for the root tileset again now (the player's Retry, or the timer).
    * The Cesium plugin reports its failed handshake and then lets the
-   * renderer take the missing root as loaded, so the state goes back by hand.
+   * renderer take the missing root as loaded, so the state goes back by hand;
+   * both auth plugins keep a failed token request for good (they clear it
+   * only on success), so it goes too, or every new try would fail at once.
    */
   retryRoot(): void {
     const tiles = this.tilesRenderer;
     this.clearRootRetry();
     if (!tiles || this.rootFailure === null) return;
-    const internals = tiles as unknown as { rootLoadingState: number; rootTileset: unknown };
+    const internals = tiles as unknown as { rootLoadingState: number; rootTileset: unknown; plugins?: unknown[] };
+    for (const plugin of internals.plugins ?? []) {
+      const auth = (plugin as { auth?: { _tokenRefreshPromise?: unknown } }).auth;
+      if (auth && '_tokenRefreshPromise' in auth) auth._tokenRefreshPromise = null;
+    }
     tiles.resetFailedTiles();
     if (internals.rootTileset == null && internals.rootLoadingState !== TILES_LOADING) internals.rootLoadingState = TILES_UNLOADED;
     tiles.dispatchEvent({ type: 'needs-update' } as never);
