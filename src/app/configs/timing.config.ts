@@ -24,7 +24,7 @@ export const TIMING = {
   losRecheckInterval: 300,
 
   /** Duration of floating reward text popup (ms) */
-  rewardPopupDuration: 1200,
+  rewardPopupDuration: 2000,
 
   /** Duration of floating damage number popup (ms) — shorter than reward to avoid clutter */
   damagePopupDuration: 800,

@@ -820,19 +820,20 @@ export class GameStateManager {
       if (event.credits > 0) {
         this.creditsLedger.add(event.credits, 'kill', this.killCreditPlayer(event.killedBy));
 
-        // Show reward popup with actual dynamic credits (not static typeConfig.reward)
+        // The reward with the actual credits (not the static typeConfig.reward): smaller than
+        // the damage, above it and rising slow and nearly straight, so it reads apart (TODO E149)
         this.sink.effects.spawnFloatingText(
           `+${event.credits}`,
           event.enemy.position.lat,
           event.enemy.position.lon,
-          event.enemy.transform.terrainHeight + event.enemy.heightOffset + 5,
+          event.enemy.transform.terrainHeight + event.enemy.heightOffset + 8,
           {
             color: '#FFD700',
             duration: TIMING.rewardPopupDuration,
-            floatSpeed: 1.5,
-            scale: 0.75,
+            floatSpeed: 1.0,
+            scale: 0.55,
             lateralOffset: 1.2,
-            lateralDrift: 1.0,
+            lateralDrift: 0.3,
           }
         );
       }

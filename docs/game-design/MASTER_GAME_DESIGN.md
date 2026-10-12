@@ -668,7 +668,7 @@ Mechanik, Konstanten und Messungen:
 ---
 
 ## 9. Visuelles Feedback
-- **Damage Numbers**: Größe/Farbe nach Effektivität (weak < 0,6 grau, normal rot, strong ≥ 1,2 orange, devastating ≥ 1,5 gold; `EFFECTIVENESS_THRESHOLDS`). Jede Paarung ≤ 0,5 erscheint grau und klein. Chaos (1,0) erscheint immer normal.
+- **Damage Numbers**: Größe/Farbe nach Effektivität (weak < 0,6 grau, normal rot, strong ≥ 1,2 orange, devastating ≥ 1,5 magenta; `EFFECTIVENESS_THRESHOLDS`). Jede Paarung ≤ 0,5 erscheint grau und klein. Chaos (1,0) erscheint immer normal. Gold gehört allein der Belohnung beim Kill: kleiner, über dem Schaden, steigt langsam und fast senkrecht.
 - **Schadensart im Tower-Panel:** Icon und Name der Schadensart des gewählten Towers.
 - **Rüstung in NEXT:** das Wave-Panel zeigt Rüstung und „Weak to" der
   kommenden Welle (`wave-timeline.component`).
