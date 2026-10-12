@@ -118,6 +118,11 @@ node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --heade
   und 30 % (TODO E80).
 - `e2e/perf/main-stall.ts`: blockiert den Hauptthread einige Sekunden und misst, wie lange die Simulation weiterlief
   und ob sie danach nachholt (Gegendruck, TODO E85).
+- `e2e/perf/mem-probe.ts`: Speicher des Tabs (Renderer und GPU) und die Worker, die Chrome hält, nach Weltwechseln
+  mit vielen Gegnern, mit `--benchmark` während des Benchmarks, mit `--dice` nach Ortswechseln im Spiel (`--menu`
+  über das Startmenü mit Globus). Mit `--place` oder `--dice` öffnet er eine echte Kartensitzung.
+- `e2e/perf/menu-shots.ts`: Screenshots von Startmenü, Ladeplatte und Sinkflug an einem echten Ort, danach das Menü in
+  kleineren Fenstern (eine Kartensitzung, sichtbares Fenster).
 
 ## Coop-Läufe mit Bots (`e2e/coop-bots/run.ts`)
 
