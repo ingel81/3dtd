@@ -896,6 +896,8 @@ describe('Coop research per player (COOP_PLAN C2b)', () => {
     };
     const at = (south: number, east: number) => ({ lat: south / M, lon: east / M, height: 0 });
     b.emit({ type: 'debug:add-credits', amount: 20000 });
+    // The center opens with wave 2 (TODO E123)
+    a.emit({ type: 'debug:jump-to-wave', wave: 2, grantGold: false });
     b.emit({ type: 'command:place-tower', typeId: 'research-center', position: at(100, 130) });
     step();
     const center = a.gsm.towerManager.getAll().find((t) => t.typeConfig.id === 'research-center')!;
@@ -928,6 +930,7 @@ describe('Coop research per player (COOP_PLAN C2b)', () => {
     const at = (south: number, east: number) => ({ lat: south / M, lon: east / M, height: 0 });
     a.emit({ type: 'debug:add-credits', amount: 20000 });
     b.emit({ type: 'debug:add-credits', amount: 20000 });
+    a.emit({ type: 'debug:jump-to-wave', wave: 2, grantGold: false });
     a.emit({ type: 'command:place-tower', typeId: 'research-center', position: at(100, 80) });
     b.emit({ type: 'command:place-tower', typeId: 'research-center', position: at(100, 130) });
     step();
@@ -985,7 +988,8 @@ describe('Coop research per player (COOP_PLAN C2b)', () => {
 
     a.emit({ type: 'debug:add-credits', amount: 5000 });
     b.emit({ type: 'debug:add-credits', amount: 5000 });
-    // A center each: one per player, not one per map
+    // A center each: one per player, not one per map; it opens with wave 2 (TODO E123)
+    a.emit({ type: 'debug:jump-to-wave', wave: 2, grantGold: false });
     a.emit({ type: 'command:place-tower', typeId: 'research-center', position: at(100, 80) });
     b.emit({ type: 'command:place-tower', typeId: 'research-center', position: at(100, 130) });
     step();

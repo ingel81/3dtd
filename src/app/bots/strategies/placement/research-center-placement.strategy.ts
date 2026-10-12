@@ -7,13 +7,14 @@
  * Triggers when:
  * - Research Center NOT yet placed (state.research.centerLevel === 0)
  * - Player has enough credits (>= 75)
- * - Wave >= 1 (grace period for first wave with Archer-only)
+ * - Its wave reached (TowerTypeConfig.minWave, the build phase before wave 2)
  */
 
 import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
-import { TOWER_TYPES } from '../../../configs/tower-types.config';
+import { TOWER_TYPES, towerWaitsForWave } from '../../../configs/tower-types.config';
+import { researchWave } from '../../../configs/research/research.types';
 import { StrategicPlacementService } from '../../../services/world/strategic-placement.service';
 import type { BotWorld } from '../../bot-world';
 
@@ -28,6 +29,9 @@ export class ResearchCenterPlacementStrategy extends BaseStrategy {
   canExecute(state: GameStateSnapshot): boolean {
     // Already placed?
     if (state.research && state.research.centerLevel > 0) return false;
+
+    // The simulation refuses it before its wave
+    if (towerWaitsForWave(TOWER_TYPES['research-center'], researchWave(state.waveNumber, state.phase)) !== null) return false;
 
     // Need enough credits: research center + at least one Archer
     // (so the bot doesn't drain everything into the research center and stall)

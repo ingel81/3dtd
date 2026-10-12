@@ -60,6 +60,7 @@ const ctx = (over: Partial<TowerCardContext> = {}): TowerCardContext => ({
   gameOver: false,
   placedUnique: new Set(),
   isUnlocked: () => true,
+  wave: 2,
   ...over,
 });
 
@@ -78,6 +79,12 @@ describe('canPickTowerCard', () => {
     expect(TOWER_TYPES['research-center'].unique).toBe(true);
     expect(canPickTowerCard(TOWER_TYPES['research-center'], ctx())).toBe(true);
     expect(canPickTowerCard(TOWER_TYPES['research-center'], ctx({ placedUnique: new Set(['research-center']) }))).toBe(false);
+  });
+
+  it('opens the Research Center with wave 2: not before wave 1, from the build phase after it (TODO E123)', () => {
+    expect(canPickTowerCard(TOWER_TYPES['research-center'], ctx({ wave: 1 }))).toBe(false);
+    expect(canPickTowerCard(TOWER_TYPES.archer, ctx({ wave: 1 }))).toBe(true);
+    expect(canPickTowerCard(TOWER_TYPES['research-center'], ctx({ wave: 2 }))).toBe(true);
   });
 
   it('ignores the placed set for a tower that is not one per map', () => {

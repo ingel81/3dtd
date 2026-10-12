@@ -517,6 +517,8 @@ describe('GameStateManager order of operations (characterization)', () => {
     });
 
     it('places and sells the research center with the research manager last and first', () => {
+      // The center opens with wave 2 (TODO E123)
+      gsm.waveManager.waveNumber.set(1);
       log.length = 0;
       bus.emit({ type: 'command:place-tower', position: { ...BASE_POSITION, lat: 48.771 }, typeId: 'research-center' });
       const center = gsm.towerManager.getAll().find((t) => t.typeConfig.id === 'research-center')!;

@@ -298,6 +298,9 @@ describe('GameStateManager', () => {
       it('refuses a second one-per-map building while the first stands, and takes no credits for it', () => {
         const typeId = 'research-center';
         expect(TOWER_TYPES[typeId].unique).toBe(true);
+        // Not before wave 1 (TODO E123); from the build phase after it
+        expect(gsm.placeTower(BASE_POSITION, typeId)).toBeNull();
+        gsm.waveManager.waveNumber.set(1);
         const first = gsm.placeTower(BASE_POSITION, typeId);
         expect(first).not.toBeNull();
         const credits = gsm.credits();

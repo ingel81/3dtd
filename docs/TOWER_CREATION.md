@@ -146,6 +146,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `cost` | number | - | Baukosten |
 | `upgrades` | TowerUpgrade[] | - | Verfügbare Upgrades |
 | `unique` | boolean | false | Einmal je Karte (Research Center, Missile Silo): kein zweites, solange eines steht |
+| `minWave` | number | - | Baubar erst ab der Bauphase vor Welle N (Research Center: 2, damit das Startgold Tower für Welle 1 kauft); Simulation und Baukarte prüfen es |
 | `description` | string | - | Was ein passives Gebäude tut, Text im Tooltip seiner Karte |
 | `canTargetAir` | boolean | false | Kann Luft-Einheiten angreifen |
 | `canTargetGround` | boolean | true | Kann Boden-Einheiten angreifen |

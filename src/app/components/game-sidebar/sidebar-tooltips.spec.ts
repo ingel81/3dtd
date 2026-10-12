@@ -50,6 +50,8 @@ describe('towerCardTooltip', () => {
       flavor: 'Unlocks new towers and upgrade tiers.',
     });
     expect(towerCardTooltip(TOWER_TYPES['research-center'], aaUnlocked).flavor).toBe('Already placed.');
+    expect(towerCardTooltip(TOWER_TYPES['research-center'], { ...noResearch, waitsForWave: 2 }).flavor)
+      .toBe('From wave 2: towers for the first wave come first.');
   });
 
   it('describes the missile silo the same way: what it launches, or that it stands', () => {

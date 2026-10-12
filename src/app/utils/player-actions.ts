@@ -4,6 +4,7 @@ import {
   UpgradeId,
   getUpgradeCost,
   requiredUpgradeTier,
+  towerWaitsForWave,
   type TowerUpgrade,
 } from '../configs/tower-types.config';
 
@@ -19,11 +20,14 @@ export interface TowerCardContext {
   /** The one-per-map buildings standing on the map (GameStore.placedUniqueTypes) */
   placedUnique: ReadonlySet<TowerTypeId>;
   isUnlocked: (id: TowerTypeId) => boolean;
+  /** The wave the run is at for building (researchWave): a card before its minWave stays shut */
+  wave: number;
 }
 
-/** A build card can be picked: unlocked, affordable, and a one-per-map building only while none stands. */
+/** A build card can be picked: unlocked, its wave reached, affordable, and a one-per-map building only while none stands. */
 export function canPickTowerCard(tower: TowerTypeConfig, ctx: TowerCardContext): boolean {
   if (ctx.gameOver || !ctx.isUnlocked(tower.id)) return false;
+  if (towerWaitsForWave(tower, ctx.wave) !== null) return false;
   if (ctx.credits < tower.cost) return false;
   return !isPlacedUnique(tower, ctx.placedUnique);
 }

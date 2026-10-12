@@ -145,6 +145,8 @@ describe('HotkeyService', () => {
     canStartWave: signal(true),
     isGameOver: signal(false),
     placedUniqueTypes: signal(new Set<string>()),
+    waveNumber: signal(1),
+    phase: signal('build'),
     baseCoords: signal({ lat: 48.7, lon: 9.1 }),
     spawnPoints: signal([{ lat: 48.71, lon: 9.1 }, { lat: 48.69, lon: 9.12 }]),
   };

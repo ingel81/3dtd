@@ -18,7 +18,8 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { ResearchStore } from '../../../store/research.store';
-import { TOWER_TYPES, TowerTypeConfig, TowerTypeId } from '../../../configs/tower-types.config';
+import { TOWER_TYPES, TowerTypeConfig, TowerTypeId, towerWaitsForWave } from '../../../configs/tower-types.config';
+import { researchWave } from '../../../configs/research/research.types';
 import { canTargetAirEffective } from '../../../entities/tower-targeting.util';
 import { canPickTowerCard, isPlacedUnique } from '../../../utils/player-actions';
 import { towerSlotKey } from '../../../services/hotkey-map';
@@ -89,6 +90,14 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
   readonly selectTower = output<TowerTypeId>();
   readonly cancelBuild = output<void>();
 
+  /** The wave the run is at for building (researchWave): the Research Center opens with wave 2 */
+  readonly wave = computed(() => researchWave(this.store.waveNumber(), this.store.phase()));
+
+  /** The wave this card waits for, null when it may be built */
+  waitsForWave(tower: TowerTypeConfig): number | null {
+    return towerWaitsForWave(tower, this.wave());
+  }
+
   isTowerUnlocked(towerId: TowerTypeId): boolean {
     return this.researchStore.isTowerUnlocked(towerId);
   }
@@ -100,6 +109,7 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
       gameOver: this.isGameOver(),
       placedUnique: this.store.placedUniqueTypes(),
       isUnlocked: (id) => this.isTowerUnlocked(id),
+      wave: this.wave(),
     });
   }
 
@@ -172,6 +182,7 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
   getTowerCardTooltipData(tower: TowerTypeConfig, index: number): TdTooltipData {
     return towerCardTooltip(tower, {
       alreadyPlaced: this.isPlacedUnique(tower),
+      waitsForWave: this.waitsForWave(tower),
       airTargetingUnlocked: this.researchStore.airTargetingUnlocked(),
       hotkey: towerSlotKey(index),
     });

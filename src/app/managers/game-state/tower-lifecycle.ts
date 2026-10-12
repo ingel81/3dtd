@@ -11,11 +11,11 @@ import type { TowerLos } from './tower-los';
 import type { Tower } from '../../entities/tower.entity';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { GeoPosition } from '../../models/game.types';
-import type { ResearchEffect } from '../../configs/research/research.types';
+import { researchWave, type ResearchEffect } from '../../configs/research/research.types';
 import type { CreditsLedger } from './credits-ledger';
 import { canTargetAirEffective } from '../../entities/tower-targeting.util';
 import { releaseAim } from '../../entities/tower-aim';
-import { TowerTypeId, TOWER_TYPES, UpgradeId, buildTimeOf, requiredUpgradeTier } from '../../configs/tower-types.config';
+import { TowerTypeId, TOWER_TYPES, UpgradeId, buildTimeOf, requiredUpgradeTier, towerWaitsForWave } from '../../configs/tower-types.config';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import type { SavedTower } from '../../simulator/sim-snapshot';
 import { losMaskFromJson } from '../../utils/los-mask';
@@ -124,6 +124,11 @@ export class TowerLifecycle {
     // against bots or commands that bypass the UI's isTowerUnlocked() check.
     const player = this.actingPlayer();
     if (!this.research(player).isTowerUnlocked(typeId)) {
+      return null;
+    }
+
+    // A building that opens with a later wave (the Research Center with wave 2)
+    if (towerWaitsForWave(config, researchWave(this.waveManager.waveNumber(), this.waveManager.phase())) !== null) {
       return null;
     }
 

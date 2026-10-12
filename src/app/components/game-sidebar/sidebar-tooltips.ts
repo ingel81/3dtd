@@ -18,6 +18,8 @@ import { TD_THEME } from '../../styles/td-theme';
 export interface TowerCardTooltipContext {
   /** A one-per-map building of the card's type stands already (isPlacedUnique) */
   alreadyPlaced: boolean;
+  /** The wave the card waits for (towerWaitsForWave), null or absent when it may be built */
+  waitsForWave?: number | null;
   airTargetingUnlocked: boolean;
   /** Number key that picks the card, null or absent past the ninth card */
   hotkey?: string | null;
@@ -69,7 +71,9 @@ export function towerCardTooltip(
       category: 'STRUCTURE',
       hotkey: ctx.hotkey ?? undefined,
       accent: 'gold',
-      flavor: ctx.alreadyPlaced ? 'Already placed.' : tower.description,
+      flavor: ctx.alreadyPlaced ? 'Already placed.'
+        : ctx.waitsForWave ? `From wave ${ctx.waitsForWave}: towers for the first wave come first.`
+        : tower.description,
     };
   }
   const dmgUi = DAMAGE_TYPE_UI[tower.damageType];

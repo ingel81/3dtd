@@ -254,6 +254,13 @@ export interface TowerTypeConfig {
    * one of the first nine cards), by canPickTowerCard.
    */
   unique?: boolean;
+  /**
+   * The wave it opens with: buildable from the build phase before wave N
+   * (researchWave), like a research's minWave. The Research Center waits for
+   * wave 2, so the start gold buys towers for wave 1 (TODO E123). Checked by
+   * TowerLifecycle.place and canPickTowerCard.
+   */
+  minWave?: number;
   /** What a passive building does, the flavor of its build card's tooltip */
   description?: string;
 
@@ -638,6 +645,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
 
     cost: 75,
     unique: true,
+    minWave: 2,
     description: 'Unlocks new towers and upgrade tiers.',
     upgrades: [
       {
@@ -727,6 +735,11 @@ export const DEFAULT_BUILD_TIME_MS = 5000;
  */
 export function buildTimeOf(config: TowerTypeConfig): number {
   return config.buildTimeMs ?? (config.attackType === 'passive' ? 0 : DEFAULT_BUILD_TIME_MS);
+}
+
+/** The wave `config` waits for at `wave` (researchWave), null when it may be built */
+export function towerWaitsForWave(config: Pick<TowerTypeConfig, 'minWave'>, wave: number): number | null {
+  return config.minWave !== undefined && wave < config.minWave ? config.minWave : null;
 }
 
 export function getTowerType(id: TowerTypeId): TowerTypeConfig {

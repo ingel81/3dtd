@@ -16,7 +16,7 @@
         @if (isTowerUnlocked(tower.id)) {
           <!-- Unlocked tower, a card -->
           <button class="td-card bp-card"
-                  [class.is-locked]="store.credits() < tower.cost || isPlacedUnique(tower)"
+                  [class.is-locked]="store.credits() < tower.cost || isPlacedUnique(tower) || waitsForWave(tower) !== null"
                   [attr.aria-disabled]="!canPick(tower) ? true : null"
                   [attr.aria-keyshortcuts]="slotKey(i)"
                   (click)="canPick(tower) && selectTower.emit(tower.id)"

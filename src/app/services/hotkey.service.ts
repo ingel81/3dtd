@@ -1,6 +1,7 @@
 import { Injectable, Injector, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { getAllTowerTypes } from '../configs/tower-types.config';
+import { researchWave } from '../configs/research/research.types';
 import { stepGameSpeed } from '../configs/game-speed.config';
 import { TowerSelectionService } from './tower-selection.service';
 import { GameStore } from '../store/game.store';
@@ -270,6 +271,7 @@ export class HotkeyService {
       gameOver: this.store.isGameOver(),
       placedUnique: this.store.placedUniqueTypes(),
       isUnlocked: (id) => this.researchStore.isTowerUnlocked(id),
+      wave: researchWave(this.store.waveNumber(), this.store.phase()),
     });
     if (!pickable) {
       if (this.store.credits() < tower.cost && this.researchStore.isTowerUnlocked(tower.id)) refuseForCredits();
