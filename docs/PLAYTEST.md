@@ -36,31 +36,43 @@ angesehen. Hier geht es um Augen, Ohren und das Gefühl.
 - **X2 Gerüst (E141):** Tower setzen, solange das Gerüst steht auf Upgrade und Pfad klicken, dann U drücken.
   *Kacheln grau, Zeile „Under construction: upgrades once it stands“, nichts gekauft; nach dem Bau gehen sie.
   Verkaufen geht im Gerüst.*
+  **ok (2026-10-12)**
 - **X3 Game Over im Coop (E144):** Coop-Lauf verlieren, Speicher ohne Antwort zur Run-Log-Frage. *„Help improve
   3DTD?“ kommt erst rund 1,5 s nach dem Game-Over-Bild.*
 - **X4 Logo (E143):** Im Spiel auf das 3DTD-Logo oben links klicken. *Das Menü geht auf wie mit Esc.*
+  **ok (2026-10-12)**
 - **X5 Settings (E138):** Esc, Settings. *Tabs Audio, Graphics, Gameplay, Map, Coop, Privacy; nach Schließen und
   Öffnen steht der zuletzt gewählte Tab.*
+  **ok (2026-10-12)**
 - **X6 Startauswahl (E151):** Seite mit Ort neu laden. *Die Markierung steht auf „Play“ (oberster Eintrag), nicht auf
   „New game“.*
+  **ok (2026-10-12)**
 - **X7 Sterne beim Aufstieg (E152):** Im Spiel „Random city“. *Der Sternhimmel kommt erst mit der Höhe (ab 60 km),
   nicht über den Dächern.*
+  **ok (2026-10-12)**
 - **X8 Damage vs armor (E146):** Im Baumenü das Info-Symbol. *Gegnernamen je Spalte untereinander, lesbar.*
+  **ok (2026-10-12)**
 - **X9 Meldungen (E137):** Etwas auslösen, das eine Meldung bringt (z. B. Coop-Verbindung trennen). *Steht unter der
   Tempo-Leiste über der Karte, geht nach 6 s oder per X; eine mit „Reload“ bleibt.*
 - **X10 Camo (E145):** Mit Sprung auf Welle 22 (Wave Debug) die Welle starten. *Alle Zombie-Soldaten getarnt und
   deutlich flimmernd; beim ersten kommt „Camouflaged enemies! …“ und die Kamera schaut hin; Tower schießen nicht
   auf sie (außer neben einem Späher).*
+  **ok (2026-10-12)**
 - **X11 Minikarte auf echten Orten (E142):** Einen Ort laden. *Rechts unter dem Kompass eine dunkle Karte mit Straßen,
   nach ein paar Sekunden Gebäuden entlang der Routen, Route, Spawns, HQ, Tower, Gegner; Klick führt die Kamera hin.*
+  **ok (2026-10-12)**
 - **X12 Hauptmenü unten (E147, E148):** Startmenü ansehen. *Tipp als kleine Karte mit Punkten rechts oben, Klick auf
   einen Punkt zeigt dessen Tipp; darunter links „Legal | Privacy“, rechts leiser Version und Welt.*
+  **ok (2026-10-12)**
 - **X13 Globus (E150):** Einen Ort laden, Globus ansehen. *Oben rechts Tabelle Target, Pos (N/E), Alt, darunter Loading
   in Türkis; Marken besuchter Orte heller, Ring am Ziel enger.*
+  **ok (2026-10-12)**
 - **X14 Schaden und Gold (E149):** Eine Welle mit Kills spielen. *Gold kleiner, über den Schadenszahlen, steigt langsam
   fast senkrecht; verheerende Treffer magenta statt gold.*
+  **ok (2026-10-12)**
 - **X15 NEXT-Leiste (E140):** Sprung auf Welle 18 (Wave Debug). *20 Totenkopf, 21 türkiser Winkel mit Mond darüber,
   22 gestricheltes Quadrat, sonst Quadrate; die gezeigte Welle gefüllt bzw. hell.*
+  **ok (2026-10-12)**, aber: „die Icons sind noch nicht schön“ (Totenkopf und Mond, selbst gezeichnet in `td-icon`).
 
 - **X16 Replay an einem anderen Ort (E135):** Eine Welle spielen, das Replay als Datei sichern, an einen anderen Ort
   wechseln, Extras, Replay-Datei laden. *„Go to <Ort> and play“; das Spiel fliegt hin und spielt die Datei ab, der
@@ -76,13 +88,17 @@ Per Spec geprüft, E123 und der Tipp zusätzlich per Browser-Probe in DevWorld. 
 - **Y1 Minikarte:** Einen Ort laden, über die Minikarte ziehen (gedrückt halten). *Norden oben wie der Kompass, die
   Kamera folgt dem Ziehen ohne Ruckeln; der Ebenen-Knopf wechselt auf die weniger stilisierte Ansicht mit breiteren
   Straßen, das Minus klappt sie zu einem Stein „Map“ ein, beides bleibt nach F5.*
+  **ok (2026-10-12)**
 - **Y2 Ladeplatte:** Seite mit Ort neu laden, Platte unten rechts ansehen, auch eingeklappt. *Unter dem Schritt ein
   türkiser Balken „Tiles N | M to come | P%“; beim Sinkflug nur noch „Loading the descent | P%“, die Zahl springt nicht
   zurück.*
+  **ok (2026-10-12)**
 - **Y3 Tipp im Menü:** Startmenü mit Continue und Save game in der Liste, das Fenster langsam niedriger ziehen. *Der Tipp
   verschwindet, sobald er an die Liste stößt, und kommt mit Platz wieder; er liegt nie über einem Eintrag.*
+  **ok (2026-10-12)**
 - **Y4 Forschungszentrum (E123):** Neuer Lauf, vor Welle 1 die Karte „Research Center“ ansehen. *Grau, im Tooltip
   „From wave 2: towers for the first wave come first.“; nach Welle 1 baubar.* Fühlt sich der Start so richtig an?
+  **ok (2026-10-12)**
 - **Y5 Kartenserver lehnt ab (nur wenn es passiert):** Bei einem 429 oder ohne Netz. *Die Platte sagt „The map server
   is busy or out of reach …“, Play wartet, nach 15 s bis 2 min lädt es von selbst weiter.*
 
