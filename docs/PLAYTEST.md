@@ -62,6 +62,10 @@ angesehen. Hier geht es um Augen, Ohren und das Gefühl.
 - **X15 NEXT-Leiste (E140):** Sprung auf Welle 18 (Wave Debug). *20 Totenkopf, 21 türkiser Winkel mit Mond darüber,
   22 gestricheltes Quadrat, sonst Quadrate; die gezeigte Welle gefüllt bzw. hell.*
 
+- **X16 Replay an einem anderen Ort (E135):** Eine Welle spielen, das Replay als Datei sichern, an einen anderen Ort
+  wechseln, Extras, Replay-Datei laden. *„Go to <Ort> and play“; das Spiel fliegt hin und spielt die Datei ab, der
+  Lauf dort endet. Per E2E geprüft, hier nur Ansehen.*
+
 Alte rote Punkte vom 4.10.: T73, T75, T87, W2.3 und N16 sind per Folgetest ok (F-Punkte der Abhakliste), B3 per S2.4
 (2026-10-11). Offen bleibt nur M4 als S2.3.
 
