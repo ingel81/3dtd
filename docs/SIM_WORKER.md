@@ -227,7 +227,8 @@ Wo sie im Spiel stehen (TODO E82, E75, E74):
 - **Benchmark** (Menü, Seite Extras): lädt die Seite in die DevWorld neu (`?devworld&bot=manual&benchmark`, auch von einer
   echten Karte aus, ohne Tiles und Kartensitzung), baut die Szene des Lastlaufs (`benchmark/load-scene.ts`, dieselbe
   wie `e2e/perf/sim-load.ts`: 40 Tower, Gegner mit 1 000 000 HP und 0,5 m/s auf den ersten 70 % der Routen,
-  Auffüllen mit Warten auf die Simulation, Einpendeln) und misst 2000, 5000 und 10 000 Gegner je bei Tempo 4 und 1, je 8 s. Am Ende eine
+  Auffüllen mit Warten auf die Simulation, Einpendeln) und misst 2000, 5000, 10 000, 15 000, 20 000 und 25 000 Gegner je bei
+  Tempo 4 und 1, je 8 s (`DEFAULT_BENCHMARK_PLAN`). Am Ende eine
   Tabelle und ein Knopf, der sie als Text kopiert; jede Zeile trägt Version, Commit, Browser, System, Threads,
   Speicher, GPU, Pixeldichte und Fenster. Das CPU-Modell kann der Browser nicht lesen, der Text sagt das.
 

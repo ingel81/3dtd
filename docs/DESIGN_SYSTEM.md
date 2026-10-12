@@ -611,7 +611,8 @@ als Overlay über dem ganzen Fenster, Rolle `dialog` mit dem Namen der Seite, Fo
 
 - **Start** (vor einem Lauf, bei jedem Ortswechsel): Logo 180 px und „Tower defense on real streets“ mittig über der
   Liste, die auf einer Putzplatte (`td-panel`, 320 px) steht; unten links ein Feldtipp, darunter die Version mit den
-  Links Legal und Privacy („v0.6.0 | tiles cesium | Legal | Privacy“), unten rechts die Ladeplatte.
+  Links Legal und Privacy („v0.6.0 | tiles cesium | Legal | Privacy“), unten rechts die Ladeplatte. Der Tipp ist
+  unsichtbar (`is-hidden`), solange er weniger als 16 px unter der Liste stünde, gemessen statt nach Fensterhöhe.
   Kopfleiste und Sidebar sind ausgeblendet.
 - **Pause** (Esc, Zahnrad im Sidebar-Fuß, „Main menu“ am Game Over): Logo 135 px, oben in der Platte eine Kopfzeile:
   „Paused“ als Titel in Messing-Versalien links, „Ort | wave n“ rechts, eingeritzte Linie darunter (im Coop „Coop“).

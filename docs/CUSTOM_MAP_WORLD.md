@@ -219,8 +219,10 @@ Lichter und ihren Himmel weglässt.
 Westen links); Tiles und DevWorld geben `null`. Auf echten Orten (E142) zeichnet die Minikarte ihr Bild selbst aus OSM
 (`components/world-minimap/osm-minimap.ts`): dunkler Grund, Gebäude als Flächen (die Footprints nahe der Routen, die
 `BuildingOverlay` jetzt nach jedem Routenwechsel lädt, auch bei ausgeschalteter Ebene), Straßen als Linien (Hauptstraßen
-breiter, Fußwege nicht), als Quadrat um HQ, Spawns und Routen mit Rand, mindestens 400 m. Ohne Straßen bleibt sie weg
-(DevWorld). Die eigene Karte rendert sie einmal
+breiter, Fußwege nicht), als Quadrat um HQ, Spawns und Routen mit Rand, mindestens 400 m; ebenso in DevWorld, deren
+Straßen erzeugt sind. Die Szene hat Norden bei +Z und Osten bei -X, das Rechteck (`osmArea`) legt deshalb links den
+größeren X-Wert an. Der Ebenen-Knopf schaltet auf eine Straßenkarten-Ansicht (`minimapLook: 'map'`): helle Gebäude und Straßen,
+Straßen 12 m und Nebenstraßen 7 m breit mit dunklem Rand, Farben `TD_THEME.map*`. Die eigene Karte rendert sie einmal
 nach ihrem ersten gezeichneten Bild (`custom-map-minimap.ts`): orthografisch von oben, nur die Szenenkinder, die
 `view.attach` und `environment.apply` angehängt haben (Gelände, Wasser, Objekte, Licht), 512 px an der längeren
 Seite. Sie braucht keine eigenen Shader-Programme: der Nebel bleibt mit Dichte 0 an der Szene, alle Lichter bleiben an
@@ -229,10 +231,12 @@ three als Bildschirm (`isXRRenderTarget`, sRGB heraus), mit Bloom oder Grading i
 Composers (danach nach sRGB gewandelt). Mit eigenem Programm je Material warteten kalte Ladevorgänge 3 bis 4 s auf
 deren Linken.
 
-`app-world-minimap` (unter dem Kompass, `td-overlay`) zeichnet in ein Canvas mit eigenem 10-Hz-Takt außerhalb
-Angulars: Bild, Routen in der Farbe ihres Spawns, Spawns und HQ einmal in ein Grundbild (neu, wenn Welt, Routen
-oder HQ wechseln), je Takt darauf Tower, Gegner (Bosse größer, alle in einem Pfad je Farbe) und das Sichtfeld der
-Kamera (die vier Bildecken auf der Bodenhöhe des HQ). Ein Klick führt die Kamera per `focusGeo` dorthin.
+`app-world-minimap` (unter dem Kompass, `td-overlay`) zeichnet jeden Frame außerhalb Angulars in ein Canvas: Bild,
+Routen in der Farbe ihres Spawns, Spawns und HQ einmal in ein Grundbild (neu, wenn Welt, Routen oder HQ wechseln),
+Tower und Gegner höchstens alle 50 ms in ein Punkte-Canvas (Bosse größer, je Bildpunkt höchstens ein Gegner gezeichnet),
+darüber jeden Frame das Sichtfeld der Kamera (die vier Bildecken auf der Bodenhöhe des HQ). Ein Klick führt die Kamera per `focusGeo` dorthin, Ziehen mit gedrückter Taste setzt sie sofort
+mit (`focusGeo(lat, lon, true)`, Pointer Capture). Das Minus klappt sie zu einem Stein „Map“ ein (`minimapOpen`), offen
+und Ansicht bleiben im UI-Store gespeichert.
 
 ## Laden
 

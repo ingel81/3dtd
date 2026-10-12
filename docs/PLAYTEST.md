@@ -65,6 +65,23 @@ angesehen. Hier geht es um Augen, Ohren und das Gefühl.
 Alte rote Punkte vom 4.10.: T73, T75, T87, W2.3 und N16 sind per Folgetest ok (F-Punkte der Abhakliste), B3 per S2.4
 (2026-10-11). Offen bleibt nur M4 als S2.3.
 
+## Y Nachmittag 2026-10-12 (auf `next`)
+
+Per Spec geprüft, E123 und der Tipp zusätzlich per Browser-Probe in DevWorld. Hier geht es um Augen und Gefühl.
+
+- **Y1 Minikarte:** Einen Ort laden, über die Minikarte ziehen (gedrückt halten). *Norden oben wie der Kompass, die
+  Kamera folgt dem Ziehen ohne Ruckeln; der Ebenen-Knopf wechselt auf die weniger stilisierte Ansicht mit breiteren
+  Straßen, das Minus klappt sie zu einem Stein „Map“ ein, beides bleibt nach F5.*
+- **Y2 Ladeplatte:** Seite mit Ort neu laden, Platte unten rechts ansehen, auch eingeklappt. *Unter dem Schritt ein
+  türkiser Balken „Tiles N | M to come | P%“; beim Sinkflug nur noch „Loading the descent | P%“, die Zahl springt nicht
+  zurück.*
+- **Y3 Tipp im Menü:** Startmenü mit Continue und Save game in der Liste, das Fenster langsam niedriger ziehen. *Der Tipp
+  verschwindet, sobald er an die Liste stößt, und kommt mit Platz wieder; er liegt nie über einem Eintrag.*
+- **Y4 Forschungszentrum (E123):** Neuer Lauf, vor Welle 1 die Karte „Research Center“ ansehen. *Grau, im Tooltip
+  „From wave 2: towers for the first wave come first.“; nach Welle 1 baubar.* Fühlt sich der Start so richtig an?
+- **Y5 Kartenserver lehnt ab (nur wenn es passiert):** Bei einem 429 oder ohne Netz. *Die Platte sagt „The map server
+  is busy or out of reach …“, Play wartet, nach 15 s bis 2 min lädt es von selbst weiter.*
+
 ## V Normales Spiel nach dem Welt-Umbau (2026-10-11, auf `next`)
 
 Unter der Haube läuft jede Welt über einen Welt-Anbieter (WorldProvider), auch die echten Orte; die eigenen Karten

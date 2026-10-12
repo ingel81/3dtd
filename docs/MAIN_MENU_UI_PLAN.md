@@ -37,7 +37,12 @@ und wo es vom Vorschlag abweicht; die Einzelheiten stehen in der Fach-Doku (Tabe
    steht Play vor Continue.
 6. **Ladeanzeige.** Gebaut: Ladeplatte unten rechts mit Ortsname, Prozent, zehn Segmenten, laufendem Schritt und
    „Show steps“; Play und Continue tragen den Balken und merken sich einen Klick („Starts when loaded“). Feldtipps
-   wechseln alle 8 s, der Versions-Chip nennt Version und Tile-Anbieter.
+   wechseln alle 8 s, der Versions-Chip nennt Version und Tile-Anbieter. Seit 2026-10-12: solange Tiles streamen, ein
+   türkiser Balken „Tiles N | M to come | P%“ unter dem Schritt (alle 500 ms aus `getTileStats`, `tilesProgress`);
+   lädt danach der Globus die Tiles des Abtauchens (`GlobeLink.descent`), bleibt die Platte und zeigt statt des
+   Schritts nur „Loading the descent | P%“, eine Zahl, die nur wächst. Ein Ausfall des Kartenservers steht als eigenes
+   Problem in der Platte (`UIStore.tilesProblem`, siehe ARCHITECTURE.md, `tile-loading-tracker.ts`). Der Feldtipp
+   weicht, sobald er an die Liste stößt: das Menü misst Liste und Tipp (ResizeObserver) und blendet ihn dann aus.
 7. **Ortswechsel im Spiel.** Gebaut: jeder Ortswechsel (Kopfzeilen-Ortsknopf über New game, Würfel, Favorit, ein
    Spielstand an anderem Ort, ein Coop-Gast folgt dem Host) schaltet das Menü in die Lage Start; eine offene Seite
    bleibt dabei stehen. Fehler stehen in der Ladeplatte mit Retry, Other place und bei einem Engine-Fehler Map key. Das
