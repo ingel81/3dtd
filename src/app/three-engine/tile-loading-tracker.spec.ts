@@ -7,6 +7,8 @@ class FakeTilesRenderer extends EventDispatcher<{
   'tiles-load-end': object;
   'load-tileset': object;
   'load-error': { tile: unknown };
+  'load-root-tileset': object;
+  'needs-update': object;
 }> {
   stats = { queued: 0, downloading: 0, parsing: 0 };
   activeTiles = new Set<number>();
@@ -15,6 +17,10 @@ class FakeTilesRenderer extends EventDispatcher<{
   setResolutionFromRenderer = vi.fn();
   setCamera = vi.fn();
   update = vi.fn();
+  /** The root as the Cesium plugin leaves it after a failed handshake: loaded, but none */
+  rootLoadingState = 1;
+  rootTileset: object | null = null;
+  resetFailedTiles = vi.fn();
 
   setVisible(count: number): void {
     this.visibleTiles = new Set(Array.from({ length: count }, (_, i) => i));
@@ -268,7 +274,7 @@ describe('TileLoadingTracker', () => {
 
     it('trennt abgelehnte Zugangsdaten von einem nicht erreichbaren Server', () => {
       const { tiles, tracker } = setup();
-      const seen: string[] = [];
+      const seen: (string | null)[] = [];
       tracker.setOnAuthError((failure) => seen.push(failure));
       const fail = (error: unknown) => tiles.dispatchEvent({ type: 'load-error', tile: null, error } as never);
       fail(new Error('CesiumIonAuthPlugin: Failed to load data with error code 401'));
@@ -278,7 +284,43 @@ describe('TileLoadingTracker', () => {
       fail(new Error('CesiumIonAuthPlugin: Failed to load data with error code 503'));
       fail(new Error('GoogleCloudAuth: Failed to load data with error code 429'));
       fail(undefined);
-      expect(seen).toEqual(['credentials', 'credentials', 'credentials', 'unreachable', 'unreachable', 'unreachable', 'unreachable']);
+      expect(seen).toEqual(['credentials', 'credentials', 'credentials', 'unreachable', 'unreachable', 'busy', 'unreachable']);
+    });
+
+    it('fragt eine Wurzel, die aus vorübergehendem Grund fehlt, mit wachsendem Abstand neu an und meldet, wenn sie kommt', () => {
+      const { tiles, tracker } = setup();
+      const seen: (string | null)[] = [];
+      tracker.setOnAuthError((failure) => seen.push(failure));
+      const busy = () => tiles.dispatchEvent({ type: 'load-error', tile: null, error: new Error('Failed to load data with error code 429') } as never);
+      busy();
+      expect(seen).toEqual(['busy']);
+      vi.advanceTimersByTime(14_999);
+      expect(tiles.resetFailedTiles).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      // The plugin left the root as loaded without one: the state goes back, the renderer asks again
+      expect(tiles.resetFailedTiles).toHaveBeenCalledTimes(1);
+      expect(tiles.rootLoadingState).toBe(0);
+      busy();
+      vi.advanceTimersByTime(29_999);
+      expect(tiles.resetFailedTiles).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(1);
+      expect(tiles.resetFailedTiles).toHaveBeenCalledTimes(2);
+
+      tiles.dispatchEvent({ type: 'load-root-tileset' });
+      expect(seen).toEqual(['busy', 'busy', null]);
+      // Nothing more to try
+      vi.advanceTimersByTime(600_000);
+      expect(tiles.resetFailedTiles).toHaveBeenCalledTimes(2);
+    });
+
+    it('fragt bei abgelehnten Zugangsdaten nicht neu an, auf Zuruf des Spielers sofort', () => {
+      const { tiles, tracker } = setup();
+      tracker.setOnAuthError(() => undefined);
+      tiles.dispatchEvent({ type: 'load-error', tile: null, error: new Error('Failed to load data with error code 401') } as never);
+      vi.advanceTimersByTime(600_000);
+      expect(tiles.resetFailedTiles).not.toHaveBeenCalled();
+      tracker.retryRoot();
+      expect(tiles.resetFailedTiles).toHaveBeenCalledTimes(1);
     });
 
     it('vergisst einen gemerkten Auth-Fehler beim Standortwechsel', () => {

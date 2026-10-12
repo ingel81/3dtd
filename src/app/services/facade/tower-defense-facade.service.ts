@@ -92,8 +92,13 @@ export interface FacadeComponentBridge {
 export const FIRST_STREETS_FAILED =
   'The streets of this place did not load: the map server is busy or out of reach. The map shows, but no route. Retry in a minute.';
 
-/** The notice when the map's tile server could not be reached (not a refused key) */
-export const TILES_UNREACHABLE = 'The map server could not be reached. Check the connection and reload.';
+/** The map's tile server could not be reached (not a refused key); the world tries again by itself */
+export const TILES_UNREACHABLE =
+  'The map server could not be reached. The game tries again by itself; check the connection.';
+
+/** The map's tile server limits the requests for now (HTTP 429); the world tries again by itself */
+export const TILES_BUSY =
+  'The map server is limiting requests right now (too many in a short time). The game tries again by itself, which can take a few minutes.';
 
 /**
  * Main facade service, orchestrates initialization, dispose, and delegates
@@ -468,9 +473,24 @@ export class TowerDefenseFacadeService {
         // A rejected token, or a tile server out of reach, surfaces here rather
         // than as a stuck loading screen; only the token goes to its screen
         engine.setOnAuthErrorCallback((failure) => {
+          const problem = this.uiStore.loadProblem();
+          const ours = problem?.text === TILES_BUSY || problem?.text === TILES_UNREACHABLE;
+          // The map came after all: the plate goes, Play waits for nothing else from here
+          if (failure === null) {
+            if (ours) this.uiStore.loadProblem.set(null);
+            return;
+          }
           this.engineInit.setLoading(false);
-          if (failure === 'credentials') this.configService.reportCredentialsRejected();
-          else this.uiStore.notice.set({ text: TILES_UNREACHABLE, reload: true });
+          if (failure === 'credentials') {
+            this.configService.reportCredentialsRejected();
+            return;
+          }
+          // No ground, no game: Play waits, the plate says why and that the game keeps trying
+          this.uiStore.loadProblem.set({
+            text: failure === 'busy' ? TILES_BUSY : TILES_UNREACHABLE,
+            retry: () => engine.retryWorldLoad(),
+            blocksPlay: true,
+          });
         });
         engine.setOnUpdateCallback((deltaTime) => this.gameLoopFacade.onEngineUpdate(deltaTime));
 

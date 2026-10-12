@@ -306,8 +306,14 @@ export interface WorldProvider {
   attribution(): string[];
   /** `callback` once the first ground stands, right away when it does already */
   onFirstGround(callback: () => void): void;
-  /** `callback` when the world could not load (refused credentials, server not reached), replayed */
-  onLoadFailure(callback: (failure: RootLoadFailure) => void): void;
+  /**
+   * `callback` when the world could not load (refused credentials, a busy
+   * server, one not reached), replayed; with null when it loaded after all
+   * (the world tries a busy or unreached server again by itself)
+   */
+  onLoadFailure(callback: (failure: RootLoadFailure | null) => void): void;
+  /** Try a load that failed again now (the player's Retry) */
+  retryLoad(): void;
   /** Fixed HQ and spawns, null where the player picks them */
   startLayout(): WorldStartLayout | null;
   /**

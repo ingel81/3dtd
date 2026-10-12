@@ -280,12 +280,16 @@ export class TilesWorld implements WorldProvider, WorldTiles {
     this.tileLoading?.setOnFirstTilesLoaded(callback);
   }
 
-  onLoadFailure(callback: (failure: RootLoadFailure) => void): void {
+  onLoadFailure(callback: (failure: RootLoadFailure | null) => void): void {
     // Registration usually happens after the tileset request already failed,
     // the tracker replays a remembered error. A world without credentials
     // has none to refuse: a refused root is one that cannot be reached.
     const credentials = this.capabilities.credentials;
-    this.tileLoading?.setOnAuthError((failure) => callback(credentials ? failure : 'unreachable'));
+    this.tileLoading?.setOnAuthError((failure) => callback(failure === 'credentials' && !credentials ? 'unreachable' : failure));
+  }
+
+  retryLoad(): void {
+    this.tileLoading?.retryRoot();
   }
 
   /** The player picks HQ and spawns on a real place */

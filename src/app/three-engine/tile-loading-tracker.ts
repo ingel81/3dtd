@@ -2,6 +2,10 @@ import type { PerspectiveCamera, WebGLRenderer } from 'three';
 import type { TilesRenderer } from '3d-tiles-renderer';
 import { tilesInternals } from './tiles-internals';
 
+/** The renderer's root states (3d-tiles-renderer core/renderer/constants.js, not exported) */
+const TILES_UNLOADED = 0;
+const TILES_LOADING = 2;
+
 /** Tile-Zähler für Loading-Screen, Info-Overlay und die First-Load-Prüfung. */
 export interface TileStats {
   parsing: number;
@@ -36,24 +40,36 @@ const TILE_STATS_CACHE_MS = 500;
 
 /**
  * Why the root tileset did not load: the tile server refused the
- * credentials, or it could not be reached (no network, a timeout, a server
- * error). Only the first goes to the token screen.
+ * credentials, it limits the requests for now (too many in a short time), or
+ * it could not be reached (no network, a timeout, a server error). Only the
+ * first goes to the token screen; the other two are tried again.
  */
-export type RootLoadFailure = 'credentials' | 'unreachable';
+export type RootLoadFailure = 'credentials' | 'busy' | 'unreachable';
 
 /**
- * Tell the two apart by the HTTP status the libraries put in their messages
- * ("error code 401", "with status 403 : Forbidden"). A 4xx other than a
- * timeout or a rate limit is the credentials (Google answers a bad key with
- * 400, Cesium a bad token with 401); a 5xx, 408, 429 or no status at all (a
+ * Tell them apart by the HTTP status the libraries put in their messages
+ * ("error code 401", "with status 403 : Forbidden"). 429 is the rate limit;
+ * any other 4xx but a timeout is the credentials (Google answers a bad key
+ * with 400, Cesium a bad token with 401); a 5xx, 408 or no status at all (a
  * fetch that failed) is the network.
  */
 export function rootLoadFailure(error: unknown): RootLoadFailure {
   const text = error instanceof Error ? error.message : String(error ?? '');
   const status = Number(/(?:error code|with status) (\d{3})/.exec(text)?.[1]);
   if (!Number.isFinite(status)) return 'unreachable';
-  return status >= 400 && status < 500 && status !== 408 && status !== 429 ? 'credentials' : 'unreachable';
+  if (status === 429) return 'busy';
+  return status >= 400 && status < 500 && status !== 408 ? 'credentials' : 'unreachable';
 }
+
+/**
+ * Waits before each new try at a root tileset that failed for a reason that
+ * passes (busy, unreachable), ms; the last one repeats. Slow enough not to
+ * add to a rate limit, soon enough that the player sees the map come.
+ */
+export const ROOT_RETRY_MS: readonly number[] = [15_000, 30_000, 60_000, 120_000];
+
+/** The root tileset failed (with why) or, after a failure, came after all (null) */
+export type RootLoadListener = (failure: RootLoadFailure | null) => void;
 
 /**
  * TileLoadingTracker: wann gelten die ersten Tiles als geladen, und wann hat sich
@@ -85,8 +101,11 @@ export class TileLoadingTracker {
   // reached (RootLoadFailure). The failure lands during initEngine(), before
   // the caller gets the engine back to register anything, so a missed one is
   // remembered and replayed.
-  private onAuthErrorCallback: ((failure: RootLoadFailure) => void) | null = null;
+  private onAuthErrorCallback: RootLoadListener | null = null;
   private rootFailure: RootLoadFailure | null = null;
+  /** Tries at the root after a failure that passes, and the timer of the next */
+  private rootTries = 0;
+  private rootRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -131,8 +150,45 @@ export class TileLoadingTracker {
       if (tile === null) {
         this.rootFailure = rootLoadFailure(error);
         this.onAuthErrorCallback?.(this.rootFailure);
+        if (this.rootFailure !== 'credentials') this.scheduleRootRetry();
       }
     });
+
+    // The root came after a failure: the player hears it is there
+    tilesRenderer.addEventListener('load-root-tileset', () => {
+      if (this.rootFailure === null) return;
+      this.rootFailure = null;
+      this.rootTries = 0;
+      this.clearRootRetry();
+      this.onAuthErrorCallback?.(null);
+    });
+  }
+
+  /**
+   * Ask for the root tileset again now (the player's Retry, or the timer).
+   * The Cesium plugin reports its failed handshake and then lets the
+   * renderer take the missing root as loaded, so the state goes back by hand.
+   */
+  retryRoot(): void {
+    const tiles = this.tilesRenderer;
+    this.clearRootRetry();
+    if (!tiles || this.rootFailure === null) return;
+    const internals = tiles as unknown as { rootLoadingState: number; rootTileset: unknown };
+    tiles.resetFailedTiles();
+    if (internals.rootTileset == null && internals.rootLoadingState !== TILES_LOADING) internals.rootLoadingState = TILES_UNLOADED;
+    tiles.dispatchEvent({ type: 'needs-update' } as never);
+  }
+
+  private scheduleRootRetry(): void {
+    this.clearRootRetry();
+    const wait = ROOT_RETRY_MS[Math.min(this.rootTries, ROOT_RETRY_MS.length - 1)];
+    this.rootTries++;
+    this.rootRetryTimer = setTimeout(() => this.retryRoot(), wait);
+  }
+
+  private clearRootRetry(): void {
+    if (this.rootRetryTimer) clearTimeout(this.rootRetryTimer);
+    this.rootRetryTimer = null;
   }
 
   /**
@@ -153,7 +209,7 @@ export class TileLoadingTracker {
    * server asks for a reload; either instead of a loading indicator that
    * never finishes.
    */
-  setOnAuthError(callback: (failure: RootLoadFailure) => void): void {
+  setOnAuthError(callback: RootLoadListener): void {
     this.onAuthErrorCallback = callback;
 
     // Registration usually happens after the tileset request already failed.
@@ -184,6 +240,8 @@ export class TileLoadingTracker {
     this.retryCount = 0;
     this.tilesetLoadCount = 0;
     this.rootFailure = null;
+    this.rootTries = 0;
+    this.clearRootRetry();
     this.cameraNudgeCount = 0;
   }
 
@@ -327,6 +385,7 @@ export class TileLoadingTracker {
    */
   dispose(): void {
     this.clearTimers();
+    this.clearRootRetry();
     if (this.tilesRenderer) {
       this.tilesRenderer.removeEventListener('tiles-load-end', this.tilesLoadEndHandler);
       this.tilesRenderer = null;

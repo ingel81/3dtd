@@ -159,8 +159,12 @@ export class DevWorldProvider implements WorldProvider {
   }
 
   /** Generated on the device: nothing to refuse, nothing to reach */
-  onLoadFailure(_callback: (failure: RootLoadFailure) => void): void {
+  onLoadFailure(_callback: (failure: RootLoadFailure | null) => void): void {
     // never fails to load
+  }
+
+  retryLoad(): void {
+    // nothing failed
   }
 
   /**

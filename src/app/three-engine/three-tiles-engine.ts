@@ -478,10 +478,15 @@ export class ThreeTilesEngine {
    * Register a callback for a root tileset that failed, with why
    * (RootLoadFailure): refused credentials or a server not reached.
    */
-  setOnAuthErrorCallback(callback: (failure: RootLoadFailure) => void): void {
+  setOnAuthErrorCallback(callback: (failure: RootLoadFailure | null) => void): void {
     // Registration usually happens after the tileset request already failed,
     // the world replays a remembered error.
     this.world.onLoadFailure(callback);
+  }
+
+  /** Try a failed root tileset again now */
+  retryWorldLoad(): void {
+    this.world.retryLoad();
   }
 
   /**

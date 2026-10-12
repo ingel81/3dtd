@@ -318,8 +318,12 @@ export class CustomMapWorld implements WorldProvider {
   }
 
   /** The map is in memory: nothing to refuse, nothing to reach */
-  onLoadFailure(_callback: (failure: RootLoadFailure) => void): void {
+  onLoadFailure(_callback: (failure: RootLoadFailure | null) => void): void {
     // never fails to load
+  }
+
+  retryLoad(): void {
+    // nothing failed
   }
 
   /**

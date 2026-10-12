@@ -85,7 +85,8 @@ interface WorldProvider {
   sceneToEcef(target): Matrix4 | null;
   attribution(): string[];               // Quellenzeile und Fotomodus, sonst nichts
   onFirstGround(cb): void;                // mit Nachholen
-  onLoadFailure(cb): void;                // 'credentials' | 'unreachable', mit Nachholen
+  onLoadFailure(cb): void;                // 'credentials' | 'busy' | 'unreachable', mit Nachholen; null: doch geladen
+  retryLoad(): void;                      // Retry des Spielers; busy und unreachable versucht die Welt selbst neu
   startLayout(): WorldStartLayout | null; // HQ + Spawns der Welt, null: Spieler wählt (Tiles)
   runRules(): RunRules | null;            // Startcredits, HQ-HP, erlaubte Tower; null: die des Spiels
   worldWaves(): WorldWaves | null;        // Wellenquelle der Welt, ggf. mit eigener Liste; null: Wahl des Spielers
