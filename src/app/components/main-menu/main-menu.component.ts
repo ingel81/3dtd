@@ -111,13 +111,25 @@ export class MainMenuComponent {
 
   readonly tips = FIELD_TIPS;
   readonly tipIndex = signal(Math.floor(Math.random() * FIELD_TIPS.length));
+  private tipTimer?: ReturnType<typeof setInterval>;
+
+  /** A dot under the tip: show that tip, the next one a full TIP_ROTATE_MS later */
+  showTip(index: number): void {
+    this.tipIndex.set(index);
+    this.restartTipTimer();
+  }
+
+  private restartTipTimer(): void {
+    clearInterval(this.tipTimer);
+    this.tipTimer = setInterval(() => this.tipIndex.update((i) => (i + 1) % this.tips.length), TIP_ROTATE_MS);
+  }
 
   constructor() {
     // A start without a place takes the host's place of a coop join or a save's place
     followStartPlaces();
-    const timer = setInterval(() => this.tipIndex.update((i) => (i + 1) % this.tips.length), TIP_ROTATE_MS);
+    this.restartTipTimer();
     const destroyRef = inject(DestroyRef);
-    destroyRef.onDestroy(() => clearInterval(timer));
+    destroyRef.onDestroy(() => clearInterval(this.tipTimer));
 
     // Into the menu on open, back where it was on close: cdkTrapFocusAutoCapture would give it back loud
     afterNextRender(() => void this.trap().focusTrap.focusInitialElementWhenReady(), { injector: this.injector });

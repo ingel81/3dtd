@@ -81,14 +81,58 @@
   max-width: calc(100vw - 32px);
 }
 
+/* A small card: the tip, the dots page through all of them */
 .mm-tip {
+  display: grid;
+  gap: var(--td-sp-2);
+  padding: var(--td-sp-3) var(--td-sp-4);
+}
+
+.mm-tip-head {
   display: flex;
-  gap: var(--td-sp-3);
-  align-items: baseline;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .mm-tip-label {
   color: var(--td-brass);
+}
+
+.mm-tip-dots {
+  display: flex;
+  gap: 2px;
+}
+
+.mm-tip-dot {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+
+  &::before {
+    content: '';
+    display: block;
+    width: 5px;
+    height: 5px;
+    margin: auto;
+    border-radius: 50%;
+    background: var(--td-text-disabled);
+  }
+
+  &:hover::before {
+    background: var(--td-text-muted);
+  }
+
+  &.is-on::before {
+    background: var(--td-brass);
+  }
+}
+
+.mm-tip-text {
+  margin: 0;
 }
 
 .mm-tip-gold {
@@ -101,8 +145,13 @@
   color: var(--td-teal-light);
 }
 
+/* Legal and Privacy first, the build and world quieter behind */
 .mm-version {
-  margin: var(--td-sp-4) 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--td-sp-3);
+  margin: var(--td-sp-3) 0 0;
 
   a {
     color: inherit;
@@ -112,6 +161,10 @@
   a:hover {
     color: var(--td-brass-light);
   }
+}
+
+.mm-version-build {
+  color: var(--td-text-dim);
 }
 
 .mm-loading {

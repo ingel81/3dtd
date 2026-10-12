@@ -24,6 +24,7 @@ import { MainMenuComponent } from './main-menu.component';
 import { MainMenuService, startMenuSkipped } from './main-menu.service';
 import { MenuHomeComponent } from './pages/home/menu-home.component';
 import { MenuLoadingComponent } from './loading/menu-loading.component';
+import { FIELD_TIPS } from './loading/field-tips';
 import { RovingGroupDirective } from '../roving-group.directive';
 import type { BootStep } from './loading/boot-step.model';
 import { UIStore } from '../../store/ui.store';
@@ -210,6 +211,22 @@ describe('The main menu', () => {
       expect(el().querySelector('app-menu-loading')).toBeNull();
       // The map editor shows, not yet open
       expect(entry('editor')!.getAttribute('aria-disabled')).toBe('true');
+    });
+
+    it('pages through the tips with the dots under the card, and leads its foot with Legal and Privacy (TODO E147, E148)', async () => {
+      coordinator.awaitingStartChoice.set(true);
+      await setup();
+      const dots = Array.from(el().querySelectorAll<HTMLElement>('.mm-tip-dot'));
+      expect(dots).toHaveLength(FIELD_TIPS.length);
+
+      await click(dots[2]);
+      const shown = el().querySelector('.mm-tip-text')!.textContent!.replace(/\s+/g, ' ').trim();
+      expect(shown).toBe(FIELD_TIPS[2].parts.map((p) => p.text).join('').replace(/\s+/g, ' ').trim());
+      expect(dots[2].getAttribute('aria-current')).toBe('true');
+      expect(dots[0].getAttribute('aria-current')).toBeNull();
+
+      const foot = el().querySelector('.mm-version')!.textContent!.replace(/\s+/g, ' ').trim();
+      expect(foot.startsWith('Legal | Privacy')).toBe(true);
     });
 
     // The focus moving in on open is cdkTrapFocus's (autoCapture), which jsdom's layout-less tabbable check never finds

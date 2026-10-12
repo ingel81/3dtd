@@ -37,11 +37,24 @@
 
   @if (layer() === 'start') {
     <div class="mm-foot">
-      <p class="mm-tip td-text">
-        <span class="mm-tip-label td-caps">Tip</span>
-        <span>@for (part of tips[tipIndex()].parts; track $index) {@if (part.accent) {<b [class]="'mm-tip-' + part.accent">{{ part.text }}</b>} @else {<span>{{ part.text }}</span>}}</span>
+      <div class="mm-tip td-well td-text">
+        <div class="mm-tip-head td-caps">
+          <span class="mm-tip-label">Tip</span>
+          <span class="mm-tip-dots">
+            @for (t of tips; track $index) {
+              <button type="button" class="mm-tip-dot" [class.is-on]="$index === tipIndex()"
+                      [attr.aria-label]="'Tip ' + ($index + 1) + ' of ' + tips.length"
+                      [attr.aria-current]="$index === tipIndex() ? 'true' : null"
+                      (click)="showTip($index)"></button>
+            }
+          </span>
+        </div>
+        <p class="mm-tip-text">@for (part of tips[tipIndex()].parts; track $index) {@if (part.accent) {<b [class]="'mm-tip-' + part.accent">{{ part.text }}</b>} @else {<span>{{ part.text }}</span>}}</p>
+      </div>
+      <p class="mm-version td-caps">
+        <span><a [href]="legalUrl" target="_blank" rel="noopener">Legal</a> | <a [href]="privacyUrl" target="_blank" rel="noopener">Privacy</a></span>
+        <span class="mm-version-build">{{ version() }}</span>
       </p>
-      <p class="mm-version td-caps">{{ version() }} | <a [href]="legalUrl" target="_blank" rel="noopener">Legal</a> | <a [href]="privacyUrl" target="_blank" rel="noopener">Privacy</a></p>
     </div>
   }
 
