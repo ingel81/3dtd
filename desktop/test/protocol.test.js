@@ -5,6 +5,7 @@ const path = require('node:path');
 const { describe, it } = require('node:test');
 const {
   CONTENT_SECURITY_POLICY,
+  TRANSCODER_WORKER_POLICY,
   createAppProtocolHandler,
   mimeTypeFor,
   parseRange,
@@ -103,6 +104,7 @@ describe('createAppProtocolHandler', () => {
     [inRoot('index.html'), Buffer.from('<!doctype html>')],
     [inRoot('main.js'), Buffer.from('console.log(1)')],
     [inRoot('music.mp3'), Buffer.from('0123456789')],
+    [inRoot('basis/ktx2-worker.js'), Buffer.from('new Function()')],
   ]);
   const readFile = async (filePath) => {
     if (files.has(filePath)) return files.get(filePath);
@@ -118,6 +120,16 @@ describe('createAppProtocolHandler', () => {
     assert.equal(response.headers.get('content-length'), '14');
     assert.equal(response.headers.get('content-security-policy'), CONTENT_SECURITY_POLICY);
     assert.equal(await response.text(), 'console.log(1)');
+  });
+
+  it('lets only the transcoder worker evaluate strings', async () => {
+    const worker = await handler(request('app://app/basis/ktx2-worker.js'));
+    assert.equal(worker.headers.get('content-security-policy'), TRANSCODER_WORKER_POLICY);
+    assert.match(TRANSCODER_WORKER_POLICY, /script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'/);
+    assert.equal(TRANSCODER_WORKER_POLICY.replace(" 'unsafe-eval'", ''), CONTENT_SECURITY_POLICY);
+    assert.doesNotMatch(CONTENT_SECURITY_POLICY, /'unsafe-eval'/);
+    const elsewhere = await handler(request('app://app/assets/basis/ktx2-worker.js?x'));
+    assert.equal(elsewhere.headers.get('content-security-policy'), CONTENT_SECURITY_POLICY);
   });
 
   it('answers routes with index.html', async () => {

@@ -75,6 +75,33 @@ export function regionTilesAround(lat: number, lon: number, index: RegionIndex):
   return out;
 }
 
+/** The transcoder's worker as a file (tools/basis/build-ktx2-worker.mjs), beside the transcoder */
+export const TRANSCODER_WORKER = BASIS_PATH + 'ktx2-worker.js';
+
+/**
+ * KTX2Loader with its worker from a file instead of a blob. The transcoder's
+ * embind makes its bindings with `new Function`; a blob worker inherits the
+ * page's Content-Security-Policy, which forbids that (no globe in the desktop
+ * app, 2026-10-13), a worker from a URL takes its own response's, which
+ * allows it for this one file (desktop/src/protocol.js, public/.htaccess).
+ */
+export class FileWorkerKTX2Loader extends KTX2Loader {
+  constructor(private readonly workerUrl: string) {
+    super();
+  }
+
+  override init(): Promise<void> {
+    return super.init().then(() => {
+      this.workerPool.setWorkerCreator(() => {
+        const worker = new Worker(this.workerUrl);
+        const transcoderBinary = this.transcoderBinary!.slice(0);
+        worker.postMessage({ type: 'init', config: this.workerConfig, transcoderBinary }, [transcoderBinary]);
+        return worker;
+      });
+    });
+  }
+}
+
 /** Loads and owns the textures; dispose() frees them all */
 export class GlobeTextures {
   private readonly loader: KTX2Loader;
@@ -90,7 +117,7 @@ export class GlobeTextures {
     private readonly renderer: WebGLRenderer,
     private readonly baseUrl: string,
   ) {
-    this.loader = new KTX2Loader()
+    this.loader = new FileWorkerKTX2Loader(new URL(TRANSCODER_WORKER, baseUrl).href)
       .setTranscoderPath(new URL(BASIS_PATH, baseUrl).href)
       .setWorkerLimit(2)
       .detectSupport(renderer);

@@ -14,9 +14,14 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 
 const require = createRequire(import.meta.url);
-const { CONTENT_SECURITY_POLICY } = require('../../desktop/src/protocol.js') as { CONTENT_SECURITY_POLICY: string };
+const { CONTENT_SECURITY_POLICY, TRANSCODER_WORKER_POLICY } = require('../../desktop/src/protocol.js') as {
+  CONTENT_SECURITY_POLICY: string;
+  TRANSCODER_WORKER_POLICY: string;
+};
 
 const htaccess = readFileSync(resolve('public/.htaccess'), 'utf8');
+/** The policy the web server sends with the Basis transcoder's worker */
+const workerPolicy = /<Files "ktx2-worker\.js">\s*Header always set Content-Security-Policy "([^"]+)"\s*<\/Files>/.exec(htaccess)?.[1] ?? null;
 /** The policy the web server sends with /play/ */
 const webPolicy = /^\s*Header always set Content-Security-Policy "([^"]+)"\s*$/m.exec(htaccess)?.[1] ?? null;
 const indexFile = resolve('dist/3DTD/browser/index.html');
@@ -27,6 +32,11 @@ describe('the web version’s CSP', () => {
     expect(webPolicy).toBe(CONTENT_SECURITY_POLICY);
     expect(htaccess).toContain('Header always set Cross-Origin-Opener-Policy "same-origin"');
     expect(htaccess).toContain('Header always set Cross-Origin-Embedder-Policy "credentialless"');
+  });
+
+  it('lets only the transcoder worker evaluate strings, as the desktop app does', () => {
+    expect(workerPolicy).toBe(TRANSCODER_WORKER_POLICY);
+    expect(webPolicy).not.toContain("'unsafe-eval'");
   });
 
   it.skipIf(!existsSync(indexFile))('allows every inline script and handler of the built index.html', () => {

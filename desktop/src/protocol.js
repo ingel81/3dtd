@@ -95,6 +95,16 @@ const CONTENT_SECURITY_POLICY = [
 ].join('; ');
 
 /**
+ * The Basis transcoder's worker (src/app/globe/globe-textures.ts, built by
+ * tools/basis/build-ktx2-worker.mjs). Emscripten's embind makes the
+ * transcoder's bindings with `new Function`; a worker loaded from a URL runs
+ * under the policy of its own response, so only this file may evaluate
+ * strings, the page still may not. Without it the globe got no textures.
+ */
+const TRANSCODER_WORKER_PATH = '/basis/ktx2-worker.js';
+const TRANSCODER_WORKER_POLICY = CONTENT_SECURITY_POLICY.replace("script-src 'self'", "script-src 'self' 'unsafe-eval'");
+
+/**
  * Cross-origin isolation (docs/SIM_WORKER.md): the simulation worker shares
  * its tables with the page through SharedArrayBuffer, which needs the page
  * isolated. `credentialless` keeps the tile and map hosts working without a
@@ -174,6 +184,14 @@ function parseRange(header, size) {
   return { start, end };
 }
 
+function isTranscoderWorker(requestUrl) {
+  try {
+    return new URL(requestUrl).pathname === TRANSCODER_WORKER_PATH;
+  } catch {
+    return false;
+  }
+}
+
 const NOT_FOUND_ERRORS = new Set(['ENOENT', 'ENOTDIR', 'EISDIR']);
 
 /**
@@ -181,9 +199,9 @@ const NOT_FOUND_ERRORS = new Set(['ENOENT', 'ENOTDIR', 'EISDIR']);
  * reads inside the asar in Electron and a fake does in the tests.
  */
 function createAppProtocolHandler({ root, readFile }) {
-  const headers = (extra) => ({ 'Content-Security-Policy': CONTENT_SECURITY_POLICY, ...CROSS_ORIGIN_ISOLATION, ...extra });
-
   return async function handleAppRequest(request) {
+    const policy = isTranscoderWorker(request.url) ? TRANSCODER_WORKER_POLICY : CONTENT_SECURITY_POLICY;
+    const headers = (extra) => ({ 'Content-Security-Policy': policy, ...CROSS_ORIGIN_ISOLATION, ...extra });
     const filePath = resolveFilePath(root, request.url);
     if (!filePath) return new Response(null, { status: 404, headers: headers() });
 
@@ -231,6 +249,7 @@ module.exports = {
   ALLOWED_INLINE_SCRIPTS,
   CONNECT_HOSTS,
   CONTENT_SECURITY_POLICY,
+  TRANSCODER_WORKER_POLICY,
   createAppProtocolHandler,
   mimeTypeFor,
   parseRange,
