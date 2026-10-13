@@ -114,3 +114,27 @@ describe('moonlight', () => {
     for (const e of [plain, lit, day, dayMoon]) e.dispose();
   });
 });
+
+describe('tone mapping (custom maps only)', () => {
+  it('tone maps the map with Neutral at the look exposure and gives the renderer its own back on detach', async () => {
+    const { Scene, NeutralToneMapping, ACESFilmicToneMapping } = await import('three');
+    const renderer = {
+      shadowMap: { autoUpdate: true, needsUpdate: false },
+      toneMapping: ACESFilmicToneMapping,
+      toneMappingExposure: 0.21,
+      getRenderTarget: () => null,
+      setRenderTarget: () => undefined,
+      compileAsync: () => Promise.resolve(),
+    };
+    const e = new CustomMapEnvironment(env);
+    e.apply(new Scene(), renderer as unknown as WebGLRenderer);
+    expect(renderer.toneMapping).toBe(NeutralToneMapping);
+    expect(renderer.toneMappingExposure).toBeCloseTo(1.4);
+    e.set({ ...env, sky: 'night' });
+    expect(renderer.toneMappingExposure).toBeCloseTo(1.7);
+    e.detach();
+    expect(renderer.toneMapping).toBe(ACESFilmicToneMapping);
+    expect(renderer.toneMappingExposure).toBe(0.21);
+    e.dispose();
+  });
+});

@@ -42,6 +42,8 @@ export interface BiomeLook extends SkyPreset {
   /** 0..1 aurora bands */
   aurora: number;
   particles: AmbientParticles;
+  /** Tone mapping exposure of the map (Khronos PBR Neutral) */
+  exposure: number;
 }
 
 export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
@@ -115,11 +117,22 @@ export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
   },
 };
 
-const PLAIN = { fogScale: 1, fogFalloff: 1 / 70, stars: 0, planet: false, aurora: 0, particles: null as AmbientParticles };
+const PLAIN = { fogScale: 1, fogFalloff: 1 / 70, stars: 0, planet: false, aurora: 0, particles: null as AmbientParticles, exposure: 1 };
+
+/**
+ * Tone mapping exposure per sky (Khronos PBR Neutral rolls off the
+ * highlights and pulls the darkest values down): the lights were tuned
+ * without tone mapping, these bring a map back to its brightness, darker
+ * skies a little more, so dusk and night keep their shapes
+ */
+const SKY_EXPOSURE: Record<MapEnvironment['sky'], number> = { day: 1.4, overcast: 1.4, dusk: 1.55, night: 1.7 };
+/** Looks whose ground is bright on its own (snow, sand) need less */
+const BIOME_EXPOSURE: Partial<Record<MapBiome, number>> = { arctic: 0.82, desert: 0.9 };
 
 /** The look of a biome under a sky preset */
 export function biomeLook(biome: MapBiome | undefined, sky: MapEnvironment['sky']): BiomeLook {
   const look = biomeLookUnclamped(biome, sky);
+  look.exposure = (SKY_EXPOSURE[sky] ?? 1.4) * (BIOME_EXPOSURE[biome ?? 'temperate'] ?? 1);
   // Biomes colour their clouds and sky light by day; at night those must not outshine the night
   // preset, or the sky glows (a swamp's pale green clouds over a black marsh). Hell and the moon
   // set their own dark skies

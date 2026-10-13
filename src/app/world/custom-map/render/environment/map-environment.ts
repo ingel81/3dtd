@@ -11,6 +11,7 @@ import {
   HemisphereLight,
   LinearFilter,
   Mesh,
+  NeutralToneMapping,
   OrthographicCamera,
   PMREMGenerator,
   RGBAFormat,
@@ -22,6 +23,7 @@ import {
   type Fog,
   type Material,
   type Scene,
+  type ToneMapping,
   type WebGLRenderTarget,
   type WebGLRenderer,
 } from 'three';
@@ -46,9 +48,12 @@ import { setWind, windOf, WIND_UNIFORMS } from './wind';
  *   horizon colour.
  *
  * `apply(scene, renderer)` installs all of it and remembers what was there;
- * `detach()` puts that back. Lights are tuned for the game's renderer
- * (no tone mapping, sRGB output). The renderer needs `shadowMap.enabled`
- * for the sun's shadows (see `enableShadows`).
+ * `detach()` puts that back. The map is tone mapped (Khronos PBR Neutral,
+ * the look's exposure): `apply` sets the renderer's tone mapping, `detach`
+ * gives the one it had back exactly, so tiles and the globe never see it.
+ * Neutral leaves colours below about 0.76 as they are and rolls off the
+ * highlights, so towers, enemies and effects keep their look. The renderer
+ * needs `shadowMap.enabled` for the sun's shadows (see `enableShadows`).
  */
 
 const SKY_WIDTH = 512;
@@ -99,6 +104,7 @@ export class CustomMapEnvironment {
   private readonly shadowCenter = new Vector3(Number.NaN, 0, 0);
   private shadowBoxRadius = 0;
   private previousShadowAuto: boolean | null = null;
+  private previousToneMapping: { mapping: ToneMapping; exposure: number } | null = null;
   private scene: Scene | null = null;
   private renderer: WebGLRenderer | null = null;
   /** The scene's background: a plain clear in the haze's colour, the dome over it */
@@ -140,6 +146,7 @@ export class CustomMapEnvironment {
       (env.tint || '#ffffff') !== (this.env.tint || '#ffffff');
     this.env = env;
     const p = this.look();
+    if (this.renderer && this.previousToneMapping) this.renderer.toneMappingExposure = p.exposure;
     const tint = new Color(env.tint || '#ffffff');
     sunDirection(env.sunAzimuth, env.sunElevation, this.sunDir);
     // Low sun: warmer and weaker
@@ -243,6 +250,9 @@ export class CustomMapEnvironment {
     this.renderer = renderer;
     this.previousShadowAuto = renderer.shadowMap.autoUpdate;
     renderer.shadowMap.autoUpdate = false;
+    this.previousToneMapping = { mapping: renderer.toneMapping, exposure: renderer.toneMappingExposure };
+    renderer.toneMapping = NeutralToneMapping;
+    renderer.toneMappingExposure = this.look().exposure;
     this.shadowDirty = true;
     this.previous = {
       background: scene.background,
@@ -260,6 +270,11 @@ export class CustomMapEnvironment {
     if (this.renderer && this.previousShadowAuto !== null) {
       this.renderer.shadowMap.autoUpdate = this.previousShadowAuto;
       this.previousShadowAuto = null;
+    }
+    if (this.renderer && this.previousToneMapping) {
+      this.renderer.toneMapping = this.previousToneMapping.mapping;
+      this.renderer.toneMappingExposure = this.previousToneMapping.exposure;
+      this.previousToneMapping = null;
     }
     if (this.scene && this.previous) {
       this.scene.background = this.previous.background;

@@ -251,8 +251,16 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Float-Ziel), sonst würde der Kontrast dunkle Werte schwarz drücken
 - Halbkugellicht, `tint` färbt Licht und Himmel. Das Halbkugellicht ist die kühle Füllung der Schattenseiten (Tag 0,75,
   Dämmerung 0,95, Wüste, Hölle und Mars 0,75; der Mond bleibt hart): Schatten bleiben lesbar statt fast schwarz.
-  Spielkarten stellen die Sonne auf mindestens etwa 20°, flacher werden die Schatten lang und der Boden dunkel. Abgestimmt auf den Renderer des Spiels (kein Tone-Mapping, sRGB);
+  Spielkarten stellen die Sonne auf mindestens etwa 20°, flacher werden die Schatten lang und der Boden dunkel.
   `/map-preview?post=bloom` rendert durch die Post-Processing-Kette des Spiels
+- **Tone-Mapping** nur auf eigenen Karten: `apply()` setzt am Renderer Khronos PBR Neutral (`NeutralToneMapping`) und
+  die Belichtung des Looks, `detach()` stellt Tone-Mapping und Belichtung des Renderers exakt wieder her (Tiles,
+  DevWorld und Globus sehen es nie: in der DevWorld hat keines der 67 Programme `TONE_MAPPING`, ein Standbild ist bis
+  auf bewegte Teile pixelgleich). Neutral lässt Farben unter etwa 0,76 stehen und rollt nur die Lichter ab; Tower,
+  Gegner und Effekte bleiben so fast unverändert (ihre eigenen Shader rechnen in Anzeigewerten, durch die
+  Post-Processing-Kette läuft der OutputPass mit demselben Tone-Mapping). Belichtung je Himmel: Tag und bedeckt 1,4,
+  Dämmerung 1,55, Nacht 1,7; Arktis × 0,82, Wüste × 0,9 (heller Boden). Damit bleibt die mittlere Helligkeit der
+  Level wie ohne Tone-Mapping, Schatten werden etwas tiefer, Lichter brennen nicht mehr aus
 
 **Randlicht für Gegner** (`WorldCapabilities.enemyRimLight`, nur eigene Karten): ein kühler Saum, wo die Oberfläche
 eines Gegners sich von der Kamera abwendet (`uRimLight` in `vat-material.ts`, Stärke 0,55), damit Gegner sich vom
