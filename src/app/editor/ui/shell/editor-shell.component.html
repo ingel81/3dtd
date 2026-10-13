@@ -91,7 +91,12 @@
       <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.error.set(null)">Dismiss</button>
     </p>
   }
-  @if (session.readOnly()) {
+  @if (session.viewLost()) {
+    <p class="td-banner is-warn is-row td-overlay es-reminder" role="alert" data-test="view-lost">
+      <span>View lost: the graphics driver reset it. Your map is safe; the view comes back by itself in a moment.</span>
+      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.reloadPage()">Reload the page</button>
+    </p>
+  } @else if (session.readOnly()) {
     <p class="td-banner is-warn is-row td-overlay es-reminder" role="status" data-test="read-only">
       <span>Another tab edits this map. Here you can look around; changes wait until this tab takes over.</span>
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.takeOver()" data-test="take-over">Take over editing</button>

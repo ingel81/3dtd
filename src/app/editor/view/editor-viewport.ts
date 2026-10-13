@@ -67,6 +67,8 @@ export interface ViewportCallbacks {
   camera(): void;
   /** The map's models and textures are in and its programs compiled */
   viewReady(): void;
+  /** The WebGL context went (a driver reset, the GPU process restarted) or came back with a rebuilt view */
+  contextLost(lost: boolean): void;
 }
 
 
@@ -548,11 +550,21 @@ export class EditorViewport {
 
   private bindInput(): void {
     const c = this.canvas;
-    const on = <K extends keyof HTMLElementEventMap>(type: K, fn: (e: HTMLElementEventMap[K]) => void, opts?: AddEventListenerOptions) => {
+    type CanvasEvents = HTMLElementEventMap & { webglcontextlost: WebGLContextEvent; webglcontextrestored: Event };
+    const on = <K extends keyof CanvasEvents & string>(type: K, fn: (e: CanvasEvents[K]) => void, opts?: AddEventListenerOptions) => {
       c.addEventListener(type, fn as EventListener, opts);
       this.unsubscribe.push(() => c.removeEventListener(type, fn as EventListener));
     };
     on('contextmenu', (e) => e.preventDefault());
+    // A driver reset takes the GPU's copies; the textures keep no pixels after their upload, so the view is built anew
+    on('webglcontextlost', (e) => {
+      e.preventDefault();
+      this.callbacks.contextLost(true);
+    });
+    on('webglcontextrestored', () => {
+      this.rebuildView();
+      this.callbacks.contextLost(false);
+    });
     on('pointerdown', (e) => this.onPointerDown(e));
     on('pointermove', (e) => this.onPointerMove(e));
     on('pointerup', (e) => this.onPointerUp(e));

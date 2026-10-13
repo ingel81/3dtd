@@ -73,6 +73,8 @@ export class EditorSession implements OnDestroy {
   /** The terrain job running (generate, erode the map) and how far it is */
   readonly terrainJob = signal<{ label: string; progress: number } | null>(null);
   private terrainAbort: AbortController | null = null;
+  /** The 3D view lost its WebGL context and waits for it to come back; the map in memory is untouched */
+  readonly viewLost = signal(false);
   /** The latest change of the document (a new object each time, for the tour) */
   readonly lastChange = signal<{ change: DocChange } | null>(null);
   /** The save running now, if any */
@@ -573,11 +575,28 @@ export class EditorSession implements OnDestroy {
         stats: (s) => this.stats.set(s),
         camera: () => this.cameraRev.update((n) => n + 1),
         viewReady: () => this.zone.run(() => this.viewRev.update((n) => n + 1)),
+        contextLost: (lost) => this.zone.run(() => this.onContextLost(lost)),
       });
       this.viewport.setTool(this.tools[this.tool()]);
       if (this.readOnly()) this.viewport.setLocked(true);
     });
     this.hint.set(this.tools[this.tool()].hint(this.viewport!.ctx));
+  }
+
+  /** The view's context went: the map is saved at once (it lives in memory, not on the GPU); back, the view is rebuilt */
+  onContextLost(lost: boolean): void {
+    this.viewLost.set(lost);
+    if (lost) {
+      this.refresh();
+      if (this.dirty() && !this.readOnly()) void this.save(false);
+    } else this.flash('The view is back');
+  }
+
+  /** The view does not come back: save, then load the page anew */
+  async reloadPage(): Promise<void> {
+    this.refresh();
+    if (this.dirty() && !this.readOnly()) await this.save(false);
+    location.reload();
   }
 
   detachViewport(): void {

@@ -262,6 +262,11 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   schreibgeschützt und reiht sich ein, dieser liest die Karte neu und bearbeitet sie. Antwortet der andere nicht in
   3 s (eingefroren, schlafender Tab), nimmt er die Sperre mit `steal`. Schließt der bearbeitende Tab, bekommt der
   wartende die Karte von selbst. Ohne Web Locks (alte Browser) darf jeder Tab bearbeiten, wie früher
+- Kontextverlust: setzt der Grafiktreiber zurück (oder der GPU-Prozess startet neu), verliert die Ansicht ihren
+  WebGL-Kontext. Die Karte liegt im Speicher, nicht auf der GPU: der Editor speichert sofort, ein Banner sagt „View
+  lost … Your map is safe“ (mit „Reload the page“, das vorher speichert). Kommt der Kontext zurück
+  (`webglcontextrestored`), baut die Ansicht sich neu (`rebuildView`: die Textur-Arrays behalten nach dem Hochladen
+  keine Pixel, ein bloßes Wiederhochladen ginge nicht)
 - Dauerhaft halten: ein Browser darf IndexedDB bei Platzmangel räumen, samt Versionen. Das erste Speichern je Seite
   fragt daher `navigator.storage.persist()` (`editor/model/storage-safety.ts`; Firefox fragt den Spieler, Chrome
   entscheidet selbst). Das Map-Panel (9) zeigt unter „Storage“ den Stand: Kartenordner der Desktop-App, „keeps your
