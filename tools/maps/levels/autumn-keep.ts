@@ -70,7 +70,7 @@ export function buildAutumnKeep(): CustomMapDocument {
   k.paint('grass-withered', [{ x: -60, y: -60 }, { x: 60, y: -60 }], { radius: 50, falloff: 1 }, 0.15);
   k.paint('cobblestone-mossy', c, { radius: 30, falloff: 0.7 }, 0.6);
   k.paint('leaves-scattered', green, { radius: 22, falloff: 0.8 }, 0.35);
-  k.scatter(['branches', 'mushrooms-red'], [{ x: -160, y: -60 }, { x: -60, y: -90 }, { x: 60, y: -120 }, { x: 140, y: -20 }, { x: -120, y: 50 }, { x: 110, y: 60 }], { radius: 45, strength: 1 }, { density: 4, minDistance: 3 });
+  k.scatter(['branches', 'mushrooms'], [{ x: -160, y: -60 }, { x: -60, y: -90 }, { x: 60, y: -120 }, { x: 140, y: -20 }, { x: -120, y: 50 }, { x: 110, y: 60 }], { radius: 45, strength: 1 }, { density: 4, minDistance: 3 });
   // Lone trees on the green and the slopes
   k.scatter(['tree-maple-red', 'tree-oak-autumn', 'tree-birch-autumn', 'tree-maple-autumn'], [{ x: -110, y: -20 }, { x: -70, y: 10 }, { x: 70, y: 0 }, { x: 110, y: -10 }, { x: -60, y: 115 }, { x: 60, y: 115 }, { x: -90, y: 70 }, { x: 95, y: 60 }], { radius: 32, strength: 0.8 }, { density: 1.6, minDistance: 11 });
 

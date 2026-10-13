@@ -3,8 +3,9 @@
  * file reads and validates, its content hash is the listed one, every spawn
  * reaches the HQ over the map's roads as the game routes them (300 to 1200 m),
  * no object that blocks building stands on a road, every asset and material
- * is in the catalogue, objects and file size stay in budget
- * (docs/SHOWCASE_LEVELS.md, "Regeln für alle Level").
+ * is in the catalogue, no decoration reads as danger (DANGER_LOOK), objects
+ * and file size stay in budget (docs/SHOWCASE_LEVELS.md, "Regeln für alle
+ * Level").
  *
  * Runs with `npm test`; one map alone: `npx vitest run tools/maps/shipped-maps-check.spec.ts -t <id>`
  */
@@ -18,6 +19,7 @@ import { CustomMapStreets } from '../../src/app/world/custom-map/custom-map-stre
 import { MAP_METERS_PER_DEGREE, mapToGeo, type CustomMapDocument } from '../../src/app/world/custom-map/map-document';
 import { contentHash, unpackMapFile, validateMapDocument } from '../../src/app/world/custom-map/map-file';
 import type { ShippedMapIndex } from '../../src/app/world/custom-map/map-store';
+import { dangerLook } from '../../src/app/world/custom-map/render/asset-catalog';
 
 const MAPS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../public/maps');
 
@@ -116,6 +118,11 @@ describe('shipped maps check', () => {
         const used = [...doc!.terrain.layers.map((l) => l.material), doc!.terrain.cliffMaterial];
         expect(unknownAssets, 'assets not in the catalogue').toEqual([]);
         expect(used.filter((m) => !materials.has(m)), 'materials not in the catalogue').toEqual([]);
+      });
+
+      it('places no decoration in the colours of danger', () => {
+        const danger = [...new Set(doc!.objects.map((o) => o.asset).filter((a) => dangerLook(a)))];
+        expect(danger, 'decoration that reads as enemies or blood (DANGER_LOOK)').toEqual([]);
       });
 
       it(`stays in budget: ${MAX_OBJECTS} objects, ${MAX_FILE_BYTES / 1024 / 1024} MB`, () => {

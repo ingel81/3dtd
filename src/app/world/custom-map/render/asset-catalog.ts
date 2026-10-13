@@ -149,3 +149,20 @@ export function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.replace('#', ''), 16);
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
+
+/**
+ * Decoration in the colours the game speaks with: small bright red spots on
+ * the ground read as enemies, blood or warnings from the game camera. Maps
+ * keep them off the play area; the editor's check names them with what to
+ * use instead. Large props in red (banners, containers, cars) are not in it:
+ * they read as things, not as signals.
+ */
+export const DANGER_LOOK: Readonly<Record<string, { why: string; instead: string }>> = {
+  'mushrooms-red': { why: 'red toadstools read as enemy markers or blood from the game camera', instead: 'mushrooms' },
+  'flowers-red': { why: 'red poppies read as enemy markers or blood from the game camera', instead: 'flowers-yellow' },
+};
+
+/** Why an asset reads as danger and what to place instead, or null when it does not */
+export function dangerLook(assetId: string): { why: string; instead: string } | null {
+  return DANGER_LOOK[assetId] ?? null;
+}

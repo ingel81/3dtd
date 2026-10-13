@@ -32,6 +32,9 @@ dem Boden). Bilder unter `docs/images/levels/`.
   Wege, Bauflächen oder Startgeld angepasst, nicht die Wellen
 - **Leistung:** in der Spielansicht über 100 fps auf dem Entwicklungsrechner, Ladezeit im Produktions-Build unter 4 s
 - **Größe:** Small (512 m) oder Medium (1024 m); Objekte höchstens etwa 15 000
+- **Lesbarkeit:** keine Deko in Gefahrenfarben (`DANGER_LOOK` in `render/asset-catalog.ts`: rote Fliegenpilze, roter
+  Mohn); kleine rote Flecken am Boden lesen sich aus der Spielkamera als Gegner oder Blut. Große rote Requisiten
+  (Banner, Container, Autos) sind erlaubt. `shipped-maps-check.spec.ts` prüft es
 
 ## Die Level
 
