@@ -1,7 +1,7 @@
 # Hauptmenü und Spieloptik (E119 bis E122)
 
 Stand 2026-10-09, **gebaut** auf dem Branch `menu/main-menu-2026-10-08`, wartet auf den Nachtest
-([PLAYTEST.md](PLAYTEST.md#h-hauptmenü-und-spieloptik-2026-10-09)). Hauptmenü, Wege in die Spielarten, Ladeanzeige und
+([archive/PLAYTEST_2026-10.md](archive/PLAYTEST_2026-10.md#h-hauptmenü-und-spieloptik-2026-10-09)). Hauptmenü, Wege in die Spielarten, Ladeanzeige und
 die Optik von Menü, Dialogen, Panels und HUD (TODO E121 mit E119, E120, E122). Unten je Entscheidung, was gebaut ist
 und wo es vom Vorschlag abweicht; die Einzelheiten stehen in der Fach-Doku (Tabelle „Wo es steht“).
 
@@ -110,4 +110,4 @@ mit E124 durch das Design System ersetzt: Putz, Basalt, Steinknöpfe, Barlow Sem
 
 ## Offen
 
-Nachtests mit Augen, Ohren, echter Karte und Desktop-App: [PLAYTEST.md](PLAYTEST.md#h-hauptmenü-und-spieloptik-2026-10-09).
+Nachtests mit Augen, Ohren, echter Karte und Desktop-App: [archive/PLAYTEST_2026-10.md](archive/PLAYTEST_2026-10.md#h-hauptmenü-und-spieloptik-2026-10-09).

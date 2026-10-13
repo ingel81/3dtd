@@ -1,7 +1,7 @@
 # Weltkugel als Ladegrund (TODO E126)
 
 Stand 2026-10-09, **gebaut** auf dem Branch `globe/e126-2026-10-09`, wartet auf den Nachtest
-([PLAYTEST.md](PLAYTEST.md#g-weltkugel-als-ladegrund-2026-10-09)). Solange keine Tiles da sind, steht hinter dem Menü
+([archive/PLAYTEST_2026-10.md](archive/PLAYTEST_2026-10.md#g-weltkugel-als-ladegrund-2026-10-09), Rest in [PLAYTEST.md](PLAYTEST.md)). Solange keine Tiles da sind, steht hinter dem Menü
 eine realistische 3D-Erde; bei jedem Ortswechsel steigt die Kamera vom alten Ort auf, die Kugel dreht zum neuen, und
 eingetaucht wird erst, wenn dessen Tiles da sind, nahtlos in sie hinein. High-End in der Optik, sparsam im Betrieb.
 

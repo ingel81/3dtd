@@ -122,6 +122,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | [UX_DISCUSSION_NOTES.md](archive/UX_DISCUSSION_NOTES.md) | Diskussionsnotizen zu Turmdrehung und Color Grading, beide entschieden |
 | [ENGINE_DEEP_REVIEW_2026-05-16.md](archive/ENGINE_DEEP_REVIEW_2026-05-16.md) | Engine-Review über `src/app/`, Dependencies, Tests (Stand 2026-05-16) |
 | [HANDOVER_MERGE_LOCAL_VS_ORIGIN.md](archive/HANDOVER_MERGE_LOCAL_VS_ORIGIN.md) | Merge-Divergenz lokal ↔ origin/main (2026-08-23) |
+| [PLAYTEST_2026-10.md](archive/PLAYTEST_2026-10.md) | [PLAYTEST.md](PLAYTEST.md); Pakete T bis Z bis Release 0.7.0 mit Ergebnissen (2026-09-24 bis 2026-10-13), Rest als Paket R |
 | [PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md) | [PLAYTEST.md](PLAYTEST.md), [TODO.md](../TODO.md); Playtest-Liste vom 15. und 16.09. mit Ergebnissen, Punkte 601 bis 748, D1 bis D6, E1 bis E19 |
 | [REVIEW_FIX_2026-09-14.md](archive/REVIEW_FIX_2026-09-14.md) | Fix-Session nach dem Playtest 2026-09-14: Änderungen je Thema, Entscheidungen, Review-Befunde, Playtest-Liste 501 bis 570 |
 | [REVIEW_SPRINT_2026-09-14.md](archive/REVIEW_SPRINT_2026-09-14.md) | Nachtschicht 2: Änderungen je Feature mit Revert-Probe, Entscheidungen, Review-Befunde, Playtest-Liste 301 bis 440 |
