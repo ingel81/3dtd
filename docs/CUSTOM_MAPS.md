@@ -138,8 +138,10 @@ weichem Saum. `losTransparent`.
   heißesten Adern (die Bloom-Schwelle fängt nur diese), am Ufer erkaltet. Lava-Körper und -Ströme bekommen
   orange flackernde Punktlichter (je 40-m-Fleck bzw. alle 30 m) aus dem Lichter-Pool
 
-Lava als Bodenschicht: Katalog-Materialien mit `emissive` (0..1) glühen in den tiefen Stellen ihrer Textur (Risse)
-und pulsieren, `flow` (m/s) lässt die Schicht entlang Karten-+x fließen.
+Lava als Bodenschicht: Katalog-Materialien mit `emissive` (0..1) glühen nur in den tiefsten Stellen ihrer Textur
+(Risse, Höhenkanal unter etwa 0,27) und pulsieren; die Glut läuft von Dunkelrot über Orange bis Gelb in den tiefsten
+Rissen und nicht darüber hinaus (früher Texturfarbe mal Verstärkung, das brannte rosa-weiße Flecken ein), die
+Texturfarbe der glühenden Stellen tritt zurück, `flow` (m/s) lässt die Schicht entlang Karten-+x fließen.
 
 ### Objekte (`objects/`)
 

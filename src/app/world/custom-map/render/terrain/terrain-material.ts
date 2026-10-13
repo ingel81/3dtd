@@ -386,10 +386,16 @@ for (int k = 0; k < TERRAIN_LAYERS; k++) {
   if (w[k] < 0.004) continue;
   float b = max(lc[k].a + w[k] - best + band, 0.0) * w[k];
   if (uEmissive[k] > 0.0) {
-    // Glow in the low parts of the texture (cracks), cooling crust on the high parts, slow pulse
-    float hot = smoothstep(0.55, 0.15, lc[k].a);
-    float pulse = 0.75 + 0.25 * sin(uTerrainTime * 1.3 + valueNoise(mapPos * 0.08) * 9.0);
-    accGlow += lc[k].rgb * vec3(2.4, 1.5, 0.9) * hot * pulse * uEmissive[k] * 4.0 * b;
+    // Glow only in the deep parts of the texture (cracks), the crust between them dark; a slow pulse.
+    // The colour runs from dark red through orange to a little yellow in the deepest cracks, never past
+    // it: the texture's own colour times a gain burnt pink-white patches into the ground
+    float hot = smoothstep(0.27, 0.06, lc[k].a);
+    float pulse = 0.8 + 0.2 * sin(uTerrainTime * 1.3 + valueNoise(mapPos * 0.08) * 9.0);
+    vec3 glow = mix(vec3(0.35, 0.03, 0.005), vec3(0.95, 0.28, 0.03), smoothstep(0.0, 0.6, hot));
+    glow = mix(glow, vec3(1.0, 0.5, 0.08), smoothstep(0.8, 1.0, hot) * 0.5);
+    accGlow += glow * hot * pulse * uEmissive[k] * b;
+    // A glowing crack is its light, not a lit surface: its pale texture colour would wash the glow out
+    lc[k].rgb *= 1.0 - 0.7 * hot * uEmissive[k];
   }
   accC += lc[k] * b;
   accD += ld[k] * b;
