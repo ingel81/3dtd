@@ -374,6 +374,12 @@ function setUpWindowMenu(getWindow) {
   });
 }
 
+// Hybrid laptops: draw on the dedicated GPU. The renderer's powerPreference
+// 'high-performance' alone left the app on the integrated GPU (Ryzen 7 4800H
+// with GTX 1650 Ti, benchmark 2026-10-13: half the frame rate). Must be set
+// before the app is ready.
+app.commandLine.appendSwitch('force_high_performance_gpu');
+
 if (!app.requestSingleInstanceLock()) {
   // A copy is already running; it brings itself to the front (second-instance).
   app.quit();
