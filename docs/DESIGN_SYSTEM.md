@@ -475,7 +475,7 @@ verkauft (`SellConfirmService`).
 | Welle läuft | `waveActive()` | `is-busy` und gedrückt (`aria-disabled`, behält den Fokus), Text Teal, rechts „{n} left“, unten ein Teal-Balken mit dem Anteil der Gegner, die noch kommen |
 
 Darunter links der Schalter „Auto start in 10 s“ (`td-check` mit `td-switch`, ein Knopf mit `aria-pressed`; im Coop nicht
-da, die Spieler sagen bereit), rechts zwischen den Wellen „Replay wave N“ und „Load replay“ als `td-link`. Der Countdown
+da, die Spieler sagen bereit), rechts zwischen den Wellen „Replay wave N“ als `td-link` (eine Replay-Datei lädt das Menü unter Extras). Der Countdown
 läuft in Spielzeit, beginnt nach `wave:completed`, jeder Wellenstart, Game Over und ein Neustart beenden ihn; Zahl und
 Balken liefert `waveButtonView()` aus `GameStore.autoWaveSecondsLeft`. Ein Start aus dem Build-Mode lässt den Build-Mode
 an.

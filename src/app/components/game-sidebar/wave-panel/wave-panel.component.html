@@ -104,15 +104,6 @@
             matTooltipPosition="left"
             (click)="replay.enter()">Replay wave {{ wave }}</button>
   }
-  @if (canLoadReplay()) {
-    <button type="button" class="td-link td-note"
-            aria-label="Load a replay file"
-            matTooltip="Load a saved replay of this map"
-            matTooltipPosition="left"
-            (click)="replayFile.click()">Load replay</button>
-    <input #replayFile type="file" accept=".json,.gz,application/json,application/gzip" hidden
-           (change)="onReplayFile($event)">
-  }
 </div>
 @if (replay.fileProblem(); as problem) {
   <p class="td-note is-warn" role="status">{{ problem }}</p>

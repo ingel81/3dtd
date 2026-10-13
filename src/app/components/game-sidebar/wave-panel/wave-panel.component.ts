@@ -37,7 +37,6 @@ import { EnemyDebugService } from '../../../services/debug/enemy-debug.service';
 import { DebugFacadeService } from '../../../services/debug/debug-facade.service';
 import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
-import { REPLAY_CONFIG } from '../../../configs/replay.config';
 import { enemyGroupTooltip, enemyTraitLabel, formatLeak, waveLeakTotal, weakToLabel } from '../sidebar-tooltips';
 import {
   WAVE_ALERT_KINDS, WaveAlertAnnouncer, countAntiAirTowers, countAntiEtherealTowers, countScouts, upcomingWaveAlert,
@@ -139,18 +138,6 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   readonly replayWave = computed(() =>
     !this.waveActive() && !this.isGameOver() && this.replay.offered() ? this.replay.recordedWave() : null
   );
-
-  /** A saved replay of this map can be loaded: between waves, while the replay is offered at all */
-  readonly canLoadReplay = computed(() =>
-    !this.waveActive() && !this.isGameOver() && REPLAY_CONFIG.offered && !this.uiStore.coopMapLocked()
-  );
-
-  onReplayFile(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (file) void this.replay.loadFile(file);
-  }
 
   // Wave group display, only consumed by the template while a wave is active,
   // so we don't need campaign-derived or debug-panel fallbacks. The NEXT
