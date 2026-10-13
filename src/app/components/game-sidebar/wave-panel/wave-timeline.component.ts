@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
-import { TdIconComponent } from '../../icon/icon.component';
+import { TdIconComponent, type TdIconName } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { damageTypeIcon } from '../../icon/damage-type-icon';
-import { markShape, shownPeek, type WavePeek } from './upcoming-waves';
+import { markShape, shownPeek, type MarkShape, type WavePeek } from './upcoming-waves';
 
 /**
  * NEXT in the WAVE panel: the coming waves as marks on a thin line, the
@@ -31,6 +31,7 @@ export class WaveTimelineComponent {
 
   readonly damageTypeIcon = damageTypeIcon;
   readonly markShape = markShape;
+  readonly markIcon: Record<MarkShape, TdIconName> = { ground: 'nextGround', air: 'nextAir', camo: 'nextCamo', boss: 'skull' };
 
   /** "Wave 7, Bat Swarm, air"; "…, Swift, blood moon" on a blood moon wave */
   markLabel(peek: WavePeek): string {

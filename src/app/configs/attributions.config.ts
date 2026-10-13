@@ -161,6 +161,27 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
         licenseUrl: 'https://lucide.dev/license',
         sourceUrl: 'https://lucide.dev',
       },
+      {
+        name: 'Tabler Icons',
+        author: 'Paweł Kuna',
+        license: 'MIT',
+        licenseUrl: 'https://github.com/tabler/tabler-icons/blob/main/LICENSE',
+        sourceUrl: 'https://tabler.io/icons',
+      },
+      {
+        name: 'Phosphor Icons',
+        author: 'Phosphor Icons',
+        license: 'MIT',
+        licenseUrl: 'https://github.com/phosphor-icons/core/blob/main/LICENSE',
+        sourceUrl: 'https://phosphoricons.com',
+      },
+      {
+        name: 'game-icons.net',
+        author: 'Lorc, Delapouite and contributors',
+        license: 'CC BY 3.0',
+        licenseUrl: 'https://creativecommons.org/licenses/by/3.0/',
+        sourceUrl: 'https://game-icons.net',
+      },
     ],
   },
   {

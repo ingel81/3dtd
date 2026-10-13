@@ -17,14 +17,9 @@
           <td-icon class="td-next-moon" name="moon" [size]="10"></td-icon>
         }
       </span>
-      @switch (markShape(peek)) {
-        @case ('boss') {
-          <span class="td-next-dot is-boss" aria-hidden="true"><td-icon name="skull" [size]="11"></td-icon></span>
-        }
-        @default {
-          <span class="td-next-dot" [class]="'is-' + markShape(peek)" aria-hidden="true"></span>
-        }
-      }
+      <span class="td-next-dot" [class]="'is-' + markShape(peek)" aria-hidden="true">
+        <td-icon [name]="markIcon[markShape(peek)]" [size]="11"></td-icon>
+      </span>
       <span class="td-next-num" aria-hidden="true">{{ peek.wave }}</span>
     </button>
   }

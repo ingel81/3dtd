@@ -36,7 +36,7 @@ Tower defense on real streets. The UI is a game's equipment, not an app: tinted 
 
 ## Iconography
 
-The game's own inline SVG set (`td-icon`): 24px viewBox, 1.5px stroke, round caps and joins, `currentColor`; a few shapes follow Lucide (ISC). Icons at 16–22px, brass in menus and heads, text colour elsewhere; an icon never carries meaning alone (a label or `aria-label` goes with it). No emoji, no icon fonts. Logos: assets Logos, always on dark.
+The game's own inline SVG set (`td-icon`), `currentColor`: stroked icons on a 24px viewBox, 1.5px stroke, round caps and joins; solid icons for game things (tower types, enemies, gold). Shapes come from our own drawings, Lucide (ISC), Tabler (MIT), Phosphor (MIT) and game-icons.net (CC BY 3.0). Icons at 16–22px, brass in menus and heads, text colour elsewhere; an icon never carries meaning alone (a label or `aria-label` goes with it). No emoji, no icon fonts. Logos: assets Logos, always on dark.
 
 ## Rules for building
 
