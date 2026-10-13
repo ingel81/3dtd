@@ -3,6 +3,34 @@
 What changed for players, newest first. Every release adds a section here, and the
 game shows it once after an update.
 
+## 0.7.0 (2026-10-13)
+
+### New
+- A new start menu: the game loads behind it over a turning earth, then dives
+  down to your place.
+- Save and load single-player runs between waves, and Continue from the autosave.
+- Camouflaged enemies from wave 22. Only scouts see them: the Archer's new Scout
+  path or the Scouting research.
+- A minimap of the streets, routes, towers and enemies.
+
+### Better
+- A new look for the whole interface, with icons of its own.
+- Towers take 5 seconds to build and fire once they stand.
+- The NEXT line marks each wave as ground, air, camouflaged or boss.
+- Settings on one page, a tab for each section, and a new game over screen.
+- Replays keep the game speed of each wave, play at another place too, and save
+  smaller files.
+
+### Also new
+- Messages show under the header and close by themselves.
+- The 3DTD logo opens the menu, as Esc does.
+
+### Fixed
+- Co-op keeps running in a minimised window and no longer asks to ready up after
+  game over; research prices follow the lanes each player holds.
+- A busy map server no longer stops the loading, the game tries again by itself.
+- Zooming in near the route no longer stops 300 m up and slides north.
+
 ## 0.6.0 (2026-10-04)
 
 ### Better
