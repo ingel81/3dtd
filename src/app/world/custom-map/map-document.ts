@@ -35,6 +35,13 @@ export interface MapMeta {
   updatedAt: string;
   /** Where the map came from, when it was imported */
   source?: { kind: 'w3x'; file: string; mapName: string; tileset?: string };
+  /**
+   * The map's identity across files and renames, given when a map is first
+   * stored as one's own; a copy gets a new one. A file read in again finds
+   * its map by it (to replace it instead of adding a copy). Not part of the
+   * content hash
+   */
+  uid?: string;
 }
 
 /**

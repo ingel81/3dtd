@@ -17,7 +17,7 @@ import { Injectable, NgZone, OnDestroy, inject, signal } from '@angular/core';
 import type { CustomMapDocument, MapMeta } from '../../world/custom-map/map-document';
 import { createMapDocument, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
-import { MapStore, type MapSummary } from '../../world/custom-map/map-store';
+import { MapStore, type LoadedMap, type MapSummary } from '../../world/custom-map/map-store';
 import { MapLock } from '../model/map-lock';
 import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog, type GroundMaterialEntry, type ObjectAssetEntry } from '../catalog/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
@@ -60,6 +60,15 @@ export interface ImportState {
   /** The new map, once imported */
   mapId?: string;
   error: string | null;
+}
+
+/** A read file that is another version of an own map: replace that one or keep both */
+export interface ImportMatch {
+  file: string;
+  existing: MapSummary;
+  loaded: Pick<LoadedMap, 'doc' | 'preview'>;
+  /** Hears the id of the stored map once the player chose */
+  done?: (id: string) => void;
 }
 
 /** Waves the bot plays for the map check */
@@ -145,6 +154,8 @@ export class EditorSession implements OnDestroy {
   readonly lasso = signal<string | null>(null);
   readonly cameraRev = signal(0);
   readonly importState = signal<ImportState | null>(null);
+  /** A file read in that matches an own map, waiting for Replace or Keep both */
+  readonly importMatch = signal<ImportMatch | null>(null);
   readonly error = signal<string | null>(null);
   /** How safe the maps are here (the browser may clear them unless it keeps them for good); null until known */
   readonly storage = signal<StorageSafety | null>(null);
@@ -931,15 +942,24 @@ export class EditorSession implements OnDestroy {
 
   // ---------------------------------------------------------------- import
 
-  /** A `.3dtdmap` or `.w3x` file into a new own map; returns the new id */
+  /**
+   * A `.3dtdmap` or `.w3x` file into a new own map; returns the new id. A
+   * file that is another version of an own map (the same identity, or the
+   * same Warcraft file) waits in `importMatch` for Replace or Keep both.
+   */
   async importFile(file: File): Promise<string | null> {
     const name = file.name;
     const lower = name.toLowerCase();
     this.error.set(null);
     if (lower.endsWith(MAP_FILE_EXTENSION)) {
       try {
-        const imported = await this.store.importFile(new Uint8Array(await file.arrayBuffer()));
-        return imported.doc.meta.id;
+        const loaded = unpackMapFile(new Uint8Array(await file.arrayBuffer()));
+        const existing = await this.store.ownMatch(loaded.doc);
+        if (existing) {
+          this.importMatch.set({ file: name, existing, loaded });
+          return null;
+        }
+        return (await this.store.importDocument(loaded)).doc.meta.id;
       } catch (e) {
         this.error.set(`${name}: ${(e as Error).message}`);
         return null;
@@ -960,6 +980,32 @@ export class EditorSession implements OnDestroy {
     }
     this.error.set(`${name} is neither a 3DTD map (${MAP_FILE_EXTENSION}) nor a Warcraft 3 map (.w3x).`);
     return null;
+  }
+
+  /**
+   * The player's answer to a file that matches an own map: replace keeps the
+   * map's id and versions (its content before becomes a version to go back
+   * to), copy stores the file as a new map beside it. Returns the stored id.
+   */
+  async resolveImport(choice: 'replace' | 'copy' | 'cancel'): Promise<string | null> {
+    const match = this.importMatch();
+    this.importMatch.set(null);
+    if (!match || choice === 'cancel') return null;
+    try {
+      let id: string;
+      if (choice === 'replace') {
+        const { before, created } = await this.store.replaceWith(match.existing.id, match.loaded);
+        id = match.existing.id;
+        await this.history.record(id, created, before, true).catch(() => undefined);
+      } else {
+        id = (await this.store.importDocument(match.loaded)).doc.meta.id;
+      }
+      match.done?.(id);
+      return id;
+    } catch (e) {
+      this.error.set(`${match.file}: ${(e as Error).message}`);
+      return null;
+    }
   }
 
   /** Ends a running Warcraft import (its worker stops) and closes the panel */
@@ -991,9 +1037,16 @@ export class EditorSession implements OnDestroy {
       const { doc, report } = await importer(await file.arrayBuffer(), state.options, abort.signal);
       if (abort.signal.aborted) return null;
       doc.meta.id = await this.store.freeId(slugMapId(doc.meta.name || file.name.replace(/\.w3[xm]$/i, '')));
-      await this.store.save(doc);
       this.pendingW3x = null;
-      this.importState.set({ ...state, phase: 'done', step: 'Done', report, mapId: doc.meta.id });
+      const done = (id: string) => this.importState.set({ ...state, phase: 'done', step: 'Done', report, mapId: id });
+      const existing = await this.store.ownMatch(doc);
+      if (existing) {
+        this.importState.set({ ...state, phase: 'done', step: 'Replace or keep both?', report });
+        this.importMatch.set({ file: file.name, existing, loaded: { doc, preview: null }, done });
+        return null;
+      }
+      await this.store.save(doc);
+      done(doc.meta.id);
       return doc.meta.id;
     } catch (e) {
       if (!abort.signal.aborted) this.importState.set({ ...state, error: (e as Error).message });

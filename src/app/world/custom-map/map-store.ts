@@ -43,6 +43,8 @@ export interface MapSummary {
   biome?: MapBiome;
   /** The w3x file a map came from */
   importedFrom?: string;
+  /** The map's lasting identity (MapMeta.uid); absent in summaries of maps not saved since the field */
+  uid?: string;
   /** In the trash: the id the map had, when it was deleted, its creation time (the life its versions belong to) */
   trash?: { from: string; at: string; created: string };
 }
@@ -217,9 +219,15 @@ export class MapStore {
   async save(
     doc: CustomMapDocument,
     preview: Uint8Array | null = null,
-    file: Uint8Array = packMapFile(doc),
+    file?: Uint8Array,
     options: SaveOptions = {},
   ): Promise<MapSummary> {
+    // The first save gives the map its identity; a file packed before carries none yet
+    if (!doc.meta.uid) {
+      doc.meta.uid = newMapUid();
+      file = undefined;
+    }
+    file ??= packMapFile(doc);
     const summary = summarize(doc, 'own', options.hash === false ? '' : await contentHash(doc));
     // Without a new picture the stored one stays: the file is not read for it
     await this.backend.put({ summary, file, ...(preview ? { preview } : {}) });
@@ -247,12 +255,45 @@ export class MapStore {
     return (await this.readIndex()).some((e) => e.id === id);
   }
 
-  /** Stores a `.3dtdmap` file as an own map, under a fresh id when the id is taken */
-  async importFile(bytes: Uint8Array): Promise<LoadedMap> {
-    const { doc, preview } = unpackMapFile(bytes);
+  /**
+   * Stores a read file as a new own map: under a fresh id when the id is
+   * taken, with a new identity when an own map has the file's (both stay)
+   */
+  async importDocument({ doc, preview }: Pick<LoadedMap, 'doc' | 'preview'>): Promise<LoadedMap> {
     if (await this.has(doc.meta.id)) doc.meta.id = await this.freeId(doc.meta.id);
+    if (doc.meta.uid && (await this.listOwn()).some((m) => m.uid === doc.meta.uid)) doc.meta.uid = newMapUid();
     const summary = await this.save(doc, preview);
     return { doc, summary, preview };
+  }
+
+  /** Stores a `.3dtdmap` file as a new own map (importDocument) */
+  async importFile(bytes: Uint8Array): Promise<LoadedMap> {
+    return this.importDocument(unpackMapFile(bytes));
+  }
+
+  /**
+   * The own map a read file is another version of: the same identity
+   * (MapMeta.uid), or for a Warcraft import the same source file
+   */
+  async ownMatch(doc: CustomMapDocument): Promise<MapSummary | null> {
+    const own = (await this.listOwn()).filter((m) => m.origin === 'own');
+    const uid = doc.meta.uid;
+    const source = doc.meta.source?.file;
+    return own.find((m) => (uid && m.uid === uid) || (!uid && source && m.importedFrom === source)) ?? null;
+  }
+
+  /**
+   * Puts a read file's content in place of an own map: its id, identity and
+   * creation time stay (so its versions stay its own); returns the map's
+   * file from before, for a version to go back to
+   */
+  async replaceWith(id: string, { doc, preview }: Pick<LoadedMap, 'doc' | 'preview'>): Promise<{ before: Uint8Array; created: string }> {
+    const stored = await this.backend.get(id);
+    if (!stored || stored.summary.origin !== 'own') throw new MapStoreError(`There is no own map "${id}" to replace.`);
+    const old = unpackMapFile(stored.file).doc.meta;
+    doc.meta = { ...doc.meta, id, uid: old.uid ?? doc.meta.uid, createdAt: old.createdAt, updatedAt: new Date().toISOString() };
+    await this.save(doc, preview);
+    return { before: stored.file, created: old.createdAt };
   }
 
   /** A new thumbnail for an own map, its content untouched */
@@ -272,6 +313,8 @@ export class MapStore {
 
   /** A loaded map stored as a new own map (fresh id and times, "(copy)" after the name unless `name` is given) */
   async saveCopy({ doc, preview }: Pick<LoadedMap, 'doc' | 'preview'>, name?: string): Promise<LoadedMap> {
+    // A copy is a map of its own: a file of it read in later must not replace the original
+    doc.meta.uid = newMapUid();
     const now = new Date().toISOString();
     doc.meta.name = name ?? `${doc.meta.name} (copy)`;
     doc.meta.id = await this.freeId(slugMapId(doc.meta.name));
@@ -319,7 +362,14 @@ export function summarize(doc: CustomMapDocument, origin: MapOrigin, hash: strin
     spawns: doc.spawns.length,
     biome: doc.environment.biome ?? 'temperate',
     importedFrom: doc.meta.source?.file,
+    ...(doc.meta.uid ? { uid: doc.meta.uid } : {}),
   };
+}
+
+/** A new lasting identity for a map */
+export function newMapUid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return Array.from({ length: 4 }, () => Math.floor(Math.random() * 0x100000000).toString(16).padStart(8, '0')).join('-');
 }
 
 function shippedSummary(e: ShippedMapEntry): MapSummary {

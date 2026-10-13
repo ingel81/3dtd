@@ -243,7 +243,11 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     this.busy.set(true);
     try {
       let last: string | null = null;
-      for (const f of Array.from(files)) last = (await this.session.importFile(f)) ?? last;
+      for (const f of Array.from(files)) {
+        last = (await this.session.importFile(f)) ?? last;
+        // A file that matches an own map waits for the answer; the rest can come again after
+        if (this.session.importMatch()) break;
+      }
       await this.reload(last ?? undefined);
     } finally {
       this.busy.set(false);
@@ -284,6 +288,15 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  async resolveImport(choice: 'replace' | 'copy' | 'cancel'): Promise<void> {
+    const id = await this.session.resolveImport(choice);
+    if (id) await this.reload(id);
+  }
+
+  when(iso: string): string {
+    return formatDate(iso);
   }
 
   /** Closes the panel; a running import stops */

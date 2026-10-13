@@ -32,6 +32,12 @@ Kopie öffnet und keine zweite anlegt.
   Wellenliste, [W3X_IMPORT.md](W3X_IMPORT.md#wellen-option-waves)), läuft dann im Web Worker
   ([W3X_IMPORT.md](W3X_IMPORT.md)) und zeigt den Bericht: Größe, Bodenschichten, Wasser, woher die
   Straßen kamen, Spawns und Spurlängen, übernommene Doodads, Warnungen; „Open the map“ öffnet sie. Die Karte landet bei den eigenen
+- **Erneuter Import:** jede eigene Karte bekommt beim ersten Speichern eine dauerhafte Kennung (`meta.uid`, UUID;
+  nicht Teil des `contentHash`), die in jede `.3dtdmap` mitgeht; eine Kopie (Duplicate, Kopie einer mitgelieferten
+  Karte) bekommt eine neue. Liest man eine Datei ein, deren Kennung eine eigene Karte trägt (bei Warcraft-Importen:
+  dieselbe `.w3x`-Datei), fragt die Liste „Replace“ oder „Keep both“: Replace legt den Inhalt an die Stelle der Karte
+  (Kennung, `id` und Anlagezeit bleiben, also auch ihre Versionen; der alte Inhalt wird eine Version), Keep both legt
+  die Datei als neue Karte mit eigener Kennung daneben
 - Die Adresse trägt die offene Karte (`/editor?map=<id>`); Neuladen öffnet sie wieder. Die Seite folgt der Adresse:
   Zurück im Browser schließt die Karte wie der eigene Zurück-Knopf (erst speichern; scheitert das, bleibt sie offen),
   Vor öffnet sie wieder

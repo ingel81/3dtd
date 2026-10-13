@@ -226,7 +226,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   }
   if (!meta || typeof meta.name !== 'string' || !meta.name.trim()) p.push('meta.name is empty');
   if (meta) {
-    for (const key of ['author', 'description'] as const) {
+    for (const key of ['author', 'description', 'uid'] as const) {
       if (meta[key] !== undefined && typeof meta[key] !== 'string') p.push(`meta.${key} must be text`);
     }
     for (const key of ['createdAt', 'updatedAt'] as const) {

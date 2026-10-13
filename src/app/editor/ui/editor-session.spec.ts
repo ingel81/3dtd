@@ -75,6 +75,27 @@ describe('editor session and other tabs', () => {
   });
 });
 
+describe('editor session importing', () => {
+  it('asks about a file of an own map: Replace keeps the id and makes the old content a version, Keep both adds a map', async () => {
+    const { s, versions } = session();
+    await s.save(true);
+    await new Promise((r) => setTimeout(r, 0));
+    const file = packMapFile(s.doc!);
+    const read = () => new File([file as Uint8Array<ArrayBuffer>], 'm.3dtdmap');
+    expect(await s.importFile(read())).toBeNull();
+    expect(s.importMatch()?.existing.id).toBe('m');
+    expect(await s.resolveImport('replace')).toBe('m');
+    expect((await s.store.listOwn()).map((m) => m.id)).toEqual(['m']);
+    expect((await versions.list('m')).length).toBeGreaterThanOrEqual(1);
+    await s.importFile(read());
+    expect(await s.resolveImport('copy')).toBe('m-2');
+    await s.importFile(read());
+    expect(await s.resolveImport('cancel')).toBeNull();
+    expect((await s.store.listOwn()).map((m) => m.id).sort()).toEqual(['m', 'm-2']);
+    s.ngOnDestroy();
+  });
+});
+
 describe('editor session while busy', () => {
   it('holds undo, redo, saving and restoring while a terrain job runs or a stroke is held', async () => {
     const { s, backend } = session();

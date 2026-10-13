@@ -24,6 +24,9 @@ describe('MapStore', () => {
     expect(summary.contentHash).toBe(await contentHash(doc()));
     expect((await store.listOwn()).map((m) => m.id)).toEqual(['valley']);
     const loaded = await store.load('valley');
+    // The first save gave it its identity
+    expect(loaded.doc.meta.uid).toBe(summary.uid);
+    delete loaded.doc.meta.uid;
     expect(loaded.doc).toEqual(doc());
     expect(loaded.preview).toEqual(new Uint8Array([1, 2]));
     // Saving again without a preview keeps the old one
@@ -115,6 +118,52 @@ describe('MapStore', () => {
     const recent = await store.trash('hill', new Date(now - 86_400_000));
     expect((await store.purgeTrash(new Date(now))).map((m) => m.trash!.from)).toEqual(['valley']);
     expect((await store.listTrash()).map((m) => m.id)).toEqual([recent]);
+  });
+
+  it('gives an own map a lasting identity; a file of it read in again finds it, a copy is a map of its own', async () => {
+    const store = new MapStore({ backend: new MemoryMapBackend(), fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/' });
+    const summary = await store.save(doc());
+    expect(summary.uid).toMatch(/[0-9a-f-]{20,}/);
+    const file = packMapFile((await store.load('valley')).doc);
+    const again = (await import('./map-file')).unpackMapFile(file);
+    expect((await store.ownMatch(again.doc))?.id).toBe('valley');
+    // Renamed and under another id it is still the same map
+    again.doc.meta.id = 'other';
+    again.doc.meta.name = 'Other name';
+    expect((await store.ownMatch(again.doc))?.id).toBe('valley');
+    const copy = await store.duplicate('valley');
+    expect(copy.doc.meta.uid).not.toBe(summary.uid);
+    // Kept both: the second gets an identity of its own
+    const both = await store.importFile(file);
+    expect(both.doc.meta.id).toBe('valley-2');
+    expect(both.doc.meta.uid).not.toBe(summary.uid);
+  });
+
+  it('replaces an own map with a file: id, identity and creation time stay, the old file comes back', async () => {
+    const store = new MapStore({ backend: new MemoryMapBackend(), fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/' });
+    const original = doc();
+    const uid = (await store.save(original)).uid;
+    const changed = createMapDocument({ id: 'elsewhere', name: 'Valley v2', width: 64, depth: 64, now: new Date(5e11) });
+    changed.meta.uid = uid;
+    const { before, created } = await store.replaceWith('valley', { doc: changed, preview: null });
+    expect(created).toBe(original.meta.createdAt);
+    const now = await store.load('valley');
+    expect(now.doc.meta).toMatchObject({ id: 'valley', name: 'Valley v2', uid, createdAt: original.meta.createdAt });
+    expect(now.doc.terrain.width).toBe(64);
+    expect((await import('./map-file')).unpackMapFile(before).doc.terrain.width).toBe(32);
+    expect((await store.listOwn()).map((m) => m.id)).toEqual(['valley']);
+  });
+
+  it('matches a Warcraft import by its source file', async () => {
+    const store = new MapStore({ backend: new MemoryMapBackend(), fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/' });
+    const w3x = doc();
+    w3x.meta.source = { kind: 'w3x', file: 'Maze.w3x', mapName: 'Maze' };
+    await store.save(w3x);
+    const fresh = doc();
+    fresh.meta.source = { kind: 'w3x', file: 'Maze.w3x', mapName: 'Maze' };
+    expect((await store.ownMatch(fresh))?.id).toBe('valley');
+    fresh.meta.source.file = 'Other.w3x';
+    expect(await store.ownMatch(fresh)).toBeNull();
   });
 
   it('lists no shipped maps when the index is missing', async () => {
