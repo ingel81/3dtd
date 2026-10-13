@@ -205,16 +205,26 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
   Ein Gast auf einer anderen Welt bekommt eine Meldung (`WorldPackageLoader.worldHere`): Tiles beider Quellen
   gelten als dieselbe Welt, DevWorld nur mit denselben Einstellungen
 - Eigene Karte: der Host schickt vor der Welt die `.3dtdmap`-Datei der Karte (Nachricht `map`, Stücke zu höchstens
-  512 kB vor Base64, höchstens 8 Stücke = 4 MB, je Raum einmal, 250 ms Abstand wegen der Byte-Grenze des Relays).
-  Das Relay nimmt Stücke nur vom Host in der Lobby, behält die letzte Karte und gibt einem später Beitretenden alle
-  Stücke vor der Welt; eine andere Karte ersetzt sie (`coop-server/src/room.ts`)
+  512 kB vor Base64, höchstens 64 Stücke = 32 MB, je Raum einmal). Seit Protokoll 4 (E154) geht jedes Stück erst,
+  wenn das Relay das vorige mit `map-ack` bestätigt hat, und höchstens 3 MB Base64 je Sekunde
+  (`MAP_SEND_CHARS_PER_SECOND`, unter den 4 MB/s je Verbindung): 32 MB brauchen etwa 14 s, das Demo-Tal (1,6 MB)
+  etwa 1 s. Das Relay nimmt Stücke nur vom Host in der Lobby, behält die letzte Karte im Rahmen seines Budgets
+  (`RELAY_MAP_BUDGET_CHARS`, 192 MB Base64 über alle Räume) und gibt jedem Gast ein Stück nach dem anderen: das
+  nächste erst, wenn der Gast das vorige mit `map-got` bestätigt. So liegt je Gast höchstens ein Stück ungelesen am
+  Relay (Grenze 8 MB), egal wie groß die Karte ist. Ein später Beitretender bekommt das erste Stück vor der Welt,
+  den Rest nach seinen Bestätigungen; eine andere Karte ersetzt sie (`coop-server/src/room.ts`)
+- Passt ein Stück nicht mehr ins Budget, behält das Relay es nur, bis jeder Gast im Raum es hat; das `map-ack` an
+  den Host wartet so lange. Ein später Beitretender bekommt dann keine Karte (Log-Zeile „not kept whole“)
+- Fortschritt: der Host sieht „Sending the map to the room: N %“ in der Statuszeile der Lobby, der Gast „receiving
+  N %“ beim Schritt „Loading the host's map“ (`CoopService.mapTransfer`)
 - Der Gast setzt die Stücke zusammen (`coop/map-transfer.ts`), prüft Kartenkennung und Inhalts-Hash und legt die
   Karte in den Kartenspeicher (`world/custom-map/map-share.ts`; eine eigene Karte mit derselben Kennung und anderem
   Inhalt wird nie überschrieben, der Gast soll sie umbenennen). Danach öffnet die Seite `?world=map:<id>` mit Raum,
   Spur und Relay im Link und tritt wieder bei. Eine Seite, die schon auf der Karte steht, lädt nur neu, wenn ihr
   Start an der fehlenden Karte gescheitert war (Einladungslink vor der Karte)
 - Der Einladungslink eines Kartenraums ist `?world=map:<id>&room=…`
-- Eine Karte über 4 MB geht nicht über das Relay: der Host liest es im Chat, Gäste mit der Karte können beitreten
+- Eine Karte über 32 MB geht nicht über das Relay: der Host liest es im Chat, Gäste mit der Karte können beitreten.
+  Der Editor zeigt die Dateigröße gegen diese Grenze im Map-Panel ([LEVEL_EDITOR.md](LEVEL_EDITOR.md))
 
 ### C2 Spieler im Spiel
 

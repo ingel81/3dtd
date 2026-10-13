@@ -96,6 +96,12 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
       if (typeof data !== 'string' || data.length === 0 || data.length > Math.ceil(MAP_PART_BYTES / 3) * 4 || !BASE64.test(data)) return null;
       return { t: 'map', mapId, hash, part: part as number, parts: parts as number, data };
     }
+    case 'map-got': {
+      const hash = cleanText(m['hash'], VERSION_MAX);
+      const part = m['part'];
+      if (hash === null || !Number.isInteger(part) || (part as number) < 0 || (part as number) >= MAX_MAP_PARTS) return null;
+      return { t: 'map-got', hash, part: part as number };
+    }
     case 'status': {
       const status = cleanText(m['status'], 16);
       return status === null ? null : { t: 'status', status: status as never };

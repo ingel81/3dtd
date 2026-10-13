@@ -164,8 +164,12 @@ export class MapBudget {
   }
 }
 
-/** The relay's map budget: some twelve rooms with a map at the protocol's largest (MAX_MAP_PARTS) */
-export const RELAY_MAP_BUDGET_CHARS = 64 * 2 ** 20;
+/**
+ * The relay's map budget: some four rooms with a map at the protocol's
+ * largest (MAX_MAP_BYTES, 43 MB as base64), some ninety with the demo
+ * valley (2.1 MB as base64)
+ */
+export const RELAY_MAP_BUDGET_CHARS = 192 * 2 ** 20;
 
 export interface RoomOptions {
   /** One line per event, without the room code (the server puts it in front) */
@@ -231,9 +235,21 @@ export class Room {
   private world: unknown = null;
   /**
    * The pieces of the custom map the host sent last (coop/map-transfer.ts),
-   * for players who join later; at most MAX_MAP_PARTS of one map
+   * at most MAX_MAP_PARTS of one map. `kept` pieces stay for players who
+   * join later; one past the relay's budget only until every guest here has
+   * it. `came` marks what the host sent, so a piece let go is told from one
+   * still to come.
    */
-  private map: { mapId: string; hash: string; parts: (string | undefined)[] } | null = null;
+  private map: { mapId: string; hash: string; parts: (string | undefined)[]; kept: boolean[]; came: boolean[] } | null = null;
+  /**
+   * Per guest getting the map: the piece it gets next and whether that one
+   * is on its way. One piece at a time, the next after its map-got, so a
+   * guest never has more than a piece unread at the relay however large
+   * the map.
+   */
+  private readonly mapCursors = new Map<string, { next: number; sent: boolean }>();
+  /** The host's piece whose map-ack is due, null while none */
+  private mapAckDue: number | null = null;
   /** Characters of map pieces this room keeps, booked in mapBudget */
   private mapChars = 0;
   private readonly mapBudget: MapBudget;
@@ -358,8 +374,8 @@ export class Room {
     this.players.push({ ...player, client: player.client ?? null, name: this.freeName(player.name), spawnIds: [], ready: false, status: null });
     this.aloneSince = null;
     this.log(`${this.who(player.id)} joined (${this.players.length} players)${this.clientOf(player.id)}`);
-    // The map first: the world that names it comes after
-    this.sendMap(player.id);
+    // The map's first piece before the world that names it; the rest follow the guest's map-got
+    this.startMap(player.id);
     if (this.world !== null) this.send(player.id, { t: 'world', world: this.world });
     this.broadcastRoom();
     return null;
@@ -370,16 +386,49 @@ export class Room {
     this.mapBudget.give(this.mapChars);
     this.mapChars = 0;
     this.map = null;
+    this.mapCursors.clear();
+    this.mapAckDue = null;
   }
 
-  /** Every piece of the host's map there is, to one player */
-  private sendMap(playerId: string): void {
+  /**
+   * A guest gets the host's map from its first piece on; not when a piece
+   * past the budget is gone already (a later joiner gets no map, as the
+   * relay logged when it did not keep it)
+   */
+  private startMap(playerId: string): void {
+    const map = this.map;
+    if (!map || playerId === this.hostId) return;
+    if (map.came.some((came, part) => came && map.parts[part] === undefined)) return;
+    this.mapCursors.set(playerId, { next: 0, sent: false });
+    this.pumpMap();
+  }
+
+  /** Each guest's next piece where it may have one; let go what nobody needs; the host's map-ack once its piece is through */
+  private pumpMap(): void {
     const map = this.map;
     if (!map) return;
     const parts = map.parts.length;
-    map.parts.forEach((data, part) => {
-      if (data !== undefined) this.send(playerId, { t: 'map', mapId: map.mapId, hash: map.hash, part, parts, data });
-    });
+    for (const [playerId, cursor] of this.mapCursors) {
+      if (cursor.sent || cursor.next >= parts) continue;
+      const data = map.parts[cursor.next];
+      if (data === undefined) continue;
+      cursor.sent = true;
+      this.send(playerId, { t: 'map', mapId: map.mapId, hash: map.hash, part: cursor.next, parts, data });
+    }
+    for (let part = 0; part < parts; part++) {
+      if (map.parts[part] !== undefined && !map.kept[part] && this.everyGuestPast(part)) map.parts[part] = undefined;
+    }
+    const due = this.mapAckDue;
+    if (due !== null && (map.kept[due] || this.everyGuestPast(due))) {
+      this.mapAckDue = null;
+      this.send(this.hostId, { t: 'map-ack', part: due });
+    }
+  }
+
+  /** Every guest getting the map has piece `part` */
+  private everyGuestPast(part: number): boolean {
+    for (const cursor of this.mapCursors.values()) if (cursor.next <= part) return false;
+    return true;
   }
 
   /**
@@ -403,13 +452,19 @@ export class Room {
       this.finishResync();
     }
     this.removed(playerId);
+    this.mapCursors.delete(playerId);
+    if (playerId === this.hostId) this.mapAckDue = null;
     if (this.started) this.open.push({ playerId, command: { type: 'command:leave-game' } });
     this.broadcast({ t: 'left', playerId });
     if (playerId === this.hostId && this.players.length > 0) {
       this.hostId = this.players[0].id;
+      // The new host sends pieces, it gets none
+      this.mapCursors.delete(this.hostId);
       this.log(`host is now ${this.who(this.hostId)}`);
       this.broadcast({ t: 'host', hostId: this.hostId });
     }
+    // A piece only the one gone still needed is let go
+    this.pumpMap();
     if (this.players.length > 0) this.broadcastRoom();
   }
 
@@ -427,25 +482,42 @@ export class Room {
       case 'map': {
         if (!host) return this.refuse(playerId, 'not-host');
         if (this.started) return this.refuse(playerId, 'started');
-        // Another map (or other content) replaces the pieces kept so far
+        // Another map (or other content) replaces the pieces kept so far; every guest starts on it
         if (!this.map || this.map.mapId !== message.mapId || this.map.hash !== message.hash || this.map.parts.length !== message.parts) {
           this.releaseMap();
-          this.map = { mapId: message.mapId, hash: message.hash, parts: new Array<string | undefined>(message.parts) };
+          this.map = {
+            mapId: message.mapId,
+            hash: message.hash,
+            parts: new Array<string | undefined>(message.parts).fill(undefined),
+            kept: new Array<boolean>(message.parts).fill(false),
+            came: new Array<boolean>(message.parts).fill(false),
+          };
+          for (const p of this.players) if (p.id !== this.hostId) this.mapCursors.set(p.id, { next: 0, sent: false });
         }
+        const map = this.map;
         // Kept for a later joiner while the relay's budget holds it; the guests here get it either way
-        if (this.map.parts[message.part] === undefined) {
+        if (!map.came[message.part]) {
+          map.came[message.part] = true;
+          map.parts[message.part] = message.data;
           if (this.mapBudget.take(message.data.length)) {
-            this.map.parts[message.part] = message.data;
+            map.kept[message.part] = true;
             this.mapChars += message.data.length;
-          } else if (message.part === 0) {
-            this.log(`map ${message.mapId} not kept: the relay's map budget is full, a later joiner gets no map`);
+          } else if (!map.came.some((came, part) => came && !map.kept[part] && part !== message.part)) {
+            this.log(`map ${message.mapId} not kept whole: the relay's map budget is full, a later joiner gets no map`);
           }
         }
         if (message.part === message.parts - 1) {
           this.noisy(playerId, `map ${message.mapId} from the host, ${message.parts} pieces`);
         }
-        for (const p of this.players) if (p.id !== this.hostId) this.send(p.id, message);
-        return;
+        this.mapAckDue = message.part;
+        return this.pumpMap();
+      }
+      case 'map-got': {
+        const cursor = this.mapCursors.get(playerId);
+        if (!cursor || !cursor.sent || this.map?.hash !== message.hash || message.part !== cursor.next) return;
+        cursor.next++;
+        cursor.sent = false;
+        return this.pumpMap();
       }
       case 'pick': {
         if (this.started) return this.refuse(playerId, 'started');

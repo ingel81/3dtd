@@ -94,6 +94,7 @@ export class CoopDockComponent {
     worldReady: this.coop.worldReady(),
     hostName: this.hostName(),
     vacant: this.coop.vacantRule(),
+    mapSending: this.coop.mapTransfer()?.sending ? this.coop.mapTransfer() : null,
   }));
   readonly startBlocked = computed(() =>
     startBlocked(this.room(), this.coop.worldReady(), this.coop.lanesWithoutRoute(), this.coop.vacantRule()));

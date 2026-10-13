@@ -39,18 +39,26 @@ export interface JoinInput {
   relay: string;
   /** Share of the loading screen's steps done, null while no place loads */
   mapPercent: number | null;
+  /** Pieces of the host's custom map here so far, while they come through the relay */
+  mapReceived?: { done: number; total: number } | null;
   worldReady: boolean;
   /** This player's lane, null without one */
   mySpawn: string | null;
 }
 
+/** Share of a map transfer done, whole percent */
+export function transferPercent(t: { done: number; total: number }): number {
+  return t.total > 0 ? Math.round((t.done / t.total) * 100) : 0;
+}
+
 export function joinSteps(i: JoinInput): JoinStep[] {
   const step = (kind: JoinStepKind, label: string, meta: string, done: boolean, now: boolean): JoinStep =>
     ({ kind, label, meta, state: done ? 'done' : now ? 'now' : 'todo' });
+  const mapMeta = i.mapReceived ? `receiving ${transferPercent(i.mapReceived)} %` : i.mapPercent === null ? '' : `${i.mapPercent} %`;
   return [
     step('server', 'Connected to server', i.relay, !!i.room || i.status === 'lobby', i.status === 'connecting'),
     step('room', 'Room found', i.room ? `${i.room.players.length}/${MAX_PLAYERS} players` : '', !!i.room, false),
-    step('map', "Loading the host's map", i.mapPercent === null ? '' : `${i.mapPercent} %`, i.worldReady, i.status === 'loading-world'),
+    step('map', "Loading the host's map", mapMeta, i.worldReady, i.status === 'loading-world' || !!i.mapReceived),
     step('seat', 'Taking a seat', '', !!i.mySpawn, i.worldReady),
   ];
 }
@@ -75,6 +83,8 @@ export interface StatusInput {
   hostName: string;
   /** The map's rule for lanes nobody holds (TODO E130); null or missing: every lane needs a player */
   vacant?: VacantLanes | null;
+  /** Host: pieces of its custom map through the relay so far, while they go */
+  mapSending?: { done: number; total: number } | null;
 }
 
 /** Every guest is ready; the host always is (D40) */
@@ -92,6 +102,7 @@ export function roomStatus(i: StatusInput): RoomStatus | null {
   if (room.players.length < 2) {
     return { ...line('', '', 'Waiting for a second player | share the code'), segments: [...segments, false] };
   }
+  if (i.isHost && i.mapSending) return line('', 'Sending the map', ` to the room: ${transferPercent(i.mapSending)} %`);
   if (!i.worldReady) return line('', '', i.isHost ? 'Sending the map…' : "Waiting for the host's map…");
   const busy = room.players.find((p) => p.id !== i.myId && (p.status === 'key' || p.status === 'loading' || p.status === 'reloading'));
   if (busy) {

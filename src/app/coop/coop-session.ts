@@ -171,6 +171,8 @@ export class CoopSession {
   onWorld: ((world: unknown) => void) | null = null;
   /** A piece of the host's custom map (coop/map-transfer.ts), before the world that names it */
   onMap: ((piece: MapPart) => void) | null = null;
+  /** Host: the relay confirmed piece `part` of the map, the next may go */
+  onMapAck: ((part: number) => void) | null = null;
   onStarted: ((start: CoopStart) => void) | null = null;
   onSpeed: ((speed: number) => void) | null = null;
   /** Each player's round trip to the relay, ms */
@@ -286,6 +288,11 @@ export class CoopSession {
   /** Host, lobby: a piece of the room's custom map, ahead of the world that names it */
   sendMapPart(piece: MapPart): void {
     this.out({ t: 'map', ...piece });
+  }
+
+  /** Guest, lobby: piece `part` of the map with content `hash` is here, the relay may send the next */
+  mapGot(hash: string, part: number): void {
+    this.out({ t: 'map-got', hash, part });
   }
 
   /** Lobby: take a free spawn as one more lane, or give one back (`take` false); null gives every lane back */
@@ -488,6 +495,8 @@ export class CoopSession {
         return this.onWorld?.(message.world);
       case 'map':
         return this.onMap?.({ mapId: message.mapId, hash: message.hash, part: message.part, parts: message.parts, data: message.data });
+      case 'map-ack':
+        return this.onMapAck?.(message.part);
       case 'started': {
         const link = new WebSocketLink(this.playerId!, (m) => this.out(m));
         this.linkNow = link;

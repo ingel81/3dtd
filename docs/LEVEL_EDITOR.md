@@ -299,6 +299,10 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   neue Karte sie inzwischen trägt); ihre Versionen bleiben so lange stehen. Nach 30 Tagen (`TRASH_DAYS`) oder mit
   „Delete for good“ (zweimal) geht sie samt Versionen endgültig. Karten eines Koop-Hosts gehen nach Rückfrage gleich
   endgültig, der Host schickt sie beim nächsten Beitritt wieder
+- Budget im Map-Panel (`editor/validation/map-budget.ts`): Objekte gegen 15 000 (was eine Karte flüssig hält,
+  [SHOWCASE_LEVELS.md](SHOWCASE_LEVELS.md)) und die Dateigröße gegen die 32 MB, die ein Koop-Raum verschickt
+  ([COOP_PLAN.md](COOP_PLAN.md), C1c). Die Größe ist die des letzten manuellen Speicherns (gleiche Packstufe wie der
+  Koop-Versand; Autosaves packen leichter und größer); ab 80 % gelb, darüber rot mit Hinweis
 - Probewelle (P, „Trial wave“): die Gegnermodelle des Spiels laufen jede Route vom Spawn zum HQ mit ihrer echten
   Geschwindigkeit und Animation, die Typen der ersten Welle der eigenen Wellenliste oder eine Mischung (Zombie, Ratte,
   Panzer, Spinne, Skelett); die Statuszeile nennt, wie lange der schnellste und der langsamste bis zum HQ brauchen

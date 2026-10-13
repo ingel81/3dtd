@@ -15,10 +15,13 @@ describe('parseClientMessage (relay review K1, H1, N1)', () => {
     const piece = { t: 'map', mapId: 'demo-valley', hash: 'abc', part: 1, parts: 4, data: 'AAAA' };
     expect(parseClientMessage(piece)).toEqual(piece);
     expect(parseClientMessage({ ...piece, part: 4 })).toBeNull();
-    expect(parseClientMessage({ ...piece, parts: 9 })).toBeNull();
+    expect(parseClientMessage({ ...piece, parts: 65 })).toBeNull();
     expect(parseClientMessage({ ...piece, data: 'not base64!' })).toBeNull();
     expect(parseClientMessage({ ...piece, data: 'A'.repeat(800 * 1024) })).toBeNull();
     expect(parseClientMessage({ ...piece, mapId: '' })).toBeNull();
+    expect(parseClientMessage({ t: 'map-got', hash: 'abc', part: 3 })).toEqual({ t: 'map-got', hash: 'abc', part: 3 });
+    expect(parseClientMessage({ t: 'map-got', hash: 'abc', part: 64 })).toBeNull();
+    expect(parseClientMessage({ t: 'map-got', part: 1 })).toBeNull();
   });
 
   it('passes a command on with its own fields only, and no unknown command', () => {

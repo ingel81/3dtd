@@ -17,7 +17,7 @@ import type { HashedEntities, HashPart } from './hash-check';
  * Back to 1 before the first release (User, 2026-09-25): the numbers up to
  * then were development steps only.
  */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /** Players per room at most (D16). */
 export const MAX_PLAYERS = 4;
@@ -32,12 +32,16 @@ export const MAX_RESYNC_PARTS = 16;
 /**
  * A custom map the host sends along (coop/map-transfer.ts): its `.3dtdmap`
  * file in pieces of at most MAP_PART_BYTES before base64, at most
- * MAX_MAP_PARTS of them (4 MB; the shipped demo valley is 1.6 MB). Every
- * piece stays under the relay's message size, and a joiner gets all of them
- * at once well under its unread limit.
+ * MAX_MAP_PARTS of them (32 MB; the shipped demo valley is 1.6 MB). Every
+ * piece stays under the relay's message size. The pieces go one after the
+ * other, each confirmed (`map-ack` to the host, `map-got` from a guest), so
+ * neither the host's byte rate nor a guest's unread data reach the relay's
+ * limits however large the map.
  */
 export const MAP_PART_BYTES = 512 * 1024;
-export const MAX_MAP_PARTS = 8;
+export const MAX_MAP_PARTS = 64;
+/** The largest map file the relay passes on, bytes */
+export const MAX_MAP_BYTES = MAP_PART_BYTES * MAX_MAP_PARTS;
 
 /**
  * What a player's client is doing in the lobby, as it tells the room (User,
@@ -143,6 +147,8 @@ export type ClientMessage =
    * file, base64), before the world that names it; `hash` its content hash
    */
   | { t: 'map'; mapId: string; hash: string; part: number; parts: number; data: string }
+  /** Guest, lobby: piece `part` of the map with content `hash` is here; the relay sends the next one */
+  | { t: 'map-got'; hash: string; part: number }
   /** Lobby: what this client is doing now (PlayerStatus) */
   | { t: 'status'; status: PlayerStatus }
   /** Lobby: take a free spawn as one more lane, or give one back (`take` false); null gives every lane back */
@@ -204,6 +210,11 @@ export type ServerMessage =
   | { t: 'moving' }
   /** A piece of the host's custom map, to a player who joins (all of them, before the world) or as the host sends it */
   | { t: 'map'; mapId: string; hash: string; part: number; parts: number; data: string }
+  /**
+   * To the host: piece `part` of its map is through, kept for later joiners
+   * or with every guest in the room; the next one may go
+   */
+  | { t: 'map-ack'; part: number }
   /** The game starts: seed, roster and lanes ([player, spawn], a player in as many as they took); ticks follow */
   | {
     t: 'started';

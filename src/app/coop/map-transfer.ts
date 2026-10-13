@@ -51,6 +51,11 @@ export class MapAssembler {
   private pieces: (Uint8Array | undefined)[] = [];
   private count = 0;
 
+  /** Pieces of the current map here so far, of how many; null before the first piece */
+  get progress(): { done: number; total: number } | null {
+    return this.key ? { done: this.count, total: this.pieces.length } : null;
+  }
+
   /** The map being put together, null before the first piece */
   get current(): { mapId: string; hash: string } | null {
     if (!this.key) return null;
@@ -88,20 +93,42 @@ export class MapAssembler {
   }
 }
 
-/** Pause between two pieces, ms: the relay's rate limit and a guest's main thread breathe between them */
-export const MAP_PART_GAP_MS = 250;
+/**
+ * Base64 characters a second the host sends its map at most: under the
+ * relay's 4 MB a second per connection with room for the lobby's other
+ * messages. 32 MB (43 MB as base64) take some 14 s.
+ */
+export const MAP_SEND_CHARS_PER_SECOND = 3 * 1024 * 1024;
+
+/** How often a wait for the relay's map-ack looks whether the session is gone, ms */
+const ACK_POLL_MS = 500;
+
+/** How far the host's map is out: pieces through the relay of how many */
+export interface MapSendProgress {
+  done: number;
+  total: number;
+}
 
 /**
- * The host's map pieces, paced, and the world after them (coop.service
- * shareWorld). The world that follows is built when the last piece is out,
- * not when the pieces set off: a share while they are under way only asks
- * for it, so an older world can never arrive after a newer one and
- * overwrite it at the relay (review 2026-10-11). Nothing more is sent once
- * `alive` says the session is gone.
+ * The host's map pieces, one after the other, and the world after them
+ * (coop.service shareWorld). The next piece goes once the relay confirmed
+ * the last (`acked`, protocol `map-ack`) and the byte rate allows it
+ * (MAP_SEND_CHARS_PER_SECOND), so neither the relay's limit per connection
+ * nor a guest's unread data are reached however large the map. The world
+ * that follows is built when the last piece is through, not when the pieces
+ * set off: a share while they are under way only asks for it, so an older
+ * world can never arrive after a newer one and overwrite it at the relay
+ * (review 2026-10-11). Nothing more is sent once `alive` says the session
+ * is gone.
  */
 export class PacedMapSend {
   /** The world to send after the pieces under way; null while none go */
   private worldAfter: (() => void) | null = null;
+  /** The piece whose map-ack is awaited and what to call then */
+  private awaited: { part: number; resolve: () => void } | null = null;
+
+  /** Pieces through the relay of how many, while some go; null otherwise */
+  onProgress: ((progress: MapSendProgress | null) => void) | null = null;
 
   /** Pieces under way */
   get busy(): boolean {
@@ -126,16 +153,52 @@ export class PacedMapSend {
     void this.send(parts, sendPart, alive);
   }
 
+  /** The relay confirmed piece `part` (protocol `map-ack`) */
+  acked(part: number): void {
+    const awaited = this.awaited;
+    if (awaited?.part !== part) return;
+    this.awaited = null;
+    awaited.resolve();
+  }
+
   private async send(parts: readonly MapPart[], sendPart: (part: MapPart) => void, alive: () => boolean): Promise<void> {
     try {
+      let nextAt = 0;
+      this.onProgress?.({ done: 0, total: parts.length });
       for (const [i, part] of parts.entries()) {
-        if (i > 0) await new Promise((resolve) => setTimeout(resolve, MAP_PART_GAP_MS));
+        const wait = nextAt - performance.now();
+        if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
         if (!alive()) return;
+        nextAt = performance.now() + (part.data.length / MAP_SEND_CHARS_PER_SECOND) * 1000;
+        const through = this.ackOf(part.part, alive);
         sendPart(part);
+        if (!(await through)) return;
+        this.onProgress?.({ done: i + 1, total: parts.length });
       }
       if (alive()) this.worldAfter?.();
     } finally {
       this.worldAfter = null;
+      this.awaited = null;
+      this.onProgress?.(null);
     }
+  }
+
+  /** True once the relay confirmed piece `part`, false when the session went first */
+  private ackOf(part: number, alive: () => boolean): Promise<boolean> {
+    return new Promise((resolve) => {
+      const poll = setInterval(() => {
+        if (alive()) return;
+        clearInterval(poll);
+        this.awaited = null;
+        resolve(false);
+      }, ACK_POLL_MS);
+      this.awaited = {
+        part,
+        resolve: () => {
+          clearInterval(poll);
+          resolve(true);
+        },
+      };
+    });
   }
 }

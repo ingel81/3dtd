@@ -67,23 +67,35 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(lines[1]).toBe('B (b) joined (2 players), on Firefox 143.0, Linux');
   });
 
-  it("passes the host's map on to the guests and gives a later joiner every piece before the world", () => {
+  it("passes the host's map on piece by piece, each confirmed, and gives a later joiner its first piece before the world", () => {
     room.join(player('b'));
     const piece = (part: number, mapId = 'm1') => ({ t: 'map' as const, mapId, hash: 'h1', part, parts: 2, data: `P${part}` });
     room.receive('a', piece(0));
+    expect(all('b', 'map').map((m) => m.data)).toEqual(['P0']);
+    // Kept for later joiners: the host may send the next one
+    expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0]);
     room.receive('a', piece(1));
-    room.receive('a', { t: 'world', world: { any: 'thing' }, spawnIds: ['s1'] });
+    // b has one piece unread at most: the next goes after its map-got
+    expect(all('b', 'map').map((m) => m.data)).toEqual(['P0']);
+    room.receive('b', { t: 'map-got', hash: 'other', part: 0 });
+    expect(all('b', 'map').map((m) => m.data)).toEqual(['P0']);
+    room.receive('b', { t: 'map-got', hash: 'h1', part: 0 });
     expect(all('b', 'map').map((m) => m.data)).toEqual(['P0', 'P1']);
+    room.receive('a', { t: 'world', world: { any: 'thing' }, spawnIds: ['s1'] });
     expect(all('a', 'map')).toEqual([]);
+    expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0, 1]);
 
     room.join(player('c'));
     const kinds = (inbox.get('c') ?? []).map((m) => m.t).filter((t) => t === 'map' || t === 'world');
-    expect(kinds).toEqual(['map', 'map', 'world']);
+    expect(kinds).toEqual(['map', 'world']);
+    room.receive('c', { t: 'map-got', hash: 'h1', part: 0 });
+    expect(all('c', 'map').map((m) => m.data)).toEqual(['P0', 'P1']);
 
     // Only the host sends one; another map replaces the pieces kept
     room.receive('b', piece(0, 'm2'));
     expect(last('b', 'refused')!.reason).toBe('not-host');
     room.receive('a', { ...piece(0, 'm2'), parts: 1 });
+    expect(last('b', 'map')!.mapId).toBe('m2');
     room.join(player('d'));
     expect(all('d', 'map').map((m) => [m.mapId, m.part])).toEqual([['m2', 0]]);
   });
@@ -98,12 +110,17 @@ describe('Room (COOP_PLAN C4)', () => {
     const piece = (part: number, data: string, parts = 2) => ({ t: 'map' as const, mapId: 'm1', hash: 'h1', part, parts, data });
     room.join(player('b'));
     room.receive('a', piece(0, 'AAAAAA'));
-    // The second piece does not fit the budget: b gets it, a later joiner not
+    // The second piece does not fit the budget: b gets it, the host's next waits for b, a later joiner gets no map
     room.receive('a', piece(1, 'BBBBBB'));
+    expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0]);
+    room.receive('b', { t: 'map-got', hash: 'h1', part: 0 });
     expect(all('b', 'map').map((m) => m.data)).toEqual(['AAAAAA', 'BBBBBB']);
+    expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0]);
+    room.receive('b', { t: 'map-got', hash: 'h1', part: 1 });
+    expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0, 1]);
     expect(budget.used).toBe(6);
     room.join(player('c'));
-    expect(all('c', 'map').map((m) => m.data)).toEqual(['AAAAAA']);
+    expect(all('c', 'map')).toEqual([]);
 
     // Another map gives the old pieces back first
     room.receive('a', { ...piece(0, 'CCCCCCCC', 1), mapId: 'm2' });
@@ -119,6 +136,18 @@ describe('Room (COOP_PLAN C4)', () => {
     room.receive('a', { t: 'start', seed: 1 });
     expect(last('a', 'refused')).toBeUndefined();
     expect(budget.used).toBe(0);
+  });
+
+  it("lets the host go on when a guest it waits for leaves", () => {
+    room = new Room('ABCDEF', player('a'), (id, message) => {
+      if (!inbox.has(id)) inbox.set(id, []);
+      inbox.get(id)!.push(message);
+    }, { now: () => clock, mapBudget: new MapBudget(0) });
+    room.join(player('b'));
+    room.receive('a', { t: 'map', mapId: 'm1', hash: 'h1', part: 0, parts: 2, data: 'AAAA' });
+    expect(all('a', 'map-ack')).toEqual([]);
+    room.leave('b');
+    expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0]);
   });
 
   it("shares out the lanes nobody holds in turn when the host's start asks for it (TODO E130)", () => {

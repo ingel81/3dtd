@@ -32,7 +32,7 @@ import {
   worldPackageRefusalText,
   type WorldPackage,
 } from '../coop/world-package';
-import type { CoopRoomInfo, PlayerStatus, PublicRoom, RefusalReason, RoomListing } from '../coop/protocol';
+import { MAX_MAP_BYTES, type CoopRoomInfo, type PlayerStatus, type PublicRoom, type RefusalReason, type RoomListing } from '../coop/protocol';
 import { clientInfoFrom, mixedEngines } from '../coop/client-info';
 import { laneStats, type LaneStat } from '../coop/lane-stats';
 import { InputHandlerService } from './input-handler.service';
@@ -314,6 +314,11 @@ export class CoopService {
   readonly desync = this.perRoom.signal<{ tick: number; hashes: [string, number][]; outOfStep: string[] } | null>(null);
   /** The host's world stands here too and matches it (joiner), or was sent (host) */
   readonly worldReady = this.perRoom.signal(false);
+  /**
+   * The custom map on its way: the host's pieces through the relay, or the
+   * pieces of the host's map here (guest); null while none go
+   */
+  readonly mapTransfer = this.perRoom.signal<{ sending: boolean; done: number; total: number } | null>(null);
   readonly isHost = computed(() => {
     const room = this.room();
     return room !== null && room.hostId === this.playerId();
@@ -491,6 +496,7 @@ export class CoopService {
 
   constructor() {
     readDesktopBridge()?.onUpdateReady(() => this.ngZone.run(() => this.updateReady.set(true)));
+    this.mapSend.onProgress = (progress) => this.ngZone.run(() => this.mapTransfer.set(progress && { sending: true, ...progress }));
     // A coop run that ended goes to a relay that collects, with the player's consent (TODO E38)
     effect(() => {
       const run = this.runLog.closedRun();
@@ -1247,7 +1253,7 @@ export class CoopService {
     if (key === this.sentMapKey) return null;
     const parts = splitMapFile(packed.bytes, ref.mapId, packed.hash);
     if (!parts) {
-      this.notify(`This map is too big to send over the relay (${Math.round(packed.bytes.length / 2 ** 20)} MB): only players who have it can join`, 'warn');
+      this.notify(`This map is too big to send over the relay (${Math.round(packed.bytes.length / 2 ** 20)} MB of at most ${MAX_MAP_BYTES / 2 ** 20}): only players who have it can join`, 'warn');
       return null;
     }
     this.sentMapKey = key;
@@ -1262,6 +1268,10 @@ export class CoopService {
   private takeMapPart(piece: MapPart): void {
     if (this.isHost()) return;
     const bytes = this.mapAssembler.add(piece);
+    // The relay sends the next piece once this one is confirmed
+    this.session?.mapGot(piece.hash, piece.part);
+    const progress = this.mapAssembler.progress;
+    this.mapTransfer.set(progress && !bytes ? { sending: false, ...progress } : null);
     if (!bytes) {
       if (piece.part === 0) this.tellStatus('loading');
       return;
@@ -1459,6 +1469,7 @@ export class CoopService {
     });
     session.onWorld = inZone((world) => void this.takeWorld(world));
     session.onMap = inZone((piece) => this.takeMapPart(piece));
+    session.onMapAck = inZone((part) => this.mapSend.acked(part));
     session.onStarted = inZone((start) => this.startGame(start));
     session.onSpeed = inZone((speed) => this.applySpeed(speed));
     session.onRtt = inZone((rtt) => this.rtt.set(new Map(rtt)));

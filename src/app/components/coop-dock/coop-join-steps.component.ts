@@ -4,7 +4,7 @@ import { CoopService } from '../../services/coop.service';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { relayLabel } from '../../coop/relay-address';
-import { joinSteps } from './coop-dock-view';
+import { joinSteps, transferPercent } from './coop-dock-view';
 
 /**
  * Joining a coop room as a guest, step by step: connected, room found, the
@@ -41,9 +41,19 @@ export class CoopJoinStepsComponent {
       room,
       relay: relay ? relayLabel(relay.url) : '',
       mapPercent: this.mapPercent(),
+      mapReceived: this.mapReceived(),
       worldReady: this.coop.worldReady(),
       mySpawn: room?.players.find((p) => p.id === this.coop.playerId())?.spawnIds[0] ?? null,
     });
   });
-  readonly barPercent = computed(() => this.mapPercent() ?? 0);
+  /** Pieces of the host's custom map here so far, while they come */
+  private readonly mapReceived = computed(() => {
+    const transfer = this.coop.mapTransfer();
+    return transfer && !transfer.sending ? transfer : null;
+  });
+
+  readonly barPercent = computed(() => {
+    const received = this.mapReceived();
+    return received ? transferPercent(received) : this.mapPercent() ?? 0;
+  });
 }

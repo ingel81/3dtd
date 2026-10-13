@@ -24,6 +24,13 @@ describe('joinSteps', () => {
       ['seat', 'todo', ''],
     ]);
   });
+
+  it("shows the host's map coming through the relay, before its world arrived", () => {
+    const steps = joinSteps({
+      status: 'lobby', room: room([player('ann', 's1')]), relay: 'EU', mapPercent: null, mapReceived: { done: 16, total: 64 }, worldReady: false, mySpawn: null,
+    });
+    expect(steps[2]).toMatchObject({ kind: 'map', state: 'now', meta: 'receiving 25 %' });
+  });
 });
 
 describe('roomStatus and startBlocked', () => {
@@ -33,6 +40,9 @@ describe('roomStatus and startBlocked', () => {
     const status = roomStatus({ ...base, room: room([player('ann', 's1')]) })!;
     expect(status.text).toBe('Waiting for a second player | share the code');
     expect(status.segments).toEqual([true, false]);
+    // The map going out is said once a guest is there
+    const two = room([player('ann', 's1'), player('bob', null)]);
+    expect(roomStatus({ ...base, room: two, mapSending: { done: 32, total: 64 } })).toMatchObject({ bold: 'Sending the map', text: ' to the room: 50 %' });
     expect(startBlocked(room([player('ann', 's1')]), true)).toBe('Needs a second player');
   });
 
