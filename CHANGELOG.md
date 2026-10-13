@@ -3,6 +3,11 @@
 What changed for players, newest first. Every release adds a section here, and the
 game shows it once after an update.
 
+## 0.7.1 (2026-10-13)
+
+### Fixed
+- The desktop app prefers the dedicated graphics card on systems with more than one GPU.
+
 ## 0.7.0 (2026-10-13)
 
 ### New
