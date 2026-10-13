@@ -62,6 +62,7 @@ export class RiverSurface {
     this.mesh.name = `custom-map-river-${river.id}`;
     this.mesh.userData['losTransparent'] = true;
     this.mesh.renderOrder = 1;
+    this.mesh.receiveShadow = true;
     this.mesh.matrixAutoUpdate = false;
   }
 

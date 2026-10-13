@@ -59,6 +59,7 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
   const material = new ShaderMaterial({
     uniforms: UniformsUtils.merge([
       UniformsLib.fog,
+      UniformsLib.lights,
       {
         uWaves: { value: null },
         uTime: { value: 0 },
@@ -77,6 +78,8 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
     fragmentShader: WATER_FRAGMENT,
     transparent: o.kind === 'water' || o.kind === 'sea' || o.kind === 'swamp',
     fog: true,
+    // The sun's shadow and the point light pool (lanterns, torches, lava) reach the water
+    lights: true,
     depthWrite: true,
   });
   material.uniforms['uWaves'].value = waveTexture();
@@ -196,6 +199,7 @@ const WATER_VERTEX = /* glsl */ `
 #include <common>
 #include <fog_pars_vertex>
 #include <logdepthbuf_pars_vertex>
+#include <shadowmap_pars_vertex>
 attribute float aDepth;
 #if RIVER == 1
 attribute vec2 aFlow;
@@ -217,6 +221,9 @@ void main() {
   vec4 worldPos = modelMatrix * vec4(position, 1.0);
   vWorldPos = worldPos.xyz;
   vec4 mvPosition = viewMatrix * worldPos;
+  // The sun's shadow: three's chunk reads worldPosition (no normal attribute: no normal offset)
+  vec4 worldPosition = worldPos;
+  #include <shadowmap_vertex>
   gl_Position = projectionMatrix * mvPosition;
   #include <logdepthbuf_vertex>
   #include <fog_vertex>
@@ -227,6 +234,10 @@ const WATER_FRAGMENT = /* glsl */ `
 #include <common>
 #include <fog_pars_fragment>
 #include <logdepthbuf_pars_fragment>
+#include <packing>
+#include <lights_pars_begin>
+#include <shadowmap_pars_fragment>
+#include <shadowmask_pars_fragment>
 uniform sampler2D uWaves;
 uniform float uTime;
 uniform vec3 uDeep;
@@ -259,8 +270,29 @@ vec3 waveNormal(vec2 p, vec2 flow, float strength) {
   return normalize(vec3(n.x, n.z, n.y));
 }
 
+// Glints and a faint pool of the point lights (lanterns, torches, lava glow) on a surface of normal n
+vec3 pointGlints(vec3 n, vec3 v) {
+  vec3 sum = vec3(0.0);
+#if NUM_POINT_LIGHTS > 0
+  vec3 viewPos = (viewMatrix * vec4(vWorldPos, 1.0)).xyz;
+  vec3 nv = normalize((viewMatrix * vec4(n, 0.0)).xyz);
+  vec3 vv = normalize(-viewPos);
+  for (int i = 0; i < NUM_POINT_LIGHTS; i++) {
+    vec3 l = pointLights[i].position - viewPos;
+    float d = length(l);
+    l /= max(d, 1e-3);
+    float att = getDistanceAttenuation(d, pointLights[i].distance, pointLights[i].decay);
+    float spec = pow(max(dot(nv, normalize(l + vv)), 0.0), 140.0) * 3.0;
+    sum += pointLights[i].color * att * (spec + 0.04 * max(dot(nv, l), 0.0));
+  }
+#endif
+  return sum;
+}
+
 void main() {
   #include <logdepthbuf_fragment>
+  // 1 in the sun, 0 in the shadow of trees, bridges and banks
+  float sunShade = getShadowMask();
   vec2 m = vec2(-vMapPos.x, vMapPos.z);
   bool outside = abs(m.x) > uMapHalf.x || abs(m.y) > uMapHalf.y;
   // Depth per pixel: the shore is where the terrain cuts the surface
@@ -313,8 +345,9 @@ void main() {
   // Snow drifted into the shallows and a fine grain of frost
   float snow = smoothstep(0.6, 0.05, depth) * (0.7 + 0.3 * valueNoise(ip * 1.7)) + smoothstep(0.7, 0.95, valueNoise(ip * 2.3)) * 0.25;
   body = mix(body, vec3(0.82, 0.86, 0.9), clamp(snow, 0.0, 1.0));
-  color = mix(body * uLight, sky, fresnel * 0.5);
-  color += uSunColor * pow(max(dot(r, uSunDir), 0.0), 80.0) * 0.6;
+  color = mix(body * uLight * mix(0.6, 1.0, sunShade), sky, fresnel * 0.5);
+  color += uSunColor * pow(max(dot(r, uSunDir), 0.0), 80.0) * 0.6 * sunShade;
+  color += pointGlints(n, v) * 0.5;
   alpha = edge;
 #else
   // Water, sea, swamp
@@ -331,7 +364,9 @@ void main() {
   float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
   vec3 r = reflect(-v, n);
   vec3 sky = skyTex(vec3(r.x, max(r.y, 0.02), r.z));
-  vec3 body = mix(uShallow, uDeep, smoothstep(0.2, 3.5, depth)) * uLight;
+  vec3 body = mix(uShallow, uDeep, smoothstep(0.2, 3.5, depth)) * uLight * mix(0.55, 1.0, sunShade);
+  // In shade the bright sky reflection reads a little darker too (the eye compares it with the shaded bank)
+  sky *= mix(0.8, 1.0, sunShade);
   #if KIND == 4
   color = mix(body, sky, fresnel * 0.4 + 0.02);
   // Algae and duckweed in patches along the banks, where the water is shallow and still; the open
@@ -350,7 +385,8 @@ void main() {
   #if KIND == 4
   spec *= 0.3;
   #endif
-  color += uSunColor * spec;
+  color += uSunColor * spec * sunShade;
+  color += pointGlints(n, v);
   // Foam where it gets shallow, broken up by the waves
   float foamNoise = texture2D(uWaves, vWorldPos.xz / 2.3 + uTime * 0.03).x;
   float foamBreak = texture2D(uWaves, vWorldPos.xz / 17.0 - uTime * 0.01).y;

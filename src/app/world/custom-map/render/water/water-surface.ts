@@ -131,6 +131,7 @@ export class WaterSurface {
     mesh.name = 'custom-map-water';
     mesh.userData['losTransparent'] = true;
     mesh.renderOrder = 1;
+    mesh.receiveShadow = true;
     mesh.matrixAutoUpdate = false;
     this.object.add(mesh);
     return mesh;
