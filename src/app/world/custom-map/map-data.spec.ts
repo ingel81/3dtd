@@ -50,6 +50,21 @@ describe('map data (TODO E134)', () => {
     expect(mapDataUrl('maps/assets/catalog.json')).toBe('https://data.example.test/3dtd/maps/assets/catalog.json');
   });
 
+  it('notes every load with its source as a performance.measure', async () => {
+    performance.clearMeasures();
+    const url = mapDataUrl('maps/assets/models/rock.glb');
+    await mapDataFetch(url);
+    await mapDataFetch(url);
+    await mapDataFetch(mapDataUrl('maps/missing.glb'));
+    const loads = performance.getEntriesByType('measure').filter((m) => m.name.startsWith('map-data '));
+    expect(loads.map((m) => m.name)).toEqual([
+      'map-data network maps/assets/models/rock.glb',
+      'map-data cache maps/assets/models/rock.glb',
+      'map-data failed maps/missing.glb',
+    ]);
+    expect((loads[0] as PerformanceMeasure).detail).toEqual({ url, source: 'network', bytes: `body of ${url}`.length });
+  });
+
   it('loads a file once from the network and from the cache after, counting both', async () => {
     const seen: MapDataProgress[] = [];
     const off = onMapDataProgress((p) => seen.push(p));

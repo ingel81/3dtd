@@ -248,6 +248,11 @@ Cache), eine mitgelieferte Karte wird mit ihrem Inhalts-Hash angefragt (`?v=`), 
 `public/maps`). Ein neuer Build beginnt mit leerem Cache, `dropOldMapData` räumt die alten (beim Lesen der
 runtime-config). Die Ladeplatte zeigt „Map data 12 of 48 files, 3.4 MB“, solange Dateien vom Netz kommen. Die
 Desktop-App hält die Cache Storage im Profil auf der Platte (`app://` ist als sicheres Schema registriert).
+Jede Datei hinterlässt ein `performance.measure` `map-data <Quelle> <Pfad>` (Quelle `cache`, `network`, `stale` oder
+`failed`, Bytes im `detail`; vom Netz der ganze Download, aus dem Cache das Nachschlagen): ein langsamer Start nennt
+die Datei und woher sie kam. `e2e/perf/shipped-maps.ts` druckt dazu je Ladevorgang Dateien, MB und summierte ms je
+Quelle und die langsamsten Dateien (2026-10-14, optimierter Dev-Stand, frischer Browser-Kontext: Demo-Tal 60 Dateien,
+20,2 MB, Hafenstadt 83 Dateien, 19,2 MB, alle vom Netz, kalt 4,4 und 4,7 s).
 Offen für die Freigabe: die Daten auf den Webserver legen, dort CORS für die Seite und `app://`, im CSP der
 Desktop-App (`desktop/src/protocol.js`, `connect-src`) den Host eintragen, `mapData` in die runtime-config.
 

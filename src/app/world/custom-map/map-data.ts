@@ -11,12 +11,41 @@
  * starts empty and the old one goes (dropOldMapData). The index is asked of
  * the network first; a shipped map's file is named with its content hash.
  * Framework-free: the game's progress line listens with onMapDataProgress.
+ *
+ * Every file's load leaves a `performance.measure` named
+ * `map-data <source> <path>` (MAP_DATA_MEASURE), source `cache`, `network`,
+ * `stale` (the index from the cache, offline) or `failed`, with `{ url,
+ * source, bytes }` as detail: a slow load says which file and from where.
+ * From the network it spans the whole download; from the cache the lookup
+ * (the body is read by whoever asked for the file).
  */
 import { BUILD_VERSION } from '../../configs/build-info.config';
 
 const CACHE_PREFIX = '3dtd-map-data-';
 /** The cache of this build */
 export const MAP_DATA_CACHE = `${CACHE_PREFIX}${BUILD_VERSION}`;
+
+/** The name every map file's performance.measure starts with */
+export const MAP_DATA_MEASURE = 'map-data';
+
+export type MapDataSource = 'cache' | 'network' | 'stale' | 'failed';
+
+/** A map file's load as a performance.measure (see the head of the file); never fails the load */
+function measureLoad(url: string, source: MapDataSource, start: number, bytes: number | null): void {
+  try {
+    const root = mapDataRoot();
+    const path = url.startsWith(root) ? url.slice(root.length) : url;
+    performance.measure(`${MAP_DATA_MEASURE} ${source} ${path}`, { start, end: performance.now(), detail: { url, source, bytes } });
+  } catch {
+    // No User Timing (an old browser, a test without it): nothing to note
+  }
+}
+
+/** Bytes a response says it carries, null where it does not */
+function lengthOf(response: Response): number | null {
+  const length = Number(response.headers.get('content-length'));
+  return Number.isFinite(length) && length > 0 ? length : null;
+}
 
 /** What the map files' loads have done since the page opened */
 export interface MapDataProgress {
@@ -86,23 +115,31 @@ export async function mapDataFetch(input: RequestInfo | URL, init?: RequestInit)
   if (init?.method && init.method !== 'GET') return fetch(input, init);
   progress.requested++;
   tell();
+  const start = performance.now();
   try {
     const cache = await openCache();
     if (cache && !networkFirst(url)) {
       const hit = await cache.match(url);
-      if (hit) return hit;
+      if (hit) {
+        measureLoad(url, 'cache', start, lengthOf(hit));
+        return hit;
+      }
     }
     try {
       const response = await fetch(url, networkFirst(url) ? { ...init, cache: 'no-store' } : init);
+      let bytes: number | null = null;
       if (response.ok) {
         const body = await response.clone().arrayBuffer();
+        bytes = body.byteLength;
         progress.fetched++;
         progress.bytes += body.byteLength;
         await cache?.put(url, response.clone()).catch(() => undefined);
       }
+      measureLoad(url, response.ok ? 'network' : 'failed', start, bytes);
       return response;
     } catch (error) {
       const stale = networkFirst(url) ? await cache?.match(url) : undefined;
+      measureLoad(url, stale ? 'stale' : 'failed', start, stale ? lengthOf(stale) : null);
       if (stale) return stale;
       throw error;
     }

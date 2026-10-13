@@ -7,6 +7,10 @@
 //   node e2e/perf/shipped-maps.ts --url http://localhost:4227 [--maps a,b] [--waves 10] [--seconds 5] [--no-trial] [--json out.json]
 //
 // Headed Chromium without the frame rate cap: the GPU the player has, the real headroom instead of a flat 60.
+//
+// Each load also says where its map files came from (the `map-data <source> <path>` measures of
+// src/app/world/custom-map/map-data.ts): files, MB and summed ms per source, and the slowest files, so a slow
+// load names its cause.
 import { chromium, type Browser, type Page } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -41,7 +45,37 @@ interface Row {
   warmMs: number | null;
   fps: number | null;
   trial: { outcome: string; wavesHeld: number; waves: number; hqStart: number; hqEnd: number; towers: number } | null;
+  /** The map files of each load, by source */
+  files: { cold: FileLoads | null; warm: FileLoads | null };
   problems: string[];
+}
+
+interface FileLoads {
+  bySource: Record<string, { files: number; mb: number; ms: number }>;
+  /** The slowest files: "<ms> ms <source> <path>" */
+  slowest: string[];
+}
+
+/** The map files the page loaded so far, from their performance measures */
+async function fileLoads(page: Page): Promise<FileLoads> {
+  return page.evaluate(() => {
+    const loads = performance.getEntriesByType('measure').filter((m) => m.name.startsWith('map-data ')) as PerformanceMeasure[];
+    const bySource: Record<string, { files: number; mb: number; ms: number }> = {};
+    for (const m of loads) {
+      const [, source] = m.name.split(' ');
+      const s = (bySource[source] ??= { files: 0, mb: 0, ms: 0 });
+      s.files++;
+      s.mb += ((m.detail as { bytes: number | null } | null)?.bytes ?? 0) / 2 ** 20;
+      s.ms += m.duration;
+    }
+    for (const s of Object.values(bySource)) {
+      s.mb = Math.round(s.mb * 10) / 10;
+      s.ms = Math.round(s.ms);
+    }
+    const slowest = [...loads].sort((a, b) => b.duration - a.duration).slice(0, 3)
+      .map((m) => `${Math.round(m.duration)} ms ${m.name.slice('map-data '.length)}`);
+    return { bySource, slowest };
+  });
 }
 
 async function newPage(browser: Browser, problems: string[]): Promise<Page> {
@@ -102,12 +136,13 @@ async function trial(browser: Browser, id: string, problems: string[]): Promise<
 
 const rows: Row[] = [];
 for (const map of MAPS) {
-  const row: Row = { id: map.id, name: map.name, coldMs: null, warmMs: null, fps: null, trial: null, problems: [] };
+  const row: Row = { id: map.id, name: map.name, coldMs: null, warmMs: null, fps: null, trial: null, files: { cold: null, warm: null }, problems: [] };
   // A browser of its own per map: its first load compiles every shader (cold), the second finds them cached (warm)
   const browser = await chromium.launch(LAUNCH);
   for (const run of ['cold', 'warm'] as const) {
     const page = await newPage(browser, row.problems);
     const ms = await load(page, map.id);
+    row.files[run] = await fileLoads(page);
     if (run === 'cold') row.coldMs = ms;
     else {
       row.warmMs = ms;
@@ -128,6 +163,15 @@ console.log('\n| Karte | Laden kalt | Laden warm | Spielansicht | Kartenprobe |'
 console.log('|-------|-----------|-----------|--------------|-------------|');
 for (const r of rows) {
   console.log(`| ${r.name} (\`${r.id}\`) | ${s(r.coldMs)} | ${s(r.warmMs)} | ${r.fps ?? 'n/a'} fps | ${trialCell(r.trial)} |`);
+}
+console.log('\nMap files per load (source: files, MB, summed ms; slowest files)');
+for (const r of rows) {
+  for (const run of ['cold', 'warm'] as const) {
+    const f = r.files[run];
+    if (!f) continue;
+    const sources = Object.entries(f.bySource).map(([source, s]) => `${source} ${s.files} files ${s.mb} MB ${s.ms} ms`).join(', ');
+    console.log(`  ${r.id} ${run}: ${sources}; slowest ${f.slowest.join(' | ')}`);
+  }
 }
 if (rows.some((r) => r.problems.length)) {
   console.log('\nProblems:');
