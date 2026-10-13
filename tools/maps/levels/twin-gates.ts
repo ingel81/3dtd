@@ -125,6 +125,6 @@ export function buildTwinGates(): CustomMapDocument {
   k.gameplay({ startCredits: 250 });
   // Five ground materials load faster than eight; the least used go
   k.trimLayers(5);
-  k.environment({ biome: 'temperate', sky: 'day', sunAzimuth: 255, sunElevation: 12, fogDensity: 0.0005, tint: '#ffd6aa' });
+  k.environment({ biome: 'temperate', sky: 'day', sunAzimuth: 255, sunElevation: 20, fogDensity: 0.0005, tint: '#ffd6aa' });
   return k.finish();
 }

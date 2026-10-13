@@ -88,6 +88,6 @@ export function buildHarborTown(): CustomMapDocument {
 
   k.trimLayers(6);
   // Dusk over the bay: the lamps come on in the streets, the sea catches the last light
-  k.environment({ biome: 'city', sky: 'dusk', sunAzimuth: 250, sunElevation: 10, fogDensity: 0.0008, tint: '#ffe2c8' });
+  k.environment({ biome: 'city', sky: 'dusk', sunAzimuth: 250, sunElevation: 20, fogDensity: 0.0008, tint: '#ffe2c8' });
   return k.finish();
 }

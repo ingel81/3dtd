@@ -96,7 +96,7 @@
       "spawns": 2,
       "biome": "arctic",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "7aae65b4d3fbca30b35474ec501593dcdd3ed744afea78d0504a96986dc53986"
+      "contentHash": "38df3e0fa3ad7c08ae12b2461a1cc450011b82e108b82746dd25860bae89e012"
     },
     {
       "id": "ember-crater",
@@ -124,7 +124,7 @@
       "spawns": 4,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "35e7c40a2b1246c926de808f07ad48dbbe322e9dcbe8afb2d1047db0089cd84b"
+      "contentHash": "6726650c6a04564d17133e953b9d4edcee009c239809177421a90a3fb3dbbbb3"
     },
     {
       "id": "moon-base",
@@ -180,7 +180,7 @@
       "spawns": 3,
       "biome": "city",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "f2fa27c585f3b46c2b0ec96887f286efe518d75d290c1756e6d82bcfac32d7fe"
+      "contentHash": "9697398126eed94b1f17e1c3af1ab00a340bf14b4a4d33ad0cc59a598cdbf4a5"
     }
   ]
 }

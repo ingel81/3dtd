@@ -105,6 +105,6 @@ export function buildFrostHamlet(): CustomMapDocument {
 
   // Five ground materials load faster than eight; the least used go
   k.trimLayers(5);
-  k.environment({ biome: 'arctic', sky: 'dusk', sunAzimuth: 250, sunElevation: 5, fogDensity: 0.0009, tint: '#e6ecff', weather: 'snow', weatherStrength: 0.25 });
+  k.environment({ biome: 'arctic', sky: 'dusk', sunAzimuth: 250, sunElevation: 20, fogDensity: 0.0009, tint: '#e6ecff', weather: 'snow', weatherStrength: 0.25 });
   return k.finish();
 }

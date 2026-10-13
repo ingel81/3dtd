@@ -216,7 +216,9 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Szene; dessen Dichte setzt `matchFog` je Frame so, dass beide am Kamerafokus gleich dicht sind
 - **Grading** wird immer im sRGB-Raum gerechnet, auch durch die Post-Processing-Kette des Spiels (lineares
   Float-Ziel), sonst würde der Kontrast dunkle Werte schwarz drücken
-- Halbkugellicht, `tint` färbt Licht und Himmel. Abgestimmt auf den Renderer des Spiels (kein Tone-Mapping, sRGB);
+- Halbkugellicht, `tint` färbt Licht und Himmel. Das Halbkugellicht ist die kühle Füllung der Schattenseiten (Tag 0,75,
+  Dämmerung 0,95, Wüste, Hölle und Mars 0,75; der Mond bleibt hart): Schatten bleiben lesbar statt fast schwarz.
+  Spielkarten stellen die Sonne auf mindestens etwa 20°, flacher werden die Schatten lang und der Boden dunkel. Abgestimmt auf den Renderer des Spiels (kein Tone-Mapping, sRGB);
   `/map-preview?post=bloom` rendert durch die Post-Processing-Kette des Spiels
 
 ## Assets

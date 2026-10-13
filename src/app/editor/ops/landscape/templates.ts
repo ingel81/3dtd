@@ -94,7 +94,7 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
     biome: 'city',
     terrain: 'flat',
     strength: 0.2,
-    environment: { biome: 'city', sky: 'dusk', sunElevation: 12 },
+    environment: { biome: 'city', sky: 'dusk', sunElevation: 20 },
   },
   {
     id: 'hell',
