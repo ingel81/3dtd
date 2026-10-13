@@ -4,7 +4,7 @@
  * snap and duplicates. Ids are `o<number>`, counted on from the highest.
  */
 import type { CustomMapDocument, MapObject, MapPoint, MapTerrain } from '../../world/custom-map/map-document';
-import { slopeAt, insideMap } from '../model/grid';
+import { heightAt, slopeAt, insideMap } from '../model/grid';
 import { brushWeight, type BrushSettings } from './brush';
 
 /** Hands out fresh object ids, starting past the highest in the map */
@@ -42,6 +42,8 @@ export interface ScatterOptions {
   tint: string | null;
   /** 0..1: how far each object's tint strays from it (from white without a tint) */
   tintVariation: number;
+  /** Tilt each object with the ground under it */
+  alignToSlope: boolean;
 }
 
 export const DEFAULT_SCATTER: ScatterOptions = {
@@ -54,7 +56,46 @@ export const DEFAULT_SCATTER: ScatterOptions = {
   sinkOnSlope: true,
   tint: null,
   tintVariation: 0,
+  alignToSlope: false,
 };
+
+/**
+ * The tilt (`pitch`, `roll`) that stands an object turned by `rotation`
+ * square on the ground at (x, y): its up axis along the ground's normal,
+ * averaged over `reach` metres (its footprint), so a rock lies on the slope
+ * instead of floating on its low side. The renderer turns by the rotation,
+ * then tilts about the model's own x and z axes (Euler XZY): the up vector
+ * becomes (-sin roll, cos roll cos pitch, cos roll sin pitch) in the turned
+ * frame, solved here for the normal. Radians, rounded.
+ */
+export function slopeTilt(terrain: MapTerrain, x: number, y: number, rotation: number, reach = 2): { pitch: number; roll: number } {
+  const d = Math.max(terrain.grid.cellSize, reach);
+  const dhdx = (heightAt(terrain, x + d, y) - heightAt(terrain, x - d, y)) / (2 * d);
+  const dhdy = (heightAt(terrain, x, y + d) - heightAt(terrain, x, y - d)) / (2 * d);
+  // The normal in the scene's frame (x west, y up, z north), then into the object's turned frame
+  const len = Math.hypot(dhdx, 1, dhdy);
+  const sx = dhdx / len;
+  const sy = 1 / len;
+  const sz = -dhdy / len;
+  const c = Math.cos(rotation);
+  const s = Math.sin(rotation);
+  const lx = sx * c - sz * s;
+  const lz = sx * s + sz * c;
+  const roll = Math.asin(Math.max(-1, Math.min(1, -lx)));
+  const pitch = Math.atan2(lz, sy);
+  return { pitch: Math.round(pitch * 1000) / 1000, roll: Math.round(roll * 1000) / 1000 };
+}
+
+/** The object with the ground's tilt where it stands (no tilt on flat ground) */
+export function alignedToSlope<T extends MapObject>(terrain: MapTerrain, o: T, reach = 2): T {
+  const { pitch, roll } = slopeTilt(terrain, o.x, o.y, o.rotation, reach * (o.scale || 1));
+  const out = { ...o };
+  if (pitch) out.pitch = pitch;
+  else delete out.pitch;
+  if (roll) out.roll = roll;
+  else delete out.roll;
+  return out;
+}
 
 /**
  * A tint near `base`: brightness and each channel drift by up to `amount`
@@ -153,6 +194,7 @@ export function scatterDab(
     };
     const tint = variedTint(options.tint, options.tintVariation, random);
     if (tint) object.tint = tint;
+    if (options.alignToSlope) Object.assign(object, alignedToSlope(terrain, object));
     grid.add(object);
     out.push(object);
   }

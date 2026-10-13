@@ -19,6 +19,7 @@ import {
   duplicateObjects,
   objectsUnderBrush,
   scatterDab,
+  alignedToSlope,
   freeGroup,
   snapTo,
   withGroups,
@@ -210,7 +211,8 @@ export class ObjectTool implements EditorTool {
     // With symmetry the scatter grows in the stroke's own sector and is copied to the others
     const own = scatterDab(t, p.hit, brush, { ...s.scatter, assets: this.scatterAssets(ctx) }, b.grid, b.ids, Math.random, Math.min(dt, 0.1) * 6)
       .filter((o) => sameSector(mode, o, origin));
-    const images = objectImages(own, symmetryImages(mode, t.grid.columns === t.grid.rows), () => b.ids.take(), t.width / 2, t.depth / 2);
+    let images = objectImages(own, symmetryImages(mode, t.grid.columns === t.grid.rows), () => b.ids.take(), t.width / 2, t.depth / 2);
+    if (s.scatter.alignToSlope) images = images.map((o) => alignedToSlope(t, o));
     for (const o of images) b.grid.add(o);
     const placed = [...own, ...images];
     if (!placed.length) return;
@@ -345,7 +347,10 @@ export class ObjectTool implements EditorTool {
     const t = doc.terrain;
     const ids = new ObjectIds([...doc.objects, object]);
     const images = objectImages([object], symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
-    ctx.editor.execute(ObjectsCommand.add(`Place ${ctx.catalog.object(s.asset).name}`, doc, [object, ...images]));
+    // Each copy tilts with its own ground: a mirror image does not lean as the original does
+    const reach = ctx.catalog.object(s.asset).radius;
+    const placed = s.alignToSlope ? [object, ...images].map((o) => alignedToSlope(t, o, reach)) : [object, ...images];
+    ctx.editor.execute(ObjectsCommand.add(`Place ${ctx.catalog.object(s.asset).name}`, doc, placed));
   }
 
   private selectDown(p: ToolPointer, ctx: ToolContext): boolean {

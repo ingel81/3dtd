@@ -4,7 +4,8 @@ import { brushWeight, stepRadius } from './brush';
 import { autoPaint, defaultAutoRules, dominantLayer, moveLayer, paintDab, readWeights, removeLayer } from './paint-ops';
 import { erodeDab, flattenDab, noiseDab, raiseDab, rampBetween, smoothDab, terraceDab } from './terrain-ops';
 import { basinSpillHeight, emptyWater, fillBasin, waterMaskDab } from './water-ops';
-import { DEFAULT_SCATTER, ObjectGrid, ObjectIds, duplicateObjects, objectsInBox, scatterDab, variedTint } from './object-ops';
+import { DEFAULT_SCATTER, ObjectGrid, ObjectIds, duplicateObjects, objectsInBox, scatterDab, slopeTilt, alignedToSlope, variedTint } from './object-ops';
+import { Euler, Quaternion, Vector3 } from 'three';
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
 import { resizeMap } from './resize';
 
@@ -275,5 +276,26 @@ describe('tints', () => {
     expect(varied).not.toBe('#806040');
     const white = variedTint(null, 0.5, random)!;
     expect(parseInt(white.slice(1, 3), 16)).toBeGreaterThan(200);
+  });
+});
+
+describe('align to slope', () => {
+  it('stands an object turned any way square on a slope, as the renderer composes turn and tilt', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 200, depth: 200, cellSize: 4 });
+    const g = doc.terrain.grid;
+    // A plane rising 0.3 m per metre east and 0.2 per metre north
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 0.3 * (i * 4) + 0.2 * (j * 4);
+    const len = Math.hypot(0.3, 1, 0.2);
+    const normal = new Vector3(0.3 / len, 1 / len, -0.2 / len);
+    for (const rotation of [0, 0.7, 2.5, -1.2]) {
+      const { pitch, roll } = slopeTilt(doc.terrain, 0, 0, rotation, 4);
+      const q = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), rotation);
+      q.multiply(new Quaternion().setFromEuler(new Euler(pitch, 0, roll, 'XZY')));
+      const up = new Vector3(0, 1, 0).applyQuaternion(q);
+      expect(up.distanceTo(normal)).toBeLessThan(0.003);
+    }
+    const flatDoc = createMapDocument({ id: 'f', name: 'F', width: 100, depth: 100 });
+    const o = { id: 'o', asset: 'rock', x: 0, y: 0, z: 0, rotation: 1, scale: 1, pitch: 0.4 };
+    expect(alignedToSlope(flatDoc.terrain, o)).toEqual({ id: 'o', asset: 'rock', x: 0, y: 0, z: 0, rotation: 1, scale: 1 });
   });
 });

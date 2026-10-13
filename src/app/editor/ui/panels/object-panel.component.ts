@@ -3,7 +3,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapObject } from '../../../world/custom-map/map-document';
 import { tagName, type ObjectAssetEntry } from '../../catalog/asset-catalog';
 import { ObjectsCommand } from '../../model/editor-document';
-import { duplicateObjects, variedTint } from '../../ops/object-ops';
+import { alignedToSlope, duplicateObjects, variedTint } from '../../ops/object-ops';
 import type { GizmoMode, ObjectMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
@@ -135,7 +135,40 @@ export class ObjectPanelComponent {
     });
   }
 
-  setScatterFlag(key: 'randomRotation' | 'sinkOnSlope', on: boolean): void {
+  setAlign(on: boolean): void {
+    this.session.patchSettings((s) => (s.objects.alignToSlope = on));
+  }
+
+  /** Each selected object tilted with the ground under it */
+  alignSelection(): void {
+    const t = this.session.doc?.terrain;
+    if (!t) return;
+    const catalog = this.session.catalog();
+    this.change('Align to slope', (o) => alignedToSlope(t, o, catalog.object(o.asset).radius));
+  }
+
+  upright(): void {
+    this.change('Upright', (o) => {
+      const next = { ...o };
+      delete next.pitch;
+      delete next.roll;
+      return next;
+    });
+  }
+
+  setTilt(key: 'pitch' | 'roll', e: Event): void {
+    const deg = Number((e.target as HTMLInputElement).value);
+    if (!Number.isFinite(deg)) return;
+    const rad = Math.round(((deg * Math.PI) / 180) * 1000) / 1000;
+    this.change('Tilt', (o) => {
+      const next = { ...o };
+      if (rad) next[key] = rad;
+      else delete next[key];
+      return next;
+    });
+  }
+
+  setScatterFlag(key: 'randomRotation' | 'sinkOnSlope' | 'alignToSlope', on: boolean): void {
     this.session.patchSettings((s) => (s.objects.scatter[key] = on));
   }
 

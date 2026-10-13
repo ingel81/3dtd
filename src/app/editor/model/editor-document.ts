@@ -549,7 +549,10 @@ export function sameObject(a: MapObject, b: MapObject): boolean {
     a.asset === b.asset &&
     a.blocksLos === b.blocksLos &&
     a.blocksBuild === b.blocksBuild &&
-    a.tint === b.tint
+    a.tint === b.tint &&
+    a.pitch === b.pitch &&
+    a.roll === b.roll &&
+    a.group === b.group
   );
 }
 

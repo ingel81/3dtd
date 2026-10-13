@@ -36,10 +36,16 @@
           <input class="td-input is-sm" type="number" step="5" [value]="deg(o.rotation)" (change)="setRotation($event)" /></label>
         <label class="td-field"><span class="td-label">Scale</span>
           <input class="td-input is-sm" type="number" step="0.05" min="0.05" [value]="o.scale" (change)="setNumber('scale', $event)" /></label>
+        <label class="td-field"><span class="td-label" matTooltip="Tilt forward and back, degrees">Pitch</span>
+          <input class="td-input is-sm" type="number" step="1" [value]="deg(o.pitch ?? 0)" (change)="setTilt('pitch', $event)" data-test="object-pitch" /></label>
+        <label class="td-field"><span class="td-label" matTooltip="Tilt to the side, degrees">Roll</span>
+          <input class="td-input is-sm" type="number" step="1" [value]="deg(o.roll ?? 0)" (change)="setTilt('roll', $event)" /></label>
       </div>
     }
     <div class="td-actions is-start">
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="dropToGround()" matTooltip="Lift 0: back onto the ground (End)">Drop to the ground</button>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="alignSelection()" matTooltip="Tilt each with the ground under it" data-test="align-selection">Align to slope</button>
+      <button class="td-btn-ghost td-btn-sm" type="button" (click)="upright()" matTooltip="No tilt">Upright</button>
     </div>
     <div class="td-field">
       <span class="td-label" matTooltip="Whether towers see through it; Default follows the catalogue">Blocks sight <span class="td-note">(default {{ catalogFlag('blocksLos') }})</span></span>
@@ -95,6 +101,10 @@
     </div>
     <app-editor-range label="Random tint" unit="%" [min]="0" [max]="100" [value]="s().scatter.tintVariation * 100" (changing)="setScatter('tintVariation', $event / 100)" />
     <div class="td-setting">
+      <span matTooltip="Each object tilts with the ground under it">Align to slope</span>
+      <input class="td-switch" type="checkbox" [checked]="s().scatter.alignToSlope" (change)="setScatterFlag('alignToSlope', $any($event.target).checked)" aria-label="Align to slope" data-test="scatter-align" />
+    </div>
+    <div class="td-setting">
       <span matTooltip="Objects on a slope sink in a little, so they do not float on the low side">Sink into slopes</span>
       <input class="td-switch" type="checkbox" [checked]="s().scatter.sinkOnSlope" (change)="setScatterFlag('sinkOnSlope', $any($event.target).checked)" aria-label="Sink into slopes" />
     </div>
@@ -116,6 +126,10 @@
       </div>
     </div>
     @if (s().mode === 'place') {
+      <div class="td-setting">
+        <span matTooltip="The placed object tilts with the ground under it">Align to slope</span>
+        <input class="td-switch" type="checkbox" [checked]="s().alignToSlope" (change)="setAlign($any($event.target).checked)" aria-label="Align to slope" data-test="place-align" />
+      </div>
       <div class="td-setting">
         <span>Turn at random</span>
         <input class="td-switch" type="checkbox" [checked]="s().randomRotation" (change)="setRandomRotation($any($event.target).checked)" aria-label="Turn at random" />

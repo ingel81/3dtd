@@ -149,9 +149,10 @@ Spiegel.
 
 **Objects (5).** Palette aus dem Katalog mit Bildern, Kategorien (auch Structures und Effects), Biom-Filter nach den
 Tags des Katalogs und Suche (Name, Id oder Tag).
-- Place: ein Klick setzt das gewählte Objekt (Raster-Fang 1 bis 8 m, zufällige Drehung)
+- Place: ein Klick setzt das gewählte Objekt (Raster-Fang 1 bis 8 m, zufällige Drehung; „Align to slope“ kippt es mit
+  dem Boden unter seinem Fußabdruck, `pitch` und `roll` aus `slopeTilt`, jedes Symmetrie-Bild mit seinem eigenen Boden)
 - Scatter: halten streut die gewählten Assets (mehrere wählbar) mit Dichte, Größenbereich, Mindestabstand, zufälliger
-  Drehung und Einsinken am Hang; Shift dünnt aus
+  Drehung, Einsinken am Hang und „Align to slope“; Shift dünnt aus
 - Erase: entfernt, was der Pinsel trifft
 - Select: Klick wählt (die ganze Gruppe, Strg+Klick ein Mitglied), Shift+Klick ergänzt, Ziehen auf freiem Grund
   wählt per Rahmen, Alt+Ziehen per Lasso, Strg+A alles Sichtbare; Rahmen und Lasso nehmen, was auf dem Bildschirm darin steht. Ausgeblendete
@@ -161,7 +162,8 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   frei. L schaltet die Pfeile zwischen Kartenachsen und den Achsen des ersten gewählten Objekts. Der Raster-Fang gilt
   für Pfeile und freies Verschieben, Strg rastet Drehung (15 Grad), Höhe (halbe Meter) und Größe (Zehntel). Entf
   löscht, Strg+D dupliziert, Ende setzt die Auswahl auf den Boden zurück (Höhe 0), Strg+G gruppiert, Strg+Shift+G
-  löst die Gruppe. Im Panel stehen Lage, Drehung, Größe, die Schalter „Blocks sight“ und „Blocks building“
+  löst die Gruppe. Im Panel stehen Lage, Drehung, Größe, Neigung (Pitch, Roll in Grad; „Align to slope“ kippt die
+  Auswahl mit dem Boden, „Upright“ stellt sie gerade), die Schalter „Blocks sight“ und „Blocks building“
   (Default folgt dem Katalog) und die Tönung: Farbe für die Auswahl, „Random tint“ (jedes Objekt ein eigener Ton um
   die Farbe oder um Weiß), „No tint“. Streuen hat eine Tönung und „Random tint“ (0 bis 100 %) für jedes neue Objekt
 
@@ -442,7 +444,4 @@ und gesetztes Stück, Prüfen, Speichern, Neuladen, Löschen; ohne Kartensitzung
 
 ## Grenzen
 
-- Das Kartendokument kann Objekte kippen (`pitch`, `roll`; die Level-Skripte nutzen es für Gondeln und gestrandete
-  Boote), die Werkzeuge setzen aber nur die Drehung um die Hochachse: Setzen und Streuen richten nichts am Hang aus
-  (geplant als ED-S7), der Streupinsel lässt Objekte am Hang stattdessen einsinken
 - Gruppen, ausgeblendete Kategorien und Versionen kennt nur der Editor; das Spiel ignoriert `group`

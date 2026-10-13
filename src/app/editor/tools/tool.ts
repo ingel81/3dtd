@@ -170,6 +170,8 @@ export interface EditorSettings {
     randomRotation: boolean;
     /** Move arrows along the map's axes, or turned with the first selected object */
     space: 'global' | 'local';
+    /** Place tilts the object with the ground under it */
+    alignToSlope: boolean;
   };
   paths: { mode: PathMode; width: number; kind: MapPathKind; /** Snap radius to nodes and edges, metres */ snap: number; showRoutes: boolean };
   markers: { mode: MarkerMode };
@@ -207,7 +209,7 @@ export function defaultSettings(): EditorSettings {
     terrain: { mode: 'raise', level: 0, step: 6, rampWidth: 16 },
     paint: { layer: 0, erase: false },
     water: { mode: 'fill', body: -1, depth: 3, river: -1, riverPoint: -1 },
-    objects: { mode: 'select', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, space: 'global' },
+    objects: { mode: 'select', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, space: 'global', alignToSlope: false },
     paths: { mode: 'draw', width: 8, kind: 'road', snap: 10, showRoutes: true },
     markers: { mode: 'spawn' },
     stamp: { mode: 'select', parts: { ...ALL_PARTS }, rotation: 0, feather: 0.25, region: null, current: null, currentName: '' },
