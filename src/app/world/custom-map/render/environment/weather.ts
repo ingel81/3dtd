@@ -185,6 +185,9 @@ void main() {
   // Far from the camera particles grow (a game camera looks from 100 m and more), and thin out
   float camDist = length(cameraPosition - p);
   float grow = max(1.0, camDist / 35.0);
+  // Ash and embers stay small: grown with the distance they read as a field of pale dots over the
+  // map from the game camera (they hang everywhere, rain and snow show as a veil)
+  if (uKind == 2 || uKind == 3) grow = min(grow, 1.8);
   // Right in front of the lens a streak or flake would fill the screen
   vFade *= smoothstep(3.0, 9.0, camDist);
   if (uKind == 4) {
@@ -230,10 +233,11 @@ void main() {
     c = vec3(1.0);
   } else if (uKind == 2) {
     a = pow(disc, 2.0);
-    c = vec3(1.0, 0.55, 0.18) * 2.0;
+    // Orange at most: twice this burnt to a yellow-white
+    c = vec3(1.0, 0.42, 0.08) * 1.3;
   } else if (uKind == 3) {
-    a = pow(disc, 1.2) * 0.8;
-    c = vec3(0.55, 0.54, 0.5);
+    a = pow(disc, 1.2) * 0.7;
+    c = vec3(0.36, 0.35, 0.33);
   } else if (uKind == 4) {
     a = disc * 0.18;
     c = vec3(0.82, 0.68, 0.5);
