@@ -136,7 +136,8 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   Drehung und Einsinken am Hang; Shift dünnt aus
 - Erase: entfernt, was der Pinsel trifft
 - Select: Klick wählt (die ganze Gruppe, Strg+Klick ein Mitglied), Shift+Klick ergänzt, Ziehen auf freiem Grund
-  wählt per Rahmen, Alt+Ziehen per Lasso, Strg+A alles; Rahmen und Lasso nehmen, was auf dem Bildschirm darin steht.
+  wählt per Rahmen, Alt+Ziehen per Lasso, Strg+A alles Sichtbare; Rahmen und Lasso nehmen, was auf dem Bildschirm darin steht. Ausgeblendete
+  Kategorien (Auge in der Gliederung) bleiben bei allen dreien draußen, Entf trifft also nichts Unsichtbares.
   Über der Auswahl steht ein Gizmo: bei Move (W) Pfeile für Ost (rot), Nord (grün) und Höhe (blau) und ein Quadrat
   für freies Verschieben, bei Turn (E) ein Ring, bei Scale (R) ein Würfel; Ziehen auf dem Grund im Ring verschiebt
   frei. L schaltet die Pfeile zwischen Kartenachsen und den Achsen des ersten gewählten Objekts. Der Raster-Fang gilt

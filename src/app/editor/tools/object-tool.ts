@@ -268,7 +268,12 @@ export class ObjectTool implements EditorTool {
       return true;
     }
     if ((e.ctrlKey || e.metaKey) && k === 'a' && s.mode === 'select') {
-      ctx.editor.select({ kind: 'objects', ids: ctx.editor.doc.objects.map((o) => o.id) });
+      // Like box and lasso: what the view hides stays out, so Delete cannot take it unseen
+      const all = ctx.editor.doc.objects;
+      const ids = all.filter((o) => ctx.objectVisible(o)).map((o) => o.id);
+      ctx.editor.select(ids.length ? { kind: 'objects', ids } : null);
+      const hidden = all.length - ids.length;
+      ctx.status(hidden ? `${ids.length} objects selected, ${hidden} hidden ones left out` : `${ids.length} objects selected`);
       return true;
     }
     return false;

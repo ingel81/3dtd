@@ -255,6 +255,20 @@ describe('editor tools', () => {
     expect(ed.doc.hq).toEqual({ x: 30, y: 3 });
   });
 
+  it('Ctrl+A selects only the objects the view shows', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    ed.doc.objects.push(
+      { id: 'a', asset: 'tree-oak', x: 0, y: 0, z: 0, rotation: 0, scale: 1 },
+      { id: 'b', asset: 'rock', x: 10, y: 0, z: 0, rotation: 0, scale: 1 },
+    );
+    ctx.objectVisible = (o) => o.asset !== 'rock';
+    const tool = new ObjectTool();
+    tool.key(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true }), ctx);
+    expect(ed.selection).toEqual({ kind: 'objects', ids: ['a'] });
+    expect(ctx.messages.at(-1)).toContain('1 hidden');
+  });
+
   it('adds no spawn beyond the 32 the game uses', () => {
     const ed = fresh();
     const ctx = context(ed);

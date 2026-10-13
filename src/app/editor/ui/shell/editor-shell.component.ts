@@ -612,7 +612,7 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
       ['Ctrl+G, Ctrl+Shift+G', 'Group, ungroup (Ctrl click picks one member)'],
       ['Del', 'Delete the selection'],
       ['Ctrl+D', 'Duplicate objects'],
-      ['Ctrl+A', 'Select all objects'],
+      ['Ctrl+A', 'Select all objects the view shows'],
       ['Alt', 'Place without snapping'],
       ['S X J', 'Smooth, straighten, join roads'],
       ['Enter, right click', 'End a road'],
