@@ -1,6 +1,7 @@
-import { BackSide, Color, Mesh, ShaderMaterial, SphereGeometry, Vector3, type Camera } from 'three';
+import { BackSide, Color, Mesh, ShaderMaterial, SphereGeometry, Vector2, Vector3, type Camera } from 'three';
 import { SHADER_NOISE } from '../shader-noise';
 import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS } from './height-fog';
+import { WIND_UNIFORMS } from './wind';
 
 /**
  * The visible sky: a dome around the camera with a gradient from horizon
@@ -37,6 +38,8 @@ export class SkyDome {
         uCover: { value: 0.5 },
         uGlow: { value: 0.6 },
         uSkyTime: { value: 0 },
+        // How far the clouds have drifted with the wind (cloud plane units), integrated so a change of wind never jumps
+        uCloudOffset: { value: new Vector2() },
         uStars: { value: 0 },
         uPlanet: { value: 0 },
         uAurora: { value: 0 },
@@ -91,7 +94,12 @@ export class SkyDome {
     this.mesh.parent?.worldToLocal(this.mesh.position);
     this.mesh.updateMatrix();
     this.mesh.updateMatrixWorld();
-    this.mesh.material.uniforms['uSkyTime'].value += dt;
+    const u = this.mesh.material.uniforms;
+    u['uSkyTime'].value += dt;
+    // The wind's direction on the cloud plane; a calm day still lets them creep
+    const w = WIND_UNIFORMS;
+    const speed = (0.0015 + 0.008 * w.uWindStrength.value) * dt;
+    u['uCloudOffset'].value.addScaledVector(w.uWindDir.value, speed);
   }
 
   dispose(): void {
@@ -127,6 +135,7 @@ uniform vec3 uCloudShadow;
 uniform float uCover;
 uniform float uGlow;
 uniform float uSkyTime;
+uniform vec2 uCloudOffset;
 uniform float uStars;
 uniform float uPlanet;
 uniform float uAurora;
@@ -152,14 +161,14 @@ vec3 skyColor(vec3 dir, bool withSun) {
   // Clouds on a plane above the camera, thinning towards the horizon
   if (dir.y > 0.0) {
     vec2 p = dir.xz / (dir.y + 0.12) * 0.9;
-    vec2 wind = vec2(uSkyTime * 0.004, uSkyTime * 0.0015);
-    float base = skyFbm(p + wind);
-    float detail = skyFbm(p * 3.1 - wind * 2.0);
+    // Sampled against the drift: the pattern moves along the wind, the detail a little faster
+    float base = skyFbm(p - uCloudOffset);
+    float detail = skyFbm(p * 3.1 - uCloudOffset * 3.6);
     float d = base * 0.75 + detail * 0.25;
     float density = smoothstep(uCover, uCover + 0.28, d);
     // Lit from the sun's side: compare with the density a step towards the sun
     vec2 toSun = normalize(uSunDir.xz + 1e-4) * 0.06;
-    float ahead = skyFbm(p + wind + toSun) * 0.75 + detail * 0.25;
+    float ahead = skyFbm(p - uCloudOffset + toSun) * 0.75 + detail * 0.25;
     float lit = clamp(0.55 + (d - ahead) * 3.0, 0.0, 1.0);
     vec3 cloud = mix(uCloudShadow, uCloudColor, lit);
     // Silver lining near the sun

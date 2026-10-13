@@ -15,6 +15,7 @@ import {
 } from 'three';
 import type { MapWeather } from '../../map-document';
 import { COVER_GLSL, type CoverMap } from './cover-map';
+import { WIND_UNIFORMS } from './wind';
 
 /**
  * Rain or snow where the camera looks: a box of streaks or flakes around the
@@ -88,6 +89,8 @@ export class WeatherLayer {
       blending: NormalBlending,
       fog: true,
     });
+    material.uniforms['uWindDir'] = WIND_UNIFORMS.uWindDir;
+    material.uniforms['uWindStrength'] = WIND_UNIFORMS.uWindStrength;
     material.name = 'custom-map-weather';
     this.mesh = new Mesh(g, material);
     this.mesh.name = 'custom-map-weather';
@@ -150,20 +153,25 @@ varying vec2 vUv;
 varying float vFade;
 uniform int uKind;
 uniform float uHasCover;
+uniform vec2 uWindDir;
+uniform float uWindStrength;
 ${COVER_GLSL}
 void main() {
-  vec3 fall = vec3(uTime * 1.2, -uTime * 11.0, uTime * 0.4);
+  // The map's wind carries everything sideways (metres per second along uWindDir)
+  vec3 wind = vec3(uWindDir.x, 0.0, uWindDir.y);
+  vec3 rainDrift = wind * (0.4 + 4.0 * uWindStrength);
+  vec3 fall = rainDrift * uTime + vec3(0.0, -uTime * 11.0, 0.0);
   if (uKind == 1) {
-    fall = vec3(sin(uTime * 0.6 + aSeed.x * 20.0) * 0.6 + uTime * 0.4, -uTime * 1.1, cos(uTime * 0.5 + aSeed.z * 20.0) * 0.6);
+    fall = vec3(sin(uTime * 0.6 + aSeed.x * 20.0) * 0.6, -uTime * 1.1, cos(uTime * 0.5 + aSeed.z * 20.0) * 0.6) + wind * uTime * (0.2 + 2.0 * uWindStrength);
   } else if (uKind == 2) {
     // Embers rise and wander
-    fall = vec3(sin(uTime * 0.9 + aSeed.x * 30.0) * 1.5, uTime * 1.6, cos(uTime * 0.7 + aSeed.z * 30.0) * 1.5);
+    fall = vec3(sin(uTime * 0.9 + aSeed.x * 30.0) * 1.5, uTime * 1.6, cos(uTime * 0.7 + aSeed.z * 30.0) * 1.5) + wind * uTime * (0.2 + 1.5 * uWindStrength);
   } else if (uKind == 3) {
     // Ash sinks slowly, tumbling
-    fall = vec3(sin(uTime * 0.4 + aSeed.x * 20.0) * 1.2 + uTime * 0.6, -uTime * 0.45, cos(uTime * 0.3 + aSeed.z * 20.0) * 1.2);
+    fall = vec3(sin(uTime * 0.4 + aSeed.x * 20.0) * 1.2, -uTime * 0.45, cos(uTime * 0.3 + aSeed.z * 20.0) * 1.2) + wind * uTime * (0.2 + 1.6 * uWindStrength);
   } else if (uKind == 4) {
     // Dust blows along near the ground
-    fall = vec3(uTime * 5.0, sin(uTime * 0.8 + aSeed.y * 20.0) * 0.8, uTime * 1.5 + sin(uTime + aSeed.x * 10.0));
+    fall = vec3(0.0, sin(uTime * 0.8 + aSeed.y * 20.0) * 0.8, sin(uTime + aSeed.x * 10.0)) + wind * uTime * (1.5 + 9.0 * uWindStrength);
   }
   vec3 local = aSeed * uBox + fall;
   vec3 p = uCam + mod(local - uCam, uBox) - uBox * 0.5;
@@ -194,7 +202,8 @@ void main() {
     // A streak standing upright, turned towards the camera
     vec3 toCam = normalize(cameraPosition - p);
     vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), toCam) + 1e-5);
-    vec3 world = p + right * position.x * 0.035 * grow + vec3(0.12, 1.0, 0.04) * position.y * 1.3 * sqrt(grow);
+    // Slanted along its fall: the wind's drift against 11 m/s down
+    vec3 world = p + right * position.x * 0.035 * grow + vec3(-rainDrift.x / 11.0, 1.0, -rainDrift.z / 11.0) * position.y * 1.3 * sqrt(grow);
     mvPosition = viewMatrix * vec4(world, 1.0);
   }
   gl_Position = projectionMatrix * mvPosition;

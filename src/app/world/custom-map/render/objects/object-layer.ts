@@ -21,6 +21,7 @@ import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
+import { WIND_GLSL, WIND_UNIFORMS, windSwayAtTop } from '../environment/wind';
 import { mapToScene } from '../map-coords';
 import { bakeImpostor, type Impostor } from './impostor';
 
@@ -48,8 +49,6 @@ import { bakeImpostor, type Impostor } from './impostor';
 
 /** Edge of an object cell in metres */
 export const CELL_SIZE = 192;
-/** Height (metres) at which a model of wind strength 1 sways by 1 m */
-const WIND_REFERENCE_HEIGHT = 18;
 /** Strongest glow of an object surface (emissive colour times intensity, linear) */
 const MAX_EMISSIVE = 0.55;
 
@@ -101,7 +100,6 @@ export class MapObjectLayer {
   readonly group = new Group();
   private batches: AssetBatch[] = [];
   private readonly byId = new Map<string, { batch: AssetBatch; index: number }>();
-  private readonly objectUniforms = { uWindTime: { value: 0 } };
   private readonly materials = new Map<string, Material>();
   private readonly impostors = new Map<string, Impostor | null>();
   private generation = 0;
@@ -313,9 +311,8 @@ export class MapObjectLayer {
     }
   }
 
-  /** Wind time, detail level and draw distance per cell, shadows near `focus` (group space) */
-  update(dt: number, camera: Camera, focus?: Vector3): void {
-    this.objectUniforms.uWindTime.value += dt;
+  /** Detail level and draw distance per cell, shadows near `focus` (group space); the wind's clock runs in the environment */
+  update(_dt: number, camera: Camera, focus?: Vector3): void {
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
     this.focus.copy(focus ?? this.camPos);
@@ -670,7 +667,7 @@ export class MapObjectLayer {
     const wind = waterfall ? 0 : entry.wind;
     // Floating objects that are not moored structures rock on the water
     const bob = !!entry.float && entry.category !== 'structure';
-    const key = `${source.uuid}|${wind}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}`;
+    const key = `${source.uuid}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
@@ -688,35 +685,51 @@ export class MapObjectLayer {
       return m;
     }
     const local = {
-      uWindStrength: { value: wind / WIND_REFERENCE_HEIGHT },
+      // Sway at the top in a strong wind, and the height it is measured at (model metres)
+      uWindBend: { value: windSwayAtTop(wind, entry.height) },
+      uWindHeight: { value: Math.max(entry.height, 0.3) },
       uFadeRange: { value: new Vector2(entry.drawDistance * 0.55, entry.drawDistance) },
     };
-    const shared = this.objectUniforms;
     const variant = `${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}`;
     m.onBeforeCompile = (shader) => {
-      shader.uniforms['uWindTime'] = shared.uWindTime;
-      shader.uniforms['uWindStrength'] = local.uWindStrength;
+      Object.assign(shader.uniforms, WIND_UNIFORMS);
+      shader.uniforms['uWindBend'] = local.uWindBend;
+      shader.uniforms['uWindHeight'] = local.uWindHeight;
       shader.uniforms['uFadeRange'] = local.uFadeRange;
-      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nuniform float uWindTime;\nuniform float uWindStrength;');
+      shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\n${WIND_GLSL}\nuniform float uWindBend;\nuniform float uWindHeight;`);
       if (wind > 0) {
         shader.vertexShader = shader.vertexShader.replace(
           '#include <begin_vertex>',
           /* glsl */ `#include <begin_vertex>
           {
-            float phase = 0.0;
+            // The wind's direction in model space: the instance's rotation and scale undone
+            vec3 base = vec3(0.0);
+            vec3 windDir = vec3(uWindDir.x, 0.0, uWindDir.y);
             #ifdef USE_INSTANCING
-            phase = dot(instanceMatrix[3].xz, vec2(0.071, 0.093));
+            base = instanceMatrix[3].xyz;
+            windDir = normalize(transpose(mat3(instanceMatrix)) * windDir);
             #endif
-            float h = max(transformed.y, 0.0);
-            float bend = h * h * uWindStrength;
+            vec3 acrossDir = normalize(cross(vec3(0.0, 1.0, 0.0), windDir) + vec3(1e-5, 0.0, 0.0));
+            float phase = dot(base.xz, vec2(0.071, 0.093));
+            float push = windPush(base.xz);
             float t = uWindTime;
-            float gust = sin(t * 0.7 + phase * 0.5) * 0.5 + 0.5;
-            float swayX = (sin(t * 1.4 + phase) * 0.7 + sin(t * 2.9 + phase * 1.7) * 0.3) * (0.6 + gust * 0.6);
-            float swayZ = sin(t * 1.1 + phase * 1.3) * 0.5;
-            // Leaves flutter a little on their own
-            float flutter = sin(t * 7.0 + dot(transformed, vec3(3.1, 2.3, 4.7))) * 0.03 * min(h, 3.0) / 3.0;
-            transformed.x += swayX * bend + flutter;
-            transformed.z += swayZ * bend * 0.6 + flutter;
+            float hn = clamp(transformed.y / uWindHeight, 0.0, 1.3);
+            // Trunk: nearly rigid, leans with the push, rocks a little along and across it
+            float rock = sin(t * 1.3 + phase) * 0.6 + sin(t * 2.3 + phase * 1.7) * 0.25;
+            vec3 off = (windDir * (0.7 * push + 0.2 * rock * (0.3 + push)) + acrossDir * sin(t * 0.9 + phase * 1.3) * 0.1 * (0.3 + push))
+              * uWindBend * 0.4 * hn * hn;
+            // Branches: away from the trunk, each part of the crown on its own beat, along the wind and up and down
+            float reach = length(transformed.xz) / uWindHeight;
+            float branch = smoothstep(0.04, 0.3, reach) * smoothstep(0.1, 0.45, hn);
+            float bp = dot(transformed, vec3(0.37, 0.29, 0.41)) * 9.0 / uWindHeight + phase;
+            float beat = sin(t * 2.1 + bp) * 0.7 + sin(t * 3.7 + bp * 1.3) * 0.3;
+            off += (windDir * (0.45 * push + 0.4 * beat * (0.25 + push)) + vec3(0.0, 0.3 * beat * (0.25 + push), 0.0)) * uWindBend * 0.4 * branch;
+            // Leaves flutter on their own, quick and small
+            vec3 flutter = sin(t * vec3(8.3, 9.1, 7.4) + transformed * vec3(3.1, 2.3, 4.7));
+            off += flutter * ${card ? '0.05' : '0.012'} * (0.2 + push) * smoothstep(0.05, 0.3, hn) * min(uWindBend * 4.0, 1.0);
+            // Bent, not stretched: what moves sideways sinks a little
+            off.y -= dot(off.xz, off.xz) / (2.0 * max(transformed.y, 0.5));
+            transformed += off;
           }`,
         );
       }

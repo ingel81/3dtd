@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import type { MapBiome, MapEnvironment, MapWeather } from '../../../world/custom-map/map-document';
+import type { MapBiome, MapEnvironment, MapWeather, MapWind } from '../../../world/custom-map/map-document';
+import { windOf } from '../../../world/custom-map/render/environment/wind';
 import { SnapshotCommand } from '../../model/editor-document';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
@@ -111,6 +112,19 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
         <app-editor-range label="Snow cover" unit="%" [min]="0" [max]="100" [value]="(e.snowCover ?? 0) * 100"
                           (changing)="live({ snowCover: $event / 100 })" (changed)="commit({ snowCover: $event / 100 }, 'Snow cover')" />
       </div>
+      <div class="td-group" data-test="wind">
+        <h3 class="td-section">Wind</h3>
+        <app-editor-range label="Strength" unit="%" [min]="0" [max]="100" [value]="windOf(e).strength * 100"
+                          (changing)="live(wind(e, { strength: $event / 100 }))" (changed)="commit(wind(e, { strength: $event / 100 }), 'Wind strength')" />
+        <app-editor-range label="From" unit="deg" [min]="0" [max]="359" [value]="windOf(e).direction"
+                          (changing)="live(wind(e, { direction: $event }))" (changed)="commit(wind(e, { direction: $event }), 'Wind direction')" />
+        <app-editor-range label="Gusts" unit="%" [min]="0" [max]="100" [value]="windOf(e).gusts * 100"
+                          (changing)="live(wind(e, { gusts: $event / 100 }))" (changed)="commit(wind(e, { gusts: $event / 100 }), 'Wind gusts')" />
+        <p class="td-note">Moves trees, grass, clouds, smoke, rain and snow. From: where the wind comes from (0 north, 90 east).</p>
+        @if (e.wind) {
+          <button type="button" class="td-btn-secondary td-btn-sm" (click)="commit({ wind: undefined }, 'Wind')">Use the look's wind</button>
+        }
+      </div>
     }
   `,
 })
@@ -120,6 +134,7 @@ export class EnvironmentPanelComponent {
   readonly looks = LOOKS;
   readonly weathers = WEATHERS;
   readonly timeOfDay = timeOfDay;
+  readonly windOf = windOf;
   readonly env = computed(() => (this.session.docRev(), this.session.doc ? { ...this.session.doc.environment } : null));
   /** The environment before the slider started moving */
   private before: MapEnvironment | null = null;
@@ -133,6 +148,11 @@ export class EnvironmentPanelComponent {
   clock(e: MapEnvironment): string {
     const h = this.hourOf(e);
     return `${Math.floor(h)}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+  }
+
+  /** The map's wind (or the look's default, which the first change writes into the map) with `patch` on top */
+  wind(e: MapEnvironment, patch: Partial<MapWind>): Partial<MapEnvironment> {
+    return { wind: { ...windOf(e), ...patch } };
   }
 
   live(patch: Partial<MapEnvironment>): void {

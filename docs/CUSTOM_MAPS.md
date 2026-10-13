@@ -152,7 +152,11 @@ Schatten. Sichtblocker (Katalog `blocksLos`, je Objekt überschreibbar) liegen i
 Impostor (`impostor.ts`): das Baummodell einmal von der Seite und von oben in eine kleine Textur gerendert, als zwei
 gekreuzte und eine waagerechte Karte gezeigt (4 Dreiecke). Braucht den Renderer (Ansichtsoption `renderer`).
 
-Materialien (`objectMaterial`): Bäume und Pflanzen wiegen sich im Wind; Laubkarten (`foliage-*`) behalten ihre
+Materialien (`objectMaterial`): Bäume und Pflanzen bewegen sich im Wind der Karte, in drei Stufen: der Stamm neigt
+sich kaum (quadratisch mit der Höhe), Äste schwingen abseits der Stammachse je Kronenteil im eigenen Takt, Blätter
+flattern (Laubkarten stärker). Wie weit die Spitze im starken Wind (Druck 1) ausschlägt, rechnet `windSwayAtTop` aus
+Katalog-`wind` und Modellhöhe: ein schlanker 18-m-Baum etwa 1 m, eine Eiche (12 m, `wind` 0,5) rund 0,3 m; kleine
+Pflanzen schwingen im Verhältnis stärker. Seitliches Biegen senkt die Spitze etwas (Länge bleibt). Laubkarten (`foliage-*`) behalten ihre
 Normalen auch auf der Rückseite (three dreht sie bei doppelseitigen Materialien um, das machte Kartenrücken schwarz),
 werden alpha-getestet mit Alpha-to-Coverage und blenden aus, wenn man sie von der Kante sieht oder sie die Sichtweite
 erreichen; Wasserfall-Karten (`foliage-waterfall*`) fließen, leuchtende Laubkarten (Flammen) flackern. Windstärke und
@@ -194,6 +198,11 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Schnee füllen einen Kasten um den Kamerafokus, der beim Bewegen umklappt (zustandslos), Teilchen wachsen mit dem
   Abstand, damit man sie aus der Spielkamera sieht. Regen und Schnee schließen die Wolken, dämpfen die Sonne und
   verdichten den Dunst; Nebelwetter verdichtet bis zum Sechsfachen
+- **Wind** (`wind.ts`, `environment.wind`: `strength` 0..1, `direction` in Grad, aus der er kommt, `gusts` 0..1;
+  ohne Feld der Standard des Bioms, auf dem Mond kein Wind): geteilte Uniforms für Bäume, Pflanzen, Gras, Wolken,
+  Rauch, Nebelbänke, Laub, Schnee, Regen, Asche, Staub und Glut, alle in dieselbe Richtung. Böen laufen als Fronten
+  über die Weltposition (etwa 70 m Abstand, 7 m/s mit dem Wind, quer gewellt), so sieht man eine Bö über Wiese und
+  Wald ziehen. Kosten im Messrahmen nicht messbar (Demo-Tal 1,42 / 1,43 ms je Bild)
 - **Biome** (`biomes.ts`, `environment.biome`): `temperate`, `hell`, `moon`, `mars`, `arctic`, `apocalypse`,
   `swamp`, `desert`, `mountain`, `city` setzen auf die Himmelsvoreinstellung Himmels- und Lichtfarben, Wolken,
   Dunstdichte und wie eng er am Boden liegt, Grading sowie Sterne, Planet (Mond: die Erde), Polarlicht und

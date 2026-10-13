@@ -12,6 +12,7 @@ import {
   Vector3,
 } from 'three';
 import type { EffectKind } from '../asset-catalog';
+import { WIND_UNIFORMS } from '../environment/wind';
 
 /**
  * Particles of map effects, one instanced mesh per effect kind for the whole
@@ -120,6 +121,8 @@ export class ParticleField {
     });
     material.uniforms['uTime'] = time;
     material.uniforms['uLight'] = light;
+    material.uniforms['uWindDir'] = WIND_UNIFORMS.uWindDir;
+    material.uniforms['uWindStrength'] = WIND_UNIFORMS.uWindStrength;
     material.name = `custom-map-particles-${kind}`;
     this.mesh = new Mesh(g, material);
     this.mesh.name = material.name;
@@ -164,6 +167,8 @@ uniform float uTime;
 uniform float uLife;
 uniform float uLight;
 uniform int uKind;
+uniform vec2 uWindDir;
+uniform float uWindStrength;
 varying vec2 vUv;
 varying vec3 vColor;
 varying float vAlpha;
@@ -194,7 +199,7 @@ if (uKind == 0) {
 } else if (uKind == 1) {
   // Smoke: rises slowly, grows, drifts with the wind
   p.y += height + phase * 9.0;
-  p.xz += vec2(0.8, 0.3) * phase * 4.0;
+  p.xz += uWindDir * phase * (1.0 + 8.0 * uWindStrength);
   size *= 0.5 + phase * 1.6;
   alpha = smoothstep(0.0, 0.2, phase) * (1.0 - phase) * 0.45;
 } else if (uKind == 2) {
@@ -213,18 +218,18 @@ if (uKind == 0) {
 } else if (uKind == 4) {
   // Fog bank: big soft sheets drifting slowly near the ground
   p.y += height + 1.5 + rnd(seed * 7.0) * 3.0;
-  p.xz += vec2(1.0, 0.35) * (phase - 0.5) * radius * 0.6;
+  p.xz += uWindDir * (phase - 0.5) * radius * (0.3 + 0.8 * uWindStrength);
   alpha = sin(phase * 3.1416) * 0.18;
 } else if (uKind == 5) {
   // Falling leaves: from the crown height, tumbling and swaying
   p.y += height * (1.0 - phase);
-  p.xz += vec2(sin(phase * 8.0 + seed * 9.0), cos(phase * 6.0 + seed * 5.0)) * 1.2 + vec2(0.6, 0.2) * phase * 4.0;
+  p.xz += vec2(sin(phase * 8.0 + seed * 9.0), cos(phase * 6.0 + seed * 5.0)) * 1.2 + uWindDir * phase * (0.8 + 6.0 * uWindStrength);
   size *= 0.6 + 0.4 * abs(sin(uTime * 3.0 + seed * 30.0));
   alpha = smoothstep(0.0, 0.05, phase) * smoothstep(1.0, 0.92, phase);
 } else if (uKind == 6) {
   // Snow over an area: drifting down
   p.y += height * (1.0 - phase);
-  p.xz += vec2(sin(phase * 5.0 + seed * 11.0), cos(phase * 4.0 + seed * 7.0)) * 0.8;
+  p.xz += vec2(sin(phase * 5.0 + seed * 11.0), cos(phase * 4.0 + seed * 7.0)) * 0.8 + uWindDir * phase * (0.5 + 4.0 * uWindStrength);
   alpha = smoothstep(0.0, 0.05, phase) * smoothstep(1.0, 0.9, phase) * 0.9;
 } else if (uKind == 7) {
   // Sparkle: twinkles in place

@@ -30,6 +30,7 @@ import { HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { biomeLook, type BiomeLook } from './biomes';
 import { SkyDome } from './sky-dome';
 import { WeatherLayer } from './weather';
+import { setWind, windOf, WIND_UNIFORMS } from './wind';
 
 /**
  * Sky, sun, fill light and fog of a custom map, from its MapEnvironment.
@@ -204,6 +205,7 @@ export class CustomMapEnvironment {
     const snowFromBiome = env.biome === 'arctic' ? 0.65 : 0;
     HEIGHT_FOG_UNIFORMS.uSnowCover.value = Math.min(1, Math.max(0, env.snowCover ?? Math.max(snowFromWeather, snowFromBiome)));
     HEIGHT_FOG_UNIFORMS.uWetness.value = weather === 'rain' ? k * 0.85 : env.biome === 'swamp' ? 0.25 : 0;
+    setWind(windOf(env));
     this.placeSun(this.sun.target.position, true);
     // The haze towards the sun takes its light; the moon's is faint, or a night horizon glows in a pale band
     HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(this.sun.color).multiplyScalar(airLight).lerp(this.fog.color, 0.35);
@@ -343,8 +345,9 @@ export class CustomMapEnvironment {
     HEIGHT_FOG_UNIFORMS.uFogBase.value = height;
   }
 
-  /** Per frame: the sky dome follows the camera, clouds drift, weather follows the focus */
+  /** Per frame: the wind's clock runs, the sky dome follows the camera, clouds drift, weather follows the focus */
   update(dt: number, camera: Camera, focus: Vector3): void {
+    WIND_UNIFORMS.uWindTime.value += dt;
     this.skyDome.update(dt, camera);
     this.weather.update(dt, camera, focus);
     if (this.shadowDirty && this.renderer) {

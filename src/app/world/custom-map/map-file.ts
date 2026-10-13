@@ -413,6 +413,10 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   if (!env || !['day', 'dusk', 'night', 'overcast'].includes(env.sky)) p.push('environment sky is unknown');
   const looks = ['temperate', 'hell', 'moon', 'mars', 'arctic', 'apocalypse', 'swamp', 'desert', 'mountain', 'city'];
   if (env?.biome !== undefined && !looks.includes(env.biome)) p.push(`environment biome ${String(env.biome)} is unknown`);
+  const wind = env?.wind;
+  if (wind !== undefined && (!wind || typeof wind !== 'object' || !finite(wind.strength) || !finite(wind.direction) || !finite(wind.gusts))) {
+    p.push('environment wind needs strength, direction and gusts');
+  }
   return p;
 }
 

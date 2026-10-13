@@ -64,7 +64,7 @@ export class WaterSurface {
       this.kind = kind;
       this.mesh.material = this.material(water);
       // Keep the sky and light the old material had
-      for (const key of ['uZenith', 'uHorizon', 'uSunDir', 'uSunColor', 'uCloudColor', 'uCloudShadow', 'uCover', 'uGlow', 'uSkyTime', 'uLight']) {
+      for (const key of ['uZenith', 'uHorizon', 'uSunDir', 'uSunColor', 'uCloudColor', 'uCloudShadow', 'uCover', 'uGlow', 'uSkyTime', 'uCloudOffset', 'uLight']) {
         if (sky[key]) this.mesh.material.uniforms[key] = sky[key];
       }
       old.dispose();

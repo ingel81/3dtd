@@ -14,6 +14,7 @@ import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
 import type { CoverMap } from '../environment/cover-map';
 import { addHeightFog } from '../environment/height-fog';
+import { WIND_GLSL, WIND_UNIFORMS } from '../environment/wind';
 
 /**
  * Grass blades near the camera: a tile of instanced blades that wraps
@@ -57,7 +58,6 @@ export class GrassField {
   private readonly uniforms = {
     uGrassCenter: { value: new Vector2() },
     uGrassTile: { value: TILE },
-    uGrassTime: { value: 0 },
     uGrassSplat0: { value: null as Texture | null },
     uGrassSplat1: { value: null as Texture | null },
     uGrassPath: { value: null as Texture | null },
@@ -106,7 +106,7 @@ export class GrassField {
     const material = new MeshStandardMaterial({ roughness: 0.85, metalness: 0, side: DoubleSide });
     material.name = 'custom-map-grass';
     material.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, this.uniforms, heights.uniforms);
+      Object.assign(shader.uniforms, this.uniforms, heights.uniforms, WIND_UNIFORMS);
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>\n${GRASS_VERTEX_PARS}`)
         .replace('#include <beginnormal_vertex>', GRASS_NORMAL)
@@ -155,8 +155,7 @@ export class GrassField {
   }
 
   /** `focus` in the map group's space */
-  update(dt: number, focus: { x: number; z: number }): void {
-    this.uniforms.uGrassTime.value += dt;
+  update(_dt: number, focus: { x: number; z: number }): void {
     this.uniforms.uGrassCenter.value.set(focus.x, focus.z);
   }
 
@@ -172,7 +171,6 @@ attribute vec2 aBladeOffset;
 attribute vec4 aBladeRand;
 uniform vec2 uGrassCenter;
 uniform float uGrassTile;
-uniform float uGrassTime;
 uniform sampler2D uGrassSplat0;
 uniform sampler2D uGrassSplat1;
 uniform sampler2D uGrassPath;
@@ -184,7 +182,7 @@ uniform sampler2D uGrassCover;
 uniform float uGrassHasCover;
 varying vec3 vBladeColor;
 ${SHADER_NOISE}
-
+${WIND_GLSL}
 ${TERRAIN_HEIGHT_GLSL}
 
 // 1 where something stands on the ground or water lies over it, 0 on open ground; bilinear over the grid
@@ -255,10 +253,15 @@ if (keep > 0.0) {
   vec2 dir = vec2(cos(a), sin(a));
   float t = position.y;
   transformed = vec3(dir.x * position.x * bladeWidth, t * bladeHeight, dir.y * position.x * bladeWidth);
-  float gust = sin(uGrassTime * 1.3 + dot(sceneXZ, vec2(0.11, 0.07))) * 0.5 + 0.5;
-  vec2 sway = vec2(0.8, 0.3) * (0.15 + 0.35 * gust) + vec2(sin(uGrassTime * 2.7 + aBladeRand.w * 20.0), cos(uGrassTime * 2.1 + aBladeRand.w * 13.0)) * 0.08;
+  // The map's wind: bowed along it, further where a gust front runs over the meadow, each blade trembling
+  float push = windPush(sceneXZ);
+  vec2 sway = uWindDir * (0.08 + 0.5 * push)
+    + vec2(sin(uWindTime * 2.7 + aBladeRand.w * 20.0), cos(uWindTime * 2.1 + aBladeRand.w * 13.0)) * 0.05 * (0.3 + push);
   vec2 lean = vec2(-dir.y, dir.x) * (aBladeRand.w - 0.5) * 0.5;
-  transformed.xz += (lean + sway) * t * t * bladeHeight;
+  vec2 bow = (lean + sway) * t * t;
+  transformed.xz += bow * bladeHeight;
+  // Bent, not stretched
+  transformed.y *= inversesqrt(1.0 + dot(bow, bow));
   transformed += vec3(sceneXZ.x, ground0, sceneXZ.y);
   // The ground's colour here: the grass layers' averages by splat weight, with the terrain's macro
   // variation and grading (terrain-material.ts), so blades match the painted ground under them

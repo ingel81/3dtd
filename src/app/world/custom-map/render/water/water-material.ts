@@ -125,6 +125,7 @@ export function setWaterSky(material: ShaderMaterial, skyUniforms: ShaderMateria
     'uCover',
     'uGlow',
     'uSkyTime',
+    'uCloudOffset',
     'uStars',
     'uPlanet',
     'uAurora',

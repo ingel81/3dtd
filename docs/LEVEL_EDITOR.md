@@ -173,8 +173,9 @@ Spur oder „no route“.
 
 **Sky and weather (8).** Himmel (Day, Dusk, Night, Overcast), Tageszeit (ein Sommertag: Aufgang 6 Uhr im Osten, 13 Uhr im
 Süden 60 Grad hoch, Untergang 20 Uhr im Westen; tiefe Sonne ist Dämmerung, eine Stunde nach Untergang Nacht),
-Sonnenrichtung und -höhe, Nebel, Tönung, Wetter (Clear, Rain, Snow, Fog mit Stärke); Regler wirken sofort und werden
-beim Loslassen ein Schritt im Verlauf.
+Sonnenrichtung und -höhe, Nebel, Tönung, Wetter (Clear, Rain, Snow, Fog mit Stärke), Wind (Stärke, Richtung „From“,
+aus der er kommt, Böen; ohne eigenen Wind gilt der des Bioms, „Use the look's wind“ stellt das wieder her); Regler
+wirken sofort und werden beim Loslassen ein Schritt im Verlauf.
 
 **Map (9).** Name, Autor, Beschreibung; Größe ändern (die Mitte bleibt, kleiner schneidet die Ränder ab, größer setzt
 sie in Randhöhe fort); „Increase detail“ bei Karten mit gröberem Boden als neue Karten (ältere mit 4 m, Importe):

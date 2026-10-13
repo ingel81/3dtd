@@ -207,6 +207,17 @@ export interface MapEnvironment {
    * sky and stars stay dark and lanterns still stand out. Default 0
    */
   moonlight?: number;
+  /** Wind for plants, grass, clouds, smoke and weather; default: the biome's (render/environment/wind.ts) */
+  wind?: MapWind;
+}
+
+export interface MapWind {
+  /** 0 calm .. 1 a strong wind */
+  strength: number;
+  /** Where the wind comes from: degrees from north, clockwise */
+  direction: number;
+  /** 0 steady .. 1 strong gust fronts running over the land */
+  gusts: number;
 }
 
 export type MapBiome =
