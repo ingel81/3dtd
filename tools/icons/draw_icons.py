@@ -80,6 +80,11 @@ def star(cx, cy, ro, ri, n, rot=-90):
     return P(*pts)
 
 
+def jag(cx, cy, rs, rot0=-90):
+    """Star with its own radius per point, outer and inner alternating."""
+    return P(*[pol(cx, cy, r, rot0 + i * 360 / len(rs)) for i, r in enumerate(rs)])
+
+
 def gear(cx, cy, ro, ri, n, top=0.22, root=0.3):
     pts = []
     for i in range(n):
@@ -318,15 +323,21 @@ def shield():
 
 @icon
 def splash():
-    drops = U(C(4.6, 11, 1.7), C(7.8, 5.8, 1.5), C(16.2, 5.8, 1.5), C(19.4, 11, 1.7), C(12, 3.4, 1.3))
-    core = U(C(12, 14.6, 3.8), hull(C(12, 14.6, 2.4), Point(12, 8.6)))
-    pool = E(12, 19.8, 9.4, 2.3)
-    return U(drops, core, pool), gap(core, pool, 0.8)
+    core = U(jag(12, 9.6, [7.0, 3.0, 5.6, 2.8, 6.6, 3.0, 5.2, 2.8, 6.8, 3.0, 5.4, 2.8]), C(12, 9.6, 3.2))
+    near = gap(core, E(12, 17.2, 6.4, 1.9).difference(E(12, 17.2, 4.4, 0.9)), 0.7)
+    far = E(12, 18.4, 10.2, 3.2).difference(E(12, 18.2, 8.2, 2.0))
+    return U(core, near, far), U(near, far)
+
+
+BLAST = [10.8, 5.0, 8.4, 4.6, 10.2, 5.2, 7.6, 4.4, 10.6, 5.0, 8.0, 4.6, 9.8, 5.0, 7.8, 4.6, 10.4, 4.8, 8.2, 4.4]
 
 
 @icon
 def burst():
-    return star(12, 12, 10.6, 5.4, 8), star(12, 12, 5.2, 2.8, 8, -90 + 22.5)
+    core = jag(13, 13, [r * 0.84 for r in BLAST])
+    shards = U(*[rot(P((x - 1.8, y + 1.3), (x + 1.8, y + 1.3), (x, y - 2.4)), a, (x, y))
+                 for x, y, a in ((3.4, 3.6, -40), (21, 4.4, 50), (3.2, 20.6, -140))])
+    return U(core, shards), jag(13, 13, [r * 0.42 for r in BLAST])
 
 
 @icon
@@ -1025,9 +1036,9 @@ def globe():
 
 @icon
 def replay():
-    arc = U(arcL(12, 12, 8.8, -40, 228, 2.4, 'flat'), head(pol(12, 12, 8.8, 242), 242 + 90, 4.6, 6.2))
-    tri = P((9.6, 8.2), (16.4, 12), (9.6, 15.8)).buffer(-0.3).buffer(0.3)
-    return U(arc, tri), arc
+    arc = U(arcL(12, 12, 8.6, -150, 160, 2.6, 'flat'), head(pol(12, 12, 8.6, -164), -254, 5.0, 6.6))
+    tri = P((9.4, 7.6), (17, 12), (9.4, 16.4)).buffer(-0.4).buffer(0.4)
+    return U(arc, tri), None
 
 
 @icon
