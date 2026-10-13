@@ -1,4 +1,4 @@
-import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, PerspectiveCamera, Scene, Vector3 } from 'three';
+import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, PerspectiveCamera, Ray, Scene, Vector3 } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import type { MapObject } from '../../map-document';
 import type { AssetCatalog } from '../asset-catalog';
@@ -181,6 +181,46 @@ describe('MapObjectLayer tilt', () => {
     const up = new Vector3(0, 1, 0).transformDirection(m);
     expect(up.y).toBeCloseTo(0);
     expect(Math.abs(up.z)).toBeCloseTo(1);
+    layer.dispose();
+  });
+});
+
+describe('MapObjectLayer adding and removing in place', () => {
+  it('writes new objects into free slots of their cell, fills the gap of a removed one, and picks the right objects after', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const los = new Group();
+    const layer = new MapObjectLayer(field, library(), los);
+    const tree = (k: number, x: number, y = 0): MapObject => ({ id: `t${k}`, asset: 'tree', x, y, z: 0, rotation: 0, scale: 1 });
+    await layer.setObjects([tree(0, 10), tree(1, 30), tree(2, 50)]);
+    const meshes = () => los.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === 'tree');
+    const [cell] = meshes();
+    expect(cell.count).toBe(3);
+    // A few more in the same cell: the same mesh, more instances
+    await layer.addObjects([tree(3, 70), tree(4, 90)]);
+    expect(meshes()).toEqual([cell]);
+    expect(cell.count).toBe(5);
+    // Out of the middle: the cell's last moves into the gap, the batch's last into the index
+    layer.removeObjects(['t1']);
+    expect(cell.count).toBe(4);
+    // A ray down onto each tree still names that tree
+    const pick = (x: number) => {
+      const ray = new Ray(new Vector3(-x, 100, 0), new Vector3(0, -1, 0));
+      return layer.raycast(ray)?.object.id ?? null;
+    };
+    for (const [id, x] of [['t0', 10], ['t2', 50], ['t3', 70], ['t4', 90]] as const) expect(pick(x)).toBe(id);
+    expect(pick(30)).toBeNull();
+    // More than the cell has room for: it is built once anew with room again
+    await layer.addObjects(Array.from({ length: 30 }, (_, k) => tree(10 + k, 100 + k * 2, 5)));
+    const [grown] = meshes();
+    expect(grown).not.toBe(cell);
+    expect(grown.count).toBe(34);
+    expect(grown.instanceMatrix.count).toBeGreaterThan(34);
+    expect(pick(90)).toBe('t4');
+    // A tree in a new cell gets its own mesh; removing it takes the mesh away
+    await layer.addObjects([tree(99, 500)]);
+    expect(meshes()).toHaveLength(2);
+    layer.removeObjects(['t99']);
+    expect(meshes()).toHaveLength(1);
     layer.dispose();
   });
 });

@@ -51,6 +51,14 @@ import { bakeImpostor, type Impostor } from './impostor';
 export const CELL_SIZE = 192;
 /** Strongest glow of an object surface (emissive colour times intensity, linear) */
 const MAX_EMISSIVE = 0.55;
+/**
+ * Room a cell's meshes keep for objects added later: half again of what
+ * they hold, at least 16. A brush that adds a few objects a frame then writes
+ * them into the free slots instead of building the cell's meshes anew.
+ */
+function cellCapacity(n: number): number {
+  return Math.max(16, Math.ceil(n * 1.5));
+}
 
 interface Level {
   from: number;
@@ -60,8 +68,10 @@ interface Level {
 }
 
 interface Cell {
-  /** Object indices of the batch in this cell */
+  /** Object indices of the batch in this cell; slot k of the meshes draws indices[k] */
   indices: number[];
+  /** Instances the cell's meshes have room for (their count is indices.length) */
+  capacity: number;
   /** Meshes per level */
   levels: InstancedMesh[][];
   sphere: Sphere;
@@ -115,6 +125,10 @@ export class MapObjectLayer {
   private readonly tilt = new Quaternion();
   private readonly tiltEuler = new Euler();
   private readonly sphere = new Sphere();
+  private readonly raycaster = new Raycaster();
+  private readonly pickMeshes: InstancedMesh[] = [];
+  private readonly instanceSphere = new Sphere();
+  private readonly instanceMatrix = new Matrix4();
   /** Cells within this distance of the focus cast shadows */
   shadowRadius = 400;
   /**
@@ -241,46 +255,51 @@ export class MapObjectLayer {
       if (b.colors || newColors) b.colors = grow(b.colors ?? new Float32Array(0), n * 3);
       if (newColors) for (let i = 0; i < start; i++) this.writeInstance(b, i);
       b.slots.length = n;
-      const touched = new Set<number>();
       for (let i = start; i < n; i++) {
         this.writeInstance(b, i);
         this.byId.set(b.objects[i].id, { batch: b, index: i });
-        touched.add(this.cellKey(b.objects[i].x, b.objects[i].y));
       }
-      this.layoutCells(b, newColors ? null : touched);
+      if (newColors) {
+        this.layoutCells(b);
+        continue;
+      }
+      // Into free slots of their cells; a cell without room (or a new one) is built once for all of them
+      const rebuild = new Map<number, number[]>();
+      for (let i = start; i < n; i++) this.placeInCell(b, i, rebuild);
+      for (const [key, added] of rebuild) this.rebuildCell(b, key, added);
     }
     // New cells start without a level: the normal pass picks theirs and leaves the others alone
     this.version++;
     this.applyLevels(false);
   }
 
-  /** Removes objects by id; only the cells they were in are rebuilt */
+  /**
+   * Removes objects by id: each leaves its cell's meshes in place (the cell's
+   * last instance fills its slot), a cell that empties goes
+   */
   removeObjects(ids: string[]): void {
-    const touched = new Map<AssetBatch, Set<number>>();
     for (const id of ids) {
       const slot = this.byId.get(id);
       if (!slot) continue;
       const b = slot.batch;
-      let cells = touched.get(b);
-      if (!cells) touched.set(b, (cells = new Set()));
       const i = slot.index;
-      const last = b.objects.length - 1;
-      cells.add(b.slots[i].cell);
       this.byId.delete(id);
+      this.takeFromCell(b, i);
+      const last = b.objects.length - 1;
       if (i !== last) {
-        // The last object moves into the gap
-        cells.add(b.slots[last].cell);
+        // The batch's last object moves into the gap; its cell slot now names index i
         b.objects[i] = b.objects[last];
         b.slots[i] = b.slots[last];
         b.matrices.copyWithin(i * 16, last * 16, last * 16 + 16);
         b.spheres.copyWithin(i * 4, last * 4, last * 4 + 4);
         b.colors?.copyWithin(i * 3, last * 3, last * 3 + 3);
+        const moved = b.cells.get(b.slots[i].cell);
+        if (moved) moved.indices[b.slots[i].slot] = i;
         this.byId.set(b.objects[i].id, { batch: b, index: i });
       }
       b.objects.length = last;
       b.slots.length = last;
     }
-    for (const [b, cells] of touched) this.layoutCells(b, cells);
     const empty = this.batches.filter((b) => b.objects.length === 0);
     if (empty.length) this.batches = this.batches.filter((b) => b.objects.length > 0);
     this.version++;
@@ -387,12 +406,14 @@ export class MapObjectLayer {
     return out;
   }
 
-  /** First object a scene-space ray hits */
+  /** First object a scene-space ray hits; the raycaster and the mesh list are kept between calls */
   raycast(ray: Ray): ObjectHit | null {
-    const raycaster = new Raycaster(ray.origin, ray.direction);
-    const meshes: InstancedMesh[] = [];
-    for (const b of this.batches) for (const c of b.cells.values()) meshes.push(...c.levels[0]);
-    const hits = raycaster.intersectObjects(meshes, false);
+    this.raycaster.ray.copy(ray);
+    const meshes = this.pickMeshes;
+    meshes.length = 0;
+    for (const b of this.batches) for (const c of b.cells.values()) for (const m of c.levels[0]) meshes.push(m);
+    const hits = this.raycaster.intersectObjects(meshes, false);
+    meshes.length = 0;
     for (const hit of hits) {
       const mesh = hit.object as InstancedMesh;
       const batch = mesh.userData['batch'] as AssetBatch | undefined;
@@ -469,16 +490,12 @@ export class MapObjectLayer {
       slots: new Array(n),
     };
     for (let i = 0; i < n; i++) this.writeInstance(b, i);
-    this.layoutCells(b, null);
+    this.layoutCells(b);
     return b;
   }
 
-  /**
-   * Sorts the batch's objects into cells and builds the meshes of the cells
-   * in `touched` (every cell when null); other cells keep theirs. Cells
-   * that lost their last object go away.
-   */
-  private layoutCells(b: AssetBatch, touched: Set<number> | null): void {
+  /** Sorts the batch's objects into cells and builds every cell's meshes anew */
+  private layoutCells(b: AssetBatch): void {
     const lists = new Map<number, number[]>();
     for (let i = 0; i < b.objects.length; i++) {
       const key = this.cellKey(b.objects[i].x, b.objects[i].y);
@@ -487,29 +504,109 @@ export class MapObjectLayer {
       b.slots[i] = { cell: key, slot: list.length };
       list.push(i);
     }
-    for (const [key, cell] of b.cells) {
-      if (lists.has(key) && touched !== null && !touched.has(key)) continue;
+    for (const cell of b.cells.values()) this.disposeCell(cell);
+    b.cells.clear();
+    for (const [key, indices] of lists) b.cells.set(key, this.buildCell(b, indices));
+  }
+
+  /**
+   * Object i (written already) into a free slot of its cell's meshes; when
+   * the cell has no room or is new, `rebuild` collects it for rebuildCell
+   */
+  private placeInCell(b: AssetBatch, i: number, rebuild: Map<number, number[]>): void {
+    const key = this.cellKey(b.objects[i].x, b.objects[i].y);
+    const cell = b.cells.get(key);
+    const waiting = rebuild.get(key);
+    if (!cell || waiting || cell.indices.length >= cell.capacity) {
+      if (waiting) waiting.push(i);
+      else rebuild.set(key, [i]);
+      return;
+    }
+    const slot = cell.indices.length;
+    cell.indices.push(i);
+    b.slots[i] = { cell: key, slot };
+    this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3]);
+    if (cell.sphere.isEmpty()) cell.sphere.copy(this.sphere);
+    else cell.sphere.union(this.sphere);
+    for (const meshes of cell.levels) {
+      for (const m of meshes) {
+        this.writeSlot(b, m, slot, i);
+        m.count = cell.indices.length;
+        this.growBounds(m, slot);
+      }
+    }
+  }
+
+  /** A cell built anew with the objects it held and `added` (a new cell: only those) */
+  private rebuildCell(b: AssetBatch, key: number, added: number[]): void {
+    const old = b.cells.get(key);
+    const indices = old ? [...old.indices, ...added] : added;
+    if (old) this.disposeCell(old);
+    const cell = this.buildCell(b, indices);
+    b.cells.set(key, cell);
+    indices.forEach((i, slot) => (b.slots[i] = { cell: key, slot }));
+  }
+
+  /** Object i out of its cell: the cell's last instance moves into its slot; an empty cell goes */
+  private takeFromCell(b: AssetBatch, i: number): void {
+    const { cell: key, slot } = b.slots[i];
+    const cell = b.cells.get(key);
+    if (!cell) return;
+    const last = cell.indices.length - 1;
+    if (slot !== last) {
+      const j = cell.indices[last];
+      cell.indices[slot] = j;
+      b.slots[j] = { cell: key, slot };
+      for (const meshes of cell.levels) for (const m of meshes) this.writeSlot(b, m, slot, j);
+    }
+    cell.indices.pop();
+    if (!cell.indices.length) {
       this.disposeCell(cell);
       b.cells.delete(key);
+      return;
     }
-    for (const [key, indices] of lists) {
-      const kept = b.cells.get(key);
-      if (kept) {
-        kept.indices = indices;
-        continue;
-      }
-      b.cells.set(key, this.buildCell(b, indices));
+    for (const meshes of cell.levels) for (const m of meshes) m.count = cell.indices.length;
+  }
+
+  /**
+   * The mesh's bounding sphere takes in the instance at `slot` (its
+   * geometry's sphere moved by its matrix, as three computes it): frustum
+   * culling must not drop it, and a full recompute walks every instance
+   */
+  private growBounds(m: InstancedMesh, slot: number): void {
+    if (!m.boundingSphere) {
+      m.computeBoundingSphere();
+      return;
+    }
+    const g = m.geometry;
+    if (!g.boundingSphere) g.computeBoundingSphere();
+    this.instanceSphere.copy(g.boundingSphere!).applyMatrix4(this.instanceMatrix.fromArray(m.instanceMatrix.array, slot * 16));
+    m.boundingSphere.union(this.instanceSphere);
+  }
+
+  /** Object i's matrix and colour into slot `slot` of a cell mesh, uploaded as a range */
+  private writeSlot(b: AssetBatch, m: InstancedMesh, slot: number, i: number): void {
+    (m.instanceMatrix.array as Float32Array).set(b.matrices.subarray(i * 16, i * 16 + 16), slot * 16);
+    m.instanceMatrix.addUpdateRange(slot * 16, 16);
+    m.instanceMatrix.needsUpdate = true;
+    const colors = m.instanceColor;
+    if (b.colors && colors) {
+      (colors.array as Float32Array).set(b.colors.subarray(i * 3, i * 3 + 3), slot * 3);
+      colors.addUpdateRange(slot * 3, 3);
+      colors.needsUpdate = true;
     }
   }
 
   private buildCell(b: AssetBatch, indices: number[]): Cell {
     const entry = b.entry;
     const parent = b.blocksLos ? this.losGroup : this.group;
-    const cell: Cell = { indices, levels: [], sphere: new Sphere(), level: -1 };
+    const capacity = cellCapacity(indices.length);
+    const cell: Cell = { indices, capacity, levels: [], sphere: new Sphere(), level: -1 };
     for (const [li, level] of b.levels.entries()) {
       const meshes: InstancedMesh[] = [];
       for (const part of level.parts) {
-        const mesh = new InstancedMesh(part.geometry, part.material, indices.length);
+        const mesh = new InstancedMesh(part.geometry, part.material, capacity);
+        mesh.count = indices.length;
         mesh.name = `${entry.id}${b.blocksLos ? '' : '-decor'}${li ? `-lod${li}` : ''}`;
         const arr = mesh.instanceMatrix.array as Float32Array;
         indices.forEach((i, k) => arr.set(b.matrices.subarray(i * 16, i * 16 + 16), k * 16));
@@ -569,9 +666,16 @@ export class MapObjectLayer {
         }
       }
     }
-    for (const cell of touched) {
-      this.cellBounds(b, cell);
-      for (const meshes of cell.levels) for (const m of meshes) m.computeBoundingSphere();
+    for (const cell of touched) this.cellBounds(b, cell);
+    // A few changed (a brush): the mesh spheres grow by them; many: computed anew
+    if (ranged && changed.length < 64) {
+      for (const i of changed) {
+        const { cell: key, slot } = b.slots[i];
+        const cell = b.cells.get(key);
+        if (cell) for (const meshes of cell.levels) for (const m of meshes) this.growBounds(m, slot);
+      }
+    } else {
+      for (const cell of touched) for (const meshes of cell.levels) for (const m of meshes) m.computeBoundingSphere();
     }
   }
 

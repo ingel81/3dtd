@@ -219,7 +219,7 @@ describe('CustomMapView', () => {
         const cell = o.userData['cell'];
         if (o instanceof InstancedMesh && (o.name === asset || o.name === `${asset}-decor`) && !cells.has(cell)) {
           cells.add(cell);
-          total += o.instanceMatrix.count;
+          total += o.count;
         }
       });
       expect(total, asset).toBe(n);

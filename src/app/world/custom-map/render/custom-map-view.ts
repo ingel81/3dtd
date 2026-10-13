@@ -2,6 +2,7 @@ import { Group, Ray, Vector3, type Camera, type Object3D, type Scene, type WebGL
 import type { CustomMapDocument, MapEnvironment, MapObject } from '../map-document';
 import { HeightField } from './height-field';
 import type { MapAssetLibrary } from './map-asset-library';
+import type { AssetCatalog, CatalogObject } from './asset-catalog';
 import { mapToScene, sceneToMap } from './map-coords';
 import { CustomMapEnvironment } from './environment/map-environment';
 import { EffectLayer } from './effects/effect-layer';
@@ -604,7 +605,7 @@ export class CustomMapView {
     this.coverAge = 0;
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
-    this.cover.set(this.doc.objects, new Map(catalog.objects.map((o) => [o.id, o])), this.doc.terrain);
+    this.cover.set(this.doc.objects, this.catalogEntries(catalog), this.doc.terrain);
   }
 
   /** Contact shadows of the objects in the baked ground occlusion */
@@ -613,7 +614,7 @@ export class CustomMapView {
     this.coverDirty = true;
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
-    const entries = new Map(catalog.objects.map((o) => [o.id, o]));
+    const entries = this.catalogEntries(catalog);
     let rect: MapRect | undefined;
     if (changed) {
       for (const o of changed) {
@@ -624,6 +625,14 @@ export class CustomMapView {
       }
     }
     this.terrain.occlusion.setObjects(this.doc.objects, entries, rect ? this.gridRect(rect) : undefined);
+  }
+
+  private entries: { catalog: AssetCatalog; map: Map<string, CatalogObject> } | null = null;
+
+  /** The catalogue's objects by id, made once per catalogue */
+  private catalogEntries(catalog: AssetCatalog): Map<string, CatalogObject> {
+    if (this.entries?.catalog !== catalog) this.entries = { catalog, map: new Map(catalog.objects.map((o) => [o.id, o])) };
+    return this.entries.map;
   }
 
   /** Whether any of the objects has effects or a light */

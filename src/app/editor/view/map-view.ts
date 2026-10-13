@@ -132,7 +132,10 @@ export class EditorMapView {
    * renderer rebuilds only their 192 m cells), the others move in place
    */
   updateObjects(ids: readonly string[]): void {
-    const byId = new Map(this.doc.objects.map((o) => [o.id, o]));
+    // One pass over the map's objects for the few that changed, no map over all of them
+    const wanted = new Set(ids);
+    const byId = new Map<string, MapObject>();
+    for (const o of this.doc.objects) if (wanted.has(o.id)) byId.set(o.id, o);
     const added: MapObject[] = [];
     const removed: MapObject[] = [];
     const moved: MapObject[] = [];
