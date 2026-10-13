@@ -12,7 +12,7 @@ Beim Aufräumen nach dem Release 0.7.0 abgeschlossen (2026-10-13):
   S6.2 (Abhakliste 2026-10-11); S5.2 AUR (Job im Release 0.7.0 grün); B1 (Solo-Lauf bis W60, E95); B3 über S2.4.
 - **Überholt:** T13 (Relay per Dev-Server im LAN, ersetzt durch die Lobby der App und „Same network“), T70 (altes
   Dock und Standortdialog, ersetzt durch das Hauptmenü).
-- **Weiter offen**, in PLAYTEST.md als Paket R: T71, H3.1, H3.3, H3.4, N18, S3.2, S3.4, H4, S1.4, S3.3, G3.1, Y5,
+- **Weiter offen**, in PLAYTEST.md als Paket A: T71, H3.1, H3.3, H3.4, N18, S3.2, S3.4, H4, S1.4, S3.3, G3.1, Y5,
   S5.1, K8.4; M4/S2.3 als Entscheidung.
 
 ## Z Eigene Icons, Wellenblock, Ladeschirm (2026-10-13, auf `next`)

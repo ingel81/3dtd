@@ -27,44 +27,44 @@ T bis Z bis Release 0.7.0 in [archive/PLAYTEST_2026-10.md](archive/PLAYTEST_2026
 - Orte immer per URL mit F5 kalt laden (`http://localhost:4200/` plus die Parameter unten), keine Tower, keine Welle,
   wenn nicht anders gesagt.
 
-## R Rest nach Release 0.7.0 (2026-10-13)
+## A Rest nach Release 0.7.0 (2026-10-13)
 
 Was nach dem Aufräumen offen ist; alles andere aus T bis Z ist abgehakt oder überholt (Archiv). Coop nur in der
 Desktop-App über die echte Lobby, der Browser auf `/play/` zeigt dafür nur den Hinweis auf die App.
 
-Paket R1, Coop App gegen App (zwei Rechner, echte Lobby):
+Paket A1, Coop App gegen App (zwei Rechner, echte Lobby):
 
-- **R1.1 Raumliste (war T71):** A hostet online, B öffnet Coop. *Unter „Online“ steht „Open rooms“ mit dem Raum
+- **A1.1 Raumliste (war T71):** A hostet online, B öffnet Coop. *Unter „Online“ steht „Open rooms“ mit dem Raum
   (Titel, Host, Stadt ohne Straße, 1/4, „Lobby“, Ping); privat oder gesperrt verschwindet er; nach dem Start grau
   „In game · Wave n“.*
-- **R1.2 Einladungslink und Beitritt ohne Ort (war H3.1, H3.3):** B frisch gestartet, ohne Ort, tritt über den Link
+- **A1.2 Einladungslink und Beitritt ohne Ort (war H3.1, H3.3):** B frisch gestartet, ohne Ort, tritt über den Link
   bzw. den Code bei. *Das Menü bleibt, die Karte des Hosts lädt dahinter, danach Spiel und Dock mit dem Raum.*
-- **R1.3 Same network (war H3.4):** A „Host on this network“ (Firewall erlauben), B „Same network“. *Das Spiel von A
+- **A1.3 Same network (war H3.4):** A „Host on this network“ (Firewall erlauben), B „Same network“. *Das Spiel von A
   steht mit Spielerzahl in der Liste, „Join“ führt in den Raum; ohne Spiel im Netz nach rund 4 s „Host IP“.*
-- **R1.4 Coop nach Solo-Lauf (war N18):** allein ein paar Wellen, dann „Host a room“, einmal an einem Ort mit einem
+- **A1.4 Coop nach Solo-Lauf (war N18):** allein ein paar Wellen, dann „Host a room“, einmal an einem Ort mit einem
   Spawn, einmal mit zwei. *Vorher die Frage „This ends your solo run (wave N)“, Cancel lässt den Lauf.*
-- **R1.5 Forschungspreise des Partners (war S3.2):** zwei Spuren je Spieler, beim Partner forschen. *Sein Preis im
+- **A1.5 Forschungspreise des Partners (war S3.2):** zwei Spuren je Spieler, beim Partner forschen. *Sein Preis im
   Baum ist das, was ihm abgebucht wird.*
-- **R1.6 Resync (war S3.4):** im Spiel ein Fenster lange hängen lassen (Debugger-Pause o. ä.). *Resync läuft, danach
+- **A1.6 Resync (war S3.4):** im Spiel ein Fenster lange hängen lassen (Debugger-Pause o. ä.). *Resync läuft, danach
   gleiche Prüfsummen, kein Abbruch.*
 
-Paket R2, App und Web:
+Paket A2, App und Web:
 
-- **R2.1 Quit und Links (war H4):** App ohne Lauf „Quit 3DTD“ beendet; mit Tower fragt Esc, „Quit 3DTD“ erst „Quit
+- **A2.1 Quit und Links (war H4):** App ohne Lauf „Quit 3DTD“ beendet; mit Tower fragt Esc, „Quit 3DTD“ erst „Quit
   3DTD? The run ends.“. Extras, „Legal & privacy“ und „Source on GitHub“ öffnen den System-Browser.
-- **R2.2 Datei laden im Lauf (war S1.4):** „Load game“, Download-Symbol am Platz, im laufenden Lauf „Load from a
+- **A2.2 Datei laden im Lauf (war S1.4):** „Load game“, Download-Symbol am Platz, im laufenden Lauf „Load from a
   file“ mit der Datei. *Die Rückfrage, danach lädt sie wie ein Platz.*
-- **R2.3 Konsole auf `/play/` (war S3.3):** Header live geprüft (2026-10-13). Offen: ein Spiel in Chrome und Firefox
+- **A2.3 Konsole auf `/play/` (war S3.3):** Header live geprüft (2026-10-13). Offen: ein Spiel in Chrome und Firefox
   mit offener Konsole, *keine CSP-Verletzung* bei Ortssuche, Straßen, Tiles, Schlüsselprüfung, Globus.
-- **R2.4 Globus Low/Off (war G3.1):** Settings, Graphics, „Menu globe“ Low und Off; auf einem schwächeren Rechner
+- **A2.4 Globus Low/Off (war G3.1):** Settings, Graphics, „Menu globe“ Low und Off; auf einem schwächeren Rechner
   High. *Low weicher, gleicher Ablauf; Off dunkler Grund, kein Abtauchen; flüssig.*
 
 Nur wenn es passiert oder ein Gerät da ist:
 
-- **R3.1 Kartenserver lehnt ab (war Y5):** bei 429 oder ohne Netz. *„The map server is busy or out of reach …“, Play
+- **A3.1 Kartenserver lehnt ab (war Y5):** bei 429 oder ohne Netz. *„The map server is busy or out of reach …“, Play
   wartet, nach 15 s bis 2 min lädt es von selbst weiter.*
-- **R3.2 AppImage (war S5.1):** auf einem Linux-Desktop starten, einen Ort spielen.
-- **R3.3 Hybrid-Laptop (war K8.4):** Task-Manager, Spalte „GPU-Modul“ beim 3DTD-Prozess. *Die dedizierte GPU, ebenso
+- **A3.2 AppImage (war S5.1):** auf einem Linux-Desktop starten, einen Ort spielen.
+- **A3.3 Hybrid-Laptop (war K8.4):** Task-Manager, Spalte „GPU-Modul“ beim 3DTD-Prozess. *Die dedizierte GPU, ebenso
   im Log `[info] GPU: ... (active)`.*
 
 Offen als Entscheidung, kein Nachtest: **M4/S2.3** „Why this wave“ in Worten war dir „verwirrend, sagt mir alles nichts“
