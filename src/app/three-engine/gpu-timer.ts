@@ -1,10 +1,11 @@
 /**
  * GPU time of a stretch of draw calls, through EXT_disjoint_timer_query_webgl2
- * (the render benchmark, docs/BENCHMARKS.md "Bildkosten"). The query's result
+ * (GpuFrameMeter below: the dynamic resolution, Auto's measurement and the
+ * graphics benchmark, docs/RENDER_QUALITY.md, docs/BENCHMARKS.md). The query's result
  * comes a few frames later: `end` polls the queries in flight and keeps the
  * finished ones. A browser without the extension (Firefox and Safari hide it,
  * Chrome offers it on most desktops) gets no timer: `create` returns null and
- * the benchmark reports the frame time alone.
+ * its readers fall back to the frame time.
  */
 
 /** The extension's names, typed (lib.dom does not know it) */
@@ -84,5 +85,64 @@ export class GpuTimer {
       if (disjoint) this.disjoint++;
       else this.results.push(ns / 1e6);
     }
+  }
+}
+
+/** GPU times of the frames since the last `take`, for one reader of the meter */
+export interface GpuTimeReader {
+  take(): number[];
+  close(): void;
+}
+
+/**
+ * The engine's GPU timer around every frame's draw, for whoever reads it
+ * (the dynamic resolution, Auto's measurement, the graphics benchmark):
+ * one timer query a frame however many read, none while nobody does.
+ */
+export class GpuFrameMeter {
+  private timer: GpuTimer | null | undefined;
+  private readonly readers = new Set<number[]>();
+
+  constructor(private readonly gl: WebGL2RenderingContext) {}
+
+  /** The browser has timer queries */
+  get available(): boolean {
+    return this.ensure() !== null;
+  }
+
+  /** A reader of the frames from now on; null where the browser has no timer */
+  open(): GpuTimeReader | null {
+    const timer = this.ensure();
+    if (!timer) return null;
+    const buffer: number[] = [];
+    this.readers.add(buffer);
+    return {
+      take: () => buffer.splice(0),
+      close: () => {
+        this.readers.delete(buffer);
+        if (this.readers.size === 0) timer.take();
+      },
+    };
+  }
+
+  begin(): void {
+    if (this.readers.size) this.timer?.begin();
+  }
+
+  end(): void {
+    if (!this.readers.size || !this.timer) return;
+    this.timer.end();
+    const times = this.timer.take();
+    if (times.length) for (const buffer of this.readers) buffer.push(...times);
+  }
+
+  dispose(): void {
+    this.timer?.dispose();
+    this.readers.clear();
+  }
+
+  private ensure(): GpuTimer | null {
+    if (this.timer === undefined) this.timer = GpuTimer.create(this.gl);
+    return this.timer;
   }
 }

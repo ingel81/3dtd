@@ -34,3 +34,15 @@
   grid-template-columns: 140px 1fr auto;
   gap: 8px;
 }
+
+// What the quality level sets, one block per place it applies
+.set-quality {
+  display: grid;
+  gap: 2px;
+}
+
+.set-quality-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}

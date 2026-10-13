@@ -6,7 +6,7 @@ import { LocationManagementService } from '../services/location/location-managem
 import { WorldContext } from '../world/world-context.service';
 import { BUILD_VERSION } from '../configs/build-info.config';
 import type { ThreeTilesEngine } from '../three-engine/three-tiles-engine';
-import { GpuTimer } from './gpu-timer';
+import { RenderQualityService, qualityWorldOf } from '../services/infrastructure/render-quality.service';
 import {
   RENDER_VIEWS, RENDER_VIEW_SECONDS, envOf, isRenderBenchmarkSearch, renderBenchmarkUrl, renderRow, viewPose,
   type Pose, type RenderBenchEnv, type RenderRow, type Vec3,
@@ -50,6 +50,7 @@ export class RenderBenchmarkService {
   private readonly intro = inject(IntroCameraFlightService);
   private readonly location = inject(LocationManagementService);
   private readonly worldContext = inject(WorldContext);
+  private readonly quality = inject(RenderQualityService);
 
   /** This page was loaded to run it */
   readonly requested = isRenderBenchmarkSearch(location.search);
@@ -81,8 +82,9 @@ export class RenderBenchmarkService {
       const engine = await this.waitForWorld();
       const renderer = engine.getRenderer();
       const camera = engine.getCamera();
-      const gl = renderer.getContext() as WebGL2RenderingContext;
-      const timer = GpuTimer.create(gl);
+      // The engine's GPU timer for the whole run; the resolution holds at the level's start
+      const timer = engine.gpuMeter.open();
+      engine.setDynamicResolutionPaused(true);
       const env = await this.environment(engine, timer !== null);
       this.state.update((s) => ({ ...s, env }));
 
@@ -104,11 +106,9 @@ export class RenderBenchmarkService {
           info.reset();
           if (!frame.measuring) return;
           frame.starts.push(performance.now());
-          timer?.begin();
         },
         end: () => {
           if (!frame.measuring) return;
-          timer?.end();
           frame.calls.push(info.render.calls);
           frame.triangles.push(info.render.triangles);
         },
@@ -130,7 +130,8 @@ export class RenderBenchmarkService {
         engine.setFrameProbe(null);
         info.autoReset = true;
         engine.renderLoop.setTiming(false);
-        timer?.dispose();
+        timer?.close();
+        engine.setDynamicResolutionPaused(false);
         camera.position.copy(startPosition);
         camera.quaternion.copy(startTurn);
         camera.updateMatrixWorld();
@@ -237,7 +238,7 @@ export class RenderBenchmarkService {
       commit: build?.commit ?? 'unknown',
       dirty: build?.dirty ?? null,
       world,
-      quality: '-',
+      quality: `${this.quality.levelFor(qualityWorldOf(ref))}${this.quality.setting() === 'auto' ? ' (auto)' : ''}`,
       devicePixelRatio: Math.round(renderer.getPixelRatio() * 100) / 100,
       canvas: [gl.drawingBufferWidth, gl.drawingBufferHeight],
       gpuTimer,

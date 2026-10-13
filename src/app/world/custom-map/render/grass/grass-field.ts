@@ -13,6 +13,7 @@ import {
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
 import type { CoverMap } from '../environment/cover-map';
+import { MAX_GRASS_BLADES } from '../../../../three-engine/render-quality';
 import { addHeightFog } from '../environment/height-fog';
 import { WIND_GLSL, WIND_UNIFORMS } from '../environment/wind';
 
@@ -47,7 +48,14 @@ export interface GrassInputs {
 
 /** Edge of the tile around the focus, metres */
 const TILE = 64;
-const BLADES = 70000;
+/**
+ * Blades the field holds, for the highest quality level; a level draws the
+ * first so many (setBlades). The random sequence runs blade by blade, so
+ * the first 70 000 lie where they lay before the levels
+ */
+const BLADES = MAX_GRASS_BLADES;
+/** Blades drawn before a level says otherwise (High) */
+const DEFAULT_BLADES = 70000;
 /** Rows of the blade strip */
 const ROWS = 4;
 
@@ -55,6 +63,8 @@ export class GrassField {
   readonly mesh: Mesh<InstancedBufferGeometry, MeshStandardMaterial>;
   private hasGrass = false;
   private near = true;
+  /** The quality level draws grass at all */
+  private enabled = true;
   private readonly uniforms = {
     uGrassCenter: { value: new Vector2() },
     uGrassTile: { value: TILE },
@@ -101,7 +111,7 @@ export class GrassField {
     }
     g.setAttribute('aBladeOffset', new InstancedBufferAttribute(offsets, 2));
     g.setAttribute('aBladeRand', new InstancedBufferAttribute(rnd, 4));
-    g.instanceCount = BLADES;
+    g.instanceCount = DEFAULT_BLADES;
 
     const material = new MeshStandardMaterial({ roughness: 0.85, metalness: 0, side: DoubleSide });
     material.name = 'custom-map-grass';
@@ -139,7 +149,18 @@ export class GrassField {
     u.uGrassColors.value.forEach((c, k) => c.copy(p.colors[k] ?? c.setRGB(0.2, 0.3, 0.1)));
     u.uGrassMapSize.value.set(p.width, p.depth);
     this.hasGrass = p.mask[0].lengthSq() + p.mask[1].lengthSq() > 0;
-    this.mesh.visible = this.hasGrass && this.near;
+    this.showMesh();
+  }
+
+  /** Blades drawn around the focus (the quality level); 0 draws no grass */
+  setBlades(blades: number): void {
+    this.enabled = blades > 0;
+    this.mesh.geometry.instanceCount = Math.min(BLADES, Math.max(0, Math.round(blades)));
+    this.showMesh();
+  }
+
+  private showMesh(): void {
+    this.mesh.visible = this.hasGrass && this.near && this.enabled;
   }
 
   /** Footprints and water surfaces (the CoverMap shares the height grid) */
@@ -151,7 +172,7 @@ export class GrassField {
   /** Whether the camera is close enough for blades to show */
   setNear(near: boolean): void {
     this.near = near;
-    this.mesh.visible = this.hasGrass && near;
+    this.showMesh();
   }
 
   /** `focus` in the map group's space */

@@ -27,6 +27,7 @@ import { renderMinimapPicture } from './custom-map-minimap';
 import { MapStore } from './map-store';
 import type { MapAssetLibrary } from './render/map-asset-library';
 import type { CustomMapView } from './render/custom-map-view';
+import type { CustomMapQuality, QualityKnobs } from '../../three-engine/render-quality';
 
 /** A map of its own: no real place, nothing streams, no credentials, nothing to roll again */
 export const CUSTOM_MAP_CAPABILITIES: WorldCapabilities = {
@@ -142,6 +143,8 @@ export class CustomMapWorld implements WorldProvider {
   readonly destruction: CustomMapDestruction | null;
 
   private view: CustomMapView | null = null;
+  /** The quality level's custom-map part, kept for a view made after it came */
+  private quality: CustomMapQuality | null = null;
   private lastUpdate = 0;
   private prepared = false;
   private rig: CameraRig | null = null;
@@ -206,6 +209,7 @@ export class CustomMapWorld implements WorldProvider {
       renderer: ctx.renderer,
     });
     this.view = view;
+    if (this.quality) view.applyQuality(this.quality);
     this.placeView();
     const before = new Set(ctx.scene.children);
     // The group and the sight blockers as direct children of the scene: the LOS cube renders only the latter
@@ -296,6 +300,12 @@ export class CustomMapWorld implements WorldProvider {
 
   setDrawSuppressed(): void {
     // no queues to widen
+  }
+
+  /** The level's custom-map part: shadows, detail, impostors, grass, the map's particles and lights */
+  applyQuality(knobs: QualityKnobs): void {
+    this.quality = knobs.customMaps;
+    this.view?.applyQuality(knobs.customMaps);
   }
 
   /** Terrain and sight-blocking objects, a direct child of the scene (the TowerShadowMapper hides every other child) */

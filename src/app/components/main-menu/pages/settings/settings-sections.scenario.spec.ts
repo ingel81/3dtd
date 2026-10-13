@@ -185,6 +185,27 @@ describe('Settings page', () => {
     expect(display.onFpsLimitChanged).toHaveBeenCalledWith(60);
   });
 
+  it('picks the picture quality and shows what it sets apart for all worlds, custom maps and real places', async () => {
+    const { el, settle, show } = await setup();
+    show('Graphics');
+    // Auto by default
+    expect(radios(el, 'Picture quality').map((r) => r.textContent?.trim())).toEqual(['Auto', 'Low', 'Medium', 'High', 'Ultra']);
+    expect(radios(el, 'Picture quality')[0].getAttribute('aria-checked')).toBe('true');
+    radios(el, 'Picture quality')[3].click();
+    await settle();
+    expect(JSON.parse(localStorage.getItem('td_render_quality_v1')!).setting).toBe('high');
+    expect(el.textContent).toContain('High everywhere');
+    const group = (id: string) => el.querySelector(`[data-test="quality-${id}"]`)!.textContent!.replace(/\s+/g, ' ');
+    expect(group('general')).toContain('MSAA 4x');
+    expect(group('custom-maps')).toContain('70,000 blades to 140 m');
+    expect(group('custom-maps')).toContain('4096 px');
+    expect(group('tiles')).toContain('20 px error');
+    radios(el, 'Picture quality')[1].click();
+    await settle();
+    expect(group('custom-maps')).toMatch(/Grass ?off/);
+    expect(group('general')).toContain('FXAA');
+  });
+
   it('switches the app window to fullscreen and says so', async () => {
     const { bridge, byText, settle, show } = await setup();
     show('Graphics');

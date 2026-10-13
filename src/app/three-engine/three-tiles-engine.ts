@@ -63,6 +63,9 @@ import { ABILITIES } from '../configs/abilities.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import type { GeoPosition } from '../models/game.types';
 import { NO_TILE_STATS, type WorldProvider, type WorldSurface } from '../world/world-provider';
+import { GpuFrameMeter, type GpuTimeReader } from './gpu-timer';
+import { DynamicResolution, MIN_SAMPLES } from './dynamic-resolution';
+import { pixelRatioFor, type QualityKnobs, type QualityWorld } from './render-quality';
 
 /** Strength of the enemies' rim light on worlds that ask for it (WorldCapabilities.enemyRimLight) */
 const ENEMY_RIM_LIGHT = 0.55;
@@ -208,6 +211,25 @@ export class ThreeTilesEngine {
   private shakeBench: ShakeBenchmark | null = null;
   /** Called around each frame's draw while the render benchmark measures (setFrameProbe) */
   private frameProbe: FrameProbe | null = null;
+  /** GPU time of every frame's draw for whoever reads it (dynamic resolution, Auto, the benchmark) */
+  readonly gpuMeter: GpuFrameMeter;
+  /** The canvas was made with MSAA (fixed for the context's life, render-quality.ts) */
+  private readonly canvasMsaa: boolean;
+  /** The quality level drawn with, null before applyQuality (the picture as before the levels) */
+  private quality: { knobs: QualityKnobs; world: QualityWorld } | null = null;
+  /** The bloom switch as the effect settings have it; the level may still hold it off */
+  private bloomWanted = false;
+  /** Low and Medium: the resolution follows the frame cost (dynamic-resolution.ts) */
+  private dynamic: {
+    controller: DynamicResolution;
+    gpu: GpuTimeReader | null;
+    gpuTimes: number[];
+    intervals: number[];
+    lastFrameAt: number;
+    windowStart: number;
+  } | null = null;
+  /** The graphics benchmark holds the resolution still while it measures */
+  private dynamicPaused = false;
 
   // Callback for per-frame updates (animations)
   private onUpdateCallback: ((deltaTime: number) => void) | null = null;
@@ -230,11 +252,14 @@ export class ThreeTilesEngine {
   /**
    * @param world The world to draw, made around the run's origin
    *   (WorldContext.open); attached in initialize(), disposed with the engine
+   * @param options.antialias The canvas' MSAA (the quality level's, fixed
+   *   for the context's life); on by default
    */
   constructor(
     canvas: HTMLCanvasElement,
     readonly world: WorldProvider,
     private assetManager?: AssetManagerService,
+    options: { antialias?: boolean } = {},
   ) {
     // Coordinates and ground queries are the world's
     this.sync = world.sync;
@@ -242,11 +267,13 @@ export class ThreeTilesEngine {
 
     // Create WebGL renderer with error handling
     try {
-      this.renderer = new WebGLRenderer({ canvas, ...CANVAS_RENDERER_OPTIONS });
+      this.renderer = new WebGLRenderer({ canvas, ...CANVAS_RENDERER_OPTIONS, antialias: options.antialias ?? CANVAS_RENDERER_OPTIONS.antialias });
     } catch {
       throw new Error('WebGL is not supported. Enable hardware acceleration in your browser.');
     }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.canvasMsaa = options.antialias ?? CANVAS_RENDERER_OPTIONS.antialias;
+    this.gpuMeter = new GpuFrameMeter(this.renderer.getContext() as WebGL2RenderingContext);
     this.renderer.setClearColor(0x151c1f);
     this.renderer.outputColorSpace = SRGBColorSpace;
     // A tower being built is cut off above its course by a plane on its materials (TowerBuild)
@@ -763,8 +790,11 @@ export class ThreeTilesEngine {
     // Render scene, shaken if a screen shake runs
     const probe = this.frameProbe;
     probe?.begin();
+    this.gpuMeter.begin();
     this.drawFrame();
+    this.gpuMeter.end();
     probe?.end();
+    if (this.dynamic && !this.dynamicPaused) this.followFrameCost(this.dynamic);
 
     // Put a benchmark-moved camera back, then release the frame waiters
     // (warm-up): they only ever see the still camera and projection.
@@ -957,9 +987,67 @@ export class ThreeTilesEngine {
     return this.world.tiles?.visible() ?? false;
   }
 
-  /** Call `probe` around every frame's draw (the render benchmark's GPU timer and counters); null takes it off */
+  /** Call `probe` around every frame's draw (the render benchmark's counters); null takes it off */
   setFrameProbe(probe: FrameProbe | null): void {
     this.frameProbe = probe;
+  }
+
+  /**
+   * Draw at a quality level (render-quality.ts): the general part here
+   * (resolution, antialiasing, whether bloom may run), the rest by the
+   * world (custom maps: shadows, detail, grass; tiles: their detail target)
+   */
+  applyQuality(knobs: QualityKnobs, world: QualityWorld): void {
+    this.quality = { knobs, world };
+    this.dynamic?.gpu?.close();
+    const range = knobs.general.dynamic;
+    this.dynamic = range
+      ? { controller: new DynamicResolution(knobs.general.scale, range), gpu: this.gpuMeter.open(), gpuTimes: [], intervals: [], lastFrameAt: 0, windowStart: performance.now() }
+      : null;
+    this.setRenderScale(knobs.general.scale);
+    this.postProcessing?.setAntialias(knobs.general.antialias, this.canvasMsaa);
+    this.postProcessing?.setBloomEnabled(this.bloomWanted && knobs.general.bloom);
+    this.world.applyQuality?.(knobs);
+  }
+
+  /** The graphics benchmark: the resolution stays at the level's start while it measures */
+  setDynamicResolutionPaused(paused: boolean): void {
+    this.dynamicPaused = paused;
+    if (paused && this.quality) this.setRenderScale(this.quality.knobs.general.scale);
+  }
+
+  /** The render resolution now, as a share of the level's pixel ratio; 1 without a level */
+  renderScale(): number {
+    return this.dynamic?.controller.scale ?? this.quality?.knobs.general.scale ?? 1;
+  }
+
+  private setRenderScale(scale: number): void {
+    const q = this.quality;
+    if (!q) return;
+    if (this.dynamic) this.dynamic.controller.scale = scale;
+    const ratio = pixelRatioFor(q.knobs, q.world, window.devicePixelRatio, scale);
+    if (Math.abs(ratio - this.renderer.getPixelRatio()) < 1e-3) return;
+    this.renderer.setPixelRatio(ratio);
+    this.fitToCanvas();
+  }
+
+  /**
+   * One frame of the dynamic resolution: its interval and GPU times, and
+   * once a second with enough of them the controller's answer. A gap over a
+   * second (a hidden tab, a load) is no frame cost
+   */
+  private followFrameCost(d: NonNullable<ThreeTilesEngine['dynamic']>): void {
+    const now = performance.now();
+    if (d.lastFrameAt > 0 && now - d.lastFrameAt < 1000) d.intervals.push(now - d.lastFrameAt);
+    d.lastFrameAt = now;
+    if (d.gpu) d.gpuTimes.push(...d.gpu.take());
+    const costs = d.gpu ? d.gpuTimes : d.intervals;
+    if (now - d.windowStart < 1000 || costs.length < MIN_SAMPLES) return;
+    d.windowStart = now;
+    const scale = d.controller.evaluate(costs, d.gpu ? 'gpu' : 'interval');
+    d.intervals.length = 0;
+    d.gpuTimes.length = 0;
+    if (scale !== null) this.setRenderScale(scale);
   }
 
   /**
@@ -1019,7 +1107,9 @@ export class ThreeTilesEngine {
     this.trailStreaks.setEnabled(settings.projectileTrails);
     this.towers.setMuzzleFlashEnabled(settings.muzzleFlash);
     this.enemies.setFreezeTintEnabled(settings.freezeTint);
-    this.postProcessing?.setBloomEnabled(settings.bloom);
+    // The quality level may hold bloom off (Low)
+    this.bloomWanted = settings.bloom;
+    this.postProcessing?.setBloomEnabled(settings.bloom && (this.quality?.knobs.general.bloom ?? true));
     this.postProcessing?.setColorGradingPreset(settings.colorGrading);
     this.bloodMoon.setEnabled(settings.bloodMoon);
   }
@@ -1096,6 +1186,9 @@ export class ThreeTilesEngine {
 
   dispose(): void {
     this.disposed = true;
+    this.dynamic?.gpu?.close();
+    this.dynamic = null;
+    this.gpuMeter.dispose();
     this.dive.dispose();
     this.renderLoop.dispose();
     this.canvasSize.dispose();

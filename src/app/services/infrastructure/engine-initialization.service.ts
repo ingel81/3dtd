@@ -4,6 +4,7 @@ import { readVfxSettings } from '../../three-engine/vfx-settings';
 import { loadDisplayOptions } from '../../utils/display-options.storage';
 import { GeoPosition } from '../../models/game.types';
 import { AssetManagerService } from './asset-manager.service';
+import { RenderQualityService, qualityWorldOf } from './render-quality.service';
 import { STREET_RADIUS_M, StreetNetwork } from '../location/osm-street.service';
 import { GLOBE_LINK } from '../world/globe-link';
 import type { WorldProvider } from '../../world/world-provider';
@@ -41,6 +42,7 @@ export class EngineInitializationService {
 
   private readonly ngZone = inject(NgZone);
   private readonly assetManager = inject(AssetManagerService);
+  private readonly quality = inject(RenderQualityService);
   private readonly globe = inject(GLOBE_LINK, { optional: true });
 
   // ========================================
@@ -236,7 +238,11 @@ export class EngineInitializationService {
       this.updateStepMeta('engine', 'Three.js Engine...');
 
       // Engine starts with default camera on HQ - final framing happens after routes are calculated
-      this.engine = new ThreeTilesEngine(this.canvas, this.world, this.assetManager);
+      // The quality level's canvas MSAA is fixed with the context; the rest of the level follows (attach)
+      this.engine = new ThreeTilesEngine(this.canvas, this.world, this.assetManager, {
+        antialias: this.quality.canvasMsaa(qualityWorldOf(this.world.ref)),
+      });
+      this.quality.attach(this.engine, this.world.ref);
       // Behind the menu globe the game draws nothing, not even its first frame
       if (this.globe?.coversGame()) this.engine.setDrawSuppressed(true);
       // The stored bloom and grading before the world compiles its shaders: frames through the
@@ -396,6 +402,7 @@ export class EngineInitializationService {
    * Dispose engine and cleanup
    */
   dispose(): void {
+    if (this.engine) this.quality.detach(this.engine);
     this.engine = null;
     this.baseCoords = null;
     this.canvas = null;

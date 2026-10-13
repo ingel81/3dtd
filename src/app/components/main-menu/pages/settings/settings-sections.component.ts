@@ -13,6 +13,8 @@ import { COLOR_GRADING_PRESETS, type ColorGradingPreset } from '../../../../thre
 import { GAME_SPEEDS } from '../../../../configs/game-speed.config';
 import { readDesktopBridge } from '../../../../core/desktop-bridge';
 import { readRunUploadConsent, writeRunUploadConsent } from '../../../../run-log/run-upload';
+import { RenderQualityService } from '../../../../services/infrastructure/render-quality.service';
+import { QUALITY_TABLE, type QualityKnobs, type QualityLevel, type QualitySetting } from '../../../../three-engine/render-quality';
 
 /** One volume row: the channel's level and mute in UIStore */
 interface VolumeRow {
@@ -32,6 +34,40 @@ interface SwitchRow {
   hint: string;
   on: () => boolean;
   toggle: () => void;
+}
+
+const LEVEL_NAMES: Record<QualityLevel, string> = { low: 'Low', medium: 'Medium', high: 'High', ultra: 'Ultra' };
+
+/** The general part's rows; where Auto plays custom maps a level lower, their value after the tiles' one */
+function generalRows(tiles: QualityKnobs, maps: QualityKnobs): { label: string; value: string }[] {
+  const rows = (k: QualityKnobs) => {
+    const g = k.general;
+    return [
+      g.dynamic
+        ? `${Math.round(g.scale * 100)} %, adapts ${Math.round(g.dynamic.min * 100)} to ${Math.round(g.dynamic.max * 100)} %`
+        : `full, up to ${g.pixelRatioCap}x pixel density`,
+      g.antialias === 'msaa' ? 'MSAA 4x' : 'FXAA',
+      g.bloom ? 'as the effect switch says' : 'off',
+    ];
+  };
+  const t = rows(tiles);
+  const m = rows(maps);
+  return ['Render resolution', 'Antialiasing', 'Bloom'].map((label, i) => ({
+    label,
+    value: t[i] === m[i] ? t[i] : `${t[i]}; custom maps: ${m[i]}`,
+  }));
+}
+
+function customMapRows(k: QualityKnobs): { label: string; value: string }[] {
+  const c = k.customMaps;
+  return [
+    { label: 'Resolution cap', value: `${c.pixelRatioCap}x pixel density` },
+    { label: 'Shadows', value: `${c.shadowMapSize} px${c.shadowRadius > 1.5 ? ', softer' : ''}` },
+    { label: 'Object detail', value: `${c.lodBias}x distance, flat trees from ${c.impostorFrom} m` },
+    { label: 'Grass', value: c.grassBlades ? `${c.grassBlades.toLocaleString('en-US')} blades to ${c.grassDistance} m` : 'off' },
+    { label: 'Fire, smoke, sparks', value: `${Math.round(c.particles * 100)} %` },
+    { label: 'Lamp lights at night', value: String(c.pointLights) },
+  ];
 }
 
 /** A tab of the Settings page (TODO E138) */
@@ -136,6 +172,41 @@ export class SettingsSectionsComponent {
   }
 
   // ---- Graphics ----
+
+  /** The picture's quality level (render-quality.ts): one choice, shown in its three parts */
+  readonly quality = inject(RenderQualityService);
+  readonly qualityOptions: { id: QualitySetting; label: string; hint: string }[] = [
+    { id: 'auto', label: 'Auto', hint: 'Picked for your graphics card and checked once; custom maps a level lower' },
+    { id: 'low', label: 'Low', hint: 'Lower resolution that adapts, FXAA, no grass, short draw distance' },
+    { id: 'medium', label: 'Medium', hint: 'Adapting resolution, FXAA, less grass and detail' },
+    { id: 'high', label: 'High', hint: 'The full picture: sharp, MSAA, shadows 4096' },
+    { id: 'ultra', label: 'Ultra', hint: 'More grass and detail, finer tiles, softer shadows' },
+  ];
+
+  readonly qualityNote = computed(() => {
+    if (this.quality.fromUrl) return 'This page was opened with a quality level in its address; it holds until you reload without it.';
+    const tiles = this.quality.levelFor('tiles');
+    const maps = this.quality.levelFor('custom-map');
+    const levels = tiles === maps ? `${LEVEL_NAMES[tiles]} everywhere` : `${LEVEL_NAMES[tiles]} on real places, ${LEVEL_NAMES[maps]} on custom maps`;
+    if (this.quality.setting() !== 'auto') return `${levels}. Antialiasing changes fully after a reload.`;
+    return `Auto plays ${levels}${this.quality.autoMeasured() ? ', checked on this machine' : ', checked once a world stands'}.`;
+  });
+
+  /** What the level sets, by where it applies: everywhere, on custom maps, on real places (tiles) */
+  readonly qualityGroups = computed(() => {
+    const tiles = QUALITY_TABLE[this.quality.levelFor('tiles')];
+    const maps = QUALITY_TABLE[this.quality.levelFor('custom-map')];
+    return [
+      { id: 'general', title: 'All worlds', level: tiles.level === maps.level ? LEVEL_NAMES[tiles.level] : `${LEVEL_NAMES[tiles.level]}, custom maps ${LEVEL_NAMES[maps.level]}`, rows: generalRows(tiles, maps) },
+      { id: 'custom-maps', title: 'Custom maps only', level: LEVEL_NAMES[maps.level], rows: customMapRows(maps) },
+      { id: 'tiles', title: 'Real places (3D tiles) only', level: LEVEL_NAMES[tiles.level], rows: [{ label: 'Tile detail', value: `${tiles.tiles.errorTarget} px error` }] },
+    ];
+  });
+
+  setQuality(setting: QualitySetting): void {
+    if (this.quality.fromUrl) return;
+    this.quality.set(setting);
+  }
 
   readonly presets = VFX_PRESET_CHOICES;
   readonly activePreset = computed(() => matchingVfxPreset(this.display.vfx()));

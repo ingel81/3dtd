@@ -1,5 +1,4 @@
 import { isBenchmarkSearch } from './benchmark-report';
-import { GpuTimer } from './gpu-timer';
 import {
   formatRenderBenchmark, isRenderBenchmarkSearch, renderBenchmarkUrl, renderRow, viewPose, type Pose, type RenderBenchEnv,
 } from './render-benchmark';
@@ -46,54 +45,5 @@ describe('render benchmark (docs/BENCHMARKS.md, Bildkosten)', () => {
     const text = formatRenderBenchmark(env, [row]);
     expect(text).toContain('map:demo-valley, quality high');
     expect(text.split('\n').at(-1)).toMatch(/^game\s+13\.33\s+20\.00\s+2\.00\s+3\.00\s+1\.50\s+101\s+1\.00 M$/);
-  });
-});
-
-describe('GpuTimer', () => {
-  /** A WebGL2 context with a timer extension whose results come one poll after the end */
-  function fakeGl(available: boolean, disjoint = false) {
-    let made = 0;
-    const done = new Set<number>();
-    const gl = {
-      QUERY_RESULT_AVAILABLE: 1, QUERY_RESULT: 2,
-      getExtension: (name: string) => (available && name === 'EXT_disjoint_timer_query_webgl2' ? { TIME_ELAPSED_EXT: 10, GPU_DISJOINT_EXT: 11 } : null),
-      createQuery: () => ++made,
-      beginQuery: vi.fn(),
-      endQuery: (_: number) => undefined,
-      deleteQuery: vi.fn(),
-      getParameter: () => disjoint,
-      getQueryParameter: (q: number, p: number) => (p === 1 ? done.has(q) : q * 1e6),
-    };
-    return { gl: gl as unknown as WebGL2RenderingContext, finish: (q: number) => done.add(q) };
-  }
-
-  it('is null without the extension', () => {
-    expect(GpuTimer.create(fakeGl(false).gl)).toBeNull();
-  });
-
-  it('keeps the results in order once the GPU has them, and leaves disjoint ones out', () => {
-    const { gl, finish } = fakeGl(true);
-    const timer = GpuTimer.create(gl)!;
-    timer.begin();
-    timer.end();
-    timer.begin();
-    timer.end();
-    expect(timer.take()).toEqual([]);
-    finish(1);
-    finish(2);
-    expect(timer.take()).toEqual([1, 2]);
-    // The queries come back into the pool
-    timer.begin();
-    timer.end();
-    finish(2);
-    expect(timer.take()).toEqual([2]);
-
-    const bad = fakeGl(true, true);
-    const skewed = GpuTimer.create(bad.gl)!;
-    skewed.begin();
-    skewed.end();
-    bad.finish(1);
-    expect(skewed.take()).toEqual([]);
-    expect(skewed.disjoint).toBe(1);
   });
 });

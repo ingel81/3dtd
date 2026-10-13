@@ -5,7 +5,7 @@
 //
 //   npx ng build; node e2e/perf/serve.mjs dist/3DTD/browser 4322 --isolate
 //   node e2e/perf/render-bench.ts --url http://localhost:4322 [--worlds map:demo-valley,map:harbor-town,tiles:48.7758,9.1829]
-//        [--qualities high] [--dpr 1] [--width 1600 --height 900] [--json out.json] [--shots <dir>]
+//        [--qualities high] [--dpr 1] [--width 1600 --height 900] [--json out.json] [--shots <dir>] [--angle swiftshader]
 //
 // --shots saves one picture per view as it starts measuring (<dir>/<world>-<quality>-<n>.png), to see what was measured.
 //
@@ -30,9 +30,11 @@ const WIDTH = Number(argument('width', '1600'));
 const HEIGHT = Number(argument('height', '900'));
 const JSON_OUT = argument('json', '');
 const SHOTS = argument('shots', '');
-const GPU_ARGS = process.platform === 'win32'
-  ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist']
-  : ['--enable-gpu', '--ignore-gpu-blocklist'];
+/** `--angle swiftshader`: a software GPU where every pixel costs, the resolution's effect without a weak machine */
+const ANGLE = argument('angle', process.platform === 'win32' ? 'd3d11' : '');
+const GPU_ARGS = ANGLE === 'swiftshader'
+  ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
+  : [...(ANGLE ? [`--use-angle=${ANGLE}`] : []), '--enable-gpu', '--ignore-gpu-blocklist'];
 
 interface Row { view: string; frameMs: number; frameP95Ms: number; gpuMs: number | null; gpuP95Ms: number | null; cpuMs: number; calls: number; triangles: number }
 interface Env { world: string; quality: string; gpu: string; canvas: [number, number]; devicePixelRatio: number; gpuTimer: boolean; version: string; commit: string }

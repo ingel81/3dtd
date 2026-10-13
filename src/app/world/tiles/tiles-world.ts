@@ -12,6 +12,7 @@ import { tilesInternals } from '../../three-engine/tiles-internals';
 import { instrumentRaycasts } from '../../utils/raycast-stats';
 import { OSM_MAP_ATTRIBUTION } from '../../configs/attributions.config';
 import type { WorldRef } from '../world-ref';
+import type { QualityKnobs, TilesQuality } from '../../three-engine/render-quality';
 import { reorientationHeight, type TileSource } from './tile-source';
 import {
   NO_TILE_STATS,
@@ -96,6 +97,8 @@ export class TilesWorld implements WorldProvider, WorldTiles {
   readonly corridor: RouteCorridorTiles;
 
   private tilesRenderer: TilesRenderer | null = null;
+  /** The quality level's tiles part, kept for a renderer made after it came */
+  private quality: TilesQuality | null = null;
   private reorientationPlugin: ReorientationPlugin | null = null;
   private scene: Scene | null = null;
   /** First-load detection, debounce, retry, auth errors, tile stats; made in attach() */
@@ -138,6 +141,7 @@ export class TilesWorld implements WorldProvider, WorldTiles {
     // plugins, group rotated to Y-up
     const tiles = createTilesRenderer({ source: this.config.source, origin: this.sync.getOrigin() });
     this.tilesRenderer = tiles.tilesRenderer;
+    if (this.quality) this.tilesRenderer.errorTarget = this.quality.errorTarget;
     this.reorientationPlugin = tiles.reorientationPlugin;
     this.corridor.attach(tiles.tilesRenderer, tiles.routeRegions);
 
@@ -249,6 +253,16 @@ export class TilesWorld implements WorldProvider, WorldTiles {
   setDrawSuppressed(suppressed: boolean): void {
     // Nothing to keep smooth meanwhile: the tiles may load faster
     if (this.tilesRenderer) applyQueueBudget(this.tilesRenderer, suppressed);
+  }
+
+  /**
+   * The level's tiles part: the detail target (errorTarget; 20 in High as
+   * before the levels). The corridor along the routes refines by its own
+   * target in metres and does not move with it (route-corridor-region.ts)
+   */
+  applyQuality(knobs: QualityKnobs): void {
+    this.quality = knobs.tiles;
+    if (this.tilesRenderer) this.tilesRenderer.errorTarget = knobs.tiles.errorTarget;
   }
 
   /** The 3D tiles group, a direct child of the scene */

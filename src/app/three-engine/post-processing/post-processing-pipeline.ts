@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { FXAAPass } from 'three/examples/jsm/postprocessing/FXAAPass.js';
 import { createColorGradingPass, ColorGradingPreset } from './color-grading';
 import { BloomKick, type BloomValues } from './bloom-kick';
 import { guardBloomHighPass } from './bloom-guard';
@@ -26,9 +27,15 @@ export class PostProcessingPipeline {
   private readonly bloomKick: BloomKick;
   private readonly colorGrading: ReturnType<typeof createColorGradingPass>;
   private readonly pixelMarks: ShaderPass;
+  private readonly fxaa: FXAAPass;
 
   private bloomEnabled = false;
   private colorGradingPreset: ColorGradingPreset = 'none';
+  /**
+   * The quality level's antialiasing needs the composer: FXAA, or MSAA on a
+   * canvas made without it (render-quality.ts, setAntialias)
+   */
+  private antialiasNeedsComposer = false;
 
   constructor(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera) {
     // The composer's default target has no MSAA, so the canvas antialiasing
@@ -74,11 +81,38 @@ export class PostProcessingPipeline {
     this.composer.addPass(this.colorGrading.pass);
 
     this.composer.addPass(new OutputPass());
+
+    // The Low and Medium levels' antialiasing, on the finished picture
+    this.fxaa = new FXAAPass();
+    this.fxaa.enabled = false;
+    this.composer.addPass(this.fxaa);
   }
 
   /** Whether at least one post-processing pass is active. */
   needsRender(): boolean {
-    return this.bloomEnabled || this.colorGradingPreset !== 'none' || this.pixelMarks.enabled;
+    return this.bloomEnabled || this.colorGradingPreset !== 'none' || this.pixelMarks.enabled || this.antialiasNeedsComposer;
+  }
+
+  /**
+   * Antialiasing of the quality level: MSAA (the canvas', and four samples
+   * on the composer's scene target while a pass runs) or FXAA after the
+   * output pass, through the composer. The canvas' MSAA is fixed when its
+   * context is made (`canvasMsaa`): a level that wants MSAA on a canvas
+   * without it gets FXAA until the next load, as MSAA on the composer's
+   * half-float target cost about three times the canvas' (RTX 5080, demo
+   * valley: 4.4 against 1.3 ms GPU).
+   */
+  setAntialias(mode: 'msaa' | 'fxaa', canvasMsaa: boolean): void {
+    const msaa = mode === 'msaa' && canvasMsaa;
+    const samples = msaa ? 4 : 0;
+    for (const target of [this.composer.renderTarget1, this.composer.renderTarget2]) {
+      if (target.samples === samples) continue;
+      target.samples = samples;
+      // A target allocates its buffers on first use; disposed it does so again with the new samples
+      target.dispose();
+    }
+    this.fxaa.enabled = !msaa;
+    this.antialiasNeedsComposer = !msaa;
   }
 
   /** Render the scene through the composer. */

@@ -18,6 +18,7 @@ import type { WorldRef } from './world-ref';
 import type { RunRules } from '../sim/protocol/run-rules';
 import type { WorldCoverage } from './world-coverage';
 import type { WaveSourceId } from '../director/wave-source';
+import type { QualityKnobs } from '../three-engine/render-quality';
 import type { WaveTable } from '../director/sources/table/wave-table';
 
 /**
@@ -300,6 +301,12 @@ export interface WorldProvider {
   setDrawSuppressed(suppressed: boolean): void;
   /** The group the tower line-of-sight cube renders as blockers, a direct child of the scene */
   losBlockers(): Object3D | null;
+  /**
+   * Draw at a quality level (render-quality.ts): each world takes its own
+   * group of the table (custom maps `customMaps`, tiles `tiles`) and leaves
+   * the others; the engine applies `general`
+   */
+  applyQuality?(knobs: QualityKnobs): void;
   /** The scene frame to ECEF, null without `capabilities.ecef` */
   sceneToEcef(target: Matrix4): Matrix4 | null;
   /**

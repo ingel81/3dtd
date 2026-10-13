@@ -11,6 +11,7 @@ import { BridgeLayer } from './paths/path-bridges';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { RiverSurface } from './water/river-surface';
 import { WaterSurface } from './water/water-surface';
+import type { CustomMapQuality } from '../../../three-engine/render-quality';
 import type { GridRect } from './terrain/terrain-chunks';
 
 /**
@@ -45,8 +46,6 @@ import type { GridRect } from './terrain/terrain-chunks';
  * (same transform, the group sits at the origin).
  */
 
-/** Beyond this camera distance to its focus the grass blades are not drawn */
-const GRASS_MAX_VIEW_DISTANCE = 140;
 
 /** Rectangle in map metres */
 export interface MapRect {
@@ -104,6 +103,8 @@ export class CustomMapView {
   private readonly grassCenter = new Vector3();
   /** Object and terrain versions the sun's shadow map was last rendered for */
   private shadowVersion = -1;
+  /** Beyond this camera distance to its focus the grass blades are not drawn (the quality level's; 140 m in High) */
+  private grassDistance = 140;
   private readonly viewRay = new Ray();
   private disposed = false;
 
@@ -327,7 +328,7 @@ export class CustomMapView {
     // Grass between the camera's foot and the focus; from far up blades are below a pixel, skip them
     this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);
     this.terrain.grass.update(dtSeconds, this.grassCenter);
-    this.terrain.grass.setNear(reach < GRASS_MAX_VIEW_DISTANCE);
+    this.terrain.grass.setNear(reach < this.grassDistance);
     // The weather's cover: at most four times a second, and only when something changed
     this.coverAge += dtSeconds;
     if (this.coverDirty && this.coverAge > 0.25) void this.refreshCover();
@@ -630,6 +631,19 @@ export class CustomMapView {
     const catalog = await this.assets.catalog();
     const assets = new Set(objects.map((o) => o.asset));
     return catalog.objects.some((e) => assets.has(e.id) && (!!e.effects || !!e.light));
+  }
+
+  /**
+   * The quality level's custom-map part (render-quality.ts): the sun's
+   * shadow map, object detail and impostors, grass, the map's particles and
+   * point lights. High is the picture as before the levels
+   */
+  applyQuality(q: CustomMapQuality): void {
+    this.environment.setShadowQuality(q.shadowMapSize, q.shadowRadius);
+    this.objects.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
+    this.terrain.grass.setBlades(q.grassBlades);
+    this.grassDistance = q.grassDistance;
+    if (this.effects.setQuality({ particles: q.particles, pointLights: q.pointLights })) void this.refreshEffects();
   }
 
   /** Rebuilds effects and lights; with an asset id only when that asset has any */

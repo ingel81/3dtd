@@ -76,6 +76,9 @@ export class EffectLayer {
   private darkness = 0;
   private readonly nearestSpots: LightSpot[] = [];
   private readonly nearestDistances = new Float64Array(POINT_LIGHTS);
+  /** The quality level's share of particles and real point lights (render-quality.ts) */
+  private particleShare = 1;
+  private lightCount = POINT_LIGHTS;
 
   constructor(private readonly field: HeightField) {
     this.group.name = 'custom-map-effects';
@@ -116,7 +119,7 @@ export class EffectLayer {
             origin: foot,
             radius,
             height: 0,
-            count: particleCount('spray', fx.rate !== undefined ? fx.rate * radius : 12 * radius),
+            count: this.share(particleCount('spray', fx.rate !== undefined ? fx.rate * radius : 12 * radius)),
             color: fx.color,
             scale: 1,
           });
@@ -128,7 +131,7 @@ export class EffectLayer {
           origin,
           radius: (fx.radius ?? (kind === 'fire' ? 0.15 : e.footprint)) * s,
           height: (fx.height ?? (kind === 'leaves' ? e.height * 0.8 : 0)) * s,
-          count: particleCount(kind, fx.rate),
+          count: this.share(particleCount(kind, fx.rate)),
           color: fx.color,
           scale: kind === 'fog' || kind === 'smoke' ? s : Math.sqrt(s),
         });
@@ -180,6 +183,25 @@ export class EffectLayer {
     this.showPool();
   }
 
+  /**
+   * The quality level's part: a share of every field's particles (a `set`
+   * after it builds them so) and how many real point lights follow the
+   * lamps. Returns whether the particles changed, so the owner sets the
+   * effects again
+   */
+  setQuality(quality: { particles: number; pointLights: number }): boolean {
+    const changed = quality.particles !== this.particleShare;
+    this.particleShare = quality.particles;
+    this.lightCount = Math.max(0, Math.min(POINT_LIGHTS, Math.round(quality.pointLights)));
+    this.showPool();
+    return changed;
+  }
+
+  /** A field's particle count at the level's share, at least one */
+  private share(count: number): number {
+    return this.particleShare >= 1 ? count : Math.max(1, Math.round(count * this.particleShare));
+  }
+
   /** 0 by day, 1 at night: how strongly the lights glow and light the ground */
   setDarkness(darkness: number): void {
     this.darkness = Math.min(1, Math.max(0, darkness));
@@ -190,13 +212,14 @@ export class EffectLayer {
 
   /**
    * The pool is in use only in the dark on a map with lights. Hidden lights do not count for three:
-   * by day every lit material would otherwise pay for six point lights at zero. While in use all six
-   * stay visible (unused at zero), as a change in the number of lights recompiles every lit material.
+   * by day every lit material would otherwise pay for six point lights at zero. While in use the level's
+   * lights (lightCount) all stay visible (unused at zero), as a change in their number recompiles every
+   * lit material.
    * Set as soon as darkness or lights change, so a warm-up compiles the programs the frames use
    */
   private showPool(): void {
     const active = this.darkness > 0.05 && this.spots.length + this.extraSpots.length > 0;
-    for (const light of this.pool) light.visible = active;
+    this.pool.forEach((light, k) => (light.visible = active && k < this.lightCount));
   }
 
   /** Advances the effects and moves the point lights to the lights nearest `focus` (group space) */
@@ -227,7 +250,7 @@ export class EffectLayer {
   }
 
   /**
-   * The POINT_LIGHTS spots nearest to `focus` into `nearestSpots` (nearest
+   * The level's lightCount spots nearest to `focus` into `nearestSpots` (nearest
    * first), without allocating; returns how many there are
    */
   private nearest(focus: Vector3): number {
@@ -239,9 +262,11 @@ export class EffectLayer {
     const dist = this.nearestDistances;
     for (const s of list) {
       const d = s.position.distanceToSquared(focus);
-      if (count === POINT_LIGHTS && d >= dist[count - 1]) continue;
+      const most = this.lightCount;
+      if (most === 0) return 0;
+      if (count === most && d >= dist[count - 1]) continue;
       // Insert in order; when full the farthest drops out
-      let k = count < POINT_LIGHTS ? count++ : count - 1;
+      let k = count < most ? count++ : count - 1;
       while (k > 0 && dist[k - 1] > d) {
         dist[k] = dist[k - 1];
         out[k] = out[k - 1];

@@ -36,7 +36,8 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [RUN_LOG.md](RUN_LOG.md) | Aktuell | Das Log eines Laufs: Format, Kopf, Wellenblöcke, Abgleiche, wo die Läufe liegen |
 | [REPLAY.md](REPLAY.md) | Aktuell | Replay jeder Welle als Neu-Simulation: Snapshot am Wellenstart, Befehlslog, Springen, Datei speichern und laden, Bedienung, Grenzen |
 | [SIM_WORKER.md](SIM_WORKER.md) | Aktuell | Simulation im Web Worker: Grundsätze, Datenfluss, Verträge (Paket, Ops, Events, Views), Entscheidungen (Sichtlinien, Welt, Wellenquelle, Bot, Coop, Replay), Transport im `SharedArrayBuffer`, Kennzahlen mit Messrechner, Messkurve bis 25 000 Gegner und Hebel |
-| [BENCHMARKS.md](BENCHMARKS.md) | Laufend | Ergebnisse des eingebauten Benchmarks je Rechner: Rechnerliste, Übersicht, Rohtabellen |
+| [BENCHMARKS.md](BENCHMARKS.md) | Laufend | Ergebnisse des eingebauten Benchmarks je Rechner: Rechnerliste, Übersicht, Rohtabellen; Bildkosten je Welt und Qualitätsstufe (Grafik-Benchmark) |
+| [RENDER_QUALITY.md](RENDER_QUALITY.md) | Aktuell | Qualitätsstufen Low bis Ultra und Auto: Tabelle getrennt nach allgemein, eigene Karten, Tiles; Kantenglättung, dynamische Auflösung, Auto per GPU-Name und Messlauf |
 | [CUSTOM_MAPS_NEXT_PLAN.md](CUSTOM_MAPS_NEXT_PLAN.md) | Plan | Eigene Karten vor der Freigabe: Editor sicher, Performance wie Tiles, Optik lebendig, Werkzeuge (TODO E154) |
 | [W3X_IMPORT.md](W3X_IMPORT.md) | Aktuell (auf `main`, gesperrt bis E134) | Warcraft-3-Karten (.w3x) als eigene Karte importieren: MPQ, Formate, drei Wege-Strategien (Skriptmuster, JASS-Auswertung, Gelände), Abbildung auf Materialien und Objekte, Optionen, Grenzen |
 | [OWN_TILESETS.md](OWN_TILESETS.md) | Aktuell (Experiment `exp/custom-maps`) | Eigene 3D-Tiles-Sets als Welt: `?world=tileset:<id>` oder Menü (New game, Maps), `ownTilesets`, Gebiet für HQ und Spawns, Werkzeuge in `tools/own-tiles/` |

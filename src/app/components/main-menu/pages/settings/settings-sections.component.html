@@ -25,6 +25,26 @@
       <p class="td-note">M mutes everything in the game.</p>
     }
     @case ('graphics') {
+      <h3 class="td-section">Picture quality</h3>
+      <div class="td-seg" role="radiogroup" aria-label="Picture quality" tdRovingGroup data-test="quality-levels">
+        @for (option of qualityOptions; track option.id) {
+          <button type="button" role="radio" [attr.aria-checked]="quality.setting() === option.id"
+                  [attr.aria-disabled]="quality.fromUrl || null" [matTooltip]="option.hint" (click)="setQuality(option.id)">{{ option.label }}</button>
+        }
+      </div>
+      <p class="td-note">{{ qualityNote() }}</p>
+      @for (group of qualityGroups(); track group.title) {
+        <div class="set-quality" [attr.data-test]="'quality-' + group.id">
+          <span class="td-label">{{ group.title }} <span class="td-muted">| {{ group.level }}</span></span>
+          @for (row of group.rows; track row.label) {
+            <div class="set-quality-row">
+              <span>{{ row.label }}</span>
+              <span class="td-note td-num">{{ row.value }}</span>
+            </div>
+          }
+        </div>
+      }
+      <h3 class="td-section">Effects</h3>
       <div class="td-seg" role="radiogroup" aria-label="Effect quality" tdRovingGroup>
         @for (preset of presets; track preset.id) {
           <button type="button" role="radio" [attr.aria-checked]="activePreset() === preset.id"

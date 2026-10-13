@@ -32,6 +32,7 @@ import type { EditorSettings, EditorTool, MapHit, PickResult, ToolContext, ToolP
 import { CameraController, type OrbitState } from './camera-controller';
 import { EditorOverlay } from './editor-overlay';
 import { EditorMapView, mapToScene } from './map-view';
+import { QUALITY_TABLE, pixelRatioFor, readStoredQuality, storedLevelFor, type QualityKnobs } from '../../three-engine/render-quality';
 import { contourLines } from '../ops/contours';
 
 export interface HoverInfo {
@@ -136,6 +137,8 @@ export class EditorViewport {
   private readonly unsubscribe: (() => void)[] = [];
   private readonly resizeObserver: ResizeObserver;
   readonly ctx: ToolContext;
+  /** The game's quality level for custom maps (render-quality.ts) */
+  private readonly quality: QualityKnobs;
 
   constructor(
     readonly canvas: HTMLCanvasElement,
@@ -145,12 +148,15 @@ export class EditorViewport {
     private readonly callbacks: ViewportCallbacks,
   ) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true, preserveDrawingBuffer: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // The custom-map part of the game's quality level, at a fixed resolution (no dynamic one) and always MSAA
+    this.quality = QUALITY_TABLE[storedLevelFor(readStoredQuality(), gpuNameOf(this.renderer), 'custom-map')];
+    this.renderer.setPixelRatio(pixelRatioFor({ ...this.quality, general: { ...this.quality.general, scale: 1 } }, 'custom-map', window.devicePixelRatio));
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.overlay = new EditorOverlay((x, y) => this.heightAt(x, y));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.view = new EditorMapView(editor.doc, this.scene, this.renderer);
+    this.view.view.applyQuality(this.quality.customMaps);
     void this.view.warmUp(this.renderer, this.scene, this.camera).then(() => !this.disposed && this.callbacks.viewReady(), () => undefined);
     this.scene.add(this.overlay.group);
     void this.warmOverlay();
@@ -193,6 +199,7 @@ export class EditorViewport {
   rebuildView(): void {
     this.view.dispose();
     this.view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
+    this.view.view.applyQuality(this.quality.customMaps);
     void this.view.warmUp(this.renderer, this.scene, this.camera).then(() => !this.disposed && this.callbacks.viewReady(), () => undefined);
     // The new view shows everything until the hidden categories are applied again
     this.hiddenKey = '';
@@ -914,3 +921,9 @@ export class EditorViewport {
   }
 }
 
+/** The GPU's name as WebGL reports it */
+function gpuNameOf(renderer: WebGLRenderer): string {
+  const gl = renderer.getContext();
+  const info = gl.getExtension('WEBGL_debug_renderer_info');
+  return String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+}

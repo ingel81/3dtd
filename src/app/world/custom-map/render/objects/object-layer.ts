@@ -55,6 +55,8 @@ const MAX_EMISSIVE = 0.55;
 interface Level {
   from: number;
   parts: { geometry: BufferGeometry; material: Material }[];
+  /** A far impostor: starts at the larger of `from` and the quality level's impostor distance */
+  impostor?: boolean;
 }
 
 interface Cell {
@@ -115,6 +117,16 @@ export class MapObjectLayer {
   private readonly sphere = new Sphere();
   /** Cells within this distance of the focus cast shadows */
   shadowRadius = 400;
+  /**
+   * The quality level's part (render-quality.ts): detail switches and the
+   * draw distance of objects that do not block sight times `lodBias`,
+   * impostors from `impostorFrom` m. High (1, 380 m) is the picture as
+   * before the levels. Sight blockers keep their draw distance: what the
+   * line of sight sees does not depend on the level
+   */
+  private detail = { lodBias: 1, impostorFrom: 380 };
+  /** Fade ranges of the card materials with the draw distance they were made for */
+  private readonly fades: { range: Vector2; drawDistance: number }[] = [];
   /** Counts every change the sun's shadow map shows: instances moved, levels or casters switched */
   version = 0;
 
@@ -396,6 +408,7 @@ export class MapObjectLayer {
     this.clear();
     for (const m of this.materials.values()) m.dispose();
     this.materials.clear();
+    this.fades.length = 0;
     for (const imp of this.impostors.values()) imp?.dispose();
     this.impostors.clear();
     this.group.removeFromParent();
@@ -430,9 +443,9 @@ export class MapObjectLayer {
         this.impostors.set(entry.id, imp);
       }
       if (imp) {
-        // Beyond the game camera's usual distance (200 to 300 m), where a tree is a few pixels wide
-        const from = Math.max(lods.length ? lods[lods.length - 1].distance * 1.5 : 0, 380, entry.height * 25);
-        levels.push({ from, parts: [{ geometry: imp.geometry, material: imp.material }] });
+        // Beyond the game camera's usual distance (200 to 300 m, impostorFrom in High), where a tree is a few pixels wide
+        const from = Math.max(lods.length ? lods[lods.length - 1].distance * 1.5 : 0, entry.height * 25);
+        levels.push({ from, impostor: true, parts: [{ geometry: imp.geometry, material: imp.material }] });
       }
     }
     return levels;
@@ -562,18 +575,28 @@ export class MapObjectLayer {
     }
   }
 
+  /** The quality level's detail (see `detail`); every cell takes its level again */
+  setDetail(detail: { lodBias: number; impostorFrom: number }): void {
+    if (detail.lodBias === this.detail.lodBias && detail.impostorFrom === this.detail.impostorFrom) return;
+    this.detail = { ...detail };
+    for (const f of this.fades) f.range.set(f.drawDistance * detail.lodBias * 0.55, f.drawDistance * detail.lodBias);
+    this.applyLevels(true);
+  }
+
   /** Per cell: the level for its distance, hidden beyond the draw distance, shadows only near the focus */
   private applyLevels(force: boolean): void {
     if (force) this.version++;
+    const { lodBias, impostorFrom } = this.detail;
     for (const b of this.batches) {
-      const draw = b.entry.drawDistance;
+      const draw = b.blocksLos ? b.entry.drawDistance : b.entry.drawDistance * lodBias;
       for (const cell of b.cells.values()) {
         const d = Math.max(0, cell.sphere.distanceToPoint(this.camPos));
         let level = -1;
         if (d <= draw) {
           level = 0;
           for (let l = b.levels.length - 1; l > 0; l--) {
-            if (d >= b.levels[l].from) {
+            const at = b.levels[l];
+            if (d >= (at.impostor ? Math.max(at.from, impostorFrom) : at.from * lodBias)) {
               level = l;
               break;
             }
@@ -684,12 +707,14 @@ export class MapObjectLayer {
       this.materials.set(key, m);
       return m;
     }
+    const bias = this.detail.lodBias;
     const local = {
       // Sway at the top in a strong wind, and the height it is measured at (model metres)
       uWindBend: { value: windSwayAtTop(wind, entry.height) },
       uWindHeight: { value: Math.max(entry.height, 0.3) },
-      uFadeRange: { value: new Vector2(entry.drawDistance * 0.55, entry.drawDistance) },
+      uFadeRange: { value: new Vector2(entry.drawDistance * bias * 0.55, entry.drawDistance * bias) },
     };
+    if (card) this.fades.push({ range: local.uFadeRange.value, drawDistance: entry.drawDistance });
     const variant = `${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}`;
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, WIND_UNIFORMS);

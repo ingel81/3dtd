@@ -118,6 +118,47 @@ tiles 48.7758,9.1829  top    0.59   0.70  0.12  0.30     0.43  91     0.24 M
 - **Die Hafenstadt ist auch auf dem Hauptthread teuer:** 3,21 ms CPU bei 1111 Draw Calls, gut fünfmal so viel wie
   Tiles (0,60 ms). Weniger Draw Calls (Modellteile zusammenführen) helfen dort doppelt.
 
+### Je Qualitätsstufe 2026-10-14
+
+Gleiche Bedingungen wie die Ausgangswerte, mit den Qualitätsstufen ([RENDER_QUALITY.md](RENDER_QUALITY.md)), je Stufe
+ein Lauf mit `&quality=<level>` (dynamische Auflösung während der Messung festgehalten). Spalten: Bildabstand, GPU, CPU
+in ms, Draw Calls; Canvas in Pixeln.
+
+```
+World                 Level   View   Frame  GPU   CPU   Calls  Canvas
+map:demo-valley       low     game   1.27   1.14  1.08  185    780x511
+map:demo-valley       low     pan    1.83   1.38  1.02  167    780x511
+map:demo-valley       medium  game   1.60   1.58  1.42  239    1040x681
+map:demo-valley       medium  pan    1.82   1.24  1.08  212    1040x681
+map:demo-valley       high    game   1.45   1.32  1.23  290    1300x852
+map:demo-valley       high    pan    2.02   1.77  1.23  264    1300x852
+map:demo-valley       ultra   game   1.55   1.39  1.35  332    1300x852
+map:demo-valley       ultra   pan    2.93   2.45  2.11  316    1300x852
+map:harbor-town       low     game   2.80   2.32  2.60  834    780x511
+map:harbor-town       low     pan    3.27   2.74  2.57  775    780x511
+map:harbor-town       medium  game   3.77   3.27  3.54  1055   1040x681
+map:harbor-town       medium  pan    4.38   3.71  3.51  949    1040x681
+map:harbor-town       high    game   3.68   3.32  3.46  1111   1300x852
+map:harbor-town       high    pan    4.12   3.67  3.36  1020   1300x852
+map:harbor-town       ultra   game   4.83   4.15  4.56  1173   1300x852
+map:harbor-town       ultra   pan    4.38   3.78  3.64  1070   1300x852
+tiles 48.7758,9.1829  high    game   0.82   0.45  0.64  153    1300x852
+tiles 48.7758,9.1829  high    pan    2.47   0.81  1.78  132    1300x852
+tiles 48.7758,9.1829  low     game   0.86   0.32  0.68  161    780x511
+tiles 48.7758,9.1829  low     pan    2.87   1.04  2.09  143    780x511
+```
+
+- **Auf der RTX 5080 bei DPR 1 zählen die Draw Calls, nicht die Pixel:** GPU- und CPU-Zeit liegen bei eigenen Karten
+  fast gleich auf (die Timer-Query misst auch, wie lange die GPU auf die Befehle wartet). Low spart in der Hafenstadt
+  über weniger Objekte (834 statt 1111 Calls) 24 % Bildzeit; Medium liegt im Rauschen von High (zwischen zwei Läufen
+  derselben Stufe schwanken die Zeiten um 0,1 bis 0,3 ms); Ultra kostet bis 30 % (Demo-Tal 2,45 statt 1,77 ms GPU
+  beim Schwenk).
+- **Tiles in High wie vorher:** 0,82 ms und 153 Calls gegen 0,77 ms und 148 in den Ausgangswerten (Kacheln laden je
+  Lauf etwas anders).
+- **Wo die Pixel zählen** (schwache GPUs), zeigt eine Software-GPU (`--angle swiftshader`, Fenster 1000 × 600, Demo-Tal,
+  Spielansicht): GPU-Zeit je Bild Low 689 ms, Medium 695 ms, High 2561 ms. Low und Medium kosten dort gut ein Viertel
+  von High; ein bis zwei Bilder je Sekunde, nur als Richtung.
+
 ## Messungen
 
 ### 2026-10-12, Rechner A

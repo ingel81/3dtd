@@ -291,6 +291,24 @@ export class CustomMapEnvironment {
     this.shadowDirty = true;
   }
 
+  /**
+   * The quality level's shadow map: its size (texels a side) and how soft
+   * its edge is (PCF spread). A new size allocates the map anew and renders
+   * it on the next frame
+   */
+  setShadowQuality(size: number, radius: number): void {
+    const shadow = this.sun.shadow;
+    shadow.radius = radius;
+    if (shadow.mapSize.x !== size) {
+      shadow.mapSize.set(size, size);
+      shadow.map?.dispose();
+      shadow.map = null;
+      // The focus snaps to whole texels of the new size
+      if (Number.isFinite(this.shadowCenter.x)) this.placeSun(this.shadowCenter.clone(), true);
+    }
+    this.shadowDirty = true;
+  }
+
   /** 0 by day, 1 at night: how much map lights (lanterns, torches) matter */
   get darkness(): number {
     let base = { day: 0, overcast: 0.2, dusk: 0.6, night: 1 }[this.env.sky] ?? 0;
