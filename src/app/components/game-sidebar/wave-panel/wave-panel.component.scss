@@ -1,6 +1,11 @@
 // Layout of the wave section: the enemies of the running wave, alerts, the
 // wave button with its bar, the options under it, the timeline.
 
+// Tighter than the other sections: a block the eye reads at a glance
+:host.td-side-section {
+  gap: 7px;
+}
+
 /* The wave button: the main action of the sidebar, full width. Running, it
    stands pressed in teal with the share of enemies left as a bar; counting
    down, the bar drains with the seconds. */

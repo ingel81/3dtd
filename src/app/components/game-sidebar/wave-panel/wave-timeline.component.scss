@@ -7,11 +7,11 @@
 :host {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-/* The line runs through the marks, from the first centre to the last: icon
- * row 12px, then the middle of the 7px sign box */
+/* The line runs through the marks, from the first centre to the last: the
+ * middle of the 7px sign box */
 .td-next-line {
   position: relative;
   display: flex;
@@ -23,7 +23,7 @@
   position: absolute;
   left: 14px;
   right: 14px;
-  top: 15px;
+  top: 3px;
   height: 0;
   @include ui.engraved-line;
 }
@@ -39,11 +39,16 @@
   font: inherit;
 }
 
+/* Above the sign, taking no room: the moon of a blood moon wave */
 .td-next-icons {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
   display: flex;
-  align-items: center;
+  justify-content: center;
   gap: 2px;
-  height: 12px;
+  margin-bottom: -1px;
 }
 
 .td-next-moon {
@@ -72,7 +77,7 @@
 }
 
 .td-next-num {
-  margin-top: 4px;
+  margin-top: 8px;
   font-size: var(--td-fs-small);
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -105,7 +110,7 @@
 /* Two lines: the name (the mutator tag right), then the facts: count, air,
  * armor, the weaknesses right */
 .td-next-detail {
-  padding: 6px 8px 7px;
+  padding: 5px 8px 6px;
   cursor: help;
 }
 
