@@ -27,7 +27,12 @@ export function resizeMap(doc: CustomMapDocument, width: number, depth: number):
     grid: { columns, rows, cellSize: cell, heights: new Float32Array(columns * rows) },
     splat: { resolution: 0, maps: [new Uint8Array(0), new Uint8Array(0)] },
     water: old.water ? { ...old.water, mask: new Uint8Array(columns * rows) } : null,
+    ...(old.waterBodies ? { waterBodies: old.waterBodies.map((w) => ({ ...w, mask: new Uint8Array(columns * rows) })) } : {}),
   };
+  const masks = [old.water, ...(old.waterBodies ?? [])].flatMap((w, k) => {
+    const to = k === 0 ? terrain.water : terrain.waterBodies![k - 1];
+    return w && to ? [[w.mask, to.mask]] : [];
+  });
   // Sample offsets between the two grids (both centred)
   const di = Math.round((old.width - terrain.width) / 2 / cell);
   const dj = Math.round((old.depth - terrain.depth) / 2 / cell);
@@ -36,9 +41,7 @@ export function resizeMap(doc: CustomMapDocument, width: number, depth: number):
     for (let i = 0; i < columns; i++) {
       const oi = clamp(i + di, 0, g.columns - 1);
       terrain.grid.heights[j * columns + i] = g.heights[oj * g.columns + oi];
-      if (terrain.water && old.water && i + di === oi && j + dj === oj) {
-        terrain.water.mask[j * columns + i] = old.water.mask[oj * g.columns + oi];
-      }
+      if (i + di === oi && j + dj === oj) for (const [from, to] of masks) to[j * columns + i] = from[oj * g.columns + oi];
     }
   }
   // Splat: keep the texel size, resample by nearest texel

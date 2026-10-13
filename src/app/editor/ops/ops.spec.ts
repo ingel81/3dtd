@@ -225,6 +225,17 @@ describe('resize', () => {
     // New ground takes the edge height
     expect(heightAt(bigger.terrain, 30, 0)).toBeCloseTo(heightAt(bigger.terrain, 20, 0));
   });
+
+  it('resizes the masks of further water bodies with the grid', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 100, depth: 100, cellSize: 2 });
+    const lake = emptyWater(doc.terrain, 2);
+    lake.mask[25 * 51 + 25] = 255;
+    doc.terrain.waterBodies = [lake];
+    resizeMap(doc, 60, 40);
+    const g = doc.terrain.grid;
+    expect(doc.terrain.waterBodies![0].mask).toHaveLength(g.columns * g.rows);
+    expect(doc.terrain.waterBodies![0].mask[10 * g.columns + 15]).toBe(255);
+  });
 });
 
 describe('basin rim', () => {
