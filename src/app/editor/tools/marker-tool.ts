@@ -1,12 +1,14 @@
 /**
  * Spawns and HQ: in Spawn mode a click on empty ground adds a spawn, in HQ
  * mode it moves the HQ there. A drag on a spawn or the HQ moves it, a click
- * selects it; Delete removes the selected spawn. Positions snap onto the
- * nearest road within the path snap radius (Alt places freely).
+ * selects it; Shift+click adds spawns to the selection and a drag on one of
+ * several selected moves them all; Delete removes the selected spawns.
+ * Positions snap onto the nearest road within the path snap radius (Alt
+ * places freely; several dragged together keep their places to each other).
  */
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import type { MapPoint, MapSpawn } from '../../world/custom-map/map-document';
-import { SnapshotCommand, type DocParts, type EditCommand, type EditorDocument } from '../model/editor-document';
+import { SnapshotCommand, selectedSpawns, spawnSelection, type DocParts, type EditCommand, type EditorDocument } from '../model/editor-document';
 import { insideMap } from '../model/grid';
 import { nearestOnEdges, newId } from '../ops/path-graph';
 import { symmetryImages } from '../ops/symmetry';
@@ -29,7 +31,7 @@ export function spawnName(doc: { terrain: { width: number; depth: number } }, p:
 
 export class MarkerTool implements EditorTool {
   readonly id = 'markers' as const;
-  private drag: { kind: 'spawn' | 'hq'; id?: string; before: Partial<DocParts>; moved: boolean } | null = null;
+  private drag: { kind: 'spawn' | 'hq'; id?: string; group?: { ids: string[]; from: MapPoint; start: MapPoint[] }; before: Partial<DocParts>; moved: boolean } | null = null;
 
   brushVisible(): boolean {
     return false;
@@ -44,11 +46,22 @@ export class MarkerTool implements EditorTool {
     if (p.button !== 0 || !p.hit) return false;
     const editor = ctx.editor;
     const picked = ctx.pick(p);
+    if (picked?.kind === 'spawn' && p.shift) {
+      const ids = selectedSpawns(editor.selection);
+      editor.select(spawnSelection(ids.includes(picked.id) ? ids.filter((id) => id !== picked.id) : [...ids, picked.id]));
+      return true;
+    }
     if (picked?.kind === 'spawn' || picked?.kind === 'hq') {
-      editor.select(picked.kind === 'spawn' ? { kind: 'spawn', id: picked.id } : { kind: 'hq' });
+      const chosen = selectedSpawns(editor.selection);
+      // One of several selected spawns drags them all
+      const group = picked.kind === 'spawn' && chosen.length > 1 && chosen.includes(picked.id);
+      if (!group) editor.select(picked.kind === 'spawn' ? { kind: 'spawn', id: picked.id } : { kind: 'hq' });
       this.drag = {
         kind: picked.kind,
         id: picked.kind === 'spawn' ? picked.id : undefined,
+        group: group
+          ? { ids: chosen, from: { x: p.hit.x, y: p.hit.y }, start: chosen.map((id) => { const sp = editor.doc.spawns.find((x) => x.id === id)!; return { x: sp.x, y: sp.y }; }) }
+          : undefined,
         before: { spawns: structuredClone(editor.doc.spawns), hq: { ...editor.doc.hq } },
         moved: false,
       };
@@ -79,6 +92,20 @@ export class MarkerTool implements EditorTool {
     const d = this.drag;
     if (!d || !p.hit) return;
     const doc = ctx.editor.doc;
+    if (d.group) {
+      const g = d.group;
+      const dx = p.hit.x - g.from.x;
+      const dy = p.hit.y - g.from.y;
+      const moved = g.start.map((s) => ({ x: Math.round((s.x + dx) * 10) / 10, y: Math.round((s.y + dy) * 10) / 10 }));
+      if (!moved.every((q) => insideMap(doc.terrain, q))) return;
+      d.moved = true;
+      doc.spawns = doc.spawns.map((s) => {
+        const k = g.ids.indexOf(s.id);
+        return k < 0 ? s : { ...s, ...moved[k] };
+      });
+      ctx.editor.emit({ markers: true });
+      return;
+    }
     const point = this.snap(p, ctx);
     if (!insideMap(doc.terrain, point)) return;
     d.moved = true;
@@ -93,17 +120,21 @@ export class MarkerTool implements EditorTool {
     if (!d?.moved) return;
     const doc = ctx.editor.doc;
     ctx.editor.push(
-      new SnapshotCommand(d.kind === 'hq' ? 'Move HQ' : 'Move spawn', d.before, { spawns: structuredClone(doc.spawns), hq: { ...doc.hq } }),
+      new SnapshotCommand(d.kind === 'hq' ? 'Move HQ' : d.group ? 'Move spawns' : 'Move spawn', d.before, { spawns: structuredClone(doc.spawns), hq: { ...doc.hq } }),
       { markers: true },
     );
   }
 
 
   key(e: KeyboardEvent, ctx: ToolContext): boolean {
-    const sel = ctx.editor.selection;
-    if ((e.key === 'Delete' || e.key === 'Backspace') && sel?.kind === 'spawn') {
-      ctx.editor.execute(markerCommands.removeSpawn(ctx.editor, sel.id));
+    const ids = selectedSpawns(ctx.editor.selection);
+    if ((e.key === 'Delete' || e.key === 'Backspace') && ids.length) {
+      ctx.editor.execute(markerCommands.removeSpawns(ctx.editor, ids));
       ctx.editor.select(null);
+      return true;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      ctx.editor.select(spawnSelection(ctx.editor.doc.spawns.map((s) => s.id)));
       return true;
     }
     const k = e.key.toLowerCase();
@@ -128,7 +159,7 @@ export class MarkerTool implements EditorTool {
   hint(ctx: ToolContext): string {
     return ctx.settings.markers.mode === 'hq'
       ? 'Click to move the HQ | drag spawns and HQ | Q spawn mode | snaps onto roads, Alt places freely'
-      : 'Click to add a spawn | drag spawns and HQ | Del removes a spawn | H HQ mode | snaps onto roads, Alt places freely';
+      : 'Click to add a spawn | drag spawns and HQ, Shift+click selects several | Del removes | H HQ mode | snaps onto roads, Alt places freely';
   }
 
   private snap(p: ToolPointer, ctx: ToolContext): MapPoint {
@@ -156,7 +187,11 @@ export const markerCommands = {
     return { command, id: first };
   },
   removeSpawn(editor: EditorDocument, id: string): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Delete spawn', ['spawns'], (d) => (d.spawns = d.spawns.filter((s) => s.id !== id)));
+    return markerCommands.removeSpawns(editor, [id]);
+  },
+  removeSpawns(editor: EditorDocument, ids: readonly string[]): EditCommand {
+    const gone = new Set(ids);
+    return SnapshotCommand.record(editor.doc, ids.length > 1 ? 'Delete spawns' : 'Delete spawn', ['spawns'], (d) => (d.spawns = d.spawns.filter((s) => !gone.has(s.id))));
   },
   /** The player may close the lane before wave 1, or it is always open (TODO E130) */
   setSpawnOptional(editor: EditorDocument, id: string, optional: boolean): EditCommand {

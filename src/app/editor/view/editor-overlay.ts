@@ -29,7 +29,7 @@ import {
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import { TD_THEME } from '../../styles/td-theme';
 import type { CustomMapDocument, MapPoint, MapRiver } from '../../world/custom-map/map-document';
-import type { Selection } from '../model/editor-document';
+import { selectedEdges, selectedNodes, selectedSpawns, type Selection } from '../model/editor-document';
 import { pointAt, polylineLength, type Route } from '../ops/path-graph';
 import type { SymmetryMode } from '../ops/symmetry';
 import type { Contours } from '../ops/contours';
@@ -193,9 +193,11 @@ export class EditorOverlay {
   /** Spawns, HQ and path nodes from the document */
   updateMarkers(doc: CustomMapDocument, selection: Selection): void {
     clear(this.markers);
+    const spawns = new Set(selectedSpawns(selection));
+    const nodes = new Set(selectedNodes(selection));
     doc.spawns.forEach((s, k) => {
       const color = new Color(SPAWN_COLORS[k % SPAWN_COLORS.length]);
-      const chosen = selection?.kind === 'spawn' && selection.id === s.id;
+      const chosen = spawns.has(s.id);
       const marker = spawnMarker(color, chosen);
       marker.position.set(-s.x, this.height(s.x, s.y), s.y);
       marker.scale.setScalar(this.markerScale);
@@ -213,7 +215,7 @@ export class EditorOverlay {
     clear(this.nodes);
     this.nodes.visible = this.showNodes;
     for (const n of doc.paths.nodes) {
-      const chosen = selection?.kind === 'node' && selection.id === n.id;
+      const chosen = nodes.has(n.id);
       const mesh = new Mesh(this.nodeGeometry, chosen ? this.nodeSelected : this.nodeMaterial);
       const degree = doc.paths.edges.reduce((d, e) => d + (e.a === n.id || e.b === n.id ? 1 : 0), 0);
       mesh.userData['size'] = degree > 2 ? 2.4 : 1.8;
@@ -249,8 +251,9 @@ export class EditorOverlay {
         drape(r, o, Math.max(1, radiusOf(o.asset) * o.scale * 1.15), this.height);
         this.selection.add(r);
       }
-    } else if (selection?.kind === 'edge') {
-      const edge = doc.paths.edges.find((e) => e.id === selection.id);
+    }
+    for (const id of selectedEdges(selection)) {
+      const edge = doc.paths.edges.find((e) => e.id === id);
       if (edge) {
         const a = doc.paths.nodes.find((n) => n.id === edge.a);
         const b = doc.paths.nodes.find((n) => n.id === edge.b);

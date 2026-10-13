@@ -23,7 +23,7 @@ import {
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { MapObject, MapPoint } from '../../world/custom-map/map-document';
 import type { CatalogIndex } from '../catalog/asset-catalog';
-import { mergeChanges, type DocChange, type EditorDocument } from '../model/editor-document';
+import { mergeChanges, selectedEdges, selectedNodes, selectedSpawns, type DocChange, type EditorDocument } from '../model/editor-document';
 import { heightAt as gridHeight } from '../model/grid';
 import { stepRadius } from '../ops/brush';
 import { dominantLayer } from '../ops/paint-ops';
@@ -252,6 +252,24 @@ export class EditorViewport {
         const ys = objs.map((o) => o.y);
         const c = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
         this.focusOn(c, Math.max(30, (Math.max(...xs) - Math.min(...xs)) / 2, (Math.max(...ys) - Math.min(...ys)) / 2));
+        return;
+      }
+    }
+    if (s?.kind === 'paths' || s?.kind === 'spawns') {
+      // Several nodes, roads or spawns: the box around them
+      const nodeIds = new Set(selectedNodes(s));
+      const edgeIds = new Set(selectedEdges(s));
+      const spawnIds = new Set(selectedSpawns(s));
+      const pts = [
+        ...doc.paths.nodes.filter((n) => nodeIds.has(n.id)),
+        ...doc.paths.edges.filter((e) => edgeIds.has(e.id)).flatMap((e) => edgePolyline(doc.paths, e)),
+        ...doc.spawns.filter((sp) => spawnIds.has(sp.id)),
+      ];
+      if (pts.length) {
+        const xs = pts.map((p) => p.x);
+        const ys = pts.map((p) => p.y);
+        const c = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+        this.focusOn(c, Math.max(40, (Math.max(...xs) - Math.min(...xs)) / 2, (Math.max(...ys) - Math.min(...ys)) / 2));
         return;
       }
     }

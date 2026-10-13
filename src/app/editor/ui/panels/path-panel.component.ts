@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapPathKind } from '../../../world/custom-map/map-document';
 import { edgePolyline, polylineLength } from '../../ops/path-graph';
+import { selectedEdges, selectedNodes } from '../../model/editor-document';
 import { flattenRoads, paintRoads, pathCommands } from '../../tools/path-tool';
 import type { PathMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
@@ -32,7 +33,7 @@ const KINDS: { id: MapPathKind; label: string }[] = [
 
     @if (edge(); as e) {
       <div class="td-group">
-        <h3 class="td-section">Road {{ e.id }} <span class="td-note">{{ e.length }} m</span></h3>
+        <h3 class="td-section">{{ e.id }} <span class="td-note">{{ e.length }} m</span></h3>
         <app-editor-range label="Width" unit="m" [min]="2" [max]="40" [step]="0.5" [value]="e.width" (changed)="setEdge({ width: $event })" />
         <div class="td-seg is-sm" role="radiogroup" aria-label="Kind of the road">
           @for (k of kinds; track k.id) {
@@ -94,17 +95,22 @@ export class PathPanelComponent {
     const sel = this.session.selection();
     const doc = this.session.doc;
     if (!doc) return [];
-    if (sel?.kind === 'edge') return [sel.id];
-    if (sel?.kind === 'node') return doc.paths.edges.filter((e) => e.a === sel.id || e.b === sel.id).map((e) => e.id);
-    return [];
+    // The selected roads and those at the selected nodes
+    const edges = new Set(selectedEdges(sel));
+    const nodes = new Set(selectedNodes(sel));
+    return doc.paths.edges.filter((e) => edges.has(e.id) || nodes.has(e.a) || nodes.has(e.b)).map((e) => e.id);
   });
   readonly edge = computed(() => {
     this.session.docRev();
     const sel = this.session.selection();
     const doc = this.session.doc;
-    if (sel?.kind !== 'edge' || !doc) return null;
-    const e = doc.paths.edges.find((x) => x.id === sel.id);
-    return e ? { id: e.id, width: e.width, kind: e.kind, length: Math.round(polylineLength(edgePolyline(doc.paths, e))) } : null;
+    const ids = new Set(selectedEdges(sel));
+    if (!ids.size || !doc) return null;
+    const list = doc.paths.edges.filter((x) => ids.has(x.id));
+    if (!list.length) return null;
+    const length = Math.round(list.reduce((n, e) => n + polylineLength(edgePolyline(doc.paths, e)), 0));
+    // Several roads: their values as the first has them, a change goes to all
+    return { id: list.length === 1 ? `Road ${list[0].id}` : `${list.length} roads`, width: list[0].width, kind: list[0].kind, length, ids: list.map((e) => e.id) };
   });
 
   setMode(mode: PathMode): void {
@@ -126,7 +132,7 @@ export class PathPanelComponent {
 
   setEdge(patch: { width?: number; kind?: MapPathKind }): void {
     const editor = this.session.editor;
-    const ids = this.edgeIds();
+    const ids = this.edge()?.ids ?? this.edgeIds();
     if (editor && ids.length) this.session.execute(pathCommands.setEdge(editor, ids, patch));
   }
 
@@ -143,8 +149,10 @@ export class PathPanelComponent {
   remove(): void {
     const editor = this.session.editor;
     const sel = this.session.selection();
-    if (!editor || (sel?.kind !== 'edge' && sel?.kind !== 'node')) return;
-    this.session.execute(pathCommands.remove(editor, sel.kind, sel.id));
+    const nodes = selectedNodes(sel);
+    const edges = selectedEdges(sel);
+    if (!editor || (!nodes.length && !edges.length)) return;
+    this.session.execute(pathCommands.removeMany(editor, nodes, edges));
     editor.select(null);
   }
 

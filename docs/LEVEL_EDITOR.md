@@ -169,14 +169,18 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
 
 **Roads (6).** Draw: jeder Klick setzt einen Knoten und verbindet ihn mit dem letzten; ein Klick nahe einem Knoten
 schließt dort an, nahe einer Straße entsteht eine Kreuzung (Alt setzt frei). Enter, Rechtsklick oder Doppelklick
-beendet die Linie. Edit: Knoten ziehen (auf einem anderen abgelegt verschmelzen sie), Straße wählen; Breite und Art
+beendet die Linie. Edit: Knoten ziehen (auf einem anderen abgelegt verschmelzen sie), Straße wählen; Shift+Klick
+nimmt weitere Knoten und Straßen dazu, Ziehen auf freiem Grund wählt per Rahmen (Knoten darin und Straßen mit beiden
+Enden darin), Strg+A alles; einen von mehreren gewählten Knoten zu ziehen verschiebt alle, Entf löscht alle,
+Breite und Art gelten für alle gewählten Straßen; Breite und Art
 (Road, Path, Bridge), S glättet als Kurve, X begradigt, J löst einen Knoten zwischen zwei Straßen auf, Entf löscht.
 „Flatten road“ ebnet den Boden quer und glättet ihn längs, „Paint road“ malt eine Schicht darunter (gewählte Straße oder
 alle). Die Routen von jedem Spawn zum HQ laufen als Punkte über die Karte (abschaltbar).
 
 **Spawns and HQ (7).** Q: Klick setzt einen Spawn (Name nach Himmelsrichtung, im Panel änderbar; höchstens 32, dann sagt die Statuszeile
 warum), H: Klick versetzt das
-HQ. Ziehen verschiebt beide; sie rasten auf die nächste Straße (Alt frei). Das Panel zeigt je Spawn die Länge seiner
+HQ. Ziehen verschiebt beide; sie rasten auf die nächste Straße (Alt frei). Shift+Klick wählt mehrere Spawns, Strg+A
+alle; einen davon zu ziehen verschiebt alle mit gleichem Abstand, Entf löscht alle. Das Panel zeigt je Spawn die Länge seiner
 Spur oder „no route“.
 
 **Sky and weather (8).** Himmel (Day, Dusk, Night, Overcast), Tageszeit (ein Sommertag: Aufgang 6 Uhr im Osten, 13 Uhr im

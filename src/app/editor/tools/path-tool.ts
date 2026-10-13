@@ -3,11 +3,13 @@
  * near a node joins that node, a click near an edge splits it into a
  * junction (Alt places freely). Enter, Esc, a right click or a double click
  * ends the line. Edit selects and drags nodes (dropped on another node they
- * merge), selects edges; Delete removes, S smooths, X straightens, J joins
- * the two edges at a node into one.
+ * merge), selects edges; Shift adds to the selection, a drag on free ground
+ * selects by box, Ctrl+A everything; dragging one of several selected nodes
+ * moves them all. Delete removes, S smooths, X straightens, J joins the two
+ * edges at a node into one.
  */
 import type { MapPaths, MapPoint } from '../../world/custom-map/map-document';
-import { SnapshotCommand, type EditCommand, type EditorDocument } from '../model/editor-document';
+import { SnapshotCommand, pathSelection, selectedEdges, selectedNodes, type EditCommand, type EditorDocument, type Selection } from '../model/editor-document';
 import { insideMap } from '../model/grid';
 import {
   addNode,
@@ -33,7 +35,10 @@ export class PathTool implements EditorTool {
   readonly id = 'paths' as const;
   /** The node the line goes on from while drawing */
   private last: string | null = null;
-  private dragging: { id: string; before: MapPaths } | null = null;
+  /** Nodes being dragged: from where, and where each stood */
+  private dragging: { ids: string[]; before: MapPaths; from: MapPoint; start: MapPoint[] } | null = null;
+  /** A box being drawn on free ground (client pixels); `add` keeps what was selected */
+  private box: { x0: number; y0: number; x1: number; y1: number; add: boolean } | null = null;
   private lastClick = 0;
   private lastClickAt = { x: -1e6, y: -1e6 };
   /** The last node of each symmetric image of the line being drawn */
@@ -71,45 +76,116 @@ export class PathTool implements EditorTool {
       this.drawClick(p, ctx);
       return true;
     }
+    const editor = ctx.editor;
     const picked = ctx.pick(p);
+    const nodes = selectedNodes(editor.selection);
+    const edges = selectedEdges(editor.selection);
     if (picked?.kind === 'node') {
-      ctx.editor.select({ kind: 'node', id: picked.id });
-      this.dragging = { id: picked.id, before: structuredClone(ctx.editor.doc.paths) };
+      if (p.shift) {
+        editor.select(pathSelection(toggle(nodes, picked.id), edges));
+        return true;
+      }
+      // One of several selected nodes drags them all
+      const group = nodes.length > 1 && nodes.includes(picked.id);
+      if (!group) editor.select({ kind: 'node', id: picked.id });
+      const ids = group ? nodes : [picked.id];
+      const paths = editor.doc.paths;
+      this.dragging = {
+        ids,
+        before: structuredClone(paths),
+        from: { x: p.hit.x, y: p.hit.y },
+        start: ids.map((id) => {
+          const n = nodeById(paths, id);
+          return { x: n?.x ?? 0, y: n?.y ?? 0 };
+        }),
+      };
       return true;
     }
     if (picked?.kind === 'edge') {
-      ctx.editor.select({ kind: 'edge', id: picked.id });
+      editor.select(p.shift ? pathSelection(nodes, toggle(edges, picked.id)) : { kind: 'edge', id: picked.id });
       return true;
     }
-    ctx.editor.select(null);
+    this.box = { x0: p.clientX, y0: p.clientY, x1: p.clientX, y1: p.clientY, add: p.shift };
     return true;
   }
 
   pointerMove(p: ToolPointer, ctx: ToolContext): void {
+    const box = this.box;
+    if (box) {
+      box.x1 = p.clientX;
+      box.y1 = p.clientY;
+      ctx.setBox(box);
+      return;
+    }
     const d = this.dragging;
     if (!d || !p.hit) return;
     const doc = ctx.editor.doc;
     if (!insideMap(doc.terrain, p.hit)) return;
-    moveNode(doc.paths, d.id, p.hit);
+    const dx = p.hit.x - d.from.x;
+    const dy = p.hit.y - d.from.y;
+    // A single node goes where the pointer is; several keep their places to each other
+    if (d.ids.length === 1) moveNode(doc.paths, d.ids[0], p.hit);
+    else d.ids.forEach((id, k) => moveNode(doc.paths, id, { x: Math.round((d.start[k].x + dx) * 10) / 10, y: Math.round((d.start[k].y + dy) * 10) / 10 }));
     ctx.editor.emit({ paths: true });
   }
 
   pointerUp(p: ToolPointer, ctx: ToolContext): void {
+    const box = this.box;
+    this.box = null;
+    if (box) {
+      ctx.setBox(null);
+      this.selectBox(box, ctx);
+      return;
+    }
     const d = this.dragging;
     this.dragging = null;
     if (!d) return;
     const doc = ctx.editor.doc;
-    const moved = nodeById(doc.paths, d.id);
-    const original = nodeById(d.before, d.id);
-    if (!moved || !original || (moved.x === original.x && moved.y === original.y)) return;
-    let label = 'Move node';
-    const onto = p.alt ? null : nearestNode(doc.paths, moved, ctx.settings.paths.snap * 0.6, d.id);
-    if (onto) {
-      mergeNodes(doc.paths, d.id, onto.id);
-      ctx.editor.select({ kind: 'node', id: onto.id });
-      label = 'Join nodes';
+    const movedAny = d.ids.some((id) => {
+      const a = nodeById(doc.paths, id);
+      const b = nodeById(d.before, id);
+      return !!a && !!b && (a.x !== b.x || a.y !== b.y);
+    });
+    if (!movedAny) return;
+    let label = d.ids.length > 1 ? 'Move nodes' : 'Move node';
+    if (d.ids.length === 1) {
+      const moved = nodeById(doc.paths, d.ids[0])!;
+      const onto = p.alt ? null : nearestNode(doc.paths, moved, ctx.settings.paths.snap * 0.6, moved.id);
+      if (onto) {
+        mergeNodes(doc.paths, moved.id, onto.id);
+        ctx.editor.select({ kind: 'node', id: onto.id });
+        label = 'Join nodes';
+      }
     }
     ctx.editor.push(new SnapshotCommand(label, { paths: d.before }, { paths: structuredClone(doc.paths) }), { paths: true });
+  }
+
+  /** Nodes whose foot is in the box on the screen, and the roads with both ends in it */
+  private selectBox(box: { x0: number; y0: number; x1: number; y1: number; add: boolean }, ctx: ToolContext): void {
+    const editor = ctx.editor;
+    if (Math.abs(box.x1 - box.x0) < 4 && Math.abs(box.y1 - box.y0) < 4) {
+      if (!box.add) editor.select(null);
+      return;
+    }
+    const x0 = Math.min(box.x0, box.x1);
+    const x1 = Math.max(box.x0, box.x1);
+    const y0 = Math.min(box.y0, box.y1);
+    const y1 = Math.max(box.y0, box.y1);
+    const paths = editor.doc.paths;
+    const inside = new Set(
+      paths.nodes
+        .filter((n) => {
+          const q = ctx.toScreen(n.x, n.y, ctx.heightAt(n.x, n.y));
+          return !!q && q.x >= x0 && q.x <= x1 && q.y >= y0 && q.y <= y1;
+        })
+        .map((n) => n.id),
+    );
+    const edges = paths.edges.filter((e) => inside.has(e.a) && inside.has(e.b)).map((e) => e.id);
+    const keep = box.add ? editor.selection : null;
+    const nodes = [...new Set([...selectedNodes(keep), ...inside])];
+    const all = [...new Set([...selectedEdges(keep), ...edges])];
+    editor.select(pathSelection(nodes, all));
+    ctx.status(`${nodes.length} nodes and ${all.length} roads selected`);
   }
 
   frame(_dt: number, p: ToolPointer | null, ctx: ToolContext): void {
@@ -133,17 +209,24 @@ export class PathTool implements EditorTool {
       this.cancel(ctx);
       return true;
     }
+    if ((e.ctrlKey || e.metaKey) && k === 'a' && ctx.settings.paths.mode === 'edit') {
+      const paths = editor.doc.paths;
+      editor.select(pathSelection(paths.nodes.map((n) => n.id), paths.edges.map((x) => x.id)));
+      return true;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return false;
-    if ((e.key === 'Delete' || e.key === 'Backspace') && (sel?.kind === 'node' || sel?.kind === 'edge')) {
-      editor.execute(pathCommands.remove(editor, sel.kind, sel.id));
+    const nodes = selectedNodes(sel);
+    const edges = selectedEdges(sel);
+    if ((e.key === 'Delete' || e.key === 'Backspace') && (nodes.length || edges.length)) {
+      editor.execute(pathCommands.removeMany(editor, nodes, edges));
       editor.select(null);
       return true;
     }
-    if (k === 's' && (sel?.kind === 'edge' || sel?.kind === 'node')) {
+    if (k === 's' && (nodes.length || edges.length)) {
       editor.execute(pathCommands.smooth(editor, edgesOf(editor, sel)));
       return true;
     }
-    if (k === 'x' && (sel?.kind === 'edge' || sel?.kind === 'node')) {
+    if (k === 'x' && (nodes.length || edges.length)) {
       editor.execute(pathCommands.straighten(editor, edgesOf(editor, sel)));
       return true;
     }
@@ -172,11 +255,15 @@ export class PathTool implements EditorTool {
       ctx.editor.emit({ paths: true });
       this.dragging = null;
     }
+    if (this.box) {
+      ctx.setBox(null);
+      this.box = null;
+    }
   }
 
   hint(ctx: ToolContext): string {
     if (ctx.settings.paths.mode === 'edit') {
-      return 'Click a node or edge | drag nodes, drop on a node to join | Del delete | S smooth | X straighten | J join edges';
+      return 'Click a node or edge, Shift adds, drag a box on free ground | drag nodes, drop on a node to join | Del delete | S smooth | X straighten | J join edges';
     }
     return this.last
       ? 'Click to add the next node | near a node joins it, near a road makes a junction | Alt places freely | Enter or right click ends'
@@ -227,9 +314,15 @@ function snapPoint(paths: MapPaths, at: MapPoint, free: boolean, last: string | 
   return { point };
 }
 
-function edgesOf(editor: EditorDocument, sel: { kind: 'node' | 'edge'; id: string }): string[] {
-  if (sel.kind === 'edge') return [sel.id];
-  return editor.doc.paths.edges.filter((e) => e.a === sel.id || e.b === sel.id).map((e) => e.id);
+/** The selected roads and the roads at the selected nodes */
+function edgesOf(editor: EditorDocument, sel: Selection): string[] {
+  const edges = new Set(selectedEdges(sel));
+  const nodes = new Set(selectedNodes(sel));
+  return editor.doc.paths.edges.filter((e) => edges.has(e.id) || nodes.has(e.a) || nodes.has(e.b)).map((e) => e.id);
+}
+
+function toggle(list: readonly string[], id: string): string[] {
+  return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 }
 
 /** Lonely nodes (a started road that never got its second click) go when the tool ends a line */
@@ -238,10 +331,12 @@ export function dropLonelyNodes(paths: MapPaths): void {
 }
 
 export const pathCommands = {
-  remove(editor: EditorDocument, kind: 'node' | 'edge', id: string): EditCommand {
-    return SnapshotCommand.record(editor.doc, kind === 'node' ? 'Delete node' : 'Delete road', ['paths'], (d) => {
-      if (kind === 'node') deleteNode(d.paths, id);
-      else deleteEdge(d.paths, id);
+  /** Removes roads and nodes (with the roads at them) as one step */
+  removeMany(editor: EditorDocument, nodes: readonly string[], edges: readonly string[]): EditCommand {
+    const label = nodes.length + edges.length > 1 ? 'Delete roads' : nodes.length ? 'Delete node' : 'Delete road';
+    return SnapshotCommand.record(editor.doc, label, ['paths'], (d) => {
+      for (const id of edges) deleteEdge(d.paths, id);
+      for (const id of nodes) deleteNode(d.paths, id);
       dropLonelyNodes(d.paths);
     });
   },

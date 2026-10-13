@@ -281,6 +281,56 @@ describe('editor tools', () => {
     expect(ctx.messages.at(-1)).toContain('at most 32 spawns');
   });
 
+  it('selects road nodes by box and Shift, moves several together, deletes them as one step', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    ctx.toScreen = (x, y) => ({ x, y });
+    ctx.settings.paths.mode = 'edit';
+    const tool = new PathTool();
+    const paths = ed.doc.paths;
+    paths.nodes.push({ id: 'n7', x: 50, y: 50 }, { id: 'n8', x: 90, y: 50 });
+    paths.edges.push({ id: 'e7', a: 'n7', b: 'n8', width: 8, kind: 'road' });
+    // A box around the two new nodes on the screen (1 px = 1 m here)
+    tool.pointerDown(at(40, 40, { clientX: 40, clientY: 40 }), ctx);
+    tool.pointerMove!(at(100, 60, { clientX: 100, clientY: 60 }), ctx);
+    tool.pointerUp(at(100, 60, { clientX: 100, clientY: 60 }), ctx);
+    expect(ed.selection).toEqual({ kind: 'paths', nodes: ['n7', 'n8'], edges: ['e7'] });
+    // Dragging one of them moves both by the same amount, one step
+    ctx.pick = () => ({ kind: 'node', id: 'n7' });
+    tool.pointerDown(at(50, 50), ctx);
+    tool.pointerMove!(at(60, 45), ctx);
+    tool.pointerUp(at(60, 45), ctx);
+    expect(paths.nodes.filter((n) => n.id === 'n7' || n.id === 'n8').map((n) => [n.x, n.y])).toEqual([[60, 45], [100, 45]]);
+    expect(ed.undoLabel).toBe('Move nodes');
+    // Shift+click takes one out again
+    tool.pointerDown(at(100, 45, { shift: true }), { ...ctx, pick: () => ({ kind: 'node', id: 'n8' }) });
+    expect(ed.selection).toEqual({ kind: 'paths', nodes: ['n7'], edges: ['e7'] });
+    tool.key(new KeyboardEvent('keydown', { key: 'Delete' }), ctx);
+    expect(ed.doc.paths.edges.some((e) => e.id === 'e7')).toBe(false);
+    expect(ed.doc.paths.nodes.some((n) => n.id === 'n7' || n.id === 'n8')).toBe(false);
+    expect(ed.undoLabel).toBe('Delete roads');
+  });
+
+  it('selects several spawns with Shift and moves them together', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    ed.doc.spawns.push({ id: 's2', name: 'B', x: 20, y: 20 });
+    const tool = new MarkerTool();
+    ctx.pick = () => ({ kind: 'spawn', id: 's1' });
+    tool.pointerDown(at(-192, 0), ctx);
+    tool.pointerUp(at(-192, 0), ctx);
+    ctx.pick = () => ({ kind: 'spawn', id: 's2' });
+    tool.pointerDown(at(20, 20, { shift: true }), ctx);
+    expect(ed.selection).toEqual({ kind: 'spawns', ids: ['s1', 's2'] });
+    const before = ed.doc.spawns.map((s) => [s.x, s.y]);
+    tool.pointerDown(at(20, 20), ctx);
+    tool.pointerMove!(at(25, 10), ctx);
+    tool.pointerUp(at(25, 10), ctx);
+    expect(ed.doc.spawns.map((s) => [s.x, s.y])).toEqual(before.map(([x, y]) => [x + 5, y - 10]));
+    tool.key(new KeyboardEvent('keydown', { key: 'Delete' }), ctx);
+    expect(ed.doc.spawns).toHaveLength(0);
+  });
+
   it('fills a hollow to its rim as one step', () => {
     const ed = fresh();
     const ctx = context(ed);

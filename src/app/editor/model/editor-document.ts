@@ -83,9 +83,42 @@ export type Selection =
   | { kind: 'objects'; ids: string[] }
   | { kind: 'node'; id: string }
   | { kind: 'edge'; id: string }
+  /** Several road nodes and edges (Shift, box): one of a kind alone is 'node' or 'edge' */
+  | { kind: 'paths'; nodes: string[]; edges: string[] }
   | { kind: 'spawn'; id: string }
+  /** Several spawns (Shift): one alone is 'spawn' */
+  | { kind: 'spawns'; ids: string[] }
   | { kind: 'hq' }
   | null;
+
+/** The road nodes a selection holds */
+export function selectedNodes(s: Selection): string[] {
+  return s?.kind === 'node' ? [s.id] : s?.kind === 'paths' ? s.nodes : [];
+}
+
+/** The road edges a selection holds */
+export function selectedEdges(s: Selection): string[] {
+  return s?.kind === 'edge' ? [s.id] : s?.kind === 'paths' ? s.edges : [];
+}
+
+/** The spawns a selection holds */
+export function selectedSpawns(s: Selection): string[] {
+  return s?.kind === 'spawn' ? [s.id] : s?.kind === 'spawns' ? s.ids : [];
+}
+
+/** Nodes and edges as a selection: a single one as 'node' or 'edge', none as null */
+export function pathSelection(nodes: readonly string[], edges: readonly string[]): Selection {
+  if (!nodes.length && !edges.length) return null;
+  if (nodes.length === 1 && !edges.length) return { kind: 'node', id: nodes[0] };
+  if (edges.length === 1 && !nodes.length) return { kind: 'edge', id: edges[0] };
+  return { kind: 'paths', nodes: [...nodes], edges: [...edges] };
+}
+
+/** Spawns as a selection: one as 'spawn', none as null */
+export function spawnSelection(ids: readonly string[]): Selection {
+  if (!ids.length) return null;
+  return ids.length === 1 ? { kind: 'spawn', id: ids[0] } : { kind: 'spawns', ids: [...ids] };
+}
 
 interface Entry {
   command: EditCommand;
@@ -272,6 +305,13 @@ export class EditorDocument {
     if (s.kind === 'objects') {
       const ids = s.ids.filter((id) => d.objects.some((o) => o.id === id));
       next = ids.length ? { kind: 'objects', ids } : null;
+    } else if (s.kind === 'paths') {
+      next = pathSelection(
+        s.nodes.filter((id) => d.paths.nodes.some((n) => n.id === id)),
+        s.edges.filter((id) => d.paths.edges.some((e) => e.id === id)),
+      );
+    } else if (s.kind === 'spawns') {
+      next = spawnSelection(s.ids.filter((id) => d.spawns.some((sp) => sp.id === id)));
     } else if (s.kind === 'node' && !d.paths.nodes.some((n) => n.id === s.id)) next = null;
     else if (s.kind === 'edge' && !d.paths.edges.some((e) => e.id === s.id)) next = null;
     else if (s.kind === 'spawn' && !d.spawns.some((sp) => sp.id === s.id)) next = null;
@@ -282,7 +322,10 @@ export class EditorDocument {
 function sameSelection(a: Selection, b: Selection): boolean {
   if (a === b) return true;
   if (!a || !b || a.kind !== b.kind) return false;
-  if (a.kind === 'objects' && b.kind === 'objects') return a.ids.length === b.ids.length && a.ids.every((id, k) => id === b.ids[k]);
+  const same = (x: readonly string[], y: readonly string[]) => x.length === y.length && x.every((id, k) => id === y[k]);
+  if (a.kind === 'objects' && b.kind === 'objects') return same(a.ids, b.ids);
+  if (a.kind === 'spawns' && b.kind === 'spawns') return same(a.ids, b.ids);
+  if (a.kind === 'paths' && b.kind === 'paths') return same(a.nodes, b.nodes) && same(a.edges, b.edges);
   if (a.kind === 'hq') return true;
   return (a as { id: string }).id === (b as { id: string }).id;
 }
