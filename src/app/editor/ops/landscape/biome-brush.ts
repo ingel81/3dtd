@@ -236,8 +236,8 @@ function applyBiome(stroke: LandscapeStroke, reach: BiomeReach, biome: BiomeDef,
 
   // Objects
   const placed = growObjects(stroke, reach, strength, biome, false);
-  // A pool body of its own redraws alone; the main water redraws all water
-  const water: DocChange = !wet ? {} : pool && pool.index >= 0 ? { bodies: [pool.index], bodyRect: rect } : { water: true };
+  // The pool's body redraws alone within the stroke's rectangle (-1: the main water)
+  const water: DocChange = !wet ? {} : pool ? { bodies: [pool.index], bodyRect: rect } : { water: true };
   stroke.changed({ heights: rect, splat: trect, ...water, objects: placed.length ? placed : undefined }, reach.center);
 }
 

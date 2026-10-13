@@ -158,14 +158,16 @@ export class GridNormalTexture {
    * Marks the samples within two cells of water (mask grown by two samples),
    * where the shader darkens banks just above the water level.
    */
-  setWater(mask: Uint8Array | null): void {
+  setWater(mask: Uint8Array | null, rect?: { i0: number; j0: number; i1: number; j1: number }): void {
     const f = this.field;
+    // A brush on the mask: the samples within two of its rectangle, the rest stays
+    const r = rect && this.wet ? { i0: Math.max(0, rect.i0 - 2), j0: Math.max(0, rect.j0 - 2), i1: Math.min(f.columns - 1, rect.i1 + 2), j1: Math.min(f.rows - 1, rect.j1 + 2) } : null;
     if (!mask) {
       this.wet = null;
     } else {
-      const wet = new Float32Array(f.columns * f.rows);
-      for (let j = 0; j < f.rows; j++) {
-        for (let i = 0; i < f.columns; i++) {
+      const wet = r ? this.wet! : new Float32Array(f.columns * f.rows);
+      for (let j = r?.j0 ?? 0; j <= (r?.j1 ?? f.rows - 1); j++) {
+        for (let i = r?.i0 ?? 0; i <= (r?.i1 ?? f.columns - 1); i++) {
           let m = 0;
           for (let dj = -2; dj <= 2 && m === 0; dj++) {
             for (let di = -2; di <= 2; di++) {
@@ -182,7 +184,7 @@ export class GridNormalTexture {
       }
       this.wet = wet;
     }
-    this.update();
+    this.update(r ?? undefined);
   }
 
   /** Recomputes the samples in a rectangle (all when omitted) and re-uploads */

@@ -50,7 +50,8 @@ view.losBlockers;                          // Gruppe für den LOS-Würfel: Gelä
 view.updateHeights(rect?);                 // rect in Kartenmetern { minX, minY, maxX, maxY }; Objekte, Wasser, Brücken folgen
 view.updateSplat(rect?);                   // Splat-Gewichte neu hochladen (auch cliffAngle)
 view.updateLayers();                       // Bodenschichten oder Klippenmaterial geändert: Material neu laden
-view.updateWater();                        // Spiegel, Maske, Farbe; null entfernt das Wasser
+view.updateWater(rect?, body?);            // Spiegel, Maske, Farbe; null entfernt das Wasser. Mit rect und body
+                                           // (0 Hauptwasser, 1.. weitere) nur dessen Kacheln und Ufer im Rechteck
 view.updateWater(rect, k);                 // nur Gewässer k (1.. = waterBodies[k-1]): Pool-Pinsel, Schwimmendes in rect
 view.setObjects(objects);                  // alle Objekte ersetzen (Promise)
 view.addObjects(objects);                  // schon in doc.objects: baut nur die 192-m-Zellen neu, in die sie fallen

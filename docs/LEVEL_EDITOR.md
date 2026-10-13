@@ -351,9 +351,28 @@ Szene z = Karte Nord, y oben.
 **Leistung.** Ein Pinselschritt bleibt unter 2 ms auf Karten mit 256, 512 und 1024 Samples je Seite
 (`editor-brushes.perf.spec.ts`, Budgets in `npm run test:perf`): Biom-Pinsel merken sich je Strich das Rauschen jedes
 Texels (Grundmischung, Ufer, Risse, Rand) in Kacheln von 64 x 64 (`FieldCache`), statt es bei jedem Tupfer neu zu
-rechnen (Wald 2,3 auf 1,1 ms). Die Ansicht baut Objekt-Batches höchstens alle 150 ms neu, Wasser alle 120 ms, den
-Himmel alle 100 ms; die Minikarte wartet, bis kein Pinsel mehr gehalten wird. Gemessen im Browser (1024 m, zweiter
-Strich mit einem Biom): p50 6,9 ms, p90 7,7 ms je Bild; der erste Strich übersetzt die Shader neuer Modelle.
+rechnen (Wald 2,3 auf 1,1 ms). Objekte gehen sofort in ihre Zelle: die Zell-Meshes halten Platz frei (die Hälfte
+mehr, mindestens 16), neue Objekte landen in freien Slots, ein entferntes ersetzt der letzte der Zelle; neu gebaut
+wird eine Zelle erst, wenn der Platz ausgeht. Pinsel auf einer Wassermaske bauen nur die Wasserkacheln (64 Zellen)
+und das Ufer in ihrem Rechteck neu, das Hauptwasser wie die weiteren Gewässer; ganz neu (höchstens alle 120 ms)
+nur bei Spiegel, Art oder Symmetrie. Die Geländeverdeckung (Horizontsuche) eines gehaltenen Pinsels wartet, bis die
+Höhen ruhen (120 ms, höchstens 500 ms), und arbeitet dann einige Millisekunden je Bild ab. Den Himmel baut die
+Ansicht höchstens alle 100 ms neu; die Minikarte wartet, bis kein Pinsel mehr gehalten wird.
+
+Gemessen 2026-10-14 (optimierter Build, RTX 5080, 1600 x 900, gehaltener Pinsel 3 s, ms je Bild p50/p90, je zwei
+Läufe; neue Karte 1024 m Meadows bei 2 m, Demo-Tal 512 m mit 13 000 Objekten):
+
+| Pinsel | neue Karte vorher | nachher | dieselbe Karte bei 4 m | Demo-Tal vorher | nachher |
+|---|---|---|---|---|---|
+| Terrain | 3,4–3,8 / 4,5–5,5 | 0,9–1,0 / 1,3–2,3 | 0,9 / 3,0 | 4,7–5,7 / 5,9–7,6 | 2,6 / 3,5–3,8 |
+| Biom Wald (zweiter Strich) | 7,9–10,7 / 11–14 | 2,6–2,9 / 3,8–4,9 | 1,4–1,8 / 2,0–3,6 | 11,7–13,9 / 15,7–31,7 | 4,9–5,1 / 6,3–7,0 |
+| Streuen | 0,7 / 1,7 | 0,7–0,8 / 1,7–2,1 | 0,6 / 0,7 | 1,6–1,8 / 2,9–3,8 | 1,4 / 1,5–1,6 |
+| Radieren | 0,5–0,6 / 2,3 | 0,5–0,6 / 1,5–2,5 | 0,4 / 0,6–1,2 | 1,6–1,7 / 3,2–4,1 | 1,2 / 1,4–1,5 |
+| Wasser malen | 0,6 / 2,5–2,6 | 0,6–1,8 / 2,5–4,5 | 0,4 / 1,4–1,5 | 1,6–1,8 / 3,9–4,2 | 1,1–1,2 / 1,3–1,4 |
+
+Die feinere Detailstufe kostet nach den Änderungen beim Terrain-Pinsel nichts mehr, beim Biom-Pinsel etwa das
+Doppelte von 4 m (gut 1 ms). Der erste Strich mit neuen Modellen übersetzt deren Shader (Spitzen bis 1,5 s), die
+Bilder der Paletten rendern beim ersten Öffnen eines Werkzeugs im Hintergrund.
 Ganze Karten (Vorlagen) malt `biomeBand` in Bändern mit Pausen dazwischen.
 Ausgeblendete Kategorien bekommt der Renderer als eigene Liste über einen Proxy des Dokuments, da er sie in sein
 Dokument schreibt.
@@ -405,6 +424,4 @@ und gesetztes Stück, Prüfen, Speichern, Neuladen, Löschen; ohne Kartensitzung
 - Das Kartendokument kann Objekte kippen (`pitch`, `roll`; die Level-Skripte nutzen es für Gondeln und gestrandete
   Boote), die Werkzeuge setzen aber nur die Drehung um die Hochachse: Setzen und Streuen richten nichts am Hang aus
   (geplant als ED-S7), der Streupinsel lässt Objekte am Hang stattdessen einsinken
-- Neue Objekte während eines Strichs erscheinen bis zu 150 ms verzögert, Wasser bis zu 120 ms: der Renderer baut sie
-  bisher nur ganz neu (inkrementelles Hinzufügen ist bei der Kartenansicht angefragt)
 - Gruppen, ausgeblendete Kategorien und Versionen kennt nur der Editor; das Spiel ignoriert `group`

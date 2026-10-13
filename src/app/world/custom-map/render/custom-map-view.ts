@@ -388,7 +388,8 @@ export class CustomMapView {
       const surface = this.waters[k];
       if (!body || !surface || !near(body.mask)) return;
       if (k === 0 && border) this.terrain.refreshWater();
-      surface.set(body, k === 0 ? this.terrain.apronProfile : null);
+      // Only the tiles the change reaches; the part beyond the border when the border changed
+      surface.set(body, k === 0 && border ? this.terrain.apronProfile : null, g);
       lava ||= body.kind === 'lava';
       this.coverDirty = true;
     });
@@ -444,8 +445,13 @@ export class CustomMapView {
    * river banks, the apron.
    */
   updateWater(rect?: MapRect, body?: number): void {
-    if (body !== undefined && body > 0 && this.waters.length === 1 + (this.doc.terrain.waterBodies?.length ?? 0)) {
+    const known = this.waters.length === 1 + (this.doc.terrain.waterBodies?.length ?? 0);
+    if (body !== undefined && body > 0 && known) {
       this.updateWaterBody(body, rect);
+      return;
+    }
+    if (body === 0 && rect && known && this.doc.terrain.water && this.waters[0]) {
+      this.updateMainMask(rect);
       return;
     }
     this.terrain.refreshWater(this.doc.paths);
@@ -467,7 +473,7 @@ export class CustomMapView {
       } else {
         const created = new WaterSurface(this.heights, this.terrain.heightTexture, body, apron);
         this.waters[k] = created;
-        this.group.add(created.mesh);
+        this.group.add(created.object);
       }
     });
     // Rivers: rebuilt from their lines each time (cheap: a ribbon per river)
@@ -484,6 +490,27 @@ export class CustomMapView {
     this.lightWater();
   }
 
+  /**
+   * The main water's mask changed in `rect` (a brush on it): its wet banks
+   * and surface tiles there, the part beyond the border when the change
+   * reaches the border; level, paths and rivers stay
+   */
+  private updateMainMask(rect: MapRect): void {
+    const water = this.doc.terrain.water!;
+    const surface = this.waters[0]!;
+    const g = this.gridRect({ minX: rect.minX - 4, minY: rect.minY - 4, maxX: rect.maxX + 4, maxY: rect.maxY + 4 });
+    const f = this.heights;
+    const border = g.i0 <= 0 || g.j0 <= 0 || g.i1 >= f.columns - 1 || g.j1 >= f.rows - 1;
+    const wasLava = surface.kind === 'lava';
+    if (border) this.terrain.refreshWater();
+    else this.terrain.refreshWaterMask(g);
+    surface.set(water, border ? this.terrain.apronProfile : null, g);
+    this.coverDirty = true;
+    if (wasLava || water.kind === 'lava') this.effects.setLavaLights(this.lavaLightPoints());
+    this.objects.refreshHeights(rect, true);
+    if (this.bridgeNear(rect)) void this.refreshBridges();
+  }
+
   private updateWaterBody(k: number, rect?: MapRect): void {
     const water = this.doc.terrain.waterBodies?.[k - 1];
     const surface = this.waters[k];
@@ -492,7 +519,7 @@ export class CustomMapView {
       return;
     }
     const wasLava = surface.kind === 'lava';
-    surface.set(water, null);
+    surface.set(water, null, rect ? this.gridRect(rect) : undefined);
     this.coverDirty = true;
     if (wasLava || water.kind === 'lava') this.effects.setLavaLights(this.lavaLightPoints());
     this.objects.refreshHeights(rect, true);

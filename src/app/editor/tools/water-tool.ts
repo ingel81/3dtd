@@ -341,7 +341,11 @@ export function riverEdit(editor: EditorDocument, label: string, edit: (rivers: 
   return new RiverListCommand(label, before, list.length ? list : undefined);
 }
 
-/** What a dab on a body's mask changed: one further body redraws alone (without symmetry), the main water all water */
+/**
+ * What a dab on a body's mask changed: without symmetry just that body
+ * within the rectangle (-1 the main water: its tiles and wet banks there),
+ * with symmetry all water
+ */
 function waterChange(body: number, rect: GridRect, ctx: ToolContext): DocChange {
-  return body >= 0 && ctx.settings.symmetry === 'none' ? { bodies: [body], bodyRect: rect } : { water: true };
+  return ctx.settings.symmetry === 'none' ? { bodies: [body], bodyRect: rect } : { water: true };
 }

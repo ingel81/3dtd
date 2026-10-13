@@ -202,6 +202,11 @@ export class MapTerrainLayer {
     this.material?.setWaterLevel(this.terrain.water?.level ?? null);
   }
 
+  /** The main water's mask changed in `rect` (samples) only: the wet banks there */
+  refreshWaterMask(rect: GridRect): void {
+    this.normals.setWater(this.terrain.water?.mask ?? null, rect);
+  }
+
   /** Splat weights changed (painted in place or replaced) */
   refreshSplat(rect?: GridRect): void {
     this.splat?.refresh(this.terrain.splat, rect);

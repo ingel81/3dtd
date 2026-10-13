@@ -30,7 +30,7 @@ export interface DocChange {
   splat?: GridRect;
   /** Water level or mask (all water: main, bodies, rivers) */
   water?: boolean;
-  /** Only the masks of these further bodies changed, within `bodyRect` (samples); the view redraws just them */
+  /** Only the masks of these bodies changed (-1 the main water, 0.. further ones), within `bodyRect` (samples); the view redraws just them there */
   bodies?: number[];
   bodyRect?: GridRect;
   /** Object ids added, removed or changed, or all of them */
