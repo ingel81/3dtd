@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { waveButtonView } from './wave-button';
+import { coopReadyState, waveButtonView, type CoopRoomView } from './wave-button';
 
 describe('waveButtonView', () => {
   it('idle: "Wave N" with the upcoming wave, named as the action, no count, no bar', () => {
@@ -64,6 +64,26 @@ describe('waveButtonView', () => {
   });
 
   describe('coop', () => {
+    /** A room of two, Ann ready, Bob not; "ready" waves */
+    const room = (inGame = true) => ({
+      inGame: () => inGame,
+      leftIds: () => new Set<string>(),
+      readyIds: () => new Set(['ann']),
+      roster: () => [{ id: 'ann' }, { id: 'bob' }],
+      playerId: () => 'bob',
+      options: () => ({ wave: 'ready' }),
+      isHost: () => false,
+    }) as unknown as CoopRoomView;
+
+    it('the room counts its ready players, but not after game over: no wave comes (playtest 2026-10-13)', () => {
+      expect(coopReadyState(room(), false)).toEqual({ ready: false, readyCount: 1, playerCount: 2, hostStarts: false });
+      expect(coopReadyState(room(), true)).toBeNull();
+      expect(coopReadyState(room(false), false)).toBeNull();
+      expect(coopReadyState(null, false)).toBeNull();
+      // After game over the button reads as in the single player game: "Wave 16"
+      expect(waveButtonView(16, false, 0, 0, null, 10, coopReadyState(room(), true)).label).toBe('Wave 16');
+    });
+
     it('between waves: ready instead of start, the count of ready players, pressed once this player is', () => {
       expect(waveButtonView(3, false, 0, 0, null, 10, { ready: false, readyCount: 1, playerCount: 2, hostStarts: false })).toEqual({
         label: 'Ready for wave 3',

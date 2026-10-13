@@ -1,3 +1,6 @@
+import { waveButtonAction } from '../../../coop/room-options';
+import type { CoopService } from '../../../services/coop.service';
+
 /** What the wave button shows, derived from the store outside the template. */
 export interface WaveButtonView {
   /** "Wave N": the upcoming wave when idle or locked, the running one during a wave */
@@ -31,6 +34,26 @@ export interface CoopReadyState {
   playerCount: number;
   /** The room lets the host start the waves, and this is the host (D38): the button starts it */
   hostStarts: boolean;
+}
+
+/** What coopReadyState reads of the room */
+export type CoopRoomView = Pick<CoopService, 'inGame' | 'leftIds' | 'readyIds' | 'roster' | 'playerId' | 'options' | 'isHost'>;
+
+/**
+ * Readiness for the button from the room; null outside a coop game, and
+ * after game over: no wave comes, so no "Ready for wave N" either
+ */
+export function coopReadyState(coop: CoopRoomView | null, gameOver: boolean): CoopReadyState | null {
+  if (!coop?.inGame() || gameOver) return null;
+  const left = coop.leftIds();
+  const ready = coop.readyIds();
+  const players = coop.roster().filter((p) => !left.has(p.id));
+  return {
+    ready: ready.has(coop.playerId() ?? ''),
+    readyCount: players.filter((p) => ready.has(p.id)).length,
+    playerCount: players.length,
+    hostStarts: waveButtonAction(coop.options(), coop.isHost()) === 'start',
+  };
 }
 
 /**

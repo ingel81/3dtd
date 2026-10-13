@@ -16,7 +16,6 @@ import {
 } from '@angular/core';
 import { LaneChoiceComponent } from './lane-choice.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { waveButtonAction } from '../../../coop/room-options';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { UIStore } from '../../../store/ui.store';
@@ -44,7 +43,7 @@ import {
   type WaveAlertKind,
 } from './wave-alert';
 import { NEXT_WAVE_MARKS, peekUpcomingWaves } from './upcoming-waves';
-import { waveButtonView } from './wave-button';
+import { coopReadyState, waveButtonView } from './wave-button';
 import { WaveTimelineComponent } from './wave-timeline.component';
 import { ReplayService } from '../../../services/replay.service';
 import { COOP } from '../../../services/coop.token';
@@ -158,20 +157,8 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   readonly autoStart = this.uiStore.autoStartWaves;
   readonly autoStartSeconds = AUTO_WAVE_DELAY_MS / 1000;
 
-  /** Coop readiness for the button; null outside a coop game */
-  readonly coopReady = computed(() => {
-    const coop = this.coop;
-    if (!coop?.inGame()) return null;
-    const left = coop.leftIds();
-    const ready = coop.readyIds();
-    const players = coop.roster().filter((p) => !left.has(p.id));
-    return {
-      ready: ready.has(coop.playerId() ?? ''),
-      readyCount: players.filter((p) => ready.has(p.id)).length,
-      playerCount: players.length,
-      hostStarts: waveButtonAction(coop.options(), coop.isHost()) === 'start',
-    };
-  });
+  /** Coop readiness for the button; null outside a coop game and after game over */
+  readonly coopReady = computed(() => coopReadyState(this.coop, this.isGameOver()));
 
   /** Label, accessible name, "N left", countdown and bar width of the wave button. */
   readonly waveButton = computed(() =>
