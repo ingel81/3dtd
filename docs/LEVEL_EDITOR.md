@@ -384,7 +384,13 @@ und die Arrays; Umbenennen und erneutes Speichern ändern ihn nicht. Beim Lesen 
 **Tests.** Vitest: `map-file.spec.ts`, `map-store.spec.ts`, `editor-document.spec.ts`, `ops.spec.ts`,
 `path-graph.spec.ts`, `map-validation.spec.ts`, `tools.spec.ts`, `ops/landscape/landscape.spec.ts` (Gleichheit bei
 gleichem Seed, Rand, Dichte, Freihalten von Straßen und Markern, ein Undo-Schritt, Formen, Erosion, Fluss mit Brücke,
-Straße), `ops/symmetry.spec.ts`, `ops/stamp.spec.ts`, `ops/generate.spec.ts`, `ops/contours.spec.ts`. Browser:
+Straße), `ops/symmetry.spec.ts`, `ops/stamp.spec.ts`, `ops/generate.spec.ts`, `ops/contours.spec.ts`. `editor-fuzz.spec.ts`
+spielt je Seed (1, 7, 42) 70 zufällige Schritte über die Werkzeuge und Befehle (Gelände- und Farbpinsel, Wasser,
+Setzen, Streuen und Ausdünnen, Radieren, Gizmo verschieben, drehen und skalieren, Löschen, Duplizieren, Gruppieren,
+Ende, Straßen, Spawns und HQ, Landschaft mit Biomen, Formen, Fluss, Straße und Klippe, Stempel mit Drehung, Symmetrie,
+Größe ändern, „Increase detail“, Restore, Umgebung) und verlangt: alle Undos ergeben `contentBytes` des Anfangs
+bytegleich, alle Redos die des Endes; ein Fehler nennt Seed und Schritte. Undo während Strich, Drag oder Job sperrt
+die Session (`editor-session.spec.ts`). Browser:
 `e2e/tests/editor.e2e.ts` (neue Karte, Gelände, Objekt mit Rückgängig, Straße, Spawn, gespiegeltes Objekt, kopiertes
 und gesetztes Stück, Prüfen, Speichern, Neuladen, Löschen; ohne Kartensitzung).
 
