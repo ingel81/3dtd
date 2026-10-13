@@ -39,7 +39,7 @@ interface PingArrow {
               [style.--td-mark]="arrow.color" [attr.aria-label]="'Camera to ' + arrow.name + '’s mark'"
               (click)="goTo(arrow.id)">
         <span class="td-overlay td-marker">
-          <td-icon name="caretR" [size]="16" [strokeWidth]="2.5"
+          <td-icon name="caretR" [size]="16"
                    [style.transform]="'rotate(' + arrow.angle + 'deg)'"></td-icon>
         </span>
         <span class="name td-overlay">{{ arrow.name }}</span>

@@ -3,7 +3,7 @@
           [attr.aria-label]="arrow.boss ? 'Camera to the boss' : 'Camera to the enemy closest to the HQ'"
           (click)="goTo($index)">
     <span class="td-overlay td-marker" [class.is-sm]="!arrow.boss">
-      <td-icon name="caretR" [size]="14" [strokeWidth]="2.5"
+      <td-icon name="caretR" [size]="14"
                [style.transform]="'rotate(' + arrow.angle + 'deg)'"></td-icon>
     </span>
     @if (arrow.count > 1) {

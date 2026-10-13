@@ -69,7 +69,7 @@
   <!-- Veteran rank from killing blows, cosmetic: insignia as over the tower, kills to the next rank -->
   <div class="td-well tp-rank" [class.is-gold]="veteran().gold" [class.is-recruit]="veteran().level === 0"
        [matTooltip]="veteranTooltip" matTooltipPosition="above">
-    <td-icon class="tp-rank-icon" [name]="veteran().icon" [size]="16" [strokeWidth]="2"></td-icon>
+    <td-icon class="tp-rank-icon" [name]="veteran().icon" [size]="16"></td-icon>
     <span class="td-caps tp-rank-name">{{ veteran().name }}</span>
     <span class="td-note td-num tp-rank-count">
       @if (veteran().nextAt !== null) {
