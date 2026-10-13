@@ -66,6 +66,13 @@ export function tagName(tag: string): string {
   return tag.charAt(0).toUpperCase() + tag.slice(1);
 }
 
+/**
+ * Decoration in the colours the game uses for danger (enemies, hits, fire):
+ * red caps, red leaves and red blossoms. Near a road they read as a threat
+ * where there is none, so Check warns about them there.
+ */
+export const DANGER_COLOR_ASSETS: ReadonlySet<string> = new Set(['mushrooms-red', 'flowers-red', 'tree-maple-red']);
+
 /** Catalogue objects the renderer places itself */
 const INTERNAL_OBJECTS = new Set(['bridge-deck']);
 

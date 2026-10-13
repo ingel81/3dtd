@@ -4,6 +4,7 @@
  * selects it; Delete removes the selected spawn. Positions snap onto the
  * nearest road within the path snap radius (Alt places freely).
  */
+import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import type { MapPoint, MapSpawn } from '../../world/custom-map/map-document';
 import { SnapshotCommand, type DocParts, type EditCommand, type EditorDocument } from '../model/editor-document';
 import { insideMap } from '../model/grid';
@@ -63,6 +64,10 @@ export class MarkerTool implements EditorTool {
       const points = symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows)
         .map((img) => img.point(point))
         .filter((q, k, all) => all.findIndex((o) => Math.hypot(o.x - q.x, o.y - q.y) < 1) === k);
+      if (editor.doc.spawns.length + points.length > MAX_SPAWN_PORTALS) {
+        ctx.status(`A map holds at most ${MAX_SPAWN_PORTALS} spawns; the game would leave the rest unused.`);
+        return true;
+      }
       const command = markerCommands.addSpawn(editor, points);
       editor.execute(command.command);
       editor.select({ kind: 'spawn', id: command.id });

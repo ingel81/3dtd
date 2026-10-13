@@ -6,8 +6,11 @@
  */
 import type { CustomMapDocument, MapPoint } from '../../world/custom-map/map-document';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
+import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
+import { WATER_DEPTH_M } from '../../world/world-provider';
+import { DANGER_COLOR_ASSETS } from '../catalog/asset-catalog';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
-import { heightAt, insideMap } from '../model/grid';
+import { heightAt, insideMap, slopeAt } from '../model/grid';
 import { components, edgePolyline, nearestOnEdges, nearestOnPolyline, routeBetween } from '../ops/path-graph';
 
 export type IssueSeverity = 'error' | 'warning';
@@ -18,11 +21,18 @@ export interface MapIssue {
   code:
     | 'no-paths'
     | 'no-spawns'
+    | 'too-many-spawns'
     | 'spawn-off-path'
     | 'spawn-unreachable'
     | 'hq-off-path'
     | 'hq-outside'
     | 'spawn-outside'
+    | 'hq-in-water'
+    | 'spawn-in-water'
+    | 'hq-steep'
+    | 'spawn-steep'
+    | 'path-outside'
+    | 'danger-color'
     | 'paths-split'
     | 'lanes'
     | 'lane-short'
@@ -49,14 +59,27 @@ export interface ValidationRules {
   maxLane: number;
   /** Slope along a path that enemies would climb, degrees */
   maxPathSlope: number;
+  /** Slope under a spawn portal or the HQ, degrees */
+  maxMarkerSlope: number;
+  /** Danger-coloured decoration closer than this to a road is reported, metres */
+  dangerColorReach: number;
 }
 
-export const DEFAULT_RULES: ValidationRules = { snapDistance: 16, minLane: 200, maxLane: 4000, maxPathSlope: 30 };
+export const DEFAULT_RULES: ValidationRules = {
+  snapDistance: 16,
+  minLane: 200,
+  maxLane: 4000,
+  maxPathSlope: 30,
+  maxMarkerSlope: 30,
+  dangerColorReach: 30,
+};
 
 export interface ValidationOptions {
   rules?: ValidationRules;
   /** Whether an object stops building (catalogue default when the object has no flag) */
   blocksBuild?: (asset: string) => boolean;
+  /** Whether an asset wears the colours of danger (default DANGER_COLOR_ASSETS) */
+  dangerColor?: (asset: string) => boolean;
 }
 
 export function validateMap(doc: CustomMapDocument, options: ValidationOptions = {}): MapIssue[] {
@@ -71,8 +94,20 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   if (!doc.spawns.length) {
     issues.push({ severity: 'error', code: 'no-spawns', message: 'The map has no spawn.' });
   }
+  if (doc.spawns.length > MAX_SPAWN_PORTALS) {
+    const first = doc.spawns[MAX_SPAWN_PORTALS];
+    issues.push({
+      severity: 'error',
+      code: 'too-many-spawns',
+      message: `The map has ${doc.spawns.length} spawns; the game uses only the first ${MAX_SPAWN_PORTALS}.`,
+      focus: first,
+      target: { kind: 'spawn', id: first.id },
+    });
+  }
   if (!insideMap(t, doc.hq)) {
     issues.push({ severity: 'error', code: 'hq-outside', message: 'The HQ stands outside the map.', focus: doc.hq, target: { kind: 'hq' } });
+  } else {
+    groundIssues(doc, doc.hq, 'The HQ', rules, issues, { kind: 'hq' });
   }
 
   if (paths.edges.length) {
@@ -106,6 +141,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       issues.push({ severity: 'error', code: 'spawn-outside', message: `Spawn ${name} stands outside the map.`, focus: s, target: { kind: 'spawn', id: s.id } });
       continue;
     }
+    groundIssues(doc, s, `Spawn ${name}`, rules, issues, { kind: 'spawn', id: s.id });
     if (!paths.edges.length) continue;
     const hit = nearestOnEdges(paths, s);
     if (!hit || hit.dist > rules.snapDistance) {
@@ -152,6 +188,10 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     const name = `${KIND_NAME[e.kind] ?? 'Road'} ${index + 1}`;
     const line = edgePolyline(paths, e);
     if (line.length < 2) continue;
+    const outside = line.find((p) => !insideMap(t, p));
+    if (outside) {
+      issues.push({ severity: 'error', code: 'path-outside', message: `${name} runs off the map.`, focus: outside, target: { kind: 'edge', id: e.id } });
+    }
     let wet: MapPoint | null = null;
     let steep: MapPoint | null = null;
     for (let k = 1; k < line.length; k++) {
@@ -201,6 +241,28 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     });
   }
 
+  const danger = options.dangerColor ?? ((asset: string) => DANGER_COLOR_ASSETS.has(asset));
+  let alarming = 0;
+  let firstAlarming: { id: string; x: number; y: number } | null = null;
+  if (paths.edges.length) {
+    for (const o of doc.objects) {
+      if (!danger(o.asset) || !nearestOnEdges(paths, o, rules.dangerColorReach)) continue;
+      alarming++;
+      firstAlarming ??= o;
+    }
+  }
+  if (firstAlarming) {
+    issues.push({
+      severity: 'warning',
+      code: 'danger-color',
+      message:
+        (alarming === 1 ? 'A red plant stands' : `${alarming} red plants stand`) +
+        ' by a road; red reads as danger there. Use another colour or move them away.',
+      focus: firstAlarming,
+      target: { kind: 'object', id: firstAlarming.id },
+    });
+  }
+
   const gp = doc.gameplay;
   if (gp?.waves?.kind === 'table') {
     for (const problem of validateWaveTable(gp.waves.table as unknown as WaveTable)) {
@@ -227,6 +289,60 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   }
 
   return issues.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'error' ? -1 : 1));
+}
+
+/** Water and steep ground under a spawn portal or the HQ */
+function groundIssues(
+  doc: CustomMapDocument,
+  p: MapPoint,
+  name: string,
+  rules: ValidationRules,
+  issues: MapIssue[],
+  target: { kind: 'spawn' | 'hq'; id?: string },
+): void {
+  const kind = target.kind;
+  // A spawn on a bridge stands over the river, not in it
+  const onBridge = nearestOnEdges(doc.paths, p, rules.snapDistance)?.edge.kind === 'bridge';
+  if (!onBridge && underWater(doc, p)) {
+    issues.push({ severity: 'warning', code: kind === 'hq' ? 'hq-in-water' : 'spawn-in-water', message: `${name} stands in water.`, focus: p, target });
+  }
+  const slope = slopeAt(doc.terrain, p.x, p.y);
+  if (slope > rules.maxMarkerSlope) {
+    issues.push({
+      severity: 'warning',
+      code: kind === 'hq' ? 'hq-steep' : 'spawn-steep',
+      message: `${name} stands on a ${Math.round(slope)} degree slope (at most ${rules.maxMarkerSlope}).`,
+      focus: p,
+      target,
+    });
+  }
+}
+
+/** In any body of water (the ground below its level where its mask is set) or within a river's banks */
+function underWater(doc: CustomMapDocument, p: MapPoint): boolean {
+  const t = doc.terrain;
+  const g = t.grid;
+  const i = Math.round((p.x + t.width / 2) / g.cellSize);
+  const j = Math.round((p.y + t.depth / 2) / g.cellSize);
+  if (i >= 0 && j >= 0 && i < g.columns && j < g.rows) {
+    const ground = heightAt(t, p.x, p.y);
+    for (const body of [t.water, ...(t.waterBodies ?? [])]) {
+      if (body && body.mask[j * g.columns + i] > 0 && ground < body.level - WATER_DEPTH_M) return true;
+    }
+  }
+  for (const river of t.rivers ?? []) {
+    for (let n = 0; n + 1 < river.points.length; n++) {
+      const a = river.points[n];
+      const b = river.points[n + 1];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy;
+      const u = len2 > 0 ? Math.min(1, Math.max(0, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+      const half = (a.width + (b.width - a.width) * u) / 2;
+      if (Math.hypot(a.x + dx * u - p.x, a.y + dy * u - p.y) < half) return true;
+    }
+  }
+  return false;
 }
 
 function wetAt(doc: CustomMapDocument, p: MapPoint): boolean {

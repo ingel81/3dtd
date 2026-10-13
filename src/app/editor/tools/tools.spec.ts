@@ -255,6 +255,18 @@ describe('editor tools', () => {
     expect(ed.doc.hq).toEqual({ x: 30, y: 3 });
   });
 
+  it('adds no spawn beyond the 32 the game uses', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    const s = ed.doc.spawns[0];
+    for (let k = 1; k < 32; k++) ed.doc.spawns.push({ ...s, id: `x${k}`, name: `X${k}` });
+    const tool = new MarkerTool();
+    tool.pointerDown(at(-20, 6), ctx);
+    expect(ed.doc.spawns).toHaveLength(32);
+    expect(ed.historySteps).toBe(0);
+    expect(ctx.messages.at(-1)).toContain('at most 32 spawns');
+  });
+
   it('fills a hollow to its rim as one step', () => {
     const ed = fresh();
     const ctx = context(ed);

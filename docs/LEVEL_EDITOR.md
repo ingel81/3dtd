@@ -152,7 +152,8 @@ beendet die Linie. Edit: Knoten ziehen (auf einem anderen abgelegt verschmelzen 
 „Flatten road“ ebnet den Boden quer und glättet ihn längs, „Paint road“ malt eine Schicht darunter (gewählte Straße oder
 alle). Die Routen von jedem Spawn zum HQ laufen als Punkte über die Karte (abschaltbar).
 
-**Spawns and HQ (7).** Q: Klick setzt einen Spawn (Name nach Himmelsrichtung, im Panel änderbar), H: Klick versetzt das
+**Spawns and HQ (7).** Q: Klick setzt einen Spawn (Name nach Himmelsrichtung, im Panel änderbar; höchstens 32, dann sagt die Statuszeile
+warum), H: Klick versetzt das
 HQ. Ziehen verschiebt beide; sie rasten auf die nächste Straße (Alt frei). Das Panel zeigt je Spawn die Länge seiner
 Spur oder „no route“.
 
@@ -216,15 +217,20 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
 | Code | Art | Bedeutung |
 |------|-----|-----------|
 | `no-paths`, `no-spawns` | Fehler | Karte ohne Straßen oder ohne Spawn |
+| `too-many-spawns` | Fehler | Mehr als 32 Spawns (`MAX_SPAWN_PORTALS`); das Spiel nutzt nur die ersten 32, das Werkzeug setzt keine weiteren |
 | `spawn-off-path`, `hq-off-path` | Fehler | Spawn oder HQ weiter als 16 m von einer Straße |
 | `spawn-unreachable` | Fehler | Keine Straße führt vom Spawn zum HQ |
 | `spawn-outside`, `hq-outside` | Fehler | Außerhalb der Karte |
+| `path-outside` | Fehler | Ein Knoten oder Kurvenpunkt einer Straße liegt außerhalb der Karte |
+| `spawn-in-water`, `hq-in-water` | Warnung | Im Wasser: Maske eines Gewässers gesetzt und Boden unter dessen Spiegel, oder im Band eines Flusses; ein Spawn auf einer Brücke zählt nicht |
+| `spawn-steep`, `hq-steep` | Warnung | Hang steiler als 30 Grad unter Spawn oder HQ |
 | `paths-split` | Warnung | Straßennetz in mehreren Teilen |
 | `lane-short`, `lane-long` | Warnung | Spur unter 200 m oder über 4000 m |
 | `spawn-near-hq` | Warnung | Spawn unter 60 m vom HQ |
 | `path-under-water` | Warnung | Straße (keine Brücke) unter Wasser |
 | `path-steep` | Warnung | Straße steiler als 30 Grad |
 | `object-on-path` | Warnung | Blockierendes Objekt auf einer Straße |
+| `danger-color` | Warnung | Deko in Gefahrenfarben (rote Pilze, rote Blüten, rotes Laub; `DANGER_COLOR_ASSETS` im Asset-Katalog des Editors) bis 30 m an einer Straße: Rot steht im Spiel für Gegner, Treffer und Feuer |
 
 ## Speichern und Dateien
 
