@@ -343,7 +343,7 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   verlinken README und Landing die Dateien direkt (`releases/latest/download/3DTD-win-x64-setup.exe`,
   `3DTD-x86_64.AppImage`, bis 0.5.1 `3DTD-linux-x64.AppImage`): `release.yml` legt vor dem Veröffentlichen je
   eine Kopie ohne Version im Namen dazu, der Updater liest weiter `latest.yml` und die Dateien mit Version. Den alten
-  Linux-Namen lud nur 0.6.0 als dritte Kopie mit hoch, für Links von außen; ab dem Release nach 0.6.0 nicht mehr (TODO E83).
+  Linux-Namen lud nur 0.6.0 als dritte Kopie mit hoch, für Links von außen; ab 0.7.0 nicht mehr (TODO E83).
 - **E44 Muss** Kein lokaler Schlüssel im Installer. `scripts/copy-web.js` liest
   `cesiumIonToken` und `googleMapsApiKey` aus `environment.ts` und
   `environment.prod.ts` und bricht ab, wenn einer dieser Werte im Build steht. Die
@@ -564,7 +564,7 @@ Bekannte Stolpersteine, beim ersten Test zu prüfen:
   (`toolsets.appimage: '1.0.3'`, AppImage/type2-runtime, squashfs mit zstd), die weder libfuse2 noch eine
   bestimmte glibc braucht (TODO E83). Am 2026-10-05 in WSL gebaut: die Datei ist statisch gelinkt und meldet die
   type2-runtime; das Spiel daraus ist noch auf keinem Linux-Desktop gestartet.
-- **Update-Information (TODO E83):** Im AppImage steht seit dem Release nach 0.6.0
+- **Update-Information (TODO E83):** Im AppImage steht seit 0.7.0
   `gh-releases-zsync|ingel81|3dtd|latest|3DTD-*x86_64.AppImage.zsync`, daneben liegt im Release die `.zsync` der
   versionierten Datei; AppImageUpdate und der AppImage-Katalog lesen beides. electron-builder kann das nicht selbst:
   `release.yml` kopiert vorher dessen AppImage-Werkzeuge (`desktop/scripts/appimage-tools.js`), schreibt die Zeile in

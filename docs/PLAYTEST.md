@@ -1,6 +1,6 @@
 # Playtest: offene Nachtests
 
-Stand 2026-10-13, Code-Stand `next`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
+Stand 2026-10-13, Code-Stand `next` (= Release 0.7.0). Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
 warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). Die erledigten Punkte samt Ergebnissen
 (bis 748, dazu M, Q, R, T bis 2026-09-26) liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Listen in `archive/REVIEW_*.md`.
 
@@ -40,6 +40,12 @@ Per Spec geprüft; die Icons einzeln im Prüf-Artefakt abgenommen. Hier geht es 
   **ok (2026-10-13)**
 - **Z4 Desktop 0.7.0-beta.2:** `desktop/release/3DTD-0.7.0-beta.2-win-x64-setup.exe` über die beta.1 installieren,
   starten, einen Ort spielen. *Startet, Version im Menü 0.7.0-beta.2, Icons wie im Browser.*
+  beta.2: kein Globus (Content-Security-Policy verbot dem Transcoder-Worker `new Function`), behoben in 3a55f93a
+  (Worker als Datei mit eigener Policy); **ok (2026-10-13)** mit beta.3, Globus da, Coop gegen den Browser gespielt.
+  Live in 0.7.0: `/play/basis/ktx2-worker.js` liefert die eigene Policy.
+- **Funde im Coop-Test (2026-10-13), behoben:** Nach Game Over fragte der Wellen-Knopf „Ready for wave 16 0/2
+  ready“ (3a10f53a); die Spieler-Tabs der Forschung brachen um, jetzt in einer Zeile (e5e0bd24). Banner und
+  markierte Zeilen ohne Strich am Rand.
 
 ## X Nachtschicht 2026-10-12 (auf `next`)
 
@@ -48,12 +54,15 @@ angesehen. Hier geht es um Augen, Ohren und das Gefühl.
 
 - **X1 Coop im verdeckten Fenster (E136):** Coop-Spiel zu zweit, ein Fenster 60 s minimieren (Desktop-App und Browser).
   *Der Raum läuft weiter, kein „did not catch up“; nach dem Zurückholen kein Sprung.*
+  **ok (2026-10-13)** App und Browser minimiert: der Rückstand blieb stabil bei rund 28 Ticks, nach dem Zurückholen
+  aufgeholt, gleiche Prüfsummen, 0 Desyncs (Relay-Log).
 - **X2 Gerüst (E141):** Tower setzen, solange das Gerüst steht auf Upgrade und Pfad klicken, dann U drücken.
   *Kacheln grau, Zeile „Under construction: upgrades once it stands“, nichts gekauft; nach dem Bau gehen sie.
   Verkaufen geht im Gerüst.*
   **ok (2026-10-12)**
 - **X3 Game Over im Coop (E144):** Coop-Lauf verlieren, Speicher ohne Antwort zur Run-Log-Frage. *„Help improve
   3DTD?“ kommt erst rund 1,5 s nach dem Game-Over-Bild.*
+  **ok (2026-10-13)**
 - **X4 Logo (E143):** Im Spiel auf das 3DTD-Logo oben links klicken. *Das Menü geht auf wie mit Esc.*
   **ok (2026-10-12)**
 - **X5 Settings (E138):** Esc, Settings. *Tabs Audio, Graphics, Gameplay, Map, Coop, Privacy; nach Schließen und
@@ -69,6 +78,7 @@ angesehen. Hier geht es um Augen, Ohren und das Gefühl.
   **ok (2026-10-12)**
 - **X9 Meldungen (E137):** Etwas auslösen, das eine Meldung bringt (z. B. Coop-Verbindung trennen). *Steht unter der
   Tempo-Leiste über der Karte, geht nach 6 s oder per X; eine mit „Reload“ bleibt.*
+  **ok (2026-10-13)** per Relay beenden und „Continue alone“. Coop-Ereignisse wie ein Ping stehen dagegen im Chat.
 - **X10 Camo (E145):** Mit Sprung auf Welle 22 (Wave Debug) die Welle starten. *Alle Zombie-Soldaten getarnt und
   deutlich flimmernd; beim ersten kommt „Camouflaged enemies! …“ und die Kamera schaut hin; Tower schießen nicht
   auf sie (außer neben einem Späher).*
