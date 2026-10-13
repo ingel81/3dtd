@@ -388,10 +388,24 @@ export class EditorSession implements OnDestroy {
 
   // ---------------------------------------------------------------- map life
 
-  async open(id: string, origin?: MapOrigin): Promise<void> {
+  /**
+   * Opens a map for editing and returns the id of what opened: an own map
+   * itself, a shipped or a coop host's map as a new own copy at once (saving
+   * under their id would make them one's own, and edits to the original went
+   * nowhere)
+   */
+  async open(id: string): Promise<string> {
     await this.catalogReady;
-    const loaded = await this.store.load(id, origin);
-    this.setDocument(loaded.doc, loaded.summary.origin);
+    const loaded = await this.store.load(id);
+    if (loaded.summary.origin === 'own') {
+      this.setDocument(loaded.doc, 'own');
+      return id;
+    }
+    const name = loaded.doc.meta.name;
+    const copy = await this.store.saveCopy(loaded);
+    this.setDocument(copy.doc, 'own');
+    this.flash(`This is your own copy of ${name}; the original stays as it is`);
+    return copy.doc.meta.id;
   }
 
   async createNew(options: Omit<NewMapOptions, 'id'>, generator?: GenerateOptions, template?: MapTemplate): Promise<string> {

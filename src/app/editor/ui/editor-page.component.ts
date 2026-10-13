@@ -80,8 +80,10 @@ export class EditorPageComponent implements OnInit {
   private async load(id: string): Promise<void> {
     this.problem.set(null);
     try {
-      if (!this.session.editor || this.session.editor.doc.meta.id !== id) await this.session.open(id);
+      const opened = !this.session.editor || this.session.editor.doc.meta.id !== id ? await this.session.open(id) : id;
       this.opened.set(true);
+      // A shipped map opened as a copy: the address names the copy, so a reload opens it and not a second copy
+      if (opened !== id) await this.router.navigate([], { relativeTo: this.route, queryParams: { map: opened }, replaceUrl: true });
     } catch (e) {
       this.problem.set((e as Error).message);
       this.opened.set(false);

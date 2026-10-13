@@ -4,7 +4,7 @@ import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { MapStore, MemoryMapBackend } from '../../world/custom-map/map-store';
 import { MemoryVersionBackend, VersionHistory } from '../model/version-store';
-import { MapFileError } from '../../world/custom-map/map-file';
+import { MapFileError, packMapFile } from '../../world/custom-map/map-file';
 import { EditorSession, saveErrorText } from './editor-session.service';
 
 function session(): { s: EditorSession; backend: MemoryMapBackend; history: VersionHistory; versions: MemoryVersionBackend } {
@@ -22,6 +22,32 @@ beforeAll(() => {
 });
 
 afterAll(() => getTestBed().resetTestEnvironment());
+
+describe('editor session opening', () => {
+  it('opens a shipped or a coop map as an own copy at once', async () => {
+    const { s, backend } = session();
+    const shipped = createMapDocument({ id: 'harbour', name: 'Harbour', width: 32, depth: 32 });
+    const files: Record<string, Uint8Array> = { 'http://x/maps/harbour.3dtdmap': packMapFile(shipped) };
+    const fetch = async (url: string) =>
+      url.endsWith('index.json')
+        ? Response.json({ maps: [{ id: 'harbour', name: 'Harbour', file: 'harbour.3dtdmap' }] })
+        : new Response(files[url] as Uint8Array<ArrayBuffer>, { status: files[url] ? 200 : 404 });
+    Object.assign(s, { store: new MapStore({ backend, fetch, baseUrl: 'http://x/' }), catalogReady: Promise.resolve() });
+    const id = await s.open('harbour');
+    expect(id).toBe('harbour-copy');
+    expect(s.doc!.meta).toMatchObject({ id: 'harbour-copy', name: 'Harbour (copy)' });
+    expect(s.origin()).toBe('own');
+    expect((await backend.get('harbour-copy'))?.summary.origin).toBe('own');
+    expect(s.status()).toContain('own copy of Harbour');
+
+    const host = createMapDocument({ id: 'hosts-map', name: 'Host', width: 32, depth: 32 });
+    await s.store.saveShared(host, null, packMapFile(host));
+    expect(await s.open('hosts-map')).toBe('host-copy');
+    expect((await backend.get('hosts-map'))?.summary.origin).toBe('shared');
+    expect(await s.open('harbour-copy')).toBe('harbour-copy');
+    s.ngOnDestroy();
+  });
+});
 
 describe('editor session saving', () => {
 

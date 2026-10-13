@@ -138,17 +138,15 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   async openChosen(): Promise<void> {
     const m = this.chosen();
     if (!m) return;
-    // Shipped maps and coop hosts' maps are edited as copies: saving under their id would make them one's own
-    if (m.origin !== 'own') return this.duplicate(m, true);
+    // Shipped maps and coop hosts' maps open as an own copy (EditorSession.open)
     this.open.emit(m.id);
   }
 
-  async duplicate(m: MapSummary, thenOpen = false): Promise<void> {
+  async duplicate(m: MapSummary): Promise<void> {
     this.busy.set(true);
     try {
       const copy = await this.session.store.duplicate(m.id, undefined, m.origin);
       await this.reload(copy.doc.meta.id);
-      if (thenOpen) this.open.emit(copy.doc.meta.id);
     } finally {
       this.busy.set(false);
     }

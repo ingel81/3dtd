@@ -217,7 +217,11 @@ export class MapStore {
 
   /** A copy of any map as a new own map */
   async duplicate(id: string, name?: string, origin?: MapOrigin): Promise<LoadedMap> {
-    const { doc, preview } = await this.load(id, origin);
+    return this.saveCopy(await this.load(id, origin), name);
+  }
+
+  /** A loaded map stored as a new own map (fresh id and times, "(copy)" after the name unless `name` is given) */
+  async saveCopy({ doc, preview }: Pick<LoadedMap, 'doc' | 'preview'>, name?: string): Promise<LoadedMap> {
     const now = new Date().toISOString();
     doc.meta.name = name ?? `${doc.meta.name} (copy)`;
     doc.meta.id = await this.freeId(slugMapId(doc.meta.name));

@@ -11,8 +11,11 @@ fragt das Menü vorher). Die Oberfläche ist englisch wie das übrige Spiel.
 
 Die Startseite von `/editor` zeigt links die eigenen und die mitgelieferten Karten (Bild, Größe, Spawns, Objekte,
 zuletzt geändert), rechts die gewählte mit Beschreibung und den Knöpfen Open, Duplicate, Download, Delete (zweimal
-bestätigen). Mitgelieferte Karten (`public/maps/index.json`) sind schreibgeschützt: „Copy and edit“ legt eine eigene
-Kopie an und öffnet sie.
+bestätigen). Mitgelieferte Karten (`public/maps/index.json`) und Karten eines Koop-Hosts sind schreibgeschützt: „Copy
+and edit“ legt eine eigene Kopie an und öffnet sie. Dasselbe gilt für jeden anderen Weg dorthin, etwa „Edit“ in der
+Kartenwahl des Spiels (`/editor?map=<id>`): `EditorSession.open` öffnet nie das Original, sondern speichert sofort eine
+eigene Kopie („Name (copy)“), sagt das in der Statuszeile und setzt deren Kennung in die Adresse, damit Neuladen die
+Kopie öffnet und keine zweite anlegt.
 
 - **New map:** Name, Autor, Größe (Small 512 m, Medium 1024 m, Large 2048 m, Wide 2048 x 1024 m), Vorlage oder Boden
   (Flat, Hills, Valleys, Islands, Canyon, Terraces mit Seed und Stärke, siehe [Generator](#gelände-generator)) mit
