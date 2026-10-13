@@ -271,3 +271,75 @@ export function freeGroup(objects: readonly MapObject[]): string {
   }
   return `g${max + 1}`;
 }
+
+export interface LineOptions {
+  /** Metres between two objects along the line */
+  spacing: number;
+  /** Metres to the left of the line's direction (negative: right) */
+  offset: number;
+  /** A second row mirrored to the other side */
+  bothSides: boolean;
+  /** Along the line (0), across it (90 degrees), or at random */
+  turn: 'along' | 'across' | 'random';
+}
+
+export const DEFAULT_LINE: LineOptions = { spacing: 4, offset: 0, bothSides: false, turn: 'along' };
+
+/**
+ * Objects of `asset` every `spacing` metres along a line, each in the middle
+ * of its stretch: a fence, a wall, a row of torches or trees. Models face
+ * north at turn 0; along the line means the line's direction turned to
+ * north (as the level scripts' `row`). With `bothSides` a second row stands
+ * as far to the right, turned the other way.
+ */
+export function objectsAlong(line: readonly MapPoint[], asset: string, options: LineOptions, ids: ObjectIds, random: () => number): MapObject[] {
+  const length = polylineLengthOf(line);
+  if (length < 0.5) return [];
+  const n = Math.max(1, Math.round(length / Math.max(0.5, options.spacing)));
+  const out: MapObject[] = [];
+  const sides = options.bothSides && options.offset !== 0 ? [1, -1] : [1];
+  for (let k = 0; k < n; k++) {
+    const a = pointAlong(line, (k * length) / n);
+    const b = pointAlong(line, ((k + 1) * length) / n);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dl = Math.hypot(dx, dy) || 1;
+    for (const side of sides) {
+      const off = options.offset * side;
+      const along = Math.atan2(-dx, dy) + (side < 0 ? Math.PI : 0);
+      const rotation = options.turn === 'random' ? random() * Math.PI * 2 : along + (options.turn === 'across' ? Math.PI / 2 : 0);
+      out.push({
+        id: ids.take(),
+        asset,
+        x: round((a.x + b.x) / 2 - (dy / dl) * off),
+        y: round((a.y + b.y) / 2 + (dx / dl) * off),
+        z: 0,
+        rotation: round((((rotation % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)), 1000),
+        scale: 1,
+      });
+    }
+  }
+  return out;
+}
+
+function polylineLengthOf(line: readonly MapPoint[]): number {
+  let n = 0;
+  for (let k = 1; k < line.length; k++) n += Math.hypot(line[k].x - line[k - 1].x, line[k].y - line[k - 1].y);
+  return n;
+}
+
+/** The point `along` metres down the line, clamped to its ends */
+function pointAlong(line: readonly MapPoint[], along: number): MapPoint {
+  let rest = along;
+  for (let k = 1; k < line.length; k++) {
+    const a = line[k - 1];
+    const b = line[k];
+    const d = Math.hypot(b.x - a.x, b.y - a.y);
+    if (rest <= d || k === line.length - 1) {
+      const u = d ? Math.min(1, rest / d) : 0;
+      return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u };
+    }
+    rest -= d;
+  }
+  return { ...line[0] };
+}

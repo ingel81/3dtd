@@ -153,6 +153,10 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   dem Boden unter seinem Fußabdruck, `pitch` und `roll` aus `slopeTilt`, jedes Symmetrie-Bild mit seinem eigenen Boden)
 - Scatter: halten streut die gewählten Assets (mehrere wählbar) mit Dichte, Größenbereich, Mindestabstand, zufälliger
   Drehung, Einsinken am Hang und „Align to slope“; Shift dünnt aus
+- Line: das gewählte Objekt in einer Reihe, frei gezogen oder per Klick entlang einer Straße oder eines Flusses: Abstand,
+  Versatz (links der Laufrichtung, negativ rechts; bei Straßen etwa die halbe Breite), „Both sides“ (eine zweite Reihe
+  gegenüber, andersherum gedreht), Drehung längs, quer oder zufällig, „Align to slope“; die Symmetrie-Bilder entstehen
+  mit; ein Schritt im Verlauf (`objectsAlong`, wie `row` der Level-Skripte). Zäune, Mauern, Fackeln, Baumreihen
 - Erase: entfernt, was der Pinsel trifft
 - Select: Klick wählt (die ganze Gruppe, Strg+Klick ein Mitglied), Shift+Klick ergänzt, Ziehen auf freiem Grund
   wählt per Rahmen, Alt+Ziehen per Lasso, Strg+A alles Sichtbare; Rahmen und Lasso nehmen, was auf dem Bildschirm darin steht. Ausgeblendete

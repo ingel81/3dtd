@@ -111,6 +111,32 @@
   </div>
 }
 
+@if (s().mode === 'line') {
+  <div class="td-group" data-test="line-options">
+    <h3 class="td-section">Line</h3>
+    <div class="td-seg is-sm" role="radiogroup" aria-label="Line follows">
+      <button type="button" role="radio" [attr.aria-checked]="s().line.follow === 'free'" (click)="setLine({ follow: 'free' })">Draw freely</button>
+      <button type="button" role="radio" [attr.aria-checked]="s().line.follow === 'roads'" (click)="setLine({ follow: 'roads' })" data-test="line-roads">Along a road or river</button>
+    </div>
+    <app-editor-range label="Spacing" unit="m" [min]="0.5" [max]="40" [step]="0.5" [value]="s().line.spacing" (changing)="setLine({ spacing: $event })" />
+    <app-editor-range label="Offset" unit="m" [min]="-40" [max]="40" [step]="0.5" [value]="s().line.offset" (changing)="setLine({ offset: $event })" />
+    <div class="td-setting">
+      <span matTooltip="A second row as far to the other side">Both sides</span>
+      <input class="td-switch" type="checkbox" [checked]="s().line.bothSides" (change)="setLine({ bothSides: $any($event.target).checked })" aria-label="Both sides" />
+    </div>
+    <div class="td-seg is-sm" role="radiogroup" aria-label="Turn">
+      <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'along'" (click)="setLine({ turn: 'along' })">Along</button>
+      <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'across'" (click)="setLine({ turn: 'across' })">Across</button>
+      <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'random'" (click)="setLine({ turn: 'random' })">Random</button>
+    </div>
+    <div class="td-setting">
+      <span matTooltip="Each object tilts with the ground under it">Align to slope</span>
+      <input class="td-switch" type="checkbox" [checked]="s().alignToSlope" (change)="setAlign($any($event.target).checked)" aria-label="Align to slope" />
+    </div>
+    <p class="td-note">Fences, walls, torches, a row of trees: pick the asset below. Offset is to the left of the line's direction; a road's edge is half its width out. One undo step.</p>
+  </div>
+}
+
 @if (s().mode === 'scatter' || s().mode === 'erase') {
   <app-brush-panel />
 }

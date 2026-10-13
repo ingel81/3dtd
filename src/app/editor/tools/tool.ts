@@ -8,7 +8,7 @@ import type { MapObject, MapPathKind, MapPoint } from '../../world/custom-map/ma
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import type { EditorDocument } from '../model/editor-document';
 import { DEFAULT_BRUSH, type BrushSettings } from '../ops/brush';
-import { DEFAULT_SCATTER, type ScatterOptions } from '../ops/object-ops';
+import { DEFAULT_LINE, DEFAULT_SCATTER, type LineOptions, type ScatterOptions } from '../ops/object-ops';
 import type { BiomeId } from '../ops/landscape/biomes';
 import type { SymmetryMode } from '../ops/symmetry';
 import { ALL_PARTS, type Stamp, type StampParts, type StampRect } from '../ops/stamp';
@@ -114,7 +114,7 @@ export const LANDSCAPE_MODES: readonly { id: LandscapeMode; label: string; hint:
   { id: 'cliff', label: 'Cliff edge', hint: 'Drag a line: the ground left of it rises as a cliff', group: 'Draw a line', line: true },
 ];
 
-export type ObjectMode = 'select' | 'place' | 'scatter' | 'erase';
+export type ObjectMode = 'select' | 'place' | 'scatter' | 'line' | 'erase';
 export type GizmoMode = 'move' | 'rotate' | 'scale';
 export type PathMode = 'draw' | 'edit';
 export type MarkerMode = 'spawn' | 'hq';
@@ -172,6 +172,8 @@ export interface EditorSettings {
     space: 'global' | 'local';
     /** Place tilts the object with the ground under it */
     alignToSlope: boolean;
+    /** Line: spacing, offset, sides, turn; drawn freely or along a road or river */
+    line: LineOptions & { follow: 'free' | 'roads' };
   };
   paths: { mode: PathMode; width: number; kind: MapPathKind; /** Snap radius to nodes and edges, metres */ snap: number; showRoutes: boolean };
   markers: { mode: MarkerMode };
@@ -209,7 +211,7 @@ export function defaultSettings(): EditorSettings {
     terrain: { mode: 'raise', level: 0, step: 6, rampWidth: 16 },
     paint: { layer: 0, erase: false },
     water: { mode: 'fill', body: -1, depth: 3, river: -1, riverPoint: -1 },
-    objects: { mode: 'select', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, space: 'global', alignToSlope: false },
+    objects: { mode: 'select', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, space: 'global', alignToSlope: false, line: { ...DEFAULT_LINE, follow: 'free' } },
     paths: { mode: 'draw', width: 8, kind: 'road', snap: 10, showRoutes: true },
     markers: { mode: 'spawn' },
     stamp: { mode: 'select', parts: { ...ALL_PARTS }, rotation: 0, feather: 0.25, region: null, current: null, currentName: '' },

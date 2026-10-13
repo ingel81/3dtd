@@ -4,7 +4,9 @@ import type { MapObject } from '../../../world/custom-map/map-document';
 import { tagName, type ObjectAssetEntry } from '../../catalog/asset-catalog';
 import { ObjectsCommand } from '../../model/editor-document';
 import { alignedToSlope, duplicateObjects, variedTint } from '../../ops/object-ops';
-import type { GizmoMode, ObjectMode } from '../../tools/tool';
+import type { EditorSettings, GizmoMode, ObjectMode } from '../../tools/tool';
+
+type ObjectToolSettings = EditorSettings['objects'];
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
@@ -13,6 +15,7 @@ const MODES: { id: ObjectMode; label: string; key: string }[] = [
   { id: 'select', label: 'Select', key: 'W E R' },
   { id: 'place', label: 'Place', key: '' },
   { id: 'scatter', label: 'Scatter', key: '' },
+  { id: 'line', label: 'Line', key: '' },
   { id: 'erase', label: 'Erase', key: '' },
 ];
 
@@ -133,6 +136,10 @@ export class ObjectPanelComponent {
       if (key === 'scaleMin' && s.objects.scatter.scaleMax < value) s.objects.scatter.scaleMax = value;
       if (key === 'scaleMax' && s.objects.scatter.scaleMin > value) s.objects.scatter.scaleMin = value;
     });
+  }
+
+  setLine(patch: Partial<ObjectToolSettings['line']>): void {
+    this.session.patchSettings((s) => (s.objects.line = { ...s.objects.line, ...patch }));
   }
 
   setAlign(on: boolean): void {

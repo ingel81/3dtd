@@ -20,11 +20,13 @@ import {
   objectsUnderBrush,
   scatterDab,
   alignedToSlope,
+  objectsAlong,
   freeGroup,
   snapTo,
   withGroups,
 } from '../ops/object-ops';
 import { objectImages, sameSector, symmetryImages } from '../ops/symmetry';
+import { edgePolyline, nearestOnEdges } from '../ops/path-graph';
 import { TransformGizmo, gizmoAnchor, type GizmoHandle } from '../view/transform-gizmo';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
@@ -53,6 +55,8 @@ export class ObjectTool implements EditorTool {
   readonly id = 'objects' as const;
   private brushing: { added: MapObject[]; removed: ObjectEdit[]; grid: ObjectGrid; ids: ObjectIds; erase: boolean; origin?: MapPoint } | null = null;
   private drag: Drag | null = null;
+  /** The line being drawn in Line mode (free), map points */
+  private line: MapPoint[] | null = null;
 
   brushVisible(ctx: ToolContext): boolean {
     const mode = ctx.settings.objects.mode;
@@ -94,10 +98,19 @@ export class ObjectTool implements EditorTool {
       }
       case 'select':
         return this.selectDown(p, ctx);
+      case 'line':
+        return this.lineDown(p, ctx);
     }
   }
 
   pointerMove(p: ToolPointer, ctx: ToolContext): void {
+    const line = this.line;
+    if (line && p.hit) {
+      const last = line[line.length - 1];
+      if (Math.hypot(p.hit.x - last.x, p.hit.y - last.y) >= 2) line.push({ x: p.hit.x, y: p.hit.y });
+      ctx.overlay.setDraft(line);
+      return;
+    }
     const drag = this.drag;
     if (!drag) return;
     if (drag.kind === 'box') {
@@ -118,6 +131,14 @@ export class ObjectTool implements EditorTool {
   }
 
   pointerUp(p: ToolPointer, ctx: ToolContext): void {
+    if (this.line) {
+      const line = this.line;
+      this.line = null;
+      ctx.overlay.setDraft(null);
+      if (p.hit && lineLength([line[line.length - 1], p.hit]) >= 1) line.push({ x: p.hit.x, y: p.hit.y });
+      if (lineLength(line) >= 2) this.placeAlong(line, ctx);
+      return;
+    }
     this.endBrush(ctx);
     const drag = this.drag;
     this.drag = null;
@@ -297,6 +318,10 @@ export class ObjectTool implements EditorTool {
   }
 
   cancel(ctx: ToolContext): void {
+    if (this.line) {
+      this.line = null;
+      ctx.overlay.setDraft(null);
+    }
     if (this.drag?.kind === 'gizmo') {
       // Put the objects back where the drag found them
       const before = this.drag.before;
@@ -320,9 +345,52 @@ export class ObjectTool implements EditorTool {
         return 'Hold to scatter, Shift thins out | [ ] size';
       case 'erase':
         return 'Hold to remove objects under the brush';
+      case 'line':
+        return s.line.follow === 'roads'
+          ? 'Click a road or river: objects along it, every few metres'
+          : 'Drag a line: objects along it, every few metres';
       case 'select':
         return 'Click, drag a box or Alt drag a lasso | arrows move along an axis, blue lifts (W E R, L local) | Del delete | Ctrl+D duplicate | End to the ground';
     }
+  }
+
+  /** Line mode: a road or river under the pointer at once, or the start of a free line */
+  private lineDown(p: ToolPointer, ctx: ToolContext): boolean {
+    const s = ctx.settings.objects;
+    if (!p.hit) return true;
+    if (!s.asset) {
+      ctx.status('Choose an asset first');
+      return true;
+    }
+    if (s.line.follow === 'free') {
+      this.line = [{ x: p.hit.x, y: p.hit.y }];
+      return true;
+    }
+    const doc = ctx.editor.doc;
+    const road = nearestOnEdges(doc.paths, p.hit, 12);
+    const river = nearestRiver(doc, p.hit);
+    const line = road && (!river || road.dist <= river.dist) ? edgePolyline(doc.paths, road.edge) : river?.points ?? null;
+    if (!line) {
+      ctx.status('No road or river here: click on one, or draw freely');
+      return true;
+    }
+    this.placeAlong(line, ctx);
+    return true;
+  }
+
+  /** Objects along a line as one step, with their symmetric images */
+  private placeAlong(line: readonly MapPoint[], ctx: ToolContext): void {
+    const s = ctx.settings.objects;
+    const doc = ctx.editor.doc;
+    const t = doc.terrain;
+    const ids = new ObjectIds(doc.objects);
+    const own = objectsAlong(line, s.asset!, s.line, ids, Math.random).filter((o) => insideMap(t, o));
+    if (!own.length) return;
+    const images = objectImages(own, symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
+    const reach = ctx.catalog.object(s.asset!).radius;
+    const placed = s.alignToSlope ? [...own, ...images].map((o) => alignedToSlope(t, o, reach)) : [...own, ...images];
+    ctx.editor.execute(ObjectsCommand.add(`${ctx.catalog.object(s.asset!).name} along a line`, doc, placed));
+    ctx.status(`${placed.length} objects placed along ${Math.round(lineLength(line))} m`);
   }
 
   private place(p: ToolPointer, ctx: ToolContext): void {
@@ -546,4 +614,28 @@ function round(v: number, f = 100): number {
 function wrap(a: number): number {
   const t = Math.PI * 2;
   return ((a % t) + t) % t;
+}
+
+function lineLength(line: readonly MapPoint[]): number {
+  let n = 0;
+  for (let k = 1; k < line.length; k++) n += Math.hypot(line[k].x - line[k - 1].x, line[k].y - line[k - 1].y);
+  return n;
+}
+
+/** The river whose band the point is in or near (within 8 m of its banks), with its points */
+function nearestRiver(doc: { terrain: { rivers?: { points: { x: number; y: number; width: number }[] }[] } }, p: MapPoint): { points: MapPoint[]; dist: number } | null {
+  let best: { points: MapPoint[]; dist: number } | null = null;
+  for (const r of doc.terrain.rivers ?? []) {
+    for (let k = 0; k + 1 < r.points.length; k++) {
+      const a = r.points[k];
+      const b = r.points[k + 1];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy;
+      const u = len2 > 0 ? Math.min(1, Math.max(0, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+      const d = Math.hypot(a.x + dx * u - p.x, a.y + dy * u - p.y) - (a.width + (b.width - a.width) * u) / 2;
+      if (d <= 8 && (!best || d < best.dist)) best = { points: r.points.map((q) => ({ x: q.x, y: q.y })), dist: Math.max(0, d) };
+    }
+  }
+  return best;
 }

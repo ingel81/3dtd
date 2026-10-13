@@ -331,6 +331,30 @@ describe('editor tools', () => {
     expect(ed.doc.spawns).toHaveLength(0);
   });
 
+  it('puts objects along a drawn line and along a road, each as one step', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    const tool = new ObjectTool();
+    const o = ctx.settings.objects;
+    o.mode = 'line';
+    o.asset = 'fence';
+    o.line = { spacing: 5, offset: 0, bothSides: false, turn: 'along', follow: 'free' };
+    tool.pointerDown(at(0, 0), ctx);
+    for (let x = 2; x <= 50; x += 2) tool.pointerMove!(at(x, 0), ctx);
+    tool.pointerUp(at(50, 0), ctx);
+    expect(ed.doc.objects).toHaveLength(10);
+    // Running east, turned so that their north faces east
+    expect(ed.doc.objects.every((x) => Math.abs(x.y) < 0.01 && Math.abs(x.rotation - (3 * Math.PI) / 2) < 0.01)).toBe(true);
+    expect(ed.historySteps).toBe(1);
+    // Along the starter road, 3 m to both sides
+    o.line = { spacing: 10, offset: 6, bothSides: true, turn: 'along', follow: 'roads' };
+    tool.pointerDown(at(-100, 2), ctx);
+    const rows = ed.doc.objects.slice(10);
+    expect(rows.length).toBeGreaterThan(20);
+    expect(new Set(rows.map((x) => Math.round(x.y)))).toEqual(new Set([6, -6]));
+    expect(ed.historySteps).toBe(2);
+  });
+
   it('fills a hollow to its rim as one step', () => {
     const ed = fresh();
     const ctx = context(ed);
