@@ -8,7 +8,7 @@ import type { CustomMapDocument, MapPoint } from '../../world/custom-map/map-doc
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { WATER_DEPTH_M } from '../../world/world-provider';
-import { DANGER_COLOR_ASSETS } from '../catalog/asset-catalog';
+import { dangerLook } from '../../world/custom-map/render/asset-catalog';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { heightAt, insideMap, slopeAt } from '../model/grid';
 import { components, edgePolyline, nearestOnEdges, nearestOnPolyline, routeBetween } from '../ops/path-graph';
@@ -78,7 +78,7 @@ export interface ValidationOptions {
   rules?: ValidationRules;
   /** Whether an object stops building (catalogue default when the object has no flag) */
   blocksBuild?: (asset: string) => boolean;
-  /** Whether an asset wears the colours of danger (default DANGER_COLOR_ASSETS) */
+  /** Whether an asset wears the colours of danger (default: the renderer's danger list, dangerLook) */
   dangerColor?: (asset: string) => boolean;
 }
 
@@ -241,7 +241,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     });
   }
 
-  const danger = options.dangerColor ?? ((asset: string) => DANGER_COLOR_ASSETS.has(asset));
+  const danger = options.dangerColor ?? ((asset: string) => dangerLook(asset) !== null);
   let alarming = 0;
   let firstAlarming: { id: string; x: number; y: number } | null = null;
   if (paths.edges.length) {

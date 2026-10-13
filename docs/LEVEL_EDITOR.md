@@ -254,7 +254,7 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
 | `path-under-water` | Warnung | Straße (keine Brücke) unter Wasser |
 | `path-steep` | Warnung | Straße steiler als 30 Grad |
 | `object-on-path` | Warnung | Blockierendes Objekt auf einer Straße |
-| `danger-color` | Warnung | Deko in Gefahrenfarben (rote Pilze, rote Blüten, rotes Laub; `DANGER_COLOR_ASSETS` im Asset-Katalog des Editors) bis 30 m an einer Straße: Rot steht im Spiel für Gegner, Treffer und Feuer |
+| `danger-color` | Warnung | Deko in Gefahrenfarben (rote Pilze, rote Blüten; `DANGER_LOOK` in `render/asset-catalog.ts`, dieselbe Liste wie für die mitgelieferten Karten) bis 30 m an einer Straße: Rot steht im Spiel für Gegner, Treffer und Feuer |
 
 ## Speichern und Dateien
 
