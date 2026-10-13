@@ -8,7 +8,7 @@
 import type { GridRect } from '../model/grid';
 import { startTerrainJob, type TerrainJob, type TerrainJobMessage } from '../workers/terrain-job';
 import type { DocChange } from '../model/editor-document';
-import { MAP_TRIAL_MESSAGE, MAP_TRIAL_WAVES_PARAM, type MapTrialResult } from '../../world/map-trial';
+import { MAP_TEST_WINDOW, MAP_TRIAL_MESSAGE, MAP_TRIAL_WAVES_PARAM, type MapTrialResult } from '../../world/map-trial';
 import { VersionHistory, type MapVersion } from '../model/version-store';
 import { biomeById } from '../ops/landscape/biomes';
 import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
@@ -699,9 +699,8 @@ export class EditorSession implements OnDestroy {
     if (blob) download(new Uint8Array(await blob.arrayBuffer()), `${doc.meta.id}.png`, 'image/png');
   }
 
-  /** Saves, then opens the game on this map */
   /**
-   * The game's bot plays the first waves of this map in a new tab at high
+   * The game's bot plays the first waves of this map in the test tab at high
    * speed (`?bot=trial&trialWaves=N`) and sends its result back
    */
   async botCheck(waves = BOT_CHECK_WAVES): Promise<void> {
@@ -725,16 +724,17 @@ export class EditorSession implements OnDestroy {
       window.removeEventListener('message', listen);
       this.stopBotListener = null;
     };
-    window.open(url.toString(), '_blank');
+    window.open(url.toString(), MAP_TEST_WINDOW);
   }
 
+  /** Saves, then opens the game on this map in the test tab (the one tab each test reuses) */
   async testPlay(): Promise<void> {
     const doc = this.doc;
     if (!doc) return;
     if (this.origin() === 'own') await this.save(true);
     const url = new URL(document.baseURI);
     url.searchParams.set(WORLD_URL_PARAM, worldUrlValue({ kind: 'custom-map', mapId: doc.meta.id, contentHash: '' })!);
-    window.open(url.toString(), '_blank');
+    window.open(url.toString(), MAP_TEST_WINDOW);
   }
 
   // ---------------------------------------------------------------- import

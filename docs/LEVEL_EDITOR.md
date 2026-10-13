@@ -27,7 +27,9 @@ Kopie an und öffnet sie.
   Spielrolle neu malen, aus: Kacheln wie im Original), läuft dann im Web Worker
   ([W3X_IMPORT.md](W3X_IMPORT.md)) und zeigt den Bericht: Größe, Bodenschichten, Wasser, woher die
   Straßen kamen, Spawns und Spurlängen, übernommene Doodads, Warnungen; „Open the map“ öffnet sie. Die Karte landet bei den eigenen
-- Die Adresse trägt die offene Karte (`/editor?map=<id>`); Neuladen öffnet sie wieder
+- Die Adresse trägt die offene Karte (`/editor?map=<id>`); Neuladen öffnet sie wieder. Die Seite folgt der Adresse:
+  Zurück im Browser schließt die Karte wie der eigene Zurück-Knopf (erst speichern; scheitert das, bleibt sie offen),
+  Vor öffnet sie wieder
 
 ## Bedienung
 
@@ -243,7 +245,8 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   unverändert über die Migration 1 nach 2
 - Datei-Menü (drei Punkte): Download map file (`.3dtdmap`), Export top view as picture (PNG, 2048 px an der längeren
   Seite), Frame the whole map, Top view
-- „Test map“ speichert und öffnet das Spiel mit `?world=map:<id>` in einem neuen Tab
+- „Test map“ speichert und öffnet das Spiel mit `?world=map:<id>` im Test-Tab: ein Fenster mit festem Namen
+  (`MAP_TEST_WINDOW`, `3dtd-map-test`), das jeder weitere Test und der Bot-Check wiederverwenden, statt Tabs zu stapeln
 - Versionen: jedes Speichern und höchstens alle drei Minuten ein Autosave landen als gepackte Datei in IndexedDB
   (`3dtd-editor-versions`), die letzten 20 je Karte; das Map-Panel (9) listet sie, „Restore“ holt eine zurück (ein
   Undo-Schritt). Ein Absturz kostet so höchstens die Minuten seit dem letzten Autosave

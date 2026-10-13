@@ -22,6 +22,12 @@ export const MAX_MAP_TRIAL_WAVES = 50;
 export const MAP_TRIAL_STALL_MS = 5 * 60_000;
 /** postMessage type of the result */
 export const MAP_TRIAL_MESSAGE = '3dtd-map-trial';
+/**
+ * Name of the window the editor plays a map in ("Test map", the bot's
+ * check): each test reuses it instead of stacking tabs. The desktop app lets
+ * the page open a window of this name only (desktop/src/security.js).
+ */
+export const MAP_TEST_WINDOW = '3dtd-map-test';
 /** The timescale a trial plays at (the bot dashboard's) */
 export const MAP_TRIAL_SPEED = 75;
 
