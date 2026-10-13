@@ -66,6 +66,12 @@ Nur wenn es passiert oder ein Gerät da ist:
 - **A3.2 AppImage (war S5.1):** auf einem Linux-Desktop starten, einen Ort spielen.
 - **A3.3 Hybrid-Laptop (war K8.4):** Task-Manager, Spalte „GPU-Modul“ beim 3DTD-Prozess. *Die dedizierte GPU, ebenso
   im Log `[info] GPU: ... (active)`.*
+  **kaputt (2026-10-13):** Benchmark der Desktop-App v0.7.0 auf einem Laptop mit Ryzen 7 4800H und GTX 1650 Ti meldet
+  „AMD Radeon(TM) Graphics“, die App rendert also auf der integrierten GPU ([BENCHMARKS.md](BENCHMARKS.md), Rechner B).
+  `powerPreference` allein reicht nicht; nächster Schritt `force_high_performance_gpu` (Plan E14, TODO E153). Per
+  Windows-Grafikeinstellung für die 3DTD.exe auf „Hohe Leistung“ etwa doppelt so viele FPS (Rechner B2).
+  **ok mit 0.7.1-beta.1 (2026-10-13):** `force_high_performance_gpu` gesetzt, Windows-Eintrag „Windows
+  entscheiden lassen“ und auch ganz entfernt: Task-Manager zeigt beim 3DTD-Prozess „GPU 1 - 3D“, GPU 1 ist die GTX 1650 Ti.
 
 Offen als Entscheidung, kein Nachtest: **M4/S2.3** „Why this wave“ in Worten war dir „verwirrend, sagt mir alles nichts“
 (2026-10-04); neu gefasst am 2026-10-05, seitdem nicht wieder angesehen. Gehört in TODO.md, falls es bleiben soll.

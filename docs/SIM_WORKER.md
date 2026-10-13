@@ -406,3 +406,5 @@ FPS und langsamste 5 % als Bilder je Sekunde, Worker als Auslastung, „Apply“
 - Das Tempo hält in jeder Stufe (3,97 bis 3,99 bei Tempo 4), 30 Ticks je Sekunde.
 - Die Bildrate fällt ab 15 000 Gegnern bei beiden Tempi gleich: Grenze ist der Hauptthread, nicht der Worker. Ein
   Paket anzuwenden kostet rund 0,5 ms je 1000 Gegner und wächst linear mit (TODO E107).
+
+Ergebnisse des Benchmarks auf weiteren Rechnern: [BENCHMARKS.md](BENCHMARKS.md).

@@ -28,8 +28,6 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 
 - [ ] **E1 Balancing aufrollen**: Phase 1 und 2 gebaut, Baseline und sechs Tuning-Runden gelaufen. Offen: Zielbänder
       (3b) und Kampagnenende (3a), [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
-- [ ] **E98 Druck-Regler getrennt für Luft und Boden** (2026-10-02): Laut Rechnung scheitern schwächere Spieler vor allem
-      an Luft- und Geisterwellen (W17, W27, W44, W50), weil ein Regler für alle Wellen gilt. Nach dem Playtest entscheiden.
 - [ ] **E105 Spieltiefe, Rest der Balance-Nacht**: Schild am Skarnax-Kopf, Gegnereigenschaften Shielded und Aura,
       Mutator „Panzerung +1“.
 - [ ] **E106 Menschenähnlicher Bot** ([BOT_PLAYER_PLAN.md](docs/BOT_PLAYER_PLAN.md), B1 bis B6 auf `next`): offen B7
@@ -38,15 +36,20 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 
 ### Bugs
 
+- [ ] **E153 Desktop-App rendert auf Hybrid-Laptops auf der integrierten GPU** (Benchmark 2026-10-13, hohe Priorität):
+      Ryzen 7 4800H mit GTX 1650 Ti, die App läuft ohne Zutun auf „AMD Radeon(TM) Graphics“. Per Windows-Grafikeinstellung
+      für die 3DTD.exe auf „Hohe Leistung“ gestellt etwa doppelt so viele FPS (5000 Gegner 77 statt 37) und 15 bis 25 %
+      weniger Apply ([BENCHMARKS.md](docs/BENCHMARKS.md), Rechner B und B2). `powerPreference: 'high-performance'`
+      (`three-tiles-engine.ts:73`) reicht unter Electron nicht. Fix: `app.commandLine.appendSwitch('force_high_performance_gpu')`
+      in `desktop/src/main.js` vor `app.whenReady()`; dann auf dem Laptop ohne die Windows-Einstellung prüfen (Task-Manager
+      „GPU-Modul“, Log `[info] GPU: ... (active)`, Benchmark meldet die GTX). PLAYTEST A3.3, Anforderung E14 in
+      [ELECTRON_DESKTOP_PLAN.md](docs/ELECTRON_DESKTOP_PLAN.md). Optional im Browser ein Hinweis, wenn der GPU-Name
+      integrierte Grafik meldet und die Bildrate niedrig ist.
+      **Gebaut 2026-10-13** (`desktop/src/main.js`), mit 0.7.1-beta.1 auf dem Laptop geprüft: läuft auf der GTX (PLAYTEST A3.3).
 - [ ] **C16 Zufalls-Spawn-Portal noch schräg** (User, 2026-09-17, Amsterdam "Westerstraat", nicht reproduziert): Trotz
       Verschieben auf ein gerades Stück (`cbdec4e5`) stand ein Portal schräg. Vermutungen: gerades Stück zu kurz (nur
       bis zur Ebene geprüft, Mindestlänge etwa 25 bis 30 m fehlt) oder die Gegnerlinie schwenkt am Start vom OSM-Punkt
       zur Bandmitte. Erst mit URL oder Snapshot eines neuen Falls debuggen.
-
-- [ ] **E123 Forschungszentrum erst ab der Bauphase vor Welle 2** (User, 2026-10-08): Mit 100 Startgold geht das
-      Zentrum (75) vor Welle 1 zu bauen, danach bleiben 25 und kein Archer (45) ist mehr drin: Welle 1 läuft ohne Tower.
-      Die Karte sperren, bis Welle 1 vorbei ist, mit Grund im Tooltip, wie die Wellen-Sperre der Forschung („Wave 7“);
-      die Sperre gilt auch für Befehle (Bot, Coop) in der Simulation, nicht nur in der Oberfläche.
 
 ### Features
 
@@ -60,6 +63,13 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 - [ ] **E83 AppImage und AUR** (2026-09-30): gebaut 2026-10-05 (statische Laufzeit, Update-Information und `.zsync`,
       AUR-Paket `3dtd-bin` mit CI-Job). Offen beim User: einmal auf Linux starten, AUR-Konto und Secret einrichten
       (PLAYTEST S5); in der CI ist der neue Teil noch nie gelaufen.
+- [ ] **E134 Eigene Karten freigeben** (entschieden 2026-10-11): erst wenn alles Abgestimmte steht (E130 bis E133, auch
+      Wellen-Editor und Zerstörung). Dann `CUSTOM_MAPS_RELEASED` an (`src/app/world/custom-maps-open.ts`) und
+      `.3dtdmap`-Zuordnung im Installer. Die Karten-Daten (194 MB) kommen beim ersten Öffnen einer Karte vom Webserver
+      (Fortschritt, danach Cache; die Desktop-App legt sie auf die Platte), nicht im Installer. Die Level bleiben eine
+      einfache Liste (keine Bestwerte, keine Kampagne).
+      Vorbereitet 2026-10-12: Nachladen mit Cache und Fortschritt (`map-data.ts`, `mapData` in der runtime-config);
+      offen: Daten auf den Webserver, CORS, CSP der Desktop-App ([CUSTOM_MAP_WORLD.md](docs/CUSTOM_MAP_WORLD.md#laden)).
 
 ### Assets
 
@@ -72,8 +82,6 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 - [ ] **E12 Heilung oder kürzere Kampagne?** (User, 2026-09-26: vertagt bis zu eigenen langen Läufen, Tendenz "so
       lassen"): Der Könner verliert in W24-29 je 8 bis 14 HP und nichts heilt; die drei Antworten stehen in
       [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md), "Was das Tuning nicht lösen kann". Hängt an D10.
-- [ ] **E68 Pool-Größen** (Geschoss-Spuren, Schadenszahlen): die Suche im vollen Pool ist behoben (`778343c2`, 31 bis
-      50 statt 18 bis 25 FPS bei 5000 Gegnern); 2- und 4-fache Größe waren wieder langsamer. Vorschlag: Größen lassen.
 
 ### Review-Reste
 
@@ -88,6 +96,18 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 ---
 
 ## 2. Gebaut, wartet auf Test
+
+### Nachtschicht 2026-10-12 (auf `next`, nicht gepusht)
+
+- [ ] **Abgestimmte Runde** E136 E137 E138 E141 E142 E143 E144 E145 E146 E151 E152: PLAYTEST X1 bis X11.
+- [ ] **Optik-Runde** E140 E147 E148 E149 E150 (Wahl auf der Auswahlseite): PLAYTEST X12 bis X15.
+- [ ] **E135 Replay an einem anderen Ort** (`f359a5d1`): Datei trägt den Ort, „Go to <Ort> and play“: PLAYTEST X16.
+- [ ] **E139 Söldner-Ton** neu (`hero_hire_bolt` v1): Söldner anheuern und hinhören.
+- [ ] **Eigene Karten** (gesperrt): Spurenwahl E130, Zerstörung in der Simulation E131 (Endzeit-Stadt zerstörbar), Regeln
+      E132 (waren gebaut), vier Level E133 ([SHOWCASE_LEVELS.md](docs/SHOWCASE_LEVELS.md), Kartenprobe grün).
+- [ ] **Nachmittag 2026-10-12**: Minikarte (Drehung, glatter, ziehen, Ansicht Map, einklappbar), Benchmark bis 25k,
+      Kartenserver-Ausfall mit Meldung und Neuversuch, Tiles und Sinkflug auf der Ladeplatte, Tipp weicht der Liste,
+      E123 Forschungszentrum ab Welle 2 (Simulation, Karte, Bot): PLAYTEST Y1 bis Y5.
 
 ### Beim nächsten Release testen
 
@@ -117,6 +137,13 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 
 - [ ] **E93 Route, Zellen, Spawn und HQ schweben nach dem Laden**: Neubau der Region im neuen Rahmen gebaut; im Spiel
       bestätigen. Tritt es wieder auf: [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md), „Vorgehen, wenn die Route wieder schwebt“.
+
+### Eigene Karten und Map-Editor (2026-10-11, auf `next`, gesperrt)
+
+- [ ] **E61, E129** gebaut: Welt-Anbieter statt DevWorld-Sonderwege, eigene Karten mit Editor, W3X-Import, eigene
+      3D-Tiles-Sets, Kartenordner in der Desktop-App, acht mitgelieferte Level
+      ([CUSTOM_MAP_WORLD.md](docs/CUSTOM_MAP_WORLD.md), [LEVEL_EDITOR.md](docs/LEVEL_EDITOR.md)). Gesperrt bis E134:
+      Knöpfe grau, Links und `public/maps` nur im Dev-Build. PLAYTEST V1 bis V4 (normales Spiel nach dem Umbau).
 
 ### Hauptmenü und Spieloptik (2026-10-09, auf `next`)
 
@@ -195,7 +222,9 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 - [ ] **E56 Eigenes Spielfeld aus Photogrammetrie** (z. B. der eigene Garten): `TerrainProvider` auf das Mesh, Wege
       ohne OSM (größter Brocken), Maßstab, glTF-Import; verwandt Mond/Mars mit anderem Ellipsoid.
 - [ ] **E60 Versus-Modus** (im Lobby-Umschalter als SOON, COOP_PLAN D39): Form offen.
-- [ ] **E61 DevWorld als Spielfeld**: prozedurale Karten als volles Spiel ohne Google-Tiles, später ein Editor.
+- [ ] **E128 OSM-Welt ohne Token** (Idee, User 2026-10-11): überall spielbar ohne Kacheln. Gelände aus freien Höhendaten
+      (Terrarium, Copernicus), Gebäude aus OSM-Grundrissen und Höhen generiert und prozedural texturiert, Boden aus der
+      Landnutzung; stilisierter Look. Eigener `TerrainProvider` wie DevWorld, Gebäudedaten ggf. aus Vektorkacheln.
 - [ ] **E108 Kampfzonen-Heatmap** (Schicht 2 der Studie, [COMBAT_HEATMAP_STUDY.md](docs/archive/COMBAT_HEATMAP_STUDY.md)):
       Kills je Route-Grid-Zelle mit Farbrampe, in der Bauphase als Bild der letzten Welle, in der Welle per Taste;
       Aufwand M laut Studie. Schicht 1 (Kampfspuren) ist gebaut.
@@ -206,6 +235,8 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 
 ## Entschieden (keine Arbeit)
 
+- **E68 Pool-Größen** (User, 2026-10-11): bleiben; die Suche im vollen Pool ist behoben (`778343c2`), größere Pools waren
+  langsamer.
 Vom User am 2026-09-16 entschieden, festgehalten in DONE.md (2026-09-16, "Entscheidungen des Users") und in der
 jeweiligen Fach-Doku.
 
@@ -223,6 +254,8 @@ jeweiligen Fach-Doku.
 
 ## Verworfen (nicht erneut angehen)
 
+- **E98 Druck-Regler getrennt für Luft und Boden** (User, 2026-10-11): verworfen; ein Regler bleibt, Luftwellen bei
+  Bedarf über die Plan-Zeilen.
 - **Sichtmaske im Coop nur vom Host annehmen** (E92; User 2026-10-01): `command:los-mask` gilt nur für einen
   wartenden Tower mit passender Generation, die erste Antwort gewinnt. Ein umgebauter Gast könnte nur direkt nach
   Setzen, Reichweiten-Upgrade oder Luftziel-Forschung schneller antworten als der Host. Coop läuft unter Freunden;

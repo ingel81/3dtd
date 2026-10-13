@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 548" width="820" height="548" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<rect width="820" height="548" fill="#ffffff"/>
+<text x="64" y="28" font-size="17" font-weight="600" fill="#1d1f1c">Hauptthread-Zeit je Paket (Apply) in ms, niedriger ist besser</text>
+<line x1="64" x2="796" y1="364" y2="364" stroke="#e3e3df"/>
+<text x="56" y="368" font-size="12" text-anchor="end" fill="#5c5f58">0</text>
+<line x1="64" x2="796" y1="336.72727272727275" y2="336.72727272727275" stroke="#e3e3df"/>
+<text x="56" y="340.72727272727275" font-size="12" text-anchor="end" fill="#5c5f58">2</text>
+<line x1="64" x2="796" y1="309.45454545454544" y2="309.45454545454544" stroke="#e3e3df"/>
+<text x="56" y="313.45454545454544" font-size="12" text-anchor="end" fill="#5c5f58">4</text>
+<line x1="64" x2="796" y1="282.1818181818182" y2="282.1818181818182" stroke="#e3e3df"/>
+<text x="56" y="286.1818181818182" font-size="12" text-anchor="end" fill="#5c5f58">6</text>
+<line x1="64" x2="796" y1="254.9090909090909" y2="254.9090909090909" stroke="#e3e3df"/>
+<text x="56" y="258.9090909090909" font-size="12" text-anchor="end" fill="#5c5f58">8</text>
+<line x1="64" x2="796" y1="227.63636363636365" y2="227.63636363636365" stroke="#e3e3df"/>
+<text x="56" y="231.63636363636365" font-size="12" text-anchor="end" fill="#5c5f58">10</text>
+<line x1="64" x2="796" y1="200.36363636363637" y2="200.36363636363637" stroke="#e3e3df"/>
+<text x="56" y="204.36363636363637" font-size="12" text-anchor="end" fill="#5c5f58">12</text>
+<line x1="64" x2="796" y1="173.0909090909091" y2="173.0909090909091" stroke="#e3e3df"/>
+<text x="56" y="177.0909090909091" font-size="12" text-anchor="end" fill="#5c5f58">14</text>
+<line x1="64" x2="796" y1="145.8181818181818" y2="145.8181818181818" stroke="#e3e3df"/>
+<text x="56" y="149.8181818181818" font-size="12" text-anchor="end" fill="#5c5f58">16</text>
+<line x1="64" x2="796" y1="118.54545454545453" y2="118.54545454545453" stroke="#e3e3df"/>
+<text x="56" y="122.54545454545453" font-size="12" text-anchor="end" fill="#5c5f58">18</text>
+<line x1="64" x2="796" y1="91.27272727272731" y2="91.27272727272731" stroke="#e3e3df"/>
+<text x="56" y="95.27272727272731" font-size="12" text-anchor="end" fill="#5c5f58">20</text>
+<line x1="64" x2="796" y1="64" y2="64" stroke="#e3e3df"/>
+<text x="56" y="68" font-size="12" text-anchor="end" fill="#5c5f58">22</text>
+<text x="64" y="384" font-size="12" text-anchor="middle" fill="#5c5f58">2.000</text>
+<text x="210.4" y="384" font-size="12" text-anchor="middle" fill="#5c5f58">5.000</text>
+<text x="356.8" y="384" font-size="12" text-anchor="middle" fill="#5c5f58">10.000</text>
+<text x="503.2" y="384" font-size="12" text-anchor="middle" fill="#5c5f58">15.000</text>
+<text x="649.6" y="384" font-size="12" text-anchor="middle" fill="#5c5f58">20.000</text>
+<text x="796" y="384" font-size="12" text-anchor="middle" fill="#5c5f58">25.000</text>
+<text x="430" y="402" font-size="12" text-anchor="middle" fill="#5c5f58">Gegner (Tempo 1)</text>
+<text transform="translate(16 214) rotate(-90)" font-size="12" text-anchor="middle" fill="#5c5f58">ms</text>
+<line x1="64" x2="64" y1="64" y2="364" stroke="#9a9d95"/>
+<line x1="64" x2="796" y1="364" y2="364" stroke="#9a9d95"/>
+<line x1="64" x2="796" y1="137.6363636363636" y2="137.6363636363636" stroke="#b03a2e" stroke-dasharray="6 4"/>
+<text x="70" y="131.6363636363636" font-size="12" fill="#b03a2e">16,6 ms = ein Bild bei 60 FPS</text>
+<polyline fill="none" stroke="#2f63b0" stroke-width="2.5" points="64,349 210.4,338.5 356.8,318.04545454545456 503.2,298.9545454545455 649.6,281.0909090909091 796,261.04545454545456"/>
+<circle cx="64" cy="349" r="4" fill="#2f63b0"/>
+<circle cx="210.4" cy="338.5" r="4" fill="#2f63b0"/>
+<circle cx="356.8" cy="318.04545454545456" r="4" fill="#2f63b0"/>
+<circle cx="503.2" cy="298.9545454545455" r="4" fill="#2f63b0"/>
+<circle cx="649.6" cy="281.0909090909091" r="4" fill="#2f63b0"/>
+<circle cx="796" cy="261.04545454545456" r="4" fill="#2f63b0"/>
+<polyline fill="none" stroke="#d9772b" stroke-width="2.5" points="64,334.1363636363636 210.4,309.8636363636364 356.8,264.04545454545456 503.2,216.86363636363637 649.6,175.13636363636365 796,114.04545454545456"/>
+<circle cx="64" cy="334.1363636363636" r="4" fill="#d9772b"/>
+<circle cx="210.4" cy="309.8636363636364" r="4" fill="#d9772b"/>
+<circle cx="356.8" cy="264.04545454545456" r="4" fill="#d9772b"/>
+<circle cx="503.2" cy="216.86363636363637" r="4" fill="#d9772b"/>
+<circle cx="649.6" cy="175.13636363636365" r="4" fill="#d9772b"/>
+<circle cx="796" cy="114.04545454545456" r="4" fill="#d9772b"/>
+<polyline fill="none" stroke="#2f9150" stroke-width="2.5" points="64,339.5909090909091 210.4,322.95454545454544 356.8,283 503.2,242.22727272727275 649.6,200.77272727272728 796,153.3181818181818"/>
+<circle cx="64" cy="339.5909090909091" r="4" fill="#2f9150"/>
+<circle cx="210.4" cy="322.95454545454544" r="4" fill="#2f9150"/>
+<circle cx="356.8" cy="283" r="4" fill="#2f9150"/>
+<circle cx="503.2" cy="242.22727272727275" r="4" fill="#2f9150"/>
+<circle cx="649.6" cy="200.77272727272728" r="4" fill="#2f9150"/>
+<circle cx="796" cy="153.3181818181818" r="4" fill="#2f9150"/>
+<polyline fill="none" stroke="#a23b9a" stroke-width="2.5" points="64,348.3181818181818 210.4,328.1363636363636 356.8,293.0909090909091 503.2,258.04545454545456 649.6,233.0909090909091 796,193.54545454545453"/>
+<circle cx="64" cy="348.3181818181818" r="4" fill="#a23b9a"/>
+<circle cx="210.4" cy="328.1363636363636" r="4" fill="#a23b9a"/>
+<circle cx="356.8" cy="293.0909090909091" r="4" fill="#a23b9a"/>
+<circle cx="503.2" cy="258.04545454545456" r="4" fill="#a23b9a"/>
+<circle cx="649.6" cy="233.0909090909091" r="4" fill="#a23b9a"/>
+<circle cx="796" cy="193.54545454545453" r="4" fill="#a23b9a"/>
+<text x="70" y="325.1363636363636" font-size="11" font-weight="600" text-anchor="start" fill="#d9772b" stroke="#ffffff" stroke-width="3" paint-order="stroke">2,2</text>
+<text x="70" y="356.5909090909091" font-size="11" font-weight="600" text-anchor="start" fill="#2f9150" stroke="#ffffff" stroke-width="3" paint-order="stroke">1,8</text>
+<text x="70" y="369.5909090909091" font-size="11" font-weight="600" text-anchor="start" fill="#a23b9a" stroke="#ffffff" stroke-width="3" paint-order="stroke">1,1</text>
+<text x="70" y="382.5909090909091" font-size="11" font-weight="600" text-anchor="start" fill="#2f63b0" stroke="#ffffff" stroke-width="3" paint-order="stroke">1,1</text>
+<text x="210.4" y="300.8636363636364" font-size="11" font-weight="600" text-anchor="middle" fill="#d9772b" stroke="#ffffff" stroke-width="3" paint-order="stroke">4,0</text>
+<text x="210.4" y="339.95454545454544" font-size="11" font-weight="600" text-anchor="middle" fill="#2f9150" stroke="#ffffff" stroke-width="3" paint-order="stroke">3,0</text>
+<text x="210.4" y="352.95454545454544" font-size="11" font-weight="600" text-anchor="middle" fill="#a23b9a" stroke="#ffffff" stroke-width="3" paint-order="stroke">2,6</text>
+<text x="210.4" y="365.95454545454544" font-size="11" font-weight="600" text-anchor="middle" fill="#2f63b0" stroke="#ffffff" stroke-width="3" paint-order="stroke">1,9</text>
+<text x="356.8" y="255.04545454545456" font-size="11" font-weight="600" text-anchor="middle" fill="#d9772b" stroke="#ffffff" stroke-width="3" paint-order="stroke">7,3</text>
+<text x="356.8" y="300" font-size="11" font-weight="600" text-anchor="middle" fill="#2f9150" stroke="#ffffff" stroke-width="3" paint-order="stroke">5,9</text>
+<text x="356.8" y="313" font-size="11" font-weight="600" text-anchor="middle" fill="#a23b9a" stroke="#ffffff" stroke-width="3" paint-order="stroke">5,2</text>
+<text x="356.8" y="335.04545454545456" font-size="11" font-weight="600" text-anchor="middle" fill="#2f63b0" stroke="#ffffff" stroke-width="3" paint-order="stroke">3,4</text>
+<text x="503.2" y="207.86363636363637" font-size="11" font-weight="600" text-anchor="middle" fill="#d9772b" stroke="#ffffff" stroke-width="3" paint-order="stroke">10,8</text>
+<text x="503.2" y="259.22727272727275" font-size="11" font-weight="600" text-anchor="middle" fill="#2f9150" stroke="#ffffff" stroke-width="3" paint-order="stroke">8,9</text>
+<text x="503.2" y="275.04545454545456" font-size="11" font-weight="600" text-anchor="middle" fill="#a23b9a" stroke="#ffffff" stroke-width="3" paint-order="stroke">7,8</text>
+<text x="503.2" y="315.9545454545455" font-size="11" font-weight="600" text-anchor="middle" fill="#2f63b0" stroke="#ffffff" stroke-width="3" paint-order="stroke">4,8</text>
+<text x="649.6" y="166.13636363636365" font-size="11" font-weight="600" text-anchor="middle" fill="#d9772b" stroke="#ffffff" stroke-width="3" paint-order="stroke">13,8</text>
+<text x="649.6" y="217.77272727272728" font-size="11" font-weight="600" text-anchor="middle" fill="#2f9150" stroke="#ffffff" stroke-width="3" paint-order="stroke">12,0</text>
+<text x="649.6" y="250.0909090909091" font-size="11" font-weight="600" text-anchor="middle" fill="#a23b9a" stroke="#ffffff" stroke-width="3" paint-order="stroke">9,6</text>
+<text x="649.6" y="298.0909090909091" font-size="11" font-weight="600" text-anchor="middle" fill="#2f63b0" stroke="#ffffff" stroke-width="3" paint-order="stroke">6,1</text>
+<text x="790" y="105.04545454545456" font-size="11" font-weight="600" text-anchor="end" fill="#d9772b" stroke="#ffffff" stroke-width="3" paint-order="stroke">18,3</text>
+<text x="790" y="170.3181818181818" font-size="11" font-weight="600" text-anchor="end" fill="#2f9150" stroke="#ffffff" stroke-width="3" paint-order="stroke">15,4</text>
+<text x="790" y="210.54545454545453" font-size="11" font-weight="600" text-anchor="end" fill="#a23b9a" stroke="#ffffff" stroke-width="3" paint-order="stroke">12,5</text>
+<text x="790" y="278.04545454545456" font-size="11" font-weight="600" text-anchor="end" fill="#2f63b0" stroke="#ffffff" stroke-width="3" paint-order="stroke">7,5</text>
+<line x1="64" x2="90" y1="426" y2="426" stroke="#2f63b0" stroke-width="3"/>
+<circle cx="77" cy="426" r="4" fill="#2f63b0"/>
+<text x="100" y="430" font-size="13" fill="#1d1f1c">A: AMD Ryzen 9 9950X3D, NVIDIA GeForce RTX 5080 (v0.7.0, 2026-10-13)</text>
+<line x1="64" x2="90" y1="448" y2="448" stroke="#d9772b" stroke-width="3"/>
+<circle cx="77" cy="448" r="4" fill="#d9772b"/>
+<text x="100" y="452" font-size="13" fill="#1d1f1c">B: AMD Ryzen 7 4800H, AMD Radeon Graphics (integriert) (v0.7.0, 2026-10-13)</text>
+<line x1="64" x2="90" y1="470" y2="470" stroke="#2f9150" stroke-width="3"/>
+<circle cx="77" cy="470" r="4" fill="#2f9150"/>
+<text x="100" y="474" font-size="13" fill="#1d1f1c">B2: AMD Ryzen 7 4800H (Maschine B), NVIDIA GeForce GTX 1650 Ti (dediziert) (v0.7.0, 2026-10-13)</text>
+<line x1="64" x2="90" y1="492" y2="492" stroke="#a23b9a" stroke-width="3"/>
+<circle cx="77" cy="492" r="4" fill="#a23b9a"/>
+<text x="100" y="496" font-size="13" fill="#1d1f1c">C: Intel Core i9-9900K, NVIDIA GeForce RTX 3080 Ti (v0.7.0, 2026-10-13)</text>
+<text x="64" y="536" font-size="11" fill="#5c5f58">Unabhängig vom Monitor. Aus docs/BENCHMARKS.md, npm run benchmark-chart.</text>
+</svg>

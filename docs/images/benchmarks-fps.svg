@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 548" width="820" height="548" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<rect width="820" height="548" fill="#ffffff"/>
+<text x="64" y="28" font-size="17" font-weight="600" fill="#1d1f1c">FPS je Gegnerzahl, höher ist besser</text>
+<line x1="64" x2="796" y1="364" y2="364" stroke="#e3e3df"/>
+<text x="56" y="368" font-size="12" text-anchor="end" fill="#5c5f58">0</text>
+<line x1="64" x2="796" y1="326.5" y2="326.5" stroke="#e3e3df"/>
+<text x="56" y="330.5" font-size="12" text-anchor="end" fill="#5c5f58">20</text>
+<line x1="64" x2="796" y1="289" y2="289" stroke="#e3e3df"/>
+<text x="56" y="293" font-size="12" text-anchor="end" fill="#5c5f58">40</text>
+<line x1="64" x2="796" y1="251.5" y2="251.5" stroke="#e3e3df"/>
+<text x="56" y="255.5" font-size="12" text-anchor="end" fill="#5c5f58">60</text>
+<line x1="64" x2="796" y1="214" y2="214" stroke="#e3e3df"/>
+<text x="56" y="218" font-size="12" text-anchor="end" fill="#5c5f58">80</text>
+<line x1="64" x2="796" y1="176.5" y2="176.5" stroke="#e3e3df"/>
+<text x="56" y="180.5" font-size="12" text-anchor="end" fill="#5c5f58">100</text>
+<line x1="64" x2="796" y1="139" y2="139" stroke="#e3e3df"/>
+<text x="56" y="143" font-size="12" text-anchor="end" fill="#5c5f58">120</text>
+<line x1="64" x2="796" y1="101.5" y2="101.5" stroke="#e3e3df"/>
+<text x="56" y="105.5" font-size="12" text-anchor="end" fill="#5c5f58">140</text>
+<line x1="64" x2="796" y1="64" y2="64" stroke="#e3e3df"/>
+<text x="56" y="68" font-size="12" text-anchor="end" fill="#5c5f58">160</text>
+<text x="64" y="384" font-size="12" text-anchor="middle" fill="#5c5f58">2.000</text>
+<text x="210.4" y="384" font-size="12" text-anchor="middle" fill="#5c5f58">5.000</text>
+<text x="356.8" y="384" font-size="12" text-anchor="middle" fill="#5c5f58">10.000</text>
+<text x="503.2" y="384" font-size="12" text-anchor="middle" fill="#5c5f58">15.000</text>
+<text x="649.6" y="384" font-size="12" text-anchor="middle" fill="#5c5f58">20.000</text>
+<text x="796" y="384" font-size="12" text-anchor="middle" fill="#5c5f58">25.000</text>
+<text x="430" y="402" font-size="12" text-anchor="middle" fill="#5c5f58">Gegner (Tempo 1)</text>
+<text transform="translate(16 214) rotate(-90)" font-size="12" text-anchor="middle" fill="#5c5f58">FPS</text>
+<line x1="64" x2="64" y1="64" y2="364" stroke="#9a9d95"/>
+<line x1="64" x2="796" y1="364" y2="364" stroke="#9a9d95"/>
+<polyline fill="none" stroke="#2f63b0" stroke-width="2.5" points="64,94 210.4,94 356.8,94 503.2,180.25 649.6,219.625 796,230.875"/>
+<circle cx="64" cy="94" r="4" fill="#2f63b0"/>
+<circle cx="210.4" cy="94" r="4" fill="#2f63b0"/>
+<circle cx="356.8" cy="94" r="4" fill="#2f63b0"/>
+<circle cx="503.2" cy="180.25" r="4" fill="#2f63b0"/>
+<circle cx="649.6" cy="219.625" r="4" fill="#2f63b0"/>
+<circle cx="796" cy="230.875" r="4" fill="#2f63b0"/>
+<polyline fill="none" stroke="#d9772b" stroke-width="2.5" points="64,242.125 210.4,294.625 356.8,324.625 503.2,335.875 649.6,341.5 796,347.125"/>
+<circle cx="64" cy="242.125" r="4" fill="#d9772b"/>
+<circle cx="210.4" cy="294.625" r="4" fill="#d9772b"/>
+<circle cx="356.8" cy="324.625" r="4" fill="#d9772b"/>
+<circle cx="503.2" cy="335.875" r="4" fill="#d9772b"/>
+<circle cx="649.6" cy="341.5" r="4" fill="#d9772b"/>
+<circle cx="796" cy="347.125" r="4" fill="#d9772b"/>
+<polyline fill="none" stroke="#2f9150" stroke-width="2.5" points="64,94 210.4,219.625 356.8,300.25 503.2,322.75 649.6,332.125 796,337.75"/>
+<circle cx="64" cy="94" r="4" fill="#2f9150"/>
+<circle cx="210.4" cy="219.625" r="4" fill="#2f9150"/>
+<circle cx="356.8" cy="300.25" r="4" fill="#2f9150"/>
+<circle cx="503.2" cy="322.75" r="4" fill="#2f9150"/>
+<circle cx="649.6" cy="332.125" r="4" fill="#2f9150"/>
+<circle cx="796" cy="337.75" r="4" fill="#2f9150"/>
+<polyline fill="none" stroke="#a23b9a" stroke-width="2.5" points="64,251.5 210.4,251.5 356.8,251.5 503.2,251.5 649.6,251.5 796,259"/>
+<circle cx="64" cy="251.5" r="4" fill="#a23b9a"/>
+<circle cx="210.4" cy="251.5" r="4" fill="#a23b9a"/>
+<circle cx="356.8" cy="251.5" r="4" fill="#a23b9a"/>
+<circle cx="503.2" cy="251.5" r="4" fill="#a23b9a"/>
+<circle cx="649.6" cy="251.5" r="4" fill="#a23b9a"/>
+<circle cx="796" cy="259" r="4" fill="#a23b9a"/>
+<text x="70" y="85" font-size="11" font-weight="600" text-anchor="start" fill="#2f63b0" stroke="#ffffff" stroke-width="3" paint-order="stroke">144</text>
+<text x="70" y="111" font-size="11" font-weight="600" text-anchor="start" fill="#2f9150" stroke="#ffffff" stroke-width="3" paint-order="stroke">144</text>
+<text x="70" y="259.125" font-size="11" font-weight="600" text-anchor="start" fill="#d9772b" stroke="#ffffff" stroke-width="3" paint-order="stroke">65</text>
+<text x="70" y="272.125" font-size="11" font-weight="600" text-anchor="start" fill="#a23b9a" stroke="#ffffff" stroke-width="3" paint-order="stroke">60</text>
+<text x="210.4" y="85" font-size="11" font-weight="600" text-anchor="middle" fill="#2f63b0" stroke="#ffffff" stroke-width="3" paint-order="stroke">144</text>
+<text x="210.4" y="236.625" font-size="11" font-weight="600" text-anchor="middle" fill="#2f9150" stroke="#ffffff" stroke-width="3" paint-order="stroke">77</text>
+<text x="210.4" y="268.5" font-size="11" font-weight="600" text-anchor="middle" fill="#a23b9a" stroke="#ffffff" stroke-width="3" paint-order="stroke">60</text>
+<text x="210.4" y="311.625" font-size="11" font-weight="600" text-anchor="middle" fill="#d9772b" stroke="#ffffff" stroke-width="3" paint-order="stroke">37</text>
+<text x="356.8" y="85" font-size="11" font-weight="600" text-anchor="middle" fill="#2f63b0" stroke="#ffffff" stroke-width="3" paint-order="stroke">144</text>
+<text x="356.8" y="268.5" font-size="11" font-weight="600" text-anchor="middle" fill="#a23b9a" stroke="#ffffff" stroke-width="3" paint-order="stroke">60</text>
+<text x="356.8" y="317.25" font-size="11" font-weight="600" text-anchor="middle" fill="#2f9150" stroke="#ffffff" stroke-width="3" paint-order="stroke">34</text>
+<text x="356.8" y="341.625" font-size="11" font-weight="600" text-anchor="middle" fill="#d9772b" stroke="#ffffff" stroke-width="3" paint-order="stroke">21</text>
+<text x="503.2" y="171.25" font-size="11" font-weight="600" text-anchor="middle" fill="#2f63b0" stroke="#ffffff" stroke-width="3" paint-order="stroke">98</text>
+<text x="503.2" y="268.5" font-size="11" font-weight="600" text-anchor="middle" fill="#a23b9a" stroke="#ffffff" stroke-width="3" paint-order="stroke">60</text>
+<text x="503.2" y="339.75" font-size="11" font-weight="600" text-anchor="middle" fill="#2f9150" stroke="#ffffff" stroke-width="3" paint-order="stroke">22</text>
+<text x="503.2" y="352.875" font-size="11" font-weight="600" text-anchor="middle" fill="#d9772b" stroke="#ffffff" stroke-width="3" paint-order="stroke">15</text>
+<text x="649.6" y="210.625" font-size="11" font-weight="600" text-anchor="middle" fill="#2f63b0" stroke="#ffffff" stroke-width="3" paint-order="stroke">77</text>
+<text x="649.6" y="268.5" font-size="11" font-weight="600" text-anchor="middle" fill="#a23b9a" stroke="#ffffff" stroke-width="3" paint-order="stroke">60</text>
+<text x="649.6" y="349.125" font-size="11" font-weight="600" text-anchor="middle" fill="#2f9150" stroke="#ffffff" stroke-width="3" paint-order="stroke">17</text>
+<text x="649.6" y="362.125" font-size="11" font-weight="600" text-anchor="middle" fill="#d9772b" stroke="#ffffff" stroke-width="3" paint-order="stroke">12</text>
+<text x="790" y="221.875" font-size="11" font-weight="600" text-anchor="end" fill="#2f63b0" stroke="#ffffff" stroke-width="3" paint-order="stroke">71</text>
+<text x="790" y="276" font-size="11" font-weight="600" text-anchor="end" fill="#a23b9a" stroke="#ffffff" stroke-width="3" paint-order="stroke">56</text>
+<text x="790" y="354.75" font-size="11" font-weight="600" text-anchor="end" fill="#2f9150" stroke="#ffffff" stroke-width="3" paint-order="stroke">14</text>
+<text x="790" y="367.75" font-size="11" font-weight="600" text-anchor="end" fill="#d9772b" stroke="#ffffff" stroke-width="3" paint-order="stroke">9</text>
+<line x1="64" x2="90" y1="426" y2="426" stroke="#2f63b0" stroke-width="3"/>
+<circle cx="77" cy="426" r="4" fill="#2f63b0"/>
+<text x="100" y="430" font-size="13" fill="#1d1f1c">A: AMD Ryzen 9 9950X3D, NVIDIA GeForce RTX 5080 (v0.7.0, 2026-10-13), Monitor 144 Hz</text>
+<line x1="64" x2="90" y1="448" y2="448" stroke="#d9772b" stroke-width="3"/>
+<circle cx="77" cy="448" r="4" fill="#d9772b"/>
+<text x="100" y="452" font-size="13" fill="#1d1f1c">B: AMD Ryzen 7 4800H, AMD Radeon Graphics (integriert) (v0.7.0, 2026-10-13), Monitor 144 Hz</text>
+<line x1="64" x2="90" y1="470" y2="470" stroke="#2f9150" stroke-width="3"/>
+<circle cx="77" cy="470" r="4" fill="#2f9150"/>
+<text x="100" y="474" font-size="13" fill="#1d1f1c">B2: AMD Ryzen 7 4800H (Maschine B), NVIDIA GeForce GTX 1650 Ti (dediziert) (v0.7.0, 2026-10-13), Monitor 144 Hz</text>
+<line x1="64" x2="90" y1="492" y2="492" stroke="#a23b9a" stroke-width="3"/>
+<circle cx="77" cy="492" r="4" fill="#a23b9a"/>
+<text x="100" y="496" font-size="13" fill="#1d1f1c">C: Intel Core i9-9900K, NVIDIA GeForce RTX 3080 Ti (v0.7.0, 2026-10-13), Monitor 60 Hz</text>
+<text x="64" y="536" font-size="11" fill="#5c5f58">FPS sind von der Bildwiederholrate des Monitors gedeckelt; vergleichbar ist nur, wo eine Linie darunter fällt. Aus docs/BENCHMARKS.md.</text>
+</svg>
