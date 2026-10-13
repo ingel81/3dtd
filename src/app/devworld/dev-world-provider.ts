@@ -25,6 +25,7 @@ export const DEV_WORLD_CAPABILITIES: WorldCapabilities = {
   regenerate: true,
   destructible: false,
   ownEnvironment: false,
+  enemyRimLight: false,
   controls: 'environment',
 };
 

@@ -442,6 +442,11 @@ export class InstancedEnemyRenderer {
     this.instanceManager.setFreezeTintEnabled(enabled);
   }
 
+  /** Rim light of every enemy, see EnemyInstanceManager.setRimLight. */
+  setRimLight(strength: number): void {
+    this.instanceManager.setRimLight(strength);
+  }
+
   /** Blood moon glow and tint, see EnemyInstanceManager.setBloodMoon. */
   setBloodMoon(amount: number, linearOutput: boolean): void {
     this.instanceManager.setBloodMoon(amount, linearOutput);

@@ -62,6 +62,16 @@ describe('createVATMaterial blood moon', () => {
     expect(b.uniforms['bloodMoonTint']).toBe(shared.bloodMoonTint);
   });
 
+  it('shares the rim light it is given and has none without it (tiles)', () => {
+    const rim = { value: 0.55 };
+    const a = createVATMaterial(vatWith({ mode: 'opaque', cutoff: 0 }), { rimLight: rim });
+    const b = createVATMaterial(vatWith({ mode: 'mask', cutoff: 0.5 }), { rimLight: rim });
+    expect(a.uniforms['uRimLight']).toBe(rim);
+    expect(b.uniforms['uRimLight']).toBe(rim);
+    expect(createVATMaterial(vatWith({ mode: 'opaque', cutoff: 0 })).uniforms['uRimLight'].value).toBe(0);
+    expect(a.fragmentShader).toContain('if (uRimLight > 0.0)');
+  });
+
   it('rests without them: no glow, no tint', () => {
     const material = createVATMaterial(vatWith({ mode: 'opaque', cutoff: 0 }));
     expect(material.uniforms['bloodMoonGlow'].value).toBe(0);

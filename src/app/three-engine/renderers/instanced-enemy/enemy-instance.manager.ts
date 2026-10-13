@@ -216,6 +216,8 @@ export class EnemyInstanceManager {
   private readonly bloodMoon = createVATBloodMoonUniforms();
   /** Seconds the camouflage shimmer has run (vat-material.ts uCamoTime), shared by every type */
   private readonly camoTime = { value: 0 };
+  /** Rim light strength (vat-material.ts uRimLight), shared by every type, see setRimLight() */
+  private readonly rimLight = { value: 0 };
 
   // Reusable temp objects
   private readonly matrix = new Matrix4();
@@ -263,6 +265,7 @@ export class EnemyInstanceManager {
       portalClip: this.portalClip,
       stateLerp: this.stateLerp.uniform,
       camoTime: this.camoTime,
+      rimLight: this.rimLight,
     });
     const instancedMesh = new InstancedMesh(
       vatData.geometry,
@@ -580,6 +583,11 @@ export class EnemyInstanceManager {
 
   /** VFX setting freezeTint; while off a slowed enemy shows no freeze tint. */
   private freezeTint = true;
+
+  /** Rim light of every type, pools created later included; 0 turns it off (tiles) */
+  setRimLight(strength: number): void {
+    this.rimLight.value = strength;
+  }
 
   /**
    * Blood moon look at `amount` (0..1, BloodMoonLook): the glow of every

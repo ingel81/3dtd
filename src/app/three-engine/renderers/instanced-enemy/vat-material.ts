@@ -47,6 +47,8 @@ export interface VATMaterialOptions {
   stateLerp?: IUniform<number>;
   /** Seconds the camouflage shimmer has run, shared by every type; without it a still pattern */
   camoTime?: IUniform<number>;
+  /** Strength of the rim light (the world's enemyRimLight), shared by every type; without it none */
+  rimLight?: IUniform<number>;
 }
 
 /**
@@ -67,6 +69,9 @@ export interface VATMaterialOptions {
  *     revealed by a scout (a cold rim), 0 none
  *   aPrevOffset (vec3) - from the state's position back to where the body
  *     was shown before it; the body slides in over uStateLerp (state-lerp.ts)
+ *
+ * Rim light (rimLight, shared by every type): a cool edge on custom maps,
+ * none on tiles.
  *
  * Blood moon (VATBloodMoonUniforms, shared by every type): a rim glow while
  * bloodMoonGlow is above 0, and for blending types the mood's multiplier.
@@ -94,6 +99,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     ...portalClip,
     uStateLerp: options?.stateLerp ?? { value: 1 },
     uCamoTime: options?.camoTime ?? { value: 0 },
+    uRimLight: options?.rimLight ?? { value: 0 },
     bloodMoonGlowColor: { value: new Vector3(glow.color.r, glow.color.g, glow.color.b) },
     bloodMoonRim: { value: glow.rim },
     bloodMoonBase: { value: glow.base },
@@ -210,6 +216,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       uniform float bloodMoonBase;
       uniform vec3 bloodMoonTint;
       uniform float uCamoTime;
+      uniform float uRimLight;
 
       varying vec2 vUv;
       varying vec3 vNormal;
@@ -315,6 +322,14 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
           vec3 toCamera = normalize(cameraPosition - vWorldPosition);
           float rim = 1.0 - max(dot(glowNormal, toCamera), 0.0);
           litColor += bloodMoonGlowColor * (bloodMoonRim * rim * rim + bloodMoonBase) * bloodMoonGlow;
+        }
+
+        // Rim light, 0 outside custom maps: a cool edge where the surface turns away from the camera,
+        // so a body stands out from a lit, detailed ground in the game view
+        if (uRimLight > 0.0) {
+          vec3 rimNormal = normalize(vNormal) * (gl_FrontFacing ? 1.0 : -1.0);
+          float rimTerm = 1.0 - max(dot(rimNormal, normalize(cameraPosition - vWorldPosition)), 0.0);
+          litColor += vec3(0.85, 0.92, 1.0) * rimTerm * rimTerm * rimTerm * uRimLight;
         }
 
         // Apply tint (for freeze/damage effects)

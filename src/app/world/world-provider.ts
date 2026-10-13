@@ -42,6 +42,11 @@ export interface WorldCapabilities {
    * attaches (a custom map): the engine adds none of its own
    */
   ownEnvironment: boolean;
+  /**
+   * Enemies get a rim light that lifts them off a detailed, lit ground (a
+   * custom map); worlds without it keep the enemies' look as it is (tiles)
+   */
+  enemyRimLight: boolean;
   /** Camera controls: around a globe or over a flat environment */
   controls: 'globe' | 'environment';
 }

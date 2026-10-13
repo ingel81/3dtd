@@ -37,6 +37,7 @@ export const CUSTOM_MAP_CAPABILITIES: WorldCapabilities = {
   regenerate: false,
   destructible: false,
   ownEnvironment: true,
+  enemyRimLight: true,
   controls: 'environment',
 };
 

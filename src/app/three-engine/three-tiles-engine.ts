@@ -64,6 +64,9 @@ import { TOWER_TYPES } from '../configs/tower-types.config';
 import type { GeoPosition } from '../models/game.types';
 import { NO_TILE_STATS, type WorldProvider, type WorldSurface } from '../world/world-provider';
 
+/** Strength of the enemies' rim light on worlds that ask for it (WorldCapabilities.enemyRimLight) */
+const ENEMY_RIM_LIGHT = 0.55;
+
 /** Options of the canvas renderer, without the canvas. */
 export const CANVAS_RENDERER_OPTIONS = {
   antialias: true,
@@ -304,6 +307,8 @@ export class ThreeTilesEngine {
     }
 
     this.enemies = new InstancedEnemyRenderer(this.scene, coordinateSync, this.assetManager, this.portalClip);
+    // A rim light lifts enemies off a custom map's lit, detailed ground; tiles keep their look
+    this.enemies.setRimLight(world.capabilities.enemyRimLight ? ENEMY_RIM_LIGHT : 0);
     // A restored WebGL context comes back empty and three uploads every texture
     // again from its CPU copy, which the VATs drop after their first upload.
     this.enemies.rebakeOnContextRestore(this.renderer.domElement);

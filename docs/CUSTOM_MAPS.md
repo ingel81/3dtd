@@ -222,6 +222,10 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Spielkarten stellen die Sonne auf mindestens etwa 20°, flacher werden die Schatten lang und der Boden dunkel. Abgestimmt auf den Renderer des Spiels (kein Tone-Mapping, sRGB);
   `/map-preview?post=bloom` rendert durch die Post-Processing-Kette des Spiels
 
+**Randlicht für Gegner** (`WorldCapabilities.enemyRimLight`, nur eigene Karten): ein kühler Saum, wo die Oberfläche
+eines Gegners sich von der Kamera abwendet (`uRimLight` in `vat-material.ts`, Stärke 0,55), damit Gegner sich vom
+beleuchteten, detailreichen Boden abheben. Tiles und DevWorld behalten das Aussehen (Stärke 0).
+
 ## Assets
 
 `public/maps/assets/catalog.json` (Typen in `render/asset-catalog.ts`), Lizenzen in `LICENSES.md`, alles CC0.
