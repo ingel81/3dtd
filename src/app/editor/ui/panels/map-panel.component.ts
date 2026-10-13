@@ -5,13 +5,13 @@ import { TERRAIN_PRESETS, type TerrainPreset } from '../../ops/generate';
 import { detailTarget } from '../../ops/detail';
 import { RangeRowComponent } from './range-row.component';
 import { EditorSession } from '../editor-session.service';
-import { mapBudget } from '../../validation/map-budget';
+import { MapBudgetComponent } from './map-budget.component';
 
 /** Name, author, description; budget; size and resize */
 @Component({
   selector: 'app-map-panel',
   standalone: true,
-  imports: [RangeRowComponent, MatTooltipModule],
+  imports: [RangeRowComponent, MatTooltipModule, MapBudgetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   template: `
@@ -30,17 +30,7 @@ import { mapBudget } from '../../validation/map-budget';
       </label>
       <p class="td-note">Id {{ m.id }}@if (m.source) { | imported from {{ m.source.file }} }</p>
     }
-    <div class="td-group" data-test="map-budget">
-      <h3 class="td-section">Budget</h3>
-      @for (b of budget(); track b.label) {
-        <div class="mp-budget">
-          <span>{{ b.label }}</span>
-          <span class="td-note td-num" [class.is-warn]="b.state === 'warn'" [class.is-error]="b.state === 'over'">{{ b.text }}</span>
-        </div>
-        <div class="td-progress" aria-hidden="true"><i [style.width.%]="b.share * 100"></i></div>
-      }
-      <p class="td-note">{{ budgetNote() }}</p>
-    </div>
+    <app-map-budget />
     @if (size(); as s) {
       <div class="td-group">
         <h3 class="td-section">Size</h3>
@@ -145,8 +135,7 @@ import { mapBudget } from '../../validation/map-budget';
     `.mp-job { display: flex; align-items: center; gap: 8px; } .mp-progress { flex: 1 1 auto; height: 6px; accent-color: var(--td-brass); }
      .mp-warn { color: var(--td-warn-text); } .mp-version { gap: 8px; min-height: 30px; } .mp-version > .td-trunc { flex: 1 1 auto; }
      .mp-text { height: auto; padding-top: 8px; resize: vertical; } .mp-size { display: flex; align-items: flex-end; gap: 8px; }
-     .mp-presets { flex-wrap: wrap; height: auto; } .mp-presets > * { flex: 1 0 30%; }
-     .mp-budget { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }`,
+     .mp-presets { flex-wrap: wrap; height: auto; } .mp-presets > * { flex: 1 0 30%; }`,
   ],
 })
 export class MapPanelComponent {
@@ -183,21 +172,6 @@ export class MapPanelComponent {
   download(): void {
     this.session.downloadFile();
   }
-
-  /** The file as the last manual save packed it (the one a coop room sends); autosaves pack lighter */
-  private readonly fileBytes = computed(() => this.versions().find((v) => v.manual)?.size ?? null);
-  readonly budget = computed(() => {
-    this.session.docRev();
-    return mapBudget(this.session.doc?.objects.length ?? 0, this.fileBytes());
-  });
-  readonly budgetNote = computed(() => {
-    const over = this.budget().find((b) => b.state === 'over');
-    if (over?.label === 'Objects') return 'More objects than a map keeps fluid: thin out scatter or far decoration.';
-    if (over?.label === 'File') return 'Too big to send in coop: only players who have the map can join.';
-    return this.fileBytes() === null
-      ? 'Objects keep the map fluid up to the budget. Save to measure the file; coop sends up to 32 MB.'
-      : 'Objects keep the map fluid up to the budget. The file as of the last save; coop sends up to 32 MB.';
-  });
 
   when(iso: string): string {
     const d = new Date(iso);
