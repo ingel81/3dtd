@@ -27,6 +27,7 @@ import { EditorDocument, SnapshotCommand, type EditCommand, type Selection } fro
 import { resizeMap } from '../ops/resize';
 import { detailTarget, increaseDetail } from '../ops/detail';
 import { mirrorMap } from '../ops/mirror-map';
+import { decodePng, decodeRaw16, encodePng16, encodeRaw16, gridToImage, heightmapName, imageToHeights } from '../ops/heightmap';
 import { LandscapeTool } from '../tools/landscape-tool';
 import { MarkerTool } from '../tools/marker-tool';
 import { StampTool } from '../tools/stamp-tool';
@@ -921,6 +922,45 @@ export class EditorSession implements OnDestroy {
       this.laterReminder();
     } catch (e) {
       this.error.set((e as Error).message);
+    }
+  }
+
+  /** The heights as a 16-bit heightmap (PNG or RAW); the file name carries their range in metres */
+  downloadHeightmap(format: 'png' | 'raw'): void {
+    const doc = this.doc;
+    if (!doc) return;
+    const { image, low, high } = gridToImage(doc.terrain.grid);
+    const name = heightmapName(doc.meta.id, low, high, format);
+    download(format === 'png' ? encodePng16(image) : encodeRaw16(image), name, format === 'png' ? 'image/png' : 'application/octet-stream');
+    this.flash(`Heightmap ${image.width} x ${image.height}, ${Math.round(low * 10) / 10} to ${Math.round(high * 10) / 10} m`);
+  }
+
+  /**
+   * A heightmap file (16-bit PNG, or square 16-bit RAW) as the map's ground:
+   * scaled to the map's grid, black at `low`, white at `high` metres; one
+   * undo step. Resolves false (with the reason in the banner) when the file
+   * is no heightmap.
+   */
+  async importHeightmap(file: File, low: number, high: number): Promise<boolean> {
+    const editor = this.editor;
+    if (!editor || this.blocked('Importing a heightmap')) return false;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const image = /\.png$/i.test(file.name) ? decodePng(bytes) : decodeRaw16(bytes);
+      const t = editor.doc.terrain;
+      const g = t.grid;
+      const all = { i0: 0, j0: 0, i1: g.columns - 1, j1: g.rows - 1 };
+      const stroke = new LandscapeStroke(editor, 'Import heightmap', 1, this.catalog());
+      stroke.touchHeights(all);
+      g.heights.set(imageToHeights(image, g.columns, g.rows, low, high));
+      stroke.changed({ heights: all });
+      stroke.finish();
+      this.refresh();
+      this.flash(`Heightmap ${image.width} x ${image.height} on the ${g.columns} x ${g.rows} grid, ${low} to ${high} m; Ctrl+Z takes it back`);
+      return true;
+    } catch (e) {
+      this.error.set(`${file.name}: ${(e as Error).message}`);
+      return false;
     }
   }
 

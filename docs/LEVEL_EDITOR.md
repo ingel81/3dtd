@@ -201,6 +201,13 @@ Einfügen (Strg+V), „Restore“, „Test map“, der Bot-Check und das Verlass
 („Undo waits: finish the stroke or drag first“). Sonst holte etwa ein Rückgängig unter einem laufenden Job beim Cancel
 die Höhen von vor dem Job über bereits zurückgenommene Schritte zurück.
 
+Heightmap (im Map-Panel): „Export 16-bit PNG“ und „Export RAW“ schreiben die Höhen als 16-Bit-Graustufen (oberste
+Zeile = Nordrand, schwarz die tiefste, weiß die höchste Höhe; RAW 16 Bit Little Endian, quadratisch wie bei Gaea und
+World Machine); der Dateiname trägt den Bereich (`<id>-heights-<tief>m-<hoch>m.png`). „Import…“ liest eine solche Datei
+(PNG in Graustufen oder Farbe, 8 oder 16 Bit, alle Zeilenfilter, nicht interlaced; RAW quadratisch), skaliert sie
+bilinear auf das Raster der Karte und setzt Schwarz auf „Lowest m“, Weiß auf „Highest m“ (aus dem Dateinamen, wenn er
+sie trägt); ein Undo-Schritt (`ops/heightmap.ts`).
+
 **Copy and stamps (0).** Select: ein Rechteck auf der Karte ziehen, Strg+C kopiert es; danach folgt das Stück dem
 Zeiger als Umriss, R und Shift+R drehen um 90 Grad, Komma und Punkt um 15, ein Klick setzt es (Strg+V aus jedem
 Werkzeug setzt die letzte Kopie). Schalter wählen, was mitkommt: Höhen, Bodenfarbe, Wasser, Objekte, Straßen. Höhen

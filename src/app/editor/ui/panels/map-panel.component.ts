@@ -3,6 +3,7 @@ import type { MapVersion } from '../../model/version-store';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TERRAIN_PRESETS, type TerrainPreset } from '../../ops/generate';
 import { detailTarget } from '../../ops/detail';
+import { rangeFromName } from '../../ops/heightmap';
 import { RangeRowComponent } from './range-row.component';
 import { EditorSession } from '../editor-session.service';
 import { MapBudgetComponent } from './map-budget.component';
@@ -95,6 +96,28 @@ import { MapBudgetComponent } from './map-budget.component';
       <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="!!job()" (click)="erode()" data-test="erode-map">Erode</button>
       <p class="td-note">Rain carves gullies down every slope and leaves fans of scree at their feet; flat land stays. Cancel or one undo step takes it back.</p>
     </div>
+    <div class="td-group" data-test="heightmap">
+      <h3 class="td-section">Heightmap</h3>
+      <div class="td-actions is-start">
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="exportHeights('png')">Export 16-bit PNG</button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="exportHeights('raw')">Export RAW</button>
+      </div>
+      <div class="mp-size">
+        <label class="td-field">
+          <span class="td-label">Lowest m</span>
+          <input class="td-input is-sm" type="number" step="0.5" [value]="low()" (input)="low.set(num($event))" data-test="heightmap-low" />
+        </label>
+        <label class="td-field">
+          <span class="td-label">Highest m</span>
+          <input class="td-input is-sm" type="number" step="0.5" [value]="high()" (input)="high.set(num($event))" data-test="heightmap-high" />
+        </label>
+        <label class="td-btn-secondary td-btn-sm mp-file" matTooltip="A 16-bit greyscale PNG or a square 16-bit RAW (Gaea, World Machine …), scaled to the map">
+          Import…
+          <input type="file" accept=".png,.raw,.r16" (change)="importHeights($event)" data-test="heightmap-file" />
+        </label>
+      </div>
+      <p class="td-note">Black is the lowest, white the highest height. An exported file carries its range in its name, an import of it fills the fields; one undo step.</p>
+    </div>
     <div class="td-group" data-test="storage">
       <h3 class="td-section">Storage</h3>
       @switch (storage()) {
@@ -133,7 +156,7 @@ import { MapBudgetComponent } from './map-budget.component';
   `,
   styles: [
     `.mp-job { display: flex; align-items: center; gap: 8px; } .mp-progress { flex: 1 1 auto; height: 6px; accent-color: var(--td-brass); }
-     .mp-warn { color: var(--td-warn-text); } .mp-version { gap: 8px; min-height: 30px; } .mp-version > .td-trunc { flex: 1 1 auto; }
+     .mp-warn { color: var(--td-warn-text); } .mp-file { position: relative; overflow: hidden; } .mp-file > input { position: absolute; inset: 0; opacity: 0; cursor: pointer; } .mp-version { gap: 8px; min-height: 30px; } .mp-version > .td-trunc { flex: 1 1 auto; }
      .mp-text { height: auto; padding-top: 8px; resize: vertical; } .mp-size { display: flex; align-items: flex-end; gap: 8px; }
      .mp-presets { flex-wrap: wrap; height: auto; } .mp-presets > * { flex: 1 0 30%; }`,
   ],
@@ -168,6 +191,27 @@ export class MapPanelComponent {
 
   readonly versions = this.session.versions;
   readonly storage = this.session.storage;
+  /** Height range for a heightmap import, metres */
+  readonly low = signal(0);
+  readonly high = signal(50);
+
+  exportHeights(format: 'png' | 'raw'): void {
+    this.session.downloadHeightmap(format);
+  }
+
+  async importHeights(e: Event): Promise<void> {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    // An exported file says its range; the fields take it
+    const range = rangeFromName(file.name);
+    if (range) {
+      this.low.set(range.low);
+      this.high.set(range.high);
+    }
+    await this.session.importHeightmap(file, this.low(), this.high());
+  }
 
   download(): void {
     this.session.downloadFile();
