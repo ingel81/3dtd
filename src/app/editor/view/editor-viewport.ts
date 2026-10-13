@@ -209,6 +209,12 @@ export class EditorViewport {
   }
 
   /** Where the camera looks from, to keep as a bookmark */
+  /** The map point the view looks at (the camera's target) */
+  viewCenter(): { x: number; y: number } {
+    const g = this.controller.goal.target;
+    return { x: -g.x, y: g.z };
+  }
+
   cameraView(): CameraBookmark {
     const g = this.controller.goal;
     return { x: g.target.x, y: g.target.y, z: g.target.z, distance: g.distance, yaw: g.yaw, pitch: g.pitch };

@@ -26,6 +26,7 @@ import { biomeThumbnail, materialThumbnail, objectThumbnail } from './thumbnails
 import { EditorDocument, SnapshotCommand, type EditCommand, type Selection } from '../model/editor-document';
 import { resizeMap } from '../ops/resize';
 import { detailTarget, increaseDetail } from '../ops/detail';
+import { mirrorMap } from '../ops/mirror-map';
 import { LandscapeTool } from '../tools/landscape-tool';
 import { MarkerTool } from '../tools/marker-tool';
 import { StampTool } from '../tools/stamp-tool';
@@ -732,6 +733,25 @@ export class EditorSession implements OnDestroy {
     if (!editor || !target) return;
     this.execute(SnapshotCommand.record(editor.doc, 'Increase detail', ['terrain'], (d) => (d.terrain = increaseDetail(d.terrain, target))));
     this.flash(`Height points every ${+target.cellSize.toFixed(2)} m, ground paint ${target.splatResolution} px; Ctrl+Z takes it back`);
+  }
+
+  /**
+   * Makes the whole map symmetric now (the symmetry chosen in the top bar):
+   * the part around the view's middle is copied to the others, ground,
+   * water, objects, spawns, roads and rivers; one undo step
+   */
+  mirrorNow(): void {
+    const editor = this.editor;
+    const mode = this.settings.symmetry;
+    if (!editor || this.blocked('Mirroring')) return;
+    if (mode === 'none') {
+      this.flash('Choose a symmetry first (top bar or M)');
+      return;
+    }
+    const from = this.viewport?.viewCenter() ?? editor.doc.hq;
+    let result = { objects: 0, spawns: 0, roads: 0 };
+    this.execute(SnapshotCommand.record(editor.doc, 'Mirror the map', ['terrain', 'objects', 'paths', 'spawns'], (d) => (result = mirrorMap(d, mode, from))));
+    this.flash(`Mirrored from the part in view: ${result.objects} objects, ${result.spawns} spawns, ${result.roads} roads copied`);
   }
 
   runCheck(): MapIssue[] {

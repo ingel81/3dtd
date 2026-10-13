@@ -43,6 +43,10 @@
         }
       </select>
     </label>
+    @if (symmetry() !== 'none') {
+      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.mirrorNow()" data-test="mirror-now"
+              matTooltip="Copy the part of the map in the middle of the view to the other parts: ground, water, objects, spawns, roads (one undo step)">Mirror now</button>
+    }
     <span class="es-spacer"></span>
     <button class="td-btn-ghost td-btn-sm" type="button" aria-label="Help" matTooltip="Keys, tips for good levels and the tour (?)" [attr.aria-expanded]="help()" (click)="help.set(!help())" data-test="help">
       <td-icon name="keyboard" [size]="16" /> Help

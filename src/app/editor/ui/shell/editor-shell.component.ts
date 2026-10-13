@@ -473,6 +473,7 @@ export class EditorShellComponent implements OnDestroy {
     add('View', 'Height lines on or off', () => s.patchSettings((st) => (st.view.contours = !st.view.contours)));
     add('View', 'Grid on or off', () => s.patchSettings((st) => (st.view.grid = !st.view.grid)));
     for (const m of SYMMETRY_MODES) add('Symmetry', m.label, () => this.setSymmetry(m.id), 'M');
+    add('Symmetry', 'Mirror the map now (from the part in view)', () => s.mirrorNow());
     add('Editor', 'Keys', () => this.help.set(true), '?');
     add('Editor', 'Tour: the editor in seven steps', () => this.startTour());
     add('Editor', 'How to build a good level', () => this.openGuide());
