@@ -67,6 +67,12 @@ import { NO_TILE_STATS, type WorldProvider, type WorldSurface } from '../world/w
 /** Strength of the enemies' rim light on worlds that ask for it (WorldCapabilities.enemyRimLight) */
 const ENEMY_RIM_LIGHT = 0.55;
 
+/** Called right before and right after a frame is drawn (ThreeTilesEngine.setFrameProbe) */
+export interface FrameProbe {
+  begin(): void;
+  end(): void;
+}
+
 /** Options of the canvas renderer, without the canvas. */
 export const CANVAS_RENDERER_OPTIONS = {
   antialias: true,
@@ -200,6 +206,8 @@ export class ThreeTilesEngine {
   private readonly unshakenProjectionInverse = new Matrix4();
   /** Running __perf.shakeBench() measurement, null otherwise */
   private shakeBench: ShakeBenchmark | null = null;
+  /** Called around each frame's draw while the render benchmark measures (setFrameProbe) */
+  private frameProbe: FrameProbe | null = null;
 
   // Callback for per-frame updates (animations)
   private onUpdateCallback: ((deltaTime: number) => void) | null = null;
@@ -753,7 +761,10 @@ export class ThreeTilesEngine {
     if (this.drawSuppressed && !this.renderLoop.hasFrameWaiters()) return;
 
     // Render scene, shaken if a screen shake runs
+    const probe = this.frameProbe;
+    probe?.begin();
     this.drawFrame();
+    probe?.end();
 
     // Put a benchmark-moved camera back, then release the frame waiters
     // (warm-up): they only ever see the still camera and projection.
@@ -944,6 +955,11 @@ export class ThreeTilesEngine {
   /** Check if 3D tiles are currently visible; false in a world without them */
   areTilesVisible(): boolean {
     return this.world.tiles?.visible() ?? false;
+  }
+
+  /** Call `probe` around every frame's draw (the render benchmark's GPU timer and counters); null takes it off */
+  setFrameProbe(probe: FrameProbe | null): void {
+    this.frameProbe = probe;
   }
 
   /**

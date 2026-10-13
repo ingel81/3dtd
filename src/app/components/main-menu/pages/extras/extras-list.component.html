@@ -95,6 +95,26 @@
         }
       </li>
     }
+    @if (canRenderBenchmark()) {
+      <li>
+        <button class="td-row mp-row" type="button" (click)="runRenderBenchmark()" [attr.aria-expanded]="confirmRenderBenchmark()">
+          <span class="td-name mp-name">Graphics benchmark</span>
+          <span class="td-note mp-meta">under a minute</span>
+        </button>
+        @if (confirmRenderBenchmark()) {
+          <div class="td-stack ex-confirm" role="alertdialog" aria-labelledby="td-extras-render-bench">
+            <p class="td-note" id="td-extras-render-bench">
+              The page reloads on this map and the camera flies four fixed paths around your HQ, measuring frame and GPU time.
+              The game under way ends. At the end you can copy the results.
+            </p>
+            <div class="td-actions">
+              <button class="td-btn-secondary td-btn-sm" type="button" (click)="confirmRenderBenchmark.set(false)">Cancel</button>
+              <button class="td-btn-primary td-btn-sm" type="button" (click)="runRenderBenchmark()">Run</button>
+            </div>
+          </div>
+        }
+      </li>
+    }
   </ul>
 </section>
 

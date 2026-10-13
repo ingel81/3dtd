@@ -81,7 +81,8 @@ export function benchmarkUrl(href: string): string {
 /** The page was loaded to run the benchmark (search string of the location) */
 export function isBenchmarkSearch(search: string): boolean {
   const params = new URLSearchParams(search);
-  return params.has(BENCHMARK_FLAG) && params.has('devworld');
+  // `benchmark=render` is the graphics benchmark (render-benchmark.ts), on any world
+  return params.has(BENCHMARK_FLAG) && params.get(BENCHMARK_FLAG) !== 'render' && params.has('devworld');
 }
 
 /** Browser and version from the user agent string */

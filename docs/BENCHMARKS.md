@@ -58,6 +58,66 @@ auch mit `npm test`).
 
 ![Hauptthread-Zeit je Paket](images/benchmarks-apply.svg)
 
+## Bildkosten (Grafik-Benchmark)
+
+Was ein Bild einer Welt kostet, ohne Spiel darauf (E154): Tiles-Orte, eigene Karten und die DevWorld mit denselben
+festen Kamerawegen um das HQ (`src/app/benchmark/render-benchmark.ts`), damit „so flüssig wie Tiles“ messbar ist.
+
+- **Ansichten:** `game` die Startansicht des Spiels, `close` 30 m neben dem HQ in 12 m Höhe (Gras, Nahdetails),
+  `pan` ein voller Kreis um das HQ im Abstand und in der Höhe der Startansicht, `top` 500 m senkrecht über dem HQ wie
+  im Editor. Je Ansicht 2 s Einschwingen (Tiles: bis keine Kachel mehr lädt, höchstens 20 s), dann 5 s Messung.
+- **Spalten:** `Frame` mittlerer Abstand der Bilder, `p95` der Abstand, den nur 5 % der Bilder überschreiten, `GPU`
+  die GPU-Zeit des Zeichnens je Bild per Timer-Query (`EXT_disjoint_timer_query_webgl2`, `gpu-timer.ts`; Mittel und
+  p95), `CPU` Hauptthread-Zeit für Update und Zeichnen, `Calls` und `Triangles` je Bild über alle Durchgänge
+  (Schatten, Szene, Nachbearbeitung). Ohne Timer-Query (Firefox, Safari) bleibt die GPU-Spalte leer; dann zählt
+  `Frame` bei ungedeckelter Bildrate.
+- **Im Spiel:** Menü Extras, „Graphics benchmark“ lädt die Seite mit `benchmark=render` auf derselben Welt neu und
+  zeigt am Ende die Tabelle zum Kopieren. Ohne Bildratendeckel (Skript unten) ist `Frame` aussagekräftig, im normalen
+  Browser deckelt der Monitor, dann zählt `GPU`.
+- **Per Skript** (Nachtschicht, reproduzierbar): Build mit Entwicklungs-Umgebung, aber optimiert (der
+  Produktions-Build öffnet eigene Karten per Link erst nach der Freigabe, E134), statisch ausliefern, dann
+  `e2e/perf/render-bench.ts`. Das Skript öffnet je Welt und Stufe ein Fenster (sichtbar, ANGLE D3D11, Bildrate
+  ungedeckelt), wartet auf `window.__renderBenchmark` und druckt alle Zeilen; den Kartenschlüssel liest es aus
+  `src/environments/environment.ts`. `--shots <dir>` legt je Ansicht ein Bild ab (die Aufnahme stört die Messung dieser
+  Ansicht etwas, für Ausgangswerte ohne).
+
+```
+npx ng build --configuration development --optimization --source-map=false --output-path dist/bench
+node e2e/perf/serve.mjs dist/bench/browser 4322 --isolate
+node e2e/perf/render-bench.ts --url http://localhost:4322 --worlds map:demo-valley,map:harbor-town,tiles:48.7758,9.1829 [--qualities low,medium,high,ultra]
+```
+
+### Ausgangswerte 2026-10-14
+
+Rechner A (RTX 5080), Chromium aus Playwright, Fenster 1600 × 900, Canvas 1300 × 852, DPR 1, Stand `96a5a5aa` plus
+Koop-Versand (ohne Einfluss aufs Bild), vor den Qualitätsstufen. Zeiten in ms je Bild.
+
+```
+World                 View   Frame  p95   GPU   GPU p95  CPU   Calls  Triangles
+map:demo-valley       game   1.32   1.57  1.21  1.55     1.15  290    1.23 M
+map:demo-valley       close  0.91   1.17  0.71  1.08     0.75  109    0.94 M
+map:demo-valley       pan    1.79   2.19  1.66  2.33     1.12  263    0.97 M
+map:demo-valley       top    1.16   1.42  1.03  1.48     1.00  229    0.82 M
+map:harbor-town       game   3.43   4.26  2.81  3.77     3.21  1111   1.60 M
+map:harbor-town       close  1.74   2.10  1.59  2.16     1.57  251    1.27 M
+map:harbor-town       pan    3.84   4.80  3.25  4.15     3.16  1019   1.54 M
+map:harbor-town       top    2.98   3.53  2.45  3.10     2.79  893    1.28 M
+tiles 48.7758,9.1829  game   0.77   0.93  0.23  0.64     0.60  148    0.37 M
+tiles 48.7758,9.1829  close  0.85   1.00  0.31  0.73     0.67  168    0.46 M
+tiles 48.7758,9.1829  pan    2.38   2.97  0.78  1.35     1.70  128    0.34 M
+tiles 48.7758,9.1829  top    0.59   0.70  0.12  0.30     0.43  91     0.24 M
+```
+
+- Die Ausgangslage des Plans ([CUSTOM_MAPS_NEXT_PLAN.md](CUSTOM_MAPS_NEXT_PLAN.md): Tiles 0,88 ms bei 192 Calls,
+  Demo-Tal 1,39 ms bei 290, Hafenstadt 4,41 ms bei 1111) war der Bildabstand der Spielansicht ohne Deckel. Das
+  Demo-Tal trifft sie (1,32 ms, 290 Calls), die Hafenstadt liegt darunter (3,43 ms, 1111 Calls), Tiles ebenfalls
+  (0,77 ms, 148 Calls: wie viele Kacheln stehen, hängt vom Laden ab).
+- **Tiles sind auf der GPU billig, eigene Karten nicht:** Tiles 0,23 ms GPU in der Spielansicht, das Demo-Tal 1,21 ms,
+  die Hafenstadt 2,81 ms. Beim Schwenk über Tiles wächst der Bildabstand (2,38 ms) bei nur 0,78 ms GPU: dort kostet
+  das Nachladen der Kacheln Hauptthread-Zeit.
+- **Die Hafenstadt ist auch auf dem Hauptthread teuer:** 3,21 ms CPU bei 1111 Draw Calls, gut fünfmal so viel wie
+  Tiles (0,60 ms). Weniger Draw Calls (Modellteile zusammenführen) helfen dort doppelt.
+
 ## Messungen
 
 ### 2026-10-12, Rechner A

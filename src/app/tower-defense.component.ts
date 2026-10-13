@@ -46,6 +46,8 @@ import { DEBUG_CREDITS_STEPS, DEBUG_HEALTH_STEPS, debugCheatAmount } from './com
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { BenchmarkPanelComponent } from './benchmark/benchmark-panel.component';
 import { BenchmarkService } from './benchmark/benchmark.service';
+import { RenderBenchmarkPanelComponent } from './benchmark/render-benchmark-panel.component';
+import { RenderBenchmarkService } from './benchmark/render-benchmark.service';
 import { SaveGameService } from './services/save-game/save-game.service';
 import { SAVE_GAME } from './services/save-game/save-game.port';
 import { ContextHintComponent, HintAction, HintItem } from './components/context-hint/context-hint.component';
@@ -196,6 +198,7 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
     // Used only inside @defer on the game-over screen, so it loads with the globe as a lazy chunk
     WorldRecordComponent,
     BenchmarkPanelComponent,
+    RenderBenchmarkPanelComponent,
     MainMenuComponent,
   ],
   providers: [
@@ -226,6 +229,7 @@ import { MainMenuService } from './components/main-menu/main-menu.service';
     { provide: COOP, useExisting: CoopService },
     // The in-game benchmark drives the game loop's load handle (TODO E74)
     BenchmarkService,
+    RenderBenchmarkService,
     // Saving and loading the run, between the waves (TODO E110); the menu binds to SAVE_GAME
     SaveGameService,
     { provide: SAVE_GAME, useExisting: SaveGameService },
@@ -560,11 +564,16 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     // loaded for the benchmark runs it instead, the notes wait for the next load.
     const whatsNew = inject(WhatsNewService);
     const benchmark = inject(BenchmarkService);
+    const renderBenchmark = inject(RenderBenchmarkService);
     let whatsNewChecked = false;
     effect(() => {
       if (whatsNewChecked || this.loading() || this.error() || this.awaitingCredentials() || this.uiStore.mainMenuOpen()) return;
       whatsNewChecked = true;
-      untracked(() => (benchmark.requested ? benchmark.runIfRequested() : whatsNew.showAfterUpdate()));
+      untracked(() => {
+        if (benchmark.requested) benchmark.runIfRequested();
+        else if (renderBenchmark.requested) renderBenchmark.runIfRequested();
+        else whatsNew.showAfterUpdate();
+      });
     });
   }
 

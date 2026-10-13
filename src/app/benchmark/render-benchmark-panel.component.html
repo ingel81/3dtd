@@ -1,0 +1,68 @@
+@if (state(); as s) {
+  @if (s.phase !== 'idle') {
+    <section class="bm td-dlg td-dense" role="dialog" aria-labelledby="td-render-benchmark-title" data-test="render-benchmark">
+      <header class="bm-head td-dlg-head">
+        <h2 class="td-dlg-title" id="td-render-benchmark-title">Graphics benchmark</h2>
+        @if (s.phase === 'running') {
+          <span class="td-note td-num">{{ s.index }} / {{ total }}</span>
+        }
+      </header>
+
+      @if (s.phase === 'running') {
+        <p class="td-text" aria-live="polite">{{ s.doing }}</p>
+        <div class="td-progress" aria-hidden="true">
+          <div [style.width.%]="(100 * s.rows.length) / total"></div>
+        </div>
+        <p class="td-note">The camera flies by itself. Keep the window in front until it ends.</p>
+      }
+
+      @if (s.phase === 'failed') {
+        <p class="td-note is-error">The benchmark stopped: {{ s.error }}</p>
+      }
+
+      @if (s.env; as env) {
+        @if (s.rows.length > 0) {
+          <p class="td-note td-num">
+            {{ env.world }}, quality {{ env.quality }}; {{ env.version }} ({{ env.commit }}), {{ env.browser }}, {{ env.gpu }},
+            {{ env.canvas[0] }}x{{ env.canvas[1] }} px at {{ env.devicePixelRatio }}x; ms per frame
+          </p>
+          <table class="td-table bm-table">
+            <thead>
+              <tr>
+                @for (h of head; track h) {
+                  <th scope="col">{{ h }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (cells of rows(); track $index) {
+                <tr>
+                  @for (cell of cells; track $index) {
+                    <td>{{ cell }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (!env.gpuTimer) {
+            <p class="td-note">This browser has no GPU timer: compare the frame times.</p>
+          }
+        }
+      }
+
+      @if (s.phase !== 'running') {
+        <div class="td-actions">
+          @if (s.env && s.rows.length > 0) {
+            <button class="td-btn-primary td-btn-sm" type="button" (click)="copy()">Copy results</button>
+          }
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="close()">Close</button>
+          @if (copied() === true) {
+            <span class="td-note is-ok" role="status">Copied</span>
+          } @else if (copied() === false) {
+            <span class="td-note is-error" role="status">The browser refused the clipboard</span>
+          }
+        </div>
+      }
+    </section>
+  }
+}

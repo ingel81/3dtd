@@ -8,6 +8,7 @@ import { WhatsNewService } from '../../../../services/onboarding/whats-new.servi
 import { RunLogFacade } from '../../../../run-log/run-log.facade';
 import { ReplayService } from '../../../../services/replay.service';
 import { BenchmarkService } from '../../../../benchmark/benchmark.service';
+import { RenderBenchmarkService } from '../../../../benchmark/render-benchmark.service';
 import { LocationManagementService } from '../../../../services/location/location-management.service';
 import { REPLAY_CONFIG } from '../../../../configs/replay.config';
 import { LEGAL_URL } from '../../../../utils/public-url';
@@ -45,6 +46,7 @@ export class ExtrasListComponent {
   private readonly coop = inject(COOP, { optional: true });
   readonly replay = inject(ReplayService, { optional: true });
   private readonly benchmark = inject(BenchmarkService, { optional: true });
+  private readonly renderBenchmark = inject(RenderBenchmarkService, { optional: true });
   private readonly replayInput = viewChild<ElementRef<HTMLInputElement>>('replayInput');
 
   /** A replay started from here: the menu makes way for it */
@@ -56,10 +58,13 @@ export class ExtrasListComponent {
   readonly status = signal<{ text: string; bad: boolean } | null>(null);
   readonly busy = signal(false);
   readonly confirmBenchmark = signal(false);
+  readonly confirmRenderBenchmark = signal(false);
 
   private readonly inCoop = computed(() => !!this.coop && (this.coop.inGame() || this.coop.room() !== null));
   /** The benchmark reloads the page: not in coop, where the room would lose the player */
   readonly canBenchmark = computed(() => this.benchmark !== null && !this.inCoop());
+  /** The graphics benchmark measures the world loaded here */
+  readonly canRenderBenchmark = computed(() => this.renderBenchmark !== null && !this.inCoop() && this.locationMgmt.hq() !== null);
 
   /** A replay file plays on the place loaded, between waves or after game over, not in coop */
   readonly replayOffered = this.replay !== null && REPLAY_CONFIG.offered;
@@ -143,5 +148,15 @@ export class ExtrasListComponent {
       return;
     }
     this.benchmark?.start();
+  }
+
+  /** Reload on this world and fly the fixed camera paths (RenderBenchmarkService.start), asked first */
+  runRenderBenchmark(): void {
+    if (!this.canRenderBenchmark()) return;
+    if (!this.confirmRenderBenchmark()) {
+      this.confirmRenderBenchmark.set(true);
+      return;
+    }
+    this.renderBenchmark?.start();
   }
 }
