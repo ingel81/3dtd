@@ -81,6 +81,14 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
                (input)="live(timeOfDay(+$any($event.target).value, e.sky))" (change)="commit(timeOfDay(+$any($event.target).value, e.sky), 'Time of day')" data-test="time-of-day" />
         <p class="td-note">Moves the sun across the sky; dawn and dusk tint it, night darkens it.</p>
       </div>
+      @if (e.sky === 'night') {
+        <div class="td-group">
+          <h3 class="td-section">Moonlight</h3>
+          <app-editor-range label="Moonlight" unit="%" [min]="0" [max]="100" [value]="(e.moonlight ?? 0) * 100"
+                            (changing)="live({ moonlight: $event / 100 })" (changed)="commit({ moonlight: $event / 100 }, 'Moonlight')" data-test="moonlight" />
+          <p class="td-note">A cool light on the land so a night map stays readable; the sky and stars stay dark, lanterns still stand out.</p>
+        </div>
+      }
       <div class="td-group">
         <h3 class="td-section">Sun</h3>
         <app-editor-range label="Direction" unit="deg" [min]="0" [max]="359" [value]="e.sunAzimuth"

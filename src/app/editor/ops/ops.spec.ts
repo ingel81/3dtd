@@ -4,7 +4,7 @@ import { brushWeight, stepRadius } from './brush';
 import { autoPaint, defaultAutoRules, dominantLayer, moveLayer, paintDab, readWeights, removeLayer } from './paint-ops';
 import { erodeDab, flattenDab, noiseDab, raiseDab, rampBetween, smoothDab, terraceDab } from './terrain-ops';
 import { basinSpillHeight, emptyWater, fillBasin, waterMaskDab } from './water-ops';
-import { DEFAULT_SCATTER, ObjectGrid, ObjectIds, duplicateObjects, objectsInBox, scatterDab } from './object-ops';
+import { DEFAULT_SCATTER, ObjectGrid, ObjectIds, duplicateObjects, objectsInBox, scatterDab, variedTint } from './object-ops';
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
 import { resizeMap } from './resize';
 
@@ -178,6 +178,18 @@ describe('objects', () => {
     expect(new Set(placed.map((o) => o.id)).size).toBe(placed.length);
   });
 
+  it('tints scattered objects when asked, each its own shade', () => {
+    const doc = flat();
+    let seed = 3;
+    const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const placed = scatterDab(doc.terrain, { x: 0, y: 0 }, { radius: 30, strength: 1, falloff: 0.3 }, { ...DEFAULT_SCATTER, assets: ['rock'], density: 40, tint: '#a08060', tintVariation: 0.5 }, new ObjectGrid(8), new ObjectIds([]), random);
+    expect(placed.length).toBeGreaterThan(3);
+    expect(placed.every((o) => /^#[0-9a-f]{6}$/.test(o.tint ?? ''))).toBe(true);
+    expect(new Set(placed.map((o) => o.tint)).size).toBeGreaterThan(1);
+    const plain = scatterDab(doc.terrain, { x: 0, y: 0 }, { radius: 30, strength: 1, falloff: 0.3 }, { ...DEFAULT_SCATTER, assets: ['rock'], density: 40 }, new ObjectGrid(8), new ObjectIds([]), random);
+    expect(plain.some((o) => o.tint)).toBe(false);
+  });
+
   it('selects by box and duplicates with new ids', () => {
     const doc = flat();
     doc.objects.push({ id: 'o4', asset: 'a', x: 1, y: 1, z: 0, rotation: 0, scale: 1 }, { id: 'o9', asset: 'a', x: 50, y: 1, z: 0, rotation: 0, scale: 1 });
@@ -249,5 +261,19 @@ describe('basin rim', () => {
     expect(basinSpillHeight(t, centre.i, centre.j)).toBeCloseTo(3, 1);
     // On open flat ground the rim is the ground
     expect(basinSpillHeight(t, 2, 2)).toBeCloseTo(0, 5);
+  });
+});
+
+describe('tints', () => {
+  it('varies a tint around its colour, and leaves objects untinted without one', () => {
+    let k = 0;
+    const random = () => [0.1, 0.9, 0.5, 0.3, 0.7][k++ % 5];
+    expect(variedTint(null, 0, random)).toBeUndefined();
+    expect(variedTint('#806040', 0, random)).toBe('#806040');
+    const varied = variedTint('#806040', 1, random)!;
+    expect(varied).toMatch(/^#[0-9a-f]{6}$/);
+    expect(varied).not.toBe('#806040');
+    const white = variedTint(null, 0.5, random)!;
+    expect(parseInt(white.slice(1, 3), 16)).toBeGreaterThan(200);
   });
 });

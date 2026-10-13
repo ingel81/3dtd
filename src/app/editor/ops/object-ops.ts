@@ -38,6 +38,10 @@ export interface ScatterOptions {
   minDistance: number;
   /** Sink objects into slopes so they do not float on the low side */
   sinkOnSlope: boolean;
+  /** Colour every object is tinted with, null for none */
+  tint: string | null;
+  /** 0..1: how far each object's tint strays from it (from white without a tint) */
+  tintVariation: number;
 }
 
 export const DEFAULT_SCATTER: ScatterOptions = {
@@ -48,7 +52,26 @@ export const DEFAULT_SCATTER: ScatterOptions = {
   randomRotation: true,
   minDistance: 4,
   sinkOnSlope: true,
+  tint: null,
+  tintVariation: 0,
 };
+
+/**
+ * A tint near `base`: brightness and each channel drift by up to `amount`
+ * (0..1, a quarter of the brightness and an eighth of a channel at 1), so a
+ * row of trees or a heap of rocks is not of one colour. Hex.
+ */
+export function variedTint(base: string | null, amount: number, random: () => number): string | undefined {
+  if (!base && amount <= 0) return undefined;
+  const n = parseInt((base ?? '#ffffff').replace('#', ''), 16);
+  const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const v = 1 - amount * 0.25 * random();
+  const hex = rgb.map((c) => {
+    const x = Math.round(Math.min(255, Math.max(0, c * v * (1 + (random() - 0.5) * amount * 0.25))));
+    return x.toString(16).padStart(2, '0');
+  });
+  return `#${hex.join('')}`;
+}
 
 /** Grid of objects by cell for distance checks while scattering */
 export class ObjectGrid {
@@ -128,6 +151,8 @@ export function scatterDab(
       rotation: options.randomRotation ? round(random() * Math.PI * 2, 1000) : 0,
       scale: round(scale, 1000),
     };
+    const tint = variedTint(options.tint, options.tintVariation, random);
+    if (tint) object.tint = tint;
     grid.add(object);
     out.push(object);
   }

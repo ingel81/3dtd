@@ -57,6 +57,14 @@
         <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'off'" (click)="setFlag('blocksBuild', 'off')">No</button>
       </div>
     </div>
+    <div class="td-field">
+      <span class="td-label" matTooltip="A colour the object's own colours are multiplied with">Tint</span>
+      <div class="td-inline">
+        <input type="color" [value]="tint() ?? '#ffffff'" (change)="setTint(value($event))" aria-label="Tint" data-test="object-tint" />
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="randomTint()" matTooltip="Each selected object a shade of its own around the tint">Random tint</button>
+        <button class="td-btn-ghost td-btn-sm" type="button" (click)="setTint(null)">No tint</button>
+      </div>
+    </div>
     <div class="td-actions is-start">
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="duplicate()">Duplicate <kbd class="td-kbd">Ctrl+D</kbd></button>
       <button class="td-btn-danger td-btn-sm" type="button" (click)="remove()">Delete <kbd class="td-kbd">Del</kbd></button>
@@ -76,6 +84,16 @@
       <span>Turn at random</span>
       <input class="td-switch" type="checkbox" [checked]="s().scatter.randomRotation" (change)="setScatterFlag('randomRotation', $any($event.target).checked)" aria-label="Turn at random" />
     </div>
+    <div class="td-setting">
+      <span matTooltip="A colour every scattered object is multiplied with">Tint</span>
+      <span class="td-inline">
+        <input type="color" [value]="s().scatter.tint ?? '#ffffff'" (change)="setScatterTint(value($event))" aria-label="Scatter tint" />
+        @if (s().scatter.tint) {
+          <button class="td-btn-ghost td-btn-sm" type="button" (click)="setScatterTint(null)">None</button>
+        }
+      </span>
+    </div>
+    <app-editor-range label="Random tint" unit="%" [min]="0" [max]="100" [value]="s().scatter.tintVariation * 100" (changing)="setScatter('tintVariation', $event / 100)" />
     <div class="td-setting">
       <span matTooltip="Objects on a slope sink in a little, so they do not float on the low side">Sink into slopes</span>
       <input class="td-switch" type="checkbox" [checked]="s().scatter.sinkOnSlope" (change)="setScatterFlag('sinkOnSlope', $any($event.target).checked)" aria-label="Sink into slopes" />

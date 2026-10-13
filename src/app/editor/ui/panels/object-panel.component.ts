@@ -3,7 +3,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapObject } from '../../../world/custom-map/map-document';
 import { tagName, type ObjectAssetEntry } from '../../catalog/asset-catalog';
 import { ObjectsCommand } from '../../model/editor-document';
-import { duplicateObjects } from '../../ops/object-ops';
+import { duplicateObjects, variedTint } from '../../ops/object-ops';
 import type { GizmoMode, ObjectMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
@@ -101,7 +101,33 @@ export class ObjectPanelComponent {
     return s.mode === 'scatter' ? s.scatter.assets.includes(a.id) : s.asset === a.id;
   }
 
-  setScatter(key: 'density' | 'scaleMin' | 'scaleMax' | 'minDistance', value: number): void {
+  setScatterTint(tint: string | null): void {
+    this.session.patchSettings((s) => (s.objects.scatter.tint = tint));
+  }
+
+  /** The selection's tint when all share one */
+  tint(): string | null {
+    const list = this.selected();
+    const t = list[0]?.tint;
+    return t && list.every((o) => o.tint === t) ? t : null;
+  }
+
+  setTint(tint: string | null): void {
+    this.change(tint ? 'Tint' : 'No tint', (o) => {
+      const next = { ...o };
+      if (tint) next.tint = tint;
+      else delete next.tint;
+      return next;
+    });
+  }
+
+  /** Every selected object a shade of its own around the tint (or around white) */
+  randomTint(): void {
+    const base = this.tint();
+    this.change('Random tint', (o) => ({ ...o, tint: variedTint(base, 0.6, Math.random)! }));
+  }
+
+  setScatter(key: 'density' | 'scaleMin' | 'scaleMax' | 'minDistance' | 'tintVariation', value: number): void {
     this.session.patchSettings((s) => {
       s.objects.scatter[key] = value;
       if (key === 'scaleMin' && s.objects.scatter.scaleMax < value) s.objects.scatter.scaleMax = value;
