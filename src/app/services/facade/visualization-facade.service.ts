@@ -302,6 +302,10 @@ export class VisualizationFacadeService {
     } finally {
       hint.end();
     }
+    // A loading screen still up waited for this build: the first tiles that
+    // arrived while it ran found the corridor pending and asked no more
+    // (checkAllLoaded), so ask again, else it stands at the flight step for good
+    this.checkAllLoaded();
   }
 
   /** Builds at most on new tiles after one blind freeze, see retryBlindOnNewTiles() */

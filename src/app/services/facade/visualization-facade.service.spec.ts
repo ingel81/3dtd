@@ -551,6 +551,29 @@ describe('VisualizationFacadeService', () => {
       corridorLod = null;
     });
 
+    it('asks again whether loading is done once it is over, as the loading screen of a hidden tab waits for it', async () => {
+      // The tab loaded hidden: the first tiles came only after it was shown,
+      // while this build ran (2026-10-13, the screen stood at the flight step)
+      engineInit.checkAllLoaded.mockImplementation(() => {
+        if (!engineInit.tilesLoading()) engineInit.loading.set(false);
+      });
+      try {
+        introFlight.readiness.mockReturnValue(1);
+        engineInit.loading.set(true);
+        engineInit.tilesLoading.set(true);
+        await blindBuild();
+        expect(engineInit.loading()).toBe(true);
+
+        // The first tiles: their own ask found the build pending, so none here
+        engineInit.tilesLoading.set(false);
+        await show();
+
+        expect(engineInit.loading()).toBe(false);
+      } finally {
+        engineInit.checkAllLoaded.mockImplementation(() => engineInit.loading.set(false));
+      }
+    });
+
     it('shows the hint over the map while it builds, and takes it away after', async () => {
       await blindBuild();
 
