@@ -54,7 +54,7 @@ view.updateWater(rect?, body?);            // Spiegel, Maske, Farbe; null entfer
                                            // (0 Hauptwasser, 1.. weitere) nur dessen Kacheln und Ufer im Rechteck
 view.updateWater(rect, k);                 // nur Gewässer k (1.. = waterBodies[k-1]): Pool-Pinsel, Schwimmendes in rect
 view.setObjects(objects);                  // alle Objekte ersetzen (Promise)
-view.addObjects(objects);                  // schon in doc.objects: baut nur die 192-m-Zellen neu, in die sie fallen
+view.addObjects(objects);                  // schon in doc.objects: baut nur die 192-m-Zellen neu, in die sie fallen (ein Asset ohne Zellen ganz)
 view.removeObjects(objects);               // schon aus doc.objects entfernt: nur deren Zellen und Kontaktschatten
 view.updateObject(obj);                    // eins verschoben/gedreht/skaliert; anderes Asset baut neu
 await view.warmUpAssets(renderer, scene, camera, ids); // Programme und Impostoren noch nicht platzierter Assets
@@ -152,6 +152,17 @@ von three wirft ganze Zellen weg, für Kamera, Sonnenschatten und LOS-Würfel gl
 umgepackt. Je Frame zeigt eine Zelle eine Stufe nach ihrem Abstand (Modell, `lod`-Modelle des Katalogs, **Impostor**
 für ferne Bäume ab 380 m) und verschwindet hinter der Sichtweite (`drawDistance`); nur Zellen nahe dem Fokus werfen
 Schatten. Sichtblocker (Katalog `blocksLos`, je Objekt überschreibbar) liegen in `losBlockers`.
+
+**Draw Calls (E154, PF-M2):** Zellen nur für Assets mit vielen Objekten (über `PACK_MAX` = 512: Wälder, Streuung).
+Ein Asset mit wenigen Objekten (Häuser, Autos, Laternen, der größte Teil einer Stadt) hat keine Zellen, sondern je
+Detailstufe und Modellteil ein `InstancedMesh`; die Teile einer Stufe teilen sich die Instanzdaten. Seine Objekte
+werden je Objekt nach ihrem Abstand in die Stufen sortiert, erneut sobald die Kamera 2 m weiter steht
+(`writePacked`); geschrieben werden nur Stufen, deren Objekte wechselten, und die Schattenkarte rendert nur dann neu.
+Der Editor pickt über eigene, nie gezeichnete Meshes mit allen Objekten. Dazu werden die einfarbigen Teile eines
+Modells mit gleichem Aussehen (ohne Textur, gleiche Rauheit, Metall, Glühen, Transparenz) zu einem Teil mit
+Vertex-Farben zusammengeführt (`merge-parts.ts`): ein Auto mit Lack, Glas, Lichtern und Reifen zeichnet zwei bis drei
+statt sieben Teile, ein Haus behält seine texturierten Teile. Hafenstadt in der Spielansicht 1111 → 187 Draw Calls,
+Demo-Tal 290 → 155 ([BENCHMARKS.md](BENCHMARKS.md#bildkosten-grafik-benchmark)).
 
 Impostor (`impostor.ts`): das Baummodell einmal von der Seite und von oben in eine kleine Textur gerendert, als zwei
 gekreuzte und eine waagerechte Karte gezeigt (4 Dreiecke). Braucht den Renderer (Ansichtsoption `renderer`).

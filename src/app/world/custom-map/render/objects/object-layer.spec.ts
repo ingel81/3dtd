@@ -43,7 +43,8 @@ describe('MapObjectLayer levels of detail', () => {
   it('shows each cell of trees at the level of its camera distance, all in the LOS group', async () => {
     const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
     const los = new Group();
-    const layer = new MapObjectLayer(field, library(), los);
+    // Every asset in cells
+    const layer = new MapObjectLayer(field, library(), los, { packMax: 0 });
     const objects: MapObject[] = Array.from({ length: 20 }, (_, k) => ({
       id: `t${k}`,
       asset: 'tree',
@@ -69,6 +70,71 @@ describe('MapObjectLayer levels of detail', () => {
     expect(visible('tree-lod1')).toBe(10);
     // Every tree is drawn exactly once
     expect(visible('tree') + visible('tree-lod1')).toBe(20);
+    layer.dispose();
+  });
+});
+
+describe('MapObjectLayer packed assets (few objects, no cells)', () => {
+  it('sorts each object into the level of its own distance, one mesh per level, again as the camera moves', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const los = new Group();
+    const layer = new MapObjectLayer(field, library(), los);
+    const objects: MapObject[] = Array.from({ length: 20 }, (_, k) => ({ id: `t${k}`, asset: 'tree', x: k * 20, y: 0, z: 0, rotation: 0, scale: 1 }));
+    await layer.setObjects(objects);
+    const camera = new PerspectiveCamera();
+    const look = (x: number) => {
+      // Scene x is minus map x
+      camera.position.set(-x, 5, 0);
+      camera.updateMatrixWorld();
+      layer.update(0.016, camera);
+    };
+    const meshes = (name: string) => los.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === name);
+    const shown = (name: string) => meshes(name).filter((m) => m.visible).reduce((n, m) => n + m.count, 0);
+    look(0);
+    // One mesh per level, not per cell
+    expect(meshes('tree')).toHaveLength(1);
+    expect(meshes('tree-lod1')).toHaveLength(1);
+    // Trees within 100 m of their bounds (radius 6 m) near, the rest far: map x 0..100 is six trees
+    expect(shown('tree')).toBe(6);
+    expect(shown('tree-lod1')).toBe(14);
+    const version = layer.version;
+    // Less than a step: nothing sorted again
+    look(1);
+    expect(layer.version).toBe(version);
+    look(380);
+    expect(shown('tree')).toBe(6);
+    expect(shown('tree') + shown('tree-lod1')).toBe(20);
+    expect(layer.version).toBeGreaterThan(version);
+    // The editor still picks a far tree: the picks hold every object
+    const hit = layer.raycast(new Ray(new Vector3(-380, 1, -10), new Vector3(0, 0, 1)));
+    expect(hit?.object.id).toBe('t19');
+    // Moved in place: sorted again with the new position
+    expect(layer.updateObjects([{ ...objects[0], x: 370 }])).toEqual([]);
+    expect(shown('tree')).toBe(7);
+    layer.dispose();
+  });
+
+  it('merges the plain-coloured parts of a model into one draw', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const lib = new MapAssetLibrary('base/', {
+      fetch: (() =>
+        Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ...catalog, objects: [{ ...catalog.objects[0], lod: undefined }] }) } as Response)) as typeof fetch,
+      loadModel: () => {
+        const root = new Group();
+        root.add(new Mesh(new BoxGeometry(1, 10, 1), new MeshStandardMaterial({ color: 0x884422 })));
+        root.add(new Mesh(new BoxGeometry(3, 3, 3), new MeshStandardMaterial({ color: 0x22aa22 })));
+        root.add(new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ color: 0xffffff, metalness: 1 })));
+        return Promise.resolve(root);
+      },
+    });
+    const los = new Group();
+    const layer = new MapObjectLayer(field, lib, los);
+    await layer.setObjects([{ id: 'a', asset: 'tree', x: 0, y: 0, z: 0, rotation: 0, scale: 1 }]);
+    const meshes = los.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
+    // Trunk and crown share a look apart from colour: one mesh with vertex colours; the metal part keeps its own
+    expect(meshes).toHaveLength(2);
+    const mergedMesh = meshes.find((m) => (m.material as MeshStandardMaterial).vertexColors)!;
+    expect(mergedMesh.geometry.getAttribute('color').count).toBe(48);
     layer.dispose();
   });
 });
@@ -139,7 +205,7 @@ describe('MapObjectLayer incremental changes', () => {
   it('adds and removes objects, rebuilding only the cells they touch', async () => {
     const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
     const los = new Group();
-    const layer = new MapObjectLayer(field, library(), los);
+    const layer = new MapObjectLayer(field, library(), los, { packMax: 0 });
     const tree = (id: string, x: number): MapObject => ({ id, asset: 'tree', x, y: 0, z: 0, rotation: 0, scale: 1 });
     await layer.setObjects([tree('a', 10), tree('b', 20), tree('c', 300)]);
     const meshes = (): InstancedMesh[] => los.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === 'tree');
@@ -189,7 +255,8 @@ describe('MapObjectLayer adding and removing in place', () => {
   it('writes new objects into free slots of their cell, fills the gap of a removed one, and picks the right objects after', async () => {
     const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
     const los = new Group();
-    const layer = new MapObjectLayer(field, library(), los);
+    // Every asset in cells: free slots belong to the cells of large assets
+    const layer = new MapObjectLayer(field, library(), los, { packMax: 0 });
     const tree = (k: number, x: number, y = 0): MapObject => ({ id: `t${k}`, asset: 'tree', x, y, z: 0, rotation: 0, scale: 1 });
     await layer.setObjects([tree(0, 10), tree(1, 30), tree(2, 50)]);
     const meshes = () => los.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === 'tree');
@@ -221,6 +288,26 @@ describe('MapObjectLayer adding and removing in place', () => {
     expect(meshes()).toHaveLength(2);
     layer.removeObjects(['t99']);
     expect(meshes()).toHaveLength(1);
+    layer.dispose();
+  });
+});
+
+describe('MapObjectLayer packed assets in the editor', () => {
+  it('builds a packed asset anew on adding and removing, and a click still names the right object', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const los = new Group();
+    const layer = new MapObjectLayer(field, library(), los);
+    const tree = (k: number, x: number): MapObject => ({ id: `t${k}`, asset: 'tree', x, y: 0, z: 0, rotation: 0, scale: 1 });
+    await layer.setObjects([tree(0, 10), tree(1, 30), tree(2, 50)]);
+    const pick = (x: number) => layer.raycast(new Ray(new Vector3(-x, 100, 0), new Vector3(0, -1, 0)))?.object.id ?? null;
+    await layer.addObjects([tree(3, 70), tree(4, 900)]);
+    layer.removeObjects(['t1']);
+    for (const [id, x] of [['t0', 10], ['t2', 50], ['t3', 70], ['t4', 900]] as const) expect(pick(x)).toBe(id);
+    expect(pick(30)).toBeNull();
+    // Still one mesh per level: the asset stays packed
+    expect(los.children.filter((c) => c instanceof InstancedMesh && c.name === 'tree')).toHaveLength(1);
+    layer.removeObjects(['t0', 't2', 't3', 't4']);
+    expect(los.children.filter((c) => c instanceof InstancedMesh)).toHaveLength(0);
     layer.dispose();
   });
 });

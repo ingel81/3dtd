@@ -2,6 +2,7 @@ import {
   Color,
   Euler,
   Group,
+  InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
   Quaternion,
@@ -19,18 +20,27 @@ import {
 import type { MapObject } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import type { HeightField } from '../height-field';
-import type { MapAssetLibrary, ObjectModel } from '../map-asset-library';
+import type { MapAssetLibrary, ModelPart, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
 import { WIND_GLSL, WIND_UNIFORMS, windSwayAtTop } from '../environment/wind';
 import { mapToScene } from '../map-coords';
 import { bakeImpostor, type Impostor } from './impostor';
+import { mergeParts } from './merge-parts';
 
 /**
- * The placed objects of a map, drawn instanced and split into square cells
- * of the map (CELL_SIZE): per asset, cell and detail level one InstancedMesh
- * per model part, each with tight bounds. three's frustum culling then drops
- * whole cells for the camera, the sun's shadow and the LOS cube alike, and
- * nothing is repacked per frame:
+ * The placed objects of a map, drawn instanced. An asset with many objects
+ * (more than PACK_MAX: forests, scatter) is split into square cells of the
+ * map (CELL_SIZE): per cell and detail level one InstancedMesh per model
+ * part, each with tight bounds. three's frustum culling then drops whole
+ * cells for the camera, the sun's shadow and the LOS cube alike, and
+ * nothing is repacked per frame. An asset with few objects (houses, cars,
+ * lamps: most of a town) has no cells: one InstancedMesh per detail level
+ * and part, and its objects are sorted into the levels by their own
+ * distance again whenever the camera moved REPACK_STEP. A town of 900
+ * objects drew some 200 cells of up to ten parts each, 1111 calls in the
+ * game view (docs/BENCHMARKS.md); packed it draws one mesh per asset, level
+ * and part. Plain-coloured model parts of one look are merged into one
+ * (merge-parts.ts).
  *
  * - each frame a cell shows one detail level by its distance (the model,
  *   the catalogue's `lod` models, an impostor for far trees) and hides
@@ -49,6 +59,12 @@ import { bakeImpostor, type Impostor } from './impostor';
 
 /** Edge of an object cell in metres */
 export const CELL_SIZE = 192;
+/** Assets with at most this many objects draw without cells, sorted into levels per object */
+export const PACK_MAX = 512;
+/** A packed asset sorts its objects into levels again once the camera moved this far, m */
+const REPACK_STEP = 2;
+/** The cell key of a packed asset's one cell */
+const PACKED = Number.MIN_SAFE_INTEGER;
 /** Strongest glow of an object surface (emissive colour times intensity, linear) */
 const MAX_EMISSIVE = 0.55;
 /**
@@ -76,6 +92,24 @@ interface Cell {
   levels: InstancedMesh[][];
   sphere: Sphere;
   level: number;
+  /** A packed asset's one cell: its objects sorted into the levels; null for a cell of the map */
+  packed: Packed | null;
+}
+
+/** The levels of a packed asset (PACK_MAX) */
+interface Packed {
+  /** The level each object shows, -1 hidden */
+  levelOf: Int8Array;
+  /** Per level: the instance matrices (and colours) all its part meshes share, and the bounds of what it shows */
+  matrices: InstancedBufferAttribute[];
+  colors: (InstancedBufferAttribute | null)[];
+  bounds: Sphere[];
+  /** Every object in object order, level 0's parts: what the editor picks (never drawn) */
+  pick: InstancedMesh[];
+  /** Where the camera stood at the last sort */
+  at: Vector3;
+  /** The instances changed since: the next sort writes every level */
+  stale: boolean;
 }
 
 interface AssetBatch {
@@ -105,6 +139,8 @@ export interface ObjectLayerOptions {
   renderer?: WebGLRenderer;
   /** Level of the water at a map point, null on dry ground (floating objects) */
   waterLevelAt?: (x: number, y: number) => number | null;
+  /** Assets with at most this many objects draw packed (PACK_MAX by default; 0 puts every asset into cells) */
+  packMax?: number;
 }
 
 export class MapObjectLayer {
@@ -196,7 +232,8 @@ export class MapObjectLayer {
         continue;
       }
       const blocks = o.blocksLos ?? b.entry.blocksLos;
-      if (o.asset !== b.objects[slot.index].asset || blocks !== b.blocksLos || this.cellKey(o.x, o.y) !== b.slots[slot.index].cell) {
+      const cell = b.slots[slot.index].cell;
+      if (o.asset !== b.objects[slot.index].asset || blocks !== b.blocksLos || (cell !== PACKED && this.cellKey(o.x, o.y) !== cell)) {
         rest.push(o);
         continue;
       }
@@ -259,7 +296,9 @@ export class MapObjectLayer {
         this.writeInstance(b, i);
         this.byId.set(b.objects[i].id, { batch: b, index: i });
       }
-      if (newColors) {
+      // New colours, a packed asset (its one cell is built anew, a few hundred instances at most), or one
+      // that grows past PACK_MAX into cells: laid out anew
+      if (newColors || b.cells.has(PACKED) || n <= (this.options.packMax ?? PACK_MAX)) {
         this.layoutCells(b);
         continue;
       }
@@ -275,16 +314,20 @@ export class MapObjectLayer {
 
   /**
    * Removes objects by id: each leaves its cell's meshes in place (the cell's
-   * last instance fills its slot), a cell that empties goes
+   * last instance fills its slot), a cell that empties goes; a packed asset
+   * is built anew
    */
   removeObjects(ids: string[]): void {
+    // Packed assets are built anew once their objects are out
+    const repack = new Set<AssetBatch>();
     for (const id of ids) {
       const slot = this.byId.get(id);
       if (!slot) continue;
       const b = slot.batch;
       const i = slot.index;
       this.byId.delete(id);
-      this.takeFromCell(b, i);
+      if (b.cells.has(PACKED)) repack.add(b);
+      else this.takeFromCell(b, i);
       const last = b.objects.length - 1;
       if (i !== last) {
         // The batch's last object moves into the gap; its cell slot now names index i
@@ -300,6 +343,7 @@ export class MapObjectLayer {
       b.objects.length = last;
       b.slots.length = last;
     }
+    for (const b of repack) this.layoutCells(b);
     const empty = this.batches.filter((b) => b.objects.length === 0);
     if (empty.length) this.batches = this.batches.filter((b) => b.objects.length > 0);
     this.version++;
@@ -323,7 +367,7 @@ export class MapObjectLayer {
         this.writeInstance(b, i);
         changed.push(i);
       };
-      if (rect) {
+      if (rect && !b.cells.has(PACKED)) {
         // Only the cells the rectangle reaches: a brush on a map of 50 000 objects touches a few dozen
         const cx0 = Math.floor((rect.minX - reach) / CELL_SIZE);
         const cx1 = Math.floor((rect.maxX + reach) / CELL_SIZE);
@@ -364,6 +408,8 @@ export class MapObjectLayer {
       const cell = b.cells.values().next().value as Cell | undefined;
       for (const c of b.cells.values()) for (const meshes of c.levels) for (const m of meshes) m.visible = false;
       if (!cell) continue;
+      // A packed asset: every object into every level for the one render
+      if (cell.packed) this.writePacked(b, cell, cell.packed, true);
       for (const meshes of cell.levels) {
         for (const m of meshes) {
           m.visible = true;
@@ -411,7 +457,7 @@ export class MapObjectLayer {
     this.raycaster.ray.copy(ray);
     const meshes = this.pickMeshes;
     meshes.length = 0;
-    for (const b of this.batches) for (const c of b.cells.values()) for (const m of c.levels[0]) meshes.push(m);
+    for (const b of this.batches) for (const c of b.cells.values()) for (const m of c.packed ? c.packed.pick : c.levels[0]) meshes.push(m);
     const hits = this.raycaster.intersectObjects(meshes, false);
     meshes.length = 0;
     for (const hit of hits) {
@@ -419,7 +465,9 @@ export class MapObjectLayer {
       const batch = mesh.userData['batch'] as AssetBatch | undefined;
       const cell = mesh.userData['cell'] as Cell | undefined;
       if (!batch || !cell || hit.instanceId === undefined) continue;
-      return { object: batch.objects[cell.indices[hit.instanceId]], point: hit.point, distance: hit.distance };
+      // A packed asset's pick meshes hold the objects in their own order
+      const index = cell.packed ? hit.instanceId : cell.indices[hit.instanceId];
+      return { object: batch.objects[index], point: hit.point, distance: hit.distance };
     }
     return null;
   }
@@ -450,10 +498,9 @@ export class MapObjectLayer {
   /** Detail levels of an asset: its model, the catalogue's LOD models, an impostor for far trees */
   private levelsFor(model: ObjectModel, lods: { model: ObjectModel; distance: number }[]): Level[] {
     const entry = model.entry;
-    const levels: Level[] = [{ from: 0, parts: model.parts.map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry) })) }];
-    for (const lod of lods) {
-      levels.push({ from: lod.distance, parts: lod.model.parts.map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry) })) });
-    }
+    const drawn = (m: ObjectModel) => mergedParts(m).map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry) }));
+    const levels: Level[] = [{ from: 0, parts: drawn(model) }];
+    for (const lod of lods) levels.push({ from: lod.distance, parts: drawn(lod.model) });
     // Trees and big rocks (buildings get hand-made far models through the catalogue's lod)
     const impostor = entry.category === 'tree' || (entry.category === 'rock' && entry.height >= 1.5);
     if (impostor && this.options.renderer && !model.placeholder) {
@@ -494,8 +541,20 @@ export class MapObjectLayer {
     return b;
   }
 
-  /** Sorts the batch's objects into cells and builds every cell's meshes anew */
+  /**
+   * Sorts the batch's objects into cells and builds every cell's meshes
+   * anew; an asset with few objects gets its one packed cell instead
+   */
   private layoutCells(b: AssetBatch): void {
+    for (const cell of b.cells.values()) this.disposeCell(cell);
+    b.cells.clear();
+    if (b.objects.length <= (this.options.packMax ?? PACK_MAX)) {
+      // Few objects: one packed cell, built anew (a few hundred instances at most)
+      const indices = Array.from({ length: b.objects.length }, (_, i) => i);
+      for (let i = 0; i < indices.length; i++) b.slots[i] = { cell: PACKED, slot: i };
+      if (indices.length) b.cells.set(PACKED, this.buildCell(b, indices, true));
+      return;
+    }
     const lists = new Map<number, number[]>();
     for (let i = 0; i < b.objects.length; i++) {
       const key = this.cellKey(b.objects[i].x, b.objects[i].y);
@@ -597,28 +656,47 @@ export class MapObjectLayer {
     }
   }
 
-  private buildCell(b: AssetBatch, indices: number[]): Cell {
+  private buildCell(b: AssetBatch, indices: number[], packed = false): Cell {
     const entry = b.entry;
     const parent = b.blocksLos ? this.losGroup : this.group;
-    const capacity = cellCapacity(indices.length);
-    const cell: Cell = { indices, capacity, levels: [], sphere: new Sphere(), level: -1 };
+    const n = indices.length;
+    const capacity = packed ? n : cellCapacity(n);
+    const cell: Cell = { indices, capacity, levels: [], sphere: new Sphere(), level: -1, packed: null };
+    const pack: Packed | null = packed
+      ? { levelOf: new Int8Array(n).fill(-2), matrices: [], colors: [], bounds: [], pick: [], at: new Vector3(), stale: true }
+      : null;
     for (const [li, level] of b.levels.entries()) {
       const meshes: InstancedMesh[] = [];
+      // A packed level's parts share one set of instances
+      const shared = pack ? new InstancedBufferAttribute(new Float32Array(n * 16), 16) : null;
+      const sharedColors = pack && b.colors ? new InstancedBufferAttribute(new Float32Array(n * 3), 3) : null;
+      if (pack) {
+        pack.matrices.push(shared!);
+        pack.colors.push(sharedColors);
+        pack.bounds.push(new Sphere());
+      }
       for (const part of level.parts) {
         const mesh = new InstancedMesh(part.geometry, part.material, capacity);
-        mesh.count = indices.length;
+        mesh.count = n;
         mesh.name = `${entry.id}${b.blocksLos ? '' : '-decor'}${li ? `-lod${li}` : ''}`;
-        const arr = mesh.instanceMatrix.array as Float32Array;
-        indices.forEach((i, k) => arr.set(b.matrices.subarray(i * 16, i * 16 + 16), k * 16));
-        if (b.colors) {
-          const c = new Color();
-          indices.forEach((i, k) => mesh.setColorAt(k, c.setRGB(b.colors![i * 3], b.colors![i * 3 + 1], b.colors![i * 3 + 2])));
+        if (shared) {
+          mesh.instanceMatrix = shared;
+          if (sharedColors) mesh.instanceColor = sharedColors;
+          mesh.count = 0;
+          mesh.boundingSphere = pack!.bounds[li];
+        } else {
+          const arr = mesh.instanceMatrix.array as Float32Array;
+          indices.forEach((i, k) => arr.set(b.matrices.subarray(i * 16, i * 16 + 16), k * 16));
+          if (b.colors) {
+            const c = new Color();
+            indices.forEach((i, k) => mesh.setColorAt(k, c.setRGB(b.colors![i * 3], b.colors![i * 3 + 1], b.colors![i * 3 + 2])));
+          }
         }
         mesh.castShadow = entry.category !== 'plant' || entry.height > 0.8;
         mesh.receiveShadow = true;
         mesh.matrixAutoUpdate = false;
         mesh.visible = false;
-        mesh.computeBoundingSphere();
+        if (!shared) mesh.computeBoundingSphere();
         mesh.userData['batch'] = b;
         mesh.userData['cell'] = cell;
         if (!b.blocksLos) mesh.userData['losTransparent'] = true;
@@ -627,8 +705,81 @@ export class MapObjectLayer {
       }
       cell.levels.push(meshes);
     }
+    if (pack) {
+      // The editor's picks: every object, level 0's parts, in object order
+      for (const part of b.levels[0]?.parts ?? []) {
+        const mesh = new InstancedMesh(part.geometry, part.material, n);
+        mesh.userData['batch'] = b;
+        mesh.userData['cell'] = cell;
+        pack.pick.push(mesh);
+      }
+      this.writePicks(b, pack, indices);
+      cell.packed = pack;
+    }
     this.cellBounds(b, cell);
     return cell;
+  }
+
+  /** The pick meshes of objects `changed` from the batch's matrices */
+  private writePicks(b: AssetBatch, pack: Packed, changed: readonly number[]): void {
+    for (const m of pack.pick) {
+      const arr = m.instanceMatrix.array as Float32Array;
+      for (const i of changed) arr.set(b.matrices.subarray(i * 16, i * 16 + 16), i * 16);
+      m.instanceMatrix.needsUpdate = true;
+      m.boundingSphere = null;
+      m.computeBoundingSphere();
+    }
+  }
+
+  /**
+   * A packed asset's objects into the levels for the camera's distance to
+   * each (or every object into every level for the warm-up). Writes only
+   * levels whose objects changed, unless the instances did (`stale`).
+   * Returns whether anything changed.
+   */
+  private writePacked(b: AssetBatch, cell: Cell, pack: Packed, all = false): boolean {
+    const n = cell.indices.length;
+    const levels = b.levels.length;
+    const { lodBias, impostorFrom } = this.detail;
+    const draw = b.blocksLos ? b.entry.drawDistance : b.entry.drawDistance * lodBias;
+    const dirty = new Array<boolean>(levels).fill(pack.stale || all);
+    for (let i = 0; i < n; i++) {
+      const s = i * 4;
+      const d = all ? 0 : Math.max(0, Math.hypot(b.spheres[s] - this.camPos.x, b.spheres[s + 1] - this.camPos.y, b.spheres[s + 2] - this.camPos.z) - b.spheres[s + 3]);
+      const level = all ? 0 : levelAt(b.levels, d, draw, lodBias, impostorFrom);
+      if (level === pack.levelOf[i]) continue;
+      if (pack.levelOf[i] >= 0) dirty[pack.levelOf[i]] = true;
+      if (level >= 0) dirty[level] = true;
+      pack.levelOf[i] = level;
+    }
+    pack.stale = false;
+    if (!dirty.some(Boolean)) return false;
+    const casts = b.entry.category !== 'plant' || b.entry.height > 0.8;
+    for (let l = 0; l < levels; l++) {
+      if (!dirty[l]) continue;
+      const matrices = pack.matrices[l].array as Float32Array;
+      const colors = pack.colors[l]?.array as Float32Array | undefined;
+      const bounds = pack.bounds[l].makeEmpty();
+      let count = 0;
+      for (let i = 0; i < n; i++) {
+        if (!all && pack.levelOf[i] !== l) continue;
+        matrices.set(b.matrices.subarray(i * 16, i * 16 + 16), count * 16);
+        if (colors && b.colors) colors.set(b.colors.subarray(i * 3, i * 3 + 3), count * 3);
+        this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3]);
+        if (bounds.isEmpty()) bounds.copy(this.sphere);
+        else bounds.union(this.sphere);
+        count++;
+      }
+      pack.matrices[l].needsUpdate = true;
+      if (pack.colors[l]) pack.colors[l]!.needsUpdate = true;
+      for (const m of cell.levels[l]) {
+        m.count = count;
+        m.visible = count > 0;
+        m.frustumCulled = !all;
+        m.castShadow = casts || all;
+      }
+    }
+    return true;
   }
 
   private disposeCell(cell: Cell): void {
@@ -638,6 +789,7 @@ export class MapObjectLayer {
         m.dispose();
       }
     }
+    for (const m of cell.packed?.pick ?? []) m.dispose();
   }
 
   /** The cell's bounding sphere, from its instances */
@@ -658,6 +810,7 @@ export class MapObjectLayer {
       const cell = b.cells.get(key);
       if (!cell) continue;
       touched.add(cell);
+      if (cell.packed) continue;
       for (const meshes of cell.levels) {
         for (const m of meshes) {
           (m.instanceMatrix.array as Float32Array).set(b.matrices.subarray(i * 16, i * 16 + 16), slot * 16);
@@ -666,16 +819,23 @@ export class MapObjectLayer {
         }
       }
     }
-    for (const cell of touched) this.cellBounds(b, cell);
+    for (const cell of touched) {
+      this.cellBounds(b, cell);
+      if (!cell.packed) continue;
+      // The objects sort again into their levels, every level written with the new instances
+      this.writePicks(b, cell.packed, changed);
+      cell.packed.stale = true;
+      this.writePacked(b, cell, cell.packed);
+    }
     // A few changed (a brush): the mesh spheres grow by them; many: computed anew
     if (ranged && changed.length < 64) {
       for (const i of changed) {
         const { cell: key, slot } = b.slots[i];
         const cell = b.cells.get(key);
-        if (cell) for (const meshes of cell.levels) for (const m of meshes) this.growBounds(m, slot);
+        if (cell && !cell.packed) for (const meshes of cell.levels) for (const m of meshes) this.growBounds(m, slot);
       }
     } else {
-      for (const cell of touched) for (const meshes of cell.levels) for (const m of meshes) m.computeBoundingSphere();
+      for (const cell of touched) if (!cell.packed) for (const meshes of cell.levels) for (const m of meshes) m.computeBoundingSphere();
     }
   }
 
@@ -694,18 +854,17 @@ export class MapObjectLayer {
     for (const b of this.batches) {
       const draw = b.blocksLos ? b.entry.drawDistance : b.entry.drawDistance * lodBias;
       for (const cell of b.cells.values()) {
-        const d = Math.max(0, cell.sphere.distanceToPoint(this.camPos));
-        let level = -1;
-        if (d <= draw) {
-          level = 0;
-          for (let l = b.levels.length - 1; l > 0; l--) {
-            const at = b.levels[l];
-            if (d >= (at.impostor ? Math.max(at.from, impostorFrom) : at.from * lodBias)) {
-              level = l;
-              break;
-            }
-          }
+        const pack = cell.packed;
+        if (pack) {
+          // Sorted again once the camera moved a step; the shadow map follows what changed
+          if (force) pack.stale = true;
+          if (!pack.stale && pack.at.distanceToSquared(this.camPos) < REPACK_STEP * REPACK_STEP) continue;
+          pack.at.copy(this.camPos);
+          if (this.writePacked(b, cell, pack)) this.version++;
+          continue;
         }
+        const d = Math.max(0, cell.sphere.distanceToPoint(this.camPos));
+        const level = levelAt(b.levels, d, draw, lodBias, impostorFrom);
         if (level !== cell.level || force) {
           cell.levels.forEach((meshes, l) => {
             for (const m of meshes) {
@@ -919,6 +1078,29 @@ export class MapObjectLayer {
     this.materials.set(key, m);
     return m;
   }
+}
+
+/**
+ * The level for distance `d`: -1 beyond the draw distance, else the last
+ * level whose start it passed (impostors from the larger of their own start
+ * and the quality level's distance, the others times the LOD bias)
+ */
+function levelAt(levels: readonly Level[], d: number, draw: number, lodBias: number, impostorFrom: number): number {
+  if (d > draw) return -1;
+  for (let l = levels.length - 1; l > 0; l--) {
+    const at = levels[l];
+    if (d >= (at.impostor ? Math.max(at.from, impostorFrom) : at.from * lodBias)) return l;
+  }
+  return 0;
+}
+
+const merged = new WeakMap<ObjectModel, ModelPart[]>();
+
+/** A model's parts with the plain-coloured ones merged (merge-parts.ts), once per model */
+function mergedParts(model: ObjectModel): ModelPart[] {
+  let parts = merged.get(model);
+  if (!parts) merged.set(model, (parts = mergeParts(model.parts)));
+  return parts;
 }
 
 /** `a`, or a copy with room for `length` values (the old ones kept) */
