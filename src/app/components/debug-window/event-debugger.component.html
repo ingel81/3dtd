@@ -44,7 +44,7 @@
       <!-- Event Log -->
       <div class="td-rows event-log">
         @for (entry of filteredEvents(); track entry.id) {
-          <div class="td-row td-marked event-entry" [class]="getEventClass(entry.event.type)">
+          <div class="td-row event-entry" [class]="getEventClass(entry.event.type)">
             <span class="td-note td-num time">{{ formatTime(entry.timestamp) }}</span>
             <span class="td-name type">{{ entry.event.type }}</span>
             <span class="td-note details td-trunc">{{ getEventDetails(entry.event) }}</span>

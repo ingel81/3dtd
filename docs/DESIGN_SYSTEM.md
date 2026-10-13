@@ -174,12 +174,12 @@ Bei `prefers-reduced-motion` springen alle Übergänge (globale Regel); Animatio
 | `td-well` (`is-deep`), `td-card` | Vertiefte Fläche, tief wie ein Feld; Karte im Raster (gewählt mit Messingkante; als `<button>` ganz anklickbar, Hover hellt den Text) |
 | `td-reveal` (`is-up`, `is-fade`, `is-open`) | Popup, das auf Wunsch aufgeht: verborgen, mit `is-open` blendet es ein und rückt an seinen Platz (4 px von oben, `is-up` 8 px von unten, `is-fade` ohne Verschieben) |
 | `td-dlg`, `td-dlg-head`, `td-dlg-title`, `td-dlg-body` (`is-loose`), `td-dlg-foot` | Dialog: Panel, steht unter der Kopfleiste; Kopf mit eingeritzter Linie, die vor dem Schließen-Kreuz ausläuft; eingravierter Titel 21 px/700; scrollender Körper als Spalte (12 px, `is-loose` 16 px); Fuß rechtsbündig |
-| `td-rule`, `td-line-top`, `td-line-bottom`, `td-line-left`, `td-line-right`, `td-hairline-top`, `td-hairline-bottom`, `td-marked` | Eingeritzte Trennlinie; eingeritzte Linie an einer Seite; Haarlinie über oder unter einem Kopf oder Fuß; Randmarke links in `--td-mark` |
+| `td-rule`, `td-line-top`, `td-line-bottom`, `td-line-left`, `td-line-right`, `td-hairline-top`, `td-hairline-bottom` | Eingeritzte Trennlinie; eingeritzte Linie an einer Seite; Haarlinie über oder unter einem Kopf oder Fuß |
 | `td-section`, `td-head` | Abschnittskopf in Messing 700; dasselbe mit Haarlinie (Sidebar) |
 | `td-text`, `td-note`, `td-muted`, `td-sub`, `td-name` | Fließtext; leise Zeile (`is-warn`, `is-error`, `is-ok`); gedämpft; Unterzeile; Name halbfett mit Ellipse |
 | `td-tone-hurt`, `td-tone-brass`, `td-tone-teal` | Textfarben mit Bedeutung: was dem HQ schadet; worauf eine Welle schwach ist, ein starker Wert; was läuft |
 | `td-caps`, `td-value`, `td-value is-sm`, `td-figure`, `td-num`, `td-code` | Versalien-Label; große Zahl (29 px); kleinere Zahl (19 px); Zahl in Messing; feste Ziffernbreite; Raumcode in Mono |
-| `td-banner` (`is-warn`, `is-error`, `is-ok`, `is-row`) | Hinweisstreifen, vertieft mit Marke links; `is-row` mit Knopf rechts |
+| `td-banner` (`is-warn`, `is-error`, `is-ok`, `is-row`) | Hinweis in einer flachen Mulde, die Art nur in der Schriftfarbe (keine Marke an der Kante); `is-row` mit Knopf rechts |
 | `td-tag` (`is-caps`, `is-ok`, `is-brass`, `is-warn`, `is-error`) | Kleines Etikett: Host, You, Ready, Optionswert, „capped“, Zähler einer Warteschlange |
 | `td-diamond` (`is-sm`), `td-swatch` (`is-round`, `is-lg`, `is-line`), `td-legend`, `td-divided` | Raute als Aufzählung, Stufe, Strang; Farbmuster einer Legende (Punkt, Kartenfarbe mit Rand, Linie); beide färbt `--td-mark`, `[data-branch]` setzt sie global auf die Strangfarbe; Legende als schlichte Liste; Blöcke mit Haarlinien dazwischen |
 | `td-trunc` | Eine Zeile mit Auslassungszeichen (in SCSS `ui.truncate`) |

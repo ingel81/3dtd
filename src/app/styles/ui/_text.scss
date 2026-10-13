@@ -24,33 +24,23 @@
   &.is-ok { color: var(--td-teal-light); }
 }
 
-// A strip of news under a head; is-warn orange, is-error red
+// A strip of news under a head, in a soft well; is-warn orange, is-error red,
+// is-ok teal. The tone is the text's, no stripe at the edge
 @mixin banner {
   margin: 0;
   padding: 8px 12px;
   border-radius: var(--td-radius);
   background: var(--td-well-soft);
-  box-shadow: var(--td-well-soft-shadow), inset 3px 0 0 var(--td-brass);
+  box-shadow: var(--td-well-soft-shadow);
   font-size: var(--td-fs-body);
   line-height: 1.4;
   color: var(--td-text-title);
 
   b { font-weight: 600; }
 
-  &.is-warn {
-    box-shadow: var(--td-well-soft-shadow), inset 3px 0 0 var(--td-warn-orange);
-    color: var(--td-warn-text);
-  }
-
-  &.is-error {
-    box-shadow: var(--td-well-soft-shadow), inset 3px 0 0 var(--td-danger-edge);
-    color: var(--td-error-text);
-  }
-
-  &.is-ok {
-    box-shadow: var(--td-well-soft-shadow), inset 3px 0 0 var(--td-teal);
-    color: var(--td-teal-light);
-  }
+  &.is-warn { color: var(--td-warn-text); }
+  &.is-error { color: var(--td-error-text); }
+  &.is-ok { color: var(--td-teal-light); }
 }
 
 // A diamond mark: a bullet, a tier, a strand; its colour from --td-mark

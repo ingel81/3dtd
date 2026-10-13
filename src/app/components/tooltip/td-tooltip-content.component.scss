@@ -45,20 +45,12 @@
   }
 }
 
-/* What the tower can target: a mark on the left edge, teal for anti-air */
+/* What the tower can target, the icon teal for anti-air */
 .td-tooltip__targeting {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-}
-
-.td-tooltip__targeting--air-ground {
-  --td-mark: var(--td-teal-dark);
-}
-
-.td-tooltip__targeting--air-only {
-  --td-mark: var(--td-teal-light);
 }
 
 .td-tooltip__targeting-icon {
@@ -75,8 +67,7 @@
   flex: 1;
 }
 
-/* A rule-changing line (a wave's mutator, the blood moon): the mark on the
-   left like the targeting, red for danger */
+/* A rule-changing line (a wave's mutator, the blood moon), red for danger */
 .td-tooltip__banner {
   display: flex;
   align-items: flex-start;
@@ -90,8 +81,6 @@
 }
 
 .td-tooltip__banner--danger {
-  --td-mark: var(--td-danger-edge);
-
   .td-tooltip__banner-icon {
     color: var(--td-health-red);
   }

@@ -32,14 +32,15 @@
   justify-content: flex-start;
   gap: 8px;
   min-height: 0;
-  padding: 3px 6px 3px 9px;
+  padding: 3px 6px;
 
-  &.enemy { --td-mark: var(--td-health-red); }
-  &.tower { --td-mark: var(--td-teal); }
-  &.wave { --td-mark: var(--td-brass); }
-  &.game { --td-mark: var(--td-green); }
-  &.vfx { --td-mark: var(--td-event-vfx); }
-  &.audio { --td-mark: var(--td-event-audio); }
+  // The event's kind in the colour of its name
+  &.enemy { --event-tone: var(--td-health-red); }
+  &.tower { --event-tone: var(--td-teal); }
+  &.wave { --event-tone: var(--td-brass); }
+  &.game { --event-tone: var(--td-green); }
+  &.vfx { --event-tone: var(--td-event-vfx); }
+  &.audio { --event-tone: var(--td-event-audio); }
 
   .time {
     flex-shrink: 0;
@@ -49,6 +50,7 @@
   .type {
     flex-shrink: 0;
     min-width: 120px;
+    color: var(--event-tone, inherit);
   }
 
   }

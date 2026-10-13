@@ -133,7 +133,6 @@
   .td-hairline-top { @include base.hairline-top; }
   .td-hairline-bottom { @include base.hairline-bottom; }
   // A mark on the left edge; its colour from --td-mark
-  .td-marked { box-shadow: inset 3px 0 0 var(--td-mark, var(--td-frame-mid)); }
   .td-section { @include surface.section; }
   .td-head { @include surface.head; }
   .td-well { @include surface.well; }

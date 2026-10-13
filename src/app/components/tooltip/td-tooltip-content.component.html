@@ -22,7 +22,7 @@
     }
 
     @if (d.targeting; as t) {
-      <div class="td-tooltip__targeting td-marked"
+      <div class="td-tooltip__targeting"
            [class.td-tooltip__targeting--air-only]="t.mode === 'air-only'"
            [class.td-tooltip__targeting--air-ground]="t.mode === 'air-ground'"
           >
@@ -36,7 +36,7 @@
     }
 
     @for (banner of d.banners ?? []; track banner.text) {
-      <div class="td-tooltip__banner td-note td-marked" [class.td-tooltip__banner--danger]="banner.tone === 'danger'">
+      <div class="td-tooltip__banner td-note" [class.td-tooltip__banner--danger]="banner.tone === 'danger'">
         <td-icon class="td-tooltip__banner-icon" [name]="banner.icon" [size]="13"></td-icon>
         <span>{{ banner.text }}</span>
       </div>

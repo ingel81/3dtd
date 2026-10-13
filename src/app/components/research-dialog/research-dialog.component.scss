@@ -79,7 +79,10 @@
   overflow-x: auto;
 }
 
+/* Icon and name side by side: the segment button is a grid, which would
+   stack them in two rows, too high for the button */
 .td-rd-tab {
+  grid-auto-flow: column;
   gap: 8px;
 }
 
