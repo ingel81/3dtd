@@ -10,6 +10,7 @@ import { startTerrainJob, type TerrainJob, type TerrainJobMessage } from '../wor
 import type { DocChange } from '../model/editor-document';
 import { MAP_TEST_WINDOW, MAP_TRIAL_MESSAGE, MAP_TRIAL_WAVES_PARAM, type MapTrialResult } from '../../world/map-trial';
 import { VersionHistory, type MapVersion } from '../model/version-store';
+import { DOWNLOAD_REMINDER_MS, storageSafety, type StorageSafety } from '../model/storage-safety';
 import { biomeById } from '../ops/landscape/biomes';
 import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
 import { Injectable, NgZone, OnDestroy, inject, signal } from '@angular/core';
@@ -139,6 +140,14 @@ export class EditorSession implements OnDestroy {
   readonly cameraRev = signal(0);
   readonly importState = signal<ImportState | null>(null);
   readonly error = signal<string | null>(null);
+  /** How safe the maps are here (the browser may clear them unless it keeps them for good); null until known */
+  readonly storage = signal<StorageSafety | null>(null);
+  /** The reminder to download the map after long work in a browser that may clear it */
+  readonly downloadReminder = signal(false);
+  /** Asked the browser for persistent storage already (once a page, at the first save) */
+  private persistAsked = false;
+  /** Since when the map is edited without a download, for the reminder */
+  private workSince = Date.now();
   /** Camera views 1 to 9 of the open map (kept per map in this browser) */
   readonly bookmarks = signal<(CameraBookmark | null)[]>(Array(9).fill(null));
   /** Bumps when a rendered palette picture is ready */
@@ -442,6 +451,9 @@ export class EditorSession implements OnDestroy {
     this.origin.set(origin);
     this.savedState = editor.stateId;
     this.loadBookmarks(doc.meta.id);
+    this.workSince = Date.now();
+    this.downloadReminder.set(false);
+    if (!this.storage()) void storageSafety(false).then((s) => this.storage.set(s));
     this.versions.set([]);
     void this.loadVersions();
     this.issues.set(null);
@@ -638,6 +650,7 @@ export class EditorSession implements OnDestroy {
       editor.markSaved();
       this.savedAt.set(doc.meta.updatedAt);
       if (manual) this.flash('Saved');
+      this.guardStorage();
       return true;
     } catch (e) {
       this.error.set(saveErrorText(e));
@@ -689,12 +702,31 @@ export class EditorSession implements OnDestroy {
     }
   }
 
+  /**
+   * After a save: the first one asks the browser to keep the maps for good;
+   * where it may clear them, long work without a download brings a reminder
+   */
+  private guardStorage(): void {
+    if (!this.persistAsked) {
+      this.persistAsked = true;
+      void storageSafety(true).then((s) => this.storage.set(s));
+    }
+    if (this.storage() === 'evictable' && Date.now() - this.workSince > DOWNLOAD_REMINDER_MS) this.downloadReminder.set(true);
+  }
+
+  /** The reminder put off: it comes back after the next stretch of work */
+  laterReminder(): void {
+    this.workSince = Date.now();
+    this.downloadReminder.set(false);
+  }
+
   /** The map as a `.3dtdmap` download */
   downloadFile(): void {
     const doc = this.doc;
     if (!doc) return;
     try {
       download(packMapFile(doc), `${doc.meta.id}${MAP_FILE_EXTENSION}`, 'application/zip');
+      this.laterReminder();
     } catch (e) {
       this.error.set((e as Error).message);
     }

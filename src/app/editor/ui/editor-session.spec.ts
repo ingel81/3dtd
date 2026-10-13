@@ -4,6 +4,7 @@ import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { MapStore, MemoryMapBackend } from '../../world/custom-map/map-store';
 import { MemoryVersionBackend, VersionHistory } from '../model/version-store';
+import { DOWNLOAD_REMINDER_MS } from '../model/storage-safety';
 import { MapFileError, packMapFile } from '../../world/custom-map/map-file';
 import { EditorSession, saveErrorText } from './editor-session.service';
 
@@ -50,6 +51,23 @@ describe('editor session opening', () => {
 });
 
 describe('editor session saving', () => {
+  it('reminds of a download after long work where the browser may clear maps', async () => {
+    const { s } = session();
+    s.storage.set('evictable');
+    await s.save(true);
+    expect(s.downloadReminder()).toBe(false);
+    Object.assign(s, { workSince: Date.now() - DOWNLOAD_REMINDER_MS - 1 });
+    await s.save(true);
+    expect(s.downloadReminder()).toBe(true);
+    s.laterReminder();
+    expect(s.downloadReminder()).toBe(false);
+    s.storage.set('kept');
+    Object.assign(s, { workSince: 0 });
+    await s.save(true);
+    expect(s.downloadReminder()).toBe(false);
+    s.ngOnDestroy();
+  });
+
 
   it('a save asked for during another waits for it instead of getting lost', async () => {
     const { s, backend } = session();

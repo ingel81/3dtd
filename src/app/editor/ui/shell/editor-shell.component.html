@@ -91,6 +91,13 @@
       <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.error.set(null)">Dismiss</button>
     </p>
   }
+  @if (session.downloadReminder()) {
+    <p class="td-banner is-warn is-row td-overlay es-reminder" role="status" data-test="download-reminder">
+      <span>This browser may clear maps when the disk runs short. Download the map file now and then to keep your work safe.</span>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.downloadFile()">Download</button>
+      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.laterReminder()">Later</button>
+    </p>
+  }
   <main class="es-view">
     <canvas #canvas class="es-canvas" tabindex="0" aria-label="Map view" data-test="viewport"></canvas>
     @if (session.box(); as b) {

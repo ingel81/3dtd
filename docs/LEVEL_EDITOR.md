@@ -243,6 +243,11 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
 - Autosave schreibt zwei Sekunden nach der letzten Änderung in IndexedDB; die Kopfzeile zeigt „Unsaved changes“,
   „Saving“ oder „Saved“. Strg+S speichert sofort mit neuem Vorschaubild; beim Verlassen der Karte wird das Bild
   ebenfalls erneuert
+- Dauerhaft halten: ein Browser darf IndexedDB bei Platzmangel räumen, samt Versionen. Das erste Speichern je Seite
+  fragt daher `navigator.storage.persist()` (`editor/model/storage-safety.ts`; Firefox fragt den Spieler, Chrome
+  entscheidet selbst). Das Map-Panel (9) zeigt unter „Storage“ den Stand: Kartenordner der Desktop-App, „keeps your
+  maps for good“ oder die Warnung samt „Download map file“. Darf der Browser räumen, erinnert nach 30 Minuten Arbeit
+  ohne Download ein Banner daran („Download“, „Later“ schiebt es um weitere 30 Minuten)
 - Kartendokument Version 2: optionales Feld `gameplay` (`startCredits`, `hqHealth`, `towers`, `waves` als
   `{ kind: 'budget' }` oder `{ kind: 'table', table }` in der Form der Table-Source); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2

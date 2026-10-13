@@ -88,6 +88,24 @@ import { EditorSession } from '../editor-session.service';
       <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="!!job()" (click)="erode()" data-test="erode-map">Erode</button>
       <p class="td-note">Rain carves gullies down every slope and leaves fans of scree at their feet; flat land stays. Cancel or one undo step takes it back.</p>
     </div>
+    <div class="td-group" data-test="storage">
+      <h3 class="td-section">Storage</h3>
+      @switch (storage()) {
+        @case ('folder') {
+          <p class="td-note">Every save also goes to the map folder (Documents/3DTD/Maps) as a file.</p>
+        }
+        @case ('kept') {
+          <p class="td-note">This browser keeps your maps for good (persistent storage).</p>
+        }
+        @case ('evictable') {
+          <p class="td-note mp-warn">This browser may clear maps when the disk runs short, versions included. Download the map file now and then.</p>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="download()" data-test="storage-download">Download map file</button>
+        }
+        @default {
+          <p class="td-note">Checking how this browser keeps maps</p>
+        }
+      }
+    </div>
     <div class="td-group">
       <h3 class="td-section">Versions</h3>
       <div class="td-rows" data-test="versions">
@@ -105,7 +123,7 @@ import { EditorSession } from '../editor-session.service';
   `,
   styles: [
     `.mp-job { display: flex; align-items: center; gap: 8px; } .mp-progress { flex: 1 1 auto; height: 6px; accent-color: var(--td-brass); }
-     .mp-version { gap: 8px; min-height: 30px; } .mp-version > .td-trunc { flex: 1 1 auto; }
+     .mp-warn { color: var(--td-warn-text); } .mp-version { gap: 8px; min-height: 30px; } .mp-version > .td-trunc { flex: 1 1 auto; }
      .mp-text { height: auto; padding-top: 8px; resize: vertical; } .mp-size { display: flex; align-items: flex-end; gap: 8px; }
      .mp-presets { flex-wrap: wrap; height: auto; } .mp-presets > * { flex: 1 0 30%; }`,
   ],
@@ -128,6 +146,11 @@ export class MapPanelComponent {
   });
 
   readonly versions = this.session.versions;
+  readonly storage = this.session.storage;
+
+  download(): void {
+    this.session.downloadFile();
+  }
 
   when(iso: string): string {
     const d = new Date(iso);

@@ -316,6 +316,17 @@
   transform: translateX(-50%);
 }
 
+.es-reminder {
+  position: fixed;
+  top: 104px;
+  left: 50%;
+  z-index: 26;
+  width: min(720px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  // The overlay's own surface (td-overlay) shows instead of the banner's well
+  background: none;
+}
+
 .es-options .td-side-body {
   position: relative;
 }
