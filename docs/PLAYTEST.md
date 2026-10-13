@@ -1,6 +1,6 @@
 # Playtest: offene Nachtests
 
-Stand 2026-10-12, Code-Stand `next`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
+Stand 2026-10-13, Code-Stand `next`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
 warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). Die erledigten Punkte samt Ergebnissen
 (bis 748, dazu M, Q, R, T bis 2026-09-26) liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Listen in `archive/REVIEW_*.md`.
 
@@ -25,6 +25,21 @@ warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). 
   Enemies" anklicken, unter "Movement" "Start".
 - Orte immer per URL mit F5 kalt laden (`http://localhost:4200/` plus die Parameter unten), keine Tower, keine Welle,
   wenn nicht anders gesagt.
+
+## Z Eigene Icons, Wellenblock, Ladeschirm (2026-10-13, auf `next`)
+
+Per Spec geprüft; die Icons einzeln im Prüf-Artefakt abgenommen. Hier geht es um das Bild im Spiel.
+
+- **Z1 Icons im Spiel:** Einen Ort laden, eine Welle spielen, Sidebar, Kopfleiste, NEXT-Leiste, Baumenü, Tower-Panel,
+  Esc-Menü ansehen. *Überall der Halbton-Stempel in Messing, auch klein (11 px) lesbar; nichts fehlt oder ist leer.*
+- **Z2 Wellenblock:** Zwischen zwei Wellen die Sidebar oben ansehen. *Kompakter; unter dem Wellen-Knopf kein „Load
+  replay“ mehr (eine Replay-Datei lädt Extras); an der NEXT-Leiste Luft zwischen Zeichen und Zahl, bei einer
+  Blutmond-Welle der Mond über dem Zeichen, nicht in der Linie unter „Next“.*
+- **Z3 Ladeschirm im Hintergrund-Tab:** Seite mit Ort im Hintergrund-Tab laden, warten bis `tiles timed out` in der
+  Konsole, dann den Tab zeigen. *Der Korridor baut neu, danach geht der Ladeschirm weg.*
+  **ok (2026-10-13)**
+- **Z4 Desktop 0.7.0-beta.2:** `desktop/release/3DTD-0.7.0-beta.2-win-x64-setup.exe` über die beta.1 installieren,
+  starten, einen Ort spielen. *Startet, Version im Menü 0.7.0-beta.2, Icons wie im Browser.*
 
 ## X Nachtschicht 2026-10-12 (auf `next`)
 
@@ -110,12 +125,16 @@ sind gebaut, aber gesperrt (`CUSTOM_MAPS_OPEN`). E2E 35/35 grün; hier geht es u
 - **V1 Echter Ort kalt laden:** Seite neu laden, New game, Tab „Real places“, einen Ort wählen, Play. *Erde, Abtauchen,
   Ladebalken mit dem Ortsnamen, das Spiel startet, eine Welle läuft wie vorher. Unten im Menü steht `tiles cesium`
   (oder `google`). „Map editor“ ist grau mit „Coming soon“, der Tab „Maps“ ebenfalls grau.*
+  **ok (2026-10-11)**
 - **V2 Ortswechsel im Spiel:** Im Lauf Esc, New game, einen anderen Ort. *Der Aufstieg, der neue Ort lädt, Continue
   führt nach einem abgebrochenen Wechsel zum alten Lauf.*
+  **ok (2026-10-11)**
 - **V3 Speichern, Laden, Replay:** Zwischen zwei Wellen „Save game“, Platz 1, einen Tower verkaufen, „Load game“,
   Platz 1; danach bis Game Over und das Replay ansehen. *Tower, Gold und HP wie beim Speichern; das Replay zeigt den Lauf.*
+  **ok (2026-10-11)**
 - **V4 Coop Browser gegen App:** Relay lokal (`npm run coop-server`), im Browser hosten, die App tritt bei, bis Welle 3.
   *Beide laden denselben Ort, kein `DESYNC` im Relay-Log, gleiche Gegner an gleichen Stellen.*
+  **ok (2026-10-11)**
 
 ## W Simulation im Worker (seit 2026-09-30 auf `next`)
 
@@ -170,6 +189,7 @@ Paket W3, Coop über zwei Rechner und Desktop-App:
   **ok (2026-10-04)**
 - **W3.4 Coop Browser gegen App:** Ein Spieler im Browser, einer in der App, ein Raum bis Welle 5. Erwartung: kein
   `DESYNC`.
+  **ok (2026-10-11)**
 
 ## M Druck-Regler und HP-Budget (2026-09-22)
 
@@ -438,13 +458,16 @@ Paket S3, Coop und Web:
 Paket S4, Spiel (aus `dev/after-0.6`, Standardwerte in `tmp/plan/PAKET_2026-10-02.md`):
 
 - **S4.1 Bauzeit:** ein gesetzter Tower wächst 5 s im Gerüst und schießt erst danach. Fühlt es sich richtig an?
+  **ok (2026-10-11)**
 - **S4.2 Camo ab W22:** getarnte Gegner schimmern, kein Tower zielt auf sie; Forschung „Scouting“ und der Archer-Pfad
   „Scout“ (250) decken sie im Umkreis von 35 m auf. NEXT warnt zwei Wellen vorher.
   Logik per Spec ok (2026-10-07): kein Ziel ohne Scout, Aufdecken im Radius, Gerüst deckt nicht auf, Warnung zwei Wellen vorher. Offen nur das Schimmern.
+  **ok (2026-10-12)** per X10: getarnte Gegner flimmern deutlich, Tower schießen nicht auf sie.
 - **S4.3 Replay:** Replay-Datei ist `.json.gz`, Knopf „orig“ spielt im Originaltempo. Replays von 0.6.0 laden nicht
   mehr (andere Balance).
   Logik per Spec und Probe ok (2026-10-07): Datei `.json.gz` (N21), „orig“ schaltet das Originaltempo, eine Datei mit anderer Balance wird abgelehnt (`other-balance`). Eine echte Datei von 0.6.0 ist nicht geladen worden.
   Mit echter Datei ok (2026-10-07): ein Replay der Live-Seite (0.6.0) lädt auf `next` nicht, „That replay was played with other tower or enemy values.“
+  **ok (2026-10-11)**
 - **S4.4 Zoom in Płock:** `?l=52.55000,19.70000&s=52.54690,19.69225`, aufs Portal zoomen bis zum Anschlag.
   Erwartung: bis etwa 10 m an die Straße, kein Zurückspringen, kein Rutschen nach Norden.
   **ok (2026-10-07)**, per Browser-Probe: aufs Portal gezoomt bis 10,1 m (8 m über dem Boden), kein Schritt zurück, in 4 s Ruhe 0,00 m Bewegung.
