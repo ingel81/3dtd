@@ -272,7 +272,8 @@ export class EditorViewport {
       this.keysDown.add(`fly:${k}`);
       return true;
     }
-    if (this.tool?.key?.(e, this.ctx)) return true;
+    // A locked view (a terrain job, a map another tab edits) takes no edits by key either: Delete, Ctrl+D, End …
+    if (!this.locked && this.tool?.key?.(e, this.ctx)) return true;
     if (e.key === 'Escape') {
       this.tool?.cancel?.(this.ctx);
       this.editor.select(null);
@@ -335,7 +336,7 @@ export class EditorViewport {
     await done.catch(() => undefined);
   }
 
-  /** While a terrain job runs, tools take no input (the view still turns and zooms) */
+  /** While a terrain job runs or another tab edits the map, tools take no input (the view still turns and zooms) */
   setLocked(on: boolean): void {
     this.locked = on;
     if (on && this.toolDrag) {

@@ -6,7 +6,7 @@
     <div class="es-name td-sunk">
       <span class="td-loc-label">Map</span>
       <span class="td-loc-name td-trunc" data-test="map-name">{{ title() }}</span>
-      <span class="es-save td-note" [class.is-warn]="session.dirty() && session.origin() === 'own'" data-test="save-state">{{ saveLine() }}</span>
+      <span class="es-save td-note" [class.is-warn]="session.dirty() && !session.readOnly()" data-test="save-state">{{ saveLine() }}</span>
     </div>
     <button class="td-tool" type="button" aria-label="Undo" [matTooltip]="session.undoLabel() ? 'Undo ' + session.undoLabel() + ' (Ctrl+Z)' : 'Nothing to undo'"
             [attr.aria-disabled]="!session.canUndo() || null" (click)="session.undo()" data-test="undo">
@@ -18,7 +18,7 @@
     </button>
     <span class="td-tool-gap"></span>
     <button class="td-tool" type="button" aria-label="Save" matTooltip="Save now (Ctrl+S); the editor also saves on its own"
-            [attr.aria-disabled]="session.origin() !== 'own' || null" (click)="session.save(true)" data-test="save">
+            [attr.aria-disabled]="session.readOnly() || null" (click)="session.save(true)" data-test="save">
       <td-icon name="download" [size]="18" />
     </button>
     <div class="es-file">
@@ -91,7 +91,12 @@
       <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.error.set(null)">Dismiss</button>
     </p>
   }
-  @if (session.downloadReminder()) {
+  @if (session.readOnly()) {
+    <p class="td-banner is-warn is-row td-overlay es-reminder" role="status" data-test="read-only">
+      <span>Another tab edits this map. Here you can look around; changes wait until this tab takes over.</span>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.takeOver()" data-test="take-over">Take over editing</button>
+    </p>
+  } @else if (session.downloadReminder()) {
     <p class="td-banner is-warn is-row td-overlay es-reminder" role="status" data-test="download-reminder">
       <span>This browser may clear maps when the disk runs short. Download the map file now and then to keep your work safe.</span>
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.downloadFile()">Download</button>
@@ -138,6 +143,8 @@
     </div>
     <section class="td-side-section es-options is-fill" id="es-panel-tool" role="tabpanel" aria-labelledby="es-tab-tool" [hidden]="sideView() !== 'tool'">
       <div class="td-side-body">
+      <!-- Read-only (another tab edits the map): every control of the panels is off -->
+      <fieldset class="es-fieldset" [disabled]="session.readOnly()">
         <!-- Panels stay once made and only hide: switching tools does not build them again -->
         @if (mounted().has('landscape')) {
           <div class="es-panel" [class.is-off]="session.tool() !== 'landscape'"><app-landscape-panel /></div>
@@ -175,6 +182,7 @@
         @if (mounted().has('measure')) {
           <div class="es-panel" [class.is-off]="session.tool() !== 'measure'"><app-measure-panel /></div>
         }
+      </fieldset>
       </div>
     </section>
     <app-editor-outliner class="td-side-section is-fill" id="es-panel-outline" role="tabpanel" aria-labelledby="es-tab-outline" [hidden]="sideView() !== 'outline'" />

@@ -254,6 +254,14 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
 - Autosave schreibt zwei Sekunden nach der letzten Änderung in IndexedDB; die Kopfzeile zeigt „Unsaved changes“,
   „Saving“ oder „Saved“. Strg+S speichert sofort mit neuem Vorschaubild; beim Verlassen der Karte wird das Bild
   ebenfalls erneuert
+- Ein Tab je Karte (`editor/model/map-lock.ts`): wer eine Karte zuerst öffnet, hält ihre Web-Sperre
+  (`navigator.locks`, Name `3dtd-map:<id>`). Ein zweiter Tab öffnet sie schreibgeschützt: Banner „Another tab edits
+  this map“, Kopfzeile „Read only“, die Panels aus, Werkzeuge und Werkzeugtasten aus, Rückgängig, Speichern, Einfügen,
+  Restore und Test warten; ansehen geht. „Take over editing“ bittet den anderen Tab über einen `BroadcastChannel`, zu
+  speichern (Halbfertiges wie ein gehaltener Strich oder ein Gelände-Job fällt weg) und loszulassen; der wird
+  schreibgeschützt und reiht sich ein, dieser liest die Karte neu und bearbeitet sie. Antwortet der andere nicht in
+  3 s (eingefroren, schlafender Tab), nimmt er die Sperre mit `steal`. Schließt der bearbeitende Tab, bekommt der
+  wartende die Karte von selbst. Ohne Web Locks (alte Browser) darf jeder Tab bearbeiten, wie früher
 - Dauerhaft halten: ein Browser darf IndexedDB bei Platzmangel räumen, samt Versionen. Das erste Speichern je Seite
   fragt daher `navigator.storage.persist()` (`editor/model/storage-safety.ts`; Firefox fragt den Spieler, Chrome
   entscheidet selbst). Das Map-Panel (9) zeigt unter „Storage“ den Stand: Kartenordner der Desktop-App, „keeps your

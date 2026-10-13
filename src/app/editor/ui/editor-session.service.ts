@@ -17,7 +17,8 @@ import { Injectable, NgZone, OnDestroy, inject, signal } from '@angular/core';
 import type { CustomMapDocument, MapMeta } from '../../world/custom-map/map-document';
 import { createMapDocument, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
-import { MapStore, type MapOrigin, type MapSummary } from '../../world/custom-map/map-store';
+import { MapStore, type MapSummary } from '../../world/custom-map/map-store';
+import { MapLock } from '../model/map-lock';
 import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog, type GroundMaterialEntry, type ObjectAssetEntry } from '../catalog/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
 import { ThumbnailRenderer } from '../view/thumbnail-renderer';
@@ -118,7 +119,9 @@ export class EditorSession implements OnDestroy {
 
   editor: EditorDocument | null = null;
   viewport: EditorViewport | null = null;
-  readonly origin = signal<MapOrigin>('own');
+  /** Another tab edits this map (MapLock): this one shows it and changes nothing */
+  readonly readOnly = signal(false);
+  private lock: MapLock | null = null;
   /** Bumps after edits (at most every 150 ms) so panels re-read the document */
   readonly docRev = signal(0);
   readonly meta = signal<MapMeta | null>(null);
@@ -408,12 +411,12 @@ export class EditorSession implements OnDestroy {
     await this.catalogReady;
     const loaded = await this.store.load(id);
     if (loaded.summary.origin === 'own') {
-      this.setDocument(loaded.doc, 'own');
+      this.setDocument(loaded.doc);
       return id;
     }
     const name = loaded.doc.meta.name;
     const copy = await this.store.saveCopy(loaded);
-    this.setDocument(copy.doc, 'own');
+    this.setDocument(copy.doc);
     this.flash(`This is your own copy of ${name}; the original stays as it is`);
     return copy.doc.meta.id;
   }
@@ -437,19 +440,73 @@ export class EditorSession implements OnDestroy {
     } else if (generator && generator.preset !== 'flat') {
       finishGenerated(doc, generateTerrain(doc.terrain, generator), (m) => catalog.materials.has(m));
     }
-    this.setDocument(doc, 'own');
+    this.setDocument(doc);
     await this.save(true);
     return id;
   }
 
-  /** Puts a map into the editor (opened, created or imported) */
-  setDocument(doc: CustomMapDocument, origin: MapOrigin): void {
+  /** Puts a map into the editor (opened, created or imported) and takes its lock, or opens it read-only */
+  setDocument(doc: CustomMapDocument): void {
+    this.lock?.close();
+    this.readOnly.set(false);
+    const lock = new MapLock(doc.meta.id, {
+      granted: () => this.zone.run(() => void this.lockGranted(lock)),
+      lost: () => this.zone.run(() => this.lockLost(lock)),
+      beforeRelease: () => this.zone.run(() => this.letGo()),
+    });
+    this.lock = lock;
+    void lock.start().then((editing) => {
+      if (this.lock === lock && !editing) this.zone.run(() => this.lockLost(lock));
+    });
+    this.showDocument(doc, true);
+  }
+
+  /** Asks the tab that edits this map to save and let go; this one edits then */
+  takeOver(): Promise<void> {
+    this.flash('Asking the other tab to save and let go');
+    return this.lock?.takeOver() ?? Promise.resolve();
+  }
+
+  /** This tab holds the map now: read it again (the other tab saved last) and edit */
+  private async lockGranted(lock: MapLock): Promise<void> {
+    if (this.lock !== lock || !this.editor) return;
+    try {
+      const loaded = await this.store.load(this.editor.doc.meta.id);
+      if (this.lock !== lock) return;
+      this.showDocument(loaded.doc, false);
+    } catch (e) {
+      this.error.set(`The map could not be read again (${(e as Error).message}). Reload the page before you change it.`);
+      return;
+    }
+    this.readOnly.set(false);
+    this.viewport?.setLocked(false);
+    this.flash('You edit this map now');
+  }
+
+  /** Another tab edits this map: this one turns read-only */
+  private lockLost(lock: MapLock): void {
+    if (this.lock !== lock) return;
+    this.readOnly.set(true);
+    this.clearAutosave();
+    this.viewport?.setLocked(true);
+    this.refresh();
+  }
+
+  /** Another tab asks for the map: what is half done is dropped, the rest saved */
+  private async letGo(): Promise<void> {
+    this.viewport?.setLocked(true);
+    this.terrainAbort?.abort();
+    while (this.terrainJob()) await new Promise((r) => setTimeout(r, 20));
+    if (this.dirty() || this.saveRun) await this.save(false);
+    this.flash('Another tab took over this map; this one is read-only now');
+  }
+
+  private showDocument(doc: CustomMapDocument, frame: boolean): void {
     for (const u of this.unsubscribe) u();
     this.unsubscribe = [];
     if (this.editor) this.editor.replace(doc);
     else this.editor = new EditorDocument(doc);
     const editor = this.editor;
-    this.origin.set(origin);
     this.savedState = editor.stateId;
     this.loadBookmarks(doc.meta.id);
     this.workSince = Date.now();
@@ -468,7 +525,7 @@ export class EditorSession implements OnDestroy {
     this.refresh();
     if (this.viewport) {
       this.viewport.rebuildView();
-      this.viewport.frameMap(true);
+      if (frame) this.viewport.frameMap(true);
     }
   }
 
@@ -477,8 +534,8 @@ export class EditorSession implements OnDestroy {
    * save that fails keeps the map open (returns false), nothing is lost.
    */
   async close(): Promise<boolean> {
-    if (this.editor && this.blocked('Leaving the map')) return false;
-    if (this.editor && this.origin() === 'own') {
+    if (this.editor && !this.readOnly() && this.blocked('Leaving the map')) return false;
+    if (this.editor && !this.readOnly()) {
       if (this.dirty() || this.saveRun) {
         if (!(await this.save(true)) || this.dirty()) {
           this.flash('The map could not be saved; it stays open');
@@ -493,6 +550,9 @@ export class EditorSession implements OnDestroy {
     this.detachViewport();
     for (const u of this.unsubscribe) u();
     this.unsubscribe = [];
+    this.lock?.close();
+    this.lock = null;
+    this.readOnly.set(false);
     this.editor = null;
     this.meta.set(null);
     return true;
@@ -515,6 +575,7 @@ export class EditorSession implements OnDestroy {
         viewReady: () => this.zone.run(() => this.viewRev.update((n) => n + 1)),
       });
       this.viewport.setTool(this.tools[this.tool()]);
+      if (this.readOnly()) this.viewport.setLocked(true);
     });
     this.hint.set(this.tools[this.tool()].hint(this.viewport!.ctx));
   }
@@ -572,6 +633,7 @@ export class EditorSession implements OnDestroy {
    * job on Cancel, over steps already undone. Null when free.
    */
   busyReason(): string | null {
+    if (this.readOnly()) return 'another tab edits this map (Take over editing)';
     if (this.terrainJob()) return 'the terrain job runs (Cancel stops it)';
     if (this.viewport?.dragging) return 'finish the stroke or drag first';
     return null;
@@ -648,7 +710,7 @@ export class EditorSession implements OnDestroy {
    * autosave is not lost); an autosave with nothing new does nothing.
    */
   async save(manual = false): Promise<boolean> {
-    if (!this.editor || this.origin() !== 'own') return false;
+    if (!this.editor) return false;
     // Half a stroke or a job's land is no state to keep: Ctrl+S says why, an autosave comes again later
     if (manual ? this.blocked('Saving') : this.busyReason()) {
       if (!manual) this.scheduleAutosave();
@@ -696,7 +758,7 @@ export class EditorSession implements OnDestroy {
       this.saving.set(false);
       this.refresh();
       // Changes made while it ran get their own autosave
-      if (this.dirty() && this.origin() === 'own') this.scheduleAutosave();
+      if (this.dirty() && !this.readOnly()) this.scheduleAutosave();
     }
   }
 
@@ -817,7 +879,7 @@ export class EditorSession implements OnDestroy {
   async botCheck(waves = BOT_CHECK_WAVES): Promise<void> {
     const doc = this.doc;
     if (!doc || this.blocked('The bot check')) return;
-    if (this.origin() === 'own') await this.save(true);
+    await this.save(true);
     const url = new URL(document.baseURI);
     url.searchParams.set(WORLD_URL_PARAM, worldUrlValue({ kind: 'custom-map', mapId: doc.meta.id, contentHash: '' })!);
     url.searchParams.set('bot', 'trial');
@@ -842,7 +904,7 @@ export class EditorSession implements OnDestroy {
   async testPlay(): Promise<void> {
     const doc = this.doc;
     if (!doc || this.blocked('The test')) return;
-    if (this.origin() === 'own') await this.save(true);
+    await this.save(true);
     const url = new URL(document.baseURI);
     url.searchParams.set(WORLD_URL_PARAM, worldUrlValue({ kind: 'custom-map', mapId: doc.meta.id, contentHash: '' })!);
     window.open(url.toString(), MAP_TEST_WINDOW);
@@ -951,7 +1013,7 @@ export class EditorSession implements OnDestroy {
     if (!this.changed) return;
     this.changed = false;
     this.refresh();
-    if (this.dirty() && this.origin() === 'own') this.scheduleAutosave();
+    if (this.dirty() && !this.readOnly()) this.scheduleAutosave();
     if (this.issues()) this.runCheck();
   }
 
@@ -987,7 +1049,8 @@ export class EditorSession implements OnDestroy {
     if (this.tick) clearInterval(this.tick);
     this.clearAutosave();
     // Leaving the page (another route): what is not saved yet goes now
-    if (this.editor && this.dirty() && this.origin() === 'own') void this.save(false);
+    if (this.editor && this.dirty() && !this.readOnly()) void this.save(false);
+    this.lock?.close();
     this.stopBotListener?.();
     if (this.statusTimer) clearTimeout(this.statusTimer);
     this.detachViewport();

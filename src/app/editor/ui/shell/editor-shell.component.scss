@@ -327,6 +327,11 @@
   background: none;
 }
 
+// Only there to switch the panels' controls off together; it takes no part in the layout
+.es-fieldset {
+  display: contents;
+}
+
 .es-options .td-side-body {
   position: relative;
 }

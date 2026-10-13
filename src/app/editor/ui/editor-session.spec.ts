@@ -14,7 +14,7 @@ function session(): { s: EditorSession; backend: MemoryMapBackend; history: Vers
   const versions = new MemoryVersionBackend();
   const history = new VersionHistory(versions);
   Object.assign(s, { store: new MapStore({ backend, fetch: async () => new Response('', { status: 404 }), baseUrl: 'http://x/' }), history });
-  s.setDocument(createMapDocument({ id: 'm', name: 'M', width: 64, depth: 64, now: new Date(0) }), 'own');
+  s.setDocument(createMapDocument({ id: 'm', name: 'M', width: 64, depth: 64, now: new Date(0) }));
   return { s, backend, history, versions };
 }
 
@@ -37,7 +37,7 @@ describe('editor session opening', () => {
     const id = await s.open('harbour');
     expect(id).toBe('harbour-copy');
     expect(s.doc!.meta).toMatchObject({ id: 'harbour-copy', name: 'Harbour (copy)' });
-    expect(s.origin()).toBe('own');
+    expect(s.readOnly()).toBe(false);
     expect((await backend.get('harbour-copy'))?.summary.origin).toBe('own');
     expect(s.status()).toContain('own copy of Harbour');
 
@@ -46,6 +46,31 @@ describe('editor session opening', () => {
     expect(await s.open('hosts-map')).toBe('host-copy');
     expect((await backend.get('hosts-map'))?.summary.origin).toBe('shared');
     expect(await s.open('harbour-copy')).toBe('harbour-copy');
+    s.ngOnDestroy();
+  });
+});
+
+describe('editor session and other tabs', () => {
+  it('turns read-only when another tab takes the map, and reads it again when it gets it back', async () => {
+    const { s } = session();
+    await s.save(true);
+    const lock = s['lock']!;
+    s['lockLost'](lock);
+    expect(s.readOnly()).toBe(true);
+    s.editMeta({ name: 'Mine' });
+    s.undo();
+    expect(s.doc!.meta.name).toBe('Mine');
+    expect(await s.save(true)).toBe(false);
+    expect(s.status()).toContain('another tab edits');
+    // The other tab saved a change and let go
+    const theirs = structuredClone(s.doc!);
+    theirs.meta.name = 'Theirs';
+    await s.store.save(theirs);
+    await s['lockGranted'](lock);
+    expect(s.readOnly()).toBe(false);
+    expect(s.doc!.meta.name).toBe('Theirs');
+    s.editMeta({ name: 'Mine' });
+    expect(s.doc!.meta.name).toBe('Mine');
     s.ngOnDestroy();
   });
 });

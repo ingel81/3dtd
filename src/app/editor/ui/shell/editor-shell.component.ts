@@ -161,7 +161,7 @@ export class EditorShellComponent implements OnDestroy {
   readonly toolLabel = computed(() => TOOLS.find((t) => t.id === this.session.tool())?.label ?? '');
   readonly issueCount = computed(() => this.session.issues()?.filter((i) => i.severity === 'error').length ?? 0);
   readonly saveLine = computed(() => {
-    if (this.session.origin() !== 'own') return 'Read only';
+    if (this.session.readOnly()) return 'Read only';
     if (this.session.saving()) return 'Saving';
     return this.session.dirty() ? 'Unsaved changes' : 'Saved';
   });
@@ -523,7 +523,7 @@ export class EditorShellComponent implements OnDestroy {
   }
 
   onBeforeUnload(e: BeforeUnloadEvent): void {
-    if (this.session.dirty() && this.session.origin() === 'own') {
+    if (this.session.dirty() && !this.session.readOnly()) {
       void this.session.save(false);
       e.preventDefault();
     }
