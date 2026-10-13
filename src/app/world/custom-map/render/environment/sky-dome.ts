@@ -40,6 +40,8 @@ export class SkyDome {
         uSkyTime: { value: 0 },
         // How far the clouds have drifted with the wind (cloud plane units), integrated so a change of wind never jumps
         uCloudOffset: { value: new Vector2() },
+        // The haze colour (linear): the dome's foot fades into it, as the far land does
+        uSkyHaze: { value: new Color() },
         uStars: { value: 0 },
         uPlanet: { value: 0 },
         uAurora: { value: 0 },
@@ -70,6 +72,7 @@ export class SkyDome {
     glow: number;
     cloudColor: Color;
     cloudShadow: Color;
+    haze: Color;
     stars?: number;
     planet?: boolean;
     aurora?: number;
@@ -83,6 +86,7 @@ export class SkyDome {
     u['uGlow'].value = p.glow;
     u['uCloudColor'].value.copy(p.cloudColor);
     u['uCloudShadow'].value.copy(p.cloudShadow);
+    u['uSkyHaze'].value.copy(p.haze);
     u['uStars'].value = p.stars ?? 0;
     u['uPlanet'].value = p.planet ? 1 : 0;
     u['uAurora'].value = p.aurora ?? 0;
@@ -224,15 +228,22 @@ vec3 skyColor(vec3 dir, bool withSun) {
 const SKY_FRAGMENT = /* glsl */ `
 #include <common>
 varying vec3 vDir;
+uniform vec3 uSkyHaze;
 
 ${SHADER_NOISE}
 ${SKY_FUNCTIONS}
 ${HEIGHT_FOG_PARS}
 
 void main() {
-  gl_FragColor = vec4(skyColor(normalize(vDir), true), 1.0);
+  vec3 dir = normalize(vDir);
+  gl_FragColor = vec4(skyColor(dir, true), 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
+  // The lowest few degrees fade into the haze the far land sinks into (height-fog.ts, same colour and
+  // the same pull towards the sun, in output space as there): no bright seam over the hills beyond
+  float sunward = pow(max(dot(dir, uFogSunDir), 0.0), 8.0);
+  vec3 haze = mix(linearToOutputTexel(vec4(uSkyHaze, 1.0)).rgb, linearToOutputTexel(vec4(uFogSunColor, 1.0)).rgb, sunward * 0.2);
+  gl_FragColor.rgb = mix(haze, gl_FragColor.rgb, smoothstep(-0.02, 0.1, dir.y));
   gl_FragColor.rgb = mapGrade(gl_FragColor.rgb);
 }
 `;

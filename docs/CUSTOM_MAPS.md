@@ -186,7 +186,9 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 
 - **Himmel**: eine Kuppel um die Kamera (`sky-dome.ts`), zuerst und ohne Tiefentest gezeichnet: Verlauf vom Dunst am
   Horizont zum Zenit, Sonne mit Hof, prozedurale Wolken (zwei fbm-Lagen, ziehen mit dem Wind, von der Sonnenseite
-  beleuchtet). Voreinstellungen `day`, `dusk`, `night`, `overcast` setzen Farben und Bedeckung. Dahinter bleibt ein
+  beleuchtet). Die untersten Grad (unter etwa 6°) laufen in die Dunstfarbe aus, in der das Land jenseits des Rands
+  versinkt (dieselbe Farbe und derselbe Zug zur Sonne wie im Höhennebel): keine helle Naht über den Hügeln am
+  Horizont. Voreinstellungen `day`, `dusk`, `night`, `overcast` setzen Farben und Bedeckung. Dahinter bleibt ein
   auf der CPU gerechneter Equirect-Verlauf als Hintergrund und, vorgefiltert (PMREM), als Umgebungslicht. Das Wasser
   spiegelt dieselbe Himmelsfunktion (geteilte Uniforms)
 - **Sonne**: `DirectionalLight` mit 4096er Schattenkarte (PCF, Radius 1,5 Texel), deren Box dem Fokus folgt, auf

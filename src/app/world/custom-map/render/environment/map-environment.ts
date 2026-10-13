@@ -222,6 +222,7 @@ export class CustomMapEnvironment {
       glow: p.glow * (1 - k * 0.7),
       cloudColor: new Color(p.cloudColor).multiply(tint),
       cloudShadow: new Color(p.cloudShadow).multiply(tint),
+      haze: this.fog.color,
       stars: p.stars,
       planet: p.planet,
       aurora: p.aurora,
