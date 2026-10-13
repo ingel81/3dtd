@@ -810,8 +810,12 @@ export class EditorSession implements OnDestroy {
   }
 
   /** A map back from the trash; returns its id (a free one when its own is taken meanwhile) */
-  restoreMap(key: string): Promise<string> {
-    return this.store.restoreFromTrash(key);
+  async restoreMap(key: string): Promise<string> {
+    const trash = (await this.store.listTrash()).find((m) => m.id === key)?.trash;
+    const id = await this.store.restoreFromTrash(key);
+    // Under a free id, when a new map took its own meanwhile: its versions come along
+    if (trash && id !== trash.from) await this.history.move(trash.from, id, trash.created).catch(() => undefined);
+    return id;
   }
 
   /** Removes a map from the trash for good, with its versions */

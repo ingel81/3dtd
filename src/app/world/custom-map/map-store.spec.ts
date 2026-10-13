@@ -102,6 +102,8 @@ describe('MapStore', () => {
     const [trashed] = await store.listTrash();
     expect(trashed).toMatchObject({ id: key, origin: 'trashed', trash: { from: 'valley', at: at.toISOString(), created: doc().meta.createdAt } });
     await expect(store.load('valley')).rejects.toBeInstanceOf(MapStoreError);
+    // Not playable by its trash key either
+    await expect(store.load(key)).rejects.toBeInstanceOf(MapStoreError);
     await store.save(createMapDocument({ id: 'valley', name: 'New valley', width: 32, depth: 32 }));
     expect(await store.restoreFromTrash(key)).toBe('valley-2');
     expect((await store.load('valley-2')).doc.meta.name).toBe('Valley');

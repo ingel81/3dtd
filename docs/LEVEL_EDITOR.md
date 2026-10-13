@@ -296,7 +296,8 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
 - Papierkorb: „Delete“ in der Kartenliste legt eine eigene Karte sofort in den Papierkorb (unter einer eigenen Kennung
   `trash-<Zeit>-<id>`, Herkunft `trashed`; in der Desktop-App verlässt ihre Datei den Kartenordner). Ein Banner und der
   Abschnitt „Trash“ unten in der Liste holen sie zurück („Restore“, unter ihrer Kennung oder einer freien, wenn eine
-  neue Karte sie inzwischen trägt); ihre Versionen bleiben so lange stehen. Nach 30 Tagen (`TRASH_DAYS`) oder mit
+  neue Karte sie inzwischen trägt; die Versionen ziehen dann mit um, `VersionHistory.move`); ihre Versionen bleiben so
+  lange stehen. Spielen lässt sich eine Karte im Papierkorb nicht (`MapStore.load` kennt sie nicht). Nach 30 Tagen (`TRASH_DAYS`) oder mit
   „Delete for good“ (zweimal) geht sie samt Versionen endgültig. Karten eines Koop-Hosts gehen nach Rückfrage gleich
   endgültig, der Host schickt sie beim nächsten Beitritt wieder
 - Budget im Map-Panel (`editor/validation/map-budget.ts`): Objekte gegen 15 000 (was eine Karte flüssig hält,

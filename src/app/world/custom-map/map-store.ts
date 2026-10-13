@@ -196,7 +196,9 @@ export class MapStore {
   /** An own map, else a shipped one of that id */
   async load(id: string, origin?: MapOrigin): Promise<LoadedMap> {
     if (origin !== 'shipped') {
-      const own = await this.backend.get(id);
+      const stored = await this.backend.get(id);
+      // A map in the trash plays nowhere until it comes back
+      const own = stored?.summary.origin === 'trashed' ? undefined : stored;
       if (own) {
         const { doc, preview } = unpackMapFile(own.file);
         const summary = own.summary.contentHash ? own.summary : { ...own.summary, contentHash: await contentHash(doc) };

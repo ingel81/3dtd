@@ -178,10 +178,17 @@ describe('editor session saving', () => {
     expect(await s.restoreMap(key)).toBe('m');
     expect((await s.store.listOwn()).map((m) => m.id)).toEqual(['m']);
     expect(await s.listTrash()).toEqual([]);
-    await s.deleteMap('m');
+    // A new map takes the id meanwhile: the old one comes back under a free id, its versions with it
+    const key2 = await s.deleteMap('m');
+    await s.store.save(createMapDocument({ id: 'm', name: 'Other', width: 64, depth: 64 }));
+    expect(await s.restoreMap(key2)).toBe('m-2');
+    expect(await versions.list('m-2')).toHaveLength(1);
+    expect(await versions.list('m')).toEqual([]);
+    await s.store.delete('m');
+    await s.deleteMap('m-2');
     await s.deleteForGood((await s.listTrash())[0]);
     expect(await s.listTrash()).toEqual([]);
-    expect(await versions.list('m')).toEqual([]);
+    expect(await versions.list('m-2')).toEqual([]);
     const open = vi.spyOn(window, 'open').mockReturnValue(null);
     const remove = vi.spyOn(window, 'removeEventListener');
     await s.botCheck(2);

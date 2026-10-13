@@ -225,6 +225,19 @@ export class VersionHistory {
     return next;
   }
 
+  /** The versions of one life of a map go with it to another id (it came back from the trash under a free one) */
+  async move(fromId: string, toId: string, created: string): Promise<void> {
+    if (fromId === toId) return;
+    const list = (await this.backend.list(fromId)).filter((v) => v.created === created);
+    for (const v of list) {
+      const bytes = await this.backend.bytes(v.key);
+      if (!bytes) continue;
+      const at = Date.parse(v.savedAt);
+      await this.backend.put({ ...v, key: `${toId}:${at}`, mapId: toId }, bytes);
+    }
+    await this.backend.delete(list.map((v) => v.key));
+  }
+
   /** Every version of one life of a map id (the map left the trash for good) */
   async clear(mapId: string, created: string): Promise<void> {
     await this.backend.delete((await this.backend.list(mapId)).filter((v) => v.created === created).map((v) => v.key));
