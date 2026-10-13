@@ -375,7 +375,13 @@ def bone_pile(name, seed, size=2.4):
 
 
 def lava_rock(name, seed, size=(1.6, 1.3, 1.1)):
-    """Dark crusted rock broken open along noisy cracks, glowing from inside"""
+    """Dark crusted rock split into plates along a network of cracks, glowing from inside.
+
+    Each crust face belongs to the plate of the nearest of a few points on the rock (a noisy Voronoi on
+    the sphere). The edges between plates are split and every plate's rim is drawn in towards its middle
+    and down a little, so the core shows through continuous seams that run along the whole crack. Single
+    faces cut out of the crust glowed as a scatter of triangles (a chequerboard from afar).
+    """
     clear_scene()
     crust = Part(pbr_material('rock-dark_rock_02-crust', 'dark_rock_02', (0.6, 0.55, 0.55)), uv_metres=2.0)
     core = Part(flat_material('lava-core', (1.0, 0.35, 0.05), 0.4, emission=(1.0, 0.3, 0.03), strength=1.3))
@@ -390,9 +396,34 @@ def lava_rock(name, seed, size=(1.6, 1.3, 1.1)):
         v.co = Vector((n.x * s.x, n.y * s.y, n.z * s.z)) * d
         if v.co.z < -s.z * 0.3:
             v.co.z = -s.z * 0.3
-    # Cracks: drop the faces where a ridged noise is high, so the core shows through
-    gone = [f for f in tmp.faces if abs(noise.noise(f.calc_center_median() * 1.8 + off)) < 0.07 and f.calc_center_median().z > -s.z * 0.1]
-    bmesh.ops.delete(tmp, geom=gone, context='FACES')
+    rnd = random.Random(seed)
+    points = []
+    while len(points) < 10:
+        p = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-0.2, 1)))
+        if 0.2 < p.length <= 1:
+            points.append(p.normalized())
+    plate = {}
+    for f in tmp.faces:
+        c = f.calc_center_median()
+        if c.z < -s.z * 0.1:
+            # The foot stays whole: cracks there would only glow into the ground
+            plate[f] = -1
+            continue
+        n = Vector((c.x / s.x, c.y / s.y, c.z / s.z)).normalized()
+        wobble = 0.12 * noise.noise(n * 3.0 + off)
+        plate[f] = max(range(len(points)), key=lambda k: n.dot(points[k]) + wobble * (k % 3 - 1))
+    seams = [e for e in tmp.edges if len(e.link_faces) == 2 and plate[e.link_faces[0]] != plate[e.link_faces[1]]]
+    bmesh.ops.split_edges(tmp, edges=seams)
+    groups = {}
+    for f in tmp.faces:
+        groups.setdefault(plate[f], set()).update(f.verts)
+    for k, verts in groups.items():
+        middle = sum((v.co for v in verts), Vector()) / len(verts)
+        for v in verts:
+            if not v.is_boundary:
+                continue
+            # The rim of the plate: in towards its middle (the seam opens) and a little into the rock
+            v.co = v.co.lerp(middle, 0.1 if k >= 0 else 0.05) * 0.97
     bmesh.ops.translate(tmp, vec=Vector((0, 0, s.z * 0.3 - 0.3)), verts=tmp.verts)
     crust.add_bmesh(tmp)
     tmp.free()
