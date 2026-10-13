@@ -38,7 +38,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [SIM_WORKER.md](SIM_WORKER.md) | Aktuell | Simulation im Web Worker: Grundsätze, Datenfluss, Verträge (Paket, Ops, Events, Views), Entscheidungen (Sichtlinien, Welt, Wellenquelle, Bot, Coop, Replay), Transport im `SharedArrayBuffer`, Kennzahlen mit Messrechner, Messkurve bis 25 000 Gegner und Hebel |
 | [BENCHMARKS.md](BENCHMARKS.md) | Laufend | Ergebnisse des eingebauten Benchmarks je Rechner: Rechnerliste, Übersicht, Rohtabellen |
 | [CUSTOM_MAPS_NEXT_PLAN.md](CUSTOM_MAPS_NEXT_PLAN.md) | Plan | Eigene Karten vor der Freigabe: Editor sicher, Performance wie Tiles, Optik lebendig, Werkzeuge (TODO E154) |
-| [W3X_IMPORT.md](W3X_IMPORT.md) | Aktuell (Experiment `exp/custom-maps`) | Warcraft-3-Karten (.w3x) als eigene Karte importieren: MPQ, Formate, drei Wege-Strategien (Skriptmuster, JASS-Auswertung, Gelände), Abbildung auf Materialien und Objekte, Optionen, Grenzen |
+| [W3X_IMPORT.md](W3X_IMPORT.md) | Aktuell (auf `main`, gesperrt bis E134) | Warcraft-3-Karten (.w3x) als eigene Karte importieren: MPQ, Formate, drei Wege-Strategien (Skriptmuster, JASS-Auswertung, Gelände), Abbildung auf Materialien und Objekte, Optionen, Grenzen |
 | [OWN_TILESETS.md](OWN_TILESETS.md) | Aktuell (Experiment `exp/custom-maps`) | Eigene 3D-Tiles-Sets als Welt: `?world=tileset:<id>` oder Menü (New game, Maps), `ownTilesets`, Gebiet für HQ und Spawns, Werkzeuge in `tools/own-tiles/` |
 | [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) | Aktuell (auf `next`, gesperrt bis E134) | Eigene Karten im Spiel: Start über `?world=map:<id>` oder Menü (New game, Maps), Spielwerte der Karte, Kartenprobe (`?bot=trial`), Zerstörbarkeit (`?destructible`), Startaufstellung, Abfragen, Straßennetz, Fähigkeiten, Minikarte (auch echte Orte), Nachladen der Kartendaten, Koop, Prüfung |
 | [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md) | Aktuell | Deterministische Simulation: Befehlsgrenze, Turmdrehung in der Sim, Sicht als Daten, Snapshot, Prüfsumme, Abnahme, Messungen; Unterbau für Coop |
@@ -55,8 +55,8 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [SPAWN_PORTAL.md](SPAWN_PORTAL.md) | Aktuell | Spawn-Portal: Ebene und Ausrichtung an der Route, Verdeckung der Gegner per Clip in ihren Shadern, Vorschau beim Setzen, Drehen mit R samt Kurs in URL und Favoriten, Drehbereich, Lufteinheiten, Asset, Licht, Sigillen, Beschwörungskreis |
 | [LOS_PIPELINE.md](LOS_PIPELINE.md) | Aktuell | Sichtlinien der Tower auf dem Route-Grid: eine GPU-Cubemap je Tower-Tip, drei Leser (Build-Vorschau, Auswahl, Kampf-Cache), Farben der Zellplatten, Regeln für jeden Eingriff am Cube, Abläufe |
 | [DEVWORLD.md](DEVWORLD.md) | Aktuell | Offline-Entwicklungsumgebung, Terrain-Presets (`?devworld`) |
-| [CUSTOM_MAPS.md](CUSTOM_MAPS.md) | In Arbeit | Eigene Karten: Renderer (Gelände, Wasser, Objekte, Himmel), Asset-Katalog, `/map-preview` |
-| [LEVEL_EDITOR.md](LEVEL_EDITOR.md) | Aktuell (Experiment `exp/custom-maps`) | Karteneditor `/editor`: Kartenliste, Werkzeuge und Tasten, Prüfen, Speichern, `.3dtdmap`, Architektur (Befehle mit Kachel-Patches, eigener Viewport) |
+| [CUSTOM_MAPS.md](CUSTOM_MAPS.md) | Aktuell (auf `main`, gesperrt bis E134) | Eigene Karten: Renderer (Gelände, Wasser, Objekte, Himmel), Asset-Katalog, `/map-preview` |
+| [LEVEL_EDITOR.md](LEVEL_EDITOR.md) | Aktuell (auf `main`, gesperrt bis E134) | Karteneditor `/editor`: Kartenliste, Werkzeuge und Tasten, Prüfen, Speichern, `.3dtdmap`, Architektur (Befehle mit Kachel-Patches, eigener Viewport) |
 
 ## Game Design
 

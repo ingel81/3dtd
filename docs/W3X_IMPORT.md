@@ -1,6 +1,6 @@
 # Warcraft-3-Import (.w3x)
 
-**Status:** Aktuell auf `exp/custom-maps` (Experiment, ab 2026-10-11). Teil von
+**Status:** Aktuell, seit 0.7.0 auf `main`, im Spiel gesperrt bis zur Freigabe (TODO E134). Teil von
 [WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md).
 
 Der Importer macht aus einer Warcraft-3-Karte (`.w3x`, `.w3m`) ein Kartendokument
@@ -324,7 +324,8 @@ Was der Import kann, Stand 2026-10-11. Alle Fälle sind mit erzeugten Testdaten 
 - Wege aus Skripten, die Befehle erst zur Laufzeit berechnen (Zufall, Spielerzahl, Einheitenzähler),
   findet (b) nur, soweit die Werte aus der Initialisierung folgen; sonst greift (c)
 - Kanten sind gerade Linien zwischen Regionsmitten bzw. Skelett-Ecken; Kurven kommen nicht mit
-- Kein Import von Wellen, Einheitenwerten oder Fähigkeiten; Spezial-Doodads (Klippen- und Rampenmodelle)
+- Wellen nur als Liste aus Einheitentyp, Anzahl und HP (Option `waves`, siehe „Wellen“); keine Einheitenwerte
+  darüber hinaus, keine Fähigkeiten; Spezial-Doodads (Klippen- und Rampenmodelle)
   werden nur gezählt
 - Kompressionen für Audio (Huffman, ADPCM), Sparse und LZMA (spätere MPQ-Versionen) fehlen; Karten,
   deren Gelände so gepackt ist, lassen sich nicht importieren

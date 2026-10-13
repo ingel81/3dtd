@@ -1,6 +1,6 @@
 # Eigene Karten im Spiel (CustomMapWorld)
 
-**Status:** Aktuell auf `exp/custom-maps` (Experiment, ab 2026-10-11). Teil von
+**Status:** Aktuell, seit 0.7.0 auf `main`, im Spiel gesperrt bis zur Freigabe (TODO E134); die nächste Runde plant [CUSTOM_MAPS_NEXT_PLAN.md](CUSTOM_MAPS_NEXT_PLAN.md) (E154). Teil von
 [WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md); das Kartendokument beschreibt `map-document.ts`, den
 Import aus Warcraft 3 [W3X_IMPORT.md](W3X_IMPORT.md).
 

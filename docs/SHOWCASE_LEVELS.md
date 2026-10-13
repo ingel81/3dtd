@@ -1,8 +1,9 @@
 # Vorzeige-Level
 
-**Status:** Alle acht gebaut auf `exp/custom-maps` (2026-10-11), Nachtest im Spiel offen
+**Status:** Alle zwölf gebaut (acht am 2026-10-11, vier am 2026-10-12), seit 0.7.0 auf `main` und im Spiel gesperrt
+bis zur Freigabe (TODO E134); Nachtest im Spiel offen, Optik-Arbeit in [CUSTOM_MAPS_NEXT_PLAN.md](CUSTOM_MAPS_NEXT_PLAN.md)
 
-Acht Karten, die zeigen, was der Editor kann, und die sich gut spielen. Jede wird mit den Werkzeugen des Editors gebaut
+Zwölf Karten (dazu das Demo-Tal), die zeigen, was der Editor kann, und die sich gut spielen. Jede wird mit den Werkzeugen des Editors gebaut
 (dieselben Operationen wie im Editor: Landschafts-Pinsel, Fluss, Straße, Biome, Objekte), als Bauskript unter
 `tools/maps/levels/<id>.ts`, damit sie nachvollziehbar und reproduzierbar ist. `tools/maps/shipped-maps.spec.ts` packt
 sie nach `public/maps/` mit Vorschaubild und Eintrag in `index.json`.

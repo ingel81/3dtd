@@ -1,7 +1,6 @@
 # Karteneditor
 
-**Status:** Aktuell auf `exp/custom-maps` (Experiment, ab 2026-10-11). Plan und Kartendokument:
-[WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md).
+**Status:** Aktuell, seit 0.7.0 auf `main`, im Spiel gesperrt bis zur Freigabe (TODO E134); die nächste Runde plant [CUSTOM_MAPS_NEXT_PLAN.md](CUSTOM_MAPS_NEXT_PLAN.md) (E154). Kartendokument: [WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md).
 
 Unter `/editor` baut man eigene Karten: Gelände, Bodentexturen, Wasser, Objekte, Straßen, Spawns und HQ. Eine Karte
 liegt im Browser (IndexedDB; in der Desktop-App zusätzlich als Datei in `Dokumente/3DTD/Maps`, [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) E26b), lässt sich als `.3dtdmap` herunterladen und wieder einlesen und mit „Test map“ im Spiel
@@ -23,8 +22,9 @@ Kopie an und öffnet sie.
   1024 m braucht dafür unter einer halben Sekunde. Jede neue Karte hat eine Straße von West zum HQ und einen Spawn an ihrem Ende, damit sie sofort
   spielbar ist; der Generator ebnet die Straße und legt sie, wo sie unter Wasser liefe, auf einen Damm
 - **Import file:** `.3dtdmap` oder `.w3x` per Dateiwahl oder per Ablegen auf der Seite. Ein Warcraft-3-Import fragt
-  erst nach Metern je Kachel (4), höchstens Objekten (6000), „Playable area only“ und „Enhance ground“ (Boden nach
-  Spielrolle neu malen, aus: Kacheln wie im Original), läuft dann im Web Worker
+  erst nach Metern je Kachel (4), höchstens Objekten (6000), „Playable area only“, „Enhance ground“ (Boden nach
+  Spielrolle neu malen, aus: Kacheln wie im Original) und „Take the map's waves“ (die Wellen der Karte als eigene
+  Wellenliste, [W3X_IMPORT.md](W3X_IMPORT.md#wellen-option-waves)), läuft dann im Web Worker
   ([W3X_IMPORT.md](W3X_IMPORT.md)) und zeigt den Bericht: Größe, Bodenschichten, Wasser, woher die
   Straßen kamen, Spawns und Spurlängen, übernommene Doodads, Warnungen; „Open the map“ öffnet sie. Die Karte landet bei den eigenen
 - Die Adresse trägt die offene Karte (`/editor?map=<id>`); Neuladen öffnet sie wieder. Die Seite folgt der Adresse:
@@ -248,7 +248,7 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
 - „Test map“ speichert und öffnet das Spiel mit `?world=map:<id>` im Test-Tab: ein Fenster mit festem Namen
   (`MAP_TEST_WINDOW`, `3dtd-map-test`), das jeder weitere Test und der Bot-Check wiederverwenden, statt Tabs zu stapeln
 - Versionen: jedes Speichern und höchstens alle drei Minuten ein Autosave landen als gepackte Datei in IndexedDB
-  (`3dtd-editor-versions`), die letzten 20 je Karte; das Map-Panel (9) listet sie, „Restore“ holt eine zurück (ein
+  (`3dtd-editor-history`; die frühere `3dtd-editor-versions` wird beim Öffnen gelöscht), die letzten 20 je Karte; das Map-Panel (9) listet sie, „Restore“ holt eine zurück (ein
   Undo-Schritt). Ein Absturz kostet so höchstens die Minuten seit dem letzten Autosave
 - Probewelle (P, „Trial wave“): die Gegnermodelle des Spiels laufen jede Route vom Spawn zum HQ mit ihrer echten
   Geschwindigkeit und Animation, die Typen der ersten Welle der eigenen Wellenliste oder eine Mischung (Zombie, Ratte,
@@ -342,8 +342,9 @@ und gesetztes Stück, Prüfen, Speichern, Neuladen, Löschen; ohne Kartensitzung
 
 ## Grenzen
 
-- Objekte haben nur eine Drehung um die Hochachse; „Align to slope“ fehlt im Kartendokument, der Streupinsel lässt
-  Objekte am Hang stattdessen einsinken
+- Das Kartendokument kann Objekte kippen (`pitch`, `roll`; die Level-Skripte nutzen es für Gondeln und gestrandete
+  Boote), die Werkzeuge setzen aber nur die Drehung um die Hochachse: Setzen und Streuen richten nichts am Hang aus
+  (geplant als ED-S7), der Streupinsel lässt Objekte am Hang stattdessen einsinken
 - Neue Objekte während eines Strichs erscheinen bis zu 150 ms verzögert, Wasser bis zu 120 ms: der Renderer baut sie
   bisher nur ganz neu (inkrementelles Hinzufügen ist bei der Kartenansicht angefragt)
 - Gruppen, ausgeblendete Kategorien und Versionen kennt nur der Editor; das Spiel ignoriert `group`

@@ -1,6 +1,6 @@
 # Eigene Karten: Renderer und Assets
 
-**Status:** in Arbeit auf `exp/custom-maps` (ab 2026-10-11), Plan in [WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md)
+**Status:** Aktuell, seit 0.7.0 auf `main`, im Spiel gesperrt bis zur Freigabe (TODO E134); die nächste Runde plant [CUSTOM_MAPS_NEXT_PLAN.md](CUSTOM_MAPS_NEXT_PLAN.md) (E154). Rahmen in [WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md)
 
 Der Renderer zeichnet ein Kartendokument (`src/app/world/custom-map/map-document.ts`) mit Gelände, Bodentexturen,
 Wasser, Objekten, Wegen und Himmel. Editor und Spiel benutzen dieselbe Ansicht. Code unter
@@ -277,8 +277,10 @@ die Zeilen ihres Rechtecks hoch und setzen nur Objekte in ihrer Nähe neu.
 **Speicher** (`node e2e/perf/map-cycles.ts --url http://localhost:4211`, 20-mal Ansicht öffnen, aufwärmen, schließen):
 Geometrien, Texturen und Programme bleiben nach dem ersten Zyklus gleich, der Heap wächst über 19 Zyklen um 0,6 MB
 (Demo-Tal; ebenso Hölle bei Nacht mit Regen). Was bleibt, ist der Cache der geteilten `MapAssetLibrary`: die
-Bodenmaterialien als Pixel (8 MB je Material bei 1024 px, 88 MB für die 11 des Demo-Tals, dazu dieselbe Menge in
-den Textur-Arrays der offenen Ansicht, die three für einen Kontextverlust behält) und die Modelle.
+Bodenmaterialien als Pixel (8 MB je Material bei 1024 px, 88 MB für die 11 des Demo-Tals) und die Modelle. Die
+Textur-Arrays der offenen Ansicht behalten keine Kopie: nach dem Hochladen setzt `onUpdate` ihre Pixel auf `null`
+(`terrain-textures.ts`); nach einem Kontextverlust lassen sie sich nicht neu hochladen, die Ansicht muss neu gebaut
+werden.
 `MapAssetLibrary.dispose()` gibt ihn frei; `shared()` legt danach eine neue an.
 
 ## Grenzen
