@@ -477,6 +477,7 @@ export class EditorSession implements OnDestroy {
    * save that fails keeps the map open (returns false), nothing is lost.
    */
   async close(): Promise<boolean> {
+    if (this.editor && this.blocked('Leaving the map')) return false;
     if (this.editor && this.origin() === 'own') {
       if (this.dirty() || this.saveRun) {
         if (!(await this.save(true)) || this.dirty()) {
@@ -564,12 +565,33 @@ export class EditorSession implements OnDestroy {
     this.refresh();
   }
 
+  /**
+   * What the map is in the middle of: a stroke or a drag in the view, or a
+   * terrain job. Undo, redo, saving, pasting and restoring wait meanwhile:
+   * an undo under a running job came back with the heights of before the
+   * job on Cancel, over steps already undone. Null when free.
+   */
+  busyReason(): string | null {
+    if (this.terrainJob()) return 'the terrain job runs (Cancel stops it)';
+    if (this.viewport?.dragging) return 'finish the stroke or drag first';
+    return null;
+  }
+
+  /** True (with a line in the status bar) when `what` has to wait */
+  blocked(what: string): boolean {
+    const reason = this.busyReason();
+    if (reason) this.flash(`${what} waits: ${reason}`);
+    return !!reason;
+  }
+
   undo(): void {
+    if (this.blocked('Undo')) return;
     if (this.editor?.undo()) this.flash(`Undone: ${this.redoLabelOf()}`);
     this.refresh();
   }
 
   redo(): void {
+    if (this.blocked('Redo')) return;
     if (this.editor?.redo()) this.flash(`Redone: ${this.editor.undoLabel}`);
     this.refresh();
   }
@@ -627,6 +649,11 @@ export class EditorSession implements OnDestroy {
    */
   async save(manual = false): Promise<boolean> {
     if (!this.editor || this.origin() !== 'own') return false;
+    // Half a stroke or a job's land is no state to keep: Ctrl+S says why, an autosave comes again later
+    if (manual ? this.blocked('Saving') : this.busyReason()) {
+      if (!manual) this.scheduleAutosave();
+      return false;
+    }
     while (this.saveRun) await this.saveRun.catch(() => false);
     if (!manual && !this.dirty()) return true;
     this.saveRun = this.runSave(manual);
@@ -694,7 +721,7 @@ export class EditorSession implements OnDestroy {
   /** Puts a kept version back as one undo step (terrain, objects, roads, markers, look, rules) */
   async restoreVersion(version: MapVersion): Promise<void> {
     const editor = this.editor;
-    if (!editor) return;
+    if (!editor || this.blocked('Restore')) return;
     try {
       const bytes = await this.history.bytes(version);
       if (!bytes) throw new Error('the version is gone');
@@ -761,7 +788,7 @@ export class EditorSession implements OnDestroy {
    */
   async botCheck(waves = BOT_CHECK_WAVES): Promise<void> {
     const doc = this.doc;
-    if (!doc) return;
+    if (!doc || this.blocked('The bot check')) return;
     if (this.origin() === 'own') await this.save(true);
     const url = new URL(document.baseURI);
     url.searchParams.set(WORLD_URL_PARAM, worldUrlValue({ kind: 'custom-map', mapId: doc.meta.id, contentHash: '' })!);
@@ -786,7 +813,7 @@ export class EditorSession implements OnDestroy {
   /** Saves, then opens the game on this map in the test tab (the one tab each test reuses) */
   async testPlay(): Promise<void> {
     const doc = this.doc;
-    if (!doc) return;
+    if (!doc || this.blocked('The test')) return;
     if (this.origin() === 'own') await this.save(true);
     const url = new URL(document.baseURI);
     url.searchParams.set(WORLD_URL_PARAM, worldUrlValue({ kind: 'custom-map', mapId: doc.meta.id, contentHash: '' })!);
@@ -902,6 +929,7 @@ export class EditorSession implements OnDestroy {
 
   private scheduleAutosave(): void {
     this.clearAutosave();
+    if (this.destroyed) return;
     this.autosaveTimer = setTimeout(() => void this.save(false), AUTOSAVE_DELAY_MS);
   }
 
@@ -922,7 +950,11 @@ export class EditorSession implements OnDestroy {
     }
   }
 
+  private destroyed = false;
+
   ngOnDestroy(): void {
+    this.destroyed = true;
+    this.terrainAbort?.abort();
     this.thumbRenderer?.dispose();
     if (this.tick) clearInterval(this.tick);
     this.clearAutosave();

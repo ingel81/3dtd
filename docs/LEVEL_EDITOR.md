@@ -181,6 +181,12 @@ den Stand etwa einmal pro Sekunde und zeichnet ihn bandweise neu. Ein Fortschrit
 alten Boden wieder her; fertig ist es ein Undo-Schritt. Während ein Job läuft, nehmen die Werkzeuge keine Eingaben an,
 die Ansicht lässt sich drehen.
 
+**Was wartet.** Solange ein Strich oder ein Ziehen in der Ansicht gehalten wird oder ein Gelände-Job läuft
+(`EditorSession.busyReason`), warten Rückgängig, Wiederholen, Speichern (Strg+S; ein Autosave kommt später wieder),
+Einfügen (Strg+V), „Restore“, „Test map“, der Bot-Check und das Verlassen der Karte; die Statuszeile sagt, worauf
+(„Undo waits: finish the stroke or drag first“). Sonst holte etwa ein Rückgängig unter einem laufenden Job beim Cancel
+die Höhen von vor dem Job über bereits zurückgenommene Schritte zurück.
+
 **Copy and stamps (0).** Select: ein Rechteck auf der Karte ziehen, Strg+C kopiert es; danach folgt das Stück dem
 Zeiger als Umriss, R und Shift+R drehen um 90 Grad, Komma und Punkt um 15, ein Klick setzt es (Strg+V aus jedem
 Werkzeug setzt die letzte Kopie). Schalter wählen, was mitkommt: Höhen, Bodenfarbe, Wasser, Objekte, Straßen. Höhen

@@ -359,6 +359,7 @@ export class EditorShellComponent implements OnDestroy {
       if (e.altKey || ctrl) return this.handled(e, () => s.saveBookmark(slot));
       if (e.shiftKey) return this.handled(e, () => s.showBookmark(slot));
     }
+    if (ctrl && k === 'v' && s.blocked('Paste')) return this.handled(e, () => undefined);
     // Ctrl+V from any tool places the last copy
     if (ctrl && k === 'v' && s.tool() !== 'stamp' && s.settings.stamp.current) {
       return this.handled(e, () => {

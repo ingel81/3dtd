@@ -50,6 +50,37 @@ describe('editor session opening', () => {
   });
 });
 
+describe('editor session while busy', () => {
+  it('holds undo, redo, saving and restoring while a terrain job runs or a stroke is held', async () => {
+    const { s, backend } = session();
+    s.editMeta({ name: 'Renamed' });
+    s.terrainJob.set({ label: 'Eroding the map', progress: 0.3 });
+    s.undo();
+    expect(s.doc!.meta.name).toBe('Renamed');
+    expect(s.status()).toContain('Undo waits');
+    const puts = vi.spyOn(backend, 'put');
+    expect(await s.save(true)).toBe(false);
+    expect(await s.save(false)).toBe(false);
+    expect(puts).not.toHaveBeenCalled();
+    expect(await s.close()).toBe(false);
+    s.terrainJob.set(null);
+
+    // A held stroke in the view
+    Object.assign(s, { viewport: { dragging: true, dispose: () => undefined } });
+    s.undo();
+    expect(s.doc!.meta.name).toBe('Renamed');
+    expect(s.status()).toContain('finish the stroke');
+    const version = { key: 'k', mapId: 'm', savedAt: '', manual: true, size: 1 };
+    const bytes = vi.spyOn(s['history'], 'bytes');
+    await s.restoreVersion(version as never);
+    expect(bytes).not.toHaveBeenCalled();
+    Object.assign(s, { viewport: null });
+    s.undo();
+    expect(s.doc!.meta.name).toBe('M');
+    s.ngOnDestroy();
+  });
+});
+
 describe('editor session saving', () => {
   it('reminds of a download after long work where the browser may clear maps', async () => {
     const { s } = session();
