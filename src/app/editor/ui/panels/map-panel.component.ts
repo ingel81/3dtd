@@ -115,15 +115,18 @@ import { EditorSession } from '../editor-session.service';
       <h3 class="td-section">Versions</h3>
       <div class="td-rows" data-test="versions">
         @for (v of versions(); track v.key) {
-          <div class="td-row mp-version">
+          <div class="td-row mp-version" [attr.data-pinned]="v.pinned || null">
             <span class="td-trunc">{{ when(v.savedAt) }}</span>
             <span class="td-muted">{{ v.manual ? 'Saved' : 'Autosave' }} | {{ kb(v.size) }}</span>
+            <button class="td-btn-ghost td-btn-sm" type="button" [attr.aria-pressed]="!!v.pinned" (click)="pin(v)"
+                    [matTooltip]="v.pinned ? 'Pinned: kept whatever happens to older versions. Click to let it go' : 'Pin: keep this version for good'" data-test="pin-version">{{ v.pinned ? 'Pinned' : 'Pin' }}</button>
             <button class="td-btn-ghost td-btn-sm" type="button" (click)="restore(v)" [matTooltip]="'Put this version back (one undo step)'">Restore</button>
           </div>
         } @empty {
-          <p class="td-note">Every save and an autosave every few minutes land here, the last 20.</p>
+          <p class="td-note">Every save and an autosave every few minutes land here.</p>
         }
       </div>
+      <p class="td-note">Older versions thin out: all of the last hour, one an hour for a day, one a day for a month, one a week before. Pinned ones stay.</p>
     </div>
   `,
   styles: [
@@ -176,6 +179,10 @@ export class MapPanelComponent {
 
   kb(bytes: number): string {
     return bytes > 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1000))} kB`;
+  }
+
+  pin(v: MapVersion): void {
+    void this.session.pinVersion(v, !v.pinned);
   }
 
   restore(v: MapVersion): void {

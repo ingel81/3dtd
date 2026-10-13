@@ -18,9 +18,14 @@ import { slugMapId } from './map-create';
 /**
  * Where a map came from: made or imported here ('own'), shipped with the
  * game, or received from a coop host ('shared', a copy the next version of
- * the host's map replaces; the editor opens it only as a copy)
+ * the host's map replaces; the editor opens it only as a copy). A deleted own
+ * map waits in the trash ('trashed') under a key of its own, TRASH_DAYS long.
  */
-export type MapOrigin = 'own' | 'shipped' | 'shared';
+export type MapOrigin = 'own' | 'shipped' | 'shared' | 'trashed';
+
+/** Days a deleted map waits in the trash before it goes for good */
+export const TRASH_DAYS = 30;
+const TRASH_PREFIX = 'trash-';
 
 export interface MapSummary {
   id: string;
@@ -38,6 +43,8 @@ export interface MapSummary {
   biome?: MapBiome;
   /** The w3x file a map came from */
   importedFrom?: string;
+  /** In the trash: the id the map had, when it was deleted, its creation time (the life its versions belong to) */
+  trash?: { from: string; at: string; created: string };
 }
 
 /** One own map as stored */
@@ -115,11 +122,53 @@ export class MapStore {
     this.baseUrl = options.baseUrl ?? null;
   }
 
+  /** The own and the coop hosts' maps, newest first (the trash not) */
   async listOwn(): Promise<MapSummary[]> {
     const list = await this.backend.list();
     // A broken summary must not empty the list: missing times sort last
     const time = (m: MapSummary) => (typeof m.updatedAt === 'string' ? m.updatedAt : '');
-    return list.filter((m) => m && typeof m.id === 'string').sort((a, b) => time(b).localeCompare(time(a)));
+    return list.filter((m) => m && typeof m.id === 'string' && m.origin !== 'trashed').sort((a, b) => time(b).localeCompare(time(a)));
+  }
+
+  /** The maps in the trash, last deleted first */
+  async listTrash(): Promise<MapSummary[]> {
+    const list = (await this.backend.list()).filter((m) => m?.origin === 'trashed' && m.trash);
+    return list.sort((a, b) => b.trash!.at.localeCompare(a.trash!.at));
+  }
+
+  /**
+   * Moves an own map to the trash: it leaves the lists (and in the desktop
+   * app the map folder) and waits under a key of its own, so a new map may
+   * take its id meanwhile. Returns the trash key.
+   */
+  async trash(id: string, now = new Date()): Promise<string> {
+    const stored = await this.backend.get(id);
+    if (!stored || stored.summary.origin !== 'own') throw new MapStoreError(`There is no own map "${id}" to delete.`);
+    const { doc } = unpackMapFile(stored.file);
+    const key = `${TRASH_PREFIX}${now.getTime()}-${id}`;
+    const summary: MapSummary = { ...stored.summary, id: key, origin: 'trashed', trash: { from: id, at: now.toISOString(), created: doc.meta.createdAt } };
+    await this.backend.put({ summary, file: stored.file, preview: stored.preview });
+    await this.backend.delete(id);
+    return key;
+  }
+
+  /** Puts a map from the trash back among the own maps, under its id or a free one when that is taken; returns the id */
+  async restoreFromTrash(key: string): Promise<string> {
+    const stored = await this.backend.get(key);
+    if (!stored?.summary.trash) throw new MapStoreError('That map is no longer in the trash.');
+    const { doc, preview } = unpackMapFile(stored.file);
+    doc.meta.id = await this.freeId(stored.summary.trash.from);
+    await this.save(doc, stored.preview ?? preview);
+    await this.backend.delete(key);
+    return doc.meta.id;
+  }
+
+  /** Maps longer than TRASH_DAYS in the trash go for good; returns what went */
+  async purgeTrash(now = new Date()): Promise<MapSummary[]> {
+    const limit = now.getTime() - TRASH_DAYS * 86_400_000;
+    const old = (await this.listTrash()).filter((m) => Date.parse(m.trash!.at) < limit);
+    for (const m of old) await this.backend.delete(m.id);
+    return old;
   }
 
   async listShipped(): Promise<MapSummary[]> {
@@ -211,6 +260,7 @@ export class MapStore {
     await this.backend.setPreview(id, preview);
   }
 
+  /** Removes a map for good (an own map: use trash; this is for the trash and coop maps) */
   async delete(id: string): Promise<void> {
     await this.backend.delete(id);
   }

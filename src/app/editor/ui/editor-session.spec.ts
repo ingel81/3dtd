@@ -120,12 +120,21 @@ describe('editor session saving', () => {
     s.ngOnDestroy();
   });
 
-  it('deletes a map with its versions and stops listening for the bot when it goes', async () => {
+  it('moves a map to the trash with its versions, back, and out for good; stops listening for the bot when it goes', async () => {
     const { s, versions } = session();
     await s.save(true);
     await new Promise((r) => setTimeout(r, 0));
     expect(await versions.list('m')).toHaveLength(1);
+    const key = await s.deleteMap('m');
+    expect((await s.store.listOwn()).map((m) => m.id)).toEqual([]);
+    expect((await s.listTrash()).map((m) => m.id)).toEqual([key]);
+    expect(await versions.list('m')).toHaveLength(1);
+    expect(await s.restoreMap(key)).toBe('m');
+    expect((await s.store.listOwn()).map((m) => m.id)).toEqual(['m']);
+    expect(await s.listTrash()).toEqual([]);
     await s.deleteMap('m');
+    await s.deleteForGood((await s.listTrash())[0]);
+    expect(await s.listTrash()).toEqual([]);
     expect(await versions.list('m')).toEqual([]);
     const open = vi.spyOn(window, 'open').mockReturnValue(null);
     const remove = vi.spyOn(window, 'removeEventListener');

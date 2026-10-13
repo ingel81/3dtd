@@ -125,6 +125,13 @@
           }
         }
 
+        @if (trashed(); as t) {
+          <p class="td-banner is-row mb-gap" role="status" data-test="trashed">
+            <span>{{ t.name }} is in the trash.</span>
+            <button class="td-btn-secondary td-btn-sm" type="button" (click)="restore(t.key)">Restore</button>
+          </p>
+        }
+
         <h2 class="td-head mb-gap">Shipped maps <span class="td-note">open as a copy of your own</span></h2>
         @for (m of shipped(); track m.id) {
           <button class="td-row mb-row" type="button" role="option" [attr.aria-selected]="chosen()?.id === m.id && chosen()?.origin === 'shipped'"
@@ -141,6 +148,25 @@
           </button>
         } @empty {
           <p class="td-note mb-empty">This build ships no maps.</p>
+        }
+
+        @if (trash().length) {
+          <h2 class="td-head mb-gap" data-test="trash">Trash <span class="td-note">deleted maps wait {{ trashDays }} days</span></h2>
+          @for (m of trash(); track m.id) {
+            <div class="td-row mb-trash" [attr.data-trash]="m.trash?.from">
+              <span class="mb-text">
+                <span class="td-name">{{ m.name }}</span>
+                <span class="td-sub">{{ deletedLine(m) }}</span>
+              </span>
+              @if (confirmPurge() === m.id) {
+                <button class="td-btn-danger td-btn-sm" type="button" (click)="purge(m)">Delete for good</button>
+                <button class="td-btn-ghost td-btn-sm" type="button" (click)="confirmPurge.set(null)">Keep</button>
+              } @else {
+                <button class="td-btn-secondary td-btn-sm" type="button" (click)="restore(m.id)" data-test="trash-restore">Restore</button>
+                <button class="td-btn-ghost td-btn-sm" type="button" (click)="purge(m)">Delete for good</button>
+              }
+            </div>
+          }
         }
       </div>
 
@@ -241,7 +267,7 @@
           }
           @if (confirmDelete() === m.id) {
             <div class="td-banner is-warn td-stack" role="group">
-              <p>Delete {{ m.name }}? This cannot be undone.</p>
+              <p>Delete {{ m.name }}? The host sends it again when you join their room.</p>
               <div class="td-actions is-start">
                 <button class="td-btn-danger" type="button" (click)="remove(m)">Delete</button>
                 <button class="td-btn-secondary" type="button" (click)="confirmDelete.set(null)">Keep it</button>

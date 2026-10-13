@@ -17,7 +17,7 @@ import { Injectable, NgZone, OnDestroy, inject, signal } from '@angular/core';
 import type { CustomMapDocument, MapMeta } from '../../world/custom-map/map-document';
 import { createMapDocument, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
-import { MapStore, type MapOrigin } from '../../world/custom-map/map-store';
+import { MapStore, type MapOrigin, type MapSummary } from '../../world/custom-map/map-store';
 import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog, type GroundMaterialEntry, type ObjectAssetEntry } from '../catalog/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
 import { ThumbnailRenderer } from '../view/thumbnail-renderer';
@@ -712,10 +712,38 @@ export class EditorSession implements OnDestroy {
     }
   }
 
-  /** Deletes an own map with its kept versions */
-  async deleteMap(id: string): Promise<void> {
-    await this.store.delete(id);
-    await this.history.clear(id).catch(() => undefined);
+  /** Moves an own map to the trash (its versions stay with it); returns the trash key */
+  async deleteMap(id: string): Promise<string> {
+    return this.store.trash(id);
+  }
+
+  /** A map back from the trash; returns its id (a free one when its own is taken meanwhile) */
+  restoreMap(key: string): Promise<string> {
+    return this.store.restoreFromTrash(key);
+  }
+
+  /** Removes a map from the trash for good, with its versions */
+  async deleteForGood(m: MapSummary): Promise<void> {
+    await this.store.delete(m.id);
+    if (m.trash) await this.history.clear(m.trash.from, m.trash.created).catch(() => undefined);
+  }
+
+  /** The trash, after what waited longer than TRASH_DAYS went for good (with its versions) */
+  async listTrash(): Promise<MapSummary[]> {
+    for (const m of await this.store.purgeTrash().catch(() => [])) {
+      if (m.trash) await this.history.clear(m.trash.from, m.trash.created).catch(() => undefined);
+    }
+    return this.store.listTrash();
+  }
+
+  /** Pins a version against the thinning, or lets it go */
+  async pinVersion(version: MapVersion, pinned: boolean): Promise<void> {
+    try {
+      await this.history.pin(version, pinned);
+    } catch (e) {
+      this.error.set(`The version could not be ${pinned ? 'pinned' : 'unpinned'} (${(e as Error).message}).`);
+    }
+    await this.loadVersions();
   }
 
   /** Puts a kept version back as one undo step (terrain, objects, roads, markers, look, rules) */

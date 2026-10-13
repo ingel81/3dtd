@@ -1,6 +1,6 @@
 import { createMapDocument } from './map-create';
 import { contentHash, packMapFile } from './map-file';
-import { MapStore, MapStoreError, MemoryMapBackend, type ShippedMapIndex } from './map-store';
+import { MapStore, MapStoreError, MemoryMapBackend, TRASH_DAYS, type ShippedMapIndex } from './map-store';
 
 function shippedFetch(index: ShippedMapIndex, files: Record<string, Uint8Array>) {
   const calls: string[] = [];
@@ -88,6 +88,33 @@ describe('MapStore', () => {
     const imported = await store.importFile(packMapFile(doc()));
     expect(imported.doc.meta.id).toBe('valley-2');
     expect(await store.freeId('fresh')).toBe('fresh');
+  });
+
+  it('keeps a deleted map in the trash under its own key, a new map may take its id, the old one comes back beside it', async () => {
+    const store = new MapStore({ backend: new MemoryMapBackend(), fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/' });
+    await store.save(doc());
+    const at = new Date('2026-10-14T08:00:00Z');
+    const key = await store.trash('valley', at);
+    expect(await store.listOwn()).toEqual([]);
+    const [trashed] = await store.listTrash();
+    expect(trashed).toMatchObject({ id: key, origin: 'trashed', trash: { from: 'valley', at: at.toISOString(), created: doc().meta.createdAt } });
+    await expect(store.load('valley')).rejects.toBeInstanceOf(MapStoreError);
+    await store.save(createMapDocument({ id: 'valley', name: 'New valley', width: 32, depth: 32 }));
+    expect(await store.restoreFromTrash(key)).toBe('valley-2');
+    expect((await store.load('valley-2')).doc.meta.name).toBe('Valley');
+    expect(await store.listTrash()).toEqual([]);
+    await expect(store.trash('nope')).rejects.toBeInstanceOf(MapStoreError);
+  });
+
+  it('empties maps older than TRASH_DAYS from the trash', async () => {
+    const store = new MapStore({ backend: new MemoryMapBackend(), fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/' });
+    await store.save(doc());
+    await store.save(createMapDocument({ id: 'hill', name: 'Hill', width: 32, depth: 32 }));
+    const now = Date.parse('2026-10-14T08:00:00Z');
+    await store.trash('valley', new Date(now - (TRASH_DAYS + 1) * 86_400_000));
+    const recent = await store.trash('hill', new Date(now - 86_400_000));
+    expect((await store.purgeTrash(new Date(now))).map((m) => m.trash!.from)).toEqual(['valley']);
+    expect((await store.listTrash()).map((m) => m.id)).toEqual([recent]);
   });
 
   it('lists no shipped maps when the index is missing', async () => {

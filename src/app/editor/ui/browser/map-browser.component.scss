@@ -79,6 +79,12 @@
   padding: var(--td-sp-1) var(--td-sp-2);
 }
 
+.mb-trash {
+  gap: var(--td-sp-2);
+  min-height: 48px;
+  padding: var(--td-sp-1) var(--td-sp-2);
+}
+
 .mb-thumb {
   display: block;
   flex: 0 0 auto;

@@ -10,8 +10,8 @@ fragt das Menü vorher). Die Oberfläche ist englisch wie das übrige Spiel.
 ## Kartenliste
 
 Die Startseite von `/editor` zeigt links die eigenen und die mitgelieferten Karten (Bild, Größe, Spawns, Objekte,
-zuletzt geändert), rechts die gewählte mit Beschreibung und den Knöpfen Open, Duplicate, Download, Delete (zweimal
-bestätigen). Mitgelieferte Karten (`public/maps/index.json`) und Karten eines Koop-Hosts sind schreibgeschützt: „Copy
+zuletzt geändert), rechts die gewählte mit Beschreibung und den Knöpfen Open, Duplicate, Download, Delete (in den
+Papierkorb, siehe [Speichern](#speichern-und-dateien)). Mitgelieferte Karten (`public/maps/index.json`) und Karten eines Koop-Hosts sind schreibgeschützt: „Copy
 and edit“ legt eine eigene Kopie an und öffnet sie. Dasselbe gilt für jeden anderen Weg dorthin, etwa „Edit“ in der
 Kartenwahl des Spiels (`/editor?map=<id>`): `EditorSession.open` öffnet nie das Original, sondern speichert sofort eine
 eigene Kopie („Name (copy)“), sagt das in der Statuszeile und setzt deren Kennung in die Adresse, damit Neuladen die
@@ -268,8 +268,17 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   (`MAP_TEST_WINDOW`, `3dtd-map-test`), das jeder weitere Test und der Bot-Check wiederverwenden, statt Tabs zu stapeln;
   in der Desktop-App ein eigenes, gleich gehärtetes App-Fenster ([ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), E26c)
 - Versionen: jedes Speichern und höchstens alle drei Minuten ein Autosave landen als gepackte Datei in IndexedDB
-  (`3dtd-editor-history`; die frühere `3dtd-editor-versions` wird beim Öffnen gelöscht), die letzten 20 je Karte; das Map-Panel (9) listet sie, „Restore“ holt eine zurück (ein
-  Undo-Schritt). Ein Absturz kostet so höchstens die Minuten seit dem letzten Autosave
+  (`3dtd-editor-history`; die frühere `3dtd-editor-versions` wird beim Öffnen gelöscht); das Map-Panel (9) listet sie,
+  „Restore“ holt eine zurück (ein Undo-Schritt). Ein Absturz kostet so höchstens die Minuten seit dem letzten Autosave.
+  Ältere Versionen dünnen aus, statt hinten herauszufallen (`thinVersions`): alle der letzten Stunde, je Stunde des
+  letzten Tages, je Tag des letzten Monats und je Woche davor nur die neueste, höchstens 40; wer oft speichert, hat
+  so trotzdem einen Weg zur letzten Woche. „Pin“ hält eine Version fest, die Ausdünnung lässt sie stehen
+- Papierkorb: „Delete“ in der Kartenliste legt eine eigene Karte sofort in den Papierkorb (unter einer eigenen Kennung
+  `trash-<Zeit>-<id>`, Herkunft `trashed`; in der Desktop-App verlässt ihre Datei den Kartenordner). Ein Banner und der
+  Abschnitt „Trash“ unten in der Liste holen sie zurück („Restore“, unter ihrer Kennung oder einer freien, wenn eine
+  neue Karte sie inzwischen trägt); ihre Versionen bleiben so lange stehen. Nach 30 Tagen (`TRASH_DAYS`) oder mit
+  „Delete for good“ (zweimal) geht sie samt Versionen endgültig. Karten eines Koop-Hosts gehen nach Rückfrage gleich
+  endgültig, der Host schickt sie beim nächsten Beitritt wieder
 - Probewelle (P, „Trial wave“): die Gegnermodelle des Spiels laufen jede Route vom Spawn zum HQ mit ihrer echten
   Geschwindigkeit und Animation, die Typen der ersten Welle der eigenen Wellenliste oder eine Mischung (Zombie, Ratte,
   Panzer, Spinne, Skelett); die Statuszeile nennt, wie lange der schnellste und der langsamste bis zum HQ brauchen

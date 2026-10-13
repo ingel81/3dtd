@@ -6,7 +6,7 @@ import { TdIconComponent } from '../../../components/icon/icon.component';
 import { DEFAULT_CELL_SIZE } from '../../../world/custom-map/map-create';
 import { TERRAIN_PRESETS, type TerrainPreset } from '../../ops/generate';
 import { MAP_FILE_EXTENSION, packMapFile } from '../../../world/custom-map/map-file';
-import type { MapSummary } from '../../../world/custom-map/map-store';
+import { TRASH_DAYS, type MapSummary } from '../../../world/custom-map/map-store';
 import { download, EditorSession } from '../editor-session.service';
 import { WorldChoiceService } from '../../../world/world-choice.service';
 import type { GroundMaterialEntry } from '../../catalog/asset-catalog';
@@ -54,6 +54,13 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   readonly mode = signal<'details' | 'new'>('details');
   readonly previews = signal<Record<string, string>>({});
   readonly confirmDelete = signal<string | null>(null);
+  /** Deleted own maps, waiting TRASH_DAYS */
+  readonly trash = signal<MapSummary[]>([]);
+  /** The map just moved to the trash, for the banner that can bring it back */
+  readonly trashed = signal<{ key: string; name: string } | null>(null);
+  /** The trash entry asking whether to go for good */
+  readonly confirmPurge = signal<string | null>(null);
+  readonly trashDays = TRASH_DAYS;
   readonly busy = signal(false);
   readonly dragging = signal(false);
 
@@ -89,7 +96,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
 
   async reload(select?: string): Promise<void> {
     const store = this.session.store;
-    const [stored, shipped] = await Promise.all([store.listOwn().catch(() => []), store.listShipped()]);
+    const [stored, shipped, trash] = await Promise.all([store.listOwn().catch(() => []), store.listShipped(), this.session.listTrash().catch(() => [])]);
+    this.trash.set(trash);
     const own = stored.filter((m) => m.origin !== 'shared');
     const shared = stored.filter((m) => m.origin === 'shared');
     this.own.set(own);
@@ -152,14 +160,45 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** An own map goes to the trash at once (it can come back); a coop host's map is asked about and goes for good */
   async remove(m: MapSummary): Promise<void> {
+    if (m.origin === 'own') {
+      const key = await this.session.deleteMap(m.id);
+      this.trashed.set({ key, name: m.name });
+      await this.reload();
+      return;
+    }
     if (this.confirmDelete() !== m.id) {
       this.confirmDelete.set(m.id);
       return;
     }
     this.confirmDelete.set(null);
-    await this.session.deleteMap(m.id);
+    await this.session.store.delete(m.id);
     await this.reload();
+  }
+
+  async restore(key: string): Promise<void> {
+    const id = await this.session.restoreMap(key);
+    this.trashed.set(null);
+    await this.reload(id);
+  }
+
+  async purge(m: MapSummary): Promise<void> {
+    if (this.confirmPurge() !== m.id) {
+      this.confirmPurge.set(m.id);
+      return;
+    }
+    this.confirmPurge.set(null);
+    await this.session.deleteForGood(m);
+    await this.reload();
+  }
+
+  /** "deleted today", "deleted 3 days ago" for the trash list */
+  deletedLine(m: MapSummary): string {
+    const days = Math.floor((Date.now() - Date.parse(m.trash?.at ?? '')) / 86_400_000);
+    const left = Math.max(0, TRASH_DAYS - days);
+    const when = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+    return `Deleted ${when} | goes for good in ${left} ${left === 1 ? 'day' : 'days'}`;
   }
 
   async downloadMap(m: MapSummary): Promise<void> {

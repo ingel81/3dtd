@@ -125,9 +125,17 @@ test('builds, checks, saves and reloads a map in the editor', async ({ page }, t
   await expect(row).toBeVisible();
   await expect(row.locator('img')).toBeVisible();
   await row.click();
+  // Own maps go to the trash at once; from there they come back, or go for good
   await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
-  await page.locator('.td-banner').getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.locator('.mb-row', { hasText: name })).toHaveCount(0);
+  const trashed = page.locator('.mb-trash', { hasText: name });
+  await trashed.getByRole('button', { name: 'Restore' }).click();
+  await expect(page.locator('.mb-row', { hasText: name })).toHaveCount(1);
+  await page.locator('.mb-row', { hasText: name }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
+  await trashed.getByRole('button', { name: 'Delete for good' }).click();
+  await trashed.getByRole('button', { name: 'Delete for good' }).click();
+  await expect(trashed).toHaveCount(0);
 });
 
 test('makes a map from a template and uses the pro tools on it', async ({ page }) => {
@@ -184,8 +192,8 @@ test('makes a map from a template and uses the pro tools on it', async ({ page }
   await page.locator('[data-test=back]').click();
   const row = page.locator('.mb-row', { hasText: name });
   await row.click();
+  // Own maps go to the trash at once
   await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
-  await page.locator('.td-banner').getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.locator('.mb-row', { hasText: name })).toHaveCount(0);
 });
 
@@ -214,8 +222,8 @@ test("the check's bot test plays a fresh map in a new tab and reports back", asy
   await tab.close();
   await page.locator('[data-test=back]').click();
   await page.locator('.mb-row', { hasText: name }).click();
+  // Own maps go to the trash at once
   await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
-  await page.locator('.td-banner').getByRole('button', { name: 'Delete', exact: true }).click();
 });
 
 test('the first-run tour leads through the editor and comes back from the help', async ({ page }) => {
@@ -262,6 +270,6 @@ test('the first-run tour leads through the editor and comes back from the help',
   await tour.getByRole('button', { name: 'Skip the tour' }).click();
   await page.locator('[data-test=back]').click();
   await page.locator('.mb-row', { hasText: name }).click();
+  // Own maps go to the trash at once
   await page.getByRole('button', { name: 'Delete', exact: true }).first().click();
-  await page.locator('.td-banner').getByRole('button', { name: 'Delete', exact: true }).click();
 });

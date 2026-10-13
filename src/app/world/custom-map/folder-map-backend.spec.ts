@@ -165,6 +165,23 @@ describe('FolderMapBackend', () => {
     expect((await store.listOwn()).map((m) => m.id)).toEqual(['hosts']);
   });
 
+  it('takes a map in the trash out of the folder and writes it back when it comes back', async () => {
+    const folder = new FakeFolder();
+    const inner = new MemoryMapBackend();
+    const marks = memoryMarks();
+    const store = storeOn(folder, inner, marks);
+    await store.save(doc('mine', 'Mine'));
+    const key = await store.trash('mine');
+    expect(folder.files.size).toBe(0);
+    // The next start does not bring it back from the folder or write it out
+    const next = storeOn(folder, inner, marks);
+    expect(await next.listOwn()).toEqual([]);
+    expect((await next.listTrash()).map((m) => m.id)).toEqual([key]);
+    expect(folder.files.size).toBe(0);
+    expect(await next.restoreFromTrash(key)).toBe('mine');
+    expect([...folder.files.keys()]).toEqual(['mine.3dtdmap']);
+  });
+
   it('skips a file that is no map, and the rest still loads', async () => {
     const folder = new FakeFolder();
     await folder.write('broken.3dtdmap', new Uint8Array([1, 2, 3]));
