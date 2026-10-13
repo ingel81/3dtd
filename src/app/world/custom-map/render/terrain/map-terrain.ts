@@ -170,12 +170,15 @@ export class MapTerrainLayer {
   update(cameraPos: Vector3, dt = 0, focus?: Vector3): void {
     this.chunks.update(cameraPos, focus);
     this.material?.tick(dt);
+    // Occlusion of edited ground follows a few milliseconds a frame
+    this.occlusion.flush(2);
   }
 
   rebuild(rect?: GridRect): void {
     this.chunks.rebuild(rect);
     this.normals.update(rect);
-    this.occlusion.updateTerrain(rect);
+    if (rect) this.occlusion.queueTerrain(rect);
+    else this.occlusion.updateTerrain();
     this.heightTexture.refresh(rect);
     this.refreshApron(rect);
   }
