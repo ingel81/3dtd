@@ -63,6 +63,8 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 - [ ] **E83 AppImage und AUR** (2026-09-30): gebaut 2026-10-05 (statische Laufzeit, Update-Information und `.zsync`,
       AUR-Paket `3dtd-bin` mit CI-Job). Offen beim User: einmal auf Linux starten, AUR-Konto und Secret einrichten
       (PLAYTEST S5); in der CI ist der neue Teil noch nie gelaufen.
+- [ ] **E154 Eigene Karten rund machen** (abgestimmt 2026-10-13): Editor sicher und vollständig, Performance wie Tiles,
+      Wasser, Lava und Böden lebendig; fünf Phasen in [CUSTOM_MAPS_NEXT_PLAN.md](docs/CUSTOM_MAPS_NEXT_PLAN.md). Vor E134.
 - [ ] **E134 Eigene Karten freigeben** (entschieden 2026-10-11): erst wenn alles Abgestimmte steht (E130 bis E133, auch
       Wellen-Editor und Zerstörung). Dann `CUSTOM_MAPS_RELEASED` an (`src/app/world/custom-maps-open.ts`) und
       `.3dtdmap`-Zuordnung im Installer. Die Karten-Daten (194 MB) kommen beim ersten Öffnen einer Karte vom Webserver
