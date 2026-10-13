@@ -42,7 +42,7 @@ export const DEFAULT_ENVIRONMENT: MapEnvironment = {
   tint: '#ffffff',
 };
 
-export const DEFAULT_CELL_SIZE = 4;
+export const DEFAULT_CELL_SIZE = 2;
 export const DEFAULT_CLIFF_ANGLE = 40;
 export const DEFAULT_ROAD_WIDTH = 8;
 

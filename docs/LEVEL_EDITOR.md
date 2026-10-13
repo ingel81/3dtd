@@ -21,8 +21,10 @@ Kopie öffnet und keine zweite anlegt.
   (Flat, Hills, Valleys, Islands, Canyon, Terraces mit Seed und Stärke, siehe [Generator](#gelände-generator)) mit
   Grundmaterial. Eine Vorlage (Meadows, Woods, Mountains, Swamp, Desert, Arctic, City, Hell, Wasteland, Moon, Mars)
   legt Gelände aus dem Generator an, malt die ganze Karte mit ihrem Biom (Boden, Relief, Becken, Objekte) und setzt
-  Himmel, Licht, Nebel, Tönung und Wetter; das Biom läuft in Bändern über die Karte (`biomeBand`), eine Karte von
-  1024 m braucht dafür unter einer halben Sekunde. Jede neue Karte hat eine Straße von West zum HQ und einen Spawn an ihrem Ende, damit sie sofort
+  Himmel, Licht, Nebel, Tönung und Wetter; das Biom läuft in Bändern über die Karte (`biomeBand`). Jede neue Karte hat
+  die Detailstufe der mitgelieferten Level, ohne Wahl: Höhenpunkte alle 2 m (`DEFAULT_CELL_SIZE`) und die Bodenfarbe
+  mit etwa einem Texel je Meter, höchstens 1024 px (`splatResolutionFor`). „Meadows“ auf 1024 m braucht vom Klick bis
+  zum offenen Editor 1,8 bis 2,7 s (mit 4 m waren es 0,9 bis 1,6 s; Chromium, RTX 5080, 2026-10-14). Jede neue Karte hat eine Straße von West zum HQ und einen Spawn an ihrem Ende, damit sie sofort
   spielbar ist; der Generator ebnet die Straße und legt sie, wo sie unter Wasser liefe, auf einen Damm
 - **Import file:** `.3dtdmap` oder `.w3x` per Dateiwahl oder per Ablegen auf der Seite. Ein Warcraft-3-Import fragt
   erst nach Metern je Kachel (4), höchstens Objekten (6000), „Playable area only“, „Enhance ground“ (Boden nach
@@ -169,7 +171,10 @@ Sonnenrichtung und -höhe, Nebel, Tönung, Wetter (Clear, Rain, Snow, Fog mit St
 beim Loslassen ein Schritt im Verlauf.
 
 **Map (9).** Name, Autor, Beschreibung; Größe ändern (die Mitte bleibt, kleiner schneidet die Ränder ab, größer setzt
-sie in Randhöhe fort); Gelände-Generator über die offene Karte und „Erode the whole map“ (Regen gräbt Rinnen an allen
+sie in Randhöhe fort); „Increase detail“ bei Karten mit gröberem Boden als neue Karten (ältere mit 4 m, Importe):
+Höhenpunkte auf höchstens 2 m (alte Zellgröße durch eine ganze Zahl, die Ausdehnung bleibt genau, jeder alte Punkt
+behält seine Höhe, die neuen kommen bilinear), Bodenfarbe und Wassermasken bilinear auf die neue Auflösung
+(`ops/detail.ts`), ein Undo-Schritt; Gelände-Generator über die offene Karte und „Erode the whole map“ (Regen gräbt Rinnen an allen
 Hängen, Stärke „Rain“). Beide laufen im Terrain-Worker (`editor/workers/terrain.worker.ts`): der Generator schickt
 Bänder von 48 Zeilen, die Ansicht zeigt sie sofort; die Erosion läuft in Scheiben zu 4000 Tropfen, die Ansicht zeigt
 den Stand etwa einmal pro Sekunde und zeichnet ihn bandweise neu. Ein Fortschrittsbalken mit „Cancel“ stellt den
@@ -309,7 +314,7 @@ Texels (Grundmischung, Ufer, Risse, Rand) in Kacheln von 64 x 64 (`FieldCache`),
 rechnen (Wald 2,3 auf 1,1 ms). Die Ansicht baut Objekt-Batches höchstens alle 150 ms neu, Wasser alle 120 ms, den
 Himmel alle 100 ms; die Minikarte wartet, bis kein Pinsel mehr gehalten wird. Gemessen im Browser (1024 m, zweiter
 Strich mit einem Biom): p50 6,9 ms, p90 7,7 ms je Bild; der erste Strich übersetzt die Shader neuer Modelle.
-Ganze Karten (Vorlagen) malt `biomeBand` in Bändern mit Pausen dazwischen: 1024 m in 0,3 bis 0,4 s.
+Ganze Karten (Vorlagen) malt `biomeBand` in Bändern mit Pausen dazwischen.
 Ausgeblendete Kategorien bekommt der Renderer als eigene Liste über einen Proxy des Dokuments, da er sie in sein
 Dokument schreibt.
 

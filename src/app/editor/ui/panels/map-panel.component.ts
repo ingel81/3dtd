@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import type { MapVersion } from '../../model/version-store';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TERRAIN_PRESETS, type TerrainPreset } from '../../ops/generate';
+import { detailTarget } from '../../ops/detail';
 import { RangeRowComponent } from './range-row.component';
 import { EditorSession } from '../editor-session.service';
 
@@ -31,7 +32,7 @@ import { EditorSession } from '../editor-session.service';
     @if (size(); as s) {
       <div class="td-group">
         <h3 class="td-section">Size</h3>
-        <p class="td-note">{{ s.width }} x {{ s.depth }} m | {{ s.columns }} x {{ s.rows }} height points every {{ s.cell }} m</p>
+        <p class="td-note">{{ s.width }} x {{ s.depth }} m | {{ s.columns }} x {{ s.rows }} height points every {{ s.cell }} m | ground paint {{ s.splat }} px</p>
         <div class="mp-size">
           <label class="td-field">
             <span class="td-label">Width</span>
@@ -44,6 +45,10 @@ import { EditorSession } from '../editor-session.service';
           <button class="td-btn-secondary td-btn-sm" type="button" (click)="resize()">Resize</button>
         </div>
         <p class="td-note">Resizing keeps the middle; smaller crops the edges, larger extends them at the edge height.</p>
+        @if (s.coarse) {
+          <p class="td-note mp-warn">This map's ground is coarser than new maps and the shipped levels have (height points every 2 m, ground paint {{ s.target }} px).</p>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="increaseDetail()" data-test="increase-detail">Increase detail</button>
+        }
       </div>
     }
     <div class="td-group">
@@ -142,7 +147,18 @@ export class MapPanelComponent {
   readonly size = computed(() => {
     this.session.docRev();
     const t = this.session.doc?.terrain;
-    return t ? { width: t.width, depth: t.depth, columns: t.grid.columns, rows: t.grid.rows, cell: t.grid.cellSize } : null;
+    if (!t) return null;
+    const target = detailTarget(t);
+    return {
+      width: t.width,
+      depth: t.depth,
+      columns: t.grid.columns,
+      rows: t.grid.rows,
+      cell: +t.grid.cellSize.toFixed(2),
+      splat: t.splat.resolution,
+      coarse: !!target,
+      target: target?.splatResolution ?? t.splat.resolution,
+    };
   });
 
   readonly versions = this.session.versions;
@@ -181,6 +197,10 @@ export class MapPanelComponent {
     this.session.resize(w, d);
     this.width.set(null);
     this.depth.set(null);
+  }
+
+  increaseDetail(): void {
+    this.session.increaseDetail();
   }
 
   roll(): void {

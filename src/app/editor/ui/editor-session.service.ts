@@ -24,6 +24,7 @@ import { ThumbnailRenderer } from '../view/thumbnail-renderer';
 import { biomeThumbnail, materialThumbnail, objectThumbnail } from './thumbnails';
 import { EditorDocument, SnapshotCommand, type EditCommand, type Selection } from '../model/editor-document';
 import { resizeMap } from '../ops/resize';
+import { detailTarget, increaseDetail } from '../ops/detail';
 import { LandscapeTool } from '../tools/landscape-tool';
 import { MarkerTool } from '../tools/marker-tool';
 import { StampTool } from '../tools/stamp-tool';
@@ -597,6 +598,15 @@ export class EditorSession implements OnDestroy {
     this.viewport?.frameMap();
     const lost = dropped.droppedObjects + dropped.droppedNodes;
     this.flash(lost ? `Resized; ${dropped.droppedObjects} objects and ${dropped.droppedNodes} road nodes fell outside` : 'Resized');
+  }
+
+  /** Refines coarse ground to the detail of new maps (2 m height points, the splat to match); one undo step */
+  increaseDetail(): void {
+    const editor = this.editor;
+    const target = editor && detailTarget(editor.doc.terrain);
+    if (!editor || !target) return;
+    this.execute(SnapshotCommand.record(editor.doc, 'Increase detail', ['terrain'], (d) => (d.terrain = increaseDetail(d.terrain, target))));
+    this.flash(`Height points every ${+target.cellSize.toFixed(2)} m, ground paint ${target.splatResolution} px; Ctrl+Z takes it back`);
   }
 
   runCheck(): MapIssue[] {
