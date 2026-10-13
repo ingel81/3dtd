@@ -131,7 +131,8 @@ weichem Saum. `losTransparent`.
 - `water` (Standard): klar am Ufer, Kartenfarbe in der Tiefe, Wellen, Spiegelung des Himmels mit Fresnel, Sonnenglanz,
   Schaum im Flachen
 - `sea`: stärkere Wellen und Brandungsbänder zum Ufer
-- `swamp`: trüb, schwache Spiegelung, treibende Algen
+- `swamp`: trüb, schwache Spiegelung; Algen und Entengrütze in Flecken nur am Ufer und im Flachen (unter etwa 0,9 m,
+  mit verrauschter Kante), halb deckend und dunkler als das Land, nachts kaum sichtbar
 - `ice`: deckend und still; hell über flachem, dunkles Petrol über tiefem Grund, mattierte Spiegelung, Risse, Schnee
   im Flachen
 - `lava`: deckend und glühend; Krustenplatten über Adern, Farbverlauf Kruste, Dunkelrot, Orange, Gelb nur in den

@@ -331,10 +331,13 @@ void main() {
   vec3 body = mix(uShallow, uDeep, smoothstep(0.2, 3.5, depth)) * uLight;
   #if KIND == 4
   color = mix(body, sky, fresnel * 0.4 + 0.02);
-  // Algae and duckweed drifting in patches
-  float algae = smoothstep(0.52, 0.68, skyFbm(vWorldPos.xz * 0.22 + uFlow * uTime * 0.01));
-  // Lit like the land around: at night the patches must not glow over the dark water
-  color = mix(color, vec3(0.16, 0.24, 0.06) * uLight * uLight, algae * 0.85);
+  // Algae and duckweed in patches along the banks, where the water is shallow and still; the open
+  // water stays dark (patches over the whole surface read as camouflage, not as a swamp)
+  vec2 ap = vWorldPos.xz * 0.3 + uFlow * uTime * 0.01;
+  float algae = smoothstep(0.5, 0.66, skyFbm(ap));
+  float bank = smoothstep(0.9, 0.2, depth + (valueNoise(ap * 0.7) - 0.5) * 0.6);
+  // Lit like the land around and darker than it: at night the patches must not glow over the dark water
+  color = mix(color, vec3(0.1, 0.15, 0.04) * uLight * uLight, algae * bank * 0.45);
   #else
   color = mix(body, sky, fresnel * 0.9 + 0.05);
   #endif
