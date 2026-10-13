@@ -32,9 +32,11 @@ Per Spec geprüft; die Icons einzeln im Prüf-Artefakt abgenommen. Hier geht es 
 
 - **Z1 Icons im Spiel:** Einen Ort laden, eine Welle spielen, Sidebar, Kopfleiste, NEXT-Leiste, Baumenü, Tower-Panel,
   Esc-Menü ansehen. *Überall der Halbton-Stempel in Messing, auch klein (11 px) lesbar; nichts fehlt oder ist leer.*
+  **ok (2026-10-13)**
 - **Z2 Wellenblock:** Zwischen zwei Wellen die Sidebar oben ansehen. *Kompakter; unter dem Wellen-Knopf kein „Load
   replay“ mehr (eine Replay-Datei lädt Extras); an der NEXT-Leiste Luft zwischen Zeichen und Zahl, bei einer
   Blutmond-Welle der Mond über dem Zeichen, nicht in der Linie unter „Next“.*
+  **ok (2026-10-13)**
 - **Z3 Ladeschirm im Hintergrund-Tab:** Seite mit Ort im Hintergrund-Tab laden, warten bis `tiles timed out` in der
   Konsole, dann den Tab zeigen. *Der Korridor baut neu, danach geht der Ladeschirm weg.*
   **ok (2026-10-13)**
@@ -102,6 +104,7 @@ angesehen. Hier geht es um Augen, Ohren und das Gefühl.
 - **X16 Replay an einem anderen Ort (E135):** Eine Welle spielen, das Replay als Datei sichern, an einen anderen Ort
   wechseln, Extras, Replay-Datei laden. *„Go to <Ort> and play“; das Spiel fliegt hin und spielt die Datei ab, der
   Lauf dort endet. Per E2E geprüft, hier nur Ansehen.*
+  **ok (2026-10-13)**
 
 Alte rote Punkte vom 4.10.: T73, T75, T87, W2.3 und N16 sind per Folgetest ok (F-Punkte der Abhakliste), B3 per S2.4
 (2026-10-11). Offen bleibt nur M4 als S2.3.
