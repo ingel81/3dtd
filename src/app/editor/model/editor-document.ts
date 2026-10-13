@@ -144,6 +144,19 @@ export class EditorDocument {
     return this.redoStack.at(-1)?.command.label ?? null;
   }
 
+  /** The steps done (oldest first) and those undone (the next redo first), by label */
+  get history(): { done: string[]; undone: string[] } {
+    return { done: this.undoStack.map((e) => e.command.label), undone: this.redoStack.map((e) => e.command.label).reverse() };
+  }
+
+  /** Undoes or redoes until `steps` steps are done; false when that is not in the history */
+  jumpTo(steps: number): boolean {
+    if (steps < 0 || steps > this.undoStack.length + this.redoStack.length) return false;
+    while (this.undoStack.length > steps) this.undo();
+    while (this.undoStack.length < steps) this.redo();
+    return true;
+  }
+
   get historyBytes(): number {
     return this.heldBytes;
   }

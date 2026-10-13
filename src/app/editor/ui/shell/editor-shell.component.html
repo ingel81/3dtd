@@ -145,6 +145,7 @@
     <div class="td-seg is-sm es-side-tabs" role="tablist" aria-label="Side column" tdRovingGroup>
       <button type="button" role="tab" id="es-tab-tool" aria-controls="es-panel-tool" [attr.aria-selected]="sideView() === 'tool'" (click)="sideView.set('tool')" data-test="side-tool">{{ toolLabel() }}</button>
       <button type="button" role="tab" id="es-tab-outline" aria-controls="es-panel-outline" [attr.aria-selected]="sideView() === 'outline'" (click)="sideView.set('outline')" data-test="side-outline">Outline</button>
+      <button type="button" role="tab" id="es-tab-history" aria-controls="es-panel-history" [attr.aria-selected]="sideView() === 'history'" (click)="sideView.set('history')" data-test="side-history">History</button>
     </div>
     <section class="td-side-section es-options is-fill" id="es-panel-tool" role="tabpanel" aria-labelledby="es-tab-tool" [hidden]="sideView() !== 'tool'">
       <div class="td-side-body">
@@ -191,6 +192,9 @@
       </div>
     </section>
     <app-editor-outliner class="td-side-section is-fill" id="es-panel-outline" role="tabpanel" aria-labelledby="es-tab-outline" [hidden]="sideView() !== 'outline'" />
+    @if (sideView() === 'history') {
+      <app-editor-history class="td-side-section is-fill" id="es-panel-history" role="tabpanel" aria-labelledby="es-tab-history" />
+    }
   </aside>
 
   <app-editor-status class="es-status" />

@@ -71,6 +71,23 @@ describe('EditorDocument', () => {
     expect(ed.canRedo).toBe(false);
   });
 
+  it('lists its steps and jumps back and forward to one', () => {
+    const ed = new EditorDocument(map());
+    const h0 = ed.doc.terrain.grid.heights.slice();
+    stroke(ed, 0, 0);
+    ed.execute(SnapshotCommand.record(ed.doc, 'Rename', ['meta'], (d) => (d.meta = { ...d.meta, name: 'N' })));
+    stroke(ed, 40, 40);
+    expect(ed.history).toEqual({ done: ['Raise', 'Rename', 'Raise'], undone: [] });
+    expect(ed.jumpTo(1)).toBe(true);
+    expect(ed.history).toEqual({ done: ['Raise'], undone: ['Rename', 'Raise'] });
+    expect(ed.doc.meta.name).toBe('M');
+    expect(ed.jumpTo(3)).toBe(true);
+    expect(ed.doc.meta.name).toBe('N');
+    ed.jumpTo(0);
+    expect(ed.doc.terrain.grid.heights).toEqual(h0);
+    expect(ed.jumpTo(4)).toBe(false);
+  });
+
   it('tells listeners what changed', () => {
     const ed = new EditorDocument(map());
     const seen: DocChange[] = [];

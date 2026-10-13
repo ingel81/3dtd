@@ -84,6 +84,11 @@ fragt nach Boden und Material. Paint legt eine neue Schicht über „+ Add a gro
 nach Landschaft gruppiert. Der Editor hält die Luft bis zur Kameraentfernung klar (`setClearAir`), damit die Übersicht
 über die ganze Karte nicht im Dunst liegt.
 
+Der Reiter History listet den Verlauf, neuester Schritt oben: „Opened“ (die Karte wie geöffnet), jeder getane
+Schritt mit seinem Namen, die zurückgenommenen gedimmt; ein Klick springt dorthin, so viele Rückgängig oder
+Wiederholen auf einmal (`EditorDocument.jumpTo`, ein Sprung wartet wie diese während Strich, Drag oder Job). Auch
+über Strg+K („History: jump to a step“).
+
 Die Gliederung (Reiter Outline) hat eine Suche und zeigt Marker, Straßen, Objekte nach Kategorie und Asset (ein Klick
 wählt alle eines Assets; das Auge blendet eine Kategorie in der Ansicht aus, die Karte behält sie), Gruppen, Boden und
 Gewässer.

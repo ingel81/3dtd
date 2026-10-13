@@ -37,6 +37,7 @@ import { MeasurePanelComponent } from '../panels/measure-panel.component';
 import { MinimapComponent } from '../panels/minimap.component';
 import { ObjectPanelComponent } from '../panels/object-panel.component';
 import { OutlinerComponent } from '../panels/outliner.component';
+import { HistoryPanelComponent } from '../panels/history-panel.component';
 import { PaintPanelComponent } from '../panels/paint-panel.component';
 import { PathPanelComponent } from '../panels/path-panel.component';
 import { StatusBarComponent } from '../panels/status-bar.component';
@@ -94,6 +95,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
     EnvironmentPanelComponent,
     MapPanelComponent,
     OutlinerComponent,
+    HistoryPanelComponent,
     MinimapComponent,
     CheckPanelComponent,
     StatusBarComponent,
@@ -118,7 +120,7 @@ export class EditorShellComponent implements OnDestroy {
   /** The legend of mouse and view keys in the corner of the view; hidden once the player closes it */
   readonly legend = signal(readLegend());
   /** What the side column shows: the tool's options or the outline of the map */
-  readonly sideView = signal<'tool' | 'outline'>('tool');
+  readonly sideView = signal<'tool' | 'outline' | 'history'>('tool');
   readonly fileMenu = signal(false);
   readonly help = signal(false);
   readonly helpView = signal<'keys' | 'guide'>('keys');
@@ -439,6 +441,7 @@ export class EditorShellComponent implements OnDestroy {
     const add = (group: string, label: string, run: () => void, keys?: string) => out.push({ id: `${group}:${label}`, group, label, keys, run });
     add('Edit', 'Undo', () => s.undo(), 'Ctrl+Z');
     add('Edit', 'Redo', () => s.redo(), 'Ctrl+Y');
+    add('Edit', 'History: jump to a step', () => this.sideView.set('history'));
     add('Map', 'Save', () => void s.save(true), 'Ctrl+S');
     add('Map', 'Check the map', () => void this.check(), this.keyOf('map:check'));
     add('Map', 'Test the map in the game', () => void s.testPlay());

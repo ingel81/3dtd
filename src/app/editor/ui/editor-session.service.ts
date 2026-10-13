@@ -140,6 +140,8 @@ export class EditorSession implements OnDestroy {
   readonly canUndo = signal(false);
   readonly canRedo = signal(false);
   readonly undoLabel = signal<string | null>(null);
+  /** The history for its list: steps done and undone */
+  readonly steps = signal<{ done: string[]; undone: string[] }>({ done: [], undone: [] });
   readonly redoLabel = signal<string | null>(null);
   readonly selection = signal<Selection>(null);
   readonly saving = signal(false);
@@ -682,6 +684,15 @@ export class EditorSession implements OnDestroy {
     this.refresh();
   }
 
+  /** Back or forward to the state after `steps` steps (0: as opened) */
+  jumpTo(steps: number): void {
+    if (this.blocked('Going through the history')) return;
+    const e = this.editor;
+    if (!e || steps === e.historySteps) return;
+    if (e.jumpTo(steps)) this.flash(steps ? `Back to: ${e.undoLabel}` : 'Back to the map as it was opened');
+    this.refresh();
+  }
+
   redo(): void {
     if (this.blocked('Redo')) return;
     if (this.editor?.redo()) this.flash(`Redone: ${this.editor.undoLabel}`);
@@ -1076,6 +1087,7 @@ export class EditorSession implements OnDestroy {
     this.canUndo.set(!!e?.canUndo);
     this.canRedo.set(!!e?.canRedo);
     this.undoLabel.set(e?.undoLabel ?? null);
+    this.steps.set(e ? e.history : { done: [], undone: [] });
     this.redoLabel.set(e?.redoLabel ?? null);
     this.docRev.update((n) => n + 1);
     if (this.viewport) this.hint.set(this.tools[this.tool()].hint(this.viewport.ctx));
