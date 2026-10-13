@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { describe, it } = require('node:test');
-const { classifyNavigation, isPermissionAllowed } = require('../src/security');
+const { classifyNavigation, classifyWindowOpen, isPermissionAllowed } = require('../src/security');
 
 describe('classifyNavigation', () => {
   const app = 'app://app';
@@ -27,6 +27,27 @@ describe('classifyNavigation', () => {
     assert.equal(classifyNavigation('ms-settings:privacy', app), 'deny');
     assert.equal(classifyNavigation('smb://host/share', app), 'deny');
     assert.equal(classifyNavigation('not a url', app), 'deny');
+  });
+});
+
+describe('classifyWindowOpen', () => {
+  const app = 'app://app';
+
+  it('opens the test window of the editor on the app origin', () => {
+    assert.equal(classifyWindowOpen('app://app/?world=map%3Amy-map', '3dtd-map-test', app), 'window');
+    assert.equal(classifyWindowOpen('http://localhost:4200/?world=map%3Ax&bot=trial', '3dtd-map-test', 'http://localhost:4200'), 'window');
+  });
+
+  it('drops other windows on the app origin', () => {
+    assert.equal(classifyWindowOpen('app://app/', '', app), 'deny');
+    assert.equal(classifyWindowOpen('app://app/', '_blank', app), 'deny');
+    assert.equal(classifyWindowOpen('app://app/', 'anything', app), 'deny');
+  });
+
+  it('never opens a foreign page in an app window', () => {
+    assert.equal(classifyWindowOpen('https://example.com/', '3dtd-map-test', app), 'external');
+    assert.equal(classifyWindowOpen('file:///C:/Windows/System32/calc.exe', '3dtd-map-test', app), 'deny');
+    assert.equal(classifyWindowOpen('app://other/', '3dtd-map-test', app), 'deny');
   });
 });
 

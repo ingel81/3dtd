@@ -196,6 +196,15 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   (`will-prevent-unload`). Der Hauptprozess prüft jeden Namen (`mapFileName`: ein Name ohne Pfadteile, keine unter
   Windows verbotenen Zeichen oder Gerätenamen), nichts verlässt den Ordner. „Map folder“ in der Kartenliste des
   Editors öffnet ihn im Explorer.
+- **E26c Test-Fenster des Editors** (2026-10-14, `classifyWindowOpen` in `desktop/src/security.js`): „Test map“ und
+  der Bot-Check öffnen das Spiel per `window.open` im Fenster `3dtd-map-test` (`MAP_TEST_WINDOW`). Die App lässt auf
+  ihrem eigenen Ursprung nur Fenster dieses Namens zu, jedes andere `window.open` dorthin verwirft sie, fremde
+  http(s)-Adressen gehen wie bisher an den Systembrowser. Das Fenster bekommt dieselben Einstellungen wie das
+  Hauptfenster (`appWebPreferences`: Sandbox, Isolation, kein Node, Preload als einzige Brücke) und dieselben Wachen
+  (`guardWindow`: Navigation, Fehlerseiten, Log, Zoom, Tasten); ein zweiter Test lädt es neu, statt ein drittes zu
+  öffnen. Der Bot meldet sein Ergebnis über `window.opener` an den Editor. Vollbild und „Quit“ aus dem Spielmenü
+  wirken auf das Fenster, aus dem sie kommen: „Quit“ im Test-Fenster schließt nur dieses. Geprüft im Browser-Test
+  `e2e/tests/desktop-test-window.e2e.ts` gegen die gebaute App mit eigenem Nutzerordner.
 
 ### Externe Dienste
 

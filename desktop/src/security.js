@@ -27,6 +27,25 @@ function classifyNavigation(targetUrl, appOrigin) {
 }
 
 /**
+ * Windows the page may open on the app's own origin, by name: the map
+ * editor's test window ("Test map" and the bot's check, MAP_TEST_WINDOW in
+ * src/app/world/map-trial.ts). Every other window.open on the app's origin is
+ * dropped, so the page cannot spawn windows at will.
+ */
+const APP_WINDOW_NAMES = new Set(['3dtd-map-test']);
+
+/**
+ * What to do with a window.open: 'window' opens an app window (same
+ * origin, a known name), 'external' hands an http(s) link to the system
+ * browser, 'deny' drops it.
+ */
+function classifyWindowOpen(targetUrl, frameName, appOrigin) {
+  const verdict = classifyNavigation(targetUrl, appOrigin);
+  if (verdict === 'allow') return APP_WINDOW_NAMES.has(frameName) ? 'window' : 'deny';
+  return verdict;
+}
+
+/**
  * Permissions the game uses. Writing to the clipboard backs the share link
  * and the copy buttons in the debug window; the pointer lock lets a manned
  * tower aim with the mouse (docs/TOWER_CONTROL.md; without it the tower
@@ -39,4 +58,4 @@ function isPermissionAllowed(permission) {
   return ALLOWED_PERMISSIONS.has(permission);
 }
 
-module.exports = { ALLOWED_PERMISSIONS, classifyNavigation, isPermissionAllowed };
+module.exports = { ALLOWED_PERMISSIONS, APP_WINDOW_NAMES, classifyNavigation, classifyWindowOpen, isPermissionAllowed };

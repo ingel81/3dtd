@@ -22,7 +22,7 @@ const { errorPageUrl, isFatalLoadFailure } = require('./error-page');
 const { createMapsFolder, mapFileArg, setUpMapsFolder } = require('./maps-folder');
 const { MAX_LOG_BYTES, createRepeatFilter, describeGpus, maskValue, rendererLine } = require('./log');
 const { APP_ORIGIN, APP_SCHEME, createAppProtocolHandler } = require('./protocol');
-const { classifyNavigation, isPermissionAllowed } = require('./security');
+const { classifyNavigation, classifyWindowOpen, isPermissionAllowed } = require('./security');
 const { shortcutFor } = require('./shortcuts');
 const { startUpdater } = require('./updater');
 const { identifiedUrlPatterns, identifyingUserAgent } = require('./user-agent');
@@ -76,12 +76,54 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-/** Keep every navigation on the app's origin, send http(s) links to the system browser. */
+/**
+ * The page's settings for every window of the app: sandboxed, isolated, no
+ * Node, the preload as the only bridge.
+ */
+function appWebPreferences() {
+  return {
+    preload: path.join(__dirname, 'preload.js'),
+    contextIsolation: true,
+    sandbox: true,
+    nodeIntegration: false,
+    webSecurity: true,
+    // Music may start before the first click, as in any installed game.
+    autoplayPolicy: 'no-user-gesture-required',
+    // A coop game drives its lockstep from a worker timer while the window
+    // is hidden; Chromium must not slow the page's timers down meanwhile,
+    // or the relay drops the player after 30 s (E136).
+    backgroundThrottling: false,
+    additionalArguments: [`--desktop-version=${version}`],
+  };
+}
+
+/**
+ * Keep every navigation on the app's origin, send http(s) links to the
+ * system browser. The page may open one kind of window of its own: the map
+ * editor's test window (classifyWindowOpen), with the same settings and the
+ * same guards as the main window; a second test reloads it.
+ */
 function hardenContents(contents) {
-  contents.setWindowOpenHandler(({ url }) => {
-    if (classifyNavigation(url, appOrigin) === 'external') void shell.openExternal(url);
+  contents.setWindowOpenHandler(({ url, frameName }) => {
+    const verdict = classifyWindowOpen(url, frameName, appOrigin);
+    if (verdict === 'window') {
+      log.info(`[window] opening ${frameName}`);
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 1600,
+          height: 900,
+          backgroundColor: BACKGROUND_COLOR,
+          title: '3DTD',
+          icon: app.isPackaged ? undefined : path.join(__dirname, '..', 'build', 'icon.png'),
+          webPreferences: appWebPreferences(),
+        },
+      };
+    }
+    if (verdict === 'external') void shell.openExternal(url);
     return { action: 'deny' };
   });
+  contents.on('did-create-window', (child) => guardWindow(child));
   contents.on('will-navigate', (event, url) => {
     const verdict = classifyNavigation(url, appOrigin);
     if (verdict === 'allow') return;
@@ -186,6 +228,15 @@ function handleShortcuts(window) {
   });
 }
 
+/** Navigation guards, error pages, the page's log, zoom lock and keys for any window of the app */
+function guardWindow(window) {
+  hardenContents(window.webContents);
+  showErrorPages(window.webContents);
+  logPageMessages(window.webContents);
+  lockZoom(window.webContents);
+  handleShortcuts(window);
+}
+
 function rememberWindowState(window, filePath, initial, created) {
   const tracker = createStateTracker(initial, created);
   let timer = null;
@@ -234,27 +285,10 @@ function createWindow() {
     // and its desktop entry; unpackaged the window needs one itself. The PNG
     // works on both, .ico only on Windows.
     icon: app.isPackaged ? undefined : path.join(__dirname, '..', 'build', 'icon.png'),
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      sandbox: true,
-      nodeIntegration: false,
-      webSecurity: true,
-      // Music may start before the first click, as in any installed game.
-      autoplayPolicy: 'no-user-gesture-required',
-      // A coop game drives its lockstep from a worker timer while the window
-      // is hidden; Chromium must not slow the page's timers down meanwhile,
-      // or the relay drops the player after 30 s (E136).
-      backgroundThrottling: false,
-      additionalArguments: [`--desktop-version=${version}`],
-    },
+    webPreferences: appWebPreferences(),
   });
 
-  hardenContents(window.webContents);
-  showErrorPages(window.webContents);
-  logPageMessages(window.webContents);
-  lockZoom(window.webContents);
-  handleShortcuts(window);
+  guardWindow(window);
   // Tracking starts once the window has reached its start state. On the way
   // there Windows fires resize and move while isFullScreen() still reads
   // false, which would record the passing normal window as the one to keep.
@@ -357,18 +391,26 @@ function setUpUpdates(getWindow) {
  */
 function setUpWindowMenu(getWindow) {
   const fromApp = (event) => classifyNavigation(event.senderFrame?.url ?? '', appOrigin) === 'allow';
+  // The window the request came from: the main window or a test window of the editor
+  const windowOf = (event) => BrowserWindow.fromWebContents(event.sender) ?? getWindow();
   ipcMain.handle('desktop:toggle-fullscreen', (event) => {
-    const window = getWindow();
+    const window = windowOf(event);
     if (!fromApp(event) || !window || window.isDestroyed()) return false;
     window.setFullScreen(!window.isFullScreen());
     return window.isFullScreen();
   });
   ipcMain.handle('desktop:is-fullscreen', (event) => {
-    const window = getWindow();
+    const window = windowOf(event);
     return fromApp(event) && !!window && !window.isDestroyed() && window.isFullScreen();
   });
   ipcMain.on('desktop:quit', (event) => {
     if (!fromApp(event)) return;
+    // Quit in a test window closes that window; the editor behind it stays
+    const window = windowOf(event);
+    if (window && window !== getWindow()) {
+      window.close();
+      return;
+    }
     log.info('[app] quit from the game menu');
     app.quit();
   });
