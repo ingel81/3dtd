@@ -108,9 +108,9 @@
       "width": 512,
       "depth": 512,
       "spawns": 3,
-      "biome": "temperate",
+      "biome": "hell",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "130327ddaf3516a6bd986ffa992869b3dacd5cdb50272d57b3a60bbf34b19853"
+      "contentHash": "3a265c8b75f82c8e011efe1950e560c501ad8018ac9ae349fec860cd58ed103c"
     },
     {
       "id": "twin-gates",

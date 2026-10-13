@@ -118,7 +118,8 @@ einen zugefrorenen See (Eisfläche), Eisfischerhütten, Holzstapel, Schlitten. D
 `docs/images/levels/ember-crater.jpg`, `ember-crater-game.jpg`. Der Krater ist ein Strich des Crater-Pinsels (200 m),
 der Lavasee mit „Dig lake“ in einen Lava-Körper gegraben; die Lavabrücke ist eine Wegkante der Art Bridge mit
 `style: 'lava'` vom Ufer zur Insel. Lavaströme nur außen am Hang (sie würden die Spirale
-schneiden).
+schneiden). Look `hell` (bis E154 lief die Karte versehentlich mit `temperate`, ohne die Glut des Bioms), Sonne 22°
+in der Dämmerung.
 
 Biom Hölle/Vulkan, Look `hell`. Ein großer Krater mit Lavasee; ein Spiralweg führt vom Kraterrand hinab zum HQ auf
 einer Obsidianinsel im Lavasee, über eine Lavabrücke. Glutrisse, Lavaströme, Schmiede am Rand, Rauchsäulen. Spawns: 3

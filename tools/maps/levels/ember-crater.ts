@@ -116,6 +116,6 @@ export function buildEmberCrater(): CustomMapDocument {
   // Five ground materials load faster than eight; the least used go
   k.trimLayers(5);
   // Dusk over ash-dark ground: the lava and the rocks glow, and the slopes keep their shape in the low red light
-  k.environment({ biome: 'temperate', sky: 'dusk', sunAzimuth: 250, sunElevation: 14, fogDensity: 0.0006, tint: '#ffcfb0' });
+  k.environment({ biome: 'hell', sky: 'dusk', sunAzimuth: 250, sunElevation: 22, fogDensity: 0.0006, tint: '#ffe2cc' });
   return k.finish();
 }
