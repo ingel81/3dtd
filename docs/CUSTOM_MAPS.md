@@ -222,7 +222,9 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   versinkt (dieselbe Farbe und derselbe Zug zur Sonne wie im Höhennebel): keine helle Naht über den Hügeln am
   Horizont. Voreinstellungen `day`, `dusk`, `night`, `overcast` setzen Farben und Bedeckung. Dahinter bleibt ein
   auf der CPU gerechneter Equirect-Verlauf als Hintergrund und, vorgefiltert (PMREM), als Umgebungslicht. Das Wasser
-  spiegelt dieselbe Himmelsfunktion (geteilte Uniforms)
+  spiegelt denselben Himmel aus einer Textur (`uSkyTex`, obere Halbkugel, 256 × 64, Half-Float), die die Kuppel alle
+  drei Frames und sofort nach einem neuen Himmel mit ihrer Funktion füllt (`SkyDome.bake`); vorher rechnete jedes
+  Wasserpixel die Funktion zwei- bis dreimal (je zwei Wolkenlagen mit fünf Oktaven). GPU-Zeit Archipel 1,34 → 1,22 ms
 - **Sonne**: `DirectionalLight` mit 4096er Schattenkarte (PCF, Radius 1,5 Texel), deren Box dem Fokus folgt, auf
   Texel einrastet und mit dem Kameraabstand wächst (70 bis 450 m): nah scharf, von oben weit
 - **Höhennebel** (`height-fog.ts`): die Materialien der Karte ersetzen das Nebel-Fragment der Szene; die Dichte nimmt

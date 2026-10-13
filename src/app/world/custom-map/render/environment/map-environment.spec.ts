@@ -6,8 +6,16 @@ import { SkyDome } from './sky-dome';
 const env = { sky: 'day' as const, sunAzimuth: 200, sunElevation: 40, fogDensity: 0.001, tint: '#ffffff' };
 
 /** The parts of a renderer the shadow cache touches */
-function fakeRenderer(): { shadowMap: { autoUpdate: boolean; needsUpdate: boolean } } {
-  return { shadowMap: { autoUpdate: true, needsUpdate: false } };
+function fakeRenderer(): { shadowMap: { autoUpdate: boolean; needsUpdate: boolean }; renders: number } {
+  const r = {
+    shadowMap: { autoUpdate: true, needsUpdate: false },
+    renders: 0,
+    // The sky texture's bake
+    getRenderTarget: () => null,
+    setRenderTarget: () => undefined,
+    render: () => void r.renders++,
+  };
+  return r;
 }
 
 /** Sets the renderer the way apply() does, without a scene to install the sky into */
@@ -112,6 +120,21 @@ describe('moonlight', () => {
     const dayMoon = new CustomMapEnvironment({ ...night, sky: 'day', moonlight: 1 });
     expect(dayMoon.sun.intensity).toBe(day.sun.intensity);
     for (const e of [plain, lit, day, dayMoon]) e.dispose();
+  });
+});
+
+describe('sky texture for reflections', () => {
+  it('bakes the sky every few frames and right after a new sky', () => {
+    const e = new CustomMapEnvironment(env);
+    const r = fakeRenderer();
+    attach(e, r);
+    const focus = new Vector3();
+    for (let k = 0; k < 6; k++) e.update(0.016, e.sun.shadow.camera, focus);
+    expect(r.renders).toBe(2);
+    e.set({ ...env, sky: 'dusk' });
+    e.update(0.016, e.sun.shadow.camera, focus);
+    expect(r.renders).toBe(3);
+    e.dispose();
   });
 });
 

@@ -1,4 +1,22 @@
-import { BackSide, Color, Mesh, ShaderMaterial, SphereGeometry, Vector2, Vector3, type Camera } from 'three';
+import {
+  BackSide,
+  Color,
+  HalfFloatType,
+  LinearFilter,
+  Mesh,
+  OrthographicCamera,
+  PlaneGeometry,
+  RepeatWrapping,
+  ClampToEdgeWrapping,
+  Scene,
+  ShaderMaterial,
+  SphereGeometry,
+  Vector2,
+  Vector3,
+  WebGLRenderTarget,
+  type Camera,
+  type WebGLRenderer,
+} from 'three';
 import { SHADER_NOISE } from '../shader-noise';
 import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { WIND_UNIFORMS } from './wind';
@@ -17,9 +35,30 @@ import { WIND_UNIFORMS } from './wind';
  * map writes). The equirect sky of CustomMapEnvironment is only the source
  * of the environment light, no longer a second full-screen pass behind it.
  * It is a sibling of the map, so the LOS cube hides it.
+ *
+ * Water reflects the same sky from a small texture (`uSkyTex`, the upper
+ * hemisphere, 256 x 64, linear half float) that `bake` renders now and then
+ * (`SKY_BAKE_FRAMES`), not the full function per water pixel: it ran
+ * two or three times per pixel, two cloud layers of five octaves each.
+ * SKY_TEXTURE_GLSL reads it.
  */
+
+/** Frames between two bakes of the sky texture: clouds drift slowly */
+const SKY_BAKE_FRAMES = 3;
 export class SkyDome {
   readonly mesh: Mesh<SphereGeometry, ShaderMaterial>;
+  private readonly bakeTarget = new WebGLRenderTarget(256, 64, {
+    type: HalfFloatType,
+    minFilter: LinearFilter,
+    magFilter: LinearFilter,
+    wrapS: RepeatWrapping,
+    wrapT: ClampToEdgeWrapping,
+    depthBuffer: false,
+    generateMipmaps: false,
+  });
+  private readonly bakeScene = new Scene();
+  private readonly bakeCamera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  private bakeAge = SKY_BAKE_FRAMES;
 
   /** The sky's uniforms; materials that reflect the sky share these objects (SKY_FUNCTIONS) */
   get uniforms(): ShaderMaterial['uniforms'] {
@@ -61,6 +100,26 @@ export class SkyDome {
     this.mesh.renderOrder = 1e6;
     this.mesh.frustumCulled = false;
     this.mesh.userData['losTransparent'] = true;
+    // The baked texture shares the uniform objects; reflecting materials take uSkyTex with them
+    material.uniforms['uSkyTex'] = { value: this.bakeTarget.texture };
+    const bake = new ShaderMaterial({ uniforms: material.uniforms, vertexShader: BAKE_VERTEX, fragmentShader: BAKE_FRAGMENT, depthTest: false, depthWrite: false });
+    bake.name = 'custom-map-sky-bake';
+    const quad = new Mesh(new PlaneGeometry(2, 2), bake);
+    quad.frustumCulled = false;
+    this.bakeScene.add(quad);
+  }
+
+  /**
+   * Renders the sky into its texture every few frames, or on the next call
+   * after `set` (a new sky). The renderer's target is put back.
+   */
+  bake(renderer: WebGLRenderer): void {
+    if (++this.bakeAge < SKY_BAKE_FRAMES) return;
+    this.bakeAge = 0;
+    const previous = renderer.getRenderTarget();
+    renderer.setRenderTarget(this.bakeTarget);
+    renderer.render(this.bakeScene, this.bakeCamera);
+    renderer.setRenderTarget(previous);
   }
 
   set(p: {
@@ -90,6 +149,7 @@ export class SkyDome {
     u['uStars'].value = p.stars ?? 0;
     u['uPlanet'].value = p.planet ? 1 : 0;
     u['uAurora'].value = p.aurora ?? 0;
+    this.bakeAge = SKY_BAKE_FRAMES;
   }
 
   /** Follows the camera and moves the clouds */
@@ -109,6 +169,11 @@ export class SkyDome {
   dispose(): void {
     this.mesh.geometry.dispose();
     this.mesh.material.dispose();
+    this.bakeTarget.dispose();
+    for (const m of this.bakeScene.children as Mesh<PlaneGeometry, ShaderMaterial>[]) {
+      m.geometry.dispose();
+      m.material.dispose();
+    }
     this.mesh.removeFromParent();
   }
 }
@@ -245,5 +310,39 @@ void main() {
   vec3 haze = mix(linearToOutputTexel(vec4(uSkyHaze, 1.0)).rgb, linearToOutputTexel(vec4(uFogSunColor, 1.0)).rgb, sunward * 0.2);
   gl_FragColor.rgb = mix(haze, gl_FragColor.rgb, smoothstep(-0.02, 0.1, dir.y));
   gl_FragColor.rgb = mapGrade(gl_FragColor.rgb);
+}
+`;
+
+/** The sky texture's direction per texel: x the azimuth all round, y the elevation 0 to 90 degrees */
+const BAKE_VERTEX = /* glsl */ `
+varying vec2 vSkyUv;
+void main() {
+  vSkyUv = position.xy * 0.5 + 0.5;
+  gl_Position = vec4(position.xy, 0.0, 1.0);
+}
+`;
+
+const BAKE_FRAGMENT = /* glsl */ `
+#include <common>
+varying vec2 vSkyUv;
+${SHADER_NOISE}
+${SKY_FUNCTIONS}
+void main() {
+  float az = (vSkyUv.x - 0.5) * 2.0 * PI;
+  float el = vSkyUv.y * 0.5 * PI;
+  vec3 dir = vec3(cos(az) * cos(el), sin(el), sin(az) * cos(el));
+  gl_FragColor = vec4(skyColor(dir, false), 1.0);
+}
+`;
+
+/**
+ * Reads the baked sky (`uSkyTex`, linear) in a direction; below the
+ * horizon the horizon's row. Without the sky dome's texture the haze.
+ */
+export const SKY_TEXTURE_GLSL = /* glsl */ `
+uniform sampler2D uSkyTex;
+vec3 skyTex(vec3 dir) {
+  vec2 uv = vec2(atan(dir.z, dir.x) / (2.0 * PI) + 0.5, asin(clamp(dir.y, 0.0, 1.0)) / (0.5 * PI));
+  return texture2D(uSkyTex, uv).rgb;
 }
 `;

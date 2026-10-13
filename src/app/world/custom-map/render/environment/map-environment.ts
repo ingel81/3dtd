@@ -383,6 +383,7 @@ export class CustomMapEnvironment {
   update(dt: number, camera: Camera, focus: Vector3): void {
     WIND_UNIFORMS.uWindTime.value += dt;
     this.skyDome.update(dt, camera);
+    if (this.renderer) this.skyDome.bake(this.renderer);
     this.weather.update(dt, camera, focus);
     if (this.shadowDirty && this.renderer) {
       this.renderer.shadowMap.needsUpdate = true;

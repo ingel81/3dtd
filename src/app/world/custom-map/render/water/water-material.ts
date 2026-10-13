@@ -16,7 +16,7 @@ import {
 } from 'three';
 import type { MapWaterKind } from '../../map-document';
 import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS, heightFogFragment } from '../environment/height-fog';
-import { SKY_FUNCTIONS } from '../environment/sky-dome';
+import { SKY_FUNCTIONS, SKY_TEXTURE_GLSL } from '../environment/sky-dome';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
 
@@ -110,8 +110,9 @@ export function setWaterMask(material: ShaderMaterial, mask: Texture | null, uv:
 }
 
 /**
- * Reflect the sky dome's own function: the material takes over its uniform
- * objects. `sunIntensity` dims the body colour at night.
+ * Reflect the sky dome's sky: the material takes over its uniform objects,
+ * the baked sky texture among them. `sunIntensity` dims the body colour at
+ * night.
  */
 export function setWaterSky(material: ShaderMaterial, skyUniforms: ShaderMaterial['uniforms'], sunIntensity: number): void {
   const u = material.uniforms;
@@ -126,6 +127,7 @@ export function setWaterSky(material: ShaderMaterial, skyUniforms: ShaderMateria
     'uGlow',
     'uSkyTime',
     'uCloudOffset',
+    'uSkyTex',
     'uStars',
     'uPlanet',
     'uAurora',
@@ -238,6 +240,7 @@ uniform vec2 uMapHalf;
 ${HEIGHT_FOG_PARS}
 ${SHADER_NOISE}
 ${SKY_FUNCTIONS}
+${SKY_TEXTURE_GLSL}
 ${TERRAIN_HEIGHT_GLSL}
 varying float vApronDepth;
 varying vec3 vWorldPos;
@@ -294,7 +297,7 @@ void main() {
   color = heat < 0.4 ? mix(crustColor, red, heat / 0.4) : heat < 0.75 ? mix(red, orange, (heat - 0.4) / 0.35) : mix(orange, yellow, (heat - 0.75) / 0.25);
   color *= 1.0 + heat * 0.25;
   // A faint sheen on the crust
-  color += skyColor(vec3(0.0, 1.0, 0.0), false) * 0.03 * (1.0 - heat) * uLight;
+  color += skyTex(vec3(0.0, 1.0, 0.0)) * 0.03 * (1.0 - heat) * uLight;
   alpha = edge;
 #elif KIND == 2
   // Ice: light over shallows, dark over depth, fresnel glint, cracks, snow drifted into the shallows
@@ -303,7 +306,7 @@ void main() {
   float fresnel = 0.03 + 0.97 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
   vec3 r = reflect(-v, n);
   // Frosted surface: a blurred reflection (the sky up the reflected ray, mixed with the haze)
-  vec3 sky = mix(skyColor(normalize(vec3(r.x, max(r.y, 0.02) + 0.6, r.z)), false), uHorizon, 0.5);
+  vec3 sky = mix(skyTex(normalize(vec3(r.x, max(r.y, 0.02) + 0.6, r.z))), uHorizon, 0.5);
   vec3 body = mix(vec3(0.42, 0.56, 0.62), uDeep * vec3(0.22, 0.38, 0.46), smoothstep(0.2, 3.0, depth));
   float crack = 1.0 - smoothstep(0.0, 0.015, abs(skyFbm(ip * 0.09 + 5.0) - 0.5));
   body *= 1.0 - crack * 0.45;
@@ -327,7 +330,7 @@ void main() {
   n = normalize(mix(vec3(0.0, 1.0, 0.0), n, 0.35 + 0.65 * calm));
   float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
   vec3 r = reflect(-v, n);
-  vec3 sky = skyColor(vec3(r.x, max(r.y, 0.02), r.z), false);
+  vec3 sky = skyTex(vec3(r.x, max(r.y, 0.02), r.z));
   vec3 body = mix(uShallow, uDeep, smoothstep(0.2, 3.5, depth)) * uLight;
   #if KIND == 4
   color = mix(body, sky, fresnel * 0.4 + 0.02);
