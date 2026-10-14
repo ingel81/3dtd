@@ -26,7 +26,7 @@
       "spawns": 2,
       "biome": "mountain",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "5bf6fa22a258e967949f91d8f5eb21ac991fdb8f262850c8dcf7d65a997ee5b3"
+      "contentHash": "b02814d2338de3eaf9ba925b8ffa828a3dfab5ff416b2d7d40f83c60737c2fa2"
     },
     {
       "id": "witch-marsh",
@@ -110,7 +110,7 @@
       "spawns": 3,
       "biome": "hell",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "c275f022588cb541e25da877fa7f7f582857acfceb8d93eda7bcfcbb64d677f9"
+      "contentHash": "aa125e68b8a0748c5195c48be9c0aa591c3a323b729306fb3a8fa8754354cbdc"
     },
     {
       "id": "twin-gates",
