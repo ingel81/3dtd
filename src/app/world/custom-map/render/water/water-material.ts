@@ -20,6 +20,7 @@ import { SKY_FUNCTIONS, SKY_TEXTURE_GLSL } from '../environment/sky-dome';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
 import { FLOW_MAP_MAX } from './flow-map';
+import { SHORE_PHASE_GLSL, shoreWaves } from './shore-waves';
 
 /**
  * The material of every water body (lake, sea, swamp, ice, lava; areas and
@@ -57,6 +58,8 @@ export interface WaterMaterialOptions {
 }
 
 export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
+  // Foam bands running to the shore (not on rivers: they run along their own banks)
+  const shore = o.river ? null : shoreWaves(o.kind);
   const material = new ShaderMaterial({
     uniforms: UniformsUtils.merge([
       UniformsLib.fog,
@@ -77,7 +80,11 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
         uHasFlow: { value: 0 },
       },
     ]),
-    defines: { KIND: KIND_ID[o.kind] ?? 0, RIVER: o.river ? 1 : 0 },
+    defines: {
+      KIND: KIND_ID[o.kind] ?? 0,
+      RIVER: o.river ? 1 : 0,
+      ...(shore ? { SHORE_DENSITY: shore.density.toFixed(3), SHORE_SPEED: shore.speed.toFixed(3) } : {}),
+    },
     vertexShader: WATER_VERTEX,
     fragmentShader: WATER_FRAGMENT,
     transparent: o.kind === 'water' || o.kind === 'sea' || o.kind === 'swamp',
@@ -265,6 +272,7 @@ ${SHADER_NOISE}
 ${SKY_FUNCTIONS}
 ${SKY_TEXTURE_GLSL}
 ${TERRAIN_HEIGHT_GLSL}
+${SHORE_PHASE_GLSL}
 varying float vApronDepth;
 varying vec3 vWorldPos;
 varying vec3 vMapPos;
@@ -443,10 +451,23 @@ void main() {
   float foamNoise = texture2D(uWaves, vWorldPos.xz / 2.3 + uTime * 0.03).x;
   float foamBreak = texture2D(uWaves, vWorldPos.xz / 17.0 - uTime * 0.01).y;
   float foam = smoothstep(0.25, 0.0, depth) * smoothstep(0.45, 0.75, foamNoise * 0.6 + foamBreak * 0.6 - depth);
+  #ifdef SHORE_DENSITY
+  // Bands of foam that come in from the deep and run up to the shore (shore-waves.ts), wavy along it,
+  // broken up by the waves; they gather out of nothing in the deep. The terrain's wet swash shares the phase
+  float sp = shorePhase(depth + (foamBreak - 0.5) * 0.5, SHORE_DENSITY, SHORE_SPEED, uTime);
+  float bandShape = smoothstep(0.72, 0.93, sp) * (1.0 - smoothstep(0.95, 1.0, sp));
   #if KIND == 3
-  // Surf: bands rolling in to the shore
-  float band = sin(depth * 2.6 - uTime * 1.3 + foamBreak * 3.0);
-  foam = max(foam, smoothstep(0.86, 0.99, band) * smoothstep(2.5, 0.3, depth) * (0.35 + foamNoise * 0.5));
+  float reach = 3.2;
+  float bandStrength = 0.85;
+  float breakUp = smoothstep(0.3, 0.7, foamNoise * 0.7 + foamBreak * 0.5);
+  #else
+  // Lakes: only close in and well broken up, or the bands draw the lake's depth lines as rings
+  float reach = 0.6;
+  float bandStrength = 0.35;
+  float breakUp = smoothstep(0.5, 0.85, foamNoise * 0.7 + foamBreak * 0.5);
+  #endif
+  float bands = bandShape * smoothstep(reach, reach * 0.35, depth) * breakUp;
+  foam = max(foam, bands * bandStrength);
   #endif
   #if RIVER == 1
   // Ripples where the river runs fast and shallow

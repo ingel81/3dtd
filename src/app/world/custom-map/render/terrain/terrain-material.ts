@@ -2,6 +2,8 @@ import { Color, MeshStandardMaterial, Vector2, Vector3, Vector4, type Texture } 
 import type { LayerArray } from './terrain-textures';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_MORPH_PARS, TERRAIN_MORPH_VERTEX } from './terrain-chunks';
+import type { MapWaterKind } from '../../map-document';
+import { shoreWaves } from '../water/shore-waves';
 
 /**
  * The terrain's material: a MeshStandardMaterial (scene lights, shadows,
@@ -80,6 +82,8 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uGridOcclusion: { value: null as Texture | null },
     uGridUv: { value: new Vector4() },
     uWaterLevel: { value: -1e4 },
+    /** Swash of the main water's shore bands (shore-waves.ts): bands per second, 0 none */
+    uSwashSpeed: { value: 0 },
     uMapSize: { value: new Vector2() },
     /** Metres per splat texel */
     uSplatTexel: { value: 1 },
@@ -169,10 +173,11 @@ export class TerrainMaterial extends MeshStandardMaterial {
     this.terrainUniforms.uTerrainTime.value += dt;
   }
 
-  /** Water level for the wet banks; null when the map has no water */
-  setWaterLevel(level: number | null): void {
+  /** Water level for the wet banks, and the kind of the main water for its swash; null when the map has no water */
+  setWaterLevel(level: number | null, kind?: MapWaterKind): void {
     // Far below any terrain, but not so far that level + 1.3 and level + 0.15 round to the same float
     this.terrainUniforms.uWaterLevel.value = level ?? -1e4;
+    this.terrainUniforms.uSwashSpeed.value = level === null ? 0 : (shoreWaves(kind)?.speed ?? 0);
   }
 
   setCliffAngle(degrees: number): void {
@@ -197,6 +202,7 @@ uniform sampler2D uGridNormals;
 uniform sampler2D uGridOcclusion;
 uniform vec4 uGridUv;
 uniform float uWaterLevel;
+uniform float uSwashSpeed;
 uniform vec2 uMapSize;
 uniform float uSplatTexel;
 uniform float uInvScale[TERRAIN_LAYERS];
@@ -257,6 +263,14 @@ vec3 nGeo = safeNormalize(mix(gridSample.xyz, normalize(vTerrainNormal), outside
 // Banks just above the water are wet: darker and glossier
 float wetBank = gridSample.a * smoothstep(uWaterLevel + 1.3, uWaterLevel + 0.15, tPos.y) * (1.0 - outside);
 wetBank = max(wetBank, texture2D(uPathMask, mapPos / uMapSize + 0.5).a * (1.0 - outside) * 0.85);
+// Swash: each foam band that reaches the shore runs up the bank and drains away (shore-waves.ts, same phase)
+float swash = 0.0;
+if (uSwashSpeed > 0.0) {
+  float q = fract(uTerrainTime * uSwashSpeed + 0.04);
+  float runup = uWaterLevel + 0.03 + 0.28 * (1.0 - smoothstep(0.0, 0.55, q));
+  swash = gridSample.a * smoothstep(runup + 0.04, runup - 0.04, tPos.y) * smoothstep(uWaterLevel - 0.2, uWaterLevel + 0.02, tPos.y) * (1.0 - outside);
+  wetBank = max(wetBank, swash);
+}
 vec2 tuv = mapPos / uMapSize + 0.5;
 vec2 dPosX = dFdx(tPos.xz);
 vec2 dPosY = dFdy(tPos.xz);
@@ -448,7 +462,7 @@ if (cliff > 0.01) {
 albedo *= mix(1.0, 0.6, wetBank);
 // Soil, grass and rock are rough and barely shiny: against the sun at a grazing angle the full
 // specular of a standard material turned meadows and yards into white sheets. Wet banks keep a sheen
-float terrainRough = mix(clamp(accD.b, 0.6, 1.0), 0.45, wetBank);
+float terrainRough = mix(mix(clamp(accD.b, 0.6, 1.0), 0.45, wetBank), 0.25, swash);
 float terrainSpec = mix(0.25, 0.6, wetBank);
 // Texture AO and the baked ground occlusion (hollows, slope feet, contact shadows of objects)
 float groundAO = mix(texture2D(uGridOcclusion, mapPos * uGridUv.xy + uGridUv.zw).r, 1.0, outside);

@@ -138,7 +138,13 @@ Lava spiegeln sich).
   (quer zum Gradienten des Uferabstands; am Ufer still, einige Meter draußen am schnellsten, Engstellen schneller,
   um Inseln herum), Lava wälzt sich in Konvektionszellen (quellenfreies Feld, etwa 30 m). Der Shader schiebt Wellen
   bzw. Kruste in zwei Phasen, die sich überblenden (6 s Wasser, 18 s Lava); Eis steht still
-- `sea`: stärkere Wellen und Brandungsbänder zum Ufer
+- **Uferbänder** (`shore-waves.ts`): Schaumbänder laufen aus der Tiefe zum Ufer (Meer bis 3,2 m Tiefe, 0,8 Bänder je
+  Meter, alle 9 s eines; See nur bis 0,6 m und stärker aufgebrochen, sonst zeichnen die Bänder die Tiefenlinien
+  als Ringe; alle 7 s; Sumpf langsam), entstehen im Tiefen aus dem Nichts, sind entlang
+  des Ufers gewellt und von den Wellen aufgebrochen. Das Gelände zeichnet mit derselben Phase den Schwall: nach
+  jedem ankommenden Band wird ein Streifen bis 0,3 m über dem Spiegel dunkel und glänzend und trocknet wieder ab
+  (nur am Hauptgewässer, `uSwashSpeed`)
+- `sea`: stärkere Wellen
 - `swamp`: trüb, schwache Spiegelung; Algen und Entengrütze in Flecken nur am Ufer und im Flachen (unter etwa 0,9 m,
   mit verrauschter Kante), halb deckend und dunkler als das Land, nachts kaum sichtbar
 - `ice`: deckend und still; hell über flachem, dunkles Petrol über tiefem Grund, mattierte Spiegelung, Risse, Schnee

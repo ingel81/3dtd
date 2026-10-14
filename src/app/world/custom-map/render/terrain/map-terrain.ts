@@ -158,7 +158,7 @@ export class MapTerrainLayer {
     this.material.terrainUniforms.uMorphEye = this.chunks.morphEye;
     this.material.terrainUniforms.uMorphFocus = this.chunks.morphFocus;
     addHeightFog(this.material);
-    this.material.setWaterLevel(t.water?.level ?? null);
+    this.material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
     this.chunks.setMaterial(this.material);
     this.apron.material = this.material;
 
@@ -242,7 +242,7 @@ export class MapTerrainLayer {
     // The apron's sea floor follows the water
     this.refreshApron();
     this.normals.setWater(this.terrain.water?.mask ?? null);
-    this.material?.setWaterLevel(this.terrain.water?.level ?? null);
+    this.material?.setWaterLevel(this.terrain.water?.level ?? null, this.terrain.water?.kind);
   }
 
   /** The main water's mask changed in `rect` (samples) only: the wet banks there */
