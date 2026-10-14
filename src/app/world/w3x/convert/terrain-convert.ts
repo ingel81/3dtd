@@ -17,9 +17,8 @@
  * with smoothstep weights, like Warcraft's corner-based tiles but softer.
  */
 
-import type { MapGroundLayer, MapSplat, MapTerrain, MapWater } from '../../custom-map/map-document';
+import { MAX_GROUND_LAYERS, splatMapCount, type MapGroundLayer, type MapSplat, type MapTerrain, type MapWater } from '../../custom-map/map-document';
 import { splatResolutionFor } from '../../custom-map/map-create';
-import { MAX_GROUND_LAYERS } from '../../custom-map/map-file';
 import { W3E_FLAG, W3_TILE, type W3eTerrain, cornerGroundZ, cornerWaterZ } from '../formats/w3e';
 import type { Bounds } from '../routes/lane-mask';
 import { type CatalogEntryRef, CLIFF_MATERIAL, groundRule, resolveMaterial } from './ground-materials';
@@ -172,7 +171,7 @@ export function convertTerrain(t: W3eTerrain, frame: ImportFrame, options: Terra
   const layers: MapGroundLayer[] = kept.map((material) => ({ material }));
   if (layers.length === 0) layers.push({ material: resolveMaterial({ id: 'dirt', category: 'soil' }, options.catalog) });
 
-  const splat = buildSplat(t, frame, Math.max(columns, rows), layerOfTexture);
+  const splat = buildSplat(t, frame, Math.max(columns, rows), layerOfTexture, layers.length);
 
   // Water: the most common level is the map's water, every other level a water body of its own
   let water: MapWater | null = null;
@@ -227,9 +226,9 @@ export function convertTerrain(t: W3eTerrain, frame: ImportFrame, options: Terra
 
 const smooth = (x: number): number => x * x * (3 - 2 * x);
 
-function buildSplat(t: W3eTerrain, frame: ImportFrame, samples: number, layerOfTexture: Int8Array): MapSplat {
+function buildSplat(t: W3eTerrain, frame: ImportFrame, samples: number, layerOfTexture: Int8Array, layers: number): MapSplat {
   const res = splatResolutionFor(samples);
-  const maps: [Uint8Array, Uint8Array] = [new Uint8Array(res * res * 4), new Uint8Array(res * res * 4)];
+  const maps = Array.from({ length: splatMapCount(layers) }, () => new Uint8Array(res * res * 4));
   const b = frame.bounds;
   const s = {} as TileSample;
   const w = new Float32Array(MAX_GROUND_LAYERS);
@@ -246,7 +245,7 @@ function buildSplat(t: W3eTerrain, frame: ImportFrame, samples: number, layerOfT
       w[layerOfTexture[t.texture[s.c01]]] += (1 - su) * sv;
       w[layerOfTexture[t.texture[s.c11]]] += su * sv;
       const texel = (v * res + u) * 4;
-      for (let k = 0; k < MAX_GROUND_LAYERS; k++) {
+      for (let k = 0; k < layers; k++) {
         if (w[k] > 0) maps[k >> 2][texel + (k & 3)] = Math.round(w[k] * 255);
       }
     }

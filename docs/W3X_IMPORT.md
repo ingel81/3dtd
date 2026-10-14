@@ -196,7 +196,7 @@ Tileset, mit der w3i-Tönung multipliziert.
 | vin, lvd, crp, lea | forest-floor |
 | sonst | lose Treffer (gr, sn, sd, r..), dann dirt |
 
-Schichten nach Fläche sortiert, die häufigste ist Schicht 0; mehr als 8 werden zusammengelegt. Die
+Schichten nach Fläche sortiert, die häufigste ist Schicht 0; mehr als 12 werden zusammengelegt. Die
 Splat-Karten (ein Texel je Höhenwert, Zweierpotenz bis 1024) mischen die Texturen der vier Kachelecken
 mit Smoothstep-Gewichten. Steile Flächen zeigen `cliff`.
 

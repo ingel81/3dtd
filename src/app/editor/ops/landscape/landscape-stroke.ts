@@ -7,7 +7,7 @@
  * every brush pulls toward a target from the original ground instead of
  * piling up dab by dab.
  */
-import type { CustomMapDocument, MapGroundLayer, MapObject, MapPaths, MapPoint, MapRiver, MapWater, MapWaterKind } from '../../../world/custom-map/map-document';
+import { fitSplatMaps, type CustomMapDocument, type MapGroundLayer, type MapObject, type MapPaths, type MapPoint, type MapRiver, type MapWater, type MapWaterKind } from '../../../world/custom-map/map-document';
 import type { CatalogIndex } from '../../catalog/asset-catalog';
 import {
   CompoundCommand,
@@ -15,8 +15,11 @@ import {
   PatchCommand,
   SnapshotCommand,
   mergeChanges,
+  patchArray,
   patchLayout,
+  splatTargets,
   type DocChange,
+  type SplatTarget,
   type EditCommand,
   type EditorDocument,
 } from '../../model/editor-document';
@@ -46,7 +49,8 @@ const MARKER_CLEARANCE = 14;
 export class LandscapeStroke {
   readonly noise: LandscapeNoise;
   readonly heights: RegionRecorder<Float32Array>;
-  readonly splat: [RegionRecorder<Uint8Array>, RegionRecorder<Uint8Array>];
+  /** Recorders of the splat maps; the third joins when the stroke adds a ninth layer */
+  readonly splat: RegionRecorder<Uint8Array>[];
   private waterRecorder: RegionRecorder<Uint8Array> | null = null;
   private readonly layersBefore: MapGroundLayer[];
   private readonly waterBefore: MapWater | null;
@@ -86,12 +90,14 @@ export class LandscapeStroke {
     readonly label: string,
     readonly seed: number,
     readonly catalog: CatalogIndex,
+    /** Ground layers the stroke may fill the list up to (the shipped levels' builder keeps its own) */
+    readonly maxLayers = MAX_LAYERS,
   ) {
     const doc = editor.doc;
     const t = doc.terrain;
     this.noise = new LandscapeNoise(seed);
     this.heights = new RegionRecorder(t.grid.heights, patchLayout(doc, 'heights'));
-    this.splat = [new RegionRecorder(t.splat.maps[0], patchLayout(doc, 'splat0')), new RegionRecorder(t.splat.maps[1], patchLayout(doc, 'splat1'))];
+    this.splat = splatTargets(doc).map((target) => new RegionRecorder(patchArray(doc, target) as Uint8Array, patchLayout(doc, target)));
     if (t.water) this.waterRecorder = new RegionRecorder(t.water.mask, patchLayout(doc, 'water'));
     this.layersBefore = t.layers.map((l) => ({ ...l }));
     this.waterBefore = t.water ? structuredClone(t.water) : null;
@@ -159,13 +165,18 @@ export class LandscapeStroke {
     if (!material) return null;
     const existing = t.layers.findIndex((l) => l.material === material);
     if (existing >= 0) return existing;
-    if (t.layers.length >= MAX_LAYERS) {
+    if (t.layers.length >= this.maxLayers) {
       // Full: another candidate that is there already, else nothing
       const other = t.layers.findIndex((l) => candidates.includes(l.material));
       if (other < 0 && !this.layersFull.includes(material)) this.layersFull.push(material);
       return other >= 0 ? other : null;
     }
     t.layers.push({ material });
+    fitSplatMaps(t);
+    // A new third map: recorded from here on, every dab touches before it writes
+    for (const target of splatTargets(this.doc).slice(this.splat.length)) {
+      this.splat.push(new RegionRecorder(patchArray(this.doc, target) as Uint8Array, patchLayout(this.doc, target)));
+    }
     this.change = mergeChanges(this.change, { layers: true });
     this.editor.emit({ layers: true });
     return t.layers.length - 1;
@@ -234,8 +245,7 @@ export class LandscapeStroke {
   }
 
   touchSplat(rect: GridRect): void {
-    this.splat[0].touch(rect);
-    this.splat[1].touch(rect);
+    for (const recorder of this.splat) recorder.touch(rect);
   }
 
   touchWater(rect: GridRect): void {
@@ -307,8 +317,7 @@ export class LandscapeStroke {
     for (const index of this.bodiesAdded) parts.push(new BodyAddCommand('Water', index, structuredClone(t.waterBodies![index])));
     const patches = new PatchCommand(this.label, [
       { target: 'heights', patches: this.heights.finish() },
-      { target: 'splat0', patches: this.splat[0].finish() },
-      { target: 'splat1', patches: this.splat[1].finish() },
+      ...this.splat.map((r, k) => ({ target: `splat${k}` as SplatTarget, patches: r.finish() })),
       ...(this.waterRecorder ? [{ target: 'water' as const, patches: this.waterRecorder.finish() }] : []),
       ...[...this.bodyRecorders].map(([index, r]) => ({ target: `body${index}` as const, patches: r.finish() })),
     ]);

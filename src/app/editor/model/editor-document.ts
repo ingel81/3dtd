@@ -334,7 +334,15 @@ function sameSelection(a: Selection, b: Selection): boolean {
 // Commands
 
 /** `water` is the main water body's mask, `body0`, `body1` … the further bodies' masks */
-export type PatchTarget = 'heights' | 'splat0' | 'splat1' | 'water' | `body${number}`;
+export type PatchTarget = 'heights' | SplatTarget | 'water' | `body${number}`;
+
+/** A splat map; `splat2` only on maps with more than 8 layers */
+export type SplatTarget = 'splat0' | 'splat1' | 'splat2';
+
+/** The splat maps the map has now */
+export function splatTargets(doc: CustomMapDocument): SplatTarget[] {
+  return (['splat0', 'splat1', 'splat2'] as const).slice(0, doc.terrain.splat.maps.length);
+}
 
 export function patchArray(doc: CustomMapDocument, target: PatchTarget): PatchArray {
   const t = doc.terrain;
@@ -342,9 +350,12 @@ export function patchArray(doc: CustomMapDocument, target: PatchTarget): PatchAr
     case 'heights':
       return t.grid.heights;
     case 'splat0':
-      return t.splat.maps[0];
     case 'splat1':
-      return t.splat.maps[1];
+    case 'splat2': {
+      const map = t.splat.maps[Number(target.slice(5))];
+      if (!map) throw new Error(`The map has no ${target}`);
+      return map;
+    }
     case 'water':
       if (!t.water) throw new Error('The map has no water');
       return t.water.mask;
@@ -358,7 +369,7 @@ export function patchArray(doc: CustomMapDocument, target: PatchTarget): PatchAr
 
 export function patchLayout(doc: CustomMapDocument, target: PatchTarget): ArrayLayout {
   const t = doc.terrain;
-  if (target === 'splat0' || target === 'splat1') {
+  if (target.startsWith('splat')) {
     return { columns: t.splat.resolution, rows: t.splat.resolution, channels: 4 };
   }
   return { columns: t.grid.columns, rows: t.grid.rows, channels: 1 };
@@ -480,7 +491,7 @@ function estimateBytes(parts: Partial<DocParts>): number {
     if (!value) continue;
     if ((value as MapTerrain).grid) {
       const t = value as MapTerrain;
-      n += t.grid.heights.byteLength + t.splat.maps[0].byteLength * 2 + (t.water?.mask.byteLength ?? 0);
+      n += t.grid.heights.byteLength + t.splat.maps[0].byteLength * t.splat.maps.length + (t.water?.mask.byteLength ?? 0);
     } else n += JSON.stringify(value).length;
   }
   return n;

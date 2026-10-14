@@ -12,6 +12,7 @@ import { cliffModelsFor, cliffRocksDab } from '../ops/landscape/cliff-rocks';
 import { erosionDab } from '../ops/landscape/erosion';
 import { LandscapeNoise, randomSeed } from '../ops/landscape/landscape-noise';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
+import { MAX_LAYERS } from '../ops/paint-ops';
 import { carveRiver } from '../ops/landscape/river';
 import { buildRoad } from '../ops/landscape/road';
 import { cliffAlong, formDab } from '../ops/landscape/shapes';
@@ -169,7 +170,7 @@ export class LandscapeTool implements EditorTool {
       finishBiome(stroke, brush, biomeById(s.biome));
     }
     if (stroke.layersFull.length) {
-      ctx.status(`The map has 8 ground layers: ${stroke.layersFull.join(', ')} left out. Remove a layer in Paint to make room`);
+      ctx.status(`The map has ${MAX_LAYERS} ground layers: ${stroke.layersFull.join(', ')} left out. Remove a layer in Paint to make room`);
     }
     if (stroke.finish() && s.reroll) {
       s.seed = randomSeed();

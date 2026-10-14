@@ -8,7 +8,7 @@ import {
   type Material,
   type Vector3,
 } from 'three';
-import type { MapTerrain as MapTerrainDoc, MapPaths } from '../../map-document';
+import { MAX_GROUND_LAYERS, type MapTerrain as MapTerrainDoc, type MapPaths } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, MaterialCompressed, MaterialPixels } from '../map-asset-library';
 import { pathMaskResolution, rasterizePathMask } from '../paths/path-mask';
@@ -28,7 +28,7 @@ export const PATH_MATERIAL = 'dirt-path';
 
 /**
  * Texture-array layer of every material the terrain shows: the map's splat
- * layers (at most 8), the cliff material and the two path materials, each
+ * layers (at most 12), the cliff material and the two path materials, each
  * material once. Layers past TERRAIN_MAX_LAYERS get -1 (not drawn).
  */
 export function assignLayerSlots(t: MapTerrainDoc): { ids: string[]; slots: TerrainLayerSlots } {
@@ -43,7 +43,7 @@ export function assignLayerSlots(t: MapTerrainDoc): { ids: string[]; slots: Terr
   };
   const slots: TerrainLayerSlots = {
     count: 0,
-    splat: t.layers.slice(0, 8).map((l) => slotOf(l.material)),
+    splat: t.layers.slice(0, MAX_GROUND_LAYERS).map((l) => slotOf(l.material)),
     cliff: slotOf(t.cliffMaterial),
     road: slotOf(ROAD_MATERIAL),
     path: slotOf(PATH_MATERIAL),
@@ -194,13 +194,13 @@ export class MapTerrainLayer {
 
     // Grass blades where the splat paints grass layers, coloured like the ground under them
     // Vector4 defaults to w = 1, which marked the eighth layer as grass on every map
-    const mask: [Vector4, Vector4] = [new Vector4(0, 0, 0, 0), new Vector4(0, 0, 0, 0)];
-    const colors = Array.from({ length: 8 }, (_, k) => {
+    const mask = t.splat.maps.map(() => new Vector4(0, 0, 0, 0));
+    const colors = Array.from({ length: MAX_GROUND_LAYERS }, (_, k) => {
       const px = pixels[slots.splat[k]];
       return px ? new Color().setRGB(px.average[0], px.average[1], px.average[2], SRGBColorSpace) : new Color();
     });
-    t.layers.slice(0, 8).forEach((layer, k) => {
-      if (entryOf(layer.material)?.category === 'grass') mask[k >> 2].setComponent(k & 3, 1);
+    t.layers.slice(0, MAX_GROUND_LAYERS).forEach((layer, k) => {
+      if (entryOf(layer.material)?.category === 'grass') mask[k >> 2]?.setComponent(k & 3, 1);
     });
     this.grassInputs = { mask, colors, width: t.width, depth: t.depth };
     this.updateGrassInputs();
@@ -287,6 +287,7 @@ export class MapTerrainLayer {
       const u = this.material.terrainUniforms;
       u.uSplat0.value = this.splat.maps[0];
       u.uSplat1.value = this.splat.maps[1];
+      u.uSplat2.value = this.splat.maps[2] ?? null;
     }
     this.material?.setCliffAngle(this.terrain.cliffAngle);
     this.updateGrassInputs();

@@ -15,14 +15,12 @@
  */
 import { VACANT_LANES } from './lane-choice';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
-import { MAP_FORMAT, MAP_VERSION, type CustomMapDocument } from './map-document';
+import { MAP_FORMAT, MAP_VERSION, MAX_GROUND_LAYERS, splatMapCount, type CustomMapDocument } from './map-document';
 import { MAP_ID_PATTERN } from './map-create';
 
 export const MAP_FILE_EXTENSION = '.3dtdmap';
 export const MAP_JSON_ENTRY = 'map.json';
 export const MAP_PREVIEW_ENTRY = 'preview.png';
-/** Most ground layers a map can paint (two RGBA splat maps) */
-export const MAX_GROUND_LAYERS = 8;
 
 export class MapFileError extends Error {
   constructor(
@@ -41,6 +39,8 @@ export type MapMigration = (json: Record<string, unknown>) => Record<string, unk
 export const MAP_MIGRATIONS: Readonly<Record<number, MapMigration>> = {
   // 1 to 2: version 2 adds the optional gameplay rules; a version 1 map has none
   1: (json) => json,
+  // 2 to 3: version 3 may carry a third splat map (layers 9 to 12); a version 2 map has two and at most 8 layers
+  2: (json) => json,
 };
 
 interface BinaryRef {
@@ -57,6 +57,7 @@ const BIN = {
   heights: 'terrain/heights.f32',
   splat0: 'terrain/splat0.u8',
   splat1: 'terrain/splat1.u8',
+  splat2: 'terrain/splat2.u8',
   water: 'terrain/water-mask.u8',
 } as const;
 
@@ -270,8 +271,11 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   const texels = (s?.resolution ?? 0) ** 2 * 4;
   if (!s || !Number.isInteger(s.resolution) || s.resolution < 1) p.push('splat resolution is missing');
   else if (s.resolution > MAX_SPLAT_RESOLUTION) p.push(`splat resolution is above ${MAX_SPLAT_RESOLUTION}`);
-  else if (!s.maps || s.maps.length !== 2 || s.maps.some((m) => !isTyped(m, 'Uint8Array') || m.length !== texels)) {
-    p.push(`splat needs two maps of ${s.resolution} x ${s.resolution} RGBA`);
+  else {
+    const count = splatMapCount(t.layers?.length ?? 0);
+    if (!Array.isArray(s.maps) || s.maps.length !== count || s.maps.some((m) => !isTyped(m, 'Uint8Array') || m.length !== texels)) {
+      p.push(`splat needs ${count === 3 ? 'three' : 'two'} maps of ${s.resolution} x ${s.resolution} RGBA`);
+    }
   }
   if (t.water) {
     if (!finite(t.water.level)) p.push('water level is not a number');
@@ -429,6 +433,8 @@ function splitDocument(doc: CustomMapDocument): { json: Record<string, unknown>;
     [BIN.splat0, t.splat.maps[0]],
     [BIN.splat1, t.splat.maps[1]],
   ];
+  // The third splat map only when the map has one: files and hashes of maps with up to 8 layers stay as they were
+  if (t.splat.maps[2]) binaries.push([BIN.splat2, t.splat.maps[2]]);
   if (t.water) binaries.push([BIN.water, t.water.mask]);
   const bodies = t.waterBodies ?? [];
   bodies.forEach((body, k) => binaries.push([waterBodyPath(k), body.mask]));
@@ -436,7 +442,7 @@ function splitDocument(doc: CustomMapDocument): { json: Record<string, unknown>;
   const terrain = {
     ...t,
     grid: { ...t.grid, heights: ref(BIN.heights) },
-    splat: { ...t.splat, maps: [ref(BIN.splat0), ref(BIN.splat1)] },
+    splat: { ...t.splat, maps: [BIN.splat0, BIN.splat1, BIN.splat2].slice(0, t.splat.maps.length).map(ref) },
     water: t.water ? { ...t.water, mask: ref(BIN.water) } : null,
     ...(bodies.length ? { waterBodies: bodies.map((body, k) => ({ ...body, mask: ref(waterBodyPath(k)) })) } : {}),
   };
@@ -459,8 +465,8 @@ function joinDocument(json: Record<string, unknown>, entries: Record<string, Uin
   if (heights.length % 4) throw new MapFileError('The terrain heights are cut off.');
   grid['heights'] = bytesToFloat(heights);
   const maps = splat['maps'];
-  if (!Array.isArray(maps) || maps.length !== 2) throw new MapFileError('The map needs two splat maps.');
-  splat['maps'] = [bin(maps[0], 'splat map 1'), bin(maps[1], 'splat map 2')];
+  if (!Array.isArray(maps) || maps.length < 2 || maps.length > 3) throw new MapFileError('The map needs two or three splat maps.');
+  splat['maps'] = maps.map((m, k) => bin(m, `splat map ${k + 1}`));
   const water = t['water'];
   if (isRecord(water)) water['mask'] = bin(water['mask'], 'the water mask');
   else t['water'] = null;

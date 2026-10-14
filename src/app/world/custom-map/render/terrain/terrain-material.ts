@@ -37,7 +37,7 @@ export function materialLook(category: MaterialCategory | undefined): { soft: nu
  * albedo, normal, roughness and AO come from blended ground layers.
  *
  * Per fragment:
- * 1. Splat weights of the map's layers (two RGBA maps), the road and path
+ * 1. Splat weights of the map's layers (two RGBA maps, a third past 8 layers), the road and path
  *    mask, and the cliff weight from the slope (above `cliffAngle`, with a
  *    noisy edge) are combined into one weight per texture-array layer.
  * 2. Every layer with weight samples albedo+height and normal+roughness+AO,
@@ -54,7 +54,8 @@ export function materialLook(category: MaterialCategory | undefined): { soft: nu
  * since the shader takes object space as world space for its projections.
  */
 
-export const TERRAIN_MAX_LAYERS = 12;
+/** Array layers at most: the map's 12 ground layers, the cliff and the two path materials, rounded up to four */
+export const TERRAIN_MAX_LAYERS = 16;
 
 /** Layers the terrain shader loops over for `depth` array layers (TerrainMaterial.layerCount) */
 export function terrainLayerCount(depth: number): number {
@@ -64,7 +65,7 @@ export function terrainLayerCount(depth: number): number {
 export interface TerrainLayerSlots {
   /** Number of array layers in use */
   count: number;
-  /** Array layer of the map's splat layer k (k < 8) */
+  /** Array layer of the map's splat layer k (k < 12) */
   splat: number[];
   cliff: number;
   road: number;
@@ -74,7 +75,8 @@ export interface TerrainLayerSlots {
 export interface TerrainMaterialParams {
   colorArray: LayerArray;
   dataArray: LayerArray;
-  splat: [Texture, Texture];
+  /** Two splat maps, three on a map with more than 8 layers */
+  splat: Texture[];
   pathMask: Texture;
   /** Grid normals (GridNormalTexture) and the grid's columns, rows and cell size */
   gridNormals: Texture;
@@ -105,6 +107,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uDataArray: { value: null as LayerArray | null },
     uSplat0: { value: null as Texture | null },
     uSplat1: { value: null as Texture | null },
+    uSplat2: { value: null as Texture | null },
     uPathMask: { value: null as Texture | null },
     uGridNormals: { value: null as Texture | null },
     uGridOcclusion: { value: null as Texture | null },
@@ -128,7 +131,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uFarFlat: { value: 400 },
     uRough: { value: Array.from({ length: TERRAIN_MAX_LAYERS }, () => new Vector2(0.6, 1)) },
     uTerrainTime: { value: 0 },
-    uSplatLayer: { value: new Int32Array(8).fill(-1) },
+    uSplatLayer: { value: new Int32Array(12).fill(-1) },
     uCliffLayer: { value: -1 },
     uRoadLayer: { value: -1 },
     uPathLayer: { value: -1 },
@@ -151,12 +154,16 @@ export class TerrainMaterial extends MeshStandardMaterial {
    */
   readonly layerCount: number;
 
+  /** Splat layers the shader reads: 8 from two maps, 12 when the map has the third (its own program) */
+  readonly splatLayers: number;
+
   constructor(params: TerrainMaterialParams) {
     super({ roughness: 1, metalness: 0 });
     this.name = 'custom-map-terrain';
     // The terrain glows by lava itself (TERRAIN_SAMPLE): not again through the objects' lava glow
     this.userData['noLavaGlow'] = true;
     this.layerCount = terrainLayerCount(params.layers ?? params.colorArray.image.depth);
+    this.splatLayers = params.splat.length > 2 ? 12 : 8;
     this.setParams(params);
     this.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, this.terrainUniforms);
@@ -167,7 +174,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
           `#include <begin_vertex>\n${TERRAIN_MORPH_VERTEX}\nvTerrainPos = transformed;\nvTerrainNormal = normal;`,
         );
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', `#include <common>\n#define TERRAIN_LAYERS ${this.layerCount}\n${TERRAIN_FRAGMENT_PARS}`)
+        .replace('#include <common>', `#include <common>\n#define TERRAIN_LAYERS ${this.layerCount}\n#define TERRAIN_SPLATS ${this.splatLayers}\n${TERRAIN_FRAGMENT_PARS}`)
         .replace('#include <map_fragment>', TERRAIN_SAMPLE)
         // The marker lets addHeightFog add wetness after the terrain's own roughness
         .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = terrainRough;\n// map-roughness-done')
@@ -191,6 +198,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     u.uDataArray.value = p.dataArray;
     u.uSplat0.value = p.splat[0];
     u.uSplat1.value = p.splat[1];
+    u.uSplat2.value = p.splat[2] ?? null;
     u.uPathMask.value = p.pathMask;
     u.uGridNormals.value = p.gridNormals;
     u.uGridOcclusion.value = p.gridOcclusion;
@@ -209,7 +217,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
       u.uSoft.value[k] = look.soft;
       u.uRough.value[k].set(look.rough[0], look.rough[1]);
     }
-    for (let k = 0; k < 8; k++) u.uSplatLayer.value[k] = p.slots.splat[k] ?? -1;
+    for (let k = 0; k < 12; k++) u.uSplatLayer.value[k] = p.slots.splat[k] ?? -1;
     u.uCliffLayer.value = p.slots.cliff;
     u.uRoadLayer.value = p.slots.road;
     u.uPathLayer.value = p.slots.path;
@@ -242,7 +250,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
   }
 
   override customProgramCacheKey(): string {
-    return `custom-map-terrain-2-${this.layerCount}`;
+    return `custom-map-terrain-2-${this.layerCount}-${this.splatLayers}`;
   }
 }
 
@@ -254,6 +262,9 @@ uniform sampler2DArray uColorArray;
 uniform sampler2DArray uDataArray;
 uniform sampler2D uSplat0;
 uniform sampler2D uSplat1;
+#if TERRAIN_SPLATS > 8
+uniform sampler2D uSplat2;
+#endif
 uniform sampler2D uPathMask;
 uniform sampler2D uGridNormals;
 uniform sampler2D uGridOcclusion;
@@ -276,7 +287,7 @@ uniform float uFarSingle;
 uniform float uFarFlat;
 uniform vec2 uRough[TERRAIN_LAYERS];
 uniform float uTerrainTime;
-uniform int uSplatLayer[8];
+uniform int uSplatLayer[12];
 uniform int uCliffLayer;
 uniform int uRoadLayer;
 uniform int uPathLayer;
@@ -382,11 +393,17 @@ float w[TERRAIN_LAYERS];
 for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] = 0.0;
 vec4 s0 = texture2D(uSplat0, tuv + wobble);
 vec4 s1 = texture2D(uSplat1, tuv + wobble);
-float sw[8] = float[8](s0.r, s0.g, s0.b, s0.a, s1.r, s1.g, s1.b, s1.a);
+#if TERRAIN_SPLATS > 8
+// The third map only on maps with more than 8 layers: the others neither sample nor bind it
+vec4 s2 = texture2D(uSplat2, tuv + wobble);
+float sw[TERRAIN_SPLATS] = float[TERRAIN_SPLATS](s0.r, s0.g, s0.b, s0.a, s1.r, s1.g, s1.b, s1.a, s2.r, s2.g, s2.b, s2.a);
+#else
+float sw[TERRAIN_SPLATS] = float[TERRAIN_SPLATS](s0.r, s0.g, s0.b, s0.a, s1.r, s1.g, s1.b, s1.a);
+#endif
 float sum = 0.0;
-for (int k = 0; k < 8; k++) if (uSplatLayer[k] >= 0) sum += sw[k];
+for (int k = 0; k < TERRAIN_SPLATS; k++) if (uSplatLayer[k] >= 0) sum += sw[k];
 if (sum < 0.001) { sw[0] = 1.0; sum = 1.0; }
-for (int k = 0; k < 8; k++) if (uSplatLayer[k] >= 0) w[uSplatLayer[k]] += sw[k] / sum * (1.0 - outside);
+for (int k = 0; k < TERRAIN_SPLATS; k++) if (uSplatLayer[k] >= 0) w[uSplatLayer[k]] += sw[k] / sum * (1.0 - outside);
 w[max(uSplatLayer[0], 0)] += outside;
 
 // Roads and paths replace the painted ground

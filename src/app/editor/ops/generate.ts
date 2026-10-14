@@ -9,8 +9,8 @@
  * - Canyon: a high plain cut by a winding canyon with stepped walls
  * - Terraces: hills in flat steps with steep risers
  */
-import type { CustomMapDocument, MapTerrain } from '../../world/custom-map/map-document';
-import { autoPaint, defaultAutoRules } from './paint-ops';
+import { fitSplatMaps, type CustomMapDocument, type MapTerrain } from '../../world/custom-map/map-document';
+import { MAX_LAYERS, autoPaint, defaultAutoRules } from './paint-ops';
 import { edgePolyline, nearestOnPolyline } from './path-graph';
 import { flattenUnderPaths } from './path-terrain';
 import { emptyWater } from './water-ops';
@@ -153,7 +153,8 @@ export function finishGenerated(doc: CustomMapDocument, result: GenerateResult, 
   }
   for (const candidates of result.materials) {
     const m = candidates.find(hasMaterial);
-    if (m && !t.layers.some((l) => l.material === m) && t.layers.length < 8) t.layers.push({ material: m });
+    if (m && !t.layers.some((l) => l.material === m) && t.layers.length < MAX_LAYERS) t.layers.push({ material: m });
   }
+  fitSplatMaps(t);
   if (repaint && t.layers.length > 1) autoPaint(t, defaultAutoRules(t));
 }

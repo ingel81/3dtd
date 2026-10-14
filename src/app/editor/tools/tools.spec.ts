@@ -420,6 +420,28 @@ describe('ground layer commands', () => {
     expect(terrain.layers.map((l) => l.material)).toEqual(['grass']);
     expect(maps[0]).toBe(255);
   });
+
+  it('add the third splat map with the ninth layer and drop it with the layer (TODO E175)', () => {
+    const ed = fresh();
+    const terrain = ed.doc.terrain;
+    for (const m of ['dirt', 'sand', 'rock', 'snow', 'mud', 'gravel', 'cinders']) ed.execute(paintCommands.addLayer(ed, m));
+    expect(terrain.splat.maps).toHaveLength(2);
+    ed.execute(paintCommands.addLayer(ed, 'brimstone'));
+    expect(terrain.layers).toHaveLength(9);
+    expect(terrain.splat.maps).toHaveLength(3);
+    ed.execute(paintCommands.autoPaint(ed, [{ layer: 8, minSlope: 0, maxSlope: 90, minHeight: -Infinity, maxHeight: Infinity, blend: 1 }]));
+    expect(terrain.splat.maps[2][0]).toBe(255);
+    ed.execute(paintCommands.removeLayer(ed, 8));
+    expect(terrain.splat.maps).toHaveLength(2);
+    expect(terrain.splat.maps[0][0]).toBe(255);
+    ed.undo();
+    expect(terrain.splat.maps).toHaveLength(3);
+    expect(terrain.splat.maps[2][0]).toBe(255);
+    ed.undo();
+    ed.undo();
+    expect(terrain.layers).toHaveLength(8);
+    expect(terrain.splat.maps).toHaveLength(2);
+  });
 });
 
 describe('water and lava bodies', () => {

@@ -37,11 +37,12 @@ import { VARIATION_GLSL, variationTexture } from '../terrain/variation-texture';
  */
 
 export interface GrassInputs {
-  splat: [Texture, Texture];
+  /** Two splat maps, three on a map with more than 8 layers */
+  splat: Texture[];
   pathMask: Texture;
-  /** Grass share per splat channel (1 for grass layers, 0 otherwise), maps 0 and 1 */
-  mask: [Vector4, Vector4];
-  /** Average colour (linear) of the layer in each splat channel, maps 0 and 1 in order */
+  /** Grass share per splat channel (1 for grass layers, 0 otherwise), one per splat map */
+  mask: Vector4[];
+  /** Average colour (linear) of the layer in each splat channel, the maps in order */
   colors: Color[];
   width: number;
   depth: number;
@@ -63,6 +64,8 @@ const ROWS = 4;
 export class GrassField {
   readonly mesh: Mesh<InstancedBufferGeometry, MeshStandardMaterial>;
   private hasGrass = false;
+  /** Splat maps the program reads (two, or three past 8 layers) */
+  private splatMaps = 2;
   private near = true;
   /** The quality level draws grass at all */
   private enabled = true;
@@ -71,11 +74,13 @@ export class GrassField {
     uGrassTile: { value: TILE },
     uGrassSplat0: { value: null as Texture | null },
     uGrassSplat1: { value: null as Texture | null },
+    uGrassSplat2: { value: null as Texture | null },
     uGrassPath: { value: null as Texture | null },
     uGrassMask0: { value: new Vector4() },
     uGrassMask1: { value: new Vector4() },
+    uGrassMask2: { value: new Vector4() },
     uGrassMapSize: { value: new Vector2() },
-    uGrassColors: { value: Array.from({ length: 8 }, () => new Color()) },
+    uGrassColors: { value: Array.from({ length: 12 }, () => new Color()) },
     uGrassCover: { value: null as Texture | null },
     uGrassHasCover: { value: 0 },
     /** Wider blades at a lower density (setBlades), so the meadow keeps its cover */
@@ -122,7 +127,7 @@ export class GrassField {
     material.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, this.uniforms, heights.uniforms, WIND_UNIFORMS);
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', `#include <common>\n${GRASS_VERTEX_PARS}`)
+        .replace('#include <common>', `#include <common>\n#define GRASS_SPLATS ${this.splatMaps * 4}\n${GRASS_VERTEX_PARS}`)
         .replace('#include <beginnormal_vertex>', GRASS_NORMAL)
         .replace('#include <begin_vertex>', GRASS_BEGIN);
       shader.fragmentShader = shader.fragmentShader
@@ -132,7 +137,7 @@ export class GrassField {
         // faced down and showed as dark specks over the meadow
         .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal = normalize(vNormal);');
     };
-    material.customProgramCacheKey = () => 'custom-map-grass-1';
+    material.customProgramCacheKey = () => `custom-map-grass-1-${this.splatMaps}`;
     addHeightFog(material);
     this.mesh = new Mesh(g, material);
     this.mesh.name = 'custom-map-grass';
@@ -147,12 +152,20 @@ export class GrassField {
     const u = this.uniforms;
     u.uGrassSplat0.value = p.splat[0];
     u.uGrassSplat1.value = p.splat[1];
+    u.uGrassSplat2.value = p.splat[2] ?? null;
     u.uGrassPath.value = p.pathMask;
     u.uGrassMask0.value.copy(p.mask[0]);
     u.uGrassMask1.value.copy(p.mask[1]);
+    u.uGrassMask2.value.set(0, 0, 0, 0);
+    if (p.mask[2]) u.uGrassMask2.value.copy(p.mask[2]);
+    // The third map is read by a program of its own, only on maps that have it
+    if (this.splatMaps !== p.splat.length) {
+      this.splatMaps = p.splat.length;
+      this.mesh.material.needsUpdate = true;
+    }
     u.uGrassColors.value.forEach((c, k) => c.copy(p.colors[k] ?? c.setRGB(0.2, 0.3, 0.1)));
     u.uGrassMapSize.value.set(p.width, p.depth);
-    this.hasGrass = p.mask[0].lengthSq() + p.mask[1].lengthSq() > 0;
+    this.hasGrass = p.mask.some((m) => m.lengthSq() > 0);
     this.showMesh();
   }
 
@@ -200,11 +213,15 @@ uniform vec2 uGrassCenter;
 uniform float uGrassTile;
 uniform sampler2D uGrassSplat0;
 uniform sampler2D uGrassSplat1;
+#if GRASS_SPLATS > 8
+uniform sampler2D uGrassSplat2;
+uniform vec4 uGrassMask2;
+#endif
 uniform sampler2D uGrassPath;
 uniform vec4 uGrassMask0;
 uniform vec4 uGrassMask1;
 uniform vec2 uGrassMapSize;
-uniform vec3 uGrassColors[8];
+uniform vec3 uGrassColors[12];
 uniform sampler2D uGrassCover;
 uniform float uGrassHasCover;
 uniform float uGrassWidth;
@@ -255,12 +272,21 @@ vBladeColor = vec3(0.0);
 float grass = 0.0;
 vec4 s0 = vec4(0.0);
 vec4 s1 = vec4(0.0);
+#if GRASS_SPLATS > 8
+vec4 s2 = vec4(0.0);
+#endif
 if (keepEdge > 0.0 && onMap) {
   vec2 uvMap = mapPos / uGrassMapSize + 0.5;
   s0 = texture2D(uGrassSplat0, uvMap);
   s1 = texture2D(uGrassSplat1, uvMap);
   float total = dot(s0, vec4(1.0)) + dot(s1, vec4(1.0));
-  grass = (dot(s0, uGrassMask0) + dot(s1, uGrassMask1)) / max(total, 1e-3);
+  grass = dot(s0, uGrassMask0) + dot(s1, uGrassMask1);
+#if GRASS_SPLATS > 8
+  s2 = texture2D(uGrassSplat2, uvMap);
+  total += dot(s2, vec4(1.0));
+  grass += dot(s2, uGrassMask2);
+#endif
+  grass /= max(total, 1e-3);
   vec2 pm = texture2D(uGrassPath, uvMap).rg;
   grass *= 1.0 - max(pm.r, pm.g);
 }
@@ -306,6 +332,10 @@ if (keep > 0.0) {
   for (int k = 0; k < 4; k++) {
     ground += uGrassColors[k] * s0[k] * uGrassMask0[k] + uGrassColors[k + 4] * s1[k] * uGrassMask1[k];
     gw += s0[k] * uGrassMask0[k] + s1[k] * uGrassMask1[k];
+#if GRASS_SPLATS > 8
+    ground += uGrassColors[k + 8] * s2[k] * uGrassMask2[k];
+    gw += s2[k] * uGrassMask2[k];
+#endif
   }
   ground /= max(gw, 1e-3);
   // The terrain's macro variation from the same texture (terrain-material.ts)

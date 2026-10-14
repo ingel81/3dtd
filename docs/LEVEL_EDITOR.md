@@ -143,7 +143,7 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   an, gefüllt mit einem eigenen Gewässer der Art Swamp, Lava oder Ice (ein vorhandenes in der Nähe des Startpunkts
   wird mitbenutzt). City legt ein Straßenraster fest auf die Karte (alle 64 m, Asphalt und Gehwege), Häuser stehen an
   den Blockrändern zur Straße gewandt, Laternen auf den Gehwegen; Hell legt Glutrisse über den Boden; Wasteland und
-  Moon haben Kraterfelder. Sind die acht Bodenschichten voll, sagt die Statuszeile, welche Materialien fehlen. Unter dem Zeiger zeigen Punkte, wo der nächste
+  Moon haben Kraterfelder. Sind die zwölf Bodenschichten voll, sagt die Statuszeile, welche Materialien fehlen. Unter dem Zeiger zeigen Punkte, wo der nächste
   Strich Pflanzen setzen würde
 - Mountain (gratige Gipfel, Höhe nach Größe und Stärke), Valley, Plateau (Tafel mit steilem Rand), Crater (Schüssel mit
   Wall am Startpunkt des Strichs), Dunes (runde Kämme quer zum Wind, flache Luv-, steile Leeseite), Erode (Regen gräbt
@@ -188,7 +188,7 @@ eingestellte Höhe; Strg+Klick nimmt sie vom Boden), Roughen (Rauschen), Erode (
 Terrace (Stufen in einstellbarer Höhe), Cliff (Plateau eine Stufe über dem Strichanfang, Shift eine darunter, harte
 Kante wie Warcraft-Klippen), Ramp (zwei Klicks: Rampe zwischen den beiden Höhen, Breite einstellbar).
 
-**Paint (3).** Bis zu acht Bodenschichten aus dem Katalog (beim Hinzufügen nach Biom gruppiert); die Liste wählt die Schicht zum Malen, tauscht ihr Material,
+**Paint (3).** Bis zu zwölf Bodenschichten aus dem Katalog (beim Hinzufügen nach Biom gruppiert); die Liste wählt die Schicht zum Malen, tauscht ihr Material,
 verschiebt und entfernt sie (ihr Gewicht geht an die anderen). Halten malt, Shift oder der Schalter radiert. „Auto paint
 the map“ malt die ganze Karte neu: die erste Schicht überall, felsartige Schichten an steilen Hängen, sandartige am
 Ufer, schneeartige auf den Gipfeln (nach dem Materialnamen). Darunter das Klippenmaterial und ab welcher Neigung es
@@ -404,6 +404,11 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   wachsen dadurch um 21 bis 54 kB, 2 bis 7 %; nur der Editor liest es); optionales Feld `gameplay` (`startCredits`, `hqHealth`, `towers`, `waves` als
   `{ kind: 'budget' }` oder `{ kind: 'table', table }` in der Form der Table-Source); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2
+- Kartendokument Version 3: bis zu zwölf Bodenschichten. Die Gewichte der Schichten 9 bis 12 liegen in einer dritten
+  Splat-Karte (`terrain/splat2.u8`), die es nur gibt, solange die Karte mehr als acht Schichten hat
+  (`splatMapCount`, `fitSplatMaps`: die neunte Schicht legt sie leer an, das Entfernen bis auf acht wirft sie weg; im
+  Verlauf kommt und geht sie mit der Schichtliste). Karten bis acht Schichten speichern, laden und zeichnen wie zuvor,
+  ihr `contentHash` bleibt; Version-2-Dateien lesen sich unverändert über die Migration 2 nach 3
 - Datei-Menü (drei Punkte): Download map file (`.3dtdmap`), Export top view as picture (PNG, 2048 px an der längeren
   Seite), Frame the whole map, Top view
 - „Test map“ speichert und öffnet das Spiel mit `?world=map:<id>` im Test-Tab: ein Fenster mit festem Namen
@@ -565,7 +570,8 @@ Straßen, deren beide Enden darin liegen; `pasteStamp` setzt es gedreht über ei
 Taktgeber laufen außerhalb der Zone, Änderungen am Dokument erreichen die Panels höchstens alle 150 ms.
 
 **Datei.** `.3dtdmap` ist ein Zip (fflate) mit `map.json` und den Arrays als Little-Endian-Binärdateien
-(`terrain/heights.f32`, `terrain/splat0.u8`, `terrain/splat1.u8`, `terrain/water-mask.u8`), optional `preview.png`.
+(`terrain/heights.f32`, `terrain/splat0.u8`, `terrain/splat1.u8`, ab neun Bodenschichten `terrain/splat2.u8`,
+`terrain/water-mask.u8`), optional `preview.png`.
 `contentHash` ist SHA-256 über das kanonische JSON der Welt (Schlüssel sortiert, ohne Name, Beschreibung und Zeiten)
 und die Arrays; Umbenennen und erneutes Speichern ändern ihn nicht. Beim Lesen laufen erst die Migrationen
 (`MAP_MIGRATIONS`, je Version ein Schritt), dann die Prüfung; Fehler kommen als `MapFileError` mit Klartext.

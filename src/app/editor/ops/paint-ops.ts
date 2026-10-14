@@ -3,28 +3,32 @@
  * in map k >> 2, channel k & 3). Painting raises one layer and lowers the
  * others so a texel's weights keep adding up to 255; erasing lowers a layer
  * and gives its share to the others (to layer 0 when nothing else is left).
+ * The third map (layers 9 to 12) exists only on maps with more than 8
+ * layers; without it those weights read as 0 and are not written.
  */
-import type { MapTerrain } from '../../world/custom-map/map-document';
+import { MAX_GROUND_LAYERS, fitSplatMaps, type MapTerrain } from '../../world/custom-map/map-document';
 import { heightAt, slopeAt, texelRectAround, texelX, texelY, type GridRect } from '../model/grid';
 import { brushWeight, type BrushSettings } from './brush';
 
-export const MAX_LAYERS = 8;
+export const MAX_LAYERS = MAX_GROUND_LAYERS;
 
-/** Reads the 8 weights of texel `t` into `out` */
+/** Reads the 12 weights of texel `t` into `out` */
 export function readWeights(terrain: MapTerrain, texel: number, out: Float32Array): void {
-  const [m0, m1] = terrain.splat.maps;
+  const [m0, m1, m2] = terrain.splat.maps;
   const at = texel * 4;
   for (let c = 0; c < 4; c++) {
     out[c] = m0[at + c];
     out[c + 4] = m1[at + c];
+    out[c + 8] = m2 ? m2[at + c] : 0;
   }
 }
 
-/** Writes 8 weights, scaled so they add up to 255 */
+/** Writes 12 weights, scaled so they add up to 255; without a third map the last four count as 0 */
 export function writeWeights(terrain: MapTerrain, texel: number, w: Float32Array): void {
-  const [m0, m1] = terrain.splat.maps;
+  const [m0, m1, m2] = terrain.splat.maps;
+  const layers = m2 ? 12 : 8;
   let sum = 0;
-  for (let k = 0; k < MAX_LAYERS; k++) sum += w[k];
+  for (let k = 0; k < layers; k++) sum += w[k];
   if (sum <= 0) {
     w.fill(0);
     w[0] = 255;
@@ -35,8 +39,8 @@ export function writeWeights(terrain: MapTerrain, texel: number, w: Float32Array
   let total = 0;
   let largest = 0;
   const at = texel * 4;
-  const bytes = new Array<number>(MAX_LAYERS);
-  for (let k = 0; k < MAX_LAYERS; k++) {
+  const bytes = new Array<number>(layers);
+  for (let k = 0; k < layers; k++) {
     bytes[k] = Math.round(w[k] * s);
     total += bytes[k];
     if (bytes[k] > bytes[largest]) largest = k;
@@ -45,6 +49,7 @@ export function writeWeights(terrain: MapTerrain, texel: number, w: Float32Array
   for (let c = 0; c < 4; c++) {
     m0[at + c] = bytes[c];
     m1[at + c] = bytes[c + 4];
+    if (m2) m2[at + c] = bytes[c + 8];
   }
 }
 
@@ -192,6 +197,8 @@ export function removeLayer(terrain: MapTerrain, index: number): void {
   order.splice(index, 1);
   order.push(index);
   remapWeights(terrain, order);
+  // Down to 8 layers: the third map holds nothing any more
+  fitSplatMaps(terrain);
 }
 
 /** New weights: slot k takes what slot `order[k]` held */

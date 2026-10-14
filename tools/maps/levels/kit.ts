@@ -31,7 +31,7 @@ import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from '
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from '../../../src/app/editor/ops/landscape/road';
 import { cliffAlong, formDab, type FormKind } from '../../../src/app/editor/ops/landscape/shapes';
 import { ObjectGrid, ObjectIds, scatterDab, settled, rockShape, type ScatterOptions, DEFAULT_SCATTER } from '../../../src/app/editor/ops/object-ops';
-import { autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from '../../../src/app/editor/ops/paint-ops';
+import { MAX_LAYERS, autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from '../../../src/app/editor/ops/paint-ops';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from '../../../src/app/editor/ops/path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../../../src/app/editor/ops/path-terrain';
 import { mirrorChange, objectImages, symmetryImages, type SymmetryMode } from '../../../src/app/editor/ops/symmetry';
@@ -39,16 +39,24 @@ import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, ter
 import { BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, waterMaskDab } from '../../../src/app/editor/ops/water-ops';
 import { validateMap, type MapIssue } from '../../../src/app/editor/validation/map-validation';
 import { createMapDocument } from '../../../src/app/world/custom-map/map-create';
-import type {
-  CustomMapDocument,
-  MapEnvironment,
-  MapBridgeStyle,
-  MapGameplay,
-  MapObject,
-  MapPathKind,
-  MapPoint,
-  MapWaterKind,
+import {
+  fitSplatMaps,
+  type CustomMapDocument,
+  type MapEnvironment,
+  type MapBridgeStyle,
+  type MapGameplay,
+  type MapObject,
+  type MapPathKind,
+  type MapPoint,
+  type MapWaterKind,
 } from '../../../src/app/world/custom-map/map-document';
+
+/**
+ * Ground layers a level may hold while it is built: the levels were made and
+ * tuned when maps had at most 8, and their brushes fall back to a material
+ * already there once the list is full; more would change every level
+ */
+const LEVEL_LAYERS = 8;
 
 const CATALOG_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../../public/maps/assets/catalog.json');
 
@@ -193,7 +201,7 @@ export class LevelKit {
 
   /** One Landscape stroke: `paint` runs the dabs, the stroke lands as one step */
   stroke<T>(label: string, paint: (s: LandscapeStroke) => T, seed = this.nextSeed()): T {
-    const s = new LandscapeStroke(this.editor, label, seed, this.catalog);
+    const s = new LandscapeStroke(this.editor, label, seed, this.catalog, LEVEL_LAYERS);
     s.symmetry = this.symmetry;
     const out = paint(s);
     for (const m of s.layersFull) this.leftOut.add(m);
@@ -392,8 +400,9 @@ export class LevelKit {
     if (!this.catalog.materials.has(material)) throw new Error(`${this.spec.id}: no material ${material}`);
     const k = t.layers.findIndex((l) => l.material === material);
     if (k >= 0) return k;
-    if (t.layers.length >= 8) throw new Error(`${this.spec.id}: ground layers full, ${material} left out`);
+    if (t.layers.length >= LEVEL_LAYERS) throw new Error(`${this.spec.id}: ground layers full, ${material} left out`);
     t.layers.push({ material });
+    fitSplatMaps(t);
     return t.layers.length - 1;
   }
 
@@ -418,12 +427,12 @@ export class LevelKit {
   trimLayers(max: number): string[] {
     const t = this.doc.terrain;
     const removed: string[] = [];
-    const w = new Float32Array(8);
+    const w = new Float32Array(MAX_LAYERS);
     while (t.layers.length > max) {
-      const sum = new Float64Array(8);
+      const sum = new Float64Array(MAX_LAYERS);
       for (let k = 0; k < t.splat.resolution * t.splat.resolution; k++) {
         readWeights(t, k, w);
-        for (let l = 0; l < 8; l++) sum[l] += w[l];
+        for (let l = 0; l < MAX_LAYERS; l++) sum[l] += w[l];
       }
       let least = 1;
       for (let l = 2; l < t.layers.length; l++) if (sum[l] < sum[least]) least = l;
@@ -433,7 +442,7 @@ export class LevelKit {
     return removed;
   }
 
-  /** The cliff material for steep faces (its own slot, not one of the eight layers) and from which angle */
+  /** The cliff material for steep faces (its own slot, not one of the ground layers) and from which angle */
   cliffs(material: string, angle: number): void {
     if (!this.catalog.materials.has(material)) throw new Error(`${this.spec.id}: no material ${material}`);
     this.doc.terrain.cliffMaterial = material;

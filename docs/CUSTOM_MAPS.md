@@ -81,9 +81,11 @@ Nebel der Szene wieder her.
 - **Normalen** kommen aus einer Half-Float-Textur über das Raster (`GridNormalTexture`), bilinear gelesen: Klippenkanten
   folgen nicht der Dreiecksdiagonale (vorher Sägezähne)
 - **Material** (`terrain-material.ts`): `MeshStandardMaterial` mit `onBeforeCompile`, damit Licht, Schatten, Nebel,
-  Log-Tiefe und Tone-Mapping wie bei jedem Standardmaterial greifen. Bis zu 12 Schichten in zwei Texture-Arrays
-  (Farbe + Höhe, Normale + Rauheit + AO): die 8 Splat-Schichten der Karte, Klippe, Straße, Pfad
-  (`assignLayerSlots`). Je Pixel: Splat-Gewichte (zwei RGBA-Maps, mit Rauschen verwackelt), Wegemaske, Klippe ab
+  Log-Tiefe und Tone-Mapping wie bei jedem Standardmaterial greifen. Bis zu 16 Schichten in zwei Texture-Arrays
+  (Farbe + Höhe, Normale + Rauheit + AO): die bis zu 12 Splat-Schichten der Karte, Klippe, Straße, Pfad
+  (`assignLayerSlots`, jedes Material einmal; die Schleifen laufen über die Zahl der Array-Ebenen, auf Vielfache
+  von vier gerundet). Je Pixel: Splat-Gewichte (zwei RGBA-Maps, mit Rauschen verwackelt; eine dritte nur auf Karten
+  mit mehr als 8 Schichten, eigenes Programm mit `TERRAIN_SPLATS 12`, die anderen lesen und binden sie nicht), Wegemaske, Klippe ab
   `cliffAngle` mit verrauschter Kante; Höhen-Blend (eine Schicht zeigt sich, wo Höhe + Gewicht nahe am Besten
   liegt); jede Schicht zweimal mit verschobenen UVs je nach langsamem Rauschen (kein sichtbares Kachelmuster, nach
   Inigo Quilez); Variation (Makro, Wackeln der Splat-Kanten, Auswahl, Ausfransen) aus einer kachelbaren Textur
@@ -506,7 +508,7 @@ die normale Tiefe zurück, zwei Spieler sähen dann verschiedene Tiefenpuffer. N
 
 ## Grenzen
 
-- Höchstens 8 Splat-Schichten plus Klippe und zwei Wegmaterialien (12 Array-Ebenen), alle Materialien in einer Größe
+- Höchstens 12 Splat-Schichten plus Klippe und zwei Wegmaterialien (16 Array-Ebenen), alle Materialien in einer Größe
 - Laubkarten werfen Schatten ohne Windbewegung (Schatten und Krone gehen bei Wind minimal auseinander)
 - Gelände-LOD: Geomorphing gleicht die Stufen in einem Abstandsband an, Schürzen verdecken Risse an Kachelkanten
 - Der LOS-Würfel sieht Gelände und Objekte in der LOD-Stufe der Kamera (Impostoren als zwei gekreuzte Karten)

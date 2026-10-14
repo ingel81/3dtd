@@ -55,10 +55,7 @@ export function increaseDetail(t: MapTerrain, target: DetailTarget): MapTerrain 
   }
   const refineMask = (w: MapWater): MapWater => ({ ...w, mask: resampleGrid(w.mask, t.grid.columns, t.grid.rows, columns, rows) });
   const res = target.splatResolution;
-  const maps: [Uint8Array, Uint8Array] =
-    res === t.splat.resolution
-      ? [t.splat.maps[0].slice(), t.splat.maps[1].slice()]
-      : [resampleTexels(t.splat.maps[0], t.splat.resolution, res), resampleTexels(t.splat.maps[1], t.splat.resolution, res)];
+  const maps = t.splat.maps.map((m) => (res === t.splat.resolution ? m.slice() : resampleTexels(m, t.splat.resolution, res)));
   return {
     ...t,
     grid: { columns, rows, cellSize, heights },

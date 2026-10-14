@@ -3,8 +3,8 @@
  * erase switch) takes it away. The layer list and auto paint live in the
  * panel, which runs them as commands (`paintCommands`).
  */
-import type { CustomMapDocument, MapGroundLayer, MapTerrain } from '../../world/custom-map/map-document';
-import type { DocChange, EditCommand, EditorDocument } from '../model/editor-document';
+import { fitSplatMaps, type CustomMapDocument, type MapGroundLayer, type MapTerrain } from '../../world/custom-map/map-document';
+import { splatTargets, type DocChange, type EditCommand, type EditorDocument } from '../model/editor-document';
 import { texelRectAround } from '../model/grid';
 import { autoPaint, defaultAutoRules, moveLayer, paintDab, removeLayer, type AutoPaintRule } from '../ops/paint-ops';
 import { BrushStroke } from './brush-stroke';
@@ -29,7 +29,7 @@ export class PaintTool implements EditorTool {
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
     if (p.button !== 0 || !p.hit) return false;
     this.erase = ctx.settings.paint.erase !== p.shift;
-    this.stroke = new BrushStroke(ctx.editor, this.erase ? 'Erase paint' : 'Paint', ['splat0', 'splat1'], ctx.settings.symmetry);
+    this.stroke = new BrushStroke(ctx.editor, this.erase ? 'Erase paint' : 'Paint', splatTargets(ctx.editor.doc), ctx.settings.symmetry);
     return true;
   }
 
@@ -45,8 +45,7 @@ export class PaintTool implements EditorTool {
     const brush = ctx.settings.brush;
     const layer = Math.min(ctx.settings.paint.layer, t.layers.length - 1);
     const rect = texelRectAround(t, p.hit.x, p.hit.y, brush.radius);
-    stroke.touch('splat0', rect);
-    stroke.touch('splat1', rect);
+    stroke.touchSplat(rect);
     paintDab(t, p.hit.x, p.hit.y, brush, layer, PAINT_RATE * Math.min(dt, 0.1), this.erase);
     stroke.changed({ splat: rect }, p.hit);
   }
@@ -69,7 +68,8 @@ export class PaintTool implements EditorTool {
 /** What a layer edit changes: the list, the splat weights and the cliff material */
 interface GroundState {
   layers: MapGroundLayer[];
-  maps: [Uint8Array, Uint8Array];
+  /** Two splat maps, three on a map with more than 8 layers */
+  maps: Uint8Array[];
   cliffMaterial: string;
   cliffAngle: number;
 }
@@ -77,7 +77,7 @@ interface GroundState {
 function groundState(t: MapTerrain): GroundState {
   return {
     layers: t.layers.map((l) => ({ ...l })),
-    maps: [t.splat.maps[0].slice(), t.splat.maps[1].slice()],
+    maps: t.splat.maps.map((m) => m.slice()),
     cliffMaterial: t.cliffMaterial,
     cliffAngle: t.cliffAngle,
   };
@@ -95,7 +95,7 @@ class GroundCommand implements EditCommand {
     private readonly before: GroundState,
     private readonly after: GroundState,
   ) {
-    this.bytes = (before.maps[0].byteLength + before.maps[1].byteLength) * 2;
+    this.bytes = [...before.maps, ...after.maps].reduce((n, m) => n + m.byteLength, 0);
   }
 
   static record(editor: EditorDocument, label: string, edit: (t: MapTerrain) => void): GroundCommand {
@@ -119,8 +119,9 @@ class GroundCommand implements EditCommand {
 
 function write(t: MapTerrain, state: GroundState): DocChange {
   t.layers = state.layers.map((l) => ({ ...l }));
-  t.splat.maps[0].set(state.maps[0]);
-  t.splat.maps[1].set(state.maps[1]);
+  // Into the maps in place (the renderer keeps their textures); the third comes and goes with the layers past 8
+  fitSplatMaps(t);
+  state.maps.forEach((m, k) => t.splat.maps[k].set(m));
   t.cliffMaterial = state.cliffMaterial;
   t.cliffAngle = state.cliffAngle;
   const r = t.splat.resolution - 1;
@@ -130,7 +131,10 @@ function write(t: MapTerrain, state: GroundState): DocChange {
 /** Layer list, auto paint and cliff as undoable steps; the terrain stays the same object */
 export const paintCommands = {
   addLayer(editor: EditorDocument, material: string): EditCommand {
-    return GroundCommand.record(editor, 'Add layer', (t) => t.layers.push({ material }));
+    return GroundCommand.record(editor, 'Add layer', (t) => {
+      t.layers.push({ material });
+      fitSplatMaps(t);
+    });
   },
   setMaterial(editor: EditorDocument, index: number, material: string): EditCommand {
     return GroundCommand.record(editor, 'Change material', (t) => (t.layers[index] = { ...t.layers[index], material }));

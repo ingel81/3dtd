@@ -14,9 +14,8 @@
  * follows the tileset's biome (temperate, winter, desert, autumn).
  */
 
-import type { MapGroundLayer, MapObject, MapPaths, MapSplat } from '../../custom-map/map-document';
+import { MAX_GROUND_LAYERS, splatMapCount, type MapGroundLayer, type MapObject, type MapPaths, type MapSplat } from '../../custom-map/map-document';
 import { splatResolutionFor, valueNoise } from '../../custom-map/map-create';
-import { MAX_GROUND_LAYERS } from '../../custom-map/map-file';
 import { type PathingMap, WPM, WPM_CELL } from '../formats/wpm';
 import type { W3eTerrain } from '../formats/w3e';
 import { hashIndex } from './doodad-assets';
@@ -178,7 +177,7 @@ export function enhanceGround(input: EnhanceInput): { layers: MapGroundLayer[]; 
     material: resolveMaterial({ id: palette[slot], category: slotCategory(slot) }, input.catalog),
   }));
   const res = splatResolutionFor(input.samples);
-  const maps: [Uint8Array, Uint8Array] = [new Uint8Array(res * res * 4), new Uint8Array(res * res * 4)];
+  const maps = Array.from({ length: splatMapCount(layers.length) }, () => new Uint8Array(res * res * 4));
   const segments = roadSegments(input.paths);
   const { frame, terrain: t, pathing } = input;
   const w = new Float32Array(SLOTS.length);

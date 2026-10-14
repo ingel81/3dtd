@@ -26,7 +26,7 @@ export function resizeMap(doc: CustomMapDocument, width: number, depth: number):
     width: (columns - 1) * cell,
     depth: (rows - 1) * cell,
     grid: { columns, rows, cellSize: cell, heights: new Float32Array(columns * rows) },
-    splat: { resolution: 0, maps: [new Uint8Array(0), new Uint8Array(0)] },
+    splat: { resolution: 0, maps: [] },
     water: old.water ? { ...old.water, mask: new Uint8Array(columns * rows) } : null,
     ...(old.waterBodies ? { waterBodies: old.waterBodies.map((w) => ({ ...w, mask: new Uint8Array(columns * rows) })) } : {}),
   };
@@ -47,7 +47,7 @@ export function resizeMap(doc: CustomMapDocument, width: number, depth: number):
   }
   // Splat: keep the texel size, resample by nearest texel
   const res = splatResolutionFor(Math.max(columns, rows));
-  const maps: [Uint8Array, Uint8Array] = [new Uint8Array(res * res * 4), new Uint8Array(res * res * 4)];
+  const maps = old.splat.maps.map(() => new Uint8Array(res * res * 4));
   const ores = old.splat.resolution;
   for (let v = 0; v < res; v++) {
     const y = -terrain.depth / 2 + ((v + 0.5) / res) * terrain.depth;
@@ -55,7 +55,7 @@ export function resizeMap(doc: CustomMapDocument, width: number, depth: number):
     for (let u = 0; u < res; u++) {
       const x = -terrain.width / 2 + ((u + 0.5) / res) * terrain.width;
       const ou = clamp(Math.floor(((x + old.width / 2) / old.width) * ores), 0, ores - 1);
-      for (let m = 0; m < 2; m++) maps[m].set(old.splat.maps[m].subarray((ov * ores + ou) * 4, (ov * ores + ou) * 4 + 4), (v * res + u) * 4);
+      for (let m = 0; m < maps.length; m++) maps[m].set(old.splat.maps[m].subarray((ov * ores + ou) * 4, (ov * ores + ou) * 4 + 4), (v * res + u) * 4);
     }
   }
   terrain.splat = { resolution: res, maps };

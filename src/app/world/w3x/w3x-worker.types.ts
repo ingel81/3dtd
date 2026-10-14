@@ -12,7 +12,7 @@ export type W3xWorkerResponse = { id: number; ok: true; result: W3xImportResult 
 /** The document's array buffers, handed over instead of copied */
 export function documentTransferables(doc: CustomMapDocument): ArrayBuffer[] {
   const t = doc.terrain;
-  const arrays: ArrayBufferView[] = [t.grid.heights, t.splat.maps[0], t.splat.maps[1]];
+  const arrays: ArrayBufferView[] = [t.grid.heights, ...t.splat.maps];
   if (t.water) arrays.push(t.water.mask);
   for (const body of t.waterBodies ?? []) arrays.push(body.mask);
   const buffers = new Set<ArrayBuffer>();

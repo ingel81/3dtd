@@ -9,7 +9,7 @@
  * edges at a node into one.
  */
 import type { MapPaths, MapPoint } from '../../world/custom-map/map-document';
-import { SnapshotCommand, pathSelection, selectedEdges, selectedNodes, type EditCommand, type EditorDocument, type Selection } from '../model/editor-document';
+import { SnapshotCommand, pathSelection, splatTargets, selectedEdges, selectedNodes, type EditCommand, type EditorDocument, type Selection } from '../model/editor-document';
 import { insideMap } from '../model/grid';
 import {
   addNode,
@@ -419,10 +419,9 @@ export function flattenRoads(editor: EditorDocument, edgeIds: string[] | null): 
 
 /** Paint a ground layer under the given edges as one undo step */
 export function paintRoads(editor: EditorDocument, layer: number, edgeIds: string[] | null): boolean {
-  const stroke = new BrushStroke(editor, 'Paint roads', ['splat0', 'splat1']);
+  const stroke = new BrushStroke(editor, 'Paint roads', splatTargets(editor.doc));
   const rect = paintUnderPaths(editor.doc.terrain, editor.doc.paths, layer, edgeIds, 2, (r) => {
-    stroke.touch('splat0', r);
-    stroke.touch('splat1', r);
+    stroke.touchSplat(r);
   });
   if (rect) stroke.changed({ splat: rect });
   return stroke.finish() !== null;

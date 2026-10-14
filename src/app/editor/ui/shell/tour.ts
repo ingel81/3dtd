@@ -66,7 +66,7 @@ export const TOOL_TOUR: Partial<Record<ToolId, Omit<TourStep, 'id' | 'tool' | 't
   paint: {
     title: 'Paint the ground',
     message:
-      'Up to eight ground layers. Choose one in the list and hold the button to paint it; + Add a ground brings another. Auto paint the map puts rock on slopes, sand on shores and snow on peaks.',
+      'Up to twelve ground layers. Choose one in the list and hold the button to paint it; + Add a ground brings another. Auto paint the map puts rock on slopes, sand on shores and snow on peaks.',
     hints: [
       { key: 'LMB', description: 'Paint' },
       { key: 'Shift', description: 'Erase' },

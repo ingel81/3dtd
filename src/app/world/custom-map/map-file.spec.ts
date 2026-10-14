@@ -1,6 +1,6 @@
 import { unzipSync, zipSync, strToU8 } from 'fflate';
 import { createMapDocument } from './map-create';
-import type { CustomMapDocument } from './map-document';
+import { MAP_VERSION, fitSplatMaps, type CustomMapDocument } from './map-document';
 import {
   MAX_ENTRY_BYTES,
   MAX_GRID_SIDE,
@@ -153,7 +153,7 @@ describe('map file', () => {
   it('reads version 1 maps and keeps gameplay rules through a round trip', () => {
     const doc = sample();
     const v1 = JSON.parse(JSON.stringify({ format: '3dtd-map', version: 1 }));
-    expect(migrateMapJson(v1)['version']).toBe(2);
+    expect(migrateMapJson(v1)['version']).toBe(MAP_VERSION);
     doc.gameplay = {
       startCredits: 250,
       hqHealth: 300,
@@ -165,6 +165,40 @@ describe('map file', () => {
     doc.gameplay = { hqHealth: 0, waves: { kind: 'table', table: { cycle: { fromWave: 1, hpGrowth: 0 }, waves: [] } } };
     const problems = validateMapDocument(doc);
     expect(problems).toEqual(expect.arrayContaining(['gameplay.hqHealth must be above 0', 'the wave list is empty', 'the wave list has no valid repeat rule']));
+  });
+
+  it('carries 12 ground layers in three splat maps and refuses a thirteenth (TODO E175)', () => {
+    const doc = sample();
+    const twelve = ['grass', 'dirt', 'sand', 'rock', 'snow', 'mud', 'gravel', 'forest-floor', 'hell-ground', 'cinders', 'brimstone', 'lava-crust'];
+    doc.terrain.layers = twelve.map((material) => ({ material }));
+    fitSplatMaps(doc.terrain);
+    expect(doc.terrain.splat.maps).toHaveLength(3);
+    doc.terrain.splat.maps[2][7] = 123;
+    const file = packMapFile(doc);
+    expect(Object.keys(unzipSync(file))).toContain('terrain/splat2.u8');
+    const { doc: back } = unpackMapFile(file);
+    expect(back.terrain.layers.map((l) => l.material)).toEqual(twelve);
+    expect(back.terrain.splat.maps.map((m) => Array.from(m))).toEqual(doc.terrain.splat.maps.map((m) => Array.from(m)));
+    doc.terrain.layers.push({ material: 'basalt' });
+    expect(validateMapDocument(doc)).toContain('terrain needs 1 to 12 ground layers');
+    // Nine layers need the third map, eight have none
+    doc.terrain.layers.length = 9;
+    doc.terrain.splat.maps.length = 2;
+    expect(validateMapDocument(doc)).toContain(`splat needs three maps of ${doc.terrain.splat.resolution} x ${doc.terrain.splat.resolution} RGBA`);
+  });
+
+  it('reads a version 2 file unchanged: two splat maps, the same content hash', async () => {
+    const doc = sample();
+    const file = packMapFile(doc);
+    const entries = unzipSync(file);
+    expect(Object.keys(entries)).not.toContain('terrain/splat2.u8');
+    const json = JSON.parse(new TextDecoder().decode(entries['map.json']));
+    const v2 = zipSync({ ...entries, 'map.json': strToU8(JSON.stringify({ ...json, version: 2 })) });
+    const { doc: back } = unpackMapFile(v2);
+    expect(back.version).toBe(MAP_VERSION);
+    expect(back.terrain.splat.maps).toHaveLength(2);
+    expect(Array.from(back.terrain.splat.maps[0])).toEqual(Array.from(doc.terrain.splat.maps[0]));
+    expect(await contentHash(back)).toBe(await contentHash(doc));
   });
 
   it('carries the lane rules and the optional flag of a spawn, and checks them (TODO E130)', () => {

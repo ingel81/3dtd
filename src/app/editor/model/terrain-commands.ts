@@ -3,10 +3,13 @@
  * the ground layer list, the water record, the rivers. The terrain object itself stays,
  * so the renderer keeps its ground.
  */
-import type { CustomMapDocument, MapGroundLayer, MapRiver, MapWater } from '../../world/custom-map/map-document';
+import { fitSplatMaps, type CustomMapDocument, type MapGroundLayer, type MapRiver, type MapWater } from '../../world/custom-map/map-document';
 import type { DocChange, EditCommand } from './editor-document';
 
-/** The list of ground layers before and after (the splat weights are not part of it) */
+/**
+ * The list of ground layers before and after (the splat weights are not part
+ * of it; the third splat map comes and goes with the layers past 8)
+ */
 export class LayerListCommand implements EditCommand {
   readonly bytes = 256;
 
@@ -18,11 +21,13 @@ export class LayerListCommand implements EditCommand {
 
   apply(doc: CustomMapDocument): DocChange {
     doc.terrain.layers = this.after.map((l) => ({ ...l }));
+    fitSplatMaps(doc.terrain);
     return { layers: true };
   }
 
   revert(doc: CustomMapDocument): DocChange {
     doc.terrain.layers = this.before.map((l) => ({ ...l }));
+    fitSplatMaps(doc.terrain);
     return { layers: true };
   }
 }

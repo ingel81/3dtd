@@ -7,7 +7,7 @@
  */
 
 const TILE = 64;
-/** Tiles kept, about 8 MB at 12 channels */
+/** Tiles kept, about 12 MB at 16 channels (the biome mix: 12 layers and four more) */
 const MAX_TILES = 192;
 
 interface Tile {

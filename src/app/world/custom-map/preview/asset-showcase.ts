@@ -1,6 +1,6 @@
 import type { AssetCatalog, CatalogObject } from '../render/asset-catalog';
 import { createMapDocument } from '../map-create';
-import type { CustomMapDocument, MapObject } from '../map-document';
+import { MAX_GROUND_LAYERS, fitSplatMaps, type CustomMapDocument, type MapObject } from '../map-document';
 
 export interface ShowcaseOptions {
   /** Ground materials as bands from west to east (at most 8, the splat limit) */
@@ -35,11 +35,13 @@ export function createAssetShowcase(catalog: AssetCatalog, options: ShowcaseOpti
   });
   const { splat } = doc.terrain;
   if (materials.length > 1) {
-    doc.terrain.layers = materials.map((material) => ({ material }));
+    doc.terrain.layers = materials.slice(0, MAX_GROUND_LAYERS).map((material) => ({ material }));
+    fitSplatMaps(doc.terrain);
+    const bands = doc.terrain.layers.length;
     const res = splat.resolution;
     for (let j = 0; j < res; j++) {
       for (let i = 0; i < res; i++) {
-        const band = Math.min(materials.length - 1, Math.floor((i / res) * materials.length));
+        const band = Math.min(bands - 1, Math.floor((i / res) * bands));
         const t = j * res + i;
         splat.maps[0][t * 4] = 0;
         splat.maps[band >> 2][t * 4 + (band & 3)] = 255;

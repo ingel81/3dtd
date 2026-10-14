@@ -13,8 +13,11 @@
 import type { MapLanes } from './lane-choice';
 
 export const MAP_FORMAT = '3dtd-map';
-/** 2: optional `gameplay` rules (version 1 files have none and read unchanged) */
-export const MAP_VERSION = 2;
+/**
+ * 2: optional `gameplay` rules (version 1 files have none and read unchanged).
+ * 3: a third splat map for ground layers 9 to 12 (older files have at most 8 layers and read unchanged)
+ */
+export const MAP_VERSION = 3;
 
 /** Metres per degree in the synthetic frame, the factor `geoToLocalSimple` uses at latitude 0 */
 export const MAP_METERS_PER_DEGREE = 111320;
@@ -69,14 +72,36 @@ export interface MapGroundLayer {
   scale?: number;
 }
 
+/** Most ground layers a map can paint (three RGBA splat maps) */
+export const MAX_GROUND_LAYERS = 12;
+
 /**
- * Splat weights for up to 8 layers: two RGBA maps of `resolution` x
- * `resolution` texels, layer k in map k >> 2, channel k & 3. Weights of a
- * texel need not add up to 255; the renderer normalises them.
+ * Splat weights for up to 12 layers: RGBA maps of `resolution` x
+ * `resolution` texels, layer k in map k >> 2, channel k & 3. Two maps, a
+ * third only while the map has more than 8 layers (`splatMapCount`), so a
+ * map with fewer pays neither its memory nor its upload. Weights of a texel
+ * need not add up to 255; the renderer normalises them.
  */
 export interface MapSplat {
   resolution: number;
-  maps: [Uint8Array, Uint8Array];
+  maps: Uint8Array[];
+}
+
+/** Splat maps a map with `layers` ground layers holds */
+export function splatMapCount(layers: number): number {
+  return layers > 8 ? 3 : 2;
+}
+
+/**
+ * Adds the third splat map (empty) when the layer list grew past 8, drops it
+ * when it shrank to 8 or fewer (it then holds no layer's weight)
+ */
+export function fitSplatMaps(t: MapTerrain): void {
+  const maps = t.splat.maps;
+  const want = splatMapCount(t.layers.length);
+  const texels = t.splat.resolution * t.splat.resolution * 4;
+  while (maps.length < want) maps.push(new Uint8Array(texels));
+  if (maps.length > want) maps.length = want;
 }
 
 /**

@@ -138,37 +138,46 @@ function compressedArray(layers: CompressedTexture[], anisotropy: number): Compr
   return t;
 }
 
-/** The two splat maps as linear textures over the whole map; `refresh` re-uploads after edits */
+/**
+ * The splat maps as linear textures over the whole map, two or three as the
+ * map has them (the third only past 8 layers); `refresh` re-uploads after edits
+ */
 export class SplatTextures {
-  readonly maps: [DataTexture, DataTexture];
+  readonly maps: DataTexture[];
+  private resolution: number;
 
-  constructor(private splat: MapSplat) {
-    this.maps = [this.make(splat.maps[0]), this.make(splat.maps[1])];
+  constructor(splat: MapSplat) {
+    this.resolution = splat.resolution;
+    this.maps = splat.maps.map((m) => this.make(m));
   }
 
   /** Re-upload after the editor painted (same resolution) or replaced the splat */
   refresh(splat: MapSplat, rect?: TexelRect): void {
-    if (splat.resolution !== this.splat.resolution) {
+    if (splat.resolution !== this.resolution) {
       this.dispose();
-      (this.maps as DataTexture[])[0] = this.make(splat.maps[0]);
-      (this.maps as DataTexture[])[1] = this.make(splat.maps[1]);
-    } else {
-      const same = this.maps[0].image.data === splat.maps[0] && this.maps[1].image.data === splat.maps[1];
-      this.maps[0].image.data = splat.maps[0];
-      this.maps[1].image.data = splat.maps[1];
-      uploadRect(this.maps[0], same ? rect : undefined);
-      uploadRect(this.maps[1], same ? rect : undefined);
+      this.resolution = splat.resolution;
+      this.maps.length = 0;
+      for (const m of splat.maps) this.maps.push(this.make(m));
+      return;
     }
-    this.splat = splat;
+    // The third map came or went with the layers past 8 (a new one goes up whole when first drawn)
+    while (this.maps.length > splat.maps.length) this.maps.pop()!.dispose();
+    const kept = this.maps.length;
+    for (let k = kept; k < splat.maps.length; k++) this.maps.push(this.make(splat.maps[k]));
+    for (let k = 0; k < kept; k++) {
+      const texture = this.maps[k];
+      const same = texture.image.data === splat.maps[k];
+      texture.image.data = splat.maps[k];
+      uploadRect(texture, same ? rect : undefined);
+    }
   }
 
   dispose(): void {
-    this.maps[0].dispose();
-    this.maps[1].dispose();
+    for (const texture of this.maps) texture.dispose();
   }
 
   private make(pixels: Uint8Array): DataTexture {
-    const r = this.splat.resolution;
+    const r = this.resolution;
     const t = new DataTexture(pixels, r, r, RGBAFormat, UnsignedByteType);
     t.colorSpace = NoColorSpace;
     t.wrapS = t.wrapT = ClampToEdgeWrapping;

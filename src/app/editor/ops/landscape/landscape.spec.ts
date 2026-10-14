@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createMapDocument } from '../../../world/custom-map/map-create';
-import type { CustomMapDocument } from '../../../world/custom-map/map-document';
+import { fitSplatMaps, type CustomMapDocument } from '../../../world/custom-map/map-document';
 import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
 import { EditorDocument, mergeChanges, type DocChange } from '../../model/editor-document';
 import { heightAt } from '../../model/grid';
@@ -28,12 +28,12 @@ function map(): EditorDocument {
 
 const brush = { radius: 40, strength: 1, falloff: 0.5 };
 
-/** A biome stroke along y = 80 from x = -100 to 100, a dab every 5 m */
-function paint(ed: EditorDocument, biome: string, seed: number, strength = 1, step = 5): LandscapeStroke {
+/** A biome stroke along y (default 80) from x = -100 to 100, a dab every 5 m */
+function paint(ed: EditorDocument, biome: string, seed: number, strength = 1, step = 5, y = 80): LandscapeStroke {
   const stroke = new LandscapeStroke(ed, 'Biome', seed, catalog);
   const def = biomeById(biome as never);
   const b = { ...brush, strength };
-  for (let x = -100; x <= 100; x += step) for (let k = 0; k < 4; k++) biomeDab(stroke, { x, y: 80 }, b, def, 0.1);
+  for (let x = -100; x <= 100; x += step) for (let k = 0; k < 4; k++) biomeDab(stroke, { x, y }, b, def, 0.1);
   finishBiome(stroke, b, def);
   stroke.finish();
   return stroke;
@@ -42,7 +42,7 @@ function paint(ed: EditorDocument, biome: string, seed: number, strength = 1, st
 function snapshot(doc: CustomMapDocument) {
   return {
     heights: Array.from(doc.terrain.grid.heights),
-    splat: [Array.from(doc.terrain.splat.maps[0]), Array.from(doc.terrain.splat.maps[1])],
+    splat: doc.terrain.splat.maps.map((m) => Array.from(m)),
     layers: doc.terrain.layers.map((l) => l.material),
     objects: doc.objects.map((o) => ({ ...o })),
     water: doc.terrain.water ? Array.from(doc.terrain.water.mask) : null,
@@ -138,6 +138,49 @@ describe('biome brush', () => {
     expect(ed.doc.terrain.waterBodies).toBeUndefined();
     ed.redo();
     expect(ed.doc.terrain.waterBodies![0].mask.some((v) => v > 0)).toBe(true);
+  });
+
+  it('paints all of hell next to forest and snow, in a third splat map that one undo takes back (TODO E175)', () => {
+    const ed = map();
+    paint(ed, 'forest', 1, 1, 5, 120);
+    paint(ed, 'snow', 2, 1, 5, 20);
+    const t = ed.doc.terrain;
+    const before = snapshot(ed.doc);
+    expect(t.splat.maps).toHaveLength(2);
+    const hell = paint(ed, 'hell', 3, 1, 5, -110);
+    // Hell's own ground came in next to the others: none left out
+    expect(hell.layersFull).toEqual([]);
+    expect(t.layers.length).toBeGreaterThan(8);
+    expect(t.splat.maps).toHaveLength(3);
+    const res = t.splat.resolution;
+    const w = new Float32Array(12);
+    const most = new Float32Array(12);
+    for (let k = 0; k < res * res; k++) {
+      readWeights(t, k, w);
+      for (let l = 0; l < 12; l++) most[l] = Math.max(most[l], w[l]);
+    }
+    for (let l = before.layers.length; l < t.layers.length; l++) expect(most[l], t.layers[l].material).toBeGreaterThan(100);
+    ed.undo();
+    expect(snapshot(ed.doc)).toEqual(before);
+    expect(t.splat.maps).toHaveLength(2);
+    ed.redo();
+    expect(t.splat.maps).toHaveLength(3);
+    expect(t.splat.maps[2].some((v) => v > 100)).toBe(true);
+  });
+
+  it('leaves out a thirteenth ground layer and says which', () => {
+    const ed = map();
+    const t = ed.doc.terrain;
+    const materials = catalog.materials;
+    for (const id of materials.keys()) {
+      if (t.layers.length >= 12) break;
+      if (!t.layers.some((l) => l.material === id) && id !== 'hell-ground') t.layers.push({ material: id });
+    }
+    fitSplatMaps(t);
+    const stroke = new LandscapeStroke(ed, 'Biome', 1, catalog);
+    expect(stroke.layerOf(['hell-ground'])).toBeNull();
+    expect(stroke.layersFull).toEqual(['hell-ground']);
+    expect(t.layers).toHaveLength(12);
   });
 
   it('tells the view which pool body changed, so only it redraws', () => {

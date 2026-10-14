@@ -10,7 +10,7 @@ import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
 
 /**
- * Ground layers (up to eight materials, painted in list order), the layer
+ * Ground layers (up to twelve materials, painted in list order), the layer
  * to paint with, auto paint and the cliff material.
  */
 @Component({

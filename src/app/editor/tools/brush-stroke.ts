@@ -33,16 +33,18 @@ export class BrushStroke {
     this.recorders.get(target)?.touch(rect);
   }
 
+  /** Save what `rect` covers in every splat map the stroke records */
+  touchSplat(rect: GridRect): void {
+    for (const [target, recorder] of this.recorders) if (target.startsWith('splat')) recorder.touch(rect);
+  }
+
   /** Tell the view about a dab; with the pointer's position the dab is copied to its symmetric images */
   changed(dab: DocChange, center?: MapPoint, waterRect?: GridRect): void {
     const change =
       center && this.symmetry !== 'none'
         ? mirrorChange(this.doc, this.symmetry, center, dab, {
             heights: (r) => this.touch('heights', r),
-            splat: (r) => {
-              this.touch('splat0', r);
-              this.touch('splat1', r);
-            },
+            splat: (r) => this.touchSplat(r),
             water: this.recorders.has('water') ? (r) => this.touch('water', r) : undefined,
             bodies: [...this.recorders.keys()].filter((k) => k.startsWith('body')).map((k) => Number(k.slice(4))),
             body: (index, r) => this.touch(`body${index}`, r),

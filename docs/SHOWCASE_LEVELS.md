@@ -14,7 +14,7 @@ sie nach `public/maps/` mit Vorschaubild und Eintrag in `index.json`.
 ist ein Strich des Landscape-Werkzeugs (`LandscapeStroke`, ein Schritt im Verlauf), dazu die Pinsel von Terrain,
 Paint, Water, Objects, Paths und Spawns, der Gelände-Generator und das Prüfen des Editors. Die Seeds der Striche
 kommen aus dem Seed des Levels und einem Zähler, ein Skript ergibt also immer dieselbe Karte. Bewährte Reihenfolge:
-Bodenschichten festlegen (höchstens acht; Pinsel nehmen dann ihre Kandidaten aus dieser Liste), Gelände, Straßen,
+Bodenschichten festlegen (höchstens acht, `LEVEL_LAYERS` in `kit.ts`, auch seit Karten zwölf haben dürfen: so bleiben die Level, wie sie abgestimmt sind; Pinsel nehmen dann ihre Kandidaten aus dieser Liste), Gelände, Straßen,
 Flüsse (sie machen Kreuzungen zu Brücken), Spawns und HQ, Biome und Farbe, einzelne Objekte. `place` und `scatter`
 setzen Felsen wie der Editor auf ihre Platte; `finish` setzt am Ende jeden Felsen ab, unter dem der Boden später noch
 geformt wurde, so dass die Karte die Prüfung `object-floating` besteht (`shipped-maps-check.spec.ts`).
