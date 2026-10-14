@@ -329,7 +329,7 @@ function fuzz(seed: number, count: number): Run {
     line: () => {
       const o = ctx.settings.objects;
       o.mode = 'line';
-      o.asset = pick(['fence-wood', 'torch', 'tree-oak']);
+      o.asset = pick(['fence-wood', 'torch', 'tree-oak', 'castle-wall']);
       o.line = { spacing: 3 + Math.round(r() * 6), offset: Math.round((r() - 0.5) * 16), bothSides: r() < 0.5, turn: pick(['along', 'across', 'random'] as const), follow: r() < 0.5 ? 'free' : 'roads' };
       if (o.line.follow === 'roads') {
         const [x, y] = point();

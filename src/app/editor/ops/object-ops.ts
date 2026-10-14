@@ -288,9 +288,12 @@ export interface LineOptions {
   bothSides: boolean;
   /** Along the line (0), across it (90 degrees), or at random */
   turn: 'along' | 'across' | 'random';
+  /** For a wall kit's pieces (wallAlong): blocks or towers at the corners, battlements' side; absent in settings of before */
+  corners?: WallOptions['corners'];
+  front?: WallOptions['front'];
 }
 
-export const DEFAULT_LINE: LineOptions = { spacing: 4, offset: 0, bothSides: false, turn: 'along' };
+export const DEFAULT_LINE: LineOptions = { spacing: 4, offset: 0, bothSides: false, turn: 'along', corners: 'blocks', front: 'left' };
 
 /**
  * Objects of `asset` every `spacing` metres along a line, each in the middle
@@ -327,6 +330,175 @@ export function objectsAlong(line: readonly MapPoint[], asset: string, options: 
     }
   }
   return out;
+}
+
+/**
+ * A wall of fitting pieces (the castle kit): straight pieces of whole
+ * lengths, a block at every corner and at the ends. The blocks are wider
+ * than the walls and the walls may reach into them up to their middle, so
+ * the straight pieces never need cutting: a leg takes whole pieces of 8, 4
+ * and 2 m, and what is left over hides in the blocks.
+ */
+export interface WallKit {
+  name: string;
+  /** Straight pieces, longest first; lengths in metres, multiples of the shortest */
+  pieces: readonly { asset: string; length: number }[];
+  corner: string;
+  end: string;
+  /** A tower that may stand at the corners instead of the corner block */
+  tower: string;
+  /** How far along a leg a wall may reach into each kind of block (half its extent there), metres */
+  reach: { corner: number; end: number; tower: number };
+}
+
+export const WALL_KITS: readonly WallKit[] = [
+  {
+    name: 'Castle wall',
+    pieces: [
+      { asset: 'castle-wall', length: 8 },
+      { asset: 'castle-wall-half', length: 4 },
+      { asset: 'castle-wall-short', length: 2 },
+    ],
+    corner: 'castle-wall-corner',
+    end: 'castle-wall-end',
+    tower: 'castle-tower',
+    reach: { corner: 2.2, end: 1.6, tower: 3.6 },
+  },
+];
+
+/** The kit an asset belongs to (one of its straight pieces, its corner or its end), or null */
+export function wallKitOf(asset: string | null | undefined): WallKit | null {
+  if (!asset) return null;
+  return WALL_KITS.find((k) => k.pieces.some((p) => p.asset === asset) || k.corner === asset || k.end === asset) ?? null;
+}
+
+/** Where the kit's wall goes along a line: towers or blocks at the corners, battlements to the left (or right) of its direction */
+export interface WallOptions {
+  corners: 'blocks' | 'towers';
+  /** The battlements' side, seen along the line's direction */
+  front: 'left' | 'right';
+}
+
+/**
+ * The pieces of a kit's wall along a line: the line straightened into legs
+ * (a drawn line wobbles; points within 2 m of the straight leg go), a block
+ * or tower at each corner, an end block at each end (none where the line
+ * closes on itself), and on each leg whole straight pieces from block to
+ * block. Models face north at turn 0 and run east-west, so a piece along a
+ * leg turns a quarter more than the line's direction.
+ */
+export function wallAlong(line: readonly MapPoint[], kit: WallKit, options: WallOptions, ids: ObjectIds): MapObject[] {
+  let legs = simplifyLine(line, 2);
+  if (legs.length < 2) return [];
+  const near = (a: MapPoint, b: MapPoint) => Math.hypot(a.x - b.x, a.y - b.y) < 6;
+  const closed = legs.length > 3 && near(legs[0], legs[legs.length - 1]);
+  if (closed) {
+    // The ring: its last points near the start go, the start closes it; a start in the middle of a side is no corner
+    while (legs.length > 3 && near(legs[0], legs[legs.length - 1])) legs.pop();
+    legs = straightOnly(legs, true);
+    legs.push({ ...legs[0] });
+  } else legs = straightOnly(legs, false);
+  if (legs.length < 2) return [];
+  const out: MapObject[] = [];
+  const flip = options.front === 'right' ? Math.PI : 0;
+  const turnOf = (a: MapPoint, b: MapPoint) => wrapTurn(Math.atan2(-(b.x - a.x), b.y - a.y) + Math.PI / 2 + flip);
+  const corner = options.corners === 'towers' ? kit.tower : kit.corner;
+  const cornerReach = options.corners === 'towers' ? kit.reach.tower : kit.reach.corner;
+  const add = (asset: string, p: MapPoint, rotation: number) =>
+    out.push({ id: ids.take(), asset, x: round(p.x), y: round(p.y), z: 0, rotation: round(rotation, 1000), scale: 1 });
+  // Blocks at the vertices
+  const last = legs.length - 1;
+  for (let k = 0; k < (closed ? last : last + 1); k++) {
+    // Turned like the leg that leaves it (the last end like the leg that comes in)
+    const rotation = k < last ? turnOf(legs[k], legs[k + 1]) : turnOf(legs[k - 1], legs[k]);
+    add(!closed && (k === 0 || k === last) ? kit.end : corner, legs[k], rotation);
+  }
+  // Straight pieces on each leg
+  const unit = kit.pieces[kit.pieces.length - 1].length;
+  for (let k = 0; k < last; k++) {
+    const a = legs[k];
+    const b = legs[k + 1];
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const reachA = !closed && k === 0 ? kit.reach.end : cornerReach;
+    const reachB = !closed && k + 1 === last ? kit.reach.end : cornerReach;
+    const lo = Math.ceil((length - reachA - reachB) / unit - 1e-9) * unit;
+    const hi = Math.floor(length / unit + 1e-9) * unit;
+    if (hi <= 0 || lo > hi) continue;
+    const total = Math.min(hi, Math.max(lo, Math.round((length - (reachA + reachB) / 2) / unit) * unit));
+    if (total <= 0) continue;
+    // Where the run starts: both ends inside their blocks, the overhang shared by the blocks' reaches
+    const start = Math.min(Math.min(reachA, length - total), Math.max(Math.max(0, length - total - reachB), ((length - total) * reachA) / (reachA + reachB)));
+    const ux = (b.x - a.x) / length;
+    const uy = (b.y - a.y) / length;
+    const rotation = turnOf(a, b);
+    let at = start;
+    let rest = total;
+    for (const piece of kit.pieces) {
+      while (rest >= piece.length - 1e-9) {
+        const mid = at + piece.length / 2;
+        add(piece.asset, { x: a.x + ux * mid, y: a.y + uy * mid }, rotation);
+        at += piece.length;
+        rest -= piece.length;
+      }
+    }
+  }
+  return out;
+}
+
+/** The line without the points it hardly bends at (under 12 degrees): no corner block where a wall runs on straight */
+function straightOnly(points: MapPoint[], ring: boolean): MapPoint[] {
+  const out = [...points];
+  let changed = true;
+  while (changed && out.length > (ring ? 3 : 2)) {
+    changed = false;
+    for (let k = ring ? 0 : 1; k < (ring ? out.length : out.length - 1); k++) {
+      const a = out[(k - 1 + out.length) % out.length];
+      const p = out[k];
+      const b = out[(k + 1) % out.length];
+      const turn = Math.abs(Math.atan2((p.x - a.x) * (b.y - p.y) - (p.y - a.y) * (b.x - p.x), (p.x - a.x) * (b.x - p.x) + (p.y - a.y) * (b.y - p.y)));
+      if (turn < (12 * Math.PI) / 180) {
+        out.splice(k, 1);
+        changed = true;
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+function wrapTurn(r: number): number {
+  return ((r % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+}
+
+/** The line with the points left out that lie within `tolerance` metres of the straight between their neighbours (Douglas-Peucker) */
+export function simplifyLine(line: readonly MapPoint[], tolerance: number): MapPoint[] {
+  if (line.length < 3) return line.map((p) => ({ ...p }));
+  const keep = new Uint8Array(line.length);
+  keep[0] = keep[line.length - 1] = 1;
+  const stack: [number, number][] = [[0, line.length - 1]];
+  while (stack.length) {
+    const [i, j] = stack.pop()!;
+    const a = line[i];
+    const b = line[j];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    let worst = -1;
+    let at = -1;
+    for (let k = i + 1; k < j; k++) {
+      const p = line[k];
+      const d = len < 1e-9 ? Math.hypot(p.x - a.x, p.y - a.y) : Math.abs(dx * (a.y - p.y) - dy * (a.x - p.x)) / len;
+      if (d > worst) {
+        worst = d;
+        at = k;
+      }
+    }
+    if (at >= 0 && worst > tolerance) {
+      keep[at] = 1;
+      stack.push([i, at], [at, j]);
+    }
+  }
+  return line.filter((_, k) => keep[k]).map((p) => ({ ...p }));
 }
 
 function polylineLengthOf(line: readonly MapPoint[]): number {

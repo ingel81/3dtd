@@ -118,17 +118,29 @@
       <button type="button" role="radio" [attr.aria-checked]="s().line.follow === 'free'" (click)="setLine({ follow: 'free' })">Draw freely</button>
       <button type="button" role="radio" [attr.aria-checked]="s().line.follow === 'roads'" (click)="setLine({ follow: 'roads' })" data-test="line-roads">Along a road or river</button>
     </div>
-    <app-editor-range label="Spacing" unit="m" [min]="0.5" [max]="40" [step]="0.5" [value]="s().line.spacing" (changing)="setLine({ spacing: $event })" />
-    <app-editor-range label="Offset" unit="m" [min]="-40" [max]="40" [step]="0.5" [value]="s().line.offset" (changing)="setLine({ offset: $event })" />
-    <div class="td-setting">
-      <span matTooltip="A second row as far to the other side">Both sides</span>
-      <input class="td-switch" type="checkbox" [checked]="s().line.bothSides" (change)="setLine({ bothSides: $any($event.target).checked })" aria-label="Both sides" />
-    </div>
-    <div class="td-seg is-sm" role="radiogroup" aria-label="Turn">
-      <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'along'" (click)="setLine({ turn: 'along' })">Along</button>
-      <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'across'" (click)="setLine({ turn: 'across' })">Across</button>
-      <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'random'" (click)="setLine({ turn: 'random' })">Random</button>
-    </div>
+    @if (kit(); as k) {
+      <div class="td-seg is-sm" role="radiogroup" aria-label="Corners" data-test="wall-corners">
+        <button type="button" role="radio" [attr.aria-checked]="(s().line.corners ?? 'blocks') === 'blocks'" (click)="setLine({ corners: 'blocks' })">Corner blocks</button>
+        <button type="button" role="radio" [attr.aria-checked]="s().line.corners === 'towers'" (click)="setLine({ corners: 'towers' })">Towers</button>
+      </div>
+      <div class="td-seg is-sm" role="radiogroup" aria-label="Battlements">
+        <button type="button" role="radio" [attr.aria-checked]="(s().line.front ?? 'left') === 'left'" (click)="setLine({ front: 'left' })">Battlements left</button>
+        <button type="button" role="radio" [attr.aria-checked]="s().line.front === 'right'" (click)="setLine({ front: 'right' })">Battlements right</button>
+      </div>
+      <p class="td-note">{{ k.name }}: whole pieces of 8, 4 and 2 m between the corners, an end block at each open end. Close the line on its start for a ring. Left and right as seen along the drawing direction. Set a gatehouse into the wall by hand.</p>
+    } @else {
+      <app-editor-range label="Spacing" unit="m" [min]="0.5" [max]="40" [step]="0.5" [value]="s().line.spacing" (changing)="setLine({ spacing: $event })" />
+      <app-editor-range label="Offset" unit="m" [min]="-40" [max]="40" [step]="0.5" [value]="s().line.offset" (changing)="setLine({ offset: $event })" />
+      <div class="td-setting">
+        <span matTooltip="A second row as far to the other side">Both sides</span>
+        <input class="td-switch" type="checkbox" [checked]="s().line.bothSides" (change)="setLine({ bothSides: $any($event.target).checked })" aria-label="Both sides" />
+      </div>
+      <div class="td-seg is-sm" role="radiogroup" aria-label="Turn">
+        <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'along'" (click)="setLine({ turn: 'along' })">Along</button>
+        <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'across'" (click)="setLine({ turn: 'across' })">Across</button>
+        <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'random'" (click)="setLine({ turn: 'random' })">Random</button>
+      </div>
+    }
     <div class="td-setting">
       <span matTooltip="Each object tilts with the ground under it">Align to slope</span>
       <input class="td-switch" type="checkbox" [checked]="s().alignToSlope" (change)="setAlign($any($event.target).checked)" aria-label="Align to slope" />

@@ -21,6 +21,8 @@ import {
   scatterDab,
   alignedToSlope,
   objectsAlong,
+  wallAlong,
+  wallKitOf,
   freeGroup,
   snapTo,
   withGroups,
@@ -356,10 +358,13 @@ export class ObjectTool implements EditorTool {
         return 'Hold to scatter, Shift thins out | [ ] size';
       case 'erase':
         return 'Hold to remove objects under the brush';
-      case 'line':
+      case 'line': {
+        const kit = wallKitOf(s.asset);
+        if (kit) return s.line.follow === 'roads' ? `Click a road or river: a ${kit.name.toLowerCase()} along it` : `Drag a line: a ${kit.name.toLowerCase()} along it, end on its start for a ring`;
         return s.line.follow === 'roads'
           ? 'Click a road or river: objects along it, every few metres'
           : 'Drag a line: objects along it, every few metres';
+      }
       case 'select':
         return 'Click, drag a box or Alt drag a lasso | arrows move along an axis, blue lifts (W E R, L local) | Del delete | Ctrl+D duplicate | End to the ground';
     }
@@ -395,12 +400,21 @@ export class ObjectTool implements EditorTool {
     const doc = ctx.editor.doc;
     const t = doc.terrain;
     const ids = new ObjectIds(doc.objects);
-    const own = objectsAlong(line, s.asset!, s.line, ids, Math.random).filter((o) => insideMap(t, o));
-    if (!own.length) return;
+    // A wall kit's piece: the kit's wall fitted along the line, else the asset every few metres
+    const kit = wallKitOf(s.asset);
+    const own = (
+      kit
+        ? wallAlong(line, kit, { corners: s.line.corners ?? 'blocks', front: s.line.front ?? 'left' }, ids)
+        : objectsAlong(line, s.asset!, s.line, ids, Math.random)
+    ).filter((o) => insideMap(t, o));
+    if (!own.length) {
+      if (kit) ctx.status('The line is too short for a wall');
+      return;
+    }
     const images = objectImages(own, symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
     const reach = ctx.catalog.object(s.asset!).radius;
     const placed = s.alignToSlope ? [...own, ...images].map((o) => alignedToSlope(t, o, reach)) : [...own, ...images];
-    ctx.editor.execute(ObjectsCommand.add(`${ctx.catalog.object(s.asset!).name} along a line`, doc, placed));
+    ctx.editor.execute(ObjectsCommand.add(kit ? `${kit.name} along a line` : `${ctx.catalog.object(s.asset!).name} along a line`, doc, placed));
     ctx.status(`${placed.length} objects placed along ${Math.round(lineLength(line))} m`);
   }
 

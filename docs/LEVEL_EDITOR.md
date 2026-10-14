@@ -181,7 +181,14 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
 - Line: das gewählte Objekt in einer Reihe, frei gezogen oder per Klick entlang einer Straße oder eines Flusses: Abstand,
   Versatz (links der Laufrichtung, negativ rechts; bei Straßen etwa die halbe Breite), „Both sides“ (eine zweite Reihe
   gegenüber, andersherum gedreht), Drehung längs, quer oder zufällig, „Align to slope“; die Symmetrie-Bilder entstehen
-  mit; ein Schritt im Verlauf (`objectsAlong`, wie `row` der Level-Skripte). Zäune, Mauern, Fackeln, Baumreihen
+  mit; ein Schritt im Verlauf (`objectsAlong`, wie `row` der Level-Skripte). Zäune, Mauern, Fackeln, Baumreihen.
+  Gehört das gewählte Objekt zu einem Mauer-Baukasten (`WALL_KITS`, bisher die Burgmauer: Stücke von 8, 4 und 2 m,
+  Eckblock, Endblock, Turm), setzt Line die Mauer aus passenden Teilen (`wallAlong`): die gezogene Linie wird begradigt
+  (Punkte bis 2 m neben der Geraden fallen weg, Knicke unter 12 Grad auch), an jedem Knick steht ein Eckblock oder
+  wahlweise ein Turm, an offenen Enden ein Endblock; endet die Linie bei ihrem Anfang, wird es ein Ring. Je Schenkel
+  ganze Stücke auf 2 m genau, deren Enden in den Blöcken verschwinden (die Mauern dürfen bis zur Blockmitte
+  hineinreichen), also ohne Lücke und ohne Überlappung. Zinnen links oder rechts der Zeichenrichtung; das Torhaus
+  setzt man von Hand in die Mauer
 - Erase: entfernt, was der Pinsel trifft
 - Select: Klick wählt (die ganze Gruppe, Strg+Klick ein Mitglied), Shift+Klick ergänzt, Ziehen auf freiem Grund
   wählt per Rahmen, Alt+Ziehen per Lasso, Strg+A alles Sichtbare; Rahmen und Lasso nehmen, was auf dem Bildschirm darin steht. Ausgeblendete

@@ -3,7 +3,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapObject } from '../../../world/custom-map/map-document';
 import { tagName, type ObjectAssetEntry } from '../../catalog/asset-catalog';
 import { ObjectsCommand } from '../../model/editor-document';
-import { alignedToSlope, duplicateObjects, variedTint } from '../../ops/object-ops';
+import { alignedToSlope, duplicateObjects, variedTint, wallKitOf } from '../../ops/object-ops';
 import type { EditorSettings, GizmoMode, ObjectMode } from '../../tools/tool';
 
 type ObjectToolSettings = EditorSettings['objects'];
@@ -47,6 +47,8 @@ export class ObjectPanelComponent {
   readonly tagName = tagName;
 
   readonly s = computed(() => (this.session.settingsRev(), structuredClone(this.session.settings.objects)));
+  /** The wall kit the chosen asset belongs to: Line mode fits the kit's pieces instead of spacing one asset */
+  readonly kit = computed(() => wallKitOf(this.s().asset));
   readonly categories = computed(() => ['All', ...this.session.catalog().categories()]);
   readonly assets = computed(() => {
     const q = this.search().trim().toLowerCase();
