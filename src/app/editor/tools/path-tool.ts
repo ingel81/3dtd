@@ -27,7 +27,7 @@ import {
   straightenEdge,
 } from '../ops/path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../ops/path-terrain';
-import { relayRoads } from '../ops/landscape/road';
+import { rebuildDressing, relayRoads, type RoadOptions } from '../ops/landscape/road';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import { symmetryImages } from '../ops/symmetry';
@@ -368,6 +368,19 @@ export function editRoads(editor: EditorDocument, catalog: CatalogIndex, label: 
   commitRoads(editor, catalog, label, before);
 }
 
+/**
+ * "Rebuild road dressing": the selected roads' embankment, surface, lamps
+ * and fences laid anew along their lines, from their dress, what the map
+ * shows, or the road brush's settings; one step
+ */
+export function rebuildRoads(editor: EditorDocument, catalog: CatalogIndex, edgeIds: readonly string[], road: RoadOptions): void {
+  const stroke = new LandscapeStroke(editor, 'Rebuild road dressing', 1, catalog);
+  const surface = road.surface.find((m) => catalog.materials.has(m));
+  rebuildDressing(stroke, edgeIds, { adapt: road.adapt, ...(surface ? { surface } : {}), lamps: road.lamps, fences: road.fences, objects: [] });
+  stroke.changed({ paths: true });
+  stroke.finish();
+}
+
 /** Width or kind for several roads as one step */
 export function setRoads(editor: EditorDocument, catalog: CatalogIndex, edgeIds: readonly string[], patch: { width?: number; kind?: MapPaths['edges'][number]['kind'] }): void {
   const set = new Set(edgeIds);
@@ -383,10 +396,6 @@ export function setRoads(editor: EditorDocument, catalog: CatalogIndex, edgeIds:
 function commitRoads(editor: EditorDocument, catalog: CatalogIndex, label: string, before: MapPaths): void {
   const doc = editor.doc;
   const after = doc.paths;
-  if (!after.edges.some((e) => e.dress)) {
-    editor.push(new SnapshotCommand(label, { paths: before }, { paths: structuredClone(after) }), { paths: true });
-    return;
-  }
   // The stroke has to see the paths of before, then the new ones
   doc.paths = structuredClone(before);
   const stroke = new LandscapeStroke(editor, label, 1, catalog);

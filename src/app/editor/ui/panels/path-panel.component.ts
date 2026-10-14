@@ -3,7 +3,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapPathKind } from '../../../world/custom-map/map-document';
 import { edgePolyline, polylineLength, smoothEdge, straightenEdge } from '../../ops/path-graph';
 import { selectedEdges, selectedNodes } from '../../model/editor-document';
-import { editRoads, flattenRoads, paintRoads, pathCommands, setRoads } from '../../tools/path-tool';
+import { editRoads, flattenRoads, paintRoads, pathCommands, rebuildRoads, setRoads } from '../../tools/path-tool';
 import type { PathMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
@@ -48,6 +48,8 @@ const KINDS: { id: MapPathKind; label: string }[] = [
         <button class="td-btn-secondary td-btn-sm" type="button" (click)="straighten()">Straighten <kbd class="td-kbd">X</kbd></button>
         <button class="td-btn-danger td-btn-sm" type="button" (click)="remove()">Delete <kbd class="td-kbd">Del</kbd></button>
       </div>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="rebuild()" data-test="rebuild-dressing"
+              matTooltip="Lays embankment, surface, lamps and fences anew along the road: as the road brush built it, as the map shows it, or with the road brush's settings (Landscape, Road)">Rebuild road dressing</button>
     }
 
     <div class="td-group">
@@ -162,6 +164,15 @@ export class PathPanelComponent {
     if (!editor || (!nodes.length && !edges.length)) return;
     this.session.execute(pathCommands.removeMany(editor, nodes, edges));
     editor.select(null);
+  }
+
+  rebuild(): void {
+    const editor = this.session.editor;
+    const ids = this.edgeIds();
+    if (!editor || !ids.length || this.session.blocked('Rebuilding roads')) return;
+    rebuildRoads(editor, this.session.catalog(), ids, this.session.settings.landscape.road);
+    this.session.refresh();
+    this.session.flash(`Dressing laid anew along ${ids.length} ${ids.length === 1 ? 'road' : 'roads'}`);
   }
 
   flatten(): void {

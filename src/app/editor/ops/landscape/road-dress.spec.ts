@@ -5,7 +5,7 @@ import { contentBytes } from '../../../world/custom-map/map-file';
 import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
 import { EditorDocument } from '../../model/editor-document';
 import { heightAt } from '../../model/grid';
-import { editRoads } from '../../tools/path-tool';
+import { editRoads, rebuildRoads } from '../../tools/path-tool';
 import { moveNode, nearestOnPolyline, edgePolyline } from '../path-graph';
 import { LandscapeStroke } from './landscape-stroke';
 import { DEFAULT_ROAD, buildRoad } from './road';
@@ -65,6 +65,35 @@ describe('roads laid anew', () => {
     // Undo puts the road and all it built back exactly
     editor.undo();
     expect(Buffer.from(contentBytes(doc)).equals(Buffer.from(built))).toBe(true);
+  });
+
+  it('reads a road without a record off the map when it moves, and rebuilds a plain one on request', () => {
+    const doc = hills();
+    const editor = new EditorDocument(doc);
+    const stroke = new LandscapeStroke(editor, 'Road', 1, catalog);
+    const result = buildRoad(stroke, [{ x: -150, y: -20 }, { x: 150, y: -20 }], { ...DEFAULT_ROAD, lamps: true });
+    stroke.finish();
+    const edge = doc.paths.edges.find((e) => e.id === result!.edgeId)!;
+    const lamps = edge.dress!.objects.length;
+    // As a map of before the dress: no record
+    delete edge.dress;
+    editRoads(editor, catalog, 'Move node', (paths) => moveNode(paths, edge.b, { x: 150, y: 80 }));
+    const moved = doc.paths.edges.find((e) => e.id === edge.id)!;
+    expect(moved.dress).toMatchObject({ lamps: true, surface: 'cobblestone' });
+    const line = edgePolyline(doc.paths, moved);
+    const standing = doc.objects.filter((o) => o.asset === 'lamp-post');
+    expect(standing.length).toBeGreaterThanOrEqual(lamps - 2);
+    for (const l of standing) expect(nearestOnPolyline(line, l)!.dist).toBeLessThan(DEFAULT_ROAD.width);
+
+    // A plain road from the Roads tool: nothing to read, Rebuild uses the brush's settings
+    doc.paths.nodes.push({ id: 'p1', x: -100, y: 120 }, { id: 'p2', x: 100, y: 120 });
+    doc.paths.edges.push({ id: 'plain', a: 'p1', b: 'p2', width: 8, kind: 'road' });
+    const steps = editor.historySteps;
+    rebuildRoads(editor, catalog, ['plain'], { ...DEFAULT_ROAD, lamps: true });
+    expect(editor.historySteps).toBe(steps + 1);
+    const plain = doc.paths.edges.find((e) => e.id === 'plain')!;
+    expect(plain.dress!.objects.length).toBeGreaterThan(3);
+    expect(plain.dress!.ground).toBeDefined();
   });
 
   it('moves a river bed with its course', () => {

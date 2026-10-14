@@ -139,7 +139,12 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   Straße: `dress.ground` hält je Höhenpunkt des Bands die Höhe vorher und nach dem Einebnen, auf den Millimeter;
   danach Geformtes bleibt als Unterschied erhalten; ohne gemerkte Höhen oder auf einem anderen Raster gerade vom Land
   am einen Rand zum anderen, `restoreBand`; der Bodenanstrich blendet immer so), seine Laternen und Zäune gehen,
-  entlang der neuen Linie entstehen Damm, Belag und Ausstattung neu; ein Schritt im Verlauf. Ebenso folgt das Flussbett
+  entlang der neuen Linie entstehen Damm, Belag und Ausstattung neu; ein Schritt im Verlauf. Straßen ohne `dress` (aus Karten von
+  vorher, aus Level-Skripten) liest der Editor beim ersten Bearbeiten von der Karte ab (`inferDress`): Laternen und Zäune
+  an ihren Seiten und den Belag entlang der Mitte, wenn es ein Straßenbelag ist, den das Land daneben nicht hat; ihr
+  Boden vor der Straße ist dann unbekannt, der Rückbau füllt gerade. Findet er nichts, bleibt die Straße eine bloße
+  Linie. „Rebuild road dressing“ im Roads-Panel legt die Ausstattung der gewählten Straßen neu an: aus ihrem `dress`,
+  aus der Karte oder, für eine bloße Linie, mit den Einstellungen des Straßenpinsels (Landscape, Road). Ebenso folgt das Flussbett
   seinem Lauf: einen Flusspunkt verschieben oder entfernen (Water, 4, Rivers), die Breite ändern oder „Fewer river
   points“ füllt das alte Bett und gräbt das neue (`moveRiverBed`): Schilf, Steine und Wasserfälle beider Bänder gehen,
   das neue Band bekommt Bodenanstrich, Schilf, Steine und Wasserfälle wie beim ersten Ziehen (`paintRiverBed`,

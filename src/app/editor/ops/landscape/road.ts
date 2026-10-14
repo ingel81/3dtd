@@ -6,6 +6,7 @@
  */
 import type { MapPathEdge, MapPathKind, MapPaths, MapPoint, MapRoadDress, MapRoadGround } from '../../../world/custom-map/map-document';
 import { restoreBand } from './river';
+import { MAX_LAYERS, readWeights } from '../paint-ops';
 import { bandSamples, packGround, unpackGround } from './road-ground';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, nearestOnPolyline, pointAt, polylineLength, splitEdge } from '../path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../path-terrain';
@@ -220,6 +221,76 @@ export function undressEdge(stroke: LandscapeStroke, edge: MapPathEdge, line: re
   if (gone.length) stroke.changed({ objects: gone });
 }
 
+/** Road surfaces the brush paints, for reading them back off the map */
+const ROAD_SURFACES = new Set(['cobblestone', 'paving', 'dirt-path', 'asphalt', 'asphalt-cracked', 'gravel', 'sidewalk', 'concrete']);
+
+/**
+ * What the road brush built along a road that kept no record of it (built
+ * before the dress, or by a level script), read off the map: the lamps and
+ * fences standing at its sides, and the ground material along its middle
+ * when that is a road surface the land beside does not have. The ground
+ * under it is not known: taking it back fills straight across. Null when
+ * nothing marks it as built.
+ */
+export function inferDress(stroke: LandscapeStroke, edge: MapPathEdge, line: readonly MapPoint[]): MapRoadDress | null {
+  if (line.length < 2) return null;
+  const doc = stroke.doc;
+  const t = doc.terrain;
+  const reach = edge.width / 2 + 4;
+  const sides = doc.objects.filter((o) => (o.asset === 'lamp-post' || o.asset === 'fence-wood') && (nearestOnPolyline(line, o)?.dist ?? Infinity) <= reach);
+  // The heaviest layer along the middle against the land a road's width beside it
+  const length = polylineLength(line);
+  const res = t.splat.resolution;
+  const texel = (p: MapPoint) =>
+    Math.min(res - 1, Math.max(0, Math.floor(((p.y + t.depth / 2) / t.depth) * res))) * res + Math.min(res - 1, Math.max(0, Math.floor(((p.x + t.width / 2) / t.width) * res)));
+  const middle = new Float32Array(MAX_LAYERS);
+  const beside = new Float32Array(MAX_LAYERS);
+  const w = new Float32Array(MAX_LAYERS);
+  for (let s = 2; s < length - 2; s += 4) {
+    const p = pointAt(line, s);
+    const q = pointAt(line, Math.min(length, s + 1));
+    const dl = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+    readWeights(t, texel(p), w);
+    for (let k = 0; k < MAX_LAYERS; k++) middle[k] += w[k];
+    for (const side of [-1, 1]) {
+      const off = edge.width * 1.5 * side;
+      readWeights(t, texel({ x: p.x - ((q.y - p.y) / dl) * off, y: p.y + ((q.x - p.x) / dl) * off }), w);
+      for (let k = 0; k < MAX_LAYERS; k++) beside[k] += w[k] / 2;
+    }
+  }
+  let best = -1;
+  for (let k = 0; k < Math.min(MAX_LAYERS, t.layers.length); k++) if (best < 0 || middle[k] > middle[best]) best = k;
+  const material = best >= 0 ? t.layers[best].material : undefined;
+  const surface = material && ROAD_SURFACES.has(material) && middle[best] > beside[best] * 2 ? material : undefined;
+  if (!sides.length && !surface) return null;
+  return {
+    adapt: true,
+    ...(surface ? { surface } : {}),
+    lamps: sides.some((o) => o.asset === 'lamp-post'),
+    fences: sides.some((o) => o.asset === 'fence-wood'),
+    objects: sides.map((o) => o.id),
+  };
+}
+
+/**
+ * Lays the roads' dressing anew along their lines as they are: the dress
+ * they keep, else what the map shows (inferDress), else `fallback` (the
+ * road brush's settings). Returns how many were laid.
+ */
+export function rebuildDressing(stroke: LandscapeStroke, edgeIds: readonly string[], fallback: MapRoadDress): number {
+  const paths = stroke.doc.paths;
+  const edges = paths.edges.filter((e) => edgeIds.includes(e.id));
+  stroke.markPaths();
+  for (const e of edges) {
+    const line = edgePolyline(paths, e);
+    e.dress ??= inferDress(stroke, e, line) ?? { ...fallback, objects: [] };
+    undressEdge(stroke, e, line);
+  }
+  stroke.refreshRoads();
+  for (const e of edges) dressEdge(stroke, e, e.dress!);
+  return edges.length;
+}
+
 /**
  * Roads moved or reshaped (`paths` holds the new network, `before` the
  * old): every dressed edge whose line or width changed is undressed along
@@ -229,12 +300,19 @@ export function undressEdge(stroke: LandscapeStroke, edge: MapPathEdge, line: re
 export function relayRoads(stroke: LandscapeStroke, before: MapPaths): number {
   const paths = stroke.doc.paths;
   const changed = paths.edges.filter((e) => {
-    if (!e.dress) return false;
     const old = before.edges.find((o) => o.id === e.id);
     if (!old) return false;
     const a = edgePolyline(before, old);
     const b = edgePolyline(paths, e);
-    return old.width !== e.width || a.length !== b.length || a.some((p, k) => Math.abs(p.x - b[k].x) > 0.01 || Math.abs(p.y - b[k].y) > 0.01);
+    const moved = old.width !== e.width || a.length !== b.length || a.some((p, k) => Math.abs(p.x - b[k].x) > 0.01 || Math.abs(p.y - b[k].y) > 0.01);
+    if (!moved) return false;
+    // A road of before the dress (or of a level script): what the brush built is read off the map
+    if (!e.dress) {
+      const found = inferDress(stroke, old, a);
+      if (!found) return false;
+      e.dress = found;
+    }
+    return true;
   });
   if (!changed.length) return 0;
   // All objects out first, then everything in: a stroke removes before it adds
