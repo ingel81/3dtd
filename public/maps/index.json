@@ -146,13 +146,13 @@
       "file": "mars-canyon.3dtdmap",
       "preview": "mars-canyon.png",
       "author": "3DTD",
-      "description": "A colony where two rust-red canyons meet. Enemies walk the canyon floors, towers stand on the benches and mesas above.",
+      "description": "A colony where two canyons meet. Enemies walk the canyon floors, towers stand on the benches and mesas above.",
       "width": 512,
       "depth": 512,
       "spawns": 3,
       "biome": "mars",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "9d47f44bded61e62cb217be60504bfe5d6c177c42d70a981767f7b02f118e131"
+      "contentHash": "df77d6ff6f672e84407040592f221926e7ca40a47af690c65534a7144855c11b"
     },
     {
       "id": "ruined-city",

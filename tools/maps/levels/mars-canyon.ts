@@ -1,9 +1,10 @@
 /**
- * Mars canyon: a colony on a mesa's foot where two rust-red canyons meet.
- * The roads run on the canyon floors between stepped walls; towers stand on
- * the benches and the mesas above. The HQ is the colony's hub with
- * greenhouse domes, wind turbines and solar fields; rovers on the tracks,
- * dunes on the plain, a dusty orange sky.
+ * Mars canyon: a colony on a mesa's foot where two canyons meet. The roads
+ * run on the canyon floors between stepped ochre walls; towers stand on the
+ * benches and the mesas above. The HQ is the colony's hub with greenhouse
+ * domes, wind turbines and solar fields; rovers on the tracks. Mars as the
+ * rovers see it: butterscotch dust and dunes, dark basalt sand in the low
+ * ground, grey bedrock, rust, grey and black rocks, a pale butterscotch sky.
  */
 import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
 import { facing, LevelKit } from './kit';
@@ -12,12 +13,12 @@ export function buildMarsCanyon(): CustomMapDocument {
   const k = new LevelKit({
     id: 'mars-canyon',
     name: 'Mars Canyon',
-    description: 'A colony where two rust-red canyons meet. Enemies walk the canyon floors, towers stand on the benches and mesas above.',
+    description: 'A colony where two canyons meet. Enemies walk the canyon floors, towers stand on the benches and mesas above.',
     size: 512,
-    base: 'mars-regolith',
+    base: 'desert-gravel',
     seed: 6203,
   });
-  for (const m of ['mars-regolith', 'mars-dust', 'mars-dunes', 'mars-gravel', 'mars-rock', 'concrete']) k.layer(m);
+  for (const m of ['desert-gravel', 'mars-dunes', 'mars-dust', 'volcanic-rock', 'regolith', 'concrete']) k.layer(m);
   k.cliffs('cliff-ochre', 40);
 
   // ---- The plain at 26 m, dunes on it, mesas rising over it
@@ -72,11 +73,28 @@ export function buildMarsCanyon(): CustomMapDocument {
   k.spawn('East Rim', east.x, east.y);
   k.hq(hq.x, hq.y);
 
-  // ---- Ground: dust and dunes on the plain, gravel on the canyon floors, rock on the walls, concrete at the colony
+  // ---- Ground: dust and dunes on the plain, dark basalt sand gathered on the canyon floors with ochre gravel at
+  // their foot, grey bedrock on the mesas, ochre walls, concrete at the colony
   k.biome('mars', [{ x: -200, y: 200 }, { x: 0, y: 230 }, { x: 220, y: 200 }, { x: 220, y: 60 }, { x: -230, y: -200 }, { x: -60, y: -220 }, { x: 200, y: -230 }], { radius: 70, strength: 0.55 });
   for (const line of [westCanyon, northCanyon, eastCanyon]) {
-    k.paint('mars-gravel', line, { radius: 18, falloff: 0.8 }, 0.8);
-    k.paint('mars-dust', line, { radius: 6, falloff: 0.8 }, 0.5);
+    k.paint('desert-gravel', line, { radius: 24, falloff: 0.8 }, 0.7);
+    k.paint('mars-dust', line, { radius: 5, falloff: 0.8 }, 0.5);
+  }
+  // Dark sand drifts on the canyon floors and in the basin, patchy
+  for (const [n, line] of [westCanyon, northCanyon, eastCanyon].entries()) {
+    for (const [i, p] of line.entries()) {
+      if (k.noise.hash(n, i, 31) < 0.4) continue;
+      k.paint('volcanic-rock', { x: p.x + 8 * (k.noise.hash(n, i, 32) - 0.5), y: p.y + 8 * (k.noise.hash(n, i, 33) - 0.5) }, { radius: 14, falloff: 0.9 }, 0.55);
+    }
+  }
+  k.paint('volcanic-rock', { x: basin.x - 20, y: basin.y + 15 }, { radius: 30, falloff: 0.9 }, 0.5);
+  for (const [x, y, r] of [[-160, 150, 30], [190, -40, 26], [-180, -120, 24], [40, 200, 22], [-10, 10, 10]] as const) {
+    k.paint('regolith', { x, y }, { radius: r, falloff: 0.7 }, 0.55);
+  }
+  for (const p of [{ x: -120, y: 220 }, { x: 160, y: 60 }, { x: -60, y: -230 }, { x: 230, y: -120 }]) k.paint('mars-dust', p, { radius: 50, falloff: 0.9 }, 0.6);
+  // Butterscotch gravel plains between the dunes
+  for (const p of [{ x: -220, y: 60 }, { x: -60, y: 120 }, { x: 100, y: 230 }, { x: 230, y: 130 }, { x: -140, y: -60 }, { x: 160, y: -120 }, { x: -200, y: -240 }, { x: 60, y: -240 }]) {
+    k.paint('desert-gravel', p, { radius: 60, falloff: 0.9 }, 0.6);
   }
   k.paint('concrete', hq, { radius: 18, falloff: 0.5 }, 0.9);
 
@@ -112,16 +130,16 @@ export function buildMarsCanyon(): CustomMapDocument {
     }
   }
   for (const line of [westCanyon, northCanyon, eastCanyon]) {
-    k.scatter(['mars-boulder', 'mars-rock-large', 'mars-stone'], line, { radius: 30, strength: 0.6, falloff: 0.3 }, { density: 1.2, minDistance: 7, scaleMin: 0.7, scaleMax: 1.5 });
+    k.scatter(['mars-boulder', 'mars-rock-large', 'mars-stone', 'boulder', 'mars-boulder', 'rock-basalt'], line, { radius: 30, strength: 0.6, falloff: 0.3 }, { density: 1.2, minDistance: 7, scaleMin: 0.7, scaleMax: 1.5 });
   }
   // Stones and dust ripples over the plain
-  k.scatter(['mars-stone', 'stones-desert-scatter', 'mars-boulder'], [{ x: -200, y: 230 }, { x: 0, y: 150 }, { x: 200, y: 100 }, { x: -230, y: -190 }, { x: -100, y: -200 }, { x: 180, y: -230 }, { x: -220, y: 100 }], { radius: 55, strength: 0.7 }, { density: 2.5, minDistance: 4, scaleMin: 0.6, scaleMax: 1.4 });
+  k.scatter(['mars-stone', 'stones-desert-scatter', 'boulder', 'stones-volcanic-scatter', 'mars-boulder'], [{ x: -200, y: 230 }, { x: 0, y: 150 }, { x: 200, y: 100 }, { x: -230, y: -190 }, { x: -100, y: -200 }, { x: 180, y: -230 }, { x: -220, y: 100 }], { radius: 55, strength: 0.7 }, { density: 2.5, minDistance: 4, scaleMin: 0.6, scaleMax: 1.4 });
   for (const [x, y, a, sc] of [[-250, 240, 'mesa', 0.9], [245, 240, 'sandstone-pillar', 1.3], [250, 30, 'mars-cliff', 1], [-245, -240, 'mesa', 0.8], [-30, -245, 'sandstone-pillar', 1.2]] as const) {
     if (k.free(x, y, 8)) k.place(a, x, y, { scale: sc, rotation: x * 0.01 });
   }
 
   k.trimLayers(7);
   // Butterscotch sky, the sun low in the dust
-  k.environment({ biome: 'mars', sky: 'day', sunAzimuth: 230, sunElevation: 30, fogDensity: 0.0012, tint: '#ffd7b5' });
+  k.environment({ biome: 'mars', sky: 'day', sunAzimuth: 230, sunElevation: 30, fogDensity: 0.0012, tint: '#fff0e2' });
   return k.finish();
 }
