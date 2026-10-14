@@ -17,7 +17,7 @@ import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import type { HeightField } from '../height-field';
 import { mapToScene } from '../map-coords';
 import { ParticleField, particleCount, type ParticleEmitter, type ParticleKind } from './particle-field';
-import { buildWaterfalls, type WaterfallSpec } from './waterfall';
+import { buildWaterfalls, fallFoot, fallLip, fallReach, type WaterfallSpec } from './waterfall';
 
 /**
  * Effects and lights of the map's objects, from their catalogue entries
@@ -127,10 +127,12 @@ export class EffectLayer {
           const height = (fx.height ?? e.height) * s;
           const radius = (fx.radius ?? e.footprint) * s;
           q.setFromAxisAngle(up, o.rotation);
-          // Where the water lands, a little in front of the cliff
-          const foot = new Vector3(0, 0, Math.min(height * 0.2, 3)).applyQuaternion(q).add(origin);
-          falls.push({ matrix: new Matrix4().compose(origin, q, new Vector3(1, 1, 1)), radius, height, pool: null });
-          feet.push({ foot, radius, rate: fx.rate, color: fx.color });
+          const matrix = new Matrix4().compose(origin, q, new Vector3(1, 1, 1));
+          // The sheet hangs over the ground and a river's slope all the way down; its foot is where the water lands
+          const reach = fallReach(matrix, height, (x, z) => this.field.heightAt(-x, z), (x, z) => this.waterLevelAt(-x, z));
+          const spec: WaterfallSpec = { matrix, radius, height, pool: null, reach };
+          falls.push(spec);
+          feet.push({ foot: fallFoot(matrix, spec), radius, rate: fx.rate, color: fx.color });
           continue;
         }
         const kind = fx.kind;
@@ -231,13 +233,15 @@ export class EffectLayer {
     return changed;
   }
 
-  /** A field's particle count at the level's share, at least one */
   /**
-   * Foam and spray where each waterfall's water lands, on that surface (the
-   * water's level where there is water, the ground otherwise). A fall whose
-   * foot meets the lip of another (a step of a cascade) lands on nothing: its
-   * water runs on down the next sheet, and a foam disc or spray there would
-   * hang in the air in front of the cliff.
+   * Foam and spray where each waterfall's water lands, on that surface: the
+   * water's level where there is water at or over the foot, the ground
+   * otherwise. A fall whose foot meets the lip of another (a step of a
+   * cascade) lands on nothing: its water runs on down the next sheet, and a
+   * foam disc or spray there would hang in the air in front of the cliff.
+   * Water standing far over the foot is not where it lands either: a river's
+   * surface sloping down above a fall (spray there stood out of the slope
+   * halfway up), nor is ground over the foot (a sheet still buried in it).
    */
   private landFalls(falls: WaterfallSpec[], feet: FallFoot[], emitters: Map<ParticleKind, ParticleEmitter[]>): void {
     const lip = new Vector3();
@@ -247,16 +251,18 @@ export class EffectLayer {
       const height = falls[i].height;
       const step = falls.some((other, j) => {
         if (j === i) return false;
-        lip.setFromMatrixPosition(other.matrix);
+        fallLip(other.matrix, other, lip);
         return (
-          Math.abs(lip.y + other.height - foot.y) <= Math.max(1.5, height * 0.25) &&
+          Math.abs(lip.y - foot.y) <= Math.max(1.5, height * 0.25) &&
           Math.hypot(lip.x - foot.x, lip.z - foot.z) <= other.radius + radius + 1
         );
       });
       if (step) continue;
       const footMap = { x: -foot.x, y: foot.z };
-      const pool = this.waterLevelAt(footMap.x, footMap.y);
+      const level = this.waterLevelAt(footMap.x, footMap.y);
+      const pool = level !== null && level >= foot.y - 0.5 && level - foot.y <= Math.max(3, height * 0.5) ? level : null;
       const ground = this.field.heightAt(footMap.x, footMap.y);
+      if (pool === null && ground > foot.y + 1) continue;
       const at = foot.clone().setY(pool ?? ground);
       // The foam disc lies on the pool, in the fall's own frame
       if (pool !== null) falls[i].pool = pool - origin.setFromMatrixPosition(falls[i].matrix).y;
@@ -282,6 +288,7 @@ export class EffectLayer {
     }
   }
 
+  /** A field's particle count at the level's share, at least one */
   private share(count: number): number {
     return this.particleShare >= 1 ? count : Math.max(1, Math.round(count * this.particleShare));
   }

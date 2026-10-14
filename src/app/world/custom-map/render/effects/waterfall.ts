@@ -1,4 +1,4 @@
-import { BufferAttribute, BufferGeometry, DoubleSide, Matrix4, Mesh, ShaderMaterial, UniformsLib, UniformsUtils } from 'three';
+import { BufferAttribute, BufferGeometry, DoubleSide, Matrix4, Mesh, ShaderMaterial, UniformsLib, UniformsUtils, Vector3 } from 'three';
 import { SHADER_NOISE } from '../shader-noise';
 
 /**
@@ -8,10 +8,17 @@ import { SHADER_NOISE } from '../shader-noise';
  * and falls to y = 0, bulging out a little as it drops. All sheets of a map
  * share one geometry buffer (merged in scene space) and one material.
  *
+ * The sheet does not vanish into a slope (`fallReach`): where the rock falls
+ * away below the lip as a steep slope rather than a wall (a river's cascade
+ * over a slope), each row of it is pushed out until it hangs over the
+ * ground and the river's ribbon, so the water pours down the face.
+ *
  * The sheet has no corners: its sides fray and spread as it falls, the lip
- * starts thin and the foot dissolves into the spray. Two layers of streaks
- * at different speeds and scales run down it (a fast bright front over a
- * slower body). Where the water lands on a pool, a disc of churning foam
+ * starts thin and the foot dissolves into the spray. It bows out a little
+ * in the middle, and a second, narrower sheet hangs just behind it with its
+ * streaks shifted, so it reads as a body of water, not a card. Two layers
+ * of streaks at different speeds and scales run down it (a fast bright
+ * front over a slower body). Where the water lands on a pool, a disc of churning foam
  * lies on the pool's surface (`pool`, same mesh and material) when the
  * water there is still; on a river sloping away below the foot it would
  * stand out of the surface. A step of a cascade gets none (effect-layer.ts):
@@ -27,10 +34,86 @@ export interface WaterfallSpec {
   height: number;
   /** Height of the pool's surface under the foot, in the object's frame; null on dry ground */
   pool?: number | null;
+  /** How far out in front of the lip each row of the sheet hangs (fallReach), ROWS + 1 of them; the plain curve without */
+  reach?: number[];
 }
 
 const ROWS = 16;
 const COLS = 8;
+/** Metres a row of the sheet may sink into the ground before it is pushed out over it */
+const SINK = 0.25;
+/** Metres a row hangs at least over a river's surface sloping down under it, so the ribbon does not hide it */
+const LIFT = 0.2;
+/** Metres a pushed row moves out per test */
+const PUSH = 0.25;
+
+/** How far out in front of the lip the plain sheet hangs, at 0..1 down it */
+function plainReach(height: number, t: number): number {
+  return Math.min(height * 0.2, 3) * Math.sqrt(t);
+}
+
+/** Height of a row 0..1 down the sheet over its foot, in the object's frame */
+function rowHeight(height: number, t: number): number {
+  return height * (1 - t * t * 0.15 - t * 0.85);
+}
+
+/**
+ * How far out in front of the lip each row of a fall hangs, ROWS + 1 of
+ * them, lip first: the plain curve, each row pushed out (never back) while
+ * it lies in a face that falls away in front of it: ground more than SINK
+ * over it, or a river's surface less than LIFT under it (a river's ribbon
+ * runs down a cascade's slope and would hide the sheet). A fall over a wall
+ * keeps its curve; one over a steep slope pours down the face, over the
+ * ribbon. Ground or water that does not fall away in front (a bank, a
+ * pool) stops the push: the foot of a fall lies in its pool. A row pushes
+ * at most as far out as the fall drops (a slope gentler than that is
+ * rapids, not a fall), so a misplaced sheet does not shoot out across the
+ * land. Scene coordinates for `groundAt` and `levelAt` (x, z).
+ */
+export function fallReach(
+  matrix: Matrix4,
+  height: number,
+  groundAt: (x: number, z: number) => number,
+  levelAt: (x: number, z: number) => number | null = () => null,
+): number[] {
+  const e = matrix.elements;
+  const most = height;
+  const reach: number[] = [];
+  const surface = (y: number, d: number): { ground: number; water: number } => {
+    const x = e[4] * y + e[8] * d + e[12];
+    const z = e[6] * y + e[10] * d + e[14];
+    const ground = groundAt(x, z);
+    return { ground, water: levelAt(x, z) ?? -Infinity };
+  };
+  let d = 0;
+  for (let r = 0; r <= ROWS; r++) {
+    const t = r / ROWS;
+    const y = rowHeight(height, t);
+    const level = e[13] + e[5] * y;
+    d = Math.max(d, plainReach(height, t));
+    while (d < most) {
+      const here = surface(y, d);
+      if (here.ground <= level + SINK && here.water <= level - LIFT) break;
+      const ahead = surface(y, d + 1);
+      // Only a face that falls away in front: not a bank, not a pool
+      if (Math.max(ahead.ground, ahead.water) > Math.max(here.ground, here.water) - 0.5) break;
+      d += PUSH;
+    }
+    reach.push(Math.min(d, most));
+  }
+  return reach;
+}
+
+/** Where a fall's sheet ends, in the frame `matrix` places it in */
+export function fallFoot(matrix: Matrix4, spec: { height: number; reach?: number[] }, out = new Vector3()): Vector3 {
+  return out.set(0, 0, spec.reach?.[ROWS] ?? plainReach(spec.height, 1)).applyMatrix4(matrix);
+}
+
+/** Where a fall's sheet starts: its lip, at the first row's reach */
+export function fallLip(matrix: Matrix4, spec: { height: number; reach?: number[] }, out = new Vector3()): Vector3 {
+  return out.set(0, spec.height, spec.reach?.[0] ?? 0).applyMatrix4(matrix);
+}
+
 /** Segments of the foam disc around its middle */
 const DISC = 16;
 
@@ -52,26 +135,34 @@ export function buildWaterfalls(
   };
   for (const spec of specs) {
     const e = spec.matrix.elements;
-    const base = pos.length / 3;
-    const out = Math.min(spec.height * 0.2, 3);
-    for (let r = 0; r <= ROWS; r++) {
-      const t = r / ROWS;
-      // Out from the lip, then straight down with a slight bulge; a little wider as it falls
-      const y = spec.height * (1 - t * t * 0.15 - t * 0.85);
-      const z = out * Math.sqrt(t);
-      const spread = 1 + t * 0.25;
-      for (let c = 0; c <= COLS; c++) {
-        put(e, (c / COLS - 0.5) * 2 * spec.radius * spread, y, z);
-        uv.push((c / COLS) * spec.radius * 0.5, t * spec.height * 0.25);
-        across.push(c / COLS);
-        fall.push(t);
+    const out = spec.reach?.[ROWS] ?? plainReach(spec.height, 1);
+    // The front sheet bowed out in the middle, and a narrower one just behind it, its streaks shifted
+    const bow = Math.min(spec.radius * 0.2, 0.6);
+    for (const [width, back, shift] of [[1, 0, 0], [0.8, -Math.min(spec.radius * 0.15, 0.5), 3.7]]) {
+      const base = pos.length / 3;
+      for (let r = 0; r <= ROWS; r++) {
+        const t = r / ROWS;
+        // Out from the lip, then straight down with a slight bulge; a little wider as it falls
+        const y = rowHeight(spec.height, t);
+        // The back sheet hangs behind only where the front one keeps its curve; over a slope it would sink into it
+        const plain = plainReach(spec.height, t);
+        const reach = spec.reach?.[r] ?? plain;
+        const z = reach + (reach > plain + 1e-6 ? 0 : back * Math.min(1, t * 4));
+        const spread = (1 + t * 0.25) * width;
+        for (let c = 0; c <= COLS; c++) {
+          const a = c / COLS - 0.5;
+          put(e, a * 2 * spec.radius * spread, y, z + bow * (1 - 4 * a * a) * Math.min(1, t * 3));
+          uv.push((c / COLS) * spec.radius * 0.5 + shift, t * spec.height * 0.25 + shift);
+          across.push(c / COLS);
+          fall.push(t);
+        }
       }
-    }
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const a = base + r * (COLS + 1) + c;
-        const b = a + COLS + 1;
-        index.push(a, b, a + 1, a + 1, b, b + 1);
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const a = base + r * (COLS + 1) + c;
+          const b = a + COLS + 1;
+          index.push(a, b, a + 1, a + 1, b, b + 1);
+        }
       }
     }
     if (spec.pool !== null && spec.pool !== undefined && still(e, spec.pool, out, spec.radius * 1.6, levelAt)) {

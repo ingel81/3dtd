@@ -83,6 +83,31 @@ describe('EffectLayer', () => {
     expect(sprayAndDisc([place('low', 'falls', 0)], (_x, y) => 5 - y * 0.5).disc).toHaveLength(0);
   });
 
+  it('pours a fall over a steep slope down its face and lands the spray at its foot, not on the river above', () => {
+    // Ground falling 2.5 m per metre north (+y, the fall's front) from 40 m down to 20 m; a river's ribbon 1 m over it
+    const slope = (y: number) => Math.min(45, Math.max(20, 40 - 2.5 * y));
+    const heights = new Float32Array(41 * 41);
+    for (let j = 0; j < 41; j++) heights.fill(slope(j - 20), j * 41, j * 41 + 41);
+    const field = new HeightField({ columns: 41, rows: 41, cellSize: 1, heights }, 40, 40);
+    const ribbon = (_x: number, y: number) => slope(y) + 1;
+    const layer = new EffectLayer(field, ribbon);
+    // Lip at the top of the slope, foot 12 m down: the plain sheet (2.4 m out) ended 6 m inside the rock
+    layer.set([{ ...place('fall', 'falls', 0), z: -12 }], catalog);
+    const mesh = (name: string) => layer.group.children.find((c): c is Mesh => c instanceof Mesh && c.name === name)!;
+    // Every row over the ribbon (scene z is map y), so neither rock nor river hides it
+    const sheet = mesh('custom-map-waterfalls').geometry.getAttribute('position');
+    for (let k = 0; k < sheet.count; k++) expect(sheet.getY(k)).toBeGreaterThan(ribbon(0, sheet.getZ(k)) - 0.25);
+    const origins = mesh('custom-map-particles-spray').geometry.getAttribute('aOrigin');
+    expect(origins.count).toBeGreaterThan(0);
+    for (let k = 0; k < origins.count; k++) {
+      // On the ribbon where the water lands, about the foot's height, not 7 m up the slope
+      expect(origins.getY(k)).toBeGreaterThan(27);
+      expect(origins.getY(k)).toBeLessThan(29);
+      expect(origins.getZ(k)).toBeGreaterThan(4.5);
+    }
+    layer.dispose();
+  });
+
   it('frees what a rebuild replaced only after two frames drew the new effects, so their programs stay linked', () => {
     const layer = new EffectLayer(flat());
     layer.set([place('a', 'torch', 0)], catalog);

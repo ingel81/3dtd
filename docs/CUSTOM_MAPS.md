@@ -324,10 +324,15 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Leben, die CPU schiebt nur eine Zeit-Uniform. Leuchtende Arten additiv, beleuchtete (Rauch, Nebel, Laub, Schnee)
   werden nachts dunkler. `radius`, `height`, `rate`, `color` je Effekt
 - **Wasserfall** (`waterfall`): gebogene Fläche von der Kante (`height`) bis zum Fuß, Breite 2 × `radius`, fällt zur
-  Vorderseite (+z) des Objekts und wird nach unten etwas breiter; zwei Lagen Streifen laufen herab (langsamer Körper,
+  Vorderseite (+z) des Objekts und wird nach unten etwas breiter, in der Mitte leicht nach vorn gewölbt, dahinter eine
+  schmalere zweite Fläche mit versetzten Streifen; zwei Lagen Streifen laufen herab (langsamer Körper,
   schnelle helle Front), unten bricht das Wasser weiß; keine Ecken: die Seiten fransen mit einer laufenden Welle aus,
-  die Kante beginnt dünn, der Fuß löst sich in der Gischt auf. Gischt am Aufprall und eine breitere, langsame
-  Nebelwolke, beide auf der Fläche, auf die das Wasser trifft (Spiegel, sonst Boden); liegt der Fuß über stillem
+  die Kante beginnt dünn, der Fuß löst sich in der Gischt auf. Die Fläche taucht nicht in den Hang: fällt vor ihr eine
+  steile Flanke statt einer Wand ab (die Kaskade des Fluss-Werkzeugs), rückt jede Zeile nach vorn, bis sie höchstens
+  0,25 m im Boden und mindestens 0,2 m über dem Flussband liegt, höchstens so weit, wie der Fall hoch ist; ein Ufer oder
+  ein Becken davor, das nicht abfällt, hält sie nicht auf. Gischt am Aufprall und eine breitere, langsame
+  Nebelwolke, beide auf der Fläche, auf die das Wasser trifft (der Spiegel, wenn er am Fuß liegt oder höchstens
+  max(3 m, halbe Fallhöhe) darüber, sonst der Boden; liegt der Boden mehr als 1 m über dem Fuß, keine); liegt der Fuß über stillem
   Wasser (Spiegel am Scheibenrand höchstens 0,3 m anders), eine Scheibe aus wirbelndem Schaum darauf, über einem
   abfallenden Fluss keine. Trifft der Fuß die Kante eines anderen Wasserfalls (eine Stufe einer Kaskade), weder Gischt
   noch Scheibe: das Wasser läuft dort die nächste Fläche hinab, Schaum hinge sonst vor der Klippe in der Luft
