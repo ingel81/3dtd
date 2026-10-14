@@ -4,6 +4,7 @@ import { TdIconComponent } from '../../../icon/icon.component';
 import { GameStore } from '../../../../store/game.store';
 import { SAVE_GAME, type LoadResult } from '../../../../services/save-game/save-game.port';
 import { loadSlotRows, saveSlotRows } from './slot-rows';
+import { MainMenuService } from '../../main-menu.service';
 
 /** What the page asks before it does it, in its own body */
 export type SlotConfirm =
@@ -33,6 +34,8 @@ export type SlotConfirm =
 })
 export class SaveSlotsComponent {
   readonly saves = inject(SAVE_GAME);
+  /** The menu's tab (real places or custom maps) picks the slots to load, and a slot of another world loads there */
+  private readonly menu = inject(MainMenuService, { optional: true });
   private readonly store = inject(GameStore);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -54,7 +57,7 @@ export class SaveSlotsComponent {
   readonly cannotLoadReason = computed(() => (this.canLoad() ? null : 'Loads between waves.'));
 
   readonly saveRows = computed(() => saveSlotRows(this.saves.slots()));
-  readonly loadRows = computed(() => loadSlotRows(this.saves.slots()));
+  readonly loadRows = computed(() => loadSlotRows(this.menu?.loadableSlots() ?? this.saves.slots()));
 
   constructor() {
     void this.saves.refresh();
@@ -85,7 +88,7 @@ export class SaveSlotsComponent {
 
   async loadSlot(slotId: string): Promise<void> {
     this.cancelConfirm();
-    await this.run(async () => this.afterLoad(await this.saves.load(slotId)));
+    await this.run(async () => this.afterLoad(await (this.menu ? this.menu.loadSlot(slotId) : this.saves.load(slotId))));
   }
 
   /** Load from a file: ask about the run under way, then pick the file */

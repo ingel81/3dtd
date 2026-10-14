@@ -20,7 +20,7 @@ import type { SimSnapshot } from '../../simulator/sim-snapshot';
 import { downloadBlob } from '../../utils/download';
 import { SaveGame, type SaveGameHost } from './save-game';
 import { IdbSaveSlotStore } from './save-slot.store';
-import type { LoadResult, SaveGamePort, SaveResult, SaveSlotInfo, StartPlace } from './save-game.port';
+import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, type LoadResult, type SaveGamePort, type SaveResult, type SaveSlotInfo, type StartPlace } from './save-game.port';
 
 /** How long the autosave waits after a wave for the last shots and events to settle, ms */
 const AUTOSAVE_WAIT_MS = 10_000;
@@ -146,11 +146,14 @@ export class SaveGameService implements SaveGamePort {
       await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_POLL_MS));
       // The next wave started, or the run ended: nothing to save for this one
       if (!current() || this.gameStore.phase() !== 'setup') return;
-      // Only on a real place: the autosave is what the menu offers to continue and where it guesses the start
-      // (startPlaceGuess); a bot run in DevWorld must not take its slot
-      if (!this.worldContext.capabilities().realPlace) return;
+      // A real place and a custom map each keep their own autosave: the menu offers each under its tab, and the
+      // start guesses its place from the real one (startPlaceGuess); a bot run in DevWorld takes neither
+      const slot = this.worldContext.capabilities().realPlace
+        ? AUTOSAVE_SLOT
+        : this.worldContext.ref().kind === 'custom-map' ? AUTOSAVE_MAP_SLOT : null;
+      if (!slot) return;
       if (this.mirror.scalars.snapshotRefusal === null && this.host.saveBlocked() === null) {
-        await this.game.autosave();
+        await this.game.autosave(slot);
         return;
       }
     }

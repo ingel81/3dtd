@@ -28,7 +28,7 @@ ViewChild('importInput', { isSignal: true } as unknown as ViewChild)(SaveSlotsCo
 const slot = (id: string, name: string, wave: number, note: string | null = null): SaveSlotInfo => ({
   id, name, wave, note,
   autosave: id === AUTOSAVE_SLOT,
-  location: 'Heilbronn', hq: { lat: 49.14, lon: 9.21 },
+  location: 'Heilbronn', hq: { lat: 49.14, lon: 9.21 }, map: null,
   savedAt: '2026-10-05T14:32:00Z',
   gameVersion: '0.6.0',
 });

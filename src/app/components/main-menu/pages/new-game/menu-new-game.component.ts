@@ -34,6 +34,7 @@ export type NewGameView = 'places' | 'maps';
       <p class="td-note">The host picks the place of this room.</p>
     } @else {
       <div class="td-stack">
+        @if (!menu.tabsShown()) {
         <div class="td-seg" role="tablist" aria-label="Where to play" tdRovingGroup>
           <button type="button" role="tab" id="td-play-tab-places" aria-controls="td-play-panel"
                   [attr.aria-selected]="view() === 'places'" (click)="view.set('places')">Real places</button>
@@ -41,6 +42,7 @@ export type NewGameView = 'places' | 'maps';
                   [attr.aria-selected]="view() === 'maps'" [disabled]="!mapsOpen && view() !== 'maps'"
                   [attr.title]="mapsOpen ? null : 'Coming soon'" (click)="view.set('maps')">Maps</button>
         </div>
+        }
         <div role="tabpanel" id="td-play-panel" class="td-stack" [attr.aria-labelledby]="'td-play-tab-' + view()">
           @if (view() === 'maps') {
             <app-map-picker />
@@ -67,11 +69,16 @@ export class MenuNewGameComponent {
   readonly worlds = inject(WorldChoiceService);
   /** The maps open; until their release the tab shows disabled (but not on a map the page already plays) */
   readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
-  private readonly menu = inject(MainMenuService);
+  readonly menu = inject(MainMenuService);
   private readonly coordinator = inject(LocationChangeCoordinatorService);
 
-  /** The places first on a world with real places (the tiles, an own tileset), else the maps */
-  readonly view = signal<NewGameView>(this.world.capabilities().realPlace ? 'places' : 'maps');
+  /**
+   * The places first on a world with real places (the tiles, an own tileset), else the maps; with the
+   * start list's tabs the tab chose (New game under Real places, Play a map under Custom maps)
+   */
+  readonly view = signal<NewGameView>(
+    this.menu.tabsShown() ? (this.menu.tab() === 'custom' ? 'maps' : 'places') : this.world.capabilities().realPlace ? 'places' : 'maps',
+  );
 
   choose(choice: PlaceChoice): void {
     this.menu.home('start');

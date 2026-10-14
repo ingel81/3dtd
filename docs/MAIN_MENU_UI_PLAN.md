@@ -31,6 +31,14 @@ und wo es vom Vorschlag abweicht; die Einzelheiten stehen in der Fach-Doku (Tabe
    begonnenem Lauf; im Coop-Spiel fallen Save, Load, Restart und New game weg. Continue an einem anderen Ort heißt
    „in Paris | wave 7“ und fragt „Leaves Heilbronn: the save plays in Paris.“ (E120); der Vergleich läuft über das HQ,
    das jeder Slot jetzt mitführt (`SaveSlotInfo.hq`), bei älteren Slots über den Ortsnamen.
+4a. **Reiter Real places | Custom maps** (2026-10-14, sobald die eigenen Karten offen sind, `CUSTOM_MAPS_OPEN`). Über
+   der Start-Liste wählen zwei Reiter die Art der Welt; der Reiter folgt der Welt, die die Seite spielt. Jeder Reiter
+   hat sein eigenes Continue: echte Orte das Autosave `autosave`, eigene Karten `autosave-map` (nach jeder Welle auf
+   einer Karte geschrieben; DevWorld schreibt keins). Play, Save und der laufende Lauf stehen nur unter dem Reiter der
+   eigenen Welt; „New game“ heißt unter Custom maps „Play a map“ und öffnet New game gleich bei den Karten, der
+   Map editor steht nur dort. Load listet nur die Stände der Welt des Reiters (`SaveSlotInfo.map`). Ein Stand einer
+   anderen Welt lädt die Seite dort neu und lädt ihn dann (`WorldChoiceService.openSave`, `?resume=<slot>`, danach
+   aus der Adresse genommen). In der Pause und im Coop gibt es keine Reiter.
 5. **Start ohne Ort im Link.** Gebaut: keine ungefragte Ortung mehr, „Use my location“ steht auf New game. Ohne `?l=`
    wartet der Start auf die Wahl im Menü (`LocationChangeCoordinatorService.choosePlace`); als Vorschlag lädt dahinter
    der Ort des Autosaves, sonst der zuletzt gespielte (`startPlaceGuess`), bei einem Einladungslink keiner. Mit `?l=`

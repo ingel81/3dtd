@@ -10,15 +10,17 @@ import { InjectionToken, signal, type Signal } from '@angular/core';
  * builds the save from the simulation and the world and loads it back.
  */
 
-/** The slot written after every wave on its own */
+/** The slot written after every wave on its own, on a real place */
 export const AUTOSAVE_SLOT = 'autosave';
+/** The same on a custom map: each kind of world keeps its own run to continue */
+export const AUTOSAVE_MAP_SLOT = 'autosave-map';
 /** The slots the player saves to by hand: slot-1 to slot-N */
 export const MANUAL_SLOT_COUNT = 5;
 export const manualSlotId = (n: number): string => `slot-${n}`;
 
 /** One filled slot, for the menu's list */
 export interface SaveSlotInfo {
-  /** AUTOSAVE_SLOT or manualSlotId(n) */
+  /** AUTOSAVE_SLOT, AUTOSAVE_MAP_SLOT or manualSlotId(n) */
   id: string;
   /** The player's name for it, or the place and wave when they gave none */
   name: string;
@@ -29,6 +31,8 @@ export interface SaveSlotInfo {
   location: string;
   /** The place's HQ; null for a slot saved before it was kept */
   hq: { lat: number; lon: number } | null;
+  /** The custom map the run plays on; null on a real place (and for slots saved before it was kept) */
+  map: { id: string; name: string } | null;
   /** When it was saved, ISO 8601 */
   savedAt: string;
   /** The game version (BUILD_VERSION) it was saved with */

@@ -7,6 +7,9 @@ import type { OwnTileset } from './tileset/own-tileset';
 import { WorldContext } from './world-context.service';
 import { WORLD_URL_PARAM, worldUrlValue, type WorldRef } from './world-ref';
 
+/** The URL parameter of a save to load once the page stands on its world (WorldChoiceService.openSave) */
+export const RESUME_URL_PARAM = 'resume';
+
 /** The shipped map a player without a tile key starts on (the token screen's "Play the maps") */
 export const FIRST_MAP_ID = 'mountain-pass';
 
@@ -119,6 +122,17 @@ export class WorldChoiceService {
         void this.store.folderMapId(name).then((id) => this.playMap(id));
       }) ?? (() => undefined)
     );
+  }
+
+  /**
+   * A save of another world than this page's: the page loads anew on the
+   * save's world (its map, or the real places) and loads the save there
+   * (`?resume=`, MainMenuService); a page plays one world from its start.
+   */
+  openSave(slot: { id: string; map: { id: string } | null }): void {
+    const url = new URL(slot.map ? this.worldUrl({ kind: 'custom-map', mapId: slot.map.id, contentHash: '' }) : document.baseURI);
+    url.searchParams.set(RESUME_URL_PARAM, slot.id);
+    this.navigate(url.toString());
   }
 
   /** Back to the real places of the 3D tiles; the menu then asks where */

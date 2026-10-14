@@ -38,7 +38,7 @@ describe('New game page', () => {
   afterEach(() => TestBed.resetTestingModule());
 
   function open(waiting: boolean, locked = false, onMap = false) {
-    const menu = { home: vi.fn(), close: vi.fn() };
+    const menu = { home: vi.fn(), close: vi.fn(), tabsShown: () => false, tab: () => 'real' };
     const coordinator = { awaitingStartChoice: signal(waiting), choosePlace: vi.fn(async () => true) };
     const world = fakeWorldContext();
     if (onMap) world.useCustomMap('demo-valley', 'Demo Valley');

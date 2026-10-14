@@ -30,7 +30,9 @@ import type { BootStep } from './loading/boot-step.model';
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
 import { COOP } from '../../services/coop.token';
-import { AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
+import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
+import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
+import { WorldChoiceService } from '../../world/world-choice.service';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { LocationChangeCoordinatorService } from '../../services/location/location-change-coordinator.service';
@@ -84,6 +86,7 @@ function autosaveAt(hq: { lat: number; lon: number } | null, location: string, w
     id: AUTOSAVE_SLOT, name: `${location}, wave ${wave}`, autosave: true, wave, location,
     savedAt: '2026-10-08T20:00:00Z', gameVersion: '0.6.0', note: null,
     hq,
+    map: null,
   };
 }
 
@@ -108,7 +111,11 @@ describe('The main menu', () => {
     hasAutosave: signal(false),
     startPlace: signal(null),
     continueAutosave: vi.fn(async (): Promise<LoadResult> => ({ ok: true, note: null })),
+    load: vi.fn(async (): Promise<LoadResult> => ({ ok: true, note: null })),
   };
+  const worlds = { openSave: vi.fn() };
+  /** The custom maps open: the start list has its tabs */
+  let mapsOpen = false;
   const coop = { inGame: signal(false), hostPlace: signal(null), room: signal<{ code: string } | null>(null) };
   const facade = { restartGame: vi.fn() };
   const config = { tileProvider: signal('cesium'), setupRequested: signal(false) };
@@ -135,6 +142,7 @@ describe('The main menu', () => {
     coop.room.set(null);
     config.setupRequested.set(false);
     dialog.openDialogs = [];
+    mapsOpen = false;
   });
 
   afterEach(() => {
@@ -155,6 +163,8 @@ describe('The main menu', () => {
         { provide: ConfigService, useValue: config },
         { provide: WorldContext, useValue: world },
         { provide: MatDialog, useValue: dialog },
+        { provide: CUSTOM_MAPS_OPEN, useValue: mapsOpen },
+        { provide: WorldChoiceService, useValue: worlds },
       ],
     });
     TestBed.overrideComponent(MainMenuComponent, {
@@ -202,6 +212,71 @@ describe('The main menu', () => {
     target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
     await settle();
   }
+
+  describe('the tabs for real places and custom maps', () => {
+    const mapAutosave = (wave = 4): SaveSlotInfo => ({
+      ...autosaveAt(null, 'Ember Crater', wave), id: AUTOSAVE_MAP_SLOT, map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' },
+    });
+
+    it('a map behind the menu: the maps tab, its own Continue, and no autosave of a real place in it', async () => {
+      // The screenshot of the review: a map loaded behind the menu, the autosave of a real place stood above its Play
+      mapsOpen = true;
+      world.useCustomMap('ember-crater-copy', 'Ember Crater (copy)');
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+      saves.hasAutosave.set(true);
+      saves.slots.set([autosaveAt(HEILBRONN, 'Binswangen', 3)]);
+      await setup();
+
+      expect(el().querySelector('[data-tab="custom"]')?.getAttribute('aria-selected')).toBe('true');
+      expect(entries()).toEqual(['Play', 'Play a map', 'Coop', 'Load game', 'Map editor', 'Settings', 'Extras']);
+      expect(text()).not.toContain('Binswangen');
+    });
+
+    it('the real places tab offers their autosave, which loads the page anew on them', async () => {
+      mapsOpen = true;
+      world.useCustomMap('ember-crater-copy');
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+      saves.hasAutosave.set(true);
+      saves.slots.set([autosaveAt(HEILBRONN, 'Binswangen', 3)]);
+      await setup();
+
+      await click(el().querySelector('[data-tab="real"]'));
+      expect(entries()).toEqual(['Continue', 'New game', 'Coop', 'Load game', 'Settings', 'Extras']);
+      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Binswangen | wave 3');
+      // Leaving the map is asked first, then the page goes to the save's world
+      await click(entry('continue'));
+      await click(el().querySelector<HTMLElement>('.mh-confirm .td-btn-primary'));
+      expect(worlds.openSave).toHaveBeenCalledWith(expect.objectContaining({ id: AUTOSAVE_SLOT, map: null }));
+      expect(saves.continueAutosave).not.toHaveBeenCalled();
+    });
+
+    it('on a real place the maps tab offers the maps autosave and the map editor', async () => {
+      mapsOpen = true;
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+      saves.hasAutosave.set(true);
+      saves.slots.set([autosaveAt(HEILBRONN, 'Kiliansplatz, Heilbronn, Deutschland', 12), mapAutosave(4)]);
+      await setup();
+
+      expect(el().querySelector('[data-tab="real"]')?.getAttribute('aria-selected')).toBe('true');
+      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras']);
+      await click(el().querySelector('[data-tab="custom"]'));
+      expect(entries()).toEqual(['Continue', 'Play a map', 'Coop', 'Load game', 'Map editor', 'Settings', 'Extras']);
+      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Ember Crater (copy) | wave 4');
+      expect(menu.loadableSlots().map((slot) => slot.id)).toEqual([AUTOSAVE_MAP_SLOT]);
+    });
+
+    it('without the maps open there are no tabs and the list is as before', async () => {
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+      await setup();
+
+      expect(el().querySelector('[role="tablist"]')).toBeNull();
+      expect(entries()).toEqual(['Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor']);
+    });
+  });
 
   describe('the start menu', () => {
     it('without a place offers New game first, and no Play', async () => {

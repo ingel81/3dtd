@@ -1,5 +1,6 @@
 import { computed, signal, type Signal } from '@angular/core';
 import {
+  AUTOSAVE_MAP_SLOT,
   AUTOSAVE_SLOT,
   MANUAL_SLOT_COUNT,
   manualSlotId,
@@ -38,8 +39,9 @@ export interface SaveGameHost {
   download(blob: Blob, fileName: string): void;
 }
 
-const ORDER = [AUTOSAVE_SLOT, ...Array.from({ length: MANUAL_SLOT_COUNT }, (_, i) => manualSlotId(i + 1))];
-const isManual = (id: string): boolean => ORDER.indexOf(id) > 0;
+const AUTOSAVES = [AUTOSAVE_SLOT, AUTOSAVE_MAP_SLOT];
+const ORDER = [...AUTOSAVES, ...Array.from({ length: MANUAL_SLOT_COUNT }, (_, i) => manualSlotId(i + 1))];
+const isManual = (id: string): boolean => ORDER.indexOf(id) >= AUTOSAVES.length;
 
 /**
  * Saving and loading a single-player run (docs/SAVE_LOAD_PLAN.md, TODO
@@ -82,9 +84,10 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace'> {
     return this.queue(() => this.write(slotId, name));
   }
 
-  /** After a wave: the autosave slot, quietly; false when nothing was written */
-  async autosave(): Promise<boolean> {
-    const result = await this.queue(() => this.write(AUTOSAVE_SLOT));
+  /** After a wave: an autosave slot (the real places' or the maps'), quietly; false when nothing was written */
+  async autosave(slotId: string = AUTOSAVE_SLOT): Promise<boolean> {
+    if (!AUTOSAVES.includes(slotId)) return false;
+    const result = await this.queue(() => this.write(slotId));
     return result.ok;
   }
 
@@ -146,6 +149,8 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace'> {
       configHash: file.configHash,
       hq: { lat: file.place.hq.lat, lon: file.place.hq.lon },
     };
+    const world = file.world.world;
+    if (world?.kind === 'custom-map') meta.map = { id: world.mapId, name: world.name ?? world.mapId };
     const written = await this.store.write(meta, JSON.stringify(file));
     await this.refresh();
     return written ? { ok: true } : { ok: false, reason: 'This browser did not keep the save (storage full or blocked).' };
@@ -169,10 +174,11 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace'> {
     return {
       id: meta.id,
       name: meta.name,
-      autosave: meta.id === AUTOSAVE_SLOT,
+      autosave: AUTOSAVES.includes(meta.id),
       wave: meta.wave,
       location: meta.location,
       hq: meta.hq ? { lat: meta.hq.lat, lon: meta.hq.lon } : null,
+      map: meta.map ? { id: meta.map.id, name: meta.map.name } : null,
       savedAt: meta.savedAt,
       gameVersion: meta.gameVersion,
       note: saveNote(meta, this.here),

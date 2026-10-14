@@ -2,7 +2,7 @@ import { Injectable, computed, effect, inject, signal, untracked } from '@angula
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
 import { COOP } from '../../services/coop.token';
-import { AUTOSAVE_SLOT, SAVE_GAME, type LoadResult } from '../../services/save-game/save-game.port';
+import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
 import { shortPlaceName } from '../../services/save-game/slot-name';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
@@ -13,11 +13,19 @@ import { readDesktopBridge } from '../../core/desktop-bridge';
 import { autosaveElsewhere } from './autosave-place';
 import type { MenuLayer, MenuPage } from './menu-page';
 import { startMenuSkipped } from './start-menu-skipped';
+import { WorldContext } from '../../world/world-context.service';
+import { RESUME_URL_PARAM, WorldChoiceService } from '../../world/world-choice.service';
+import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 
 export { startMenuSkipped } from './start-menu-skipped';
 
+/** What the start list shows: the real places of the 3D tiles, or the custom maps */
+export type MenuWorldTab = 'real' | 'custom';
+
 /** The autosave as the list offers it: "Heilbronn | wave 12" */
 export interface AutosaveOffer {
+  /** The slot: the real places' autosave or the maps' */
+  slotId: string;
   place: string;
   wave: number;
   /** It stands at another place than the one loaded: Continue goes there (E120) */
@@ -52,6 +60,10 @@ export class MainMenuService {
   private readonly location = inject(LocationChangeCoordinatorService);
   private readonly globe = inject(GLOBE_LINK, { optional: true });
   private readonly facade = inject(TowerDefenseFacadeService, { optional: true });
+  private readonly worldContext = inject(WorldContext);
+  private readonly worlds = inject(WorldChoiceService);
+  /** The custom maps are open (CUSTOM_MAPS_OPEN): the start list has its two tabs */
+  private readonly mapsOpen = inject(CUSTOM_MAPS_OPEN);
   private readonly bridge = readDesktopBridge();
 
   readonly isOpen = computed(() => this.ui.mainMenu().open);
@@ -107,6 +119,26 @@ export class MainMenuService {
   /** Play was pressed while the place loaded: the menu closes when it stands */
   readonly pendingPlay = signal(false);
 
+  // ---- Real places and custom maps ----
+
+  /** The page plays a custom map */
+  readonly onMap = computed(() => this.worldContext.ref().kind === 'custom-map');
+  /**
+   * Which kind of world the start list shows. It follows the world the
+   * page plays; the player may look at the other: its Continue and Load
+   * then load the page anew on that world.
+   */
+  readonly tab = signal<MenuWorldTab>('real');
+  /** The start list shows the tabs: the maps are open, and the player picks the world (not in coop) */
+  readonly tabsShown = computed(() => this.mapsOpen && this.layer() === 'start' && !this.inCoop() && !this.ui.coopMapLocked());
+  /** The tab that is the world of this page */
+  readonly homeTab = computed<MenuWorldTab>(() => (this.onMap() ? 'custom' : 'real'));
+  /** The list shows the world of this page (or there are no tabs) */
+  readonly onHomeTab = computed(() => !this.tabsShown() || this.tab() === this.homeTab());
+
+  /** A save the page was opened to load (?resume=), said when it went wrong */
+  readonly notice = signal<string | null>(null);
+
   // ---- The run ----
 
   readonly inCoop = computed(() => this.coop?.inGame() ?? false);
@@ -124,10 +156,22 @@ export class MainMenuService {
    * under way the autosave is this run's
    */
   readonly autosaveOffer = computed<AutosaveOffer | null>(() => {
-    if (this.inCoop() || this.underWay() || !this.saves.hasAutosave()) return null;
-    const autosave = this.saves.slots().find((slot) => slot.id === AUTOSAVE_SLOT);
+    // The run under way here is this tab's to continue; the other tab offers its own autosave
+    if (this.inCoop() || (this.underWay() && this.onHomeTab())) return null;
+    const custom = this.tabsShown() && this.tab() === 'custom';
+    const autosave = this.saves.slots().find((slot) => slot.id === (custom ? AUTOSAVE_MAP_SLOT : AUTOSAVE_SLOT));
     if (!autosave) return null;
-    return { place: shortPlaceName(autosave.location), wave: autosave.wave, elsewhere: this.autosavePlaceDiffers() };
+    const place = custom ? (autosave.map?.name ?? shortPlaceName(autosave.location)) : shortPlaceName(autosave.location);
+    const elsewhere = this.needsOtherWorld(autosave) || (!custom && this.autosavePlaceDiffers());
+    return { slotId: autosave.id, place, wave: autosave.wave, elsewhere };
+  });
+
+  /** The slots the Load page lists: under a tab only that world's */
+  readonly loadableSlots = computed<readonly SaveSlotInfo[]>(() => {
+    const slots = this.saves.slots();
+    if (!this.tabsShown()) return slots;
+    const custom = this.tab() === 'custom';
+    return slots.filter((slot) => (slot.map !== null) === custom);
   });
 
   /** The place loaded here, as the list names it */
@@ -137,6 +181,12 @@ export class MainMenuService {
   private pausedByMenu = false;
 
   constructor() {
+    // The tab follows the world the page plays
+    effect(() => {
+      const home = this.homeTab();
+      untracked(() => this.tab.set(home));
+    });
+    this.resumeFromLink();
     // Play waiting for the landing makes the dive quicker
     effect(() => this.globe?.playWaits.set(this.pendingPlay()));
     effect(() => {
@@ -252,13 +302,53 @@ export class MainMenuService {
   }
 
   /**
-   * Continue the autosave: it loads (at its place, which may be another),
-   * then the game shows. Asking about another place is the list's (E120).
+   * Continue an autosave (by default the real places'): it loads (at its
+   * place, which may be another), then the game shows. Asking about another
+   * place is the list's (E120).
    */
-  async continueAutosave(): Promise<LoadResult> {
-    const result = await this.saves.continueAutosave();
+  async continueAutosave(slotId: string = AUTOSAVE_SLOT): Promise<LoadResult> {
+    const slot = this.saves.slots().find((s) => s.id === slotId);
+    const result = slotId === AUTOSAVE_SLOT && !(slot && this.needsOtherWorld(slot))
+      ? await this.saves.continueAutosave()
+      : await this.loadSlot(slotId);
     if (result.ok) this.requestPlay();
     return result;
+  }
+
+  /**
+   * Load a slot. One of another world (a map's save on the real places, a
+   * real place's on a map, another map) loads the page anew there and
+   * loads it then (WorldChoiceService.openSave); else here.
+   */
+  async loadSlot(slotId: string): Promise<LoadResult> {
+    const slot = this.saves.slots().find((s) => s.id === slotId);
+    if (slot && this.needsOtherWorld(slot)) {
+      this.worlds.openSave(slot);
+      return { ok: true, note: null };
+    }
+    return this.saves.load(slotId);
+  }
+
+  /** The save plays on another world than this page's */
+  needsOtherWorld(slot: Pick<SaveSlotInfo, 'map'>): boolean {
+    const here = this.worldContext.ref();
+    if (slot.map) return here.kind !== 'custom-map' || here.mapId !== slot.map.id;
+    return !this.worldContext.capabilities().realPlace;
+  }
+
+  /** The page was opened to load a save (?resume=): it loads now; the link loses the word, so a reload does not load it again */
+  private resumeFromLink(): void {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const slotId = url.searchParams.get(RESUME_URL_PARAM);
+    if (!slotId) return;
+    url.searchParams.delete(RESUME_URL_PARAM);
+    window.history.replaceState(window.history.state, '', url.toString());
+    void this.saves.load(slotId).then((result) => {
+      if (!result.ok) this.notice.set(result.reason);
+      else if (result.note) this.notice.set(`Loaded. ${result.note}`);
+      else this.requestPlay();
+    });
   }
 
   /** The autosave stands at another place than the one loaded (E120) */

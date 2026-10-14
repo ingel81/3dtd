@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { signal } from '@angular/core';
 import { SaveGame, type SaveGameHost } from './save-game';
-import { AUTOSAVE_SLOT, manualSlotId } from './save-game.port';
+import { AUTOSAVE_MAP_SLOT, AUTOSAVE_SLOT, manualSlotId } from './save-game.port';
 import { UNREADABLE, type SaveSlotStore, type StoredSlotMeta } from './save-slot.store';
 import { buildWorldPackage } from '../../coop/world-package';
 import { emptySimSnapshot } from '../../../test/sim-snapshot-fixture';
@@ -93,6 +93,21 @@ describe('SaveGame (TODO E110)', () => {
     ]);
     expect(game.hasAutosave()).toBe(true);
     expect(game.slots()[0].location).toBe('Heilbronn');
+  });
+
+  it('keeps an autosave for the custom maps beside the real places one, and names the map of a slot', async () => {
+    const { game, host } = setup();
+    expect(await game.autosave()).toBe(true);
+    const onMap = parts(5);
+    onMap.world = { ...onMap.world, world: { kind: 'custom-map', mapId: 'ember-crater', contentHash: 'h', name: 'Ember Crater' } };
+    vi.mocked(host.collect).mockResolvedValueOnce(onMap);
+    expect(await game.autosave(AUTOSAVE_MAP_SLOT)).toBe(true);
+    expect(game.slots().map((s) => [s.id, s.autosave, s.map])).toEqual([
+      [AUTOSAVE_SLOT, true, null],
+      [AUTOSAVE_MAP_SLOT, true, { id: 'ember-crater', name: 'Ember Crater' }],
+    ]);
+    // A manual slot is no autosave slot
+    expect(await game.autosave(manualSlotId(1))).toBe(false);
   });
 
   it('keeps the HQ of the place with the slot; a slot from before it was kept has none and still lists (E120)', async () => {

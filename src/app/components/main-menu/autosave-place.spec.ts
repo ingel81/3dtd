@@ -10,6 +10,7 @@ const autosave = (hq: { lat: number; lon: number } | null, location = 'Kilianspl
   id: AUTOSAVE_SLOT, name: 'Heilbronn, wave 3', autosave: true, wave: 3, location,
   savedAt: '2026-10-08T20:00:00Z', gameVersion: '0.6.0', note: null,
   hq,
+  map: null,
 });
 const recent = (hq: { lat: number; lon: number }, spawns = [{ lat: hq.lat + 0.005, lon: hq.lon }]): RecentLocation =>
   ({ hq, spawns, name: 'x', visitedAt: 1 });

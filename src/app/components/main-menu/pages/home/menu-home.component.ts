@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { RovingGroupDirective } from '../../../roving-group.directive';
 import { TdIconComponent, type TdIconName } from '../../../icon/icon.component';
-import { MainMenuService } from '../../main-menu.service';
+import { MainMenuService, type MenuWorldTab } from '../../main-menu.service';
 import { EngineInitializationService } from '../../../../services/infrastructure/engine-initialization.service';
 import { GameStore } from '../../../../store/game.store';
 import { loadingPlateView } from '../../loading/loading-plate';
@@ -157,26 +157,34 @@ export class MenuHomeComponent {
       return list;
     }
 
+    // With the tabs the list is one kind of world's: the page's own (its run, its place) or the other
+    // (its autosave and saves, which load the page anew there); the map editor belongs to the maps
+    const tabs = menu.tabsShown();
+    const maps = tabs && menu.tab() === 'custom';
+    const home = menu.onHomeTab();
+    const newGame = maps ? 'Play a map' : 'New game';
     const offer = menu.autosaveOffer();
     const head: HomeEntry[] = [];
     if (offer) {
       const line = `${offer.place} | wave ${offer.wave}`;
       head.push(entry('continue', 'Continue', offer.elsewhere ? `in ${line}` : line, false, !offer.elsewhere));
-    } else if (menu.hasPlace() && menu.underWay()) {
+    } else if (home && menu.hasPlace() && menu.underWay()) {
       head.push(entry('continue', 'Continue', this.runLine(), false, true));
     }
-    if (menu.hasPlace() && !menu.underWay()) head.push(entry('play', 'Play', menu.placeName(), false, true));
+    if (home && menu.hasPlace() && !menu.underWay()) head.push(entry('play', 'Play', menu.placeName(), false, true));
     // A place in the link: it is what the player came for
     if (menu.linkedPlace) head.reverse();
     // No place yet: choosing one comes first
-    if (!menu.hasPlace() && menu.canChangePlace()) head.push(entry('new-game', 'New game'));
+    const choose = menu.canChangePlace();
+    if (choose && (!menu.hasPlace() || !home)) head.push(entry('new-game', newGame));
     list.push(...head);
-    if (menu.hasPlace() && menu.canChangePlace()) list.push(entry('new-game', 'New game'));
+    if (choose && menu.hasPlace() && home) list.push(entry('new-game', newGame));
     list.push(entry('coop', 'Coop'));
-    if (solo && menu.underWay()) list.push(entry('save', 'Save game'));
+    if (solo && menu.underWay() && home) list.push(entry('save', 'Save game'));
     if (solo) list.push(entry('load', 'Load game'));
-    list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
-    list.push({ ...entry('editor', 'Map editor', this.mapsOpen ? null : 'Coming soon', true), off: !this.mapsOpen });
+    if (maps) list.push(entry('editor', 'Map editor'));
+    list.push(entry('settings', 'Settings', null, tabs), entry('extras', 'Extras', null, tabs));
+    if (!tabs) list.push({ ...entry('editor', 'Map editor', this.mapsOpen ? null : 'Coming soon', true), off: !this.mapsOpen });
     if (menu.canQuit) list.push(entry('quit', 'Quit 3DTD', null, true));
     return list;
   });
@@ -275,7 +283,7 @@ export class MenuHomeComponent {
     if (this.busy()) return;
     this.busy.set(true);
     try {
-      const result = await this.menu.continueAutosave();
+      const result = await this.menu.continueAutosave(this.menu.autosaveOffer()?.slotId);
       if (!result.ok) this.status.set(result.reason);
       else if (result.note) this.status.set(`Loaded. ${result.note}`);
     } finally {
@@ -290,6 +298,13 @@ export class MenuHomeComponent {
 
   private focusEntry(id: HomeEntryId): void {
     this.host.querySelector<HTMLElement>(`[data-entry="${id}"]`)?.focus();
+  }
+
+  /** Show the other kind of world's list: the scene behind stays until one of its entries loads it */
+  showTab(tab: MenuWorldTab): void {
+    this.status.set(null);
+    this.confirm.set(null);
+    this.menu.tab.set(tab);
   }
 
   /**

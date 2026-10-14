@@ -15,6 +15,15 @@
   padding: 14px;
 }
 
+/* The start list's tabs: real places or custom maps, the whole width over the entries */
+.mh-tabs {
+  margin: 0 0 6px;
+
+  > * {
+    flex: 1 1 0;
+  }
+}
+
 /* The pause list's head: "Paused" as its title, the place and wave on the
  * right, an engraved line under both */
 .mh-pause-head {

@@ -25,6 +25,8 @@ export interface StoredSlotMeta {
   configHash: string;
   /** The place's HQ, to tell whether the save is at the place loaded; slots from before 0.7 have none */
   hq?: { lat: number; lon: number };
+  /** The custom map the run plays on; absent on a real place */
+  map?: { id: string; name: string };
 }
 
 /** The slots, wherever they are kept */
