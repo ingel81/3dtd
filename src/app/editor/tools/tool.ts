@@ -138,6 +138,8 @@ export interface EditorSettings {
     gridStep: number;
     /** Object categories the view leaves out (Trees, Plants …); the map keeps them */
     hidden: string[];
+    /** Where a tower may stand, green and red on the ground (validation/build-areas.ts) */
+    buildAreas: boolean;
   };
   /** The points measured so far */
   measure: MapPoint[];
@@ -208,7 +210,7 @@ export function defaultSettings(): EditorSettings {
   return {
     brush: { ...DEFAULT_BRUSH },
     symmetry: 'none',
-    view: { contours: false, contourStep: 5, grid: false, gridStep: 25, hidden: [] },
+    view: { contours: false, contourStep: 5, grid: false, gridStep: 25, hidden: [], buildAreas: false },
     measure: [],
     landscape: {
       mode: 'biome',

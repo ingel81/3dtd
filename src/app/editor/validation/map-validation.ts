@@ -13,6 +13,7 @@ import { validateWaveTable, type WaveTable } from '../../director/sources/table/
 import { heightAt, insideMap, slopeAt } from '../model/grid';
 import { components, edgePolyline, nearestOnEdges, nearestOnPolyline, routeBetween } from '../ops/path-graph';
 import { undersideGap, type RockShape } from '../ops/object-ops';
+import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE, type BuildAreas } from './build-areas';
 
 export type IssueSeverity = 'error' | 'warning';
 
@@ -38,6 +39,7 @@ export interface MapIssue {
     | 'lanes'
     | 'lane-short'
     | 'lane-long'
+    | 'lane-little-room'
     | 'spawn-near-hq'
     | 'path-under-water'
     | 'object-on-path'
@@ -67,6 +69,8 @@ export interface ValidationRules {
   dangerColorReach: number;
   /** A rock whose underside hangs further than this over the ground is reported, metres */
   maxFloat: number;
+  /** A lane with room for fewer towers than this in reach of its route is reported (build-areas.ts) */
+  minTowerSpots: number;
 }
 
 export const DEFAULT_RULES: ValidationRules = {
@@ -77,6 +81,7 @@ export const DEFAULT_RULES: ValidationRules = {
   maxMarkerSlope: 30,
   dangerColorReach: 30,
   maxFloat: 0.25,
+  minTowerSpots: 20,
 };
 
 export interface ValidationOptions {
@@ -87,6 +92,8 @@ export interface ValidationOptions {
   dangerColor?: (asset: string) => boolean;
   /** A rock's shape from the catalogue (`rockShape`), undefined for everything else; without it no rock is checked */
   rockOf?: (asset: string) => RockShape | undefined;
+  /** Where towers may stand (computeBuildAreas, judged in a worker); without it the room along the lanes is not checked */
+  buildAreas?: BuildAreas | null;
 }
 
 export function validateMap(doc: CustomMapDocument, options: ValidationOptions = {}): MapIssue[] {
@@ -186,6 +193,20 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     if (Math.hypot(s.x - doc.hq.x, s.y - doc.hq.y) < 60) {
       issues.push({ severity: 'warning', code: 'spawn-near-hq', message: `Spawn ${name} stands right next to the HQ.`, focus: s, target: { kind: 'spawn', id: s.id } });
     }
+  }
+
+  // Room for towers in reach of each lane's route, by the game's placement rules
+  for (const lane of options.buildAreas?.lanes ?? []) {
+    const s = doc.spawns.find((sp) => sp.id === lane.spawnId);
+    const spots = Math.floor(lane.area / TOWER_SPOT_M2);
+    if (!s || !lane.routed || spots >= rules.minTowerSpots) continue;
+    issues.push({
+      severity: 'warning',
+      code: 'lane-little-room',
+      message: `Along the lane from spawn ${s.name || s.id} there is room for about ${spots} towers within ${TYPICAL_TOWER_RANGE} m of the route (at least ${rules.minTowerSpots} give the player a choice). Measure > Build areas shows where.`,
+      focus: s,
+      target: { kind: 'spawn', id: s.id },
+    });
   }
 
   const water = t.water;

@@ -4,6 +4,7 @@ import { MAP_TRIAL_TONE, mapTrialSummary, type MapTrialResult } from '../../../w
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapIssue } from '../../validation/map-validation';
 import { EditorSession } from '../editor-session.service';
+import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../validation/build-areas';
 
 /**
  * The result of "Check" over the view: errors first, then warnings; a
@@ -33,6 +34,7 @@ import { EditorSession } from '../editor-session.service';
     } @else {
       <p class="td-note is-ok ck-ok" data-test="issues-none">Paths connect, every spawn reaches the HQ. Ready to test.</p>
     }
+    <p class="td-note ck-room" data-test="build-room-check">Room for towers near the routes: {{ room() }}</p>
     <div class="ck-bot td-line-top">
       @if (bot(); as b) {
         @if (b.result; as r) {
@@ -57,6 +59,7 @@ import { EditorSession } from '../editor-session.service';
      .ck-row { justify-content: flex-start; gap: 8px; min-height: 30px; padding: 4px 6px; text-align: left; }
      .ck-text { flex: 1 1 auto; white-space: normal; }
      .ck-ok { margin: 4px 0 0; }
+     .ck-room { margin: 6px 0 0; }
      .ck-bot { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 6px; }`,
   ],
 })
@@ -74,6 +77,16 @@ export class CheckPanelComponent {
   });
 
   readonly bot = this.session.botTrial;
+  /** The buildable area in reach of any route (validation/build-areas.ts) and the lane with the least of it */
+  readonly room = computed(() => {
+    const a = this.session.buildAreas();
+    if (!a) return 'judging the map …';
+    const lanes = a.lanes.filter((l) => l.routed);
+    const least = lanes.length > 1 ? lanes.reduce((m, l) => (l.area < m.area ? l : m)) : null;
+    const spots = (m2: number) => Math.floor(m2 / TOWER_SPOT_M2).toLocaleString('en-US');
+    const tightest = least ? `; the tightest lane, ${least.name}, about ${spots(least.area)}` : '';
+    return `${Math.round(a.inReach).toLocaleString('en-US')} m², about ${spots(a.inReach)} towers within ${TYPICAL_TOWER_RANGE} m${tightest}.`;
+  });
 
   botCheck(): void {
     void this.session.botCheck();

@@ -27,6 +27,7 @@ import { EditorDocument, SnapshotCommand, type EditCommand, type Selection } fro
 import { resizeMap } from '../ops/resize';
 import { detailTarget, increaseMapDetail } from '../ops/detail';
 import { mirrorMap, type MirrorResult } from '../ops/mirror-map';
+import { spawnRoutes } from '../ops/path-graph';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { decodePng, decodeRaw16, encodePng16, encodeRaw16, gridToImage, heightmapName, imageToHeights, squareImage } from '../ops/heightmap';
 import { LandscapeTool } from '../tools/landscape-tool';
@@ -46,6 +47,7 @@ import { PanelTool, TOOL_BRUSH_RADIUS, TOOLS, defaultSettings, type EditorSettin
 import { DEFAULT_BRUSH, type BrushSettings } from '../ops/brush';
 import { WaterTool } from '../tools/water-tool';
 import { validateMap, type MapIssue } from '../validation/map-validation';
+import { buildAreaInput, buildAreasOffThread, type BuildAreas } from '../validation/build-areas';
 import { rockShape } from '../ops/object-ops';
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
 import { DEFAULT_W3X_OPTIONS, loadW3xImporter, type W3xImportOptions, type W3xImportReport } from '../import/w3x-seam';
@@ -53,6 +55,8 @@ import { WORLD_URL_PARAM, worldUrlValue } from '../../world/world-ref';
 import { START_WAVE_PARAM } from '../../world/custom-map/custom-map-world';
 
 export const AUTOSAVE_DELAY_MS = 2000;
+/** The build areas are judged again this long after the last change (a large map takes a worker a few hundred ms) */
+export const BUILD_AREA_DELAY_MS = 600;
 const BOOKMARK_KEY = '3dtd-editor-views:';
 const THUMBNAIL_SIZE = 256;
 
@@ -102,6 +106,13 @@ export class EditorSession implements OnDestroy {
   readonly botTrial = signal<{ waves: number; result: MapTrialResult | null } | null>(null);
   /** The wave "Test map" starts at (1 a normal run): the run gets the gold and research of the waves before */
   readonly testFromWave = signal(1);
+  /** Where towers may stand (validation/build-areas.ts), for the overlay and the check; null before the first judgement */
+  readonly buildAreas = signal<BuildAreas | null>(null);
+  /** The map and document state the build areas were judged on, and whether a judgement runs */
+  private buildAreaOf = { map: 0, state: -1 };
+  private buildAreaMap = 0;
+  private buildAreaTimer: ReturnType<typeof setTimeout> | null = null;
+  private buildAreaRunning = false;
   private stopBotListener: (() => void) | null = null;
   private readonly history = new VersionHistory();
   /** The open map's kept versions, newest first */
@@ -569,6 +580,12 @@ export class EditorSession implements OnDestroy {
     this.versions.set([]);
     void this.loadVersions();
     this.issues.set(null);
+    // Another map: its build areas are judged anew, a judgement under way is dropped
+    this.buildAreaMap++;
+    this.buildAreaOf = { map: -1, state: -1 };
+    this.buildAreas.set(null);
+    this.showBuildAreas();
+    this.scheduleBuildAreas(0);
     this.unsubscribe.push(
       editor.onChange((change) => {
         this.changed = true;
@@ -637,6 +654,7 @@ export class EditorSession implements OnDestroy {
       });
       this.viewport.setTool(this.tools[this.tool()]);
       if (this.readOnly()) this.viewport.setLocked(true);
+      this.showBuildAreas();
     });
     this.hint.set(this.tools[this.tool()].hint(this.viewport!.ctx));
   }
@@ -813,9 +831,69 @@ export class EditorSession implements OnDestroy {
     const doc = this.doc;
     if (!doc) return [];
     const catalog = this.catalog();
-    const issues = validateMap(doc, { blocksBuild: (asset) => catalog.object(asset).blocksBuild, rockOf: (asset) => rockShape(catalog.object(asset)) });
+    const issues = validateMap(doc, {
+      blocksBuild: (asset) => catalog.object(asset).blocksBuild,
+      rockOf: (asset) => rockShape(catalog.object(asset)),
+      buildAreas: this.buildAreas(),
+    });
     this.issues.set(issues);
+    // The room for towers comes from a worker: judged once the check is open, the check runs again with it
+    this.scheduleBuildAreas(this.buildAreas() ? BUILD_AREA_DELAY_MS : 0);
     return issues;
+  }
+
+  // ---------------------------------------------------------------- build areas
+
+  /** The overlay "Build areas" (Measure) on or off */
+  setBuildAreaOverlay(on: boolean): void {
+    this.patchSettings((s) => (s.view.buildAreas = on));
+    this.showBuildAreas();
+    this.scheduleBuildAreas(0);
+  }
+
+  /** The judged build areas on the ground while the overlay is on */
+  private showBuildAreas(): void {
+    this.viewport?.overlay.setBuildAreas(this.settings.view.buildAreas ? this.buildAreas() : null);
+  }
+
+  /**
+   * Judge the build areas again BUILD_AREA_DELAY_MS after the last change,
+   * while the overlay or the check shows them and the map is not the one
+   * judged; one worker at a time, a change meanwhile judges again after it
+   */
+  private scheduleBuildAreas(delay = BUILD_AREA_DELAY_MS): void {
+    const editor = this.editor;
+    if (!editor || this.destroyed || !(this.settings.view.buildAreas || this.issues() !== null)) return;
+    if (this.buildAreaOf.map === this.buildAreaMap && this.buildAreaOf.state === editor.stateId) return;
+    if (this.buildAreaTimer) clearTimeout(this.buildAreaTimer);
+    this.buildAreaTimer = setTimeout(() => void this.judgeBuildAreas(), delay);
+  }
+
+  private async judgeBuildAreas(): Promise<void> {
+    this.buildAreaTimer = null;
+    const editor = this.editor;
+    if (!editor || this.buildAreaRunning) return;
+    const of = { map: this.buildAreaMap, state: editor.stateId };
+    const doc = editor.doc;
+    const routes = spawnRoutes(doc);
+    const catalog = this.catalog();
+    const input = buildAreaInput(doc, (asset) => catalog.object(asset), doc.spawns.map((s) => ({
+      spawnId: s.id, name: s.name, points: routes.get(s.id)?.points ?? null,
+    })));
+    this.buildAreaRunning = true;
+    try {
+      const areas = await buildAreasOffThread(input);
+      if (of.map !== this.buildAreaMap || this.destroyed) return;
+      this.buildAreaOf = of;
+      this.buildAreas.set(areas);
+      this.showBuildAreas();
+      if (this.issues()) this.runCheck();
+    } catch (e) {
+      console.warn('[Editor] build areas not judged:', e);
+    } finally {
+      this.buildAreaRunning = false;
+    }
+    this.scheduleBuildAreas();
   }
 
   // ---------------------------------------------------------------- saving
@@ -1245,6 +1323,7 @@ export class EditorSession implements OnDestroy {
     this.refresh();
     if (this.dirty() && !this.readOnly()) this.scheduleAutosave();
     if (this.issues()) this.runCheck();
+    this.scheduleBuildAreas();
   }
 
   private scheduleAutosave(): void {

@@ -333,6 +333,20 @@ meldet Fehler der Liste und Regeln ohne schießenden Tower. Sie stehen im Karten
 dazu je Spawn die Spurlänge und die Laufzeit für den langsamsten, einen typischen und den schnellsten Bodengegner.
 Darunter Höhenlinien (alle 1 bis 10 m, jede fünfte heller) und ein Raster (10 bis 100 m) zum Einschalten.
 
+„Build areas“ legt eine Fläche auf den Boden, wo ein Spieler einen Tower bauen darf: kräftig grün, wo er steht und
+eine Route in Reichweite hat (60 m, die mittlere Grundreichweite der schießenden Tower, `TYPICAL_TOWER_RANGE`), blass
+grün außer Reichweite, rot, wo keiner steht: Wasser, zu steil, ein Objekt, die Route selbst, HQ oder Spawn
+(`validation/build-areas.ts`). Darunter die Fläche in Reichweite der Routen in m² und wie viele Tower darauf passen
+(eine Fläche von 8 x 8 m je Tower, der Mindestabstand des Spiels). Es sind die Regeln des Spiels, nicht nachgebaut:
+je Zelle (4 m, auf Karten über 2048 m die längere Seite durch 512) prüft `checkTowerPlacement` Spielfeld, HQ (30 m)
+und Spawns (60 m), die Route (10 m, `MIN_DISTANCE_TO_ROUTE`), `CustomMapSurface.buildBlocker` mit
+`TOWER_BUILD_RADIUS` (Wasser, Objekte, die das Bauen verbieten) und `resolveTowerFootprint` den Grund unter der
+Grundfläche eines Archer-Towers (Wand oder Abbruch unter Mitte oder innerem Ring); die Mitte der Zelle zählt. Die
+Rechnung läuft in einem Worker (`workers/build-areas.worker.ts`, 1024 m etwa 0,25 s, 2048 m etwa 0,85 s in Node
+gemessen), 0,6 s nach der letzten Änderung (`BUILD_AREA_DELAY_MS`), solange die Fläche oder der Check offen ist; eine
+Änderung währenddessen rechnet danach noch einmal. Wasser verdeckt die Fläche darunter (sie liegt auf dem Grund),
+nur der Rand am Ufer zeigt rot.
+
 ### Symmetrie
 
 Für faire Karten: Mirror X (Ost und West gespiegelt), Mirror Y (Nord und Süd), Both (vier Viertel), Turn 2 (halbe
@@ -359,7 +373,8 @@ dazurechnen, wahlweise neu bemalen nach Neigung und Höhe; ein Schritt im Verlau
 ## Prüfen
 
 „Check“ (V) listet Fehler vor Warnungen; ein Klick wählt das Betroffene, wechselt ins passende Werkzeug und zeigt es.
-Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
+Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu. Unter der Liste steht der Platz für Tower an
+den Routen (Fläche in Reichweite, Tower darauf, bei mehreren Spuren die engste), aus derselben Rechnung wie Build areas.
 
 | Code | Art | Bedeutung |
 |------|-----|-----------|
@@ -374,6 +389,7 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
 | `paths-split` | Warnung | Straßennetz in mehreren Teilen |
 | `lane-short`, `lane-long` | Warnung | Spur unter 200 m oder über 4000 m |
 | `spawn-near-hq` | Warnung | Spawn unter 60 m vom HQ |
+| `lane-little-room` | Warnung | Entlang der Route eines Spawns Platz für weniger als 20 Tower in Reichweite (Build areas, `minTowerSpots`); kommt, sobald der Worker gerechnet hat |
 | `path-under-water` | Warnung | Straße (keine Brücke) unter Wasser |
 | `path-steep` | Warnung | Straße steiler als 30 Grad |
 | `object-on-path` | Warnung | Blockierendes Objekt auf einer Straße |
@@ -608,7 +624,8 @@ und die Arrays; Umbenennen und erneutes Speichern ändern ihn nicht. Beim Lesen 
 (`MAP_MIGRATIONS`, je Version ein Schritt), dann die Prüfung; Fehler kommen als `MapFileError` mit Klartext.
 
 **Tests.** Vitest: `map-file.spec.ts`, `map-store.spec.ts`, `editor-document.spec.ts`, `ops.spec.ts`,
-`path-graph.spec.ts`, `map-validation.spec.ts`, `tools.spec.ts`, `ops/landscape/landscape.spec.ts` (Gleichheit bei
+`path-graph.spec.ts`, `map-validation.spec.ts`, `validation/build-areas.spec.ts` (jede Zellart nach den Regeln des
+Spiels, Platz je Spur), `tools.spec.ts`, `ops/landscape/landscape.spec.ts` (Gleichheit bei
 gleichem Seed, Rand, Dichte, Freihalten von Straßen und Markern, ein Undo-Schritt, Formen, Erosion, Fluss mit Brücke,
 Straße), `ops/symmetry.spec.ts`, `ops/stamp.spec.ts`, `ops/generate.spec.ts`, `ops/contours.spec.ts`. `editor-fuzz.spec.ts`
 spielt je Seed (1, 7, 42, 99, 2026) 90 zufällige Schritte über die Werkzeuge und Befehle (Gelände- und Farbpinsel,

@@ -21,6 +21,9 @@ import {
   Mesh,
   MeshBasicMaterial,
   CanvasTexture,
+  DataTexture,
+  DoubleSide,
+  NearestFilter,
   SphereGeometry,
   Sprite,
   SpriteMaterial,
@@ -33,6 +36,7 @@ import { selectedEdges, selectedNodes, selectedSpawns, type Selection } from '..
 import { pointAt, polylineLength, type Route } from '../ops/path-graph';
 import type { SymmetryMode } from '../ops/symmetry';
 import type { Contours } from '../ops/contours';
+import { BuildCell, type BuildAreas } from '../validation/build-areas';
 import { TransformGizmo } from './transform-gizmo';
 
 const RING_SEGMENTS = 72;
@@ -99,6 +103,8 @@ export class EditorOverlay {
   /** Height lines and the metre grid */
   private readonly contours = new Group();
   private readonly grid = new Group();
+  /** Where a tower may stand (validation/build-areas.ts), a coloured sheet on the ground */
+  private readonly buildAreas = new Group();
   private readonly contourMinor = new LineBasicMaterial({ color: TD_THEME.knobLight, transparent: true, opacity: 0.35 });
   private readonly contourMajor = new LineBasicMaterial({ color: TD_THEME.brassLight, transparent: true, opacity: 0.7 });
   private readonly gridMaterial = new LineBasicMaterial({ color: TD_THEME.frameLight, transparent: true, opacity: 0.45 });
@@ -157,7 +163,7 @@ export class EditorOverlay {
     this.measure.frustumCulled = false;
     this.measure.visible = false;
     this.hover.visible = false;
-    this.group.add(this.hover, this.contours, this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview, this.transform.group, this.riverHandles);
+    this.group.add(this.hover, this.buildAreas, this.contours, this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview, this.transform.group, this.riverHandles);
   }
 
   /** Handles on the points of the map's rivers (the water tool's river mode); null hides them */
@@ -381,6 +387,58 @@ export class EditorOverlay {
       seg.renderOrder = 7;
       this.contours.add(seg);
     }
+  }
+
+  /**
+   * Where a tower may stand: a sheet draped on the ground, a texel per
+   * cell, strong green in reach of a route, pale green out of reach, red
+   * where something rules a tower out; null hides it
+   */
+  setBuildAreas(areas: BuildAreas | null): void {
+    for (const child of this.buildAreas.children) ((child as Mesh).material as MeshBasicMaterial).map?.dispose();
+    clear(this.buildAreas);
+    if (!areas) return;
+    const { columns, rows, cell, x0, y0 } = areas;
+    const texels = new Uint8Array(columns * rows * 4);
+    for (let k = 0; k < areas.kind.length; k++) texels.set(BUILD_COLORS[areas.kind[k]] ?? BUILD_COLORS[BuildCell.Outside], k * 4);
+    const texture = new DataTexture(texels, columns, rows);
+    texture.magFilter = NearestFilter;
+    texture.minFilter = NearestFilter;
+    texture.needsUpdate = true;
+    // A vertex every cell corner, at most 256 along a side: the sheet follows the ground, the texels stay sharp
+    const step = Math.max(1, Math.ceil(Math.max(columns, rows) / 256));
+    const vx = Math.ceil(columns / step) + 1;
+    const vy = Math.ceil(rows / step) + 1;
+    const pos = new Float32Array(vx * vy * 3);
+    const uv = new Float32Array(vx * vy * 2);
+    for (let j = 0; j < vy; j++) {
+      for (let i = 0; i < vx; i++) {
+        const u = Math.min(columns, i * step);
+        const v = Math.min(rows, j * step);
+        const x = x0 + u * cell;
+        const y = y0 + v * cell;
+        const k = j * vx + i;
+        pos.set([-x, this.height(x, y) + 0.4, y], k * 3);
+        uv.set([u / columns, v / rows], k * 2);
+      }
+    }
+    const index: number[] = [];
+    for (let j = 0; j + 1 < vy; j++) {
+      for (let i = 0; i + 1 < vx; i++) {
+        const a = j * vx + i;
+        index.push(a, a + vx, a + 1, a + 1, a + vx, a + vx + 1);
+      }
+    }
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new BufferAttribute(pos, 3));
+    geometry.setAttribute('uv', new BufferAttribute(uv, 2));
+    geometry.setIndex(index);
+    const sheet = new Mesh(geometry, new MeshBasicMaterial({
+      map: texture, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: DoubleSide,
+    }));
+    sheet.frustumCulled = false;
+    sheet.renderOrder = 6;
+    this.buildAreas.add(sheet);
   }
 
   /** A metre grid draped on the ground every `spacing` metres; 0 hides it */
@@ -614,6 +672,25 @@ function baseRing(color: string): LineLoop {
   }
   return r;
 }
+
+/** RGBA of each BuildCell on the sheet: the game's build preview speaks green and red too */
+const BUILD_COLORS: Record<number, readonly number[]> = (() => {
+  const rgba = (hex: string, alpha: number) => {
+    const c = new Color(hex);
+    return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255), alpha];
+  };
+  const blocked = rgba(TD_THEME.dangerEdge, 150);
+  return {
+    [BuildCell.Outside]: [0, 0, 0, 0],
+    [BuildCell.InReach]: rgba(TD_THEME.greenDark, 150),
+    [BuildCell.OutOfReach]: rgba(TD_THEME.green, 60),
+    [BuildCell.Water]: blocked,
+    [BuildCell.Object]: blocked,
+    [BuildCell.Steep]: blocked,
+    [BuildCell.Route]: rgba(TD_THEME.dangerEdge, 70),
+    [BuildCell.Marker]: blocked,
+  };
+})();
 
 function clear(group: Group): void {
   for (const child of [...group.children]) {

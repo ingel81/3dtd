@@ -130,3 +130,20 @@ describe('validateMap, gameplay rules', () => {
     expect(issues.filter((i) => i.code === 'unknown-tower')).toHaveLength(2);
   });
 });
+
+describe('validateMap, room for towers', () => {
+  const areas = (lanes: { spawnId: string; area: number; routed: boolean }[]) =>
+    ({ cell: 4, columns: 1, rows: 1, x0: 0, y0: 0, kind: new Uint8Array(1), inReach: 0, buildable: 0, lanes: lanes.map((l) => ({ ...l, name: l.spawnId })) });
+
+  it('warns about a lane with room for few towers in reach of its route, once the build areas are judged', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 800, depth: 400 });
+    expect(codes(doc)).not.toContain('lane-little-room');
+    const tight = validateMap(doc, { buildAreas: areas([{ spawnId: 's1', area: 19 * 64, routed: true }]) });
+    const issue = tight.find((i) => i.code === 'lane-little-room');
+    expect(issue?.target).toEqual({ kind: 'spawn', id: 's1' });
+    expect(issue?.message).toContain('about 19 towers');
+    expect(validateMap(doc, { buildAreas: areas([{ spawnId: 's1', area: 20 * 64, routed: true }]) }).map((i) => i.code)).not.toContain('lane-little-room');
+    // A lane without a route has its own error
+    expect(validateMap(doc, { buildAreas: areas([{ spawnId: 's1', area: 0, routed: false }]) }).map((i) => i.code)).not.toContain('lane-little-room');
+  });
+});
