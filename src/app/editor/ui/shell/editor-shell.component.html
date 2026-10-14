@@ -120,6 +120,9 @@
   }
   <main class="es-view">
     <canvas #canvas class="es-canvas" tabindex="0" aria-label="Map view" data-test="viewport"></canvas>
+    @if (!session.viewShown()) {
+      <p class="es-preparing td-note" role="status" data-test="view-preparing"><span class="td-spin" aria-hidden="true"></span> Preparing the view</p>
+    }
     @if (session.box(); as b) {
       <div class="es-box" [style.left.px]="b.x0 < b.x1 ? b.x0 : b.x1" [style.top.px]="b.y0 < b.y1 ? b.y0 : b.y1"
            [style.width.px]="b.x1 > b.x0 ? b.x1 - b.x0 : b.x0 - b.x1" [style.height.px]="b.y1 > b.y0 ? b.y1 - b.y0 : b.y0 - b.y1"></div>

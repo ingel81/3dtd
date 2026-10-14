@@ -233,9 +233,11 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
         { preset: this.newPreset(), seed: this.newSeed(), strength: this.newStrength() / 100 },
         templateById(this.newTemplate()),
       );
+      // Busy until the editor takes the page: the form does not come back to life for a moment first
       this.open.emit(id);
-    } finally {
+    } catch (e) {
       this.busy.set(false);
+      throw e;
     }
   }
 

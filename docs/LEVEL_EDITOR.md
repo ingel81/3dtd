@@ -28,7 +28,11 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
   die Detailstufe der mitgelieferten Level, ohne Wahl: Höhenpunkte alle 2 m (`DEFAULT_CELL_SIZE`) und die Bodenfarbe
   mit etwa einem Texel je Meter, höchstens 1024 px (`splatResolutionFor`). „Meadows“ auf 1024 m braucht vom Klick bis
   zum offenen Editor 1,8 bis 2,7 s (mit 4 m waren es 0,9 bis 1,6 s; Chromium, RTX 5080, 2026-10-14). Jede neue Karte hat eine Straße von West zum HQ und einen Spawn an ihrem Ende, damit sie sofort
-  spielbar ist; der Generator ebnet die Straße und legt sie, wo sie unter Wasser liefe, auf einen Damm
+  spielbar ist; der Generator ebnet die Straße und legt sie, wo sie unter Wasser liefe, auf einen Damm.
+  Während des Anlegens steht der Stand in der Knopfzeile des Formulars („Painting the land 40 %“, dann „Opening the
+  editor“), das Formular bleibt bis zum Wechsel gesperrt und springt nicht (früher schob eine eigene Zeile dafür die
+  Liste über die Höhe, ein Rollbalken kam und ging und die Vorlagen sprangen von sechs auf fünf Spalten und zurück);
+  bis die Ansicht ihre Programme übersetzt hat, steht dort „Preparing the view“
 - **Import file:** `.3dtdmap` oder `.w3x` per Dateiwahl oder per Ablegen auf der Seite. Ein Warcraft-3-Import fragt
   erst nach Metern je Kachel (4), höchstens Objekten (6000), „Playable area only“, „Enhance ground“ (Boden nach
   Spielrolle neu malen, aus: Kacheln wie im Original) und „Take the map's waves“ (die Wellen der Karte als eigene

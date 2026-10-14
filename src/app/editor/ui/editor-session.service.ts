@@ -93,6 +93,8 @@ export class EditorSession implements OnDestroy {
   private saveRun: Promise<boolean> | null = null;
   /** Counts the times the map view became ready (models and textures in): pictures of it are worth retaking */
   readonly viewRev = signal(0);
+  /** Whether the view drew its map once (programs compiled); until then it says it is getting ready */
+  readonly viewShown = signal(false);
   /** The bot's check of the map: running (no result yet) or done */
   readonly botTrial = signal<{ waves: number; result: MapTrialResult | null } | null>(null);
   private stopBotListener: (() => void) | null = null;
@@ -612,6 +614,7 @@ export class EditorSession implements OnDestroy {
   attachViewport(canvas: HTMLCanvasElement): void {
     const editor = this.editor;
     if (!editor) return;
+    this.viewShown.set(false);
     this.zone.runOutsideAngular(() => {
       this.viewport = new EditorViewport(canvas, editor, this.catalog(), this.settings, {
         status: (m) => this.flash(m),
@@ -621,7 +624,11 @@ export class EditorSession implements OnDestroy {
         hover: (h) => this.hover.set(h),
         stats: (s) => this.stats.set(s),
         camera: () => this.cameraRev.update((n) => n + 1),
-        viewReady: () => this.zone.run(() => this.viewRev.update((n) => n + 1)),
+        viewReady: () =>
+          this.zone.run(() => {
+            this.viewRev.update((n) => n + 1);
+            this.viewShown.set(true);
+          }),
         contextLost: (lost) => this.zone.run(() => this.onContextLost(lost)),
       });
       this.viewport.setTool(this.tools[this.tool()]);

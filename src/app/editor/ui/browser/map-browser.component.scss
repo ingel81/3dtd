@@ -105,6 +105,8 @@
 .mb-detail {
   min-height: 0;
   overflow-y: auto;
+  // A scrollbar coming or going would reflow the template grid (six columns to five and back)
+  scrollbar-gutter: stable;
 }
 
 .mb-preview {
@@ -140,7 +142,7 @@
 
 .mb-materials {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
   gap: var(--td-sp-1);
 }
 
@@ -168,7 +170,7 @@
 
 .mb-templates {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
   gap: var(--td-sp-1);
 }
 
@@ -181,6 +183,14 @@
 }
 
 // Create stays in reach however long the form gets
+.mb-making {
+  display: flex;
+  align-items: center;
+  gap: var(--td-sp-2);
+  margin: 0 auto 0 0;
+  white-space: nowrap;
+}
+
 .mb-new-actions {
   position: sticky;
   bottom: 0;

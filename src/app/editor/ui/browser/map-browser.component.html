@@ -253,11 +253,15 @@
             </div>
           </div>
           }
-          @if (progress() !== null) {
-            <p class="td-note"><span class="td-spin" aria-hidden="true"></span> Painting the land {{ percent() }} %</p>
-          }
           <div class="td-actions mb-new-actions">
-            <button class="td-btn-secondary" type="button" (click)="mode.set('details')">Cancel</button>
+            <!-- The making shows in the row it already has: a line of its own grew the form and made it jump -->
+            @if (busy()) {
+              <p class="td-note mb-making" role="status" data-test="create-status">
+                <span class="td-spin" aria-hidden="true"></span>
+                {{ progress() !== null ? 'Painting the land ' + percent() + ' %' : 'Opening the editor' }}
+              </p>
+            }
+            <button class="td-btn-secondary" type="button" [disabled]="busy()" (click)="mode.set('details')">Cancel</button>
             <button class="td-btn-primary" type="button" [disabled]="busy()" (click)="createMap()" data-test="create-map">Create map</button>
           </div>
         } @else if (chosen(); as m) {
