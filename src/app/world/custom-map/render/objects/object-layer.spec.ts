@@ -123,6 +123,37 @@ describe('MapObjectLayer packed assets (few objects, no cells)', () => {
     layer.dispose();
   });
 
+  it('lets a band settle on a camera at rest, so nothing dithers there, and opens it again on a move', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const los = new Group();
+    const layer = new MapObjectLayer(field, library(), los);
+    await layer.setObjects(Array.from({ length: 20 }, (_, k) => ({ id: `t${k}`, asset: 'tree', x: k * 20, y: 0, z: 0, rotation: 0, scale: 1 })));
+    const camera = new PerspectiveCamera();
+    const at = (x: number, frames: number) => {
+      camera.position.set(-x, 5, 0);
+      camera.updateMatrixWorld();
+      for (let k = 0; k < frames; k++) layer.update(0.05, camera);
+    };
+    const mesh = (name: string) => los.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === name)!;
+    const dithered = (name: string) => [...(mesh(name).geometry.getAttribute('lodFade').array as Float32Array).subarray(0, mesh(name).count)].filter((f) => f !== 0);
+    // The tree at map x 300, 97 m away, in the band at a quarter: both levels, dithered
+    at(400, 1);
+    expect(dithered('tree')).toHaveLength(1);
+    expect(mesh('tree-lod1').count).toBe(16);
+    // At rest: after a moment it stands in its nearer level alone
+    at(400, 12);
+    expect(dithered('tree')).toEqual([]);
+    expect(dithered('tree-lod1')).toEqual([]);
+    expect(mesh('tree').count).toBe(5);
+    expect(mesh('tree-lod1').count).toBe(15);
+    // Moving again the band opens over a few frames, no jump
+    at(399.9, 1);
+    at(399.8, 1);
+    at(399.7, 1);
+    expect(dithered('tree')).toHaveLength(1);
+    layer.dispose();
+  });
+
   it("casts a packed object's shadow with the level that covers more of it, and only near the focus", async () => {
     const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
     const los = new Group();

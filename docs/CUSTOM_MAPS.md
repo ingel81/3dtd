@@ -249,7 +249,12 @@ Distanz, ebenso an der Sichtweite. Im Band zeigt ein Objekt beide Stufen, die ei
 Bildschirm-Dither auf, die andere erscheint im ergänzenden Muster: jedes Pixel zeigt genau eine, nichts springt.
 Gepackte Assets blenden je Objekt nach seinem Abstand, Zellen als Ganzes nach dem Abstand der Zelle. Der Wert liegt
 je Instanz im Attribut `lodFade` einer leichten Geometrie je Mesh, die Puffer des Modells teilt (`fadeGeometry`).
-Schatten dithern nicht: in Zellen wirft die Stufe mit dem größeren Anteil, gepackte Objekte werfen im Band beide.
+Schatten dithern nicht: es wirft die Stufe mit dem größeren Anteil, in Zellen wie bei gepackten Objekten (deren
+Instanzen liegen je Stufe mit den Werfern vorn, der Schattenpass zeichnet nur die), und nur nahe dem Fokus
+(`shadowRadius`). Steht die Kamera 0,15 s still, läuft das Band aus (`settleBlend`): jedes Objekt geht binnen 0,3 s
+ganz auf die Stufe, die seinem Abstand näher liegt, und öffnet das Band ebenso wieder, sobald die Kamera sich
+bewegt. Das feste Muster steht so nie als Punktfeld auf einem ruhenden Bild (Hafenstadt, Spielansicht: vorher 44
+gepackte Objekte im Band, danach keins).
 Kosten: Demo-Tal 151 → 160 Calls in der Spielansicht, beim Schwenk 155 → 171 bis 180; die GPU-Zeit bleibt im
 Rauschen des geteilten Messrechners (Spielansicht 1,01 bis 1,06 ms).
 

@@ -1,5 +1,5 @@
 import { BoxGeometry, InstancedBufferAttribute, MeshStandardMaterial } from 'three';
-import { LOD_BAND, addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, levelAt } from './lod-fade';
+import { LOD_BAND, addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, levelAt, settleBlend } from './lod-fade';
 
 describe('lod-fade (soft detail switches)', () => {
   const levels = [{ from: 0 }, { from: 100 }, { from: 300, impostor: true }];
@@ -20,6 +20,18 @@ describe('lod-fade (soft detail switches)', () => {
     expect(blendAt(levels, 100, 1000, 1, 380)).toEqual({ level: 0, next: 1, t: 0.5 });
     expect(blendAt(levels, 1000, 1000, 1, 380)).toEqual({ level: 2, next: -1, t: expect.closeTo(0.5) });
     expect(blendAt(levels, 380, 1000, 1, 380)).toEqual({ level: 1, next: 2, t: expect.closeTo(0.5) });
+  });
+
+  it('settles a band at rest towards the level nearer the distance, and shows that one alone at the end', () => {
+    const quarter = { level: 0, next: 1, t: 0.25 };
+    expect(settleBlend(quarter, 0)).toEqual(quarter);
+    expect(settleBlend(quarter, 0.5)).toEqual({ level: 0, next: 1, t: 0.125 });
+    expect(settleBlend(quarter, 1)).toEqual({ level: 0, next: null, t: 0 });
+    // Past the middle the next level; into nothing at the draw distance
+    expect(settleBlend({ level: 1, next: 2, t: 0.75 }, 1)).toEqual({ level: 2, next: null, t: 0 });
+    expect(settleBlend({ level: 1, next: -1, t: 0.6 }, 1)).toEqual({ level: -1, next: null, t: 0 });
+    // Outside a band nothing changes
+    expect(settleBlend({ level: 1, next: null, t: 0 }, 1)).toEqual({ level: 1, next: null, t: 0 });
   });
 
   it('shares the model\'s buffers and frees only its own', () => {

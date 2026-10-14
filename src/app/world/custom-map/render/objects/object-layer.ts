@@ -26,7 +26,7 @@ import { WIND_GLSL, WIND_UNIFORMS, windSwayAtTop } from '../environment/wind';
 import { mapToScene } from '../map-coords';
 import { bakeImpostor, type Impostor } from './impostor';
 import { addVertexRoughMetal, mergeParts } from './merge-parts';
-import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry } from './lod-fade';
+import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend } from './lod-fade';
 
 /**
  * The placed objects of a map, drawn instanced. An asset with many objects
@@ -132,6 +132,8 @@ interface Packed {
   at: Vector3;
   /** The instances changed since: the next sort writes every level */
   stale: boolean;
+  /** Objects in a band at the last sort: they follow the settling at rest */
+  banded: number;
 }
 
 interface AssetBatch {
@@ -175,6 +177,11 @@ export class MapObjectLayer {
   private generation = 0;
   private readonly camPos = new Vector3();
   private readonly focus = new Vector3();
+  /** How far the bands have settled at rest (lod-fade.ts settleBlend): 0 while the camera moves, 1 at rest */
+  private settle = 0;
+  /** The camera's position at the last frame, and how long it has stood there, s */
+  private readonly lastCamPos = new Vector3(Infinity, 0, 0);
+  private restFor = 0;
   private readonly tmpMatrix = new Matrix4();
   private readonly tmpPos = new Vector3();
   private readonly tmpQuat = new Quaternion();
@@ -412,11 +419,18 @@ export class MapObjectLayer {
   }
 
   /** Detail level and draw distance per cell, shadows near `focus` (group space); the wind's clock runs in the environment */
-  update(_dt: number, camera: Camera, focus?: Vector3): void {
+  update(dt: number, camera: Camera, focus?: Vector3): void {
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
     this.focus.copy(focus ?? this.camPos);
-    this.applyLevels(false);
+    // At rest the bands settle, moving they open again (settleBlend)
+    const moved = this.camPos.distanceToSquared(this.lastCamPos) > 1e-6;
+    this.lastCamPos.copy(this.camPos);
+    this.restFor = moved ? 0 : this.restFor + dt;
+    const settle = Math.min(1, Math.max(0, this.settle + (this.restFor >= REST_S ? dt : -dt) / SETTLE_S));
+    const settling = settle !== this.settle;
+    this.settle = settle;
+    this.applyLevels(false, settling);
   }
 
   /**
@@ -706,6 +720,7 @@ export class MapObjectLayer {
         pick: [],
         at: new Vector3(),
         stale: true,
+        banded: 0,
       }
       : null;
     for (const [li, level] of b.levels.entries()) {
@@ -804,11 +819,14 @@ export class MapObjectLayer {
     const draw = b.blocksLos ? b.entry.drawDistance : b.entry.drawDistance * lodBias;
     const dirty = new Array<boolean>(levels).fill(pack.stale || all);
     let moved = pack.stale || all;
+    let banded = 0;
     const casts = b.entry.category !== 'plant' || b.entry.height > 0.8;
     for (let i = 0; i < n; i++) {
       const s = i * 4;
       const d = all ? 0 : Math.max(0, Math.hypot(b.spheres[s] - this.camPos.x, b.spheres[s + 1] - this.camPos.y, b.spheres[s + 2] - this.camPos.z) - b.spheres[s + 3]);
-      const blend = all ? { level: 0, next: null, t: 0 } : blendAt(b.levels, d, draw, lodBias, impostorFrom);
+      const band = all ? { level: 0, next: null, t: 0 } : blendAt(b.levels, d, draw, lodBias, impostorFrom);
+      if (band.next !== null) banded++;
+      const blend = settleBlend(band, this.settle);
       const next = blend.next ?? NO_NEXT;
       // In a band the level that covers more of the pixels casts, and only near the focus
       const near = Math.hypot(b.spheres[s] - this.focus.x, b.spheres[s + 1] - this.focus.y, b.spheres[s + 2] - this.focus.z) - b.spheres[s + 3] < this.shadowRadius;
@@ -833,6 +851,7 @@ export class MapObjectLayer {
       pack.fadeOf[i] = blend.t;
     }
     pack.stale = false;
+    pack.banded = banded;
     if (!dirty.some(Boolean)) return false;
     for (let l = 0; l < levels; l++) {
       if (!dirty[l]) continue;
@@ -939,7 +958,7 @@ export class MapObjectLayer {
   }
 
   /** Per cell: the level for its distance, hidden beyond the draw distance, shadows only near the focus */
-  private applyLevels(force: boolean): void {
+  private applyLevels(force: boolean, settling = false): void {
     if (force) this.version++;
     const { lodBias, impostorFrom } = this.detail;
     for (const b of this.batches) {
@@ -949,13 +968,14 @@ export class MapObjectLayer {
         if (pack) {
           // Sorted again once the camera moved a step; the shadow map follows what changed
           if (force) pack.stale = true;
-          if (!pack.stale && pack.at.distanceToSquared(this.camPos) < REPACK_STEP * REPACK_STEP) continue;
+          // A band that settles or opens is written anew though the camera stands
+          if (!pack.stale && !(settling && pack.banded > 0) && pack.at.distanceToSquared(this.camPos) < REPACK_STEP * REPACK_STEP) continue;
           pack.at.copy(this.camPos);
           if (this.writePacked(b, cell, pack)) this.version++;
           continue;
         }
         const d = Math.max(0, cell.sphere.distanceToPoint(this.camPos));
-        const { level, next, t } = blendAt(b.levels, d, draw, lodBias, impostorFrom);
+        const { level, next, t } = settleBlend(blendAt(b.levels, d, draw, lodBias, impostorFrom), this.settle);
         if (level !== cell.level || next !== cell.next || force) {
           cell.levels.forEach((meshes, l) => {
             for (const m of meshes) {

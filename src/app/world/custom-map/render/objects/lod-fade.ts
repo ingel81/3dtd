@@ -9,7 +9,13 @@ import { BufferGeometry, InstancedBufferAttribute, type Material } from 'three';
  * dissolves into nothing. Per instance the fade lives in a `lodFade`
  * attribute (fadeGeometry): 0 shows the object whole, t in (0, 1) drops a
  * share t of its pixels (outgoing), t - 1 keeps a share t (incoming).
- * Shadows do not dither: in the band both levels cast.
+ * Shadows do not dither: the level that covers more of an object casts.
+ *
+ * The dither is a fixed screen pattern: on a camera at rest an object in a
+ * band would stand there as a field of dots. Once the camera stood still a
+ * moment the band settles (`settleBlend`): each object goes over to the
+ * level nearer its distance within SETTLE_S, and comes back the same way
+ * when the camera moves again. Nothing pops, at rest nothing dithers.
  */
 
 /** The band's width as a share of the switch distance */
@@ -62,6 +68,28 @@ export function blendAt(
     }
   }
   return { level: levelAt(levels, d, draw, lodBias, impostorFrom), next: null, t: 0 };
+}
+
+/** How long a band takes to settle at rest, or to open again once the camera moves, s */
+export const SETTLE_S = 0.3;
+/** The camera stands still this long before a band settles, s */
+export const REST_S = 0.15;
+
+/**
+ * A band's blend `settle` of the way (0 moving .. 1 at rest) towards the
+ * level nearer the object's distance: past the middle the next level, else
+ * its own. Fully settled it shows that one level alone
+ */
+export function settleBlend(
+  blend: { level: number; next: number | null; t: number },
+  settle: number,
+): { level: number; next: number | null; t: number } {
+  if (blend.next === null || settle <= 0) return blend;
+  const target = blend.t >= 0.5 ? 1 : 0;
+  const t = blend.t + (target - blend.t) * Math.min(1, settle);
+  if (t <= 0) return { level: blend.level, next: null, t: 0 };
+  if (t >= 1) return { level: blend.next, next: null, t: 0 };
+  return { level: blend.level, next: blend.next, t };
 }
 
 /**
