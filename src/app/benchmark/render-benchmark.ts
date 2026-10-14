@@ -95,6 +95,11 @@ export interface RenderRow {
   /** GPU time of the draw per frame (timer query), mean and 95th percentile, ms; null without a timer */
   gpuMs: number | null;
   gpuP95Ms: number | null;
+  /**
+   * The median GPU time, ms: on a machine that does other work meanwhile
+   * a few long frames pull the mean up, the median holds
+   */
+  gpuMedianMs: number | null;
   /** Main thread time of update and draw per frame, ms */
   cpuMs: number;
   /** Draw calls and triangles per frame, over every pass (shadow, scene, post) */
@@ -132,11 +137,13 @@ export function envOf(
 
 const mean = (values: readonly number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0);
 
-function p95(values: readonly number[]): number {
+function quantile(values: readonly number[], q: number): number {
   if (!values.length) return 0;
   const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
+  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))];
 }
+
+const p95 = (values: readonly number[]) => quantile(values, 0.95);
 
 /** A view's row from what was taken per frame: draw start times, GPU ms, CPU ms, calls, triangles */
 export function renderRow(
@@ -155,13 +162,14 @@ export function renderRow(
     frameP95Ms: p95(gaps),
     gpuMs: gpu && gpu.length ? mean(gpu) : null,
     gpuP95Ms: gpu && gpu.length ? p95(gpu) : null,
+    gpuMedianMs: gpu && gpu.length ? quantile(gpu, 0.5) : null,
     cpuMs,
     calls: Math.round(mean(calls)),
     triangles: Math.round(mean(triangles)),
   };
 }
 
-export const RENDER_HEAD = ['View', 'Frame', 'p95', 'GPU', 'GPU p95', 'CPU', 'Calls', 'Triangles'];
+export const RENDER_HEAD = ['View', 'Frame', 'p95', 'GPU', 'GPU med', 'GPU p95', 'CPU', 'Calls', 'Triangles'];
 
 const ms = (value: number | null) => (value === null ? '-' : value.toFixed(2));
 
@@ -172,6 +180,7 @@ export function renderCells(row: RenderRow): string[] {
     ms(row.frameMs),
     ms(row.frameP95Ms),
     ms(row.gpuMs),
+    ms(row.gpuMedianMs),
     ms(row.gpuP95Ms),
     ms(row.cpuMs),
     String(row.calls),

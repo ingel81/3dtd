@@ -44,6 +44,6 @@ describe('render benchmark (docs/BENCHMARKS.md, Bildkosten)', () => {
     };
     const text = formatRenderBenchmark(env, [row]);
     expect(text).toContain('map:demo-valley, quality high');
-    expect(text.split('\n').at(-1)).toMatch(/^game\s+13\.33\s+20\.00\s+2\.00\s+3\.00\s+1\.50\s+101\s+1\.00 M$/);
+    expect(text.split('\n').at(-1)).toMatch(/^game\s+13\.33\s+20\.00\s+2\.00\s+2\.00\s+3\.00\s+1\.50\s+101\s+1\.00 M$/);
   });
 });

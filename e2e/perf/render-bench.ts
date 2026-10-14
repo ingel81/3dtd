@@ -39,7 +39,7 @@ const GPU_ARGS = ANGLE === 'swiftshader'
   ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
   : [...(ANGLE ? [`--use-angle=${ANGLE}`] : []), '--enable-gpu', '--ignore-gpu-blocklist'];
 
-interface Row { view: string; frameMs: number; frameP95Ms: number; gpuMs: number | null; gpuP95Ms: number | null; cpuMs: number; calls: number; triangles: number }
+interface Row { view: string; frameMs: number; frameP95Ms: number; gpuMs: number | null; gpuMedianMs: number | null; gpuP95Ms: number | null; cpuMs: number; calls: number; triangles: number }
 interface Env { world: string; quality: string; gpu: string; canvas: [number, number]; devicePixelRatio: number; gpuTimer: boolean; version: string; commit: string }
 
 function worldQuery(world: string): string {
@@ -111,7 +111,7 @@ for (const world of WORLDS) {
         + `ready ${ready === null ? '?' : Math.round(ready)} ms, run ${Math.round((Date.now() - started) / 1000)} s, GPU timer ${result.env.gpuTimer ? 'yes' : 'no'}`);
       console.table(result.rows.map((r) => ({
         view: r.view, frameMs: +r.frameMs.toFixed(2), p95: +r.frameP95Ms.toFixed(2), gpuMs: r.gpuMs === null ? '-' : +r.gpuMs.toFixed(2),
-        gpuP95: r.gpuP95Ms === null ? '-' : +r.gpuP95Ms.toFixed(2), cpuMs: +r.cpuMs.toFixed(2), calls: r.calls, trisM: +(r.triangles / 1e6).toFixed(2),
+        gpuMed: r.gpuMedianMs === null ? '-' : +r.gpuMedianMs.toFixed(2), gpuP95: r.gpuP95Ms === null ? '-' : +r.gpuP95Ms.toFixed(2), cpuMs: +r.cpuMs.toFixed(2), calls: r.calls, trisM: +(r.triangles / 1e6).toFixed(2),
       })));
       if (errors.length) console.log('page errors', errors);
     }
@@ -122,6 +122,6 @@ await browser.close();
 
 console.log('\nAll runs (ms per frame: frame interval / GPU, draw calls)');
 console.table(all.flatMap(({ env, rows }) => rows.map((r) => ({
-  world: env.world, quality: env.quality, view: r.view, frameMs: +r.frameMs.toFixed(2), gpuMs: r.gpuMs === null ? '-' : +r.gpuMs.toFixed(2), calls: r.calls,
+  world: env.world, quality: env.quality, view: r.view, frameMs: +r.frameMs.toFixed(2), gpuMs: r.gpuMs === null ? '-' : +r.gpuMs.toFixed(2), gpuMed: r.gpuMedianMs === null ? '-' : +r.gpuMedianMs.toFixed(2), calls: r.calls,
 }))));
 if (JSON_OUT) writeFileSync(JSON_OUT, JSON.stringify(all, null, 2));

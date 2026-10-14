@@ -67,8 +67,9 @@ festen Kamerawegen um das HQ (`src/app/benchmark/render-benchmark.ts`), damit �
   `pan` ein voller Kreis um das HQ im Abstand und in der Höhe der Startansicht, `top` 500 m senkrecht über dem HQ wie
   im Editor. Je Ansicht 2 s Einschwingen (Tiles: bis keine Kachel mehr lädt, höchstens 20 s), dann 5 s Messung.
 - **Spalten:** `Frame` mittlerer Abstand der Bilder, `p95` der Abstand, den nur 5 % der Bilder überschreiten, `GPU`
-  die GPU-Zeit des Zeichnens je Bild per Timer-Query (`EXT_disjoint_timer_query_webgl2`, `gpu-timer.ts`; Mittel und
-  p95), `CPU` Hauptthread-Zeit für Update und Zeichnen, `Calls` und `Triangles` je Bild über alle Durchgänge
+  die GPU-Zeit des Zeichnens je Bild per Timer-Query (`EXT_disjoint_timer_query_webgl2`, `gpu-timer.ts`; Mittel, Median
+  `GPU med` und p95; auf einem Rechner, der nebenher arbeitet, hält der Median, wo einzelne lange Bilder das Mittel
+  heben), `CPU` Hauptthread-Zeit für Update und Zeichnen, `Calls` und `Triangles` je Bild über alle Durchgänge
   (Schatten, Szene, Nachbearbeitung). Ohne Timer-Query (Firefox, Safari) bleibt die GPU-Spalte leer; dann zählt
   `Frame` bei ungedeckelter Bildrate.
 - **Im Spiel:** Menü Extras, „Graphics benchmark“ lädt die Seite mit `benchmark=render` auf derselben Welt neu und
