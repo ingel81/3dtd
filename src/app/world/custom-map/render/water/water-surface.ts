@@ -20,7 +20,9 @@ import type { HeightTexture } from '../terrain/height-texture';
 import { APRON_RINGS, RIVER_REACH, type ApronProfile } from '../terrain/terrain-apron';
 import type { GridRect } from '../terrain/terrain-chunks';
 import { uploadRect } from '../terrain/texture-ranges';
-import { createWaterMaterial, setWaterColor, setWaterFlow, setWaterMask, setWaterSky } from './water-material';
+import { createWaterMaterial, setWaterColor, setWaterEffects, setWaterFlow, setWaterMask, setWaterSky } from './water-material';
+import type { MapEffects } from '../map-effects';
+import type { SceneCopy } from './scene-copy';
 import { bakeFlowMap } from './flow-map';
 
 /**
@@ -51,6 +53,8 @@ export class WaterSurface {
   private readonly flow: DataTexture;
   /** What the surface shows now */
   kind: MapWater['kind'];
+  private effects: { on: MapEffects; copy: SceneCopy } | null = null;
+  private beforeRender: Mesh['onBeforeRender'] = () => undefined;
 
   constructor(
     private readonly field: HeightField,
@@ -95,6 +99,7 @@ export class WaterSurface {
       }
       old.dispose();
       for (const m of this.meshes()) m.material = this.material;
+      if (this.effects) this.setEffects(this.effects.on, this.effects.copy);
     }
     setWaterColor(this.material, kind, water.color);
     const f = this.field;
@@ -128,6 +133,14 @@ export class WaterSurface {
     setWaterSky(this.material, skyUniforms, sunIntensity);
   }
 
+  /** Switchable effects (refraction, sea waves); `copy` is the view's frame copy */
+  setEffects(on: MapEffects, copy: SceneCopy): void {
+    this.effects = { on, copy };
+    const { refraction } = setWaterEffects(this.material, this.kind ?? 'water', on, copy);
+    this.beforeRender = refraction ? (renderer) => copy.capture(renderer) : () => undefined;
+    for (const m of this.meshes()) m.onBeforeRender = this.beforeRender;
+  }
+
   update(dt: number): void {
     this.material.uniforms['uTime'].value += dt;
   }
@@ -148,6 +161,8 @@ export class WaterSurface {
     mesh.userData['losTransparent'] = true;
     mesh.renderOrder = 1;
     mesh.receiveShadow = true;
+    // Refraction copies the frame before the first tile draws (once a frame)
+    mesh.onBeforeRender = this.beforeRender;
     mesh.matrixAutoUpdate = false;
     this.object.add(mesh);
     return mesh;

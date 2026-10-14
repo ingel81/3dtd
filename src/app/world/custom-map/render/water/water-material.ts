@@ -21,6 +21,8 @@ import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
 import { FLOW_MAP_MAX } from './flow-map';
 import { SHORE_PHASE_GLSL, shoreWaves } from './shore-waves';
+import { SCENE_COPY_GLSL, type SceneCopy } from './scene-copy';
+import type { MapEffects } from '../map-effects';
 
 /**
  * The material of every water body (lake, sea, swamp, ice, lava; areas and
@@ -113,6 +115,32 @@ export function setWaterColor(material: ShaderMaterial, kind: MapWaterKind, colo
   const deep = new Color(color || fallback[kind]);
   u['uDeep'].value.copy(deep);
   u['uShallow'].value.copy(deep).lerp(new Color(kind === 'swamp' ? 0x4a5028 : 0x6f9a88), 0.3);
+}
+
+/**
+ * The switchable effects of the water (map-effects.ts): refraction looks
+ * through to the frame behind (`copy` captures it before the first water
+ * draws, `mesh.onBeforeRender`), sea waves swell the sea. Lava and ice keep
+ * their look. Recompiles only when a switch changes.
+ */
+export function setWaterEffects(
+  material: ShaderMaterial,
+  kind: MapWaterKind,
+  effects: MapEffects,
+  copy: SceneCopy,
+): { refraction: boolean } {
+  // Not through lava and ice (opaque), nor the swamp (murky)
+  const refraction = effects.refraction && (kind === 'water' || kind === 'sea');
+  const seaWaves = effects.seaWaves && kind === 'sea';
+  const d = material.defines as Record<string, unknown>;
+  const was = `${'REFRACT' in d}|${'SEA_WAVES' in d}`;
+  if (refraction) d['REFRACT'] = '';
+  else delete d['REFRACT'];
+  if (seaWaves) d['SEA_WAVES'] = '';
+  else delete d['SEA_WAVES'];
+  Object.assign(material.uniforms, copy.uniforms);
+  if (was !== `${refraction}|${seaWaves}`) material.needsUpdate = true;
+  return { refraction };
 }
 
 /** Baked flow of an area body (flow-map.ts, RG on the mask's grid and uv), or none */
@@ -218,6 +246,23 @@ const WATER_VERTEX = /* glsl */ `
 #include <logdepthbuf_pars_vertex>
 #include <shadowmap_pars_vertex>
 attribute float aDepth;
+#ifdef SEA_WAVES
+uniform float uTime;
+varying vec3 vSwellNormal;
+// One Gerstner wave: the point moves round in a circle as the wave passes (crests sharpen); adds to the normal
+void gerstner(vec2 dir, float length, float amp, inout vec3 p, inout vec3 n, vec2 at) {
+  float k = 6.2832 / length;
+  float c = sqrt(9.8 * k);
+  float f = k * (dot(dir, at) - c * uTime);
+  float q = 0.6;
+  p.x += dir.x * q * amp * cos(f);
+  p.z += dir.y * q * amp * cos(f);
+  p.y += amp * sin(f);
+  n.x -= dir.x * k * amp * cos(f);
+  n.z -= dir.y * k * amp * cos(f);
+  n.y -= q * k * amp * sin(f);
+}
+#endif
 #if RIVER == 1
 attribute vec2 aFlow;
 attribute float aAcross;
@@ -235,7 +280,18 @@ void main() {
   vFlow = aFlow;
   vAcross = aAcross;
 #endif
-  vec4 worldPos = modelMatrix * vec4(position, 1.0);
+  vec3 surface = position;
+#ifdef SEA_WAVES
+  // A swell on the open sea, flat towards the shore (the depth under the vertex)
+  float swell = smoothstep(0.5, 5.0, aDepth);
+  vec3 swellN = vec3(0.0, 1.0, 0.0);
+  vec2 at = (modelMatrix * vec4(position, 1.0)).xz;
+  gerstner(normalize(vec2(0.8, 0.6)), 34.0, 0.32 * swell, surface, swellN, at);
+  gerstner(normalize(vec2(-0.4, 0.9)), 21.0, 0.18 * swell, surface, swellN, at);
+  gerstner(normalize(vec2(0.95, -0.3)), 13.0, 0.09 * swell, surface, swellN, at);
+  vSwellNormal = normalize(swellN);
+#endif
+  vec4 worldPos = modelMatrix * vec4(surface, 1.0);
   vWorldPos = worldPos.xyz;
   vec4 mvPosition = viewMatrix * worldPos;
   // The sun's shadow: three's chunk reads worldPosition (no normal attribute: no normal offset)
@@ -267,6 +323,12 @@ uniform float uHasMask;
 uniform vec2 uMapHalf;
 uniform sampler2D uFlowMap;
 uniform float uHasFlow;
+#ifdef SEA_WAVES
+varying vec3 vSwellNormal;
+#endif
+#ifdef REFRACT
+${SCENE_COPY_GLSL}
+#endif
 ${HEIGHT_FOG_PARS}
 ${SHADER_NOISE}
 ${SKY_FUNCTIONS}
@@ -419,12 +481,20 @@ void main() {
   // Lakes and seas: a slow drift, and along their baked current where they have one
   vec3 n = uHasFlow > 0.5 && !outside ? flowNormal(vWorldPos.xz, vel, flow * 0.3, waveStrength) : waveNormal(vWorldPos.xz, flow, waveStrength);
   #endif
+  #ifdef SEA_WAVES
+  // The swell tilts the surface; the small waves ride on it
+  n = normalize(n + vSwellNormal - vec3(0.0, 1.0, 0.0));
+  #endif
   float calm = smoothstep(0.0, 1.2, depth);
   n = normalize(mix(vec3(0.0, 1.0, 0.0), n, 0.35 + 0.65 * calm));
   float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
   vec3 r = reflect(-v, n);
   vec3 sky = skyTex(vec3(r.x, max(r.y, 0.02), r.z));
-  vec3 body = mix(uShallow, uDeep, smoothstep(0.2, 3.5, depth)) * uLight * mix(0.55, 1.0, sunShade);
+  // Absorption by depth: red goes first, then green, so shallows turn green-blue before the body's colour
+  // takes over; how much of the ground still shows through
+  vec3 absorbed = exp(-depth * vec3(0.6, 0.25, 0.16));
+  float see = (absorbed.r + absorbed.g + absorbed.b) / 3.0;
+  vec3 body = mix(uDeep, uShallow, see) * mix(vec3(1.0), absorbed / max(see, 1e-3), 0.25) * uLight * mix(0.55, 1.0, sunShade);
   // In shade the bright sky reflection reads a little darker too (the eye compares it with the shaded bank)
   sky *= mix(0.8, 1.0, sunShade);
   #if KIND == 4
@@ -438,6 +508,12 @@ void main() {
   color = mix(color, vec3(0.1, 0.15, 0.04) * uLight * uLight, algae * bank * 0.45);
   #else
   color = mix(body, sky, fresnel * 0.9 + 0.05);
+  #endif
+  #ifdef REFRACT
+  // The ground behind, bent by the waves and tinted by what the water absorbs on the way through
+  vec3 behind = sceneBehind((n.xz - vec2(0.0)) * 0.03 * min(depth, 2.0));
+  vec3 through = behind * absorbed;
+  color = mix(mix(through, body, 1.0 - see), sky, fresnel * 0.9 + 0.05);
   #endif
   // Sun glint, weaker in the shallows: there the surface is calm and flat, and a flat mirror against the
   // sun drew white streaks along every shore
@@ -479,10 +555,14 @@ void main() {
   #if KIND == 4
   alpha = mix(0.75, 0.97, smoothstep(0.0, 0.8, depth));
   #else
-  alpha = mix(0.55, 0.96, smoothstep(0.0, 1.6, depth));
+  alpha = mix(0.96, 0.5, see);
   alpha = max(alpha, fresnel);
   #endif
   alpha = max(alpha, foam * 0.8);
+  #ifdef REFRACT
+  // Drawn over the copy of the ground: opaque but at the seam
+  alpha = 1.0;
+  #endif
   // A soft seam where the terrain cuts the surface
   alpha *= smoothstep(0.0, 0.06, depth) * edge;
 #endif

@@ -133,6 +133,13 @@ Lava spiegeln sich).
 
 `kind` je Körper:
 
+- **Tiefe**: Absorption nach Beer-Lambert aus der Tiefe je Pixel (Rot zuerst, dann Grün): flaches Wasser wird
+  grünblau, bevor die Körperfarbe übernimmt, und lässt den Grund durchscheinen (Deckkraft 0,5 bis 0,96)
+- **Schaltbare Effekte** (`map-effects.ts`, Ansichtsoption `effects`, `setEffects`, Vorschau `?effects=…`, alle aus
+  ohne Angabe): `refraction` (Wasser und Meer zeigen den Grund dahinter, von den Wellen verbogen und nach Tiefe
+  getönt; eine Kopie des Bildes nach dem undurchsichtigen Teil, `SceneCopy`, ein Blit je Frame; GPU +0,03 bis 0,06 ms
+  bei 1600 × 900), `seaWaves` (Gerstner-Dünung auf dem Meer, drei Wellen 34/21/13 m, zum Ufer flach; nicht messbar),
+  `lavaGlow`, `shadowCascade`. Die Qualitätsstufen schalten sie
 - `water` (Standard): klar am Ufer, Kartenfarbe in der Tiefe, Wellen, Spiegelung des Himmels mit Fresnel, Sonnenglanz
   (der scharfe Teil funkelt: feine, schnelle Wellenfacetten fangen die Sonne),
   Schaum im Flachen

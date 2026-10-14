@@ -32,6 +32,8 @@ import { MapTerrainLayer } from './terrain/map-terrain';
 import { RiverSurface } from './water/river-surface';
 import { WaterSurface } from './water/water-surface';
 import type { CustomMapQuality } from '../../../three-engine/render-quality';
+import { SceneCopy } from './water/scene-copy';
+import { NO_MAP_EFFECTS, type MapEffects } from './map-effects';
 import type { GridRect } from './terrain/terrain-chunks';
 
 /**
@@ -92,6 +94,8 @@ export interface CustomMapViewOptions {
   grass?: boolean;
   /** The renderer the map is drawn with: bakes impostors for far trees (without it they keep their model) */
   renderer?: WebGLRenderer;
+  /** Effects that cost more than the base look (map-effects.ts); all off when missing */
+  effects?: Partial<MapEffects>;
 }
 
 export class CustomMapView {
@@ -126,6 +130,9 @@ export class CustomMapView {
   /** Beyond this camera distance to its focus the grass blades are not drawn (the quality level's; 140 m in High) */
   private grassDistance = 140;
   private readonly viewRay = new Ray();
+  /** The switchable effects (map-effects.ts) and the frame copy refraction reads */
+  private mapEffects: MapEffects = { ...NO_MAP_EFFECTS };
+  private readonly sceneCopy = new SceneCopy();
   private disposed = false;
   /** Depth materials like the ones the shadow pass derives, by the material's uuid (warmUpAssets) */
   private readonly depthTwins = new Map<string, MeshDepthMaterial>();
@@ -148,6 +155,7 @@ export class CustomMapView {
     this.group.add(this.terrain.apron);
     if (options.grass !== false) this.group.add(this.terrain.grass.mesh);
 
+    this.mapEffects = { ...NO_MAP_EFFECTS, ...options.effects };
     this.environment = new CustomMapEnvironment(doc.environment);
     this.cover = new CoverMap(this.heights);
     this.environment.weather.setCover(this.cover);
@@ -792,6 +800,24 @@ export class CustomMapView {
     const e = this.environment;
     for (const w of this.waters) w?.setSky(e.skyDome.uniforms, e.sun.intensity);
     for (const r of this.rivers) r.setSky(e.skyDome.uniforms, e.sun.intensity);
+    this.applyEffects();
+  }
+
+  /** Turns switchable effects on or off (map-effects.ts); the rest stay as they are */
+  setEffects(effects: Partial<MapEffects>): void {
+    this.mapEffects = { ...this.mapEffects, ...effects };
+    this.applyEffects();
+  }
+
+  /** The switchable effects now on */
+  get effectsOn(): Readonly<MapEffects> {
+    return this.mapEffects;
+  }
+
+  private applyEffects(): void {
+    for (const w of this.waters) w?.setEffects(this.mapEffects, this.sceneCopy);
+    const rivers = this.doc.terrain.rivers?.filter((r) => r.points.length >= 2) ?? [];
+    this.rivers.forEach((r, k) => r.setEffects(this.mapEffects, this.sceneCopy, rivers[k]?.kind ?? 'water'));
   }
 
   dispose(): void {
@@ -806,6 +832,7 @@ export class CustomMapView {
     this.environment.dispose();
     for (const twin of this.depthTwins.values()) twin.dispose();
     this.offscreen?.dispose();
+    this.sceneCopy.dispose();
     this.group.removeFromParent();
     this.losBlockers.removeFromParent();
     this.group.clear();

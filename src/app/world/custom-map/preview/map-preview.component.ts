@@ -34,7 +34,7 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
  * Dev page `/map-preview`: the demo map in the custom map renderer with an
  * orbit camera and frame numbers. `?view=village` picks a camera spot
  * (VIEWS), `?seed=3` another demo map, `?sky=dusk` another sky preset,
- * `?weather=rain|snow|fog` (`&strength=0.7`), `?biome=hell|moon|mars|arctic|…`, `?post=bloom` through the game's
+ * `?weather=rain|snow|fog` (`&strength=0.7`), `?effects=refraction,seaWaves` (map-effects.ts), `?biome=hell|moon|mars|arctic|…`, `?post=bloom` through the game's
  * post-processing chain. `?showcase=winter` (a catalogue tag) or
  * `?assets=tree-*,rock-large&materials=snow,ice` lines up catalogue assets on a
  * flat map instead (asset-showcase.ts). `?map=<id>` shows a shipped map instead
@@ -146,9 +146,12 @@ export class MapPreviewComponent implements OnDestroy {
       doc.environment.sky = sky;
       if (sky === 'dusk') doc.environment.sunElevation = 9;
     }
+    // `?effects=refraction,seaWaves,lavaGlow,shadowCascade` turns on the switchable effects (map-effects.ts)
+    const effects = Object.fromEntries((params.get('effects') ?? '').split(',').filter(Boolean).map((e) => [e, true]));
     const view = new CustomMapView(doc, MapAssetLibrary.shared(), {
       anisotropy: renderer.capabilities.getMaxAnisotropy(),
       renderer,
+      effects,
     });
     this.view = view;
     view.attach(scene);

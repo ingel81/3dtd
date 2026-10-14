@@ -2,7 +2,9 @@ import { BufferAttribute, BufferGeometry, Mesh, Vector2, type ShaderMaterial } f
 import type { MapRiver, MapRiverPoint } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { HeightTexture } from '../terrain/height-texture';
-import { createWaterMaterial, setWaterColor, setWaterSky } from './water-material';
+import { createWaterMaterial, setWaterColor, setWaterEffects, setWaterSky } from './water-material';
+import type { MapEffects } from '../map-effects';
+import type { SceneCopy } from './scene-copy';
 
 /**
  * A river or lava flow: a ribbon along the river's line (Catmull-Rom through
@@ -74,6 +76,12 @@ export class RiverSurface {
 
   setSky(skyUniforms: ShaderMaterial['uniforms'], sunIntensity: number): void {
     setWaterSky(this.mesh.material, skyUniforms, sunIntensity);
+  }
+
+  /** Switchable effects (refraction); `copy` is the view's frame copy */
+  setEffects(on: MapEffects, copy: SceneCopy, kind: MapRiver['kind']): void {
+    const { refraction } = setWaterEffects(this.mesh.material, kind, on, copy);
+    this.mesh.onBeforeRender = refraction ? (renderer) => copy.capture(renderer) : () => undefined;
   }
 
   update(dt: number): void {
