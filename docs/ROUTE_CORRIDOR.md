@@ -480,6 +480,12 @@ Ausnahmen:
     Brückenende, die Säulen dazwischen zählen nicht; ohne Säule am
     Brückenende wartet die Zelle wie ein Tunnel auf seine Portale. Eine
     Straße einer anderen Route unter dem Deck gewinnt als Boden (oben).
+  - **Ebener Boden** (eigene Karten, `StreetStyle.plainGround`,
+    `RouteCellSampler.plainGround`, seit 2026-10-14): Die Zelle nimmt die
+    Oberkante ihrer Säule, Deck oder Gelände. Dort gibt es keine Krone, und
+    hinter einer niedrigen Brücke, deren Ufer schneller als eine Stufe steigt,
+    blieb die getragene Höhe am Deckende: Die Zellen lagen bis 2 m unter dem
+    Ufer (Archipelago, Witch Marsh).
   - **Anlass:** Playtest 2026-09-14, Retest 564, Paris, Pont d'Iéna.
     `pick()` an einem Brückenkopf: Säulen mit Oberkante 79,8 bis 80,2 m
     (Deck) und Boden 71,4 bis 79,1 m, nächste Station auf Way 1423074549
@@ -1026,6 +1032,15 @@ Bis 2026-09-16 brauchten beide Regeln ein Rückgrat, und die zweite prüfte nur
 die Zelle, in der die Station steht, und nur, wo das Band schmaler als zwei
 `edgeMargin` war. Davor fing `streetUnderRoof` den zweiten Fall als eigene
 Höhenregel ab; das Band hatte sie ersetzt.
+
+**Ebener Boden** (`BandRoute.plainGround`, eigene Karten, `StreetStyle.plainGround`,
+seit 2026-10-14): Die Säulen sind das Gelände, über einer Straße steht nichts.
+`street` ist dort das eigene Rückgrat der Station, kein Opening, und
+`coveredOnLine` fällt weg: Keine Station wird Durchgang oder Übersteigen. Vorher
+lag eine Kuppe, über die die Straße läuft, mehr als `roofRise` über dem Opening
+und wurde Durchgang; Linie und Gegner liefen als Tunnel gerade durch den Hügel
+(Ember Crater, Ringstraße östlich des Kraters: 76 Tunnelzellen bis 2,4 m unter
+dem Boden, TODO E160).
 
 Ein tieferes Objekt, das die Gasse ausfüllt, ist sein eigenes Rückgrat: Das Band
 liegt darauf, die Gegner steigen darüber (E6, mehr als `stepRise` über `street`).

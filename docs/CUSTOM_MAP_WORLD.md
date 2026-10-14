@@ -278,8 +278,8 @@ Desktop-App (`desktop/src/protocol.js`, `connect-src`) den Host eintragen, `mapD
 
 - Höhen aus dem Höhenraster der Karte über `HeightField`, dieselben zwei Dreiecke je Zelle, die der
   Renderer zeichnet; allokationsfrei bis auf das Spalten-Objekt, das die Schnittstelle zurückgibt
-- Brücken: Kanten der Art `bridge` tragen ein Deck wie im `BridgeLayer` des Renderers (Enden über dem
-  Wasser, leichter Bogen); `topY` der Spalte und die Straßenhöhe liegen darauf, `groundY` bleibt der
+- Brücken: Kanten der Art `bridge` tragen ein Deck (`bridge-decks.ts`, dasselbe für Renderer, Spiel und Editor:
+  Enden über dem Wasser, leichter Bogen); `topY` der Spalte und die Straßenhöhe liegen darauf, `groundY` bleibt der
   Boden darunter
 - Sichtlinie über das Gelände (Schritte von einer halben Zelle); Objekte sieht der Sichtlinien-Würfel
 - Kein Streaming, keine LOD-Stufen, kein Messen der Straßenbreite (die Kanten haben ihre Breite)
@@ -306,7 +306,12 @@ von `StreetRouter`, wie auf jedem Netz; die Richtung der Kanten zählt dabei nic
 Import führen ohnehin zum HQ). Keine Gebäude, Spawn-Namen aus der Karte.
 
 `StreetStyle`: Overlay 0,5 m und Routenlinie 1,5 m über dem Boden, in 4-m-Stücke geteilt (Rampen und
-Klippen), Höhen vom Gelände, kein Mitführen der Höhe zum HQ. Die Karte zeichnet ihre Straßen selbst;
+Klippen), Höhen vom Gelände, kein Mitführen der Höhe zum HQ. Der Boden ist eben im Sinn des Korridors
+(`plainGround`): Über einer Straße steht nichts, eine Kuppe auf der Straße wird kein Durchgang (Tunnel durch den
+Hügel) und die Zellen hinter einem Brückenende liegen auf dem Ufer, nicht auf der Höhe des Deckendes
+([ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md), Band und Strecke hinter dem Brückenende; TODO E160). Gegner, Routenlinie
+und Sichtlinien lesen dieselben Zellen; über einer Brücke ihr Deck (TODO E161, im Spiel geprüft: Ember Crater,
+Gegnerhöhe auf der Brücke 7,0 bis 7,9 m, Lava darunter 0,8 bis 5,5 m). Die Karte zeichnet ihre Straßen selbst;
 das gelbe Straßen-Overlay ist eine Debug-Ebene und standardmäßig aus, es entsteht also nichts doppelt.
 
 ## Fähigkeiten
@@ -328,6 +333,8 @@ auf echten Orten.
 
 Specs in `custom-map-world.spec.ts`: Frame gegen `geoToLocalSimple`, Höhen nach Geo und Szene,
 Brückendeck, Sichtlinie, Bodenpick, Straßennetz und Route über Kurvenpunkt und Brücke,
+Kuppe ohne Durchgang auf ebenem Boden (`corridor-band.spec.ts`), Zellen hinter einer niedrigen Brücke auf dem
+Ufer (`global-route-grid.spec.ts`),
 Startaufstellung, Spawn-Grenze, Spielwerte und Wellen der Karte, Fallen und Aufstehen von Bauwerken auf
 der eigenen Kopie, Öffnen einer gespeicherten, fehlenden und geänderten Karte; dazu
 `custom-map-destruction.spec.ts`, `world-damage-presenter.spec.ts`, `map-trial.spec.ts`,

@@ -249,7 +249,10 @@ Enden darin), Strg+A alles; einen von mehreren gewählten Knoten zu ziehen versc
 Breite und Art gelten für alle gewählten Straßen; Breite und Art
 (Road, Path, Bridge), S glättet als Kurve, X begradigt, J löst einen Knoten zwischen zwei Straßen auf, Entf löscht.
 „Flatten road“ ebnet den Boden quer und glättet ihn längs, „Paint road“ malt eine Schicht darunter (gewählte Straße oder
-alle). Die Routen von jedem Spawn zum HQ laufen als Punkte über die Karte (abschaltbar).
+alle). Die Routen von jedem Spawn zum HQ laufen als Punkte über die Karte (abschaltbar). Routen, Straßenlinien, die
+gewählte Straße und eine gezogene Linie liegen in Schritten von 2 m auf dem Boden (`drapedLine`), nicht gerade
+zwischen weit entfernten Punkten durch einen Hügel; Routen, Straßen und Punkte über einer Brücke auf ihrem Deck
+(`walkHeightAt`, dasselbe Deck wie im Spiel, `bridge-decks.ts`).
 
 **Spawns and HQ (7).** Q: Klick setzt einen Spawn (Name nach Himmelsrichtung, im Panel änderbar; höchstens 32, dann sagt die Statuszeile
 warum), H: Klick versetzt das
@@ -421,7 +424,7 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   ebenso (wie die Spielgeschwindigkeit im Spiel, eine Stufe mehr, weil lange Routen bei 1x Minuten brauchen). Die
   Geschwindigkeit gilt sofort und bleibt für die nächste Probewelle, solange der Editor offen ist. Sie streckt nur die
   Uhr der Läufer (Abstand, Weg und Animation, `TrialRunners.speed`); die Probewelle ist ein Bild im Editor, die
-  Simulation des Spiels sieht sie nicht
+  Simulation des Spiels sieht sie nicht; sie laufen auf der Gehhöhe (`walkHeightAt`): über eine Brücke auf dem Deck, nicht durch Fluss oder Lava darunter
 
 ## Architektur
 
