@@ -79,6 +79,15 @@ export class EffectLayer {
   /** The quality level's share of particles and real point lights (render-quality.ts) */
   private particleShare = 1;
   private lightCount = POINT_LIGHTS;
+  /**
+   * What a rebuild replaced, freed once two frames drew the new effects:
+   * three drops a program the moment no material uses it, and the new
+   * materials would link the same programs again in their first frame
+   * (some 125 ms each, a stall in the editor whenever a lamp or a fire was
+   * placed or removed)
+   */
+  private retired: (() => void)[] = [];
+  private retiredFrames = 0;
 
   constructor(private readonly field: HeightField) {
     this.group.name = 'custom-map-effects';
@@ -225,6 +234,7 @@ export class EffectLayer {
   /** Advances the effects and moves the point lights to the lights nearest `focus` (group space) */
   update(dt: number, focus: Vector3): void {
     this.time.value += dt;
+    if (this.retired.length && ++this.retiredFrames > 2) this.freeRetired();
     const live = this.pool[0].visible ? this.nearest(focus) : 0;
     this.pool.forEach((light, k) => {
       const spot = k < live ? this.nearestSpots[k] : undefined;
@@ -245,8 +255,15 @@ export class EffectLayer {
 
   dispose(): void {
     this.clear();
+    this.freeRetired();
     for (const light of this.pool) light.dispose();
     this.group.removeFromParent();
+  }
+
+  private freeRetired(): void {
+    for (const free of this.retired) free();
+    this.retired = [];
+    this.retiredFrames = 0;
   }
 
   /**
@@ -278,21 +295,32 @@ export class EffectLayer {
     return count;
   }
 
+  /** Takes every effect out of the scene; their resources go a few frames later (retired) */
   private clear(): void {
-    for (const f of this.fields) f.dispose();
+    for (const f of this.fields) {
+      f.mesh.removeFromParent();
+      this.retired.push(() => f.dispose());
+    }
     this.fields = [];
-    if (this.waterfalls) {
-      this.waterfalls.geometry.dispose();
-      (this.waterfalls.material as ShaderMaterial).dispose();
-      this.waterfalls.removeFromParent();
+    const falls = this.waterfalls;
+    if (falls) {
+      falls.removeFromParent();
+      this.retired.push(() => {
+        falls.geometry.dispose();
+        (falls.material as ShaderMaterial).dispose();
+      });
       this.waterfalls = null;
     }
-    if (this.glows) {
-      this.glows.geometry.dispose();
-      this.glows.material.dispose();
-      this.glows.removeFromParent();
+    const glows = this.glows;
+    if (glows) {
+      glows.removeFromParent();
+      this.retired.push(() => {
+        glows.geometry.dispose();
+        glows.material.dispose();
+      });
       this.glows = null;
     }
+    this.retiredFrames = 0;
     this.spots = [];
   }
 }

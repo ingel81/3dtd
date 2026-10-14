@@ -1,4 +1,4 @@
-import { Mesh, PointLight, Vector3 } from 'three';
+import { type Material, Mesh, PointLight, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import type { MapObject } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
@@ -55,6 +55,35 @@ describe('EffectLayer', () => {
       'custom-map-waterfalls',
     ]);
     layer.dispose();
+  });
+
+  it('frees what a rebuild replaced only after two frames drew the new effects, so their programs stay linked', () => {
+    const layer = new EffectLayer(flat());
+    layer.set([place('a', 'torch', 0)], catalog);
+    const old = layer.group.children.filter((c): c is Mesh => c instanceof Mesh);
+    let freed = 0;
+    for (const m of old) (m.material as Material).addEventListener('dispose', () => freed++);
+    layer.set([place('a', 'torch', 0), place('b', 'torch', 10)], catalog);
+    // Out of the scene at once, the new effects in their place
+    expect(old.every((m) => m.parent === null)).toBe(true);
+    expect(layer.group.children.filter((c) => c instanceof Mesh)).toHaveLength(old.length);
+    const focus = new Vector3();
+    layer.update(0.016, focus);
+    layer.update(0.016, focus);
+    expect(freed).toBe(0);
+    layer.update(0.016, focus);
+    expect(freed).toBe(old.length);
+    layer.dispose();
+  });
+
+  it('frees what it replaced at once when it goes itself', () => {
+    const layer = new EffectLayer(flat());
+    layer.set([place('a', 'torch', 0)], catalog);
+    let freed = 0;
+    for (const m of layer.group.children.filter((c): c is Mesh => c instanceof Mesh)) (m.material as Material).addEventListener('dispose', () => freed++);
+    layer.set([], catalog);
+    layer.dispose();
+    expect(freed).toBe(3);
   });
 
   it('lights point lights only in the dark, nearest first, never more than the pool', () => {
