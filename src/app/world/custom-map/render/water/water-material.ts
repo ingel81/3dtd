@@ -381,6 +381,31 @@ vec3 flowNormal(vec2 p, vec2 vel, vec2 drift, float strength) {
   return normalize(mix(b, a, 1.0 - abs(2.0 * ph0 - 1.0)));
 }
 
+#if KIND == 2
+// Distance to the nearest edge between two cells of a jittered grid (cells of 1): the long straight cracks
+// between ice plates. Returns the edge distance, and in id a random value of the cell
+float iceEdge(vec2 p, out float id) {
+  vec2 cell = floor(p);
+  vec2 f = fract(p);
+  float d1 = 8.0;
+  float d2 = 8.0;
+  vec2 m1 = vec2(0.0);
+  vec2 m2 = vec2(0.0);
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      vec2 g = vec2(float(i), float(j));
+      vec2 o = vec2(hash12(cell + g), hash12(cell + g + 17.3));
+      vec2 r = g + o * 0.8 + 0.1 - f;
+      float d = dot(r, r);
+      if (d < d1) { d2 = d1; m2 = m1; d1 = d; m1 = r; id = hash12(cell + g + 3.7); }
+      else if (d < d2) { d2 = d; m2 = r; }
+    }
+  }
+  // Distance to the bisector between the two nearest points
+  return dot(0.5 * (m1 + m2), normalize(m2 - m1));
+}
+#endif
+
 // Glints and a faint pool of the point lights (lanterns, torches, lava glow) on a surface of normal n
 vec3 pointGlints(vec3 n, vec3 v) {
   vec3 sum = vec3(0.0);
@@ -482,8 +507,30 @@ void main() {
   // Frosted surface: a blurred reflection (the sky up the reflected ray, mixed with the haze)
   vec3 sky = mix(skyTex(normalize(vec3(r.x, max(r.y, 0.02) + 0.6, r.z))), uHorizon, 0.5);
   vec3 body = mix(vec3(0.42, 0.56, 0.62), uDeep * vec3(0.22, 0.38, 0.46), smoothstep(0.2, 3.0, depth));
-  float crack = 1.0 - smoothstep(0.0, 0.015, abs(skyFbm(ip * 0.09 + 5.0) - 0.5));
-  body *= 1.0 - crack * 0.45;
+  // Not one ice all over: clear black patches where it froze still, milky ones where snow froze in
+  float patchy = valueNoise(ip * 0.035 + 11.0);
+  float black = smoothstep(0.62, 0.8, patchy) * smoothstep(0.4, 1.5, depth);
+  float milky = smoothstep(0.38, 0.2, patchy);
+  body = mix(body, body * vec3(0.55, 0.68, 0.78), black);
+  body = mix(body, vec3(0.62, 0.7, 0.76), milky * 0.45);
+  // Bubbles caught in the ice: small white dots in clusters, seen through clear ice over depth
+  float bubbles = smoothstep(0.82, 0.9, valueNoise(ip * 3.1 + 2.0)) * smoothstep(0.55, 0.75, valueNoise(ip * 0.21 + 7.0));
+  body = mix(body, vec3(0.78, 0.86, 0.9), bubbles * 0.6 * (1.0 - milky) * smoothstep(0.3, 1.0, depth));
+  // Wandering cracks: thicker and darker in some places, faint in others, with a lit fracture face beside them
+  float wander = skyFbm(ip * 0.09 + 5.0) - 0.5;
+  float width = 0.008 + 0.014 * valueNoise(ip * 0.06 + 3.0);
+  float crack = (1.0 - smoothstep(0.0, width, abs(wander))) * mix(0.35, 1.0, valueNoise(ip * 0.045 + 21.0));
+  float face = (1.0 - smoothstep(width, width * 3.0, wander)) * step(0.0, wander) * (1.0 - crack);
+  body *= 1.0 - crack * 0.5;
+  body = mix(body, vec3(0.8, 0.88, 0.92), face * 0.2);
+  // Long straight cracks between plates, white (light caught in the fracture), only over parts of the lake
+  float plateId;
+  // The plates' edges bent by noise, so they do not read as a honeycomb; half of the plates show no edge
+  vec2 bent = ip / 24.0 + (vec2(valueNoise(ip * 0.11), valueNoise(ip * 0.11 + 9.0)) - 0.5) * 0.35;
+  float plateEdge = iceEdge(bent, plateId);
+  float plates = (1.0 - smoothstep(0.0, 0.006 + 0.008 * plateId, plateEdge)) * step(0.45, plateId)
+    * smoothstep(0.55, 0.7, valueNoise(ip * 0.015 + 31.0)) * mix(0.4, 1.0, valueNoise(ip * 0.3 + 4.0));
+  body = mix(body, vec3(0.86, 0.92, 0.96), plates * 0.6);
   // Snow drifted into the shallows and a fine grain of frost
   float snow = smoothstep(0.6, 0.05, depth) * (0.7 + 0.3 * valueNoise(ip * 1.7)) + smoothstep(0.7, 0.95, valueNoise(ip * 2.3)) * 0.25;
   body = mix(body, vec3(0.82, 0.86, 0.9), clamp(snow, 0.0, 1.0));

@@ -191,8 +191,10 @@ Lava spiegeln sich).
 - `sea`: stärkere Wellen
 - `swamp`: trüb, schwache Spiegelung; Algen und Entengrütze in Flecken nur am Ufer und im Flachen (unter etwa 0,9 m,
   mit verrauschter Kante), halb deckend und dunkler als das Land, nachts kaum sichtbar
-- `ice`: deckend und still; hell über flachem, dunkles Petrol über tiefem Grund, mattierte Spiegelung, Risse, Schnee
-  im Flachen
+- `ice`: deckend und still; hell über flachem, dunkles Petrol über tiefem Grund, mattierte Spiegelung, Schnee im
+  Flachen. Nicht ein Eis überall: klare dunkle Flecken über Tiefe, milchige Flecken, Gruppen eingeschlossener Blasen;
+  die wandernden Risse wechseln ihr Gewicht und haben eine helle Bruchkante, über Teilen des Sees laufen lange weiße
+  Risse zwischen Platten (Zellkanten, vom Rauschen gebogen, die Hälfte verborgen). GPU über dem Eis +0,04 ms
 - `lava`: deckend und glühend; Krustenplatten über Adern aus einer gebackenen Rauschtextur (`lava-noise.ts`, 256²:
   Platten, Adern, Verzerrung), deren Koordinaten ein langsam treibendes, atmendes Feld verzieht: die Kruste reißt auf
   und schließt sich. Die Kruste hat Relief (Dicke als Höhenfeld, Normale per `dFdx/dFdy`) und wird von der Sonne
