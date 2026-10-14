@@ -258,7 +258,8 @@ export class CustomMapView {
     for (const m of meshes) {
       group.add(m);
       if (!renderer.shadowMap.enabled || Array.isArray(m.material)) continue;
-      const twin = new InstancedMesh(m.geometry, this.depthTwinOf(m.material, renderer.shadowMap.type), 1);
+      // A mesh with a depth material of its own (an impostor) casts with that one
+      const twin = new InstancedMesh(m.geometry, (m.customDepthMaterial as MeshDepthMaterial | undefined) ?? this.depthTwinOf(m.material, renderer.shadowMap.type), 1);
       twin.instanceColor = m.instanceColor;
       twin.frustumCulled = false;
       depth.add(twin);

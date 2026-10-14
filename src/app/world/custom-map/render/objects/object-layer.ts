@@ -83,7 +83,8 @@ function cellCapacity(n: number): number {
 
 interface Level {
   from: number;
-  parts: { geometry: BufferGeometry; material: Material }[];
+  /** `depthMaterial`: the part's own for the shadow pass (an impostor's card turned to the sun) */
+  parts: { geometry: BufferGeometry; material: Material; depthMaterial?: Material }[];
   /** A far impostor: starts at the larger of `from` and the quality level's impostor distance */
   impostor?: boolean;
 }
@@ -455,6 +456,7 @@ export class MapObjectLayer {
           // Vegetation always has instance colours; other assets only when tinted, so both variants
           for (const colored of vegetation ? [true] : [false, true]) {
             const mesh = new InstancedMesh(part.geometry, part.material, 1);
+            if (part.depthMaterial) mesh.customDepthMaterial = part.depthMaterial;
             mesh.setMatrixAt(0, identity);
             if (colored) mesh.setColorAt(0, white);
             mesh.frustumCulled = false;
@@ -532,7 +534,7 @@ export class MapObjectLayer {
       if (imp) {
         // Beyond the game camera's usual distance (200 to 300 m, impostorFrom in High), where a tree is a few pixels wide
         const from = Math.max(lods.length ? lods[lods.length - 1].distance * 1.5 : 0, entry.height * 25);
-        levels.push({ from, impostor: true, parts: [{ geometry: imp.geometry, material: imp.material }] });
+        levels.push({ from, impostor: true, parts: [{ geometry: imp.geometry, material: imp.material, depthMaterial: imp.depthMaterial }] });
       }
     }
     return levels;
@@ -711,6 +713,7 @@ export class MapObjectLayer {
       }
       for (const part of level.parts) {
         const mesh = new InstancedMesh(fadeGeometry(part.geometry, fade), part.material, capacity);
+        if (part.depthMaterial) mesh.customDepthMaterial = part.depthMaterial;
         mesh.count = n;
         mesh.name = `${entry.id}${b.blocksLos ? '' : '-decor'}${li ? `-lod${li}` : ''}`;
         if (shared) {

@@ -175,8 +175,16 @@ Schatten dithern nicht: in Zellen wirft die Stufe mit dem größeren Anteil, gep
 Kosten: Demo-Tal 151 → 160 Calls in der Spielansicht, beim Schwenk 155 → 171 bis 180; die GPU-Zeit bleibt im
 Rauschen des geteilten Messrechners (Spielansicht 1,01 bis 1,06 ms).
 
-Impostor (`impostor.ts`): das Baummodell einmal von der Seite und von oben in eine kleine Textur gerendert, als zwei
-gekreuzte und eine waagerechte Karte gezeigt (4 Dreiecke). Braucht den Renderer (Ansichtsoption `renderer`).
+Impostor (`impostor.ts`, oktaedrisch): das Modell aus 8 x 8 Richtungen über der oberen Halbkugel (hemi-oktaedrisches
+Raster, Albedo, unbeleuchtet) in eine Textur von 512 x 512 gerendert (64 px je Ansicht, mit 4x MSAA gezeichnet und in
+ein Ziel ohne MSAA kopiert), gezeigt als eine Karte, die sich zur Kamera dreht. Sie nimmt die vier Ansichten um die
+Blickrichtung und mischt sie nach Nähe; von unten gelten die Ansichten am Horizont. Die Normale zeigt zur Kamera und
+nach oben. Im Schattenpass dreht sich die Karte zur Sonne (eigenes `customDepthMaterial`) und wirft den Umriss von
+dort. Die Geometrie hält weiter zwei gekreuzte Karten in Modellgröße: was das Mesh mit eigenem Material zeichnet (der
+LOS-Würfel), sieht diese. Kosten (RTX 5080, Burg im Herbst, High): Backen auf dem Hauptthread 55 bis 60 ms je Karte
+statt 41 bis 43 (alle Bäume und Felsen zusammen); je Bild 0,23 bis 0,29 ms für alle Impostoren samt Schatten statt
+0,22 bis 0,26; Speicher je Impostor 1,4 MB statt etwa 4,7 MB (die alte Textur hielt ihre MSAA-Puffer). Braucht den
+Renderer (Ansichtsoption `renderer`).
 
 Materialien (`objectMaterial`): Bäume und Pflanzen bewegen sich im Wind der Karte, in drei Stufen: der Stamm neigt
 sich kaum (quadratisch mit der Höhe), Äste schwingen abseits der Stammachse je Kronenteil im eigenen Takt, Blätter
@@ -366,7 +374,7 @@ die normale Tiefe zurück, zwei Spieler sähen dann verschiedene Tiefenpuffer. N
 - Höchstens 8 Splat-Schichten plus Klippe und zwei Wegmaterialien (12 Array-Ebenen), alle Materialien in einer Größe
 - Laubkarten werfen Schatten ohne Windbewegung (Schatten und Krone gehen bei Wind minimal auseinander)
 - Gelände-LOD: Geomorphing gleicht die Stufen in einem Abstandsband an, Schürzen verdecken Risse an Kachelkanten
-- Der LOS-Würfel sieht Gelände und Objekte in der LOD-Stufe der Kamera (Impostoren als Karten)
+- Der LOS-Würfel sieht Gelände und Objekte in der LOD-Stufe der Kamera (Impostoren als zwei gekreuzte Karten)
 - Die Splat-Map ist eine Textur über die ganze Karte (keine virtuellen Kacheln); auf 2-km-Karten mit 1024er Splat
   sind das 2 m je Texel
 - Partikel und Wetter werfen keine Schatten; Regen, Schnee, Asche und Staub enden an Dächern und am Boden (CoverMap
