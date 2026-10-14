@@ -376,18 +376,9 @@ export const SCENES = [
       { do: 'select', sel: '[data-test=sky-image]', value: '' },
       click(SKY_PRESET, { withText: 'Day' }),
       { do: 'range', sel: '[data-test=time-of-day]', to: 11, dur: 0.8 },
-      // Fog on a clear day over the valley's depth, then snow under an overcast sky
-      par(
-        path(4.5, ['current', DEEP_VIEW], { ease: 'smooth' }),
-        seq(
-          // Fog weather at full strength and the Air fog slider up; the slider back to the new map's 4 after
-          click(WEATHER, { withText: 'Fog', label: 'fog' }),
-          { do: 'range', sel: 'app-editor-range[label=Strength]', to: 100, dur: 0.8 },
-          { do: 'range', sel: 'app-editor-range[label=Fog]', to: 40, dur: 1.2 },
-          wait(1.4),
-        ),
-      ),
-      { do: 'range', sel: 'app-editor-range[label=Fog]', to: 4, dur: 0.8 },
+      // Snow under an overcast sky over the valley's depth (Fog left out: neither the weather nor the slider
+      // showed on screen)
+      path(2.5, ['current', DEEP_VIEW], { ease: 'smooth' }),
       click(SKY_PRESET, { withText: 'Overcast', label: 'overcast' }),
       click(WEATHER, { withText: 'Snow', label: 'snow' }),
       { do: 'range', sel: 'app-editor-range[label=Strength]', to: 90, dur: 0.8 },
