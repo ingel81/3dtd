@@ -20,7 +20,7 @@ const settings = (patch) => act('settings', { patch });
 const flyover = (name, map, label, shots) => ({
   name,
   page: `/?world=map:${map}`,
-  steps: [act('photo'), act('routes', { on: false }), { do: 'mark', name: label }, ...shots],
+  steps: [act('photo'), act('routes', { on: false }), act('markers', { on: false }), { do: 'mark', name: label }, ...shots],
 });
 
 export const SCENES = [
@@ -274,6 +274,7 @@ export const SCENES = [
     steps: [
       act('photo'),
       act('routes', { on: false }),
+      act('markers', { on: false }),
       act('environment', { patch: { sky: 'dusk', sunElevation: 12, sunAzimuth: 250 } }),
       { do: 'mark', name: 'Finale' },
       orbit(26, { at: 'hq' }, { from: 145, to: 185, radius: 250, radiusTo: 200, height: 95, heightTo: 125, ease: 'smooth', label: 'dusk orbit' }),

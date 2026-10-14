@@ -4,11 +4,12 @@
  * speed), through the real UI where a viewer would see it.
  */
 import type { Injector } from '@angular/core';
-import { Vector3, type PerspectiveCamera } from 'three';
+import { Vector3, type Object3D, type PerspectiveCamera } from 'three';
 import { EngineInitializationService } from '../services/infrastructure/engine-initialization.service';
 import { WorldContext } from '../world/world-context.service';
 import { PathAndRouteService } from '../services/world/path-route.service';
 import { UIStore } from '../store/ui.store';
+import { MarkerVisualizationService } from '../services/world/marker-visualization.service';
 import type { CustomMapWorld } from '../world/custom-map/custom-map-world';
 import type { MapEnvironment } from '../world/custom-map/map-document';
 import type { CameraPose, MapPoint3 } from './camera-path';
@@ -24,6 +25,12 @@ interface GameComponent {
   controlsHintVisible: { set(on: boolean): void };
 }
 
+/** The marker service's renderers, which it keeps to itself */
+interface MarkerParts {
+  markerManager: { diamondMesh: Object3D; ringMesh: Object3D; groundMesh: Object3D } | null;
+  labelManager: { mesh: Object3D } | null;
+}
+
 /** The map view the custom-map world keeps to itself */
 interface WorldView {
   setEnvironment(env: MapEnvironment): void;
@@ -35,6 +42,7 @@ export class GameStage implements Stage {
   private readonly worlds: WorldContext;
   private readonly routes: PathAndRouteService;
   private readonly ui: UIStore;
+  private readonly markers: MarkerVisualizationService;
   private posed: CameraPose | null = null;
   private poseLoop = 0;
   private readonly scratch = new Vector3();
@@ -44,6 +52,7 @@ export class GameStage implements Stage {
     this.worlds = injector.get(WorldContext);
     this.routes = injector.get(PathAndRouteService);
     this.ui = injector.get(UIStore);
+    this.markers = injector.get(MarkerVisualizationService);
   }
 
   private get world(): CustomMapWorld | null {
@@ -161,6 +170,15 @@ export class GameStage implements Stage {
         const on = args['on'] !== false;
         this.ui.routesVisible.set(on);
         this.routes.setRouteLinesVisible(on);
+        return;
+      }
+      case 'markers': {
+        // The HQ diamond and the name signs over HQ and spawns; the portals stay, they stand in the land
+        const on = args['on'] !== false;
+        const m = this.markers as unknown as MarkerParts;
+        for (const mesh of [m.markerManager?.diamondMesh, m.markerManager?.ringMesh, m.markerManager?.groundMesh, m.labelManager?.mesh]) {
+          if (mesh) mesh.visible = on;
+        }
         return;
       }
       case 'hints':

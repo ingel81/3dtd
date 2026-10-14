@@ -13,7 +13,7 @@ marks in video time.
 | `camera-path.ts` | Paths through keyframes (centripetal Catmull-Rom, one speed along the curve) and orbits, with easing |
 | `game-stage.ts`, `editor-stage.ts` | The game on a custom map and the editor: camera held per frame (game: controls off; editor: the orbit camera's `apply`), map points to the screen, actions (`photo`, `routes`, `hints`, `credits`, `research`, `build`, `wave`, `speed`, `environment`; `settings`, `environment`, `trialSpeed`, `viewReady`, `idle`, `save`) |
 | `pointer.ts`, `hands.ts` | The drawn pointer (the real one hidden) and synthetic pointer, mouse and key events |
-| `audio-tap.ts` | Every connection to the speakers also feeds a MediaStream; a MediaRecorder writes it as Opus/WebM. The sync mark puts a full-scale 1 kHz click into the recording only, in the frame two white frames start |
+| `audio-tap.ts` | Every connection to the speakers also feeds a MediaStream; a MediaRecorder writes it as Opus/WebM. The sync mark turns the page white for 120 ms (held by time: two frames at 144 Hz slipped between the frames of a 60 fps capture) and puts a full-scale 1 kHz click into the recording only, in its first frame |
 | `tools/showreel/run.mjs` | The runner: Chrome (channel `chrome`, fresh profile, `--kiosk` on a display), ddagrab + hevc_nvenc, the scenes, the sound files, then the alignment and a preview |
 | `tools/showreel/script.mjs` | The programme: scenes as data, reorder or trim there |
 | `tools/showreel/capture.mjs` | Displays, which ddagrab output shows the window (a test colour, one frame per output), recording, flash and click detection, the mix |
@@ -42,12 +42,12 @@ one without plays on. `--scene` loads the page the scene needs, but editor scene
 ## Output (one folder per run)
 
 - `video.mkv`: HEVC, 60 fps, the display as it was, without the real pointer
-- `sound-NN.webm`: the game's sound per page (Opus 256 kbit/s)
+- `sound-NN.webm`: the game's sound per page (Opus 256 kbit/s, as the recorder wrote it), `sound-NN.flac` the same with a proper length; the alignment and the mix read the FLAC
 - `sound.wav`: all sound on the video's time line; `preview.mp4`: video copied with that sound (AAC)
 - `marks.json`: per page the flash in the video and where its sound file starts there (`offset`); every scene
   start and end and labelled step with `video` (seconds into `video.mkv`)
 
-Alignment: each page shows two white frames and puts a click into its sound file in the same frame. The runner
+Alignment: each page turns white for 120 ms and puts a click into its sound file in the first white frame. The runner
 finds the white frames (mean brightness, `detectFlashes`) and the click (first sample over half scale), and places
 the file so both meet. Without them it falls back to the wall clock and says so.
 

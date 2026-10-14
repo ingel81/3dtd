@@ -4,7 +4,7 @@
  * Opus/WebM. Installed before the app starts, since the game wires its
  * master bus (SpatialAudioManager: listener → pre-gain → limiter →
  * destination) once. The sync mark puts a loud click into the recording
- * only (not the speakers) in the frame the page flashes white; the runner
+ * only (not the speakers) in the first frame the page flashes white; the runner
  * lines both up.
  */
 import { AudioContext as ThreeAudioContext } from 'three';

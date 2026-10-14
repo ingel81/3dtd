@@ -26,11 +26,14 @@ html.showreel [data-test=legend],
 html.showreel [data-test=legend-open] { display: none !important; }
 `;
 
+/** How long the sync flash stays white: several frames of a 60 fps capture */
+const FLASH_MS = 120;
+
 export interface ShowreelApi {
   /** Resolves once the page's stage (game or editor) shows its map */
   ready(timeoutS?: number): Promise<string>;
   run(scene: Scene): Promise<Mark[]>;
-  /** The sync mark: two white frames and a click into the recording; resolves with the flash's frame time */
+  /** The sync mark: white for FLASH_MS and a click into the recording at its first frame; resolves with that frame's time */
   sync(): Promise<{ t: number; audioT: number }>;
   audio: {
     start(): Promise<{ mimeType: string; state: string; startedAt: number }>;
@@ -97,8 +100,10 @@ export function startShowreel(injector: Injector): void {
       document.body.append(flash);
       const audioT = recording?.click() ?? 0;
       marks.push({ t, kind: 'mark', scene: '', label: 'sync' });
-      await nextFrame();
-      await nextFrame();
+      // Held by time, not frames: on a 144 Hz display two frames are 14 ms, which a 60 fps capture can miss
+      while ((await nextFrame()) - t < FLASH_MS) {
+        // white on screen
+      }
       flash.remove();
       return { t, audioT };
     },

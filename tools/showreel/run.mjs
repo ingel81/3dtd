@@ -20,7 +20,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { SCENES } from './script.mjs';
-import { detectClick, detectFlashes, displays, findOutput, mux, startCapture } from './capture.mjs';
+import { detectClick, detectFlashes, displays, findOutput, mux, startCapture, toFlac } from './capture.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -198,6 +198,7 @@ async function main() {
     for (let o = 0; o < length; o += 4 << 20) b64 += await page.evaluate(([at, n]) => window.__showreel.audio.piece(at, n), [o, 4 << 20]);
     s.file = join(out, `sound-${String(segments.length).padStart(2, '0')}.webm`);
     writeFileSync(s.file, Buffer.from(b64, 'base64'));
+    s.file = toFlac(s.file);
     segments.push(s);
   };
 

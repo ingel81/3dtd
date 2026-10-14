@@ -143,6 +143,17 @@ export function detectClick(file, threshold = 0.5) {
   return null;
 }
 
+/**
+ * A recorder's WebM as FLAC beside it: Chrome's MediaRecorder writes no duration into the file and ffmpeg's
+ * Opus decoder complains about one packet header ("Error parsing Opus packet header"), the sound itself decodes
+ * whole. The FLAC has its length and is what the alignment and the mix read.
+ */
+export function toFlac(file) {
+  const flac = file.replace(/\.webm$/, '.flac');
+  execFileSync('ffmpeg', ['-hide_banner', '-v', 'fatal', '-y', '-i', file, '-c:a', 'flac', flac]);
+  return flac;
+}
+
 /** Length of a media file in seconds */
 export function duration(file) {
   const out = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], { encoding: 'utf8' });
