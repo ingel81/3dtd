@@ -42,6 +42,12 @@ export interface MapMeta {
    * content hash
    */
   uid?: string;
+  /**
+   * The shipped or coop map this one is the own copy of, with that map's
+   * content hash when copied: "Edit" on it opens this copy again, and offers
+   * a fresh one when the original changed since. Not part of the content hash
+   */
+  copyOf?: { id: string; hash: string };
 }
 
 /**

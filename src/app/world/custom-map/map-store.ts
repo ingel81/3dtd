@@ -11,7 +11,7 @@
  */
 import { mapDataFetch, mapDataRoot } from './map-data';
 import { defaultMapBackend, FolderMapBackend, mapFolderId } from './folder-map-backend';
-import type { CustomMapDocument, MapBiome } from './map-document';
+import type { CustomMapDocument, MapBiome, MapMeta } from './map-document';
 import { contentHash, packMapFile, unpackMapFile } from './map-file';
 import { slugMapId } from './map-create';
 
@@ -45,6 +45,8 @@ export interface MapSummary {
   importedFrom?: string;
   /** The map's lasting identity (MapMeta.uid); absent in summaries of maps not saved since the field */
   uid?: string;
+  /** The shipped or coop map this own map is a copy of (MapMeta.copyOf) */
+  copyOf?: { id: string; hash: string };
   /** In the trash: the id the map had, when it was deleted, its creation time (the life its versions belong to) */
   trash?: { from: string; at: string; created: string };
 }
@@ -136,6 +138,22 @@ export class MapStore {
   async listTrash(): Promise<MapSummary[]> {
     const list = (await this.backend.list()).filter((m) => m?.origin === 'trashed' && m.trash);
     return list.sort((a, b) => b.trash!.at.localeCompare(a.trash!.at));
+  }
+
+  /** The newest own copy of a shipped or coop map (MapMeta.copyOf), or null */
+  async ownCopyOf(id: string): Promise<MapSummary | null> {
+    const copies = (await this.listOwn()).filter((m) => m.origin === 'own' && m.copyOf?.id === id);
+    return copies.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
+  }
+
+  /**
+   * The content hash of a shipped or coop map as it is now, without reading
+   * its file where the index or the summary knows it; null when unknown
+   */
+  async originalHash(id: string): Promise<string | null> {
+    const stored = await this.backend.get(id);
+    if (stored && stored.summary.origin === 'shared') return stored.summary.contentHash || null;
+    return (await this.readIndex()).find((e) => e.id === id)?.contentHash ?? null;
   }
 
   /**
@@ -313,10 +331,16 @@ export class MapStore {
     return this.saveCopy(await this.load(id, origin), name);
   }
 
-  /** A loaded map stored as a new own map (fresh id and times, "(copy)" after the name unless `name` is given) */
-  async saveCopy({ doc, preview }: Pick<LoadedMap, 'doc' | 'preview'>, name?: string): Promise<LoadedMap> {
+  /**
+   * A loaded map stored as a new own map (fresh id and times, "(copy)" after
+   * the name unless `name` is given); `copyOf` marks it as the own copy of a
+   * shipped or coop map (ownCopyOf finds it), otherwise a copy names no origin
+   */
+  async saveCopy({ doc, preview }: Pick<LoadedMap, 'doc' | 'preview'>, name?: string, copyOf?: MapMeta['copyOf']): Promise<LoadedMap> {
     // A copy is a map of its own: a file of it read in later must not replace the original
     doc.meta.uid = newMapUid();
+    if (copyOf) doc.meta.copyOf = { ...copyOf };
+    else delete doc.meta.copyOf;
     const now = new Date().toISOString();
     doc.meta.name = name ?? `${doc.meta.name} (copy)`;
     doc.meta.id = await this.freeId(slugMapId(doc.meta.name));
@@ -377,6 +401,7 @@ export function summarize(doc: CustomMapDocument, origin: MapOrigin, hash: strin
     biome: doc.environment.biome ?? 'temperate',
     importedFrom: doc.meta.source?.file,
     ...(doc.meta.uid ? { uid: doc.meta.uid } : {}),
+    ...(doc.meta.copyOf ? { copyOf: { ...doc.meta.copyOf } } : {}),
   };
 }
 

@@ -5,7 +5,7 @@ import { createMapDocument } from '../../world/custom-map/map-create';
 import { MapStore, MemoryMapBackend } from '../../world/custom-map/map-store';
 import { MemoryVersionBackend, VersionHistory } from '../model/version-store';
 import { DOWNLOAD_REMINDER_MS } from '../model/storage-safety';
-import { MapFileError, packMapFile } from '../../world/custom-map/map-file';
+import { MapFileError, contentHash, packMapFile } from '../../world/custom-map/map-file';
 import { EditorSession, saveErrorText } from './editor-session.service';
 
 function session(): { s: EditorSession; backend: MemoryMapBackend; history: VersionHistory; versions: MemoryVersionBackend } {
@@ -46,6 +46,42 @@ describe('editor session opening', () => {
     expect(await s.open('hosts-map')).toBe('host-copy');
     expect((await backend.get('hosts-map'))?.summary.origin).toBe('shared');
     expect(await s.open('harbour-copy')).toBe('harbour-copy');
+    s.ngOnDestroy();
+  });
+});
+
+describe('editor session and copies', () => {
+  it('opens the copy made before on a second Edit, and offers a fresh one when the original changed', async () => {
+    const { s, backend } = session();
+    let shipped = createMapDocument({ id: 'harbour', name: 'Harbour', width: 32, depth: 32 });
+    let hash = await contentHash(shipped);
+    const fetch = async (url: string) =>
+      url.endsWith('index.json')
+        ? Response.json({ maps: [{ id: 'harbour', name: 'Harbour', file: 'harbour.3dtdmap', contentHash: hash }] })
+        : new Response(packMapFile(shipped) as Uint8Array<ArrayBuffer>, { status: 200 });
+    Object.assign(s, { store: new MapStore({ backend, fetch, baseUrl: 'http://x/' }), catalogReady: Promise.resolve() });
+    expect(await s.open('harbour')).toBe('harbour-copy');
+    expect(s.doc!.meta.copyOf).toEqual({ id: 'harbour', hash });
+    s.editMeta({ description: 'Mine' });
+    await s.save(true);
+    expect(await s.open('harbour')).toBe('harbour-copy');
+    expect(s.doc!.meta.description).toBe('Mine');
+    expect(s.staleCopy()).toBeNull();
+    // A game update changes the original
+    shipped = createMapDocument({ id: 'harbour', name: 'Harbour', width: 48, depth: 48 });
+    hash = await contentHash(shipped);
+    Object.assign(s, { store: new MapStore({ backend, fetch, baseUrl: 'http://x/' }) });
+    expect(await s.open('harbour')).toBe('harbour-copy');
+    expect(s.staleCopy()).toMatchObject({ original: 'harbour' });
+    // Saved a moment later than the first copy, so it is the newest
+    await new Promise((r) => setTimeout(r, 5));
+    expect(await s.freshCopy()).toBe('harbour-copy-2');
+    expect(s.doc!.terrain.width).toBe(48);
+    expect(s.doc!.meta.copyOf).toEqual({ id: 'harbour', hash });
+    expect((await s.store.listOwn()).map((m) => m.id).sort()).toEqual(['harbour-copy', 'harbour-copy-2']);
+    // The newest copy opens from now on
+    expect(await s.open('harbour')).toBe('harbour-copy-2');
+    expect(s.staleCopy()).toBeNull();
     s.ngOnDestroy();
   });
 });

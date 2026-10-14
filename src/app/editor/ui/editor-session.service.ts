@@ -164,6 +164,8 @@ export class EditorSession implements OnDestroy {
   readonly error = signal<string | null>(null);
   /** How safe the maps are here (the browser may clear them unless it keeps them for good); null until known */
   readonly storage = signal<StorageSafety | null>(null);
+  /** The open map is an own copy whose original changed since (open: Fresh copy offered) */
+  readonly staleCopy = signal<{ original: string; name: string } | null>(null);
   /** The reminder to download the map after long work in a browser that may clear it */
   readonly downloadReminder = signal(false);
   /** Asked the browser for persistent storage already (once a page, at the first save) */
@@ -427,15 +429,43 @@ export class EditorSession implements OnDestroy {
    */
   async open(id: string): Promise<string> {
     await this.catalogReady;
+    this.staleCopy.set(null);
+    // A shipped or coop map edited before: its own copy opens again
+    const known = await this.store.ownCopyOf(id);
+    if (known) {
+      const copy = await this.store.load(known.id, 'own');
+      this.setDocument(copy.doc);
+      const now = await this.store.originalHash(id);
+      if (now && now !== known.copyOf!.hash) this.staleCopy.set({ original: id, name: copy.doc.meta.name });
+      else this.flash(`Your own copy of this map; the original stays as it is`);
+      return known.id;
+    }
     const loaded = await this.store.load(id);
     if (loaded.summary.origin === 'own') {
       this.setDocument(loaded.doc);
       return id;
     }
     const name = loaded.doc.meta.name;
-    const copy = await this.store.saveCopy(loaded);
+    const copy = await this.store.saveCopy(loaded, undefined, { id, hash: loaded.summary.contentHash });
     this.setDocument(copy.doc);
     this.flash(`This is your own copy of ${name}; the original stays as it is`);
+    return copy.doc.meta.id;
+  }
+
+  /**
+   * The original of the open copy changed since it was copied (a game
+   * update, a host's new version): a fresh copy of it, opened in place of
+   * this one (which stays). Returns the new copy's id.
+   */
+  async freshCopy(): Promise<string | null> {
+    const stale = this.staleCopy();
+    if (!stale || this.blocked('A fresh copy')) return null;
+    if (this.dirty() && !(await this.save(false))) return null;
+    this.staleCopy.set(null);
+    const loaded = await this.store.load(stale.original);
+    const copy = await this.store.saveCopy(loaded, undefined, { id: stale.original, hash: loaded.summary.contentHash });
+    this.setDocument(copy.doc);
+    this.flash(`A fresh copy of ${loaded.doc.meta.name}; your earlier copy stays in the list`);
     return copy.doc.meta.id;
   }
 
@@ -570,6 +600,7 @@ export class EditorSession implements OnDestroy {
     this.unsubscribe = [];
     this.lock?.close();
     this.lock = null;
+    this.staleCopy.set(null);
     this.readOnly.set(false);
     this.editor = null;
     this.meta.set(null);

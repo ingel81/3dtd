@@ -15,7 +15,10 @@ Papierkorb, siehe [Speichern](#speichern-und-dateien)). Mitgelieferte Karten (`p
 and edit“ legt eine eigene Kopie an und öffnet sie. Dasselbe gilt für jeden anderen Weg dorthin, etwa „Edit“ in der
 Kartenwahl des Spiels (`/editor?map=<id>`): `EditorSession.open` öffnet nie das Original, sondern speichert sofort eine
 eigene Kopie („Name (copy)“), sagt das in der Statuszeile und setzt deren Kennung in die Adresse, damit Neuladen die
-Kopie öffnet und keine zweite anlegt.
+Kopie öffnet und keine zweite anlegt. Die Kopie merkt sich ihr Original mit dessen Inhalts-Hash (`meta.copyOf`, nicht
+Teil des `contentHash`); ein weiteres „Edit“ desselben Originals öffnet die neueste eigene Kopie wieder. Hat sich das
+Original seither geändert (Spiel-Update, neue Version des Hosts, verglichen über `index.json` bzw. die Zusammenfassung,
+ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die alte bleibt) oder „Open your copy“.
 
 - **New map:** Name, Autor, Größe (Small 512 m, Medium 1024 m, Large 2048 m, Wide 2048 x 1024 m), Vorlage oder Boden
   (Flat, Hills, Valleys, Islands, Canyon, Terraces mit Seed und Stärke, siehe [Generator](#gelände-generator)) mit

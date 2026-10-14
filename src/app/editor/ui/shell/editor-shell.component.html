@@ -105,6 +105,12 @@
       <span>Another tab edits this map. Here you can look around; changes wait until this tab takes over.</span>
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.takeOver()" data-test="take-over">Take over editing</button>
     </p>
+  } @else if (session.staleCopy(); as stale) {
+    <p class="td-banner is-warn is-row td-overlay es-reminder" role="status" data-test="stale-copy">
+      <span>The original of {{ stale.name }} changed since you copied it (a game update or the host's new version).</span>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="freshCopy()" data-test="fresh-copy">Fresh copy</button>
+      <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.staleCopy.set(null)" data-test="keep-copy">Open your copy</button>
+    </p>
   } @else if (session.downloadReminder()) {
     <p class="td-banner is-warn is-row td-overlay es-reminder" role="status" data-test="download-reminder">
       <span>This browser may clear maps when the disk runs short. Download the map file now and then to keep your work safe.</span>
