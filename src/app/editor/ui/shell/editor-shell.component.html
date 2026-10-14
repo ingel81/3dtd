@@ -1,4 +1,4 @@
-<div class="es-root">
+<div class="es-root" [style.--es-side-w.px]="sideWidth()">
   <header class="es-top td-topbar">
     <button class="td-tool" type="button" aria-label="Back to the maps" matTooltip="Back to the maps" (click)="leave()" data-test="back">
       <td-icon name="caretL" [size]="18" />
@@ -163,6 +163,11 @@
   </main>
 
   <aside class="es-side td-side td-dense" aria-label="Tool options">
+    <div class="es-side-grip" role="separator" aria-orientation="vertical" aria-label="Width of the side column" tabindex="0"
+         [attr.aria-valuenow]="sideWidth()" [attr.aria-valuemin]="sideMin" [attr.aria-valuemax]="sideMax"
+         matTooltip="Drag to widen or narrow; double click resets" matTooltipPosition="left"
+         (pointerdown)="gripDown($event)" (pointermove)="gripMove($event)" (pointerup)="gripUp($event)" (pointercancel)="gripUp($event)"
+         (dblclick)="setSideWidth(sideDefault)" (keydown)="gripKey($event)" data-test="side-grip"></div>
     <div class="td-seg is-sm es-side-tabs" role="tablist" aria-label="Side column" tdRovingGroup>
       <button type="button" role="tab" id="es-tab-tool" aria-controls="es-panel-tool" [attr.aria-selected]="sideView() === 'tool'" (click)="sideView.set('tool')" data-test="side-tool">{{ toolLabel() }}</button>
       <button type="button" role="tab" id="es-tab-outline" aria-controls="es-panel-outline" [attr.aria-selected]="sideView() === 'outline'" (click)="sideView.set('outline')" data-test="side-outline">Outline</button>

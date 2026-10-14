@@ -47,6 +47,26 @@ import { TerrainPanelComponent } from '../panels/terrain-panel.component';
 import { WaterPanelComponent } from '../panels/water-panel.component';
 
 const LEGEND_KEY = '3dtd-editor-legend';
+const SIDE_KEY = '3dtd-editor-side';
+/** Width of the side column in pixels: as it opens, the narrowest and the widest */
+const SIDE_DEFAULT = 340;
+const SIDE_MIN = 320;
+const SIDE_MAX = 680;
+
+function clampSide(w: number): number {
+  // The view keeps at least 400 px beside the tool column
+  const room = typeof window === 'undefined' ? SIDE_MAX : window.innerWidth - 76 - 400;
+  return Math.round(Math.max(SIDE_MIN, Math.min(SIDE_MAX, room, w)));
+}
+
+function readSideWidth(): number {
+  try {
+    const w = Number(localStorage.getItem(SIDE_KEY));
+    return w ? clampSide(w) : SIDE_DEFAULT;
+  } catch {
+    return SIDE_DEFAULT;
+  }
+}
 
 function readLegend(): boolean {
   try {
@@ -123,6 +143,13 @@ export class EditorShellComponent implements OnDestroy {
   readonly icons = TOOL_ICON;
   /** The legend of mouse and view keys in the corner of the view; hidden once the player closes it */
   readonly legend = signal(readLegend());
+  /** Width of the side column, dragged at its inner edge and kept in this browser */
+  readonly sideWidth = signal(readSideWidth());
+  readonly sideDefault = SIDE_DEFAULT;
+  readonly sideMin = SIDE_MIN;
+  readonly sideMax = SIDE_MAX;
+  /** The grip's drag: where it started and the width then */
+  private grip: { x: number; width: number } | null = null;
   /** What the side column shows: the tool's options or the outline of the map */
   readonly sideView = signal<'tool' | 'outline' | 'history'>('tool');
   readonly fileMenu = signal(false);
@@ -239,6 +266,50 @@ export class EditorShellComponent implements OnDestroy {
     } catch {
       // Without storage it shows again on the next visit
     }
+  }
+
+  setSideWidth(w: number): void {
+    const next = clampSide(w);
+    this.sideWidth.set(next);
+    try {
+      if (next === SIDE_DEFAULT) localStorage.removeItem(SIDE_KEY);
+      else localStorage.setItem(SIDE_KEY, String(next));
+    } catch {
+      // Without storage the column opens at its default width next time
+    }
+  }
+
+  gripDown(e: PointerEvent): void {
+    if (e.button !== 0) return;
+    const el = e.currentTarget as HTMLElement;
+    el.setPointerCapture(e.pointerId);
+    el.classList.add('is-held');
+    this.grip = { x: e.clientX, width: this.sideWidth() };
+    e.preventDefault();
+  }
+
+  gripMove(e: PointerEvent): void {
+    // The column sits right: dragging its edge left widens it
+    if (this.grip) this.sideWidth.set(clampSide(this.grip.width + this.grip.x - e.clientX));
+  }
+
+  gripUp(e: PointerEvent): void {
+    if (!this.grip) return;
+    (e.currentTarget as HTMLElement).classList.remove('is-held');
+    this.grip = null;
+    this.setSideWidth(this.sideWidth());
+  }
+
+  /** Arrow keys on the focused grip: left widens, right narrows */
+  gripKey(e: KeyboardEvent): void {
+    const step = e.shiftKey ? 64 : 16;
+    const by = e.key === 'ArrowLeft' ? step : e.key === 'ArrowRight' ? -step : 0;
+    if (e.key === 'Home') this.setSideWidth(SIDE_DEFAULT);
+    else if (by) this.setSideWidth(this.sideWidth() + by);
+    else return;
+    // The view's own keys (arrows pan) do not get it
+    e.preventDefault();
+    e.stopPropagation();
   }
 
   pick(id: ToolId): void {

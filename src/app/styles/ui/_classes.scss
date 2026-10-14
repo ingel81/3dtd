@@ -179,6 +179,8 @@
   }
   .td-switch { @include forms.switch; }
   .td-check { @include forms.check; }
+  // A sidebar is narrow: a long label wraps instead of pushing the column sideways
+  .td-side .td-check { white-space: normal; }
   .td-slider { @include forms.slider; }
   // A value to dial: its name, the slider, the number field, a unit
   .td-range-row {

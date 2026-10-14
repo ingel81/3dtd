@@ -209,7 +209,7 @@ Bei `prefers-reduced-motion` springen alle Übergänge (globale Regel); Animatio
 | `td-select` (`is-auto`) | Auswahlliste mit Messingwinkel; so breit wie ihr Inhalt |
 | `td-error` | Meldung unter einem Feld mit Warnzeichen |
 | `td-seg` (`is-compact`, `is-sm`, `is-stacked`) | Stufen: ein Knopf je Wahl in einer gemeinsamen Mulde, gewählt eine erhabene Steinplatte mit Messingtext (wie ein Schieber in seiner Rille); für Radiogruppen, Reiter, Umschalter; schmal, klein (30 px), zweizeilig (Name über einer Zeile) |
-| `td-switch`, `td-check` | Schieber auf einer Checkbox (oder `<span>` mit `.is-on` in einem Umschalt-Knopf); Schieber mit Text, als `<label>` oder als Umschalt-`<button>` (ohne Knopfrahmen, Schriftgröße der Umgebung) |
+| `td-switch`, `td-check` | Schieber auf einer Checkbox (oder `<span>` mit `.is-on` in einem Umschalt-Knopf); Schieber mit Text, als `<label>` oder als Umschalt-`<button>` (ohne Knopfrahmen, Schriftgröße der Umgebung); in einer `td-side` bricht der Text um, statt die Spalte zu verbreitern |
 | `td-slider`, `td-range-row` | Regler mit Skala, Messingfüllung bis zum Griff (Chromium per Border-Image des Griffs, Firefox `::-moz-range-progress`); Zeile aus Name, Regler, Zahl, Einheit |
 
 ### Listen und Tabellen

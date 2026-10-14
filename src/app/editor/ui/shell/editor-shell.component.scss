@@ -7,7 +7,7 @@
 
 .es-root {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) 340px;
+  grid-template-columns: 76px minmax(0, 1fr) var(--es-side-w, 340px);
   grid-template-rows: var(--td-h-topbar) minmax(0, 1fr) 30px;
   grid-template-areas:
     'top top top'
@@ -199,8 +199,28 @@
 }
 
 .es-side {
+  position: relative;
   display: flex;
   flex-direction: column;
+}
+
+// The grip on the column's inner edge: drag to size it, the view follows
+.es-side-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  width: 7px;
+  cursor: col-resize;
+  touch-action: none;
+
+  &:hover,
+  &.is-held,
+  &:focus-visible {
+    background: color-mix(in srgb, var(--td-brass-light) 35%, transparent);
+    outline: none;
+  }
 }
 
 .es-side-tabs {

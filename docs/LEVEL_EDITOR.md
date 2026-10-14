@@ -81,7 +81,10 @@ hebt sie in IndexedDB (`3dtd-editor-thumbs`) auf; bis ein Bild fertig ist, steht
 
 Die linke Leiste zeigt jedes Werkzeug mit Symbol und Namen, in drei Gruppen: Shape (Landscape, Terrain, Paint, Water,
 Objects), Play (Roads, Spawns, Rules) und Map (Sky, Map, Stamps, Measure). Rechts stehen zwei Reiter: die Optionen des
-Werkzeugs und die Gliederung; ein Werkzeug zu wählen zeigt seine Optionen. Werkzeuge mit Modi (Landscape, Terrain,
+Werkzeugs und die Gliederung; ein Werkzeug zu wählen zeigt seine Optionen. Die rechte Spalte lässt sich an ihrer
+Innenkante breiter und schmaler ziehen (320 bis 680 px, anfangs 340; Pfeiltasten auf der fokussierten Kante, Doppelklick
+setzt zurück, gemerkt in `localStorage` `3dtd-editor-side`), die Ansicht passt sich an. Lange Beschriftungen brechen
+um, keine Spalte scrollt seitwärts. Werkzeuge mit Modi (Landscape, Terrain,
 Water) zeigen sie gruppiert als Knöpfe und darunter, was der gewählte tut. Unter der Minikarte stehen nur gemerkte
 Ansichten, „+ Keep view“ merkt die aktuelle. Eine neue Karte startet mit der Vorlage Meadows; „Empty“ ganz hinten
 fragt nach Boden und Material. Paint legt eine neue Schicht über „+ Add a ground“ aus einer Palette mit Bildern an,
