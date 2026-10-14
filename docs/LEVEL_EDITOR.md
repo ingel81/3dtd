@@ -135,8 +135,10 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   Brücke an jeder Straße, die er kreuzt; Road legt eine Straße ins Wegenetz (Anfang und Ende rasten an Knoten oder
   Straßen), passt den Boden als Damm oder Einschnitt an, pflastert sie und stellt Laternen oder Zäune an den Rand. Was
   er gebaut hat, merkt sich die Kante (`dress`); zieht man danach einen Knoten, glättet, begradigt oder verbreitert die
-  Straße (Roads, 6), legt der Editor das alles neu an: der alte Streifen wird zurückgebaut (quer zum Lauf gerade vom
-  Land am einen Rand zum anderen, `restoreBand`, wie beim Entfernen eines Flusses), seine Laternen und Zäune gehen,
+  Straße (Roads, 6), legt der Editor das alles neu an: der alte Streifen wird zurückgebaut (die Höhen genau wie vor der
+  Straße: `dress.ground` hält je Höhenpunkt des Bands die Höhe vorher und nach dem Einebnen, auf den Millimeter;
+  danach Geformtes bleibt als Unterschied erhalten; ohne gemerkte Höhen oder auf einem anderen Raster gerade vom Land
+  am einen Rand zum anderen, `restoreBand`; der Bodenanstrich blendet immer so), seine Laternen und Zäune gehen,
   entlang der neuen Linie entstehen Damm, Belag und Ausstattung neu; ein Schritt im Verlauf. Ebenso folgt das Flussbett
   seinem Lauf: einen Flusspunkt verschieben oder entfernen (Water, 4, Rivers), die Breite ändern oder „Fewer river
   points“ füllt das alte Bett und gräbt das neue (`moveRiverBed`): Schilf, Steine und Wasserfälle beider Bänder gehen,
@@ -325,7 +327,9 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   maps for good“ oder die Warnung samt „Download map file“. Darf der Browser räumen, erinnert nach 30 Minuten Arbeit
   ohne Download ein Banner daran („Download“, „Later“ schiebt es um weitere 30 Minuten)
 - Kartendokument Version 2: optionales Feld `dress` je Straßenkante (Damm, Belag, Laternen und Zäune des Straßenpinsels
-  mit den Ids ihrer Objekte; nur der Editor liest es); optionales Feld `gameplay` (`startCredits`, `hqHealth`, `towers`, `waves` als
+  mit den Ids ihrer Objekte und dem Boden des Bands vor dem Einebnen, `ground`, gepackt in `road-ground.ts`: etwa
+  4 Byte je Höhenpunkt, eine 300 m lange Straße auf 2-m-Raster rund 12 kB Text vor dem Zip; die mitgelieferten Level
+  wachsen dadurch um 21 bis 54 kB, 2 bis 7 %; nur der Editor liest es); optionales Feld `gameplay` (`startCredits`, `hqHealth`, `towers`, `waves` als
   `{ kind: 'budget' }` oder `{ kind: 'table', table }` in der Form der Table-Source); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2
 - Datei-Menü (drei Punkte): Download map file (`.3dtdmap`), Export top view as picture (PNG, 2048 px an der längeren

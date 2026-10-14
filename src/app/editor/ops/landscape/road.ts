@@ -4,8 +4,9 @@
  * smooth embankment or cutting, its surface is painted, and lamps and
  * fences can line it.
  */
-import type { MapPathEdge, MapPathKind, MapPaths, MapPoint, MapRoadDress } from '../../../world/custom-map/map-document';
+import type { MapPathEdge, MapPathKind, MapPaths, MapPoint, MapRoadDress, MapRoadGround } from '../../../world/custom-map/map-document';
 import { restoreBand } from './river';
+import { bandSamples, packGround, unpackGround } from './road-ground';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, nearestOnPolyline, pointAt, polylineLength, splitEdge } from '../path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../path-terrain';
 import { chaikin, simplify } from './lines';
@@ -95,9 +96,14 @@ function dressReach(edge: MapPathEdge): number {
 export function dressEdge(stroke: LandscapeStroke, edge: MapPathEdge, dress: MapRoadDress): { lamps: number; fences: number } {
   const t = stroke.doc.terrain;
   const paths = stroke.doc.paths;
+  let ground: MapRoadGround | undefined;
   if (dress.adapt) {
+    // The band's ground before levelling, kept so taking the road back restores it
+    const samples = bandSamples(t.grid, t.width, t.depth, edgePolyline(paths, edge), dressReach(edge) + t.grid.cellSize);
+    const before = Float32Array.from(samples, (k) => t.grid.heights[k]);
     const rect = flattenUnderPaths(t, paths, [edge.id], { shoulder: Math.max(6, edge.width), smoothing: 30 }, (r) => stroke.touchHeights(r));
     if (rect) stroke.changed({ heights: rect });
+    ground = packGround(t.grid, samples, before);
   }
   const surface = dress.surface ? stroke.layerOf([dress.surface]) : null;
   if (surface !== null) {
@@ -151,7 +157,8 @@ export function dressEdge(stroke: LandscapeStroke, edge: MapPathEdge, dress: Map
       fences += placed.length - before;
     }
   }
-  edge.dress = { ...dress, objects: placed };
+  const { ground: _old, ...rest } = dress;
+  edge.dress = { ...rest, objects: placed, ...(ground ? { ground } : {}) };
   stroke.changed({ paths: true, objects: placed.length ? placed : undefined });
   return { lamps, fences };
 }
@@ -174,8 +181,41 @@ export function undressEdge(stroke: LandscapeStroke, edge: MapPathEdge, line: re
     .map((o) => o.id);
   stroke.removeObjects(gone);
   if ((dress.adapt || dress.surface) && line.length >= 2) {
-    const band = restoreBand(stroke, line, () => dressReach(edge));
-    stroke.changed({ heights: band.heights, splat: band.splat });
+    // The heights exactly as before the road where they were kept (plus what was shaped since), else straight across
+    const t = stroke.doc.terrain;
+    const kept = dress.ground ? unpackGround(t.grid, dress.ground) : null;
+    const band = restoreBand(stroke, line, () => dressReach(edge), !!kept);
+    if (kept) {
+      const reach = dressReach(edge) + t.grid.cellSize;
+      const c = t.grid.cellSize;
+      const mine = kept.filter((s) => {
+        // A road split in two shares the kept ground: each half restores its own part
+        const i = s.k % t.grid.columns;
+        const j = Math.floor(s.k / t.grid.columns);
+        return (nearestOnPolyline(line, { x: -t.width / 2 + i * c, y: -t.depth / 2 + j * c })?.dist ?? Infinity) <= reach;
+      });
+      if (mine.length) {
+        const cols = t.grid.columns;
+        const rect = { i0: Infinity, j0: Infinity, i1: -Infinity, j1: -Infinity };
+        for (const s of mine) {
+          const i = s.k % cols;
+          const j = Math.floor(s.k / cols);
+          rect.i0 = Math.min(rect.i0, i);
+          rect.i1 = Math.max(rect.i1, i);
+          rect.j0 = Math.min(rect.j0, j);
+          rect.j1 = Math.max(rect.j1, j);
+        }
+        stroke.touchHeights(rect);
+        // Ground untouched since the road was built goes back to its old height itself, shaped ground keeps the shaping
+        const step = dress.ground!.step;
+        for (const s of mine) {
+          const shaped = t.grid.heights[s.k] - s.built;
+          t.grid.heights[s.k] = Math.abs(shaped) <= step ? s.before : s.before + shaped;
+        }
+        stroke.changed({ heights: rect });
+      }
+      stroke.changed({ splat: band.splat });
+    } else stroke.changed({ heights: band.heights, splat: band.splat });
   }
   if (gone.length) stroke.changed({ objects: gone });
 }

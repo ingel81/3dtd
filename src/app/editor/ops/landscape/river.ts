@@ -513,7 +513,13 @@ function riverReach(pts: readonly MapRiver['points'][number][], bankWidth: numbe
  * quarter. `reachAt` is the band's half width at each distance along the
  * line. Returns the changed height and texel rects.
  */
-export function restoreBand(stroke: LandscapeStroke, pts: readonly MapPoint[], reachAt: (along: number) => number): { heights: GridRect; splat: GridRect } {
+export function restoreBand(
+  stroke: LandscapeStroke,
+  pts: readonly MapPoint[],
+  reachAt: (along: number) => number,
+  /** Leave the heights (the caller restores them itself) and do only the paint */
+  paintOnly = false,
+): { heights: GridRect; splat: GridRect } {
   const t = stroke.doc.terrain;
   const g = t.grid;
   /**
@@ -560,9 +566,9 @@ export function restoreBand(stroke: LandscapeStroke, pts: readonly MapPoint[], r
     j0: Math.max(0, Math.floor(y0 / g.cellSize)),
     j1: Math.min(g.rows - 1, Math.ceil(y1 / g.cellSize)),
   };
-  stroke.touchHeights(rect);
+  if (!paintOnly) stroke.touchHeights(rect);
   const fills: { k: number; h: number }[] = [];
-  for (let j = rect.j0; j <= rect.j1; j++) {
+  for (let j = paintOnly ? rect.j1 + 1 : rect.j0; j <= rect.j1; j++) {
     const y = sampleY(t, j);
     for (let i = rect.i0; i <= rect.i1; i++) {
       const x = sampleX(t, i);

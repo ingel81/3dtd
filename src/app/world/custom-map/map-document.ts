@@ -189,6 +189,21 @@ export interface MapRoadDress {
   fences: boolean;
   /** Ids of the lamps and fences it set */
   objects: string[];
+  /** The ground of the band before it was levelled, so taking the road back restores it (road-ground.ts) */
+  ground?: MapRoadGround;
+}
+
+/** Heights of a road's band before and after levelling, packed (editor/ops/landscape/road-ground.ts) */
+export interface MapRoadGround {
+  /** The grid it was taken on: on another (resized, refined) it is not used */
+  columns: number;
+  rows: number;
+  cell: number;
+  /** Metres the values count from, and metres per unit of a value (a millimetre, coarser on a band over 65 m high) */
+  base: number;
+  step: number;
+  /** base64 of runs: row, first column, count, then (before, built) per sample, u16 little endian */
+  data: string;
 }
 
 export interface MapPaths {

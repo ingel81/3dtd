@@ -58,7 +58,9 @@ describe('roads laid anew', () => {
     expect(lamps.length).toBeGreaterThan(3);
     for (const l of lamps) expect(nearestOnPolyline(line, l)!.dist).toBeLessThan(DEFAULT_ROAD.width);
     // Where the old road ran, far from the new one, the ground is back near the land before the road
-    expect(Math.abs(g.heights[k] - plain[k])).toBeLessThan(builtOff * 0.6);
+    // exactly, to the millimetre the dress keeps it in
+    expect(Math.abs(g.heights[k] - plain[k])).toBeLessThan(0.0006);
+    expect(moved.dress!.ground).toBeDefined();
 
     // Undo puts the road and all it built back exactly
     editor.undo();
