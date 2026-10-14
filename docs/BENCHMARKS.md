@@ -160,6 +160,46 @@ tiles 48.7758,9.1829  low     pan    2.87   1.04  2.09  143    780x511
   Spielansicht): GPU-Zeit je Bild Low 689 ms, Medium 695 ms, High 2561 ms. Low und Medium kosten dort gut ein Viertel
   von High; ein bis zwei Bilder je Sekunde, nur als Richtung.
 
+### Je Qualitätsstufe nach den Draw Calls und KTX2 (2026-10-14)
+
+Gleiche Bedingungen, nach dem Packen kleiner Assets, dem Zusammenlegen von Modellteilen, den KTX2-Bodenmaterialien
+und dem weichen Stufenwechsel. `GPU med` ist der Median der GPU-Zeit je Bild; der Rechner arbeitete nebenher (andere
+Worker bauten und testeten), zwischen zwei Läufen derselben Stufe streuen die Werte um 0,1 bis 0,3 ms.
+
+```
+World            Level   View   Frame  GPU med  Calls  Canvas
+map:demo-valley  low     game    0.85     0.72    101  780x511
+map:demo-valley  low     pan     1.51     1.02    101  780x511
+map:demo-valley  medium  game    0.99     0.75    139  1040x681
+map:demo-valley  medium  pan     1.60     1.18    141  1040x681
+map:demo-valley  high    game    1.21     0.96    168  1300x852
+map:demo-valley  high    pan     1.72     1.45    178  1300x852
+map:demo-valley  ultra   game    1.19     1.12    185  1300x852
+map:demo-valley  ultra   pan     2.71     1.68    212  1300x852
+map:harbor-town  low     game    1.01     0.58     94  780x511
+map:harbor-town  low     pan     1.47     1.00    101  780x511
+map:harbor-town  medium  game    1.19     0.65    112  1040x681
+map:harbor-town  medium  pan     1.74     0.72    119  1040x681
+map:harbor-town  high    game    1.17     0.95    120  1300x852
+map:harbor-town  high    pan     1.73     1.41    129  1300x852
+map:harbor-town  ultra   game    1.57     1.20    165  1300x852
+map:harbor-town  ultra   pan     2.22     1.89    180  1300x852
+```
+
+- **High gegen die Ausgangswerte:** Hafenstadt 3,68 → 1,17 ms Bildabstand bei 1111 → 120 Calls, Demo-Tal 1,45 →
+  1,21 ms bei 290 → 168.
+- **Medium und Low** liegen in der Spielansicht 20 bis 40 % unter High (GPU med); Low kaum unter Medium, die
+  Auflösung bindet auf der RTX 5080 nicht mehr.
+- **Ultra in der Spielansicht bei DPR 1** 1,17- bis 1,26-mal High (Demo-Tal 1,12 gegen 0,96 ms, Hafenstadt 1,20
+  gegen 0,95). Getrennt gemessen (Demo-Tal, je eine Stellschraube von Ultra auf High-Wert, Spielansicht, GPU med):
+  Ultra 1,14, Gras nur bis High-Weite 1,13, Schatten wie High 1,13, Impostoren und Objektweite wie High 1,12 ms (Calls
+  185 → 168), alle drei 0,97 ms, High 1,11 ms; keine der Stellschrauben allein trägt den Abstand, er liegt im
+  Rauschen der Einzelläufe. Ein Lauf vor dem Rebase auf den Stand mit dem Editor-Paket hatte im Demo-Tal Ultra 5,09
+  gegen High 0,92 ms gemessen; auf dem neuen Stand ist das nicht mehr nachzustellen, die Ursache ist nicht belegt.
+- **Bei DPR 2** (`--dpr 2`, Demo-Tal) deckelt High die Auflösung bei 1,5 (1950 × 1278), Ultra bei 2 (2600 × 1704,
+  1,78-mal so viele Pixel): Spielansicht GPU med High 1,79, Ultra 3,12 ms (1,74-mal); Draufsicht 1,50 gegen 4,47 ms
+  (3-mal), dort zählen die Pixel. Ultra bleibt eine Stufe nur von Hand; die Werte bleiben.
+
 ## Messungen
 
 ### 2026-10-12, Rechner A

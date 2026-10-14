@@ -85,4 +85,9 @@ Der Editor liest dieselbe gespeicherte Einstellung (`storedLevelFor`, Stufe für
 
 ## Messung
 
+Stand nach den Draw Calls und KTX2 (RTX 5080, Median der GPU-Zeit je Bild, Spielansicht, DPR 1): Demo-Tal Low 0,72,
+Medium 0,75, High 0,96, Ultra 1,12 ms; Hafenstadt Low 0,58, Medium 0,65, High 0,95, Ultra 1,20 ms. Bei DPR 2 kostet
+Ultra im Demo-Tal 1,74-mal High (mehr Pixel durch den höheren Deckel). Werte, getrennte Messung der Ultra-Stellschrauben
+und Grenzen in [BENCHMARKS.md](BENCHMARKS.md#je-qualitätsstufe-nach-den-draw-calls-und-ktx2-2026-10-14).
+
 Je Stufe mit dem Grafik-Benchmark ([BENCHMARKS.md](BENCHMARKS.md#bildkosten-grafik-benchmark)), Ergebnisse dort.
