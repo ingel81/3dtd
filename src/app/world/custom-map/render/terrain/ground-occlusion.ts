@@ -245,37 +245,51 @@ export class GroundOcclusion {
     this.upload(0, 0, cols - 1, rows - 1);
   }
 
-  /** D8 flow accumulation over the whole grid: every sample drains into its lowest neighbour */
+  /**
+   * D8 flow accumulation over the whole grid: every sample drains into its
+   * steepest lower neighbour; the accumulation runs from the samples nothing
+   * drains into down to the outlets (Kahn's order, linear in the grid)
+   */
   private bakeDrainage(): void {
     const f = this.field;
     const cols = f.columns;
     const rows = f.rows;
     const n = cols * rows;
-    const order = new Uint32Array(n);
-    for (let k = 0; k < n; k++) order[k] = k;
     const h = f.grid.heights;
-    order.sort((a, b) => h[b] - h[a]);
-    const acc = new Float32Array(n).fill(1);
-    for (const k of order) {
-      const i = k % cols;
-      const j = (k / cols) | 0;
-      let best = -1;
-      let drop = 0;
-      for (let dj = -1; dj <= 1; dj++) {
-        for (let di = -1; di <= 1; di++) {
-          if (!di && !dj) continue;
-          const ii = i + di;
+    const to = new Int32Array(n).fill(-1);
+    const inflow = new Uint8Array(n);
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < cols; i++) {
+        const k = j * cols + i;
+        let drop = 0;
+        for (let dj = -1; dj <= 1; dj++) {
           const jj = j + dj;
-          if (ii < 0 || jj < 0 || ii >= cols || jj >= rows) continue;
-          const o = jj * cols + ii;
-          const g = (h[k] - h[o]) / (di && dj ? Math.SQRT2 : 1);
-          if (g > drop) {
-            drop = g;
-            best = o;
+          if (jj < 0 || jj >= rows) continue;
+          for (let di = -1; di <= 1; di++) {
+            const ii = i + di;
+            if ((!di && !dj) || ii < 0 || ii >= cols) continue;
+            const o = jj * cols + ii;
+            const g = (h[k] - h[o]) * (di && dj ? Math.SQRT1_2 : 1);
+            if (g > drop) {
+              drop = g;
+              to[k] = o;
+            }
           }
         }
+        if (to[k] >= 0) inflow[to[k]]++;
       }
-      if (best >= 0) acc[best] += acc[k];
+    }
+    const acc = new Float32Array(n).fill(1);
+    const queue = new Int32Array(n);
+    let head = 0;
+    let tail = 0;
+    for (let k = 0; k < n; k++) if (!inflow[k]) queue[tail++] = k;
+    while (head < tail) {
+      const k = queue[head++];
+      const o = to[k];
+      if (o < 0) continue;
+      acc[o] += acc[k];
+      if (--inflow[o] === 0) queue[tail++] = o;
     }
     // Log scale: a few cells upslope already show, a valley floor of thousands saturates
     const top = Math.log(Math.max(2, n / 16));

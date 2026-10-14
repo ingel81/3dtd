@@ -51,6 +51,9 @@ export class WaterSurface {
   private readonly mask: DataTexture;
   /** Baked current of the body (flow-map.ts), on the mask's grid */
   private readonly flow: DataTexture;
+  /** A later bake of the current (editing: a pool brush must not pay for the whole body each step) */
+  private flowDue: ReturnType<typeof setTimeout> | null = null;
+  private flowBaked = false;
   /** What the surface shows now */
   kind: MapWater['kind'];
   private effects: { on: MapEffects; copy: SceneCopy } | null = null;
@@ -113,10 +116,19 @@ export class WaterSurface {
     } else {
       uploadRect(this.mask, rect);
     }
-    // Ice stands still. The current runs over the whole body, before the tiles are built
+    // Ice stands still. The current runs over the whole body, before the tiles are built: the first bake
+    // right away, edits (a mask or height brush) once they pause for a quarter second
     if (kind !== 'ice') {
-      this.flow.image.data = bakeFlowMap(this.field, water, this.flow.image.data as Uint8Array);
-      this.flow.needsUpdate = true;
+      if (this.flowDue) clearTimeout(this.flowDue);
+      this.flowDue = null;
+      const bake = (): void => {
+        this.flowDue = null;
+        this.flow.image.data = bakeFlowMap(this.field, water, this.flow.image.data as Uint8Array);
+        this.flow.needsUpdate = true;
+        this.flowBaked = true;
+      };
+      if (this.flowBaked) this.flowDue = setTimeout(bake, 250);
+      else bake();
     }
     for (let tj = Math.floor(r.j0 / TILE); tj <= Math.floor(r.j1 / TILE); tj++) {
       for (let ti = Math.floor(r.i0 / TILE); ti <= Math.floor(r.i1 / TILE); ti++) this.buildTile(water, ti, tj);
@@ -150,6 +162,7 @@ export class WaterSurface {
     this.tiles.clear();
     this.apronMesh = null;
     this.material.dispose();
+    if (this.flowDue) clearTimeout(this.flowDue);
     this.mask.dispose();
     this.flow.dispose();
     this.object.removeFromParent();

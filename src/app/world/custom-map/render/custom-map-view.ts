@@ -133,6 +133,8 @@ export class CustomMapView {
   /** The switchable effects (map-effects.ts) and the frame copy refraction reads */
   private mapEffects: MapEffects = { ...NO_MAP_EFFECTS };
   private readonly sceneCopy = new SceneCopy();
+  private lavaDue: ReturnType<typeof setTimeout> | null = null;
+  private lavaBaked = false;
   private disposed = false;
   /** Depth materials like the ones the shadow pass derives, by the material's uuid (warmUpAssets) */
   private readonly depthTwins = new Map<string, MeshDepthMaterial>();
@@ -696,6 +698,17 @@ export class CustomMapView {
    */
   private refreshLava(): void {
     this.effects.setLavaLights(this.lavaLightPoints());
+    // The ground's closeness to lava: right away the first time, edits once they pause for a quarter second
+    if (this.lavaDue) clearTimeout(this.lavaDue);
+    this.lavaDue = null;
+    if (this.lavaBaked) this.lavaDue = setTimeout(() => this.bakeLava(), 250);
+    else this.bakeLava();
+  }
+
+  private bakeLava(): void {
+    this.lavaDue = null;
+    if (this.disposed) return;
+    this.lavaBaked = true;
     const t = this.doc.terrain;
     const f = this.heights;
     const lava = new Uint8Array(f.columns * f.rows);
@@ -865,6 +878,7 @@ export class CustomMapView {
     for (const twin of this.depthTwins.values()) twin.dispose();
     this.offscreen?.dispose();
     this.sceneCopy.dispose();
+    if (this.lavaDue) clearTimeout(this.lavaDue);
     this.group.removeFromParent();
     this.losBlockers.removeFromParent();
     this.group.clear();
