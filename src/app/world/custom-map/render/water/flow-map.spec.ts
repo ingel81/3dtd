@@ -1,5 +1,5 @@
 import { HeightField } from '../height-field';
-import { bakeFlowMap, decodeFlow } from './flow-map';
+import { bakeFlow, bakeFlowMap, bakeFlowOffThread, decodeFlow, flowInput } from './flow-map';
 import type { MapWater } from '../../map-document';
 
 /** A round lake (radius 40 m, 20 cells) of 2 m cells on a 101² grid, an island of 10 m in its middle */
@@ -54,5 +54,20 @@ describe('bakeFlowMap', () => {
     }
     expect(speed / count).toBeGreaterThan(0.03);
     expect((div / count) * 5).toBeLessThan((speed / count) * 0.3);
+  });
+});
+
+describe('bakeFlowOffThread', () => {
+  it('bakes from copies what the page bakes from the map, and the copies leave the map alone', async () => {
+    for (const kind of ['water', 'lava'] as const) {
+      const { field, water } = lake(kind);
+      const input = flowInput(field, water, true);
+      expect(input.heights).not.toBe(field.grid.heights);
+      expect(input.mask).not.toBe(water.mask);
+      const here = bakeFlowMap(field, water);
+      expect(bakeFlow(input)).toEqual(here);
+      // Without workers (tests) it bakes inline, with the same result
+      expect(await bakeFlowOffThread(flowInput(field, water, true))).toEqual(here);
+    }
   });
 });

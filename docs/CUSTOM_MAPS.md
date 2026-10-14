@@ -193,7 +193,10 @@ Lava spiegeln sich).
   Strömungskarte auf dem Höhenraster (RG8, Szene x/z, ±1,2 m/s): Wasser, Meer und Sumpf kreisen entlang der Ufer
   (quer zum Gradienten des Uferabstands; am Ufer still, einige Meter draußen am schnellsten, Engstellen schneller,
   um Inseln herum), Lava wälzt sich in Konvektionszellen (quellenfreies Feld, etwa 30 m). Der Shader schiebt Wellen
-  bzw. Kruste in zwei Phasen, die sich überblenden (6 s Wasser, 18 s Lava); Eis steht still
+  bzw. Kruste in zwei Phasen, die sich überblenden (6 s Wasser, 18 s Lava); Eis steht still. Beim Laden am Stück,
+  nach Änderungen im Editor (0,25 s nach der letzten) in einem Worker (`flow-map.worker.ts`, Kopien von Höhen und
+  Maske; 15 bis 47 ms auf 513er bis 1025er-Raster blieben so vom Hauptthread), eine neuere Änderung ersetzt das
+  Ergebnis
 - **Uferbänder** (`shore-waves.ts`): Schaumbänder laufen aus der Tiefe zum Ufer (Meer bis 3,2 m Tiefe, 0,8 Bänder je
   Meter, alle 9 s eines; See nur bis 0,6 m und stärker aufgebrochen, sonst zeichnen die Bänder die Tiefenlinien
   als Ringe; alle 7 s; Sumpf langsam), entstehen im Tiefen aus dem Nichts, sind entlang

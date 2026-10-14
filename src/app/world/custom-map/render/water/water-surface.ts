@@ -24,7 +24,7 @@ import { createWaterMaterial, setWaterColor, setWaterEffects, setWaterFlow, setW
 import type { MapEffects } from '../map-effects';
 import type { SceneCopy } from './scene-copy';
 import { setHeatHaze } from './heat-haze';
-import { bakeFlowMap } from './flow-map';
+import { bakeFlowMap, bakeFlowOffThread, flowInput } from './flow-map';
 
 /**
  * One area body of a map (water, sea, swamp, ice or lava over a mask): a
@@ -55,6 +55,8 @@ export class WaterSurface {
   /** A later bake of the current (editing: a pool brush must not pay for the whole body each step) */
   private flowDue: ReturnType<typeof setTimeout> | null = null;
   private flowBaked = false;
+  /** The bake whose flow the surface waits for; a newer one (or the end) leaves an older one's unused */
+  private flowJob = 0;
   /** What the surface shows now */
   kind: MapWater['kind'];
   private effects: { on: MapEffects; copy: SceneCopy } | null = null;
@@ -126,14 +128,23 @@ export class WaterSurface {
     if (kind !== 'ice') {
       if (this.flowDue) clearTimeout(this.flowDue);
       this.flowDue = null;
-      const bake = (): void => {
+      // After an edit in a worker (tens of ms on a big body); a newer edit's bake takes its place
+      const later = (): void => {
         this.flowDue = null;
+        const job = ++this.flowJob;
+        void bakeFlowOffThread(flowInput(this.field, water, true)).then((flow) => {
+          if (!flow || job !== this.flowJob) return;
+          this.flow.image.data = flow;
+          this.flow.needsUpdate = true;
+        });
+      };
+      if (this.flowBaked) this.flowDue = setTimeout(later, 250);
+      else {
+        this.flowJob++;
         this.flow.image.data = bakeFlowMap(this.field, water, this.flow.image.data as Uint8Array);
         this.flow.needsUpdate = true;
         this.flowBaked = true;
-      };
-      if (this.flowBaked) this.flowDue = setTimeout(bake, 250);
-      else bake();
+      }
     }
     for (let tj = Math.floor(r.j0 / TILE); tj <= Math.floor(r.j1 / TILE); tj++) {
       for (let ti = Math.floor(r.i0 / TILE); ti <= Math.floor(r.i1 / TILE); ti++) this.buildTile(water, ti, tj);
@@ -166,6 +177,7 @@ export class WaterSurface {
   }
 
   dispose(): void {
+    this.flowJob++;
     for (const m of this.meshes()) setHeatHaze(m, null);
     for (const m of this.meshes()) m.geometry.dispose();
     this.tiles.clear();
