@@ -86,7 +86,9 @@ Nebel der Szene wieder her.
   (`assignLayerSlots`). Je Pixel: Splat-Gewichte (zwei RGBA-Maps, mit Rauschen verwackelt), Wegemaske, Klippe ab
   `cliffAngle` mit verrauschter Kante; Höhen-Blend (eine Schicht zeigt sich, wo Höhe + Gewicht nahe am Besten
   liegt); jede Schicht zweimal mit verschobenen UVs je nach langsamem Rauschen (kein sichtbares Kachelmuster, nach
-  Inigo Quilez); Klippen triplanar (die Seitenprojektion übernimmt ab etwa 35°, die Felskante bricht entlang der
+  Inigo Quilez); Variation (Makro, Wackeln der Splat-Kanten, Auswahl, Ausfransen) aus einer kachelbaren Textur
+  natürlicher Flecken (`variation-texture.ts`, 512², auf dem CPU mit verzerrtem fbm gebaut) in drei Maßstäben (512, 96
+  und 28 m) statt rund zwölf Rechenrauschen je Pixel; das Gras liest dieselbe Textur. Klippen triplanar (die Seitenprojektion übernimmt ab etwa 35°, die Felskante bricht entlang der
   Höhenlinien in Simsen); Makrovariation und in der Ferne die Durchschnittsfarbe. **Ferne billiger**: ab `uFarSingle`
   (150 m) liest jede Schicht Normale und Rauheit einmal statt zweimal (die Farbe behält ihr Anti-Kachel-Paar), ab
   `uFarFlat` (400 m) gar keine Schichttexturen mehr, nur die Durchschnittsfarben nach Gewicht über der Rasternormale;

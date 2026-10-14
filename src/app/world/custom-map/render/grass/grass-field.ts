@@ -16,6 +16,7 @@ import type { CoverMap } from '../environment/cover-map';
 import { MAX_GRASS_BLADES } from '../../../../three-engine/render-quality';
 import { addHeightFog } from '../environment/height-fog';
 import { WIND_GLSL, WIND_UNIFORMS } from '../environment/wind';
+import { VARIATION_GLSL, variationTexture } from '../terrain/variation-texture';
 
 /**
  * Grass blades near the camera: a tile of instanced blades that wraps
@@ -77,6 +78,7 @@ export class GrassField {
     uGrassColors: { value: Array.from({ length: 8 }, () => new Color()) },
     uGrassCover: { value: null as Texture | null },
     uGrassHasCover: { value: 0 },
+    uVariation: { value: variationTexture() as Texture },
   };
 
   constructor(heights: HeightTexture) {
@@ -204,6 +206,7 @@ uniform float uGrassHasCover;
 varying vec3 vBladeColor;
 ${SHADER_NOISE}
 ${WIND_GLSL}
+${VARIATION_GLSL}
 ${TERRAIN_HEIGHT_GLSL}
 
 // 1 where something stands on the ground or water lies over it, 0 on open ground; bilinear over the grid
@@ -293,9 +296,11 @@ if (keep > 0.0) {
     gw += s0[k] * uGrassMask0[k] + s1[k] * uGrassMask1[k];
   }
   ground /= max(gw, 1e-3);
-  float n1 = valueNoise(mapPos * 0.017);
-  float n2 = valueNoise(mapPos * 0.0041 + 17.0);
-  float n3 = valueNoise(mapPos * 0.11);
+  // The terrain's macro variation from the same texture (terrain-material.ts)
+  vec4 varCoarse = variationAt(mapPos);
+  float n1 = varCoarse.r;
+  float n2 = varCoarse.g;
+  float n3 = varCoarse.b;
   ground *= mix(0.86, 1.1, n1 * 0.6 + n2 * 0.4) * mix(0.93, 1.06, n3);
   ground = mix(ground, ground * vec3(1.1, 1.04, 0.8), smoothstep(0.5, 0.85, n2) * 0.5);
   ground = mix(ground, ground * vec3(0.84, 0.92, 0.95), smoothstep(0.45, 0.15, n1) * 0.6);

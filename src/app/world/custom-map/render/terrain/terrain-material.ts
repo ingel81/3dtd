@@ -4,6 +4,7 @@ import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_MORPH_PARS, TERRAIN_MORPH_VERTEX } from './terrain-chunks';
 import type { MapWaterKind } from '../../map-document';
 import { shoreWaves } from '../water/shore-waves';
+import { VARIATION_GLSL, variationTexture } from './variation-texture';
 import type { MaterialCategory } from '../asset-catalog';
 
 /**
@@ -106,6 +107,8 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uPathMask: { value: null as Texture | null },
     uGridNormals: { value: null as Texture | null },
     uGridOcclusion: { value: null as Texture | null },
+    /** The ground's variation, natural blots at three scales (variation-texture.ts) */
+    uVariation: { value: variationTexture() as Texture },
     uGridUv: { value: new Vector4() },
     uWaterLevel: { value: -1e4 },
     /** Swash of the main water's shore bands (shore-waves.ts): bands per second, 0 none */
@@ -244,6 +247,7 @@ uniform sampler2D uSplat1;
 uniform sampler2D uPathMask;
 uniform sampler2D uGridNormals;
 uniform sampler2D uGridOcclusion;
+${VARIATION_GLSL}
 uniform vec4 uGridUv;
 uniform float uWaterLevel;
 uniform float uSwashSpeed;
@@ -328,15 +332,19 @@ vec2 tuv = mapPos / uMapSize + 0.5;
 vec2 dPosX = dFdx(tPos.xz);
 vec2 dPosY = dFdy(tPos.xz);
 
-// Slow noise: macro variation, splat edge wobble, anti-tiling selector
-float n1 = valueNoise(mapPos * 0.017);
-float n2 = valueNoise(mapPos * 0.0041 + 17.0);
-float n3 = valueNoise(mapPos * 0.11);
+// The ground's variation (variation-texture.ts): natural blots at three scales, three lookups for what
+// were a dozen value noises. Macro variation, splat edge wobble, anti-tiling selector
+vec4 varCoarse = variationAt(mapPos);
+vec4 varFine = variationFine(mapPos);
+vec4 varFiner = variationFiner(mapPos);
+float n1 = varCoarse.r;
+float n2 = varCoarse.g;
+float n3 = varCoarse.b;
 // The splat's edges wander with noise: coarse, and fine in proportion to the splat's texel size, so a
 // big map (2 m per texel) does not show soft blurred blobs up close
-vec2 wobble = ((vec2(n3, valueNoise(mapPos * 0.11 + 31.0)) - 0.5) * 2.5
-  + (vec2(valueNoise(mapPos * 0.6 + 7.0), valueNoise(mapPos * 0.6 + 13.0)) - 0.5) * 1.2 * max(1.0, uSplatTexel)
-  + (vec2(valueNoise(mapPos * 2.1 + 3.0), valueNoise(mapPos * 2.1 + 19.0)) - 0.5) * 0.5 * uSplatTexel) / uMapSize;
+vec2 wobble = ((varCoarse.ba - 0.5) * 2.5
+  + (varFine.ba - 0.5) * 1.2 * max(1.0, uSplatTexel)
+  + (varFiner.ba - 0.5) * 0.5 * uSplatTexel) / uMapSize;
 
 float w[TERRAIN_LAYERS];
 for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] = 0.0;
@@ -353,14 +361,14 @@ w[max(uSplatLayer[0], 0)] += outside;
 vec4 pmask = texture2D(uPathMask, tuv + wobble * 0.5);
 vec2 pm = pmask.rg * (1.0 - outside);
 // Frayed edges: noise eats into the soft rim of the mask, grass grows in from the side
-float fray = (valueNoise(mapPos * 0.9 + 11.0) - 0.5) * 0.9 + (n3 - 0.5) * 0.4;
+float fray = (varFine.a - 0.5) * 0.9 + (n3 - 0.5) * 0.4;
 pm = clamp(pm + fray * pm * (1.0 - pm) * 2.5, 0.0, 1.0);
 // Across position: 0 on the centre line, 1 at the edges
 float across = abs(pmask.b * 2.0 - 1.0) * 1.15;
 // Wheel ruts on roads, worn into the path material
 float ruts = exp(-pow((across - 0.42) / 0.11, 2.0)) * smoothstep(0.6, 0.9, pm.r);
 // Paths: a grass strip down the middle between the tracks
-float strip = smoothstep(0.22, 0.08, across + (valueNoise(mapPos * 1.7) - 0.5) * 0.12) * smoothstep(0.7, 1.0, pm.g);
+float strip = smoothstep(0.22, 0.08, across + (varFiner.a - 0.5) * 0.12) * smoothstep(0.7, 1.0, pm.g);
 float road = uRoadLayer >= 0 ? pm.r * (1.0 - ruts * 0.55) : 0.0;
 float path = uPathLayer >= 0 ? max(pm.g * (1.0 - strip * 0.85), ruts * 0.55 * pm.r) * (1.0 - road) : 0.0;
 // River banks (mask alpha): wet gravel and earth along both sides, under the water a dark bed
@@ -371,7 +379,7 @@ if (uRoadLayer >= 0) w[uRoadLayer] += road;
 if (uPathLayer >= 0) w[uPathLayer] += path;
 if (uPathLayer >= 0 && riverBank > 0.0) {
   // Gravel in patches, its edge eaten by noise: no even strip like a canal's
-  float bank = riverBank * (0.55 + (n3 - 0.5) * 0.5) * smoothstep(0.05, 0.45, riverBank + (valueNoise(mapPos * 0.35 + 5.0) - 0.5) * 0.45);
+  float bank = riverBank * (0.55 + (n3 - 0.5) * 0.5) * smoothstep(0.05, 0.45, riverBank + (varFine.b - 0.5) * 0.45);
   for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] *= 1.0 - bank;
   w[uPathLayer] += bank;
 }
@@ -392,9 +400,9 @@ vec4 lc[TERRAIN_LAYERS];
 vec4 ld[TERRAIN_LAYERS];
 vec3 ln[TERRAIN_LAYERS];
 float best = -1.0;
-float sel = valueNoise(mapPos * 0.11 + 5.0);
+float sel = varCoarse.a;
 // Blend noise: breaks the texture-periodic pattern where two layers meet
-float blendNoise = (valueNoise(mapPos * 0.35 + 3.0) - 0.5) * 0.5 + (n3 - 0.5) * 0.3;
+float blendNoise = (varFine.a - 0.5) * 0.5 + (n3 - 0.5) * 0.3;
 // Side projections take over from about 35 degrees of slope: the top one stretched the rock on mid slopes
 vec3 tri = vec3(pow(abs(nGeo.x), 2.0), pow(abs(nGeo.y), 8.0), pow(abs(nGeo.z), 2.0));
 tri /= tri.x + tri.y + tri.z;
@@ -549,7 +557,7 @@ albedo *= 1.0 - max(hollow * 0.16, drain * 0.22);
 albedo = mix(albedo, albedo * vec3(0.88, 1.0, 0.9), drain * 0.35);
 // Scree: in a hollow under steep ground (the occlusion is low there), the cliff's rock spills out
 if (uCliffLayer >= 0) {
-  float scree = hollow * smoothstep(0.85, 0.55, shape.r) * smoothstep(0.35, 0.65, valueNoise(mapPos * 0.4 + 3.0) + hollow * 0.3);
+  float scree = hollow * smoothstep(0.85, 0.55, shape.r) * smoothstep(0.35, 0.65, varFine.b + hollow * 0.3);
   albedo = mix(albedo, uAverage[uCliffLayer] * 0.85, scree * 0.55);
 }
 // Around lava the ground is cooled rock, lit orange from below with the lava's slow pulse
