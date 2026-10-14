@@ -541,7 +541,14 @@ nichts auf. Objekte stehen auf einem verwackelten Raster je Objektart und Seed (
 einmal entschieden); Kern-Objekte wachsen, sobald der Pinsel stark genug war, Rand-Objekte werden am Strichende nach
 dem stärksten erreichten Gewicht entschieden. Rauschen aus `devworld/utils/seeded-random.ts`. Ein Fluss ist ein
 `MapRiver` in `terrain.rivers` (Punkte alle 8 m mit Breite und Spiegelhöhe, Fließrichtung ab Punkt 0): der Spiegel
-liegt am oberen Ende knapp unter dem Boden und fällt danach nie und mindestens 0,4 cm je Meter; wo er mehr fällt, als er
+kommt aus den Ufern (`bankLevels`): je Punkt das tiefere der beiden Ufer, gemessen, wo die breiteste Böschung des
+Pinsels das Land erreicht (halbe Breite plus 1,4 Uferbreiten), abzüglich eines Freibords (0,4 bis 1,5 m, mit der
+Breite wachsend, `freeboard`), höchstens 0,5 m unter dem Boden in der Mitte; wie weit das tiefere Ufer ihn hinabzieht,
+wird über etwa die Bandbreite gemittelt, damit er in Biegungen am Hang nicht springt. So steht ein Fluss am Hang als
+gefülltes Bett unter dem tieferen Ufer statt als Film auf einem Damm. Die Böschung steigt über 60 % der Uferbreite vom
+Wasser zum Land. Nach dem Verschieben von Punkten, einer neuen Breite und bei „Carve the bed“ setzt der Editor die
+Spiegelhöhen neu aus den Ufern (`relevelRiver`), so sinken auch Flüsse älterer Karten in ein Bett; erneutes Schnitzen
+ändert dann nichts mehr. Der Spiegel fällt nie und mindestens 0,4 cm je Meter; wo er mehr fällt, als er
 läuft (eine Klippe), steht an der Kante ein Wasserfall-Objekt (Front flussab, Größe nach Fallhöhe, über 12 m eine
 Kaskade); flachere steile Strecken bleiben Stromschnellen auf dem Band. Die Flussliste ist im Strich ein
 `RiverListCommand`. „Remove river“ (oder Entf ohne gewählten Punkt) nimmt den Fluss samt Bett ab (`removeRiver`):

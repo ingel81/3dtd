@@ -2,8 +2,10 @@
  * The river brush: a drawn line becomes a natural river or a lava flow: the
  * hand's line smoothed into a Catmull-Rom curve that meanders a little, a
  * width that swells and narrows, a surface that only ever falls (the river
- * runs downhill whichever way it was drawn), a bed deep in the middle with
- * shallow shelves, banks that slope into the land through sand and gravel
+ * runs downhill whichever way it was drawn) that stands a little below the
+ * lower of its two banks, so it reads as a filled channel, not a film on
+ * the land, a bed deep in the middle with shallow shelves, banks that rise
+ * from the water into the land through sand and gravel
  * (scorched rock around lava), reeds in clumps and stones on the banks, a
  * waterfall where the surface drops steeply, and a bridge wherever it
  * crosses a road. The river itself is a `MapRiver` of the map: points with
@@ -38,6 +40,8 @@ export const DEFAULT_RIVER: RiverOptions = { width: 14, depth: 2.5, bank: 10, re
 const MIN_FALL = 0.004;
 /** Metres the surface stays under the ground along the centre line */
 const UNDER = 0.5;
+/** Share of the bank over which it rises from the water's edge to the land; the rest is flat land */
+const BANK_RISE = 0.6;
 /** A surface falling at least as much as it runs gets a waterfall (a cliff); gentler is rapids */
 const FALL_STEEP = 1;
 /** Metres one waterfall drops at most; a higher cliff gets a cascade */
@@ -105,25 +109,103 @@ export function riverCourse(
 }
 
 /**
- * The surface along a course: just under the ground at the top, never
- * rising, falling at least a little. A line drawn uphill is turned round so
- * the river flows from its first point.
+ * Metres a river's surface stays below the lower of its banks: the drop
+ * from the land to the water that makes it a channel, more for a wider one
  */
-export function riverSurface(stroke: LandscapeStroke, line: readonly MapPoint[]): { line: MapPoint[]; surface: number[]; reversed: boolean } {
+export function freeboard(width: number): number {
+  return Math.min(1.5, Math.max(0.4, 0.3 + 0.05 * width));
+}
+
+/**
+ * The surface along a course from its banks: at each point `freeboard`
+ * below the lower of the two banks (the land at either side, `out` metres
+ * past the water's edge) and UNDER below the ground in the middle (`centre`,
+ * the ground before any bed; else the land straight across from bank to
+ * bank); never rising downstream and falling at least MIN_FALL per metre.
+ * How far the lower bank pulls the surface down is averaged along the
+ * course over about the band's width: where the course bends on a slope,
+ * the bank samples swing up and down the slope, and the surface should not
+ * step with them. `half` is the half width at each point of the line.
+ */
+export function bankLevels(
+  land: (x: number, y: number) => number,
+  line: readonly MapPoint[],
+  half: (k: number) => number,
+  out: number,
+  centre?: (x: number, y: number) => number,
+): number[] {
+  const n = line.length;
+  const along: number[] = [];
+  const middle: number[] = [];
+  const pull: number[] = [];
+  for (let k = 0; k < n; k++) {
+    const p = line[k];
+    const a = line[Math.max(0, k - 1)];
+    const b = line[Math.min(n - 1, k + 1)];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const nx = -(b.y - a.y) / len;
+    const ny = (b.x - a.x) / len;
+    const h = half(k);
+    const d = h + out;
+    const left = land(p.x + nx * d, p.y + ny * d);
+    const right = land(p.x - nx * d, p.y - ny * d);
+    const c = (centre ? centre(p.x, p.y) : (left + right) / 2) - UNDER;
+    along.push(k ? along[k - 1] + Math.hypot(p.x - line[k - 1].x, p.y - line[k - 1].y) : 0);
+    middle.push(c);
+    pull.push(Math.min(0, Math.min(left, right) - freeboard(h * 2) - c));
+  }
+  const surface: number[] = [];
+  let lo = 0;
+  let hi = 0;
+  let sum = 0;
+  for (let k = 0; k < n; k++) {
+    // The window of samples within the band's half width plus `out` either way
+    const reach = half(k) + out;
+    while (hi < n && along[hi] <= along[k] + reach) sum += pull[hi++];
+    while (along[lo] < along[k] - reach) sum -= pull[lo++];
+    const level = middle[k] + sum / (hi - lo);
+    surface.push(k ? Math.min(surface[k - 1] - MIN_FALL * (along[k] - along[k - 1]), level) : level);
+  }
+  return surface;
+}
+
+/**
+ * The surface along a course (bankLevels on the ground as it is). A line
+ * drawn uphill is turned round so the river flows from its first point;
+ * `half` is the half width at a distance along the course as drawn.
+ */
+export function riverSurface(
+  stroke: LandscapeStroke,
+  line: readonly MapPoint[],
+  half: (along: number) => number,
+  bank: number,
+): { line: MapPoint[]; surface: number[]; reversed: boolean } {
   const t = stroke.doc.terrain;
   const last = line[line.length - 1];
   const reversed = heightAt(t, line[0].x, line[0].y) < heightAt(t, last.x, last.y);
   const course = reversed ? [...line].reverse() : [...line];
-  const surface: number[] = [];
-  for (let k = 0; k < course.length; k++) {
-    const under = heightAt(t, course[k].x, course[k].y) - UNDER;
-    if (k === 0) surface.push(under);
-    else {
-      const run = Math.hypot(course[k].x - course[k - 1].x, course[k].y - course[k - 1].y);
-      surface.push(Math.min(surface[k - 1] - MIN_FALL * run, under));
-    }
-  }
+  const along: number[] = [0];
+  for (let k = 1; k < course.length; k++) along.push(along[k - 1] + Math.hypot(course[k].x - course[k - 1].x, course[k].y - course[k - 1].y));
+  const length = along[along.length - 1];
+  const ground = (x: number, y: number) => heightAt(t, x, y);
+  // The land where the widest bank meets it, as relevelRiver reads it after carving
+  const surface = bankLevels(ground, course, (k) => half(reversed ? length - along[k] : along[k]), bank * 1.4, ground);
   return { line: course, surface, reversed };
+}
+
+/**
+ * A river's surface heights set again from its banks (bankLevels on the
+ * ground as it is, where the brush's widest bank meets the land, so its own
+ * bed and banks do not count), the flow direction kept:
+ * a river from before sinks into its channel, one carved since stays put
+ */
+export function relevelRiver(stroke: LandscapeStroke, river: MapRiver, bank = DEFAULT_RIVER.bank): void {
+  const t = stroke.doc.terrain;
+  const pts = river.points;
+  if (pts.length < 2) return;
+  stroke.markRivers();
+  const levels = bankLevels((x, y) => heightAt(t, x, y), pts, (k) => pts[k].width / 2, bank * 1.4);
+  pts.forEach((p, k) => (p.height = Math.round(levels[k] * 100) / 100));
 }
 
 export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], options: RiverOptions): RiverResult | null {
@@ -133,7 +215,7 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
   if (drawn.length < 2 || polylineLength(drawn) < g.cellSize * 3) return null;
   const lava = options.kind === 'lava';
   const course = riverCourse(stroke, drawn, options, g.cellSize);
-  const { line, surface, reversed } = riverSurface(stroke, course.line);
+  const { line, surface, reversed } = riverSurface(stroke, course.line, course.half, options.bank);
   const length = polylineLength(line);
   const half = (s: number) => course.half(reversed ? length - s : s);
   const along: number[] = [0];
@@ -183,7 +265,7 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
       } else {
         // The bank: from just above the surface into the land, a soft S curve (a levee where the land lies lower)
         const shore = level + 0.35;
-        const s = smooth(0, 1, (d - h) / bank);
+        const s = smooth(0, 1, (d - h) / (bank * BANK_RISE));
         g.heights[k] = shore + (base - shore) * s;
       }
     }
@@ -431,7 +513,7 @@ export function recarveRiver(
         g.heights[k] = Math.min(land, level - 0.25 - depth * deep);
       } else {
         const shore = level + 0.35;
-        g.heights[k] = shore + (land - shore) * smooth(0, 1, (d - h) / bankWidth);
+        g.heights[k] = shore + (land - shore) * smooth(0, 1, (d - h) / (bankWidth * BANK_RISE));
       }
     }
   }
@@ -645,6 +727,8 @@ export function moveRiverBed(stroke: LandscapeStroke, before: MapRiver, after: M
   // The new bed cuts into the land as it is now, the old bed filled
   const land = stroke.doc.terrain.grid.heights.slice();
   const columns = stroke.doc.terrain.grid.columns;
+  // Its surface from the banks where it runs now
+  relevelRiver(stroke, after, bankWidth);
   const carved = after.points.length >= 2 ? recarveRiver(stroke, after, DEFAULT_RIVER.depth, bankWidth, (i, j) => land[j * columns + i]) : null;
   let painted: GridRect | null = null;
   let placed: string[] = [];

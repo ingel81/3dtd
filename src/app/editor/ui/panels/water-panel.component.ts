@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapRiver, MapWaterKind } from '../../../world/custom-map/map-document';
-import { recarveRiver } from '../../ops/landscape/river';
+import { recarveRiver, relevelRiver } from '../../ops/landscape/river';
 import { LandscapeStroke } from '../../ops/landscape/landscape-stroke';
 import { meanWidth, riverLength, setMeanWidth, simplifyRiver } from '../../ops/river-edit';
 import { relayRiver, removeWholeRiver, riverEdit, waterCommands } from '../../tools/water-tool';
@@ -117,7 +117,7 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
             <button type="button" role="radio" [attr.aria-checked]="c.kind === 'lava'" (click)="setRiverKind('lava')">Lava</button>
           </div>
           <div class="td-actions is-start">
-            <button class="td-btn-secondary td-btn-sm" type="button" (click)="recarve()" matTooltip="Carve the bed again along the points as they are now">Carve the bed</button>
+            <button class="td-btn-secondary td-btn-sm" type="button" (click)="recarve()" matTooltip="Set the surface just below the banks and carve the bed again along the points as they are now">Carve the bed</button>
             <button class="td-btn-secondary td-btn-sm" type="button" (click)="simplify()" matTooltip="Fewer points where the river runs straight, easier to edit">Fewer points</button>
             <button class="td-btn-ghost td-btn-sm" type="button" (click)="removeRiver()">Remove river</button>
           </div>
@@ -203,6 +203,8 @@ export class WaterPanelComponent {
     const river = this.session.doc?.terrain.rivers?.[this.river()];
     if (!editor || !river) return;
     const stroke = new LandscapeStroke(editor, 'Carve the river bed', 1, this.session.catalog());
+    // The surface first, from the banks as they are: a river from before sinks into a channel
+    relevelRiver(stroke, river);
     recarveRiver(stroke, river);
     stroke.finish();
     this.session.refresh();

@@ -177,15 +177,19 @@ describe('editor tools', () => {
     ];
     ctx.settings.water.mode = 'river';
     const tool = new WaterTool();
-    // Drag the middle point east; its height stays between its neighbours'
+    // Drag the middle point east; while it moves its height stays between its neighbours'
     tool.pointerDown(at(1, 1), ctx);
     expect(ctx.settings.water).toMatchObject({ river: 0, riverPoint: 1 });
     tool.pointerMove!(at(30, 10), ctx);
-    tool.pointerUp(at(30, 10), ctx);
     const pts = () => ed.doc.terrain.rivers![0].points;
-    expect(pts()[1]).toMatchObject({ x: 30, y: 10 });
     expect(pts()[1].height).toBeLessThan(5);
     expect(pts()[1].height).toBeGreaterThan(1);
+    // Let go: the surface settles below the banks of the flat land, still falling to the last point
+    tool.pointerUp(at(30, 10), ctx);
+    expect(pts()[1]).toMatchObject({ x: 30, y: 10 });
+    expect(pts()[0].height).toBeLessThan(-0.5);
+    expect(pts()[1].height).toBeLessThan(pts()[0].height);
+    expect(pts()[2].height).toBeLessThan(pts()[1].height);
     // Shift on the river adds a point between the first two
     tool.pointerDown(at(15, -45, { shift: true }), ctx);
     tool.pointerUp(at(15, -45, { shift: true }), ctx);

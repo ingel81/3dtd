@@ -169,7 +169,9 @@ Lava spiegeln sich).
   Punkt; ein Band entlang der Linie (Catmull-Rom, alle 2 m), Wellen bzw. Kruste wandern stromab, schneller wo es fällt,
   mit der halben Fließgeschwindigkeit je Vertex in denselben zwei überblendeten Phasen wie die Strömung der Flächen
   (6 s Wasser, 18 s Lava). Zeit mal Geschwindigkeit je Vertex hätte das Muster überall geschert, wo Tempo oder
-  Richtung von Reihe zu Reihe wechseln: nach einigen Minuten Querstreifen über den Strom
+  Richtung von Reihe zu Reihe wechseln: nach einigen Minuten Querstreifen über den Strom.
+  Der Editor setzt die Spiegelhöhe aus den Ufern (knapp unter dem tieferen, LEVEL_EDITOR.md); das Format bleibt, ältere
+  Karten lesen sich unverändert, ihre Flüsse sinken erst beim Bearbeiten oder „Carve the bed“ in ein Bett
 
 `kind` je Körper:
 

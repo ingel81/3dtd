@@ -10,7 +10,7 @@ import { biomeDab, finishBiome, previewSpots } from './biome-brush';
 import { biomeById, BIOMES } from './biomes';
 import { erosionDab } from './erosion';
 import { LandscapeStroke } from './landscape-stroke';
-import { carveRiver, DEFAULT_RIVER, recarveRiver, removeRiver } from './river';
+import { carveRiver, DEFAULT_RIVER, freeboard, recarveRiver, relevelRiver, removeRiver } from './river';
 import { movePoint, simplifyRiver } from '../river-edit';
 import { buildRoad, DEFAULT_ROAD } from './road';
 import { citySlots, streetDistance } from './city';
@@ -457,6 +457,50 @@ describe('river and road', () => {
     simplifyRiver(straight, 3);
     expect(straight.points.length).toBeLessThan(before);
     expect(straight.points[0]).toEqual(river.points[0]);
+  });
+
+  it('lays the surface below the lower bank across a slope, a channel and not a film on the land', () => {
+    const ed = map();
+    const t = ed.doc.terrain;
+    const g = t.grid;
+    // Land falling 0.15 m per metre to the east; the river runs north along it
+    const land = (x: number) => 20 - 0.15 * x;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = land(i * g.cellSize - t.width / 2);
+    const stroke = new LandscapeStroke(ed, 'River', 3, catalog);
+    const pts = carveRiver(stroke, [{ x: 0, y: -150 }, { x: 0, y: 150 }], { ...DEFAULT_RIVER, bridges: false, reeds: false })!.river.points;
+    stroke.finish();
+    for (const p of pts.slice(3, -3)) {
+      // Below the land on the low (east) side, where the bank meets it, by about the freeboard (the course meanders)
+      const east = land(p.x + p.width / 2 + DEFAULT_RIVER.bank * 1.4);
+      expect(p.height).toBeLessThanOrEqual(east - freeboard(p.width) + 0.5);
+      // and the low bank rises above the water at the water's edge, no levee holding it up
+      expect(heightAt(t, p.x + p.width / 2 + 2, p.y)).toBeGreaterThan(p.height + 0.3);
+    }
+  });
+
+  it('sinks a river from before into a channel below its banks when its bed is carved again, and stays there', () => {
+    const ed = map();
+    // A river laid as a film 0.2 m over flat land, as older maps may hold one
+    ed.doc.terrain.rivers = [
+      { id: 'river1', kind: 'lava', points: [0, 1, 2, 3, 4].map((k) => ({ x: 0, y: -100 + k * 50, width: 12, height: 0.2 - k * 0.01 })) },
+    ];
+    let stroke = new LandscapeStroke(ed, 'Carve', 1, catalog);
+    const river = ed.doc.terrain.rivers[0];
+    relevelRiver(stroke, river);
+    recarveRiver(stroke, river);
+    stroke.finish();
+    const once = river.points.map((p) => p.height);
+    expect(once[0]).toBeCloseTo(-freeboard(12), 1);
+    for (let k = 1; k < once.length; k++) expect(once[k]).toBeLessThan(once[k - 1]);
+    expect(heightAt(ed.doc.terrain, 0, 0)).toBeLessThan(once[2] - 1);
+    stroke = new LandscapeStroke(ed, 'Carve', 1, catalog);
+    relevelRiver(stroke, river);
+    recarveRiver(stroke, river);
+    stroke.finish();
+    river.points.forEach((p, k) => expect(p.height).toBeCloseTo(once[k], 2));
+    ed.undo();
+    ed.undo();
+    expect(ed.doc.terrain.rivers![0].points[0].height).toBeCloseTo(0.2, 5);
   });
 
   it('removes a river with its bed filled from the land on both sides, its reeds along, one undo step', () => {
