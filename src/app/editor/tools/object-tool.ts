@@ -53,7 +53,16 @@ export class ObjectTool implements EditorTool {
   /** Where the pointer was when the hover ring was last picked */
   private hoverAt: { x: number; y: number } | null = null;
   readonly id = 'objects' as const;
-  private brushing: { added: MapObject[]; removed: ObjectEdit[]; grid: ObjectGrid; ids: ObjectIds; erase: boolean; origin?: MapPoint } | null = null;
+  private brushing: {
+    added: MapObject[];
+    removed: ObjectEdit[];
+    grid: ObjectGrid;
+    ids: ObjectIds;
+    erase: boolean;
+    origin?: MapPoint;
+    /** Where each object stood in the list when the stroke began: a removal's undo puts it back there */
+    startIndex: Map<string, number>;
+  } | null = null;
   private drag: Drag | null = null;
   /** The line being drawn in Line mode (free), map points */
   private line: MapPoint[] | null = null;
@@ -93,6 +102,7 @@ export class ObjectTool implements EditorTool {
           grid: new ObjectGrid(Math.max(2, s.scatter.minDistance), doc.objects),
           ids: new ObjectIds(doc.objects),
           erase,
+          startIndex: erase ? new Map(doc.objects.map((o, k) => [o.id, k])) : new Map(),
         };
         return true;
       }
@@ -218,7 +228,8 @@ export class ObjectTool implements EditorTool {
         if (!set.has(o.id) || Math.random() > share) continue;
         const added = b.added.findIndex((a) => a.id === o.id);
         if (added >= 0) b.added.splice(added, 1);
-        else b.removed.push({ before: { ...o }, after: null, index: k });
+        // Indices of the list before the stroke: frames remove from a list already shorter
+        else b.removed.push({ before: { ...o }, after: null, index: b.startIndex.get(o.id) ?? k });
         doc.objects.splice(k, 1);
         removed.push(o.id);
       }
