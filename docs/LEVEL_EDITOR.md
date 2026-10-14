@@ -318,8 +318,10 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   this map“, Kopfzeile „Read only“, die Panels aus, Werkzeuge und Werkzeugtasten aus, Rückgängig, Speichern, Einfügen,
   Restore und Test warten; ansehen geht. „Take over editing“ bittet den anderen Tab über einen `BroadcastChannel`, zu
   speichern (Halbfertiges wie ein gehaltener Strich oder ein Gelände-Job fällt weg) und loszulassen; der wird
-  schreibgeschützt und reiht sich ein, dieser liest die Karte neu und bearbeitet sie. Antwortet der andere nicht in
-  3 s (eingefroren, schlafender Tab), nimmt er die Sperre mit `steal`. Schließt der bearbeitende Tab, bekommt der
+  schreibgeschützt und reiht sich ein, dieser liest die Karte neu und bearbeitet sie. Der andere antwortet sofort,
+  dass er speichert; dann wartet dieser, bis die Sperre frei wird (höchstens 60 s), denn eine große Karte braucht zum
+  Speichern länger als 3 s. Antwortet der andere nicht in 3 s (eingefroren, schlafender Tab), nimmt er die Sperre mit
+  `steal`. Schließt der bearbeitende Tab, bekommt der
   wartende die Karte von selbst. Ohne Web Locks (alte Browser) darf jeder Tab bearbeiten, wie früher
 - Kontextverlust: setzt der Grafiktreiber zurück (oder der GPU-Prozess startet neu), verliert die Ansicht ihren
   WebGL-Kontext. Die Karte liegt im Speicher, nicht auf der GPU: der Editor speichert sofort, ein Banner sagt „View

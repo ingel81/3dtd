@@ -3,9 +3,11 @@
  * Lock named after it (`3dtd-map:<id>`); another tab on the same map opens
  * it read-only and waits in the lock's queue. "Take over editing" asks the
  * holder over a BroadcastChannel to save and let go; the holder becomes
- * read-only and queues again, the asking tab gets the lock. A holder that
- * does not answer (frozen, its page asleep) loses the lock by force after
- * TAKE_OVER_WAIT_MS. When the holder closes, the next tab in the queue gets
+ * read-only and queues again, the asking tab gets the lock. The holder
+ * answers at once that it is saving; the asking tab then waits for the lock
+ * as long as the save takes (up to SAVE_WAIT_MS), as a large map can take
+ * longer to store than a frozen tab is given. A holder that does not answer
+ * (frozen, its page asleep) loses the lock by force after TAKE_OVER_WAIT_MS. When the holder closes, the next tab in the queue gets
  * the lock by itself.
  *
  * Without Web Locks (old browsers, tests) every tab may edit, as before.
@@ -13,6 +15,8 @@
 
 /** How long a take-over waits for the holder to save and let go before it takes the lock anyway */
 export const TAKE_OVER_WAIT_MS = 3000;
+/** How long a take-over waits for a holder that answered it is saving */
+export const SAVE_WAIT_MS = 60000;
 
 export interface MapLockEvents {
   /** This tab holds the lock now: the map may be edited (read it again first, another tab may have saved it) */
@@ -34,8 +38,10 @@ export interface ChannelLike {
 }
 
 interface LockMessage {
-  type: 'release';
+  /** release: let go, please; saving: the holder saves and lets go, wait for it */
+  type: 'release' | 'saving';
   from: string;
+  to?: string;
 }
 
 export class MapLock {
@@ -47,6 +53,8 @@ export class MapLock {
   private readonly name: string;
   private readonly tab = Math.random().toString(36).slice(2);
   private closed = false;
+  /** Called when the holder answers a take-over or this tab gets the lock */
+  private wake: (() => void) | null = null;
 
   constructor(
     mapId: string,
@@ -73,8 +81,24 @@ export class MapLock {
   /** Asks the tab that edits the map to save and let go; takes the lock by force when it does not answer */
   async takeOver(): Promise<void> {
     if (!this.locks || this.holding || this.closed) return;
+    let answered = false;
+    const wait = (ms: number) =>
+      new Promise<void>((r) => {
+        const timer = setTimeout(done, ms);
+        function done() {
+          clearTimeout(timer);
+          r();
+        }
+        this.wake = () => {
+          answered = true;
+          done();
+        };
+      });
     this.channel?.postMessage({ type: 'release', from: this.tab } satisfies LockMessage);
-    await new Promise((r) => setTimeout(r, TAKE_OVER_WAIT_MS));
+    await wait(TAKE_OVER_WAIT_MS);
+    // The holder saves: the lock comes when it is done (the queue hands it over)
+    if (answered && !this.holding && !this.closed) await wait(SAVE_WAIT_MS);
+    this.wake = null;
     if (this.holding || this.closed) return;
     this.queue?.abort();
     this.queue = null;
@@ -110,6 +134,7 @@ export class MapLock {
         this.holding = true;
         const holding = new Promise<void>((r) => (this.release = r));
         resolve(true);
+        this.wake?.();
         if (announce) this.events.granted();
         return holding;
       }).then(
@@ -138,7 +163,12 @@ export class MapLock {
   }
 
   private async onMessage(m: LockMessage): Promise<void> {
+    if (m?.type === 'saving' && m.to === this.tab) {
+      this.wake?.();
+      return;
+    }
     if (m?.type !== 'release' || m.from === this.tab || !this.holding || this.closed) return;
+    this.channel?.postMessage({ type: 'saving', from: this.tab, to: m.from } satisfies LockMessage);
     await this.events.beforeRelease().catch(() => undefined);
     const release = this.release;
     this.release = null;

@@ -1,4 +1,4 @@
-import { MapLock, TAKE_OVER_WAIT_MS, type ChannelLike, type LockManagerLike, type MapLockEvents } from './map-lock';
+import { MapLock, SAVE_WAIT_MS, TAKE_OVER_WAIT_MS, type ChannelLike, type LockManagerLike, type MapLockEvents } from './map-lock';
 
 const abortError = () => Object.assign(new Error('aborted'), { name: 'AbortError' });
 
@@ -110,6 +110,53 @@ describe('MapLock', () => {
       await back;
       expect(a.lock.holding).toBe(true);
       expect(b.lock.holding).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('waits for a holder whose save takes longer than a frozen tab is given, and gets the map after it', async () => {
+    const locks = new FakeLocks();
+    const channels = bus();
+    const log: string[] = [];
+    const slow: MapLockEvents = {
+      granted: () => log.push('a granted'),
+      lost: () => log.push('a lost'),
+      beforeRelease: () => new Promise((r) => setTimeout(() => r(log.push('a saved')), TAKE_OVER_WAIT_MS * 3)),
+    };
+    const a = new MapLock('valley', slow, locks, channels);
+    const b = new MapLock('valley', { granted: () => log.push('b granted'), lost: () => log.push('b lost'), beforeRelease: async () => undefined }, locks, channels);
+    await a.start();
+    await b.start();
+    vi.useFakeTimers();
+    try {
+      const taking = b.takeOver();
+      await vi.advanceTimersByTimeAsync(TAKE_OVER_WAIT_MS * 2);
+      // Past the frozen-tab wait: still the holder's, it is saving
+      expect(a.holding).toBe(true);
+      expect(b.holding).toBe(false);
+      await vi.advanceTimersByTimeAsync(TAKE_OVER_WAIT_MS * 2);
+      await taking;
+      expect(log).toEqual(['a saved', 'a lost', 'b granted']);
+      expect(b.holding).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not wait past SAVE_WAIT_MS for a save that never ends', async () => {
+    const locks = new FakeLocks();
+    const channels = bus();
+    const a = new MapLock('valley', { granted: () => undefined, lost: () => undefined, beforeRelease: () => new Promise(() => undefined) }, locks, channels);
+    const b = tab(locks, channels);
+    await a.start();
+    await b.lock.start();
+    vi.useFakeTimers();
+    try {
+      const taking = b.lock.takeOver();
+      await vi.advanceTimersByTimeAsync(TAKE_OVER_WAIT_MS + SAVE_WAIT_MS + 10);
+      await taking;
+      expect(b.lock.holding).toBe(true);
     } finally {
       vi.useRealTimers();
     }
