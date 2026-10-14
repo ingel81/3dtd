@@ -187,6 +187,22 @@ describe('editor session saving', () => {
     s.ngOnDestroy();
   });
 
+  it('deletes no map another tab edits: its next save would bring the map back', async () => {
+    const { s } = session();
+    await s.save(true);
+    // The map's lock is held elsewhere
+    const busy = { request: async (_n: string, _o: unknown, cb: (lock: unknown) => unknown) => cb(null) };
+    Object.defineProperty(navigator, 'locks', { value: busy, configurable: true });
+    try {
+      expect(await s.deleteMap('m', 'M')).toBeNull();
+      expect((await s.store.listOwn()).map((m) => m.id)).toEqual(['m']);
+      expect(s.error()).toContain('open in another tab');
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>)['locks'];
+    }
+    s.ngOnDestroy();
+  });
+
   it('moves a map to the trash with its versions, back, and out for good; stops listening for the bot when it goes', async () => {
     const { s, versions } = session();
     await s.save(true);
@@ -196,13 +212,13 @@ describe('editor session saving', () => {
     expect((await s.store.listOwn()).map((m) => m.id)).toEqual([]);
     expect((await s.listTrash()).map((m) => m.id)).toEqual([key]);
     expect(await versions.list('m')).toHaveLength(1);
-    expect(await s.restoreMap(key)).toBe('m');
+    expect(await s.restoreMap(key!)).toBe('m');
     expect((await s.store.listOwn()).map((m) => m.id)).toEqual(['m']);
     expect(await s.listTrash()).toEqual([]);
     // A new map takes the id meanwhile: the old one comes back under a free id, its versions with it
     const key2 = await s.deleteMap('m');
     await s.store.save(createMapDocument({ id: 'm', name: 'Other', width: 64, depth: 64 }));
-    expect(await s.restoreMap(key2)).toBe('m-2');
+    expect(await s.restoreMap(key2!)).toBe('m-2');
     expect(await versions.list('m-2')).toHaveLength(1);
     expect(await versions.list('m')).toEqual([]);
     await s.store.delete('m');

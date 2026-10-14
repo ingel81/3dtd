@@ -848,9 +848,16 @@ export class EditorSession implements OnDestroy {
     }
   }
 
-  /** Moves an own map to the trash (its versions stay with it); returns the trash key */
-  async deleteMap(id: string): Promise<string> {
-    return this.store.trash(id);
+  /**
+   * Moves an own map to the trash (its versions stay with it); returns the
+   * trash key, or null while another tab edits the map (its next save would
+   * bring the map back beside the one in the trash)
+   */
+  async deleteMap(id: string, name = id): Promise<string | null> {
+    const trashed = await whileMapFree(id, () => this.store.trash(id));
+    if (trashed.done) return trashed.value;
+    this.error.set(`${name} is open in another tab. Close it there, then delete it.`);
+    return null;
   }
 
   /** A map back from the trash; returns its id (a free one when its own is taken meanwhile) */

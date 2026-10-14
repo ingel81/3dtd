@@ -163,7 +163,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   /** An own map goes to the trash at once (it can come back); a coop host's map is asked about and goes for good */
   async remove(m: MapSummary): Promise<void> {
     if (m.origin === 'own') {
-      const key = await this.session.deleteMap(m.id);
+      const key = await this.session.deleteMap(m.id, m.name);
+      if (!key) return;
       this.trashed.set({ key, name: m.name });
       await this.reload();
       return;
