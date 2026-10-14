@@ -233,10 +233,15 @@ export class EditorDocument {
     return change;
   }
 
-  /** Keep a command whose effect is already in the document (a finished stroke) */
+  /**
+   * Keep a command whose effect is already in the document (a finished
+   * stroke). The listeners hear of it even when its dabs told them all (an
+   * empty change): the state moved, which saving, the check and the build
+   * areas wait for.
+   */
   push(command: EditCommand, change?: DocChange): void {
     this.record(command);
-    if (change) this.emit(change);
+    this.emit(change ?? {});
   }
 
   undo(): boolean {

@@ -99,6 +99,16 @@ describe('EditorDocument', () => {
     expect(seen.at(-1)).toMatchObject({ markers: true });
   });
 
+  it('tells listeners of a finished stroke whose dabs were told already', () => {
+    const ed = new EditorDocument(map());
+    const seen: DocChange[] = [];
+    ed.onChange((c) => seen.push(c));
+    const before = ed.stateId;
+    ed.push(new PatchCommand('Raise', []));
+    expect(seen).toEqual([{}]);
+    expect(ed.stateId).not.toBe(before);
+  });
+
   it('adds, changes and removes objects in place', () => {
     const ed = new EditorDocument(map());
     const a = { id: 'o1', asset: 'tree', x: 1, y: 1, z: 0, rotation: 0, scale: 1 };
