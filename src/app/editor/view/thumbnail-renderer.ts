@@ -11,7 +11,9 @@
  * without blocking (compileAsync, parallel where the driver can), and the
  * picture taken as an image bitmap and encoded off the main thread
  * (OffscreenCanvas.convertToBlob) instead of a canvas toBlob, which reads the
- * pixels back while the page waits.
+ * pixels back while the page waits. This renderer has its own context, so
+ * the models' textures go to the GPU once more: one per idle moment
+ * (initTexture), not all in the picture's frame (a biome some ten of them).
  */
 import {
   AmbientLight,
@@ -30,6 +32,7 @@ import {
   TextureLoader,
   Vector3,
   WebGLRenderer,
+  type Object3D,
   type Texture,
 } from 'three';
 import { idle } from './idle';
@@ -60,6 +63,8 @@ export class ThumbnailRenderer {
   /** The picture being drawn */
   private currentKey = '';
   private readonly encoder = new PngEncoder();
+  /** Textures already on this renderer's GPU */
+  private readonly uploaded = new WeakSet<Texture>();
   /**
    * The materials of the ground balls and biome patches, kept and set up for
    * each picture: one disposed after its picture took its program with it,
@@ -175,6 +180,12 @@ export class ThumbnailRenderer {
     const gl = this.gl;
     const key = this.currentKey;
     try {
+      for (const texture of texturesOf(content)) {
+        if (this.uploaded.has(texture)) continue;
+        this.uploaded.add(texture);
+        await idle();
+        gl.initTexture(texture);
+      }
       // New programs compile in the background; the render then finds them ready
       await gl.compileAsync(this.scene, this.camera);
       await idle();
@@ -310,6 +321,19 @@ export class ThumbnailRenderer {
     });
     return this.db;
   }
+}
+
+/** The textures of the materials under `root`, each once */
+export function texturesOf(root: Object3D): Set<Texture> {
+  const out = new Set<Texture>();
+  root.traverse((o) => {
+    const mesh = o as Mesh;
+    if (!mesh.isMesh) return;
+    for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      for (const value of Object.values(m)) if ((value as Texture | null)?.isTexture) out.add(value as Texture);
+    }
+  });
+  return out;
 }
 
 /**
