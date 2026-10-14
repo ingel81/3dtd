@@ -1,11 +1,10 @@
 import { Group, InstancedMesh, Matrix4, Quaternion, Vector3, type Material } from 'three';
 import type { MapBridgeStyle, MapPaths, MapTerrain } from '../../map-document';
-import { bridgeWaterLevel } from './bridge-water';
+import { bridgeDecks, deckHeight } from '../../bridge-decks';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
 import { mapToScene } from '../map-coords';
-import { edgePolyline } from './path-mask';
 
 /** Catalogue model of one bridge piece: 4 m along local +X, 1 m wide, deck top at 0 */
 export const BRIDGE_ASSET = 'bridge-deck';
@@ -19,9 +18,10 @@ const PIECE_LENGTH = 4;
 
 /**
  * Bridges: path edges of kind `bridge` get a deck of instanced bridge
- * pieces from end to end, stretched to the edge's width. The deck runs
- * from the terrain height at each end (at least a little over the water)
- * with a slight arch, so roads on both banks meet it. The edge's `style`
+ * pieces from end to end, stretched to the edge's width. The deck
+ * (bridgeDecks, the one the game and the editor walk on) runs from the
+ * terrain height at each end (at least a little over the water) with a
+ * slight arch, so roads on both banks meet it. The edge's `style`
  * picks the piece (wood, stone, basalt for lava maps).
  */
 export class BridgeLayer {
@@ -88,7 +88,6 @@ export class BridgeLayer {
 
   /** Instance matrices of every bridge piece, by style */
   private pieces(paths: MapPaths, terrain: MapTerrain): Map<MapBridgeStyle, Matrix4[]> {
-    const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
     const byStyle = new Map<MapBridgeStyle, Matrix4[]>();
     const up = new Vector3(0, 1, 0);
     const q = new Quaternion();
@@ -97,22 +96,11 @@ export class BridgeLayer {
     const forwardZ = new Vector3(0, 0, 1);
     const pos = new Vector3();
     const scale = new Vector3();
-    for (const edge of paths.edges) {
-      if (edge.kind !== 'bridge') continue;
-      const line = edgePolyline(edge, nodes);
-      if (!line) continue;
+    for (const bridge of bridgeDecks(paths, terrain, this.field)) {
+      const { edge, line, total } = bridge;
       const style = edge.style ?? 'wood';
       let out = byStyle.get(style);
       if (!out) byStyle.set(style, (out = []));
-      let total = 0;
-      for (let s = 0; s < line.length - 1; s++) total += Math.hypot(line[s + 1].x - line[s].x, line[s + 1].y - line[s].y);
-      const a = line[0];
-      const b = line[line.length - 1];
-      // At least a metre over the water this bridge crosses (none: on the ground at both ends)
-      const minDeck = bridgeWaterLevel(line, terrain, this.field) + 1.0;
-      const hA = Math.max(this.field.heightAt(a.x, a.y), minDeck);
-      const hB = Math.max(this.field.heightAt(b.x, b.y), minDeck);
-      const arch = Math.min(1.5, total * 0.04);
       let walked = 0;
       for (let s = 0; s < line.length - 1; s++) {
         const p = line[s];
@@ -123,7 +111,7 @@ export class BridgeLayer {
         const n = Math.max(1, Math.round(len / PIECE_LENGTH));
         // Local +X is scene (cos r, 0, -sin r) = map (-cos r, -sin r) after rotation.y = r
         yaw.setFromAxisAngle(up, Math.atan2(-dy, -dx));
-        const deck = (t: number): number => hA + (hB - hA) * t + Math.sin(t * Math.PI) * arch;
+        const deck = (t: number): number => deckHeight(bridge, t);
         for (let k = 0; k < n; k++) {
           const piece = len / n;
           const t0 = (walked + k * piece) / total;

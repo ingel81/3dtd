@@ -5,30 +5,14 @@ import type { StreetSurface } from '../../utils/carried-height';
 import type { StationProbe } from '../../utils/route-corridor';
 import type { FootprintColumn } from '../../utils/tower-footprint';
 import { BUILD_BLOCKED_OBJECT, BUILD_BLOCKED_WATER, WATER_DEPTH_M, type WorldSurface } from '../world-provider';
-import type { CustomMapDocument, MapPoint } from './map-document';
+import type { CustomMapDocument } from './map-document';
 import { MAP_METERS_PER_DEGREE } from './map-document';
 import { HeightField } from './render/height-field';
-import { bridgeWaterLevel } from './render/paths/bridge-water';
+import { type BridgeDeck, bridgeDecks, deckHeightAt } from './bridge-decks';
 import { FALLEN_SCALE } from './custom-map-destruction';
 
 /** A map column's LOD: nothing streams, so the finest there is; the route grid never samples a cell again */
 const MAP_LOD = { depth: 99, geometricError: 0 } as const;
-
-/** One bridge deck in map metres, as the renderer's BridgeLayer lays it */
-interface BridgeDeck {
-  line: MapPoint[];
-  /** Cumulative length at each line point */
-  at: number[];
-  total: number;
-  half: number;
-  hA: number;
-  hB: number;
-  arch: number;
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-}
 
 /**
  * Where the map sits in the scene. The scene's origin is a geographic point
@@ -108,7 +92,7 @@ export class CustomMapSurface implements WorldSurface {
   ) {
     const t = doc.terrain;
     this.field = new HeightField(t.grid, t.width, t.depth);
-    this.bridges = this.bridgeDecks();
+    this.bridges = bridgeDecks(doc.paths, t, this.field);
   }
 
   /** Terrain height at a map point */
@@ -118,7 +102,7 @@ export class CustomMapSurface implements WorldSurface {
 
   /** The height a walker has at a map point: a bridge deck where one spans it, else the terrain */
   walkHeightAtMap(x: number, y: number): number {
-    const deck = this.deckAt(x, y);
+    const deck = deckHeightAt(this.bridges, x, y);
     return Number.isNaN(deck) ? this.field.heightAt(x, y) : deck;
   }
 
@@ -343,7 +327,7 @@ export class CustomMapSurface implements WorldSurface {
     const mx = this.frame.mapX(localX);
     const my = this.frame.mapY(localZ);
     const ground = this.field.heightAt(mx, my);
-    const deck = this.deckAt(mx, my);
+    const deck = deckHeightAt(this.bridges, mx, my);
     return { groundY: ground, topY: Number.isNaN(deck) ? ground : Math.max(ground, deck) };
   }
 
@@ -359,67 +343,12 @@ export class CustomMapSurface implements WorldSurface {
 
   private columnAtMap(x: number, y: number): ColumnSample {
     const ground = this.field.heightAt(x, y);
-    const deck = this.deckAt(x, y);
+    const deck = deckHeightAt(this.bridges, x, y);
     return {
       groundY: ground,
       topY: Number.isNaN(deck) ? ground : Math.max(ground, deck),
       tileDepth: MAP_LOD.depth,
       tileGeometricError: MAP_LOD.geometricError,
     };
-  }
-
-  /** Deck height of the bridge spanning a map point, NaN where none does */
-  private deckAt(x: number, y: number): number {
-    for (const b of this.bridges) {
-      if (x < b.minX || x > b.maxX || y < b.minY || y > b.maxY) continue;
-      for (let s = 0; s + 1 < b.line.length; s++) {
-        const p = b.line[s];
-        const q = b.line[s + 1];
-        const dx = q.x - p.x;
-        const dy = q.y - p.y;
-        const len2 = dx * dx + dy * dy;
-        if (len2 === 0) continue;
-        const u = Math.max(0, Math.min(1, ((x - p.x) * dx + (y - p.y) * dy) / len2));
-        if (Math.hypot(x - p.x - dx * u, y - p.y - dy * u) > b.half) continue;
-        const t = (b.at[s] + u * Math.sqrt(len2)) / b.total;
-        return b.hA + (b.hB - b.hA) * t + Math.sin(t * Math.PI) * b.arch;
-      }
-    }
-    return NaN;
-  }
-
-  /** Bridge edges with the deck heights of the renderer's BridgeLayer (ends over the water, a slight arch) */
-  private bridgeDecks(): BridgeDeck[] {
-    const { paths, terrain } = this.doc;
-    const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
-    const out: BridgeDeck[] = [];
-    for (const e of paths.edges) {
-      if (e.kind !== 'bridge') continue;
-      const a = nodes.get(e.a);
-      const b = nodes.get(e.b);
-      if (!a || !b) continue;
-      const line = [a, ...(e.via ?? []), b];
-      const at = [0];
-      for (let s = 0; s + 1 < line.length; s++) at.push(at[s] + Math.hypot(line[s + 1].x - line[s].x, line[s + 1].y - line[s].y));
-      const total = at[at.length - 1];
-      if (total <= 0) continue;
-      const half = e.width / 2;
-      // As the renderer's BridgeLayer: at least a metre over the water this bridge crosses
-      const minDeck = bridgeWaterLevel(line, terrain, this.field) + 1;
-      out.push({
-        line,
-        at,
-        total,
-        half,
-        hA: Math.max(this.field.heightAt(a.x, a.y), minDeck),
-        hB: Math.max(this.field.heightAt(b.x, b.y), minDeck),
-        arch: Math.min(1.5, total * 0.04),
-        minX: Math.min(...line.map((p) => p.x)) - half,
-        minY: Math.min(...line.map((p) => p.y)) - half,
-        maxX: Math.max(...line.map((p) => p.x)) + half,
-        maxY: Math.max(...line.map((p) => p.y)) + half,
-      });
-    }
-    return out;
   }
 }
