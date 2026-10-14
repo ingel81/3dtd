@@ -1,4 +1,4 @@
-import { MapLock, SAVE_WAIT_MS, TAKE_OVER_WAIT_MS, type ChannelLike, type LockManagerLike, type MapLockEvents } from './map-lock';
+import { MapLock, SAVE_WAIT_MS, TAKE_OVER_WAIT_MS, whileMapFree, type ChannelLike, type LockManagerLike, type MapLockEvents } from './map-lock';
 
 const abortError = () => Object.assign(new Error('aborted'), { name: 'AbortError' });
 
@@ -187,5 +187,17 @@ describe('MapLock', () => {
     const lock = new MapLock('valley', { granted: () => undefined, lost: () => undefined, beforeRelease: async () => undefined }, null);
     expect(await lock.start()).toBe(true);
     expect(lock.holding).toBe(true);
+  });
+  it('runs work on a map only while no tab edits it (a replace by import)', async () => {
+    const locks = new FakeLocks();
+    const a = tab(locks, bus());
+    await a.lock.start();
+    const work = vi.fn(async () => 'replaced');
+    expect(await whileMapFree('valley', work, locks)).toEqual({ done: false });
+    expect(work).not.toHaveBeenCalled();
+    a.lock.close();
+    await settle();
+    expect(await whileMapFree('valley', work, locks)).toEqual({ done: true, value: 'replaced' });
+    expect(await whileMapFree('valley', work, null)).toEqual({ done: true, value: 'replaced' });
   });
 });

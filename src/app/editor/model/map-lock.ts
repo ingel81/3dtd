@@ -177,3 +177,22 @@ export class MapLock {
     release?.();
   }
 }
+
+/**
+ * Runs `work` while holding the map's lock, so no tab edits the map
+ * meanwhile (a tab editing it would save its own state over the work).
+ * Resolves `{ done: false }` without running it when another tab holds the
+ * map. Without Web Locks it just runs.
+ */
+export async function whileMapFree<T>(
+  mapId: string,
+  work: () => Promise<T>,
+  locks: LockManagerLike | null = typeof navigator !== 'undefined' && navigator.locks ? navigator.locks : null,
+): Promise<{ done: true; value: T } | { done: false }> {
+  if (!locks) return { done: true, value: await work() };
+  let result: { done: true; value: T } | { done: false } = { done: false };
+  await locks.request(`3dtd-map:${mapId}`, { ifAvailable: true }, async (lock) => {
+    if (lock) result = { done: true, value: await work() };
+  });
+  return result;
+}

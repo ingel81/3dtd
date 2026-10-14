@@ -18,7 +18,7 @@ import type { CustomMapDocument, MapMeta } from '../../world/custom-map/map-docu
 import { createMapDocument, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
 import { MapStore, type LoadedMap, type MapSummary } from '../../world/custom-map/map-store';
-import { MapLock } from '../model/map-lock';
+import { MapLock, whileMapFree } from '../model/map-lock';
 import { CatalogIndex, EMPTY_CATALOG, loadAssetCatalog, type GroundMaterialEntry, type ObjectAssetEntry } from '../catalog/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
 import { ThumbnailRenderer } from '../view/thumbnail-renderer';
@@ -1086,9 +1086,14 @@ export class EditorSession implements OnDestroy {
     try {
       let id: string;
       if (choice === 'replace') {
-        const { before, created } = await this.store.replaceWith(match.existing.id, match.loaded);
         id = match.existing.id;
-        await this.history.record(id, created, before, true).catch(() => undefined);
+        // A tab editing the map would save its own state over the new content
+        const replaced = await whileMapFree(id, () => this.store.replaceWith(id, match.loaded));
+        if (!replaced.done) {
+          this.error.set(`${match.file}: ${match.existing.name} is open in another tab. Close it there, then import again (or import as a copy).`);
+          return null;
+        }
+        await this.history.record(id, replaced.value.created, replaced.value.before, true).catch(() => undefined);
       } else {
         id = (await this.store.importDocument(match.loaded)).doc.meta.id;
       }
