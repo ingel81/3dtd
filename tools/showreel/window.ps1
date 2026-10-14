@@ -1,13 +1,17 @@
 # The showreel window to the front (run.mjs): finds the top-level window whose title contains -Title and, unless
 # -Find, raises it above everything (topmost) even when another program holds the foreground. Windows refuses
 # SetForegroundWindow to a process without recent input (foreground lock); a synthetic Alt press first lifts it.
-# -Release takes topmost away again from the window -Handle. Prints the window handle (0 when none was found).
+# -Release takes topmost away again from the window -Handle; -Handle alone raises that window again (its title
+# changes with the page). -ProbeX/-ProbeY print the colour on the screen there as r,g,b (GDI, works beside a
+# running ddagrab capture). Prints the window handle (0 when none was found).
 # Touches no other window.
 param(
   [string]$Title = '',
   [switch]$Find,
   [switch]$Release,
-  [long]$Handle = 0
+  [long]$Handle = 0,
+  [int]$ProbeX = -100000,
+  [int]$ProbeY = -100000
 )
 
 Add-Type @'
@@ -55,8 +59,22 @@ public static class ShowreelWindow {
 }
 '@
 
+if ($ProbeX -ne -100000) {
+  Add-Type -AssemblyName System.Drawing
+  $bmp = New-Object System.Drawing.Bitmap 1, 1
+  $g = [System.Drawing.Graphics]::FromImage($bmp)
+  $g.CopyFromScreen($ProbeX, $ProbeY, 0, 0, (New-Object System.Drawing.Size 1, 1))
+  $c = $bmp.GetPixel(0, 0)
+  Write-Output "$($c.R),$($c.G),$($c.B)"
+  exit 0
+}
 if ($Release) {
   if ($Handle -ne 0) { [ShowreelWindow]::Release([IntPtr]$Handle) }
+  Write-Output $Handle
+  exit 0
+}
+if ($Handle -ne 0) {
+  [ShowreelWindow]::Raise([IntPtr]$Handle)
   Write-Output $Handle
   exit 0
 }

@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { detectClick, detectFlashes, displays, findOutput, mux, raiseWindow, releaseWindow, startCapture, toFlac } from './capture.mjs';
+import { detectClick, detectFlashes, displays, findOutput, mux, raiseHandle, raiseWindow, releaseWindow, screenColour, startCapture, toFlac } from './capture.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // --script <file>: another programme (a probe), default script.mjs beside this file
@@ -300,12 +300,43 @@ async function main() {
    * scene) starts its sound and flashes while the map loads, so neither eats the intro flight that starts as the
    * map stands; its scene starts right then and waits for the flight itself (game stage, act intro)
    */
+  /**
+   * The page really reaches the display: take 4 froze on the last frame of a page for ten minutes once the window
+   * had lost the foreground (the user typing elsewhere), the pages played on unseen. The page shows the test
+   * colour for a moment, GDI reads the screen (ddagrab can't be opened twice); without it the window is raised
+   * again by its handle, and after three tries the run stops instead of recording a still
+   */
+  const onScreen = async () => {
+    const x = display.x + 400;
+    const y = display.y + 400;
+    await page.evaluate((c) => {
+      const d = document.createElement('div');
+      d.id = 'sr-probe';
+      d.style.cssText = `position:fixed;inset:0;z-index:2147483647;background:rgb(${c.join(',')})`;
+      document.documentElement.append(d);
+    }, PROBE_COLOUR);
+    try {
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        await page.waitForTimeout(250);
+        const seen = screenColour(x, y);
+        if (seen && seen.every((v, i) => Math.abs(v - PROBE_COLOUR[i]) < 40)) return;
+        console.log(`  the page is not on the display (saw ${seen ? seen.join(',') : 'nothing'}), raising the window, try ${attempt}`);
+        raiseHandle(raised);
+        await page.waitForTimeout(800);
+      }
+      throw new Error('the showreel window does not reach the display');
+    } finally {
+      await page.evaluate(() => document.getElementById('sr-probe')?.remove()).catch(() => undefined);
+    }
+  };
+
   const openPage = async (target, intro = false, noIntro = false, clean = false) => {
     await closeSegment();
     const url = pageUrl(base, target, opened, intro, noIntro, clean);
     console.log(`page ${url}${intro ? ' (intro)' : ''}`);
     await page.goto(url);
     await page.waitForFunction(() => !!window.__showreel, null, { timeout: 60_000 });
+    if (!rehearse && display) await onScreen();
     segment = { url, kind: null };
     if (intro && !rehearse) await startSound();
     segment.kind = await page.evaluate(() => window.__showreel.ready(180));

@@ -35,6 +35,23 @@ export function raiseWindow(title) {
   return Number(out.trim().split(/\s+/).pop() || 0);
 }
 
+/** The window `handle` to the front again (its title changes with each page) */
+export function raiseHandle(handle) {
+  if (!handle) return;
+  execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', WINDOW_PS1, '-Handle', String(handle)]);
+}
+
+/** The colour on the screen at x, y (desktop pixels) by GDI, [r, g, b]; works while ddagrab records */
+export function screenColour(x, y) {
+  try {
+    const out = execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', WINDOW_PS1, '-ProbeX', String(x), '-ProbeY', String(y)], { encoding: 'utf8', timeout: 10_000 });
+    const rgb = out.trim().split(',').map(Number);
+    return rgb.length === 3 && rgb.every((v) => Number.isFinite(v)) ? rgb : null;
+  } catch {
+    return null;
+  }
+}
+
 export function releaseWindow(handle) {
   if (!handle) return;
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', WINDOW_PS1, '-Release', '-Handle', String(handle)]);
