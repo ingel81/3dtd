@@ -28,6 +28,7 @@ import { CoverMap } from './environment/cover-map';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
+import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { RiverSurface, sampleRiver } from './water/river-surface';
 import { WaterSurface } from './water/water-surface';
@@ -768,6 +769,13 @@ export class CustomMapView {
       }
     }
     this.terrain.occlusion.setLava(lava);
+    // Objects near lava glow from below by the same closeness (height-fog.ts)
+    const g = LAVA_GLOW_UNIFORMS;
+    g.uLavaGlowOn.value = lava.includes(1) ? 1 : 0;
+    g.uLavaGlowTex.value = this.terrain.occlusion.texture;
+    const sx = 1 / (f.cellSize * f.columns);
+    const sy = 1 / (f.cellSize * f.rows);
+    g.uLavaGridUv.value.set(sx, sy, (t.width / 2) * sx + 0.5 / f.columns, (t.depth / 2) * sy + 0.5 / f.rows);
   }
 
   private lavaLightPoints(): Vector3[] {
@@ -940,6 +948,7 @@ export class CustomMapView {
 
   dispose(): void {
     this.disposed = true;
+    if (LAVA_GLOW_UNIFORMS.uLavaGlowTex.value === this.terrain.occlusion.texture) LAVA_GLOW_UNIFORMS.uLavaGlowOn.value = 0;
     this.terrain.dispose();
     for (const w of this.waters) w?.dispose();
     for (const r of this.rivers) r.dispose();

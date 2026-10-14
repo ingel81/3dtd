@@ -1,4 +1,4 @@
-import { Color, Vector3, Vector4, type Material, type WebGLProgramParametersWithUniforms } from 'three';
+import { Color, Vector3, Vector4, type Material, type Texture, type WebGLProgramParametersWithUniforms } from 'three';
 
 /**
  * Height fog with aerial perspective for the custom map's materials.
@@ -36,6 +36,37 @@ export const HEIGHT_FOG_UNIFORMS = {
   uSnowCover: { value: 0 },
   uWetness: { value: 0 },
 };
+
+/**
+ * Lava's glow on the objects near it (houses, rocks, trees by a lava flow):
+ * the ground occlusion texture's lava closeness (channel A,
+ * ground-occlusion.ts) read at the fragment's spot on the map, orange from
+ * below, without lights. The view sets it where the map has lava; the
+ * terrain glows by its own (userData.noLavaGlow).
+ */
+export const LAVA_GLOW_UNIFORMS = {
+  uLavaGlowOn: { value: 0 },
+  uLavaGlowTex: { value: null as Texture | null },
+  /** Map metres to the texture's uv (as the terrain's uGridUv) */
+  uLavaGridUv: { value: new Vector4() },
+};
+
+const LAVA_GLOW_PARS = /* glsl */ `
+uniform float uLavaGlowOn;
+uniform sampler2D uLavaGlowTex;
+uniform vec4 uLavaGridUv;
+`;
+
+const LAVA_GLOW_FRAGMENT = /* glsl */ `
+if (uLavaGlowOn > 0.5) {
+  // The map lies at uFogMap.xy in the scene, scene x running against map x
+  vec2 lavaAt = vec2(uFogMap.x - vFogWorldPos.x, vFogWorldPos.z - uFogMap.y);
+  float lavaNear = texture2D(uLavaGlowTex, lavaAt * uLavaGridUv.xy + uLavaGridUv.zw).a;
+  // Lit from below: faces turned down and sideways take the most
+  float below = 0.2 + 0.8 * max(-dot(normal, normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz)), 0.0);
+  totalEmissiveRadiance += vec3(1.0, 0.32, 0.06) * pow(lavaNear, 3.0) * 0.4 * below;
+}
+`;
 
 export const HEIGHT_FOG_PARS = /* glsl */ `
 uniform float uFogFalloff;
@@ -144,7 +175,8 @@ export function addHeightFog(material: Material): void {
   const prevKey = material.customProgramCacheKey;
   material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms, renderer) => {
     prev.call(material, shader, renderer);
-    Object.assign(shader.uniforms, HEIGHT_FOG_UNIFORMS);
+    Object.assign(shader.uniforms, HEIGHT_FOG_UNIFORMS, LAVA_GLOW_UNIFORMS);
+    const lavaGlow = !material.userData['noLavaGlow'] && shader.fragmentShader.includes('#include <emissivemap_fragment>');
     shader.vertexShader = shader.vertexShader
       .replace('#include <fog_pars_vertex>', '#include <fog_pars_vertex>\nvarying vec3 vFogWorldPos;')
       .replace(
@@ -157,12 +189,13 @@ export function addHeightFog(material: Material): void {
         #endif`,
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <fog_pars_fragment>', `#include <fog_pars_fragment>\nvarying vec3 vFogWorldPos;\n${HEIGHT_FOG_PARS}`)
+      .replace('#include <fog_pars_fragment>', `#include <fog_pars_fragment>\nvarying vec3 vFogWorldPos;\n${HEIGHT_FOG_PARS}\n${LAVA_GLOW_PARS}`)
+      .replace('#include <emissivemap_fragment>', lavaGlow ? `#include <emissivemap_fragment>\n${LAVA_GLOW_FRAGMENT}` : '#include <emissivemap_fragment>')
       .replace('#include <color_fragment>', `#include <color_fragment>\n${SURFACE_WEATHER_COLOR}`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\n${SURFACE_WEATHER_ROUGHNESS}`)
       // The terrain replaces the roughness chunk and leaves this marker
       .replace('// map-roughness-done', SURFACE_WEATHER_ROUGHNESS)
       .replace('#include <fog_fragment>', heightFogFragment('vFogWorldPos'));
   };
-  material.customProgramCacheKey = () => `${prevKey.call(material)}-hfog`;
+  material.customProgramCacheKey = () => `${prevKey.call(material)}-hfog2`;
 }

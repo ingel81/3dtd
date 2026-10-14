@@ -151,6 +151,8 @@ export class TerrainMaterial extends MeshStandardMaterial {
   constructor(params: TerrainMaterialParams) {
     super({ roughness: 1, metalness: 0 });
     this.name = 'custom-map-terrain';
+    // The terrain glows by lava itself (TERRAIN_SAMPLE): not again through the objects' lava glow
+    this.userData['noLavaGlow'] = true;
     this.layerCount = terrainLayerCount(params.layers ?? params.colorArray.image.depth);
     this.setParams(params);
     this.onBeforeCompile = (shader) => {
