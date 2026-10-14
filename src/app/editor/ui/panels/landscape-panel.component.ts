@@ -4,6 +4,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapPathKind } from '../../../world/custom-map/map-document';
 import { BIOMES, type BiomeDef, type BiomeId } from '../../ops/landscape/biomes';
 import { randomSeed } from '../../ops/landscape/landscape-noise';
+import { cliffModelIds } from '../../ops/landscape/cliff-rocks';
 import { LANDSCAPE_MODES, type LandscapeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
@@ -31,6 +32,14 @@ export class LandscapePanelComponent {
       .map((m) => ({ id: m.id, name: m.name })),
   );
   readonly hasMaterials = computed(() => this.session.catalog().catalog.materials.length > 0);
+  readonly cliffModels = computed(() => {
+    const catalog = this.session.catalog();
+    return cliffModelIds(catalog).map((id) => ({ id, name: catalog.object(id).name }));
+  });
+
+  setCliffModel(id: string): void {
+    this.session.patchSettings((s) => (s.landscape.cliffModel = id));
+  }
 
   thumb(b: BiomeDef): string {
     return this.session.biomePicture(b);

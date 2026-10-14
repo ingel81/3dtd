@@ -98,7 +98,7 @@ export const TERRAIN_MODES: readonly { id: TerrainMode; label: string; hint: str
   { id: 'ramp', label: 'Ramp', hint: 'Click the start, then the end: a ramp between the two heights', group: 'Level out' },
 ];
 
-export type LandscapeMode = 'biome' | 'mountain' | 'valley' | 'plateau' | 'crater' | 'dunes' | 'cracks' | 'cliff' | 'erode' | 'river' | 'road';
+export type LandscapeMode = 'biome' | 'mountain' | 'valley' | 'plateau' | 'crater' | 'dunes' | 'cracks' | 'cliffRocks' | 'cliff' | 'erode' | 'river' | 'road';
 
 export const LANDSCAPE_MODES: readonly { id: LandscapeMode; label: string; hint: string; group: string; line?: boolean }[] = [
   { id: 'biome', label: 'Biome', hint: 'Hold to paint the chosen landscape: ground, colour and plants together', group: 'Paint a landscape' },
@@ -109,6 +109,7 @@ export const LANDSCAPE_MODES: readonly { id: LandscapeMode; label: string; hint:
   { id: 'dunes', label: 'Dunes', hint: 'Hold to heap rounded dunes across the wind', group: 'Shapes' },
   { id: 'erode', label: 'Erode', hint: 'Hold to let rain carve gullies and fans of scree', group: 'Shapes' },
   { id: 'cracks', label: 'Glow cracks', hint: 'Hold to break the ground into glowing lava cracks with a crust', group: 'Shapes' },
+  { id: 'cliffRocks', label: 'Cliff rocks', hint: 'Hold over steep slopes: cliff walls stand along the edges, sized to the drop', group: 'Shapes' },
   { id: 'river', label: 'River', hint: 'Drag a line: a river with banks, reeds and bridges over roads', group: 'Draw a line', line: true },
   { id: 'road', label: 'Road', hint: 'Drag a line: a road joined to the network, levelled and lit', group: 'Draw a line', line: true },
   { id: 'cliff', label: 'Cliff edge', hint: 'Drag a line: the ground left of it rises as a cliff', group: 'Draw a line', line: true },
@@ -145,6 +146,8 @@ export interface EditorSettings {
     road: RoadOptions;
     /** Height of a drawn cliff in metres */
     cliffHeight: number;
+    /** The cliff model Cliff rocks stands, 'auto' for those of the map's look */
+    cliffModel: string;
   };
   terrain: { mode: TerrainMode; level: number; step: number; rampWidth: number };
   paint: { layer: number; erase: boolean };
@@ -207,6 +210,7 @@ export function defaultSettings(): EditorSettings {
       river: { ...DEFAULT_RIVER },
       road: { ...DEFAULT_ROAD },
       cliffHeight: 12,
+      cliffModel: 'auto',
     },
     terrain: { mode: 'raise', level: 0, step: 6, rampWidth: 16 },
     paint: { layer: 0, erase: false },

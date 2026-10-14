@@ -18,6 +18,18 @@
   </div>
 }
 
+@if (s().mode === 'cliffRocks') {
+  <label class="td-setting">
+    <span>Cliff model</span>
+    <select class="td-select is-auto" [value]="s().cliffModel" (change)="setCliffModel($any($event.target).value)" aria-label="Cliff model" data-test="cliff-model">
+      <option value="auto">By the map's look</option>
+      @for (m of cliffModels(); track m.id) {
+        <option [value]="m.id" [selected]="s().cliffModel === m.id">{{ m.name }}</option>
+      }
+    </select>
+  </label>
+  <p class="td-note">Paint over slopes steeper than the cliff angle (Paint, 3): walls stand along the edge, as tall as the ground falls, their face to the low side.</p>
+}
 @if (s().mode === 'cliff') {
   <app-editor-range label="Height" unit="m" [min]="2" [max]="60" [step]="1" [value]="s().cliffHeight" (changing)="setCliff($event)" />
   <p class="td-note">The brush size sets how far the cliff top reaches from the line.</p>

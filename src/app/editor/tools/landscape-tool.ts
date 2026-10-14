@@ -8,6 +8,7 @@ import type { MapPoint } from '../../world/custom-map/map-document';
 import { finishBiome, biomeDab, previewSpots } from '../ops/landscape/biome-brush';
 import { biomeById } from '../ops/landscape/biomes';
 import { cracksDab } from '../ops/landscape/cracks';
+import { cliffModelsFor, cliffRocksDab } from '../ops/landscape/cliff-rocks';
 import { erosionDab } from '../ops/landscape/erosion';
 import { LandscapeNoise, randomSeed } from '../ops/landscape/landscape-noise';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
@@ -114,6 +115,16 @@ export class LandscapeTool implements EditorTool {
       case 'erode':
         stroke.changed({ heights: erosionDab(stroke, center, brush, this.dab++) }, center);
         return;
+      case 'cliffRocks': {
+        const models = cliffModelsFor(stroke.doc.environment.biome, s.cliffModel, ctx.catalog);
+        if (!models.length) {
+          ctx.status('The catalogue has no cliff models');
+          return;
+        }
+        const ids = cliffRocksDab(stroke, center, brush, models, ctx.catalog);
+        if (ids.length) stroke.changed({ objects: ids });
+        return;
+      }
     }
   }
 
