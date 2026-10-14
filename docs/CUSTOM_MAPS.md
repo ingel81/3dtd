@@ -159,8 +159,12 @@ Lava spiegeln sich).
   mit verrauschter Kante), halb deckend und dunkler als das Land, nachts kaum sichtbar
 - `ice`: deckend und still; hell über flachem, dunkles Petrol über tiefem Grund, mattierte Spiegelung, Risse, Schnee
   im Flachen
-- `lava`: deckend und glühend; Krustenplatten über Adern, Farbverlauf Kruste, Dunkelrot, Orange, Gelb nur in den
-  heißesten Adern (die Bloom-Schwelle fängt nur diese), am Ufer erkaltet. Lava-Körper und -Ströme bekommen
+- `lava`: deckend und glühend; Krustenplatten über Adern aus einer gebackenen Rauschtextur (`lava-noise.ts`, 256²:
+  Platten, Adern, Verzerrung), deren Koordinaten ein langsam treibendes, atmendes Feld verzieht: die Kruste reißt auf
+  und schließt sich. Die Kruste hat Relief (Dicke als Höhenfeld, Normale per `dFdx/dFdy`) und wird von der Sonne
+  beleuchtet, die Adern leuchten selbst; kein Gesamtpuls mehr, die Adern flimmern örtlich. Farbverlauf Kruste,
+  Dunkelrot, Orange, Gelb nur in den heißesten Adern (die Bloom-Schwelle fängt nur diese; mit `lavaGlow` über 1).
+  Zum Ufer hin (bis etwa 1,3 m Tiefe) erkaltet sie zu geschlossener Kruste, in Wülsten entlang des Ufers. Lava-Körper und -Ströme bekommen
   orange flackernde Punktlichter (je 40-m-Fleck bzw. alle 30 m) aus dem Lichter-Pool
 
 Lava als Bodenschicht: Katalog-Materialien mit `emissive` (0..1) glühen nur in den tiefsten Stellen ihrer Textur

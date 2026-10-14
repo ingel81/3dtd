@@ -21,6 +21,7 @@ import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
 import { FLOW_MAP_MAX } from './flow-map';
 import { SHORE_PHASE_GLSL, shoreWaves } from './shore-waves';
+import { lavaNoiseTexture } from './lava-noise';
 import { SCENE_COPY_GLSL, type SceneCopy } from './scene-copy';
 import type { MapEffects } from '../map-effects';
 
@@ -80,6 +81,7 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
         // Baked flow of an area body (flow-map.ts), on the mask's grid; none: the drift uFlow
         uFlowMap: { value: null },
         uHasFlow: { value: 0 },
+        uLavaNoise: { value: null },
       },
     ]),
     defines: {
@@ -96,6 +98,7 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
     depthWrite: true,
   });
   material.uniforms['uWaves'].value = waveTexture();
+  if (o.kind === 'lava') material.uniforms['uLavaNoise'].value = lavaNoiseTexture();
   // Shared objects (merge above copied them): fog and terrain heights follow their owners
   Object.assign(material.uniforms, HEIGHT_FOG_UNIFORMS, o.heights.uniforms);
   material.name = `custom-map-water-${o.kind}`;
@@ -132,14 +135,17 @@ export function setWaterEffects(
   // Not through lava and ice (opaque), nor the swamp (murky)
   const refraction = effects.refraction && (kind === 'water' || kind === 'sea');
   const seaWaves = effects.seaWaves && kind === 'sea';
+  const lavaGlow = effects.lavaGlow && kind === 'lava';
   const d = material.defines as Record<string, unknown>;
-  const was = `${'REFRACT' in d}|${'SEA_WAVES' in d}`;
+  const was = `${'REFRACT' in d}|${'SEA_WAVES' in d}|${'LAVA_GLOW' in d}`;
+  if (lavaGlow) d['LAVA_GLOW'] = '';
+  else delete d['LAVA_GLOW'];
   if (refraction) d['REFRACT'] = '';
   else delete d['REFRACT'];
   if (seaWaves) d['SEA_WAVES'] = '';
   else delete d['SEA_WAVES'];
   Object.assign(material.uniforms, copy.uniforms);
-  if (was !== `${refraction}|${seaWaves}`) material.needsUpdate = true;
+  if (was !== `${refraction}|${seaWaves}|${lavaGlow}`) material.needsUpdate = true;
   return { refraction };
 }
 
@@ -323,6 +329,7 @@ uniform float uHasMask;
 uniform vec2 uMapHalf;
 uniform sampler2D uFlowMap;
 uniform float uHasFlow;
+uniform sampler2D uLavaNoise;
 #ifdef SEA_WAVES
 varying vec3 vSwellNormal;
 #endif
@@ -350,6 +357,14 @@ vec3 waveNormal(vec2 p, vec2 flow, float strength) {
   vec3 n = vec3((a.xy * 0.6 + b.xy * 0.45 + c.xy * 0.3) * strength, 1.0);
   // Texture x/y lie in the scene's x/z plane
   return normalize(vec3(n.x, n.z, n.y));
+}
+
+// Lava's plates (x) and veins (y) at a point: the baked noise, its coordinates warped by a slowly drifting
+// field whose strength breathes, so the crust tears open and closes again
+vec2 lavaAt(vec2 p, vec2 drift) {
+  vec2 w = texture2D(uLavaNoise, p * 0.008 + vec2(uTime * 0.004, -uTime * 0.003)).ba - 0.5;
+  vec2 q = p * 0.035 + drift * 0.15 + w * (0.07 + 0.03 * sin(uTime * 0.21));
+  return vec2(texture2D(uLavaNoise, q).r, texture2D(uLavaNoise, q * 1.7 + w * 0.05 + 0.37).g);
 }
 
 // Seconds per cycle of the flow map's two phases: long enough that the waves do not visibly stretch
@@ -411,40 +426,50 @@ void main() {
   float alpha = 1.0;
 
 #if KIND == 1
-  // Lava: veins glow by heat, crust plates drift over them, cooled crust at the shore
+  // Lava: crust plates over glowing veins (a baked noise texture, lava-noise.ts), warped by a slow field so
+  // the crust tears open and closes again; at the shore it cools into a closed crust heaped in ridges
   vec2 lp = vWorldPos.xz;
   vec2 drift = flow * 0.12 + uFlow * uTime * 0.03;
-  float plates;
-  float veins;
+  vec2 lv;
   #if RIVER == 0
   if (uHasFlow > 0.5 && !outside) {
     // Convection: the crust rides the baked cells in two phases that cross-fade (see flowNormal)
     float lt = uTime / (FLOW_PERIOD * 3.0);
     float lw = 1.0 - abs(2.0 * fract(lt) - 1.0);
     vec2 l1 = lp - vel * fract(lt + 0.5) * FLOW_PERIOD * 3.0 + vec2(11.0, 5.0);
-    lp -= vel * fract(lt) * FLOW_PERIOD * 3.0;
-    plates = mix(skyFbm(l1 * 0.14 + drift), skyFbm(lp * 0.14 + drift), lw);
-    veins = mix(
-      1.0 - smoothstep(0.02, 0.11, abs(skyFbm(l1 * 0.32 - drift * 1.4 + 3.0) - 0.5)),
-      1.0 - smoothstep(0.02, 0.11, abs(skyFbm(lp * 0.32 - drift * 1.4 + 3.0) - 0.5)),
-      lw);
+    lv = mix(lavaAt(l1, drift), lavaAt(lp - vel * fract(lt) * FLOW_PERIOD * 3.0, drift), lw);
   } else
   #endif
   {
-    plates = skyFbm(lp * 0.14 + drift);
-    veins = 1.0 - smoothstep(0.02, 0.11, abs(skyFbm(lp * 0.32 - drift * 1.4 + 3.0) - 0.5));
+    lv = lavaAt(lp, drift);
   }
-  float crust = smoothstep(0.42, 0.62, plates);
-  float heat = max(veins * (1.0 - crust * 0.75), (1.0 - crust) * 0.45);
+  float plates = lv.x;
+  float veins = lv.y;
+  float crust = smoothstep(0.36, 0.52, plates);
+  // Cooled margin: towards the shore the crust closes and piles up in ridges along it
+  float margin = smoothstep(1.3, 0.15, depth + (plates - 0.5) * 0.6);
+  crust = max(crust, margin);
+  float heat = max(veins * (1.0 - crust * 0.7), (1.0 - crust) * 0.5);
   heat *= smoothstep(0.0, 0.7, depth);
-  heat *= 0.85 + 0.15 * sin(uTime * 1.3 + plates * 12.0);
+  // The veins shimmer where they are, not the whole pool at once
+  heat *= 0.9 + 0.1 * sin(uTime * 2.3 + plates * 31.0);
+  // Relief: the crust's thickness as a height field, lit by the sun from its own slopes
+  float thick = crust * 0.55 + plates * 0.35 + margin * 0.45 * (0.5 + 0.5 * sin(depth * 9.0 + plates * 7.0));
+  vec3 rp = vWorldPos + vec3(0.0, thick * 0.6, 0.0);
+  vec3 rn = normalize(cross(dFdx(rp), dFdy(rp)));
+  rn *= sign(rn.y + 1e-4);
+  float sunLit = max(dot(rn, uSunDir), 0.0) * sunShade;
+  vec3 crustColor = vec3(0.07, 0.05, 0.045) * (uSunColor * sunLit * 0.9 + uLight * 0.35 + heat * vec3(0.6, 0.15, 0.04));
   // Ramp: crust, deep red, orange, yellow; capped so only the hottest veins pass a bloom threshold
-  vec3 crustColor = vec3(0.045, 0.03, 0.026) * (0.6 + 0.4 * uLight);
   vec3 red = uDeep * vec3(0.55, 0.09, 0.02);
   vec3 orange = vec3(1.0, 0.36, 0.06);
   vec3 yellow = vec3(1.0, 0.72, 0.28);
   color = heat < 0.4 ? mix(crustColor, red, heat / 0.4) : heat < 0.75 ? mix(red, orange, (heat - 0.4) / 0.35) : mix(orange, yellow, (heat - 0.75) / 0.25);
   color *= 1.0 + heat * 0.25;
+  #ifdef LAVA_GLOW
+  // The hottest veins go past 1: the bloom pass picks them up
+  color *= 1.0 + smoothstep(0.7, 1.0, heat) * 1.8;
+  #endif
   // A faint sheen on the crust
   color += skyTex(vec3(0.0, 1.0, 0.0)) * 0.03 * (1.0 - heat) * uLight;
   alpha = edge;
