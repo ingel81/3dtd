@@ -21,7 +21,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { SCENES } from './script.mjs';
-import { detectClick, detectFlashes, displays, findOutput, mux, startCapture, toFlac } from './capture.mjs';
+import { detectClick, detectFlashes, displays, findOutput, mux, raiseWindow, releaseWindow, startCapture, toFlac } from './capture.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -208,17 +208,30 @@ async function main() {
   }
 
   let capture = null;
+  /** The raised window's handle, topmost while the run lasts */
+  let raised = 0;
   if (!rehearse && !headless) {
     // Which ddagrab output shows the window: a solid test colour, one frame of each output
-    await page.setContent(`<body style="margin:0;background:rgb(${PROBE_COLOUR.join(',')});cursor:none"></body>`);
+    // A title only this window carries, to find it among the desktop's windows
+    const token = `3DTD showreel ${stamp}`;
+    await page.setContent(`<title>${token}</title><body style="margin:0;background:rgb(${PROBE_COLOUR.join(',')});cursor:none"></body>`);
     await page.waitForTimeout(1500);
     let index = option('output-idx', '');
-    if (index === '') {
+    // A new window opens behind the foreground one (Windows' foreground lock, the user's maximised browser):
+    // raised and topmost for the run, then the test colour; a few tries
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      raised = raiseWindow(token) || raised;
+      console.log(`window ${raised ? `raised (handle ${raised})` : 'not found'}, try ${attempt}`);
+      await page.waitForTimeout(1200);
+      if (index !== '') break;
       const found = findOutput(PROBE_COLOUR);
       console.log(`outputs: ${found.seen.map((s) => `${s.index}=rgb(${s.colour.join(',')})`).join('  ')}`);
-      if (found.index === null) throw new Error('no ddagrab output shows the window; pass --output-idx');
-      index = found.index;
+      if (found.index !== null) {
+        index = found.index;
+        break;
+      }
     }
+    if (index === '') throw new Error('no ddagrab output shows the window; pass --output-idx');
     console.log(`recording ddagrab output ${index}`);
     capture = startCapture(Number(index), join(out, 'video.mkv'), { cq: Number(option('cq', 18)), chroma: option('chroma', '420') });
     await capture.started;
@@ -329,6 +342,11 @@ async function main() {
     const stopped = capture ? await capture.stop() : null;
     if (stopped && stopped.code !== 0) console.log(`ffmpeg ended with ${stopped.code}:\n${stopped.log}`);
     save();
+    try {
+      releaseWindow(raised);
+    } catch {
+      // the window may be gone already
+    }
     await context.close().catch(() => undefined);
     rmSync(profile, { recursive: true, force: true });
   }

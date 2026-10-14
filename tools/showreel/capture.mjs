@@ -2,6 +2,10 @@
 // the browser, the recording with hevc_nvenc, the white flashes in the video and the clicks in the sound files,
 // and the preview with the sound lined up. Needs ffmpeg on PATH with ddagrab and hevc_nvenc (Windows, NVIDIA).
 import { spawn, execFileSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const WINDOW_PS1 = join(dirname(fileURLToPath(import.meta.url)), 'window.ps1');
 
 /** The displays as Windows has them (physical pixels), primary first */
 export function displays() {
@@ -20,6 +24,20 @@ export function displays() {
       return { name: name.replace(/^\\\\\.\\/, ''), x: +x, y: +y, width: +width, height: +height, primary: primary === 'True' };
     })
     .sort((a, b) => Number(b.primary) - Number(a.primary));
+}
+
+/**
+ * The showreel window to the front and topmost (window.ps1): found by a title only it carries; returns its
+ * handle, 0 when no such window shows. `release(handle)` takes topmost away again.
+ */
+export function raiseWindow(title) {
+  const out = execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', WINDOW_PS1, '-Title', title], { encoding: 'utf8' });
+  return Number(out.trim().split(/\s+/).pop() || 0);
+}
+
+export function releaseWindow(handle) {
+  if (!handle) return;
+  execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', WINDOW_PS1, '-Release', '-Handle', String(handle)]);
 }
 
 /** The mean colour of one frame of a ddagrab output, [r, g, b], null where the output does not exist */

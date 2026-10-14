@@ -67,6 +67,13 @@ Alignment: each page turns white for 120 ms and puts a click into its sound file
 finds the white frames (mean brightness, `detectFlashes`) and the click (first sample over half scale), and places
 the file so both meet. Without them it falls back to the wall clock and says so.
 
+## The window
+
+Windows opens a new window behind the one in front when its program had no recent input (foreground lock),
+so the runner finds its window by a title only it carries and raises it with `window.ps1`: an Alt press and
+release, then topmost, BringWindowToTop and SetForegroundWindow; up to four tries before the test colour. The
+window stays topmost for the run and is released at the end. No other window is moved, minimised or closed.
+
 ## While it records
 
 Nobody may touch mouse or keyboard over the recorded display: real pointer moves reach the page (the editor's
