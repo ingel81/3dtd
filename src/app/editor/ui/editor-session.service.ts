@@ -411,7 +411,7 @@ export class EditorSession implements OnDestroy {
       const h = Math.abs(region.y1 - region.y0);
       const k = 96 / Math.max(w, h);
       try {
-        preview = vp.renderTopDown(Math.max(8, Math.round(w * k)), Math.max(8, Math.round(h * k)), false, region).toDataURL('image/png');
+        preview = (await vp.renderTopDown(Math.max(8, Math.round(w * k)), Math.max(8, Math.round(h * k)), false, region)).toDataURL('image/png');
       } catch {
         preview = null;
       }
@@ -1027,7 +1027,7 @@ export class EditorSession implements OnDestroy {
     const aspect = doc.terrain.depth / doc.terrain.width;
     const w = aspect <= 1 ? size : Math.round(size / aspect);
     const h = aspect <= 1 ? Math.round(size * aspect) : size;
-    const canvas = vp.renderTopDown(w, h, true);
+    const canvas = await vp.renderTopDown(w, h, true);
     const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'));
     if (blob) download(new Uint8Array(await blob.arrayBuffer()), `${doc.meta.id}.png`, 'image/png');
   }
@@ -1240,7 +1240,7 @@ export class EditorSession implements OnDestroy {
     const vp = this.viewport;
     if (!vp) return null;
     try {
-      const canvas = vp.renderTopDown(THUMBNAIL_SIZE, THUMBNAIL_SIZE, false);
+      const canvas = await vp.renderTopDown(THUMBNAIL_SIZE, THUMBNAIL_SIZE, false);
       const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'));
       return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
     } catch {

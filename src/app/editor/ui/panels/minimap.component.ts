@@ -43,12 +43,16 @@ const PICTURE_EVERY_MS = 1200;
 })
 export class MinimapComponent implements OnDestroy {
   readonly session = inject(EditorSession);
-  private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
+  /** Absent until the view stands: the first draw may come before it */
+  private readonly canvas = viewChild<ElementRef<HTMLCanvasElement>>('canvas');
   readonly size = SIZE;
   private picture: HTMLCanvasElement | null = null;
   private pictureRev = -1;
   private pictureAt = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
+  /** A picture is on its way (renderTopDown); the next waits for it */
+  private rendering = false;
+  private destroyed = false;
   private dragging = false;
 
   constructor() {
@@ -75,6 +79,7 @@ export class MinimapComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     if (this.timer) clearTimeout(this.timer);
   }
 
@@ -117,7 +122,7 @@ export class MinimapComponent implements OnDestroy {
   }
 
   private schedulePicture(rev: number): void {
-    if (rev === this.pictureRev) return;
+    if (rev === this.pictureRev || this.rendering) return;
     const wait = Math.max(0, this.pictureAt + PICTURE_EVERY_MS - performance.now());
     if (this.timer) return;
     this.timer = setTimeout(() => {
@@ -131,16 +136,28 @@ export class MinimapComponent implements OnDestroy {
         return;
       }
       const b = this.box(doc.terrain.width, doc.terrain.depth);
-      this.picture = vp.renderTopDown(Math.max(8, Math.round(b.w)), Math.max(8, Math.round(b.h)), false);
-      this.pictureRev = this.session.docRev() * 1000 + this.session.viewRev();
+      // The picture is of the map as it is now; later changes ask for the next one
+      const now = this.session.docRev() * 1000 + this.session.viewRev();
       this.pictureAt = performance.now();
-      this.draw();
+      this.rendering = true;
+      vp.renderTopDown(Math.max(8, Math.round(b.w)), Math.max(8, Math.round(b.h)), false)
+        .then((picture) => {
+          if (this.destroyed) return;
+          this.picture = picture;
+          this.pictureRev = now;
+          this.draw();
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          this.rendering = false;
+          const rev = this.session.docRev() * 1000 + this.session.viewRev();
+          if (!this.destroyed && rev !== this.pictureRev) this.schedulePicture(rev);
+        });
     }, wait || 50);
   }
 
   private draw(): void {
-    const canvas = this.canvas().nativeElement;
-    const c = canvas.getContext('2d');
+    const c = this.canvas()?.nativeElement.getContext('2d');
     const doc = this.session.doc;
     if (!c || !doc) return;
     const t = doc.terrain;

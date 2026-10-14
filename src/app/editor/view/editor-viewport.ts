@@ -128,6 +128,12 @@ export class EditorViewport {
   private disposed = false;
   /** Assets whose programs were compiled ahead */
   private readonly warmed = new Set<string>();
+  /**
+   * Settles once the top-down picture's programs are built (warmUpView):
+   * renderTopDown waits for it, a picture before would link them all in one
+   * frame (1.2 s at the editor's start)
+   */
+  private topDownWarm: Promise<void> = Promise.resolve();
   /** Stands in for renderTopDown's target when compiling its programs ahead (sRGB, any size) */
   private readonly topDownProbe = new WebGLRenderTarget(1, 1, { colorSpace: SRGBColorSpace });
   /** Tools take no input (a terrain job runs) */
@@ -371,6 +377,8 @@ export class EditorViewport {
    */
   private async warmUpView(): Promise<void> {
     const view = this.view;
+    let topDownWarm!: () => void;
+    this.topDownWarm = new Promise<void>((resolve) => (topDownWarm = resolve));
     try {
       await view.warmUp(this.renderer, this.scene, this.camera);
       if (this.disposed || view !== this.view) return;
@@ -378,6 +386,7 @@ export class EditorViewport {
       await idle(2000);
       if (this.disposed || view !== this.view) return;
       await this.compileForViews(this.scene, false);
+      topDownWarm();
       await idle(2000);
       if (this.disposed || view !== this.view) return;
       const twins = view.terrainLayerTwins();
@@ -388,6 +397,8 @@ export class EditorViewport {
       }
     } catch {
       // A view replaced or lost while compiling
+    } finally {
+      topDownWarm();
     }
   }
 
@@ -529,9 +540,15 @@ export class EditorViewport {
 
   /**
    * The map from straight above into a canvas: the minimap, the PNG preview
-   * and the thumbnails. `overlay` adds spawns, HQ and roads' markers.
+   * and the thumbnails. `overlay` adds spawns, HQ and roads' markers. Once
+   * its programs are built (topDownWarm); the pixels come back without
+   * waiting for the GPU (readRenderTargetPixelsAsync): a synchronous read
+   * held the main thread 65 to 140 ms until the whole map was drawn, after
+   * every stroke (the minimap) and every autosave (the thumbnail)
    */
-  renderTopDown(width: number, height = width, overlay = false, area?: { x0: number; y0: number; x1: number; y1: number }): HTMLCanvasElement {
+  async renderTopDown(width: number, height = width, overlay = false, area?: { x0: number; y0: number; x1: number; y1: number }): Promise<HTMLCanvasElement> {
+    await this.topDownWarm;
+    if (this.disposed) throw new Error('The view is gone');
     const t = this.editor.doc.terrain;
     this.flush();
     const a = area ?? { x0: -t.width / 2, y0: -t.depth / 2, x1: t.width / 2, y1: t.depth / 2 };
@@ -555,11 +572,16 @@ export class EditorViewport {
     this.view.setParticlesVisible(true);
     this.trial.group.visible = true;
     const pixels = new Uint8Array(width * height * 4);
-    this.renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
+    const read = this.renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height, pixels);
     this.renderer.setRenderTarget(null);
     this.overlay.group.visible = true;
     this.scene.fog = fog;
-    target.dispose();
+    try {
+      await read;
+    } finally {
+      target.dispose();
+    }
+    if (this.disposed) throw new Error('The view is gone');
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
