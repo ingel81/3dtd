@@ -79,4 +79,24 @@ describe('GroundOcclusion', () => {
     }
     ao.dispose();
   });
+
+  it('bakes the shape: hollows below 0.5, a knoll above, a valley draining, closeness to lava', () => {
+    // A valley along x (lowest at j = 20) with a knoll at (10, 30)
+    const n = 41;
+    const heights = new Float32Array(n * n);
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) heights[j * n + i] = Math.abs(j - 20) * 0.8 - i * 0.05 + 6 * Math.exp(-((i - 10) ** 2 + (j - 30) ** 2) / 8);
+    }
+    const ao = new GroundOcclusion(new HeightField({ columns: n, rows: n, cellSize: 2, heights }, 80, 80));
+    expect(ao.shapeAt(20, 20).curvature).toBeLessThan(0.45);
+    expect(ao.shapeAt(10, 30).curvature).toBeGreaterThan(0.55);
+    expect(ao.shapeAt(30, 20).drainage).toBeGreaterThan(ao.shapeAt(30, 30).drainage + 0.3);
+    const lava = new Uint8Array(n * n);
+    lava[20 * n + 20] = 1;
+    ao.setLava(lava);
+    expect(ao.shapeAt(20, 20).lava).toBe(1);
+    expect(ao.shapeAt(23, 20).lava).toBeGreaterThan(0.3);
+    expect(ao.shapeAt(30, 20).lava).toBe(0);
+    ao.dispose();
+  });
 });

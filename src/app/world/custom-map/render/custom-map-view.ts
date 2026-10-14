@@ -29,7 +29,7 @@ import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
 import { MapTerrainLayer } from './terrain/map-terrain';
-import { RiverSurface } from './water/river-surface';
+import { RiverSurface, sampleRiver } from './water/river-surface';
 import { WaterSurface } from './water/water-surface';
 import type { CustomMapQuality } from '../../../three-engine/render-quality';
 import { SceneCopy } from './water/scene-copy';
@@ -171,7 +171,7 @@ export class CustomMapView {
     this.group.add(this.bridges.group);
     this.effects = new EffectLayer(this.heights, (x, y) => this.waterLevelAt(x, y));
     this.group.add(this.effects.group);
-    this.effects.setLavaLights(this.lavaLightPoints());
+    this.refreshLava();
     this.ready = this.load();
     // Ground material, objects and bridges are in: the shadow map shows them
     void this.ready.then(() => this.environment.invalidateShadows(), () => undefined);
@@ -495,7 +495,7 @@ export class CustomMapView {
       lava ||= body.kind === 'lava';
       this.coverDirty = true;
     });
-    if (lava) this.effects.setLavaLights(this.lavaLightPoints());
+    if (lava) this.refreshLava();
   }
 
   private bridgeNear(rect: MapRect): boolean {
@@ -585,7 +585,7 @@ export class CustomMapView {
       .map((r) => new RiverSurface(this.heights, this.terrain.heightTexture, r));
     for (const r of this.rivers) this.group.add(r.mesh);
     // The constructor sets up the water before the effects exist and lights the lava after
-    if (this.effects) this.effects.setLavaLights(this.lavaLightPoints());
+    if (this.effects) this.refreshLava();
     // Floating objects follow the water, bridge decks clear the water they cross
     if (this.objects) this.objects.refreshHeights(undefined, true);
     if (this.bridges) void this.refreshBridges();
@@ -623,7 +623,7 @@ export class CustomMapView {
     const wasLava = surface.kind === 'lava';
     surface.set(water, null, rect ? this.gridRect(rect) : undefined);
     this.coverDirty = true;
-    if (wasLava || water.kind === 'lava') this.effects.setLavaLights(this.lavaLightPoints());
+    if (wasLava || water.kind === 'lava') this.refreshLava();
     this.objects.refreshHeights(rect, true);
     if (!rect || this.bridgeNear(rect)) void this.refreshBridges();
     this.lightWater();
@@ -689,6 +689,38 @@ export class CustomMapView {
   }
 
   /** Where glowing lava lights its surroundings: one point per 40 m patch of a lava body, every 30 m along lava flows */
+  /**
+   * Lava's reach on the land around it: lights, embers and smoke over it
+   * (effects), and the baked closeness the ground turns to cooled rock and
+   * glows orange from below by (ground-occlusion.ts, channel A)
+   */
+  private refreshLava(): void {
+    this.effects.setLavaLights(this.lavaLightPoints());
+    const t = this.doc.terrain;
+    const f = this.heights;
+    const lava = new Uint8Array(f.columns * f.rows);
+    for (const body of [t.water, ...(t.waterBodies ?? [])]) {
+      if (!body || body.kind !== 'lava') continue;
+      for (let k = 0; k < lava.length; k++) {
+        if (body.mask[k] && f.grid.heights[k] < body.level) lava[k] = 1;
+      }
+    }
+    for (const r of t.rivers ?? []) {
+      if (r.kind !== 'lava' || r.points.length < 2) continue;
+      for (const p of sampleRiver(r.points)) {
+        const reach = Math.ceil(p.width / 2 / f.cellSize);
+        const ci = Math.round((p.x - f.originX) / f.cellSize);
+        const cj = Math.round((p.y - f.originY) / f.cellSize);
+        for (let j = Math.max(0, cj - reach); j <= Math.min(f.rows - 1, cj + reach); j++) {
+          for (let i = Math.max(0, ci - reach); i <= Math.min(f.columns - 1, ci + reach); i++) {
+            if (Math.hypot(i - ci, j - cj) * f.cellSize <= p.width / 2) lava[j * f.columns + i] = 1;
+          }
+        }
+      }
+    }
+    this.terrain.occlusion.setLava(lava);
+  }
+
   private lavaLightPoints(): Vector3[] {
     const t = this.doc.terrain;
     const f = this.heights;

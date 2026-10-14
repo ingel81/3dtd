@@ -67,6 +67,8 @@ export class EffectLayer {
   /** Light level for lit effects (smoke, fog, spray, the waterfall): 1 by day, low at night */
   private readonly light = { value: 1 };
   private fields: ParticleField[] = [];
+  /** Embers and smoke over lava (setLavaLights), apart from the objects' effects */
+  private lavaFields: ParticleField[] = [];
   private waterfalls: Mesh | null = null;
   private glows: Mesh<InstancedBufferGeometry, ShaderMaterial> | null = null;
   private spots: LightSpot[] = [];
@@ -195,6 +197,26 @@ export class EffectLayer {
    * competing with the object lights for the pool by distance to the focus
    */
   setLavaLights(points: Vector3[]): void {
+    // Embers rising and a little smoke over every lava point: one instanced field each, about 2000
+    // embers over the whole map at most (lava points float 5 m over the lava)
+    for (const f of this.lavaFields) f.dispose();
+    this.lavaFields = [];
+    if (points.length) {
+      const per = Math.max(8, Math.min(60, Math.floor(2000 / points.length)));
+      const embers: ParticleEmitter[] = [];
+      const smoke: ParticleEmitter[] = [];
+      for (const [k, p] of points.entries()) {
+        const origin = p.clone().setY(p.y - 5);
+        embers.push({ kind: 'embers', origin, radius: 12, height: 0.2, count: per, color: '#ff8a30', scale: 1.4 });
+        if (k % 3 === 0) smoke.push({ kind: 'smoke', origin, radius: 10, height: 0.5, count: 4, color: '#4a3a34', scale: 2.5 });
+      }
+      for (const [kind, list] of [['embers', embers], ['smoke', smoke]] as const) {
+        if (!list.length) continue;
+        const field = new ParticleField(kind, list, this.time, this.light);
+        this.lavaFields.push(field);
+        this.group.add(field.mesh);
+      }
+    }
     this.extraSpots = points.map((position, k) => ({
       position,
       color: new Color(0xff6a20),
@@ -273,6 +295,8 @@ export class EffectLayer {
   dispose(): void {
     this.clear();
     this.freeRetired();
+    for (const f of this.lavaFields) f.dispose();
+    this.lavaFields = [];
     for (const light of this.pool) light.dispose();
     this.group.removeFromParent();
   }

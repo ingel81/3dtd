@@ -92,9 +92,14 @@ Nebel der Szene wieder her.
   flache Hügel über; Wasser am Rand läuft darüber weiter, bis das geglättete Bett über den Spiegel steigt. Im Shader
   mit der ersten Schicht bemalt. Nicht Teil der Karte (keine Abfragen, `losTransparent`)
 
-- **Bodenverdeckung** (`ground-occlusion.ts`): je Rasterpunkt gebacken, Horizontwinkel in acht Richtungen bis 32 m
-  (Mulden, Rinnen, Hangfüße dunkler) mal weiche Kontaktschatten unter Bäumen, Felsen, Gebäuden und Mauern nach
-  Fußabdruck; dämpft das Umgebungslicht und teils das direkte
+- **Bodenverdeckung und Geländeform** (`ground-occlusion.ts`, RGBA je Rasterpunkt, ein Zugriff im Shader):
+  R Verdeckung (Horizontwinkel in acht Richtungen bis 32 m: Mulden, Rinnen, Hangfüße dunkler; mal weiche
+  Kontaktschatten unter Bäumen, Felsen, Gebäuden und Mauern nach Fußabdruck; dämpft das Umgebungslicht und teils das
+  direkte), G Krümmung (Höhe gegen Ringe in 4 und 12 m: Kuppen trockener und heller, Mulden feuchter und dunkler),
+  B Abfluss (D8-Flussakkumulation, logarithmisch; Rinnen und Talböden dunkler und grüner; beim vollen Backen, ein
+  Pinsel lässt ihn bis zum nächsten stehen), A Lava-Nähe (1 auf Lava, 0 ab 12 m: der Boden wird zu erkaltetem Gestein
+  und glüht von unten orange mit langsamem Puls). An Hangfüßen unter Steilem rieselt Geröll in der Farbe der Klippe
+  heraus. Über jedem Lavapunkt steigen Glut (zusammen höchstens etwa 2000 Teilchen) und etwas Rauch auf
 - **Gras** (`grass/grass-field.ts`): 70 000 instanzierte Halme in einer 64-m-Kachel, die zwischen Kamera und Fokus
   mitwandert (jeder Halm hat einen festen Weltort), auf dem Höhenraster, so dicht wie die Grasschichten der Splat-Map
   (nicht auf Wegen, steilem Boden, außerhalb der Karte), mit Wind, zum Kachelrand hin kleiner. Ab 140 m Kameraabstand

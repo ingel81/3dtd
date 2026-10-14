@@ -460,13 +460,33 @@ if (cliff > 0.01) {
   albedo = mix(albedo, albedo * shade * bandTint, cliff);
 }
 
+// The ground's shape, baked with its occlusion (ground-occlusion.ts, the same fetch): crests and knolls dry
+// and pale, hollows and runnels damp and darker, scree at the feet of steep slopes, cooled rock around lava
+vec4 shape = texture2D(uGridOcclusion, mapPos * uGridUv.xy + uGridUv.zw);
+float inside = 1.0 - outside;
+float curv = (shape.g - 0.5) * 2.0 * inside;
+float crest = smoothstep(0.04, 0.4, curv) * (1.0 - cliff);
+float hollow = smoothstep(0.04, 0.4, -curv) * (1.0 - cliff);
+float drain = smoothstep(0.35, 0.9, shape.b) * inside * (1.0 - cliff);
+float lavaNear = shape.a * inside;
+albedo = mix(albedo, albedo * vec3(1.1, 1.05, 0.88), crest * 0.45);
+albedo *= 1.0 - max(hollow * 0.16, drain * 0.22);
+albedo = mix(albedo, albedo * vec3(0.88, 1.0, 0.9), drain * 0.35);
+// Scree: in a hollow under steep ground (the occlusion is low there), the cliff's rock spills out
+if (uCliffLayer >= 0) {
+  float scree = hollow * smoothstep(0.85, 0.55, shape.r) * smoothstep(0.35, 0.65, valueNoise(mapPos * 0.4 + 3.0) + hollow * 0.3);
+  albedo = mix(albedo, uAverage[uCliffLayer] * 0.85, scree * 0.55);
+}
+// Around lava the ground is cooled rock, lit orange from below with the lava's slow pulse
+albedo = mix(albedo, vec3(0.045, 0.04, 0.038), smoothstep(0.55, 0.85, lavaNear));
+accGlow += vec3(1.0, 0.32, 0.06) * pow(lavaNear, 4.0) * 0.22 * (0.85 + 0.15 * sin(uTerrainTime * 1.1 + mapPos.x * 0.05));
 albedo *= mix(1.0, 0.6, wetBank);
 // Soil, grass and rock are rough and barely shiny: against the sun at a grazing angle the full
 // specular of a standard material turned meadows and yards into white sheets. Wet banks keep a sheen
-float terrainRough = mix(mix(clamp(accD.b, 0.6, 1.0), 0.45, wetBank), 0.25, swash);
+float terrainRough = mix(mix(clamp(accD.b, 0.6, 1.0), 0.45, wetBank), 0.25, swash) * (1.0 - drain * 0.2);
 float terrainSpec = mix(0.25, 0.6, wetBank);
 // Texture AO and the baked ground occlusion (hollows, slope feet, contact shadows of objects)
-float groundAO = mix(texture2D(uGridOcclusion, mapPos * uGridUv.xy + uGridUv.zw).r, 1.0, outside);
+float groundAO = mix(shape.r, 1.0, outside);
 float terrainAO = mix(1.0, accD.a, 0.85) * groundAO;
 diffuseColor.rgb = albedo;
 `;
