@@ -373,8 +373,8 @@ zweites instanziertes Netz, das Matrizen und Gleitversatz des Typs mitbenutzt (k
 
 `public/maps/assets/catalog.json` (Typen in `render/asset-catalog.ts`), Lizenzen in `LICENSES.md`, alles CC0.
 Schema (Version 1, alle neuen Felder optional): Materialien mit `tags`, `emissive`, `flow`, Kategorien auch `ice`,
-`volcanic`, `wood`; Objekte mit `tags`, `effects`, `light`, `lod`, Kategorien auch `structure` und `fx`. Den Bestand
-baut der Asset-Worker aus; Stand beim Schreiben:
+`volcanic`, `wood`; Objekte mit `tags`, `effects`, `light`, `lod`, `base`, Kategorien auch `structure` und `fx`. Den
+Bestand baut der Asset-Worker aus; Stand beim Schreiben:
 
 - **117 Bodenmaterialien** (Poly Haven, ambientCG; seit E154 dazu Charakter-Materialien: Wiese mit offenen Stellen,
   Bergwiese mit Felsen, Waldboden mit Wurzeln, Kies mit Laub, sandiger Kies, Felsgelände), je `color.jpg`, `normal.jpg` (OpenGL), `arh.jpg` (AO, Rauheit,
@@ -401,6 +401,13 @@ baut der Asset-Worker aus; Stand beim Schreiben:
   der Datenebene, im Grafikspeicher gleich groß): JS-Heap Demo-Tal 467 bis 470 → 324 bis 338 MB, Hafenstadt 418 →
   315 bis 342 MB; Bodenarrays im Grafikspeicher etwa ein Viertel (11 Ebenen des Demo-Tals: rund 117 MB als RGBA,
   rund 29 MB als BC7); Laden gleich (4,4 bis 4,8 s)
+- **Unterseite der Felsen** (`base`, E155): halbe Breite und Tiefe der Fläche, auf der ein Fels steht (Punkte bis
+  8 % seiner Höhe, höchstens 15 cm über dem tiefsten), und wie tief dieser Punkt unter dem Ursprung liegt;
+  `tools/map-assets/measure_bases.mjs` misst sie an den Modellen nach `bases.json`, `update_catalog.py` übernimmt sie.
+  Gescannte Felsen sind unten flach abgeschnitten, und diese Platte reicht oft weit über den Fußabdruck hinaus (der
+  Steinhaufen `rock-large`: Fußabdruck 1,8 m, Platte 7,4 mal 3,6 m). 51 Felsen haben eine; Kulissenstücke ohne Platte
+  (Kraterränder, Becken, Felsbogen, Klippen- und Küstenwände, Tafelberg, Eisberg; `NO_PLATE` im Skript) keine. Wie
+  der Editor Felsen damit absetzt: [LEVEL_EDITOR.md](LEVEL_EDITOR.md), Objekte
 - **374 Katalog-Objekte**, davon 366 Modelle (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px) und 8 Effekt-Marker; je
   Kategorie 118 Requisiten, 68 Felsen, 64 Gebäude, 42 Pflanzen, 31 Bäume, 29 Mauern und Zäune, 14 Bauwerke
   (`structure`). Je Biom: Laub- und Nadelbäume mit Herbst-

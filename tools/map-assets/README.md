@@ -27,7 +27,10 @@ python -I tools/map-assets/pack_models.py $DL/glb-raw public/maps/assets [<id> .
 # Farbe, Rauheit und Metall der LOD-Modelle (-lod1) aus den vollen Modellen (Mittel der Texturen, linear)
 python -I tools/map-assets/match_lods.py public/maps/assets [<id> ...]
 
-# Objekte in catalog.json schreiben (objects.json + Messwerte), LICENSES.md neu
+# Unterseite der Felsen aus objects.json an den gepackten Modellen messen (bases.json)
+node tools/map-assets/measure_bases.mjs public/maps/assets
+
+# Objekte in catalog.json schreiben (objects.json + Messwerte + bases.json), LICENSES.md neu
 python -I tools/map-assets/update_catalog.py $DL/glb-raw public/maps/assets
 ```
 

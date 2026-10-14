@@ -6,7 +6,8 @@ objects.json lists every object with what only a person can decide (name,
 category, tags, licence source and, where the default does not fit,
 placement flags). Missing fields come from the category defaults below;
 footprint and height come from the measured bounds in <glb-raw-dir>/report.json
-(pack_models.py) unless objects.json sets them. Also rewrites LICENSES.md.
+(pack_models.py) unless objects.json sets them; the underside of rocks (`base`)
+from bases.json (measure_bases.mjs). Also rewrites LICENSES.md.
 """
 import json
 import os
@@ -28,7 +29,7 @@ DEFAULTS = {
 # Share of the half extent that counts as occupied ground (a crown overhangs, a trunk does not)
 FOOTPRINT_SHARE = {'tree': 0.3, 'plant': 0.6}
 LOD_DISTANCE = 350
-ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'blocksLos', 'blocksBuild', 'scaleRange',
+ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'blocksLos', 'blocksBuild', 'scaleRange',
          'randomRotation', 'wind', 'drawDistance', 'float', 'tags', 'effects', 'light', 'lod', 'source']
 
 
@@ -36,6 +37,7 @@ def main():
     raw, out = sys.argv[1], sys.argv[2]
     spec = json.load(open(os.path.join(HERE, 'objects.json'), encoding='utf8'))
     report = json.load(open(os.path.join(raw, 'report.json'), encoding='utf8'))
+    bases = json.load(open(os.path.join(HERE, 'bases.json'), encoding='utf8'))
     objects = []
     for o in spec:
         # Effect-only entries (`"file": ""` in objects.json) have no model; they need footprint and height
@@ -52,6 +54,8 @@ def main():
         if 'footprint' not in o:
             half = max(m['max'][0] - m['min'][0], m['max'][2] - m['min'][2]) / 2
             e['footprint'] = round(max(0.2, half * FOOTPRINT_SHARE.get(o['category'], 0.9)), 1)
+        if o['id'] in bases:
+            e['base'] = bases[o['id']]
         if e['category'] == 'rock' and 'blocksLos' not in o:
             e['blocksLos'] = e['height'] >= 1.8
         if 'drawDistance' not in o and e['category'] in ('rock', 'prop') and e['height'] >= 3:

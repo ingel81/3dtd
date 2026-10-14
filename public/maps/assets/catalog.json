@@ -2683,6 +2683,11 @@
       "file": "models/rock-small.glb",
       "footprint": 0.6,
       "height": 0.9,
+      "base": [
+        0.6,
+        0.6,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -2706,6 +2711,11 @@
       "file": "models/rock-large.glb",
       "footprint": 1.8,
       "height": 2.6,
+      "base": [
+        3.7,
+        1.8,
+        0
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -4411,6 +4421,11 @@
       "file": "models/boulder.glb",
       "footprint": 1.1,
       "height": 1.3,
+      "base": [
+        0.7,
+        1.3,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -4441,6 +4456,11 @@
       "file": "models/rock-granite.glb",
       "footprint": 1.8,
       "height": 1.8,
+      "base": [
+        1.1,
+        2,
+        0
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -4469,6 +4489,11 @@
       "file": "models/rock-granite-flat.glb",
       "footprint": 2.4,
       "height": 1.2,
+      "base": [
+        1.1,
+        2.7,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -4498,6 +4523,11 @@
       "file": "models/rock-round.glb",
       "footprint": 0.8,
       "height": 0.8,
+      "base": [
+        0.7,
+        0.5,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -4527,6 +4557,11 @@
       "file": "models/rock-desert.glb",
       "footprint": 1.7,
       "height": 1.8,
+      "base": [
+        1.4,
+        1.9,
+        0
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -4554,6 +4589,11 @@
       "file": "models/rock-desert-large.glb",
       "footprint": 2.7,
       "height": 3.0,
+      "base": [
+        1,
+        1.8,
+        0.2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -4581,6 +4621,11 @@
       "file": "models/rock-sandstone.glb",
       "footprint": 2.6,
       "height": 2.1,
+      "base": [
+        2.1,
+        1.2,
+        0.1
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -4609,6 +4654,11 @@
       "file": "models/rock-sandstone-large.glb",
       "footprint": 4.5,
       "height": 3.4,
+      "base": [
+        4.7,
+        2.5,
+        0.1
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -4636,6 +4686,11 @@
       "file": "models/rock-basalt.glb",
       "footprint": 1.5,
       "height": 1.6,
+      "base": [
+        1.2,
+        1.7,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -4665,6 +4720,11 @@
       "file": "models/rock-basalt-large.glb",
       "footprint": 2.5,
       "height": 2.8,
+      "base": [
+        1,
+        1.7,
+        0.2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -4694,6 +4754,11 @@
       "file": "models/rock-snow.glb",
       "footprint": 2.3,
       "height": 1.9,
+      "base": [
+        1.9,
+        1,
+        0.1
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -4723,6 +4788,11 @@
       "file": "models/rock-volcanic.glb",
       "footprint": 1.0,
       "height": 1.2,
+      "base": [
+        1,
+        0.8,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -4751,6 +4821,11 @@
       "file": "models/rock-volcanic-large.glb",
       "footprint": 1.2,
       "height": 2.4,
+      "base": [
+        1.2,
+        1.3,
+        0
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -4779,6 +4854,11 @@
       "file": "models/rock-pumice.glb",
       "footprint": 1.0,
       "height": 0.8,
+      "base": [
+        1,
+        0.5,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -4807,6 +4887,11 @@
       "file": "models/rock-mossy-a.glb",
       "footprint": 1.5,
       "height": 1.4,
+      "base": [
+        1,
+        1,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -4836,6 +4921,11 @@
       "file": "models/rock-mossy-b.glb",
       "footprint": 1.0,
       "height": 1.7,
+      "base": [
+        0.9,
+        0.9,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -4865,6 +4955,11 @@
       "file": "models/rock-mossy-c.glb",
       "footprint": 1.4,
       "height": 1.2,
+      "base": [
+        0.7,
+        0.8,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -4894,6 +4989,11 @@
       "file": "models/rock-mossy-flat.glb",
       "footprint": 1.0,
       "height": 0.7,
+      "base": [
+        0.8,
+        0.8,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -4922,6 +5022,11 @@
       "file": "models/stones.glb",
       "footprint": 1.9,
       "height": 0.3,
+      "base": [
+        2.1,
+        0.2,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -5172,6 +5277,11 @@
       "file": "models/sandstone-pillar.glb",
       "footprint": 2.9,
       "height": 10.4,
+      "base": [
+        3.2,
+        3,
+        0
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5199,6 +5309,11 @@
       "file": "models/sandstone-pillar-tall.glb",
       "footprint": 2.6,
       "height": 18.8,
+      "base": [
+        2.8,
+        2.7,
+        0
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5281,6 +5396,11 @@
       "file": "models/stalagmites.glb",
       "footprint": 1.1,
       "height": 3.6,
+      "base": [
+        1.2,
+        1.8,
+        0.2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5303,6 +5423,11 @@
       "file": "models/basalt-columns.glb",
       "footprint": 2.1,
       "height": 3.2,
+      "base": [
+        2.7,
+        2.4,
+        0.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5326,6 +5451,11 @@
       "file": "models/crystals-blue.glb",
       "footprint": 0.9,
       "height": 2.0,
+      "base": [
+        1,
+        0.8,
+        0.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5362,6 +5492,11 @@
       "file": "models/crystals-violet.glb",
       "footprint": 0.9,
       "height": 2.2,
+      "base": [
+        0.9,
+        0.9,
+        0.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5398,6 +5533,11 @@
       "file": "models/crystals-ice.glb",
       "footprint": 0.9,
       "height": 2.8,
+      "base": [
+        0.9,
+        0.8,
+        0.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8684,6 +8824,11 @@
       "file": "models/rubble-pile.glb",
       "footprint": 2.0,
       "height": 2.2,
+      "base": [
+        2.6,
+        2.4,
+        0.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8706,6 +8851,11 @@
       "file": "models/rubble-pile-large.glb",
       "footprint": 3.5,
       "height": 3.1,
+      "base": [
+        3.7,
+        4.5,
+        0.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9381,6 +9531,11 @@
       "file": "models/moon-boulder.glb",
       "footprint": 1.3,
       "height": 2.6,
+      "base": [
+        1.3,
+        1.4,
+        0
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9408,6 +9563,11 @@
       "file": "models/moon-rock.glb",
       "footprint": 1.1,
       "height": 1.3,
+      "base": [
+        1.1,
+        0.8,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9435,6 +9595,11 @@
       "file": "models/moon-rocks-small.glb",
       "footprint": 0.8,
       "height": 0.6,
+      "base": [
+        0.7,
+        0.4,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9462,6 +9627,11 @@
       "file": "models/mars-boulder.glb",
       "footprint": 1.2,
       "height": 2.4,
+      "base": [
+        1.2,
+        1.3,
+        0
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9489,6 +9659,11 @@
       "file": "models/mars-stone.glb",
       "footprint": 1.5,
       "height": 1.6,
+      "base": [
+        1.2,
+        1.7,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9516,6 +9691,11 @@
       "file": "models/mars-rock-large.glb",
       "footprint": 2.7,
       "height": 3.0,
+      "base": [
+        1,
+        1.8,
+        0.2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9673,6 +9853,11 @@
       "file": "models/ice-blocks.glb",
       "footprint": 3.1,
       "height": 1.5,
+      "base": [
+        3.8,
+        3.2,
+        0.5
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9743,6 +9928,11 @@
       "file": "models/snow-drift-mound.glb",
       "footprint": 3.8,
       "height": 0.9,
+      "base": [
+        4.1,
+        1.8,
+        1
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9772,6 +9962,11 @@
       "file": "models/ice-spikes.glb",
       "footprint": 0.9,
       "height": 2.3,
+      "base": [
+        1.1,
+        0.7,
+        0.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9987,6 +10182,11 @@
       "file": "models/lava-rock.glb",
       "footprint": 1.6,
       "height": 1.2,
+      "base": [
+        1.7,
+        1.4,
+        0.3
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -10022,6 +10222,11 @@
       "file": "models/lava-rock-large.glb",
       "footprint": 3.2,
       "height": 2.7,
+      "base": [
+        3.3,
+        3,
+        0.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -10057,6 +10262,11 @@
       "file": "models/obsidian-spikes.glb",
       "footprint": 1.0,
       "height": 2.6,
+      "base": [
+        1.1,
+        0.9,
+        0.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -10079,6 +10289,11 @@
       "file": "models/hell-spires.glb",
       "footprint": 1.5,
       "height": 6.5,
+      "base": [
+        2.2,
+        1.6,
+        0.2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -10167,6 +10382,11 @@
       "file": "models/rock-needle.glb",
       "footprint": 2.5,
       "height": 19.9,
+      "base": [
+        2.8,
+        2.2,
+        0
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -10194,6 +10414,11 @@
       "file": "models/cairn.glb",
       "footprint": 0.5,
       "height": 1.9,
+      "base": [
+        0.6,
+        0.5,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -11055,6 +11280,11 @@
       "file": "models/obsidian-slabs.glb",
       "footprint": 1.2,
       "height": 1.2,
+      "base": [
+        1.4,
+        1.4,
+        0.3
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -11417,6 +11647,11 @@
       "file": "models/pebbles-scatter.glb",
       "footprint": 0.7,
       "height": 0.1,
+      "base": [
+        0.8,
+        0.7,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -11441,6 +11676,11 @@
       "file": "models/scree-scatter.glb",
       "footprint": 1.1,
       "height": 0.2,
+      "base": [
+        1.3,
+        1.2,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -11465,6 +11705,11 @@
       "file": "models/stones-mossy-scatter.glb",
       "footprint": 1.1,
       "height": 0.3,
+      "base": [
+        0.9,
+        1.1,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -11489,6 +11734,11 @@
       "file": "models/stones-desert-scatter.glb",
       "footprint": 1.1,
       "height": 0.2,
+      "base": [
+        0.6,
+        1,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -11512,6 +11762,11 @@
       "file": "models/stones-volcanic-scatter.glb",
       "footprint": 1.0,
       "height": 0.3,
+      "base": [
+        1,
+        0.8,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [

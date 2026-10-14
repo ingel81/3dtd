@@ -1,8 +1,10 @@
 // Loads a GLB in Node with three's GLTFLoader, without its images: decoding
 // them needs a browser, and the bake scripts read geometry and animation only.
-// Shared by bake-compare.mjs, loop-find.mjs and clip-trace.mjs.
+// Meshopt-compressed models (the map assets) decode too.
+// Shared by bake-compare.mjs, loop-find.mjs, clip-trace.mjs and map-assets/measure_bases.mjs.
 import { readFileSync } from 'node:fs';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 
 /** The GLB with images, textures and every texture reference in the materials removed. */
 function withoutImages(bytes) {
@@ -41,7 +43,8 @@ function withoutImages(bytes) {
 export async function loadGlb(path) {
   const buffer = readFileSync(path);
   const bytes = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  await MeshoptDecoder.ready;
   const gltf = await new Promise((resolve, reject) =>
-    new GLTFLoader().parse(withoutImages(bytes), '', resolve, reject));
+    new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parse(withoutImages(bytes), '', resolve, reject));
   return { root: gltf.scene, animations: gltf.animations };
 }

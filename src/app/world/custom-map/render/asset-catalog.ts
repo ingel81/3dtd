@@ -106,6 +106,13 @@ export interface CatalogObject {
   footprint: number;
   /** Height in metres at scale 1 */
   height: number;
+  /**
+   * Rocks: the underside at scale 1, metres: half its width (model x), half
+   * its depth (model z) and how far its lowest point lies below the pivot.
+   * Measured from the model (tools/map-assets/measure_bases.mjs); placing
+   * sinks a rock until this plate reaches the ground on a slope
+   */
+  base?: [number, number, number];
   blocksLos: boolean;
   blocksBuild: boolean;
   /** Placement hints for brushes and generators */
