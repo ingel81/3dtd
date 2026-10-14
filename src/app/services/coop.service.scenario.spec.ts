@@ -84,6 +84,8 @@ import { WaveDirector } from '../director/wave-director';
 import type { WaveSourceId } from '../director/wave-source';
 import { WorldContext } from '../world/world-context.service';
 import { fakeWorldContext } from '../../test/world-context-fake';
+import { splitMapFile, type MapPart } from '../coop/map-transfer';
+import { MAP_PART_BYTES } from '../coop/protocol';
 
 const HQ = { lat: 48.7758, lon: 9.1829 };
 const SPAWNS = [
@@ -385,6 +387,18 @@ describe('CoopService over a real relay (review R21)', () => {
     host.hq.set({ lat: 48.78, lon: 9.19 });
     await until(() => guest.coop.hostChangingMap());
     await until(() => guest.coop.chat().some((line) => line.text === 'Ann is changing the map, it comes here next'));
+  });
+
+  it('drops a map that did not arrive when the host left in the middle, and says so', async () => {
+    const { host, guest } = await lobby();
+    // Two pieces of a map; the host leaves after the first
+    const parts = splitMapFile(new Uint8Array(MAP_PART_BYTES + 10).fill(7), 'big-map', 'h-big')!;
+    (host.coop as unknown as { session: { sendMapPart(part: MapPart): void } }).session.sendMapPart(parts[0]);
+    await until(() => guest.coop.mapTransfer()?.done === 1);
+    host.coop.leave();
+    await until(() => guest.coop.mapTransfer() === null);
+    await until(() => guest.coop.chat().some((line) => line.warn && line.text.startsWith('The map did not arrive')));
+    expect(guest.coop.status()).not.toBe('loading-world');
   });
 
   it('follows the host to a new place in the page, without a reload (TODO E27)', async () => {

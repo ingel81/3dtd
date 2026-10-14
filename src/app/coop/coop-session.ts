@@ -176,6 +176,8 @@ export class CoopSession {
   onMap: ((piece: MapPart) => void) | null = null;
   /** Host: the relay confirmed piece `part` of the map, the next may go */
   onMapAck: ((part: number) => void) | null = null;
+  /** Guest: the host left before its map (content hash) came whole; it does not come */
+  onMapGone: ((hash: string) => void) | null = null;
   onStarted: ((start: CoopStart) => void) | null = null;
   onSpeed: ((speed: number) => void) | null = null;
   /** Each player's round trip to the relay, ms */
@@ -256,7 +258,8 @@ export class CoopSession {
       };
       socket.onmessage = (event) => {
         this.heardAt = performance.now();
-        if (event.data instanceof ArrayBuffer) this.receiveFrame(new Uint8Array(event.data));
+        // Text is a message, anything else a binary frame (an ArrayBuffer, possibly of another realm: the tests' ws)
+        if (typeof event.data !== 'string') this.receiveFrame(new Uint8Array(event.data as ArrayBuffer));
         else this.receive(String(event.data));
       };
       socket.onerror = () => {
@@ -507,6 +510,8 @@ export class CoopSession {
         return this.onWorld?.(message.world);
       case 'map-ack':
         return this.onMapAck?.(message.part);
+      case 'map-gone':
+        return this.onMapGone?.(message.hash);
       case 'started': {
         const link = new WebSocketLink(this.playerId!, (m) => this.out(m));
         this.linkNow = link;

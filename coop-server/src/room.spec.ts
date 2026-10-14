@@ -115,6 +115,31 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(pieces('d').map((m) => [m.mapId, m.part])).toEqual([['m2', 0]]);
   });
 
+  it("tells the guests when the host left before its map came whole, and starts over on the new host's", () => {
+    room.join(player('b'));
+    room.join(player('c'));
+    sendPiece('a', 0, 'P0', { parts: 3 });
+    room.receive('b', { t: 'map-got', hash: 'h1', part: 0 });
+    room.leave('a');
+    // b is the host now; the pieces kept so far go, everyone hears the map does not come
+    expect(last('c', 'host')!.hostId).toBe('b');
+    expect(last('c', 'map-gone')!.hash).toBe('h1');
+    expect(last('b', 'map-gone')!.hash).toBe('h1');
+    // The new host sends the same map: c gets it from the first piece on
+    sendPiece('b', 0, 'Q0', { parts: 1 });
+    expect(pieces('c').map((m) => m.data)).toEqual(['P0', 'Q0']);
+  });
+
+  it('keeps the map when the host left after every piece came', () => {
+    room.join(player('b'));
+    sendPiece('a', 0, 'P0');
+    sendPiece('a', 1, 'P1');
+    room.leave('a');
+    expect(last('b', 'map-gone')).toBeUndefined();
+    room.join(player('c'));
+    expect(pieces('c').map((m) => m.data)).toEqual(['P0']);
+  });
+
   it("keeps the host's map only up to the start and within the relay's budget", () => {
     // Room for the first piece's frame and not the second's
     const size = encodeMapFrame({ mapId: 'm1', hash: 'h1', part: 0, parts: 2 }, new TextEncoder().encode('AAAAAA')).length;

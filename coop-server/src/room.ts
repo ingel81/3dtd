@@ -453,7 +453,8 @@ export class Room {
     }
     this.removed(playerId);
     this.mapCursors.delete(playerId);
-    if (playerId === this.hostId) this.mapAckDue = null;
+    const hostLeft = playerId === this.hostId;
+    if (hostLeft) this.mapAckDue = null;
     if (this.started) this.open.push({ playerId, command: { type: 'command:leave-game' } });
     this.broadcast({ t: 'left', playerId });
     if (playerId === this.hostId && this.players.length > 0) {
@@ -462,6 +463,14 @@ export class Room {
       this.mapCursors.delete(this.hostId);
       this.log(`host is now ${this.who(this.hostId)}`);
       this.broadcast({ t: 'host', hostId: this.hostId });
+    }
+    // A map the host left before every piece of it came: the rest never comes. The guests hear so and start
+    // over on what the new host sends
+    const map = this.map;
+    if (hostLeft && map && map.came.some((came) => !came)) {
+      this.log(`map ${map.mapId} did not arrive whole: the host left after ${map.came.filter(Boolean).length} of ${map.came.length} pieces`);
+      this.releaseMap();
+      if (this.players.length > 0) this.broadcast({ t: 'map-gone', hash: map.hash });
     }
     // A piece only the one gone still needed is let go
     this.pumpMap();

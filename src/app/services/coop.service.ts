@@ -1279,6 +1279,20 @@ export class CoopService {
     void this.keepHostMap(bytes, piece);
   }
 
+  /**
+   * Guest: the host left before its map came whole (map-gone). Its pieces
+   * here go, the line about the map with them, and this player waits in the
+   * lobby for the new host's world
+   */
+  private mapGone(hash: string): void {
+    // This player may be the new host itself: the pieces here go all the same
+    if (this.mapAssembler.current?.hash !== hash) return;
+    this.mapAssembler.reset();
+    this.mapTransfer.set(null);
+    if (this.status() === 'loading-world') this.status.set('lobby');
+    this.notify('The map did not arrive: the host left before it was through. The new host sends theirs.', 'warn');
+  }
+
   /** Guest: the host's map into the store, then this page on it (takeMapPart) */
   private async keepHostMap(bytes: Uint8Array, piece: MapPart): Promise<void> {
     const generation = this.generation;
@@ -1470,6 +1484,7 @@ export class CoopService {
     session.onWorld = inZone((world) => void this.takeWorld(world));
     session.onMap = inZone((piece) => this.takeMapPart(piece));
     session.onMapAck = inZone((part) => this.mapSend.acked(part));
+    session.onMapGone = inZone((hash) => this.mapGone(hash));
     session.onStarted = inZone((start) => this.startGame(start));
     session.onSpeed = inZone((speed) => this.applySpeed(speed));
     session.onRtt = inZone((rtt) => this.rtt.set(new Map(rtt)));

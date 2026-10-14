@@ -38,4 +38,33 @@ describe('CoopSession map pieces (binary frames, protocol 5)', () => {
     socket.onmessage?.({ data: frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength) });
     expect(got.map((p) => [p.mapId, p.part, [...p.data]])).toEqual([['m', 0, [7, 8, 9]]]);
   });
+
+  it("hands on the relay's map-gone", async () => {
+    const sent: (string | Uint8Array)[] = [];
+    const socket = {
+      readyState: 1,
+      binaryType: 'blob',
+      onopen: null,
+      onmessage: null,
+      onclose: null,
+      onerror: null,
+      send(data: string | Uint8Array) {
+        sent.push(data);
+        if (typeof data === 'string' && JSON.parse(data).t === 'hello') {
+          queueMicrotask(() => socket.onmessage?.({ data: JSON.stringify({ t: 'welcome', playerId: 'p1' }) }));
+        }
+      },
+      close: () => undefined,
+    } as unknown as CoopSocket;
+    const session = new CoopSession('ws://relay', { name: 'Ann', gameVersion: '1', configHash: 'x' }, () => {
+      queueMicrotask(() => socket.onopen?.(null));
+      return socket;
+    });
+    await session.connect();
+
+    const heard: string[] = [];
+    session.onMapGone = (hash) => heard.push(`gone ${hash}`);
+    socket.onmessage?.({ data: JSON.stringify({ t: 'map-gone', hash: 'h1' }) });
+    expect(heard).toEqual(['gone h1']);
+  });
 });

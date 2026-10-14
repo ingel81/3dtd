@@ -212,6 +212,11 @@ export type ServerMessage =
    * or with every guest in the room; the next one may go
    */
   | { t: 'map-ack'; part: number }
+  /**
+   * To the guests: the host left before every piece of its map (content
+   * `hash`) came; those pieces will not come, the new host sends its own world
+   */
+  | { t: 'map-gone'; hash: string }
   /** The game starts: seed, roster and lanes ([player, spawn], a player in as many as they took); ticks follow */
   | {
     t: 'started';
