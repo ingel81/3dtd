@@ -72,8 +72,16 @@ Nebel der Szene wieder her.
 ### Gelände (`terrain/`)
 
 - **Kacheln** (`terrain-chunks.ts`): 64 × 64 Zellen je Kachel, LOD-Stufen mit Schritt 1, 2, 4, 8 Samples nach
-  Kameraabstand (Stufe n ab 2^(n-1) × 1,6 Kachelkanten, mit Hysterese), Schürzen an den Kanten gegen Risse. Die
-  Zellen sind entlang der Diagonale (i, j) → (i+1, j+1) geteilt, wie `HeightField.heightAt` rechnet.
+  Kameraabstand (Stufe n ab 2^(n-1) × 1,6 Kachelkanten, mit Hysterese), Schürzen an den Kanten gegen Risse.
+  **Diagonale je Zelle** (`cellSplit` in `height-field.ts`): jede Zelle wird entlang der Diagonale geteilt, deren Enden
+  sich in der Höhe weniger unterscheiden, bei Gleichstand (i, j) → (i+1, j+1). Eine reine Funktion der vier
+  Eckhöhen, dieselbe in Mesh (jede LOD-Stufe aus ihren eigenen Ecken, auch beim Umschreiben nach einem Pinselstrich),
+  `HeightField.heightAt` (Spiel, Sichtlinie, Editor-Picking), `terrainHeightAt` im Shader, Geomorphing-Ziel,
+  Bodenverschattung und Uferschnitt. Grund: mit einer festen Diagonale bekam eine Wand, die innerhalb einer Zelle
+  steigt (Grube, Klippe), an jedem zweiten Sample eine Kerbe, Sägezähne an der Oberkante und senkrechte Rippen in
+  der Wand; die kürzere Diagonale schneidet die abweichende Ecke immer allein ab, die Kante läuft als gleichmäßige
+  Fase von Zelle zu Zelle (Rauheit der Kante innerhalb einer Zelle etwa halbiert, `height-field.spec.ts`). Die Stufen
+  der Samples selbst bleiben
   **Geomorphing**: jeder Vertex trägt die Höhe der nächstgröberen Stufe und gleitet im letzten Drittel vor dem
   Wechsel dorthin (nach seinem eigenen Kameraabstand), Stufenwechsel springen nicht
 - **Höhentextur** (`height-texture.ts`): das Raster als Float-Textur; Wasser und Gras lesen die Geländehöhe darunter
@@ -161,9 +169,9 @@ bzw. `bridge-deck-lava`; fehlt das Stück im Katalog, bleibt es beim Holzdeck.
 Ein Material für alle Gewässer (`water-material.ts`). Die Tiefe je Pixel ist Spiegelhöhe minus Geländehöhe aus der
 Höhentextur: das Ufer liegt dort, wo das Gelände die Fläche schneidet, glatt, unabhängig vom Raster. Flächen-Gewässer
 werden über ihrer Maske plus zwei Zellen gezeichnet und mit der bilinearen Maske ausgeblendet (runde Kanten), mit
-weichem Saum. An steilen Ufern reicht das nicht: das Gelände hat je Zelle zwei feste Dreiecke, eine Wand, die innerhalb
-einer Zelle steigt (mit Terrain Lower gegrabene Grube, Kaimauer), schneidet den Spiegel in Sägezähnen entlang der
-Samples. Dafür trägt die Maskentextur (RG8 statt R8, ein Byte mehr je Sample und Gewässer) im G-Kanal den Uferschnitt
+weichem Saum. An steilen Ufern reicht das nicht: das Gelände hat je Zelle zwei Dreiecke, eine Wand, die innerhalb
+einer Zelle steigt (mit Terrain Lower gegrabene Grube, Kaimauer), schneidet den Spiegel in Stufen entlang der
+Samples, eine Fase je Zelle (`cellSplit`). Dafür trägt die Maskentextur (RG8 statt R8, ein Byte mehr je Sample und Gewässer) im G-Kanal den Uferschnitt
 (`shore-cut.ts`): je Sample der Abstand zur Wasserlinie des Dreiecksnetzes in Zellen (bis 3, nass positiv), zweimal mit
 [1 2 1] geglättet, an steilen Ufern (größter Höhenschritt zum Nachbarn ab 1,5 bis 3 je Meter) um 0,5 Zellen nach innen
 geschoben, an flachen um 0,5 nach außen. Das Material schneidet, wo der bilineare Wert unter 0 fällt (weich über eine

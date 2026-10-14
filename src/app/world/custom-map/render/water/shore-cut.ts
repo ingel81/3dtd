@@ -1,3 +1,4 @@
+import { cellSplit } from '../height-field';
 import type { GridRect } from '../terrain/terrain-chunks';
 
 /**
@@ -6,10 +7,10 @@ import type { GridRect } from '../terrain/terrain-chunks';
  * the wet side, smoothed, moved inward at steep banks. The water material
  * cuts the surface where its bilinear value falls to 0.
  *
- * Why: the terrain mesh has two fixed triangles per cell, so where a wall
- * rises within one cell (a pit dug with Terrain Lower, a quay) the line
- * where it crosses the level runs along the samples in saw teeth, and the
- * per-pixel depth cut shows them. A distance field to that line, smoothed
+ * Why: the terrain mesh has two triangles per cell, so where a wall rises
+ * within one cell (a pit dug with Terrain Lower, a quay) the line where it
+ * crosses the level runs along the samples in steps, one chamfer per cell
+ * (cellSplit), and the per-pixel depth cut shows them. A distance field to that line, smoothed
  * (BLUR), moved inward (STEEP_INSET) and sampled bilinearly, gives a
  * smooth line just inside them: the waterline runs smooth along the wall
  * and a little of the wall shows above it. At gentle banks the cut lies
@@ -105,9 +106,14 @@ export function bakeShoreCut(
       const h11 = heights[k + columns + 1];
       const wet = (h00 < level ? 1 : 0) + (h10 < level ? 1 : 0) + (h01 < level ? 1 : 0) + (h11 < level ? 1 : 0);
       if (wet === 0 || wet === 4) continue;
-      // The mesh's two triangles per cell (HeightField, terrainHeightAt)
-      triangle(i, j, h00, i + 1, j, h10, i + 1, j + 1, h11);
-      triangle(i, j, h00, i + 1, j + 1, h11, i, j + 1, h01);
+      // The mesh's two triangles per cell (cellSplit, as HeightField and terrainHeightAt)
+      if (cellSplit(h00, h10, h01, h11)) {
+        triangle(i, j, h00, i + 1, j, h10, i + 1, j + 1, h11);
+        triangle(i, j, h00, i + 1, j + 1, h11, i, j + 1, h01);
+      } else {
+        triangle(i, j, h00, i + 1, j, h10, i, j + 1, h01);
+        triangle(i + 1, j, h10, i + 1, j + 1, h11, i, j + 1, h01);
+      }
     }
   }
   // Signed (positive on the wet side), then smoothed: the distance to a waterline in teeth is itself

@@ -4,14 +4,43 @@ import type { MapHeightGrid } from '../map-document';
 /**
  * Height queries on a map's height grid, in map space.
  *
- * The terrain mesh splits every grid cell along the diagonal from sample
- * (i, j) to (i + 1, j + 1), and `heightAt` interpolates on those same two
- * triangles, so a query lands exactly on the surface the finest LOD shows.
- * Points outside the grid take the height of the nearest edge.
+ * The terrain mesh splits every grid cell into two triangles along the
+ * diagonal `cellSplit` picks from its four corner heights, and `heightAt`
+ * interpolates on those same two triangles (`cellHeight`), so a query lands
+ * exactly on the surface the finest LOD shows. Points outside the grid take
+ * the height of the nearest edge.
  *
  * Reads `grid.heights` live: after the editor changes heights, queries see
  * them at once.
  */
+/**
+ * Whether a cell splits along its main diagonal, sample (i, j) to
+ * (i + 1, j + 1), rather than (i + 1, j) to (i, j + 1): along the diagonal
+ * whose ends differ less in height, the main one on a tie. A pure function
+ * of the four corner heights, shared by the mesh, the shaders, the sim and
+ * the shore cut.
+ *
+ * Why: with one fixed diagonal, a wall rising inside a cell (a pit, a
+ * cliff) gets a notch at every other sample of its edge, where the odd
+ * corner shares a triangle with its neighbours or not: saw teeth. The
+ * shorter diagonal always cuts the odd corner off on its own triangle, so
+ * the edge runs as an even chamfer from cell to cell.
+ */
+export function cellSplit(h00: number, h10: number, h01: number, h11: number): boolean {
+  return Math.abs(h00 - h11) <= Math.abs(h10 - h01);
+}
+
+/**
+ * Height inside a cell at (u, v) in [0, 1] (u along i, v along j), on the
+ * two triangles `cellSplit` picks.
+ */
+export function cellHeight(h00: number, h10: number, h01: number, h11: number, u: number, v: number): number {
+  if (Math.abs(h00 - h11) <= Math.abs(h10 - h01)) {
+    return u >= v ? h00 + u * (h10 - h00) + v * (h11 - h10) : h00 + v * (h01 - h00) + u * (h11 - h01);
+  }
+  return u + v <= 1 ? h00 + u * (h10 - h00) + v * (h01 - h00) : h11 + (1 - u) * (h01 - h11) + (1 - v) * (h10 - h11);
+}
+
 export class HeightField {
   readonly columns: number;
   readonly rows: number;
@@ -56,14 +85,7 @@ export class HeightField {
     const u = fx - i;
     const v = fy - j;
     const k = j * cols + i;
-    const h00 = h[k];
-    const h11 = h[k + cols + 1];
-    if (u >= v) {
-      const h10 = h[k + 1];
-      return h00 + u * (h10 - h00) + v * (h11 - h10);
-    }
-    const h01 = h[k + cols];
-    return h00 + v * (h01 - h00) + u * (h11 - h01);
+    return cellHeight(h[k], h[k + 1], h[k + cols], h[k + cols + 1], u, v);
   }
 
   /**

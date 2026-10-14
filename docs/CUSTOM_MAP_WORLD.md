@@ -287,7 +287,10 @@ Desktop-App (`desktop/src/protocol.js`, `connect-src`) den Host eintragen, `mapD
 ## Abfragen (`CustomMapSurface`)
 
 - Höhen aus dem Höhenraster der Karte über `HeightField`, dieselben zwei Dreiecke je Zelle, die der
-  Renderer zeichnet; allokationsfrei bis auf das Spalten-Objekt, das die Schnittstelle zurückgibt
+  Renderer zeichnet (Diagonale je Zelle nach `cellSplit`, der kürzeren Höhendifferenz, aus den vier Eckhöhen,
+  deterministisch); allokationsfrei bis auf das Spalten-Objekt, das die Schnittstelle zurückgibt. Seit der Diagonale
+  je Zelle liegen Gegner an steilen Wänden anders als vorher: Prüfsummen und Replays eigener Karten von davor passen
+  nicht mehr; echte Orte und DevWorld nutzen `HeightField` nicht
 - Brücken: Kanten der Art `bridge` tragen ein Deck (`bridge-decks.ts`, dasselbe für Renderer, Spiel und Editor:
   Enden über dem Wasser, leichter Bogen); `topY` der Spalte und die Straßenhöhe liegen darauf, `groundY` bleibt der
   Boden darunter

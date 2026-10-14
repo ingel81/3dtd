@@ -1,7 +1,7 @@
 import { ClampToEdgeWrapping, DataTexture, LinearFilter, NoColorSpace, RGBAFormat, UnsignedByteType } from 'three';
 import type { MapObject } from '../../map-document';
 import type { CatalogObject } from '../asset-catalog';
-import type { HeightField } from '../height-field';
+import { cellHeight, type HeightField } from '../height-field';
 import { uploadRect } from './texture-ranges';
 
 /**
@@ -169,9 +169,7 @@ export class GroundOcclusion {
             const u = fx - ii;
             const v = fy - jj;
             const c = jj * cols + ii;
-            const h00 = h[c];
-            const h11 = h[c + cols + 1];
-            const height = u >= v ? h00 + u * (h[c + 1] - h00) + v * (h11 - h[c + 1]) : h00 + v * (h[c + cols] - h00) + u * (h11 - h[c + cols]);
+            const height = cellHeight(h[c], h[c + 1], h[c + cols], h[c + cols + 1], u, v);
             const rise = height - base;
             if (rise <= 0) continue;
             const d = dist[q];

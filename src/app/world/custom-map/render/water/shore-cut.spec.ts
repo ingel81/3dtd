@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { cellHeight } from '../height-field';
 import { bakeShoreCut, SHORE_CUT_SCALE } from './shore-cut';
 
 const N = 81;
@@ -24,11 +25,7 @@ function meshAt(h: Float32Array, x: number, y: number): number {
   const j = Math.floor(y);
   const fx = x - i;
   const fy = y - j;
-  const h00 = h[j * N + i];
-  const h10 = h[j * N + i + 1];
-  const h01 = h[(j + 1) * N + i];
-  const h11 = h[(j + 1) * N + i + 1];
-  return fx >= fy ? h00 + fx * (h10 - h00) + fy * (h11 - h10) : h00 + fy * (h01 - h00) + fx * (h11 - h01);
+  return cellHeight(h[j * N + i], h[j * N + i + 1], h[(j + 1) * N + i], h[(j + 1) * N + i + 1], fx, fy);
 }
 
 /** The cut in cells at a point, bilinear as the texture samples it */

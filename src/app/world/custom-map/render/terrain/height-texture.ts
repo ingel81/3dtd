@@ -51,7 +51,7 @@ uniform sampler2D uTerrainHeights;
 uniform vec4 uTerrainGrid;
 uniform vec2 uTerrainGridSize;
 
-// Terrain height at map point m, on the mesh's two triangles per cell; clamped to the grid
+// Terrain height at map point m, on the mesh's two triangles per cell (cellHeight); clamped to the grid
 float terrainHeightAt(vec2 m) {
   vec2 g = clamp((m - uTerrainGrid.xy) / uTerrainGrid.z, vec2(0.0), uTerrainGridSize - 1.001);
   ivec2 i = ivec2(floor(g));
@@ -60,6 +60,9 @@ float terrainHeightAt(vec2 m) {
   float h10 = texelFetch(uTerrainHeights, i + ivec2(1, 0), 0).r;
   float h01 = texelFetch(uTerrainHeights, i + ivec2(0, 1), 0).r;
   float h11 = texelFetch(uTerrainHeights, i + ivec2(1, 1), 0).r;
-  return f.x >= f.y ? h00 + f.x * (h10 - h00) + f.y * (h11 - h10) : h00 + f.y * (h01 - h00) + f.x * (h11 - h01);
+  if (abs(h00 - h11) <= abs(h10 - h01)) {
+    return f.x >= f.y ? h00 + f.x * (h10 - h00) + f.y * (h11 - h10) : h00 + f.y * (h01 - h00) + f.x * (h11 - h01);
+  }
+  return f.x + f.y <= 1.0 ? h00 + f.x * (h10 - h00) + f.y * (h01 - h00) : h11 + (1.0 - f.x) * (h01 - h11) + (1.0 - f.y) * (h10 - h11);
 }
 `;

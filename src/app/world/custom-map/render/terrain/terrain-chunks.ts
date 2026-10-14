@@ -10,7 +10,7 @@ import {
   Vector3,
   type Material,
 } from 'three';
-import type { HeightField } from '../height-field';
+import { cellHeight, cellSplit, type HeightField } from '../height-field';
 
 /** Declarations for TERRAIN_MORPH_VERTEX */
 export const TERRAIN_MORPH_PARS = /* glsl */ `
@@ -269,11 +269,47 @@ export class TerrainChunks {
       const b = (v - a) / nx;
       if (near(is[a], js[b])) put(nx * ny + k, is[a], js[b], skirt);
     });
+    // Changed heights may turn a cell's diagonal: the cells with a rewritten corner pick theirs anew
+    const index = g.getIndex() as BufferAttribute;
+    const idx = index.array as Uint32Array;
+    const p = pos.array as Float32Array;
+    for (let b = 0; b < ny - 1; b++) {
+      if (js[b + 1] < rect.j0 - reach || js[b] > rect.j1 + reach) continue;
+      for (let a = 0; a < nx - 1; a++) {
+        if (!near(is[a], js[b]) && !near(is[a + 1], js[b]) && !near(is[a], js[b + 1]) && !near(is[a + 1], js[b + 1])) continue;
+        const v00 = b * nx + a;
+        TerrainChunks.cell(idx, (b * (nx - 1) + a) * 6, p, v00, v00 + 1, v00 + nx, v00 + nx + 1);
+      }
+    }
+    index.needsUpdate = true;
     pos.needsUpdate = true;
     nor.needsUpdate = true;
     morph.needsUpdate = true;
     g.computeBoundingSphere();
     g.computeBoundingBox();
+  }
+
+  /**
+   * The two triangles of one cell at `index[k]`, split along the diagonal
+   * cellSplit picks from the corner heights in `pos`, as HeightField.heightAt
+   * assumes; a coarser level picks from its own corners
+   */
+  private static cell(index: Uint32Array, k: number, pos: Float32Array, v00: number, v10: number, v01: number, v11: number): void {
+    if (cellSplit(pos[v00 * 3 + 1], pos[v10 * 3 + 1], pos[v01 * 3 + 1], pos[v11 * 3 + 1])) {
+      index[k] = v00;
+      index[k + 1] = v10;
+      index[k + 2] = v11;
+      index[k + 3] = v00;
+      index[k + 4] = v11;
+      index[k + 5] = v01;
+    } else {
+      index[k] = v00;
+      index[k + 1] = v10;
+      index[k + 2] = v01;
+      index[k + 3] = v10;
+      index[k + 4] = v11;
+      index[k + 5] = v01;
+    }
   }
 
   /** The vertex indices of a level's border loop, counter-clockwise in grid space */
@@ -310,11 +346,7 @@ export class TerrainChunks {
       const cj1 = Math.min(cj0 + s2, c.j1);
       const u = ci1 > ci0 ? (i - ci0) / (ci1 - ci0) : 0;
       const w = cj1 > cj0 ? (j - cj0) / (cj1 - cj0) : 0;
-      const h00 = f.sample(ci0, cj0);
-      const h11 = f.sample(ci1, cj1);
-      return u >= w
-        ? h00 + u * (f.sample(ci1, cj0) - h00) + w * (h11 - f.sample(ci1, cj0))
-        : h00 + w * (f.sample(ci0, cj1) - h00) + u * (h11 - f.sample(ci0, cj1));
+      return cellHeight(f.sample(ci0, cj0), f.sample(ci1, cj0), f.sample(ci0, cj1), f.sample(ci1, cj1), u, w);
     };
     return (v: number, i: number, j: number, drop: number): void => {
       const x = f.originX + i * f.cellSize;
@@ -369,16 +401,8 @@ export class TerrainChunks {
     for (let b = 0; b < ny - 1; b++) {
       for (let a = 0; a < nx - 1; a++) {
         const v00 = b * nx + a;
-        const v10 = v00 + 1;
-        const v01 = v00 + nx;
-        const v11 = v01 + 1;
-        // Diagonal (i, j) -> (i + 1, j + 1), as HeightField.heightAt assumes
-        index[k++] = v00;
-        index[k++] = v10;
-        index[k++] = v11;
-        index[k++] = v00;
-        index[k++] = v11;
-        index[k++] = v01;
+        TerrainChunks.cell(index, k, pos, v00, v00 + 1, v00 + nx, v00 + nx + 1);
+        k += 6;
       }
     }
     // Skirt quads, both windings so they show from either side
