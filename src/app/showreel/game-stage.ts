@@ -14,6 +14,10 @@ import { TowerPlacementService } from '../services/tower-placement.service';
 import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import type { CustomMapWorld } from '../world/custom-map/custom-map-world';
+import type { TowerControlService } from '../services/tower-control.service';
+import type { SimMirror } from '../sim/client/mirror/sim-mirror';
+import type { Tower } from '../entities/tower.entity';
+import { headingOfLocal } from '../utils/manual-aim';
 import type { MapEnvironment } from '../world/custom-map/map-document';
 import type { CameraPose, MapPoint3 } from './camera-path';
 import type { ScreenPoint } from './pointer';
@@ -27,6 +31,16 @@ interface GameComponent {
   sim: { bus: { emit(command: Record<string, unknown>): void } };
   store: { credits(): number };
   controlsHintVisible: { set(on: boolean): void };
+  towerControl: TowerControlService;
+}
+
+/** What the tower view keeps to itself: the aim the mouse would move, the trigger, the mirror */
+interface TowerSeat {
+  aimHeading: number;
+  aimPitch: number;
+  aimMoved: boolean;
+  mirror: SimMirror;
+  setTrigger(held: boolean): void;
 }
 
 /** The intro flight's DevTools handle (IntroCameraFlightService.initialize) */
@@ -248,6 +262,8 @@ export class GameStage implements Stage {
         return;
       case 'intro':
         return this.intro(Number(args['timeout'] ?? 120));
+      case 'man':
+        return this.man(args['spot'] === undefined ? null : Number(args['spot']), Number(args['dur'] ?? 5), Number(args['wait'] ?? 6));
       case 'photo':
         if (args['on'] === false) c.photoMode.exit();
         else c.photoMode.enter();
@@ -329,6 +345,83 @@ export class GameStage implements Stage {
     await waitUntil(() => !f!.state().running, timeoutS, 'the intro flight to land');
   }
 
+  /**
+   * A while in the first-person view of a tower (docs/TOWER_CONTROL.md), as
+   * C would put the player there: the tower nearest planned spot `spot`, or
+   * without one the first a wave's enemy comes into range of (waits up to
+   * `wait` seconds for one). The aim turns to the nearest enemy at a hand's
+   * pace, the trigger is held while one is in range; then out again, the
+   * camera back where it was
+   */
+  private async man(spot: number | null, seconds: number, wait: number): Promise<void> {
+    const control = this.component.towerControl;
+    const seat = control as unknown as TowerSeat;
+    const engine = this.engineInit.getEngine();
+    if (!engine) throw new Error('showreel: no engine');
+    const mannable = () => seat.mirror.towers().filter((t) => control.canEnter(t));
+    let tower: Tower | undefined;
+    if (spot !== null) {
+      const at = this.spots[spot];
+      if (!at) throw new Error(`showreel: no tower spot ${spot} to sit in`);
+      const lat = at.y / MAP_METERS_PER_DEGREE;
+      const lon = at.x / MAP_METERS_PER_DEGREE;
+      tower = mannable().sort((a, b) => Math.hypot(a.position.lat - lat, a.position.lon - lon) - Math.hypot(b.position.lat - lat, b.position.lon - lon))[0];
+    } else {
+      const engaged = () => mannable().find((t) => this.nearestEnemy(t, seat.mirror, t.combat.range));
+      await waitUntil(() => !!engaged(), wait, 'an enemy in range of a tower').catch(() => console.warn('[showreel] no enemy came into range, in the first tower anyway'));
+      tower = engaged() ?? mannable()[0];
+    }
+    if (!tower) throw new Error('showreel: no tower to sit in');
+    // The director's camera lets go without the controls taking over: the tower saves this pose and gives it back
+    cancelAnimationFrame(this.poseLoop);
+    this.posed = null;
+    if (!control.enter(tower)) throw new Error(`showreel: the ${tower.typeConfig.name} took no one in`);
+    await waitUntil(() => control.active(), 3, 'the seat in the tower');
+    const height = (tower.position.height ?? 0) + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
+    const from = engine.sync.geoToLocalSimpleInto(tower.position.lat, tower.position.lon, height, new Vector3());
+    const to = new Vector3();
+    const range = tower.combat.range;
+    const start = await nextFrame();
+    let last = start;
+    for (;;) {
+      const now = await nextFrame();
+      const dt = (now - last) / 1000;
+      last = now;
+      // The nearest enemy, in range or coming: the view turns to it, the trigger waits for range
+      const target = this.nearestEnemy(tower, seat.mirror, Infinity);
+      let aligned = false;
+      if (target) {
+        engine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height + 0.8, to);
+        const dx = to.x - from.x;
+        const dz = to.z - from.z;
+        const turn = wrap(headingOfLocal(dx, dz) - seat.aimHeading);
+        const lift = Math.atan2(to.y - from.y, Math.hypot(dx, dz)) - seat.aimPitch;
+        // A hand's pace: most of the way within a fifth of a second
+        const k = 1 - Math.exp(-dt * 6);
+        seat.aimHeading += turn * k;
+        seat.aimPitch += lift * k;
+        seat.aimMoved = true;
+        aligned = Math.abs(turn) < 0.2 && target.distance <= range;
+      }
+      seat.setTrigger(aligned);
+      if (now - start >= seconds * 1000) break;
+    }
+    seat.setTrigger(false);
+    control.exit();
+    await waitUntil(() => !control.active(), 3, 'out of the tower');
+    await nextFrame();
+  }
+
+  /** The alive enemy nearest the tower within `range` (horizontal, m): where it stands (geo, its height) and how far */
+  private nearestEnemy(tower: Tower, mirror: SimMirror, range: number): { lat: number; lon: number; height: number; distance: number } | null {
+    let best: { lat: number; lon: number; height: number; distance: number } | null = null;
+    for (const e of mirror.aliveEnemies()) {
+      const d = Math.hypot((e.position.lat - tower.position.lat) * MAP_METERS_PER_DEGREE, (e.position.lon - tower.position.lon) * MAP_METERS_PER_DEGREE);
+      if (d <= range && (!best || d < best.distance)) best = { lat: e.position.lat, lon: e.position.lon, height: e.position.height ?? 0, distance: d };
+    }
+    return best;
+  }
+
   /** A planned spot, checked again now (an earlier tower may stand near it); a new one beside the routes if not */
   private spotFor(index: number, tower: string): MapPoint3 {
     let p = this.spots[index];
@@ -407,4 +500,10 @@ export class GameStage implements Stage {
     }
     await nextFrame();
   }
+}
+
+/** An angle into (-π, π] */
+function wrap(a: number): number {
+  const turn = Math.PI * 2;
+  return a - turn * Math.floor((a + Math.PI) / turn);
 }
