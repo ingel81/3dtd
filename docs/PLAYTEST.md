@@ -76,6 +76,78 @@ Nur wenn es passiert oder ein Gerät da ist:
 Offen als Entscheidung, kein Nachtest: **M4/S2.3** „Why this wave“ in Worten war dir „verwirrend, sagt mir alles nichts“
 (2026-10-04); neu gefasst am 2026-10-05, seitdem nicht wieder angesehen. Gehört in TODO.md, falls es bleiben soll.
 
+## B Eigene Karten rund (Nachtschicht 2026-10-14, E154)
+
+Branch `night/custom-maps-round2` (nicht gepusht), Dev-Server. Eigene Karten sind bis E134 nur im Dev-Build offen.
+Vorschau-Adressen gehen auf `/map-preview?…`, Spiel auf `?world=map:<id>`. Logik ist per Tests und Fuzz geprüft, hier
+stehen nur Augen und Gefühl.
+
+Paket B1, Welt und Optik:
+
+- **B1.1 Wind:** `/map-preview?view=trees` und Autumn Keep, Wiese. *Bäume schwingen ruhig (Stamm fast starr, Blätter
+  flattern), Böen laufen sichtbar über Wiese und Wald, Gras, Wolken und Rauch in dieselbe Richtung.* Ist die
+  Standardstärke zu ruhig oder zu stark? Editor, Sky and weather (8), Abschnitt Wind: Regler wirken sofort.
+- **B1.2 Tone-Mapping:** eine eigene Karte bei Tag, Dämmerung, Nacht, dazu Frost Hamlet und eine Wüstenkarte. *Nichts
+  brennt weiß aus, Farben satt.* Danach eine Tiles-Welt und das Menü: *aussehen wie vorher.*
+- **B1.3 Wasser:** `?map=archipelago&effects=refraction,seaWaves`. *Grund durchs Wasser, Dünung, breite weiche Schaumbänder
+  laufen zum Ufer (an der Kaimauer kein eckiger Umriss), nasser Strand; Wasser zieht entlang der Ufer; bei Dämmerung
+  von oben warm gedämpft statt kräftig blau.* Witch Marsh: *Algen nur am flachen Ufer, nachts kaum.*
+  Ein Wasserfall: *keine Ecken, Gischt, Schaum unten.*
+- **B1.4 Lava:** `?map=ember-crater&effects=lavaGlow&post=bloom` und `cam=30,-60,25,0,0,0`. *Kruste reißt auf und
+  schließt sich, Ränder abgekühlt, Glut nur orange in Rissen, Hitzeflimmern, Steg und Felsen glühen unten orange.*
+  Ember Crater im Spiel: *Bauflächen lesbar, Hölle nicht zu dunkel.*
+- **B1.5 Boden:** `?map=mountain-pass` und `?map=autumn-keep`. *Neue Bodenmaterialien mit Charakter, Klippen ohne
+  Streifen, Grenze Fels zu Geröll gebrochen, Laub- und Erdflecken, Mulden feucht, Kuppen trocken.*
+  `?map=red-canyon&cam=-40,-150,40,0,-90,0`: *Felskante am Wandfuß und an der Oberkante.*
+- **B1.6 Wiese und Schnee:** `?view=ground`: *Blüten, Samenstände, breite Halme, kein Kachelrand.* `?view=game&
+  weather=snow&strength=0.12`: *Schnee zuerst in Mulden und im Windschatten.* `?map=frost-hamlet&view=river`: *Eis
+  mit Flecken, Blasen und Plattenrissen, kein Wabenmuster.*
+- **B1.7 Schatten und Lesbarkeit:** ein Spiel auf einer eigenen Karte. *Tower werfen Schatten, Gegner und Held stehen
+  auf weichen Blobs (auch am Hang nicht eingesunken), Gegner haben einen kühlen Randlicht-Saum, auf Tiles keinen.*
+  Schatten insgesamt heller und kühler: Geschmack prüfen (Twin Gates).
+- **B1.8 Ferne und LOD:** Demo-Tal langsam heranzoomen. *Bäume und Häuser blenden weich über statt zu springen, kein
+  störendes Punktmuster bei ruhender Kamera; ferne Bäume von oben ohne Kartenkreuz, Wald in der Ferne nicht dunkler
+  als nah.* Hafenstadt, Spielansicht: *Dächer in der Ferne haben dieselbe Farbe wie nah.*
+- **B1.9 Hafenstadt:** *gerade Kaimauer, kein Hügel im Becken, durchgehende Piers.* Horizont jeder Karte: *keine
+  helle Naht zwischen Himmel und Nebel.*
+
+Paket B2, Qualität und Leistung:
+
+- **B2.1 Stufen:** Settings, Graphics, Picture quality: *drei Gruppen „All worlds“, „Custom maps only“, „Real places
+  (3D tiles) only“.* Demo-Tal auf Low: *kein Gras, FXAA, Deko früher weg, gröbere Schatten, keine Wassereffekte.*
+  Archipel High gegen Low: *Brechung und Dünung nur in High.* Stufe im Spiel wechseln: *kurzes Stocken, kein
+  mehrsekündiges Einfrieren.*
+- **B2.2 Auto auf dem Laptop (Rechner B):** Stufe Auto, erste Karte laden. *Wählt eine passende Stufe, läuft flüssig.*
+  Dazu Extras, „Graphics benchmark“ auf Demo-Tal und Hafenstadt, die Tabelle in [BENCHMARKS.md](BENCHMARKS.md)
+  eintragen.
+- **B2.3 Laden:** eine eigene Karte kalt laden. *Kein Ruckler nach dem Ladebild, Bodentexturen scharf.*
+
+Paket B3, Editor:
+
+- **B3.1 Kopie und Tabs:** eine mitgelieferte Karte zweimal mit „Edit“ öffnen: *beide Male dieselbe Kopie.* Zweiter Tab
+  auf dieselbe Karte: *schreibgeschützt mit „Take over editing“; übernehmen zeigt die letzten Änderungen.* Die offene
+  Karte in einem anderen Tab löschen: *Hinweis „open in another tab“.*
+- **B3.2 Speicher und Papierkorb:** Firefox, erstes Strg+S: *Frage nach dauerhaftem Speicher, danach im Map-Panel
+  „keeps your maps for good“.* Karte löschen und aus „Trash“ zurückholen.
+- **B3.3 Test-Fenster in der Desktop-App** (Editor freigeschaltet): „Test map“ *öffnet ein zweites App-Fenster, ein
+  zweiter Klick lädt dasselbe neu, Quit dort schließt nur dieses.*
+- **B3.4 Straßen und Flüsse:** Road mit Laternen über einen Hügel, dann einen Endknoten 60 m ziehen: *alter Damm weg,
+  Boden wie vorher, neue Laternen entlang der Linie.* Flusspunkt verschieben: *Schilf und Steine am neuen Ufer, am
+  alten nichts.* Alte Karte, Straße wählen, „Rebuild road dressing“: *Lampen, Zäune, Belag passen.* Eine Straße
+  stempeln und die Kopie verschieben: *ihre Lampen gehen mit.*
+- **B3.5 Werkzeuge:** Objects, Line, castle-wall, einen Ring ziehen: *Ecken, Zinnen, keine Lücken.* Landschaft, Cliff
+  rocks an einem Steilhang: *Felswände längs der Kante.* Objects, Line, „Along a road or river“, Zaun mit Versatz 6,
+  Both sides: *Zäune beidseitig längs.* Sky, Night, Moonlight: *Land kühl heller.*
+- **B3.6 Flüssig:** neue Karte, zum ersten Mal Objects öffnen, Nadelwald malen, ein großes Haus setzen: *kein spürbares
+  Stocken.* Terrain- und Biom-Pinsel halten: *flüssig, auch auf 2-m-Karten.*
+- **B3.7 Echter Treiber-Reset** (falls er vorkommt): *Banner „View lost, your map is safe“, die Ansicht kommt zurück.*
+
+Paket B4, Koop mit eigener Karte (zwei Rechner, Relay auf Protokoll 5, also `:latest` neu ziehen):
+
+- **B4.1 Große Karte:** Host mit einer Karte über 10 MB. *Beide sehen den Fortschritt in Prozent, die Karte kommt an.*
+  Gast tritt mitten im Versand bei bzw. lädt neu: *bekommt die Karte.* Host geht mitten im Versand: *Gäste bekommen
+  eine Meldung statt einer hängenden Zeile.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

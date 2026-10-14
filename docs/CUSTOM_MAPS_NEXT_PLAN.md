@@ -1,6 +1,6 @@
 # Eigene Karten: nächste Runde (Plan)
 
-**Status:** Plan, abgestimmt und final 2026-10-13, noch nicht gebaut
+**Status:** gebaut 2026-10-14 (Branch `night/custom-maps-round2`), wartet auf Test (PLAYTEST B1 bis B4); Abweichungen unter „Ergebnis“
 **Bezug:** [CUSTOM_MAPS.md](CUSTOM_MAPS.md) (Renderer), [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) (Spiel),
 [LEVEL_EDITOR.md](LEVEL_EDITOR.md) (Editor), [BENCHMARKS.md](BENCHMARKS.md); Freigabe der Karten ist TODO E134
 
@@ -160,3 +160,21 @@ für die Standardwellen je Karte, PF-K2 Schattenkarte bei Schwenks verteilen.
   Ende der Phase; Optik mit Vorher/Nachher-Bildern.
 - Erledigtes wandert in die Fach-Doku ([CUSTOM_MAPS.md](CUSTOM_MAPS.md), [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md),
   [LEVEL_EDITOR.md](LEVEL_EDITOR.md)), offene Nachtests nach [PLAYTEST.md](PLAYTEST.md).
+
+## Ergebnis (2026-10-14)
+
+Alle A-Punkte der Phasen 0 bis 4 sind gebaut, danach zwei Review-Runden (jeder Bereich selbst, dann über Kreuz) mit
+rund 30 Fixes. Das Verhalten steht in der Fach-Doku, die Messwerte in [BENCHMARKS.md](BENCHMARKS.md) und
+[RENDER_QUALITY.md](RENDER_QUALITY.md).
+
+- **Gemessen (RTX 5080, Spielansicht High, GPU-Median):** Hafenstadt 1111 auf 120 Draw Calls, 3,68 ms Bildzeit auf
+  0,95 ms GPU; Demo-Tal 290 auf etwa 160 Calls, 0,96 ms; Tiles Stuttgart 0,82 ms. Ultra kostet etwa 1,2-mal High.
+- **Koop:** Karten bis 32 MB als Binärrahmen (Protokoll 5), 32 MB in 9,8 s am echten Relay. Die 8 s aus dem Plan
+  sind unter 4 MB/s je Client mit festem Sekundenfenster nicht erreichbar.
+- **Verworfen nach Messung:** Gras je Halm in einem eigenen Pass (PF-K1, kein Gewinn über dem Rauschen, auch nicht
+  mit SwiftShader; die Grassorten bleiben), Reversed-Z (PF-S6, die Himmelskuppel verdeckte Gelände), Erdflecken um
+  Häuser als Decals (OP-B5, das Gras wächst darüber).
+- **Nicht gemacht:** Modelltexturen als KTX2 (WebP in den GLBs, die Roh-GLBs fehlen); Transforms offline backen
+  (PF-K3, nur 23 bis 42 ms); Atlas und BatchedMesh (PF-M2 erreicht das Ziel durch Packen und Zusammenlegen).
+- **Bekannte Grenzen:** an der Einmündung einer geteilten Straße weicht der Boden nach Neubau um wenige Zentimeter ab
+  ([LEVEL_EDITOR.md](LEVEL_EDITOR.md)); der ferne Bodenschatten kommt nur vom Gelände.
