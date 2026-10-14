@@ -6,9 +6,10 @@
 //   npx ng build; node e2e/perf/serve.mjs dist/3DTD/browser 4322 --isolate
 //   node e2e/perf/render-bench.ts --url http://localhost:4322 [--worlds map:demo-valley,map:harbor-town,tiles:48.7758,9.1829]
 //        [--qualities high] [--dpr 1] [--width 1600 --height 900] [--json out.json] [--shots <dir>] [--angle swiftshader]
-//        [--query <more of the page's query>]
+//        [--query <more of the page's query>] [--timeout <s per run>]
 //
 // --shots saves one picture per view as it starts measuring (<dir>/<world>-<quality>-<n>.png), to see what was measured.
+// --timeout: how long one run may take, s; 420 by default, 1800 with SwiftShader (a few frames a second).
 //
 // A world is `map:<id>`, `tiles:<lat>,<lon>` or `devworld`. Tiles over a production build need the key: it is
 // read from src/environments/environment.ts into the page's storage (the key dialog comes before any world), never printed. Keep tiles runs few (one map
@@ -35,6 +36,8 @@ const SHOTS = argument('shots', '');
 const QUERY = argument('query', '');
 /** `--angle swiftshader`: a software GPU where every pixel costs, the resolution's effect without a weak machine */
 const ANGLE = argument('angle', process.platform === 'win32' ? 'd3d11' : '');
+/** How long one world and level may take, ms */
+const RUN_TIMEOUT_MS = Number(argument('timeout', ANGLE === 'swiftshader' ? '1800' : '420')) * 1000;
 const GPU_ARGS = ANGLE === 'swiftshader'
   ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
   : [...(ANGLE ? [`--use-angle=${ANGLE}`] : []), '--enable-gpu', '--ignore-gpu-blocklist'];
@@ -60,20 +63,25 @@ function tileCredentials(): Record<string, string> | null {
   }
 }
 
-/** A picture each time the panel starts measuring a view, until `done` */
+/**
+ * A picture each time the panel starts measuring a view, until `done`. The
+ * caller awaits it before closing the page: a wait on a closed page throws
+ */
 async function shoot(page: Page, prefix: string, done: Promise<unknown>): Promise<void> {
   let over = false;
-  void done.finally(() => (over = true));
+  void done.finally(() => (over = true)).catch(() => undefined);
+  const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
   let shot = 0;
   let seen = '';
-  while (!over) {
+  while (!over && !page.isClosed()) {
     const doing = await page.locator('[data-test=render-benchmark] .td-text').textContent({ timeout: 500 }).catch(() => null);
     if (doing?.endsWith('measuring') && doing !== seen) {
       seen = doing;
-      await page.waitForTimeout(1500);
+      await pause(1500);
+      if (over || page.isClosed()) break;
       await page.screenshot({ path: `${prefix}-${++shot}.png` }).catch(() => undefined);
     }
-    await page.waitForTimeout(300);
+    await pause(300);
   }
 }
 
@@ -98,10 +106,11 @@ for (const world of WORLDS) {
     const q = quality ? `&quality=${quality}` : '';
     const started = Date.now();
     await page.goto(`${URL_BASE}/?${worldQuery(world)}&menu=skip&benchmark=render${q}${QUERY ? `&${QUERY}` : ''}`);
-    const done = page.waitForFunction(() => (globalThis as { __renderBenchmark?: unknown }).__renderBenchmark ?? null, null, { timeout: 420_000, polling: 1000 })
+    const done = page.waitForFunction(() => (globalThis as { __renderBenchmark?: unknown }).__renderBenchmark ?? null, null, { timeout: RUN_TIMEOUT_MS, polling: 1000 })
       .then((h) => h.jsonValue() as Promise<{ env?: Env; rows?: Row[]; error?: string }>);
-    if (SHOTS) void shoot(page, `${SHOTS}/${world.replace(/[^a-z0-9.-]+/gi, '_')}-${quality || 'default'}`, done);
+    const shots = SHOTS ? shoot(page, `${SHOTS}/${world.replace(/[^a-z0-9.-]+/gi, '_')}-${quality || 'default'}`, done) : Promise.resolve();
     const result = await done;
+    await shots;
     const ready = await page.evaluate(() => performance.getEntriesByName('load:ready')[0]?.startTime ?? null);
     if (result.error || !result.env || !result.rows) {
       console.log(`\n== ${world} ${quality || '-'}: failed: ${result.error}`, errors);
