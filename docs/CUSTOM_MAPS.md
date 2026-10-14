@@ -327,6 +327,15 @@ Textur-Arrays der offenen Ansicht behalten keine Kopie: nach dem Hochladen setzt
 werden.
 `MapAssetLibrary.dispose()` gibt ihn frei; `shared()` legt danach eine neue an.
 
+**Tiefenpuffer: logarithmisch bleibt** (E154, PF-S6, geprüft 2026-10-14). Reversed-Z (`reversedDepthBuffer`, ohne
+logarithmische Tiefe) nur auf eigenen Karten brachte in Messläufen mit `render-bench.ts --query depth=reversed`
+(Probe-Schalter, nicht im Code) 0,1 bis 0,3 ms weniger GPU-Zeit in den Nahansichten (Demo-Tal 0,70 → 0,55 bis 0,61
+ms, Hafenstadt 1,17 → 0,88 ms), in den übrigen Ansichten nichts über dem Rauschen. Dafür ist es nicht ohne Umbau
+richtig: die Himmelskuppel legt sich an die ferne Ebene (`sky-dome.ts`, `gl_Position.z = w * 0,99999`), unter
+Reversed-Z lag sie vor allem und verdeckte Gelände und Objekte; jeder Shader mit eigener Tiefe müsste beide
+Konventionen kennen. Der Renderer entsteht je Seite mit seiner Tiefe; ohne `EXT_clip_control` fällt three still auf
+die normale Tiefe zurück, zwei Spieler sähen dann verschiedene Tiefenpuffer. Nicht eingebaut.
+
 ## Grenzen
 
 - Höchstens 8 Splat-Schichten plus Klippe und zwei Wegmaterialien (12 Array-Ebenen), alle Materialien in einer Größe

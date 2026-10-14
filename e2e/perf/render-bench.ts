@@ -6,6 +6,7 @@
 //   npx ng build; node e2e/perf/serve.mjs dist/3DTD/browser 4322 --isolate
 //   node e2e/perf/render-bench.ts --url http://localhost:4322 [--worlds map:demo-valley,map:harbor-town,tiles:48.7758,9.1829]
 //        [--qualities high] [--dpr 1] [--width 1600 --height 900] [--json out.json] [--shots <dir>] [--angle swiftshader]
+//        [--query <more of the page's query>]
 //
 // --shots saves one picture per view as it starts measuring (<dir>/<world>-<quality>-<n>.png), to see what was measured.
 //
@@ -30,6 +31,8 @@ const WIDTH = Number(argument('width', '1600'));
 const HEIGHT = Number(argument('height', '900'));
 const JSON_OUT = argument('json', '');
 const SHOTS = argument('shots', '');
+/** More of the page's query, e.g. a measurement switch: `--query depth=reversed` */
+const QUERY = argument('query', '');
 /** `--angle swiftshader`: a software GPU where every pixel costs, the resolution's effect without a weak machine */
 const ANGLE = argument('angle', process.platform === 'win32' ? 'd3d11' : '');
 const GPU_ARGS = ANGLE === 'swiftshader'
@@ -94,7 +97,7 @@ for (const world of WORLDS) {
     }, credentials);
     const q = quality ? `&quality=${quality}` : '';
     const started = Date.now();
-    await page.goto(`${URL_BASE}/?${worldQuery(world)}&menu=skip&benchmark=render${q}`);
+    await page.goto(`${URL_BASE}/?${worldQuery(world)}&menu=skip&benchmark=render${q}${QUERY ? `&${QUERY}` : ''}`);
     const done = page.waitForFunction(() => (globalThis as { __renderBenchmark?: unknown }).__renderBenchmark ?? null, null, { timeout: 420_000, polling: 1000 })
       .then((h) => h.jsonValue() as Promise<{ env?: Env; rows?: Row[]; error?: string }>);
     if (SHOTS) void shoot(page, `${SHOTS}/${world.replace(/[^a-z0-9.-]+/gi, '_')}-${quality || 'default'}`, done);
