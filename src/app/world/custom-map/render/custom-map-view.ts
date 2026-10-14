@@ -873,10 +873,13 @@ export class CustomMapView {
   /**
    * The quality level's custom-map part (render-quality.ts): the sun's
    * shadow map, object detail and impostors, grass, the map's particles and
-   * point lights. High is the picture as before the levels
+   * point lights, where the ground gets cheaper, the switchable effects.
+   * High is the picture as before the levels, with the effects on
    */
   applyQuality(q: CustomMapQuality): void {
     this.environment.setShadowQuality(q.shadowMapSize, q.shadowRadius);
+    this.setFarGround(q.farSingle, q.farFlat);
+    this.setEffects({ refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade });
     this.objects.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.terrain.grass.setBlades(q.grassBlades);
     this.grassDistance = q.grassDistance;

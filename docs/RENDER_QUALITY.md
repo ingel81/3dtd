@@ -29,6 +29,11 @@ Das Menü zeigt die drei Teile genauso getrennt („All worlds“, „Custom map
 | Gras | eigene Karten | aus | 35 000 Halme bis 90 m | 70 000 bis 140 m | 100 000 bis 180 m |
 | Partikel der Karte | eigene Karten | 40 % | 70 % | 100 % | 100 % |
 | Punktlichter nachts | eigene Karten | 2 | 4 | 6 | 6 |
+| Boden billiger ab (eine Schicht / nur Mittelwerte) | eigene Karten | 80 / 220 m | 110 / 300 m | 150 / 400 m | 220 / 600 m |
+| Brechung im Wasser (`refraction`) | eigene Karten | aus | aus | an | an |
+| Dünung auf dem Meer (`seaWaves`) | eigene Karten | aus | an | an | an |
+| Lava-Glut über 1 und Hitzeflimmern (`lavaGlow`) | eigene Karten | aus | aus | an | an |
+| Ferner Bodenschatten (`shadowCascade`) | eigene Karten | aus | an | an | an |
 | `errorTarget` | Tiles | 32 | 24 | 20 | 12 |
 
 - **High ist das Bild von vor den Stufen**, auf Tiles exakt (DPR bis 2, MSAA über den Canvas, `errorTarget` 20, kein
@@ -40,8 +45,9 @@ Das Menü zeigt die drei Teile genauso getrennt („All worlds“, „Custom map
 - **Sichtlinie:** Objekte, die die Sicht blockieren, behalten ihre Sichtweite; der LOD-Bias verkürzt nur die Sichtweite
   von Deko. Was die LOS sieht, hängt so nicht an der Stufe. `errorTarget` ändert nicht die Verfeinerung des
   Routenkorridors (eigener Zielwert in Metern, `route-corridor-region.ts`).
-- **Teile der Plantabelle, die noch fehlen:** „Bodenschichten je Pixel“ (Ferne gebacken, höchstens vier Schichten in
-  Low) hängt an der gebackenen Fern-Albedo aus QX5 und kommt mit ihr.
+- **Effekte der eigenen Karten** (`map-effects.ts`, Kosten in [CUSTOM_MAPS.md](CUSTOM_MAPS.md)): High hat sie alle an,
+  das Bild von vor den Stufen hatte sie noch nicht. Der Boden wird ab `farSingle` mit einer Schicht und ab `farFlat`
+  nur mit den Mittelwerten der Schichten gezeichnet (QX5); Low liest so ab 80 m nur noch eine Schicht.
 
 ## Kantenglättung und Kontext
 

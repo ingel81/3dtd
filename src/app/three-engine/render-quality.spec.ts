@@ -13,6 +13,7 @@ describe('render quality levels (E154)', () => {
     expect(high.tiles.errorTarget).toBe(20);
     // The custom-map part as the renderer had it: shadows 4096, impostors from 380 m, 70 000 blades to 140 m, six lights
     expect(high.customMaps).toMatchObject({ shadowMapSize: 4096, shadowRadius: 1.5, lodBias: 1, impostorFrom: 380, grassBlades: 70_000, grassDistance: 140, pointLights: 6, particles: 1 });
+    expect(high.customMaps).toMatchObject({ farSingle: 150, farFlat: 400, refraction: true, seaWaves: true, lavaGlow: true, shadowCascade: true });
   });
 
   it('draws custom maps at most at their own pixel ratio cap, and Low and Medium at a share of DPR 1', () => {

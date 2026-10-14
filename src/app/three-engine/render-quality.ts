@@ -56,6 +56,18 @@ export interface CustomMapQuality {
   particles: number;
   /** Real point lights following the lamps nearest the focus at night */
   pointLights: number;
+  /** Camera distances from which the ground reads one layer lookup, then only the layers' average colours, m */
+  farSingle: number;
+  farFlat: number;
+  /**
+   * Switchable effects of the map renderer (map-effects.ts): water shows the
+   * ground behind it bent, swell on seas, glowing lava veins with heat
+   * shimmer, the land's own shadow beyond the cached shadow map
+   */
+  refraction: boolean;
+  seaWaves: boolean;
+  lavaGlow: boolean;
+  shadowCascade: boolean;
 }
 
 export interface TilesQuality {
@@ -77,6 +89,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 1, shadowMapSize: 1024, shadowRadius: 1.5, lodBias: 0.5, impostorFrom: 200,
       grassBlades: 0, grassDistance: 0, particles: 0.4, pointLights: 2,
+      farSingle: 80, farFlat: 220, refraction: false, seaWaves: false, lavaGlow: false, shadowCascade: false,
     },
     tiles: { errorTarget: 32 },
   },
@@ -86,6 +99,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 1, shadowMapSize: 2048, shadowRadius: 1.5, lodBias: 0.75, impostorFrom: 280,
       grassBlades: 35_000, grassDistance: 90, particles: 0.7, pointLights: 4,
+      farSingle: 110, farFlat: 300, refraction: false, seaWaves: true, lavaGlow: false, shadowCascade: true,
     },
     tiles: { errorTarget: 24 },
   },
@@ -95,6 +109,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 1.5, shadowMapSize: 4096, shadowRadius: 1.5, lodBias: 1, impostorFrom: 380,
       grassBlades: 70_000, grassDistance: 140, particles: 1, pointLights: 6,
+      farSingle: 150, farFlat: 400, refraction: true, seaWaves: true, lavaGlow: true, shadowCascade: true,
     },
     tiles: { errorTarget: 20 },
   },
@@ -104,6 +119,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 2, shadowMapSize: 4096, shadowRadius: 2.5, lodBias: 1.25, impostorFrom: 500,
       grassBlades: 100_000, grassDistance: 180, particles: 1, pointLights: 6,
+      farSingle: 220, farFlat: 600, refraction: true, seaWaves: true, lavaGlow: true, shadowCascade: true,
     },
     tiles: { errorTarget: 12 },
   },
