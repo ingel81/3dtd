@@ -2,11 +2,14 @@ import type { MapWater } from '../../map-document';
 import type { HeightField } from '../height-field';
 
 /**
- * Baked flow of an area water body, one RG byte pair per height sample:
+ * Baked flow of an area water body, four bytes per height sample. RG:
  * where its surface drifts, in scene x and z (127.5 is still,
  * FLOW_MAP_MAX m/s at 0 and 255). The water material moves its waves along
  * it in two phases that cross-fade (water-material.ts), so nothing is
- * simulated.
+ * simulated. B: the distance to the shore in metres (0 to SHORE_FIELD_MAX),
+ * blurred so its lines round the corners of the bank; the surf bands run
+ * along it. A: how steep the bank is nearby (rise over run, 0 to
+ * SLOPE_FIELD_MAX): at a quay wall the foam stays narrow.
  *
  * - Water, sea and swamp circulate along their banks: the flow runs along
  *   the shore's contour (across the gradient of the distance to the shore),
@@ -24,6 +27,12 @@ import type { HeightField } from '../height-field';
 
 /** Flow speed at the ends of the byte range, m/s */
 export const FLOW_MAP_MAX = 1.2;
+/** Distance to the shore at byte 255 (B), metres; farther reads as this */
+export const SHORE_FIELD_MAX = 32;
+/** Bank slope at byte 255 (A), rise over run */
+export const SLOPE_FIELD_MAX = 2.5;
+/** Cells the distance is blurred over on each side (twice, a tent), and the bank's slope reaches out */
+const SHORE_BLUR = 2;
 
 /** What a bake reads: the height grid and the body, as plain arrays (a worker gets copies) */
 export interface FlowInput {
@@ -62,7 +71,7 @@ export function bakeFlow(input: FlowInput, out?: Uint8Array): Uint8Array {
   const cols = input.columns;
   const rows = input.rows;
   const n = cols * rows;
-  const flow = out && out.length === n * 2 ? out : new Uint8Array(n * 2);
+  const flow = out && out.length === n * 4 ? out : new Uint8Array(n * 4);
   const lava = input.lava;
   const heights = input.heights;
   // Distance to the shore in cells (chamfer 3-4 over the wet samples)
@@ -143,11 +152,76 @@ export function bakeFlow(input: FlowInput, out?: Uint8Array): Uint8Array {
         }
       }
       // Scene x is map -x
-      flow[k * 2] = encode(-fx);
-      flow[k * 2 + 1] = encode(fy);
+      flow[k * 4] = encode(-fx);
+      flow[k * 4 + 1] = encode(fy);
     }
   }
+  shoreField(input, dist, flow);
   return flow;
+}
+
+/** B and A of the bake: the blurred distance to the shore (dist in cells) and the bank's slope near it */
+function shoreField(input: FlowInput, dist: Float32Array, flow: Uint8Array): void {
+  const cols = input.columns;
+  const rows = input.rows;
+  const cell = input.cellSize;
+  const heights = input.heights;
+  const n = cols * rows;
+  // Metres, blurred twice by a box in each direction: the chamfer's corners round off
+  const a = new Float32Array(n);
+  const b = new Float32Array(n);
+  for (let k = 0; k < n; k++) a[k] = Math.min(dist[k] * cell, SHORE_FIELD_MAX);
+  for (let pass = 0; pass < 2; pass++) {
+    boxBlur(a, b, cols, rows, 1, cols);
+    boxBlur(b, a, rows, cols, cols, 1);
+  }
+  // The steepest rise between neighbouring samples, then the largest of it within reach of each sample
+  const slope = b;
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      const k = j * cols + i;
+      const h = heights[k];
+      let s = 0;
+      if (i > 0) s = Math.max(s, Math.abs(heights[k - 1] - h));
+      if (i < cols - 1) s = Math.max(s, Math.abs(heights[k + 1] - h));
+      if (j > 0) s = Math.max(s, Math.abs(heights[k - cols] - h));
+      if (j < rows - 1) s = Math.max(s, Math.abs(heights[k + cols] - h));
+      slope[k] = s / cell;
+    }
+  }
+  const reach = new Float32Array(n);
+  boxMax(slope, reach, cols, rows, 1, cols);
+  boxMax(reach, slope, rows, cols, cols, 1);
+  for (let k = 0; k < n; k++) {
+    flow[k * 4 + 2] = Math.round((a[k] / SHORE_FIELD_MAX) * 255);
+    flow[k * 4 + 3] = Math.min(255, Math.round((slope[k] / SLOPE_FIELD_MAX) * 255));
+  }
+}
+
+/** A box blur of SHORE_BLUR cells to each side along lines (`step` apart in a line, `stride` between lines) */
+function boxBlur(src: Float32Array, dst: Float32Array, length: number, lines: number, step: number, stride: number): void {
+  const r = SHORE_BLUR;
+  for (let l = 0; l < lines; l++) {
+    const base = l * stride;
+    for (let x = 0; x < length; x++) {
+      let sum = 0;
+      for (let d = -r; d <= r; d++) sum += src[base + Math.min(length - 1, Math.max(0, x + d)) * step];
+      dst[base + x * step] = sum / (2 * r + 1);
+    }
+  }
+}
+
+/** The largest value within SHORE_BLUR cells to each side along lines (as boxBlur) */
+function boxMax(src: Float32Array, dst: Float32Array, length: number, lines: number, step: number, stride: number): void {
+  const r = SHORE_BLUR;
+  for (let l = 0; l < lines; l++) {
+    const base = l * stride;
+    for (let x = 0; x < length; x++) {
+      let m = 0;
+      for (let d = -r; d <= r; d++) m = Math.max(m, src[base + Math.min(length - 1, Math.max(0, x + d)) * step]);
+      dst[base + x * step] = m;
+    }
+  }
 }
 
 function encode(v: number): number {

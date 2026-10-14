@@ -19,7 +19,7 @@ import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS, heightFogFragment } from '../envi
 import { SKY_FUNCTIONS, SKY_TEXTURE_GLSL } from '../environment/sky-dome';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
-import { FLOW_MAP_MAX } from './flow-map';
+import { FLOW_MAP_MAX, SHORE_FIELD_MAX, SLOPE_FIELD_MAX } from './flow-map';
 import { SHORE_PHASE_GLSL, shoreWaves } from './shore-waves';
 import { lavaNoiseTexture } from './lava-noise';
 import { SCENE_COPY_GLSL, type SceneCopy } from './scene-copy';
@@ -87,7 +87,7 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
     defines: {
       KIND: KIND_ID[o.kind] ?? 0,
       RIVER: o.river ? 1 : 0,
-      ...(shore ? { SHORE_DENSITY: shore.density.toFixed(3), SHORE_SPEED: shore.speed.toFixed(3) } : {}),
+      ...(shore ? { SHORE_DENSITY: shore.density.toFixed(3), SHORE_SPEED: shore.speed.toFixed(3), SHORE_REACH: shore.reach.toFixed(1) } : {}),
     },
     vertexShader: WATER_VERTEX,
     fragmentShader: WATER_FRAGMENT,
@@ -443,7 +443,10 @@ void main() {
   vec2 flow = uFlow * uTime;
   // The body's own current (bank circulation, lava convection), m/s in the scene's x and z
   vec2 vel = vec2(0.0);
-  if (uHasFlow > 0.5 && !outside) vel = (texture2D(uFlowMap, m * uMaskUv.xy + uMaskUv.zw).rg * 2.0 - 1.0) * ${FLOW_MAP_MAX.toFixed(2)};
+  // The baked field: the current (rg), the blurred distance to the shore (b) and the bank's slope (a)
+  bool hasField = uHasFlow > 0.5 && !outside;
+  vec4 field = hasField ? texture2D(uFlowMap, m * uMaskUv.xy + uMaskUv.zw) : vec4(0.5, 0.5, 0.0, 0.0);
+  vel = (field.rg * 2.0 - 1.0) * ${FLOW_MAP_MAX.toFixed(2)};
 #endif
   if (depth <= 0.0 || edge <= 0.001) discard;
   vec3 v = normalize(cameraPosition - vWorldPos);
@@ -602,22 +605,27 @@ void main() {
   float foamBreak = texture2D(uWaves, vWorldPos.xz / 17.0 - uTime * 0.01).y;
   float foam = smoothstep(0.25, 0.0, depth) * smoothstep(0.45, 0.75, foamNoise * 0.6 + foamBreak * 0.6 - depth);
   #ifdef SHORE_DENSITY
-  // Bands of foam that come in from the deep and run up to the shore (shore-waves.ts), wavy along it,
-  // broken up by the waves; they gather out of nothing in the deep. The terrain's wet swash shares the phase
-  float sp = shorePhase(depth + (foamBreak - 0.5) * 0.5, SHORE_DENSITY, SHORE_SPEED, uTime);
-  float bandShape = smoothstep(0.72, 0.93, sp) * (1.0 - smoothstep(0.95, 1.0, sp));
+  // Bands of foam that come in from the open water and run up to the shore (shore-waves.ts). They follow
+  // the blurred distance to the shore, so they round the bank's corners instead of tracing its cells,
+  // wobble along it and break up with the waves; they gather out of nothing farther out. At a steep bank
+  // (a quay wall) little foam: the water there is deep right up to it. The terrain's swash shares the phase
+  float shoreDist = hasField ? field.b * ${SHORE_FIELD_MAX.toFixed(1)} : depth * 6.0;
+  float wall = hasField ? smoothstep(1.3, 2.3, field.a * ${SLOPE_FIELD_MAX.toFixed(2)}) : 0.0;
+  float sp = shorePhase(shoreDist + (foamBreak - 0.5) * (0.6 / SHORE_DENSITY) + (foamNoise - 0.5) * (0.15 / SHORE_DENSITY), SHORE_DENSITY, SHORE_SPEED, uTime);
+  float bandShape = smoothstep(0.5, 0.88, sp) * (1.0 - smoothstep(0.9, 1.0, sp));
   #if KIND == 3
-  float reach = 3.2;
-  float bandStrength = 0.85;
-  float breakUp = smoothstep(0.3, 0.7, foamNoise * 0.7 + foamBreak * 0.5);
+  float reach = 5.0;
+  float bandStrength = 0.75;
+  float breakUp = smoothstep(0.3, 0.85, foamNoise * 0.7 + foamBreak * 0.5);
   #else
-  // Lakes: only close in and well broken up, or the bands draw the lake's depth lines as rings
+  // Lakes: only close in and well broken up
   float reach = 0.6;
   float bandStrength = 0.35;
-  float breakUp = smoothstep(0.5, 0.85, foamNoise * 0.7 + foamBreak * 0.5);
+  float breakUp = smoothstep(0.45, 0.85, foamNoise * 0.7 + foamBreak * 0.5);
   #endif
-  float bands = bandShape * smoothstep(reach, reach * 0.35, depth) * breakUp;
-  foam = max(foam, bands * bandStrength);
+  float bands = bandShape * smoothstep(SHORE_REACH, SHORE_REACH * 0.3, shoreDist) * smoothstep(reach, reach * 0.35, depth) * breakUp;
+  foam *= 1.0 - 0.6 * wall;
+  foam = max(foam, bands * bandStrength * (1.0 - 0.85 * wall));
   #endif
   #if RIVER == 1
   // Ripples where the river runs fast and shallow

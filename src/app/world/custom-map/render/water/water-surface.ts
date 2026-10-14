@@ -8,7 +8,7 @@ import {
   Mesh,
   NoColorSpace,
   RedFormat,
-  RGFormat,
+  RGBAFormat,
   UnsignedByteType,
   Vector2,
   Vector4,
@@ -77,7 +77,7 @@ export class WaterSurface {
     this.mask.wrapS = this.mask.wrapT = ClampToEdgeWrapping;
     this.mask.generateMipmaps = false;
     this.mask.unpackAlignment = 1;
-    this.flow = new DataTexture(new Uint8Array(field.columns * field.rows * 2), field.columns, field.rows, RGFormat, UnsignedByteType);
+    this.flow = new DataTexture(new Uint8Array(field.columns * field.rows * 4), field.columns, field.rows, RGBAFormat, UnsignedByteType);
     this.flow.colorSpace = NoColorSpace;
     this.flow.magFilter = this.flow.minFilter = LinearFilter;
     this.flow.wrapS = this.flow.wrapT = ClampToEdgeWrapping;
