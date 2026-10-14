@@ -35,10 +35,10 @@ export const SCENES = [
       act('speed', { value: 2 }),
       act('wave', { label: 'wave' }),
       { do: 'cursor', show: false },
-      orbit(6, { at: 'spots' }, { from: 190, to: 228, radius: 75, height: 35, heightTo: 29, label: 'fight', ease: 'in' }),
-      // Into the tower the wave reaches first (up to 3 s for one) for a few shots of its own, then out where the camera was
-      act('man', { dur: 4.5, wait: 4, towers: ['archer', 'lightning'], label: 'tower view' }),
-      orbit(3.5, { at: 'spots' }, { from: 228, to: 280, radius: 75, height: 29, heightTo: 22, ease: 'out' }),
+      // Into the tower the wave reaches first (it waits up to 8 s for an enemy in range), then the orbit over the
+      // fight: started right away it showed the spots before any enemy had come
+      act('man', { dur: 4.5, wait: 8, towers: ['archer', 'lightning'], label: 'tower view' }),
+      orbit(7, { at: 'spots' }, { from: 190, to: 250, radius: 70, height: 32, heightTo: 24, label: 'fight', ease: 'inOut' }),
     ],
   },
 ];

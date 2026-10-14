@@ -30,17 +30,18 @@ export const SCENES = [
   ]),
   introFlyover('mountain-flyover', 'mountain-pass', 'Mountain Pass', [
     sky('sunset', 'dusk', 6),
-    path(6.5, [[m(245, -70, 12), m(160, 5, 32)], [m(205, 48, 42), m(150, 18, 15)]], { label: 'waterfall', ease: 'inOut' }),
+    path(6.5, [[m(245, -70, 30), m(160, 5, 32)], [m(205, 48, 42), m(150, 18, 15)]], { label: 'waterfall', ease: 'inOut' }),
     path(6.5, [[m(-30, -40, 70), m(-139, -67, 45)], [m(-70, -175, 55), m(-139, -60, 45)]], { label: 'cable car', ease: 'inOut' }),
   ]),
   flyover('archipelago-flyover', 'archipelago', 'Archipelago', [
     sky('fair-weather', 'day', 45),
     path(6, [[m(20, -215, 8), m(70, -135, 3)], [m(120, -175, 16), m(68, -125, 4)]], { label: 'harbour', ease: 'inOut' }),
-    path(6.5, [[m(150, -10, 30), m(205, 75, 15)], [m(255, 135, 28), m(205, 80, 15)]], { label: 'lighthouse', ease: 'inOut' }),
+    // Round the lighthouse at a distance: the line through (255, 135) passed through the tower
+    path(6.5, [[m(140, 0, 40), m(205, 78, 15)], [m(275, 50, 42), m(205, 80, 15)]], { label: 'lighthouse', ease: 'inOut' }),
   ]),
   flyover('ember-flyover', 'ember-crater', 'Ember Crater', [
     orbit(6.5, { at: 'hq' }, { from: 20, to: 95, radius: 120, radiusTo: 80, height: 55, heightTo: 28, label: 'crater', ease: 'inOut' }),
-    path(6, ['current', [m(120, 120, 25), m(45, 65, 8)], [m(-30, 115, 30), m(10, 30, 5)]], { label: 'hell gate', ease: 'inOut' }),
+    path(6, ['current', [m(120, 120, 40), m(45, 65, 8)], [m(-30, 115, 30), m(10, 30, 5)]], { label: 'hell gate', ease: 'inOut' }),
   ]),
   introFlyover('autumn-flyover', 'autumn-keep', 'Autumn Keep', [
     // The low sun from the north-west, behind the orbit's camera: the keep lit, not a silhouette against it
@@ -66,6 +67,6 @@ export const SCENES = [
   ]),
   flyover('mars-flyover', 'mars-canyon', 'Mars Canyon', [
     path(6, [[m(-70, -235, 20), m(20, -130, 5)], [m(100, -225, 24), m(30, -130, 5)]], { label: 'mars base', ease: 'inOut' }),
-    orbit(6, { at: 'hq', dy: -10 }, { from: 0, to: 90, radius: 65, radiusTo: 48, height: 30, heightTo: 18, label: 'greenhouse', ease: 'inOut' }),
+    orbit(6, { at: 'hq' }, { from: 0, to: 90, radius: 65, radiusTo: 50, height: 34, heightTo: 26, label: 'greenhouse', ease: 'inOut' }),
   ]),
 ];

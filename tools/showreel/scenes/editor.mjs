@@ -49,7 +49,7 @@ export const SCENES = [
     steps: [
       mode('erode'),
       settings({ brush: { radius: 30, strength: 1 } }),
-      frame([[-0.27, -0.27], [-0.22, -0.32]], { from: 200, pitch: 30, margin: 30, glide: 1 }),
+      frame([[-0.27, -0.27], [-0.22, -0.32]], { from: 200, pitch: 30, margin: 30, glide: 1.8 }),
       stroke(2.2, [[-0.27, -0.27], [-0.22, -0.32]], { label: 'erode' }),
       wait(0.9),
       mode('terrace'),
@@ -72,7 +72,8 @@ export const SCENES = [
     // A table with a hard rim, a ramp up to it seen from the side, then the rim smoothed away on camera
     name: 'editor-cliff-ramp',
     steps: [
-      path(1.5, ['current', [[-0.02, -0.5, 45], [-0.1, -0.33]]]),
+      // Up and over the smoothed hill, then down to the table's spot (straight, the camera went into the hill)
+      path(2.2, ['current', [[-0.12, -0.5, 80], [-0.12, -0.32]], [[-0.02, -0.5, 45], [-0.1, -0.33]]], { ease: 'inOut' }),
       mode('plateau'),
       settings({ brush: { radius: 42, strength: 1 }, terrain: { step: 14 } }),
       stroke(1.5, [[-0.1, -0.3], [-0.095, -0.3]], { label: 'cliff' }),
@@ -90,8 +91,10 @@ export const SCENES = [
       tool('landscape', { label: 'landscape' }),
       mode('mountain'),
       settings({ brush: { radius: 75, strength: 1 }, landscape: { seed: 11, reroll: false } }),
+      // A glide there first (the turning frame alone jumped in half a second), closer: the map's edge out of the picture
+      frame([[-0.28, 0.32], [0.0, 0.38], [0.28, 0.33]], { from: 195, pitch: 22, margin: 15, pad: 0.85, glide: 1.8 }),
       par(
-        frame([[-0.28, 0.32], [0.0, 0.38], [0.28, 0.33]], { from: 195, pitch: 22, margin: 35, pad: 0.95, dur: 14, turn: 22 }),
+        frame([[-0.28, 0.32], [0.0, 0.38], [0.28, 0.33]], { from: 195, pitch: 22, margin: 15, pad: 0.85, dur: 14, turn: 22 }),
         seq(
           wait(0.9),
           stroke(3.5, [[-0.28, 0.32], [-0.27, 0.33]], { label: 'mountains' }),
@@ -136,7 +139,7 @@ export const SCENES = [
       click('[data-biome=forest]'),
       settings({ brush: { radius: 50, strength: 0.9 }, landscape: { seed: 21 } }),
       par(
-        frame([[-0.36, 0.28], [-0.12, 0.3], [0.2, 0.22]], { from: 175, pitch: 28, margin: 45, pad: 1, dur: 9, turn: 20 }),
+        frame([[-0.36, 0.28], [-0.12, 0.3], [0.2, 0.22]], { from: 175, pitch: 28, margin: 20, pad: 0.85, dur: 9, turn: 20 }),
         seq(
           wait(0.9),
           stroke(3.5, [[-0.36, 0.28], [-0.3, 0.33], [-0.24, 0.31], [-0.18, 0.27], [-0.12, 0.3]]),
@@ -221,9 +224,10 @@ export const SCENES = [
       mode('scatter', { label: 'scatter trees' }),
       ...asset('oak', 'tree-oak'),
       // Behind the houses as the camera sees them from the south, dense enough to read as a grove
-      settings({ brush: { radius: 22, strength: 1 }, objects: { scatter: { density: 14 } } }),
+      settings({ brush: { radius: 14, strength: 1 }, objects: { scatter: { density: 14 } } }),
       frame([{ at: 'hq', dx: -95, dy: -24 }, { at: 'hq', dx: -30, dy: -20 }, { at: 'hq', dx: -45, dy: -45 }], { from: 10, pitch: 32, margin: 20 }),
-      stroke(2.8, [{ at: 'hq', dx: -95, dy: -24 }, { at: 'hq', dx: -60, dy: -22 }, { at: 'hq', dx: -30, dy: -20 }]),
+      // West of the chapel only: a wider stroke grew oaks into the chapel and the houses
+      stroke(2.4, [{ at: 'hq', dx: -96, dy: -20 }, { at: 'hq', dx: -66, dy: -18 }]),
       wait(1),
     ],
   },
@@ -349,7 +353,8 @@ export const SCENES = [
       ),
       // One slider from noon into dusk (the sky follows the sun), no preset beside it
       par(
-        path(4, ['current', [[-0.06, 0.1, 15], [-0.07, 0.3, 28]]], { ease: 'smooth' }),
+        // Up over the grove's crowns first, then out to the mountains (a straight line went through the trees)
+        path(4, ['current', [{ m: [52, -50], h: 34 }, { m: [40, 20], h: 20 }], [[-0.06, 0.1, 22], [-0.07, 0.3, 28]]], { ease: 'smooth' }),
         { do: 'range', sel: '[data-test=time-of-day]', to: 19.6, dur: 3.6, label: 'time of day' },
       ),
       // Night where the lamps stand, the camera still while the night look compiles
@@ -396,7 +401,8 @@ export const SCENES = [
     steps: [
       // The spawn flag and the route's node balls out of the picture for the whole trial
       act('overlay', { on: false }),
-      path(1.5, ['current', [{ m: [-215, -25], h: 6 }, { m: [-250, 0], h: 2 }]]),
+      // Over the hills to the spawn, not along the ground (the direct line grazed a slope)
+      path(2.4, ['current', [{ m: [-150, -60], h: 70 }, { m: [-230, 0], h: 10 }], [{ m: [-215, -25], h: 6 }, { m: [-250, 0], h: 2 }]], { ease: 'inOut' }),
       click('[data-test=trial]', { label: 'trial wave' }),
       click('[data-test=trial-speed] button', { withText: '2x' }),
       wait(2.5),

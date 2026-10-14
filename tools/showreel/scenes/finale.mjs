@@ -13,7 +13,8 @@ export const SCENES = [
       { do: 'mark', name: 'Finale' },
       // The fly-over's cable car shot, slow: from the east over the valley round to the south, the peak by the
       // cable car against the low sun
-      path(20, [[m(10, -25, 80), m(-139, -15, 60)], [m(-40, -110, 65), m(-139, -40, 52)], [m(-80, -190, 60), m(-139, -55, 48)]], { ease: 'smooth', label: 'dusk orbit' }),
+      // Higher and looking down more: the map's west edge stays under the peak, not beside it; moving to the end
+      path(20, [[m(10, -25, 110), m(-139, -15, 40)], [m(-40, -110, 95), m(-139, -40, 36)], [m(-80, -190, 90), m(-139, -55, 34)]], { ease: 'inOut', label: 'dusk orbit' }),
       { do: 'fade', to: 1, dur: 2, label: 'fade out' },
       wait(0.5),
     ],
