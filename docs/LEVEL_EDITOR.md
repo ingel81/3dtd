@@ -206,8 +206,12 @@ nach (`ops/pour.ts`): die Mulde füllt sich bis zu ihrem Überlauf, das Überlau
 Mulde und füllt sie auch, bis es den Kartenrand oder ein vorhandenes Gewässer erreicht. Dafür füllt eine Prioritätsflut
 vom Rand und von den Gewässern aus einmal alle Mulden der Karte (Priority-Flood+Queue); der Guss läuft diese Fläche
 hinab, jede Ebene darauf, in der der Boden tiefer liegt, ist eine Mulde. Jede gefüllte Mulde wird ein neues Gewässer
-(0,3 m unter ihrem Überlauf, Maske über See und Ufer), alle zusammen ein Schritt im Verlauf; Mulden flacher als 0,5 m
-durchläuft das Wasser, ein Guss füllt höchstens 12, eine Karte trägt 64 Gewässer. Die Symmetrie-Bilder gießen mit.
+(0,3 m unter ihrem Überlauf, Maske über See und Ufer), alle zusammen ein Schritt im Verlauf. Gefüllt wird nur eine
+Mulde, die einen See hält (`holdsLake`): mindestens 1 m tief und dazu im Mittel 1 m tief oder 0,06 m tief je Meter ihrer
+Breite (Wurzel der Fläche). Die Dellen einer welligen Ebene (Relief von Wiese bis Hügel) erreichen bis 2 m Tiefe auf
+Zehntausenden m², bleiben aber unter 0,6 m im Mittel und 0,05 je Meter; das Wasser läuft über sie weiter, statt die
+Ebene unter einem Krater zum See zu machen. Ein Krater 20 m breit und 2 m tief hat 1 m und 0,1. Ein Guss füllt höchstens
+12 Mulden, eine Karte trägt 64 Gewässer. Die Symmetrie-Bilder gießen mit.
 Die Flut läuft in einem Worker (auf 1025² etwa 100 ms); ändert sich die Karte, während sie läuft, verwirft der Editor
 das Ergebnis. Dig lake gräbt unter dem Pinsel ein Seebett bis zur eingestellten Tiefe und füllt es. Paint und
 Erase malen die Maske von Hand. Sea from the edge flutet das Gewässer vom Kartenrand her über alles unter seinem

@@ -276,7 +276,7 @@ export class WaterTool implements EditorTool {
     const state = editor.stateId;
     this.pouring = true;
     ctx.status(`Pouring ${kind}…`);
-    pourOffThread({ columns: g.columns, rows: g.rows, heights: g.heights, starts, wet })
+    pourOffThread({ columns: g.columns, rows: g.rows, heights: g.heights, starts, wet, cellSize: g.cellSize })
       .then((result) => {
         if (editor.doc !== doc || editor.stateId !== state) {
           ctx.status('The map changed while the water ran: pour again');
@@ -285,7 +285,7 @@ export class WaterTool implements EditorTool {
         let added = 0;
         const command = recordWater(editor, kind === 'lava' ? 'Pour lava' : 'Pour water', (w) => (added = addPouredBodies(w, result.lakes, kind, MAX_WATER_BODIES)));
         if (!added) {
-          ctx.status(`The ${kind} runs off to the map's edge: no hollow on its way to fill`);
+          ctx.status(`The ${kind} runs off to the map's edge: no hollow on its way deep enough for a lake`);
           return;
         }
         editor.execute(command);

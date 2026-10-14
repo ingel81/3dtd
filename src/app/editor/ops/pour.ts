@@ -12,6 +12,11 @@
  * each flat it crosses is a hollow (where the ground lies below it) and
  * the lowest sample next to the flat is where the water runs on.
  *
+ * Only a hollow that makes a lake fills (`holdsLake`): the gentle dips of a
+ * rolling plain (on the meadow's relief up to about 2 m deep but some
+ * hundred metres wide, half a metre deep on average) the water runs
+ * across, so a crater's overflow does not turn the plain below into a lake.
+ *
  * On a 1025² map the flood takes a few hundred ms: the editor runs it in a
  * worker (`pourOffThread`, `workers/pour.worker.ts`).
  */
@@ -25,6 +30,8 @@ export interface PourInput {
   starts: number[];
   /** 1 where a body already stands (its mask set, the ground below its level): the water runs into it */
   wet: Uint8Array;
+  /** Metres between samples */
+  cellSize: number;
 }
 
 /** A hollow the water filled */
@@ -45,7 +52,11 @@ export interface PourResult {
 }
 
 /** A hollow shallower than this (metres from its floor to where it overflows) the water just runs through */
-export const POUR_MIN_DEPTH = 0.5;
+export const POUR_MIN_DEPTH = 1;
+/** A hollow this deep on average (metres below where it overflows) holds a lake however wide it is */
+export const POUR_MIN_MEAN_DEPTH = 1;
+/** Or this deep per metre of its width (the root of its area): a crater, a pit, a narrow valley */
+export const POUR_MIN_DEPTH_PER_WIDTH = 0.06;
 /** Fewer samples than this make no lake */
 const MIN_CELLS = 4;
 /** Hollows one pour fills at most (each becomes a body, a map carries 64) */
@@ -89,6 +100,16 @@ export function filledHeights(heights: Float32Array, columns: number, rows: numb
     }
   }
   return filled;
+}
+
+/**
+ * Whether a hollow holds a lake: deep enough, and either deep on average or
+ * deep for its width. The dips of a rolling plain (meadow to hills relief)
+ * stay below 0.6 m on average and 0.05 per metre of width; a crater 20 m
+ * across and 2 m deep has 1 m and 0.1.
+ */
+export function holdsLake(depth: number, meanDepth: number, area: number): boolean {
+  return depth >= POUR_MIN_DEPTH && (meanDepth >= POUR_MIN_MEAN_DEPTH || depth >= POUR_MIN_DEPTH_PER_WIDTH * Math.sqrt(area));
 }
 
 /** Where water poured at `input.starts` stands: the hollows on its way down, each filled to where it overflows */
@@ -137,7 +158,9 @@ export function pourWater(input: PourInput): PourResult {
         lakeOf[at] = id;
         let floor = h[at];
         let lowest = at;
+        let below = 0;
         for (const k of lake) {
+          below += level - h[k];
           if (h[k] < floor) {
             floor = h[k];
             lowest = k;
@@ -150,7 +173,8 @@ export function pourWater(input: PourInput): PourResult {
           }
         }
         // The lowest sample names the hollow: two starts that reach the same one fill it once
-        if (lake.length >= MIN_CELLS && level - floor >= POUR_MIN_DEPTH && !found.has(lowest)) {
+        const area = lake.length * input.cellSize * input.cellSize;
+        if (lake.length >= MIN_CELLS && holdsLake(level - floor, below / lake.length, area) && !found.has(lowest)) {
           found.add(lowest);
           if (lakes.length < POUR_MAX_LAKES) lakes.push({ level, floor, cells: Int32Array.from(lake) });
           else skipped++;
