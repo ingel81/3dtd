@@ -9,7 +9,7 @@
 //   node tools/showreel/run.mjs --list                                             the scenes and their lengths
 //   node tools/showreel/run.mjs --displays                                         the displays Windows has
 //
-// Options: --display DISPLAY2 (default: the primary), --output-idx N (ddagrab output, default: found by a test
+// Options: --display DISPLAY2 (default: the primary), --quality ultra|high (default ultra), --output-idx N (ddagrab output, default: found by a test
 // colour), --dpr 1 (device scale factor), --cq 18, --chroma 420|444, --headless WxH (development: no window,
 // no recording; --shots N takes a picture every N seconds), --playwright <dir> (where playwright-core lies, default e2e/node_modules of this checkout or
 // of the main checkout).
@@ -136,12 +136,15 @@ async function main() {
     '--use-angle=d3d11',
   ];
   const dpr = option('dpr', '');
-  if (dpr) args.push(`--force-device-scale-factor=${dpr}`);
-  if (display) args.push(`--window-position=${display.x},${display.y}`, `--window-size=${display.width},${display.height}`, '--kiosk');
+  if (dpr && !headless) args.push(`--force-device-scale-factor=${dpr}`);
+  // Kiosk fills the display the window opens on; no size given, since Chrome reads it in scaled pixels (125 %)
+  if (display) args.push(`--window-position=${display.x},${display.y}`, '--kiosk');
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chrome',
     headless: !!headless,
     viewport: headless ? { width: hw, height: hh } : null,
+    // Headless stands in for the display's scaling with --dpr
+    ...(headless && dpr ? { deviceScaleFactor: Number(dpr) } : {}),
     ignoreDefaultArgs: ['--enable-automation'],
     args,
   });
@@ -151,11 +154,15 @@ async function main() {
     problems.push(e.message);
     console.log(`  page error: ${e.message.slice(0, 300)}`);
   });
-  await context.addInitScript(() => {
+  // A quality level, not Auto: Auto plays custom maps a level lower (render-quality.ts resolveLevel). High and
+  // Ultra cap the pixel ratio at 1.5 and 2 on custom maps, so 125 % Windows scaling renders at 1.25
+  const quality = option('quality', 'ultra');
+  await context.addInitScript((level) => {
+    localStorage.setItem('td_render_quality_v1', JSON.stringify({ setting: level, auto: null }));
     localStorage.setItem('td_seen_version', '9999.0.0');
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
     localStorage.setItem('td_globe_quality_v1', '"off"');
-  });
+  }, quality);
 
   let capture = null;
   if (!rehearse) {
@@ -194,6 +201,19 @@ async function main() {
     segments.push(s);
   };
 
+  /** What the page draws at: CSS size, pixel ratio and the largest canvas's drawing buffer and its CSS size */
+  const logView = async () => {
+    const view = await page.evaluate(() => {
+      const canvas = [...document.querySelectorAll('canvas')].sort((a, b) => b.width * b.height - a.width * a.height)[0];
+      return {
+        css: `${innerWidth}x${innerHeight}`,
+        dpr: devicePixelRatio,
+        buffer: canvas ? `${canvas.width}x${canvas.height} for ${canvas.clientWidth}x${canvas.clientHeight} css` : 'no canvas',
+      };
+    });
+    console.log(`  view ${view.css} css, dpr ${view.dpr}, drawing buffer ${view.buffer}`);
+  };
+
   /** A page of the programme: load it, wait for its map, start its sound, flash */
   const openPage = async (target) => {
     await closeSegment();
@@ -204,6 +224,7 @@ async function main() {
     const kind = await page.evaluate(() => window.__showreel.ready(180));
     // Let the first frames settle (shaders, the intro's first moves)
     await page.waitForTimeout(1500);
+    await logView();
     segment = { url, kind };
     if (!rehearse) {
       segment.audio = await page.evaluate(() => window.__showreel.audio.start());
@@ -239,6 +260,7 @@ async function main() {
       })();
       const run = await playing.finally(() => (done = true));
       await pictures;
+      await logView();
       marks.push(...run.map((m) => ({ ...m, segment: segments.length })));
       const list = await page.evaluate(() => window.__showreel.opened.slice());
       if (list.length) opened = list[list.length - 1];

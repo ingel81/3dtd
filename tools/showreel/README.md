@@ -32,7 +32,7 @@ node tools/showreel/run.mjs --out <dir>                                # the who
 node tools/showreel/run.mjs --from editor-new --headless 1600x900 --shots 3 --url http://localhost:4307   # development
 ```
 
-Options: `--display DISPLAY2` (default the primary), `--output-idx N` (skips the colour test), `--dpr 1`,
+Options: `--display DISPLAY2` (default the primary), `--quality ultra|high` (default ultra; Auto would play custom maps a level lower), `--output-idx N` (skips the colour test), `--dpr 1` (headless: the scaling to stand in for, e.g. `--headless 2048x1152 --dpr 1.25`),
 `--cq 18`, `--chroma 444`, `--from <scene>`, `--scene a,b`.
 
 A scene with `page` loads it (`opened`: the address the editor's Test map asked for, opened in the same window);
