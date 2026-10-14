@@ -44,3 +44,12 @@ describe('EditorOverlay routes', () => {
     overlay.dispose();
   });
 });
+
+describe('EditorOverlay height lines', () => {
+  /** 14bf17ea put the hover ring in the place of the height lines in the overlay's group: they never showed */
+  it('shows the height lines in the scene', () => {
+    const overlay = new EditorOverlay(() => 0);
+    overlay.setContours({ minor: new Float32Array([0, 0, 5, 10, 0, 5]), major: new Float32Array(0) });
+    expect(overlay.group.getObjectsByProperty('type', 'LineSegments')).toHaveLength(1);
+  });
+});

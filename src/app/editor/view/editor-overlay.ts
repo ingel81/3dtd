@@ -157,7 +157,7 @@ export class EditorOverlay {
     this.measure.frustumCulled = false;
     this.measure.visible = false;
     this.hover.visible = false;
-    this.group.add(this.hover,  this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview, this.transform.group, this.riverHandles);
+    this.group.add(this.hover, this.contours, this.grid, this.measure, this.guides, this.markers, this.routes, this.nodes, this.selection, this.brush, this.brushInner, this.gizmo, this.draft, this.preview, this.transform.group, this.riverHandles);
   }
 
   /** Handles on the points of the map's rivers (the water tool's river mode); null hides them */
