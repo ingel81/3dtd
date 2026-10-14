@@ -102,7 +102,7 @@ export function buildMoonBase(): CustomMapDocument {
   }
   k.scatter(['moon-boulder', 'moon-rock', 'moon-rocks-small'], [{ x: -200, y: 80 }, { x: 100, y: 180 }, { x: -150, y: -200 }, { x: 220, y: -150 }, { x: 0, y: -120 }], { radius: 60, strength: 0.7 }, { density: 2.5, minDistance: 5, scaleMin: 0.6, scaleMax: 1.6 });
 
-  k.trimLayers(5);
+  k.trimLayers(7);
   // Hard light from a low sun: long shadows show every crater, the sky stays black
   k.environment({ biome: 'moon', sky: 'day', sunAzimuth: 120, sunElevation: 22, fogDensity: 0, tint: '#f2f4ff' });
   return k.finish();

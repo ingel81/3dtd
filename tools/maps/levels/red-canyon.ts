@@ -141,8 +141,8 @@ export function buildRedCanyon(): CustomMapDocument {
   }
   k.scatter(['bones', 'bone-pile', 'cactus', 'tree-dead-pale'], [{ x: -120, y: -100 }, { x: 60, y: 60 }, { x: -40, y: 160 }], { radius: 50, strength: 0.6 }, { density: 0.6, minDistance: 12 });
 
-  // Five ground materials load faster than eight; the least used go
-  k.trimLayers(5);
+  // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
+  k.trimLayers(7);
   k.environment({ biome: 'desert', sky: 'day', sunAzimuth: 170, sunElevation: 68, fogDensity: 0.0006, tint: '#fff0dc' });
   return k.finish();
 }

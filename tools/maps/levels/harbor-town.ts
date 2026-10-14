@@ -90,7 +90,7 @@ export function buildHarborTown(): CustomMapDocument {
   for (const [x, y, a] of [[120, -230, 'buoy-red'], [70, -240, 'buoy-green'], [-60, -230, 'buoy-red']] as const) k.place(a, x, y);
   k.scatter(['pebbles-scatter', 'rock-coast'], { x: -235, y: shore - 10 }, { radius: 24, strength: 0.7 }, { density: 2, minDistance: 4 });
 
-  k.trimLayers(6);
+  k.trimLayers(7);
   // Dusk over the bay: the lamps come on in the streets, the sea catches the last light
   k.environment({ biome: 'city', sky: 'dusk', sunAzimuth: 250, sunElevation: 20, fogDensity: 0.0008, tint: '#ffe2c8' });
   return k.finish();

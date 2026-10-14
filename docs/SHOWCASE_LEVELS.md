@@ -170,9 +170,10 @@ Wasser-Bausperre:
 | Ember Crater (`ember-crater`) | 4,2 s | 3,1 s | 611 fps | bestanden, HQ 440,6/500, 19 Tower |
 | Twin Gates (`twin-gates`) | 3,8 s | 3,1 s | 360 fps | bestanden, HQ 150,1/500, 19 Tower |
 
-Kalt liegen die Karten wie das Demo-Tal knapp über 4 s, warm unter 4 s. Bis auf den Archipel haben alle Karten fünf
+Kalt liegen die Karten wie das Demo-Tal knapp über 4 s, warm unter 4 s. Bis auf den Archipel hatten alle Karten fünf
 Bodenschichten statt acht (`kit.trimLayers`, die am wenigsten genutzten gehen; beim Archipel fielen dabei die Strände
-weg). Die Werte streuen auf dem geteilten Rechner stark: ein zweiter Lauf maß Mountain Pass kalt mit 7,9 s, Twin Gates
+weg). Seit E154 sind es sieben, mit Charakter-Materialien (Bergwiese mit Felsen am Bergpass, Waldboden mit Wurzeln und
+Kies mit Laub in Autumn Keep). Die Werte streuen auf dem geteilten Rechner stark: ein zweiter Lauf maß Mountain Pass kalt mit 7,9 s, Twin Gates
 im ersten Lauf warm mit 6,7 s und 120 fps.
 
 ## Weitere vier (E133, 2026-10-12)

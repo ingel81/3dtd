@@ -110,5 +110,11 @@
   {"id": "hell-ground", "name": "Scorched red earth", "category": "volcanic", "source": "polyhaven", "asset": "excavated_soil_wall", "scale": 5, "tags": ["hell"], "tint": [1.0, 0.55, 0.42], "shade": 0.4},
   {"id": "brimstone", "name": "Brimstone", "category": "volcanic", "source": "ambientcg", "asset": "Ground054", "scale": 4, "tags": ["hell", "volcanic"], "desaturate": 0.3, "tint": [1.05, 0.95, 0.45], "shade": 0.5},
   {"id": "scree", "name": "Scree", "category": "rock", "source": "polyhaven", "asset": "rocky_gravel", "scale": 4, "tags": ["mountain", "arctic"], "desaturate": 0.85},
-  {"id": "salt-crust", "name": "Salt crust", "category": "sand", "source": "polyhaven", "asset": "mud_cracked_dry_riverbed_002", "scale": 5, "tags": ["desert"], "desaturate": 0.9, "tint": [1.6, 1.58, 1.52]}
+  {"id": "salt-crust", "name": "Salt crust", "category": "sand", "source": "polyhaven", "asset": "mud_cracked_dry_riverbed_002", "scale": 5, "tags": ["desert"], "desaturate": 0.9, "tint": [1.6, 1.58, 1.52]},
+  {"id": "meadow-earthy", "name": "Meadow with bare patches", "category": "grass", "source": "polyhaven", "asset": "grass_ground", "scale": 4, "tags": ["temperate", "village"]},
+  {"id": "alpine-meadow-rocks", "name": "Alpine meadow with rocks", "category": "grass", "source": "polyhaven", "asset": "aerial_grass_rock", "scale": 8, "tags": ["mountain"]},
+  {"id": "forest-roots", "name": "Forest floor with roots", "category": "forest", "source": "polyhaven", "asset": "roots", "scale": 3, "tags": ["temperate", "autumn", "swamp"]},
+  {"id": "leaf-gravel", "name": "Gravel with fallen leaves", "category": "forest", "source": "polyhaven", "asset": "leaf_scattered_gravel", "scale": 3, "tags": ["autumn", "castle"]},
+  {"id": "desert-gravel", "name": "Sandy gravel", "category": "sand", "source": "polyhaven", "asset": "sandy_gravel_02", "scale": 4, "tags": ["desert", "mars"]},
+  {"id": "rocky-terrain", "name": "Rocky terrain", "category": "rock", "source": "polyhaven", "asset": "rocky_terrain_02", "scale": 8, "tags": ["mountain", "desert"]}
 ]

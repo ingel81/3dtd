@@ -16,7 +16,7 @@ export function buildAutumnKeep(): CustomMapDocument {
     base: 'grass',
     seed: 3303,
   });
-  for (const m of ['grass', 'leaves-autumn', 'forest-floor', 'grass-withered', 'leaves-scattered', 'dirt', 'cobblestone-mossy', 'rocky-ground']) k.layer(m);
+  for (const m of ['grass', 'leaves-autumn', 'forest-floor', 'grass-withered', 'leaves-scattered', 'forest-roots', 'cobblestone-mossy', 'leaf-gravel']) k.layer(m);
   k.cliffs('rock-mossy', 38);
 
   // ---- Ground: rolling hills, the castle hill with a level top, hollows for the fog
@@ -69,6 +69,9 @@ export function buildAutumnKeep(): CustomMapDocument {
   k.paint('leaves-autumn', [{ x: 200, y: -150 }, { x: 200, y: 100 }, { x: 60, y: 220 }], { radius: 70, falloff: 1 }, 0.5);
   k.paint('grass-withered', [{ x: -60, y: -60 }, { x: 60, y: -60 }], { radius: 50, falloff: 1 }, 0.15);
   k.paint('cobblestone-mossy', c, { radius: 30, falloff: 0.7 }, 0.6);
+  // Roots under the old trees at the wood's edge, leaves blown onto the gravel below the castle
+  for (const at of [{ x: -200, y: -150 }, { x: -210, y: 20 }, { x: 200, y: -150 }, { x: 210, y: 20 }]) k.paint('forest-roots', at, { radius: 45, falloff: 1 }, 0.45);
+  for (const at of [{ x: -40, y: -70 }, { x: 40, y: -70 }]) k.paint('leaf-gravel', at, { radius: 16, falloff: 1 }, 0.25);
   k.paint('leaves-scattered', green, { radius: 22, falloff: 0.8 }, 0.35);
   k.scatter(['branches', 'mushrooms'], [{ x: -160, y: -60 }, { x: -60, y: -90 }, { x: 60, y: -120 }, { x: 140, y: -20 }, { x: -120, y: 50 }, { x: 110, y: 60 }], { radius: 45, strength: 1 }, { density: 4, minDistance: 3 });
   // Lone trees on the green and the slopes
@@ -157,8 +160,8 @@ export function buildAutumnKeep(): CustomMapDocument {
   for (const [x, y] of [[-130, -150], [140, -160], [-170, 110], [170, 120]] as const) k.place('fx-fog', x, y, { scale: 0.7 });
   for (const [x, y] of [[-150, -100], [150, -90], [-120, 150], [130, 150], [0, -120]] as const) k.place('fx-leaves', x, y, { scale: 1.3 });
 
-  // Five ground materials load faster than eight; the least used go
-  k.trimLayers(5);
+  // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
+  k.trimLayers(7);
   k.environment({ biome: 'temperate', sky: 'day', sunAzimuth: 115, sunElevation: 20, fogDensity: 0.0007, tint: '#ffe6c4' });
   return k.finish();
 }

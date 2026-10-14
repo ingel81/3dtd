@@ -113,8 +113,8 @@ export function buildEmberCrater(): CustomMapDocument {
   k.scatter(['lava-rock', 'lava-rock', 'lava-rock-large', 'rock-volcanic', 'obsidian-slabs'], ring(80), { radius: 22, strength: 0.8 }, { density: 1.6, minDistance: 8 });
   k.scatter(['rock-volcanic', 'rock-pumice', 'stones-volcanic-scatter'], ring(120), { radius: 25, strength: 0.8 }, { density: 2, minDistance: 6 });
 
-  // Five ground materials load faster than eight; the least used go
-  k.trimLayers(5);
+  // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
+  k.trimLayers(7);
   // Dusk over ash-dark ground: the lava and the rocks glow, and the slopes keep their shape in the low red light
   k.environment({ biome: 'hell', sky: 'dusk', sunAzimuth: 250, sunElevation: 22, fogDensity: 0.0006, tint: '#ffe2cc' });
   return k.finish();

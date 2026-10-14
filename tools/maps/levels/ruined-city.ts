@@ -111,7 +111,7 @@ export function buildRuinedCity(): CustomMapDocument {
   // The ruins still take hits: shots wear the standing blocks down until they fall (TODO E131)
   k.gameplay({ destructible: true });
 
-  k.trimLayers(5);
+  k.trimLayers(7);
   // Overcast, ash in the air
   k.environment({ biome: 'apocalypse', sky: 'overcast', sunAzimuth: 200, sunElevation: 35, fogDensity: 0.0016, tint: '#e6dccb', weather: 'fog', weatherStrength: 0.3 });
   return k.finish();

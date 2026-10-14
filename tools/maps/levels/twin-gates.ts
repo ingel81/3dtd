@@ -123,8 +123,8 @@ export function buildTwinGates(): CustomMapDocument {
 
   // Four lanes split the first waves four ways: a little more money per lane to open with
   k.gameplay({ startCredits: 250 });
-  // Five ground materials load faster than eight; the least used go
-  k.trimLayers(5);
+  // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
+  k.trimLayers(7);
   k.environment({ biome: 'temperate', sky: 'day', sunAzimuth: 255, sunElevation: 20, fogDensity: 0.0005, tint: '#ffd6aa' });
   return k.finish();
 }

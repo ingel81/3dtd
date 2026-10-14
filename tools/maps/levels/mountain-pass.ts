@@ -19,7 +19,7 @@ export function buildMountainPass(): CustomMapDocument {
   });
 
   // Ground layers first, so every brush paints into this palette
-  for (const m of ['grass', 'grass-lush', 'forest-ground', 'rocky-ground', 'scree', 'snow-fresh', 'gravel', 'cobblestone']) k.layer(m);
+  for (const m of ['grass', 'grass-lush', 'forest-ground', 'rocky-ground', 'scree', 'snow-fresh', 'alpine-meadow-rocks', 'cobblestone']) k.layer(m);
   k.cliffs('limestone', 50);
 
   // ---- Ground: the valley floor in the south, a steep face to the pass, ridges and two peaks
@@ -100,6 +100,9 @@ export function buildMountainPass(): CustomMapDocument {
   k.paint('scree', [{ x: -250, y: 70 }, { x: -150, y: 95 }, { x: -95, y: 140 }], { radius: 30, falloff: 1 }, 0.6);
   k.paint('scree', [{ x: 245, y: 60 }, { x: 150, y: 90 }, { x: 95, y: 140 }], { radius: 30, falloff: 1 }, 0.6);
   k.paint('cobblestone', pass, { radius: 26, falloff: 0.8 }, 0.7);
+  // Alpine meadow strewn with rocks on the high pastures below the peaks
+  k.paint('alpine-meadow-rocks', [{ x: -210, y: 30 }, { x: -130, y: 80 }, { x: -70, y: 150 }], { radius: 55, falloff: 1 }, 0.5);
+  k.paint('alpine-meadow-rocks', [{ x: 210, y: 25 }, { x: 140, y: 75 }, { x: 80, y: 150 }], { radius: 55, falloff: 1 }, 0.5);
   // Snow on the summits, scree fans at the feet of the faces
   for (const peak of [{ x: -175, y: 178 }, { x: 182, y: 172 }]) {
     k.paint('snow-fresh', peak, { radius: 70, falloff: 0.6 }, 1);
@@ -182,8 +185,8 @@ export function buildMountainPass(): CustomMapDocument {
   k.plateau({ x: 82, y: -105 }, { radius: 11, falloff: 0.3 }, k.h(82, -105));
   k.plateau({ x: -82, y: -32 }, { radius: 11, falloff: 0.3 }, k.h(-82, -32));
 
-  // Five ground materials load faster than eight; the least used go
-  k.trimLayers(5);
+  // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
+  k.trimLayers(7);
   k.environment({ biome: 'mountain', sky: 'day', sunAzimuth: 235, sunElevation: 28, fogDensity: 0.0005, tint: '#fff4e6' });
   return k.finish();
 }

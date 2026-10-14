@@ -319,7 +319,8 @@ Schema (Version 1, alle neuen Felder optional): Materialien mit `tags`, `emissiv
 `volcanic`, `wood`; Objekte mit `tags`, `effects`, `light`, `lod`, Kategorien auch `structure` und `fx`. Den Bestand
 baut der Asset-Worker aus; Stand beim Schreiben:
 
-- **111 Bodenmaterialien** (Poly Haven, ambientCG), je `color.jpg`, `normal.jpg` (OpenGL), `arh.jpg` (AO, Rauheit,
+- **117 Bodenmaterialien** (Poly Haven, ambientCG; seit E154 dazu Charakter-Materialien: Wiese mit offenen Stellen,
+  Bergwiese mit Felsen, Waldboden mit Wurzeln, Kies mit Laub, sandiger Kies, Felsgelände), je `color.jpg`, `normal.jpg` (OpenGL), `arh.jpg` (AO, Rauheit,
   Höhe), 1024 px; Lava mit `emissive` (Risse tief im Höhenkanal) und `flow`, zusätzlich `emissive.jpg`. Gras- und
   Waldböden, Herbstlaub, Sumpf und Schlamm, Acker, Sande, rissige Wüstenerde, Salzkruste, Klippen aus Granit,
   Sandstein, Basalt und Kalk, Geröll, Vulkangestein, Obsidian, Asche, Schwefel, Lava, Schnee, Eis, Packeis, Gletschereis,

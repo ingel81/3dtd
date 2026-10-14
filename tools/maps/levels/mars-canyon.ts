@@ -120,7 +120,7 @@ export function buildMarsCanyon(): CustomMapDocument {
     if (k.free(x, y, 8)) k.place(a, x, y, { scale: sc, rotation: x * 0.01 });
   }
 
-  k.trimLayers(5);
+  k.trimLayers(7);
   // Butterscotch sky, the sun low in the dust
   k.environment({ biome: 'mars', sky: 'day', sunAzimuth: 230, sunElevation: 30, fogDensity: 0.0012, tint: '#ffd7b5' });
   return k.finish();

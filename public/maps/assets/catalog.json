@@ -2303,6 +2303,108 @@
         "desert"
       ],
       "source": "https://polyhaven.com/a/mud_cracked_dry_riverbed_002"
+    },
+    {
+      "id": "meadow-earthy",
+      "name": "Meadow with bare patches",
+      "category": "grass",
+      "files": {
+        "color": "materials/meadow-earthy/color.jpg",
+        "normal": "materials/meadow-earthy/normal.jpg",
+        "arh": "materials/meadow-earthy/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#6e603e",
+      "tags": [
+        "temperate",
+        "village"
+      ],
+      "source": "https://polyhaven.com/a/grass_ground"
+    },
+    {
+      "id": "alpine-meadow-rocks",
+      "name": "Alpine meadow with rocks",
+      "category": "grass",
+      "files": {
+        "color": "materials/alpine-meadow-rocks/color.jpg",
+        "normal": "materials/alpine-meadow-rocks/normal.jpg",
+        "arh": "materials/alpine-meadow-rocks/arh.jpg"
+      },
+      "scale": 8,
+      "average": "#726125",
+      "tags": [
+        "mountain"
+      ],
+      "source": "https://polyhaven.com/a/aerial_grass_rock"
+    },
+    {
+      "id": "forest-roots",
+      "name": "Forest floor with roots",
+      "category": "forest",
+      "files": {
+        "color": "materials/forest-roots/color.jpg",
+        "normal": "materials/forest-roots/normal.jpg",
+        "arh": "materials/forest-roots/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#735f44",
+      "tags": [
+        "temperate",
+        "autumn",
+        "swamp"
+      ],
+      "source": "https://polyhaven.com/a/roots"
+    },
+    {
+      "id": "leaf-gravel",
+      "name": "Gravel with fallen leaves",
+      "category": "forest",
+      "files": {
+        "color": "materials/leaf-gravel/color.jpg",
+        "normal": "materials/leaf-gravel/normal.jpg",
+        "arh": "materials/leaf-gravel/arh.jpg"
+      },
+      "scale": 3,
+      "average": "#4e4034",
+      "tags": [
+        "autumn",
+        "castle"
+      ],
+      "source": "https://polyhaven.com/a/leaf_scattered_gravel"
+    },
+    {
+      "id": "desert-gravel",
+      "name": "Sandy gravel",
+      "category": "sand",
+      "files": {
+        "color": "materials/desert-gravel/color.jpg",
+        "normal": "materials/desert-gravel/normal.jpg",
+        "arh": "materials/desert-gravel/arh.jpg"
+      },
+      "scale": 4,
+      "average": "#9a7352",
+      "tags": [
+        "desert",
+        "mars"
+      ],
+      "source": "https://polyhaven.com/a/sandy_gravel_02"
+    },
+    {
+      "id": "rocky-terrain",
+      "name": "Rocky terrain",
+      "category": "rock",
+      "files": {
+        "color": "materials/rocky-terrain/color.jpg",
+        "normal": "materials/rocky-terrain/normal.jpg",
+        "arh": "materials/rocky-terrain/arh.jpg"
+      },
+      "scale": 8,
+      "average": "#504e1c",
+      "tags": [
+        "mountain",
+        "desert"
+      ],
+      "source": "https://polyhaven.com/a/rocky_terrain_02"
     }
   ],
   "objects": [

@@ -122,6 +122,12 @@ daraus prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, 
 | brimstone | https://ambientcg.com/view?id=Ground054 |
 | scree | https://polyhaven.com/a/rocky_gravel |
 | salt-crust | https://polyhaven.com/a/mud_cracked_dry_riverbed_002 |
+| meadow-earthy | https://polyhaven.com/a/grass_ground |
+| alpine-meadow-rocks | https://polyhaven.com/a/aerial_grass_rock |
+| forest-roots | https://polyhaven.com/a/roots |
+| leaf-gravel | https://polyhaven.com/a/leaf_scattered_gravel |
+| desert-gravel | https://polyhaven.com/a/sandy_gravel_02 |
+| rocky-terrain | https://polyhaven.com/a/rocky_terrain_02 |
 
 ## Objekte (`models/<id>.glb`)
 

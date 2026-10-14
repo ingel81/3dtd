@@ -137,8 +137,8 @@ export function buildWitchMarsh(): CustomMapDocument {
   // Campfires on the big islands, warm light the enemies walk past
   for (const [x, y] of [[50, 5], [-20, 20], [120, -150], [-225, 0], [-40, 150]] as const) if (k.free(x, y, 2)) k.place('campfire', x, y);
 
-  // Five ground materials load faster than eight; the least used go
-  k.trimLayers(5);
+  // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
+  k.trimLayers(7);
   // Night under a bright blue moon: the swamp look lays its haze flat over the water, the moonlight lets walks,
   // islands and enemies read from the game camera, lanterns, fires and fireflies stay the warm points
   k.environment({ biome: 'swamp', sky: 'night', sunAzimuth: 210, sunElevation: 50, fogDensity: 0.0006, tint: '#ffffff', moonlight: 1 });
