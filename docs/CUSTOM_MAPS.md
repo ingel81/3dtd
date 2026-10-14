@@ -124,11 +124,14 @@ Nebel der Szene wieder her.
 - **Gras** (`grass/grass-field.ts`): 70 000 instanzierte Halme in einer 64-m-Kachel, die zwischen Kamera und Fokus
   mitwandert (jeder Halm hat einen festen Weltort), auf dem Höhenraster, so dicht wie die Grasschichten der Splat-Map
   (nicht auf Wegen, steilem Boden, außerhalb der Karte), mit Wind, zum Kachelrand hin kleiner. Ab 140 m Kameraabstand
-  zum Fokus aus; Ansichtsoption `grass: false`. Was ein Halm von der Karte braucht (Ort, Bodenhöhe, ob er steht,
-  Farbe), rechnet ein kleiner Pass je Halm in zwei Float-Texturen (256 × 391, `prepare`), wenn der Fokus wandert,
-  und in Ruhe alle 8 Frames für Änderungen im Editor; die zehn Vertices eines Halms lesen nur noch zwei Texel.
-  Die Stufe gibt die Zahl der Halme (`grassBlades`, render-quality.ts); unter High sind sie breiter, damit die Wiese
-  geschlossen bleibt, und der Pass rechnet nur die gezeichneten Zeilen (Vorschau `?quality=medium`). Halmsorten aus den Zufallswerten des Halms: meist
+  zum Fokus aus; Ansichtsoption `grass: false`. Jeder Vertex rechnet seinen Halm selbst (Splat, Höhe, Hang, Deckung,
+  Farbe). Die Stufe gibt die Zahl der Halme (`grassBlades`, render-quality.ts); unter High sind sie breiter, damit
+  die Wiese geschlossen bleibt (Vorschau `?quality=medium`). Verworfen (2026-10-14, zweimal): ein Pass, der jeden
+  Halm einmal in Texturen rechnet und die Vertices nur lesen lässt, zuletzt mit Neuberechnung nur bei Fokusbewegung
+  und alle 8 Bilder. Mit SwiftShader als Ersatz für eine schwache GPU (Burg im Herbst, Nahansicht, GPU-Median je
+  Bild, Gras als Unterschied zu einem Build ohne Gras, ein ruhiger Lauf) High 593 ms mit Pass gegen 639 ms ohne,
+  Medium 204 gegen 235 ms: 7 und 13 % weniger, unter den geforderten 15 %, bei einer Streuung zwischen Läufen in
+  derselben Größe; dazu 3,2 MB Ziele und kein Rückfall ohne `EXT_color_buffer_float`. Halmsorten aus den Zufallswerten des Halms: meist
   schlicht, manche kurz und breit, manche hoch mit strohfarbenem Samenstand, wenige blühen weiß, gelb oder violett
   (nur auf grüner Wiese, nur nah)
 - **Schnee und Nässe** (alle Kartenmaterialien, `height-fog.ts`): Schnee liegt auf allem, was nach oben zeigt
