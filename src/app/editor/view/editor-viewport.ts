@@ -38,6 +38,7 @@ import { idle } from './idle';
 import { EditorMapView, mapToScene } from './map-view';
 import { QUALITY_TABLE, pixelRatioFor, readStoredQuality, storedLevelFor, type QualityKnobs } from '../../three-engine/render-quality';
 import { contourLines } from '../ops/contours';
+import { programsReady } from '../../three-engine/programs-ready';
 
 export interface HoverInfo {
   x: number;
@@ -422,7 +423,8 @@ export class EditorViewport {
       r.setRenderTarget(previous);
       this.scene.fog = fog;
     }
-    return Promise.all(jobs);
+    // The view keeps drawing meanwhile, which makes compileAsync settle early (programsReady)
+    return Promise.all(jobs).then(() => programsReady(r));
   }
 
   private async warmOverlay(): Promise<void> {
