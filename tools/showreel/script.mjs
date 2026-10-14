@@ -5,6 +5,11 @@
 // Points: [fx, fy, h] are shares of the map's width and depth around its middle (east, north) with h metres
 // above the ground there; { at: 'hq' | 'center' | 'spawn:0', dx, dy, h } metres from a spot; no h: on the
 // ground. Orbit angles in degrees, 0 = the camera south of the centre looking north, counter-clockwise.
+//
+// UI per step: { do: 'ui', on } the page's UI or a clean frame (game: photo mode; editor: without header, tool
+// column, side column, status bar and minimap), { do: 'legend', on } the editor's mouse legend (off by default),
+// { do: 'markers', on } the game's HQ diamond and name signs. Fly-overs and the finale play clean, editor and
+// game with their full UI.
 
 /** A camera path through keyframes: [eye, look] pairs */
 const path = (dur, keys, opts = {}) => ({ do: 'shot', dur, keys: keys.map((k) => (k === 'current' ? k : { eye: k[0], look: k[1] })), ...opts });
@@ -20,7 +25,7 @@ const settings = (patch) => act('settings', { patch });
 const flyover = (name, map, label, shots) => ({
   name,
   page: `/?world=map:${map}`,
-  steps: [act('photo'), act('routes', { on: false }), act('markers', { on: false }), { do: 'mark', name: label }, ...shots],
+  steps: [{ do: 'ui', on: false }, { do: 'markers', on: false }, act('routes', { on: false }), { do: 'mark', name: label }, ...shots],
 });
 
 export const SCENES = [
@@ -272,9 +277,9 @@ export const SCENES = [
     name: 'finale-dusk',
     page: '/?world=map:mountain-pass',
     steps: [
-      act('photo'),
+      { do: 'ui', on: false },
+      { do: 'markers', on: false },
       act('routes', { on: false }),
-      act('markers', { on: false }),
       act('environment', { patch: { sky: 'dusk', sunElevation: 12, sunAzimuth: 250 } }),
       { do: 'mark', name: 'Finale' },
       orbit(26, { at: 'hq' }, { from: 145, to: 185, radius: 250, radiusTo: 200, height: 95, heightTo: 125, ease: 'smooth', label: 'dusk orbit' }),

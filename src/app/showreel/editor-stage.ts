@@ -151,6 +151,11 @@ export class EditorStage implements Stage {
   async act(name: string, args: Record<string, unknown>): Promise<void> {
     const session = this.session;
     switch (name) {
+      case 'ui':
+        // Without header, tool column, side column, status bar and minimap the view fills the window
+        document.documentElement.classList.toggle('sr-clean', args['on'] === false);
+        await waitSeconds(0.1);
+        return;
       case 'settings':
         // Seeds, brush, river and road options: what the panels would set, at once
         session.patchSettings((s: EditorSettings) => merge(s as unknown as Record<string, unknown>, args['patch'] as Record<string, unknown>));

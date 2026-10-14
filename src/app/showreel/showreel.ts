@@ -21,9 +21,17 @@ html.showreel, html.showreel * { cursor: none !important; }
 html.showreel app-info-overlay,
 html.showreel .td-photo-bar,
 html.showreel [data-test=fps],
-html.showreel span:has(+ [data-test=fps]),
-html.showreel [data-test=legend],
-html.showreel [data-test=legend-open] { display: none !important; }
+html.showreel span:has(+ [data-test=fps]) { display: none !important; }
+/* Script switches (director steps ui, legend): the editor's legend, and the editor without its frame */
+html.showreel.sr-no-legend [data-test=legend],
+html.showreel.sr-no-legend [data-test=legend-open],
+html.showreel.sr-clean .es-top,
+html.showreel.sr-clean .es-tools,
+html.showreel.sr-clean .es-side,
+html.showreel.sr-clean .es-status,
+html.showreel.sr-clean .es-minimap,
+html.showreel.sr-clean .es-trial { display: none !important; }
+html.showreel.sr-clean .es-root { grid-template: 'view' minmax(0, 1fr) / minmax(0, 1fr) !important; }
 `;
 
 /** How long the sync flash stays white: several frames of a 60 fps capture */
@@ -46,16 +54,15 @@ export interface ShowreelApi {
   marks: Mark[];
 }
 
-/** Before the app starts: the sound tap and the page's look; the editor's tour and legend stay away */
+/** Before the app starts: the sound tap and the page's look; the editor's tour stays away, its legend until a script shows it */
 export function installShowreelEarly(): void {
   installAudioTap();
-  document.documentElement.classList.add('showreel');
+  document.documentElement.classList.add('showreel', 'sr-no-legend');
   const style = document.createElement('style');
   style.textContent = STYLE;
   document.head.append(style);
   try {
     localStorage.setItem('3dtd-editor-tour', 'done');
-    localStorage.setItem('3dtd-editor-legend', 'hidden');
   } catch {
     // storage blocked: the tour shows, the script can still skip it
   }

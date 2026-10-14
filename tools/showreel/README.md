@@ -35,6 +35,14 @@ node tools/showreel/run.mjs --from editor-new --headless 1600x900 --shots 3 --ur
 Options: `--display DISPLAY2` (default the primary), `--quality ultra|high` (default ultra; Auto would play custom maps a level lower), `--output-idx N` (skips the colour test), `--dpr 1` (headless: the scaling to stand in for, e.g. `--headless 2048x1152 --dpr 1.25`),
 `--cq 18`, `--chroma 444`, `--from <scene>`, `--scene a,b`.
 
+UI per step: `{ do: 'ui', on }` (game: photo mode; editor: without header, tool column, side column, status bar,
+minimap), `{ do: 'legend', on }` (the editor's mouse legend, off at the start), `{ do: 'markers', on }` (HQ diamond and
+name signs in the game). Fly-overs and finale play clean, editor and game with their UI.
+
+Chrome gets no translate bubble: the feature list (Playwright's own plus `TranslateUI`, since Chrome reads only the
+last `--disable-features`), `--lang=en-US`, and `translate.enabled: false` in the fresh profile; `--check-browser`
+prints the flags and the pref.
+
 A scene with `page` loads it (`opened`: the address the editor's Test map asked for, opened in the same window);
 one without plays on. `--scene` loads the page the scene needs, but editor scenes build on the ones before
 (`--from editor-new` for those).

@@ -212,6 +212,14 @@ export class Director {
           await waitUntil(() => !!document.querySelector(sel), Number(step['timeout'] ?? 30), sel);
         } else await waitUntil(() => stage.ready(), Number(step['timeout'] ?? 60), `the ${stage.kind}`);
         return;
+      case 'ui':
+        // The page's own UI in the picture or a clean frame: the game's photo mode, the editor without its frame
+        return stage.act('ui', { on: step['on'] !== false });
+      case 'legend':
+        document.documentElement.classList.toggle('sr-no-legend', step['on'] === false);
+        return;
+      case 'markers':
+        return stage.kind === 'game' ? stage.act('markers', { on: step['on'] !== false }) : undefined;
       case 'fade':
         return this.fadeTo(Number(step['to'] ?? 0), dur);
       case 'act': {

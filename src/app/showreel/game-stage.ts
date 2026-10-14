@@ -160,6 +160,11 @@ export class GameStage implements Stage {
   async act(name: string, args: Record<string, unknown>): Promise<void> {
     const c = this.component;
     switch (name) {
+      case 'ui':
+        if (args['on'] === false) c.photoMode.enter();
+        else c.photoMode.exit();
+        await waitSeconds(0.1);
+        return;
       case 'photo':
         if (args['on'] === false) c.photoMode.exit();
         else c.photoMode.enter();

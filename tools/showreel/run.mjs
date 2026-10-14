@@ -11,7 +11,7 @@
 //
 // Options: --display DISPLAY2 (default: the primary), --quality ultra|high (default ultra), --output-idx N (ddagrab output, default: found by a test
 // colour), --dpr 1 (device scale factor), --cq 18, --chroma 420|444, --headless WxH (development: no window,
-// no recording; --shots N takes a picture every N seconds), --playwright <dir> (where playwright-core lies, default e2e/node_modules of this checkout or
+// no recording; --shots N takes a picture every N seconds), --check-browser (print Chrome's flags and translate pref), --playwright <dir> (where playwright-core lies, default e2e/node_modules of this checkout or
 // of the main checkout).
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -29,6 +29,20 @@ const flag = (name) => argv.includes(`--${name}`);
 const option = (name, fallback) => {
   const at = argv.indexOf(`--${name}`);
   return at >= 0 && argv[at + 1] && !argv[at + 1].startsWith('--') ? argv[at + 1] : fallback;
+};
+
+/** Playwright's disabled features (playwright-core chromiumSwitches.js) and Chrome's translate UI */
+const DISABLED_FEATURES = [
+  'AcceptCHFrame', 'AvoidUnnecessaryBeforeUnloadCheckSync', 'DestroyProfileOnBrowserClose', 'DialMediaRouteProvider',
+  'GlobalMediaControls', 'HttpsUpgrades', 'LensOverlay', 'MediaRouter', 'PaintHolding', 'ThirdPartyStoragePartitioning',
+  'Translate', 'TranslateUI', 'AutoDeElevate', 'RenderDocument',
+];
+
+/** The fresh profile's preferences: no translation, English only */
+const PREFERENCES = {
+  translate: { enabled: false },
+  translate_blocked_languages: ['en', 'de'],
+  intl: { accept_languages: 'en-US,en', selected_languages: 'en-US,en' },
 };
 
 /** A test colour the page shows while the runner looks for its display */
@@ -122,6 +136,9 @@ async function main() {
   if (display) console.log(`display ${display.name} ${display.width}x${display.height} at ${display.x},${display.y}`);
   const [hw, hh] = headless ? headless.split('x').map(Number) : [0, 0];
   const profile = mkdtempSync(join(tmpdir(), '3dtd-showreel-profile-'));
+  // No "Translate this page?" bubble in the picture: off in the profile as well as by feature flag
+  mkdirSync(join(profile, 'Default'), { recursive: true });
+  writeFileSync(join(profile, 'Default', 'Preferences'), JSON.stringify(PREFERENCES));
   const { chromium } = playwright();
   const args = [
     '--autoplay-policy=no-user-gesture-required',
@@ -130,7 +147,11 @@ async function main() {
     '--disable-background-timer-throttling',
     '--no-first-run',
     '--no-default-browser-check',
-    '--disable-features=Translate,MediaRouter',
+    // Chrome takes the last --disable-features only, and this list comes after Playwright's: it repeats
+    // Playwright's own (chromiumSwitches.js) and adds the translate bubble's
+    `--disable-features=${DISABLED_FEATURES.join(',')}`,
+    '--lang=en-US',
+    '--accept-lang=en-US',
     '--hide-scrollbars',
     '--ignore-gpu-blocklist',
     '--use-angle=d3d11',
@@ -163,6 +184,18 @@ async function main() {
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
     localStorage.setItem('td_globe_quality_v1', '"off"');
   }, quality);
+
+  if (flag('check-browser')) {
+    // The flags Chrome got and the translate pref it holds, without playing anything
+    await page.goto('chrome://version');
+    console.log(`command line: ${await page.locator('#command_line').innerText()}`);
+    await page.goto('chrome://prefs-internals');
+    const prefs = JSON.parse(await page.locator('pre').first().innerText());
+    console.log(`translate: ${JSON.stringify(prefs.translate)}, intl: ${JSON.stringify(prefs.intl)}`);
+    await context.close();
+    rmSync(profile, { recursive: true, force: true });
+    return;
+  }
 
   let capture = null;
   if (!rehearse) {
