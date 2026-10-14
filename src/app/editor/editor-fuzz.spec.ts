@@ -2,8 +2,10 @@
  * Undo and redo under random work: a seeded run of strokes, clicks, drags
  * and whole-map edits through the editor's tools and commands, then every
  * undo has to bring back the first map byte for byte and every redo the
- * last one (contentBytes, what the content hash digests). A failure names
- * the seed and the steps, so it can be played again.
+ * last one (contentBytes, what the content hash digests), and every state
+ * passed on the way, by undo, redo or a jump through the history, has to be
+ * the map as it was when that step was done. A failure names the seed and
+ * the steps, so it can be played again.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -11,7 +13,11 @@ import { createMapDocument } from '../world/custom-map/map-create';
 import { contentBytes } from '../world/custom-map/map-file';
 import type { CustomMapDocument } from '../world/custom-map/map-document';
 import { CatalogIndex, normalizeCatalog } from './catalog/asset-catalog';
-import { EditorDocument, SnapshotCommand } from './model/editor-document';
+import { EditorDocument, ObjectsCommand, SnapshotCommand } from './model/editor-document';
+import { alignedToSlope, variedTint } from './ops/object-ops';
+import { mirrorMap } from './ops/mirror-map';
+import { decodePng, encodePng16, gridToImage, imageToHeights } from './ops/heightmap';
+import { LandscapeStroke } from './ops/landscape/landscape-stroke';
 import { heightAt } from './model/grid';
 import { detailTarget, increaseDetail } from './ops/detail';
 import type { BiomeId } from './ops/landscape/biomes';
@@ -21,7 +27,8 @@ import { LandscapeTool } from './tools/landscape-tool';
 import { MarkerTool } from './tools/marker-tool';
 import { ObjectTool } from './tools/object-tool';
 import { PaintTool, paintCommands } from './tools/paint-tool';
-import { PathTool } from './tools/path-tool';
+import { PathTool, editRoads, setRoads } from './tools/path-tool';
+import { smoothEdge } from './ops/path-graph';
 import { StampTool } from './tools/stamp-tool';
 import { TerrainTool } from './tools/terrain-tool';
 import { defaultSettings, type EditorTool, type LandscapeMode, type TerrainMode, type ToolContext, type ToolPointer } from './tools/tool';
@@ -104,10 +111,15 @@ function drag(tool: EditorTool, ctx: ToolContext, points: readonly [number, numb
 interface Run {
   editor: EditorDocument;
   steps: string[];
+  states: Map<number, { bytes: Uint8Array; step: string }>;
 }
+
+const same = (a: Uint8Array, b: Uint8Array) => Buffer.from(a).equals(Buffer.from(b));
 
 function fuzz(seed: number, count: number): Run {
   const r = rng(seed);
+  /** The map's bytes at each state the run reached, to hold every undo and redo against */
+  const states = new Map<number, { bytes: Uint8Array; step: string }>();
   const doc = createMapDocument({ id: 'fuzz', name: 'Fuzz', width: 256, depth: 256, cellSize: 4, seed, ground: 'noise', relief: 6, now: new Date(0) });
   const editor = new EditorDocument(doc);
   const ctx = context(editor);
@@ -289,6 +301,128 @@ function fuzz(seed: number, count: number): Run {
       );
       steps.push('restore a version');
     },
+    tint: () => {
+      const ids = someObjects();
+      if (!ids.length) return;
+      const base = r() < 0.5 ? null : pick(['#a08060', '#6080a0', '#ffffff']);
+      editor.execute(ObjectsCommand.change('Random tint', editor.doc, ids, (o) => ({ ...o, tint: variedTint(base, 0.6, r) ?? '#ffffff' })));
+      steps.push(`tint ${ids.length}`);
+    },
+    align: () => {
+      const ids = someObjects();
+      if (!ids.length) return;
+      const t = editor.doc.terrain;
+      editor.execute(ObjectsCommand.change('Align to slope', editor.doc, ids, (o) => alignedToSlope(t, o, 2)));
+      steps.push(`align ${ids.length}`);
+    },
+    placeAligned: () => {
+      const o = ctx.settings.objects;
+      o.mode = 'place';
+      o.asset = pick(['rock-large', HOUSE]);
+      o.alignToSlope = true;
+      const [x, y] = point();
+      tools.objects.pointerDown(at(x, y), ctx);
+      tools.objects.pointerUp(at(x, y), ctx);
+      o.alignToSlope = false;
+      steps.push('place aligned');
+    },
+    line: () => {
+      const o = ctx.settings.objects;
+      o.mode = 'line';
+      o.asset = pick(['fence-wood', 'torch', 'tree-oak']);
+      o.line = { spacing: 3 + Math.round(r() * 6), offset: Math.round((r() - 0.5) * 16), bothSides: r() < 0.5, turn: pick(['along', 'across', 'random'] as const), follow: r() < 0.5 ? 'free' : 'roads' };
+      if (o.line.follow === 'roads') {
+        const [x, y] = point();
+        tools.objects.pointerDown(at(x, y), ctx);
+        tools.objects.pointerUp(at(x, y), ctx);
+      } else drag(tools.objects, ctx, path(5));
+      steps.push(`line ${o.line.follow}`);
+    },
+    cliffRocks: () => {
+      ctx.settings.landscape.mode = 'cliffRocks';
+      ctx.settings.landscape.seed = Math.floor(r() * 1e6);
+      ctx.settings.brush.radius = 20 + Math.round(r() * 20);
+      drag(tools.landscape, ctx, path(3));
+      steps.push('cliff rocks');
+    },
+    mirror: () => {
+      const mode = pick<SymmetryMode>(['x', 'y', 'xy', 'rot2']);
+      const from = { x: (r() - 0.5) * 100, y: (r() - 0.5) * 100 };
+      editor.execute(SnapshotCommand.record(editor.doc, 'Mirror the map', ['terrain', 'objects', 'paths', 'spawns'], (d) => void mirrorMap(d, mode, from)));
+      steps.push(`mirror ${mode}`);
+    },
+    heightmap: () => {
+      const t = editor.doc.terrain;
+      const { image, low, high } = gridToImage(t.grid);
+      const back = decodePng(encodePng16({ ...image, values: image.values.map((v, k) => Math.min(1, v * 0.8 + 0.1 * Math.sin(k))) }));
+      const stroke = new LandscapeStroke(editor, 'Import heightmap', 1, catalog);
+      const all = { i0: 0, j0: 0, i1: t.grid.columns - 1, j1: t.grid.rows - 1 };
+      stroke.touchHeights(all);
+      t.grid.heights.set(imageToHeights(back, t.grid.columns, t.grid.rows, low, high + 5));
+      stroke.changed({ heights: all });
+      stroke.finish();
+      steps.push('heightmap');
+    },
+    roadEdit: () => {
+      const paths = editor.doc.paths;
+      if (!paths.nodes.length) return;
+      ctx.settings.paths.mode = 'edit';
+      const n = pick(paths.nodes);
+      const [dx, dy] = [Math.round((r() - 0.5) * 40), Math.round((r() - 0.5) * 40)];
+      const kind = r();
+      if (kind < 0.5) {
+        ctx.pick = () => ({ kind: 'node', id: n.id });
+        drag(tools.paths, ctx, [[n.x, n.y], [n.x + dx / 2, n.y + dy / 2], [n.x + dx, n.y + dy]]);
+        ctx.pick = () => null;
+        steps.push('drag node');
+      } else if (kind < 0.75 && paths.edges.length) {
+        const e = pick(paths.edges);
+        editRoads(editor, catalog, 'Smooth road', (p) => smoothEdge(p, e.id));
+        steps.push('smooth road');
+      } else if (paths.edges.length) {
+        setRoads(editor, catalog, [pick(paths.edges).id], { width: 4 + Math.round(r() * 12) });
+        steps.push('road width');
+      }
+    },
+    roadBox: () => {
+      ctx.settings.paths.mode = 'edit';
+      const [x, y] = point();
+      tools.paths.pointerDown(at(x, y, { clientX: x, clientY: y }), ctx);
+      tools.paths.pointerMove!(at(x + 60, y - 60, { clientX: x + 60, clientY: y - 60 }), ctx);
+      tools.paths.pointerUp(at(x + 60, y - 60, { clientX: x + 60, clientY: y - 60 }), ctx);
+      const sel = editor.selection;
+      if (sel?.kind === 'paths' && sel.nodes.length) {
+        const n = editor.doc.paths.nodes.find((q) => q.id === sel.nodes[0])!;
+        ctx.pick = () => ({ kind: 'node', id: n.id });
+        drag(tools.paths, ctx, [[n.x, n.y], [n.x + 10, n.y + 5]]);
+        ctx.pick = () => null;
+        steps.push(`move ${sel.nodes.length} nodes`);
+      } else steps.push('box nothing');
+    },
+    river: () => {
+      const rivers = editor.doc.terrain.rivers ?? [];
+      if (!rivers.length) return;
+      const k = Math.floor(r() * rivers.length);
+      const river = rivers[k];
+      const q = Math.floor(r() * river.points.length);
+      ctx.settings.water.mode = 'river';
+      const p = river.points[q];
+      drag(tools.water, ctx, [[p.x, p.y], [p.x + (r() - 0.5) * 20, p.y + (r() - 0.5) * 20]]);
+      steps.push('move river point');
+    },
+    jump: () => {
+      const n = editor.historySteps;
+      if (n < 3) return;
+      const to = Math.floor(r() * n);
+      // Every undo on the way has to give the map as it was then
+      while (editor.historySteps > to) {
+        const label = editor.undoLabel;
+        editor.undo();
+        const want = states.get(editor.stateId);
+        if (want && !same(contentBytes(editor.doc), want.bytes)) throw new Error(`seed ${seed}: undo of ${label} does not give the map of step ${want.step}`);
+      }
+      steps.push(`jump to ${to}`);
+    },
     environment: () => {
       editor.execute(
         SnapshotCommand.record(editor.doc, 'Environment', ['environment'], (m) => {
@@ -301,7 +435,8 @@ function fuzz(seed: number, count: number): Run {
   const weights: [string, number][] = [
     ['terrain', 5], ['paint', 3], ['water', 3], ['place', 4], ['scatter', 3], ['eraseObjects', 2], ['gizmo', 4], ['objectKeys', 3],
     ['road', 2], ['marker', 2], ['landscape', 4], ['stamp', 2], ['symmetry', 1], ['resize', 1], ['detail', 1], ['keep', 1],
-    ['restore', 1], ['environment', 1],
+    ['restore', 1], ['environment', 1], ['tint', 2], ['align', 1], ['placeAligned', 1], ['line', 2], ['cliffRocks', 2], ['mirror', 1],
+    ['heightmap', 1], ['roadEdit', 3], ['roadBox', 1], ['river', 2], ['jump', 1],
   ];
   const total = weights.reduce((s, [, w]) => s + w, 0);
   for (let k = 0; k < count; k++) {
@@ -309,25 +444,34 @@ function fuzz(seed: number, count: number): Run {
     const [name] = weights.find(([, w]) => (roll -= w) < 0) ?? weights[0];
     ops[name]();
     editor.select(null);
+    states.set(editor.stateId, { bytes: contentBytes(editor.doc), step: `${k} ${steps.at(-1)}` });
   }
-  return { editor, steps };
+  return { editor, steps, states };
 }
 
 describe('undo and redo under random work', () => {
-  for (const seed of [1, 7, 42]) {
+  for (const seed of [1, 7, 42, 99, 2026]) {
     it(`seed ${seed}: all undos give the first map byte for byte, all redos the last`, () => {
       const start = contentBytes(createMapDocument({ id: 'fuzz', name: 'Fuzz', width: 256, depth: 256, cellSize: 4, seed, ground: 'noise', relief: 6, now: new Date(0) }));
-      const { editor, steps } = fuzz(seed, 70);
+      const { editor, steps, states } = fuzz(seed, 90);
       const where = `seed ${seed}, steps: ${steps.join(', ')}`;
       expect(editor.historySteps, where).toBeGreaterThan(20);
       const end = contentBytes(editor.doc);
       const recorded = editor.historySteps;
       let undos = 0;
-      while (editor.undo()) undos++;
+      while (editor.undo()) {
+        undos++;
+        const want = states.get(editor.stateId);
+        if (want) expect(same(contentBytes(editor.doc), want.bytes), `undo to step ${want.step}, ${where}`).toBe(true);
+      }
       expect(undos, where).toBe(recorded);
-      expect(Buffer.from(contentBytes(editor.doc)).equals(Buffer.from(start)), `undo all, ${where}`).toBe(true);
-      while (editor.redo());
-      expect(Buffer.from(contentBytes(editor.doc)).equals(Buffer.from(end)), `redo all, ${where}`).toBe(true);
+      expect(same(contentBytes(editor.doc), start), `undo all, ${where}`).toBe(true);
+      // Every redo on the way gives the map as it was when the step was done
+      while (editor.redo()) {
+        const want = states.get(editor.stateId);
+        if (want) expect(same(contentBytes(editor.doc), want.bytes), `redo to step ${want.step}, ${where}`).toBe(true);
+      }
+      expect(same(contentBytes(editor.doc), end), `redo all, ${where}`).toBe(true);
     });
   }
 });
