@@ -18,4 +18,9 @@
   <Files "ktx2-worker.js">
     Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'unsafe-hashes' 'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc=' 'sha256-LMY6wYoFV9I4wWzxaq1N/dTpl4iurQktw706UCHK3vM='; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self' blob: data: ws: wss: https://api.cesium.com https://assets.ion.cesium.com https://tile.googleapis.com https://nominatim.openstreetmap.org https://overpass-api.de https://overpass.private.coffee; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
   </Files>
+  # The AI agent's script sandbox (desktop/src/protocol.js, AGENT_WORKER_POLICY; docs/AGENT_MCP.md):
+  # it evaluates the agent's script and may connect to nothing. Only the desktop app uses it.
+  <Files "script-worker.js">
+    Header always set Content-Security-Policy "default-src 'none'; script-src 'unsafe-eval'; connect-src 'none'; worker-src 'none'"
+  </Files>
 </IfModule>

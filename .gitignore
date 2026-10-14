@@ -73,6 +73,8 @@ public/build-info.json
 # Draco-Decoder und Basis-Transcoder: werden beim postinstall aus node_modules kopiert
 public/draco/
 public/basis/
+# Skript-Sandbox des KI-Agenten: postinstall, start und build bauen sie (tools/agent/build-script-worker.mjs)
+public/agent/
 .profiles/
 
 # Hero-Video der Landing Page: 15 MB, wird per FTP hochgeladen statt versioniert

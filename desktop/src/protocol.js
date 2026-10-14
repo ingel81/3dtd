@@ -105,6 +105,15 @@ const TRANSCODER_WORKER_PATH = '/basis/ktx2-worker.js';
 const TRANSCODER_WORKER_POLICY = CONTENT_SECURITY_POLICY.replace("script-src 'self'", "script-src 'self' 'unsafe-eval'");
 
 /**
+ * The AI agent's script sandbox (docs/AGENT_MCP.md, built by
+ * tools/agent/build-script-worker.mjs): it evaluates the agent's script and
+ * may do nothing else. No connection, no script to load, no worker, no
+ * image; only evaluating strings. The page's policy still forbids that.
+ */
+const AGENT_WORKER_PATH = '/agent/script-worker.js';
+const AGENT_WORKER_POLICY = "default-src 'none'; script-src 'unsafe-eval'; connect-src 'none'; worker-src 'none'";
+
+/**
  * Cross-origin isolation (docs/SIM_WORKER.md): the simulation worker shares
  * its tables with the page through SharedArrayBuffer, which needs the page
  * isolated. `credentialless` keeps the tile and map hosts working without a
@@ -184,12 +193,17 @@ function parseRange(header, size) {
   return { start, end };
 }
 
-function isTranscoderWorker(requestUrl) {
+/** The policy of a response: the page's, or a worker's own */
+function policyFor(requestUrl) {
+  let pathname = '';
   try {
-    return new URL(requestUrl).pathname === TRANSCODER_WORKER_PATH;
+    pathname = new URL(requestUrl).pathname;
   } catch {
-    return false;
+    // not a URL: the page's policy
   }
+  if (pathname === TRANSCODER_WORKER_PATH) return TRANSCODER_WORKER_POLICY;
+  if (pathname === AGENT_WORKER_PATH) return AGENT_WORKER_POLICY;
+  return CONTENT_SECURITY_POLICY;
 }
 
 const NOT_FOUND_ERRORS = new Set(['ENOENT', 'ENOTDIR', 'EISDIR']);
@@ -200,7 +214,7 @@ const NOT_FOUND_ERRORS = new Set(['ENOENT', 'ENOTDIR', 'EISDIR']);
  */
 function createAppProtocolHandler({ root, readFile }) {
   return async function handleAppRequest(request) {
-    const policy = isTranscoderWorker(request.url) ? TRANSCODER_WORKER_POLICY : CONTENT_SECURITY_POLICY;
+    const policy = policyFor(request.url);
     const headers = (extra) => ({ 'Content-Security-Policy': policy, ...CROSS_ORIGIN_ISOLATION, ...extra });
     const filePath = resolveFilePath(root, request.url);
     if (!filePath) return new Response(null, { status: 404, headers: headers() });
@@ -250,6 +264,7 @@ module.exports = {
   CONNECT_HOSTS,
   CONTENT_SECURITY_POLICY,
   TRANSCODER_WORKER_POLICY,
+  AGENT_WORKER_POLICY,
   createAppProtocolHandler,
   mimeTypeFor,
   parseRange,

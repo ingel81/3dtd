@@ -6,6 +6,7 @@ const { describe, it } = require('node:test');
 const {
   CONTENT_SECURITY_POLICY,
   TRANSCODER_WORKER_POLICY,
+  AGENT_WORKER_POLICY,
   createAppProtocolHandler,
   mimeTypeFor,
   parseRange,
@@ -105,6 +106,7 @@ describe('createAppProtocolHandler', () => {
     [inRoot('main.js'), Buffer.from('console.log(1)')],
     [inRoot('music.mp3'), Buffer.from('0123456789')],
     [inRoot('basis/ktx2-worker.js'), Buffer.from('new Function()')],
+    [inRoot('agent/script-worker.js'), Buffer.from('new Function()')],
   ]);
   const readFile = async (filePath) => {
     if (files.has(filePath)) return files.get(filePath);
@@ -129,6 +131,17 @@ describe('createAppProtocolHandler', () => {
     assert.equal(TRANSCODER_WORKER_POLICY.replace(" 'unsafe-eval'", ''), CONTENT_SECURITY_POLICY);
     assert.doesNotMatch(CONTENT_SECURITY_POLICY, /'unsafe-eval'/);
     const elsewhere = await handler(request('app://app/assets/basis/ktx2-worker.js?x'));
+    assert.equal(elsewhere.headers.get('content-security-policy'), CONTENT_SECURITY_POLICY);
+  });
+
+  it('lets the agent script sandbox evaluate strings and nothing else', async () => {
+    const worker = await handler(request('app://app/agent/script-worker.js'));
+    assert.equal(worker.headers.get('content-security-policy'), AGENT_WORKER_POLICY);
+    const directives = Object.fromEntries(AGENT_WORKER_POLICY.split(';').map((d) => d.trim().split(' ')).map(([k, ...v]) => [k, v.join(' ')]));
+    assert.deepEqual(directives, { 'default-src': "'none'", 'script-src': "'unsafe-eval'", 'connect-src': "'none'", 'worker-src': "'none'" });
+    // Still isolated, or the isolated page could not start it
+    assert.equal(worker.headers.get('cross-origin-embedder-policy'), 'credentialless');
+    const elsewhere = await handler(request('app://app/assets/agent/script-worker.js'));
     assert.equal(elsewhere.headers.get('content-security-policy'), CONTENT_SECURITY_POLICY);
   });
 

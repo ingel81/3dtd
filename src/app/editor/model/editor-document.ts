@@ -447,6 +447,11 @@ export class SnapshotCommand implements EditCommand {
     this.bytes = estimateBytes(before) + estimateBytes(after);
   }
 
+  /** Copies of `keys` as they are now, for a command made of two captures (an edit that takes a while) */
+  static capture<K extends keyof DocParts>(doc: CustomMapDocument, keys: readonly K[]): Partial<DocParts> {
+    return pick(doc, keys);
+  }
+
   /** Captures `keys` now, runs `edit`, captures again */
   static record<K extends keyof DocParts>(
     doc: CustomMapDocument,
