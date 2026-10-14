@@ -1,6 +1,6 @@
 # Weltprovider, eigene Karten und Level-Editor
 
-**Status:** in Arbeit auf `exp/custom-maps` (Experiment, ab 2026-10-11)
+**Status:** gebaut, seit 0.7.0 auf `main`; eigene Karten im Spiel gesperrt bis zur Freigabe (TODO E134)
 
 ## Ziel
 
