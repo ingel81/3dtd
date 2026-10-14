@@ -133,7 +133,14 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   gezeichnet wird er umgedreht): mäandernd, mit wechselnder Breite und schmalen Enden, Bett mit Sand- und
   Schlammufern (bei Lava verbrannter Fels), Schilf, Steinen, einem Wasserfall über jeder steilen Stufe und einer
   Brücke an jeder Straße, die er kreuzt; Road legt eine Straße ins Wegenetz (Anfang und Ende rasten an Knoten oder
-  Straßen), passt den Boden als Damm oder Einschnitt an, pflastert sie und stellt Laternen oder Zäune an den Rand
+  Straßen), passt den Boden als Damm oder Einschnitt an, pflastert sie und stellt Laternen oder Zäune an den Rand. Was
+  er gebaut hat, merkt sich die Kante (`dress`); zieht man danach einen Knoten, glättet, begradigt oder verbreitert die
+  Straße (Roads, 6), legt der Editor das alles neu an: der alte Streifen wird zurückgebaut (quer zum Lauf gerade vom
+  Land am einen Rand zum anderen, `restoreBand`, wie beim Entfernen eines Flusses), seine Laternen und Zäune gehen,
+  entlang der neuen Linie entstehen Damm, Belag und Ausstattung neu; ein Schritt im Verlauf. Ebenso folgt das Flussbett
+  seinem Lauf: einen Flusspunkt verschieben oder entfernen (Water, 4, Rivers), die Breite ändern oder „Fewer river
+  points“ füllt das alte Bett und gräbt das neue (`moveRiverBed`); Schilf und Steine, die das neue Band nicht erreicht,
+  gehen mit
 
 **Terrain (2).** Raise und Lower (Shift kehrt um), Smooth, Flatten (auf die Höhe am Strichanfang), Level (auf eine
 eingestellte Höhe; Strg+Klick nimmt sie vom Boden), Roughen (Rauschen), Erode (steile Hänge rutschen zu Geröll),
@@ -316,7 +323,8 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   entscheidet selbst). Das Map-Panel (9) zeigt unter „Storage“ den Stand: Kartenordner der Desktop-App, „keeps your
   maps for good“ oder die Warnung samt „Download map file“. Darf der Browser räumen, erinnert nach 30 Minuten Arbeit
   ohne Download ein Banner daran („Download“, „Later“ schiebt es um weitere 30 Minuten)
-- Kartendokument Version 2: optionales Feld `gameplay` (`startCredits`, `hqHealth`, `towers`, `waves` als
+- Kartendokument Version 2: optionales Feld `dress` je Straßenkante (Damm, Belag, Laternen und Zäune des Straßenpinsels
+  mit den Ids ihrer Objekte; nur der Editor liest es); optionales Feld `gameplay` (`startCredits`, `hqHealth`, `towers`, `waves` als
   `{ kind: 'budget' }` oder `{ kind: 'table', table }` in der Form der Table-Source); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2
 - Datei-Menü (drei Punkte): Download map file (`.3dtdmap`), Export top view as picture (PNG, 2048 px an der längeren

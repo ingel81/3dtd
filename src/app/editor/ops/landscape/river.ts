@@ -333,7 +333,14 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
  * were moved): deep in the middle, a soft bank up to the land, as the brush
  * does, the surface and widths from the points. Returns the changed rect.
  */
-export function recarveRiver(stroke: LandscapeStroke, river: MapRiver, depth = DEFAULT_RIVER.depth, bankWidth = DEFAULT_RIVER.bank): GridRect | null {
+export function recarveRiver(
+  stroke: LandscapeStroke,
+  river: MapRiver,
+  depth = DEFAULT_RIVER.depth,
+  bankWidth = DEFAULT_RIVER.bank,
+  /** The land the bed is cut into; the ground before the stroke by default */
+  base: (i: number, j: number) => number = (i, j) => stroke.baseHeight(i, j),
+): GridRect | null {
   const t = stroke.doc.terrain;
   const g = t.grid;
   const pts = river.points;
@@ -366,14 +373,14 @@ export function recarveRiver(stroke: LandscapeStroke, river: MapRiver, depth = D
       const d = hit.dist;
       if (d >= h + bankWidth) continue;
       const k = j * g.columns + i;
-      const base = stroke.baseHeight(i, j);
+      const land = base(i, j);
       const level = at(hit.along, 'height');
       if (d < h) {
         const deep = Math.pow(1 - smooth(0.2, 1, d / h), 1.3);
-        g.heights[k] = Math.min(base, level - 0.25 - depth * deep);
+        g.heights[k] = Math.min(land, level - 0.25 - depth * deep);
       } else {
         const shore = level + 0.35;
-        g.heights[k] = shore + (base - shore) * smooth(0, 1, (d - h) / bankWidth);
+        g.heights[k] = shore + (land - shore) * smooth(0, 1, (d - h) / bankWidth);
       }
     }
   }
@@ -399,7 +406,6 @@ const RIVER_ASSETS = new Set([
  */
 export function removeRiver(stroke: LandscapeStroke, index: number, bankWidth = DEFAULT_RIVER.bank): GridRect | null {
   const t = stroke.doc.terrain;
-  const g = t.grid;
   const river = t.rivers?.[index];
   if (!river) return null;
   stroke.markRivers();
@@ -410,16 +416,55 @@ export function removeRiver(stroke: LandscapeStroke, index: number, bankWidth = 
     stroke.changed({ water: true });
     return null;
   }
+  const reachAt = riverReach(pts, bankWidth);
+  const { heights: rect, splat } = restoreBand(stroke, pts, reachAt);
+
+  // A bridge over the river is a road again
+  for (const edge of stroke.doc.paths.edges) {
+    if (edge.kind !== 'bridge') continue;
+    const line = edgePolyline(stroke.doc.paths, edge);
+    const crosses = line.some((p, k) => k > 0 && pts.some((r, m) => m > 0 && segmentCross(line[k - 1], p, pts[m - 1], r) !== null));
+    if (!crosses) continue;
+    stroke.markPaths();
+    edge.kind = 'road';
+  }
+
+  const gone = stroke.doc.objects
+    .filter((o) => RIVER_ASSETS.has(o.asset))
+    .filter((o) => {
+      const hit = nearestOnPolyline(pts, o);
+      return !!hit && hit.dist < reachAt(hit.along);
+    })
+    .map((o) => o.id);
+  stroke.removeObjects(gone);
+  stroke.changed({ heights: rect, splat, water: true, paths: stroke.pathsMarked || undefined, objects: gone.length ? gone : undefined });
+  return rect;
+}
+
+/** The half width of a river's band at each distance along it: its surface and the banks the brush made */
+function riverReach(pts: readonly MapRiver['points'][number][], bankWidth: number): (along: number) => number {
   const along: number[] = [0];
   for (let k = 1; k < pts.length; k++) along.push(along[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
-  const halfAt = (s: number) => {
+  return (s: number) => {
     let k = 1;
     while (k < pts.length - 1 && along[k] < s) k++;
     const f = Math.min(1, Math.max(0, (s - along[k - 1]) / Math.max(1e-6, along[k] - along[k - 1])));
-    return (pts[k - 1].width + (pts[k].width - pts[k - 1].width) * f) / 2;
+    // The brush's banks reach up to 1.3 times their mean width
+    return (pts[k - 1].width + (pts[k].width - pts[k - 1].width) * f) / 2 + bankWidth * 1.4;
   };
-  // The brush's banks reach up to 1.3 times their mean width
-  const reachAt = (s: number) => halfAt(s) + bankWidth * 1.4;
+}
+
+/**
+ * The ground of a band along a line as if nothing had been built or carved
+ * there: across the band the heights run straight from the land at one edge
+ * to the land at the other (a bed, a levee, an embankment or a cutting
+ * goes), and so does the ground paint, easing into the land over the outer
+ * quarter. `reachAt` is the band's half width at each distance along the
+ * line. Returns the changed height and texel rects.
+ */
+export function restoreBand(stroke: LandscapeStroke, pts: readonly MapPoint[], reachAt: (along: number) => number): { heights: GridRect; splat: GridRect } {
+  const t = stroke.doc.terrain;
+  const g = t.grid;
   /**
    * Where a point lies in the band: the land at its two edges straight across
    * the course, the share of the way from the right edge to the left, and how
@@ -444,7 +489,12 @@ export function removeRiver(stroke: LandscapeStroke, index: number, bankWidth = 
       weight: 1 - smooth(0.75, 1, hit.dist / e),
     };
   };
-  const reach = Math.max(...pts.map((q) => q.width)) / 2 + bankWidth * 1.4;
+  let reach = 0;
+  let along = 0;
+  for (let k = 0; k < pts.length; k++) {
+    if (k) along += Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y);
+    reach = Math.max(reach, reachAt(along));
+  }
   const xs = pts.map((p) => p.x);
   const ys = pts.map((p) => p.y);
   const x0 = Math.min(...xs) - reach + t.width / 2;
@@ -452,7 +502,7 @@ export function removeRiver(stroke: LandscapeStroke, index: number, bankWidth = 
   const y0 = Math.min(...ys) - reach + t.depth / 2;
   const y1 = Math.max(...ys) + reach + t.depth / 2;
 
-  // Heights: worked out on the carved ground first, written after, so no fill reads another
+  // Heights: worked out on the built ground first, written after, so no fill reads another
   const rect: GridRect = {
     i0: Math.max(0, Math.floor(x0 / g.cellSize)),
     i1: Math.min(g.columns - 1, Math.ceil(x1 / g.cellSize)),
@@ -508,27 +558,37 @@ export function removeRiver(stroke: LandscapeStroke, index: number, bankWidth = 
     }
   }
   for (const p of paints) writeWeights(t, p.texel, p.w);
+  return { heights: rect, splat };
+}
 
-  // A bridge over the river is a road again
-  for (const edge of stroke.doc.paths.edges) {
-    if (edge.kind !== 'bridge') continue;
-    const line = edgePolyline(stroke.doc.paths, edge);
-    const crosses = line.some((p, k) => k > 0 && pts.some((r, m) => m > 0 && segmentCross(line[k - 1], p, pts[m - 1], r) !== null));
-    if (!crosses) continue;
-    stroke.markPaths();
-    edge.kind = 'road';
+/**
+ * A river reshaped (points moved, taken out, a new width): the old bed is
+ * filled as if never carved and the new one carved, the reeds, stones and
+ * falls of the old band that the new band does not reach go. `rivers` in
+ * the document already hold the new shape.
+ */
+export function moveRiverBed(stroke: LandscapeStroke, before: MapRiver, after: MapRiver, bankWidth = DEFAULT_RIVER.bank): void {
+  if (before.points.length < 2) {
+    recarveRiver(stroke, after);
+    return;
   }
-
+  const oldReach = riverReach(before.points, bankWidth);
+  const newReach = riverReach(after.points, bankWidth);
   const gone = stroke.doc.objects
     .filter((o) => RIVER_ASSETS.has(o.asset))
     .filter((o) => {
-      const hit = nearestOnPolyline(pts, o);
-      return !!hit && hit.dist < reachAt(hit.along);
+      const was = nearestOnPolyline(before.points, o);
+      const now = nearestOnPolyline(after.points, o);
+      return !!was && was.dist < oldReach(was.along) && !(now && now.dist < newReach(now.along));
     })
     .map((o) => o.id);
   stroke.removeObjects(gone);
-  stroke.changed({ heights: rect, splat, water: true, paths: stroke.pathsMarked || undefined, objects: gone.length ? gone : undefined });
-  return rect;
+  const band = restoreBand(stroke, before.points, oldReach);
+  // The new bed cuts into the land as it is now, the old bed filled
+  const land = stroke.doc.terrain.grid.heights.slice();
+  const columns = stroke.doc.terrain.grid.columns;
+  const carved = after.points.length >= 2 ? recarveRiver(stroke, after, DEFAULT_RIVER.depth, bankWidth, (i, j) => land[j * columns + i]) : null;
+  stroke.changed({ heights: carved ? { i0: Math.min(band.heights.i0, carved.i0), j0: Math.min(band.heights.j0, carved.j0), i1: Math.max(band.heights.i1, carved.i1), j1: Math.max(band.heights.j1, carved.j1) } : band.heights, splat: band.splat, water: true, objects: gone.length ? gone : undefined });
 }
 
 /** Splits every road the river crosses and makes the crossing stretch a bridge; returns how many */

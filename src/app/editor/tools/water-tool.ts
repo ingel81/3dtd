@@ -13,7 +13,7 @@ import type { DocChange, EditCommand, EditorDocument, PatchTarget } from '../mod
 import { nearestSample, sampleRectAround, type GridRect } from '../model/grid';
 import { basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, waterBody, waterMaskDab } from '../ops/water-ops';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
-import { removeRiver } from '../ops/landscape/river';
+import { moveRiverBed, removeRiver } from '../ops/landscape/river';
 import { insertPoint, movePoint, nearestRiverPoint, nearestRiverSegment, removePoint } from '../ops/river-edit';
 import { symmetryImages } from '../ops/symmetry';
 import { RiverListCommand } from '../model/terrain-commands';
@@ -96,10 +96,10 @@ export class WaterTool implements EditorTool {
   pointerUp(_p: ToolPointer, ctx: ToolContext): void {
     this.end();
     if (this.riverDrag) {
-      const before = this.riverDrag.before;
+      const { before, river } = this.riverDrag;
       this.riverDrag = null;
       const after = ctx.editor.doc.terrain.rivers;
-      if (JSON.stringify(before) !== JSON.stringify(after)) ctx.editor.push(new RiverListCommand('Move river point', before, structuredClone(after)));
+      if (JSON.stringify(before) !== JSON.stringify(after)) relayRiver(ctx.editor, ctx.catalog, 'Move river point', river, before);
     }
   }
 
@@ -109,7 +109,9 @@ export class WaterTool implements EditorTool {
     const editor = ctx.editor;
     const river = editor.doc.terrain.rivers?.[s.river];
     if (s.riverPoint >= 0 && river && river.points.length > 2) {
-      editor.execute(riverEdit(editor, 'Remove river point', (rivers) => rivers[s.river] && removePoint(rivers[s.river], s.riverPoint)));
+      const before = structuredClone(editor.doc.terrain.rivers);
+      removePoint(river, s.riverPoint);
+      relayRiver(editor, ctx.catalog, 'Remove river point', s.river, before);
     } else {
       removeWholeRiver(editor, s.river, ctx.catalog);
     }
@@ -330,6 +332,25 @@ export const waterCommands = {
 export function removeWholeRiver(editor: EditorDocument, index: number, catalog: CatalogIndex): void {
   const stroke = new LandscapeStroke(editor, 'Remove river', 1, catalog);
   removeRiver(stroke, index);
+  stroke.finish();
+}
+
+/**
+ * A river reshaped in place (`rivers` hold the new shape, `before` the old
+ * list): its bed moves with it, the old one filled, the new one carved
+ * (moveRiverBed), as one undo step with the river list
+ */
+export function relayRiver(editor: EditorDocument, catalog: CatalogIndex, label: string, index: number, before: MapRiver[] | undefined): void {
+  const t = editor.doc.terrain;
+  const after = t.rivers;
+  t.rivers = before ? structuredClone(before) : undefined;
+  const stroke = new LandscapeStroke(editor, label, 1, catalog);
+  stroke.markRivers();
+  t.rivers = after;
+  const old = before?.[index];
+  const now = after?.[index];
+  if (old && now) moveRiverBed(stroke, old, now);
+  else stroke.changed({ water: true });
   stroke.finish();
 }
 

@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapPathKind } from '../../../world/custom-map/map-document';
-import { edgePolyline, polylineLength } from '../../ops/path-graph';
+import { edgePolyline, polylineLength, smoothEdge, straightenEdge } from '../../ops/path-graph';
 import { selectedEdges, selectedNodes } from '../../model/editor-document';
-import { flattenRoads, paintRoads, pathCommands } from '../../tools/path-tool';
+import { editRoads, flattenRoads, paintRoads, pathCommands, setRoads } from '../../tools/path-tool';
 import type { PathMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
@@ -133,17 +133,25 @@ export class PathPanelComponent {
   setEdge(patch: { width?: number; kind?: MapPathKind }): void {
     const editor = this.session.editor;
     const ids = this.edge()?.ids ?? this.edgeIds();
-    if (editor && ids.length) this.session.execute(pathCommands.setEdge(editor, ids, patch));
+    if (!editor || !ids.length || this.session.blocked('Changing roads')) return;
+    setRoads(editor, this.session.catalog(), ids, patch);
+    this.session.refresh();
   }
 
   smooth(): void {
     const editor = this.session.editor;
-    if (editor) this.session.execute(pathCommands.smooth(editor, this.edgeIds()));
+    if (!editor || this.session.blocked('Changing roads')) return;
+    const ids = this.edgeIds();
+    editRoads(editor, this.session.catalog(), 'Smooth road', (paths) => ids.forEach((id) => smoothEdge(paths, id)));
+    this.session.refresh();
   }
 
   straighten(): void {
     const editor = this.session.editor;
-    if (editor) this.session.execute(pathCommands.straighten(editor, this.edgeIds()));
+    if (!editor || this.session.blocked('Changing roads')) return;
+    const ids = this.edgeIds();
+    editRoads(editor, this.session.catalog(), 'Straighten road', (paths) => ids.forEach((id) => straightenEdge(paths, id)));
+    this.session.refresh();
   }
 
   remove(): void {

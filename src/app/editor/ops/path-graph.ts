@@ -136,6 +136,9 @@ export function splitEdge(paths: MapPaths, edgeId: string, p: MapPoint): MapPath
   const second = via.slice(hit.segment);
   const tail: MapPathEdge = { id: newId('e', paths.edges), a: node.id, b: edge.b, width: edge.width, kind: edge.kind };
   if (second.length) tail.via = second;
+  // Both halves keep what the road brush built; each takes its own objects away by where they stand (undressEdge)
+  if (edge.dress) tail.dress = structuredClone(edge.dress);
+  if (edge.style) tail.style = edge.style;
   edge.b = node.id;
   if (first.length) edge.via = first;
   else delete edge.via;

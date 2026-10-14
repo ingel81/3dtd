@@ -5,7 +5,7 @@ import type { MapRiver, MapWaterKind } from '../../../world/custom-map/map-docum
 import { recarveRiver } from '../../ops/landscape/river';
 import { LandscapeStroke } from '../../ops/landscape/landscape-stroke';
 import { meanWidth, riverLength, setMeanWidth, simplifyRiver } from '../../ops/river-edit';
-import { removeWholeRiver, riverEdit, waterCommands } from '../../tools/water-tool';
+import { relayRiver, removeWholeRiver, riverEdit, waterCommands } from '../../tools/water-tool';
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
@@ -177,7 +177,7 @@ export class WaterPanelComponent {
   }
 
   setRiverWidth(width: number): void {
-    this.editRiver('River width', (r) => setMeanWidth(r, width));
+    this.reshapeRiver('River width', (r) => setMeanWidth(r, width));
   }
 
   setRiverKind(kind: 'water' | 'lava'): void {
@@ -195,7 +195,7 @@ export class WaterPanelComponent {
   }
 
   simplify(): void {
-    this.editRiver('Fewer river points', (r) => simplifyRiver(r, Math.max(1.5, meanWidth(r) / 6)));
+    this.reshapeRiver('Fewer river points', (r) => simplifyRiver(r, Math.max(1.5, meanWidth(r) / 6)));
     this.session.patchSettings((s) => (s.water.riverPoint = -1));
   }
 
@@ -209,6 +209,18 @@ export class WaterPanelComponent {
       s.water.river = -1;
       s.water.riverPoint = -1;
     });
+  }
+
+  /** A change of the river's course or width: its bed follows (one step) */
+  private reshapeRiver(label: string, edit: (r: MapRiver) => void): void {
+    const editor = this.session.editor;
+    const index = this.river();
+    const river = editor?.doc.terrain.rivers?.[index];
+    if (!editor || !river || this.session.blocked('Changing the river')) return;
+    const before = structuredClone(editor.doc.terrain.rivers);
+    edit(river);
+    relayRiver(editor, this.session.catalog(), label, index, before);
+    this.session.refresh();
   }
 
   private editRiver(label: string, edit: (r: MapRiver) => void): void {

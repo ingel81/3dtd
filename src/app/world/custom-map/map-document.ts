@@ -172,6 +172,23 @@ export interface MapPathEdge {
   via?: MapPoint[];
   /** Bridges only: the deck's material, default wood */
   style?: MapBridgeStyle;
+  /**
+   * What the road brush built along this edge, so it can be laid anew when
+   * the road moves (the editor's; the game ignores it): the ground levelled
+   * into an embankment or cutting, the surface painted, the lamps and fences
+   * and their ids
+   */
+  dress?: MapRoadDress;
+}
+
+export interface MapRoadDress {
+  adapt: boolean;
+  /** Ground material painted under the road */
+  surface?: string;
+  lamps: boolean;
+  fences: boolean;
+  /** Ids of the lamps and fences it set */
+  objects: string[];
 }
 
 export interface MapPaths {

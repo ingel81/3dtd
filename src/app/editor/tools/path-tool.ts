@@ -27,6 +27,9 @@ import {
   straightenEdge,
 } from '../ops/path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../ops/path-terrain';
+import { relayRoads } from '../ops/landscape/road';
+import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
+import type { CatalogIndex } from '../catalog/asset-catalog';
 import { symmetryImages } from '../ops/symmetry';
 import { BrushStroke } from './brush-stroke';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
@@ -157,7 +160,7 @@ export class PathTool implements EditorTool {
         label = 'Join nodes';
       }
     }
-    ctx.editor.push(new SnapshotCommand(label, { paths: d.before }, { paths: structuredClone(doc.paths) }), { paths: true });
+    commitRoads(ctx.editor, ctx.catalog, label, d.before);
   }
 
   /** Nodes whose foot is in the box on the screen, and the roads with both ends in it */
@@ -223,11 +226,11 @@ export class PathTool implements EditorTool {
       return true;
     }
     if (k === 's' && (nodes.length || edges.length)) {
-      editor.execute(pathCommands.smooth(editor, edgesOf(editor, sel)));
+      editRoads(editor, ctx.catalog, 'Smooth road', (paths) => edgesOf(editor, sel).forEach((id) => smoothEdge(paths, id)));
       return true;
     }
     if (k === 'x' && (nodes.length || edges.length)) {
-      editor.execute(pathCommands.straighten(editor, edgesOf(editor, sel)));
+      editRoads(editor, ctx.catalog, 'Straighten road', (paths) => edgesOf(editor, sel).forEach((id) => straightenEdge(paths, id)));
       return true;
     }
     if (k === 'j' && sel?.kind === 'node') {
@@ -340,26 +343,10 @@ export const pathCommands = {
       dropLonelyNodes(d.paths);
     });
   },
-  smooth(editor: EditorDocument, edgeIds: string[]): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Smooth road', ['paths'], (d) => {
-      for (const id of edgeIds) smoothEdge(d.paths, id);
-    });
-  },
-  straighten(editor: EditorDocument, edgeIds: string[]): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Straighten road', ['paths'], (d) => {
-      for (const id of edgeIds) straightenEdge(d.paths, id);
-    });
-  },
   dissolve(editor: EditorDocument, nodeId: string): EditCommand | null {
     const trial = structuredClone(editor.doc.paths);
     if (!dissolveNode(trial, nodeId)) return null;
     return SnapshotCommand.record(editor.doc, 'Join edges', ['paths'], (d) => dissolveNode(d.paths, nodeId));
-  },
-  setEdge(editor: EditorDocument, edgeIds: string[], patch: { width?: number; kind?: MapPaths['edges'][number]['kind'] }): EditCommand {
-    return SnapshotCommand.record(editor.doc, patch.width !== undefined ? 'Road width' : 'Road kind', ['paths'], (d) => {
-      const set = new Set(edgeIds);
-      d.paths.edges = d.paths.edges.map((e) => (set.has(e.id) ? { ...e, ...patch } : e));
-    });
   },
   /** Clear lonely nodes, as one step (after a line was abandoned) */
   tidy(editor: EditorDocument): EditCommand | null {
@@ -368,6 +355,47 @@ export const pathCommands = {
     return SnapshotCommand.record(editor.doc, 'Tidy roads', ['paths'], (d) => dropLonelyNodes(d.paths));
   },
 };
+
+/**
+ * Changes the road network as one undo step (`edit` works on the document's
+ * paths); the roads the road brush built whose line or width changed are
+ * laid anew along it (relayRoads)
+ */
+export function editRoads(editor: EditorDocument, catalog: CatalogIndex, label: string, edit: (paths: MapPaths) => void): void {
+  const before = structuredClone(editor.doc.paths);
+  edit(editor.doc.paths);
+  commitRoads(editor, catalog, label, before);
+}
+
+/** Width or kind for several roads as one step */
+export function setRoads(editor: EditorDocument, catalog: CatalogIndex, edgeIds: readonly string[], patch: { width?: number; kind?: MapPaths['edges'][number]['kind'] }): void {
+  const set = new Set(edgeIds);
+  editRoads(editor, catalog, patch.width !== undefined ? 'Road width' : 'Road kind', (paths) => {
+    paths.edges = paths.edges.map((e) => (set.has(e.id) ? { ...e, ...patch } : e));
+  });
+}
+
+/**
+ * The paths as they are now against `before`, kept as one step: a plain
+ * snapshot, or with the built roads laid anew in a landscape stroke
+ */
+function commitRoads(editor: EditorDocument, catalog: CatalogIndex, label: string, before: MapPaths): void {
+  const doc = editor.doc;
+  const after = doc.paths;
+  if (!after.edges.some((e) => e.dress)) {
+    editor.push(new SnapshotCommand(label, { paths: before }, { paths: structuredClone(after) }), { paths: true });
+    return;
+  }
+  // The stroke has to see the paths of before, then the new ones
+  doc.paths = structuredClone(before);
+  const stroke = new LandscapeStroke(editor, label, 1, catalog);
+  stroke.markPaths();
+  doc.paths = after;
+  stroke.refreshRoads();
+  relayRoads(stroke, before);
+  stroke.changed({ paths: true });
+  stroke.finish();
+}
 
 /** "Flatten road" over the given edges (all when null) as one undo step */
 export function flattenRoads(editor: EditorDocument, edgeIds: string[] | null): boolean {
