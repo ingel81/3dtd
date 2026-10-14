@@ -102,12 +102,16 @@ export interface MapSendProgress {
  * that follows is built when the last piece is through, not when the pieces
  * set off: a share while they are under way only asks for it, so an older
  * world can never arrive after a newer one and overwrite it at the relay
- * (review 2026-10-11). Nothing more is sent once `alive` says the session
- * is gone.
+ * (review 2026-10-11). Another map shared while pieces are under way
+ * replaces them: its pieces go from the next one on, so the world that
+ * names it never comes without them. Nothing more is sent once `alive` says
+ * the session is gone.
  */
 export class PacedMapSend {
   /** The world to send after the pieces under way; null while none go */
   private worldAfter: (() => void) | null = null;
+  /** Pieces of another map shared while pieces went: sent instead of the rest */
+  private nextParts: readonly MapPart[] | null = null;
   /** The piece whose map-ack is awaited and what to call then */
   private awaited: { part: number; resolve: () => void } | null = null;
 
@@ -121,12 +125,14 @@ export class PacedMapSend {
 
   /**
    * Share the world: with `parts` the pieces first, then `sendWorld`; while
-   * pieces are under way the world they end with is the newest asked for;
-   * else the world at once.
+   * pieces are under way the world they end with is the newest asked for,
+   * and new `parts` (another map) take the place of the pieces left; else
+   * the world at once.
    */
   share(parts: readonly MapPart[] | null, sendPart: (part: MapPart) => void, sendWorld: () => void, alive: () => boolean): void {
     if (this.worldAfter) {
       this.worldAfter = sendWorld;
+      if (parts && parts.length) this.nextParts = parts;
       return;
     }
     if (!parts || parts.length === 0) {
@@ -149,7 +155,15 @@ export class PacedMapSend {
     try {
       let nextAt = 0;
       this.onProgress?.({ done: 0, total: parts.length });
-      for (const [i, part] of parts.entries()) {
+      for (let i = 0; i < parts.length; i++) {
+        // Another map came: its pieces from the first on (the relay starts every guest on it)
+        if (this.nextParts) {
+          parts = this.nextParts;
+          this.nextParts = null;
+          i = 0;
+          this.onProgress?.({ done: 0, total: parts.length });
+        }
+        const part = parts[i];
         const wait = nextAt - performance.now();
         if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
         if (!alive()) return;
@@ -158,10 +172,13 @@ export class PacedMapSend {
         sendPart(part);
         if (!(await through)) return;
         this.onProgress?.({ done: i + 1, total: parts.length });
+        // The last piece of the old map is out, but another map waits: go on with it
+        if (i === parts.length - 1 && this.nextParts) i = -1;
       }
       if (alive()) this.worldAfter?.();
     } finally {
       this.worldAfter = null;
+      this.nextParts = null;
       this.awaited = null;
       this.onProgress?.(null);
     }

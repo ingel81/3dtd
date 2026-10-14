@@ -75,6 +75,42 @@ describe('PacedMapSend (host)', () => {
     expect(sent.at(-1)).toBe('world 3');
   });
 
+  it('sends the pieces of another map shared while pieces went, then the world that names it', async () => {
+    const sent: string[] = [];
+    const progress: (MapSendProgress | null)[] = [];
+    const send = new PacedMapSend();
+    send.onProgress = (p) => progress.push(p);
+    const ack = async (part: number) => {
+      send.acked(part);
+      await vi.advanceTimersByTimeAsync(0);
+    };
+    send.share(parts(3), (p) => sent.push(`${p.mapId}${p.part}`), () => sent.push('world a'), () => true);
+    await ack(0);
+    // The host opened another map: its pieces replace the rest of the first
+    const other = parts(2).map((p) => ({ ...p, mapId: 'n', hash: 'k' }));
+    send.share(other, (p) => sent.push(`${p.mapId}${p.part}`), () => sent.push('world n'), () => true);
+    await ack(1);
+    await ack(0);
+    await ack(1);
+    expect(sent).toEqual(['m0', 'm1', 'n0', 'n1', 'world n']);
+    expect(progress).toEqual([
+      { done: 0, total: 3 }, { done: 1, total: 3 }, { done: 2, total: 3 }, { done: 0, total: 2 }, { done: 1, total: 2 }, { done: 2, total: 2 }, null,
+    ]);
+    expect(send.busy).toBe(false);
+  });
+
+  it('starts the other map after the last piece of the first when it came while that piece went', async () => {
+    const sent: string[] = [];
+    const send = new PacedMapSend();
+    send.share(parts(1), (p) => sent.push(`${p.mapId}${p.part}`), () => sent.push('world a'), () => true);
+    send.share(parts(1).map((p) => ({ ...p, mapId: 'n', hash: 'k' })), (p) => sent.push(`${p.mapId}${p.part}`), () => sent.push('world n'), () => true);
+    send.acked(0);
+    await vi.advanceTimersByTimeAsync(1000);
+    send.acked(0);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(sent).toEqual(['m0', 'n0', 'world n']);
+  });
+
   it("keeps under the relay's byte rate however fast the acks come", async () => {
     const bytes = 600_000;
     const at: number[] = [];
