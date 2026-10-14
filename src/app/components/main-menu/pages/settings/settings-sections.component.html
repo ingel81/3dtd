@@ -32,24 +32,75 @@
                   [attr.aria-disabled]="quality.fromUrl || null" [matTooltip]="option.hint" (click)="setQuality(option.id)">{{ option.label }}</button>
         }
       </div>
-      <p class="td-note">{{ qualityNote() }}</p>
-      @for (group of qualityGroups(); track group.title) {
-        <div class="set-quality" [attr.data-test]="'quality-' + group.id">
-          <span class="td-label">{{ group.title }} <span class="td-muted">| {{ group.level }}</span></span>
-          @for (row of group.rows; track row.label) {
-            <div class="set-quality-row">
-              <span>{{ row.label }}</span>
-              <span class="td-note td-num">{{ row.value }}</span>
-            </div>
-          }
+      <p class="td-note" data-test="quality-resolved">{{ qualityResolved() }}</p>
+      <p class="td-note td-muted">{{ qualityNote() }}</p>
+
+      <h3 class="td-section set-world" data-test="quality-tiles">Real places
+        <span class="td-muted">| {{ tilesState().level }}{{ tilesState().mixed ? ', own mix' : '' }}</span>
+        @if (tilesState().mixed) {
+          <button class="td-link" type="button" (click)="resetWorld('tiles')">Back to {{ tilesState().level }}</button>
+        }
+      </h3>
+      <p class="td-note">{{ tilesState().picture }}. Shadows and map effects exist on custom maps only.</p>
+      <!-- A part of a world set on top of the level, as a row of levels (E156) -->
+      @for (row of tileSteps; track row.id) {
+        <div class="td-setting" [matTooltip]="row.hint" matTooltipPosition="left">
+          <span [id]="'td-set-' + row.id">{{ row.label }}</span>
+          <div class="td-seg is-compact" role="radiogroup" [attr.aria-labelledby]="'td-set-' + row.id" tdRovingGroup>
+            @for (option of row.options; track option.level) {
+              <button type="button" role="radio" [attr.aria-checked]="stepValue(row.id) === option.level"
+                      [matTooltip]="option.hint" (click)="setStep(row.id, option.level)">{{ option.label }}</button>
+            }
+          </div>
         </div>
       }
-      <h3 class="td-section">Effects</h3>
-      <div class="td-seg" role="radiogroup" aria-label="Effect quality" tdRovingGroup>
-        @for (preset of presets; track preset.id) {
-          <button type="button" role="radio" [attr.aria-checked]="activePreset() === preset.id"
-                  [matTooltip]="preset.hint" (click)="setPreset(preset.id)">{{ preset.label }}</button>
+
+      <h3 class="td-section set-world" data-test="quality-custom-maps">Custom maps
+        <span class="td-muted">| {{ mapsState().level }}{{ mapsState().mixed ? ', own mix' : '' }}</span>
+        @if (mapsState().mixed) {
+          <button class="td-link" type="button" (click)="resetWorld('custom-map')">Back to {{ mapsState().level }}</button>
         }
+      </h3>
+      <p class="td-note">{{ mapsState().picture }}</p>
+      @for (row of mapSteps; track row.id) {
+        <div class="td-setting" [matTooltip]="row.hint" matTooltipPosition="left">
+          <span [id]="'td-set-' + row.id">{{ row.label }}</span>
+          <div class="td-seg is-compact" role="radiogroup" [attr.aria-labelledby]="'td-set-' + row.id" tdRovingGroup>
+            @for (option of row.options; track option.level) {
+              <button type="button" role="radio" [attr.aria-checked]="stepValue(row.id) === option.level"
+                      [matTooltip]="option.hint" (click)="setStep(row.id, option.level)">{{ option.label }}</button>
+            }
+          </div>
+        </div>
+      }
+      <div class="set-switches">
+        @for (row of mapSwitches; track row.id) {
+          <label class="td-setting" [matTooltip]="row.hint" matTooltipPosition="left">
+            <span>{{ row.label }}</span>
+            <input class="td-switch" type="checkbox" [checked]="switchOn(row.id)" (change)="toggleMapSwitch(row.id)">
+          </label>
+        }
+      </div>
+      <div class="td-setting" matTooltip="The map keeps its own wind; this only calms how far plants follow it" matTooltipPosition="left">
+        <span id="td-set-plants">Plant motion</span>
+        <div class="td-seg is-compact" role="radiogroup" aria-labelledby="td-set-plants" tdRovingGroup>
+          @for (option of plantMotions; track option.id) {
+            <button type="button" role="radio" [attr.aria-checked]="quality.plantMotion() === option.id"
+                    [matTooltip]="option.hint" (click)="quality.setPlantMotion(option.id)">{{ option.label }}</button>
+          }
+        </div>
+      </div>
+      <p class="td-note">{{ mapFixed() }}</p>
+
+      <h3 class="td-section">Everywhere</h3>
+      <div class="td-setting">
+        <span id="td-set-effects">Effects</span>
+        <div class="td-seg is-compact" role="radiogroup" aria-labelledby="td-set-effects" tdRovingGroup>
+          @for (preset of presets; track preset.id) {
+            <button type="button" role="radio" [attr.aria-checked]="activePreset() === preset.id"
+                    [matTooltip]="preset.hint" (click)="setPreset(preset.id)">{{ preset.label }}</button>
+          }
+        </div>
       </div>
       @if (!activePreset()) {
         <p class="td-note">Your own mix of the switches below.</p>

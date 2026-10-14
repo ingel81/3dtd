@@ -156,8 +156,8 @@ describe('Settings page', () => {
   it('picks the effect preset and sets every display switch of the former Display menu', async () => {
     const { el, display, switchOf, fixture, show } = await setup();
     show('Graphics');
-    expect(radios(el, 'Effect quality').map((r) => r.getAttribute('aria-checked'))).toEqual(['false', 'false', 'true']);
-    radios(el, 'Effect quality')[0].click();
+    expect(radios(el, 'td-set-effects').map((r) => r.getAttribute('aria-checked'))).toEqual(['false', 'false', 'true']);
+    radios(el, 'td-set-effects')[0].click();
     expect(display.onVfxPresetSelected).toHaveBeenCalledWith('low');
 
     switchOf('Bloom').click();
@@ -185,7 +185,13 @@ describe('Settings page', () => {
     expect(display.onFpsLimitChanged).toHaveBeenCalledWith(60);
   });
 
-  it('picks the picture quality and shows what it sets apart for all worlds, custom maps and real places', async () => {
+  /** The chosen option of a row of levels or choices */
+  const chosen = (el: HTMLElement, group: string) => radios(el, group).find((r) => r.getAttribute('aria-checked') === 'true')?.textContent?.trim();
+  const switchIn = (el: HTMLElement, label: string) =>
+    [...el.querySelectorAll<HTMLLabelElement>('label')].find((l) => l.textContent!.trim() === label)!.querySelector('input')!;
+  const text = (el: HTMLElement, test: string) => el.querySelector(`[data-test="${test}"]`)!.textContent!.replace(/\s+/g, ' ').trim();
+
+  it('picks one picture quality and says what it plays on real places and on custom maps (E156)', async () => {
     const { el, settle, show } = await setup();
     show('Graphics');
     // Auto by default
@@ -194,16 +200,54 @@ describe('Settings page', () => {
     radios(el, 'Picture quality')[3].click();
     await settle();
     expect(JSON.parse(localStorage.getItem('td_render_quality_v1')!).setting).toBe('high');
-    expect(el.textContent).toContain('High everywhere');
-    const group = (id: string) => el.querySelector(`[data-test="quality-${id}"]`)!.textContent!.replace(/\s+/g, ' ');
-    expect(group('general')).toContain('MSAA 4x');
-    expect(group('custom-maps')).toContain('70,000 blades to 140 m');
-    expect(group('custom-maps')).toContain('4096 px');
-    expect(group('tiles')).toContain('20 px error');
+    expect(text(el, 'quality-resolved')).toBe('Real places: High | Custom maps: High');
+    expect(text(el, 'quality-tiles')).toContain('Real places | High');
+    // Each world's parts show the level's choice
+    expect(chosen(el, 'td-set-tileDetail')).toBe('High');
+    expect(chosen(el, 'td-set-grass')).toBe('High');
+    expect(switchIn(el, 'Water refraction').checked).toBe(true);
+    expect(el.textContent).toContain('Resolution up to 1.5x pixel density | MSAA 4x');
     radios(el, 'Picture quality')[1].click();
     await settle();
-    expect(group('custom-maps')).toMatch(/Grass ?off/);
-    expect(group('general')).toContain('FXAA');
+    expect(text(el, 'quality-resolved')).toBe('Real places: Low | Custom maps: Low');
+    expect(chosen(el, 'td-set-grass')).toBe('Off');
+    expect(switchIn(el, 'Water refraction').checked).toBe(false);
+    expect(el.textContent).toContain('FXAA');
+  });
+
+  it('sets parts of custom maps and real places on top of the level, kept as an own mix (E156)', async () => {
+    localStorage.setItem('td_render_quality_v1', JSON.stringify({ setting: 'medium', auto: null }));
+    const first = await setup();
+    first.show('Graphics');
+    radios(first.el, 'td-set-grass')[3].click();
+    switchIn(first.el, 'Lava glow and heat haze').click();
+    radios(first.el, 'td-set-plants')[0].click();
+    await first.settle();
+    expect(text(first.el, 'quality-resolved')).toBe('Real places: Medium | Custom maps: Medium, own mix');
+    expect(text(first.el, 'quality-custom-maps')).toContain('Custom maps | Medium, own mix');
+    expect(JSON.parse(localStorage.getItem('td_render_quality_v1')!))
+      .toMatchObject({ setting: 'medium', overrides: { grass: 'ultra', lavaGlow: true }, plantMotion: 'off' });
+
+    // Opened again, the page shows the mix; Back to Medium clears it, the plant motion stays
+    TestBed.resetTestingModule();
+    const again = await setup();
+    again.show('Graphics');
+    expect(chosen(again.el, 'td-set-grass')).toBe('Ultra');
+    expect(switchIn(again.el, 'Lava glow and heat haze').checked).toBe(true);
+    expect(chosen(again.el, 'td-set-plants')).toBe('Off');
+    again.byText('Back to Medium')!.click();
+    await again.settle();
+    expect(chosen(again.el, 'td-set-grass')).toBe('Medium');
+    expect(text(again.el, 'quality-resolved')).toBe('Real places: Medium | Custom maps: Medium');
+    expect(chosen(again.el, 'td-set-plants')).toBe('Off');
+
+    // Tile detail is the real places' own mix; picking a level sets every part again
+    radios(again.el, 'td-set-tileDetail')[3].click();
+    await again.settle();
+    expect(text(again.el, 'quality-resolved')).toBe('Real places: Medium, own mix | Custom maps: Medium');
+    radios(again.el, 'Picture quality')[2].click();
+    await again.settle();
+    expect(chosen(again.el, 'td-set-tileDetail')).toBe('Medium');
   });
 
   it('switches the app window to fullscreen and says so', async () => {
