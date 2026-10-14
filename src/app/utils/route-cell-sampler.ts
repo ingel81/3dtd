@@ -59,6 +59,15 @@ export class RouteCellSampler {
    */
   terrainPeekLOD: TerrainPeekLOD | null = null;
 
+  /**
+   * The columns are the plain terrain with bridge decks on it (a custom map,
+   * StreetStyle.plainGround): the top of a column is where a walker stands.
+   * A cell on an approach takes it instead of the height carried from the
+   * bridge end, which stays put where the bank rises faster than a step:
+   * the cells after a low bridge ran metres under a rising bank.
+   */
+  plainGround = false;
+
   /** Monotonic counter incremented on each successful sample (debug only). */
   sampleFrame = 0;
 
@@ -252,7 +261,9 @@ export class RouteCellSampler {
    */
   private hitOf(cell: RouteCell, column: ColumnSample, start: ColumnSample | null, carried: number | null): CellHit {
     // A tunnel cell's column is already the one between its portals (tunnelColumn).
-    const y = cell.surface === 'tunnel' ? column.groundY : surfaceY(cell.surface, column, carried) ?? column.groundY;
+    const y = cell.surface === 'tunnel' ? column.groundY
+      : cell.surface === 'approach' && this.plainGround ? column.topY
+        : surfaceY(cell.surface, column, carried) ?? column.groundY;
     if (start !== null) {
       return {
         y,

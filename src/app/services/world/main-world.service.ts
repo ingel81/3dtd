@@ -129,7 +129,7 @@ export class MainWorldService {
     // Cheap LOD probe the grid's full sweep uses to skip stable cells whose
     // tile LOD has not improved
     const terrainPeekLOD = (x: number, z: number) => engine.terrain.peekBestTileLODAtLocal(x, z);
-    this.grid.initialize(columnSampler, engine.sync, terrainPeekLOD);
+    this.grid.initialize(columnSampler, engine.sync, terrainPeekLOD, engine.world.streetStyle.plainGround);
 
     const routes = this.routes();
     // Fine tiles along the whole corridor, so the cells sample real ground

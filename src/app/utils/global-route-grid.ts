@@ -259,14 +259,17 @@ export class GlobalRouteGrid {
    * @param columnSampler Vertical terrain probe (ground + tile LOD)
    * @param coordinateSync Coordinate sync for geo <-> local conversions
    * @param terrainPeekLOD Optional cheap LOD probe used to skip re-sampling
+   * @param plainGround The columns are plain terrain with bridge decks (RouteCellSampler.plainGround)
    */
   initialize(
     columnSampler: ColumnSampler,
     coordinateSync: CoordinateSync,
     terrainPeekLOD?: TerrainPeekLOD,
+    plainGround = false,
   ): void {
     this.sampler.columnSampler = columnSampler;
     this.sampler.terrainPeekLOD = terrainPeekLOD ?? null;
+    this.sampler.plainGround = plainGround;
     this.coordinateSync = coordinateSync;
   }
 

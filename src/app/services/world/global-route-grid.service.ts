@@ -49,13 +49,15 @@ export class GlobalRouteGridService {
    * @param columnSampler Vertical terrain probe (ground + tile LOD)
    * @param coordinateSync Coordinate sync for geo <-> local conversions
    * @param terrainPeekLOD Optional cheap LOD probe used to skip re-sampling
+   * @param plainGround The columns are plain terrain with bridge decks (RouteCellSampler.plainGround)
    */
   initialize(
     columnSampler: ColumnSampler,
     coordinateSync: CoordinateSync,
     terrainPeekLOD?: TerrainPeekLOD,
+    plainGround = false,
   ): void {
-    this.grid.initialize(columnSampler, coordinateSync, terrainPeekLOD);
+    this.grid.initialize(columnSampler, coordinateSync, terrainPeekLOD, plainGround);
     this.initialized = true;
 
     // Diagnose-API für Route-Grid-Höhen-Anomalien

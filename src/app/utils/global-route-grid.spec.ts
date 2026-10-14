@@ -860,6 +860,30 @@ describe('GlobalRouteGrid bridges', () => {
   });
 
   /**
+   * Custom maps (archipelago, witch marsh): a low bridge, the bank behind it
+   * rising 2 m within a few metres. The height carried from the bridge end
+   * does not climb a rise steeper than a step, so the approach cells stayed
+   * at the deck's end, metres under the bank. On plain ground (no roofs,
+   * crowns or cars to keep off) they stand on the bank.
+   */
+  it('puts the approach after a low bridge on the rising bank where the ground is the plain terrain', () => {
+    const bank = (x: number): ColumnSample => {
+      const y = x < 30 ? 0 : x < 60 ? 1 : Math.min(3, 1 + (x - 60));
+      return { groundY: x >= 30 && x < 60 ? 0 : y, topY: y, tileDepth: 20, tileGeometricError: 2 };
+    };
+    const route = [[at(0, 0), at(30, 0, true), at(60, 0), at(90, 0)]];
+    const tiles = new GlobalRouteGrid();
+    tiles.initialize(bank as never, coordinateSync);
+    tiles.generateFromRoutes(route);
+    expect(tiles.getCellAt(65, 0.5)).toMatchObject({ surface: 'approach', terrainHeight: 1 });
+    const plain = new GlobalRouteGrid();
+    plain.initialize(bank as never, coordinateSync, undefined, true);
+    plain.generateFromRoutes(route);
+    expect(plain.getCellAt(65, 0.5)).toMatchObject({ surface: 'approach', terrainHeight: 3 });
+    expect(plain.getGroundLocalYAt(45, 0.5)).toBe(1);
+  });
+
+  /**
    * Playtest 2026-09-14, Paris, Pont d'Iéna: at both ends of the bridge the
    * red line, the cells and the enemies dropped under the deck. The quay
    * runs under the ends of the deck; the approaches' round ends, 7 m on a

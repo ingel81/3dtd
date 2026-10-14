@@ -47,6 +47,7 @@ import type { ThreeTilesEngine } from '../three-engine';
 import type { ViewEvent } from '../sim/client/view-events';
 import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
+import { TILES_STREET_STYLE } from '../world/tiles/tiles-world';
 
 /** The origin of the location */
 const ORIGIN = { lat: 48.776, lon: 9.183, height: 300 };
@@ -313,8 +314,8 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
       terrain,
       getTerrainHeightAtGeo: () => ground.y,
       setRouteCorridor: vi.fn(),
-      // A world that plays the game's rules
-      world: { runRules: () => null },
+      // A world that plays the game's rules, on tiles
+      world: { runRules: () => null, streetStyle: TILES_STREET_STYLE },
     } as unknown as ThreeTilesEngine;
     world.attach(engine, BASE, TEST_SPAWN_POINTS);
     world.buildCells(true);
