@@ -441,7 +441,9 @@ void main() {
   #endif
   // Sun glint, weaker in the shallows: there the surface is calm and flat, and a flat mirror against the
   // sun drew white streaks along every shore
-  float spec = (pow(max(dot(r, uSunDir), 0.0), 320.0) * 3.0 + pow(max(dot(r, uSunDir), 0.0), 40.0) * 0.2) * smoothstep(0.1, 1.5, depth);
+  // The sharp part sparkles: small facets of a fine, fast wave layer catch the sun and let go of it
+  float sparkle = texture2D(uWaves, vWorldPos.xz / 0.9 + uTime * vec2(0.13, -0.11)).x;
+  float spec = (pow(max(dot(r, uSunDir), 0.0), 320.0) * 3.0 * (0.3 + 1.7 * smoothstep(0.55, 0.85, sparkle)) + pow(max(dot(r, uSunDir), 0.0), 40.0) * 0.2) * smoothstep(0.1, 1.5, depth);
   #if KIND == 4
   spec *= 0.3;
   #endif

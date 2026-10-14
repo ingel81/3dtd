@@ -317,7 +317,8 @@ for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] *= keep;
 if (uRoadLayer >= 0) w[uRoadLayer] += road;
 if (uPathLayer >= 0) w[uPathLayer] += path;
 if (uPathLayer >= 0 && riverBank > 0.0) {
-  float bank = riverBank * (0.55 + (n3 - 0.5) * 0.5);
+  // Gravel in patches, its edge eaten by noise: no even strip like a canal's
+  float bank = riverBank * (0.55 + (n3 - 0.5) * 0.5) * smoothstep(0.05, 0.45, riverBank + (valueNoise(mapPos * 0.35 + 5.0) - 0.5) * 0.45);
   for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] *= 1.0 - bank;
   w[uPathLayer] += bank;
 }

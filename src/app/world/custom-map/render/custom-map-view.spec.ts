@@ -76,10 +76,30 @@ describe('path mask', () => {
     const m = rasterizePathMask({ nodes: [], edges: [] }, 100, 100, res, [river('water')]);
     const a = (x: number, y: number): number => m[(Math.floor(y + 50) * res + Math.floor(x + 50)) * 4 + 3];
     expect(a(0, -30)).toBe(255);
-    expect(a(0, -30 + 7)).toBeGreaterThan(0);
-    expect(a(0, -30 + 10)).toBe(0);
+    // The bank's width wanders along the river: somewhere 7 m out it is still wet, 16 m out never
+    expect([-30, -20, -10, 0, 10, 20, 30].some((x) => a(x, -30 + 7) > 0)).toBe(true);
+    expect([-30, -20, -10, 0, 10, 20, 30].every((x) => a(x, -30 + 16) === 0)).toBe(true);
     const lava = rasterizePathMask({ nodes: [], edges: [] }, 100, 100, res, [river('lava')]);
     expect(lava.some((v, k) => k % 4 === 3 && v > 0)).toBe(false);
+  });
+
+  it('makes the bank wider on the inside of a bend than on the outside', () => {
+    // A quarter circle of 25 m around (0, 0), bending left (counter-clockwise)
+    const points = Array.from({ length: 7 }, (_, i) => {
+      const a = -Math.PI / 2 + (i / 6) * (Math.PI / 2);
+      return { x: Math.cos(a) * 25, y: Math.sin(a) * 25, width: 6, height: 0 };
+    });
+    const m = rasterizePathMask({ nodes: [], edges: [] }, 100, 100, res, [{ id: 'r', kind: 'water', points }]);
+    const a = (x: number, y: number): number => m[(Math.floor(y + 50) * res + Math.floor(x + 50)) * 4 + 3];
+    // At 45 degrees: the inside lies towards the centre, the outside away from it
+    const wet = (r: number): number => a(Math.cos(-Math.PI / 4) * r, Math.sin(-Math.PI / 4) * r);
+    let inside = 0;
+    let outside = 0;
+    for (let d = 3; d < 15; d += 0.5) {
+      if (wet(25 - d) > 0) inside = d;
+      if (wet(25 + d) > 0) outside = d;
+    }
+    expect(inside).toBeGreaterThan(outside);
   });
 
   it('leaves bridges to the deck mesh', () => {

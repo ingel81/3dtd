@@ -93,7 +93,10 @@ export function rasterizePathMask(
 
 /**
  * River banks into the mask's alpha: full inside the river and up to 1.5 m
- * past its edge, fading out 5 m past it; lava flows leave no wet bank
+ * past its edge, fading out 5 m past it; lava flows leave no wet bank.
+ * The banks are uneven: wider on the inside of a bend (where a river drops
+ * its gravel), narrow on the outside (where it cuts), and their width
+ * wanders along the river.
  */
 function rasterizeRiverBanks(out: Uint8Array, rivers: MapRiver[], width: number, depth: number, resolution: number): void {
   const sx = resolution / width;
@@ -101,19 +104,37 @@ function rasterizeRiverBanks(out: Uint8Array, rivers: MapRiver[], width: number,
   for (const river of rivers) {
     if (river.kind !== 'water' || river.points.length < 2) continue;
     const line = sampleRiver(river.points, 2);
+    const dirAt = (s: number): [number, number] => {
+      const a = line[Math.max(0, Math.min(line.length - 2, s))];
+      const b = line[Math.max(1, Math.min(line.length - 1, s + 1))];
+      const l = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      return [(b.x - a.x) / l, (b.y - a.y) / l];
+    };
     for (let s = 0; s < line.length - 1; s++) {
       const p = line[s];
       const q = line[s + 1];
       const half = Math.max(p.width, q.width) / 2;
-      const inner = half + 1.5;
-      const outer = half + 5;
-      const minX = Math.max(0, Math.floor((Math.min(p.x, q.x) - outer + width / 2) * sx));
-      const maxX = Math.min(resolution - 1, Math.ceil((Math.max(p.x, q.x) + outer + width / 2) * sx));
-      const minY = Math.max(0, Math.floor((Math.min(p.y, q.y) - outer + depth / 2) * sy));
-      const maxY = Math.min(resolution - 1, Math.ceil((Math.max(p.y, q.y) + outer + depth / 2) * sy));
+      // Turn per metre over the neighbouring samples (positive: bends left)
+      const [ax, ay] = dirAt(s - 2);
+      const [bx, by] = dirAt(s + 2);
+      const bend = (ax * by - ay * bx) / 8;
+      // Wandering width along the river: two slow waves of the distance
+      const wander = 0.75 + 0.25 * Math.sin(s * 0.21 + river.points.length) + 0.2 * Math.sin(s * 0.53 + 1.7);
+      const scaleOf = (left: boolean): number => {
+        const inside = (bend > 0) === left;
+        const k = Math.min(1, Math.abs(bend) * 30);
+        return Math.max(0.35, Math.min(2.4, wander * (1 + (inside ? 1.3 : -0.6) * k)));
+      };
+      const reach = half + 5 * 2.4;
+      const minX = Math.max(0, Math.floor((Math.min(p.x, q.x) - reach + width / 2) * sx));
+      const maxX = Math.min(resolution - 1, Math.ceil((Math.max(p.x, q.x) + reach + width / 2) * sx));
+      const minY = Math.max(0, Math.floor((Math.min(p.y, q.y) - reach + depth / 2) * sy));
+      const maxY = Math.min(resolution - 1, Math.ceil((Math.max(p.y, q.y) + reach + depth / 2) * sy));
       const dx = q.x - p.x;
       const dy = q.y - p.y;
       const len2 = dx * dx + dy * dy || 1;
+      const scaleLeft = scaleOf(true);
+      const scaleRight = scaleOf(false);
       for (let ty = minY; ty <= maxY; ty++) {
         const y = (ty + 0.5) / sy - depth / 2;
         for (let tx = minX; tx <= maxX; tx++) {
@@ -121,6 +142,9 @@ function rasterizeRiverBanks(out: Uint8Array, rivers: MapRiver[], width: number,
           let t = ((x - p.x) * dx + (y - p.y) * dy) / len2;
           t = t < 0 ? 0 : t > 1 ? 1 : t;
           const d = Math.hypot(x - (p.x + t * dx), y - (p.y + t * dy));
+          const scale = dx * (y - p.y) - dy * (x - p.x) > 0 ? scaleLeft : scaleRight;
+          const inner = half + 1.5 * scale;
+          const outer = half + 5 * scale;
           if (d >= outer) continue;
           const f = d <= inner ? 1 : 1 - (d - inner) / (outer - inner);
           const v = Math.round(f * f * (3 - 2 * f) * 255);

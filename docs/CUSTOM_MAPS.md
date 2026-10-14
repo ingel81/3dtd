@@ -111,7 +111,9 @@ Lage quer zum stärksten Weg, 0,5 m je Texel, höchstens 2048²) sagt dem Gelän
 (`cobblestone`, `dirt-path`) liegen. Straßen bekommen Spurrillen, Feldwege zwei Fahrspuren mit Grasstreifen, die
 weichen Ränder werden von Rauschen angefressen (Gras wächst herein). So folgt
 ein Weg jeder Unebenheit ohne Z-Fighting, und der Höhen-Blend lässt Pflastersteine am Rand ins Gras auslaufen.
-Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
+Flussufer liegen in der Alpha der Maske: nasser Kies und Erde beidseits jedes Flusses, ungleichmäßig breit (an
+der Innenseite einer Biegung bis 2,4-fach, außen schmal, entlang des Flusses wandernd), die Kante vom Rauschen
+angefressen. Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
 leichtem Bogen und mindestens 1 m über dem Wasser. `style: 'stone' | 'lava'` an der Kante nimmt `bridge-deck-stone`
 bzw. `bridge-deck-lava`; fehlt das Stück im Katalog, bleibt es beim Holzdeck.
 
@@ -131,7 +133,8 @@ Lava spiegeln sich).
 
 `kind` je Körper:
 
-- `water` (Standard): klar am Ufer, Kartenfarbe in der Tiefe, Wellen, Spiegelung des Himmels mit Fresnel, Sonnenglanz,
+- `water` (Standard): klar am Ufer, Kartenfarbe in der Tiefe, Wellen, Spiegelung des Himmels mit Fresnel, Sonnenglanz
+  (der scharfe Teil funkelt: feine, schnelle Wellenfacetten fangen die Sonne),
   Schaum im Flachen
 - **Strömung** (`flow-map.ts`): jedes Flächengewässer bekommt beim Laden und bei jedem `set` eine gebackene
   Strömungskarte auf dem Höhenraster (RG8, Szene x/z, ±1,2 m/s): Wasser, Meer und Sumpf kreisen entlang der Ufer
