@@ -11,9 +11,9 @@ import {
   WebGLRenderTarget,
   type Camera,
   type Material,
-  type Mesh,
+  Mesh,
   type Object3D,
-  type Scene,
+  Scene,
   type ShadowMapType,
   type WebGLRenderer,
 } from 'three';
@@ -38,6 +38,7 @@ import { SceneCopy } from './water/scene-copy';
 import { GroundDecals } from './terrain/ground-decals';
 import { NO_MAP_EFFECTS, type MapEffects } from './map-effects';
 import type { GridRect } from './terrain/terrain-chunks';
+import { programsReady } from '../../../three-engine/programs-ready';
 
 /**
  * CustomMapView: draws a custom map document. The editor and the game use
@@ -237,6 +238,18 @@ export class CustomMapView {
     }
     await compiled;
     if (this.disposed) return 0;
+    // The shadow pass's depth programs too, off the main thread: the shadow frame below finds them built
+    if (renderer.shadowMap.enabled && scene instanceof Scene) {
+      const casters: Mesh[] = [];
+      this.group.traverse((o) => {
+        if (o instanceof Mesh && o.castShadow) casters.push(o);
+      });
+      await this.compileShadowTwins(renderer, scene, camera, casters);
+    }
+    // Frames that drew meanwhile (other worlds' parts, a waited-for frame) make compileAsync settle early:
+    // wait until every program is built, or the shadow frame below and the first frames link them
+    await programsReady(renderer);
+    if (this.disposed) return 0;
     // compileAsync leaves out the shadow pass: its depth programs (instanced, alpha-tested cards,
     // per material) compiled on the first frame a caster entered the sun's box, a stall of seconds.
     // One frame with a cell of every asset casting compiles them now, during loading, into the same target
@@ -284,42 +297,56 @@ export class CustomMapView {
       return 0;
     }
     const group = new Group();
-    const depth = new Group();
-    for (const m of meshes) {
-      group.add(m);
-      if (!renderer.shadowMap.enabled || Array.isArray(m.material)) continue;
-      // A mesh with a depth material of its own (an impostor) casts with that one
-      const twin = new InstancedMesh(m.geometry, (m.customDepthMaterial as MeshDepthMaterial | undefined) ?? this.depthTwinOf(m.material, renderer.shadowMap.type), 1);
-      twin.instanceColor = m.instanceColor;
-      twin.frustumCulled = false;
-      depth.add(twin);
-    }
+    for (const m of meshes) group.add(m);
     const before = renderer.info.programs?.length ?? 0;
     try {
-      const jobs = [compile(group)];
-      if (depth.children.length) {
-        this.offscreen ??= new WebGLRenderTarget(1, 1);
-        const previous = renderer.getRenderTarget();
-        const { fog, environment } = scene;
-        try {
-          // The shadow pass draws into its map without the scene's fog and environment, and both are part
-          // of a program's key even where its shader does not use them. compileAsync builds the programs
-          // before it returns its promise: target, fog and environment change only around the call
-          renderer.setRenderTarget(this.offscreen);
-          scene.fog = null;
-          scene.environment = null;
-          jobs.push(renderer.compileAsync(depth, camera, scene));
-        } finally {
-          renderer.setRenderTarget(previous);
-          scene.fog = fog;
-          scene.environment = environment;
-        }
-      }
-      await Promise.all(jobs);
+      await Promise.all([compile(group), this.compileShadowTwins(renderer, scene, camera, meshes)]);
     } finally {
       for (const m of meshes) m.dispose();
     }
     return (renderer.info.programs?.length ?? 0) - before;
+  }
+
+  /**
+   * Compiles, off the main thread, the programs the sun's shadow pass draws
+   * `meshes` with: twins with the depth materials three derives for them
+   * (getDepthMaterial), kept so the programs stay
+   */
+  private compileShadowTwins(renderer: WebGLRenderer, scene: Scene, camera: Camera, meshes: readonly Mesh[]): Promise<unknown> {
+    if (!renderer.shadowMap.enabled) return Promise.resolve();
+    const depth = new Group();
+    for (const m of meshes) {
+      if (Array.isArray(m.material)) continue;
+      // A mesh with a depth material of its own (an impostor) casts with that one
+      const material = (m.customDepthMaterial as MeshDepthMaterial | undefined) ?? this.depthTwinOf(m.material, renderer.shadowMap.type);
+      let twin: Mesh;
+      if (m instanceof InstancedMesh) {
+        const instanced = new InstancedMesh(m.geometry, material, 1);
+        instanced.instanceColor = m.instanceColor;
+        twin = instanced;
+      } else {
+        twin = new Mesh(m.geometry, material);
+      }
+      twin.frustumCulled = false;
+      depth.add(twin);
+    }
+    if (!depth.children.length) return Promise.resolve();
+    this.offscreen ??= new WebGLRenderTarget(1, 1);
+    const previous = renderer.getRenderTarget();
+    const { fog, environment } = scene;
+    try {
+      // The shadow pass draws into its map without the scene's fog and environment, and both are part
+      // of a program's key even where its shader does not use them. compileAsync builds the programs
+      // before it returns its promise: target, fog and environment change only around the call
+      renderer.setRenderTarget(this.offscreen);
+      scene.fog = null;
+      scene.environment = null;
+      return renderer.compileAsync(depth, camera, scene);
+    } finally {
+      renderer.setRenderTarget(previous);
+      scene.fog = fog;
+      scene.environment = environment;
+    }
   }
 
   /** Meshes for the terrain shader's variants with more material layers (MapTerrainLayer.layerTwins) */

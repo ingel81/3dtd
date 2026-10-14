@@ -1,5 +1,6 @@
 import type { Camera, Object3D, WebGLRenderer } from 'three';
 import { findDrawGates } from './renderers/draw-gate';
+import { programsReady } from './programs-ready';
 
 /** What the load-time warm-up did, for the console log. */
 export interface SceneWarmupResult {
@@ -42,6 +43,8 @@ export async function warmUpScene(
   const compiled = renderer.compileAsync(scene, camera);
   const syncMs = performance.now() - t0;
   await compiled;
+  // Frames drawn meanwhile make compileAsync settle before every program is built (programsReady)
+  await programsReady(renderer);
   const compileMs = performance.now() - t0;
   const newPrograms = (renderer.info.programs?.length ?? 0) - programsBefore;
 

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { InstancedMesh, Mesh, PerspectiveCamera, Ray, Scene, Vector3, type Object3D } from 'three';
+import { InstancedMesh, Mesh, PerspectiveCamera, Ray, Scene, Vector3, WebGLRenderTarget, type Object3D } from 'three';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createDemoMap } from '../demo-map';
 import type { CustomMapDocument } from '../map-document';
@@ -306,14 +306,49 @@ describe('CustomMapView warm-up', () => {
       render: () => seen.push({ call: 'render', target: current }),
     };
     await view.warmUp(renderer as never, scene, new PerspectiveCamera(), target as never);
-    expect(seen).toEqual([
-      { call: 'compile', target },
-      { call: 'render', target },
-    ]);
+    // The scene for the frames, then the shadow pass's depth programs off the main thread (into a target of
+    // their own, as the shadow map has no fog), then one frame that draws the shadow map
+    expect(seen.map((s) => s.call)).toEqual(['compile', 'compile', 'render']);
+    expect(seen[0].target).toBe(target);
+    expect(seen[1].target).toBeInstanceOf(WebGLRenderTarget);
+    expect(seen[2].target).toBe(target);
     // Back to where it was, the shadow map renders again for the real frame
     expect(current).toBe(null);
     expect(renderer.shadowMap.autoUpdate).toBe(false);
     view.dispose();
+  });
+});
+
+describe('CustomMapView warm-up waits for every program', () => {
+  it('draws its shadow frame only once the programs compiling meanwhile are built', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const view = new CustomMapView(createDemoMap(), offlineLibrary());
+      const scene = new Scene();
+      view.attach(scene);
+      let ready = false;
+      const rendered: number[] = [];
+      const renderer = {
+        info: { programs: [{ isReady: () => ready }] },
+        shadowMap: { enabled: true, autoUpdate: false, needsUpdate: false },
+        getRenderTarget: () => null,
+        setRenderTarget: () => undefined,
+        // compileAsync settled, although a program it asked for is still compiling
+        compileAsync: () => Promise.resolve(),
+        render: () => rendered.push(1),
+      };
+      const done = view.warmUp(renderer as never, scene, new PerspectiveCamera());
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(rendered).toHaveLength(0);
+      ready = true;
+      await vi.advanceTimersByTimeAsync(50);
+      await done;
+      expect(rendered).toHaveLength(1);
+      view.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
