@@ -102,9 +102,10 @@ function stepSeconds(steps) {
 }
 
 /** The address of a page: the runner's server, the hook asked for, the game without its start menu */
-function pageUrl(base, page, opened) {
+function pageUrl(base, page, opened, intro = false) {
   const url = new URL(page === 'opened' ? opened : page, base);
-  url.searchParams.set('showreel', '');
+  // An intro page: the hook hides the game's HUD from the first frame (showreel.ts, sr-hud-off)
+  url.searchParams.set('showreel', intro ? 'intro' : '');
   if (!url.pathname.startsWith('/editor')) url.searchParams.set('menu', 'skip');
   return url.toString();
 }
@@ -283,25 +284,35 @@ async function main() {
     console.log(`  view ${view.css} css, dpr ${view.dpr}, drawing buffer ${view.buffer}`);
   };
 
-  /** A page of the programme: load it, wait for its map, start its sound, flash */
-  const openPage = async (target) => {
+  /** The page's sound recording and its sync mark: white for 120 ms and a click into the sound */
+  const startSound = async () => {
+    segment.audio = await page.evaluate(() => window.__showreel.audio.start());
+    await page.waitForTimeout(300);
+    segment.syncWall = Date.now();
+    segment.sync = await page.evaluate(() => window.__showreel.sync());
+    await page.waitForTimeout(300);
+  };
+
+  /**
+   * A page of the programme: load it, wait for its map, start its sound, flash. An intro page (`intro` on the
+   * scene) starts its sound and flashes while the map loads, so neither eats the intro flight that starts as the
+   * map stands; its scene starts right then and waits for the flight itself (game stage, act intro)
+   */
+  const openPage = async (target, intro = false) => {
     await closeSegment();
-    const url = pageUrl(base, target, opened);
-    console.log(`page ${url}`);
+    const url = pageUrl(base, target, opened, intro);
+    console.log(`page ${url}${intro ? ' (intro)' : ''}`);
     await page.goto(url);
     await page.waitForFunction(() => !!window.__showreel, null, { timeout: 60_000 });
-    const kind = await page.evaluate(() => window.__showreel.ready(180));
-    // Let the first frames settle (shaders, the intro's first moves)
-    await page.waitForTimeout(1500);
-    await logView();
-    segment = { url, kind };
-    if (!rehearse) {
-      segment.audio = await page.evaluate(() => window.__showreel.audio.start());
-      await page.waitForTimeout(300);
-      segment.syncWall = Date.now();
-      segment.sync = await page.evaluate(() => window.__showreel.sync());
-      await page.waitForTimeout(300);
+    segment = { url, kind: null };
+    if (intro && !rehearse) await startSound();
+    segment.kind = await page.evaluate(() => window.__showreel.ready(180));
+    if (!intro) {
+      // Let the first frames settle (shaders, the intro's first moves)
+      await page.waitForTimeout(1500);
+      if (!rehearse) await startSound();
     }
+    await logView();
     save();
   };
 
@@ -311,7 +322,7 @@ async function main() {
     for (const scene of scenes) {
       const target = scene.page ?? (current === null ? scene.needs : null);
       if (target) {
-        await openPage(target);
+        await openPage(target, !!scene.intro && target === scene.page);
         current = target;
       }
       if (!target && !segment) throw new Error(`scene ${scene.name} has no page to play on`);

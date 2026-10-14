@@ -29,6 +29,14 @@ interface GameComponent {
   controlsHintVisible: { set(on: boolean): void };
 }
 
+/** The intro flight's DevTools handle (IntroCameraFlightService.initialize) */
+interface IntroFlight {
+  stop(): void;
+  state(): { running: boolean; skipReason: string | null };
+}
+
+const flight = (): IntroFlight | undefined => (globalThis as { __flight?: IntroFlight }).__flight;
+
 /** The marker service's renderers, which it keeps to itself */
 interface MarkerParts {
   markerManager: { diamondMesh: Object3D; ringMesh: Object3D; groundMesh: Object3D } | null;
@@ -177,7 +185,7 @@ export class GameStage implements Stage {
     const controls = this.engineInit.getEngine()?.getControls();
     if (pose && !this.posed) {
       // The intro flight and the controls' inertia let go of the camera
-      (globalThis as { __flight?: { stop(): void } }).__flight?.stop();
+      flight()?.stop();
       if (controls) controls.enabled = false;
       this.posed = pose;
       this.poseLoop = requestAnimationFrame(() => this.applyPose());
@@ -231,9 +239,15 @@ export class GameStage implements Stage {
     switch (name) {
       case 'ui':
         if (args['on'] === false) c.photoMode.enter();
-        else c.photoMode.exit();
+        else {
+          c.photoMode.exit();
+          // An intro page's HUD comes back with it (showreel.ts, sr-hud-off)
+          document.documentElement.classList.remove('sr-hud-off');
+        }
         await waitSeconds(0.1);
         return;
+      case 'intro':
+        return this.intro(Number(args['timeout'] ?? 120));
       case 'photo':
         if (args['on'] === false) c.photoMode.exit();
         else c.photoMode.enter();
@@ -295,6 +309,24 @@ export class GameStage implements Stage {
       default:
         throw new Error(`showreel: the game knows no action ${name}`);
     }
+  }
+
+  /**
+   * The game's intro flight, whole: it starts as the map stands (the runner
+   * started the scene right then, an intro page), the camera stays the
+   * flight's until it has landed in the game view
+   */
+  private async intro(timeoutS: number): Promise<void> {
+    const f = flight();
+    const started = await waitUntil(() => !!f?.state().running, 5, 'the intro flight').then(
+      () => true,
+      () => false,
+    );
+    if (!started) {
+      console.warn(`[showreel] no intro flight: ${f?.state().skipReason ?? 'no __flight'}`);
+      return;
+    }
+    await waitUntil(() => !f!.state().running, timeoutS, 'the intro flight to land');
   }
 
   /** A planned spot, checked again now (an earlier tower may stand near it); a new one beside the routes if not */

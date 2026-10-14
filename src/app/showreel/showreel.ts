@@ -32,6 +32,12 @@ html.showreel.sr-clean .es-status,
 html.showreel.sr-clean .es-minimap,
 html.showreel.sr-clean .es-trial { display: none !important; }
 html.showreel.sr-clean .es-root { grid-template: 'view' minmax(0, 1fr) / minmax(0, 1fr) !important; }
+/* An intro page (?showreel=intro): the game's HUD out from the first frame, as photo mode has it, before photo
+   mode can be entered; the scene (route lines, HQ and spawn markers) and the loading globe stay */
+html.showreel.sr-hud-off app-game-header,
+html.showreel.sr-hud-off app-game-sidebar,
+html.showreel.sr-hud-off .notice-banner,
+html.showreel.sr-hud-off .td-canvas-area > :not(canvas):not(app-globe-backdrop):not(.td-error-overlay):not(td-token-setup) { display: none !important; }
 `;
 
 /** How long the sync flash stays white: several frames of a 60 fps capture */
@@ -58,6 +64,8 @@ export interface ShowreelApi {
 export function installShowreelEarly(): void {
   installAudioTap();
   document.documentElement.classList.add('showreel', 'sr-no-legend');
+  // The runner asks for an intro page with `showreel=intro`: the game's intro flight plays without its HUD
+  if (new URLSearchParams(location.search).get('showreel') === 'intro') document.documentElement.classList.add('sr-hud-off');
   const style = document.createElement('style');
   style.textContent = STYLE;
   document.head.append(style);

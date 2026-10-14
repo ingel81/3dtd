@@ -1,13 +1,34 @@
 // The shipped maps: low, fast, sweeping fly-overs, clean frames.
 import { act, asset, clickMap, click, flyover, m, mode, newMap, orbit, par, path, seq, settings, sky, stroke, tool, wait } from './common.mjs';
 
+/**
+ * A fly-over that opens with the game's own intro flight, whole: the page loads with the HUD hidden (an intro
+ * page, see run.mjs openPage), the sound and the flash come while the map loads, the flight shows the lanes, the
+ * HQ and the spawns; once it has landed the frame goes clean (photo mode, no route lines and markers) and the
+ * shots follow
+ */
+const introFlyover = (name, map, label, shots) => ({
+  name,
+  page: `/?world=map:${map}`,
+  intro: true,
+  steps: [
+    { do: 'mark', name: `${label} intro` },
+    act('intro', { label: 'intro flight' }),
+    { do: 'ui', on: false },
+    { do: 'markers', on: false },
+    act('routes', { on: false }),
+    { do: 'mark', name: label },
+    ...shots,
+  ],
+});
+
 export const SCENES = [
   flyover('harbor-flyover', 'harbor-town', 'Harbor Town', [
     sky('starry-night', 'night', 30, { moonlight: 0.7 }),
     path(6.5, [[m(-235, -205, 10), m(-150, -165, 4)], [m(-70, -205, 14), m(0, -130, 8)]], { label: 'harbor quay', ease: 'inOut' }),
     path(6.5, [[m(30, -70, 35), m(0, 40, 0)], [m(-70, 115, 95), m(10, 30, 0)]], { label: 'harbor city', ease: 'inOut' }),
   ]),
-  flyover('mountain-flyover', 'mountain-pass', 'Mountain Pass', [
+  introFlyover('mountain-flyover', 'mountain-pass', 'Mountain Pass', [
     sky('sunset', 'dusk', 6),
     path(6.5, [[m(245, -70, 12), m(160, 5, 32)], [m(205, 30, 42), m(150, 5, 15)]], { label: 'waterfall', ease: 'inOut' }),
     path(6.5, [[m(-30, -40, 70), m(-139, -67, 45)], [m(-70, -175, 55), m(-139, -60, 45)]], { label: 'cable car', ease: 'inOut' }),
@@ -21,12 +42,12 @@ export const SCENES = [
     orbit(6.5, { at: 'hq' }, { from: 20, to: 95, radius: 120, radiusTo: 80, height: 55, heightTo: 28, label: 'crater', ease: 'inOut' }),
     path(6, ['current', [m(120, 120, 25), m(45, 65, 8)], [m(-30, 115, 30), m(10, 30, 5)]], { label: 'hell gate', ease: 'inOut' }),
   ]),
-  flyover('autumn-flyover', 'autumn-keep', 'Autumn Keep', [
+  introFlyover('autumn-flyover', 'autumn-keep', 'Autumn Keep', [
     sky('afterglow', 'dusk', 8),
     orbit(6.5, { at: 'hq', dy: 12 }, { from: 140, to: 230, radius: 80, radiusTo: 60, height: 32, heightTo: 20, label: 'keep', ease: 'inOut' }),
     path(6, ['current', [m(-130, -40, 22), m(0, 60, 10)], [m(-45, -10, 85), m(0, 70, 0)]], { label: 'woods', ease: 'inOut' }),
   ]),
-  flyover('frost-flyover', 'frost-hamlet', 'Frost Hamlet', [
+  introFlyover('frost-flyover', 'frost-hamlet', 'Frost Hamlet', [
     act('environment', { patch: { weather: 'snow', weatherStrength: 0.9 }, label: 'snowfall' }),
     path(6.5, [[m(0, -150, 22), m(10, 40, 0)], [m(10, 40, 30), m(20, 160, 5)]], { label: 'frozen lake', ease: 'inOut' }),
     orbit(6, { at: 'hq', dy: 15 }, { from: 160, to: 240, radius: 70, height: 26, heightTo: 18, label: 'hamlet', ease: 'inOut' }),
