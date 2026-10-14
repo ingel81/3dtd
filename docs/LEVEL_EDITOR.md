@@ -496,9 +496,11 @@ spielt je Seed (1, 7, 42, 99, 2026) 90 zufällige Schritte über die Werkzeuge u
 Wasser, Setzen auch am Hang ausgerichtet, Streuen und Ausdünnen, Radieren, Reihen entlang Linien und Straßen, Gizmo
 verschieben, drehen und skalieren, Löschen, Duplizieren, Gruppieren, Ende, Tönen, Straßen zeichnen, ziehen, glätten
 und verbreitern, Rahmenwahl, Spawns und HQ, Landschaft mit Biomen, Formen, Fluss, Straße, Klippe und Klippenfelsen,
-Flusspunkte, Stempel mit Drehung, Symmetrie, „Mirror now“, Heightmap-Import, Größe ändern, „Increase detail“,
+Flusspunkte samt neuem Schilf und neuen Steinen, alte Straßen ohne gemerkte Ausstattung, „Rebuild road dressing“,
+Stempel mit Drehung, Symmetrie, „Mirror now“, Heightmap-Import, Größe ändern, „Increase detail“,
 Restore, Umgebung, Sprünge im Verlauf) und verlangt: alle Undos ergeben `contentBytes` des Anfangs bytegleich, alle
 Redos die des Endes, und jeder Zustand unterwegs (Undo, Redo, Sprung) ist die Karte, wie sie nach diesem Schritt war;
+eine neue Straße, deren Ausstattung abgebaut und neu gebaut wird, lässt den Boden auf 2 mm gleich (gemerkter Boden);
 ein Fehler nennt Seed und Schritte. Undo während Strich, Drag oder Job sperrt
 die Session (`editor-session.spec.ts`). Browser:
 `e2e/tests/editor.e2e.ts` (neue Karte, Gelände, Objekt mit Rückgängig, Straße, Spawn, gespiegeltes Objekt, kopiertes

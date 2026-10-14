@@ -27,7 +27,7 @@ import { LandscapeTool } from './tools/landscape-tool';
 import { MarkerTool } from './tools/marker-tool';
 import { ObjectTool } from './tools/object-tool';
 import { PaintTool, paintCommands } from './tools/paint-tool';
-import { PathTool, editRoads, setRoads } from './tools/path-tool';
+import { PathTool, editRoads, rebuildRoads, setRoads } from './tools/path-tool';
 import { smoothEdge } from './ops/path-graph';
 import { StampTool } from './tools/stamp-tool';
 import { TerrainTool } from './tools/terrain-tool';
@@ -410,6 +410,52 @@ function fuzz(seed: number, count: number): Run {
       drag(tools.water, ctx, [[p.x, p.y], [p.x + (r() - 0.5) * 20, p.y + (r() - 0.5) * 20]]);
       steps.push('move river point');
     },
+    riverLine: () => {
+      // A river with its banks, reeds and stones, for the river op to move its points (and dress them anew)
+      ctx.settings.landscape.mode = 'river';
+      ctx.settings.landscape.seed = Math.floor(r() * 1e6);
+      drag(tools.landscape, ctx, path(6));
+      steps.push('river');
+    },
+    oldRoad: () => {
+      // A road from a map saved before roads kept their dressing: editing or rebuilding it reads the dressing off the map
+      const dressed = editor.doc.paths.edges.filter((e) => e.dress);
+      if (!dressed.length) return;
+      const id = pick(dressed).id;
+      editor.execute(
+        SnapshotCommand.record(editor.doc, 'Old road', ['paths'], (m) => {
+          const e = m.paths.edges.find((q) => q.id === id);
+          if (e) delete e.dress;
+        }),
+      );
+      steps.push('old road');
+    },
+    rebuildDressing: () => {
+      const edges = editor.doc.paths.edges;
+      if (!edges.length) return;
+      const ids = edges.filter(() => r() < 0.4).map((e) => e.id);
+      rebuildRoads(editor, catalog, ids.length ? ids : [pick(edges).id], ctx.settings.landscape.road);
+      steps.push(`rebuild dressing ${Math.max(1, ids.length)}`);
+    },
+    roadRoundTrip: () => {
+      // A road from the brush, then its dressing taken back and laid again on the ground it kept: the same ground
+      // to the millimetre (roads it joined or split are left out, their dressing goes with their own ground)
+      if (ctx.settings.symmetry !== 'none') return;
+      const before = new Set(editor.doc.paths.edges.map((e) => e.id));
+      const s = ctx.settings.landscape;
+      s.mode = 'road';
+      drag(tools.landscape, ctx, path(5));
+      const fresh = editor.doc.paths.edges.filter((e) => !before.has(e.id));
+      if (!fresh.length || editor.doc.paths.edges.length !== before.size + fresh.length) return;
+      if (fresh.some((e) => !e.dress?.ground)) throw new Error(`seed ${seed}: a road from the brush keeps no ground`);
+      const built = editor.doc.terrain.grid.heights.slice();
+      rebuildRoads(editor, catalog, fresh.map((e) => e.id), s.road);
+      const now = editor.doc.terrain.grid.heights;
+      let worst = 0;
+      for (let k = 0; k < now.length; k++) worst = Math.max(worst, Math.abs(now[k] - built[k]));
+      if (worst > 0.002) throw new Error(`seed ${seed}: rebuilding a road moved the ground by ${worst.toFixed(4)} m`);
+      steps.push('road round trip');
+    },
     jump: () => {
       const n = editor.historySteps;
       if (n < 3) return;
@@ -436,7 +482,8 @@ function fuzz(seed: number, count: number): Run {
     ['terrain', 5], ['paint', 3], ['water', 3], ['place', 4], ['scatter', 3], ['eraseObjects', 2], ['gizmo', 4], ['objectKeys', 3],
     ['road', 2], ['marker', 2], ['landscape', 4], ['stamp', 2], ['symmetry', 1], ['resize', 1], ['detail', 1], ['keep', 1],
     ['restore', 1], ['environment', 1], ['tint', 2], ['align', 1], ['placeAligned', 1], ['line', 2], ['cliffRocks', 2], ['mirror', 1],
-    ['heightmap', 1], ['roadEdit', 3], ['roadBox', 1], ['river', 2], ['jump', 1],
+    ['heightmap', 1], ['roadEdit', 3], ['roadBox', 1], ['river', 2], ['jump', 1], ['riverLine', 1], ['oldRoad', 1], ['rebuildDressing', 1],
+    ['roadRoundTrip', 1],
   ];
   const total = weights.reduce((s, [, w]) => s + w, 0);
   for (let k = 0; k < count; k++) {
