@@ -14,10 +14,10 @@
 // { do: 'markers', on } the game's HQ diamond and name signs. Fly-overs and the finale play clean, editor and
 // game with their full UI.
 //
-// Ground layers: a map holds 8. Measured on an empty map (grass): forest +3, river +3 (sand, gravel, mud),
-// road +1 (cobblestone), snow +3, desert +4, hell +6. Green Valley paints gravel first (the river reuses it):
-// grass, gravel, forest x3, sand, mud, cobblestone. Fire and Ice: grass, snow x3, desert x4; its lava is water
-// bodies (Fill a hollow), no ground layers.
+// Ground layers, measured on an empty map (grass): forest +3, river +3 (sand, gravel, mud),
+// road +1 (cobblestone), snow +3, desert +4, arctic +5, hell +6; a map holds 12 since round 3. Green Valley
+// paints gravel first (the river reuses it): grass, gravel, forest x3, sand, mud, cobblestone. Fire and Ice:
+// grass, arctic x5, hell x6; its lava is water bodies (Fill a hollow), no ground layers.
 
 /** A camera path through keyframes: [eye, look] pairs */
 const path = (dur, keys, opts = {}) => ({ do: 'shot', dur, keys: keys.map((k) => (k === 'current' ? k : { eye: k[0], look: k[1] })), ...opts });
@@ -64,6 +64,7 @@ export const SCENES = [
       [m(-110, -215, 24), m(-40, -150, 6)],
       [m(-20, -205, 30), m(10, -125, 8)],
     ], { label: 'harbor quay', ease: 'smooth' }),
+    act('environment', { patch: { sky: 'night', moonlight: 0.7 }, label: 'harbor night' }),
     path(9, ['current', [m(40, -40, 75), m(0, 45, 0)], [m(-70, 120, 120), m(10, 30, 0)]], { label: 'harbor city', ease: 'smooth' }),
   ]),
   flyover('mountain-flyover', 'mountain-pass', 'Mountain Pass', [
@@ -87,9 +88,11 @@ export const SCENES = [
   ]),
   flyover('autumn-flyover', 'autumn-keep', 'Autumn Keep', [
     orbit(9, { at: 'hq', dy: 12 }, { from: 140, to: 210, radius: 95, radiusTo: 70, height: 45, heightTo: 28, label: 'keep', ease: 'smooth' }),
+    act('environment', { patch: { weather: 'fog', weatherStrength: 0.6 }, label: 'fog' }),
     path(8, ['current', [m(-130, -40, 35), m(0, 60, 10)], [m(-50, -10, 95), m(0, 70, 0)]], { label: 'woods', ease: 'smooth' }),
   ]),
   flyover('frost-flyover', 'frost-hamlet', 'Frost Hamlet', [
+    act('environment', { patch: { weather: 'snow', weatherStrength: 0.85 }, label: 'snowfall' }),
     path(9, [[m(0, -150, 35), m(10, 40, 0)], [m(10, 30, 50), m(20, 160, 5)]], { label: 'frozen lake', ease: 'smooth' }),
     orbit(8, { at: 'hq', dy: 15 }, { from: 160, to: 230, radius: 85, height: 40, heightTo: 30, label: 'hamlet', ease: 'smooth' }),
   ]),
@@ -297,15 +300,27 @@ export const SCENES = [
     steps: [
       tool('environment', { label: 'sky' }),
       par(
-        path(11, ['current', [[-0.1, -0.62, 120], [0.05, 0.1, 20]]], { ease: 'smooth' }),
+        path(30, ['current', [[-0.1, -0.62, 110], [0.05, 0.1, 25]], [[0.3, -0.55, 90], [0.0, 0.15, 30]]], { ease: 'smooth' }),
         seq(
-          click('button[role=radio]', { withText: 'Dusk' }),
+          click('button[role=radio]', { withText: 'Dusk', label: 'dusk' }),
           wait(0.8),
-          { do: 'range', sel: '[data-test=time-of-day]', to: 18.6, dur: 3 },
-          wait(0.5),
+          { do: 'range', sel: '[data-test=time-of-day]', to: 19.2, dur: 2.5 },
+          wait(0.8),
+          click('button[role=radio]', { withText: 'Night', label: 'night' }),
+          wait(0.8),
+          { do: 'range', sel: '[data-test=moonlight]', to: 75, dur: 1.8, label: 'moonlight' },
+          wait(1.5),
+          click('button[role=radio]', { withText: 'Overcast', label: 'overcast' }),
+          wait(0.6),
           click('button[role=radio]', { withText: 'Rain', label: 'rain' }),
-          wait(2.2),
+          wait(2.5),
+          click('button[role=radio]', { withText: 'Snow', label: 'snow' }),
+          wait(3),
+          click('button[role=radio]', { withText: 'Fog', label: 'fog' }),
+          wait(2.5),
           click('button[role=radio]', { withText: 'Clear' }),
+          click('button[role=radio]', { withText: 'Day' }),
+          wait(1),
         ),
       ),
     ],
@@ -320,6 +335,22 @@ export const SCENES = [
       click('[data-test=trial]'),
     ],
   },
+  {
+    name: 'editor-overlays',
+    steps: [
+      path(2, ['current', [[0.05, -0.62, 260], [0.0, 0.0]]]),
+      tool('measure', { label: 'build areas' }),
+      click('[data-test=build-areas]'),
+      wait(3.5),
+      click('[data-test=build-areas]'),
+      tool('gameplay', { label: 'difficulty' }),
+      { do: 'range', sel: '[data-test=difficulty]', to: 140, dur: 1.6 },
+      wait(0.6),
+      tool('settings', { label: 'scene cost' }),
+      { do: 'move', to: '[data-test=map-budget]', dur: 0.8 },
+      wait(2),
+    ],
+  },
   { name: 'editor-test', steps: [click('[data-test=test-play]', { label: 'test map' }), wait(2)] },
 
   // ---------------------------------------------------------------- editor, map 2: Fire and Ice
@@ -329,27 +360,31 @@ export const SCENES = [
     steps: [
       path(2.5, ['current', [[0.0, -0.75, 230], [0.0, 0.05]]]),
       tool('landscape'),
-      mode('mountain', { label: 'snowy peaks' }),
+      mode('mountain', { label: 'peaks' }),
       settings({ brush: { radius: 80, strength: 1 }, landscape: { seed: 51, reroll: false } }),
       stroke(4.5, [[-0.2, 0.3], [-0.19, 0.31]]),
       stroke(4.5, [[0.12, 0.34], [0.13, 0.33]]),
       mode('biome'),
-      click('[data-biome=snow]', { label: 'snow' }),
+      click('[data-biome=arctic]', { label: 'arctic' }),
       settings({ brush: { radius: 70, strength: 1 } }),
       par(
         path(12, ['current', [[0.3, -0.6, 220], [0.0, 0.1]]], { ease: 'smooth' }),
         seq(
           stroke(3.5, [[-0.35, 0.3], [-0.1, 0.36], [0.15, 0.36], [0.35, 0.3]]),
-          click('[data-biome=desert]', { label: 'desert' }),
+          click('[data-biome=hell]', { label: 'hell' }),
           stroke(3.5, [[-0.35, -0.3], [-0.1, -0.36], [0.15, -0.34], [0.35, -0.28]]),
         ),
       ),
+      tool('environment'),
+      click('button[role=radio]', { withText: 'Snow', label: 'snowfall' }),
+      wait(2.5),
     ],
   },
   {
     name: 'editor2-lava',
     steps: [
       path(2.5, ['current', [[0.15, -0.68, 100], [-0.1, -0.36]]]),
+      tool('landscape'),
       mode('mountain', { label: 'volcano' }),
       settings({ brush: { radius: 70, strength: 1 }, landscape: { seed: 61 } }),
       stroke(4.5, [[-0.3, -0.28], [-0.29, -0.28]]),

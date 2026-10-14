@@ -278,7 +278,7 @@ export class GameStage implements Stage {
       case 'build': {
         const tower = String(args['tower'] ?? 'archer');
         const at = (args['at'] as MapPoint3 | undefined) ?? this.spotFor(Number(args['spot'] ?? 0), tower);
-        return this.build(tower, at, Number(args['dur'] ?? 0.9));
+        return this.build(tower, at, Number(args['dur'] ?? 0.9), Number(args['hold'] ?? 1.5));
       }
       case 'wave':
         await this.hands.click('.td-wave-btn', Number(args['dur'] ?? 0.8));
@@ -344,7 +344,7 @@ export class GameStage implements Stage {
    * spot, one click each. The spot was checked by the game's rules before
    * the pointer moved (planTowers, spotFor)
    */
-  private async build(tower: string, at: MapPoint3, seconds: number): Promise<void> {
+  private async build(tower: string, at: MapPoint3, seconds: number, hold: number): Promise<void> {
     const c = this.component;
     const selector = `.bp-card:has(canvas[data-tower-id="${tower}"])`;
     await waitUntil(() => {
@@ -355,9 +355,10 @@ export class GameStage implements Stage {
     await waitUntil(() => !!document.querySelector('.bp-cancel'), 3, 'the build mode');
     await this.keepInView(at);
     const before = c.store.credits();
-    // The build preview follows the pointer and checks its spot a moment later: rest there, then click
+    // The build preview with its range and the route grid follows the pointer: rest there so the viewer
+    // sees them (and the preview checks the spot), then one click
     await this.hands.toMap(this, at, seconds);
-    await waitSeconds(0.25);
+    await waitSeconds(hold);
     const p = this.hands.pointer.position;
     this.hands.pointer.moveTo({ x: p.x + 1, y: p.y });
     await waitSeconds(0.2);

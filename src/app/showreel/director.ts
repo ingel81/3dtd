@@ -271,6 +271,9 @@ export class Director {
   private async range(host: HTMLElement, value: number, seconds: number): Promise<void> {
     const input = (host instanceof HTMLInputElement ? host : host.querySelector('input[type=range]')) as HTMLInputElement | null;
     if (!input) throw new Error('showreel: no range input there');
+    // A slider low in a long panel: into view first, as a person would scroll to it
+    const box = input.getBoundingClientRect();
+    if (box.bottom > innerHeight - 40 || box.top < 40) input.scrollIntoView({ block: 'center' });
     const min = Number(input.min || 0);
     const max = Number(input.max || 100);
     const from = Number(input.value);
