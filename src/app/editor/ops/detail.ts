@@ -7,9 +7,11 @@
  * every old height point keeps its height, the points between come
  * bilinear from their neighbours; splat weights and water masks are
  * resampled the same way. Objects, roads and markers stand in metres and
- * need nothing.
+ * need nothing; the ground roads keep for taking them back (dress.ground)
+ * is refined with the heights (increaseMapDetail).
  */
-import type { MapTerrain, MapWater } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapTerrain, MapWater } from '../../world/custom-map/map-document';
+import { refineGround } from './landscape/road-ground';
 import { DEFAULT_CELL_SIZE, splatResolutionFor } from '../../world/custom-map/map-create';
 import { heightAt } from '../model/grid';
 
@@ -29,6 +31,18 @@ export function detailTarget(t: MapTerrain, maxCell = DEFAULT_CELL_SIZE): Detail
   const splatResolution = Math.max(t.splat.resolution, splatResolutionFor(Math.max(columns, rows)));
   if (k === 1 && splatResolution === t.splat.resolution) return null;
   return { cellSize: g.cellSize / k, columns, rows, splatResolution };
+}
+
+/** The map's terrain refined, and the ground its roads keep with it (dropped where it cannot follow) */
+export function increaseMapDetail(doc: CustomMapDocument, target: DetailTarget): void {
+  const from = doc.terrain.grid;
+  doc.terrain = increaseDetail(doc.terrain, target);
+  for (const e of doc.paths.edges) {
+    if (!e.dress?.ground) continue;
+    const ground = refineGround(e.dress.ground, from, doc.terrain.grid);
+    const { ground: _old, ...rest } = e.dress;
+    e.dress = ground ? { ...rest, ground } : rest;
+  }
 }
 
 /** The refined terrain (a new object; the old one is left as it was) */

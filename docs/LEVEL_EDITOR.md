@@ -140,8 +140,9 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   er gebaut hat, merkt sich die Kante (`dress`); zieht man danach einen Knoten, glättet, begradigt oder verbreitert die
   Straße (Roads, 6), legt der Editor das alles neu an: der alte Streifen wird zurückgebaut (die Höhen genau wie vor der
   Straße: `dress.ground` hält je Höhenpunkt des Bands die Höhe vorher und nach dem Einebnen, auf den Millimeter;
-  danach Geformtes bleibt als Unterschied erhalten; ohne gemerkte Höhen oder auf einem anderen Raster gerade vom Land
-  am einen Rand zum anderen, `restoreBand`; der Bodenanstrich blendet immer so), seine Laternen und Zäune gehen,
+  danach Geformtes bleibt als Unterschied erhalten; „Resize“ verschiebt die gemerkten Höhen mit dem Raster und schneidet
+  ab, was aus der Karte fällt, „Increase detail“ verfeinert sie bilinear wie die Höhen selbst (`shiftGround`,
+  `refineGround`); ohne gemerkte Höhen gerade vom Land am einen Rand zum anderen, `restoreBand`; der Bodenanstrich blendet immer so), seine Laternen und Zäune gehen,
   entlang der neuen Linie entstehen Damm, Belag und Ausstattung neu; ein Schritt im Verlauf. Straßen ohne `dress` (aus Karten von
   vorher, aus Level-Skripten) liest der Editor beim ersten Bearbeiten von der Karte ab (`inferDress`): Laternen und Zäune
   an ihren Seiten und den Belag entlang der Mitte, wenn es ein Straßenbelag ist, den das Land daneben nicht hat; ihr

@@ -25,7 +25,7 @@ import { ThumbnailRenderer } from '../view/thumbnail-renderer';
 import { biomeThumbnail, materialThumbnail, objectThumbnail } from './thumbnails';
 import { EditorDocument, SnapshotCommand, type EditCommand, type Selection } from '../model/editor-document';
 import { resizeMap } from '../ops/resize';
-import { detailTarget, increaseDetail } from '../ops/detail';
+import { detailTarget, increaseMapDetail } from '../ops/detail';
 import { mirrorMap, type MirrorResult } from '../ops/mirror-map';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { decodePng, decodeRaw16, encodePng16, encodeRaw16, gridToImage, heightmapName, imageToHeights } from '../ops/heightmap';
@@ -774,7 +774,7 @@ export class EditorSession implements OnDestroy {
     const editor = this.groundEditor('Increasing the detail');
     const target = editor && detailTarget(editor.doc.terrain);
     if (!editor || !target) return;
-    this.execute(SnapshotCommand.record(editor.doc, 'Increase detail', ['terrain'], (d) => (d.terrain = increaseDetail(d.terrain, target))));
+    this.execute(SnapshotCommand.record(editor.doc, 'Increase detail', ['terrain', 'paths'], (d) => increaseMapDetail(d, target)));
     this.flash(`Height points every ${+target.cellSize.toFixed(2)} m, ground paint ${target.splatResolution} px; Ctrl+Z takes it back`);
   }
 

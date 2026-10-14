@@ -8,6 +8,7 @@
 import type { CustomMapDocument, MapTerrain } from '../../world/custom-map/map-document';
 import { splatResolutionFor } from '../../world/custom-map/map-create';
 import { clamp } from '../model/grid';
+import { shiftGround } from './landscape/road-ground';
 
 export interface ResizeResult {
   droppedObjects: number;
@@ -72,7 +73,14 @@ export function resizeMap(doc: CustomMapDocument, width: number, depth: number):
     nodes: doc.paths.nodes.filter((n) => keep.has(n.id)),
     edges: doc.paths.edges
       .filter((e) => keep.has(e.a) && keep.has(e.b))
-      .map((e) => (e.via ? { ...e, via: e.via.map(pull) } : e)),
+      .map((e) => (e.via ? { ...e, via: e.via.map(pull) } : e))
+      .map((e) => {
+        // The ground a road keeps for taking it back moves with the grid; what falls outside goes
+        if (!e.dress?.ground) return e;
+        const ground = shiftGround(e.dress.ground, g, terrain.grid, di, dj);
+        const { ground: _old, ...rest } = e.dress;
+        return { ...e, dress: ground ? { ...rest, ground } : rest };
+      }),
   };
   doc.spawns = doc.spawns.map(pull);
   doc.hq = pull(doc.hq);

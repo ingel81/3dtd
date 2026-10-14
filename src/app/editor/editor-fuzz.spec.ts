@@ -19,7 +19,7 @@ import { mirrorMap } from './ops/mirror-map';
 import { decodePng, encodePng16, gridToImage, imageToHeights } from './ops/heightmap';
 import { LandscapeStroke } from './ops/landscape/landscape-stroke';
 import { heightAt } from './model/grid';
-import { detailTarget, increaseDetail } from './ops/detail';
+import { detailTarget, increaseMapDetail } from './ops/detail';
 import type { BiomeId } from './ops/landscape/biomes';
 import { resizeMap } from './ops/resize';
 import type { SymmetryMode } from './ops/symmetry';
@@ -283,7 +283,7 @@ function fuzz(seed: number, count: number): Run {
     detail: () => {
       const target = detailTarget(editor.doc.terrain);
       if (!target) return;
-      editor.execute(SnapshotCommand.record(editor.doc, 'Increase detail', ['terrain'], (m) => (m.terrain = increaseDetail(m.terrain, target))));
+      editor.execute(SnapshotCommand.record(editor.doc, 'Increase detail', ['terrain', 'paths'], (m) => increaseMapDetail(m, target)));
       steps.push('increase detail');
     },
     keep: () => {
