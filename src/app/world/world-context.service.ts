@@ -19,6 +19,7 @@ const NO_CAPABILITIES: WorldCapabilities = {
   destructible: false,
   ownEnvironment: false,
   enemyRimLight: false,
+  groundShadows: false,
   controls: 'environment',
 };
 

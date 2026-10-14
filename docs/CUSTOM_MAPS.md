@@ -325,6 +325,12 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 eines Gegners sich von der Kamera abwendet (`uRimLight` in `vat-material.ts`, Stärke 0,55), damit Gegner sich vom
 beleuchteten, detailreichen Boden abheben. Tiles und DevWorld behalten das Aussehen (Stärke 0).
 
+**Schatten für Tower, Gegner und Held** (`WorldCapabilities.groundShadows`, nur eigene Karten): Tower werfen ihren
+Körper in die gecachte Schattenkarte der Sonne (der drehende Turm nicht), die Karte rendert neu, wenn ein Tower kommt
+oder geht (`WorldProvider.invalidateShadows`). Gegner am Boden bekommen weiche runde Blob-Schatten, je Gegnertyp ein
+zweites instanziertes Netz, das Matrizen und Gleitversatz des Typs mitbenutzt (keine Arbeit auf der CPU je Frame,
+`blob-shadow.ts`); Luftgegner keinen; der Held einen eigenen. Tiles und DevWorld bleiben ohne.
+
 ## Assets
 
 `public/maps/assets/catalog.json` (Typen in `render/asset-catalog.ts`), Lizenzen in `LICENSES.md`, alles CC0.

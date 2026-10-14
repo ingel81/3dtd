@@ -128,6 +128,30 @@ export class ThreeTowerRenderer {
   // Active tower renders
   private towers = new Map<string, TowerRenderData>();
 
+  /** Towers cast into the sun's cached shadow map (a world with groundShadows), see setShadowCasting */
+  private shadowCasting = false;
+  /** Called when a casting tower came or went: the cached shadow map must render again */
+  onShadowsChanged: (() => void) | null = null;
+
+  /**
+   * Let towers cast the sun's shadow (their body; a turning turret not: the
+   * shadow map is cached and renders only when a tower comes or goes)
+   */
+  setShadowCasting(on: boolean): void {
+    this.shadowCasting = on;
+    for (const data of this.towers.values()) this.castFrom(data.mesh, data.turretPart, on);
+    this.onShadowsChanged?.();
+  }
+
+  private castFrom(root: Object3D, turret: Object3D | null, on: boolean): void {
+    const walk = (node: Object3D): void => {
+      if (node === turret) return;
+      if ((node as Mesh).isMesh) node.castShadow = on;
+      for (const child of node.children) walk(child);
+    };
+    walk(root);
+  }
+
   /** Tower under the pointer, shows its range like a selected one, see setHovered */
   private hoveredId: string | null = null;
 
@@ -346,6 +370,10 @@ export class ThreeTowerRenderer {
 
     // Add to scene
     this.scene.add(mesh);
+    if (this.shadowCasting) {
+      this.castFrom(mesh, turretPart, true);
+      this.onShadowsChanged?.();
+    }
 
     // Range ring around the foot (terrain level, not tower level), hidden
     // until hovered or selected
@@ -795,6 +823,7 @@ export class ThreeTowerRenderer {
     // Remove mesh
     this.scene.remove(data.mesh);
     this.disposeObject(data.mesh);
+    if (this.shadowCasting) this.onShadowsChanged?.();
 
     // Remove range ring (geometry and materials are shared, see rangeRings)
     if (data.rangeIndicator) {

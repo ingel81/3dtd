@@ -348,6 +348,8 @@ export class ThreeTilesEngine {
     this.enemies = new InstancedEnemyRenderer(this.scene, coordinateSync, this.assetManager, this.portalClip);
     // A rim light lifts enemies off a custom map's lit, detailed ground; tiles keep their look
     this.enemies.setRimLight(world.capabilities.enemyRimLight ? ENEMY_RIM_LIGHT : 0);
+    // Units on a world with cast shadows would float: blobs under enemies and the hero, towers into the sun's map
+    this.enemies.setBlobShadows(world.capabilities.groundShadows);
     // A restored WebGL context comes back empty and three uploads every texture
     // again from its CPU copy, which the VATs drop after their first upload.
     this.enemies.rebakeOnContextRestore(this.renderer.domElement);
@@ -387,6 +389,11 @@ export class ThreeTilesEngine {
     });
     this.hero = new HeroRenderer(this.scene, coordinateSync, this.assetManager);
     this.hero.stateLerp = this.enemies.stateLerp;
+    this.hero.setBlobShadow(world.capabilities.groundShadows);
+    if (world.capabilities.groundShadows) {
+      this.towers.onShadowsChanged = () => world.invalidateShadows?.();
+      this.towers.setShadowCasting(true);
+    }
     this.coordinateSync = coordinateSync;
     this.frostBursts = new FrostBurstRenderer(this.scene, this.effects.particleShaderMaterials);
     this.empPulses = new EmpPulseRenderer(this.scene, this.effects.particleShaderMaterials);

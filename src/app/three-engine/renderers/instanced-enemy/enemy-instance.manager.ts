@@ -11,6 +11,7 @@ import {
 } from 'three';
 import { VATData } from './vat-baker';
 import { createVATBloodMoonUniforms, createVATMaterial, setVATTexture } from './vat-material';
+import { attachBlobShadow } from './blob-shadow';
 import { createPortalClipUniforms, type PortalClipUniforms } from '../portal-clip';
 import { STATE_LERP_JUMP_M, StateLerp } from '../state-lerp';
 import { bloodMoonMultiplier } from '../../blood-moon/blood-moon-mood';
@@ -218,6 +219,9 @@ export class EnemyInstanceManager {
   private readonly camoTime = { value: 0 };
   /** Rim light strength (vat-material.ts uRimLight), shared by every type, see setRimLight() */
   private readonly rimLight = { value: 0 };
+  /** Blob shadows under ground units (blob-shadow.ts), see setBlobShadows(); one mesh per type */
+  private blobShadows = false;
+  private readonly blobs = new Map<string, InstancedMesh>();
 
   // Reusable temp objects
   private readonly matrix = new Matrix4();
@@ -293,6 +297,7 @@ export class EnemyInstanceManager {
     const gate = new DrawGate([instancedMesh]);
     gate.setShown(this.shown);
     this.scene.add(instancedMesh);
+    if (this.blobShadows && !config.isAirUnit) this.addBlob(typeId, instancedMesh, vatData);
 
     this.pools.set(typeId, {
       typeId,
@@ -583,6 +588,20 @@ export class EnemyInstanceManager {
 
   /** VFX setting freezeTint; while off a slowed enemy shows no freeze tint. */
   private freezeTint = true;
+
+  /**
+   * Soft round shadows under ground units (worlds with groundShadows: custom
+   * maps); for the types made from now on, so set it before the first enemy
+   */
+  setBlobShadows(on: boolean): void {
+    this.blobShadows = on;
+  }
+
+  private addBlob(typeId: string, mesh: InstancedMesh, vatData: VATData): void {
+    // About the model's footprint: the larger of its animated extents across, in model units (the instance scales it)
+    const [ex, , ez] = vatData.encoding.extent;
+    this.blobs.set(typeId, attachBlobShadow(mesh, Math.max(ex, ez) * 0.4, this.stateLerp.uniform));
+  }
 
   /** Rim light of every type, pools created later included; 0 turns it off (tiles) */
   setRimLight(strength: number): void {
@@ -905,6 +924,12 @@ export class EnemyInstanceManager {
     this.clear();
     for (const pool of this.pools.values()) {
       this.scene.remove(pool.instancedMesh);
+      const blob = this.blobs.get(pool.typeId);
+      if (blob) {
+        blob.geometry.dispose();
+        blob.removeFromParent();
+        this.blobs.delete(pool.typeId);
+      }
       pool.instancedMesh.geometry.dispose();
       (pool.instancedMesh.material as Material).dispose();
       pool.vatData.positionTexture.dispose();

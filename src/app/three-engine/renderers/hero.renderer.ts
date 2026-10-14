@@ -13,6 +13,7 @@ import type { AssetManagerService } from '../../services/infrastructure/asset-ma
 import type { HeroPresentation, HeroView } from '../../managers/hero.manager';
 import { HERO_MODEL, HeroModel, HeroModelConfig, loadHeroModel } from './hero-model';
 import { STATE_LERP_JUMP_M, type StateLerp } from './state-lerp';
+import { singleBlobShadow } from './instanced-enemy/blob-shadow';
 
 /** Ground under a local position: the route grid, like the enemies' feet. */
 export interface HeroGround {
@@ -76,6 +77,14 @@ export class HeroRenderer implements HeroView {
   private readonly ownerRing: Mesh;
 
   private readonly scratch = new Vector3();
+  /** A soft round shadow under the hero (worlds with groundShadows), see setBlobShadow */
+  private blob: Mesh | null = null;
+
+  /** A soft round shadow under the hero's feet, on worlds that ask for it (custom maps) */
+  setBlobShadow(on: boolean): void {
+    if (on && !this.blob) this.blob = singleBlobShadow(this.root, 0.8);
+    if (this.blob) this.blob.visible = on;
+  }
 
   constructor(
     private readonly scene: Scene,

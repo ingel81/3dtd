@@ -442,6 +442,11 @@ export class InstancedEnemyRenderer {
     this.instanceManager.setFreezeTintEnabled(enabled);
   }
 
+  /** Blob shadows under ground units, see EnemyInstanceManager.setBlobShadows. */
+  setBlobShadows(on: boolean): void {
+    this.instanceManager.setBlobShadows(on);
+  }
+
   /** Rim light of every enemy, see EnemyInstanceManager.setRimLight. */
   setRimLight(strength: number): void {
     this.instanceManager.setRimLight(strength);

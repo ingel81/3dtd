@@ -48,6 +48,13 @@ export interface WorldCapabilities {
    * custom map); worlds without it keep the enemies' look as it is (tiles)
    */
   enemyRimLight: boolean;
+  /**
+   * Towers cast into the world's cached sun shadow map, enemies and the
+   * hero get soft blob shadows (a custom map, whose trees and buildings
+   * cast shadows); `invalidateShadows` renders the map again after a tower
+   * came or went. Worlds without it keep towers and units unshadowed (tiles)
+   */
+  groundShadows: boolean;
   /** Camera controls: around a globe or over a flat environment */
   controls: 'globe' | 'environment';
 }
@@ -299,6 +306,8 @@ export interface WorldProvider {
   resize(camera: PerspectiveCamera, renderer: WebGLRenderer): void;
   /** The menu globe covers the canvas or no longer does */
   setDrawSuppressed(suppressed: boolean): void;
+  /** Something that casts into the world's cached shadows changed (a tower built or gone); worlds with groundShadows */
+  invalidateShadows?(): void;
   /** The group the tower line-of-sight cube renders as blockers, a direct child of the scene */
   losBlockers(): Object3D | null;
   /**

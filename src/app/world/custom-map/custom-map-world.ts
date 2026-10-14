@@ -39,6 +39,7 @@ export const CUSTOM_MAP_CAPABILITIES: WorldCapabilities = {
   destructible: false,
   ownEnvironment: true,
   enemyRimLight: true,
+  groundShadows: true,
   controls: 'environment',
 };
 
@@ -311,6 +312,11 @@ export class CustomMapWorld implements WorldProvider {
   applyQuality(knobs: QualityKnobs): void {
     this.quality = knobs.customMaps;
     this.view?.applyQuality(knobs.customMaps);
+  }
+
+  /** A tower came or went: the map's cached sun shadow map renders again */
+  invalidateShadows(): void {
+    this.view?.environment.invalidateShadows();
   }
 
   /** Terrain and sight-blocking objects, a direct child of the scene (the TowerShadowMapper hides every other child) */
