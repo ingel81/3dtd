@@ -158,6 +158,8 @@ export class Director {
           },
           dur,
         );
+      case 'follow':
+        return this.follow(step);
       case 'release':
         stage.setPose(null);
         return;
@@ -269,6 +271,60 @@ export class Director {
       const t = seconds <= 0 ? 1 : Math.min(1, ((await nextFrame()) - start) / (seconds * 1000));
       stage.setPose(play(t));
       if (t >= 1) return;
+    }
+  }
+
+  /**
+   * A chase camera on a moving spot (`at`, read every frame, e.g. `runner:0`): behind it by `back` metres along
+   * its way, `side` to its right, `h` above the ground, looking `ahead` metres past it; position and direction
+   * smoothed so the camera glides. Ends after `dur` seconds or when the spot is gone.
+   */
+  private async follow(step: Step): Promise<void> {
+    const stage = this.stage();
+    const spec = step['at'] as PointSpec;
+    const back = Number(step['back'] ?? 14);
+    const side = Number(step['side'] ?? 4);
+    const up = Number(step['h'] ?? 4);
+    const ahead = Number(step['ahead'] ?? 10);
+    const seconds = Number(step['dur'] ?? 6);
+    const first = this.point(spec);
+    let at = { x: first.x, y: first.y };
+    let dir = { x: 1, y: 0 };
+    let last = await nextFrame();
+    const start = last;
+    for (;;) {
+      const now = await nextFrame();
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      let p: MapPoint3;
+      try {
+        p = this.point(spec);
+      } catch {
+        return;
+      }
+      const k = 1 - Math.exp(-dt * 3);
+      const nx = at.x + (p.x - at.x) * k;
+      const ny = at.y + (p.y - at.y) * k;
+      const vx = nx - at.x;
+      const vy = ny - at.y;
+      const len = Math.hypot(vx, vy);
+      if (len > 1e-3) {
+        const kd = 1 - Math.exp(-dt * 2);
+        const tx = dir.x + (vx / len - dir.x) * kd;
+        const ty = dir.y + (vy / len - dir.y) * kd;
+        const tl = Math.hypot(tx, ty) || 1;
+        dir = { x: tx / tl, y: ty / tl };
+      }
+      at = { x: nx, y: ny };
+      const ex = at.x - dir.x * back + dir.y * side;
+      const ey = at.y - dir.y * back - dir.x * side;
+      const lx = at.x + dir.x * ahead;
+      const ly = at.y + dir.y * ahead;
+      stage.setPose({
+        eye: { x: ex, y: ey, h: stage.groundAt(ex, ey) + up },
+        look: { x: lx, y: ly, h: stage.groundAt(lx, ly) + 1.5 },
+      });
+      if (now - start >= seconds * 1000) return;
     }
   }
 

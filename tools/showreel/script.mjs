@@ -22,8 +22,9 @@
 import { SCENES as FLYOVERS } from './scenes/flyovers.mjs';
 import { SCENES as EDITOR } from './scenes/editor.mjs';
 import { SCENES as EDITOR2 } from './scenes/editor2.mjs';
+import { SCENES as W3X } from './scenes/w3x.mjs';
 import { SCENES as GAME } from './scenes/game.mjs';
 import { SCENES as FINALE } from './scenes/finale.mjs';
 
 /** The programme in order; each part lives in scenes/ (common.mjs has the helpers) */
-export const SCENES = [...FLYOVERS, ...EDITOR, ...EDITOR2, ...GAME, ...FINALE];
+export const SCENES = [...FLYOVERS, ...EDITOR, ...EDITOR2, ...W3X, ...GAME, ...FINALE];

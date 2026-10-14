@@ -87,6 +87,13 @@ export class EditorStage implements Stage {
       const r = pick(doc.terrain.rivers ?? [], Number(river[1]));
       return (r && pick(r.points, Number(river[2]))) ?? null;
     }
+    // runner:<i> a runner of the trial wave, where it walks now (follow it with the director's follow step)
+    const runner = /^runner:(\d+)$/.exec(name);
+    if (runner) {
+      const trial = (this.viewport as unknown as { trial?: { runners: { model: { position: { x: number; z: number } } }[] } } | null)?.trial;
+      const r = trial?.runners[Number(runner[1])];
+      return r ? { x: -r.model.position.x, y: r.model.position.z } : null;
+    }
     // object:<asset> the newest object of an asset, object:last the newest of all
     const object = /^object:(.+)$/.exec(name);
     if (object) {
@@ -181,6 +188,20 @@ export class EditorStage implements Stage {
       case 'trialSpeed': {
         const viewport = this.viewport;
         if (viewport) viewport.trialSpeed = Number(args['value'] ?? 4);
+        return;
+      }
+      case 'history': {
+        // Through the history a step at a time, as clicking down the History list: to step `to` (0 the map as
+        // opened), or with `to: 'end'` forward to the newest
+        const editor = (session as unknown as { editor: { historySteps: number; history: { done: string[]; undone: string[] } } | null }).editor;
+        if (!editor) return;
+        const total = editor.history.done.length + editor.history.undone.length;
+        const goal = args['to'] === 'end' ? total : Number(args['to'] ?? 0);
+        const stepS = Number(args['stepS'] ?? 0.12);
+        while (editor.historySteps !== goal) {
+          session.jumpTo(editor.historySteps + (goal > editor.historySteps ? 1 : -1));
+          await waitSeconds(stepS);
+        }
         return;
       }
       case 'save':

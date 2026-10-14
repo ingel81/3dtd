@@ -230,6 +230,8 @@ export function keyCode(key: string): string {
     '-': 'Minus',
     '[': 'BracketLeft',
     ']': 'BracketRight',
+    '{': 'BracketLeft',
+    '}': 'BracketRight',
     '?': 'Slash',
   };
   return named[key] ?? key;
