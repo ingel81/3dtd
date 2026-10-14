@@ -2,8 +2,9 @@
 
     python -I tools/map-assets/write_licenses.py public/maps/assets
 
-Run it after build_materials.py or after editing the object entries, so the
-licence record always lists exactly what the catalogue ships.
+Run it after build_materials.py, build_skies.py or after editing the object
+entries, so the licence record always lists exactly what the catalogue and
+the image skies (skies/skies.json) ship.
 """
 import json
 import os
@@ -13,7 +14,8 @@ HEADER = """# Lizenzen der Karten-Assets
 
 Alle Dateien unter `public/maps/assets/` stammen aus CC0-Quellen (gemeinfrei, keine Namensnennung nötig) oder sind
 daraus prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, die sie erzeugen, liegen unter
-`tools/map-assets/` (siehe dort README.md); diese Datei schreibt `write_licenses.py` aus `catalog.json`.
+`tools/map-assets/` (siehe dort README.md); diese Datei schreibt `write_licenses.py` aus `catalog.json` und
+`skies/skies.json`.
 
 - Poly Haven (https://polyhaven.com), Lizenz CC0 1.0: https://polyhaven.com/license
 - ambientCG (https://ambientcg.com), Lizenz CC0 1.0: https://docs.ambientcg.com/license/
@@ -35,6 +37,16 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 |----|--------|
 """
 
+SKIES = """
+## Himmelsbilder (`skies/<id>.webp`)
+
+HDRIs von Poly Haven (CC0), von `build_skies.py` skaliert, teils getönt, als obere Halbkugel (WebP) gespeichert.
+„nur Sterne“: Himmelsglühen je Zeile abgezogen, Land entfernt.
+
+| Id | Quelle |
+|----|--------|
+"""
+
 
 def main():
     root = sys.argv[1]
@@ -45,6 +57,11 @@ def main():
     out += OBJECTS
     for o in catalog['objects']:
         out += f'| {o["id"]} | {o.get("source", "")} |\n'
+    skies = os.path.join(root, 'skies', 'skies.json')
+    if os.path.exists(skies):
+        out += SKIES
+        for s in json.load(open(skies, encoding='utf8'))['skies']:
+            out += f'| {s["id"]} | {s["source"]} |\n'
     with open(os.path.join(root, 'LICENSES.md'), 'w', encoding='utf8', newline='\n') as f:
         f.write(out)
 

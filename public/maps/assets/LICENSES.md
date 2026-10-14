@@ -2,7 +2,8 @@
 
 Alle Dateien unter `public/maps/assets/` stammen aus CC0-Quellen (gemeinfrei, keine Namensnennung nötig) oder sind
 daraus prozedural gebaut. Keine KI-Generatoren, keine Fremdmarken. Die Skripte, die sie erzeugen, liegen unter
-`tools/map-assets/` (siehe dort README.md); diese Datei schreibt `write_licenses.py` aus `catalog.json`.
+`tools/map-assets/` (siehe dort README.md); diese Datei schreibt `write_licenses.py` aus `catalog.json` und
+`skies/skies.json`.
 
 - Poly Haven (https://polyhaven.com), Lizenz CC0 1.0: https://polyhaven.com/license
 - ambientCG (https://ambientcg.com), Lizenz CC0 1.0: https://docs.ambientcg.com/license/
@@ -520,3 +521,19 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | fx-snow | Effekt des Renderers, kein Modell |
 | fx-sparkle | Effekt des Renderers, kein Modell |
 | fx-waterfall | Effekt des Renderers, kein Modell |
+
+## Himmelsbilder (`skies/<id>.webp`)
+
+HDRIs von Poly Haven (CC0), von `build_skies.py` skaliert, teils getönt, als obere Halbkugel (WebP) gespeichert.
+„nur Sterne“: Himmelsglühen je Zeile abgezogen, Land entfernt.
+
+| Id | Quelle |
+|----|--------|
+| fair-weather | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky |
+| sunset | https://polyhaven.com/a/belfast_sunset_puresky |
+| afterglow | https://polyhaven.com/a/qwantani_dusk_2_puresky |
+| overcast | https://polyhaven.com/a/kloofendal_overcast_puresky |
+| thunderstorm | https://polyhaven.com/a/quarry_cloudy |
+| moonrise | https://polyhaven.com/a/qwantani_moonrise_puresky |
+| starry-night | https://polyhaven.com/a/rogland_clear_night |
+| deep-space | https://polyhaven.com/a/rogland_clear_night (nur Sterne) |

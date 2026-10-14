@@ -1,0 +1,240 @@
+{
+  "skies": [
+    {
+      "id": "fair-weather",
+      "label": "Fair weather",
+      "preset": "day",
+      "file": "fair-weather.webp",
+      "width": 4096,
+      "height": 1024,
+      "source": "https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky",
+      "sun": {
+        "azimuth": 304.3,
+        "elevation": 47.9
+      },
+      "sunColor": [
+        0.973,
+        1.0,
+        0.9209
+      ],
+      "zenith": [
+        0.6061,
+        0.6704,
+        0.8895
+      ],
+      "horizon": [
+        0.5691,
+        0.6204,
+        0.7659
+      ],
+      "sky": [
+        0.4681,
+        0.5551,
+        0.8169
+      ]
+    },
+    {
+      "id": "sunset",
+      "label": "Sunset",
+      "preset": "dusk",
+      "file": "sunset.webp",
+      "width": 4096,
+      "height": 1024,
+      "source": "https://polyhaven.com/a/belfast_sunset_puresky",
+      "sun": {
+        "azimuth": 317.6,
+        "elevation": 3.9
+      },
+      "sunColor": [
+        1.0,
+        0.6535,
+        0.3557
+      ],
+      "zenith": [
+        0.1185,
+        0.1274,
+        0.1991
+      ],
+      "horizon": [
+        0.4351,
+        0.3335,
+        0.2322
+      ],
+      "sky": [
+        0.2031,
+        0.1824,
+        0.2183
+      ]
+    },
+    {
+      "id": "afterglow",
+      "label": "Afterglow",
+      "preset": "dusk",
+      "file": "afterglow.webp",
+      "width": 4096,
+      "height": 1024,
+      "source": "https://polyhaven.com/a/qwantani_dusk_2_puresky",
+      "sun": {
+        "azimuth": 305.9,
+        "elevation": 17.9
+      },
+      "sunColor": [
+        1.0,
+        0.5767,
+        0.5899
+      ],
+      "zenith": [
+        0.145,
+        0.1613,
+        0.2779
+      ],
+      "horizon": [
+        0.2966,
+        0.1984,
+        0.223
+      ],
+      "sky": [
+        0.3035,
+        0.2601,
+        0.356
+      ]
+    },
+    {
+      "id": "overcast",
+      "label": "Overcast",
+      "preset": "overcast",
+      "file": "overcast.webp",
+      "width": 4096,
+      "height": 1024,
+      "source": "https://polyhaven.com/a/kloofendal_overcast_puresky",
+      "sun": null,
+      "sunColor": null,
+      "zenith": [
+        0.4135,
+        0.4666,
+        0.5758
+      ],
+      "horizon": [
+        0.2816,
+        0.3015,
+        0.3396
+      ],
+      "sky": [
+        0.449,
+        0.4825,
+        0.5582
+      ]
+    },
+    {
+      "id": "thunderstorm",
+      "label": "Thunderstorm",
+      "preset": "overcast",
+      "file": "thunderstorm.webp",
+      "width": 4096,
+      "height": 1024,
+      "source": "https://polyhaven.com/a/quarry_cloudy",
+      "sun": null,
+      "sunColor": null,
+      "zenith": [
+        0.2286,
+        0.2618,
+        0.3214
+      ],
+      "horizon": [
+        0.0434,
+        0.05,
+        0.0608
+      ],
+      "sky": [
+        0.1238,
+        0.1407,
+        0.1712
+      ]
+    },
+    {
+      "id": "moonrise",
+      "label": "Moonrise",
+      "preset": "night",
+      "file": "moonrise.webp",
+      "width": 4096,
+      "height": 1024,
+      "source": "https://polyhaven.com/a/qwantani_moonrise_puresky",
+      "sun": {
+        "azimuth": 306.1,
+        "elevation": 13.8
+      },
+      "sunColor": [
+        1.0,
+        0.7783,
+        0.6209
+      ],
+      "zenith": [
+        0.0023,
+        0.0044,
+        0.0079
+      ],
+      "horizon": [
+        0.0269,
+        0.0315,
+        0.0336
+      ],
+      "sky": [
+        0.0098,
+        0.0144,
+        0.0202
+      ]
+    },
+    {
+      "id": "starry-night",
+      "label": "Starry night",
+      "preset": "night",
+      "file": "starry-night.webp",
+      "width": 4096,
+      "height": 1024,
+      "source": "https://polyhaven.com/a/rogland_clear_night",
+      "sun": null,
+      "sunColor": null,
+      "zenith": [
+        0.0354,
+        0.0379,
+        0.0398
+      ],
+      "horizon": [
+        0.041,
+        0.0398,
+        0.041
+      ],
+      "sky": [
+        0.0361,
+        0.0368,
+        0.0385
+      ]
+    },
+    {
+      "id": "deep-space",
+      "label": "Deep space",
+      "preset": "night",
+      "file": "deep-space.webp",
+      "width": 4096,
+      "height": 1024,
+      "source": "https://polyhaven.com/a/rogland_clear_night (nur Sterne)",
+      "sun": null,
+      "sunColor": null,
+      "zenith": [
+        0.0329,
+        0.0375,
+        0.0419
+      ],
+      "horizon": [
+        0.0298,
+        0.0288,
+        0.0325
+      ],
+      "sky": [
+        0.0304,
+        0.0324,
+        0.0368
+      ]
+    }
+  ]
+}

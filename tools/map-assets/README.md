@@ -27,6 +27,11 @@ python -I tools/map-assets/pack_models.py $DL/glb-raw public/maps/assets [<id> .
 # Farbe, Rauheit und Metall der LOD-Modelle (-lod1) aus den vollen Modellen (Mittel der Texturen, linear)
 python -I tools/map-assets/match_lods.py public/maps/assets [<id> ...]
 
+# Himmelsbilder (Poly-Haven-HDRIs, 4k): obere Halbkugel als WebP und skies/skies.json mit Sonne und Farben,
+# danach LICENSES.md neu (write_licenses.py). Braucht zusätzlich OpenCV (liest .hdr). Ids am Ende bauen nur diese neu.
+python -I tools/map-assets/build_skies.py $DL/skies public/maps/assets [<id> ...]
+python -I tools/map-assets/write_licenses.py public/maps/assets
+
 # Unterseite der Felsen aus objects.json an den gepackten Modellen messen (bases.json)
 node tools/map-assets/measure_bases.mjs public/maps/assets
 
