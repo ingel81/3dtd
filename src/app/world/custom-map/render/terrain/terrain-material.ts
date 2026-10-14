@@ -4,6 +4,30 @@ import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_MORPH_PARS, TERRAIN_MORPH_VERTEX } from './terrain-chunks';
 import type { MapWaterKind } from '../../map-document';
 import { shoreWaves } from '../water/shore-waves';
+import type { MaterialCategory } from '../asset-catalog';
+
+/**
+ * How a ground material of a catalogue category blends and shines: `soft`
+ * scales the height blend band against its neighbours (grass and sand run
+ * into them, rock and ice cut), `rough` is the roughness range its
+ * texture's roughness maps into (mud and ice glossier, grass and sand matt)
+ */
+const MATERIAL_LOOK: Record<MaterialCategory, { soft: number; rough: [number, number] }> = {
+  grass: { soft: 1.4, rough: [0.72, 1] },
+  forest: { soft: 1.3, rough: [0.68, 1] },
+  soil: { soft: 1.2, rough: [0.5, 0.95] },
+  sand: { soft: 1.5, rough: [0.62, 0.96] },
+  snow: { soft: 1.3, rough: [0.45, 0.82] },
+  rock: { soft: 0.6, rough: [0.45, 0.9] },
+  road: { soft: 0.8, rough: [0.5, 0.9] },
+  volcanic: { soft: 0.8, rough: [0.4, 0.9] },
+  ice: { soft: 0.7, rough: [0.12, 0.45] },
+  wood: { soft: 0.8, rough: [0.5, 0.85] },
+};
+
+export function materialLook(category: MaterialCategory | undefined): { soft: number; rough: [number, number] } {
+  return (category && MATERIAL_LOOK[category]) || { soft: 1, rough: [0.6, 1] };
+}
 
 /**
  * The terrain's material: a MeshStandardMaterial (scene lights, shadows,
@@ -63,6 +87,8 @@ export interface TerrainMaterialParams {
   /** Glow (0..1) and flow (m/s along map +x) by array layer, for lava */
   emissive?: number[];
   flow?: number[];
+  /** Catalogue category by array layer: how soft it blends and how rough it is (MATERIAL_LOOK) */
+  categories?: (MaterialCategory | undefined)[];
   width: number;
   depth: number;
   cliffAngle: number;
@@ -91,6 +117,9 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uAverage: { value: Array.from({ length: TERRAIN_MAX_LAYERS }, () => new Color()) },
     uEmissive: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
     uFlow: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
+    /** Blend band factor and roughness range (texture roughness 0..1 mapped into it) by array layer */
+    uSoft: { value: new Float32Array(TERRAIN_MAX_LAYERS).fill(1) },
+    uRough: { value: Array.from({ length: TERRAIN_MAX_LAYERS }, () => new Vector2(0.6, 1)) },
     uTerrainTime: { value: 0 },
     uSplatLayer: { value: new Int32Array(8).fill(-1) },
     uCliffLayer: { value: -1 },
@@ -160,6 +189,9 @@ export class TerrainMaterial extends MeshStandardMaterial {
       u.uAverage.value[k].set(p.averages[k] ?? '#808080');
       u.uEmissive.value[k] = p.emissive?.[k] ?? 0;
       u.uFlow.value[k] = p.flow?.[k] ?? 0;
+      const look = materialLook(p.categories?.[k]);
+      u.uSoft.value[k] = look.soft;
+      u.uRough.value[k].set(look.rough[0], look.rough[1]);
     }
     for (let k = 0; k < 8; k++) u.uSplatLayer.value[k] = p.slots.splat[k] ?? -1;
     u.uCliffLayer.value = p.slots.cliff;
@@ -209,6 +241,8 @@ uniform float uInvScale[TERRAIN_LAYERS];
 uniform vec3 uAverage[TERRAIN_LAYERS];
 uniform float uEmissive[TERRAIN_LAYERS];
 uniform float uFlow[TERRAIN_LAYERS];
+uniform float uSoft[TERRAIN_LAYERS];
+uniform vec2 uRough[TERRAIN_LAYERS];
 uniform float uTerrainTime;
 uniform int uSplatLayer[8];
 uniform int uCliffLayer;
@@ -326,7 +360,9 @@ if (uPathLayer >= 0 && riverBank > 0.0) {
 // Cliffs above the slope threshold, edge broken up by noise
 float cliff = 0.0;
 if (uCliffLayer >= 0) {
-  float c = uCliffCos + (n3 - 0.5) * 0.08;
+  // The edge of the rock breaks along the height contours (ledges), not only by noise over the map
+  float ledge = valueNoise(vec2(tPos.y * 0.45, dot(mapPos, vec2(0.031, 0.047))));
+  float c = uCliffCos + (n3 - 0.5) * 0.08 + (ledge - 0.5) * 0.1;
   cliff = smoothstep(c + 0.06, c - 0.06, nGeo.y);
   for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] *= 1.0 - cliff;
   w[uCliffLayer] += cliff;
@@ -340,7 +376,8 @@ float best = -1.0;
 float sel = valueNoise(mapPos * 0.11 + 5.0);
 // Blend noise: breaks the texture-periodic pattern where two layers meet
 float blendNoise = (valueNoise(mapPos * 0.35 + 3.0) - 0.5) * 0.5 + (n3 - 0.5) * 0.3;
-vec3 tri = pow(abs(nGeo), vec3(4.0));
+// Side projections take over from about 35 degrees of slope: the top one stretched the rock on mid slopes
+vec3 tri = vec3(pow(abs(nGeo.x), 2.0), pow(abs(nGeo.y), 8.0), pow(abs(nGeo.z), 2.0));
 tri /= tri.x + tri.y + tri.z;
 // Side plane coordinates of the cliff projection and their derivatives, outside any branch
 vec3 sgn = sign(nGeo + 1e-5);
@@ -402,7 +439,10 @@ vec3 accAvg = vec3(0.0);
 vec3 accGlow = vec3(0.0);
 for (int k = 0; k < TERRAIN_LAYERS; k++) {
   if (w[k] < 0.004) continue;
-  float b = max(lc[k].a + w[k] - best + band, 0.0) * w[k];
+  // Each layer blends as soft as its kind: grass and sand run into their neighbours, rock and ice cut
+  float b = max(lc[k].a + w[k] - best + band * uSoft[k], 0.0) * w[k];
+  // Roughness as its kind is rough: the texture's range mapped into the kind's
+  ld[k].b = mix(uRough[k].x, uRough[k].y, ld[k].b);
   if (uEmissive[k] > 0.0) {
     // Glow only in the deep parts of the texture (cracks), the crust between them dark; a slow pulse.
     // The colour runs from dark red through orange to a little yellow in the deepest cracks, never past
@@ -483,8 +523,12 @@ accGlow += vec3(1.0, 0.32, 0.06) * pow(lavaNear, 4.0) * 0.22 * (0.85 + 0.15 * si
 albedo *= mix(1.0, 0.6, wetBank);
 // Soil, grass and rock are rough and barely shiny: against the sun at a grazing angle the full
 // specular of a standard material turned meadows and yards into white sheets. Wet banks keep a sheen
-float terrainRough = mix(mix(clamp(accD.b, 0.6, 1.0), 0.45, wetBank), 0.25, swash) * (1.0 - drain * 0.2);
+float terrainRough = mix(mix(accD.b, 0.45, wetBank), 0.25, swash) * (1.0 - drain * 0.2);
 float terrainSpec = mix(0.25, 0.6, wetBank);
+// Against the light at a grazing angle the specular turned smooth rock and packed earth into white sheets:
+// it fades towards the edge of view (a damped Fresnel for ground that is never a mirror)
+float grazing = 1.0 - max(dot(normalize((viewMatrix * vec4(terrainNormal, 0.0)).xyz), normalize(vViewPosition)), 0.0);
+terrainSpec *= 1.0 - 0.6 * pow(grazing, 4.0);
 // Texture AO and the baked ground occlusion (hollows, slope feet, contact shadows of objects)
 float groundAO = mix(shape.r, 1.0, outside);
 float terrainAO = mix(1.0, accD.a, 0.85) * groundAO;

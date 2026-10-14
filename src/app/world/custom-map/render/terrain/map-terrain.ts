@@ -127,6 +127,7 @@ export class MapTerrainLayer {
       catalog.materials.find((m) => m.id === id);
     const emissive = ids.map((id) => entryOf(id)?.emissive ?? 0);
     const flow = ids.map((id) => entryOf(id)?.flow ?? 0);
+    const categories = ids.map((id) => entryOf(id)?.category);
 
     if (generation !== this.generation) return;
     this.material?.dispose();
@@ -148,6 +149,7 @@ export class MapTerrainLayer {
       scales,
       averages,
       emissive,
+      categories,
       flow,
       width: t.width,
       depth: t.depth,

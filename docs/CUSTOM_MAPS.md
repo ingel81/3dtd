@@ -86,7 +86,11 @@ Nebel der Szene wieder her.
   (`assignLayerSlots`). Je Pixel: Splat-Gewichte (zwei RGBA-Maps, mit Rauschen verwackelt), Wegemaske, Klippe ab
   `cliffAngle` mit verrauschter Kante; Höhen-Blend (eine Schicht zeigt sich, wo Höhe + Gewicht nahe am Besten
   liegt); jede Schicht zweimal mit verschobenen UVs je nach langsamem Rauschen (kein sichtbares Kachelmuster, nach
-  Inigo Quilez); Klippen triplanar; Makrovariation und in der Ferne die Durchschnittsfarbe
+  Inigo Quilez); Klippen triplanar (die Seitenprojektion übernimmt ab etwa 35°, die Felskante bricht entlang der
+  Höhenlinien in Simsen); Makrovariation und in der Ferne die Durchschnittsfarbe. Jede Schicht blendet so weich wie
+  ihre Katalog-Kategorie (`MATERIAL_LOOK`: Gras und Sand laufen in die Nachbarn, Fels und Eis schneiden) und bekommt
+  deren Rauheitsbereich (Schlamm und Eis glänzender, Gras und Sand matt); der Glanz läuft zum Blickrand hin aus (keine
+  weißen Flächen im Gegenlicht)
 - **Rand** (`terrain-apron.ts`): Land jenseits der Karte bis 3 km, ein Punkt je Randsample (der innere Ring trifft die
   Geländekante genau). Nach außen wird das Randprofil entlang der Kante mit wachsendem Radius geglättet und geht in
   flache Hügel über; Wasser am Rand läuft darüber weiter, bis das geglättete Bett über den Spiegel steigt. Im Shader
