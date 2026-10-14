@@ -28,7 +28,7 @@ import { resizeMap } from '../ops/resize';
 import { detailTarget, increaseMapDetail } from '../ops/detail';
 import { mirrorMap, type MirrorResult } from '../ops/mirror-map';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
-import { decodePng, decodeRaw16, encodePng16, encodeRaw16, gridToImage, heightmapName, imageToHeights } from '../ops/heightmap';
+import { decodePng, decodeRaw16, encodePng16, encodeRaw16, gridToImage, heightmapName, imageToHeights, squareImage } from '../ops/heightmap';
 import { LandscapeTool } from '../tools/landscape-tool';
 import { MarkerTool } from '../tools/marker-tool';
 import { StampTool } from '../tools/stamp-tool';
@@ -979,7 +979,10 @@ export class EditorSession implements OnDestroy {
   downloadHeightmap(format: 'png' | 'raw'): void {
     const doc = this.doc;
     if (!doc) return;
-    const { image, low, high } = gridToImage(doc.terrain.grid);
+    const grid = gridToImage(doc.terrain.grid);
+    const { low, high } = grid;
+    // RAW is square by its nature (the side comes from the byte count): a wide map goes out resampled
+    const image = format === 'raw' ? squareImage(grid.image) : grid.image;
     const name = heightmapName(doc.meta.id, low, high, format);
     download(format === 'png' ? encodePng16(image) : encodeRaw16(image), name, format === 'png' ? 'image/png' : 'application/octet-stream');
     this.flash(`Heightmap ${image.width} x ${image.height}, ${Math.round(low * 10) / 10} to ${Math.round(high * 10) / 10} m`);

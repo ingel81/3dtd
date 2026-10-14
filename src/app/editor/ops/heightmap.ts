@@ -81,6 +81,21 @@ export function heightmapName(id: string, low: number, high: number, ext: 'png' 
 
 // ---------------------------------------------------------------- RAW
 
+/**
+ * The image resampled to a square of its longer side (bilinear): RAW
+ * carries no size, readers take its side from the byte count, so a wide
+ * map's heights go out square and come back to the map's grid on import
+ */
+export function squareImage(image: HeightImage): HeightImage {
+  const side = Math.max(image.width, image.height);
+  if (image.width === image.height) return image;
+  // imageToHeights reads the image north up into a grid south up: read it into a square "grid", then flip back
+  const grid = imageToHeights(image, side, side, 0, 1);
+  const values = new Float32Array(side * side);
+  for (let r = 0; r < side; r++) values.set(grid.subarray((side - 1 - r) * side, (side - r) * side), r * side);
+  return { width: side, height: side, values };
+}
+
 export function encodeRaw16(image: HeightImage): Uint8Array {
   const out = new Uint8Array(image.values.length * 2);
   const view = new DataView(out.buffer);

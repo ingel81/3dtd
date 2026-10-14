@@ -10,6 +10,7 @@ import {
   heightmapName,
   imageToHeights,
   rangeFromName,
+  squareImage,
 } from './heightmap';
 
 /** A PNG of 8-bit RGB rows, each row with the filter given (the decoder does not check CRCs) */
@@ -66,6 +67,21 @@ describe('heightmaps', () => {
     const square = gridToImage(createMapDocument({ id: 's', name: 'S', width: 32, depth: 32, cellSize: 4 }).terrain.grid).image;
     expect(decodeRaw16(encodeRaw16(square)).width).toBe(9);
     expect(() => decodeRaw16(new Uint8Array(10))).toThrow(HeightmapError);
+  });
+
+  it('writes a wide map as a square RAW, which reads back onto its grid', () => {
+    // A Wide map: twice as many columns as rows. RAW takes its side from the byte count, so it has to be square
+    const doc = createMapDocument({ id: 'w', name: 'W', width: 64, depth: 32, cellSize: 4 });
+    const g = doc.terrain.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = i * 0.5 + j * 2;
+    const { image, low, high } = gridToImage(g);
+    const square = squareImage(image);
+    expect([square.width, square.height]).toEqual([g.columns, g.columns]);
+    const back = decodeRaw16(encodeRaw16(square));
+    const heights = imageToHeights(back, g.columns, g.rows, low, high);
+    // A plane comes back as the same plane (bilinear twice is exact on it, up to 16-bit steps)
+    for (let k = 0; k < heights.length; k++) expect(heights[k]).toBeCloseTo(g.heights[k], 1);
+    expect(squareImage(back)).toBe(back);
   });
 
   it('reads 8-bit colour PNGs with every row filter, first channel only', () => {
