@@ -33,6 +33,15 @@ export interface TourStep {
  * gets its step here and nowhere else (the spec asks for one per tool).
  */
 export const TOOL_TOUR: Partial<Record<ToolId, Omit<TourStep, 'id' | 'tool' | 'target'>>> = {
+  look: {
+    title: 'Look: the empty hand',
+    message:
+      'The editor opens with Look. It changes nothing: click a tree, a road, a spawn or the HQ to see what it is, and the panel offers the tool that edits it. Esc comes back here from any tool.',
+    hints: [
+      { key: 'Click', description: 'What is this' },
+      { key: 'Esc', description: 'Back to Look' },
+    ],
+  },
   landscape: {
     title: 'Paint the land',
     message:
