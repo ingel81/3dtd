@@ -7,6 +7,8 @@
  */
 import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
 import { edgePolyline, pointAt, polylineLength } from '../../../src/app/editor/ops/path-graph';
+import { bridgeDecks, deckHeightAt } from '../../../src/app/world/custom-map/bridge-decks';
+import { HeightField } from '../../../src/app/world/custom-map/render/height-field';
 import { facing, LevelKit } from './kit';
 
 interface Island {
@@ -115,7 +117,9 @@ export function buildWitchMarsh(): CustomMapDocument {
   }
   k.place('cauldron', 128, -178, { rotation: 0.5 });
   for (const [x, y] of [[-40, 120], [20, 0], [-150, -40], [95, 98], [-195, 70], [60, -30]] as const) k.place('mushrooms-glow', x, y, { scale: 1.3 });
-  // Lanterns: on posts beside every boardwalk, every 24 m
+  // Lights along every boardwalk, every 16 m, alternating sides: a torch on its pole in the swamp beside the walk,
+  // a lantern on the deck's edge across from it (it does not block: the walk is a road)
+  const decks = bridgeDecks(k.doc.paths, k.doc.terrain, new HeightField(k.doc.terrain.grid, k.doc.terrain.width, k.doc.terrain.depth));
   for (const e of k.doc.paths.edges) {
     if (e.kind !== 'bridge') continue;
     const line = edgePolyline(k.doc.paths, e);
@@ -126,8 +130,11 @@ export function buildWitchMarsh(): CustomMapDocument {
       const d = Math.hypot(q.x - p.x, q.y - p.y) || 1;
       const side = n % 2 ? 1 : -1;
       const at = { x: p.x - ((q.y - p.y) / d) * 2.6 * side, y: p.y + ((q.x - p.x) / d) * 2.6 * side };
-      k.place('torch', at.x, at.y, { z: Math.max(0, 0.6 - k.h(at.x, at.y)), rotation: n });
-      k.place('lantern', p.x - ((q.y - p.y) / d) * 2.2 * -side, p.y + ((q.x - p.x) / d) * 2.2 * -side, { z: Math.max(0, 1.2 - k.h(p.x, p.y)) });
+      k.place('torch', at.x, at.y, { rotation: n });
+      const edge = e.width / 2 - 0.3;
+      const lamp = { x: p.x - ((q.y - p.y) / d) * edge * -side, y: p.y + ((q.x - p.x) / d) * edge * -side };
+      const deck = deckHeightAt(decks, lamp.x, lamp.y);
+      if (Number.isFinite(deck)) k.place('lantern', lamp.x, lamp.y, { z: deck - k.h(lamp.x, lamp.y), blocksBuild: false });
     }
   }
   // Fog only where the enemies come in, small and low; the flat banks over the water come from the swamp look's
