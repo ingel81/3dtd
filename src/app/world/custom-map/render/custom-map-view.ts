@@ -456,9 +456,23 @@ export class CustomMapView {
   /** Main-thread cost of update(), smoothed, for measurements (sim-load --world, the preview) */
   readonly stats = { updateMs: 0, frames: 0 };
 
+  /**
+   * Holds every clock of the map still: wind in plants and grass, water and
+   * lava flow, waterfalls, clouds, weather, particles and flames. The camera,
+   * detail levels and shadows go on. The editor's still frame; the game
+   * never sets it.
+   */
+  setAnimationPaused(paused: boolean): void {
+    this.animationPaused = paused;
+  }
+
+  private animationPaused = false;
+
   private updateFrame(dtSeconds: number, camera: Camera, focus?: Vector3): void {
-    for (const w of this.waters) w?.update(dtSeconds);
-    for (const r of this.rivers) r.update(dtSeconds);
+    // The map's clocks (wind, water, effects, sky); detail levels and the cover keep real time
+    const clock = this.animationPaused ? 0 : dtSeconds;
+    for (const w of this.waters) w?.update(clock);
+    for (const r of this.rivers) r.update(clock);
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
     // focusPoint is in the group's frame (the map's), worldFocus in the scene's: the game moves the
@@ -470,7 +484,7 @@ export class CustomMapView {
       camera.getWorldDirection(this.viewRay.direction);
       if (this.heights.raycast(this.viewRay, this.focusPoint, 3000) === null) this.heights.groundAhead(this.camPos, this.viewRay.direction, this.focusPoint);
     }
-    this.terrain.update(this.camPos, dtSeconds, this.focusPoint);
+    this.terrain.update(this.camPos, clock, this.focusPoint);
     const reach = this.camPos.distanceTo(this.focusPoint);
     this.group.localToWorld(this.worldFocus.copy(this.focusPoint));
     // Shadow box fitted to the ground the camera sees: sharp up close, wide from high up or looking far
@@ -479,13 +493,13 @@ export class CustomMapView {
     // following the view every frame, objects at its edge switched casting on and off and the shadow map
     // rendered again each frame (shimmer)
     const shadowRadius = this.environment.focus(this.group.localToWorld(this.worldShadowCenter.copy(this.shadowCenter)), fit);
-    this.effects.update(dtSeconds, this.focusPoint);
+    this.effects.update(clock, this.focusPoint);
     this.objects.shadowRadius = shadowRadius * 1.2;
     this.objects.update(dtSeconds, camera, this.shadowCenter);
     IMPOSTOR_SUN.uImpSun.value.copy(this.environment.sunDir);
     // Grass between the camera's foot and the focus; from far up blades are below a pixel, skip them
     this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);
-    this.terrain.grass.update(dtSeconds, this.grassCenter);
+    this.terrain.grass.update(clock, this.grassCenter);
     this.terrain.grass.setNear(reach < this.grassDistance);
     // The weather's cover: at most four times a second, and only when something changed
     this.coverAge += dtSeconds;
@@ -498,7 +512,7 @@ export class CustomMapView {
       this.environment.invalidateShadows();
     }
     this.watchDecals();
-    this.environment.update(dtSeconds, camera, this.worldFocus);
+    this.environment.update(clock, camera, this.worldFocus);
     if (this.mapEffects.shadowCascade) {
       // The cached map's reach on the map, where the far cascade takes over
       const r = this.environment.shadowArea(this.shadowArea);

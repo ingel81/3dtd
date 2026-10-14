@@ -5,6 +5,7 @@ import { createDemoMap } from '../demo-map';
 import type { CustomMapDocument } from '../map-document';
 import { CustomMapView } from './custom-map-view';
 import { sunDirection } from './environment/map-environment';
+import { WIND_UNIFORMS } from './environment/wind';
 import { HeightField } from './height-field';
 import { MapAssetLibrary } from './map-asset-library';
 import { mapToScene } from './map-coords';
@@ -257,6 +258,16 @@ describe('CustomMapView', () => {
     camera.lookAt(mapToScene(0, 0, 0, new Vector3()));
     camera.updateMatrixWorld();
     view.update(0.016, camera);
+    // The editor's still frame holds the map's clocks (wind, sky, effects), the next frame runs them again
+    const clocks = () => [WIND_UNIFORMS.uWindTime.value, view.environment.skyDome.uniforms['uSkyTime'].value as number];
+    const before = clocks();
+    view.setAnimationPaused(true);
+    view.update(0.5, camera);
+    expect(clocks()).toEqual(before);
+    view.setAnimationPaused(false);
+    view.update(0.5, camera);
+    expect(clocks()[0]).toBeCloseTo(before[0] + 0.5, 5);
+    expect(clocks()[1]).toBeCloseTo(before[1] + 0.5, 5);
     doc.terrain.grid.heights.fill(5);
     view.updateHeights({ minX: -10, minY: -10, maxX: 10, maxY: 10 });
     expect(view.heightAt(0, 0)).toBe(5);

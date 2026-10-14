@@ -422,4 +422,13 @@
   position: absolute;
   right: var(--td-sp-3);
   bottom: var(--td-sp-3);
+  display: flex;
+  gap: var(--td-sp-2);
+}
+
+// The still-frame switch in the legend: a row like the others, pressed while the view stands still
+.es-still {
+  justify-content: flex-start;
+  align-self: flex-start;
+  padding-inline: 0;
 }

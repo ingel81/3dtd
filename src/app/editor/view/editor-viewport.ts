@@ -989,6 +989,7 @@ export class EditorViewport {
     this.overlay.setBrush(showBrush ? tp!.hit : null, brush.radius, brush.falloff);
     this.overlay.setViewDistance(this.controller.current.distance);
     this.overlay.update(dt);
+    this.view.view.setAnimationPaused(this.settings.view.still);
     this.view.update(dt, this.camera, this.controller.current.target);
     this.trial.update(dt);
     this.renderer.render(this.scene, this.camera);

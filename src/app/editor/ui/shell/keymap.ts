@@ -19,6 +19,7 @@ export const KEY_ACTIONS: readonly KeyAction[] = [
   { id: 'view:frame', label: 'Frame the selection or the map', key: 'f' },
   { id: 'view:top', label: 'Top view on or off', key: 't' },
   { id: 'view:game', label: 'Game view on or off', key: 'c' },
+  { id: 'view:still', label: 'Still frame: wind, water and particles stand still', key: 'b' },
   { id: 'map:trial', label: 'Trial wave on or off', key: 'p' },
   { id: 'map:check', label: 'Check the map', key: 'v' },
   { id: 'map:symmetry', label: 'Next symmetry', key: 'm' },

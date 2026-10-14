@@ -192,6 +192,8 @@ export class EditorShellComponent implements OnDestroy {
   readonly shortcuts = SHORTCUTS;
   readonly symmetryModes = SYMMETRY_MODES;
   readonly symmetry = computed(() => (this.session.settingsRev(), this.session.settings.symmetry));
+  /** The view shows a still frame (wind, water, particles stand) */
+  readonly still = computed(() => (this.session.settingsRev(), this.session.settings.view.still));
   readonly symmetryHint = computed(() => {
     const doc = (this.session.docRev(), this.session.doc);
     const m = SYMMETRY_MODES.find((s) => s.id === this.symmetry())!;
@@ -261,6 +263,13 @@ export class EditorShellComponent implements OnDestroy {
   async freshCopy(): Promise<void> {
     const id = await this.session.freshCopy();
     if (id) await this.router.navigate([], { relativeTo: this.route, queryParams: { map: id }, replaceUrl: true });
+  }
+
+  /** Wind, water and particles stand still in the view, or move again */
+  toggleStill(): void {
+    const s = this.session;
+    s.patchSettings((st) => (st.view.still = !st.view.still));
+    s.flash(s.settings.view.still ? `Still frame: nothing moves (${this.keyOf('view:still')} moves it again)` : 'Wind and water move again');
   }
 
   setLegend(on: boolean): void {
@@ -527,6 +536,9 @@ export class EditorShellComponent implements OnDestroy {
       case 'view:game':
         vp?.toggleGameView();
         return !!vp;
+      case 'view:still':
+        this.toggleStill();
+        return true;
       case 'map:trial':
         this.trial();
         return !!vp;
@@ -589,6 +601,7 @@ export class EditorShellComponent implements OnDestroy {
       add('View', 'Frame the selection', () => vp.focusSelection(), this.keyOf('view:frame'));
       add('View', 'Top view on or off', () => vp.controller.setTopDown(!vp.controller.isTopDown), this.keyOf('view:top'));
       add('View', 'Game view on or off', () => vp.toggleGameView(), this.keyOf('view:game'));
+      add('View', 'Still frame on or off', () => this.toggleStill(), this.keyOf('view:still'));
       add('Map', 'Trial wave: enemies walk the routes', () => this.trial(), this.keyOf('map:trial'));
     }
     add('View', 'Height lines on or off', () => s.patchSettings((st) => (st.view.contours = !st.view.contours)));
@@ -717,6 +730,7 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
       ['Arrow keys', 'Pan'],
       ['F', 'Frame the selection or the map'],
       ['T', 'Top view on or off'],
+      ['B', 'Still frame: wind, water, lava and particles stand still (the view only)'],
       ['Alt+1 to 9', 'Keep the current view'],
       ['Shift+1 to 9', 'Show a kept view'],
     ],

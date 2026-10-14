@@ -62,13 +62,14 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
 | F | Auswahl ins Bild holen, ohne Auswahl die ganze Karte |
 | T | Draufsicht an und aus |
 | C | Spielansicht: die Startansicht des Spiels über dem HQ (70 Grad, 60 Grad Bildwinkel), noch einmal C zurück |
+| B | Standbild: Wind in Pflanzen und Gras, Wasser- und Lavafluss, Wasserfälle, Wolken, Wetter, Partikel und Flammen stehen still, damit man ein ruhiges Bild ansehen kann; noch einmal B lässt sie laufen. Aus beim Öffnen des Editors, nur die Ansicht des Editors (`CustomMapView.setAnimationPaused`), das Spiel nie; auch als Knopf in der Legende und, solange es an ist, neben „Controls“ |
 | P | Probewelle: die Gegner laufen die Routen ab (auch der Knopf „Trial wave“) |
 | + und - (auch =) | Probewelle schneller, langsamer: 1x, 2x, 4x, 8x, solange sie läuft (nicht umlegbar) |
 | Strg+K | Befehle: Werkzeuge, Pinsel, Biome, Ansichten, Symmetrie, Marker und die Objekte der Karte nach Namen |
 | 1 bis 9, 0, G, D | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Roads, Spawns and HQ, Sky and weather, Map, Copy and stamps, Rules, Measure |
 | M | Symmetrie reihum: aus, Mirror X, Mirror Y, Both, Turn 2, Turn 4 (auch oben in der Kopfleiste) |
 | Alt+1 bis 9 (Strg+Ziffer, wo der Browser sie lässt) | Kamera-Ansicht merken; Shift+Ziffer fliegt hin; die Knöpfe 1 bis 9 unter der Minikarte ebenso (Alt-Klick merkt) |
-| ? | Übersicht aller Tasten; unter „Your keys“ lassen sich die Einzeltasten (Werkzeuge, F, T, C, P, V, M) umlegen, gespeichert in `3dtd-editor-keys` |
+| ? | Übersicht aller Tasten; unter „Your keys“ lassen sich die Einzeltasten (Werkzeuge, F, T, C, B, P, V, M) umlegen, gespeichert in `3dtd-editor-keys` |
 | [ und ], Strg+Mausrad | Pinsel kleiner, größer; { und } Stärke |
 | Strg+Z, Strg+Y (Strg+Shift+Z) | Rückgängig, Wiederholen |
 | Strg+S | Speichern mit neuem Vorschaubild |

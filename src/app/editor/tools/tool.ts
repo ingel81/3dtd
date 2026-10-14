@@ -140,6 +140,8 @@ export interface EditorSettings {
     hidden: string[];
     /** Where a tower may stand, green and red on the ground (validation/build-areas.ts) */
     buildAreas: boolean;
+    /** A still frame: wind, water, lava, waterfalls and particles stand still in the view (the game is not touched) */
+    still: boolean;
   };
   /** The points measured so far */
   measure: MapPoint[];
@@ -210,7 +212,7 @@ export function defaultSettings(): EditorSettings {
   return {
     brush: { ...DEFAULT_BRUSH },
     symmetry: 'none',
-    view: { contours: false, contourStep: 5, grid: false, gridStep: 25, hidden: [], buildAreas: false },
+    view: { contours: false, contourStep: 5, grid: false, gridStep: 25, hidden: [], buildAreas: false, still: false },
     measure: [],
     landscape: {
       mode: 'biome',
