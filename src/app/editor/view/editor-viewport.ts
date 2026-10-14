@@ -24,6 +24,7 @@ import {
 } from 'three';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { MapObject, MapPoint } from '../../world/custom-map/map-document';
+import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import { mergeChanges, selectedEdges, selectedNodes, selectedSpawns, type DocChange, type EditorDocument } from '../model/editor-document';
 import { heightAt as gridHeight } from '../model/grid';
@@ -160,6 +161,7 @@ export class EditorViewport {
     this.overlay = new EditorOverlay((x, y) => this.heightAt(x, y));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
+    MapAssetLibrary.useCompressedTextures(this.renderer);
     this.view = new EditorMapView(editor.doc, this.scene, this.renderer);
     this.view.view.applyQuality(this.quality.customMaps);
     void this.warmUpView();

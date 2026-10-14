@@ -10,7 +10,7 @@ import {
 } from 'three';
 import type { MapTerrain as MapTerrainDoc, MapPaths } from '../../map-document';
 import type { HeightField } from '../height-field';
-import type { MapAssetLibrary } from '../map-asset-library';
+import type { MapAssetLibrary, MaterialCompressed, MaterialPixels } from '../map-asset-library';
 import { pathMaskResolution, rasterizePathMask } from '../paths/path-mask';
 import { addHeightFog } from '../environment/height-fog';
 import { ApronProfile, buildTerrainApron } from './terrain-apron';
@@ -19,7 +19,7 @@ import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots, type Terra
 import { GrassField, type GrassInputs } from '../grass/grass-field';
 import { GroundOcclusion } from './ground-occlusion';
 import { HeightTexture } from './height-texture';
-import { GridNormalTexture, MaterialArrays, SplatTextures, maskTexture } from './terrain-textures';
+import { GridNormalTexture, MaterialArrays, SplatTextures, compressedTogether, isCompressed, maskTexture } from './terrain-textures';
 
 /** Materials the path mask paints, by channel */
 export const ROAD_MATERIAL = 'cobblestone';
@@ -102,7 +102,18 @@ export class MapTerrainLayer {
     const t = this.terrain;
     const generation = ++this.generation;
     const { ids, slots } = assignLayerSlots(t);
-    const [pixels, catalog] = await Promise.all([Promise.all(ids.map((id) => assets.material(id))), assets.catalog()]);
+    // GPU-compressed layers where every one came so; else the pixels of all (an array is never mixed)
+    const [textures, catalog] = await Promise.all([Promise.all(ids.map((id) => assets.materialTextures(id))), assets.catalog()]);
+    let pixels: MaterialPixels[] | MaterialCompressed[];
+    if (compressedTogether(textures)) {
+      pixels = textures;
+    } else {
+      for (const m of textures.filter(isCompressed)) {
+        m.color.dispose();
+        m.data.dispose();
+      }
+      pixels = await Promise.all(ids.map((id) => assets.material(id)));
+    }
     const scales = ids.map((id) => {
       const layer = t.layers.find((l) => l.material === id && l.scale);
       return layer?.scale ?? catalog.materials.find((m) => m.id === id)?.scale ?? 4;

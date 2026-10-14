@@ -1,5 +1,6 @@
 import {
   ClampToEdgeWrapping,
+  CompressedArrayTexture,
   DataArrayTexture,
   DataTexture,
   DataUtils,
@@ -11,10 +12,11 @@ import {
   RGBAFormat,
   SRGBColorSpace,
   UnsignedByteType,
+  type CompressedTexture,
 } from 'three';
 import type { MapSplat } from '../../map-document';
 import type { HeightField } from '../height-field';
-import type { MaterialPixels } from '../map-asset-library';
+import type { MaterialCompressed, MaterialPixels } from '../map-asset-library';
 import { uploadRect, type TexelRect } from './texture-ranges';
 
 /**
@@ -22,25 +24,53 @@ import { uploadRect, type TexelRect } from './texture-ranges';
  * arrays (one layer per material), the splat weights and the path mask.
  */
 
+/** A terrain layer array: from pixels, or from GPU-compressed layers */
+export type LayerArray = DataArrayTexture | CompressedArrayTexture;
+
+/**
+ * Whether GPU-compressed layers can share one array: every one compressed,
+ * in one format and size with the same mipmaps (the transcoder picks one
+ * format per GPU and file kind, so a map's layers agree unless a file failed)
+ */
+export function compressedTogether(materials: readonly (MaterialPixels | MaterialCompressed)[]): materials is MaterialCompressed[] {
+  const all = materials.filter(isCompressed);
+  if (all.length === 0 || all.length !== materials.length) return false;
+  const same = (a: CompressedTexture, b: CompressedTexture) =>
+    a.format === b.format && a.image.width === b.image.width && a.mipmaps?.length === b.mipmaps?.length;
+  return all.every((m) => same(m.color, all[0].color) && same(m.data, all[0].data));
+}
+
+/** A material that came GPU-compressed */
+export function isCompressed(m: MaterialPixels | MaterialCompressed): m is MaterialCompressed {
+  return !(m.color instanceof Uint8Array);
+}
+
 /** Texture arrays of the materials a map uses, in layer order */
 export class MaterialArrays {
-  readonly color: DataArrayTexture;
-  readonly data: DataArrayTexture;
+  readonly color: LayerArray;
+  readonly data: LayerArray;
   readonly count: number;
 
-  constructor(materials: MaterialPixels[], anisotropy = 8) {
-    const size = materials[0].size;
+  /** Pixels, or GPU-compressed layers that agree (compressedTogether); never a mix */
+  constructor(materials: MaterialPixels[] | MaterialCompressed[], anisotropy = 8) {
+    this.count = materials.length;
+    if (compressedTogether(materials)) {
+      this.color = compressedArray(materials.map((m) => m.color), anisotropy);
+      this.data = compressedArray(materials.map((m) => m.data), anisotropy);
+      return;
+    }
+    const pixels = materials as MaterialPixels[];
+    const size = pixels[0].size;
     const layerBytes = size * size * 4;
-    const color = new Uint8Array(layerBytes * materials.length);
-    const data = new Uint8Array(layerBytes * materials.length);
-    materials.forEach((m, k) => {
+    const color = new Uint8Array(layerBytes * pixels.length);
+    const data = new Uint8Array(layerBytes * pixels.length);
+    pixels.forEach((m, k) => {
       if (m.size !== size) throw new Error(`Material ${m.id}: ${m.size} px, the array has ${size} px`);
       color.set(m.color, k * layerBytes);
       data.set(m.data, k * layerBytes);
     });
-    this.count = materials.length;
-    this.color = arrayTexture(color, size, materials.length, SRGBColorSpace, anisotropy);
-    this.data = arrayTexture(data, size, materials.length, NoColorSpace, anisotropy);
+    this.color = arrayTexture(color, size, pixels.length, SRGBColorSpace, anisotropy);
+    this.data = arrayTexture(data, size, pixels.length, NoColorSpace, anisotropy);
   }
 
   dispose(): void {
@@ -70,6 +100,39 @@ function arrayTexture(
   // materials twice) goes. The arrays never change after they are built
   t.onUpdate = () => {
     (t.image as { data: Uint8Array | null }).data = null;
+    t.onUpdate = null;
+  };
+  return t;
+}
+
+/**
+ * GPU-compressed layers as one array: each mip level the layers' blocks one
+ * after the other. The transcoded layers go once they are in the array, and
+ * the array's own copy once it is on the GPU
+ */
+function compressedArray(layers: CompressedTexture[], anisotropy: number): CompressedArrayTexture {
+  const first = layers[0];
+  const mipmaps = first.mipmaps!.map((level, l) => {
+    const parts = layers.map((t) => t.mipmaps![l].data as Uint8Array);
+    const data = new Uint8Array(parts.reduce((n, p) => n + p.byteLength, 0));
+    let at = 0;
+    for (const p of parts) {
+      data.set(p, at);
+      at += p.byteLength;
+    }
+    return { data, width: level.width, height: level.height };
+  });
+  for (const t of layers) t.dispose();
+  const t = new CompressedArrayTexture(mipmaps as unknown as ImageData[], first.image.width, first.image.height, layers.length, first.format, first.type);
+  t.colorSpace = first.colorSpace;
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.magFilter = LinearFilter;
+  t.minFilter = mipmaps.length > 1 ? LinearMipmapLinearFilter : LinearFilter;
+  t.generateMipmaps = false;
+  t.anisotropy = anisotropy;
+  t.needsUpdate = true;
+  t.onUpdate = () => {
+    t.mipmaps = [];
     t.onUpdate = null;
   };
   return t;

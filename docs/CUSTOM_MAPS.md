@@ -251,6 +251,16 @@ baut der Asset-Worker aus; Stand beim Schreiben:
   Sandstein, Basalt und Kalk, Geröll, Vulkangestein, Obsidian, Asche, Schwefel, Lava, Schnee, Eis, Packeis, Gletschereis,
   Asphalt (ganz und kaputt), Gehwegplatten, Pflaster, Beton, Schutt, Mond-Regolith, Mars-Staub und -Fels, Burgböden,
   Bohlen, Kies, Flusskiesel
+- **Bodenmaterialien GPU-komprimiert** (E154, PF-M3): `tools/map-assets/pack_textures.py` packt die drei JPGs je
+  Material in die zwei Ebenen, die das Gelände liest, als KTX2 mit Mipmaps: `color.ktx2` (Farbe, Höhe im Alpha, sRGB,
+  Basis ETC1S) und `data.ktx2` (Normale x/y, Rauheit, Verdeckung, linear, UASTC mit zstd); der Katalog nennt sie unter
+  `files.packed`. Im Spiel und im Editor transcodiert ein Worker (`MapAssetLibrary.useCompressedTextures`, derselbe
+  wie beim Globus) für die GPU (BC7 auf Desktops, sonst ASTC oder ETC2), `MaterialArrays` stapelt die Ebenen zu einem
+  `CompressedArrayTexture`. Kommt eine Ebene nicht komprimiert (Datei fehlt, anderes Format), lädt die Karte alle
+  Ebenen als Pixel aus den JPGs; ein Array mischt nie. 111 Materialien: 174 MB KTX2 (JPG 94 MB), je Karte mit 8
+  Materialien etwa 12,5 statt 10,8 MB Download. Gemessen (RTX 5080, optimierter Dev-Stand): JS-Heap Demo-Tal 467 bis
+  470 → 324 bis 338 MB, Hafenstadt 418 → 315 bis 342 MB; Bodenarrays im Grafikspeicher etwa ein Viertel (11 Ebenen
+  des Demo-Tals: rund 117 MB als RGBA, rund 29 MB als BC7); Laden gleich (4,4 bis 4,8 s)
 - **374 Katalog-Objekte**, davon 366 Modelle (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px) und 8 Effekt-Marker; je
   Kategorie 118 Requisiten, 68 Felsen, 64 Gebäude, 42 Pflanzen, 31 Bäume, 29 Mauern und Zäune, 14 Bauwerke
   (`structure`). Je Biom: Laub- und Nadelbäume mit Herbst-
@@ -309,8 +319,9 @@ die Zeilen ihres Rechtecks hoch und setzen nur Objekte in ihrer Nähe neu.
 
 **Speicher** (`node e2e/perf/map-cycles.ts --url http://localhost:4211`, 20-mal Ansicht öffnen, aufwärmen, schließen):
 Geometrien, Texturen und Programme bleiben nach dem ersten Zyklus gleich, der Heap wächst über 19 Zyklen um 0,6 MB
-(Demo-Tal; ebenso Hölle bei Nacht mit Regen). Was bleibt, ist der Cache der geteilten `MapAssetLibrary`: die
-Bodenmaterialien als Pixel (8 MB je Material bei 1024 px, 88 MB für die 11 des Demo-Tals) und die Modelle. Die
+(Demo-Tal; ebenso Hölle bei Nacht mit Regen). Was bleibt, ist der Cache der geteilten `MapAssetLibrary`: die Modelle
+und, nur wo sie ohne KTX2 laden, die Bodenmaterialien als Pixel (8 MB je Material bei 1024 px); die komprimierten
+Ebenen behält sie nicht, ihre Dateien liegen im Cache der Kartendaten. Die
 Textur-Arrays der offenen Ansicht behalten keine Kopie: nach dem Hochladen setzt `onUpdate` ihre Pixel auf `null`
 (`terrain-textures.ts`); nach einem Kontextverlust lassen sie sich nicht neu hochladen, die Ansicht muss neu gebaut
 werden.

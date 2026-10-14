@@ -27,7 +27,8 @@ function object(id: string, footprint: number, tags: string[] = []): CatalogObje
 describe('shipped asset catalogue', () => {
   it('names files that exist', () => {
     for (const m of shipped.materials) {
-      for (const file of Object.values(m.files)) expect(existsSync(ROOT + file), file).toBe(true);
+      const { packed, ...images } = m.files;
+      for (const file of [...Object.values(images), ...Object.values(packed ?? {})]) expect(existsSync(ROOT + file), file).toBe(true);
     }
     // Effect-only entries (category fx) have no model
     for (const o of shipped.objects) if (o.file) expect(existsSync(ROOT + o.file), o.file).toBe(true);

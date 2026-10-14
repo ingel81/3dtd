@@ -110,7 +110,7 @@ export function prefetchCustomMapAssets(doc: CustomMapDocument): void {
     .then(({ MapAssetLibrary }) => {
       const library = MapAssetLibrary.shared();
       const materials = new Set([...doc.terrain.layers.map((l) => l.material), doc.terrain.cliffMaterial]);
-      for (const id of materials) library.material(id).catch(() => undefined);
+      for (const id of materials) library.prefetchMaterial(id).catch(() => undefined);
       for (const id of new Set(doc.objects.map((o) => o.asset))) library.model(id).catch(() => undefined);
     })
     .catch(() => undefined);
@@ -203,6 +203,8 @@ export class CustomMapWorld implements WorldProvider {
     ]);
     // Disposed while the renderer loaded (the start gave up, another world): nothing into a scene that is gone
     if (this.disposed) return;
+    // Ground layers as GPU-compressed textures for this renderer's GPU (the library's pixels where a file has none)
+    MapAssetLibrary.useCompressedTextures(ctx.renderer);
     const view = new CustomMapView(this.doc, this.assets ? this.assets() : MapAssetLibrary.shared(), {
       anisotropy: ctx.renderer.capabilities.getMaxAnisotropy(),
       // Bakes the impostors of far trees

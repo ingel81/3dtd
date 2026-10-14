@@ -1,4 +1,5 @@
-import { Color, MeshStandardMaterial, Vector2, Vector3, Vector4, type DataArrayTexture, type Texture } from 'three';
+import { Color, MeshStandardMaterial, Vector2, Vector3, Vector4, type Texture } from 'three';
+import type { LayerArray } from './terrain-textures';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_MORPH_PARS, TERRAIN_MORPH_VERTEX } from './terrain-chunks';
 
@@ -43,8 +44,8 @@ export interface TerrainLayerSlots {
 }
 
 export interface TerrainMaterialParams {
-  colorArray: DataArrayTexture;
-  dataArray: DataArrayTexture;
+  colorArray: LayerArray;
+  dataArray: LayerArray;
   splat: [Texture, Texture];
   pathMask: Texture;
   /** Grid normals (GridNormalTexture) and the grid's columns, rows and cell size */
@@ -70,8 +71,8 @@ export interface TerrainMaterialParams {
 
 export class TerrainMaterial extends MeshStandardMaterial {
   readonly terrainUniforms = {
-    uColorArray: { value: null as DataArrayTexture | null },
-    uDataArray: { value: null as DataArrayTexture | null },
+    uColorArray: { value: null as LayerArray | null },
+    uDataArray: { value: null as LayerArray | null },
     uSplat0: { value: null as Texture | null },
     uSplat1: { value: null as Texture | null },
     uPathMask: { value: null as Texture | null },

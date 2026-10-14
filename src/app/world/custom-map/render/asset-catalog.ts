@@ -29,7 +29,16 @@ export interface CatalogMaterial {
   id: string;
   name: string;
   category: MaterialCategory;
-  files: { color: string; normal: string; arh: string };
+  files: {
+    color: string;
+    normal: string;
+    arh: string;
+    /**
+     * The two terrain layers GPU-compressed (tools/map-assets/pack_textures.py):
+     * colour and height (sRGB), normal x/y, roughness and occlusion (linear)
+     */
+    packed?: { color: string; data: string };
+  };
   /** Metres one texture repeat covers */
   scale: number;
   /** Average albedo as #rrggbb: distant terrain, fallbacks and editor swatches */

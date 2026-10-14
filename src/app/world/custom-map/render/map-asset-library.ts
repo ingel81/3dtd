@@ -10,8 +10,12 @@ import {
   Mesh,
   MeshStandardMaterial,
   Texture,
+  type CompressedTexture,
   type Object3D,
+  type WebGLRenderer,
 } from 'three';
+import type { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
+import { BASIS_PATH, FileWorkerKTX2Loader, TRANSCODER_WORKER } from '../../../globe/globe-textures';
 import { mapDataFetch, mapDataUrl } from '../map-data';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -42,6 +46,25 @@ export interface MaterialPixels {
   /** Average albedo, sRGB 0..1 */
   average: [number, number, number];
 }
+
+/**
+ * A ground material's two terrain layers as GPU-compressed textures with
+ * their mipmaps (KTX2 through the transcoder worker), instead of pixels
+ */
+export interface MaterialCompressed {
+  id: string;
+  size: number;
+  color: CompressedTexture;
+  data: CompressedTexture;
+  average: [number, number, number];
+}
+
+/**
+ * The transcoder the libraries use for KTX2 files, once a renderer said
+ * what its GPU takes (MapAssetLibrary.useCompressedTextures); null: pixels
+ * only (tests, a page without WebGL)
+ */
+let ktx2: KTX2Loader | null = null;
 
 export interface ModelPart {
   geometry: BufferGeometry;
@@ -126,6 +149,60 @@ export class MapAssetLibrary {
 
   async objectEntry(id: string): Promise<CatalogObject | null> {
     return (await this.catalog()).objects.find((o) => o.id === id) ?? null;
+  }
+
+  /**
+   * Load ground materials as GPU-compressed KTX2 files from now on, for the
+   * GPU of `renderer` (the formats it takes); every library shares it. The
+   * transcoder runs in a worker beside the one of the menu globe
+   */
+  static useCompressedTextures(renderer: WebGLRenderer, baseUrl = typeof document !== 'undefined' ? document.baseURI : '/'): void {
+    if (ktx2) return;
+    ktx2 = new FileWorkerKTX2Loader(new URL(TRANSCODER_WORKER, baseUrl).href)
+      .setTranscoderPath(new URL(BASIS_PATH, baseUrl).href)
+      .setWorkerLimit(2)
+      .detectSupport(renderer);
+  }
+
+  /**
+   * A ground material for the terrain: GPU-compressed where the catalogue
+   * has its packed files and a transcoder is set up (useCompressedTextures),
+   * else its pixels (`material`). The compressed ones are not kept: the
+   * terrain's arrays hold them on the GPU, and the files stay in the map
+   * data's cache.
+   */
+  async materialTextures(id: string): Promise<MaterialPixels | MaterialCompressed> {
+    const entry = await this.materialEntry(id);
+    const packed = entry?.files.packed;
+    const loader = ktx2;
+    if (!entry || !packed || !loader) return this.material(id);
+    try {
+      const load = async (path: string): Promise<CompressedTexture> => {
+        const res = await this.fetchFn(this.url(path));
+        if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
+        const buffer = await res.arrayBuffer();
+        return new Promise<CompressedTexture>((resolve, reject) => loader.parse(buffer, (t) => resolve(t as CompressedTexture), reject));
+      };
+      const [color, data] = await Promise.all([load(packed.color), load(packed.data)]);
+      return { id, size: color.image.width, color, data, average: hexToRgb(entry.average) };
+    } catch (error) {
+      console.warn(`[MapAssetLibrary] packed material ${id} not loaded, decoding its images`, error);
+      return this.material(id);
+    }
+  }
+
+  /**
+   * Gets a ground material's files on their way before the terrain asks
+   * (map start): the packed KTX2 files into the map data's cache, where
+   * there are some, else the decoded pixels as `material` keeps them
+   */
+  async prefetchMaterial(id: string): Promise<void> {
+    const packed = (await this.materialEntry(id))?.files.packed;
+    if (!packed) {
+      await this.material(id);
+      return;
+    }
+    await Promise.all([packed.color, packed.data].map(async (path) => (await this.fetchFn(this.url(path))).arrayBuffer()));
   }
 
   /** Packed pixels of a ground material; unknown ids and broken files give a flat grey-green */

@@ -135,6 +135,9 @@ def entry(m, out):
            else f'https://ambientcg.com/view?id={m["asset"]}')
     files = {f: f'materials/{m["id"]}/{f}.jpg' for f in ('color', 'normal', 'arh')}
     e = {'id': m['id'], 'name': m['name'], 'category': m['category'], 'files': files}
+    # The GPU-compressed layers of pack_textures.py, where they were made
+    if all(os.path.exists(os.path.join(target, f'{f}.ktx2')) for f in ('color', 'data')):
+        files['packed'] = {f: f'materials/{m["id"]}/{f}.ktx2' for f in ('color', 'data')}
     if os.path.exists(os.path.join(target, 'emissive.jpg')):
         files['emissive'] = f'materials/{m["id"]}/emissive.jpg'
         e['emissive'] = m['emissive']
