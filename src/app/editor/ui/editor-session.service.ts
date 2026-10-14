@@ -674,6 +674,16 @@ export class EditorSession implements OnDestroy {
     return null;
   }
 
+  /**
+   * The editor for a change from a panel that touches the ground (heights,
+   * paint, water, the grid), or null with a line in the status bar while it
+   * has to wait: a terrain job holds the heights it started from and puts
+   * them back on Cancel, over anything changed meanwhile
+   */
+  groundEditor(what: string): EditorDocument | null {
+    return this.blocked(what) ? null : this.editor;
+  }
+
   /** True (with a line in the status bar) when `what` has to wait */
   blocked(what: string): boolean {
     const reason = this.busyReason();
@@ -715,7 +725,7 @@ export class EditorSession implements OnDestroy {
   }
 
   resize(width: number, depth: number): void {
-    const editor = this.editor;
+    const editor = this.groundEditor('Resizing');
     if (!editor) return;
     let dropped = { droppedObjects: 0, droppedNodes: 0 };
     this.execute(
@@ -730,7 +740,7 @@ export class EditorSession implements OnDestroy {
 
   /** Refines coarse ground to the detail of new maps (2 m height points, the splat to match); one undo step */
   increaseDetail(): void {
-    const editor = this.editor;
+    const editor = this.groundEditor('Increasing the detail');
     const target = editor && detailTarget(editor.doc.terrain);
     if (!editor || !target) return;
     this.execute(SnapshotCommand.record(editor.doc, 'Increase detail', ['terrain'], (d) => (d.terrain = increaseDetail(d.terrain, target))));

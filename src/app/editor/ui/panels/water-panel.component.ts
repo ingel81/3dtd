@@ -239,7 +239,7 @@ export class WaterPanelComponent {
   }
 
   add(kind: MapWaterKind): void {
-    const editor = this.session.editor;
+    const editor = this.session.groundEditor('Changing the water');
     if (!editor) return;
     const level = Math.round((this.session.hover()?.height ?? 0) * 10) / 10;
     this.session.execute(waterCommands.addBody(editor, kind, level));
@@ -252,24 +252,24 @@ export class WaterPanelComponent {
   }
 
   remove(index: number): void {
-    const editor = this.session.editor;
+    const editor = this.session.groundEditor('Changing the water');
     if (!editor) return;
     this.session.execute(waterCommands.remove(editor, index));
     if (index >= 0 && this.active() >= index) this.choose(this.active() - 1);
   }
 
   set(patch: { level?: number; color?: string; kind?: MapWaterKind }, label: string): void {
-    const editor = this.session.editor;
+    const editor = this.session.groundEditor('Changing the water');
     if (editor) this.session.execute(waterCommands.set(editor, this.active(), patch, label));
   }
 
   sea(): void {
-    const editor = this.session.editor;
+    const editor = this.session.groundEditor('Changing the water');
     if (editor) this.session.execute(waterCommands.sea(editor, this.active()));
   }
 
   clear(): void {
-    const editor = this.session.editor;
+    const editor = this.session.groundEditor('Changing the water');
     if (editor) this.session.execute(waterCommands.clearMask(editor, this.active()));
   }
 }

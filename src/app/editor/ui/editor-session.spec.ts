@@ -109,7 +109,15 @@ describe('editor session while busy', () => {
     expect(await s.save(false)).toBe(false);
     expect(puts).not.toHaveBeenCalled();
     expect(await s.close()).toBe(false);
+    // Changes to the ground from the panels wait too: Cancel would put the heights of before the job back over them
+    const grid = s.doc!.terrain.grid;
+    s.resize(s.doc!.terrain.width / 2, s.doc!.terrain.depth / 2);
+    s.increaseDetail();
+    expect(s.doc!.terrain.grid).toBe(grid);
+    expect(s.groundEditor('Changing the water')).toBeNull();
+    expect(s.status()).toContain('Changing the water waits');
     s.terrainJob.set(null);
+    expect(s.groundEditor('Changing the water')).toBe(s.editor);
 
     // A held stroke in the view
     Object.assign(s, { viewport: { dragging: true, dispose: () => undefined } });

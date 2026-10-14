@@ -67,26 +67,26 @@ export class PaintPanelComponent {
   }
 
   add(material: string): void {
-    const editor = this.session.editor;
+    const editor = this.session.groundEditor('Changing the ground paint');
     if (!editor || editor.doc.terrain.layers.length >= MAX_LAYERS) return;
     this.session.execute(paintCommands.addLayer(editor, material));
     this.pick(editor.doc.terrain.layers.length - 1);
   }
 
   setMaterial(index: number, material: string): void {
-    const editor = this.session.editor;
+    const editor = this.session.groundEditor('Changing the ground paint');
     if (editor) this.session.execute(paintCommands.setMaterial(editor, index, material));
   }
 
   remove(index: number): void {
-    const editor = this.session.editor;
+    const editor = this.session.groundEditor('Changing the ground paint');
     if (!editor) return;
     this.session.execute(paintCommands.removeLayer(editor, index));
     this.pick(Math.max(0, Math.min(this.settings().layer, editor.doc.terrain.layers.length - 1)));
   }
 
   move(index: number, dir: -1 | 1): void {
-    const editor = this.session.editor;
+    const editor = this.session.groundEditor('Changing the ground paint');
     if (!editor) return;
     const to = index + dir;
     if (to < 0 || to >= editor.doc.terrain.layers.length) return;
@@ -95,14 +95,14 @@ export class PaintPanelComponent {
   }
 
   autoPaint(): void {
-    const editor = this.session.editor;
+    const editor = this.session.groundEditor('Changing the ground paint');
     if (!editor) return;
     this.session.execute(paintCommands.autoPaint(editor));
     this.session.flash('Painted by slope and height; undo brings back the old paint');
   }
 
   setCliff(material: string, angle: number): void {
-    const editor = this.session.editor;
+    const editor = this.session.groundEditor('Changing the ground paint');
     if (editor) this.session.execute(paintCommands.setCliff(editor, material, angle));
   }
 
