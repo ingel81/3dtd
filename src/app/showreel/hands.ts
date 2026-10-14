@@ -49,6 +49,10 @@ export class Hands {
     this.pointer.show(true);
     await this.pointer.glide(() => this.centerOf(el), seconds, nextFrame, mods);
     await waitSeconds(0.08);
+    // A panel that was still laying out moved the element on the way: a short second glide onto it
+    const at = this.centerOf(el);
+    const p = this.pointer.position;
+    if (Math.hypot(at.x - p.x, at.y - p.y) > 3) await this.pointer.glide(() => this.centerOf(el), 0.2, nextFrame, mods);
     this.pointer.down(button, mods);
     await waitSeconds(0.07);
     this.pointer.up(button, mods);

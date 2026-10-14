@@ -10,12 +10,16 @@ import { WorldContext } from '../world/world-context.service';
 import { PathAndRouteService } from '../services/world/path-route.service';
 import { UIStore } from '../store/ui.store';
 import { MarkerVisualizationService } from '../services/world/marker-visualization.service';
+import { TowerPlacementService } from '../services/tower-placement.service';
+import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
+import type { TowerTypeId } from '../configs/tower-types.config';
 import type { CustomMapWorld } from '../world/custom-map/custom-map-world';
 import type { MapEnvironment } from '../world/custom-map/map-document';
 import type { CameraPose, MapPoint3 } from './camera-path';
 import type { ScreenPoint } from './pointer';
 import type { Stage } from './stage';
 import { element, nextFrame, waitSeconds, waitUntil, type Hands } from './hands';
+import { pressKey } from './pointer';
 
 /** What the director uses of the game component (read through Angular's dev API) */
 interface GameComponent {
@@ -43,6 +47,9 @@ export class GameStage implements Stage {
   private readonly routes: PathAndRouteService;
   private readonly ui: UIStore;
   private readonly markers: MarkerVisualizationService;
+  private readonly placement: TowerPlacementService;
+  /** Tower spots found ahead (planTowers), map metres; `spot:<i>` and `spots` in a script */
+  private spots: { x: number; y: number }[] = [];
   private posed: CameraPose | null = null;
   private poseLoop = 0;
   private readonly scratch = new Vector3();
@@ -53,6 +60,7 @@ export class GameStage implements Stage {
     this.routes = injector.get(PathAndRouteService);
     this.ui = injector.get(UIStore);
     this.markers = injector.get(MarkerVisualizationService);
+    this.placement = injector.get(TowerPlacementService);
   }
 
   private get world(): CustomMapWorld | null {
@@ -94,7 +102,68 @@ export class GameStage implements Stage {
       const s = doc.spawns[Number(spawn[1])];
       return s ? { x: s.x, y: s.y } : null;
     }
+    const spot = /^spot:(\d+)$/.exec(name);
+    if (spot) return this.spots[Number(spot[1])] ?? null;
+    if (name === 'spots' && this.spots.length) {
+      return { x: this.spots.reduce((n, p) => n + p.x, 0) / this.spots.length, y: this.spots.reduce((n, p) => n + p.y, 0) / this.spots.length };
+    }
     return null;
+  }
+
+  /** Whether the game lets a tower stand at a map point, by the rules the click uses (placementAt) */
+  private buildable(x: number, y: number, tower: string): boolean {
+    const at = this.placement.placementAt(y / MAP_METERS_PER_DEGREE, x / MAP_METERS_PER_DEGREE, tower as TowerTypeId);
+    return !!at?.result.valid;
+  }
+
+  /**
+   * Buildable with room around: the click lands where the pointer's ray
+   * meets the ground, which can be a metre or two off the planned point
+   */
+  private buildableAround(x: number, y: number, tower: string): boolean {
+    return [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3]].every(([dx, dy]) => this.buildable(x + dx, y + dy, tower));
+  }
+
+  /**
+   * Spots for `count` towers before the pointer moves: beside the routes,
+   * from the HQ outwards, both sides, each checked by the game's placement
+   * rules and apart from the others, so every build is one clean click
+   */
+  private planSpots(count: number, tower: string, from = 40, to = 320): void {
+    const routes = [...this.routes.getCachedPaths().values()].map((r) => r.map((w) => ({ x: w.lon * MAP_METERS_PER_DEGREE, y: w.lat * MAP_METERS_PER_DEGREE })));
+    const chosen: { x: number; y: number }[] = [];
+    const apart = (p: { x: number; y: number }) => chosen.every((q) => Math.hypot(q.x - p.x, q.y - p.y) >= 24);
+    for (let d = from; d <= to && chosen.length < count; d += 28) {
+      for (const route of routes) {
+        // Walk from the HQ end back along the route to distance d
+        let left = d;
+        for (let i = route.length - 1; i > 0 && chosen.length < count; i--) {
+          const a = route[i];
+          const b = route[i - 1];
+          const len = Math.hypot(b.x - a.x, b.y - a.y);
+          if (left > len) {
+            left -= len;
+            continue;
+          }
+          const k = left / (len || 1);
+          const px = a.x + (b.x - a.x) * k;
+          const py = a.y + (b.y - a.y) * k;
+          const nx = -(b.y - a.y) / (len || 1);
+          const ny = (b.x - a.x) / (len || 1);
+          const side = chosen.length % 2 ? 1 : -1;
+          for (const off of [20, 24, 28, -20, -24, -28]) {
+            const p = { x: px + nx * off * side, y: py + ny * off * side };
+            if (apart(p) && this.buildableAround(p.x, p.y, tower)) {
+              chosen.push(p);
+              break;
+            }
+          }
+          break;
+        }
+      }
+    }
+    this.spots = chosen;
+    if (chosen.length < count) console.warn(`[showreel] ${chosen.length} of ${count} tower spots found`);
   }
 
   private toScene(p: MapPoint3, target: Vector3): Vector3 | null {
@@ -193,14 +262,24 @@ export class GameStage implements Stage {
       case 'credits':
         c.sim.bus.emit({ type: 'debug:add-credits', amount: Number(args['amount'] ?? 100_000) });
         return;
+      case 'jumpWave':
+        // The next wave to start, the ones before skipped (between waves only): a fuller wave for the camera
+        c.sim.bus.emit({ type: 'debug:jump-to-wave', wave: Number(args['wave'] ?? 5), grantGold: false });
+        return;
       case 'research':
         c.sim.bus.emit({ type: 'debug:complete-all-research' });
         return;
       case 'speed':
         (globalThis as { __load?: { speed(v: number): void } }).__load?.speed(Number(args['value'] ?? 1));
         return;
-      case 'build':
-        return this.build(String(args['tower'] ?? 'archer'), args['at'] as MapPoint3, Number(args['dur'] ?? 0.9));
+      case 'planTowers':
+        this.planSpots(Number(args['count'] ?? 6), String(args['tower'] ?? 'archer'), Number(args['from'] ?? 40), Number(args['to'] ?? 320));
+        return;
+      case 'build': {
+        const tower = String(args['tower'] ?? 'archer');
+        const at = (args['at'] as MapPoint3 | undefined) ?? this.spotFor(Number(args['spot'] ?? 0), tower);
+        return this.build(tower, at, Number(args['dur'] ?? 0.9));
+      }
       case 'wave':
         await this.hands.click('.td-wave-btn', Number(args['dur'] ?? 0.8));
         return;
@@ -218,26 +297,81 @@ export class GameStage implements Stage {
     }
   }
 
+  /** A planned spot, checked again now (an earlier tower may stand near it); a new one beside the routes if not */
+  private spotFor(index: number, tower: string): MapPoint3 {
+    let p = this.spots[index];
+    if (!p || !this.buildableAround(p.x, p.y, tower)) {
+      const kept = this.spots;
+      this.planSpots(1, tower);
+      p = this.spots[0];
+      this.spots = kept;
+      if (!p) throw new Error('showreel: no tower spot left beside the routes');
+      this.spots[index] = p;
+    }
+    return { x: p.x, y: p.y, h: Number.NaN };
+  }
+
   /**
-   * A tower through the sidebar: its card, then the spot on the map. A spot
-   * the game refuses (trees, too far from a street) costs nothing: the
-   * pointer tries a few steps around it, as a player would, and gives up
-   * with Escape
+   * A spot under the HUD (sidebar, minimap) or near the canvas edge takes no
+   * click: the camera glides over, keeping its height and angle, until the
+   * spot lies well inside the view
+   */
+  private async keepInView(at: MapPoint3): Promise<void> {
+    const canvas = this.engineInit.getEngine()?.getRenderer().domElement;
+    const screen = this.toScreen(at);
+    if (!canvas || !screen) return;
+    const r = canvas.getBoundingClientRect();
+    const inner = screen.x > r.left + r.width * 0.2 && screen.x < r.left + r.width * 0.7 && screen.y > r.top + r.height * 0.2 && screen.y < r.top + r.height * 0.8;
+    if (inner && document.elementFromPoint(screen.x, screen.y) === canvas) return;
+    const from = this.pose();
+    if (!from) return;
+    const dx = at.x - from.look.x;
+    const dy = at.y - from.look.y;
+    const start = await nextFrame();
+    for (;;) {
+      const t = Math.min(1, ((await nextFrame()) - start) / 1200);
+      const k = t * t * (3 - 2 * t);
+      this.setPose({
+        eye: { ...from.eye, x: from.eye.x + dx * k, y: from.eye.y + dy * k },
+        look: { ...from.look, x: from.look.x + dx * k, y: from.look.y + dy * k },
+      });
+      if (t >= 1) return;
+    }
+  }
+
+  /**
+   * A tower through the sidebar: its card once it stands enabled, then the
+   * spot, one click each. The spot was checked by the game's rules before
+   * the pointer moved (planTowers, spotFor)
    */
   private async build(tower: string, at: MapPoint3, seconds: number): Promise<void> {
     const c = this.component;
-    const card = element(`.bp-card:has(canvas[data-tower-id="${tower}"])`);
-    await this.hands.click(card, seconds);
+    const selector = `.bp-card:has(canvas[data-tower-id="${tower}"])`;
+    await waitUntil(() => {
+      const card = document.querySelector(selector);
+      return !!card && card.getAttribute('aria-disabled') !== 'true' && !card.classList.contains('is-locked');
+    }, 10, `the ${tower} card`);
+    await this.hands.click(element(selector), seconds);
     await waitUntil(() => !!document.querySelector('.bp-cancel'), 3, 'the build mode');
+    await this.keepInView(at);
     const before = c.store.credits();
-    const tries = [[0, 0], [0, 8], [0, -8], [8, 0], [-8, 0], [0, 16], [0, -16], [14, 10], [-14, -10], [-14, 10]];
-    for (const [dx, dy] of tries) {
-      await this.hands.clickMap(this, { x: at.x + dx, y: at.y + dy, h: Number.NaN }, dx || dy ? 0.35 : seconds);
-      await waitSeconds(0.35);
-      if (c.store.credits() < before) break;
+    // The build preview follows the pointer and checks its spot a moment later: rest there, then click
+    await this.hands.toMap(this, at, seconds);
+    await waitSeconds(0.25);
+    const p = this.hands.pointer.position;
+    this.hands.pointer.moveTo({ x: p.x + 1, y: p.y });
+    await waitSeconds(0.2);
+    this.hands.pointer.click();
+    const stood = await waitUntil(() => c.store.credits() < before || !document.querySelector('.bp-cancel'), 2, `the ${tower} to stand`).then(
+      () => true,
+      () => false,
+    );
+    if (!stood) {
+      console.warn(`[showreel] the ${tower} was refused at ${Math.round(at.x)}, ${Math.round(at.y)}: ${this.ui.buildValidationReason() ?? 'no reason given'}`);
+      // Out of the build mode, so the next card shows
+      pressKey('Escape');
+      await waitSeconds(0.2);
     }
-    // Out of the build mode where it stays (a refused spot)
-    if (document.querySelector('.bp-cancel')) await this.hands.click('.bp-cancel', 0.5);
     await nextFrame();
   }
 }

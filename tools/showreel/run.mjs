@@ -178,6 +178,9 @@ async function main() {
   });
   const page = context.pages()[0] ?? (await context.newPage());
   const problems = [];
+  page.on('console', (m) => {
+    if (m.text().includes('[showreel]')) console.log(`  ${m.text()}`);
+  });
   page.on('pageerror', (e) => {
     problems.push(e.message);
     console.log(`  page error: ${e.message.slice(0, 300)}`);

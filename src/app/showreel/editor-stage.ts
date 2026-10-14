@@ -78,6 +78,21 @@ export class EditorStage implements Stage {
       const s = doc.spawns[Number(spawn[1])];
       return s ? { x: s.x, y: s.y } : null;
     }
+    // Negative indices count from the end: node:-1 is the newest road node
+    const pick = <T>(list: readonly T[], i: number): T | undefined => list[i < 0 ? list.length + i : i];
+    const node = /^node:(-?\d+)$/.exec(name);
+    if (node) return pick(doc.paths.nodes, Number(node[1])) ?? null;
+    const river = /^river:(-?\d+):(-?\d+)$/.exec(name);
+    if (river) {
+      const r = pick(doc.terrain.rivers ?? [], Number(river[1]));
+      return (r && pick(r.points, Number(river[2]))) ?? null;
+    }
+    // object:<asset> the newest object of an asset, object:last the newest of all
+    const object = /^object:(.+)$/.exec(name);
+    if (object) {
+      const list = object[1] === 'last' ? doc.objects : doc.objects.filter((o) => o.asset === object[1]);
+      return pick(list, -1) ?? null;
+    }
     return null;
   }
 

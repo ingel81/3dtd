@@ -241,7 +241,8 @@ export class Director {
     const sel = String(step['sel']);
     const text = step['withText'] as string | undefined;
     const pick = (): HTMLElement | null => {
-      const all = Array.from(document.querySelectorAll<HTMLElement>(sel));
+      // Shown ones only: hidden panels keep their buttons (the same data-mode in two tools), under visibility: hidden
+      const all = Array.from(document.querySelectorAll<HTMLElement>(sel)).filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden');
       if (text === undefined) return all[0] ?? null;
       return all.find((el) => el.textContent?.trim() === text) ?? all.find((el) => el.textContent?.includes(text)) ?? null;
     };
