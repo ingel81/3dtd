@@ -147,7 +147,12 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   vorher, aus Level-Skripten) liest der Editor beim ersten Bearbeiten von der Karte ab (`inferDress`): Laternen und Zäune
   an ihren Seiten und den Belag entlang der Mitte, wenn es ein Straßenbelag ist, den das Land daneben nicht hat; ihr
   Boden vor der Straße ist dann unbekannt, der Rückbau füllt gerade. Findet er nichts, bleibt die Straße eine bloße
-  Linie. „Rebuild road dressing“ im Roads-Panel legt die Ausstattung der gewählten Straßen neu an: aus ihrem `dress`,
+  Linie. **Bekannte Grenze:** Mündet eine neue Straße in die Mitte einer gebauten, teilt sie diese; beide Hälften
+  behalten den gemerkten Boden der ganzen alten Straße, und der Rückbau gibt ihn genau zurück. Neu angelegt wird eine
+  Hälfte aber mit einem Höhenprofil nur über ihre eigene Länge (`flattenUnderPaths` glättet entlang der Linie), nicht über
+  die ganze frühere Straße; an der Teilungsstelle kann der Boden danach um einige Zentimeter vom ersten Bau abweichen
+  (im Fuzz-Test bis etwa 9 cm). Ein Profil über die Einmündung hinweg hieße, die Glättung über verbundene Kanten zu
+  führen; das steht aus. „Rebuild road dressing“ im Roads-Panel legt die Ausstattung der gewählten Straßen neu an: aus ihrem `dress`,
   aus der Karte oder, für eine bloße Linie, mit den Einstellungen des Straßenpinsels (Landscape, Road). Ebenso folgt das Flussbett
   seinem Lauf: einen Flusspunkt verschieben oder entfernen (Water, 4, Rivers), die Breite ändern oder „Fewer river
   points“ füllt das alte Bett und gräbt das neue (`moveRiverBed`): Schilf, Steine und Wasserfälle beider Bänder gehen,
@@ -516,7 +521,10 @@ Flusspunkte samt neuem Schilf und neuen Steinen, alte Straßen ohne gemerkte Aus
 Stempel mit Drehung, Symmetrie, „Mirror now“, Heightmap-Import, Größe ändern, „Increase detail“,
 Restore, Umgebung, Sprünge im Verlauf) und verlangt: alle Undos ergeben `contentBytes` des Anfangs bytegleich, alle
 Redos die des Endes, und jeder Zustand unterwegs (Undo, Redo, Sprung) ist die Karte, wie sie nach diesem Schritt war;
-eine neue Straße, deren Ausstattung abgebaut und neu gebaut wird, lässt den Boden auf 2 mm gleich (gemerkter Boden);
+eine neue Straße, deren Ausstattung abgebaut und neu gebaut wird, lässt den Boden auf 2 mm gleich (gemerkter Boden;
+ohne Straßen, die sie geteilt hat, siehe die bekannte Grenze oben); neben fünf festen Seeds laufen fünf weitere, die
+einmal an Annahmen des Tests selbst scheiterten (ein Lauf, der mit einem Sprung zurück endet, wird erst zu Ende
+wiederholt);
 ein Fehler nennt Seed und Schritte. Undo während Strich, Drag oder Job sperrt
 die Session (`editor-session.spec.ts`). Browser:
 `e2e/tests/editor.e2e.ts` (neue Karte, Gelände, Objekt mit Rückgängig, Straße, Spawn, gespiegeltes Objekt, kopiertes
