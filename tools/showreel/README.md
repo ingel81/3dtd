@@ -79,3 +79,64 @@ window stays topmost for the run and is released at the end. No other window is 
 Nobody may touch mouse or keyboard over the recorded display: real pointer moves reach the page (the editor's
 brush follows the real pointer). Windows over the display show in the picture. The editor's Test map normally
 opens a second window; under the hook the runner opens it in the same one.
+
+## Script reference (director steps)
+
+Every step may carry `label` (a time mark). Points: `[fx, fy, h?]` shares of the map around its middle, `{ at, dx,
+dy, h }` from a named spot (`hq`, `center`, `spawn:<i>`; editor `node:<i>`, `river:<r>:<p>`, `object:<asset|last>`;
+game `spot:<i>`, `spots`), `{ m: [x, y], h }` metres; `h` above the ground, `habs` absolute, none: on the ground.
+
+| Step | Does |
+|------|------|
+| `shot` `{ keys: [{eye, look}] or 'current', dur, ease }` | Camera path through keyframes |
+| `orbit` `{ center, from, to, radius, radiusTo, height, heightTo, dur, ease }` | Camera round a point (degrees, 0 = south of it) |
+| `click` `{ sel, withText?, dur }` | Pointer glides to a shown element (visibility hidden panels skipped) and clicks |
+| `clickMap` `{ at, mods }`, `stroke` `{ points, dur, mods, settle }` | Click or drag on the map; the screen point follows the camera |
+| `type`, `select`, `range` `{ sel, to, dur }`, `key` `{ key, mods }`, `move` | Inputs as a person makes them |
+| `wait`, `par`, `seq`, `if` `{ sel, steps }`, `mark`, `fade`, `cursor`, `release` | Flow |
+| `ui`, `legend`, `markers` | UI in the picture (see above) |
+| `act` `{ name, ... }` | Stage action. Game: `photo`, `routes`, `markers`, `hints`, `credits`, `research`, `jumpWave`, `speed`, `planTowers` `{count, tower}`, `build` `{tower, spot, hold}`, `wave`, `environment` `{patch}`. Editor: `settings` `{patch}` (EditorSettings, deep merge), `environment`, `trialSpeed`, `viewReady`, `idle`, `save` |
+
+Towers: `planTowers` finds spots beside the routes with the game's own rules (`TowerPlacementService.placementAt`,
+3 m room around) before the pointer moves; `build` clicks the card once it is enabled, glides the camera over a spot
+the HUD would cover, holds the pointer on the spot (`hold`, preview and route grid visible) and clicks once.
+
+## Pitfalls found (2026-10-14)
+
+- Foreground lock: a new Chrome window opens behind the user's window; `window.ps1` raises it (see above).
+- Translate bubble: Chrome reads only the last `--disable-features`; Playwright passes its own list, so the runner
+  repeats it with `TranslateUI` and writes `translate.enabled: false` into the profile.
+- 144 Hz display: a two-frame flash (14 ms) fell between the frames of the 60 fps capture; the flash lasts 120 ms.
+- A MediaRecorder on a stream without samples never fires `start` (the editor has no sound): a silent constant
+  source feeds the tap; a recorder that does not start in 5 s fails loudly.
+- Live reload: a source change while a run plays reloads the page under the runner; serve without live reload.
+- Dynamic resolution (Low, Medium, Auto on custom maps) resized the canvas after the draw: one black frame per
+  step (fixed in the engine, `fix(engine): dynamic resolution resizes before the draw`); the runner sets Ultra.
+- 125 % Windows scaling: CSS 2048x1152, pixel ratio 1.25; High and Ultra allow it on custom maps (Auto does not),
+  `--window-size` is left to kiosk. The runner logs CSS size, pixel ratio and drawing buffer per page and scene.
+- Hidden editor panels stay in the DOM under `visibility: hidden` with the same `data-mode` values: steps look
+  for shown elements only.
+- Pour on flat ground once flooded a wide plain (fixed in round 3); Fill a hollow with Ctrl fills one crater to
+  its rim.
+- A ground layer limit (8, then 12 since round 3): a biome brings 3 to 6 layers; the script header lists them.
+- Brush strokes depend on frame timing (holding grows a shape), so results vary a little between runs.
+
+## Take 3 status (2026-10-14 evening)
+
+Done (b2987e1c): faster, closer fly-overs with image skies; take-3 editor beats; trial wave at 2x low at the
+spawn; game part halved (4 towers, 14 s fight).
+
+Open, asked by the user:
+- every editor tool and mode that reads on screen, larger brushes, result held 1 s (Ramp from the side, Auto
+  paint on a fresh mountain, Duplicate a group of houses, Water modes incl. Pour, Dig a lake, Sea from the edge,
+  Stamps, Map generator, still frame B as bullet time)
+- brush size and strength changed visibly between two strokes
+- objects: taller buildings, scale with the gizmo, lamps along a road (Line along a road) lit at night
+- sky sliders with visible effect (wind, time sweep, fog, rain/snow strength, moonlight), camera on vegetation
+- a grass close-up about 1 m above the ground
+- symmetry obvious: high view, 2 and 4 copies from one stroke
+- game intro flights complete with the UI hidden from the load on (lane lines, HQ, spawns kept), as fly-over
+  openers; the page flash must not eat the intro
+- trial wave: look at the spawn, then a chase camera following one runner, then pull up
+- W3X import beat (tmp/wc3/Mafa-Td-Queen-v14.6.w3x from the main checkout, read only)
+- History rewind, stamps rotated, tower first-person view in the game
