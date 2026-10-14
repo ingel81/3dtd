@@ -463,7 +463,7 @@ export class CustomMapView {
     } else {
       this.viewRay.origin.copy(this.camPos);
       camera.getWorldDirection(this.viewRay.direction);
-      if (this.heights.raycast(this.viewRay, this.focusPoint, 3000) === null) this.focusPoint.copy(this.camPos);
+      if (this.heights.raycast(this.viewRay, this.focusPoint, 3000) === null) this.heights.groundAhead(this.camPos, this.viewRay.direction, this.focusPoint);
     }
     this.terrain.update(this.camPos, dtSeconds, this.focusPoint);
     // Shadow box sized to what the camera sees around the focus: sharp up close, wide from high up

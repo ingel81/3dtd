@@ -93,6 +93,36 @@ export class HeightField {
   }
 
   /**
+   * A point on the surface ahead of scene-space `origin` along the
+   * horizontal part of `direction`, into `target` (may be `origin`): about
+   * one and a half times the height above the ground away (50 to 600 m),
+   * no further than where the look leaves the map, and on the map. For when
+   * a view ray misses the surface: on a small map a lowered camera often
+   * looks past the far edge, and the camera itself is no ground to centre
+   * the sun's shadow box on.
+   */
+  groundAhead(origin: Vector3, direction: Vector3, target: Vector3): void {
+    const minX = this.originX;
+    const maxX = this.originX + (this.columns - 1) * this.cellSize;
+    const minY = this.originY;
+    const maxY = this.originY + (this.rows - 1) * this.cellSize;
+    const ox = -origin.x;
+    const oy = origin.z;
+    let distance = Math.min(600, Math.max(50, (origin.y - this.heightAt(ox, oy)) * 1.5));
+    const length = Math.hypot(direction.x, direction.z);
+    const dx = length > 1e-6 ? -direction.x / length : 0;
+    const dy = length > 1e-6 ? direction.z / length : 0;
+    if (ox >= minX && ox <= maxX && oy >= minY && oy <= maxY) {
+      const exitX = dx > 0 ? (maxX - ox) / dx : dx < 0 ? (minX - ox) / dx : Infinity;
+      const exitY = dy > 0 ? (maxY - oy) / dy : dy < 0 ? (minY - oy) / dy : Infinity;
+      distance = Math.min(distance, exitX, exitY);
+    }
+    const x = Math.min(maxX, Math.max(minX, ox + dx * distance));
+    const y = Math.min(maxY, Math.max(minY, oy + dy * distance));
+    target.set(-x, this.heightAt(x, y), y);
+  }
+
+  /**
    * First hit of a scene-space ray with the surface, or null. Marches in
    * steps of half a cell inside the map and refines the crossing by
    * bisection; `maxDistance` limits the march.

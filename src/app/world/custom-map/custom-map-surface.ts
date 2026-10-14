@@ -216,6 +216,14 @@ export class CustomMapSurface implements WorldSurface {
     return true;
   }
 
+  /** A point on the ground ahead of a scene-space look that missed the terrain (HeightField.groundAhead) */
+  groundAhead(origin: Vector3, direction: Vector3, target: Vector3): void {
+    this.ray.origin.set(origin.x - this.frame.sceneX(0), origin.y, origin.z - this.frame.sceneZ(0));
+    this.field.groundAhead(this.ray.origin, direction, target);
+    target.x += this.frame.sceneX(0);
+    target.z += this.frame.sceneZ(0);
+  }
+
   /** Towers stand on the picked ground */
   roofAt(): number | null {
     return null;

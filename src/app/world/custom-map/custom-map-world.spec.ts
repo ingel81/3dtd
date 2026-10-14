@@ -108,6 +108,29 @@ describe('CustomMapSurface', () => {
     expect(surface.raycastLineOfSight(a.x, 2.5, a.z, frame.sceneX(80), 2.5, a.z)).toBe(true);
   });
 
+  it('puts the shadow focus on the ground ahead when the view ray misses the terrain', () => {
+    // High over the map, looking up past the horizon: the ray hits nothing
+    const eye = new Vector3(frame.sceneX(0), 120, frame.sceneZ(0));
+    const up = new Vector3(frame.sceneX(1) - frame.sceneX(0), 0.2, 0).normalize();
+    const hit = new Vector3();
+    expect(surface.groundAlong(eye, up, hit)).toBe(false);
+    const ahead = new Vector3();
+    surface.groundAhead(eye, up, ahead);
+    // On the ground, not in the air with the camera, toward where it looks (map +x), 1.5 x 120 m ahead
+    expect(ahead.y).toBeCloseTo(surface.raycastTerrainHeight(ahead.x, ahead.z)!, 5);
+    expect(frame.mapX(ahead.x)).toBeGreaterThan(0);
+    expect(frame.mapX(ahead.x)).toBeLessThanOrEqual(100);
+    // A low camera looking out over the far edge: the point stays short of it, where the look leaves the map
+    const low = new Vector3(frame.sceneX(60), 200, frame.sceneZ(0));
+    surface.groundAhead(low, up, ahead);
+    expect(frame.mapX(ahead.x)).toBeCloseTo(100, 5);
+    // Kept on the map, however far the camera stands beyond its edge
+    const far = new Vector3(frame.sceneX(5000), 400, frame.sceneZ(0));
+    surface.groundAhead(far, up, ahead);
+    expect(surface.raycastTerrainHeight(ahead.x, ahead.z)).toBeCloseTo(ahead.y, 5);
+    expect(Math.abs(frame.mapX(ahead.x))).toBeLessThan(5000);
+  });
+
   it('forbids building near objects that block it, once the catalogue is known', () => {
     const map = testMap();
     map.objects = [

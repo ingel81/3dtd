@@ -297,7 +297,9 @@ export class CustomMapWorld implements WorldProvider {
     // The sun's shadow box around the ground the camera looks at
     camera.getWorldPosition(this.focus);
     camera.getWorldDirection(this.lookDirection);
-    if (!this.surface.groundAlong(this.focus, this.lookDirection, this.focus)) camera.getWorldPosition(this.focus);
+    // A ray past a ridge into the sky (or from beyond the map) hits nothing: the box goes on the ground ahead,
+    // not around the camera in the air, where no tree cast and every shadow went at once
+    if (!this.surface.groundAlong(this.focus, this.lookDirection, this.focus)) this.surface.groundAhead(this.focus, this.lookDirection, this.focus);
     this.view.update(dt, camera, this.focus);
   }
 
