@@ -23,6 +23,7 @@ import type { MapAssetLibrary } from './map-asset-library';
 import type { AssetCatalog, CatalogObject } from './asset-catalog';
 import { mapToScene, sceneToMap } from './map-coords';
 import { CustomMapEnvironment } from './environment/map-environment';
+import { fitShadowBox } from './environment/shadow-fit';
 import { EffectLayer } from './effects/effect-layer';
 import { CoverMap } from './environment/cover-map';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
@@ -134,6 +135,9 @@ export class CustomMapView {
   private readonly focusPoint = new Vector3();
   private readonly worldFocus = new Vector3();
   private readonly grassCenter = new Vector3();
+  /** Centre of the ground the camera sees, the sun's shadow box's (group and scene space) */
+  private readonly shadowCenter = new Vector3();
+  private readonly worldShadowCenter = new Vector3();
   /** Object and terrain versions the sun's shadow map was last rendered for */
   private shadowVersion = -1;
   /** Beyond this camera distance to its focus the grass blades are not drawn (the quality level's; 140 m in High) */
@@ -466,15 +470,17 @@ export class CustomMapView {
       if (this.heights.raycast(this.viewRay, this.focusPoint, 3000) === null) this.heights.groundAhead(this.camPos, this.viewRay.direction, this.focusPoint);
     }
     this.terrain.update(this.camPos, dtSeconds, this.focusPoint);
-    // Shadow box sized to what the camera sees around the focus: sharp up close, wide from high up
     const reach = this.camPos.distanceTo(this.focusPoint);
     this.group.localToWorld(this.worldFocus.copy(this.focusPoint));
-    // The box's radius in its steps, for the casters too: following the distance every frame, objects at
-    // its edge switched casting on and off and the shadow map rendered again each frame (shimmer)
-    const shadowRadius = this.environment.focus(this.worldFocus, Math.min(450, Math.max(70, reach * 0.9)));
+    // Shadow box fitted to the ground the camera sees: sharp up close, wide from high up or looking far
+    const fit = fitShadowBox(camera, this.group, this.focusPoint, this.shadowCenter);
+    // The box's radius in its steps (shrinking only well below it), for the casters round its centre too:
+    // following the view every frame, objects at its edge switched casting on and off and the shadow map
+    // rendered again each frame (shimmer)
+    const shadowRadius = this.environment.focus(this.group.localToWorld(this.worldShadowCenter.copy(this.shadowCenter)), fit);
     this.effects.update(dtSeconds, this.focusPoint);
     this.objects.shadowRadius = shadowRadius * 1.2;
-    this.objects.update(dtSeconds, camera, this.focusPoint);
+    this.objects.update(dtSeconds, camera, this.shadowCenter);
     IMPOSTOR_SUN.uImpSun.value.copy(this.environment.sunDir);
     // Grass between the camera's foot and the focus; from far up blades are below a pixel, skip them
     this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);

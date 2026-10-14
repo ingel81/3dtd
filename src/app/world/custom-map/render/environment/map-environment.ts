@@ -56,6 +56,8 @@ import { setWind, windOf, WIND_UNIFORMS } from './wind';
  * needs `shadowMap.enabled` for the sun's shadows (see `enableShadows`).
  */
 
+/** The shadow box shrinks only once the view needs less than this share of it */
+const SHRINK = 0.7;
 const SKY_WIDTH = 512;
 const SKY_HEIGHT = 256;
 
@@ -294,11 +296,15 @@ export class CustomMapEnvironment {
    * Centres the sun's shadow box on a scene point; `radius` in metres around
    * it. The box moves only once the point left the middle of it and grows or
    * shrinks in steps of a fifth, so a panning or zooming camera re-renders
-   * the shadow map now and then instead of every frame. Returns the radius
-   * in those steps, for what else follows the box (which objects cast).
+   * the shadow map now and then instead of every frame. It grows to the next
+   * step at once (what the camera sees stays inside) and shrinks only once
+   * `radius` falls under SHRINK of it: a zoom by a notch or two and back
+   * keeps the box and the objects that cast in it. Returns the radius in
+   * those steps, for what else follows the box (which objects cast).
    */
   focus(point: Vector3, radius = this.shadowRadius): number {
-    this.shadowRadius = Math.pow(2, Math.round(Math.log2(Math.max(radius, 1)) * 4) / 4);
+    const step = Math.pow(2, Math.ceil(Math.log2(Math.max(radius, 1)) * 4 - 1e-6) / 4);
+    if (step > this.shadowRadius || radius < this.shadowRadius * SHRINK) this.shadowRadius = step;
     this.placeSun(point, false);
     return this.shadowRadius;
   }

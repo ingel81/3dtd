@@ -77,6 +77,21 @@ describe('sky and shadow box (review 2026-10-11)', () => {
     expect(new Set(steps).size).toBe(1);
     expect(e.focus(at, 300)).toBeGreaterThan(steps[0]);
   });
+
+  it('grows at once to cover the view, shrinks only once the view needs well under it', () => {
+    const e = new CustomMapEnvironment(env);
+    const at = new Vector3();
+    const box = e.focus(at, 200);
+    expect(box).toBeGreaterThanOrEqual(200);
+    // A wheel notch closer (1.15) and two: the box and its casters stay
+    expect(e.focus(at, 200 / 1.15)).toBe(box);
+    expect(e.focus(at, 200 / 1.15 / 1.15)).toBe(box);
+    // Far closer: it shrinks, still covering what was asked
+    const small = e.focus(at, 100);
+    expect(small).toBeLessThan(box);
+    expect(small).toBeGreaterThanOrEqual(100);
+    expect(e.focus(at, 201 * 1.1)).toBeGreaterThanOrEqual(221);
+  });
 });
 
 describe('one full-screen sky (review 2026-10-11)', () => {

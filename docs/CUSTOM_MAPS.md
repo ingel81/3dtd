@@ -38,7 +38,7 @@ await view.ready;                          // Materialien und Modelle geladen (v
 await view.warmUp(renderer, scene, camera); // alle Shader vorab kompilieren (compileAsync)
 
 // je Frame
-view.update(dt, camera, focus?);           // Gelände-LOD, Wind, Wasser, Objekt-Culling, Schattenbox um focus
+view.update(dt, camera, focus?);           // Gelände-LOD, Wind, Wasser, Objekt-Culling, Schattenbox über dem gesehenen Boden
 
 view.heightAt(x, y);                       // Kartenraum, allokationsfrei, exakt die Fläche der feinsten Stufe
 view.raycast(ray);                         // Szene-Strahl gegen das Gelände: { point, distance, x, y, height } | null
@@ -182,7 +182,7 @@ Lava spiegeln sich).
   `lavaGlow` (die heißesten Adern über 1 für den Bloom-Pass, der Bloom selbst bleibt eine Einstellung des Spiels;
   dazu Hitzeflimmern: ein Blatt 0,4 m über der Lava zeigt die Bildkopie mit aufsteigendem Rauschen verschoben, mit dem
   Abstand schwächer, am flachen Rand aus, `heat-haze.ts`; nah über dem Lavasee GPU +0,03 ms), `shadowCascade` (die
-  ferne Kaskade des Sonnenschattens: die gecachte Schattenkarte reicht 70 bis 450 m um den Fokus, dahinter warf ein
+  ferne Kaskade des Sonnenschattens: die gecachte Schattenkarte reicht 70 bis 430 m um die Mitte des gesehenen Bodens, dahinter warf ein
   Berg keinen Schatten. `terrain/far-shadow.ts` backt, wo das Gelände selbst die Sonne verdeckt, über die ganze Karte
   in eine 256er-Textur (ein Byte je Texel, weicher Rand mit der Entfernung; nur der Boden wirft, Bäume und Häuser
   nicht). Der Boden liest sie ab 70 % des Radius der Schattenkarte, ein Lookup; Backen 10 bis 30 ms auf 1025er-Raster,
@@ -260,8 +260,8 @@ Bildschirm-Dither auf, die andere erscheint im ergänzenden Muster: jedes Pixel 
 Gepackte Assets blenden je Objekt nach seinem Abstand, Zellen als Ganzes nach dem Abstand der Zelle. Der Wert liegt
 je Instanz im Attribut `lodFade` einer leichten Geometrie je Mesh, die Puffer des Modells teilt (`fadeGeometry`).
 Schatten dithern nicht: es wirft die Stufe mit dem größeren Anteil, in Zellen wie bei gepackten Objekten (deren
-Instanzen liegen je Stufe mit den Werfern vorn, der Schattenpass zeichnet nur die), und nur nahe dem Fokus
-(`shadowRadius`). Steht die Kamera 0,15 s still, läuft das Band aus (`settleBlend`): jedes Objekt geht binnen 0,3 s
+Instanzen liegen je Stufe mit den Werfern vorn, der Schattenpass zeichnet nur die), und nur nahe der Mitte der
+Schattenbox (`shadowRadius`). Steht die Kamera 0,15 s still, läuft das Band aus (`settleBlend`): jedes Objekt geht binnen 0,3 s
 ganz auf die Stufe, die seinem Abstand näher liegt, und öffnet das Band ebenso wieder, sobald die Kamera sich
 bewegt. Das feste Muster steht so nie als Punktfeld auf einem ruhenden Bild (Hafenstadt, Spielansicht: vorher 44
 gepackte Objekte im Band, danach keins).
@@ -324,8 +324,15 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   spiegelt denselben Himmel aus einer Textur (`uSkyTex`, obere Halbkugel, 256 × 64, Half-Float), die die Kuppel alle
   drei Frames und sofort nach einem neuen Himmel mit ihrer Funktion füllt (`SkyDome.bake`); vorher rechnete jedes
   Wasserpixel die Funktion zwei- bis dreimal (je zwei Wolkenlagen mit fünf Oktaven). GPU-Zeit Archipel 1,34 → 1,22 ms
-- **Sonne**: `DirectionalLight` mit 4096er Schattenkarte (PCF, Radius 1,5 Texel), deren Box dem Fokus folgt, auf
-  Texel einrastet und mit dem Kameraabstand wächst (70 bis 450 m): nah scharf, von oben weit
+- **Sonne**: `DirectionalLight` mit 4096er Schattenkarte (PCF, Radius 1,5 Texel), deren Box auf Texel einrastet und
+  den Boden deckt, den die Kamera sieht (`environment/shadow-fit.ts`): die Punkte des Bildrands bis zur Ebene in
+  Höhe des Fokus, höchstens 2,5-mal der Kameraabstand und 430 m vom Fokus entfernt, darum der Kreis (Mitte höchstens
+  0,6 der größten Box vom Fokus, Radius 70 bis 430 m, ein Zehntel Zugabe). Nach dem Kameraabstand allein (0,9-mal,
+  bis 2026-10-14) fehlten den fernen Ecken einer schrägen Ansicht die Baumschatten, jede Mausrad-Raste nahm einen
+  Streifen mehr. Die Box wächst sofort auf die nächste Stufe (Fünftel), schrumpft erst, wenn die Ansicht weniger als
+  70 % von ihr braucht: eine Raste hin und zurück lässt Box und Werfer (`shadowRadius` 1,2-mal um ihre Mitte) stehen
+  (Grafik-Benchmark Hafenstadt High, Ansichten game/close/pan/top: GPU med vorher 1,07/1,27/2,35/0,98 ms, nachher
+  1,07/1,21/1,58/0,98 ms in einem Lauf, 1,09/2,38/2,54/1,30 im anderen; Calls gleich, Abstand in der Streuung)
 - **Höhennebel** (`height-fog.ts`): die Materialien der Karte ersetzen das Nebel-Fragment der Szene; die Dichte nimmt
   über dem tiefen Boden der Karte ab und wird entlang des Blickstrahls geschlossen integriert, dazu eine dünne
   Luftschicht überall (Fernes wird auch von oben dunstig), zur Sonne hin färbt sich der Dunst. Die Nebelfarbe wird in
