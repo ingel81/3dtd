@@ -44,7 +44,8 @@ import type { MapEffects } from '../map-effects';
  *   veins pass a bloom threshold; cools to crust at the shore
  *
  * Rivers (define RIVER) carry their flow per vertex and fade at the
- * ribbon's sides.
+ * ribbon's sides; waves and crust ride it in two cross-faded phases like an
+ * area body's baked current, so the pattern never shears into stripes.
  */
 
 export const KIND_ID: Record<MapWaterKind, number> = { water: 0, lava: 1, ice: 2, sea: 3, swamp: 4 };
@@ -437,8 +438,11 @@ void main() {
   if (uHasMask > 0.5 && !outside) edge = smoothstep(0.3, 0.6, texture2D(uMask, m * uMaskUv.xy + uMaskUv.zw).r);
 #if RIVER == 1
   edge *= 1.0 - smoothstep(0.82, 1.0, abs(vAcross));
-  // Wave patterns move downstream
-  vec2 flow = -vFlow * uTime;
+  // The river's current per vertex: its patterns move downstream at half of it in two cross-faded phases (see
+  // flowNormal). Time times the vertex's velocity would shear them without end wherever the speed or heading
+  // changes from row to row: after some minutes they read as stripes across the river
+  vec2 vel = vFlow * 0.5;
+  vec2 flow = vec2(0.0);
 #else
   vec2 flow = uFlow * uTime;
   // The body's own current (bank circulation, lava convection), m/s in the scene's x and z
@@ -459,16 +463,19 @@ void main() {
   vec2 lp = vWorldPos.xz;
   vec2 drift = flow * 0.12 + uFlow * uTime * 0.03;
   vec2 lv;
-  #if RIVER == 0
-  if (uHasFlow > 0.5 && !outside) {
-    // Convection: the crust rides the baked cells in two phases that cross-fade (see flowNormal)
+  #if RIVER == 1
+  bool flows = true;
+  #else
+  bool flows = uHasFlow > 0.5 && !outside;
+  #endif
+  if (flows) {
+    // The crust rides the river's current or the baked convection cells in two phases that cross-fade (see
+    // flowNormal)
     float lt = uTime / (FLOW_PERIOD * 3.0);
     float lw = 1.0 - abs(2.0 * fract(lt) - 1.0);
     vec2 l1 = lp - vel * fract(lt + 0.5) * FLOW_PERIOD * 3.0 + vec2(11.0, 5.0);
     lv = mix(lavaAt(l1, drift), lavaAt(lp - vel * fract(lt) * FLOW_PERIOD * 3.0, drift), lw);
-  } else
-  #endif
-  {
+  } else {
     lv = lavaAt(lp, drift);
   }
   float plates = lv.x;
@@ -551,7 +558,7 @@ void main() {
   float waveStrength = 1.0;
   #endif
   #if RIVER == 1
-  vec3 n = waveNormal(vWorldPos.xz, flow, waveStrength);
+  vec3 n = flowNormal(vWorldPos.xz, vel, flow, waveStrength);
   #else
   // Lakes and seas: a slow drift, and along their baked current where they have one
   vec3 n = uHasFlow > 0.5 && !outside ? flowNormal(vWorldPos.xz, vel, flow * 0.3, waveStrength) : waveNormal(vWorldPos.xz, flow, waveStrength);

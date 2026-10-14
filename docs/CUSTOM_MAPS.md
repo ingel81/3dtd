@@ -166,7 +166,10 @@ Lava spiegeln sich).
 - `terrain.water`: der Hauptkörper; nur er läuft über den Kartenrand weiter und macht Ufer nass
 - `terrain.waterBodies`: weitere Körper mit eigenem Spiegel und eigener Maske (Datei: `terrain/water-<n>-mask.u8`)
 - `terrain.rivers`: Flüsse und Lavaströme als Linie, je Punkt Breite und Spiegelhöhe, fließen vom ersten zum letzten
-  Punkt; ein Band entlang der Linie (Catmull-Rom, alle 2 m), Wellen bzw. Kruste wandern stromab, schneller wo es fällt
+  Punkt; ein Band entlang der Linie (Catmull-Rom, alle 2 m), Wellen bzw. Kruste wandern stromab, schneller wo es fällt,
+  mit der halben Fließgeschwindigkeit je Vertex in denselben zwei überblendeten Phasen wie die Strömung der Flächen
+  (6 s Wasser, 18 s Lava). Zeit mal Geschwindigkeit je Vertex hätte das Muster überall geschert, wo Tempo oder
+  Richtung von Reihe zu Reihe wechseln: nach einigen Minuten Querstreifen über den Strom
 
 `kind` je Körper:
 
