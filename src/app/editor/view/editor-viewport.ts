@@ -8,7 +8,9 @@
 import { TRIAL_TYPES, TrialRunners } from './trial-runners';
 import {
   Color,
+  Group,
   MathUtils,
+  type Object3D,
   PCFShadowMap,
   OrthographicCamera,
   PerspectiveCamera,
@@ -31,6 +33,7 @@ import { edgePolyline, nearestOnPolyline, spawnRoutes } from '../ops/path-graph'
 import type { EditorSettings, EditorTool, MapHit, PickResult, ToolContext, ToolPointer } from '../tools/tool';
 import { CameraController, type OrbitState } from './camera-controller';
 import { EditorOverlay } from './editor-overlay';
+import { idle } from './idle';
 import { EditorMapView, mapToScene } from './map-view';
 import { QUALITY_TABLE, pixelRatioFor, readStoredQuality, storedLevelFor, type QualityKnobs } from '../../three-engine/render-quality';
 import { contourLines } from '../ops/contours';
@@ -124,6 +127,8 @@ export class EditorViewport {
   private disposed = false;
   /** Assets whose programs were compiled ahead */
   private readonly warmed = new Set<string>();
+  /** Stands in for renderTopDown's target when compiling its programs ahead (sRGB, any size) */
+  private readonly topDownProbe = new WebGLRenderTarget(1, 1, { colorSpace: SRGBColorSpace });
   /** Tools take no input (a terrain job runs) */
   private locked = false;
   /** The view before the game camera took over, to go back to */
@@ -157,7 +162,7 @@ export class EditorViewport {
     this.renderer.shadowMap.type = PCFShadowMap;
     this.view = new EditorMapView(editor.doc, this.scene, this.renderer);
     this.view.view.applyQuality(this.quality.customMaps);
-    void this.view.warmUp(this.renderer, this.scene, this.camera).then(() => !this.disposed && this.callbacks.viewReady(), () => undefined);
+    void this.warmUpView();
     this.scene.add(this.overlay.group);
     void this.warmOverlay();
     this.trial = new TrialRunners((x, y) => this.heightAt(x, y));
@@ -200,7 +205,9 @@ export class EditorViewport {
     this.view.dispose();
     this.view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
     this.view.view.applyQuality(this.quality.customMaps);
-    void this.view.warmUp(this.renderer, this.scene, this.camera).then(() => !this.disposed && this.callbacks.viewReady(), () => undefined);
+    void this.warmUpView();
+    // The old view's materials went with it, and with them their programs
+    this.warmed.clear();
     // The new view shows everything until the hidden categories are applied again
     this.hiddenKey = '';
     this.pending = null;
@@ -351,6 +358,60 @@ export class EditorViewport {
    * before a tool first shows them: a first compile stalled the frame of a
    * tool switch by up to 70 ms on the GPU
    */
+  /**
+   * Compiles the map's programs, then tells the page the view is ready.
+   * After that, in idle moments, what the editor will need next: the
+   * top-down picture's programs (minimap, previews; a render target and no
+   * fog make them programs of their own) and the terrain shader's variants
+   * with more material layers, which a first stroke with a new biome or
+   * material switches to. All of it off the main thread where the driver
+   * allows (compileAsync); linked in the frame they cost seconds.
+   */
+  private async warmUpView(): Promise<void> {
+    const view = this.view;
+    try {
+      await view.warmUp(this.renderer, this.scene, this.camera);
+      if (this.disposed || view !== this.view) return;
+      this.callbacks.viewReady();
+      await idle(2000);
+      if (this.disposed || view !== this.view) return;
+      await this.compileForViews(this.scene, false);
+      await idle(2000);
+      if (this.disposed || view !== this.view) return;
+      const twins = view.terrainLayerTwins();
+      if (twins.length) {
+        const group = new Group();
+        for (const t of twins) group.add(t);
+        await this.compileForViews(group);
+      }
+    } catch {
+      // A view replaced or lost while compiling
+    }
+  }
+
+  /**
+   * Compiles `object`'s programs for the pictures the editor draws: the view
+   * (`screen`) and renderTopDown, whose render target and missing fog give
+   * other programs. compileAsync builds them before it returns its promise,
+   * so the target and fog change only around the call.
+   */
+  private compileForViews(object: Object3D, screen = true): Promise<unknown> {
+    const r = this.renderer;
+    const jobs: Promise<unknown>[] = [];
+    if (screen) jobs.push(r.compileAsync(object, this.camera, this.scene));
+    const fog = this.scene.fog;
+    const previous = r.getRenderTarget();
+    try {
+      this.scene.fog = null;
+      r.setRenderTarget(this.topDownProbe);
+      jobs.push(r.compileAsync(object, this.camera, this.scene));
+    } finally {
+      r.setRenderTarget(previous);
+      this.scene.fog = fog;
+    }
+    return Promise.all(jobs);
+  }
+
   private async warmOverlay(): Promise<void> {
     const hidden: { visible: boolean }[] = [];
     this.overlay.group.traverse((o) => {
@@ -388,7 +449,7 @@ export class EditorViewport {
     const fresh = assetIds.filter((id) => !this.warmed.has(id));
     if (!fresh.length) return;
     for (const id of fresh) this.warmed.add(id);
-    void this.view.warmUpAssets(this.renderer, this.scene, this.camera, fresh).catch(() => undefined);
+    void this.view.warmUpAssets(this.renderer, this.scene, this.camera, fresh, (o) => this.compileForViews(o)).catch(() => undefined);
   }
 
   /** Whether the trial wave walks */
@@ -529,6 +590,7 @@ export class EditorViewport {
     this.view.dispose();
     this.overlay.dispose();
     this.trial.dispose();
+    this.topDownProbe.dispose();
     this.renderer.dispose();
     // Browsers keep only a few WebGL contexts: give this one back now, not when it is collected
     this.renderer.forceContextLoss();

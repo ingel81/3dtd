@@ -5,7 +5,7 @@
  * space is the game's: scene x = -map x (east), scene z = map y (north),
  * y up.
  */
-import { Vector3, type Camera, type Ray, type Scene, type WebGLRenderer } from 'three';
+import { Vector3, type Camera, type Mesh, type Object3D, type Ray, type Scene, type WebGLRenderer } from 'three';
 import type { CustomMapDocument, MapObject } from '../../world/custom-map/map-document';
 import { CustomMapView, type MapRect } from '../../world/custom-map/render/custom-map-view';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
@@ -163,9 +163,14 @@ export class EditorMapView {
     }
   }
 
-  /** Compiles the programs of assets not on the map yet (a biome or asset about to be placed) */
-  warmUpAssets(renderer: WebGLRenderer, scene: Scene, camera: Camera, assetIds: string[]): Promise<number> {
-    return this.view.warmUpAssets(renderer, scene, camera, assetIds);
+  /** Compiles the programs of assets not on the map yet (a biome or asset about to be placed), `compile` for each picture */
+  warmUpAssets(renderer: WebGLRenderer, scene: Scene, camera: Camera, assetIds: string[], compile?: (object: Object3D) => Promise<unknown>): Promise<number> {
+    return this.view.warmUpAssets(renderer, scene, camera, assetIds, compile);
+  }
+
+  /** Meshes for the terrain shader's variants with more material layers, to compile ahead of a new layer */
+  terrainLayerTwins(): Mesh[] {
+    return this.view.terrainLayerTwins();
   }
 
   updatePaths(): void {

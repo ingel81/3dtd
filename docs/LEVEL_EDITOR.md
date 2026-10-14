@@ -426,8 +426,35 @@ Läufe; neue Karte 1024 m Meadows bei 2 m, Demo-Tal 512 m mit 13 000 Objekten):
 | Wasser malen | 0,6 / 2,5–2,6 | 0,6–1,8 / 2,5–4,5 | 0,4 / 1,4–1,5 | 1,6–1,8 / 3,9–4,2 | 1,1–1,2 / 1,3–1,4 |
 
 Die feinere Detailstufe kostet nach den Änderungen beim Terrain-Pinsel nichts mehr, beim Biom-Pinsel etwa das
-Doppelte von 4 m (gut 1 ms). Der erste Strich mit neuen Modellen übersetzt deren Shader (Spitzen bis 1,5 s), die
-Bilder der Paletten rendern beim ersten Öffnen eines Werkzeugs im Hintergrund.
+Doppelte von 4 m (gut 1 ms).
+
+**Shader vorab.** Ein Programm, das erst im Bild übersetzt wird, hält das Bild an (bis 1,5 s). Der Editor übersetzt
+deshalb vorab und im Hintergrund (`compileAsync`, parallel, wo der Treiber es kann): beim Laden die Karte, danach im
+Leerlauf die Programme des Bilds von oben (`renderTopDown` für Minikarte und Vorschau: Render-Target und kein Nebel
+ergeben eigene Programme) und die Varianten des Geländeshaders mit mehr Schichten (`MapTerrainLayer.layerTwins`; die
+Schleife über die Schichten ist auf 4, 8 oder 12 gerundet, ein neues Biom springt sonst im ersten Strich auf die
+nächste Stufe). Bei der Wahl eines Bioms oder Objekts übersetzt `warmUpAssets` dessen Modelle für beide Bilder und
+die Schattentiefe: Zwillinge der Tiefenmaterialien, wie der Schattenpass sie ableitet (`getDepthMaterial`), ohne
+Nebel und Umgebung, da beide zum Schlüssel eines Programms gehören, auch wo der Shader sie nicht nutzt. Die
+Zwillinge bleiben, denn three wirft ein Programm weg, das kein Material mehr nutzt.
+
+**Palettenbilder.** Ein kleiner eigener Renderer zeichnet ein Bild je Leerlauf (`requestIdleCallback`), übersetzt
+dessen Programme vorab und gibt das Bild als `ImageBitmap` an einen Worker, der es als PNG kodiert
+(`thumbnail-encode.worker.ts`); das Zurücklesen von der GPU wartet dort statt im Bild. Die Materialien der Boden-
+und Biom-Bilder bleiben erhalten: jedes Wegwerfen nahm das Programm mit, und das nächste Bild übersetzte es neu
+(über eine halbe Sekunde).
+
+Gemessen 2026-10-14 (optimierter Build, neue Karte, längstes Bild / Summe der Bilder über 50 ms in ms, zwei bis drei
+Läufe; ohne V-Sync, daher auch im Leerlauf Bilder um 200 ms, wenn die GPU voll läuft):
+
+| Situation | vorher | nachher |
+|---|---|---|
+| Objekte zum ersten Mal öffnen (5 s) | 350–798 / 1895–3161 | 209–244 / 1576–2099 |
+| Malen zum ersten Mal öffnen (4 s) | 17–400 / 0–1611 | 207–212 / 1213–1352 |
+| Erster Strich Nadelwald | 1406–1488 / 2123–3517 | 194–199 / 254–442 |
+| Erstes Setzen eines großen Hauses | 425–433 / 842–844 | 207–428 / 742–815 |
+
+Nachher wird in keiner dieser Situationen mehr ein Programm im Bild übersetzt (vorher drei bis sechs).
 Ganze Karten (Vorlagen) malt `biomeBand` in Bändern mit Pausen dazwischen.
 Ausgeblendete Kategorien bekommt der Renderer als eigene Liste über einen Proxy des Dokuments, da er sie in sein
 Dokument schreibt.

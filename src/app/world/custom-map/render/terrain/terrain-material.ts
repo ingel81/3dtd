@@ -64,6 +64,8 @@ export interface TerrainMaterialParams {
   depth: number;
   cliffAngle: number;
   splatResolution?: number;
+  /** Layers the shader loops over, when not the array's (warm-up twins of a larger variant) */
+  layers?: number;
 }
 
 export class TerrainMaterial extends MeshStandardMaterial {
@@ -106,7 +108,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
   constructor(params: TerrainMaterialParams) {
     super({ roughness: 1, metalness: 0 });
     this.name = 'custom-map-terrain';
-    this.layerCount = terrainLayerCount(params.colorArray.image.depth);
+    this.layerCount = terrainLayerCount(params.layers ?? params.colorArray.image.depth);
     this.setParams(params);
     this.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, this.terrainUniforms);

@@ -1,11 +1,11 @@
 import {
   Color,
+  Mesh,
   MeshStandardMaterial,
   SRGBColorSpace,
   Vector4,
   type DataTexture,
   type Material,
-  type Mesh,
   type Vector3,
 } from 'three';
 import type { MapTerrain as MapTerrainDoc, MapPaths } from '../../map-document';
@@ -15,7 +15,7 @@ import { pathMaskResolution, rasterizePathMask } from '../paths/path-mask';
 import { addHeightFog } from '../environment/height-fog';
 import { ApronProfile, buildTerrainApron } from './terrain-apron';
 import { TerrainChunks, type GridRect } from './terrain-chunks';
-import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots } from './terrain-material';
+import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots, type TerrainMaterialParams } from './terrain-material';
 import { GrassField, type GrassInputs } from '../grass/grass-field';
 import { GroundOcclusion } from './ground-occlusion';
 import { HeightTexture } from './height-texture';
@@ -63,6 +63,9 @@ export class MapTerrainLayer {
   /** Height profile of the apron, shared with the water that leaves the map */
   apronProfile: ApronProfile;
   private material: TerrainMaterial | null = null;
+  private materialParams: TerrainMaterialParams | null = null;
+  /** Materials of the shader's larger layer counts, by count (layerTwins) */
+  private readonly twins = new Map<number, TerrainMaterial>();
   private arrays: MaterialArrays | null = null;
   private splat: SplatTextures | null = null;
   private pathMask: DataTexture | null = null;
@@ -122,7 +125,7 @@ export class MapTerrainLayer {
     this.arrays = new MaterialArrays(pixels, anisotropy);
     this.splat = new SplatTextures(t.splat);
     this.pathMask = this.buildPathMask(paths);
-    this.material = new TerrainMaterial({
+    this.materialParams = {
       colorArray: this.arrays.color,
       dataArray: this.arrays.data,
       splat: this.splat.maps,
@@ -139,7 +142,8 @@ export class MapTerrainLayer {
       depth: t.depth,
       cliffAngle: t.cliffAngle,
       splatResolution: t.splat.resolution,
-    });
+    };
+    this.material = new TerrainMaterial(this.materialParams);
     this.material.terrainUniforms.uMorphEye = this.chunks.morphEye;
     this.material.terrainUniforms.uMorphFocus = this.chunks.morphFocus;
     addHeightFog(this.material);
@@ -159,6 +163,34 @@ export class MapTerrainLayer {
     });
     this.grassInputs = { mask, colors, width: t.width, depth: t.depth };
     this.updateGrassInputs();
+  }
+
+  /**
+   * Meshes with the terrain material for each layer count above the map's,
+   * on a chunk's geometry, for compiling the shader variant a further
+   * material layer switches to (the editor's first stroke with a new biome
+   * linked it in the frame, over a second). The materials stay until the
+   * layer is disposed: three drops a program no material uses any more, and
+   * the map's own material may take it over only later.
+   */
+  layerTwins(): Mesh[] {
+    const params = this.materialParams;
+    const chunk = this.chunks.meshes[0];
+    if (!this.material || !params || !chunk) return [];
+    const out: Mesh[] = [];
+    for (let n = this.material.layerCount + 4; n <= TERRAIN_MAX_LAYERS; n += 4) {
+      let twin = this.twins.get(n);
+      if (!twin) {
+        twin = new TerrainMaterial({ ...params, layers: n });
+        addHeightFog(twin);
+        this.twins.set(n, twin);
+      }
+      const mesh = new Mesh(chunk.geometry, twin);
+      mesh.castShadow = mesh.receiveShadow = true;
+      mesh.frustumCulled = false;
+      out.push(mesh);
+    }
+    return out;
   }
 
   private updateGrassInputs(): void {
@@ -232,6 +264,7 @@ export class MapTerrainLayer {
     this.apron.geometry.dispose();
     this.apron.removeFromParent();
     this.material?.dispose();
+    for (const twin of this.twins.values()) twin.dispose();
     this.placeholder.dispose();
     this.arrays?.dispose();
     this.splat?.dispose();

@@ -1,4 +1,22 @@
-import { Group, Ray, Vector3, type Camera, type Object3D, type Scene, type WebGLRenderer, type WebGLRenderTarget } from 'three';
+import {
+  BackSide,
+  DoubleSide,
+  FrontSide,
+  Group,
+  InstancedMesh,
+  MeshDepthMaterial,
+  Ray,
+  Vector3,
+  VSMShadowMap,
+  WebGLRenderTarget,
+  type Camera,
+  type Material,
+  type Mesh,
+  type Object3D,
+  type Scene,
+  type ShadowMapType,
+  type WebGLRenderer,
+} from 'three';
 import type { CustomMapDocument, MapEnvironment, MapObject } from '../map-document';
 import { HeightField } from './height-field';
 import type { MapAssetLibrary } from './map-asset-library';
@@ -108,6 +126,10 @@ export class CustomMapView {
   private grassDistance = 140;
   private readonly viewRay = new Ray();
   private disposed = false;
+  /** Depth materials like the ones the shadow pass derives, by the material's uuid (warmUpAssets) */
+  private readonly depthTwins = new Map<string, MeshDepthMaterial>();
+  /** A render target to compile the shadow pass's programs for (linear output, no tone mapping) */
+  private offscreen: WebGLRenderTarget | null = null;
 
   constructor(
     readonly doc: CustomMapDocument,
@@ -212,21 +234,90 @@ export class CustomMapView {
    * palette, a template's objects), off the main thread where the driver
    * allows, so placing the first one does not stall on a synchronous link.
    * Bakes their impostors as well. `scene` gives the lights and fog the
-   * programs are built for. Resolves with the number of programs built.
-   * The sun's shadow depth programs are not part of it.
+   * programs are built for; `compile` may build them for more than one
+   * picture (the editor's view and its top-down render). The sun's shadow
+   * pass draws the same meshes with depth materials into its map: their
+   * programs are built here too, from twins of those materials (three's
+   * shadow pass derives them per material the same way, getDepthMaterial),
+   * kept so the programs stay. Resolves with the number of programs built.
    */
-  async warmUpAssets(renderer: WebGLRenderer, scene: Scene, camera: Camera, assetIds: string[]): Promise<number> {
+  async warmUpAssets(
+    renderer: WebGLRenderer,
+    scene: Scene,
+    camera: Camera,
+    assetIds: string[],
+    compile: (object: Object3D) => Promise<unknown> = (object) => renderer.compileAsync(object, camera, scene),
+  ): Promise<number> {
     const meshes = await this.objects.warmUpMeshes(assetIds);
-    if (this.disposed) return 0;
+    if (this.disposed) {
+      for (const m of meshes) m.dispose();
+      return 0;
+    }
     const group = new Group();
-    for (const m of meshes) group.add(m);
+    const depth = new Group();
+    for (const m of meshes) {
+      group.add(m);
+      if (!renderer.shadowMap.enabled || Array.isArray(m.material)) continue;
+      const twin = new InstancedMesh(m.geometry, this.depthTwinOf(m.material, renderer.shadowMap.type), 1);
+      twin.instanceColor = m.instanceColor;
+      twin.frustumCulled = false;
+      depth.add(twin);
+    }
     const before = renderer.info.programs?.length ?? 0;
     try {
-      await renderer.compileAsync(group, camera, scene);
+      const jobs = [compile(group)];
+      if (depth.children.length) {
+        this.offscreen ??= new WebGLRenderTarget(1, 1);
+        const previous = renderer.getRenderTarget();
+        const { fog, environment } = scene;
+        try {
+          // The shadow pass draws into its map without the scene's fog and environment, and both are part
+          // of a program's key even where its shader does not use them. compileAsync builds the programs
+          // before it returns its promise: target, fog and environment change only around the call
+          renderer.setRenderTarget(this.offscreen);
+          scene.fog = null;
+          scene.environment = null;
+          jobs.push(renderer.compileAsync(depth, camera, scene));
+        } finally {
+          renderer.setRenderTarget(previous);
+          scene.fog = fog;
+          scene.environment = environment;
+        }
+      }
+      await Promise.all(jobs);
     } finally {
       for (const m of meshes) m.dispose();
     }
     return (renderer.info.programs?.length ?? 0) - before;
+  }
+
+  /** Meshes for the terrain shader's variants with more material layers (MapTerrainLayer.layerTwins) */
+  terrainLayerTwins(): Mesh[] {
+    return this.terrain.layerTwins();
+  }
+
+  /** The depth material three's shadow pass would draw `material` with (WebGLShadowMap getDepthMaterial) */
+  private depthTwinOf(material: Material, type: ShadowMapType): MeshDepthMaterial {
+    let twin = this.depthTwins.get(material.uuid);
+    if (!twin) {
+      twin = new MeshDepthMaterial();
+      this.depthTwins.set(material.uuid, twin);
+    }
+    const m = material as Material & Partial<MeshDepthMaterial>;
+    const flipped = { [FrontSide]: BackSide, [BackSide]: FrontSide, [DoubleSide]: DoubleSide };
+    twin.side = material.shadowSide ?? (type === VSMShadowMap ? material.side : flipped[material.side]);
+    twin.visible = material.visible;
+    twin.wireframe = m.wireframe ?? false;
+    twin.alphaMap = m.alphaMap ?? null;
+    twin.alphaTest = material.alphaToCoverage ? 0.5 : material.alphaTest;
+    twin.map = m.map ?? null;
+    twin.clipShadows = material.clipShadows;
+    twin.clippingPlanes = material.clippingPlanes;
+    twin.clipIntersection = material.clipIntersection;
+    twin.displacementMap = m.displacementMap ?? null;
+    twin.displacementScale = m.displacementScale ?? 1;
+    twin.displacementBias = m.displacementBias ?? 0;
+    return twin;
   }
 
   /**
@@ -710,6 +801,8 @@ export class CustomMapView {
     this.objects.dispose();
     this.bridges.dispose();
     this.environment.dispose();
+    for (const twin of this.depthTwins.values()) twin.dispose();
+    this.offscreen?.dispose();
     this.group.removeFromParent();
     this.losBlockers.removeFromParent();
     this.group.clear();
