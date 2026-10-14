@@ -173,6 +173,9 @@ async function main() {
   if (dpr && !headless) args.push(`--force-device-scale-factor=${dpr}`);
   // Kiosk fills the display the window opens on; no size given, since Chrome reads it in scaled pixels (125 %)
   if (display) args.push(`--window-position=${display.x},${display.y}`, '--kiosk');
+  // Without DirectComposition: twice the capture froze some three minutes in on the last frame while the page
+  // played on (GDI still saw it): Chrome had moved its picture to a plane the desktop duplication does not see
+  if (display && !flag('dcomp')) args.push('--disable-direct-composition');
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chrome',
     headless: !!headless,
