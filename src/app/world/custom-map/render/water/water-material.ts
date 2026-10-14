@@ -180,6 +180,7 @@ export function setWaterSky(material: ShaderMaterial, skyUniforms: ShaderMateria
     'uHorizon',
     'uSunDir',
     'uSunColor',
+    'uGlowColor',
     'uCloudColor',
     'uCloudShadow',
     'uCover',

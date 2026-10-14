@@ -72,6 +72,8 @@ export class SkyDome {
         uHorizon: { value: new Color() },
         uSunDir: { value: new Vector3(0, 1, 0) },
         uSunColor: { value: new Color() },
+        // The glow around the sun, usually its light (Mars: a blue halo at dusk)
+        uGlowColor: { value: new Color() },
         uCloudColor: { value: new Color(1, 1, 1) },
         uCloudShadow: { value: new Color(0.55, 0.6, 0.68) },
         uCover: { value: 0.5 },
@@ -127,6 +129,7 @@ export class SkyDome {
     horizon: Color;
     sunDir: Vector3;
     sunColor: Color;
+    glowColor?: Color;
     cover: number;
     glow: number;
     cloudColor: Color;
@@ -141,6 +144,7 @@ export class SkyDome {
     u['uHorizon'].value.copy(p.horizon);
     u['uSunDir'].value.copy(p.sunDir);
     u['uSunColor'].value.copy(p.sunColor);
+    u['uGlowColor'].value.copy(p.glowColor ?? p.sunColor);
     u['uCover'].value = p.cover;
     u['uGlow'].value = p.glow;
     u['uCloudColor'].value.copy(p.cloudColor);
@@ -199,6 +203,7 @@ uniform vec3 uZenith;
 uniform vec3 uHorizon;
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
+uniform vec3 uGlowColor;
 uniform vec3 uCloudColor;
 uniform vec3 uCloudShadow;
 uniform float uCover;
@@ -226,7 +231,7 @@ vec3 skyColor(vec3 dir, bool withSun) {
   vec3 sky = mix(uHorizon, uZenith, pow(up, 0.45));
   float cosSun = max(dot(dir, uSunDir), 0.0);
   // Glow around the sun, brightest where it meets the horizon haze
-  sky += uSunColor * (pow(cosSun, 6.0) * 0.22 + pow(cosSun, 64.0) * 0.5) * uGlow * (1.0 - up * 0.5);
+  sky += uGlowColor * (pow(cosSun, 6.0) * 0.22 + pow(cosSun, 64.0) * 0.5) * uGlow * (1.0 - up * 0.5);
   // Clouds on a plane above the camera, thinning towards the horizon
   if (dir.y > 0.0) {
     vec2 p = dir.xz / (dir.y + 0.12) * 0.9;

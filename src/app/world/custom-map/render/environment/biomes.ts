@@ -46,6 +46,11 @@ export interface BiomeLook extends SkyPreset {
   exposure: number;
   /** Split toning: tints for the shadows and for the lights (sRGB hex), the look's mood */
   split: [number, number];
+  /**
+   * Colour of the glow around the sun in the sky and of the haze towards it,
+   * when it is not the sun's light (Mars: a blue halo round a setting sun)
+   */
+  glowColor?: number;
 }
 
 export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
@@ -160,6 +165,7 @@ function noBrighterThan(color: number, limit: number): number {
 function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sky']): BiomeLook {
   const p = SKY_PRESETS[sky] ?? SKY_PRESETS.day;
   const night = sky === 'night';
+  const dusk = sky === 'dusk';
   const nightStars = night ? 0.8 : 0;
   switch (biome) {
     case 'hell':
@@ -207,24 +213,28 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
         planet: true,
       };
     case 'mars':
+      // Mars as the rovers see it: a butterscotch sky by day, pale and greyish rather than red, and
+      // a blue halo round the setting sun (fine dust scatters blue forward). Light near white, so the
+      // ground keeps its own colours: dark basalt, light dust, ochre and grey rock
       return {
         ...p,
         ...PLAIN,
-        split: [0xe6dcf2, 0xfff0e2],
-        zenith: night ? 0x140c0a : 0xb07850,
-        horizon: night ? 0x3a2418 : 0xe0b08a,
-        ground: 0x6a3a22,
-        sun: 0xfff2e2,
-        sunIntensity: night ? 0.5 : 2.6,
-        hemiSky: 0xe0a070,
-        hemiGround: 0x6a3a22,
-        hemiIntensity: 0.75,
-        glow: 0.9,
+        split: [0xd6e0f4, dusk ? 0xf4f6ff : 0xfff0dc],
+        zenith: night ? 0x100c0c : dusk ? 0x302826 : 0x8a7868,
+        horizon: night ? 0x2e2620 : dusk ? 0x8a7262 : 0xd2b690,
+        ground: 0x5e4a3c,
+        sun: dusk ? 0xeef0ff : 0xfff6ea,
+        sunIntensity: night ? 0.5 : dusk ? 2.2 : 3.0,
+        hemiSky: dusk ? 0x9aa0b4 : 0xd8c4a8,
+        hemiGround: 0x5a4636,
+        hemiIntensity: dusk ? 0.9 : 0.7,
+        glow: dusk ? 1.1 : 0.7,
+        glowColor: dusk ? 0x4c86f0 : undefined,
         cover: 1.1,
-        cloudColor: 0xe8c0a0,
-        cloudShadow: 0xa07050,
-        grade: [1.06, 0.9, 0xfff0e0],
-        fogScale: 1.8,
+        cloudColor: dusk ? 0x8e94a8 : 0xe4d4c0,
+        cloudShadow: dusk ? 0x403c44 : 0x9a8672,
+        grade: [1.14, dusk ? 0.9 : 0.74, dusk ? 0xf6f8ff : 0xfff6ee],
+        fogScale: 1.3,
         fogFalloff: 1 / 160,
         stars: nightStars,
         particles: 'dust',

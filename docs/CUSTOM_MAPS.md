@@ -370,7 +370,11 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 - **Biome** (`biomes.ts`, `environment.biome`): `temperate`, `hell`, `moon`, `mars`, `arctic`, `apocalypse`,
   `swamp`, `desert`, `mountain`, `city` setzen auf die Himmelsvoreinstellung Himmels- und Lichtfarben, Wolken,
   Dunstdichte und wie eng er am Boden liegt, Grading sowie Sterne, Planet (Mond: die Erde), Polarlicht und
-  Umgebungspartikel um den Fokus (Glut, Asche, Staub, Schneetreiben)
+  Umgebungspartikel um den Fokus (Glut, Asche, Staub, Schneetreiben). Ein Biom kann dem Hof um die Sonne und dem
+  Dunst zu ihr hin eine eigene Farbe geben (`glowColor`, sonst das Sonnenlicht). Mars wie auf den Rover-Bildern:
+  blasser Butterscotch-Himmel am Tag, Licht fast weiß, Sättigung im Grading 0,74, damit der Boden seine Farben zeigt
+  (heller Staub, dunkler Basaltsand, ockerfarbener Kies, rostige, graue und schwarze Steine); in der Dämmerung ein
+  blauer Hof um die Sonne über braungrauem Himmel
 - **Nebel für Türme und Gegner**: die Kartenmaterialien nutzen den Höhennebel, alles andere den `FogExp2` der
   Szene; dessen Dichte setzt `matchFog` je Frame so, dass beide am Kamerafokus gleich dicht sind
 - **Grading** wird immer im sRGB-Raum gerechnet, auch durch die Post-Processing-Kette des Spiels (lineares

@@ -217,7 +217,8 @@ export class CustomMapEnvironment {
     setWind(windOf(env));
     this.placeSun(this.sun.target.position, true);
     // The haze towards the sun takes its light; the moon's is faint, or a night horizon glows in a pale band
-    HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(this.sun.color).multiplyScalar(airLight).lerp(this.fog.color, 0.35);
+    const glowColor = p.glowColor === undefined ? this.sun.color : new Color(p.glowColor).multiply(tint);
+    HEIGHT_FOG_UNIFORMS.uFogSunColor.value.copy(glowColor).multiplyScalar(airLight).lerp(this.fog.color, 0.35);
     HEIGHT_FOG_UNIFORMS.uFogSunDir.value.copy(this.sunDir);
     HEIGHT_FOG_UNIFORMS.uGradeContrast.value = p.grade[0];
     HEIGHT_FOG_UNIFORMS.uGradeSaturation.value = p.grade[1];
@@ -229,6 +230,7 @@ export class CustomMapEnvironment {
       horizon: this.horizon,
       sunDir: this.sunDir,
       sunColor: this.sun.color,
+      glowColor,
       cover,
       glow: p.glow * (1 - k * 0.7),
       cloudColor: new Color(p.cloudColor).multiply(tint),
@@ -503,6 +505,7 @@ export class CustomMapEnvironment {
     const horizon = new Color(p.horizon).multiply(tint);
     const ground = new Color(p.ground);
     const sunCol = new Color(p.sun);
+    const glowCol = new Color(p.glowColor ?? p.sun);
     const sun = sunDirection(this.env.sunAzimuth, this.env.sunElevation, new Vector3());
     const c = new Color();
     const dir = new Vector3();
@@ -523,9 +526,9 @@ export class CustomMapEnvironment {
         const cosSun = Math.max(0, dir.dot(sun));
         const glow = (Math.pow(cosSun, 6) * 0.25 + Math.pow(cosSun, 48) * 0.45) * p.glow;
         const disc = cosSun > 0.99985 ? 4 : cosSun > 0.9995 ? 1.5 : 0;
-        c.r += sunCol.r * (glow + disc);
-        c.g += sunCol.g * (glow + disc);
-        c.b += sunCol.b * (glow + disc);
+        c.r += glowCol.r * glow + sunCol.r * disc;
+        c.g += glowCol.g * glow + sunCol.g * disc;
+        c.b += glowCol.b * glow + sunCol.b * disc;
         // Linear to sRGB bytes
         const q = (py * SKY_WIDTH + px) * 4;
         data[q] = toSrgbByte(c.r);

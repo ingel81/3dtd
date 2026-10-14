@@ -176,3 +176,25 @@ describe('tone mapping (custom maps only)', () => {
     e.dispose();
   });
 });
+
+describe('Mars (TODO E170)', () => {
+  it('rings a setting sun with a blue glow while its light stays near white; by day the glow is the sun', () => {
+    const e = new CustomMapEnvironment({ ...env, biome: 'mars', sky: 'dusk' });
+    const glow = e.skyDome.uniforms['uGlowColor'].value as Color;
+    expect(glow.b).toBeGreaterThan(glow.r * 2);
+    expect(e.sun.color.b).toBeLessThan(e.sun.color.r * 1.2);
+    e.set({ ...env, biome: 'mars', sky: 'day' });
+    expect(glow.equals(e.sun.color)).toBe(true);
+    e.dispose();
+  });
+
+  it('lights the day with a pale butterscotch sky, not a red one', () => {
+    const e = new CustomMapEnvironment({ ...env, biome: 'mars' });
+    const hsl = { h: 0, s: 0, l: 0 };
+    e.horizon.getHSL(hsl);
+    // Orange-yellow, not red, and far from fully saturated
+    expect(hsl.h * 360).toBeGreaterThan(30);
+    expect(hsl.s).toBeLessThan(0.5);
+    e.dispose();
+  });
+});

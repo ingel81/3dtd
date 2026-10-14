@@ -143,7 +143,8 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   an, gefüllt mit einem eigenen Gewässer der Art Swamp, Lava oder Ice (ein vorhandenes in der Nähe des Startpunkts
   wird mitbenutzt). City legt ein Straßenraster fest auf die Karte (alle 64 m, Asphalt und Gehwege), Häuser stehen an
   den Blockrändern zur Straße gewandt, Laternen auf den Gehwegen; Hell legt Glutrisse über den Boden; Wasteland und
-  Moon haben Kraterfelder. Sind die zwölf Bodenschichten voll, sagt die Statuszeile, welche Materialien fehlen. Unter dem Zeiger zeigen Punkte, wo der nächste
+  Moon haben Kraterfelder. Mars mischt hellen Staub mit Dünen, ockerfarbenen Kies und dunklen Basaltsand, Ocker an
+  steilen Hängen, dazu rostige, graue und schwarze Steine. Sind die zwölf Bodenschichten voll, sagt die Statuszeile, welche Materialien fehlen. Unter dem Zeiger zeigen Punkte, wo der nächste
   Strich Pflanzen setzen würde
 - Mountain (gratige Gipfel, Höhe nach Größe und Stärke), Valley, Plateau (Tafel mit steilem Rand), Crater (Schüssel mit
   Wall am Startpunkt des Strichs), Dunes (runde Kämme quer zum Wind, flache Luv-, steile Leeseite), Erode (Regen gräbt
