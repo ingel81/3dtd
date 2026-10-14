@@ -158,9 +158,10 @@ Ein Asset mit wenigen Objekten (Häuser, Autos, Laternen, der größte Teil eine
 Detailstufe und Modellteil ein `InstancedMesh`; die Teile einer Stufe teilen sich die Instanzdaten. Seine Objekte
 werden je Objekt nach ihrem Abstand in die Stufen sortiert, erneut sobald die Kamera 2 m weiter steht
 (`writePacked`); geschrieben werden nur Stufen, deren Objekte wechselten, und die Schattenkarte rendert nur dann neu.
-Der Editor pickt über eigene, nie gezeichnete Meshes mit allen Objekten. Dazu werden die einfarbigen Teile eines
-Modells mit gleichem Aussehen (ohne Textur, gleiche Rauheit, Metall, Glühen, Transparenz) zu einem Teil mit
-Vertex-Farben zusammengeführt (`merge-parts.ts`): ein Auto mit Lack, Glas, Lichtern und Reifen zeichnet zwei bis drei
+Der Editor pickt über eigene, nie gezeichnete Meshes mit allen Objekten. Dazu werden die Teile eines Modells ohne
+Farbtextur mit gleichen übrigen Texturen (oft nur die gebackene Verdeckung des Modells), gleichem Glühen, gleicher
+Transparenz und Seitenwahl zu einem Teil zusammengeführt (`merge-parts.ts`): die Farbe als Vertex-Farbe, Rauheit
+und Metall als Vertex-Attribut `roughMetal`. Ein Auto mit Lack, Glas, Lichtern und Reifen zeichnet zwei bis drei
 statt sieben Teile, ein Haus behält seine texturierten Teile. Hafenstadt in der Spielansicht 1111 → 187 Draw Calls,
 Demo-Tal 290 → 155 ([BENCHMARKS.md](BENCHMARKS.md#bildkosten-grafik-benchmark)). Seit dem Zusammenlegen über
 Rauheit und Metall (Vertex-Attribut `roughMetal`) zeichnet die Hafenstadt 122 Calls, ein Bürohaus 5 statt 10 Teile.
