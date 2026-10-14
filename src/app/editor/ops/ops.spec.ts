@@ -264,6 +264,56 @@ describe('basin rim', () => {
     // On open flat ground the rim is the ground
     expect(basinSpillHeight(t, 2, 2)).toBeCloseTo(0, 5);
   });
+
+  /** Sets every height from map (x, y) */
+  const shape = (t: ReturnType<typeof flat>['terrain'], f: (x: number, y: number) => number) => {
+    const g = t.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = f(i * g.cellSize - 100, j * g.cellSize - 100);
+  };
+  const sampleOf = (x: number, y: number) => ({ i: Math.round((x + 100) / 2), j: Math.round((y + 100) / 2) });
+
+  it('fills a deep pit with an uneven floor to its rim, not to the first bump on the floor', () => {
+    const t = flat().terrain;
+    // A mountain 40 m high with a pit 30 m deep in it; the pit's floor rolls a metre up and down
+    shape(t, (x, y) => {
+      const r = Math.hypot(x, y);
+      const mountain = 40 * Math.max(0, 1 - r / 90);
+      if (r >= 30) return mountain;
+      return 10 + 0.8 * Math.sin(x * 0.7) * Math.cos(y * 0.6) + r * 0.02;
+    });
+    const rim = 40 * (1 - 30 / 90);
+    for (const [x, y] of [[0, 0], [9, -4], [-14, 11]]) {
+      const { i, j } = sampleOf(x, y);
+      expect(basinSpillHeight(t, i, j)).toBeGreaterThan(rim - 1.5);
+      expect(basinSpillHeight(t, i, j)).toBeLessThanOrEqual(rim + 1e-3);
+    }
+  });
+
+  it('fills a pit in a slope to its low side, where the water runs off down the hill', () => {
+    const t = flat().terrain;
+    // Ground falling 0.3 m per metre to the east; a pit with its floor at -2 and its east wall 24 m high
+    shape(t, (x, y) => {
+      const slope = 30 - 0.3 * x;
+      const r = Math.hypot(x, y);
+      return r < 20 ? -2 + r * 0.1 : slope;
+    });
+    const { i, j } = sampleOf(0, 0);
+    const spill = basinSpillHeight(t, i, j);
+    expect(spill).toBeCloseTo(24, 1);
+    // Filled to just below it, the water stays in the pit
+    t.water = emptyWater(t, spill - 0.3);
+    fillBasin(t, i, j);
+    const east = sampleOf(60, 0);
+    expect(t.water.mask[east.j * t.grid.columns + east.i]).toBe(0);
+  });
+
+  it('stops at the saddle between two hollows of their own', () => {
+    const t = flat().terrain;
+    // Two pits 8 m deep in a plateau 10 m high that meet over a ridge 5 m high
+    shape(t, (x, y) => (Math.min(Math.hypot(x + 30, y), Math.hypot(x - 30, y)) < 35 ? (Math.abs(x) < 5 ? 5 : 2) : 10));
+    const { i, j } = sampleOf(-30, 0);
+    expect(basinSpillHeight(t, i, j)).toBeCloseTo(5, 3);
+  });
 });
 
 describe('tints', () => {

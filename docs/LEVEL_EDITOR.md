@@ -197,7 +197,11 @@ greift.
 **Water (4).** Das Hauptwasser und weitere Gewässer, jedes mit eigenem Spiegel, eigener Art (Water, Sea, Swamp, Ice,
 Lava) und Farbe; das Panel listet sie, das gewählte bearbeitet das Werkzeug. Fill basin: ein Klick in eine Mulde flutet
 sie. Ohne Wasser (oder mit Strg) wird der Spiegel knapp unter den Rand der Mulde gesetzt, also die Höhe, an der sie
-überlaufen würde. Dig lake gräbt unter dem Pinsel ein Seebett bis zur eingestellten Tiefe und füllt es. Paint und
+überlaufen würde (`basinSpillHeight`): die Flut steigt vom Klickpunkt nach Höhe geordnet und läuft über kleine Dellen
+im Boden weiter (ein unebener Grubenboden), sie endet erst, wo das Wasser hinter einem Sattel zum Kartenrand abläuft
+oder in eine eigene Mulde fällt (beide Seiten mindestens 2 m unter dem Sattel, `OWN_HOLLOW_DEPTH`). Behält ein
+Gewässer seinen Spiegel und liegt der deutlich unter dem Rand der geklickten Mulde, sagt die Statuszeile das und
+nennt die Randhöhe (Strg-Klick füllt bis dahin). Dig lake gräbt unter dem Pinsel ein Seebett bis zur eingestellten Tiefe und füllt es. Paint und
 Erase malen die Maske von Hand. Sea from the edge flutet das Gewässer vom Kartenrand her über alles unter seinem
 Spiegel.
 

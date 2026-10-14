@@ -99,55 +99,110 @@ export function fillBasin(terrain: MapTerrain, i: number, j: number, body = -1):
 }
 
 /**
+ * Depth a hollow needs below the saddle it shares with another, on both
+ * sides, to count as a hollow of its own; a shallower one is a dip in the
+ * other's floor (the uneven bottom of a dug pit) and fills with it
+ */
+export const OWN_HOLLOW_DEPTH = 2;
+
+/**
  * The height at which a hollow overflows: flood upward from sample (i, j)
- * in order of height (priority flood); the highest point passed before the
- * flood first steps down into another hollow or reaches the map edge is the
- * rim. Water up to just below it stays in the hollow.
+ * in order of height (priority flood) and raise the level over every
+ * sample passed. Past a saddle the flood finds lower ground beyond: the
+ * water leaves there when that ground reaches the map's edge below the
+ * saddle (it drains away) or when it is a hollow of its own
+ * (OWN_HOLLOW_DEPTH deep below the saddle, and so is the lake so far).
+ * A shallower dip on either side fills along and the flood goes on, so an
+ * uneven floor does not stop the water at its first bump. The saddle is
+ * the rim; water up to just below it stays in the hollow.
  */
 export function basinSpillHeight(terrain: MapTerrain, i: number, j: number): number {
   const g = terrain.grid;
   const c = g.columns;
+  const rows = g.rows;
   const h = g.heights;
-  const seen = new Uint8Array(c * g.rows);
+  /** 0 not reached, 1 waiting in the heap, 2 in the lake, 3 in the ground beyond a saddle */
+  const state = new Uint8Array(c * rows);
   const heap = new MinHeap();
-  const start = j * c + i;
-  heap.push(start, h[start]);
-  seen[start] = 1;
-  let level = h[start];
-  while (heap.size) {
-    const k = heap.pop();
-    const hk = h[k];
-    // Downhill past the rim: the water would run off here
-    if (hk < level - 1e-4) return level;
-    level = Math.max(level, hk);
+  const onEdge = (k: number) => {
     const ki = k % c;
     const kj = (k - ki) / c;
-    if (ki === 0 || kj === 0 || ki === c - 1 || kj === g.rows - 1) return level;
-    for (const n of [k - 1, k + 1, k - c, k + c]) {
-      if (!seen[n]) {
-        seen[n] = 1;
-        heap.push(n, h[n]);
+    return ki === 0 || kj === 0 || ki === c - 1 || kj === rows - 1;
+  };
+  const start = j * c + i;
+  heap.push(start, h[start]);
+  state[start] = 1;
+  let level = h[start];
+  let floor = h[start];
+  const beyond: number[] = [];
+  while (heap.size) {
+    const k = heap.pop();
+    if (state[k] === 2) continue;
+    const hk = h[k];
+    if (hk < level - 1e-4) {
+      // Down past a saddle: the ground below the level on the other side
+      beyond.length = 0;
+      beyond.push(k);
+      state[k] = 3;
+      let low = hk;
+      let drains = false;
+      for (let n = 0; n < beyond.length; n++) {
+        const b = beyond[n];
+        if (onEdge(b)) drains = true;
+        low = Math.min(low, h[b]);
+        const bi = b % c;
+        for (const m of [bi > 0 ? b - 1 : -1, bi < c - 1 ? b + 1 : -1, b - c, b + c]) {
+          if (m < 0 || m >= h.length || state[m] >= 2 || h[m] >= level) continue;
+          state[m] = 3;
+          beyond.push(m);
+        }
       }
+      if (drains || (level - low >= OWN_HOLLOW_DEPTH && level - floor >= OWN_HOLLOW_DEPTH)) return level;
+      // A dip that fills with the lake
+      floor = Math.min(floor, low);
+      for (const b of beyond) state[b] = 2;
+      for (const b of beyond) pushNeighbours(b);
+      continue;
     }
+    state[k] = 2;
+    level = Math.max(level, hk);
+    if (onEdge(k)) return level;
+    pushNeighbours(k);
   }
   return level;
+
+  function pushNeighbours(k: number): void {
+    const ki = k % c;
+    for (const n of [ki > 0 ? k - 1 : -1, ki < c - 1 ? k + 1 : -1, k - c, k + c]) {
+      if (n < 0 || n >= h.length || state[n]) continue;
+      state[n] = 1;
+      heap.push(n, h[n]);
+    }
+  }
 }
 
-/** Binary min-heap of sample indices by height */
-class MinHeap {
-  private readonly keys: number[] = [];
-  private readonly values: number[] = [];
+/** Binary min-heap of sample indices by height, growing as needed */
+export class MinHeap {
+  private keys = new Int32Array(1024);
+  private values = new Float32Array(1024);
+  private count = 0;
 
   get size(): number {
-    return this.keys.length;
+    return this.count;
   }
 
   push(key: number, value: number): void {
+    if (this.count === this.keys.length) {
+      const keys = new Int32Array(this.count * 2);
+      const values = new Float32Array(this.count * 2);
+      keys.set(this.keys);
+      values.set(this.values);
+      this.keys = keys;
+      this.values = values;
+    }
     const keys = this.keys;
     const values = this.values;
-    let at = keys.length;
-    keys.push(key);
-    values.push(value);
+    let at = this.count++;
     while (at > 0) {
       const up = (at - 1) >> 1;
       if (values[up] <= value) break;
@@ -163,10 +218,10 @@ class MinHeap {
     const keys = this.keys;
     const values = this.values;
     const top = keys[0];
-    const lastKey = keys.pop()!;
-    const lastValue = values.pop()!;
-    const n = keys.length;
+    const n = --this.count;
     if (n) {
+      const lastKey = keys[n];
+      const lastValue = values[n];
       let at = 0;
       for (;;) {
         const l = at * 2 + 1;

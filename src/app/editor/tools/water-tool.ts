@@ -24,6 +24,8 @@ export { BODY_COLORS } from '../ops/water-ops';
 
 /** Metres the water stays below a hollow's rim */
 const RIM_MARGIN = 0.3;
+/** Metres a fill may stay below the hollow's rim before the status line says so */
+const LOW_FILL = 1;
 /** Share per second a lake bed sinks toward its depth at full strength */
 const DIG_RATE = 3;
 
@@ -208,7 +210,8 @@ export class WaterTool implements EditorTool {
       ctx.status('Choose a body in the panel first');
       return;
     }
-    if (fresh || p.ctrl) target.level = Math.round((basinSpillHeight(t, i, j) - RIM_MARGIN) * 10) / 10;
+    const brim = Math.round((basinSpillHeight(t, i, j) - RIM_MARGIN) * 10) / 10;
+    if (fresh || p.ctrl) target.level = brim;
     const rect = fillBasin(t, i, j, s.body);
     if (rect) {
       // The images of the hollow fill too
@@ -230,6 +233,11 @@ export class WaterTool implements EditorTool {
       return;
     }
     editor.execute(new WaterStateCommand('Fill basin', before, after));
+    // A body that keeps its level fills a deeper hollow only part way: say so, and how to fill it up
+    if (brim - level > LOW_FILL) {
+      const name = s.body < 0 ? 'the main water' : `body ${s.body + 1}`;
+      ctx.status(`Filled up to ${level} m, the level of ${name}; this hollow holds water up to ${brim} m: Ctrl click fills it to the rim`);
+    }
   }
 
   private end(): void {
