@@ -36,6 +36,10 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 
 ### Bugs
 
+- [ ] **E155 Felsgruppen schweben über Hängen** (User, 2026-10-14, Demo Valley): Felshaufen mit flacher Bodenplatte stehen
+      waagerecht am Steilhang, die Platte ragt talseitig frei in die Luft (am Hang beim North road). Prüfen: Asset mit
+      Bodenplatte, Setzen ohne Einsinken am Hang; allgemein lösen (Einsinken nach Gefälle bzw. „Align to slope“ für
+      Felsen, Kartenprüfung), dann Demo Valley neu erzeugen.
 - [ ] **E153 Desktop-App rendert auf Hybrid-Laptops auf der integrierten GPU** (Benchmark 2026-10-13, hohe Priorität):
       Ryzen 7 4800H mit GTX 1650 Ti, die App läuft ohne Zutun auf „AMD Radeon(TM) Graphics“. Per Windows-Grafikeinstellung
       für die 3DTD.exe auf „Hohe Leistung“ gestellt etwa doppelt so viele FPS (5000 Gegner 77 statt 37) und 15 bis 25 %
@@ -53,6 +57,10 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 
 ### Features
 
+- [ ] **E156 Bildqualität klar nach Welt trennen** (User, 2026-10-14): Die Einstellung „Picture quality“ mit dem globalen
+      Regler ist verwirrend. Gewünscht: klare Trennung zwischen echten Orten (Tiles) und eigenen Karten, oder zumindest
+      alles eindeutig benannt; Effekte, die nur auf eigenen Karten gelten (Wasser, Lava, Schatten, Gras, Ferne), in
+      einem eigenen erweiterten Abschnitt. Entwurf vorher zeigen.
 - [ ] **E102 Neue Tower aus den Meshy-Kandidaten** (User, 2026-10-02; Modelle in
       `public/assets/models/towers/candidates/`, Zerlegung mit `tools/blender/split_tower.py` und `towers/*.json`):
       Iron Bastion und Sentinel Laser abgenommen. Chainsaw mit Roboter-Tentakeln statt Armen (bis 14 m, eingefahren wie
@@ -174,6 +182,8 @@ Stand 2026-10-05. 0.6.0 ist veröffentlicht, `main` steht auf `v0.6.0`. Es gibt 
 
 ## 3. Später und Ideen
 
+- [ ] **E157 Karte aus OpenStreetMap** (User-Idee, 2026-10-14): einen Bereich wählen und Gebäude, Straßen und Landschaft
+      (Wald, Wasser, Wiese, Gelände) aus OpenStreetMap als eigene Karte importieren, danach im Editor ausschmücken.
 - [ ] **E18 Die tote Strecke beim Könner** und **E19 Abwechslung gegen Passung**: Der Regler steuert den Erwartungswert,
       nicht die Verteilung; Serien ohne HP-Verlust häufen sich bei W15 bis W19 und W30 bis W34. Hebel wäre die
       Template-Wahl (öfter schicken, wogegen die Abwehr schwach ist), Tausch: weniger Abwechslung. User kommt darauf zurück.
