@@ -85,7 +85,11 @@ export function buildWitchMarsh(): CustomMapDocument {
   // Reeds and lily pads in the shallows between the islands
   k.scatter(['reed-bed', 'reeds', 'grass-swamp'], islands.map((i) => i.at), { radius: 60, strength: 1 }, { density: 6, minDistance: 2.5, scaleMin: 0.8, scaleMax: 1.4 }, false);
   k.scatter(['lily-pads'], [{ x: -120, y: 60 }, { x: 140, y: -60 }, { x: -60, y: -100 }, { x: 150, y: 140 }, { x: -200, y: 100 }], { radius: 40, strength: 1 }, { density: 3, minDistance: 3, sinkOnSlope: false }, false);
-  for (const o of k.doc.objects) if (o.asset === 'lily-pads' || o.asset.startsWith('reed') || o.asset === 'grass-swamp') o.z = Math.max(o.z, Math.round((0.02 - k.h(o.x, o.y)) * 100) / 100 * (o.asset === 'lily-pads' ? 1 : 0));
+  // Lily pads float: their z counts from the waterline (on dry ground from the ground)
+  for (const o of k.doc.objects) {
+    if (o.asset === 'lily-pads') o.z = 0.02;
+    else if (o.asset.startsWith('reed') || o.asset === 'grass-swamp') o.z = Math.max(o.z, 0);
+  }
   // Remove whatever grew on a walk
   k.doc.objects = k.doc.objects.filter((o) => k.free(o.x, o.y, 0.6) || o.asset === 'lily-pads');
 

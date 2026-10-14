@@ -89,10 +89,10 @@ export function buildArchipelago(): CustomMapDocument {
   k.place('harbor-crane', 66, shoreY + 6, { rotation: Math.PI });
   for (const [x, y] of [[36, shoreY + 10], [104, shoreY + 10]] as const) k.place('fisher-hut', x, y, { rotation: facing({ x, y }, harbour) });
   for (const [x, y, a] of [[54, 6, 'crate'], [82, 6, 'barrel-small'], [86, 5, 'crate-long'], [48, 9, 'trade-goods'], [76, 8, 'barrels-broken']] as const) k.place(a, x, shoreY + y, { rotation: x });
-  const water = (x: number, y: number) => Math.max(0, -k.h(x, y));
-  k.place('fishing-boat', 72, shoreY - 16, { rotation: 1.4, z: water(72, -150) - 0.4 });
-  for (const [x, y, r] of [[52, shoreY - 10, 0.3], [92, shoreY - 12, 2.4]] as const) k.place('rowboat', x, y, { rotation: r, z: water(x, y) });
-  for (const [x, y, a] of [[48, shoreY - 50, 'buoy-red'], [96, shoreY - 50, 'buoy-green']] as const) k.place(a, x, y, { z: water(x, y) - 0.6 });
+  // Boats and buoys float: their z counts from the waterline, not from the sea floor
+  k.place('fishing-boat', 72, shoreY - 16, { rotation: 1.4, z: -0.4 });
+  for (const [x, y, r] of [[52, shoreY - 10, 0.3], [92, shoreY - 12, 2.4]] as const) k.place('rowboat', x, y, { rotation: r });
+  for (const [x, y, a] of [[48, shoreY - 50, 'buoy-red'], [96, shoreY - 50, 'buoy-green']] as const) k.place(a, x, y);
   k.place('jetty', -150, 30, { rotation: 0.4, z: 0 });
   k.row('wall-dry-stone', [{ x: 20, y: -20 }, { x: 40, y: 5 }, { x: 80, y: 15 }], 5.4, { turn: Math.PI / 2 });
   k.row('fence-rail', [{ x: 100, y: -55 }, { x: 125, y: -60 }, { x: 140, y: -40 }], 3.8, { turn: Math.PI / 2 });
