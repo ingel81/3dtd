@@ -1,4 +1,4 @@
-import type { Group, Matrix4, Object3D, PerspectiveCamera, Raycaster, Scene, Vector3, WebGLRenderer } from 'three';
+import type { Group, Matrix4, Object3D, PerspectiveCamera, Raycaster, Scene, Texture, Vector2, Vector3, Vector4, WebGLRenderer } from 'three';
 import type { LaneChoice } from './custom-map/lane-choice';
 import type { TilesRenderer } from '3d-tiles-renderer';
 import type { CameraRig } from '../three-engine/camera-rig';
@@ -308,6 +308,8 @@ export interface WorldProvider {
   setDrawSuppressed(suppressed: boolean): void;
   /** Something that casts into the world's cached shadows changed (a tower built or gone); worlds with groundShadows */
   invalidateShadows?(): void;
+  /** The ground's heights for shaders that lie on it (the units' blob shadows); worlds with groundShadows, null before it stands */
+  groundHeights?(): GroundHeights | null;
   /** The group the tower line-of-sight cube renders as blockers, a direct child of the scene */
   losBlockers(): Object3D | null;
   /**
@@ -393,4 +395,17 @@ export interface WorldDestruction {
   structures(): readonly WorldStructure[];
   /** These lie fallen now, all others stand; the ones that fell with this call */
   setFallen(ids: readonly string[]): WorldStructure[];
+}
+
+/**
+ * The ground's height grid as a texture for shaders (blob-shadow.ts): the
+ * grid in map metres (x, y of its first sample, cell size), its size in
+ * samples, and the scene position of the map's origin (scene x is map -x,
+ * scene z map y)
+ */
+export interface GroundHeights {
+  heights: Texture;
+  grid: Vector4;
+  gridSize: Vector2;
+  origin: Vector3;
 }

@@ -35,6 +35,7 @@ import {
   LightningBoltRenderer,
 } from './renderers';
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
+import { setBlobGround } from './renderers/instanced-enemy/blob-shadow';
 import { TowerPlinthRenderer } from './renderers/tower-plinth/tower-plinth.renderer';
 import { TowerBadgeRenderer } from './renderers/tower-badge/tower-badge.renderer';
 import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
@@ -350,6 +351,8 @@ export class ThreeTilesEngine {
     this.enemies.setRimLight(world.capabilities.enemyRimLight ? ENEMY_RIM_LIGHT : 0);
     // Units on a world with cast shadows would float: blobs under enemies and the hero, towers into the sun's map
     this.enemies.setBlobShadows(world.capabilities.groundShadows);
+    // ... lying on the world's ground where it gives its heights
+    setBlobGround(world.capabilities.groundShadows && world.groundHeights ? () => world.groundHeights!() : null);
     // A restored WebGL context comes back empty and three uploads every texture
     // again from its CPU copy, which the VATs drop after their first upload.
     this.enemies.rebakeOnContextRestore(this.renderer.domElement);

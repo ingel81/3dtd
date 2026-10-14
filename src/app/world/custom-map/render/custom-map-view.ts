@@ -30,6 +30,7 @@ import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
 import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
 import { MapTerrainLayer } from './terrain/map-terrain';
+import type { HeightTexture } from './terrain/height-texture';
 import { RiverSurface, sampleRiver } from './water/river-surface';
 import { WaterSurface } from './water/water-surface';
 import type { CustomMapQuality } from '../../../three-engine/render-quality';
@@ -103,6 +104,11 @@ export interface CustomMapViewOptions {
 export class CustomMapView {
   /** All render content of the map */
   readonly group = new Group();
+  /** The terrain's height texture uniforms (TERRAIN_HEIGHT_GLSL), for shaders outside the map that lie on its ground */
+  get heightUniforms(): HeightTexture['uniforms'] {
+    return this.terrain.heightTexture.uniforms;
+  }
+
   /** Terrain and sight-blocking objects, the LOS cube's group */
   readonly losBlockers = new Group();
   readonly heights: HeightField;

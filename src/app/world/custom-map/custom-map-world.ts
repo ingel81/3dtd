@@ -6,6 +6,7 @@ import type { CameraBounds, CameraRig } from '../../three-engine/camera-rig';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
 import type { RootLoadFailure } from '../../three-engine/tile-loading-tracker';
 import type {
+  GroundHeights,
   StreetStyle,
   WorldAttachContext,
   IntroTour,
@@ -317,6 +318,14 @@ export class CustomMapWorld implements WorldProvider {
   /** A tower came or went: the map's cached sun shadow map renders again */
   invalidateShadows(): void {
     this.view?.environment.invalidateShadows();
+  }
+
+  /** The terrain's height texture and where the map stands in the scene (the units' blob shadows lie on it) */
+  groundHeights(): GroundHeights | null {
+    const view = this.view;
+    if (!view) return null;
+    const u = view.heightUniforms;
+    return { heights: u.uTerrainHeights.value, grid: u.uTerrainGrid.value, gridSize: u.uTerrainGridSize.value, origin: view.group.position };
   }
 
   /** Terrain and sight-blocking objects, a direct child of the scene (the TowerShadowMapper hides every other child) */
