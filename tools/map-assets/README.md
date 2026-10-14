@@ -9,6 +9,9 @@ Verzeichnis außerhalb des Repos (`$DL`). Python mit PIL/numpy/scipy, Blender 5.
 # 1024 px; schreibt die Materialien in catalog.json. Ids am Ende bauen nur diese neu.
 python -I tools/map-assets/build_materials.py $DL/materials public/maps/assets [<id> ...]
 
+# Dieselben als KTX2 (Basis ETC1S) in den zwei Ebenen des Geländes, je Material nicht größer als die drei JPGs
+python -I tools/map-assets/pack_textures.py --ktx <ktx.exe> public/maps/assets [<id> ...] [--psnr]
+
 # Blatt-, Gras-, Schilf-, Wedel- und Seerosenkarten (PNG mit Alpha), Kaktushaut
 python -I tools/map-assets/make_foliage.py $DL/leafsets $DL/foliage
 

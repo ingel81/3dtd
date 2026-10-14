@@ -8,7 +8,11 @@
       "files": {
         "color": "materials/grass/color.jpg",
         "normal": "materials/grass/normal.jpg",
-        "arh": "materials/grass/arh.jpg"
+        "arh": "materials/grass/arh.jpg",
+        "packed": {
+          "color": "materials/grass/color.ktx2",
+          "data": "materials/grass/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#606d30",
@@ -24,7 +28,11 @@
       "files": {
         "color": "materials/grass-lush/color.jpg",
         "normal": "materials/grass-lush/normal.jpg",
-        "arh": "materials/grass-lush/arh.jpg"
+        "arh": "materials/grass-lush/arh.jpg",
+        "packed": {
+          "color": "materials/grass-lush/color.ktx2",
+          "data": "materials/grass-lush/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#445c28",
@@ -41,7 +49,11 @@
       "files": {
         "color": "materials/grass-dry/color.jpg",
         "normal": "materials/grass-dry/normal.jpg",
-        "arh": "materials/grass-dry/arh.jpg"
+        "arh": "materials/grass-dry/arh.jpg",
+        "packed": {
+          "color": "materials/grass-dry/color.ktx2",
+          "data": "materials/grass-dry/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#989358",
@@ -58,7 +70,11 @@
       "files": {
         "color": "materials/meadow/color.jpg",
         "normal": "materials/meadow/normal.jpg",
-        "arh": "materials/meadow/arh.jpg"
+        "arh": "materials/meadow/arh.jpg",
+        "packed": {
+          "color": "materials/meadow/color.ktx2",
+          "data": "materials/meadow/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#837d4b",
@@ -74,7 +90,11 @@
       "files": {
         "color": "materials/dirt/color.jpg",
         "normal": "materials/dirt/normal.jpg",
-        "arh": "materials/dirt/arh.jpg"
+        "arh": "materials/dirt/arh.jpg",
+        "packed": {
+          "color": "materials/dirt/color.ktx2",
+          "data": "materials/dirt/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#735b3e",
@@ -90,7 +110,11 @@
       "files": {
         "color": "materials/mud/color.jpg",
         "normal": "materials/mud/normal.jpg",
-        "arh": "materials/mud/arh.jpg"
+        "arh": "materials/mud/arh.jpg",
+        "packed": {
+          "color": "materials/mud/color.ktx2",
+          "data": "materials/mud/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#4d4437",
@@ -107,7 +131,11 @@
       "files": {
         "color": "materials/forest-floor/color.jpg",
         "normal": "materials/forest-floor/normal.jpg",
-        "arh": "materials/forest-floor/arh.jpg"
+        "arh": "materials/forest-floor/arh.jpg",
+        "packed": {
+          "color": "materials/forest-floor/color.ktx2",
+          "data": "materials/forest-floor/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#825f3b",
@@ -124,7 +152,11 @@
       "files": {
         "color": "materials/forest-ground/color.jpg",
         "normal": "materials/forest-ground/normal.jpg",
-        "arh": "materials/forest-ground/arh.jpg"
+        "arh": "materials/forest-ground/arh.jpg",
+        "packed": {
+          "color": "materials/forest-ground/color.ktx2",
+          "data": "materials/forest-ground/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#6a5a44",
@@ -140,7 +172,11 @@
       "files": {
         "color": "materials/rocky-ground/color.jpg",
         "normal": "materials/rocky-ground/normal.jpg",
-        "arh": "materials/rocky-ground/arh.jpg"
+        "arh": "materials/rocky-ground/arh.jpg",
+        "packed": {
+          "color": "materials/rocky-ground/color.ktx2",
+          "data": "materials/rocky-ground/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#93806b",
@@ -157,7 +193,11 @@
       "files": {
         "color": "materials/gravel/color.jpg",
         "normal": "materials/gravel/normal.jpg",
-        "arh": "materials/gravel/arh.jpg"
+        "arh": "materials/gravel/arh.jpg",
+        "packed": {
+          "color": "materials/gravel/color.ktx2",
+          "data": "materials/gravel/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#726a5f",
@@ -174,7 +214,11 @@
       "files": {
         "color": "materials/cliff/color.jpg",
         "normal": "materials/cliff/normal.jpg",
-        "arh": "materials/cliff/arh.jpg"
+        "arh": "materials/cliff/arh.jpg",
+        "packed": {
+          "color": "materials/cliff/color.ktx2",
+          "data": "materials/cliff/data.ktx2"
+        }
       },
       "scale": 12,
       "average": "#6e5c34",
@@ -190,7 +234,11 @@
       "files": {
         "color": "materials/rock-mossy/color.jpg",
         "normal": "materials/rock-mossy/normal.jpg",
-        "arh": "materials/rock-mossy/arh.jpg"
+        "arh": "materials/rock-mossy/arh.jpg",
+        "packed": {
+          "color": "materials/rock-mossy/color.ktx2",
+          "data": "materials/rock-mossy/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#6c6b57",
@@ -208,7 +256,11 @@
       "files": {
         "color": "materials/sand/color.jpg",
         "normal": "materials/sand/normal.jpg",
-        "arh": "materials/sand/arh.jpg"
+        "arh": "materials/sand/arh.jpg",
+        "packed": {
+          "color": "materials/sand/color.ktx2",
+          "data": "materials/sand/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#a5956f",
@@ -225,7 +277,11 @@
       "files": {
         "color": "materials/snow/color.jpg",
         "normal": "materials/snow/normal.jpg",
-        "arh": "materials/snow/arh.jpg"
+        "arh": "materials/snow/arh.jpg",
+        "packed": {
+          "color": "materials/snow/color.ktx2",
+          "data": "materials/snow/data.ktx2"
+        }
       },
       "scale": 5,
       "average": "#b9b6b5",
@@ -241,7 +297,11 @@
       "files": {
         "color": "materials/cobblestone/color.jpg",
         "normal": "materials/cobblestone/normal.jpg",
-        "arh": "materials/cobblestone/arh.jpg"
+        "arh": "materials/cobblestone/arh.jpg",
+        "packed": {
+          "color": "materials/cobblestone/color.ktx2",
+          "data": "materials/cobblestone/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#79705c",
@@ -258,7 +318,11 @@
       "files": {
         "color": "materials/paving/color.jpg",
         "normal": "materials/paving/normal.jpg",
-        "arh": "materials/paving/arh.jpg"
+        "arh": "materials/paving/arh.jpg",
+        "packed": {
+          "color": "materials/paving/color.ktx2",
+          "data": "materials/paving/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#7a7a73",
@@ -275,7 +339,11 @@
       "files": {
         "color": "materials/dirt-path/color.jpg",
         "normal": "materials/dirt-path/normal.jpg",
-        "arh": "materials/dirt-path/arh.jpg"
+        "arh": "materials/dirt-path/arh.jpg",
+        "packed": {
+          "color": "materials/dirt-path/color.ktx2",
+          "data": "materials/dirt-path/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#8d8163",
@@ -292,7 +360,11 @@
       "files": {
         "color": "materials/grass-sparse/color.jpg",
         "normal": "materials/grass-sparse/normal.jpg",
-        "arh": "materials/grass-sparse/arh.jpg"
+        "arh": "materials/grass-sparse/arh.jpg",
+        "packed": {
+          "color": "materials/grass-sparse/color.ktx2",
+          "data": "materials/grass-sparse/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#4f3d15",
@@ -309,7 +381,11 @@
       "files": {
         "color": "materials/grass-leafy/color.jpg",
         "normal": "materials/grass-leafy/normal.jpg",
-        "arh": "materials/grass-leafy/arh.jpg"
+        "arh": "materials/grass-leafy/arh.jpg",
+        "packed": {
+          "color": "materials/grass-leafy/color.ktx2",
+          "data": "materials/grass-leafy/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#978359",
@@ -326,7 +402,11 @@
       "files": {
         "color": "materials/grass-withered/color.jpg",
         "normal": "materials/grass-withered/normal.jpg",
-        "arh": "materials/grass-withered/arh.jpg"
+        "arh": "materials/grass-withered/arh.jpg",
+        "packed": {
+          "color": "materials/grass-withered/color.ktx2",
+          "data": "materials/grass-withered/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#ac9379",
@@ -344,7 +424,11 @@
       "files": {
         "color": "materials/moss/color.jpg",
         "normal": "materials/moss/normal.jpg",
-        "arh": "materials/moss/arh.jpg"
+        "arh": "materials/moss/arh.jpg",
+        "packed": {
+          "color": "materials/moss/color.ktx2",
+          "data": "materials/moss/data.ktx2"
+        }
       },
       "scale": 2,
       "average": "#4a6519",
@@ -361,7 +445,11 @@
       "files": {
         "color": "materials/forest-twigs/color.jpg",
         "normal": "materials/forest-twigs/normal.jpg",
-        "arh": "materials/forest-twigs/arh.jpg"
+        "arh": "materials/forest-twigs/arh.jpg",
+        "packed": {
+          "color": "materials/forest-twigs/color.ktx2",
+          "data": "materials/forest-twigs/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#91875d",
@@ -378,7 +466,11 @@
       "files": {
         "color": "materials/forest-moss/color.jpg",
         "normal": "materials/forest-moss/normal.jpg",
-        "arh": "materials/forest-moss/arh.jpg"
+        "arh": "materials/forest-moss/arh.jpg",
+        "packed": {
+          "color": "materials/forest-moss/color.ktx2",
+          "data": "materials/forest-moss/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#8e703a",
@@ -396,7 +488,11 @@
       "files": {
         "color": "materials/leaves-autumn/color.jpg",
         "normal": "materials/leaves-autumn/normal.jpg",
-        "arh": "materials/leaves-autumn/arh.jpg"
+        "arh": "materials/leaves-autumn/arh.jpg",
+        "packed": {
+          "color": "materials/leaves-autumn/color.ktx2",
+          "data": "materials/leaves-autumn/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#725730",
@@ -412,7 +508,11 @@
       "files": {
         "color": "materials/leaves-scattered/color.jpg",
         "normal": "materials/leaves-scattered/normal.jpg",
-        "arh": "materials/leaves-scattered/arh.jpg"
+        "arh": "materials/leaves-scattered/arh.jpg",
+        "packed": {
+          "color": "materials/leaves-scattered/color.ktx2",
+          "data": "materials/leaves-scattered/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#a18058",
@@ -429,7 +529,11 @@
       "files": {
         "color": "materials/leaves-brown/color.jpg",
         "normal": "materials/leaves-brown/normal.jpg",
-        "arh": "materials/leaves-brown/arh.jpg"
+        "arh": "materials/leaves-brown/arh.jpg",
+        "packed": {
+          "color": "materials/leaves-brown/color.ktx2",
+          "data": "materials/leaves-brown/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#724d34",
@@ -446,7 +550,11 @@
       "files": {
         "color": "materials/mud-wet/color.jpg",
         "normal": "materials/mud-wet/normal.jpg",
-        "arh": "materials/mud-wet/arh.jpg"
+        "arh": "materials/mud-wet/arh.jpg",
+        "packed": {
+          "color": "materials/mud-wet/color.ktx2",
+          "data": "materials/mud-wet/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#53493b",
@@ -462,7 +570,11 @@
       "files": {
         "color": "materials/mud-dark/color.jpg",
         "normal": "materials/mud-dark/normal.jpg",
-        "arh": "materials/mud-dark/arh.jpg"
+        "arh": "materials/mud-dark/arh.jpg",
+        "packed": {
+          "color": "materials/mud-dark/color.ktx2",
+          "data": "materials/mud-dark/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#352413",
@@ -478,7 +590,11 @@
       "files": {
         "color": "materials/swamp-ground/color.jpg",
         "normal": "materials/swamp-ground/normal.jpg",
-        "arh": "materials/swamp-ground/arh.jpg"
+        "arh": "materials/swamp-ground/arh.jpg",
+        "packed": {
+          "color": "materials/swamp-ground/color.ktx2",
+          "data": "materials/swamp-ground/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#655433",
@@ -494,7 +610,11 @@
       "files": {
         "color": "materials/mud-tracks/color.jpg",
         "normal": "materials/mud-tracks/normal.jpg",
-        "arh": "materials/mud-tracks/arh.jpg"
+        "arh": "materials/mud-tracks/arh.jpg",
+        "packed": {
+          "color": "materials/mud-tracks/color.ktx2",
+          "data": "materials/mud-tracks/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#502f1c",
@@ -511,7 +631,11 @@
       "files": {
         "color": "materials/farmland/color.jpg",
         "normal": "materials/farmland/normal.jpg",
-        "arh": "materials/farmland/arh.jpg"
+        "arh": "materials/farmland/arh.jpg",
+        "packed": {
+          "color": "materials/farmland/color.ktx2",
+          "data": "materials/farmland/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#5b4b31",
@@ -527,7 +651,11 @@
       "files": {
         "color": "materials/farm-soil/color.jpg",
         "normal": "materials/farm-soil/normal.jpg",
-        "arh": "materials/farm-soil/arh.jpg"
+        "arh": "materials/farm-soil/arh.jpg",
+        "packed": {
+          "color": "materials/farm-soil/color.ktx2",
+          "data": "materials/farm-soil/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#583f28",
@@ -543,7 +671,11 @@
       "files": {
         "color": "materials/sand-dunes/color.jpg",
         "normal": "materials/sand-dunes/normal.jpg",
-        "arh": "materials/sand-dunes/arh.jpg"
+        "arh": "materials/sand-dunes/arh.jpg",
+        "packed": {
+          "color": "materials/sand-dunes/color.ktx2",
+          "data": "materials/sand-dunes/data.ktx2"
+        }
       },
       "scale": 12,
       "average": "#9f8a81",
@@ -559,7 +691,11 @@
       "files": {
         "color": "materials/sand-coast/color.jpg",
         "normal": "materials/sand-coast/normal.jpg",
-        "arh": "materials/sand-coast/arh.jpg"
+        "arh": "materials/sand-coast/arh.jpg",
+        "packed": {
+          "color": "materials/sand-coast/color.ktx2",
+          "data": "materials/sand-coast/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#82725b",
@@ -575,7 +711,11 @@
       "files": {
         "color": "materials/sand-gravelly/color.jpg",
         "normal": "materials/sand-gravelly/normal.jpg",
-        "arh": "materials/sand-gravelly/arh.jpg"
+        "arh": "materials/sand-gravelly/arh.jpg",
+        "packed": {
+          "color": "materials/sand-gravelly/color.ktx2",
+          "data": "materials/sand-gravelly/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#926f4c",
@@ -592,7 +732,11 @@
       "files": {
         "color": "materials/sand-red/color.jpg",
         "normal": "materials/sand-red/normal.jpg",
-        "arh": "materials/sand-red/arh.jpg"
+        "arh": "materials/sand-red/arh.jpg",
+        "packed": {
+          "color": "materials/sand-red/color.ktx2",
+          "data": "materials/sand-red/data.ktx2"
+        }
       },
       "scale": 5,
       "average": "#815946",
@@ -608,7 +752,11 @@
       "files": {
         "color": "materials/desert-cracked/color.jpg",
         "normal": "materials/desert-cracked/normal.jpg",
-        "arh": "materials/desert-cracked/arh.jpg"
+        "arh": "materials/desert-cracked/arh.jpg",
+        "packed": {
+          "color": "materials/desert-cracked/color.ktx2",
+          "data": "materials/desert-cracked/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#cfa981",
@@ -624,7 +772,11 @@
       "files": {
         "color": "materials/desert-cracked-red/color.jpg",
         "normal": "materials/desert-cracked-red/normal.jpg",
-        "arh": "materials/desert-cracked-red/arh.jpg"
+        "arh": "materials/desert-cracked-red/arh.jpg",
+        "packed": {
+          "color": "materials/desert-cracked-red/color.ktx2",
+          "data": "materials/desert-cracked-red/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#654a34",
@@ -640,7 +792,11 @@
       "files": {
         "color": "materials/desert-hardpan/color.jpg",
         "normal": "materials/desert-hardpan/normal.jpg",
-        "arh": "materials/desert-hardpan/arh.jpg"
+        "arh": "materials/desert-hardpan/arh.jpg",
+        "packed": {
+          "color": "materials/desert-hardpan/color.ktx2",
+          "data": "materials/desert-hardpan/data.ktx2"
+        }
       },
       "scale": 5,
       "average": "#847969",
@@ -656,7 +812,11 @@
       "files": {
         "color": "materials/desert-stony/color.jpg",
         "normal": "materials/desert-stony/normal.jpg",
-        "arh": "materials/desert-stony/arh.jpg"
+        "arh": "materials/desert-stony/arh.jpg",
+        "packed": {
+          "color": "materials/desert-stony/color.ktx2",
+          "data": "materials/desert-stony/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#95734e",
@@ -672,7 +832,11 @@
       "files": {
         "color": "materials/red-earth/color.jpg",
         "normal": "materials/red-earth/normal.jpg",
-        "arh": "materials/red-earth/arh.jpg"
+        "arh": "materials/red-earth/arh.jpg",
+        "packed": {
+          "color": "materials/red-earth/color.ktx2",
+          "data": "materials/red-earth/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#653e2e",
@@ -688,7 +852,11 @@
       "files": {
         "color": "materials/cliff-granite/color.jpg",
         "normal": "materials/cliff-granite/normal.jpg",
-        "arh": "materials/cliff-granite/arh.jpg"
+        "arh": "materials/cliff-granite/arh.jpg",
+        "packed": {
+          "color": "materials/cliff-granite/color.ktx2",
+          "data": "materials/cliff-granite/data.ktx2"
+        }
       },
       "scale": 10,
       "average": "#614631",
@@ -704,7 +872,11 @@
       "files": {
         "color": "materials/cliff-pale/color.jpg",
         "normal": "materials/cliff-pale/normal.jpg",
-        "arh": "materials/cliff-pale/arh.jpg"
+        "arh": "materials/cliff-pale/arh.jpg",
+        "packed": {
+          "color": "materials/cliff-pale/color.ktx2",
+          "data": "materials/cliff-pale/data.ktx2"
+        }
       },
       "scale": 10,
       "average": "#836950",
@@ -721,7 +893,11 @@
       "files": {
         "color": "materials/cliff-sandstone/color.jpg",
         "normal": "materials/cliff-sandstone/normal.jpg",
-        "arh": "materials/cliff-sandstone/arh.jpg"
+        "arh": "materials/cliff-sandstone/arh.jpg",
+        "packed": {
+          "color": "materials/cliff-sandstone/color.ktx2",
+          "data": "materials/cliff-sandstone/data.ktx2"
+        }
       },
       "scale": 10,
       "average": "#7c5231",
@@ -737,7 +913,11 @@
       "files": {
         "color": "materials/cliff-ochre/color.jpg",
         "normal": "materials/cliff-ochre/normal.jpg",
-        "arh": "materials/cliff-ochre/arh.jpg"
+        "arh": "materials/cliff-ochre/arh.jpg",
+        "packed": {
+          "color": "materials/cliff-ochre/color.ktx2",
+          "data": "materials/cliff-ochre/data.ktx2"
+        }
       },
       "scale": 8,
       "average": "#89683e",
@@ -753,7 +933,11 @@
       "files": {
         "color": "materials/sandstone/color.jpg",
         "normal": "materials/sandstone/normal.jpg",
-        "arh": "materials/sandstone/arh.jpg"
+        "arh": "materials/sandstone/arh.jpg",
+        "packed": {
+          "color": "materials/sandstone/color.ktx2",
+          "data": "materials/sandstone/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#d1a174",
@@ -770,7 +954,11 @@
       "files": {
         "color": "materials/limestone/color.jpg",
         "normal": "materials/limestone/normal.jpg",
-        "arh": "materials/limestone/arh.jpg"
+        "arh": "materials/limestone/arh.jpg",
+        "packed": {
+          "color": "materials/limestone/color.ktx2",
+          "data": "materials/limestone/data.ktx2"
+        }
       },
       "scale": 8,
       "average": "#a89b8c",
@@ -788,7 +976,11 @@
       "files": {
         "color": "materials/basalt/color.jpg",
         "normal": "materials/basalt/normal.jpg",
-        "arh": "materials/basalt/arh.jpg"
+        "arh": "materials/basalt/arh.jpg",
+        "packed": {
+          "color": "materials/basalt/color.ktx2",
+          "data": "materials/basalt/data.ktx2"
+        }
       },
       "scale": 8,
       "average": "#211c18",
@@ -805,7 +997,11 @@
       "files": {
         "color": "materials/rock-lichen/color.jpg",
         "normal": "materials/rock-lichen/normal.jpg",
-        "arh": "materials/rock-lichen/arh.jpg"
+        "arh": "materials/rock-lichen/arh.jpg",
+        "packed": {
+          "color": "materials/rock-lichen/color.ktx2",
+          "data": "materials/rock-lichen/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#44392e",
@@ -822,7 +1018,11 @@
       "files": {
         "color": "materials/rock-red-granite/color.jpg",
         "normal": "materials/rock-red-granite/normal.jpg",
-        "arh": "materials/rock-red-granite/arh.jpg"
+        "arh": "materials/rock-red-granite/arh.jpg",
+        "packed": {
+          "color": "materials/rock-red-granite/color.ktx2",
+          "data": "materials/rock-red-granite/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#705341",
@@ -839,7 +1039,11 @@
       "files": {
         "color": "materials/volcanic-rock/color.jpg",
         "normal": "materials/volcanic-rock/normal.jpg",
-        "arh": "materials/volcanic-rock/arh.jpg"
+        "arh": "materials/volcanic-rock/arh.jpg",
+        "packed": {
+          "color": "materials/volcanic-rock/color.ktx2",
+          "data": "materials/volcanic-rock/data.ktx2"
+        }
       },
       "scale": 8,
       "average": "#3b342c",
@@ -855,7 +1059,11 @@
       "files": {
         "color": "materials/scorched-ground/color.jpg",
         "normal": "materials/scorched-ground/normal.jpg",
-        "arh": "materials/scorched-ground/arh.jpg"
+        "arh": "materials/scorched-ground/arh.jpg",
+        "packed": {
+          "color": "materials/scorched-ground/color.ktx2",
+          "data": "materials/scorched-ground/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#625549",
@@ -872,7 +1080,11 @@
         "color": "materials/lava/color.jpg",
         "normal": "materials/lava/normal.jpg",
         "arh": "materials/lava/arh.jpg",
-        "emissive": "materials/lava/emissive.jpg"
+        "emissive": "materials/lava/emissive.jpg",
+        "packed": {
+          "color": "materials/lava/color.ktx2",
+          "data": "materials/lava/data.ktx2"
+        }
       },
       "emissive": 1,
       "scale": 6,
@@ -892,7 +1104,11 @@
         "color": "materials/lava-crust/color.jpg",
         "normal": "materials/lava-crust/normal.jpg",
         "arh": "materials/lava-crust/arh.jpg",
-        "emissive": "materials/lava-crust/emissive.jpg"
+        "emissive": "materials/lava-crust/emissive.jpg",
+        "packed": {
+          "color": "materials/lava-crust/color.ktx2",
+          "data": "materials/lava-crust/data.ktx2"
+        }
       },
       "emissive": 1,
       "scale": 5,
@@ -910,7 +1126,11 @@
       "files": {
         "color": "materials/snow-fresh/color.jpg",
         "normal": "materials/snow-fresh/normal.jpg",
-        "arh": "materials/snow-fresh/arh.jpg"
+        "arh": "materials/snow-fresh/arh.jpg",
+        "packed": {
+          "color": "materials/snow-fresh/color.ktx2",
+          "data": "materials/snow-fresh/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#a5a5a7",
@@ -927,7 +1147,11 @@
       "files": {
         "color": "materials/snow-rocky/color.jpg",
         "normal": "materials/snow-rocky/normal.jpg",
-        "arh": "materials/snow-rocky/arh.jpg"
+        "arh": "materials/snow-rocky/arh.jpg",
+        "packed": {
+          "color": "materials/snow-rocky/color.ktx2",
+          "data": "materials/snow-rocky/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#9d9b95",
@@ -944,7 +1168,11 @@
       "files": {
         "color": "materials/snow-windswept/color.jpg",
         "normal": "materials/snow-windswept/normal.jpg",
-        "arh": "materials/snow-windswept/arh.jpg"
+        "arh": "materials/snow-windswept/arh.jpg",
+        "packed": {
+          "color": "materials/snow-windswept/color.ktx2",
+          "data": "materials/snow-windswept/data.ktx2"
+        }
       },
       "scale": 10,
       "average": "#878694",
@@ -961,7 +1189,11 @@
       "files": {
         "color": "materials/frozen-ground/color.jpg",
         "normal": "materials/frozen-ground/normal.jpg",
-        "arh": "materials/frozen-ground/arh.jpg"
+        "arh": "materials/frozen-ground/arh.jpg",
+        "packed": {
+          "color": "materials/frozen-ground/color.ktx2",
+          "data": "materials/frozen-ground/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#797477",
@@ -977,7 +1209,11 @@
       "files": {
         "color": "materials/ice/color.jpg",
         "normal": "materials/ice/normal.jpg",
-        "arh": "materials/ice/arh.jpg"
+        "arh": "materials/ice/arh.jpg",
+        "packed": {
+          "color": "materials/ice/color.ktx2",
+          "data": "materials/ice/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#8197a2",
@@ -993,7 +1229,11 @@
       "files": {
         "color": "materials/ice-cracked/color.jpg",
         "normal": "materials/ice-cracked/normal.jpg",
-        "arh": "materials/ice-cracked/arh.jpg"
+        "arh": "materials/ice-cracked/arh.jpg",
+        "packed": {
+          "color": "materials/ice-cracked/color.ktx2",
+          "data": "materials/ice-cracked/data.ktx2"
+        }
       },
       "scale": 5,
       "average": "#606f7c",
@@ -1009,7 +1249,11 @@
       "files": {
         "color": "materials/cobblestone-mossy/color.jpg",
         "normal": "materials/cobblestone-mossy/normal.jpg",
-        "arh": "materials/cobblestone-mossy/arh.jpg"
+        "arh": "materials/cobblestone-mossy/arh.jpg",
+        "packed": {
+          "color": "materials/cobblestone-mossy/color.ktx2",
+          "data": "materials/cobblestone-mossy/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#776c4c",
@@ -1027,7 +1271,11 @@
       "files": {
         "color": "materials/cobblestone-grey/color.jpg",
         "normal": "materials/cobblestone-grey/normal.jpg",
-        "arh": "materials/cobblestone-grey/arh.jpg"
+        "arh": "materials/cobblestone-grey/arh.jpg",
+        "packed": {
+          "color": "materials/cobblestone-grey/color.ktx2",
+          "data": "materials/cobblestone-grey/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#928b80",
@@ -1045,7 +1293,11 @@
       "files": {
         "color": "materials/crazy-paving/color.jpg",
         "normal": "materials/crazy-paving/normal.jpg",
-        "arh": "materials/crazy-paving/arh.jpg"
+        "arh": "materials/crazy-paving/arh.jpg",
+        "packed": {
+          "color": "materials/crazy-paving/color.ktx2",
+          "data": "materials/crazy-paving/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#796651",
@@ -1063,7 +1315,11 @@
       "files": {
         "color": "materials/stone-path/color.jpg",
         "normal": "materials/stone-path/normal.jpg",
-        "arh": "materials/stone-path/arh.jpg"
+        "arh": "materials/stone-path/arh.jpg",
+        "packed": {
+          "color": "materials/stone-path/color.ktx2",
+          "data": "materials/stone-path/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#806b57",
@@ -1080,7 +1336,11 @@
       "files": {
         "color": "materials/stone-path-grey/color.jpg",
         "normal": "materials/stone-path-grey/normal.jpg",
-        "arh": "materials/stone-path-grey/arh.jpg"
+        "arh": "materials/stone-path-grey/arh.jpg",
+        "packed": {
+          "color": "materials/stone-path-grey/color.ktx2",
+          "data": "materials/stone-path-grey/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#5e564c",
@@ -1098,7 +1358,11 @@
       "files": {
         "color": "materials/castle-floor/color.jpg",
         "normal": "materials/castle-floor/normal.jpg",
-        "arh": "materials/castle-floor/arh.jpg"
+        "arh": "materials/castle-floor/arh.jpg",
+        "packed": {
+          "color": "materials/castle-floor/color.ktx2",
+          "data": "materials/castle-floor/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#665547",
@@ -1114,7 +1378,11 @@
       "files": {
         "color": "materials/stone-blocks/color.jpg",
         "normal": "materials/stone-blocks/normal.jpg",
-        "arh": "materials/stone-blocks/arh.jpg"
+        "arh": "materials/stone-blocks/arh.jpg",
+        "packed": {
+          "color": "materials/stone-blocks/color.ktx2",
+          "data": "materials/stone-blocks/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#948d83",
@@ -1131,7 +1399,11 @@
       "files": {
         "color": "materials/sandstone-paving/color.jpg",
         "normal": "materials/sandstone-paving/normal.jpg",
-        "arh": "materials/sandstone-paving/arh.jpg"
+        "arh": "materials/sandstone-paving/arh.jpg",
+        "packed": {
+          "color": "materials/sandstone-paving/color.ktx2",
+          "data": "materials/sandstone-paving/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#a59275",
@@ -1148,7 +1420,11 @@
       "files": {
         "color": "materials/red-paving/color.jpg",
         "normal": "materials/red-paving/normal.jpg",
-        "arh": "materials/red-paving/arh.jpg"
+        "arh": "materials/red-paving/arh.jpg",
+        "packed": {
+          "color": "materials/red-paving/color.ktx2",
+          "data": "materials/red-paving/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#66594c",
@@ -1165,7 +1441,11 @@
       "files": {
         "color": "materials/planks-weathered/color.jpg",
         "normal": "materials/planks-weathered/normal.jpg",
-        "arh": "materials/planks-weathered/arh.jpg"
+        "arh": "materials/planks-weathered/arh.jpg",
+        "packed": {
+          "color": "materials/planks-weathered/color.ktx2",
+          "data": "materials/planks-weathered/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#50433b",
@@ -1183,7 +1463,11 @@
       "files": {
         "color": "materials/planks-old/color.jpg",
         "normal": "materials/planks-old/normal.jpg",
-        "arh": "materials/planks-old/arh.jpg"
+        "arh": "materials/planks-old/arh.jpg",
+        "packed": {
+          "color": "materials/planks-old/color.ktx2",
+          "data": "materials/planks-old/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#625547",
@@ -1201,7 +1485,11 @@
       "files": {
         "color": "materials/gravel-light/color.jpg",
         "normal": "materials/gravel-light/normal.jpg",
-        "arh": "materials/gravel-light/arh.jpg"
+        "arh": "materials/gravel-light/arh.jpg",
+        "packed": {
+          "color": "materials/gravel-light/color.ktx2",
+          "data": "materials/gravel-light/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#aaa69b",
@@ -1219,7 +1507,11 @@
       "files": {
         "color": "materials/gravel-path/color.jpg",
         "normal": "materials/gravel-path/normal.jpg",
-        "arh": "materials/gravel-path/arh.jpg"
+        "arh": "materials/gravel-path/arh.jpg",
+        "packed": {
+          "color": "materials/gravel-path/color.ktx2",
+          "data": "materials/gravel-path/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#473523",
@@ -1236,7 +1528,11 @@
       "files": {
         "color": "materials/wood-chips/color.jpg",
         "normal": "materials/wood-chips/normal.jpg",
-        "arh": "materials/wood-chips/arh.jpg"
+        "arh": "materials/wood-chips/arh.jpg",
+        "packed": {
+          "color": "materials/wood-chips/color.ktx2",
+          "data": "materials/wood-chips/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#805b3d",
@@ -1253,7 +1549,11 @@
       "files": {
         "color": "materials/riverbed/color.jpg",
         "normal": "materials/riverbed/normal.jpg",
-        "arh": "materials/riverbed/arh.jpg"
+        "arh": "materials/riverbed/arh.jpg",
+        "packed": {
+          "color": "materials/riverbed/color.ktx2",
+          "data": "materials/riverbed/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#796c5b",
@@ -1271,7 +1571,11 @@
       "files": {
         "color": "materials/pebbles/color.jpg",
         "normal": "materials/pebbles/normal.jpg",
-        "arh": "materials/pebbles/arh.jpg"
+        "arh": "materials/pebbles/arh.jpg",
+        "packed": {
+          "color": "materials/pebbles/color.ktx2",
+          "data": "materials/pebbles/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#7f7569",
@@ -1288,7 +1592,11 @@
       "files": {
         "color": "materials/pebbles-coarse/color.jpg",
         "normal": "materials/pebbles-coarse/normal.jpg",
-        "arh": "materials/pebbles-coarse/arh.jpg"
+        "arh": "materials/pebbles-coarse/arh.jpg",
+        "packed": {
+          "color": "materials/pebbles-coarse/color.ktx2",
+          "data": "materials/pebbles-coarse/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#7b6851",
@@ -1305,7 +1613,11 @@
       "files": {
         "color": "materials/riverbed-dry/color.jpg",
         "normal": "materials/riverbed-dry/normal.jpg",
-        "arh": "materials/riverbed-dry/arh.jpg"
+        "arh": "materials/riverbed-dry/arh.jpg",
+        "packed": {
+          "color": "materials/riverbed-dry/color.ktx2",
+          "data": "materials/riverbed-dry/data.ktx2"
+        }
       },
       "scale": 5,
       "average": "#66554a",
@@ -1322,7 +1634,11 @@
       "files": {
         "color": "materials/tidal-rocks/color.jpg",
         "normal": "materials/tidal-rocks/normal.jpg",
-        "arh": "materials/tidal-rocks/arh.jpg"
+        "arh": "materials/tidal-rocks/arh.jpg",
+        "packed": {
+          "color": "materials/tidal-rocks/color.ktx2",
+          "data": "materials/tidal-rocks/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#665a47",
@@ -1338,7 +1654,11 @@
       "files": {
         "color": "materials/coast-mossy/color.jpg",
         "normal": "materials/coast-mossy/normal.jpg",
-        "arh": "materials/coast-mossy/arh.jpg"
+        "arh": "materials/coast-mossy/arh.jpg",
+        "packed": {
+          "color": "materials/coast-mossy/color.ktx2",
+          "data": "materials/coast-mossy/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#4b442d",
@@ -1355,7 +1675,11 @@
       "files": {
         "color": "materials/asphalt/color.jpg",
         "normal": "materials/asphalt/normal.jpg",
-        "arh": "materials/asphalt/arh.jpg"
+        "arh": "materials/asphalt/arh.jpg",
+        "packed": {
+          "color": "materials/asphalt/color.ktx2",
+          "data": "materials/asphalt/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#5a5a55",
@@ -1371,7 +1695,11 @@
       "files": {
         "color": "materials/asphalt-cracked/color.jpg",
         "normal": "materials/asphalt-cracked/normal.jpg",
-        "arh": "materials/asphalt-cracked/arh.jpg"
+        "arh": "materials/asphalt-cracked/arh.jpg",
+        "packed": {
+          "color": "materials/asphalt-cracked/color.ktx2",
+          "data": "materials/asphalt-cracked/data.ktx2"
+        }
       },
       "scale": 5,
       "average": "#433933",
@@ -1388,7 +1716,11 @@
       "files": {
         "color": "materials/sidewalk/color.jpg",
         "normal": "materials/sidewalk/normal.jpg",
-        "arh": "materials/sidewalk/arh.jpg"
+        "arh": "materials/sidewalk/arh.jpg",
+        "packed": {
+          "color": "materials/sidewalk/color.ktx2",
+          "data": "materials/sidewalk/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#807466",
@@ -1404,7 +1736,11 @@
       "files": {
         "color": "materials/pavers/color.jpg",
         "normal": "materials/pavers/normal.jpg",
-        "arh": "materials/pavers/arh.jpg"
+        "arh": "materials/pavers/arh.jpg",
+        "packed": {
+          "color": "materials/pavers/color.ktx2",
+          "data": "materials/pavers/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#726050",
@@ -1420,7 +1756,11 @@
       "files": {
         "color": "materials/brick-paving/color.jpg",
         "normal": "materials/brick-paving/normal.jpg",
-        "arh": "materials/brick-paving/arh.jpg"
+        "arh": "materials/brick-paving/arh.jpg",
+        "packed": {
+          "color": "materials/brick-paving/color.ktx2",
+          "data": "materials/brick-paving/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#7f6d5e",
@@ -1437,7 +1777,11 @@
       "files": {
         "color": "materials/herringbone/color.jpg",
         "normal": "materials/herringbone/normal.jpg",
-        "arh": "materials/herringbone/arh.jpg"
+        "arh": "materials/herringbone/arh.jpg",
+        "packed": {
+          "color": "materials/herringbone/color.ktx2",
+          "data": "materials/herringbone/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#5a4e41",
@@ -1453,7 +1797,11 @@
       "files": {
         "color": "materials/concrete/color.jpg",
         "normal": "materials/concrete/normal.jpg",
-        "arh": "materials/concrete/arh.jpg"
+        "arh": "materials/concrete/arh.jpg",
+        "packed": {
+          "color": "materials/concrete/color.ktx2",
+          "data": "materials/concrete/data.ktx2"
+        }
       },
       "scale": 5,
       "average": "#6b6358",
@@ -1472,7 +1820,11 @@
       "files": {
         "color": "materials/concrete-damaged/color.jpg",
         "normal": "materials/concrete-damaged/normal.jpg",
-        "arh": "materials/concrete-damaged/arh.jpg"
+        "arh": "materials/concrete-damaged/arh.jpg",
+        "packed": {
+          "color": "materials/concrete-damaged/color.ktx2",
+          "data": "materials/concrete-damaged/data.ktx2"
+        }
       },
       "scale": 5,
       "average": "#4f4336",
@@ -1489,7 +1841,11 @@
       "files": {
         "color": "materials/concrete-moss/color.jpg",
         "normal": "materials/concrete-moss/normal.jpg",
-        "arh": "materials/concrete-moss/arh.jpg"
+        "arh": "materials/concrete-moss/arh.jpg",
+        "packed": {
+          "color": "materials/concrete-moss/color.ktx2",
+          "data": "materials/concrete-moss/data.ktx2"
+        }
       },
       "scale": 5,
       "average": "#58571e",
@@ -1506,7 +1862,11 @@
       "files": {
         "color": "materials/rubble/color.jpg",
         "normal": "materials/rubble/normal.jpg",
-        "arh": "materials/rubble/arh.jpg"
+        "arh": "materials/rubble/arh.jpg",
+        "packed": {
+          "color": "materials/rubble/color.ktx2",
+          "data": "materials/rubble/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#a09187",
@@ -1524,7 +1884,11 @@
       "files": {
         "color": "materials/debris/color.jpg",
         "normal": "materials/debris/normal.jpg",
-        "arh": "materials/debris/arh.jpg"
+        "arh": "materials/debris/arh.jpg",
+        "packed": {
+          "color": "materials/debris/color.ktx2",
+          "data": "materials/debris/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#928678",
@@ -1541,7 +1905,11 @@
       "files": {
         "color": "materials/regolith/color.jpg",
         "normal": "materials/regolith/normal.jpg",
-        "arh": "materials/regolith/arh.jpg"
+        "arh": "materials/regolith/arh.jpg",
+        "packed": {
+          "color": "materials/regolith/color.ktx2",
+          "data": "materials/regolith/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#787775",
@@ -1557,7 +1925,11 @@
       "files": {
         "color": "materials/regolith-rough/color.jpg",
         "normal": "materials/regolith-rough/normal.jpg",
-        "arh": "materials/regolith-rough/arh.jpg"
+        "arh": "materials/regolith-rough/arh.jpg",
+        "packed": {
+          "color": "materials/regolith-rough/color.ktx2",
+          "data": "materials/regolith-rough/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#787674",
@@ -1573,7 +1945,11 @@
       "files": {
         "color": "materials/crater-floor/color.jpg",
         "normal": "materials/crater-floor/normal.jpg",
-        "arh": "materials/crater-floor/arh.jpg"
+        "arh": "materials/crater-floor/arh.jpg",
+        "packed": {
+          "color": "materials/crater-floor/color.ktx2",
+          "data": "materials/crater-floor/data.ktx2"
+        }
       },
       "scale": 10,
       "average": "#7a7876",
@@ -1589,7 +1965,11 @@
       "files": {
         "color": "materials/regolith-tracks/color.jpg",
         "normal": "materials/regolith-tracks/normal.jpg",
-        "arh": "materials/regolith-tracks/arh.jpg"
+        "arh": "materials/regolith-tracks/arh.jpg",
+        "packed": {
+          "color": "materials/regolith-tracks/color.ktx2",
+          "data": "materials/regolith-tracks/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#81807e",
@@ -1605,7 +1985,11 @@
       "files": {
         "color": "materials/moon-basalt/color.jpg",
         "normal": "materials/moon-basalt/normal.jpg",
-        "arh": "materials/moon-basalt/arh.jpg"
+        "arh": "materials/moon-basalt/arh.jpg",
+        "packed": {
+          "color": "materials/moon-basalt/color.ktx2",
+          "data": "materials/moon-basalt/data.ktx2"
+        }
       },
       "scale": 8,
       "average": "#252525",
@@ -1621,7 +2005,11 @@
       "files": {
         "color": "materials/mars-dust/color.jpg",
         "normal": "materials/mars-dust/normal.jpg",
-        "arh": "materials/mars-dust/arh.jpg"
+        "arh": "materials/mars-dust/arh.jpg",
+        "packed": {
+          "color": "materials/mars-dust/color.ktx2",
+          "data": "materials/mars-dust/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#965635",
@@ -1637,7 +2025,11 @@
       "files": {
         "color": "materials/mars-regolith/color.jpg",
         "normal": "materials/mars-regolith/normal.jpg",
-        "arh": "materials/mars-regolith/arh.jpg"
+        "arh": "materials/mars-regolith/arh.jpg",
+        "packed": {
+          "color": "materials/mars-regolith/color.ktx2",
+          "data": "materials/mars-regolith/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#8f5031",
@@ -1653,7 +2045,11 @@
       "files": {
         "color": "materials/mars-dunes/color.jpg",
         "normal": "materials/mars-dunes/normal.jpg",
-        "arh": "materials/mars-dunes/arh.jpg"
+        "arh": "materials/mars-dunes/arh.jpg",
+        "packed": {
+          "color": "materials/mars-dunes/color.ktx2",
+          "data": "materials/mars-dunes/data.ktx2"
+        }
       },
       "scale": 14,
       "average": "#a86343",
@@ -1669,7 +2065,11 @@
       "files": {
         "color": "materials/mars-gravel/color.jpg",
         "normal": "materials/mars-gravel/normal.jpg",
-        "arh": "materials/mars-gravel/arh.jpg"
+        "arh": "materials/mars-gravel/arh.jpg",
+        "packed": {
+          "color": "materials/mars-gravel/color.ktx2",
+          "data": "materials/mars-gravel/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#694325",
@@ -1686,7 +2086,11 @@
       "files": {
         "color": "materials/mars-rock/color.jpg",
         "normal": "materials/mars-rock/normal.jpg",
-        "arh": "materials/mars-rock/arh.jpg"
+        "arh": "materials/mars-rock/arh.jpg",
+        "packed": {
+          "color": "materials/mars-rock/color.ktx2",
+          "data": "materials/mars-rock/data.ktx2"
+        }
       },
       "scale": 10,
       "average": "#713921",
@@ -1702,7 +2106,11 @@
       "files": {
         "color": "materials/snow-drift/color.jpg",
         "normal": "materials/snow-drift/normal.jpg",
-        "arh": "materials/snow-drift/arh.jpg"
+        "arh": "materials/snow-drift/arh.jpg",
+        "packed": {
+          "color": "materials/snow-drift/color.ktx2",
+          "data": "materials/snow-drift/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#dfeefc",
@@ -1719,7 +2127,11 @@
       "files": {
         "color": "materials/pack-ice/color.jpg",
         "normal": "materials/pack-ice/normal.jpg",
-        "arh": "materials/pack-ice/arh.jpg"
+        "arh": "materials/pack-ice/arh.jpg",
+        "packed": {
+          "color": "materials/pack-ice/color.ktx2",
+          "data": "materials/pack-ice/data.ktx2"
+        }
       },
       "scale": 8,
       "average": "#93a8bd",
@@ -1735,7 +2147,11 @@
       "files": {
         "color": "materials/blue-ice/color.jpg",
         "normal": "materials/blue-ice/normal.jpg",
-        "arh": "materials/blue-ice/arh.jpg"
+        "arh": "materials/blue-ice/arh.jpg",
+        "packed": {
+          "color": "materials/blue-ice/color.ktx2",
+          "data": "materials/blue-ice/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#688ab6",
@@ -1751,7 +2167,11 @@
       "files": {
         "color": "materials/ice-shelf/color.jpg",
         "normal": "materials/ice-shelf/normal.jpg",
-        "arh": "materials/ice-shelf/arh.jpg"
+        "arh": "materials/ice-shelf/arh.jpg",
+        "packed": {
+          "color": "materials/ice-shelf/color.ktx2",
+          "data": "materials/ice-shelf/data.ktx2"
+        }
       },
       "scale": 10,
       "average": "#92a0b4",
@@ -1767,7 +2187,11 @@
       "files": {
         "color": "materials/obsidian/color.jpg",
         "normal": "materials/obsidian/normal.jpg",
-        "arh": "materials/obsidian/arh.jpg"
+        "arh": "materials/obsidian/arh.jpg",
+        "packed": {
+          "color": "materials/obsidian/color.ktx2",
+          "data": "materials/obsidian/data.ktx2"
+        }
       },
       "scale": 6,
       "average": "#1c171b",
@@ -1784,7 +2208,11 @@
       "files": {
         "color": "materials/cinders/color.jpg",
         "normal": "materials/cinders/normal.jpg",
-        "arh": "materials/cinders/arh.jpg"
+        "arh": "materials/cinders/arh.jpg",
+        "packed": {
+          "color": "materials/cinders/color.ktx2",
+          "data": "materials/cinders/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#4f4e4c",
@@ -1801,7 +2229,11 @@
       "files": {
         "color": "materials/hell-ground/color.jpg",
         "normal": "materials/hell-ground/normal.jpg",
-        "arh": "materials/hell-ground/arh.jpg"
+        "arh": "materials/hell-ground/arh.jpg",
+        "packed": {
+          "color": "materials/hell-ground/color.ktx2",
+          "data": "materials/hell-ground/data.ktx2"
+        }
       },
       "scale": 5,
       "average": "#6c2a11",
@@ -1817,7 +2249,11 @@
       "files": {
         "color": "materials/brimstone/color.jpg",
         "normal": "materials/brimstone/normal.jpg",
-        "arh": "materials/brimstone/arh.jpg"
+        "arh": "materials/brimstone/arh.jpg",
+        "packed": {
+          "color": "materials/brimstone/color.ktx2",
+          "data": "materials/brimstone/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#9e8435",
@@ -1834,7 +2270,11 @@
       "files": {
         "color": "materials/scree/color.jpg",
         "normal": "materials/scree/normal.jpg",
-        "arh": "materials/scree/arh.jpg"
+        "arh": "materials/scree/arh.jpg",
+        "packed": {
+          "color": "materials/scree/color.ktx2",
+          "data": "materials/scree/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#4f4a45",
@@ -1851,7 +2291,11 @@
       "files": {
         "color": "materials/salt-crust/color.jpg",
         "normal": "materials/salt-crust/normal.jpg",
-        "arh": "materials/salt-crust/arh.jpg"
+        "arh": "materials/salt-crust/arh.jpg",
+        "packed": {
+          "color": "materials/salt-crust/color.ktx2",
+          "data": "materials/salt-crust/data.ktx2"
+        }
       },
       "scale": 5,
       "average": "#c9c3b8",
