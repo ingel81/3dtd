@@ -32,6 +32,14 @@ node tools/showreel/run.mjs --out <dir>                                # the who
 node tools/showreel/run.mjs --from editor-new --headless 1600x900 --shots 3 --url http://localhost:4307   # development
 ```
 
+A run writes `run.json` after every page and scene (capture start, pages with their sound file and sync times, marks).
+If it stops early it still stops ffmpeg, keeps the open page's sound when the page answers, and aligns and mixes
+what it has. `--finish <run folder>` does the alignment and the mix for a folder again (without `run.json` the
+sync flashes, runs of 4 to 12 white frames, pair with the sound files in order).
+
+The dev server for a recording should run without live reload (`npx ng serve --port 4307 --live-reload=false
+--hmr=false`): a source change during a run reloads the page under the runner.
+
 Options: `--display DISPLAY2` (default the primary), `--quality ultra|high` (default ultra; Auto would play custom maps a level lower), `--output-idx N` (skips the colour test), `--dpr 1` (headless: the scaling to stand in for, e.g. `--headless 2048x1152 --dpr 1.25`),
 `--cq 18`, `--chroma 444`, `--from <scene>`, `--scene a,b`.
 

@@ -6,6 +6,7 @@
 //   node tools/showreel/run.mjs --url http://localhost:4200 --out <dir>            the whole programme, recorded
 //   node tools/showreel/run.mjs --scene harbor-flyover --rehearse                  one scene, nothing recorded
 //   node tools/showreel/run.mjs --from editor-river                                from a scene to the end
+//   node tools/showreel/run.mjs --finish <run folder>                            align and mix a run that stopped early
 //   node tools/showreel/run.mjs --list                                             the scenes and their lengths
 //   node tools/showreel/run.mjs --displays                                         the displays Windows has
 //
@@ -14,7 +15,7 @@
 // no recording, --sound records the pages' sound; --shots N takes a picture every N seconds), --check-browser (print Chrome's flags and translate pref), --playwright <dir> (where playwright-core lies, default e2e/node_modules of this checkout or
 // of the main checkout).
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -106,6 +107,11 @@ function pageUrl(base, page, opened) {
 }
 
 async function main() {
+  const finishing = option('finish', '');
+  if (finishing) {
+    finish(resolve(finishing));
+    return;
+  }
   if (flag('displays')) {
     console.table(displays());
     return;
@@ -219,6 +225,12 @@ async function main() {
   const marks = [];
   let segment = null;
   let opened = '';
+  /** Everything the alignment needs, written after every page and scene: a crash keeps what was recorded */
+  const save = () =>
+    writeFileSync(
+      join(out, 'run.json'),
+      JSON.stringify({ captureStartedAt: capture?.startedAt ?? null, pages: segments, open: segment, marks, problems }, null, 2),
+    );
 
   /** End the page's sound recording and keep it */
   const closeSegment = async () => {
@@ -234,6 +246,7 @@ async function main() {
     writeFileSync(s.file, Buffer.from(b64, 'base64'));
     s.file = toFlac(s.file);
     segments.push(s);
+    save();
   };
 
   /** What the page draws at: CSS size, pixel ratio and the largest canvas's drawing buffer and its CSS size */
@@ -268,9 +281,11 @@ async function main() {
       segment.sync = await page.evaluate(() => window.__showreel.sync());
       await page.waitForTimeout(300);
     }
+    save();
   };
 
   let current = null;
+  let failure = null;
   try {
     for (const scene of scenes) {
       const target = scene.page ?? (current === null ? scene.needs : null);
@@ -297,43 +312,80 @@ async function main() {
       await pictures;
       await logView();
       marks.push(...run.map((m) => ({ ...m, segment: segments.length })));
+      save();
       const list = await page.evaluate(() => window.__showreel.opened.slice());
       if (list.length) opened = list[list.length - 1];
     }
     await closeSegment();
+  } catch (e) {
+    // What was recorded so far still makes a preview: the open page's sound too, if the page still answers
+    failure = e;
+    console.error(`run stopped: ${e.message}`);
+    await closeSegment().catch((err) => console.error(`  the open page's sound is lost: ${err.message.split('\n')[0]}`));
   } finally {
     const stopped = capture ? await capture.stop() : null;
     if (stopped && stopped.code !== 0) console.log(`ffmpeg ended with ${stopped.code}:\n${stopped.log}`);
-    await context.close();
+    save();
+    await context.close().catch(() => undefined);
     rmSync(profile, { recursive: true, force: true });
   }
 
   if (rehearse || !capture) {
     writeFileSync(join(out, 'marks.json'), JSON.stringify({ pages: segments, marks, problems }, null, 2));
     console.log(`${rehearse ? 'rehearsal' : 'sound only'} done, marks in ${join(out, 'marks.json')}`);
-    return;
+  } else if (segments.length) {
+    finish(out);
   }
+  if (failure) process.exitCode = 1;
+}
 
-  // Picture and sound lined up: each page's flash in the video, its click in its sound file
+/**
+ * Picture and sound lined up for a run's folder: each page's flash in the video, its click in its sound file.
+ * Reads run.json; without one (a run from before it) flashes and sound files pair up in order.
+ */
+function finish(out) {
   const video = join(out, 'video.mkv');
-  console.log('finding the flashes in the video');
-  const flashes = detectFlashes(video);
-  const lined = segments.map((s, i) => {
-    const expected = (s.syncWall - capture.startedAt) / 1000;
-    const flash = flashes.map((f) => ({ ...f, off: Math.abs(f.start - expected) })).sort((a, b) => a.off - b.off)[0];
+  if (!existsSync(video)) throw new Error(`no video.mkv in ${out}`);
+  const state = existsSync(join(out, 'run.json'))
+    ? JSON.parse(readFileSync(join(out, 'run.json'), 'utf8'))
+    : { captureStartedAt: null, pages: [], marks: [], problems: [] };
+  if (!state.pages.length) {
+    state.pages = readdirSync(out)
+      .filter((f) => /^sound-\d+\.webm$/.test(f))
+      .sort()
+      .map((f) => {
+        const flac = join(out, f.replace('.webm', '.flac'));
+        return { file: existsSync(flac) ? flac : toFlac(join(out, f)) };
+      });
+  }
+  console.log(`finding the flashes in the video (${state.pages.length} pages)`);
+  // The sync flash is white for 120 ms, 7 frames of the 60 fps capture; a page's white before it loads (a
+  // navigation, Chrome's first blank page) is mostly a frame or two, so runs of 4 to 12 frames count
+  const flashes = detectFlashes(video).filter((f) => f.frames >= 4 && f.frames <= 12);
+  console.log(`  flashes at ${flashes.map((f) => f.start.toFixed(2)).join(', ')} s`);
+  // Without the run's clock, the last flashes pair with the pages in order (an early white page is no page)
+  const ordered = flashes.slice(-state.pages.length);
+  const lined = state.pages.map((s, i) => {
+    const expected = s.syncWall && state.captureStartedAt ? (s.syncWall - state.captureStartedAt) / 1000 : null;
+    const flash =
+      expected === null
+        ? ordered[i]
+        : flashes.map((f) => ({ ...f, off: Math.abs(f.start - expected) })).sort((a, b) => a.off - b.off).find((f) => f.off <= 5);
     const click = detectClick(s.file);
-    if (!flash || flash.off > 5) console.log(`  page ${i}: no flash near ${expected.toFixed(2)} s, sound placed by the clock`);
+    if (!flash) console.log(`  page ${i}: no flash${expected === null ? '' : ` near ${expected.toFixed(2)} s`}, sound placed by the clock`);
     if (click === null) console.log(`  page ${i}: no click in ${s.file}, sound placed by the clock`);
-    const flashAt = flash && flash.off <= 5 ? flash.start : expected;
+    const flashAt = flash ? flash.start : (expected ?? 0);
     // Where the sound file starts on the video's time line: the click lies `click` seconds into it
-    const clickAt = click ?? (s.sync.t - s.audio.startedAt) / 1000;
+    const clickAt = click ?? (s.sync && s.audio ? (s.sync.t - s.audio.startedAt) / 1000 : 0);
     return { ...s, flashAt, offset: flashAt - clickAt };
   });
-  const timed = marks.map((m) => {
-    const s = lined[m.segment];
-    return { ...m, video: s ? +(s.flashAt + (m.t - s.sync.t) / 1000).toFixed(3) : null };
-  });
-  writeFileSync(join(out, 'marks.json'), JSON.stringify({ flashes, pages: lined, marks: timed, problems }, null, 2));
+  const timed = state.marks.length
+    ? state.marks.map((m) => {
+        const s = lined[m.segment];
+        return { ...m, video: s?.sync ? +(s.flashAt + (m.t - s.sync.t) / 1000).toFixed(3) : null };
+      })
+    : lined.map((s, i) => ({ kind: 'scene-start', label: `page ${i}`, video: +s.flashAt.toFixed(3) }));
+  writeFileSync(join(out, 'marks.json'), JSON.stringify({ flashes, pages: lined, marks: timed, problems: state.problems }, null, 2));
   console.log('mixing the preview');
   mux(video, lined.map((s) => ({ file: s.file, offset: s.offset })), join(out, 'sound.wav'), join(out, 'preview.mp4'));
   for (const m of timed.filter((x) => x.kind === 'scene-start' || x.kind === 'step')) {
