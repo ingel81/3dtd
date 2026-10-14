@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  MAP_DATA_CACHE, dropOldMapData, mapDataFetch, mapDataUrl, onMapDataProgress, resetMapDataProgress, setMapDataBase,
+  MAX_MAP_DATA_MEASURES, MAP_DATA_CACHE, dropOldMapData, mapDataFetch, mapDataUrl, onMapDataProgress, resetMapDataProgress, setMapDataBase,
   type MapDataProgress,
 } from './map-data';
 import { mapDataLine } from '../../components/main-menu/loading/loading-plate';
@@ -63,6 +63,14 @@ describe('map data (TODO E134)', () => {
       'map-data failed maps/missing.glb',
     ]);
     expect((loads[0] as PerformanceMeasure).detail).toEqual({ url, source: 'network', bytes: `body of ${url}`.length });
+  });
+
+  it('keeps only the newest measures, so a long session does not gather them', async () => {
+    performance.clearMeasures();
+    for (let k = 0; k < MAX_MAP_DATA_MEASURES + 20; k++) await mapDataFetch(mapDataUrl(`maps/assets/models/m${k}.glb`));
+    const loads = performance.getEntriesByType('measure').filter((m) => m.name.startsWith('map-data '));
+    expect(loads).toHaveLength(MAX_MAP_DATA_MEASURES);
+    expect(loads[0].name).toBe('map-data network maps/assets/models/m20.glb');
   });
 
   it('loads a file once from the network and from the cache after, counting both', async () => {

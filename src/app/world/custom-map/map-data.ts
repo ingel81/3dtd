@@ -17,7 +17,9 @@
  * `stale` (the index from the cache, offline) or `failed`, with `{ url,
  * source, bytes }` as detail: a slow load says which file and from where.
  * From the network it spans the whole download; from the cache the lookup
- * (the body is read by whoever asked for the file).
+ * (the body is read by whoever asked for the file). The newest
+ * MAX_MAP_DATA_MEASURES stay, the older go: the browser keeps measures for
+ * the page's life, and a session of many maps would gather thousands.
  */
 import { BUILD_VERSION } from '../../configs/build-info.config';
 
@@ -27,6 +29,10 @@ export const MAP_DATA_CACHE = `${CACHE_PREFIX}${BUILD_VERSION}`;
 
 /** The name every map file's performance.measure starts with */
 export const MAP_DATA_MEASURE = 'map-data';
+/** Map file measures kept at most, some three map loads */
+export const MAX_MAP_DATA_MEASURES = 300;
+/** The names of the measures kept, oldest first */
+const measured: string[] = [];
 
 export type MapDataSource = 'cache' | 'network' | 'stale' | 'failed';
 
@@ -35,7 +41,14 @@ function measureLoad(url: string, source: MapDataSource, start: number, bytes: n
   try {
     const root = mapDataRoot();
     const path = url.startsWith(root) ? url.slice(root.length) : url;
-    performance.measure(`${MAP_DATA_MEASURE} ${source} ${path}`, { start, end: performance.now(), detail: { url, source, bytes } });
+    const name = `${MAP_DATA_MEASURE} ${source} ${path}`;
+    performance.measure(name, { start, end: performance.now(), detail: { url, source, bytes } });
+    measured.push(name);
+    // The oldest go (clearMeasures takes every measure of a name: a file loaded twice goes as one)
+    while (measured.length > MAX_MAP_DATA_MEASURES) {
+      const old = measured.shift()!;
+      if (!measured.includes(old)) performance.clearMeasures(old);
+    }
   } catch {
     // No User Timing (an old browser, a test without it): nothing to note
   }
