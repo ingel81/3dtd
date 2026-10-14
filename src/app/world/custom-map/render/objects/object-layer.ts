@@ -25,7 +25,7 @@ import { addHeightFog } from '../environment/height-fog';
 import { WIND_GLSL, WIND_UNIFORMS, windSwayAtTop } from '../environment/wind';
 import { mapToScene } from '../map-coords';
 import { bakeImpostor, type Impostor } from './impostor';
-import { mergeParts } from './merge-parts';
+import { addVertexRoughMetal, mergeParts } from './merge-parts';
 
 /**
  * The placed objects of a map, drawn instanced. An asset with many objects
@@ -966,6 +966,7 @@ export class MapObjectLayer {
       if (peak > MAX_EMISSIVE) m.emissiveIntensity *= MAX_EMISSIVE / peak;
     }
     if (!card && wind <= 0 && !bob) {
+      if (m.userData['roughMetal']) addVertexRoughMetal(m);
       addHeightFog(m);
       this.materials.set(key, m);
       return m;
@@ -1074,6 +1075,7 @@ export class MapObjectLayer {
       }
     };
     m.customProgramCacheKey = () => `custom-map-object-${variant}`;
+    if (m.userData['roughMetal']) addVertexRoughMetal(m);
     addHeightFog(m);
     this.materials.set(key, m);
     return m;

@@ -123,7 +123,7 @@ describe('MapObjectLayer packed assets (few objects, no cells)', () => {
         const root = new Group();
         root.add(new Mesh(new BoxGeometry(1, 10, 1), new MeshStandardMaterial({ color: 0x884422 })));
         root.add(new Mesh(new BoxGeometry(3, 3, 3), new MeshStandardMaterial({ color: 0x22aa22 })));
-        root.add(new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ color: 0xffffff, metalness: 1 })));
+        root.add(new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ color: 0xffffff, emissive: 0xffaa00 })));
         return Promise.resolve(root);
       },
     });
@@ -131,7 +131,7 @@ describe('MapObjectLayer packed assets (few objects, no cells)', () => {
     const layer = new MapObjectLayer(field, lib, los);
     await layer.setObjects([{ id: 'a', asset: 'tree', x: 0, y: 0, z: 0, rotation: 0, scale: 1 }]);
     const meshes = los.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
-    // Trunk and crown share a look apart from colour: one mesh with vertex colours; the metal part keeps its own
+    // Trunk and crown share a look apart from colour: one mesh with vertex colours; the glowing part keeps its own
     expect(meshes).toHaveLength(2);
     const mergedMesh = meshes.find((m) => (m.material as MeshStandardMaterial).vertexColors)!;
     expect(mergedMesh.geometry.getAttribute('color').count).toBe(48);
