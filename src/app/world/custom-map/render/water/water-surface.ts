@@ -7,8 +7,8 @@ import {
   LinearFilter,
   Mesh,
   NoColorSpace,
-  RedFormat,
   RGBAFormat,
+  RGFormat,
   UnsignedByteType,
   Vector2,
   Vector4,
@@ -25,13 +25,15 @@ import type { MapEffects } from '../map-effects';
 import type { SceneCopy } from './scene-copy';
 import { setHeatHaze } from './heat-haze';
 import { bakeFlowMap, bakeFlowOffThread, flowInput } from './flow-map';
+import { bakeShoreCut, SHORE_CUT_RADIUS } from './shore-cut';
 
 /**
  * One area body of a map (water, sea, swamp, ice or lava over a mask): a
  * flat surface at `level` over the mask grown by two cells. The material
  * cuts it where the terrain rises above the level (smooth shoreline,
  * water-material.ts) and fades it out by the mask, so cell-sized masks do
- * not show as steps.
+ * not show as steps. Along steep banks the shore cut (shore-cut.ts, beside
+ * the mask in one texture) ends it on a smooth line just inside the wall.
  *
  * Only the main body runs on beyond the map's border (pass the apron).
  * Not a line-of-sight blocker (`userData.losTransparent`).
@@ -49,7 +51,11 @@ export class WaterSurface {
   private material: ShaderMaterial;
   private readonly tiles = new Map<number, Mesh<BufferGeometry, ShaderMaterial>>();
   private apronMesh: Mesh<BufferGeometry, ShaderMaterial> | null = null;
+  /** The mask (R) and the shore cut (G) per height sample */
   private readonly mask: DataTexture;
+  /** The mask array the texture was last baked from (a new one, say after an undo, bakes all) */
+  private maskSource: Uint8Array | null = null;
+  private maskLevel = Number.NaN;
   /** Baked current of the body (flow-map.ts), on the mask's grid */
   private readonly flow: DataTexture;
   /** A later bake of the current (editing: a pool brush must not pay for the whole body each step) */
@@ -71,7 +77,7 @@ export class WaterSurface {
     apron: ApronProfile | null,
   ) {
     this.kind = water.kind ?? 'water';
-    this.mask = new DataTexture(water.mask, field.columns, field.rows, RedFormat, UnsignedByteType);
+    this.mask = new DataTexture(new Uint8Array(field.columns * field.rows * 2), field.columns, field.rows, RGFormat, UnsignedByteType);
     this.mask.colorSpace = NoColorSpace;
     this.mask.magFilter = this.mask.minFilter = LinearFilter;
     this.mask.wrapS = this.mask.wrapT = ClampToEdgeWrapping;
@@ -117,12 +123,7 @@ export class WaterSurface {
     const r = rect
       ? { i0: Math.max(0, rect.i0 - 3), j0: Math.max(0, rect.j0 - 3), i1: Math.min(f.columns - 2, rect.i1 + 2), j1: Math.min(f.rows - 2, rect.j1 + 2) }
       : { i0: 0, j0: 0, i1: f.columns - 2, j1: f.rows - 2 };
-    if (this.mask.image.data !== water.mask || !rect) {
-      this.mask.image.data = water.mask;
-      this.mask.needsUpdate = true;
-    } else {
-      uploadRect(this.mask, rect);
-    }
+    this.bakeMask(water, rect);
     // Ice stands still. The current runs over the whole body, before the tiles are built: the first bake
     // right away, edits (a mask or height brush) once they pause for a quarter second
     if (kind !== 'ice') {
@@ -150,6 +151,30 @@ export class WaterSurface {
       for (let ti = Math.floor(r.i0 / TILE); ti <= Math.floor(r.i1 / TILE); ti++) this.buildTile(water, ti, tj);
     }
     if (apron || !rect) this.buildApron(water, apron);
+  }
+
+  /**
+   * Mask and shore cut anew: over the whole grid for a new mask array, a new
+   * level or no rectangle; else around `rect` (the cut reaches a few
+   * samples past a change of heights)
+   */
+  private bakeMask(water: MapWater, rect?: GridRect): void {
+    const f = this.field;
+    const data = this.mask.image.data as Uint8Array;
+    const whole = !rect || water.mask !== this.maskSource || water.level !== this.maskLevel;
+    const grow = SHORE_CUT_RADIUS;
+    let r: GridRect | null;
+    if (whole) {
+      // Only around the mask: no surface stands farther out (a pool on a big map bakes its corner)
+      data.fill(0);
+      r = maskBounds(water.mask, f.columns, f.rows, grow);
+    } else {
+      r = { i0: Math.max(0, rect.i0 - grow), j0: Math.max(0, rect.j0 - grow), i1: Math.min(f.columns - 1, rect.i1 + grow), j1: Math.min(f.rows - 1, rect.j1 + grow) };
+    }
+    if (r) bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, r);
+    this.maskSource = water.mask;
+    this.maskLevel = water.level;
+    uploadRect(this.mask, whole ? undefined : (r ?? undefined));
   }
 
   /** The tile and border meshes (all share the material) */
@@ -357,4 +382,24 @@ export class WaterSurface {
     g.computeBoundingBox();
     return g;
   }
+}
+
+/** The samples a mask sets, grown by `grow` and clamped to the grid; null when it is empty */
+function maskBounds(mask: Uint8Array, columns: number, rows: number, grow: number): GridRect | null {
+  let i0 = columns;
+  let j0 = rows;
+  let i1 = -1;
+  let j1 = -1;
+  for (let j = 0; j < rows; j++) {
+    const row = j * columns;
+    for (let i = 0; i < columns; i++) {
+      if (!mask[row + i]) continue;
+      if (i < i0) i0 = i;
+      if (i > i1) i1 = i;
+      j0 = Math.min(j0, j);
+      j1 = j;
+    }
+  }
+  if (i1 < 0) return null;
+  return { i0: Math.max(0, i0 - grow), j0: Math.max(0, j0 - grow), i1: Math.min(columns - 1, i1 + grow), j1: Math.min(rows - 1, j1 + grow) };
 }

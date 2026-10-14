@@ -215,7 +215,8 @@ Ebene unter einem Krater zum See zu machen. Ein Krater 20 m breit und 2 m tief h
 Die Flut läuft in einem Worker (auf 1025² etwa 100 ms); ändert sich die Karte, während sie läuft, verwirft der Editor
 das Ergebnis. Dig lake gräbt unter dem Pinsel ein Seebett bis zur eingestellten Tiefe und füllt es. Paint und
 Erase malen die Maske von Hand. Sea from the edge flutet das Gewässer vom Kartenrand her über alles unter seinem
-Spiegel.
+Spiegel. Füllt man eine Grube mit senkrechten Wänden (Terrain Lower), endet das Wasser auf einer glatten Linie knapp vor
+der Wand statt in Sägezähnen entlang des Rasters (Uferschnitt, [CUSTOM_MAPS.md](CUSTOM_MAPS.md), Wasser).
 
 **Objects (5).** Palette aus dem Katalog mit Bildern, Kategorien (auch Structures und Effects), Biom-Filter nach den
 Tags des Katalogs und Suche (Name, Id oder Tag).

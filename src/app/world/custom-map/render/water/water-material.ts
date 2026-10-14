@@ -23,6 +23,7 @@ import { FLOW_MAP_MAX, SHORE_FIELD_MAX, SLOPE_FIELD_MAX } from './flow-map';
 import { SHORE_PHASE_GLSL, shoreWaves } from './shore-waves';
 import { lavaNoiseTexture } from './lava-noise';
 import { SCENE_COPY_GLSL, type SceneCopy } from './scene-copy';
+import { SHORE_CUT_SCALE } from './shore-cut';
 import type { MapEffects } from '../map-effects';
 
 /**
@@ -30,7 +31,10 @@ import type { MapEffects } from '../map-effects';
  * rivers). Depth per pixel is the surface height minus the terrain height
  * under it (HeightTexture), so the shoreline is where the terrain cuts the
  * surface: smooth, whatever the grid. Area bodies also fade out by their
- * mask (bilinear), so a mask edge over low ground is rounded, not stepped.
+ * mask (bilinear), so a mask edge over low ground is rounded, not stepped,
+ * and end on their shore cut (shore-cut.ts, the mask texture's G): at a
+ * steep bank, where the terrain's triangles cross the level in saw teeth,
+ * on a smooth line just inside them.
  *
  * Kinds (define KIND):
  * - water: clear at the shore, the body colour in the deep, waves, sky
@@ -156,7 +160,7 @@ export function setWaterFlow(material: ShaderMaterial, flow: Texture | null): vo
   material.uniforms['uHasFlow'].value = flow ? 1 : 0;
 }
 
-/** Bilinear mask of an area body over the grid: texture and map-to-uv transform */
+/** Bilinear mask (R) and shore cut (G) of an area body over the grid: texture and map-to-uv transform */
 export function setWaterMask(material: ShaderMaterial, mask: Texture | null, uv: Vector4): void {
   const u = material.uniforms;
   u['uMask'].value = mask;
@@ -435,7 +439,11 @@ void main() {
   // Depth per pixel: the shore is where the terrain cuts the surface
   float depth = outside ? vApronDepth : vMapPos.y - terrainHeightAt(m);
   float edge = 1.0;
-  if (uHasMask > 0.5 && !outside) edge = smoothstep(0.3, 0.6, texture2D(uMask, m * uMaskUv.xy + uMaskUv.zw).r);
+  if (uHasMask > 0.5 && !outside) {
+    vec2 maskCut = texture2D(uMask, m * uMaskUv.xy + uMaskUv.zw).rg;
+    // The shore cut in cells (positive on the wet side): a soft edge a quarter cell wide
+    edge = smoothstep(0.3, 0.6, maskCut.r) * smoothstep(0.0, 0.25, (maskCut.g * 255.0 - 128.0) / ${SHORE_CUT_SCALE.toFixed(1)});
+  }
 #if RIVER == 1
   edge *= 1.0 - smoothstep(0.82, 1.0, abs(vAcross));
   // The river's current per vertex: its patterns move downstream at half of it in two cross-faded phases (see

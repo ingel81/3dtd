@@ -161,7 +161,17 @@ bzw. `bridge-deck-lava`; fehlt das Stück im Katalog, bleibt es beim Holzdeck.
 Ein Material für alle Gewässer (`water-material.ts`). Die Tiefe je Pixel ist Spiegelhöhe minus Geländehöhe aus der
 Höhentextur: das Ufer liegt dort, wo das Gelände die Fläche schneidet, glatt, unabhängig vom Raster. Flächen-Gewässer
 werden über ihrer Maske plus zwei Zellen gezeichnet und mit der bilinearen Maske ausgeblendet (runde Kanten), mit
-weichem Saum. `losTransparent`. Wasser empfängt den Schatten der Sonne (Bäume, Brücken, Ufer dunkeln Körper, Glanz und
+weichem Saum. An steilen Ufern reicht das nicht: das Gelände hat je Zelle zwei feste Dreiecke, eine Wand, die innerhalb
+einer Zelle steigt (mit Terrain Lower gegrabene Grube, Kaimauer), schneidet den Spiegel in Sägezähnen entlang der
+Samples. Dafür trägt die Maskentextur (RG8 statt R8, ein Byte mehr je Sample und Gewässer) im G-Kanal den Uferschnitt
+(`shore-cut.ts`): je Sample der Abstand zur Wasserlinie des Dreiecksnetzes in Zellen (bis 3, nass positiv), zweimal mit
+[1 2 1] geglättet, an steilen Ufern (größter Höhenschritt zum Nachbarn ab 1,5 bis 3 je Meter) um 0,5 Zellen nach innen
+geschoben, an flachen um 0,5 nach außen. Das Material schneidet, wo der bilineare Wert unter 0 fällt (weich über eine
+Viertelzelle): an der Wand endet das Wasser auf einer glatten Linie knapp vor den Zähnen, ein schmaler Streifen Wand
+bleibt sichtbar; am flachen Ufer schneidet weiter die Tiefe je Pixel. Kein zusätzlicher Texturzugriff (derselbe
+Maskenzugriff liest R und G). Gebacken auf dem Hauptthread: neu über die Maskengrenzen bei neuem Spiegel, neuer Maske oder
+Ganzneubau (rund 40 bis 70 ms auf einem 1025er-Raster mit Ufer überall; ein kleiner See nur sein Rechteck), sonst um das
+Pinsel-Rechteck (unter 2 ms). `losTransparent`. Wasser empfängt den Schatten der Sonne (Bäume, Brücken, Ufer dunkeln Körper, Glanz und
 etwas die Spiegelung) und die Punktlichter des Pools als Glanzpunkte mit schwachem Lichtfleck (Laternen, Fackeln,
 Lava spiegeln sich).
 
