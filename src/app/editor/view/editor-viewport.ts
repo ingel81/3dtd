@@ -472,6 +472,15 @@ export class EditorViewport {
     return this.trial.active;
   }
 
+  /** How much faster than real time the trial wave walks (1, 2, 4, 8); changes a running wave at once */
+  get trialSpeed(): number {
+    return this.trial.speed;
+  }
+
+  set trialSpeed(speed: number) {
+    this.trial.speed = speed;
+  }
+
   /**
    * The trial wave on or off: the enemies of the map's first wave (or a
    * mix of speeds) walk every spawn's route at their real speed.
@@ -499,7 +508,7 @@ export class EditorViewport {
     const t = TrialRunners.timing(routes, types);
     this.callbacks.status(
       `Trial wave: ${types.map((x) => x.name).join(', ')} on ${routes.length} ${routes.length === 1 ? 'route' : 'routes'}; ` +
-        `the HQ in ${Math.round(t.fastest)} to ${Math.round(t.slowest)} s (P stops)`,
+        `the HQ in ${Math.round(t.fastest)} to ${Math.round(t.slowest)} s (P stops, + and - change the speed)`,
     );
   }
 

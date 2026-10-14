@@ -65,9 +65,9 @@ export function actionFor(map: Keymap, key: string): string | null {
   return null;
 }
 
-/** Keys that may not be given away: they mean something everywhere */
+/** Keys that may not be given away: they mean something everywhere (+ and - the trial wave's speed) */
 export function bindable(key: string): boolean {
-  return key.length === 1 && !'[]{}?,.'.includes(key) && key !== ' ';
+  return key.length === 1 && !'[]{}?,.+-='.includes(key) && key !== ' ';
 }
 
 function safeStorage(): Storage | null {

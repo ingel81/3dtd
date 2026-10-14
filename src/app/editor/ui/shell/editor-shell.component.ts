@@ -19,6 +19,7 @@ import { TdIconComponent, type TdIconName } from '../../../components/icon/icon.
 import { SYMMETRY_MODES, type SymmetryMode } from '../../ops/symmetry';
 import { LANDSCAPE_MODES, TOOL_GROUPS, TOOLS, type ToolId } from '../../tools/tool';
 import { BIOMES, biomeById } from '../../ops/landscape/biomes';
+import { TRIAL_SPEEDS, stepTrialSpeed } from '../../view/trial-runners';
 import { CommandPaletteComponent } from './command-palette.component';
 import type { EditorCommand } from './commands';
 import { KEY_ACTIONS, actionFor, bindable, loadKeymap, rebind, saveKeymap, type Keymap } from './keymap';
@@ -138,6 +139,9 @@ export class EditorShellComponent implements OnDestroy {
   readonly tourStep = signal<number | null>(null);
   /** Whether the trial wave walks (the button shows it pressed) */
   readonly trialOn = signal(false);
+  /** How fast the trial wave walks; kept for the next trial while the editor is open */
+  readonly trialSpeed = signal(1);
+  readonly trialSpeeds = TRIAL_SPEEDS;
   /** Panels made so far: the current tool's at once, the others one by one when the page is idle */
   readonly mounted = signal<ReadonlySet<ToolId>>(new Set<ToolId>());
   readonly tour = computed(() => {
@@ -312,10 +316,20 @@ export class EditorShellComponent implements OnDestroy {
   }
 
   trial(): void {
-    this.session.viewport?.toggleTrial();
+    const vp = this.session.viewport;
+    if (vp) vp.trialSpeed = this.trialSpeed();
+    vp?.toggleTrial();
     const on = !!this.session.viewport?.trialRunning;
     this.trialOn.set(on);
     if (on) this.tourEvent('trial');
+  }
+
+  /** The trial wave's speed, also while it walks */
+  setTrialSpeed(speed: number): void {
+    this.trialSpeed.set(speed);
+    const vp = this.session.viewport;
+    if (vp) vp.trialSpeed = speed;
+    this.session.flash(`Trial wave at ${speed}x`);
   }
 
   testPlay(): void {
@@ -380,6 +394,9 @@ export class EditorShellComponent implements OnDestroy {
     }
     if (!ctrl && !e.altKey) {
       if (e.key === '?') return this.handled(e, () => this.help.update((v) => !v));
+      // + and - change the trial wave's speed while it walks, as they change the game's speed
+      const step = e.key === '+' || e.key === '=' ? 1 : e.key === '-' ? -1 : 0;
+      if (step && this.trialOn()) return this.handled(e, () => this.setTrialSpeed(stepTrialSpeed(this.trialSpeed(), step)));
       const action = e.shiftKey ? null : actionFor(this.keymap(), e.key);
       if (action && this.runAction(action)) return this.handled(e, () => undefined);
     }
@@ -597,6 +614,7 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
       ['Right held + W A S D', 'Fly; Q E lower, raise; Shift faster'],
       ['C', 'Game view: where the game starts, and back'],
       ['P', 'Trial wave: the enemies walk the routes at their speed'],
+      ['+ -', 'Trial wave faster, slower (1x to 8x)'],
       ['Middle drag, Shift+right drag', 'Pan'],
       ['Wheel', 'Zoom to the pointer'],
       ['Arrow keys', 'Pan'],

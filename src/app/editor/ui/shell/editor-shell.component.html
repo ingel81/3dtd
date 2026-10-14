@@ -131,6 +131,17 @@
       <app-editor-check class="es-check" />
     }
     <app-editor-minimap class="es-minimap" />
+    @if (trialOn()) {
+      <div class="es-trial td-overlay" data-test="trial-speed">
+        <span class="td-caps">Trial wave</span>
+        <div class="td-seg is-compact is-sm" role="group" aria-label="Trial wave speed" aria-keyshortcuts="+ -">
+          @for (s of trialSpeeds; track s) {
+            <button type="button" [attr.aria-pressed]="trialSpeed() === s" (click)="setTrialSpeed(s)">{{ s }}x</button>
+          }
+        </div>
+        <button class="td-btn-ghost td-btn-sm" type="button" (click)="trial()" matTooltip="Stop the trial wave (P)">Stop</button>
+      </div>
+    }
     @if (legend()) {
       <div class="es-legend td-overlay" role="note" aria-label="Mouse and keys in the view" data-test="legend">
         <span class="es-legend-row"><td-icon name="mouseLeft" [size]="14" /> Tool</span>

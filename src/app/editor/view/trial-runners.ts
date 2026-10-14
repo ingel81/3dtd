@@ -3,6 +3,8 @@
  * spawn's route to the HQ at their real speed, animated, so a map's
  * distances, choke points and sight lines can be judged without starting
  * the game. Ground enemies follow the roads; nothing fights, nothing dies.
+ * It can run faster than real time (`speed`, also while it walks); it is
+ * only a picture in the editor, the game's simulation never sees it.
  */
 import { AnimationMixer, CanvasTexture, Group, Sprite, SpriteMaterial, type AnimationClip, type Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -13,6 +15,15 @@ import { pointAt } from '../ops/path-graph';
 
 /** Ground enemies of different speeds for a trial when the map names none */
 export const TRIAL_TYPES = ['zombie', 'rat', 'tank', 'spider', 'skeleton'];
+/** Speeds of the trial wave, as in the game's speed button plus one more: a long route takes minutes at 1x */
+export const TRIAL_SPEEDS: readonly number[] = [1, 2, 4, 8];
+
+/** The next trial speed up (`step` 1) or down (-1), held at the ends */
+export function stepTrialSpeed(current: number, step: 1 | -1): number {
+  const next = step > 0 ? TRIAL_SPEEDS.find((s) => s > current) : [...TRIAL_SPEEDS].reverse().find((s) => s < current);
+  return next ?? current;
+}
+
 /** Seconds between two runners on one route */
 const SPACING_S = 1.6;
 /** Most runners at once, all routes together */
@@ -53,6 +64,8 @@ export class TrialRunners {
   private clock = 0;
   private spawned = 0;
   private running = false;
+  /** How much faster than real time the wave walks; stays for the next start */
+  speed = 1;
   private readonly dotMaterials = new Map<string, SpriteMaterial>();
 
   constructor(private readonly heightAt: (x: number, y: number) => number) {
@@ -91,8 +104,10 @@ export class TrialRunners {
   }
 
   /** Every frame */
-  update(dt: number): void {
+  update(frameDt: number): void {
     if (!this.running) return;
+    // Faster walks the same way in bigger steps: spacing, walking and animation all follow the wave's clock
+    const dt = frameDt * this.speed;
     this.clock += dt;
     // A new runner on each route every few seconds, the types in turn
     const due = Math.floor(this.clock / SPACING_S);

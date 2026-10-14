@@ -17,6 +17,8 @@ describe('keymap', () => {
     expect(loadKeymap(storage)['view:game']).toBe('b');
     expect(KEY_ACTIONS.length).toBeGreaterThan(12);
     expect(bindable('[')).toBe(false);
+    expect(bindable('+')).toBe(false);
+    expect(bindable('-')).toBe(false);
     expect(bindable('x')).toBe(true);
   });
 });

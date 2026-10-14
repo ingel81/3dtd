@@ -1,5 +1,5 @@
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
-import { TrialRunners } from './trial-runners';
+import { TRIAL_SPEEDS, TrialRunners, stepTrialSpeed } from './trial-runners';
 
 describe('trial wave', () => {
   it('walks ground enemies along the routes at their speed', () => {
@@ -26,5 +26,29 @@ describe('trial wave', () => {
     trial.stop();
     expect(trial.group.children).toHaveLength(0);
     expect(trial.active).toBe(false);
+  });
+
+  it('walks faster at a higher speed, also when changed while it walks', () => {
+    const trial = new TrialRunners(() => 0);
+    (trial as unknown as { model: () => Promise<null> }).model = () => Promise.resolve(null);
+    trial.start([{ points: [{ x: 0, y: 0 }, { x: 0, y: 400 }], length: 400 }], ['zombie']);
+    trial.update(1.7);
+    const [first] = trial.group.children;
+    const at1 = first.position.z;
+    trial.update(1);
+    const step1 = first.position.z - at1;
+    trial.speed = 4;
+    trial.update(1);
+    expect(first.position.z - at1 - step1).toBeCloseTo(4 * step1, 5);
+    // A runner each spacing of the wave's own clock: four times as many in the same frames
+    expect(trial.group.children.length).toBeGreaterThan(2);
+    expect(stepTrialSpeed(1, 1)).toBe(2);
+    expect(stepTrialSpeed(8, 1)).toBe(8);
+    expect(stepTrialSpeed(1, -1)).toBe(1);
+    expect(stepTrialSpeed(3, 1)).toBe(4);
+    expect(stepTrialSpeed(4, -1)).toBe(TRIAL_SPEEDS[1]);
+    // The speed stays for the next wave
+    trial.start([{ points: [{ x: 0, y: 0 }, { x: 0, y: 400 }], length: 400 }], ['zombie']);
+    expect(trial.speed).toBe(4);
   });
 });

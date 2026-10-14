@@ -59,6 +59,7 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
 | T | Draufsicht an und aus |
 | C | Spielansicht: die Startansicht des Spiels über dem HQ (70 Grad, 60 Grad Bildwinkel), noch einmal C zurück |
 | P | Probewelle: die Gegner laufen die Routen ab (auch der Knopf „Trial wave“) |
+| + und - (auch =) | Probewelle schneller, langsamer: 1x, 2x, 4x, 8x, solange sie läuft (nicht umlegbar) |
 | Strg+K | Befehle: Werkzeuge, Pinsel, Biome, Ansichten, Symmetrie, Marker und die Objekte der Karte nach Namen |
 | 1 bis 9, 0, G, D | Werkzeug: Landscape, Terrain, Paint, Water, Objects, Roads, Spawns and HQ, Sky and weather, Map, Copy and stamps, Rules, Measure |
 | M | Symmetrie reihum: aus, Mirror X, Mirror Y, Both, Turn 2, Turn 4 (auch oben in der Kopfleiste) |
@@ -382,7 +383,12 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   Koop-Versand; Autosaves packen leichter und größer); ab 80 % gelb, darüber rot mit Hinweis
 - Probewelle (P, „Trial wave“): die Gegnermodelle des Spiels laufen jede Route vom Spawn zum HQ mit ihrer echten
   Geschwindigkeit und Animation, die Typen der ersten Welle der eigenen Wellenliste oder eine Mischung (Zombie, Ratte,
-  Panzer, Spinne, Skelett); die Statuszeile nennt, wie lange der schnellste und der langsamste bis zum HQ brauchen
+  Panzer, Spinne, Skelett); die Statuszeile nennt, wie lange der schnellste und der langsamste bis zum HQ brauchen.
+  Solange sie läuft, steht oben rechts in der Ansicht eine Leiste mit 1x, 2x, 4x, 8x und Stop; + und - schalten
+  ebenso (wie die Spielgeschwindigkeit im Spiel, eine Stufe mehr, weil lange Routen bei 1x Minuten brauchen). Die
+  Geschwindigkeit gilt sofort und bleibt für die nächste Probewelle, solange der Editor offen ist. Sie streckt nur die
+  Uhr der Läufer (Abstand, Weg und Animation, `TrialRunners.speed`); die Probewelle ist ein Bild im Editor, die
+  Simulation des Spiels sieht sie nicht
 
 ## Architektur
 

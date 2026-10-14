@@ -165,6 +165,14 @@ test('makes a map from a template and uses the pro tools on it', async ({ page }
   await page.locator('[data-test=palette-field]').fill('trial wave');
   await page.keyboard.press('Enter');
   await expect(page.locator('[data-test=trial]')).toHaveAttribute('aria-pressed', 'true');
+  // + and - change its speed while it walks
+  const speed = page.locator('[data-test=trial-speed] [aria-pressed=true]');
+  await expect(speed).toHaveText('1x');
+  await page.keyboard.press('+');
+  await page.keyboard.press('+');
+  await expect(speed).toHaveText('4x');
+  await page.keyboard.press('-');
+  await expect(speed).toHaveText('2x');
 
   // A lasso over the middle selects objects; Ctrl+G groups them
   await page.keyboard.press('5');
