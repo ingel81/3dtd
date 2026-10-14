@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { detectClick, detectFlashes, displays, findOutput, mux, raiseHandle, raiseWindow, releaseWindow, screenColour, startCapture, toFlac } from './capture.mjs';
+import { detectClick, detectFlashes, displays, findOutput, keepDisplayOn, mux, raiseHandle, raiseWindow, releaseWindow, screenColour, startCapture, toFlac } from './capture.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // --script <file>: another programme (a probe), default script.mjs beside this file
@@ -221,6 +221,8 @@ async function main() {
   let capture = null;
   /** The raised window's handle, topmost while the run lasts */
   let raised = 0;
+  // The monitors stay on while a run records (they went off with nobody there and the capture froze)
+  const letDisplaySleep = display ? keepDisplayOn() : () => undefined;
   if (!rehearse && !headless) {
     // Which ddagrab output shows the window: a solid test colour, one frame of each output
     // A title only this window carries, to find it among the desktop's windows
@@ -456,6 +458,7 @@ async function main() {
     console.error(`run stopped: ${e.message}`);
     await closeSegment().catch((err) => console.error(`  the open page's sound is lost: ${err.message.split('\n')[0]}`));
   } finally {
+    letDisplaySleep();
     const stopped = capture ? await capture.stop() : null;
     if (stopped && stopped.code !== 0) console.log(`ffmpeg ended with ${stopped.code}:\n${stopped.log}`);
     save();

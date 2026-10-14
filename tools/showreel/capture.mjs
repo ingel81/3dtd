@@ -1,3 +1,4 @@
+import { spawn as spawnProcess } from 'node:child_process';
 // Screen capture and the sync of picture and sound for the showreel runner (run.mjs): which ddagrab output shows
 // the browser, the recording with hevc_nvenc, the white flashes in the video and the clicks in the sound files,
 // and the preview with the sound lined up. Needs ffmpeg on PATH with ddagrab and hevc_nvenc (Windows, NVIDIA).
@@ -50,6 +51,17 @@ export function screenColour(x, y) {
   } catch {
     return null;
   }
+}
+
+/**
+ * The displays kept on while the run records: with nobody at the machine Windows turned the monitors off and
+ * the desktop duplication then delivered no new frames (takes 4 to 7 froze on a still). A PowerShell process
+ * asks for ES_DISPLAY_REQUIRED every 20 s until it is killed; the power settings stay as they are
+ */
+export function keepDisplayOn() {
+  const script = `Add-Type -Name P -Namespace W -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f);'; while ($true) { [W.P]::SetThreadExecutionState(0x80000003) | Out-Null; Start-Sleep 20 }`;
+  const child = spawnProcess('powershell.exe', ['-NoProfile', '-Command', script], { stdio: 'ignore' });
+  return () => child.kill();
 }
 
 export function releaseWindow(handle) {
