@@ -87,6 +87,8 @@ export function noiseDab(
  */
 export function erodeDab(t: MapTerrain, x: number, y: number, brush: BrushSettings, passes = 3, talusDeg = 33): GridRect {
   const rect = sampleRectAround(t, x, y, brush.radius);
+  // A dab wholly beyond the map's edge touches no sample
+  if (rect.i1 < rect.i0 || rect.j1 < rect.j0) return rect;
   const g = t.grid;
   const c = g.columns;
   const h = g.heights;
