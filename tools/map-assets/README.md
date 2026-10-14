@@ -24,6 +24,9 @@ blender --background --factory-startup --python tools/map-assets/build_models.py
 # Komprimieren (meshopt, WebP 512 px, 1024 px für textureSize 1024 in objects.json) und vermessen
 python -I tools/map-assets/pack_models.py $DL/glb-raw public/maps/assets [<id> ...]
 
+# Farbe, Rauheit und Metall der LOD-Modelle (-lod1) aus den vollen Modellen (Mittel der Texturen, linear)
+python -I tools/map-assets/match_lods.py public/maps/assets [<id> ...]
+
 # Objekte in catalog.json schreiben (objects.json + Messwerte), LICENSES.md neu
 python -I tools/map-assets/update_catalog.py $DL/glb-raw public/maps/assets
 ```

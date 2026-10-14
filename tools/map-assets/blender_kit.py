@@ -330,7 +330,8 @@ def finish(name, objects, ao_size=512):
 
 
 def flat_copy(material):
-    """A texture-free stand-in for a material: the average colour of its base colour image (times its tint)"""
+    """A texture-free stand-in for a material: the average colour of its base colour image (times its tint).
+    A first guess only: match_lods.py sets the final colour, roughness and metalness on the packed GLBs"""
     import numpy as np
     nt = material.node_tree
     bsdf = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None) if nt else None
