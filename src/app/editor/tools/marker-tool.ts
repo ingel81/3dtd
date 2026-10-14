@@ -146,7 +146,7 @@ export class MarkerTool implements EditorTool {
     return false;
   }
 
-  cancel(ctx: ToolContext): void {
+  cancel(ctx: ToolContext): boolean {
     const d = this.drag;
     this.drag = null;
     if (d?.moved) {
@@ -154,6 +154,7 @@ export class MarkerTool implements EditorTool {
       ctx.editor.doc.hq = d.before.hq!;
       ctx.editor.emit({ markers: true });
     }
+    return !!d;
   }
 
   hint(ctx: ToolContext): string {

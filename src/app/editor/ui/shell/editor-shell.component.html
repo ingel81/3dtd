@@ -68,7 +68,9 @@
 
   <nav class="es-tools" aria-label="Tools">
     @for (g of toolGroups; track g.label) {
-      <span class="es-tools-head td-caps" aria-hidden="true">{{ g.label }}</span>
+      @if (g.label) {
+        <span class="es-tools-head td-caps" aria-hidden="true">{{ g.label }}</span>
+      }
       @for (t of g.tools; track t.id) {
         @let info = toolInfo(t.id);
         <button class="es-tool" type="button" [attr.aria-pressed]="session.tool() === t.id" [attr.aria-label]="info.label"
@@ -181,6 +183,9 @@
       <!-- Read-only (another tab edits the map): every control of the panels is off -->
       <fieldset class="es-fieldset" [disabled]="session.readOnly()">
         <!-- Panels stay once made and only hide: switching tools does not build them again -->
+        @if (mounted().has('look')) {
+          <div class="es-panel" [class.is-off]="session.tool() !== 'look'"><app-look-panel /></div>
+        }
         @if (mounted().has('landscape')) {
           <div class="es-panel" [class.is-off]="session.tool() !== 'landscape'"><app-landscape-panel /></div>
         }

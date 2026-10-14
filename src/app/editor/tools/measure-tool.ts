@@ -72,10 +72,12 @@ export class MeasureTool implements EditorTool {
     ctx.overlay.setMeasure(p?.hit && pts.length ? [...pts, p.hit] : pts);
   }
 
-  cancel(ctx: ToolContext): void {
+  cancel(ctx: ToolContext): boolean {
+    const had = ctx.settings.measure.length > 0;
     ctx.settings.measure = [];
     ctx.overlay.setMeasure(null);
     ctx.settingsChanged();
+    return had;
   }
 
   hint(ctx: ToolContext): string {

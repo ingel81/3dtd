@@ -17,18 +17,19 @@ import { DEFAULT_RIVER, type RiverOptions } from '../ops/landscape/river';
 import { DEFAULT_ROAD, type RoadOptions } from '../ops/landscape/road';
 import type { EditorOverlay } from '../view/editor-overlay';
 
-export type ToolId = 'landscape' | 'stamp' | 'gameplay' | 'measure' | 'terrain' | 'paint' | 'water' | 'objects' | 'paths' | 'markers' | 'environment' | 'settings';
+export type ToolId = 'look' | 'landscape' | 'stamp' | 'gameplay' | 'measure' | 'terrain' | 'paint' | 'water' | 'objects' | 'paths' | 'markers' | 'environment' | 'settings';
 
 export interface ToolInfo {
   id: ToolId;
   label: string;
-  /** The key that picks it */
+  /** The key that picks it (Esc for Look: it is no single key one can give away) */
   key: string;
   /** What it is for, for the tooltip */
   about: string;
 }
 
 export const TOOLS: readonly ToolInfo[] = [
+  { id: 'look', label: 'Look', key: 'Esc', about: 'Look around and click things to see what they are; changes nothing' },
   { id: 'landscape', label: 'Landscape', key: '1', about: 'Biomes, mountains, rivers and roads: ground, paint and plants at once' },
   { id: 'terrain', label: 'Terrain', key: '2', about: 'Raise, lower, smooth, level, terrace, cliffs and ramps' },
   { id: 'paint', label: 'Paint', key: '3', about: 'Ground layers and auto paint' },
@@ -45,9 +46,12 @@ export const TOOLS: readonly ToolInfo[] = [
 
 /**
  * The tool column: short names under the icons, in three groups by what
- * a map maker does (shape the land, make it playable, the map as a whole)
+ * a map maker does (shape the land, make it playable, the map as a whole),
+ * under Look, which changes nothing
  */
 export const TOOL_GROUPS: readonly { label: string; tools: readonly { id: ToolId; short: string }[] }[] = [
+  // Look stands alone above the groups: the hand when no tool is in it
+  { label: '', tools: [{ id: 'look', short: 'Look' }] },
   {
     label: 'Shape',
     tools: [
@@ -287,13 +291,13 @@ export interface EditorTool {
   frame?(dt: number, p: ToolPointer | null, ctx: ToolContext): void;
   /** A key while the tool is active; true when it used it */
   key?(e: KeyboardEvent, ctx: ToolContext): boolean;
-  /** Esc: drop what is half done */
-  cancel?(ctx: ToolContext): void;
+  /** Esc: drop what is half done; true when there was something (a further Esc then goes to Look) */
+  cancel?(ctx: ToolContext): boolean;
   /** The line of help under the map */
   hint(ctx: ToolContext): string;
 }
 
-/** A tool that does nothing on the map (Environment, Map settings) */
+/** A tool that does nothing on the map (Environment, Map settings, Rules) */
 export class PanelTool implements EditorTool {
   constructor(
     readonly id: ToolId,

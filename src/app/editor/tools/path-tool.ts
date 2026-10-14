@@ -245,7 +245,8 @@ export class PathTool implements EditorTool {
     return false;
   }
 
-  cancel(ctx: ToolContext): void {
+  cancel(ctx: ToolContext): boolean {
+    const busy = !!this.last || !!this.dragging || !!this.box;
     const last = this.last;
     this.last = null;
     this.mirrored = [];
@@ -263,6 +264,7 @@ export class PathTool implements EditorTool {
       ctx.setBox(null);
       this.box = null;
     }
+    return busy;
   }
 
   hint(ctx: ToolContext): string {

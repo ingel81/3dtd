@@ -317,6 +317,9 @@ describe('terrain jobs in the session', () => {
 describe('editor session brushes', () => {
   it('gives each tool its own brush, kept while another is in hand', () => {
     const { s } = session();
+    // A map opens on Look; Landscape's brush starts at its own size
+    expect(s.tool()).toBe('look');
+    s.selectTool('landscape');
     expect(s.settings.brush.radius).toBe(40);
     s.patchSettings((st) => (st.brush.radius = 70));
     s.selectTool('paint');

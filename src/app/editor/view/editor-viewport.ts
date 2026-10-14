@@ -313,7 +313,11 @@ export class EditorViewport {
     this.frameMap();
   }
 
-  /** Global keys the shell passes on: the tool first, then the camera */
+  /**
+   * Global keys the shell passes on: the tool first, then the camera.
+   * Esc drops what is half done and the selection; false when there was
+   * neither (the shell then goes to Look).
+   */
   key(e: KeyboardEvent): boolean {
     // Flying with the right button held takes W A S D Q E before any tool
     const k = e.key.toLowerCase();
@@ -324,9 +328,10 @@ export class EditorViewport {
     // A locked view (a terrain job, a map another tab edits) takes no edits by key either: Delete, Ctrl+D, End …
     if (!this.locked && this.tool?.key?.(e, this.ctx)) return true;
     if (e.key === 'Escape') {
-      this.tool?.cancel?.(this.ctx);
+      const dropped = this.tool?.cancel?.(this.ctx) ?? false;
+      const selected = this.editor.selection !== null;
       this.editor.select(null);
-      return true;
+      return dropped || selected;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return false;
     const b = this.settings.brush;

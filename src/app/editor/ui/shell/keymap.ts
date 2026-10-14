@@ -14,7 +14,8 @@ export interface KeyAction {
 }
 
 export const KEY_ACTIONS: readonly KeyAction[] = [
-  ...TOOLS.map((t) => ({ id: `tool:${t.id}`, label: `Tool: ${t.label}`, key: t.key.toLowerCase() })),
+  // Look stays on Esc: Esc first drops what is half done, so it is no key to give away
+  ...TOOLS.filter((t) => t.id !== 'look').map((t) => ({ id: `tool:${t.id}`, label: `Tool: ${t.label}`, key: t.key.toLowerCase() })),
   { id: 'view:frame', label: 'Frame the selection or the map', key: 'f' },
   { id: 'view:top', label: 'Top view on or off', key: 't' },
   { id: 'view:game', label: 'Game view on or off', key: 'c' },

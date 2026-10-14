@@ -128,8 +128,10 @@ export class LandscapeTool implements EditorTool {
     }
   }
 
-  cancel(ctx: ToolContext): void {
+  cancel(ctx: ToolContext): boolean {
+    const busy = !!this.stroke || !!this.line;
     this.end(ctx);
+    return busy;
   }
 
   hint(ctx: ToolContext): string {

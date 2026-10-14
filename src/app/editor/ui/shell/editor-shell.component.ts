@@ -31,6 +31,7 @@ import { EditorSession } from '../editor-session.service';
 import { CheckPanelComponent } from '../panels/check-panel.component';
 import { EnvironmentPanelComponent } from '../panels/environment-panel.component';
 import { LandscapePanelComponent } from '../panels/landscape-panel.component';
+import { LookPanelComponent } from '../panels/look-panel.component';
 import { MapPanelComponent } from '../panels/map-panel.component';
 import { MarkerPanelComponent } from '../panels/marker-panel.component';
 import { StampPanelComponent } from '../panels/stamp-panel.component';
@@ -77,6 +78,7 @@ function readLegend(): boolean {
 }
 
 export const TOOL_ICON: Record<ToolId, TdIconName> = {
+  look: 'eye',
   landscape: 'terrain',
   stamp: 'copy',
   gameplay: 'coin',
@@ -95,8 +97,8 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
  * The editor around the 3D view: top bar (map, history, save, file,
  * check, test), tool column, the tool's options and the outliner on the
  * right, minimap and check over the view, status bar at the foot. Keys:
- * 1 to 9 and 0 tools, Ctrl+Z / Ctrl+Y history, Ctrl+S save; the rest goes to the
- * view and the tool.
+ * 1 to 9 and 0 tools, Esc back to Look once nothing is half done,
+ * Ctrl+Z / Ctrl+Y history, Ctrl+S save; the rest goes to the view and the tool.
  */
 @Component({
   selector: 'app-editor-shell',
@@ -104,6 +106,7 @@ export const TOOL_ICON: Record<ToolId, TdIconName> = {
   imports: [RovingGroupDirective, 
     TdIconComponent,
     MatTooltipModule,
+    LookPanelComponent,
     LandscapePanelComponent,
     TerrainPanelComponent,
     PaintPanelComponent,
@@ -480,7 +483,10 @@ export class EditorShellComponent implements OnDestroy {
     if (s.viewport?.key(e)) {
       e.preventDefault();
       s.refresh();
+      return;
     }
+    // Esc with nothing half done and nothing selected: the hand goes to Look
+    if (e.key === 'Escape' && !ctrl && s.tool() !== 'look') this.handled(e, () => this.pick('look'));
   }
 
   /** Runs a rebindable action; false when it does not apply now (the key then goes on to the view) */
@@ -550,7 +556,7 @@ export class EditorShellComponent implements OnDestroy {
     add('Map', 'Test the map in the game', () => void s.testPlay());
     add('Map', 'Download the map file', () => s.downloadFile());
     add('Map', 'Download a picture of the map', () => void s.downloadPng());
-    for (const t of TOOLS) add('Tools', t.label, () => this.pick(t.id), this.keyOf(`tool:${t.id}`));
+    for (const t of TOOLS) add('Tools', t.label, () => this.pick(t.id), this.keyOf(`tool:${t.id}`) || t.key);
     for (const m of LANDSCAPE_MODES) {
       add('Landscape', m.label, () => {
         this.pick('landscape');
@@ -677,11 +683,11 @@ export const SHORTCUTS: readonly { group: string; keys: readonly [string, string
     group: 'Everywhere',
     keys: [
       ['1 to 9, 0, G, D', 'Tools'],
+      ['Esc', 'Drop what is half done or the selection, then Look'],
       ['Ctrl+Z, Ctrl+Y', 'Undo, redo'],
       ['Ctrl+S', 'Save with a new picture'],
       ['V', 'Check the map'],
       ['M', 'Symmetry: off, mirror X, Y, both, turn 2, turn 4'],
-      ['Esc', 'Drop what is half done, clear the selection'],
       ['Ctrl+K', 'Commands: tools, biomes, views, objects by name'],
       ['?', 'This help (the single keys below can be changed)'],
     ],

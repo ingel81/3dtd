@@ -73,7 +73,7 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
 | Strg+Z, Strg+Y (Strg+Shift+Z) | Rückgängig, Wiederholen |
 | Strg+S | Speichern mit neuem Vorschaubild |
 | V | Prüfen (außer im Objektwerkzeug) |
-| Esc | Halbfertiges abbrechen, Auswahl aufheben |
+| Esc | Halbfertiges abbrechen, Auswahl aufheben; ist beides nicht da, zurück zu Look |
 
 Die Steuerung folgt Unity und Unreal, nicht dem Spiel: die linke Taste gehört immer dem gewählten Werkzeug, die Ansicht
 bewegen die anderen Tasten (Entscheidung 2026-10-11). Eine Legende unten rechts in der Ansicht zeigt das ständig
@@ -83,7 +83,7 @@ Die Paletten zeigen gerenderte Bilder: Objekte mit ihrem Modell schräg von oben
 Kugel, Biome als kleines Stück Boden mit ihren Pflanzen. Ein kleiner eigener Renderer zeichnet sie im Hintergrund und
 hebt sie in IndexedDB (`3dtd-editor-thumbs`) auf; bis ein Bild fertig ist, steht ein gezeichnetes Symbol.
 
-Die linke Leiste zeigt jedes Werkzeug mit Symbol und Namen, in drei Gruppen: Shape (Landscape, Terrain, Paint, Water,
+Die linke Leiste zeigt jedes Werkzeug mit Symbol und Namen: oben allein Look, darunter drei Gruppen: Shape (Landscape, Terrain, Paint, Water,
 Objects), Play (Roads, Spawns, Rules) und Map (Sky, Map, Stamps, Measure). Rechts stehen zwei Reiter: die Optionen des
 Werkzeugs und die Gliederung; ein Werkzeug zu wählen zeigt seine Optionen. Die rechte Spalte lässt sich an ihrer
 Innenkante breiter und schmaler ziehen (320 bis 680 px, anfangs 340; Pfeiltasten auf der fokussierten Kante, Doppelklick
@@ -123,6 +123,15 @@ Sichtlinien, Spurzahl und Testen, jeweils mit einem Knopf, der das passende Werk
 gespeichert werden, sagt ein Banner im Editor, was passiert ist, dass die Änderungen noch da sind und was zu tun ist.
 
 ## Werkzeuge
+
+**Look (Esc).** Das neutrale Werkzeug: jede Karte öffnet damit, und Esc kommt dorthin zurück, sobald kein Strich,
+Ziehen, halber Weg, Rampenanfang, Messpunkt oder Stempel mehr offen und nichts gewählt ist (erst bricht Esc das ab
+und hebt die Auswahl auf, wie in jedem Werkzeug; `EditorTool.cancel` sagt, ob es etwas gab). Ein Klick wählt, was
+unter dem Zeiger steht (ein Objekt mit seiner Gruppe, Strg+Klick allein; Spawn, HQ, Straße, Knoten), und nennt es in
+der Statuszeile; ein Ring zeigt das Objekt unter dem Zeiger. Nichts bewegt sich, nichts wird gemalt oder gesetzt,
+Entf und die Gizmo-Tasten wirken nicht. Das Panel zeigt das Gewählte (was, wie viele, wo) und „Edit with …“, das
+das passende Werkzeug öffnet (Objects im Modus Select, Roads im Modus Edit, Spawns and HQ). Look hat keine
+umlegbare Taste (Esc ist keine Einzeltaste, die man vergeben könnte).
 
 **Landscape (1).** Landschaft malen: Höhe, Bodenfarbe, Wasser und Objekte entstehen gemeinsam, jeder Strich ist
 ein Schritt im Verlauf. Jeder Strich hat einen Seed (im Panel und in der Statuszeile, „Roll“ würfelt, der Schalter

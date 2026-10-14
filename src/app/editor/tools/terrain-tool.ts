@@ -121,9 +121,11 @@ export class TerrainTool implements EditorTool {
   }
 
 
-  cancel(ctx: ToolContext): void {
+  cancel(ctx: ToolContext): boolean {
+    const busy = !!this.rampStart;
     this.rampStart = null;
     ctx.overlay.setDraft(null);
+    return busy;
   }
 
   hint(ctx: ToolContext): string {

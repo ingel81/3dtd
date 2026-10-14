@@ -330,7 +330,8 @@ export class ObjectTool implements EditorTool {
     else ctx.overlay.setHover(o, ctx.catalog.object(o.asset).radius * o.scale * 1.15);
   }
 
-  cancel(ctx: ToolContext): void {
+  cancel(ctx: ToolContext): boolean {
+    const busy = !!this.line || !!this.drag;
     if (this.line) {
       this.line = null;
       ctx.overlay.setDraft(null);
@@ -347,6 +348,7 @@ export class ObjectTool implements EditorTool {
     ctx.setLasso(null);
     ctx.overlay.setGizmo(null, 0);
     ctx.overlay.transform.hide();
+    return busy;
   }
 
   hint(ctx: ToolContext): string {

@@ -4,6 +4,7 @@ import { EditorDocument } from '../model/editor-document';
 import { heightAt } from '../model/grid';
 import type { EditorOverlay } from '../view/editor-overlay';
 import { freeGroup, withGroups } from '../ops/object-ops';
+import { LookTool } from './look-tool';
 import { MarkerTool } from './marker-tool';
 import { ObjectTool, insidePolygon } from './object-tool';
 import { paintCommands } from './paint-tool';
@@ -240,8 +241,32 @@ describe('editor tools', () => {
     const nodes = ed.doc.paths.nodes.length;
     tool.pointerDown(at(0, 150), ctx);
     expect(ed.doc.paths.nodes.length).toBe(nodes + 1);
-    tool.cancel(ctx);
+    expect(tool.cancel(ctx)).toBe(true);
     expect(ed.doc.paths.nodes.length).toBe(nodes);
+    // Nothing half done any more: a further Esc has nothing to drop (the shell then goes to Look)
+    expect(tool.cancel(ctx)).toBe(false);
+  });
+
+  it('Look selects and names what it picks and changes nothing', () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    const tool = new LookTool();
+    const before = JSON.stringify(ed.doc);
+    const steps = ed.historySteps;
+    const spawn = ed.doc.spawns[0];
+    ctx.pick = () => ({ kind: 'spawn', id: spawn.id });
+    // No drag of its own: the pointer never holds anything that could move
+    expect(tool.pointerDown(at(spawn.x, spawn.y), ctx)).toBe(false);
+    expect(ed.selection).toEqual({ kind: 'spawn', id: spawn.id });
+    expect(ctx.messages.at(-1)).toBe(`Spawn ${spawn.name}`);
+    ctx.pick = () => ({ kind: 'hq' });
+    tool.pointerDown(at(ed.doc.hq.x, ed.doc.hq.y), ctx);
+    expect(ed.selection).toEqual({ kind: 'hq' });
+    ctx.pick = () => null;
+    tool.pointerDown(at(10, 10), ctx);
+    expect(ed.selection).toBeNull();
+    expect(JSON.stringify(ed.doc)).toBe(before);
+    expect(ed.historySteps).toBe(steps);
   });
 
   it('adds a spawn snapped onto the road and moves the HQ', () => {

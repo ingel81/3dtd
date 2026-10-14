@@ -102,13 +102,15 @@ export class StampTool implements EditorTool {
     return false;
   }
 
-  cancel(ctx: ToolContext): void {
+  cancel(ctx: ToolContext): boolean {
     const s = ctx.settings.stamp;
+    const busy = !!this.dragFrom || s.mode === 'paste' || !!s.region;
     this.dragFrom = null;
     if (s.mode === 'paste') s.mode = 'select';
     else s.region = null;
     ctx.overlay.setDraft(null);
     ctx.settingsChanged();
+    return busy;
   }
 
   hint(ctx: ToolContext): string {

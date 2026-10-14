@@ -30,6 +30,7 @@ import { mirrorMap, type MirrorResult } from '../ops/mirror-map';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { decodePng, decodeRaw16, encodePng16, encodeRaw16, gridToImage, heightmapName, imageToHeights, squareImage } from '../ops/heightmap';
 import { LandscapeTool } from '../tools/landscape-tool';
+import { LookTool } from '../tools/look-tool';
 import { MarkerTool } from '../tools/marker-tool';
 import { StampTool } from '../tools/stamp-tool';
 import { MeasureTool } from '../tools/measure-tool';
@@ -107,18 +108,15 @@ export class EditorSession implements OnDestroy {
   readonly store = new MapStore();
   readonly stamps = new StampLibrary();
   readonly catalog = signal(new CatalogIndex(EMPTY_CATALOG));
-  /** The editor opens on Landscape: its brush starts at Landscape's size */
-  readonly settings = (() => {
-    const s = defaultSettings();
-    s.brush.radius = TOOL_BRUSH_RADIUS.landscape ?? s.brush.radius;
-    return s;
-  })();
+  readonly settings = defaultSettings();
   /** Bumps when settings change from outside the panels (keys, a tool) */
   readonly settingsRev = signal(0);
-  readonly tool = signal<ToolId>('landscape');
+  /** The editor opens on Look: nothing changes the map until a tool is picked */
+  readonly tool = signal<ToolId>('look');
   /** The brushes of the tools not in hand (selectTool swaps them) */
   private readonly brushes = new Map<ToolId, BrushSettings>();
   readonly tools: Record<ToolId, EditorTool> = {
+    look: new LookTool(),
     landscape: new LandscapeTool(),
     stamp: new StampTool(),
     measure: new MeasureTool(),
@@ -509,6 +507,8 @@ export class EditorSession implements OnDestroy {
       if (this.lock === lock && !editing) this.zone.run(() => this.lockLost(lock));
     });
     this.showDocument(doc, true);
+    // Every map opens on Look: a first click only looks
+    this.selectTool('look');
   }
 
   /** Asks the tab that edits this map to save and let go; this one edits then */
