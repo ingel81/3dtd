@@ -177,9 +177,11 @@ Samples, eine Fase je Zelle (`cellSplit`). Dafür trägt die Maskentextur (RG8 s
 geschoben, an flachen um 0,5 nach außen. Das Material schneidet, wo der bilineare Wert unter 0 fällt (weich über eine
 Viertelzelle): an der Wand endet das Wasser auf einer glatten Linie knapp vor den Zähnen, ein schmaler Streifen Wand
 bleibt sichtbar; am flachen Ufer schneidet weiter die Tiefe je Pixel. Kein zusätzlicher Texturzugriff (derselbe
-Maskenzugriff liest R und G). Gebacken auf dem Hauptthread: neu über die Maskengrenzen bei neuem Spiegel, neuer Maske oder
-Ganzneubau (rund 40 bis 70 ms auf einem 1025er-Raster mit Ufer überall; ein kleiner See nur sein Rechteck), sonst um das
-Pinsel-Rechteck (unter 2 ms). `losTransparent`. Wasser empfängt den Schatten der Sonne (Bäume, Brücken, Ufer dunkeln Körper, Glanz und
+Maskenzugriff liest R und G). Gebacken über die Maskengrenzen bei neuem Spiegel, neuer Maske oder Ganzneubau (rund 40
+bis 70 ms auf einem 1025er-Raster mit Ufer überall; ein kleiner See nur sein Rechteck): beim Laden auf dem Hauptthread,
+danach (Level-Regler, Rückgängig) in einem Worker (`shore-cut.worker.ts`, Kopien von Höhen und Maske), bis dahin zeigt
+die Textur den alten Schnitt; ein neuerer Auftrag verwirft den älteren. Sonst um das Pinsel-Rechteck auf dem Hauptthread
+(unter 2 ms); ein Pinsel, während der Worker rechnet, wird über dessen Ergebnis noch einmal gebacken. `losTransparent`. Wasser empfängt den Schatten der Sonne (Bäume, Brücken, Ufer dunkeln Körper, Glanz und
 etwas die Spiegelung) und die Punktlichter des Pools als Glanzpunkte mit schwachem Lichtfleck (Laternen, Fackeln,
 Lava spiegeln sich).
 

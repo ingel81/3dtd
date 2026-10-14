@@ -16,6 +16,10 @@ import type { GridRect } from '../terrain/terrain-chunks';
  * and a little of the wall shows above it. At gentle banks the cut lies
  * outside the line (GENTLE_OUTSET) and the depth per pixel stays the shore,
  * as before.
+ *
+ * A whole bake (a new level, a new mask array) on a 1025² grid takes tens
+ * of ms: in the editor it runs in a worker (bakeShoreCutOffThread,
+ * shore-cut.worker.ts), the arrays copied out to it.
  */
 
 /** Cells from the waterline the distance is measured to; farther ones keep this */
@@ -160,4 +164,58 @@ export function bakeShoreCut(
       out[k * 2 + 1] = Math.max(0, Math.min(255, Math.round(128 + cells * SHORE_CUT_SCALE)));
     }
   }
+}
+
+/** What a whole bake reads: the height grid, the level, the mask and the samples to bake, as plain arrays */
+export interface ShoreCutInput {
+  heights: Float32Array;
+  columns: number;
+  rows: number;
+  cellSize: number;
+  level: number;
+  mask: Uint8Array;
+  rect: GridRect;
+}
+
+/** The mask and shore cut of a whole grid (two bytes per sample): `rect` baked, 0 elsewhere (the worker's bake) */
+export function bakeShoreCutWhole(input: ShoreCutInput): Uint8Array {
+  const out = new Uint8Array(input.columns * input.rows * 2);
+  bakeShoreCut(input.heights, input.columns, input.rows, input.cellSize, input.level, input.mask, out, input.rect);
+  return out;
+}
+
+/**
+ * The whole bake in a worker, the arrays of `input` handed over (pass
+ * copies); inline where there are no workers. Resolves with the bytes, or
+ * null when the worker failed.
+ */
+export function bakeShoreCutOffThread(input: ShoreCutInput): Promise<Uint8Array | null> {
+  if (typeof Worker === 'undefined') return Promise.resolve(bakeShoreCutWhole(input));
+  const worker = shoreWorker();
+  const id = ++shoreJobs;
+  return new Promise((resolve) => {
+    shoreWaiting.set(id, resolve);
+    worker.postMessage({ id, input }, [input.heights.buffer, input.mask.buffer]);
+  });
+}
+
+let worker: Worker | null = null;
+let shoreJobs = 0;
+const shoreWaiting = new Map<number, (cut: Uint8Array | null) => void>();
+
+function shoreWorker(): Worker {
+  if (worker) return worker;
+  const w = new Worker(new URL('./shore-cut.worker', import.meta.url), { type: 'module' });
+  w.onmessage = (e: MessageEvent<{ id: number; cut: Uint8Array }>) => {
+    shoreWaiting.get(e.data.id)?.(e.data.cut);
+    shoreWaiting.delete(e.data.id);
+  };
+  // A worker that fails: the bakes waiting get nothing, the next one starts a new worker
+  w.onerror = () => {
+    for (const resolve of shoreWaiting.values()) resolve(null);
+    shoreWaiting.clear();
+    w.terminate();
+    worker = null;
+  };
+  return (worker = w);
 }

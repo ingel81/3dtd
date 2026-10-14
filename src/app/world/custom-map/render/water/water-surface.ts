@@ -25,7 +25,7 @@ import type { MapEffects } from '../map-effects';
 import type { SceneCopy } from './scene-copy';
 import { setHeatHaze } from './heat-haze';
 import { bakeFlowMap, bakeFlowOffThread, flowInput } from './flow-map';
-import { bakeShoreCut, SHORE_CUT_RADIUS } from './shore-cut';
+import { bakeShoreCut, bakeShoreCutOffThread, SHORE_CUT_RADIUS } from './shore-cut';
 
 /**
  * One area body of a map (water, sea, swamp, ice or lava over a mask): a
@@ -56,6 +56,11 @@ export class WaterSurface {
   /** The mask array the texture was last baked from (a new one, say after an undo, bakes all) */
   private maskSource: Uint8Array | null = null;
   private maskLevel = Number.NaN;
+  /** The whole bake in a worker the texture waits for; a newer one (or the end) leaves an older one's unused */
+  private shoreJob = 0;
+  private shorePending = false;
+  /** The samples baked here since that bake's arrays were copied out: baked again over its result */
+  private shoreSince: GridRect | null = null;
   /** Baked current of the body (flow-map.ts), on the mask's grid */
   private readonly flow: DataTexture;
   /** A later bake of the current (editing: a pool brush must not pay for the whole body each step) */
@@ -156,13 +161,22 @@ export class WaterSurface {
   /**
    * Mask and shore cut anew: over the whole grid for a new mask array, a new
    * level or no rectangle; else around `rect` (the cut reaches a few
-   * samples past a change of heights)
+   * samples past a change of heights). The first bake right here; a later
+   * whole one (the Level slider, an undo) in a worker, the texture keeps the
+   * last cut until it is back.
    */
   private bakeMask(water: MapWater, rect?: GridRect): void {
     const f = this.field;
     const data = this.mask.image.data as Uint8Array;
+    const first = this.maskSource === null;
     const whole = !rect || water.mask !== this.maskSource || water.level !== this.maskLevel;
     const grow = SHORE_CUT_RADIUS;
+    this.maskSource = water.mask;
+    this.maskLevel = water.level;
+    if (whole && !first) {
+      this.bakeWholeOffThread(water);
+      return;
+    }
     let r: GridRect | null;
     if (whole) {
       // Only around the mask: no surface stands farther out (a pool on a big map bakes its corner)
@@ -172,9 +186,38 @@ export class WaterSurface {
       r = { i0: Math.max(0, rect.i0 - grow), j0: Math.max(0, rect.j0 - grow), i1: Math.min(f.columns - 1, rect.i1 + grow), j1: Math.min(f.rows - 1, rect.j1 + grow) };
     }
     if (r) bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, r);
-    this.maskSource = water.mask;
-    this.maskLevel = water.level;
+    // A brush while a whole bake runs: its result misses this, baked again over it when it is back
+    if (r && this.shorePending) this.shoreSince = this.shoreSince ? unionRect(this.shoreSince, r) : r;
     uploadRect(this.mask, whole ? undefined : (r ?? undefined));
+  }
+
+  /** The whole bake of the body as it stands now, in a worker; a newer one takes its place */
+  private bakeWholeOffThread(water: MapWater): void {
+    const f = this.field;
+    const job = ++this.shoreJob;
+    this.shorePending = true;
+    this.shoreSince = null;
+    const rect = maskBounds(water.mask, f.columns, f.rows, SHORE_CUT_RADIUS);
+    if (!rect) {
+      // No water: nothing to wait for
+      this.shorePending = false;
+      (this.mask.image.data as Uint8Array).fill(0);
+      uploadRect(this.mask, undefined);
+      return;
+    }
+    const input = { heights: f.grid.heights.slice(), columns: f.columns, rows: f.rows, cellSize: f.cellSize, level: water.level, mask: water.mask.slice(), rect };
+    void bakeShoreCutOffThread(input).then((cut) => {
+      if (job !== this.shoreJob) return;
+      this.shorePending = false;
+      // A failed worker: the bake here after all
+      const data = cut ?? new Uint8Array(f.columns * f.rows * 2);
+      if (!cut) bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, rect);
+      const since = this.shoreSince;
+      this.shoreSince = null;
+      if (since) bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, since);
+      this.mask.image.data = data;
+      uploadRect(this.mask, undefined);
+    });
   }
 
   /** The tile and border meshes (all share the material) */
@@ -203,6 +246,7 @@ export class WaterSurface {
 
   dispose(): void {
     this.flowJob++;
+    this.shoreJob++;
     for (const m of this.meshes()) setHeatHaze(m, null);
     for (const m of this.meshes()) m.geometry.dispose();
     this.tiles.clear();
@@ -382,6 +426,10 @@ export class WaterSurface {
     g.computeBoundingBox();
     return g;
   }
+}
+
+function unionRect(a: GridRect, b: GridRect): GridRect {
+  return { i0: Math.min(a.i0, b.i0), j0: Math.min(a.j0, b.j0), i1: Math.max(a.i1, b.i1), j1: Math.max(a.j1, b.j1) };
 }
 
 /** The samples a mask sets, grown by `grow` and clamped to the grid; null when it is empty */

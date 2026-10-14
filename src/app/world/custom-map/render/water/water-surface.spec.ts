@@ -65,4 +65,25 @@ describe('WaterSurface tiles', () => {
     surface.dispose();
     whole.dispose();
   });
+
+  it('bakes a new level off the thread: the old cut until it is back, then the whole bake, a brush meanwhile kept', async () => {
+    const { field, water, fill } = setup();
+    const heights = new HeightTexture(field);
+    // A slope across the south-west lake, so the level moves its shore
+    for (let j = 0; j < 201; j++) for (let i = 0; i < 201; i++) field.grid.heights[j * 201 + i] = i * 0.05;
+    const surface = new WaterSurface(field, heights, water, null);
+    const old = maskData(surface).slice();
+    const raised = { ...water, level: 1.6 };
+    surface.set(raised, null);
+    expect(maskData(surface)).toEqual(old);
+    // A brush adds water while the bake runs (within the lakes' bounds: past them a whole bake also writes the dry cut)
+    fill(60, 60, 70, 70);
+    surface.set(raised, null, { i0: 60, j0: 60, i1: 70, j1: 70 });
+    await Promise.resolve();
+    const whole = new WaterSurface(field, heights, raised, null);
+    expect(maskData(whole)).not.toEqual(old);
+    expect(maskData(surface)).toEqual(maskData(whole));
+    surface.dispose();
+    whole.dispose();
+  });
 });
