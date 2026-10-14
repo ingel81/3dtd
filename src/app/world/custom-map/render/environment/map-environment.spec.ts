@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { CustomMapEnvironment } from './map-environment';
 import { SHADOW_PARTS } from './shadow-parts';
 import { SkyDome } from './sky-dome';
+import { chooseSkyImage, SKY_IMAGES } from './sky-images';
+import { SKY_PRESETS } from './biomes';
 
 const env = { sky: 'day' as const, sunAzimuth: 200, sunElevation: 40, fogDensity: 0.001, tint: '#ffffff' };
 
@@ -272,5 +274,41 @@ describe('Mars (TODO E170)', () => {
     expect(hsl.h * 360).toBeGreaterThan(30);
     expect(hsl.s).toBeLessThan(0.5);
     e.dispose();
+  });
+});
+
+describe('image skies (TODO E172)', () => {
+  it('takes haze, light hue and sun colour from the picture, its preset for the rest, and hides the procedural sky', () => {
+    const image = SKY_IMAGES.find((s) => s.id === 'sunset')!;
+    const e = new CustomMapEnvironment({ ...env, ...chooseSkyImage(image.id) });
+    // Haze and fog: the picture's horizon, so the dome's foot fades into it
+    expect(e.fog.color.toArray()).toEqual(new Color().setRGB(...image.horizon).toArray());
+    expect(e.horizon.toArray()).toEqual(new Color().setRGB(...image.horizon).toArray());
+    expect(e.sun.color.toArray()).toEqual(new Color().setRGB(...image.sunColor!).toArray());
+    // The hemisphere light: the hue of the picture's sky at the dusk preset's brightness
+    const lum = (c: Color): number => c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
+    expect(lum(e.hemi.color)).toBeCloseTo(lum(new Color(SKY_PRESETS.dusk.hemiSky)), 5);
+    expect(e.hemi.color.r / e.hemi.color.b).toBeCloseTo(image.sky[0] / image.sky[2], 5);
+    expect(e.darkness).toBeGreaterThan(0.5);
+    const u = e.skyDome.uniforms;
+    expect(u['uCover'].value).toBe(2);
+    expect(u['uStars'].value).toBe(0);
+    // No decoder in the test: the picture never loads, the dome shows the gradient in its colours
+    expect(u['uSkyImageOn'].value).toBe(0);
+    e.dispose();
+  });
+
+  it('a night picture keeps the moonlight; an unknown id is the procedural sky', () => {
+    const night = new CustomMapEnvironment({ ...env, ...chooseSkyImage('starry-night') });
+    const dark = night.sun.intensity;
+    night.set({ ...env, ...chooseSkyImage('starry-night'), moonlight: 1 });
+    expect(night.sun.intensity).toBeGreaterThan(dark);
+    night.dispose();
+    const plain = new CustomMapEnvironment(env);
+    const unknown = new CustomMapEnvironment({ ...env, skyImage: 'from-a-newer-game' });
+    expect(unknown.fog.color.toArray()).toEqual(plain.fog.color.toArray());
+    expect(unknown.skyDome.uniforms['uCover'].value).toBe(plain.skyDome.uniforms['uCover'].value);
+    plain.dispose();
+    unknown.dispose();
   });
 });

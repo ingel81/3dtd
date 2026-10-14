@@ -272,6 +272,12 @@ export interface MapEnvironment {
   moonlight?: number;
   /** Wind for plants, grass, clouds, smoke and weather; default: the biome's (render/environment/wind.ts) */
   wind?: MapWind;
+  /**
+   * A photographed sky instead of the procedural one (render/environment/sky-images.ts): its id. The
+   * picture also gives light, haze and the water's reflection their colours. Default: procedural; an
+   * id this game does not ship renders procedural as well
+   */
+  skyImage?: string;
 }
 
 export interface MapWind {

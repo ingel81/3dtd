@@ -279,7 +279,9 @@ HQ. Ziehen verschiebt beide; sie rasten auf die nächste Straße (Alt frei). Shi
 alle; einen davon zu ziehen verschiebt alle mit gleichem Abstand, Entf löscht alle. Das Panel zeigt je Spawn die Länge seiner
 Spur oder „no route“.
 
-**Sky and weather (8).** Himmel (Day, Dusk, Night, Overcast), Tageszeit (ein Sommertag: Aufgang 6 Uhr im Osten, 13 Uhr im
+**Sky and weather (8).** Sky picture (Procedural oder eines der Himmelsbilder, CUSTOM_MAPS.md „Bildhimmel“: die
+Wahl setzt das Preset des Bilds und seine Sonnenhöhe; mit Bild entfallen Himmel-Preset und Tageszeit, Direction dreht
+den Himmel mit der Sonne, Height bewegt nur das Licht), Himmel (Day, Dusk, Night, Overcast), Tageszeit (ein Sommertag: Aufgang 6 Uhr im Osten, 13 Uhr im
 Süden 60 Grad hoch, Untergang 20 Uhr im Westen; tiefe Sonne ist Dämmerung, eine Stunde nach Untergang Nacht),
 Sonnenrichtung und -höhe, bei Night das Mondlicht (`moonlight`, kühles Licht auf dem Land, Himmel bleibt dunkel), Nebel,
 Tönung, Wetter (Clear, Rain, Snow, Fog mit Stärke), Wind (Stärke, Richtung „From“, aus der er kommt, Böen; ohne eigenen
@@ -472,7 +474,8 @@ Geraden, braucht die Rechnung einen Posten je Asset (Draw Calls).
   4 Byte je Höhenpunkt, eine 300 m lange Straße auf 2-m-Raster rund 12 kB Text vor dem Zip; die mitgelieferten Level
   wachsen dadurch um 21 bis 54 kB, 2 bis 7 %; nur der Editor liest es); optionales Feld `gameplay` (`startCredits`, `hqHealth`, `towers`, `waves` als
   `{ kind: 'budget' }` oder `{ kind: 'table', table }` in der Form der Table-Source, `difficulty` in Prozent, ohne
-  Feld 100; später dazugekommene optionale Felder heben die Version nicht); Version-1-Dateien lesen sich
+  Feld 100; später dazugekommene optionale Felder heben die Version nicht, so auch `environment.skyImage`, die Id
+  eines Himmelsbilds, ohne Feld prozedural); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2
 - Kartendokument Version 3: bis zu zwölf Bodenschichten. Die Gewichte der Schichten 9 bis 12 liegen in einer dritten
   Splat-Karte (`terrain/splat2.u8`), die es nur gibt, solange die Karte mehr als acht Schichten hat

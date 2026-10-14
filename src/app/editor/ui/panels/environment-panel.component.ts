@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import type { MapBiome, MapEnvironment, MapWeather, MapWind } from '../../../world/custom-map/map-document';
+import { chooseSkyImage, SKY_IMAGES } from '../../../world/custom-map/render/environment/sky-images';
 import { windOf } from '../../../world/custom-map/render/environment/wind';
 import { SnapshotCommand } from '../../model/editor-document';
 import { EditorSession } from '../editor-session.service';
@@ -66,21 +67,36 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
         }
       </select>
     </label>
-    <div class="td-field">
-      <span class="td-label" id="ep-sky">Sky</span>
-      <div class="td-seg is-sm" role="radiogroup" aria-labelledby="ep-sky">
-        @for (s of skies; track s.id) {
-          <button type="button" role="radio" [attr.aria-checked]="env()?.sky === s.id" (click)="commit({ sky: s.id }, 'Sky')">{{ s.label }}</button>
+    <label class="td-setting">
+      <span>Sky picture</span>
+      <select class="td-select is-auto" [value]="env()?.skyImage ?? ''" (change)="commit(chooseSkyImage($any($event.target).value || null), 'Sky picture')" aria-label="Sky picture" data-test="sky-image">
+        <option value="">Procedural</option>
+        @for (s of skyImages; track s.id) {
+          <option [value]="s.id">{{ s.label }}</option>
         }
+      </select>
+    </label>
+    @if (!env()?.skyImage) {
+      <div class="td-field">
+        <span class="td-label" id="ep-sky">Sky</span>
+        <div class="td-seg is-sm" role="radiogroup" aria-labelledby="ep-sky">
+          @for (s of skies; track s.id) {
+            <button type="button" role="radio" [attr.aria-checked]="env()?.sky === s.id" (click)="commit({ sky: s.id }, 'Sky')">{{ s.label }}</button>
+          }
+        </div>
       </div>
-    </div>
+    } @else {
+      <p class="td-note">The picture colours sun, light and haze. Sun direction turns the sky so its sun stands there; height moves only the light.</p>
+    }
     @if (env(); as e) {
-      <div class="td-group">
-        <h3 class="td-section">Time of day <span class="td-note">{{ clock(e) }}</span></h3>
-        <input class="td-slider" type="range" min="4" max="22" step="0.25" [value]="hourOf(e)" aria-label="Time of day"
-               (input)="live(timeOfDay(+$any($event.target).value, e.sky))" (change)="commit(timeOfDay(+$any($event.target).value, e.sky), 'Time of day')" data-test="time-of-day" />
-        <p class="td-note">Moves the sun across the sky; dawn and dusk tint it, night darkens it.</p>
-      </div>
+      @if (!e.skyImage) {
+        <div class="td-group">
+          <h3 class="td-section">Time of day <span class="td-note">{{ clock(e) }}</span></h3>
+          <input class="td-slider" type="range" min="4" max="22" step="0.25" [value]="hourOf(e)" aria-label="Time of day"
+                 (input)="live(timeOfDay(+$any($event.target).value, e.sky))" (change)="commit(timeOfDay(+$any($event.target).value, e.sky), 'Time of day')" data-test="time-of-day" />
+          <p class="td-note">Moves the sun across the sky; dawn and dusk tint it, night darkens it.</p>
+        </div>
+      }
       @if (e.sky === 'night') {
         <div class="td-group">
           <h3 class="td-section">Moonlight</h3>
@@ -139,6 +155,8 @@ const SKIES: { id: MapEnvironment['sky']; label: string }[] = [
 export class EnvironmentPanelComponent {
   private readonly session = inject(EditorSession);
   readonly skies = SKIES;
+  readonly skyImages = SKY_IMAGES;
+  readonly chooseSkyImage = chooseSkyImage;
   readonly looks = LOOKS;
   readonly weathers = WEATHERS;
   readonly timeOfDay = timeOfDay;

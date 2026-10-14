@@ -6,7 +6,7 @@ Der Renderer zeichnet ein Kartendokument (`src/app/world/custom-map/map-document
 Wasser, Objekten, Wegen und Himmel. Editor und Spiel benutzen dieselbe Ansicht. Code unter
 `src/app/world/custom-map/render/` (ohne Angular), Assets unter `public/maps/assets/`, Werkzeuge unter
 `tools/map-assets/`. Vorschau: `/map-preview` (Demo-Tal, `?view=village|forest|trees|bridge|game|…`,
-`?sky=dusk|night|overcast`, `?weather=rain|snow|fog`, `?post=bloom`, `?seed=3`).
+`?sky=dusk|night|overcast`, `?skyImage=starry-night`, `?weather=rain|snow|fog`, `?post=bloom`, `?seed=3`).
 
 ## Koordinaten
 
@@ -347,6 +347,28 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   spiegelt denselben Himmel aus einer Textur (`uSkyTex`, obere Halbkugel, 256 × 64, Half-Float), die die Kuppel alle
   drei Frames und sofort nach einem neuen Himmel mit ihrer Funktion füllt (`SkyDome.bake`); vorher rechnete jedes
   Wasserpixel die Funktion zwei- bis dreimal (je zwei Wolkenlagen mit fünf Oktaven). GPU-Zeit Archipel 1,34 → 1,22 ms
+- **Bildhimmel** (E172, `environment.skyImage`, `sky-images.ts`): statt der prozeduralen Kuppel ein fotografierter
+  Himmel aus `public/maps/assets/skies/` (Poly-Haven-HDRIs, CC0, gebaut von `tools/map-assets/build_skies.py`):
+  Fair weather, Sunset, Afterglow, Overcast, Thunderstorm, Moonrise, Starry night, Deep space (Sterne ohne
+  Himmelsglühen, für Mond und Mars). Je Bild nur die obere Halbkugel, 4096 × 1024, sRGB-WebP, zusammen 2,1 MB;
+  geladen erst, wenn eine Karte das Bild nutzt (über den Kartendaten-Cache), als Textur ohne Mipmaps (16 MB GPU,
+  eine Mip-Kette zöge an der Naht des Equirects eine Linie). KTX2 nicht: ETC1S bandet auf weichen Verläufen, UASTC
+  wöge ein Vielfaches. Das Bild ersetzt in der Kuppel Verlauf, Wolken, Sterne und Sonne (`skyImageColor`, ein
+  einheitlicher Zweig, der Wolken-Noise läuft dann nicht), Dunst am Fuß, Grading und die gebackene Textur fürs Wasser
+  bleiben; das Wasser spiegelt also das Bild. Die Umgebung (PMREM) nimmt das Bild oberhalb des Horizonts auf
+  512 × 128 verkleinert, darunter wie bisher Horizont zu Boden. Licht und Luft kommen aus dem Bild, gemessen vom
+  Build-Skript auf dem linearen HDR und in `skies.json` abgelegt (stehen also vor dem Laden fest): Sonnenfarbe = Farbe
+  des hellsten Flecks, Halbkugel- und Umgebungslicht = Farbton des mittleren Himmels bei der Helligkeit des Presets,
+  Dunst und Nebel = mittlere Farbe zwischen 0 und 8 Grad, Zenit- und Horizontfarbe für Materialien mit
+  Spiegel-Ersatz. Jedes Bild nennt das Preset, dessen Stärken, Belichtung und Dunkelheit es übernimmt (Starry night
+  ist `night`, das Mondlicht gilt also). Das Skript skaliert jedes HDR so, dass sein Horizont die Helligkeit dieses
+  Presets hat. **Sonne:** die Karte behält ihre Sonne. Das Bild dreht sich um die Senkrechte, bis sein hellster Fleck
+  (Sonne oder Mond, nur wenn er den Median des Himmels weit übertrifft) im Azimut der Kartensonne steht
+  (`skyImageYaw`); die Wahl im Editor setzt die Sonnenhöhe auf die des Bilds, danach bewegt der Höhenregler nur noch
+  das Licht. Bilder ohne Sonne drehen mit dem Azimut von Norden. Bis das Bild geladen ist, zeigt die Kuppel einen
+  Verlauf in seinen Farben; `envReady` (und damit `warmUp`) wartet darauf. Eine unbekannte Id (Karte aus einem
+  neueren Spiel) zeichnet prozedural. Land der Fotos (Hügel am Horizont) schneidet das Skript ab und zieht den
+  Himmel darüber bis zum Horizont herunter (`lift`)
 - **Sonne**: `DirectionalLight` mit 4096er Schattenkarte (PCF, Radius 1,5 Texel), deren Box auf Texel einrastet und
   den Boden deckt, den die Kamera sieht (`environment/shadow-fit.ts`): die Punkte des Bildrands bis zur Ebene in
   Höhe des Fokus, höchstens 2,5-mal der Kameraabstand und 430 m vom Fokus entfernt, darum der Kreis (Mitte höchstens
@@ -429,7 +451,8 @@ zweites instanziertes Netz, das Matrizen und Gleitversatz des Typs mitbenutzt (k
 
 ## Assets
 
-`public/maps/assets/catalog.json` (Typen in `render/asset-catalog.ts`), Lizenzen in `LICENSES.md`, alles CC0.
+`public/maps/assets/catalog.json` (Typen in `render/asset-catalog.ts`), Lizenzen in `LICENSES.md` (auch die
+Himmelsbilder unter `skies/`), alles CC0.
 Schema (Version 1, alle neuen Felder optional): Materialien mit `tags`, `emissive`, `flow`, Kategorien auch `ice`,
 `volcanic`, `wood`; Objekte mit `tags`, `effects`, `light`, `lod`, `base`, Kategorien auch `structure` und `fx`. Den
 Bestand baut der Asset-Worker aus; Stand beim Schreiben:

@@ -2,6 +2,7 @@ import {
   AmbientLight,
   BufferAttribute,
   BufferGeometry,
+  ClampToEdgeWrapping,
   Color,
   DataTexture,
   DirectionalLight,
@@ -14,9 +15,11 @@ import {
   NeutralToneMapping,
   OrthographicCamera,
   PMREMGenerator,
+  RepeatWrapping,
   RGBAFormat,
   Scene as ThreeScene,
   SRGBColorSpace,
+  Texture,
   UnsignedByteType,
   Vector3,
   type Camera,
@@ -32,6 +35,7 @@ import { HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { biomeLook, type BiomeLook } from './biomes';
 import { ShadowParts } from './shadow-parts';
 import { SkyDome } from './sky-dome';
+import { fetchSkyImage, skyImageOf, skyImageYaw, type SkyImage } from './sky-images';
 import { WeatherLayer } from './weather';
 import { setWind, windOf, WIND_UNIFORMS } from './wind';
 
@@ -47,6 +51,14 @@ import { setWind, windOf, WIND_UNIFORMS } from './wind';
  *   focus point (`focus`), the camera's target in the game and editor.
  * - Hemisphere light for sky and ground bounce, exponential fog in the
  *   horizon colour.
+ * - An image sky (`environment.skyImage`, sky-images.ts) gives the dome its
+ *   picture and the colours of light and air: the sun takes the picture's
+ *   sun colour, the hemisphere light the hue of its sky (at the preset's
+ *   brightness), haze and fog its horizon, the environment map its pixels
+ *   above the horizon. The preset the picture names keeps intensities,
+ *   exposure and darkness. The picture loads when a map first uses it; until
+ *   then the dome shows a gradient in the picture's colours. `envReady`
+ *   waits for it.
  *
  * `apply(scene, renderer)` installs all of it and remembers what was there;
  * `detach()` puts that back. The map is tone mapped (Khronos PBR Neutral,
@@ -91,6 +103,11 @@ export class CustomMapEnvironment {
   /** Whether the PMREM programs are linked; until then a sky change waits for them */
   private pmremReady = false;
   private envDirty = false;
+  /** The image sky shown or loading (its id), its texture and its pixels at the environment map's size */
+  private imageId: string | null = null;
+  private imageTexture: Texture | null = null;
+  private imagePixels: { id: string; data: Uint8ClampedArray } | null = null;
+  private imageReady: Promise<void> = Promise.resolve();
   /**
    * Resolves once the environment map holds the sky. The first one waits for
    * PMREM's programs to link off the main thread; `warmUp` waits for it.
@@ -154,6 +171,7 @@ export class CustomMapEnvironment {
     const skyChanged =
       env.sky !== this.env.sky ||
       env.biome !== this.env.biome ||
+      env.skyImage !== this.env.skyImage ||
       env.sunAzimuth !== this.env.sunAzimuth ||
       env.sunElevation !== this.env.sunElevation ||
       // The tint colours the sky's pixels and so the environment map (fillSky)
@@ -162,12 +180,16 @@ export class CustomMapEnvironment {
     const p = this.look();
     if (this.renderer && this.previousToneMapping) this.renderer.toneMappingExposure = p.exposure;
     const tint = new Color(env.tint || '#ffffff');
+    const image = skyImageOf(env);
     sunDirection(env.sunAzimuth, env.sunElevation, this.sunDir);
-    // Low sun: warmer and weaker
+    // Low sun: warmer and weaker; a picture's sun has its own colour
     const low = Math.max(0, Math.min(1, env.sunElevation / 25));
-    this.sun.color.set(p.sun).lerp(new Color(0xffa060), (1 - low) * 0.5).multiply(tint);
+    if (image?.sunColor) this.sun.color.setRGB(...image.sunColor).multiply(tint);
+    else this.sun.color.set(p.sun).lerp(new Color(0xffa060), (1 - low) * 0.5).multiply(tint);
     this.sun.intensity = p.sunIntensity * (0.35 + 0.65 * low);
-    this.hemi.color.set(p.hemiSky).multiply(tint);
+    this.hemi.color.set(p.hemiSky);
+    if (image) withHueOf(this.hemi.color, image.sky);
+    this.hemi.color.multiply(tint);
     this.hemi.groundColor.set(p.hemiGround);
     this.hemi.intensity = p.hemiIntensity;
     // Moonlight: a night map lit cool and bright enough to read from the game camera; sky untouched
@@ -178,18 +200,27 @@ export class CustomMapEnvironment {
       this.hemi.color.lerp(new Color(0x6078b0).multiply(tint), moon * 0.5);
       this.hemi.intensity += 0.8 * moon;
     }
-    this.ambient.color.set(p.hemiSky).multiply(tint);
+    this.ambient.color.set(p.hemiSky);
+    if (image) withHueOf(this.ambient.color, image.sky);
+    this.ambient.color.multiply(tint);
     this.ambient.intensity = p.ambient;
     // Haze: the horizon lifted a little towards the zenith's blue, so distance reads blue, not green
     // The map's tint colours its light fully, its sky and air only a little: a green or orange
     // mood tint over the whole haze made the far land olive or brown
     const airTint = new Color(1, 1, 1).lerp(tint, 0.3);
     // Haze: between horizon and zenith, a little desaturated, so distance reads blue-grey, not the horizon's hue
-    this.fog.color.set(p.horizon).lerp(new Color(p.zenith), 0.3).multiply(airTint);
-    const fogGrey = (this.fog.color.r + this.fog.color.g + this.fog.color.b) / 3;
-    this.fog.color.lerp(new Color(fogGrey, fogGrey, fogGrey), 0.3);
-    this.zenith.set(p.zenith).multiply(airTint);
-    this.horizon.set(p.horizon).multiply(airTint);
+    if (image) {
+      // The picture's horizon as it is: the dome's foot fades into this haze, no seam above the land
+      this.fog.color.setRGB(...image.horizon).multiply(airTint);
+      this.zenith.setRGB(...image.zenith).multiply(airTint);
+      this.horizon.setRGB(...image.horizon).multiply(airTint);
+    } else {
+      this.fog.color.set(p.horizon).lerp(new Color(p.zenith), 0.3).multiply(airTint);
+      const fogGrey = (this.fog.color.r + this.fog.color.g + this.fog.color.b) / 3;
+      this.fog.color.lerp(new Color(fogGrey, fogGrey, fogGrey), 0.3);
+      this.zenith.set(p.zenith).multiply(airTint);
+      this.horizon.set(p.horizon).multiply(airTint);
+    }
     // Capped: imported maps (Warcraft fog ends) can ask for densities that hide the map in milk
     const baseFog = Math.min(env.fogDensity, 0.004) * p.fogScale;
     this.fog.density = baseFog;
@@ -243,15 +274,17 @@ export class CustomMapEnvironment {
       sunDir: this.sunDir,
       sunColor: this.sun.color,
       glowColor,
-      cover,
+      // A picture brings its own clouds and stars; until it has loaded the gradient shows bare
+      cover: image ? 2 : cover,
       glow: p.glow * (1 - k * 0.7),
       cloudColor: new Color(p.cloudColor).multiply(tint),
       cloudShadow: new Color(p.cloudShadow).multiply(tint),
       haze: this.fog.color,
-      stars: p.stars,
-      planet: p.planet,
-      aurora: p.aurora,
+      stars: image ? 0 : p.stars,
+      planet: !image && p.planet,
+      aurora: image ? 0 : p.aurora,
     });
+    this.showImage(image);
     if (skyChanged) {
       // The same texture and the same environment target, refilled: a new object would make three
       // re-check every material (and on the first change compile programs for a frame of seconds)
@@ -451,6 +484,9 @@ export class CustomMapEnvironment {
 
   dispose(): void {
     this.detach();
+    this.imageId = null;
+    this.imageTexture?.dispose();
+    this.imageTexture = null;
     this.sky.dispose();
     this.envTarget?.dispose();
     this.pmrem?.dispose();
@@ -486,6 +522,69 @@ export class CustomMapEnvironment {
     this.sun.target.updateMatrixWorld();
   }
 
+  /**
+   * Shows the map's image sky on the dome, turned to the map's sun, or the
+   * procedural one; a picture not loaded yet starts loading (once per id)
+   */
+  private showImage(image: SkyImage | null): void {
+    if (!image) {
+      this.imageId = null;
+      this.skyDome.setImage(null);
+      return;
+    }
+    if (image.id !== this.imageId) {
+      this.imageId = image.id;
+      this.skyDome.setImage(null);
+      this.loadImage(image);
+      return;
+    }
+    if (this.imageTexture?.name === image.id) this.skyDome.setImage(this.imageTexture, skyImageYaw(image, this.env.sunAzimuth));
+  }
+
+  /** Loads the picture: a texture for the dome and its pixels at the environment map's size; no picture without a decoder */
+  private loadImage(image: SkyImage): void {
+    if (typeof createImageBitmap === 'undefined' || typeof OffscreenCanvas === 'undefined') return;
+    const rows = SKY_HEIGHT / 2;
+    const load = fetchSkyImage(image)
+      .then(async (blob) => {
+        const options = { colorSpaceConversion: 'none', premultiplyAlpha: 'none' } as const;
+        const [full, small] = await Promise.all([
+          createImageBitmap(blob, options),
+          createImageBitmap(blob, { ...options, resizeWidth: SKY_WIDTH, resizeHeight: rows, resizeQuality: 'high' }),
+        ]);
+        const ctx = new OffscreenCanvas(SKY_WIDTH, rows).getContext('2d', { willReadFrequently: true });
+        ctx?.drawImage(small, 0, 0);
+        small.close();
+        const pixels = ctx?.getImageData(0, 0, SKY_WIDTH, rows).data;
+        if (this.imageId !== image.id || !pixels) {
+          full.close();
+          return;
+        }
+        const texture = new Texture(full);
+        texture.name = image.id;
+        texture.colorSpace = SRGBColorSpace;
+        // An ImageBitmap uploads as it is (top row first): the dome reads v = 0 at the zenith
+        texture.flipY = false;
+        texture.wrapS = RepeatWrapping;
+        texture.wrapT = ClampToEdgeWrapping;
+        texture.magFilter = LinearFilter;
+        // No mipmaps: the lookup's u jumps at the seam, a mip chosen by that jump would draw a line
+        texture.minFilter = LinearFilter;
+        texture.generateMipmaps = false;
+        texture.needsUpdate = true;
+        this.imageTexture?.dispose();
+        this.imageTexture = texture;
+        this.imagePixels = { id: image.id, data: pixels };
+        this.skyDome.setImage(texture, skyImageYaw(image, this.env.sunAzimuth));
+        this.fillSky(this.sky.image.data as Uint8Array);
+        this.sky.needsUpdate = true;
+        if (this.scene) this.installSky();
+      })
+      .catch((error: unknown) => console.warn(`[CustomMapEnvironment] sky ${image.id} not loaded, the sky stays a gradient`, error));
+    this.imageReady = load;
+    this.envReady = Promise.all([this.envReady, load]).then(() => undefined);
+  }
+
   private installSky(): void {
     const scene = this.scene;
     const renderer = this.renderer;
@@ -504,11 +603,12 @@ export class CustomMapEnvironment {
       inside._setSize(this.sky.image.width / 4);
       this.pmrem = pmrem;
       this.envTarget = inside._allocateTargets();
-      this.envReady = linkPmrem(renderer, pmrem, this.envTarget).then(() => {
+      const linked = linkPmrem(renderer, pmrem, this.envTarget).then(() => {
         if (this.pmrem !== pmrem) return;
         this.pmremReady = true;
         this.fillEnvironment();
       });
+      this.envReady = Promise.all([linked, this.imageReady]).then(() => undefined);
     } else if (this.pmremReady) {
       this.fillEnvironment();
     }
@@ -539,11 +639,16 @@ export class CustomMapEnvironment {
   private fillSky(data: Uint8Array): void {
     const p = this.look();
     const tint = new Color(this.env.tint || '#ffffff');
-    const zenith = new Color(p.zenith).multiply(tint);
-    const horizon = new Color(p.horizon).multiply(tint);
+    const image = skyImageOf(this.env);
+    const zenith = (image ? new Color().setRGB(...image.zenith) : new Color(p.zenith)).multiply(tint);
+    const horizon = (image ? new Color().setRGB(...image.horizon) : new Color(p.horizon)).multiply(tint);
     const ground = new Color(p.ground);
-    const sunCol = new Color(p.sun);
-    const glowCol = new Color(p.glowColor ?? p.sun);
+    const sunCol = image?.sunColor ? new Color().setRGB(...image.sunColor) : new Color(p.sun);
+    const glowCol = image?.sunColor ? sunCol : new Color(p.glowColor ?? p.sun);
+    // The picture's pixels above the horizon once it has loaded (SKY_WIDTH x SKY_HEIGHT / 2, top row the zenith)
+    const pixels = image && this.imagePixels?.id === image.id ? this.imagePixels.data : null;
+    const turn = image ? skyImageYaw(image, this.env.sunAzimuth) / (2 * Math.PI) : 0;
+    const rows = SKY_HEIGHT / 2;
     const sun = sunDirection(this.env.sunAzimuth, this.env.sunElevation, new Vector3());
     const c = new Color();
     const dir = new Vector3();
@@ -555,6 +660,18 @@ export class CustomMapEnvironment {
         const phi = (u - 0.5) * 2 * Math.PI;
         // three's equirect lookup: u = atan(z, x) / 2pi + 0.5, v = asin(y) / pi + 0.5
         dir.set(Math.cos(phi) * Math.cos(theta), Math.sin(theta), Math.sin(phi) * Math.cos(theta));
+        const q = (py * SKY_WIDTH + px) * 4;
+        if (pixels && dir.y >= 0) {
+          // The picture, turned as the dome turns it (sky-dome.ts skyImageColor), tinted like the gradient
+          const iu = (((u + turn) % 1) + 1) % 1;
+          const row = Math.min(rows - 1, Math.max(0, Math.floor((1 - theta / (Math.PI / 2)) * rows)));
+          const s = (row * SKY_WIDTH + Math.min(SKY_WIDTH - 1, Math.floor(iu * SKY_WIDTH))) * 4;
+          data[q] = toSrgbByte(SRGB_TO_LINEAR[pixels[s]] * tint.r);
+          data[q + 1] = toSrgbByte(SRGB_TO_LINEAR[pixels[s + 1]] * tint.g);
+          data[q + 2] = toSrgbByte(SRGB_TO_LINEAR[pixels[s + 2]] * tint.b);
+          data[q + 3] = 255;
+          continue;
+        }
         if (dir.y >= 0) {
           c.copy(horizon).lerp(zenith, Math.pow(dir.y, 0.45));
         } else {
@@ -568,7 +685,6 @@ export class CustomMapEnvironment {
         c.g += glowCol.g * glow + sunCol.g * disc;
         c.b += glowCol.b * glow + sunCol.b * disc;
         // Linear to sRGB bytes
-        const q = (py * SKY_WIDTH + px) * 4;
         data[q] = toSrgbByte(c.r);
         data[q + 1] = toSrgbByte(c.g);
         data[q + 2] = toSrgbByte(c.b);
@@ -587,6 +703,28 @@ const SRGB_TABLE = (() => {
   }
   return t;
 })();
+
+/** sRGB bytes to linear 0..1 */
+const SRGB_TO_LINEAR = (() => {
+  const t = new Float32Array(256);
+  for (let i = 0; i < 256; i++) {
+    const v = i / 255;
+    t[i] = v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  }
+  return t;
+})();
+
+/**
+ * `target` in the hue of `rgb` (linear), keeping its own luminance: the
+ * preset sets how bright a light is, the picture what colour it has
+ */
+export function withHueOf(target: Color, rgb: readonly [number, number, number]): Color {
+  const lum = (r: number, g: number, b: number): number => r * 0.2126 + g * 0.7152 + b * 0.0722;
+  const from = lum(rgb[0], rgb[1], rgb[2]);
+  if (from <= 0) return target;
+  const k = lum(target.r, target.g, target.b) / from;
+  return target.setRGB(rgb[0] * k, rgb[1] * k, rgb[2] * k);
+}
 
 function toSrgbByte(linear: number): number {
   return SRGB_TABLE[linear <= 0 ? 0 : linear >= 1 ? 4096 : (linear * 4096) | 0];

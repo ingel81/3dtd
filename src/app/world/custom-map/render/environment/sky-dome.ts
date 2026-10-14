@@ -15,6 +15,7 @@ import {
   Vector3,
   WebGLRenderTarget,
   type Camera,
+  type Texture,
   type WebGLRenderer,
 } from 'three';
 import { SHADER_NOISE } from '../shader-noise';
@@ -41,6 +42,11 @@ import { WIND_UNIFORMS } from './wind';
  * (`SKY_BAKE_FRAMES`), not the full function per water pixel: it ran
  * two or three times per pixel, two cloud layers of five octaves each.
  * SKY_TEXTURE_GLSL reads it.
+ *
+ * An image sky (sky-images.ts) replaces the function's gradient, clouds,
+ * stars and sun with a picture of the upper hemisphere (`setImage`), turned
+ * about the vertical so its sun stands where the map's does; haze at the
+ * foot, grading and the baked texture for the water stay the same.
  */
 
 /** Frames between two bakes of the sky texture: clouds drift slowly */
@@ -86,6 +92,10 @@ export class SkyDome {
         uStars: { value: 0 },
         uPlanet: { value: 0 },
         uAurora: { value: 0 },
+        // An image sky: the upper hemisphere (top row the zenith), its turn about the vertical (radians)
+        uSkyImage: { value: null },
+        uSkyImageOn: { value: 0 },
+        uSkyImageYaw: { value: 0 },
       },
       vertexShader: SKY_VERTEX,
       fragmentShader: SKY_FRAGMENT,
@@ -156,6 +166,15 @@ export class SkyDome {
     this.bakeAge = SKY_BAKE_FRAMES;
   }
 
+  /** Shows a picture instead of the procedural sky, turned by `yaw` (sky-images.ts); null: procedural */
+  setImage(texture: Texture | null, yaw = 0): void {
+    const u = this.mesh.material.uniforms;
+    u['uSkyImage'].value = texture;
+    u['uSkyImageOn'].value = texture ? 1 : 0;
+    u['uSkyImageYaw'].value = yaw;
+    this.bakeAge = SKY_BAKE_FRAMES;
+  }
+
   /** Follows the camera and moves the clouds */
   update(dt: number, camera: Camera): void {
     camera.getWorldPosition(this.mesh.position);
@@ -213,6 +232,16 @@ uniform vec2 uCloudOffset;
 uniform float uStars;
 uniform float uPlanet;
 uniform float uAurora;
+uniform sampler2D uSkyImage;
+uniform float uSkyImageOn;
+uniform float uSkyImageYaw;
+
+// The image sky in a direction: the picture holds the upper hemisphere, below it its horizon row
+vec3 skyImageColor(vec3 dir) {
+  float u = fract((atan(dir.z, dir.x) + uSkyImageYaw) / (2.0 * PI) + 0.5);
+  float v = 1.0 - asin(clamp(dir.y, 0.0, 1.0)) / (0.5 * PI);
+  return texture2D(uSkyImage, vec2(u, v)).rgb;
+}
 
 float skyFbm(vec2 p) {
   float s = 0.0;
@@ -306,7 +335,11 @@ ${HEIGHT_FOG_PARS}
 
 void main() {
   vec3 dir = normalize(vDir);
-  gl_FragColor = vec4(skyColor(dir, true), 1.0);
+  // A uniform branch: an image sky skips the clouds' noise
+  vec3 sky;
+  if (uSkyImageOn > 0.5) sky = skyImageColor(dir);
+  else sky = skyColor(dir, true);
+  gl_FragColor = vec4(sky, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   // The lowest few degrees fade into the haze the far land sinks into (height-fog.ts, same colour and
@@ -336,7 +369,11 @@ void main() {
   float az = (vSkyUv.x - 0.5) * 2.0 * PI;
   float el = vSkyUv.y * 0.5 * PI;
   vec3 dir = vec3(cos(az) * cos(el), sin(el), sin(az) * cos(el));
-  gl_FragColor = vec4(skyColor(dir, false), 1.0);
+  // A uniform branch: an image sky skips the clouds' noise
+  vec3 sky;
+  if (uSkyImageOn > 0.5) sky = skyImageColor(dir);
+  else sky = skyColor(dir, false);
+  gl_FragColor = vec4(sky, 1.0);
 }
 `;
 

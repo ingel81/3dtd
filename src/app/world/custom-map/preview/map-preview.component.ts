@@ -9,6 +9,7 @@ import type { MapBiome } from '../map-document';
 import { createAssetShowcase } from './asset-showcase';
 import { MapStore } from '../map-store';
 import { CustomMapView } from '../render/custom-map-view';
+import { chooseSkyImage } from '../render/environment/sky-images';
 import { MapAssetLibrary } from '../render/map-asset-library';
 import { mapToScene } from '../render/map-coords';
 
@@ -34,7 +35,7 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
 /**
  * Dev page `/map-preview`: the demo map in the custom map renderer with an
  * orbit camera and frame numbers. `?view=village` picks a camera spot
- * (VIEWS), `?seed=3` another demo map, `?sky=dusk` another sky preset,
+ * (VIEWS), `?seed=3` another demo map, `?sky=dusk` another sky preset, `?skyImage=starry-night` a picture sky,
  * `?weather=rain|snow|fog` (`&strength=0.7`), `?effects=refraction,seaWaves` (map-effects.ts), `?quality=low|medium|high|ultra` (the level's custom map knobs, render-quality.ts), `?biome=hell|moon|mars|arctic|…`, `?post=bloom` through the game's
  * post-processing chain. `?showcase=winter` (a catalogue tag) or
  * `?assets=tree-*,rock-large&materials=snow,ice` lines up catalogue assets on a
@@ -147,6 +148,9 @@ export class MapPreviewComponent implements OnDestroy {
       doc.environment.sky = sky;
       if (sky === 'dusk') doc.environment.sunElevation = 9;
     }
+    // `?skyImage=starry-night`: a picture sky (render/environment/sky-images.ts), as the editor chooses it
+    const skyImage = params.get('skyImage');
+    if (skyImage) doc.environment = { ...doc.environment, ...chooseSkyImage(skyImage) };
     // `?effects=refraction,seaWaves,lavaGlow,shadowCascade` turns on the switchable effects (map-effects.ts)
     const effects = Object.fromEntries((params.get('effects') ?? '').split(',').filter(Boolean).map((e) => [e, true]));
     const view = new CustomMapView(doc, MapAssetLibrary.shared(), {

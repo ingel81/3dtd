@@ -228,6 +228,24 @@ describe('map file', () => {
     expect(validateMapDocument(doc)).toContain('gameplay.difficulty must be 50 to 200 (percent)');
   });
 
+  it('carries an image sky, an optional id; an old map has none and keeps its hash (TODO E172)', async () => {
+    const doc = sample();
+    const hash = await contentHash(doc);
+    expect(doc.environment.skyImage).toBeUndefined();
+    doc.environment.skyImage = 'starry-night';
+    const { doc: back } = unpackMapFile(packMapFile(doc));
+    expect(back.environment.skyImage).toBe('starry-night');
+    expect(await contentHash(back)).not.toBe(hash);
+    // Back to procedural: the field goes, the hash is the old map's
+    doc.environment = { ...doc.environment, skyImage: undefined };
+    expect(await contentHash(doc)).toBe(hash);
+    // An id this game does not ship is no error (procedural here); a non-string is
+    doc.environment.skyImage = 'from-a-newer-game';
+    expect(validateMapDocument(doc)).toEqual([]);
+    doc.environment.skyImage = 7 as never;
+    expect(validateMapDocument(doc)).toContain('environment skyImage must be a sky id');
+  });
+
   it('validates the grid and the references', () => {
     const doc = sample();
     expect(validateMapDocument(doc)).toEqual([]);
