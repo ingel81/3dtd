@@ -740,7 +740,10 @@ export class PathAndRouteService {
     const open = route.onStreet.map((onStreet, i) => onStreet && !route.onBridge[i] && !route.inTunnel[i] && approaches[i].length === 0);
     const fit = fitCorridorStations(this.corridorStationsOf(route));
     const wall = (side: 'left' | 'right') => fit[side].map((stations) => stations.map((station) => station.halfWidth));
-    return { points, open, covered: route.inTunnel, streetHalfWidth: route.halfWidths, wallLeft: wall('left'), wallRight: wall('right') };
+    return {
+      points, open, covered: route.inTunnel, streetHalfWidth: route.halfWidths, wallLeft: wall('left'), wallRight: wall('right'),
+      plainGround: this.engine!.world.streetStyle.plainGround,
+    };
   }
 
   /**

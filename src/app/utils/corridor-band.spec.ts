@@ -413,6 +413,29 @@ describe('bandPath', () => {
   });
 });
 
+/**
+ * Custom maps, Ember Crater (TODO E160): a road over a crest. Against the
+ * street level of the stations around it (an opening over PASSAGE_SPAN_M)
+ * the crest stood more than `roofRise` high and became a passage, run as a
+ * tunnel: line and enemies went straight through the hill. On plain ground
+ * nothing stands over the street, the crest is the street.
+ */
+describe('buildBand on plain ground', () => {
+  /** A crest 6 m high and some 16 m long across the street at x = 60 */
+  const crest: Ground = (x) => 6 * Math.max(0, 1 - ((x - 60) / 8) ** 2);
+
+  it('takes a crest on the street for a roof where columns may hold buildings', () => {
+    expect(buildBand(street(), columns(crest), CELL).passages.length).toBeGreaterThan(0);
+  });
+
+  it('keeps every station on the crest where the ground is the plain terrain', () => {
+    const band = buildBand({ ...street(), plainGround: true }, columns(crest), CELL);
+    expect(band.passages).toEqual([]);
+    for (const st of band.stations) expect(st.kind, `${st.s}`).toBe('band');
+    expect(at(band, 60).backbone!.y).toBeCloseTo(crest(60, 1), 0);
+  });
+});
+
 describe('smoothCentre', () => {
   it('stays within its bounds and on its pins, and follows the target elsewhere', () => {
     const n = 40;

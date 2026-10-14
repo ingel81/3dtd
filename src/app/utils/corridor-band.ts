@@ -86,6 +86,14 @@ export interface BandRoute {
    */
   wallLeft: readonly (readonly number[])[];
   wallRight: readonly (readonly number[])[];
+  /**
+   * The columns are the plain terrain (a custom map, StreetStyle.plainGround):
+   * nothing stands over the street, so the street under a station is its
+   * own backbone and no station becomes a passage. A crest the road runs
+   * over is no roof; against the opening it would be one, and line and
+   * enemies would run straight through the hill (TODO E160).
+   */
+  plainGround?: boolean;
 }
 
 /** What the band found at one station. Offsets are metres right of the direction of travel from the OSM line. */
@@ -287,7 +295,7 @@ export function buildBand(route: BandRoute, columns: BandColumns, cellSize: numb
     if (st.sections.length === 0) st.kind = 'fixed';
   });
   chainSections(stations);
-  const street = streetLevel(stations);
+  const street = route.plainGround ? stations.map((st) => st.backbone?.y ?? null) : streetLevel(stations);
   stations.forEach((st, k) => {
     st.street = street[k];
   });
@@ -307,7 +315,8 @@ export function buildBand(route: BandRoute, columns: BandColumns, cellSize: numb
       placeCentre(stations);
       taperWidths(stations);
     }
-    const found = coveredOnLine(route, stations, columnAt, cellSize).filter((k) => !underCover.has(k));
+    // Nothing covers a street on plain ground: a cell above it on the line is the hillside
+    const found = route.plainGround ? [] : coveredOnLine(route, stations, columnAt, cellSize).filter((k) => !underCover.has(k));
     if (found.length === 0) break;
     for (const k of found) underCover.add(k);
   }
