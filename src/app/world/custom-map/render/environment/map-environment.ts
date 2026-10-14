@@ -376,6 +376,11 @@ export class CustomMapEnvironment {
     HEIGHT_FOG_UNIFORMS.uFogMap.value.set(centerX, centerZ, halfX, halfZ);
   }
 
+  /** The renderer `apply` installed the environment on (passes of the map's own run with it), null before */
+  get activeRenderer(): WebGLRenderer | null {
+    return this.renderer;
+  }
+
   /** Height the fog is densest at (the map's low ground), metres in the scene */
   setFogBase(height: number): void {
     HEIGHT_FOG_UNIFORMS.uFogBase.value = height;

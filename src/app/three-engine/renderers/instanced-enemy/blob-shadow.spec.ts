@@ -10,7 +10,7 @@ describe('attachBlobShadow', () => {
     const blob = attachBlobShadow(pool, 0.5, { value: 1 });
     expect(blob.parent).toBe(scene);
     pool.count = 5;
-    const render = () => blob.onBeforeRender(null as unknown as WebGLRenderer, null as unknown as Scene, null as unknown as Camera, blob.geometry, blob.material, null);
+    const render = () => blob.onBeforeRender(null as unknown as WebGLRenderer, null as unknown as Scene, null as unknown as Camera, blob.geometry, blob.material as MeshBasicMaterial, null as unknown as Group);
     render();
     expect(blob.count).toBe(5);
     expect(blob.instanceMatrix).toBe(pool.instanceMatrix);

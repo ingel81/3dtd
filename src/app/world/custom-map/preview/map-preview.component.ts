@@ -1,3 +1,4 @@
+import { QUALITY_TABLE, type QualityLevel } from '../../../three-engine/render-quality';
 import { ChangeDetectionStrategy, Component, ElementRef, NgZone, OnDestroy, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { PCFShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, Timer, Vector3, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -34,7 +35,7 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
  * Dev page `/map-preview`: the demo map in the custom map renderer with an
  * orbit camera and frame numbers. `?view=village` picks a camera spot
  * (VIEWS), `?seed=3` another demo map, `?sky=dusk` another sky preset,
- * `?weather=rain|snow|fog` (`&strength=0.7`), `?effects=refraction,seaWaves` (map-effects.ts), `?biome=hell|moon|mars|arctic|…`, `?post=bloom` through the game's
+ * `?weather=rain|snow|fog` (`&strength=0.7`), `?effects=refraction,seaWaves` (map-effects.ts), `?quality=low|medium|high|ultra` (the level's custom map knobs, render-quality.ts), `?biome=hell|moon|mars|arctic|…`, `?post=bloom` through the game's
  * post-processing chain. `?showcase=winter` (a catalogue tag) or
  * `?assets=tree-*,rock-large&materials=snow,ice` lines up catalogue assets on a
  * flat map instead (asset-showcase.ts). `?map=<id>` shows a shipped map instead
@@ -154,6 +155,9 @@ export class MapPreviewComponent implements OnDestroy {
       effects,
     });
     this.view = view;
+    // `?quality=ultra`: a quality level's custom map knobs (grass, shadows, detail, effects)
+    const level = params.get('quality');
+    if (level && level in QUALITY_TABLE) view.applyQuality(QUALITY_TABLE[level as QualityLevel].customMaps);
     view.attach(scene);
     view.environment.apply(scene, renderer);
 

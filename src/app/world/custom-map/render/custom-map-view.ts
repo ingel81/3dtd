@@ -442,6 +442,8 @@ export class CustomMapView {
     this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);
     this.terrain.grass.update(dtSeconds, this.grassCenter);
     this.terrain.grass.setNear(reach < this.grassDistance);
+    const renderer = this.environment.activeRenderer;
+    if (renderer) this.terrain.grass.prepare(renderer);
     // The weather's cover: at most four times a second, and only when something changed
     this.coverAge += dtSeconds;
     if (this.coverDirty && this.coverAge > 0.25) void this.refreshCover();

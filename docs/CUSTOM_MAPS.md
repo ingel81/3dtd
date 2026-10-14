@@ -120,7 +120,11 @@ Nebel der Szene wieder her.
 - **Gras** (`grass/grass-field.ts`): 70 000 instanzierte Halme in einer 64-m-Kachel, die zwischen Kamera und Fokus
   mitwandert (jeder Halm hat einen festen Weltort), auf dem Höhenraster, so dicht wie die Grasschichten der Splat-Map
   (nicht auf Wegen, steilem Boden, außerhalb der Karte), mit Wind, zum Kachelrand hin kleiner. Ab 140 m Kameraabstand
-  zum Fokus aus; Ansichtsoption `grass: false`
+  zum Fokus aus; Ansichtsoption `grass: false`. Was ein Halm von der Karte braucht (Ort, Bodenhöhe, ob er steht,
+  Farbe), rechnet ein kleiner Pass je Halm in zwei Float-Texturen (256 × 274, `prepare`), wenn der Fokus wandert,
+  und in Ruhe alle 8 Frames für Änderungen im Editor; die zehn Vertices eines Halms lesen nur noch zwei Texel.
+  Die Stufe gibt die Zahl der Halme (`grassBlades`, render-quality.ts); unter High sind sie breiter, damit die Wiese
+  geschlossen bleibt, und der Pass rechnet nur die gezeichneten Zeilen (Vorschau `?quality=medium`)
 - **Schnee und Nässe** (alle Kartenmaterialien, `height-fog.ts`): Schnee liegt auf allem, was nach oben zeigt
   (`environment.snowCover`, sonst aus Biom arctic oder Schneewetter), Regen macht Flächen dunkler und glänzender
 - **Nasse Ufer**: die Alpha-Komponente der Normalentextur markiert Raster­punkte nahe Wasser (Maske um zwei Samples
