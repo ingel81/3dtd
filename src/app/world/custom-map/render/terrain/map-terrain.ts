@@ -66,6 +66,14 @@ export class MapTerrainLayer {
   private materialParams: TerrainMaterialParams | null = null;
   /** Materials of the shader's larger layer counts, by count (layerTwins) */
   private readonly twins = new Map<number, TerrainMaterial>();
+  /** Where far ground gets cheaper (TerrainMaterial.setFarDistances), kept for a material built later */
+  private far: [number, number] = [150, 400];
+
+  /** Distances (m) from which far ground samples one layer lookup, then no layer textures (quality levels) */
+  setFarDistances(single: number, flat: number): void {
+    this.far = [single, flat];
+    this.material?.setFarDistances(single, flat);
+  }
   private arrays: MaterialArrays | null = null;
   private splat: SplatTextures | null = null;
   private pathMask: DataTexture | null = null;
@@ -160,6 +168,7 @@ export class MapTerrainLayer {
     this.material.terrainUniforms.uMorphEye = this.chunks.morphEye;
     this.material.terrainUniforms.uMorphFocus = this.chunks.morphFocus;
     addHeightFog(this.material);
+    this.material.setFarDistances(this.far[0], this.far[1]);
     this.material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
     this.chunks.setMaterial(this.material);
     this.apron.material = this.material;

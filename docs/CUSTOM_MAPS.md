@@ -87,7 +87,10 @@ Nebel der Szene wieder her.
   `cliffAngle` mit verrauschter Kante; Höhen-Blend (eine Schicht zeigt sich, wo Höhe + Gewicht nahe am Besten
   liegt); jede Schicht zweimal mit verschobenen UVs je nach langsamem Rauschen (kein sichtbares Kachelmuster, nach
   Inigo Quilez); Klippen triplanar (die Seitenprojektion übernimmt ab etwa 35°, die Felskante bricht entlang der
-  Höhenlinien in Simsen); Makrovariation und in der Ferne die Durchschnittsfarbe. Jede Schicht blendet so weich wie
+  Höhenlinien in Simsen); Makrovariation und in der Ferne die Durchschnittsfarbe. **Ferne billiger**: ab `uFarSingle`
+  (150 m) liest jede Schicht Normale und Rauheit einmal statt zweimal (die Farbe behält ihr Anti-Kachel-Paar), ab
+  `uFarFlat` (400 m) gar keine Schichttexturen mehr, nur die Durchschnittsfarben nach Gewicht über der Rasternormale;
+  die Grenzen sind mit Rauschen verzittert. `CustomMapView.setFarGround(single, flat)` für die Qualitätsstufen Jede Schicht blendet so weich wie
   ihre Katalog-Kategorie (`MATERIAL_LOOK`: Gras und Sand laufen in die Nachbarn, Fels und Eis schneiden) und bekommt
   deren Rauheitsbereich (Schlamm und Eis glänzender, Gras und Sand matt); der Glanz läuft zum Blickrand hin aus (keine
   weißen Flächen im Gegenlicht)

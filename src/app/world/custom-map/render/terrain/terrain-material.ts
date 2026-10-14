@@ -119,6 +119,9 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uFlow: { value: new Float32Array(TERRAIN_MAX_LAYERS) },
     /** Blend band factor and roughness range (texture roughness 0..1 mapped into it) by array layer */
     uSoft: { value: new Float32Array(TERRAIN_MAX_LAYERS).fill(1) },
+    /** Camera distances (m) from which the ground samples one layer lookup, and no layer textures at all */
+    uFarSingle: { value: 150 },
+    uFarFlat: { value: 400 },
     uRough: { value: Array.from({ length: TERRAIN_MAX_LAYERS }, () => new Vector2(0.6, 1)) },
     uTerrainTime: { value: 0 },
     uSplatLayer: { value: new Int32Array(8).fill(-1) },
@@ -205,6 +208,15 @@ export class TerrainMaterial extends MeshStandardMaterial {
     this.terrainUniforms.uTerrainTime.value += dt;
   }
 
+  /**
+   * Distances (m) from which far ground gets cheaper: one layer lookup at a
+   * larger scale, then the layers' average colours only (quality levels)
+   */
+  setFarDistances(single: number, flat: number): void {
+    this.terrainUniforms.uFarSingle.value = single;
+    this.terrainUniforms.uFarFlat.value = Math.max(single, flat);
+  }
+
   /** Water level for the wet banks, and the kind of the main water for its swash; null when the map has no water */
   setWaterLevel(level: number | null, kind?: MapWaterKind): void {
     // Far below any terrain, but not so far that level + 1.3 and level + 0.15 round to the same float
@@ -242,6 +254,8 @@ uniform vec3 uAverage[TERRAIN_LAYERS];
 uniform float uEmissive[TERRAIN_LAYERS];
 uniform float uFlow[TERRAIN_LAYERS];
 uniform float uSoft[TERRAIN_LAYERS];
+uniform float uFarSingle;
+uniform float uFarFlat;
 uniform vec2 uRough[TERRAIN_LAYERS];
 uniform float uTerrainTime;
 uniform int uSplatLayer[8];
@@ -255,7 +269,7 @@ ${SHADER_NOISE}
 // Sample a layer on one plane without visible repetition: two lookups with
 // offsets chosen by a slow noise, blended where the noise steps
 // (after Inigo Quilez, "texture repetition", technique 3).
-void sampleNoTile(int layer, vec2 uv, vec2 dx, vec2 dy, float k, out vec4 col, out vec4 dat) {
+void sampleNoTile(int layer, vec2 uv, vec2 dx, vec2 dy, float k, bool single, out vec4 col, out vec4 dat) {
   float l = k * 8.0;
   float f = fract(l);
   float ia = floor(l);
@@ -267,6 +281,11 @@ void sampleNoTile(int layer, vec2 uv, vec2 dx, vec2 dy, float k, out vec4 col, o
   float b = smoothstep(0.2, 0.8, f - 0.1 * dot(ca.rgb - cb.rgb, vec3(1.0)));
   col = mix(ca, cb, b);
   vec4 da = textureGrad(uDataArray, vec3(uv + offa, float(layer)), dx, dy);
+  // Far ground: the colour keeps both samples (its tiling would show), normal and roughness take one
+  if (single) {
+    dat = da;
+    return;
+  }
   vec4 db = textureGrad(uDataArray, vec3(uv + offb, float(layer)), dx, dy);
   dat = mix(da, db, b);
 }
@@ -394,16 +413,32 @@ vec4 cliffZ = vec4(0.0); vec4 cliffZd = vec4(0.5, 0.5, 1.0, 1.0);
 bool cliffSides = uCliffLayer >= 0 && tri.y < 0.98 && w[uCliffLayer] >= 0.004;
 if (cliffSides) {
   float s = uInvScale[uCliffLayer];
-  sampleNoTile(uCliffLayer, sideX * s, sideXdx * s, sideXdy * s, sel, cliffX, cliffXd);
-  sampleNoTile(uCliffLayer, sideZ * s, sideZdx * s, sideZdy * s, sel, cliffZ, cliffZd);
+  sampleNoTile(uCliffLayer, sideX * s, sideXdx * s, sideXdy * s, sel, false, cliffX, cliffXd);
+  sampleNoTile(uCliffLayer, sideZ * s, sideZdx * s, sideZdy * s, sel, false, cliffZ, cliffZd);
 }
+// Ground in the distance is cheaper (bands dithered by noise, so no line shows): from uFarSingle each
+// layer reads its normal and roughness once instead of twice (the colour keeps its anti-tiling pair), from
+// uFarFlat no layer textures at all, the layers' average colours by weight over the grid's normal (the
+// macro variation stays)
+float farJitter = (sel - 0.5) * 30.0;
+float viewDist = length(vViewPosition);
+bool farSingle = viewDist > uFarSingle + farJitter;
+bool farFlat = viewDist > uFarFlat + farJitter;
+if (farFlat) {
+  for (int k = 0; k < TERRAIN_LAYERS; k++) {
+    lc[k] = vec4(uAverage[k], 0.5);
+    ld[k] = vec4(0.5, 0.5, 0.85, 1.0);
+    ln[k] = nGeo;
+    best = max(best, 0.5 + w[k]);
+  }
+} else
 for (int k = 0; k < TERRAIN_LAYERS; k++) {
   if (w[k] < 0.004) continue;
   float s = uInvScale[k];
   vec4 col; vec4 dat;
   // Flowing layers (lava) scroll along map +x, which is scene -x
   vec2 flowUv = vec2(uFlow[k] * uTerrainTime, 0.0);
-  sampleNoTile(k, (tPos.xz + flowUv) * s, dPosX * s, dPosY * s, sel, col, dat);
+  sampleNoTile(k, (tPos.xz + flowUv) * s, dPosX * s, dPosY * s, sel, farSingle, col, dat);
   vec3 tn = unpackTerrainNormal(dat);
   // Top projection: tangent x along scene +x, tangent y along scene +z (whiteout blend)
   vec3 nTop = safeNormalize(vec3(tn.x + nGeo.x, tn.z * nGeo.y, tn.y + nGeo.z), nGeo);

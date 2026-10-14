@@ -854,6 +854,15 @@ export class CustomMapView {
     this.applyEffects();
   }
 
+  /**
+   * Distances (m) from which the ground gets cheaper: one layer lookup at a
+   * larger scale from `single` (default 150), only the layers' average colours
+   * from `flat` (default 400). For the quality levels
+   */
+  setFarGround(single: number, flat: number): void {
+    this.terrain.setFarDistances(single, flat);
+  }
+
   /** The switchable effects now on */
   get effectsOn(): Readonly<MapEffects> {
     return this.mapEffects;
