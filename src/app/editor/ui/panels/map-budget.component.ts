@@ -35,7 +35,7 @@ export class MapBudgetComponent {
     if (over?.label === 'Objects') return 'More objects than a map keeps fluid: thin out scatter or far decoration.';
     if (over?.label === 'File') return 'Too big to send in coop: only players who have the map can join.';
     return this.fileBytes() === null
-      ? 'Objects keep the map fluid up to the budget. Save to measure the file; coop sends up to 32 MB.'
-      : 'Objects keep the map fluid up to the budget. The file as of the last save; coop sends up to 32 MB.';
+      ? 'Objects keep the map fluid up to the budget. Save (Ctrl+S) to measure the file; coop sends up to 32 MB.'
+      : 'Objects keep the map fluid up to the budget. The file as of the last Ctrl+S (autosaves pack lighter); coop sends up to 32 MB.';
   });
 }
