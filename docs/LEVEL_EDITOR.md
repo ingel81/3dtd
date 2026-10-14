@@ -160,7 +160,7 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
 - Linien (ziehen, auch vom Kartenrand her): Cliff edge hebt den Boden links der Zeichenrichtung als Klippe, die
   Pinselgröße ist die Breite oben; River (Water oder Lava) legt einen Fluss an, der immer bergab fließt (bergauf
   gezeichnet wird er umgedreht): mäandernd, mit wechselnder Breite und schmalen Enden, Bett mit Sand- und
-  Schlammufern (bei Lava verbrannter Fels), Schilf, Steinen, einem Wasserfall über jeder steilen Stufe und einer
+  Schlammufern (bei Lava verbrannter Fels), Schilf (nicht an Flanken steiler als 30 Grad), Steinen, einem Wasserfall über jeder steilen Stufe und einer
   Brücke an jeder Straße, die er kreuzt; Road legt eine Straße ins Wegenetz (Anfang und Ende rasten an Knoten oder
   Straßen), passt den Boden als Damm oder Einschnitt an, pflastert sie und stellt Laternen oder Zäune an den Rand. Was
   er gebaut hat, merkt sich die Kante (`dress`); zieht man danach einen Knoten, glättet, begradigt oder verbreitert die

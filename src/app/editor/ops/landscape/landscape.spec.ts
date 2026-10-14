@@ -4,7 +4,7 @@ import { createMapDocument } from '../../../world/custom-map/map-create';
 import { fitSplatMaps, type CustomMapDocument } from '../../../world/custom-map/map-document';
 import { CatalogIndex, normalizeCatalog } from '../../catalog/asset-catalog';
 import { EditorDocument, mergeChanges, type DocChange } from '../../model/editor-document';
-import { heightAt } from '../../model/grid';
+import { heightAt, slopeAt } from '../../model/grid';
 import { edgePolyline, nearestOnEdges } from '../path-graph';
 import { biomeDab, finishBiome, previewSpots } from './biome-brush';
 import { biomeById, BIOMES } from './biomes';
@@ -480,6 +480,10 @@ describe('river and road', () => {
       expect(f.z).toBeLessThan(0);
       expect(Math.abs(f.y)).toBeLessThan(6);
     }
+    // Reeds on the banks, none on the cliff's flanks, where they would stick out of the rock
+    const reeds = cliff.doc.objects.filter((o) => /reed|grass/.test(o.asset));
+    expect(reeds.length).toBeGreaterThan(10);
+    for (const o of reeds) expect(slopeAt(t, o.x, o.y)).toBeLessThanOrEqual(30);
   });
 
   it('carves the bed again after a point moved, and thins a straight river out', () => {

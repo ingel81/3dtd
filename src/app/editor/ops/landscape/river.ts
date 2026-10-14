@@ -12,7 +12,7 @@
  * width and surface height that the renderer draws as a flowing ribbon.
  */
 import type { MapPoint, MapRiver } from '../../../world/custom-map/map-document';
-import { heightAt, sampleX, sampleY, texelX, texelY, type GridRect } from '../../model/grid';
+import { heightAt, sampleX, sampleY, slopeAt, texelX, texelY, type GridRect } from '../../model/grid';
 import { MAX_LAYERS, readWeights, writeWeights } from '../paint-ops';
 import { edgePolyline, nearestOnPolyline, newId, pointAt, polylineLength, splitEdge } from '../path-graph';
 import { resample, segmentCross } from './lines';
@@ -48,6 +48,8 @@ const FALL_STEEP = 1;
 const MAX_FALL = 12;
 /** Metres a waterfall drops at least */
 const FALL_MIN = 1.5;
+/** Degrees of slope from which reeds no longer grow on a bank: on a cliff by a waterfall they would stick out of the rock */
+const REED_SLOPE = 30;
 /** Metres between the points of a river */
 const POINT_STEP = 8;
 
@@ -364,7 +366,8 @@ function paintRiverBed(
 }
 
 /**
- * What the brush puts along a river: reeds in clumps at the edge and stones
+ * What the brush puts along a river: reeds in clumps at the edge (not on a
+ * bank steeper than REED_SLOPE) and stones
  * on the banks (by lava only scattered volcanic rock), and waterfalls where
  * the surface drops more than it runs (a cliff), at the lip, one per step of
  * at most MAX_FALL metres. `along` and `surface` are per point of `line`,
@@ -411,7 +414,11 @@ function decorateRiver(
         };
         // Reeds where the clump noise is high, right at the edge
         const clump = 0.5 + 0.5 * n.fbm(p.x + side * 31, p.y, 18, 2, 'n2');
-        if (reed && n.hash(k, side, 41) < smooth(0.45, 0.8, clump) * 0.9) put(reed, h + 0.3 + n.hash(k, side, 42) * 2.2, 0.8 + n.hash(k, side, 44) * 0.6);
+        if (reed && n.hash(k, side, 41) < smooth(0.45, 0.8, clump) * 0.9) {
+          const off = h + 0.3 + n.hash(k, side, 42) * 2.2;
+          const steep = slopeAt(t, p.x - ((q.y - p.y) / dl) * off * side, p.y + ((q.x - p.x) / dl) * off * side) > REED_SLOPE;
+          if (!steep) put(reed, off, 0.8 + n.hash(k, side, 44) * 0.6);
+        }
         if (stone && n.hash(k, side, 45) < 0.07) put(stone, h + 1 + n.hash(k, side, 46) * options.bank * 0.5, 0.4 + n.hash(k, side, 47) * 0.8);
       }
     }
