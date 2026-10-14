@@ -233,7 +233,7 @@
     <section class="es-help td-dlg" role="dialog" aria-modal="true" aria-labelledby="es-help-title" data-test="help-dialog">
       <header class="td-dlg-head">
         <h2 class="td-dlg-title" id="es-help-title">Help</h2>
-        <div class="td-seg is-sm es-help-tabs" role="tablist" aria-label="Help">
+        <div class="td-seg is-sm is-compact es-help-tabs" role="tablist" aria-label="Help">
           <button type="button" role="tab" [attr.aria-selected]="helpView() === 'keys'" (click)="helpView.set('keys')">Keys</button>
           <button type="button" role="tab" [attr.aria-selected]="helpView() === 'guide'" (click)="helpView.set('guide')" data-test="help-guide">Good levels</button>
         </div>
