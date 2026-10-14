@@ -73,7 +73,7 @@ describe('validateMap, objects in the air', () => {
     const issue = validateMap(doc, { footingOf }).find((i) => i.code === 'object-floating');
     expect(issue?.severity).toBe('warning');
     expect(issue?.target).toEqual({ kind: 'object', id: 'o2' });
-    expect(issue?.message).toMatch(/^2 objects hang up to 1\.8 m/);
+    expect(issue?.message).toMatch(/^2 objects hang in the air \(worst: heap, 1\.8 m up\)/);
     // Without the catalogue's footings nothing is checked
     expect(codes(doc)).not.toContain('object-floating');
   });
@@ -87,6 +87,8 @@ describe('validateMap, objects in the air', () => {
       // A buoy with the depth in its z (the Archipelago's) hangs 5 m over the water; one at the waterline does not
       place('deep', 'buoy', 0, 5),
       place('afloat', 'buoy', 10, -0.4),
+      // One sunk deeper than half its height
+      place('sunk', 'buoy', 20, -2),
       // A house raised by 2 m, a lamp on a quay, a lamp beside it in the air
       place('raised', 'house', 30, 2),
       place('quay', 'quay', 50),
@@ -96,8 +98,10 @@ describe('validateMap, objects in the air', () => {
       place('span', 'span', 70, 20),
       place('smoke', 'smoke', 80, 8),
     );
-    expect(inAir(doc)).toEqual(['beside', 'deep', 'raised']);
-    expect(validateMap(doc, { footingOf }).find((i) => i.code === 'object-floating')?.target).toEqual({ kind: 'object', id: 'deep' });
+    expect(inAir(doc)).toEqual(['beside', 'deep', 'raised', 'sunk']);
+    const issue = validateMap(doc, { footingOf }).find((i) => i.code === 'object-floating');
+    expect(issue?.target).toEqual({ kind: 'object', id: 'deep' });
+    expect(issue?.message).toMatch(/^3 objects hang in the air, a boat or buoy sinks under the water \(worst: buoy, 5\.0 m up\)/);
   });
 
   it('holds what stands on ice', () => {

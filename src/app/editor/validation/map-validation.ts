@@ -420,7 +420,9 @@ const SUPPORT_CELL = 16;
  * lantern on a quay, a banner on a wall), a road bridge's deck it stands on
  * (to 0.25 m past its rim, at most 0.3 m sunk in), or ice it stands on. Effects (smoke, fog, the
  * waterfall) and what stands in the air by design (catalogue `aloft`:
- * bridges, cable spans, the gondola) are left out. One terrain lookup per object (eight for
+ * bridges, cable spans, the gondola) are left out. A floating asset deeper
+ * under its water than half its height (0.25 to 1.5 m) has sunk; it comes
+ * back with a negative gap. One terrain lookup per object (eight for
  * houses, walls and props), supports only for the few in the air, from a
  * grid of SUPPORT_CELL metres.
  */
@@ -436,6 +438,7 @@ export function objectsInAir(doc: CustomMapDocument, footingOf: (asset: string) 
   }
   const solids: Solid[] = [];
   const hanging: { solid: Solid; gap: number }[] = [];
+  const sunk: { o: MapObject; gap: number }[] = [];
   for (const o of doc.objects) {
     const f = footingOf(o.asset);
     if (!f || f.category === 'fx' || f.aloft) continue;
@@ -451,8 +454,10 @@ export function objectsInAir(doc: CustomMapDocument, footingOf: (asset: string) 
       gap = solid.foot - under;
     }
     if (gap > tolerance) hanging.push({ solid, gap });
+    // A floating asset under the water: deeper than half its height (a quarter metre at least, 1.5 m at most)
+    else if (f.float && water(o.x, o.y) !== null && gap < -Math.max(0.25, Math.min(1.5, f.height * s * 0.5))) sunk.push({ o, gap });
   }
-  if (!hanging.length) return [];
+  if (!hanging.length) return sunk;
   const cells = new Map<string, Solid[]>();
   let widest = 0;
   for (const solid of solids) {
@@ -483,19 +488,25 @@ export function objectsInAir(doc: CustomMapDocument, footingOf: (asset: string) 
     }
     return false;
   };
-  return hanging.filter(({ solid }) => !held(solid)).map(({ solid, gap }) => ({ o: solid.o, gap }));
+  return [...hanging.filter(({ solid }) => !held(solid)).map(({ solid, gap }) => ({ o: solid.o, gap })), ...sunk];
 }
 
 function floatingObjects(doc: CustomMapDocument, footingOf: (asset: string) => ObjectFooting | undefined, tolerance: number, issues: MapIssue[]): void {
-  const inAir = objectsInAir(doc, footingOf, tolerance);
-  if (!inAir.length) return;
-  const worst = inAir.reduce((a, b) => (b.gap > a.gap ? b : a));
+  const found = objectsInAir(doc, footingOf, tolerance);
+  if (!found.length) return;
+  const worst = found.reduce((a, b) => (Math.abs(b.gap) > Math.abs(a.gap) ? b : a));
+  const inAir = found.filter((f) => f.gap > 0).length;
+  const under = found.length - inAir;
+  const what = [
+    inAir === 1 ? 'an object hangs in the air' : inAir ? `${inAir} objects hang in the air` : '',
+    under === 1 ? 'a boat or buoy sinks under the water' : under ? `${under} boats or buoys sink under the water` : '',
+  ].filter(Boolean);
   issues.push({
     severity: 'warning',
     code: 'object-floating',
     message:
-      (inAir.length === 1 ? `An object (${worst.o.asset}) hangs ${worst.gap.toFixed(1)} m` : `${inAir.length} objects hang up to ${worst.gap.toFixed(1)} m`) +
-      ' in the air over the ground or the water. Select it and press End to set it down, or Align to slope.',
+      `${what.join(', ')} (worst: ${worst.o.asset}, ${Math.abs(worst.gap).toFixed(1)} m ${worst.gap > 0 ? 'up' : 'down'})`.replace(/^./, (c) => c.toUpperCase()) +
+      '. Select it and press End to set it down on the ground or the water, or Align to slope.',
     focus: worst.o,
     target: { kind: 'object', id: worst.o.id },
   });
