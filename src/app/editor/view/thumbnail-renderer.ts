@@ -5,11 +5,17 @@
  * plants. One small offscreen renderer draws them one after another; the
  * pictures are kept in memory and in IndexedDB (`3dtd-editor-thumbs`), keyed
  * by the asset's files so a new model draws a new picture.
+ *
+ * Drawing stays off the editor's frames: one picture per idle moment of the
+ * page (requestIdleCallback), the programs of a picture compiled ahead
+ * without blocking (compileAsync, parallel where the driver can), and the
+ * picture taken as an image bitmap and encoded off the main thread
+ * (OffscreenCanvas.convertToBlob) instead of a canvas toBlob, which reads the
+ * pixels back while the page waits.
  */
 import {
   AmbientLight,
   Box3,
-  Color,
   DirectionalLight,
   Group,
   HemisphereLight,
@@ -26,6 +32,7 @@ import {
   WebGLRenderer,
   type Texture,
 } from 'three';
+import { idle } from './idle';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../catalog/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
@@ -52,6 +59,16 @@ export class ThumbnailRenderer {
   private readonly loader = new TextureLoader();
   /** The picture being drawn */
   private currentKey = '';
+  private readonly encoder = new PngEncoder();
+  /**
+   * The materials of the ground balls and biome patches, kept and set up for
+   * each picture: one disposed after its picture took its program with it,
+   * and the next picture linked it again, over half a second on the page
+   */
+  private readonly swatches = {
+    plain: new MeshStandardMaterial(),
+    textured: new MeshStandardMaterial({ color: 0xffffff }),
+  };
 
   constructor(
     private readonly onPicture: () => void,
@@ -83,6 +100,9 @@ export class ThumbnailRenderer {
   }
 
   dispose(): void {
+    this.encoder.dispose();
+    this.swatches.plain.dispose();
+    this.swatches.textured.dispose();
     this.renderer?.dispose();
     this.renderer = null;
     this.jobs.length = 0;
@@ -116,8 +136,8 @@ export class ThumbnailRenderer {
         } catch {
           // A model that does not load keeps its drawn symbol
         }
-        // One picture per frame or so: the editor stays smooth
-        await new Promise((r) => setTimeout(r, 16));
+        // One picture per idle moment: the editor's frames come first
+        await idle();
       }
     } finally {
       this.running = false;
@@ -153,11 +173,16 @@ export class ThumbnailRenderer {
     this.camera.updateProjectionMatrix();
     this.scene.add(content);
     const gl = this.gl;
-    gl.render(this.scene, this.camera);
-    this.scene.remove(content);
-    // PNG encoding off the main thread (toBlob), not toDataURL, which stalls a frame per picture
     const key = this.currentKey;
-    const blob = await new Promise<Blob | null>((resolve) => gl.domElement.toBlob(resolve, 'image/png'));
+    try {
+      // New programs compile in the background; the render then finds them ready
+      await gl.compileAsync(this.scene, this.camera);
+      await idle();
+      gl.render(this.scene, this.camera);
+    } finally {
+      this.scene.remove(content);
+    }
+    const blob = await this.encoder.encode(gl.domElement);
     if (blob) this.store(key, blob);
   }
 
@@ -171,13 +196,11 @@ export class ThumbnailRenderer {
 
   private async drawMaterial(entry: GroundMaterialEntry): Promise<void> {
     const texture = entry.thumbnail ? await this.texture(entry.thumbnail) : null;
-    const material = new MeshStandardMaterial({ color: texture ? 0xffffff : new Color(entry.color), map: texture, roughness: 0.9 });
-    const ball = new Mesh(new SphereGeometry(1, 48, 32), material);
+    const ball = new Mesh(new SphereGeometry(1, 48, 32), this.swatch(texture, entry.color, 0.9));
     const group = new Group();
     group.add(ball);
     await this.shoot(group, new Box3(new Vector3(-1, -1, -1), new Vector3(1, 1, 1)), 0.35, 0.5);
     ball.geometry.dispose();
-    material.dispose();
     texture?.dispose();
   }
 
@@ -191,7 +214,7 @@ export class ThumbnailRenderer {
     }
     const plane = new Mesh(
       new PlaneGeometry(14, 14).rotateX(-Math.PI / 2),
-      new MeshStandardMaterial({ color: texture ? 0xffffff : new Color(ground?.color ?? biome.color), map: texture, roughness: 1 }),
+      this.swatch(texture, ground?.color ?? biome.color, 1),
     );
     const group = new Group();
     group.add(plane);
@@ -216,8 +239,16 @@ export class ThumbnailRenderer {
     }
     await this.shoot(group, new Box3(new Vector3(-4.5, 0, -4.5), new Vector3(4.5, 2, 4.5)), 0.75, 0.6);
     plane.geometry.dispose();
-    (plane.material as MeshStandardMaterial).dispose();
     texture?.dispose();
+  }
+
+  /** The kept material for a ground swatch: the texture, or the plain colour without one */
+  private swatch(texture: Texture | null, color: string, roughness: number): MeshStandardMaterial {
+    const m = texture ? this.swatches.textured : this.swatches.plain;
+    if (texture) m.map = texture;
+    else m.color.set(color);
+    m.roughness = roughness;
+    return m;
   }
 
   private texture(url: string): Promise<Texture> {
@@ -278,5 +309,51 @@ export class ThumbnailRenderer {
       req.onerror = () => resolve(null);
     });
     return this.db;
+  }
+}
+
+/**
+ * Encodes canvases as PNG in a worker: an image bitmap of the canvas (a copy
+ * on the GPU) goes there, and the read-back and encoding wait in the worker.
+ * Where there is no worker or OffscreenCanvas, the canvas's own toBlob.
+ */
+class PngEncoder {
+  private worker: Worker | null = null;
+  private next = 0;
+  private readonly waiting = new Map<number, (blob: Blob | null) => void>();
+  private failed = false;
+
+  async encode(canvas: HTMLCanvasElement): Promise<Blob | null> {
+    const worker = this.start();
+    if (!worker) return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    const bitmap = await createImageBitmap(canvas);
+    const id = this.next++;
+    return new Promise((resolve) => {
+      this.waiting.set(id, resolve);
+      worker.postMessage({ id, bitmap }, [bitmap]);
+    });
+  }
+
+  dispose(): void {
+    this.worker?.terminate();
+    this.worker = null;
+    for (const resolve of this.waiting.values()) resolve(null);
+    this.waiting.clear();
+  }
+
+  private start(): Worker | null {
+    if (this.worker) return this.worker;
+    if (this.failed || typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap !== 'function') return null;
+    const worker = new Worker(new URL('./thumbnail-encode.worker', import.meta.url), { type: 'module' });
+    worker.onmessage = (e: MessageEvent<{ id: number; blob: Blob | null }>) => {
+      this.waiting.get(e.data.id)?.(e.data.blob);
+      this.waiting.delete(e.data.id);
+    };
+    // A failed worker: the pictures waiting keep their symbols, the next ones encode on the page
+    worker.onerror = () => {
+      this.dispose();
+      this.failed = true;
+    };
+    return (this.worker = worker);
   }
 }
