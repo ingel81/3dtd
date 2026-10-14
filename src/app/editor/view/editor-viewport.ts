@@ -24,6 +24,8 @@ import {
 } from 'three';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { MapObject, MapPoint } from '../../world/custom-map/map-document';
+import { type BridgeDeck, bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
+import { HeightField } from '../../world/custom-map/render/height-field';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CatalogIndex } from '../catalog/asset-catalog';
 import { mergeChanges, selectedEdges, selectedNodes, selectedSpawns, type DocChange, type EditorDocument } from '../model/editor-document';
@@ -108,6 +110,8 @@ export class EditorViewport {
   private waterAt = 0;
   private waterWaiting = false;
   private routesDirty = true;
+  /** The bridge decks of the map as it stands, laid again after a change (walkHeightAt) */
+  private decks: BridgeDeck[] | null = null;
   /** The symmetry the guides show, and whether the ground under them moved */
   private guideMode: string | null = null;
   /** What the height lines and grid show, and when they were drawn */
@@ -165,7 +169,7 @@ export class EditorViewport {
     this.quality = QUALITY_TABLE[storedLevelFor(readStoredQuality(), gpuNameOf(this.renderer), 'custom-map')];
     this.renderer.setPixelRatio(pixelRatioFor({ ...this.quality, general: { ...this.quality.general, scale: 1 } }, 'custom-map', window.devicePixelRatio));
     this.renderer.outputColorSpace = SRGBColorSpace;
-    this.overlay = new EditorOverlay((x, y) => this.heightAt(x, y));
+    this.overlay = new EditorOverlay((x, y) => this.heightAt(x, y), (x, y) => this.walkHeightAt(x, y));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
     MapAssetLibrary.useCompressedTextures(this.renderer);
@@ -174,12 +178,13 @@ export class EditorViewport {
     void this.warmUpView();
     this.scene.add(this.overlay.group);
     void this.warmOverlay();
-    this.trial = new TrialRunners((x, y) => this.heightAt(x, y));
+    this.trial = new TrialRunners((x, y) => this.walkHeightAt(x, y));
     this.scene.add(this.trial.group);
     this.ctx = this.buildContext();
     this.unsubscribe.push(
       editor.onChange((change) => {
         this.pending = this.pending ? mergeChanges(this.pending, change) : change;
+        this.decks = null;
       }),
       editor.onSelection(() => {
         this.markersDirty = true;
@@ -197,6 +202,18 @@ export class EditorViewport {
     return gridHeight(this.editor.doc.terrain, x, y);
   }
 
+  /**
+   * Where an enemy walks at a map point: on a bridge deck where one spans
+   * it, as the game's CustomMapSurface lays it, else on the ground. Routes
+   * and the trial wave go over a bridge, not through the river under it.
+   */
+  walkHeightAt(x: number, y: number): number {
+    const { paths, terrain } = this.editor.doc;
+    this.decks ??= bridgeDecks(paths, terrain, new HeightField(terrain.grid, terrain.width, terrain.depth));
+    const deck = deckHeightAt(this.decks, x, y);
+    return Number.isNaN(deck) ? this.heightAt(x, y) : deck;
+  }
+
   setTool(tool: EditorTool): void {
     if (this.tool === tool) return;
     this.tool?.deactivate?.(this.ctx);
@@ -211,6 +228,7 @@ export class EditorViewport {
 
   /** The whole document changed (opened another map, resized): rebuild the view */
   rebuildView(): void {
+    this.decks = null;
     this.view.dispose();
     this.view = new EditorMapView(this.editor.doc, this.scene, this.renderer);
     this.view.view.applyQuality(this.quality.customMaps);
@@ -897,7 +915,8 @@ export class EditorViewport {
         else this.envWaiting = true;
       }
     }
-    if (c.paths || c.markers || c.heights || c.terrain) this.routesDirty = true;
+    // Water lifts a bridge deck over it: the routes over the bridge follow
+    if (c.paths || c.markers || c.heights || c.terrain || c.water || c.bodies) this.routesDirty = true;
     if (c.heights || c.terrain) {
       this.guideMode = null;
       this.overlayKey = '';

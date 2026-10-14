@@ -45,6 +45,36 @@ const ROUTE_DOT_SPEED = 28;
 
 export type GroundHeight = (x: number, y: number) => number;
 
+/** Metres between two points of a line laid on the ground: the height grid's cells are about this size */
+const DRAPE_STEP_M = 2;
+
+/**
+ * Scene positions of a map polyline laid `lift` metres over `height`, each
+ * piece cut into steps of at most DRAPE_STEP_M: a road between two points
+ * far apart follows the hill it crosses instead of cutting through it.
+ */
+export function drapedLine(points: readonly MapPoint[], height: GroundHeight, lift: number): Float32Array {
+  let count = 1;
+  for (let k = 1; k < points.length; k++) {
+    count += Math.max(1, Math.ceil(Math.hypot(points[k].x - points[k - 1].x, points[k].y - points[k - 1].y) / DRAPE_STEP_M));
+  }
+  const pos = new Float32Array(count * 3);
+  const put = (i: number, x: number, y: number) => {
+    pos[i * 3] = -x;
+    pos[i * 3 + 1] = height(x, y) + lift;
+    pos[i * 3 + 2] = y;
+  };
+  put(0, points[0].x, points[0].y);
+  let i = 1;
+  for (let k = 1; k < points.length; k++) {
+    const a = points[k - 1];
+    const b = points[k];
+    const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / DRAPE_STEP_M));
+    for (let s = 1; s <= n; s++) put(i++, a.x + ((b.x - a.x) * s) / n, a.y + ((b.y - a.y) * s) / n);
+  }
+  return pos;
+}
+
 export class EditorOverlay {
   readonly group = new Group();
   /** Arrows, ring or cube over the selected objects */
@@ -95,7 +125,14 @@ export class EditorOverlay {
   private markerScale = 1;
   private showNodes = true;
 
-  constructor(private readonly height: GroundHeight) {
+  /**
+   * @param height The ground: markers, rings and handles stand on it
+   * @param walk Where a walker goes: the ground, or a bridge deck over it (roads and routes)
+   */
+  constructor(
+    private readonly height: GroundHeight,
+    private readonly walk: GroundHeight = height,
+  ) {
     this.group.name = 'editor-overlay';
     this.brush = ring(TD_THEME.brassLight, 0.95);
     this.brushInner = ring(TD_THEME.brass, 0.55);
@@ -177,8 +214,7 @@ export class EditorOverlay {
       this.draft.visible = false;
       return;
     }
-    const pos = new Float32Array(points.length * 3);
-    points.forEach((p, k) => pos.set([-p.x, this.height(p.x, p.y) + 0.8, p.y], k * 3));
+    const pos = drapedLine(points, this.height, 0.8);
     this.draft.geometry.dispose();
     this.draft.geometry = new BufferGeometry();
     this.draft.geometry.setAttribute('position', new BufferAttribute(pos, 3));
@@ -228,9 +264,7 @@ export class EditorOverlay {
       const a = doc.paths.nodes.find((n) => n.id === e.a);
       const b = doc.paths.nodes.find((n) => n.id === e.b);
       if (!a || !b) continue;
-      const pts = [a, ...(e.via ?? []), b];
-      const pos = new Float32Array(pts.length * 3);
-      pts.forEach((p, k) => pos.set([-p.x, this.height(p.x, p.y) + 1, p.y], k * 3));
+      const pos = drapedLine([a, ...(e.via ?? []), b], this.walk, 1);
       const line = new Line(new BufferGeometry(), this.edgeMaterial);
       line.geometry.setAttribute('position', new BufferAttribute(pos, 3));
       line.renderOrder = 10;
@@ -258,10 +292,8 @@ export class EditorOverlay {
         const a = doc.paths.nodes.find((n) => n.id === edge.a);
         const b = doc.paths.nodes.find((n) => n.id === edge.b);
         if (a && b) {
-          const pts = [a, ...(edge.via ?? []), b];
           const line = new Line(new BufferGeometry(), this.selectMaterial);
-          const pos = new Float32Array(pts.length * 3);
-          pts.forEach((p, k) => pos.set([-p.x, this.height(p.x, p.y) + 1.2, p.y], k * 3));
+          const pos = drapedLine([a, ...(edge.via ?? []), b], this.walk, 1.2);
           line.geometry.setAttribute('position', new BufferAttribute(pos, 3));
           line.renderOrder = 10;
           this.selection.add(line);
@@ -453,8 +485,7 @@ export class EditorOverlay {
     let dots = 0;
     for (const r of routes) {
       if (!r || r.points.length < 2) continue;
-      const pos = new Float32Array(r.points.length * 3);
-      r.points.forEach((p, k) => pos.set([-p.x, this.height(p.x, p.y) + 1.6, p.y], k * 3));
+      const pos = drapedLine(r.points, this.walk, 1.6);
       const line = new Line(new BufferGeometry(), this.routeMaterial);
       line.geometry.setAttribute('position', new BufferAttribute(pos, 3));
       line.renderOrder = 9;
@@ -497,7 +528,7 @@ export class EditorOverlay {
       for (let along = shift; along <= r.length && k < dots.count; along += ROUTE_DOT_SPACING) {
         const p = pointAt(r.points, along);
         const d = 0.9 * this.markerScale;
-        m.makeScale(d, d, d).setPosition(-p.x, this.height(p.x, p.y) + 1.8, p.y);
+        m.makeScale(d, d, d).setPosition(-p.x, this.walk(p.x, p.y) + 1.8, p.y);
         dots.setMatrixAt(k++, m);
       }
     }
