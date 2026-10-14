@@ -38,6 +38,7 @@ import { mirrorChange, objectImages, symmetryImages, type SymmetryMode } from '.
 import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, terraceDab, erodeDab } from '../../../src/app/editor/ops/terrain-ops';
 import { BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, waterMaskDab } from '../../../src/app/editor/ops/water-ops';
 import { validateMap, type MapIssue } from '../../../src/app/editor/validation/map-validation';
+import { assetCosts } from '../../../src/app/editor/validation/map-budget';
 import { createMapDocument } from '../../../src/app/world/custom-map/map-create';
 import {
   fitSplatMaps,
@@ -754,7 +755,11 @@ export class LevelKit {
 
   /** The editor's check */
   issues(): MapIssue[] {
-    return validateMap(this.doc, { blocksBuild: (a) => this.catalog.object(a).blocksBuild, rockOf: (a) => rockShape(this.catalog.object(a)) });
+    return validateMap(this.doc, {
+      blocksBuild: (a) => this.catalog.object(a).blocksBuild,
+      rockOf: (a) => rockShape(this.catalog.object(a)),
+      costOf: assetCosts(this.catalog, this.doc),
+    });
   }
 
   /** The finished document; throws on the editor check's errors */

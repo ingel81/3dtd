@@ -4,8 +4,8 @@
  * reaches the HQ over the map's roads as the game routes them (300 to 1200 m),
  * no object that blocks building stands on a road, every asset and material
  * is in the catalogue, no decoration reads as danger (DANGER_LOOK), no rock
- * hangs over the ground with its underside (the check's object-floating), objects
- * and file size stay in budget (docs/SHOWCASE_LEVELS.md, "Regeln für alle
+ * hangs over the ground with its underside (the check's object-floating), the
+ * scene cost stays below the Map panel's warning and the file size in budget (docs/SHOWCASE_LEVELS.md, "Regeln für alle
  * Level").
  *
  * Runs with `npm test`; one map alone: `npx vitest run tools/maps/shipped-maps-check.spec.ts -t <id>`
@@ -21,7 +21,9 @@ import { CustomMapStreets } from '../../src/app/world/custom-map/custom-map-stre
 import { MAP_METERS_PER_DEGREE, mapToGeo, type CustomMapDocument } from '../../src/app/world/custom-map/map-document';
 import { contentHash, unpackMapFile, validateMapDocument } from '../../src/app/world/custom-map/map-file';
 import type { ShippedMapIndex } from '../../src/app/world/custom-map/map-store';
-import { dangerLook } from '../../src/app/world/custom-map/render/asset-catalog';
+import { dangerLook, type CatalogObject } from '../../src/app/world/custom-map/render/asset-catalog';
+import { objectCost, sceneCost, SCENE_BUDGET } from '../../src/app/world/custom-map/render/objects/scene-cost';
+import { WARN_SHARE } from '../../src/app/editor/validation/map-budget';
 import { DEMO_ROCKS } from '../../src/app/world/custom-map/demo-map';
 
 const MAPS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../public/maps');
@@ -29,8 +31,8 @@ const MAPS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../public/
 /** Lane length per spawn, metres along the route */
 const MIN_LANE = 300;
 const MAX_LANE = 1200;
-/** Objects on a map at most */
-const MAX_OBJECTS = 15000;
+/** Scene cost of a shipped map at most, share of SCENE_BUDGET: below the Map panel's warning, room for a heavier machine's day */
+const MAX_COST_SHARE = WARN_SHARE;
 /** A map file at most, bytes (a Medium map with many objects and its picture) */
 const MAX_FILE_BYTES = 6 * 1024 * 1024;
 /** How far a route may begin off its spawn, metres */
@@ -40,7 +42,7 @@ const ROAD_GATES = new Set(['castle-gate', 'gate-ruin', 'ruin-arch', 'rock-arch'
 
 interface CatalogFile {
   materials: { id: string }[];
-  objects: { id: string; blocksBuild?: boolean; base?: [number, number, number]; height: number }[];
+  objects: (CatalogObject & { blocksBuild?: boolean })[];
 }
 
 const index = JSON.parse(readFileSync(resolve(MAPS_DIR, 'index.json'), 'utf8')) as ShippedMapIndex;
@@ -137,8 +139,9 @@ describe('shipped maps check', () => {
         expect(danger, 'decoration that reads as enemies or blood (DANGER_LOOK)').toEqual([]);
       });
 
-      it(`stays in budget: ${MAX_OBJECTS} objects, ${MAX_FILE_BYTES / 1024 / 1024} MB`, () => {
-        expect(doc!.objects.length).toBeLessThanOrEqual(MAX_OBJECTS);
+      it(`stays in budget: scene cost up to ${MAX_COST_SHARE * 100} %, ${MAX_FILE_BYTES / 1024 / 1024} MB`, () => {
+        const area = doc!.terrain.width * doc!.terrain.depth;
+        expect(sceneCost(doc!.objects, (a) => objectCost(objects.get(a), area)) / SCENE_BUDGET).toBeLessThanOrEqual(MAX_COST_SHARE);
         expect(statSync(path).size).toBeLessThanOrEqual(MAX_FILE_BYTES);
       });
     });

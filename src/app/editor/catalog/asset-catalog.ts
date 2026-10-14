@@ -3,7 +3,9 @@
  * object assets of the renderer's catalogue, with what the palettes need on
  * top (a colour, a rough shape for pictures, category names).
  */
+import type { CatalogObject } from '../../world/custom-map/render/asset-catalog';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
+import type { CostEntry } from '../../world/custom-map/render/objects/scene-cost';
 
 export interface GroundMaterialEntry {
   id: string;
@@ -39,6 +41,8 @@ export interface ObjectAssetEntry {
   internal?: boolean;
   /** Biomes and brush roles from the catalogue (temperate, swamp, shore, scree …) */
   tags?: string[];
+  /** What the renderer draws of it (triangles, detail levels, draw distance, effects), for the scene cost; none for an unknown asset */
+  drawing?: CostEntry;
 }
 
 /** The catalogue's biome tags in the order the palettes offer them (brush roles like shore or scree are left out) */
@@ -90,7 +94,8 @@ export async function loadAssetCatalog(library = MapAssetLibrary.shared()): Prom
 /** A catalogue file as the renderer writes it (`render/asset-catalog.ts`), with the editor's own fields optional */
 interface RawCatalog {
   materials?: (Partial<GroundMaterialEntry> & { id: string; average?: string; files?: { color?: string } })[];
-  objects?: (Partial<ObjectAssetEntry> & { id: string; footprint?: number; file?: string })[];
+  objects?: (Partial<ObjectAssetEntry> &
+    Partial<Pick<CatalogObject, 'drawDistance' | 'triangles' | 'lod' | 'effects'>> & { id: string; footprint?: number; file?: string; category?: string })[];
 }
 
 const CATEGORY_NAMES: Record<string, string> = {
@@ -145,6 +150,18 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
         base: o.base,
         internal: INTERNAL_OBJECTS.has(o.id) || undefined,
         tags: o.tags?.length ? [...o.tags] : undefined,
+        drawing:
+          o.drawDistance === undefined
+            ? undefined
+            : {
+                category: (o.category ?? 'prop') as CatalogObject['category'],
+                height: o.height ?? 2,
+                drawDistance: o.drawDistance,
+                file: o.file ?? '',
+                triangles: o.triangles,
+                lod: o.lod,
+                effects: o.effects,
+              },
       };
     }),
   };

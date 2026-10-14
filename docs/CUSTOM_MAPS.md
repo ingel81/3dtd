@@ -481,6 +481,14 @@ headless, gltf-transform).
 mit 2000 Gegnern 359 fps mit Karte, 941 ohne; mit 5000 Gegnern 268 fps mit, 393 ohne. Die Karte kostet also
 1,2 bis 1,7 ms je Frame, fast alles GPU: `update()` braucht 0,02 ms Hauptthread.
 
+**Szenenkosten** (`render/objects/scene-cost.ts`): was die Objekte einer Karte das Bild kosten, etwa Dreiecke im Bild
+je Objekt (Modell, LOD-Modelle und Impostor in ihren Bändern bis zur Sichtweite, jedes Band mit dem Anteil der Karte
+darin, dazu 2 Punkte je Instanz und die Partikel der Effekte). 100 % sind 12 Mio. Punkte (`SCENE_BUDGET`), sechsmal
+das Demo-Tal (2,0 Mio., 1,21 ms GPU in der Spielansicht oben). Das Map-Panel des Editors zeigt sie, der Check warnt
+darüber, die mitgelieferten Karten bleiben unter 80 %. Formel, Kalibrierung und was nachzumessen ist:
+[LEVEL_EDITOR.md](LEVEL_EDITOR.md), „Szenenkosten“. Die Zahl der Objekte allein sagt wenig: eine Large-Wiese mit
+91 500 Grasbüscheln und Blumen kostet 4 %, eine City-Karte Medium mit 5 500 Häusern, Laternen und Hochhäusern 100 %.
+
 **CPU-Budgets** (`custom-map-view.perf.spec.ts`, `npm run test:perf` hält sie wörtlich, sonst zehnfach locker):
 
 | Raster, Objekte | Aufbau | `update()` je Frame | 32-m-Pinsel Höhe | 32-m-Pinsel Splat |

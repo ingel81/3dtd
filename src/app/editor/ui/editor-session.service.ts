@@ -46,6 +46,7 @@ import { TerrainTool } from '../tools/terrain-tool';
 import { PanelTool, TOOL_BRUSH_RADIUS, TOOLS, defaultSettings, type EditorSettings, type EditorTool, type ToolId } from '../tools/tool';
 import { DEFAULT_BRUSH, type BrushSettings } from '../ops/brush';
 import { WaterTool } from '../tools/water-tool';
+import { assetCosts } from '../validation/map-budget';
 import { validateMap, type MapIssue } from '../validation/map-validation';
 import { buildAreaInput, buildAreasOffThread, type BuildAreas } from '../validation/build-areas';
 import { rockShape } from '../ops/object-ops';
@@ -835,6 +836,7 @@ export class EditorSession implements OnDestroy {
       blocksBuild: (asset) => catalog.object(asset).blocksBuild,
       rockOf: (asset) => rockShape(catalog.object(asset)),
       buildAreas: this.buildAreas(),
+      costOf: assetCosts(catalog, doc),
     });
     this.issues.set(issues);
     // The room for towers comes from a worker: judged once the check is open, the check runs again with it

@@ -9,6 +9,7 @@ import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { WATER_DEPTH_M } from '../../world/world-provider';
 import { dangerLook } from '../../world/custom-map/render/asset-catalog';
+import { sceneCost, SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { heightAt, insideMap, slopeAt } from '../model/grid';
 import { components, edgePolyline, nearestOnEdges, nearestOnPolyline, routeBetween } from '../ops/path-graph';
@@ -46,7 +47,8 @@ export interface MapIssue {
     | 'object-floating'
     | 'path-steep'
     | 'wave-list'
-    | 'unknown-tower';
+    | 'unknown-tower'
+    | 'scene-cost';
   message: string;
   /** Where to look */
   focus?: MapPoint;
@@ -94,6 +96,8 @@ export interface ValidationOptions {
   rockOf?: (asset: string) => RockShape | undefined;
   /** Where towers may stand (computeBuildAreas, judged in a worker); without it the room along the lanes is not checked */
   buildAreas?: BuildAreas | null;
+  /** What one object of an asset costs on this map (`assetCosts`); without it the scene cost is not checked */
+  costOf?: (asset: string) => number;
 }
 
 export function validateMap(doc: CustomMapDocument, options: ValidationOptions = {}): MapIssue[] {
@@ -314,6 +318,17 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       focus: firstAlarming,
       target: { kind: 'object', id: firstAlarming.id },
     });
+  }
+
+  if (options.costOf) {
+    const share = sceneCost(doc.objects, options.costOf) / SCENE_BUDGET;
+    if (share > 1) {
+      issues.push({
+        severity: 'warning',
+        code: 'scene-cost',
+        message: `Scene cost ${Math.round(share * 100)} %: more than a map draws fluidly. Thin out buildings, trees and props first (Map panel, Budget).`,
+      });
+    }
   }
 
   const gp = doc.gameplay;

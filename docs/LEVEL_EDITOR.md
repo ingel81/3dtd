@@ -395,6 +395,50 @@ den Routen (Fläche in Reichweite, Tower darauf, bei mehreren Spuren die engste)
 | `object-on-path` | Warnung | Blockierendes Objekt auf einer Straße |
 | `object-floating` | Warnung | Felsen, deren Platte mehr als 25 cm über dem Boden hängt (ein Fels, der waagerecht am Hang steht); zählt sie und wählt den schlimmsten. Ende oder „Align to slope“ setzt ihn ab |
 | `danger-color` | Warnung | Deko in Gefahrenfarben (rote Pilze, rote Blüten; `DANGER_LOOK` in `render/asset-catalog.ts`, dieselbe Liste wie für die mitgelieferten Karten) bis 30 m an einer Straße: Rot steht im Spiel für Gegner, Treffer und Feuer |
+| `scene-cost` | Warnung | Szenenkosten über 100 % (unten): mehr, als eine Karte flüssig zeichnet |
+
+### Szenenkosten
+
+Was die Objekte einer Karte das Bild kosten, in Punkten (`render/objects/scene-cost.ts`); das Map-Panel zeigt sie als
+Balken „Scene cost 62 %“ mit der Zahl der Objekte darunter, der Check warnt über 100 %, `tools/maps/shipped-maps-check.spec.ts`
+hält die mitgelieferten Karten unter 80 %. Ein Punkt ist etwa ein Dreieck im Bild:
+
+- Je Objekt die Dreiecke seines Modells, seiner LOD-Modelle (`lod` im Katalog) und, bei Bäumen und Felsen ab 1,5 m,
+  des Impostors (4 Dreiecke ab `max(letzte LOD-Distanz × 1,5, Höhe × 25, 380 m)`), wie `object-layer.ts` sie zeichnet,
+  bis zur Sichtweite (`drawDistance`); Stufe High (`lodBias` 1, Impostor ab 380 m)
+- Jedes Band zählt mit dem Anteil der Karte, der darin liegt: Kreisring um die Kamera, höchstens die ganze Karte
+  (`(min(A, π b²) − min(A, π a²)) / A`, A = Breite × Tiefe). Ein Haus, gezeichnet bis 3 km, zählt auf jeder Karte
+  voll; ein Grasbüschel mit 10 Dreiecken bis 140 m auf einer Large-Karte 0,15
+- dazu 2 Punkte je Objekt (Instanz, Einsortieren, Schatten) und 20 je Partikel pro Sekunde eines Effekts; ein Modell
+  ohne gezählte Dreiecke oder ein unbekanntes Asset zählt 500 Dreiecke bis 500 m
+- Die Dreiecke schreibt `tools/map-assets/count_triangles.py` (`triangles` je Objekt und je `lod`) in `catalog.json`,
+  `update_catalog.py` ruft es mit auf
+
+Beispiele (Punkte je Objekt auf einer Large-Karte): Grasbüschel und Blumen 2,2, Busch 25, Eiche 97, großer Fels 135,
+Steinmauer 1 042, Lagerfeuer 1 194 (Partikel), Haus 3 760, großes Haus 6 560.
+
+**100 % = 12 Mio. Punkte** (`SCENE_BUDGET`, die eine Stelle zum Nachstellen). Grundlage: das Demo-Tal hat 2,0 Mio.
+Punkte und braucht in der Spielansicht 1,21 ms GPU bei 1,23 Mio. gezeichneten Dreiecken (RTX 5080,
+[BENCHMARKS.md](BENCHMARKS.md), Ausgangswerte 2026-10-14). Wächst die GPU-Zeit mit den Punkten, sind 12 Mio. rund
+7 ms; bis zu den 10 ms der 100-fps-Regel ([SHOWCASE_LEVELS.md](SHOWCASE_LEVELS.md)) bleibt Platz für Draw Calls und das
+Spiel selbst. Stand 2026-10-14:
+
+| Karte | Objekte | Szenenkosten |
+|-------|---------|--------------|
+| Witch Marsh, Archipelago, Red Canyon, Ember Crater, Twin Gates | 480 bis 3 300 | 3 bis 6 % |
+| Frost Hamlet, Mountain Pass, Demo Valley | 1 400 bis 13 200 | 8 bis 16 % |
+| Moon Base, Harbor Town, Autumn Keep, Mars Canyon | 900 bis 7 000 | 20 bis 30 % |
+| Ruined City (Dornen, Nesseln, Ruinen) | 8 200 | 62 % |
+| Neue Karte Meadows, Medium / Large | 22 700 / 91 500 | 3 / 4 % |
+| Neue Karte Woods, Medium / Large | 25 400 / 102 500 | 50 / 53 % |
+| Neue Karte City, Medium / Large | 5 500 / 21 900 | 100 / 257 % |
+
+Was das Modell nicht kennt: Draw Calls (je Asset, Modellteil, Stufe und Zelle) und die CPU. Die Hafenstadt braucht
+bei 1,3-mal so vielen Punkten wie das Demo-Tal 2,3-mal so viel GPU-Zeit (1111 statt 290 Calls). **Nachmessen** mit
+`e2e/perf/render-bench.ts` auf einem ruhigen Rechner: je Karte die GPU-Zeit der Spielansicht (`game`, Spalte GPU)
+neben den Szenenkosten, mindestens Demo Valley, Harbor Town, Ruined City und eine neue City-Karte Medium; 100 % ist
+dann, wo die GPU-Zeit der Spielansicht die Zielmarke erreicht. Liegen Karten mit vielen Assets deutlich über der
+Geraden, braucht die Rechnung einen Posten je Asset (Draw Calls).
 
 ## Speichern und Dateien
 
@@ -477,10 +521,10 @@ den Routen (Fläche in Reichweite, Tower darauf, bei mehreren Spuren die engste)
   lange stehen. Spielen lässt sich eine Karte im Papierkorb nicht (`MapStore.load` kennt sie nicht). Nach 30 Tagen (`TRASH_DAYS`) oder mit
   „Delete for good“ (zweimal) geht sie samt Versionen endgültig. Karten eines Koop-Hosts gehen nach Rückfrage gleich
   endgültig, der Host schickt sie beim nächsten Beitritt wieder
-- Budget im Map-Panel (`editor/validation/map-budget.ts`): Objekte gegen 15 000 (was eine Karte flüssig hält,
-  [SHOWCASE_LEVELS.md](SHOWCASE_LEVELS.md)) und die Dateigröße gegen die 32 MB, die ein Koop-Raum verschickt
+- Budget im Map-Panel (`editor/validation/map-budget.ts`): die Szenenkosten der Objekte („Prüfen“, Szenenkosten) und
+  die Dateigröße gegen die 32 MB, die ein Koop-Raum verschickt
   ([COOP_PLAN.md](COOP_PLAN.md), C1c). Die Größe ist die des letzten manuellen Speicherns (gleiche Packstufe wie der
-  Koop-Versand; Autosaves packen leichter und größer); ab 80 % gelb, darüber rot mit Hinweis
+  Koop-Versand; Autosaves packen leichter und größer); ab 80 % gelb, über 100 % rot mit Hinweis
 - Probewelle (P, „Trial wave“): die Gegnermodelle des Spiels laufen jede Route vom Spawn zum HQ mit ihrer echten
   Geschwindigkeit und Animation, die Typen der ersten Welle der eigenen Wellenliste oder eine Mischung (Zombie, Ratte,
   Panzer, Spinne, Skelett); die Statuszeile nennt, wie lange der schnellste und der langsamste bis zum HQ brauchen.

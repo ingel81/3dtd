@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { EditorSession } from '../editor-session.service';
-import { mapBudget } from '../../validation/map-budget';
+import { mapBudget, mapSceneCost } from '../../validation/map-budget';
 
-/** The Map panel's budget: objects against what keeps a map fluid, the file against what coop sends */
+/** The Map panel's budget: the objects' scene cost against what keeps a map fluid, the file against what coop sends */
 @Component({
   selector: 'app-map-budget',
   standalone: true,
@@ -16,6 +16,9 @@ import { mapBudget } from '../../validation/map-budget';
         <span class="td-note td-num" [class.is-warn]="b.state === 'warn'" [class.is-error]="b.state === 'over'">{{ b.text }}</span>
       </div>
       <div class="td-progress" aria-hidden="true"><i [style.width.%]="b.share * 100"></i></div>
+      @if (b.detail) {
+        <span class="td-note td-num">{{ b.detail }}</span>
+      }
     }
     <p class="td-note">{{ note() }}</p>
   `,
@@ -28,14 +31,15 @@ export class MapBudgetComponent {
   private readonly fileBytes = computed(() => this.session.versions().find((v) => v.manual)?.size ?? null);
   readonly budget = computed(() => {
     this.session.docRev();
-    return mapBudget(this.session.doc?.objects.length ?? 0, this.fileBytes());
+    const doc = this.session.doc;
+    return mapBudget(doc ? mapSceneCost(doc, this.session.catalog()) : 0, doc?.objects.length ?? 0, this.fileBytes());
   });
   readonly note = computed(() => {
     const over = this.budget().find((b) => b.state === 'over');
-    if (over?.label === 'Objects') return 'More objects than a map keeps fluid: thin out scatter or far decoration.';
+    if (over?.label === 'Scene cost') return 'More than a map draws fluidly: thin out buildings, trees and props first, grass and flowers cost little.';
     if (over?.label === 'File') return 'Too big to send in coop: only players who have the map can join.';
     return this.fileBytes() === null
-      ? 'Objects keep the map fluid up to the budget. Save (Ctrl+S) to measure the file; coop sends up to 32 MB.'
-      : 'Objects keep the map fluid up to the budget. The file as of the last Ctrl+S (autosaves pack lighter); coop sends up to 32 MB.';
+      ? 'Scene cost: what the objects draw, by triangles and view distance; up to 100 % the map stays fluid. Save (Ctrl+S) to measure the file; coop sends up to 32 MB.'
+      : 'Scene cost: what the objects draw, by triangles and view distance; up to 100 % the map stays fluid. The file as of the last Ctrl+S (autosaves pack lighter); coop sends up to 32 MB.';
   });
 }

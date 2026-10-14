@@ -33,7 +33,7 @@ dem Boden). Bilder unter `docs/images/levels/`.
 - **Kartenprobe:** jede Karte besteht `?bot=trial&trialWaves=10` mit Budget-Wellen (Bot hält 10 Wellen); sonst werden
   Wege, Bauflächen oder Startgeld angepasst, nicht die Wellen
 - **Leistung:** in der Spielansicht über 100 fps auf dem Entwicklungsrechner, Ladezeit im Produktions-Build unter 4 s
-- **Größe:** Small (512 m) oder Medium (1024 m); Objekte höchstens etwa 15 000
+- **Größe:** Small (512 m) oder Medium (1024 m); Szenenkosten unter 80 % ([LEVEL_EDITOR.md](LEVEL_EDITOR.md), „Szenenkosten“)
 - **Lesbarkeit:** keine Deko in Gefahrenfarben (`DANGER_LOOK` in `render/asset-catalog.ts`: rote Fliegenpilze, roter
   Mohn); kleine rote Flecken am Boden lesen sich aus der Spielkamera als Gegner oder Blut. Große rote Requisiten
   (Banner, Container, Autos) sind erlaubt. `shipped-maps-check.spec.ts` prüft es
@@ -148,7 +148,7 @@ Bauflächen gespiegelt, gleiche Chancen für beide Spieler.
 `tools/maps/shipped-maps-check.spec.ts` (läuft mit `npm test`) prüft jede Karte aus `index.json`: Datei gültig, Hash
 wie im Eintrag, Prüfen des Editors ohne Fehler, jeder Spawn erreicht das HQ über die Straßen, wie das Spiel routet
 (300 bis 1200 m inklusive des letzten Stücks zum HQ), keine Objekte mit `blocksBuild` auf Straßen (Tore und Bögen, durch
-die die Straße führt, ausgenommen), nur Assets und Materialien aus dem Katalog, höchstens 15 000 Objekte und 6 MB.
+die die Straße führt, ausgenommen), nur Assets und Materialien aus dem Katalog, Szenenkosten unter 80 % und höchstens 6 MB.
 
 `e2e/perf/shipped-maps.ts` misst alle Karten am Produktions-Build: Laden kalt (frischer Browser, kein Shader-Cache) und
 warm (derselbe Browser noch einmal), jeweils über das Startmenü bis `load:ready`, Bilder je Sekunde in der Spielansicht
