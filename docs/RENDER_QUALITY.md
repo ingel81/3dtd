@@ -68,11 +68,14 @@ Bilder je Sekunde) fällt es auf 60 %.
 
 1. **Vorauswahl über den GPU-Namen** (`levelForGpu`): Software und integrierte GPUs (Intel UHD/Iris, AMD Radeon
    Graphics, Mali, Adreno) Low; GTX, MX, RTX x050, RX 400 bis 5000, Apple M ohne Zusatz Medium; aktuelle RTX, RX 6000+,
-   Apple M Pro/Max High. Ultra nur von Hand.
-2. **Kurzer Messlauf beim ersten Start:** sobald eine Welt steht, die GPU-Zeit von bis zu 120 Bildern (höchstens 8 s);
-   90. Perzentil über 10 ms eine Stufe runter, unter 3 ms (und unter High) eine hoch (`levelAfterMeasure`).
-   Gespeichert mit dem GPU-Namen; eine andere GPU (Laptop auf dem anderen Chip) rät neu. Ohne Timer bleibt die
-   Vorauswahl und gilt als geprüft.
+   Apple M Pro/Max High. Ultra rät der Name nie.
+2. **Kurzer Messlauf beim ersten Start:** wenn der Ladebildschirm der Welt gegangen ist (`worldStood`), 2 s später,
+   ab dem ersten gezeichneten Bild (das Menü mit dem Globus kann das Spiel noch verdecken) die GPU-Zeit von bis zu
+   120 Bildern (höchstens 8 s); 90. Perzentil über 10 ms eine Stufe runter, unter 3 ms (und unter High) eine hoch
+   (`levelAfterMeasure`). Gemessen wird die Stufe der Welt, verschoben wird die Vorauswahl: misst eine eigene Karte
+   auf Medium unter 3 ms, wird aus High Ultra (Tiles Ultra, eigene Karten High). Gespeichert mit dem GPU-Namen; eine
+   andere GPU (Laptop auf dem anderen Chip) rät neu. Kamen zu wenige Bilder (Welt verlassen, Tab verborgen), bleibt
+   nichts gespeichert und die nächste Welt misst neu. Ohne Timer bleibt die Vorauswahl und gilt als geprüft.
 3. **Eigene Karten eine Stufe vorsichtiger** als Tiles (`resolveLevel`).
 
 `&quality=<level>` in der URL spielt eine Stufe für diesen Seitenaufruf, ohne sie zu speichern (Grafik-Benchmark je

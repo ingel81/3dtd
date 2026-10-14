@@ -6,7 +6,10 @@ import {
 } from '../../three-engine/render-quality';
 import type { WorldRef } from '../../world/world-ref';
 
-/** Auto's first measurement: frames it waits for, GPU frames it takes at most, how long at most, ms */
+/**
+ * Auto's first measurement: how long it waits after the world stood, GPU
+ * frames it takes at most, how long at most from the first frame on, ms
+ */
 const MEASURE_SETTLE_MS = 2000;
 const MEASURE_FRAMES = 120;
 const MEASURE_MAX_MS = 8000;
@@ -99,13 +102,23 @@ export class RenderQualityService {
 
   /**
    * The engine of the world now loading: it draws at its level from here
-   * on; Auto measures once, the first time a world stands on this machine
+   * on (Auto measures once the world stands, worldStood)
    */
   attach(engine: ThreeTilesEngine, ref: WorldRef): void {
     const world = qualityWorldOf(ref);
     this.engine = { engine, world };
     engine.applyQuality(this.knobsFor(world), world);
-    if (this.setting() === 'auto' && !this.autoMeasured() && !this.fromUrl) void this.measureAuto(engine, world);
+  }
+
+  /**
+   * The attached engine's world stands (its loading screen went): Auto
+   * measures, once per machine, the frames of the world itself, not those
+   * of its load
+   */
+  worldStood(engine: ThreeTilesEngine): void {
+    const at = this.engine;
+    if (at?.engine !== engine) return;
+    if (this.setting() === 'auto' && !this.autoMeasured() && !this.fromUrl) void this.measureAuto(engine, at.world);
   }
 
   detach(engine: ThreeTilesEngine): void {
@@ -124,10 +137,12 @@ export class RenderQualityService {
   }
 
   /**
-   * Auto's check: once frames are drawn, the GPU time of up to
-   * MEASURE_FRAMES frames at this world's level; too costly a level lower,
-   * very cheap a level higher (levelAfterMeasure), stored with the GPU's
-   * name. Without a timer the guess stays and counts as checked.
+   * Auto's check: once frames are drawn (the menu's globe may still cover
+   * the game), the GPU time of up to MEASURE_FRAMES frames at this world's
+   * level; too costly a level lower, very cheap a level higher
+   * (levelAfterMeasure), stored with the GPU's name. Too few frames (the
+   * page left, the tab hidden) store nothing: a later world measures again.
+   * Without a timer the guess stays and counts as checked.
    */
   private async measureAuto(engine: ThreeTilesEngine, world: QualityWorld): Promise<void> {
     if (this.measuring) return;
@@ -139,16 +154,22 @@ export class RenderQualityService {
       const reader = engine.gpuMeter.open();
       const times: number[] = [];
       if (reader) {
-        const until = performance.now() + MEASURE_MAX_MS;
-        while (times.length < MEASURE_FRAMES && performance.now() < until && this.engine?.engine === engine) {
-          await wait(250);
-          times.push(...reader.take());
+        let until = Infinity;
+        try {
+          while (times.length < MEASURE_FRAMES && performance.now() < until && this.engine?.engine === engine && this.setting() === 'auto') {
+            await wait(250);
+            times.push(...reader.take());
+            // The window opens with the first frame drawn
+            if (times.length && until === Infinity) until = performance.now() + MEASURE_MAX_MS;
+          }
+        } finally {
+          reader.close();
         }
-        reader.close();
       }
       if (this.engine?.engine !== engine || this.setting() !== 'auto') return;
       let level = base;
-      if (times.length >= MEASURE_FRAMES / 2) {
+      if (reader) {
+        if (times.length < MEASURE_FRAMES / 2) return;
         const sorted = times.sort((a, b) => a - b);
         const p90 = sorted[Math.floor(sorted.length * 0.9)];
         const measured = resolveLevel('auto', base, world);

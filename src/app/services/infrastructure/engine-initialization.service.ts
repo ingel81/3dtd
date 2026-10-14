@@ -373,7 +373,10 @@ export class EngineInitializationService {
    */
   checkAllLoaded(heightsLoading: WritableSignal<boolean>): void {
     if (!this.tilesLoading() && !this.osmLoading() && !heightsLoading()) {
-      if (this.loading()) loadMark('ready');
+      if (this.loading()) {
+        loadMark('ready');
+        if (this.engine) this.quality.worldStood(this.engine);
+      }
       this.loading.set(false);
     }
   }
