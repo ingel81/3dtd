@@ -33,6 +33,8 @@ import type { LosNeededPayload } from '../protocol/events';
 import type { CommandData } from '../../managers/game-state/command-data';
 import type { WaveConfig } from '../../managers/wave.manager';
 import { TEST_WORLD_REF } from '../../../test/world-context-fake';
+import { runStartAt, runStartGold } from '../protocol/run-start';
+import { RUN_PLAN_RULES } from '../../director/sources/budget/run-plan';
 
 const SEED = 0x51c0;
 const HEAD = { configHash: 'spec', gameVersion: 'spec', commit: 'spec' };
@@ -131,7 +133,7 @@ describe('SimCore in the same thread', () => {
 
   it("plays by a world's own run rules: start credits, HQ health, the tower types it allows; the game's again after", () => {
     const main = mainWorld();
-    const rules = { startCredits: 250, hqHealth: 80, towers: ['archer', 'cannon'] as const, structures: null };
+    const rules = { startCredits: 250, hqHealth: 80, towers: ['archer', 'cannon'] as const, structures: null, start: null };
     const ruled: SimWorld = {
       ...main.world,
       rules: { ...rules, towers: [...rules.towers] },
@@ -157,10 +159,74 @@ describe('SimCore in the same thread', () => {
     expect(core.gsm.baseHealth()).toBe(500);
   });
 
+  it('starts a run past wave 1 when the rules say so, again after a restart, and re-simulates its wave bit for bit', () => {
+    const mathRandom = Math.random;
+    Math.random = mulberry32(SEED + 2);
+    try {
+      const main = mainWorld();
+      const start = runStartAt(12, RUN_PLAN_RULES)!;
+      const rules = { startCredits: 100, hqHealth: 500, towers: null, structures: null, start };
+      const world: SimWorld = {
+        ...main.world,
+        rules,
+        worldKey: worldKeyOf(main.grid.snapshotHeights(), main.world.paths.map(([, p]) => p), main.sync.getOrigin(), rules),
+      };
+      expect(world.worldKey).not.toBe(main.world.worldKey);
+      const core = newCore(world);
+      const drive = new Driver(core);
+      const local = core.gsm.localPlayerId;
+      // The single player holds both spawns: two lanes of start credits and kill gold
+      const credits = 2 * 100 + runStartGold(start, 2);
+      const check = () => {
+        expect(core.gsm.waveNumber()).toBe(11);
+        expect(core.gsm.creditsOf(local)).toBe(credits);
+        for (const id of start.research) expect(core.gsm.researchOf(local).isCompleted(id)).toBe(true);
+      };
+      check();
+      const first = drive.tick();
+      expect(first.scalars.waveNumber).toBe(11);
+
+      // A restart starts there again
+      core.rpc('reset', SEED);
+      check();
+
+      drive.send({ type: 'command:place-tower', typeId: 'archer', position: { lat: 60 / M, lon: 9 / M, height: 0 } });
+      let packet = drive.tick();
+      for (const need of drive.needs(packet)) drive.send(answer(main, core, need));
+      drive.tick();
+      drive.send({ type: 'command:start-wave', config: wave });
+      for (let f = 0; f < 20000; f++) {
+        packet = drive.tick();
+        if (packet.scalars.phase !== 'wave' && f > 0) break;
+      }
+      expect(packet.scalars.waveNumber).toBe(12);
+      for (let f = 0; f < 400 && packet.scalars.snapshotRefusal !== null; f++) packet = drive.tick();
+      const file = core.rpc('replayFile', { ...HEAD, world: TEST_WORLD_REF })!;
+      expect(file.waves).toEqual([12]);
+
+      // A fresh simulation on the same world starts at the same wave and plays it again, every hash checked
+      const replay = new Driver(newCore(world));
+      expect(replay.core.rpc('loadReplayFile', file.text, { ...HERE, world: TEST_WORLD_REF }).refusal).toBeNull();
+      replay.core.rpc('replayEnter', 12, true);
+      let state = replay.tick({ replay: { playing: true, speed: 10 } }).scalars.replay!;
+      for (let f = 0; f < 20000 && !state.finished; f++) state = replay.tick({ replay: { playing: true, speed: 10 } }).scalars.replay!;
+      expect(state.finished).toBe(true);
+      expect(state.divergedAt).toBeNull();
+
+      // The game's rules again: wave 1, the plain start credits
+      core.loadWorld(main.world);
+      expect(core.gsm.waveNumber()).toBe(0);
+      expect(core.gsm.creditsOf(local)).toBe(200);
+      expect(core.gsm.researchOf(local).isCompleted(start.research[0])).toBe(false);
+    } finally {
+      Math.random = mathRandom;
+    }
+  });
+
   it("wears down a destructible world's structures, shows the fallen set, makes towers near it look anew, and restores it (TODO E131)", () => {
     const main = mainWorld();
     const barn = { id: 'barn', lat: 140 / M, lon: 20 / M, radius: 5, height: 6, hp: 100 };
-    const rules = { startCredits: 100, hqHealth: 500, towers: null, structures: [barn] };
+    const rules = { startCredits: 100, hqHealth: 500, towers: null, structures: [barn], start: null };
     const world: SimWorld = {
       ...main.world,
       rules,

@@ -5,7 +5,7 @@ import { GAME_BALANCE } from '../../configs/game-balance.config';
 describe('run rules (a world\'s own gameplay)', () => {
   it('fills what a world leaves out with the game\'s and holds its values in bounds', () => {
     expect(runRulesOf(null)).toBe(DEFAULT_RUN_RULES);
-    expect(runRulesOf({ startCredits: 250 })).toEqual({ startCredits: 250, hqHealth: GAME_BALANCE.player.startHealth, towers: null, structures: null });
+    expect(runRulesOf({ startCredits: 250 })).toEqual({ startCredits: 250, hqHealth: GAME_BALANCE.player.startHealth, towers: null, structures: null, start: null });
     expect(runRulesOf({ startCredits: -5, hqHealth: 1e9 })).toMatchObject({ startCredits: 0, hqHealth: 100_000 });
     expect(runRulesOf({ startCredits: 'x', hqHealth: 12.6 })).toMatchObject({ startCredits: GAME_BALANCE.player.startCredits, hqHealth: 13 });
     // Known types only, in the game's order; none known: every type

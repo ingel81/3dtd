@@ -85,6 +85,12 @@ Tower-Typen und die Wellen. Keine Weiche auf die Weltart, die Werte gehen über 
   auf Budget und Deckel jeder Welle legt ([WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), Abschnitt 19). Eine Karte ohne
   Wellenwahl mit Schwierigkeit spielt die Quelle des Spielers; die Tabellen-Quelle ignoriert ihn.
 
+Ein Lauf ab Welle N (der Test des Editors, `?fromWave=N`, [LEVEL_EDITOR.md](LEVEL_EDITOR.md#speichern-und-dateien)):
+`runRules()` gibt dann auch ohne eigene Werte Regeln mit `start` (`runStartAt` mit den Goldregeln der Wellen der
+Karte). Im Worker setzt `GameStateManager.applyRunStart` den Zähler auf N−1, gibt jedem Spieler die Forschung und
+die Ability-Aufladung der übersprungenen Wellen; das Gold kommt mit den Startcredits (`setStartCredits`). Das
+geschieht nach `loadWorld` und nach jedem `reset`, einmal je Lauf.
+
 Alle Anteile an der HQ-HP rechnen mit der HP des Laufs (`RunRules.hqHealth`), nicht mit
 `GAME_BALANCE.player.startHealth`:
 

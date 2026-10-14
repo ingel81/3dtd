@@ -50,6 +50,7 @@ import { rockShape } from '../ops/object-ops';
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
 import { DEFAULT_W3X_OPTIONS, loadW3xImporter, type W3xImportOptions, type W3xImportReport } from '../import/w3x-seam';
 import { WORLD_URL_PARAM, worldUrlValue } from '../../world/world-ref';
+import { START_WAVE_PARAM } from '../../world/custom-map/custom-map-world';
 
 export const AUTOSAVE_DELAY_MS = 2000;
 const BOOKMARK_KEY = '3dtd-editor-views:';
@@ -99,6 +100,8 @@ export class EditorSession implements OnDestroy {
   readonly viewShown = signal(false);
   /** The bot's check of the map: running (no result yet) or done */
   readonly botTrial = signal<{ waves: number; result: MapTrialResult | null } | null>(null);
+  /** The wave "Test map" starts at (1 a normal run): the run gets the gold and research of the waves before */
+  readonly testFromWave = signal(1);
   private stopBotListener: (() => void) | null = null;
   private readonly history = new VersionHistory();
   /** The open map's kept versions, newest first */
@@ -1072,7 +1075,11 @@ export class EditorSession implements OnDestroy {
     showInTestWindow(test, url);
   }
 
-  /** Saves, then opens the game on this map in the test tab (the one tab each test reuses) */
+  /**
+   * Saves, then opens the game on this map in the test tab (the one tab each
+   * test reuses); from wave `testFromWave` on when that is past 1
+   * (`?fromWave=N`, customMapStartWave)
+   */
   async testPlay(): Promise<void> {
     const doc = this.doc;
     if (!doc || this.blocked('The test')) return;
@@ -1080,6 +1087,8 @@ export class EditorSession implements OnDestroy {
     if (!(await this.save(true))) return dropTestWindow(test);
     const url = new URL(document.baseURI);
     url.searchParams.set(WORLD_URL_PARAM, worldUrlValue({ kind: 'custom-map', mapId: doc.meta.id, contentHash: '' })!);
+    const from = this.testFromWave();
+    if (from > 1) url.searchParams.set(START_WAVE_PARAM, String(from));
     showInTestWindow(test, url);
   }
 

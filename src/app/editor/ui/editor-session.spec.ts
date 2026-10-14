@@ -352,7 +352,13 @@ describe('editor session test tab', () => {
     expect(calls).toEqual(['|saved:false']);
     await run;
     expect(tab.location.href).toContain('world=map');
+    expect(tab.location.href).not.toContain('fromWave');
     expect(open).toHaveBeenCalledTimes(1);
+    // From a later wave: the link names it
+    s.testFromWave.set(15);
+    await s.testPlay();
+    expect(tab.location.href).toContain('fromWave=15');
+    s.testFromWave.set(1);
     // A failed save closes a tab opened blank for it, and leaves an earlier test's tab
     vi.spyOn(s, 'save').mockResolvedValue(false);
     tab.location.href = 'about:blank';

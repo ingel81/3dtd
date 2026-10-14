@@ -19,7 +19,9 @@ import type {
 } from '../world-provider';
 import type { WorldRef } from '../world-ref';
 import { runRulesOf, type RunRules } from '../../sim/protocol/run-rules';
+import { MAX_START_WAVE, runStartAt, type RunStart } from '../../sim/protocol/run-start';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
+import { createWaveSource, initialWaveSourceId } from '../../director/wave-source.registry';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
 import { type CustomMapDocument, type MapObject, difficultyFactor, geoToMap, mapToGeo } from './map-document';
@@ -75,6 +77,19 @@ export interface LoadedCustomMap {
 export function customMapSpawnLimit(search: string): number {
   const n = Number.parseInt(new URLSearchParams(search).get('spawns') ?? '', 10);
   return Number.isFinite(n) && n >= 1 ? Math.min(n, MAX_SPAWN_PORTALS) : MAX_SPAWN_PORTALS;
+}
+
+/** The link's parameter of the wave a test run starts at (the editor's "Test map" from wave N) */
+export const START_WAVE_PARAM = 'fromWave';
+
+/**
+ * The wave a run on the map starts at: `?fromWave=N` in the link (2 to
+ * MAX_START_WAVE), else 1. A test parameter of the editor for one player; a
+ * coop guest opens the map without it and would not match the host's world.
+ */
+export function customMapStartWave(search: string): number {
+  const n = Number.parseInt(new URLSearchParams(search).get(START_WAVE_PARAM) ?? '', 10);
+  return Number.isFinite(n) && n > 1 ? Math.min(n, MAX_START_WAVE) : 1;
 }
 
 /**
@@ -179,6 +194,8 @@ export class CustomMapWorld implements WorldProvider {
     private readonly assets: (() => MapAssetLibrary) | null = null,
     /** Buildings, walls and structures take damage and fall (TODO E131); the map's own say by default */
     destructible = map.doc.gameplay?.destructible === true,
+    /** The wave runs start at (customMapStartWave), 1 for a normal run */
+    private readonly startWave = 1,
   ) {
     // A fallen object leaves the run's own copy of the list, never the opened map
     this.doc = destructible ? { ...map.doc, objects: map.doc.objects.map((o) => ({ ...o })) } : map.doc;
@@ -361,15 +378,25 @@ export class CustomMapWorld implements WorldProvider {
 
   /**
    * The map's start credits, HQ health and tower types (MapGameplay), held
-   * in bounds (runRulesOf); null where it sets none of them, so the world
-   * plays the game's and its key stays as without
+   * in bounds (runRulesOf), and a start past wave 1 (runStartAt, with the
+   * gold of the waves the map plays); null where it sets none of them, so
+   * the world plays the game's and its key stays as without
    */
   runRules(): RunRules | null {
     const play = this.doc.gameplay;
     // A destructible map's structures: the simulation keeps their HP (TODO E131)
     const structures = this.destruction?.asRunStructures() ?? [];
-    if (!structures.length && (!play || (play.startCredits === undefined && play.hqHealth === undefined && !play.towers?.length))) return null;
-    return runRulesOf({ ...play, structures });
+    const start = this.runStart();
+    if (!structures.length && !start && (!play || (play.startCredits === undefined && play.hqHealth === undefined && !play.towers?.length))) return null;
+    return runRulesOf({ ...play, structures, start });
+  }
+
+  /** Where a test run starts past wave 1, with the gold of the waves this map plays (its own list, else the player's source) */
+  private runStart(): RunStart | null {
+    if (this.startWave <= 1) return null;
+    const waves = this.worldWaves();
+    const source = waves?.source ?? initialWaveSourceId(typeof window === 'undefined' ? '' : window.location.search);
+    return runStartAt(this.startWave, createWaveSource(source, waves?.table ? { table: waves.table } : {}).rules);
   }
 
   /**

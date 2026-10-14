@@ -4,7 +4,10 @@ import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
-import { CUSTOM_MAP_ASSET_CREDIT, CustomMapWorld, customMapSpawnLimit, openCustomMap, openedCustomMap } from './custom-map-world';
+import { CUSTOM_MAP_ASSET_CREDIT, CustomMapWorld, customMapSpawnLimit, customMapStartWave, openCustomMap, openedCustomMap } from './custom-map-world';
+import { runStartAt } from '../../sim/protocol/run-start';
+import { RUN_PLAN_RULES } from '../../director/sources/budget/run-plan';
+import { tableWaveRules } from '../../director/sources/table/table-source';
 import { createMapDocument } from './map-create';
 import { FALLEN_SCALE } from './custom-map-destruction';
 import { type CustomMapDocument, mapToGeo } from './map-document';
@@ -384,6 +387,21 @@ describe('CustomMapWorld', () => {
     expect(scene.children).toHaveLength(0);
     expect(cameraRig.setupEnvironmentControls).not.toHaveBeenCalled();
     expect(world.ready()).toBe(false);
+  });
+
+  it('starts a test run at the wave the link names, with the gold of the waves the map plays', () => {
+    expect(customMapStartWave('?world=map:x')).toBe(1);
+    expect(customMapStartWave('?world=map:x&fromWave=12')).toBe(12);
+    expect(customMapStartWave('?fromWave=1')).toBe(1);
+    expect(customMapStartWave('?fromWave=9999')).toBe(200);
+    const doc = testMap();
+    const at = (wave: number) => new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3, null, undefined, wave);
+    expect(at(1).runRules()).toBeNull();
+    expect(at(12).runRules()!.start).toEqual(runStartAt(12, RUN_PLAN_RULES));
+    // A map with its own list pays its own gold
+    const table = { cycle: { fromWave: 1, hpGrowth: 1.5 }, waves: [{ wave: 1, name: 'One', enemies: { zombie: 2 }, hpMult: 1, spawnDelay: 400 }] };
+    doc.gameplay = { waves: { kind: 'table', table } };
+    expect(at(6).runRules()!.start).toEqual(runStartAt(6, tableWaveRules(table as never)));
   });
 
   it('reads the spawn limit from the link', () => {

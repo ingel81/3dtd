@@ -424,7 +424,30 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   in der Desktop-App ein eigenes, gleich gehärtetes App-Fenster ([ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), E26c).
   Das Fenster wird noch im Klick genommen (`window.open('', …)`: leer neu oder das vorhandene, ohne Neuladen) und erst
   nach dem Speichern auf das Spiel geschickt; so greift keine Popup-Sperre, wenn das Speichern samt Vorschaubild länger
-  dauert als die Nutzer-Aktivierung des Browsers. Scheitert das Speichern, geht ein leer geöffnetes Fenster wieder zu
+  dauert als die Nutzer-Aktivierung des Browsers. Scheitert das Speichern, geht ein leer geöffnetes Fenster wieder zu.
+  „From wave“ neben dem Knopf (1 bis 200, gilt, solange der Editor offen ist) startet den Test bei Welle N
+  (`&fromWave=N`, `customMapStartWave`): die Wellen davor zählen als gespielt, der Spieler hat das Gold und die
+  Forschung, die ein typischer Spieler bis dahin hat, und baut die Abwehr selbst. Die Rechnung (`runStartAt`,
+  `sim/protocol/run-start.ts`, mit den Goldregeln der Wellen, die die Karte spielt):
+  - Gold der Wellen 1 bis N−1: Kill-Gold, Abschlussgold und Meilensteine, ohne Skill-Boni, wie der Dev-Sprung
+    (`skippedWavesGold`). Kill-Gold je Spur, Abschlussgold einmal
+  - Forschung: immer wieder die billigste, die bis Welle N offen ist (`minWave`) und deren Voraussetzungen erledigt
+    sind, solange alle zusammen höchstens ein Viertel dieses Golds kosten (`START_RESEARCH_SHARE`; der ganze Baum kostet
+    etwa ein Viertel des Plan-Golds bis W40, [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md) 16.4); sie ist beim Start fertig,
+    ihr Preis je Spur abgezogen
+  - Credits je Spieler: Startcredits je Spur plus `(Kill − Forschung) · Spuren + Abschluss`
+
+  | Welle | Gold davor (Kill + Abschluss) | Forschung | Credits (eine Spur, 100 Start) |
+  |---|---:|---:|---:|
+  | 5 | 1.600 | 120 (1) | 1.580 |
+  | 10 | 5.610 | 1.370 (4) | 4.340 |
+  | 20 | 54.694 | 12.120 (15) | 42.674 |
+  | 30 | 329.392 | 77.120 (21) | 252.372 |
+
+  Der Start steht in den Laufregeln (`RunRules.start`) und damit im Weltschlüssel: die Simulation setzt ihn bei jedem
+  Neustart wieder (`GameStateManager.applyRunStart`, angekündigt als `wave:jumped`), ein Replay startet genauso. Ein
+  Lauf ab Welle N zählt keine Bestwelle; die Spurenwahl vor Welle 1 entfällt (die Wellen davor gelten als gespielt),
+  es spielen die Spuren, die die Karte offen startet. Nur allein: ein Koop-Gast öffnet die Karte ohne den Parameter
 - Versionen: jedes Speichern und höchstens alle drei Minuten ein Autosave landen als gepackte Datei in IndexedDB
   (`3dtd-editor-history`; die frühere `3dtd-editor-versions` wird beim Öffnen gelöscht); das Map-Panel (9) listet sie,
   „Restore“ holt eine zurück (ein Undo-Schritt). Ein Absturz kostet so höchstens die Minuten seit dem letzten Autosave.

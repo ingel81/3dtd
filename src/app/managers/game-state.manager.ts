@@ -22,7 +22,8 @@ import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
 import type { IGameManager } from '../game-engine/game-manager.interface';
 import { ResearchManager, type SimResearch } from './research.manager';
 import { researchWave } from '../configs/research/research.types';
-import { DEFAULT_RUN_RULES, runRulesOf, type RunRules } from '../sim/protocol/run-rules';
+import { DEFAULT_RUN_RULES, runRulesKey, runRulesOf, type RunRules } from '../sim/protocol/run-rules';
+import { runStartGold } from '../sim/protocol/run-start';
 import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
 import { AbilityManager } from './ability.manager';
 import { HeroManager } from './hero.manager';
@@ -311,6 +312,8 @@ export class GameStateManager {
   private runRules: RunRules = DEFAULT_RUN_RULES;
   /** The world brought rules of its own (SimWorld.rules): they are part of its key */
   private worldRules = false;
+  /** The run's start past wave 1 (RunRules.start) is in place: counter, research, gold */
+  private startApplied = false;
 
   /** The routes and the route grid's cells, see RouteWorld */
   private readonly routeWorld = new RouteWorld({
@@ -520,6 +523,8 @@ export class GameStateManager {
       this.abilitySeats.push(abilities);
       this.heroSeats.push(this.heroFor(owner, heroSourceIdFor(id, single)));
     }
+    // New seats of a run that starts past wave 1 have its research too
+    if (this.startApplied) this.giveStartResearch();
   }
 
   /**
@@ -544,7 +549,11 @@ export class GameStateManager {
   /** The start credits once per lane of the player (docs/WAVE_SYSTEM.md (Spuren)); one share without a lane */
   private withStartCredits(room: CoopRoom): CoopRoom {
     this.creditsLedger.setStartCredits(
-      (playerId) => this.runRules.startCredits * Math.max(1, room.laneSpawnsOf(playerId).length),
+      (playerId) => {
+        const lanes = Math.max(1, room.laneSpawnsOf(playerId).length);
+        const start = this.runRules.start;
+        return this.runRules.startCredits * lanes + (start ? runStartGold(start, lanes) : 0);
+      },
     );
     return room;
   }
@@ -558,9 +567,10 @@ export class GameStateManager {
     for (const seat of this.researchSeats) seat.research.announceState();
   }
 
-  /** The start credits follow the lanes until the first wave (CreditsLedger.followStart) */
+  /** The start credits follow the lanes until the first wave (CreditsLedger.followStart), past wave 1 the run's first */
   private followStartCredits(): void {
-    if (!this.runStarted && this.waveManager.waveNumber() === 0) this.creditsLedger.followStart();
+    const before = this.startApplied ? (this.runRules.start?.wave ?? 1) - 1 : 0;
+    if (!this.runStarted && this.waveManager.waveNumber() === before) this.creditsLedger.followStart();
   }
 
   /** The spawn point ids of the lanes, roster order: the room's in coop, every spawn point alone. */
@@ -703,6 +713,7 @@ export class GameStateManager {
       throw new Error(`SimWorld: world key ${key}, the main thread has ${world.worldKey}`);
     }
     this.initialize(world.hq, world.spawns, this.routeWorld.cachedPaths());
+    this.applyRunStart();
     const ground = new Map(world.spawns.map((spawn) => [spawn.id, world.spawnGround[spawn.id] ?? null]));
     this.enemyManager.setSpawnGround((at) => {
       for (const spawn of world.spawns) {
@@ -721,8 +732,9 @@ export class GameStateManager {
   private takeRunRules(asked: RunRules | undefined): void {
     this.worldRules = asked !== undefined;
     const next = asked ? runRulesOf(asked) : DEFAULT_RUN_RULES;
-    const same = next.startCredits === this.runRules.startCredits && next.hqHealth === this.runRules.hqHealth
-      && (next.towers?.join('+') ?? '*') === (this.runRules.towers?.join('+') ?? '*');
+    // The structures are not compared here, they are loaded below either way
+    const same = runRulesKey({ ...next, structures: null }) === runRulesKey({ ...this.runRules, structures: null });
+    const startedPast = this.startApplied;
     this.runRules = next;
     // The world's structures, all standing (a world where nothing falls has none)
     this.structures.load(next.structures);
@@ -730,6 +742,39 @@ export class GameStateManager {
     this.healthLedger.setStart(next.hqHealth);
     this.healthLedger.resetToStart();
     this.creditsLedger.reset();
+    // The run before began past wave 1 by the old rules: it begins again at wave 1, applyRunStart moves it on
+    if (startedPast) {
+      this.waveManager.reset();
+      for (const seat of this.researchSeats) seat.research.reset();
+      this.startApplied = false;
+    }
+  }
+
+  /**
+   * A run whose rules start it past wave 1 (RunRules.start, run-start.ts):
+   * the waves before count as played, as the dev jump has it (the ability
+   * recharge with them), every player has the start's research; the gold
+   * comes with the start credits (setStartCredits). Once per run, after the
+   * reset (a restart) or on the world (loadWorld). Announced as
+   * `wave:jumped`, which the main thread's counter follows.
+   */
+  private applyRunStart(): void {
+    const start = this.runRules.start;
+    if (!start || this.startApplied || !this.worldReady) return;
+    const from = this.waveManager.waveNumber();
+    if (this.waveManager.phase() !== 'setup' || from !== 0) return;
+    this.startApplied = true;
+    this.waveManager.jumpTo(start.wave - 1);
+    this.giveStartResearch();
+    for (const seat of this.abilitySeats) seat.advanceWaves(start.wave - 1);
+    this.eventBus.emit({ type: 'wave:jumped', from, wave: start.wave, skipped: start.wave - 1, credits: 0 });
+  }
+
+  /** The start's research for every player, without a bill */
+  private giveStartResearch(): void {
+    for (const id of this.runRules.start?.research ?? []) {
+      for (const seat of this.researchSeats) seat.research.completeResearch(id);
+    }
   }
 
   /**
@@ -1515,11 +1560,14 @@ export class GameStateManager {
     this.room.clearReady();
     this.economy.reset();
     this.runStarted = false;
+    this.startApplied = false;
 
     GameObject.resetIdCounter();
 
     // Emit game:reset so downstream services (e.g. GameStateSyncService) can react
     this.eventBus.emit({ type: 'game:reset' });
+    // A restart on a world whose rules start past wave 1 starts there again
+    this.applyRunStart();
   }
 
   /** Apply Wave-Completion-Bonus via EconomyService (delegates the math). */

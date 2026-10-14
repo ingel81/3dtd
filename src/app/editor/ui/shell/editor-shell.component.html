@@ -61,6 +61,11 @@
             matTooltip="The enemies walk the routes at their real speed, here in the editor (P)" data-test="trial" data-tour="trial">
       Trial wave
     </button>
+    <label class="es-sym" matTooltip="Start the test at this wave, with the credits and research a player typically has by then; you build the defense">
+      <span class="td-caps">From wave</span>
+      <input class="td-input is-sm es-wave" type="number" min="1" [max]="maxStartWave" step="1" [value]="session.testFromWave()"
+             (change)="setTestFromWave($event)" aria-label="Test from wave" data-test="test-from-wave" />
+    </label>
     <button class="td-btn-primary td-btn-sm" type="button" (click)="testPlay()" matTooltip="Save and play this map in the test tab (each test reuses it)" data-test="test-play" data-tour="test-play">
       <td-icon name="play" [size]="14" /> Test map
     </button>

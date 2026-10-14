@@ -7,6 +7,7 @@ import {
   CUSTOM_MAP_CAPABILITIES,
   CustomMapWorld,
   customMapSpawnLimit,
+  customMapStartWave,
   openCustomMap,
   openedCustomMap,
   prefetchCustomMapAssets,
@@ -120,7 +121,8 @@ const DEV_WORLD_FACTORY: WorldFactory = {
 /**
  * A custom map from the map store (own maps in IndexedDB, then the shipped
  * ones): `startHq` loads it, `create` makes the world of the loaded map.
- * How many of its spawns a run uses: customMapSpawnLimit (`?spawns=N`).
+ * How many of its spawns a run uses: customMapSpawnLimit (`?spawns=N`); the
+ * wave a test run starts at: customMapStartWave (`?fromWave=N`).
  */
 const CUSTOM_MAP_FACTORY: WorldFactory = {
   capabilities: CUSTOM_MAP_CAPABILITIES,
@@ -128,7 +130,7 @@ const CUSTOM_MAP_FACTORY: WorldFactory = {
     const map = ref.kind === 'custom-map' ? openedCustomMap(ref) : null;
     if (!map) throw new WorldUnavailableError(ref, 'the map was not opened before the world was made');
     const search = typeof window === 'undefined' ? '' : window.location.search;
-    return new CustomMapWorld(map, origin, customMapSpawnLimit(search));
+    return new CustomMapWorld(map, origin, customMapSpawnLimit(search), null, undefined, customMapStartWave(search));
   },
   startHq: async (ref) => {
     if (ref.kind !== 'custom-map') throw new WorldUnavailableError(ref, 'not a custom map');

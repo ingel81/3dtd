@@ -46,6 +46,7 @@ import { PathPanelComponent } from '../panels/path-panel.component';
 import { StatusBarComponent } from '../panels/status-bar.component';
 import { TerrainPanelComponent } from '../panels/terrain-panel.component';
 import { WaterPanelComponent } from '../panels/water-panel.component';
+import { MAX_START_WAVE } from '../../../sim/protocol/run-start';
 
 const LEGEND_KEY = '3dtd-editor-legend';
 const SIDE_KEY = '3dtd-editor-side';
@@ -415,6 +416,17 @@ export class EditorShellComponent implements OnDestroy {
   testPlay(): void {
     void this.session.testPlay();
     this.tourEvent('test');
+  }
+
+  readonly maxStartWave = MAX_START_WAVE;
+
+  /** The wave the next test starts at, 1 to MAX_START_WAVE */
+  setTestFromWave(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const v = Math.round(Number(input.value));
+    const wave = Number.isFinite(v) ? Math.min(MAX_START_WAVE, Math.max(1, v)) : 1;
+    this.session.testFromWave.set(wave);
+    input.value = String(wave);
   }
 
   async check(): Promise<void> {
