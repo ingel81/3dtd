@@ -55,36 +55,32 @@ export const SCENES = [
     name: 'editor2-lava',
     // A volcano behind the hell ground, three craters on it, each filled with its own lava to its rim
     steps: [
-      path(2, ['current', [[0.16, -0.62, 70], [0.16, -0.3]]]),
+      { do: 'frame', points: [[0.42, -0.26], [0.16, -0.42]], from: 0, pitch: 35, margin: 50, glide: 2 },
       tool('landscape'),
       mode('mountain', { label: 'volcano' }),
       settings({ brush: { radius: 70, strength: 1 }, landscape: { seed: 61 } }),
       stroke(3.5, [[0.42, -0.26], [0.43, -0.26]]),
-      // A level table under the craters: on the rough hell ground a rim had a low side ("no hollow")
-      { do: 'frame', points: [[0.04, -0.33], [0.28, -0.33], [0.42, -0.26]], from: 0, pitch: 38, margin: 25 },
-      mode('plateau'),
-      settings({ brush: { radius: 85, strength: 1 } }),
-      // A short hold: a low table, not a wall in front of the craters
-      stroke(0.45, [[0.16, -0.33], [0.161, -0.33]]),
+      { do: 'frame', points: [[0.04, -0.42], [0.28, -0.42], [0.42, -0.26]], from: 0, pitch: 42, margin: 15 },
       mode('crater', { label: 'craters' }),
-      settings({ brush: { radius: 32, strength: 1 } }),
-      stroke(1.6, [[0.04, -0.33], [0.04, -0.33]]),
-      stroke(1.6, [[0.16, -0.31], [0.16, -0.31]]),
-      stroke(1.6, [[0.28, -0.33], [0.28, -0.33]]),
+      // On the hell ground's south edge: the rims hold there (a table under them stood as a cliff wall)
+      settings({ brush: { radius: 30, strength: 1 } }),
+      stroke(1.6, [[0.04, -0.42], [0.04, -0.42]]),
+      stroke(1.6, [[0.16, -0.43], [0.16, -0.43]]),
+      stroke(1.6, [[0.28, -0.42], [0.28, -0.42]]),
       // Each crater its own lava body, filled to its rim (Ctrl)
       tool('water'),
       mode('fill'),
       click('button', { withText: 'Add lava', label: 'lava' }),
-      clickMap([0.04, -0.33], { mods: { ctrl: true } }),
+      clickMap([0.04, -0.42], { mods: { ctrl: true } }),
       act('idle', { timeout: 30 }),
       click('button', { withText: 'Add lava' }),
-      clickMap([0.16, -0.31], { mods: { ctrl: true } }),
+      clickMap([0.16, -0.43], { mods: { ctrl: true } }),
       act('idle', { timeout: 30 }),
       click('button', { withText: 'Add lava' }),
-      clickMap([0.28, -0.33], { mods: { ctrl: true } }),
+      clickMap([0.28, -0.42], { mods: { ctrl: true } }),
       act('idle', { timeout: 30 }),
       // Low over the lava toward the volcano
-      path(7, ['current', [[0.34, -0.48, 22], [0.16, -0.34]], [[0.0, -0.47, 26], [0.34, -0.28, 20]]], { ease: 'inOut' }),
+      path(7, ['current', [[0.02, -0.56, 18], [0.12, -0.42]], [[0.3, -0.58, 24], [0.38, -0.3, 10]]], { ease: 'inOut' }),
     ],
   },
 ];
