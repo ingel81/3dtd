@@ -441,12 +441,14 @@ function fuzz(seed: number, count: number): Run {
       // A road from the brush, then its dressing taken back and laid again on the ground it kept: the same ground
       // to the millimetre (roads it joined or split are left out, their dressing goes with their own ground)
       if (ctx.settings.symmetry !== 'none') return;
-      const before = new Set(editor.doc.paths.edges.map((e) => e.id));
+      const before = new Map(editor.doc.paths.edges.map((e) => [e.id, `${e.a}>${e.b}`]));
       const s = ctx.settings.landscape;
       s.mode = 'road';
       drag(tools.landscape, ctx, path(5));
       const fresh = editor.doc.paths.edges.filter((e) => !before.has(e.id));
       if (!fresh.length || editor.doc.paths.edges.length !== before.size + fresh.length) return;
+      // A road the new one split ends at the new node now; its tail is among the fresh edges with the old road's dress
+      if (editor.doc.paths.edges.some((e) => before.has(e.id) && before.get(e.id) !== `${e.a}>${e.b}`)) return;
       if (fresh.some((e) => !e.dress?.ground)) throw new Error(`seed ${seed}: a road from the brush keeps no ground`);
       const built = editor.doc.terrain.grid.heights.slice();
       rebuildRoads(editor, catalog, fresh.map((e) => e.id), s.road);
@@ -497,7 +499,8 @@ function fuzz(seed: number, count: number): Run {
 }
 
 describe('undo and redo under random work', () => {
-  for (const seed of [1, 7, 42, 99, 2026]) {
+  // The last five: seeds that once failed on the test's own assumptions (a run ending on a jump back, few steps left)
+  for (const seed of [1, 7, 42, 99, 2026, 3000, 3156, 3195, 3260, 3494]) {
     it(`seed ${seed}: all undos give the first map byte for byte, all redos the last`, () => {
       const start = contentBytes(createMapDocument({ id: 'fuzz', name: 'Fuzz', width: 256, depth: 256, cellSize: 4, seed, ground: 'noise', relief: 6, now: new Date(0) }));
       // The tools roll their own dice (turns, scatter spots, thinning): seeded too, so a seed plays the same run
@@ -505,8 +508,14 @@ describe('undo and redo under random work', () => {
       const { editor, steps, states } = fuzz(seed, 90);
       dice.mockRestore();
       const where = `seed ${seed}, steps: ${steps.join(', ')}`;
-      // Jumps back through the history leave fewer steps than were done
-      expect(editor.historySteps, where).toBeGreaterThan(10);
+      // A run that ended on a jump back leaves steps to redo: redone first, each to its state, the run's end is after them
+      while (editor.redo()) {
+        const want = states.get(editor.stateId);
+        if (want) expect(same(contentBytes(editor.doc), want.bytes), `redo to step ${want.step}, ${where}`).toBe(true);
+      }
+      // Jumps back through the history leave fewer steps than were done, but a run of 90 keeps some
+      expect(steps.length, where).toBeGreaterThan(30);
+      expect(editor.historySteps, where).toBeGreaterThan(3);
       const end = contentBytes(editor.doc);
       const recorded = editor.historySteps;
       let undos = 0;
