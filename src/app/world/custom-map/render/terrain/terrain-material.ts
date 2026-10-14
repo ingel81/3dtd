@@ -1,4 +1,4 @@
-import { Color, MeshStandardMaterial, Vector2, Vector3, Vector4, type Texture } from 'three';
+import { Color, ShaderChunk, MeshStandardMaterial, Vector2, Vector3, Vector4, type Texture } from 'three';
 import type { LayerArray } from './terrain-textures';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_MORPH_PARS, TERRAIN_MORPH_VERTEX } from './terrain-chunks';
@@ -132,6 +132,9 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uRoadLayer: { value: -1 },
     uPathLayer: { value: -1 },
     uCliffCos: { value: Math.cos((40 * Math.PI) / 180) },
+    /** The far cascade of the sun's shadow and where it applies (far-shadow.ts); replaced by MapTerrainLayer's */
+    uFarShadow: { value: null as Texture | null },
+    uFarShadowArea: { value: new Vector4() },
     /** Replaced by TerrainChunks.morphEye and morphFocus (MapTerrainLayer) */
     uMorphEye: { value: new Vector3() },
     uMorphFocus: { value: new Vector3(1e9, 0, 1e9) },
@@ -163,6 +166,8 @@ export class TerrainMaterial extends MeshStandardMaterial {
         .replace('#include <map_fragment>', TERRAIN_SAMPLE)
         // The marker lets addHeightFog add wetness after the terrain's own roughness
         .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = terrainRough;\n// map-roughness-done')
+        // The far cascade dims the sun where the land hides it beyond the cached shadow map
+        .replace('#include <lights_fragment_begin>', TERRAIN_LIGHTS)
         .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += accGlow;')
         .replace(
           '#include <normal_fragment_maps>',
@@ -232,7 +237,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
   }
 
   override customProgramCacheKey(): string {
-    return `custom-map-terrain-1-${this.layerCount}`;
+    return `custom-map-terrain-2-${this.layerCount}`;
   }
 }
 
@@ -247,6 +252,8 @@ uniform sampler2D uSplat1;
 uniform sampler2D uPathMask;
 uniform sampler2D uGridNormals;
 uniform sampler2D uGridOcclusion;
+uniform sampler2D uFarShadow;
+uniform vec4 uFarShadowArea;
 ${VARIATION_GLSL}
 uniform vec4 uGridUv;
 uniform float uWaterLevel;
@@ -307,7 +314,25 @@ vec3 unpackTerrainNormal(vec4 dat) {
   vec2 xy = (dat.xy * 2.0 - 1.0) * vec2(1.6, -1.6);
   return vec3(xy, sqrt(max(0.0, 1.0 - dot(xy, xy))));
 }
+
+// The sun's light left by the far cascade: 1 inside the cached shadow map, the baked land shadow beyond it
+float farSunShade() {
+  if (uFarShadowArea.w < 0.5) return 1.0;
+  vec2 m = vec2(-vTerrainPos.x, vTerrainPos.z);
+  float beyond = smoothstep(0.7, 0.95, length(m - uFarShadowArea.xy) / uFarShadowArea.z);
+  if (beyond <= 0.0) return 1.0;
+  return mix(1.0, texture2D(uFarShadow, m / uMapSize + 0.5).r, beyond);
+}
 `;
+
+/**
+ * three's light loop with the far cascade applied to the sun (the scene's
+ * only directional light): after its shadow map, before it lights
+ */
+const TERRAIN_LIGHTS = ShaderChunk.lights_fragment_begin.replace(
+  /(vDirectionalShadowCoord\[ i \] \) : 1\.0;\s*#endif)/,
+  '$1\n\t\tdirectLight.color *= farSunShade();',
+);
 
 const TERRAIN_SAMPLE = /* glsl */ `
 vec3 tPos = vTerrainPos;

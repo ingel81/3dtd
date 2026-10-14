@@ -19,6 +19,7 @@ import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots, type Terra
 import { GrassField, type GrassInputs } from '../grass/grass-field';
 import { GroundOcclusion } from './ground-occlusion';
 import { HeightTexture } from './height-texture';
+import { FarShadow } from './far-shadow';
 import { GridNormalTexture, MaterialArrays, SplatTextures, compressedTogether, isCompressed, maskTexture } from './terrain-textures';
 
 /** Materials the path mask paints, by channel */
@@ -69,6 +70,11 @@ export class MapTerrainLayer {
   /** Where far ground gets cheaper (TerrainMaterial.setFarDistances), kept for a material built later */
   private far: [number, number] = [150, 400];
 
+  /** Bakes the far cascade of the sun's shadow for the land as it is now (`sunDir` in scene space) */
+  bakeFarShadow(sunDir: Vector3): void {
+    this.farShadow.bake(this.field, sunDir, this.terrain.width, this.terrain.depth);
+  }
+
   /** Distances (m) from which far ground samples one layer lookup, then no layer textures (quality levels) */
   setFarDistances(single: number, flat: number): void {
     this.far = [single, flat];
@@ -79,6 +85,8 @@ export class MapTerrainLayer {
   private pathMask: DataTexture | null = null;
   private readonly normals: GridNormalTexture;
   readonly occlusion: GroundOcclusion;
+  /** The far cascade of the sun's shadow (the shadowCascade effect), shared with the material */
+  readonly farShadow = new FarShadow();
   /** Blades near the camera on the grass layers */
   readonly grass: GrassField;
   /** The height grid on the GPU (water depth, grass) */
@@ -167,6 +175,8 @@ export class MapTerrainLayer {
     this.material = new TerrainMaterial(this.materialParams);
     this.material.terrainUniforms.uMorphEye = this.chunks.morphEye;
     this.material.terrainUniforms.uMorphFocus = this.chunks.morphFocus;
+    this.material.terrainUniforms.uFarShadow = this.farShadow.texture;
+    this.material.terrainUniforms.uFarShadowArea = this.farShadow.area;
     addHeightFog(this.material);
     this.material.setFarDistances(this.far[0], this.far[1]);
     this.material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
@@ -294,6 +304,7 @@ export class MapTerrainLayer {
     this.normals.dispose();
     this.occlusion.dispose();
     this.grass.dispose();
+    this.farShadow.dispose();
     this.heightTexture.dispose();
   }
 

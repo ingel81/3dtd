@@ -11,7 +11,8 @@
  *   it)
  * - lavaGlow: lava pushes its hottest veins over 1 for the bloom pass and
  *   the air above it shimmers (heat haze, shares the refraction's copy)
- * - shadowCascade: a second, coarse cached shadow map for the far land
+ * - shadowCascade: the land's own shadow beyond the cached shadow map's
+ *   reach, baked over the whole map (terrain/far-shadow.ts, one lookup)
  */
 export interface MapEffects {
   refraction: boolean;

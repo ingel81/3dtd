@@ -167,7 +167,12 @@ Lava spiegeln sich).
   bei 1600 × 900), `seaWaves` (Gerstner-Dünung auf dem Meer, drei Wellen 34/21/13 m, zum Ufer flach; nicht messbar),
   `lavaGlow` (die heißesten Adern über 1 für den Bloom-Pass, der Bloom selbst bleibt eine Einstellung des Spiels;
   dazu Hitzeflimmern: ein Blatt 0,4 m über der Lava zeigt die Bildkopie mit aufsteigendem Rauschen verschoben, mit dem
-  Abstand schwächer, am flachen Rand aus, `heat-haze.ts`; nah über dem Lavasee GPU +0,03 ms), `shadowCascade`. Die
+  Abstand schwächer, am flachen Rand aus, `heat-haze.ts`; nah über dem Lavasee GPU +0,03 ms), `shadowCascade` (die
+  ferne Kaskade des Sonnenschattens: die gecachte Schattenkarte reicht 70 bis 450 m um den Fokus, dahinter warf ein
+  Berg keinen Schatten. `terrain/far-shadow.ts` backt, wo das Gelände selbst die Sonne verdeckt, über die ganze Karte
+  in eine 256er-Textur (ein Byte je Texel, weicher Rand mit der Entfernung; nur der Boden wirft, Bäume und Häuser
+  nicht). Der Boden liest sie ab 70 % des Radius der Schattenkarte, ein Lookup; Backen 10 bis 30 ms auf 1025er-Raster,
+  nach Sonnenwechsel sofort, nach Höhenänderungen 0,4 s nach der letzten; GPU nicht messbar). Die
   Qualitätsstufen schalten sie
 - `water` (Standard): klar am Ufer, Kartenfarbe in der Tiefe, Wellen, Spiegelung des Himmels mit Fresnel, Sonnenglanz
   (der scharfe Teil funkelt: feine, schnelle Wellenfacetten fangen die Sonne),

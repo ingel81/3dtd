@@ -376,6 +376,12 @@ export class CustomMapEnvironment {
     HEIGHT_FOG_UNIFORMS.uFogMap.value.set(centerX, centerZ, halfX, halfZ);
   }
 
+  /** The cached sun shadow map's centre (scene space) into `target`; returns its radius */
+  shadowArea(target: Vector3): number {
+    target.copy(this.sun.target.position);
+    return this.shadowBoxRadius;
+  }
+
   /** The renderer `apply` installed the environment on (passes of the map's own run with it), null before */
   get activeRenderer(): WebGLRenderer | null {
     return this.renderer;

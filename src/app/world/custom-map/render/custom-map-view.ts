@@ -141,6 +141,9 @@ export class CustomMapView {
   private decalsFor = { objects: null as unknown, count: -1, paths: null as unknown, edges: -1 };
   private decalsDue: ReturnType<typeof setTimeout> | null = null;
   private lavaBaked = false;
+  /** The far shadow cascade's next bake after an edit (shadowCascade); null when none is due */
+  private farShadowDue: ReturnType<typeof setTimeout> | null = null;
+  private readonly shadowArea = new Vector3();
   private disposed = false;
   /** Depth materials like the ones the shadow pass derives, by the material's uuid (warmUpAssets) */
   private readonly depthTwins = new Map<string, MeshDepthMaterial>();
@@ -182,6 +185,7 @@ export class CustomMapView {
     this.group.add(this.decals.mesh);
     this.group.add(this.effects.group);
     this.refreshLava();
+    this.applyShadowCascade();
     this.ready = this.load();
     // Ground material, objects and bridges are in: the shadow map shows them
     void this.ready.then(() => this.environment.invalidateShadows(), () => undefined);
@@ -456,6 +460,12 @@ export class CustomMapView {
     }
     this.watchDecals();
     this.environment.update(dtSeconds, camera, this.worldFocus);
+    if (this.mapEffects.shadowCascade) {
+      // The cached map's reach on the map, where the far cascade takes over
+      const r = this.environment.shadowArea(this.shadowArea);
+      this.group.worldToLocal(this.shadowArea);
+      this.terrain.farShadow.setArea(-this.shadowArea.x, this.shadowArea.z, r, true);
+    }
     this.environment.matchFog(this.camPos, this.focusPoint);
     this.environment.setFogMap(this.group.position.x, this.group.position.z, this.doc.terrain.width / 2, this.doc.terrain.depth / 2);
   }
@@ -470,6 +480,20 @@ export class CustomMapView {
     else this.refreshWaterNear(rect);
     if (!rect || this.bridgeNear(rect)) void this.refreshBridges();
     this.environment.invalidateShadows();
+    this.refreshFarShadow(true);
+  }
+
+  /** Bakes the far shadow cascade again when it is on: right away, or after edits pause for 0.4 s */
+  private refreshFarShadow(edit: boolean): void {
+    if (this.farShadowDue) clearTimeout(this.farShadowDue);
+    this.farShadowDue = null;
+    if (!this.mapEffects.shadowCascade) return;
+    const bake = (): void => {
+      this.farShadowDue = null;
+      if (!this.disposed) this.terrain.bakeFarShadow(this.environment.sunDir);
+    };
+    if (edit) this.farShadowDue = setTimeout(bake, 400);
+    else bake();
   }
 
   private async refreshBridges(): Promise<void> {
@@ -697,6 +721,7 @@ export class CustomMapView {
   setEnvironment(env: MapEnvironment): void {
     this.doc.environment = env;
     this.environment.set(env);
+    this.refreshFarShadow(false);
     this.lightWater();
     this.effects.setDarkness(this.environment.darkness);
   }
@@ -879,8 +904,15 @@ export class CustomMapView {
 
   /** Turns switchable effects on or off (map-effects.ts); the rest stay as they are */
   setEffects(effects: Partial<MapEffects>): void {
+    const cascade = this.mapEffects.shadowCascade;
     this.mapEffects = { ...this.mapEffects, ...effects };
     this.applyEffects();
+    if (this.mapEffects.shadowCascade !== cascade) this.applyShadowCascade();
+  }
+
+  private applyShadowCascade(): void {
+    if (this.mapEffects.shadowCascade) this.refreshFarShadow(false);
+    else this.terrain.farShadow.setArea(0, 0, 1, false);
   }
 
   /**
@@ -917,6 +949,7 @@ export class CustomMapView {
     this.offscreen?.dispose();
     this.sceneCopy.dispose();
     if (this.lavaDue) clearTimeout(this.lavaDue);
+    if (this.farShadowDue) clearTimeout(this.farShadowDue);
     if (this.decalsDue) clearTimeout(this.decalsDue);
     this.decals.dispose();
     this.group.removeFromParent();
