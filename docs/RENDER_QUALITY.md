@@ -51,6 +51,12 @@ die in Low oder Medium startet, hat keinen MSAA-Canvas. FXAA läuft als letzter 
 zum Neuladen FXAA statt MSAA im Composer: MSAA auf dem Half-Float-Ziel des Composers kostete im Demo-Tal etwa das
 Dreifache (4,4 gegen 1,3 ms GPU, RTX 5080). Das Menü sagt das („Antialiasing changes fully after a reload“).
 
+Ein Stufenwechsel zur Laufzeit (Menü oder Auto nach seiner Messung) ändert, wofür viele Programme gebaut sind: die
+Zahl der Punktlichter, die jedes beleuchtete Material durchläuft, und den Weg durch den Composer. Damit der nächste
+Frame sie nicht alle auf dem Hauptthread linkt (Hafenstadt in der Dämmerung: 2,7 bis 4,3 s Standbild), hält die
+Engine das Zeichnen an, bis `compileAsync` für den neuen Weg fertig ist (`ProgramCompileHold`, höchstens 5 s): das
+Bild steht kurz, die Seite bleibt bedienbar, längster Frame 60 bis 90 ms.
+
 ## Dynamische Auflösung
 
 Low und Medium (`dynamic-resolution.ts`): einmal je Sekunde mit mindestens drei Proben das 90. Perzentil der
