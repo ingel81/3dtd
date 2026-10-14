@@ -232,6 +232,9 @@
           <button type="button" role="tab" [attr.aria-selected]="helpView() === 'keys'" (click)="helpView.set('keys')">Keys</button>
           <button type="button" role="tab" [attr.aria-selected]="helpView() === 'guide'" (click)="helpView.set('guide')" data-test="help-guide">Good levels</button>
         </div>
+        @if (tourResume(); as at) {
+          <button class="td-btn-ghost td-btn-sm" type="button" (click)="startTour(at)" data-test="resume-tour">Resume the tour ({{ at + 1 }}/{{ tourLength }})</button>
+        }
         <button class="td-btn-ghost td-btn-sm" type="button" (click)="startTour()" data-test="start-tour">Start the tour</button>
         <button class="td-close" type="button" aria-label="Close" (click)="help.set(false)"><td-icon name="close" [size]="12" /></button>
       </header>

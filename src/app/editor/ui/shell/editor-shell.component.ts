@@ -24,7 +24,7 @@ import { CommandPaletteComponent } from './command-palette.component';
 import type { EditorCommand } from './commands';
 import { KEY_ACTIONS, actionFor, bindable, loadKeymap, rebind, saveKeymap, type Keymap } from './keymap';
 import { LEVEL_GUIDE } from './level-guide';
-import { TOUR_STEPS, markTourDone, tourAdvance, tourPending, type TourEvent } from './tour';
+import { TOUR_STEPS, markTourDone, tourAdvance, tourPending, tourResumeAt, type TourEvent } from './tour';
 import { RovingGroupDirective } from '../../../components/roving-group.directive';
 import { ContextHintComponent, type HintAction } from '../../../components/context-hint/context-hint.component';
 import { EditorSession } from '../editor-session.service';
@@ -137,6 +137,9 @@ export class EditorShellComponent implements OnDestroy {
   readonly keyActions = KEY_ACTIONS;
   /** The tour's step, null when it does not run */
   readonly tourStep = signal<number | null>(null);
+  /** The step a skipped tour can resume at, for the help */
+  readonly tourResume = signal<number | null>(tourResumeAt());
+  readonly tourLength = TOUR_STEPS.length;
   /** Whether the trial wave walks (the button shows it pressed) */
   readonly trialOn = signal(false);
   /** How fast the trial wave walks; kept for the next trial while the editor is open */
@@ -272,16 +275,17 @@ export class EditorShellComponent implements OnDestroy {
     this.pick(id);
   }
 
-  startTour(): void {
+  /** The tour from its start, or from the step it was skipped at */
+  startTour(at = 0): void {
     this.help.set(false);
     this.palette.set(null);
-    this.showTourStep(0);
+    this.showTourStep(Math.min(at, TOUR_STEPS.length - 1));
   }
 
   onTourAction(id: string): void {
     const k = this.tourStep();
     if (k === null) return;
-    if (id === 'skip') return this.endTour();
+    if (id === 'skip') return this.endTour(k);
     if (id === 'back') return this.showTourStep(Math.max(0, k - 1));
     if (k >= TOUR_STEPS.length - 1) return this.endTour();
     this.showTourStep(k + 1);
@@ -303,16 +307,18 @@ export class EditorShellComponent implements OnDestroy {
     if (step.tool) this.pick(step.tool);
     // The ring around the step's element, once the page shows it
     requestAnimationFrame(() => {
-      const el = step.target ? document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`) : null;
+      const el = step.target ? document.querySelector<HTMLElement>(step.target) : null;
       const r = el?.getBoundingClientRect();
       this.tourRing.set(r ? { left: r.left - 4, top: r.top - 4, width: r.width + 8, height: r.height + 8 } : null);
     });
   }
 
-  private endTour(): void {
+  /** Finished, or skipped at step `skippedAt` (the help can resume there) */
+  private endTour(skippedAt: number | null = null): void {
     this.tourStep.set(null);
     this.tourRing.set(null);
-    markTourDone();
+    markTourDone(undefined, skippedAt);
+    this.tourResume.set(tourResumeAt());
   }
 
   trial(): void {
@@ -501,7 +507,9 @@ export class EditorShellComponent implements OnDestroy {
     for (const m of SYMMETRY_MODES) add('Symmetry', m.label, () => this.setSymmetry(m.id), 'M');
     add('Symmetry', 'Mirror the map now (from the part in view)', () => s.mirrorNow());
     add('Editor', 'Keys', () => this.help.set(true), '?');
-    add('Editor', 'Tour: the editor in seven steps', () => this.startTour());
+    add('Editor', `Tour: the editor in ${TOUR_STEPS.length} steps`, () => this.startTour());
+    const resume = this.tourResume();
+    if (resume !== null) add('Editor', `Tour: resume at step ${resume + 1}`, () => this.startTour(resume));
     add('Editor', 'How to build a good level', () => this.openGuide());
     const doc = s.doc;
     if (doc && vp) {

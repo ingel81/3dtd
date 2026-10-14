@@ -100,11 +100,18 @@ Gewässer.
 Jeder Pinsel hat Größe (1 bis 200 m), Stärke und Weichheit (Anteil des Radius, der ausblendet). Der Ring auf dem Boden
 zeigt Größe und den harten Kern.
 
-**Einstieg.** Beim ersten Öffnen einer Karte führt eine Tour in sieben Schritten durch den Editor: Ansicht, Landschaft
-malen, Weg ziehen, Spawn und HQ, Check, Probewelle, Test map. Ein Schritt geht von selbst weiter, wenn man tut, was
-er sagt (ein Strich, eine Straße, ein Spawn, der Check, die Probewelle, der Test), sonst mit „Next“; „Skip the
-tour“ beendet sie. Danach kommt sie nicht mehr von selbst (localStorage `3dtd-editor-tour`), die Hilfe (?) und
-Strg+K starten sie wieder. Die Hilfe hat neben den Tasten die Seite „Good levels“: Weglänge, Engstellen, Bauflächen,
+**Einstieg.** Beim ersten Öffnen einer Karte führt eine Tour in 22 Schritten durch den Editor (`ui/shell/tour.ts`):
+Ansicht, die Werkzeugleiste, dann jedes Werkzeug in der Reihenfolge der Leiste (Landscape bis Measure; der Schritt
+wählt das Werkzeug, sein Panel steht rechts), die Reiter Outline und History, Minikarte und gemerkte Ansichten,
+Symmetrie, Speichern und File, Strg+K und Hilfe, zuletzt Check, Probewelle (mit ihrer Geschwindigkeit) und Test map.
+Jeder Schritt sagt kurz, was der Teil tut und wie man ihn benutzt, und legt einen Ring um seinen Knopf (`target`, ein
+CSS-Selektor; fehlt das Element, kein Ring). Ein Schritt geht von selbst weiter, wenn man tut, was er sagt (ein
+Landschaftsstrich, eine Straße, ein Spawn, der Check, die Probewelle, der Test), sonst mit „Next“; „Back“ geht zurück,
+„Skip the tour“ beendet sie. Danach kommt sie nicht mehr von selbst (localStorage `3dtd-editor-tour`: `done` oder
+`skipped:<Schritt>`). Die Hilfe (?) startet sie neu („Start the tour“) und setzt eine übersprungene am Schritt fort,
+an dem man sie beendet hat („Resume the tour (N/22)“); Strg+K kennt beides. Die Schritte der Werkzeuge stehen in
+`TOOL_TOUR`, einem Eintrag je Werkzeug; ein neues Werkzeug bekommt dort seinen Schritt und erscheint an seinem Platz
+in der Leiste (`tour.spec.ts` verlangt einen je Werkzeug der Leiste). Die Hilfe hat neben den Tasten die Seite „Good levels“: Weglänge, Engstellen, Bauflächen,
 Sichtlinien, Spurzahl und Testen, jeweils mit einem Knopf, der das passende Werkzeug öffnet. Kann eine Karte nicht
 gespeichert werden, sagt ein Banner im Editor, was passiert ist, dass die Änderungen noch da sind und was zu tun ist.
 

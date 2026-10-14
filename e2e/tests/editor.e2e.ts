@@ -249,30 +249,42 @@ test('the first-run tour leads through the editor and comes back from the help',
   await page.locator('[data-test=new-name]').fill(name);
   await page.locator('[data-test=create-map]').click();
   const tour = page.locator('[data-test=tour]');
+  /** Next until the tour shows `id` (each tool and panel has its own step) */
+  const nextUntil = async (id: string) => {
+    for (let i = 0; i < 30 && (await tour.getAttribute('data-step')) !== id; i++) {
+      await tour.getByRole('button', { name: 'Next' }).click();
+    }
+    await expect(tour).toHaveAttribute('data-step', id);
+  };
   await expect(tour).toHaveAttribute('data-step', 'view');
   await tour.getByRole('button', { name: 'Next' }).click();
-  await expect(tour).toHaveAttribute('data-step', 'land');
+  await expect(tour).toHaveAttribute('data-step', 'tools');
+  await nextUntil('land');
   // Painting finishes the step by itself
   const box = (await page.locator('[data-test=viewport]').boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 3);
   await page.mouse.down();
-  await expect(tour).toHaveAttribute('data-step', 'road', { timeout: 15_000 });
+  await expect(tour).toHaveAttribute('data-step', 'terrain', { timeout: 15_000 });
   await page.mouse.up();
+  await nextUntil('road');
   await tour.getByRole('button', { name: 'Next' }).click();
   await expect(tour).toHaveAttribute('data-step', 'markers');
-  await tour.getByRole('button', { name: 'Next' }).click();
-  await expect(tour).toHaveAttribute('data-step', 'check');
+  await nextUntil('check');
   await page.locator('[data-test=check]').click();
   await expect(tour).toHaveAttribute('data-step', 'trial');
   await tour.getByRole('button', { name: 'Skip the tour' }).click();
   await expect(tour).toHaveCount(0);
-  // Not by itself again, but from the help; the help also has the level guide
+  // Not by itself again, but from the help, where it resumes at the skipped step; the help also has the level guide
   await page.reload();
   await expect(page.locator('[data-test=map-name]')).toHaveText(name);
   await expect(tour).toHaveCount(0);
   await page.locator('[data-test=help]').click();
   await page.locator('[data-test=help-guide]').click();
   await expect(page.locator('[data-topic=chokes]')).toBeVisible();
+  await page.locator('[data-test=resume-tour]').click();
+  await expect(tour).toHaveAttribute('data-step', 'trial');
+  await tour.getByRole('button', { name: 'Skip the tour' }).click();
+  await page.locator('[data-test=help]').click();
   await page.locator('[data-test=start-tour]').click();
   await expect(tour).toHaveAttribute('data-step', 'view');
   await tour.getByRole('button', { name: 'Skip the tour' }).click();
