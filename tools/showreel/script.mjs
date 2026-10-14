@@ -158,20 +158,26 @@ export const SCENES = [
       stroke(2.5, [[0.25, -0.3], [0.33, -0.2], [0.28, -0.12]]),
       click('[data-mode=river]', { label: 'lava river' }),
       click('[data-test=river-lava]'),
-      stroke(2.5, [[0.38, 0.25], [0.36, 0.0], [0.3, -0.2], [0.35, -0.42]], { settle: 0.3 }),
+      stroke(2.5, [[0.42, 0.25], [0.42, 0.0], [0.43, -0.2], [0.44, -0.42]], { settle: 0.3 }),
       wait(1.5),
-      // Hook for the water worker's "Pour here" (Water tool): played once that mode exists
-      { do: 'if', sel: '[data-tool=water]', steps: [] },
     ],
   },
   {
     name: 'editor-pour',
     steps: [
+      path(2.5, ['current', [[0.02, -0.68, 190], [0.0, -0.18]]]),
       click('[data-tool=water]'),
+      // Water > Pour: the hollow fills to its rim, the overflow runs down into the next ones
       { do: 'if', sel: '[data-mode=pour]', steps: [
-        click('[data-mode=pour]', { label: 'pour water' }),
-        { do: 'clickMap', at: [-0.3, 0.05] },
-        wait(3),
+        click('[data-mode=pour]', { label: 'pour' }),
+        click('[data-test=pour-lava]'),
+        { do: 'clickMap', at: [0.27, -0.2], label: 'pour lava' },
+        act('idle', { timeout: 30 }),
+        wait(2),
+        click('[data-test=pour-water]'),
+        { do: 'clickMap', at: [-0.27, -0.2], label: 'pour water' },
+        act('idle', { timeout: 30 }),
+        wait(2.5),
       ] },
     ],
   },
