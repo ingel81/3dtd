@@ -1,4 +1,4 @@
-import { DynamicResolution, FRAME_BUDGET_MS } from './dynamic-resolution';
+import { DisplayRefresh, DynamicResolution, FRAME_BUDGET_MS, REFRESH_SAMPLES } from './dynamic-resolution';
 import {
   QUALITY_TABLE, levelAfterMeasure, levelForGpu, lowerLevel, parseStoredQuality, pixelRatioFor, qualityFromSearch, resolveLevel,
 } from './render-quality';
@@ -86,5 +86,45 @@ describe('DynamicResolution', () => {
     expect(d.evaluate([50, 50], 'interval')).toBeNull();
     // A slow GPU: three frames of a second are enough
     expect(d.evaluate([400, 400, 400], 'gpu')).toBeCloseTo(0.6);
+  });
+
+  it('measures frame intervals against a slower display, so a 30 Hz screen keeps its resolution', () => {
+    const d = new DynamicResolution(0.8, { min: 0.6, max: 1 });
+    // The display shows a frame every 33 ms: frames at that pace are fine, dropped ones are not
+    expect(d.evaluate(second(1000 / 30), 'interval', 1000 / 30)).toBeNull();
+    expect(d.evaluate(second(1000 / 15), 'interval', 1000 / 30)).toBeCloseTo(0.7);
+    // A faster display still aims at 60 frames a second
+    expect(d.evaluate(second(1000 / 60), 'interval', 1000 / 144)).toBeNull();
+    expect(d.evaluate(second(1000 / 30), 'interval', 1000 / 144)).toBeCloseTo(0.6);
+    // GPU times keep the 60-frame budget whatever the display
+    expect(new DynamicResolution(0.8, { min: 0.6, max: 1 }).evaluate(second(20), 'gpu', 1000 / 30)).toBeCloseTo(0.7);
+  });
+});
+
+describe('DisplayRefresh', () => {
+  const feed = (r: DisplayRefresh, ms: (k: number) => number) => {
+    for (let k = 0; k < REFRESH_SAMPLES; k++) r.add(ms(k));
+  };
+
+  it("finds the display's pace from frames that drew nothing, snapped to a common rate", () => {
+    const r = new DisplayRefresh();
+    expect(r.interval).toBeNull();
+    feed(r, (k) => 33.1 + (k % 3) * 0.3);
+    expect(r.interval).toBeCloseTo(1000 / 30);
+  });
+
+  it('takes no uneven run, and keeps the shortest pace it saw', () => {
+    const r = new DisplayRefresh();
+    // A busy load: frames all over the place
+    feed(r, (k) => (k % 2 ? 16.7 : 60));
+    expect(r.interval).toBeNull();
+    feed(r, () => 1000 / 30);
+    feed(r, () => 1000 / 60);
+    feed(r, () => 1000 / 30);
+    expect(r.interval).toBeCloseTo(1000 / 60);
+    // Hidden tabs and stalls are no frames
+    r.add(500);
+    r.add(-1);
+    expect(r.interval).toBeCloseTo(1000 / 60);
   });
 });

@@ -71,6 +71,12 @@ GPU-Zeit je Bild (Timer-Query über `GpuFrameMeter`), ohne Timer der Bildabstand
 60 %) um 0,05 hoch, innerhalb der Spanne der Stufe. Lücken über eine Sekunde (verdeckter Tab) zählen nicht. Der
 Grafik-Benchmark hält die Skala während der Messung fest (`setDynamicResolutionPaused`).
 
+Der Bildabstand gilt gegen den Takt der Anzeige, wo er langsamer ist als 60 Hz: ein 30-Hz-Schirm zeigt 33 ms
+zwischen zwei Bildern, wie billig sie auch sind, und drückte die Skala sonst bis aufs Minimum. Den Takt liest
+`DisplayRefresh` aus Bildern, in denen die Engine nichts zeichnet (Menü-Globus über dem Spiel, ladende Karte,
+kompilierende Programme): 30 solche Abstände, deren mittlere Hälfte innerhalb von 15 % um den Median liegt, auf eine
+übliche Rate gerundet; der kürzeste gewinnt. Bis dahin gilt 60 Hz wie vorher.
+
 Geprüft im Browser: Demo-Tal in Medium auf der RTX 5080 steigt auf 100 %, mit SwiftShader (Software-GPU, ein bis zwei
 Bilder je Sekunde) fällt es auf 60 %.
 

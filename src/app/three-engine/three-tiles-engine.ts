@@ -67,6 +67,7 @@ import type { GeoPosition } from '../models/game.types';
 import { NO_TILE_STATS, type WorldProvider, type WorldSurface } from '../world/world-provider';
 import { GpuFrameMeter, type GpuTimeReader } from './gpu-timer';
 import { ProgramCompileHold } from './program-compile-hold';
+import { DisplayRefresh } from './dynamic-resolution';
 import { DynamicResolution, MIN_SAMPLES } from './dynamic-resolution';
 import { pixelRatioFor, type QualityKnobs, type QualityWorld } from './render-quality';
 
@@ -222,6 +223,10 @@ export class ThreeTilesEngine {
   private quality: { knobs: QualityKnobs; world: QualityWorld } | null = null;
   /** The draw waits while the programs of a new quality level compile (applyQuality) */
   private readonly qualityCompile = new ProgramCompileHold();
+  /** The display's frame interval, from frames that drew nothing (the dynamic resolution without a GPU timer) */
+  private readonly displayRefresh = new DisplayRefresh();
+  /** When the last frame that drew nothing ran, ms; 0 after a drawn one */
+  private idleFrameAt = 0;
   /** The bloom switch as the effect settings have it; the level may still hold it off */
   private bloomWanted = false;
   /** Low and Medium: the resolution follows the frame cost (dynamic-resolution.ts) */
@@ -763,7 +768,10 @@ export class ThreeTilesEngine {
 
     // The tiles draw nothing before their renderer stands
     const world = this.world;
-    if (!world.ready()) return;
+    if (!world.ready()) {
+      this.idleFrame();
+      return;
+    }
 
     // Shake benchmark (__perf.shakeBench, tiles only): its camera-move phase
     // moves the camera, so it starts before controls and tiles see it
@@ -800,7 +808,11 @@ export class ThreeTilesEngine {
     // Under the menu globe nothing shows, and while a new quality level's programs compile the
     // picture stands: no draw, unless a frame is waited for (the shader warm-up uploads in a
     // drawn frame, a screenshot reads one)
-    if ((this.drawSuppressed || this.qualityCompile.holding) && !this.renderLoop.hasFrameWaiters()) return;
+    if ((this.drawSuppressed || this.qualityCompile.holding) && !this.renderLoop.hasFrameWaiters()) {
+      this.idleFrame();
+      return;
+    }
+    this.idleFrameAt = 0;
 
     // Render scene, shaken if a screen shake runs
     const probe = this.frameProbe;
@@ -1031,6 +1043,13 @@ export class ThreeTilesEngine {
     }
   }
 
+  /** A frame that drew nothing: its interval tells the display's pace (DisplayRefresh) */
+  private idleFrame(): void {
+    const now = performance.now();
+    if (this.idleFrameAt > 0) this.displayRefresh.add(now - this.idleFrameAt);
+    this.idleFrameAt = now;
+  }
+
   /** The graphics benchmark: the resolution stays at the level's start while it measures */
   setDynamicResolutionPaused(paused: boolean): void {
     this.dynamicPaused = paused;
@@ -1065,7 +1084,7 @@ export class ThreeTilesEngine {
     const costs = d.gpu ? d.gpuTimes : d.intervals;
     if (now - d.windowStart < 1000 || costs.length < MIN_SAMPLES) return;
     d.windowStart = now;
-    const scale = d.controller.evaluate(costs, d.gpu ? 'gpu' : 'interval');
+    const scale = d.controller.evaluate(costs, d.gpu ? 'gpu' : 'interval', this.displayRefresh.interval);
     d.intervals.length = 0;
     d.gpuTimes.length = 0;
     if (scale !== null) this.setRenderScale(scale);
