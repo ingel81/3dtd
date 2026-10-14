@@ -124,6 +124,7 @@ export class LocationManagementService {
     this.loadFavorites();
     this.recents.set(loadRecentLocations());
     this.trackRecents();
+    this.followOwnWorldName();
     this.installShowcaseConsole();
   }
 
@@ -300,6 +301,24 @@ export class LocationManagementService {
       });
     } catch {
       // Outside an injection context (unit tests): not tracked
+    }
+  }
+
+  /**
+   * A world of its own names the place. A map opened by link has only its
+   * id when the place is set; its name comes with the opened map
+   * (WorldContext.open), and the place takes it over then.
+   */
+  private followOwnWorldName(): void {
+    try {
+      effect(() => {
+        const name = worldPlaceName(this.worldContext.ref());
+        untracked(() => {
+          if (name !== null && this.hq() !== null && this.displayName() !== name) this.displayName.set(name);
+        });
+      });
+    } catch {
+      // Outside an injection context (unit tests): not followed
     }
   }
 

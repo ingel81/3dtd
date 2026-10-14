@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
+import { getTestBed, TestBed } from '@angular/core/testing';
+import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { LocationManagementService, formatShowcaseLine } from './location-management.service';
 import { GeocodingService } from './geocoding.service';
 import { PathAndRouteService } from '../world/path-route.service';
@@ -70,6 +72,28 @@ describe('LocationManagementService', () => {
     world.useDevWorld();
     service.setLocation({ lat: 0, lon: 0 }, []);
     expect(service.displayName()).toBe('Dev world');
+  });
+
+  it("takes a map's name over once the map is open, the id stood in before", () => {
+    // The name follows in an effect: a TestBed to run it
+    getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: GeocodingService, useValue: {} },
+        { provide: PathAndRouteService, useValue: { hasRoutes } },
+        { provide: WorldContext, useValue: world },
+      ],
+    });
+    const location = TestBed.inject(LocationManagementService);
+    // A link names the map by id; the place is set before the map is open
+    world.useCustomMap('demo-valley-copy');
+    location.setLocation({ lat: 0, lon: 0 }, []);
+    TestBed.tick();
+    expect(location.displayName()).toBe('demo-valley-copy');
+    world.useCustomMap('demo-valley-copy', 'Demo Valley (copy)');
+    TestBed.tick();
+    expect(location.displayName()).toBe('Demo Valley (copy)');
+    getTestBed().resetTestEnvironment();
   });
 
   it('reset() restores the same name it starts with', () => {
