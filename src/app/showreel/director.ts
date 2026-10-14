@@ -169,14 +169,14 @@ export class Director {
         if (typeof to === 'string') {
           const el = element(to);
           this.hands.pointer.show(true);
-          await this.hands.pointer.glide(() => this.hands.centerOf(el), dur || 0.7, nextFrame, mods);
-        } else await this.hands.toMap(stage, this.point(to as PointSpec), dur || 0.8, mods);
+          await this.hands.pointer.glide(() => this.hands.centerOf(el), dur || 0.5, nextFrame, mods);
+        } else await this.hands.toMap(stage, this.point(to as PointSpec), dur || 0.6, mods);
         return;
       }
       case 'click':
-        return this.hands.click(await this.find(step), dur || 0.7, Number(step['button'] ?? 0), mods);
+        return this.hands.click(await this.find(step), dur || 0.5, Number(step['button'] ?? 0), mods);
       case 'clickMap':
-        return this.hands.clickMap(stage, this.point(step['at'] as PointSpec), dur || 0.8, Number(step['button'] ?? 0), mods);
+        return this.hands.clickMap(stage, this.point(step['at'] as PointSpec), dur || 0.6, Number(step['button'] ?? 0), mods);
       case 'stroke':
         return this.hands.stroke(
           stage,
@@ -192,13 +192,13 @@ export class Director {
         return;
       case 'type': {
         const input = (await this.find(step)) as HTMLInputElement;
-        await this.hands.click(input, dur || 0.6);
+        await this.hands.click(input, dur || 0.45);
         await typeInto(input, String(step['text'] ?? ''), Number(step['cps'] ?? 12), nextFrame);
         return;
       }
       case 'select': {
         const select = (await this.find(step)) as HTMLSelectElement;
-        await this.hands.click(select, dur || 0.6);
+        await this.hands.click(select, dur || 0.45);
         await waitSeconds(0.25);
         select.value = String(step['value']);
         select.dispatchEvent(new Event('change', { bubbles: true }));

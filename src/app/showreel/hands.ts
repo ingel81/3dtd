@@ -78,7 +78,7 @@ export class Hands {
    * along the line; the screen positions follow the camera every frame
    */
   async stroke(stage: Stage, points: readonly MapPoint3[], seconds: number, button = 0, mods: Mods = {}, settle = 0.15): Promise<void> {
-    await this.toMap(stage, points[0], 0.6, mods);
+    await this.toMap(stage, points[0], 0.45, mods);
     await waitSeconds(0.12);
     this.pointer.down(button, mods);
     const lengths = [0];
