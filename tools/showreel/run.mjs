@@ -12,7 +12,7 @@
 //
 // Options: --display DISPLAY2 (default: the primary), --quality ultra|high (default ultra), --output-idx N (ddagrab output, default: found by a test
 // colour), --dpr 1 (device scale factor), --cq 18, --chroma 420|444, --headless WxH (development: no window,
-// no recording, --sound records the pages' sound, --verify plays step by step and logs what each changed; --shots N takes a picture every N seconds), --check-browser (print Chrome's flags and translate pref), --playwright <dir> (where playwright-core lies, default e2e/node_modules of this checkout or
+// no recording, --sound records the pages' sound, --verify plays step by step and logs what each changed, --verify-only a,b only those scenes; --shots N takes a picture every N seconds), --check-browser (print Chrome's flags and translate pref), --playwright <dir> (where playwright-core lies, default e2e/node_modules of this checkout or
 // of the main checkout).
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -376,7 +376,10 @@ async function main() {
   let current = null;
   let failure = null;
   try {
-    for (const scene of scenes) {
+    // --verify-only: nothing after the last scene asked for
+    const asked = option('verify-only', '').split(',').filter(Boolean);
+    const last = asked.length ? Math.max(...asked.map((n) => scenes.findIndex((x) => x.name === n))) : scenes.length - 1;
+    for (const scene of scenes.slice(0, last + 1)) {
       const target = scene.page ?? (current === null ? scene.needs : null);
       if (target) {
         await openPage(target, !!scene.intro && target === scene.page, !!scene.noIntro, !!scene.clean);
@@ -385,7 +388,11 @@ async function main() {
       if (!target && !segment) throw new Error(`scene ${scene.name} has no page to play on`);
       console.log(`scene ${scene.name}`);
       // --verify (development): each step on its own, then a picture and what it changed in the open map
-      const playing = flag('verify')
+      // --verify-only a,b: those scenes step by step, the ones before them played through at speed (the editor's
+      // scenes build on the map the ones before left)
+      const only = option('verify-only', '');
+      const stepwise = only ? only.split(',').includes(scene.name) : flag('verify');
+      const playing = stepwise
         ? verifySteps(scene).then(() => [])
         : page.evaluate((s) => window.__showreel.run(s), { name: scene.name, steps: scene.steps });
       // --shots N (development): a picture every N seconds of the scene
