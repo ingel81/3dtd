@@ -331,8 +331,8 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   bis 2026-10-14) fehlten den fernen Ecken einer schrägen Ansicht die Baumschatten, jede Mausrad-Raste nahm einen
   Streifen mehr. Die Box wächst sofort auf die nächste Stufe (Fünftel), schrumpft erst, wenn die Ansicht weniger als
   70 % von ihr braucht: eine Raste hin und zurück lässt Box und Werfer (`shadowRadius` 1,2-mal um ihre Mitte) stehen
-  (Grafik-Benchmark Hafenstadt High, Ansichten game/close/pan/top: GPU med vorher 1,07/1,27/2,35/0,98 ms, nachher
-  1,07/1,21/1,58/0,98 ms in einem Lauf, 1,09/2,38/2,54/1,30 im anderen; Calls gleich, Abstand in der Streuung)
+  (Grafik-Benchmark Hafenstadt High: Draw Calls je Ansicht gleich, Schattenkarte gleich groß; die GPU-Zeit der größeren
+  Box auf einem ruhigen Rechner steht noch aus)
 - **Höhennebel** (`height-fog.ts`): die Materialien der Karte ersetzen das Nebel-Fragment der Szene; die Dichte nimmt
   über dem tiefen Boden der Karte ab und wird entlang des Blickstrahls geschlossen integriert, dazu eine dünne
   Luftschicht überall (Fernes wird auch von oben dunstig), zur Sonne hin färbt sich der Dunst. Die Nebelfarbe wird in
