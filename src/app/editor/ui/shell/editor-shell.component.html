@@ -115,7 +115,7 @@
     </p>
   } @else if (session.downloadReminder()) {
     <p class="td-banner is-warn is-row td-overlay es-reminder" role="status" data-test="download-reminder">
-      <span>This browser may clear maps when the disk runs short. Download the map file now and then to keep your work safe.</span>
+      <span>This browser has not promised to keep your maps: clearing site data or a full disk removes them. Download the map file now and then.</span>
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="session.downloadFile()">Download</button>
       <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.laterReminder()">Later</button>
     </p>

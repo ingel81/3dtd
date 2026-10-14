@@ -378,7 +378,7 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   lost … Your map is safe“ (mit „Reload the page“, das vorher speichert). Kommt der Kontext zurück
   (`webglcontextrestored`), baut die Ansicht sich neu (`rebuildView`: die Textur-Arrays behalten nach dem Hochladen
   keine Pixel, ein bloßes Wiederhochladen ginge nicht)
-- Dauerhaft halten: ein Browser darf IndexedDB bei Platzmangel räumen, samt Versionen. Das erste Speichern je Seite
+- Dauerhaft halten: ohne Zusage räumt ein Browser IndexedDB bei Platzmangel oder beim Löschen der Websitedaten, samt Versionen. Das erste Speichern je Seite
   fragt daher `navigator.storage.persist()` (`editor/model/storage-safety.ts`; Firefox fragt den Spieler, Chrome
   entscheidet selbst). Das Map-Panel (9) zeigt unter „Storage“ den Stand: Kartenordner der Desktop-App, „keeps your
   maps for good“ oder die Warnung samt „Download map file“. Darf der Browser räumen, erinnert nach 30 Minuten Arbeit

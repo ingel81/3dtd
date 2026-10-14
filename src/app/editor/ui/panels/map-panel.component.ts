@@ -128,7 +128,7 @@ import { MapBudgetComponent } from './map-budget.component';
           <p class="td-note">This browser keeps your maps for good (persistent storage).</p>
         }
         @case ('evictable') {
-          <p class="td-note mp-warn">This browser may clear maps when the disk runs short, versions included. Download the map file now and then.</p>
+          <p class="td-note mp-warn">This browser has not promised to keep your maps: clearing site data or a full disk removes them, versions included. Download the map file now and then.</p>
           <button class="td-btn-secondary td-btn-sm" type="button" (click)="download()" data-test="storage-download">Download map file</button>
         }
         @default {
