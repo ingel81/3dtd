@@ -188,7 +188,9 @@ Lava spiegeln sich).
   Qualitätsstufen schalten sie
 - `water` (Standard): klar am Ufer, Kartenfarbe in der Tiefe, Wellen, Spiegelung des Himmels mit Fresnel, Sonnenglanz
   (der scharfe Teil funkelt: feine, schnelle Wellenfacetten fangen die Sonne),
-  Schaum im Flachen
+  Schaum im Flachen. Der Wasserkörper nimmt bei warmem, tiefem Licht den Farbton der Sonne an (bis 35 % zur eigenen
+  Helligkeit im Sonnenton, nur wenn Rot über Blau liegt): bei Dämmerung von oben gedämpft und warm wie die Spiegelung
+  aus der Nähe, statt kräftig blau; Tag und Nacht bleiben unverändert (gilt für Wasser, Meer und Sumpf)
 - **Strömung** (`flow-map.ts`): jedes Flächengewässer bekommt beim Laden und bei jedem `set` eine gebackene
   Karte auf dem Höhenraster (RGBA8; RG Strömung in Szene x/z, ±1,2 m/s; B Uferabstand bis 32 m, zweimal über
   je 2 Zellen geglättet, damit seine Linien die Ecken des Ufers runden; A Steilheit des Ufers in der Nähe bis 2,5):

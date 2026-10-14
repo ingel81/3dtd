@@ -570,6 +570,12 @@ void main() {
   vec3 absorbed = exp(-depth * vec3(0.6, 0.25, 0.16));
   float see = (absorbed.r + absorbed.g + absorbed.b) / 3.0;
   vec3 body = mix(uDeep, uShallow, see) * mix(vec3(1.0), absorbed / max(see, 1e-3), 0.25) * uLight * mix(0.55, 1.0, sunShade);
+  // The body takes the hue of the light: under a warm low sun (dusk) it reads muted and warm from above, as
+  // the reflection does close in, not the body's own blue. A near-white day sun and a blue night leave it
+  vec3 sunHue = uSunColor / max(max(uSunColor.r, uSunColor.g), max(uSunColor.b, 1e-3));
+  float warm = smoothstep(0.35, 0.8, 1.0 - min(min(sunHue.r, sunHue.g), sunHue.b)) * smoothstep(0.0, 0.3, sunHue.r - sunHue.b);
+  float bodyLuma = dot(body, vec3(0.2126, 0.7152, 0.0722));
+  body = mix(body, bodyLuma * sunHue / max(dot(sunHue, vec3(0.2126, 0.7152, 0.0722)), 0.05), warm * 0.35);
   // In shade the bright sky reflection reads a little darker too (the eye compares it with the shaded bank)
   sky *= mix(0.8, 1.0, sunShade);
   #if KIND == 4
