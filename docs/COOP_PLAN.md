@@ -217,7 +217,15 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
   Relay (Grenze 8 MB), egal wie groß die Karte ist. Ein später Beitretender bekommt das erste Stück vor der Welt,
   den Rest nach seinen Bestätigungen; eine andere Karte ersetzt sie (`coop-server/src/room.ts`)
 - Passt ein Stück nicht mehr ins Budget, behält das Relay es nur, bis jeder Gast im Raum es hat; das `map-ack` an
-  den Host wartet so lange. Ein später Beitretender bekommt dann keine Karte (Log-Zeile „not kept whole“)
+  den Host wartet so lange. Ein später Beitretender bekommt dann nicht sofort eine Karte (Log-Zeile „not kept
+  whole“): Nennt die Welt eine Karte, die er nicht hat und die nicht unterwegs ist, fragt sein Client einmal nach
+  (`map-want`). Das Relay schickt sie aus den behaltenen Stücken oder bittet den Host (`map-wanted`, höchstens
+  einmal je Sekunde), dessen Client sie erneut sendet. Kommt binnen 20 s kein Stück, gilt die Welt als nicht hier.
+  „Resend map to the players“ schickt die Stücke auch bei gleichem Inhalt; das Relay nimmt ein losgelassenes
+  Stück wieder an und setzt jeden Gast ohne Karte auf den Anfang, wer sie hat, bekommt nichts doppelt
+- Verlässt der Host die Lobby, bevor jedes Stück seiner Karte ankam, verwirft das Relay die Karte und sagt es dem
+  Raum (`map-gone`): die Gäste lassen ihre Stücke fallen, die Fortschrittszeile geht, im Chat steht „The map did
+  not arrive“. Hat der neue Host die Karte, schickt er sie mit seiner Welt von selbst neu
 - Fortschritt: der Host sieht „Sending the map to the room: N %“ in der Statuszeile der Lobby, der Gast „receiving
   N %“ beim Schritt „Loading the host's map“ (`CoopService.mapTransfer`)
 - Der Gast setzt die Stücke zusammen (`coop/map-transfer.ts`), prüft Kartenkennung und Inhalts-Hash und legt die
