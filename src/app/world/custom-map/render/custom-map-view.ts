@@ -161,7 +161,7 @@ export class CustomMapView {
     this.group.add(this.objects.group);
     this.bridges = new BridgeLayer(this.heights, assets);
     this.group.add(this.bridges.group);
-    this.effects = new EffectLayer(this.heights);
+    this.effects = new EffectLayer(this.heights, (x, y) => this.waterLevelAt(x, y));
     this.group.add(this.effects.group);
     this.effects.setLavaLights(this.lavaLightPoints());
     this.ready = this.load();

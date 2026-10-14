@@ -89,7 +89,11 @@ export class EffectLayer {
   private retired: (() => void)[] = [];
   private retiredFrames = 0;
 
-  constructor(private readonly field: HeightField) {
+  constructor(
+    private readonly field: HeightField,
+    /** Level of the water at a map point, null on dry ground: a waterfall's foam lies on its pool */
+    private readonly waterLevelAt: (x: number, y: number) => number | null = () => null,
+  ) {
     this.group.name = 'custom-map-effects';
     this.group.userData['losTransparent'] = true;
     for (let k = 0; k < POINT_LIGHTS; k++) {
@@ -120,9 +124,13 @@ export class EffectLayer {
           const height = (fx.height ?? e.height) * s;
           const radius = (fx.radius ?? e.footprint) * s;
           q.setFromAxisAngle(up, o.rotation);
-          falls.push({ matrix: new Matrix4().compose(origin, q, new Vector3(1, 1, 1)), radius, height });
-          // Spray where the water lands, a little in front of the cliff
+          // Where the water lands, a little in front of the cliff; on the pool's surface where there is one
           const foot = new Vector3(0, 0, Math.min(height * 0.2, 3)).applyQuaternion(q).add(origin);
+          const footMap = { x: -foot.x, y: foot.z };
+          const pool = this.waterLevelAt(footMap.x, footMap.y);
+          if (pool !== null) foot.y = pool;
+          falls.push({ matrix: new Matrix4().compose(origin, q, new Vector3(1, 1, 1)), radius, height, pool: pool === null ? null : pool - origin.y });
+          // Spray where the water lands, and a wider, slower cloud of mist around it
           push(emitters, {
             kind: 'spray',
             origin: foot,
@@ -131,6 +139,15 @@ export class EffectLayer {
             count: this.share(particleCount('spray', fx.rate !== undefined ? fx.rate * radius : 12 * radius)),
             color: fx.color,
             scale: 1,
+          });
+          push(emitters, {
+            kind: 'spray',
+            origin: foot,
+            radius: radius * 2.2,
+            height: 0.5,
+            count: Math.round(particleCount('spray', 5 * radius) * 0.6),
+            color: fx.color,
+            scale: 2.2,
           });
           continue;
         }

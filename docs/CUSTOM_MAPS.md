@@ -221,7 +221,10 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Leben, die CPU schiebt nur eine Zeit-Uniform. Leuchtende Arten additiv, beleuchtete (Rauch, Nebel, Laub, Schnee)
   werden nachts dunkler. `radius`, `height`, `rate`, `color` je Effekt
 - **Wasserfall** (`waterfall`): gebogene Fläche von der Kante (`height`) bis zum Fuß, Breite 2 × `radius`, fällt zur
-  Vorderseite (+z) des Objekts; Streifen laufen herab, die Seiten fransen aus; Gischt am Aufprall
+  Vorderseite (+z) des Objekts und wird nach unten etwas breiter; zwei Lagen Streifen laufen herab (langsamer Körper,
+  schnelle helle Front), unten bricht das Wasser weiß; keine Ecken: die Seiten fransen mit einer laufenden Welle aus,
+  die Kante beginnt dünn, der Fuß löst sich in der Gischt auf. Gischt am Aufprall und eine breitere, langsame
+  Nebelwolke; liegt der Fuß über einem Gewässer, eine Scheibe aus wirbelndem Schaum auf dessen Spiegel
 - **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`): jedes bekommt einen additiven Schein (am Tag
   schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
   Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet
