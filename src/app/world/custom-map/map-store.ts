@@ -159,7 +159,7 @@ export class MapStore {
     const stored = await this.backend.get(key);
     if (!stored?.summary.trash) throw new MapStoreError('That map is no longer in the trash.');
     const { doc, preview } = unpackMapFile(stored.file);
-    doc.meta.id = await this.freeId(stored.summary.trash.from);
+    doc.meta.id = await this.freeId(stored.summary.trash.from, key);
     await this.save(doc, stored.preview ?? preview);
     await this.backend.delete(key);
     return doc.meta.id;
@@ -262,7 +262,7 @@ export class MapStore {
    * taken, with a new identity when an own map has the file's (both stay)
    */
   async importDocument({ doc, preview }: Pick<LoadedMap, 'doc' | 'preview'>): Promise<LoadedMap> {
-    if (await this.has(doc.meta.id)) doc.meta.id = await this.freeId(doc.meta.id);
+    if ((await this.has(doc.meta.id)) || (await this.idsInUse()).has(doc.meta.id)) doc.meta.id = await this.freeId(doc.meta.id);
     if (doc.meta.uid && (await this.listOwn()).some((m) => m.uid === doc.meta.uid)) doc.meta.uid = newMapUid();
     const summary = await this.save(doc, preview);
     return { doc, summary, preview };
@@ -326,15 +326,27 @@ export class MapStore {
     return { doc, summary, preview };
   }
 
-  /** `base`, or `base-2`, `base-3` … whichever no map uses yet */
-  async freeId(base: string): Promise<string> {
+  /**
+   * `base`, or `base-2`, `base-3` … whichever no map uses yet. The id a map
+   * in the trash had counts as used: its versions are kept under it, and a
+   * new map of that id would drop them as those of an earlier map with its
+   * first save (VersionHistory.record). `leaving`: the trash key of a map
+   * coming back, whose own old id is free for it
+   */
+  async freeId(base: string, leaving?: string): Promise<string> {
     const stem = slugMapId(base).replace(/-\d+$/, '') || 'map';
-    const taken = new Set([...(await this.backend.list()).map((m) => m.id), ...(await this.readIndex()).map((e) => e.id)]);
+    const taken = await this.idsInUse(leaving);
     if (!taken.has(base) && /^[a-z0-9]/.test(base) && slugMapId(base) === base) return base;
     for (let n = 2; ; n++) {
       const id = `${stem}-${n}`;
       if (!taken.has(id)) return id;
     }
+  }
+
+  /** The ids of stored and shipped maps and the ids the maps in the trash had (freeId) */
+  private async idsInUse(leaving?: string): Promise<Set<string>> {
+    const stored = await this.backend.list();
+    return new Set([...stored.map((m) => m.id), ...stored.flatMap((m) => (m.trash && m.id !== leaving ? [m.trash.from] : [])), ...(await this.readIndex()).map((e) => e.id)]);
   }
 
   private readIndex(): Promise<ShippedMapEntry[]> {

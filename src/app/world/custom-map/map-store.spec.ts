@@ -111,6 +111,16 @@ describe('MapStore', () => {
     await expect(store.trash('nope')).rejects.toBeInstanceOf(MapStoreError);
   });
 
+  it('gives no new or imported map the id of a map in the trash, whose versions are kept under it', async () => {
+    const store = new MapStore({ backend: new MemoryMapBackend(), fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/' });
+    await store.save(doc());
+    const key = await store.trash('valley');
+    expect(await store.freeId('valley')).toBe('valley-2');
+    expect((await store.importFile(packMapFile(doc()))).doc.meta.id).toBe('valley-2');
+    // Back from the trash it has its own id again
+    expect(await store.restoreFromTrash(key)).toBe('valley');
+  });
+
   it('empties maps older than TRASH_DAYS from the trash', async () => {
     const store = new MapStore({ backend: new MemoryMapBackend(), fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/' });
     await store.save(doc());
