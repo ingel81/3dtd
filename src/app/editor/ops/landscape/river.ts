@@ -152,7 +152,6 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
   };
   const maxHalf = options.width * 0.65;
   const reach = maxHalf + options.bank * 1.4;
-  const n = stroke.noise;
 
   const xs = line.map((p) => p.x);
   const ys = line.map((p) => p.y);
@@ -163,8 +162,7 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
     j1: Math.min(g.rows - 1, Math.ceil((Math.max(...ys) + reach + t.depth / 2) / g.cellSize)),
   };
   stroke.touchHeights(rect);
-  /** Bank width at a point: wider and narrower along the river */
-  const bankAt = (x: number, y: number) => options.bank * (0.7 + 0.6 * (0.5 + 0.5 * n.fbm(x, y, 40, 2, 'n3')));
+  const bankAt = bankWidthAt(stroke, options.bank);
   for (let j = rect.j0; j <= rect.j1; j++) {
     const y = sampleY(t, j);
     for (let i = rect.i0; i <= rect.i1; i++) {
@@ -191,11 +189,54 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
     }
   }
 
+  const splat = paintRiverBed(stroke, line, half, bankAt, reach, lava);
+
+  // The river itself: points with width and surface height, flowing from the first
+  stroke.markRivers();
+  const round = (v: number) => Math.round(v * 100) / 100;
+  const points = resample(line, POINT_STEP).map((p) => {
+    const s = nearestOnPolyline(line, p)?.along ?? 0;
+    return { x: round(p.x), y: round(p.y), width: round(half(s) * 2), height: round(surfaceAt(s)) };
+  });
+  const rivers = (t.rivers ??= []);
+  const river: MapRiver = { id: newId('river', rivers), kind: lava ? 'lava' : 'water', points };
+  rivers.push(river);
+
+  const { placed, waterfalls } = decorateRiver(stroke, line, along, surface, half, options, lava);
+
+  const bridges = options.bridges && !lava ? bridgeCrossings(stroke, line, maxHalf + options.bank) : 0;
+  stroke.changed({ heights: rect, splat: splat ?? undefined, water: true, objects: placed.length ? placed : undefined, paths: bridges > 0 || undefined });
+  return { line, river, bridges, waterfalls, heights: rect, splat };
+}
+
+/** Bank width at a point: wider and narrower along the river */
+function bankWidthAt(stroke: LandscapeStroke, bank: number): (x: number, y: number) => number {
+  const n = stroke.noise;
+  return (x, y) => bank * (0.7 + 0.6 * (0.5 + 0.5 * n.fbm(x, y, 40, 2, 'n3')));
+}
+
+/**
+ * The ground of a river's bed and banks: mud and gravel in the bed, sand
+ * and gravel on the inner bank (scorched rock by lava), fading into the land
+ * over the outer half of the bank. Returns the painted texels.
+ */
+function paintRiverBed(
+  stroke: LandscapeStroke,
+  line: readonly MapPoint[],
+  half: (s: number) => number,
+  bankAt: (x: number, y: number) => number,
+  reach: number,
+  lava: boolean,
+): GridRect | null {
   // Ground: mud and gravel in the bed, sand and gravel on the inner bank (scorched rock by lava), fading into the land
   const sand = stroke.layerOf(lava ? ['scorched-ground', 'volcanic-rock', 'basalt'] : ['sand', 'gravel']);
   const gravel = stroke.layerOf(lava ? ['volcanic-rock', 'basalt', 'scorched-ground'] : ['gravel', 'rocky-ground', 'sand']);
   const mud = stroke.layerOf(lava ? ['lava-crust', 'basalt'] : ['mud', 'dirt']);
   let splat: GridRect | null = null;
+  const t = stroke.doc.terrain;
+  const n = stroke.noise;
+  const xs = line.map((p) => p.x);
+  const ys = line.map((p) => p.y);
   if (sand !== null) {
     const res = t.splat.resolution;
     splat = {
@@ -237,19 +278,31 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
     }
   }
 
-  // The river itself: points with width and surface height, flowing from the first
-  stroke.markRivers();
-  const round = (v: number) => Math.round(v * 100) / 100;
-  const points = resample(line, POINT_STEP).map((p) => {
-    const s = nearestOnPolyline(line, p)?.along ?? 0;
-    return { x: round(p.x), y: round(p.y), width: round(half(s) * 2), height: round(surfaceAt(s)) };
-  });
-  const rivers = (t.rivers ??= []);
-  const river: MapRiver = { id: newId('river', rivers), kind: lava ? 'lava' : 'water', points };
-  rivers.push(river);
+  return splat;
+}
 
-  // Reeds in clumps at the edge and stones on the banks; by lava only scattered volcanic rock
+/**
+ * What the brush puts along a river: reeds in clumps at the edge and stones
+ * on the banks (by lava only scattered volcanic rock), and waterfalls where
+ * the surface drops more than it runs (a cliff), at the lip, one per step of
+ * at most MAX_FALL metres. `along` and `surface` are per point of `line`,
+ * `half` the half width at a distance along it.
+ */
+function decorateRiver(
+  stroke: LandscapeStroke,
+  line: readonly MapPoint[],
+  along: readonly number[],
+  surface: readonly number[],
+  half: (s: number) => number,
+  options: { reeds: boolean; bank: number },
+  lava: boolean,
+): { placed: string[]; waterfalls: number } {
+  const t = stroke.doc.terrain;
+  const n = stroke.noise;
+  const length = along[along.length - 1] ?? 0;
+  const round = (v: number) => Math.round(v * 100) / 100;
   const placed: string[] = [];
+  // Reeds in clumps at the edge and stones on the banks; by lava only scattered volcanic rock
   const has = (ids: string[]) => ids.find((a) => stroke.catalog.objects.has(a));
   const reed = lava ? undefined : has(['reed-bed', 'reeds', 'grass-swamp', 'grass-clump']);
   const stone = lava ? has(['rock-volcanic', 'rock-basalt', 'rock-pumice']) : has(['stones', 'rock-round', 'rock-small']);
@@ -323,9 +376,7 @@ export function carveRiver(stroke: LandscapeStroke, drawn: readonly MapPoint[], 
     }
   }
 
-  const bridges = options.bridges && !lava ? bridgeCrossings(stroke, line, maxHalf + options.bank) : 0;
-  stroke.changed({ heights: rect, splat: splat ?? undefined, water: true, objects: placed.length ? placed : undefined, paths: bridges > 0 || undefined });
-  return { line, river, bridges, waterfalls, heights: rect, splat };
+  return { placed, waterfalls };
 }
 
 /**
@@ -574,12 +625,13 @@ export function moveRiverBed(stroke: LandscapeStroke, before: MapRiver, after: M
   }
   const oldReach = riverReach(before.points, bankWidth);
   const newReach = riverReach(after.points, bankWidth);
+  // The brush's reeds, stones and falls of both bands go; the new band gets its own, as at the first carving
   const gone = stroke.doc.objects
     .filter((o) => RIVER_ASSETS.has(o.asset))
     .filter((o) => {
       const was = nearestOnPolyline(before.points, o);
       const now = nearestOnPolyline(after.points, o);
-      return !!was && was.dist < oldReach(was.along) && !(now && now.dist < newReach(now.along));
+      return (!!was && was.dist < oldReach(was.along)) || (!!now && now.dist < newReach(now.along));
     })
     .map((o) => o.id);
   stroke.removeObjects(gone);
@@ -588,7 +640,23 @@ export function moveRiverBed(stroke: LandscapeStroke, before: MapRiver, after: M
   const land = stroke.doc.terrain.grid.heights.slice();
   const columns = stroke.doc.terrain.grid.columns;
   const carved = after.points.length >= 2 ? recarveRiver(stroke, after, DEFAULT_RIVER.depth, bankWidth, (i, j) => land[j * columns + i]) : null;
-  stroke.changed({ heights: carved ? { i0: Math.min(band.heights.i0, carved.i0), j0: Math.min(band.heights.j0, carved.j0), i1: Math.max(band.heights.i1, carved.i1), j1: Math.max(band.heights.j1, carved.j1) } : band.heights, splat: band.splat, water: true, objects: gone.length ? gone : undefined });
+  let painted: GridRect | null = null;
+  let placed: string[] = [];
+  if (carved) {
+    const pts = after.points;
+    const along: number[] = [0];
+    for (let k = 1; k < pts.length; k++) along.push(along[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
+    const half = (s: number) => newReach(s) - bankWidth * 1.4;
+    const lava = after.kind === 'lava';
+    painted = paintRiverBed(stroke, pts, half, bankWidthAt(stroke, bankWidth), Math.max(...pts.map((q) => q.width)) / 2 + bankWidth * 1.4, lava);
+    placed = decorateRiver(stroke, pts, along, pts.map((q) => q.height), half, { reeds: true, bank: bankWidth }, lava).placed;
+  }
+  stroke.changed({
+    heights: carved ? { i0: Math.min(band.heights.i0, carved.i0), j0: Math.min(band.heights.j0, carved.j0), i1: Math.max(band.heights.i1, carved.i1), j1: Math.max(band.heights.j1, carved.j1) } : band.heights,
+    splat: painted ? { i0: Math.min(band.splat.i0, painted.i0), j0: Math.min(band.splat.j0, painted.j0), i1: Math.max(band.splat.i1, painted.i1), j1: Math.max(band.splat.j1, painted.j1) } : band.splat,
+    water: true,
+    objects: gone.length || placed.length ? [...gone, ...placed] : undefined,
+  });
 }
 
 /** Splits every road the river crosses and makes the crossing stretch a bridge; returns how many */

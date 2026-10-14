@@ -252,6 +252,9 @@ export class LandscapeStroke {
   removeObjects(ids: readonly string[]): void {
     if (!ids.length) return;
     if (this.added.length) throw new Error('Objects are removed before the stroke adds any');
+    const set = new Set(ids);
+    // Their places are free again for what the stroke sets
+    for (const o of this.doc.objects) if (set.has(o.id)) this.grid.remove(o);
     const command = ObjectsCommand.remove(this.label, this.doc, ids);
     command.apply(this.doc);
     this.removed.push(command);

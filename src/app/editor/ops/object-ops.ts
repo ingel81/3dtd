@@ -132,6 +132,13 @@ export class ObjectGrid {
     list.push(p);
   }
 
+  /** Forgets a point added before (an object taken away) */
+  remove(p: MapPoint): void {
+    const list = this.cells.get(this.key(Math.floor(p.x / this.cell), Math.floor(p.y / this.cell)));
+    const k = list?.findIndex((q) => q.x === p.x && q.y === p.y) ?? -1;
+    if (k >= 0) list!.splice(k, 1);
+  }
+
   /** True when some point lies closer than `d` */
   near(p: MapPoint, d: number): boolean {
     const ci = Math.floor(p.x / this.cell);

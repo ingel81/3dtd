@@ -139,8 +139,9 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   Land am einen Rand zum anderen, `restoreBand`, wie beim Entfernen eines Flusses), seine Laternen und Zäune gehen,
   entlang der neuen Linie entstehen Damm, Belag und Ausstattung neu; ein Schritt im Verlauf. Ebenso folgt das Flussbett
   seinem Lauf: einen Flusspunkt verschieben oder entfernen (Water, 4, Rivers), die Breite ändern oder „Fewer river
-  points“ füllt das alte Bett und gräbt das neue (`moveRiverBed`); Schilf und Steine, die das neue Band nicht erreicht,
-  gehen mit
+  points“ füllt das alte Bett und gräbt das neue (`moveRiverBed`): Schilf, Steine und Wasserfälle beider Bänder gehen,
+  das neue Band bekommt Bodenanstrich, Schilf, Steine und Wasserfälle wie beim ersten Ziehen (`paintRiverBed`,
+  `decorateRiver`, dieselben Funktionen wie der Pinsel)
 
 **Terrain (2).** Raise und Lower (Shift kehrt um), Smooth, Flatten (auf die Höhe am Strichanfang), Level (auf eine
 eingestellte Höhe; Strg+Klick nimmt sie vom Boden), Roughen (Rauschen), Erode (steile Hänge rutschen zu Geröll),

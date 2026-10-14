@@ -69,13 +69,14 @@ describe('roads laid anew', () => {
     const doc = hills();
     const editor = new EditorDocument(doc);
     const stroke = new LandscapeStroke(editor, 'River', 1, catalog);
-    carveRiver(stroke, [{ x: -150, y: 0 }, { x: 0, y: 10 }, { x: 150, y: 0 }], { ...DEFAULT_RIVER, bridges: false });
+    carveRiver(stroke, [{ x: -150, y: 0 }, { x: 0, y: 10 }, { x: 150, y: 0 }], { ...DEFAULT_RIVER, bridges: false, reeds: true });
     stroke.finish();
     const river = doc.terrain.rivers![0];
     const before = structuredClone(doc.terrain.rivers!);
     const mid = Math.floor(river.points.length / 2);
     const old = { ...river.points[mid] };
-    river.points[mid] = { ...river.points[mid], y: old.y + 30 };
+    // A whole stretch swings 30 m north
+    for (let k = mid - 4; k <= mid + 4; k++) river.points[k] = { ...river.points[k], y: river.points[k].y + 30 };
     const relay = new LandscapeStroke(editor, 'Move river point', 1, catalog);
     relay.markRivers();
     moveRiverBed(relay, before[0], river);
@@ -84,5 +85,11 @@ describe('roads laid anew', () => {
     const surface = river.points[mid].height;
     expect(heightAt(doc.terrain, river.points[mid].x, river.points[mid].y)).toBeLessThan(surface);
     expect(heightAt(doc.terrain, old.x, old.y)).toBeGreaterThan(old.height - 0.5);
+    // Reeds and stones along the new band, as at the first carving, none left out on the filled bed
+    const decor = doc.objects.filter((o) => /reed|stone|rock|grass/.test(o.asset));
+    expect(decor.length).toBeGreaterThan(10);
+    const newPoint = river.points[mid];
+    expect(decor.some((o) => Math.hypot(o.x - newPoint.x, o.y - newPoint.y) < newPoint.width + 6)).toBe(true);
+    expect(decor.some((o) => Math.hypot(o.x - old.x, o.y - old.y) < old.width / 2 + 1)).toBe(false);
   });
 });
