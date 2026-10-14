@@ -109,6 +109,14 @@ Nebel der Szene wieder her.
   Pinsel lässt ihn bis zum nächsten stehen), A Lava-Nähe (1 auf Lava, 0 ab 12 m: der Boden wird zu erkaltetem Gestein
   und glüht von unten orange mit langsamem Puls). An Hangfüßen unter Steilem rieselt Geröll in der Farbe der Klippe
   heraus. Über jedem Lavapunkt steigen Glut (zusammen höchstens etwa 2000 Teilchen) und etwas Rauch auf
+- **Gebrauchsspuren** (`ground-decals.ts`): nach Kartenregeln gebackene Decals, ein instanziertes Netz, ein Draw
+  Call (höchstens 3000): Laub unter jedem zweiten Laubbaum (nicht unter Nadelbäumen, Höllen- und Endzeitbäumen),
+  festgetretene dunkle Erde vor Hauseingängen und alle 9 bis 15 m an den Rändern von Straßen und Pfaden, Pfützen dort
+  bei Regen oder im Sumpf. Jedes ein kleines Gitter, im Vertex-Shader über die Höhentextur auf den Boden gelegt
+  (mit dem Abstand etwas höher, gegen die gröberen Geländestufen), beleuchtet, beschattet und im Nebel wie der Boden;
+  die Form je Art im Fragment-Shader, am Rand vom Rauschen ausgefranst. Ändern sich Objekte oder Wege (Hinzufügen,
+  Entfernen), werden sie nach einer Pause von 0,4 s neu gelegt; ein Verschieben behält sie. Die Erdteppiche um die
+  Häuser bleiben gemalt
 - **Gras** (`grass/grass-field.ts`): 70 000 instanzierte Halme in einer 64-m-Kachel, die zwischen Kamera und Fokus
   mitwandert (jeder Halm hat einen festen Weltort), auf dem Höhenraster, so dicht wie die Grasschichten der Splat-Map
   (nicht auf Wegen, steilem Boden, außerhalb der Karte), mit Wind, zum Kachelrand hin kleiner. Ab 140 m Kameraabstand

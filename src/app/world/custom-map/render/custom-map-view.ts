@@ -33,6 +33,7 @@ import { RiverSurface, sampleRiver } from './water/river-surface';
 import { WaterSurface } from './water/water-surface';
 import type { CustomMapQuality } from '../../../three-engine/render-quality';
 import { SceneCopy } from './water/scene-copy';
+import { GroundDecals } from './terrain/ground-decals';
 import { NO_MAP_EFFECTS, type MapEffects } from './map-effects';
 import type { GridRect } from './terrain/terrain-chunks';
 
@@ -134,6 +135,11 @@ export class CustomMapView {
   private mapEffects: MapEffects = { ...NO_MAP_EFFECTS };
   private readonly sceneCopy = new SceneCopy();
   private lavaDue: ReturnType<typeof setTimeout> | null = null;
+  /** Leaves, trodden soil and puddles from the map's rules (ground-decals.ts) */
+  private readonly decals: GroundDecals;
+  /** The objects and paths the decals were laid for (lists and lengths); a change lays them again after a pause */
+  private decalsFor = { objects: null as unknown, count: -1, paths: null as unknown, edges: -1 };
+  private decalsDue: ReturnType<typeof setTimeout> | null = null;
   private lavaBaked = false;
   private disposed = false;
   /** Depth materials like the ones the shadow pass derives, by the material's uuid (warmUpAssets) */
@@ -172,6 +178,8 @@ export class CustomMapView {
     this.bridges = new BridgeLayer(this.heights, assets);
     this.group.add(this.bridges.group);
     this.effects = new EffectLayer(this.heights, (x, y) => this.waterLevelAt(x, y));
+    this.decals = new GroundDecals(this.terrain.heightTexture);
+    this.group.add(this.decals.mesh);
     this.group.add(this.effects.group);
     this.refreshLava();
     this.ready = this.load();
@@ -444,6 +452,7 @@ export class CustomMapView {
       this.shadowVersion = shadowVersion;
       this.environment.invalidateShadows();
     }
+    this.watchDecals();
     this.environment.update(dtSeconds, camera, this.worldFocus);
     this.environment.matchFog(this.camPos, this.focusPoint);
     this.environment.setFogMap(this.group.position.x, this.group.position.z, this.doc.terrain.width / 2, this.doc.terrain.depth / 2);
@@ -784,6 +793,24 @@ export class CustomMapView {
 
   /** Contact shadows of the objects in the baked ground occlusion */
   /** Contact shadows of the objects; with `changed` only around those */
+  /** Lays the ground decals for the objects and paths now in the document */
+  private async refreshDecals(): Promise<void> {
+    this.decalsDue = null;
+    const catalog = await this.assets.catalog();
+    if (this.disposed) return;
+    this.decalsFor = { objects: this.doc.objects, count: this.doc.objects.length, paths: this.doc.paths, edges: this.doc.paths.edges.length };
+    this.decals.set(this.doc, new Map(catalog.objects.map((o) => [o.id, o])));
+  }
+
+  /** Objects or paths added or removed (the editor): the decals follow once the changes pause. A move keeps them */
+  private watchDecals(): void {
+    const f = this.decalsFor;
+    if (f.count < 0 || this.decalsDue) return;
+    const d = this.doc;
+    if (f.objects === d.objects && f.count === d.objects.length && f.paths === d.paths && f.edges === d.paths.edges.length) return;
+    this.decalsDue = setTimeout(() => void this.refreshDecals(), 400);
+  }
+
   private async refreshContact(changed?: MapObject[]): Promise<void> {
     this.coverDirty = true;
     const catalog = await this.assets.catalog();
@@ -888,6 +915,8 @@ export class CustomMapView {
     this.offscreen?.dispose();
     this.sceneCopy.dispose();
     if (this.lavaDue) clearTimeout(this.lavaDue);
+    if (this.decalsDue) clearTimeout(this.decalsDue);
+    this.decals.dispose();
     this.group.removeFromParent();
     this.losBlockers.removeFromParent();
     this.group.clear();
@@ -911,6 +940,7 @@ export class CustomMapView {
       this.refreshEffects(),
       this.refreshContact(),
       this.bridges.set(this.doc.paths, this.doc.terrain),
+      this.refreshDecals(),
     ]);
   }
 }
