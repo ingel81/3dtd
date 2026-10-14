@@ -24,6 +24,7 @@ import type { MapAssetLibrary, ModelPart, ObjectModel } from '../map-asset-libra
 import { addHeightFog } from '../environment/height-fog';
 import { WIND_GLSL, WIND_UNIFORMS, windSwayAtTop } from '../environment/wind';
 import { mapToScene } from '../map-coords';
+import { seatHeight } from './object-seat';
 import { bakeImpostor, type Impostor } from './impostor';
 import { addVertexRoughMetal, mergeParts } from './merge-parts';
 import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend } from './lod-fade';
@@ -184,6 +185,9 @@ export class MapObjectLayer {
   private restFor = 0;
   private readonly tmpMatrix = new Matrix4();
   private readonly tmpPos = new Vector3();
+  /** Ground and water for seatHeight, bound once */
+  private readonly seatGround = (x: number, y: number): number => this.field.heightAt(x, y);
+  private readonly seatWater = (x: number, y: number): number | null => this.options.waterLevelAt?.(x, y) ?? null;
   private readonly tmpQuat = new Quaternion();
   private readonly tmpScale = new Vector3();
   private readonly up = new Vector3(0, 1, 0);
@@ -1026,21 +1030,7 @@ export class MapObjectLayer {
     const o = b.objects[i];
     const e = b.entry;
     const s = o.scale || 1;
-    let ground = this.field.heightAt(o.x, o.y);
-    if (e.float) {
-      // The waterline at the water's level; on dry ground on the terrain
-      ground = this.options.waterLevelAt?.(o.x, o.y) ?? ground;
-    } else if (e.category === 'building' || e.category === 'wall' || e.category === 'prop') {
-      // Eight points on the footprint circle, so a turned house finds its lowest corner too;
-      // the models' foundations reach below 0 and fill the gap on the uphill side
-      const r = e.footprint * s;
-      for (let k = 0; k < 8; k++) {
-        const a = (k / 8) * Math.PI * 2;
-        ground = Math.min(ground, this.field.heightAt(o.x + Math.cos(a) * r, o.y + Math.sin(a) * r));
-      }
-    } else if (e.category === 'tree') {
-      ground -= 0.15 * s;
-    }
+    const ground = seatHeight(e, o, this.seatGround, this.seatWater);
     mapToScene(o.x, o.y, ground + o.z, this.tmpPos);
     this.tmpQuat.setFromAxisAngle(this.up, o.rotation);
     if (o.pitch || o.roll) this.tmpQuat.multiply(this.tilt.setFromEuler(this.tiltEuler.set(o.pitch ?? 0, 0, o.roll ?? 0, 'XZY')));

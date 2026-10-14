@@ -517,7 +517,8 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
 - 73 Objekte haben eine Fernstufe (`lod`, `-lod1.glb` ohne Texturen, ab 350 m bzw. 40 % der Sichtweite), 32 ein
   Licht (`light`), 24 Effekte (`effects`); 10 schwimmen (`float`: Boote, Schiff, Bojen, Seerosen, Eisscholle,
   Steg, Pier; Ursprung des Modells ist die Wasserlinie, ihr z zählt ab dem Spiegel unter ihnen, auf trockenem Boden ab
-  dem Boden; eine Wassertiefe in z hebt sie in die Luft, `shipped-maps-check` lässt nur -1,5 bis 0,5 m zu)
+  dem Boden; eine Wassertiefe in z hebt sie in die Luft, das meldet die Prüfung `object-floating`). 9 stehen absichtlich
+  in der Luft (`aloft`: Objekt-Brücken, Seilbahn-Spannen, Gondel); die Prüfung lässt sie aus
 - Flammen sind alpha-getestete `foliage-*`-Karten mit Eigenleuchten, der Wasserfall eine Karte `foliage-waterfall`;
   Brücken und Stege brauchen eine Höhenangabe, wenn sie nicht schwimmen
 - Größe: `public/maps/assets` rund 178 MB (Materialien 94 MB, Modelle 84 MB). Ansehen: `/map-preview?showcase=<tag>` oder `?assets=a,b*&materials=c,d`

@@ -3,7 +3,8 @@
  * object assets of the renderer's catalogue, with what the palettes need on
  * top (a colour, a rough shape for pictures, category names).
  */
-import type { CatalogObject } from '../../world/custom-map/render/asset-catalog';
+import type { CatalogObject, ObjectCategory } from '../../world/custom-map/render/asset-catalog';
+import type { ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CostEntry } from '../../world/custom-map/render/objects/scene-cost';
 
@@ -39,6 +40,8 @@ export interface ObjectAssetEntry {
   base?: readonly [number, number, number];
   /** Floats on water (boats, buoys, piers, lily pads): z counts from the waterline, so it neither sinks nor tilts with the ground */
   float?: boolean;
+  /** How the renderer stands it on the map (catalogue category, footprint, underside, float), for the check of objects in the air */
+  footing?: ObjectFooting;
   /** The renderer's own part (bridge decks): not offered in the palette */
   internal?: boolean;
   /** Biomes and brush roles from the catalogue (temperate, swamp, shore, scree …) */
@@ -97,7 +100,7 @@ export async function loadAssetCatalog(library = MapAssetLibrary.shared()): Prom
 interface RawCatalog {
   materials?: (Partial<GroundMaterialEntry> & { id: string; average?: string; files?: { color?: string } })[];
   objects?: (Partial<ObjectAssetEntry> &
-    Partial<Pick<CatalogObject, 'drawDistance' | 'triangles' | 'lod' | 'effects'>> & { id: string; footprint?: number; file?: string; category?: string })[];
+    Partial<Pick<CatalogObject, 'drawDistance' | 'triangles' | 'lod' | 'effects' | 'aloft'>> & { id: string; footprint?: number; file?: string; category?: string })[];
 }
 
 const CATEGORY_NAMES: Record<string, string> = {
@@ -151,6 +154,7 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
         height: o.height ?? 2,
         base: o.base,
         float: o.float || undefined,
+        footing: { category: (o.category ?? 'prop') as ObjectCategory, footprint: o.radius ?? o.footprint ?? 1, height: o.height ?? 2, base: o.base, float: o.float, aloft: o.aloft },
         internal: INTERNAL_OBJECTS.has(o.id) || undefined,
         tags: o.tags?.length ? [...o.tags] : undefined,
         drawing:

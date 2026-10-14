@@ -18,7 +18,8 @@ kommen aus dem Seed des Levels und einem Zähler, ein Skript ergibt also immer d
 Bodenschichten festlegen (höchstens acht, `LEVEL_LAYERS` in `kit.ts`, auch seit Karten zwölf haben dürfen: so bleiben die Level, wie sie abgestimmt sind; Pinsel nehmen dann ihre Kandidaten aus dieser Liste), Gelände, Straßen,
 Flüsse (sie machen Kreuzungen zu Brücken), Spawns und HQ, Biome und Farbe, einzelne Objekte. `place` und `scatter`
 setzen Felsen wie der Editor auf ihre Platte; `finish` setzt am Ende jeden Felsen ab, unter dem der Boden später noch
-geformt wurde, so dass die Karte die Prüfung `object-floating` besteht (`shipped-maps-check.spec.ts`).
+geformt wurde, und bricht ab, wenn danach noch ein Objekt in der Luft hängt (Prüfung `object-floating`: auch Boote und
+Bojen über dem Wasser, Laternen neben einem Steg); `shipped-maps-check.spec.ts` verlangt dasselbe.
 
 Packen: `npx vitest run tools/maps/shipped-maps.spec.ts -t <id>` (mit `LEVEL_LOG=1` Spuren, Objekte, Warnungen) (ein Level allein; die Liste in `index.json` behält
 die anderen). Ansehen: `/map-preview?map=<id>&cam=x,y,h,tx,ty,th&clean` (Kamera und Ziel in Kartenmetern, Höhen über

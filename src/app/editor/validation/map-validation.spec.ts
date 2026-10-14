@@ -1,6 +1,9 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { emptyWater } from '../ops/water-ops';
-import { validateMap } from './map-validation';
+import type { ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
+import { bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
+import { HeightField } from '../../world/custom-map/render/height-field';
+import { objectsInAir, validateMap } from './map-validation';
 
 const codes = (doc: ReturnType<typeof createMapDocument>) => validateMap(doc).map((i) => i.code);
 
@@ -44,25 +47,80 @@ describe('validateMap', () => {
   });
 });
 
-describe('validateMap, rocks', () => {
+describe('validateMap, objects in the air', () => {
+  const footings: Record<string, ObjectFooting> = {
+    heap: { category: 'rock', footprint: 3, height: 2.6, base: [3, 2, 0] },
+    bush: { category: 'plant', footprint: 1, height: 1 },
+    house: { category: 'building', footprint: 4, height: 6 },
+    quay: { category: 'structure', footprint: 4, height: 2 },
+    lamp: { category: 'prop', footprint: 0.2, height: 0.5 },
+    buoy: { category: 'prop', footprint: 1, height: 2.3, float: true },
+    span: { category: 'structure', footprint: 2.6, height: 0.1, aloft: true },
+    smoke: { category: 'fx', footprint: 1, height: 1 },
+  };
+  const footingOf = (a: string) => footings[a];
+  const place = (id: string, asset: string, x: number, z = 0, scale = 1) => ({ id, asset, x, y: 50, z, rotation: 0, scale });
+  const inAir = (doc: ReturnType<typeof createMapDocument>) =>
+    objectsInAir(doc, footingOf)
+      .map(({ o }) => o.id)
+      .sort();
+
   it('reports rocks whose plate hangs over a slope, pointing at the worst', () => {
     const doc = createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400 });
     const g = doc.terrain.grid;
     for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 0.4 * i * g.cellSize;
-    const heap = { base: [3, 2, 0] as const, height: 2.6 };
-    doc.objects.push(
-      { id: 'o1', asset: 'heap', x: 50, y: 50, z: 0, rotation: 0, scale: 1 },
-      { id: 'o2', asset: 'heap', x: 60, y: 50, z: 0, rotation: 0, scale: 1.5 },
-      { id: 'o3', asset: 'heap', x: 70, y: 50, z: -3, rotation: 0, scale: 1 },
-      { id: 'o4', asset: 'bush', x: 80, y: 50, z: 0, rotation: 0, scale: 1 },
-    );
-    const rockOf = (a: string) => (a === 'heap' ? heap : undefined);
-    const issue = validateMap(doc, { rockOf }).find((i) => i.code === 'object-floating');
+    doc.objects.push(place('o1', 'heap', 50), place('o2', 'heap', 60, 0, 1.5), place('o3', 'heap', 70, -3), place('o4', 'bush', 80));
+    const issue = validateMap(doc, { footingOf }).find((i) => i.code === 'object-floating');
     expect(issue?.severity).toBe('warning');
     expect(issue?.target).toEqual({ kind: 'object', id: 'o2' });
-    expect(issue?.message).toMatch(/^2 rocks hang up to 1\.8 m/);
-    // Without the catalogue's rock shapes nothing is checked
+    expect(issue?.message).toMatch(/^2 objects hang up to 1\.8 m/);
+    // Without the catalogue's footings nothing is checked
     expect(codes(doc)).not.toContain('object-floating');
+  });
+
+  it('measures floating assets from the water, the rest from the ground; what stands on another object is held', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, starter: false });
+    doc.terrain.grid.heights.fill(-5);
+    doc.terrain.water = emptyWater(doc.terrain, 0);
+    doc.terrain.water.mask.fill(255);
+    doc.objects.push(
+      // A buoy with the depth in its z (the Archipelago's) hangs 5 m over the water; one at the waterline does not
+      place('deep', 'buoy', 0, 5),
+      place('afloat', 'buoy', 10, -0.4),
+      // A house raised by 2 m, a lamp on a quay, a lamp beside it in the air
+      place('raised', 'house', 30, 2),
+      place('quay', 'quay', 50),
+      place('on-quay', 'lamp', 51, 2),
+      place('beside', 'lamp', 60, 2),
+      // Cable spans and smoke stand in the air by design
+      place('span', 'span', 70, 20),
+      place('smoke', 'smoke', 80, 8),
+    );
+    expect(inAir(doc)).toEqual(['beside', 'deep', 'raised']);
+    expect(validateMap(doc, { footingOf }).find((i) => i.code === 'object-floating')?.target).toEqual({ kind: 'object', id: 'deep' });
+  });
+
+  it('holds what stands on ice', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, starter: false });
+    doc.terrain.grid.heights.fill(-2);
+    doc.terrain.water = { ...emptyWater(doc.terrain, 0), kind: 'ice' };
+    doc.terrain.water.mask.fill(255);
+    doc.objects.push(place('hut', 'house', 0, 2), place('hut-high', 'house', 20, 3));
+    expect(inAir(doc)).toEqual(['hut-high']);
+  });
+
+  it("holds what stands on a road bridge's deck, not what hangs beside it", () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, starter: false });
+    doc.terrain.grid.heights.fill(-2);
+    doc.terrain.water = emptyWater(doc.terrain, 0);
+    doc.terrain.water.mask.fill(255);
+    doc.paths.nodes.push({ id: 'a', x: -20, y: 50 }, { id: 'b', x: 20, y: 50 });
+    doc.paths.edges.push({ id: 'e', a: 'a', b: 'b', width: 4, kind: 'bridge' });
+    const t = doc.terrain;
+    const deck = deckHeightAt(bridgeDecks(doc.paths, t, new HeightField(t.grid, t.width, t.depth)), 0, 51.7);
+    // On the deck's edge, and one beside the deck 0.6 m over the water (the Witch Marsh's torches)
+    doc.objects.push({ ...place('on-deck', 'lamp', 0, deck + 2), y: 51.7 }, { ...place('beside', 'lamp', 0, 2.6), y: 52.6 });
+    expect(inAir(doc)).toEqual(['beside']);
   });
 });
 

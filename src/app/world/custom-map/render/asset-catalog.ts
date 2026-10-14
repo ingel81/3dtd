@@ -135,6 +135,12 @@ export interface CatalogObject {
    * object's own z. Boats, buoys, lily pads, floes, piers.
    */
   float?: boolean;
+  /**
+   * Stands in the air by design: it spans a gap or hangs from something
+   * above it (object bridges, cable spans, the gondola). The editor's check
+   * of objects in the air leaves it out.
+   */
+  aloft?: boolean;
   /** Lower detail models by camera distance */
   lod?: { file: string; distance: number; triangles?: number }[];
 }

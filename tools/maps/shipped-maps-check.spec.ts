@@ -3,9 +3,9 @@
  * file reads and validates, its content hash is the listed one, every spawn
  * reaches the HQ over the map's roads as the game routes them (300 to 1200 m),
  * no object that blocks building stands on a road, every asset and material
- * is in the catalogue, no decoration reads as danger (DANGER_LOOK), no rock
- * hangs over the ground with its underside (the check's object-floating), no
- * floating asset carries a depth in its z (it counts from the waterline), the
+ * is in the catalogue, no decoration reads as danger (DANGER_LOOK), no object
+ * hangs in the air (the check's object-floating: rocks by their plates, boats
+ * and buoys over the water, everything else over the ground), the
  * scene cost stays below the Map panel's warning and the file size in budget (docs/SHOWCASE_LEVELS.md, "Regeln für alle
  * Level").
  *
@@ -130,15 +130,9 @@ describe('shipped maps check', () => {
         expect(used.filter((m) => !materials.has(m)), 'materials not in the catalogue').toEqual([]);
       });
 
-      it('sets every rock down on the ground, none level with its underside in the air', () => {
-        const issues = validateMap(doc!, { rockOf: (a) => rockShape(objects.get(a) ?? { height: 0 }) });
+      it('stands no object in the air: rocks on their plates, floating assets on the water, the rest on the ground', () => {
+        const issues = validateMap(doc!, { footingOf: (a) => objects.get(a) });
         expect(issues.filter((i) => i.code === 'object-floating').map((i) => `${i.message} [${i.target?.id}]`)).toEqual([]);
-      });
-
-      it('floats boats, buoys and piers at the waterline, their z from the water, not from the floor under it', () => {
-        // The renderer stands a floating asset at the water's level plus its z: a depth written into z lifts it into the air
-        const lifted = doc!.objects.filter((o) => objects.get(o.asset)?.float && (o.z > 0.5 || o.z < -1.5));
-        expect(lifted.map((o) => `${o.asset} [${o.id}] z ${o.z}`)).toEqual([]);
       });
 
       it('places no decoration in the colours of danger', () => {

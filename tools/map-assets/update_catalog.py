@@ -31,7 +31,7 @@ DEFAULTS = {
 FOOTPRINT_SHARE = {'tree': 0.3, 'plant': 0.6}
 LOD_DISTANCE = 350
 ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'blocksLos', 'blocksBuild', 'scaleRange',
-         'randomRotation', 'wind', 'drawDistance', 'float', 'tags', 'effects', 'light', 'lod', 'source']
+         'randomRotation', 'wind', 'drawDistance', 'float', 'aloft', 'tags', 'effects', 'light', 'lod', 'source']
 
 
 def main():

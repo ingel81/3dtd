@@ -49,7 +49,6 @@ import { WaterTool } from '../tools/water-tool';
 import { assetCosts } from '../validation/map-budget';
 import { validateMap, type MapIssue } from '../validation/map-validation';
 import { buildAreaInput, buildAreasOffThread, type BuildAreas } from '../validation/build-areas';
-import { rockShape } from '../ops/object-ops';
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
 import { DEFAULT_W3X_OPTIONS, loadW3xImporter, type W3xImportOptions, type W3xImportReport } from '../import/w3x-seam';
 import { WORLD_URL_PARAM, worldUrlValue } from '../../world/world-ref';
@@ -884,7 +883,7 @@ export class EditorSession implements OnDestroy {
     const catalog = this.catalog();
     return validateMap(doc, {
       blocksBuild: (asset) => catalog.object(asset).blocksBuild,
-      rockOf: (asset) => rockShape(catalog.object(asset)),
+      footingOf: (asset) => catalog.object(asset).footing,
       buildAreas: this.buildAreas(),
       costOf: assetCosts(catalog, doc),
     });

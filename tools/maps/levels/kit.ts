@@ -71,7 +71,7 @@ export class LevelKit extends MapKit {
     super(doc, levelCatalog(), { name: spec.id, seed: spec.seed, maxLayers: LEVEL_LAYERS });
   }
 
-  /** The finished document; throws on the editor check's errors */
+  /** The finished document; throws on the editor check's errors and on objects in the air (object-floating) */
   finish(): CustomMapDocument {
     this.settleRocks();
     const issues = this.issues();
@@ -79,7 +79,8 @@ export class LevelKit extends MapKit {
     if (process.env['LEVEL_LOG']) {
       console.log(this.spec.id, { lanes: this.lanes(), objects: this.doc.objects.length, leftOut: [...this.leftOut], warnings: issues.map((i) => `${i.message}${i.target && 'id' in i.target ? ` [${i.target.id}]` : ''}${i.focus ? ` at ${Math.round(i.focus.x)},${Math.round(i.focus.y)}` : ''}`) });
     }
-    const errors = issues.filter((i) => i.severity === 'error');
+    // A shipped level has nothing hanging in the air: the check's warning stops it here
+    const errors = issues.filter((i) => i.severity === 'error' || i.code === 'object-floating');
     if (errors.length) throw new Error(`${this.spec.id}: ${errors.map((e) => e.message).join('; ')}`);
     return this.doc;
   }

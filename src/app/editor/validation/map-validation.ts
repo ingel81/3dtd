@@ -13,7 +13,11 @@ import { sceneCost, SCENE_BUDGET } from '../../world/custom-map/render/objects/s
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { heightAt, insideMap, slopeAt } from '../model/grid';
 import { components, edgePolyline, nearestOnEdges, nearestOnPolyline, routeBetween } from '../ops/path-graph';
-import { undersideGap, type RockShape } from '../ops/object-ops';
+import { undersideGap } from '../ops/object-ops';
+import { seatHeight, type ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
+import { waterLevelAt } from '../../world/custom-map/water-level';
+import { bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
+import { HeightField } from '../../world/custom-map/render/height-field';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE, type BuildAreas } from './build-areas';
 
 export type IssueSeverity = 'error' | 'warning';
@@ -92,8 +96,8 @@ export interface ValidationOptions {
   blocksBuild?: (asset: string) => boolean;
   /** Whether an asset wears the colours of danger (default: the renderer's danger list, dangerLook) */
   dangerColor?: (asset: string) => boolean;
-  /** A rock's shape from the catalogue (`rockShape`), undefined for everything else; without it no rock is checked */
-  rockOf?: (asset: string) => RockShape | undefined;
+  /** How the renderer stands an asset on the map (`ObjectFooting`, a catalogue entry is one); without it no object is checked for hanging in the air */
+  footingOf?: (asset: string) => ObjectFooting | undefined;
   /** Where towers may stand (computeBuildAreas, judged in a worker); without it the room along the lanes is not checked */
   buildAreas?: BuildAreas | null;
   /** What one object of an asset costs on this map (`assetCosts`); without it the scene cost is not checked */
@@ -273,30 +277,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     });
   }
 
-  // Rocks standing level on a slope: the plate under them sticks out into the air on the low side
-  if (options.rockOf) {
-    let floating = 0;
-    let worst: { o: MapObject; gap: number } | null = null;
-    for (const o of doc.objects) {
-      const rock = options.rockOf(o.asset);
-      if (!rock) continue;
-      const gap = undersideGap(t, o, rock.base);
-      if (gap <= rules.maxFloat) continue;
-      floating++;
-      if (!worst || gap > worst.gap) worst = { o, gap };
-    }
-    if (worst) {
-      issues.push({
-        severity: 'warning',
-        code: 'object-floating',
-        message:
-          (floating === 1 ? `A rock hangs ${worst.gap.toFixed(1)} m` : `${floating} rocks hang up to ${worst.gap.toFixed(1)} m`) +
-          ' over the ground on a slope. Select it and press End to settle it, or Align to slope.',
-        focus: worst.o,
-        target: { kind: 'object', id: worst.o.id },
-      });
-    }
-  }
+  if (options.footingOf) floatingObjects(doc, options.footingOf, rules.maxFloat, issues);
 
   const danger = options.dangerColor ?? ((asset: string) => dangerLook(asset) !== null);
   let alarming = 0;
@@ -422,4 +403,100 @@ function wetAt(doc: CustomMapDocument, p: MapPoint): boolean {
   const j = Math.round((p.y + t.depth / 2) / g.cellSize);
   if (i < 0 || j < 0 || i >= g.columns || j >= g.rows) return false;
   return w.mask[j * g.columns + i] > 0;
+}
+
+/** Cell of the grid the supports of an object in the air are looked up in, metres */
+const SUPPORT_CELL = 16;
+
+/**
+ * Objects hanging in the air (`object-floating`): each object's underside
+ * against what it stands on, measured from where the renderer seats it
+ * (seatHeight): a rock's plate against the ground under it (undersideGap: a
+ * rock level on a slope), a floating asset's waterline against the water
+ * (its z counts from there), anything else its foot against the ground (a
+ * house's lowest corner, a tree's trunk 0.15 m deep). More than `tolerance`
+ * over it hangs in the air, unless something holds it up: another object
+ * whose footprint its foot lies in, between that one's foot and top (a
+ * lantern on a quay, a banner on a wall), a road bridge's deck it stands on
+ * (to 0.25 m past its rim, at most 0.3 m sunk in), or ice it stands on. Effects (smoke, fog, the
+ * waterfall) and what stands in the air by design (catalogue `aloft`:
+ * bridges, cable spans, the gondola) are left out. One terrain lookup per object (eight for
+ * houses, walls and props), supports only for the few in the air, from a
+ * grid of SUPPORT_CELL metres.
+ */
+export function objectsInAir(doc: CustomMapDocument, footingOf: (asset: string) => ObjectFooting | undefined, tolerance = DEFAULT_RULES.maxFloat): { o: MapObject; gap: number }[] {
+  const t = doc.terrain;
+  const ground = (x: number, y: number) => heightAt(t, x, y);
+  const water = (x: number, y: number) => waterLevelAt(t, x, y, ground(x, y));
+  interface Solid {
+    o: MapObject;
+    reach: number;
+    foot: number;
+    top: number;
+  }
+  const solids: Solid[] = [];
+  const hanging: { solid: Solid; gap: number }[] = [];
+  for (const o of doc.objects) {
+    const f = footingOf(o.asset);
+    if (!f || f.category === 'fx' || f.aloft) continue;
+    const s = o.scale || 1;
+    const seat = seatHeight(f, o, ground, water);
+    const solid = { o, reach: f.footprint * s, foot: seat + o.z, top: seat + o.z + f.height * s };
+    solids.push(solid);
+    let gap: number;
+    if (f.base && !f.float) gap = undersideGap(t, o, f.base);
+    else {
+      // What it stands on: the water under a floating asset, the lowest corner under a house (its seat), else the ground
+      const under = f.float ? (water(o.x, o.y) ?? ground(o.x, o.y)) : f.category === 'tree' ? ground(o.x, o.y) : seat;
+      gap = solid.foot - under;
+    }
+    if (gap > tolerance) hanging.push({ solid, gap });
+  }
+  if (!hanging.length) return [];
+  const cells = new Map<string, Solid[]>();
+  let widest = 0;
+  for (const solid of solids) {
+    const key = `${Math.floor(solid.o.x / SUPPORT_CELL)},${Math.floor(solid.o.y / SUPPORT_CELL)}`;
+    let list = cells.get(key);
+    if (!list) cells.set(key, (list = []));
+    list.push(solid);
+    widest = Math.max(widest, solid.reach);
+  }
+  // A road bridge's deck holds what stands on it (to its rim, a little sunk in), ice what stands on the ice
+  const rim = 0.25;
+  const decks = bridgeDecks(doc.paths, t, new HeightField(t.grid, t.width, t.depth)).map((d) => ({ ...d, half: d.half + rim, minX: d.minX - rim, minY: d.minY - rim, maxX: d.maxX + rim, maxY: d.maxY + rim }));
+  const held = (a: Solid): boolean => {
+    const deck = deckHeightAt(decks, a.o.x, a.o.y);
+    if (a.foot >= deck - 0.3 && a.foot <= deck + tolerance) return true;
+    const ice = waterLevelAt(t, a.o.x, a.o.y, ground(a.o.x, a.o.y), 'ice');
+    if (ice !== null && Math.abs(a.foot - ice) <= tolerance) return true;
+    const r = Math.ceil((widest + 0.5) / SUPPORT_CELL);
+    const ci = Math.floor(a.o.x / SUPPORT_CELL);
+    const cj = Math.floor(a.o.y / SUPPORT_CELL);
+    for (let j = cj - r; j <= cj + r; j++) {
+      for (let i = ci - r; i <= ci + r; i++) {
+        for (const b of cells.get(`${i},${j}`) ?? []) {
+          if (b === a || Math.hypot(b.o.x - a.o.x, b.o.y - a.o.y) > b.reach + 0.5) continue;
+          if (a.foot >= b.foot - tolerance && a.foot <= b.top + tolerance) return true;
+        }
+      }
+    }
+    return false;
+  };
+  return hanging.filter(({ solid }) => !held(solid)).map(({ solid, gap }) => ({ o: solid.o, gap }));
+}
+
+function floatingObjects(doc: CustomMapDocument, footingOf: (asset: string) => ObjectFooting | undefined, tolerance: number, issues: MapIssue[]): void {
+  const inAir = objectsInAir(doc, footingOf, tolerance);
+  if (!inAir.length) return;
+  const worst = inAir.reduce((a, b) => (b.gap > a.gap ? b : a));
+  issues.push({
+    severity: 'warning',
+    code: 'object-floating',
+    message:
+      (inAir.length === 1 ? `An object (${worst.o.asset}) hangs ${worst.gap.toFixed(1)} m` : `${inAir.length} objects hang up to ${worst.gap.toFixed(1)} m`) +
+      ' in the air over the ground or the water. Select it and press End to set it down, or Align to slope.',
+    focus: worst.o,
+    target: { kind: 'object', id: worst.o.id },
+  });
 }
