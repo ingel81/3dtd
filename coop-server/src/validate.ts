@@ -13,6 +13,7 @@
  */
 import { MAP_PART_BYTES, MAX_MAP_PARTS, MAX_RESYNC_PARTS, type ClientMessage } from '../../src/app/coop/protocol.ts';
 import { knownFields } from '../../src/app/coop/command-fields.ts';
+import { decodeMapFrame, type MapPieceHeader } from '../../src/app/coop/map-frame.ts';
 
 /** Longest name, as the client allows it */
 const NAME_MAX = 32;
@@ -85,16 +86,6 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
       const spawnIds = spawns.map((id) => cleanText(id, ID_MAX));
       if (spawnIds.some((id) => id === null || id === '')) return null;
       return { t: 'world', world: m['world'], spawnIds: spawnIds as string[] };
-    }
-    case 'map': {
-      const mapId = cleanText(m['mapId'], ID_MAX);
-      const hash = cleanText(m['hash'], VERSION_MAX);
-      const { part, parts, data } = m;
-      if (mapId === null || mapId === '' || hash === null || !Number.isInteger(parts) || !Number.isInteger(part)) return null;
-      if ((parts as number) < 1 || (parts as number) > MAX_MAP_PARTS || (part as number) < 0 || (part as number) >= (parts as number)) return null;
-      // A piece of at most MAP_PART_BYTES as base64
-      if (typeof data !== 'string' || data.length === 0 || data.length > Math.ceil(MAP_PART_BYTES / 3) * 4 || !BASE64.test(data)) return null;
-      return { t: 'map', mapId, hash, part: part as number, parts: parts as number, data };
     }
     case 'map-got': {
       const hash = cleanText(m['hash'], VERSION_MAX);
@@ -210,4 +201,21 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
     default:
       return null;
   }
+}
+
+/**
+ * A binary frame from a client: a piece of the host's map (map-frame.ts)
+ * within the piece limits, null for anything else. The frame goes on to
+ * the guests as it came.
+ */
+export function parseMapFrame(frame: Uint8Array): MapPieceHeader | null {
+  const piece = decodeMapFrame(frame);
+  if (!piece) return null;
+  const { header, data } = piece;
+  const mapId = cleanText(header.mapId, ID_MAX);
+  const hash = cleanText(header.hash, VERSION_MAX);
+  if (mapId === null || mapId === '' || hash === null || mapId !== header.mapId || hash !== header.hash) return null;
+  if (header.parts < 1 || header.parts > MAX_MAP_PARTS || header.part < 0 || header.part >= header.parts) return null;
+  if (data.length === 0 || data.length > MAP_PART_BYTES) return null;
+  return header;
 }

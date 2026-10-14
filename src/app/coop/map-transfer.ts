@@ -1,42 +1,26 @@
 import { MAP_PART_BYTES, MAX_MAP_PARTS } from './protocol';
 
-/** A piece of a custom map on its way through the relay (protocol `map`) */
+/** A piece of a custom map on its way through the relay (a binary frame, map-frame.ts) */
 export interface MapPart {
   mapId: string;
   hash: string;
   part: number;
   parts: number;
-  /** Base64 of the piece's bytes */
-  data: string;
-}
-
-/** Bytes as base64, in slices so a large piece does not overflow the argument list */
-function toBase64(bytes: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(binary);
-}
-
-function fromBase64(data: string): Uint8Array {
-  const binary = atob(data);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+  /** The piece's bytes */
+  data: Uint8Array;
 }
 
 /**
  * A map file as the pieces the host sends (coop, docs/COOP_PLAN.md): at most
- * MAP_PART_BYTES each before base64. Null when it needs more than
- * MAX_MAP_PARTS (the map is too big to share over the relay).
+ * MAP_PART_BYTES each. Null when it needs more than MAX_MAP_PARTS (the map
+ * is too big to share over the relay).
  */
 export function splitMapFile(bytes: Uint8Array, mapId: string, hash: string): MapPart[] | null {
   const parts = Math.max(1, Math.ceil(bytes.length / MAP_PART_BYTES));
   if (parts > MAX_MAP_PARTS) return null;
   const out: MapPart[] = [];
   for (let part = 0; part < parts; part++) {
-    out.push({ mapId, hash, part, parts, data: toBase64(bytes.subarray(part * MAP_PART_BYTES, (part + 1) * MAP_PART_BYTES)) });
+    out.push({ mapId, hash, part, parts, data: bytes.slice(part * MAP_PART_BYTES, (part + 1) * MAP_PART_BYTES) });
   }
   return out;
 }
@@ -73,7 +57,7 @@ export class MapAssembler {
       this.count = 0;
     }
     if (!this.pieces[piece.part]) this.count++;
-    this.pieces[piece.part] = fromBase64(piece.data);
+    this.pieces[piece.part] = piece.data;
     if (this.count < piece.parts) return null;
     const size = this.pieces.reduce((sum, p) => sum + p!.length, 0);
     const bytes = new Uint8Array(size);
@@ -94,11 +78,11 @@ export class MapAssembler {
 }
 
 /**
- * Base64 characters a second the host sends its map at most: under the
- * relay's 4 MB a second per connection with room for the lobby's other
- * messages. 32 MB (43 MB as base64) take some 14 s.
+ * Bytes a second the host sends its map at most: seven full pieces in any
+ * second of the relay's count, 3.5 of its 4 MB, the rest for the lobby's
+ * other messages. 32 MB take some 9 s.
  */
-export const MAP_SEND_CHARS_PER_SECOND = 3 * 1024 * 1024;
+export const MAP_SEND_BYTES_PER_SECOND = 7 * MAP_PART_BYTES;
 
 /** How often a wait for the relay's map-ack looks whether the session is gone, ms */
 const ACK_POLL_MS = 500;
@@ -113,7 +97,7 @@ export interface MapSendProgress {
  * The host's map pieces, one after the other, and the world after them
  * (coop.service shareWorld). The next piece goes once the relay confirmed
  * the last (`acked`, protocol `map-ack`) and the byte rate allows it
- * (MAP_SEND_CHARS_PER_SECOND), so neither the relay's limit per connection
+ * (MAP_SEND_BYTES_PER_SECOND), so neither the relay's limit per connection
  * nor a guest's unread data are reached however large the map. The world
  * that follows is built when the last piece is through, not when the pieces
  * set off: a share while they are under way only asks for it, so an older
@@ -169,7 +153,7 @@ export class PacedMapSend {
         const wait = nextAt - performance.now();
         if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
         if (!alive()) return;
-        nextAt = performance.now() + (part.data.length / MAP_SEND_CHARS_PER_SECOND) * 1000;
+        nextAt = performance.now() + (part.data.length / MAP_SEND_BYTES_PER_SECOND) * 1000;
         const through = this.ackOf(part.part, alive);
         sendPart(part);
         if (!(await through)) return;

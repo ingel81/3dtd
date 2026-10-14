@@ -6,13 +6,15 @@ import {
 import { HASH_EVERY_TICKS, HASH_PARTS } from '../../src/app/coop/hash-check.ts';
 import { DEFAULT_ROOM_OPTIONS } from '../../src/app/coop/room-options.ts';
 import type { ServerMessage } from '../../src/app/coop/protocol.ts';
+import { decodeMapFrame, encodeMapFrame } from '../../src/app/coop/map-frame.ts';
 
 const player = (id: string, over: Partial<RoomPlayer> = {}): RoomPlayer => ({
   id, name: id.toUpperCase(), gameVersion: 'v1', configHash: 'h', ...over,
 });
 
 describe('Room (COOP_PLAN C4)', () => {
-  let inbox: Map<string, ServerMessage[]>;
+  /** What each player got: messages, and the map's pieces as the binary frames they are */
+  let inbox: Map<string, (ServerMessage | Uint8Array)[]>;
   let room: Room;
   /** The room's wall clock, ms */
   let clock = 0;
@@ -20,10 +22,24 @@ describe('Room (COOP_PLAN C4)', () => {
   const closeTicks = (n: number) => {
     for (let i = 0; i < n; i++) room.closeTick();
   };
+  const messages = (id: string) => (inbox.get(id) ?? []).filter((m): m is ServerMessage => !(m instanceof Uint8Array));
   const last = <T extends ServerMessage['t']>(id: string, t: T) =>
-    [...(inbox.get(id) ?? [])].reverse().find((m) => m.t === t) as Extract<ServerMessage, { t: T }> | undefined;
+    [...messages(id)].reverse().find((m) => m.t === t) as Extract<ServerMessage, { t: T }> | undefined;
   const all = <T extends ServerMessage['t']>(id: string, t: T) =>
-    (inbox.get(id) ?? []).filter((m) => m.t === t) as Extract<ServerMessage, { t: T }>[];
+    messages(id).filter((m) => m.t === t) as Extract<ServerMessage, { t: T }>[];
+  /** The map pieces a player got: header and bytes as text */
+  const pieces = (id: string) =>
+    (inbox.get(id) ?? []).filter((m): m is Uint8Array => m instanceof Uint8Array).map((frame) => {
+      const piece = decodeMapFrame(frame)!;
+      return { ...piece.header, data: new TextDecoder().decode(piece.data) };
+    });
+  /** A piece of a map from player `from` as the relay gets it; returns the frame's size */
+  const sendPiece = (from: string, part: number, data: string, { mapId = 'm1', hash = 'h1', parts = 2 } = {}) => {
+    const header = { mapId, hash, part, parts };
+    const frame = encodeMapFrame(header, new TextEncoder().encode(data));
+    room.receiveMapPiece(from, header, frame);
+    return frame.length;
+  };
 
   /** Host a, b joined, world with two spawns, both on a lane and ready */
   const lobby = () => {
@@ -67,64 +83,64 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(lines[1]).toBe('B (b) joined (2 players), on Firefox 143.0, Linux');
   });
 
-  it("passes the host's map on piece by piece, each confirmed, and gives a later joiner its first piece before the world", () => {
+  it("passes the host's map on piece by piece as binary frames, each confirmed, and gives a later joiner its first piece before the world", () => {
     room.join(player('b'));
-    const piece = (part: number, mapId = 'm1') => ({ t: 'map' as const, mapId, hash: 'h1', part, parts: 2, data: `P${part}` });
-    room.receive('a', piece(0));
-    expect(all('b', 'map').map((m) => m.data)).toEqual(['P0']);
+    sendPiece('a', 0, 'P0');
+    expect(pieces('b').map((m) => m.data)).toEqual(['P0']);
     // Kept for later joiners: the host may send the next one
     expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0]);
-    room.receive('a', piece(1));
+    sendPiece('a', 1, 'P1');
     // b has one piece unread at most: the next goes after its map-got
-    expect(all('b', 'map').map((m) => m.data)).toEqual(['P0']);
+    expect(pieces('b').map((m) => m.data)).toEqual(['P0']);
     room.receive('b', { t: 'map-got', hash: 'other', part: 0 });
-    expect(all('b', 'map').map((m) => m.data)).toEqual(['P0']);
+    expect(pieces('b').map((m) => m.data)).toEqual(['P0']);
     room.receive('b', { t: 'map-got', hash: 'h1', part: 0 });
-    expect(all('b', 'map').map((m) => m.data)).toEqual(['P0', 'P1']);
+    expect(pieces('b').map((m) => m.data)).toEqual(['P0', 'P1']);
     room.receive('a', { t: 'world', world: { any: 'thing' }, spawnIds: ['s1'] });
-    expect(all('a', 'map')).toEqual([]);
+    expect(pieces('a')).toEqual([]);
     expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0, 1]);
 
     room.join(player('c'));
-    const kinds = (inbox.get('c') ?? []).map((m) => m.t).filter((t) => t === 'map' || t === 'world');
+    const kinds = (inbox.get('c') ?? []).map((m) => (m instanceof Uint8Array ? 'map' : m.t)).filter((t) => t === 'map' || t === 'world');
     expect(kinds).toEqual(['map', 'world']);
     room.receive('c', { t: 'map-got', hash: 'h1', part: 0 });
-    expect(all('c', 'map').map((m) => m.data)).toEqual(['P0', 'P1']);
+    expect(pieces('c').map((m) => m.data)).toEqual(['P0', 'P1']);
 
     // Only the host sends one; another map replaces the pieces kept
-    room.receive('b', piece(0, 'm2'));
+    sendPiece('b', 0, 'X', { mapId: 'm2' });
     expect(last('b', 'refused')!.reason).toBe('not-host');
-    room.receive('a', { ...piece(0, 'm2'), parts: 1 });
-    expect(last('b', 'map')!.mapId).toBe('m2');
+    sendPiece('a', 0, 'Q0', { mapId: 'm2', parts: 1 });
+    expect(pieces('b').at(-1)!.mapId).toBe('m2');
     room.join(player('d'));
-    expect(all('d', 'map').map((m) => [m.mapId, m.part])).toEqual([['m2', 0]]);
+    expect(pieces('d').map((m) => [m.mapId, m.part])).toEqual([['m2', 0]]);
   });
 
   it("keeps the host's map only up to the start and within the relay's budget", () => {
-    const budget = new MapBudget(10);
+    // Room for the first piece's frame and not the second's
+    const size = encodeMapFrame({ mapId: 'm1', hash: 'h1', part: 0, parts: 2 }, new TextEncoder().encode('AAAAAA')).length;
+    const budget = new MapBudget(size + 3);
     inbox = new Map();
     room = new Room('ABCDEF', player('a'), (id, message) => {
       if (!inbox.has(id)) inbox.set(id, []);
       inbox.get(id)!.push(message);
     }, { now: () => clock, mapBudget: budget });
-    const piece = (part: number, data: string, parts = 2) => ({ t: 'map' as const, mapId: 'm1', hash: 'h1', part, parts, data });
     room.join(player('b'));
-    room.receive('a', piece(0, 'AAAAAA'));
+    sendPiece('a', 0, 'AAAAAA');
     // The second piece does not fit the budget: b gets it, the host's next waits for b, a later joiner gets no map
-    room.receive('a', piece(1, 'BBBBBB'));
+    sendPiece('a', 1, 'BBBBBB');
     expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0]);
     room.receive('b', { t: 'map-got', hash: 'h1', part: 0 });
-    expect(all('b', 'map').map((m) => m.data)).toEqual(['AAAAAA', 'BBBBBB']);
+    expect(pieces('b').map((m) => m.data)).toEqual(['AAAAAA', 'BBBBBB']);
     expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0]);
     room.receive('b', { t: 'map-got', hash: 'h1', part: 1 });
     expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0, 1]);
-    expect(budget.used).toBe(6);
+    expect(budget.used).toBe(size);
     room.join(player('c'));
-    expect(all('c', 'map')).toEqual([]);
+    expect(pieces('c')).toEqual([]);
 
     // Another map gives the old pieces back first
-    room.receive('a', { ...piece(0, 'CCCCCCCC', 1), mapId: 'm2' });
-    expect(budget.used).toBe(8);
+    const next = sendPiece('a', 0, 'CC', { mapId: 'm2', parts: 1 });
+    expect(budget.used).toBe(next);
 
     // The start frees them: nobody joins a game
     room.receive('a', { t: 'world', world: { any: 'thing' }, spawnIds: ['s1', 's2', 's3'] });
@@ -144,7 +160,7 @@ describe('Room (COOP_PLAN C4)', () => {
       inbox.get(id)!.push(message);
     }, { now: () => clock, mapBudget: new MapBudget(0) });
     room.join(player('b'));
-    room.receive('a', { t: 'map', mapId: 'm1', hash: 'h1', part: 0, parts: 2, data: 'AAAA' });
+    sendPiece('a', 0, 'AAAA');
     expect(all('a', 'map-ack')).toEqual([]);
     room.leave('b');
     expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0]);

@@ -204,12 +204,15 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
 - Das Paket trägt den `WorldRef` des Hosts (`WorldPackage.world`, [WORLD_PROVIDER_PLAN.md](WORLD_PROVIDER_PLAN.md)).
   Ein Gast auf einer anderen Welt bekommt eine Meldung (`WorldPackageLoader.worldHere`): Tiles beider Quellen
   gelten als dieselbe Welt, DevWorld nur mit denselben Einstellungen
-- Eigene Karte: der Host schickt vor der Welt die `.3dtdmap`-Datei der Karte (Nachricht `map`, Stücke zu höchstens
-  512 kB vor Base64, höchstens 64 Stücke = 32 MB, je Raum einmal). Seit Protokoll 4 (E154) geht jedes Stück erst,
-  wenn das Relay das vorige mit `map-ack` bestätigt hat, und höchstens 3 MB Base64 je Sekunde
-  (`MAP_SEND_CHARS_PER_SECOND`, unter den 4 MB/s je Verbindung): 32 MB brauchen etwa 14 s, das Demo-Tal (1,6 MB)
-  etwa 1 s. Das Relay nimmt Stücke nur vom Host in der Lobby, behält die letzte Karte im Rahmen seines Budgets
-  (`RELAY_MAP_BUDGET_CHARS`, 192 MB Base64 über alle Räume) und gibt jedem Gast ein Stück nach dem anderen: das
+- Eigene Karte: der Host schickt vor der Welt die `.3dtdmap`-Datei der Karte in Stücken zu höchstens 512 kB,
+  höchstens 64 Stücke = 32 MB, je Raum einmal. Seit Protokoll 5 ist jedes Stück ein binärer WebSocket-Rahmen
+  (`coop/map-frame.ts`: `MAP1`, Länge und JSON-Kopf mit Karte, Hash, Stück, dann die Bytes), kein Base64 in JSON mehr;
+  das Relay prüft den Kopf (`parseMapFrame`) und reicht den Rahmen unverändert weiter. Seit Protokoll 4 (E154) geht
+  jedes Stück erst, wenn das Relay das vorige mit `map-ack` bestätigt hat, und höchstens sieben volle Stücke je
+  Sekunde (`MAP_SEND_BYTES_PER_SECOND`, 3,5 der 4 MB/s je Verbindung): 32 MB brauchten mit Base64 14,7 s, binär
+  9,8 s (gegen das echte Relay, lokal), das Demo-Tal (1,6 MB) etwa 0,5 s. Das Relay nimmt Stücke nur vom Host in
+  der Lobby, behält die letzte Karte im Rahmen seines Budgets (`RELAY_MAP_BUDGET_BYTES`, 192 MB über alle Räume)
+  und gibt jedem Gast ein Stück nach dem anderen: das
   nächste erst, wenn der Gast das vorige mit `map-got` bestätigt. So liegt je Gast höchstens ein Stück ungelesen am
   Relay (Grenze 8 MB), egal wie groß die Karte ist. Ein später Beitretender bekommt das erste Stück vor der Welt,
   den Rest nach seinen Bestätigungen; eine andere Karte ersetzt sie (`coop-server/src/room.ts`)

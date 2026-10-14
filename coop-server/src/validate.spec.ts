@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { COMMAND_MAX, cleanText, parseClientMessage } from './validate.ts';
+import { COMMAND_MAX, cleanText, parseClientMessage, parseMapFrame } from './validate.ts';
+import { encodeMapFrame } from '../../src/app/coop/map-frame.ts';
+import { MAP_PART_BYTES, MAX_MAP_PARTS } from '../../src/app/coop/protocol.ts';
 
 describe('parseClientMessage (relay review K1, H1, N1)', () => {
   it('takes a good message of each kind as it came', () => {
@@ -11,14 +13,18 @@ describe('parseClientMessage (relay review K1, H1, N1)', () => {
       .toEqual({ t: 'cmd', command: { type: 'command:sell-tower', towerId: 't1' } });
   });
 
-  it('takes a piece of a custom map within the piece limits only', () => {
-    const piece = { t: 'map', mapId: 'demo-valley', hash: 'abc', part: 1, parts: 4, data: 'AAAA' };
-    expect(parseClientMessage(piece)).toEqual(piece);
-    expect(parseClientMessage({ ...piece, part: 4 })).toBeNull();
-    expect(parseClientMessage({ ...piece, parts: 65 })).toBeNull();
-    expect(parseClientMessage({ ...piece, data: 'not base64!' })).toBeNull();
-    expect(parseClientMessage({ ...piece, data: 'A'.repeat(800 * 1024) })).toBeNull();
-    expect(parseClientMessage({ ...piece, mapId: '' })).toBeNull();
+  it('takes a piece of a custom map as a binary frame within the piece limits only', () => {
+    const frame = (part: number, parts: number, bytes: number, mapId = 'demo-valley') =>
+      encodeMapFrame({ mapId, hash: 'abc', part, parts }, new Uint8Array(bytes));
+    expect(parseMapFrame(frame(1, 4, 100))).toEqual({ mapId: 'demo-valley', hash: 'abc', part: 1, parts: 4 });
+    expect(parseMapFrame(frame(4, 4, 100))).toBeNull();
+    expect(parseMapFrame(frame(0, MAX_MAP_PARTS + 1, 100))).toBeNull();
+    expect(parseMapFrame(frame(0, 1, MAP_PART_BYTES + 1))).toBeNull();
+    expect(parseMapFrame(frame(0, 1, 0))).toBeNull();
+    expect(parseMapFrame(frame(0, 1, 10, ''))).toBeNull();
+    expect(parseMapFrame(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9]))).toBeNull();
+    // A map piece as a JSON message is no message at all since protocol 5
+    expect(parseClientMessage({ t: 'map', mapId: 'demo-valley', hash: 'abc', part: 1, parts: 4, data: 'AAAA' })).toBeNull();
     expect(parseClientMessage({ t: 'map-got', hash: 'abc', part: 3 })).toEqual({ t: 'map-got', hash: 'abc', part: 3 });
     expect(parseClientMessage({ t: 'map-got', hash: 'abc', part: 64 })).toBeNull();
     expect(parseClientMessage({ t: 'map-got', part: 1 })).toBeNull();

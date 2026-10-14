@@ -17,7 +17,7 @@ import type { HashedEntities, HashPart } from './hash-check';
  * Back to 1 before the first release (User, 2026-09-25): the numbers up to
  * then were development steps only.
  */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /** Players per room at most (D16). */
 export const MAX_PLAYERS = 4;
@@ -31,12 +31,12 @@ export const MAX_RESYNC_PARTS = 16;
 
 /**
  * A custom map the host sends along (coop/map-transfer.ts): its `.3dtdmap`
- * file in pieces of at most MAP_PART_BYTES before base64, at most
- * MAX_MAP_PARTS of them (32 MB; the shipped demo valley is 1.6 MB). Every
- * piece stays under the relay's message size. The pieces go one after the
- * other, each confirmed (`map-ack` to the host, `map-got` from a guest), so
- * neither the host's byte rate nor a guest's unread data reach the relay's
- * limits however large the map.
+ * file in pieces of at most MAP_PART_BYTES, at most MAX_MAP_PARTS of them
+ * (32 MB; the shipped demo valley is 1.6 MB), each a binary frame
+ * (coop/map-frame.ts) under the relay's message size. The pieces go one
+ * after the other, each confirmed (`map-ack` to the host, `map-got` from a
+ * guest), so neither the host's byte rate nor a guest's unread data reach
+ * the relay's limits however large the map.
  */
 export const MAP_PART_BYTES = 512 * 1024;
 export const MAX_MAP_PARTS = 64;
@@ -143,10 +143,9 @@ export type ClientMessage =
   /** Host, lobby: the map is changing here, a new world follows (PLAYTEST T25) */
   | { t: 'moving' }
   /**
-   * Host, lobby: a piece of the custom map the room plays (its `.3dtdmap`
-   * file, base64), before the world that names it; `hash` its content hash
+   * (A piece of the custom map the room plays goes as a binary frame, not as
+   * a message: coop/map-frame.ts, before the world that names it)
    */
-  | { t: 'map'; mapId: string; hash: string; part: number; parts: number; data: string }
   /** Guest, lobby: piece `part` of the map with content `hash` is here; the relay sends the next one */
   | { t: 'map-got'; hash: string; part: number }
   /** Lobby: what this client is doing now (PlayerStatus) */
@@ -208,8 +207,6 @@ export type ServerMessage =
   | { t: 'world'; world: unknown }
   /** Lobby: the host changes the map, its world follows */
   | { t: 'moving' }
-  /** A piece of the host's custom map, to a player who joins (all of them, before the world) or as the host sends it */
-  | { t: 'map'; mapId: string; hash: string; part: number; parts: number; data: string }
   /**
    * To the host: piece `part` of its map is through, kept for later joiners
    * or with every guest in the room; the next one may go

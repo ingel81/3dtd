@@ -1,4 +1,4 @@
-import { MAP_SEND_CHARS_PER_SECOND, MapAssembler, PacedMapSend, splitMapFile, type MapPart, type MapSendProgress } from './map-transfer';
+import { MAP_SEND_BYTES_PER_SECOND, MapAssembler, PacedMapSend, splitMapFile, type MapPart, type MapSendProgress } from './map-transfer';
 import { MAP_PART_BYTES, MAX_MAP_BYTES, MAX_MAP_PARTS } from './protocol';
 
 /** Bytes 0, 1, 2, … wrapping at 251, `n` of them */
@@ -36,8 +36,10 @@ describe('map transfer (coop with a custom map)', () => {
 });
 
 describe('PacedMapSend (host)', () => {
-  const parts = (n: number, chars = 4): MapPart[] =>
-    Array.from({ length: n }, (_, part) => ({ mapId: 'm', hash: 'h', part, parts: n, data: `P${part}`.padEnd(chars, 'A') }));
+  /** `n` pieces of `bytes` each, every byte the piece's number */
+  const parts = (n: number, bytes = 4): MapPart[] =>
+    Array.from({ length: n }, (_, part) => ({ mapId: 'm', hash: 'h', part, parts: n, data: new Uint8Array(bytes).fill(part) }));
+  const name = (p: MapPart) => `P${p.data[0]}`;
 
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
@@ -47,25 +49,25 @@ describe('PacedMapSend (host)', () => {
     const progress: (MapSendProgress | null)[] = [];
     const send = new PacedMapSend();
     send.onProgress = (p) => progress.push(p);
-    send.share(parts(3), (p) => sent.push(p.data), () => sent.push('world 1'), () => true);
-    expect(sent).toEqual(['P0AA']);
+    send.share(parts(3), (p) => sent.push(name(p)), () => sent.push('world 1'), () => true);
+    expect(sent).toEqual(['P0']);
     // A second share while the pieces go: no world now, and the first world never comes
-    send.share(null, (p) => sent.push(p.data), () => sent.push('world 2'), () => true);
+    send.share(null, (p) => sent.push(name(p)), () => sent.push('world 2'), () => true);
     await vi.advanceTimersByTimeAsync(1000);
-    expect(sent).toEqual(['P0AA']);
+    expect(sent).toEqual(['P0']);
     expect(send.busy).toBe(true);
     // An ack for another piece is no ack
     send.acked(1);
     await vi.advanceTimersByTimeAsync(1000);
-    expect(sent).toEqual(['P0AA']);
+    expect(sent).toEqual(['P0']);
     send.acked(0);
     await vi.advanceTimersByTimeAsync(0);
-    expect(sent).toEqual(['P0AA', 'P1AA']);
+    expect(sent).toEqual(['P0', 'P1']);
     send.acked(1);
     await vi.advanceTimersByTimeAsync(0);
     send.acked(2);
     await vi.advanceTimersByTimeAsync(0);
-    expect(sent).toEqual(['P0AA', 'P1AA', 'P2AA', 'world 2']);
+    expect(sent).toEqual(['P0', 'P1', 'P2', 'world 2']);
     expect(send.busy).toBe(false);
     expect(progress).toEqual([{ done: 0, total: 3 }, { done: 1, total: 3 }, { done: 2, total: 3 }, { done: 3, total: 3 }, null]);
     // Done: a share without pieces sends its world at once
@@ -74,16 +76,16 @@ describe('PacedMapSend (host)', () => {
   });
 
   it("keeps under the relay's byte rate however fast the acks come", async () => {
-    const chars = 600_000;
+    const bytes = 600_000;
     const at: number[] = [];
     const send = new PacedMapSend();
-    send.share(parts(4, chars), (p) => {
+    send.share(parts(4, bytes), (p) => {
       at.push(performance.now());
       queueMicrotask(() => send.acked(p.part));
     }, () => undefined, () => true);
     await vi.advanceTimersByTimeAsync(5000);
     expect(at).toHaveLength(4);
-    const gap = (chars / MAP_SEND_CHARS_PER_SECOND) * 1000;
+    const gap = (bytes / MAP_SEND_BYTES_PER_SECOND) * 1000;
     for (let i = 1; i < at.length; i++) expect(at[i] - at[i - 1]).toBeGreaterThanOrEqual(gap - 1);
   });
 
@@ -91,12 +93,12 @@ describe('PacedMapSend (host)', () => {
     const sent: string[] = [];
     let alive = true;
     const send = new PacedMapSend();
-    send.share(parts(3), (p) => sent.push(p.data), () => sent.push('world'), () => alive);
+    send.share(parts(3), (p) => sent.push(name(p)), () => sent.push('world'), () => alive);
     alive = false;
     await vi.advanceTimersByTimeAsync(3000);
     send.acked(0);
     await vi.advanceTimersByTimeAsync(3000);
-    expect(sent).toEqual(['P0AA']);
+    expect(sent).toEqual(['P0']);
     expect(send.busy).toBe(false);
   });
 });

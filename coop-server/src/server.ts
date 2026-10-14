@@ -22,9 +22,9 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { ServerMessage } from '../../src/app/coop/protocol.ts';
 import { PROTOCOL_VERSION } from '../../src/app/coop/protocol.ts';
-import { MapBudget, RELAY_MAP_BUDGET_CHARS, Room, hex, type RoomPlayer, type RoomStatus } from './room.ts';
+import { MapBudget, RELAY_MAP_BUDGET_BYTES, Room, hex, type RoomPlayer, type RoomStatus } from './room.ts';
 import { clientLabel, type ClientInfo } from '../../src/app/coop/client-info.ts';
-import { parseClientMessage } from './validate.ts';
+import { parseClientMessage, parseMapFrame } from './validate.ts';
 import { RelayMetrics, SAMPLE_MS, type DropReason, type MetricsSample } from './metrics.ts';
 import { statusPage } from './status-page.ts';
 import { RunStore } from './run-store.ts';
@@ -268,7 +268,7 @@ class Relay {
   private readonly now: () => number;
   private readonly rooms = new Map<string, Room>();
   /** The kept map pieces of all rooms (MapBudget) */
-  private readonly mapBudget = new MapBudget(RELAY_MAP_BUDGET_CHARS);
+  private readonly mapBudget = new MapBudget(RELAY_MAP_BUDGET_BYTES);
   private readonly connections = new Map<string, Connection>();
   /** Open connections per address, in memory only (review H3, D64) */
   private readonly perAddress = new Map<string, number>();
@@ -557,7 +557,7 @@ class Relay {
     return true;
   }
 
-  private send(playerId: string, message: ServerMessage): void {
+  private send(playerId: string, message: ServerMessage | Uint8Array): void {
     const connection = this.connections.get(playerId);
     const socket = connection?.socket;
     if (!connection || !socket || socket.readyState !== socket.OPEN) return;
@@ -567,6 +567,12 @@ class Relay {
         this.log(`${roomTag(connection)}${playerId} reads too slowly, dropping`);
         this.dropConnection(playerId, 'reads too slowly', 'slow');
       }
+      return;
+    }
+    // A piece of a map goes on as the binary frame it came as
+    if (message instanceof Uint8Array) {
+      this.metrics.bytesOut += message.length;
+      socket.send(message, { binary: true });
       return;
     }
     let text = this.serialized.get(message);
@@ -599,11 +605,11 @@ class Relay {
     });
     // A socket error (a reset, a protocol violation) ends in close; nothing to add
     socket.on('error', () => undefined);
-    socket.on('message', (data) => this.received(id, connection, data));
+    socket.on('message', (data, isBinary) => this.received(id, connection, data, isBinary));
     socket.on('close', () => this.disconnected(id, connection));
   }
 
-  private received(id: string, connection: Connection, data: unknown): void {
+  private received(id: string, connection: Connection, data: unknown, isBinary = false): void {
     const at = this.now();
     const bytes = (data as Buffer).length ?? 0;
     this.metrics.messagesIn++;
@@ -637,7 +643,8 @@ class Relay {
     }
     // One bad message never takes the relay down: log it, drop that connection (review K1)
     try {
-      this.handleMessage(id, connection, data);
+      if (isBinary) this.handleFrame(id, connection, data as Buffer);
+      else this.handleMessage(id, connection, data);
     } catch (error) {
       this.metrics.errors++;
       this.log(`${roomTag(connection)}${id}: a message failed (${errorText(error)}), dropping`);
@@ -660,6 +667,17 @@ class Relay {
       this.log(`[${room.code}] leave failed: ${errorText(error)}`);
     }
     this.closeIfEmpty(room);
+  }
+
+  /** A binary frame: a piece of the host's map (map-frame.ts) for its room; anything else is dropped as malformed */
+  private handleFrame(id: string, connection: Connection, data: Buffer): void {
+    const frame = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    const piece = parseMapFrame(frame);
+    if (!piece || !connection.player) {
+      this.metrics.drop('malformed');
+      return;
+    }
+    connection.room?.receiveMapPiece(id, piece, frame);
   }
 
   private handleMessage(id: string, connection: Connection, data: unknown): void {

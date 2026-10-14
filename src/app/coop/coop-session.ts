@@ -5,6 +5,7 @@ import type { LockstepLink, StampedCommand } from './lockstep';
 import type { ClientInfo } from './client-info';
 import type { HashedEntities, HashPart } from './hash-check';
 import type { MapPart } from './map-transfer';
+import { decodeMapFrame, encodeMapFrame } from './map-frame';
 import {
   PROTOCOL_VERSION,
   type ClientMessage,
@@ -23,7 +24,9 @@ const REQUEST_TIMEOUT_MS = 10_000;
 /** The socket a session talks over; the browser's WebSocket fits. */
 export interface CoopSocket {
   readonly readyState: number;
-  send(data: string): void;
+  /** 'arraybuffer': binary frames (the map's pieces) arrive as ArrayBuffer */
+  binaryType?: string;
+  send(data: string | Uint8Array): void;
   close(): void;
   onopen: ((event: unknown) => void) | null;
   onmessage: ((event: { data: unknown }) => void) | null;
@@ -233,6 +236,7 @@ export class CoopSession {
   connect(timeoutMs = 5000): Promise<string> {
     return new Promise((done, reject) => {
       const socket = this.openSocket(this.url);
+      socket.binaryType = 'arraybuffer';
       this.socket = socket;
       const timer = setTimeout(() => {
         this.fail(new Error(`no answer from ${this.url}`), reject);
@@ -252,7 +256,8 @@ export class CoopSession {
       };
       socket.onmessage = (event) => {
         this.heardAt = performance.now();
-        this.receive(String(event.data));
+        if (event.data instanceof ArrayBuffer) this.receiveFrame(new Uint8Array(event.data));
+        else this.receive(String(event.data));
       };
       socket.onerror = () => {
         clearTimeout(timer);
@@ -285,9 +290,16 @@ export class CoopSession {
     this.out({ t: 'world', world, spawnIds });
   }
 
-  /** Host, lobby: a piece of the room's custom map, ahead of the world that names it */
+  /** Host, lobby: a piece of the room's custom map as a binary frame, ahead of the world that names it */
   sendMapPart(piece: MapPart): void {
-    this.out({ t: 'map', ...piece });
+    const socket = this.socket;
+    if (socket && socket.readyState === 1) socket.send(encodeMapFrame(piece, piece.data));
+  }
+
+  /** A binary frame: a piece of the host's map (map-frame.ts); anything else is dropped */
+  private receiveFrame(frame: Uint8Array): void {
+    const piece = decodeMapFrame(frame);
+    if (piece) this.onMap?.({ ...piece.header, data: piece.data });
   }
 
   /** Guest, lobby: piece `part` of the map with content `hash` is here, the relay may send the next */
@@ -493,8 +505,6 @@ export class CoopSession {
       case 'world':
         this.world = message.world;
         return this.onWorld?.(message.world);
-      case 'map':
-        return this.onMap?.({ mapId: message.mapId, hash: message.hash, part: message.part, parts: message.parts, data: message.data });
       case 'map-ack':
         return this.onMapAck?.(message.part);
       case 'started': {
