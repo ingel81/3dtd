@@ -89,6 +89,96 @@ export function slopeTilt(terrain: MapTerrain, x: number, y: number, rotation: n
 /** The object with the ground's tilt where it stands (no tilt on flat ground) */
 export function alignedToSlope<T extends MapObject>(terrain: MapTerrain, o: T, reach = 2): T {
   const { pitch, roll } = slopeTilt(terrain, o.x, o.y, o.rotation, reach * (o.scale || 1));
+  return withTilt(o, pitch, roll);
+}
+
+/** A rock's underside at scale 1: half width (model x), half depth (model z), depth of its lowest point below the pivot */
+export type Underside = readonly [number, number, number];
+
+/** What settling needs of a rock: its underside and its height at scale 1 (catalogue `base` and `height`) */
+export interface RockShape {
+  base: Underside;
+  height: number;
+}
+
+/** The rock shape of a catalogue entry, undefined for anything without an underside (trees, houses, set pieces) */
+export function rockShape(entry: { base?: Underside; height: number }): RockShape | undefined {
+  return entry.base ? { base: entry.base, height: entry.height } : undefined;
+}
+
+/** A rock sinks at most this share of its height into the ground; where it would have to sink further it tilts with the slope */
+export const MAX_SINK = 0.35;
+
+/**
+ * How far the underside of a rock hangs over the ground, metres: the plane
+ * of its plate (its lowest point at the ground under its middle plus its z,
+ * tilted with its pitch and roll) against the ground on two ellipses under
+ * it, the outer one the plate's rim. 0 where it touches or sinks in
+ * everywhere. A flat-bottomed rock standing level on a slope hangs over by
+ * about the plate's half width times the slope.
+ */
+export function undersideGap(terrain: MapTerrain, o: MapObject, base: Underside): number {
+  const s = o.scale || 1;
+  const c = Math.cos(o.rotation);
+  const n = Math.sin(o.rotation);
+  // The plate's slope in map space from the tilt: the model's up axis (see slopeTilt), turned, as a gradient
+  const pitch = o.pitch ?? 0;
+  const roll = o.roll ?? 0;
+  const ux = -Math.sin(roll);
+  const uy = Math.cos(roll) * Math.cos(pitch);
+  const uz = Math.cos(roll) * Math.sin(pitch);
+  const gx = (ux * c + uz * n) / uy;
+  const gy = -(-ux * n + uz * c) / uy;
+  const middle = heightAt(terrain, o.x, o.y) + o.z - base[2] * s;
+  let gap = 0;
+  for (const ring of [0.5, 1]) {
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      // A point of the plate in the model's frame, turned into map space (scene x is map -x)
+      const lx = Math.cos(a) * base[0] * s * ring;
+      const lz = Math.sin(a) * base[1] * s * ring;
+      const dx = -(lx * c + lz * n);
+      const dy = -lx * n + lz * c;
+      gap = Math.max(gap, middle + gx * dx + gy * dy - heightAt(terrain, o.x + dx, o.y + dy));
+    }
+  }
+  return round(gap);
+}
+
+/**
+ * The rock lowered until its plate touches the ground everywhere under it
+ * (unchanged where it does). It sinks at most MAX_SINK of its height: on
+ * steeper ground it first tilts toward the slope in quarter steps until the
+ * rest fits, as a boulder on a hillside lies on it rather than in it.
+ */
+export function settled<T extends MapObject>(terrain: MapTerrain, o: T, rock: RockShape): T {
+  const cap = MAX_SINK * rock.height * (o.scale || 1);
+  let out = o;
+  let gap = undersideGap(terrain, out, rock.base);
+  if (gap > cap) {
+    const full = slopeTilt(terrain, o.x, o.y, o.rotation, Math.max(rock.base[0], rock.base[1]) * (o.scale || 1));
+    const pitch = o.pitch ?? 0;
+    const roll = o.roll ?? 0;
+    for (const f of [0.25, 0.5, 0.75, 1]) {
+      out = withTilt(o, round(pitch + (full.pitch - pitch) * f, 1000), round(roll + (full.roll - roll) * f, 1000));
+      gap = undersideGap(terrain, out, rock.base);
+      if (gap <= cap) break;
+    }
+  }
+  return gap > 0 ? { ...out, z: round(out.z - gap) } : out;
+}
+
+/**
+ * An object set down where it stands: tilted with the ground when `align`
+ * (over its plate for a rock, `reach` metres otherwise), and a rock settled
+ * onto its plate
+ */
+export function setDown<T extends MapObject>(terrain: MapTerrain, o: T, rock: RockShape | undefined, align: boolean, reach = 2): T {
+  const tilted = align ? alignedToSlope(terrain, o, rock ? Math.max(rock.base[0], rock.base[1]) : reach) : o;
+  return rock ? settled(terrain, tilted, rock) : tilted;
+}
+
+function withTilt<T extends MapObject>(o: T, pitch: number, roll: number): T {
   const out = { ...o };
   if (pitch) out.pitch = pitch;
   else delete out.pitch;
@@ -162,7 +252,9 @@ export class ObjectGrid {
 /**
  * One dab of the scatter brush: tries `density * area` spots weighted by
  * the brush and keeps those far enough from every object. Returns the new
- * objects (not yet in the map).
+ * objects (not yet in the map). Rocks (a shape from `rockOf`) settle onto
+ * their plate when sinking on slopes; everything else sinks by the slope
+ * under its middle.
  */
 export function scatterDab(
   terrain: MapTerrain,
@@ -173,6 +265,7 @@ export function scatterDab(
   ids: ObjectIds,
   random: () => number,
   share = 1,
+  rockOf: (asset: string) => RockShape | undefined = () => undefined,
 ): MapObject[] {
   if (!options.assets.length) return [];
   const area = Math.PI * brush.radius * brush.radius;
@@ -188,10 +281,12 @@ export function scatterDab(
     if (!insideMap(terrain, p, 1)) continue;
     if (grid.near(p, options.minDistance)) continue;
     const scale = options.scaleMin + (options.scaleMax - options.scaleMin) * random();
-    const slope = options.sinkOnSlope ? slopeAt(terrain, p.x, p.y) : 0;
+    const asset = options.assets[Math.floor(random() * options.assets.length)];
+    const rock = rockOf(asset);
+    const slope = options.sinkOnSlope && !rock ? slopeAt(terrain, p.x, p.y) : 0;
     const object: MapObject = {
       id: ids.take(),
-      asset: options.assets[Math.floor(random() * options.assets.length)],
+      asset,
       x: round(p.x),
       y: round(p.y),
       // About half a metre of sinking per 10 degrees, scaled with the object
@@ -201,9 +296,9 @@ export function scatterDab(
     };
     const tint = variedTint(options.tint, options.tintVariation, random);
     if (tint) object.tint = tint;
-    if (options.alignToSlope) Object.assign(object, alignedToSlope(terrain, object));
-    grid.add(object);
-    out.push(object);
+    const placed = setDown(terrain, object, options.sinkOnSlope ? rock : undefined, options.alignToSlope);
+    grid.add(placed);
+    out.push(placed);
   }
   return out;
 }

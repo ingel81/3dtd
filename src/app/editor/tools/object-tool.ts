@@ -7,7 +7,8 @@
  * toggles), the blue arrow lifts and lowers, the square and the ground
  * inside the ring move freely; Ctrl snaps turns to 15 degrees, heights to
  * half metres and scales to tenths. Delete removes the selection, Ctrl+D
- * duplicates it, End drops it onto the ground.
+ * duplicates it, End drops it onto the ground. Rocks settle onto their
+ * plate wherever they are set down (placed, scattered, dropped).
  */
 import type { MapObject, MapPoint } from '../../world/custom-map/map-document';
 import { ObjectsCommand, type ObjectEdit } from '../model/editor-document';
@@ -19,7 +20,8 @@ import {
   duplicateObjects,
   objectsUnderBrush,
   scatterDab,
-  alignedToSlope,
+  setDown,
+  rockShape,
   objectsAlong,
   wallAlong,
   wallKitOf,
@@ -243,10 +245,14 @@ export class ObjectTool implements EditorTool {
     b.origin ??= { x: p.hit.x, y: p.hit.y };
     const origin = b.origin;
     // With symmetry the scatter grows in the stroke's own sector and is copied to the others
-    const own = scatterDab(t, p.hit, brush, { ...s.scatter, assets: this.scatterAssets(ctx) }, b.grid, b.ids, Math.random, Math.min(dt, 0.1) * 6)
+    const rockOf = (asset: string) => rockShape(ctx.catalog.object(asset));
+    const own = scatterDab(t, p.hit, brush, { ...s.scatter, assets: this.scatterAssets(ctx) }, b.grid, b.ids, Math.random, Math.min(dt, 0.1) * 6, rockOf)
       .filter((o) => sameSector(mode, o, origin));
-    let images = objectImages(own, symmetryImages(mode, t.grid.columns === t.grid.rows), () => b.ids.take(), t.width / 2, t.depth / 2);
-    if (s.scatter.alignToSlope) images = images.map((o) => alignedToSlope(t, o));
+    // Each image tilts with its own ground, and a rock settles from the ground up on its own
+    const images = objectImages(own, symmetryImages(mode, t.grid.columns === t.grid.rows), () => b.ids.take(), t.width / 2, t.depth / 2).map((o) => {
+      const rock = s.scatter.sinkOnSlope ? rockOf(o.asset) : undefined;
+      return setDown(t, rock ? { ...o, z: 0 } : o, rock, s.scatter.alignToSlope);
+    });
     for (const o of images) b.grid.add(o);
     const placed = [...own, ...images];
     if (!placed.length) return;
@@ -282,7 +288,9 @@ export class ObjectTool implements EditorTool {
       return true;
     }
     if (e.key === 'End' && sel.length) {
-      ctx.editor.execute(ObjectsCommand.change('Drop to the ground', ctx.editor.doc, sel, (o) => ({ ...o, z: 0 })));
+      // A rock settles onto its plate: on a slope its middle sinks below the ground
+      const t = ctx.editor.doc.terrain;
+      ctx.editor.execute(ObjectsCommand.change('Drop to the ground', ctx.editor.doc, sel, (o) => setDown(t, { ...o, z: 0 }, rockShape(ctx.catalog.object(o.asset)), false)));
       return true;
     }
     if (!e.ctrlKey && !e.metaKey && (k === 'w' || k === 'e' || k === 'r')) {
@@ -414,8 +422,8 @@ export class ObjectTool implements EditorTool {
       return;
     }
     const images = objectImages(own, symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
-    const reach = ctx.catalog.object(s.asset!).radius;
-    const placed = s.alignToSlope ? [...own, ...images].map((o) => alignedToSlope(t, o, reach)) : [...own, ...images];
+    const entry = ctx.catalog.object(s.asset!);
+    const placed = [...own, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope, entry.radius));
     ctx.editor.execute(ObjectsCommand.add(kit ? `${kit.name} along a line` : `${ctx.catalog.object(s.asset!).name} along a line`, doc, placed));
     ctx.status(`${placed.length} objects placed along ${Math.round(lineLength(line))} m`);
   }
@@ -443,8 +451,8 @@ export class ObjectTool implements EditorTool {
     const ids = new ObjectIds([...doc.objects, object]);
     const images = objectImages([object], symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
     // Each copy tilts with its own ground: a mirror image does not lean as the original does
-    const reach = ctx.catalog.object(s.asset).radius;
-    const placed = s.alignToSlope ? [object, ...images].map((o) => alignedToSlope(t, o, reach)) : [object, ...images];
+    const entry = ctx.catalog.object(s.asset);
+    const placed = [object, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope, entry.radius));
     ctx.editor.execute(ObjectsCommand.add(`Place ${ctx.catalog.object(s.asset).name}`, doc, placed));
   }
 

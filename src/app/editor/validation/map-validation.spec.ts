@@ -44,6 +44,28 @@ describe('validateMap', () => {
   });
 });
 
+describe('validateMap, rocks', () => {
+  it('reports rocks whose plate hangs over a slope, pointing at the worst', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400 });
+    const g = doc.terrain.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 0.4 * i * g.cellSize;
+    const heap = { base: [3, 2, 0] as const, height: 2.6 };
+    doc.objects.push(
+      { id: 'o1', asset: 'heap', x: 50, y: 50, z: 0, rotation: 0, scale: 1 },
+      { id: 'o2', asset: 'heap', x: 60, y: 50, z: 0, rotation: 0, scale: 1.5 },
+      { id: 'o3', asset: 'heap', x: 70, y: 50, z: -3, rotation: 0, scale: 1 },
+      { id: 'o4', asset: 'bush', x: 80, y: 50, z: 0, rotation: 0, scale: 1 },
+    );
+    const rockOf = (a: string) => (a === 'heap' ? heap : undefined);
+    const issue = validateMap(doc, { rockOf }).find((i) => i.code === 'object-floating');
+    expect(issue?.severity).toBe('warning');
+    expect(issue?.target).toEqual({ kind: 'object', id: 'o2' });
+    expect(issue?.message).toMatch(/^2 rocks hang up to 1\.8 m/);
+    // Without the catalogue's rock shapes nothing is checked
+    expect(codes(doc)).not.toContain('object-floating');
+  });
+});
+
 describe('validateMap, ground and limits', () => {
   it('reports spawns beyond the 32 the game uses', () => {
     const doc = createMapDocument({ id: 'm', name: 'M', width: 800, depth: 400 });

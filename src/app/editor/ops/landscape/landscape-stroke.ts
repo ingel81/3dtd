@@ -24,7 +24,7 @@ import type { GridRect } from '../../model/grid';
 import { RegionRecorder } from '../../model/region-patch';
 import { BodyAddCommand, LayerListCommand, RiverListCommand, WaterSwapCommand } from '../../model/terrain-commands';
 import { MAX_LAYERS } from '../paint-ops';
-import { ObjectGrid, ObjectIds } from '../object-ops';
+import { ObjectGrid, ObjectIds, rockShape, settled } from '../object-ops';
 import { edgePolyline, nearestOnPolyline } from '../path-graph';
 import { BODY_COLORS, emptyWater } from '../water-ops';
 import { mirrorChange, objectImages, sameSector, symmetryImages, type SymmetryMode } from '../symmetry';
@@ -317,6 +317,19 @@ export class LandscapeStroke {
     if (this.pathsBefore) parts.push(new SnapshotCommand('Roads', { paths: this.pathsBefore }, { paths: structuredClone(doc.paths) }));
     parts.push(...this.removed);
     if (this.added.length) {
+      // Rocks settle onto their plates on the ground the stroke leaves behind (it may have shaped it after placing them)
+      const moved: string[] = [];
+      for (const o of this.added) {
+        const rock = rockShape(this.catalog.object(o.asset));
+        if (!rock) continue;
+        const next = settled(t, o, rock);
+        if (next === o) continue;
+        Object.assign(o, next);
+        if (!next.pitch) delete o.pitch;
+        if (!next.roll) delete o.roll;
+        moved.push(o.id);
+      }
+      if (moved.length) this.editor.emit({ objects: moved });
       const start = doc.objects.length - this.added.length;
       parts.push(new ObjectsCommand('Objects', this.added.map((o, k) => ({ before: null, after: { ...o }, index: start + k }))));
     }

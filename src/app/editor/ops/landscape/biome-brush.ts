@@ -469,7 +469,8 @@ function growObjects(stroke: LandscapeStroke, reach: BiomeReach | null, strength
       if (!stroke.freeForObject(px, py, footprint, o.zone === 'pool')) return;
       if (stroke.grid.near({ x: px, y: py }, o.spacing)) return;
       const s = o.scale[0] + (o.scale[1] - o.scale[0]) * n.hash(ci, cj, kind * 4 + 4);
-      const slope = slopeAt(t, px, py);
+      // Rocks settle onto their plates when the stroke ends; the rest sinks by the slope
+      const slope = stroke.catalog.object(asset).base ? 0 : slopeAt(t, px, py);
       const obj = stroke.addObject({
         asset,
         x: Math.round(px * 100) / 100,

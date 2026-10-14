@@ -30,7 +30,7 @@ import { resample, simplify } from '../../../src/app/editor/ops/landscape/lines'
 import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from '../../../src/app/editor/ops/landscape/river';
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from '../../../src/app/editor/ops/landscape/road';
 import { cliffAlong, formDab, type FormKind } from '../../../src/app/editor/ops/landscape/shapes';
-import { ObjectGrid, ObjectIds, scatterDab, type ScatterOptions, DEFAULT_SCATTER } from '../../../src/app/editor/ops/object-ops';
+import { ObjectGrid, ObjectIds, scatterDab, settled, rockShape, type ScatterOptions, DEFAULT_SCATTER } from '../../../src/app/editor/ops/object-ops';
 import { autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from '../../../src/app/editor/ops/paint-ops';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from '../../../src/app/editor/ops/path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../../../src/app/editor/ops/path-terrain';
@@ -504,11 +504,12 @@ export class LevelKit {
     return this.freeCheck.freeForObject(x, y, footprint);
   }
 
-  /** Place one object (and its symmetric images) */
+  /** Place one object (and its symmetric images); a rock settles onto its plate as in the editor */
   place(asset: string, x: number, y: number, o: PlaceOptions = {}): MapObject {
     if (!this.catalog.objects.has(asset)) throw new Error(`${this.spec.id}: no asset ${asset}`);
     const ids = new ObjectIds(this.doc.objects);
-    const object: MapObject = {
+    const rock = rockShape(this.catalog.object(asset));
+    let object: MapObject = {
       id: ids.take(),
       asset,
       x: r2(x),
@@ -523,7 +524,11 @@ export class LevelKit {
       ...(o.roll ? { roll: r3(o.roll) } : {}),
     };
     const t = this.doc.terrain;
-    const images = this.symmetry === 'none' ? [] : objectImages([object], symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
+    let images = this.symmetry === 'none' ? [] : objectImages([object], symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
+    if (rock) {
+      object = settled(t, object, rock);
+      images = images.map((i) => settled(t, i, rock));
+    }
     this.doc.objects.push(object, ...images);
     this.freeCheck = null;
     return object;
@@ -543,7 +548,7 @@ export class LevelKit {
     const placed: MapObject[] = [];
     for (const c of dabs(where, b.radius / 2)) {
       for (let t = 0; t < hold; t += 0.1) {
-        for (const o of scatterDab(this.doc.terrain, c, b, { ...DEFAULT_SCATTER, ...options, assets }, grid, ids, random, 0.6)) {
+        for (const o of scatterDab(this.doc.terrain, c, b, { ...DEFAULT_SCATTER, ...options, assets }, grid, ids, random, 0.6, (a) => rockShape(this.catalog.object(a)))) {
           if (avoidRoads && !this.free(o.x, o.y, this.catalog.object(o.asset).radius)) continue;
           placed.push(o);
         }
@@ -740,11 +745,16 @@ export class LevelKit {
 
   /** The editor's check */
   issues(): MapIssue[] {
-    return validateMap(this.doc, { blocksBuild: (a) => this.catalog.object(a).blocksBuild });
+    return validateMap(this.doc, { blocksBuild: (a) => this.catalog.object(a).blocksBuild, rockOf: (a) => rockShape(this.catalog.object(a)) });
   }
 
   /** The finished document; throws on the editor check's errors */
   finish(): CustomMapDocument {
+    // Rocks placed before the ground under them was shaped: lowered onto their plates, as the check asks
+    this.doc.objects = this.doc.objects.map((o) => {
+      const rock = rockShape(this.catalog.object(o.asset));
+      return rock ? settled(this.doc.terrain, o, rock) : o;
+    });
     const issues = this.issues();
     // LEVEL_LOG=1 prints what the editor's panels would show: lanes, objects, warnings, layers left out
     if (process.env['LEVEL_LOG']) {

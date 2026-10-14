@@ -4,7 +4,7 @@
  * cannot reach the HQ); warnings are worth a look (very short lanes, roads
  * under water, objects on the road).
  */
-import type { CustomMapDocument, MapPoint } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapObject, MapPoint } from '../../world/custom-map/map-document';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { WATER_DEPTH_M } from '../../world/world-provider';
@@ -12,6 +12,7 @@ import { dangerLook } from '../../world/custom-map/render/asset-catalog';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { heightAt, insideMap, slopeAt } from '../model/grid';
 import { components, edgePolyline, nearestOnEdges, nearestOnPolyline, routeBetween } from '../ops/path-graph';
+import { undersideGap, type RockShape } from '../ops/object-ops';
 
 export type IssueSeverity = 'error' | 'warning';
 
@@ -40,6 +41,7 @@ export interface MapIssue {
     | 'spawn-near-hq'
     | 'path-under-water'
     | 'object-on-path'
+    | 'object-floating'
     | 'path-steep'
     | 'wave-list'
     | 'unknown-tower';
@@ -63,6 +65,8 @@ export interface ValidationRules {
   maxMarkerSlope: number;
   /** Danger-coloured decoration closer than this to a road is reported, metres */
   dangerColorReach: number;
+  /** A rock whose underside hangs further than this over the ground is reported, metres */
+  maxFloat: number;
 }
 
 export const DEFAULT_RULES: ValidationRules = {
@@ -72,6 +76,7 @@ export const DEFAULT_RULES: ValidationRules = {
   maxPathSlope: 30,
   maxMarkerSlope: 30,
   dangerColorReach: 30,
+  maxFloat: 0.25,
 };
 
 export interface ValidationOptions {
@@ -80,6 +85,8 @@ export interface ValidationOptions {
   blocksBuild?: (asset: string) => boolean;
   /** Whether an asset wears the colours of danger (default: the renderer's danger list, dangerLook) */
   dangerColor?: (asset: string) => boolean;
+  /** A rock's shape from the catalogue (`rockShape`), undefined for everything else; without it no rock is checked */
+  rockOf?: (asset: string) => RockShape | undefined;
 }
 
 export function validateMap(doc: CustomMapDocument, options: ValidationOptions = {}): MapIssue[] {
@@ -239,6 +246,31 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       focus: firstBlocked,
       target: { kind: 'object', id: firstBlocked.id },
     });
+  }
+
+  // Rocks standing level on a slope: the plate under them sticks out into the air on the low side
+  if (options.rockOf) {
+    let floating = 0;
+    let worst: { o: MapObject; gap: number } | null = null;
+    for (const o of doc.objects) {
+      const rock = options.rockOf(o.asset);
+      if (!rock) continue;
+      const gap = undersideGap(t, o, rock.base);
+      if (gap <= rules.maxFloat) continue;
+      floating++;
+      if (!worst || gap > worst.gap) worst = { o, gap };
+    }
+    if (worst) {
+      issues.push({
+        severity: 'warning',
+        code: 'object-floating',
+        message:
+          (floating === 1 ? `A rock hangs ${worst.gap.toFixed(1)} m` : `${floating} rocks hang up to ${worst.gap.toFixed(1)} m`) +
+          ' over the ground on a slope. Select it and press End to settle it, or Align to slope.',
+        focus: worst.o,
+        target: { kind: 'object', id: worst.o.id },
+      });
+    }
   }
 
   const danger = options.dangerColor ?? ((asset: string) => dangerLook(asset) !== null);

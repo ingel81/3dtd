@@ -1,10 +1,11 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
+import type { MapObject } from '../../world/custom-map/map-document';
 import { heightAt } from '../model/grid';
 import { brushWeight, stepRadius } from './brush';
 import { autoPaint, defaultAutoRules, dominantLayer, moveLayer, paintDab, readWeights, removeLayer } from './paint-ops';
 import { erodeDab, flattenDab, noiseDab, raiseDab, rampBetween, smoothDab, terraceDab } from './terrain-ops';
 import { basinSpillHeight, emptyWater, fillBasin, waterMaskDab } from './water-ops';
-import { DEFAULT_SCATTER, ObjectGrid, ObjectIds, duplicateObjects, objectsInBox, scatterDab, slopeTilt, alignedToSlope, variedTint } from './object-ops';
+import { DEFAULT_SCATTER, MAX_SINK, ObjectGrid, ObjectIds, duplicateObjects, objectsInBox, scatterDab, settled, slopeTilt, alignedToSlope, undersideGap, variedTint, type RockShape } from './object-ops';
 import { Euler, Quaternion, Vector3 } from 'three';
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
 import { resizeMap } from './resize';
@@ -297,5 +298,57 @@ describe('align to slope', () => {
     const flatDoc = createMapDocument({ id: 'f', name: 'F', width: 100, depth: 100 });
     const o = { id: 'o', asset: 'rock', x: 0, y: 0, z: 0, rotation: 1, scale: 1, pitch: 0.4 };
     expect(alignedToSlope(flatDoc.terrain, o)).toEqual({ id: 'o', asset: 'rock', x: 0, y: 0, z: 0, rotation: 1, scale: 1 });
+  });
+});
+
+describe('settling rocks', () => {
+  /** A slope rising `rise` metres per metre east */
+  const slope = (rise: number) => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 200, depth: 200, cellSize: 2, starter: false });
+    const g = doc.terrain.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = rise * (i * 2);
+    return doc.terrain;
+  };
+  // A flat-bottomed heap: plate 4 m by 2 m, 2.6 m high
+  const heap: RockShape = { base: [4, 2, 0], height: 2.6 };
+  const at = (rotation: number): MapObject => ({ id: 'o1', asset: 'heap', x: 0, y: 0, z: 0, rotation, scale: 1 });
+
+  it('measures how far a level plate hangs over a slope, by the plate turned with the rock', () => {
+    const t = slope(0.2);
+    // Long side across the slope (east-west is the model's x at no turn, map x runs the other way): 4 m * 0.2
+    expect(undersideGap(t, at(0), heap.base)).toBeCloseTo(0.8, 1);
+    expect(undersideGap(t, at(Math.PI / 2), heap.base)).toBeCloseTo(0.4, 1);
+    expect(undersideGap(t, { ...at(0), z: -0.8 }, heap.base)).toBe(0);
+    // Tilted with the slope it lies on it, however it is turned
+    for (const r of [0, 0.7, 2.5]) expect(undersideGap(t, alignedToSlope(t, at(r), 4), heap.base)).toBeLessThan(0.03);
+    expect(undersideGap(slope(0), at(1), heap.base)).toBe(0);
+  });
+
+  it('sinks a rock on a gentle slope and tilts it on a steep one instead of burying it', () => {
+    const gentle = settled(slope(0.1), at(0), heap);
+    expect(gentle.z).toBeCloseTo(-0.4, 1);
+    expect(gentle.pitch ?? 0).toBe(0);
+    expect(gentle.roll ?? 0).toBe(0);
+    const steepGround = slope(0.7);
+    const steep = settled(steepGround, at(0), heap);
+    expect(steep.roll ?? steep.pitch).toBeTruthy();
+    expect(steep.z).toBeGreaterThanOrEqual(-MAX_SINK * heap.height - 0.01);
+    expect(undersideGap(steepGround, steep, heap.base)).toBe(0);
+    // A rock already in the ground stays where it is
+    const deep = { ...at(0), z: -2 };
+    expect(settled(slope(0.1), deep, heap)).toBe(deep);
+  });
+
+  it('scatters rocks settled on their plates, other objects sunk by the slope', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 200, depth: 200, cellSize: 2, starter: false });
+    const g = doc.terrain.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 0.2 * (i * 2);
+    let seed = 5;
+    const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const placed = scatterDab(doc.terrain, { x: 0, y: 0 }, { radius: 30, strength: 1, falloff: 0.3 }, { ...DEFAULT_SCATTER, assets: ['heap', 'bush'], density: 40 }, new ObjectGrid(8), new ObjectIds([]), random, 1, (a) => (a === 'heap' ? heap : undefined));
+    const heaps = placed.filter((o) => o.asset === 'heap');
+    expect(heaps.length).toBeGreaterThan(3);
+    for (const o of heaps) expect(undersideGap(doc.terrain, o, heap.base)).toBe(0);
+    expect(placed.filter((o) => o.asset === 'bush').every((o) => o.z < 0)).toBe(true);
   });
 });

@@ -3,7 +3,8 @@
  * file reads and validates, its content hash is the listed one, every spawn
  * reaches the HQ over the map's roads as the game routes them (300 to 1200 m),
  * no object that blocks building stands on a road, every asset and material
- * is in the catalogue, no decoration reads as danger (DANGER_LOOK), objects
+ * is in the catalogue, no decoration reads as danger (DANGER_LOOK), no rock
+ * hangs over the ground with its underside (the check's object-floating), objects
  * and file size stay in budget (docs/SHOWCASE_LEVELS.md, "Regeln für alle
  * Level").
  *
@@ -15,11 +16,13 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { edgePolyline, nearestOnEdges, nearestOnPolyline } from '../../src/app/editor/ops/path-graph';
 import { validateMap } from '../../src/app/editor/validation/map-validation';
+import { rockShape } from '../../src/app/editor/ops/object-ops';
 import { CustomMapStreets } from '../../src/app/world/custom-map/custom-map-streets';
 import { MAP_METERS_PER_DEGREE, mapToGeo, type CustomMapDocument } from '../../src/app/world/custom-map/map-document';
 import { contentHash, unpackMapFile, validateMapDocument } from '../../src/app/world/custom-map/map-file';
 import type { ShippedMapIndex } from '../../src/app/world/custom-map/map-store';
 import { dangerLook } from '../../src/app/world/custom-map/render/asset-catalog';
+import { DEMO_ROCKS } from '../../src/app/world/custom-map/demo-map';
 
 const MAPS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../public/maps');
 
@@ -37,7 +40,7 @@ const ROAD_GATES = new Set(['castle-gate', 'gate-ruin', 'ruin-arch', 'rock-arch'
 
 interface CatalogFile {
   materials: { id: string }[];
-  objects: { id: string; blocksBuild?: boolean }[];
+  objects: { id: string; blocksBuild?: boolean; base?: [number, number, number]; height: number }[];
 }
 
 const index = JSON.parse(readFileSync(resolve(MAPS_DIR, 'index.json'), 'utf8')) as ShippedMapIndex;
@@ -69,6 +72,10 @@ async function lanes(doc: CustomMapDocument): Promise<{ spawn: string; length: n
 }
 
 describe('shipped maps check', () => {
+  it("knows the demo valley's rocks as the catalogue measures them", () => {
+    for (const [id, rock] of Object.entries(DEMO_ROCKS)) expect(rock, id).toEqual(rockShape(objects.get(id)!));
+  });
+
   it('lists maps with distinct ids', () => {
     expect(index.maps.length).toBeGreaterThan(0);
     expect(new Set(index.maps.map((m) => m.id)).size).toBe(index.maps.length);
@@ -118,6 +125,11 @@ describe('shipped maps check', () => {
         const used = [...doc!.terrain.layers.map((l) => l.material), doc!.terrain.cliffMaterial];
         expect(unknownAssets, 'assets not in the catalogue').toEqual([]);
         expect(used.filter((m) => !materials.has(m)), 'materials not in the catalogue').toEqual([]);
+      });
+
+      it('sets every rock down on the ground, none level with its underside in the air', () => {
+        const issues = validateMap(doc!, { rockOf: (a) => rockShape(objects.get(a) ?? { height: 0 }) });
+        expect(issues.filter((i) => i.code === 'object-floating').map((i) => `${i.message} [${i.target?.id}]`)).toEqual([]);
       });
 
       it('places no decoration in the colours of danger', () => {

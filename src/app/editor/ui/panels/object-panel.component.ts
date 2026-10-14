@@ -3,7 +3,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapObject } from '../../../world/custom-map/map-document';
 import { tagName, type ObjectAssetEntry } from '../../catalog/asset-catalog';
 import { ObjectsCommand } from '../../model/editor-document';
-import { alignedToSlope, duplicateObjects, variedTint, wallKitOf } from '../../ops/object-ops';
+import { setDown, rockShape, duplicateObjects, variedTint, wallKitOf } from '../../ops/object-ops';
 import type { EditorSettings, GizmoMode, ObjectMode } from '../../tools/tool';
 
 type ObjectToolSettings = EditorSettings['objects'];
@@ -148,12 +148,16 @@ export class ObjectPanelComponent {
     this.session.patchSettings((s) => (s.objects.alignToSlope = on));
   }
 
-  /** Each selected object tilted with the ground under it */
+  /** Each selected object tilted with the ground under it; a rock lies down on it anew, settled onto its plate */
   alignSelection(): void {
     const t = this.session.doc?.terrain;
     if (!t) return;
     const catalog = this.session.catalog();
-    this.change('Align to slope', (o) => alignedToSlope(t, o, catalog.object(o.asset).radius));
+    this.change('Align to slope', (o) => {
+      const entry = catalog.object(o.asset);
+      const rock = rockShape(entry);
+      return setDown(t, rock ? { ...o, z: 0 } : o, rock, true, entry.radius);
+    });
   }
 
   upright(): void {

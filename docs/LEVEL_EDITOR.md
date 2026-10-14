@@ -203,8 +203,17 @@ Spiegel.
 
 **Objects (5).** Palette aus dem Katalog mit Bildern, Kategorien (auch Structures und Effects), Biom-Filter nach den
 Tags des Katalogs und Suche (Name, Id oder Tag).
+- Felsen mit Unterseite (Katalog `base`, siehe [CUSTOM_MAPS.md](CUSTOM_MAPS.md), Assets) setzt der Editor auf ihre
+  Platte (`settled` in `ops/object-ops.ts`): Wo die Platte über dem Hang hängt (`undersideGap`: Ebene der Platte,
+  gekippt mit `pitch`/`roll`, gegen den Boden auf zwei Ellipsen unter ihr), sinkt der Fels, bis sie überall aufliegt,
+  höchstens 35 % seiner Höhe (`MAX_SINK`); müsste er tiefer, kippt er zuerst in Vierteln zum Hang hin, bis der Rest
+  passt. Das gilt beim Setzen (Place, Line), beim Streuen mit „Sink on slope“, für Felsen der Landscape-Pinsel und
+  des Flussufers (am Ende des Strichs, auf dem Boden, den der Strich hinterlässt), bei Ende (Drop to the ground: Höhe
+  0, dann absetzen) und bei „Align to slope“ im Panel (Fels neu aufs Gelände gelegt). Andere Objekte sinken beim
+  Streuen weiter nach der Neigung unter ihrer Mitte
 - Place: ein Klick setzt das gewählte Objekt (Raster-Fang 1 bis 8 m, zufällige Drehung; „Align to slope“ kippt es mit
-  dem Boden unter seinem Fußabdruck, `pitch` und `roll` aus `slopeTilt`, jedes Symmetrie-Bild mit seinem eigenen Boden)
+  dem Boden unter seinem Fußabdruck, bei Felsen unter ihrer Platte, `pitch` und `roll` aus `slopeTilt`, jedes
+  Symmetrie-Bild mit seinem eigenen Boden)
 - Scatter: halten streut die gewählten Assets (mehrere wählbar) mit Dichte, Größenbereich, Mindestabstand, zufälliger
   Drehung, Einsinken am Hang und „Align to slope“; Shift dünnt aus
 - Line: das gewählte Objekt in einer Reihe, frei gezogen oder per Klick entlang einer Straße oder eines Flusses: Abstand,
@@ -346,6 +355,7 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
 | `path-under-water` | Warnung | Straße (keine Brücke) unter Wasser |
 | `path-steep` | Warnung | Straße steiler als 30 Grad |
 | `object-on-path` | Warnung | Blockierendes Objekt auf einer Straße |
+| `object-floating` | Warnung | Felsen, deren Platte mehr als 25 cm über dem Boden hängt (ein Fels, der waagerecht am Hang steht); zählt sie und wählt den schlimmsten. Ende oder „Align to slope“ setzt ihn ab |
 | `danger-color` | Warnung | Deko in Gefahrenfarben (rote Pilze, rote Blüten; `DANGER_LOOK` in `render/asset-catalog.ts`, dieselbe Liste wie für die mitgelieferten Karten) bis 30 m an einer Straße: Rot steht im Spiel für Gegner, Treffer und Feuer |
 
 ## Speichern und Dateien

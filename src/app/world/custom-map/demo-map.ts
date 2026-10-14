@@ -6,7 +6,9 @@ import {
   type MapPathEdge,
   type MapPathNode,
   type MapPoint,
+  type MapTerrain,
 } from './map-document';
+import { settled, type RockShape } from '../../editor/ops/object-ops';
 
 /**
  * A rich sample map, generated: rolling hills, a terraced mountain with
@@ -35,6 +37,12 @@ export const DEMO_LAYERS = [
   'sand',
   'grass-dry',
 ] as const;
+
+/** The rocks the map uses as the asset catalogue measures them (`base`, `height`; a spec keeps them equal) */
+export const DEMO_ROCKS: Readonly<Record<string, RockShape>> = {
+  'rock-small': { base: [0.6, 0.6, 0], height: 0.9 },
+  'rock-large': { base: [3.7, 1.8, 0], height: 2.6 },
+};
 
 const L = Object.fromEntries(DEMO_LAYERS.map((id, k) => [id, k])) as Record<(typeof DEMO_LAYERS)[number], number>;
 
@@ -547,6 +555,23 @@ export function createDemoMap(seed = 7): CustomMapDocument {
     place('wall-stone', -150 + Math.cos(a) * 16, -190 + Math.sin(a) * 16, 1, a + Math.PI / 2);
   }
 
+  const terrain: MapTerrain = {
+    width: SIZE,
+    depth: SIZE,
+    grid: { columns: COLS, rows: COLS, cellSize: CELL, heights },
+    layers: DEMO_LAYERS.map((material) => ({ material })),
+    splat: { resolution: SPLAT_RES, maps: [s0, s1] },
+    water: { level: WATER_LEVEL, mask, color: '#1f4246' },
+    cliffAngle: 38,
+    cliffMaterial: 'cliff',
+  };
+  // Rocks settle on the finished ground (the village levelled some after they were set), as the editor
+  // sets them down: lowered until the plate touches, tilted with steep slopes, none level with its underside in the air
+  for (const [k, o] of objects.entries()) {
+    const rock = DEMO_ROCKS[o.asset];
+    if (rock) objects[k] = settled(terrain, o, rock);
+  }
+
   const now = new Date(0).toISOString();
   return {
     format: MAP_FORMAT,
@@ -559,16 +584,7 @@ export function createDemoMap(seed = 7): CustomMapDocument {
       createdAt: now,
       updatedAt: now,
     },
-    terrain: {
-      width: SIZE,
-      depth: SIZE,
-      grid: { columns: COLS, rows: COLS, cellSize: CELL, heights },
-      layers: DEMO_LAYERS.map((material) => ({ material })),
-      splat: { resolution: SPLAT_RES, maps: [s0, s1] },
-      water: { level: WATER_LEVEL, mask, color: '#1f4246' },
-      cliffAngle: 38,
-      cliffMaterial: 'cliff',
-    },
+    terrain,
     objects,
     paths: { nodes, edges },
     spawns: [

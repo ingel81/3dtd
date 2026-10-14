@@ -46,6 +46,7 @@ import { PanelTool, TOOL_BRUSH_RADIUS, TOOLS, defaultSettings, type EditorSettin
 import { DEFAULT_BRUSH, type BrushSettings } from '../ops/brush';
 import { WaterTool } from '../tools/water-tool';
 import { validateMap, type MapIssue } from '../validation/map-validation';
+import { rockShape } from '../ops/object-ops';
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
 import { DEFAULT_W3X_OPTIONS, loadW3xImporter, type W3xImportOptions, type W3xImportReport } from '../import/w3x-seam';
 import { WORLD_URL_PARAM, worldUrlValue } from '../../world/world-ref';
@@ -809,7 +810,7 @@ export class EditorSession implements OnDestroy {
     const doc = this.doc;
     if (!doc) return [];
     const catalog = this.catalog();
-    const issues = validateMap(doc, { blocksBuild: (asset) => catalog.object(asset).blocksBuild });
+    const issues = validateMap(doc, { blocksBuild: (asset) => catalog.object(asset).blocksBuild, rockOf: (asset) => rockShape(catalog.object(asset)) });
     this.issues.set(issues);
     return issues;
   }
