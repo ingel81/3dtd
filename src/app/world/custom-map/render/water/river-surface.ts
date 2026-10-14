@@ -5,6 +5,7 @@ import type { HeightTexture } from '../terrain/height-texture';
 import { createWaterMaterial, setWaterColor, setWaterEffects, setWaterSky } from './water-material';
 import type { MapEffects } from '../map-effects';
 import type { SceneCopy } from './scene-copy';
+import { setHeatHaze } from './heat-haze';
 
 /**
  * A river or lava flow: a ribbon along the river's line (Catmull-Rom through
@@ -82,6 +83,7 @@ export class RiverSurface {
   setEffects(on: MapEffects, copy: SceneCopy, kind: MapRiver['kind']): void {
     const { refraction } = setWaterEffects(this.mesh.material, kind, on, copy);
     this.mesh.onBeforeRender = refraction ? (renderer) => copy.capture(renderer) : () => undefined;
+    setHeatHaze(this.mesh, on.lavaGlow && kind === 'lava' ? copy : null);
   }
 
   update(dt: number): void {
@@ -89,6 +91,7 @@ export class RiverSurface {
   }
 
   dispose(): void {
+    setHeatHaze(this.mesh, null);
     this.mesh.geometry.dispose();
     this.mesh.material.dispose();
     this.mesh.removeFromParent();

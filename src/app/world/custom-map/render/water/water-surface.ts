@@ -23,6 +23,7 @@ import { uploadRect } from '../terrain/texture-ranges';
 import { createWaterMaterial, setWaterColor, setWaterEffects, setWaterFlow, setWaterMask, setWaterSky } from './water-material';
 import type { MapEffects } from '../map-effects';
 import type { SceneCopy } from './scene-copy';
+import { setHeatHaze } from './heat-haze';
 import { bakeFlowMap } from './flow-map';
 
 /**
@@ -58,6 +59,8 @@ export class WaterSurface {
   kind: MapWater['kind'];
   private effects: { on: MapEffects; copy: SceneCopy } | null = null;
   private beforeRender: Mesh['onBeforeRender'] = () => undefined;
+  /** The frame copy lava's heat shimmer reads, null when it is off (heat-haze.ts) */
+  private hazeCopy: SceneCopy | null = null;
 
   constructor(
     private readonly field: HeightField,
@@ -94,6 +97,8 @@ export class WaterSurface {
     if (kind !== this.kind) {
       const sky = this.material.uniforms;
       const old = this.material;
+      // The haze reads the old material's clock: built again with the new one (setEffects below)
+      for (const m of this.meshes()) setHeatHaze(m, null);
       this.kind = kind;
       this.material = this.makeMaterial(water);
       // Keep the sky and light the old material had
@@ -151,6 +156,9 @@ export class WaterSurface {
     const { refraction } = setWaterEffects(this.material, this.kind ?? 'water', on, copy);
     this.beforeRender = refraction ? (renderer) => copy.capture(renderer) : () => undefined;
     for (const m of this.meshes()) m.onBeforeRender = this.beforeRender;
+    // Lava's heat shimmer over every tile
+    this.hazeCopy = on.lavaGlow && this.kind === 'lava' ? copy : null;
+    for (const m of this.meshes()) setHeatHaze(m, this.hazeCopy);
   }
 
   update(dt: number): void {
@@ -158,6 +166,7 @@ export class WaterSurface {
   }
 
   dispose(): void {
+    for (const m of this.meshes()) setHeatHaze(m, null);
     for (const m of this.meshes()) m.geometry.dispose();
     this.tiles.clear();
     this.apronMesh = null;
@@ -176,6 +185,7 @@ export class WaterSurface {
     mesh.receiveShadow = true;
     // Refraction copies the frame before the first tile draws (once a frame)
     mesh.onBeforeRender = this.beforeRender;
+    if (this.hazeCopy) setHeatHaze(mesh, this.hazeCopy);
     mesh.matrixAutoUpdate = false;
     this.object.add(mesh);
     return mesh;
@@ -187,6 +197,7 @@ export class WaterSurface {
     const old = this.tiles.get(key);
     const geometry = this.buildGeometry(water, ti * TILE, tj * TILE);
     if (old) {
+      setHeatHaze(old, null);
       old.geometry.dispose();
       old.removeFromParent();
       this.tiles.delete(key);
@@ -197,6 +208,7 @@ export class WaterSurface {
 
   private buildApron(water: MapWater, apron: ApronProfile | null): void {
     if (this.apronMesh) {
+      setHeatHaze(this.apronMesh, null);
       this.apronMesh.geometry.dispose();
       this.apronMesh.removeFromParent();
       this.apronMesh = null;
