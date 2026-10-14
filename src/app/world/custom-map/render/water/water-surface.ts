@@ -8,6 +8,7 @@ import {
   Mesh,
   NoColorSpace,
   RedFormat,
+  RGFormat,
   UnsignedByteType,
   Vector2,
   Vector4,
@@ -19,7 +20,8 @@ import type { HeightTexture } from '../terrain/height-texture';
 import { APRON_RINGS, RIVER_REACH, type ApronProfile } from '../terrain/terrain-apron';
 import type { GridRect } from '../terrain/terrain-chunks';
 import { uploadRect } from '../terrain/texture-ranges';
-import { createWaterMaterial, setWaterColor, setWaterMask, setWaterSky } from './water-material';
+import { createWaterMaterial, setWaterColor, setWaterFlow, setWaterMask, setWaterSky } from './water-material';
+import { bakeFlowMap } from './flow-map';
 
 /**
  * One area body of a map (water, sea, swamp, ice or lava over a mask): a
@@ -45,6 +47,8 @@ export class WaterSurface {
   private readonly tiles = new Map<number, Mesh<BufferGeometry, ShaderMaterial>>();
   private apronMesh: Mesh<BufferGeometry, ShaderMaterial> | null = null;
   private readonly mask: DataTexture;
+  /** Baked current of the body (flow-map.ts), on the mask's grid */
+  private readonly flow: DataTexture;
   /** What the surface shows now */
   kind: MapWater['kind'];
 
@@ -61,6 +65,12 @@ export class WaterSurface {
     this.mask.wrapS = this.mask.wrapT = ClampToEdgeWrapping;
     this.mask.generateMipmaps = false;
     this.mask.unpackAlignment = 1;
+    this.flow = new DataTexture(new Uint8Array(field.columns * field.rows * 2), field.columns, field.rows, RGFormat, UnsignedByteType);
+    this.flow.colorSpace = NoColorSpace;
+    this.flow.magFilter = this.flow.minFilter = LinearFilter;
+    this.flow.wrapS = this.flow.wrapT = ClampToEdgeWrapping;
+    this.flow.generateMipmaps = false;
+    this.flow.unpackAlignment = 1;
     this.object.name = 'custom-map-water-body';
     this.object.matrixAutoUpdate = false;
     this.material = this.makeMaterial(water);
@@ -98,6 +108,11 @@ export class WaterSurface {
     } else {
       uploadRect(this.mask, rect);
     }
+    // Ice stands still. The current runs over the whole body, before the tiles are built
+    if (kind !== 'ice') {
+      this.flow.image.data = bakeFlowMap(this.field, water, this.flow.image.data as Uint8Array);
+      this.flow.needsUpdate = true;
+    }
     for (let tj = Math.floor(r.j0 / TILE); tj <= Math.floor(r.j1 / TILE); tj++) {
       for (let ti = Math.floor(r.i0 / TILE); ti <= Math.floor(r.i1 / TILE); ti++) this.buildTile(water, ti, tj);
     }
@@ -123,6 +138,7 @@ export class WaterSurface {
     this.apronMesh = null;
     this.material.dispose();
     this.mask.dispose();
+    this.flow.dispose();
     this.object.removeFromParent();
   }
 
@@ -174,6 +190,7 @@ export class WaterSurface {
     const sx = 1 / (f.cellSize * f.columns);
     const sy = 1 / (f.cellSize * f.rows);
     setWaterMask(m, this.mask, new Vector4(sx, sy, -f.originX * sx + 0.5 / f.columns, -f.originY * sy + 0.5 / f.rows));
+    setWaterFlow(m, (water.kind ?? 'water') === 'ice' ? null : this.flow);
     return m;
   }
 

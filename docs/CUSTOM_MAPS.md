@@ -133,6 +133,11 @@ Lava spiegeln sich).
 
 - `water` (Standard): klar am Ufer, Kartenfarbe in der Tiefe, Wellen, Spiegelung des Himmels mit Fresnel, Sonnenglanz,
   Schaum im Flachen
+- **Strömung** (`flow-map.ts`): jedes Flächengewässer bekommt beim Laden und bei jedem `set` eine gebackene
+  Strömungskarte auf dem Höhenraster (RG8, Szene x/z, ±1,2 m/s): Wasser, Meer und Sumpf kreisen entlang der Ufer
+  (quer zum Gradienten des Uferabstands; am Ufer still, einige Meter draußen am schnellsten, Engstellen schneller,
+  um Inseln herum), Lava wälzt sich in Konvektionszellen (quellenfreies Feld, etwa 30 m). Der Shader schiebt Wellen
+  bzw. Kruste in zwei Phasen, die sich überblenden (6 s Wasser, 18 s Lava); Eis steht still
 - `sea`: stärkere Wellen und Brandungsbänder zum Ufer
 - `swamp`: trüb, schwache Spiegelung; Algen und Entengrütze in Flecken nur am Ufer und im Flachen (unter etwa 0,9 m,
   mit verrauschter Kante), halb deckend und dunkler als das Land, nachts kaum sichtbar

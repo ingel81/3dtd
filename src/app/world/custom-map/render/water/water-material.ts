@@ -19,6 +19,7 @@ import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS, heightFogFragment } from '../envi
 import { SKY_FUNCTIONS, SKY_TEXTURE_GLSL } from '../environment/sky-dome';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
+import { FLOW_MAP_MAX } from './flow-map';
 
 /**
  * The material of every water body (lake, sea, swamp, ice, lava; areas and
@@ -71,6 +72,9 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
         uMaskUv: { value: new Vector4() },
         uHasMask: { value: 0 },
         uMapHalf: { value: o.mapHalf.clone() },
+        // Baked flow of an area body (flow-map.ts), on the mask's grid; none: the drift uFlow
+        uFlowMap: { value: null },
+        uHasFlow: { value: 0 },
       },
     ]),
     defines: { KIND: KIND_ID[o.kind] ?? 0, RIVER: o.river ? 1 : 0 },
@@ -102,6 +106,12 @@ export function setWaterColor(material: ShaderMaterial, kind: MapWaterKind, colo
   const deep = new Color(color || fallback[kind]);
   u['uDeep'].value.copy(deep);
   u['uShallow'].value.copy(deep).lerp(new Color(kind === 'swamp' ? 0x4a5028 : 0x6f9a88), 0.3);
+}
+
+/** Baked flow of an area body (flow-map.ts, RG on the mask's grid and uv), or none */
+export function setWaterFlow(material: ShaderMaterial, flow: Texture | null): void {
+  material.uniforms['uFlowMap'].value = flow;
+  material.uniforms['uHasFlow'].value = flow ? 1 : 0;
 }
 
 /** Bilinear mask of an area body over the grid: texture and map-to-uv transform */
@@ -248,6 +258,8 @@ uniform sampler2D uMask;
 uniform vec4 uMaskUv;
 uniform float uHasMask;
 uniform vec2 uMapHalf;
+uniform sampler2D uFlowMap;
+uniform float uHasFlow;
 ${HEIGHT_FOG_PARS}
 ${SHADER_NOISE}
 ${SKY_FUNCTIONS}
@@ -268,6 +280,20 @@ vec3 waveNormal(vec2 p, vec2 flow, float strength) {
   vec3 n = vec3((a.xy * 0.6 + b.xy * 0.45 + c.xy * 0.3) * strength, 1.0);
   // Texture x/y lie in the scene's x/z plane
   return normalize(vec3(n.x, n.z, n.y));
+}
+
+// Seconds per cycle of the flow map's two phases: long enough that the waves do not visibly stretch
+const float FLOW_PERIOD = 6.0;
+
+// Waves moved along a baked velocity (m/s) in two phases half a cycle apart: each slides for a cycle
+// and starts again where the other is at its strongest, so the surface flows on without stretching
+vec3 flowNormal(vec2 p, vec2 vel, vec2 drift, float strength) {
+  float t = uTime / FLOW_PERIOD;
+  float ph0 = fract(t);
+  float ph1 = fract(t + 0.5);
+  vec3 a = waveNormal(p - vel * ph0 * FLOW_PERIOD, drift, strength);
+  vec3 b = waveNormal(p - vel * ph1 * FLOW_PERIOD + vec2(7.3, 3.1), drift, strength);
+  return normalize(mix(b, a, 1.0 - abs(2.0 * ph0 - 1.0)));
 }
 
 // Glints and a faint pool of the point lights (lanterns, torches, lava glow) on a surface of normal n
@@ -305,6 +331,9 @@ void main() {
   vec2 flow = -vFlow * uTime;
 #else
   vec2 flow = uFlow * uTime;
+  // The body's own current (bank circulation, lava convection), m/s in the scene's x and z
+  vec2 vel = vec2(0.0);
+  if (uHasFlow > 0.5 && !outside) vel = (texture2D(uFlowMap, m * uMaskUv.xy + uMaskUv.zw).rg * 2.0 - 1.0) * ${FLOW_MAP_MAX.toFixed(2)};
 #endif
   if (depth <= 0.0 || edge <= 0.001) discard;
   vec3 v = normalize(cameraPosition - vWorldPos);
@@ -315,8 +344,26 @@ void main() {
   // Lava: veins glow by heat, crust plates drift over them, cooled crust at the shore
   vec2 lp = vWorldPos.xz;
   vec2 drift = flow * 0.12 + uFlow * uTime * 0.03;
-  float plates = skyFbm(lp * 0.14 + drift);
-  float veins = 1.0 - smoothstep(0.02, 0.11, abs(skyFbm(lp * 0.32 - drift * 1.4 + 3.0) - 0.5));
+  float plates;
+  float veins;
+  #if RIVER == 0
+  if (uHasFlow > 0.5 && !outside) {
+    // Convection: the crust rides the baked cells in two phases that cross-fade (see flowNormal)
+    float lt = uTime / (FLOW_PERIOD * 3.0);
+    float lw = 1.0 - abs(2.0 * fract(lt) - 1.0);
+    vec2 l1 = lp - vel * fract(lt + 0.5) * FLOW_PERIOD * 3.0 + vec2(11.0, 5.0);
+    lp -= vel * fract(lt) * FLOW_PERIOD * 3.0;
+    plates = mix(skyFbm(l1 * 0.14 + drift), skyFbm(lp * 0.14 + drift), lw);
+    veins = mix(
+      1.0 - smoothstep(0.02, 0.11, abs(skyFbm(l1 * 0.32 - drift * 1.4 + 3.0) - 0.5)),
+      1.0 - smoothstep(0.02, 0.11, abs(skyFbm(lp * 0.32 - drift * 1.4 + 3.0) - 0.5)),
+      lw);
+  } else
+  #endif
+  {
+    plates = skyFbm(lp * 0.14 + drift);
+    veins = 1.0 - smoothstep(0.02, 0.11, abs(skyFbm(lp * 0.32 - drift * 1.4 + 3.0) - 0.5));
+  }
   float crust = smoothstep(0.42, 0.62, plates);
   float heat = max(veins * (1.0 - crust * 0.75), (1.0 - crust) * 0.45);
   heat *= smoothstep(0.0, 0.7, depth);
@@ -358,7 +405,12 @@ void main() {
   #else
   float waveStrength = 1.0;
   #endif
+  #if RIVER == 1
   vec3 n = waveNormal(vWorldPos.xz, flow, waveStrength);
+  #else
+  // Lakes and seas: a slow drift, and along their baked current where they have one
+  vec3 n = uHasFlow > 0.5 && !outside ? flowNormal(vWorldPos.xz, vel, flow * 0.3, waveStrength) : waveNormal(vWorldPos.xz, flow, waveStrength);
+  #endif
   float calm = smoothstep(0.0, 1.2, depth);
   n = normalize(mix(vec3(0.0, 1.0, 0.0), n, 0.35 + 0.65 * calm));
   float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
