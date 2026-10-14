@@ -25,7 +25,7 @@ function source(): EditorDocument {
   t.water = emptyWater(t, -0.5);
   t.water.mask.fill(255, 0, 10);
   ed.doc.objects.push({ id: 'o1', asset: 'tree-oak', x: -95, y: 100, z: 0, rotation: 0, scale: 1 });
-  ed.doc.paths = { nodes: [{ id: 'n1', x: -110, y: 90 }, { id: 'n2', x: -90, y: 90 }, { id: 'n3', x: 0, y: 0 }], edges: [{ id: 'e1', a: 'n1', b: 'n2', width: 6, kind: 'road' }, { id: 'e2', a: 'n2', b: 'n3', width: 6, kind: 'road' }] };
+  ed.doc.paths = { nodes: [{ id: 'n1', x: -110, y: 90 }, { id: 'n2', x: -90, y: 90 }, { id: 'n3', x: 0, y: 0 }], edges: [{ id: 'e1', a: 'n1', b: 'n2', width: 6, kind: 'road', dress: { adapt: true, lamps: true, fences: false, objects: ['o1'] } }, { id: 'e2', a: 'n2', b: 'n3', width: 6, kind: 'road' }] };
   return ed;
 }
 
@@ -40,6 +40,8 @@ describe('stamps', () => {
     expect(stamp.objects[0]).toMatchObject({ asset: 'tree-oak', x: 5, y: 0 });
     // e2 leaves the rectangle: only e1 comes along
     expect(stamp.roads.edges.map((e) => e.id)).toEqual(['e1']);
+    // Without the road brush's record, whose objects and kept ground are of this place
+    expect(stamp.roads.edges[0].dress).toBeUndefined();
   });
 
   it('pastes turned onto another map as one undo step, the hill on the ground there', () => {
@@ -56,6 +58,7 @@ describe('stamps', () => {
     // The tree 5 m east of the middle, turned a quarter, stands 5 m north
     expect(target.doc.objects[0]).toMatchObject({ x: 50, y: 55, rotation: 1.571 });
     expect(target.doc.paths.edges).toHaveLength(1);
+    expect(target.doc.paths.edges[0].dress).toBeUndefined();
     expect(target.historySteps).toBe(1);
     target.undo();
     expect(target.doc.objects).toHaveLength(0);

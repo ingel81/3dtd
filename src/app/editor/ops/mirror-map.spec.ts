@@ -58,4 +58,12 @@ describe('mirrorMap', () => {
     expect(result.spawns).toBe(MAX_SPAWN_PORTALS - 10);
     expect(result.spawnsLeftOut).toBe(30 - (MAX_SPAWN_PORTALS - 10));
   });
+  it('leaves the road brush record out of road images: its objects and kept ground belong to the source road', () => {
+    const doc = map();
+    doc.paths = { nodes: [{ id: 'n1', x: -80, y: -40 }, { id: 'n2', x: -20, y: -40 }], edges: [{ id: 'e1', a: 'n1', b: 'n2', width: 6, kind: 'road', dress: { adapt: true, lamps: true, fences: false, objects: [] } }] };
+    mirrorMap(doc, 'x', { x: -50, y: 0 });
+    expect(doc.paths.edges).toHaveLength(2);
+    expect(doc.paths.edges.find((e) => e.id === 'e1')!.dress).toBeDefined();
+    expect(doc.paths.edges.find((e) => e.id !== 'e1')!.dress).toBeUndefined();
+  });
 });

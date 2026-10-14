@@ -139,7 +139,8 @@ export function captureStamp(doc: CustomMapDocument, rect: StampRect): Stamp {
   const used = new Set(edges.flatMap((e) => [e.a, e.b]));
   const roads = {
     nodes: doc.paths.nodes.filter((nd) => used.has(nd.id)).map((nd) => ({ ...nd, x: nd.x - cx, y: nd.y - cy })),
-    edges: edges.map((e) => ({ ...e, via: e.via?.map((v) => ({ x: v.x - cx, y: v.y - cy })) })),
+    // Without the road brush's record (its objects and kept ground are those of this place): a pasted road reads it off the map when edited
+    edges: edges.map(({ dress: _dress, ...e }) => ({ ...e, via: e.via?.map((v) => ({ x: v.x - cx, y: v.y - cy })) })),
   };
   return { width, depth, cell, columns, rows, heights, paintCell, paintColumns, paintRows, materials, paint, water, objects, roads };
 }
@@ -327,7 +328,9 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
       paths.nodes.push({ id, x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 });
     }
     for (const e of stamp.roads.edges) {
-      const edge: MapPathEdge = { ...e, id: newId('e', paths.edges), a: ids.get(e.a)!, b: ids.get(e.b)! };
+      // A stamp kept before stamps left out the road brush's record: its objects and ground are of another place
+      const { dress: _dress, ...plain } = e;
+      const edge: MapPathEdge = { ...plain, id: newId('e', paths.edges), a: ids.get(e.a)!, b: ids.get(e.b)! };
       if (e.via) edge.via = e.via.map((v) => place(v, center, cos, sin));
       paths.edges.push(edge);
     }

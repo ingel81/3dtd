@@ -123,7 +123,9 @@ export function mirrorMap(doc: CustomMapDocument, mode: SymmetryMode, from: { x:
         const ia = nodeImage(a, j + 1);
         const ib = nodeImage(b, j + 1);
         if (!ia || !ib) return;
-        addEdge({ ...e, id: newId('e', edges), a: ia, b: ib, ...(e.via ? { via: e.via.map((v) => img.point(v)).map((v) => ({ x: round(v.x), y: round(v.y) })) } : {}) });
+        // The image has no road brush record: the objects and kept ground in it are the source's; edited, it reads them off the map
+        const { dress: _dress, ...plain } = e;
+        addEdge({ ...plain, id: newId('e', edges), a: ia, b: ib, ...(e.via ? { via: e.via.map((v) => img.point(v)).map((v) => ({ x: round(v.x), y: round(v.y) })) } : {}) });
       });
     } else if (ina || inb) {
       // Across an axis: from the source end to its image in the sector the other end lies in
