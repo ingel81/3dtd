@@ -31,8 +31,10 @@ export const FLOW_MAP_MAX = 1.2;
 export const SHORE_FIELD_MAX = 32;
 /** Bank slope at byte 255 (A), rise over run */
 export const SLOPE_FIELD_MAX = 2.5;
-/** Cells the distance is blurred over on each side (twice, a tent), and the bank's slope reaches out */
-const SHORE_BLUR = 2;
+/** Cells the distance is blurred over on each side */
+const SHORE_BLUR = 3;
+/** Cells a steep bank's slope reaches out on each side */
+const SLOPE_REACH = 1;
 
 /** What a bake reads: the height grid and the body, as plain arrays (a worker gets copies) */
 export interface FlowInput {
@@ -167,60 +169,104 @@ function shoreField(input: FlowInput, dist: Float32Array, flow: Uint8Array): voi
   const cell = input.cellSize;
   const heights = input.heights;
   const n = cols * rows;
-  // Metres, blurred twice by a box in each direction: the chamfer's corners round off
+  // Metres, blurred by a box in each direction: the chamfer's corners round off
   const a = new Float32Array(n);
   const b = new Float32Array(n);
   for (let k = 0; k < n; k++) a[k] = Math.min(dist[k] * cell, SHORE_FIELD_MAX);
-  for (let pass = 0; pass < 2; pass++) {
-    boxBlur(a, b, cols, rows, 1, cols);
-    boxBlur(b, a, rows, cols, cols, 1);
-  }
+  blurAlongRows(a, b, cols, rows);
+  acrossRows(b, a, cols, rows, SHORE_BLUR, false);
   // The steepest rise between neighbouring samples, then the largest of it within reach of each sample
   const slope = b;
+  slope.fill(0);
+  const inv = 1 / cell;
   for (let j = 0; j < rows; j++) {
+    const row = j * cols;
     for (let i = 0; i < cols; i++) {
-      const k = j * cols + i;
+      const k = row + i;
       const h = heights[k];
-      let s = 0;
-      if (i > 0) s = Math.max(s, Math.abs(heights[k - 1] - h));
-      if (i < cols - 1) s = Math.max(s, Math.abs(heights[k + 1] - h));
-      if (j > 0) s = Math.max(s, Math.abs(heights[k - cols] - h));
-      if (j < rows - 1) s = Math.max(s, Math.abs(heights[k + cols] - h));
-      slope[k] = s / cell;
+      // Each pair once: the rise to the right and below counts for both samples
+      if (i < cols - 1) {
+        const d = Math.abs(heights[k + 1] - h) * inv;
+        if (d > slope[k]) slope[k] = d;
+        if (d > slope[k + 1]) slope[k + 1] = d;
+      }
+      if (j < rows - 1) {
+        const d = Math.abs(heights[k + cols] - h) * inv;
+        if (d > slope[k]) slope[k] = d;
+        if (d > slope[k + cols]) slope[k + cols] = d;
+      }
     }
   }
   const reach = new Float32Array(n);
-  boxMax(slope, reach, cols, rows, 1, cols);
-  boxMax(reach, slope, rows, cols, cols, 1);
+  maxAlongRows(slope, reach, cols, rows);
+  acrossRows(reach, slope, cols, rows, SLOPE_REACH, true);
+  // A clamped view rounds and clamps on its own
+  const bytes = new Uint8ClampedArray(flow.buffer, flow.byteOffset, flow.length);
+  const toB = 255 / SHORE_FIELD_MAX;
+  const toA = 255 / SLOPE_FIELD_MAX;
   for (let k = 0; k < n; k++) {
-    flow[k * 4 + 2] = Math.round((a[k] / SHORE_FIELD_MAX) * 255);
-    flow[k * 4 + 3] = Math.min(255, Math.round((slope[k] / SLOPE_FIELD_MAX) * 255));
+    bytes[k * 4 + 2] = a[k] * toB;
+    bytes[k * 4 + 3] = slope[k] * toA;
   }
 }
 
-/** A box blur of SHORE_BLUR cells to each side along lines (`step` apart in a line, `stride` between lines) */
-function boxBlur(src: Float32Array, dst: Float32Array, length: number, lines: number, step: number, stride: number): void {
+/** A box blur of SHORE_BLUR cells to each side along each row, a running sum (clamped at the ends) */
+function blurAlongRows(src: Float32Array, dst: Float32Array, cols: number, rows: number): void {
   const r = SHORE_BLUR;
-  for (let l = 0; l < lines; l++) {
-    const base = l * stride;
-    for (let x = 0; x < length; x++) {
-      let sum = 0;
-      for (let d = -r; d <= r; d++) sum += src[base + Math.min(length - 1, Math.max(0, x + d)) * step];
-      dst[base + x * step] = sum / (2 * r + 1);
+  const w = 1 / (2 * r + 1);
+  const last = cols - 1;
+  for (let j = 0; j < rows; j++) {
+    const base = j * cols;
+    let sum = src[base] * r;
+    for (let d = 0; d <= r; d++) sum += src[base + Math.min(last, d)];
+    for (let x = 0; x < cols; x++) {
+      dst[base + x] = sum * w;
+      sum += src[base + Math.min(last, x + r + 1)] - src[base + Math.max(0, x - r)];
     }
   }
 }
 
-/** The largest value within SHORE_BLUR cells to each side along lines (as boxBlur) */
-function boxMax(src: Float32Array, dst: Float32Array, length: number, lines: number, step: number, stride: number): void {
-  const r = SHORE_BLUR;
-  for (let l = 0; l < lines; l++) {
-    const base = l * stride;
-    for (let x = 0; x < length; x++) {
-      let m = 0;
-      for (let d = -r; d <= r; d++) m = Math.max(m, src[base + Math.min(length - 1, Math.max(0, x + d)) * step]);
-      dst[base + x * step] = m;
+/** The largest value within SLOPE_REACH cells to each side along each row */
+function maxAlongRows(src: Float32Array, dst: Float32Array, cols: number, rows: number): void {
+  const r = SLOPE_REACH;
+  const last = cols - 1;
+  for (let j = 0; j < rows; j++) {
+    const base = j * cols;
+    for (let x = 0; x < cols; x++) {
+      const hi = Math.min(last, x + r);
+      let m = src[base + Math.max(0, x - r)];
+      for (let y = Math.max(0, x - r) + 1; y <= hi; y++) {
+        const v = src[base + y];
+        if (v > m) m = v;
+      }
+      dst[base + x] = m;
     }
+  }
+}
+
+/**
+ * Across the rows: each row of `dst` the mean (or with `max` the largest) of
+ * `r` rows to each side of it in `src`, clamped at the ends. Row by row, so
+ * the memory runs in order (a column at a time strides the whole grid)
+ */
+function acrossRows(src: Float32Array, dst: Float32Array, cols: number, rows: number, r: number, max: boolean): void {
+  const w = 1 / (2 * r + 1);
+  for (let j = 0; j < rows; j++) {
+    const out = j * cols;
+    const first = Math.min(rows - 1, Math.max(0, j - r)) * cols;
+    for (let i = 0; i < cols; i++) dst[out + i] = src[first + i];
+    for (let d = -r + 1; d <= r; d++) {
+      const from = Math.min(rows - 1, Math.max(0, j + d)) * cols;
+      if (max) {
+        for (let i = 0; i < cols; i++) {
+          const v = src[from + i];
+          if (v > dst[out + i]) dst[out + i] = v;
+        }
+      } else {
+        for (let i = 0; i < cols; i++) dst[out + i] += src[from + i];
+      }
+    }
+    if (!max) for (let i = 0; i < cols; i++) dst[out + i] *= w;
   }
 }
 

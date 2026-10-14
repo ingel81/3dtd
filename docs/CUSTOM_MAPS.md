@@ -192,8 +192,9 @@ Lava spiegeln sich).
   Helligkeit im Sonnenton, nur wenn Rot über Blau liegt): bei Dämmerung von oben gedämpft und warm wie die Spiegelung
   aus der Nähe, statt kräftig blau; Tag und Nacht bleiben unverändert (gilt für Wasser, Meer und Sumpf)
 - **Strömung** (`flow-map.ts`): jedes Flächengewässer bekommt beim Laden und bei jedem `set` eine gebackene
-  Karte auf dem Höhenraster (RGBA8; RG Strömung in Szene x/z, ±1,2 m/s; B Uferabstand bis 32 m, zweimal über
-  je 2 Zellen geglättet, damit seine Linien die Ecken des Ufers runden; A Steilheit des Ufers in der Nähe bis 2,5):
+  Karte auf dem Höhenraster (RGBA8; RG Strömung in Szene x/z, ±1,2 m/s; B Uferabstand bis 32 m, über je 3 Zellen
+  geglättet, damit seine Linien die Ecken des Ufers runden; A Steilheit des Ufers bis 1 Zelle daneben, bis 2,5; das
+  Uferfeld kostet auf einem nassen 1025er-Raster rund 15 ms mehr):
   Wasser, Meer und Sumpf kreisen entlang der Ufer
   (quer zum Gradienten des Uferabstands; am Ufer still, einige Meter draußen am schnellsten, Engstellen schneller,
   um Inseln herum), Lava wälzt sich in Konvektionszellen (quellenfreies Feld, etwa 30 m). Der Shader schiebt Wellen

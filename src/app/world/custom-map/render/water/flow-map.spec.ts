@@ -95,8 +95,8 @@ describe('the shore field', () => {
   it('tells a quay wall from a beach', () => {
     const { field, water } = pool();
     const flow = bakeFlowMap(field, water);
-    // Just off the west wall (6 m up in one cell) against just off the east beach
-    expect(shore(flow, 22, 50)[1]).toBeGreaterThan(1.5);
+    // Next to the west wall (6 m up in one cell) against just off the east beach
+    expect(shore(flow, 21, 50)[1]).toBeGreaterThan(1.5);
     expect(shore(flow, 77, 50)[1]).toBeLessThan(0.5);
   });
 });
