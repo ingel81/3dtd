@@ -109,7 +109,10 @@ Nebel der Szene wieder her.
   B Abfluss (D8-Flussakkumulation, logarithmisch; Rinnen und Talböden dunkler und grüner; beim vollen Backen, ein
   Pinsel lässt ihn bis zum nächsten stehen), A Lava-Nähe (1 auf Lava, 0 ab 12 m: der Boden wird zu erkaltetem Gestein
   und glüht von unten orange mit langsamem Puls). An Hangfüßen unter Steilem rieselt Geröll in der Farbe der Klippe
-  heraus. Über jedem Lavapunkt steigen Glut (zusammen höchstens etwa 2000 Teilchen) und etwas Rauch auf
+  heraus. Über jedem Lavapunkt steigen Glut (zusammen höchstens etwa 2000 Teilchen) und etwas Rauch auf. Objekte
+  nahe Lava (Häuser, Felsen, Bäume) glühen von unten mit: jedes Kartenmaterial mit Emissive-Anteil liest über den
+  Höhennebel-Patch dieselbe Lavanähe an seiner Stelle (ein Lookup, nur auf Karten mit Lava), am stärksten auf Flächen
+  nach unten und zur Seite, ohne Lichter
 - **Gebrauchsspuren** (`ground-decals.ts`): nach Kartenregeln gebackene Decals, ein instanziertes Netz, ein Draw
   Call (höchstens 3000): Laub unter jedem zweiten Laubbaum (nicht unter Nadelbäumen, Höllen- und Endzeitbäumen),
   festgetretene dunkle Erde vor Hauseingängen und alle 9 bis 15 m an den Rändern von Straßen und Pfaden, Pfützen dort
@@ -129,7 +132,9 @@ Nebel der Szene wieder her.
   schlicht, manche kurz und breit, manche hoch mit strohfarbenem Samenstand, wenige blühen weiß, gelb oder violett
   (nur auf grüner Wiese, nur nah)
 - **Schnee und Nässe** (alle Kartenmaterialien, `height-fog.ts`): Schnee liegt auf allem, was nach oben zeigt
-  (`environment.snowCover`, sonst aus Biom arctic oder Schneewetter), Regen macht Flächen dunkler und glänzender
+  (`environment.snowCover`, sonst aus Biom arctic oder Schneewetter), Regen macht Flächen dunkler und glänzender.
+  Auf dem Boden sammelt sich Schnee zuerst in Mulden und im Windschatten (Hänge, deren Gefälle mit dem Wind läuft):
+  dort liegt er schon bei leichtem Schneefall dick, in Flecken, nicht auf Fels
 - **Nasse Ufer**: die Alpha-Komponente der Normalentextur markiert Raster­punkte nahe Wasser (Maske um zwei Samples
   gewachsen); dort wird Boden bis etwa 1,3 m über dem Spiegel dunkler und glänzender
 

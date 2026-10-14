@@ -5,6 +5,7 @@ import { TERRAIN_MORPH_PARS, TERRAIN_MORPH_VERTEX } from './terrain-chunks';
 import type { MapWaterKind } from '../../map-document';
 import { shoreWaves } from '../water/shore-waves';
 import { VARIATION_GLSL, variationTexture } from './variation-texture';
+import { WIND_UNIFORMS } from '../environment/wind';
 import type { MaterialCategory } from '../asset-catalog';
 
 /**
@@ -134,6 +135,8 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uCliffCos: { value: Math.cos((40 * Math.PI) / 180) },
     /** The far cascade of the sun's shadow and where it applies (far-shadow.ts); replaced by MapTerrainLayer's */
     uFarShadow: { value: null as Texture | null },
+    /** The wind's direction (the shared wind uniform), where snow drifts pile up */
+    uDriftWind: WIND_UNIFORMS.uWindDir,
     uFarShadowArea: { value: new Vector4() },
     /** Replaced by TerrainChunks.morphEye and morphFocus (MapTerrainLayer) */
     uMorphEye: { value: new Vector3() },
@@ -255,6 +258,8 @@ uniform sampler2D uPathMask;
 uniform sampler2D uGridNormals;
 uniform sampler2D uGridOcclusion;
 uniform sampler2D uFarShadow;
+// The map's wind direction in the scene (wind.ts), for snow drifts
+uniform vec2 uDriftWind;
 uniform vec4 uFarShadowArea;
 ${VARIATION_GLSL}
 uniform vec4 uGridUv;
@@ -589,6 +594,17 @@ albedo = mix(albedo, albedo * vec3(0.88, 1.0, 0.9), drain * 0.35);
 if (uCliffLayer >= 0) {
   float scree = hollow * smoothstep(0.85, 0.55, shape.r) * smoothstep(0.35, 0.65, varFine.b + hollow * 0.3);
   albedo = mix(albedo, uAverage[uCliffLayer] * 0.85, scree * 0.55);
+}
+// Snow drifts: where snow lies it gathers in hollows and on the lee side of slopes (the downhill side
+// facing along the wind), smooth and white, in patches; not on rock faces
+if (uSnowCover > 0.0) {
+  vec2 downhill = nGeo.xz / max(length(nGeo.xz), 1e-4);
+  float lee = smoothstep(0.2, 0.75, dot(downhill, uDriftWind)) * smoothstep(0.995, 0.93, nGeo.y);
+  float drift = max(smoothstep(0.02, 0.3, -curv), lee * 0.85) * smoothstep(0.3, 0.55, varFine.b + 0.15) * inside * (1.0 - cliff);
+  // Drifts fill first: a light snowfall already lies thick there
+  float driftAmount = drift * min(1.0, uSnowCover * 4.0);
+  albedo = mix(albedo, vec3(0.86, 0.9, 0.95), driftAmount);
+  accD.b = mix(accD.b, 0.55, driftAmount);
 }
 // Around lava the ground is cooled rock, lit orange from below with the lava's slow pulse
 albedo = mix(albedo, vec3(0.045, 0.04, 0.038), smoothstep(0.55, 0.85, lavaNear));
