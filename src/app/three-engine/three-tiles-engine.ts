@@ -1047,9 +1047,10 @@ export class ThreeTilesEngine {
     this.postProcessing?.setAntialias(knobs.general.antialias, this.canvasMsaa);
     this.postProcessing?.setBloomEnabled(this.bloomWanted && knobs.general.bloom);
     this.world.applyQuality?.(knobs);
-    // Another level while the world stands: its programs (point lights, the output through the
-    // composer) compile off the main thread before the next draw, instead of linking in it
-    if (previous && previous.knobs.level !== knobs.level && !this.disposed) {
+    // Another level or part of one while the world stands: its programs (point lights, the output
+    // through the composer, a map effect switched) compile off the main thread before the next draw,
+    // instead of linking in it
+    if (previous && JSON.stringify(previous.knobs) !== JSON.stringify(knobs) && !this.disposed) {
       void this.qualityCompile.hold(() => this.compilingForOutput(() => this.renderer.compileAsync(this.scene, this.camera)));
     }
   }

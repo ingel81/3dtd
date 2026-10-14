@@ -1,8 +1,9 @@
 import { Injectable, computed, effect, signal, untracked } from '@angular/core';
 import type { ThreeTilesEngine } from '../../three-engine';
 import {
-  QUALITY_LEVELS, QUALITY_TABLE, levelAfterMeasure, levelForGpu, qualityFromSearch, readStoredQuality, resolveLevel,
-  writeStoredQuality, type QualityKnobs, type QualityLevel, type QualitySetting, type QualityWorld, type StoredQuality,
+  QUALITY_LEVELS, knobsWith, levelAfterMeasure, levelForGpu, levelValue, mixedOverrides, overrideWorld, qualityFromSearch,
+  readStoredQuality, resolveLevel, writeStoredQuality, type PlantMotion, type QualityKnobs, type QualityLevel, type QualityOverride,
+  type QualityOverrides, type QualitySetting, type QualityWorld, type StoredQuality,
 } from '../../three-engine/render-quality';
 import type { WorldRef } from '../../world/world-ref';
 
@@ -44,6 +45,10 @@ function probeGpuName(): string {
  * the GPU time after the first world stood; custom maps play a level lower.
  * `&quality=<level>` in the URL plays that level for one load without
  * storing it (the graphics benchmark per level).
+ *
+ * On top of the level: the player's overrides per world (E156), kept until
+ * a level is picked again, and the plant motion on custom maps, which no
+ * level changes.
  */
 @Injectable({ providedIn: 'root' })
 export class RenderQualityService {
@@ -71,12 +76,18 @@ export class RenderQualityService {
     return !!auto && auto.gpu === this.gpu() && auto.measured;
   });
 
+  /** The player's parts on top of the level (E156) */
+  readonly overrides = computed<QualityOverrides>(() => this.stored().overrides);
+  /** How grass, trees and plants move in a custom map's wind */
+  readonly plantMotion = computed<PlantMotion>(() => this.stored().plantMotion);
+
   constructor() {
-    // A changed setting draws at once
+    // A changed setting, override or plant motion draws at once
     effect(() => {
-      const setting = this.setting();
-      const auto = this.autoLevel();
-      untracked(() => this.applyNow(setting, auto));
+      this.stored();
+      this.setting();
+      this.autoLevel();
+      untracked(() => this.applyNow());
     });
   }
 
@@ -85,8 +96,20 @@ export class RenderQualityService {
     return resolveLevel(this.setting(), this.autoLevel(), world);
   }
 
+  /** The knobs that play on `world`: its level with the player's overrides and plant motion on top */
   knobsFor(world: QualityWorld): QualityKnobs {
-    return QUALITY_TABLE[this.levelFor(world)];
+    const stored = this.stored();
+    return knobsWith(this.levelFor(world), stored.overrides, stored.plantMotion);
+  }
+
+  /** What `key` plays now: the override, else what the level of its world sets */
+  overrideValue(key: QualityOverride): QualityLevel | boolean {
+    return this.stored().overrides[key] ?? levelValue(this.levelFor(overrideWorld(key)), key);
+  }
+
+  /** The overrides that make `world` the player's own mix rather than its level */
+  mixed(world: QualityWorld): QualityOverride[] {
+    return mixedOverrides(this.levelFor(world), this.stored().overrides, world);
   }
 
   /** Whether a new engine's canvas gets MSAA (fixed for its context's life) */
@@ -94,8 +117,31 @@ export class RenderQualityService {
     return this.knobsFor(world).general.antialias === 'msaa';
   }
 
+  /** Pick a level: like an effect preset it sets every part again, the player's overrides go */
   set(setting: QualitySetting): void {
-    const next = { ...this.stored(), setting };
+    this.store({ ...this.stored(), setting, overrides: {} });
+  }
+
+  /** Set one part on top of the level; what the level sets anyway is no override */
+  setOverride<K extends QualityOverride>(key: K, value: NonNullable<QualityOverrides[K]>): void {
+    const overrides = { ...this.stored().overrides };
+    if (value === levelValue(this.levelFor(overrideWorld(key)), key)) delete overrides[key];
+    else overrides[key] = value;
+    this.store({ ...this.stored(), overrides });
+  }
+
+  /** `world` back to its level: its overrides go */
+  resetOverrides(world: QualityWorld): void {
+    const overrides = Object.fromEntries(Object.entries(this.stored().overrides)
+      .filter(([key]) => overrideWorld(key as QualityOverride) !== world)) as QualityOverrides;
+    this.store({ ...this.stored(), overrides });
+  }
+
+  setPlantMotion(plantMotion: PlantMotion): void {
+    this.store({ ...this.stored(), plantMotion });
+  }
+
+  private store(next: StoredQuality): void {
     this.stored.set(next);
     writeStoredQuality(next);
   }
@@ -130,10 +176,10 @@ export class RenderQualityService {
     return this.gpuName;
   }
 
-  private applyNow(setting: QualitySetting, auto: QualityLevel): void {
+  private applyNow(): void {
     const at = this.engine;
     if (!at) return;
-    at.engine.applyQuality(QUALITY_TABLE[resolveLevel(setting, auto, at.world)], at.world);
+    at.engine.applyQuality(this.knobsFor(at.world), at.world);
   }
 
   /**
@@ -176,9 +222,7 @@ export class RenderQualityService {
         const step = QUALITY_LEVELS.indexOf(levelAfterMeasure(measured, p90)) - QUALITY_LEVELS.indexOf(measured);
         level = QUALITY_LEVELS[Math.min(QUALITY_LEVELS.length - 1, Math.max(0, QUALITY_LEVELS.indexOf(base) + step))];
       }
-      const next = { ...this.stored(), auto: { gpu, level, measured: true } };
-      this.stored.set(next);
-      writeStoredQuality(next);
+      this.store({ ...this.stored(), auto: { gpu, level, measured: true } });
     } finally {
       this.measuring = false;
     }

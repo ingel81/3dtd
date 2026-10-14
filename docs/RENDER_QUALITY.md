@@ -1,6 +1,6 @@
 # Qualitätsstufen des Bildes
 
-**Status:** Gebaut 2026-10-14 (E154, QX3)
+**Status:** Gebaut 2026-10-14 (E154, QX3); Teile je Welt und Pflanzenbewegung 2026-10-14 (E156)
 **Bezug:** [CUSTOM_MAPS_NEXT_PLAN.md](CUSTOM_MAPS_NEXT_PLAN.md) (Stufentabelle), [BENCHMARKS.md](BENCHMARKS.md#bildkosten-grafik-benchmark)
 (Messung je Stufe)
 
@@ -13,7 +13,15 @@ in `src/app/three-engine/render-quality.ts` (`QUALITY_TABLE`) und ist in drei Te
 | `customMaps` | nur eigene Karten | `CustomMapWorld.applyQuality` → `CustomMapView.applyQuality`, im Editor `EditorViewport` |
 | `tiles` | nur Tiles-Welten (echte Orte) | `TilesWorld.applyQuality` |
 
-Das Menü zeigt die drei Teile genauso getrennt („All worlds“, „Custom maps only“, „Real places (3D tiles) only“).
+Das Menü (Settings, Graphics, E156) hat oben die eine Stufe für beide Welten und darunter eine Zeile, was sie je Welt
+spielt („Real places: High | Custom maps: Medium“, Auto spielt eigene Karten eine Stufe tiefer). Danach je Welt ein
+Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
+
+| Abschnitt | Inhalt |
+|---|---|
+| Real places | Auflösung und Kantenglättung der Stufe (Text), **Tile detail** (`errorTarget`) als Stufenreihe. Schatten und Karteneffekte gibt es dort nicht: sie gehören zum Teil `customMaps` |
+| Custom maps | Auflösung und Kantenglättung der Stufe (Text), **Shadows**, **Far detail**, **Grass** als Stufenreihen, Schalter **Water refraction**, **Sea waves**, **Lava glow and heat haze**, **Far land shadow**, dazu **Plant motion** (Off, Calm, Full). Partikel und Laternenlichter nennt eine Zeile, sie folgen nur der Stufe |
+| Everywhere | Effekt-Voreinstellungen und ihre Schalter, Color grading, Frame limit, Menu globe, Fullscreen |
 
 ## Die Stufen
 
@@ -34,6 +42,7 @@ Das Menü zeigt die drei Teile genauso getrennt („All worlds“, „Custom map
 | Dünung auf dem Meer (`seaWaves`) | eigene Karten | aus | an | an | an |
 | Lava-Glut über 1 und Hitzeflimmern (`lavaGlow`) | eigene Karten | aus | aus | an | an |
 | Ferner Bodenschatten (`shadowCascade`) | eigene Karten | aus | an | an | an |
+| Pflanzen im Wind (`plantSway`) | eigene Karten | 1 | 1 | 1 | 1 (nur die Einstellung „Plant motion“ ändert ihn) |
 | `errorTarget` | Tiles | 32 | 24 | 20 | 12 |
 
 - **High ist das Bild von vor den Stufen**, auf Tiles exakt (DPR bis 2, MSAA über den Canvas, `errorTarget` 20, kein
@@ -48,6 +57,37 @@ Das Menü zeigt die drei Teile genauso getrennt („All worlds“, „Custom map
 - **Effekte der eigenen Karten** (`map-effects.ts`, Kosten in [CUSTOM_MAPS.md](CUSTOM_MAPS.md)): High hat sie alle an,
   das Bild von vor den Stufen hatte sie noch nicht. Der Boden wird ab `farSingle` mit einer Schicht und ab `farFlat`
   nur mit den Mittelwerten der Schichten gezeichnet (QX5); Low liest so ab 80 m nur noch eine Schicht.
+
+## Eigene Teile je Welt (E156)
+
+Auf die Stufe setzt der Spieler einzelne Teile je Welt (`QualityOverrides` in `render-quality.ts`, gespeichert mit der
+Stufe in `td_render_quality_v1`). Eine Stufenreihe nimmt ihren Teil aus der Zeile dieser Stufe der Tabelle, es gibt
+keine Zwischenwerte:
+
+| Override | Welt | Nimmt aus der Zeile der gewählten Stufe |
+|---|---|---|
+| `tileDetail` | echte Orte | `errorTarget` |
+| `shadows` | eigene Karten | `shadowMapSize`, `shadowRadius` |
+| `farDetail` | eigene Karten | `lodBias`, `impostorFrom`, `farSingle`, `farFlat` |
+| `grass` | eigene Karten | `grassBlades`, `grassDistance` (Low: „Off“, kein Gras) |
+| `refraction`, `seaWaves`, `lavaGlow`, `shadowCascade` | eigene Karten | Schalter, an oder aus |
+
+- `knobsWith(level, overrides, plantMotion)` baut daraus die Stellschrauben, die spielen; der `RenderQualityService`
+  wendet sie sofort an (`knobsFor`), der Editor liest sie über `storedKnobsFor`.
+- **Eigene Mischung:** weicht ein Override von dem ab, was die Stufe der Welt ohnehin setzt, nennt das Menü die Welt
+  „own mix“ (oben in der Zeile je Welt und im Kopf des Abschnitts, mit „Back to <Stufe>“, das die Overrides dieser Welt
+  löscht). Ein Override, der dem Wert der Stufe entspricht, wird nicht gespeichert.
+- **Eine Stufe wählen setzt alle Teile neu**, wie die Effekt-Voreinstellungen ihre Schalter: die Overrides gehen.
+  Verschiebt Auto die Stufe nach seiner Messung, bleiben sie.
+- Auflösung, Kantenglättung, Bloom, Partikel und Laternenlichter haben keinen Override, sie folgen nur der Stufe.
+- Ändert ein Override die Stellschrauben, hält die Engine wie beim Stufenwechsel das Zeichnen an, bis die Programme
+  kompiliert sind (`applyQuality` vergleicht die ganzen Stellschrauben, nicht nur die Stufe): ein Karteneffekt schaltet
+  Shader um.
+
+**Plant motion** (Off, Calm, Full; Standard Full, gespeichert als `plantMotion`) gilt für alle eigenen Karten und hängt
+an keiner Stufe; eine neu gewählte Stufe lässt sie stehen. Sie skaliert das Schwingen von Gras, Bäumen und Pflanzen
+(`plantSway` 0, 0,4, 1 → Uniform `uPlantSway`, `wind.ts`). Die Karte behält ihre Windstärke: Wolken, Rauch, Wetter und
+die Umgebungspartikel ziehen weiter mit dem vollen Wind, schwimmende Objekte schaukeln weiter.
 
 ## Kantenglättung und Kontext
 
@@ -101,8 +141,9 @@ Stufe); das Menü sperrt die Auswahl dann und sagt warum.
 
 ## Editor
 
-Der Editor liest dieselbe gespeicherte Einstellung (`storedLevelFor`, Stufe für eigene Karten) und wendet den Teil
-`customMaps` und den Auflösungsdeckel an, mit voller Skala, ohne dynamische Auflösung und immer mit MSAA.
+Der Editor liest dieselbe gespeicherte Einstellung (`storedKnobsFor`: Stufe für eigene Karten, darauf die Overrides
+und die Pflanzenbewegung) beim Öffnen und wendet den Teil `customMaps` und den Auflösungsdeckel an, mit voller Skala,
+ohne dynamische Auflösung und immer mit MSAA.
 
 ## Messung
 

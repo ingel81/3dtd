@@ -26,6 +26,7 @@ import { CustomMapEnvironment } from './environment/map-environment';
 import { fitShadowBox } from './environment/shadow-fit';
 import { EffectLayer } from './effects/effect-layer';
 import { CoverMap } from './environment/cover-map';
+import { setPlantSway } from './environment/wind';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
@@ -919,10 +920,12 @@ export class CustomMapView {
   /**
    * The quality level's custom-map part (render-quality.ts): the sun's
    * shadow map, object detail and impostors, grass, the map's particles and
-   * point lights, where the ground gets cheaper, the switchable effects.
-   * High is the picture as before the levels, with the effects on
+   * point lights, where the ground gets cheaper, the switchable effects, how
+   * far plants sway. High is the picture as before the levels, with the
+   * effects on
    */
   applyQuality(q: CustomMapQuality): void {
+    setPlantSway(q.plantSway);
     this.environment.setShadowQuality(q.shadowMapSize, q.shadowRadius);
     this.setFarGround(q.farSingle, q.farFlat);
     this.setEffects({ refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade });

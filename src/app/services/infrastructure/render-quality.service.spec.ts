@@ -2,6 +2,8 @@
  * Auto's one measurement (RenderQualityService): it takes the frames of the
  * world that stands, not those of its load, and stores nothing when too
  * few frames came (the menu's globe covered the game, the tab was hidden).
+ * The player's overrides per world: stored, drawn at once, gone when a level
+ * is picked again (E156).
  */
 import '@angular/compiler';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -81,5 +83,42 @@ describe('RenderQualityService Auto measurement', () => {
     expect(readers).toHaveLength(0);
     expect(quality.autoMeasured()).toBe(false);
     expect(readStoredQuality().auto).toBeNull();
+  });
+
+  it('keeps overrides per world on top of the level, stored and drawn at once, until a level is picked', async () => {
+    const quality = TestBed.inject(RenderQualityService);
+    const { engine } = fakeEngine();
+    quality.set('high');
+    quality.attach(engine, { kind: 'custom-map', mapId: 'demo-valley' } as never);
+    const applied = () => vi.mocked(engine.applyQuality).mock.lastCall![0];
+
+    quality.setOverride('grass', 'low');
+    quality.setOverride('refraction', false);
+    quality.setPlantMotion('calm');
+    TestBed.tick();
+    expect(applied().customMaps).toMatchObject({ grassBlades: 0, refraction: false, plantSway: 0.4, shadowMapSize: 4096 });
+    expect(quality.mixed('custom-map')).toEqual(['grass', 'refraction']);
+    expect(quality.mixed('tiles')).toEqual([]);
+    expect(readStoredQuality()).toMatchObject({ setting: 'high', overrides: { grass: 'low', refraction: false }, plantMotion: 'calm' });
+
+    // A new page load reads them back
+    TestBed.resetTestingModule();
+    const again = TestBed.inject(RenderQualityService);
+    expect(again.knobsFor('custom-map').customMaps).toMatchObject({ grassBlades: 0, refraction: false, plantSway: 0.4 });
+    expect(again.overrideValue('grass')).toBe('low');
+    expect(again.overrideValue('shadows')).toBe('high');
+
+    // What the level sets anyway is no override; back to the level clears only that world
+    again.setOverride('refraction', true);
+    again.setOverride('tileDetail', 'ultra');
+    expect(again.overrides()).toEqual({ grass: 'low', tileDetail: 'ultra' });
+    again.resetOverrides('custom-map');
+    expect(again.overrides()).toEqual({ tileDetail: 'ultra' });
+
+    // Picking a level sets every part again; the plant motion stays
+    again.setOverride('grass', 'ultra');
+    again.set('medium');
+    expect(again.overrides()).toEqual({});
+    expect(again.plantMotion()).toBe('calm');
   });
 });

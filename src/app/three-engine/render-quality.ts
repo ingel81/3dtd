@@ -13,7 +13,10 @@
  * (resolution up to DPR 2, MSAA, errorTarget 20). Auto picks a level from
  * the GPU's name, checks it with a short measurement once, and plays
  * custom maps a level lower than tiles: resolution costs them far more
- * (docs/BENCHMARKS.md, Bildkosten). Pure: no Angular, no three.
+ * (docs/BENCHMARKS.md, Bildkosten). On top of the level the player may set
+ * parts of each world on their own (`QualityOverrides`, E156), each part
+ * taking its values from another level's row; how plants move in the wind
+ * is a setting of its own that no level changes. Pure: no Angular, no three.
  */
 
 export type QualityLevel = 'low' | 'medium' | 'high' | 'ultra';
@@ -68,6 +71,8 @@ export interface CustomMapQuality {
   seaWaves: boolean;
   lavaGlow: boolean;
   shadowCascade: boolean;
+  /** Share of the wind's sway on grass, trees and plants (the player's plant motion; every level 1) */
+  plantSway: number;
 }
 
 export interface TilesQuality {
@@ -89,7 +94,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 1, shadowMapSize: 1024, shadowRadius: 1.5, lodBias: 0.5, impostorFrom: 200,
       grassBlades: 0, grassDistance: 0, particles: 0.4, pointLights: 2,
-      farSingle: 80, farFlat: 220, refraction: false, seaWaves: false, lavaGlow: false, shadowCascade: false,
+      farSingle: 80, farFlat: 220, refraction: false, seaWaves: false, lavaGlow: false, shadowCascade: false, plantSway: 1,
     },
     tiles: { errorTarget: 32 },
   },
@@ -99,7 +104,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 1, shadowMapSize: 2048, shadowRadius: 1.5, lodBias: 0.75, impostorFrom: 280,
       grassBlades: 35_000, grassDistance: 90, particles: 0.7, pointLights: 4,
-      farSingle: 110, farFlat: 300, refraction: false, seaWaves: true, lavaGlow: false, shadowCascade: true,
+      farSingle: 110, farFlat: 300, refraction: false, seaWaves: true, lavaGlow: false, shadowCascade: true, plantSway: 1,
     },
     tiles: { errorTarget: 24 },
   },
@@ -109,7 +114,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 1.5, shadowMapSize: 4096, shadowRadius: 1.5, lodBias: 1, impostorFrom: 380,
       grassBlades: 70_000, grassDistance: 140, particles: 1, pointLights: 6,
-      farSingle: 150, farFlat: 400, refraction: true, seaWaves: true, lavaGlow: true, shadowCascade: true,
+      farSingle: 150, farFlat: 400, refraction: true, seaWaves: true, lavaGlow: true, shadowCascade: true, plantSway: 1,
     },
     tiles: { errorTarget: 20 },
   },
@@ -119,7 +124,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 2, shadowMapSize: 4096, shadowRadius: 2.5, lodBias: 1.25, impostorFrom: 500,
       grassBlades: 100_000, grassDistance: 180, particles: 1, pointLights: 6,
-      farSingle: 220, farFlat: 600, refraction: true, seaWaves: true, lavaGlow: true, shadowCascade: true,
+      farSingle: 220, farFlat: 600, refraction: true, seaWaves: true, lavaGlow: true, shadowCascade: true, plantSway: 1,
     },
     tiles: { errorTarget: 12 },
   },
@@ -136,6 +141,81 @@ export function lowerLevel(level: QualityLevel): QualityLevel {
 /** One level higher, Ultra stays Ultra */
 export function higherLevel(level: QualityLevel): QualityLevel {
   return QUALITY_LEVELS[Math.min(QUALITY_LEVELS.length - 1, QUALITY_LEVELS.indexOf(level) + 1)];
+}
+
+/**
+ * Parts of the picture the player sets on top of the level (E156), each for
+ * one world. A step takes its part from that level's row of the table:
+ * `tileDetail` the tiles' detail target (real places), `shadows` the shadow
+ * map, `farDetail` detail and draw distance, impostors and where the ground
+ * gets cheaper, `grass` blades and their distance (custom maps). A switch
+ * turns one of the map's effects on or off (map-effects.ts).
+ */
+export interface QualityOverrides {
+  tileDetail?: QualityLevel;
+  shadows?: QualityLevel;
+  farDetail?: QualityLevel;
+  grass?: QualityLevel;
+  refraction?: boolean;
+  seaWaves?: boolean;
+  lavaGlow?: boolean;
+  shadowCascade?: boolean;
+}
+
+export type QualityStep = 'tileDetail' | 'shadows' | 'farDetail' | 'grass';
+export type QualitySwitch = 'refraction' | 'seaWaves' | 'lavaGlow' | 'shadowCascade';
+export type QualityOverride = QualityStep | QualitySwitch;
+
+/** The custom-map knobs a step takes from its level's row */
+const STEP_KNOBS: Record<Exclude<QualityStep, 'tileDetail'>, readonly (keyof CustomMapQuality)[]> = {
+  shadows: ['shadowMapSize', 'shadowRadius'],
+  farDetail: ['lodBias', 'impostorFrom', 'farSingle', 'farFlat'],
+  grass: ['grassBlades', 'grassDistance'],
+};
+const QUALITY_STEPS: readonly QualityStep[] = ['tileDetail', 'shadows', 'farDetail', 'grass'];
+export const QUALITY_SWITCHES: readonly QualitySwitch[] = ['refraction', 'seaWaves', 'lavaGlow', 'shadowCascade'];
+
+function isSwitch(key: QualityOverride): key is QualitySwitch {
+  return QUALITY_SWITCHES.includes(key as QualitySwitch);
+}
+
+/** The world an override acts on */
+export function overrideWorld(key: QualityOverride): QualityWorld {
+  return key === 'tileDetail' ? 'tiles' : 'custom-map';
+}
+
+/** What `key` is at `level` without an override: the level itself for a step, the table's value for a switch */
+export function levelValue(level: QualityLevel, key: QualityOverride): QualityLevel | boolean {
+  return isSwitch(key) ? QUALITY_TABLE[level].customMaps[key] : level;
+}
+
+/** The overrides of `world` that set something else than `level` would: the player's own mix there */
+export function mixedOverrides(level: QualityLevel, overrides: QualityOverrides, world: QualityWorld): QualityOverride[] {
+  return (Object.keys(overrides) as QualityOverride[])
+    .filter((key) => overrideWorld(key) === world && overrides[key] !== undefined && overrides[key] !== levelValue(level, key));
+}
+
+/** How plants move in the map's wind: not at all, calmer, as far as the map's wind takes them */
+export type PlantMotion = 'off' | 'calm' | 'full';
+export const PLANT_MOTIONS: readonly PlantMotion[] = ['off', 'calm', 'full'];
+/** Share of the wind's sway per plant motion; the map keeps its own wind strength */
+export const PLANT_SWAY: Readonly<Record<PlantMotion, number>> = { off: 0, calm: 0.4, full: 1 };
+
+/** The knobs that play: `level`'s row with the player's overrides and plant motion on top */
+export function knobsWith(level: QualityLevel, overrides: QualityOverrides, plantMotion: PlantMotion): QualityKnobs {
+  const base = QUALITY_TABLE[level];
+  const customMaps: CustomMapQuality = { ...base.customMaps, plantSway: PLANT_SWAY[plantMotion] };
+  const knobs = customMaps as unknown as Record<keyof CustomMapQuality, number | boolean>;
+  for (const step of Object.keys(STEP_KNOBS) as (keyof typeof STEP_KNOBS)[]) {
+    const from = overrides[step];
+    if (from) for (const key of STEP_KNOBS[step]) knobs[key] = QUALITY_TABLE[from].customMaps[key];
+  }
+  for (const key of QUALITY_SWITCHES) {
+    const on = overrides[key];
+    if (on !== undefined) customMaps[key] = on;
+  }
+  const tiles = overrides.tileDetail ? QUALITY_TABLE[overrides.tileDetail].tiles : base.tiles;
+  return { ...base, customMaps, tiles };
 }
 
 /** What Auto settled on for this machine: from the GPU's name, then checked by a measurement */
@@ -199,25 +279,39 @@ export function pixelRatioFor(knobs: QualityKnobs, world: QualityWorld, devicePi
   return Math.min(devicePixelRatio, cap) * scale;
 }
 
-/** localStorage: the chosen setting and Auto's result */
+/** localStorage: the chosen setting, Auto's result, the player's overrides and plant motion */
 export const QUALITY_STORAGE_KEY = 'td_render_quality_v1';
 
 export interface StoredQuality {
   setting: QualitySetting;
   auto: AutoQuality | null;
+  overrides: QualityOverrides;
+  plantMotion: PlantMotion;
+}
+
+/** The overrides of a stored value that are what they claim to be; the rest goes */
+function parseOverrides(value: unknown): QualityOverrides {
+  const out: QualityOverrides = {};
+  if (!value || typeof value !== 'object') return out;
+  const raw = value as Record<string, unknown>;
+  for (const key of QUALITY_STEPS) if (QUALITY_LEVELS.includes(raw[key] as QualityLevel)) out[key] = raw[key] as QualityLevel;
+  for (const key of QUALITY_SWITCHES) if (typeof raw[key] === 'boolean') out[key] = raw[key];
+  return out;
 }
 
 export function parseStoredQuality(raw: string | null): StoredQuality {
-  const fallback: StoredQuality = { setting: 'auto', auto: null };
+  const fallback: StoredQuality = { setting: 'auto', auto: null, overrides: {}, plantMotion: 'full' };
   if (!raw) return fallback;
   try {
-    const value = JSON.parse(raw) as Partial<StoredQuality>;
+    const value = JSON.parse(raw) as Partial<StoredQuality> | null;
+    if (!value || typeof value !== 'object') return fallback;
     const setting = QUALITY_SETTINGS.includes(value.setting as QualitySetting) ? (value.setting as QualitySetting) : 'auto';
     const a = value.auto;
     const auto = a && typeof a.gpu === 'string' && QUALITY_LEVELS.includes(a.level as QualityLevel)
       ? { gpu: a.gpu, level: a.level as QualityLevel, measured: a.measured === true }
       : null;
-    return { setting, auto };
+    const plantMotion = PLANT_MOTIONS.includes(value.plantMotion as PlantMotion) ? (value.plantMotion as PlantMotion) : 'full';
+    return { setting, auto, overrides: parseOverrides(value.overrides), plantMotion };
   } catch {
     return fallback;
   }
@@ -247,6 +341,11 @@ export function writeStoredQuality(stored: StoredQuality): void {
 export function storedLevelFor(stored: StoredQuality, gpu: string, world: QualityWorld): QualityLevel {
   const auto = stored.auto && stored.auto.gpu === gpu ? stored.auto.level : levelForGpu(gpu);
   return resolveLevel(stored.setting, auto, world);
+}
+
+/** The knobs the stored setting plays on `world` for a GPU named `gpu`, the player's overrides on top (the editor) */
+export function storedKnobsFor(stored: StoredQuality, gpu: string, world: QualityWorld): QualityKnobs {
+  return knobsWith(storedLevelFor(stored, gpu, world), stored.overrides, stored.plantMotion);
 }
 
 /** `&quality=<level>` in the page's URL: this load plays that level (the graphics benchmark per level) */

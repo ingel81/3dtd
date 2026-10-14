@@ -1150,6 +1150,8 @@ export class MapObjectLayer {
             // Leaves flutter on their own, quick and small
             vec3 flutter = sin(t * vec3(8.3, 9.1, 7.4) + transformed * vec3(3.1, 2.3, 4.7));
             off += flutter * ${card ? '0.05' : '0.012'} * (0.2 + push) * smoothstep(0.05, 0.3, hn) * min(uWindBend * 4.0, 1.0);
+            // The player's plant motion: still, calmer or as the wind takes them
+            off *= uPlantSway;
             // Bent, not stretched: what moves sideways sinks a little
             off.y -= dot(off.xz, off.xz) / (2.0 * max(transformed.y, 0.5));
             transformed += off;

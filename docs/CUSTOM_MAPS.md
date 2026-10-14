@@ -202,7 +202,8 @@ Lava spiegeln sich).
   nicht). Der Boden liest sie ab 70 % des Radius der Schattenkarte, ein Lookup; Backen 10 bis 30 ms auf 1025er-Raster,
   nach Sonnenwechsel sofort, nach Höhenänderungen 0,4 s nach der letzten, dann über Tasks verteilt in Bändern von 24
   Zeilen, eine neuere Änderung bricht ab; GPU nicht messbar). Die
-  Qualitätsstufen schalten sie
+  Qualitätsstufen schalten sie, im Menü (Settings, Graphics, Custom maps) kann der Spieler jeden einzeln setzen
+  ([RENDER_QUALITY.md](RENDER_QUALITY.md#eigene-teile-je-welt-e156))
 - `water` (Standard): klar am Ufer, Kartenfarbe in der Tiefe, Wellen, Spiegelung des Himmels mit Fresnel, Sonnenglanz
   (der scharfe Teil funkelt: feine, schnelle Wellenfacetten fangen die Sonne),
   Schaum im Flachen. Der Wasserkörper nimmt bei warmem, tiefem Licht den Farbton der Sonne an (bis 35 % zur eigenen
@@ -364,7 +365,8 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   ohne Feld der Standard des Bioms, auf dem Mond kein Wind): geteilte Uniforms für Bäume, Pflanzen, Gras, Wolken,
   Rauch, Nebelbänke, Laub, Schnee, Regen, Asche, Staub und Glut, alle in dieselbe Richtung. Böen laufen als Fronten
   über die Weltposition (etwa 70 m Abstand, 7 m/s mit dem Wind, quer gewellt), so sieht man eine Bö über Wiese und
-  Wald ziehen. Kosten im Messrahmen nicht messbar (Demo-Tal 1,42 / 1,43 ms je Bild)
+  Wald ziehen. Wie weit Gras, Bäume und Pflanzen mitschwingen, skaliert die Einstellung „Plant motion“ des Spielers
+  (Off, Calm, Full: `uPlantSway` 0, 0,4, 1); die Windstärke der Karte bleibt, Wolken, Rauch und Wetter ziehen voll. Kosten im Messrahmen nicht messbar (Demo-Tal 1,42 / 1,43 ms je Bild)
 - **Biome** (`biomes.ts`, `environment.biome`): `temperate`, `hell`, `moon`, `mars`, `arctic`, `apocalypse`,
   `swamp`, `desert`, `mountain`, `city` setzen auf die Himmelsvoreinstellung Himmels- und Lichtfarben, Wolken,
   Dunstdichte und wie eng er am Boden liegt, Grading sowie Sterne, Planet (Mond: die Erde), Polarlicht und

@@ -21,6 +21,12 @@ export const WIND_UNIFORMS = {
   uWindStrength: { value: 0.35 },
   /** 0 steady .. 1 strong gust fronts */
   uWindGust: { value: 0.5 },
+  /**
+   * Share of the sway grass, trees and plants take from the wind (the
+   * player's plant motion, render-quality.ts): 0 still, 1 as the map's wind
+   * moves them. Clouds, smoke and weather keep the full wind
+   */
+  uPlantSway: { value: 1 },
 };
 
 /** The wind of maps without their own, per biome; the moon has no air */
@@ -61,6 +67,11 @@ export function setWind(wind: MapWind): void {
   windSceneDirection(Number.isFinite(wind.direction) ? wind.direction : 0, WIND_UNIFORMS.uWindDir.value);
 }
 
+/** How far plants sway in the wind, 0 still .. 1 as the wind takes them (the player's plant motion) */
+export function setPlantSway(share: number): void {
+  WIND_UNIFORMS.uPlantSway.value = Math.min(1, Math.max(0, Number.isFinite(share) ? share : 1));
+}
+
 /**
  * How far (model metres) the top of a plant of `height` metres and
  * catalogue sway `sway` (0 rigid .. 1 slender) moves in a strong wind
@@ -76,13 +87,15 @@ export function windSwayAtTop(sway: number, height: number): number {
  * GLSL for the shared wind: the uniforms, `windGust(p)` (0..1 at a scene
  * x, z: gust fronts about 70 m apart that run along the wind at 7 m/s,
  * bent across it) and `windPush(p)` (0 in calm air, the strength in steady
- * wind, up to about 2.6 times it in the strongest gust).
+ * wind, up to about 2.6 times it in the strongest gust). Plants scale their
+ * sway by `uPlantSway`.
  */
 export const WIND_GLSL = /* glsl */ `
 uniform float uWindTime;
 uniform vec2 uWindDir;
 uniform float uWindStrength;
 uniform float uWindGust;
+uniform float uPlantSway;
 float windGust(vec2 p) {
   float along = dot(p, uWindDir);
   float across = dot(p, vec2(-uWindDir.y, uWindDir.x));

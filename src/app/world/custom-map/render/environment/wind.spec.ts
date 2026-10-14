@@ -2,7 +2,7 @@ import { Vector2, Vector3 } from 'three';
 import { createMapDocument } from '../../map-create';
 import { packMapFile, unpackMapFile, validateMapDocument } from '../../map-file';
 import { mapToScene } from '../map-coords';
-import { setWind, windOf, windSceneDirection, windSwayAtTop, WIND_UNIFORMS } from './wind';
+import { setPlantSway, setWind, WIND_GLSL, windOf, windSceneDirection, windSwayAtTop, WIND_UNIFORMS } from './wind';
 import { CustomMapEnvironment } from './map-environment';
 
 function sample() {
@@ -55,6 +55,18 @@ describe('wind', () => {
     expect(WIND_UNIFORMS.uWindStrength.value).toBe(1);
     expect(WIND_UNIFORMS.uWindGust.value).toBe(0);
     expect(WIND_UNIFORMS.uWindDir.value.length()).toBeCloseTo(1);
+  });
+
+  it("scales only the plants' sway by the player's plant motion, the map's wind stays", () => {
+    setWind({ strength: 0.6, direction: 90, gusts: 0.4 });
+    setPlantSway(0.4);
+    expect(WIND_UNIFORMS.uPlantSway.value).toBeCloseTo(0.4);
+    expect(WIND_UNIFORMS.uWindStrength.value).toBeCloseTo(0.6);
+    expect(WIND_GLSL).toContain('uniform float uPlantSway;');
+    setPlantSway(-1);
+    expect(WIND_UNIFORMS.uPlantSway.value).toBe(0);
+    setPlantSway(Number.NaN);
+    expect(WIND_UNIFORMS.uPlantSway.value).toBe(1);
   });
 
   it('installs the map wind with the environment', () => {

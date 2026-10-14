@@ -317,8 +317,8 @@ if (keep > 0.0) {
   transformed = vec3(dir.x * across, t * bladeHeight, dir.y * across);
   // The map's wind: bowed along it, further where a gust front runs over the meadow, each blade trembling
   float push = windPush(sceneXZ);
-  vec2 sway = uWindDir * (0.08 + 0.5 * push)
-    + vec2(sin(uWindTime * 2.7 + aBladeRand.w * 20.0), cos(uWindTime * 2.1 + aBladeRand.w * 13.0)) * 0.05 * (0.3 + push);
+  vec2 sway = (uWindDir * (0.08 + 0.5 * push)
+    + vec2(sin(uWindTime * 2.7 + aBladeRand.w * 20.0), cos(uWindTime * 2.1 + aBladeRand.w * 13.0)) * 0.05 * (0.3 + push)) * uPlantSway;
   vec2 lean = vec2(-dir.y, dir.x) * (aBladeRand.w - 0.5) * 0.5;
   vec2 bow = (lean + sway) * t * t;
   transformed.xz += bow * bladeHeight;

@@ -1,6 +1,7 @@
 import { DisplayRefresh, DynamicResolution, FRAME_BUDGET_MS, REFRESH_SAMPLES } from './dynamic-resolution';
 import {
-  QUALITY_TABLE, levelAfterMeasure, levelForGpu, lowerLevel, parseStoredQuality, pixelRatioFor, qualityFromSearch, resolveLevel,
+  QUALITY_TABLE, knobsWith, levelAfterMeasure, levelForGpu, lowerLevel, mixedOverrides, parseStoredQuality, pixelRatioFor,
+  qualityFromSearch, resolveLevel,
 } from './render-quality';
 
 describe('render quality levels (E154)', () => {
@@ -53,13 +54,54 @@ describe('render quality levels (E154)', () => {
   });
 
   it('reads what was stored, and the level of a URL', () => {
-    expect(parseStoredQuality(null)).toEqual({ setting: 'auto', auto: null });
+    const none = { overrides: {}, plantMotion: 'full' };
+    expect(parseStoredQuality(null)).toEqual({ setting: 'auto', auto: null, ...none });
     expect(parseStoredQuality('{"setting":"low","auto":{"gpu":"x","level":"high","measured":true}}'))
-      .toEqual({ setting: 'low', auto: { gpu: 'x', level: 'high', measured: true } });
-    expect(parseStoredQuality('{"setting":"insane","auto":{"gpu":1}}')).toEqual({ setting: 'auto', auto: null });
-    expect(parseStoredQuality('not json')).toEqual({ setting: 'auto', auto: null });
+      .toEqual({ setting: 'low', auto: { gpu: 'x', level: 'high', measured: true }, ...none });
+    expect(parseStoredQuality('{"setting":"insane","auto":{"gpu":1}}')).toEqual({ setting: 'auto', auto: null, ...none });
+    expect(parseStoredQuality('not json')).toEqual({ setting: 'auto', auto: null, ...none });
+    expect(parseStoredQuality('null')).toEqual({ setting: 'auto', auto: null, ...none });
+    // Overrides and plant motion: what is valid stays, the rest goes
+    expect(parseStoredQuality('{"setting":"high","overrides":{"grass":"ultra","refraction":false,"shadows":"huge","lavaGlow":1,"x":true},"plantMotion":"calm"}'))
+      .toEqual({ setting: 'high', auto: null, overrides: { grass: 'ultra', refraction: false }, plantMotion: 'calm' });
+    expect(parseStoredQuality('{"overrides":[1],"plantMotion":"wild"}')).toEqual({ setting: 'auto', auto: null, ...none });
     expect(qualityFromSearch('?world=map:x&quality=medium')).toBe('medium');
     expect(qualityFromSearch('?quality=extreme')).toBeNull();
+  });
+});
+
+describe('quality overrides per world (E156)', () => {
+  it('plays the level as it is without overrides, with plants swaying fully', () => {
+    const knobs = knobsWith('medium', {}, 'full');
+    expect(knobs).toEqual({ ...QUALITY_TABLE.medium, customMaps: { ...QUALITY_TABLE.medium.customMaps, plantSway: 1 } });
+  });
+
+  it("takes each overridden part from that level's row, and only that part", () => {
+    const knobs = knobsWith('low', { grass: 'ultra', shadows: 'high', refraction: true, tileDetail: 'ultra' }, 'full');
+    const { low, ultra, high } = QUALITY_TABLE;
+    expect(knobs.level).toBe('low');
+    expect(knobs.general).toEqual(low.general);
+    expect(knobs.customMaps).toMatchObject({ grassBlades: ultra.customMaps.grassBlades, grassDistance: ultra.customMaps.grassDistance });
+    expect(knobs.customMaps).toMatchObject({ shadowMapSize: high.customMaps.shadowMapSize, shadowRadius: high.customMaps.shadowRadius });
+    expect(knobs.customMaps).toMatchObject({ lodBias: low.customMaps.lodBias, farSingle: low.customMaps.farSingle, particles: low.customMaps.particles });
+    expect(knobs.customMaps).toMatchObject({ refraction: true, seaWaves: false, lavaGlow: false });
+    expect(knobs.tiles).toEqual(ultra.tiles);
+    // The table itself stays as it was
+    expect(QUALITY_TABLE.low.customMaps.grassBlades).toBe(0);
+  });
+
+  it('scales the plant sway by the plant motion, which no level changes', () => {
+    expect(knobsWith('ultra', {}, 'off').customMaps.plantSway).toBe(0);
+    expect(knobsWith('low', {}, 'calm').customMaps.plantSway).toBeCloseTo(0.4);
+    expect(knobsWith('high', {}, 'full').customMaps.plantSway).toBe(1);
+  });
+
+  it("names an own mix per world: only overrides that differ from the world's level count", () => {
+    const overrides = { grass: 'high', seaWaves: true, tileDetail: 'low' } as const;
+    // High sets High grass and sea waves anyway; the tiles' Low detail is a mix on real places only
+    expect(mixedOverrides('high', overrides, 'custom-map')).toEqual([]);
+    expect(mixedOverrides('high', overrides, 'tiles')).toEqual(['tileDetail']);
+    expect(mixedOverrides('low', overrides, 'custom-map')).toEqual(['grass', 'seaWaves']);
   });
 });
 

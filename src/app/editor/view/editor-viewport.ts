@@ -38,7 +38,7 @@ import { CameraController, type OrbitState } from './camera-controller';
 import { EditorOverlay } from './editor-overlay';
 import { idle } from './idle';
 import { EditorMapView, mapToScene } from './map-view';
-import { QUALITY_TABLE, pixelRatioFor, readStoredQuality, storedLevelFor, type QualityKnobs } from '../../three-engine/render-quality';
+import { pixelRatioFor, readStoredQuality, storedKnobsFor, type QualityKnobs } from '../../three-engine/render-quality';
 import { contourLines } from '../ops/contours';
 import { programsReady } from '../../three-engine/programs-ready';
 
@@ -165,8 +165,9 @@ export class EditorViewport {
     private readonly callbacks: ViewportCallbacks,
   ) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true, preserveDrawingBuffer: false });
-    // The custom-map part of the game's quality level, at a fixed resolution (no dynamic one) and always MSAA
-    this.quality = QUALITY_TABLE[storedLevelFor(readStoredQuality(), gpuNameOf(this.renderer), 'custom-map')];
+    // The custom-map part of the game's quality level with the player's overrides, at a fixed resolution
+    // (no dynamic one) and always MSAA
+    this.quality = storedKnobsFor(readStoredQuality(), gpuNameOf(this.renderer), 'custom-map');
     this.renderer.setPixelRatio(pixelRatioFor({ ...this.quality, general: { ...this.quality.general, scale: 1 } }, 'custom-map', window.devicePixelRatio));
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.overlay = new EditorOverlay((x, y) => this.heightAt(x, y), (x, y) => this.walkHeightAt(x, y));
