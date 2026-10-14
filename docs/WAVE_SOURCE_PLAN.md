@@ -417,7 +417,9 @@ withDifficulty(source, () => store.difficulty())   // Faktor auf Anzahl und HP, 
 withSafetyNet(source, { onlyShrink: true })        // verkleinert nur, bei fehlender Antwort
 ```
 
-`withDifficulty` ist der Hebel für die UI-Auswahl des Spielers. `withSafetyNet` ist der ehrliche Rest der
+`withDifficulty` ist der Hebel für die UI-Auswahl des Spielers. Die Schwierigkeit einer eigenen Karte ist
+kein Dekorator geworden, sondern ein Faktor im Budget der Budget-Quelle ([WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md),
+Abschnitt 19): auf die fertigen HP gelegt, liefe er an den Grenzen je Gegner und am Deckel vorbei. `withSafetyNet` ist der ehrliche Rest der
 Adaption: einseitig, gedächtnislos, erklärbar. Beide gehören **nicht** in diesen Umbau; die Naht muss nur so
 liegen, dass sie ohne Änderung am Vertrag dazukommen können. Konkret heißt das: `plan` gibt eine fertige
 `PlannedWave` zurück, die ein Dekorator lesen, verkleinern und mit eigener Begründung weitergeben kann.

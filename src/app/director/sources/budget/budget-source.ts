@@ -59,6 +59,12 @@ export class BudgetWaveSource implements WaveSource {
   /** Did the cap cut the last wave? Then opening the loop would not have helped (anti-windup). */
   private lastCapped = false;
 
+  /**
+   * @param difficulty factor of the world on every wave's budget and cap (a custom map's difficulty,
+   *   MapGameplay.difficulty, 0.5 to 2); the loop moves the budget on top of it
+   */
+  constructor(private readonly difficulty = 1) {}
+
   plan(request: WavePlanRequest): PlannedWave {
     return this.size(request.wave, request.state);
   }
@@ -84,6 +90,7 @@ export class BudgetWaveSource implements WaveSource {
       enemies: planned,
       // A mutator that makes its enemies harder to kill takes it out of the HP (WAVE_MUTATORS)
       strength: row.strength * (mutator?.budget ?? 1),
+      difficulty: this.difficulty,
       spawnDelayMs: row.spawnDelay,
       regulator,
       targetPressure: target,
@@ -122,7 +129,7 @@ export class BudgetWaveSource implements WaveSource {
     const totalCount = enemies.reduce((sum, group) => sum + group.count, 0);
     const shared = sharedMult(sized);
     const explanation: DecisionExplanation = {
-      ...explain(wave, row, planned, sized, regulator, totalCount, shared),
+      ...explain(wave, row, planned, sized, regulator, totalCount, shared, this.difficulty),
       budget: breakdown(row, planned, sized, regulator, target, this.loopReading(target)),
     };
 
@@ -267,11 +274,12 @@ function sharedMult(sized: BudgetResult): number {
 
 function explain(
   wave: number, row: RunPlanRow, planned: Readonly<Record<string, number>>, sized: BudgetResult,
-  regulator: number, totalCount: number, shared: number,
+  regulator: number, totalCount: number, shared: number, difficulty: number,
 ): DecisionExplanation {
+  const map = difficulty !== 1 ? ` × map difficulty ${Math.round(difficulty * 100)} %` : '';
   const reasons = [
     `Run plan, row ${row.wave}: ${Object.entries(planned).map(([type, count]) => `${count}× ${type}`).join(', ')}, every ${row.spawnDelay} ms.`,
-    `Budget ${round1(sized.budget)} s of defense damage (curve × strength ${row.strength} × loop ×${round2(regulator)}).`,
+    `Budget ${round1(sized.budget)} s of defense damage (curve × strength ${row.strength}${map} × loop ×${round2(regulator)}).`,
   ];
   if (sized.capped) reasons.push(`The defense has about ${round1(sized.window)} s while the wave is on the route: ${round1(sized.delivered)} s are sent (that time × the loop, leaks included).`);
   if (sized.clamped.length) reasons.push(`At their limit (time under fire): ${sized.clamped.map((type) => `${type} HP ×${sized.hpMult[type]}`).join(', ')}.`);

@@ -1,6 +1,6 @@
 import { unzipSync, zipSync, strToU8 } from 'fflate';
 import { createMapDocument } from './map-create';
-import { MAP_VERSION, fitSplatMaps, type CustomMapDocument } from './map-document';
+import { MAP_VERSION, difficultyFactor, fitSplatMaps, type CustomMapDocument } from './map-document';
 import {
   MAX_ENTRY_BYTES,
   MAX_GRID_SIDE,
@@ -215,6 +215,17 @@ describe('map file', () => {
     ]));
     doc.gameplay = { lanes: { min: 0.5 } };
     expect(validateMapDocument(doc)).toContain('gameplay.lanes.min must be a whole number from 1');
+  });
+
+  it('carries the difficulty, an optional percent; a map without it reads as 100', () => {
+    const doc = sample();
+    expect(difficultyFactor(doc.gameplay)).toBe(1);
+    doc.gameplay = { difficulty: 140 };
+    const { doc: back } = unpackMapFile(packMapFile(doc));
+    expect(back.gameplay).toEqual({ difficulty: 140 });
+    expect(difficultyFactor(back.gameplay)).toBe(1.4);
+    doc.gameplay = { difficulty: 20 };
+    expect(validateMapDocument(doc)).toContain('gameplay.difficulty must be 50 to 200 (percent)');
   });
 
   it('validates the grid and the references', () => {

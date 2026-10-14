@@ -531,3 +531,18 @@ getarnt, E145; vorher ein Zehntel der Ratten, das ging unter), W26 alle Zombie v
 Zombie-Soldaten, W41 ein Viertel der Bären, W46 die Hälfte der Panzer, W52 die Hälfte der Zombies, W56 die ganze
 Welle. Getarnte kommen mit 0,75 der HP (`CAMO_HP_FACTOR`); das Budget rechnet sonst nicht mit ihnen. Ohne Späher
 laufen sie bis auf Flächenschaden durch. Bots kennen Pfade noch nicht.
+
+## 19. Schwierigkeit je Karte (2026-10-14, nicht nachgerechnet)
+
+Eine eigene Karte darf ihre Wellen härter oder leichter machen: `gameplay.difficulty` im Kartendokument, Prozent von
+50 bis 200, ohne Feld 100 (alte Karten unverändert). Im Editor unter Rules, „Difficulty“. Die Budget-Quelle nimmt den
+Faktor `D` in jede Welle: `B = S(N) · k · D · R`, und der Deckel wandert mit (`Fenster · min(R, 1,5) · D`), sonst
+endete eine harte Karte am selben Deckel wie eine normale. Was die Abwehr nicht treffen kann, bekommt `k · D` als
+HP-Faktor. Gold, Leck und Anzahl bleiben, wie der Plan sie setzt; der Druck-Regler misst weiter gegen die
+Spannungskurve und regelt `R` obendrauf, eine harte Karte treibt ihn also eher nach unten als an den Anschlag.
+
+Wo: `BudgetWaveSource(difficulty)`, `sizeWave` (`BudgetInput.difficulty`), `WaveSourceOptions.difficulty`,
+`WorldWaves.difficulty` (`CustomMapWorld.worldWaves`, `difficultyFactor`). Die Wellen reisen fertig im
+Startbefehl (`command:start-wave`): Replays brauchen den Faktor nicht, im Koop liest ihn jede Seite aus der Karte
+(der Host schickt die ganze Karte). Die Tabellen-Quelle kennt ihn nicht, ihre Liste hat eigene HP-Faktoren.
+Gerechnet oder gemessen ist die Wirkung nicht; der Faktor ist ein Hebel für Kartenbauer, kein Balancewert.

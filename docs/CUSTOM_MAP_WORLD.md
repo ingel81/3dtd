@@ -80,6 +80,10 @@ Tower-Typen und die Wellen. Keine Weiche auf die Weltart, die Werte gehen über 
   Karte (`WaveSourceOptions.table`, `TableWaveSource(table)`). Der Start gibt sie an
   `WaveDirector.useWorldWaves`, der Worker bekommt die Liste über `SimConfig.waveTable`. Eine Liste
   mit Fehlern (`validateWaveTable`) wird mit Warnung übergangen, dann spielt die Wahl des Spielers.
+- `gameplay.difficulty` (Prozent, 50 bis 200, ohne Feld 100): `worldWaves()` gibt ihn als Faktor mit
+  (`difficultyFactor`), der Start reicht ihn als `WaveSourceOptions.difficulty` an die Budget-Quelle, die ihn
+  auf Budget und Deckel jeder Welle legt ([WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), Abschnitt 19). Eine Karte ohne
+  Wellenwahl mit Schwierigkeit spielt die Quelle des Spielers; die Tabellen-Quelle ignoriert ihn.
 
 Alle Anteile an der HQ-HP rechnen mit der HP des Laufs (`RunRules.hqHealth`), nicht mit
 `GAME_BALANCE.player.startHealth`:

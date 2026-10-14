@@ -22,7 +22,7 @@ import { runRulesOf, type RunRules } from '../../sim/protocol/run-rules';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
-import { type CustomMapDocument, type MapObject, geoToMap, mapToGeo } from './map-document';
+import { type CustomMapDocument, type MapObject, difficultyFactor, geoToMap, mapToGeo } from './map-document';
 import { CustomMapDestruction, FALLEN_SCALE, type StructureEntry } from './custom-map-destruction';
 import { renderMinimapPicture } from './custom-map-minimap';
 import { MapStore } from './map-store';
@@ -374,20 +374,23 @@ export class CustomMapWorld implements WorldProvider {
 
   /**
    * The map's waves: the game's budget source, or its own list for the table
-   * source. A list with mistakes (validateWaveTable) is left out with a
-   * warning: the game's choice plays instead.
+   * source, and its difficulty on the budget (difficultyFactor). A list with
+   * mistakes (validateWaveTable) is left out with a warning: the game's
+   * choice plays instead.
    */
   worldWaves(): WorldWaves | null {
     const waves = this.doc.gameplay?.waves;
-    if (!waves) return null;
-    if (waves.kind === 'budget') return { source: 'budget' };
+    const difficulty = difficultyFactor(this.doc.gameplay);
+    const scaled = difficulty !== 1 ? { difficulty } : {};
+    if (!waves) return difficulty !== 1 ? { source: null, ...scaled } : null;
+    if (waves.kind === 'budget') return { source: 'budget', ...scaled };
     const table = waves.table as unknown as WaveTable;
     const problems = validateWaveTable(table);
     if (problems.length > 0) {
       console.warn(`[CustomMap] the map's wave list is not used: ${problems.slice(0, 3).join('; ')}`);
-      return null;
+      return difficulty !== 1 ? { source: null, ...scaled } : null;
     }
-    return { source: 'table', table };
+    return { source: 'table', table, ...scaled };
   }
 
   /**

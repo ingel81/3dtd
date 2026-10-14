@@ -72,6 +72,12 @@
             matTooltip="The game's budget source: waves sized against the defense">Game waves</button>
     <button type="button" role="radio" [attr.aria-checked]="!!table()" (click)="setSource('table')" data-test="own-waves">Own list</button>
   </div>
+  <app-editor-range label="Difficulty" unit="%" [min]="difficultyRange.min" [max]="difficultyRange.max" [step]="5"
+                    [value]="difficulty()" (changed)="setDifficulty($event)" data-test="difficulty"
+                    matTooltip="Scales the budget of every game wave (100 % is the game's). The game still adjusts to how the waves go." />
+  @if (table()) {
+    <p class="td-note">The difficulty scales the game's waves only; your own list keeps its HP factors.</p>
+  }
   @if (table(); as t) {
     <div class="td-actions is-start">
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="copyGameList()" matTooltip="Replace this list with the game's fixed wave list to start from">Start from the game's list</button>

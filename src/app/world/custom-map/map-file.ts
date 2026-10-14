@@ -15,7 +15,7 @@
  */
 import { VACANT_LANES } from './lane-choice';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
-import { MAP_FORMAT, MAP_VERSION, MAX_GROUND_LAYERS, splatMapCount, type CustomMapDocument } from './map-document';
+import { MAP_DIFFICULTY, MAP_FORMAT, MAP_VERSION, MAX_GROUND_LAYERS, splatMapCount, type CustomMapDocument } from './map-document';
 import { MAP_ID_PATTERN } from './map-create';
 
 export const MAP_FILE_EXTENSION = '.3dtdmap';
@@ -384,6 +384,9 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
         p.push('gameplay.towers must be a list of tower ids');
       }
       if (gp.destructible !== undefined && typeof gp.destructible !== 'boolean') p.push('gameplay.destructible must be true or false');
+      if (gp.difficulty !== undefined && (!finite(gp.difficulty) || gp.difficulty < MAP_DIFFICULTY.min || gp.difficulty > MAP_DIFFICULTY.max)) {
+        p.push(`gameplay.difficulty must be ${MAP_DIFFICULTY.min} to ${MAP_DIFFICULTY.max} (percent)`);
+      }
       const lanes = gp.lanes;
       if (lanes !== undefined) {
         const count = (v: unknown) => v === undefined || (Number.isInteger(v) && (v as number) >= 1);

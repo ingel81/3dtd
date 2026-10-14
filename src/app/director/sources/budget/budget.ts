@@ -3,7 +3,8 @@
  * defense as it stands. The same steps for every wave, boss or not
  * (docs/WAVE_RUN_PLAN.md, section 9):
  *
- * 1. Budget in seconds of defense damage: `B = S(N) · strength · R`.
+ * 1. Budget in seconds of defense damage: `B = S(N) · strength · D · R`, D the
+ *    world's difficulty (a custom map's, 1 elsewhere).
  * 2. Each enemy's cost at HP ×1: its HP over the defense's damage against its
  *    armor, ground or air.
  * 3. Grenze je Gegner: no enemy gets more HP than the defense deals while it is
@@ -13,8 +14,8 @@
  *    its own limit or not. A few of each kind are elites (ELITE_SHARE) with
  *    ELITE_HP_FACTOR times the HP, inside the same budget.
  * 4. Deckel: the wave's whole cost is at most what the defense can deal while
- *    the wave is on the route, times the loop's R, plus the leaks the tension
- *    curve allows (CAP_FOLLOWS_REGULATOR).
+ *    the wave is on the route, times the loop's R and the difficulty D, plus
+ *    the leaks the tension curve allows (CAP_FOLLOWS_REGULATOR).
  * 5. One shared HP factor fills what is left of the budget.
  *
  * Pure functions, no state: the source holds R.
@@ -164,6 +165,8 @@ export interface BudgetInput {
   readonly wave: number;
   readonly enemies: Readonly<Record<string, number>>;
   readonly strength: number;
+  /** Factor of the world on the budget (a custom map's difficulty, 0.5 to 2); 1 when missing */
+  readonly difficulty?: number;
   readonly spawnDelayMs: number;
   /** The pressure loop's R. */
   readonly regulator: number;
@@ -179,7 +182,7 @@ export interface BudgetInput {
 export interface BudgetResult {
   /** HP factor per enemy type. */
   readonly hpMult: Readonly<Record<string, number>>;
-  /** Budget before the cap: S · strength · R. */
+  /** Budget before the cap: S · strength · difficulty · R. */
   readonly budget: number;
   /** What the cap left of it. */
   readonly delivered: number;
@@ -242,7 +245,8 @@ export function enemyHp(type: string): number {
 
 export function sizeWave(input: BudgetInput): BudgetResult {
   const { defense } = input;
-  const budget = budgetSeconds(input.wave) * input.strength * input.regulator;
+  const difficulty = input.difficulty ?? 1;
+  const budget = budgetSeconds(input.wave) * input.strength * difficulty * input.regulator;
   const types = Object.entries(input.enemies).filter(([type, count]) => count > 0 && ENEMY_TYPES[type as EnemyTypeId]);
   // Bodies, not spawns: a chain (Skarnax) is one spawn but a body per segment, each walking
   // past the towers on its own, each with its share of HP and leak (the same rule for every type)
@@ -300,7 +304,8 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   const fireAvg = hurt.length ? hurt.reduce((sum, h) => sum + h.n * Math.max(h.fire, h.onRoute), 0) / hurt.reduce((sum, h) => sum + h.n, 0) : 0;
   const window = spawnSeconds + fireAvg;
   const allowedLeaks = leakCost > 0 && count > 0 ? leakHp / (leakCost / count) : 0;
-  const capWindow = CAP_FOLLOWS_REGULATOR ? window * Math.min(input.regulator, CAP_REGULATOR_MAX) : window;
+  // The difficulty moves the cap with the budget, or a hard map would end at the same cap as a normal one
+  const capWindow = (CAP_FOLLOWS_REGULATOR ? window * Math.min(input.regulator, CAP_REGULATOR_MAX) : window) * difficulty;
   // Leaks the curve allows: a share `a` of the bodies gets through when the wave asks 1 / (1 - a) times the
   // time it has (what the defense cannot work through comes through, spread over the bodies)
   const allowedShare = Math.min(MAX_ALLOWED_LEAK_SHARE, allowedLeaks / Math.max(1, count));
@@ -346,8 +351,8 @@ export function sizeWave(input: BudgetInput): BudgetResult {
     } else if (h.cap < m && !clamped.includes(h.type)) clamped.push(h.type);
     hpMult[h.type] = round3(Math.max(HP_MULT_MIN, Math.min(HP_MULT_MAX, mult)));
   }
-  // Nothing to measure against: the row's strength alone (HP x1 at strength 1)
-  for (const type of unhurt) hpMult[type] = round3(Math.max(HP_MULT_MIN, input.strength));
+  // Nothing to measure against: the row's strength alone (HP x1 at strength 1), times the world's difficulty
+  for (const type of unhurt) hpMult[type] = round3(Math.max(HP_MULT_MIN, input.strength * difficulty));
 
   const limits: Record<string, number> = {};
   for (const [type, cap] of capOf) limits[type] = round3(cap);

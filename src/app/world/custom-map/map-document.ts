@@ -333,6 +333,21 @@ export interface MapGameplay {
   lanes?: MapLanes;
   /** Buildings, walls and structures take damage from shots and fall (TODO E131); off when missing */
   destructible?: boolean;
+  /**
+   * Percent on the wave budget of the game's waves (budget source), MAP_DIFFICULTY.min to max; 100 when
+   * missing. The pressure loop still works on top. A list of the map's own keeps its HP
+   */
+  difficulty?: number;
+}
+
+/** The difficulty a map may set, percent on the wave budget (MapGameplay.difficulty) */
+export const MAP_DIFFICULTY = { min: 50, max: 200, normal: 100 } as const;
+
+/** The map's difficulty as a factor on the wave budget, held in MAP_DIFFICULTY; 1 without one */
+export function difficultyFactor(gameplay: Pick<MapGameplay, 'difficulty'> | undefined): number {
+  const d = gameplay?.difficulty;
+  if (typeof d !== 'number' || !Number.isFinite(d)) return 1;
+  return Math.min(MAP_DIFFICULTY.max, Math.max(MAP_DIFFICULTY.min, d)) / 100;
 }
 
 export interface CustomMapDocument {

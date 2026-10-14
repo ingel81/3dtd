@@ -60,6 +60,20 @@ describe('sizeWave', () => {
     expect(sizeWave(base({ regulator: 0.5 })).hpMult['zombie']).toBeCloseTo(one * 0.5, 2);
   });
 
+  it('scales budget and cap with the world difficulty, the unhurt with it', () => {
+    const one = sizeWave(base());
+    const hard = sizeWave(base({ difficulty: 2 }));
+    expect(hard.budget).toBeCloseTo(one.budget * 2, 6);
+    expect(hard.hpMult['zombie']).toBeCloseTo(one.hpMult['zombie'] * 2, 2);
+    expect(sizeWave(base({ difficulty: 0.5 })).hpMult['zombie']).toBeCloseTo(one.hpMult['zombie'] * 0.5, 2);
+    // A capped wave: the cap moves with the difficulty as well
+    const capped = (difficulty: number) => sizeWave(base({ enemies: { zombie: 200 }, spawnDelayMs: 100, difficulty, defense: { dps: dps(1000), damageMetres: dps(1000 * 30), hpRemaining: 300 } }));
+    expect(capped(1).capped).toBe(true);
+    expect(capped(1.5).delivered).toBeCloseTo(capped(1).delivered * 1.5, 6);
+    const unhurt = sizeWave(base({ enemies: { bat: 20, zombie: 50 }, difficulty: 1.5, defense: { dps: dps(1000, 0), damageMetres: dps(1000 * 400, 0), hpRemaining: 300 } }));
+    expect(unhurt.hpMult['bat']).toBe(1.5);
+  });
+
   it('gives a stronger defense tougher enemies, not more of them', () => {
     const weak = sizeWave(base());
     const strong = sizeWave(base({ defense: { ...base().defense, dps: dps(2000), damageMetres: dps(2000 * 400) } }));

@@ -34,6 +34,14 @@ describe('BudgetWaveSource', () => {
     expect(wave.config.enemies.every((g) => (g.healthMultiplier ?? 0) > 0)).toBe(true);
   });
 
+  it('puts a map difficulty on every budget and names it', () => {
+    const normal = plan(new BudgetWaveSource(), 12);
+    const hard = plan(new BudgetWaveSource(1.5), 12);
+    expect(hard.log.diagnostics?.['budget']).toBeCloseTo((normal.log.diagnostics?.['budget'] as number) * 1.5, 0);
+    expect(hard.explanation!.reasons.some((r) => r.includes('map difficulty 150 %'))).toBe(true);
+    expect(normal.explanation!.reasons.some((r) => r.includes('map difficulty'))).toBe(false);
+  });
+
   it('sends a Swift wave faster, with its budget cut by the mutator', () => {
     const swift = plan(new BudgetWaveSource(), 14);
     expect(swift.config.enemies.every((g) => g.speedMultiplier === WAVE_MUTATORS.swift.speed)).toBe(true);

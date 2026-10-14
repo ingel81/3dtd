@@ -211,6 +211,8 @@ export interface WorldWaves {
   /** The source the world plays; null: the player's choice */
   source: WaveSourceId | null;
   table?: WaveTable;
+  /** Factor on the budget source's wave budget (a custom map's difficulty); 1 when missing */
+  difficulty?: number;
 }
 
 /** A sightseeing flight over a world, local coordinates, starting at the HQ */

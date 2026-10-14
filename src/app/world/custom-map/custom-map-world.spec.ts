@@ -293,6 +293,14 @@ describe('CustomMapWorld', () => {
     expect(world().runRules()).toBeNull();
     expect(world().worldWaves()).toEqual({ source: 'table', table });
 
+    // The difficulty goes with the waves; without a wave choice the player's source plays
+    doc.gameplay = { difficulty: 150 };
+    expect(world().worldWaves()).toEqual({ source: null, difficulty: 1.5 });
+    doc.gameplay = { difficulty: 100, waves: { kind: 'budget' } };
+    expect(world().worldWaves()).toEqual({ source: 'budget' });
+    doc.gameplay = { difficulty: 400, waves: { kind: 'budget' } };
+    expect(world().worldWaves()).toEqual({ source: 'budget', difficulty: 2 });
+
     // A list with mistakes is left out: the game's choice plays
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     doc.gameplay = { waves: { kind: 'table', table: { ...table, cycle: { fromWave: 5, hpGrowth: 0 } } } };

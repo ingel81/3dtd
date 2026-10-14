@@ -6,14 +6,15 @@ import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { GAME_BALANCE } from '../../../configs/game-balance.config';
 import { TOWER_TYPES } from '../../../configs/tower-types.config';
 import { WAVE_TABLE, validateWaveTable, type WaveTable } from '../../../director/sources/table/wave-table';
-import type { MapGameplay, MapWaveRow, MapWaveTable } from '../../../world/custom-map/map-document';
+import { MAP_DIFFICULTY, type MapGameplay, type MapWaveRow, type MapWaveTable } from '../../../world/custom-map/map-document';
 import { SnapshotCommand } from '../../model/editor-document';
 import { EditorSession } from '../editor-session.service';
+import { RangeRowComponent } from './range-row.component';
 
 /**
  * The map's own rules: start credits, HQ health, the towers players may
  * build, and the waves: the game's budget source or a list of the map's
- * own. The game reads these once it plays custom maps with rules
+ * own, and the difficulty on the game's waves. The game reads these once it plays custom maps with rules
  * (docs/LEVEL_EDITOR.md).
  */
 
@@ -25,7 +26,7 @@ function pruned(lanes: MapLanes): MapLanes | undefined {
 @Component({
   selector: 'app-gameplay-panel',
   standalone: true,
-  imports: [TdIconComponent, MatTooltipModule],
+  imports: [TdIconComponent, MatTooltipModule, RangeRowComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   templateUrl: './gameplay-panel.component.html',
@@ -87,6 +88,16 @@ export class GameplayPanelComponent {
       if (lanes.min !== undefined && lanes.max !== undefined && lanes.min > lanes.max) lanes[key === 'min' ? 'max' : 'min'] = v;
       g.lanes = pruned(lanes);
     });
+  }
+
+  readonly difficultyRange = MAP_DIFFICULTY;
+  readonly difficulty = computed(() => this.gp().difficulty ?? MAP_DIFFICULTY.normal);
+
+  /** Percent on the game's wave budget; 100 is the game's and leaves the field out */
+  setDifficulty(percent: number): void {
+    const v = Math.min(MAP_DIFFICULTY.max, Math.max(MAP_DIFFICULTY.min, Math.round(percent)));
+    if (v === this.difficulty()) return;
+    this.edit('Difficulty', (g) => (g.difficulty = v === MAP_DIFFICULTY.normal ? undefined : v));
   }
 
   setDestructible(on: boolean): void {
