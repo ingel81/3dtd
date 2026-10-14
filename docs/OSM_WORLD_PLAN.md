@@ -1,0 +1,366 @@
+# Welt aus OpenStreetMap (Plan)
+
+**Status:** Plan, 2026-10-14, nichts gebaut (TODO E157)
+**Bezug:** [CUSTOM_MAPS.md](CUSTOM_MAPS.md) (Renderer, Katalog), [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) (Spiel),
+[LEVEL_EDITOR.md](LEVEL_EDITOR.md) (Editor), [W3X_IMPORT.md](W3X_IMPORT.md) (Vorbild für einen Importer im Worker),
+[LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) (Ortssuche, Spawns auf echten Orten), [SHOWCASE_LEVELS.md](SHOWCASE_LEVELS.md)
+(`LevelKit`)
+
+Aus einer Adresse wird eine eigene Karte: Gelände aus freien Höhendaten, Straßen, Brücken, Gebäude, Landnutzung,
+Gewässer und Ausstattung aus OpenStreetMap. Das Ergebnis ist ein gewöhnliches Kartendokument (`CustomMapDocument`), das
+wie jede eigene Karte gespielt, im Koop verschickt und im Editor bearbeitet wird.
+
+## Vorgaben (User, 2026-10-14)
+
+- Spieler ohne 3D-Tile-Token spielen trotzdem auf „ihrer“ Adresse.
+- Eine erzeugte Welt, zwei Wege: direkt spielen, oder in den Editor nehmen und bearbeiten, auch nachträglich aus einem
+  laufenden oder gespielten Ort.
+- Ortssuche wie im Spiel, Rahmen auf einer flachen OSM-Karte.
+- Gelände aus freien Höhendaten, geglättet.
+- HQ auf der Adresse, Spawns wie auf echten Orten (Portale auf Straßen, 500 bis 1000 m, verschiebbar), Gegner auf dem
+  OSM-Straßennetz; die Karte wird so groß, dass alle Spawns darin liegen.
+- Gebäude: jeder Grundriss bekommt ein passendes Katalog-Modell nach Größe, Form und Art, auf den Grundriss gedreht;
+  fehlende Arten werden eine Liste für neue Katalog-Modelle.
+- Erste Fassung mit allem, was geht: Gelände, Straßen, Brücken, Gebäude, Landnutzung zu Biomen (Wald mit Bäumen, Wiese,
+  Acker, Sand, Fels), Gewässer (Seen, Flüsse, Küste), Ausstattung (Zäune, Mauern, Laternen, Einzelbäume, Bahnlinien).
+
+## Ablauf
+
+```
+Adresse suchen ─► flache Karte mit Rahmen, HQ und Spawns ─► Daten holen ─► im Worker erzeugen ─► speichern
+ (Nominatim)       (Spawns ziehen, Größe folgt)            (Overpass,       (Bericht, Fortschritt,   │
+                                                            Höhenkacheln)    Abbruch)                 ├─► Spielen  ?world=map:<id>
+                                                                                                      └─► Editor   /editor?map=<id>
+```
+
+1. **Suche:** `AddressAutocompleteComponent` und `GeocodingService` wie in der Ortswahl (Nominatim, 300 ms Entprellung,
+   kein Wiederholen bei 429). Aus einem laufenden oder gespielten echten Ort geht es ohne Suche weiter: HQ und Spawns
+   kommen aus dem Lauf („Make a map of this place“).
+2. **Rahmen:** eine flache Karte zeigt den Ort, das HQ auf der Adresse, die Spawns und den Rahmen der Karte. Spawns
+   werden wie auf echten Orten gewürfelt (500 bis 1000 m, auf befahrbaren Straßen) und lassen sich ziehen; sie rasten
+   auf Straßen. Der Rahmen folgt: quadratisch um das HQ, groß genug für alle Spawns plus Rand (Vorschlag unten).
+   Für das Würfeln und Einrasten braucht die Seite die Straßen schon hier: die Overpass-Abfrage läuft beim Öffnen
+   des Rahmens.
+3. **Daten holen:** eine Overpass-Abfrage für alles (Rahmen plus Rand), Höhenkacheln für den Rahmen. Beides kommt in
+   einen IndexedDB-Speicher je Rahmen (wie `StreetCacheService`), damit ein zweites Erzeugen nichts mehr abruft.
+4. **Erzeugen:** im Web Worker wie der W3X-Import (`importOsmInWorker`, Transferables, Abbruch, Zeitlimit), mit
+   Fortschritt je Schritt und einem Bericht (was übernommen, ersetzt, ausgedünnt, weggelassen wurde; fehlende
+   Gebäudearten).
+5. **Speichern:** als eigene Karte im Map-Store, Name aus der Adresse, `meta.source = { kind: 'osm', … }`. Danach
+   „Play“ (Spiel mit `?world=map:<id>`) oder „Edit“ (Editor). Weiter wie jede eigene Karte: Koop-Versand bis 32 MB,
+   Versionen, Download.
+
+## Was es schon gibt
+
+| Baustein | Wo | Nutzen hier |
+|---|---|---|
+| Overpass-Zugriff: zwei EU-Server, Hedging nach 4 s, Zeitlimits, Log je Antwort | `services/location/osm-street.service.ts` (`fetchOverpass`, `askOverpass`) | herauslösen in einen Angular-freien `overpass-client.ts`, den Straßen und OSM-Welt teilen |
+| Straßen-Tags (Breite, Spuren, Brücke, Tunnel, Ebene) | `parseStreetTags` im selben Service | unverändert |
+| Spawn auf echten Orten: Knoten 500 bis 1000 m auf befahrbaren Straßen, Route geprüft, Portal gerade gerückt | `services/location/street-router.ts` (`findRandomStreetPoint`, `straightSpawn`) | läuft auf dem Netz der Karte (`mapStreetNetwork(doc)`), Rand der Karte über `WorldCoverage` (`coveredSpawnRange`) |
+| Straßen der Karte als Spielnetz, Routen, Korridor, Routengitter | `world/custom-map/custom-map-streets.ts`, Routengitter wie für jede Welt | nichts Neues: eine OSM-Welt ist eine eigene Karte |
+| Kartendokument, Datei, Store, Koop-Versand | `world/custom-map/` | `meta.source` bekommt die Art `osm` |
+| Importer im Worker mit Bericht | `world/w3x/` (`import-w3x.ts`, `w3x.worker.ts`, `w3x-import-client.ts`) | Vorbild für Aufbau, Optionen, Bericht |
+| Editor-Operationen ohne Oberfläche | `editor/ops/` über `tools/maps/levels/kit.ts` (`LevelKit`) | Wege einebnen und bemalen (`flattenUnderPaths`, `paintUnderPaths`), Fluss (`carveRiver`, Ufer, Schilf, Brücken), Becken (`fillBasin`, `ops/pour.ts`), Biom-Streuung (`biome-brush.ts`), Streuen (`scatterDab`), Linien (`objectsAlong`, `wallAlong`), Laternen (`dressEdge`), Felsen absetzen (`settled`), Prüfung (`validateMap`) |
+| Höhen-Import | `editor/ops/heightmap.ts` | bilineares Umrechnen auf das Raster |
+| Namensnennung | `configs/attributions.config.ts` (`OSM_MAP_ATTRIBUTION`) | Zeile für OSM-Welten und Höhendaten |
+
+`LevelKit` liest den Katalog heute mit `node:fs`. Für den Worker wandert sein Kern nach `src/app/editor/` (Katalog per
+`fetch`), die Level-Skripte behalten eine dünne Hülle.
+
+## Grenzen des Kartenformats
+
+| Grenze | Wert | Folge für 2,4 km |
+|---|---|---|
+| Höhenraster | 2 m (`DEFAULT_CELL_SIZE`), höchstens 4097 je Seite (`MAX_GRID_SIDE`) | 1201 × 1201 Punkte, passt |
+| Bodenfarbe | 8 Schichten (`MAX_GROUND_LAYERS`), Splat bis 1024 (`splatResolutionFor`) | 2,3 m je Texel; Landnutzung muss in 8 Materialien passen |
+| Wegemaske | 0,5 m je Texel, höchstens 2048 (`PATH_MASK_MAX_RESOLUTION`) | 1,2 m je Texel, für Straßen ab 3 m Breite ausreichend |
+| Gewässer | Hauptwasser plus 64 weitere (`MAX_WATER_BODIES`) | Becken, Brunnen, Pools zusammenfassen oder weglassen |
+| Objekte | Budget 15 000 im Editor (`OBJECT_BUDGET`), Messung bis 50 000 | Wald und Gebäude teilen sich das Budget |
+| Spawns | 32 (`MAX_SPAWN_PORTALS`) | unkritisch |
+| Datei | 32 MB für den Koop-Versand | gemessen 5,6 bis 6,0 MB |
+| Größe der Level | mitgeliefert 512 m, Editor bis 2048 m („Large“) | eine OSM-Welt hat bis zur 22-fachen Fläche eines Levels |
+
+Gemessen ist der Renderer bis 1025² Punkte (2 km) mit 50 000 Objekten: 352 fps Übersicht, 432 fps Spielkamera (RTX
+5080, 1080p), Aufbau rund 430 ms ohne GPU ([CUSTOM_MAPS.md](CUSTOM_MAPS.md#leistung)). 1201² ist nicht gemessen.
+
+## Proben (2026-10-14)
+
+Zwei Orte, je ein Quadrat von 2,4 km um die Mitte: Miltenberg (Kleinstadt am Main, Weinberge, Wald, Hanglagen) und
+Stuttgart Mitte (dichte Innenstadt). Je eine Overpass-Abfrage, Höhenkacheln von zwei Quellen, Rohdaten nur im
+Scratchpad. Erzeugt wurde mit einer Wegwerf-Spec über `LevelKit` in Node (ein Kern, nicht im Repo).
+
+**Overpass** (eine Abfrage: `highway`, `building`, `landuse`, `natural`, `leisure`, `waterway`, `water`, `railway`,
+`barrier`, `man_made`, `amenity` als Wege und Relationen, dazu Bäume, Laternen, Schranken und `man_made` als Knoten;
+`out body geom(<Rahmen>)`, die Geometrie am Rahmen abgeschnitten):
+
+| | Miltenberg | Stuttgart Mitte |
+|---|---|---|
+| Antwort | 1,5 s, 0,62 MB gzip, 4,3 MB JSON | 2,9 s, 2,29 MB gzip, 15,1 MB JSON |
+| Elemente | 6 316 (5 844 Wege, 10 Relationen) | 21 127 (16 895 Wege, 70 Relationen) |
+| Straßenwege | 1 646, 118 km, 21 Brücken, 17 Tunnel | 6 367, 252 km, 60 Brücken, 578 Tunnel |
+| Gebäude | 3 570 | 7 928 |
+| Einzelbäume | 142 | 2 719 |
+| Barrieren (Linien) | Hecke 107, Mauer 45, Zaun 35, Stützmauer 16, Stadtmauer 10 | Stützmauer 179, Zaun 158, Mauer 152, Hecke 108 |
+| Bahn | 24 Gleise | 165 Gleise, 188 Stadtbahn |
+| Wald (Fläche) | rund 1,6 km² von 5,76 | rund 0,07 km² |
+
+Die Abfrage braucht ein größeres `maxsize` als die Straßenabfrage des Spiels (heute 4 MB Serverspeicher). Die
+Status-Seite von overpass-api.de nannte am 2026-10-14 vier Plätze je IP; sind sie belegt, antwortet der Server mit 429
+(nicht ausgelöst). Eine OSM-Welt kostet also eine Abfrage, ein zweites Erzeugen keine (Speicher).
+
+**Gebäude-Grundrisse** (kleinstes gedrehtes Rechteck je Grundriss):
+
+| | Miltenberg | Stuttgart Mitte |
+|---|---|---|
+| Fläche (Median, 90 %, 99 %) | 129, 287, 1 514 m² | 113, 399, 2 772 m² |
+| unter 30 m² / über 600 m² | 226 / 147 | 2 004 / 492 |
+| Längere Seite (Median, 90 %) | 13 m, 23 m | 13 m, 28 m |
+| Füllgrad Fläche zu Rechteck (10 %-Quantil) | 0,86 | 0,72 (Hofhäuser, L- und U-Formen) |
+| `building=yes` (Art unbekannt) | 45 % | 69 % |
+| mit `building:levels` / `height` | 15 % / 0,3 % | 13 % / 0,4 % |
+
+Häufigste Arten: Miltenberg `apartments` 605, `house` 347, `garage` und `garages` 412, `detached` 216, `industrial` 54,
+`shed` 45, `carport` 38, `roof` 33, `school` 27; Stuttgart `apartments` 1 117, `office` 311, `garage` 233, `retail` 165,
+`roof` 84, `university` 42. Die Art muss also meist aus Größe, Stockwerken und der umgebenden Landnutzung geraten
+werden.
+
+**Höhendaten:**
+
+| Quelle | Format | Auflösung, gemessen | CORS | Kacheln für 2,4 km |
+|---|---|---|---|---|
+| AWS Terrain Tiles (`elevation-tiles-prod`, Terrarium-PNG, 256 px) | Höhe = R·256 + G + B/256 − 32768 | Kopfzeile nennt für beide Orte `eudem`; auf z15 (3 m je Pixel) liegen 75 bis 98 % der Pixel auf einer Geraden mit ihren Nachbarn, also hochgerechnet aus etwa 25 bis 30 m | ja (`*`) | 16 auf z15, 1,1 bis 1,2 MB; z13 genügt (9 Kacheln) |
+| Mapterhorn (`tiles.mapterhorn.com`, Terrarium-WebP, 512 px) | wie oben | z16 (0,75 m je Pixel) mit echtem Detail, z17 nur hochgerechnet; laut `attribution.json` alle 16 Bundesländer mit DGM1 (1 m), weltweit Copernicus GLO-30 (30 m), 151 Quellen | ja (`*`) | z14 (3 m je Pixel): 4 bis 9 Kacheln, je 60 bis 85 kB |
+| Copernicus GLO-30 direkt (`copernicus-dem-30m`, COG je Grad, 44 MB) | GeoTIFF, Bereichsabruf | 30 m | nein (keine CORS-Kopfzeile) | nur über einen eigenen Dienst |
+
+Namensnennung, nur als Fakten: OpenStreetMap-Daten stehen unter ODbL mit der Zeile „© OpenStreetMap contributors“;
+Mapterhorn nennt je Quelle Lizenz und Namen (`download.mapterhorn.com/attribution.json`, etwa „Datenlizenz Deutschland,
+Namensnennung 2.0“ oder CC BY 4.0); die AWS-Kacheln haben eine eigene Liste ihrer Quellen.
+
+**Erzeugen** (Node, ein Kern, `LevelKit` auf 2400 m, 2-m-Raster, Splat 1024; die Schritte so roh wie für eine Messung
+nötig: Landnutzung nur aus geschlossenen Wegen, Straßen nur befahrbare, jedes Gebäude ein Dorfhaus nach Radius):
+
+| Schritt | Miltenberg | Stuttgart Mitte |
+|---|---|---|
+| JSON lesen | 24 ms | 86 ms |
+| Höhen setzen, Landnutzung in den Splat (89 bzw. 356 Flächen) | 35 ms | 37 ms |
+| Straßengraph über `LevelKit.path` (Endpunkte einrasten) | 2,7 s | 26 s |
+| Boden unter allen Straßen einebnen, Asphalt malen | 0,7 s | 0,6 s |
+| Gebäude (3 496 bzw. 7 629) und Bäume (2 293 bzw. 3 425) setzen | 45 ms | 57 ms |
+| HQ, 4 Spawns, Routen | 77 ms | 250 ms |
+| Editor-Prüfung (`validateMap`) | 32 s | 312 s |
+| Packen | 0,5 s | 0,6 s |
+| Datei | 5,55 MB | 5,98 MB |
+| Objekte | 5 789 | 11 054 |
+
+Drei Befunde daraus:
+
+- **Straßengraph über Knoten-Ids, nicht über Einrasten.** In Miltenberg waren alle vier Spawns ohne Route: Wege, die
+  sich an einem inneren Knoten kreuzen, verbinden sich beim Einrasten der Endpunkte nicht. Das Netz muss aus den
+  OSM-Knoten gebaut werden (wie `parseOverpassResponse` für echte Orte): jeder Knoten, den mehrere Wege teilen, wird
+  ein Kartenknoten. Das kostet Millisekunden statt 26 s.
+- **Die Editor-Prüfung skaliert nicht.** `object-on-path` sucht je Objekt über alle Kanten (`nearestOnEdges`), dazu
+  `edgePolyline` je Treffer. Bei 11 000 Objekten und 3 000 Kanten 312 s; dieselbe Prüfung hängt den Editor auf. Braucht
+  ein Raster über die Kanten, bevor OSM-Welten in den Editor dürfen.
+- **Acht Bodenschichten sind schnell voll.** Schon Miltenberg füllte sie (Gras, Asphalt, Weinberg, Acker, Wiese,
+  Rasen, Gestrüpp, Fels); Asphalt musste vorab reserviert werden. Die Landnutzung braucht eine feste Auswahl je Ort.
+
+Alles andere ist schnell. Mit Abruf (2 bis 4 s), Wasser, Gebäudewahl und Ausstattung ist ein Ziel unter 10 s bis zur
+fertigen Datei realistisch; geprüft ist das erst mit Phase O1.
+
+## Größe der Karte
+
+HQ in der Mitte. Seite = 2 × (weitester Spawn + 200 m Rand), auf 64 m gerundet, mindestens 1216 m, höchstens 2432 m
+(Spawns bis 1000 m plus Rand). Ein Spawn, der im Rahmen weiter gezogen wird, vergrößert den Rahmen bis zur Grenze.
+Kleinere Karten laden schneller und halten das Objektbudget leichter. Höhenpunkte alle 2 m, Splat 1024.
+
+Der Rand von 200 m trägt Gelände, Boden und Gebäude, damit das Spielfeld nicht an einer Kante endet; das Land
+jenseits der Karte macht der Renderer ohnehin (`terrain-apron.ts`).
+
+## Bausteine
+
+Code in `src/app/world/osm/` ohne Angular und DOM (Worker, Node, Specs), wie `world/w3x/`:
+
+| Datei | Inhalt |
+|---|---|
+| `overpass-client.ts` (aus `osm-street.service.ts` herausgelöst) | Server, Hedging, Zeitlimits, Log; Straßen und OSM-Welt nutzen ihn |
+| `osm-query.ts` | die eine Abfrage für einen Rahmen (Tabelle unten), `out body geom(<Rahmen>)`; bei `remark` (Speicher, Zeit) Teilung in vier Viertel |
+| `dem-tiles.ts` | Kachelmathe, Abruf, Dekodieren (`createImageBitmap`, `OffscreenCanvas` im Worker), Mosaik, bilinear auf das Raster, Glätten; Quelle mit Rückfall |
+| `osm-parse.ts` | Elemente zu Merkmalen: Linien, Flächen (Multipolygone aus Relationen zusammensetzen), Punkte; Projektion in Kartenmeter um die Mitte |
+| `osm-tags.ts` | die Zuordnungstabellen dieses Plans als Daten |
+| `convert/terrain.ts` | Höhen, Glätten, Kartennull (bei Küste der Meeresspiegel) |
+| `convert/roads.ts` | Straßengraph über Knoten-Ids, Art und Breite, Brücken, Tunnel; Einebnen und Belag |
+| `convert/water.ts` | Seen, Flussflächen, Bäche, Küste, Feuchtgebiete |
+| `convert/ground.ts` | Landnutzung zu höchstens 8 Schichten, Vorrang bei Überlappung |
+| `convert/vegetation.ts` | Wald, Gebüsch, Parks, Einzelbäume, Baumreihen, im Objektbudget |
+| `convert/buildings.ts` | Grundriss zu Katalog-Modell(en), Art raten, ausrichten, auf den Hang setzen |
+| `convert/furniture.ts` | Zäune, Mauern, Hecken, Laternen, Bahn, Brückenart, Kleinkram |
+| `convert/layout.ts` | HQ und Spawns (`StreetRouter` auf `mapStreetNetwork`), Kartenrahmen |
+| `import-osm.ts`, `osm.worker.ts`, `osm-import-client.ts` | Ablauf, Bericht, Worker, Abbruch |
+
+Dazu:
+
+- **Oberfläche:** Menü New game, Reiter Places: ein Eintrag „Play on a map of this place“ neben der Ortswahl (ohne
+  Token der Weg, mit Token wahlweise); die Rahmen-Seite in `components/main-menu/pages/new-game/`; im Editor unter
+  „New map“ ein Weg „From a real place“; im laufenden echten Ort „Make a map of this place“.
+- **Flache Karte:** ein kleiner eigener Kachelbetrachter (Canvas, Ziehen, Zoom, Rahmen, HQ, Spawns) auf
+  OSM-Rasterkacheln; die Nutzungsregeln der OSMF-Kacheln verlangen Namensnennung, eine erkennbare Anwendung und
+  keinen Massenabruf. Alternative in den offenen Fragen.
+- **Kartendokument:** `meta.source = { kind: 'osm', lat, lon, address, sideM, fetchedAt, dem, attribution }`. Die
+  Herkunft geht mit der Datei; das Spiel zeigt die Namensnennung auf OSM-Welten.
+- **Katalog:** je Gebäude ein gedrehtes Rechteck `box: [Breite, Tiefe]` und die Front (gemessen am GLB wie die
+  Felsplatten in `tools/map-assets/measure_bases.mjs`, übernommen von `update_catalog.py`), dazu `osm`-Tags für die
+  Arten, die ein Modell darstellen kann (`osm:house`, `osm:garage` …). Heute kennt der Katalog nur einen Radius.
+- **Prüfung:** `validateMap` mit Raster über die Kanten (Befund oben), damit Prüfen und Editor bei 10 000 Objekten
+  flüssig bleiben.
+
+## Zuordnung
+
+### Straßen
+
+| OSM | Karte | Breite (ohne `width`/`lanes`) | Belag |
+|---|---|---|---|
+| `motorway` bis `tertiary` samt `_link` | `road` | 12 bis 7 m | Asphalt |
+| `unclassified`, `residential`, `living_street` | `road` | 6 m | Asphalt, nach `surface` Pflaster |
+| `service`, `pedestrian` | `road` | 4 bis 5 m | Asphalt bzw. Platten |
+| `track` | `path` | 3 m | Feldweg (`mud-tracks`, `dirt-path`) |
+| `footway`, `path`, `cycleway`, `steps` | `path` | 2 bis 3 m | nach `surface` (Kies, Platten, Erde) |
+| `bridge=*` | `bridge`, Stil nach Material (Beton, Stein, Holz) | wie die Straße | Deck |
+| `tunnel=*` | siehe offene Fragen | | |
+
+Breite aus `width`, sonst `lanes` × 3 m (beide liest `parseStreetTags`), sonst die Tabelle. Einebnen und Belag über `flattenUnderPaths` und
+`paintUnderPaths` für alle Kanten auf einmal, Straßen über Wasser ohne `bridge` werden Damm. Brücken brauchen einen
+Stil `concrete` (heute `wood`, `stone`, `lava`; das Modell `bridge-concrete` gibt es).
+
+### Boden, Biome, Pflanzen
+
+Höchstens acht Schichten: fest Gras und Asphalt, dazu die sechs nach Fläche größten aus der Tabelle; seltene fallen
+auf die nächste ähnliche (Vorrang: Wasser vor Straße vor Gebäude vor Landnutzung, kleinere Fläche vor größerer).
+
+| OSM | Boden | Objekte |
+|---|---|---|
+| `landuse=forest`, `natural=wood` | `forest-floor` (`leaf_type=needleleaved`: `forest-ground`) | Biom Forest bzw. Pine forest, Dichte im Budget, Waldrand dichter |
+| `natural=scrub`, `heath` | `grass-dry` | Sträucher, Büsche |
+| `landuse=meadow`, `grass`, `village_green`, `natural=grassland`, `leisure=park` | `meadow`, `grass-lush` | Gras, im Park Einzelbäume aus Knoten, Bänke |
+| `landuse=farmland` | `farmland` | Heuballen am Rand |
+| `landuse=farmyard` | `dirt` | Scheune, Karren |
+| `landuse=vineyard` | `farm-soil` | Rebzeilen (fehlt) |
+| `landuse=orchard` | `meadow-earthy` | Obstbäume in Reihen (fehlt, solange junge Eichen) |
+| `landuse=allotments` | `grass` | Gartenhäuschen (fehlt), Hecken |
+| `landuse=cemetery` | `grass` | `graves`, Hecken |
+| `landuse=residential` | `grass` (Gärten) | Gebäude tragen den Ort |
+| `landuse=commercial`, `retail` | `paving` | |
+| `landuse=industrial` | `concrete` | Container, Fässer |
+| `landuse=railway` | `gravel` | |
+| `landuse=construction`, `brownfield` | `dirt`, `rubble` | |
+| `landuse=quarry`, `natural=bare_rock`, `scree` | `rocky-ground`, `scree` | Felsen |
+| `natural=sand`, `beach` | `sand`, `sand-coast` | |
+| `natural=wetland` | `swamp-ground` | Schilf, flaches Sumpfgewässer |
+| `natural=glacier` | `ice`, `snow` | |
+| `amenity=parking` (Fläche) | `asphalt` | wenige Autos |
+| `leisure=pitch`, `playground` | `grass-lush` bzw. `wood-chips` | Tore, Spielgerät (fehlt) |
+
+Einzelbäume (`natural=tree`) nach `leaf_type` und `genus` (Nadel, Laub, Birke, Weide), Baumreihen (`tree_row`) mit
+`objectsAlong`. Biom der Stimmung (`environment.biome`): `city` bei hohem Gebäudeanteil, sonst `temperate`; Sonne nach
+Breitengrad.
+
+### Wasser
+
+| OSM | Karte |
+|---|---|
+| `natural=coastline` | Hauptwasser `kind: 'sea'` auf dem Meeresspiegel; Land links der Küstenlinie; Kartennull bleibt dann absolute Höhe 0 |
+| `natural=water` mit `water=river`, `waterway=riverbank` | größte Fläche wird Hauptwasser (läuft am Rand weiter), Spiegel aus dem Median der Höhen am Ufer; ein Fluss mit viel Gefälle wird in Abschnitte mit eigenem Spiegel geteilt |
+| `natural=water` (See, Teich, Becken, Stausee) | eigenes Gewässer (`waterBodies`), Bett unter dem Spiegel ausgehoben; unter 50 m² weglassen, mehr als 64: die kleinsten fallen |
+| `waterway=river`, `stream`, `canal`, `drain`, `ditch` | Fluss als Linie (`terrain.rivers`, `carveRiver`), Breite aus `width` oder 2 bis 8 m; `tunnel=culvert` weglassen |
+| `leisure=swimming_pool`, `water=fountain` | kleine Gewässer nur, solange Platz unter 64 ist, sonst Boden |
+
+### Ausstattung
+
+| OSM | Katalog |
+|---|---|
+| `barrier=fence` (`fence_type`) | `fence-wood`, `fence-rail`, `fence-picket`, `fence-chainlink` (`objectsAlong`) |
+| `barrier=wall`, `retaining_wall` | `wall-stone`, `wall-dry-stone`, `retaining-wall` |
+| `barrier=city_wall` | Burgmauer-Baukasten (`wallAlong`) |
+| `barrier=hedge` | `hedge`, `hedge-long` |
+| `barrier=guard_rail`, `bollard`, `gate` | `road-barrier`, `bollards`, `gate-farm` |
+| `highway=street_lamp` | `street-lamp`; fehlen Laternen, Regel wie der Straßenpinsel an Straßen mit `lit=yes` |
+| `railway=rail`, `light_rail`, `tram` | Gleisstücke entlang der Linie (fehlen), Schotter als Bodenfarbe; im Tunnel weglassen |
+| `railway=platform` | Platten, Bahnsteigkante (fehlt) |
+| `amenity=bench`, `waste_basket`, `highway=bus_stop`, `emergency=fire_hydrant` | `bench`, `trash-can`, `bus-stop`, `hydrant` |
+| `man_made=tower`, `mast`, `pier` | `watchtower`, `antenna-mast`, `pier` |
+| `power=line`, `tower` (noch nicht in der Probe-Abfrage) | Strommast (fehlt für Hochspannung; `power-pole` für kleine) |
+
+### Gebäude
+
+1. **Art raten:** aus `building`, sonst aus `amenity`, `shop`, `building:levels`, der umgebenden Landnutzung und der
+   Größe (unter 30 m² Schuppen oder Garage, über 600 m² Halle, Block oder öffentliches Gebäude).
+2. **Form:** kleinstes gedrehtes Rechteck; Füllgrad unter 0,8 oder mehr als ein Modell lang: in Rechtecke teilen
+   (Ecken, Flügel), jedes für sich.
+3. **Modell:** unter den Modellen der Art das mit der besten Passung von Breite und Tiefe (`box`), gleichmäßig skaliert
+   zwischen etwa 0,8 und 1,25; die Front zur nächsten Straße. Passt keins, ein Modell der nächsten Art und ein Eintrag
+   im Bericht.
+4. **Hang:** auf die tiefste Ecke des Grundrisses, Boden unter dem Grundriss auf diese Höhe eingeebnet (wie die Straßen
+   ein Damm), bei viel Gefälle eine Stützmauer an der Talseite.
+5. **Höhe:** `building:levels` oder `height` wählen das Modell (Stockwerke), nicht die Skala.
+
+**Fehlende Arten** (Vorschlag für den Katalog, nach Häufigkeit in den Proben): Garage einzeln und als Reihe; Carport
+und Vordach (`roof`, Tankstelle); Schuppen und Gartenhaus; Wohnhaus heutiger Art (Satteldach, verputzt) und
+Doppelhaus; Reihenhaus-Modul; Blockrand-Module (gerade, Ecke, 4 bis 6 Geschosse) für Innenstädte; Büro- und
+Geschäftshaus (4 bis 8 Geschosse, Flachdach); Supermarkt, flache Halle; Industriehalle groß; Schule oder Amt (lang, 2
+bis 4 Geschosse); Stadtkirche mit Turm; Gewächshaus; Kiosk; Trafostation; Bahnhof; Parkhaus. Außerdem ohne Gebäude:
+Gleis gerade und Bahnsteig, Oberleitungsmast, Prellbock; Rebzeile; Obstbaum; Spielgerät, Fußballtor; Brunnen;
+Hochspannungsmast. Der Katalog hat heute Dorf-, Burg-, Wüsten- und einige Stadthäuser (`apartment-block`,
+`brick-block`, `office-tower`, `shop`, `warehouse`); eine deutsche Kleinstadt sähe ohne neue Modelle wie ein Dorf mit
+Plattenbauten aus.
+
+## Phasen
+
+Aufwand in Arbeitstagen eines Workers, geschätzt.
+
+| Phase | Inhalt | Aufwand |
+|---|---|---|
+| **O1 Graue Welt** | Overpass-Client herauslösen, Abfrage, Parsen samt Multipolygonen, Höhenkacheln mit Rückfall, Gelände, Straßengraph über Knoten-Ids mit Brücken, Einebnen und Belag, HQ und Spawns über `StreetRouter`, Rahmengröße, `meta.source`, Speichern und Spielen über `?osm=lat,lon` als Testeinstieg; Prüfung mit Kantenraster; Bericht; Specs auf eingefrorenen Proben (`integration/fixtures/osm`) | 5 |
+| **O2 Ablauf** | Menüeintrag, Suche, flache Karte mit Rahmen, HQ und ziehbaren Spawns, Speicher je Rahmen, Worker mit Fortschritt und Abbruch, Editor-Einstieg, „Make a map of this place“ aus dem echten Ort, Namensnennung | 4 |
+| **O3 Land und Wasser** | Landnutzung in acht Schichten, Wald und Gebüsch im Objektbudget, Parks, Einzelbäume, Baumreihen; Seen, Flussflächen, Bäche, Küste, Feuchtgebiete | 5 |
+| **O4 Gebäude** | Katalog `box` und `osm`-Arten messen, Art raten, Teilen, Wahl, Ausrichten, Hang; Liste fehlender Arten im Bericht | 4 |
+| **O5 Ausstattung** | Zäune, Mauern, Hecken, Laternen, Bahn, Brückenstil `concrete`, Kleinkram, Strom | 3 |
+| **O6 Neue Modelle** | die Liste oben über die Blender-Skripte in `tools/map-assets/`, mit Fernstufen | 6 bis 10 (rund 25 Modelle) |
+| **O7 Messen und Abnahme** | 5 bis 6 Orte (Dorf, Kleinstadt, Innenstadt, Küste, Gebirge, außerhalb Europas): Erzeugungszeit, Ladezeit, fps, Speicher, Dateigröße; Doku, Nachtest | 3 |
+
+Summe 30 bis 34 Tage. O1 und O2 zusammen ergeben die erste spielbare Fassung (grau, mit Straßen, Platzhalter-Häusern
+und Bäumen); O3 bis O5 füllen sie; O6 läuft parallel, sobald O4 die Liste liefert.
+
+## Risiken
+
+- **Overpass:** eine Abfrage je Ort, 1,5 bis 3 s in den Proben; dichte Weltstädte liefern mehr (Stuttgart Mitte 15 MB
+  JSON). Teilung in Viertel bei `remark`, Speicher je Rahmen. Fällt Overpass aus, gibt es keine neue Welt; bereits
+  erzeugte bleiben.
+- **Höhendaten außerhalb Europas:** Mapterhorn fällt dort oft auf GLO-30 (30 m) zurück, ein Oberflächenmodell mit
+  Gebäuden und Wald als Buckeln. Glätten, unter Straßen und Gebäuden einebnen; Ergebnis an Orten außerhalb Europas
+  ansehen (O7).
+- **Höhen und OSM passen nicht zusammen:** Flüsse nicht im Talgrund, Straßen am Hang. Einebnen und Flussbett graben
+  helfen; Rest in O7 an den Proben.
+- **Kartengröße:** bis zur 22-fachen Fläche eines mitgelieferten Levels, 1201² Punkte nie gemessen. Ladezeit, Speicher
+  und Bildzeit in O1 an einer grauen Welt messen, bevor O3 sie füllt.
+- **Objektbudget:** Miltenberg hat 1,6 km² Wald; ein Baum je 60 m² wären 27 000 Bäume. Dichte in der Ferne der Routen
+  senken, Waldränder dichter, oder höheres Budget (offene Frage).
+- **Editor-Prüfung:** 32 s bzw. 312 s gemessen; ohne Raster unbrauchbar für OSM-Welten.
+- **Acht Bodenschichten:** fein gegliederte Orte verlieren Unterschiede.
+- **Optik:** ohne neue Modelle wirkt jede heutige Stadt wie ein Dorf; Grundrisse mit Höfen nur mit Modulen.
+- **Datenlage:** in vielen Gegenden fehlen Gebäude oder Landnutzung in OSM; der Bericht sagt das, die Karte bleibt
+  spielbar, solange es Straßen gibt.
+
+## Offene Fragen an den User
+
+1. Flache Karte für den Rahmen: OSM-Rasterkacheln in einem kleinen eigenen Betrachter, oder Vektorkarte mit MapLibre
+   (schöner, rund 1 MB mehr Code), oder gar keine Karte, nur Adresse und Spawns im Text?
+2. Kartengröße: nach den Spawns bemessen (1,2 bis 2,4 km, Vorschlag) oder immer 2,4 km?
+3. Spawns: einer wie auf echten Orten, oder gleich mehrere? Und sollen sie im Spiel verschiebbar sein, oder reicht
+   Ziehen im Rahmen vor dem Erzeugen und im Editor danach?
+4. Höhendaten: Mapterhorn als erste Quelle (1 m in Deutschland, sonst meist 30 m) mit den AWS-Kacheln als Rückfall?
+5. Objektbudget für OSM-Welten: 15 000 wie die Level (Wälder licht), oder mehr?
+6. Gebäude, für die kein Modell passt: in mehrere Modelle teilen, gestreckte Modelle erlauben (eine neue Skala je
+   Achse im Dateiformat), oder einfache Blöcke mit Fassadenmaterial erzeugen?
+7. Sollen Gegner auch Fußwege, Pfade und Treppen nehmen dürfen (wie auf echten Orten), oder nur Straßen?
+8. Tunnel: weglassen (Routen laufen außen herum) oder als Straße über den Berg legen?
+9. Auch Spieler mit Token bekommen den Eintrag „Play on a map of this place“?
+10. Feinere Bodenfarbe für OSM-Welten (Splat 2048 statt 1024, schärfere Ränder, mehr Grafikspeicher)?
