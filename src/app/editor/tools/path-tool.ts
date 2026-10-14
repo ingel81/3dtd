@@ -188,7 +188,8 @@ export class PathTool implements EditorTool {
     const nodes = [...new Set([...selectedNodes(keep), ...inside])];
     const all = [...new Set([...selectedEdges(keep), ...edges])];
     editor.select(pathSelection(nodes, all));
-    ctx.status(`${nodes.length} nodes and ${all.length} roads selected`);
+    const count = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+    ctx.status(`${count(nodes.length, 'node')} and ${count(all.length, 'road')} selected`);
   }
 
   frame(_dt: number, p: ToolPointer | null, ctx: ToolContext): void {
