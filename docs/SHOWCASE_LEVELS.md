@@ -180,8 +180,7 @@ im ersten Lauf warm mit 6,7 s und 120 fps.
 Gebaut als Bauskript und gepackt, Spuren und Prüfung des Editors grün. Kartenprobe (`?bot=trial&trialWaves=10`,
 Dev-Server, 2026-10-12) bei allen vier bestanden, je 19 Tower: HQ am Ende Mondbasis 326, Mars-Canyon 327, Endzeit-Stadt
 294, Hafenstadt 206 von 500. Spielansicht um 130 fps (Bildwiederholrate des Monitors). Laden am Dev-Server 8 bis 9 s,
-die Hafenstadt 38 s (noch nicht untersucht). Offen: Augen-Nachtest im Spiel; an der Hafenstadt die Kaikante (ein
-breites braunes Band zwischen Stadt und Wasser, die Kai-Stücke stehen schräg im Wasser).
+die Hafenstadt 38 s (noch nicht untersucht). Offen: Augen-Nachtest im Spiel.
 
 ### 9 Mondbasis (`moon-base`)
 `tools/maps/levels/moon-base.ts`, Small 512 m. Spuren 424, 425 und 509 m. Eine Forschungsstation in einem weiten
@@ -206,7 +205,10 @@ zur gehaltenen Kreuzung mit Sandsäcken, Barrikaden und Panzersperren. Look `apo
 ### 12 Hafenstadt (`harbor-town`)
 `tools/maps/levels/harbor-town.ts`, Small 512 m. Spuren 444, 380 und 508 m. Eine Stadt am Hang über einer Bucht, die
 Straßen im Raster hinunter zum Kai; das HQ hält den Platz am Wasser zwischen Kai, Kränen und Containerlager. Piers mit
-Fischerbooten, ein Schiff am Kai, eine Mole mit Leuchtturm, Bojen an der Hafeneinfahrt. Look `city`, Abend.
+Fischerbooten, ein Schiff am Kai, eine Mole mit Leuchtturm, Bojen an der Hafeneinfahrt. Look `city`, Abend. Das
+Hafenbecken und die Kaimauer entstehen nach dem Stadtboden (dessen Glätten rundete sonst die Kante): erst das ganze
+Becken auf -7 m (die Hänge der Stadt reichten sonst als Erdhügel ins Wasser), dann die Kaimauer als eine gerade Stufe
+von 4,4 auf -6 m über einen Höhenpunkt; die Piers durchgehend aus Abschnitten alle 3 m.
 
 ## Weitere bei Bedarf
 Hafenstadt mit Kanälen und Brücken, Erde am Himmel der Mondbasis.
