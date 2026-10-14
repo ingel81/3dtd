@@ -327,6 +327,12 @@ Textur-Arrays der offenen Ansicht behalten keine Kopie: nach dem Hochladen setzt
 werden.
 `MapAssetLibrary.dispose()` gibt ihn frei; `shared()` legt danach eine neue an.
 
+**Modelle laden** (E154, PF-K3): Modelle und Detailmodelle aller Assets laden gleichzeitig (`setObjects`,
+`lodModels`, beim Kartenstart schon vorab); vorher wartete jedes Asset auf das vorige. Die Transforms der Knoten
+offline in die GLBs zu backen lohnt nicht: das Einbacken samt Entquantisieren (`collectParts`) kostet im Browser
+23 ms für die 24 Modelle des Demo-Tals und 42 ms für die 56 der Hafenstadt, und entquantisierte Dateien wären größer.
+Die Zeit steckt im Parsen der GLBs (meshopt, WebP-Texturen), das ohnehin parallel läuft.
+
 **Tiefenpuffer: logarithmisch bleibt** (E154, PF-S6, geprüft 2026-10-14). Reversed-Z (`reversedDepthBuffer`, ohne
 logarithmische Tiefe) nur auf eigenen Karten brachte in Messläufen mit `render-bench.ts --query depth=reversed`
 (Probe-Schalter, nicht im Code) 0,1 bis 0,3 ms weniger GPU-Zeit in den Nahansichten (Demo-Tal 0,70 → 0,55 bis 0,61

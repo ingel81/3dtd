@@ -111,7 +111,10 @@ export function prefetchCustomMapAssets(doc: CustomMapDocument): void {
       const library = MapAssetLibrary.shared();
       const materials = new Set([...doc.terrain.layers.map((l) => l.material), doc.terrain.cliffMaterial]);
       for (const id of materials) library.prefetchMaterial(id).catch(() => undefined);
-      for (const id of new Set(doc.objects.map((o) => o.asset))) library.model(id).catch(() => undefined);
+      for (const id of new Set(doc.objects.map((o) => o.asset))) {
+        library.model(id).catch(() => undefined);
+        library.lodModels(id).catch(() => undefined);
+      }
     })
     .catch(() => undefined);
 }

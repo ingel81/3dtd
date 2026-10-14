@@ -203,13 +203,16 @@ export class MapObjectLayer {
       if (!list) groups.set(key, (list = []));
       list.push(o);
     }
-    const built: AssetBatch[] = [];
-    for (const [key, list] of groups) {
-      const [model, lods] = await Promise.all([this.assets.model(list[0].asset), this.assets.lodModels(list[0].asset)]);
-      if (generation !== this.generation) return;
-      built.push(this.buildBatch(model, lods, key.endsWith('|1'), list));
-    }
+    // Every asset's model and detail models at once: one after the other, a town waited for 49 loads in a row
+    const loaded = await Promise.all(
+      [...groups].map(async ([key, list]) => ({
+        key,
+        list,
+        parts: await Promise.all([this.assets.model(list[0].asset), this.assets.lodModels(list[0].asset)]),
+      })),
+    );
     if (generation !== this.generation) return;
+    const built = loaded.map(({ key, list, parts: [model, lods] }) => this.buildBatch(model, lods, key.endsWith('|1'), list));
     this.clear();
     this.batches = built;
     for (const b of built) b.objects.forEach((o, index) => this.byId.set(o.id, { batch: b, index }));

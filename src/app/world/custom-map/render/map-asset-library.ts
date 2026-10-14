@@ -231,26 +231,29 @@ export class MapAssetLibrary {
    */
   async lodModels(id: string): Promise<{ model: ObjectModel; distance: number }[]> {
     const entry = await this.objectEntry(id);
-    const out: { model: ObjectModel; distance: number }[] = [];
-    if (!entry?.lod) return out;
-    for (const lod of [...entry.lod].sort((a, b) => a.distance - b.distance)) {
-      const key = `${id}#${lod.file}`;
-      let p = this.models.get(key);
-      if (!p) {
-        p = this.loadModelFn(this.url(lod.file)).then((root) => {
-          const parts = collectParts(root);
-          return { id, entry, parts, height: partsHeight(parts), placeholder: false };
-        });
-        this.models.set(key, p);
-      }
-      try {
-        const model = await p;
-        if (model.parts.length) out.push({ model, distance: lod.distance });
-      } catch (error) {
-        console.warn(`[MapAssetLibrary] LOD ${lod.file} of ${id} not loaded`, error);
-      }
-    }
-    return out;
+    if (!entry?.lod) return [];
+    // All of them at once, nearest first in the answer
+    const loaded = await Promise.all(
+      [...entry.lod].sort((a, b) => a.distance - b.distance).map(async (lod) => {
+        const key = `${id}#${lod.file}`;
+        let p = this.models.get(key);
+        if (!p) {
+          p = this.loadModelFn(this.url(lod.file)).then((root) => {
+            const parts = collectParts(root);
+            return { id, entry, parts, height: partsHeight(parts), placeholder: false };
+          });
+          this.models.set(key, p);
+        }
+        try {
+          const model = await p;
+          return model.parts.length ? { model, distance: lod.distance } : null;
+        } catch (error) {
+          console.warn(`[MapAssetLibrary] LOD ${lod.file} of ${id} not loaded`, error);
+          return null;
+        }
+      }),
+    );
+    return loaded.filter((l): l is { model: ObjectModel; distance: number } => l !== null);
   }
 
   /** Frees the GPU side of every loaded model, LOD models included: geometry, material and its textures */
