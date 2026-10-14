@@ -267,7 +267,9 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Luftschicht überall (Fernes wird auch von oben dunstig), zur Sonne hin färbt sich der Dunst. Die Nebelfarbe wird in
   den Ausgaberaum umgerechnet (three mischt Nebel nach der Farbraumumrechnung) und neigt zum Blau des Zenits. Die
   Szene behält `FogExp2` für Farbe und Dichte
-- **Grading** je Himmel (Kontrast, Sättigung, Tönung) in allen Kartenmaterialien nach dem Nebel und auf der Kuppel
+- **Grading** je Himmel (Kontrast, Sättigung, Tönung) in allen Kartenmaterialien nach dem Nebel und auf der Kuppel,
+  dazu Split-Toning je Biom (`split`: Tönung der Schatten, meist kühl, und der Lichter, meist warm; auf die Helligkeit
+  normiert, verschiebt nur den Farbton)
 - **Wetter** (`weather.ts`, `environment.weather`: `rain`, `snow`, `fog`, Stärke `weatherStrength`): Regen und
   Schnee füllen einen Kasten um den Kamerafokus, der beim Bewegen umklappt (zustandslos), Teilchen wachsen mit dem
   Abstand, damit man sie aus der Spielkamera sieht. Regen und Schnee schließen die Wolken, dämpfen die Sonne und

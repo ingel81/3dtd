@@ -44,6 +44,8 @@ export interface BiomeLook extends SkyPreset {
   particles: AmbientParticles;
   /** Tone mapping exposure of the map (Khronos PBR Neutral) */
   exposure: number;
+  /** Split toning: tints for the shadows and for the lights (sRGB hex), the look's mood */
+  split: [number, number];
 }
 
 export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
@@ -117,7 +119,7 @@ export const SKY_PRESETS: Record<MapEnvironment['sky'], SkyPreset> = {
   },
 };
 
-const PLAIN = { fogScale: 1, fogFalloff: 1 / 70, stars: 0, planet: false, aurora: 0, particles: null as AmbientParticles, exposure: 1 };
+const PLAIN = { fogScale: 1, fogFalloff: 1 / 70, stars: 0, planet: false, aurora: 0, particles: null as AmbientParticles, exposure: 1, split: [0xe6edff, 0xfffaf3] as [number, number] };
 
 /**
  * Tone mapping exposure per sky (Khronos PBR Neutral rolls off the
@@ -164,6 +166,7 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
       return {
         ...p,
         ...PLAIN,
+        split: [0xe2d2e8, 0xffe8cc],
         zenith: 0x140303,
         horizon: 0x6a2410,
         ground: 0x200808,
@@ -185,6 +188,7 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
       return {
         ...p,
         ...PLAIN,
+        split: [0xeef0f6, 0xffffff],
         zenith: 0x000000,
         horizon: 0x05060a,
         ground: 0x0a0a0c,
@@ -206,6 +210,7 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
       return {
         ...p,
         ...PLAIN,
+        split: [0xe6dcf2, 0xfff0e2],
         zenith: night ? 0x140c0a : 0xb07850,
         horizon: night ? 0x3a2418 : 0xe0b08a,
         ground: 0x6a3a22,
@@ -228,6 +233,7 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
       return {
         ...p,
         ...PLAIN,
+        split: [0xdde8ff, 0xfffcf6],
         zenith: night ? 0x050a18 : 0x6a98d0,
         horizon: night ? 0x18263c : 0xe8f0f6,
         hemiSky: night ? 0x405078 : 0xe4eef8,
@@ -243,6 +249,7 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
       return {
         ...p,
         ...PLAIN,
+        split: [0xe6e2ee, 0xfff2d6],
         zenith: night ? 0x0c0c0a : 0x6a6650,
         horizon: night ? 0x262420 : 0xaaa486,
         ground: 0x3a3830,
@@ -263,6 +270,7 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
       return {
         ...p,
         ...PLAIN,
+        split: [0xd9eee6, 0xf8fde6],
         horizon: night ? 0x18221c : 0xa8b49a,
         zenith: night ? 0x060c0a : 0x6a8a84,
         hemiSky: 0xb0c0a0,
@@ -279,6 +287,7 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
       return {
         ...p,
         ...PLAIN,
+        split: [0xe2e6ff, 0xfff0da],
         zenith: night ? 0x050a1c : 0x3a7cc8,
         horizon: night ? 0x1c2440 : 0xeadcc4,
         sun: night ? p.sun : 0xfff2dc,
@@ -297,6 +306,7 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
       return {
         ...p,
         ...PLAIN,
+        split: [0xdfe9ff, 0xfffaf0],
         cover: p.cover + 0.06,
         grade: [1.08, 0.96, 0xf8fbff],
         fogScale: 0.45,
@@ -304,7 +314,7 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
         stars: nightStars,
       };
     case 'city':
-      return { ...p, ...PLAIN, grade: [1.08, 0.9, 0xf4f6ff], fogScale: 1.2, stars: nightStars * 0.3 };
+      return { ...p, ...PLAIN, grade: [1.08, 0.9, 0xf4f6ff], fogScale: 1.2, stars: nightStars * 0.3, split: [0xe4ebff, 0xfff1e2] };
     default:
       return { ...p, ...PLAIN, stars: nightStars };
   }

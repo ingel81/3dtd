@@ -220,6 +220,8 @@ export class CustomMapEnvironment {
     HEIGHT_FOG_UNIFORMS.uGradeContrast.value = p.grade[0];
     HEIGHT_FOG_UNIFORMS.uGradeSaturation.value = p.grade[1];
     HEIGHT_FOG_UNIFORMS.uGradeTint.value.set(p.grade[2]);
+    HEIGHT_FOG_UNIFORMS.uGradeShadow.value.set(p.split[0]);
+    HEIGHT_FOG_UNIFORMS.uGradeLight.value.set(p.split[1]);
     this.skyDome.set({
       zenith: this.zenith,
       horizon: this.horizon,

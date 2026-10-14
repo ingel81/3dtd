@@ -29,6 +29,9 @@ export const HEIGHT_FOG_UNIFORMS = {
   uGradeContrast: { value: 1 },
   uGradeSaturation: { value: 1 },
   uGradeTint: { value: new Color(1, 1, 1) },
+  /** Split toning of the look: a tint for the shadows and one for the lights */
+  uGradeShadow: { value: new Color(1, 1, 1) },
+  uGradeLight: { value: new Color(1, 1, 1) },
   /** 0..1 snow on surfaces facing up, and wetness (darker, glossier) */
   uSnowCover: { value: 0 },
   uWetness: { value: 0 },
@@ -45,6 +48,8 @@ uniform vec4 uFogMap;
 uniform float uGradeContrast;
 uniform float uGradeSaturation;
 uniform vec3 uGradeTint;
+uniform vec3 uGradeShadow;
+uniform vec3 uGradeLight;
 uniform float uSnowCover;
 uniform float uWetness;
 
@@ -59,6 +64,10 @@ vec3 mapGrade(vec3 c) {
   c = mix(vec3(l), c, uGradeSaturation);
   c = max(vec3(0.0), (c - 0.45) * uGradeContrast + 0.45);
   c *= uGradeTint;
+  // Split toning: the shadows lean one way (mostly cool), the lights another (mostly warm)
+  // (normalised to their luminance: they shift the hue, not the brightness)
+  vec3 split = mix(uGradeShadow, uGradeLight, smoothstep(0.08, 0.75, l));
+  c *= split / max(dot(split, vec3(0.2126, 0.7152, 0.0722)), 1e-3);
   if (linearOut) c = pow(c, vec3(2.2));
   return c;
 }
