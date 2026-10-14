@@ -26,7 +26,8 @@ import { biomeThumbnail, materialThumbnail, objectThumbnail } from './thumbnails
 import { EditorDocument, SnapshotCommand, type EditCommand, type Selection } from '../model/editor-document';
 import { resizeMap } from '../ops/resize';
 import { detailTarget, increaseDetail } from '../ops/detail';
-import { mirrorMap } from '../ops/mirror-map';
+import { mirrorMap, type MirrorResult } from '../ops/mirror-map';
+import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { decodePng, decodeRaw16, encodePng16, encodeRaw16, gridToImage, heightmapName, imageToHeights } from '../ops/heightmap';
 import { LandscapeTool } from '../tools/landscape-tool';
 import { MarkerTool } from '../tools/marker-tool';
@@ -750,9 +751,10 @@ export class EditorSession implements OnDestroy {
       return;
     }
     const from = this.viewport?.viewCenter() ?? editor.doc.hq;
-    let result = { objects: 0, spawns: 0, roads: 0 };
+    let result: MirrorResult = { objects: 0, spawns: 0, roads: 0 };
     this.execute(SnapshotCommand.record(editor.doc, 'Mirror the map', ['terrain', 'objects', 'paths', 'spawns'], (d) => (result = mirrorMap(d, mode, from))));
-    this.flash(`Mirrored from the part in view: ${result.objects} objects, ${result.spawns} spawns, ${result.roads} roads copied`);
+    const leftOut = result.spawnsLeftOut ? ` (${result.spawnsLeftOut} spawns left out: a map holds at most ${MAX_SPAWN_PORTALS})` : '';
+    this.flash(`Mirrored from the part in view: ${result.objects} objects, ${result.spawns} spawns, ${result.roads} roads copied${leftOut}`);
   }
 
   runCheck(): MapIssue[] {

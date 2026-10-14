@@ -10,6 +10,7 @@
  * `kit.mirrorFrom`, but for everything the map holds.
  */
 import type { CustomMapDocument, MapPathEdge, MapPathNode, MapRiver, MapSpawn } from '../../world/custom-map/map-document';
+import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { spawnName } from '../tools/marker-tool';
 import { ObjectIds } from './object-ops';
 import { newId } from './path-graph';
@@ -18,6 +19,8 @@ import { mirrorChange, sameSector, symmetryImages, type SymmetryMode } from './s
 export interface MirrorResult {
   objects: number;
   spawns: number;
+  /** Spawn images left out: the map holds at most MAX_SPAWN_PORTALS */
+  spawnsLeftOut?: number;
   roads: number;
 }
 
@@ -63,10 +66,16 @@ export function mirrorMap(doc: CustomMapDocument, mode: SymmetryMode, from: { x:
 
   // Spawns
   const spawns: MapSpawn[] = doc.spawns.filter(inSource);
+  let spawnsLeftOut = 0;
   for (const img of images.slice(1)) {
     for (const s of spawns.slice(0, doc.spawns.filter(inSource).length)) {
       const p = img.point(s);
       if (!inside(p) || spawns.some((o) => Math.hypot(o.x - p.x, o.y - p.y) < 1)) continue;
+      // The game uses only the first spawns: no more images than the map may hold
+      if (spawns.length >= MAX_SPAWN_PORTALS) {
+        spawnsLeftOut++;
+        continue;
+      }
       spawns.push({ ...s, id: newId('s', spawns), name: spawnName(doc, p, spawns), x: round(p.x), y: round(p.y) });
     }
   }
@@ -156,5 +165,5 @@ export function mirrorMap(doc: CustomMapDocument, mode: SymmetryMode, from: { x:
     }
     t.rivers = rivers;
   }
-  return { objects: objects.length - kept.length, spawns: spawnCount, roads: roadCount };
+  return { objects: objects.length - kept.length, spawns: spawnCount, roads: roadCount, ...(spawnsLeftOut ? { spawnsLeftOut } : {}) };
 }

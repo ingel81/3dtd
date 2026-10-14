@@ -1,6 +1,7 @@
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { contentBytes } from '../../world/custom-map/map-file';
 import { heightAt } from '../model/grid';
+import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { mirrorMap } from './mirror-map';
 
 function map() {
@@ -48,5 +49,13 @@ describe('mirrorMap', () => {
     const before = contentBytes(doc);
     expect(mirrorMap(doc, 'none', { x: 0, y: 0 })).toEqual({ objects: 0, spawns: 0, roads: 0 });
     expect(contentBytes(doc)).toEqual(before);
+  });
+  it('adds no more spawn images than a map holds', () => {
+    const doc = map();
+    doc.spawns = Array.from({ length: 10 }, (_, k) => ({ id: `s${k}`, name: `S${k}`, x: -90 + k * 4, y: -60 }));
+    const result = mirrorMap(doc, 'xy', { x: -50, y: -50 });
+    expect(doc.spawns.length).toBe(MAX_SPAWN_PORTALS);
+    expect(result.spawns).toBe(MAX_SPAWN_PORTALS - 10);
+    expect(result.spawnsLeftOut).toBe(30 - (MAX_SPAWN_PORTALS - 10));
   });
 });
