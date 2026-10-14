@@ -88,8 +88,9 @@ Nebel der Szene wieder her.
   liegt); jede Schicht zweimal mit verschobenen UVs je nach langsamem Rauschen (kein sichtbares Kachelmuster, nach
   Inigo Quilez); Variation (Makro, Wackeln der Splat-Kanten, Auswahl, Ausfransen) aus einer kachelbaren Textur
   natürlicher Flecken (`variation-texture.ts`, 512², auf dem CPU mit verzerrtem fbm gebaut) in drei Maßstäben (512, 96
-  und 28 m) statt rund zwölf Rechenrauschen je Pixel; das Gras liest dieselbe Textur. Klippen triplanar (die Seitenprojektion übernimmt ab etwa 35°, die Felskante bricht entlang der
-  Höhenlinien in Simsen); Makrovariation und in der Ferne die Durchschnittsfarbe. **Ferne billiger**: ab `uFarSingle`
+  und 28 m) statt rund zwölf Rechenrauschen je Pixel; das Gras liest dieselbe Textur. Klippen triplanar (die Seitenprojektion übernimmt ab etwa 35°; die Grenze zwischen Fels und
+  Geröll folgt keiner Höhenlinie, sondern bricht: Felsblöcke greifen ins Geröll, Geröll läuft in Zungen entlang der
+  Falllinie den Fels hinauf, in mehreren Maßstäben); Makrovariation und in der Ferne die Durchschnittsfarbe. **Ferne billiger**: ab `uFarSingle`
   (150 m) liest jede Schicht Normale und Rauheit einmal statt zweimal (die Farbe behält ihr Anti-Kachel-Paar), ab
   `uFarFlat` (400 m) gar keine Schichttexturen mehr, nur die Durchschnittsfarben nach Gewicht über der Rasternormale;
   die Grenzen sind mit Rauschen verzittert. `CustomMapView.setFarGround(single, flat)` für die Qualitätsstufen Jede Schicht blendet so weich wie
@@ -121,7 +122,7 @@ Nebel der Szene wieder her.
   mitwandert (jeder Halm hat einen festen Weltort), auf dem Höhenraster, so dicht wie die Grasschichten der Splat-Map
   (nicht auf Wegen, steilem Boden, außerhalb der Karte), mit Wind, zum Kachelrand hin kleiner. Ab 140 m Kameraabstand
   zum Fokus aus; Ansichtsoption `grass: false`. Was ein Halm von der Karte braucht (Ort, Bodenhöhe, ob er steht,
-  Farbe), rechnet ein kleiner Pass je Halm in zwei Float-Texturen (256 × 274, `prepare`), wenn der Fokus wandert,
+  Farbe), rechnet ein kleiner Pass je Halm in zwei Float-Texturen (256 × 391, `prepare`), wenn der Fokus wandert,
   und in Ruhe alle 8 Frames für Änderungen im Editor; die zehn Vertices eines Halms lesen nur noch zwei Texel.
   Die Stufe gibt die Zahl der Halme (`grassBlades`, render-quality.ts); unter High sind sie breiter, damit die Wiese
   geschlossen bleibt, und der Pass rechnet nur die gezeichneten Zeilen (Vorschau `?quality=medium`). Halmsorten aus den Zufallswerten des Halms: meist

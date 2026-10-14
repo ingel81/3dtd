@@ -412,10 +412,13 @@ if (uPathLayer >= 0 && riverBank > 0.0) {
 // Cliffs above the slope threshold, edge broken up by noise
 float cliff = 0.0;
 if (uCliffLayer >= 0) {
-  // The edge of the rock breaks along the height contours (ledges), not only by noise over the map
-  float ledge = valueNoise(vec2(tPos.y * 0.45, dot(mapPos, vec2(0.031, 0.047))));
-  float c = uCliffCos + (n3 - 0.5) * 0.08 + (ledge - 0.5) * 0.1;
-  cliff = smoothstep(c + 0.06, c - 0.06, nGeo.y);
+  // The rock's edge is broken, not a height contour: blocks of rock reach down into the scree and the
+  // scree runs up the rock in tongues along the fall line, at several scales over the map
+  vec2 fall = normalize(vec2(-nGeo.x, nGeo.z) + 1e-4);
+  float tongue = valueNoise(vec2(dot(mapPos, vec2(-fall.y, fall.x)) * 0.32, dot(mapPos, fall) * 0.05));
+  float broken = (n3 - 0.5) * 0.12 + (varFine.a - 0.5) * 0.1 + (varFiner.b - 0.5) * 0.07 + (tongue - 0.5) * 0.14;
+  float c = uCliffCos + broken;
+  cliff = smoothstep(c + 0.035, c - 0.035, nGeo.y);
   for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] *= 1.0 - cliff;
   w[uCliffLayer] += cliff;
 }
