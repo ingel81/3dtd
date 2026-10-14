@@ -29,6 +29,11 @@
   text-align: right;
 }
 
+.set-agent-url {
+  flex: 1;
+  user-select: all;
+}
+
 .set-lobby-add {
   display: grid;
   grid-template-columns: 140px 1fr auto;

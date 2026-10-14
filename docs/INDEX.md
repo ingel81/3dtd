@@ -58,6 +58,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [DEVWORLD.md](DEVWORLD.md) | Aktuell | Offline-Entwicklungsumgebung, Terrain-Presets (`?devworld`) |
 | [CUSTOM_MAPS.md](CUSTOM_MAPS.md) | Aktuell (auf `main`, gesperrt bis E134) | Eigene Karten: Renderer (Gelände, Wasser, Objekte, Himmel), Asset-Katalog, `/map-preview` |
 | [LEVEL_EDITOR.md](LEVEL_EDITOR.md) | Aktuell (auf `main`, gesperrt bis E134) | Karteneditor `/editor`: Kartenliste, Werkzeuge und Tasten, Prüfen, Speichern, `.3dtdmap`, Architektur (Befehle mit Kachel-Patches, eigener Viewport) |
+| [AGENT_MCP.md](AGENT_MCP.md) | Teil 1 gebaut (E171) | KI-Agent baut Karten über MCP in der Desktop-App: Schalter, Verbinden, Werkzeuge, Skripte in der Sandbox, ein Undo-Schritt, Sicherheit, Tests |
 
 ## Game Design
 

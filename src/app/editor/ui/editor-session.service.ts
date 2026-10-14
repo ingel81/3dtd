@@ -53,6 +53,9 @@ import { rockShape } from '../ops/object-ops';
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
 import { DEFAULT_W3X_OPTIONS, loadW3xImporter, type W3xImportOptions, type W3xImportReport } from '../import/w3x-seam';
 import { WORLD_URL_PARAM, worldUrlValue } from '../../world/world-ref';
+import { readAgentBridge } from '../../core/desktop-bridge';
+import { EditorAgent } from '../agent/editor-agent';
+import { runScriptInSandbox } from '../agent/script-sandbox';
 import { START_WAVE_PARAM } from '../../world/custom-map/custom-map-world';
 
 export const AUTOSAVE_DELAY_MS = 2000;
@@ -208,10 +211,15 @@ export class EditorSession implements OnDestroy {
   /** The asset catalogue is read before a map opens, so the view never swaps it */
   readonly catalogReady: Promise<void> = loadAssetCatalog().then((c) => this.catalog.set(new CatalogIndex(c)));
 
+  /** An AI agent's calls over MCP, desktop app only (docs/AGENT_MCP.md) */
+  private readonly agent = new EditorAgent(this, (source, doc, catalog, seed) => runScriptInSandbox(source, doc, catalog.catalog, seed));
+  private stopAgent: (() => void) | null = null;
+
   constructor() {
     this.zone.runOutsideAngular(() => {
       this.tick = setInterval(() => this.pollChanges(), 150);
     });
+    this.stopAgent = readAgentBridge()?.onCall((call) => this.zone.run(() => this.agent.handle(call))) ?? null;
   }
 
   get doc(): CustomMapDocument | null {
@@ -336,6 +344,47 @@ export class EditorSession implements OnDestroy {
   /** Stops the running terrain job; the land goes back to how it was */
   cancelTerrainJob(): void {
     this.terrainAbort?.abort();
+  }
+
+  /**
+   * An AI agent's edit that plays over a while (docs/AGENT_MCP.md), like a
+   * terrain job: the view locked, the job shown with Cancel, the map put back
+   * on Cancel or an error. Done, it is one undo step named `label`.
+   */
+  async agentEdit<T>(label: string, play: (editor: EditorDocument, signal: AbortSignal, progress: (share: number) => void) => Promise<T>): Promise<T> {
+    const editor = this.editor;
+    if (!editor) throw new Error('No map is open in the editor');
+    const busy = this.busyReason();
+    if (busy) throw new Error(`The map cannot change now: ${busy}`);
+    const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay'] as const;
+    const before = SnapshotCommand.capture(editor.doc, parts);
+    const abort = new AbortController();
+    this.terrainAbort = abort;
+    this.terrainJob.set({ label, progress: 0 });
+    this.viewport?.setLocked(true);
+    try {
+      const out = await play(editor, abort.signal, (progress) => this.terrainJob.set({ label, progress }));
+      editor.push(new SnapshotCommand(label, before, SnapshotCommand.capture(editor.doc, parts)));
+      this.flash(`${label} done; Ctrl+Z takes it back`);
+      return out;
+    } catch (e) {
+      editor.emit(new SnapshotCommand(label, before, {}).revert(editor.doc));
+      this.flash(abort.signal.aborted ? `${label} stopped; the map is as it was` : `${label} failed; the map is as it was`);
+      throw abort.signal.aborted ? new Error('The player stopped it; the map is as it was') : e;
+    } finally {
+      this.terrainAbort = null;
+      this.terrainJob.set(null);
+      this.viewport?.setLocked(false);
+      this.refresh();
+    }
+  }
+
+  /** The map from above for an AI agent, `size` pixels a side, as a JPEG data URL; null without a view */
+  async topDownPicture(size: number): Promise<string | null> {
+    const vp = this.viewport;
+    if (!vp || this.viewLost()) return null;
+    const canvas = await vp.renderTopDown(size, size, false);
+    return canvas.toDataURL('image/jpeg', 0.85);
   }
 
   /** Runs a job, the viewport locked meanwhile; on Cancel or an error the heights go back */
@@ -828,16 +877,22 @@ export class EditorSession implements OnDestroy {
     this.flash(`Mirrored from the part in view: ${result.objects} objects, ${result.spawns} spawns, ${result.roads} roads copied${leftOut}`);
   }
 
-  runCheck(): MapIssue[] {
+  /** The check's findings without showing them (an AI agent's script reports them itself) */
+  checkIssues(): MapIssue[] {
     const doc = this.doc;
     if (!doc) return [];
     const catalog = this.catalog();
-    const issues = validateMap(doc, {
+    return validateMap(doc, {
       blocksBuild: (asset) => catalog.object(asset).blocksBuild,
       rockOf: (asset) => rockShape(catalog.object(asset)),
       buildAreas: this.buildAreas(),
       costOf: assetCosts(catalog, doc),
     });
+  }
+
+  runCheck(): MapIssue[] {
+    if (!this.doc) return [];
+    const issues = this.checkIssues();
     this.issues.set(issues);
     // The room for towers comes from a worker: judged once the check is open, the check runs again with it
     this.scheduleBuildAreas(this.buildAreas() ? BUILD_AREA_DELAY_MS : 0);
@@ -1363,6 +1418,7 @@ export class EditorSession implements OnDestroy {
     if (this.editor && this.dirty() && !this.readOnly()) void this.save(false);
     this.lock?.close();
     this.stopBotListener?.();
+    this.stopAgent?.();
     if (this.statusTimer) clearTimeout(this.statusTimer);
     this.detachViewport();
     for (const u of this.unsubscribe) u();

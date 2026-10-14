@@ -453,6 +453,7 @@ desktop/                       Unterprojekt, eigene package.json ohne Version
 │   ├── user-agent.js          App-User-Agent für die OSM-Dienste (E27)
 │   ├── window-state.js        Fenster merken und wiederherstellen
 │   ├── updater.js             electron-updater, meldet ein geladenes Update (E30 bis E33)
+│   ├── agent-mcp.js           MCP-Server für KI-Agenten im Karteneditor, aus bis zum Schalter (AGENT_MCP.md)
 │   └── log.js                 Log-Zeilen, Maskierung, Wiederholungen, GPU (E35, E36)
 ├── scripts/
 │   ├── copy-web.js            dist/3DTD/browser → desktop/app/, mit Schlüssel-Sperre

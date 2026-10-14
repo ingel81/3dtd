@@ -55,6 +55,38 @@ export interface DesktopMapFolder {
   onOpen(listener: (name: string) => void): () => void;
 }
 
+/** A tool call of an AI agent for the open map editor (desktop/src/agent-mcp.js, docs/AGENT_MCP.md) */
+export interface AgentCall {
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+/** The editor's answer: data as JSON text, a picture with it, or an error */
+export interface AgentAnswer {
+  text: string;
+  /** Base64 without the data: prefix */
+  image?: { mimeType: string; data: string };
+  isError?: boolean;
+}
+
+/** Whether AI agents may edit maps and where they connect */
+export interface AgentStatus {
+  enabled: boolean;
+  /** The MCP address while it is on */
+  url: string | null;
+  /** Why it could not start */
+  error?: string;
+}
+
+/** AI agents editing maps over MCP, desktop build only (docs/AGENT_MCP.md) */
+export interface AgentBridge {
+  /** The open editor answers the agent's calls with `handler`; returns an unsubscribe. One handler at a time */
+  onCall(handler: (call: AgentCall) => Promise<AgentAnswer>): () => void;
+  status(): Promise<AgentStatus>;
+  /** The settings switch "Allow AI agents to edit maps" */
+  setEnabled(on: boolean): Promise<AgentStatus>;
+}
+
 export interface DesktopBridge {
   /** Version of the installed app, the root package.json's. */
   readonly version: string;
@@ -78,6 +110,8 @@ export interface DesktopBridge {
   quit?(): void;
   /** The map folder; missing in apps before the custom maps */
   readonly maps?: DesktopMapFolder;
+  /** AI agents over MCP; missing in apps before E171 */
+  readonly agent?: AgentBridge;
 }
 
 /**
@@ -111,4 +145,11 @@ export function readCoopLan(host?: unknown): CoopLanBridge | null {
     return null;
   }
   return lan as CoopLanBridge;
+}
+
+/** The AI agent side of the desktop bridge, or null in a browser and in older apps. */
+export function readAgentBridge(host?: unknown): AgentBridge | null {
+  const agent = readDesktopBridge(host)?.agent as Partial<AgentBridge> | undefined;
+  if (!agent || typeof agent.onCall !== 'function' || typeof agent.status !== 'function' || typeof agent.setEnabled !== 'function') return null;
+  return agent as AgentBridge;
 }

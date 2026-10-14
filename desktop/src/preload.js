@@ -4,7 +4,7 @@
  * The only bridge between the game and Electron. The page runs sandboxed with
  * context isolation; whatever it may know about the desktop build is listed
  * here and nowhere else: the update hint, writing a run log to disk, coop
- * on the local network and the map folder.
+ * on the local network, the map folder and AI agents in the map editor.
  */
 
 const { contextBridge, ipcRenderer } = require('electron');
@@ -30,6 +30,23 @@ ipcRenderer.on('desktop:open-map', (_event, name) => {
   openedMap = String(name ?? '');
   for (const listener of mapListeners) listener(openedMap);
   if (mapListeners.size) openedMap = null;
+});
+
+// An AI agent's tool call (desktop:agent-call, docs/AGENT_MCP.md): the open editor answers it,
+// without one the answer says so; either way the main process hears back under the call's id
+let agentHandler = null;
+ipcRenderer.on('desktop:agent-call', async (_event, call) => {
+  let answer;
+  if (!agentHandler) {
+    answer = { text: 'The map editor is not open. Ask the player to open a map in the editor (main menu, Map editor).', isError: true };
+  } else {
+    try {
+      answer = await agentHandler({ tool: String(call?.tool ?? ''), args: call?.args && typeof call.args === 'object' ? call.args : {} });
+    } catch (error) {
+      answer = { text: String(error?.message ?? error), isError: true };
+    }
+  }
+  ipcRenderer.send('desktop:agent-reply', { id: call?.id, answer });
 });
 
 contextBridge.exposeInMainWorld(
@@ -136,6 +153,26 @@ contextBridge.exposeInMainWorld(
           openedMap = null;
         }
         return () => mapListeners.delete(listener);
+      },
+    }),
+
+    /** AI agents editing maps over MCP (docs/AGENT_MCP.md), off until the player allows it */
+    agent: Object.freeze({
+      /** The open editor answers the agent's calls; returns an unsubscribe. One handler at a time */
+      onCall(handler) {
+        if (typeof handler !== 'function') return () => {};
+        agentHandler = handler;
+        return () => {
+          if (agentHandler === handler) agentHandler = null;
+        };
+      },
+      /** { enabled, url, error? } */
+      status() {
+        return ipcRenderer.invoke('desktop:agent-status');
+      },
+      /** The settings switch; resolves the new status */
+      setEnabled(on) {
+        return ipcRenderer.invoke('desktop:agent-set-enabled', on === true);
       },
     }),
 

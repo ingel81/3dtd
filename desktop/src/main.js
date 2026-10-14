@@ -11,11 +11,12 @@
 const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { existsSync, mkdirSync } = require('node:fs');
+const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('node:fs');
 const { app, BrowserWindow, Menu, Notification, dialog, ipcMain, nativeTheme, protocol, screen, session, shell, utilityProcess } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log/main');
 const { APP_ID } = require('./app-id');
+const { setUpAgentMcp } = require('./agent-mcp');
 const { setUpCoopLan } = require('./coop-lan');
 const { MAX_RUN_LOG_CHARS, runLogFileName, savesSilently, uniqueDownloadPath } = require('./downloads');
 const { errorPageUrl, isFatalLoadFailure } = require('./error-page');
@@ -534,6 +535,18 @@ if (!app.requestSingleInstanceLock()) {
       isAppSender: (event) => classifyNavigation(event.senderFrame?.url ?? '', appOrigin) === 'allow',
     });
     app.on('will-quit', () => coopLan.close());
+
+    // AI agents build maps in the open editor over MCP, while the player allows it (docs/AGENT_MCP.md)
+    const agentMcp = setUpAgentMcp({
+      ipcMain,
+      getWindow: () => mainWindow,
+      userDataDir: app.getPath('userData'),
+      fs: { readFileSync, writeFileSync },
+      log,
+      isAppSender: (event) => classifyNavigation(event.senderFrame?.url ?? '', appOrigin) === 'allow',
+      version,
+    });
+    app.on('will-quit', () => void agentMcp.close());
 
     // Which GPU draws belongs in every performance report.
     app

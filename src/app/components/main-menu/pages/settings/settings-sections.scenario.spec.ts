@@ -29,6 +29,8 @@ const MINE = { url: 'wss://mine.example.test', name: 'Mine', builtIn: false };
 
 interface Setup {
   desktop?: boolean;
+  /** The app's AI agent bridge (docs/AGENT_MCP.md) */
+  agent?: boolean;
   inCoop?: boolean;
   host?: boolean;
   coop?: boolean;
@@ -46,8 +48,16 @@ describe('Settings page', () => {
     delete (window as unknown as { desktop?: unknown }).desktop;
   });
 
-  async function setup({ desktop = true, inCoop = false, host = true, coop = true }: Setup = {}) {
+  async function setup({ desktop = true, agent = false, inCoop = false, host = true, coop = true }: Setup = {}) {
+    let agentOn = false;
+    const status = () => ({ enabled: agentOn, url: agentOn ? 'http://127.0.0.1:47171/mcp' : null });
+    const agentBridge = {
+      onCall: () => () => undefined,
+      status: vi.fn(async () => status()),
+      setEnabled: vi.fn(async (on: boolean) => ((agentOn = on), status())),
+    };
     const bridge = {
+      ...(agent ? { agent: agentBridge } : {}),
       version: '0.6.0',
       onUpdateReady: () => () => undefined,
       installUpdateNow: vi.fn(),
@@ -115,7 +125,7 @@ describe('Settings page', () => {
       [...el.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((b) => b.textContent?.trim() === label)!.click();
       fixture.detectChanges();
     };
-    return { fixture, el, display, config, coopService, bridge, leave, settle, byText, switchOf, show };
+    return { fixture, el, display, config, coopService, bridge, agentBridge, leave, settle, byText, switchOf, show };
   }
 
   const radios = (el: HTMLElement, group: string) =>
@@ -326,6 +336,28 @@ describe('Settings page', () => {
     expect([...el.querySelectorAll('[role="tab"]')].map((t) => t.textContent?.trim()))
       .toEqual(['Audio', 'Graphics', 'Gameplay', 'Map', 'Privacy']);
     expect(el.textContent).not.toContain('Your name');
+  });
+
+  it('lets AI agents edit maps only once switched on, and shows where they connect (desktop app)', async () => {
+    const { el, switchOf, show, settle, agentBridge } = await setup({ agent: true });
+    show('Privacy');
+    const box = switchOf('Allow AI agents to edit maps');
+    expect(box.checked).toBe(false);
+    expect(el.querySelector('[data-test="agent-url"]')).toBeNull();
+    box.click();
+    await settle();
+    expect(agentBridge.setEnabled).toHaveBeenLastCalledWith(true);
+    expect(el.querySelector('[data-test="agent-url"]')!.textContent).toBe('http://127.0.0.1:47171/mcp');
+    expect(el.textContent).toContain('claude mcp add --transport http 3dtd http://127.0.0.1:47171/mcp');
+    switchOf('Allow AI agents to edit maps').click();
+    await settle();
+    expect(el.querySelector('[data-test="agent-url"]')).toBeNull();
+
+    TestBed.resetTestingModule();
+    delete (window as unknown as { desktop?: unknown }).desktop;
+    const web = await setup({ desktop: false });
+    web.show('Privacy');
+    expect(web.el.textContent).not.toContain('AI agents');
   });
 
   it('keeps the answer about sending coop run logs', async () => {

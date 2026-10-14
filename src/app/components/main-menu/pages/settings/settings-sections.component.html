@@ -206,6 +206,23 @@
         <span>After a coop game, send its log to the coop server, to find errors and improve the game (kept 90 days)</span>
         <input class="td-switch" type="checkbox" [checked]="uploadRuns()" (change)="setUploadRuns($any($event.target).checked)">
       </label>
+      @if (agent) {
+        <label class="td-setting">
+          <span>Allow AI agents to edit maps</span>
+          <input class="td-switch" type="checkbox" [checked]="agentStatus().enabled" (change)="setAgentEnabled($any($event.target).checked)">
+        </label>
+        <p class="td-note">An AI agent on this computer (an MCP client such as Claude Code) builds and changes the map open in the map editor while you watch; each change is one undo step. It may read and copy your other maps, never change them. Any program on this computer can connect while this is on.</p>
+        @if (agentStatus().url; as url) {
+          <div class="td-setting">
+            <span class="set-agent-url td-trunc" data-test="agent-url">{{ url }}</span>
+            <button class="td-btn-secondary td-btn-sm" type="button" (click)="copyAgentUrl(url)">{{ agentCopied() ? 'Copied' : 'Copy address' }}</button>
+          </div>
+          <p class="td-note">Claude Code: <code>claude mcp add --transport http 3dtd {{ url }}</code></p>
+        }
+        @if (agentStatus().error; as problem) {
+          <p class="td-note is-error" role="status">{{ problem }}</p>
+        }
+      }
     }
   }
 </section>

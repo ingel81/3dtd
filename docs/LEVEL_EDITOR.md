@@ -554,6 +554,8 @@ src/app/editor/
   ops/symmetry.ts   Bilder der Symmetrie, Sektor des Zeigers, Kopieren der Zellen und Objekte
   ops/stamp.ts      Stücke kopieren und setzen; model/stamp-store.ts die Stempel-Bibliothek
   ops/generate.ts   Gelände-Generator; ops/contours.ts Höhenlinien
+  ops/map-kit.ts    MapKit: die Operationen ohne Oberfläche für Skripte (Level-Skripte, KI-Agent)
+  agent/            KI-Agent über MCP (Desktop-App): Werkzeuge, Skript-Sandbox, Abspielen als ein Undo-Schritt (AGENT_MCP.md)
   tools/            Werkzeuge: Zeigereingaben zu Befehlen
   validation/       Prüfen
   view/             EditorViewport (Renderer, Kamera, Eingabe), Overlay, Kamera, EditorMapView, ThumbnailRenderer
@@ -693,6 +695,13 @@ ein Fehler nennt Seed und Schritte. Undo während Strich, Drag oder Job sperrt
 die Session (`editor-session.spec.ts`). Browser:
 `e2e/tests/editor.e2e.ts` (neue Karte, Gelände, Objekt mit Rückgängig, Straße, Spawn, gespiegeltes Objekt, kopiertes
 und gesetztes Stück, Prüfen, Speichern, Neuladen, Löschen; ohne Kartensitzung).
+
+## KI-Agent (Desktop-App)
+
+In der Desktop-App kann ein KI-Agent (MCP-Client) die offene Karte bauen und ändern, während man zusieht: Schalter
+in den Einstellungen (Privacy, standardmäßig aus), Skripte gegen das Map-Kit in einer Sandbox, jeder Aufruf ein
+Undo-Schritt `Agent: …`, abgespielt mit Animation; Cancel im Map-Panel stellt die Karte wieder her. Andere Karten
+liest und kopiert er nur. Alles Weitere in [AGENT_MCP.md](AGENT_MCP.md).
 
 ## Grenzen
 

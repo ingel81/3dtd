@@ -11,7 +11,7 @@ import { GlobeDirectorService, type GlobeSetting } from '../../../../services/wo
 import { VFX_PRESET_CHOICES, matchingVfxPreset, type VfxPreset, type VfxSettings } from '../../../../three-engine/vfx-settings';
 import { COLOR_GRADING_PRESETS, type ColorGradingPreset } from '../../../../three-engine/post-processing/color-grading';
 import { GAME_SPEEDS } from '../../../../configs/game-speed.config';
-import { readDesktopBridge } from '../../../../core/desktop-bridge';
+import { readAgentBridge, readDesktopBridge, type AgentStatus } from '../../../../core/desktop-bridge';
 import { readRunUploadConsent, writeRunUploadConsent } from '../../../../run-log/run-upload';
 import { RenderQualityService } from '../../../../services/infrastructure/render-quality.service';
 import {
@@ -422,7 +422,29 @@ export class SettingsSectionsComponent {
     this.uploadRuns.set(yes);
   }
 
+  /** AI agents editing maps over MCP, desktop app only (docs/AGENT_MCP.md); off until switched on here */
+  readonly agent = readAgentBridge();
+  readonly agentStatus = signal<AgentStatus>({ enabled: false, url: null });
+  readonly agentCopied = signal(false);
+
+  async setAgentEnabled(on: boolean): Promise<void> {
+    if (!this.agent) return;
+    const status = await this.agent.setEnabled(on);
+    if (status) this.agentStatus.set(status);
+  }
+
+  async copyAgentUrl(url: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(url);
+      this.agentCopied.set(true);
+      setTimeout(() => this.agentCopied.set(false), 2000);
+    } catch {
+      // The address stays on the page to select by hand
+    }
+  }
+
   constructor() {
     void this.readFullscreen();
+    void this.agent?.status().then((status) => status && this.agentStatus.set(status));
   }
 }
