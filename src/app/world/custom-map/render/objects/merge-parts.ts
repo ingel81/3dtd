@@ -125,8 +125,11 @@ export function addVertexRoughMetal(material: Material): void {
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRoughMetal = roughMetal;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vRoughMetal;')
-      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRoughMetal.x;')
-      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vRoughMetal.y;');
+      // The vertex's values in place of the material's, where three's chunks read them: a roughness or
+      // metalness map still scales them, and what is patched in after the chunks (rain's wetness,
+      // addHeightFog) still works on the result
+      .replace('#include <roughnessmap_fragment>', '#define roughness vRoughMetal.x\n#include <roughnessmap_fragment>\n#undef roughness')
+      .replace('#include <metalnessmap_fragment>', '#define metalness vRoughMetal.y\n#include <metalnessmap_fragment>\n#undef metalness');
   };
   material.customProgramCacheKey = () => `${prevKey.call(material)}-rough-metal`;
 }

@@ -1,5 +1,6 @@
-import { BoxGeometry, DataTexture, MeshStandardMaterial } from 'three';
-import { mergeKey, mergeParts } from './merge-parts';
+import { BoxGeometry, DataTexture, MeshStandardMaterial, ShaderLib, UniformsUtils } from 'three';
+import { addHeightFog } from '../environment/height-fog';
+import { addVertexRoughMetal, mergeKey, mergeParts } from './merge-parts';
 
 describe('mergeParts (fewer draw calls per model)', () => {
   it('merges plain parts of one look, keeps textured ones, foliage and other looks apart', () => {
@@ -41,5 +42,21 @@ describe('mergeParts (fewer draw calls per model)', () => {
     // One face of the first box (4 vertices, 6 corners) and the whole second box
     expect(merged.geometry.getAttribute('position').count).toBe(4 + 24);
     expect(merged.geometry.getIndex()!.count).toBe(6 + 36);
+  });
+
+  it('reads roughness and metalness from the vertex where the material had them, before what is patched in after', () => {
+    const m = new MeshStandardMaterial({ roughnessMap: new DataTexture() });
+    addVertexRoughMetal(m);
+    addHeightFog(m);
+    const shader = { uniforms: UniformsUtils.clone(ShaderLib.standard.uniforms), vertexShader: ShaderLib.standard.vertexShader, fragmentShader: ShaderLib.standard.fragmentShader };
+    m.onBeforeCompile(shader as never, null as never);
+    const fs = shader.fragmentShader;
+    // The material's value is the vertex's inside three's chunk, so a roughness map scales it
+    expect(fs.indexOf('#define roughness vRoughMetal.x')).toBeLessThan(fs.indexOf('#include <roughnessmap_fragment>'));
+    expect(fs.indexOf('#undef roughness')).toBeGreaterThan(fs.indexOf('#include <roughnessmap_fragment>'));
+    expect(fs).toContain('#define metalness vRoughMetal.y');
+    // Nothing sets the factor after rain made it wet
+    expect(fs).not.toContain('roughnessFactor = vRoughMetal');
+    expect(fs.indexOf('min(roughnessFactor, 0.35)')).toBeGreaterThan(fs.indexOf('#include <roughnessmap_fragment>'));
   });
 });
