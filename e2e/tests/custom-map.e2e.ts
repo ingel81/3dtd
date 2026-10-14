@@ -192,7 +192,8 @@ test('coop on an own map: a guest without it gets the map over the relay, both p
     await host.goto('/editor');
     await host.locator(`[data-map="${MAP}"]`).first().click();
     await host.locator('[data-test=open-map]').click();
-    await host.waitForURL(/\/editor\?map=/);
+    // The address names the shipped map first, then the copy that opened in its place
+    await host.waitForURL((url) => !!url.searchParams.get('map') && url.searchParams.get('map') !== MAP);
     const copy = new URL(host.url()).searchParams.get('map')!;
     expect(copy).not.toBe(MAP);
 
