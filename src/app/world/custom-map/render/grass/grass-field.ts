@@ -408,13 +408,20 @@ float keep = blade.w;
 vec3 transformed = vec3(sceneXZ.x, -1e4, sceneXZ.y);
 vBladeColor = vec3(0.0);
 if (keep > 0.0) {
-  float bladeHeight = (0.35 + aBladeRand.y * 0.45) * keep;
-  float bladeWidth = (0.07 + aBladeRand.z * 0.05) * sqrt(keep) * uGrassWidth;
+  // Kinds of blades: most plain, some short and broad, some tall with a seed head, a few flowering
+  float kindRoll = fract(aBladeRand.w * 13.7 + aBladeRand.x * 5.3);
+  float broad = step(kindRoll, 0.14);
+  float seedHead = step(0.9, kindRoll);
+  float flower = step(0.85, kindRoll) * (1.0 - seedHead);
+  float bladeHeight = (0.35 + aBladeRand.y * 0.45) * keep * (1.0 - 0.35 * broad + 0.5 * seedHead);
+  float bladeWidth = (0.07 + aBladeRand.z * 0.05) * sqrt(keep) * uGrassWidth * (1.0 + 0.8 * broad - 0.35 * seedHead);
   // Turned at random, bent by its own lean and the wind
   float a = aBladeRand.x * 6.2832;
   vec2 dir = vec2(cos(a), sin(a));
   float t = position.y;
-  transformed = vec3(dir.x * position.x * bladeWidth, t * bladeHeight, dir.y * position.x * bladeWidth);
+  // Flowers and seed heads swell at the top, where the blade itself is thinnest
+  float across = position.x * bladeWidth * (1.0 + (flower * 6.0 + seedHead * 1.8) * smoothstep(0.7, 1.0, t));
+  transformed = vec3(dir.x * across, t * bladeHeight, dir.y * across);
   // The map's wind: bowed along it, further where a gust front runs over the meadow, each blade trembling
   float push = windPush(sceneXZ);
   vec2 sway = uWindDir * (0.08 + 0.5 * push)
@@ -432,5 +439,12 @@ if (keep > 0.0) {
   float shade = mix(0.78, 1.18, smoothstep(0.0, 0.8, t)) * (0.94 + aBladeRand.z * 0.12);
   vec3 dry = mix(vec3(1.0), vec3(1.1, 1.04, 0.82), step(0.85, aBladeRand.y));
   vBladeColor = ground * mix(vec3(1.0), dry * shade, near);
+  // Seed heads go straw coloured at the tip; flowers (only on green meadow) white, yellow or violet
+  float tip = smoothstep(0.75, 1.0, t) * near;
+  float meadow = smoothstep(0.0, 0.04, ground.g - max(ground.r, ground.b));
+  float lum = dot(ground, vec3(0.299, 0.587, 0.114));
+  vec3 bloom = aBladeRand.z < 0.45 ? vec3(1.0, 0.98, 0.9) : aBladeRand.z < 0.75 ? vec3(1.0, 0.82, 0.25) : vec3(0.62, 0.45, 0.9);
+  vBladeColor = mix(vBladeColor, lum * 2.2 * vec3(1.15, 1.0, 0.62), tip * seedHead);
+  vBladeColor = mix(vBladeColor, lum * 3.2 * bloom, tip * flower * meadow);
 }
 `;

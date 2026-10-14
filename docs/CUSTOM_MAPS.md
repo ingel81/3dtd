@@ -124,7 +124,9 @@ Nebel der Szene wieder her.
   Farbe), rechnet ein kleiner Pass je Halm in zwei Float-Texturen (256 × 274, `prepare`), wenn der Fokus wandert,
   und in Ruhe alle 8 Frames für Änderungen im Editor; die zehn Vertices eines Halms lesen nur noch zwei Texel.
   Die Stufe gibt die Zahl der Halme (`grassBlades`, render-quality.ts); unter High sind sie breiter, damit die Wiese
-  geschlossen bleibt, und der Pass rechnet nur die gezeichneten Zeilen (Vorschau `?quality=medium`)
+  geschlossen bleibt, und der Pass rechnet nur die gezeichneten Zeilen (Vorschau `?quality=medium`). Halmsorten aus den Zufallswerten des Halms: meist
+  schlicht, manche kurz und breit, manche hoch mit strohfarbenem Samenstand, wenige blühen weiß, gelb oder violett
+  (nur auf grüner Wiese, nur nah)
 - **Schnee und Nässe** (alle Kartenmaterialien, `height-fog.ts`): Schnee liegt auf allem, was nach oben zeigt
   (`environment.snowCover`, sonst aus Biom arctic oder Schneewetter), Regen macht Flächen dunkler und glänzender
 - **Nasse Ufer**: die Alpha-Komponente der Normalentextur markiert Raster­punkte nahe Wasser (Maske um zwei Samples
