@@ -113,6 +113,7 @@ export class EffectLayer {
     const entries = new Map<string, CatalogObject>(catalog.objects.map((o) => [o.id, o]));
     const emitters = new Map<ParticleKind, ParticleEmitter[]>();
     const falls: WaterfallSpec[] = [];
+    const feet: FallFoot[] = [];
     const up = new Vector3(0, 1, 0);
     const q = new Quaternion();
     for (const o of objects) {
@@ -126,31 +127,10 @@ export class EffectLayer {
           const height = (fx.height ?? e.height) * s;
           const radius = (fx.radius ?? e.footprint) * s;
           q.setFromAxisAngle(up, o.rotation);
-          // Where the water lands, a little in front of the cliff; on the pool's surface where there is one
+          // Where the water lands, a little in front of the cliff
           const foot = new Vector3(0, 0, Math.min(height * 0.2, 3)).applyQuaternion(q).add(origin);
-          const footMap = { x: -foot.x, y: foot.z };
-          const pool = this.waterLevelAt(footMap.x, footMap.y);
-          if (pool !== null) foot.y = pool;
-          falls.push({ matrix: new Matrix4().compose(origin, q, new Vector3(1, 1, 1)), radius, height, pool: pool === null ? null : pool - origin.y });
-          // Spray where the water lands, and a wider, slower cloud of mist around it
-          push(emitters, {
-            kind: 'spray',
-            origin: foot,
-            radius,
-            height: 0,
-            count: this.share(particleCount('spray', fx.rate !== undefined ? fx.rate * radius : 12 * radius)),
-            color: fx.color,
-            scale: 1,
-          });
-          push(emitters, {
-            kind: 'spray',
-            origin: foot,
-            radius: radius * 2.2,
-            height: 0.5,
-            count: Math.round(particleCount('spray', 5 * radius) * 0.6),
-            color: fx.color,
-            scale: 2.2,
-          });
+          falls.push({ matrix: new Matrix4().compose(origin, q, new Vector3(1, 1, 1)), radius, height, pool: null });
+          feet.push({ foot, radius, rate: fx.rate, color: fx.color });
           continue;
         }
         const kind = fx.kind;
@@ -176,13 +156,14 @@ export class EffectLayer {
         });
       }
     }
+    this.landFalls(falls, feet, emitters);
     for (const [kind, list] of emitters) {
       const field = new ParticleField(kind, list, this.time, this.light);
       this.fields.push(field);
       this.group.add(field.mesh);
     }
     if (falls.length) {
-      this.waterfalls = buildWaterfalls(falls, this.time, this.light);
+      this.waterfalls = buildWaterfalls(falls, this.time, this.light, (x, z) => this.waterLevelAt(-x, z));
       this.group.add(this.waterfalls);
     }
     if (this.spots.length) {
@@ -251,6 +232,56 @@ export class EffectLayer {
   }
 
   /** A field's particle count at the level's share, at least one */
+  /**
+   * Foam and spray where each waterfall's water lands, on that surface (the
+   * water's level where there is water, the ground otherwise). A fall whose
+   * foot meets the lip of another (a step of a cascade) lands on nothing: its
+   * water runs on down the next sheet, and a foam disc or spray there would
+   * hang in the air in front of the cliff.
+   */
+  private landFalls(falls: WaterfallSpec[], feet: FallFoot[], emitters: Map<ParticleKind, ParticleEmitter[]>): void {
+    const lip = new Vector3();
+    const origin = new Vector3();
+    for (let i = 0; i < falls.length; i++) {
+      const { foot, radius, rate, color } = feet[i];
+      const height = falls[i].height;
+      const step = falls.some((other, j) => {
+        if (j === i) return false;
+        lip.setFromMatrixPosition(other.matrix);
+        return (
+          Math.abs(lip.y + other.height - foot.y) <= Math.max(1.5, height * 0.25) &&
+          Math.hypot(lip.x - foot.x, lip.z - foot.z) <= other.radius + radius + 1
+        );
+      });
+      if (step) continue;
+      const footMap = { x: -foot.x, y: foot.z };
+      const pool = this.waterLevelAt(footMap.x, footMap.y);
+      const ground = this.field.heightAt(footMap.x, footMap.y);
+      const at = foot.clone().setY(pool ?? ground);
+      // The foam disc lies on the pool, in the fall's own frame
+      if (pool !== null) falls[i].pool = pool - origin.setFromMatrixPosition(falls[i].matrix).y;
+      // Spray where the water lands, and a wider, slower cloud of mist around it
+      push(emitters, {
+        kind: 'spray',
+        origin: at,
+        radius,
+        height: 0,
+        count: this.share(particleCount('spray', rate !== undefined ? rate * radius : 12 * radius)),
+        color,
+        scale: 1,
+      });
+      push(emitters, {
+        kind: 'spray',
+        origin: at,
+        radius: radius * 2.2,
+        height: 0.5,
+        count: Math.round(particleCount('spray', 5 * radius) * 0.6),
+        color,
+        scale: 2.2,
+      });
+    }
+  }
+
   private share(count: number): number {
     return this.particleShare >= 1 ? count : Math.max(1, Math.round(count * this.particleShare));
   }
@@ -369,6 +400,14 @@ export class EffectLayer {
     this.retiredFrames = 0;
     this.spots = [];
   }
+}
+
+/** Where a waterfall's sheet ends (scene space) and what its spray needs */
+interface FallFoot {
+  foot: Vector3;
+  radius: number;
+  rate: number | undefined;
+  color: string | undefined;
 }
 
 function push(map: Map<ParticleKind, ParticleEmitter[]>, e: ParticleEmitter): void {

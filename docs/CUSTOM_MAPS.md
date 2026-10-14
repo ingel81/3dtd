@@ -304,7 +304,10 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Vorderseite (+z) des Objekts und wird nach unten etwas breiter; zwei Lagen Streifen laufen herab (langsamer Körper,
   schnelle helle Front), unten bricht das Wasser weiß; keine Ecken: die Seiten fransen mit einer laufenden Welle aus,
   die Kante beginnt dünn, der Fuß löst sich in der Gischt auf. Gischt am Aufprall und eine breitere, langsame
-  Nebelwolke; liegt der Fuß über einem Gewässer, eine Scheibe aus wirbelndem Schaum auf dessen Spiegel
+  Nebelwolke, beide auf der Fläche, auf die das Wasser trifft (Spiegel, sonst Boden); liegt der Fuß über stillem
+  Wasser (Spiegel am Scheibenrand höchstens 0,3 m anders), eine Scheibe aus wirbelndem Schaum darauf, über einem
+  abfallenden Fluss keine. Trifft der Fuß die Kante eines anderen Wasserfalls (eine Stufe einer Kaskade), weder Gischt
+  noch Scheibe: das Wasser läuft dort die nächste Fläche hinab, Schaum hinge sonst vor der Klippe in der Luft
 - **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`): jedes bekommt einen additiven Schein (am Tag
   schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
   Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet

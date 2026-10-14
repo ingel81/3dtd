@@ -12,7 +12,10 @@ import { SHADER_NOISE } from '../shader-noise';
  * starts thin and the foot dissolves into the spray. Two layers of streaks
  * at different speeds and scales run down it (a fast bright front over a
  * slower body). Where the water lands on a pool, a disc of churning foam
- * lies on the pool's surface (`pool`, same mesh and material).
+ * lies on the pool's surface (`pool`, same mesh and material) when the
+ * water there is still; on a river sloping away below the foot it would
+ * stand out of the surface. A step of a cascade gets none (effect-layer.ts):
+ * its water runs on down the next sheet.
  */
 
 export interface WaterfallSpec {
@@ -35,6 +38,8 @@ export function buildWaterfalls(
   specs: WaterfallSpec[],
   time: { value: number },
   light: { value: number },
+  /** Level of the water at a scene point (x, z), null on dry ground: a foam disc only on still water */
+  levelAt: (x: number, z: number) => number | null = () => null,
 ): Mesh<BufferGeometry, ShaderMaterial> {
   const pos: number[] = [];
   const uv: number[] = [];
@@ -69,7 +74,7 @@ export function buildWaterfalls(
         index.push(a, b, a + 1, a + 1, b, b + 1);
       }
     }
-    if (spec.pool !== null && spec.pool !== undefined) {
+    if (spec.pool !== null && spec.pool !== undefined && still(e, spec.pool, out, spec.radius * 1.6, levelAt)) {
       // Foam on the pool: a disc around the foot, a little above the surface
       const middle = pos.length / 3;
       const reach = spec.radius * 1.6;
@@ -113,6 +118,22 @@ export function buildWaterfalls(
   mesh.userData['losTransparent'] = true;
   mesh.matrixAutoUpdate = false;
   return mesh;
+}
+
+/**
+ * Whether the water under a foam disc is still: its level at the rim (where
+ * there is water) within 0.3 m of the level at the foot. A river falling
+ * away below the foot gets no disc, a flat one would stand out of its slope.
+ */
+function still(e: number[], pool: number, out: number, reach: number, levelAt: (x: number, z: number) => number | null): boolean {
+  for (let k = 0; k < DISC; k++) {
+    const a = (k / DISC) * Math.PI * 2;
+    const x = Math.cos(a) * reach;
+    const z = out + Math.sin(a) * reach * 0.8;
+    const level = levelAt(e[0] * x + e[8] * z + e[12], e[2] * x + e[10] * z + e[14]);
+    if (level !== null && Math.abs(level - (e[13] + pool)) > 0.3) return false;
+  }
+  return true;
 }
 
 const WATERFALL_VERTEX = /* glsl */ `

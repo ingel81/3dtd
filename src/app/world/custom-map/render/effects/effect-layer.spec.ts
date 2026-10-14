@@ -57,6 +57,32 @@ describe('EffectLayer', () => {
     layer.dispose();
   });
 
+  it('lands foam and spray only at the foot of a cascade, on the pool, not at its steps in mid air', () => {
+    // A pool 1 m deep everywhere: a step's foot would find it too and float its disc at that level
+    const sprayAndDisc = (objects: MapObject[], level: (x: number, y: number) => number = () => 5): { spray: number; disc: number[] } => {
+      const layer = new EffectLayer(flat(), level);
+      layer.set(objects, catalog);
+      const mesh = (name: string) => layer.group.children.find((c): c is Mesh => c instanceof Mesh && c.name === name)!;
+      const spray = (mesh('custom-map-particles-spray').geometry as unknown as { instanceCount: number }).instanceCount;
+      const geometry = mesh('custom-map-waterfalls').geometry;
+      const fall = geometry.getAttribute('aFall');
+      const y = geometry.getAttribute('position');
+      const disc: number[] = [];
+      for (let k = 0; k < fall.count; k++) if (fall.getX(k) === -1) disc.push(y.getY(k));
+      layer.dispose();
+      return { spray, disc };
+    };
+    const single = sprayAndDisc([place('low', 'falls', 0)]);
+    // The upper fall stands 12 m up; its foot (2.4 m out in front) is the lower fall's lip
+    const cascade = sprayAndDisc([{ ...place('up', 'falls', 0), z: 12 }, { ...place('low', 'falls', 0), y: 2.4 }]);
+    expect(cascade.spray).toBe(single.spray);
+    // One disc of 17 vertices, on the pool's surface
+    expect(cascade.disc).toHaveLength(17);
+    for (const y of cascade.disc) expect(y).toBeCloseTo(5.04, 3);
+    // A river falling away below the foot: spray, but no flat disc standing out of its slope
+    expect(sprayAndDisc([place('low', 'falls', 0)], (_x, y) => 5 - y * 0.5).disc).toHaveLength(0);
+  });
+
   it('frees what a rebuild replaced only after two frames drew the new effects, so their programs stay linked', () => {
     const layer = new EffectLayer(flat());
     layer.set([place('a', 'torch', 0)], catalog);
