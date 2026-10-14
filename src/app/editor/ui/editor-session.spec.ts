@@ -329,3 +329,36 @@ describe('editor session brushes', () => {
     s.ngOnDestroy();
   });
 });
+
+describe('editor session test tab', () => {
+  it('takes the test tab within the click and sends it to the game once the map is saved', async () => {
+    const { s } = session();
+    let saved = false;
+    const calls: string[] = [];
+    const tab = { closed: false, location: { href: 'about:blank' }, close: vi.fn() };
+    const open = vi.spyOn(window, 'open').mockImplementation(((url: string) => {
+      calls.push(`${url}|saved:${saved}`);
+      return tab as unknown as Window;
+    }) as typeof window.open);
+    vi.spyOn(s, 'save').mockImplementation(async () => {
+      saved = true;
+      return true;
+    });
+    const run = s.testPlay();
+    // Taken before the save could outlast the click's user activation
+    expect(calls).toEqual(['|saved:false']);
+    await run;
+    expect(tab.location.href).toContain('world=map');
+    expect(open).toHaveBeenCalledTimes(1);
+    // A failed save closes a tab opened blank for it, and leaves an earlier test's tab
+    vi.spyOn(s, 'save').mockResolvedValue(false);
+    tab.location.href = 'about:blank';
+    await s.testPlay();
+    expect(tab.close).toHaveBeenCalledTimes(1);
+    tab.location.href = 'http://x/?world=map%3Am';
+    await s.testPlay();
+    expect(tab.close).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+    s.ngOnDestroy();
+  });
+});

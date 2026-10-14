@@ -1,6 +1,7 @@
 // The desktop app (desktop/, docs/ELECTRON_DESKTOP_PLAN.md) and the map
 // editor's test window: the editor's "Test map" and bot check open the game
-// with window.open under one name (MAP_TEST_WINDOW). The app drops every
+// with window.open under one name (MAP_TEST_WINDOW), taken blank in the click
+// and sent to the game after the save. The app drops every
 // other window on its own origin; this one it opens with the main window's
 // settings (sandbox, isolation, preload), a second test reuses it, the bot's
 // result reaches the editor through window.opener, and Quit in the test
@@ -77,6 +78,26 @@ test('the desktop app opens the editor\'s test window, hardened and reused', asy
     await child.evaluate(() => (window as unknown as { desktop: { quit(): void } }).desktop.quit());
     await expect.poll(windows).toBe(1);
     expect(await main.evaluate(() => document.readyState)).toBe('complete');
+
+    // The editor's way (openTestWindow): the window taken blank within the click, sent to the game once the map is
+    // saved; taken again with an empty address it stays as it is
+    const blank = app.waitForEvent('window');
+    await main.evaluate((name) => void ((window as unknown as { test: Window | null }).test = window.open('', name)), TEST_WINDOW);
+    const fresh: Page = await blank;
+    const blankMark = () => fresh.evaluate(() => (window as unknown as { mark?: boolean }).mark === true).catch(() => true);
+    await fresh.evaluate(() => ((window as unknown as { mark: boolean }).mark = true));
+    await main.evaluate(() => void ((window as unknown as { test: Window }).test.location.href = `${location.origin}/editor?probe=3`));
+    // The game page replaced the blank one (the app may route the address on, so the mark tells it)
+    await expect.poll(blankMark).toBe(false);
+    await fresh.waitForLoadState('domcontentloaded');
+    expect(await fresh.evaluate(() => [location.protocol, window.name])).toEqual([new URL(await main.evaluate(() => location.href)).protocol, TEST_WINDOW]);
+    await fresh.evaluate(() => ((window as unknown as { mark: boolean }).mark = true));
+    await main.evaluate((name) => void window.open('', name), TEST_WINDOW);
+    await main.waitForTimeout(1000);
+    expect(await fresh.evaluate(() => (window as unknown as { mark?: boolean }).mark)).toBe(true);
+    expect(windows()).toBe(2);
+    await fresh.evaluate(() => (window as unknown as { desktop: { quit(): void } }).desktop.quit());
+    await expect.poll(windows).toBe(1);
   } finally {
     await app?.close().catch(() => undefined);
     rmSync(userData, { recursive: true, force: true });

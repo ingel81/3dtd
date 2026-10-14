@@ -354,7 +354,10 @@ Solange die Liste offen ist, prüft der Editor nach jeder Änderung neu.
   Seite), Frame the whole map, Top view
 - „Test map“ speichert und öffnet das Spiel mit `?world=map:<id>` im Test-Tab: ein Fenster mit festem Namen
   (`MAP_TEST_WINDOW`, `3dtd-map-test`), das jeder weitere Test und der Bot-Check wiederverwenden, statt Tabs zu stapeln;
-  in der Desktop-App ein eigenes, gleich gehärtetes App-Fenster ([ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), E26c)
+  in der Desktop-App ein eigenes, gleich gehärtetes App-Fenster ([ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), E26c).
+  Das Fenster wird noch im Klick genommen (`window.open('', …)`: leer neu oder das vorhandene, ohne Neuladen) und erst
+  nach dem Speichern auf das Spiel geschickt; so greift keine Popup-Sperre, wenn das Speichern samt Vorschaubild länger
+  dauert als die Nutzer-Aktivierung des Browsers. Scheitert das Speichern, geht ein leer geöffnetes Fenster wieder zu
 - Versionen: jedes Speichern und höchstens alle drei Minuten ein Autosave landen als gepackte Datei in IndexedDB
   (`3dtd-editor-history`; die frühere `3dtd-editor-versions` wird beim Öffnen gelöscht); das Map-Panel (9) listet sie,
   „Restore“ holt eine zurück (ein Undo-Schritt). Ein Absturz kostet so höchstens die Minuten seit dem letzten Autosave.

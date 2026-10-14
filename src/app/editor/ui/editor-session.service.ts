@@ -1042,7 +1042,8 @@ export class EditorSession implements OnDestroy {
   async botCheck(waves = BOT_CHECK_WAVES): Promise<void> {
     const doc = this.doc;
     if (!doc || this.blocked('The bot check')) return;
-    await this.save(true);
+    const test = openTestWindow();
+    if (!(await this.save(true))) return dropTestWindow(test);
     const url = new URL(document.baseURI);
     url.searchParams.set(WORLD_URL_PARAM, worldUrlValue({ kind: 'custom-map', mapId: doc.meta.id, contentHash: '' })!);
     url.searchParams.set('bot', 'trial');
@@ -1060,17 +1061,18 @@ export class EditorSession implements OnDestroy {
       window.removeEventListener('message', listen);
       this.stopBotListener = null;
     };
-    window.open(url.toString(), MAP_TEST_WINDOW);
+    showInTestWindow(test, url);
   }
 
   /** Saves, then opens the game on this map in the test tab (the one tab each test reuses) */
   async testPlay(): Promise<void> {
     const doc = this.doc;
     if (!doc || this.blocked('The test')) return;
-    await this.save(true);
+    const test = openTestWindow();
+    if (!(await this.save(true))) return dropTestWindow(test);
     const url = new URL(document.baseURI);
     url.searchParams.set(WORLD_URL_PARAM, worldUrlValue({ kind: 'custom-map', mapId: doc.meta.id, contentHash: '' })!);
-    window.open(url.toString(), MAP_TEST_WINDOW);
+    showInTestWindow(test, url);
   }
 
   // ---------------------------------------------------------------- import
@@ -1289,4 +1291,30 @@ export function saveErrorText(e: unknown): string {
     return 'The map was not saved: the browser has no more room for maps. Your changes are still here: download the map (File menu) and delete maps you no longer need.';
   }
   return `The map was not saved (${err?.message ?? 'unknown error'}). Your changes are still here; try again or download the map (File menu).`;
+}
+
+/**
+ * The test tab, taken at once, still inside the click: a browser lets a
+ * window open only within the click's short user activation, and saving a
+ * big map (with its thumbnail) can outlast it. An empty address opens a
+ * blank tab, or returns the test tab of an earlier test without reloading
+ * it. Null when the browser refused.
+ */
+export function openTestWindow(): Window | null {
+  return window.open('', MAP_TEST_WINDOW);
+}
+
+/** Closes a test tab opened for nothing (the save failed); one that shows an earlier test stays */
+function dropTestWindow(test: Window | null): void {
+  try {
+    if (test && !test.closed && test.location.href === 'about:blank') test.close();
+  } catch {
+    // Not ours to read: leave it
+  }
+}
+
+/** Sends the test tab opened in the click to `url`; without one (refused), tries to open it now */
+export function showInTestWindow(test: Window | null, url: URL): void {
+  if (test && !test.closed) test.location.href = url.toString();
+  else window.open(url.toString(), MAP_TEST_WINDOW);
 }

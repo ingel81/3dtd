@@ -40,6 +40,9 @@ const APP_WINDOW_NAMES = new Set(['3dtd-map-test']);
  * browser, 'deny' drops it.
  */
 function classifyWindowOpen(targetUrl, frameName, appOrigin) {
+  // The editor opens its test window blank within the click (a popup blocker lets only that through) and sends it
+  // to the game once the map is saved; the window keeps the app's settings, its navigation the app's rules
+  if (targetUrl === 'about:blank' || targetUrl === '') return APP_WINDOW_NAMES.has(frameName) ? 'window' : 'deny';
   const verdict = classifyNavigation(targetUrl, appOrigin);
   if (verdict === 'allow') return APP_WINDOW_NAMES.has(frameName) ? 'window' : 'deny';
   return verdict;

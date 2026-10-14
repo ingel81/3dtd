@@ -38,6 +38,13 @@ describe('classifyWindowOpen', () => {
     assert.equal(classifyWindowOpen('http://localhost:4200/?world=map%3Ax&bot=trial', '3dtd-map-test', 'http://localhost:4200'), 'window');
   });
 
+  it('opens the test window blank, to be sent to the game after the save, and no other blank window', () => {
+    assert.equal(classifyWindowOpen('about:blank', '3dtd-map-test', app), 'window');
+    assert.equal(classifyWindowOpen('', '3dtd-map-test', app), 'window');
+    assert.equal(classifyWindowOpen('about:blank', '_blank', app), 'deny');
+    assert.equal(classifyWindowOpen('about:blank', '', app), 'deny');
+  });
+
   it('drops other windows on the app origin', () => {
     assert.equal(classifyWindowOpen('app://app/', '', app), 'deny');
     assert.equal(classifyWindowOpen('app://app/', '_blank', app), 'deny');
