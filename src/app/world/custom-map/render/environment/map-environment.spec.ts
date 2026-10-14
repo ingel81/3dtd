@@ -1,57 +1,133 @@
 import { Color, Vector3, type WebGLRenderer } from 'three';
 import { describe, expect, it } from 'vitest';
 import { CustomMapEnvironment } from './map-environment';
+import { SHADOW_PARTS } from './shadow-parts';
 import { SkyDome } from './sky-dome';
 
 const env = { sky: 'day' as const, sunAzimuth: 200, sunElevation: 40, fogDensity: 0.001, tint: '#ffffff' };
 
-/** The parts of a renderer the shadow cache touches */
-function fakeRenderer(): { shadowMap: { autoUpdate: boolean; needsUpdate: boolean }; renders: number } {
+/** The parts of a renderer the shadow cache touches; `parts` counts the shadow passes drawn */
+function fakeRenderer(): { shadowMap: { autoUpdate: boolean; needsUpdate: boolean; enabled: boolean }; renders: number; parts: number } {
   const r = {
-    shadowMap: { autoUpdate: true, needsUpdate: false },
+    shadowMap: {
+      autoUpdate: true,
+      needsUpdate: false,
+      enabled: true,
+      // three's shadow pass for the staging light: a part
+      render: () => {
+        r.parts++;
+      },
+    },
     renders: 0,
-    // The sky texture's bake
+    parts: 0,
+    // The sky texture's bake; the shadow parts draw after an empty scene's render
     getRenderTarget: () => null,
     setRenderTarget: () => undefined,
-    render: () => void r.renders++,
+    render: (scene?: { onAfterRender?: () => void }) => {
+      r.renders++;
+      scene?.onAfterRender?.();
+    },
+    clear: () => undefined,
   };
   return r;
 }
 
-/** Sets the renderer the way apply() does, without a scene to install the sky into */
-function attach(e: CustomMapEnvironment, renderer: ReturnType<typeof fakeRenderer>): void {
-  const inside = e as unknown as { renderer: unknown; previousShadowAuto: boolean };
+/** Sets the renderer the way apply() does, without a scene to install the sky into; with `scene` the shadows draw */
+function attach(e: CustomMapEnvironment, renderer: ReturnType<typeof fakeRenderer>, scene = false): void {
+  const inside = e as unknown as { renderer: unknown; previousShadowAuto: boolean; scene: unknown };
   inside.renderer = renderer as unknown as WebGLRenderer;
   inside.previousShadowAuto = renderer.shadowMap.autoUpdate;
+  if (scene) inside.scene = { children: [] };
   renderer.shadowMap.autoUpdate = false;
 }
 
 describe('sun shadow cache', () => {
+  /** One frame at `focus` with the box asked for `radius`: the shadow parts drawn in it */
+  const frame = (e: CustomMapEnvironment, r: ReturnType<typeof fakeRenderer>, focus: Vector3, radius: number): number => {
+    const before = r.parts;
+    e.focus(focus, radius);
+    e.update(0.016, e.sun.shadow.camera, focus);
+    return r.parts - before;
+  };
+  const parts = SHADOW_PARTS;
+
   it('renders the shadow map only when the box moved, resized or something was invalidated', () => {
     const e = new CustomMapEnvironment(env);
     const r = fakeRenderer();
-    attach(e, r);
-    const frame = (focus: Vector3, radius: number): boolean => {
-      r.shadowMap.needsUpdate = false;
-      e.focus(focus, radius);
-      e.update(0.016, e.sun.shadow.camera, focus);
-      return r.shadowMap.needsUpdate;
-    };
-    expect(frame(new Vector3(0, 0, 0), 200)).toBe(true);
-    expect(frame(new Vector3(0, 0, 0), 200)).toBe(false);
+    attach(e, r, true);
+    // The first map in one frame
+    expect(frame(e, r, new Vector3(0, 0, 0), 200)).toBe(parts);
+    expect(frame(e, r, new Vector3(0, 0, 0), 200)).toBe(0);
     // A pan within the middle of the box and a small zoom keep the map
-    expect(frame(new Vector3(10, 0, 5), 205)).toBe(false);
-    // Leaving the middle moves the box
-    expect(frame(new Vector3(40, 0, 0), 205)).toBe(true);
+    expect(frame(e, r, new Vector3(10, 0, 5), 205)).toBe(0);
+    const build = (focus: Vector3, radius: number): number[] => {
+      const drawn: number[] = [];
+      for (let k = 0; k < 20; k++) {
+        const n = frame(e, r, focus, radius);
+        if (!n) break;
+        drawn.push(n);
+      }
+      return drawn;
+    };
+    // Leaving the middle moves the box: a build spread over frames
+    expect(build(new Vector3(40, 0, 0), 205)).toEqual(Array(parts).fill(1));
     // A zoom past the next step resizes it
-    expect(frame(new Vector3(40, 0, 0), 300)).toBe(true);
+    expect(build(new Vector3(40, 0, 0), 300).length).toBeGreaterThan(0);
     e.invalidateShadows();
-    expect(frame(new Vector3(40, 0, 0), 300)).toBe(true);
-    // A new sun
+    expect(build(new Vector3(40, 0, 0), 300).length).toBeGreaterThan(0);
+    // A new sun: every part at once
     e.set({ ...env, sunAzimuth: 120 });
-    expect(frame(new Vector3(40, 0, 0), 300)).toBe(true);
+    expect(frame(e, r, new Vector3(40, 0, 0), 300)).toBe(parts);
     e.detach();
     expect(r.shadowMap.autoUpdate).toBe(true);
+    e.dispose();
+  });
+
+  it('keeps showing the old map and its matrix until the last tile, then swaps both in one frame', () => {
+    const e = new CustomMapEnvironment(env);
+    const r = fakeRenderer();
+    attach(e, r, true);
+    frame(e, r, new Vector3(0, 0, 0), 200);
+    const shown = e.sun.shadow.map;
+    const matrix = e.sun.shadow.matrix.clone();
+    const area = new Vector3();
+    const radius = e.shadowArea(area);
+    expect(shown).not.toBeNull();
+    const moved = new Vector3(60, 0, 0);
+    for (let k = 1; k < parts; k++) {
+      frame(e, r, moved, 200);
+      expect(e.sun.shadow.map).toBe(shown);
+      expect(e.sun.shadow.matrix.equals(matrix)).toBe(true);
+      expect(e.shadowArea(new Vector3())).toBe(radius);
+    }
+    frame(e, r, moved, 200);
+    expect(e.sun.shadow.map).not.toBe(shown);
+    expect(e.sun.shadow.matrix.equals(matrix)).toBe(false);
+    e.shadowArea(area);
+    expect(area.x).toBeCloseTo(e.sun.target.position.x, 3);
+    // The next build draws into the map that was shown before
+    e.invalidateShadows();
+    for (let k = 0; k < parts; k++) frame(e, r, moved, 200);
+    expect(e.sun.shadow.map).toBe(shown);
+    e.dispose();
+  });
+
+  it('lets a change during a build wait for it, then builds once more', () => {
+    const e = new CustomMapEnvironment(env);
+    const r = fakeRenderer();
+    attach(e, r, true);
+    frame(e, r, new Vector3(0, 0, 0), 200);
+    e.invalidateShadows();
+    const drawn: number[] = [];
+    for (let k = 0; k < 12; k++) {
+      // A caster changes every other frame, as during a pan
+      if (k % 2 === 0 && k < 6) e.invalidateShadows();
+      drawn.push(frame(e, r, new Vector3(0, 0, 0), 200));
+    }
+    // Two builds back to back, one part a frame, then rest
+    expect(Math.max(...drawn)).toBe(1);
+    expect(drawn.reduce((a, b) => a + b, 0)).toBe(2 * parts);
+    expect(drawn.at(-1)).toBe(0);
     e.dispose();
   });
 });

@@ -136,7 +136,7 @@ vorsichtiger als Tiles, weil Auflösung sie viel mehr kostet.
 ## Danach (B)
 
 ED-S1 Bauflächen-Ansicht, ED-S2 Editor-Route wie im Spiel, ED-S4 Testlauf ab Welle N, ED-S9 Schwierigkeitsfaktor
-für die Standardwellen je Karte, PF-K2 Schattenkarte bei Schwenks verteilen.
+für die Standardwellen je Karte, PF-K2 Schattenkarte bei Schwenks verteilen (gebaut 2026-10-14, CUSTOM_MAPS.md „Schattenkarte in Teilen“).
 
 ## Später (C) und verworfen (D)
 

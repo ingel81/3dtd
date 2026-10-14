@@ -30,6 +30,7 @@ import {
 import type { MapEnvironment } from '../../map-document';
 import { HEIGHT_FOG_UNIFORMS } from './height-fog';
 import { biomeLook, type BiomeLook } from './biomes';
+import { ShadowParts } from './shadow-parts';
 import { SkyDome } from './sky-dome';
 import { WeatherLayer } from './weather';
 import { setWind, windOf, WIND_UNIFORMS } from './wind';
@@ -103,8 +104,18 @@ export class CustomMapEnvironment {
    * set it here.
    */
   private shadowDirty = true;
+  /**
+   * The next build draws every tile in one frame: the first map, a new map
+   * size, a new sun (the old map would be read in the wrong direction)
+   */
+  private shadowNow = true;
+  /** Renders the map again over a few frames, a part of the objects each, and swaps it in (shadow-parts.ts) */
+  private readonly shadowParts = new ShadowParts();
   private readonly shadowCenter = new Vector3(Number.NaN, 0, 0);
   private shadowBoxRadius = 0;
+  /** Centre (scene space) and radius of the map the sun shows, which trails the box while a build runs */
+  private readonly shownCenter = new Vector3();
+  private shownRadius = 0;
   private previousShadowAuto: boolean | null = null;
   private previousToneMapping: { mapping: ToneMapping; exposure: number } | null = null;
   private scene: Scene | null = null;
@@ -139,6 +150,7 @@ export class CustomMapEnvironment {
 
   /** Recomputes lights, fog and sky for a changed environment */
   set(env: MapEnvironment): void {
+    if (env.sunAzimuth !== this.env.sunAzimuth || env.sunElevation !== this.env.sunElevation) this.redrawShadowsNow();
     const skyChanged =
       env.sky !== this.env.sky ||
       env.biome !== this.env.biome ||
@@ -328,6 +340,7 @@ export class CustomMapEnvironment {
       shadow.mapSize.set(size, size);
       shadow.map?.dispose();
       shadow.map = null;
+      this.redrawShadowsNow();
       // The focus snaps to whole texels of the new size
       if (Number.isFinite(this.shadowCenter.x)) this.placeSun(this.shadowCenter.clone(), true);
     }
@@ -384,10 +397,10 @@ export class CustomMapEnvironment {
     HEIGHT_FOG_UNIFORMS.uFogMap.value.set(centerX, centerZ, halfX, halfZ);
   }
 
-  /** The cached sun shadow map's centre (scene space) into `target`; returns its radius */
+  /** The centre (scene space) of the cached sun shadow map the sun shows into `target`; returns its radius */
   shadowArea(target: Vector3): number {
-    target.copy(this.sun.target.position);
-    return this.shadowBoxRadius;
+    target.copy(this.shownCenter);
+    return this.shownRadius;
   }
 
   /** Height the fog is densest at (the map's low ground), metres in the scene */
@@ -401,10 +414,34 @@ export class CustomMapEnvironment {
     this.skyDome.update(dt, camera);
     if (this.renderer) this.skyDome.bake(this.renderer);
     this.weather.update(dt, camera, focus);
-    if (this.shadowDirty && this.renderer) {
-      this.renderer.shadowMap.needsUpdate = true;
+    if (this.renderer && this.scene && this.renderer.shadowMap.enabled) this.updateShadows(this.renderer, this.scene, camera);
+  }
+
+  /**
+   * The sun's shadow map after a change: a build over a few frames, a part of
+   * the objects each, the finished map swapped in at once (shadow-parts.ts).
+   * A change while a build runs waits for it: changes during a pan come every
+   * few frames, a build begun anew each time would never end. A new sun or
+   * map size draws every part in one frame.
+   */
+  private updateShadows(renderer: WebGLRenderer, scene: Scene, camera: Camera): void {
+    const parts = this.shadowParts;
+    if (this.shadowDirty && (!parts.busy || this.shadowNow)) {
+      parts.start(this.sun, scene);
       this.shadowDirty = false;
     }
+    if (!parts.busy) return;
+    if (!parts.step(renderer, camera, this.sun, this.shadowNow || !this.sun.shadow.map ? Infinity : 1)) return;
+    this.shadowNow = false;
+    this.shownCenter.copy(parts.center);
+    this.shownRadius = parts.radius;
+  }
+
+  /** The next shadow build draws the whole map in one frame */
+  private redrawShadowsNow(): void {
+    this.shadowNow = true;
+    this.shadowDirty = true;
+    this.shadowParts.cancel();
   }
 
   /** Turns on soft shadow maps on a renderer that has none */
@@ -420,6 +457,7 @@ export class CustomMapEnvironment {
     this.envTarget = null;
     this.pmrem = null;
     this.sun.shadow.dispose();
+    this.shadowParts.dispose();
     this.skyDome.dispose();
     this.weather.dispose();
   }

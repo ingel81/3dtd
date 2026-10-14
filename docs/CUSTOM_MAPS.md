@@ -348,6 +348,23 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   70 % von ihr braucht: eine Raste hin und zurück lässt Box und Werfer (`shadowRadius` 1,2-mal um ihre Mitte) stehen
   (Grafik-Benchmark Hafenstadt High: Draw Calls je Ansicht gleich, Schattenkarte gleich groß; die GPU-Zeit der größeren
   Box auf einem ruhigen Rechner steht noch aus)
+- **Schattenkarte in Teilen** (PF-K2, `environment/shadow-parts.ts`): nach einer Änderung (Box verschoben, Werfer oder
+  Detailstufe gewechselt, Tower, Boden) rendert die Karte nicht mehr in einem Frame neu, sondern über vier Frames in
+  eine zweite Karte, je Frame ein Viertel der Objekte der Szene (in Szenenreihenfolge, die Stufen einer Zelle bleiben
+  zusammen) mit dem Schattenpass von three über ein Hilfslicht, das die ganze Box sieht. Der Tiefenpuffer behält
+  den nächsten Werfer, gleich in welcher Reihenfolge, nur der erste Teil leert die Karte. Ist sie ganz, tauscht die
+  Sonne Karte und Matrix in einem Frame; bis dahin zeigt sie die alte (kein halbfertiger Zustand, kein Springen).
+  Eine Änderung während eines Aufbaus wartet auf ihn (beim Schwenken kommen sie alle paar Frames; neu begonnen würde
+  er nie fertig), neue Sonne und neue Kartengröße zeichnen alle Teile in einem Frame. three zeichnet einen
+  Schattenpass nur innerhalb eines Renders: die Teile laufen im `onAfterRender` einer leeren Szene, gerendert in ein
+  Ziel von einem Texel. Kachelweise (je Kachel ein Teil der Fläche) brachte nichts: ein gepacktes Asset ist ein
+  `InstancedMesh` über die ganze Karte und wurde in jeder Kachel gezeichnet (Draw Calls je Frame höher als vorher).
+  Gemessen (Hafenstadt, Stufe High, Kamera schwenkt 0,5 m je Frame, 240 Frames, headless): vorher 51 Neuaufbauten
+  mit je 151 bis 156 Draw Calls in einem Frame, jetzt höchstens 43 Draw Calls Schatten je Frame, in Summe 7506
+  statt 7808; bei 3 m je Frame vorher in fast jedem Frame ein ganzer Aufbau (bis 156), jetzt höchstens 43 (in einem
+  von drei Läufen ein einzelner Frame mit 193 kurz nach dem Start, nicht geklärt). Auslöser waren fast immer
+  Werfer- und Stufenwechsel der Objekte, selten die Box (49 und 4 von 51). Kosten: eine zweite Karte (bei 4096 Texeln
+  64 MB Tiefe und 16 MB R8-Farbe); eine Änderung erscheint bis zu acht Frames später
 - **Höhennebel** (`height-fog.ts`): die Materialien der Karte ersetzen das Nebel-Fragment der Szene; die Dichte nimmt
   über dem tiefen Boden der Karte ab und wird entlang des Blickstrahls geschlossen integriert, dazu eine dünne
   Luftschicht überall (Fernes wird auch von oben dunstig), zur Sonne hin färbt sich der Dunst. Die Nebelfarbe wird in
