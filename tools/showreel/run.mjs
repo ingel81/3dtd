@@ -18,12 +18,12 @@ import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { SCENES } from './script.mjs';
 import { detectClick, detectFlashes, displays, findOutput, mux, raiseWindow, releaseWindow, startCapture, toFlac } from './capture.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+// --script <file>: another programme (a probe), default script.mjs beside this file
 const ROOT = resolve(HERE, '../..');
 const argv = process.argv.slice(2);
 const flag = (name) => argv.includes(`--${name}`);
@@ -45,6 +45,9 @@ const PREFERENCES = {
   translate_blocked_languages: ['en', 'de'],
   intl: { accept_languages: 'en-US,en', selected_languages: 'en-US,en' },
 };
+
+const scriptAt = process.argv.includes('--script') ? resolve(process.argv[process.argv.indexOf('--script') + 1]) : join(HERE, 'script.mjs');
+const { SCENES } = await import(pathToFileURL(scriptAt).href);
 
 /** A test colour the page shows while the runner looks for its display */
 const PROBE_COLOUR = [255, 0, 255];
@@ -178,6 +181,8 @@ async function main() {
   });
   const page = context.pages()[0] ?? (await context.newPage());
   const problems = [];
+  // The director's upload step: a local file into a file input
+  await page.exposeFunction('__showreelUpload', (sel, file) => page.setInputFiles(sel, file));
   page.on('console', (m) => {
     if (m.text().includes('[showreel]')) console.log(`  ${m.text()}`);
   });

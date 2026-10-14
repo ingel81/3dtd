@@ -220,6 +220,14 @@ export class Director {
         return;
       case 'markers':
         return stage.kind === 'game' ? stage.act('markers', { on: step['on'] !== false }) : undefined;
+      case 'upload': {
+        // A file from the runner's disk into a file input (Playwright's setInputFiles, page.exposeFunction): a
+        // page cannot read a local path, and clicking the input would open the system's file dialog
+        const upload = (window as unknown as { __showreelUpload?: (sel: string, file: string) => Promise<void> }).__showreelUpload;
+        if (!upload) throw new Error('showreel: the runner offers no upload');
+        await upload(String(step['sel']), String(step['file']));
+        return;
+      }
       case 'fade':
         return this.fadeTo(Number(step['to'] ?? 0), dur);
       case 'act': {

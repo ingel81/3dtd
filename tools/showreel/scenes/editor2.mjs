@@ -1,0 +1,56 @@
+// The editor, map 2: Fire and Ice.
+import { act, asset, clickMap, click, flyover, m, mode, newMap, orbit, par, path, seq, settings, sky, stroke, tool, wait } from './common.mjs';
+
+export const SCENES = [
+  { name: 'editor2-new', page: '/editor', steps: [...newMap('Fire and Ice', 'second map')] },
+  {
+    name: 'editor2-biomes',
+    steps: [
+      path(1.5, ['current', [[0.0, -0.3, 120], [0.0, 0.25]]]),
+      tool('landscape'),
+      mode('mountain', { label: 'peaks' }),
+      settings({ brush: { radius: 80, strength: 1 }, landscape: { seed: 51, reroll: false } }),
+      stroke(3.5, [[-0.2, 0.3], [-0.19, 0.31]]),
+      stroke(3.5, [[0.12, 0.34], [0.13, 0.33]]),
+      mode('biome'),
+      click('[data-biome=arctic]', { label: 'arctic' }),
+      settings({ brush: { radius: 70, strength: 1 } }),
+      stroke(3, [[-0.35, 0.3], [-0.1, 0.36], [0.15, 0.36], [0.35, 0.3]]),
+      path(1.5, ['current', [[0.05, -0.6, 80], [0.0, -0.32]]]),
+      click('[data-biome=hell]', { label: 'hell' }),
+      stroke(4, [[-0.3, -0.3], [-0.1, -0.34], [0.1, -0.33], [0.3, -0.28]]),
+      path(1.5, ['current', [[-0.05, 0.05, 25], [0.0, 0.32, 30]]]),
+      tool('environment'),
+      click('button[role=radio]', { withText: 'Snow', label: 'snowfall' }),
+      wait(3),
+    ],
+  },
+  {
+    name: 'editor2-lava',
+    steps: [
+      path(2, ['current', [[0.15, -0.66, 85], [-0.1, -0.36]]]),
+      tool('landscape'),
+      mode('mountain', { label: 'volcano' }),
+      settings({ brush: { radius: 70, strength: 1 }, landscape: { seed: 61 } }),
+      stroke(3.5, [[-0.3, -0.28], [-0.29, -0.28]]),
+      mode('crater', { label: 'craters' }),
+      settings({ brush: { radius: 26, strength: 1 } }),
+      stroke(1.4, [[-0.16, -0.4], [-0.16, -0.4]]),
+      stroke(1.4, [[-0.04, -0.42], [-0.04, -0.42]]),
+      stroke(1.4, [[0.08, -0.4], [0.08, -0.4]]),
+      // Each crater its own lava body, filled to its rim (Ctrl)
+      tool('water'),
+      mode('fill'),
+      click('button', { withText: 'Add lava', label: 'lava' }),
+      clickMap([-0.16, -0.4], { mods: { ctrl: true } }),
+      act('idle', { timeout: 30 }),
+      click('button', { withText: 'Add lava' }),
+      clickMap([-0.04, -0.42], { mods: { ctrl: true } }),
+      act('idle', { timeout: 30 }),
+      click('button', { withText: 'Add lava' }),
+      clickMap([0.08, -0.4], { mods: { ctrl: true } }),
+      act('idle', { timeout: 30 }),
+      path(7, ['current', [[0.15, -0.55, 35], [-0.04, -0.41]], [[-0.25, -0.55, 40], [-0.02, -0.41]]], { ease: 'inOut' }),
+    ],
+  },
+];
