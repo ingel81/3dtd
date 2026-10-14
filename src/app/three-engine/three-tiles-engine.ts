@@ -10,6 +10,7 @@ import {
   Fog,
   Matrix4,
   Vector4,
+  WebGLRenderTarget,
 } from 'three';
 import type { GlobeControls } from '3d-tiles-renderer';
 import { ColorGradingPreset } from './post-processing/color-grading';
@@ -1145,6 +1146,37 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Run `work` with every compileAsync of the renderer compiling for the
+   * output the frames draw to. A program differs by its output: through the
+   * composer (FXAA of the Low and Medium levels, bloom, grading) a linear
+   * target, else the screen in sRGB; compiled for the screen, every program
+   * linked again in the first frame through the composer (demo valley: 157
+   * programs, some 50 of them twice). Only the synchronous part of each call
+   * sees the target, so no frame in between draws into it.
+   */
+  private async compilingForOutput<T>(work: () => Promise<T>): Promise<T> {
+    if (!this.postProcessing?.needsRender()) return work();
+    const renderer = this.renderer;
+    const target = new WebGLRenderTarget(1, 1);
+    const original = renderer.compileAsync;
+    renderer.compileAsync = (scene, camera, targetScene) => {
+      const previous = renderer.getRenderTarget();
+      renderer.setRenderTarget(target);
+      try {
+        return original.call(renderer, scene, camera, targetScene);
+      } finally {
+        renderer.setRenderTarget(previous);
+      }
+    };
+    try {
+      return await work();
+    } finally {
+      renderer.compileAsync = original;
+      target.dispose();
+    }
+  }
+
+  /**
    * Preload all entity models, then compile the shaders of everything in the
    * scene (enemy, projectile, particle and VFX pools) during loading.
    */
@@ -1154,12 +1186,14 @@ export class ThreeTilesEngine {
       this.towers.preloadAllModels(),
       this.projectiles.whenLoaded(),
     ]);
-    await this.towers.precompile(this.renderer, this.camera);
-    if (this.disposed) return;
-    await this.plinths.precompile(this.renderer, this.camera);
-    if (this.disposed) return;
-
-    const warmup = await warmUpScene(this.renderer, this.scene, this.camera, () => this.renderLoop.waitForRenderedFrame());
+    const warmup = await this.compilingForOutput(async () => {
+      await this.towers.precompile(this.renderer, this.camera);
+      if (this.disposed) return null;
+      await this.plinths.precompile(this.renderer, this.camera);
+      if (this.disposed) return null;
+      return warmUpScene(this.renderer, this.scene, this.camera, () => this.renderLoop.waitForRenderedFrame());
+    });
+    if (!warmup) return;
     console.log(
       `[Warmup] ${warmup.newPrograms} new shader programs, ` +
       `compile ${warmup.syncMs.toFixed(1)} ms on the main thread, ` +
