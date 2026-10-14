@@ -164,6 +164,10 @@ export class EditorStage implements Stage {
     };
   }
 
+  canvas(): HTMLCanvasElement | null {
+    return this.viewport?.canvas ?? null;
+  }
+
   toScreen(p: MapPoint3): ScreenPoint | null {
     const viewport = this.viewport;
     if (!viewport) return null;

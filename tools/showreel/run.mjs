@@ -12,7 +12,7 @@
 //
 // Options: --display DISPLAY2 (default: the primary), --quality ultra|high (default ultra), --output-idx N (ddagrab output, default: found by a test
 // colour), --dpr 1 (device scale factor), --cq 18, --chroma 420|444, --headless WxH (development: no window,
-// no recording, --sound records the pages' sound; --shots N takes a picture every N seconds), --check-browser (print Chrome's flags and translate pref), --playwright <dir> (where playwright-core lies, default e2e/node_modules of this checkout or
+// no recording, --sound records the pages' sound, --verify plays step by step and logs what each changed; --shots N takes a picture every N seconds), --check-browser (print Chrome's flags and translate pref), --playwright <dir> (where playwright-core lies, default e2e/node_modules of this checkout or
 // of the main checkout).
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -316,6 +316,57 @@ async function main() {
     save();
   };
 
+  /** A short fingerprint of the editor's map (heights, layers, water, objects, roads, rivers, sky), null in the game */
+  const fingerprint = () =>
+    page.evaluate(() => {
+      const el = document.querySelector('app-editor-page');
+      const doc = el && window.ng?.getComponent(el)?.session?.doc;
+      if (!doc) return null;
+      const t = doc.terrain;
+      let sum = 0;
+      for (let i = 0; i < t.grid.heights.length; i += 7) sum += t.grid.heights[i];
+      const mask = (b) => (b?.mask ? b.mask.reduce((n, v) => n + (v > 127 ? 1 : 0), 0) : 0);
+      const splat = t.splat?.maps ?? [];
+      let paint = 0;
+      for (const a of splat) for (let i = 0; i < a.length; i += 97) paint += a[i];
+      return {
+        heights: Math.round(sum),
+        paint,
+        layers: t.layers.length,
+        water: mask(t.water) + (t.waterBodies ?? []).reduce((n, b) => n + mask(b), 0),
+        bodies: (t.waterBodies ?? []).length,
+        objects: doc.objects.length,
+        objectSum: Math.round(doc.objects.reduce((n, o) => n + o.x * 3 + o.y * 7 + o.scale * 100 + (o.rotation ?? 0) * 10, 0)),
+        nodes: doc.paths.nodes.length,
+        nodeSum: Math.round(doc.paths.nodes.reduce((n, o) => n + o.x * 3 + o.y * 7, 0)),
+        edges: doc.paths.edges.length,
+        rivers: (t.rivers ?? []).map((r) => Math.round(r.points.reduce((n, q) => n + q.x * 3 + q.y * 7, 0))).join('/'),
+        spawns: doc.spawns.length,
+        hq: `${Math.round(doc.hq.x)},${Math.round(doc.hq.y)}`,
+        env: JSON.stringify(doc.environment).length + ':' + doc.environment.sky + ':' + (doc.environment.weather ?? '') + ':' + (doc.environment.skyImage ?? ''),
+      };
+    });
+
+  /** Steps one by one with a picture and the map's change after each, into verify.txt */
+  const verifySteps = async (scene) => {
+    mkdirSync(join(out, 'verify'), { recursive: true });
+    for (let i = 0; i < scene.steps.length; i++) {
+      const step = scene.steps[i];
+      const before = await fingerprint();
+      await page.evaluate((s) => window.__showreel.run(s), { name: `${scene.name}#${i}`, steps: [step] });
+      await page.waitForTimeout(400);
+      const after = await fingerprint();
+      const changed = before && after ? Object.keys(after).filter((k) => after[k] !== before[k]) : [];
+      const what = [step.do, step.name, step.sel, step.label].filter(Boolean).join(' ');
+      const shot = `${scene.name}-${String(i).padStart(2, '0')}.png`;
+      await page.screenshot({ path: join(out, 'verify', shot) });
+      const line = `${scene.name.padEnd(20)} ${String(i).padStart(2)} ${what.slice(0, 60).padEnd(60)} ${changed.join(',') || '-'}`;
+      console.log(`  ${line}`);
+      writeFileSync(join(out, 'verify.txt'), `${line}
+`, { flag: 'a' });
+    }
+  };
+
   let current = null;
   let failure = null;
   try {
@@ -327,7 +378,10 @@ async function main() {
       }
       if (!target && !segment) throw new Error(`scene ${scene.name} has no page to play on`);
       console.log(`scene ${scene.name}`);
-      const playing = page.evaluate((s) => window.__showreel.run(s), { name: scene.name, steps: scene.steps });
+      // --verify (development): each step on its own, then a picture and what it changed in the open map
+      const playing = flag('verify')
+        ? verifySteps(scene).then(() => [])
+        : page.evaluate((s) => window.__showreel.run(s), { name: scene.name, steps: scene.steps });
       // --shots N (development): a picture every N seconds of the scene
       const every = Number(option('shots', 0));
       let shot = 0;

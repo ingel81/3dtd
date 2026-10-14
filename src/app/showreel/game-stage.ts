@@ -237,6 +237,10 @@ export class GameStage implements Stage {
     return { eye: map(p.x, p.y, p.z), look: map(p.x + dir.x * along, p.y + dir.y * along, p.z + dir.z * along) };
   }
 
+  canvas(): HTMLCanvasElement | null {
+    return this.engineInit.getEngine()?.getRenderer().domElement ?? null;
+  }
+
   toScreen(p: MapPoint3): ScreenPoint | null {
     const camera = this.camera;
     const canvas = this.engineInit.getEngine()?.getRenderer().domElement;

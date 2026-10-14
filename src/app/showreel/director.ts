@@ -7,7 +7,7 @@
  */
 import { shotPlayer, type CameraPose, type Ease, type MapPoint3, type Shot } from './camera-path';
 import { Hands, element, nextFrame, waitSeconds, waitUntil } from './hands';
-import { pressKey, typeInto, type Mods } from './pointer';
+import { pressKey, typeInto, type Mods, type ScreenPoint } from './pointer';
 import type { Stage } from './stage';
 
 /**
@@ -158,6 +158,8 @@ export class Director {
           },
           dur,
         );
+      case 'frame':
+        return this.frame(step);
       case 'follow':
         return this.follow(step);
       case 'release':
@@ -172,22 +174,32 @@ export class Director {
           const el = element(to);
           this.hands.pointer.show(true);
           await this.hands.pointer.glide(() => this.hands.centerOf(el), dur || 0.5, nextFrame, mods);
-        } else await this.hands.toMap(stage, this.point(to as PointSpec), dur || 0.6, mods);
+        } else {
+          const at = this.point(to as PointSpec);
+          await this.inView([at], step);
+          await this.hands.toMap(stage, at, dur || 0.6, mods);
+        }
         return;
       }
       case 'click':
         return this.hands.click(await this.find(step), dur || 0.5, Number(step['button'] ?? 0), mods);
-      case 'clickMap':
-        return this.hands.clickMap(stage, this.point(step['at'] as PointSpec), dur || 0.6, Number(step['button'] ?? 0), mods);
-      case 'stroke':
+      case 'clickMap': {
+        const at = this.point(step['at'] as PointSpec);
+        await this.inView([at], step);
+        return this.hands.clickMap(stage, at, dur || 0.6, Number(step['button'] ?? 0), mods);
+      }
+      case 'stroke': {
+        const points = (step['points'] as PointSpec[]).map((p) => this.point(p));
+        await this.inView(points, step);
         return this.hands.stroke(
           stage,
-          (step['points'] as PointSpec[]).map((p) => this.point(p)),
+          points,
           dur || 2,
           Number(step['button'] ?? 0),
           mods,
           Number(step['settle'] ?? 0.15),
         );
+      }
       case 'key':
         pressKey(String(step['key']), mods);
         await nextFrame();
@@ -271,6 +283,80 @@ export class Director {
       const t = seconds <= 0 ? 1 : Math.min(1, ((await nextFrame()) - start) / (seconds * 1000));
       stage.setPose(play(t));
       if (t >= 1) return;
+    }
+  }
+
+  /**
+   * The camera on a group of map points (`points`, `margin` metres round each, a brush): looking at their middle
+   * from the current direction (or `from`, degrees as in orbit) at `pitch` degrees, far enough for all of them
+   * to fit; during `dur` it turns `turn` degrees round them. Use it beside strokes (par) for a camera that moves
+   * and still shows the work.
+   */
+  private async frame(step: Step): Promise<void> {
+    const stage = this.stage();
+    const points = (step['points'] as PointSpec[]).map((p) => this.fixed(p));
+    const margin = Number(step['margin'] ?? 30);
+    const cx = points.reduce((n, p) => n + p.x, 0) / points.length;
+    const cy = points.reduce((n, p) => n + p.y, 0) / points.length;
+    const ch = stage.groundAt(cx, cy);
+    const radius = Math.max(...points.map((p) => Math.hypot(p.x - cx, p.y - cy))) + margin;
+    const fov = Number(step['fov'] ?? (stage.kind === 'editor' ? 50 : 60));
+    const distance = (radius * Number(step['pad'] ?? 1.25)) / Math.tan(((fov / 2) * Math.PI) / 180);
+    const pitch = (Number(step['pitch'] ?? 40) * Math.PI) / 180;
+    const now = stage.pose();
+    const from = step['from'] !== undefined
+      ? Number(step['from'])
+      : now
+        ? (Math.atan2(now.eye.x - now.look.x, -(now.eye.y - now.look.y)) * 180) / Math.PI
+        : 0;
+    const turn = Number(step['turn'] ?? 0);
+    const poseAt = (deg: number): CameraPose => {
+      const a = (deg * Math.PI) / 180;
+      const hd = distance * Math.cos(pitch);
+      return {
+        eye: { x: cx + Math.sin(a) * hd, y: cy - Math.cos(a) * hd, h: ch + distance * Math.sin(pitch) },
+        look: { x: cx, y: cy, h: ch },
+      };
+    };
+    const glide = Number(step['glide'] ?? 0.8);
+    if (now) await this.shot({ kind: 'path', keys: [now, poseAt(from)], ease: 'inOut' }, glide);
+    const dur = Number(step['dur'] ?? 0) - glide;
+    if (dur > 0) await this.shot({ kind: 'orbit', center: { x: cx, y: cy, h: ch }, from, to: from + turn, radius: distance * Math.cos(pitch), height: distance * Math.sin(pitch), ease: 'smooth' }, dur);
+  }
+
+  /** Whether a screen point lies well inside the map's canvas, on the canvas itself (no panel over it) */
+  private onCanvas(p: ScreenPoint | null): boolean {
+    const canvas = this.stage().canvas();
+    if (!p || !canvas) return false;
+    const r = canvas.getBoundingClientRect();
+    const mx = r.width * 0.08;
+    const my = r.height * 0.08;
+    if (p.x < r.left + mx || p.x > r.right - mx || p.y < r.top + my || p.y > r.bottom - my) return false;
+    return document.elementFromPoint(p.x, p.y) === canvas;
+  }
+
+  /**
+   * Map input only where the viewer sees it: when a point of a click or
+   * stroke lies off the canvas, behind the camera or under a panel, the
+   * camera glides over (the view moved onto the points, then pulled back
+   * until they fit) and the console says so, as the script's camera missed
+   */
+  private async inView(points: MapPoint3[], step: Step): Promise<void> {
+    const stage = this.stage();
+    const all = () => points.every((p) => this.onCanvas(stage.toScreen(p)));
+    if (all()) return;
+    console.warn(`[showreel] ${this.scene}: ${step.do} ${step.label ?? ''} off screen, the camera reframes`);
+    const pose = stage.pose();
+    if (!pose) return;
+    const cx = points.reduce((n, p) => n + p.x, 0) / points.length;
+    const cy = points.reduce((n, p) => n + p.y, 0) / points.length;
+    const ch = stage.groundAt(cx, cy);
+    let off = { x: pose.eye.x - pose.look.x, y: pose.eye.y - pose.look.y, h: Math.max(20, pose.eye.h - pose.look.h) };
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const goal = { look: { x: cx, y: cy, h: ch }, eye: { x: cx + off.x, y: cy + off.y, h: ch + off.h } };
+      await this.shot({ kind: 'path', keys: [stage.pose() ?? pose, goal], ease: 'inOut' }, attempt ? 0.4 : 0.8);
+      if (all()) return;
+      off = { x: off.x * 1.35, y: off.y * 1.35, h: off.h * 1.35 };
     }
   }
 

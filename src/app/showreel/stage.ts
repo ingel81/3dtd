@@ -21,6 +21,8 @@ export interface Stage {
   pose(): CameraPose | null;
   /** Where a map point shows on the screen (client px), null behind the camera */
   toScreen(p: MapPoint3): ScreenPoint | null;
+  /** The canvas the map draws to: what a map click must land on */
+  canvas(): HTMLCanvasElement | null;
   /** An action of this page by name; throws for one it does not know */
   act(name: string, args: Record<string, unknown>): Promise<void>;
 }

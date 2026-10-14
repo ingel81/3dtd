@@ -3,6 +3,9 @@
 // forest x3, sand, gravel and mud (river), cobblestone (road), 10 in all.
 import { act, asset, clickMap, click, m, mode, newMap, orbit, par, path, seq, settings, stroke, tool, wait } from './common.mjs';
 
+/** The camera on map points (director frame step): from the current side or `from` degrees, turning `turn` over `dur` */
+const frame = (points, opts = {}) => ({ do: 'frame', points, ...opts });
+
 const key = (k, mods) => ({ do: 'key', key: k, ...(mods ? { mods } : {}) });
 const keys = (k, n, mods) => Array.from({ length: n }, () => [key(k, mods), wait(0.12)]).flat();
 
@@ -40,7 +43,7 @@ export const SCENES = [
           mode('terrace'),
           stroke(1.8, [[-0.24, -0.3], [-0.25, -0.29]], { label: 'terrace' }),
           mode('smooth'),
-          stroke(1.8, [[-0.36, -0.3], [-0.34, -0.31]], { label: 'smooth' }),
+          stroke(1.8, [[-0.3, -0.3], [-0.28, -0.31]], { label: 'smooth' }),
           wait(0.6),
         ),
       ),
@@ -52,10 +55,10 @@ export const SCENES = [
     steps: [
       path(1.5, ['current', [[-0.02, -0.5, 45], [-0.1, -0.33]]]),
       mode('plateau'),
-      settings({ brush: { radius: 30, strength: 1 } }),
+      settings({ brush: { radius: 42, strength: 1 }, terrain: { step: 14 } }),
       stroke(1.5, [[-0.1, -0.3], [-0.095, -0.3]], { label: 'cliff' }),
       wait(0.8),
-      path(1.2, ['current', [[0.04, -0.37, 22], [-0.1, -0.33]]]),
+      frame([[-0.1, -0.3], [-0.1, -0.44]], { from: 75, pitch: 16, margin: 8, pad: 0.85, glide: 1.2 }),
       mode('ramp'),
       clickMap([-0.1, -0.31], { label: 'ramp' }),
       clickMap([-0.1, -0.44]),
@@ -73,8 +76,9 @@ export const SCENES = [
       mode('mountain'),
       settings({ brush: { radius: 75, strength: 1 }, landscape: { seed: 11, reroll: false } }),
       par(
-        path(14, ['current', [[-0.05, -0.02, 100], [0.0, 0.33]], [[0.22, 0.0, 100], [0.02, 0.34]]], { ease: 'smooth' }),
+        frame([[-0.28, 0.32], [0.0, 0.38], [0.28, 0.33]], { from: 195, pitch: 22, margin: 35, pad: 0.95, dur: 14, turn: 22 }),
         seq(
+          wait(0.9),
           stroke(3.5, [[-0.28, 0.32], [-0.27, 0.33]], { label: 'mountains' }),
           stroke(3.5, [[0.0, 0.38], [0.01, 0.38]]),
           settings({ landscape: { seed: 12 } }),
@@ -83,10 +87,12 @@ export const SCENES = [
       ),
       mode('valley', { label: 'valley' }),
       settings({ brush: { radius: 40, strength: 1 } }),
-      stroke(2, [[0.36, 0.2], [0.42, 0.24]]),
+      frame([[0.22, 0.3], [0.33, 0.38]], { from: 160, pitch: 30, margin: 40, pad: 1 }),
+      stroke(3, [[0.22, 0.3], [0.33, 0.38]]),
+      wait(0.8),
       mode('cliff', { label: 'cliff edge' }),
       settings({ brush: { radius: 30, strength: 1 }, landscape: { cliffHeight: 14 } }),
-      path(1, ['current', [[-0.3, -0.05, 80], [-0.27, 0.15]]]),
+      frame([[-0.42, 0.12], [-0.1, 0.14]], { from: 160, pitch: 28, margin: 25 }),
       stroke(2, [[-0.42, 0.12], [-0.25, 0.16], [-0.1, 0.14]]),
       wait(0.8),
     ],
@@ -95,7 +101,7 @@ export const SCENES = [
     // Rock and snow as layers, then Auto paint: rock on the steep sides, snow on the peaks at once
     name: 'editor-paint',
     steps: [
-      path(1.5, ['current', [[0.0, 0.0, 90], [0.0, 0.34]]]),
+      frame([[0.0, 0.38]], { from: 185, pitch: 28, margin: 70, pad: 1 }),
       tool('paint', { label: 'paint' }),
       click('[data-test=add-layer]'),
       click('.pp-group', { withText: 'Mountain' }),
@@ -103,8 +109,8 @@ export const SCENES = [
       click('[data-test=add-layer]'),
       click('.pp-group', { withText: 'Mountain' }),
       click('[data-material=snow-fresh]', { timeout: 8 }),
-      settings({ brush: { radius: 28, strength: 0.9 } }),
-      stroke(2, [[-0.05, 0.34], [0.05, 0.36]], { label: 'paint snow' }),
+      settings({ brush: { radius: 22, strength: 1 } }),
+      stroke(2.2, [[-0.02, 0.38], [0.02, 0.385], [0.0, 0.375]], { label: 'paint snow' }),
       wait(0.5),
       click('[data-test=auto-paint]', { label: 'auto paint' }),
       act('idle', { timeout: 30 }),
@@ -119,10 +125,11 @@ export const SCENES = [
       click('[data-biome=forest]'),
       settings({ brush: { radius: 50, strength: 0.9 }, landscape: { seed: 21 } }),
       par(
-        path(9, ['current', [[-0.35, -0.05, 85], [-0.1, 0.24]], [[0.25, -0.02, 90], [0.1, 0.24]]], { ease: 'smooth' }),
+        frame([[-0.36, 0.28], [-0.12, 0.3]], { from: 175, pitch: 28, margin: 45, pad: 1, dur: 9, turn: 20 }),
         seq(
-          stroke(3, [[-0.42, 0.22], [-0.22, 0.24], [-0.05, 0.26], [0.12, 0.24]]),
-          stroke(2.5, [[0.2, 0.2], [0.35, 0.2], [0.42, 0.28]]),
+          wait(0.9),
+          stroke(3.5, [[-0.36, 0.28], [-0.3, 0.33], [-0.24, 0.31], [-0.18, 0.27], [-0.12, 0.3]]),
+          stroke(2.5, [[-0.12, 0.24], [0.1, 0.25], [0.2, 0.22]]),
         ),
       ),
     ],
@@ -132,8 +139,8 @@ export const SCENES = [
     steps: [
       mode('river', { label: 'river' }),
       par(
-        path(5, ['current', [[-0.35, -0.4, 140], [-0.08, 0.02]]], { ease: 'smooth' }),
-        stroke(3, [[-0.02, 0.33], [-0.1, 0.15], [-0.04, -0.02], [-0.14, -0.2], [-0.1, -0.48]], { settle: 0.3 }),
+        frame([[-0.02, 0.33], [-0.1, -0.48]], { from: 250, pitch: 35, margin: 20, dur: 5, turn: 15 }),
+        stroke(3.5, [[-0.02, 0.33], [-0.1, 0.15], [-0.04, -0.02], [-0.14, -0.2], [-0.1, -0.48]], { settle: 0.3 }),
       ),
       wait(0.8),
       path(1.2, ['current', [{ at: 'river:0:28', dx: 45, dy: -85, h: 60 }, { at: 'river:0:28', dx: 12 }]]),
@@ -193,12 +200,14 @@ export const SCENES = [
       clickMap({ at: 'hq', dx: -30, dy: -55 }),
       ...asset('castle wall', 'castle-wall'),
       mode('line', { label: 'castle wall' }),
+      frame([{ at: 'hq', dx: -100, dy: -15 }, { at: 'hq', dx: -100, dy: -80 }, { at: 'hq', dx: -20, dy: -80 }], { pitch: 38, margin: 15 }),
       stroke(2.2, [{ at: 'hq', dx: -100, dy: -15 }, { at: 'hq', dx: -100, dy: -80 }, { at: 'hq', dx: -20, dy: -80 }], { settle: 0.3 }),
       wait(0.8),
       mode('scatter', { label: 'scatter trees' }),
       ...asset('oak', 'tree-oak'),
       settings({ brush: { radius: 18, strength: 0.9 } }),
-      stroke(2, [{ at: 'hq', dx: -95, dy: -100 }, { at: 'hq', dx: -40, dy: -105 }]),
+      frame([{ at: 'hq', dx: -95, dy: -100 }, { at: 'hq', dx: -40, dy: -105 }], { pitch: 35, margin: 25 }),
+      stroke(2.5, [{ at: 'hq', dx: -95, dy: -100 }, { at: 'hq', dx: -40, dy: -105 }]),
       wait(0.6),
     ],
   },
@@ -206,7 +215,7 @@ export const SCENES = [
     // Select, scale with the gizmo, duplicate and drag the copy, align to the slope
     name: 'editor-select',
     steps: [
-      path(1.2, ['current', [{ at: 'object:cottage', dx: 8, dy: -38, h: 18 }, { at: 'object:cottage' }]]),
+      frame([{ at: 'object:cottage' }, { at: 'object:cottage', dx: 16, dy: -10 }], { pitch: 35, margin: 14 }),
       mode('select', { label: 'select' }),
       clickMap({ at: 'object:cottage' }),
       key('r'),
@@ -216,7 +225,7 @@ export const SCENES = [
       key('w'),
       key('d', { ctrl: true }),
       wait(0.3),
-      stroke(1.3, [{ at: 'object:cottage' }, { at: 'object:cottage', dx: 16, dy: -10 }], { label: 'duplicate', settle: 0.3 }),
+      stroke(1.3, [{ at: 'object:cottage', dx: 3, dy: -3 }, { at: 'object:cottage', dx: 19, dy: -13 }], { label: 'duplicate', settle: 0.3 }),
       click('[data-test=align-selection]', { label: 'align to slope' }),
       wait(0.8),
       key('Escape'),
@@ -226,7 +235,7 @@ export const SCENES = [
     // Lamps all along the road with one click, then night: they light up
     name: 'editor-lamps',
     steps: [
-      path(1.5, ['current', [{ m: [-120, -40], h: 16 }, { m: [-70, 0], h: 2 }]]),
+      frame([{ m: [-100, 0] }, { m: [-40, 0] }], { from: 200, pitch: 20, margin: 10 }),
       mode('line'),
       click('[data-test=line-roads]'),
       ...asset('lamp', 'lamp-post'),
@@ -242,7 +251,7 @@ export const SCENES = [
     // Copy a piece of the village and stamp it twice, turned
     name: 'editor-stamps',
     steps: [
-      path(1.5, ['current', [{ at: 'hq', dx: -60, dy: -170, h: 95 }, { at: 'hq', dx: -60, dy: -70 }]]),
+      frame([{ at: 'hq', dx: -105, dy: -10 }, { at: 'hq', dx: -60, dy: -150 }, { at: 'hq', dx: -170, dy: -110 }], { pitch: 50, margin: 40 }),
       tool('stamp', { label: 'stamps' }),
       mode('select'),
       stroke(1.2, [{ at: 'hq', dx: -105, dy: -10 }, { at: 'hq', dx: -15, dy: -85 }], { label: 'copy' }),
@@ -260,7 +269,7 @@ export const SCENES = [
   {
     name: 'editor-look',
     steps: [
-      path(1, ['current', [{ at: 'hq', dx: -50, dy: -110, h: 40 }, { at: 'hq', dx: -55, dy: -45 }]]),
+      frame([{ at: 'object:chapel' }, { at: 'hq' }], { pitch: 35, margin: 20 }),
       tool('look', { label: 'look' }),
       clickMap({ at: 'object:chapel' }),
       wait(0.8),
@@ -269,27 +278,19 @@ export const SCENES = [
     ],
   },
   {
-    // From high above: Both mirrors one stroke into four craters, the axes drawn on the map
-    name: 'editor-symmetry',
-    steps: [
-      path(2, ['current', [[0.0, -0.1, 560], [0.0, 0.0]]]),
-      tool('landscape'),
-      { do: 'select', sel: '[data-test=symmetry]', value: 'xy', label: 'symmetry' },
-      mode('crater'),
-      settings({ brush: { radius: 30, strength: 1 } }),
-      stroke(1.5, [[0.38, -0.4], [0.38, -0.4]], { label: 'four craters' }),
-      wait(1.6),
-      { do: 'select', sel: '[data-test=symmetry]', value: 'none' },
-    ],
-  },
-  {
+    // A crater, then Fill a hollow: the water fills just that crater to its rim
     name: 'editor-fill',
     steps: [
-      path(1.5, ['current', [[0.48, -0.56, 50], [0.38, -0.4]]]),
+      frame([[0.36, -0.36]], { from: 150, pitch: 30, margin: 45 }),
+      tool('landscape'),
+      mode('crater'),
+      settings({ brush: { radius: 34, strength: 1 } }),
+      stroke(1.8, [[0.36, -0.36], [0.36, -0.36]], { label: 'crater' }),
+      wait(0.5),
       tool('water'),
       mode('fill', { label: 'fill a hollow' }),
       // Ctrl: the hollow's own rim sets the level, whatever water the map has already
-      clickMap([0.38, -0.4], { mods: { ctrl: true } }),
+      clickMap([0.36, -0.36], { mods: { ctrl: true } }),
       act('idle', { timeout: 30 }),
       wait(1.5),
     ],
