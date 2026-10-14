@@ -50,6 +50,19 @@ describe('editor session opening', () => {
   });
 });
 
+describe('editor session heightmap import', () => {
+  it('takes no heightmap without a usable range, as heights that are no numbers would make the map unreadable', async () => {
+    const { s } = session();
+    const raw = new File([new Uint8Array(8 * 8 * 2).fill(128)], 'h.raw');
+    const before = s.doc!.terrain.grid.heights.slice();
+    expect(await s.importHeightmap(raw, Number.NaN, 20)).toBe(false);
+    expect(await s.importHeightmap(raw, 0, 1e6)).toBe(false);
+    expect(s.doc!.terrain.grid.heights).toEqual(before);
+    expect(s.error()).toContain('lowest and a highest height');
+    s.ngOnDestroy();
+  });
+});
+
 describe('editor session and other tabs', () => {
   it('turns read-only when another tab takes the map, and reads it again when it gets it back', async () => {
     const { s } = session();

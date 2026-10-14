@@ -956,6 +956,11 @@ export class EditorSession implements OnDestroy {
   async importHeightmap(file: File, low: number, high: number): Promise<boolean> {
     const editor = this.editor;
     if (!editor || this.blocked('Importing a heightmap')) return false;
+    // A height that is not a number would make the map unreadable once saved (map-file checks every height)
+    if (!Number.isFinite(low) || !Number.isFinite(high) || Math.abs(high - low) > 10000) {
+      this.error.set('The heightmap needs a lowest and a highest height in metres, at most 10 km apart.');
+      return false;
+    }
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
       const image = /\.png$/i.test(file.name) ? decodePng(bytes) : decodeRaw16(bytes);
