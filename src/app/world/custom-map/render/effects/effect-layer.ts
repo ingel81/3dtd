@@ -198,8 +198,13 @@ export class EffectLayer {
    */
   setLavaLights(points: Vector3[]): void {
     // Embers rising and a little smoke over every lava point: one instanced field each, about 2000
-    // embers over the whole map at most (lava points float 5 m over the lava)
-    for (const f of this.lavaFields) f.dispose();
+    // embers over the whole map at most (lava points float 5 m over the lava). The old fields go a few
+    // frames later, as the other effects do (clear): their programs stay for the new ones
+    for (const f of this.lavaFields) {
+      f.mesh.removeFromParent();
+      this.retired.push(() => f.dispose());
+    }
+    this.retiredFrames = 0;
     this.lavaFields = [];
     if (points.length) {
       const per = Math.max(8, Math.min(60, Math.floor(2000 / points.length)));
