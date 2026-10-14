@@ -17,9 +17,13 @@ export const SCENES = [
       act('planTowers', { count: 4, tower: 'cannon', from: 90, to: 220, route: 0 }),
       // All four spots in one frame, from the side the fight orbit starts on
       { do: 'frame', points: [{ at: 'spot:0' }, { at: 'spot:1' }, { at: 'spot:2' }, { at: 'spot:3' }], from: 190, pitch: 45, margin: 8, pad: 1, glide: 1.8 },
+      { do: 'frame', points: [{ at: 'spot:0' }], from: 190, pitch: 40, margin: 24, glide: 1 },
       act('build', { tower: 'archer', spot: 0, hold: 1.2, label: 'build' }),
+      { do: 'frame', points: [{ at: 'spot:1' }], from: 190, pitch: 40, margin: 24, glide: 1 },
       act('build', { tower: 'cannon', spot: 1, hold: 1.2 }),
+      { do: 'frame', points: [{ at: 'spot:2' }], from: 190, pitch: 40, margin: 24, glide: 1 },
       act('build', { tower: 'ice', spot: 2, hold: 1.2 }),
+      { do: 'frame', points: [{ at: 'spot:3' }], from: 190, pitch: 40, margin: 24, glide: 1 },
       act('build', { tower: 'lightning', spot: 3, hold: 1.2 }),
     ],
   },

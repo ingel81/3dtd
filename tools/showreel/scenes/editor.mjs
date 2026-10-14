@@ -16,7 +16,8 @@ const WEATHER = '[aria-label=Weather] button[role=radio]';
 /** Camera poses [eye, look] the sky scene comes back to */
 /** The oak grove behind the village (HQ at 128, 0): low, the trees and houses in front */
 const FOREST_VIEW = [{ m: [70, -62], h: 7 }, { m: [62, -22], h: 4 }];
-const LAMPS_VIEW = [{ m: [-60, -30], h: 12 }, { m: [-20, 0], h: 2 }];
+/** Low beside the West road, looking along it: the row of lamps recedes to the spawn */
+const LAMPS_VIEW = [{ m: [-62, -14], h: 6 }, { m: [-160, 2], h: 3 }];
 const WIDE_VIEW = [[0.05, -0.08, 45], [0.0, 0.3, 25]];
 /** Low over the south, looking the valley's length north: fog shows in the depth */
 const DEEP_VIEW = [[0.02, -0.46, 10], [0.0, 0.35, 15]];
@@ -153,11 +154,11 @@ export const SCENES = [
         stroke(3.5, [[-0.02, 0.33], [-0.1, 0.15], [-0.04, -0.02], [-0.14, -0.2], [-0.1, -0.48]], { settle: 0.3 }),
       ),
       wait(0.8),
-      path(1.2, ['current', [{ at: 'river:0:28', dx: 35, dy: -70, h: 105 }, { at: 'river:0:28', dx: 14 }]]),
+      path(1.2, ['current', [{ at: 'river:0:10', dx: 35, dy: -70, h: 105 }, { at: 'river:0:10', dx: 14 }]]),
       tool('water', { label: 'move the river' }),
       wait(0.3),
       mode('river'),
-      stroke(1.8, [{ at: 'river:0:28' }, { at: 'river:0:28', dx: 30, dy: 4 }], { settle: 0.3 }),
+      stroke(1.8, [{ at: 'river:0:10' }, { at: 'river:0:10', dx: 30, dy: 4 }], { settle: 0.3 }),
       // The river's handles go with the selection: the moved bed alone
       key('Escape'),
       wait(1.2),
@@ -211,7 +212,7 @@ export const SCENES = [
       ...asset('watchtower', 'watchtower'),
       clickMap({ at: 'hq', dx: -88, dy: -58 }),
       ...asset('cottage', 'cottage'),
-      clickMap({ at: 'hq', dx: -30, dy: -55 }),
+      clickMap({ at: 'hq', dx: -24, dy: -42 }),
       ...asset('castle wall', 'castle-wall'),
       mode('line', { label: 'castle wall' }),
       frame([{ at: 'hq', dx: -100, dy: -15 }, { at: 'hq', dx: -100, dy: -80 }, { at: 'hq', dx: -20, dy: -80 }], { pitch: 38, margin: 15 }),
@@ -221,7 +222,7 @@ export const SCENES = [
       ...asset('oak', 'tree-oak'),
       // Behind the houses as the camera sees them from the south, dense enough to read as a grove
       settings({ brush: { radius: 22, strength: 1 }, objects: { scatter: { density: 14 } } }),
-      frame([{ at: 'hq', dx: -95, dy: -24 }, { at: 'hq', dx: -30, dy: -20 }, { at: 'hq', dx: -45, dy: -45 }], { from: 190, pitch: 32, margin: 20 }),
+      frame([{ at: 'hq', dx: -95, dy: -24 }, { at: 'hq', dx: -30, dy: -20 }, { at: 'hq', dx: -45, dy: -45 }], { from: 10, pitch: 32, margin: 20 }),
       stroke(2.8, [{ at: 'hq', dx: -95, dy: -24 }, { at: 'hq', dx: -60, dy: -22 }, { at: 'hq', dx: -30, dy: -20 }]),
       wait(1),
     ],
@@ -259,7 +260,15 @@ export const SCENES = [
       act('overlay', { on: false }),
       path(2.2, ['current', LAMPS_VIEW], { ease: 'inOut' }),
       wait(0.8),
-      act('overlay', { on: true }),
+    ],
+  },
+  {
+    name: 'editor-look',
+    steps: [
+      frame([{ at: 'object:chapel' }, { at: 'hq' }], { pitch: 35, margin: 20 }),
+      tool('look', { label: 'look' }),
+      clickMap({ at: 'object:chapel' }),
+      wait(1.6),
     ],
   },
   {
@@ -268,6 +277,8 @@ export const SCENES = [
     // HQ at (128, 0): the village west of it (walls down to y -80, the lake below), free meadow east of it
     steps: [
       frame([{ at: 'hq', dx: -105, dy: -10 }, { at: 'hq', dx: -15, dy: -78 }, { at: 'hq', dx: 110, dy: -150 }], { from: 190, pitch: 40, margin: 12 }),
+      // The lamps scene left the overlay off: on again once the camera has gone up
+      act('overlay', { on: true }),
       tool('stamp', { label: 'stamps' }),
       mode('select'),
       stroke(1.2, [{ at: 'hq', dx: -105, dy: -10 }, { at: 'hq', dx: -15, dy: -78 }], { label: 'copy' }),
@@ -282,15 +293,6 @@ export const SCENES = [
       act('idle', { timeout: 20 }),
       wait(1.2),
       key('Escape'),
-    ],
-  },
-  {
-    name: 'editor-look',
-    steps: [
-      frame([{ at: 'object:chapel' }, { at: 'hq' }], { pitch: 35, margin: 20 }),
-      tool('look', { label: 'look' }),
-      clickMap({ at: 'object:chapel' }),
-      wait(1.6),
     ],
   },
   {
@@ -354,9 +356,9 @@ export const SCENES = [
       path(2, ['current', LAMPS_VIEW], { ease: 'inOut' }),
       click(SKY_PRESET, { withText: 'Night', label: 'night' }),
       act('idle', { timeout: 20 }),
-      wait(1.4),
-      { do: 'range', sel: '[data-test=moonlight]', to: 80, dur: 1.4, label: 'moonlight' },
-      wait(1.2),
+      wait(0.8),
+      { do: 'range', sel: '[data-test=moonlight]', to: 85, dur: 1.2, label: 'moonlight' },
+      wait(1.6),
       path(2, ['current', WIDE_VIEW], { ease: 'inOut' }),
       { do: 'select', sel: '[data-test=sky-image]', value: 'sunset', label: 'sky picture' },
       wait(1.6),
@@ -378,9 +380,11 @@ export const SCENES = [
       par(
         path(4.5, ['current', DEEP_VIEW], { ease: 'smooth' }),
         seq(
-          // The Air fog slider: the Fog weather barely showed; back to the new map's 4 after
-          { do: 'range', sel: 'app-editor-range[label=Fog]', to: 30, dur: 1.6, label: 'fog' },
-          wait(1.6),
+          // Fog weather at full strength and the Air fog slider up; the slider back to the new map's 4 after
+          click(WEATHER, { withText: 'Fog', label: 'fog' }),
+          { do: 'range', sel: 'app-editor-range[label=Strength]', to: 100, dur: 0.8 },
+          { do: 'range', sel: 'app-editor-range[label=Fog]', to: 40, dur: 1.2 },
+          wait(1.4),
         ),
       ),
       { do: 'range', sel: 'app-editor-range[label=Fog]', to: 4, dur: 0.8 },

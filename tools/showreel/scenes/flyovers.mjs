@@ -30,7 +30,7 @@ export const SCENES = [
   ]),
   introFlyover('mountain-flyover', 'mountain-pass', 'Mountain Pass', [
     sky('sunset', 'dusk', 6),
-    path(6.5, [[m(245, -70, 12), m(160, 5, 32)], [m(205, 30, 42), m(150, 5, 15)]], { label: 'waterfall', ease: 'inOut' }),
+    path(6.5, [[m(245, -70, 12), m(160, 5, 32)], [m(205, 48, 42), m(150, 18, 15)]], { label: 'waterfall', ease: 'inOut' }),
     path(6.5, [[m(-30, -40, 70), m(-139, -67, 45)], [m(-70, -175, 55), m(-139, -60, 45)]], { label: 'cable car', ease: 'inOut' }),
   ]),
   flyover('archipelago-flyover', 'archipelago', 'Archipelago', [

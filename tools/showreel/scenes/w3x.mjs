@@ -21,6 +21,8 @@ export const SCENES = [
       act('viewReady', { timeout: 90 }),
       // The trees stream in a moment after the view stands
       wait(1.2),
+      // Ten spawn signs would crowd the flight
+      act('overlay', { on: false }),
       path(6, ['current', [[0.35, -0.6, 140], [0.0, -0.05]], [[-0.3, -0.5, 110], [0.0, 0.05]]], { ease: 'inOut', label: 'imported map' }),
       // On from where the path ends, round the point it looks at
       orbit(6, 'look', { turn: 50, ease: 'inOut' }),

@@ -16,7 +16,8 @@ export const SCENES = [
       stroke(3.5, [[-0.2, 0.3], [-0.19, 0.31]]),
       stroke(3.5, [[0.12, 0.34], [0.13, 0.33]]),
       mode('biome'),
-      click('[data-biome=arctic]', { label: 'arctic' }),
+      // Snow, not Arctic: Arctic takes five ground layers and Hell after it found the map's twelve full
+      click('[data-biome=snow]', { label: 'snow' }),
       settings({ brush: { radius: 70, strength: 1 } }),
       stroke(3, [[-0.35, 0.3], [-0.1, 0.36], [0.15, 0.36], [0.35, 0.3]]),
       { do: 'frame', points: [[-0.3, -0.3], [0.3, -0.28]], from: 180, pitch: 32, margin: 40 },
@@ -41,12 +42,13 @@ export const SCENES = [
       { do: 'select', sel: '[data-test=symmetry]', value: 'x', label: 'mirror' },
       mode('mountain'),
       settings({ brush: { radius: 45, strength: 1 }, landscape: { seed: 71 } }),
-      stroke(2.5, [[0.3, -0.05], [0.31, -0.05]], { label: 'two mountains' }),
+      // Clear of the HQ (0.25, 0) and the West spawn its mirror would hit
+      stroke(2.5, [[0.3, -0.2], [0.31, -0.2]], { label: 'two mountains' }),
       wait(1),
       { do: 'select', sel: '[data-test=symmetry]', value: 'xy', label: 'both' },
       mode('crater'),
-      settings({ brush: { radius: 30, strength: 1 } }),
-      stroke(1.8, [[0.2, -0.2], [0.2, -0.2]], { label: 'four craters' }),
+      settings({ brush: { radius: 40, strength: 1 } }),
+      stroke(2.6, [[0.15, 0.13], [0.15, 0.13]], { label: 'four craters' }),
       wait(1.8),
       { do: 'select', sel: '[data-test=symmetry]', value: 'none' },
     ],
@@ -79,8 +81,10 @@ export const SCENES = [
       click('button', { withText: 'Add lava' }),
       clickMap([0.28, -0.42], { mods: { ctrl: true } }),
       act('idle', { timeout: 30 }),
-      // Low over the lava toward the volcano
-      path(7, ['current', [[0.02, -0.56, 18], [0.12, -0.42]], [[0.3, -0.58, 24], [0.38, -0.3, 10]]], { ease: 'inOut' }),
+      // Low over the lava toward the volcano, the editor's frame out of the picture
+      { do: 'ui', on: false },
+      act('overlay', { on: false }),
+      path(7, ['current', [[0.16, -0.62, 28], [0.16, -0.42]], [[0.32, -0.6, 26], [0.38, -0.3, 10]]], { ease: 'inOut' }),
     ],
   },
 ];
