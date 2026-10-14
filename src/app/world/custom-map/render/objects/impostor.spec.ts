@@ -28,6 +28,8 @@ describe('octahedral impostor', () => {
       expect(shader.vertexShader.indexOf('vec3 impDir =')).toBeLessThan(shader.vertexShader.indexOf('vec3 transformed = uImpCenter'));
       expect(shader.fragmentShader).toContain('impA');
       expect(shader.vertexShader.includes('objectNormal = normalize(impDir')).toBe(lit);
+      // The seen card looks up its shadow nearer the sun, out of its own caster
+      expect(shader.vertexShader.includes('worldPosition.xyz += uImpSun')).toBe(lit);
     }
   });
 });

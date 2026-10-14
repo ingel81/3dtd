@@ -180,7 +180,8 @@ Raster, Albedo, unbeleuchtet) in eine Textur von 512 x 512 gerendert (64 px je A
 ein Ziel ohne MSAA kopiert), gezeigt als eine Karte, die sich zur Kamera dreht. Sie nimmt die vier Ansichten um die
 Blickrichtung und mischt sie nach Nähe; von unten gelten die Ansichten am Horizont. Die Normale zeigt zur Kamera und
 nach oben. Im Schattenpass dreht sich die Karte zur Sonne (eigenes `customDepthMaterial`) und wirft den Umriss von
-dort. Die Geometrie hält weiter zwei gekreuzte Karten in Modellgröße: was das Mesh mit eigenem Material zeichnet (der
+dort. Die gesehene Karte liest ihren Schatten einen Radius näher zur Sonne (`IMPOSTOR_SUN`): beide Karten laufen durch
+die Modellmitte, die halbe gesehene Karte lag sonst hinter ihrem eigenen Werfer (ein dunkler Kasten in der Krone). Die Geometrie hält weiter zwei gekreuzte Karten in Modellgröße: was das Mesh mit eigenem Material zeichnet (der
 LOS-Würfel), sieht diese. Kosten (RTX 5080, Burg im Herbst, High): Backen auf dem Hauptthread 55 bis 60 ms je Karte
 statt 41 bis 43 (alle Bäume und Felsen zusammen); je Bild 0,23 bis 0,29 ms für alle Impostoren samt Schatten statt
 0,22 bis 0,26; Speicher je Impostor 1,4 MB statt etwa 4,7 MB (die alte Textur hielt ihre MSAA-Puffer). Braucht den

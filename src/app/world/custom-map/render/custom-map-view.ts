@@ -26,6 +26,7 @@ import { CustomMapEnvironment } from './environment/map-environment';
 import { EffectLayer } from './effects/effect-layer';
 import { CoverMap } from './environment/cover-map';
 import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
+import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { RiverSurface } from './water/river-surface';
@@ -418,6 +419,7 @@ export class CustomMapView {
     this.effects.update(dtSeconds, this.focusPoint);
     this.objects.shadowRadius = shadowRadius * 1.2;
     this.objects.update(dtSeconds, camera, this.focusPoint);
+    IMPOSTOR_SUN.uImpSun.value.copy(this.environment.sunDir);
     // Grass between the camera's foot and the focus; from far up blades are below a pixel, skip them
     this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);
     this.terrain.grass.update(dtSeconds, this.grassCenter);

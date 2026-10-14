@@ -43,6 +43,9 @@ import type { ObjectModel } from '../map-asset-library';
  * of sight swaps in a distance material) sees those cards, as before.
  */
 
+/** The direction towards the sun (scene space), for the cards' shadow lookup; the map's view sets it each frame */
+export const IMPOSTOR_SUN = { uImpSun: { value: new Vector3(0, 1, 0) } };
+
 /** Views per side of the grid */
 export const IMPOSTOR_FRAMES = 8;
 /** Pixels per view */
@@ -199,13 +202,14 @@ function copyTexture(renderer: WebGLRenderer, source: Texture, target: WebGLRend
 
 /** The card's turn to the camera and the blend of its four nearest views, into a standard or a depth material */
 export function turnToCamera(shader: WebGLProgramParametersWithUniforms, uniforms: Record<string, { value: unknown }>, lit: boolean): void {
-  Object.assign(shader.uniforms, uniforms);
+  Object.assign(shader.uniforms, uniforms, IMPOSTOR_SUN);
   shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\n${IMPOSTOR_VERTEX_PARS}`);
   shader.vertexShader = lit
     ? shader.vertexShader
         // The normal follows the card: towards the camera and up, like a crown's
         .replace('#include <beginnormal_vertex>', `${IMPOSTOR_SETUP}\nvec3 objectNormal = normalize(impDir + vec3(0.0, 0.6, 0.0));`)
         .replace('#include <begin_vertex>', IMPOSTOR_BEGIN)
+        .replace('#include <shadowmap_vertex>', IMPOSTOR_SHADOW_LOOKUP)
     : shader.vertexShader.replace('#include <begin_vertex>', `${IMPOSTOR_SETUP}\n${IMPOSTOR_BEGIN}`);
   shader.fragmentShader = shader.fragmentShader
     .replace('#include <common>', `#include <common>\n${IMPOSTOR_FRAGMENT_PARS}`)
@@ -217,6 +221,7 @@ const IMPOSTOR_VERTEX_PARS = /* glsl */ `
 attribute vec3 impCorner;
 uniform vec3 uImpCenter;
 uniform float uImpRadius;
+uniform vec3 uImpSun;
 flat varying vec2 vImpFrame;
 flat varying vec2 vImpBlend;
 varying vec2 vImpUv;
@@ -246,6 +251,20 @@ vImpUv = impCorner.xy * 0.5 + 0.5;
 // The second card's corners (impCorner.z 0) all fall on the centre: one turned card is drawn
 const IMPOSTOR_BEGIN = /* glsl */ `
 vec3 transformed = uImpCenter + (impRight * impCorner.x + impUp * impCorner.y) * uImpRadius * impCorner.z;
+`;
+
+// The card looks up its shadow a radius closer to the sun: the card the camera sees runs through the model's
+// centre, and so does the one turned to the sun that casts, so half the seen card lay behind its own caster
+// and showed as a dark box in the crown. Other casters' shadows still fall on it
+const IMPOSTOR_SHADOW_LOOKUP = /* glsl */ `
+#ifdef USE_SHADOWMAP
+vec4 impWorldPosition = worldPosition;
+worldPosition.xyz += uImpSun * uImpRadius * length(impToWorld[0].xyz);
+#endif
+#include <shadowmap_vertex>
+#ifdef USE_SHADOWMAP
+worldPosition = impWorldPosition;
+#endif
 `;
 
 const IMPOSTOR_FRAGMENT_PARS = /* glsl */ `
