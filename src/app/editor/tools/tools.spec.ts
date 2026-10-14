@@ -432,7 +432,7 @@ describe('water and lava bodies', () => {
     terrain.pointerUp();
     ed.execute(waterCommands.addBody(ed, 'lava', 0));
     expect(t.waterBodies?.[0].kind).toBe('lava');
-    ctx.settings.water = { mode: 'fill', body: 0, depth: 3, river: -1, riverPoint: -1 };
+    ctx.settings.water = { mode: 'fill', pour: 'water', body: 0, depth: 3, river: -1, riverPoint: -1 };
     const water = new WaterTool();
     water.pointerDown(at(0, 100), ctx);
     const lava = ed.doc.terrain.waterBodies![0];
@@ -449,6 +449,33 @@ describe('water and lava bodies', () => {
     ed.undo();
     expect(heightAt(ed.doc.terrain, -100, -100)).toBe(0);
     expect(ed.historySteps).toBe(steps - 1);
+  });
+
+  it('pours lava down a slope into two hollows as new bodies, one undo step', async () => {
+    const ed = fresh();
+    const ctx = context(ed);
+    const g = ed.doc.terrain.grid;
+    // A slope falling to the east with two pits along y = 0
+    for (let j = 0; j < g.rows; j++) {
+      for (let i = 0; i < g.columns; i++) {
+        const x = i * g.cellSize - 200;
+        const y = j * g.cellSize - 200;
+        let h = 50 - 0.2 * x;
+        for (const cx of [-100, 50]) if (Math.hypot(x - cx, y) < 30) h = 50 - 0.2 * (cx + 30) - 5;
+        g.heights[j * g.columns + i] = h;
+      }
+    }
+    ctx.settings.water.mode = 'pour';
+    ctx.settings.water.pour = 'lava';
+    const water = new WaterTool();
+    water.pointerDown(at(-150, 0), ctx);
+    await new Promise((r) => setTimeout(r, 0));
+    const bodies = ed.doc.terrain.waterBodies ?? [];
+    expect(bodies.map((b) => b.kind)).toEqual(['lava', 'lava']);
+    expect(bodies[0].level).toBeGreaterThan(bodies[1].level);
+    expect(ctx.messages.at(-1)).toBe('2 lava pools filled');
+    ed.undo();
+    expect(ed.doc.terrain.waterBodies).toBeUndefined();
   });
 
   it('floods a sea in from the edge below the level', () => {

@@ -75,9 +75,10 @@ export const TOOL_TOUR: Partial<Record<ToolId, Omit<TourStep, 'id' | 'tool' | 't
   water: {
     title: 'Water, lava and ice',
     message:
-      'Fill basin floods a hollow with one click, Dig lake digs and fills, Paint and Erase draw the water by hand, Sea from the edge floods everything below the level. Each body of water has its own kind, level and colour.',
+      'Fill a hollow floods it to its rim. Pour lets water or lava run downhill, filling every hollow on its way. Dig a lake digs and fills, Paint and Erase draw by hand. Each body has its own kind, level and colour.',
     hints: [
-      { key: 'Click', description: 'Fill' },
+      { key: 'Click', description: 'Fill or pour' },
+      { key: 'Ctrl click', description: 'Fill to the rim' },
       { key: 'LMB', description: 'Paint' },
     ],
   },

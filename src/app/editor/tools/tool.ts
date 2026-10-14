@@ -87,6 +87,8 @@ export const TOOL_GROUPS: readonly { label: string; tools: readonly { id: ToolId
  */
 export const TOOL_BRUSH_RADIUS: Partial<Record<ToolId, number>> = { landscape: 40, terrain: 16, paint: 12, water: 16, objects: 20 };
 
+export type WaterMode = 'fill' | 'pour' | 'lake' | 'paint' | 'erase' | 'river';
+
 export type TerrainMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'level' | 'noise' | 'erode' | 'terrace' | 'plateau' | 'ramp';
 
 export const TERRAIN_MODES: readonly { id: TerrainMode; label: string; hint: string; group: string }[] = [
@@ -156,7 +158,9 @@ export interface EditorSettings {
   terrain: { mode: TerrainMode; level: number; step: number; rampWidth: number };
   paint: { layer: number; erase: boolean };
   water: {
-    mode: 'fill' | 'lake' | 'paint' | 'erase' | 'river';
+    mode: WaterMode;
+    /** What Pour pours */
+    pour: 'water' | 'lava';
     /** The body the tool works on: -1 the main water, 0, 1 … the further bodies */
     body: number;
     /** The river being edited and its chosen point, -1 for none */
@@ -218,7 +222,7 @@ export function defaultSettings(): EditorSettings {
     },
     terrain: { mode: 'raise', level: 0, step: 6, rampWidth: 16 },
     paint: { layer: 0, erase: false },
-    water: { mode: 'fill', body: -1, depth: 3, river: -1, riverPoint: -1 },
+    water: { mode: 'fill', pour: 'water', body: -1, depth: 3, river: -1, riverPoint: -1 },
     objects: { mode: 'select', gizmo: 'move', asset: null, scatter: { ...DEFAULT_SCATTER }, snap: 0, randomRotation: true, space: 'global', alignToSlope: false, line: { ...DEFAULT_LINE, follow: 'free' } },
     paths: { mode: 'draw', width: 8, kind: 'road', snap: 10, showRoutes: true },
     markers: { mode: 'spawn' },

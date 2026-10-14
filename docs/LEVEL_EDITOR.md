@@ -201,7 +201,15 @@ sie. Ohne Wasser (oder mit Strg) wird der Spiegel knapp unter den Rand der Mulde
 im Boden weiter (ein unebener Grubenboden), sie endet erst, wo das Wasser hinter einem Sattel zum Kartenrand abläuft
 oder in eine eigene Mulde fällt (beide Seiten mindestens 2 m unter dem Sattel, `OWN_HOLLOW_DEPTH`). Behält ein
 Gewässer seinen Spiegel und liegt der deutlich unter dem Rand der geklickten Mulde, sagt die Statuszeile das und
-nennt die Randhöhe (Strg-Klick füllt bis dahin). Dig lake gräbt unter dem Pinsel ein Seebett bis zur eingestellten Tiefe und füllt es. Paint und
+nennt die Randhöhe (Strg-Klick füllt bis dahin). Pour (Water oder Lava): ein Klick gießt dort, als liefe reichlich
+nach (`ops/pour.ts`): die Mulde füllt sich bis zu ihrem Überlauf, das Überlaufende rinnt bergab in die nächste tiefere
+Mulde und füllt sie auch, bis es den Kartenrand oder ein vorhandenes Gewässer erreicht. Dafür füllt eine Prioritätsflut
+vom Rand und von den Gewässern aus einmal alle Mulden der Karte (Priority-Flood+Queue); der Guss läuft diese Fläche
+hinab, jede Ebene darauf, in der der Boden tiefer liegt, ist eine Mulde. Jede gefüllte Mulde wird ein neues Gewässer
+(0,3 m unter ihrem Überlauf, Maske über See und Ufer), alle zusammen ein Schritt im Verlauf; Mulden flacher als 0,5 m
+durchläuft das Wasser, ein Guss füllt höchstens 12, eine Karte trägt 64 Gewässer. Die Symmetrie-Bilder gießen mit.
+Die Flut läuft in einem Worker (auf 1025² etwa 100 ms); ändert sich die Karte, während sie läuft, verwirft der Editor
+das Ergebnis. Dig lake gräbt unter dem Pinsel ein Seebett bis zur eingestellten Tiefe und füllt es. Paint und
 Erase malen die Maske von Hand. Sea from the edge flutet das Gewässer vom Kartenrand her über alles unter seinem
 Spiegel.
 

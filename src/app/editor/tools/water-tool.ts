@@ -2,7 +2,9 @@
  * Water and lava: the map's main water and its further bodies (lakes up a
  * hill, lava pools, frozen ponds), each with its own level. The tool works
  * on the body chosen in the panel: Fill floods a hollow up to the body's
- * level (a new body takes the hollow's rim as its level), Lake digs a bed
+ * level (a new body takes the hollow's rim as its level), Pour pours water
+ * or lava that fills the hollow, spills over and fills each hollow on its
+ * way down as new bodies (ops/pour.ts), Lake digs a bed
  * under the brush and fills it, Paint and Erase draw the mask by hand
  * (Shift reverses). Sea floods the body in from the map's edge. The body
  * list, kinds, levels and colours live in the panel (`waterCommands`).
@@ -11,7 +13,9 @@ import type { CatalogIndex } from '../catalog/asset-catalog';
 import type { CustomMapDocument, MapRiver, MapTerrain, MapWater, MapWaterKind } from '../../world/custom-map/map-document';
 import type { DocChange, EditCommand, EditorDocument, PatchTarget } from '../model/editor-document';
 import { nearestSample, sampleRectAround, type GridRect } from '../model/grid';
-import { basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, waterBody, waterMaskDab } from '../ops/water-ops';
+import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab, wetSamples } from '../ops/water-ops';
+import { pourOffThread, POUR_MAX_LAKES } from '../ops/pour';
+import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
 import { LandscapeStroke } from '../ops/landscape/landscape-stroke';
 import { moveRiverBed, removeRiver } from '../ops/landscape/river';
 import { insertPoint, movePoint, nearestRiverPoint, nearestRiverSegment, removePoint } from '../ops/river-edit';
@@ -22,8 +26,6 @@ import type { EditorTool, ToolContext, ToolPointer } from './tool';
 
 export { BODY_COLORS } from '../ops/water-ops';
 
-/** Metres the water stays below a hollow's rim */
-const RIM_MARGIN = 0.3;
 /** Metres a fill may stay below the hollow's rim before the status line says so */
 const LOW_FILL = 1;
 /** Share per second a lake bed sinks toward its depth at full strength */
@@ -42,9 +44,12 @@ export class WaterTool implements EditorTool {
   /** A river point being dragged and the rivers before */
   private riverDrag: { river: number; point: number; before: MapRiver[] | undefined } | null = null;
   private on = true;
+  /** A pour running in its worker */
+  private pouring = false;
 
   brushVisible(ctx: ToolContext): boolean {
-    return ctx.settings.water.mode !== 'fill' && ctx.settings.water.mode !== 'river';
+    const mode = ctx.settings.water.mode;
+    return mode !== 'fill' && mode !== 'pour' && mode !== 'river';
   }
 
   frame(dt: number, p: ToolPointer | null, ctx: ToolContext): void {
@@ -68,6 +73,10 @@ export class WaterTool implements EditorTool {
     }
     if (s.mode === 'fill' && !p.shift) {
       this.fill(p, ctx);
+      return true;
+    }
+    if (s.mode === 'pour') {
+      this.pour(p, ctx);
       return true;
     }
     // A body to work on: the main water appears at the clicked height when there is none
@@ -180,6 +189,8 @@ export class WaterTool implements EditorTool {
         return !body
           ? 'Click a hollow to fill it up to its rim'
           : `Click a hollow to fill ${name} up to ${body.level} m | Ctrl click fills to the rim | Shift erases`;
+      case 'pour':
+        return `Click to pour ${s.pour}: it fills the hollow, spills over and fills every hollow on its way down to the map's edge`;
       case 'lake':
         return `Hold to dig a lake bed under ${name} and fill it | [ ] size`;
       case 'paint':
@@ -238,6 +249,52 @@ export class WaterTool implements EditorTool {
       const name = s.body < 0 ? 'the main water' : `body ${s.body + 1}`;
       ctx.status(`Filled up to ${level} m, the level of ${name}; this hollow holds water up to ${brim} m: Ctrl click fills it to the rim`);
     }
+  }
+
+  /**
+   * Pour water or lava at the pointer (and its symmetry images): each hollow
+   * on the way down becomes a new body, all in one step. The flood runs in a
+   * worker; a map changed meanwhile keeps its water.
+   */
+  private pour(p: ToolPointer, ctx: ToolContext): void {
+    if (this.pouring) return;
+    const editor = ctx.editor;
+    const t = editor.doc.terrain;
+    const g = t.grid;
+    const kind = ctx.settings.water.pour;
+    const { i, j } = nearestSample(t, p.hit!.x, p.hit!.y);
+    const wet = wetSamples(t);
+    if (wet[j * g.columns + i]) {
+      ctx.status('There is water here already: pour onto dry ground');
+      return;
+    }
+    const starts = symmetryImages(ctx.settings.symmetry, g.columns === g.rows).map((img) => {
+      const [ii, jj] = img.cell(i, j, g.columns, g.rows);
+      return jj * g.columns + ii;
+    });
+    const doc = editor.doc;
+    const state = editor.stateId;
+    this.pouring = true;
+    ctx.status(`Pouring ${kind}…`);
+    pourOffThread({ columns: g.columns, rows: g.rows, heights: g.heights, starts, wet })
+      .then((result) => {
+        if (editor.doc !== doc || editor.stateId !== state) {
+          ctx.status('The map changed while the water ran: pour again');
+          return;
+        }
+        let added = 0;
+        const command = recordWater(editor, kind === 'lava' ? 'Pour lava' : 'Pour water', (w) => (added = addPouredBodies(w, result.lakes, kind, MAX_WATER_BODIES)));
+        if (!added) {
+          ctx.status(`The ${kind} runs off to the map's edge: no hollow on its way to fill`);
+          return;
+        }
+        editor.execute(command);
+        const what = kind === 'lava' ? 'lava pool' : 'lake';
+        const full = result.skipped > 0 || (t.waterBodies?.length ?? 0) >= MAX_WATER_BODIES;
+        ctx.status(`${added} ${what}${added === 1 ? '' : 's'} filled${full ? `; further hollows on the way stayed dry (one pour fills at most ${POUR_MAX_LAKES}, a map holds ${MAX_WATER_BODIES} bodies)` : ''}`);
+      })
+      .catch((err: Error) => ctx.status(`The pour failed: ${err.message}`))
+      .finally(() => (this.pouring = false));
   }
 
   private end(): void {

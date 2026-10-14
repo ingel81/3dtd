@@ -6,6 +6,7 @@ import { recarveRiver } from '../../ops/landscape/river';
 import { LandscapeStroke } from '../../ops/landscape/landscape-stroke';
 import { meanWidth, riverLength, setMeanWidth, simplifyRiver } from '../../ops/river-edit';
 import { relayRiver, removeWholeRiver, riverEdit, waterCommands } from '../../tools/water-tool';
+import type { WaterMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
@@ -13,6 +14,7 @@ import { ModePickerComponent, type EditorMode } from './mode-picker.component';
 
 const WATER_MODES: readonly EditorMode[] = [
   { id: 'fill', label: 'Fill a hollow', hint: 'Click into a hollow: every connected spot below the level floods. Without water yet, the hollow\'s rim sets the level' },
+  { id: 'pour', label: 'Pour', hint: 'Click to pour water or lava: the hollow fills to its rim, the overflow runs downhill and fills each hollow on its way, down to the map\'s edge or a body. Each hollow becomes a new body' },
   { id: 'lake', label: 'Dig a lake', hint: 'Hold to dig a lake bed to the depth set below and fill it' },
   { id: 'paint', label: 'Paint', hint: 'Hold to paint water of the chosen body by hand' },
   { id: 'erase', label: 'Erase', hint: 'Hold to take water away' },
@@ -80,6 +82,17 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
     }
 
 
+    @if (mode() === 'pour') {
+      <div class="td-group">
+        <h3 class="td-section">Pour <span class="td-note">each hollow it fills becomes a new body</span></h3>
+        <div class="td-seg is-sm" role="radiogroup" aria-label="What to pour">
+          <button type="button" role="radio" [attr.aria-checked]="pour() === 'water'" (click)="setPour('water')" data-test="pour-water">Water</button>
+          <button type="button" role="radio" [attr.aria-checked]="pour() === 'lava'" (click)="setPour('lava')" data-test="pour-lava">Lava</button>
+        </div>
+        <p class="td-note">Click where it should run from: the hollow there fills to its rim, the overflow runs downhill into the next hollow and fills that too, until it reaches the map's edge or other water.</p>
+      </div>
+    }
+
     @if (mode() === 'river') {
       <div class="td-group">
         <h3 class="td-section">Rivers <span class="td-note">drawn with Landscape, River</span></h3>
@@ -111,7 +124,7 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
         </div>
       }
       <p class="td-note">Drag a point to move it, Shift click on a river adds one, Del removes the chosen point. Remove river takes it off with its bed, banks and reeds.</p>
-    } @else if (mode() !== 'fill') {
+    } @else if (mode() !== 'fill' && mode() !== 'pour') {
       @if (mode() === 'lake') {
         <app-editor-range label="Depth" unit="m" [min]="0.5" [max]="20" [step]="0.5" [value]="depth()" (changing)="setDepth($event)" />
       }
@@ -126,6 +139,7 @@ export class WaterPanelComponent {
   readonly modes = WATER_MODES;
   readonly mode = computed(() => (this.session.settingsRev(), this.session.settings.water.mode));
   readonly active = computed(() => (this.session.settingsRev(), this.session.settings.water.body));
+  readonly pour = computed(() => (this.session.settingsRev(), this.session.settings.water.pour));
   readonly depth = computed(() => (this.session.settingsRev(), this.session.settings.water.depth));
 
   readonly bodies = computed(() => {
@@ -230,8 +244,12 @@ export class WaterPanelComponent {
     this.session.execute(riverEdit(editor, label, (rivers) => rivers[index] && edit(rivers[index])));
   }
 
-  setMode(mode: 'fill' | 'lake' | 'paint' | 'erase' | 'river'): void {
+  setMode(mode: WaterMode): void {
     this.session.patchSettings((s) => (s.water.mode = mode));
+  }
+
+  setPour(kind: 'water' | 'lava'): void {
+    this.session.patchSettings((s) => (s.water.pour = kind));
   }
 
   setDepth(v: number): void {

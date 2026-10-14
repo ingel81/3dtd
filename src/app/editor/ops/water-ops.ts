@@ -12,6 +12,9 @@ import { brushWeight, type BrushSettings } from './brush';
 
 export const DEFAULT_WATER_COLOR = '#2f5f6f';
 
+/** Metres the water stays below a hollow's rim */
+export const RIM_MARGIN = 0.3;
+
 /** Default look of a new body by kind */
 export const BODY_COLORS: Record<MapWaterKind, string> = {
   water: DEFAULT_WATER_COLOR,
@@ -80,13 +83,23 @@ export function fillBasin(terrain: MapTerrain, i: number, j: number, body = -1):
     if (kj > 0) visit(k - c);
     if (kj < g.rows - 1) visit(k + c);
   }
-  // The shore samples just above the level take the mask too, so the surface meets the bank
+  return wetShore(terrain, water.mask, seen, rect);
+}
+
+/**
+ * The shore samples just above the level take the mask too, so the surface
+ * meets the bank: every sample next to a `seen` one within `rect` (the
+ * seen samples' bounds). Returns the rectangle grown by the shore.
+ */
+function wetShore(terrain: MapTerrain, mask: Uint8Array, seen: Uint8Array, rect: GridRect): GridRect {
+  const g = terrain.grid;
+  const c = g.columns;
   for (let jj = Math.max(0, rect.j0 - 1); jj <= Math.min(g.rows - 1, rect.j1 + 1); jj++) {
     for (let ii = Math.max(0, rect.i0 - 1); ii <= Math.min(c - 1, rect.i1 + 1); ii++) {
       const k = jj * c + ii;
       if (seen[k]) continue;
       if ((ii > 0 && seen[k - 1]) || (ii < c - 1 && seen[k + 1]) || (jj > 0 && seen[k - c]) || (jj < g.rows - 1 && seen[k + c])) {
-        water.mask[k] = 255;
+        mask[k] = 255;
       }
     }
   }
@@ -96,6 +109,50 @@ export function fillBasin(terrain: MapTerrain, i: number, j: number, body = -1):
     i1: Math.min(c - 1, rect.i1 + 1),
     j1: Math.min(g.rows - 1, rect.j1 + 1),
   };
+}
+
+/** Samples where a body stands: its mask set and the ground below its level */
+export function wetSamples(terrain: MapTerrain): Uint8Array {
+  const h = terrain.grid.heights;
+  const wet = new Uint8Array(h.length);
+  for (const body of [terrain.water, ...(terrain.waterBodies ?? [])]) {
+    if (!body) continue;
+    for (let k = 0; k < h.length; k++) if (body.mask[k] && h[k] < body.level) wet[k] = 1;
+  }
+  return wet;
+}
+
+/**
+ * New bodies of `kind` for the hollows a pour filled (pour.ts), each
+ * RIM_MARGIN below where it overflows (rounded to 0.1 m), its mask over the
+ * lake and its shore. A hollow too shallow for that margin stays dry, and
+ * no more go in than a map carries. Returns how many went in.
+ */
+export function addPouredBodies(terrain: MapTerrain, lakes: readonly { level: number; floor: number; cells: Int32Array }[], kind: MapWaterKind, max: number): number {
+  const g = terrain.grid;
+  const c = g.columns;
+  let added = 0;
+  for (const lake of lakes) {
+    if ((terrain.waterBodies?.length ?? 0) >= max) break;
+    const level = Math.round((lake.level - RIM_MARGIN) * 10) / 10;
+    if (level <= lake.floor + 0.1) continue;
+    const body: MapWater = { ...emptyWater(terrain, level), color: BODY_COLORS[kind], kind };
+    const seen = new Uint8Array(c * g.rows);
+    let rect: GridRect | null = null;
+    for (const k of lake.cells) {
+      if (g.heights[k] >= level) continue;
+      seen[k] = 1;
+      body.mask[k] = 255;
+      const i = k % c;
+      const j = (k - i) / c;
+      rect = rect ? { i0: Math.min(rect.i0, i), j0: Math.min(rect.j0, j), i1: Math.max(rect.i1, i), j1: Math.max(rect.j1, j) } : { i0: i, j0: j, i1: i, j1: j };
+    }
+    if (!rect) continue;
+    wetShore(terrain, body.mask, seen, rect);
+    terrain.waterBodies = [...(terrain.waterBodies ?? []), body];
+    added++;
+  }
+  return added;
 }
 
 /**
@@ -146,8 +203,8 @@ export function basinSpillHeight(terrain: MapTerrain, i: number, j: number): num
       state[k] = 3;
       let low = hk;
       let drains = false;
-      for (let n = 0; n < beyond.length; n++) {
-        const b = beyond[n];
+      // (the loop reaches the samples pushed while it runs)
+      for (const b of beyond) {
         if (onEdge(b)) drains = true;
         low = Math.min(low, h[b]);
         const bi = b % c;
