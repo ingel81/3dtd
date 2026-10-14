@@ -47,6 +47,12 @@ export const SCENES = [
     orbit(6.5, { at: 'hq', dy: 12 }, { from: 140, to: 230, radius: 80, radiusTo: 60, height: 32, heightTo: 20, label: 'keep', ease: 'inOut' }),
     path(6, ['current', [m(-130, -40, 22), m(0, 60, 10)], [m(-45, -10, 85), m(0, 70, 0)]], { label: 'woods', ease: 'inOut' }),
   ]),
+  // A meadow up close: a metre over the ground through grass and flowers, a breeze in the blades, afternoon sun
+  // from the west. The look goes down to the ground some 15 m ahead: the blades grow round that focus
+  flyover('meadow-closeup', 'demo-valley', 'Meadow', [
+    sky('fair-weather', 'day', 20, { sunAzimuth: 285, tint: '#fff0dc', wind: { strength: 0.6, direction: 250, gusts: 0.7 } }),
+    path(7, [[m(-127, -157, 0.9), m(-118, -144, 0)], [m(-119, -146, 1.1), m(-110, -133, 0)]], { label: 'meadow', ease: 'inOut' }),
+  ]),
   introFlyover('frost-flyover', 'frost-hamlet', 'Frost Hamlet', [
     act('environment', { patch: { weather: 'snow', weatherStrength: 0.9 }, label: 'snowfall' }),
     path(6.5, [[m(0, -150, 22), m(10, 40, 0)], [m(10, 40, 30), m(20, 160, 5)]], { label: 'frozen lake', ease: 'inOut' }),
