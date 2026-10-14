@@ -2437,6 +2437,7 @@
       "name": "Oak",
       "category": "tree",
       "file": "models/tree-oak.glb",
+      "triangles": 844,
       "footprint": 2.0,
       "height": 12,
       "blocksLos": true,
@@ -2458,6 +2459,7 @@
       "name": "Birch",
       "category": "tree",
       "file": "models/tree-birch.glb",
+      "triangles": 720,
       "footprint": 1.2,
       "height": 13,
       "blocksLos": true,
@@ -2479,6 +2481,7 @@
       "name": "Pine",
       "category": "tree",
       "file": "models/tree-pine.glb",
+      "triangles": 636,
       "footprint": 1.6,
       "height": 17,
       "blocksLos": true,
@@ -2502,6 +2505,7 @@
       "name": "Fir",
       "category": "tree",
       "file": "models/tree-fir.glb",
+      "triangles": 770,
       "footprint": 1.8,
       "height": 13,
       "blocksLos": true,
@@ -2525,6 +2529,7 @@
       "name": "Dead tree",
       "category": "tree",
       "file": "models/tree-dead.glb",
+      "triangles": 622,
       "footprint": 1.2,
       "height": 9,
       "blocksLos": false,
@@ -2549,6 +2554,7 @@
       "name": "Bush",
       "category": "plant",
       "file": "models/bush.glb",
+      "triangles": 84,
       "footprint": 1.2,
       "height": 1.5,
       "blocksLos": false,
@@ -2572,6 +2578,7 @@
       "name": "Fern",
       "category": "plant",
       "file": "models/fern.glb",
+      "triangles": 900,
       "footprint": 0.6,
       "height": 0.9,
       "blocksLos": false,
@@ -2595,6 +2602,7 @@
       "name": "Grass clump",
       "category": "plant",
       "file": "models/grass-clump.glb",
+      "triangles": 10,
       "footprint": 0.5,
       "height": 0.55,
       "blocksLos": false,
@@ -2616,6 +2624,7 @@
       "name": "Flowers",
       "category": "plant",
       "file": "models/flowers.glb",
+      "triangles": 10,
       "footprint": 0.5,
       "height": 0.5,
       "blocksLos": false,
@@ -2638,6 +2647,7 @@
       "name": "Stump",
       "category": "plant",
       "file": "models/stump.glb",
+      "triangles": 43,
       "footprint": 0.45,
       "height": 0.55,
       "blocksLos": false,
@@ -2660,6 +2670,7 @@
       "name": "Log",
       "category": "plant",
       "file": "models/log.glb",
+      "triangles": 43,
       "footprint": 1.6,
       "height": 0.6,
       "blocksLos": false,
@@ -2681,6 +2692,7 @@
       "name": "Stone",
       "category": "rock",
       "file": "models/rock-small.glb",
+      "triangles": 500,
       "footprint": 0.6,
       "height": 0.9,
       "base": [
@@ -2709,6 +2721,7 @@
       "name": "Boulder",
       "category": "rock",
       "file": "models/rock-large.glb",
+      "triangles": 1199,
       "footprint": 1.8,
       "height": 2.6,
       "base": [
@@ -2736,6 +2749,7 @@
       "name": "Timber house",
       "category": "building",
       "file": "models/house.glb",
+      "triangles": 3758,
       "footprint": 4.5,
       "height": 8,
       "blocksLos": true,
@@ -2757,6 +2771,7 @@
       "name": "Large house",
       "category": "building",
       "file": "models/house-large.glb",
+      "triangles": 6558,
       "footprint": 6.0,
       "height": 11,
       "blocksLos": true,
@@ -2778,6 +2793,7 @@
       "name": "Barn",
       "category": "building",
       "file": "models/barn.glb",
+      "triangles": 2146,
       "footprint": 6.5,
       "height": 8,
       "blocksLos": true,
@@ -2799,6 +2815,7 @@
       "name": "Tower ruin",
       "category": "building",
       "file": "models/tower-ruin.glb",
+      "triangles": 648,
       "footprint": 4.0,
       "height": 12,
       "blocksLos": true,
@@ -2820,6 +2837,7 @@
       "name": "Stone wall",
       "category": "wall",
       "file": "models/wall-stone.glb",
+      "triangles": 1040,
       "footprint": 2.0,
       "height": 1.4,
       "blocksLos": true,
@@ -2842,6 +2860,7 @@
       "name": "Wooden fence",
       "category": "wall",
       "file": "models/fence-wood.glb",
+      "triangles": 438,
       "footprint": 2.0,
       "height": 1.3,
       "blocksLos": false,
@@ -2863,6 +2882,7 @@
       "name": "Crate",
       "category": "prop",
       "file": "models/crate.glb",
+      "triangles": 156,
       "footprint": 0.6,
       "height": 0.9,
       "blocksLos": false,
@@ -2884,6 +2904,7 @@
       "name": "Barrel",
       "category": "prop",
       "file": "models/barrel.glb",
+      "triangles": 1200,
       "footprint": 0.4,
       "height": 1.0,
       "blocksLos": false,
@@ -2905,6 +2926,7 @@
       "name": "Lamp post",
       "category": "prop",
       "file": "models/lamp-post.glb",
+      "triangles": 254,
       "footprint": 0.3,
       "height": 3.7,
       "blocksLos": false,
@@ -2932,6 +2954,7 @@
       "name": "Well",
       "category": "prop",
       "file": "models/well.glb",
+      "triangles": 1152,
       "footprint": 1.3,
       "height": 3.2,
       "blocksLos": false,
@@ -2953,6 +2976,7 @@
       "name": "Bridge piece",
       "category": "prop",
       "file": "models/bridge-deck.glb",
+      "triangles": 168,
       "footprint": 2.0,
       "height": 1.0,
       "blocksLos": false,
@@ -2974,6 +2998,7 @@
       "name": "Bridge piece (stone)",
       "category": "prop",
       "file": "models/bridge-deck-stone.glb",
+      "triangles": 1232,
       "footprint": 2.0,
       "height": 0.5,
       "blocksLos": false,
@@ -2998,6 +3023,7 @@
       "name": "Bridge piece (basalt, glowing seams)",
       "category": "prop",
       "file": "models/bridge-deck-lava.glb",
+      "triangles": 744,
       "footprint": 2.0,
       "height": 0.4,
       "blocksLos": false,
@@ -3020,6 +3046,7 @@
       "name": "Oak (autumn)",
       "category": "tree",
       "file": "models/tree-oak-autumn.glb",
+      "triangles": 844,
       "footprint": 2.0,
       "height": 12.7,
       "blocksLos": true,
@@ -3041,6 +3068,7 @@
       "name": "Young oak",
       "category": "tree",
       "file": "models/tree-oak-young.glb",
+      "triangles": 844,
       "footprint": 1.0,
       "height": 7.4,
       "blocksLos": true,
@@ -3063,6 +3091,7 @@
       "name": "Maple",
       "category": "tree",
       "file": "models/tree-maple.glb",
+      "triangles": 844,
       "footprint": 1.8,
       "height": 11.8,
       "blocksLos": true,
@@ -3084,6 +3113,7 @@
       "name": "Maple (autumn)",
       "category": "tree",
       "file": "models/tree-maple-autumn.glb",
+      "triangles": 844,
       "footprint": 1.8,
       "height": 11.8,
       "blocksLos": true,
@@ -3105,6 +3135,7 @@
       "name": "Small red maple",
       "category": "tree",
       "file": "models/tree-maple-red.glb",
+      "triangles": 844,
       "footprint": 1.5,
       "height": 9.4,
       "blocksLos": true,
@@ -3127,6 +3158,7 @@
       "name": "Birch (autumn)",
       "category": "tree",
       "file": "models/tree-birch-autumn.glb",
+      "triangles": 720,
       "footprint": 1.2,
       "height": 12.8,
       "blocksLos": true,
@@ -3148,6 +3180,7 @@
       "name": "Weeping willow",
       "category": "tree",
       "file": "models/tree-willow.glb",
+      "triangles": 440,
       "footprint": 2.5,
       "height": 12.2,
       "blocksLos": true,
@@ -3170,6 +3203,7 @@
       "name": "Mangrove",
       "category": "tree",
       "file": "models/tree-mangrove.glb",
+      "triangles": 1084,
       "footprint": 2.5,
       "height": 10.7,
       "blocksLos": true,
@@ -3192,6 +3226,7 @@
       "name": "Dead swamp tree",
       "category": "tree",
       "file": "models/tree-swamp-dead.glb",
+      "triangles": 802,
       "footprint": 1.6,
       "height": 8.8,
       "blocksLos": false,
@@ -3213,6 +3248,7 @@
       "name": "Bleached dead tree",
       "category": "tree",
       "file": "models/tree-dead-pale.glb",
+      "triangles": 622,
       "footprint": 1.2,
       "height": 8.5,
       "blocksLos": false,
@@ -3237,6 +3273,7 @@
       "name": "Pine (snow)",
       "category": "tree",
       "file": "models/tree-pine-snow.glb",
+      "triangles": 636,
       "footprint": 1.6,
       "height": 17.1,
       "blocksLos": true,
@@ -3261,6 +3298,7 @@
       "name": "Fir (snow)",
       "category": "tree",
       "file": "models/tree-fir-snow.glb",
+      "triangles": 770,
       "footprint": 1.8,
       "height": 12.9,
       "blocksLos": true,
@@ -3285,6 +3323,7 @@
       "name": "Young fir",
       "category": "tree",
       "file": "models/tree-fir-young.glb",
+      "triangles": 472,
       "footprint": 0.9,
       "height": 5.8,
       "blocksLos": true,
@@ -3308,6 +3347,7 @@
       "name": "Young fir (snow)",
       "category": "tree",
       "file": "models/tree-fir-young-snow.glb",
+      "triangles": 472,
       "footprint": 0.9,
       "height": 5.8,
       "blocksLos": true,
@@ -3331,6 +3371,7 @@
       "name": "Palm",
       "category": "tree",
       "file": "models/tree-palm.glb",
+      "triangles": 236,
       "footprint": 1.0,
       "height": 10.3,
       "blocksLos": true,
@@ -3353,6 +3394,7 @@
       "name": "Tall palm",
       "category": "tree",
       "file": "models/tree-palm-tall.glb",
+      "triangles": 236,
       "footprint": 1.0,
       "height": 13.5,
       "blocksLos": true,
@@ -3375,6 +3417,7 @@
       "name": "Dry palm",
       "category": "tree",
       "file": "models/tree-palm-dry.glb",
+      "triangles": 228,
       "footprint": 1.0,
       "height": 9.4,
       "blocksLos": true,
@@ -3396,6 +3439,7 @@
       "name": "Saguaro cactus",
       "category": "tree",
       "file": "models/cactus.glb",
+      "triangles": 390,
       "footprint": 0.8,
       "height": 5,
       "blocksLos": false,
@@ -3417,6 +3461,7 @@
       "name": "Tall saguaro",
       "category": "tree",
       "file": "models/cactus-tall.glb",
+      "triangles": 520,
       "footprint": 1.0,
       "height": 7.5,
       "blocksLos": false,
@@ -3438,6 +3483,7 @@
       "name": "Barrel cactus",
       "category": "plant",
       "file": "models/cactus-barrel.glb",
+      "triangles": 224,
       "footprint": 0.3,
       "height": 0.9,
       "blocksLos": false,
@@ -3459,6 +3505,7 @@
       "name": "Quiver tree",
       "category": "tree",
       "file": "models/tree-quiver.glb",
+      "triangles": 3000,
       "footprint": 0.8,
       "height": 5,
       "blocksLos": false,
@@ -3476,7 +3523,8 @@
       "lod": [
         {
           "file": "models/tree-quiver-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/quiver_tree_01"
@@ -3486,6 +3534,7 @@
       "name": "Small quiver tree",
       "category": "tree",
       "file": "models/tree-quiver-small.glb",
+      "triangles": 2999,
       "footprint": 0.6,
       "height": 3,
       "blocksLos": false,
@@ -3503,7 +3552,8 @@
       "lod": [
         {
           "file": "models/tree-quiver-small-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/quiver_tree_02"
@@ -3513,6 +3563,7 @@
       "name": "Dead quiver trunk",
       "category": "plant",
       "file": "models/tree-quiver-dead.glb",
+      "triangles": 1500,
       "footprint": 0.2,
       "height": 2.2,
       "blocksLos": false,
@@ -3530,7 +3581,8 @@
       "lod": [
         {
           "file": "models/tree-quiver-dead-lod1.glb",
-          "distance": 240
+          "distance": 240,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/dead_quiver_trunk"
@@ -3540,6 +3592,7 @@
       "name": "Desert shrub",
       "category": "plant",
       "file": "models/desert-shrub.glb",
+      "triangles": 84,
       "footprint": 0.5,
       "height": 1.5,
       "blocksLos": false,
@@ -3561,6 +3614,7 @@
       "name": "Desert thorn tree",
       "category": "tree",
       "file": "models/desert-tree.glb",
+      "triangles": 2864,
       "footprint": 0.8,
       "height": 3.4,
       "blocksLos": false,
@@ -3578,7 +3632,8 @@
       "lod": [
         {
           "file": "models/desert-tree-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 399
         }
       ],
       "source": "https://polyhaven.com/a/searsia_lucida"
@@ -3588,6 +3643,7 @@
       "name": "Succulent",
       "category": "plant",
       "file": "models/succulent.glb",
+      "triangles": 1500,
       "footprint": 0.3,
       "height": 0.5,
       "blocksLos": false,
@@ -3605,7 +3661,8 @@
       "lod": [
         {
           "file": "models/succulent-lod1.glb",
-          "distance": 120
+          "distance": 120,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/cheiridopsis_succulent"
@@ -3615,6 +3672,7 @@
       "name": "Ice plant",
       "category": "plant",
       "file": "models/iceplant.glb",
+      "triangles": 1499,
       "footprint": 0.3,
       "height": 0.2,
       "blocksLos": false,
@@ -3633,7 +3691,8 @@
       "lod": [
         {
           "file": "models/iceplant-lod1.glb",
-          "distance": 120
+          "distance": 120,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/crystalline_iceplant"
@@ -3643,6 +3702,7 @@
       "name": "Gazania",
       "category": "plant",
       "file": "models/flower-gazania.glb",
+      "triangles": 1200,
       "footprint": 0.2,
       "height": 0.4,
       "blocksLos": false,
@@ -3661,7 +3721,8 @@
       "lod": [
         {
           "file": "models/flower-gazania-lod1.glb",
-          "distance": 120
+          "distance": 120,
+          "triangles": 399
         }
       ],
       "source": "https://polyhaven.com/a/flower_gazania"
@@ -3671,6 +3732,7 @@
       "name": "Ursinia",
       "category": "plant",
       "file": "models/flower-ursinia.glb",
+      "triangles": 1499,
       "footprint": 0.3,
       "height": 0.4,
       "blocksLos": false,
@@ -3688,7 +3750,8 @@
       "lod": [
         {
           "file": "models/flower-ursinia-lod1.glb",
-          "distance": 120
+          "distance": 120,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/flower_ursinia"
@@ -3698,6 +3761,7 @@
       "name": "Shrub",
       "category": "plant",
       "file": "models/shrub.glb",
+      "triangles": 84,
       "footprint": 0.6,
       "height": 2.0,
       "blocksLos": false,
@@ -3721,6 +3785,7 @@
       "name": "Wide shrub",
       "category": "plant",
       "file": "models/shrub-wide.glb",
+      "triangles": 84,
       "footprint": 1.0,
       "height": 1.7,
       "blocksLos": false,
@@ -3744,6 +3809,7 @@
       "name": "Autumn bush",
       "category": "plant",
       "file": "models/bush-maple-autumn.glb",
+      "triangles": 84,
       "footprint": 0.7,
       "height": 2.2,
       "blocksLos": false,
@@ -3766,6 +3832,7 @@
       "name": "Ivy bush",
       "category": "plant",
       "file": "models/bush-ivy.glb",
+      "triangles": 72,
       "footprint": 0.6,
       "height": 1.8,
       "blocksLos": false,
@@ -3790,6 +3857,7 @@
       "name": "Hedge",
       "category": "wall",
       "file": "models/hedge.glb",
+      "triangles": 126,
       "footprint": 1.6,
       "height": 1.8,
       "blocksLos": false,
@@ -3812,6 +3880,7 @@
       "name": "Long hedge",
       "category": "wall",
       "file": "models/hedge-long.glb",
+      "triangles": 234,
       "footprint": 3.0,
       "height": 1.8,
       "blocksLos": false,
@@ -3834,6 +3903,7 @@
       "name": "Nettles",
       "category": "plant",
       "file": "models/nettles.glb",
+      "triangles": 1500,
       "footprint": 0.2,
       "height": 0.7,
       "blocksLos": false,
@@ -3853,7 +3923,8 @@
       "lod": [
         {
           "file": "models/nettles-lod1.glb",
-          "distance": 120
+          "distance": 120,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/nettle_plant"
@@ -3863,6 +3934,7 @@
       "name": "Periwinkle",
       "category": "plant",
       "file": "models/periwinkle.glb",
+      "triangles": 1500,
       "footprint": 0.2,
       "height": 0.4,
       "blocksLos": false,
@@ -3882,7 +3954,8 @@
       "lod": [
         {
           "file": "models/periwinkle-lod1.glb",
-          "distance": 120
+          "distance": 120,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/periwinkle_plant"
@@ -3892,6 +3965,7 @@
       "name": "Tall grass",
       "category": "plant",
       "file": "models/grass-green.glb",
+      "triangles": 10,
       "footprint": 0.4,
       "height": 0.6,
       "blocksLos": false,
@@ -3915,6 +3989,7 @@
       "name": "Dry tall grass",
       "category": "plant",
       "file": "models/grass-tall-dry.glb",
+      "triangles": 10,
       "footprint": 0.4,
       "height": 0.7,
       "blocksLos": false,
@@ -3938,6 +4013,7 @@
       "name": "Autumn grass",
       "category": "plant",
       "file": "models/grass-autumn.glb",
+      "triangles": 10,
       "footprint": 0.4,
       "height": 0.6,
       "blocksLos": false,
@@ -3959,6 +4035,7 @@
       "name": "Frosted grass",
       "category": "plant",
       "file": "models/grass-snow.glb",
+      "triangles": 10,
       "footprint": 0.3,
       "height": 0.4,
       "blocksLos": false,
@@ -3982,6 +4059,7 @@
       "name": "Marsh grass",
       "category": "plant",
       "file": "models/grass-swamp.glb",
+      "triangles": 10,
       "footprint": 0.5,
       "height": 0.9,
       "blocksLos": false,
@@ -4004,6 +4082,7 @@
       "name": "Reeds",
       "category": "plant",
       "file": "models/reeds.glb",
+      "triangles": 14,
       "footprint": 0.7,
       "height": 1.9,
       "blocksLos": false,
@@ -4028,6 +4107,7 @@
       "name": "Reed bed",
       "category": "plant",
       "file": "models/reed-bed.glb",
+      "triangles": 36,
       "footprint": 1.4,
       "height": 2.1,
       "blocksLos": false,
@@ -4050,6 +4130,7 @@
       "name": "Wheat patch",
       "category": "plant",
       "file": "models/wheat-field.glb",
+      "triangles": 64,
       "footprint": 1.4,
       "height": 1.1,
       "blocksLos": false,
@@ -4071,6 +4152,7 @@
       "name": "Poppies",
       "category": "plant",
       "file": "models/flowers-red.glb",
+      "triangles": 10,
       "footprint": 0.3,
       "height": 0.5,
       "blocksLos": false,
@@ -4093,6 +4175,7 @@
       "name": "Blue flowers",
       "category": "plant",
       "file": "models/flowers-blue.glb",
+      "triangles": 10,
       "footprint": 0.4,
       "height": 0.5,
       "blocksLos": false,
@@ -4115,6 +4198,7 @@
       "name": "Yellow flowers",
       "category": "plant",
       "file": "models/flowers-yellow.glb",
+      "triangles": 10,
       "footprint": 0.3,
       "height": 0.5,
       "blocksLos": false,
@@ -4137,6 +4221,7 @@
       "name": "Lily pads",
       "category": "plant",
       "file": "models/lily-pads.glb",
+      "triangles": 22,
       "footprint": 1.0,
       "height": 0.1,
       "blocksLos": false,
@@ -4161,6 +4246,7 @@
       "name": "Mushrooms",
       "category": "plant",
       "file": "models/mushrooms.glb",
+      "triangles": 640,
       "footprint": 0.2,
       "height": 0.5,
       "blocksLos": false,
@@ -4185,6 +4271,7 @@
       "name": "Toadstools",
       "category": "plant",
       "file": "models/mushrooms-red.glb",
+      "triangles": 640,
       "footprint": 0.3,
       "height": 0.5,
       "blocksLos": false,
@@ -4208,6 +4295,7 @@
       "name": "Glowing mushrooms",
       "category": "plant",
       "file": "models/mushrooms-glow.glb",
+      "triangles": 640,
       "footprint": 0.3,
       "height": 0.7,
       "blocksLos": false,
@@ -4236,6 +4324,7 @@
       "name": "Giant glowing mushrooms",
       "category": "plant",
       "file": "models/mushroom-giant.glb",
+      "triangles": 384,
       "footprint": 1.1,
       "height": 3.3,
       "blocksLos": false,
@@ -4273,6 +4362,7 @@
       "name": "Old stump",
       "category": "plant",
       "file": "models/stump-old.glb",
+      "triangles": 1500,
       "footprint": 0.5,
       "height": 0.6,
       "blocksLos": false,
@@ -4292,7 +4382,8 @@
       "lod": [
         {
           "file": "models/stump-old-lod1.glb",
-          "distance": 200
+          "distance": 200,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/tree_stump_01"
@@ -4302,6 +4393,7 @@
       "name": "Mossy stump",
       "category": "plant",
       "file": "models/stump-mossy.glb",
+      "triangles": 1499,
       "footprint": 0.5,
       "height": 0.5,
       "blocksLos": false,
@@ -4321,7 +4413,8 @@
       "lod": [
         {
           "file": "models/stump-mossy-lod1.glb",
-          "distance": 200
+          "distance": 200,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/tree_stump_02"
@@ -4331,6 +4424,7 @@
       "name": "Fallen trunk",
       "category": "plant",
       "file": "models/log-fallen.glb",
+      "triangles": 1500,
       "footprint": 1.2,
       "height": 1.1,
       "blocksLos": false,
@@ -4350,7 +4444,8 @@
       "lod": [
         {
           "file": "models/log-fallen-lod1.glb",
-          "distance": 240
+          "distance": 240,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/dead_tree_trunk_02"
@@ -4360,6 +4455,7 @@
       "name": "Roots",
       "category": "plant",
       "file": "models/roots.glb",
+      "triangles": 1499,
       "footprint": 0.5,
       "height": 0.1,
       "blocksLos": false,
@@ -4379,7 +4475,8 @@
       "lod": [
         {
           "file": "models/roots-lod1.glb",
-          "distance": 100
+          "distance": 100,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/pine_roots"
@@ -4389,6 +4486,7 @@
       "name": "Dry branches",
       "category": "plant",
       "file": "models/branches.glb",
+      "triangles": 1200,
       "footprint": 0.4,
       "height": 0.3,
       "blocksLos": false,
@@ -4409,7 +4507,8 @@
       "lod": [
         {
           "file": "models/branches-lod1.glb",
-          "distance": 80
+          "distance": 80,
+          "triangles": 400
         }
       ],
       "source": "https://polyhaven.com/a/dry_branches_medium_01"
@@ -4419,6 +4518,7 @@
       "name": "Grey boulder",
       "category": "rock",
       "file": "models/boulder.glb",
+      "triangles": 1500,
       "footprint": 1.1,
       "height": 1.3,
       "base": [
@@ -4444,7 +4544,8 @@
       "lod": [
         {
           "file": "models/boulder-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/boulder_01"
@@ -4454,6 +4555,7 @@
       "name": "Granite rock",
       "category": "rock",
       "file": "models/rock-granite.glb",
+      "triangles": 1499,
       "footprint": 1.8,
       "height": 1.8,
       "base": [
@@ -4477,7 +4579,8 @@
       "lod": [
         {
           "file": "models/rock-granite-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/rock_07"
@@ -4487,6 +4590,7 @@
       "name": "Flat granite rock",
       "category": "rock",
       "file": "models/rock-granite-flat.glb",
+      "triangles": 1499,
       "footprint": 2.4,
       "height": 1.2,
       "base": [
@@ -4511,7 +4615,8 @@
       "lod": [
         {
           "file": "models/rock-granite-flat-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/rock_09"
@@ -4521,6 +4626,7 @@
       "name": "Round stone",
       "category": "rock",
       "file": "models/rock-round.glb",
+      "triangles": 1199,
       "footprint": 0.8,
       "height": 0.8,
       "base": [
@@ -4545,7 +4651,8 @@
       "lod": [
         {
           "file": "models/rock-round-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/stone_01"
@@ -4555,6 +4662,7 @@
       "name": "Desert rock",
       "category": "rock",
       "file": "models/rock-desert.glb",
+      "triangles": 1499,
       "footprint": 1.7,
       "height": 1.8,
       "base": [
@@ -4577,7 +4685,8 @@
       "lod": [
         {
           "file": "models/rock-desert-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03"
@@ -4587,6 +4696,7 @@
       "name": "Large desert rock",
       "category": "rock",
       "file": "models/rock-desert-large.glb",
+      "triangles": 1999,
       "footprint": 2.7,
       "height": 3.0,
       "base": [
@@ -4609,7 +4719,8 @@
       "lod": [
         {
           "file": "models/rock-desert-large-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_06"
@@ -4619,6 +4730,7 @@
       "name": "Sandstone rock",
       "category": "rock",
       "file": "models/rock-sandstone.glb",
+      "triangles": 1499,
       "footprint": 2.6,
       "height": 2.1,
       "base": [
@@ -4642,7 +4754,8 @@
       "lod": [
         {
           "file": "models/rock-sandstone-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 299
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_05 (getönt)"
@@ -4652,6 +4765,7 @@
       "name": "Large sandstone rock",
       "category": "rock",
       "file": "models/rock-sandstone-large.glb",
+      "triangles": 2000,
       "footprint": 4.5,
       "height": 3.4,
       "base": [
@@ -4674,7 +4788,8 @@
       "lod": [
         {
           "file": "models/rock-sandstone-large-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_02 (getönt)"
@@ -4684,6 +4799,7 @@
       "name": "Basalt rock",
       "category": "rock",
       "file": "models/rock-basalt.glb",
+      "triangles": 1499,
       "footprint": 1.5,
       "height": 1.6,
       "base": [
@@ -4708,7 +4824,8 @@
       "lod": [
         {
           "file": "models/rock-basalt-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03 (getönt)"
@@ -4718,6 +4835,7 @@
       "name": "Large basalt rock",
       "category": "rock",
       "file": "models/rock-basalt-large.glb",
+      "triangles": 1999,
       "footprint": 2.5,
       "height": 2.8,
       "base": [
@@ -4742,7 +4860,8 @@
       "lod": [
         {
           "file": "models/rock-basalt-large-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_06 (getönt)"
@@ -4752,6 +4871,7 @@
       "name": "Frosted rock",
       "category": "rock",
       "file": "models/rock-snow.glb",
+      "triangles": 1499,
       "footprint": 2.3,
       "height": 1.9,
       "base": [
@@ -4776,7 +4896,8 @@
       "lod": [
         {
           "file": "models/rock-snow-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 299
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_05 (aufgehellt)"
@@ -4786,6 +4907,7 @@
       "name": "Volcanic rock",
       "category": "rock",
       "file": "models/rock-volcanic.glb",
+      "triangles": 1499,
       "footprint": 1.0,
       "height": 1.2,
       "base": [
@@ -4809,7 +4931,8 @@
       "lod": [
         {
           "file": "models/rock-volcanic-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 299
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_03 (getönt)"
@@ -4819,6 +4942,7 @@
       "name": "Large volcanic rock",
       "category": "rock",
       "file": "models/rock-volcanic-large.glb",
+      "triangles": 1999,
       "footprint": 1.2,
       "height": 2.4,
       "base": [
@@ -4842,7 +4966,8 @@
       "lod": [
         {
           "file": "models/rock-volcanic-large-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_05 (getönt)"
@@ -4852,6 +4977,7 @@
       "name": "Pumice",
       "category": "rock",
       "file": "models/rock-pumice.glb",
+      "triangles": 1499,
       "footprint": 1.0,
       "height": 0.8,
       "base": [
@@ -4875,7 +5001,8 @@
       "lod": [
         {
           "file": "models/rock-pumice-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 299
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_01 (getönt)"
@@ -4885,6 +5012,7 @@
       "name": "Mossy rock",
       "category": "rock",
       "file": "models/rock-mossy-a.glb",
+      "triangles": 1799,
       "footprint": 1.5,
       "height": 1.4,
       "base": [
@@ -4909,7 +5037,8 @@
       "lod": [
         {
           "file": "models/rock-mossy-a-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_01"
@@ -4919,6 +5048,7 @@
       "name": "Mossy rock, tall",
       "category": "rock",
       "file": "models/rock-mossy-b.glb",
+      "triangles": 1800,
       "footprint": 1.0,
       "height": 1.7,
       "base": [
@@ -4943,7 +5073,8 @@
       "lod": [
         {
           "file": "models/rock-mossy-b-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_01"
@@ -4953,6 +5084,7 @@
       "name": "Mossy rock, long",
       "category": "rock",
       "file": "models/rock-mossy-c.glb",
+      "triangles": 1800,
       "footprint": 1.4,
       "height": 1.2,
       "base": [
@@ -4977,7 +5109,8 @@
       "lod": [
         {
           "file": "models/rock-mossy-c-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_01"
@@ -4987,6 +5120,7 @@
       "name": "Mossy slab",
       "category": "rock",
       "file": "models/rock-mossy-flat.glb",
+      "triangles": 1499,
       "footprint": 1.0,
       "height": 0.7,
       "base": [
@@ -5010,7 +5144,8 @@
       "lod": [
         {
           "file": "models/rock-mossy-flat-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_02"
@@ -5020,6 +5155,7 @@
       "name": "Stones",
       "category": "rock",
       "file": "models/stones.glb",
+      "triangles": 1499,
       "footprint": 1.9,
       "height": 0.3,
       "base": [
@@ -5046,7 +5182,8 @@
       "lod": [
         {
           "file": "models/stones-lod1.glb",
-          "distance": 100
+          "distance": 100,
+          "triangles": 299
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_stones_01"
@@ -5056,6 +5193,7 @@
       "name": "Coastal rocks",
       "category": "rock",
       "file": "models/rock-coast.glb",
+      "triangles": 3000,
       "footprint": 26.8,
       "height": 2.0,
       "blocksLos": true,
@@ -5074,7 +5212,8 @@
       "lod": [
         {
           "file": "models/rock-coast-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/coast_rocks_01"
@@ -5084,6 +5223,7 @@
       "name": "Cliff face",
       "category": "rock",
       "file": "models/cliff-face.glb",
+      "triangles": 3999,
       "footprint": 5.0,
       "height": 7.8,
       "blocksLos": true,
@@ -5101,7 +5241,8 @@
       "lod": [
         {
           "file": "models/cliff-face-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 299
         }
       ],
       "source": "https://polyhaven.com/a/rock_face_01"
@@ -5111,6 +5252,7 @@
       "name": "Cliff face, broad",
       "category": "rock",
       "file": "models/cliff-face-b.glb",
+      "triangles": 3999,
       "footprint": 4.4,
       "height": 8.3,
       "blocksLos": true,
@@ -5128,7 +5270,8 @@
       "lod": [
         {
           "file": "models/cliff-face-b-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/rock_face_02"
@@ -5138,6 +5281,7 @@
       "name": "Cliff wall",
       "category": "rock",
       "file": "models/cliff-wall.glb",
+      "triangles": 5000,
       "footprint": 7.5,
       "height": 9.5,
       "blocksLos": true,
@@ -5155,7 +5299,8 @@
       "lod": [
         {
           "file": "models/cliff-wall-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_01"
@@ -5165,6 +5310,7 @@
       "name": "Cliff wall, tall",
       "category": "rock",
       "file": "models/cliff-wall-b.glb",
+      "triangles": 6000,
       "footprint": 15.2,
       "height": 11.4,
       "blocksLos": true,
@@ -5182,7 +5328,8 @@
       "lod": [
         {
           "file": "models/cliff-wall-b-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_02"
@@ -5192,6 +5339,7 @@
       "name": "Sandstone cliff",
       "category": "rock",
       "file": "models/cliff-wall-sandstone.glb",
+      "triangles": 5000,
       "footprint": 7.5,
       "height": 9.5,
       "blocksLos": true,
@@ -5209,7 +5357,8 @@
       "lod": [
         {
           "file": "models/cliff-wall-sandstone-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_01 (getönt)"
@@ -5219,6 +5368,7 @@
       "name": "Basalt cliff",
       "category": "rock",
       "file": "models/cliff-wall-basalt.glb",
+      "triangles": 6000,
       "footprint": 15.2,
       "height": 11.4,
       "blocksLos": true,
@@ -5238,7 +5388,8 @@
       "lod": [
         {
           "file": "models/cliff-wall-basalt-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_02 (getönt)"
@@ -5248,6 +5399,7 @@
       "name": "Coastal cliff",
       "category": "rock",
       "file": "models/cliff-coast.glb",
+      "triangles": 6000,
       "footprint": 18.4,
       "height": 9.5,
       "blocksLos": true,
@@ -5265,7 +5417,8 @@
       "lod": [
         {
           "file": "models/cliff-coast-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 299
         }
       ],
       "source": "https://polyhaven.com/a/coastal_cliff_02"
@@ -5275,6 +5428,7 @@
       "name": "Sandstone pillar",
       "category": "rock",
       "file": "models/sandstone-pillar.glb",
+      "triangles": 11792,
       "footprint": 2.9,
       "height": 10.4,
       "base": [
@@ -5297,7 +5451,8 @@
       "lod": [
         {
           "file": "models/sandstone-pillar-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 1178
         }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
@@ -5307,6 +5462,7 @@
       "name": "Tall sandstone pillar",
       "category": "rock",
       "file": "models/sandstone-pillar-tall.glb",
+      "triangles": 11780,
       "footprint": 2.6,
       "height": 18.8,
       "base": [
@@ -5329,7 +5485,8 @@
       "lod": [
         {
           "file": "models/sandstone-pillar-tall-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 1178
         }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
@@ -5339,6 +5496,7 @@
       "name": "Mesa",
       "category": "rock",
       "file": "models/mesa.glb",
+      "triangles": 6774,
       "footprint": 22.1,
       "height": 14.3,
       "blocksLos": true,
@@ -5356,7 +5514,8 @@
       "lod": [
         {
           "file": "models/mesa-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 676
         }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
@@ -5366,6 +5525,7 @@
       "name": "Rock arch",
       "category": "rock",
       "file": "models/rock-arch.glb",
+      "triangles": 8942,
       "footprint": 9.4,
       "height": 9.6,
       "blocksLos": true,
@@ -5384,7 +5544,8 @@
       "lod": [
         {
           "file": "models/rock-arch-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 894
         }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
@@ -5394,6 +5555,7 @@
       "name": "Stalagmites",
       "category": "rock",
       "file": "models/stalagmites.glb",
+      "triangles": 320,
       "footprint": 1.1,
       "height": 3.6,
       "base": [
@@ -5421,6 +5583,7 @@
       "name": "Basalt columns",
       "category": "rock",
       "file": "models/basalt-columns.glb",
+      "triangles": 192,
       "footprint": 2.1,
       "height": 3.2,
       "base": [
@@ -5449,6 +5612,7 @@
       "name": "Blue crystals",
       "category": "rock",
       "file": "models/crystals-blue.glb",
+      "triangles": 488,
       "footprint": 0.9,
       "height": 2.0,
       "base": [
@@ -5490,6 +5654,7 @@
       "name": "Violet crystals",
       "category": "rock",
       "file": "models/crystals-violet.glb",
+      "triangles": 488,
       "footprint": 0.9,
       "height": 2.2,
       "base": [
@@ -5531,6 +5696,7 @@
       "name": "Ice crystals",
       "category": "rock",
       "file": "models/crystals-ice.glb",
+      "triangles": 488,
       "footprint": 0.9,
       "height": 2.8,
       "base": [
@@ -5574,6 +5740,7 @@
       "name": "Lava pool",
       "category": "rock",
       "file": "models/lava-pool.glb",
+      "triangles": 1144,
       "footprint": 4.6,
       "height": 0.6,
       "blocksLos": false,
@@ -5613,7 +5780,8 @@
       "lod": [
         {
           "file": "models/lava-pool-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 399
         }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock_02"
@@ -5623,6 +5791,7 @@
       "name": "Castle wall (8 m)",
       "category": "wall",
       "file": "models/castle-wall.glb",
+      "triangles": 816,
       "footprint": 3.6,
       "height": 8.4,
       "blocksLos": true,
@@ -5644,6 +5813,7 @@
       "name": "Castle wall (4 m)",
       "category": "wall",
       "file": "models/castle-wall-half.glb",
+      "triangles": 508,
       "footprint": 1.8,
       "height": 8.4,
       "blocksLos": true,
@@ -5661,7 +5831,8 @@
       "lod": [
         {
           "file": "models/castle-wall-half-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 120
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
@@ -5671,6 +5842,7 @@
       "name": "Castle wall (2 m)",
       "category": "wall",
       "file": "models/castle-wall-short.glb",
+      "triangles": 376,
       "footprint": 1.5,
       "height": 8.4,
       "blocksLos": true,
@@ -5688,7 +5860,8 @@
       "lod": [
         {
           "file": "models/castle-wall-short-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 120
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
@@ -5698,6 +5871,7 @@
       "name": "Castle wall corner",
       "category": "wall",
       "file": "models/castle-wall-corner.glb",
+      "triangles": 1368,
       "footprint": 2.5,
       "height": 9.9,
       "blocksLos": true,
@@ -5715,7 +5889,8 @@
       "lod": [
         {
           "file": "models/castle-wall-corner-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 120
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
@@ -5725,6 +5900,7 @@
       "name": "Castle wall end",
       "category": "wall",
       "file": "models/castle-wall-end.glb",
+      "triangles": 1168,
       "footprint": 2.5,
       "height": 9.9,
       "blocksLos": true,
@@ -5742,7 +5918,8 @@
       "lod": [
         {
           "file": "models/castle-wall-end-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 120
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
@@ -5752,6 +5929,7 @@
       "name": "Ruined castle wall",
       "category": "wall",
       "file": "models/castle-wall-ruined.glb",
+      "triangles": 792,
       "footprint": 3.7,
       "height": 7.0,
       "blocksLos": true,
@@ -5773,6 +5951,7 @@
       "name": "Ruined castle wall, low",
       "category": "wall",
       "file": "models/castle-wall-ruined-b.glb",
+      "triangles": 792,
       "footprint": 3.6,
       "height": 6.5,
       "blocksLos": true,
@@ -5794,6 +5973,7 @@
       "name": "Castle tower",
       "category": "building",
       "file": "models/castle-tower.glb",
+      "triangles": 1796,
       "footprint": 4.0,
       "height": 14.1,
       "blocksLos": true,
@@ -5815,6 +5995,7 @@
       "name": "Castle tower with roof",
       "category": "building",
       "file": "models/castle-tower-roof.glb",
+      "triangles": 1842,
       "footprint": 4.0,
       "height": 19.5,
       "blocksLos": true,
@@ -5836,6 +6017,7 @@
       "name": "Ruined castle tower",
       "category": "building",
       "file": "models/castle-tower-ruined.glb",
+      "triangles": 1796,
       "footprint": 4.0,
       "height": 9.1,
       "blocksLos": true,
@@ -5857,6 +6039,7 @@
       "name": "Gatehouse",
       "category": "building",
       "file": "models/castle-gate.glb",
+      "triangles": 2208,
       "footprint": 7.3,
       "height": 12.1,
       "blocksLos": true,
@@ -5878,6 +6061,7 @@
       "name": "Keep",
       "category": "building",
       "file": "models/castle-keep.glb",
+      "triangles": 3716,
       "footprint": 6.5,
       "height": 22.2,
       "blocksLos": true,
@@ -5899,6 +6083,7 @@
       "name": "Wall stairs",
       "category": "wall",
       "file": "models/castle-stairs.glb",
+      "triangles": 880,
       "footprint": 3.6,
       "height": 7,
       "blocksLos": false,
@@ -5920,6 +6105,7 @@
       "name": "Thatched cottage",
       "category": "building",
       "file": "models/cottage.glb",
+      "triangles": 3758,
       "footprint": 3.2,
       "height": 6.0,
       "blocksLos": true,
@@ -5942,6 +6128,7 @@
       "name": "Stone house",
       "category": "building",
       "file": "models/house-stone.glb",
+      "triangles": 3054,
       "footprint": 4.1,
       "height": 7.5,
       "blocksLos": true,
@@ -5964,6 +6151,7 @@
       "name": "Town house",
       "category": "building",
       "file": "models/house-tall.glb",
+      "triangles": 6382,
       "footprint": 3.3,
       "height": 11.5,
       "blocksLos": true,
@@ -5985,6 +6173,7 @@
       "name": "Timber house (snow)",
       "category": "building",
       "file": "models/house-snow.glb",
+      "triangles": 3766,
       "footprint": 3.7,
       "height": 6.8,
       "blocksLos": true,
@@ -6007,6 +6196,7 @@
       "name": "Stone house (snow)",
       "category": "building",
       "file": "models/house-stone-snow.glb",
+      "triangles": 3062,
       "footprint": 4.1,
       "height": 7.5,
       "blocksLos": true,
@@ -6030,6 +6220,7 @@
       "name": "Log cabin",
       "category": "building",
       "file": "models/log-cabin.glb",
+      "triangles": 3054,
       "footprint": 3.7,
       "height": 6.6,
       "blocksLos": true,
@@ -6053,6 +6244,7 @@
       "name": "Log cabin (snow)",
       "category": "building",
       "file": "models/log-cabin-snow.glb",
+      "triangles": 3062,
       "footprint": 3.7,
       "height": 6.6,
       "blocksLos": true,
@@ -6076,6 +6268,7 @@
       "name": "Barn (snow)",
       "category": "building",
       "file": "models/barn-snow.glb",
+      "triangles": 2154,
       "footprint": 5.5,
       "height": 8.1,
       "blocksLos": true,
@@ -6098,6 +6291,7 @@
       "name": "Watermill",
       "category": "building",
       "file": "models/watermill.glb",
+      "triangles": 5914,
       "footprint": 4.6,
       "height": 7.9,
       "blocksLos": true,
@@ -6120,6 +6314,7 @@
       "name": "Windmill",
       "category": "building",
       "file": "models/windmill.glb",
+      "triangles": 1110,
       "footprint": 5.9,
       "height": 17.2,
       "blocksLos": true,
@@ -6141,6 +6336,7 @@
       "name": "Chapel",
       "category": "building",
       "file": "models/chapel.glb",
+      "triangles": 268,
       "footprint": 7.6,
       "height": 20,
       "blocksLos": true,
@@ -6164,6 +6360,7 @@
       "name": "Wooden watchtower",
       "category": "building",
       "file": "models/watchtower.glb",
+      "triangles": 754,
       "footprint": 2.1,
       "height": 12,
       "blocksLos": true,
@@ -6187,6 +6384,7 @@
       "name": "Lighthouse",
       "category": "building",
       "file": "models/lighthouse.glb",
+      "triangles": 642,
       "footprint": 3.6,
       "height": 22.2,
       "blocksLos": true,
@@ -6208,6 +6406,7 @@
       "name": "Hut on stilts",
       "category": "building",
       "file": "models/hut-stilts.glb",
+      "triangles": 326,
       "footprint": 3.3,
       "height": 6.2,
       "blocksLos": true,
@@ -6230,6 +6429,7 @@
       "name": "Round hut",
       "category": "building",
       "file": "models/hut-round.glb",
+      "triangles": 90,
       "footprint": 2.9,
       "height": 5.6,
       "blocksLos": true,
@@ -6253,6 +6453,7 @@
       "name": "Adobe house",
       "category": "building",
       "file": "models/adobe-house.glb",
+      "triangles": 766,
       "footprint": 2.9,
       "height": 3.5,
       "blocksLos": true,
@@ -6274,6 +6475,7 @@
       "name": "Large adobe house",
       "category": "building",
       "file": "models/adobe-house-large.glb",
+      "triangles": 1394,
       "footprint": 4.1,
       "height": 6.7,
       "blocksLos": true,
@@ -6295,6 +6497,7 @@
       "name": "Market stall (red)",
       "category": "prop",
       "file": "models/market-stall-red.glb",
+      "triangles": 350,
       "footprint": 1.6,
       "height": 2.6,
       "blocksLos": false,
@@ -6317,6 +6520,7 @@
       "name": "Market stall (blue)",
       "category": "prop",
       "file": "models/market-stall-blue.glb",
+      "triangles": 350,
       "footprint": 1.6,
       "height": 2.6,
       "blocksLos": false,
@@ -6339,6 +6543,7 @@
       "name": "Tent",
       "category": "prop",
       "file": "models/tent.glb",
+      "triangles": 94,
       "footprint": 1.7,
       "height": 2.4,
       "blocksLos": false,
@@ -6362,6 +6567,7 @@
       "name": "Pavilion",
       "category": "prop",
       "file": "models/tent-large.glb",
+      "triangles": 168,
       "footprint": 3.3,
       "height": 5.2,
       "blocksLos": false,
@@ -6385,6 +6591,7 @@
       "name": "Stone arch bridge (20 m, set height to the banks)",
       "category": "structure",
       "file": "models/bridge-stone.glb",
+      "triangles": 4224,
       "footprint": 9.0,
       "height": 4.8,
       "blocksLos": false,
@@ -6408,6 +6615,7 @@
       "name": "Wooden footbridge (14 m)",
       "category": "structure",
       "file": "models/bridge-wood.glb",
+      "triangles": 1452,
       "footprint": 6.3,
       "height": 4.1,
       "blocksLos": false,
@@ -6432,6 +6640,7 @@
       "name": "Boardwalk (4 m)",
       "category": "structure",
       "file": "models/boardwalk.glb",
+      "triangles": 708,
       "footprint": 1.8,
       "height": 0.6,
       "blocksLos": false,
@@ -6455,6 +6664,7 @@
       "name": "Boardwalk platform",
       "category": "structure",
       "file": "models/boardwalk-platform.glb",
+      "triangles": 776,
       "footprint": 1.8,
       "height": 0.6,
       "blocksLos": false,
@@ -6477,6 +6687,7 @@
       "name": "Pier section",
       "category": "structure",
       "file": "models/pier.glb",
+      "triangles": 6000,
       "footprint": 1.5,
       "height": 2.4,
       "blocksLos": false,
@@ -6501,6 +6712,7 @@
       "name": "Pier end with ladder",
       "category": "structure",
       "file": "models/pier-end.glb",
+      "triangles": 7000,
       "footprint": 1.6,
       "height": 2.9,
       "blocksLos": false,
@@ -6524,6 +6736,7 @@
       "name": "Palisade (4 m)",
       "category": "wall",
       "file": "models/palisade.glb",
+      "triangles": 368,
       "footprint": 1.8,
       "height": 4.6,
       "blocksLos": true,
@@ -6547,6 +6760,7 @@
       "name": "Palisade gate",
       "category": "wall",
       "file": "models/palisade-gate.glb",
+      "triangles": 724,
       "footprint": 2.4,
       "height": 6,
       "blocksLos": true,
@@ -6570,6 +6784,7 @@
       "name": "Picket fence",
       "category": "wall",
       "file": "models/fence-picket.glb",
+      "triangles": 1345,
       "footprint": 1.9,
       "height": 1.2,
       "blocksLos": false,
@@ -6592,6 +6807,7 @@
       "name": "Rail fence",
       "category": "wall",
       "file": "models/fence-rail.glb",
+      "triangles": 54,
       "footprint": 1.9,
       "height": 1.3,
       "blocksLos": false,
@@ -6615,6 +6831,7 @@
       "name": "Farm gate",
       "category": "wall",
       "file": "models/gate-farm.glb",
+      "triangles": 396,
       "footprint": 1.7,
       "height": 1.5,
       "blocksLos": false,
@@ -6636,6 +6853,7 @@
       "name": "Dry stone wall (6 m)",
       "category": "wall",
       "file": "models/wall-dry-stone.glb",
+      "triangles": 1500,
       "footprint": 2.8,
       "height": 1.4,
       "blocksLos": false,
@@ -6659,6 +6877,7 @@
       "name": "Broken dry stone wall",
       "category": "wall",
       "file": "models/wall-dry-stone-ruined.glb",
+      "triangles": 700,
       "footprint": 2.8,
       "height": 1.0,
       "blocksLos": false,
@@ -6682,6 +6901,7 @@
       "name": "Fort wall (15 m)",
       "category": "wall",
       "file": "models/fort-wall.glb",
+      "triangles": 2340,
       "footprint": 6.6,
       "height": 8.5,
       "blocksLos": true,
@@ -6704,6 +6924,7 @@
       "name": "Fort tower",
       "category": "building",
       "file": "models/fort-tower.glb",
+      "triangles": 4772,
       "footprint": 7.1,
       "height": 13.5,
       "blocksLos": true,
@@ -6726,6 +6947,7 @@
       "name": "Iron gate",
       "category": "wall",
       "file": "models/iron-gate.glb",
+      "triangles": 3999,
       "footprint": 1.3,
       "height": 2.9,
       "blocksLos": false,
@@ -6747,6 +6969,7 @@
       "name": "Castle door",
       "category": "prop",
       "file": "models/castle-door.glb",
+      "triangles": 3000,
       "footprint": 0.9,
       "height": 3.0,
       "blocksLos": false,
@@ -6768,6 +6991,7 @@
       "name": "Ruined wall",
       "category": "building",
       "file": "models/ruin-wall.glb",
+      "triangles": 880,
       "footprint": 4.5,
       "height": 7.4,
       "blocksLos": true,
@@ -6791,6 +7015,7 @@
       "name": "Temple ruins",
       "category": "building",
       "file": "models/ruin-columns.glb",
+      "triangles": 706,
       "footprint": 5.7,
       "height": 7.8,
       "blocksLos": true,
@@ -6814,6 +7039,7 @@
       "name": "Ruined arch",
       "category": "building",
       "file": "models/ruin-arch.glb",
+      "triangles": 704,
       "footprint": 4.0,
       "height": 7.5,
       "blocksLos": true,
@@ -6837,6 +7063,7 @@
       "name": "Obelisk",
       "category": "prop",
       "file": "models/obelisk.glb",
+      "triangles": 74,
       "footprint": 1.2,
       "height": 9.0,
       "blocksLos": false,
@@ -6859,6 +7086,7 @@
       "name": "Wayside shrine",
       "category": "prop",
       "file": "models/shrine.glb",
+      "triangles": 122,
       "footprint": 0.5,
       "height": 2.7,
       "blocksLos": false,
@@ -6889,6 +7117,7 @@
       "name": "Graves",
       "category": "prop",
       "file": "models/graves.glb",
+      "triangles": 352,
       "footprint": 2.0,
       "height": 1.3,
       "blocksLos": false,
@@ -6913,6 +7142,7 @@
       "name": "Horse statue",
       "category": "prop",
       "file": "models/statue-horse.glb",
+      "triangles": 6088,
       "footprint": 1.0,
       "height": 3.6,
       "blocksLos": false,
@@ -6936,6 +7166,7 @@
       "name": "Knight statue",
       "category": "prop",
       "file": "models/statue-knight.glb",
+      "triangles": 6088,
       "footprint": 1.0,
       "height": 3.8,
       "blocksLos": false,
@@ -6958,6 +7189,7 @@
       "name": "Torch",
       "category": "prop",
       "file": "models/torch.glb",
+      "triangles": 50,
       "footprint": 0.2,
       "height": 2.7,
       "blocksLos": false,
@@ -6998,6 +7230,7 @@
       "name": "Brazier",
       "category": "prop",
       "file": "models/brazier.glb",
+      "triangles": 116,
       "footprint": 0.4,
       "height": 2.1,
       "blocksLos": false,
@@ -7043,6 +7276,7 @@
       "name": "Campfire",
       "category": "prop",
       "file": "models/campfire.glb",
+      "triangles": 532,
       "footprint": 0.8,
       "height": 1.2,
       "blocksLos": false,
@@ -7095,6 +7329,7 @@
       "name": "Burnt-out campfire",
       "category": "prop",
       "file": "models/campfire-out.glb",
+      "triangles": 504,
       "footprint": 0.8,
       "height": 0.4,
       "blocksLos": false,
@@ -7127,6 +7362,7 @@
       "name": "Waterfall sheet (12 m, back to the cliff)",
       "category": "prop",
       "file": "models/waterfall.glb",
+      "triangles": 72,
       "footprint": 2.7,
       "height": 12,
       "blocksLos": false,
@@ -7150,6 +7386,7 @@
       "name": "Waterfall sheet (20 m, back to the cliff)",
       "category": "prop",
       "file": "models/waterfall-tall.glb",
+      "triangles": 72,
       "footprint": 3.6,
       "height": 20,
       "blocksLos": false,
@@ -7171,6 +7408,7 @@
       "name": "Hand cart",
       "category": "prop",
       "file": "models/cart.glb",
+      "triangles": 2148,
       "footprint": 1.7,
       "height": 1.2,
       "blocksLos": false,
@@ -7192,6 +7430,7 @@
       "name": "Haystack",
       "category": "prop",
       "file": "models/haystack.glb",
+      "triangles": 178,
       "footprint": 1.4,
       "height": 4,
       "blocksLos": false,
@@ -7214,6 +7453,7 @@
       "name": "Hay bales",
       "category": "prop",
       "file": "models/hay-bales.glb",
+      "triangles": 240,
       "footprint": 1.2,
       "height": 2.7,
       "blocksLos": false,
@@ -7236,6 +7476,7 @@
       "name": "Woodpile",
       "category": "prop",
       "file": "models/woodpile.glb",
+      "triangles": 816,
       "footprint": 1.4,
       "height": 1.7,
       "blocksLos": false,
@@ -7259,6 +7500,7 @@
       "name": "Anvil",
       "category": "prop",
       "file": "models/anvil.glb",
+      "triangles": 73,
       "footprint": 0.4,
       "height": 1.0,
       "blocksLos": false,
@@ -7281,6 +7523,7 @@
       "name": "Weapon rack",
       "category": "prop",
       "file": "models/weapon-rack.glb",
+      "triangles": 506,
       "footprint": 1.0,
       "height": 2.6,
       "blocksLos": false,
@@ -7303,6 +7546,7 @@
       "name": "Signpost",
       "category": "prop",
       "file": "models/signpost.glb",
+      "triangles": 420,
       "footprint": 0.7,
       "height": 2.7,
       "blocksLos": false,
@@ -7326,6 +7570,7 @@
       "name": "Banner (red)",
       "category": "prop",
       "file": "models/banner-red.glb",
+      "triangles": 80,
       "footprint": 0.5,
       "height": 5.9,
       "blocksLos": false,
@@ -7348,6 +7593,7 @@
       "name": "Banner (blue)",
       "category": "prop",
       "file": "models/banner-blue.glb",
+      "triangles": 80,
       "footprint": 0.5,
       "height": 5.9,
       "blocksLos": false,
@@ -7370,6 +7616,7 @@
       "name": "Beast bones",
       "category": "prop",
       "file": "models/bones.glb",
+      "triangles": 506,
       "footprint": 2.3,
       "height": 0.8,
       "blocksLos": false,
@@ -7394,6 +7641,7 @@
       "name": "Wine barrel",
       "category": "prop",
       "file": "models/barrel-wine.glb",
+      "triangles": 1500,
       "footprint": 0.3,
       "height": 0.9,
       "blocksLos": false,
@@ -7416,6 +7664,7 @@
       "name": "Old barrel",
       "category": "prop",
       "file": "models/barrel-old.glb",
+      "triangles": 1499,
       "footprint": 0.2,
       "height": 0.9,
       "blocksLos": false,
@@ -7438,6 +7687,7 @@
       "name": "Small barrel",
       "category": "prop",
       "file": "models/barrel-small.glb",
+      "triangles": 1199,
       "footprint": 0.3,
       "height": 0.9,
       "blocksLos": false,
@@ -7460,6 +7710,7 @@
       "name": "Barrels and staves",
       "category": "prop",
       "file": "models/barrels-broken.glb",
+      "triangles": 3000,
       "footprint": 2.0,
       "height": 1.0,
       "blocksLos": false,
@@ -7484,6 +7735,7 @@
       "name": "Long crate",
       "category": "prop",
       "file": "models/crate-long.glb",
+      "triangles": 1499,
       "footprint": 0.5,
       "height": 0.5,
       "blocksLos": false,
@@ -7506,6 +7758,7 @@
       "name": "Flat crate",
       "category": "prop",
       "file": "models/crate-flat.glb",
+      "triangles": 1499,
       "footprint": 0.4,
       "height": 0.3,
       "blocksLos": false,
@@ -7528,6 +7781,7 @@
       "name": "Bucket",
       "category": "prop",
       "file": "models/bucket.glb",
+      "triangles": 1000,
       "footprint": 0.2,
       "height": 0.6,
       "blocksLos": false,
@@ -7549,6 +7803,7 @@
       "name": "Wash tub",
       "category": "prop",
       "file": "models/tub.glb",
+      "triangles": 1200,
       "footprint": 0.3,
       "height": 0.4,
       "blocksLos": false,
@@ -7570,6 +7825,7 @@
       "name": "Lantern",
       "category": "prop",
       "file": "models/lantern.glb",
+      "triangles": 1499,
       "footprint": 0.2,
       "height": 0.5,
       "blocksLos": false,
@@ -7600,6 +7856,7 @@
       "name": "Cannon",
       "category": "prop",
       "file": "models/cannon.glb",
+      "triangles": 4000,
       "footprint": 1.0,
       "height": 0.9,
       "blocksLos": false,
@@ -7622,6 +7879,7 @@
       "name": "Treasure chest",
       "category": "prop",
       "file": "models/treasure-chest.glb",
+      "triangles": 3000,
       "footprint": 0.4,
       "height": 0.6,
       "blocksLos": false,
@@ -7645,6 +7903,7 @@
       "name": "Kite shield",
       "category": "prop",
       "file": "models/shield.glb",
+      "triangles": 1500,
       "footprint": 0.2,
       "height": 1.4,
       "blocksLos": false,
@@ -7667,6 +7926,7 @@
       "name": "Ladder",
       "category": "prop",
       "file": "models/ladder.glb",
+      "triangles": 1500,
       "footprint": 0.4,
       "height": 1.3,
       "blocksLos": false,
@@ -7689,6 +7949,7 @@
       "name": "Spinning wheel",
       "category": "prop",
       "file": "models/spinning-wheel.glb",
+      "triangles": 3000,
       "footprint": 0.5,
       "height": 1.0,
       "blocksLos": false,
@@ -7710,6 +7971,7 @@
       "name": "Basket",
       "category": "prop",
       "file": "models/basket.glb",
+      "triangles": 1499,
       "footprint": 0.2,
       "height": 0.1,
       "blocksLos": false,
@@ -7732,6 +7994,7 @@
       "name": "Table",
       "category": "prop",
       "file": "models/table.glb",
+      "triangles": 952,
       "footprint": 0.8,
       "height": 0.5,
       "blocksLos": false,
@@ -7754,6 +8017,7 @@
       "name": "Pickaxe",
       "category": "prop",
       "file": "models/pickaxe.glb",
+      "triangles": 1000,
       "footprint": 0.2,
       "height": 1.1,
       "blocksLos": false,
@@ -7777,6 +8041,7 @@
       "name": "Sailing ship",
       "category": "building",
       "file": "models/ship.glb",
+      "triangles": 15000,
       "footprint": 10.8,
       "height": 22.2,
       "blocksLos": true,
@@ -7799,6 +8064,7 @@
       "name": "Apartment block (4 floors)",
       "category": "building",
       "file": "models/apartment-block.glb",
+      "triangles": 14696,
       "footprint": 6.7,
       "height": 15.2,
       "blocksLos": true,
@@ -7816,7 +8082,8 @@
       "lod": [
         {
           "file": "models/apartment-block-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 3716
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
@@ -7826,6 +8093,7 @@
       "name": "Apartment block (8 floors)",
       "category": "building",
       "file": "models/apartment-block-tall.glb",
+      "triangles": 10640,
       "footprint": 7.9,
       "height": 27.2,
       "blocksLos": true,
@@ -7843,7 +8111,8 @@
       "lod": [
         {
           "file": "models/apartment-block-tall-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 1934
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_block_wall; https://polyhaven.com/a/brushed_concrete"
@@ -7853,6 +8122,7 @@
       "name": "Ruined apartment block",
       "category": "building",
       "file": "models/apartment-block-ruined.glb",
+      "triangles": 10940,
       "footprint": 7.9,
       "height": 15.6,
       "blocksLos": true,
@@ -7870,7 +8140,8 @@
       "lod": [
         {
           "file": "models/apartment-block-ruined-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 2918
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
@@ -7880,6 +8151,7 @@
       "name": "Brick block with shop",
       "category": "building",
       "file": "models/brick-block.glb",
+      "triangles": 9288,
       "footprint": 5.5,
       "height": 16.2,
       "blocksLos": true,
@@ -7898,7 +8170,8 @@
       "lod": [
         {
           "file": "models/brick-block-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 2512
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/hessian_230"
@@ -7908,6 +8181,7 @@
       "name": "Brick house",
       "category": "building",
       "file": "models/brick-house.glb",
+      "triangles": 6952,
       "footprint": 4.7,
       "height": 12.9,
       "blocksLos": true,
@@ -7926,7 +8200,8 @@
       "lod": [
         {
           "file": "models/brick-house-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 1903
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete"
@@ -7936,6 +8211,7 @@
       "name": "Burnt-out brick block",
       "category": "building",
       "file": "models/brick-block-ruined.glb",
+      "triangles": 7072,
       "footprint": 5.8,
       "height": 10.8,
       "blocksLos": true,
@@ -7953,7 +8229,8 @@
       "lod": [
         {
           "file": "models/brick-block-ruined-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 1934
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete"
@@ -7963,6 +8240,7 @@
       "name": "Broken high-rise",
       "category": "building",
       "file": "models/tower-stump.glb",
+      "triangles": 2028,
       "footprint": 7.6,
       "height": 33.1,
       "blocksLos": true,
@@ -7984,6 +8262,7 @@
       "name": "Corner shop",
       "category": "building",
       "file": "models/shop.glb",
+      "triangles": 2988,
       "footprint": 4.6,
       "height": 9.6,
       "blocksLos": true,
@@ -8001,7 +8280,8 @@
       "lod": [
         {
           "file": "models/shop-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 819
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/brushed_concrete"
@@ -8011,6 +8291,7 @@
       "name": "Warehouse",
       "category": "building",
       "file": "models/warehouse.glb",
+      "triangles": 186,
       "footprint": 8.4,
       "height": 7.6,
       "blocksLos": true,
@@ -8032,6 +8313,7 @@
       "name": "Rusty warehouse",
       "category": "building",
       "file": "models/warehouse-rusty.glb",
+      "triangles": 186,
       "footprint": 8.4,
       "height": 7.6,
       "blocksLos": true,
@@ -8053,6 +8335,7 @@
       "name": "Shipping container (green)",
       "category": "prop",
       "file": "models/container-green.glb",
+      "triangles": 140,
       "footprint": 2.8,
       "height": 2.6,
       "blocksLos": false,
@@ -8075,6 +8358,7 @@
       "name": "Shipping container (red)",
       "category": "prop",
       "file": "models/container-red.glb",
+      "triangles": 140,
       "footprint": 2.8,
       "height": 2.6,
       "blocksLos": false,
@@ -8097,6 +8381,7 @@
       "name": "Shipping container (blue)",
       "category": "prop",
       "file": "models/container-blue.glb",
+      "triangles": 140,
       "footprint": 2.8,
       "height": 2.6,
       "blocksLos": false,
@@ -8120,6 +8405,7 @@
       "name": "Rusty container",
       "category": "prop",
       "file": "models/container-rusty.glb",
+      "triangles": 140,
       "footprint": 2.8,
       "height": 2.6,
       "blocksLos": false,
@@ -8141,6 +8427,7 @@
       "name": "Car (red)",
       "category": "prop",
       "file": "models/car-red.glb",
+      "triangles": 1900,
       "footprint": 2.1,
       "height": 1.4,
       "blocksLos": false,
@@ -8162,6 +8449,7 @@
       "name": "Car (blue)",
       "category": "prop",
       "file": "models/car-blue.glb",
+      "triangles": 1900,
       "footprint": 2.1,
       "height": 1.4,
       "blocksLos": false,
@@ -8183,6 +8471,7 @@
       "name": "Car (white)",
       "category": "prop",
       "file": "models/car-white.glb",
+      "triangles": 1900,
       "footprint": 2.1,
       "height": 1.4,
       "blocksLos": false,
@@ -8204,6 +8493,7 @@
       "name": "Car (grey)",
       "category": "prop",
       "file": "models/car-grey.glb",
+      "triangles": 1900,
       "footprint": 2.1,
       "height": 1.4,
       "blocksLos": false,
@@ -8225,6 +8515,7 @@
       "name": "Car wreck",
       "category": "prop",
       "file": "models/car-wreck.glb",
+      "triangles": 1852,
       "footprint": 2.2,
       "height": 1.4,
       "blocksLos": false,
@@ -8246,6 +8537,7 @@
       "name": "Car wreck, tilted",
       "category": "prop",
       "file": "models/car-wreck-b.glb",
+      "triangles": 1852,
       "footprint": 2.2,
       "height": 1.4,
       "blocksLos": false,
@@ -8267,6 +8559,7 @@
       "name": "Burnt-out car",
       "category": "prop",
       "file": "models/car-burnt.glb",
+      "triangles": 1276,
       "footprint": 2.2,
       "height": 1.3,
       "blocksLos": false,
@@ -8289,6 +8582,7 @@
       "name": "Bus wreck",
       "category": "prop",
       "file": "models/bus-wreck.glb",
+      "triangles": 3424,
       "footprint": 5.2,
       "height": 3.2,
       "blocksLos": false,
@@ -8310,6 +8604,7 @@
       "name": "Pickup truck",
       "category": "prop",
       "file": "models/pickup.glb",
+      "triangles": 2284,
       "footprint": 2.4,
       "height": 1.8,
       "blocksLos": false,
@@ -8333,6 +8628,7 @@
       "name": "Pickup wreck",
       "category": "prop",
       "file": "models/pickup-wreck.glb",
+      "triangles": 2236,
       "footprint": 2.5,
       "height": 1.8,
       "blocksLos": false,
@@ -8355,6 +8651,7 @@
       "name": "Box truck",
       "category": "prop",
       "file": "models/truck.glb",
+      "triangles": 2712,
       "footprint": 3.3,
       "height": 3.5,
       "blocksLos": false,
@@ -8376,6 +8673,7 @@
       "name": "Truck wreck",
       "category": "prop",
       "file": "models/truck-wreck.glb",
+      "triangles": 2664,
       "footprint": 3.5,
       "height": 3.6,
       "blocksLos": false,
@@ -8397,6 +8695,7 @@
       "name": "Bus",
       "category": "prop",
       "file": "models/bus.glb",
+      "triangles": 3472,
       "footprint": 5.1,
       "height": 3.2,
       "blocksLos": false,
@@ -8418,6 +8717,7 @@
       "name": "Burnt-out bus",
       "category": "prop",
       "file": "models/bus-burnt.glb",
+      "triangles": 2848,
       "footprint": 5.2,
       "height": 3.1,
       "blocksLos": false,
@@ -8440,6 +8740,7 @@
       "name": "Tank wreck",
       "category": "prop",
       "file": "models/tank-wreck.glb",
+      "triangles": 892,
       "footprint": 3.8,
       "height": 2.6,
       "blocksLos": false,
@@ -8461,6 +8762,7 @@
       "name": "Burnt-out tank",
       "category": "prop",
       "file": "models/tank-burnt.glb",
+      "triangles": 892,
       "footprint": 3.8,
       "height": 2.6,
       "blocksLos": false,
@@ -8483,6 +8785,7 @@
       "name": "Covered car",
       "category": "prop",
       "file": "models/car-covered.glb",
+      "triangles": 3000,
       "footprint": 2.0,
       "height": 1.4,
       "blocksLos": false,
@@ -8505,6 +8808,7 @@
       "name": "Traffic light",
       "category": "prop",
       "file": "models/traffic-light.glb",
+      "triangles": 124,
       "footprint": 1.5,
       "height": 5.1,
       "blocksLos": false,
@@ -8532,6 +8836,7 @@
       "name": "Street lamp",
       "category": "prop",
       "file": "models/street-lamp.glb",
+      "triangles": 2499,
       "footprint": 0.3,
       "height": 3.9,
       "blocksLos": false,
@@ -8559,6 +8864,7 @@
       "name": "Park bench",
       "category": "prop",
       "file": "models/bench.glb",
+      "triangles": 356,
       "footprint": 0.9,
       "height": 0.9,
       "blocksLos": false,
@@ -8581,6 +8887,7 @@
       "name": "Bus stop",
       "category": "prop",
       "file": "models/bus-stop.glb",
+      "triangles": 84,
       "footprint": 1.8,
       "height": 2.6,
       "blocksLos": false,
@@ -8602,6 +8909,7 @@
       "name": "Fire hydrant",
       "category": "prop",
       "file": "models/hydrant.glb",
+      "triangles": 1200,
       "footprint": 0.2,
       "height": 0.8,
       "blocksLos": false,
@@ -8623,6 +8931,7 @@
       "name": "Trash can",
       "category": "prop",
       "file": "models/trash-can.glb",
+      "triangles": 1500,
       "footprint": 0.3,
       "height": 0.9,
       "blocksLos": false,
@@ -8645,6 +8954,7 @@
       "name": "Utility box",
       "category": "prop",
       "file": "models/utility-box.glb",
+      "triangles": 1500,
       "footprint": 0.4,
       "height": 1.1,
       "blocksLos": false,
@@ -8666,6 +8976,7 @@
       "name": "Concrete barrier",
       "category": "wall",
       "file": "models/road-barrier.glb",
+      "triangles": 1500,
       "footprint": 0.7,
       "height": 0.8,
       "blocksLos": false,
@@ -8688,6 +8999,7 @@
       "name": "Tall concrete barrier",
       "category": "wall",
       "file": "models/road-barrier-tall.glb",
+      "triangles": 1499,
       "footprint": 0.7,
       "height": 1.1,
       "blocksLos": false,
@@ -8710,6 +9022,7 @@
       "name": "Chain-link fence (4 m)",
       "category": "wall",
       "file": "models/fence-chainlink.glb",
+      "triangles": 38,
       "footprint": 1.8,
       "height": 2.2,
       "blocksLos": false,
@@ -8735,6 +9048,7 @@
       "name": "Chain-link fence with barbed wire",
       "category": "wall",
       "file": "models/fence-chainlink-barbed.glb",
+      "triangles": 74,
       "footprint": 1.8,
       "height": 2.7,
       "blocksLos": false,
@@ -8757,6 +9071,7 @@
       "name": "Concrete road bridge (30 m, deck at 6 m)",
       "category": "structure",
       "file": "models/bridge-concrete.glb",
+      "triangles": 760,
       "footprint": 14.4,
       "height": 7.2,
       "blocksLos": false,
@@ -8779,6 +9094,7 @@
       "name": "Power pole",
       "category": "prop",
       "file": "models/power-pole.glb",
+      "triangles": 4000,
       "footprint": 0.9,
       "height": 6.1,
       "blocksLos": false,
@@ -8801,6 +9117,7 @@
       "name": "Fallen power pole",
       "category": "prop",
       "file": "models/power-pole-fallen.glb",
+      "triangles": 4000,
       "footprint": 2.8,
       "height": 1.2,
       "blocksLos": false,
@@ -8822,6 +9139,7 @@
       "name": "Rubble pile",
       "category": "rock",
       "file": "models/rubble-pile.glb",
+      "triangles": 776,
       "footprint": 2.0,
       "height": 2.2,
       "base": [
@@ -8849,6 +9167,7 @@
       "name": "Large rubble pile",
       "category": "rock",
       "file": "models/rubble-pile-large.glb",
+      "triangles": 776,
       "footprint": 3.5,
       "height": 3.1,
       "base": [
@@ -8875,6 +9194,7 @@
       "name": "Barbed wire coil",
       "category": "wall",
       "file": "models/barbed-wire.glb",
+      "triangles": 1704,
       "footprint": 2.3,
       "height": 1.1,
       "blocksLos": false,
@@ -8896,6 +9216,7 @@
       "name": "Sandbag wall",
       "category": "wall",
       "file": "models/sandbags.glb",
+      "triangles": 846,
       "footprint": 1.9,
       "height": 0.8,
       "blocksLos": false,
@@ -8918,6 +9239,7 @@
       "name": "Barricade",
       "category": "wall",
       "file": "models/barricade.glb",
+      "triangles": 784,
       "footprint": 1.9,
       "height": 1.9,
       "blocksLos": true,
@@ -8939,6 +9261,7 @@
       "name": "Tank trap",
       "category": "prop",
       "file": "models/tank-trap.glb",
+      "triangles": 132,
       "footprint": 0.8,
       "height": 1.4,
       "blocksLos": false,
@@ -8961,6 +9284,7 @@
       "name": "Toxic barrel",
       "category": "prop",
       "file": "models/toxic-barrel.glb",
+      "triangles": 68,
       "footprint": 0.3,
       "height": 0.9,
       "blocksLos": false,
@@ -8982,6 +9306,7 @@
       "name": "Leaking toxic barrel",
       "category": "prop",
       "file": "models/toxic-barrel-leaking.glb",
+      "triangles": 84,
       "footprint": 0.8,
       "height": 0.6,
       "blocksLos": false,
@@ -9009,6 +9334,7 @@
       "name": "Old tyre",
       "category": "prop",
       "file": "models/tyres.glb",
+      "triangles": 1200,
       "footprint": 0.3,
       "height": 0.6,
       "blocksLos": false,
@@ -9031,6 +9357,7 @@
       "name": "Barrel fire",
       "category": "prop",
       "file": "models/barrel-stove.glb",
+      "triangles": 1499,
       "footprint": 0.3,
       "height": 0.9,
       "blocksLos": false,
@@ -9073,6 +9400,7 @@
       "name": "Jerrycan",
       "category": "prop",
       "file": "models/jerrycan.glb",
+      "triangles": 800,
       "footprint": 0.2,
       "height": 0.5,
       "blocksLos": false,
@@ -9094,6 +9422,7 @@
       "name": "Gas bottle",
       "category": "prop",
       "file": "models/gas-bottle.glb",
+      "triangles": 800,
       "footprint": 0.2,
       "height": 0.6,
       "blocksLos": false,
@@ -9116,6 +9445,7 @@
       "name": "Ammunition crate",
       "category": "prop",
       "file": "models/ammo-crate.glb",
+      "triangles": 1499,
       "footprint": 0.6,
       "height": 0.5,
       "blocksLos": false,
@@ -9137,6 +9467,7 @@
       "name": "Supply crates",
       "category": "prop",
       "file": "models/supply-crates.glb",
+      "triangles": 2000,
       "footprint": 0.8,
       "height": 0.3,
       "blocksLos": false,
@@ -9159,6 +9490,7 @@
       "name": "Station module",
       "category": "building",
       "file": "models/base-module.glb",
+      "triangles": 2434,
       "footprint": 4.6,
       "height": 7.5,
       "blocksLos": true,
@@ -9188,6 +9520,7 @@
       "name": "Station hub",
       "category": "building",
       "file": "models/base-hub.glb",
+      "triangles": 2044,
       "footprint": 4.9,
       "height": 8.5,
       "blocksLos": true,
@@ -9216,6 +9549,7 @@
       "name": "Station tunnel",
       "category": "structure",
       "file": "models/base-tunnel.glb",
+      "triangles": 148,
       "footprint": 2.8,
       "height": 2.8,
       "blocksLos": false,
@@ -9238,6 +9572,7 @@
       "name": "Habitat dome",
       "category": "building",
       "file": "models/dome-white.glb",
+      "triangles": 3132,
       "footprint": 6.2,
       "height": 6.9,
       "blocksLos": true,
@@ -9260,6 +9595,7 @@
       "name": "Glass dome",
       "category": "building",
       "file": "models/dome-glass.glb",
+      "triangles": 3132,
       "footprint": 6.2,
       "height": 6.9,
       "blocksLos": true,
@@ -9282,6 +9618,7 @@
       "name": "Greenhouse dome",
       "category": "building",
       "file": "models/greenhouse-dome.glb",
+      "triangles": 3300,
       "footprint": 7.1,
       "height": 7.9,
       "blocksLos": true,
@@ -9303,6 +9640,7 @@
       "name": "Antenna dish",
       "category": "prop",
       "file": "models/antenna-dish.glb",
+      "triangles": 482,
       "footprint": 3.0,
       "height": 7.1,
       "blocksLos": false,
@@ -9326,6 +9664,7 @@
       "name": "Antenna mast",
       "category": "prop",
       "file": "models/antenna-mast.glb",
+      "triangles": 780,
       "footprint": 0.6,
       "height": 14.2,
       "blocksLos": false,
@@ -9357,6 +9696,7 @@
       "name": "Lander",
       "category": "prop",
       "file": "models/lander.glb",
+      "triangles": 376,
       "footprint": 2.6,
       "height": 4.8,
       "blocksLos": false,
@@ -9378,6 +9718,7 @@
       "name": "Rover",
       "category": "prop",
       "file": "models/rover.glb",
+      "triangles": 2402,
       "footprint": 1.5,
       "height": 3.1,
       "blocksLos": false,
@@ -9400,6 +9741,7 @@
       "name": "Solar array",
       "category": "prop",
       "file": "models/solar-array.glb",
+      "triangles": 76,
       "footprint": 3.9,
       "height": 1.9,
       "blocksLos": false,
@@ -9424,6 +9766,7 @@
       "name": "Fuel tanks",
       "category": "prop",
       "file": "models/fuel-tanks.glb",
+      "triangles": 420,
       "footprint": 2.1,
       "height": 3.8,
       "blocksLos": false,
@@ -9446,6 +9789,7 @@
       "name": "Landing pad",
       "category": "structure",
       "file": "models/landing-pad.glb",
+      "triangles": 354,
       "footprint": 9.0,
       "height": 0.4,
       "blocksLos": false,
@@ -9475,6 +9819,7 @@
       "name": "Crater rim (over a dip)",
       "category": "rock",
       "file": "models/crater-rim.glb",
+      "triangles": 3338,
       "footprint": 11.5,
       "height": 1.2,
       "blocksLos": false,
@@ -9492,7 +9837,8 @@
       "lod": [
         {
           "file": "models/crater-rim-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 400
         }
       ],
       "source": "procedural (tools/map-assets/build_space.py); https://polyhaven.com/a/moon_01"
@@ -9502,6 +9848,7 @@
       "name": "Martian crater rim",
       "category": "rock",
       "file": "models/mars-crater-rim.glb",
+      "triangles": 3394,
       "footprint": 11.3,
       "height": 1.1,
       "blocksLos": false,
@@ -9519,7 +9866,8 @@
       "lod": [
         {
           "file": "models/mars-crater-rim-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 400
         }
       ],
       "source": "procedural (tools/map-assets/build_space.py); https://polyhaven.com/a/moon_01"
@@ -9529,6 +9877,7 @@
       "name": "Moon boulder",
       "category": "rock",
       "file": "models/moon-boulder.glb",
+      "triangles": 1999,
       "footprint": 1.3,
       "height": 2.6,
       "base": [
@@ -9551,7 +9900,8 @@
       "lod": [
         {
           "file": "models/moon-boulder-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_05"
@@ -9561,6 +9911,7 @@
       "name": "Moon rock",
       "category": "rock",
       "file": "models/moon-rock.glb",
+      "triangles": 1499,
       "footprint": 1.1,
       "height": 1.3,
       "base": [
@@ -9583,7 +9934,8 @@
       "lod": [
         {
           "file": "models/moon-rock-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 299
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_03"
@@ -9593,6 +9945,7 @@
       "name": "Moon stone",
       "category": "rock",
       "file": "models/moon-rocks-small.glb",
+      "triangles": 1200,
       "footprint": 0.8,
       "height": 0.6,
       "base": [
@@ -9615,7 +9968,8 @@
       "lod": [
         {
           "file": "models/moon-rocks-small-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 399
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_01"
@@ -9625,6 +9979,7 @@
       "name": "Mars boulder",
       "category": "rock",
       "file": "models/mars-boulder.glb",
+      "triangles": 1999,
       "footprint": 1.2,
       "height": 2.4,
       "base": [
@@ -9647,7 +10002,8 @@
       "lod": [
         {
           "file": "models/mars-boulder-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_05 (getönt)"
@@ -9657,6 +10013,7 @@
       "name": "Mars rock",
       "category": "rock",
       "file": "models/mars-stone.glb",
+      "triangles": 1499,
       "footprint": 1.5,
       "height": 1.6,
       "base": [
@@ -9679,7 +10036,8 @@
       "lod": [
         {
           "file": "models/mars-stone-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03 (getönt)"
@@ -9689,6 +10047,7 @@
       "name": "Large Mars rock",
       "category": "rock",
       "file": "models/mars-rock-large.glb",
+      "triangles": 1999,
       "footprint": 2.7,
       "height": 3.0,
       "base": [
@@ -9711,7 +10070,8 @@
       "lod": [
         {
           "file": "models/mars-rock-large-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_06 (getönt)"
@@ -9721,6 +10081,7 @@
       "name": "Mars cliff",
       "category": "rock",
       "file": "models/mars-cliff.glb",
+      "triangles": 6000,
       "footprint": 15.2,
       "height": 11.4,
       "blocksLos": true,
@@ -9738,7 +10099,8 @@
       "lod": [
         {
           "file": "models/mars-cliff-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 300
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_02 (getönt)"
@@ -9748,6 +10110,7 @@
       "name": "Igloo",
       "category": "building",
       "file": "models/igloo.glb",
+      "triangles": 1100,
       "footprint": 2.7,
       "height": 2.7,
       "blocksLos": true,
@@ -9770,6 +10133,7 @@
       "name": "Research station",
       "category": "building",
       "file": "models/research-station.glb",
+      "triangles": 276,
       "footprint": 5.7,
       "height": 10.8,
       "blocksLos": true,
@@ -9799,6 +10163,7 @@
       "name": "Wind turbine",
       "category": "prop",
       "file": "models/wind-turbine.glb",
+      "triangles": 94,
       "footprint": 4.6,
       "height": 20.4,
       "blocksLos": false,
@@ -9823,6 +10188,7 @@
       "name": "Ice floe",
       "category": "rock",
       "file": "models/ice-floe.glb",
+      "triangles": 1004,
       "footprint": 3.9,
       "height": 0.2,
       "blocksLos": false,
@@ -9841,7 +10207,8 @@
       "lod": [
         {
           "file": "models/ice-floe-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 400
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py)"
@@ -9851,6 +10218,7 @@
       "name": "Pack ice blocks",
       "category": "rock",
       "file": "models/ice-blocks.glb",
+      "triangles": 396,
       "footprint": 3.1,
       "height": 1.5,
       "base": [
@@ -9877,6 +10245,7 @@
       "name": "Iceberg",
       "category": "rock",
       "file": "models/iceberg.glb",
+      "triangles": 2678,
       "footprint": 9.4,
       "height": 11.3,
       "blocksLos": true,
@@ -9894,7 +10263,8 @@
       "lod": [
         {
           "file": "models/iceberg-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 400
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py)"
@@ -9904,6 +10274,7 @@
       "name": "Icicle ledge",
       "category": "prop",
       "file": "models/icicles.glb",
+      "triangles": 204,
       "footprint": 1.8,
       "height": 3.0,
       "blocksLos": false,
@@ -9926,6 +10297,7 @@
       "name": "Snow drift",
       "category": "rock",
       "file": "models/snow-drift-mound.glb",
+      "triangles": 2066,
       "footprint": 3.8,
       "height": 0.9,
       "base": [
@@ -9950,7 +10322,8 @@
       "lod": [
         {
           "file": "models/snow-drift-mound-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 400
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/snow_02"
@@ -9960,6 +10333,7 @@
       "name": "Ice spikes",
       "category": "rock",
       "file": "models/ice-spikes.glb",
+      "triangles": 838,
       "footprint": 0.9,
       "height": 2.3,
       "base": [
@@ -9996,6 +10370,7 @@
       "name": "Frozen tree",
       "category": "tree",
       "file": "models/tree-frozen.glb",
+      "triangles": 622,
       "footprint": 1.2,
       "height": 9.4,
       "blocksLos": false,
@@ -10018,6 +10393,7 @@
       "name": "Charred tree",
       "category": "tree",
       "file": "models/tree-charred.glb",
+      "triangles": 622,
       "footprint": 1.2,
       "height": 8.5,
       "blocksLos": false,
@@ -10041,6 +10417,7 @@
       "name": "Thorn thicket",
       "category": "plant",
       "file": "models/thorns.glb",
+      "triangles": 2400,
       "footprint": 1.0,
       "height": 1.8,
       "blocksLos": false,
@@ -10059,7 +10436,8 @@
       "lod": [
         {
           "file": "models/thorns-lod1.glb",
-          "distance": 200
+          "distance": 200,
+          "triangles": 400
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py)"
@@ -10069,6 +10447,7 @@
       "name": "Hanging chains",
       "category": "wall",
       "file": "models/chains.glb",
+      "triangles": 1096,
       "footprint": 2.4,
       "height": 3,
       "blocksLos": false,
@@ -10091,6 +10470,7 @@
       "name": "Hell gate",
       "category": "building",
       "file": "models/hell-gate.glb",
+      "triangles": 5272,
       "footprint": 8.9,
       "height": 17.4,
       "blocksLos": true,
@@ -10127,6 +10507,7 @@
       "name": "Altar",
       "category": "prop",
       "file": "models/altar.glb",
+      "triangles": 928,
       "footprint": 3.0,
       "height": 3.0,
       "blocksLos": false,
@@ -10157,6 +10538,7 @@
       "name": "Bone pile",
       "category": "prop",
       "file": "models/bone-pile.glb",
+      "triangles": 1588,
       "footprint": 1.2,
       "height": 0.8,
       "blocksLos": false,
@@ -10180,6 +10562,7 @@
       "name": "Lava rock",
       "category": "rock",
       "file": "models/lava-rock.glb",
+      "triangles": 2620,
       "footprint": 1.6,
       "height": 1.2,
       "base": [
@@ -10210,7 +10593,8 @@
       "lod": [
         {
           "file": "models/lava-rock-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 400
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
@@ -10220,6 +10604,7 @@
       "name": "Large lava rock",
       "category": "rock",
       "file": "models/lava-rock-large.glb",
+      "triangles": 2629,
       "footprint": 3.2,
       "height": 2.7,
       "base": [
@@ -10250,7 +10635,8 @@
       "lod": [
         {
           "file": "models/lava-rock-large-lod1.glb",
-          "distance": 320
+          "distance": 320,
+          "triangles": 400
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
@@ -10260,6 +10646,7 @@
       "name": "Obsidian spikes",
       "category": "rock",
       "file": "models/obsidian-spikes.glb",
+      "triangles": 860,
       "footprint": 1.0,
       "height": 2.6,
       "base": [
@@ -10287,6 +10674,7 @@
       "name": "Black spires",
       "category": "rock",
       "file": "models/hell-spires.glb",
+      "triangles": 400,
       "footprint": 1.5,
       "height": 6.5,
       "base": [
@@ -10314,6 +10702,7 @@
       "name": "Rope bridge (20 m, ends at the base height)",
       "category": "structure",
       "file": "models/rope-bridge.glb",
+      "triangles": 4192,
       "footprint": 9.4,
       "height": 1.4,
       "blocksLos": false,
@@ -10336,6 +10725,7 @@
       "name": "Alpine hut",
       "category": "building",
       "file": "models/alpine-hut.glb",
+      "triangles": 3054,
       "footprint": 4.1,
       "height": 7.5,
       "blocksLos": true,
@@ -10358,6 +10748,7 @@
       "name": "Alpine hut (snow)",
       "category": "building",
       "file": "models/alpine-hut-snow.glb",
+      "triangles": 3062,
       "footprint": 4.1,
       "height": 7.5,
       "blocksLos": true,
@@ -10380,6 +10771,7 @@
       "name": "Rock needle",
       "category": "rock",
       "file": "models/rock-needle.glb",
+      "triangles": 12012,
       "footprint": 2.5,
       "height": 19.9,
       "base": [
@@ -10402,7 +10794,8 @@
       "lod": [
         {
           "file": "models/rock-needle-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 570
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/rock_face"
@@ -10412,6 +10805,7 @@
       "name": "Cairn",
       "category": "rock",
       "file": "models/cairn.glb",
+      "triangles": 1190,
       "footprint": 0.5,
       "height": 1.9,
       "base": [
@@ -10435,7 +10829,8 @@
       "lod": [
         {
           "file": "models/cairn-lod1.glb",
-          "distance": 240
+          "distance": 240,
+          "triangles": 399
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/rock_face"
@@ -10445,6 +10840,7 @@
       "name": "Moss-hung swamp tree",
       "category": "tree",
       "file": "models/tree-swamp-moss.glb",
+      "triangles": 654,
       "footprint": 1.6,
       "height": 8.9,
       "blocksLos": false,
@@ -10466,6 +10862,7 @@
       "name": "Oasis pool",
       "category": "rock",
       "file": "models/oasis-pool.glb",
+      "triangles": 2930,
       "footprint": 4.4,
       "height": 0.3,
       "blocksLos": false,
@@ -10483,7 +10880,8 @@
       "lod": [
         {
           "file": "models/oasis-pool-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 400
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/sandstone_cracks"
@@ -10493,6 +10891,7 @@
       "name": "Desert temple",
       "category": "building",
       "file": "models/desert-temple.glb",
+      "triangles": 840,
       "footprint": 8.1,
       "height": 9.4,
       "blocksLos": true,
@@ -10515,6 +10914,7 @@
       "name": "Nomad tent",
       "category": "prop",
       "file": "models/tent-nomad.glb",
+      "triangles": 180,
       "footprint": 3.8,
       "height": 2.6,
       "blocksLos": false,
@@ -10536,6 +10936,7 @@
       "name": "Stone house with balcony",
       "category": "building",
       "file": "models/house-stone-balcony.glb",
+      "triangles": 8010,
       "footprint": 4.6,
       "height": 9.7,
       "blocksLos": true,
@@ -10558,6 +10959,7 @@
       "name": "Stone house with balcony (snow)",
       "category": "building",
       "file": "models/house-stone-balcony-snow.glb",
+      "triangles": 8018,
       "footprint": 4.6,
       "height": 9.7,
       "blocksLos": true,
@@ -10580,6 +10982,7 @@
       "name": "Mountain chapel",
       "category": "building",
       "file": "models/chapel-mountain.glb",
+      "triangles": 3366,
       "footprint": 5.5,
       "height": 10.1,
       "blocksLos": true,
@@ -10602,6 +11005,7 @@
       "name": "Mountain chapel (snow)",
       "category": "building",
       "file": "models/chapel-mountain-snow.glb",
+      "triangles": 3374,
       "footprint": 5.5,
       "height": 10.1,
       "blocksLos": true,
@@ -10624,6 +11028,7 @@
       "name": "Retaining wall (6 m)",
       "category": "wall",
       "file": "models/retaining-wall.glb",
+      "triangles": 176,
       "footprint": 2.7,
       "height": 2.8,
       "blocksLos": false,
@@ -10646,6 +11051,7 @@
       "name": "Retaining wall, quarter curve",
       "category": "wall",
       "file": "models/retaining-wall-curve.glb",
+      "triangles": 1408,
       "footprint": 3.0,
       "height": 2.8,
       "blocksLos": false,
@@ -10668,6 +11074,7 @@
       "name": "Cable car station",
       "category": "building",
       "file": "models/cablecar-station.glb",
+      "triangles": 406,
       "footprint": 12.6,
       "height": 8.4,
       "blocksLos": true,
@@ -10690,6 +11097,7 @@
       "name": "Cable car pylon",
       "category": "prop",
       "file": "models/cablecar-pylon.glb",
+      "triangles": 900,
       "footprint": 2.7,
       "height": 16.5,
       "blocksLos": false,
@@ -10712,6 +11120,7 @@
       "name": "Cable car gondola",
       "category": "prop",
       "file": "models/cablecar-gondola.glb",
+      "triangles": 146,
       "footprint": 1.0,
       "height": 4.5,
       "blocksLos": false,
@@ -10734,6 +11143,7 @@
       "name": "Cable span (10 m, two cables 5.2 m apart)",
       "category": "structure",
       "file": "models/cable-span.glb",
+      "triangles": 384,
       "footprint": 2.6,
       "height": 0.1,
       "blocksLos": false,
@@ -10756,6 +11166,7 @@
       "name": "Cable span (20 m, two cables 5.2 m apart)",
       "category": "structure",
       "file": "models/cable-span-20.glb",
+      "triangles": 384,
       "footprint": 2.6,
       "height": 0.1,
       "blocksLos": false,
@@ -10778,6 +11189,7 @@
       "name": "Cable span (40 m, two cables 5.2 m apart)",
       "category": "structure",
       "file": "models/cable-span-40.glb",
+      "triangles": 384,
       "footprint": 2.6,
       "height": 0.1,
       "blocksLos": false,
@@ -10800,6 +11212,7 @@
       "name": "Boardwalk with lantern",
       "category": "structure",
       "file": "models/boardwalk-lantern.glb",
+      "triangles": 832,
       "footprint": 1.8,
       "height": 2.6,
       "blocksLos": false,
@@ -10829,6 +11242,7 @@
       "name": "Witch's hut",
       "category": "building",
       "file": "models/witch-hut.glb",
+      "triangles": 1250,
       "footprint": 2.9,
       "height": 6.5,
       "blocksLos": true,
@@ -10866,6 +11280,7 @@
       "name": "Witch's cauldron",
       "category": "prop",
       "file": "models/cauldron.glb",
+      "triangles": 530,
       "footprint": 0.5,
       "height": 1.0,
       "blocksLos": false,
@@ -10904,6 +11319,7 @@
       "name": "Rotten boat",
       "category": "prop",
       "file": "models/boat-rotten.glb",
+      "triangles": 221,
       "footprint": 1.9,
       "height": 0.9,
       "blocksLos": false,
@@ -10927,6 +11343,7 @@
       "name": "Rowing boat",
       "category": "prop",
       "file": "models/rowboat.glb",
+      "triangles": 321,
       "footprint": 1.9,
       "height": 0.9,
       "blocksLos": false,
@@ -10950,6 +11367,7 @@
       "name": "Fishing boat",
       "category": "prop",
       "file": "models/fishing-boat.glb",
+      "triangles": 249,
       "footprint": 4.0,
       "height": 6.6,
       "blocksLos": false,
@@ -10972,6 +11390,7 @@
       "name": "Temple ruin",
       "category": "building",
       "file": "models/temple-ruin.glb",
+      "triangles": 1260,
       "footprint": 8.4,
       "height": 9.2,
       "blocksLos": true,
@@ -10994,6 +11413,7 @@
       "name": "Caravan tent",
       "category": "prop",
       "file": "models/caravan-tent.glb",
+      "triangles": 515,
       "footprint": 4.3,
       "height": 4,
       "blocksLos": false,
@@ -11015,6 +11435,7 @@
       "name": "Camel saddle",
       "category": "prop",
       "file": "models/camel-saddle.glb",
+      "triangles": 564,
       "footprint": 0.9,
       "height": 0.9,
       "blocksLos": false,
@@ -11036,6 +11457,7 @@
       "name": "Trade goods",
       "category": "prop",
       "file": "models/trade-goods.glb",
+      "triangles": 1326,
       "footprint": 1.8,
       "height": 0.8,
       "blocksLos": false,
@@ -11059,6 +11481,7 @@
       "name": "Harbour quay (8 m)",
       "category": "structure",
       "file": "models/harbor-quay.glb",
+      "triangles": 396,
       "footprint": 3.6,
       "height": 1.4,
       "blocksLos": false,
@@ -11080,6 +11503,7 @@
       "name": "Harbour crane",
       "category": "prop",
       "file": "models/harbor-crane.glb",
+      "triangles": 250,
       "footprint": 3.1,
       "height": 7.5,
       "blocksLos": false,
@@ -11101,6 +11525,7 @@
       "name": "Jetty (12 m, deck at 1.2 m)",
       "category": "structure",
       "file": "models/jetty.glb",
+      "triangles": 2038,
       "footprint": 5.4,
       "height": 1.6,
       "blocksLos": false,
@@ -11124,6 +11549,7 @@
       "name": "Fisher's hut",
       "category": "building",
       "file": "models/fisher-hut.glb",
+      "triangles": 3128,
       "footprint": 4.6,
       "height": 5.6,
       "blocksLos": true,
@@ -11146,6 +11572,7 @@
       "name": "Buoy (red)",
       "category": "prop",
       "file": "models/buoy-red.glb",
+      "triangles": 228,
       "footprint": 0.9,
       "height": 2.3,
       "blocksLos": false,
@@ -11175,6 +11602,7 @@
       "name": "Buoy (green)",
       "category": "prop",
       "file": "models/buoy-green.glb",
+      "triangles": 228,
       "footprint": 0.9,
       "height": 2.3,
       "blocksLos": false,
@@ -11204,6 +11632,7 @@
       "name": "Sled",
       "category": "prop",
       "file": "models/sled.glb",
+      "triangles": 588,
       "footprint": 0.8,
       "height": 0.5,
       "blocksLos": false,
@@ -11226,6 +11655,7 @@
       "name": "Woodpile under snow",
       "category": "prop",
       "file": "models/woodpile-snow.glb",
+      "triangles": 1024,
       "footprint": 1.7,
       "height": 2.4,
       "blocksLos": false,
@@ -11248,6 +11678,7 @@
       "name": "Ice fishing hut",
       "category": "prop",
       "file": "models/ice-fishing-hut.glb",
+      "triangles": 338,
       "footprint": 1.7,
       "height": 3,
       "blocksLos": false,
@@ -11278,6 +11709,7 @@
       "name": "Obsidian slabs",
       "category": "rock",
       "file": "models/obsidian-slabs.glb",
+      "triangles": 160,
       "footprint": 1.2,
       "height": 1.2,
       "base": [
@@ -11305,6 +11737,7 @@
       "name": "Lava bridge (14 m)",
       "category": "structure",
       "file": "models/lava-bridge.glb",
+      "triangles": 1400,
       "footprint": 6.3,
       "height": 3.2,
       "blocksLos": false,
@@ -11334,6 +11767,7 @@
       "name": "Forge",
       "category": "building",
       "file": "models/forge.glb",
+      "triangles": 675,
       "footprint": 3.3,
       "height": 5.9,
       "blocksLos": true,
@@ -11378,6 +11812,7 @@
       "name": "Ruined wall corner",
       "category": "wall",
       "file": "models/castle-ruin-corner.glb",
+      "triangles": 1022,
       "footprint": 5.0,
       "height": 6.8,
       "blocksLos": true,
@@ -11400,6 +11835,7 @@
       "name": "Keep ruin",
       "category": "building",
       "file": "models/keep-ruin.glb",
+      "triangles": 1526,
       "footprint": 5.0,
       "height": 14.9,
       "blocksLos": true,
@@ -11422,6 +11858,7 @@
       "name": "Gatehouse ruin",
       "category": "building",
       "file": "models/gate-ruin.glb",
+      "triangles": 1364,
       "footprint": 7.2,
       "height": 10.1,
       "blocksLos": true,
@@ -11444,6 +11881,7 @@
       "name": "Leaf pile",
       "category": "plant",
       "file": "models/leaf-pile.glb",
+      "triangles": 526,
       "footprint": 0.8,
       "height": 0.6,
       "blocksLos": false,
@@ -11466,6 +11904,7 @@
       "name": "Street tree",
       "category": "tree",
       "file": "models/tree-street.glb",
+      "triangles": 844,
       "footprint": 0.8,
       "height": 7.8,
       "blocksLos": true,
@@ -11488,6 +11927,7 @@
       "name": "Office tower (12 floors)",
       "category": "building",
       "file": "models/office-tower.glb",
+      "triangles": 14576,
       "footprint": 7.4,
       "height": 39.2,
       "blocksLos": true,
@@ -11505,7 +11945,8 @@
       "lod": [
         {
           "file": "models/office-tower-lod1.glb",
-          "distance": 350
+          "distance": 350,
+          "triangles": 2540
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/gravel_floor_02"
@@ -11515,6 +11956,7 @@
       "name": "Street sign",
       "category": "prop",
       "file": "models/street-sign.glb",
+      "triangles": 182,
       "footprint": 0.5,
       "height": 3,
       "blocksLos": false,
@@ -11536,6 +11978,7 @@
       "name": "Bollards",
       "category": "prop",
       "file": "models/bollards.glb",
+      "triangles": 328,
       "footprint": 2.1,
       "height": 0.9,
       "blocksLos": false,
@@ -11557,6 +12000,7 @@
       "name": "Broken fence",
       "category": "wall",
       "file": "models/fence-broken.glb",
+      "triangles": 924,
       "footprint": 1.9,
       "height": 1.4,
       "blocksLos": false,
@@ -11579,6 +12023,7 @@
       "name": "Rusty barrel",
       "category": "prop",
       "file": "models/barrel-rusty.glb",
+      "triangles": 202,
       "footprint": 0.3,
       "height": 0.9,
       "blocksLos": false,
@@ -11601,6 +12046,7 @@
       "name": "Rusty barrel, tipped",
       "category": "prop",
       "file": "models/barrel-rusty-tipped.glb",
+      "triangles": 202,
       "footprint": 0.4,
       "height": 0.6,
       "blocksLos": false,
@@ -11622,6 +12068,7 @@
       "name": "Gibbet cage",
       "category": "prop",
       "file": "models/cage.glb",
+      "triangles": 840,
       "footprint": 1.5,
       "height": 6.5,
       "blocksLos": false,
@@ -11645,6 +12092,7 @@
       "name": "Pebbles",
       "category": "rock",
       "file": "models/pebbles-scatter.glb",
+      "triangles": 2240,
       "footprint": 0.7,
       "height": 0.1,
       "base": [
@@ -11674,6 +12122,7 @@
       "name": "Scree",
       "category": "rock",
       "file": "models/scree-scatter.glb",
+      "triangles": 1431,
       "footprint": 1.1,
       "height": 0.2,
       "base": [
@@ -11703,6 +12152,7 @@
       "name": "Mossy stones",
       "category": "rock",
       "file": "models/stones-mossy-scatter.glb",
+      "triangles": 1120,
       "footprint": 1.1,
       "height": 0.3,
       "base": [
@@ -11732,6 +12182,7 @@
       "name": "Desert stones",
       "category": "rock",
       "file": "models/stones-desert-scatter.glb",
+      "triangles": 1440,
       "footprint": 1.1,
       "height": 0.2,
       "base": [
@@ -11760,6 +12211,7 @@
       "name": "Volcanic stones",
       "category": "rock",
       "file": "models/stones-volcanic-scatter.glb",
+      "triangles": 1440,
       "footprint": 1.0,
       "height": 0.3,
       "base": [

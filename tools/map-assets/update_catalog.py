@@ -7,7 +7,8 @@ category, tags, licence source and, where the default does not fit,
 placement flags). Missing fields come from the category defaults below;
 footprint and height come from the measured bounds in <glb-raw-dir>/report.json
 (pack_models.py) unless objects.json sets them; the underside of rocks (`base`)
-from bases.json (measure_bases.mjs). Also rewrites LICENSES.md.
+from bases.json (measure_bases.mjs); the triangle counts from the packed models
+(count_triangles.py). Also rewrites LICENSES.md.
 """
 import json
 import os
@@ -76,6 +77,7 @@ def main():
     with open(path, 'w', encoding='utf8', newline='\n') as f:
         json.dump(catalog, f, indent=2, ensure_ascii=False)
         f.write('\n')
+    subprocess.run([sys.executable, '-I', os.path.join(HERE, 'count_triangles.py'), out], check=True)
     subprocess.run([sys.executable, '-I', os.path.join(HERE, 'write_licenses.py'), out], check=True)
     print(len(objects), 'objects', file=sys.stderr)
 

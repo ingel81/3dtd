@@ -30,7 +30,8 @@ python -I tools/map-assets/match_lods.py public/maps/assets [<id> ...]
 # Unterseite der Felsen aus objects.json an den gepackten Modellen messen (bases.json)
 node tools/map-assets/measure_bases.mjs public/maps/assets
 
-# Objekte in catalog.json schreiben (objects.json + Messwerte + bases.json), LICENSES.md neu
+# Objekte in catalog.json schreiben (objects.json + Messwerte + bases.json), Dreiecke je Modell und LOD
+# (count_triangles.py, auch allein nach einem pack_models.py), LICENSES.md neu
 python -I tools/map-assets/update_catalog.py $DL/glb-raw public/maps/assets
 ```
 

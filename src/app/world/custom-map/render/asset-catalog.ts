@@ -102,6 +102,8 @@ export interface CatalogObject {
   category: ObjectCategory;
   /** GLB relative to the catalogue, pivot at the base centre, metres, +Y up, front towards +Z; '' for effect-only entries */
   file: string;
+  /** Triangles the model draws (tools/map-assets/count_triangles.py), for the editor's scene cost */
+  triangles?: number;
   /** Radius in metres that the object occupies on the ground at scale 1 */
   footprint: number;
   /** Height in metres at scale 1 */
@@ -134,7 +136,7 @@ export interface CatalogObject {
    */
   float?: boolean;
   /** Lower detail models by camera distance */
-  lod?: { file: string; distance: number }[];
+  lod?: { file: string; distance: number; triangles?: number }[];
 }
 
 export interface AssetCatalog {
