@@ -11,7 +11,7 @@
 //
 // Options: --display DISPLAY2 (default: the primary), --quality ultra|high (default ultra), --output-idx N (ddagrab output, default: found by a test
 // colour), --dpr 1 (device scale factor), --cq 18, --chroma 420|444, --headless WxH (development: no window,
-// no recording; --shots N takes a picture every N seconds), --check-browser (print Chrome's flags and translate pref), --playwright <dir> (where playwright-core lies, default e2e/node_modules of this checkout or
+// no recording, --sound records the pages' sound; --shots N takes a picture every N seconds), --check-browser (print Chrome's flags and translate pref), --playwright <dir> (where playwright-core lies, default e2e/node_modules of this checkout or
 // of the main checkout).
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -119,7 +119,8 @@ async function main() {
 
   const base = option('url', 'http://localhost:4200');
   const headless = option('headless', '');
-  const rehearse = flag('rehearse') || !!headless;
+  // --headless --sound (development): the pages' sound recorded and saved, no screen capture
+  const rehearse = flag('rehearse') || (!!headless && !flag('sound'));
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const out = resolve(option('out', join(tmpdir(), '3dtd-showreel')), stamp);
   mkdirSync(out, { recursive: true });
@@ -198,7 +199,7 @@ async function main() {
   }
 
   let capture = null;
-  if (!rehearse) {
+  if (!rehearse && !headless) {
     // Which ddagrab output shows the window: a solid test colour, one frame of each output
     await page.setContent(`<body style="margin:0;background:rgb(${PROBE_COLOUR.join(',')});cursor:none"></body>`);
     await page.waitForTimeout(1500);
@@ -307,9 +308,9 @@ async function main() {
     rmSync(profile, { recursive: true, force: true });
   }
 
-  if (rehearse) {
-    writeFileSync(join(out, 'marks.json'), JSON.stringify({ marks, problems }, null, 2));
-    console.log(`rehearsal done, marks in ${join(out, 'marks.json')}`);
+  if (rehearse || !capture) {
+    writeFileSync(join(out, 'marks.json'), JSON.stringify({ pages: segments, marks, problems }, null, 2));
+    console.log(`${rehearse ? 'rehearsal' : 'sound only'} done, marks in ${join(out, 'marks.json')}`);
     return;
   }
 

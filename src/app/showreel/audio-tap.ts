@@ -46,6 +46,8 @@ export class AudioRecording {
   private readonly chunks: Blob[] = [];
   private data: string | null = null;
   readonly ctx = ThreeAudioContext.getContext() as unknown as AudioContext;
+  /** A silent source on the tap while the page records */
+  private silence: ConstantSourceNode | null = null;
   /** performance.now() when the recorder started */
   startedAt = 0;
 
@@ -53,12 +55,23 @@ export class AudioRecording {
     const ctx = this.ctx;
     if (ctx.state !== 'running') await ctx.resume().catch(() => undefined);
     const tap = tapOf(ctx)!;
+    // A page with no sound of its own (the editor) sends nothing into the tap, and a MediaRecorder on a stream
+    // without samples never starts (no start event): silence keeps the stream going and the file's clock even
+    if (!this.silence) {
+      this.silence = ctx.createConstantSource();
+      this.silence.offset.value = 0;
+      this.silence.connect(tap);
+      this.silence.start();
+    }
     const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
     const recorder = new MediaRecorder(tap.stream, { mimeType, audioBitsPerSecond: 256_000 });
     recorder.ondataavailable = (e) => {
       if (e.data.size) this.chunks.push(e.data);
     };
-    const started = new Promise<void>((done) => (recorder.onstart = () => done()));
+    const started = new Promise<void>((done, fail) => {
+      recorder.onstart = () => done();
+      setTimeout(() => fail(new Error(`showreel: the sound recorder did not start (context ${ctx.state})`)), 5000);
+    });
     recorder.start(1000);
     await started;
     this.startedAt = performance.now();
@@ -94,6 +107,9 @@ export class AudioRecording {
     const stopped = new Promise<void>((done) => (recorder.onstop = () => done()));
     recorder.stop();
     await stopped;
+    this.silence?.stop();
+    this.silence?.disconnect();
+    this.silence = null;
     const blob = new Blob(this.chunks, { type: recorder.mimeType });
     const bytes = new Uint8Array(await blob.arrayBuffer());
     let text = '';
