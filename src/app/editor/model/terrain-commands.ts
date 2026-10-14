@@ -98,7 +98,8 @@ export class RiverListCommand implements EditCommand {
 }
 
 function setRivers(doc: CustomMapDocument, rivers: readonly MapRiver[] | undefined): DocChange {
-  if (rivers?.length) doc.terrain.rivers = structuredClone(rivers) as MapRiver[];
+  // Exactly the list as it was, an empty one too: undo gives the map back byte for byte (its content hash)
+  if (rivers) doc.terrain.rivers = structuredClone(rivers) as MapRiver[];
   else delete doc.terrain.rivers;
   return { water: true };
 }
