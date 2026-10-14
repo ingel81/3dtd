@@ -114,6 +114,14 @@ interface Packed {
   /** In a band: the level it dissolves into (-1: none), NO_NEXT outside; and how far (lod-fade.ts) */
   nextOf: Int8Array;
   fadeOf: Float32Array;
+  /**
+   * The level each object casts its shadow with, -1 none: the one that
+   * covers more of its pixels in a band, and only near the focus
+   * (shadowRadius), as the cells do
+   */
+  shadowOf: Int8Array;
+  /** Per level: how many of its instances, written first, cast (the shadow pass draws only those) */
+  casters: number[];
   /** Per level: the instance matrices (and colours) all its part meshes share, and the bounds of what it shows */
   matrices: InstancedBufferAttribute[];
   colors: (InstancedBufferAttribute | null)[];
@@ -690,6 +698,8 @@ export class MapObjectLayer {
         levelOf: new Int8Array(n).fill(-2),
         nextOf: new Int8Array(n).fill(NO_NEXT),
         fadeOf: new Float32Array(n),
+        shadowOf: new Int8Array(n).fill(-1),
+        casters: [],
         matrices: [],
         colors: [],
         bounds: [],
@@ -710,6 +720,7 @@ export class MapObjectLayer {
         pack.matrices.push(shared!);
         pack.colors.push(sharedColors);
         pack.bounds.push(new Sphere());
+        pack.casters.push(0);
       }
       for (const part of level.parts) {
         const mesh = new InstancedMesh(fadeGeometry(part.geometry, fade), part.material, capacity);
@@ -721,6 +732,16 @@ export class MapObjectLayer {
           if (sharedColors) mesh.instanceColor = sharedColors;
           mesh.count = 0;
           mesh.boundingSphere = pack!.bounds[li];
+          // The shadow pass draws the level's casters only, written first (writePacked)
+          const p = pack!;
+          let drawn = 0;
+          mesh.onBeforeShadow = () => {
+            drawn = mesh.count;
+            mesh.count = Math.min(drawn, p.casters[li]);
+          };
+          mesh.onAfterShadow = () => {
+            mesh.count = drawn;
+          };
         } else {
           const arr = mesh.instanceMatrix.array as Float32Array;
           indices.forEach((i, k) => arr.set(b.matrices.subarray(i * 16, i * 16 + 16), k * 16));
@@ -783,11 +804,21 @@ export class MapObjectLayer {
     const draw = b.blocksLos ? b.entry.drawDistance : b.entry.drawDistance * lodBias;
     const dirty = new Array<boolean>(levels).fill(pack.stale || all);
     let moved = pack.stale || all;
+    const casts = b.entry.category !== 'plant' || b.entry.height > 0.8;
     for (let i = 0; i < n; i++) {
       const s = i * 4;
       const d = all ? 0 : Math.max(0, Math.hypot(b.spheres[s] - this.camPos.x, b.spheres[s + 1] - this.camPos.y, b.spheres[s + 2] - this.camPos.z) - b.spheres[s + 3]);
       const blend = all ? { level: 0, next: null, t: 0 } : blendAt(b.levels, d, draw, lodBias, impostorFrom);
       const next = blend.next ?? NO_NEXT;
+      // In a band the level that covers more of the pixels casts, and only near the focus
+      const near = Math.hypot(b.spheres[s] - this.focus.x, b.spheres[s + 1] - this.focus.y, b.spheres[s + 2] - this.focus.z) - b.spheres[s + 3] < this.shadowRadius;
+      const caster = !casts || !near ? -1 : next !== NO_NEXT && blend.t >= 0.5 ? next : blend.level;
+      if (caster !== pack.shadowOf[i]) {
+        moved = true;
+        if (pack.shadowOf[i] >= 0) dirty[pack.shadowOf[i]] = true;
+        if (caster >= 0) dirty[caster] = true;
+        pack.shadowOf[i] = caster;
+      }
       const was = pack.levelOf[i];
       const wasNext = pack.nextOf[i];
       if (blend.level !== was || next !== wasNext) {
@@ -803,7 +834,6 @@ export class MapObjectLayer {
     }
     pack.stale = false;
     if (!dirty.some(Boolean)) return false;
-    const casts = b.entry.category !== 'plant' || b.entry.height > 0.8;
     for (let l = 0; l < levels; l++) {
       if (!dirty[l]) continue;
       const matrices = pack.matrices[l].array as Float32Array;
@@ -811,17 +841,23 @@ export class MapObjectLayer {
       const fades = cell.fades[l].array as Float32Array;
       const bounds = pack.bounds[l].makeEmpty();
       let count = 0;
-      for (let i = 0; i < n; i++) {
-        const outgoing = pack.levelOf[i] === l;
-        if (!all && !outgoing && pack.nextOf[i] !== l) continue;
-        matrices.set(b.matrices.subarray(i * 16, i * 16 + 16), count * 16);
-        if (colors && b.colors) colors.set(b.colors.subarray(i * 3, i * 3 + 3), count * 3);
-        // Outgoing: drop a share t of the pixels; incoming: keep a share t
-        fades[count] = all || pack.nextOf[i] === NO_NEXT ? 0 : outgoing ? pack.fadeOf[i] : pack.fadeOf[i] - 1;
-        this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3]);
-        if (bounds.isEmpty()) bounds.copy(this.sphere);
-        else bounds.union(this.sphere);
-        count++;
+      // The level's casters first, then the rest: the shadow pass draws the first `casters` (buildCell)
+      for (const casting of [true, false]) {
+        for (let i = 0; i < n; i++) {
+          const outgoing = pack.levelOf[i] === l;
+          if (!all && !outgoing && pack.nextOf[i] !== l) continue;
+          if (!all && (pack.shadowOf[i] === l) !== casting) continue;
+          if (all && !casting) continue;
+          matrices.set(b.matrices.subarray(i * 16, i * 16 + 16), count * 16);
+          if (colors && b.colors) colors.set(b.colors.subarray(i * 3, i * 3 + 3), count * 3);
+          // Outgoing: drop a share t of the pixels; incoming: keep a share t
+          fades[count] = all || pack.nextOf[i] === NO_NEXT ? 0 : outgoing ? pack.fadeOf[i] : pack.fadeOf[i] - 1;
+          this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3]);
+          if (bounds.isEmpty()) bounds.copy(this.sphere);
+          else bounds.union(this.sphere);
+          count++;
+        }
+        if (casting) pack.casters[l] = count;
       }
       pack.matrices[l].needsUpdate = true;
       if (pack.colors[l]) pack.colors[l]!.needsUpdate = true;
@@ -830,7 +866,7 @@ export class MapObjectLayer {
         m.count = count;
         m.visible = count > 0;
         m.frustumCulled = !all;
-        m.castShadow = casts || all;
+        m.castShadow = pack.casters[l] > 0;
       }
     }
     return moved;

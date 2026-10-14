@@ -123,6 +123,36 @@ describe('MapObjectLayer packed assets (few objects, no cells)', () => {
     layer.dispose();
   });
 
+  it("casts a packed object's shadow with the level that covers more of it, and only near the focus", async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const los = new Group();
+    const layer = new MapObjectLayer(field, library(), los);
+    layer.shadowRadius = 150;
+    await layer.setObjects(Array.from({ length: 20 }, (_, k) => ({ id: `t${k}`, asset: 'tree', x: k * 20, y: 0, z: 0, rotation: 0, scale: 1 })));
+    const camera = new PerspectiveCamera();
+    camera.position.set(-400, 5, 0);
+    camera.updateMatrixWorld();
+    layer.update(0.016, camera);
+    const mesh = (name: string) => los.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === name)!;
+    /** How many instances the shadow pass draws of a level's mesh */
+    const inShadow = (m: InstancedMesh) => {
+      const call = (hook: 'onBeforeShadow' | 'onAfterShadow') => (m[hook] as unknown as () => void)();
+      call('onBeforeShadow');
+      const n = m.count;
+      call('onAfterShadow');
+      return n;
+    };
+    // Within 150 m of the focus (map x 400): the trees from map x 260 on. Near: map x 300 to 380, the one at
+    // 300 in the band at a quarter, so still near; far: 260 and 280. The band tree casts once
+    expect(mesh('tree').count).toBe(5);
+    expect(mesh('tree-lod1').count).toBe(16);
+    expect(inShadow(mesh('tree'))).toBe(5);
+    expect(inShadow(mesh('tree-lod1'))).toBe(2);
+    // The main pass still draws every instance
+    expect(mesh('tree-lod1').count).toBe(16);
+    layer.dispose();
+  });
+
   it('merges the plain-coloured parts of a model into one draw', async () => {
     const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
     const lib = new MapAssetLibrary('base/', {
