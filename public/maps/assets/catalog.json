@@ -2311,7 +2311,11 @@
       "files": {
         "color": "materials/meadow-earthy/color.jpg",
         "normal": "materials/meadow-earthy/normal.jpg",
-        "arh": "materials/meadow-earthy/arh.jpg"
+        "arh": "materials/meadow-earthy/arh.jpg",
+        "packed": {
+          "color": "materials/meadow-earthy/color.ktx2",
+          "data": "materials/meadow-earthy/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#6e603e",
@@ -2328,7 +2332,11 @@
       "files": {
         "color": "materials/alpine-meadow-rocks/color.jpg",
         "normal": "materials/alpine-meadow-rocks/normal.jpg",
-        "arh": "materials/alpine-meadow-rocks/arh.jpg"
+        "arh": "materials/alpine-meadow-rocks/arh.jpg",
+        "packed": {
+          "color": "materials/alpine-meadow-rocks/color.ktx2",
+          "data": "materials/alpine-meadow-rocks/data.ktx2"
+        }
       },
       "scale": 8,
       "average": "#726125",
@@ -2344,7 +2352,11 @@
       "files": {
         "color": "materials/forest-roots/color.jpg",
         "normal": "materials/forest-roots/normal.jpg",
-        "arh": "materials/forest-roots/arh.jpg"
+        "arh": "materials/forest-roots/arh.jpg",
+        "packed": {
+          "color": "materials/forest-roots/color.ktx2",
+          "data": "materials/forest-roots/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#735f44",
@@ -2362,7 +2374,11 @@
       "files": {
         "color": "materials/leaf-gravel/color.jpg",
         "normal": "materials/leaf-gravel/normal.jpg",
-        "arh": "materials/leaf-gravel/arh.jpg"
+        "arh": "materials/leaf-gravel/arh.jpg",
+        "packed": {
+          "color": "materials/leaf-gravel/color.ktx2",
+          "data": "materials/leaf-gravel/data.ktx2"
+        }
       },
       "scale": 3,
       "average": "#4e4034",
@@ -2379,7 +2395,11 @@
       "files": {
         "color": "materials/desert-gravel/color.jpg",
         "normal": "materials/desert-gravel/normal.jpg",
-        "arh": "materials/desert-gravel/arh.jpg"
+        "arh": "materials/desert-gravel/arh.jpg",
+        "packed": {
+          "color": "materials/desert-gravel/color.ktx2",
+          "data": "materials/desert-gravel/data.ktx2"
+        }
       },
       "scale": 4,
       "average": "#9a7352",
@@ -2396,7 +2416,11 @@
       "files": {
         "color": "materials/rocky-terrain/color.jpg",
         "normal": "materials/rocky-terrain/normal.jpg",
-        "arh": "materials/rocky-terrain/arh.jpg"
+        "arh": "materials/rocky-terrain/arh.jpg",
+        "packed": {
+          "color": "materials/rocky-terrain/color.ktx2",
+          "data": "materials/rocky-terrain/data.ktx2"
+        }
       },
       "scale": 8,
       "average": "#504e1c",
