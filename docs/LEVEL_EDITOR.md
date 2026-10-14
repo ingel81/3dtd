@@ -229,7 +229,8 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   passt. Das gilt beim Setzen (Place, Line), beim Streuen mit „Sink on slope“, für Felsen der Landscape-Pinsel und
   des Flussufers (am Ende des Strichs, auf dem Boden, den der Strich hinterlässt), bei Ende (Drop to the ground: Höhe
   0, dann absetzen) und bei „Align to slope“ im Panel (Fels neu aufs Gelände gelegt). Andere Objekte sinken beim
-  Streuen weiter nach der Neigung unter ihrer Mitte
+  Streuen weiter nach der Neigung unter ihrer Mitte; schwimmende (Katalog `float`: Boote, Bojen, Stege, Seerosen) weder
+  sinken noch kippen mit dem Boden (Place, Line, Streuen, Biom-Pinsel): ihr z zählt ab der Wasserlinie
 - Place: ein Klick setzt das gewählte Objekt (Raster-Fang 1 bis 8 m, zufällige Drehung; „Align to slope“ kippt es mit
   dem Boden unter seinem Fußabdruck, bei Felsen unter ihrer Platte, `pitch` und `roll` aus `slopeTilt`, jedes
   Symmetrie-Bild mit seinem eigenen Boden)

@@ -246,12 +246,13 @@ export class ObjectTool implements EditorTool {
     const origin = b.origin;
     // With symmetry the scatter grows in the stroke's own sector and is copied to the others
     const rockOf = (asset: string) => rockShape(ctx.catalog.object(asset));
-    const own = scatterDab(t, p.hit, brush, { ...s.scatter, assets: this.scatterAssets(ctx) }, b.grid, b.ids, Math.random, Math.min(dt, 0.1) * 6, rockOf)
+    const floats = (asset: string) => !!ctx.catalog.object(asset).float;
+    const own = scatterDab(t, p.hit, brush, { ...s.scatter, assets: this.scatterAssets(ctx) }, b.grid, b.ids, Math.random, Math.min(dt, 0.1) * 6, rockOf, floats)
       .filter((o) => sameSector(mode, o, origin));
     // Each image tilts with its own ground, and a rock settles from the ground up on its own
     const images = objectImages(own, symmetryImages(mode, t.grid.columns === t.grid.rows), () => b.ids.take(), t.width / 2, t.depth / 2).map((o) => {
       const rock = s.scatter.sinkOnSlope ? rockOf(o.asset) : undefined;
-      return setDown(t, rock ? { ...o, z: 0 } : o, rock, s.scatter.alignToSlope);
+      return setDown(t, rock ? { ...o, z: 0 } : o, rock, s.scatter.alignToSlope && !floats(o.asset));
     });
     for (const o of images) b.grid.add(o);
     const placed = [...own, ...images];
@@ -423,7 +424,7 @@ export class ObjectTool implements EditorTool {
     }
     const images = objectImages(own, symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
     const entry = ctx.catalog.object(s.asset!);
-    const placed = [...own, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope, entry.radius));
+    const placed = [...own, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope && !entry.float, entry.radius));
     ctx.editor.execute(ObjectsCommand.add(kit ? `${kit.name} along a line` : `${ctx.catalog.object(s.asset!).name} along a line`, doc, placed));
     ctx.status(`${placed.length} objects placed along ${Math.round(lineLength(line))} m`);
   }
@@ -452,7 +453,7 @@ export class ObjectTool implements EditorTool {
     const images = objectImages([object], symmetryImages(ctx.settings.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
     // Each copy tilts with its own ground: a mirror image does not lean as the original does
     const entry = ctx.catalog.object(s.asset);
-    const placed = [object, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope, entry.radius));
+    const placed = [object, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope && !entry.float, entry.radius));
     ctx.editor.execute(ObjectsCommand.add(`Place ${ctx.catalog.object(s.asset).name}`, doc, placed));
   }
 

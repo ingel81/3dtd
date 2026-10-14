@@ -266,6 +266,8 @@ export function scatterDab(
   random: () => number,
   share = 1,
   rockOf: (asset: string) => RockShape | undefined = () => undefined,
+  /** Floating assets: they lie at the waterline, neither sunk nor tilted by the ground under the water */
+  floats: (asset: string) => boolean = () => false,
 ): MapObject[] {
   if (!options.assets.length) return [];
   const area = Math.PI * brush.radius * brush.radius;
@@ -283,7 +285,8 @@ export function scatterDab(
     const scale = options.scaleMin + (options.scaleMax - options.scaleMin) * random();
     const asset = options.assets[Math.floor(random() * options.assets.length)];
     const rock = rockOf(asset);
-    const slope = options.sinkOnSlope && !rock ? slopeAt(terrain, p.x, p.y) : 0;
+    const float = floats(asset);
+    const slope = options.sinkOnSlope && !rock && !float ? slopeAt(terrain, p.x, p.y) : 0;
     const object: MapObject = {
       id: ids.take(),
       asset,
@@ -296,7 +299,7 @@ export function scatterDab(
     };
     const tint = variedTint(options.tint, options.tintVariation, random);
     if (tint) object.tint = tint;
-    const placed = setDown(terrain, object, options.sinkOnSlope ? rock : undefined, options.alignToSlope);
+    const placed = setDown(terrain, object, options.sinkOnSlope ? rock : undefined, options.alignToSlope && !float);
     grid.add(placed);
     out.push(placed);
   }

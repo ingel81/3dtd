@@ -544,7 +544,7 @@ export class MapKit {
     const placed: MapObject[] = [];
     for (const c of dabs(where, b.radius / 2)) {
       for (let t = 0; t < hold; t += 0.1) {
-        for (const o of scatterDab(this.doc.terrain, c, b, { ...DEFAULT_SCATTER, ...options, assets }, grid, ids, random, 0.6, (a) => rockShape(this.catalog.object(a)))) {
+        for (const o of scatterDab(this.doc.terrain, c, b, { ...DEFAULT_SCATTER, ...options, assets }, grid, ids, random, 0.6, (a) => rockShape(this.catalog.object(a)), (a) => !!this.catalog.object(a).float)) {
           if (avoidRoads && !this.free(o.x, o.y, this.catalog.object(o.asset).radius)) continue;
           placed.push(o);
         }

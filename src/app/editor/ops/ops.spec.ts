@@ -401,4 +401,18 @@ describe('settling rocks', () => {
     for (const o of heaps) expect(undersideGap(doc.terrain, o, heap.base)).toBe(0);
     expect(placed.filter((o) => o.asset === 'bush').every((o) => o.z < 0)).toBe(true);
   });
+
+  it('scatters floating assets at the waterline: not sunk, not tilted by the floor under the water', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 200, depth: 200, cellSize: 2, starter: false });
+    const g = doc.terrain.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 0.2 * (i * 2);
+    let seed = 5;
+    const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const options = { ...DEFAULT_SCATTER, assets: ['buoy', 'bush'], density: 40, alignToSlope: true };
+    const placed = scatterDab(doc.terrain, { x: 0, y: 0 }, { radius: 30, strength: 1, falloff: 0.3 }, options, new ObjectGrid(8), new ObjectIds([]), random, 1, () => undefined, (a) => a === 'buoy');
+    const buoys = placed.filter((o) => o.asset === 'buoy');
+    expect(buoys.length).toBeGreaterThan(3);
+    for (const o of buoys) expect([o.z, o.pitch ?? 0, o.roll ?? 0].map((v) => v + 0)).toEqual([0, 0, 0]);
+    expect(placed.filter((o) => o.asset === 'bush').every((o) => o.z < 0 && !!(o.pitch || o.roll))).toBe(true);
+  });
 });

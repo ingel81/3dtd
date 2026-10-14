@@ -37,6 +37,8 @@ export interface ObjectAssetEntry {
   height: number;
   /** Rocks: their underside (half width, half depth, depth below the pivot), see `CatalogObject.base`; they settle on it */
   base?: readonly [number, number, number];
+  /** Floats on water (boats, buoys, piers, lily pads): z counts from the waterline, so it neither sinks nor tilts with the ground */
+  float?: boolean;
   /** The renderer's own part (bridge decks): not offered in the palette */
   internal?: boolean;
   /** Biomes and brush roles from the catalogue (temperate, swamp, shore, scree …) */
@@ -148,6 +150,7 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
         radius: o.radius ?? o.footprint ?? 1,
         height: o.height ?? 2,
         base: o.base,
+        float: o.float || undefined,
         internal: INTERNAL_OBJECTS.has(o.id) || undefined,
         tags: o.tags?.length ? [...o.tags] : undefined,
         drawing:
