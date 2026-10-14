@@ -26,13 +26,15 @@ export const flyover = (name, map, label, shots) => ({
   steps: [{ do: 'ui', on: false }, { do: 'markers', on: false }, act('routes', { on: false }), { do: 'mark', name: label }, ...shots],
 });
 
-/** The new-map form: a name, Small, the empty ground, Create */
-export const newMap = (name, label) => [
+/** The new-map form: a name, Small, the empty ground (optionally a ground preset), Create */
+export const newMap = (name, label, ground = null) => [
   wait(0.6),
   click('[data-test=new-map]', { label }),
   { do: 'type', sel: '[data-test=new-name]', text: name, cps: 11 },
   click('button[role=radio]', { withText: 'Small' }),
   click('[data-template=""]'),
+  // A ground preset of the empty map ('flat': level ground, no noise)
+  ...(ground ? [click(`[data-preset=${ground}]`)] : []),
   wait(0.3),
   click('[data-test=create-map]', { label: 'create' }),
   act('viewReady', { timeout: 90 }),

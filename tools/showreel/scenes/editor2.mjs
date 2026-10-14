@@ -5,7 +5,8 @@ import { act, asset, clickMap, click, flyover, m, mode, newMap, orbit, par, path
 const WEATHER = '[aria-label=Weather] button[role=radio]';
 
 export const SCENES = [
-  { name: 'editor2-new', page: '/editor', steps: [...newMap('Fire and Ice', 'second map')] },
+  // Level ground: the mirrored side cut rectangles into the noisy ground, the lava craters' rims leaked
+  { name: 'editor2-new', page: '/editor', steps: [...newMap('Fire and Ice', 'second map', 'flat')] },
   {
     name: 'editor2-biomes',
     steps: [
@@ -19,10 +20,19 @@ export const SCENES = [
       // Snow, not Arctic: Arctic takes five ground layers and Hell after it found the map's twelve full
       click('[data-biome=snow]', { label: 'snow' }),
       settings({ brush: { radius: 70, strength: 1 } }),
+      // Each biome painted with the camera at rest and held until it stands (it showed some 2 s late)
+      act('idle', { timeout: 20 }),
+      wait(0.4),
       stroke(3, [[-0.35, 0.3], [-0.1, 0.36], [0.15, 0.36], [0.35, 0.3]]),
+      act('idle', { timeout: 30 }),
+      wait(2.2),
       { do: 'frame', points: [[-0.3, -0.3], [0.3, -0.28]], from: 180, pitch: 32, margin: 40 },
       click('[data-biome=hell]', { label: 'hell' }),
+      act('idle', { timeout: 20 }),
+      wait(0.4),
       stroke(4, [[-0.3, -0.3], [-0.1, -0.34], [0.1, -0.33], [0.3, -0.28]]),
+      act('idle', { timeout: 30 }),
+      wait(2.4),
       path(1.5, ['current', [[-0.05, 0.05, 25], [0.0, 0.32, 30]]]),
       tool('environment'),
       click(WEATHER, { withText: 'Snow', label: 'snowfall' }),

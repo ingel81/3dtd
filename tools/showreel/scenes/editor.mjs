@@ -9,6 +9,9 @@ const frame = (points, opts = {}) => ({ do: 'frame', points, ...opts });
 const key = (k, mods) => ({ do: 'key', key: k, ...(mods ? { mods } : {}) });
 const keys = (k, n, mods) => Array.from({ length: n }, () => [key(k, mods), wait(0.12)]).flat();
 
+/** After a change: the editor idle, then the camera held `hold` seconds while it takes effect */
+const settle = (hold) => [act('idle', { timeout: 20 }), wait(hold)];
+
 /** The Sky panel's preset buttons and weather buttons (a bare withText 'Snow' also finds other fields) */
 const SKY_PRESET = '[aria-labelledby=ep-sky] button[role=radio]';
 const WEATHER = '[aria-label=Weather] button[role=radio]';
@@ -259,6 +262,8 @@ export const SCENES = [
       mode('line'),
       click('[data-test=line-roads]'),
       ...asset('lamp', 'lamp-post'),
+      // Beside the road on both sides (offset 0 stood them on the road's middle): half the 8 m road and 1.5 m
+      settings({ objects: { line: { offset: 5.5, bothSides: true, spacing: 12 } } }),
       clickMap({ m: [-100, 0] }, { label: 'lamps' }),
       wait(0.6),
       act('overlay', { on: false }),
@@ -285,6 +290,11 @@ export const SCENES = [
       act('overlay', { on: true }),
       tool('stamp', { label: 'stamps' }),
       mode('select'),
+      // Objects only: with the heights, paint, water and roads the copy cut rectangles into the hilly ground
+      click('input[aria-label="Heights"]'),
+      click('input[aria-label="Ground paint"]'),
+      click('input[aria-label="Water"]'),
+      click('input[aria-label="Roads"]'),
       stroke(1.2, [{ at: 'hq', dx: -105, dy: -10 }, { at: 'hq', dx: -15, dy: -78 }], { label: 'copy' }),
       click('[data-test=copy]'),
       wait(0.3),
@@ -338,60 +348,66 @@ export const SCENES = [
     // The Sky tool with the forest in front: wind from calm to storm, the day running into dusk; night at the
     // lamps; pictures, rain and the still frame; fog over the depth of the valley, snow; back to a clear day
     name: 'editor-sky',
+    // Every setting made with the camera at rest, then held until it has taken effect (a new look compiles, the
+    // wind reaches the trees, the rain starts to fall): changes during a camera move showed as stutter
     steps: [
       // Road nodes, spawn flag and HQ marker out of the picture for the whole scene
       act('overlay', { on: false }),
       path(1.5, ['current', FOREST_VIEW]),
       tool('environment', { label: 'sky' }),
-      par(
-        path(5.5, ['current', [{ m: [48, -60], h: 7 }, { m: [58, -22], h: 4 }]], { ease: 'smooth' }),
-        seq(
-          { do: 'range', sel: '[data-test=wind] app-editor-range', to: 100, dur: 2.2, label: 'wind' },
-          wait(1.6),
-          { do: 'range', sel: '[data-test=wind] app-editor-range', to: 15, dur: 1 },
-        ),
-      ),
-      // One slider from noon into dusk (the sky follows the sun), no preset beside it
-      par(
-        // Up over the grove's crowns first, then out to the mountains (a straight line went through the trees)
-        path(4, ['current', [{ m: [52, -50], h: 34 }, { m: [40, 20], h: 20 }], [[-0.06, 0.1, 22], [-0.07, 0.3, 28]]], { ease: 'smooth' }),
-        { do: 'range', sel: '[data-test=time-of-day]', to: 19.6, dur: 3.6, label: 'time of day' },
-      ),
-      // Night where the lamps stand, the camera still while the night look compiles
+      ...settle(0.6),
+      { do: 'range', sel: '[data-test=wind] app-editor-range', to: 100, dur: 2.2, label: 'wind' },
+      ...settle(2.6),
+      { do: 'range', sel: '[data-test=wind] app-editor-range', to: 15, dur: 1 },
+      ...settle(1.2),
+      // Up over the grove's crowns, out to the mountains; then one slider from noon into dusk
+      path(4, ['current', [{ m: [52, -50], h: 34 }, { m: [40, 20], h: 20 }], [[-0.06, 0.1, 22], [-0.07, 0.3, 28]]], { ease: 'smooth' }),
+      ...settle(0.6),
+      { do: 'range', sel: '[data-test=time-of-day]', to: 19.6, dur: 3.6, label: 'time of day' },
+      ...settle(2),
+      // Night where the lamps stand
       path(2, ['current', LAMPS_VIEW], { ease: 'inOut' }),
+      ...settle(0.4),
       click(SKY_PRESET, { withText: 'Night', label: 'night' }),
-      act('idle', { timeout: 20 }),
-      wait(0.8),
+      ...settle(1.6),
       { do: 'range', sel: '[data-test=moonlight]', to: 85, dur: 1.2, label: 'moonlight' },
-      wait(1.6),
+      ...settle(2),
       path(2, ['current', WIDE_VIEW], { ease: 'inOut' }),
+      ...settle(0.4),
       { do: 'select', sel: '[data-test=sky-image]', value: 'sunset', label: 'sky picture' },
-      wait(1.6),
+      ...settle(2),
       { do: 'select', sel: '[data-test=sky-image]', value: 'thunderstorm' },
+      ...settle(1.2),
       click(WEATHER, { withText: 'Rain', label: 'rain' }),
       { do: 'range', sel: 'app-editor-range[label=Strength]', to: 100, dur: 0.8 },
-      wait(1),
+      ...settle(2.4),
       { do: 'key', key: 'b', label: 'still frame' },
+      wait(0.4),
       orbit(3, 'look', { turn: 30, ease: 'inOut' }),
       { do: 'key', key: 'b' },
-      wait(0.6),
+      ...settle(1),
       click(WEATHER, { withText: 'Clear' }),
+      ...settle(1),
       { do: 'select', sel: '[data-test=sky-image]', value: 'starry-night', label: 'starry night' },
-      wait(1.8),
+      ...settle(2.2),
       { do: 'select', sel: '[data-test=sky-image]', value: '' },
       click(SKY_PRESET, { withText: 'Day' }),
       { do: 'range', sel: '[data-test=time-of-day]', to: 11, dur: 0.8 },
+      ...settle(1.2),
       // Snow under an overcast sky over the valley's depth (Fog left out: neither the weather nor the slider
       // showed on screen)
       path(2.5, ['current', DEEP_VIEW], { ease: 'smooth' }),
+      ...settle(0.4),
       click(SKY_PRESET, { withText: 'Overcast', label: 'overcast' }),
+      ...settle(1),
       click(WEATHER, { withText: 'Snow', label: 'snow' }),
       { do: 'range', sel: 'app-editor-range[label=Strength]', to: 90, dur: 0.8 },
-      wait(2.2),
+      ...settle(2.6),
       click(WEATHER, { withText: 'Clear' }),
       // A clear day for everything after: the preset keeps the sun where it was, the clock sets it
       click(SKY_PRESET, { withText: 'Day' }),
       { do: 'range', sel: '[data-test=time-of-day]', to: 11, dur: 0.6 },
+      ...settle(1.2),
       act('overlay', { on: true }),
     ],
   },

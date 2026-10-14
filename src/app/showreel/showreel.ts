@@ -33,7 +33,7 @@ html.showreel.sr-clean .es-minimap,
 html.showreel.sr-clean .es-trial { display: none !important; }
 html.showreel.sr-clean .es-root { grid-template: 'view' minmax(0, 1fr) / minmax(0, 1fr) !important; }
 /* The editor's map list, new-map form and import report: larger, so their text reads in the video */
-html.showreel .mb-panel { zoom: 1.4; }
+html.showreel .mb-panel { zoom: 1.25; }
 /* An intro page (?showreel=intro): the game's HUD out from the first frame, as photo mode has it, before photo
    mode can be entered; the scene (route lines, HQ and spawn markers) and the loading globe stay */
 html.showreel.sr-hud-off app-game-header,

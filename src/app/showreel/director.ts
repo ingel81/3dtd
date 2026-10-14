@@ -193,8 +193,16 @@ export class Director {
         }
         return;
       }
-      case 'click':
-        return this.hands.click(await this.find(step), dur || 0.5, Number(step['button'] ?? 0), mods);
+      case 'click': {
+        const el = await this.find(step);
+        // Below the fold of a scrolling panel (the new-map form's ground presets): into view first, as a person
+        // would scroll to it; a click on its hidden place hit whatever lay there
+        // (clipped by the panel or under its sticky footer, not the window: to the middle whenever that moves it)
+        const before = el.getBoundingClientRect().top;
+        el.scrollIntoView({ block: 'center', inline: 'nearest' });
+        if (Math.abs(el.getBoundingClientRect().top - before) > 1) await waitSeconds(0.3);
+        return this.hands.click(el, dur || 0.5, Number(step['button'] ?? 0), mods);
+      }
       case 'clickMap': {
         const at = this.point(step['at'] as PointSpec);
         await this.inView([at], step);
