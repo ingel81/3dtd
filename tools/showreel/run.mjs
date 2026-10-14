@@ -451,8 +451,10 @@ function finish(out) {
   }
   console.log(`finding the flashes in the video (${state.pages.length} pages)`);
   // The sync flash is white for 120 ms, 7 frames of the 60 fps capture; a page's white before it loads (a
-  // navigation, Chrome's first blank page) is mostly a frame or two, so runs of 4 to 12 frames count
-  const flashes = detectFlashes(video).filter((f) => f.frames >= 4 && f.frames <= 12);
+  // navigation, Chrome's first blank page) is mostly a frame or two, so runs of 4 to 12 frames count, with the
+  // run's clock to pick by up to 40
+  // On an intro page the flash falls into the map's load, where frames stall: it stays white up to some 25 frames
+  const flashes = detectFlashes(video).filter((f) => f.frames >= 4 && f.frames <= (state.captureStartedAt ? 40 : 12));
   console.log(`  flashes at ${flashes.map((f) => f.start.toFixed(2)).join(', ')} s`);
   // Without the run's clock, the last flashes pair with the pages in order (an early white page is no page)
   const ordered = flashes.slice(-state.pages.length);
