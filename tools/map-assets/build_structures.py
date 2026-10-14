@@ -438,6 +438,41 @@ def castle_wall(name, stone_asset=CASTLE, ruined=False, seed=0, length=8.0, heig
     export(name, [stone.to_object(name), rubble.to_object(name + '-rubble')])
 
 
+def castle_wall_block(name, along=4.4, depth=4.4, height=8.6, stone_asset=CASTLE):
+    """A square block of the wall kit, a little higher than the walls and as deep as their battered foot:
+    the corner where two walls meet (4.4 x 4.4) or the end that closes a wall (3.2 along it). Walls reach
+    into it up to its middle, so the line tool can fit them on a 2 m grid; battlements on all four sides"""
+    clear_scene()
+    stone = Part(pbr_material('castle-' + stone_asset, stone_asset), uv_metres=3.0)
+    dark = Part(flat_material('slit', (0.03, 0.03, 0.035), 0.9))
+    ha, hd = along / 2, depth / 2
+    box(stone, 0, 0, -0.5, along, depth, height + 0.5)
+    # Battered foot on all sides, a string course, corbels under the battlements
+    hexa(stone, [(-ha - 0.6, -hd - 0.6, -1.0), (ha + 0.6, -hd - 0.6, -1.0), (ha + 0.6, hd + 0.6, -1.0), (-ha - 0.6, hd + 0.6, -1.0)],
+         [(-ha, -hd, 1.8), (ha, -hd, 1.8), (ha, hd, 1.8), (-ha, hd, 1.8)])
+    box(stone, 0, 0, height - 1.5, along + 0.3, depth + 0.3, 0.25)
+    for k in range(max(2, int(along / 1.0))):
+        x = -ha + 0.5 + k * (along - 1.0) / max(1, int(along / 1.0) - 1)
+        for y in (-hd - 0.15, hd + 0.15):
+            box(stone, x, y, height - 0.6, 0.35, 0.3, 0.6)
+    for k in range(max(2, int(depth / 1.0))):
+        y = -hd + 0.5 + k * (depth - 1.0) / max(1, int(depth / 1.0) - 1)
+        for x in (-ha - 0.15, ha + 0.15):
+            box(stone, x, y, height - 0.6, 0.3, 0.35, 0.6)
+    # The parapet's top projects over the corbels; battlements round the edge
+    box(stone, 0, 0, height - 0.05, along + 0.4, depth + 0.4, 0.3)
+    for side in (-1, 1):
+        merlons(stone, -ha, ha, side * (hd - 0.1), height + 0.25, 0.6)
+        for k in range(max(1, int((depth - 1.2 + 0.7) // 1.6))):
+            n = max(1, int((depth - 1.2 + 0.7) // 1.6))
+            y = -hd + 0.6 + (k + 0.5) * (depth - 1.2) / n
+            box(stone, side * (ha - 0.1), y, height + 0.25, 0.6, 0.9, 1.1)
+    for x in (-ha / 2, ha / 2) if along > 3.5 else (0.0,):
+        for y in (-hd - 0.02, hd + 0.02):
+            box(dark, x, y, 4.0, 0.18, 0.1, 1.3)
+    export(name, [stone.to_object(name), dark.to_object(name + '-slits')])
+
+
 def castle_tower(name, roof=False, stone_asset=CASTLE, radius=3.6, height=12.0):
     """Round tower: wider top ring with battlements, arrow slits; optional slate cone roof"""
     clear_scene()
@@ -1161,6 +1196,11 @@ def models():
     return {
         # Castle kit
         'castle-wall': lambda: castle_wall('castle-wall'),
+        # The wall kit's other pieces: 4 and 2 m of wall, the corner and the end (the line tool fits them)
+        'castle-wall-half': lambda: castle_wall('castle-wall-half', length=4.0),
+        'castle-wall-short': lambda: castle_wall('castle-wall-short', length=2.0),
+        'castle-wall-corner': lambda: castle_wall_block('castle-wall-corner'),
+        'castle-wall-end': lambda: castle_wall_block('castle-wall-end', along=3.2),
         'castle-wall-ruined': lambda: castle_wall('castle-wall-ruined', RUIN, ruined=True, seed=1),
         'castle-wall-ruined-b': lambda: castle_wall('castle-wall-ruined-b', RUIN, ruined=True, seed=4),
         'castle-tower': lambda: castle_tower('castle-tower'),

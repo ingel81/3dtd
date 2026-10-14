@@ -5374,6 +5374,114 @@
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
     },
     {
+      "id": "castle-wall-half",
+      "name": "Castle wall (4 m)",
+      "category": "wall",
+      "file": "models/castle-wall-half.glb",
+      "footprint": 1.8,
+      "height": 8.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "castle"
+      ],
+      "lod": [
+        {
+          "file": "models/castle-wall-half-lod1.glb",
+          "distance": 350
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "castle-wall-short",
+      "name": "Castle wall (2 m)",
+      "category": "wall",
+      "file": "models/castle-wall-short.glb",
+      "footprint": 1.5,
+      "height": 8.4,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "castle"
+      ],
+      "lod": [
+        {
+          "file": "models/castle-wall-short-lod1.glb",
+          "distance": 350
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "castle-wall-corner",
+      "name": "Castle wall corner",
+      "category": "wall",
+      "file": "models/castle-wall-corner.glb",
+      "footprint": 2.5,
+      "height": 9.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "castle"
+      ],
+      "lod": [
+        {
+          "file": "models/castle-wall-corner-lod1.glb",
+          "distance": 350
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
+      "id": "castle-wall-end",
+      "name": "Castle wall end",
+      "category": "wall",
+      "file": "models/castle-wall-end.glb",
+      "footprint": 2.5,
+      "height": 9.9,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "castle"
+      ],
+      "lod": [
+        {
+          "file": "models/castle-wall-end-lod1.glb",
+          "distance": 350
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
+    },
+    {
       "id": "castle-wall-ruined",
       "name": "Ruined castle wall",
       "category": "wall",

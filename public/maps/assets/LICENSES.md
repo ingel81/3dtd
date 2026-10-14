@@ -253,6 +253,10 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | crystals-ice | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock |
 | lava-pool | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock_02 |
 | castle-wall | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates |
+| castle-wall-half | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates |
+| castle-wall-short | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates |
+| castle-wall-corner | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates |
+| castle-wall-end | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates |
 | castle-wall-ruined | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall |
 | castle-wall-ruined-b | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall |
 | castle-tower | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates |
