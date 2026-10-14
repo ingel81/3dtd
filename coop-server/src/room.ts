@@ -250,6 +250,8 @@ export class Room {
   private readonly mapCursors = new Map<string, { next: number; sent: boolean }>();
   /** The host's piece whose map-ack is due, null while none */
   private mapAckDue: number | null = null;
+  /** When the host was last asked for its map again (map-want), ms */
+  private mapWantedAt = -Infinity;
   /** Bytes of map pieces this room keeps, booked in mapBudget */
   private mapBytes = 0;
   private readonly mapBudget: MapBudget;
@@ -498,8 +500,11 @@ export class Room {
       for (const p of this.players) if (p.id !== this.hostId) this.mapCursors.set(p.id, { next: 0, sent: false });
     }
     const map = this.map;
-    // Kept for a later joiner while the relay's budget holds it; the guests here get it either way
-    if (!map.came[piece.part]) {
+    // A guest without the map (it joined after a piece was let go) gets it with this sending (Resend map)
+    for (const p of this.players) if (p.id !== this.hostId && !this.mapCursors.has(p.id)) this.mapCursors.set(p.id, { next: 0, sent: false });
+    // Kept for a later joiner while the relay's budget holds it; the guests here get it either way. A piece
+    // let go earlier (nobody needed it then) is taken again: the host sends it for a guest who lacks it
+    if (!map.came[piece.part] || map.parts[piece.part] === undefined) {
       map.came[piece.part] = true;
       map.parts[piece.part] = frame;
       if (this.mapBudget.take(frame.length)) {
@@ -527,6 +532,21 @@ export class Room {
         // At most one a second goes out (review H2); a newer one waits and replaces what waits
         this.pendingWorld = { world: message.world, spawnIds: [...message.spawnIds] };
         return this.flushWorld();
+      case 'map-want': {
+        if (host || this.started) return;
+        const map = this.map;
+        if (map?.hash === message.hash && map.parts.every((part) => part !== undefined)) {
+          // The relay keeps the whole map: this guest gets it from the first piece on
+          this.mapCursors.set(playerId, { next: 0, sent: false });
+          return this.pumpMap();
+        }
+        // Pieces are missing here (let go, or never sent): the host sends them again, at most once a second
+        if (this.now() - this.mapWantedAt < 1000) return;
+        this.mapWantedAt = this.now();
+        this.log(`${this.who(playerId)} lacks the map, asking the host for it again`);
+        if (map?.hash === message.hash) this.mapCursors.set(playerId, { next: 0, sent: false });
+        return this.send(this.hostId, { t: 'map-wanted' });
+      }
       case 'map-got': {
         const cursor = this.mapCursors.get(playerId);
         if (!cursor || !cursor.sent || this.map?.hash !== message.hash || message.part !== cursor.next) return;

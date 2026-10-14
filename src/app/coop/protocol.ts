@@ -148,6 +148,12 @@ export type ClientMessage =
    */
   /** Guest, lobby: piece `part` of the map with content `hash` is here; the relay sends the next one */
   | { t: 'map-got'; hash: string; part: number }
+  /**
+   * Guest, lobby: the host's world names a custom map (content `hash`) that
+   * is not here and no piece of it is on its way: send it (from the pieces
+   * the relay keeps, else the relay asks the host, `map-wanted`)
+   */
+  | { t: 'map-want'; hash: string }
   /** Lobby: what this client is doing now (PlayerStatus) */
   | { t: 'status'; status: PlayerStatus }
   /** Lobby: take a free spawn as one more lane, or give one back (`take` false); null gives every lane back */
@@ -212,6 +218,8 @@ export type ServerMessage =
    * or with every guest in the room; the next one may go
    */
   | { t: 'map-ack'; part: number }
+  /** To the host: a guest lacks the room's map and the relay does not keep all of it: send its pieces again */
+  | { t: 'map-wanted' }
   /**
    * To the guests: the host left before every piece of its map (content
    * `hash`) came; those pieces will not come, the new host sends its own world

@@ -176,6 +176,8 @@ export class CoopSession {
   onMap: ((piece: MapPart) => void) | null = null;
   /** Host: the relay confirmed piece `part` of the map, the next may go */
   onMapAck: ((part: number) => void) | null = null;
+  /** Host: a guest lacks the map and the relay has not all of it: send it again */
+  onMapWanted: (() => void) | null = null;
   /** Guest: the host left before its map (content hash) came whole; it does not come */
   onMapGone: ((hash: string) => void) | null = null;
   onStarted: ((start: CoopStart) => void) | null = null;
@@ -308,6 +310,11 @@ export class CoopSession {
   /** Guest, lobby: piece `part` of the map with content `hash` is here, the relay may send the next */
   mapGot(hash: string, part: number): void {
     this.out({ t: 'map-got', hash, part });
+  }
+
+  /** Guest, lobby: the host's world names the map with content `hash`, which is not here: ask for it */
+  mapWant(hash: string): void {
+    this.out({ t: 'map-want', hash });
   }
 
   /** Lobby: take a free spawn as one more lane, or give one back (`take` false); null gives every lane back */
@@ -510,6 +517,8 @@ export class CoopSession {
         return this.onWorld?.(message.world);
       case 'map-ack':
         return this.onMapAck?.(message.part);
+      case 'map-wanted':
+        return this.onMapWanted?.();
       case 'map-gone':
         return this.onMapGone?.(message.hash);
       case 'started': {

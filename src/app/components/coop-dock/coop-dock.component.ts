@@ -138,7 +138,7 @@ export class CoopDockComponent {
 
   resendMap(): void {
     this.moreOpen.set(false);
-    this.coop.shareWorld();
+    this.coop.resendMap();
   }
 
   /**

@@ -39,7 +39,7 @@ describe('CoopSession map pieces (binary frames, protocol 5)', () => {
     expect(got.map((p) => [p.mapId, p.part, [...p.data]])).toEqual([['m', 0, [7, 8, 9]]]);
   });
 
-  it("hands on the relay's map-gone", async () => {
+  it("asks for a map that is not here, and hands on the relay's map-wanted and map-gone", async () => {
     const sent: (string | Uint8Array)[] = [];
     const socket = {
       readyState: 1,
@@ -61,10 +61,14 @@ describe('CoopSession map pieces (binary frames, protocol 5)', () => {
       return socket;
     });
     await session.connect();
+    session.mapWant('h1');
+    expect(JSON.parse(sent.at(-1) as string)).toEqual({ t: 'map-want', hash: 'h1' });
 
     const heard: string[] = [];
+    session.onMapWanted = () => heard.push('wanted');
     session.onMapGone = (hash) => heard.push(`gone ${hash}`);
+    socket.onmessage?.({ data: JSON.stringify({ t: 'map-wanted' }) });
     socket.onmessage?.({ data: JSON.stringify({ t: 'map-gone', hash: 'h1' }) });
-    expect(heard).toEqual(['gone h1']);
+    expect(heard).toEqual(['wanted', 'gone h1']);
   });
 });

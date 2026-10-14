@@ -57,6 +57,8 @@ import { packOpenedMap, storeSharedMap } from '../world/custom-map/map-share';
 /** Pause between two pieces of a map the host sends: the relay takes some 4 MB a second from one connection */
 /** How long a guest on the host's map waits for its own start to stand or fail before it reloads into the map */
 const MAP_START_WAIT_MS = 30_000;
+/** Guest: how long a map asked for (map-want) may take to start coming before the world counts as not here, ms */
+const MAP_WANT_WAIT_MS = 20_000;
 import {
   DEFAULT_ROOM_OPTIONS,
   changedOptions,
@@ -261,6 +263,8 @@ export class CoopService {
   private readonly mapAssembler = new MapAssembler();
   /** Host: the map (id and hash) this room has from us already, sent once per room */
   private sentMapKey: string | null = null;
+  /** Guest: the map (content hash) asked for from the room once, so a world naming it waits instead of failing */
+  private wantedMapHash: string | null = null;
   /** Host: the map's pieces paced through the relay, the world after them */
   private readonly mapSend = new PacedMapSend();
   /** The signals of a room, back to their start in leave() */
@@ -782,6 +786,15 @@ export class CoopService {
     });
   }
 
+  /**
+   * Host: send the map's pieces again, though the room had them (Resend map,
+   * or a guest who lacks it asked through the relay), then the world
+   */
+  resendMap(): void {
+    this.sentMapKey = null;
+    this.shareWorld();
+  }
+
   /** Host: send the world of the place loaded now (again, after a change of place). */
   shareWorld(): void {
     const source = this.world.source();
@@ -1205,6 +1218,7 @@ export class CoopService {
     this.generation++;
     this.mapAssembler.reset();
     this.sentMapKey = null;
+    this.wantedMapHash = null;
     this.pickedByHand = false;
     this.autoPicking = null;
     this.toldStatus = null;
@@ -1288,6 +1302,7 @@ export class CoopService {
     // This player may be the new host itself: the pieces here go all the same
     if (this.mapAssembler.current?.hash !== hash) return;
     this.mapAssembler.reset();
+    this.wantedMapHash = null;
     this.mapTransfer.set(null);
     if (this.status() === 'loading-world') this.status.set('lobby');
     this.notify('The map did not arrive: the host left before it was through. The new host sends theirs.', 'warn');
@@ -1484,6 +1499,9 @@ export class CoopService {
     session.onWorld = inZone((world) => void this.takeWorld(world));
     session.onMap = inZone((piece) => this.takeMapPart(piece));
     session.onMapAck = inZone((part) => this.mapSend.acked(part));
+    session.onMapWanted = inZone(() => {
+      if (this.isHost() && !this.inGame() && this.worldReady()) this.resendMap();
+    });
     session.onMapGone = inZone((hash) => this.mapGone(hash));
     session.onStarted = inZone((start) => this.startGame(start));
     session.onSpeed = inZone((speed) => this.applySpeed(speed));
@@ -1592,6 +1610,20 @@ export class CoopService {
     if (otherWorld && hostRef.kind === 'custom-map' && this.mapAssembler.current?.mapId === hostRef.mapId) {
       // The host's map came ahead of the world: once it is stored the page opens it (takeMapPart)
       this.status.set('loading-world');
+      return;
+    }
+    if (otherWorld && hostRef.kind === 'custom-map' && hostRef.contentHash && this.wantedMapHash !== hostRef.contentHash) {
+      // A map that is not here and not on its way (this guest came after the relay let pieces go, or its
+      // store failed): ask the room for it once; it comes from the relay's pieces or the host sends it again
+      this.wantedMapHash = hostRef.contentHash;
+      this.session?.mapWant(hostRef.contentHash);
+      this.status.set('loading-world');
+      const generation = this.generation;
+      setTimeout(() => {
+        if (generation !== this.generation || this.mapAssembler.current?.hash === hostRef.contentHash) return;
+        if (this.status() !== 'loading-world' || !this.session?.world) return;
+        this.ngZone.run(() => void this.takeWorld(this.session!.world));
+      }, MAP_WANT_WAIT_MS);
       return;
     }
     if (otherWorld) {

@@ -140,6 +140,50 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(pieces('c').map((m) => m.data)).toEqual(['P0']);
   });
 
+  it('gives a guest who lacks the map the kept pieces, or asks the host for them again', () => {
+    room.join(player('b'));
+    sendPiece('a', 0, 'P0');
+    room.receive('b', { t: 'map-got', hash: 'h1', part: 0 });
+    sendPiece('a', 1, 'P1');
+    room.receive('b', { t: 'map-got', hash: 'h1', part: 1 });
+    // b wants it again (its store failed): the relay keeps it whole and sends it, the host hears nothing
+    room.receive('b', { t: 'map-want', hash: 'h1' });
+    expect(pieces('b').map((m) => m.data)).toEqual(['P0', 'P1', 'P0']);
+    expect(last('a', 'map-wanted')).toBeUndefined();
+    // Another map's hash: the relay has not got it, the host is asked, once a second at most
+    room.receive('b', { t: 'map-want', hash: 'h2' });
+    room.receive('b', { t: 'map-want', hash: 'h2' });
+    expect(all('a', 'map-wanted')).toHaveLength(1);
+    clock += 1000;
+    room.receive('b', { t: 'map-want', hash: 'h2' });
+    expect(all('a', 'map-wanted')).toHaveLength(2);
+    // The host never wants its own map
+    room.receive('a', { t: 'map-want', hash: 'h1' });
+    expect(all('a', 'map-wanted')).toHaveLength(2);
+  });
+
+  it('sends a piece let go before again when the host resends it, to a guest who never had the map', () => {
+    // No budget: nothing is kept, a piece goes once every guest has it
+    inbox = new Map();
+    room = new Room('ABCDEF', player('a'), (id, message) => {
+      if (!inbox.has(id)) inbox.set(id, []);
+      inbox.get(id)!.push(message);
+    }, { now: () => clock, mapBudget: new MapBudget(0) });
+    room.join(player('b'));
+    sendPiece('a', 0, 'P0', { parts: 1 });
+    room.receive('b', { t: 'map-got', hash: 'h1', part: 0 });
+    // c joins after the piece was let go: no map for it
+    room.join(player('c'));
+    expect(pieces('c')).toEqual([]);
+    // c asks; the relay has nothing kept, so the host is asked and resends the same map
+    room.receive('c', { t: 'map-want', hash: 'h1' });
+    expect(all('a', 'map-wanted')).toHaveLength(1);
+    sendPiece('a', 0, 'P0', { parts: 1 });
+    expect(pieces('c').map((m) => m.data)).toEqual(['P0']);
+    // b had it: nothing again for b
+    expect(pieces('b').map((m) => m.data)).toEqual(['P0']);
+  });
+
   it("keeps the host's map only up to the start and within the relay's budget", () => {
     // Room for the first piece's frame and not the second's
     const size = encodeMapFrame({ mapId: 'm1', hash: 'h1', part: 0, parts: 2 }, new TextEncoder().encode('AAAAAA')).length;
