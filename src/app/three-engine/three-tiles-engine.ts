@@ -237,6 +237,8 @@ export class ThreeTilesEngine {
     intervals: number[];
     lastFrameAt: number;
     windowStart: number;
+    /** A scale the controller answered after a draw, applied before the next one */
+    pendingScale: number | null;
   } | null = null;
   /** The graphics benchmark holds the resolution still while it measures */
   private dynamicPaused = false;
@@ -814,6 +816,15 @@ export class ThreeTilesEngine {
     }
     this.idleFrameAt = 0;
 
+    // A new resolution from the last frame's cost: set now, so this frame draws into the resized canvas. Set
+    // after the draw, the resize cleared the canvas and the browser showed that empty frame (a black frame
+    // every few seconds while the scale climbed)
+    const d = this.dynamic;
+    if (d && d.pendingScale !== null) {
+      this.setRenderScale(d.pendingScale);
+      d.pendingScale = null;
+    }
+
     // Render scene, shaken if a screen shake runs
     const probe = this.frameProbe;
     probe?.begin();
@@ -1030,7 +1041,7 @@ export class ThreeTilesEngine {
     this.dynamic?.gpu?.close();
     const range = knobs.general.dynamic;
     this.dynamic = range
-      ? { controller: new DynamicResolution(knobs.general.scale, range), gpu: this.gpuMeter.open(), gpuTimes: [], intervals: [], lastFrameAt: 0, windowStart: performance.now() }
+      ? { controller: new DynamicResolution(knobs.general.scale, range), gpu: this.gpuMeter.open(), gpuTimes: [], intervals: [], lastFrameAt: 0, windowStart: performance.now(), pendingScale: null }
       : null;
     this.setRenderScale(knobs.general.scale);
     this.postProcessing?.setAntialias(knobs.general.antialias, this.canvasMsaa);
@@ -1053,6 +1064,7 @@ export class ThreeTilesEngine {
   /** The graphics benchmark: the resolution stays at the level's start while it measures */
   setDynamicResolutionPaused(paused: boolean): void {
     this.dynamicPaused = paused;
+    if (this.dynamic) this.dynamic.pendingScale = null;
     if (paused && this.quality) this.setRenderScale(this.quality.knobs.general.scale);
   }
 
@@ -1073,8 +1085,9 @@ export class ThreeTilesEngine {
 
   /**
    * One frame of the dynamic resolution: its interval and GPU times, and
-   * once a second with enough of them the controller's answer. A gap over a
-   * second (a hidden tab, a load) is no frame cost
+   * once a second with enough of them the controller's answer, which the
+   * next frame applies before it draws (render). A gap over a second (a
+   * hidden tab, a load) is no frame cost
    */
   private followFrameCost(d: NonNullable<ThreeTilesEngine['dynamic']>): void {
     const now = performance.now();
@@ -1087,7 +1100,7 @@ export class ThreeTilesEngine {
     const scale = d.controller.evaluate(costs, d.gpu ? 'gpu' : 'interval', this.displayRefresh.interval);
     d.intervals.length = 0;
     d.gpuTimes.length = 0;
-    if (scale !== null) this.setRenderScale(scale);
+    if (scale !== null) d.pendingScale = scale;
   }
 
   /**
