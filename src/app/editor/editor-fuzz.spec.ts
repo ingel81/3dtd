@@ -453,7 +453,10 @@ describe('undo and redo under random work', () => {
   for (const seed of [1, 7, 42, 99, 2026]) {
     it(`seed ${seed}: all undos give the first map byte for byte, all redos the last`, () => {
       const start = contentBytes(createMapDocument({ id: 'fuzz', name: 'Fuzz', width: 256, depth: 256, cellSize: 4, seed, ground: 'noise', relief: 6, now: new Date(0) }));
+      // The tools roll their own dice (turns, scatter spots, thinning): seeded too, so a seed plays the same run
+      const dice = vi.spyOn(Math, 'random').mockImplementation(rng(seed * 7919 + 1));
       const { editor, steps, states } = fuzz(seed, 90);
+      dice.mockRestore();
       const where = `seed ${seed}, steps: ${steps.join(', ')}`;
       // Jumps back through the history leave fewer steps than were done
       expect(editor.historySteps, where).toBeGreaterThan(10);
