@@ -143,21 +143,33 @@ export class Director {
           },
           dur,
         );
-      case 'orbit':
+      case 'orbit': {
+        // center 'look': round the point the camera looks at now, from where the camera stands (angle, radius,
+        // height of the current pose unless given), turning `turn` degrees: the orbit follows on without a jump
+        const pose = step['center'] === 'look' ? stage.pose() : null;
+        const here = pose
+          ? {
+              from: (Math.atan2(pose.eye.x - pose.look.x, -(pose.eye.y - pose.look.y)) * 180) / Math.PI,
+              radius: Math.hypot(pose.eye.x - pose.look.x, pose.eye.y - pose.look.y),
+              height: pose.eye.h - pose.look.h,
+            }
+          : null;
+        const from = Number(step['from'] ?? here?.from ?? 0);
         return this.shot(
           {
             kind: 'orbit',
-            center: this.fixed((step['center'] as PointSpec) ?? { at: 'center' }),
-            from: Number(step['from'] ?? 0),
-            to: Number(step['to'] ?? 90),
-            radius: Number(step['radius'] ?? 200),
+            center: pose ? pose.look : this.fixed((step['center'] as PointSpec) ?? { at: 'center' }),
+            from,
+            to: step['turn'] !== undefined ? from + Number(step['turn']) : Number(step['to'] ?? 90),
+            radius: Number(step['radius'] ?? here?.radius ?? 200),
             radiusTo: step['radiusTo'] as number | undefined,
-            height: Number(step['height'] ?? 120),
+            height: Number(step['height'] ?? here?.height ?? 120),
             heightTo: step['heightTo'] as number | undefined,
             ease: (step['ease'] as Ease) ?? 'inOut',
           },
           dur,
         );
+      }
       case 'frame':
         return this.frame(step);
       case 'follow':

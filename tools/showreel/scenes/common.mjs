@@ -21,6 +21,8 @@ export const asset = (search, id) => [{ do: 'type', sel: 'input[aria-label="Sear
 export const flyover = (name, map, label, shots) => ({
   name,
   page: `/?world=map:${map}`,
+  // Without the HUD from the first frame (the page's own load is cut anyway)
+  clean: true,
   steps: [{ do: 'ui', on: false }, { do: 'markers', on: false }, act('routes', { on: false }), { do: 'mark', name: label }, ...shots],
 });
 
@@ -38,5 +40,10 @@ export const newMap = (name, label) => [
 ];
 
 /** A photographed sky (sky-images.ts) with the preset and sun height it stands for */
-export const sky = (skyImage, preset, sunElevation, extra = {}) => act('environment', { patch: { skyImage, sky: preset, sunElevation, ...extra } });
+export const sky = (skyImage, preset, sunElevation, extra = {}) =>
+  seq(
+    act('environment', { patch: { skyImage, sky: preset, sunElevation, ...extra } }),
+    // The new look compiles and its first frames stall: before the camera moves, not in the shot
+    wait(1.6),
+  );
 

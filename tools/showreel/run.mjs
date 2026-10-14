@@ -102,10 +102,12 @@ function stepSeconds(steps) {
 }
 
 /** The address of a page: the runner's server, the hook asked for, the game without its start menu */
-function pageUrl(base, page, opened, intro = false) {
+function pageUrl(base, page, opened, intro = false, noIntro = false, clean = false) {
   const url = new URL(page === 'opened' ? opened : page, base);
-  // An intro page: the hook hides the game's HUD from the first frame (showreel.ts, sr-hud-off)
-  url.searchParams.set('showreel', intro ? 'intro' : '');
+  // An intro page: the hook hides the game's HUD from the first frame (showreel.ts, sr-hud-off); a no-intro page
+  // starts in the game view without the intro flight
+  // starts in the game view without the intro flight; a clean page has no HUD from the first frame either
+  url.searchParams.set('showreel', intro ? 'intro' : noIntro ? 'nointro' : clean ? 'clean' : '');
   if (!url.pathname.startsWith('/editor')) url.searchParams.set('menu', 'skip');
   return url.toString();
 }
@@ -298,9 +300,9 @@ async function main() {
    * scene) starts its sound and flashes while the map loads, so neither eats the intro flight that starts as the
    * map stands; its scene starts right then and waits for the flight itself (game stage, act intro)
    */
-  const openPage = async (target, intro = false) => {
+  const openPage = async (target, intro = false, noIntro = false, clean = false) => {
     await closeSegment();
-    const url = pageUrl(base, target, opened, intro);
+    const url = pageUrl(base, target, opened, intro, noIntro, clean);
     console.log(`page ${url}${intro ? ' (intro)' : ''}`);
     await page.goto(url);
     await page.waitForFunction(() => !!window.__showreel, null, { timeout: 60_000 });
@@ -350,6 +352,10 @@ async function main() {
   /** Steps one by one with a picture and the map's change after each, into verify.txt */
   const verifySteps = async (scene) => {
     mkdirSync(join(out, 'verify'), { recursive: true });
+    // Where the HQ stands (map metres): spots given from it can be planned on the map
+    const start = await fingerprint();
+    if (start) writeFileSync(join(out, 'verify.txt'), `# ${scene.name} hq ${start.hq}
+`, { flag: 'a' });
     for (let i = 0; i < scene.steps.length; i++) {
       const step = scene.steps[i];
       const before = await fingerprint();
@@ -373,7 +379,7 @@ async function main() {
     for (const scene of scenes) {
       const target = scene.page ?? (current === null ? scene.needs : null);
       if (target) {
-        await openPage(target, !!scene.intro && target === scene.page);
+        await openPage(target, !!scene.intro && target === scene.page, !!scene.noIntro, !!scene.clean);
         current = target;
       }
       if (!target && !segment) throw new Error(`scene ${scene.name} has no page to play on`);

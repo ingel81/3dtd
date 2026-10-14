@@ -43,7 +43,8 @@ export const SCENES = [
     path(6, ['current', [m(120, 120, 25), m(45, 65, 8)], [m(-30, 115, 30), m(10, 30, 5)]], { label: 'hell gate', ease: 'inOut' }),
   ]),
   introFlyover('autumn-flyover', 'autumn-keep', 'Autumn Keep', [
-    sky('afterglow', 'dusk', 8),
+    // The low sun from the north-west, behind the orbit's camera: the keep lit, not a silhouette against it
+    sky('afterglow', 'dusk', 15, { sunAzimuth: 330 }),
     orbit(6.5, { at: 'hq', dy: 12 }, { from: 140, to: 230, radius: 80, radiusTo: 60, height: 32, heightTo: 20, label: 'keep', ease: 'inOut' }),
     path(6, ['current', [m(-130, -40, 22), m(0, 60, 10)], [m(-45, -10, 85), m(0, 70, 0)]], { label: 'woods', ease: 'inOut' }),
   ]),
@@ -56,7 +57,7 @@ export const SCENES = [
   introFlyover('frost-flyover', 'frost-hamlet', 'Frost Hamlet', [
     act('environment', { patch: { weather: 'snow', weatherStrength: 0.9 }, label: 'snowfall' }),
     path(6.5, [[m(0, -150, 22), m(10, 40, 0)], [m(10, 40, 30), m(20, 160, 5)]], { label: 'frozen lake', ease: 'inOut' }),
-    orbit(6, { at: 'hq', dy: 15 }, { from: 160, to: 240, radius: 70, height: 26, heightTo: 18, label: 'hamlet', ease: 'inOut' }),
+    orbit(6, { at: 'hq' }, { from: 160, to: 240, radius: 70, height: 40, heightTo: 26, label: 'hamlet', ease: 'inOut' }),
   ]),
   flyover('moon-flyover', 'moon-base', 'Moon Base', [
     sky('deep-space', 'night', 25, { moonlight: 0.8 }),

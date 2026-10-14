@@ -11,7 +11,9 @@ export const SCENES = [
       act('routes', { on: false }),
       sky('sunset', 'dusk', 8, { sunAzimuth: 250 }),
       { do: 'mark', name: 'Finale' },
-      orbit(20, { at: 'hq' }, { from: 145, to: 190, radius: 240, radiusTo: 190, height: 90, heightTo: 120, ease: 'smooth', label: 'dusk orbit' }),
+      // Against the low sun (west-south-west): from the east over the waterfall side, high enough that the map's
+      // edge stays under the horizon, turning 50 degrees
+      orbit(20, m(30, -20), { from: 88, to: 138, radius: 190, radiusTo: 160, height: 170, heightTo: 140, ease: 'smooth', label: 'dusk orbit' }),
       { do: 'fade', to: 1, dur: 2, label: 'fade out' },
       wait(0.5),
     ],

@@ -16,11 +16,14 @@ export const SCENES = [
       { do: 'upload', sel: '[data-test=import-input]', file: W3X_FILE },
       click('[data-test=w3x-import]', { timeout: 10 }),
       { do: 'waitFor', sel: '[data-test=open-imported]', timeout: 60 },
-      { do: 'wait', dur: 2, label: 'report' },
+      { do: 'wait', dur: 2.5, label: 'report' },
       click('[data-test=open-imported]'),
       act('viewReady', { timeout: 90 }),
+      // The trees stream in a moment after the view stands
+      wait(1.2),
       path(6, ['current', [[0.35, -0.6, 140], [0.0, -0.05]], [[-0.3, -0.5, 110], [0.0, 0.05]]], { ease: 'inOut', label: 'imported map' }),
-      orbit(6, { at: 'hq' }, { from: 200, to: 260, radius: 120, height: 60, ease: 'inOut' }),
+      // On from where the path ends, round the point it looks at
+      orbit(6, 'look', { turn: 50, ease: 'inOut' }),
     ],
   },
 ];

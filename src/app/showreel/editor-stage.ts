@@ -182,6 +182,12 @@ export class EditorStage implements Stage {
         document.documentElement.classList.toggle('sr-clean', args['on'] === false);
         await waitSeconds(0.1);
         return;
+      case 'overlay': {
+        // The map's own markers (spawn flags, road nodes, HQ, brush ring) out of the picture, as for a chase
+        const viewport = this.viewport;
+        if (viewport) viewport.overlay.group.visible = args['on'] !== false;
+        return;
+      }
       case 'settings':
         // Seeds, brush, river and road options: what the panels would set, at once
         session.patchSettings((s: EditorSettings) => merge(s as unknown as Record<string, unknown>, args['patch'] as Record<string, unknown>));

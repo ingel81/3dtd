@@ -1,5 +1,5 @@
 // The editor, map 1: Green Valley, from an empty map to Test map. Every beat keeps the camera on what it changes
-// and holds about a second on the result. Ground layers (12 at most): grass, cliff and snow (Paint, for Auto paint),
+// and holds about a second on the result. Ground layers (12 at most): grass, snow (Paint),
 // forest x3, sand, gravel and mud (river), cobblestone (road), 10 in all.
 import { act, asset, clickMap, click, m, mode, newMap, orbit, par, path, seq, settings, stroke, tool, wait } from './common.mjs';
 
@@ -8,6 +8,18 @@ const frame = (points, opts = {}) => ({ do: 'frame', points, ...opts });
 
 const key = (k, mods) => ({ do: 'key', key: k, ...(mods ? { mods } : {}) });
 const keys = (k, n, mods) => Array.from({ length: n }, () => [key(k, mods), wait(0.12)]).flat();
+
+/** The Sky panel's preset buttons and weather buttons (a bare withText 'Snow' also finds other fields) */
+const SKY_PRESET = '[aria-labelledby=ep-sky] button[role=radio]';
+const WEATHER = '[aria-label=Weather] button[role=radio]';
+
+/** Camera poses [eye, look] the sky scene comes back to */
+/** The oak grove behind the village (HQ at 128, 0): low, the trees and houses in front */
+const FOREST_VIEW = [{ m: [70, -62], h: 7 }, { m: [62, -22], h: 4 }];
+const LAMPS_VIEW = [{ m: [-60, -30], h: 12 }, { m: [-20, 0], h: 2 }];
+const WIDE_VIEW = [[0.05, -0.08, 45], [0.0, 0.3, 25]];
+/** Low over the south, looking the valley's length north: fog shows in the depth */
+const DEEP_VIEW = [[0.02, -0.46, 10], [0.0, 0.35, 15]];
 
 export const SCENES = [
   { name: 'editor-new', page: '/editor', steps: [{ do: 'mark', name: 'Map editor' }, ...newMap('Green Valley', 'new map')] },
@@ -31,22 +43,28 @@ export const SCENES = [
   },
   {
     name: 'editor-terrain',
+    // Each sculpt mode framed on its own spot, result held: erode down the big hill's side, terraces on its top,
+    // roughen the flat ground before it, smooth over the terraces
     steps: [
-      settings({ brush: { radius: 40, strength: 0.8 } }),
-      par(
-        path(14, ['current', [[-0.42, -0.52, 60], [-0.2, -0.28]]], { ease: 'smooth' }),
-        seq(
-          mode('erode'),
-          stroke(2, [[-0.27, -0.27], [-0.22, -0.32]], { label: 'erode' }),
-          mode('noise'),
-          stroke(1.6, [[-0.36, -0.36], [-0.3, -0.38]], { label: 'roughen' }),
-          mode('terrace'),
-          stroke(1.8, [[-0.24, -0.3], [-0.25, -0.29]], { label: 'terrace' }),
-          mode('smooth'),
-          stroke(1.8, [[-0.3, -0.3], [-0.28, -0.31]], { label: 'smooth' }),
-          wait(0.6),
-        ),
-      ),
+      mode('erode'),
+      settings({ brush: { radius: 30, strength: 1 } }),
+      frame([[-0.27, -0.27], [-0.22, -0.32]], { from: 200, pitch: 30, margin: 30, glide: 1 }),
+      stroke(2.2, [[-0.27, -0.27], [-0.22, -0.32]], { label: 'erode' }),
+      wait(0.9),
+      mode('terrace'),
+      settings({ brush: { radius: 34, strength: 1 } }),
+      stroke(2, [[-0.24, -0.3], [-0.245, -0.295]], { label: 'terrace' }),
+      wait(0.9),
+      mode('noise'),
+      settings({ brush: { radius: 28, strength: 1 } }),
+      frame([[-0.38, -0.38], [-0.32, -0.4]], { from: 190, pitch: 32, margin: 22, glide: 1 }),
+      stroke(1.8, [[-0.38, -0.38], [-0.32, -0.4]], { label: 'roughen' }),
+      wait(0.9),
+      mode('smooth'),
+      settings({ brush: { radius: 30, strength: 1 } }),
+      frame([[-0.24, -0.3]], { from: 200, pitch: 30, margin: 40, glide: 1 }),
+      stroke(2, [[-0.26, -0.3], [-0.23, -0.29]], { label: 'smooth' }),
+      wait(0.9),
     ],
   },
   {
@@ -62,11 +80,7 @@ export const SCENES = [
       mode('ramp'),
       clickMap([-0.1, -0.31], { label: 'ramp' }),
       clickMap([-0.1, -0.44]),
-      wait(1.2),
-      mode('smooth'),
-      settings({ brush: { radius: 18, strength: 1 } }),
-      stroke(2, [[-0.15, -0.26], [-0.05, -0.26], [-0.05, -0.34]], { label: 'smooth the edge' }),
-      wait(1),
+      wait(1.6),
     ],
   },
   {
@@ -98,22 +112,18 @@ export const SCENES = [
     ],
   },
   {
-    // Rock and snow as layers, then Auto paint: rock on the steep sides, snow on the peaks at once
+    // Snow as a new layer, painted on a peak
     name: 'editor-paint',
     steps: [
       frame([[0.0, 0.38]], { from: 185, pitch: 28, margin: 70, pad: 1 }),
       tool('paint', { label: 'paint' }),
       click('[data-test=add-layer]'),
       click('.pp-group', { withText: 'Mountain' }),
-      click('[data-material=cliff]', { timeout: 8 }),
-      click('[data-test=add-layer]'),
-      click('.pp-group', { withText: 'Mountain' }),
       click('[data-material=snow-fresh]', { timeout: 8 }),
       settings({ brush: { radius: 22, strength: 1 } }),
       stroke(2.2, [[-0.02, 0.38], [0.02, 0.385], [0.0, 0.375]], { label: 'paint snow' }),
+      // Auto paint left out: on these mountains it takes the snow away and browns the meadow (app, E177)
       wait(0.5),
-      click('[data-test=auto-paint]', { label: 'auto paint' }),
-      act('idle', { timeout: 30 }),
       orbit(4, [0.0, 0.36], { from: 180, to: 215, radius: 120, height: 70 }),
     ],
   },
@@ -125,7 +135,7 @@ export const SCENES = [
       click('[data-biome=forest]'),
       settings({ brush: { radius: 50, strength: 0.9 }, landscape: { seed: 21 } }),
       par(
-        frame([[-0.36, 0.28], [-0.12, 0.3]], { from: 175, pitch: 28, margin: 45, pad: 1, dur: 9, turn: 20 }),
+        frame([[-0.36, 0.28], [-0.12, 0.3], [0.2, 0.22]], { from: 175, pitch: 28, margin: 45, pad: 1, dur: 9, turn: 20 }),
         seq(
           wait(0.9),
           stroke(3.5, [[-0.36, 0.28], [-0.3, 0.33], [-0.24, 0.31], [-0.18, 0.27], [-0.12, 0.3]]),
@@ -143,18 +153,22 @@ export const SCENES = [
         stroke(3.5, [[-0.02, 0.33], [-0.1, 0.15], [-0.04, -0.02], [-0.14, -0.2], [-0.1, -0.48]], { settle: 0.3 }),
       ),
       wait(0.8),
-      path(1.2, ['current', [{ at: 'river:0:28', dx: 45, dy: -85, h: 60 }, { at: 'river:0:28', dx: 12 }]]),
+      path(1.2, ['current', [{ at: 'river:0:28', dx: 35, dy: -70, h: 105 }, { at: 'river:0:28', dx: 14 }]]),
       tool('water', { label: 'move the river' }),
       wait(0.3),
       mode('river'),
       stroke(1.8, [{ at: 'river:0:28' }, { at: 'river:0:28', dx: 30, dy: 4 }], { settle: 0.3 }),
-      wait(1),
+      // The river's handles go with the selection: the moved bed alone
+      key('Escape'),
+      wait(1.2),
     ],
   },
   {
     name: 'editor-lake',
     steps: [
       path(1.5, ['current', [[0.3, -0.45, 60], [0.18, -0.24]]]),
+      // Esc after the river move left the tool: pick it again
+      tool('water'),
       mode('lake', { label: 'dig a lake' }),
       settings({ brush: { radius: 26, strength: 1 } }),
       stroke(2.4, [[0.16, -0.22], [0.2, -0.25], [0.17, -0.27]]),
@@ -165,7 +179,7 @@ export const SCENES = [
   {
     name: 'editor-roads',
     steps: [
-      path(1.5, ['current', [[0.3, -0.12, 120], [0.36, 0.1]]]),
+      frame([{ at: 'hq' }, [0.32, 0.08], [0.47, 0.2]], { from: 200, pitch: 48, margin: 25, glide: 1.5 }),
       tool('paths', { label: 'roads' }),
       mode('draw'),
       clickMap({ at: 'hq', dx: 0, dy: 6 }),
@@ -175,7 +189,7 @@ export const SCENES = [
       key('Enter'),
       wait(0.4),
       mode('edit', { label: 'bend the road' }),
-      stroke(1.4, [{ at: 'node:-2' }, { at: 'node:-2', dx: -18, dy: 22 }], { settle: 0.2 }),
+      stroke(1.4, [{ at: 'node:-2' }, { at: 'node:-2', dx: -32, dy: 30 }], { settle: 0.2 }),
       key('s'),
       wait(0.6),
       tool('markers', { label: 'spawn' }),
@@ -195,7 +209,7 @@ export const SCENES = [
       ...asset('tall', 'house-tall'),
       clickMap({ at: 'hq', dx: -72, dy: -40 }),
       ...asset('watchtower', 'watchtower'),
-      clickMap({ at: 'hq', dx: -60, dy: -62 }),
+      clickMap({ at: 'hq', dx: -88, dy: -58 }),
       ...asset('cottage', 'cottage'),
       clickMap({ at: 'hq', dx: -30, dy: -55 }),
       ...asset('castle wall', 'castle-wall'),
@@ -205,14 +219,15 @@ export const SCENES = [
       wait(0.8),
       mode('scatter', { label: 'scatter trees' }),
       ...asset('oak', 'tree-oak'),
-      settings({ brush: { radius: 18, strength: 0.9 } }),
-      frame([{ at: 'hq', dx: -95, dy: -100 }, { at: 'hq', dx: -40, dy: -105 }], { pitch: 35, margin: 25 }),
-      stroke(2.5, [{ at: 'hq', dx: -95, dy: -100 }, { at: 'hq', dx: -40, dy: -105 }]),
-      wait(0.6),
+      // Behind the houses as the camera sees them from the south, dense enough to read as a grove
+      settings({ brush: { radius: 22, strength: 1 }, objects: { scatter: { density: 14 } } }),
+      frame([{ at: 'hq', dx: -95, dy: -24 }, { at: 'hq', dx: -30, dy: -20 }, { at: 'hq', dx: -45, dy: -45 }], { from: 190, pitch: 32, margin: 20 }),
+      stroke(2.8, [{ at: 'hq', dx: -95, dy: -24 }, { at: 'hq', dx: -60, dy: -22 }, { at: 'hq', dx: -30, dy: -20 }]),
+      wait(1),
     ],
   },
   {
-    // Select, scale with the gizmo, duplicate and drag the copy, align to the slope
+    // Select, scale with the gizmo, duplicate and drag the copy
     name: 'editor-select',
     steps: [
       frame([{ at: 'object:cottage' }, { at: 'object:cottage', dx: 16, dy: -10 }], { pitch: 35, margin: 14 }),
@@ -226,13 +241,13 @@ export const SCENES = [
       key('d', { ctrl: true }),
       wait(0.3),
       stroke(1.3, [{ at: 'object:cottage', dx: 3, dy: -3 }, { at: 'object:cottage', dx: 19, dy: -13 }], { label: 'duplicate', settle: 0.3 }),
-      click('[data-test=align-selection]', { label: 'align to slope' }),
-      wait(0.8),
+      // Align to slope left out: on this flat ground it changes nothing on screen
+      wait(1),
       key('Escape'),
     ],
   },
   {
-    // Lamps all along the road with one click, then night: they light up
+    // Lamps all along the road with one click; they light up at night in the sky scene
     name: 'editor-lamps',
     steps: [
       frame([{ m: [-100, 0] }, { m: [-40, 0] }], { from: 200, pitch: 20, margin: 10 }),
@@ -240,29 +255,32 @@ export const SCENES = [
       click('[data-test=line-roads]'),
       ...asset('lamp', 'lamp-post'),
       clickMap({ m: [-100, 0] }, { label: 'lamps' }),
+      wait(0.6),
+      act('overlay', { on: false }),
+      path(2.2, ['current', LAMPS_VIEW], { ease: 'inOut' }),
       wait(0.8),
-      tool('environment'),
-      click('button[role=radio]', { withText: 'Night', label: 'lamps at night' }),
-      path(4, ['current', [{ m: [-60, -30], h: 12 }, { m: [-20, 0], h: 2 }]], { ease: 'inOut' }),
-      click('button[role=radio]', { withText: 'Day' }),
+      act('overlay', { on: true }),
     ],
   },
   {
     // Copy a piece of the village and stamp it twice, turned
     name: 'editor-stamps',
+    // HQ at (128, 0): the village west of it (walls down to y -80, the lake below), free meadow east of it
     steps: [
-      frame([{ at: 'hq', dx: -105, dy: -10 }, { at: 'hq', dx: -60, dy: -150 }, { at: 'hq', dx: -170, dy: -110 }], { pitch: 50, margin: 40 }),
+      frame([{ at: 'hq', dx: -105, dy: -10 }, { at: 'hq', dx: -15, dy: -78 }, { at: 'hq', dx: 110, dy: -150 }], { from: 190, pitch: 40, margin: 12 }),
       tool('stamp', { label: 'stamps' }),
       mode('select'),
-      stroke(1.2, [{ at: 'hq', dx: -105, dy: -10 }, { at: 'hq', dx: -15, dy: -85 }], { label: 'copy' }),
+      stroke(1.2, [{ at: 'hq', dx: -105, dy: -10 }, { at: 'hq', dx: -15, dy: -78 }], { label: 'copy' }),
       click('[data-test=copy]'),
       wait(0.3),
-      clickMap({ at: 'hq', dx: -60, dy: -150 }, { label: 'stamp' }),
+      clickMap({ at: 'hq', dx: 77, dy: -55 }, { label: 'stamp' }),
       act('idle', { timeout: 20 }),
+      wait(0.6),
       key('r'),
-      clickMap({ at: 'hq', dx: -170, dy: -110 }),
+      wait(0.4),
+      clickMap({ at: 'hq', dx: 87, dy: -150 }, { label: 'stamp turned' }),
       act('idle', { timeout: 20 }),
-      wait(1),
+      wait(1.2),
       key('Escape'),
     ],
   },
@@ -272,98 +290,29 @@ export const SCENES = [
       frame([{ at: 'object:chapel' }, { at: 'hq' }], { pitch: 35, margin: 20 }),
       tool('look', { label: 'look' }),
       clickMap({ at: 'object:chapel' }),
-      wait(0.8),
-      clickMap({ at: 'hq' }),
-      wait(0.8),
+      wait(1.6),
     ],
   },
   {
-    // A crater, then Fill a hollow: the water fills just that crater to its rim
+    // A crater on a level table, then Fill a hollow: the water fills just that crater to its rim
     name: 'editor-fill',
     steps: [
-      frame([[0.36, -0.36]], { from: 150, pitch: 30, margin: 45 }),
+      frame([{ m: [-170, -72] }], { from: 160, pitch: 30, margin: 45 }),
       tool('landscape'),
+      // A level table first: on the hillside a crater's rim had a low side and the water ran off ("no hollow")
+      mode('plateau'),
+      settings({ brush: { radius: 55, strength: 1 } }),
+      stroke(1.2, [{ m: [-170, -72] }, { m: [-169, -72] }]),
       mode('crater'),
-      settings({ brush: { radius: 34, strength: 1 } }),
-      stroke(1.8, [[0.36, -0.36], [0.36, -0.36]], { label: 'crater' }),
+      settings({ brush: { radius: 32, strength: 1 } }),
+      stroke(2, [{ m: [-170, -72] }, { m: [-170, -72] }], { label: 'crater' }),
       wait(0.5),
       tool('water'),
       mode('fill', { label: 'fill a hollow' }),
       // Ctrl: the hollow's own rim sets the level, whatever water the map has already
-      clickMap([0.36, -0.36], { mods: { ctrl: true } }),
+      clickMap({ m: [-170, -72] }, { mods: { ctrl: true } }),
       act('idle', { timeout: 30 }),
       wait(1.5),
-    ],
-  },
-  {
-    // The Sky tool's sliders with the forest in front: wind from calm to storm, time, fog, weather, pictures
-    name: 'editor-sky',
-    steps: [
-      path(1.5, ['current', [[-0.12, 0.08, 14], [-0.1, 0.3, 30]]]),
-      tool('environment', { label: 'sky' }),
-      par(
-        path(40, ['current', [[0.08, 0.08, 16], [0.05, 0.3, 30]]], { ease: 'smooth' }),
-        seq(
-          { do: 'range', sel: '[data-test=wind] app-editor-range', to: 100, dur: 2.2, label: 'wind' },
-          wait(1.5),
-          { do: 'range', sel: '[data-test=wind] app-editor-range', to: 15, dur: 1 },
-          click('button[role=radio]', { withText: 'Dusk', label: 'dusk' }),
-          { do: 'range', sel: '[data-test=time-of-day]', to: 19.4, dur: 2.2, label: 'time of day' },
-          click('button[role=radio]', { withText: 'Night', label: 'night' }),
-          { do: 'range', sel: '[data-test=moonlight]', to: 80, dur: 1.4, label: 'moonlight' },
-          wait(0.8),
-          { do: 'if', sel: '[data-test=sky-image]', steps: [
-            { do: 'select', sel: '[data-test=sky-image]', value: 'sunset', label: 'sky picture' },
-            wait(1.6),
-            { do: 'select', sel: '[data-test=sky-image]', value: 'thunderstorm' },
-            click('button[role=radio]', { withText: 'Rain', label: 'rain' }),
-            wait(1.2),
-            { do: 'key', key: 'b', label: 'still frame' },
-            orbit(3, [0.0, 0.25], { from: 190, to: 215, radius: 70, height: 18 }),
-            { do: 'key', key: 'b' },
-            wait(0.6),
-            { do: 'select', sel: '[data-test=sky-image]', value: 'starry-night' },
-            wait(1.6),
-            { do: 'select', sel: '[data-test=sky-image]', value: '' },
-          ] },
-          click('button[role=radio]', { withText: 'Overcast', label: 'overcast' }),
-          click('button[role=radio]', { withText: 'Snow', label: 'snow' }),
-          wait(2.4),
-          click('button[role=radio]', { withText: 'Fog', label: 'fog' }),
-          wait(2),
-          click('button[role=radio]', { withText: 'Clear' }),
-          click('button[role=radio]', { withText: 'Day' }),
-        ),
-      ),
-    ],
-  },
-  {
-    // A look at the spawn as the runners come out, then the camera chases one of them, then pulls up
-    name: 'editor-trial',
-    steps: [
-      path(1.5, ['current', [{ m: [-215, -25], h: 6 }, { m: [-250, 0], h: 2 }]]),
-      click('[data-test=trial]', { label: 'trial wave' }),
-      click('[data-test=trial-speed] button', { withText: '2x' }),
-      wait(2.5),
-      { do: 'follow', at: { at: 'runner:0' }, dur: 7, back: 12, side: 4, h: 4, label: 'chase' },
-      path(3, ['current', [{ m: [-120, -100], h: 75 }, { m: [-120, 0] }]], { ease: 'inOut', label: 'pull up' }),
-      wait(1.5),
-      click('[data-test=trial]'),
-    ],
-  },
-  {
-    name: 'editor-overlays',
-    steps: [
-      path(1.5, ['current', [[0.05, -0.62, 240], [0.0, 0.0]]]),
-      tool('measure', { label: 'build areas' }),
-      click('[data-test=build-areas]'),
-      wait(2.8),
-      click('[data-test=build-areas]'),
-      tool('gameplay', { label: 'difficulty' }),
-      { do: 'range', sel: '[data-test=difficulty]', to: 140, dur: 1.3 },
-      tool('settings', { label: 'scene cost' }),
-      { do: 'move', to: '[data-test=map-budget]', dur: 0.6 },
-      wait(1.4),
     ],
   },
   {
@@ -377,6 +326,100 @@ export const SCENES = [
       act('history', { to: 'end', stepS: 0.06 }),
       wait(0.8),
       click('[data-test=side-tool]'),
+    ],
+  },
+  {
+    // The Sky tool with the forest in front: wind from calm to storm, the day running into dusk; night at the
+    // lamps; pictures, rain and the still frame; fog over the depth of the valley, snow; back to a clear day
+    name: 'editor-sky',
+    steps: [
+      // Road nodes, spawn flag and HQ marker out of the picture for the whole scene
+      act('overlay', { on: false }),
+      path(1.5, ['current', FOREST_VIEW]),
+      tool('environment', { label: 'sky' }),
+      par(
+        path(5.5, ['current', [{ m: [48, -60], h: 7 }, { m: [58, -22], h: 4 }]], { ease: 'smooth' }),
+        seq(
+          { do: 'range', sel: '[data-test=wind] app-editor-range', to: 100, dur: 2.2, label: 'wind' },
+          wait(1.6),
+          { do: 'range', sel: '[data-test=wind] app-editor-range', to: 15, dur: 1 },
+        ),
+      ),
+      // One slider from noon into dusk (the sky follows the sun), no preset beside it
+      par(
+        path(4, ['current', [[-0.06, 0.1, 15], [-0.07, 0.3, 28]]], { ease: 'smooth' }),
+        { do: 'range', sel: '[data-test=time-of-day]', to: 19.6, dur: 3.6, label: 'time of day' },
+      ),
+      // Night where the lamps stand, the camera still while the night look compiles
+      path(2, ['current', LAMPS_VIEW], { ease: 'inOut' }),
+      click(SKY_PRESET, { withText: 'Night', label: 'night' }),
+      act('idle', { timeout: 20 }),
+      wait(1.4),
+      { do: 'range', sel: '[data-test=moonlight]', to: 80, dur: 1.4, label: 'moonlight' },
+      wait(1.2),
+      path(2, ['current', WIDE_VIEW], { ease: 'inOut' }),
+      { do: 'select', sel: '[data-test=sky-image]', value: 'sunset', label: 'sky picture' },
+      wait(1.6),
+      { do: 'select', sel: '[data-test=sky-image]', value: 'thunderstorm' },
+      click(WEATHER, { withText: 'Rain', label: 'rain' }),
+      { do: 'range', sel: 'app-editor-range[label=Strength]', to: 100, dur: 0.8 },
+      wait(1),
+      { do: 'key', key: 'b', label: 'still frame' },
+      orbit(3, 'look', { turn: 30, ease: 'inOut' }),
+      { do: 'key', key: 'b' },
+      wait(0.6),
+      click(WEATHER, { withText: 'Clear' }),
+      { do: 'select', sel: '[data-test=sky-image]', value: 'starry-night', label: 'starry night' },
+      wait(1.8),
+      { do: 'select', sel: '[data-test=sky-image]', value: '' },
+      click(SKY_PRESET, { withText: 'Day' }),
+      { do: 'range', sel: '[data-test=time-of-day]', to: 11, dur: 0.8 },
+      // Fog on a clear day over the valley's depth, then snow under an overcast sky
+      par(
+        path(4.5, ['current', DEEP_VIEW], { ease: 'smooth' }),
+        seq(
+          // The Air fog slider: the Fog weather barely showed; back to the new map's 4 after
+          { do: 'range', sel: 'app-editor-range[label=Fog]', to: 30, dur: 1.6, label: 'fog' },
+          wait(1.6),
+        ),
+      ),
+      { do: 'range', sel: 'app-editor-range[label=Fog]', to: 4, dur: 0.8 },
+      click(SKY_PRESET, { withText: 'Overcast', label: 'overcast' }),
+      click(WEATHER, { withText: 'Snow', label: 'snow' }),
+      { do: 'range', sel: 'app-editor-range[label=Strength]', to: 90, dur: 0.8 },
+      wait(2.2),
+      click(WEATHER, { withText: 'Clear' }),
+      // A clear day for everything after: the preset keeps the sun where it was, the clock sets it
+      click(SKY_PRESET, { withText: 'Day' }),
+      { do: 'range', sel: '[data-test=time-of-day]', to: 11, dur: 0.6 },
+      act('overlay', { on: true }),
+    ],
+  },
+  {
+    // A look at the spawn as the runners come out, then the camera chases one of them, then pulls up
+    name: 'editor-trial',
+    steps: [
+      // The spawn flag and the route's node balls out of the picture for the whole trial
+      act('overlay', { on: false }),
+      path(1.5, ['current', [{ m: [-215, -25], h: 6 }, { m: [-250, 0], h: 2 }]]),
+      click('[data-test=trial]', { label: 'trial wave' }),
+      click('[data-test=trial-speed] button', { withText: '2x' }),
+      wait(2.5),
+      { do: 'follow', at: { at: 'runner:0' }, dur: 7, back: 12, side: 7, h: 5, label: 'chase' },
+      path(3, ['current', [{ m: [-120, -100], h: 75 }, { m: [-120, 0] }]], { ease: 'inOut', label: 'pull up' }),
+      wait(1.5),
+      act('overlay', { on: true }),
+      click('[data-test=trial]'),
+    ],
+  },
+  {
+    name: 'editor-overlays',
+    steps: [
+      path(1.5, ['current', [[0.05, -0.62, 240], [0.0, 0.0]]]),
+      tool('measure', { label: 'build areas' }),
+      click('[data-test=build-areas]'),
+      wait(2.8),
+      click('[data-test=build-areas]'),
     ],
   },
   { name: 'editor-test', steps: [click('[data-test=test-play]', { label: 'test map' }), wait(1.5)] },

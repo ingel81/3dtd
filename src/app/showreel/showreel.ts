@@ -32,6 +32,8 @@ html.showreel.sr-clean .es-status,
 html.showreel.sr-clean .es-minimap,
 html.showreel.sr-clean .es-trial { display: none !important; }
 html.showreel.sr-clean .es-root { grid-template: 'view' minmax(0, 1fr) / minmax(0, 1fr) !important; }
+/* The editor's map list, new-map form and import report: larger, so their text reads in the video */
+html.showreel .mb-panel { zoom: 1.4; }
 /* An intro page (?showreel=intro): the game's HUD out from the first frame, as photo mode has it, before photo
    mode can be entered; the scene (route lines, HQ and spawn markers) and the loading globe stay */
 html.showreel.sr-hud-off app-game-header,
@@ -65,7 +67,17 @@ export function installShowreelEarly(): void {
   installAudioTap();
   document.documentElement.classList.add('showreel', 'sr-no-legend');
   // The runner asks for an intro page with `showreel=intro`: the game's intro flight plays without its HUD
-  if (new URLSearchParams(location.search).get('showreel') === 'intro') document.documentElement.classList.add('sr-hud-off');
+  const asked = new URLSearchParams(location.search).get('showreel');
+  if (asked === 'intro' || asked === 'clean') document.documentElement.classList.add('sr-hud-off');
+  // `showreel=nointro`: the flight is switched off as soon as the engine offers its handle, before the map stands
+  if (asked === 'nointro') {
+    const off = setInterval(() => {
+      const f = (globalThis as { __flight?: { setEnabled(v: boolean): void } }).__flight;
+      if (!f) return;
+      f.setEnabled(false);
+      clearInterval(off);
+    }, 20);
+  }
   const style = document.createElement('style');
   style.textContent = STYLE;
   document.head.append(style);

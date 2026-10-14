@@ -151,8 +151,10 @@ export class GameStage implements Stage {
    * from the HQ outwards, both sides, each checked by the game's placement
    * rules and apart from the others, so every build is one clean click
    */
-  private planSpots(count: number, tower: string, from = 40, to = 320): void {
-    const routes = [...this.routes.getCachedPaths().values()].map((r) => r.map((w) => ({ x: w.lon * MAP_METERS_PER_DEGREE, y: w.lat * MAP_METERS_PER_DEGREE })));
+  private planSpots(count: number, tower: string, from = 40, to = 320, only: number | null = null): void {
+    // `route`: the spots along that route alone, so they stand together in one shot
+    const all = [...this.routes.getCachedPaths().values()].map((r) => r.map((w) => ({ x: w.lon * MAP_METERS_PER_DEGREE, y: w.lat * MAP_METERS_PER_DEGREE })));
+    const routes = only === null ? all : all.slice(only, only + 1);
     const chosen: { x: number; y: number }[] = [];
     const apart = (p: { x: number; y: number }) => chosen.every((q) => Math.hypot(q.x - p.x, q.y - p.y) >= 24);
     for (let d = from; d <= to && chosen.length < count; d += 28) {
@@ -267,7 +269,12 @@ export class GameStage implements Stage {
       case 'intro':
         return this.intro(Number(args['timeout'] ?? 120));
       case 'man':
-        return this.man(args['spot'] === undefined ? null : Number(args['spot']), Number(args['dur'] ?? 5), Number(args['wait'] ?? 6));
+        return this.man(
+          args['spot'] === undefined ? null : Number(args['spot']),
+          Number(args['dur'] ?? 5),
+          Number(args['wait'] ?? 6),
+          (args['towers'] as string[] | undefined) ?? null,
+        );
       case 'photo':
         if (args['on'] === false) c.photoMode.exit();
         else c.photoMode.enter();
@@ -307,7 +314,13 @@ export class GameStage implements Stage {
         (globalThis as { __load?: { speed(v: number): void } }).__load?.speed(Number(args['value'] ?? 1));
         return;
       case 'planTowers':
-        this.planSpots(Number(args['count'] ?? 6), String(args['tower'] ?? 'archer'), Number(args['from'] ?? 40), Number(args['to'] ?? 320));
+        this.planSpots(
+          Number(args['count'] ?? 6),
+          String(args['tower'] ?? 'archer'),
+          Number(args['from'] ?? 40),
+          Number(args['to'] ?? 320),
+          args['route'] === undefined ? null : Number(args['route']),
+        );
         return;
       case 'build': {
         const tower = String(args['tower'] ?? 'archer');
@@ -353,16 +366,17 @@ export class GameStage implements Stage {
    * A while in the first-person view of a tower (docs/TOWER_CONTROL.md), as
    * C would put the player there: the tower nearest planned spot `spot`, or
    * without one the first a wave's enemy comes into range of (waits up to
-   * `wait` seconds for one). The aim turns to the nearest enemy at a hand's
+   * `wait` seconds for one), of the kinds in `towers` when given. The aim turns to the nearest enemy at a hand's
    * pace, the trigger is held while one is in range; then out again, the
    * camera back where it was
    */
-  private async man(spot: number | null, seconds: number, wait: number): Promise<void> {
+  private async man(spot: number | null, seconds: number, wait: number, types: string[] | null = null): Promise<void> {
     const control = this.component.towerControl;
     const seat = control as unknown as TowerSeat;
     const engine = this.engineInit.getEngine();
     if (!engine) throw new Error('showreel: no engine');
-    const mannable = () => seat.mirror.towers().filter((t) => control.canEnter(t));
+    // `towers`: only these kinds (a cannon's smoke fills its own view)
+    const mannable = () => seat.mirror.towers().filter((t) => control.canEnter(t) && (!types || types.includes(t.typeConfig.id)));
     let tower: Tower | undefined;
     if (spot !== null) {
       const at = this.spots[spot];

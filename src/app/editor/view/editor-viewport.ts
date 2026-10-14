@@ -598,6 +598,8 @@ export class EditorViewport {
     const target = new WebGLRenderTarget(width, height, { colorSpace: SRGBColorSpace });
     const fog = this.scene.fog;
     this.scene.fog = null;
+    // Put back as they were after: someone else may hold the overlay hidden
+    const overlayShown = this.overlay.group.visible;
     this.overlay.group.visible = overlay;
     // Particles and glows seen from above would cover the ground as a bright square
     this.view.setParticlesVisible(false);
@@ -609,7 +611,7 @@ export class EditorViewport {
     const pixels = new Uint8Array(width * height * 4);
     const read = this.renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height, pixels);
     this.renderer.setRenderTarget(null);
-    this.overlay.group.visible = true;
+    this.overlay.group.visible = overlayShown;
     this.scene.fog = fog;
     try {
       await read;
