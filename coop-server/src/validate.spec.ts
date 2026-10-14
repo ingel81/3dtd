@@ -30,6 +30,7 @@ describe('parseClientMessage (relay review K1, H1, N1)', () => {
     expect(parseClientMessage({ t: 'map-got', part: 1 })).toBeNull();
     expect(parseClientMessage({ t: 'map-want', hash: 'abc' })).toEqual({ t: 'map-want', hash: 'abc' });
     expect(parseClientMessage({ t: 'map-want' })).toBeNull();
+    expect(parseClientMessage({ t: 'map-have', hash: 'abc' })).toEqual({ t: 'map-have', hash: 'abc' });
   });
 
   it('passes a command on with its own fields only, and no unknown command', () => {

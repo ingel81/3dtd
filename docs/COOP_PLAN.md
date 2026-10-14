@@ -216,6 +216,8 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
   nächste erst, wenn der Gast das vorige mit `map-got` bestätigt. So liegt je Gast höchstens ein Stück ungelesen am
   Relay (Grenze 8 MB), egal wie groß die Karte ist. Ein später Beitretender bekommt das erste Stück vor der Welt,
   den Rest nach seinen Bestätigungen; eine andere Karte ersetzt sie (`coop-server/src/room.ts`)
+- Hat ein Gast die Karte mit demselben Inhalt schon (gespeichert, früher geteilt oder mitgeliefert, `hasMapHere`),
+  sagt er es beim ersten Stück (`map-have`): das Relay schickt ihm keine weiteren, er öffnet seine Karte
 - Passt ein Stück nicht mehr ins Budget, behält das Relay es nur, bis jeder Gast im Raum es hat; das `map-ack` an
   den Host wartet so lange. Ein später Beitretender bekommt dann nicht sofort eine Karte (Log-Zeile „not kept
   whole“): Nennt die Welt eine Karte, die er nicht hat und die nicht unterwegs ist, fragt sein Client einmal nach

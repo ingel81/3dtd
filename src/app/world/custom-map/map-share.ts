@@ -19,6 +19,16 @@ export function packOpenedMap(ref: WorldRef): { bytes: Uint8Array; hash: string 
 }
 
 /**
+ * Whether this browser has the map another player plays, with that very
+ * content (stored, shared before, or shipped): then none of its pieces need
+ * to come
+ */
+export async function hasMapHere(expected: { mapId: string; hash: string }, store: MapStore = new MapStore()): Promise<boolean> {
+  const here = await store.load(expected.mapId).catch(() => null);
+  return here?.summary.contentHash === expected.hash;
+}
+
+/**
  * Keep a map another player sent, so this page can open it as
  * `?world=map:<id>`: the file must be a map, with the id and content hash
  * named. It is kept as 'shared': a map here with that id and content is left

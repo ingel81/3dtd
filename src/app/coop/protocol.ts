@@ -154,6 +154,8 @@ export type ClientMessage =
    * the relay keeps, else the relay asks the host, `map-wanted`)
    */
   | { t: 'map-want'; hash: string }
+  /** Guest, lobby: the map with content `hash` is here already: no more of its pieces */
+  | { t: 'map-have'; hash: string }
   /** Lobby: what this client is doing now (PlayerStatus) */
   | { t: 'status'; status: PlayerStatus }
   /** Lobby: take a free spawn as one more lane, or give one back (`take` false); null gives every lane back */

@@ -532,6 +532,14 @@ export class Room {
         // At most one a second goes out (review H2); a newer one waits and replaces what waits
         this.pendingWorld = { world: message.world, spawnIds: [...message.spawnIds] };
         return this.flushWorld();
+      case 'map-have': {
+        // The guest has this map already: past its last piece, nothing more to send it
+        const cursor = this.mapCursors.get(playerId);
+        if (!cursor || this.map?.hash !== message.hash) return;
+        cursor.next = this.map.parts.length;
+        cursor.sent = false;
+        return this.pumpMap();
+      }
       case 'map-want': {
         if (host || this.started) return;
         const map = this.map;

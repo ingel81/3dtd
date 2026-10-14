@@ -1,7 +1,7 @@
 import { createMapDocument } from './map-create';
 import { contentHash, packMapFile } from './map-file';
 import { MapStore, MemoryMapBackend } from './map-store';
-import { storeSharedMap } from './map-share';
+import { hasMapHere, storeSharedMap } from './map-share';
 
 describe('storeSharedMap (coop with a custom map)', () => {
   const doc = (name = 'Valley') => createMapDocument({ id: 'valley', name, width: 32, depth: 32, now: new Date(0) });
@@ -21,6 +21,16 @@ describe('storeSharedMap (coop with a custom map)', () => {
     expect((await store.load('valley')).summary).toMatchObject({ origin: 'shared', contentHash: hash });
     // Here already: nothing to do
     expect(await storeSharedMap(packMapFile(map), { mapId: 'valley', hash }, store)).toBeNull();
+  });
+
+  it('knows a map is here when the same content is stored, not for another version of it', async () => {
+    const store = emptyStore();
+    const map = doc();
+    const hash = await contentHash(map);
+    expect(await hasMapHere({ mapId: 'valley', hash }, store)).toBe(false);
+    await storeSharedMap(packMapFile(map), { mapId: 'valley', hash }, store);
+    expect(await hasMapHere({ mapId: 'valley', hash }, store)).toBe(true);
+    expect(await hasMapHere({ mapId: 'valley', hash: 'another' }, store)).toBe(false);
   });
 
   it('refuses bytes that are no map or another map than named, and never overwrites an own map', async () => {

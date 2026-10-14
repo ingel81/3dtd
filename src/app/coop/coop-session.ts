@@ -312,6 +312,11 @@ export class CoopSession {
     this.out({ t: 'map-got', hash, part });
   }
 
+  /** Guest, lobby: the map with content `hash` is here already: the relay sends no more of it */
+  mapHave(hash: string): void {
+    this.out({ t: 'map-have', hash });
+  }
+
   /** Guest, lobby: the host's world names the map with content `hash`, which is not here: ask for it */
   mapWant(hash: string): void {
     this.out({ t: 'map-want', hash });

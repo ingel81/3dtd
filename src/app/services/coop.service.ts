@@ -52,7 +52,7 @@ import { WorldContext } from '../world/world-context.service';
 import { WORLD_URL_PARAM, worldUrlValue, worldsMatch, type WorldRef } from '../world/world-ref';
 import { packageWorldRef } from '../coop/world-package';
 import { MapAssembler, PacedMapSend, splitMapFile, type MapPart } from '../coop/map-transfer';
-import { packOpenedMap, storeSharedMap } from '../world/custom-map/map-share';
+import { hasMapHere, packOpenedMap, storeSharedMap } from '../world/custom-map/map-share';
 
 /** Pause between two pieces of a map the host sends: the relay takes some 4 MB a second from one connection */
 /** How long a guest on the host's map waits for its own start to stand or fail before it reloads into the map */
@@ -265,6 +265,8 @@ export class CoopService {
   private sentMapKey: string | null = null;
   /** Guest: the map (content hash) asked for from the room once, so a world naming it waits instead of failing */
   private wantedMapHash: string | null = null;
+  /** Guest: the map (id and content hash) the host sends that was here already: its pieces are not taken */
+  private mapHere: string | null = null;
   /** Host: the map's pieces paced through the relay, the world after them */
   private readonly mapSend = new PacedMapSend();
   /** The signals of a room, back to their start in leave() */
@@ -1219,6 +1221,7 @@ export class CoopService {
     this.mapAssembler.reset();
     this.sentMapKey = null;
     this.wantedMapHash = null;
+    this.mapHere = null;
     this.pickedByHand = false;
     this.autoPicking = null;
     this.toldStatus = null;
@@ -1281,6 +1284,32 @@ export class CoopService {
    */
   private takeMapPart(piece: MapPart): void {
     if (this.isHost()) return;
+    const key = `${piece.mapId}\n${piece.hash}`;
+    if (this.mapHere === key) return;
+    // The first piece of a map: one that is here already (the same content) needs none of its pieces
+    if (piece.part === 0 && this.mapAssembler.current?.hash !== piece.hash) {
+      void this.firstMapPart(piece, key);
+      return;
+    }
+    this.addMapPart(piece);
+  }
+
+  private async firstMapPart(piece: MapPart, key: string): Promise<void> {
+    const generation = this.generation;
+    const here = await hasMapHere({ mapId: piece.mapId, hash: piece.hash }).catch(() => false);
+    if (generation !== this.generation) return;
+    if (!here) {
+      this.ngZone.run(() => this.addMapPart(piece));
+      return;
+    }
+    this.mapHere = key;
+    this.mapAssembler.reset();
+    this.session?.mapHave(piece.hash);
+    this.ngZone.run(() => this.mapTransfer.set(null));
+    await this.openHostMap(piece.mapId, piece.hash, generation);
+  }
+
+  private addMapPart(piece: MapPart): void {
     const bytes = this.mapAssembler.add(piece);
     // The relay sends the next piece once this one is confirmed
     this.session?.mapGot(piece.hash, piece.part);
@@ -1319,6 +1348,12 @@ export class CoopService {
       this.ngZone.run(() => this.error.set(problem));
       return;
     }
+    await this.openHostMap(piece.mapId, piece.hash, generation);
+  }
+
+  /** Guest: the host's map is here: this page on it, unless it plays it already (keepHostMap, firstMapPart) */
+  private async openHostMap(mapId: string, hash: string, generation: number): Promise<void> {
+    const piece = { mapId, hash };
     const ref: WorldRef = { kind: 'custom-map', mapId: piece.mapId, contentHash: piece.hash };
     if (!worldsMatch(ref, this.worldContext.ref())) {
       this.ngZone.run(() => this.reloadAtMap(piece.mapId));

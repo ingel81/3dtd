@@ -93,9 +93,10 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
       if (hash === null || !Number.isInteger(part) || (part as number) < 0 || (part as number) >= MAX_MAP_PARTS) return null;
       return { t: 'map-got', hash, part: part as number };
     }
-    case 'map-want': {
+    case 'map-want':
+    case 'map-have': {
       const hash = cleanText(m['hash'], VERSION_MAX);
-      return hash === null ? null : { t: 'map-want', hash };
+      return hash === null ? null : { t: m['t'], hash };
     }
     case 'status': {
       const status = cleanText(m['status'], 16);

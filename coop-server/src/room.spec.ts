@@ -140,6 +140,26 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(pieces('c').map((m) => m.data)).toEqual(['P0']);
   });
 
+  it('sends no more pieces to a guest who has the map already, and lets the host go on', () => {
+    // Nothing kept: the host's next piece waits for every guest
+    inbox = new Map();
+    room = new Room('ABCDEF', player('a'), (id, message) => {
+      if (!inbox.has(id)) inbox.set(id, []);
+      inbox.get(id)!.push(message);
+    }, { now: () => clock, mapBudget: new MapBudget(0) });
+    room.join(player('b'));
+    sendPiece('a', 0, 'P0', { parts: 3 });
+    expect(all('a', 'map-ack')).toHaveLength(0);
+    // b has this map: past its last piece at once, the host's piece is through
+    room.receive('b', { t: 'map-have', hash: 'other' });
+    expect(all('a', 'map-ack')).toHaveLength(0);
+    room.receive('b', { t: 'map-have', hash: 'h1' });
+    expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0]);
+    sendPiece('a', 1, 'P1', { parts: 3 });
+    expect(pieces('b').map((m) => m.data)).toEqual(['P0']);
+    expect(all('a', 'map-ack').map((m) => m.part)).toEqual([0, 1]);
+  });
+
   it('gives a guest who lacks the map the kept pieces, or asks the host for them again', () => {
     room.join(player('b'));
     sendPiece('a', 0, 'P0');

@@ -63,6 +63,8 @@ describe('CoopSession map pieces (binary frames, protocol 5)', () => {
     await session.connect();
     session.mapWant('h1');
     expect(JSON.parse(sent.at(-1) as string)).toEqual({ t: 'map-want', hash: 'h1' });
+    session.mapHave('h1');
+    expect(JSON.parse(sent.at(-1) as string)).toEqual({ t: 'map-have', hash: 'h1' });
 
     const heard: string[] = [];
     session.onMapWanted = () => heard.push('wanted');
