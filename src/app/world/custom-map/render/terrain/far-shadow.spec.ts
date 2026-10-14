@@ -2,7 +2,7 @@ import { ShaderLib, UniformsUtils, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { HeightField } from '../height-field';
 import { sunDirection } from '../environment/map-environment';
-import { farShadowData } from './far-shadow';
+import { FAR_SHADOW_SLICE_ROWS, FarShadow, farShadowData } from './far-shadow';
 import { TerrainMaterial } from './terrain-material';
 
 /** A flat 400 x 400 m map with a 60 m high ridge running north-south through x = 0 */
@@ -79,3 +79,22 @@ function compileTerrain(shader: { uniforms: object; vertexShader: string; fragme
   material.onBeforeCompile(shader as never, null as never);
   return shader.fragmentShader;
 }
+
+describe('FarShadow.bakeSliced', () => {
+  it('bakes the same over several tasks as at once, and stops for a newer bake', async () => {
+    const field = ridge();
+    const sun = new Vector3(-1, 0.25, 0).normalize();
+    const whole = farShadowData(field, sun, 400, 400);
+    const shadow = new FarShadow();
+    let tasks = 0;
+    const done = await shadow.bakeSliced(field, sun, 400, 400, () => (tasks++, true));
+    expect(done).toBe(true);
+    expect(tasks).toBe(Math.ceil(whole.rows / FAR_SHADOW_SLICE_ROWS));
+    expect(shadow.texture.value.image.data).toEqual(whole.data);
+    const before = shadow.texture.value.image.data;
+    // A newer bake took over: this one leaves the texture as it is
+    expect(await shadow.bakeSliced(field, new Vector3(1, 0.25, 0).normalize(), 400, 400, () => false)).toBe(false);
+    expect(shadow.texture.value.image.data).toBe(before);
+    shadow.dispose();
+  });
+});

@@ -180,7 +180,8 @@ Lava spiegeln sich).
   Berg keinen Schatten. `terrain/far-shadow.ts` backt, wo das Gelände selbst die Sonne verdeckt, über die ganze Karte
   in eine 256er-Textur (ein Byte je Texel, weicher Rand mit der Entfernung; nur der Boden wirft, Bäume und Häuser
   nicht). Der Boden liest sie ab 70 % des Radius der Schattenkarte, ein Lookup; Backen 10 bis 30 ms auf 1025er-Raster,
-  nach Sonnenwechsel sofort, nach Höhenänderungen 0,4 s nach der letzten; GPU nicht messbar). Die
+  nach Sonnenwechsel sofort, nach Höhenänderungen 0,4 s nach der letzten, dann über Tasks verteilt in Bändern von 24
+  Zeilen, eine neuere Änderung bricht ab; GPU nicht messbar). Die
   Qualitätsstufen schalten sie
 - `water` (Standard): klar am Ufer, Kartenfarbe in der Tiefe, Wellen, Spiegelung des Himmels mit Fresnel, Sonnenglanz
   (der scharfe Teil funkelt: feine, schnelle Wellenfacetten fangen die Sonne),

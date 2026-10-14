@@ -72,7 +72,14 @@ export class MapTerrainLayer {
 
   /** Bakes the far cascade of the sun's shadow for the land as it is now (`sunDir` in scene space) */
   bakeFarShadow(sunDir: Vector3): void {
+    this.farShadowBake++;
     this.farShadow.bake(this.field, sunDir, this.terrain.width, this.terrain.depth);
+  }
+
+  /** The far shadow baked again after an edit, spread over frames (FarShadow.bakeSliced); a newer bake stops it */
+  bakeFarShadowSliced(sunDir: Vector3): Promise<boolean> {
+    const bake = ++this.farShadowBake;
+    return this.farShadow.bakeSliced(this.field, sunDir.clone(), this.terrain.width, this.terrain.depth, () => bake === this.farShadowBake);
   }
 
   /** Distances (m) from which far ground samples one layer lookup, then no layer textures (quality levels) */
@@ -80,6 +87,8 @@ export class MapTerrainLayer {
     this.far = [single, flat];
     this.material?.setFarDistances(single, flat);
   }
+  /** The far shadow bake under way (bakeFarShadowSliced): a newer one stops it */
+  private farShadowBake = 0;
   private arrays: MaterialArrays | null = null;
   private splat: SplatTextures | null = null;
   private pathMask: DataTexture | null = null;
@@ -292,6 +301,8 @@ export class MapTerrainLayer {
   }
 
   dispose(): void {
+    // A sliced far shadow bake under way stops: it would upload into what is gone
+    this.farShadowBake++;
     this.chunks.dispose();
     this.apron.geometry.dispose();
     this.apron.removeFromParent();

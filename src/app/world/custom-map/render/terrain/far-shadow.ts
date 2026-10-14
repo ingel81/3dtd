@@ -21,15 +21,32 @@ const REACH = 1200;
 
 /** Visibility of the sun (0 shadow, 255 lit) over the map, `width` x `height` texels row by row from the map's south west */
 export function farShadowData(field: HeightField, sunDir: { x: number; y: number; z: number }, width: number, depth: number): { data: Uint8Array; columns: number; rows: number } {
+  const out = farShadowStart(sunDir, width, depth);
+  farShadowRows(field, sunDir, width, depth, out, 0, out.rows);
+  return out;
+}
+
+/** The far shadow's texels, all lit (all dark once the sun has set), before farShadowRows marches them */
+export function farShadowStart(sunDir: { y: number }, width: number, depth: number): { data: Uint8Array; columns: number; rows: number } {
   const columns = width >= depth ? SIZE : Math.max(2, Math.round((SIZE * width) / depth));
   const rows = depth >= width ? SIZE : Math.max(2, Math.round((SIZE * depth) / width));
-  const data = new Uint8Array(columns * rows).fill(255);
+  return { data: new Uint8Array(columns * rows).fill(sunDir.y <= 0.01 ? 0 : 255), columns, rows };
+}
+
+/** Rows j0 up to j1 of the far shadow, marched towards the sun (one band of a bake spread over frames) */
+export function farShadowRows(
+  field: HeightField,
+  sunDir: { x: number; y: number; z: number },
+  width: number,
+  depth: number,
+  out: { data: Uint8Array; columns: number; rows: number },
+  j0: number,
+  j1: number,
+): void {
+  const { data, columns, rows } = out;
   // The sun's direction on the map (scene x is map -x, scene z map y), its rise per metre along it
   const horizontal = Math.hypot(sunDir.x, sunDir.z);
-  if (sunDir.y <= 0.01 || horizontal < 1e-4) {
-    if (sunDir.y <= 0.01) data.fill(0);
-    return { data, columns, rows };
-  }
+  if (sunDir.y <= 0.01 || horizontal < 1e-4) return;
   const dx = -sunDir.x / horizontal;
   const dy = sunDir.z / horizontal;
   const rise = sunDir.y / horizontal;
@@ -39,7 +56,7 @@ export function farShadowData(field: HeightField, sunDir: { x: number; y: number
   const reach = Math.min(REACH, Math.hypot(width, depth));
   const halfW = width / 2;
   const halfD = depth / 2;
-  for (let j = 0; j < rows; j++) {
+  for (let j = j0; j < Math.min(j1, rows); j++) {
     const y = -halfD + (j + 0.5) * cellY;
     for (let i = 0; i < columns; i++) {
       const x = -halfW + (i + 0.5) * cellX;
@@ -60,8 +77,10 @@ export function farShadowData(field: HeightField, sunDir: { x: number; y: number
       data[j * columns + i] = Math.round(Math.max(0, lit) * 255);
     }
   }
-  return { data, columns, rows };
 }
+
+/** Rows a slice of a bake spread over frames marches (some 2 to 6 ms) */
+export const FAR_SHADOW_SLICE_ROWS = 24;
 
 /**
  * The baked far shadow and where it applies, as the terrain material's
@@ -74,7 +93,27 @@ export class FarShadow {
 
   /** Bakes the land's shadow for `sunDir` (scene space, towards the sun); about 20 to 60 ms */
   bake(field: HeightField, sunDir: Vector3, width: number, depth: number): void {
-    const { data, columns, rows } = farShadowData(field, sunDir, width, depth);
+    this.upload(farShadowData(field, sunDir, width, depth));
+  }
+
+  /**
+   * The same bake spread over frames (an edit of the ground in the editor):
+   * FAR_SHADOW_SLICE_ROWS rows at a time with a task between, so no frame
+   * holds the whole of it. Stops without a result once `current` says a
+   * newer bake took over. Resolves true when it uploaded.
+   */
+  async bakeSliced(field: HeightField, sunDir: Vector3, width: number, depth: number, current: () => boolean): Promise<boolean> {
+    const out = farShadowStart(sunDir, width, depth);
+    for (let j = 0; j < out.rows; j += FAR_SHADOW_SLICE_ROWS) {
+      farShadowRows(field, sunDir, width, depth, out, j, j + FAR_SHADOW_SLICE_ROWS);
+      await new Promise((resolve) => setTimeout(resolve));
+      if (!current()) return false;
+    }
+    this.upload(out);
+    return true;
+  }
+
+  private upload({ data, columns, rows }: { data: Uint8Array; columns: number; rows: number }): void {
     const t = this.texture.value;
     if (t.image.width === columns && t.image.height === rows) {
       (t.image.data as Uint8Array).set(data);

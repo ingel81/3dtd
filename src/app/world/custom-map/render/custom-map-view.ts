@@ -489,12 +489,13 @@ export class CustomMapView {
     if (this.farShadowDue) clearTimeout(this.farShadowDue);
     this.farShadowDue = null;
     if (!this.mapEffects.shadowCascade) return;
+    // After an edit spread over frames: the whole bake (20 to 60 ms) held the frame it ran in
     const bake = (): void => {
       this.farShadowDue = null;
-      if (!this.disposed) this.terrain.bakeFarShadow(this.environment.sunDir);
+      if (!this.disposed) void this.terrain.bakeFarShadowSliced(this.environment.sunDir);
     };
     if (edit) this.farShadowDue = setTimeout(bake, 400);
-    else bake();
+    else if (!this.disposed) this.terrain.bakeFarShadow(this.environment.sunDir);
   }
 
   private async refreshBridges(): Promise<void> {
