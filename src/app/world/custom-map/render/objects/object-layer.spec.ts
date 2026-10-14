@@ -90,27 +90,36 @@ describe('MapObjectLayer packed assets (few objects, no cells)', () => {
     };
     const meshes = (name: string) => los.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === name);
     const shown = (name: string) => meshes(name).filter((m) => m.visible).reduce((n, m) => n + m.count, 0);
-    look(0);
+    const fades = (name: string) => [...((meshes(name)[0].geometry.getAttribute('lodFade').array as Float32Array).subarray(0, meshes(name)[0].count))];
+    look(4);
     // One mesh per level, not per cell
     expect(meshes('tree')).toHaveLength(1);
     expect(meshes('tree-lod1')).toHaveLength(1);
-    // Trees within 100 m of their bounds (radius 6 m) near, the rest far: map x 0..100 is six trees
+    // Trees within 100 m of their bounds near, the rest far: map x 0..100 is six trees
     expect(shown('tree')).toBe(6);
     expect(shown('tree-lod1')).toBe(14);
     const version = layer.version;
     // Less than a step: nothing sorted again
-    look(1);
+    look(5);
     expect(layer.version).toBe(version);
-    look(380);
-    expect(shown('tree')).toBe(6);
+    look(395);
+    expect(shown('tree')).toBe(5);
     expect(shown('tree') + shown('tree-lod1')).toBe(20);
     expect(layer.version).toBeGreaterThan(version);
+    // In the band around 100 m (94 to 106 m) a tree shows both levels, dissolving: the one at map x 300 is 97 m away
+    look(400);
+    expect(shown('tree')).toBe(5);
+    expect(shown('tree-lod1')).toBe(16);
+
+    expect(fades('tree').filter((f) => f !== 0)).toEqual([expect.closeTo(0.25, 2)]);
+    expect(fades('tree-lod1').filter((f) => f !== 0)).toEqual([expect.closeTo(-0.75, 2)]);
+    look(395);
     // The editor still picks a far tree: the picks hold every object
     const hit = layer.raycast(new Ray(new Vector3(-380, 1, -10), new Vector3(0, 0, 1)));
     expect(hit?.object.id).toBe('t19');
     // Moved in place: sorted again with the new position
     expect(layer.updateObjects([{ ...objects[0], x: 370 }])).toEqual([]);
-    expect(shown('tree')).toBe(7);
+    expect(shown('tree')).toBe(6);
     layer.dispose();
   });
 

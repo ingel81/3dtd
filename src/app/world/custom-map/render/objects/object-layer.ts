@@ -26,6 +26,7 @@ import { WIND_GLSL, WIND_UNIFORMS, windSwayAtTop } from '../environment/wind';
 import { mapToScene } from '../map-coords';
 import { bakeImpostor, type Impostor } from './impostor';
 import { addVertexRoughMetal, mergeParts } from './merge-parts';
+import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry } from './lod-fade';
 
 /**
  * The placed objects of a map, drawn instanced. An asset with many objects
@@ -40,7 +41,9 @@ import { addVertexRoughMetal, mergeParts } from './merge-parts';
  * objects drew some 200 cells of up to ten parts each, 1111 calls in the
  * game view (docs/BENCHMARKS.md); packed it draws one mesh per asset, level
  * and part. Plain-coloured model parts of one look are merged into one
- * (merge-parts.ts).
+ * (merge-parts.ts). Around each switch distance a band shows both levels
+ * dissolving into each other (lod-fade.ts), packed objects each by their
+ * own distance, cells as a whole.
  *
  * - each frame a cell shows one detail level by its distance (the model,
  *   the catalogue's `lod` models, an impostor for far trees) and hides
@@ -65,6 +68,8 @@ export const PACK_MAX = 512;
 const REPACK_STEP = 2;
 /** The cell key of a packed asset's one cell */
 const PACKED = Number.MIN_SAFE_INTEGER;
+/** An object outside every band (Packed.nextOf) */
+const NO_NEXT = -2;
 /** Strongest glow of an object surface (emissive colour times intensity, linear) */
 const MAX_EMISSIVE = 0.55;
 /**
@@ -90,8 +95,13 @@ interface Cell {
   capacity: number;
   /** Meshes per level */
   levels: InstancedMesh[][];
+  /** Per level the `lodFade` of its meshes' instances (lod-fade.ts) */
+  fades: InstancedBufferAttribute[];
   sphere: Sphere;
   level: number;
+  /** In a band: the level it dissolves into (-1: none, at the draw distance) and how far; null outside a band */
+  next: number | null;
+  fade: number;
   /** A packed asset's one cell: its objects sorted into the levels; null for a cell of the map */
   packed: Packed | null;
 }
@@ -100,6 +110,9 @@ interface Cell {
 interface Packed {
   /** The level each object shows, -1 hidden */
   levelOf: Int8Array;
+  /** In a band: the level it dissolves into (-1: none), NO_NEXT outside; and how far (lod-fade.ts) */
+  nextOf: Int8Array;
+  fadeOf: Float32Array;
   /** Per level: the instance matrices (and colours) all its part meshes share, and the bounds of what it shows */
   matrices: InstancedBufferAttribute[];
   colors: (InstancedBufferAttribute | null)[];
@@ -510,7 +523,10 @@ export class MapObjectLayer {
       let imp = this.impostors.get(entry.id);
       if (imp === undefined) {
         imp = bakeImpostor(this.options.renderer, model);
-        if (imp) addHeightFog(imp.material);
+        if (imp) {
+          addLodFade(imp.material);
+          addHeightFog(imp.material);
+        }
         this.impostors.set(entry.id, imp);
       }
       if (imp) {
@@ -586,6 +602,8 @@ export class MapObjectLayer {
     }
     const slot = cell.indices.length;
     cell.indices.push(i);
+    // In a band the next pass writes the dissolve of every slot, the new one too
+    cell.fade = -1;
     b.slots[i] = { cell: key, slot };
     this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3]);
     if (cell.sphere.isEmpty()) cell.sphere.copy(this.sphere);
@@ -664,12 +682,25 @@ export class MapObjectLayer {
     const parent = b.blocksLos ? this.losGroup : this.group;
     const n = indices.length;
     const capacity = packed ? n : cellCapacity(n);
-    const cell: Cell = { indices, capacity, levels: [], sphere: new Sphere(), level: -1, packed: null };
+    const cell: Cell = { indices, capacity, levels: [], fades: [], sphere: new Sphere(), level: -1, next: null, fade: 0, packed: null };
     const pack: Packed | null = packed
-      ? { levelOf: new Int8Array(n).fill(-2), matrices: [], colors: [], bounds: [], pick: [], at: new Vector3(), stale: true }
+      ? {
+        levelOf: new Int8Array(n).fill(-2),
+        nextOf: new Int8Array(n).fill(NO_NEXT),
+        fadeOf: new Float32Array(n),
+        matrices: [],
+        colors: [],
+        bounds: [],
+        pick: [],
+        at: new Vector3(),
+        stale: true,
+      }
       : null;
     for (const [li, level] of b.levels.entries()) {
       const meshes: InstancedMesh[] = [];
+      // The level's dissolve per instance, shared by its parts
+      const fade = new InstancedBufferAttribute(new Float32Array(capacity), 1);
+      cell.fades.push(fade);
       // A packed level's parts share one set of instances
       const shared = pack ? new InstancedBufferAttribute(new Float32Array(n * 16), 16) : null;
       const sharedColors = pack && b.colors ? new InstancedBufferAttribute(new Float32Array(n * 3), 3) : null;
@@ -679,7 +710,7 @@ export class MapObjectLayer {
         pack.bounds.push(new Sphere());
       }
       for (const part of level.parts) {
-        const mesh = new InstancedMesh(part.geometry, part.material, capacity);
+        const mesh = new InstancedMesh(fadeGeometry(part.geometry, fade), part.material, capacity);
         mesh.count = n;
         mesh.name = `${entry.id}${b.blocksLos ? '' : '-decor'}${li ? `-lod${li}` : ''}`;
         if (shared) {
@@ -736,9 +767,11 @@ export class MapObjectLayer {
 
   /**
    * A packed asset's objects into the levels for the camera's distance to
-   * each (or every object into every level for the warm-up). Writes only
-   * levels whose objects changed, unless the instances did (`stale`).
-   * Returns whether anything changed.
+   * each, an object in a band into both its levels with their dissolve
+   * (or every object into every level whole, for the warm-up). Writes only
+   * levels whose objects or dissolves changed, every level when the
+   * instances did (`stale`). Returns whether an object changed its levels:
+   * a dissolve moving within the band changes no shadow.
    */
   private writePacked(b: AssetBatch, cell: Cell, pack: Packed, all = false): boolean {
     const n = cell.indices.length;
@@ -746,14 +779,24 @@ export class MapObjectLayer {
     const { lodBias, impostorFrom } = this.detail;
     const draw = b.blocksLos ? b.entry.drawDistance : b.entry.drawDistance * lodBias;
     const dirty = new Array<boolean>(levels).fill(pack.stale || all);
+    let moved = pack.stale || all;
     for (let i = 0; i < n; i++) {
       const s = i * 4;
       const d = all ? 0 : Math.max(0, Math.hypot(b.spheres[s] - this.camPos.x, b.spheres[s + 1] - this.camPos.y, b.spheres[s + 2] - this.camPos.z) - b.spheres[s + 3]);
-      const level = all ? 0 : levelAt(b.levels, d, draw, lodBias, impostorFrom);
-      if (level === pack.levelOf[i]) continue;
-      if (pack.levelOf[i] >= 0) dirty[pack.levelOf[i]] = true;
-      if (level >= 0) dirty[level] = true;
-      pack.levelOf[i] = level;
+      const blend = all ? { level: 0, next: null, t: 0 } : blendAt(b.levels, d, draw, lodBias, impostorFrom);
+      const next = blend.next ?? NO_NEXT;
+      const was = pack.levelOf[i];
+      const wasNext = pack.nextOf[i];
+      if (blend.level !== was || next !== wasNext) {
+        moved = true;
+        for (const l of [was, wasNext, blend.level, next]) if (l >= 0) dirty[l] = true;
+      } else if (next !== NO_NEXT && pack.fadeOf[i] !== blend.t) {
+        if (blend.level >= 0) dirty[blend.level] = true;
+        if (next >= 0) dirty[next] = true;
+      }
+      pack.levelOf[i] = blend.level;
+      pack.nextOf[i] = next;
+      pack.fadeOf[i] = blend.t;
     }
     pack.stale = false;
     if (!dirty.some(Boolean)) return false;
@@ -762,12 +805,16 @@ export class MapObjectLayer {
       if (!dirty[l]) continue;
       const matrices = pack.matrices[l].array as Float32Array;
       const colors = pack.colors[l]?.array as Float32Array | undefined;
+      const fades = cell.fades[l].array as Float32Array;
       const bounds = pack.bounds[l].makeEmpty();
       let count = 0;
       for (let i = 0; i < n; i++) {
-        if (!all && pack.levelOf[i] !== l) continue;
+        const outgoing = pack.levelOf[i] === l;
+        if (!all && !outgoing && pack.nextOf[i] !== l) continue;
         matrices.set(b.matrices.subarray(i * 16, i * 16 + 16), count * 16);
         if (colors && b.colors) colors.set(b.colors.subarray(i * 3, i * 3 + 3), count * 3);
+        // Outgoing: drop a share t of the pixels; incoming: keep a share t
+        fades[count] = all || pack.nextOf[i] === NO_NEXT ? 0 : outgoing ? pack.fadeOf[i] : pack.fadeOf[i] - 1;
         this.sphere.set(this.tmpPos.fromArray(b.spheres, i * 4), b.spheres[i * 4 + 3]);
         if (bounds.isEmpty()) bounds.copy(this.sphere);
         else bounds.union(this.sphere);
@@ -775,6 +822,7 @@ export class MapObjectLayer {
       }
       pack.matrices[l].needsUpdate = true;
       if (pack.colors[l]) pack.colors[l]!.needsUpdate = true;
+      cell.fades[l].needsUpdate = true;
       for (const m of cell.levels[l]) {
         m.count = count;
         m.visible = count > 0;
@@ -782,7 +830,7 @@ export class MapObjectLayer {
         m.castShadow = casts || all;
       }
     }
-    return true;
+    return moved;
   }
 
   private disposeCell(cell: Cell): void {
@@ -790,6 +838,7 @@ export class MapObjectLayer {
       for (const m of meshes) {
         m.removeFromParent();
         m.dispose();
+        disposeFadeGeometry(m.geometry);
       }
     }
     for (const m of cell.packed?.pick ?? []) m.dispose();
@@ -867,28 +916,50 @@ export class MapObjectLayer {
           continue;
         }
         const d = Math.max(0, cell.sphere.distanceToPoint(this.camPos));
-        const level = levelAt(b.levels, d, draw, lodBias, impostorFrom);
-        if (level !== cell.level || force) {
+        const { level, next, t } = blendAt(b.levels, d, draw, lodBias, impostorFrom);
+        if (level !== cell.level || next !== cell.next || force) {
           cell.levels.forEach((meshes, l) => {
             for (const m of meshes) {
-              m.visible = l === level;
+              m.visible = l === level || l === next;
               m.frustumCulled = true;
             }
           });
           cell.level = level;
+          cell.next = next;
+          cell.fade = -1;
           this.version++;
         }
-        if (level >= 0) {
+        if (next !== null && t !== cell.fade) {
+          // The whole cell dissolves: outgoing drops a share t of its pixels, incoming keeps a share t
+          cell.fade = t;
+          if (level >= 0) this.setCellFade(cell, level, t);
+          if (next >= 0) this.setCellFade(cell, next, t - 1);
+        } else if (next === null && cell.fade !== 0) {
+          cell.fade = 0;
+          if (level >= 0) this.setCellFade(cell, level, 0);
+        }
+        // In a band the level that covers more of the pixels casts the shadow
+        const caster = next !== null && next >= 0 && t >= 0.5 ? next : level;
+        if (caster >= 0) {
           const shadow = cell.sphere.distanceToPoint(this.focus) < this.shadowRadius;
           const casts = b.entry.category !== 'plant' || b.entry.height > 0.8;
-          for (const m of cell.levels[level]) {
-            if (m.castShadow === (casts && shadow)) continue;
-            m.castShadow = casts && shadow;
-            this.version++;
-          }
+          cell.levels.forEach((meshes, l) => {
+            for (const m of meshes) {
+              const on = l === caster && casts && shadow;
+              if (m.castShadow === on) continue;
+              m.castShadow = on;
+              this.version++;
+            }
+          });
         }
       }
     }
+  }
+
+  /** Every instance of a cell's level at one dissolve */
+  private setCellFade(cell: Cell, level: number, fade: number): void {
+    (cell.fades[level].array as Float32Array).fill(fade);
+    cell.fades[level].needsUpdate = true;
   }
 
   /** Instance matrix, bounding sphere and colour of object i from the document */
@@ -970,6 +1041,7 @@ export class MapObjectLayer {
     }
     if (!card && wind <= 0 && !bob) {
       if (m.userData['roughMetal']) addVertexRoughMetal(m);
+      addLodFade(m);
       addHeightFog(m);
       this.materials.set(key, m);
       return m;
@@ -1079,24 +1151,11 @@ export class MapObjectLayer {
     };
     m.customProgramCacheKey = () => `custom-map-object-${variant}`;
     if (m.userData['roughMetal']) addVertexRoughMetal(m);
+    addLodFade(m);
     addHeightFog(m);
     this.materials.set(key, m);
     return m;
   }
-}
-
-/**
- * The level for distance `d`: -1 beyond the draw distance, else the last
- * level whose start it passed (impostors from the larger of their own start
- * and the quality level's distance, the others times the LOD bias)
- */
-function levelAt(levels: readonly Level[], d: number, draw: number, lodBias: number, impostorFrom: number): number {
-  if (d > draw) return -1;
-  for (let l = levels.length - 1; l > 0; l--) {
-    const at = levels[l];
-    if (d >= (at.impostor ? Math.max(at.from, impostorFrom) : at.from * lodBias)) return l;
-  }
-  return 0;
 }
 
 const merged = new WeakMap<ObjectModel, ModelPart[]>();

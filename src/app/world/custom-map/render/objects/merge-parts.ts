@@ -128,7 +128,7 @@ export function addVertexRoughMetal(material: Material): void {
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRoughMetal.x;')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vRoughMetal.y;');
   };
-  material.customProgramCacheKey = () => `${prevKey.call(material)}|rough-metal`;
+  material.customProgramCacheKey = () => `${prevKey.call(material)}-rough-metal`;
 }
 
 /**

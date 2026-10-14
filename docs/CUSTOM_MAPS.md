@@ -162,7 +162,17 @@ Der Editor pickt über eigene, nie gezeichnete Meshes mit allen Objekten. Dazu w
 Modells mit gleichem Aussehen (ohne Textur, gleiche Rauheit, Metall, Glühen, Transparenz) zu einem Teil mit
 Vertex-Farben zusammengeführt (`merge-parts.ts`): ein Auto mit Lack, Glas, Lichtern und Reifen zeichnet zwei bis drei
 statt sieben Teile, ein Haus behält seine texturierten Teile. Hafenstadt in der Spielansicht 1111 → 187 Draw Calls,
-Demo-Tal 290 → 155 ([BENCHMARKS.md](BENCHMARKS.md#bildkosten-grafik-benchmark)).
+Demo-Tal 290 → 155 ([BENCHMARKS.md](BENCHMARKS.md#bildkosten-grafik-benchmark)). Seit dem Zusammenlegen über
+Rauheit und Metall (Vertex-Attribut `roughMetal`) zeichnet die Hafenstadt 122 Calls, ein Bürohaus 5 statt 10 Teile.
+
+**Weicher Stufenwechsel (E154, OP-H5, `lod-fade.ts`):** um jede Umschaltdistanz liegt ein Band von 12 % der
+Distanz, ebenso an der Sichtweite. Im Band zeigt ein Objekt beide Stufen, die eine löst sich in einem festen
+Bildschirm-Dither auf, die andere erscheint im ergänzenden Muster: jedes Pixel zeigt genau eine, nichts springt.
+Gepackte Assets blenden je Objekt nach seinem Abstand, Zellen als Ganzes nach dem Abstand der Zelle. Der Wert liegt
+je Instanz im Attribut `lodFade` einer leichten Geometrie je Mesh, die Puffer des Modells teilt (`fadeGeometry`).
+Schatten dithern nicht: in Zellen wirft die Stufe mit dem größeren Anteil, gepackte Objekte werfen im Band beide.
+Kosten: Demo-Tal 151 → 160 Calls in der Spielansicht, beim Schwenk 155 → 171 bis 180; die GPU-Zeit bleibt im
+Rauschen des geteilten Messrechners (Spielansicht 1,01 bis 1,06 ms).
 
 Impostor (`impostor.ts`): das Baummodell einmal von der Seite und von oben in eine kleine Textur gerendert, als zwei
 gekreuzte und eine waagerechte Karte gezeigt (4 Dreiecke). Braucht den Renderer (Ansichtsoption `renderer`).
