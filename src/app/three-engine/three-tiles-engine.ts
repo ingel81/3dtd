@@ -65,6 +65,7 @@ import { TOWER_TYPES } from '../configs/tower-types.config';
 import type { GeoPosition } from '../models/game.types';
 import { NO_TILE_STATS, type WorldProvider, type WorldSurface } from '../world/world-provider';
 import { GpuFrameMeter, type GpuTimeReader } from './gpu-timer';
+import { ProgramCompileHold } from './program-compile-hold';
 import { DynamicResolution, MIN_SAMPLES } from './dynamic-resolution';
 import { pixelRatioFor, type QualityKnobs, type QualityWorld } from './render-quality';
 
@@ -218,6 +219,8 @@ export class ThreeTilesEngine {
   private readonly canvasMsaa: boolean;
   /** The quality level drawn with, null before applyQuality (the picture as before the levels) */
   private quality: { knobs: QualityKnobs; world: QualityWorld } | null = null;
+  /** The draw waits while the programs of a new quality level compile (applyQuality) */
+  private readonly qualityCompile = new ProgramCompileHold();
   /** The bloom switch as the effect settings have it; the level may still hold it off */
   private bloomWanted = false;
   /** Low and Medium: the resolution follows the frame cost (dynamic-resolution.ts) */
@@ -784,9 +787,10 @@ export class ThreeTilesEngine {
     world.update(this.camera, this.overlayGroup);
     const tilesMs = bench ? performance.now() - tilesStart : 0;
 
-    // Under the menu globe nothing shows: no draw, unless a frame is waited for
-    // (the shader warm-up uploads in a drawn frame, a screenshot reads one)
-    if (this.drawSuppressed && !this.renderLoop.hasFrameWaiters()) return;
+    // Under the menu globe nothing shows, and while a new quality level's programs compile the
+    // picture stands: no draw, unless a frame is waited for (the shader warm-up uploads in a
+    // drawn frame, a screenshot reads one)
+    if ((this.drawSuppressed || this.qualityCompile.holding) && !this.renderLoop.hasFrameWaiters()) return;
 
     // Render scene, shaken if a screen shake runs
     const probe = this.frameProbe;
@@ -999,6 +1003,7 @@ export class ThreeTilesEngine {
    * world (custom maps: shadows, detail, grass; tiles: their detail target)
    */
   applyQuality(knobs: QualityKnobs, world: QualityWorld): void {
+    const previous = this.quality;
     this.quality = { knobs, world };
     this.dynamic?.gpu?.close();
     const range = knobs.general.dynamic;
@@ -1009,6 +1014,11 @@ export class ThreeTilesEngine {
     this.postProcessing?.setAntialias(knobs.general.antialias, this.canvasMsaa);
     this.postProcessing?.setBloomEnabled(this.bloomWanted && knobs.general.bloom);
     this.world.applyQuality?.(knobs);
+    // Another level while the world stands: its programs (point lights, the output through the
+    // composer) compile off the main thread before the next draw, instead of linking in it
+    if (previous && previous.knobs.level !== knobs.level && !this.disposed) {
+      void this.qualityCompile.hold(() => this.compilingForOutput(() => this.renderer.compileAsync(this.scene, this.camera)));
+    }
   }
 
   /** The graphics benchmark: the resolution stays at the level's start while it measures */
