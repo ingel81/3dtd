@@ -546,31 +546,59 @@ def traffic_light(name):
                   amber.to_object(name + '-amber'), green.to_object(name + '-green')])
 
 
-def bench(name):
-    clear_scene()
-    wood = Part(pbr_material('planks-crate', 'brown_planks_04'), uv_metres=1.0)
-    iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8))
-    for x in (-0.8, 0.8):
-        box(iron, x, 0, 0, 0.06, 0.5, 0.45)
-        oriented_box(iron, Vector((x, 0.22, 0.45)), Vector((x, 0.3, 0.85)), 0.05)
-    for k in range(4):
-        box(wood, 0, -0.2 + k * 0.13, 0.45, 1.9, 0.1, 0.04)
-    for k in range(3):
-        oriented_box(wood, Vector((-0.95, 0.26 + k * 0.02, 0.55 + k * 0.12)), Vector((0.95, 0.26 + k * 0.02, 0.55 + k * 0.12)), 0.08)
-    export(name, [wood.to_object(name), iron.to_object(name + '-iron')])
-
-
 def bus_stop(name):
+    """Bus shelter: posts on base plates, a roof slab with a fascia sloping to the back, framed glass at the
+    back and one end, an advert case at the other end, a bench along the back wall"""
     clear_scene()
     metal = Part(flat_material('pole-grey', (0.25, 0.26, 0.27), 0.5, 0.6))
     pane = Part(flat_material('shelter-glass', (0.35, 0.42, 0.45), 0.1, 0.3))
     for x in (-1.8, 1.8):
         for y in (-0.6, 0.6):
-            box(metal, x, y, 0, 0.08, 0.08, 2.5)
-    box(metal, 0, 0, 2.5, 3.9, 1.6, 0.1)
-    box(pane, 0, 0.62, 0.3, 3.5, 0.03, 2.0)
-    box(pane, -1.82, 0, 0.3, 0.03, 1.1, 2.0)
+            box(metal, x, y, 0, 0.08, 0.08, 2.45 - (y + 0.6) * 0.06)
+            box(metal, x, y, 0, 0.2, 0.2, 0.02)
+    hexa(metal, [(-1.95, -0.8, 2.42), (1.95, -0.8, 2.42), (1.95, 0.8, 2.33), (-1.95, 0.8, 2.33)],
+         [(-1.95, -0.8, 2.6), (1.95, -0.8, 2.6), (1.95, 0.8, 2.51), (-1.95, 0.8, 2.51)])
+    # Glass along the back in three framed panes, a frame rail top and bottom
+    for z in (0.28, 2.27):
+        box(metal, 0, 0.62, z, 3.6, 0.06, 0.05)
+    for x in (-0.6, 0.6):
+        box(metal, x, 0.62, 0.28, 0.05, 0.06, 2.0)
+    box(pane, 0, 0.62, 0.32, 3.5, 0.02, 1.95)
+    # Glass at the left end, the advert case at the right end
+    box(metal, -1.8, 0, 0.28, 0.06, 1.2, 0.05)
+    box(metal, -1.8, 0, 2.27, 0.06, 1.2, 0.05)
+    box(pane, -1.82, 0, 0.32, 0.02, 1.1, 1.95)
+    box(metal, 1.8, 0.1, 0.25, 0.16, 1.0, 2.0)
+    for sx in (-1, 1):
+        box(pane, 1.8 + sx * 0.085, 0.1, 0.35, 0.01, 0.85, 1.8)
+    # Bench along the back
+    box(metal, 0, 0.42, 0.42, 2.6, 0.32, 0.05)
+    for x in (-1.1, 1.1):
+        box(metal, x, 0.48, 0, 0.06, 0.2, 0.42)
     export(name, [metal.to_object(name), pane.to_object(name + '-glass')])
+
+
+def bench(name):
+    """Park bench: cast iron sides (front and back leg, seat rail, armrest), four seat slats and three back
+    slats leaning back"""
+    clear_scene()
+    wood = Part(pbr_material('planks-crate', 'brown_planks_04'), uv_metres=1.0)
+    iron = Part(flat_material('iron', (0.08, 0.08, 0.08), 0.5, 0.8))
+    for x in (-0.82, 0.82):
+        for a, b, t in (((x, -0.24, 0), (x, -0.2, 0.43), 0.05), ((x, 0.2, 0), (x, 0.18, 0.43), 0.05),
+                        ((x, 0.18, 0.43), (x, 0.28, 0.85), 0.05), ((x, -0.27, 0.42), (x, 0.2, 0.42), 0.05),
+                        ((x, -0.2, 0.43), (x, -0.23, 0.62), 0.04), ((x, -0.28, 0.63), (x, 0.24, 0.66), 0.045)):
+            oriented_box(iron, Vector(a), Vector(b), t)
+        box(iron, x, -0.24, 0, 0.1, 0.1, 0.02)
+        box(iron, x, 0.2, 0, 0.1, 0.1, 0.02)
+    for k in range(4):
+        box(wood, 0, -0.2 + k * 0.12, 0.45, 1.9, 0.1, 0.035)
+    for k in range(3):
+        z = 0.56 + k * 0.11
+        y = 0.215 + (z - 0.45) * 0.24
+        hexa(wood, [(-0.95, y - 0.02, z), (0.95, y - 0.02, z), (0.95, y + 0.02, z), (-0.95, y + 0.02, z)],
+             [(-0.95, y + 0.0, z + 0.085), (0.95, y + 0.0, z + 0.085), (0.95, y + 0.04, z + 0.085), (-0.95, y + 0.04, z + 0.085)])
+    export(name, [wood.to_object(name), iron.to_object(name + '-iron')])
 
 
 def chainlink_fence(name, length=4.0, height=2.2, barbed=False):
