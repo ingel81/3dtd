@@ -38,7 +38,7 @@ export class Hands {
   /** The middle of an element on screen, scrolled into view first */
   centerOf(el: Element): ScreenPoint {
     const r = el.getBoundingClientRect();
-    if (r.bottom < 0 || r.top > innerHeight) el.scrollIntoView({ block: 'center' });
+    if (r.top < 0 || r.bottom > innerHeight) el.scrollIntoView({ block: 'center' });
     const s = el.getBoundingClientRect();
     return { x: s.left + s.width / 2, y: s.top + s.height / 2 };
   }

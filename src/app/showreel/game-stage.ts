@@ -11,6 +11,7 @@ import { PathAndRouteService } from '../services/world/path-route.service';
 import { UIStore } from '../store/ui.store';
 import { MarkerVisualizationService } from '../services/world/marker-visualization.service';
 import { TowerPlacementService } from '../services/tower-placement.service';
+import { DebugFacadeService } from '../services/debug/debug-facade.service';
 import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import type { CustomMapWorld } from '../world/custom-map/custom-map-world';
@@ -70,8 +71,11 @@ export class GameStage implements Stage {
   private readonly ui: UIStore;
   private readonly markers: MarkerVisualizationService;
   private readonly placement: TowerPlacementService;
+  private readonly debug: DebugFacadeService;
   /** Tower spots found ahead (planTowers), map metres; `spot:<i>` and `spots` in a script */
   private spots: { x: number; y: number }[] = [];
+  /** The enemy each `enemy:<key>` follows, by its number, while it lives */
+  private readonly followed = new Map<string, number>();
   private posed: CameraPose | null = null;
   private poseLoop = 0;
   private readonly scratch = new Vector3();
@@ -83,6 +87,7 @@ export class GameStage implements Stage {
     this.ui = injector.get(UIStore);
     this.markers = injector.get(MarkerVisualizationService);
     this.placement = injector.get(TowerPlacementService);
+    this.debug = injector.get(DebugFacadeService);
   }
 
   private get world(): CustomMapWorld | null {
@@ -126,10 +131,31 @@ export class GameStage implements Stage {
     }
     const spot = /^spot:(\d+)$/.exec(name);
     if (spot) return this.spots[Number(spot[1])] ?? null;
+    const enemy = /^enemy:([\w-]+)$/.exec(name);
+    if (enemy) return this.enemySpot(enemy[1]);
     if (name === 'spots' && this.spots.length) {
       return { x: this.spots.reduce((n, p) => n + p.x, 0) / this.spots.length, y: this.spots.reduce((n, p) => n + p.y, 0) / this.spots.length };
     }
     return null;
+  }
+
+  /**
+   * `enemy:<i>` the i-th enemy alive, `enemy:<type>` the first of that kind
+   * (`enemy:zombie`), held by its number while it lives: once it falls the
+   * spot is gone (a follow step ends there) and the next ask picks anew
+   */
+  private enemySpot(key: string): { x: number; y: number } | null {
+    const alive = (this.component.towerControl as unknown as TowerSeat).mirror.aliveEnemies();
+    const held = this.followed.get(key);
+    let e = held === undefined ? undefined : alive.find((v) => v.num === held);
+    if (held !== undefined && !e) {
+      this.followed.delete(key);
+      return null;
+    }
+    e ??= /^\d+$/.test(key) ? alive[Number(key)] : alive.find((v) => v.typeConfig.id === key);
+    if (!e) return null;
+    this.followed.set(key, e.num);
+    return { x: e.position.lon * MAP_METERS_PER_DEGREE, y: e.position.lat * MAP_METERS_PER_DEGREE };
   }
 
   /** Whether the game lets a tower stand at a map point, by the rules the click uses (placementAt) */
@@ -297,6 +323,10 @@ export class GameStage implements Stage {
         }
         return;
       }
+      case 'healthBars':
+        // The enemies' health bars, as the display options switch them (a close chase sees them as green slabs)
+        this.debug.onHealthBarsToggled(args['on'] !== false);
+        return;
       case 'hints':
         // The controls hint over the view goes, as "Got it" would
         c.controlsHintVisible.set(false);
@@ -310,6 +340,10 @@ export class GameStage implements Stage {
         return;
       case 'research':
         c.sim.bus.emit({ type: 'debug:complete-all-research' });
+        return;
+      case 'upgradeAll':
+        // Every tower standing to its last level (the developer options' Max upgrade): a late wave's firepower
+        c.sim.bus.emit({ type: 'debug:max-upgrade-all-towers' });
         return;
       case 'speed':
         (globalThis as { __load?: { speed(v: number): void } }).__load?.speed(Number(args['value'] ?? 1));
@@ -333,6 +367,19 @@ export class GameStage implements Stage {
       case 'wave':
         await this.hands.click('.td-wave-btn', Number(args['dur'] ?? 0.8));
         return;
+      case 'enemiesNear': {
+        // Until an enemy walks within `radius` m of a named spot `near` (`spots`: the towers), to skip the long walk
+        const at = this.named(String(args['near'] ?? 'spots'));
+        if (!at) throw new Error(`showreel: no spot ${String(args['near'])} for enemiesNear`);
+        const radius = Number(args['radius'] ?? 60);
+        const mirror = (c.towerControl as unknown as TowerSeat).mirror;
+        await waitUntil(
+          () => mirror.aliveEnemies().some((e) => Math.hypot(e.position.lon * MAP_METERS_PER_DEGREE - at.x, e.position.lat * MAP_METERS_PER_DEGREE - at.y) <= radius),
+          Number(args['timeout'] ?? 90),
+          'an enemy near the towers',
+        );
+        return;
+      }
       case 'waveDone':
         // The running wave beaten: none alive and none still to come
         await waitUntil(() => c.store.enemiesAlive() === 0 && c.store.waveEnemiesLeft() === 0, Number(args['timeout'] ?? 90), 'the wave to be beaten');
@@ -501,7 +548,14 @@ export class GameStage implements Stage {
       const card = document.querySelector(selector);
       return !!card && card.getAttribute('aria-disabled') !== 'true' && !card.classList.contains('is-locked');
     }, 10, `the ${tower} card`);
-    await this.hands.click(element(selector), seconds);
+    // A card below the panel's fold (the new towers come last) scrolls up first, as a hand on the wheel would
+    const card = element(selector);
+    const list = card.getBoundingClientRect();
+    if (list.bottom > innerHeight - 60 || list.top < 60) {
+      card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      await waitSeconds(0.6);
+    }
+    await this.hands.click(card, seconds);
     await waitUntil(() => !!document.querySelector('.bp-cancel'), 3, 'the build mode');
     await this.keepInView(at);
     const before = c.store.credits();
