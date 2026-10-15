@@ -13387,9 +13387,9 @@
       "name": "Tunnel portal (concrete)",
       "category": "structure",
       "file": "models/tunnel-portal-concrete.glb",
-      "triangles": 3478,
-      "footprint": 20.1,
-      "height": 14.2,
+      "triangles": 2542,
+      "footprint": 13.5,
+      "height": 10.9,
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13407,10 +13407,10 @@
         {
           "file": "models/tunnel-portal-concrete-lod1.glb",
           "distance": 350,
-          "triangles": 542
+          "triangles": 854
         }
       ],
-      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/rock_face"
+      "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
     },
     {
       "id": "castle-ruin",

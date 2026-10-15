@@ -527,7 +527,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | stones-desert-scatter | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/namaqualand_boulder_03 |
 | stones-volcanic-scatter | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/moon_rock_03 (getönt) |
 | tunnel-portal | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/rock_face |
-| tunnel-portal-concrete | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/rock_face |
+| tunnel-portal-concrete | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete |
 | castle-ruin | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029 |
 | glacier | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_face |
 | seracs | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02 |
