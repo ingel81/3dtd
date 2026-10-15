@@ -31,6 +31,13 @@ sinkt auf `bed`; es hebt nur Land und vertieft nur Meer, die Enden laufen aus, S
 (`rocks`, Standard `cliff-coast`; an engen Bögen der nächstkleinere der Liste) stehen an der Wand von 1,5 m unter dem
 Wasser bis zur Kante, Steine in der Brandung davor. Danach `sea` erneut. `cliffRocks(where, brush)` ist der Pinsel
 Cliff rocks des Editors (Felswände auf steilen Flanken).
+statt Erdböschung), Poller an der Kante und Laternen auf der Promenade. `cliffRocks(where, brush)` ist der Pinsel „Cliff rocks“
+des Landscape-Werkzeugs: Klippenmodelle auf den steilen Kanten unter dem Strich, die Front zur tiefen Seite, nach dem
+Look der Karte (vorher `environment` setzen). `contour(a, b, height)` liefert die Höhenlinie quer über einen Hang (für
+Reihen am Hang: Zäune, Verbauungen, Terrassen), in Stücken, wo der Boden die Höhe nicht erreicht. `glacier(line, { width,
+snow })` legt einen Gletscher oder ein Schneefeld vom Kopf zur Zunge: ein ebener Strang von Punkt zu Punkt, etwas
+eingesenkt, mit Schnee bemalt, Eisbrocken an der Zunge und Moränenschutt an den Rändern. Breite Modelle (Zäune,
+Mauern) sitzen am tiefsten Punkt ihrer Grundfläche: am Steilhang versinken sie, dort schmale Stücke nehmen.
 
 Packen: `npx vitest run tools/maps/shipped-maps.spec.ts -t <id>` (mit `LEVEL_LOG=1` Spuren, Objekte, Warnungen) (ein Level allein; die Liste in `index.json` behält
 die anderen). Ansehen: `/map-preview?map=<id>&cam=x,y,h,tx,ty,th&clean` (Kamera und Ziel in Kartenmetern, Höhen über
@@ -61,7 +68,10 @@ dem Boden). Bilder unter `docs/images/levels/`.
 Kaminen. Abweichungen: Schnee liegt nur auf den flacheren Gipfelpartien (an den Wänden deckt das Klippenmaterial ihn
 zu; eine Schneegrenze ist beim Renderer gewünscht), die Seilbahn hat Seile aus `cable-span-40`-Stücken, mit
 `pitch` entlang des Hangs geneigt, und eine Gondel je Feld (Bild `mountain-pass-cablecar.jpg`). Steinbrücke über den Bach (`style: 'stone'`, Bild `mountain-pass-bridge.jpg`); der Bergsee ist ein
-eigenes Gewässer, weil der Spiegel des Hauptwassers jedes Brückendeck der Karte auf seine Höhe hebt.
+eigenes Gewässer, weil der Spiegel des Hauptwassers jedes Brückendeck der Karte auf seine Höhe hebt. Hochgebirge
+(E184): ein Gletscher an der Innenflanke jedes Gipfels (`glacier`, zum Dorf hin sichtbar, Schneeböen am Kopf),
+Lawinenverbauung als versetzte Reihen auf drei Höhenlinien über dem Pass (Palisaden als Platzhalter, bis ein Modell
+da ist), vier Almhütten mit Holzstapel und Pferch auf den Hochweiden, Adler (Vogelschwarm) über beiden Gipfeln.
 
 Biom Berge, Look `mountain`, später Nachmittag. Ein Pass zwischen zwei Gipfeln; die Straße windet sich in Serpentinen
 vom Tal zum Pass, wo das HQ in einem Bergdorf steht (Steinhäuser mit Holzbalkon, Kapelle, Stützmauern). Ein Wasserfall
