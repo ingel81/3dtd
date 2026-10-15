@@ -17,7 +17,8 @@ import { ApronProfile, buildTerrainApron } from './terrain-apron';
 import { APRON_PAINT_BAND, apronPaintTexture, apronPaintWeights } from './apron-paint';
 import { TerrainChunks, type GridRect } from './terrain-chunks';
 import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots, type TerrainMaterialParams } from './terrain-material';
-import { GrassField, type GrassInputs } from '../grass/grass-field';
+import type { GrassInputs } from '../grass/grass-field';
+import { GrassLayers } from '../grass/grass-layers';
 import { GroundOcclusion } from './ground-occlusion';
 import { HeightTexture } from './height-texture';
 import { setGroundColors } from './ground-color';
@@ -98,8 +99,8 @@ export class MapTerrainLayer {
   readonly occlusion: GroundOcclusion;
   /** The far cascade of the sun's shadow (the shadowCascade effect), shared with the material */
   readonly farShadow = new FarShadow();
-  /** Blades near the camera on the grass layers */
-  readonly grass: GrassField;
+  /** Blades on the grass layers, near the camera and in a ring beyond */
+  readonly grass: GrassLayers;
   /** The height grid on the GPU (water depth, grass) */
   readonly heightTexture: HeightTexture;
   private grassInputs: Omit<GrassInputs, 'splat' | 'pathMask'> | null = null;
@@ -121,8 +122,8 @@ export class MapTerrainLayer {
     this.normals = new GridNormalTexture(field);
     this.occlusion = new GroundOcclusion(field);
     this.heightTexture = new HeightTexture(field);
-    this.grass = new GrassField(this.heightTexture);
-    this.grass.mesh.visible = false;
+    this.grass = new GrassLayers(this.heightTexture);
+    for (const m of this.grass.meshes) m.visible = false;
     this.normals.setWater(terrain.water?.mask ?? null);
   }
 

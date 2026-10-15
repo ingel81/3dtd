@@ -150,12 +150,20 @@ Nebel der Szene wieder her.
   die Form je Art im Fragment-Shader, am Rand vom Rauschen ausgefranst. Ändern sich Objekte oder Wege (Hinzufügen,
   Entfernen), werden sie nach einer Pause von 0,4 s neu gelegt; ein Verschieben behält sie. Die Erdteppiche um die
   Häuser bleiben gemalt
-- **Gras** (`grass/grass-field.ts`): 70 000 instanzierte Halme in einer 64-m-Kachel, die zwischen Kamera und Fokus
-  mitwandert (jeder Halm hat einen festen Weltort), auf dem Höhenraster, so dicht wie die Grasschichten der Splat-Map
-  (nicht auf Wegen, steilem Boden, außerhalb der Karte), mit Wind, zum Kachelrand hin kleiner. Ab 140 m Kameraabstand
-  zum Fokus aus; Ansichtsoption `grass: false`. Jeder Vertex rechnet seinen Halm selbst (Splat, Höhe, Hang, Deckung,
-  Farbe). Die Stufe gibt die Zahl der Halme (`grassBlades`, render-quality.ts); unter High sind sie breiter, damit
-  die Wiese geschlossen bleibt (Vorschau `?quality=medium`). Verworfen (2026-10-14, zweimal): ein Pass, der jeden
+- **Gras** (`grass/grass-field.ts`, zwei Schichten in `grass/grass-layers.ts`): 70 000 instanzierte Halme in einer
+  64-m-Kachel ab dem Fuß der Kamera (Mitte höchstens 19 m plus die halbe Kamerahöhe über Grund voraus, Richtung
+  Fokus), dahinter ein Ring aus 60 000 größeren Halmen (zwei Reihen statt vier, 2,2-mal so breit, mit dem
+  Kameraabstand bis zum Dreifachen breiter, kräftiger schattiert) in einer 256-m-Kachel, deren Mitte bis zu 46 m
+  weiter Richtung Fokus liegt; er reicht bis etwa 190 m voraus. Der Ring wächst genau dort, wo die nahen Halme
+  ausdünnen (Dichten blenden über, keine Naht, kein Band mit beiden); jeder Halm hat einen festen Weltort, am
+  Kachelrand ist die Dichte null (kein Springen beim Umklappen). Dahinter trägt der gemalte Boden, die Halme haben
+  seine Farbe. Auf dem Höhenraster, so dicht wie die Grasschichten der Splat-Map (nicht auf Wegen, steilem Boden,
+  außerhalb der Karte), mit Wind, zum Rand hin kleiner. Beide Schichten dünnen zwischen 85 und 100 % ihrer Distanz
+  aus (`grassDistance`, `grassFarDistance`), gemessen am Kameraabstand zum Fokus oder dem Dreifachen der Kamerahöhe
+  über Grund, was kleiner ist: der Blick aus dem Turm behält sein Gras. Ansichtsoption `grass: false`. Jeder Vertex
+  rechnet seinen Halm selbst (Splat, Höhe, Hang, Deckung, Farbe). Die Stufe gibt die Zahl der Halme
+  (`grassBlades`, `grassFarBlades`, render-quality.ts); unter High sind sie breiter, damit die Wiese geschlossen
+  bleibt (Vorschau `?quality=medium`). Der Ring kostet einen Draw Call. Verworfen (2026-10-14, zweimal): ein Pass, der jeden
   Halm einmal in Texturen rechnet und die Vertices nur lesen lässt, zuletzt mit Neuberechnung nur bei Fokusbewegung
   und alle 8 Bilder. Mit SwiftShader als Ersatz für eine schwache GPU (Burg im Herbst, Nahansicht, GPU-Median je
   Bild, Gras als Unterschied zu einem Build ohne Gras, ein ruhiger Lauf) High 593 ms mit Pass gegen 639 ms ohne,

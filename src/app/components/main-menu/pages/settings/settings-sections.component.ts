@@ -214,8 +214,10 @@ export class SettingsSectionsComponent {
     stepRow('shadows', 'Shadows', "Sharpness of the sun's shadows", (k) => `${k.customMaps.shadowMapSize} px${k.customMaps.shadowRadius > 1.5 ? ', softer' : ''}`),
     stepRow('farDetail', 'Far detail', 'How far objects keep their detail and the ground its layers',
       (k) => `${k.customMaps.lodBias}x draw distance, flat trees from ${k.customMaps.impostorFrom} m, simpler ground from ${k.customMaps.farSingle} m`),
-    stepRow('grass', 'Grass', 'Grass blades around the camera',
-      (k) => (k.customMaps.grassBlades ? `${k.customMaps.grassBlades.toLocaleString('en-US')} blades to ${k.customMaps.grassDistance} m` : 'No grass'),
+    stepRow('grass', 'Grass', 'Grass blades around the camera and in a ring beyond',
+      (k) => (k.customMaps.grassBlades
+        ? `${k.customMaps.grassBlades.toLocaleString('en-US')} near and ${k.customMaps.grassFarBlades.toLocaleString('en-US')} far blades`
+        : 'No grass'),
       (k) => !k.customMaps.grassBlades),
   ];
 
