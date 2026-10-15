@@ -36,7 +36,9 @@ import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
 import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
 import { MapTerrainLayer } from './terrain/map-terrain';
+import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-trees';
 import { NIGHT_WINDOW_UNIFORMS } from './objects/night-windows';
+import { BACKDROP_HEIGHT } from './terrain/terrain-apron';
 import type { HeightTexture } from './terrain/height-texture';
 import { RiverSurface, sampleRiver } from './water/river-surface';
 import { WaterSurface } from './water/water-surface';
@@ -133,6 +135,9 @@ export class CustomMapView {
   private readonly waters: (WaterSurface | null)[] = [];
   private rivers: RiverSurface[] = [];
   private readonly objects: MapObjectLayer;
+  /** The border's trees mirrored onto the apron (edge-trees.ts) */
+  private readonly edgeTrees: MapObjectLayer;
+  private edgeTreesDue: ReturnType<typeof setTimeout> | null = null;
   private readonly bridges: BridgeLayer;
   private readonly effects: EffectLayer;
   /** Terrain and roof tops for the weather; rebuilt lazily (coverDirty) */
@@ -184,7 +189,7 @@ export class CustomMapView {
     this.losBlockers.name = 'custom-map-los-blockers';
     this.group.add(this.losBlockers);
 
-    this.terrain = new MapTerrainLayer(t, this.heights);
+    this.terrain = new MapTerrainLayer(t, this.heights, BACKDROP_HEIGHT[doc.environment.biome ?? 'temperate']);
     this.losBlockers.add(this.terrain.chunks.group);
     this.group.add(this.terrain.apron);
     if (options.grass !== false) this.group.add(this.terrain.grass.mesh);
@@ -201,6 +206,16 @@ export class CustomMapView {
       waterLevelAt: (x, y) => this.waterLevelAt(x, y),
     });
     this.group.add(this.objects.group);
+    // The border's trees mirrored onto the apron: drawn only, their sight blockers in a group of the view's own,
+    // not among the LOS blockers
+    const edgeSight = new Group();
+    edgeSight.name = 'custom-map-edge-trees';
+    this.group.add(edgeSight);
+    this.edgeTrees = new MapObjectLayer(new ApronField(this.heights, t.width, t.depth, () => this.terrain.apronProfile), assets, edgeSight, {
+      renderer: options.renderer,
+    });
+    this.edgeTrees.group.name = 'custom-map-edge-trees';
+    this.group.add(this.edgeTrees.group);
     this.bridges = new BridgeLayer(this.heights, assets);
     this.group.add(this.bridges.group);
     this.effects = new EffectLayer(this.heights, (x, y) => this.waterLevelAt(x, y));
@@ -528,6 +543,8 @@ export class CustomMapView {
     this.effects.update(clock, this.focusPoint);
     this.objects.shadowRadius = shadowRadius * 1.2;
     this.objects.update(dtSeconds, camera, this.shadowCenter);
+    this.edgeTrees.shadowRadius = this.objects.shadowRadius;
+    this.edgeTrees.update(dtSeconds, camera, this.shadowCenter);
     IMPOSTOR_SUN.uImpSun.value.copy(this.environment.sunDir);
     // Grass between the camera's foot and the focus; from far up blades are below a pixel, skip them
     this.grassCenter.copy(this.camPos).lerp(this.focusPoint, 0.6);
@@ -755,7 +772,7 @@ export class CustomMapView {
   /** Replaces the placed objects (also `doc.objects`); resolves when their models are in */
   setObjects(objects: MapObject[]): Promise<void> {
     this.doc.objects = objects;
-    return Promise.all([this.objects.setObjects(objects), this.refreshEffects(), this.refreshContact()]).then(
+    return Promise.all([this.objects.setObjects(objects), this.refreshEffects(), this.refreshContact(), this.refreshEdgeTrees()]).then(
       () => undefined,
     );
   }
@@ -769,6 +786,7 @@ export class CustomMapView {
     if (!objects.length) return;
     const shown = this.objects.addObjects(objects);
     void this.refreshContact(objects);
+    this.edgeTreesLater(objects);
     if (await this.hasEffects(objects)) void this.refreshEffects();
     await shown;
   }
@@ -778,6 +796,7 @@ export class CustomMapView {
     if (!objects.length) return;
     this.objects.removeObjects(objects.map((o) => o.id));
     void this.refreshContact(objects);
+    this.edgeTreesLater(objects);
     void this.hasEffects(objects).then((has) => (has ? this.refreshEffects() : undefined));
   }
 
@@ -797,6 +816,7 @@ export class CustomMapView {
     const all = [...before, ...objects];
     void this.hasEffects(all).then((has) => (has ? this.refreshEffects() : undefined));
     void this.refreshContact(all);
+    this.edgeTreesLater(all);
   }
 
   updatePaths(): void {
@@ -805,12 +825,15 @@ export class CustomMapView {
   }
 
   setEnvironment(env: MapEnvironment): void {
+    const biome = this.doc.environment.biome;
     this.doc.environment = env;
     const sun = this.environment.sunDir.clone();
     this.environment.set(env);
-    // The far shadow only follows the sun (a sky, a weather or the fog leave it), spread over frames once the sun
-    // stands: the whole bake (20 to 60 ms, 80 in a dev build) held every step of a sun slider and the click of a sky
-    if (!this.environment.sunDir.equals(sun)) this.refreshFarShadow(true);
+    this.terrain.setBackdrop(BACKDROP_HEIGHT[env.biome ?? 'temperate']);
+    // The far shadow only follows the sun and the backdrop's mountains (a sky, a weather or the fog leave it), spread
+    // over frames once the sun stands: the whole bake (20 to 60 ms, 80 in a dev build) held every step of a sun slider
+    // and the click of a sky
+    if (!this.environment.sunDir.equals(sun) || env.biome !== biome) this.refreshFarShadow(true);
     this.lightWater();
     this.effects.setDarkness(this.environment.darkness);
     NIGHT_WINDOW_UNIFORMS.uNightWindows.value = this.environment.darkness;
@@ -980,10 +1003,32 @@ export class CustomMapView {
     this.setFarGround(q.farSingle, q.farFlat, q.steepNear);
     this.setEffects({ refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade });
     this.objects.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
+    this.edgeTrees.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.terrain.grass.setBlades(q.grassBlades);
     this.grassDistance = q.grassDistance;
     this.environment.weather.setShare(q.particles);
     if (this.effects.setQuality({ particles: q.particles, pointLights: q.pointLights })) void this.refreshEffects();
+  }
+
+  /** The border's trees mirrored onto the apron (edge-trees.ts), from `doc.objects` */
+  private async refreshEdgeTrees(): Promise<void> {
+    const catalog = await this.assets.catalog();
+    if (this.disposed) return;
+    const trees = new Set(catalog.objects.filter((e) => e.category === 'tree').map((e) => e.id));
+    const t = this.doc.terrain;
+    await this.edgeTrees.setObjects(edgeTreeObjects(this.doc.objects, (a) => trees.has(a), t.width, t.depth));
+  }
+
+  /** Again once an edit pauses, when it touched the border's band */
+  private edgeTreesLater(objects: readonly MapObject[]): void {
+    const t = this.doc.terrain;
+    const near = (o: MapObject) => Math.abs(o.x) > t.width / 2 - EDGE_TREE_BAND || Math.abs(o.y) > t.depth / 2 - EDGE_TREE_BAND;
+    if (!objects.some(near)) return;
+    if (this.edgeTreesDue) clearTimeout(this.edgeTreesDue);
+    this.edgeTreesDue = setTimeout(() => {
+      this.edgeTreesDue = null;
+      void this.refreshEdgeTrees();
+    }, 400);
   }
 
   /** Rebuilds effects and lights; with an asset id only when that asset has any */
@@ -1049,6 +1094,8 @@ export class CustomMapView {
     this.effects.dispose();
     this.cover.dispose();
     this.objects.dispose();
+    this.edgeTrees.dispose();
+    if (this.edgeTreesDue) clearTimeout(this.edgeTreesDue);
     this.bridges.dispose();
     this.environment.dispose();
     for (const twin of this.depthTwins.values()) twin.dispose();
@@ -1084,6 +1131,7 @@ export class CustomMapView {
     await Promise.all([
       this.terrain.load(this.assets, this.doc.paths, this.options.anisotropy ?? 8),
       this.objects.setObjects(this.doc.objects),
+      this.refreshEdgeTrees(),
       this.refreshEffects(),
       this.refreshContact(),
       this.bridges.set(this.doc.paths, this.doc.terrain),

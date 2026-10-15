@@ -80,6 +80,8 @@ export interface TerrainMaterialParams {
   /** Two splat maps, three on a map with more than 8 layers */
   splat: Texture[];
   pathMask: Texture;
+  /** The border's natural ground for the apron (apron-paint.ts); without, the apron shows the first layer */
+  apronPaint?: Texture;
   /** Grid normals (GridNormalTexture) and the grid's columns, rows and cell size */
   gridNormals: Texture;
   /** Baked ground occlusion on the same grid (GroundOcclusion) */
@@ -111,6 +113,8 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uSplat1: { value: null as Texture | null },
     uSplat2: { value: null as Texture | null },
     uPathMask: { value: null as Texture | null },
+    /** The border's natural ground carried onto the apron (apron-paint.ts) */
+    uApronPaint: { value: null as Texture | null },
     uGridNormals: { value: null as Texture | null },
     uGridOcclusion: { value: null as Texture | null },
     /** The ground's variation, natural blots at three scales (variation-texture.ts) */
@@ -204,6 +208,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     u.uSplat1.value = p.splat[1];
     u.uSplat2.value = p.splat[2] ?? null;
     u.uPathMask.value = p.pathMask;
+    u.uApronPaint.value = p.apronPaint ?? null;
     u.uGridNormals.value = p.gridNormals;
     u.uGridOcclusion.value = p.gridOcclusion;
     // Map metres to the grid texture: sample i sits at texel centre (i + 0.5) / columns
@@ -272,6 +277,7 @@ uniform sampler2D uSplat1;
 uniform sampler2D uSplat2;
 #endif
 uniform sampler2D uPathMask;
+uniform sampler2D uApronPaint;
 uniform sampler2D uGridNormals;
 uniform sampler2D uGridOcclusion;
 uniform sampler2D uFarShadow;
@@ -379,7 +385,7 @@ const TERRAIN_LIGHTS = ShaderChunk.lights_fragment_begin.replace(
 const TERRAIN_SAMPLE = /* glsl */ `
 vec3 tPos = vTerrainPos;
 vec2 mapPos = vec2(-tPos.x, tPos.z);
-// Beyond the map (the apron) there is no grid: vertex normals and the first layer
+// Beyond the map (the apron) there is no grid: vertex normals, and the border's natural ground (below)
 vec2 edgeDist = abs(mapPos) - uMapSize * 0.5;
 float outside = smoothstep(0.0, 12.0, max(edgeDist.x, edgeDist.y));
 vec4 gridSample = texture2D(uGridNormals, mapPos * uGridUv.xy + uGridUv.zw);
@@ -428,7 +434,30 @@ float sum = 0.0;
 for (int k = 0; k < TERRAIN_SPLATS; k++) if (uSplatLayer[k] >= 0) sum += sw[k];
 if (sum < 0.001) { sw[0] = 1.0; sum = 1.0; }
 for (int k = 0; k < TERRAIN_SPLATS; k++) if (uSplatLayer[k] >= 0) w[uSplatLayer[k]] += sw[k] / sum * (1.0 - outside);
-w[max(uSplatLayer[0], 0)] += outside;
+// Beyond the map the border's natural ground runs on (apron-paint.ts), at the point of the border nearest
+if (outside > 0.0) {
+  vec2 hm = uMapSize * 0.5;
+  vec2 q = clamp(mapPos, -hm, hm);
+  vec2 e = abs(mapPos) - hm;
+  // Metres along the border, counter-clockwise from the south-west corner (south, east, north, west)
+  float along = e.y >= e.x
+    ? (mapPos.y < 0.0 ? q.x + hm.x : 2.0 * uMapSize.x + uMapSize.y - (q.x + hm.x))
+    : (mapPos.x > 0.0 ? uMapSize.x + q.y + hm.y : 2.0 * (uMapSize.x + uMapSize.y) - (q.y + hm.y));
+  float au = along / (2.0 * (uMapSize.x + uMapSize.y));
+  float apron = 0.0;
+  for (int r = 0; r < TERRAIN_SPLATS / 4; r++) {
+    vec4 a = textureLod(uApronPaint, vec2(au, (float(r) + 0.5) / 3.0), 0.0);
+    for (int c = 0; c < 4; c++) {
+      int layer = uSplatLayer[r * 4 + c];
+      if (layer >= 0) {
+        w[layer] += a[c] * outside;
+        apron += a[c];
+      }
+    }
+  }
+  // No paint of the border known (a material built before it): the first layer, as before
+  if (apron < 0.01) w[max(uSplatLayer[0], 0)] += outside;
+}
 
 // Roads and paths replace the painted ground
 vec4 pmask = texture2D(uPathMask, tuv + wobble * 0.5);

@@ -229,7 +229,17 @@ describe('CustomMapView', () => {
     expect(water!.userData['losTransparent']).toBe(true);
     expect(inLos.includes(water!)).toBe(false);
 
-    // Every object sits in one cell mesh of its asset (level 0 meshes, summed over the cells)
+    // Every object sits in one cell mesh of its asset (level 0 meshes, summed over the cells); the border's trees
+    // mirrored onto the apron (edge-trees.ts) are drawn by a layer of their own
+    const mirrored = (o: Object3D) => {
+      for (let p: Object3D | null = o; p; p = p.parent) if (p.name === 'custom-map-edge-trees') return true;
+      return false;
+    };
+    let edge = 0;
+    view.group.traverse((o) => {
+      if (o instanceof InstancedMesh && mirrored(o)) edge += o.count;
+    });
+    expect(edge).toBeGreaterThan(0);
     const counts = new Map<string, number>();
     for (const o of doc.objects) counts.set(o.asset, (counts.get(o.asset) ?? 0) + 1);
     for (const [asset, n] of counts) {
@@ -238,7 +248,7 @@ describe('CustomMapView', () => {
       let total = 0;
       view.group.traverse((o) => {
         const cell = o.userData['cell'];
-        if (o instanceof InstancedMesh && (o.name === asset || o.name === `${asset}-decor`) && !cells.has(cell)) {
+        if (o instanceof InstancedMesh && !mirrored(o) && (o.name === asset || o.name === `${asset}-decor`) && !cells.has(cell)) {
           cells.add(cell);
           total += o.count;
         }

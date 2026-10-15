@@ -14,6 +14,7 @@ import type { MapAssetLibrary, MaterialCompressed, MaterialPixels } from '../map
 import { pathMaskResolution, rasterizePathMask } from '../paths/path-mask';
 import { addHeightFog } from '../environment/height-fog';
 import { ApronProfile, buildTerrainApron } from './terrain-apron';
+import { APRON_PAINT_BAND, apronPaintTexture, apronPaintWeights } from './apron-paint';
 import { TerrainChunks, type GridRect } from './terrain-chunks';
 import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots, type TerrainMaterialParams } from './terrain-material';
 import { GrassField, type GrassInputs } from '../grass/grass-field';
@@ -101,15 +102,20 @@ export class MapTerrainLayer {
   /** The height grid on the GPU (water depth, grass) */
   readonly heightTexture: HeightTexture;
   private grassInputs: Omit<GrassInputs, 'splat' | 'pathMask'> | null = null;
+  /** The border's natural ground for the apron, and which map layers count as natural */
+  private apronPaint: DataTexture | null = null;
+  private natural: boolean[] | null = null;
   private generation = 0;
   private readonly placeholder = new MeshStandardMaterial({ color: 0x5f7a3c, roughness: 0.95 });
 
   constructor(
     private readonly terrain: MapTerrainDoc,
     private readonly field: HeightField,
+    /** Height of the mountains beyond the apron, metres (BACKDROP_HEIGHT by the map's look) */
+    private backdrop = 0,
   ) {
     this.chunks = new TerrainChunks(field, this.placeholder);
-    this.apronProfile = new ApronProfile(field, terrain.water);
+    this.apronProfile = new ApronProfile(field, terrain.water, backdrop);
     this.apron = buildTerrainApron(this.apronProfile, this.placeholder);
     this.normals = new GridNormalTexture(field);
     this.occlusion = new GroundOcclusion(field);
@@ -153,6 +159,11 @@ export class MapTerrainLayer {
     const emissive = ids.map((id) => entryOf(id)?.emissive ?? 0);
     const flow = ids.map((id) => entryOf(id)?.flow ?? 0);
     const categories = ids.map((id) => entryOf(id)?.category);
+    // Ground the apron may carry on from the border: no roads or pavement, no glowing lava
+    this.natural = t.layers.map((l) => {
+      const entry = entryOf(l.material);
+      return entry?.category !== 'road' && !(entry?.emissive ?? 0);
+    });
 
     if (generation !== this.generation) return;
     this.material?.dispose();
@@ -162,11 +173,13 @@ export class MapTerrainLayer {
     this.arrays = new MaterialArrays(pixels, anisotropy);
     this.splat = new SplatTextures(t.splat);
     this.pathMask = this.buildPathMask(paths);
+    this.refreshApronPaint();
     this.materialParams = {
       colorArray: this.arrays.color,
       dataArray: this.arrays.data,
       splat: this.splat.maps,
       pathMask: this.pathMask,
+      apronPaint: this.apronPaint ?? undefined,
       gridNormals: this.normals.texture,
       gridOcclusion: this.occlusion.texture,
       grid: this.field.grid,
@@ -260,10 +273,17 @@ export class MapTerrainLayer {
   refreshApron(rect?: GridRect): void {
     const f = this.field;
     if (!rect || rect.i0 <= 0 || rect.j0 <= 0 || rect.i1 >= f.columns - 1 || rect.j1 >= f.rows - 1) {
-      this.apronProfile = new ApronProfile(f, this.terrain.water);
+      this.apronProfile = new ApronProfile(f, this.terrain.water, this.backdrop);
       this.apron.geometry.dispose();
       this.apron.geometry = buildTerrainApron(this.apronProfile, this.apron.material as Material).geometry;
     }
+  }
+
+  /** The mountains beyond the apron for a new look of the map (BACKDROP_HEIGHT) */
+  setBackdrop(metres: number): void {
+    if (metres === this.backdrop) return;
+    this.backdrop = metres;
+    this.refreshApron();
   }
 
   /** Water changed: wet banks follow the mask and level, river banks the rivers */
@@ -283,6 +303,12 @@ export class MapTerrainLayer {
   /** Splat weights changed (painted in place or replaced) */
   refreshSplat(rect?: GridRect): void {
     this.splat?.refresh(this.terrain.splat, rect);
+    // The apron carries the border's paint on: again when the paint near the border changed
+    const t = this.terrain;
+    const band = Math.ceil((APRON_PAINT_BAND / t.width) * t.splat.resolution);
+    if (!rect || rect.i0 <= band || rect.j0 <= band || rect.i1 >= t.splat.resolution - 1 - band || rect.j1 >= t.splat.resolution - 1 - band) {
+      this.refreshApronPaint();
+    }
     if (this.material && this.splat) {
       const u = this.material.terrainUniforms;
       u.uSplat0.value = this.splat.maps[0];
@@ -291,6 +317,15 @@ export class MapTerrainLayer {
     }
     this.material?.setCliffAngle(this.terrain.cliffAngle);
     this.updateGrassInputs();
+  }
+
+  /** The apron's ground from the border's paint (apron-paint.ts) */
+  private refreshApronPaint(): void {
+    if (!this.natural) return;
+    const natural = this.natural;
+    const weights = apronPaintWeights(this.terrain, (k) => natural[k] ?? false);
+    this.apronPaint = apronPaintTexture(weights, this.apronPaint ?? undefined);
+    if (this.material) this.material.terrainUniforms.uApronPaint.value = this.apronPaint;
   }
 
   refreshPaths(paths: MapPaths): void {
@@ -313,6 +348,7 @@ export class MapTerrainLayer {
     this.arrays?.dispose();
     this.splat?.dispose();
     this.pathMask?.dispose();
+    this.apronPaint?.dispose();
     this.normals.dispose();
     this.occlusion.dispose();
     this.grass.dispose();

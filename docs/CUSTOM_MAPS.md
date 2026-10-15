@@ -115,8 +115,16 @@ Nebel der Szene wieder her.
   weißen Flächen im Gegenlicht)
 - **Rand** (`terrain-apron.ts`): Land jenseits der Karte bis 3 km, ein Punkt je Randsample (der innere Ring trifft die
   Geländekante genau). Nach außen wird das Randprofil entlang der Kante mit wachsendem Radius geglättet und geht in
-  flache Hügel über; Wasser am Rand läuft darüber weiter, bis das geglättete Bett über den Spiegel steigt. Im Shader
-  mit der ersten Schicht bemalt. Nicht Teil der Karte (keine Abfragen, `losTransparent`)
+  flache Hügel über; Wasser am Rand läuft darüber weiter, bis das geglättete Bett über den Spiegel steigt. Bemalt mit
+  dem natürlichen Boden des Kartenrands (`apron-paint.ts`: je 1/512 des Rands die Splat-Gewichte eines 24 m tiefen
+  Streifens, 30 m entlang geglättet, ohne Straßen, Pflaster und Lava; ein gepflasterter Rand nimmt den natürlichen Boden,
+  den die Karte am meisten hat; eine Textur 512 × 3, ein Lookup je Zeile nur jenseits des Rands), vorher die erste
+  Schicht (Harbor Town: Pflaster bis zum Horizont). Ab 250 m hinter dem Rand steigt eine **Bergkette** (ab 900 m voll,
+  Grat-Rauschen entlang des Rands, Höhe nach Look `BACKDROP_HEIGHT`: Gebirge 420 m, Sumpf 40 m; nicht über dem Meer),
+  so endet keine Karte sichtbar in flachem Land; dieselben Ringpunkte, kein Draw Call mehr. **Bäume am Rand**
+  (`edge-trees.ts`): die Bäume der 40 m am Rand gespiegelt auf die Schürze, eine eigene Objektschicht außerhalb der
+  Sichtlinie (nur Bild, das Spiel liest sie nicht), auf der Höhe der Schürze (`ApronProfile.heightAt`); ein Wald endet
+  nicht mehr als Linie vor kahlem Boden. Nicht Teil der Karte (keine Abfragen, `losTransparent`)
 
 - **Bodenverdeckung und Geländeform** (`ground-occlusion.ts`, RGBA je Rasterpunkt, ein Zugriff im Shader):
   R Verdeckung (Horizontwinkel in acht Richtungen bis 32 m: Mulden, Rinnen, Hangfüße dunkler; mal weiche

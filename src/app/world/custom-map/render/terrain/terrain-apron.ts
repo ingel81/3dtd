@@ -1,5 +1,5 @@
 import { BufferAttribute, BufferGeometry, Mesh, type Material } from 'three';
-import type { MapWater } from '../../map-document';
+import type { MapBiome, MapWater } from '../../map-document';
 import type { HeightField } from '../height-field';
 
 /**
@@ -16,14 +16,37 @@ import type { HeightField } from '../height-field';
  * bed rises above the water. Where the border is under the main water, the
  * apron's floor stays below it: a coast or an island lies in the sea.
  *
- * Drawn with the terrain material (the shader paints it with the first
- * layer); not part of the map for line of sight or queries.
+ * Further out a range of mountains rises (`backdrop` metres high at most,
+ * by the map's look, BACKDROP_HEIGHT), so no map visibly ends in flat land:
+ * from BACKDROP_FROM to BACKDROP_FULL metres beyond the border, ridged
+ * noise along it. Not over the sea, whose floor falls away.
+ *
+ * Drawn with the terrain material (the shader paints it with the border's
+ * natural ground, apron-paint.ts); not part of the map for line of sight or
+ * queries.
  */
 
 /** Distances of the rings from the border, metres */
 export const APRON_RINGS = [0, 12, 40, 100, 220, 450, 900, 1600, 3000];
 /** Water may extend over the rings up to this distance */
 export const RIVER_REACH = 220;
+/** Metres beyond the border where the backdrop range starts to rise, and where it reaches its height */
+const BACKDROP_FROM = 250;
+const BACKDROP_FULL = 900;
+
+/** Height of the backdrop range by the map's look, metres: high peaks round a mountain map, low hills round a swamp */
+export const BACKDROP_HEIGHT: Record<MapBiome, number> = {
+  temperate: 160,
+  mountain: 420,
+  arctic: 260,
+  desert: 140,
+  swamp: 40,
+  city: 90,
+  hell: 220,
+  apocalypse: 100,
+  moon: 120,
+  mars: 200,
+};
 
 export class ApronProfile {
   /** Ring points as (side, fraction along the side), counter-clockwise from the south-west corner */
@@ -38,6 +61,8 @@ export class ApronProfile {
   constructor(
     private readonly field: HeightField,
     water: MapWater | null = null,
+    /** Highest the backdrop range rises, metres (BACKDROP_HEIGHT); 0 none */
+    backdrop = 0,
   ) {
     this.w = (field.columns - 1) * field.cellSize;
     this.d = (field.rows - 1) * field.cellSize;
@@ -90,6 +115,12 @@ export class ApronProfile {
         const [x, y] = this.point(side, f, dist);
         const hills = mean - 4 + (smoothNoise(x * 0.004, y * 0.004) - 0.5) * 40 * Math.min(1, dist / 600);
         let h = windowMean(k, radius) * keep + hills * (1 - keep);
+        if (backdrop > 0) {
+          // Ridges along the border at two scales, the peaks where both crest
+          const ridge = (f: number) => 1 - Math.abs(2 * smoothNoise(x * f + 17.3, y * f - 4.1) - 1);
+          const crest = Math.pow(0.65 * ridge(1 / 350) + 0.35 * ridge(1 / 140), 1.5);
+          h += backdrop * smoothstepRange(BACKDROP_FROM, BACKDROP_FULL, dist) * (0.3 + 0.7 * crest);
+        }
         // Sea beyond a wet border (and everywhere around a mostly wet one): the floor falls off
         if (water && r > 0 && (wetAt[k] || this.wetShare > 0.5)) h = Math.min(h, water.level - 1.5 - dist * 0.01);
         this.heights[r * n + k] = h;
@@ -104,6 +135,46 @@ export class ApronProfile {
   /** Height of ring r at point k */
   height(r: number, k: number): number {
     return this.heights[r * this.along.length + k];
+  }
+
+  /**
+   * Height of the apron at a map point beyond the border (the map's own
+   * height inside it): between the two rings around its distance, along the
+   * side it lies off
+   */
+  heightAt(x: number, y: number): number {
+    const f = this.field;
+    const x0 = f.originX;
+    const y0 = f.originY;
+    const ex = Math.max(x0 - x, x - (x0 + this.w));
+    const ey = Math.max(y0 - y, y - (y0 + this.d));
+    const dist = Math.max(ex, ey);
+    if (dist <= 0) return f.heightAt(x, y);
+    const side = ey >= ex ? (y < y0 ? 0 : 2) : x > x0 + this.w ? 1 : 3;
+    let r = 0;
+    while (r < APRON_RINGS.length - 2 && APRON_RINGS[r + 1] < dist) r++;
+    const t = Math.min(1, (dist - APRON_RINGS[r]) / (APRON_RINGS[r + 1] - APRON_RINGS[r]));
+    return this.onRing(r, side, x, y) * (1 - t) + this.onRing(r + 1, side, x, y) * t;
+  }
+
+  /** Height of ring r off `side` at the point of it across from map (x, y) */
+  private onRing(r: number, side: number, x: number, y: number): number {
+    const grow = APRON_RINGS[r];
+    const W = this.w + 2 * grow;
+    const D = this.d + 2 * grow;
+    const ax = this.field.originX - grow;
+    const ay = this.field.originY - grow;
+    // Fraction along the side as point() runs it
+    const f = side === 0 ? (x - ax) / W : side === 1 ? (y - ay) / D : side === 2 ? (ax + W - x) / W : (ay + D - y) / D;
+    const cols = this.field.columns - 1;
+    const rows = this.field.rows - 1;
+    const start = side === 0 ? 0 : side === 1 ? cols : side === 2 ? cols + rows : 2 * cols + rows;
+    const count = side % 2 === 0 ? cols : rows;
+    const n = this.along.length;
+    const at = start + Math.min(1, Math.max(0, f)) * count;
+    const k = Math.floor(at);
+    const u = at - k;
+    return this.height(r, k % n) * (1 - u) + this.height(r, (k + 1) % n) * u;
   }
 
   /** Map position of point k on ring r */
@@ -165,6 +236,12 @@ export function buildTerrainApron(profile: ApronProfile, material: Material): Me
   mesh.userData['losTransparent'] = true;
   mesh.matrixAutoUpdate = false;
   return mesh;
+}
+
+/** 0 below `a`, 1 above `b`, smooth between */
+function smoothstepRange(a: number, b: number, v: number): number {
+  const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
+  return t * t * (3 - 2 * t);
 }
 
 /** Smooth value noise in 0..1 */

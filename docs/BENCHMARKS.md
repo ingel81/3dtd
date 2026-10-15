@@ -257,6 +257,26 @@ new City Medium        12.04 M  100 %  2.40          3.05 close       214    8.1
 - Der Sockel ist Gelände, Gras, Wasser und Licht, nicht Objekte: die Large-Wiese (91 500 Objekte, 4 %) kostet so viel
   wie die Hafenstadt. Über der Geraden liegt der Large-Wald (598 Calls).
 
+### Steile Hänge, Kartenrand, Baumvielfalt (2026-10-15)
+
+Rechner A (RTX 5080), Canvas 1300 × 852 (Low 780 × 511), Skript ohne sichtbares Fenster (headless, ANGLE D3D11, mit
+Timer-Query), Stand `26348b25` gegen denselben mit den Seitenebenen steiler gemalter Hänge, dem Rand (Bemalung,
+Bergkette, gespiegelte Bäume) und der Baumvielfalt; GPU-Median in ms, Draw Calls gleich in allen Zeilen:
+
+```
+map              stufe  game         close        pan          top
+mountain-pass    high   0.84 → 0.85  1.21 → 0.97  1.22 → 1.11  0.66 → 0.67
+mountain-pass    low    0.59 → 0.57  0.58 → 0.59  0.67 → 0.61  0.46 → 0.46
+autumn-keep      high   0.66 → 0.67  1.28 → 1.26  0.81 → 0.70  0.66 → 0.66
+autumn-keep      low    0.47 → 0.47  0.76 → 0.76  0.49 → 0.46  0.46 → 0.46
+harbor-town      low    1.37 → 0.61  0.81 → 0.80  1.15 → 0.65  0.62 → 0.58
+```
+
+Kein messbarer Mehraufwand; Abnahmen wie 1,21 → 0,97 liegen im Rauschen eines Rechners, auf dem nebenher gearbeitet
+wurde. Harbor Town High fehlt: der Vorher-Lauf war gestört (3,2 bis 4,9 ms in allen Ansichten). Die Ansichten
+kreisen um das HQ und sehen den Rand kaum; in einer Ansicht auf den Rand von Mountain Pass zeichnet die Schicht der
+gespiegelten Bäume 9 Instanz-Meshes mehr (Calls +9).
+
 ## Messungen
 
 ### 2026-10-12, Rechner A
