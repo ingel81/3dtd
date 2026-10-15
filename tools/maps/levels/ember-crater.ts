@@ -152,13 +152,11 @@ export function buildEmberCrater(): CustomMapDocument {
   k.place('anvil', 22, -158, { rotation: 0.4 });
   k.place('altar', -150, 30, { rotation: 0.2 });
   for (const [x, y] of [[-30, -20], [25, 30], [-140, -60], [130, -40], [-60, 150], [80, -140], [0, -60]] as const) k.place('fx-smoke', x, y, { scale: 1.4 });
-  // Columns of smoke over the crater: plumes stacked over the lake and the two vents, wider as they rise; the wind
+  // Columns of smoke over the crater: one over the lake and one over each vent, wider as they rise; the wind
   // (below) leans them north-east and they drift off over the rim
-  const column = (at: MapPoint, scale: number) => {
-    for (const [i, [z, sc]] of ([[0, 2.4], [10, 3], [22, 3.6], [36, 4.2]] as const).entries()) k.place('fx-smoke', at.x + i, at.y + i, { z, scale: sc * scale, tint: '#3a302c' });
-  };
-  column({ x: 18, y: -36 }, 1);
-  for (const { at } of vents) column({ x: at.x * 0.8, y: at.y * 0.8 }, 0.7);
+  const column = (at: MapPoint, scale: number) => k.place('fx-smoke-column', at.x, at.y, { scale, tint: '#3a302c' });
+  column({ x: 18, y: -36 }, 1.2);
+  for (const { at } of vents) column({ x: at.x * 0.8, y: at.y * 0.8 }, 0.8);
   // Obsidian towers and fire bowls on the rim's crest, off the passes
   for (let i = 0; i < 22; i++) {
     const a = ((i + 0.6 * k.noise.hash(i, 11, 81)) / 22) * Math.PI * 2;
