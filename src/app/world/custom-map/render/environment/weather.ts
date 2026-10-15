@@ -122,8 +122,21 @@ export class WeatherLayer {
     this.mesh.material.uniforms['uHasCover'].value = 1;
   }
 
+  /** The quality level's share of the particles (render-quality.ts `particles`) */
+  private share = 1;
+  private kind: WeatherParticles = 'clear';
+  private strength = 0;
+
+  /** The quality level's share of the particles, 0..1: Low draws fewer flakes and streaks */
+  setShare(share: number): void {
+    this.share = Math.min(1, Math.max(0, share));
+    this.set(this.kind, this.strength, this.mesh.material.uniforms['uLight'].value as number);
+  }
+
   /** Particle kind and strength 0..1 (clear and fog show none); `light` dims lit particles at night */
   set(kind: WeatherParticles, strength: number, light: number): void {
+    this.kind = kind;
+    this.strength = strength;
     const m = this.mesh.material;
     const spec = KINDS[kind];
     if (spec) {
@@ -132,7 +145,7 @@ export class WeatherLayer {
       m.blending = kind === 'embers' ? AdditiveBlending : NormalBlending;
     }
     const k = Math.min(1, Math.max(0, strength));
-    this.mesh.geometry.instanceCount = spec ? Math.round(spec.max * k) : 0;
+    this.mesh.geometry.instanceCount = spec ? Math.round(spec.max * k * this.share) : 0;
     this.mesh.visible = this.active;
     m.uniforms['uLight'].value = light;
   }

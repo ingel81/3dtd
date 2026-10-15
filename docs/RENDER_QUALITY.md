@@ -49,7 +49,8 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
   Umweg über den Composer). Auf eigenen Karten deckelt High die Auflösung bei DPR 1,5 (vorher 2): dort kostet jeder
   Pixel ein Vielfaches (Demo-Tal bei doppelter Dichte 2,64 statt 1,39 ms).
 - **Bloom:** der Effekt-Schalter (Settings, Effects) bleibt die Wahl des Spielers; Low hält Bloom zusätzlich aus.
-- **Partikel und Punktlichter** betreffen die Effekte der Karte (Feuer, Rauch, Funken, Gischt, Laternen). Die Effekte
+- **Partikel und Punktlichter** betreffen die Effekte der Karte (Feuer, Rauch, Funken, Gischt, Laternen); der
+  Partikel-Anteil gilt auch für Wetter und Umgebungsteilchen (Regen, Schnee, Glut, Asche, Staub). Die Effekte
   des Spiels (Mündungsfeuer, Einschläge, Spuren) steuern weiter die Effekt-Voreinstellungen.
 - **Sichtlinie:** Objekte, die die Sicht blockieren, behalten ihre Sichtweite; der LOD-Bias verkürzt nur die Sichtweite
   von Deko. Was die LOS sieht, hängt so nicht an der Stufe. `errorTarget` ändert nicht die Verfeinerung des

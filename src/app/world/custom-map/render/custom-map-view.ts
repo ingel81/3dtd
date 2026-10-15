@@ -920,6 +920,7 @@ export class CustomMapView {
     this.objects.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.terrain.grass.setBlades(q.grassBlades);
     this.grassDistance = q.grassDistance;
+    this.environment.weather.setShare(q.particles);
     if (this.effects.setQuality({ particles: q.particles, pointLights: q.pointLights })) void this.refreshEffects();
   }
 

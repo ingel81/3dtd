@@ -19,6 +19,12 @@ describe('weather', () => {
     expect(e.weather.mesh.material.uniforms['uKind'].value).toBe(1);
     e.set({ ...env, weather: 'fog', weatherStrength: 1 });
     expect(count()).toBe(0);
+    // The quality level's share: Low draws fewer, kept across a change of weather
+    e.weather.setShare(0.4);
+    e.set({ ...env, weather: 'rain', weatherStrength: 1 });
+    expect(count()).toBe(Math.round(full * 0.4));
+    e.weather.setShare(1);
+    expect(count()).toBe(full);
     e.dispose();
   });
 

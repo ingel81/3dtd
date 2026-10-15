@@ -417,7 +417,8 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   wachsen mit dem Abstand höchstens auf das Sechsfache (`GROW_MAX`), damit man sie aus der Spielkamera sieht, ohne
   dass ferne Flocken das Bild grau verschleiern. Vorher füllte ein Kasten von 160 m um den Fokus nur einen Ausschnitt
   (ein Rechteck Schnee über fernem Boden, nichts vor einer tiefen Kamera, aus 500 m Höhe gar nichts); kostet auf der
-  RTX 5080 in der Spielansicht 0,15 bis 0,3 ms GPU mehr. Staub bleibt bis gut 20 m über dem Boden (Deckkarte). Regen und Schnee schließen die Wolken, dämpfen die Sonne und
+  RTX 5080 in der Spielansicht 0,15 bis 0,3 ms GPU mehr; Low und Medium zeichnen nur ihren Partikel-Anteil
+  (40 und 70 %, `setShare`, RENDER_QUALITY.md). Staub bleibt bis gut 20 m über dem Boden (Deckkarte). Regen und Schnee schließen die Wolken, dämpfen die Sonne und
   verdichten den Dunst; Nebelwetter verdichtet bis zum Sechsfachen. Asche und Glut wachsen höchstens auf das
   1,8-Fache (sonst ein Feld heller Punkte aus der Spielkamera), Asche dunkelgrau, Glut orange statt gelb-weiß
 - **Wind** (`wind.ts`, `environment.wind`: `strength` 0..1, `direction` in Grad, aus der er kommt, `gusts` 0..1;
