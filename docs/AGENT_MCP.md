@@ -105,6 +105,11 @@ Ein Skript, das scheitert, ändert nichts; die Antwort nennt Fehler und Zeile. E
 lassen, wie sie war (Fingerabdruck gleich), wird nicht abgespielt und macht keinen Undo-Schritt (`changed: false`).
 Mit `dry_run: true` läuft es nur in der Sandbox: Logzeilen, Rückgabewert und Zahl der Befehle, die Karte bleibt.
 
+Höhenraster: `map.heightGrid(origin, step, rows, { blend, edge })` setzt den Boden in einem Befehl auf ein Raster von
+Höhen (Zeilen von Süd nach Nord, bilinear dazwischen, außerhalb unberührt, am Rand über `edge` Meter eingeblendet,
+höchstens 257 je Seite). Vorher baute ein Agent eine Insel aus 4082 einzelnen `level`-Tupfern und lief zuerst in die
+Grenze von 5000 Befehlen.
+
 Namen: Befehl und Lesefunktion heißen nie gleich (`scriptMap` bricht sonst ab). Bis 2026-10-15 verdeckte die
 Lesefunktion `map.water()` den Befehl `map.water(level, kind)`, ein Agent bekam statt neuen Wassers dessen Liste; die
 Lesefunktion heißt jetzt `map.waterBodies()`. Ein optionales Argument darf `null` sein (wie ausgelassen), spätere

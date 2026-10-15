@@ -72,6 +72,7 @@ type ArgKind =
   | { kind: 'where' }
   | { kind: 'brush' }
   | { kind: 'object' }
+  | { kind: 'grid' }
   | { kind: 'one'; of: readonly string[] };
 
 interface Arg {
@@ -99,6 +100,9 @@ const LINE: ArgKind = { kind: 'line' };
 const WHERE: ArgKind = { kind: 'where' };
 const BRUSH: ArgKind = { kind: 'brush' };
 const OBJECT: ArgKind = { kind: 'object' };
+const GRID: ArgKind = { kind: 'grid' };
+/** Most samples a side of map.heightGrid */
+const MAX_GRID = 257;
 
 const a = (name: string, type: ArgKind, optional = false): Arg => ({ name, type, optional });
 
@@ -143,6 +147,11 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
   slide: { args: [a('where', WHERE), a('brush', BRUSH), a('passes', int(1, 20), true)], doc: 'Thermal erosion: steep slopes slide into scree' },
   terrace: { args: [a('where', WHERE), a('brush', BRUSH), a('step', num(0.5, 100)), a('base', num(), true), a('pull', num(0, 1), true)], doc: 'Terraces of `step` metres' },
   plateau: { args: [a('where', WHERE), a('brush', BRUSH), a('height', num()), a('pull', num(0, 1), true)], doc: 'Cliff brush: a hard-edged plateau at `height`' },
+  heightGrid: {
+    args: [a('origin', POINT), a('step', num(1, 500)), a('rows', GRID), a('options', OBJECT, true)],
+    doc: `Set the ground to a grid of heights in metres: rows from south to north, each west to east, \`step\` metres apart, the first sample at \`origin\` (the south-west corner); smooth between samples, untouched outside. At most ${MAX_GRID} a side. options { blend 0..1 (1 replaces the ground), edge (metres over which the grid fades into the ground around it) }. One command instead of thousands of dabs; symmetry does not apply`,
+    wholeGround: true,
+  },
   ramp: { args: [a('from', OBJECT), a('to', OBJECT), a('width', num(1, 200)), a('falloff', num(0, 1), true)], doc: 'Ramp between two points {x, y, h?} at their ground heights or `h`' },
   // Paint tool
   layer: { args: [a('material', STRING)], doc: 'Ground layer of a material, added when missing; returns its index' },
@@ -284,6 +293,16 @@ function checkArg(op: string, arg: Arg, value: unknown): void {
     case 'object':
       if (!isPlainObject(value) && !Array.isArray(value)) throw new ScriptError(`${where} must be an object`);
       return;
+    case 'grid': {
+      const rows = value as unknown[];
+      const ok =
+        Array.isArray(rows) &&
+        rows.length >= 2 &&
+        rows.length <= MAX_GRID &&
+        rows.every((r) => Array.isArray(r) && r.length === (rows[0] as unknown[]).length && r.length >= 2 && r.length <= MAX_GRID && r.every((h) => typeof h === 'number'));
+      if (!ok) throw new ScriptError(`${where} must be 2 to ${MAX_GRID} rows of 2 to ${MAX_GRID} heights each, all rows as long`);
+      return;
+    }
   }
 }
 
@@ -382,10 +401,52 @@ export function applyCommand(kit: MapKit, command: ScriptCommand): unknown {
     case 'erase':
       kit.erase(args[0] as MapPoint, args[1] as number);
       return undefined;
+    case 'heightGrid':
+      applyHeightGrid(doc, args[0] as MapPoint, args[1] as number, args[2] as number[][], (args[3] ?? {}) as { blend?: number; edge?: number });
+      return undefined;
   }
   const method = (kit as unknown as Record<string, (...x: unknown[]) => unknown>)[command.op];
   if (typeof method !== 'function') throw new ScriptError(`map.${command.op} is no command`);
   return method.apply(kit, args);
+}
+
+/**
+ * map.heightGrid: each ground sample inside the grid takes the grid's height
+ * there (bilinear between its samples), mixed by `blend` and faded out over
+ * `edge` metres toward the grid's border
+ */
+function applyHeightGrid(doc: CustomMapDocument, origin: MapPoint, step: number, rows: number[][], options: { blend?: number; edge?: number }): void {
+  const t = doc.terrain;
+  const g = t.grid;
+  const blend = Math.min(1, Math.max(0, options.blend ?? 1));
+  const edge = Math.max(0, options.edge ?? 0);
+  const ny = rows.length;
+  const nx = rows[0].length;
+  const width = (nx - 1) * step;
+  const depth = (ny - 1) * step;
+  for (let j = 0; j < g.rows; j++) {
+    const y = j * g.cellSize - t.depth / 2;
+    const v = (y - origin.y) / step;
+    if (v < 0 || v > ny - 1) continue;
+    for (let i = 0; i < g.columns; i++) {
+      const x = i * g.cellSize - t.width / 2;
+      const u = (x - origin.x) / step;
+      if (u < 0 || u > nx - 1) continue;
+      const i0 = Math.min(Math.floor(u), nx - 2);
+      const j0 = Math.min(Math.floor(v), ny - 2);
+      const fu = u - i0;
+      const fv = v - j0;
+      const h = (rows[j0][i0] * (1 - fu) + rows[j0][i0 + 1] * fu) * (1 - fv) + (rows[j0 + 1][i0] * (1 - fu) + rows[j0 + 1][i0 + 1] * fu) * fv;
+      let w = blend;
+      if (edge > 0) {
+        const inside = Math.min(x - origin.x, origin.x + width - x, y - origin.y, origin.y + depth - y);
+        const f = Math.min(1, inside / edge);
+        w *= f * f * (3 - 2 * f);
+      }
+      const k = j * g.columns + i;
+      g.heights[k] += (h - g.heights[k]) * w;
+    }
+  }
 }
 
 const RULE_KEYS = ['startCredits', 'hqHealth', 'towers', 'waves', 'lanes', 'destructible', 'difficulty'];

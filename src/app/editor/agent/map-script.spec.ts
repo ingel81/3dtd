@@ -153,6 +153,23 @@ describe('map scripts', () => {
     expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/ground layers full \(at most \d+: grass, .*\), .* left out; map\.trimLayers/) });
   });
 
+  it('sets the ground from a grid of heights in one command, faded at its edge', async () => {
+    const doc = map();
+    // 5 x 5 samples 20 m apart from (-40, -40): a cone of 20 m in the middle
+    const rows = Array.from({ length: 5 }, (_, j) => Array.from({ length: 5 }, (_, i) => Math.max(0, 20 - 10 * Math.hypot(i - 2, j - 2))));
+    const r = ok(run(`map.heightGrid({ x: -40, y: -40 }, 20, ${JSON.stringify(rows)}, { edge: 10 });`, doc));
+    expect(r.commands).toHaveLength(1);
+    expect(heightAt(doc.terrain, 0, 0)).toBeCloseTo(20, 1);
+    expect(heightAt(doc.terrain, 10, 0)).toBeCloseTo(15, 1);
+    // Outside the grid untouched, at its edge faded to the ground
+    expect(heightAt(doc.terrain, 100, 100)).toBe(heightAt(map().terrain, 100, 100));
+    expect(heightAt(doc.terrain, -40, 0)).toBeCloseTo(heightAt(map().terrain, -40, 0), 5);
+    expect(run(`map.heightGrid({ x: 0, y: 0 }, 10, [[1, 2], [3]])`)).toMatchObject({ ok: false, error: expect.stringMatching(/rows must be 2 to 257 rows/) });
+    // Played back by the kit, the same map
+    const played = await playCommands(new EditorDocument(map()), index, r.commands, 7, { wait: async () => undefined });
+    expect(played.fingerprint).toBe(r.fingerprint);
+  });
+
   it('documents every command in the reference', () => {
     const text = scriptReference();
     for (const op of Object.keys(SCRIPT_OPS)) expect(text).toContain(`map.${op}(`);
