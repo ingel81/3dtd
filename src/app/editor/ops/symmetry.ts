@@ -170,10 +170,13 @@ export function mirrorCells(
     for (let i = rect.i0; i <= rect.i1; i++) {
       if (!sameSector(mode, position(i, j), center)) continue;
       const from = (j * columns + i) * channels;
+      // A cell back at what it held before the stroke (a pool's mask an earlier dab set and a later one drained)
+      // still goes to the images the stroke wrote it to; images the stroke never touched keep their own
+      let reverted = false;
       if (copy.kind === 'changed' && before) {
         let same = !copy.changedAt || !copy.changedAt(i, j);
         for (let ch = 0; same && ch < channels; ch++) same = array[from + ch] === before(i, j, ch);
-        if (same) continue;
+        if (same) reverted = true;
       }
       const rise = copy.kind === 'delta' && before ? array[from] - before(i, j, 0) : 0;
       if (copy.kind === 'delta' && rise === 0) continue;
@@ -182,6 +185,11 @@ export function mirrorCells(
         if (ti < 0 || tj < 0 || ti >= columns || tj >= rows) continue;
         const to = (tj * columns + ti) * channels;
         if (to === from) continue;
+        if (reverted) {
+          let touched = false;
+          for (let ch = 0; !touched && ch < channels; ch++) touched = array[to + ch] !== before!(ti, tj, ch);
+          if (!touched) continue;
+        }
         if (copy.kind === 'delta' && before) {
           array[to] = Math.min(HEIGHT_LIMITS.max, Math.max(HEIGHT_LIMITS.min, before(ti, tj, 0) + rise));
           continue;
