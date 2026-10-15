@@ -429,22 +429,30 @@ export class EditorViewport {
 
   /**
    * Compiles `object`'s programs for the pictures the editor draws: the view
-   * (`screen`) and renderTopDown, whose render target and missing fog give
-   * other programs. compileAsync builds them before it returns its promise,
-   * so the target and fog change only around the call.
+   * and renderTopDown, whose render target, missing fog and hidden effects
+   * (their point lights with them) give other programs. The view's twice:
+   * with the map's point lights as they are (`screen`) and in the other
+   * state, as a night (or a first lamp after dark) changes their number and
+   * every lit material links new programs in that frame (3.9 s in the
+   * showreel review). compileAsync builds them before it returns its
+   * promise, so target, fog and lights change only around the call.
    */
   private compileForViews(object: Object3D, screen = true): Promise<unknown> {
     const r = this.renderer;
     const jobs: Promise<unknown>[] = [];
-    if (screen) jobs.push(r.compileAsync(object, this.camera, this.scene));
+    this.view.withEitherLights((current) => {
+      if (screen || !current) jobs.push(r.compileAsync(object, this.camera, this.scene));
+    });
     const fog = this.scene.fog;
     const previous = r.getRenderTarget();
     try {
       this.scene.fog = null;
+      this.view.setParticlesVisible(false);
       r.setRenderTarget(this.topDownProbe);
       jobs.push(r.compileAsync(object, this.camera, this.scene));
     } finally {
       r.setRenderTarget(previous);
+      this.view.setParticlesVisible(true);
       this.scene.fog = fog;
     }
     // The view keeps drawing meanwhile, which makes compileAsync settle early (programsReady)

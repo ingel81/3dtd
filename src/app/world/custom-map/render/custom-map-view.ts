@@ -384,6 +384,17 @@ export class CustomMapView {
   }
 
   /**
+   * Runs `run` once with the map's point lights as they are and once in the
+   * other state (night on, day off; effect-layer.ts withPool), for compiles
+   * that build the programs of both
+   */
+  withEitherLights(run: (current: boolean) => void): void {
+    const shown = this.effects.poolShown;
+    run(true);
+    this.effects.withPool(!shown, () => run(false));
+  }
+
+  /**
    * Shows or hides everything in the air: weather and ambient particles
    * (rain, snow, embers, ash, dust), object effects and light glows. For
    * renders that are not the player's view, like a top-down minimap, where the
@@ -748,8 +759,11 @@ export class CustomMapView {
 
   setEnvironment(env: MapEnvironment): void {
     this.doc.environment = env;
+    const sun = this.environment.sunDir.clone();
     this.environment.set(env);
-    this.refreshFarShadow(false);
+    // The far shadow only follows the sun (a sky, a weather or the fog leave it), spread over frames once the sun
+    // stands: the whole bake (20 to 60 ms, 80 in a dev build) held every step of a sun slider and the click of a sky
+    if (!this.environment.sunDir.equals(sun)) this.refreshFarShadow(true);
     this.lightWater();
     this.effects.setDarkness(this.environment.darkness);
   }

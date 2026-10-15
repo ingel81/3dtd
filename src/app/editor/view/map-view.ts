@@ -68,6 +68,11 @@ export class EditorMapView {
     this.view.setParticlesVisible(visible);
   }
 
+  /** Runs `run` with the map's point lights as they are (`current`) and in the other state (night on, day off) */
+  withEitherLights(run: (current: boolean) => void): void {
+    this.view.withEitherLights(run);
+  }
+
   /** Where a scene ray meets the ground, in map space (z is the height) */
   raycast(ray: Ray): { x: number; y: number; z: number } | null {
     const hit = this.view.raycast(ray);

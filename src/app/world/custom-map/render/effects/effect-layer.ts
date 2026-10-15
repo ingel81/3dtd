@@ -313,6 +313,27 @@ export class EffectLayer {
     this.pool.forEach((light, k) => (light.visible = active && k < this.lightCount));
   }
 
+  /** Whether the point light pool counts for three now (night on a map with lights) */
+  get poolShown(): boolean {
+    return this.pool.some((light) => light.visible);
+  }
+
+  /**
+   * Runs `run` with the pool shown or hidden as `shown` says, and puts it back
+   * before returning: a compile inside builds the programs of the other light
+   * state (compileAsync gathers them before it returns its promise), which a
+   * night, or a first lamp after dark, would otherwise link in its frame
+   */
+  withPool<T>(shown: boolean, run: () => T): T {
+    const was = this.pool.map((light) => light.visible);
+    this.pool.forEach((light, k) => (light.visible = shown && k < this.lightCount));
+    try {
+      return run();
+    } finally {
+      this.pool.forEach((light, k) => (light.visible = was[k]));
+    }
+  }
+
   /** Advances the effects and moves the point lights to the lights nearest `focus` (group space) */
   update(dt: number, focus: Vector3): void {
     this.time.value += dt;
