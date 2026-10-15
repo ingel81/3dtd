@@ -83,8 +83,9 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
   };
   const warnings: string[] = [];
   const side = options.sideM ?? OSM_WORLD_SIDE;
-  const address = input.address?.trim() || `${input.lat.toFixed(5)}, ${input.lon.toFixed(5)}`;
-  const name = options.name ?? `Map of ${address.split(',')[0]}`;
+  const searched = input.address?.trim();
+  const address = searched || `${input.lat.toFixed(5)}, ${input.lon.toFixed(5)}`;
+  const name = options.name ?? (searched ? `Map of ${searched.split(',')[0]}` : `Map at ${address}`);
   const doc = createMapDocument({
     id: options.id ?? `osm-${slugMapId(address)}`.slice(0, 64),
     name,
