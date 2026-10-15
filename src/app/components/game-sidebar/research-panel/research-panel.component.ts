@@ -1,3 +1,4 @@
+import { releasedResearch } from '../../../configs/release';
 import { ChangeDetectionStrategy, Component, computed, inject, Injector, input, output } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { MatDialog } from '@angular/material/dialog';
@@ -5,7 +6,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { ResearchStore } from '../../../store/research.store';
 import { UpgradeId } from '../../../configs/tower-types.config';
-import { RESEARCH_TREE, getResearch } from '../../../configs/research/research-tree.config';
+import { getResearch } from '../../../configs/research/research-tree.config';
 import { ActiveResearch, ResearchId, researchWave } from '../../../configs/research/research.types';
 import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
@@ -61,12 +62,12 @@ export class SidebarResearchPanelComponent {
   /** Waiting for a slot and the credits, in start order */
   readonly queue = this.researchStore.queuedResearches;
 
-  readonly researchTotal = Object.keys(RESEARCH_TREE).length;
+  readonly researchTotal = releasedResearch().length;
   readonly researchDone = computed(() => this.researchStore.completedResearches().size);
 
   /** How many could be started right now, the reason to open the tree. */
   readonly openCount = computed(() =>
-    Object.values(RESEARCH_TREE).filter(
+    releasedResearch().filter(
       (research) =>
         researchStatus(
           research.id,

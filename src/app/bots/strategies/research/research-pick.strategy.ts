@@ -16,6 +16,7 @@
  * - meta: same as strategist
  */
 
+import { isResearchReleased } from '../../../configs/release';
 import { BaseStrategy } from '../tower-strategy.interface';
 import type { Proposal, ProposalKind } from '../../decision/arbiter';
 import { killTimeSaved, newTowerCapacity } from '../../decision/value';
@@ -61,6 +62,12 @@ const UNLOCK_SPEND = 1000;
 const GATE_SHARE = 0.9;
 
 export const BOT_SKIPPED_RESEARCH: ReadonlySet<ResearchId> = new Set([HERO.researchId]);
+
+/** A research the bot leaves alone: skipped on purpose, or not released in this build (configs/release.ts) */
+function botSkips(id: ResearchId): boolean {
+  const config = getResearch(id);
+  return BOT_SKIPPED_RESEARCH.has(id) || !config || !isResearchReleased(config);
+}
 
 export class ResearchPickStrategy extends BaseStrategy {
   constructor(private config: BotConfig, private world?: Pick<BotWorld, 'towerManager'>) {
@@ -231,7 +238,7 @@ export class ResearchPickStrategy extends BaseStrategy {
     // Fallback: skill-order list; a normal player follows the expert's
     const list = this.researchOrderBySkill[skill === 'normal' ? 'expert' : skill];
     return list.find(id =>
-      !BOT_SKIPPED_RESEARCH.has(id) &&
+      !botSkips(id) &&
       !r.completedIds.includes(id) &&
       !this.isActive(id, state) &&
       this.prereqsMet(id, state)
@@ -260,7 +267,7 @@ export class ResearchPickStrategy extends BaseStrategy {
     let bestScore = -Infinity;
 
     for (const id of getAllResearchIds()) {
-      if (BOT_SKIPPED_RESEARCH.has(id)) continue;
+      if (botSkips(id)) continue;
       if (r.completedIds.includes(id)) continue;
       if (this.isActive(id, state)) continue;
       if (!this.prereqsMet(id, state)) continue;

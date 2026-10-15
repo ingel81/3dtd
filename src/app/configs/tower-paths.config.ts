@@ -14,6 +14,8 @@ export interface TowerPath {
   /** The tower type that can take it */
   readonly towerId: TowerTypeId;
   readonly name: string;
+  /** False: in dev builds only, hidden in production until it is released (configs/release.ts). Default true */
+  readonly released?: boolean;
   /** One sentence for the tooltip */
   readonly description: string;
   /** Credits per tower */
@@ -64,6 +66,7 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
   },
   incendiary: {
     id: 'incendiary',
+    released: false, // Dev builds only until it is released (configs/release.ts)
     towerId: 'archer',
     name: 'Fire Arrows',
     description: 'Each hit sets its target burning for 3 s, a quarter of the arrow as fire damage a second; a burning enemy does not regenerate.',
@@ -77,6 +80,7 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
   },
   multirole: {
     id: 'multirole',
+    released: false, // Dev builds only until it is released (configs/release.ts)
     towerId: 'rocket',
     name: 'Multirole',
     description: 'Fires at ground enemies too, at half damage, while no flyer is in range.',
@@ -89,6 +93,7 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
   },
   seal: {
     id: 'seal',
+    released: false, // Dev builds only until it is released (configs/release.ts)
     towerId: 'magic',
     name: 'Binding Sigil',
     description: 'Each hit binds its target for 4 s: Phasing is lifted, ice slows take hold of wraiths.',
@@ -101,6 +106,7 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
   },
   corrode: {
     id: 'corrode',
+    released: false, // Dev builds only until it is released (configs/release.ts)
     towerId: 'poison',
     name: 'Caustic',
     description: 'Each hit corrodes its target for 3 s: it counts one armor class lighter (bosses are immune).',
@@ -112,11 +118,6 @@ export const TOWER_PATHS: Readonly<Record<TowerPathId, TowerPath>> = {
     attachment: { modelUrl: 'assets/models/towers/attachments/corrode.glb' },
   },
 };
-
-/** The paths a tower of `typeId` can take, in the order of TOWER_PATHS */
-export function pathsOf(typeId: string): TowerPath[] {
-  return Object.values(TOWER_PATHS).filter((path) => path.towerId === typeId);
-}
 
 export function getTowerPath(id: string | null | undefined): TowerPath | null {
   return id ? TOWER_PATHS[id as TowerPathId] ?? null : null;

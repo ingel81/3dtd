@@ -1,5 +1,6 @@
+import { releasedTowerTypes } from '../../../configs/release';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
-import { getAllTowerTypes, TowerTypeId } from '../../../configs/tower-types.config';
+import { TowerTypeId } from '../../../configs/tower-types.config';
 import { waveHasAir } from '../../../director/wave-rules';
 import { isAntiEtherealTower } from '../../../director/defense-analyzer';
 import { canTargetAirEffective } from '../../../entities/tower-targeting.util';
@@ -138,7 +139,7 @@ export function countAntiEtherealTowers(typeIds: Iterable<TowerTypeId>): number 
 
 /** Tower names that hit air, those that need research marked as such. */
 function airTowerNames(airTargetingUnlocked: boolean): string {
-  return getAllTowerTypes()
+  return releasedTowerTypes()
     .filter((t) => canTargetAirEffective(t.id, true))
     .map((t) => (canTargetAirEffective(t.id, airTargetingUnlocked) ? t.name : `${t.name} (after research)`))
     .join(', ');
@@ -146,7 +147,7 @@ function airTowerNames(airTargetingUnlocked: boolean): string {
 
 /** Tower names that hurt ethereal armor */
 function etherealTowerNames(): string {
-  return getAllTowerTypes()
+  return releasedTowerTypes()
     .filter((t) => isAntiEtherealTower(t.id))
     .map((t) => t.name)
     .join(', ');

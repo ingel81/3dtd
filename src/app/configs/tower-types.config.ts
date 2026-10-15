@@ -262,6 +262,11 @@ export interface TowerTypeConfig {
    * TowerLifecycle.place and canPickTowerCard.
    */
   minWave?: number;
+  /**
+   * False: in dev builds only, hidden in production until it is released (configs/release.ts, isReleased).
+   * Default true.
+   */
+  released?: boolean;
   /** What a passive building does, or a tower's role in a line: the flavor of its build card's tooltip */
   description?: string;
 
@@ -659,6 +664,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   bastion: {
     id: 'bastion',
     name: 'Iron Bastion',
+    released: false, // Dev builds only until it is released (configs/release.ts)
     defaultTargeting: 'first',
     // Meshy "Iron Bastion Turret", cut and reduced by tools/blender/build_tower.py (towers/bastion.json): nodes base,
     // turret_top (the yaw axis on the origin) and gun (origin on the trunnions, the barrel levelled along -X).
@@ -697,6 +703,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   sentinel: {
     id: 'sentinel',
     name: 'Sentinel Laser',
+    released: false, // Dev builds only until it is released (configs/release.ts)
     // The tank killer: the strongest of the wave first, and it stays on it
     defaultTargeting: 'highest-hp',
     // Meshy "Sentinel Laser Turret", cut and reduced by tools/blender/build_tower.py (towers/sentinel.json): nodes
@@ -739,6 +746,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   chainsaw: {
     id: 'chainsaw',
     name: 'Chainsaw',
+    released: false, // Dev builds only until it is released (configs/release.ts)
     defaultTargeting: 'closest',
     // Meshy "Chainsaw Turret" without its arms (tools/blender/towers/chainsaw-tentacle.json, build_tower.py): nodes
     // base, turret_top (the torso, the yaw axis on the origin) and the three saws under it, each with its origin
@@ -784,6 +792,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   shawarma: {
     id: 'shawarma',
     name: 'Shawarma Slicer',
+    released: false, // Dev builds only until it is released (configs/release.ts)
     defaultTargeting: 'first',
     // Meshy "Cyber Shawarma Slicer" (tools/blender/towers/shawarma.json, build_tower.py): nodes base, turret_top
     // (the machine, the yaw axis on the origin), under it spit (the meat on its skewer, turning about y), arm with

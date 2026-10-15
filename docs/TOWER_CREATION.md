@@ -154,6 +154,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `upgrades` | TowerUpgrade[] | - | Verfügbare Upgrades |
 | `unique` | boolean | false | Einmal je Karte (Research Center, Missile Silo): kein zweites, solange eines steht |
 | `minWave` | number | - | Baubar erst ab der Bauphase vor Welle N (Research Center: 2, damit das Startgold Tower für Welle 1 kauft); Simulation und Baukarte prüfen es |
+| `released` | boolean | true | `false`: nur im Dev-Build, in Produktion verborgen (siehe [Freigabe](#freigabe)) |
 | `description` | string | - | Was ein passives Gebäude tut oder die Rolle eines Towers in einem Satz, Text im Tooltip seiner Karte |
 | `canTargetAir` | boolean | false | Kann Luft-Einheiten angreifen |
 | `canTargetGround` | boolean | true | Kann Boden-Einheiten angreifen |
@@ -414,6 +415,25 @@ gegen Heavy 26 (Matrix 1,75). Eine Cannon L0 (150 Gold) bringt gegen Heavy 48 vo
 Rocket mit Pfad ist am Boden gut die Hälfte einer Cannon, für 120 + 300 Gold, und bleibt Luftabwehr. Gegen Light und
 Unarmored 7,5 (Siege 0,5). Im menschlichen Lauf bis W60 standen ab W16 acht Rockets auf L0 in jeder Bodenwelle still
 (`tools/balance-calc/trajectory.json`); mit dem Pfad tragen sie dort gegen Heavy zusammen etwa so viel wie vier Cannons L0.
+
+## Freigabe
+
+Ein neuer Tower-Typ oder Pfad kommt mit `released: false` in seiner Config (`TowerTypeConfig.released`,
+`TowerPath.released`, ohne Feld gilt er als freigegeben). Wie die eigenen Karten (`world/custom-maps-open.ts`) ist
+er im Dev-Build (`environment.production` false) ganz da und in einem Produktions-Build verborgen. Entscheidet nur
+`configs/release.ts`: `isReleased`, `isTowerReleased`, `isPathReleased`, `isResearchReleased` (eine Forschung ist
+verborgen, sobald sie einen verborgenen Tower oder Pfad freischaltet) und die Listen `releasedTowerTypes`,
+`releasedPathsOf`, `releasedResearch`. Jede Funktion nimmt `production` als Parameter, Vorgabe der Build.
+
+Was es in Produktion verbirgt: die Karte im Baumenü (und damit ihre Zifferntaste), die Pfad-Kachel im Tower-Panel,
+die Forschung im Baum und ihre Zählung im Research-Panel, die Schadensmatrix und die Turm-Hinweise der Wellenwarnung,
+die Bots (Tower-Liste und Forschungswahl), die Forschung beim Start in einer späteren Welle (`run-start.ts`).
+Die Werkzeuge rechnen immer mit `production = true`: Wave Planner, Economy- und Tower-Stats-Chart zeigen, was
+Spieler bekommen. Ein Spielstand, der einen verborgenen Tower oder Pfad enthält, lädt nicht
+(`readSaveFile`, Absage `unreleased` mit seinem Namen). Die Simulation selbst kennt alle Typen.
+
+Stand 2026-10-15 nicht freigegeben: Iron Bastion, Sentinel Laser, Chainsaw, Shawarma Slicer und die Pfade Fire
+Arrows, Multirole, Binding Sigil, Caustic. Freigeben heißt: das Feld entfernen.
 
 ## Bauzeit und Gerüst
 

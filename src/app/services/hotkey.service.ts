@@ -1,6 +1,6 @@
+import { releasedTowerTypes } from '../configs/release';
 import { Injectable, Injector, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { getAllTowerTypes } from '../configs/tower-types.config';
 import { researchWave } from '../configs/research/research.types';
 import { stepGameSpeed } from '../configs/game-speed.config';
 import { TowerSelectionService } from './tower-selection.service';
@@ -67,7 +67,7 @@ export class HotkeyService {
   private readonly debugFacade = inject(DebugFacadeService);
 
   /** BUILD panel order, the number keys follow it */
-  private readonly towerTypes = getAllTowerTypes();
+  private readonly towerTypes = releasedTowerTypes();
 
   /** Spawn point N flew to last, -1 before the first press */
   private spawnIndex = -1;

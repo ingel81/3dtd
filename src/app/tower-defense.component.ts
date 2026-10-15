@@ -1,3 +1,4 @@
+import { releasedTowerTypes } from './configs/release';
 import { GlobeBackdropComponent } from './components/globe-backdrop/globe-backdrop.component';
 import { MenuLoadingComponent } from './components/main-menu/loading/menu-loading.component';
 import {
@@ -94,7 +95,7 @@ import { ThreeTilesEngine } from './three-engine';
 import { Vector3 } from 'three';
 // Theme
 // Tower config
-import { TOWER_TYPES, getAllTowerTypes, TowerTypeId, UpgradeId, TargetingStrategy, AirSubStrategy } from './configs/tower-types.config';
+import { TOWER_TYPES, TowerTypeId, UpgradeId, TargetingStrategy, AirSubStrategy } from './configs/tower-types.config';
 import { Tower } from './entities/tower.entity';
 // AI Wave Director (optional)
 import { WaveDirector } from './director/wave-director';
@@ -329,7 +330,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   // Expose Math and tower config for template
   readonly Math = Math;
-  readonly towerTypes = getAllTowerTypes();
+  // The build panel: this build's towers (configs/release.ts)
+  readonly towerTypes = releasedTowerTypes();
 
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
