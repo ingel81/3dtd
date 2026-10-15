@@ -2752,6 +2752,12 @@
       "triangles": 3758,
       "footprint": 4.5,
       "height": 8,
+      "box": [
+        0,
+        0.1,
+        3.7,
+        2.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2787,6 +2793,12 @@
       "triangles": 6558,
       "footprint": 6.0,
       "height": 11,
+      "box": [
+        0,
+        0.1,
+        5,
+        3.7
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2822,6 +2834,12 @@
       "triangles": 2146,
       "footprint": 6.5,
       "height": 8,
+      "box": [
+        0,
+        0,
+        5.5,
+        3.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2844,6 +2862,12 @@
       "triangles": 3632,
       "footprint": 4.0,
       "height": 12,
+      "box": [
+        1.4,
+        -0.9,
+        4.8,
+        4.2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2867,6 +2891,12 @@
       "triangles": 1040,
       "footprint": 2.0,
       "height": 1.4,
+      "box": [
+        0,
+        0,
+        1.9,
+        0.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -2890,6 +2920,12 @@
       "triangles": 438,
       "footprint": 2.0,
       "height": 1.3,
+      "box": [
+        0,
+        0,
+        1.9,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -3887,6 +3923,12 @@
       "triangles": 206,
       "footprint": 1.6,
       "height": 1.8,
+      "box": [
+        0,
+        0,
+        1.6,
+        0.7
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -3910,6 +3952,12 @@
       "triangles": 410,
       "footprint": 3.0,
       "height": 1.8,
+      "box": [
+        0,
+        0,
+        3,
+        0.8
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -5851,6 +5899,12 @@
       "triangles": 972,
       "footprint": 3.6,
       "height": 8.4,
+      "box": [
+        0,
+        0.2,
+        3.6,
+        1.5
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5873,6 +5927,12 @@
       "triangles": 628,
       "footprint": 1.8,
       "height": 8.4,
+      "box": [
+        0,
+        0.2,
+        1.8,
+        1.5
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5902,6 +5962,12 @@
       "triangles": 484,
       "footprint": 1.5,
       "height": 8.4,
+      "box": [
+        0,
+        0.2,
+        0.9,
+        1.5
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5931,6 +5997,12 @@
       "triangles": 1680,
       "footprint": 2.5,
       "height": 9.9,
+      "box": [
+        0,
+        0,
+        2.5,
+        2.5
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5960,6 +6032,12 @@
       "triangles": 1360,
       "footprint": 2.5,
       "height": 9.9,
+      "box": [
+        0,
+        0,
+        2,
+        2.5
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -5989,6 +6067,12 @@
       "triangles": 1560,
       "footprint": 3.7,
       "height": 7.0,
+      "box": [
+        -0.1,
+        1.1,
+        3.7,
+        2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6011,6 +6095,12 @@
       "triangles": 1664,
       "footprint": 3.6,
       "height": 6.5,
+      "box": [
+        0,
+        1.3,
+        3.6,
+        2.2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6033,6 +6123,12 @@
       "triangles": 2540,
       "footprint": 4.0,
       "height": 14.1,
+      "box": [
+        0,
+        0,
+        4,
+        4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6055,6 +6151,12 @@
       "triangles": 2586,
       "footprint": 4.0,
       "height": 19.5,
+      "box": [
+        0,
+        0,
+        4,
+        4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6077,6 +6179,12 @@
       "triangles": 1944,
       "footprint": 4.0,
       "height": 9.1,
+      "box": [
+        0,
+        0,
+        4,
+        4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6099,6 +6207,12 @@
       "triangles": 2604,
       "footprint": 7.3,
       "height": 12.1,
+      "box": [
+        0,
+        0.1,
+        7.3,
+        2.7
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6121,6 +6235,12 @@
       "triangles": 5708,
       "footprint": 6.5,
       "height": 22.2,
+      "box": [
+        0,
+        0,
+        6.5,
+        6.5
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6143,6 +6263,12 @@
       "triangles": 880,
       "footprint": 3.6,
       "height": 7,
+      "box": [
+        0,
+        0,
+        3.6,
+        0.9
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -6165,6 +6291,12 @@
       "triangles": 3758,
       "footprint": 3.2,
       "height": 6.0,
+      "box": [
+        0,
+        0.1,
+        3.2,
+        2.7
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6201,6 +6333,12 @@
       "triangles": 3054,
       "footprint": 4.1,
       "height": 7.5,
+      "box": [
+        0,
+        0.1,
+        4.1,
+        3.1
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6237,6 +6375,12 @@
       "triangles": 6382,
       "footprint": 3.3,
       "height": 11.5,
+      "box": [
+        0,
+        0.1,
+        3.2,
+        3.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6272,6 +6416,12 @@
       "triangles": 4146,
       "footprint": 3.7,
       "height": 6.8,
+      "box": [
+        0,
+        0,
+        3.7,
+        2.9
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6308,6 +6458,12 @@
       "triangles": 3474,
       "footprint": 4.1,
       "height": 7.5,
+      "box": [
+        0,
+        0,
+        4.1,
+        3.2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6345,6 +6501,12 @@
       "triangles": 3054,
       "footprint": 3.7,
       "height": 6.6,
+      "box": [
+        0,
+        0.1,
+        3.7,
+        2.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6382,6 +6544,12 @@
       "triangles": 3442,
       "footprint": 3.7,
       "height": 6.6,
+      "box": [
+        0,
+        0,
+        3.7,
+        2.9
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6419,6 +6587,12 @@
       "triangles": 2578,
       "footprint": 5.5,
       "height": 8.1,
+      "box": [
+        0,
+        0,
+        5.5,
+        4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6442,6 +6616,12 @@
       "triangles": 5914,
       "footprint": 4.6,
       "height": 7.9,
+      "box": [
+        0.5,
+        0.1,
+        4.6,
+        3.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6478,6 +6658,12 @@
       "triangles": 3888,
       "footprint": 5.9,
       "height": 17.2,
+      "box": [
+        0,
+        0,
+        5.9,
+        4.1
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6500,6 +6686,12 @@
       "triangles": 4130,
       "footprint": 7.6,
       "height": 20,
+      "box": [
+        0,
+        0.7,
+        3.9,
+        7.6
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6524,6 +6716,12 @@
       "triangles": 754,
       "footprint": 2.1,
       "height": 12,
+      "box": [
+        0,
+        0,
+        2.1,
+        2.1
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6548,6 +6746,12 @@
       "triangles": 1680,
       "footprint": 3.6,
       "height": 23.6,
+      "box": [
+        0,
+        0.1,
+        3.6,
+        3.6
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6578,6 +6782,12 @@
       "triangles": 326,
       "footprint": 3.3,
       "height": 6.2,
+      "box": [
+        0,
+        1.1,
+        2.8,
+        3.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6602,6 +6812,12 @@
       "triangles": 90,
       "footprint": 2.9,
       "height": 5.6,
+      "box": [
+        0,
+        0,
+        2.9,
+        2.9
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6626,6 +6842,12 @@
       "triangles": 766,
       "footprint": 2.9,
       "height": 3.5,
+      "box": [
+        0,
+        0.7,
+        2.8,
+        2.9
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6648,6 +6870,12 @@
       "triangles": 1394,
       "footprint": 4.1,
       "height": 6.7,
+      "box": [
+        0,
+        0.7,
+        4.1,
+        3.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6911,6 +7139,12 @@
       "triangles": 468,
       "footprint": 1.8,
       "height": 4.6,
+      "box": [
+        0,
+        -0.1,
+        1.8,
+        0.2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6935,6 +7169,12 @@
       "triangles": 724,
       "footprint": 2.4,
       "height": 6,
+      "box": [
+        0,
+        0,
+        2.4,
+        0.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -6959,6 +7199,12 @@
       "triangles": 1345,
       "footprint": 1.9,
       "height": 1.2,
+      "box": [
+        0,
+        0,
+        1.9,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -6982,6 +7228,12 @@
       "triangles": 172,
       "footprint": 1.9,
       "height": 1.3,
+      "box": [
+        0,
+        -0.1,
+        1.9,
+        0.2
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -7006,6 +7258,12 @@
       "triangles": 396,
       "footprint": 1.7,
       "height": 1.5,
+      "box": [
+        0,
+        0,
+        1.7,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -7028,6 +7286,12 @@
       "triangles": 1500,
       "footprint": 2.8,
       "height": 1.4,
+      "box": [
+        0,
+        0,
+        2.8,
+        0.3
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -7052,6 +7316,12 @@
       "triangles": 700,
       "footprint": 2.8,
       "height": 1.0,
+      "box": [
+        0,
+        0.4,
+        2.8,
+        0.7
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -7076,6 +7346,12 @@
       "triangles": 2340,
       "footprint": 6.6,
       "height": 8.5,
+      "box": [
+        0,
+        0,
+        6.6,
+        1.9
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -7099,6 +7375,12 @@
       "triangles": 4772,
       "footprint": 7.1,
       "height": 13.5,
+      "box": [
+        0,
+        0,
+        7.1,
+        7.1
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -7122,6 +7404,12 @@
       "triangles": 3999,
       "footprint": 1.3,
       "height": 2.9,
+      "box": [
+        0,
+        0,
+        1.3,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -7166,6 +7454,12 @@
       "triangles": 1816,
       "footprint": 4.5,
       "height": 7.4,
+      "box": [
+        0,
+        1.1,
+        4.5,
+        1.6
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -7190,6 +7484,12 @@
       "triangles": 2204,
       "footprint": 5.7,
       "height": 7.8,
+      "box": [
+        0.2,
+        -1,
+        5.7,
+        4.1
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -7214,6 +7514,12 @@
       "triangles": 1720,
       "footprint": 4.0,
       "height": 7.5,
+      "box": [
+        0,
+        -0.2,
+        4.1,
+        2.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8413,6 +8719,12 @@
       "triangles": 15026,
       "footprint": 10.8,
       "height": 22.2,
+      "box": [
+        0,
+        0,
+        3.1,
+        10.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8436,6 +8748,12 @@
       "triangles": 14696,
       "footprint": 6.7,
       "height": 15.2,
+      "box": [
+        0,
+        0.6,
+        6.7,
+        5.6
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8465,6 +8783,12 @@
       "triangles": 10640,
       "footprint": 7.9,
       "height": 27.2,
+      "box": [
+        0,
+        0.5,
+        7.9,
+        6.5
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8494,6 +8818,12 @@
       "triangles": 10940,
       "footprint": 7.9,
       "height": 15.6,
+      "box": [
+        0,
+        0.5,
+        7.9,
+        5.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8523,6 +8853,12 @@
       "triangles": 9288,
       "footprint": 5.5,
       "height": 16.2,
+      "box": [
+        0.4,
+        0,
+        5.5,
+        4.6
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8553,6 +8889,12 @@
       "triangles": 6952,
       "footprint": 4.7,
       "height": 12.9,
+      "box": [
+        0.4,
+        0.6,
+        4.5,
+        4.7
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8583,6 +8925,12 @@
       "triangles": 7072,
       "footprint": 5.8,
       "height": 10.8,
+      "box": [
+        0,
+        0.6,
+        5.8,
+        5.1
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8612,6 +8960,12 @@
       "triangles": 3728,
       "footprint": 7.6,
       "height": 33.1,
+      "box": [
+        0,
+        -0.2,
+        7.4,
+        7.6
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8641,6 +8995,12 @@
       "triangles": 2988,
       "footprint": 4.6,
       "height": 9.6,
+      "box": [
+        0,
+        0,
+        4.6,
+        3.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8670,6 +9030,12 @@
       "triangles": 1918,
       "footprint": 8.4,
       "height": 7.6,
+      "box": [
+        0,
+        1.1,
+        8.4,
+        6.7
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -8699,6 +9065,12 @@
       "triangles": 1984,
       "footprint": 8.4,
       "height": 7.6,
+      "box": [
+        0,
+        1.1,
+        8.4,
+        6.7
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9369,6 +9741,12 @@
       "triangles": 1500,
       "footprint": 0.7,
       "height": 0.8,
+      "box": [
+        0,
+        0,
+        0.7,
+        0.3
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9392,6 +9770,12 @@
       "triangles": 1499,
       "footprint": 0.7,
       "height": 1.1,
+      "box": [
+        0,
+        0,
+        0.7,
+        0.2
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9415,6 +9799,12 @@
       "triangles": 38,
       "footprint": 1.8,
       "height": 2.2,
+      "box": [
+        0,
+        0,
+        1.8,
+        0
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9441,6 +9831,12 @@
       "triangles": 74,
       "footprint": 1.8,
       "height": 2.7,
+      "box": [
+        0,
+        0.1,
+        1.8,
+        0.2
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9588,6 +9984,12 @@
       "triangles": 1704,
       "footprint": 2.3,
       "height": 1.1,
+      "box": [
+        0,
+        0,
+        2.3,
+        0.5
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9610,6 +10012,12 @@
       "triangles": 846,
       "footprint": 1.9,
       "height": 0.8,
+      "box": [
+        0,
+        0,
+        1.9,
+        0.1
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -9633,6 +10041,12 @@
       "triangles": 784,
       "footprint": 1.9,
       "height": 1.9,
+      "box": [
+        0,
+        -0.1,
+        1.9,
+        0.2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9884,6 +10298,12 @@
       "triangles": 2434,
       "footprint": 4.6,
       "height": 7.5,
+      "box": [
+        -0.1,
+        -2.7,
+        4.5,
+        4.6
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9914,6 +10334,12 @@
       "triangles": 2044,
       "footprint": 4.9,
       "height": 8.5,
+      "box": [
+        0,
+        0.3,
+        3.9,
+        4.9
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9966,6 +10392,12 @@
       "triangles": 3742,
       "footprint": 6.2,
       "height": 6.9,
+      "box": [
+        0,
+        0.9,
+        5.6,
+        6.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -9989,6 +10421,12 @@
       "triangles": 3742,
       "footprint": 6.2,
       "height": 6.9,
+      "box": [
+        0,
+        0.9,
+        5.6,
+        6.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -10012,6 +10450,12 @@
       "triangles": 3946,
       "footprint": 7.1,
       "height": 7.9,
+      "box": [
+        0,
+        1,
+        6.5,
+        7.6
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -10528,6 +10972,12 @@
       "triangles": 1100,
       "footprint": 2.7,
       "height": 2.7,
+      "box": [
+        0,
+        0.4,
+        2.3,
+        2.7
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -10551,6 +11001,12 @@
       "triangles": 900,
       "footprint": 5.7,
       "height": 10.8,
+      "box": [
+        -1.3,
+        0,
+        5.7,
+        1.9
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -10865,6 +11321,12 @@
       "triangles": 1096,
       "footprint": 2.4,
       "height": 3,
+      "box": [
+        0,
+        0,
+        2.4,
+        0.2
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -10888,6 +11350,12 @@
       "triangles": 5272,
       "footprint": 8.9,
       "height": 17.4,
+      "box": [
+        0,
+        0.1,
+        8.9,
+        3.2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -11144,6 +11612,12 @@
       "triangles": 4066,
       "footprint": 4.1,
       "height": 7.5,
+      "box": [
+        0.1,
+        0.1,
+        4.2,
+        3.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -11180,6 +11654,12 @@
       "triangles": 4486,
       "footprint": 4.1,
       "height": 7.5,
+      "box": [
+        0.1,
+        0,
+        4.2,
+        3.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -11336,6 +11816,12 @@
       "triangles": 2436,
       "footprint": 8.1,
       "height": 9.4,
+      "box": [
+        0,
+        0.5,
+        8.1,
+        6.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -11381,6 +11867,12 @@
       "triangles": 8010,
       "footprint": 4.6,
       "height": 9.7,
+      "box": [
+        0,
+        0.3,
+        4.6,
+        3.7
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -11417,6 +11909,12 @@
       "triangles": 8534,
       "footprint": 4.6,
       "height": 9.7,
+      "box": [
+        0,
+        0.2,
+        4.6,
+        3.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -11453,6 +11951,12 @@
       "triangles": 3366,
       "footprint": 5.5,
       "height": 10.1,
+      "box": [
+        -1,
+        0.1,
+        5.4,
+        3.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -11476,6 +11980,12 @@
       "triangles": 3374,
       "footprint": 5.5,
       "height": 10.1,
+      "box": [
+        -1,
+        0.1,
+        5.5,
+        3.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -11499,6 +12009,12 @@
       "triangles": 176,
       "footprint": 2.7,
       "height": 2.8,
+      "box": [
+        0,
+        0,
+        2.7,
+        0.6
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -11522,6 +12038,12 @@
       "triangles": 1408,
       "footprint": 3.0,
       "height": 2.8,
+      "box": [
+        -2.7,
+        -3.3,
+        3,
+        3
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -11545,6 +12067,12 @@
       "triangles": 2612,
       "footprint": 12.6,
       "height": 8.4,
+      "box": [
+        0,
+        8,
+        5.1,
+        12.6
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -11717,6 +12245,12 @@
       "triangles": 1250,
       "footprint": 2.9,
       "height": 6.5,
+      "box": [
+        -0.5,
+        0.4,
+        2.9,
+        2.5
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -11865,6 +12399,12 @@
       "triangles": 4242,
       "footprint": 8.4,
       "height": 9.2,
+      "box": [
+        0.3,
+        2,
+        8.4,
+        8.1
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -12047,6 +12587,12 @@
       "triangles": 3128,
       "footprint": 4.6,
       "height": 5.6,
+      "box": [
+        1.5,
+        0.1,
+        4.6,
+        2.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -12302,6 +12848,12 @@
       "triangles": 675,
       "footprint": 3.3,
       "height": 5.9,
+      "box": [
+        0,
+        -0.3,
+        3.3,
+        2.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -12347,6 +12899,12 @@
       "triangles": 1186,
       "footprint": 5.0,
       "height": 6.8,
+      "box": [
+        3.5,
+        -2.4,
+        4.1,
+        5
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -12370,6 +12928,12 @@
       "triangles": 3354,
       "footprint": 5.0,
       "height": 14.9,
+      "box": [
+        0,
+        0.1,
+        5,
+        5
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -12393,6 +12957,12 @@
       "triangles": 2248,
       "footprint": 7.2,
       "height": 10.1,
+      "box": [
+        0,
+        1.3,
+        7.2,
+        3.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -12462,6 +13032,12 @@
       "triangles": 14576,
       "footprint": 7.4,
       "height": 39.2,
+      "box": [
+        0,
+        0.6,
+        6.9,
+        7.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -12535,6 +13111,12 @@
       "triangles": 924,
       "footprint": 1.9,
       "height": 1.4,
+      "box": [
+        0,
+        0.6,
+        1.9,
+        0.7
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -12838,6 +13420,12 @@
       "triangles": 6108,
       "footprint": 17.2,
       "height": 22,
+      "box": [
+        0,
+        0.9,
+        17.2,
+        13.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13025,6 +13613,12 @@
       "triangles": 2952,
       "footprint": 8.1,
       "height": 34.3,
+      "box": [
+        0,
+        0,
+        8.1,
+        8.1
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13146,6 +13740,12 @@
       "triangles": 3874,
       "footprint": 2.4,
       "height": 26.5,
+      "box": [
+        0,
+        0,
+        2.4,
+        2.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13177,6 +13777,12 @@
       "triangles": 3904,
       "footprint": 2.4,
       "height": 26.5,
+      "box": [
+        0,
+        0,
+        2.4,
+        2.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13270,6 +13876,12 @@
       "triangles": 5068,
       "footprint": 3.3,
       "height": 13.3,
+      "box": [
+        0,
+        0.8,
+        2.3,
+        3.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13645,6 +14257,12 @@
       "triangles": 3012,
       "footprint": 5.2,
       "height": 9.6,
+      "box": [
+        0,
+        0.3,
+        5.2,
+        4.7
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13674,6 +14292,12 @@
       "triangles": 2494,
       "footprint": 4.8,
       "height": 10.7,
+      "box": [
+        0,
+        0.3,
+        4.8,
+        4.5
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13703,6 +14327,12 @@
       "triangles": 2952,
       "footprint": 7.0,
       "height": 10.0,
+      "box": [
+        0,
+        0.3,
+        7,
+        4.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13732,6 +14362,12 @@
       "triangles": 1160,
       "footprint": 5.3,
       "height": 10.0,
+      "box": [
+        0,
+        0.3,
+        3.1,
+        5.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13761,6 +14397,12 @@
       "triangles": 4832,
       "footprint": 11.5,
       "height": 10.0,
+      "box": [
+        0,
+        0.3,
+        11.5,
+        5.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13790,6 +14432,12 @@
       "triangles": 256,
       "footprint": 2.8,
       "height": 2.8,
+      "box": [
+        0,
+        0,
+        1.4,
+        2.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13820,6 +14468,12 @@
       "triangles": 688,
       "footprint": 6.8,
       "height": 2.8,
+      "box": [
+        0,
+        0,
+        6.8,
+        2.8
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13849,6 +14503,12 @@
       "triangles": 732,
       "footprint": 1.4,
       "height": 2.9,
+      "box": [
+        0,
+        0,
+        1.2,
+        1.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13880,6 +14540,12 @@
       "triangles": 284,
       "footprint": 2.5,
       "height": 2.7,
+      "box": [
+        0,
+        0,
+        1.5,
+        2.5
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -13909,6 +14575,12 @@
       "triangles": 396,
       "footprint": 2.9,
       "height": 2.7,
+      "box": [
+        0,
+        0,
+        2.9,
+        2.5
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -13938,6 +14610,12 @@
       "triangles": 700,
       "footprint": 9.9,
       "height": 6.1,
+      "box": [
+        0,
+        0,
+        9.9,
+        5.9
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -13967,6 +14645,12 @@
       "triangles": 4692,
       "footprint": 7.1,
       "height": 19.9,
+      "box": [
+        0,
+        -0.5,
+        7.1,
+        6.2
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -13996,6 +14680,12 @@
       "triangles": 8872,
       "footprint": 7.4,
       "height": 23.7,
+      "box": [
+        0,
+        -0.6,
+        7.4,
+        6.6
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14025,6 +14715,12 @@
       "triangles": 4010,
       "footprint": 6.7,
       "height": 19.9,
+      "box": [
+        0,
+        0,
+        6.7,
+        6.7
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14054,6 +14750,12 @@
       "triangles": 5812,
       "footprint": 6.9,
       "height": 23.7,
+      "box": [
+        0,
+        0,
+        6.9,
+        6.9
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14083,6 +14785,12 @@
       "triangles": 2156,
       "footprint": 11.0,
       "height": 22.6,
+      "box": [
+        0,
+        1.6,
+        11,
+        7.9
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14112,6 +14820,12 @@
       "triangles": 2348,
       "footprint": 10.1,
       "height": 33.1,
+      "box": [
+        0,
+        1.6,
+        10.1,
+        9.7
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14141,6 +14855,12 @@
       "triangles": 684,
       "footprint": 18.1,
       "height": 6.9,
+      "box": [
+        0,
+        2.3,
+        18.1,
+        14.1
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14170,6 +14890,12 @@
       "triangles": 1368,
       "footprint": 13.6,
       "height": 7.4,
+      "box": [
+        0,
+        0,
+        13.6,
+        9.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14199,6 +14925,12 @@
       "triangles": 4112,
       "footprint": 31.7,
       "height": 10.6,
+      "box": [
+        -4.8,
+        0,
+        31.7,
+        14
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14229,6 +14961,12 @@
       "triangles": 8834,
       "footprint": 20.9,
       "height": 14.0,
+      "box": [
+        0,
+        1.3,
+        20.9,
+        7.6
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14258,6 +14996,12 @@
       "triangles": 7830,
       "footprint": 13.9,
       "height": 22.0,
+      "box": [
+        0,
+        0.8,
+        13.9,
+        7.9
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14287,6 +15031,12 @@
       "triangles": 2202,
       "footprint": 15.0,
       "height": 50,
+      "box": [
+        0.4,
+        0,
+        15,
+        6.6
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14317,6 +15067,12 @@
       "triangles": 4664,
       "footprint": 13.1,
       "height": 11.9,
+      "box": [
+        0,
+        -1.8,
+        13.1,
+        7
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14346,6 +15102,12 @@
       "triangles": 1304,
       "footprint": 24.4,
       "height": 15.3,
+      "box": [
+        -2.6,
+        -7,
+        16.7,
+        24.4
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14375,6 +15137,12 @@
       "triangles": 744,
       "footprint": 5.4,
       "height": 3.9,
+      "box": [
+        0,
+        0,
+        2.8,
+        5.4
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -14406,6 +15174,12 @@
       "triangles": 332,
       "footprint": 2.1,
       "height": 3,
+      "box": [
+        0,
+        0.4,
+        2.1,
+        1.9
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [
@@ -14435,6 +15209,12 @@
       "triangles": 276,
       "footprint": 1.7,
       "height": 2.8,
+      "box": [
+        0,
+        0,
+        1.7,
+        1.3
+      ],
       "blocksLos": true,
       "blocksBuild": true,
       "scaleRange": [

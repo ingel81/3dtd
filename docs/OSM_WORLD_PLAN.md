@@ -746,7 +746,8 @@ nicht darüber.
   10 × 15 m; Scheune und Winzerhof heutiger Art (das Dorfmodell `barn` steht dafür).
 - **Lange Gebäude sperren zu viel Bauplatz:** Bauverbot und Sitzhöhe rechnen mit einem Kreis (`footprint` × Skala),
   bei einer Schule (46 m) 21 m Radius über die Straße hinaus. Teilen in Module mildert es; ein Rechteck je Modell im
-  Katalog wäre die eigentliche Lösung (Spiel-Code, nicht in O4).
+  Katalog wäre die eigentliche Lösung (Spiel-Code, nicht in O4). Gebaut (E201): Katalog `box`, Scheibe geschnitten
+  mit dem gedrehten Rechteck (docs/CUSTOM_MAP_WORLD.md); die Pads nehmen die Sitzpunkte aus demselben Rechteck.
 - **Böschungen:** die Stützmauer ist eine 6-m-Platte; bei Abträgen über 3 m bleibt ein Rest der Böschung über ihr.
 
 ## Offene Fragen an den User (beantwortet, siehe oben)

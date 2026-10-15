@@ -391,7 +391,7 @@ fast aufrecht), alles im Instanz-Matrix und -Farbe aus einem Hash der Objekt-Id 
 mehr; Sichtlinien sehen die Bäume so, wie sie gezeichnet sind). **Fenster bei Nacht** (`night-windows.ts`): das
 Fensterglas der Gebäude (Materialien `window-glass…`, `window`; in zusammengelegten Teilen je Vertex `nightGlow`)
 leuchtet mit der Dunkelheit warm, etwa jedes zweite Fenster nach einem Hash seiner Zelle in der Welt (2,5 m breit,
-3 m hoch), auch an Teilen, die schaukeln oder sich drehen (ein Schiff auf dem Wasser): wenige Shaderzeilen, kein Licht, kein Draw Call. Gebäude stehen auf dem tiefsten von acht Punkten ihres Fußabdrucks, ihre
+3 m hoch), auch an Teilen, die schaukeln oder sich drehen (ein Schiff auf dem Wasser): wenige Shaderzeilen, kein Licht, kein Draw Call. Gebäude stehen auf dem tiefsten von acht Punkten ihres Fußabdrucks (Ecken und Seitenmitten ihres gedrehten Rechtecks `box`, in die Scheibe gezogen, `object-ground.ts`; ohne `box` acht Punkte der Scheibe), ihre
 Fundamente reichen bis 1,5 m in den Boden.
 
 ### Effekte und Lichter (`effects/`)

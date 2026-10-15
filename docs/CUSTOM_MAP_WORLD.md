@@ -348,7 +348,10 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
     0,3 m unter dem Spiegel, `WATER_DEPTH_M`), oder näher an der Linie eines Flusses (`terrain.rivers`)
     als seine halbe Breite plus der halbe Towerradius. Flache Ufer bleiben bebaubar, Brücken nicht
   - „Something stands there“: Objekte, die das Bauen verbieten (eigenes `blocksBuild`, sonst das ihres
-    Katalogeintrags), als Scheiben aus Grundfläche mal Skala in 16-m-Feldern
+    Katalogeintrags), in 16-m-Feldern: die Scheibe aus Grundfläche mal Skala, bei Gebäuden und Mauern geschnitten
+    mit ihrem gedrehten Rechteck (Katalog `box`, 0,9 der Modellhülle wie die Grundfläche,
+    `tools/map-assets/measure_boxes.mjs`, `object-ground.ts`). Eine 46-m-Schule sperrt quer zu ihrer Länge 7,6 m
+    statt 21 m (E201); ohne `box` gilt die Scheibe wie bisher. Dieselbe Regel gilt für die Bauflächen des Editors
   - Tiles und DevWorld antworten immer `null` (Tower stehen dort auf Dächern)
 
 `CustomMapFrame` rechnet Szene und Karte ineinander um: Szene x = Ursprung x - Karte x, Szene z =

@@ -29,17 +29,18 @@ import { heightAt } from '../../../editor/model/grid';
 import type { CustomMapDocument, MapObject, MapPoint } from '../../custom-map/map-document';
 import { objectCost, SCENE_BUDGET, type CostEntry } from '../../custom-map/render/objects/scene-cost';
 import { waterLevelAt } from '../../custom-map/water-level';
+import { groundRing, type GroundBox } from '../../custom-map/object-ground';
 import { BUILDING_MODELS, buildingKind, buildingLandOf, buildingLevels, isGroundBuilding, KIND_MODELS, type BuildingKind, type BuildingModel } from '../building-tags';
 import { ringArea, type OsmArea, type OsmFeatures } from '../osm-parse';
 
 /** A catalogue entry as far as the buildings read it */
-export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number };
+export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number; box?: GroundBox };
 
 /** The catalogue entries the buildings read (their models and the retaining wall), slim for the worker's message */
 export function buildingCatalog(objects: readonly (BuildingCatalogEntry & { id: string })[]): BuildingCatalogEntry[] {
   return objects
     .filter((o) => BUILDING_MODELS[o.id] || o.id === RETAINING_ASSET)
-    .map(({ id, category, height, drawDistance, file, triangles, lod, effects, footprint }) => ({ id, category, height, drawDistance, file, triangles, lod, effects, footprint }));
+    .map(({ id, category, height, drawDistance, file, triangles, lod, effects, footprint, box }) => ({ id, category, height, drawDistance, file, triangles, lod, effects, footprint, box }));
 }
 
 export interface BuildingOptions {
@@ -311,8 +312,8 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   for (const f of footprints) {
     const group = `osm-b${f.id}`;
     for (const pl of f.placements) {
-      const seatR = (catalog?.get(pl.asset)?.footprint ?? Math.max(pl.model.box[0], pl.model.box[1]) * 0.45) * pl.scale;
-      const pad = levelPad(doc, pl, seatR, guard);
+      const entry = catalog?.get(pl.asset);
+      const pad = levelPad(doc, pl, entry?.footprint ?? Math.max(pl.model.box[0], pl.model.box[1]) * 0.45, entry?.box, guard);
       if (pad.cut > 0.05) report.pads++;
       report.deepestCutM = Math.max(report.deepestCutM, round1(pad.cut));
       objects.push({
@@ -769,20 +770,21 @@ function roadGuard(doc: CustomMapDocument): Uint8Array {
 
 /**
  * Cuts the ground under a placement (its wall box and PAD_MARGIN) to the
- * lowest of its corners and of the points the renderer seats it by (eight
- * round its footprint, seatR, object-seat.ts), so it stands at that height
- * with z 0 and nothing of it hangs: the level and the deepest cut
+ * lowest of its corners and of the points the renderer seats it by (the
+ * catalogue's footprint at scale 1 and ground rectangle, object-seat.ts), so
+ * it stands at that height with z 0 and nothing of it hangs: the level and
+ * the deepest cut
  */
-function levelPad(doc: CustomMapDocument, pl: Placement, seatR: number, guard: Uint8Array): { level: number; cut: number } {
+function levelPad(doc: CustomMapDocument, pl: Placement, footprint: number, box: GroundBox | undefined, guard: Uint8Array): { level: number; cut: number } {
   const t = doc.terrain;
   const g = t.grid;
   const o = origin(pl);
   let level = heightAt(t, o.x, o.y);
   for (const c of boxCorners(pl)) level = Math.min(level, heightAt(t, c.x, c.y));
-  for (let k = 0; k < 8; k++) {
-    const a = (k / 8) * Math.PI * 2;
-    level = Math.min(level, heightAt(t, o.x + Math.cos(a) * seatR, o.y + Math.sin(a) * seatR));
-  }
+  const ring = groundRing(footprint, box, { x: o.x, y: o.y, rotation: pl.rotation, scale: pl.scale });
+  // The samples round each seat point, not the ground between them: a cut sample beside one under the level would
+  // pull the seat under the pad
+  for (let k = 0; k < ring.length; k += 2) level = Math.min(level, lowestSample(t, ring[k], ring[k + 1]));
   const corners = boxCorners(pl, PAD_MARGIN);
   const xs = corners.map((c) => c.x);
   const ys = corners.map((c) => c.y);
@@ -807,6 +809,16 @@ function levelPad(doc: CustomMapDocument, pl: Placement, seatR: number, guard: U
     }
   }
   return { level, cut };
+}
+
+/** The lowest of the four height samples round map point (x, y) */
+function lowestSample(t: CustomMapDocument['terrain'], x: number, y: number): number {
+  const g = t.grid;
+  const fi = Math.min(g.columns - 1, Math.max(0, (x + t.width / 2) / g.cellSize));
+  const fj = Math.min(g.rows - 1, Math.max(0, (y + t.depth / 2) / g.cellSize));
+  let low = Infinity;
+  for (const j of [Math.floor(fj), Math.ceil(fj)]) for (const i of [Math.floor(fi), Math.ceil(fi)]) low = Math.min(low, g.heights[j * g.columns + i]);
+  return low;
 }
 
 /** Retaining walls along the sides of a pad where the hill beside it stands more than RETAINING_FROM over it */

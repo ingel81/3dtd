@@ -38,6 +38,8 @@ export interface ObjectAssetEntry {
   height: number;
   /** Rocks: their underside (half width, half depth, depth below the pivot), see `CatalogObject.base`; they settle on it */
   base?: readonly [number, number, number];
+  /** Buildings and walls: their ground rectangle (middle x, z, half width, half depth), see `CatalogObject.box` */
+  box?: readonly [number, number, number, number];
   /** Floats on water (boats, buoys, piers, lily pads): z counts from the waterline, so it neither sinks nor tilts with the ground */
   float?: boolean;
   /** How the renderer stands it on the map (catalogue category, footprint, underside, float), for the check of objects in the air */
@@ -153,8 +155,9 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
         radius: o.radius ?? o.footprint ?? 1,
         height: o.height ?? 2,
         base: o.base,
+        box: o.box,
         float: o.float || undefined,
-        footing: { category: (o.category ?? 'prop') as ObjectCategory, footprint: o.radius ?? o.footprint ?? 1, height: o.height ?? 2, base: o.base, float: o.float, aloft: o.aloft, stilts: o.stilts, turns: o.spin !== undefined || undefined },
+        footing: { category: (o.category ?? 'prop') as ObjectCategory, footprint: o.radius ?? o.footprint ?? 1, height: o.height ?? 2, base: o.base, box: o.box, float: o.float, aloft: o.aloft, stilts: o.stilts, turns: o.spin !== undefined || undefined },
         internal: INTERNAL_OBJECTS.has(o.id) || undefined,
         tags: o.tags?.length ? [...o.tags] : undefined,
         drawing:
