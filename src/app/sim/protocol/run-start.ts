@@ -28,21 +28,52 @@ export interface RunStart {
 export const MAX_START_WAVE = 200;
 
 /**
- * Share of the earned gold a typical player has put into research by then.
- * The whole tree costs about a quarter of the plan's gold up to W40, where it
- * can first be complete (docs/WAVE_RUN_PLAN.md, 16.4).
+ * Share of the earned gold a typical player has put into research by then:
+ * five human runs (2026-09-22 to 2026-10-04, solo and coop, at today's
+ * prices) had spent a median third of the plan's gold on research at W5 to
+ * W30, from a quarter to half. At a third the whole tree is bought by W40.
  */
-export const START_RESEARCH_SHARE = 0.25;
+export const START_RESEARCH_SHARE = 1 / 3;
+
+/**
+ * The order players research in: each research by the median wave it was
+ * done in those runs (the gate Biology with its first tower). Research the
+ * runs did not have (newer than them) comes after, the cheapest first.
+ */
+export const START_RESEARCH_ORDER: readonly ResearchId[] = [
+  'gatling-tech', // W4
+  'aa-retrofit', // W6
+  'ice-magic', // W7
+  'siege-engineering', // W9
+  'biology', // W10
+  'toxic-compounds', // W10
+  'rocketry', // W11
+  'arcane-studies', // W12
+  'advanced-weaponry', // W13
+  'storm-mastery', // W15
+  'tentacle-biology', // W16
+  'fire-alchemy', // W17
+  'mercenary-contract', // W17
+  'master-engineering', // W18
+  'nuclear-strike', // W19
+  'chaos-rift', // W21
+  'frost-bomb', // W21
+  'orbital-laser', // W23
+  'emp', // W23
+  'advanced-engineering', // W24
+  'transcendent-tech', // W32 in the runs, open from W38 today
+];
 
 /**
  * The start at `wave` under the wave rules of the run's source, null for
  * wave 1 (or less, or not a whole number). The gold is what the waves before
  * pay a player who kills every enemy: kill gold, completion gold and the
  * milestone bonuses, no skill bonuses (the same sum as the dev wave jump,
- * skippedWavesGold). The research: the cheapest research that is open by
- * `wave` (minWave) and whose prerequisites are done, again and again, while
- * the research stays within START_RESEARCH_SHARE of the kill and completion
- * gold of one lane. What is left is the player's to build with.
+ * skippedWavesGold). The research: down START_RESEARCH_ORDER, what is open by
+ * `wave` (minWave) and whose prerequisites are done, while the research stays
+ * within START_RESEARCH_SHARE of the kill and completion gold of one lane; it
+ * stops at the first one it cannot pay, as a player saves for the next. What
+ * is left is the player's to build with.
  */
 export function runStartAt(wave: number, rules: Pick<WaveRules, 'gold'>): RunStart | null {
   if (!Number.isInteger(wave) || wave <= 1) return null;
@@ -60,20 +91,23 @@ export function runStartAt(wave: number, rules: Pick<WaveRules, 'gold'>): RunSta
   const done = new Set<ResearchId>();
   const research: ResearchId[] = [];
   let researchCost = 0;
-  const tree = Object.values(RESEARCH_TREE) as ResearchConfig[];
-  for (;;) {
-    let pick: ResearchConfig | null = null;
-    for (const config of tree) {
-      if (done.has(config.id) || researchWaitsForWave(config, last + 1) !== null) continue;
-      if (!config.prerequisites.every((id) => done.has(id))) continue;
-      if (!pick || config.cost < pick.cost) pick = config;
-    }
-    if (!pick || researchCost + pick.cost > allowance) break;
-    done.add(pick.id);
-    research.push(pick.id);
-    researchCost += pick.cost;
+  for (const config of researchOrder()) {
+    if (researchWaitsForWave(config, last + 1) !== null) continue;
+    if (!config.prerequisites.every((id) => done.has(id))) continue;
+    if (researchCost + config.cost > allowance) break;
+    done.add(config.id);
+    research.push(config.id);
+    researchCost += config.cost;
   }
   return { wave: last + 1, kill, complete, research, researchCost };
+}
+
+/** The whole tree in START_RESEARCH_ORDER, the research it leaves out after it by cost */
+function researchOrder(): ResearchConfig[] {
+  const tree = Object.values(RESEARCH_TREE) as ResearchConfig[];
+  const ranked = START_RESEARCH_ORDER.map((id) => RESEARCH_TREE[id]).filter((c): c is ResearchConfig => !!c);
+  const rest = tree.filter((c) => !START_RESEARCH_ORDER.includes(c.id)).sort((x, y) => x.cost - y.cost);
+  return [...ranked, ...rest];
 }
 
 /** A player's credits at such a start with `lanes` lanes, over the start credits of each lane */

@@ -504,18 +504,23 @@ Szenenkosten.
   `sim/protocol/run-start.ts`, mit den Goldregeln der Wellen, die die Karte spielt):
   - Gold der Wellen 1 bis N−1: Kill-Gold, Abschlussgold und Meilensteine, ohne Skill-Boni, wie der Dev-Sprung
     (`skippedWavesGold`). Kill-Gold je Spur, Abschlussgold einmal
-  - Forschung: immer wieder die billigste, die bis Welle N offen ist (`minWave`) und deren Voraussetzungen erledigt
-    sind, solange alle zusammen höchstens ein Viertel dieses Golds kosten (`START_RESEARCH_SHARE`; der ganze Baum kostet
-    etwa ein Viertel des Plan-Golds bis W40, [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md) 16.4); sie ist beim Start fertig,
-    ihr Preis je Spur abgezogen
+  - Forschung: in der Reihenfolge, in der Spieler forschen (`START_RESEARCH_ORDER`: je Forschung die mittlere Welle,
+    in der fünf menschliche Läufe vom 2026-09-22 bis 2026-10-04 sie fertig hatten; was neuer ist als die Läufe, danach
+    nach Preis), was bis Welle N offen ist (`minWave`) und dessen Voraussetzungen erledigt sind, solange alle zusammen
+    höchstens ein Drittel dieses Golds kosten (`START_RESEARCH_SHARE`: so viel gaben die Läufe von W5 bis W30 im Median
+    dafür aus, zu heutigen Preisen, zwischen einem Viertel und der Hälfte). Bei der ersten, die nicht mehr passt, hört
+    sie auf, wie ein Spieler, der auf die nächste spart. Sie ist beim Start fertig, ihr Preis je Spur abgezogen
   - Credits je Spieler: Startcredits je Spur plus `(Kill − Forschung) · Spuren + Abschluss`
 
-  | Welle | Gold davor (Kill + Abschluss) | Forschung | Credits (eine Spur, 100 Start) |
-  |---|---:|---:|---:|
-  | 5 | 1.600 | 120 (1) | 1.580 |
-  | 10 | 5.610 | 1.370 (4) | 4.340 |
-  | 20 | 54.694 | 12.120 (15) | 42.674 |
-  | 30 | 329.392 | 77.120 (21) | 252.372 |
+  | Welle | Gold davor (Kill + Abschluss) | Forschung | Credits (eine Spur, 100 Start) | Forschung der Läufe davor |
+  |---|---:|---:|---:|---|
+  | 5 | 1.600 | 400 (1: Gatling) | 1.300 | 0 bis 2, meist Gatling |
+  | 10 | 5.610 | 1.870 (5: dazu AA, Eis, Kanone, Biologie) | 3.840 | 4 bis 7 |
+  | 20 | 54.694 | 16.620 (14) | 38.174 | 13 bis 15 |
+  | 30 | 329.392 | 77.120 (21, alles außer Tier 5) | 252.372 | 18 bis 21 |
+
+  Vorher (die billigste zuerst, ein Viertel) kaufte sie bis W5 nur Biologie (120, schaltet keinen Tower frei): außer
+  Archer war alles gesperrt.
 
   Der Start steht in den Laufregeln (`RunRules.start`) und damit im Weltschlüssel: die Simulation setzt ihn bei jedem
   Neustart wieder (`GameStateManager.applyRunStart`, angekündigt als `wave:jumped`), ein Replay startet genauso. Ein

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_START_WAVE, START_RESEARCH_SHARE, runStartAt, runStartGold } from './run-start';
+import { MAX_START_WAVE, START_RESEARCH_ORDER, START_RESEARCH_SHARE, runStartAt, runStartGold } from './run-start';
 import { RUN_PLAN_RULES } from '../../director/sources/budget/run-plan';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { RESEARCH_TREE } from '../../configs/research/research-tree.config';
@@ -20,7 +20,7 @@ describe('runStartAt', () => {
     expect(start.complete).toBeGreaterThanOrEqual(GAME_BALANCE.economy.milestoneBonuses[10]);
   });
 
-  it('buys the cheapest open research within its share of the gold, prerequisites first', () => {
+  it('buys open research in the order players pick it within its share of the gold, prerequisites first', () => {
     const start = runStartAt(12, RUN_PLAN_RULES)!;
     expect(start.research.length).toBeGreaterThan(3);
     expect(start.researchCost).toBe(start.research.reduce((sum, id) => sum + RESEARCH_TREE[id].cost, 0));
@@ -35,6 +35,22 @@ describe('runStartAt', () => {
     // Research that opens later is not in it, however much gold there is
     expect(runStartAt(30, RUN_PLAN_RULES)!.research).not.toContain('transcendent-tech');
     expect(runStartAt(2, RUN_PLAN_RULES)!.research.length).toBeLessThan(start.research.length);
+  });
+
+  it('has what the human runs had by then: a first tower at W5, the early unlocks at W10, all but the last tier at W30', () => {
+    expect(runStartAt(5, RUN_PLAN_RULES)!.research).toEqual(['gatling-tech']);
+    expect(runStartAt(10, RUN_PLAN_RULES)!.research).toEqual(['gatling-tech', 'aa-retrofit', 'ice-magic', 'siege-engineering', 'biology']);
+    // The runs had 13 to 15 done before W20, 18 to 21 before W30
+    expect(runStartAt(20, RUN_PLAN_RULES)!.research).toHaveLength(14);
+    const late = runStartAt(30, RUN_PLAN_RULES)!.research;
+    expect(late).toHaveLength(Object.keys(RESEARCH_TREE).length - 1);
+    expect(late).not.toContain('transcendent-tech');
+  });
+
+  it('orders every research of the tree, and only those', () => {
+    for (const id of START_RESEARCH_ORDER) expect(RESEARCH_TREE[id], id).toBeDefined();
+    // A research the order leaves out still comes, after it
+    expect(runStartAt(30, RUN_PLAN_RULES)!.research).toContain('scouting');
   });
 
   it('gives each lane its kill gold and research bill, the completion gold once', () => {
