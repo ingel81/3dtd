@@ -14,7 +14,7 @@ import { DOWNLOAD_REMINDER_MS, storageSafety, type StorageSafety } from '../mode
 import { biomeById } from '../ops/landscape/biomes';
 import { applyTemplate, type MapTemplate } from '../ops/landscape/templates';
 import { Injectable, NgZone, OnDestroy, inject, signal } from '@angular/core';
-import { MAX_MAP_PREFABS, type CustomMapDocument, type MapLife, type MapMeta } from '../../world/custom-map/map-document';
+import { MAX_MAP_PREFABS, type CustomMapDocument, type MapIntro, type MapIntroView, type MapLife, type MapMeta } from '../../world/custom-map/map-document';
 import { createMapDocument, slugMapId, type NewMapOptions } from '../../world/custom-map/map-create';
 import { MAP_FILE_EXTENSION, MapFileError, packMapFile, unpackMapFile } from '../../world/custom-map/map-file';
 import { MapStore, type LoadedMap, type MapSummary } from '../../world/custom-map/map-store';
@@ -102,6 +102,8 @@ export class EditorSession implements OnDestroy {
   private terrainAbort: AbortController | null = null;
   /** The 3D view lost its WebGL context and waits for it to come back; the map in memory is untouched */
   readonly viewLost = signal(false);
+  /** The map's intro flight plays in the view (Preview) */
+  readonly introPreviewing = signal(false);
   /** The latest change of the document (a new object each time, for the tour) */
   readonly lastChange = signal<{ change: DocChange } | null>(null);
   /** The save running now, if any */
@@ -458,7 +460,7 @@ export class EditorSession implements OnDestroy {
     if (!editor) throw new Error('No map is open in the editor');
     const busy = this.busyReason();
     if (busy) throw new Error(`The map cannot change now: ${busy}`);
-    const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay', 'life', 'prefabs'] as const;
+    const parts = ['terrain', 'objects', 'paths', 'spawns', 'hq', 'environment', 'gameplay', 'life', 'intro', 'prefabs'] as const;
     const before = SnapshotCommand.capture(editor.doc, parts);
     const abort = new AbortController();
     this.terrainAbort = abort;
@@ -1002,6 +1004,29 @@ export class EditorSession implements OnDestroy {
     const editor = this.editor;
     if (!editor) return;
     this.execute(SnapshotCommand.record(editor.doc, label, ['life'], (d) => (d.life = withLife(d, change))));
+  }
+
+  /** The map's intro flight replaced, none for the game's default tour; one step */
+  editIntro(intro: MapIntro | undefined, label = 'Intro flight'): void {
+    const editor = this.editor;
+    if (!editor) return;
+    this.execute(SnapshotCommand.record(editor.doc, label, ['intro'], (d) => (d.intro = intro ? structuredClone(intro) : undefined)));
+  }
+
+  /** Where the camera stands and looks now, in map space; null without a view */
+  introView(): MapIntroView | null {
+    return this.viewport?.introView() ?? null;
+  }
+
+  /** Plays the map's intro flight in the view, or stops it */
+  previewIntro(on: boolean): void {
+    const intro = this.doc?.intro;
+    if (!on || !intro || !this.viewport) {
+      this.viewport?.stopIntroPreview();
+      return;
+    }
+    this.introPreviewing.set(true);
+    this.viewport.previewIntro(intro, () => this.zone.run(() => this.introPreviewing.set(false)));
   }
 
   editEnvironment(patch: Partial<CustomMapDocument['environment']>, label = 'Environment'): void {

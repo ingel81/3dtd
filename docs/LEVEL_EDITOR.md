@@ -174,8 +174,9 @@ würfelt nach jedem Strich neu); derselbe Seed und derselbe Strich ergeben diese
   die Modelltiefe (0,5- bis 1,8-fach), die Wand steht vom Fuß des Gefälles (dem tiefsten Boden davor, leicht
   eingesenkt) bis etwa zu seiner Kante, mit etwa halber Breite Abstand zueinander, nicht auf Straßen und nicht im
   Wasser. Die Modelle wählt der Look der Karte (Sandstein in der Wüste, Basalt in Hölle und Endzeit, Mars-Klippen
-  auf dem Mars, sonst die grauen Felswände und Felsflächen; je Look nur Modelle derselben Färbung, die Küstenklippe
-  nur über das Panel) oder das Panel. Die Klippenmodelle sind geschlossen (`close_shell` in
+  und die rote Felsfläche `cliff-face-red` in derselben Färbung auf dem Mars, sonst die grauen Felswände und
+  Felsflächen; je Look nur Modelle derselben Färbung, die Küstenklippe und die rote Felsfläche für rote Wüsten und die
+  Hölle nur über das Panel) oder das Panel. Die Klippenmodelle sind geschlossen (`close_shell` in
   `tools/map-assets/blender_kit.py`), von oben und hinten Fels statt Loch
 - Glow cracks: der Boden bricht in ein Netz feiner Lavarisse mit Kruste auf verbranntem Fels; die Risse sinken etwas ein
 - Linien (ziehen, auch vom Kartenrand her): Cliff edge hebt den Boden links der Zeichenrichtung als Klippe, die
@@ -264,10 +265,15 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   Schornstein rauchen von selbst, ein von Hand gesetzter Rauch über dem Haus ersetzt den Schornsteinrauch.
   Bereiche, Wege und Umgebungston setzt das Werkzeug Life (N)
 - Gebäude (Katalog-Kategorie `building`) und Objekte mit Drehteil (Katalog `spin`: die Radarschüssel drehte sonst am Hang in den Boden dahinter), beide nicht schwimmend, nicht auf Stelzen: Katalog `stilts`, die Pfahlhütte am Ufer verschob sonst ihr Ufer und ließ Wasser in der Luft stehen) ebnen beim ersten Setzen ihren Boden (`levelUnderBuilding`
-  in `ops/object-ops.ts`): der Fußabdruck-Radius, 1,5 m und eine Gitterzelle mehr gehen auf die Grundhöhe (Mittel des
-  Bodens unter der Mitte und acht Punkten des Fußabdrucks, Abtrag und Auftrag), darüber hinaus läuft der Boden über den
-  Fußabdruck-Radius weich in das Gelände aus (mindestens 4 m und die doppelte Höhe von Abtrag oder Auftrag, so bleiben
-  die Böschungen flacher als 1 zu 2). So steht das Haus ganz und kein Hang schneidet hinein.
+  in `ops/object-ops.ts`): sein Grund (`object-ground.ts`: der Fußabdruck-Kreis, bei Gebäuden mit Katalog `box`
+  geschnitten mit dem gedrehten Rechteck, wie Bauverbot und Sitz), 1,5 m und eine Gitterzelle mehr gehen auf die
+  Grundhöhe (Mittel des Bodens unter der Mitte und acht Randpunkten des Grunds, `groundRing`, Abtrag und Auftrag),
+  darüber hinaus läuft der Boden weich in das Gelände aus, über den Fußabdruck-Radius, mit Rechteck über seine halbe
+  schmale Seite (mindestens 4 m und die doppelte Höhe von Abtrag oder Auftrag, so bleiben die Böschungen flacher als
+  1 zu 2). So steht das Haus ganz und kein Hang schneidet hinein; eine lange Schule ebnet ein langes Feld mit Böschungen
+  an den Seiten, nicht den Kreis ihrer halben Länge (quer zu ihr bis 17 bis 20 m von der Mitte statt 45 m). Trockenen
+  Boden gräbt das Ebnen nicht tiefer als das Wasser unter den geebneten Punkten (eine Hütte am Ufer gräbt keine Grube
+  unter den Meeresspiegel, Archipelago meldete sonst Wasser in der Luft).
   Ein Schritt im Verlauf mit dem Setzen; gilt für Place, Line, das Platzieren des Agenten (MCP) und `MapKit.place` der
   Levelskripte und `run_script`. Verschieben, Drehen, Kopieren und Streuen ebnen nichts: ein Haus halb im Hang ist
   danach eine freie Wahl.
@@ -386,6 +392,16 @@ Bänder von 48 Zeilen, die Ansicht zeigt sie sofort; die Erosion läuft in Schei
 den Stand etwa einmal pro Sekunde und zeichnet ihn bandweise neu. Ein Fortschrittsbalken mit „Cancel“ stellt den
 alten Boden wieder her; fertig ist es ein Undo-Schritt. Während ein Job läuft, nehmen die Werkzeuge keine Eingaben an,
 die Ansicht lässt sich drehen.
+
+**Intro flight** (im Map-Panel, TODO E170): der Kameraflug, den das Spiel nach dem Laden spielt. „Default“ ist der Flug
+des Spiels (vom HQ an jedem Spawn vorbei, CUSTOM_MAP_WORLD.md). „Orbit the HQ“ kreist um das HQ, Abstand, Höhe über dem
+HQ-Boden und Startrichtung aus der aktuellen Ansicht („Orbit from this view“ nimmt sie neu), „Turn“ 30 bis 720 Grad.
+„Camera path“ fliegt durch Ansichten, die „Add this view“ einzeln behält (Kameraort und Blickpunkt, höchstens 16, eine
+allein steht still), als Catmull-Rom-Kurve mit gleicher Zeit zwischen je zwei; „View n“ zeigt eine Ansicht wieder,
+„Remove“ nimmt sie heraus. „Length“ 3 bis 60 s. „Preview“ spielt den Flug in der Ansicht (ohne das Ein- und
+Ausschwenken des Spiels), ein Klick oder das Rad hält ihn an. Jede Änderung ist ein Undo-Schritt. Gespeichert als
+`intro` der Karte (CUSTOM_MAPS.md); eine Karte ohne behält den Standard-Flug und ihre Datei. Spiegeln und Größe
+ändern lassen den Flug, wie er ist.
 
 **Was wartet.** Solange ein Strich oder ein Ziehen in der Ansicht gehalten wird oder ein Gelände-Job läuft
 (`EditorSession.busyReason`), warten Rückgängig, Wiederholen, Speichern (Strg+S; ein Autosave kommt später wieder),
@@ -611,7 +627,10 @@ Szenenkosten.
   `{ kind: 'budget' }` oder `{ kind: 'table', table }` in der Form der Table-Source, `difficulty` in Prozent, ohne
   Feld 100, `events` die Wellen-Ereignisse; später dazugekommene optionale Felder heben die Version nicht, so auch `environment.skyImage`, die Id
   eines Himmelsbilds, ohne Feld prozedural, und `life`, das Leben der Karte (Werkzeug Life, CUSTOM_MAPS.md
-  „Lebensbereiche“); ohne Feld sieht und klingt die Karte wie vorher, ihr `contentHash` bleibt); Version-1-Dateien lesen sich
+  „Lebensbereiche“); ohne Feld sieht und klingt die Karte wie vorher, ihr `contentHash` bleibt; ebenso `intro`, der eigene
+  Kameraflug (`{ kind: 'orbit', seconds, radius, height, angle, sweep? }` oder `{ kind: 'path', seconds, views }`, je
+  Ansicht `x`, `y`, `h` und `lookX`, `lookY`, `lookH` im Kartenraum, `world/custom-map/map-intro.ts`, geprüft von
+  `introProblems`)); Version-1-Dateien lesen sich
   unverändert über die Migration 1 nach 2
 - Prefabs und Stempel der Karte (`prefabs`, optional, höchstens 32, `MAX_MAP_PREFABS`): je Eintrag Id, Name, Zeit, Bild
   (PNG als Data-URL) und das Stück; dessen Arrays liegen im Zip unter `prefabs/<k>/heights.f32`, `paint.u8` und

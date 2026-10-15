@@ -255,6 +255,7 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
   clearSpawns: { args: [], doc: 'Remove every spawn' },
   moveSpawn: { args: [a('id', STRING), a('x', num()), a('y', num())], doc: 'Move a spawn' },
   renameSpawn: { args: [a('id', STRING), a('name', STRING)], doc: 'Rename a spawn' },
+  optionalLane: { args: [a('id', STRING), a('optional', BOOL)], doc: "A spawn's lane optional (players may switch it off before wave 1, the Spawns panel's switch) or always open; how many lanes a run takes is set by rules lanes { min, max, vacant }" },
   hq: { args: [a('x', num()), a('y', num())], doc: 'Move the HQ' },
   // Environment and Gameplay
   environment: {
@@ -269,6 +270,13 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
   lifeRoute: { args: [a('kind', one(LIFE_KINDS)), a('points', LINE), a('options', OBJECT, true)], doc: 'A life route: a line birds fly along and back, particles follow, boats go up and down, movers drive (rocks, trees and plants on their way are cleared) or a sound follows (a stream); options as lifeArea; returns its id' },
   lifeSettings: { args: [a('patch', OBJECT)], doc: `The map's own life: { auto: { smoke, fireflies, birds (on unless false), sparks (over lava, off unless true) }, density 0..2 (a factor on all of it), flags (banners wave), ambience: { sound: biome (the look's own by day and night) or a sound, volume 0..1 }, waveSound: { sound: ${WAVE_SOUND_IDS}, volume 0..1, area (a life area's id it sounds from; everywhere alike without) }: once as each wave starts }` },
   removeLife: { args: [a('ids', STRINGS)], doc: 'Remove life areas by id (map.life() lists them)' },
+  // Map panel: Intro flight
+  intro: {
+    args: [a('flight', OBJECT, true)],
+    doc:
+      "The camera flight the game plays after loading, instead of its tour past every spawn: { kind: 'orbit', seconds 3..60, radius 20..4000 m around the HQ, height 2..2000 m above the HQ's ground, angle (start bearing, radians, 0 east, counter-clockwise), sweep 30..720 degrees (360) } " +
+      "or { kind: 'path', seconds, views: [1..16 { x, y, h (camera), lookX, lookY, lookH (the point it looks at) }] } flown through in turn; null for the game's tour",
+  },
   gameplay: {
     args: [a('rules', OBJECT)],
     doc: "Rules: { startCredits, hqHealth, towers: [tower ids], destructible: true|false, difficulty 50..200 (percent on the wave budget), events: [wave events] }; waves is { kind: 'budget' } (the game's waves, the default) or a map's own table, there is no wave count. " +
@@ -288,7 +296,7 @@ export function scriptReference(): string {
     'Globals: map, rng(seed) -> () => 0..1, facing(from, to) -> radians, log(...) (or console.log). `return` a value to get it back.',
     'Reads (see the copy as the script left it): map.width, map.depth, map.cellSize, map.half, map.h(x, y) (metres), map.slope(x, y),',
     '  map.noise(x, y, wave, octaves?) -> -1..1, map.ridged(x, y, wave, octaves?), map.objects(rect?), map.markers(), map.roads() (edges with their nodes a, b),',
-    '  map.nodes(), map.rivers() (points with width and height), map.layers(), map.waterBodies(), map.lanes(), map.prefabs(), map.issues(), map.life().',
+    '  map.nodes(), map.rivers() (points with width and height), map.layers(), map.waterBodies(), map.lanes(), map.prefabs(), map.issues(), map.life(), map.introFlight().',
     'An optional argument may be left out or passed as undefined or null; later ones still count by position.',
     'Commands (each checked; the whole script lands as one undo step and plays back animated):',
     ...lines,
@@ -599,9 +607,19 @@ export function applyCommand(kit: MapKit, command: ScriptCommand): unknown {
       return undefined;
     }
     case 'moveSpawn':
-    case 'renameSpawn': {
+    case 'renameSpawn':
+    case 'optionalLane': {
       const id = args[0] as string;
       if (!doc.spawns.some((s) => s.id === id)) throw new ScriptError(`map.${command.op}: there is no spawn ${id}; spawns: ${doc.spawns.map((s) => s.id).join(', ') || 'none'}`);
+      if (command.op === 'optionalLane') {
+        // As the Spawns panel keeps it: the flag only where it is true
+        doc.spawns = doc.spawns.map((s) => {
+          if (s.id !== id) return s;
+          const { optional: _, ...rest } = s;
+          return args[1] ? { ...rest, optional: true } : rest;
+        });
+        return undefined;
+      }
       const patch = command.op === 'moveSpawn' ? { x: r2(args[1] as number), y: r2(args[2] as number) } : { name: (args[1] as string).trim().slice(0, 40) };
       doc.spawns = doc.spawns.map((s) => (s.id === id ? { ...s, ...patch } : s));
       return undefined;
@@ -900,6 +918,7 @@ export function scriptMap(kit: MapKit, kept: ScriptCommand[], options: Required<
     prefabs: () => forScript((doc.prefabs ?? []).map((p) => ({ id: p.id, name: p.name, width: Math.round(p.stamp.width), depth: Math.round(p.stamp.depth), objects: p.stamp.objects.length, prefab: !!p.stamp.prefab }))),
     issues: () => kit.issues().map((i) => ({ severity: i.severity, message: i.message })),
     life: () => forScript(doc.life ?? {}),
+    introFlight: () => forScript(doc.intro ?? null),
   };
   // A read named like a command would hide it (map.water once read the water instead of making it)
   for (const name of Object.keys(reads)) if (name in api) throw new Error(`map.${name} is both a command and a read`);

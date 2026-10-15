@@ -3,6 +3,7 @@ import { type CatmullRomCurve3, MathUtils, Matrix4, type PerspectiveCamera, Quat
 import { ThreeTilesEngine } from '../../three-engine';
 import type { ColumnSample } from '../../three-engine/column-sample';
 import { GeoPosition } from '../../models/game.types';
+import type { IntroShot } from '../../world/world-provider';
 import { buildFlightPath } from '../../utils/flight-path';
 import {
   HQ_MARKER_SCALE,
@@ -35,9 +36,10 @@ import { UIStore } from '../../store/ui.store';
 
 /**
  * Phases of the intro sequence, in order. Each runs to its own timer except
- * `travel`, which runs until the path is used up.
+ * `travel`, which runs until the path is used up. A world's own flight
+ * (IntroShot, a custom map's intro) plays `shot` and then `outro` instead.
  */
-type FlightPhase = 'enter' | 'hold-start' | 'travel' | 'hold-end' | 'outro';
+type FlightPhase = 'enter' | 'hold-start' | 'travel' | 'hold-end' | 'shot' | 'outro';
 
 /**
  * Live-tunable parameters. Mutated from DevTools via `__flight.cfg` so the
@@ -322,6 +324,8 @@ export class IntroCameraFlightService {
   private travelEnd = 0;
   /** Distance that profile index 0 corresponds to (negative: the standoff). */
   private profileOrigin = 0;
+  /** The world's own flight, flown instead of the curve; null for the tour. */
+  private shot: IntroShot | null = null;
   /** HQ / spawn markers, invisible to raycasts, folded into the profile. */
   private markers: MarkerObstacle[] = [];
   /** Smoothed / rate-limited camera altitude. */
@@ -490,6 +494,20 @@ export class IntroCameraFlightService {
 
     this.stop();
 
+    // A world's own flight (a custom map's intro) replaces the tour: no
+    // curve, no profile, the world keeps the camera off its ground
+    this.shot = engine.world.introShot?.() ?? null;
+    if (this.shot) {
+      this.skipReason = null;
+      this.curve = null;
+      this.markers = [];
+      this.profile = createFlightProfile(0);
+      this.sampleCursor = 0;
+      this.prepared = true;
+      cameraTimeline.record('intro.prepare', { shotSec: this.shot.seconds });
+      return true;
+    }
+
     // A world's own tour (a custom map: past every spawn), else the longest route
     const tour = engine.world.introTour();
     const points = tour ? tour.points.map((p) => new Vector3(p.x, 0, p.z)) : this.pickLongestRoute(engine, cachedPaths);
@@ -554,7 +572,7 @@ export class IntroCameraFlightService {
    * refined as the corridor tiles stream in.
    */
   prepareTick(budget: number): void {
-    if (!this.prepared) return;
+    if (!this.prepared || !this.curve) return;
     this.sampleCursor = pickSamples(
       this.profile,
       0,
@@ -644,7 +662,7 @@ export class IntroCameraFlightService {
    * (altitudes, damping, framing aim) does apply immediately.
    */
   private replay(): void {
-    if (!this.curve) return;
+    if (!this.curve && !this.shot) return;
     this.stop();
     clearFlightProfile(this.profile);
     this.sampleCursor = 0;
@@ -657,8 +675,7 @@ export class IntroCameraFlightService {
    * camera from the controls and pin the route animation on.
    */
   private beginRun(): void {
-    const curve = this.curve;
-    if (!curve) return;
+    if (!this.curve && !this.shot) return;
 
     this.phaseElapsed = 0;
     this.distance = this.travelStart;
@@ -667,22 +684,33 @@ export class IntroCameraFlightService {
     this.traceClock = 0;
     this.nextTraceAt = 0;
 
-    // Frame 1 must not be blind — sample the opening window synchronously.
-    this.prewarmProfile();
-
-    this.currentY = this.desiredAltitude(this.travelStart);
-
-    // Swing in from wherever the camera is (the overview after loading).
-    // The look point sits on the current view axis as far out as the HQ, so
-    // the swing starts on exactly the current orientation.
     const camera = this.engine?.getCamera();
-    if (camera && this.cfg.enterSec > 0 && this.markerAim(0, this.aimPoint)) {
-      this.enterFromPos.copy(camera.position);
-      const reach = camera.position.distanceTo(this.aimPoint);
-      this.enterFromLook.set(0, 0, -1).applyQuaternion(camera.quaternion).multiplyScalar(reach).add(camera.position);
-      this.phase = 'enter';
+    if (this.shot) {
+      // The world's own flight blends in from wherever the camera is, the
+      // same way the tour's swing does (applyShot)
+      this.phase = 'shot';
+      if (camera) {
+        this.shot.poseAt(0, this.rawPos, this.aimPoint);
+        const reach = camera.position.distanceTo(this.aimPoint);
+        this.enterFromPos.copy(camera.position);
+        this.enterFromLook.set(0, 0, -1).applyQuaternion(camera.quaternion).multiplyScalar(reach).add(camera.position);
+      }
     } else {
-      this.phase = 'hold-start';
+      // Frame 1 must not be blind — sample the opening window synchronously.
+      this.prewarmProfile();
+      this.currentY = this.desiredAltitude(this.travelStart);
+
+      // Swing in from wherever the camera is (the overview after loading).
+      // The look point sits on the current view axis as far out as the HQ, so
+      // the swing starts on exactly the current orientation.
+      if (camera && this.cfg.enterSec > 0 && this.markerAim(0, this.aimPoint)) {
+        this.enterFromPos.copy(camera.position);
+        const reach = camera.position.distanceTo(this.aimPoint);
+        this.enterFromLook.set(0, 0, -1).applyQuaternion(camera.quaternion).multiplyScalar(reach).add(camera.position);
+        this.phase = 'enter';
+      } else {
+        this.phase = 'hold-start';
+      }
     }
 
     const controls = this.engine?.getControls();
@@ -706,7 +734,7 @@ export class IntroCameraFlightService {
    * @param deltaTime Frame time in milliseconds
    */
   update(deltaTime: number): void {
-    if (!this.running || !this.curve || !this.engine) return;
+    if (!this.running || (!this.curve && !this.shot) || !this.engine) return;
 
     // Cap dt so a stall (tile parse spike, tab switch) does not teleport the
     // camera through a building.
@@ -737,23 +765,11 @@ export class IntroCameraFlightService {
         break;
 
       case 'hold-end':
-        if (this.phaseElapsed >= cfg.holdEndSec) {
-          if (!this.endPos || !this.endTarget) {
-            // No stored game view to blend into — nothing to pull back to.
-            this.finish();
-            return;
-          }
-          // Freeze the current pose as the outro's source, and precompute the
-          // destination orientation so the blend lands exactly on the game
-          // view. Capturing the live quaternion (not a recomputed lookAt)
-          // avoids a snap: the slerped orientation lags the aim slightly.
-          const cam = this.engine.getCamera();
-          this.outroFromPos.copy(cam.position);
-          this.outroFromQuat.copy(cam.quaternion);
-          this.orientMatrix.lookAt(this.endPos, this.endTarget, cam.up);
-          this.outroToQuat.setFromRotationMatrix(this.orientMatrix);
-          this.enterPhase('outro');
-        }
+        if (this.phaseElapsed >= cfg.holdEndSec && !this.beginOutro()) return;
+        break;
+
+      case 'shot':
+        if (this.phaseElapsed >= (this.shot?.seconds ?? 0) && !this.beginOutro()) return;
         break;
 
       case 'outro':
@@ -772,6 +788,11 @@ export class IntroCameraFlightService {
       camera.position.copy(this.outroFromPos).lerp(this.endPos, eased);
       camera.quaternion.copy(this.outroFromQuat).slerp(this.outroToQuat, eased);
       this.recordTrace(camera);
+      return;
+    }
+
+    if (this.phase === 'shot' && this.shot) {
+      this.applyShot(camera, this.shot);
       return;
     }
 
@@ -836,6 +857,53 @@ export class IntroCameraFlightService {
   }
 
   /**
+   * Into the outro after the last hold or the world's own flight: freeze the
+   * current pose as the outro's source and precompute the destination
+   * orientation so the blend lands exactly on the game view. Capturing the
+   * live quaternion (not a recomputed lookAt) avoids a snap: the slerped
+   * orientation lags the aim slightly.
+   *
+   * @returns false when there was no game view to pull back to and the flight finished
+   */
+  private beginOutro(): boolean {
+    if (!this.endPos || !this.endTarget || !this.engine) {
+      this.finish();
+      return false;
+    }
+    const cam = this.engine.getCamera();
+    this.outroFromPos.copy(cam.position);
+    this.outroFromQuat.copy(cam.quaternion);
+    this.orientMatrix.lookAt(this.endPos, this.endTarget, cam.up);
+    this.outroToQuat.setFromRotationMatrix(this.orientMatrix);
+    this.enterPhase('outro');
+    return true;
+  }
+
+  /**
+   * One frame of the world's own flight: its pose at the phase time, blended
+   * in from the view the run began in over `enterSec` (smoothstep, position
+   * and look point alike, as the tour's swing)
+   */
+  private applyShot(camera: PerspectiveCamera, shot: IntroShot): void {
+    shot.poseAt(this.phaseElapsed, this.rawPos, this.aimPoint);
+    const enter = this.cfg.enterSec;
+    if (enter > 0 && this.phaseElapsed < enter) {
+      const raw = MathUtils.clamp(this.phaseElapsed / enter, 0, 1);
+      const eased = raw * raw * (3 - 2 * raw);
+      this.camPos.copy(this.enterFromPos).lerp(this.rawPos, eased);
+      this.enterLook.copy(this.enterFromLook).lerp(this.aimPoint, eased);
+    } else {
+      this.camPos.copy(this.rawPos);
+      this.enterLook.copy(this.aimPoint);
+    }
+    camera.position.copy(this.camPos);
+    this.orientMatrix.lookAt(this.camPos, this.enterLook, camera.up);
+    camera.quaternion.setFromRotationMatrix(this.orientMatrix);
+    this.firstTick = false;
+    this.recordTrace(camera);
+  }
+
+  /**
    * One row every TRACE_INTERVAL_SEC for `__flight.trace()`: where the camera
    * is, where it looks (yaw from +Z towards +X, pitch positive upward) and
    * what the altitude loop wants there. For reading a wobble off numbers.
@@ -856,8 +924,8 @@ export class IntroCameraFlightService {
       f1(MathUtils.radToDeg(Math.atan2(dir.x, dir.z))),
       f1(MathUtils.radToDeg(Math.asin(MathUtils.clamp(dir.y, -1, 1)))),
       f1(this.currentY),
-      this.phase === 'outro' ? '' : f1(this.desiredAltitude(this.distance)),
-      f1(this.groundAt(this.distance)),
+      this.phase === 'outro' || this.shot ? '' : f1(this.desiredAltitude(this.distance)),
+      this.shot ? '' : f1(this.groundAt(this.distance)),
     ].join(','));
   }
 

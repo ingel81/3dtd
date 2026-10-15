@@ -41,7 +41,7 @@ export const DEMO_LAYERS = [
 /** The rocks the map uses as the asset catalogue measures them (`base`, `height`; a spec keeps them equal) */
 export const DEMO_ROCKS: Readonly<Record<string, RockShape>> = {
   'rock-small': { base: [0.6, 0.6, 0], height: 0.9 },
-  'rock-large': { base: [3.7, 1.8, 0], height: 2.6 },
+  'rock-large': { base: [3.7, 1.7, 0.1], height: 2.6 },
 };
 
 const L = Object.fromEntries(DEMO_LAYERS.map((id, k) => [id, k])) as Record<(typeof DEMO_LAYERS)[number], number>;

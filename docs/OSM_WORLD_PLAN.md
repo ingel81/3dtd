@@ -756,6 +756,9 @@ Entscheidung 8 umgesetzt (`convert/roads.ts` findTunnels, `convert/tunnels.ts`):
 - **Portale:** `tunnel-portal-concrete` an jeder Mündung, an der kein weiterer Tunnelweg anschließt und die in der
   Karte liegt, gedreht in Wegrichtung (Modell +Z in den Tunnel), skaliert auf die Straßenbreite (Öffnung 8 m für 7 m
   Straße, 1 bis 2,2). Zwei Mündungen unter 20 m Abstand in gleicher Richtung (zwei Röhren) teilen sich ein Portal.
+  Das Modell ist eine Stirnwand aus Beton mit Flachbogen, Bogenband, Pilastern, Abdeckung und Brüstung, Flügelmauern
+  und einer Hülle um das Gewölbe, ohne Felsbrocken: den Hügel macht das angehobene Gelände (Felsklumpen lasen sich aus
+  der Spielkamera als Geröll, nicht als Portal).
 - **Gelände:** vor dem Wasser angehoben, nie abgesenkt: hinter jeder Mündung auf die Oberkante des Portals (9,6 m
   mal Skala) über die Fassadenbreite, 20 m tief, seitlich und nach hinten 1:1 abfallend; entlang des übrigen Tunnels
   4 m (`TUNNEL_COVER`) über der Linie zwischen den Mündungen. Wo der echte Hang höher ist, bleibt er. Ein Fluss über

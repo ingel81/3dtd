@@ -25,7 +25,7 @@ export const TUNNEL_PORTAL_ASSET = 'tunnel-portal-concrete';
 const PORTAL_WIDTH = 20;
 const PORTAL_TOP = 9.6;
 const PORTAL_FACADE = 1.6;
-/** Metres behind a mouth the hill stands at the portal's top: the 14 m vault and the rock behind it */
+/** Metres behind a mouth the hill stands at the portal's top: over the 14 m vault and its shell */
 const PORTAL_HILL = 20;
 /** Width of road the opening (8 m) takes at scale 1, metres; wider roads scale the portal, up to PORTAL_SCALE_MAX */
 const OPENING_ROAD = 7;
