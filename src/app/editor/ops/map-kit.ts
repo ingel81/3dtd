@@ -389,7 +389,7 @@ export class MapKit {
     if (!this.catalog.materials.has(material)) throw new Error(`${this.name}: ${this.catalog.unknown('material', material)}`);
     const k = t.layers.findIndex((l) => l.material === material);
     if (k >= 0) return k;
-    if (t.layers.length >= this.maxLayers) throw new Error(`${this.name}: ground layers full, ${material} left out`);
+    if (t.layers.length >= this.maxLayers) throw new Error(`${this.name}: ground layers full (at most ${this.maxLayers}: ${t.layers.map((l) => l.material).join(', ')}), ${material} left out; map.trimLayers(max) removes the least used`);
     t.layers.push({ material });
     fitSplatMaps(t);
     return t.layers.length - 1;

@@ -147,6 +147,12 @@ describe('map scripts', () => {
     expect(empty).toMatchObject({ ok: false, error: expect.stringMatching(/asset catalogue did not load/) });
   });
 
+  it('says which ground layers fill the map when one more does not fit', () => {
+    const materials = catalog.materials.map((m) => m.id).slice(0, 20);
+    const r = run(`for (const m of ${JSON.stringify(materials)}) map.layer(m);`);
+    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/ground layers full \(at most \d+: grass, .*\), .* left out; map\.trimLayers/) });
+  });
+
   it('documents every command in the reference', () => {
     const text = scriptReference();
     for (const op of Object.keys(SCRIPT_OPS)) expect(text).toContain(`map.${op}(`);
