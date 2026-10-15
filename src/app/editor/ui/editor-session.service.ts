@@ -838,6 +838,8 @@ export class EditorSession implements OnDestroy {
   detachViewport(): void {
     this.viewport?.dispose();
     this.viewport = null;
+    // The sound stopped with the view; a new view starts it only from a click
+    this.settings.life.hear = false;
   }
 
   selectTool(id: ToolId): void {
@@ -936,6 +938,12 @@ export class EditorSession implements OnDestroy {
     const editor = this.editor;
     if (!editor) return;
     this.execute(SnapshotCommand.record(editor.doc, 'Map details', ['meta'], (d) => (d.meta = { ...d.meta, ...patch })));
+  }
+
+  /** Plays the map's ambient sound in the editor, or stops it (from a click: browsers start audio only then) */
+  hearAmbience(on: boolean): void {
+    this.patchSettings((s) => (s.life.hear = on));
+    this.viewport?.setAmbience(on);
   }
 
   /** The map's life with `change` made to a copy, one step */

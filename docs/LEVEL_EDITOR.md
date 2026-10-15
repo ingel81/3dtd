@@ -249,7 +249,7 @@ Tags des Katalogs und Suche (Name, Id oder Tag).
   Tönung (Tint im Auswahl-Panel) färbt die Teilchen. Ohne gesetzte Schwärme oder Glühwürmchen bringt die Karte eigene
   mit (CUSTOM_MAPS.md, „Leben aus dem Karteninhalt“): sobald einer gesetzt ist, gelten nur die gesetzten. Häuser mit
   Schornstein rauchen von selbst, ein von Hand gesetzter Rauch über dem Haus ersetzt den Schornsteinrauch.
-  Umgebungston je Zone ist noch nicht setzbar: es gibt keine Klänge dafür
+  Bereiche, Wege und Umgebungston setzt das Werkzeug Life (N)
 - Gebäude (Katalog-Kategorie `building`, nicht schwimmend, nicht auf Stelzen: Katalog `stilts`, die Pfahlhütte am Ufer verschob sonst ihr Ufer und ließ Wasser in der Luft stehen) ebnen beim ersten Setzen ihren Boden (`levelUnderBuilding`
   in `ops/object-ops.ts`): der Fußabdruck-Radius, 1,5 m und eine Gitterzelle mehr gehen auf die Grundhöhe (Mittel des
   Bodens unter der Mitte und acht Punkten des Fußabdrucks, Abtrag und Auftrag), darüber hinaus läuft der Boden über den
@@ -303,17 +303,20 @@ Dokument trägt (`life.areas`), und die Schalter dessen, was die Karte von selbs
 - Outline: ein Klick je Ecke, Enter, Doppelklick oder Rechtsklick schließt den Umriss; gehalten und gezogen malt er
   ihn frei (ein Punkt alle 6 m, Loslassen schließt). Line: ebenso eine offene Linie. Was darin lebt, wählt das Panel:
   Birds (ein Schwarm kreist im Umriss, auf einer Linie hin und zurück), Fireflies (nachts), Ground fog, Leaves,
-  Embers, Sparks, Boats (treiben auf dem Wasser des Umrisses, auf einer Linie hin und zurück). Ein neuer Bereich ist ein
-  Schritt im Verlauf und gleich gewählt. Zu wenig für einen Umriss (unter
+  Embers, Sparks, Boats (treiben auf dem Wasser des Umrisses, auf einer Linie hin und zurück), Sound (ein Klang, voll
+  im Umriss oder auf der Linie, über 70 m leiser). Ein neuer Bereich ist ein Schritt im Verlauf und gleich gewählt. Zu wenig für einen Umriss (unter
   drei Ecken oder 16 m²) sagt die Statuszeile. Höchstens 64 Bereiche, 256 Punkte je Bereich
 - Edit: ein Klick wählt den kleinsten Umriss um den Punkt, sonst eine Linie in 12 Pixeln; die Punkte des gewählten
   stehen als Griffe da, Ziehen verschiebt einen (ein Schritt), Shift+Klick auf den Rand setzt einen Punkt dazu, Entf
   nimmt den gewählten Punkt (ein Umriss behält drei, eine Linie zwei) oder ohne gewählten Punkt den Bereich
 - Panel: Art des nächsten Bereichs; der gewählte mit Dichte (10 bis 300 %), Flughöhe (Vögel), Höhe und Farbe
-  (Partikel) oder Boot (die schwimmenden Requisiten des Katalogs), „Shows from“ Medium oder nur High, Show, Remove; die Liste der Bereiche; „One spot“ setzt ein
+  (Partikel), Boot (die schwimmenden Requisiten des Katalogs) oder Klang und Lautstärke, „Shows from“ Medium oder nur
+  High, Show, Remove; die Liste der Bereiche; „One spot“ setzt ein
   Effekt-Objekt (Rauchsäule, kreisender Schwarm, Glühwürmchen, Glut) mit dem Objektwerkzeug; „What the map brings by
   itself“: Schornsteinrauch, Glühwürmchen an Ufern und in Wäldern, Vögel über offenem Land, Funken über Lava, wehende
-  Banner, Dichte (0 bis 200 % auf alles). Regler wirken sofort und werden beim Loslassen ein Schritt
+  Banner, Dichte (0 bis 200 % auf alles); „Sound“: „Over the whole map“ (keiner, der des Looks bei Tag und Nacht oder
+  ein Klang) mit Lautstärke, „Hear it in the editor“ (spielt den Ton von der Mitte der Ansicht aus, Lautstärke 80 %;
+  aus beim Öffnen, Browser starten Ton erst nach einem Klick). Regler wirken sofort und werden beim Loslassen ein Schritt
 - Die Bereiche stehen nur, solange das Werkzeug in der Hand ist, als Linien in der Farbe ihrer Art über dem Boden.
   Symmetrie, Stempel und „Mirror now“ nehmen sie nicht mit; Größe ändern lässt sie, wo sie sind (die Mitte bleibt)
 

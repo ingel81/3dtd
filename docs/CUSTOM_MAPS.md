@@ -449,6 +449,28 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   (`render-quality.ts`, `customMaps.life`): Low 0 (keine Lebensbereiche, keine Funken über Lava), Medium 0,7 (ohne die
   Bereiche mit `quality: 'high'`), High und Ultra 1. Eine Karte ohne `life` sieht aus wie vorher
 
+### Umgebungston (`ambience/`)
+
+`ambience/soundscape.ts` spielt den Ton der Karte, gehört von dem Punkt, auf den die Kamera schaut (im Spiel
+`CustomMapWorld.hear`, im Editor die Mitte der Ansicht, Schalter „Hear it in the editor“ im Life-Panel, eigener
+`AudioContext` erst nach dem Klick). Teile:
+- **Ton über der ganzen Karte** (`life.ambience`: `sound` und `volume`): ein Klang, oder `biome`, der des Looks bei Tag
+  und bei Nacht, mit der Dunkelheit überblendet (0,3 bis 0,7): temperate Vogelgesang und Grillen, mountain, arctic,
+  apocalypse und mars Wind, desert Wind und Grillen, swamp Frösche, city Stadtrauschen, hell Lavagrollen, moon keiner
+  (`ambient-sounds.ts`, `BIOME_SOUNDS`). Ohne `ambience` keiner: die ausgelieferten Karten bleiben still, bis man ihn setzt
+- **Tonbereiche** (Lebensbereich der Art `sound` mit `sound` und `volume`, Standard 0,7): im Umriss oder auf der Linie
+  voll, darüber hinaus über 70 m leiser (`AREA_REACH`, quadratisch), aus der Seite, auf der er liegt (Stereo-Panner,
+  voll seitlich erst 30 m außerhalb); ein Bach entlang einer Linie, Brandung entlang einer Küste, Feuer in einem Hof
+- Von oben leiser: bis 80 m über dem Boden voll, ab 600 m ein Drittel (`lift`)
+- Klänge (`AMBIENT_SOUNDS`): `wind`, `birdsong`, `night-insects`, `stream`, `surf`, `swamp`, `lava`, `fire`, `city`, je mit
+  eigenem Pegel. Heute synthetische Platzhalter aus `tools/ambient/make_placeholders.py` (Rauschen im Frequenzraum über
+  die ganze Schleife gefiltert, Rufe und Hüllkurven laufen über das Ende herum, daher ohne Naht); die Datei trägt
+  0,1 s der Schleife davor und danach (`LOOP_PAD`), gespielt wird dazwischen, so verschluckt der MP3-Versatz nichts.
+  Echte Aufnahmen ersetzen später die Dateien unter denselben Ids. Eine unbekannte Id spielt nichts (eine Karte aus
+  einem neueren Spiel)
+- Kosten: je hörbarer Stimme eine Quelle (im Audio-Thread); Pegel und Panning rechnet die CPU zehnmal je Sekunde,
+  eine Stimme, die drei Sekunden still ist, gibt ihre Quelle ab. Die Grafikstufe ändert nichts am Ton
+
 ### Umgebung (`environment/`)
 
 - **Himmel**: eine Kuppel um die Kamera (`sky-dome.ts`), zuerst und ohne Tiefentest gezeichnet: Verlauf vom Dunst am

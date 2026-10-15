@@ -243,6 +243,11 @@ export interface WorldAttachContext {
    * rather than the screen: linear colour out, so other shader programs
    */
   drawsToTarget(): boolean;
+  /**
+   * Where a world's own ambient sound goes (custom maps' soundscape): the
+   * game's audio context and master bus, and the player's sound volume now
+   */
+  audio?: { context: BaseAudioContext; destination: AudioNode; volume(): number };
 }
 
 /**

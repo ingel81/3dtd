@@ -6,9 +6,8 @@ import { SnapshotCommand } from '../../model/editor-document';
 import type { LifeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { RangeRowComponent } from './range-row.component';
+import { AMBIENT_SOUNDS, BIOME_AMBIENCE } from '../../../world/custom-map/ambience/ambient-sounds';
 
-/** Kinds the panel offers; the rest come with their parts */
-const OFFERED: readonly MapLifeKind[] = LIFE_KINDS.filter((k) => k !== 'sound');
 
 /** Effect objects a click places (the Objects tool's Place), for one spot instead of an area */
 const SPOTS: { asset: string; label: string }[] = [
@@ -74,6 +73,19 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
               }
             </span>
           </label>
+        }
+        @if (a.kind === 'sound') {
+          <label class="td-setting">
+            <span>Sound</span>
+            <select class="td-select is-auto" [value]="a.sound ?? ''" (change)="commitArea(a.id, { sound: $any($event.target).value }, 'Life sound')" aria-label="Sound" data-test="life-sound">
+              @for (o of sounds; track o.id) {
+                <option [value]="o.id">{{ o.label }}</option>
+              }
+            </select>
+          </label>
+          <app-editor-range label="Volume" unit="%" [min]="0" [max]="100" [step]="5" [value]="(a.volume ?? 0.7) * 100"
+                            (changing)="liveArea(a.id, { volume: $event / 100 })" (changed)="commitArea(a.id, { volume: $event / 100 }, 'Life sound volume')" />
+          <p class="td-note">Full inside the outline or on the line, fading out over 70 m around it; quieter from high up.</p>
         }
         @if (a.kind === 'boats') {
           <label class="td-setting">
@@ -151,6 +163,29 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
         <p class="td-note">Density scales all of the map's life, its own and its areas. Areas and objects you place take the place of the map's own fireflies and birds. Low quality shows no life areas.</p>
       </div>
     }
+    <div class="td-group" data-test="life-sound-group">
+      <h3 class="td-section">Sound</h3>
+        <label class="td-setting">
+          <span>Over the whole map</span>
+          <select class="td-select is-auto" [value]="life()?.ambience?.sound ?? ''" (change)="setAmbience($any($event.target).value)" aria-label="Sound over the map" data-test="life-ambience">
+            <option value="">None</option>
+            <option [value]="biomeAmbience">The look's own</option>
+            @for (o of sounds; track o.id) {
+              <option [value]="o.id">{{ o.label }}</option>
+            }
+          </select>
+        </label>
+        @if (life()?.ambience; as amb) {
+          <app-editor-range label="Volume" unit="%" [min]="0" [max]="100" [step]="5" [value]="amb.volume * 100"
+                            (changing)="liveLife({ ambience: { sound: amb.sound, volume: $event / 100 } })"
+                            (changed)="commitLife({ ambience: { sound: amb.sound, volume: $event / 100 } }, 'Sound volume')" />
+        }
+        <div class="td-setting">
+          <span>Hear it in the editor</span>
+          <input class="td-switch" type="checkbox" [checked]="settings().hear" (change)="session.hearAmbience($any($event.target).checked)" aria-label="Hear the map's sound" data-test="life-hear" />
+        </div>
+      <p class="td-note">The look's own plays its sounds by day and by night. Sound areas and lines add a sound where you draw them (pick Sound above).</p>
+    </div>
   `,
   styles: [
     `.lp-kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -160,9 +195,11 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
   ],
 })
 export class LifePanelComponent {
-  private readonly session = inject(EditorSession);
+  readonly session = inject(EditorSession);
   readonly info = LIFE_KIND_INFO;
-  readonly kinds = OFFERED;
+  readonly kinds = LIFE_KINDS;
+  readonly sounds = Object.entries(AMBIENT_SOUNDS).map(([id, s]) => ({ id, label: s.label }));
+  readonly biomeAmbience = BIOME_AMBIENCE;
   readonly spots = SPOTS;
   readonly tinted = TINTED;
   readonly density = LIFE_AREA_DENSITY;
@@ -221,6 +258,11 @@ export class LifePanelComponent {
       s.objects.mode = 'place';
     });
     this.session.selectTool('objects');
+  }
+
+  setAmbience(sound: string): void {
+    const volume = this.life()?.ambience?.volume ?? 0.6;
+    this.commitLife({ ambience: sound ? { sound, volume } : undefined }, sound ? 'Sound over the map' : 'No sound over the map');
   }
 
   setAuto(key: 'smoke' | 'fireflies' | 'birds' | 'sparks', on: boolean): void {
