@@ -167,7 +167,6 @@ export function buildEmberCrater(): CustomMapDocument {
   for (const { lip, at } of vents) {
     k.place('lava-rock-large', at.x, at.y, { rotation: facing(at, lip), scale: 1.3 });
     k.place('fx-embers', at.x, at.y, { scale: 0.8 });
-    const top = k.h(lip.x, lip.y);
     // Two sheets side by side: one fall of 12 m is 6 m wide
     const across = { x: -(lip.y / Math.hypot(lip.x, lip.y)) * 2.5, y: (lip.x / Math.hypot(lip.x, lip.y)) * 2.5 };
     for (const side of [-1, 1]) {
