@@ -21,6 +21,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Projektil-Angriffe mit optionalen mehreren Fire Points (Dual-Gatling)
 - Beam-Angriffe (Fire Tower, `attackType: 'beam'`)
 - Melee-Angriffe (Tentacle Tower, `attackType: 'melee'`)
+- Laser-Angriffe (Sentinel Laser, `attackType: 'laser'`: ein Strahl auf ein Ziel, der auf diesem Ziel aufheizt)
 - **Chain-Hitscan-Angriffe** (Lightning Tower, `attackType: 'chain'`: Primary + N Jumps mit `chainFalloff` zwischen Hits, eigener `LightningBoltRenderer`)
 - Passive Buildings (Research Center, Missile Silo, `attackType: 'passive'`), einmal je Karte über `unique`
 - **Veteranen-Ränge** aus Kills, rein kosmetisch, mit Abzeichen über dem Tower (siehe [Veteranen-Ränge](#veteranen-ränge))
@@ -43,6 +44,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
 | Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. Kenney-Modell, der mittlere Kristall dreht sich (`turretNode: 'crystal'`) |
 | Iron Bastion | projectile | pierce | 36 | 65m | 0.75/s | 150 | Flak: Splash 5 m (max. 6 Ziele), Air+Ground, Rohr neigt sich (`pitchNodes: ['gun']`). Modell aus `tools/blender/build_tower.py` |
+| Sentinel Laser | **laser** | lightning | 24 DPS kalt | 60m | – | 170 | Strahl auf ein Ziel, heizt in 4 s auf ×4 (`laser`), neues Ziel kalt; Air+Ground, Kopf neigt sich (`pitchNodes: ['head']`) |
 | Research Center | **passive** | – | 0 | 0 | 0 | 75 | Kein Combat, siehe Research-System. Einmal je Karte |
 | Missile Silo | **passive** | – | 0 | 0 | 0 | 400 | Kein Combat, von ihm startet der Nuklearschlag ([ABILITIES.md](ABILITIES.md)). Einmal je Karte, keine Upgrades, Forschung `nuclear-strike` |
 
@@ -153,7 +155,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `canTargetGround` | boolean | true | Kann Boden-Einheiten angreifen |
 | `hasAnimations` | boolean | false | GLTF-Animationen vorhanden |
 | `animationPingPong` | boolean | false | Animation vorwärts/rückwärts abspielen |
-| `attackType` | AttackType | 'projectile' | 'projectile', 'beam', 'melee', 'chain' oder 'passive' |
+| `attackType` | AttackType | 'projectile' | 'projectile', 'beam', 'melee', 'chain', 'laser' oder 'passive' |
 | `damagePerSecond` | number | - | DPS für Beam-Tower |
 | `beamWidth` | number | - | Kegel-Breite am Ende in Metern |
 | `defaultTargeting` | TargetingStrategy | `'closest'` | Standard-Targeting-Strategie |
@@ -162,6 +164,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `maxJumps` | number | - | **Chain-only:** Anzahl zusätzlicher Ziele nach Primary (Lightning: 2 → 3 Hits) |
 | `chainFalloff` | number | - | **Chain-only:** Schaden-Multiplier pro Jump (Lightning: 0.7 → 100%/70%/49%) |
 | `jumpRange` | number | - | **Chain-only:** Max. Distanz zwischen zwei Chain-Links in Metern |
+| `laser` | { maxFactor, rampSeconds, muzzleM } | - | **Laser-only:** `damage` ist Schaden je Sekunde kalt; auf demselben Ziel steigt er linear auf `maxFactor` in `rampSeconds` (geteilt durch die Fire Rate, Track „Heat-up"), der Strahl beginnt `muzzleM` vor dem Kopf-Pivot |
 | `damageType` | DamageType | - | Pflichtfeld: physical/pierce/siege/magic/fire/ice/poison/lightning/chaos |
 
 ### Modell aus einem Meshy-Kandidaten
@@ -442,8 +445,9 @@ export const TOWER_TYPES = {
   lightning: { ... },          // 10. Position
   chaos: { ... },              // 11. Position
   bastion: { ... },            // 12. Position (Iron Bastion)
-  'research-center': { ... },  // 13. Position (passives Building, kein Combat)
-  'missile-silo': { ... },     // 14. Position (passives Building, Abschussort des Nuklearschlags)
+  sentinel: { ... },           // 13. Position (Sentinel Laser)
+  'research-center': { ... },  // 14. Position (passives Building, kein Combat)
+  'missile-silo': { ... },     // 15. Position (passives Building, Abschussort des Nuklearschlags)
 };
 ```
 
@@ -900,6 +904,17 @@ VFX-Integration:
 - Pro Hit triggert ein additiver Sprite-Halo am Endpunkt (Opacity faded `(1-age)²`)
 
 ---
+
+## Beispiel: Sentinel Laser (Laser Attack)
+
+`attackType: 'laser'`: `TowerCombatService.updateLaserTowers` hält ein Ziel (Sicht-Recheck wie beim Fire Tower),
+dreht den Turm und neigt den Kopf, und sobald der Turm ausgerichtet ist, trifft der Strahl je Sub-Step mit
+`damage × laserHeat(...) × dt` (`applyBeamDamage`). Die Hitze hängt am Ziel: `laserHolds` merkt sich je Tower Ziel-ID
+und Zeit darauf, ein neues Ziel oder eine Drehung setzt sie auf 0. `stopAllBeams` (Wellenende, Reset,
+Snapshot-Restore) leert sie, ein Wellenstart-Snapshot braucht also nichts davon; Verkaufen und Feuerpause löschen den
+Strahl über `stopTowerBeam`. Ans Bild gehen die Strahlen wie die Flammen einmal je Frame
+(`laserBeams.startBeam/stopBeam/clear`, `flushBeams`), gezeichnet vom `LaserBeamRenderer`; die Präsentation lässt
+dazu die Schleife `laser-loop` laufen (`FlameSounds` mit eigener Sound-ID).
 
 ## Tower-Placement-System
 

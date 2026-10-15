@@ -84,5 +84,15 @@
     }
    ]
   }
- ]
+ ],
+ "material": "SentinelLaser",
+ "export": {
+  "glb": "public/assets/models/towers/sentinel.glb",
+  "triangles": 45000,
+  "texture": 1024,
+  "quality": 88,
+  "names": {
+   "turret": "turret_top"
+  }
+ }
 }

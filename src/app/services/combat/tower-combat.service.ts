@@ -10,7 +10,7 @@ import { TowerManager } from '../../managers/tower.manager';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD, geoHeading } from '../../utils/geo-utils';
 import { getEnemyAimOffsetY } from '../../utils/enemy-aim.util';
 import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
-import { upgradeFactor } from '../../configs/tower-types.config';
+import { laserHeat, upgradeFactor } from '../../configs/tower-types.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { ProjectileManager } from '../../managers/projectile.manager';
 import type { GeoPosition } from '../../models/game.types';
@@ -30,6 +30,20 @@ interface BeamFrame {
   target: OpVec3;
   length: number;
   width: number;
+}
+
+/** A laser on its target as the renderer shows it this frame, see TowerCombatService.flushBeams */
+interface LaserFrame {
+  source: OpVec3;
+  target: OpVec3;
+  /** 0 cold to 1 hot (TowerTypeConfig.laser) */
+  heat: number;
+}
+
+/** What a laser holds: its target and how long it has burnt on it, game ms. Reset with every new target. */
+interface LaserHold {
+  targetId: string;
+  heldMs: number;
 }
 
 /** A shot of the manned tower: at `target`, or a miss when null */
@@ -71,6 +85,15 @@ export class TowerCombatService {
   private readonly beams = new Map<string, BeamFrame>();
   private readonly beamsStopped = new Set<string>();
   private beamsCleared = false;
+  /** The lasers on now and put out since the last flushBeams, by tower, as the flames */
+  private readonly lasers = new Map<string, LaserFrame>();
+  private readonly lasersStopped = new Set<string>();
+  /**
+   * Each laser's target and time on it. Simulation state, but only within a wave: stopAllBeams clears it at the
+   * wave's end, a reset and a snapshot restore, so a wave-start snapshot needs none of it.
+   */
+  private readonly laserHolds = new Map<string, LaserHold>();
+  private readonly _laserDir = new Vector3();
 
   // Reusable vectors for cone collision
   private readonly tempDirection = new Vector3();
@@ -783,6 +806,7 @@ export class TowerCombatService {
    */
   stopTowerBeam(towerId: string): void {
     this.stopBeam(towerId);
+    this.stopLaser(towerId);
   }
 
   /**
@@ -791,6 +815,9 @@ export class TowerCombatService {
   stopAllBeams(): void {
     this.beams.clear();
     this.beamsStopped.clear();
+    this.lasers.clear();
+    this.lasersStopped.clear();
+    this.laserHolds.clear();
     this.beamsCleared = true;
     this.lastBeamBloodEffect.clear();
   }
@@ -805,13 +832,95 @@ export class TowerCombatService {
    * burning beam as the last sub-step left it.
    */
   flushBeams(sink: SimSink = this.sink): void {
-    if (this.beamsCleared) sink.flameBeams.clear();
+    if (this.beamsCleared) {
+      sink.flameBeams.clear();
+      sink.laserBeams.clear();
+    }
     this.beamsCleared = false;
     for (const towerId of this.beamsStopped) sink.flameBeams.stopBeam(towerId);
     this.beamsStopped.clear();
     for (const [towerId, beam] of this.beams) {
       sink.flameBeams.startBeam(towerId, beam.source, beam.target, beam.length, beam.width);
     }
+    for (const towerId of this.lasersStopped) sink.laserBeams.stopBeam(towerId);
+    this.lasersStopped.clear();
+    for (const [towerId, laser] of this.lasers) sink.laserBeams.startBeam(towerId, laser.source, laser.target, laser.heat);
+  }
+
+  // =====================================================
+  // LASER TOWER COMBAT (Sentinel Laser)
+  // =====================================================
+
+  /**
+   * Update laser towers: a hitscan beam on one target, once the turret is
+   * aligned, its damage per second rising with the time it holds that target
+   * (laserHeat). A new target starts cold, so does a target lost from sight or
+   * a turn away. Called once per gameplay sub-step (game time).
+   */
+  updateLaserTowers(deltaTime: number, towerManager: TowerManager, gameTimeMs: number): void {
+    const dt = deltaTime / 1000;
+    for (const tower of towerManager.getAllActive()) {
+      const laser = tower.typeConfig.laser;
+      if (tower.typeConfig.attackType !== 'laser' || !laser) continue;
+      if (!tower.losReady || !tower.isBuilt(gameTimeMs)) continue;
+      if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;
+
+      const candidates = this.collectCandidates(tower);
+      this.beginBodyAim(tower);
+      const losCheck = this.buildLosCheck(tower);
+      const airTargeting = this.research.airTargetingFor(tower.ownerId);
+      let target = tower.findTarget(candidates, airTargeting, losCheck, this.bodyDistSq);
+      // A laser holds its target like a flame: the periodic sight check lets go of one behind a building
+      if (target && tower.needsLosRecheck(gameTimeMs)) {
+        tower.markLosChecked(gameTimeMs);
+        if (!losCheck(target)) {
+          tower.clearTarget();
+          target = tower.findTarget(candidates, airTargeting, losCheck, this.bodyDistSq);
+        }
+      }
+
+      if (!target) {
+        if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) tower.isSleeping = true;
+        this.stopLaser(tower.id);
+        releaseAim(tower.aim);
+        continue;
+      }
+      tower.lastTargetTime = gameTimeMs;
+      tower.isSleeping = false;
+      aimAt(tower.aim, this.calculateHeading(tower.position, this.targetPoint(target)));
+      this.aimPitch(tower, target);
+
+      let hold = this.laserHolds.get(tower.id);
+      if (!hold || hold.targetId !== target.id) {
+        hold = { targetId: target.id, heldMs: 0 };
+        this.laserHolds.set(tower.id, hold);
+      }
+      // Turning to it: the beam is off and the target stays cold
+      if (!isAimAligned(tower.aim)) {
+        hold.heldMs = 0;
+        if (this.lasers.delete(tower.id)) this.lasersStopped.add(tower.id);
+        continue;
+      }
+
+      const heat = laserHeat(laser, hold.heldMs / 1000, tower.combat.fireRate);
+      hold.heldMs += deltaTime;
+      // Before the damage: on a body it also puts the hit where the beam lands
+      const targetLocal = this.aimLocalInto(target, this._beamTargetScratch);
+      this.combatEffectService.applyBeamDamage(target, tower.combat.damage * heat * dt, tower.typeConfig.damageType, tower.id);
+
+      // From the lens: in front of the head's pivot along the aim
+      const source = this.muzzleLocal(tower, this._beamSourceScratch);
+      const dir = aimDirectionInto(tower.aim.current, tower.aim.pitch, this._laserDir);
+      source.addScaledVector(dir, laser.muzzleM);
+      this.lasers.set(tower.id, { source: opVec(source), target: opVec(targetLocal), heat: (heat - 1) / (laser.maxFactor - 1) });
+      this.lasersStopped.delete(tower.id);
+      if (!target.alive) this.laserHolds.delete(tower.id);
+    }
+  }
+
+  private stopLaser(towerId: string): void {
+    this.laserHolds.delete(towerId);
+    if (this.lasers.delete(towerId)) this.lasersStopped.add(towerId);
   }
 
   // =====================================================

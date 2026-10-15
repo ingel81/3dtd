@@ -262,6 +262,13 @@
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/rocket.glb\",\"scale\":5.5}",
       "model": "1bcda443e48e73d58e8c8701d307ef567a83fcf198bf75982427ed249cc57552"
     },
+    "tower-sentinel": {
+      "file": "tower-sentinel.webp",
+      "width": 168,
+      "height": 100,
+      "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/sentinel.glb\",\"scale\":5.5}",
+      "model": "11f3da31fdfdbaf7a9567a93a33b468df5e92402614b8559affd4ac2f44b0d9b"
+    },
     "tower-tentacle": {
       "file": "tower-tentacle.webp",
       "width": 168,

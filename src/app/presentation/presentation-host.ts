@@ -67,6 +67,8 @@ export class PresentationHost implements SimPresenterApi {
   readonly frame: FramePresenter;
   readonly ops: OpPlayer;
   readonly flames: FlameSounds;
+  /** The lasers' hum, run like the flame loops */
+  readonly lasers: FlameSounds;
   readonly manualShots: ManualShots;
 
   private readonly engine: ThreeTilesEngine;
@@ -100,6 +102,7 @@ export class PresentationHost implements SimPresenterApi {
 
     this.frame = new FramePresenter(engine, ground);
     this.flames = new FlameSounds(() => engine.spatialAudio ?? null);
+    this.lasers = new FlameSounds(() => engine.spatialAudio ?? null, 'laser-loop');
     this.ops = new OpPlayer(engine);
     this.installOverrides(source, bus);
 
@@ -141,12 +144,14 @@ export class PresentationHost implements SimPresenterApi {
   clear(): void {
     this.frame.clear();
     this.flames.clear();
+    this.lasers.clear();
     const engine = this.engine;
     engine.enemies.clear();
     engine.oozes.clear();
     engine.projectiles.clear();
     engine.trailStreaks.clear();
     engine.flameBeams.clear();
+    engine.laserBeams.clear();
     engine.tentacles.clear();
     engine.plinths.clear();
     engine.towerBadges.clear();
@@ -297,6 +302,19 @@ export class PresentationHost implements SimPresenterApi {
     ops.override('flameBeams.clear', (args, call) => {
       call(...args);
       this.flames.clear();
+    });
+    // The laser's hum runs with its beam
+    ops.override('laserBeams.startBeam', (args, call) => {
+      call(...args);
+      this.lasers.burn(args[0] as string, args[1] as Vector3);
+    });
+    ops.override('laserBeams.stopBeam', (args, call) => {
+      call(...args);
+      this.lasers.stop(args[0] as string);
+    });
+    ops.override('laserBeams.clear', (args, call) => {
+      call(...args);
+      this.lasers.clear();
     });
 
     // The chain starts at the tip of the tower's model and sounds there

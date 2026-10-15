@@ -3,14 +3,14 @@ import { DetMath } from '../utils/det-math';
 
 export type TowerTypeId =
   | 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'chaos'
-  | 'bastion'
+  | 'bastion' | 'sentinel'
   | 'research-center' | 'missile-silo';
 export type ProjectileTypeId =
   | 'arrow' | 'cannonball' | 'arcane-orb' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob' | 'chaos-orb' | 'flak-shell'
   // The hero's ammo (hero.config.ts), fired by no tower
   | 'hero-round' | 'hero-shell' | 'hero-rune';
 export type UpgradeId = 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots';
-export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain';
+export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain' | 'laser';
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'last' | 'air-priority';
 export type AirSubStrategy = 'closest' | 'lowest-hp' | 'highest-hp';
 
@@ -291,6 +291,14 @@ export interface TowerTypeConfig {
    */
   meleeSlam?: { radius: number; maxTargets: number; share: number };
 
+  /**
+   * Laser only (attackType 'laser'): a hitscan beam on one target. `damage` is its damage per second cold; held on
+   * the same target the beam heats up to `maxFactor` times that over `rampSeconds` (shortened by the fire rate
+   * track, Heat-up), and starts cold on every new target. It leaves the lens `muzzleM` m in front of the head's
+   * pivot (shootHeight), along the aim.
+   */
+  laser?: { maxFactor: number; rampSeconds: number; muzzleM: number };
+
   // Chain attack settings (for lightning-type towers — hitscan chain)
   maxJumps?: number;      // Number of additional targets after the primary (e.g. 2 = 3 total hits)
   chainFalloff?: number;  // Damage multiplier applied per jump (e.g. 0.7 = -30% per hop)
@@ -309,6 +317,7 @@ const POISON_MODEL_URL = 'assets/models/towers/poison_tower.glb';
 const LIGHTNING_MODEL_URL = 'assets/models/towers/lightning.glb';
 const CHAOS_MODEL_URL = 'assets/models/towers/chaos.glb';
 const BASTION_MODEL_URL = 'assets/models/towers/bastion.glb';
+const SENTINEL_MODEL_URL = 'assets/models/towers/sentinel.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -663,6 +672,48 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     // Grows over damage: the burst carries it to every body it hits
     upgrades: combatUpgrades({ damage: 1.06, rate: 1.03 }),
   },
+  sentinel: {
+    id: 'sentinel',
+    name: 'Sentinel Laser',
+    // The tank killer: the strongest of the wave first, and it stays on it
+    defaultTargeting: 'highest-hp',
+    // Meshy "Sentinel Laser Turret", cut and reduced by tools/blender/build_tower.py (towers/sentinel.json): nodes
+    // base, turret_top (the fork with its cable, the yaw axis on the origin) and head (the lens housing, origin on
+    // its trunnions 1.302 up, the lens along -X). 1.80 units across, 1.90 high, the base's widest vertex 1.171 from
+    // the axis: at scale 3.8 a turret 7.2 m high, the lens 3.4 m in front of the trunnions.
+    modelUrl: SENTINEL_MODEL_URL,
+    scale: 3.8,
+    previewScale: 5.5,
+    heightOffset: 0, // The base's lowest point is the model origin
+    shootHeight: 4.95, // The head's trunnions
+    footprintRadius: 4.5,
+    rotationY: -1.5708, // The lens along -X in the file: turned so it faces north at rest
+    turretBarrelOffset: -1.5708,
+    turnsTurret: true,
+    modelTop: 7.23,
+    // The head tilts on the fork: up to 60° for flyers, 15° down
+    pitchNodes: ['head'],
+    pitchRange: { min: -0.26, max: 1.05 },
+    attackType: 'laser',
+    damageType: 'lightning',
+    damage: 24, // Damage per second cold, 96 hot (laser.maxFactor)
+    range: 60,
+    fireRate: 1, // Heat-up speed: the fire rate track shortens laser.rampSeconds
+    projectileType: 'arrow', // Fallback, unused (laser)
+    laser: { maxFactor: 4, rampSeconds: 4, muzzleM: 3.4 },
+    // One target at a time, at its best on one that lives long: a boss, a tank, a dragon (lightning 1.2 against
+    // heavy). In the DPS model at its mean heat (2.5x) it is no better gold than the lightning tower; held hot on
+    // a heavy body it is the best single target buy (MASTER_GAME_DESIGN §3.15).
+    cost: 170,
+    canTargetAir: true,
+    canTargetGround: true,
+    description: 'Focused laser: heats up on one target, up to four times its damage. Built for bosses.',
+    upgrades: [
+      degressiveUpgrade('damage', 'Damage', 'damage', 1.06),
+      degressiveUpgrade('speed', 'Heat-up', 'fireRate', 1.04),
+      RANGE_UPGRADE,
+    ],
+  },
   'research-center': {
     id: 'research-center',
     name: 'Research Center',
@@ -765,6 +816,20 @@ export const AIR_SUB_STRATEGIES: AirSubStrategyConfig[] = [
   { id: 'lowest-hp', label: 'Weakest', icon: 'heart', tooltip: 'Targets the weakest air enemy' },
   { id: 'highest-hp', label: 'Strongest', icon: 'shield', tooltip: 'Targets the strongest air enemy' },
 ];
+
+/**
+ * A laser's damage factor after it held its target `heldSeconds` at fire rate `fireRate` (the Heat-up track):
+ * 1 cold, rising linearly to `maxFactor` over `rampSeconds / fireRate`.
+ */
+export function laserHeat(laser: NonNullable<TowerTypeConfig['laser']>, heldSeconds: number, fireRate: number): number {
+  const t = Math.min(1, (heldSeconds * fireRate) / laser.rampSeconds);
+  return 1 + (laser.maxFactor - 1) * t;
+}
+
+/** The factor the DPS model counts a laser with: the mean of cold and hot, a body that lives long and one that dies quickly. */
+export function laserMeanFactor(laser: NonNullable<TowerTypeConfig['laser']>): number {
+  return (1 + laser.maxFactor) / 2;
+}
 
 /** Game ms a tower stands in its scaffold before it fires, unless its type says otherwise (TowerTypeConfig.buildTimeMs) */
 export const DEFAULT_BUILD_TIME_MS = 5000;

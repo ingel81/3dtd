@@ -11,7 +11,8 @@ import type { TdIconName } from '../../icon/icon.component';
 
 /**
  * Compute effective DPS for the tower-detail tile. Beam towers (Fire) use
- * damagePerSecond directly; projectile towers use damage × fireRate.
+ * damagePerSecond directly, a laser its cold damage per second; projectile
+ * towers use damage × fireRate.
  */
 export function towerDps(tower: {
   typeConfig: TowerTypeConfig;
@@ -21,6 +22,8 @@ export function towerDps(tower: {
   if (cfg.attackType === 'beam') {
     return cfg.damagePerSecond ?? 0;
   }
+  // A laser's damage is per second, cold; the fire rate is its heat-up
+  if (cfg.attackType === 'laser') return tower.combat.damage;
   return tower.combat.damage * tower.combat.fireRate;
 }
 

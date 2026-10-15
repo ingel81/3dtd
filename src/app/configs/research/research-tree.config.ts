@@ -190,6 +190,22 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'unlock-tower', towerId: 'bastion' }],
   },
 
+  // The laser after the lightning: the same energy (lightning damage), focused on one target. Opens with the
+  // heavy and the bosses of the teens, at the price of EMP, which opens with it behind the same research.
+  'laser-optics': {
+    id: 'laser-optics',
+    name: 'Laser Optics',
+    description: 'Unlocks the Sentinel Laser: a beam that heats up on one target, against bosses and tanks',
+    category: 'tower-unlock',
+    branch: 'arcane',
+    icon: 'target',
+    cost: 2500,
+    duration: 25,
+    prerequisites: ['storm-mastery'],
+    minWave: 12,
+    effects: [{ kind: 'unlock-tower', towerId: 'sentinel' }],
+  },
+
   // ==================== Tower Unlocks (Tier 3) ====================
 
   'chaos-rift': {

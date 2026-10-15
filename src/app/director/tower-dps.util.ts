@@ -7,7 +7,7 @@
  */
 
 import { Tower } from '../entities/tower.entity';
-import { TowerTypeConfig, UpgradeId, upgradeFactor } from '../configs/tower-types.config';
+import { TowerTypeConfig, UpgradeId, laserMeanFactor, upgradeFactor } from '../configs/tower-types.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import { DamageType, ArmorType, ARMOR_TYPES } from '../configs/combat/combat.types';
 import { DAMAGE_MATRIX } from '../configs/combat/damage-matrix.config';
@@ -73,6 +73,7 @@ export function statMultiplier(
  * DPS formula is never maintained twice. Combines:
  *   - Beam damagePerSecond (Fire), scaled by the damage track
  *   - Projectile/melee damage × fireRate (default)
+ *   - Laser damage per second at its mean heat (Sentinel)
  *   - Chain geometric series 1 + f + f² + … + f^maxJumps (Lightning)
  *   - Additive DoT component (Poison, flat — AI approximation, intentionally
  *     unscaled by the damage track)
@@ -90,6 +91,9 @@ export function computeTowerDPSFromLevels(
     // Beam towers (Fire) keep damagePerSecond in config because applyUpgrade()
     // multiplies _combat.damage (which starts at 0); scale by the damage track.
     base = (cfg.damagePerSecond ?? 0) * statMultiplier(cfg, 'damage', levels);
+  } else if (cfg.attackType === 'laser' && cfg.laser) {
+    // A laser's damage is per second; it counts at its mean heat (laserMeanFactor), the Heat-up track left out
+    base = cfg.damage * statMultiplier(cfg, 'damage', levels) * laserMeanFactor(cfg.laser);
   } else {
     const damage = cfg.damage * statMultiplier(cfg, 'damage', levels);
     const fireRate = cfg.fireRate * statMultiplier(cfg, 'fireRate', levels);

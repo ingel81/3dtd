@@ -145,6 +145,16 @@ export interface SimSink {
     stopBeam(towerId: string): void;
     clear(): void;
   };
+  readonly laserBeams: {
+    /**
+     * The laser of the frame, once per frame for every tower on target (as
+     * the flames): from the lens to the target, `heat` 0 cold to 1 hot. Its
+     * hum follows the beams like the flame loop.
+     */
+    startBeam(towerId: string, source: OpVec3, target: OpVec3, heat: number): void;
+    stopBeam(towerId: string): void;
+    clear(): void;
+  };
   readonly effects: {
     spawnFloatingText(text: string, lat: number, lon: number, height: number, config: OpFloatingText): void;
     spawnTowerInnerFire(towerId: string, position: OpVec3, fireHeight: number, intensity: number): void;

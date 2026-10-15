@@ -84,6 +84,13 @@ export function towerCardTooltip(
         { label: 'TYPE', value: 'BEAM' },
         { label: 'RANGE', value: `${tower.range}m` },
       ]
+    : tower.attackType === 'laser' && tower.laser
+    ? [
+        // Cold to hot (TowerTypeConfig.laser)
+        { label: 'DPS', value: `${tower.damage}–${tower.damage * tower.laser.maxFactor}` },
+        { label: 'TYPE', value: 'LASER' },
+        { label: 'RANGE', value: `${tower.range}m` },
+      ]
     : [
         { label: 'DMG', value: String(tower.damage) },
         { label: 'RATE', value: `${tower.fireRate}/s` },

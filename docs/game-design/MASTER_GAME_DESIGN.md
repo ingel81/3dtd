@@ -173,6 +173,7 @@ Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 | **Lightning** | Lightning | 32 dmg primary, Chain ×0.7/Jump, 2 Jumps, 0.8/s, Range 65 | 130 | **Air + Ground** |
 | **Chaos** | Chaos | 50 dmg, 1.2/s, Range 60, 1,0 gegen jede Rüstung | 200 | **Air + Ground** |
 | **Iron Bastion** | Pierce | 36 dmg, 0.75/s, Range 65, Flak-Splash 5 m (max. 6 Ziele) | 150 | **Air + Ground** |
+| **Sentinel Laser** | Lightning | Laser 24 DPS kalt, auf demselben Ziel in 4 s bis 96 DPS, Range 60 | 170 | **Air + Ground** |
 
 ### 3.2 Upgrade-Regeln (Stand 2026-09)
 - **Kosten:** `50 × 1,25^Stufe` pro Stufe und Track, mal dem Kostenfaktor des
@@ -201,6 +202,7 @@ Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 | Lightning | 1,05 | 1,04 | Kette vervielfacht ohnehin |
 | Chaos | 1,05 | 1,04 | Generalist, soll die Spezialisten auch im Endausbau nicht überholen |
 | Iron Bastion | 1,06 | 1,03 | der Splash trägt den Schaden auf jedes getroffene Ziel |
+| Sentinel Laser | 1,06 | 1,04 (Heat-up) | Fire Rate heißt hier Heat-up und verkürzt das Aufheizen |
 
 Andere Upgrade-Pfade als diese Tracks gibt es nicht. Die früher je Tower
 geplanten Pfade (Air-Pfade, Armor Break, Luftflamme, Spezialisierungen) stehen
@@ -298,6 +300,30 @@ in §12.3.
 - **Modell:** Meshy-Kandidat „Iron Bastion Turret“, zerlegt und reduziert mit `tools/blender/build_tower.py`
   (45.000 Dreiecke, Textur 1024 JPEG). Ton: der Schuss der Cannon, etwas leiser.
 - **Wave-Director:** zählt als Anti-Air.
+
+### 3.15 Sentinel Laser: Lightning (seit 2026-10-15)
+- **Laser** (`attackType: 'laser'`): ein Strahl auf ein Ziel, Hitscan, Schaden je Sub-Step. Kalt 24 DPS; hält er
+  dasselbe Ziel, heizt er linear in 4 s auf das Vierfache auf (96 DPS, `laserHeat`). Ein neues Ziel, eines außer
+  Sicht oder eine Drehung beginnt kalt. Schießt erst, wenn der Turm ausgerichtet ist. Standard-Zielwahl `Strongest`.
+- **Rolle:** der Boss- und Panzerknacker: Tank, Mech, Drache, Skarnax, Dragon Matriarch (Lightning 1,2 gegen Heavy),
+  auch Ethereal (1,5). Gegen Fortified 0,3 wie der Lightning Tower, gegen Schwärme schwach (jedes Ziel beginnt kalt).
+- **Rechnung** (DPS-Modell, Basisstufe; der Laser zählt mit seiner mittleren Hitze 2,5, `laserMeanFactor`):
+
+| DPS × Matrix / Gold | Unarmored | Light | Heavy | Fortified | Ethereal |
+|---|---:|---:|---:|---:|---:|
+| Sentinel, Modell (60 DPS, 170) | 0,35 | 0,53 | 0,42 | 0,11 | 0,53 |
+| Sentinel heiß auf einem Ziel (96 DPS) | 0,56 | 0,85 | 0,68 | 0,17 | 0,85 |
+| Lightning (130) | 0,43 | 0,65 | 0,52 | 0,13 | 0,65 |
+| Cannon (150) | 0,15 | 0,15 | 0,51 | 0,47 | 0,09 |
+
+  Im Modell liegt er unter dem Lightning Tower, gegen einen einzelnen schweren Körper, der lange lebt, ist er heiß der
+  beste Kauf je Gold gegen Heavy (0,68 gegen Rocket 0,66 nur Luft, Cannon 0,51).
+- **Freischaltung:** Laser Optics (2.500 Gold, 25 s, ab Welle 12) hinter Storm Mastery.
+- **Upgrades:** Damage 1,06, Heat-up 1,04 (der Fire-Rate-Track teilt die Aufheizzeit), Range.
+- **Darstellung:** `LaserBeamRenderer` (ein Draw Call für alle Strahlen): kalt eine dünne rote Linie, heiß ein breiter
+  weißgelber Kern mit Korona und größerem Glühen am Ziel. Der Kopf neigt sich zum Ziel (bis 60°). Ton: der Strahl des
+  Orbital Laser als Schleife, solange er brennt.
+- **Wave-Director:** zählt als Anti-Air, nicht als Splash.
 
 ---
 
@@ -534,8 +560,8 @@ den Text aus `description`.
 
 ### 6.3 Tech-Tree (Forschungsbaum)
 
-Frei wählbar mit Voraussetzungen, 22 Knoten in vier Kategorien
-(`research-tree.config.ts`), zusammen 178.120 Credits (bis 2026-10-01 19.670).
+Frei wählbar mit Voraussetzungen, 23 Knoten in vier Kategorien
+(`research-tree.config.ts`), zusammen 180.620 Credits (bis 2026-10-01 19.670).
 
 **Tempo (seit 2026-10-02):** Eine Forschung kann eine Mindestwelle haben
 (`minWave`). Sie öffnet in der Bauphase vor dieser Welle (`researchWave`: die
@@ -561,6 +587,7 @@ fünf Wellen Einkommen und steht gegen Upgrades.
 | `arcane-studies` | Arcane Studies | 650 | 20 s | – | Ice Magic | Magic Tower |
 | `storm-mastery` | Storm Mastery | 1.200 | 20 s | 9 | Arcane Studies | Lightning Tower |
 | `flak-artillery` | Flak Artillery | 1.000 | 20 s | 8 | Siege Engineering | Iron Bastion |
+| `laser-optics` | Laser Optics | 2.500 | 25 s | 12 | Storm Mastery | Sentinel Laser |
 | `chaos-rift` | Chaos Rift | 8.000 | 30 s | 20 | Siege Engineering + Storm Mastery | Chaos Tower |
 
 #### Global Perks

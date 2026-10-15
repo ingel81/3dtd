@@ -10,12 +10,17 @@ const PENDING: LoopHandle = -1; // real handles count up from 1
  * sends (OpPlayer hooks): `flameBeams.startBeam` starts the loop at the
  * tower or moves it there, `flameBeams.stopBeam` ends it, `flameBeams.clear`
  * ends them all. The loops stand in a pause like every loop (holdLoops).
+ * The Sentinel Laser's hum runs the same way on the `laserBeams` ops, with
+ * `soundId` 'laser-loop'.
  */
 export class FlameSounds {
   private readonly loops = new Map<string, LoopHandle>();
   private readonly at = new Vector3();
 
-  constructor(private readonly audio: () => SpatialAudioManager | null) {}
+  constructor(
+    private readonly audio: () => SpatialAudioManager | null,
+    private readonly soundId = 'flame-loop',
+  ) {}
 
   /** The beam of `towerId` burns, its tower at local `position`. */
   burn(towerId: string, position: { x: number; y: number; z: number }): void {
@@ -26,7 +31,7 @@ export class FlameSounds {
     if (handle === undefined) {
       this.loops.set(towerId, PENDING);
       // createLoop copies the position before it awaits
-      void audio.createLoop('flame-loop', this.at, { volumeMultiplier: 1 }).then((created) => {
+      void audio.createLoop(this.soundId, this.at, { volumeMultiplier: 1 }).then((created) => {
         if (created === null) {
           if (this.loops.get(towerId) === PENDING) this.loops.delete(towerId);
           return;
