@@ -104,19 +104,17 @@ export function buildMoonBase(): CustomMapDocument {
   k.place('landing-pad', pad.x, pad.y);
   k.place('lander', pad.x + 2, pad.y + 1, { rotation: 0.6 });
   for (const [dx, dy] of [[-20, 6], [-22, -6]] as const) if (k.free(pad.x + dx, pad.y + dy, 3)) k.place('fuel-tanks', pad.x + dx, pad.y + dy, { rotation: 0.2 });
-  // Floodlights round the pad and the hub, lit under the black sky
-  // TODO(E179): a floodlight mast for bases; the street lamp stands in
-  for (const a of [0.5, 2.1, 3.7, 5.3]) {
+  // Floodlight masts by the pad and round the hub, lit under the black sky
+  for (const a of [0.5, 3.7]) {
     const p = { x: pad.x + Math.cos(a) * 12, y: pad.y + Math.sin(a) * 12 };
-    if (k.free(p.x, p.y, 1)) k.place('street-lamp', p.x, p.y, { rotation: facing(p, pad) });
+    if (k.free(p.x, p.y, 1)) k.place('floodlight-mast', p.x, p.y, { rotation: facing(p, pad) });
   }
-  for (const p of ring(46, 5, 0.9)) if (k.free(p.x, p.y, 1)) k.place('street-lamp', p.x, p.y, { rotation: facing(p, hq) });
-  // The launch pad out on the plain south-west: concrete apron and its fuel farm
+  for (const p of ring(46, 3, 0.9)) if (k.free(p.x, p.y, 1)) k.place('floodlight-mast', p.x, p.y, { rotation: facing(p, hq) });
+  // The launch site out on the plain south-west: the rocket on its own pad with its tower, a fuel farm beside it
   const launch = { x: -55, y: -115 };
   k.level(launch, { radius: 22, falloff: 0.5 }, k.h(launch.x, launch.y));
   k.paint('concrete', launch, { radius: 18, falloff: 0.4 }, 1);
-  k.place('landing-pad', launch.x, launch.y, { scale: 1.3 });
-  // TODO(E179): a rocket with its gantry standing on this pad (no model yet; the pad stays empty)
+  k.place('rocket', launch.x, launch.y, { rotation: facing(launch, hq) });
   for (const [dx, dy] of [[-18, 10], [-20, -4], [-16, -16]] as const) k.place('fuel-tanks', launch.x + dx, launch.y + dy, { rotation: 1.2 });
   k.paint('regolith-tracks', [launch, { x: -30, y: -80 }, { x: pad.x - 14, y: pad.y - 8 }], { radius: 3, falloff: 0.8 }, 0.7);
   // Solar fields on the plain past the crater wall, antennas on its crest and on the high ground
@@ -129,6 +127,11 @@ export function buildMoonBase(): CustomMapDocument {
     if (k.free(p.x, p.y, 5)) k.place('solar-array', p.x, p.y, { rotation: 0.3 });
   }
   const crest = (deg: number): MapPoint => ({ x: hq.x + Math.cos((deg * Math.PI) / 180) * 82, y: hq.y + Math.sin((deg * Math.PI) / 180) * 82 });
+  // Position lights round the crest of the wall, small enough not to light the ground red
+  for (let deg = 0; deg < 360; deg += 30) {
+    const p = crest(deg + 9);
+    if (k.free(p.x, p.y, 2)) k.place('beacon-post', p.x, p.y);
+  }
   for (const [p, a] of [[crest(60), 'antenna-dish'], [crest(205), 'antenna-dish'], [crest(-25), 'antenna-dish'], [{ x: -140, y: 120 }, 'antenna-dish'], [{ x: 150, y: 110 }, 'antenna-mast'], [{ x: -90, y: -140 }, 'antenna-mast']] as const) {
     if (k.free(p.x, p.y, 5)) k.place(a, p.x, p.y, { rotation: facing(p, hq) });
   }
