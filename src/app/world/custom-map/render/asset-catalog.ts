@@ -68,6 +68,7 @@ export type EffectKind =
   | 'snow'
   | 'sparkle'
   | 'sparks'
+  | 'column'
   | 'waterfall'
   | 'birds'
   | 'beam';
@@ -79,8 +80,10 @@ export type EffectKind =
  * its foot; `birds` is a flock of `rate` birds circling `radius` wide at
  * `height` over the object (effects/bird-flocks.ts); `beam` two light beams
  * `radius` long from `height`, turning with the object's `spin` (a
- * lighthouse), shown in the dark; the others emit particles from a disc of
- * `radius` at `height`.
+ * lighthouse), shown in the dark; `column` a tall plume of smoke rising
+ * `height` from a foot `radius` wide, leaning with the wind and lit from
+ * below over lava or by the object's own light; the others emit particles
+ * from a disc of `radius` at `height`.
  */
 export interface CatalogEffect {
   kind: EffectKind;

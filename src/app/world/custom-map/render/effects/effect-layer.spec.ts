@@ -40,6 +40,7 @@ const catalog: AssetCatalog = {
     { ...base, id: 'lighthouse', name: 'Lighthouse', category: 'building', height: 22, spin: 10, effects: [{ kind: 'beam', height: 20, radius: 70 }] },
     { ...base, id: 'beacon', name: 'Beacon', light: { color: '#ff2010', intensity: 0.6, distance: 6, height: 14, blink: 1.5 } },
     { ...base, id: 'fx-fireflies', name: 'Fireflies', effects: [{ kind: 'fireflies', radius: 8, height: 1.5, rate: 6, color: '#e6ff8c' }] },
+    { ...base, id: 'fx-smoke-column', name: 'Tall smoke column', footprint: 3, height: 40, effects: [{ kind: 'column', radius: 2.5, rate: 6 }] },
   ],
 };
 
@@ -319,6 +320,28 @@ describe('EffectLayer', () => {
     const fall = geometry.getAttribute('aFall');
     for (let k = 0; k < lava.count; k++) expect(lava.getX(k)).toBe(1);
     for (let k = 0; k < fall.count; k++) expect(fall.getX(k)).toBeGreaterThanOrEqual(0);
+    layer.dispose();
+  });
+
+  it('rises a smoke column its height high in one field, its puffs evenly spread, lit from below only over lava', () => {
+    const lava = (x: number) => x < 0;
+    const layer = new EffectLayer(flat(), () => null, lava);
+    layer.set([place('a', 'fx-smoke-column', -20), { ...place('b', 'fx-smoke-column', 20), scale: 2, tint: '#3a302c' }], catalog);
+    const fields = layer.group.children.filter((c) => c.name.startsWith('custom-map-particles-'));
+    expect(fields.map((c) => c.name)).toEqual(['custom-map-particles-column']);
+    const g = (fields[0] as Mesh).geometry as InstancedBufferGeometry;
+    const one = particleCount('column', 6);
+    // Twice the scale: puffs twice the size, only twice as many (not four times, as an area effect)
+    expect(g.instanceCount).toBe(one * 3);
+    const shape = g.getAttribute('aShape');
+    const glow = g.getAttribute('aGlow');
+    expect([shape.getX(0), shape.getY(0)]).toEqual([2.5, 40]);
+    expect([shape.getX(one), shape.getY(one)]).toEqual([5, 80]);
+    // Phases a step of 1/count apart, so no stretch of the column stands empty
+    const phases = Array.from({ length: one }, (_, k) => shape.getW(k) % 1).sort((a, b) => a - b);
+    for (let k = 1; k < one; k++) expect(phases[k] - phases[k - 1]).toBeLessThan(1.6 / one);
+    expect(glow.getX(0)).toBeGreaterThan(0.5);
+    expect([glow.getX(one), glow.getY(one), glow.getZ(one)]).toEqual([0, 0, 0]);
     layer.dispose();
   });
 

@@ -13355,7 +13355,7 @@
     },
     {
       "id": "fx-smoke",
-      "name": "Smoke column",
+      "name": "Smoke",
       "category": "fx",
       "file": "",
       "footprint": 1,
@@ -13382,6 +13382,39 @@
           "radius": 1,
           "height": 0,
           "rate": 4
+        }
+      ],
+      "source": "Effekt des Renderers, kein Modell"
+    },
+    {
+      "id": "fx-smoke-column",
+      "name": "Tall smoke column",
+      "category": "fx",
+      "file": "",
+      "footprint": 3,
+      "height": 40,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "volcanic",
+        "wasteland",
+        "hell",
+        "city",
+        "village"
+      ],
+      "effects": [
+        {
+          "kind": "column",
+          "radius": 2.5,
+          "height": 40,
+          "rate": 6
         }
       ],
       "source": "Effekt des Renderers, kein Modell"

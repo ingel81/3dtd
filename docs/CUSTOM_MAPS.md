@@ -406,6 +406,17 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   `house-large`, `cottage`, `house-stone`, `house-tall`, die Schnee-Varianten, `watermill`, `log-cabin`, `alpine-hut`,
   `fisher-hut`, `house-stone-balcony`; Lage aus `build_structures.py` `house()`). Steht schon ein von Hand gesetzter
   Rauch (`fx-smoke`, `MapKit.chimney`) im Fußabdruck des Hauses plus 2 m, raucht nur der gesetzte
+- **Rauchsäule** (`column`, Objekt `fx-smoke-column`, 40 m bei Skalierung 1): eine hohe, ziehende Säule je Objekt,
+  alle Säulen der Karte in einem instanzierten Feld (ein Draw Call). Die Puffs steigen von einem Fuß mit `radius`
+  bis `height` auf, unten schnell, oben langsamer, werden breiter und größer, neigen sich mit der Höhe immer weiter
+  in den Wind und wandern als Ganzes; unten dicht und dunkel, oben heller und dünner, oben weich ausgeblendet. Ihre
+  Phasen liegen gleichmäßig über die Lebenszeit verteilt (kein Loch in der Säule), jeder Puff ist von zwei Lagen
+  hochlaufendem Rauschen zerrissen statt einer runden Scheibe. Steht die Säule auf Lava, glüht ihr Fuß orange, trägt
+  das Objekt ein Licht, in dessen Farbe; nachts stärker. Skalierung macht Säule und Puffs größer, die Zahl wächst nur
+  linear (`rate` 8 je Sekunde, 16 s Leben: 128 Puffs). Tönung färbt den Rauch. Kosten auf Ember Crater (3 Säulen,
+  269 Puffs, High): +1 Draw Call, Renderzeit im Rauschen (unter 0,1 ms auch nah vor der Säule). Ersetzt die früher
+  gestapelten `fx-smoke`, die im Standbild fleckig wirkten; ein `fx-smoke` bleibt für kleinen Rauch (Schornstein,
+  Glut)
 - **Wasserfall** (`waterfall`): gebogene Fläche von der Kante (`height`) bis zum Fuß, Breite 2 × `radius`, fällt zur
   Vorderseite (+z) des Objekts und wird nach unten etwas breiter, in der Mitte leicht nach vorn gewölbt, dahinter eine
   schmalere zweite Fläche mit versetzten Streifen; zwei Lagen Streifen laufen herab (langsamer Körper,

@@ -11,7 +11,8 @@ import { AMBIENT_SOUNDS, BIOME_AMBIENCE, WAVE_SOUNDS } from '../../../world/cust
 
 /** Effect objects a click places (the Objects tool's Place), for one spot instead of an area */
 const SPOTS: { asset: string; label: string }[] = [
-  { asset: 'fx-smoke', label: 'Smoke column' },
+  { asset: 'fx-smoke', label: 'Smoke' },
+  { asset: 'fx-smoke-column', label: 'Tall smoke column' },
   { asset: 'fx-birds', label: 'Circling flock' },
   { asset: 'fx-fireflies', label: 'Fireflies' },
   { asset: 'fx-embers', label: 'Embers' },
