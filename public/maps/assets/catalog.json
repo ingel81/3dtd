@@ -9910,6 +9910,28 @@
       "source": "procedural (tools/map-assets/build_space.py); Goldfolie gezeichnet (make_foliage.py)"
     },
     {
+      "id": "mars-lander",
+      "name": "Mars ascent vehicle",
+      "category": "prop",
+      "file": "models/mars-lander.glb",
+      "triangles": 2462,
+      "footprint": 3.3,
+      "height": 11.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 2500,
+      "tags": [
+        "mars"
+      ],
+      "source": "procedural (tools/map-assets/build_extras.py); Rost https://polyhaven.com/a/rusty_metal_03"
+    },
+    {
       "id": "rover",
       "name": "Rover",
       "category": "prop",

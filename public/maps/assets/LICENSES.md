@@ -421,6 +421,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | antenna-dish | procedural (tools/map-assets/build_space.py) |
 | antenna-mast | procedural (tools/map-assets/build_space.py) |
 | lander | procedural (tools/map-assets/build_space.py); Goldfolie gezeichnet (make_foliage.py) |
+| mars-lander | procedural (tools/map-assets/build_extras.py); Rost https://polyhaven.com/a/rusty_metal_03 |
 | rover | procedural (tools/map-assets/build_space.py); Solarzellen gezeichnet |
 | solar-array | procedural (tools/map-assets/build_space.py); Solarzellen gezeichnet |
 | fuel-tanks | procedural (tools/map-assets/build_space.py) |
