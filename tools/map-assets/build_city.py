@@ -16,7 +16,7 @@ import bpy
 
 from blender_kit import (
     Part, bake_ao, box, card_material, clear_scene, export, export_lod, flat_material, hexa, image_material, import_model,
-    oriented_box, pbr_material, tilt, tube,
+    oriented_box, pbr_material, rust_material, tilt, tube,
 )
 import blender_kit
 from build_structures import cone_roof, gable_roof
@@ -343,26 +343,124 @@ def tower_stump(name, seed=0):
 
 
 def warehouse(name, rusty=False):
-    """Steel shed: corrugated walls and shallow roof, a roller door and a side door (front -Y)"""
+    """Steel shed 18 x 12 m (front -Y): corrugated cladding and roof on a steel portal frame, ribbon windows
+    under the eaves, skylight strips, gutters and downpipes, a roller door in a framed opening with its
+    housing and a ramp, a side door under a canopy, louvres in the gables, roof vents. `rusty`: the same
+    sheet rusted, some panels gone, broken panes. Ambient occlusion baked, a flat-coloured LOD"""
     clear_scene()
-    asset = 'corrugated_iron_02' if not rusty else 'rusty_metal_03'
-    sheet = Part(pbr_material('metal-' + asset, asset, (0.95, 0.95, 0.95) if not rusty else None), uv_metres=3.0)
+    rnd = random.Random(12 if rusty else 3)
+    if rusty:
+        sheet_mat = rust_material('metal-corrugated-rusty', 'corrugated_iron_02')
+        steel_mat = flat_material('steel-rusty', (0.12, 0.07, 0.045), 0.8, 0.3)
+        pane_mat = hole()
+    else:
+        sheet_mat = pbr_material('metal-corrugated_iron_02', 'corrugated_iron_02', (0.95, 0.95, 0.95))
+        steel_mat = flat_material('steel-painted', (0.11, 0.13, 0.15), 0.5, 0.4)
+        pane_mat = flat_material('skylight-pane', (0.13, 0.16, 0.18), 0.45, 0.3)
+    sheet = Part(sheet_mat, uv_metres=2.5)
     trim = Part(pbr_material('wall-brushed_concrete', 'brushed_concrete'), uv_metres=2.0)
     door = Part(pbr_material('metal-painted_metal_shutter', 'painted_metal_shutter'), uv_metres=3.0)
-    w, d, h = 18.0, 12.0, 6.0
+    steel = Part(steel_mat)
+    panes = Part(pane_mat)
+    w, d, h, pitch, over = 18.0, 12.0, 6.0, 1.6, 0.3
     box(trim, 0, 0, -FOUNDATION, w + 0.2, d + 0.2, FOUNDATION + 0.4)
     box(sheet, 0, 0, 0.4, w, d, h - 0.4)
-    pitch = 1.6
     for sx in (-1, 1):
         x = sx * w / 2
         bm = sheet.bm
         tri = [bm.verts.new((x, -d / 2, h)), bm.verts.new((x, d / 2, h)), bm.verts.new((x, 0, h + pitch))]
         bm.faces.new(tri if sx > 0 else list(reversed(tri)))
-    roof = Part(pbr_material('metal-' + asset + '-roof', asset, (0.8, 0.8, 0.8) if not rusty else None))
-    gable_roof(roof, w, d, h, pitch, 0.3)
-    box(door, -2.5, -d / 2 - 0.05, 0.4, 5.0, 0.1, 4.4)
+    # Roof in the wall sheet: box mapping runs the corrugation down the slope
+    gable_roof(sheet, w, d, h, pitch, over)
+    hd = d / 2 + over
+    eave = h - over * pitch / (d / 2)
+    top = h + pitch
+
+    def on_roof(side, x, t, lift=0.02):
+        """Point on the roof surface of one side: t = 0 at the eave, 1 at the ridge"""
+        normal = Vector((0, side * (top - eave), hd)).normalized()
+        return Vector((x, side * hd * (1 - t), eave + (top - eave) * t)) + normal * lift
+
+    # Portal frame: columns proud of the cladding along the long walls, corner posts, gable posts
+    for k in range(5):
+        x = -w / 2 + k * w / 4
+        for sy in (-1, 1):
+            box(steel, x, sy * (d / 2 + 0.08), 0.4, 0.3 if 0 < k < 4 else 0.36, 0.2 if 0 < k < 4 else 0.36, h - 0.4)
+    for sx in (-1, 1):
+        for y in (-d / 6, d / 6):
+            box(steel, sx * (w / 2 + 0.08), y, 0.4, 0.2, 0.3, h - 0.4 + pitch * (1 - abs(y) / (d / 2)) - 0.1)
+        # Eave girt along the gable end
+        box(steel, sx * (w / 2 + 0.06), 0, h - 0.2, 0.14, d, 0.2)
+    # Gutters under the eaves and downpipes at the corners
+    for sy in (-1, 1):
+        box(steel, 0, sy * (hd - 0.1), eave - 0.32, w + 0.5, 0.24, 0.22)
+        for sx in (-1, 1):
+            x = sx * (w / 2 - 0.5)
+            tube(steel, [Vector((x, sy * (hd - 0.1), eave - 0.3)), Vector((x, sy * (d / 2 + 0.12), eave - 0.8)),
+                         Vector((x, sy * (d / 2 + 0.12), 0.5)), Vector((x, sy * (d / 2 + 0.35), 0.42))], [0.07] * 4, 6)
+    # Ribbon windows in each bay under the eaves; rusty: some panes broken out
+    for k in range(4):
+        x = -w / 2 + (k + 0.5) * w / 4
+        for sy in (-1, 1):
+            y = sy * (d / 2 + 0.03)
+            box(panes, x, y, 4.35, 3.4, 0.04, 0.85)
+            box(steel, x, sy * (d / 2 + 0.06), 4.25, 3.6, 0.1, 0.1)
+            box(steel, x, sy * (d / 2 + 0.06), 5.2, 3.6, 0.1, 0.1)
+            for m in (-1, 0, 1):
+                box(steel, x + m * 1.75 if m else x, sy * (d / 2 + 0.06), 4.25, 0.08, 0.1, 1.05)
+    # Skylight strips down both roof planes
+    for side in (-1, 1):
+        for x in (-6.0, 0.0, 6.0):
+            a, b = on_roof(side, x - 0.6, 0.12), on_roof(side, x + 0.6, 0.12)
+            c, e = on_roof(side, x + 0.6, 0.88), on_roof(side, x - 0.6, 0.88)
+            panes.quad([a, b, c, e] if side < 0 else [b, a, e, c], [(0, 0), (1, 0), (1, 1), (0, 1)])
+        # Round ventilators half way up the slope
+        for x in (-3.0, 3.0):
+            p = on_roof(side, x + side * 0.4, 0.55, 0.0)
+            tube(steel, [p - Vector((0, 0, 0.2)), p + Vector((0, 0, 0.35))], [0.28, 0.28], 10, cap=True)
+            cone_roof(steel, p.x, p.y, p.z + 0.35, 0.4, 0.22, 10)
+    # Ridge cap
+    oriented_box(steel, Vector((-w / 2 - over + 0.05, 0, top - 0.06)), Vector((w / 2 + over - 0.05, 0, top - 0.06)), 0.16)
+    # Roller door: shutter in a steel frame with its coil housing, a concrete ramp up to the floor
+    rx, rw, rh = -2.5, 5.0, 4.4
+    box(door, rx, -d / 2 - 0.05, 0.4, rw, 0.1, rh)
+    for s in (-1, 1):
+        box(steel, rx + s * (rw / 2 + 0.12), -d / 2 - 0.12, 0.4, 0.24, 0.24, rh + 0.1)
+    box(steel, rx, -d / 2 - 0.3, 0.4 + rh, rw + 0.5, 0.6, 0.55)
+    hexa(trim, [(rx - rw / 2 - 0.3, -d / 2 - 2.6, -0.3), (rx + rw / 2 + 0.3, -d / 2 - 2.6, -0.3), (rx + rw / 2 + 0.3, -d / 2 - 0.1, -0.3),
+                (rx - rw / 2 - 0.3, -d / 2 - 0.1, -0.3)],
+         [(rx - rw / 2 - 0.3, -d / 2 - 2.6, 0.02), (rx + rw / 2 + 0.3, -d / 2 - 2.6, 0.02), (rx + rw / 2 + 0.3, -d / 2 - 0.1, 0.4),
+          (rx - rw / 2 - 0.3, -d / 2 - 0.1, 0.4)])
+    # Side door with frame, canopy and a step
     box(door, 5.5, -d / 2 - 0.05, 0.4, 1.1, 0.1, 2.2)
-    export(name, [sheet.to_object(name), roof.to_object(name + '-roof'), trim.to_object(name + '-base'), door.to_object(name + '-doors')])
+    for s in (-1, 1):
+        box(steel, 5.5 + s * 0.62, -d / 2 - 0.08, 0.4, 0.12, 0.14, 2.3)
+    box(steel, 5.5, -d / 2 - 0.08, 2.6, 1.36, 0.14, 0.1)
+    box(steel, 5.5, -d / 2 - 0.55, 2.85, 1.8, 1.0, 0.08)
+    box(trim, 5.5, -d / 2 - 0.45, -0.2, 1.6, 0.8, 0.6)
+    # Louvre vents high in both gables
+    for sx in (-1, 1):
+        box(steel, sx * (w / 2 + 0.05), 0, h + 0.15, 0.1, 1.4, 0.8)
+        for k in range(4):
+            box(door, sx * (w / 2 + 0.12), 0, h + 0.22 + k * 0.17, 0.06, 1.2, 0.08)
+    if rusty:
+        # Panels gone from the cladding and the roof: the dark inside shows
+        for k in range(5):
+            x = rnd.uniform(-w / 2 + 1, w / 2 - 1)
+            sy = rnd.choice((-1, 1))
+            if sy < 0 and -5.5 < x < 7.0:
+                x = rnd.uniform(-8.0, -5.6)
+            z = rnd.uniform(0.6, 2.6)
+            box(panes, x, sy * (d / 2 + 0.015), z, rnd.uniform(0.6, 1.2), 0.02, rnd.uniform(1.0, 1.8))
+        for side, x, t in ((-1, -7.5, 0.35), (1, 2.0, 0.6), (1, 7.2, 0.25)):
+            a, b = on_roof(side, x - 0.7, t), on_roof(side, x + 0.7, t)
+            c, e = on_roof(side, x + 0.7, t + 0.22), on_roof(side, x - 0.7, t + 0.22)
+            panes.quad([a, b, c, e] if side < 0 else [b, a, e, c], [(0, 0), (1, 0), (1, 1), (0, 1)])
+    objects = [sheet.to_object(name), trim.to_object(name + '-base'), door.to_object(name + '-doors'), steel.to_object(name + '-steel'),
+               panes.to_object(name + '-panes')]
+    joined = bake_ao(name, objects)
+    export(name, [joined])
+    export_lod(name, joined)
 
 
 def container(name, tint, rusty=False):

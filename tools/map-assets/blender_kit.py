@@ -118,6 +118,79 @@ def two_sided(material):
     return material
 
 
+def rust_material(name, asset=None, paint=None, threshold=0.66, tint=None):
+    """Weathered metal: a Poly Haven set (`asset`, with its normal map) or a flat `paint` colour, rusted where
+    rusty_metal_03 shows rust (its brown, not its yellow paint: green/red below `threshold`, 0.66 heavy, 0.6
+    light); rust is rough and not metallic. Colour and roughness/metal maps go next to the GLBs as PNGs"""
+    import numpy as np
+    key = (name, asset or 'paint')
+    if key in _materials:
+        return _materials[key]
+    folder = os.path.join(OUT, 'tinted')
+    os.makedirs(folder, exist_ok=True)
+
+    def pixels(path, non_color=False):
+        img = load_image(path, non_color)
+        px = np.empty(img.size[0] * img.size[1] * 4, dtype=np.float32)
+        img.pixels.foreach_get(px)
+        return img.size, px.reshape(-1, 4)
+
+    def save(label, size, px, non_color=False):
+        out = bpy.data.images.new(name + '-' + label, size[0], size[1])
+        if non_color:
+            out.colorspace_settings.name = 'Non-Color'
+        out.pixels.foreach_set(px.ravel())
+        out.filepath_raw = os.path.join(folder, name + '-' + label + '.png')
+        out.file_format = 'PNG'
+        out.save()
+        return out
+
+    size, rust = pixels(tex_path('rusty_metal_03', 'diff'))
+    _, rust_arm = pixels(tex_path('rusty_metal_03', 'arm'), True)
+    mask = np.clip((threshold - rust[:, 1] / (rust[:, 0] + 1e-3)) / 0.14, 0, 1)[:, None]
+    if asset:
+        _, base = pixels(tex_path(asset, 'diff'))
+        _, arm = pixels(tex_path(asset, 'arm'), True)
+        normal = tex_path(asset, 'nor')
+    else:
+        base = np.tile(np.array([*paint, 1.0], dtype=np.float32), (len(rust), 1))
+        # Paint: a flat colour with the rust texture's faint scratches as variation, a painted sheen
+        base[:, :3] *= 0.85 + 0.3 * rust[:, :3].mean(axis=1, keepdims=True)
+        arm = np.tile(np.array([1.0, 0.45, 0.3, 1.0], dtype=np.float32), (len(rust), 1))
+        normal = tex_path('rusty_metal_03', 'nor')
+    if tint:
+        base[:, :3] *= np.array(tint, dtype=np.float32)
+    colour = base * (1 - mask) + rust * 0.85 * mask
+    colour[:, 3] = 1.0
+    rough = arm.copy()
+    rough[:, 1:2] = arm[:, 1:2] * (1 - mask) + np.maximum(rust_arm[:, 1:2], 0.75) * mask
+    rough[:, 2:3] = arm[:, 2:3] * (1 - mask) + 0.15 * mask
+    rough[:, 3] = 1.0
+    m = bpy.data.materials.new(name)
+    try:
+        m.use_nodes = True
+    except AttributeError:
+        pass
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+    diff = nt.nodes.new('ShaderNodeTexImage')
+    diff.image = save('diff', size, np.clip(colour, 0, 1))
+    nt.links.new(diff.outputs['Color'], bsdf.inputs['Base Color'])
+    nor = nt.nodes.new('ShaderNodeTexImage')
+    nor.image = load_image(normal, non_color=True)
+    nmap = nt.nodes.new('ShaderNodeNormalMap')
+    nt.links.new(nor.outputs['Color'], nmap.inputs['Color'])
+    nt.links.new(nmap.outputs['Normal'], bsdf.inputs['Normal'])
+    armn = nt.nodes.new('ShaderNodeTexImage')
+    armn.image = save('arm', size, np.clip(rough, 0, 1), True)
+    sep = nt.nodes.new('ShaderNodeSeparateColor')
+    nt.links.new(armn.outputs['Color'], sep.inputs['Color'])
+    nt.links.new(sep.outputs['Green'], bsdf.inputs['Roughness'])
+    nt.links.new(sep.outputs['Blue'], bsdf.inputs['Metallic'])
+    _materials[key] = m
+    return m
+
+
 def card_material(name, png):
     """Alpha-tested foliage (the loader switches `foliage-*` materials to alpha test, double sided)"""
     m = bpy.data.materials.new('foliage-' + name)
