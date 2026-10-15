@@ -256,7 +256,8 @@ die Hafenstadt 38 s (noch nicht untersucht). Offen: Augen-Nachtest im Spiel.
 Krater auf einer grauen Ebene voller Krater; drei Rover-Pisten von Landezonen im Norden, Westen und Osten winden
 sich zwischen den Kratern zum Hub. Kuppeln, Module und Tunnel um das HQ, Landeplatz mit Lander und Tanks,
 Solarfelder auf dem Kraterrand, Antennen, Rover. Bauflächen: die Kraterränder und Rücken zwischen den Kratern.
-Look `moon`, tiefe Sonne (22°), schwarzer Himmel.
+Look `moon`, tiefe Sonne (22°), schwarzer Himmel. In drei Ecken heben sich abseits der Landezonen breite Hochland-Kuppen (26 bis
+32 m, mit Schulter, geglättet) als Horizont hinter den Kratern.
 
 ### 10 Mars-Canyon (`mars-canyon`)
 `tools/maps/levels/mars-canyon.ts`, Small 512 m. Spuren 365, 417 und 358 m. Zwei rostrote Canyons treffen sich in
