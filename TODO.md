@@ -118,11 +118,6 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
       Vorgehen: alle heutigen Wege aufnehmen (Startmenü-Reiter, New game, Pausemenü, Game over, Editor-Kopf, Testfenster,
       Spielstände, Links, Desktop), Brüche und Neuladen benennen, ein durchgängiges Modell vorschlagen (Plan-Doku),
       mit dem User per Baukasten/Entwürfen abstimmen, dann bauen.
-- [ ] **E199 New game auf einer Kartenwelt: Ergebnisliste abgeschnitten** (User, 2026-10-15): Unter „A map of a real
-      place“ ist der Dialog zu niedrig, die Treffer der Ortssuche scrollen in einem schmalen Streifen. Dialoghöhe bzw.
-      Trefferliste so, dass mehrere Treffer sichtbar sind.
-- [ ] **E200 Editor-Ansicht „Look“ auf OSM-Karten** (2026-10-15, Befund fx-osm2, im Bild bestätigt): die rund 2000
-      Wegknoten erscheinen als große helle Scheiben und decken die Karte zu; in Look ausblenden oder klein zeichnen.
 - [ ] **E194 Erde am Mondhimmel sieht zu schlecht aus** (User, 2026-10-15, Bild Moon Base mit der Erde über dem
       Nordrand): Planet-Einstellung (`environment.planet`, `sky-dome.ts`) zeichnet die Erde zu grob. Besser: echte
       Erdtextur (Kontinente, Wolken, Ozeanglanz), Tag-Nacht-Grenze passend zur Sonne, Atmosphärensaum, scharf bei der
@@ -240,6 +235,9 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 - [ ] **Mond, Mars, Hafen**: Schleusen zu, Radarschüssel ebnet ihren Boden, Kraterauswurf statt Steinkreise, Fischerboot,
       Asphalt in Harbor Town, Gewächshaus mit dunklem Glas (nur 2 auf Mars), Mover-Routen frei.
 - [ ] **Bojen blinken, Ballista-Bolzen mit eigenem Ton** (Dev-Build, Ballista Bolts); **OSM-Tunnel mit Portalen** (Miltenberg).
+- [ ] **E199 Ortssuche im New game**: Treffer fließen unter dem Feld, der Dialog wächst; Kartenwelt › A map of a real place.
+- [ ] **E200 Wegknoten in Look**: außerhalb von Roads kleine Punkte statt großer Scheiben; OSM-Karte im Editor, Look.
+- [ ] **Straßenbelag am Weg**: Roads, Straße wählen, „Surface“ (Asphalt, Pflaster, Kies …) sofort, mit Undo, bleibt bei Rebuild.
 - [ ] **E189 Lichter nachts**: Lichtfleck breiter und heller, größerer Hof, Pool kräftiger, Licht auf Wasser, Lava glüht
       weiter; Autumn Keep und Witch Marsh nachts ansehen.
 
