@@ -30,14 +30,13 @@ das Land steigt zu einer Klippe von `top` Metern mit ausgefranster Wand und eine
 sinkt auf `bed`; es hebt nur Land und vertieft nur Meer, die Enden laufen aus, Straßen bleiben. Klippenfelsen
 (`rocks`, Standard `cliff-coast`; an engen Bögen der nächstkleinere der Liste) stehen an der Wand von 1,5 m unter dem
 Wasser bis zur Kante, Steine in der Brandung davor. Danach `sea` erneut. `cliffRocks(where, brush)` ist der Pinsel
-Cliff rocks des Editors (Felswände auf steilen Flanken).
-statt Erdböschung), Poller an der Kante und Laternen auf der Promenade. `cliffRocks(where, brush)` ist der Pinsel „Cliff rocks“
-des Landscape-Werkzeugs: Klippenmodelle auf den steilen Kanten unter dem Strich, die Front zur tiefen Seite, nach dem
-Look der Karte (vorher `environment` setzen). `contour(a, b, height)` liefert die Höhenlinie quer über einen Hang (für
-Reihen am Hang: Zäune, Verbauungen, Terrassen), in Stücken, wo der Boden die Höhe nicht erreicht. `glacier(line, { width,
-snow })` legt einen Gletscher oder ein Schneefeld vom Kopf zur Zunge: ein ebener Strang von Punkt zu Punkt, etwas
-eingesenkt, mit Schnee bemalt, Eisbrocken an der Zunge und Moränenschutt an den Rändern. Breite Modelle (Zäune,
-Mauern) sitzen am tiefsten Punkt ihrer Grundfläche: am Steilhang versinken sie, dort schmale Stücke nehmen.
+Cliff rocks des Editors (Felswände auf steilen Flanken). Vorher
+`environment` setzen (der Look wählt die Modelle), und vor dem Bewuchs: der Pinsel hält Abstand zu anderen Objekten.
+`contour(a, b, height)` liefert die Höhenlinie quer über einen Hang (für Reihen am Hang: Zäune, Verbauungen, Terrassen),
+in Stücken, wo der Boden die Höhe nicht erreicht. `glacier(line, { width, snow })` legt einen Gletscher oder ein
+Schneefeld vom Kopf zur Zunge: ein ebener Strang von Punkt zu Punkt, etwas eingesenkt, mit Schnee bemalt, Eisbrocken an
+der Zunge und Moränenschutt an den Rändern. Breite Modelle (Zäune, Mauern) sitzen am tiefsten Punkt ihrer Grundfläche:
+am Steilhang versinken sie, dort schmale Stücke nehmen.
 
 Packen: `npx vitest run tools/maps/shipped-maps.spec.ts -t <id>` (mit `LEVEL_LOG=1` Spuren, Objekte, Warnungen) (ein Level allein; die Liste in `index.json` behält
 die anderen). Ansehen: `/map-preview?map=<id>&cam=x,y,h,tx,ty,th&clean` (Kamera und Ziel in Kartenmetern, Höhen über
