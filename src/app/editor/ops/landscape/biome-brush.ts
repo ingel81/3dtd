@@ -78,15 +78,12 @@ function relief(stroke: LandscapeStroke, biome: BiomeDef, x: number, y: number, 
       const h = base - coastOf(stroke);
       if (h <= 0) return -0.5 * h;
       const t = stroke.doc.terrain;
-      const g = t.grid;
       const field = stroke.coastDistance();
       if (!field) {
         const keep = 0.4 + 0.6 * smooth(1.5, 6, h);
         return h * (keep - 1) + r.amplitude * n.billowed(x, y, r.wave) * smooth(1.5, 4, h);
       }
-      const i = Math.min(g.columns - 1, Math.max(0, Math.round((x + t.width / 2) / g.cellSize)));
-      const j = Math.min(g.rows - 1, Math.max(0, Math.round((y + t.depth / 2) / g.cellSize)));
-      const d = field[j * g.columns + i];
+      const d = coastAt(field, t, x, y);
       // Behind the strand the land may rise no steeper than BACK_RISE (a soft bank into the meadow, no scarp),
       // and from twice the strand's width on it is left as it was
       const cap = d < STRAND_WIDTH ? 0.3 + STRAND_RISE * d : 0.3 + STRAND_RISE * STRAND_WIDTH + BACK_RISE * (d - STRAND_WIDTH);
@@ -149,6 +146,14 @@ interface Waterline {
  */
 function waterlineShare(t: MapTerrain, waterline: Waterline, x: number, y: number): number {
   return 1 - smooth(waterline.band, waterline.band * 2, heightAt(t, x, y) - waterline.level);
+}
+
+/** Metres from a map point to the coast (LandscapeStroke.coastDistance), at the nearest height sample */
+function coastAt(field: Float32Array, t: MapTerrain, x: number, y: number): number {
+  const g = t.grid;
+  const i = Math.min(g.columns - 1, Math.max(0, Math.round((x + t.width / 2) / g.cellSize)));
+  const j = Math.min(g.rows - 1, Math.max(0, Math.round((y + t.depth / 2) / g.cellSize)));
+  return field[j * g.columns + i];
 }
 
 /** The pattern layers of a biome, resolved once per dab */
@@ -356,6 +361,8 @@ function paintBiome(
   rate: number,
   waterline: Waterline | null = null,
 ): void {
+  // The distance to the coast where the biome grades a strand (relief `shore`)
+  const coast = biome.relief.kind === 'shore' && waterline ? stroke.coastDistance() : null;
   const usable = layers.filter((l) => l.layer !== null) as { layer: number; share: number }[];
   if (!usable.length) return;
   const res = t.splat.resolution;
@@ -394,7 +401,9 @@ function paintBiome(
       for (let k = 0; k < MAX_LAYERS; k++) sum += c[o + k];
       for (let k = 0; k < MAX_LAYERS; k++) target[k] = sum > 0 ? c[o + k] / sum : 0;
       foldOver(t, biome, steep, mud, pattern, x, y, target, c[o + SHORE] / 255, c[o + CRACK] / 255, c[o + CRUST] / 255, waterline);
-      const a = Math.min(1, rate * Math.max(w * (0.5 + 0.5 * strength), shore));
+      // A beach's sand ends behind its strand: the land beyond keeps its ground (a meadow, a wood)
+      const strand = coast ? 1 - smooth(STRAND_WIDTH, STRAND_WIDTH * 1.6, coastAt(coast, t, x, y)) : 1;
+      const a = Math.min(1, rate * Math.max(w * (0.5 + 0.5 * strength) * strand, shore));
       const texel = v * res + u;
       readWeights(t, texel, w8);
       for (let k = 0; k < MAX_LAYERS; k++) w8[k] = w8[k] * (1 - a) + target[k] * 255 * a;
