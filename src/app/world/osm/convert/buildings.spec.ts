@@ -80,6 +80,14 @@ describe('OSM buildings: shapes and models', () => {
     expect(fitModels('shed', 40, 20, null, all)).toBeNull();
   });
 
+  it('fits the outbuildings, the farm barn and the small commercial building of their size', () => {
+    expect(fitModels('shed', 4.5, 4.5, null, all)!.model.asset).toBe('outbuilding');
+    expect(fitModels('farm', 12, 18, null, all)!.model.asset).toBe('barn-modern');
+    expect(fitModels('carport', 7, 2.6, null, all)!.model.asset).toBe('shelter-lean-to');
+    expect(fitModels('office', 12, 10, 4, all)!.model.asset).toBe('shop-office');
+    expect(fitModels('house', 7, 5, null, all)!.model.asset).toBe('annex');
+  });
+
   it('guesses the kind from the tags, the size and the land use', () => {
     expect(buildingKind({ building: 'yes' }, 10, 1.2, null)).toBe('shed');
     expect(buildingKind({ building: 'yes' }, 36, 2, null)).toBe('garage');
