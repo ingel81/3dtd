@@ -1,9 +1,9 @@
 /**
  * Mars canyon: a colony on a mesa's foot where two canyons meet. The roads
  * run on the canyon floors between stepped ochre walls; towers stand on the
- * benches and the mesas above. The HQ is the colony's hub with greenhouse
- * domes, wind turbines and solar fields; rovers on the tracks. Mars as the
- * rovers see it: butterscotch dust and dunes, dark basalt sand in the low
+ * benches and the mesas above. The HQ is the colony's hub with habitat
+ * domes and a greenhouse, wind turbines and solar fields; rovers on the
+ * tracks. Mars as the rovers see it: butterscotch dust and dunes, dark basalt sand in the low
  * ground, grey bedrock, rust, grey and black rocks, a pale butterscotch sky.
  */
 import type { CustomMapDocument, MapPoint } from '../../../src/app/world/custom-map/map-document';
@@ -110,7 +110,7 @@ export function buildMarsCanyon(): CustomMapDocument {
   k.place('base-hub', hq.x + 16, hq.y - 16, { rotation: facing({ x: hq.x + 16, y: hq.y - 16 }, hq) });
   for (const [i, p] of around(32, 7, 0.2).entries()) {
     if (!k.free(p.x, p.y, 6)) continue;
-    k.place(['greenhouse-dome', 'base-module', 'dome-white', 'greenhouse-dome', 'dome-glass', 'base-module', 'research-station'][i], p.x, p.y, { rotation: facing(p, hq) });
+    k.place(['greenhouse-dome', 'base-module', 'dome-white', 'dome-glass', 'dome-white', 'base-module', 'research-station'][i], p.x, p.y, { rotation: facing(p, hq) });
   }
   for (const p of around(20, 3, 1.4)) if (k.free(p.x, p.y, 3)) k.place('base-tunnel', p.x, p.y, { rotation: facing(p, hq) + Math.PI / 2 });
   // The pad up on the plain, back from the canyon's lip, on a levelled apron
@@ -122,8 +122,9 @@ export function buildMarsCanyon(): CustomMapDocument {
     // The lander that brought the colony, standing on its pad as the landmark of the base
     k.place('mars-lander', pad.x + 1, pad.y, { rotation: 2.2 });
   }
-  // A greenhouse farm on the basin's edge, rovers on their way out to it
-  for (const p of around(54, 6, 0.5)) if (p.y < hq.y - 10 && k.free(p.x, p.y, 9)) k.place('greenhouse-dome', p.x, p.y, { rotation: facing(p, hq) });
+  // Habitat domes on the basin's edge with one more greenhouse among them, rovers on their way out to them
+  const edge = around(54, 6, 0.5).filter((p) => p.y < hq.y - 10 && k.free(p.x, p.y, 9));
+  for (const [i, p] of edge.entries()) k.place(i === 1 ? 'greenhouse-dome' : i % 2 ? 'dome-glass' : 'dome-white', p.x, p.y, { rotation: facing(p, hq) });
   for (const [dx, dy] of [[24, 6], [24, -8]] as const) if (k.free(pad.x + dx, pad.y + dy, 4)) k.place('fuel-tanks', pad.x + dx, pad.y + dy);
   for (let i = 0; i < 6; i++) {
     const p = { x: 90 + (i % 3) * 14, y: -190 + Math.floor(i / 3) * 12 };

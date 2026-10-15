@@ -30,6 +30,18 @@ def window():
     return flat_material('station-window', (0.55, 0.7, 0.85), 0.15, emission=(0.45, 0.6, 0.75), strength=0.35)
 
 
+def see_through(material, alpha):
+    """Glass one sees through (glTF alpha blend): the base colour's alpha"""
+    bsdf = next(n for n in material.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
+    bsdf.inputs['Alpha'].default_value = alpha
+    for attr, value in (('surface_render_method', 'BLENDED'), ('blend_method', 'BLEND')):
+        try:
+            setattr(material, attr, value)
+        except (AttributeError, TypeError):
+            pass
+    return material
+
+
 def hatch(frame, dark, centre, normal, radius=0.7):
     """Round hatch: a framed ring with a dark door and a wheel"""
     n = normal.normalized()
@@ -144,11 +156,11 @@ def wheel(tyre, hub, centre, axis, radius=0.42, width=0.32, cleats=16):
 def dome(name, radius=6.0, glass=True, greenhouse=False):
     """Geodesic-looking dome: a ring wall with vents, a hemisphere of struts with glass or white panels, an
     airlock tunnel with a round hatch at the front (-Y), a cable reel and a small tank beside it. The
-    greenhouse glows green from its grow lights and shows its beds and plants through the glass"""
+    greenhouse has dark green glass one sees through, onto beds of plants lit in patches by grow lights"""
     clear_scene()
     struts = Part(trim(), smooth=True)
     if greenhouse:
-        pane = flat_material('greenhouse-glass', (0.18, 0.4, 0.2), 0.08, 0.3, emission=(0.12, 0.62, 0.14), strength=0.6)
+        pane = see_through(flat_material('greenhouse-glass', (0.04, 0.12, 0.06), 0.08, 0.3), 0.45)
     elif glass:
         pane = flat_material('dome-glass', (0.35, 0.45, 0.5), 0.08, 0.4)
     else:
@@ -190,16 +202,26 @@ def dome(name, radius=6.0, glass=True, greenhouse=False):
     tube(shell, [c, c + Vector((0, 0, 0.2)), c + Vector((0, 0, 1.8)), c + Vector((0, 0, 2.1))], [0.4, 0.6, 0.6, 0.25], 12)
     objects = [struts.to_object(name + '-struts'), panel.to_object(name), shell.to_object(name + '-airlock'), dark.to_object(name + '-dark')]
     if greenhouse:
-        plants = Part(flat_material('greenhouse-plants', (0.15, 0.4, 0.12), 0.8))
+        # Seen through the dark glass: beds of plants, some lit by the grow lights over them and some in the dark
+        # between, so the dome glows in patches, not as a lamp
+        plants = Part(flat_material('greenhouse-plants', (0.06, 0.2, 0.06), 0.8, emission=(0.03, 0.12, 0.03), strength=0.5))
+        lit = Part(flat_material('greenhouse-plants-lit', (0.1, 0.32, 0.08), 0.8, emission=(0.12, 0.45, 0.08), strength=0.8))
         beds = Part(flat_material('greenhouse-soil', (0.2, 0.13, 0.08), 0.9))
+        lamps = Part(flat_material('grow-light', (0.9, 0.85, 0.7), 0.4, emission=(1.0, 0.8, 0.55), strength=1.2))
         rnd = random.Random(3)
-        for k in range(14):
-            a = rnd.uniform(0, math.tau)
-            r = rnd.uniform(0, radius * 0.7)
-            box(plants, math.cos(a) * r, math.sin(a) * r, 0.8, rnd.uniform(0.6, 1.2), rnd.uniform(0.6, 1.2), rnd.uniform(0.4, 1.4), a)
         for k in range(3):
-            box(beds, -radius * 0.45 + k * radius * 0.45, 0, 0.7, 1.2, radius * 1.3, 0.35)
-        objects += [plants.to_object(name + '-plants'), beds.to_object(name + '-beds')]
+            x = -radius * 0.45 + k * radius * 0.45
+            half = math.sqrt(max(0.0, (radius * 0.85) ** 2 - x * x))
+            box(beds, x, 0, 0.7, 1.2, 2 * half, 0.35)
+            # A grow light over part of the bed only; the plants under it are the lit ones
+            y0, y1 = sorted(rnd.uniform(-half, half) for _ in range(2))
+            if y1 - y0 > 1.5:
+                oriented_box(lamps, Vector((x, y0, 3.2)), Vector((x, y1, 3.2)), 0.08)
+            for j in range(int(2 * half / 0.9)):
+                y = -half + 0.45 + j * 0.9
+                size = rnd.uniform(0.5, 0.9)
+                box(lit if y0 <= y <= y1 else plants, x + rnd.uniform(-0.15, 0.15), y, 1.05, size, size * 0.9, rnd.uniform(0.3, 1.0), rnd.uniform(0, 1))
+        objects += [plants.to_object(name + '-plants'), lit.to_object(name + '-plants-lit'), beds.to_object(name + '-beds'), lamps.to_object(name + '-lights')]
     export(name, objects)
 
 

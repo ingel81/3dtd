@@ -10009,7 +10009,7 @@
       "name": "Greenhouse dome",
       "category": "building",
       "file": "models/greenhouse-dome.glb",
-      "triangles": 3946,
+      "triangles": 4222,
       "footprint": 7.1,
       "height": 7.9,
       "blocksLos": true,
