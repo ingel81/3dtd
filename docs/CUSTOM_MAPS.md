@@ -276,12 +276,17 @@ Lava spiegeln sich).
   Flachen. Nicht ein Eis überall: klare dunkle Flecken über Tiefe, milchige Flecken, Gruppen eingeschlossener Blasen;
   die wandernden Risse wechseln ihr Gewicht und haben eine helle Bruchkante, über Teilen des Sees laufen lange weiße
   Risse zwischen Platten (Zellkanten, vom Rauschen gebogen, die Hälfte verborgen). GPU über dem Eis +0,04 ms
-- `lava`: deckend und glühend; Krustenplatten über Adern aus einer gebackenen Rauschtextur (`lava-noise.ts`, 256²:
-  Platten, Adern, Verzerrung), deren Koordinaten ein langsam treibendes, atmendes Feld verzieht: die Kruste reißt auf
-  und schließt sich. Die Kruste hat Relief (Dicke als Höhenfeld, Normale per `dFdx/dFdy`) und wird von der Sonne
-  beleuchtet, die Adern leuchten selbst; kein Gesamtpuls mehr, die Adern flimmern örtlich. Farbverlauf Kruste,
-  Dunkelrot, Orange, Gelb nur in den heißesten Adern (die Bloom-Schwelle fängt nur diese; mit `lavaGlow` über 1).
-  Zum Ufer hin (bis etwa 1,3 m Tiefe) erkaltet sie zu geschlossener Kruste, in Wülsten entlang des Ufers. Lava-Körper und -Ströme bekommen
+- `lava`: deckend und glühend; dunkle Basaltplatten mit glühenden Rissen dazwischen aus einer gebackenen
+  Rauschtextur (`lava-noise.ts`, 256²: R Hitzefeld, G Abstand zum nächsten Riss eines verzerrten, kachelnden
+  Zellrasters mit 5 Platten je Seite, BA Verzerrung), deren Koordinaten ein langsam treibendes, atmendes Feld verzieht:
+  die Kruste reißt auf und schließt sich. Über heißen Zonen (Hitzefeld, atmet langsam, örtlich versetzt) sind die Risse
+  breiter und heller, die dünne Kruste glüht dunkelrot, am heißesten schmilzt sie zu offenen Flecken; die Glut der
+  Risse greift auf die Plattenränder über. Risse bleiben mindestens etwa ein Pixel breit (`fwidth`), so werden ferne
+  Ströme nicht schwarz. Die Platten wölben sich von ihren Rissen auf (Relief als Höhenfeld, Normale per `dFdx/dFdy`)
+  und werden von der Sonne beleuchtet. Farbverlauf Kruste, Dunkelrot, Orange, Gelb nur in den heißesten Rissen (die
+  Bloom-Schwelle fängt nur diese; mit `lavaGlow` über 1). Gleich viele Texturzugriffe wie vorher, auf allen Stufen.
+  Zum Ufer hin (bis etwa 1,3 m Tiefe) erkaltet sie zu geschlossener, grauerer Kruste, die Risse schließen sich, in
+  Wülsten entlang des Ufers. Lava-Körper und -Ströme bekommen
   orange flackernde Punktlichter (je 40-m-Fleck bzw. alle 30 m) aus dem Lichter-Pool
 
 Lava als Bodenschicht: Katalog-Materialien mit `emissive` (0..1) glühen nur in den tiefsten Stellen ihrer Textur
