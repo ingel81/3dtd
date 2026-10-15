@@ -43,6 +43,7 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
 | Lava-Glut über 1 und Hitzeflimmern (`lavaGlow`) | eigene Karten | aus | aus | an | an |
 | Ferner Bodenschatten (`shadowCascade`) | eigene Karten | aus | an | an | an |
 | Reicheres Wasser (`waterDetail`, kein Schalter) | eigene Karten | aus | an | an | an |
+| Spiegelbild im Wasser (`waterReflection`, kein Schalter) | eigene Karten | aus | aus | 35 %, jedes zweite Bild | 50 %, jedes Bild |
 | Pflanzen im Wind (`plantSway`) | eigene Karten | 1 | 1 | 1 | 1 (nur die Einstellung „Plant motion“ ändert ihn) |
 | `errorTarget` | Tiles | 32 | 24 | 20 | 12 |
 

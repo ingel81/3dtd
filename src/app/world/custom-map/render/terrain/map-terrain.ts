@@ -20,6 +20,7 @@ import { TerrainMaterial, TERRAIN_MAX_LAYERS, type TerrainLayerSlots, type Terra
 import { GrassField, type GrassInputs } from '../grass/grass-field';
 import { GroundOcclusion } from './ground-occlusion';
 import { HeightTexture } from './height-texture';
+import { setGroundColors } from './ground-color';
 import { FarShadow } from './far-shadow';
 import { GridNormalTexture, MaterialArrays, SplatTextures, compressedTogether, isCompressed, maskTexture } from './terrain-textures';
 
@@ -250,6 +251,7 @@ export class MapTerrainLayer {
   private updateGrassInputs(): void {
     if (!this.grassInputs || !this.splat || !this.pathMask) return;
     this.grass.setInputs({ ...this.grassInputs, splat: this.splat.maps, pathMask: this.pathMask });
+    setGroundColors(this.splat.maps, this.grassInputs.colors, this.grassInputs.width, this.grassInputs.depth);
   }
 
   /** `focus`: the camera's point on the ground (map space), where the terrain keeps its full detail */

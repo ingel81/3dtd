@@ -15,9 +15,14 @@
  *   reach, baked over the whole map (terrain/far-shadow.ts, one lookup)
  * - waterDetail: the water's richer shading of water, sea and swamp
  *   (deep water darker, the body shaded by its waves, light through them,
- *   the land in the reflection, caustics on the shallow bed with
- *   refraction, foam streaks along a river's current); four height
- *   fetches more per water pixel, no pass
+ *   the land in the reflection in its ground colour, caustics on the
+ *   shallow bed with refraction, foam streaks along a river's current);
+ *   four height and two or three splat fetches more per water pixel, no
+ *   pass
+ * - reflection: the scene mirrored in the level of the area body in view
+ *   (water-reflection.ts): one more render of the map per frame or every
+ *   other, at a fraction of the frame's size
+ *   (`CustomMapView.setReflectionScale`)
  */
 export interface MapEffects {
   refraction: boolean;
@@ -25,6 +30,7 @@ export interface MapEffects {
   lavaGlow: boolean;
   shadowCascade: boolean;
   waterDetail: boolean;
+  reflection: boolean;
 }
 
 export const NO_MAP_EFFECTS: Readonly<MapEffects> = {
@@ -33,4 +39,5 @@ export const NO_MAP_EFFECTS: Readonly<MapEffects> = {
   lavaGlow: false,
   shadowCascade: false,
   waterDetail: false,
+  reflection: false,
 };

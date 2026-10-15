@@ -14,6 +14,7 @@ import {
   type BufferGeometry,
   type Camera,
   type Material,
+  type Object3D,
   type MeshStandardMaterial,
   type WebGLRenderer,
 } from 'three';
@@ -518,6 +519,16 @@ export class MapObjectLayer {
       return { object: batch.objects[index], point: hit.point, distance: hit.distance };
     }
     return null;
+  }
+
+  /** Meshes of objects that block no sight (scatter, props, small plants): what a water reflection leaves out */
+  decorMeshes(): Object3D[] {
+    const out: Object3D[] = [];
+    this.group.traverse((o) => {
+      const b = o.userData['batch'] as AssetBatch | undefined;
+      if (b && !b.blocksLos) out.push(o);
+    });
+    return out;
   }
 
   dispose(): void {

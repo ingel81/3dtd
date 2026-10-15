@@ -49,6 +49,7 @@ import { SceneCopy } from './water/scene-copy';
 import { createWaterMaterial, setWaterEffects, setWaterSky } from './water/water-material';
 import { setHeatHaze } from './water/heat-haze';
 import { ParticleField } from './effects/particle-field';
+import { WaterReflection } from './water/water-reflection';
 import { GroundDecals } from './terrain/ground-decals';
 import { NO_MAP_EFFECTS, type MapEffects } from './map-effects';
 import type { GridRect } from './terrain/terrain-chunks';
@@ -172,6 +173,19 @@ export class CustomMapView {
   /** The switchable effects (map-effects.ts) and the frame copy refraction reads */
   private mapEffects: MapEffects = { ...NO_MAP_EFFECTS };
   private readonly sceneCopy = new SceneCopy();
+  /** The scene mirrored in the level of the area body in view (the reflection effect) */
+  private readonly reflection = new WaterReflection(() => [
+    ...this.waters.flatMap((w) => (w ? [w.object] : [])),
+    ...this.rivers.map((r) => r.mesh),
+    this.terrain.grass.mesh,
+    this.decals.mesh,
+    this.effects.group,
+    ...this.objects.decorMeshes(),
+  ], () => [this.group, this.losBlockers, this.environment.lights, this.environment.skyDome.mesh]);
+  /** The body the reflection mirrors, picked a few times a second */
+  private mirrored: WaterSurface | null = null;
+  private mirrorAge = Infinity;
+  private readonly mirrorLevel = new Vector3();
   private lavaDue: ReturnType<typeof setTimeout> | null = null;
   /** Leaves, trodden soil and puddles from the map's rules (ground-decals.ts) */
   private readonly decals: GroundDecals;
@@ -548,6 +562,7 @@ export class CustomMapView {
     }
     this.terrain.update(this.camPos, clock, this.focusPoint);
     const reach = this.camPos.distanceTo(this.focusPoint);
+    this.armReflection(camera, reach, dtSeconds);
     // Shadow box fitted to the ground the camera sees: sharp up close, wide from high up or looking far
     const fit = fitShadowBox(camera, this.group, this.focusPoint, this.shadowCenter);
     // The box's radius in its steps (shrinking only well below it), for the casters round its centre too:
@@ -1112,7 +1127,9 @@ export class CustomMapView {
     setPlantSway(q.plantSway);
     this.environment.setShadowQuality(q.shadowMapSize, q.shadowRadius);
     this.setFarGround(q.farSingle, q.farFlat, q.steepNear);
-    this.setEffects({ refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade, waterDetail: q.waterDetail });
+    this.reflection.scale = q.waterReflection;
+    this.reflection.every = q.waterReflectionEvery;
+    this.setEffects({ refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade, waterDetail: q.waterDetail, reflection: q.waterReflection > 0 });
     this.objects.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.edgeTrees.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.terrain.grass.setBlades(q.grassBlades);
@@ -1164,6 +1181,62 @@ export class CustomMapView {
     this.applyEffects();
   }
 
+  /**
+   * The reflection for this frame: the area body with the most water round
+   * the focus (picked four times a second) mirrored in its level
+   */
+  private armReflection(camera: Camera, reach: number, dt: number): void {
+    if (!this.mapEffects.reflection) {
+      this.reflection.arm(null, 0, null);
+      return;
+    }
+    this.mirrorAge += dt;
+    if (this.mirrorAge > 0.25) {
+      this.mirrorAge = 0;
+      const picked = this.pickMirrored(reach);
+      if (picked !== this.mirrored) {
+        this.mirrored = picked;
+        for (const w of this.waters) w?.setMirrored(w === picked);
+      }
+    }
+    const s = this.mirrored;
+    this.reflection.arm(s ? camera : null, s ? this.group.localToWorld(this.mirrorLevel.set(0, s.level, 0)).y : 0, s);
+  }
+
+  /** The reflective body with the most wet samples within reach of the focus (a sparse grid), or none */
+  private pickMirrored(reach: number): WaterSurface | null {
+    const f = this.heights;
+    const bodies = [this.doc.terrain.water, ...(this.doc.terrain.waterBodies ?? [])];
+    const radius = Math.min(250, Math.max(40, reach * 0.8));
+    const step = Math.max(1, Math.round(radius / f.cellSize / 10));
+    const ci = Math.round((-this.focusPoint.x - f.originX) / f.cellSize);
+    const cj = Math.round((this.focusPoint.z - f.originY) / f.cellSize);
+    const r = Math.ceil(radius / f.cellSize);
+    let best: WaterSurface | null = null;
+    let most = 0;
+    bodies.forEach((body, k) => {
+      const surface = this.waters[k];
+      if (!body || !surface?.reflective) return;
+      let wet = 0;
+      for (let j = Math.max(0, cj - r); j <= Math.min(f.rows - 1, cj + r); j += step) {
+        for (let i = Math.max(0, ci - r); i <= Math.min(f.columns - 1, ci + r); i += step) {
+          const at = j * f.columns + i;
+          if (body.mask[at] > 0 && f.grid.heights[at] < body.level) wet++;
+        }
+      }
+      if (wet > most) {
+        most = wet;
+        best = surface;
+      }
+    });
+    return best;
+  }
+
+  /** Share of the frame's size the reflection renders at (quality levels), 0 off */
+  setReflectionScale(scale: number): void {
+    this.reflection.scale = scale;
+  }
+
   /** Turns switchable effects on or off (map-effects.ts); the rest stay as they are */
   setEffects(effects: Partial<MapEffects>): void {
     const cascade = this.mapEffects.shadowCascade;
@@ -1193,7 +1266,7 @@ export class CustomMapView {
   }
 
   private applyEffects(): void {
-    for (const w of this.waters) w?.setEffects(this.mapEffects, this.sceneCopy);
+    for (const w of this.waters) w?.setEffects(this.mapEffects, this.sceneCopy, this.reflection);
     const rivers = this.doc.terrain.rivers?.filter((r) => r.points.length >= 2) ?? [];
     this.rivers.forEach((r, k) => r.setEffects(this.mapEffects, this.sceneCopy, rivers[k]?.kind ?? 'water'));
   }
@@ -1220,6 +1293,7 @@ export class CustomMapView {
     this.effectMeshes = null;
     this.offscreen?.dispose();
     this.sceneCopy.dispose();
+    this.reflection.dispose();
     if (this.lavaDue) clearTimeout(this.lavaDue);
     if (this.ambientDue) clearTimeout(this.ambientDue);
     if (this.farShadowDue) clearTimeout(this.farShadowDue);

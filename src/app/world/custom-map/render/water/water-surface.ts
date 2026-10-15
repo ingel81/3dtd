@@ -20,7 +20,8 @@ import type { HeightTexture } from '../terrain/height-texture';
 import { APRON_RINGS, RIVER_REACH, type ApronProfile } from '../terrain/terrain-apron';
 import type { GridRect } from '../terrain/terrain-chunks';
 import { uploadRect } from '../terrain/texture-ranges';
-import { createWaterMaterial, setWaterColor, setWaterEffects, setWaterFlow, setWaterMask, setWaterSky } from './water-material';
+import { createWaterMaterial, setWaterColor, setWaterEffects, setWaterFlow, setWaterMask, setWaterMirrored, setWaterSky } from './water-material';
+import type { WaterReflection } from './water-reflection';
 import type { MapEffects } from '../map-effects';
 import type { SceneCopy } from './scene-copy';
 import { setHeatHaze } from './heat-haze';
@@ -70,7 +71,11 @@ export class WaterSurface {
   private flowJob = 0;
   /** What the surface shows now */
   kind: MapWater['kind'];
-  private effects: { on: MapEffects; copy: SceneCopy } | null = null;
+  private effects: { on: MapEffects; copy: SceneCopy; reflection: WaterReflection | null } | null = null;
+  /** The surface's level (map frame), for the reflection's plane */
+  level = 0;
+  /** This body is the one the reflection mirrors */
+  private mirrored = false;
   private beforeRender: Mesh['onBeforeRender'] = () => undefined;
   /** The frame copy lava's heat shimmer reads, null when it is off (heat-haze.ts) */
   private hazeCopy: SceneCopy | null = null;
@@ -120,9 +125,11 @@ export class WaterSurface {
       }
       old.dispose();
       for (const m of this.meshes()) m.material = this.material;
-      if (this.effects) this.setEffects(this.effects.on, this.effects.copy);
+      if (this.effects) this.setEffects(this.effects.on, this.effects.copy, this.effects.reflection);
+      setWaterMirrored(this.material, this.mirrored);
     }
     setWaterColor(this.material, kind, water.color);
+    this.level = water.level;
     const f = this.field;
     // A tile's cells reach two samples past the mask (the grown mask) and one for their far corner
     const r = rect
@@ -225,15 +232,30 @@ export class WaterSurface {
     return [...this.tiles.values(), ...(this.apronMesh ? [this.apronMesh] : [])];
   }
 
+  /** Whether this body's level is the one mirrored (the reflection is armed for it) */
+  setMirrored(on: boolean): void {
+    this.mirrored = on;
+    setWaterMirrored(this.material, on);
+  }
+
+  /** Whether the reflection may mirror this body: water, sea or swamp */
+  get reflective(): boolean {
+    return this.kind === 'water' || this.kind === 'sea' || this.kind === 'swamp' || this.kind === undefined;
+  }
+
   setSky(skyUniforms: ShaderMaterial['uniforms'], sunIntensity: number): void {
     setWaterSky(this.material, skyUniforms, sunIntensity);
   }
 
   /** Switchable effects (refraction, sea waves); `copy` is the view's frame copy */
-  setEffects(on: MapEffects, copy: SceneCopy): void {
-    this.effects = { on, copy };
-    const { refraction } = setWaterEffects(this.material, this.kind ?? 'water', on, copy);
-    this.beforeRender = refraction ? (renderer) => copy.capture(renderer) : () => undefined;
+  setEffects(on: MapEffects, copy: SceneCopy, reflection: WaterReflection | null = null): void {
+    this.effects = { on, copy, reflection };
+    const { refraction, reflects } = setWaterEffects(this.material, this.kind ?? 'water', on, copy, reflection);
+    // The mirror renders before the frame copy is taken: the copy is of the frame, not of the mirror
+    this.beforeRender = (renderer, scene, camera) => {
+      if (reflects && reflection) reflection.render(renderer, scene, camera, this);
+      if (refraction) copy.capture(renderer);
+    };
     for (const m of this.meshes()) m.onBeforeRender = this.beforeRender;
     // Lava's heat shimmer over every tile
     this.hazeCopy = on.lavaGlow && this.kind === 'lava' ? copy : null;

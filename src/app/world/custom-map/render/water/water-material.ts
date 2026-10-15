@@ -3,6 +3,7 @@ import {
   DataTexture,
   LinearFilter,
   LinearMipmapLinearFilter,
+  Matrix4,
   NoColorSpace,
   RepeatWrapping,
   RGBAFormat,
@@ -19,12 +20,14 @@ import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS, heightFogFragment } from '../envi
 import { SKY_FUNCTIONS, SKY_TEXTURE_GLSL } from '../environment/sky-dome';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
+import { GROUND_COLOR_GLSL, GROUND_COLOR_UNIFORMS } from '../terrain/ground-color';
 import { FLOW_MAP_MAX, SHORE_FIELD_MAX, SLOPE_FIELD_MAX } from './flow-map';
 import { SHORE_PHASE_GLSL, shoreWaves } from './shore-waves';
 import { lavaNoiseTexture } from './lava-noise';
 import { SCENE_COPY_GLSL, type SceneCopy } from './scene-copy';
 import { SHORE_CUT_SCALE } from './shore-cut';
 import type { MapEffects } from '../map-effects';
+import type { WaterReflection } from './water-reflection';
 
 /**
  * The material of every water body (lake, sea, swamp, ice, lava; areas and
@@ -89,6 +92,10 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
         uFlowMap: { value: null },
         uHasFlow: { value: 0 },
         uLavaNoise: { value: null },
+        // The scene mirrored in this body's level (water-reflection.ts): on while it is the level mirrored
+        uReflectOn: { value: 0 },
+        uReflection: { value: null },
+        uReflectMatrix: { value: new Matrix4() },
       },
     ]),
     defines: {
@@ -107,7 +114,7 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
   material.uniforms['uWaves'].value = waveTexture();
   if (o.kind === 'lava') material.uniforms['uLavaNoise'].value = lavaNoiseTexture();
   // Shared objects (merge above copied them): fog and terrain heights follow their owners
-  Object.assign(material.uniforms, HEIGHT_FOG_UNIFORMS, o.heights.uniforms);
+  Object.assign(material.uniforms, HEIGHT_FOG_UNIFORMS, o.heights.uniforms, GROUND_COLOR_UNIFORMS);
   material.name = `custom-map-water-${o.kind}`;
   setWaterColor(material, o.kind, o.color);
   return material;
@@ -124,29 +131,37 @@ export function setWaterColor(material: ShaderMaterial, kind: MapWaterKind, colo
   };
   const deep = new Color(color || fallback[kind]);
   u['uDeep'].value.copy(deep);
-  u['uShallow'].value.copy(deep).lerp(new Color(kind === 'swamp' ? 0x4a5028 : 0x6f9a88), 0.3);
+  // Shallows: the body's colour turned light turquoise (the swamp: murky green), where the ground shows through
+  u['uShallow'].value.copy(deep).lerp(new Color(kind === 'swamp' ? 0x4a5028 : 0x5fb3a6), kind === 'swamp' ? 0.3 : 0.4);
 }
 
 /**
  * The switchable effects of the water (map-effects.ts): refraction looks
  * through to the frame behind (`copy` captures it before the first water
  * draws, `mesh.onBeforeRender`), sea waves swell the sea, the detail adds
- * the richer shading of water, sea and swamp. Lava and ice keep their
- * look. Recompiles only when a switch changes.
+ * the richer shading of water, sea and swamp, the reflection mirrors the
+ * scene in an area body's level (`reflection` renders it, `setWaterMirrored`
+ * says which body it is for). Lava and ice keep their look. Recompiles only
+ * when a switch changes.
  */
 export function setWaterEffects(
   material: ShaderMaterial,
   kind: MapWaterKind,
   effects: MapEffects,
   copy: SceneCopy,
-): { refraction: boolean } {
+  reflection: WaterReflection | null = null,
+): { refraction: boolean; reflects: boolean } {
   // Not through lava and ice (opaque), nor the swamp (murky)
   const refraction = effects.refraction && (kind === 'water' || kind === 'sea');
   const seaWaves = effects.seaWaves && kind === 'sea';
   const lavaGlow = effects.lavaGlow && kind === 'lava';
   const detail = effects.waterDetail && (kind === 'water' || kind === 'sea' || kind === 'swamp');
+  const reflects = !!reflection && effects.reflection && (kind === 'water' || kind === 'sea' || kind === 'swamp');
   const d = material.defines as Record<string, unknown>;
-  const was = `${'REFRACT' in d}|${'SEA_WAVES' in d}|${'LAVA_GLOW' in d}|${'WATER_DETAIL' in d}`;
+  const was = `${'REFRACT' in d}|${'SEA_WAVES' in d}|${'LAVA_GLOW' in d}|${'WATER_DETAIL' in d}|${'REFLECT_SCENE' in d}`;
+  if (reflects) d['REFLECT_SCENE'] = '';
+  else delete d['REFLECT_SCENE'];
+  if (reflection) Object.assign(material.uniforms, reflection.uniforms);
   if (lavaGlow) d['LAVA_GLOW'] = '';
   else delete d['LAVA_GLOW'];
   if (detail) d['WATER_DETAIL'] = '';
@@ -156,8 +171,13 @@ export function setWaterEffects(
   if (seaWaves) d['SEA_WAVES'] = '';
   else delete d['SEA_WAVES'];
   Object.assign(material.uniforms, copy.uniforms);
-  if (was !== `${refraction}|${seaWaves}|${lavaGlow}|${detail}`) material.needsUpdate = true;
-  return { refraction };
+  if (was !== `${refraction}|${seaWaves}|${lavaGlow}|${detail}|${reflects}`) material.needsUpdate = true;
+  return { refraction, reflects };
+}
+
+/** Whether this material's body is the one the reflection mirrors this frame */
+export function setWaterMirrored(material: ShaderMaterial, on: boolean): void {
+  material.uniforms['uReflectOn'].value = on ? 1 : 0;
 }
 
 /** Baked flow of an area body (flow-map.ts, RG on the mask's grid and uv), or none */
@@ -348,11 +368,19 @@ varying vec3 vSwellNormal;
 #ifdef REFRACT
 ${SCENE_COPY_GLSL}
 #endif
+#ifdef REFLECT_SCENE
+uniform float uReflectOn;
+uniform sampler2D uReflection;
+uniform mat4 uReflectMatrix;
+#endif
 ${HEIGHT_FOG_PARS}
 ${SHADER_NOISE}
 ${SKY_FUNCTIONS}
 ${SKY_TEXTURE_GLSL}
 ${TERRAIN_HEIGHT_GLSL}
+#ifdef WATER_DETAIL
+${GROUND_COLOR_GLSL}
+#endif
 ${SHORE_PHASE_GLSL}
 varying float vApronDepth;
 varying vec3 vWorldPos;
@@ -585,7 +613,8 @@ void main() {
   #endif
   // Gusts: patches of rougher and calmer water drifting over the surface (the foam's break-up below)
   float foamBreak = texture2D(uWaves, vWorldPos.xz / 17.0 - uTime * 0.01).y;
-  waveStrength *= mix(0.6, 1.3, smoothstep(0.3, 0.7, foamBreak));
+  float gust = smoothstep(0.3, 0.7, foamBreak);
+  waveStrength *= mix(0.6, 1.3, gust);
   float fine = 1.0 - smoothstep(30.0, 160.0, length(cameraPosition - vWorldPos));
   #if RIVER == 1
   vec3 n = flowNormal(vWorldPos.xz, vel, flow, waveStrength, fine);
@@ -623,25 +652,56 @@ void main() {
   body *= 1.0 + clamp(dot(n.xz, sunFlat) * 2.5, -0.2, 0.2) * sunShade;
   // Deep water darker still: the middle of a lake or a deep channel reads deeper than its shelf
   body *= mix(1.0, 0.72, smoothstep(2.0, 10.0, depth));
+  #endif
+  // How much of the reflection shows over the body
+  #if KIND == 4
+  float mirrorWeight = fresnel * 0.4 + 0.02;
+  #else
+  float mirrorWeight = fresnel * 0.9 + 0.05;
+  #endif
+  #ifdef REFLECT_SCENE
+  if (uReflectOn > 0.5) {
+    // The scene mirrored in this level (water-reflection.ts), bent by the waves: banks, trees, houses and the
+    // sky over them. A calm surface shows it from above too, as a still lake does; rough patches and the
+    // sea's swell less
+    vec4 rc = uReflectMatrix * vec4(vWorldPos, 1.0);
+    sky = texture2D(uReflection, rc.xy / rc.w + n.xz * 0.05).rgb;
+    #if KIND == 3
+    mirrorWeight = mix(0.16, 1.0, fresnel) * mix(1.0, 0.75, gust);
+    #elif KIND == 4
+    mirrorWeight = mix(0.18, 0.7, fresnel);
+    #else
+    mirrorWeight = mix(0.3, 1.0, fresnel) * mix(1.0, 0.75, gust);
+    #endif
+  } else
+  #endif
+  {
+  #ifdef WATER_DETAIL
   // The land in the reflection: the reflected ray, followed over the terrain's heights 1.5, 4.5, 13.5 and
-  // 40.5 m out, runs into a bank, a cliff or the hills beyond the shore; there the water mirrors a dark tone
-  // of the land instead of the sky, hazier the farther the land (terrain only, not trees or houses)
+  // 40.5 m out, runs into a bank, a cliff or the hills beyond the shore; there the water mirrors the ground's
+  // colour where the ray met it (its splat layers), shaded, hazier the farther the land (terrain only, not
+  // trees or houses)
   vec2 rayMap = normalize(vec2(-r.x, r.z) + vec2(1e-4));
   float rise = r.y / max(length(r.xz), 1e-3);
   float land = 0.0;
   float landFar = 0.0;
   float probe = 1.5;
+  vec2 hitAt = m;
   for (int k = 0; k < 4; k++) {
     float hit = smoothstep(-0.2, 0.8, terrainHeightNear(m + rayMap * probe) - vMapPos.y - probe * rise);
     landFar += (1.0 - land) * hit * smoothstep(5.0, 45.0, probe);
+    if (land < 0.5 && hit >= 0.5) hitAt = m + rayMap * probe;
     land = max(land, hit);
     probe *= 3.0;
   }
-  vec3 landTone = mix(mix(uDeep * 0.55, uHorizon * 0.22, 0.5), uHorizon * 0.6, landFar / max(land, 1e-3)) * mix(0.7, 1.0, sunShade);
+  // The ground there as the bank shows it: lit by the sun from the side it faces the water, a little shaded
+  vec3 landLit = groundColorAt(hitAt) * (uSunColor * (0.25 + 0.45 * max(uSunDir.y, 0.0)) + uLight * 0.25);
+  vec3 landTone = mix(landLit, uHorizon * 0.6, landFar / max(land, 1e-3)) * mix(0.7, 1.0, sunShade);
   sky = mix(sky, landTone, land * 0.85);
   #endif
+  }
   #if KIND == 4
-  color = mix(body, sky, fresnel * 0.4 + 0.02);
+  color = mix(body, sky, mirrorWeight);
   // Algae and duckweed in patches along the banks, where the water is shallow and still; the open
   // water stays dark (patches over the whole surface read as camouflage, not as a swamp)
   vec2 ap = vWorldPos.xz * 0.3 + uFlow * uTime * 0.01;
@@ -650,7 +710,7 @@ void main() {
   // Lit like the land around and darker than it: at night the patches must not glow over the dark water
   color = mix(color, vec3(0.1, 0.15, 0.04) * uLight * uLight, algae * bank * 0.45);
   #else
-  color = mix(body, sky, fresnel * 0.9 + 0.05);
+  color = mix(body, sky, mirrorWeight);
   #endif
   // The sharp part of the sun glint sparkles: small facets of a fine, fast wave layer catch the sun and let
   // go of it
@@ -663,7 +723,7 @@ void main() {
   // Light the waves focus on the shallow bed (the fine wave layer as caustics), where the sun reaches it
   through *= 1.0 + smoothstep(0.52, 0.8, sparkle) * 0.9 * see * sunShade;
     #endif
-  color = mix(mix(through, body, 1.0 - see), sky, fresnel * 0.9 + 0.05);
+  color = mix(mix(through, body, 1.0 - see), sky, mirrorWeight);
   #endif
   // Sun glint, weaker in the shallows: there the surface is calm and flat, and a flat mirror against the
   // sun drew white streaks along every shore
@@ -687,7 +747,7 @@ void main() {
   // Foam where it gets shallow, broken up by the waves. It lies a little off the waterline and thins out
   // towards it; at a mask's edge it goes with the water. Where the shallow strip is only a few pixels wide
   // (a steep bank, or far away) it would draw a hard white line along the shore: there it fades, by the
-  // depth's change per pixel
+  // depth's change per pixel, and the lapping line below takes over
   #if RIVER == 1 && defined(WATER_DETAIL)
   // On a river the same lookup, stretched along the current and running down it: streaks of foam
   vec2 fd = normalize(vFlow + vec2(1e-4));
@@ -697,7 +757,14 @@ void main() {
   #endif
   float foam = smoothstep(0.3, 0.06, depth) * smoothstep(0.0, 0.05, depth) * edge
     * smoothstep(0.45, 0.75, foamNoise * 0.6 + foamBreak * 0.6 - depth);
-  foam *= 1.0 - smoothstep(0.04, 0.12, fwidth(depth));
+  float depthStep = fwidth(depth);
+  foam *= 1.0 - smoothstep(0.04, 0.12, depthStep);
+  // The waterline laps: a soft line of foam rides small waves up the bank and back (a few seconds, out of
+  // step along the shore), at least two pixels wide so it shows at a steep bank and from far away too
+  float lap = 0.5 + 0.5 * sin(uTime * 1.7 + foamBreak * 11.0 + foamNoise * 2.0);
+  float lapWidth = max(0.06, depthStep * 2.5);
+  float lapLine = (1.0 - smoothstep(0.0, lapWidth, abs(depth - 0.03 - 0.1 * lap))) * edge;
+  foam = max(foam, lapLine * mix(0.35, 0.7, smoothstep(0.3, 0.75, foamNoise * 0.7 + foamBreak * 0.6)));
   #ifdef SHORE_DENSITY
   // Bands of foam that come in from the open water and run up to the shore (shore-waves.ts). They follow
   // the blurred distance to the shore, so they round the bank's corners instead of tracing its cells,
@@ -725,8 +792,11 @@ void main() {
   // Ripples where the river runs fast and shallow
   foam = max(foam, smoothstep(0.7, 0.95, foamNoise) * smoothstep(1.2, 0.3, depth) * min(length(vFlow), 1.0));
     #ifdef WATER_DETAIL
-  // Rapids: the streaks also over depth where the river runs fast
-  foam = max(foam, smoothstep(0.72, 0.95, foamNoise) * smoothstep(1.0, 3.0, length(vFlow)) * 0.5);
+  // Streaks along the current over the whole river, so it reads as flowing from the game's camera too;
+  // white water where it runs fast (rapids, below a fall)
+  float speed = length(vFlow);
+  foam = max(foam, smoothstep(0.58, 0.88, foamNoise) * mix(0.35, 0.85, smoothstep(0.8, 3.0, speed)));
+  foam = max(foam, smoothstep(0.5, 0.8, foamNoise) * smoothstep(2.0, 3.5, speed) * 0.6);
     #endif
   #endif
   color = mix(color, vec3(0.85, 0.88, 0.86) * uLight, foam * 0.65);

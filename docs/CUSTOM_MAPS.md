@@ -219,15 +219,30 @@ Lava spiegeln sich).
 - **Detail ab Medium** (`waterDetail` der Stufe, kein Schalter; Wasser, Meer, Sumpf): tiefes Wasser dunkler (bis
   28 % zwischen 2 und 10 m), der Körper von den Wellen schattiert (Hänge zur Sonne heller, ±20 %), Licht durch die
   Wellen (gegen eine tiefe Sonne leuchten die zum Betrachter gewandten Hänge im Flachwasserton), das Land in der
-  Spiegelung (der gespiegelte Strahl wird 1,5, 4,5, 13,5 und 40,5 m weit über die Höhentextur verfolgt, je ein
-  Zugriff auf das nächste Sample, `terrainHeightNear`; trifft er Ufer, Klippe oder Hügel, spiegelt das Wasser dort
-  einen dunklen Landton statt des Himmels, ferne Hügel dunstiger; nur das Gelände, keine Bäume und Häuser), mit
+  Spiegelung, wo kein Spiegelbild der Szene liegt (der gespiegelte Strahl wird 1,5, 4,5, 13,5 und 40,5 m weit über
+  die Höhentextur verfolgt, je ein Zugriff auf das nächste Sample, `terrainHeightNear`; trifft er Ufer, Klippe oder
+  Hügel, spiegelt das Wasser dort die Bodenfarbe an dieser Stelle, die Mittelfarben der Splat-Schichten nach ihrem
+  Gewicht, `terrain/ground-color.ts`, beleuchtet; ferne Hügel dunstiger; nur das Gelände, keine Bäume und Häuser), mit
   Brechung Lichtnetze auf dem flachen Grund (die feine Glitzerlage), auf Flüssen Schaumstreifen längs der Strömung
-  (derselbe Zugriff gestreckt und stromab laufend, über schnellem Wasser auch im Tiefen). Low zeichnet ohne sie.
-  Kosten: vier Zugriffe mehr je Wasserpixel (Höhen, ein Texel; vorher 14 bis 17 je nach Gewässer), sonst Arithmetik,
-  kein zusätzlicher Pass. Auf einer RTX 5080 nicht vom Rauschen zu trennen (GPU-Median je Bild in neun Wasser- und
-  Lava-Ansichten auf fünf Karten, zwei Läufe je Fassung: Median der Unterschiede je Stufe -0,09 bis +0,02 ms, einzelne
-  Ansichten streuen bis 0,5 ms in beide Richtungen, so weit wie zwei Läufe derselben Fassung; Draw Calls gleich)
+  über den ganzen Fluss (derselbe Zugriff gestreckt und stromab laufend), Wildwasser, wo er schnell läuft (Gefälle,
+  unter einem Fall). Low zeichnet ohne sie. Kosten: vier Höhen- und zwei bis drei Splat-Zugriffe mehr je Wasserpixel
+  (vorher 14 bis 17 je nach Gewässer), sonst Arithmetik, kein zusätzlicher Pass
+- **Spiegelbild ab High** (`waterReflection` der Stufe, `water/water-reflection.ts`, kein Schalter): das Flächengewässer
+  mit dem meisten Wasser um den Fokus (alle 0,25 s gewählt; Wasser, Meer, Sumpf; Flüsse, Lava und Eis nie) spiegelt
+  die Karte: eine Kamera, an seiner Ebene gespiegelt, rendert die Szene in ein Half-Float-Ziel (High 35 % der
+  Bildgröße, jedes zweite Bild; Ultra 50 %, jedes Bild), die nahe Ebene schräg in die Wasserebene gelegt (oblique
+  Projektion, nichts unter Wasser spiegelt sich), höchstens 400 m weit; der Himmel bleibt (auf der fernen Ebene). Nur
+  die Karte: Gruppe, Sichtblocker, Himmel und Lichter; Türme, Gegner und Overlays des Spiels nicht, innerhalb der
+  Karte ohne Wasser, Gras, Bodendecals, Partikel und Objekte, die keine Sicht blockieren (Streu, Requisiten, kleine
+  Pflanzen). Das Wasser liest es über seine projizierte Lage, von den Wellen verschoben; ruhiges Wasser zeigt es auch
+  von oben (Anteil mindestens 30 %, Meer 16 %, in rauen Flecken weniger), statt des Himmels und des Landes darin. Das
+  Spiegelbild rendert im Zeichnen des ersten Wasserkachels (`onBeforeRender`), so zählt es in die GPU-Zeit des Bildes.
+  Kosten (RTX 5080, Dev-Build, Canvas 1100 × 752 High und Ultra, mittlere GPU-Zeit je Bild, Minimum aus zwei Läufen,
+  16 Ansichten über Wasser und Lava auf fünf Karten, aus Spielkamera-Höhe und flach): Low 0,66 → 0,68 ms, Medium
+  0,69 → 0,67 ms (beide im Rauschen, Draw Calls gleich); High 0,81 → 0,89 ms im Median, in Ansichten mit Spiegelbild
+  +0,1 bis +0,4 ms und +23 bis +60 Draw Calls in jedem zweiten Bild; Ultra 0,75 → 1,10 ms im Median, mit Spiegelbild
+  +0,4 bis +0,8 ms (Hafenstadt mit vielen Häusern bis +1,3 ms) und +23 bis +62 Draw Calls je Bild. Ohne Spiegelbild
+  (sonst gleiche Fassung) liegen High und Ultra bei 0,76 und 0,82 ms, im Rauschen des Ausgangsstands
 - **Schaltbare Effekte** (`map-effects.ts`, Ansichtsoption `effects`, `setEffects`, Vorschau `?effects=…`, alle aus
   ohne Angabe): `refraction` (Wasser und Meer zeigen den Grund dahinter, von den Wellen verbogen und nach Tiefe
   getönt; eine Kopie des Bildes nach dem undurchsichtigen Teil, `SceneCopy`, ein Blit je Frame; GPU +0,03 bis 0,06 ms
@@ -247,7 +262,10 @@ Lava spiegeln sich).
   (der scharfe Teil funkelt: feine, schnelle Wellenfacetten fangen die Sonne),
   Schaum im Flachen (etwas vom Ufer abgerückt, zur Wasserlinie dünner, an der Maskenkante mit dem Wasser aus; wo der
   flache Streifen nur wenige Pixel breit ist, an steilem Ufer oder in der Ferne, blendet er nach der Tiefenänderung je
-  Pixel aus, statt eine harte weiße Linie zu ziehen). Der Wasserkörper nimmt bei warmem, tiefem Licht den Farbton der Sonne an (bis 35 % zur eigenen
+  Pixel aus), dazu auf allen Stufen eine weiche Schaumlinie an der Wasserlinie, die mit kleinen Wellen das Ufer hinauf
+  und zurück läuft (einige Sekunden, entlang des Ufers versetzt; mindestens zwei Pixel breit, so zeigt sie sich auch
+  am steilen Ufer und aus der Spielkamera). Flachwasser ist hell türkis (die Körperfarbe zu 40 % zu `#5fb3a6`; Sumpf
+  trüb grün). Der Wasserkörper nimmt bei warmem, tiefem Licht den Farbton der Sonne an (bis 35 % zur eigenen
   Helligkeit im Sonnenton, nur wenn Rot über Blau liegt): bei Dämmerung von oben gedämpft und warm wie die Spiegelung
   aus der Nähe, statt kräftig blau; Tag und Nacht bleiben unverändert (gilt für Wasser, Meer und Sumpf)
 - **Strömung** (`flow-map.ts`): jedes Flächengewässer bekommt beim Laden und bei jedem `set` eine gebackene
