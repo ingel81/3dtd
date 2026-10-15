@@ -51,6 +51,20 @@ export function buildHarborTown(): CustomMapDocument {
   k.paint('grass-leafy', [{ x: -200, y: 230 }, { x: 200, y: 230 }], { radius: 40, falloff: 1 }, 0.6);
   k.scatter(['tree-oak', 'tree-maple', 'shrub-wide'], [{ x: -200, y: 230 }, { x: 200, y: 230 }], { radius: 36, strength: 0.8 }, { density: 3, minDistance: 6 });
 
+  // ---- The hill behind the town: the church over the roofs, seen from the quay down the streets; green flanks,
+  // the churchyard walled on its top. The blocks that stood there go
+  const hill = { x: 128, y: 222 };
+  k.erase(hill, 78);
+  k.raise(hill, { radius: 76, falloff: 0.95 }, 44);
+  k.smooth(hill, { radius: 70, falloff: 0.8 }, 3);
+  const crown = k.h(hill.x, hill.y);
+  k.plateau(hill, { radius: 30, falloff: 0.5 }, crown, 1);
+  k.paint('grass-leafy', hill, { radius: 70, falloff: 0.6 }, 1);
+  k.scatter(['tree-oak', 'tree-maple', 'tree-birch', 'shrub-wide', 'bush'], [{ x: hill.x - 40, y: hill.y - 20 }, { x: hill.x + 35, y: hill.y - 30 }, { x: hill.x - 10, y: hill.y + 40 }, { x: hill.x + 45, y: hill.y + 20 }], { radius: 26, strength: 0.8 }, { density: 3, minDistance: 6 });
+  const church = k.place('chapel', hill.x, hill.y, { rotation: Math.PI });
+  k.row('wall-stone', [{ x: hill.x - 16, y: hill.y - 14 }, { x: hill.x + 16, y: hill.y - 14 }, { x: hill.x + 16, y: hill.y + 14 }, { x: hill.x - 16, y: hill.y + 14 }, { x: hill.x - 16, y: hill.y - 14 }], 4.4, { turn: Math.PI / 2 });
+  for (const [dx, dy] of [[-10, 8], [-6, 10], [9, 9], [11, 4]] as const) k.place('graves', hill.x + dx, hill.y + dy, { rotation: church.rotation });
+
   // ---- The quay: laid after the town's ground, whose smoothing would round its edge. The land's slopes reach
   // into the bay (they left mounds by the piers): the whole basin first, then the quay wall as one straight
   // step from the beach to the east edge, bollards and lamps along its edge (the quay's promenade)
@@ -84,6 +98,15 @@ export function buildHarborTown(): CustomMapDocument {
   for (const [x, y, a] of [[-20, -112, 'crate-long'], [18, -110, 'barrel-old'], [-24, -146, 'crate-flat'], [26, -146, 'trade-goods'], [12, -150, 'barrel-small']] as const) {
     if (k.free(x, y, 2)) k.place(a, x, y, { rotation: x * 0.05 });
   }
+  // The market on the harbour master's square: stalls round the HQ, their fronts to it, goods between them
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2 + 0.2;
+    const p = { x: hq.x + Math.cos(a) * 20, y: hq.y + Math.sin(a) * 18 };
+    if (k.free(p.x, p.y, 2)) k.place(i % 2 ? 'market-stall-blue' : 'market-stall-red', p.x, p.y, { rotation: facing(p, hq) });
+  }
+  for (const [dx, dy, a] of [[-11, 6, 'basket'], [10, -8, 'barrel-small'], [-9, -9, 'crate'], [12, 7, 'trade-goods']] as const) {
+    if (k.free(hq.x + dx, hq.y + dy, 1)) k.place(a, hq.x + dx, hq.y + dy, { rotation: dx });
+  }
   // Piers and boats, a ship at the quay, the lighthouse on the mole, buoys at the harbor mouth
   for (const x of [-180, -140]) {
     k.row('pier', [{ x, y: shore - 2 }, { x, y: shore - 41 }], 3);
@@ -94,6 +117,13 @@ export function buildHarborTown(): CustomMapDocument {
   k.place('rowboat', -230, shore - 14, { rotation: 0.6 });
   k.place('lighthouse', 205, -228);
   for (const [x, y, a] of [[120, -230, 'buoy-red'], [70, -240, 'buoy-green'], [-60, -230, 'buoy-red']] as const) k.place(a, x, y);
+  // A second ship riding at anchor in the bay, fishing boats out, gulls over the harbour
+  // TODO(E179): ships with lit windows and cranes with a load on the hook
+  // TODO(E190): the lighthouse's turning beam, the sounds of the harbour (cranes, a ship's horn, gulls)
+  k.place('ship', 90, -215, { rotation: 2.6, scale: 0.85 });
+  for (const [x, y, r] of [[30, -200, 0.4], [-110, -225, 2.1]] as const) k.place('fishing-boat', x, y, { rotation: r });
+  k.place('fx-birds', -60, shore - 30, { z: 10, scale: 0.6 });
+  k.place('fx-birds', 150, -200, { z: 15, scale: 0.5 });
   k.scatter(['pebbles-scatter'], { x: -235, y: shore - 10 }, { radius: 24, strength: 0.7 }, { density: 2, minDistance: 4 });
 
   k.trimLayers(7);
