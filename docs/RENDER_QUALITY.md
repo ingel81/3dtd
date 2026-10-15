@@ -42,6 +42,7 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
 | Dünung auf dem Meer (`seaWaves`) | eigene Karten | aus | an | an | an |
 | Lava-Glut über 1 und Hitzeflimmern (`lavaGlow`) | eigene Karten | aus | aus | an | an |
 | Ferner Bodenschatten (`shadowCascade`) | eigene Karten | aus | an | an | an |
+| Reicheres Wasser (`waterDetail`, kein Schalter) | eigene Karten | aus | an | an | an |
 | Pflanzen im Wind (`plantSway`) | eigene Karten | 1 | 1 | 1 | 1 (nur die Einstellung „Plant motion“ ändert ihn) |
 | `errorTarget` | Tiles | 32 | 24 | 20 | 12 |
 

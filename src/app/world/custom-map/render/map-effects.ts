@@ -13,12 +13,18 @@
  *   the air above it shimmers (heat haze, shares the refraction's copy)
  * - shadowCascade: the land's own shadow beyond the cached shadow map's
  *   reach, baked over the whole map (terrain/far-shadow.ts, one lookup)
+ * - waterDetail: the water's richer shading of water, sea and swamp
+ *   (deep water darker, the body shaded by its waves, light through them,
+ *   the land in the reflection, caustics on the shallow bed with
+ *   refraction, foam streaks along a river's current); four height
+ *   fetches more per water pixel, no pass
  */
 export interface MapEffects {
   refraction: boolean;
   seaWaves: boolean;
   lavaGlow: boolean;
   shadowCascade: boolean;
+  waterDetail: boolean;
 }
 
 export const NO_MAP_EFFECTS: Readonly<MapEffects> = {
@@ -26,4 +32,5 @@ export const NO_MAP_EFFECTS: Readonly<MapEffects> = {
   seaWaves: false,
   lavaGlow: false,
   shadowCascade: false,
+  waterDetail: false,
 };

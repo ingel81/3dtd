@@ -128,8 +128,9 @@ export function setWaterColor(material: ShaderMaterial, kind: MapWaterKind, colo
 /**
  * The switchable effects of the water (map-effects.ts): refraction looks
  * through to the frame behind (`copy` captures it before the first water
- * draws, `mesh.onBeforeRender`), sea waves swell the sea. Lava and ice keep
- * their look. Recompiles only when a switch changes.
+ * draws, `mesh.onBeforeRender`), sea waves swell the sea, the detail adds
+ * the richer shading of water, sea and swamp. Lava and ice keep their
+ * look. Recompiles only when a switch changes.
  */
 export function setWaterEffects(
   material: ShaderMaterial,
@@ -141,16 +142,19 @@ export function setWaterEffects(
   const refraction = effects.refraction && (kind === 'water' || kind === 'sea');
   const seaWaves = effects.seaWaves && kind === 'sea';
   const lavaGlow = effects.lavaGlow && kind === 'lava';
+  const detail = effects.waterDetail && (kind === 'water' || kind === 'sea' || kind === 'swamp');
   const d = material.defines as Record<string, unknown>;
-  const was = `${'REFRACT' in d}|${'SEA_WAVES' in d}|${'LAVA_GLOW' in d}`;
+  const was = `${'REFRACT' in d}|${'SEA_WAVES' in d}|${'LAVA_GLOW' in d}|${'WATER_DETAIL' in d}`;
   if (lavaGlow) d['LAVA_GLOW'] = '';
   else delete d['LAVA_GLOW'];
+  if (detail) d['WATER_DETAIL'] = '';
+  else delete d['WATER_DETAIL'];
   if (refraction) d['REFRACT'] = '';
   else delete d['REFRACT'];
   if (seaWaves) d['SEA_WAVES'] = '';
   else delete d['SEA_WAVES'];
   Object.assign(material.uniforms, copy.uniforms);
-  if (was !== `${refraction}|${seaWaves}|${lavaGlow}`) material.needsUpdate = true;
+  if (was !== `${refraction}|${seaWaves}|${lavaGlow}|${detail}`) material.needsUpdate = true;
   return { refraction };
 }
 

@@ -1112,7 +1112,7 @@ export class CustomMapView {
     setPlantSway(q.plantSway);
     this.environment.setShadowQuality(q.shadowMapSize, q.shadowRadius);
     this.setFarGround(q.farSingle, q.farFlat, q.steepNear);
-    this.setEffects({ refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade });
+    this.setEffects({ refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade, waterDetail: q.waterDetail });
     this.objects.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.edgeTrees.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
     this.terrain.grass.setBlades(q.grassBlades);

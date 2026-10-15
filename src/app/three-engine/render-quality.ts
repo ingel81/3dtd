@@ -73,6 +73,12 @@ export interface CustomMapQuality {
   seaWaves: boolean;
   lavaGlow: boolean;
   shadowCascade: boolean;
+  /**
+   * The water's richer shading (map-effects.ts `waterDetail`): more
+   * arithmetic and four height fetches per water pixel, no pass; not a
+   * switch of the player's, it follows the level
+   */
+  waterDetail: boolean;
   /** Share of the wind's sway on grass, trees and plants (the player's plant motion; every level 1) */
   plantSway: number;
 }
@@ -96,7 +102,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 1, shadowMapSize: 1024, shadowRadius: 1.5, lodBias: 0.5, impostorFrom: 200,
       grassBlades: 0, grassDistance: 0, particles: 0.4, pointLights: 2,
-      farSingle: 80, farFlat: 220, steepNear: 0, refraction: false, seaWaves: false, lavaGlow: false, shadowCascade: false, plantSway: 1,
+      farSingle: 80, farFlat: 220, steepNear: 0, refraction: false, seaWaves: false, lavaGlow: false, waterDetail: false, shadowCascade: false, plantSway: 1,
     },
     tiles: { errorTarget: 32 },
   },
@@ -106,7 +112,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 1, shadowMapSize: 2048, shadowRadius: 1.5, lodBias: 0.75, impostorFrom: 280,
       grassBlades: 35_000, grassDistance: 90, particles: 0.7, pointLights: 4,
-      farSingle: 110, farFlat: 300, steepNear: 110, refraction: false, seaWaves: true, lavaGlow: false, shadowCascade: true, plantSway: 1,
+      farSingle: 110, farFlat: 300, steepNear: 110, refraction: false, seaWaves: true, lavaGlow: false, waterDetail: true, shadowCascade: true, plantSway: 1,
     },
     tiles: { errorTarget: 24 },
   },
@@ -116,7 +122,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 1.5, shadowMapSize: 4096, shadowRadius: 1.5, lodBias: 1, impostorFrom: 380,
       grassBlades: 70_000, grassDistance: 140, particles: 1, pointLights: 6,
-      farSingle: 150, farFlat: 400, steepNear: 150, refraction: true, seaWaves: true, lavaGlow: true, shadowCascade: true, plantSway: 1,
+      farSingle: 150, farFlat: 400, steepNear: 150, refraction: true, seaWaves: true, lavaGlow: true, waterDetail: true, shadowCascade: true, plantSway: 1,
     },
     tiles: { errorTarget: 20 },
   },
@@ -126,7 +132,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     customMaps: {
       pixelRatioCap: 2, shadowMapSize: 4096, shadowRadius: 2.5, lodBias: 1.25, impostorFrom: 500,
       grassBlades: 100_000, grassDistance: 180, particles: 1, pointLights: 6,
-      farSingle: 220, farFlat: 600, steepNear: 220, refraction: true, seaWaves: true, lavaGlow: true, shadowCascade: true, plantSway: 1,
+      farSingle: 220, farFlat: 600, steepNear: 220, refraction: true, seaWaves: true, lavaGlow: true, waterDetail: true, shadowCascade: true, plantSway: 1,
     },
     tiles: { errorTarget: 12 },
   },
