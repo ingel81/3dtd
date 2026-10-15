@@ -179,7 +179,8 @@ Dorfplatz.
 der Lavasee mit „Dig lake“ in einen Lava-Körper gegraben; die Lavabrücke ist eine Wegkante der Art Bridge mit
 `style: 'lava'` vom Ufer zur Insel. Lavaströme nur außen am Hang (sie würden die Spirale
 schneiden). Look `hell` (bis E154 lief die Karte versehentlich mit `temperate`, ohne die Glut des Bioms), Sonne 22°
-in der Dämmerung.
+in der Dämmerung. Auf den Höllenfeldern der vier Außenhänge stehen Gruppen aus Obsidiantürmen und
+schwarzen Nadeln, über jeder eine Rauchsäule (`fx-smoke-column`).
 
 Biom Hölle/Vulkan, Look `hell`. Ein großer Krater mit Lavasee; ein Spiralweg führt vom Kraterrand hinab zum HQ auf
 einer Obsidianinsel im Lavasee, über eine Lavabrücke. Glutrisse, Lavaströme, Schmiede am Rand, Rauchsäulen. Spawns: 3
