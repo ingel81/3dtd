@@ -12,14 +12,16 @@ import {
   ShaderMaterial,
   Vector3,
 } from 'three';
-import type { MapObject } from '../../map-document';
+import type { MapLife, MapObject } from '../../map-document';
+import { areaShown, lifeSwitches } from '../../map-life';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import type { HeightField } from '../height-field';
 import { mapToScene } from '../map-coords';
 import { ParticleField, particleCount, type ParticleEmitter, type ParticleKind } from './particle-field';
 import { buildWaterfalls, fallFoot, fallLip, fallReach, type WaterfallSpec } from './waterfall';
 import { LAMP_LIGHT_UNIFORMS, LampLight, type LampSpot } from './lamp-light';
-import { BirdFlocks, type Flock } from './bird-flocks';
+import { BirdFlocks, circleFlock, type Flock } from './bird-flocks';
+import { isParticleLife, lifeEmitters, lifeFlock } from './life-areas';
 
 /**
  * Effects and lights of the map's objects, from their catalogue entries
@@ -83,6 +85,13 @@ export class EffectLayer {
    */
   private placedFlocks: Flock[] = [];
   private placedFireflies = false;
+  /** The map's life (setLife): its switches and areas, drawn from the next `set` */
+  private life: MapLife | undefined = undefined;
+  /** The quality level's share of the life areas (render-quality.ts `life`; 0 on Low: none) */
+  private lifeShare = 1;
+  /** Fireflies and flocks of the life areas, shown like the automatic ones (setAmbient) */
+  private lifeFireflies: ParticleEmitter[] = [];
+  private lifeFlocks: Flock[] = [];
   readonly birds = new BirdFlocks();
   private waterfalls: Mesh | null = null;
   private glows: Mesh<InstancedBufferGeometry, ShaderMaterial> | null = null;
@@ -138,6 +147,7 @@ export class EffectLayer {
     const q = new Quaternion();
     this.placedFlocks = [];
     this.placedFireflies = false;
+    const life = lifeSwitches(this.life);
     // Smoke placed by hand (fx-smoke over a house, a level script's chimney) stands for the house's own chimney
     const placedSmoke = objects.filter((o) => entries.get(o.asset)?.effects?.some((fx) => fx.kind === 'smoke' && !fx.at));
     for (const o of objects) {
@@ -161,19 +171,22 @@ export class EffectLayer {
         }
         if (fx.kind === 'birds') {
           // A flock the map maker placed: its size and number with the object's scale
-          this.placedFlocks.push({
-            center: origin.clone().setY(origin.y + (fx.height ?? 50) * s),
-            radius: (fx.radius ?? 45) * s,
-            birds: Math.max(2, Math.round((fx.rate ?? 10) * s)),
-            seed: ((Math.abs(Math.sin(o.x * 12.9898 + o.y * 78.233)) * 43758.5453) % 1) || 0.37,
-          });
+          this.placedFlocks.push(
+            circleFlock(
+              origin.clone().setY(origin.y + (fx.height ?? 50) * s),
+              (fx.radius ?? 45) * s,
+              Math.max(2, Math.round((fx.rate ?? 10) * s)),
+              ((Math.abs(Math.sin(o.x * 12.9898 + o.y * 78.233)) * 43758.5453) % 1) || 0.37,
+            ),
+          );
           continue;
         }
         if (fx.kind === 'fireflies') this.placedFireflies = true;
         const kind = fx.kind;
         let from = origin;
         if (fx.at) {
-          // A chimney's smoke: none where smoke already rises within the house's reach
+          // A chimney's smoke: none where smoke already rises within the house's reach, none with the map's switch off
+          if (!life.smoke || life.density <= 0) continue;
           const reach = e.footprint * s + 2;
           if (placedSmoke.some((p) => p !== o && Math.hypot(p.x - o.x, p.y - o.y) < reach)) continue;
           from = new Vector3(fx.at[0] * s, 0, fx.at[1] * s).applyQuaternion(q.setFromAxisAngle(up, o.rotation)).add(origin);
@@ -184,7 +197,7 @@ export class EffectLayer {
           radius: (fx.radius ?? (kind === 'fire' ? 0.15 : e.footprint)) * s,
           height: (fx.height ?? (kind === 'leaves' ? e.height * 0.8 : 0)) * s,
           // An area effect of the map maker's (category fx) grows denser with its scale, and takes its tint
-          count: this.share(particleCount(kind, fx.rate) * (e.category === 'fx' ? Math.max(0.3, s * s) : 1)),
+          count: this.share(particleCount(kind, fx.rate) * (e.category === 'fx' ? Math.max(0.3, s * s) : fx.at ? life.density : 1)),
           color: (e.category === 'fx' && o.tint) || fx.color,
           scale: kind === 'fog' || kind === 'smoke' ? s : Math.sqrt(s),
         });
@@ -202,6 +215,7 @@ export class EffectLayer {
       }
     }
     this.landFalls(falls, feet, emitters);
+    this.lifeAreas(emitters);
     for (const [kind, list] of emitters) {
       const field = new ParticleField(kind, list, this.time, this.light);
       this.fields.push(field);
@@ -218,6 +232,35 @@ export class EffectLayer {
     this.bakeLamps();
     this.showPool();
     this.setAmbient(this.ambient);
+  }
+
+  /**
+   * The life areas' share of the effects (map-life.ts), on levels that show
+   * them: particles join the fields of their kind (no draw call more for a
+   * kind the map has), fireflies and flocks go with the automatic ones
+   */
+  private lifeAreas(emitters: Map<ParticleKind, ParticleEmitter[]>): void {
+    this.lifeFireflies = [];
+    this.lifeFlocks = [];
+    const factor = lifeSwitches(this.life).density;
+    const surface = (x: number, y: number) => Math.max(this.field.heightAt(x, y), this.waterLevelAt(x, y) ?? -Infinity);
+    for (const area of this.life?.areas ?? []) {
+      if (!areaShown(area, this.lifeShare) || factor <= 0) continue;
+      if (area.kind === 'birds') this.lifeFlocks.push(lifeFlock(area, surface, factor));
+      else if (isParticleLife(area.kind)) {
+        const list = lifeEmitters(area, surface, factor, (n) => this.share(n));
+        if (area.kind === 'fireflies') this.lifeFireflies.push(...list);
+        else for (const e of list) push(emitters, e);
+      }
+    }
+  }
+
+  /**
+   * The map's life (the document's `life`): switches, density and areas,
+   * taken by the next `set` and `setLavaLights` (the view calls both)
+   */
+  setLife(life: MapLife | undefined): void {
+    this.life = life;
   }
 
   /**
@@ -238,12 +281,19 @@ export class EffectLayer {
       const per = Math.max(8, Math.min(60, Math.floor(2000 / points.length)));
       const embers: ParticleEmitter[] = [];
       const smoke: ParticleEmitter[] = [];
+      const sparks: ParticleEmitter[] = [];
+      // Sparks bursting from the lava where the map turns them on (life.auto.sparks), on levels that show life
+      const life = lifeSwitches(this.life);
+      const sparksOn = life.sparks && this.lifeShare > 0 && life.density > 0;
       for (const [k, p] of points.entries()) {
         const origin = p.clone().setY(p.y - 5);
         embers.push({ kind: 'embers', origin, radius: 12, height: 0.2, count: per, color: '#ff8a30', scale: 1.4 });
         if (k % 3 === 0) smoke.push({ kind: 'smoke', origin, radius: 10, height: 0.5, count: 4, color: '#4a3a34', scale: 2.5 });
+        if (sparksOn && k % 2 === 0) {
+          sparks.push({ kind: 'sparks', origin, radius: 10, height: 0.2, count: this.share(Math.round(14 * life.density)), color: '#ff9a30', scale: 1 });
+        }
       }
-      for (const [kind, list] of [['embers', embers], ['smoke', smoke]] as const) {
+      for (const [kind, list] of [['embers', embers], ['smoke', smoke], ['sparks', sparks]] as const) {
         if (!list.length) continue;
         const field = new ParticleField(kind, list, this.time, this.light);
         this.lavaFields.push(field);
@@ -304,18 +354,21 @@ export class EffectLayer {
       this.retiredFrames = 0;
       this.fireflies = null;
     }
-    if (ambient.fireflies.length && !this.placedFireflies) {
-      const per = this.share(14);
-      this.fireflies = new ParticleField(
-        'fireflies',
-        ambient.fireflies.map((origin) => ({ kind: 'fireflies', origin, radius: 9, height: 1.8, count: per, color: undefined, scale: 1 })),
-        this.time,
-        this.light,
-      );
+    // Fireflies or flocks set by hand (objects, life areas) take the place of the map's own; its switches turn those off
+    const life = lifeSwitches(this.life);
+    const emitters = [...this.lifeFireflies];
+    if (life.fireflies && life.density > 0 && !this.placedFireflies && !emitters.length) {
+      const per = this.share(14 * life.density);
+      for (const origin of ambient.fireflies) emitters.push({ kind: 'fireflies', origin, radius: 9, height: 1.8, count: per, color: undefined, scale: 1 });
+    }
+    if (emitters.length) {
+      this.fireflies = new ParticleField('fireflies', emitters, this.time, this.light);
       this.group.add(this.fireflies.mesh);
     }
-    const flocks = this.placedFlocks.length ? this.placedFlocks : ambient.flocks;
-    this.birds.set(this.particleShare >= 0.7 ? flocks.map((f) => ({ ...f, birds: Math.max(2, Math.round(f.birds * this.particleShare)) })) : []);
+    const placed = [...this.placedFlocks, ...this.lifeFlocks];
+    const own = life.birds ? ambient.flocks.map((f) => ({ ...f, birds: Math.round(f.birds * life.density) })) : [];
+    const flocks = placed.length ? placed : own;
+    this.birds.set(this.particleShare >= 0.7 ? flocks.filter((f) => f.birds > 0).map((f) => ({ ...f, birds: Math.max(2, Math.round(f.birds * this.particleShare)) })) : []);
     this.showAmbient();
   }
 
@@ -327,13 +380,16 @@ export class EffectLayer {
 
   /**
    * The quality level's part: a share of every field's particles (a `set`
-   * after it builds them so) and how many real point lights follow the
-   * lamps. Returns whether the particles changed, so the owner sets the
-   * effects again
+   * after it builds them so), how many real point lights follow the lamps
+   * and which life areas show (`life`: 0 none, under 1 those not asking for
+   * High). Returns whether particles or life changed, so the owner sets the
+   * effects (and the lava's) again
    */
-  setQuality(quality: { particles: number; pointLights: number }): boolean {
-    const changed = quality.particles !== this.particleShare;
+  setQuality(quality: { particles: number; pointLights: number; life?: number }): boolean {
+    const life = quality.life ?? this.lifeShare;
+    const changed = quality.particles !== this.particleShare || life !== this.lifeShare;
     this.particleShare = quality.particles;
+    this.lifeShare = life;
     this.lightCount = Math.max(0, Math.min(POINT_LIGHTS, Math.round(quality.pointLights)));
     this.showPool();
     if (changed) this.setAmbient(this.ambient);

@@ -67,6 +67,7 @@ export type EffectKind =
   | 'leaves'
   | 'snow'
   | 'sparkle'
+  | 'sparks'
   | 'waterfall'
   | 'birds';
 

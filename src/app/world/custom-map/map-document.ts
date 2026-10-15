@@ -356,6 +356,62 @@ export function difficultyFactor(gameplay: Pick<MapGameplay, 'difficulty'> | und
   return Math.min(MAP_DIFFICULTY.max, Math.max(MAP_DIFFICULTY.min, d)) / 100;
 }
 
+/**
+ * What lives in a life area (map-life.ts): bird flocks, fireflies at night,
+ * banks of ground fog, falling leaves, embers, sparks, boats drifting on the
+ * water, or an ambient sound
+ */
+export type MapLifeKind = 'birds' | 'fireflies' | 'fog' | 'leaves' | 'embers' | 'sparks' | 'boats' | 'sound';
+
+/**
+ * A stretch of the map with life in it, drawn in the editor's Life tool:
+ * an outline (`area`) the life fills, or a line (`route`) it follows (a
+ * flock flying along a valley, boats along a river, the sound of a stream).
+ * Drawn only; the game's rules never see it
+ */
+export interface MapLifeArea {
+  id: string;
+  kind: MapLifeKind;
+  shape: 'area' | 'route';
+  /** The outline (closed by itself, at least three points) or the line (at least two) */
+  points: MapPoint[];
+  /** 0.1..3, how much of it (birds, particles, boats); default 1 */
+  density?: number;
+  /** Birds: how high they fly over the ground, metres (default 40); particles: how high over the ground they start */
+  height?: number;
+  /** #rrggbb tint of the particles */
+  color?: string;
+  /** Sound: the ambient sound's id (ambience/ambient-sounds.ts) and its volume 0..1 (default 0.7) */
+  sound?: string;
+  volume?: number;
+  /** Boats: the floating asset that drifts (default a rowboat) */
+  asset?: string;
+  /** The lowest quality level that shows it (default medium; Low shows no life areas) */
+  quality?: 'medium' | 'high';
+}
+
+/**
+ * Life on the map beyond its objects (TODO E190): the switches of what the
+ * map's content brings by itself, a density knob, waving banners, the
+ * ambient sound and the life areas. Every field is optional; a map without
+ * it looks and sounds as before
+ */
+export interface MapLife {
+  /**
+   * Life from the map's content: chimney smoke, fireflies over shores and in
+   * woods, birds over open land (each on when missing), sparks over lava
+   * (off when missing)
+   */
+  auto?: { smoke?: boolean; fireflies?: boolean; birds?: boolean; sparks?: boolean };
+  /** 0..2, a factor on all of it (the automatic life and the areas); default 1 */
+  density?: number;
+  /** Banners' cloth waves in the wind, not only the pole swaying */
+  flags?: boolean;
+  /** The ambient sound over the whole map: a sound id, or 'biome' for the biome's by day and by night; volume 0..1. None when missing */
+  ambience?: { sound: string; volume: number };
+  areas?: MapLifeArea[];
+}
+
 export interface CustomMapDocument {
   format: typeof MAP_FORMAT;
   version: number;
@@ -368,6 +424,8 @@ export interface CustomMapDocument {
   environment: MapEnvironment;
   /** The map's own game rules (version 2); none means the game's defaults */
   gameplay?: MapGameplay;
+  /** Life areas, ambient sound and the switches of the map's own life (map-life.ts); optional, no new version */
+  life?: MapLife;
 }
 
 /** Synthetic lat/lon of a map point (origin (0, 0)) */

@@ -383,7 +383,7 @@ Fundamente reichen bis 1,5 m in den Boden.
 
 Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `file: ''`, Kategorie `fx`):
 
-- **Partikel** `fire`, `smoke`, `embers`, `fireflies`, `fog`, `leaves`, `snow`, `sparkle`: je Art ein instanziertes
+- **Partikel** `fire`, `smoke`, `embers`, `sparks`, `fireflies`, `fog`, `leaves`, `snow`, `sparkle`: je Art ein instanziertes
   Feld für die ganze Karte. Zustandslos: jedes Teilchen läuft per Zeit und Zufallswert im Vertex-Shader durch sein
   Leben, die CPU schiebt nur eine Zeit-Uniform. Leuchtende Arten additiv, beleuchtete (Rauch, Nebel, Laub, Schnee)
   werden nachts dunkler. `radius`, `height`, `rate`, `color` je Effekt; `at` setzt den Effekt neben den Ursprung
@@ -414,14 +414,30 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   Dunkelheit 0,35) über den Ufern von Seen und Sümpfen (alle 12 m) und mitten in Wäldern (30-m-Quadrate mit mindestens
   6 Bäumen), höchstens 60 Schwärme, in den Biomen temperate, swamp, mountain. Vogelschwärme am Tag
   (`effects/bird-flocks.ts`): ein instanziertes Mesh für alle (ein Draw Call), Flug, Flügelschlag und Gleiten im
-  Vertex-Shader auf der Uhr des Winds (ein Standbild hält sie an), je ein Schwarm je 300-m-Quadrat Karte (höchstens 5)
-  über dem Land mit den wenigsten Bäumen, 45 m und höher, Kreise von 40 bis 56 m, deren Mitte langsam wandert; näher
-  als 45 m an der Kamera klappen sie weg, nachts und mit der Pflanzenbewegung „aus“ sind sie fort; nicht auf dem Mond,
-  Mars und in der Hölle. Stufe Low (Partikelanteil unter 0,7): keine Vögel, weniger Glühwürmchen. Gesetzte Schwärme
-  (Effekt `birds`, `fx-birds`) und gesetzte Glühwürmchen ersetzen die automatischen (LEVEL_EDITOR.md, Objekte). Glut über Feuern und
-  Lava, schaukelnde Boote und Wimpel im Wind gab es schon (Katalog `effects`, `float`, `wind`). Umgebungston je Biom
-  fehlt noch, die Klänge gibt es nicht: Wind (Wiese, Pass), Bach und Fluss, Wellen am Ufer, Vogelgesang, Möwen,
-  Krähen, Grillen und Frösche bei Nacht, Lavagrollen und Blubbern, eine Glocke
+  Vertex-Shader auf der Uhr des Winds (ein Standbild hält sie an). Jeder Schwarm fliegt eine geschlossene Schleife,
+  64 Punkte gleichmäßig über ihre Länge in einer Float-Textur (eine Zeile je Schwarm, höchstens 64 Schwärme); die Vögel
+  weichen seitlich und in der Höhe von ihr ab, die ganze Schleife driftet langsam. Je ein Schwarm je 300-m-Quadrat
+  Karte (höchstens 5) über dem Land mit den wenigsten Bäumen, 45 m und höher, Kreise von 40 bis 56 m, deren Mitte
+  langsam wandert; näher als 45 m an der Kamera klappen sie weg, nachts und mit der Pflanzenbewegung „aus“ sind sie
+  fort; nicht auf dem Mond, Mars und in der Hölle. Stufe Low (Partikelanteil unter 0,7): keine Vögel, weniger
+  Glühwürmchen. Gesetzte Schwärme (Effekt `birds`, `fx-birds`, ein Kreis) und gesetzte Glühwürmchen ersetzen die
+  automatischen (LEVEL_EDITOR.md, Objekte), ebenso die der Lebensbereiche (unten). Glut über Feuern und Lava,
+  schaukelnde Boote und Wimpel im Wind gab es schon (Katalog `effects`, `float`, `wind`)
+- **Lebensbereiche** (`doc.life`, `map-life.ts`, `effects/life-areas.ts`; im Editor das Werkzeug Life, LEVEL_EDITOR.md):
+  ein Umriss (`shape: 'area'`), den das Leben füllt, oder eine Linie (`route`), der es folgt, je mit Art, Dichte
+  (0,1 bis 3), Höhe, Farbe und der niedrigsten Stufe, die es zeigt (`quality`: Medium, oder High). Vögel: ein Umriss
+  gibt eine Schleife in seinem Inneren (neun Strahlen aus der Mitte, je 0,5 bis 0,9 des Wegs zum Rand, als
+  Catmull-Rom-Kurve; ein stark eingebuchteter Umriss kann an einer Bucht etwas hinausragen), 10 Vögel je Dichte 1;
+  eine Linie eine Schleife auf ihr hin auf der einen Seite und auf der anderen zurück (12 m daneben), 8 Vögel; Höhe
+  über dem höchsten Boden der Nachbarpunkte der Schleife (Standard 40 m), damit ein Schwarm über einen Kamm fliegt.
+  Partikel (`fireflies`, `fog`, `leaves`, `embers`, `sparks`): Emitter auf einem verwackelten Raster im Umriss oder
+  entlang der Linie (Abstand je Art 8 bis 28 m, höchstens 160 je Bereich), auf dem Boden oder der Wasserfläche; sie
+  gehen in das Feld ihrer Art (eine Art, die die Karte schon hat, kostet keinen Draw Call mehr); Glühwürmchen nur
+  nachts wie die automatischen. Funken (`sparks`, neu): stoßweise hoch und zurück, nachts hell, am Tag schwach.
+  Schalter der Karte (`life.auto`): Schornsteinrauch, automatische Glühwürmchen und Vögel (an, wenn nichts gesetzt),
+  Funken über Lava (aus, wenn nichts gesetzt); `life.density` 0 bis 2 als Faktor auf das alles. Grafikstufe
+  (`render-quality.ts`, `customMaps.life`): Low 0 (keine Lebensbereiche, keine Funken über Lava), Medium 0,7 (ohne die
+  Bereiche mit `quality: 'high'`), High und Ultra 1. Eine Karte ohne `life` sieht aus wie vorher
 
 ### Umgebung (`environment/`)
 

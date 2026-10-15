@@ -17,6 +17,7 @@ import { VACANT_LANES } from './lane-choice';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import { MAP_DIFFICULTY, MAP_FORMAT, MAP_VERSION, MAX_GROUND_LAYERS, splatMapCount, type CustomMapDocument } from './map-document';
 import { MAP_ID_PATTERN } from './map-create';
+import { lifeProblems } from './map-life';
 
 export const MAP_FILE_EXTENSION = '.3dtdmap';
 export const MAP_JSON_ENTRY = 'map.json';
@@ -427,6 +428,7 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
   if (wind !== undefined && (!wind || typeof wind !== 'object' || !finite(wind.strength) || !finite(wind.direction) || !finite(wind.gusts))) {
     p.push('environment wind needs strength, direction and gusts');
   }
+  p.push(...lifeProblems(doc.life));
   return p;
 }
 

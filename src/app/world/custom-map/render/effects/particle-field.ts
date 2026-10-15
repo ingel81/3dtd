@@ -22,7 +22,7 @@ import { WIND_UNIFORMS } from '../environment/wind';
  * + seed), so nothing is simulated or uploaded per frame: the CPU only
  * advances a time uniform.
  *
- * Quads face the camera. Fire, embers, fireflies and sparkle add light
+ * Quads face the camera. Fire, embers, sparks, fireflies and sparkle add light
  * (additive, no depth write); smoke, fog banks, leaves and snow blend
  * normally. Weather (rain, snow around the camera) is weather.ts.
  */
@@ -39,6 +39,7 @@ const KIND_ID: Record<ParticleKind, number> = {
   snow: 6,
   sparkle: 7,
   spray: 8,
+  sparks: 9,
 };
 
 /** Per kind: particle life (s), size (m), default colour, additive, particles per unit rate */
@@ -52,6 +53,7 @@ const KIND_LOOK: Record<ParticleKind, { life: number; size: number; color: strin
   snow: { life: 10, size: 0.08, color: '#ffffff', additive: false },
   sparkle: { life: 1.6, size: 0.15, color: '#ffffff', additive: true },
   spray: { life: 2.2, size: 3.2, color: '#eef4f6', additive: false },
+  sparks: { life: 1.4, size: 0.09, color: '#ffb040', additive: true },
 };
 
 export interface ParticleEmitter {
@@ -152,6 +154,7 @@ export function particleCount(kind: ParticleKind, rate: number | undefined): num
     snow: 6,
     sparkle: 8,
     spray: 14,
+    sparks: 6,
   };
   return Math.max(1, Math.min(400, Math.round((rate ?? defaults[kind]) * life)));
 }
@@ -236,6 +239,14 @@ if (uKind == 0) {
   p.y += height * rnd(seed * 5.0 + cycle);
   alpha = sin(phase * 3.1416);
   alpha *= alpha;
+} else if (uKind == 9) {
+  // Sparks: shot up and out in bursts, falling back; bright at night, faint by day (uLight is the day's light)
+  float s = phase * uLife;
+  float up = 4.0 + rnd(seed * 7.0 + cycle) * 5.0;
+  p.y += height + up * s - 4.9 * s * s;
+  p.xz += vec2(cos(a * 3.0), sin(a * 3.0)) * (0.8 + rnd(seed * 11.0 + cycle) * 1.6) * s;
+  color = mix(vec3(1.0, 0.95, 0.7), aColor, phase);
+  alpha = (1.0 - phase) * step(0.5, rnd(seed * 5.0 + cycle * 0.7)) * mix(1.0, 0.3, clamp(uLight, 0.0, 1.0));
 } else {
   // Spray at a waterfall's foot: billows up and out from where the water lands
   p.xz += vec2(cos(a), sin(a)) * phase * 2.5;

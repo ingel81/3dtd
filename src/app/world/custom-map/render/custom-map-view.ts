@@ -29,7 +29,7 @@ import { mapToScene, sceneToMap } from './map-coords';
 import { CustomMapEnvironment } from './environment/map-environment';
 import { fitShadowBox } from './environment/shadow-fit';
 import { EffectLayer, glowStandIn } from './effects/effect-layer';
-import type { Flock } from './effects/bird-flocks';
+import { circleFlock, type Flock } from './effects/bird-flocks';
 import type { MapBiome } from '../map-document';
 import { CoverMap } from './environment/cover-map';
 import { setPlantSway } from './environment/wind';
@@ -247,6 +247,7 @@ export class CustomMapView {
     this.bridges = new BridgeLayer(this.heights, assets);
     this.group.add(this.bridges.group);
     this.effects = new EffectLayer(this.heights, (x, y) => this.waterLevelAt(x, y));
+    this.effects.setLife(doc.life);
     this.decals = new GroundDecals(this.terrain.heightTexture);
     this.group.add(this.decals.mesh);
     this.group.add(this.effects.group);
@@ -882,7 +883,17 @@ export class CustomMapView {
     NIGHT_WINDOW_UNIFORMS.uNightWindows.value = this.environment.darkness;
   }
 
-  /** Where glowing lava lights its surroundings: one point per 40 m patch of a lava body, every 30 m along lava flows */
+  /**
+   * The map's life changed (the document's `life`: switches, density,
+   * areas): effects, sparks over lava and the map's own fireflies and birds
+   * follow
+   */
+  setLife(): void {
+    this.effects.setLife(this.doc.life);
+    void this.refreshEffects();
+    this.effects.setLavaLights(this.lavaLightPoints());
+  }
+
   /**
    * Lava's reach on the land around it: lights, embers and smoke over it
    * (effects), and the baked closeness the ground turns to cooled rock and
@@ -1013,20 +1024,25 @@ export class CustomMapView {
     }
     candidates.sort((a, b) => a.score - b.score || a.x - b.x || a.y - b.y);
     const out: Flock[] = [];
+    const centres: { x: number; y: number }[] = [];
     for (const c of candidates) {
       if (out.length >= wanted) break;
-      if (out.some((o) => Math.hypot(-o.center.x - c.x, o.center.z - c.y) < 180)) continue;
+      if (centres.some((o) => Math.hypot(o.x - c.x, o.y - c.y) < 180)) continue;
       const k = out.length;
-      out.push({
-        center: mapToScene(c.x, c.y, f.heightAt(c.x, c.y) + 45 + 12 * k, new Vector3()),
-        radius: 40 + 8 * (k % 3),
-        birds: 9 + (k % 3) * 2,
-        seed: ((Math.abs(Math.sin(c.x * 12.9898 + c.y * 78.233)) * 43758.5453) % 1) || 0.37,
-      });
+      centres.push(c);
+      out.push(
+        circleFlock(
+          mapToScene(c.x, c.y, f.heightAt(c.x, c.y) + 45 + 12 * k, new Vector3()),
+          40 + 8 * (k % 3),
+          9 + (k % 3) * 2,
+          ((Math.abs(Math.sin(c.x * 12.9898 + c.y * 78.233)) * 43758.5453) % 1) || 0.37,
+        ),
+      );
     }
     return out;
   }
 
+  /** Where glowing lava lights its surroundings: one point per 40 m patch of a lava body, every 30 m along lava flows */
   private lavaLightPoints(): Vector3[] {
     const t = this.doc.terrain;
     const f = this.heights;
@@ -1146,7 +1162,10 @@ export class CustomMapView {
     this.terrain.grass.setBlades(q.grassBlades);
     this.grassDistance = q.grassDistance;
     this.environment.weather.setShare(q.particles);
-    if (this.effects.setQuality({ particles: q.particles, pointLights: q.pointLights })) void this.refreshEffects();
+    if (this.effects.setQuality({ particles: q.particles, pointLights: q.pointLights, life: q.life })) {
+      void this.refreshEffects();
+      this.effects.setLavaLights(this.lavaLightPoints());
+    }
   }
 
   /** The border's trees mirrored onto the apron (edge-trees.ts), from `doc.objects` */

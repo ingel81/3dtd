@@ -59,6 +59,11 @@ export interface CustomMapQuality {
   particles: number;
   /** Real point lights following the lamps nearest the focus at night */
   pointLights: number;
+  /**
+   * The map's life areas, boats and waving banners (map-life.ts): 0 none,
+   * under 1 those not asking for High; not a switch of the player's
+   */
+  life: number;
   /** Camera distances from which the ground reads one layer lookup, then only the layers' average colours, m */
   farSingle: number;
   farFlat: number;
@@ -110,7 +115,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     general: { scale: 0.6, dynamic: { min: 0.5, max: 0.8 }, pixelRatioCap: 1, antialias: 'fxaa', bloom: false },
     customMaps: {
       pixelRatioCap: 1, shadowMapSize: 1024, shadowRadius: 1.5, lodBias: 0.5, impostorFrom: 200,
-      grassBlades: 0, grassDistance: 0, particles: 0.4, pointLights: 2,
+      grassBlades: 0, grassDistance: 0, particles: 0.4, pointLights: 2, life: 0,
       farSingle: 80, farFlat: 220, steepNear: 0, refraction: false, seaWaves: false, lavaGlow: false, waterDetail: false, waterReflection: 0, waterReflectionEvery: 1, shadowCascade: false, plantSway: 1,
     },
     tiles: { errorTarget: 32 },
@@ -120,7 +125,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     general: { scale: 0.8, dynamic: { min: 0.6, max: 1 }, pixelRatioCap: 1, antialias: 'fxaa', bloom: true },
     customMaps: {
       pixelRatioCap: 1, shadowMapSize: 2048, shadowRadius: 1.5, lodBias: 0.75, impostorFrom: 280,
-      grassBlades: 35_000, grassDistance: 90, particles: 0.7, pointLights: 4,
+      grassBlades: 35_000, grassDistance: 90, particles: 0.7, pointLights: 4, life: 0.7,
       farSingle: 110, farFlat: 300, steepNear: 110, refraction: false, seaWaves: true, lavaGlow: false, waterDetail: true, waterReflection: 0, waterReflectionEvery: 1, shadowCascade: true, plantSway: 1,
     },
     tiles: { errorTarget: 24 },
@@ -130,7 +135,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     general: { scale: 1, dynamic: null, pixelRatioCap: 2, antialias: 'msaa', bloom: true },
     customMaps: {
       pixelRatioCap: 1.5, shadowMapSize: 4096, shadowRadius: 1.5, lodBias: 1, impostorFrom: 380,
-      grassBlades: 70_000, grassDistance: 140, particles: 1, pointLights: 6,
+      grassBlades: 70_000, grassDistance: 140, particles: 1, pointLights: 6, life: 1,
       farSingle: 150, farFlat: 400, steepNear: 150, refraction: true, seaWaves: true, lavaGlow: true, waterDetail: true, waterReflection: 0.35, waterReflectionEvery: 2, shadowCascade: true, plantSway: 1,
     },
     tiles: { errorTarget: 20 },
@@ -140,7 +145,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     general: { scale: 1, dynamic: null, pixelRatioCap: 2, antialias: 'msaa', bloom: true },
     customMaps: {
       pixelRatioCap: 2, shadowMapSize: 4096, shadowRadius: 2.5, lodBias: 1.25, impostorFrom: 500,
-      grassBlades: 100_000, grassDistance: 180, particles: 1, pointLights: 6,
+      grassBlades: 100_000, grassDistance: 180, particles: 1, pointLights: 6, life: 1,
       farSingle: 220, farFlat: 600, steepNear: 220, refraction: true, seaWaves: true, lavaGlow: true, waterDetail: true, waterReflection: 0.5, waterReflectionEvery: 1, shadowCascade: true, plantSway: 1,
     },
     tiles: { errorTarget: 12 },
