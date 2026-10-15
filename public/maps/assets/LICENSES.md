@@ -584,6 +584,13 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | greenhouse | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brick_wall_07 |
 | kiosk | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete |
 | transformer-station | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| shop-small | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| barn-modern | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/brown_planks_07; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete |
+| shelter-lean-to | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/wood_planks_grey; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/bark_brown_01; https://polyhaven.com/a/brushed_concrete |
+| outbuilding | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/brushed_concrete |
+| annex | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete |
+| office-ribbon | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| shop-office | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
 | rail-track | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete |
 | rail-platform | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall |
 | catenary-mast | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |

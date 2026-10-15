@@ -15271,6 +15271,258 @@
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
     },
     {
+      "id": "shop-small",
+      "name": "Small shop (10 x 8 m, display windows)",
+      "category": "building",
+      "file": "models/shop-small.glb",
+      "triangles": 860,
+      "footprint": 4.7,
+      "height": 5.1,
+      "box": [
+        0,
+        0.6,
+        4.7,
+        4.3
+      ],
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/shop-small-lod1.glb",
+          "distance": 350,
+          "triangles": 386
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "barn-modern",
+      "name": "Farm barn (12 x 18 m, timber boarding)",
+      "category": "building",
+      "file": "models/barn-modern.glb",
+      "triangles": 2744,
+      "footprint": 9.7,
+      "height": 6.9,
+      "box": [
+        0,
+        1.2,
+        6,
+        9.7
+      ],
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/barn-modern-lod1.glb",
+          "distance": 350,
+          "triangles": 577
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/brown_planks_07; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "shelter-lean-to",
+      "name": "Lean-to shelter (6 x 2.6 m, open front)",
+      "category": "building",
+      "file": "models/shelter-lean-to.glb",
+      "triangles": 2376,
+      "footprint": 2.9,
+      "height": 2.8,
+      "box": [
+        0,
+        0.1,
+        2.9,
+        1.5
+      ],
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "village",
+        "temperate",
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/shelter-lean-to-lod1.glb",
+          "distance": 350,
+          "triangles": 301
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/wood_planks_grey; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/bark_brown_01; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "outbuilding",
+      "name": "Outbuilding (4 x 4 m, double door)",
+      "category": "building",
+      "file": "models/outbuilding.glb",
+      "triangles": 624,
+      "footprint": 2.3,
+      "height": 3.9,
+      "box": [
+        0,
+        0,
+        2.2,
+        2.3
+      ],
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/outbuilding-lod1.glb",
+          "distance": 350,
+          "triangles": 274
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "annex",
+      "name": "House annex (7 x 5 m, back against a wall)",
+      "category": "building",
+      "file": "models/annex.glb",
+      "triangles": 812,
+      "footprint": 3.4,
+      "height": 4.3,
+      "box": [
+        0.2,
+        0.2,
+        3.4,
+        2.5
+      ],
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/annex-lod1.glb",
+          "distance": 350,
+          "triangles": 366
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "office-ribbon",
+      "name": "Office tower with ribbon windows (10 floors, 16 x 16 m)",
+      "category": "building",
+      "file": "models/office-ribbon.glb",
+      "triangles": 2974,
+      "footprint": 8.7,
+      "height": 42.9,
+      "box": [
+        0,
+        1.3,
+        7.5,
+        8.7
+      ],
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/office-ribbon-lod1.glb",
+          "distance": 350,
+          "triangles": 1583
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "shop-office",
+      "name": "Commercial building, shops under offices (4 floors, 12 x 10 m)",
+      "category": "building",
+      "file": "models/shop-office.glb",
+      "triangles": 1572,
+      "footprint": 5.7,
+      "height": 18.2,
+      "box": [
+        0,
+        0.4,
+        5.7,
+        5.2
+      ],
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/shop-office-lod1.glb",
+          "distance": 350,
+          "triangles": 904
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
       "id": "rail-track",
       "name": "Railway track, straight (10 m along X)",
       "category": "structure",
