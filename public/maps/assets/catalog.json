@@ -11710,7 +11710,7 @@
       "name": "Harbour crane",
       "category": "prop",
       "file": "models/harbor-crane.glb",
-      "triangles": 250,
+      "triangles": 754,
       "footprint": 3.1,
       "height": 7.5,
       "blocksLos": false,
@@ -11725,7 +11725,30 @@
       "tags": [
         "coast"
       ],
-      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks"
+      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/brown_planks_04"
+    },
+    {
+      "id": "dock-crane",
+      "name": "Dock crane (steel)",
+      "category": "structure",
+      "file": "models/dock-crane.glb",
+      "triangles": 858,
+      "footprint": 12.4,
+      "height": 16.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "coast",
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/container_side"
     },
     {
       "id": "jetty",

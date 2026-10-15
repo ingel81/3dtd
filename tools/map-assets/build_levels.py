@@ -4,7 +4,7 @@ Mountain village (stone houses with wooden balconies, small chapel,
 retaining walls, a cable car with station, pylon and gondola), swamp at
 night (boardwalk with lantern, witch's hut, rotten boat), desert canyon
 (temple ruin, caravan tent, camel saddle, trade goods), archipelago
-(quay, harbour crane, long jetty, fisher's hut, buoys, rowing and fishing
+(quay, harbour crane, steel dock crane, long jetty, fisher's hut, buoys, rowing and fishing
 boats), winter village (sled, snowy woodpile, ice fishing hut), volcano
 (obsidian slabs, lava bridge, forge) and autumn castle ruin (ruined wall
 corner, keep ruin, gate ruin, leaf pile). Every piece gets baked AO.
@@ -472,20 +472,112 @@ def harbor_quay(name, length=8.0):
 
 
 def harbor_crane(name):
-    """Wooden jib crane on a stone pad: mast, jib with a rope and hook, a winch"""
+    """Wooden jib crane on a stone pad (jib towards -Y): a braced mast, the jib held by a stay, a winch
+    with cranks and the rope wound on its drum, the rope over a sheave down to a hook carrying a crate in a
+    rope sling"""
     clear_scene()
     stone = Part(pbr_material('stone-slates', 'castle_wall_slates'), uv_metres=1.0)
     wood = Part(pbr_material('planks-dark', 'dark_planks', (0.9, 0.8, 0.7)), uv_metres=1.0)
     metal = Part(iron(), smooth=True)
-    rope = Part(flat_material('rope', (0.55, 0.45, 0.3), 0.9), smooth=True)
+    rope = Part(flat_material('rope', (0.55, 0.45, 0.3), 0.9), smooth=True, bevel=0.0)
+    crate = Part(pbr_material('wood-crate', 'brown_planks_04', (0.95, 0.85, 0.7)), uv_metres=0.8)
     box(stone, 0, 0, -0.5, 2.4, 2.4, 1.0)
-    box(wood, 0, 0, 0.5, 0.45, 0.45, 7.0)
-    oriented_box(wood, Vector((0, 0, 2.0)), Vector((0, -5.5, 6.8)), 0.3)
-    oriented_box(wood, Vector((0, 0, 7.3)), Vector((0, -5.5, 6.8)), 0.15)
-    tube(rope, [Vector((0, -5.5, 6.7)), Vector((0, -5.5, 2.4))], [0.03, 0.03], 5)
-    tube(metal, [Vector((0, -5.5, 2.4)), Vector((0, -5.5, 2.0))], [0.12, 0.02], 6, cap=True)
-    tube(wood, [Vector((-0.6, 0.5, 1.3)), Vector((0.6, 0.5, 1.3))], [0.25, 0.25], 10, cap=True)
-    export(name, [stone.to_object(name), wood.to_object(name + '-wood'), metal.to_object(name + '-hook'), rope.to_object(name + '-rope')])
+    box(stone, 0, 0, 0.5, 1.4, 1.4, 0.25)
+    box(wood, 0, 0, 0.75, 0.45, 0.45, 6.75)
+    for s in (-1, 1):
+        oriented_box(wood, Vector((s * 1.0, 0.9, 0.55)), Vector((0, 0.15, 3.0)), 0.18)
+    oriented_box(wood, Vector((0, 0.9, 0.55)), Vector((0, 0.15, 3.0)), 0.18)
+    tip = Vector((0, -5.5, 6.8))
+    oriented_box(wood, Vector((0, -0.1, 2.0)), tip, 0.32)
+    oriented_box(wood, Vector((0, 0, 7.4)), tip, 0.12)
+    for k in range(3):
+        p = Vector((0, -0.1, 2.0)).lerp(tip, 0.25 + k * 0.3)
+        tube(metal, [p + Vector((-0.2, 0, 0)), p + Vector((0.2, 0, 0))], [0.2, 0.2], 8)
+    tube(metal, [tip + Vector((-0.12, 0, -0.1)), tip + Vector((0.12, 0, -0.1))], [0.2, 0.2], 10, cap=True)
+    # Winch: drum on two cheeks, rope wound on it, a crank at each end
+    for s in (-1, 1):
+        box(wood, s * 0.65, 0.6, 0.75, 0.12, 0.6, 0.9)
+        oriented_box(metal, Vector((s * 0.8, 0.6, 1.4)), Vector((s * 0.85, 0.6, 1.0)), 0.05)
+        oriented_box(metal, Vector((s * 0.85, 0.6, 1.0)), Vector((s * 0.95, 0.6, 1.0)), 0.05)
+    tube(wood, [Vector((-0.6, 0.6, 1.4)), Vector((0.6, 0.6, 1.4))], [0.25, 0.25], 10, cap=True)
+    tube(rope, [Vector((-0.45, 0.6, 1.4)), Vector((0.45, 0.6, 1.4))], [0.29, 0.29], 10)
+    tube(rope, [Vector((0, 0.45, 1.6)), Vector((0, -0.05, 2.3)), tip + Vector((0, 0.1, 0.1))], [0.03, 0.03, 0.03], 5)
+    # Rope down to the hook, a sling round the crate
+    hook = tip + Vector((0, 0, -3.4))
+    tube(rope, [tip + Vector((0, 0, -0.2)), hook], [0.03, 0.03], 5)
+    tube(metal, [hook, hook + Vector((0, 0, -0.35))], [0.1, 0.03], 6, cap=True)
+    top = hook.z - 1.3
+    box(crate, hook.x, hook.y, top - 1.0, 1.1, 1.0, 1.0)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            tube(rope, [hook + Vector((0, 0, -0.3)), Vector((hook.x + sx * 0.55, hook.y + sy * 0.5, top))], [0.02, 0.02], 4)
+    export(name, [stone.to_object(name), wood.to_object(name + '-wood'), metal.to_object(name + '-hook'), rope.to_object(name + '-rope'),
+                  crate.to_object(name + '-crate')])
+
+
+def dock_crane(name, height=16.0):
+    """Steel dockside crane (jib towards -Y): a portal on four legs over the quay with rail bogies, a
+    turning cab with its machinery house, an A-frame, a long latticed jib with the hoist rope and a
+    container hanging from a spreader. Steel painted red, the cab white"""
+    clear_scene()
+    red = Part(flat_material('crane-red', (0.55, 0.1, 0.06), 0.55, 0.4), bevel=0.0)
+    white = Part(flat_material('crane-white', (0.82, 0.82, 0.8), 0.5, 0.2))
+    dark = Part(flat_material('window', (0.05, 0.06, 0.07), roughness=0.2, metallic=0.3))
+    steel = Part(flat_material('cable-steel', (0.12, 0.12, 0.13), 0.35, 0.85), smooth=True, bevel=0.0)
+    box_part = Part(pbr_material('container-side', 'container_side', (0.3, 0.55, 0.85)), uv_metres=2.5)
+    w, d = 6.0, 5.0
+    # Portal: four legs on bogies, braced, a deck on top
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            foot = Vector((sx * w / 2, sy * d / 2, 0.6))
+            oriented_box(red, foot, Vector((sx * 1.6, sy * 1.4, 7.0)), 0.5)
+            box(steel, sx * w / 2, sy * d / 2, 0.0, 0.8, 1.6, 0.6)
+        oriented_box(red, Vector((sx * w / 2, -d / 2, 0.8)), Vector((sx * w / 2, d / 2, 0.8)), 0.3)
+        oriented_box(red, Vector((sx * w / 2, -d / 2, 0.8)), Vector((sx * 1.6, 1.4, 7.0)), 0.18)
+    box(red, 0, 0, 7.0, 4.2, 3.8, 0.6)
+    # Cab and machinery house on the turntable
+    tube(steel, [Vector((0, 0, 7.6)), Vector((0, 0, 8.0))], [1.9, 1.9], 16, cap=True)
+    box(white, 0, 0.6, 8.0, 3.6, 4.4, 3.0)
+    box(red, 0, 0.6, 11.0, 3.8, 4.6, 0.2)
+    box(white, 1.3, -2.1, 8.6, 1.4, 1.4, 1.8)
+    box(dark, 1.3, -2.82, 9.1, 1.1, 0.05, 1.0)
+    for k in range(3):
+        box(dark, 1.83, 0.6 - 1.0 + k * 1.0, 9.4, 0.05, 0.6, 0.8)
+    # A-frame and the jib
+    apex = Vector((0, 1.2, height))
+    for s in (-1, 1):
+        oriented_box(red, Vector((s * 1.5, 2.6, 11.2)), apex, 0.35)
+        oriented_box(red, Vector((s * 1.5, -1.0, 11.2)), apex, 0.3)
+    root = Vector((0, -1.4, 10.4))
+    tip = Vector((0, -20.0, 14.0))
+    side = Vector((1, 0, 0))
+    for s in (-1, 1):
+        oriented_box(red, root + side * s * 0.8, tip + side * s * 0.3, 0.25)
+    oriented_box(red, root + Vector((0, 0, 1.2)), tip + Vector((0, 0, 0.5)), 0.22)
+    n = 10
+    for k in range(n):
+        a = root.lerp(tip, k / n)
+        b = root.lerp(tip, (k + 1) / n)
+        wa = 0.8 - 0.5 * k / n
+        wb = 0.8 - 0.5 * (k + 1) / n
+        for s in (-1, 1):
+            oriented_box(red, a + side * s * wa, b + Vector((0, 0, 1.2 - 0.7 * (k + 1) / n)), 0.1)
+        oriented_box(red, a - side * wa, a + side * wa, 0.1)
+    # Stays from the apex to the jib, a counterweight behind
+    for s in (-1, 1):
+        tube(steel, [apex, root.lerp(tip, 0.55) + side * s * 0.4 + Vector((0, 0, 1.0))], [0.04, 0.04], 5)
+        tube(steel, [apex, tip + side * s * 0.25 + Vector((0, 0, 0.5))], [0.04, 0.04], 5)
+    box(steel, 0, 3.6, 9.0, 2.6, 1.6, 2.0)
+    # Hoist rope, spreader and a container
+    top = tip + Vector((0, 0, -0.2))
+    load = top + Vector((0, 0, -9.0))
+    for s in (-1, 1):
+        tube(steel, [top + side * s * 0.2, load + side * s * 0.6], [0.03, 0.03], 5)
+    box(red, load.x, load.y, load.z - 0.3, 2.6, 6.2, 0.3)
+    box(box_part, load.x, load.y, load.z - 2.9, 2.4, 6.0, 2.6)
+    objects = [red.to_object(name), white.to_object(name + '-cab'), dark.to_object(name + '-windows'), steel.to_object(name + '-steel'),
+               box_part.to_object(name + '-container')]
+    export(name, objects)
 
 
 def jetty(name, length=12.0, width=2.4):
@@ -823,6 +915,7 @@ def models():
         'trade-goods': lambda: trade_goods('trade-goods'),
         'harbor-quay': lambda: harbor_quay('harbor-quay'),
         'harbor-crane': lambda: harbor_crane('harbor-crane'),
+        'dock-crane': lambda: dock_crane('dock-crane'),
         'jetty': lambda: jetty('jetty'),
         'fisher-hut': lambda: fisher_hut('fisher-hut'),
         'buoy-red': lambda: buoy('buoy-red', (0.6, 0.06, 0.05)),

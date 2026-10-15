@@ -485,7 +485,8 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | camel-saddle | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230; Streifenstoff gezeichnet |
 | trade-goods | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/patterned_clay_wall; Streifenstoff gezeichnet |
 | harbor-quay | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/castle_wall_slates |
-| harbor-crane | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks |
+| harbor-crane | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/brown_planks_04 |
+| dock-crane | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/container_side |
 | jetty | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow |
 | fisher-hut | procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/bark_willow; Netz gezeichnet |
 | buoy-red | procedural (tools/map-assets/build_levels.py) |
