@@ -1092,8 +1092,100 @@ def parking_garage(name, w=32.0, d=40.0, decks=4, dh=2.9, seed=0):
     export(name, kit.objects(name), lod=500)
 
 
+# ---------------------------------------------------------------- small buildings
+
+def greenhouse(name, w=12.0, d=6.0, wall_h=2.2):
+    """Glasshouse: a low brick base, aluminium glazing bars on all walls and the gable roof, a door at the
+    front gable (turned so it faces -Y)"""
+    clear_scene()
+    kit = Kit()
+    brick = Part(pbr_material('brick-base', 'brick_wall_07'), uv_metres=2.0, bevel=0.0)
+    alu = Part(flat_material('alu', (0.75, 0.77, 0.78), 0.35, 0.8))
+    pane = Part(flat_material('greenhouse-glass', (0.45, 0.55, 0.52), 0.05, 0.3))
+    kit.extra += [brick, alu, pane]
+    sock = 0.6
+    box(brick, 0, 0, -0.5, w, d, sock + 0.5)
+    pitch = d / 2 * math.tan(math.radians(28))
+    box(pane, 0, 0, sock, w - 0.06, d - 0.06, wall_h - sock)
+    for k in range(2):
+        prism(pane, [Vector((-w / 2 + 0.03 if k == 0 else w / 2 - 0.03, -d / 2 + 0.03, wall_h)), Vector((-w / 2 + 0.03 if k == 0 else w / 2 - 0.03, d / 2 - 0.03, wall_h)),
+                     Vector((-w / 2 + 0.03 if k == 0 else w / 2 - 0.03, 0, wall_h + pitch))], Vector((0.01 if k == 0 else -0.01, 0, 0)))
+    roof = Part(pane.material)
+    gable_roof(roof, w, d, wall_h, pitch, 0.05)
+    pane.add_bmesh(roof.bm)
+    roof.bm.free()
+    n = int(w / 1.2)
+    for i in range(n + 1):
+        x = -w / 2 + i * w / n
+        for sy in (-1, 1):
+            box(alu, x, sy * d / 2, sock, 0.06, 0.06, wall_h - sock)
+            plank(alu, Vector((x, sy * (d / 2 + 0.05), wall_h)), Vector((x, 0, wall_h + pitch + 0.02)), 0.05, 0.06)
+    for sy in (-1, 1):
+        box(alu, 0, sy * d / 2, wall_h - 0.05, w, 0.08, 0.08)
+    plank(alu, Vector((-w / 2, 0, wall_h + pitch + 0.03)), Vector((w / 2, 0, wall_h + pitch + 0.03)), 0.1, 0.08)
+    for sx in (-1, 1):
+        for i in range(5):
+            y = -d / 2 + i * d / 4
+            box(alu, sx * w / 2, y, sock, 0.06, 0.06, wall_h - sock + (pitch * (1 - abs(y) / (d / 2))))
+    box(kit.door, w / 2 + 0.02, 0, 0.0, 0.04, 1.0, 2.0)
+    objects = kit.objects(name)
+    tilt(objects, z=-90)
+    export(name, objects, lod=150)
+
+
+def kiosk(name, w=4.0, d=3.0, h=2.7):
+    """Street kiosk: a rendered box with a serving hatch under an awning, a projecting flat roof, a menu
+    board"""
+    clear_scene()
+    kit = Kit()
+    awning = Part(flat_material('awning-red', (0.6, 0.08, 0.06), 0.8))
+    board = Part(flat_material('board-dark', (0.06, 0.07, 0.08), 0.5))
+    kit.extra += [awning, board]
+    box(kit.plinth, 0, 0, -0.5, w, d, 0.6)
+    front = Face(0, w, d)
+    ops = [(-0.3, 2.4, 1.0, 2.2), (1.55, 0.7, 0.1, 2.15)]
+    punched_wall(kit.walls(CREAM), front, -w / 2, w / 2, 0.1, h, ops, t=0.15)
+    window(kit, front, -0.3, 1.0, 2.4, 1.2, reveal=0.08)
+    door(kit, front, 1.55, 0.1, 0.7, 2.05, reveal=0.08, side_light=False)
+    front.box(kit.sill, -0.3, 0.2, 0.95, 2.6, 0.45, 0.06)
+    for k in (1, 2, 3):
+        f = Face(k, w, d)
+        inset = 0.15 if k % 2 else 0.0
+        punched_wall(kit.walls(CREAM), f, -f.length / 2 + inset, f.length / 2 - inset, 0.1, h, [], t=0.15)
+    prism(awning, [Vector((-1.6, -d / 2, 2.4)), Vector((1.0, -d / 2, 2.4)), Vector((1.0, -d / 2 - 1.0, 2.05)),
+                   Vector((-1.6, -d / 2 - 1.0, 2.05))], Vector((0, 0, 0.03)))
+    box(kit.metal, 0, 0, h, w + 0.6, d + 0.6, 0.18)
+    box(board, w / 2 + 0.03, 0, 1.0, 0.04, 1.4, 1.2)
+    box(board, 0, -d / 2 - 0.25, h - 0.1, w + 0.6, 0.04, 0.4)
+    export(name, kit.objects(name), lod=120)
+
+
+def transformer(name, w=3.6, d=2.6, h=2.6):
+    """Compact transformer station: a concrete box with louvred steel doors, a flat roof with a drip
+    edge, a warning sign"""
+    clear_scene()
+    kit = Kit()
+    shell = Part(pbr_material('concrete-box', 'brushed_concrete', (1.45, 1.43, 1.38)), uv_metres=2.5, bevel=0.02)
+    steel = Part(flat_material('doors-grey', (0.5, 0.52, 0.5), 0.5, 0.5))
+    sign = Part(flat_material('warning-yellow', (0.85, 0.65, 0.05), 0.5))
+    kit.extra += [shell, steel, sign]
+    box(shell, 0, 0, -0.6, w, d, h + 0.6)
+    box(shell, 0, 0, h, w + 0.2, d + 0.2, 0.15)
+    for x in (-0.95, 0.95):
+        box(steel, x, -d / 2 - 0.02, 0.2, 1.2, 0.04, 2.0)
+        for i in range(6):
+            box(steel, x, -d / 2 - 0.05, 1.3 + i * 0.12, 1.0, 0.03, 0.04)
+    box(steel, w / 2 + 0.02, 0, 0.2, 0.04, 1.0, 2.0)
+    prism(sign, [Vector((-0.2, -d / 2 - 0.06, 2.1)), Vector((0.2, -d / 2 - 0.06, 2.1)), Vector((0.0, -d / 2 - 0.06, 2.45))],
+          Vector((0, -0.01, 0)))
+    export(name, kit.objects(name), lod=60)
+
+
 def models():
     return {
+        'greenhouse': lambda: greenhouse('greenhouse'),
+        'kiosk': lambda: kiosk('kiosk'),
+        'transformer-station': lambda: transformer('transformer-station'),
         'school': lambda: school('school', seed=31),
         'town-hall': lambda: town_hall('town-hall', seed=32),
         'town-church': lambda: town_church('town-church', seed=33),

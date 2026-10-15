@@ -14017,6 +14017,96 @@
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/painted_plaster_wall"
+    },
+    {
+      "id": "greenhouse",
+      "name": "Greenhouse (6 x 12 m)",
+      "category": "building",
+      "file": "models/greenhouse.glb",
+      "triangles": 744,
+      "footprint": 5.4,
+      "height": 3.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/greenhouse-lod1.glb",
+          "distance": 350,
+          "triangles": 232
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brick_wall_07"
+    },
+    {
+      "id": "kiosk",
+      "name": "Kiosk (4 x 3 m)",
+      "category": "building",
+      "file": "models/kiosk.glb",
+      "triangles": 332,
+      "footprint": 2.1,
+      "height": 3,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/kiosk-lod1.glb",
+          "distance": 350,
+          "triangles": 232
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "transformer-station",
+      "name": "Transformer station (3.6 x 2.6 m)",
+      "category": "building",
+      "file": "models/transformer-station.glb",
+      "triangles": 276,
+      "footprint": 1.7,
+      "height": 2.8,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 3000,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/transformer-station-lod1.glb",
+          "distance": 350,
+          "triangles": 89
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
     }
   ]
 }

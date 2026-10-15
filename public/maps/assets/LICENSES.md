@@ -566,6 +566,9 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | town-church | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/roof_slates_02 |
 | station | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete |
 | parking-garage | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/painted_plaster_wall |
+| greenhouse | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brick_wall_07 |
+| kiosk | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete |
+| transformer-station | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
 
 ## Himmelsbilder (`skies/<id>.webp`)
 
