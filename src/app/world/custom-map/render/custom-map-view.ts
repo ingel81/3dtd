@@ -43,7 +43,6 @@ import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-trees';
 import { NIGHT_WINDOW_UNIFORMS } from './objects/night-windows';
-import { BACKDROP_HEIGHT } from './terrain/terrain-apron';
 import type { HeightTexture } from './terrain/height-texture';
 import { RiverSurface, sampleRiver } from './water/river-surface';
 import { WaterSurface } from './water/water-surface';
@@ -224,7 +223,7 @@ export class CustomMapView {
     this.losBlockers.name = 'custom-map-los-blockers';
     this.group.add(this.losBlockers);
 
-    this.terrain = new MapTerrainLayer(t, this.heights, BACKDROP_HEIGHT[doc.environment.biome ?? 'temperate']);
+    this.terrain = new MapTerrainLayer(t, this.heights, doc.environment.biome ?? 'temperate');
     this.losBlockers.add(this.terrain.chunks.group);
     this.group.add(this.terrain.apron);
     if (options.grass !== false) this.group.add(...this.terrain.grass.meshes);
@@ -889,7 +888,7 @@ export class CustomMapView {
     this.doc.environment = env;
     const sun = this.environment.sunDir.clone();
     this.environment.set(env);
-    this.terrain.setBackdrop(BACKDROP_HEIGHT[env.biome ?? 'temperate']);
+    this.terrain.setBiome(env.biome ?? 'temperate');
     // The far shadow only follows the sun and the backdrop's mountains (a sky, a weather or the fog leave it), spread
     // over frames once the sun stands: the whole bake (20 to 60 ms, 80 in a dev build) held every step of a sun slider
     // and the click of a sky

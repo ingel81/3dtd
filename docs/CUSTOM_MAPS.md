@@ -123,7 +123,16 @@ Nebel der Szene wieder her.
   Grat-Rauschen entlang des Rands, Höhe nach Look `BACKDROP_HEIGHT`: Gebirge 420 m, Mond 80 m, Sumpf 40 m; nicht über dem Meer;
   Land jenseits des Rands versinkt im Höhennebel zu 97 %, auf dem Mond ohne Luft nur zu 60 % (`beyondHaze`, sonst
   verschwände die Kette im schwarzen Dunst),
-  so endet keine Karte sichtbar in flachem Land; dieselben Ringpunkte, kein Draw Call mehr. **Bäume am Rand**
+  so endet keine Karte sichtbar in flachem Land; dieselben Ringpunkte, kein Draw Call mehr. Im Bereich der Kette liegen
+  die Ringe alle 80 bis 160 m (21 Ringe, Schürze rund 41 000 Dreiecke), eine dritte Grat-Oktave (60 m) schneidet Sporne
+  in die Flanken. Gemalt wird die Kette als ferne Berge (`apron-material.ts`, ab 150 m hinter dem Rand, ein eigenes
+  Programm mit den Uniforms des Geländes): Fels des Klippenmaterials an Steilhängen (sechsfacher Maßstab, die Mips
+  geben das Detail nach Distanz), Schichtbänder nur an Steilflanken, Rinnen entlang der Falllinie, die die Normale
+  biegen und die Furchen abdunkeln (blenden aus, bevor sie in der Ferne flimmern), Farb- und Helligkeitsflecken über
+  Hunderte Meter, hellere Grate, Schnee oberhalb der Schneegrenze und Staub auf flachen Hängen je Look (`APRON_LOOK`:
+  Gebirge Schnee ab halber Höhe, Arktis fast überall, Mond grauer Regolith, Mars rötlicher Fels und Staub). Die oberen
+  Flanken behalten nur einen Teil des Dunsts jenseits des Rands (`clear`, 20 bis 45 %): die Gipfel ragen heraus, der
+  Fuß versinkt wie bisher. GPU in der ungünstigsten Ansicht (Schürze füllt das Bild) etwa +0,1 ms. **Bäume am Rand**
   (`edge-trees.ts`): die Bäume der 40 m am Rand gespiegelt auf die Schürze, eine eigene Objektschicht außerhalb der
   Sichtlinie (nur Bild, das Spiel liest sie nicht), auf der Höhe der Schürze (`ApronProfile.heightAt`); ein Wald endet
   nicht mehr als Linie vor kahlem Boden. Keiner im Meer jenseits einer Küste (`ApronProfile.underWater`: wo das
