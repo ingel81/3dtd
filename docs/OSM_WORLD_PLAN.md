@@ -908,6 +908,37 @@ Befunde:
 - **Offen für die Abnahme:** Küste, Gebirge, Ort außerhalb Europas (je eine Abfrage, sobald ein Server antwortet),
   Messung im Produktions-Build, Nachtest durch den User.
 
+## Probe: LoD2-Gebäude aus amtlichen Daten (2026-10-16)
+
+Frage: statt Katalog-Modellen die echten Gebäude als einfache Klötze mit Dachform (LoD2, CityGML der
+Vermessungsverwaltungen)? Gemessen an einer Kachel aus Bayern (Miltenberg), heruntergeladen einmal ins Scratchpad.
+
+- **Bezug:** `https://download1.bayernwolke.de/a/lod2/citygml/<E>_<N>.gml`, Kacheln von 2 km in UTM 32 (gerade
+  Kilometer, Miltenberg `518_5504`). Kein CORS-Kopf in der Antwort (geprüft mit `Origin`), der Server liefert kein
+  gzip: im Browser nur über einen eigenen Dienst oder in der Desktop-App abrufbar. Eine Karte von 2,4 km braucht 4
+  (bis 9) Kacheln. Lizenz und Namensnennung nicht geprüft; andere Länder nicht geprüft.
+- **Kachel `518_5504`:** 58,8 MB GML (gzip 4,0 MB), 4,1 s Abruf, 2,4 s Parsen (Python, streamend); 3 370 Gebäude,
+  keine Gebäudeteile, keine Texturen (`Appearance` fehlt). Grundrisse Median 65 m², 90 % unter 195 m², 948 unter
+  30 m² (Garagen, Schuppen; OSM hatte in der ganzen Karte 3 618 Grundrisse). Dachformen: Satteldach 1 473, Flachdach
+  1 278, Pultdach 285, Walmdach 200, andere 109. Höhe (`measuredHeight`) Median 7,4 m, 90 % 13,1 m; Geschosse nur bei
+  221. Koordinaten UTM 32 mit Höhen über NHN (DHHN2016), passend zu den Höhendaten (Mapterhorn nimmt in Deutschland
+  das DGM1 derselben Ämter).
+- **Geometrie:** 40 947 Flächen (Boden 3 371, Wand 27 859, Dach 9 717), 119 000 Dreiecke als Fächer, 35 je Gebäude.
+  Hochgerechnet auf eine Karte von 2,4 km rund 150 000 bis 200 000 Dreiecke; die Startansicht derselben Karte
+  zeichnet mit Katalog-Gebäuden, Pflanzen und Gelände 6 M Dreiecke (O5-Messung), die Gebäude kosten 4,8 M Punkte.
+
+**Empfehlung:** nicht als Ersatz der Modelle jetzt. Die Klötze sind billig zu zeichnen, aber ohne Texturen grau
+(Fassade und Dach bräuchten einen eigenen Shader mit Fenstern und Ziegeln), der Abruf geht im Browser nicht ohne
+eigenen Dienst, und die Daten gibt es nur, wo Vermessungsämter sie offen anbieten. Zwei kleinere Schritte
+lohnen sich eher:
+
+1. **LoD2 als Auskunft für die Wahl der Katalog-Modelle** (Höhe und Dachform je Grundriss): Flachdach ab 3
+   Geschossen wählt Block oder Büro, Satteldach ein Haus, die gemessene Höhe ersetzt das Raten der Geschosse (heute
+   haben 15 % der OSM-Grundrisse `building:levels`). Braucht dieselbe Abrufstrecke, aber kein neues Kartenformat.
+2. **Echte Klötze als Option der Desktop-App** (Electron kann ohne CORS abrufen): CityGML streamend lesen, Dächer und
+   Wände in ein Netz je Kachel (Positionen und Indizes geschätzt 5 bis 6 MB je Karte, gepackt weniger), ein Material mit
+   prozeduralen Fenstern. Neues Feld im Kartendokument, eigener Renderer-Pfad; Aufwand nach Schätzung 3 bis 5 Tage.
+
 ## Offene Fragen an den User (beantwortet, siehe oben)
 
 1. Flache Karte für den Rahmen: OSM-Rasterkacheln in einem kleinen eigenen Betrachter, oder Vektorkarte mit MapLibre
