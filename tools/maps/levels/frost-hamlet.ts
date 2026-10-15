@@ -118,9 +118,7 @@ export function buildFrostHamlet(): CustomMapDocument {
   // The square's fire and lanterns by the doors
   k.place('campfire', 34, 128);
   for (const [x, y] of [[-16, 154], [-24, 122], [56, 158], [60, 101], [94, 145]] as const) if (k.free(x, y, 0.5)) k.place('lantern', x, y);
-  // Ravens over the village, sleds and dogs at its edge
-  // TODO(E179): sled dogs beside the sleds; TODO(E190): the bell tower's bell at each wave, the wind
-  k.place('fx-birds', 0, 170, { z: 10, scale: 0.5 });
+  // TODO(E179): sled dogs beside the sleds
 
   // ---- On the ice: fishers' huts and holes, a sled, skates of snow
   for (const [x, y, r] of [[-40, 30, 0.4], [60, -20, 2.1], [-20, -40, 1.2], [70, 50, 2.8], [-60, -10, 0.9]] as const) {
@@ -153,6 +151,15 @@ export function buildFrostHamlet(): CustomMapDocument {
   // The bell tower over the village square, the village's landmark beside the chapel
   if (k.free(-8, 190, 3)) k.place('bell-tower-snow', -8, 190, { rotation: facing({ x: -8, y: 190 }, hq) });
   for (const [x, y] of [[-200, 0], [200, 120], [-120, 210], [150, -180], [0, 230]] as const) k.place('fx-snow', x, y, { scale: 1.3 });
+
+  // ---- Life: ravens over the village and the wood west of it, ice fog drifting low over the lake, smoke from every
+  // house (their chimneys); the wind over the snow, the fire crackling on the square
+  // TODO(E190): ravens (birds of the crow species), snow flurries along the ridges, the bell at each wave
+  k.lifeArea('birds', [{ x: -70, y: 110 }, { x: 110, y: 110 }, { x: 110, y: 200 }, { x: -70, y: 200 }], { height: 22, density: 0.7 });
+  k.lifeArea('birds', [{ x: -150, y: 60 }, { x: -90, y: 60 }, { x: -90, y: 110 }, { x: -150, y: 110 }], { height: 18, density: 0.5 });
+  k.lifeArea('fog', [{ x: -80, y: -60 }, { x: 60, y: -90 }, { x: 110, y: -30 }, { x: 70, y: 70 }, { x: -60, y: 60 }], { density: 0.6, quality: 'high' });
+  k.lifeArea('sound', [{ x: 26, y: 120 }, { x: 42, y: 120 }, { x: 42, y: 136 }, { x: 26, y: 136 }], { sound: 'fire', volume: 0.5 });
+  k.lifeSettings({ ambience: { sound: 'biome', volume: 0.5 } });
 
   // Seven ground materials: the least used goes (each one is 8 MB of pixels to load)
   k.trimLayers(7);
