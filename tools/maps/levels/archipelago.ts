@@ -78,7 +78,7 @@ export function buildArchipelago(): CustomMapDocument {
   k.biome('conifer', [{ x: -205, y: 85 }, { x: -60, y: 225 }], { radius: 26, strength: 0.7 });
   // Beaches on the sheltered shores, after the other biomes (they would paint over them): the main island's west side toward the sound, the west isle's south, the
   // small south-west isle (sand down to the water, the wet strip, driftwood, dune grass, shore pines)
-  k.biome('beach', [{ x: -8, y: -105 }, { x: -14, y: -65 }], { radius: 22, strength: 1 }, 1);
+  k.biome('beach', [{ x: 4, y: -105 }, { x: 0, y: -65 }], { radius: 34, strength: 1 }, 1);
   k.biome('beach', { x: -200, y: 16 }, { radius: 22, strength: 1 }, 1);
   k.biome('beach', { x: -200, y: -150 }, { radius: 20, strength: 1 }, 1);
   // The biomes' relief sank some of the shore under the sea's level beside its mask: the sea runs in there again
