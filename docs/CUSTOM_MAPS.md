@@ -122,7 +122,9 @@ Nebel der Szene wieder her.
   Streifens, 30 m entlang geglättet, ohne Straßen, Pflaster und Lava; ein gepflasterter Rand nimmt den natürlichen Boden,
   den die Karte am meisten hat; eine Textur 512 × 3, ein Lookup je Zeile nur jenseits des Rands), vorher die erste
   Schicht (Harbor Town: Pflaster bis zum Horizont). Ab 250 m hinter dem Rand steigt eine **Bergkette** (ab 900 m voll,
-  Grat-Rauschen entlang des Rands, Höhe nach Look `BACKDROP_HEIGHT`: Gebirge 420 m, Mond 80 m, Sumpf 40 m; nicht über dem Meer;
+  Grat-Rauschen entlang des Rands, Höhe nach Look `BACKDROP_HEIGHT`: Gebirge 420 m, Mond 80 m, Sumpf 40 m; nicht über dem Meer
+  (nasser Rand ab 160 m am Stück, `SEA_RUN`; eine schmalere Flussmündung behält das Profil, der Fluss endet kurz hinter dem
+  Rand, statt die Kette bis zum Horizont zu schlitzen);
   Land jenseits des Rands versinkt im Höhennebel zu 97 %, auf dem Mond ohne Luft nur zu 60 % (`beyondHaze`, sonst
   verschwände die Kette im schwarzen Dunst),
   so endet keine Karte sichtbar in flachem Land; dieselben Ringpunkte, kein Draw Call mehr. Im Bereich der Kette liegen
