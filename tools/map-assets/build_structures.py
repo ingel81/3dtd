@@ -1765,6 +1765,26 @@ def bridge_deck_lava(name):
     export(name, [rock.to_object(name), glow.to_object(name + '-seams')])
 
 
+def bridge_deck_concrete(name):
+    """Concrete bridge piece in the bridge-deck format: an asphalt deck on a concrete slab and box girder,
+    a concrete kerb on both edges with a galvanised railing (posts every metre, top and middle rail); deck
+    top at z = 0"""
+    clear_scene()
+    asphalt = Part(pbr_material('road-asphalt_02', 'asphalt_02'), uv_metres=2.0, bevel=0.0)
+    concrete = Part(pbr_material('wall-brushed_concrete', 'brushed_concrete'), uv_metres=2.0)
+    rail = Part(flat_material('railing-galvanised', (0.55, 0.57, 0.6), 0.45, 0.8))
+    box(asphalt, 0, 0, -0.06, 4.0, 0.84, 0.06)
+    box(concrete, 0, 0, -0.62, 4.0, 1.0, 0.56)
+    box(concrete, 0, 0, -1.2, 4.0, 0.56, 0.6)
+    for y in (-0.46, 0.46):
+        box(concrete, 0, y, -0.06, 4.0, 0.08, 0.3)
+        for k in range(4):
+            box(rail, -1.5 + k, y, 0.24, 0.06, 0.025, 0.8)
+        box(rail, 0, y, 1.0, 4.0, 0.035, 0.06)
+        box(rail, 0, y, 0.62, 4.0, 0.02, 0.04)
+    export(name, [asphalt.to_object(name), concrete.to_object(name + '-body'), rail.to_object(name + '-railing')])
+
+
 def models():
     def watermill_wheel(w, d, wall_h, pitch):
         return mill_wheel(w, d, wall_h, pitch)
@@ -1820,6 +1840,7 @@ def models():
         # Walls, fences, gates
         'bridge-deck-stone': lambda: bridge_deck_stone('bridge-deck-stone'),
         'bridge-deck-lava': lambda: bridge_deck_lava('bridge-deck-lava'),
+        'bridge-deck-concrete': lambda: bridge_deck_concrete('bridge-deck-concrete'),
         'palisade': lambda: palisade('palisade'),
         'palisade-gate': lambda: palisade('palisade-gate', gate=True),
         'fence-picket': lambda: picket_fence('fence-picket'),
