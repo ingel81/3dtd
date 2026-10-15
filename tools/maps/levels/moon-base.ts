@@ -158,8 +158,8 @@ export function buildMoonBase(): CustomMapDocument {
   // their own (the catalogue's spin)
   k.lifeRoute('movers', [{ x: pad.x - 14, y: pad.y - 8 }, { x: -30, y: -80 }, { x: launch.x + 10, y: launch.y + 14 }], { asset: 'rover', speed: 1.6 });
   k.lifeRoute('movers', [{ x: hq.x + 30, y: hq.y + 20 }, { x: hq.x + 62, y: hq.y + 48 }, { x: hq.x + 96, y: hq.y + 64 }], { asset: 'rover', speed: 1.4 });
-  // TODO(E190): the position lights on the crest flicker (beacon-post's light), they should blink; radio hiss in the
-  // station (a sound area) once the ambient sounds have a radio loop
+  // Radio hiss in the station, round the hub and its modules
+  k.lifeArea('sound', ring(40, 8), { sound: 'radio-hiss', volume: 0.6 });
   k.trimLayers(7);
   // Hard light from a low sun: long shadows show every crater, the sky stays black; the Earth over the north rim,
   // half lit from the sun's side
