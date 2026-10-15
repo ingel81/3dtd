@@ -4,11 +4,15 @@ import {
   BufferGeometry,
   ConeGeometry,
   CylinderGeometry,
+  DataTexture,
   DodecahedronGeometry,
   DoubleSide,
   Material,
   Mesh,
   MeshStandardMaterial,
+  NearestFilter,
+  RepeatWrapping,
+  SRGBColorSpace,
   Texture,
   type CompressedTexture,
   type Object3D,
@@ -476,28 +480,46 @@ function placeholderEntry(id: string): CatalogObject {
   };
 }
 
-/** A simple stand-in of the entry's size, shaped by category */
+/** A magenta and black checkerboard: a missing model shows at once, by day and at night */
+function placeholderMaterial(): MeshStandardMaterial {
+  const cells = 8;
+  const data = new Uint8Array(cells * cells * 4);
+  for (let y = 0; y < cells; y++) {
+    for (let x = 0; x < cells; x++) {
+      const magenta = (x + y) % 2 === 0;
+      data.set(magenta ? [255, 0, 255, 255] : [0, 0, 0, 255], (y * cells + x) * 4);
+    }
+  }
+  const checker = new DataTexture(data, cells, cells);
+  checker.magFilter = NearestFilter;
+  checker.minFilter = NearestFilter;
+  checker.wrapS = checker.wrapT = RepeatWrapping;
+  checker.colorSpace = SRGBColorSpace;
+  checker.needsUpdate = true;
+  return new MeshStandardMaterial({ map: checker, emissiveMap: checker, emissive: 0xffffff, emissiveIntensity: 0.5, roughness: 0.9 });
+}
+
+/** A simple stand-in of the entry's size, shaped by category, in the placeholder checkerboard */
 function placeholderParts(entry: CatalogObject): ModelPart[] {
   const r = entry.footprint;
   const h = entry.height;
-  const mat = (hex: number): MeshStandardMaterial => new MeshStandardMaterial({ color: hex, roughness: 0.9 });
   switch (entry.category) {
     case 'tree': {
       const trunk = new CylinderGeometry(r * 0.12, r * 0.18, h * 0.35, 6).translate(0, h * 0.175, 0);
       const crown = new ConeGeometry(r, h * 0.75, 8).translate(0, h * 0.625, 0);
       return [
-        { geometry: trunk, material: mat(0x5a4030) },
-        { geometry: crown, material: mat(0x2f5a2a) },
+        { geometry: trunk, material: placeholderMaterial() },
+        { geometry: crown, material: placeholderMaterial() },
       ];
     }
     case 'rock':
     case 'plant': {
       const g = mergeVertices(new DodecahedronGeometry(r, 0)).scale(1, h / (2 * r), 1);
       g.translate(0, h / 2, 0);
-      return [{ geometry: g, material: mat(entry.category === 'rock' ? 0x77736b : 0x4c7a34) }];
+      return [{ geometry: g, material: placeholderMaterial() }];
     }
     default:
-      return [{ geometry: new BoxGeometry(r * 1.4, h, r * 1.4).translate(0, h / 2, 0), material: mat(0x9a8a70) }];
+      return [{ geometry: new BoxGeometry(r * 1.4, h, r * 1.4).translate(0, h / 2, 0), material: placeholderMaterial() }];
   }
 }
 
