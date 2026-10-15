@@ -3,14 +3,14 @@ import { DetMath } from '../utils/det-math';
 
 export type TowerTypeId =
   | 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'chaos'
-  | 'bastion' | 'sentinel'
+  | 'bastion' | 'sentinel' | 'chainsaw'
   | 'research-center' | 'missile-silo';
 export type ProjectileTypeId =
   | 'arrow' | 'cannonball' | 'arcane-orb' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob' | 'chaos-orb' | 'flak-shell'
   // The hero's ammo (hero.config.ts), fired by no tower
   | 'hero-round' | 'hero-shell' | 'hero-rune';
 export type UpgradeId = 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots';
-export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain' | 'laser';
+export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain' | 'laser' | 'saw';
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'last' | 'air-priority';
 export type AirSubStrategy = 'closest' | 'lowest-hp' | 'highest-hp';
 
@@ -299,6 +299,17 @@ export interface TowerTypeConfig {
    */
   laser?: { maxFactor: number; rampSeconds: number; muzzleM: number };
 
+  /**
+   * Saw only (attackType 'saw'): robot arms with a chainsaw each, every arm on a target of its own while there are
+   * enough, `damage` per second each, times `fireRate` (the chain speed track). The targets in range by distance go to the arms in this order (nearest to
+   * the first), free arms join the farthest; so the arms keep apart, each in its band of the road. Per arm, in
+   * the turret part's frame of the model (glTF units, y up): the saw node, where the arm leaves the torso
+   * (`socket`), the way it leaves (`out`), the way the saw's mount faces docked (`axis`) and how high the arm
+   * arches (`lift`, a share of its span).
+   */
+  sawArms?: readonly { node: string; socket: [number, number, number]; out: [number, number, number];
+    axis: [number, number, number]; lift: number }[];
+
   // Chain attack settings (for lightning-type towers — hitscan chain)
   maxJumps?: number;      // Number of additional targets after the primary (e.g. 2 = 3 total hits)
   chainFalloff?: number;  // Damage multiplier applied per jump (e.g. 0.7 = -30% per hop)
@@ -318,6 +329,7 @@ const LIGHTNING_MODEL_URL = 'assets/models/towers/lightning.glb';
 const CHAOS_MODEL_URL = 'assets/models/towers/chaos.glb';
 const BASTION_MODEL_URL = 'assets/models/towers/bastion.glb';
 const SENTINEL_MODEL_URL = 'assets/models/towers/sentinel.glb';
+const CHAINSAW_MODEL_URL = 'assets/models/towers/chainsaw.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -711,6 +723,51 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     upgrades: [
       degressiveUpgrade('damage', 'Damage', 'damage', 1.06),
       degressiveUpgrade('speed', 'Heat-up', 'fireRate', 1.04),
+      RANGE_UPGRADE,
+    ],
+  },
+  chainsaw: {
+    id: 'chainsaw',
+    name: 'Chainsaw',
+    defaultTargeting: 'closest',
+    // Meshy "Chainsaw Turret" without its arms (tools/blender/towers/chainsaw-tentacle.json, build_tower.py): nodes
+    // base, turret_top (the torso, the yaw axis on the origin) and the three saws under it, each with its origin
+    // where its arm held it. The arms are robot tentacles the renderer draws (tower-saw-arms.ts). The model is
+    // 1.89 units across with the saws, 1.50 high, the base's widest vertex 0.766 from the axis: at scale 4 a
+    // tower 6 m high whose arms reach 14 m (3.5 units).
+    modelUrl: CHAINSAW_MODEL_URL,
+    scale: 4,
+    previewScale: 7,
+    heightOffset: 0,
+    shootHeight: 2.6, // The arms' sockets on the torso
+    footprintRadius: 3.1,
+    rotationY: 0,
+    turretBarrelOffset: 0, // The arms leave the torso along +Z
+    turnsTurret: true,
+    modelTop: 5.99,
+    attackType: 'saw',
+    damageType: 'pierce',
+    damage: 30, // Per arm and second
+    range: 14,
+    fireRate: 1, // Chain speed: multiplies the damage per second, its own upgrade track
+    projectileType: 'arrow', // Fallback, unused (saw)
+    // From the concept (2026-10-02): the lowest arm takes the nearest target, the side arm the middle, the top arm
+    // the farthest, arching higher in turn so they do not cross
+    sawArms: [
+      { node: 'saw_down', socket: [-0.016, 0.19, 0.247], out: [0, -0.1, 1], axis: [0, -0.495, 0.869], lift: 0.3 },
+      { node: 'saw_side', socket: [0.254, 0.55, -0.013], out: [1, 0.2, 0], axis: [0.982, 0.188, 0.011], lift: 0.5 },
+      { node: 'saw_up', socket: [-0.016, 0.53, 0.267], out: [0, 0.35, 1], axis: [0, 0.671, 0.742], lift: 0.75 },
+    ],
+    // Three bodies at once at the road's edge, flesh most of all (pierce 1.25 and 1.6), steel and stone hardly
+    // (0.35, 0.25). Short arms for much damage: 0.80 unarmored DPS per gold against the gatling's 0.69 at 50 m
+    // (MASTER_GAME_DESIGN §3.16).
+    cost: 140,
+    canTargetAir: false,
+    canTargetGround: true,
+    description: 'Three robot arms with chainsaws, each on an enemy of its own. Build it right at the road.',
+    upgrades: [
+      degressiveUpgrade('damage', 'Damage', 'damage', 1.07),
+      degressiveUpgrade('speed', 'Chain Speed', 'fireRate', 1.03),
       RANGE_UPGRADE,
     ],
   },

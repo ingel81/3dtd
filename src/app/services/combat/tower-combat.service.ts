@@ -93,6 +93,14 @@ export class TowerCombatService {
    * wave's end, a reset and a snapshot restore, so a wave-start snapshot needs none of it.
    */
   private readonly laserHolds = new Map<string, LaserHold>();
+  /**
+   * Where each saw tower's arms cut this frame (null: docked), by tower, and the towers whose arms went home since
+   * the last flush: the renderer gets them once per frame as the flames
+   */
+  private readonly sawFrames = new Map<string, (OpVec3 | null)[]>();
+  private readonly sawsDocked = new Set<string>();
+  private readonly _sawPicks: Enemy[] = [];
+  private readonly _sawDist: number[] = [];
   private readonly _laserDir = new Vector3();
 
   // Reusable vectors for cone collision
@@ -807,6 +815,7 @@ export class TowerCombatService {
   stopTowerBeam(towerId: string): void {
     this.stopBeam(towerId);
     this.stopLaser(towerId);
+    if (this.sawFrames.delete(towerId)) this.sawsDocked.add(towerId);
   }
 
   /**
@@ -818,6 +827,9 @@ export class TowerCombatService {
     this.lasers.clear();
     this.lasersStopped.clear();
     this.laserHolds.clear();
+    // Every saw arm home: the clear in the next flush docks them
+    for (const towerId of this.sawFrames.keys()) this.sawsDocked.add(towerId);
+    this.sawFrames.clear();
     this.beamsCleared = true;
     this.lastBeamBloodEffect.clear();
   }
@@ -845,6 +857,87 @@ export class TowerCombatService {
     for (const towerId of this.lasersStopped) sink.laserBeams.stopBeam(towerId);
     this.lasersStopped.clear();
     for (const [towerId, laser] of this.lasers) sink.laserBeams.startBeam(towerId, laser.source, laser.target, laser.heat);
+    for (const towerId of this.sawsDocked) sink.towers.setSawTargets(towerId, []);
+    this.sawsDocked.clear();
+    for (const [towerId, targets] of this.sawFrames) sink.towers.setSawTargets(towerId, targets);
+  }
+
+  // =====================================================
+  // SAW TOWER COMBAT (Chainsaw)
+  // =====================================================
+
+  /**
+   * Update saw towers: every arm (TowerTypeConfig.sawArms) saws on a target of
+   * its own, `damage` per second each. The targets the tower may attack (range,
+   * sight, air or ground) go by distance to the arms in their order, the
+   * nearest to the first; with fewer targets than arms the free arms join the
+   * farthest. Ties go by enemy id, so every client picks alike. The turret
+   * turns to the nearest; the arms do not wait for it. Called once per
+   * gameplay sub-step (game time).
+   */
+  updateSawTowers(deltaTime: number, towerManager: TowerManager, gameTimeMs: number): void {
+    const dt = deltaTime / 1000;
+    for (const tower of towerManager.getAllActive()) {
+      const arms = tower.typeConfig.sawArms;
+      if (tower.typeConfig.attackType !== 'saw' || !arms) continue;
+      if (!tower.losReady || !tower.isBuilt(gameTimeMs)) continue;
+      if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;
+
+      const picks = this.pickSawTargets(tower, arms.length);
+      if (picks.length === 0) {
+        if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) tower.isSleeping = true;
+        if (this.sawFrames.delete(tower.id)) this.sawsDocked.add(tower.id);
+        releaseAim(tower.aim);
+        continue;
+      }
+      tower.lastTargetTime = gameTimeMs;
+      tower.isSleeping = false;
+      aimAt(tower.aim, this.calculateHeading(tower.position, this.targetPoint(picks[0])));
+
+      const targets: (OpVec3 | null)[] = [];
+      // Per arm: damage per second times the chain speed
+      const dps = tower.combat.damage * tower.combat.fireRate;
+      const damageType = tower.typeConfig.damageType;
+      for (let arm = 0; arm < arms.length; arm++) {
+        const enemy = picks[Math.min(arm, picks.length - 1)];
+        if (!enemy.alive) {
+          targets.push(null);
+          continue;
+        }
+        // Before the damage: on a body it also puts the hit where the saw lands
+        targets.push(opVec(this.aimLocalInto(enemy, this._beamTargetScratch)));
+        this.combatEffectService.applyBeamDamage(enemy, dps * dt, damageType, tower.id);
+      }
+      this.sawFrames.set(tower.id, targets);
+      this.sawsDocked.delete(tower.id);
+    }
+  }
+
+  /** Up to `count` targets of a saw tower, nearest first (ties by id), into `_sawPicks`. */
+  private pickSawTargets(tower: Tower, count: number): Enemy[] {
+    const candidates = this.collectCandidates(tower);
+    this.beginBodyAim(tower);
+    const losCheck = this.buildLosCheck(tower);
+    const airTargeting = this.research.airTargetingFor(tower.ownerId);
+    const picks = this._sawPicks;
+    const dist = this._sawDist;
+    picks.length = 0;
+    dist.length = 0;
+    for (const enemy of candidates) {
+      if (!tower.mayEngage(enemy, airTargeting, losCheck, this.bodyDistSq)) continue;
+      const d = enemy.body ? this.bodyDistSq(enemy) : tower.distanceSqTo(enemy.position);
+      // Insert in order, keep the nearest `count`
+      let at = picks.length;
+      while (at > 0 && (dist[at - 1] > d || (dist[at - 1] === d && picks[at - 1].id > enemy.id))) at--;
+      if (at >= count) continue;
+      picks.splice(at, 0, enemy);
+      dist.splice(at, 0, d);
+      if (picks.length > count) {
+        picks.length = count;
+        dist.length = count;
+      }
+    }
+    return picks;
   }
 
   // =====================================================

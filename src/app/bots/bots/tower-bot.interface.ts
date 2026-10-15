@@ -186,6 +186,7 @@ const ALL_COMBAT_TOWERS: TowerTypeId[] = [
   'chaos',
   'bastion',
   'sentinel',
+  'chainsaw',
 ];
 
 /**

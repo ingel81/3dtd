@@ -192,6 +192,13 @@
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/cannon.glb\",\"scale\":5.5}",
       "model": "d21fd958be711c3e3b078f40f117846967e9d7a777ffc5219e9436420896a48f"
     },
+    "tower-chainsaw": {
+      "file": "tower-chainsaw.webp",
+      "width": 168,
+      "height": 100,
+      "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/chainsaw.glb\",\"scale\":7}",
+      "model": "a7e7c5ca815567799a27974e61048df6fbdc20460a61ac1535bf4ec7501b5199"
+    },
     "tower-chaos": {
       "file": "tower-chaos.webp",
       "width": 168,

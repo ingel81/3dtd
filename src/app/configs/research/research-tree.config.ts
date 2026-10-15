@@ -206,6 +206,22 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'unlock-tower', towerId: 'sentinel' }],
   },
 
+  // Robot tentacles: the tentacle's reach in steel, with a saw on each arm. After the tentacle and the cannon's
+  // engineering, opening with the bosses of the tens.
+  'cybernetics': {
+    id: 'cybernetics',
+    name: 'Cybernetics',
+    description: 'Unlocks the Chainsaw: three robot arms, each sawing an enemy of its own at the road',
+    category: 'tower-unlock',
+    branch: 'biology',
+    icon: 'cog',
+    cost: 1500,
+    duration: 20,
+    prerequisites: ['tentacle-biology', 'siege-engineering'],
+    minWave: 10,
+    effects: [{ kind: 'unlock-tower', towerId: 'chainsaw' }],
+  },
+
   // ==================== Tower Unlocks (Tier 3) ====================
 
   'chaos-rift': {

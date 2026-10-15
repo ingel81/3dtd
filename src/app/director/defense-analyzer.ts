@@ -51,6 +51,7 @@ const TOWER_CAPABILITIES: Record<
   chaos: { antiAir: true }, // Generalist: air and ground, 1.0 against every armor
   bastion: { antiAir: true }, // Flak: air and ground from the start
   sentinel: { antiAir: true }, // Laser: air and ground, one target at a time
+  chainsaw: {}, // Three saw arms at the road's edge, ground only
   'research-center': {}, // Passive building — no combat capabilities
   'missile-silo': {}, // Passive building: the nuclear strike is an ability, not tower fire
 };

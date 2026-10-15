@@ -101,7 +101,7 @@ export class ResearchPickStrategy extends BaseStrategy {
       'toxic-compounds', 'fire-alchemy',
       'advanced-weaponry', 'nuclear-strike', 'frost-bomb', 'storm-mastery', 'emp',
       'master-engineering', 'orbital-laser',
-      'flak-artillery', 'laser-optics',
+      'flak-artillery', 'laser-optics', 'cybernetics',
       'chaos-rift', 'advanced-engineering', 'transcendent-tech',
       'mercenary-contract',     // the hero; HeroStrategy hires him once it is done
     ],
@@ -361,6 +361,8 @@ export class ResearchPickStrategy extends BaseStrategy {
       let dps: number;
       if (towerCfg.attackType === 'beam') {
         dps = towerCfg.damagePerSecond ?? 0;
+      } else if (towerCfg.attackType === 'saw') {
+        dps = towerCfg.damage * (towerCfg.sawArms?.length ?? 1);
       } else if (towerCfg.attackType === 'laser' && towerCfg.laser) {
         dps = towerCfg.damage * laserMeanFactor(towerCfg.laser);
       } else if (towerCfg.attackType === 'chain') {

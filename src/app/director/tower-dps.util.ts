@@ -74,6 +74,7 @@ export function statMultiplier(
  *   - Beam damagePerSecond (Fire), scaled by the damage track
  *   - Projectile/melee damage × fireRate (default)
  *   - Laser damage per second at its mean heat (Sentinel)
+ *   - Saw damage per second times its arms (Chainsaw)
  *   - Chain geometric series 1 + f + f² + … + f^maxJumps (Lightning)
  *   - Additive DoT component (Poison, flat — AI approximation, intentionally
  *     unscaled by the damage track)
@@ -91,6 +92,10 @@ export function computeTowerDPSFromLevels(
     // Beam towers (Fire) keep damagePerSecond in config because applyUpgrade()
     // multiplies _combat.damage (which starts at 0); scale by the damage track.
     base = (cfg.damagePerSecond ?? 0) * statMultiplier(cfg, 'damage', levels);
+  } else if (cfg.attackType === 'saw') {
+    // Every arm saws on a body of its own while there are enough
+    base = cfg.damage * statMultiplier(cfg, 'damage', levels) * cfg.fireRate * statMultiplier(cfg, 'fireRate', levels)
+      * (cfg.sawArms?.length ?? 1);
   } else if (cfg.attackType === 'laser' && cfg.laser) {
     // A laser's damage is per second; it counts at its mean heat (laserMeanFactor), the Heat-up track left out
     base = cfg.damage * statMultiplier(cfg, 'damage', levels) * laserMeanFactor(cfg.laser);

@@ -84,6 +84,13 @@ export function towerCardTooltip(
         { label: 'TYPE', value: 'BEAM' },
         { label: 'RANGE', value: `${tower.range}m` },
       ]
+    : tower.attackType === 'saw'
+    ? [
+        // Per arm and second, every arm on a target of its own
+        { label: 'DPS', value: `${tower.damage}×${tower.sawArms?.length ?? 1}` },
+        { label: 'TYPE', value: 'ARMS' },
+        { label: 'RANGE', value: `${tower.range}m` },
+      ]
     : tower.attackType === 'laser' && tower.laser
     ? [
         // Cold to hot (TowerTypeConfig.laser)

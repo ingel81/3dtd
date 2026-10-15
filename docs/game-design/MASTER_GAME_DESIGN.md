@@ -173,6 +173,7 @@ Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 | **Lightning** | Lightning | 32 dmg primary, Chain ×0.7/Jump, 2 Jumps, 0.8/s, Range 65 | 130 | **Air + Ground** |
 | **Chaos** | Chaos | 50 dmg, 1.2/s, Range 60, 1,0 gegen jede Rüstung | 200 | **Air + Ground** |
 | **Iron Bastion** | Pierce | 36 dmg, 0.75/s, Range 65, Flak-Splash 5 m (max. 6 Ziele) | 150 | **Air + Ground** |
+| **Chainsaw** | Pierce | 3 Arme mit je 30 DPS, jeder Arm ein eigenes Ziel, Range 14 | 140 | nein |
 | **Sentinel Laser** | Lightning | Laser 24 DPS kalt, auf demselben Ziel in 4 s bis 96 DPS, Range 60 | 170 | **Air + Ground** |
 
 ### 3.2 Upgrade-Regeln (Stand 2026-09)
@@ -202,6 +203,7 @@ Mutator je Welle ([WAVE_RUN_PLAN.md](../WAVE_RUN_PLAN.md), Abschnitt 16).
 | Lightning | 1,05 | 1,04 | Kette vervielfacht ohnehin |
 | Chaos | 1,05 | 1,04 | Generalist, soll die Spezialisten auch im Endausbau nicht überholen |
 | Iron Bastion | 1,06 | 1,03 | der Splash trägt den Schaden auf jedes getroffene Ziel |
+| Chainsaw | 1,07 | 1,03 (Chain Speed) | Kettentempo multipliziert den Dauerschaden jedes Arms |
 | Sentinel Laser | 1,06 | 1,04 (Heat-up) | Fire Rate heißt hier Heat-up und verkürzt das Aufheizen |
 
 Andere Upgrade-Pfade als diese Tracks gibt es nicht. Die früher je Tower
@@ -324,6 +326,33 @@ in §12.3.
   weißgelber Kern mit Korona und größerem Glühen am Ziel. Der Kopf neigt sich zum Ziel (bis 60°). Ton: der Strahl des
   Orbital Laser als Schleife, solange er brennt.
 - **Wave-Director:** zählt als Anti-Air, nicht als Splash.
+
+### 3.16 Chainsaw: Pierce (seit 2026-10-15)
+- **Drei Roboterarme** (`attackType: 'saw'`, `sawArms`) mit je einer Kettensäge, je Arm 30 Schaden je Sekunde mal
+  Kettentempo, Dauerschaden je Sub-Step. Jeder Arm sägt ein eigenes Ziel, solange genug in Reichweite sind; die
+  Ziele gehen nach Entfernung an die Arme (nächstes an den unteren, mittleres an den seitlichen, fernstes an den
+  oberen), freie Arme gehen mit auf das fernste. Gleich weite nach ID, damit jeder Client gleich wählt. So bleibt
+  jeder Arm in seinem Band der Straße und nichts kreuzt; die Bögen sind dazu gestaffelt (unten, mitte, hoch).
+- **Reichweite 14 m:** vom nächsten erlaubten Platz (10 m von der Route) über die Straße. Der Tower gehört direkt an
+  den Rand, sein Text sagt es.
+- **Rolle:** Häcksler am Straßenrand gegen Fleisch und Schwärme am Boden: Pierce 1,25 gegen Unarmored, 1,6 gegen
+  Light; gegen Heavy (0,35) und Fortified (0,25) schwach, keine Luft.
+- **Rechnung** (DPS-Modell, Basisstufe, Arme × Schaden):
+
+| DPS × Matrix / Gold | Unarmored | Light | Heavy | Fortified | Ethereal |
+|---|---:|---:|---:|---:|---:|
+| Chainsaw (90 DPS, 140) | 0,80 | 1,03 | 0,23 | 0,16 | 0,06 |
+| Dual-Gatling (90) | 0,69 | 0,89 | 0,19 | 0,14 | 0,06 |
+| Tentacle (80) | 1,05 | 1,05 | 0,53 | 0,32 | 0,11 |
+
+  Mehr je Gold als die Gatling, die 50 m weit reicht, weniger als der Tentacle mit seinem Schlag am Engpass. Das
+  Modell zählt drei Arme auf drei Zielen; auf einem einzelnen Ziel sägen alle drei dasselbe, der Schaden bleibt.
+- **Freischaltung:** Cybernetics (1.500 Gold, 20 s, ab Welle 10) hinter Tentacle Biology und Siege Engineering.
+- **Upgrades:** Damage 1,07, Chain Speed 1,03 (der Fire-Rate-Track, multipliziert den Schaden), Range.
+- **Darstellung:** Meshy-Modell ohne seine Arme; die Arme zeichnet `tower-saw-arms.ts` unter dem Turm als Bezier mit
+  Gliedern (dunkles Metall, gelbe Fuge, mehr Glieder je länger), eingefahren wie im Modell, ausgefahren in einer
+  knappen halben Sekunde zum Ziel, die Säge 1,25-fach und 15° ins Ziel geneigt, mit leichtem Zittern beim Schnitt.
+  Ton: der Servo-Loop des Mech, solange ein Arm sägt. Eine laufende Kette (UV-Scroll) gibt es noch nicht.
 
 ---
 
@@ -560,8 +589,8 @@ den Text aus `description`.
 
 ### 6.3 Tech-Tree (Forschungsbaum)
 
-Frei wählbar mit Voraussetzungen, 23 Knoten in vier Kategorien
-(`research-tree.config.ts`), zusammen 180.620 Credits (bis 2026-10-01 19.670).
+Frei wählbar mit Voraussetzungen, 24 Knoten in vier Kategorien
+(`research-tree.config.ts`), zusammen 182.120 Credits (bis 2026-10-01 19.670).
 
 **Tempo (seit 2026-10-02):** Eine Forschung kann eine Mindestwelle haben
 (`minWave`). Sie öffnet in der Bauphase vor dieser Welle (`researchWave`: die
@@ -587,6 +616,7 @@ fünf Wellen Einkommen und steht gegen Upgrades.
 | `arcane-studies` | Arcane Studies | 650 | 20 s | – | Ice Magic | Magic Tower |
 | `storm-mastery` | Storm Mastery | 1.200 | 20 s | 9 | Arcane Studies | Lightning Tower |
 | `flak-artillery` | Flak Artillery | 1.000 | 20 s | 8 | Siege Engineering | Iron Bastion |
+| `cybernetics` | Cybernetics | 1.500 | 20 s | 10 | Tentacle Biology + Siege Engineering | Chainsaw |
 | `laser-optics` | Laser Optics | 2.500 | 25 s | 12 | Storm Mastery | Sentinel Laser |
 | `chaos-rift` | Chaos Rift | 8.000 | 30 s | 20 | Siege Engineering + Storm Mastery | Chaos Tower |
 

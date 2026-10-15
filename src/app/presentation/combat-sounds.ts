@@ -32,6 +32,13 @@ export function registerCombatSounds(audio: SpatialAudioManager): void {
     volume: 0.35,
     loop: true,
   });
+  // The Chainsaw's arm motors while its saws cut
+  audio.registerSound('saw-loop', 'assets/sounds/enemies/mech/servo_loop.mp3', {
+    refDistance: 30,
+    rolloffFactor: 1.3,
+    volume: 0.5,
+    loop: true,
+  });
   audio.registerSound('tentacle-grab', 'assets/sounds/towers/tentacle/tentacle-01.mp3', {
     refDistance: 25,
     rolloffFactor: 1.5,

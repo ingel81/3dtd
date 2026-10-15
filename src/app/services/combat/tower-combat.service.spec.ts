@@ -496,6 +496,87 @@ describe('TowerCombatService', () => {
   });
 
   // ────────────────────────────────────────────────────────────────
+  // Saw: an arm per target, by distance
+  // ────────────────────────────────────────────────────────────────
+  describe('updateSawTowers', () => {
+    const towerPos = { lat: 48.0, lon: 9.0, height: 0 };
+
+    function enemyNorthOf(meters: number, id = `e-${meters}`) {
+      return {
+        id,
+        alive: true,
+        health: { hp: 100 },
+        position: { lat: towerPos.lat + meters / METERS_PER_DEGREE_LAT, lon: towerPos.lon },
+        typeConfig: { id: 'zombie', isAirUnit: false, heightOffset: 0, scale: 1 },
+        heightOffset: 0,
+        transform: { terrainHeight: 0 },
+        movement: { getPathProgress: () => 0.5 },
+      };
+    }
+
+    function setup(enemies: ReturnType<typeof enemyNorthOf>[]) {
+      mockInjections['GlobalRouteGridService'] = {
+        getEnemiesForTower: (_cells: unknown[], out: unknown[]) => {
+          out.length = 0;
+          out.push(...enemies);
+          return out;
+        },
+        getBodyEnemies: () => [],
+        isPositionVisibleFromTower: () => true,
+      };
+      const applyBeamDamage = vi.fn();
+      mockInjections['CombatEffectService'] = { applyBeamDamage };
+      service = new TowerCombatService();
+      service.initialize(NO_RESEARCH);
+      const tower = new Tower(towerPos, 'chainsaw');
+      tower.losReady = true;
+      tower.visibleCells = [{} as never];
+      const towerManager = { getAllActive: () => [tower] };
+      const step = () => {
+        service.updateSawTowers(16, towerManager as never, 1000);
+        service.flushBeams();
+      };
+      /** The enemy each arm sawed in the last step, in arm order */
+      const sawed = () => applyBeamDamage.mock.calls.slice(-3).map((call) => (call[0] as { id: string }).id);
+      return { tower, applyBeamDamage, step, sawed };
+    }
+
+    it('gives the nearest to the first arm, the farthest to the last, and leaves out what is beyond the arms', () => {
+      const { tower, applyBeamDamage, step, sawed } = setup([enemyNorthOf(12), enemyNorthOf(5), enemyNorthOf(9), enemyNorthOf(20)]);
+      step();
+      expect(sawed()).toEqual(['e-5', 'e-9', 'e-12']);
+      expect(applyBeamDamage.mock.calls[0][1]).toBeCloseTo(tower.typeConfig.damage * 0.016, 9);
+      expect(sink.towers.setSawTargets).toHaveBeenLastCalledWith(tower.id, [expect.anything(), expect.anything(), expect.anything()]);
+    });
+
+    it('sends the free arms to the farthest of fewer targets', () => {
+      const { step, sawed } = setup([enemyNorthOf(10), enemyNorthOf(6)]);
+      step();
+      expect(sawed()).toEqual(['e-6', 'e-10', 'e-10']);
+    });
+
+    it('takes equal distances by id, the same on every client', () => {
+      const { step, sawed } = setup([enemyNorthOf(8, 'b'), enemyNorthOf(8, 'a'), enemyNorthOf(8, 'c')]);
+      step();
+      expect(sawed()).toEqual(['a', 'b', 'c']);
+    });
+
+    it('docks the arms once nothing is in reach, and at the wave end', () => {
+      const enemies = [enemyNorthOf(6)];
+      const { tower, step } = setup(enemies);
+      step();
+      enemies.length = 0;
+      step();
+      expect(sink.towers.setSawTargets).toHaveBeenLastCalledWith(tower.id, []);
+      enemies.push(enemyNorthOf(7));
+      step();
+      service.stopAllBeams();
+      service.flushBeams();
+      expect(sink.towers.setSawTargets).toHaveBeenLastCalledWith(tower.id, []);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
   // Range upgrades reach the wake check and the radius fallback
   // ────────────────────────────────────────────────────────────────
   describe('upgraded range', () => {

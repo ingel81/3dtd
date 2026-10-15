@@ -19,7 +19,7 @@ import { resolve } from 'node:path';
 
 describe('tower types config', () => {
   // Combat towers + passive buildings (research-center, missile-silo)
-  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos', 'bastion', 'sentinel'];
+  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos', 'bastion', 'sentinel', 'chainsaw'];
   const allIds: TowerTypeId[] = [...combatIds, 'research-center', 'missile-silo'];
 
   it('contains all tower types', () => {
@@ -235,6 +235,24 @@ describe('tower types config', () => {
       expect(hot, id).toBeGreaterThan(perGold(getTowerType(id), 'heavy'));
     }
     expect(getResearchForTower('sentinel')?.prerequisites).toContain('storm-mastery');
+  });
+
+  it('the chainsaw saws three bodies at once at the road: much damage per gold for its short reach', () => {
+    const saw = getTowerType('chainsaw');
+    expect(saw.attackType).toBe('saw');
+    expect(saw.sawArms).toHaveLength(3);
+    expect(saw.canTargetAir).toBe(false);
+    // Arms of 14 m: from the closest a tower may stand to a route (10 m) across the road
+    expect(saw.range).toBe(14);
+
+    const perGold = (t: TowerTypeConfig, armor: ArmorType) =>
+      (computeTowerDPSFromLevels(t, {}) * DAMAGE_MATRIX[t.damageType][armor]) / t.cost;
+    expect(perGold(saw, 'unarmored')).toBeCloseTo(0.804, 3);
+    // More than the gatling, which reaches 50 m, less than the tentacle and its slam at the choke
+    expect(perGold(saw, 'unarmored')).toBeGreaterThan(perGold(getTowerType('dual-gatling'), 'unarmored'));
+    expect(perGold(saw, 'unarmored')).toBeLessThan(perGold(getTowerType('tentacle'), 'unarmored'));
+    expect(perGold(saw, 'heavy')).toBeLessThan(0.25);
+    expect(getResearchForTower('chainsaw')?.prerequisites).toEqual(['tentacle-biology', 'siege-engineering']);
   });
 
   it('every configured turretNode exists in its model', () => {

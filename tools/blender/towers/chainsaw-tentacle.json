@@ -46,7 +46,8 @@
     0.0,
     -0.7417,
     0.6707
-   ]
+   ],
+   "parent": "turret"
   },
   {
    "name": "saw_down",
@@ -103,7 +104,8 @@
     0.0,
     -0.8689,
     -0.495
-   ]
+   ],
+   "parent": "turret"
   },
   {
    "name": "saw_side",
@@ -146,7 +148,8 @@
     0.9821,
     -0.011,
     0.188
-   ]
+   ],
+   "parent": "turret"
   },
   {
    "name": "drop_arm_down",
@@ -277,5 +280,15 @@
    "pivot": "yaw"
   }
  ],
- "islandShare": 0.02
+ "islandShare": 0.02,
+ "material": "ChainsawTurret",
+ "export": {
+  "glb": "public/assets/models/towers/chainsaw.glb",
+  "triangles": 50000,
+  "texture": 1024,
+  "quality": 88,
+  "names": {
+   "turret": "turret_top"
+  }
+ }
 }

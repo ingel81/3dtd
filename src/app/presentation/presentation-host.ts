@@ -69,6 +69,8 @@ export class PresentationHost implements SimPresenterApi {
   readonly flames: FlameSounds;
   /** The lasers' hum, run like the flame loops */
   readonly lasers: FlameSounds;
+  /** The saw arms' motors while they cut, run like the flame loops */
+  readonly saws: FlameSounds;
   readonly manualShots: ManualShots;
 
   private readonly engine: ThreeTilesEngine;
@@ -103,6 +105,7 @@ export class PresentationHost implements SimPresenterApi {
     this.frame = new FramePresenter(engine, ground);
     this.flames = new FlameSounds(() => engine.spatialAudio ?? null);
     this.lasers = new FlameSounds(() => engine.spatialAudio ?? null, 'laser-loop');
+    this.saws = new FlameSounds(() => engine.spatialAudio ?? null, 'saw-loop');
     this.ops = new OpPlayer(engine);
     this.installOverrides(source, bus);
 
@@ -145,6 +148,7 @@ export class PresentationHost implements SimPresenterApi {
     this.frame.clear();
     this.flames.clear();
     this.lasers.clear();
+    this.saws.clear();
     const engine = this.engine;
     engine.enemies.clear();
     engine.oozes.clear();
@@ -303,6 +307,14 @@ export class PresentationHost implements SimPresenterApi {
       call(...args);
       this.flames.clear();
     });
+    // The saw motors run while an arm cuts, at the first arm's target
+    ops.override('towers.setSawTargets', (args, call) => {
+      call(...args);
+      const at = (args[1] as (Vector3 | null)[]).find((target) => target !== null);
+      if (at) this.saws.burn(args[0] as string, at);
+      else this.saws.stop(args[0] as string);
+    });
+
     // The laser's hum runs with its beam
     ops.override('laserBeams.startBeam', (args, call) => {
       call(...args);

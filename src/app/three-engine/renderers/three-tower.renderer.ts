@@ -21,6 +21,7 @@ import {
   Sphere,
   Texture,
   WebGLRenderer,
+  type Vector3,
 } from 'three';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
@@ -28,6 +29,7 @@ import { AssetManagerService } from '../../services/infrastructure/asset-manager
 import { createLosRing, createTipMarker } from './tower-overlays';
 import { RangeRingKit, placeRangeRing } from './range-ring';
 import { TurretPitch, createTurretPitch, drawTurretAim } from './tower-turret-aim';
+import { SawArms } from './tower-saw-arms';
 import type { TowerAim } from '../../entities/tower-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
 import { setTowerGreyedOut } from './tower-hold-fire';
@@ -73,6 +75,8 @@ export interface TowerRenderData {
   hoverPhaseOffset: number; // Random phase offset for desynchronized hover
   /** Guns that tilt towards the target's height (TowerTypeConfig.pitchNodes) */
   pitch?: TurretPitch;
+  /** The Chainsaw's robot arms (TowerTypeConfig.sawArms) */
+  sawArms?: SawArms;
   // GLTF animation support
   mixer: AnimationMixer | null;
   animations: Map<string, AnimationClip>;
@@ -464,6 +468,7 @@ export class ThreeTowerRenderer {
     if (config.pitchNodes && turretPart) {
       renderData.pitch = createTurretPitch(config, turretPart);
     }
+    if (config.sawArms && turretPart) renderData.sawArms = new SawArms(config, turretPart);
     // Where the aim points already: the model loads while the simulation turns it
     this.drawAim(renderData);
 
@@ -821,6 +826,7 @@ export class ThreeTowerRenderer {
     if (!data) return;
 
     // Remove mesh
+    data.sawArms?.dispose();
     this.scene.remove(data.mesh);
     this.disposeObject(data.mesh);
     if (this.shadowCasting) this.onShadowsChanged?.();
@@ -903,6 +909,8 @@ export class ThreeTowerRenderer {
         }
       }
 
+      data.sawArms?.update(deltaSeconds);
+
       // Selection ring (visual), also on the hovered tower
       if ((data.isSelected || data.id === this.hoveredId) && data.selectionRing) {
         const scale = 1 + Math.sin(this.animationTime) * 0.1;
@@ -919,6 +927,15 @@ export class ThreeTowerRenderer {
 
     // Turret aim and the magic hover
     this.updateTurretVisuals();
+  }
+
+  /**
+   * Where the arms of saw tower `id` cut this frame (TowerCombatService.updateSawTowers), one per arm, null for
+   * an arm going home; an empty list sends them all home. Before the model stands nothing: the next frame
+   * sends them again.
+   */
+  setSawTargets(id: string, targets: readonly (Vector3 | null)[]): void {
+    this.towers.get(id)?.sawArms?.setTargets(targets);
   }
 
   /** Turn and tilt the turret of `data` to its aim. */

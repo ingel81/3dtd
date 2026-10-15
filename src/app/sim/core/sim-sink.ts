@@ -103,6 +103,11 @@ export interface SimSink {
     setBuild(id: string, remainingMs: number, totalMs: number): void;
     /** The tower took path `pathId` (configs/tower-paths.config.ts): its model shows it */
     setPath(id: string, pathId: string): void;
+    /**
+     * Where the arms of saw tower `id` cut this frame, one per arm in TowerTypeConfig.sawArms order (null: that
+     * arm rests), local; an empty list docks every arm. Once per frame while they cut, as the flames.
+     */
+    setSawTargets(id: string, targets: readonly (OpVec3 | null)[]): void;
     remove(id: string): void;
     clear(): void;
   };
