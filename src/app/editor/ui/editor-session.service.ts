@@ -997,9 +997,9 @@ export class EditorSession implements OnDestroy {
     }
     const from = this.viewport?.viewCenter() ?? editor.doc.hq;
     let result: MirrorResult = { objects: 0, spawns: 0, roads: 0 };
-    this.execute(SnapshotCommand.record(editor.doc, 'Mirror the map', ['terrain', 'objects', 'paths', 'spawns'], (d) => (result = mirrorMap(d, mode, from))));
+    this.execute(SnapshotCommand.record(editor.doc, 'Mirror the map', ['terrain', 'objects', 'paths', 'spawns', 'life'], (d) => (result = mirrorMap(d, mode, from))));
     const leftOut = result.spawnsLeftOut ? ` (${result.spawnsLeftOut} spawns left out: a map holds at most ${MAX_SPAWN_PORTALS})` : '';
-    this.flash(`Mirrored from the part in view: ${result.objects} objects, ${result.spawns} spawns, ${result.roads} roads copied${leftOut}`);
+    this.flash(`Mirrored from the part in view: ${result.objects} objects, ${result.spawns} spawns, ${result.roads} roads${result.life ? `, ${result.life} life areas` : ''} copied${leftOut}`);
   }
 
   /** The check's findings without showing them (an AI agent's script reports them itself); of `doc` for a dry run */

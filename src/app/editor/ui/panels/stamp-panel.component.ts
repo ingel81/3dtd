@@ -13,6 +13,7 @@ const PARTS: { id: keyof StampParts; label: string }[] = [
   { id: 'water', label: 'Water' },
   { id: 'objects', label: 'Objects' },
   { id: 'roads', label: 'Roads' },
+  { id: 'life', label: 'Life areas' },
 ];
 
 /** Copy a rectangle, place it, save it as a stamp, and the stamp library */

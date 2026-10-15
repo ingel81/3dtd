@@ -1,6 +1,7 @@
 /**
  * Copy and paste of map pieces, and stamps (saved pieces): a rectangle of
- * the map with its heights, ground paint, water, objects and roads,
+ * the map with its heights, ground paint, water, objects, roads and life
+ * areas,
  * independent of the map it came from.
  *
  * Heights are kept relative to the piece's rim (the mean height of its
@@ -9,12 +10,13 @@
  * right layer of any map (layers are added when there is room). Pasting
  * turns the piece by any angle and fades its rim into the ground.
  */
-import type { CustomMapDocument, MapObject, MapPathEdge, MapPathNode, MapPoint } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapLifeArea, MapObject, MapPathEdge, MapPathNode, MapPoint } from '../../world/custom-map/map-document';
 import { clamp, heightAt, sampleX, sampleY, texelX, texelY, type GridRect } from '../model/grid';
 import { MAX_LAYERS, readWeights, writeWeights } from './paint-ops';
 import { edgePolyline, newId } from './path-graph';
 import type { LandscapeStroke } from './landscape/landscape-stroke';
 import { smooth } from './landscape/landscape-noise';
+import { MAX_LIFE_AREAS, newLifeId } from '../../world/custom-map/map-life';
 
 export interface StampParts {
   heights: boolean;
@@ -22,9 +24,10 @@ export interface StampParts {
   water: boolean;
   objects: boolean;
   roads: boolean;
+  life: boolean;
 }
 
-export const ALL_PARTS: StampParts = { heights: true, paint: true, water: true, objects: true, roads: true };
+export const ALL_PARTS: StampParts = { heights: true, paint: true, water: true, objects: true, roads: true, life: true };
 
 /** A piece of a map, centred on its own middle */
 export interface Stamp {
@@ -45,6 +48,8 @@ export interface Stamp {
   water: { mask: Uint8Array; level: number; color: string } | null;
   objects: Omit<MapObject, 'id'>[];
   roads: { nodes: MapPathNode[]; edges: MapPathEdge[] };
+  /** Life areas and routes with all their points inside, relative to the middle; missing in stamps saved before */
+  life?: Omit<MapLifeArea, 'id'>[];
 }
 
 export interface StampRect {
@@ -142,7 +147,10 @@ export function captureStamp(doc: CustomMapDocument, rect: StampRect): Stamp {
     // Without the road brush's record (its objects and kept ground are those of this place): a pasted road reads it off the map when edited
     edges: edges.map(({ dress: _dress, ...e }) => ({ ...e, via: e.via?.map((v) => ({ x: v.x - cx, y: v.y - cy })) })),
   };
-  return { width, depth, cell, columns, rows, heights, paintCell, paintColumns, paintRows, materials, paint, water, objects, roads };
+  const life = (doc.life?.areas ?? [])
+    .filter((a) => a.points.every(inside))
+    .map(({ id: _id, ...a }) => ({ ...structuredClone(a), points: a.points.map((p) => ({ x: p.x - cx, y: p.y - cy })) }));
+  return { width, depth, cell, columns, rows, heights, paintCell, paintColumns, paintRows, materials, paint, water, objects, roads, life };
 }
 
 export interface PasteOptions {
@@ -336,7 +344,25 @@ export function pasteStamp(stroke: LandscapeStroke, stamp: Stamp, center: MapPoi
     }
     stroke.refreshRoads();
   }
-  stroke.changed({ objects: placed.length ? placed : undefined, paths: options.parts.roads && stamp.roads.edges.length ? true : undefined });
+  // Life areas, turned with the piece; those with a point off the map and those past the map's limit stay out
+  let life = false;
+  if (options.parts.life && stamp.life?.length) {
+    const half = { x: t.width / 2, y: t.depth / 2 };
+    const areas = [...(doc.life?.areas ?? [])];
+    for (const a of stamp.life) {
+      if (areas.length >= MAX_LIFE_AREAS) break;
+      const points = a.points.map((q) => {
+        const p = place(q, center, cos, sin);
+        return { x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10 };
+      });
+      if (points.some((p) => Math.abs(p.x) > half.x || Math.abs(p.y) > half.y)) continue;
+      if (!life) stroke.markLife();
+      life = true;
+      areas.push({ ...structuredClone(a), id: newLifeId(areas, a.kind), points });
+    }
+    if (life) doc.life = { ...doc.life, areas };
+  }
+  stroke.changed({ objects: placed.length ? placed : undefined, paths: options.parts.roads && stamp.roads.edges.length ? true : undefined, life: life || undefined });
 }
 
 /** Total length of the roads in a stamp, for its description */

@@ -57,7 +57,7 @@ import { ALL_PARTS, captureStamp, pasteStamp, type PasteOptions, type Stamp, typ
 import { MAX_LAYERS, autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from './paint-ops';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from './path-graph';
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
-import { mirrorChange, objectImages, symmetryImages, type SymmetryMode } from './symmetry';
+import { lifeAreaImages, mirrorChange, objectImages, symmetryImages, type SymmetryMode } from './symmetry';
 import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, terraceDab, erodeDab } from './terrain-ops';
 import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab, wetSamples } from './water-ops';
 import { MAX_WATER_BODIES } from '../../world/custom-map/map-file';
@@ -1157,7 +1157,7 @@ export class MapKit {
 
   // ---- Life ----------------------------------------------------------------------------------------------------
 
-  /** A life area (the Life tool's Outline): the outline the life fills; returns its id */
+  /** A life area (the Life tool's Outline): the outline the life fills, with its images under `symmetry`; returns its id */
   lifeArea(kind: MapLifeKind, points: readonly MapPoint[], options: LifeOptions = {}): string {
     return this.addLife(kind, 'area', points, options);
   }
@@ -1189,7 +1189,15 @@ export class MapKit {
     const unknown = Object.keys(options).filter((k) => !LIFE_OPTION_KEYS.includes(k as keyof LifeOptions));
     if (unknown.length) throw new Error(`${this.name}: life areas know no ${unknown.join(', ')} (they take ${LIFE_OPTION_KEYS.join(', ')})`);
     const area: MapLifeArea = { id: newLifeId(areas, kind), kind, shape, points: points.map((p) => ({ x: r2(p.x), y: r2(p.y) })), ...options };
-    const life: MapLife = { ...this.doc.life, areas: [...areas, area] };
+    // With symmetry on, its images too (as the Life tool draws them)
+    const t = this.doc.terrain;
+    const taken = [...areas, area];
+    const images = lifeAreaImages([area], symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), (a) => {
+      const id = newLifeId(taken, a.kind);
+      taken.push({ ...a, id });
+      return id;
+    }, t.width / 2, t.depth / 2);
+    const life: MapLife = { ...this.doc.life, areas: [...areas, area, ...images] };
     const problems = lifeProblems(life);
     if (problems.length) throw new Error(`${this.name}: ${problems[0]}`);
     this.doc.life = life;

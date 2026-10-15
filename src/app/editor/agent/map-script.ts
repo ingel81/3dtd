@@ -151,7 +151,7 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
   },
   copyArea: {
     args: [a('rect', RECT), a('to', POINT), a('options', OBJECT, true)],
-    doc: 'Copy a rectangle { x0, y0, x1, y1 } of the map and paste it centred on `to` (Copy and stamps tool); options { rotation (radians), feather 0..1 (0.25, how far the rim fades into the ground), parts { heights, paint, water, objects, roads } (all true) }',
+    doc: 'Copy a rectangle { x0, y0, x1, y1 } of the map and paste it centred on `to` (Copy and stamps tool); options { rotation (radians), feather 0..1 (0.25, how far the rim fades into the ground), parts { heights, paint, water, objects, roads, life } (all true) }',
     wholeGround: true,
   },
   setSymmetry: { args: [a('mode', one(SYMMETRIES))], doc: 'Symmetry for the commands after it: strokes, lines, objects land at every image' },
