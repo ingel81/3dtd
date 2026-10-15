@@ -122,7 +122,9 @@ Nebel der Szene wieder her.
   Streifens, 30 m entlang geglättet, ohne Straßen, Pflaster und Lava; ein gepflasterter Rand nimmt den natürlichen Boden,
   den die Karte am meisten hat; eine Textur 512 × 3, ein Lookup je Zeile nur jenseits des Rands), vorher die erste
   Schicht (Harbor Town: Pflaster bis zum Horizont). Ab 250 m hinter dem Rand steigt eine **Bergkette** (ab 900 m voll,
-  Grat-Rauschen entlang des Rands, Höhe nach Look `BACKDROP_HEIGHT`: Gebirge 420 m, Mond 80 m, Sumpf 40 m; nicht über dem Meer;
+  Grat-Rauschen entlang des Rands, Höhe nach Look `BACKDROP_HEIGHT`: Gebirge 420 m, Mond 80 m, Sumpf 40 m; nicht über dem Meer
+  (nasser Rand ab 160 m am Stück, `SEA_RUN`; eine schmalere Flussmündung behält das Profil, der Fluss endet kurz hinter dem
+  Rand, statt die Kette bis zum Horizont zu schlitzen);
   Land jenseits des Rands versinkt im Höhennebel zu 97 %, auf dem Mond ohne Luft nur zu 60 % (`beyondHaze`, sonst
   verschwände die Kette im schwarzen Dunst),
   so endet keine Karte sichtbar in flachem Land; dieselben Ringpunkte, kein Draw Call mehr. Im Bereich der Kette liegen
@@ -199,8 +201,9 @@ ein Weg jeder Unebenheit ohne Z-Fighting, und der Höhen-Blend lässt Pflasterst
 Flussufer liegen in der Alpha der Maske: nasser Kies und Erde beidseits jedes Flusses, ungleichmäßig breit (an
 der Innenseite einer Biegung bis 2,4-fach, außen schmal, entlang des Flusses wandernd), die Kante vom Rauschen
 angefressen. Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
-leichtem Bogen und mindestens 1 m über dem Wasser. `style: 'stone' | 'lava'` an der Kante nimmt `bridge-deck-stone`
-bzw. `bridge-deck-lava`; fehlt das Stück im Katalog, bleibt es beim Holzdeck.
+leichtem Bogen und mindestens 1 m über dem Wasser. `style: 'stone' | 'concrete' | 'lava'` an der Kante nimmt
+`bridge-deck-stone`, `bridge-deck-concrete` (Asphalt auf Betonplatte, Geländer) bzw. `bridge-deck-lava`; fehlt das
+Stück im Katalog, bleibt es beim Holzdeck.
 Eine Kante mit `surface` (ein Bodenmaterial, OSM-Welten: Asphalt, Pflaster, Kies) lässt die Maske aus: ihr Belag ist
 in die Bodenfarbe gemalt und zeigt sich statt Kopfsteinen und Spurrillen. `street` an der Kante (der `highway`-Typ des
 echten Wegs) gibt im Spiel den Straßentyp, nach dem Routen gewichtet und Spawns gewählt werden
@@ -296,7 +299,12 @@ Lava spiegeln sich).
   am steilen Ufer und aus der Spielkamera). Flachwasser ist hell türkis (die Körperfarbe zu 40 % zu `#5fb3a6`; Sumpf
   trüb grün). Der Wasserkörper nimmt bei warmem, tiefem Licht den Farbton der Sonne an (bis 35 % zur eigenen
   Helligkeit im Sonnenton, nur wenn Rot über Blau liegt): bei Dämmerung von oben gedämpft und warm wie die Spiegelung
-  aus der Nähe, statt kräftig blau; Tag und Nacht bleiben unverändert (gilt für Wasser, Meer und Sumpf)
+  aus der Nähe, statt kräftig blau; Tag und Nacht bleiben unverändert (gilt für Wasser, Meer und Sumpf). Das eigene
+  Licht des Wassers (Körper, Schaum, gespiegeltes Land; `waterLight` in `water-material.ts`) folgt der Sonne und wird
+  mit der Dunkelheit der Szene gedämpft, mit ihrem Quadrat bis auf 30 % (Dämmerung wenig, Nacht stark; Lava nicht):
+  vorher hob das Mondlicht einer Nachtkarte die Sonne an, und Hafen und Kanal leuchteten türkis oder grün über
+  dunklen Straßen. Laternen auf dem Wasser, Lichtglanz und Spiegelung kommen obendrauf und bleiben; bei Tag
+  (Dunkelheit 0) ändert sich nichts. Vorschau: `/map-preview?map=<id>&sky=night&moonlight=1`
 - **Strömung** (`flow-map.ts`): jedes Flächengewässer bekommt beim Laden und bei jedem `set` eine gebackene
   Karte auf dem Höhenraster (RGBA8; RG Strömung in Szene x/z, ±1,2 m/s; B Uferabstand bis 32 m, über je 3 Zellen
   geglättet, damit seine Linien die Ecken des Ufers runden; A Steilheit des Ufers bis 1 Zelle daneben, bis 2,5; das
@@ -459,7 +467,9 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 - **Lichter** (`light`: Farbe, Stärke, Reichweite, Höhe, `flicker`, `blink`): jedes bekommt einen additiven Schein (am Tag
   schwach, nachts voll); dazu ein fester Pool von 6 `PointLight`s für die Lichter nächst dem Kamerafokus, nach
   Dunkelheit eingeblendet (Nacht, Dämmerung, tiefe Sonne). Am Tag kosten sie nichts, die feste Poolgröße vermeidet
-  Shader-Neubau. `blink` (Sekunden): ein kurzer Blitz je Periode (Schein und Punktlicht, auch am Tag gut sichtbar),
+  Shader-Neubau. Ein Poollicht blendet aus, je näher es dem Abstand des nächsten ausgelassenen Lichts kommt (ab 0,7
+  davon, `poolFade`), so wechselt das echte Licht beim Schwenken an einer Fackelreihe weich statt Fackel für Fackel
+  umzuspringen (die Mauer neben einer Fackel sprang von hell auf dunkel). `blink` (Sekunden): ein kurzer Blitz je Periode (Schein und Punktlicht, auch am Tag gut sichtbar),
   backt kein Licht auf den Boden; Antennenmast und Positionslicht (`beacon-post`) blinken alle 1,5 s (der
   Flutlichtmast hat keine roten Lichter und leuchtet stetig), die Bojen wie Seezeichen (rot alle 2,5 s, grün alle 4 s,
   jede Boje mit eigener Phase), `fx-beacon` setzt ein blinkendes Licht frei
@@ -790,6 +800,13 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   `rail-platform` (20 × 4 m, Kante vorn), `catenary-mast` (Ausleger nach hinten), `buffer-stop`, `power-pylon` (47 m),
   `vine-row` (10 m entlang X), `fruit-tree`, `playground-swing`, `playground-slide`, `football-goal`, `fountain`.
   Front ist die Tür- bzw. Ladenseite; Carports, Tankstellendach und Gewächshaus sperren keine Sicht
+- **Weitere Arten** (`build_modern2.py`, E179): `shop-small` (Laden, 10 × 8 m, ein Geschoss, Schaufenster auf
+  Steinsockel, Schildband ohne Schrift, Markise), `shop-office` (Geschäftshaus, 12 × 10 m, 4 Geschosse, Läden unter
+  Bandfenstern), `office-ribbon` (Bürohochhaus, 16 × 16 m, 10 Geschosse, Bandfenster zwischen hellen Lisenen, Glasaufbau),
+  `barn-modern` (Scheune heutiger Art, 12 × 18 m, Giebel mit Schiebetor vorn, Bretter auf Betonsockel, Lichtplatten),
+  `outbuilding` (Nebengebäude 4 × 4 m, verputzt, Satteldach, Flügeltor), `shelter-lean-to` (offener Unterstand
+  6 × 2,6 m, Pultdach, Brennholz, sperrt keine Sicht), `annex` (Anbau 7 × 5 m, Pultdach zur Front, Rückseite für
+  die Hauswand). Die OSM-Welt nimmt sie in ihre Arten auf (`building-tags.ts`).
 - **9 Effekt-Marker** (`fx-*`, `file: ''`): Glühwürmchen, Rauch, Glut, Bodennebel, Laub, Schnee, Funkeln, Wasserfall
 - **Tags**: Biome `temperate`, `autumn`, `winter`, `mountain`, `desert`, `swamp`, `coast`, `volcanic`, `village`,
   `castle`, `crystal`, `arena`, `city`, `wasteland`, `moon`, `mars`, `arctic`, `hell`; Rollen für Pinsel `conifer`,

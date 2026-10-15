@@ -101,7 +101,8 @@ export class WaveDebuggerComponent {
   readonly jumpGrantGold = signal(true);
   /** A jump skips at least one wave */
   readonly minJumpWave = computed(() => this.store.waveNumber() + 2);
-  readonly canJump = computed(() => this.store.phase() === 'setup' && this.jumpWave() >= this.minJumpWave());
+  /** During a wave too: the jump then waits for its end (GameStateManager.jumpToWave) */
+  readonly canJump = computed(() => this.store.phase() !== 'gameover' && this.jumpWave() >= this.minJumpWave());
   /** What that wave is, to check W30 is the worm before jumping */
   readonly jumpWaveName = computed(() => {
     const wave = this.jumpWave();
@@ -109,8 +110,9 @@ export class WaveDebuggerComponent {
     return rules.name(wave) ?? (rules.isBoss(wave) ? 'Boss wave' : 'Unnamed wave');
   });
   readonly jumpLabel = computed(() => {
-    if (this.store.phase() !== 'setup') return 'Between waves only';
+    if (this.store.phase() === 'gameover') return 'Not after game over';
     if (this.jumpWave() < this.minJumpWave()) return `Wave ${this.minJumpWave()} or later`;
+    if (this.store.phase() === 'wave') return `After this wave: next start Wave ${this.jumpWave()}`;
     return `Jump: next start Wave ${this.jumpWave()}`;
   });
 

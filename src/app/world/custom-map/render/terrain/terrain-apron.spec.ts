@@ -35,6 +35,24 @@ describe('ApronProfile', () => {
     }
     expect(high.heightAt(100 + APRON_RINGS[1], 0)).toBeCloseTo(flat.heightAt(100 + APRON_RINGS[1], 0), 5);
   });
+
+  it("keeps a river's mouth under the water only as far as the river runs on, a coast's sea out to the horizon", () => {
+    const field = flatField();
+    // A river 20 m wide leaving through the east border (level 6 over ground at 5)
+    const river = new Uint8Array(101 * 101);
+    for (let j = 45; j <= 55; j++) for (let i = 0; i < 101; i++) river[j * 101 + i] = 255;
+    const mouth = new ApronProfile(field, { level: 6, mask: river, color: '#000' }, 400);
+    expect(mouth.heightAt(100 + 100, 0)).toBeLessThan(6);
+    expect(mouth.underWater(100 + 100, 0)).toBe(true);
+    // Beyond the river's reach the backdrop range closes over the valley: no slot to the horizon
+    expect(mouth.heightAt(100 + 1600, 0)).toBeGreaterThan(6 + 0.3 * 400 * 0.5);
+    expect(mouth.underWater(100 + 1600, 0)).toBe(false);
+    // The east half under the sea: its floor stays under the water far out
+    const sea = new Uint8Array(101 * 101);
+    for (let j = 0; j < 101; j++) for (let i = 51; i < 101; i++) sea[j * 101 + i] = 255;
+    const coast = new ApronProfile(field, { level: 6, mask: sea, color: '#000' }, 400);
+    expect(coast.heightAt(100 + 1600, 0)).toBeLessThan(6);
+  });
 });
 
 describe('apronPaintWeights', () => {

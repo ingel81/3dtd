@@ -269,7 +269,9 @@ export function buildMountainPass(): CustomMapDocument {
   k.lifeArea('sound', ring(pass, 60, 8), { sound: 'wind', volume: 0.9 });
   k.lifeRoute('sound', [{ x: 176, y: 40 }, { x: 160, y: 2 }, { x: 150, y: -60 }, { x: 142, y: -110 }, { x: 125, y: -160 }, { x: 108, y: -262 }], { sound: 'stream', volume: 0.8 });
   k.lifeArea('sound', [{ x: -256, y: -256 }, { x: 256, y: -256 }, { x: 256, y: -150 }, { x: -256, y: -150 }], { sound: 'birdsong', volume: 0.5 });
-  // TODO(E190): the gondolas ride the cable; cow bells on the pastures (no such sound yet)
+  // Cowbells on the high pastures round the huts, where the cows graze
+  for (const [x, y] of [[-206, 34], [-140, 66], [200, 26], [140, 62]] as const) k.lifeArea('sound', ring({ x, y }, 22, 6), { sound: 'cowbells', volume: 0.5, reach: 50 });
+  // TODO(E190): the gondolas ride the cable (movers hang from one straight line; this cable sags over three pylons)
   // Sheep on the meadows at the valley's edge, off the roads
   for (const at of [{ x: -235, y: -170 }, { x: 230, y: -165 }]) herd(['sheep-grazing', 'sheep', 'sheep-grazing', 'sheep-lying'], at, 7, 12);
 

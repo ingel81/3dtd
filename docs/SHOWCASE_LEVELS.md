@@ -85,7 +85,8 @@ Höhenlinien über dem Pass, jede quer zur Falllinie; kleine Séracs im steilen 
 weggelassen (liest sich als heller Klotz, die Zunge bleibt aus Gelände). Vier Almhütten mit Holzstapel, Pferch und
 Kühen auf den Hochweiden, Schafe am Talrand. Leben: Greifvögel über beiden Gipfeln, Singvögel über dem Tal,
 Schneegestöber am Kopf der Gletscher; Wind über der ganzen Karte, am Pass lauter, Bachrauschen vom Wasserfall talwärts,
-Vogelgesang im Tal. Offen: Gondeln fahren nicht (kein Mechanismus für Seilbahnen), Kuhglocken (kein Klang).
+Vogelgesang im Tal, Kuhglocken auf den Almen um die Hütten. Offen: Gondeln fahren nicht (bewegte Dinge hängen an
+einer geraden Linie, das Seil hier läuft über drei Stützen).
 
 Biom Berge, Look `mountain`, später Nachmittag. Ein Pass zwischen zwei Gipfeln; die Straße windet sich in Serpentinen
 vom Tal zum Pass, wo das HQ in einem Bergdorf steht (Steinhäuser mit Holzbalkon, Kapelle, Stützmauern). Ein Wasserfall
@@ -126,6 +127,8 @@ steht die Burg auf einem Felssporn: die Krone 7 m über dem alten Hügel, steile
 (`cliffRocks`, vor dem Bewuchs gesetzt, der Pinsel hält Abstand zu anderen Objekten), der Torweg als Rampe durch die
 Südflanke; ein Wassergraben fünf Meter um die Mauern, offen am Torweg; Feuerschalen, Lagerfeuer, Fackeln und Banner in
 Burghof und Tor; eine Windmühle auf einem Hügel östlich mit Feld; Rotwild am Waldrand (ein Hirsch, Grasende).
+In den beiden Nordecken steigen bewaldete Hügel
+(20 bis 30 m) zu beiden Seiten der Burg an, keiner dahinter: von Süden steht der Bergfried weiter vor dem Himmel.
 Leben als Lebensbereiche: Morgennebel in acht Senken, fallendes Laub über den Wäldern, Krähen über beiden Waldseiten,
 wehende Banner (`life.flags`); Vogelgesang am Tag, Grillen nachts, Feuerknistern im Burghof. Offen: beleuchtete
 Fenster an Bergfried und Türmen.
@@ -140,7 +143,9 @@ Nebel in den Senken am Morgen. Spawns: 3. Bauflächen: Mauerkronen-Nähe, Lichtu
 Kakteengruppen, Steinstreu und weitere Felstürme auf der Hochebene. Spuren 506 und 553 m. Bilder:
 `docs/images/levels/red-canyon.jpg` (Tempelbecken), `red-canyon-floor.jpg`, `red-canyon-game.jpg`. Die Schluchten
 sind mit dem Level-Pinsel entlang einer Linie geschnitten und mit dem Terrace-Pinsel gestuft; Tafelberge mit dem
-Cliff-Pinsel (Plateau) und einer Rampe.
+Cliff-Pinsel (Plateau) und einer Rampe. An den Ecken und Rändern stehen abseits der Spawns acht Felstürme aus Gelände (40 bis
+60 m über der Ebene, Cliff-Pinsel mit Terrassen und Klippenfelsen aus Sandstein), ganz innerhalb der Karte, als
+Kulisse vor der fernen Bergkette.
 
 Biom Wüste, Look `desert`, harte Mittagssonne mit Hitzedunst. Ein verzweigter Canyon mit Tafelbergen; die Wege laufen
 im Canyon-Boden, Türme stehen oben auf den Tafelbergen (Plateaus mit Rampen). Tempelruine als HQ, Oase mit Palmen,
@@ -155,9 +160,12 @@ Sandbank knapp unter dem Spiegel (die Prüfung warnt dort bewusst „under water
 
 Biom gemäßigt/Küste, Meer rundum, Look `day` klar. Fünf Inseln, verbunden durch Holzbrücken und Furten; Hafen mit
 Kaimauer, Kran, Fischerhütten, Leuchtturm. Gegner kommen über zwei Brückenketten zur Hauptinsel. Spawns: 2. Bauflächen:
-Inselränder an den Brückenköpfen.
+Inselränder an den Brückenköpfen. Am Rand des Sunds stehen sieben schlanke Brandungspfeiler (einzeln und zu zweit,
+15 bis 30 m, mit einer Schulter, aus dem Meeresboden gehoben) als Tiefe vor dem Horizont; die Klippenschicht der
+Karte ist heller Kalkstein (`limestone`) statt dunklem Moosfels.
 Leben (Werkzeug Life, im Level-Skript): Vögel über Leuchtturmfels, Hafen und Wrack, Ruderboote im Hafen, ein
-Fischerboot auf einer Route um die Hauptinsel; Brandung entlang der Felsküsten, Vogelgesang des Looks.
+Fischerboot auf einer Route um die Hauptinsel; Brandung entlang der Felsküsten, Möwenrufe am Leuchtturmfels und
+über dem Hafen, Vogelgesang des Looks.
 
 ### 6 Winterdorf (`frost-hamlet`)
 **Gebaut** (`tools/maps/levels/frost-hamlet.ts`, Small 512 m, 1,0 MB). Kartenprobe 10 Wellen bestanden (HQ 342,4 von
@@ -169,7 +177,7 @@ Biom Schnee/Arktis, Look `arctic`, leichter Schneefall, später Abend mit Latern
 einen zugefrorenen See (Eisfläche), Eisfischerhütten, Holzstapel, Schlitten. Die Straße führt um den See; ein zweiter Weg
 über das Eis (Gegner laufen übers Eis). Spawns: 2. Bauflächen: Seeufer, Dorfplatz.
 Leben: Raben über Dorf und Wald, Eisnebel über dem See (nur High), Rauch aus allen Häusern; Wind des Looks, Feuer am
-Dorfplatz.
+Dorfplatz. Neben beiden Schlitten im Dorf wartet ein Hundegespann (`dog-sled`).
 
 ### 7 Vulkankrater (`ember-crater`)
 **Gebaut** (`tools/maps/levels/ember-crater.ts`, Small 512 m). Kartenprobe 10 Wellen bestanden (HQ 463,3 von 500,
@@ -178,7 +186,9 @@ Dorfplatz.
 der Lavasee mit „Dig lake“ in einen Lava-Körper gegraben; die Lavabrücke ist eine Wegkante der Art Bridge mit
 `style: 'lava'` vom Ufer zur Insel. Lavaströme nur außen am Hang (sie würden die Spirale
 schneiden). Look `hell` (bis E154 lief die Karte versehentlich mit `temperate`, ohne die Glut des Bioms), Sonne 22°
-in der Dämmerung.
+in der Dämmerung. Vier Lavaströme laufen zwischen den Pässen die Außenhänge hinab, neben jedem eine
+Gruppe hoher Obsidiantürme und Nadeln mit Feuerschale und Rauchsäule (`fx-smoke-column`), aus der Spielkamera über den
+Rand hinweg zu sehen.
 
 Biom Hölle/Vulkan, Look `hell`. Ein großer Krater mit Lavasee; ein Spiralweg führt vom Kraterrand hinab zum HQ auf
 einer Obsidianinsel im Lavasee, über eine Lavabrücke. Glutrisse, Lavaströme, Schmiede am Rand, Rauchsäulen. Spawns: 3
@@ -194,7 +204,7 @@ Generator-Boden spiegelt `mirrorFrom` einmal von West nach Ost. Was auf der Achs
 ist ohne Symmetrie gesetzt. Seit E184 stehen die Burgen auf Felsplateaus (10 m, steile Flanken mit
 Klippenfelsen, trockener Graben am Fuß), ein Fluss in zwei Armen umfasst die Mitte mit dem HQ (die Spuren queren ihn
 auf Steinbrücken), je Arm eine Wassermühle; Belagerungslager vor Nord- und Südtor (Kanonen, Zelte, Barrikaden,
-Lagerfeuer, je ein Trebuchet auf das Tor gerichtet; ein Belagerungsturm fehlt noch), Banner und Fackeln an allen
+Lagerfeuer, je ein Trebuchet und ein Belagerungsturm auf das Tor gerichtet), Banner und Fackeln an allen
 Toren, Wachfeuer vor den Mauern, dichterer Wald an den Außenrändern. Leben (auf beiden Hälften gesetzt, die Symmetrie
 kopiert es nicht): wehende Banner auf beiden Burgen (`life.flags`), Vogelschwärme über den Wäldern, Bachrauschen
 entlang beider Flussarme, Feuerknistern an den Lagern, Vogelgesang am Tag und Grillen nachts.
@@ -250,20 +260,25 @@ die Hafenstadt 38 s (noch nicht untersucht). Offen: Augen-Nachtest im Spiel.
 Krater auf einer grauen Ebene voller Krater; drei Rover-Pisten von Landezonen im Norden, Westen und Osten winden
 sich zwischen den Kratern zum Hub. Kuppeln, Module und Tunnel um das HQ, Landeplatz mit Lander und Tanks,
 Solarfelder auf dem Kraterrand, Antennen, Rover. Bauflächen: die Kraterränder und Rücken zwischen den Kratern.
-Look `moon`, tiefe Sonne (22°), schwarzer Himmel.
+Look `moon`, tiefe Sonne (22°), schwarzer Himmel. In drei Ecken heben sich abseits der Landezonen breite Hochland-Kuppen (26 bis
+32 m, mit Schulter, geglättet) als Horizont hinter den Kratern.
 
 ### 10 Mars-Canyon (`mars-canyon`)
 `tools/maps/levels/mars-canyon.ts`, Small 512 m. Spuren 365, 417 und 358 m. Zwei rostrote Canyons treffen sich in
 einem Becken, eine dritte Spur kommt vom Ostrand; die Kolonie (Hub, Gewächshauskuppeln, Landeplatz, Windräder,
 Solarfeld auf einer Bank darüber) steht am Südende. Dünen, Krater und Tafelberge auf der Ebene. Look `mars`, staubiger
-Nachmittag.
+Nachmittag. An den Rändern stehen abseits der Spawns acht Felstürme aus Gelände (40 bis 55 m über
+der Ebene, vom breiten Schuttfuß über einen schmaleren Körper zur kleineren, versetzten Spitze, gestuft, von Rinnen
+zerschnitten, Mars-Klippenfelsen an Wand und Fuß), ganz innerhalb der Karte, als Kulisse vor der fernen Bergkette.
 
 ### 11 Endzeit-Stadt (`ruined-city`)
 `tools/maps/levels/ruined-city.ts`, Small 512 m. Spuren 572, 444 und 444 m. Das Straßenraster der Stadt (64 m)
 steht noch, die Blöcke sind ausgebrannt: der Stadt-Pinsel legt Raster und Häuser, die Häuser, Autos, Bäume und
 Laternen werden gegen Ruinen, Wracks, verkohlte Bäume und umgestürzte Masten getauscht. Fünf eingestürzte Blöcke
 sind Trümmerfelder zum Bauen. Die Spuren laufen als gerade Pfade auf den Straßen (nicht die Kurven der Straßenlinie)
-zur gehaltenen Kreuzung mit Sandsäcken, Barrikaden und Panzersperren. Look `apocalypse`, bedeckt, Dunst.
+zur gehaltenen Kreuzung mit Sandsäcken, Barrikaden und Panzersperren. Look `apocalypse`, bedeckt, Dunst. Über den Ruinen
+stehen sechs hohe dunkle Rauchsäulen (`fx-smoke-column`, Glut am Fuß) im Krater, am Hochhaus-Torso und in eingestürzten
+Blöcken.
 
 ### 12 Hafenstadt (`harbor-town`)
 `tools/maps/levels/harbor-town.ts`, Small 512 m. Spuren 444, 380 und 508 m. Eine Stadt am Hang über einer Bucht, die
@@ -271,7 +286,8 @@ Straßen im Raster hinunter zum Kai; das HQ hält den Platz am Wasser zwischen K
 Fischerbooten, ein Schiff am Kai, eine Mole mit Leuchtturm, Bojen an der Hafeneinfahrt. Look `city`, Abend. Das
 Hafenbecken und die Kaimauer entstehen nach dem Stadtboden (dessen Glätten rundete sonst die Kante): erst das ganze
 Becken auf -7 m (die Hänge der Stadt reichten sonst als Erdhügel ins Wasser), dann die Kaimauer als eine gerade Stufe
-von 4,4 auf -6 m über einen Höhenpunkt; die Piers durchgehend aus Abschnitten alle 3 m.
+von 4,4 auf -6 m über einen Höhenpunkt; die Piers durchgehend aus Abschnitten alle 3 m. Ton: Möwenrufe über dem Hafen, Wasser und
+Taue am Kai des Ostbeckens (`harbor`).
 
 ## Weitere bei Bedarf
 Hafenstadt mit Kanälen und Brücken, Erde am Himmel der Mondbasis.

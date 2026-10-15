@@ -9,6 +9,7 @@ import { GeoPosition } from '../../models/game.types';
 import { routePathToLocalPoints } from '../../utils/route-path.util';
 import { SpawnPoint } from './marker-visualization.service';
 import { PathAndRouteService } from './path-route.service';
+import { UIStore } from '../../store/ui.store';
 import { corridorTrace } from '../../utils/corridor-trace';
 
 /**
@@ -73,6 +74,8 @@ export class RouteAnimationService {
 
   /** Same lift as the static route line (routeLineLift), so both sit at the same height. */
   private readonly pathAndRoute = inject(PathAndRouteService);
+  /** Routes switched off (quick action, a showreel, photo shots) hide this animation too */
+  private readonly uiStore = inject(UIStore);
 
   private engine: ThreeTilesEngine | null = null;
   private overlayGroup: Group | null = null;
@@ -154,8 +157,11 @@ export class RouteAnimationService {
     if (!this.isAnimating || this.animatedRoutes.length === 0) return;
 
     const elapsedTime = performance.now() - this.startTime;
+    const visible = this.uiStore.routesVisible();
 
     for (const route of this.animatedRoutes) {
+      route.glowLine.visible = visible;
+      route.mainLine.visible = visible;
       // Calculate total animation duration
       const cycleDuration = (route.totalLength / this.ANIMATION_SPEED) * 1000;
       const totalDuration = cycleDuration * this.MAX_CYCLES;
@@ -297,6 +303,7 @@ export class RouteAnimationService {
     glowLine.computeLineDistances();
     glowLine.renderOrder = 2; // Behind main line
     glowLine.frustumCulled = false;
+    glowLine.visible = this.uiStore.routesVisible();
     this.overlayGroup.add(glowLine);
 
     // === MAIN LINE (bright red, in front) ===
@@ -307,6 +314,7 @@ export class RouteAnimationService {
     mainLine.computeLineDistances();
     mainLine.renderOrder = 3; // In front of glow
     mainLine.frustumCulled = false;
+    mainLine.visible = this.uiStore.routesVisible();
     this.overlayGroup.add(mainLine);
 
     return {

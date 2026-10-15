@@ -32,6 +32,7 @@ const NO_PLATE = new Set([
   'rock-coast',
   'cliff-face',
   'cliff-face-b',
+  'cliff-face-red',
   'cliff-wall',
   'cliff-wall-b',
   'cliff-wall-sandstone',

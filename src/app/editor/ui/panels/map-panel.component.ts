@@ -7,12 +7,13 @@ import { rangeFromName } from '../../ops/heightmap';
 import { RangeRowComponent } from './range-row.component';
 import { EditorSession } from '../editor-session.service';
 import { MapBudgetComponent } from './map-budget.component';
+import { IntroPanelComponent } from './intro-panel.component';
 
-/** Name, author, description; budget; size and resize */
+/** Name, author, description; budget; size and resize; the intro flight */
 @Component({
   selector: 'app-map-panel',
   standalone: true,
-  imports: [RangeRowComponent, MatTooltipModule, MapBudgetComponent],
+  imports: [RangeRowComponent, MatTooltipModule, MapBudgetComponent, IntroPanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   template: `
@@ -54,6 +55,7 @@ import { MapBudgetComponent } from './map-budget.component';
         }
       </div>
     }
+    <app-intro-panel />
     <div class="td-group">
       <h3 class="td-section">Generate terrain</h3>
       <div class="td-seg is-sm mp-presets" role="radiogroup" aria-label="Landscape">

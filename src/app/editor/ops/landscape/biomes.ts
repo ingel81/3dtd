@@ -398,12 +398,14 @@ export const BIOMES: readonly BiomeDef[] = [
   {
     id: 'hell',
     label: 'Hell',
-    hint: 'Cinders and brimstone split by glowing cracks, lava pools, bones and braziers',
+    hint: 'Ash, cinders and basalt split by glowing cracks, lava pools, bones and braziers',
     color: '#8a2a14',
     ground: [
-      { material: ['hell-ground', 'scorched-ground'], share: 0.4 },
-      { material: ['cinders', 'volcanic-rock'], share: 0.35 },
-      { material: ['brimstone', 'obsidian', 'basalt'], share: 0.25 },
+      // Grey ash and black rock with the red earth only in patches, no brimstone and no burnt litter: rust red
+      // beside yellow and brown on most of the ground read as a carpet of autumn leaves. The glow is the cracks'
+      { material: ['cinders', 'volcanic-rock'], share: 0.45 },
+      { material: ['basalt', 'obsidian'], share: 0.35 },
+      { material: ['hell-ground', 'volcanic-rock'], share: 0.2 },
     ],
     steepGround: ['obsidian', 'volcanic-rock', 'basalt'],
     shoreGround: ['lava-crust', 'scorched-ground'],

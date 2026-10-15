@@ -165,6 +165,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | bridge-deck | procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_07, dark_planks |
 | bridge-deck-stone | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/stacked_stone_wall |
 | bridge-deck-lava | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/dark_rock |
+| bridge-deck-concrete | procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/brushed_concrete |
 | tree-oak-autumn | procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_02; Blätter https://ambientcg.com/view?id=LeafSet012, LeafSet030 |
 | tree-oak-young | procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_02; Blätter https://ambientcg.com/view?id=LeafSet024, LeafSet016 |
 | tree-maple | procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet010 |
@@ -250,6 +251,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | cliff-wall-sandstone | https://polyhaven.com/a/namaqualand_cliff_01 (getönt) |
 | cliff-wall-basalt | https://polyhaven.com/a/namaqualand_cliff_02 (getönt) |
 | cliff-coast | https://polyhaven.com/a/coastal_cliff_02 |
+| cliff-face-red | https://polyhaven.com/a/rock_face_02 (getönt) |
 | sandstone-pillar | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side |
 | sandstone-pillar-tall | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side |
 | mesa | procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side |
@@ -527,7 +529,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | stones-desert-scatter | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/namaqualand_boulder_03 |
 | stones-volcanic-scatter | procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/moon_rock_03 (getönt) |
 | tunnel-portal | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/rock_face |
-| tunnel-portal-concrete | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/rock_face |
+| tunnel-portal-concrete | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete |
 | castle-ruin | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029 |
 | glacier | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_face |
 | seracs | procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02 |
@@ -584,6 +586,13 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | greenhouse | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brick_wall_07 |
 | kiosk | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete |
 | transformer-station | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| shop-small | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| barn-modern | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/brown_planks_07; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete |
+| shelter-lean-to | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/wood_planks_grey; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/bark_brown_01; https://polyhaven.com/a/brushed_concrete |
+| outbuilding | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/brushed_concrete |
+| annex | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete |
+| office-ribbon | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
+| shop-office | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
 | rail-track | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete |
 | rail-platform | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall |
 | catenary-mast | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |

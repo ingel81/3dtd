@@ -86,6 +86,7 @@ interface Marks {
   environment: string;
   gameplay: string;
   life: string;
+  intro: string;
   layers: number;
   water: string;
 }
@@ -100,6 +101,7 @@ function marks(doc: CustomMapDocument): Marks {
     environment: JSON.stringify(doc.environment),
     gameplay: JSON.stringify(doc.gameplay ?? null),
     life: JSON.stringify(doc.life ?? null),
+    intro: JSON.stringify(doc.intro ?? null),
     layers: t.layers.length,
     water: JSON.stringify([t.water?.level, t.water?.kind, t.waterBodies?.map((b) => [b.level, b.kind]), t.rivers?.map((r) => [r.kind, r.points.length])]),
   };
@@ -137,7 +139,7 @@ function stepChange(doc: CustomMapDocument, step: Step, before: Marks, symmetric
   if (after.paths !== before.paths) change = mergeChanges(change, { paths: true });
   if (after.markers !== before.markers) change = mergeChanges(change, { markers: true });
   if (after.environment !== before.environment) change = mergeChanges(change, { environment: true });
-  if (after.gameplay !== before.gameplay) change = mergeChanges(change, { meta: true });
+  if (after.gameplay !== before.gameplay || after.intro !== before.intro) change = mergeChanges(change, { meta: true });
   if (after.life !== before.life) change = mergeChanges(change, { life: true });
   if (after.layers !== before.layers) change = mergeChanges(change, { layers: true, splat: wholeGround(doc).splat });
   if (after.water !== before.water) change = mergeChanges(change, { water: true });

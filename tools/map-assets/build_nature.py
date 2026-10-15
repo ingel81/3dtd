@@ -763,7 +763,7 @@ def models():
         'rock-desert': lambda: import_model('namaqualand_boulder_03', 1.8, 1500, 'rock-desert', ground=True),
         'rock-desert-large': lambda: import_model('namaqualand_boulder_06', 3.2, 2000, 'rock-desert-large', ground=True),
         'rock-sandstone': lambda: import_model('namaqualand_boulder_05', 2.2, 1500, 'rock-sandstone', tint=tint_sand, desaturate=0.5, ground=True),
-        'rock-sandstone-large': lambda: import_model('namaqualand_boulder_02', 3.5, 2000, 'rock-sandstone-large', tint=tint_sand, desaturate=0.5, ground=True),
+        'rock-sandstone-large': lambda: import_model('namaqualand_boulder_02', 3.5, 2000, 'rock-sandstone-large', tint=tint_sand, desaturate=0.5, ground=True, close=True),
         'rock-basalt': lambda: import_model('namaqualand_boulder_03', 1.6, 1500, 'rock-basalt', tint=dark, desaturate=0.9, ground=True),
         'rock-basalt-large': lambda: import_model('namaqualand_boulder_06', 3.0, 2000, 'rock-basalt-large', tint=dark, desaturate=0.9, ground=True),
         'rock-snow': lambda: import_model('namaqualand_boulder_05', 2.0, 1500, 'rock-snow', tint=(1.3, 1.33, 1.38), desaturate=1.0, ground=True),
@@ -785,6 +785,8 @@ def models():
         'cliff-wall-sandstone': lambda: import_model('namaqualand_cliff_01', 10.0, 5000, 'cliff-wall-sandstone', tint=tint_sand, desaturate=0.5, ground=True, close=True),
         'cliff-wall-basalt': lambda: import_model('namaqualand_cliff_02', 12.0, 6000, 'cliff-wall-basalt', tint=dark, desaturate=0.9, ground=True, close=True),
         'cliff-coast': lambda: import_model('coastal_cliff_02', None, 6000, 'cliff-coast', keep_scale=True, ground=True, close=True),
+        # Red rock for red deserts, hell and Mars, coloured like mars-cliff so the two stand side by side
+        'cliff-face-red': lambda: import_model('rock_face_02', 9.0, 4000, 'cliff-face-red', desaturate=0.8, tint=(0.95, 0.5, 0.3), ground=True, close=True),
         # Formations built from rock surfaces
         'sandstone-pillar': lambda: hoodoo('sandstone-pillar', 55),
         'sandstone-pillar-tall': lambda: hoodoo('sandstone-pillar-tall', 56, height=20.0),

@@ -195,12 +195,31 @@ export function setWaterMask(material: ShaderMaterial, mask: Texture | null, uv:
   u['uHasMask'].value = mask ? 1 : 0;
 }
 
+/** How far a dark scene (MapEnvironment.darkness 1, night) dims the water's own light below the sun's share */
+const NIGHT_DIM = 0.7;
+
+/**
+ * The water's own light (uLight): its body, foam and the land it mirrors,
+ * from the sun's intensity, and for water (not lava, which glows by itself)
+ * dimmed with the scene's darkness, the square of it so dusk dims a little
+ * and night much. The sun alone left it bright at night: a night map's
+ * moonlight raises the sun's intensity, and the body took no part of the
+ * land's darkening, so harbours and canals glowed turquoise or green over
+ * dark streets. Lamps and their light on the water are added on top and stay
+ */
+export function waterLight(sunIntensity: number, darkness: number, lava = false): number {
+  const sun = Math.min(1.1, Math.max(0.12, (sunIntensity / 3.4) * 0.85 + 0.15));
+  if (lava) return sun;
+  const d = Math.min(1, Math.max(0, darkness));
+  return Math.max(0.05, sun * (1 - NIGHT_DIM * d * d));
+}
+
 /**
  * Reflect the sky dome's sky: the material takes over its uniform objects,
- * the baked sky texture among them. `sunIntensity` dims the body colour at
- * night.
+ * the baked sky texture among them. `sunIntensity` and `darkness` (the
+ * environment's) set the water's own light (waterLight).
  */
-export function setWaterSky(material: ShaderMaterial, skyUniforms: ShaderMaterial['uniforms'], sunIntensity: number): void {
+export function setWaterSky(material: ShaderMaterial, skyUniforms: ShaderMaterial['uniforms'], sunIntensity: number, darkness = 0): void {
   const u = material.uniforms;
   for (const key of [
     'uZenith',
@@ -221,7 +240,7 @@ export function setWaterSky(material: ShaderMaterial, skyUniforms: ShaderMateria
   ]) {
     u[key] = skyUniforms[key];
   }
-  u['uLight'].value = Math.min(1.1, Math.max(0.12, (sunIntensity / 3.4) * 0.85 + 0.15));
+  u['uLight'].value = waterLight(sunIntensity, darkness, material.defines['KIND'] === KIND_ID.lava);
   material.needsUpdate = true;
 }
 

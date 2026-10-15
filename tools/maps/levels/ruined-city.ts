@@ -140,6 +140,12 @@ export function buildRuinedCity(): CustomMapDocument {
   // Smoke out of the crater and the fallen spans, a lantern flickering at the camp
   for (const [x, y, sc] of [[crater.x, crater.y, 2], [viaduct.x, viaduct.y, 1.4], [64, -190, 1.2], [torso.x, torso.y + 6, 1.2]] as const) k.place('fx-smoke', x, y, { scale: sc });
   for (const [dx, dy] of [[6, -20], [-18, -22]] as const) if (k.free(hq.x + dx, hq.y + dy, 0.5)) k.place('lantern', hq.x + dx, hq.y + dy);
+  // Fires still burning in the ruins: tall columns of dark smoke over the roofs, embers glowing at their feet, read
+  // from anywhere in the city and from its edge
+  for (const [x, y, sc] of [[crater.x + 8, crater.y - 6, 1.4], [torso.x + 10, torso.y - 4, 1.2], [-96, 96, 1], [-160, -96, 1.1], [160, 96, 0.9], [-200, 180, 1.3]] as const) {
+    k.place('fx-smoke-column', x, y, { scale: sc, tint: '#2e2b28' });
+    k.place('fx-embers', x, y, { scale: 0.8 });
+  }
 
   // ---- Life: paper blowing down the three avenues, crows over the fallen blocks and the torso, smoke lying in the
   // crater and over the canal; the wind in the ruins, the camp's fire

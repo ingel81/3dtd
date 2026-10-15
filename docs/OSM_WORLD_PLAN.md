@@ -1,8 +1,9 @@
 # Welt aus OpenStreetMap (Plan)
 
 **Status:** Plan, 2026-10-14; Phase O1 „Graue Welt“, O2 „Ablauf“, O3 „Land und Wasser“ und O4 „Gebäude“ gebaut
-2026-10-15 (TODO E157), siehe [Phase O1](#phase-o1-gebaut-2026-10-15), [Phase O2](#phase-o2-gebaut-2026-10-15),
-[Phase O3](#phase-o3-gebaut-2026-10-15) und [Phase O4](#phase-o4-gebaut-2026-10-15)
+2026-10-15 (TODO E157), O5 „Ausstattung“ 2026-10-16, siehe [Phase O1](#phase-o1-gebaut-2026-10-15),
+[Phase O2](#phase-o2-gebaut-2026-10-15), [Phase O3](#phase-o3-gebaut-2026-10-15), [Phase O4](#phase-o4-gebaut-2026-10-15)
+und [Phase O5](#phase-o5-gebaut-2026-10-16); O7 „Messen“ in Teilen, siehe [Phase O7](#phase-o7-messung-2026-10-16-teil)
 **Bezug:** [CUSTOM_MAPS.md](CUSTOM_MAPS.md) (Renderer, Katalog), [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) (Spiel),
 [LEVEL_EDITOR.md](LEVEL_EDITOR.md) (Editor), [W3X_IMPORT.md](W3X_IMPORT.md) (Vorbild für einen Importer im Worker),
 [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) (Ortssuche, Spawns auf echten Orten), [SHOWCASE_LEVELS.md](SHOWCASE_LEVELS.md)
@@ -195,7 +196,7 @@ Code in `src/app/world/osm/` ohne Angular und DOM (Worker, Node, Specs), wie `wo
 | `convert/ground.ts` | Landnutzung zu höchstens 8 Schichten, Vorrang bei Überlappung |
 | `convert/vegetation.ts` | Wald, Gebüsch, Parks, Einzelbäume, Baumreihen, im Objektbudget |
 | `convert/buildings.ts` | Grundriss zu Katalog-Modell(en), Art raten, ausrichten, auf den Hang setzen |
-| `convert/furniture.ts` | Zäune, Mauern, Hecken, Laternen, Bahn, Brückenart, Kleinkram |
+| `convert/furniture.ts` | Zäune, Mauern, Hecken, Laternen, Bahn, Kleinkram, Strommasten (gebaut O5) |
 | `convert/layout.ts` | HQ und Spawns (`StreetRouter` auf `mapStreetNetwork`), Kartenrahmen |
 | `import-osm.ts`, `osm-frame-core.ts`, `osm-frame-store.ts`, `osm.worker.ts`, `osm-frame-session.ts` | Ablauf, Bericht, Rahmen-Sitzung, Speicher je Rahmen, Worker, Abbruch |
 
@@ -336,6 +337,12 @@ Wahl nach `box` in O4; Dachüberstände, Vordächer, Anbauten und Rampen kommen 
 | `train_station` | `station` | 28 × 11 m, 2 |
 | `parking` (Parkhaus) | `parking-garage` | 32 × 40 m, 4 Decks, Treppenturm vorn links, Rampe hinten (Hülle 37 × 54 m) |
 | `greenhouse`, `kiosk`, `transformer_tower` | `greenhouse`, `kiosk`, `transformer-station` | 6 × 12 (Giebel vorn), 4 × 3, 3,6 × 2,6 m |
+| `retail` klein, `office` klein (E179, `build_modern2.py`) | `shop-small`, `shop-office` | 10 × 8 m, 1; 12 × 10 m, 4 |
+| `office` hoch | `office-ribbon` (Bandfenster, Lisenen) | 16 × 16 m, 10 |
+| `barn`, `farm_auxiliary` | `barn-modern` (vor `barn`) | 12 × 18 m (Giebel vorn) |
+| `shed`, `garage` (4 × 4 bis 5 × 5 m) | `outbuilding` | 4 × 4 m |
+| `carport`, `amenity=shelter` (schmal) | `shelter-lean-to` | 6 × 2,6 m |
+| Teile von `house` (Anbau, Flügel) | `annex` | 7 × 5 m |
 
 Ohne Gebäude: `rail-track`, `rail-platform`, `catenary-mast`, `buffer-stop`, `power-pylon`, `vine-row`, `fruit-tree`,
 `playground-swing`, `playground-slide`, `football-goal`, `fountain` (CUSTOM_MAPS.md, Katalog).
@@ -750,6 +757,9 @@ Entscheidung 8 umgesetzt (`convert/roads.ts` findTunnels, `convert/tunnels.ts`):
 - **Portale:** `tunnel-portal-concrete` an jeder Mündung, an der kein weiterer Tunnelweg anschließt und die in der
   Karte liegt, gedreht in Wegrichtung (Modell +Z in den Tunnel), skaliert auf die Straßenbreite (Öffnung 8 m für 7 m
   Straße, 1 bis 2,2). Zwei Mündungen unter 20 m Abstand in gleicher Richtung (zwei Röhren) teilen sich ein Portal.
+  Das Modell ist eine Stirnwand aus Beton mit Flachbogen, Bogenband, Pilastern, Abdeckung und Brüstung, Flügelmauern
+  und einer Hülle um das Gewölbe, ohne Felsbrocken: den Hügel macht das angehobene Gelände (Felsklumpen lasen sich aus
+  der Spielkamera als Geröll, nicht als Portal).
 - **Gelände:** vor dem Wasser angehoben, nie abgesenkt: hinter jeder Mündung auf die Oberkante des Portals (9,6 m
   mal Skala) über die Fassadenbreite, 20 m tief, seitlich und nach hinten 1:1 abfallend; entlang des übrigen Tunnels
   4 m (`TUNNEL_COVER`) über der Linie zwischen den Mündungen. Wo der echte Hang höher ist, bleibt er. Ein Fluss über
@@ -778,6 +788,159 @@ Entscheidung 8 umgesetzt (`convert/roads.ts` findTunnels, `convert/tunnels.ts`):
   Katalog wäre die eigentliche Lösung (Spiel-Code, nicht in O4). Gebaut (E201): Katalog `box`, Scheibe geschnitten
   mit dem gedrehten Rechteck (docs/CUSTOM_MAP_WORLD.md); die Pads nehmen die Sitzpunkte aus demselben Rechteck.
 - **Böschungen:** die Stützmauer ist eine 6-m-Platte; bei Abträgen über 3 m bleibt ein Rest der Böschung über ihr.
+
+## Phase O5, gebaut (2026-10-16)
+
+Code: `src/app/world/osm/convert/furniture.ts` (`placeFurniture`), aufgerufen in `convertOsm` nach den Gebäuden und vor
+den Pflanzen (Schritt „Fences, walls, tracks and lamps“ im Rahmen). Specs: `convert/furniture.spec.ts` (Tags zu
+Modellen, Zaun quer zur Linie und nicht auf der Straße, Stützmauer mit Front nach rechts, nichts in Gebäuden und am
+HQ, Bushaltestelle an den Straßenrand gerückt, Laternen an beleuchteten Straßen, Budget und Wiederholbarkeit) und ein
+Fall in `import-osm.spec.ts` auf der eingefrorenen Probe (Ausstattung im Anteil, keine `object-on-path`).
+
+### Beim Bau entschieden
+
+- **Linien** (`barrier`): Zaun nach `fence_type` (`fence-wood`, sonst Maschendraht/Metall `fence-chainlink`,
+  Lattenzaun `fence-rail`, Staketen `fence-picket`), Mauer `wall-stone` (`wall=dry_stone`: `wall-dry-stone`),
+  Stützmauer `retaining-wall` mit der Front zur rechten Seite des Wegs (OSM zeichnet die tiefe Seite rechts), Hecke
+  `hedge-long`, `jersey_barrier` als `road-barrier`. Die Stücke stehen mit `objectsAlong` quer zur Linie (ihre Länge
+  ist Modell-X), im Abstand etwas unter ihrer Länge. `barrier=city_wall` baut die Burgmauer (`wallAlong`, Blöcke an
+  den Ecken), sie darf in Gebäude reichen (Tore, Türme sind dort oft Gebäude). **Leitplanken** (`guard_rail`) bleiben
+  weg: der Betonblock ist keine Leitplanke und kostet 526 Punkte je 1,5 m (Erlenbach: rund 1 070 Stück); ein Modell
+  „Leitplanke“ fehlt. Bordsteine, Tore, Schranken, Kabelsperren bleiben weg.
+- **Gleise:** `railway=rail`, `light_rail`, `tram`, `narrow_gauge`, `subway`, `funicular` ohne Tunnel und Brücke
+  (Brücken haben kein Deck für Gleise): `rail-track` alle 10 m. Straßenbahn in der Straße fällt mit der Straßenregel
+  weg, Bahnübergänge haben eine Lücke. An Gleisen mit `electrified=contact_line` (Bahn, Stadtbahn, Schmalspur;
+  Straßenbahnen hängen ihre Leitung an Querdrähte) alle 50 m ein `catenary-mast` links, 3,2 m von der Gleismitte, der
+  Ausleger über dem Gleis; keiner näher als 2,5 m an einem anderen Gleis (Bahnhöfe, Gleisfelder; Stuttgart: 116
+  Masten). Prellböcke (`railway=buffer_stop`, seit O5 in der Abfrage; gespeicherte Rahmen haben sie erst nach einem
+  neuen Abruf) am Gleisende, die Schienen des Modells in Fahrtrichtung. Bahnsteige sind nicht gebaut.
+- **Punkte:** Bank, Abfallkorb, Bushaltestelle, Hydrant, Poller (`bollards`), Brunnen (`amenity=fountain`),
+  Antennenmast (`man_made=mast`, Turm `tower:type=communication`), Aussichtsturm (`watchtower`), Strommast
+  (`power=tower`: `power-pylon`, `power=pole`: `power-pole`, gedreht in Richtung der Leitung). Gedreht zur nächsten
+  Straße; eine Bushaltestelle oder Laterne auf der Straße rückt an deren Rand (0,9 m außerhalb, auf der Seite des
+  Knotens). Leitungen zwischen den Masten fehlen.
+- **Laternen:** die gemappten (`highway=street_lamp`), dazu an Straßen mit `lit=yes` (Haupt- bis Wohnstraßen,
+  Erschließung) eine alle 32 m rechts am Rand, keine näher als 18 m an einer anderen. Modell nach der Stimmung: in der
+  Stadt (`biome` `city`) `street-lamp` (1 365 Punkte), sonst die Laterne `lamp-post` (91 Punkte).
+- **Freihalten:** die Mitte jedes Stücks liegt außerhalb der halben Straßenbreite plus 0,4 m (Tunnelkanten zählen
+  nicht), nicht im Wasser, nicht in einem OSM-Gebäudegrundriss, 25 m vom HQ und 10 m von Spawns.
+- **Budget:** `FURNITURE_BUDGET_SHARE` 15 % von `SCENE_BUDGET` (1,8 M Punkte); reicht es nicht, fallen zuerst die
+  ergänzten Laternen, dann die Punkte, dann die Gleise, zuletzt die Linien. Die Kosten je Asset rechnet `assetCosts`
+  (früher `plantCosts`, jetzt Pflanzen und Ausstattung; Option `costs` statt `plantCosts`).
+- **Gruppen:** die Stücke einer Linie tragen `group: osm-w<Weg-Id>`, der Editor verschiebt einen Zaun im Ganzen.
+- **Brückenstil `concrete`:** neues Deckstück `bridge-deck-concrete` (`build_structures.py`, 332 Dreiecke: Asphalt auf
+  Betonplatte und Kastenträger, Betonkante und verzinktes Geländer an beiden Rändern; Format wie die anderen, 4 m
+  entlang X, 1 m breit, Oberkante 0). `MapBridgeStyle` kennt `concrete`, die Dateiprüfung und `map-script` auch. Die
+  OSM-Welt wählt nach `bridge:material` bzw. `material`: Holz, Stein (auch Mauerwerk, Ziegel, `bridge:structure=arch`),
+  Beton (auch Stahl); ohne Angabe ist eine Straßenbrücke aus Beton, eine Wegbrücke aus Stein (vorher alles ohne
+  Holz Stein). Miltenberg: die Mainbrücke (293 m) Beton, der Fußweg daneben Stein.
+
+### Messungen O5 (2026-10-16)
+
+Dieselben Rohdaten wie O1 (Oberbergen, Miltenberg, Stuttgart Mitte; Abfrage vom 2026-10-15), dazu Erlenbach (Abfrage
+vom 2026-10-15 über rund 1,5 km, ohne Höhen, flach). Erzeugen in Node (`tools/osm/osm-world.spec.ts`, Rechner mit
+anderen Läufen belegt, Richtwerte).
+
+| | Oberbergen | Miltenberg | Stuttgart Mitte | Erlenbach |
+|---|---|---|---|---|
+| Ausstattung, Objekte | 111 | 3 557 | 6 051 | 1 418 |
+| davon Linien (Zaun, Mauer, Stützmauer, Hecke, Burgmauer, Barriere) | 0 | 1 987 | 3 551 | 1 334 |
+| Gleisstücke | 0 | 320 | 1 831 | 0 |
+| Laternen gemappt / ergänzt | 0 / 43 | 0 / 926 | 191 / 0 | 7 / 43 |
+| weggelassen: Straße, Gebäude, Budget | 49, 5, 0 | 476, 53, 0 | 2 897, 368, 2 105 | 73, 2, 0 |
+| Szenenkosten (Budget 1,8 M) | 0,01 M | 1,04 M | 1,80 M | 0,75 M |
+| Schritt (Node) | 12 ms | 54 ms | 131 ms | 17 ms |
+| Szenenkosten der Karte gesamt | 3,97 M | 7,99 M | 13,40 M | 4,96 M |
+
+Stuttgart reizt das Budget aus: die ergänzten Laternen fallen ganz weg (die 191 gemappten stehen). Über 12 M liegt
+Stuttgart wegen der Gebäude ohne Grenze (11,1 M), nicht wegen der Ausstattung.
+
+Im Spiel (Dev-Server, headless Chromium mit D3D11, Startansicht nach „Skip intro“, 90 Bilder, vorher = dieselbe
+Datei ohne die Ausstattung):
+
+| | Miltenberg vorher → nachher | Stuttgart vorher → nachher |
+|---|---|---|
+| Draw Calls | 926 → 937 | 1 172 → 1 201 |
+| Dreiecke im Bild | 5,7 → 6,0 M | 9,73 → 10,05 M |
+| Bildzeit Median (Richtwert, Rechner unter Last) | 5,1 → 4,4 ms | 7,8 → 7,4 ms |
+
+Die Ausstattung kostet rund 1 bis 3 % Draw Calls und 3 bis 5 % Dreiecke; die Bildzeit liegt im Rauschen.
+
+### Offen nach O5
+
+- **Fehlende Modelle:** Leitplanke, Stromleitung zwischen den Masten, Bahnsteigkante, Fahrdraht zwischen den Masten, Schaltkasten
+  (`man_made=street_cabinet`, Miltenberg 154), Fahnenmast.
+- **Gleise am Hang:** die Stücke folgen dem Boden ohne Einebnen; auf einem steilen Bahndamm kippen sie nicht mit.
+
+## Phase O7, Messung (2026-10-16, Teil)
+
+Gemessen an den vier Orten mit gespeicherten Rohdaten: Oberbergen (Dorf im Weinberg), Miltenberg (Kleinstadt am
+Fluss), Stuttgart Mitte (Innenstadt), Erlenbach (Dorf; Abfrage über rund 1,5 km statt 2,4 km, ohne Höhen, also flach
+und nur in der Mitte gefüllt). Stand: O1 bis O5 samt Häusern (E198), Tunneln und Betonbrücken. Küste, Gebirge und ein
+Ort außerhalb Europas fehlen: ein frischer Abruf für Erlenbach über 2,4 km scheiterte am 2026-10-16 an beiden Servern
+des Spiels (overpass-api.de 502 „at capacity“, overpass.private.coffee 500), je ein Versuch, keine Wiederholung.
+
+Erzeugen in Node (`tools/osm/osm-world.spec.ts`, ein Kern, Rechner mit anderen Läufen belegt, Richtwerte); Spiel im
+Dev-Server, headless Chromium mit D3D11 (RTX 5080), 1600 × 900, Startansicht nach „Skip intro“, 90 Bilder ohne
+Bildratenbremse:
+
+| | Oberbergen | Miltenberg | Stuttgart Mitte | Erlenbach (1,5 km, flach) | Demo-Tal (512 m) |
+|---|---|---|---|---|---|
+| Erzeugen (ohne Abruf) | 2,3 s | 2,0 s | 3,3 s | 1,2 s | |
+| Packen | 1,6 s | 1,4 s | 1,7 s | 0,9 s | |
+| Editor-Prüfung | 132 ms | 181 ms | 245 ms | 41 ms | |
+| Datei | 7,42 MB | 6,30 MB | 6,73 MB | 0,96 MB | |
+| Objekte | 30 058 | 31 641 | 28 610 | 17 245 | |
+| Szenenkosten (Budget 12 M) | 3,97 M | 7,99 M | 13,40 M | 4,96 M | |
+| Laden bis `load:ready` | 17,5 s | 11,1 s | 14,4 s | 17,4 s | 6,7 s |
+| Bildzeit Median / 90 % | 13,1 / 15,4 ms | 4,4 / 5,0 ms | 7,4 / 9,4 ms | 4,4 / 7,8 ms | 2,3 / 2,9 ms |
+| Draw Calls | 544 | 937 | 1 201 | 360 | 253 |
+| Dreiecke im Bild | 2,1 M | 6,0 M | 10,1 M | 3,0 M | 1,4 M |
+| JS-Heap (`performance.memory`) | 842 MB | 894 MB | 1 070 MB | 793 MB | 462 MB |
+
+Befunde:
+
+- **Erzeugen** bleibt unter 4 s ohne Abruf; mit dem Abruf (2 bis 6 s, O1) und den Höhen unter 10 s, wie in O1 geschätzt.
+- **Laden** dauert 11 bis 18 s im Dev-Server (das Demo-Tal 6,7 s); die Zahlen schwanken zwischen Läufen um mehrere
+  Sekunden (Miltenberg 11,1 bis 14,0 s in diesem Lauf). Ein Produktions-Build ist nicht gemessen.
+- **Bildzeit:** Oberbergen ist mit den wenigsten Dreiecken der teuerste Ort (13 ms Median), vermutlich die
+  28 000 Pflanzen (Reben, Wald) in der Startansicht; nicht weiter zerlegt.
+- **Stuttgart** liegt über dem Szenenbudget (13,4 M), getragen von den Gebäuden ohne Grenze (11,1 M, Entscheidung
+  2026-10-15); die Bildzeit hält trotzdem 7 bis 9 ms headless.
+- **Speicher:** OSM-Welten belegen headless knapp doppelt so viel JS-Heap wie das Demo-Tal.
+- **Offen für die Abnahme:** Küste, Gebirge, Ort außerhalb Europas (je eine Abfrage, sobald ein Server antwortet),
+  Messung im Produktions-Build, Nachtest durch den User.
+
+## Probe: LoD2-Gebäude aus amtlichen Daten (2026-10-16)
+
+Frage: statt Katalog-Modellen die echten Gebäude als einfache Klötze mit Dachform (LoD2, CityGML der
+Vermessungsverwaltungen)? Gemessen an einer Kachel aus Bayern (Miltenberg), heruntergeladen einmal ins Scratchpad.
+
+- **Bezug:** `https://download1.bayernwolke.de/a/lod2/citygml/<E>_<N>.gml`, Kacheln von 2 km in UTM 32 (gerade
+  Kilometer, Miltenberg `518_5504`). Kein CORS-Kopf in der Antwort (geprüft mit `Origin`), der Server liefert kein
+  gzip: im Browser nur über einen eigenen Dienst oder in der Desktop-App abrufbar. Eine Karte von 2,4 km braucht 4
+  (bis 9) Kacheln. Lizenz und Namensnennung nicht geprüft; andere Länder nicht geprüft.
+- **Kachel `518_5504`:** 58,8 MB GML (gzip 4,0 MB), 4,1 s Abruf, 2,4 s Parsen (Python, streamend); 3 370 Gebäude,
+  keine Gebäudeteile, keine Texturen (`Appearance` fehlt). Grundrisse Median 65 m², 90 % unter 195 m², 948 unter
+  30 m² (Garagen, Schuppen; OSM hatte in der ganzen Karte 3 618 Grundrisse). Dachformen: Satteldach 1 473, Flachdach
+  1 278, Pultdach 285, Walmdach 200, andere 109. Höhe (`measuredHeight`) Median 7,4 m, 90 % 13,1 m; Geschosse nur bei
+  221. Koordinaten UTM 32 mit Höhen über NHN (DHHN2016), passend zu den Höhendaten (Mapterhorn nimmt in Deutschland
+  das DGM1 derselben Ämter).
+- **Geometrie:** 40 947 Flächen (Boden 3 371, Wand 27 859, Dach 9 717), 119 000 Dreiecke als Fächer, 35 je Gebäude.
+  Hochgerechnet auf eine Karte von 2,4 km rund 150 000 bis 200 000 Dreiecke; die Startansicht derselben Karte
+  zeichnet mit Katalog-Gebäuden, Pflanzen und Gelände 6 M Dreiecke (O5-Messung), die Gebäude kosten 4,8 M Punkte.
+
+**Empfehlung:** nicht als Ersatz der Modelle jetzt. Die Klötze sind billig zu zeichnen, aber ohne Texturen grau
+(Fassade und Dach bräuchten einen eigenen Shader mit Fenstern und Ziegeln), der Abruf geht im Browser nicht ohne
+eigenen Dienst, und die Daten gibt es nur, wo Vermessungsämter sie offen anbieten. Zwei kleinere Schritte
+lohnen sich eher:
+
+1. **LoD2 als Auskunft für die Wahl der Katalog-Modelle** (Höhe und Dachform je Grundriss): Flachdach ab 3
+   Geschossen wählt Block oder Büro, Satteldach ein Haus, die gemessene Höhe ersetzt das Raten der Geschosse (heute
+   haben 15 % der OSM-Grundrisse `building:levels`). Braucht dieselbe Abrufstrecke, aber kein neues Kartenformat.
+2. **Echte Klötze als Option der Desktop-App** (Electron kann ohne CORS abrufen): CityGML streamend lesen, Dächer und
+   Wände in ein Netz je Kachel (Positionen und Indizes geschätzt 5 bis 6 MB je Karte, gepackt weniger), ein Material mit
+   prozeduralen Fenstern. Neues Feld im Kartendokument, eigener Renderer-Pfad; Aufwand nach Schätzung 3 bis 5 Tage.
 
 ## Offene Fragen an den User (beantwortet, siehe oben)
 

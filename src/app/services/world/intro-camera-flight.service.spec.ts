@@ -10,6 +10,7 @@ import { IntroCameraFlightService } from './intro-camera-flight.service';
 import { CameraControlService } from '../camera-control.service';
 import { RouteAnimationService } from './route-animation.service';
 import { UIStore } from '../../store/ui.store';
+import type { Vector3 } from 'three';
 
 function press(key: string, target?: EventTarget): KeyboardEvent {
   const event = new KeyboardEvent('keydown', { key, cancelable: true });
@@ -79,5 +80,61 @@ describe('IntroCameraFlightService keys', () => {
     taken.preventDefault();
     expect(service.handleKeyDown(taken)).toBe(false);
     expect(service.isRunning()).toBe(true);
+  });
+});
+
+/**
+ * A world's own flight (a custom map's intro): flown instead of the tour,
+ * swung into from the start view, then pulled back into the overview.
+ */
+describe('IntroCameraFlightService world shot', () => {
+  it('flies the shot, then lands in the overview', async () => {
+    const { PerspectiveCamera } = await import('three');
+    const camera = new PerspectiveCamera(50, 1, 1, 10000);
+    camera.position.set(0, 400, -150);
+    camera.lookAt(0, 0, 0);
+    const controls = { enabled: true };
+    const shot = {
+      seconds: 10,
+      poseAt: (t: number, position: Vector3, look: Vector3) => {
+        position.set(100 + t * 10, 50, 0);
+        look.set(0, 0, 0);
+      },
+    };
+    const engine = {
+      world: { introShot: () => shot, introTour: () => null },
+      getCamera: () => camera,
+      getControls: () => controls,
+      getRenderer: () => ({ domElement: document.createElement('canvas') }),
+    };
+    const injector = Injector.create({
+      providers: [
+        { provide: CameraControlService, useValue: { getOverview: () => ({ position: { x: 0, y: 300, z: -200 }, target: { x: 0, y: 0, z: 0 } }) } },
+        { provide: RouteAnimationService, useValue: { setHoldUntilReleased: vi.fn() } },
+        { provide: UIStore, useValue: { replayMode: () => false } },
+        { provide: NgZone, useValue: { run: (fn: () => void) => fn() } },
+      ],
+    });
+    const service = runInInjectionContext(injector, () => new IntroCameraFlightService());
+    service.initialize(engine as never);
+
+    service.start(new Map([['s', [{ lat: 0, lon: 0 }, { lat: 0.01, lon: 0 }]]]));
+    expect(service.isRunning()).toBe(true);
+    expect(service.debugState().phase).toBe('shot');
+    expect(controls.enabled).toBe(false);
+
+    // Past the swing in (enterSec 3): on the shot's pose
+    for (let i = 0; i < 50; i++) service.update(100);
+    expect(service.debugState().phase).toBe('shot');
+    expect(camera.position.x).toBeCloseTo(150, 0);
+    expect(camera.position.y).toBeCloseTo(50, 5);
+
+    // Past its 10 s: the outro, then the overview
+    for (let i = 0; i < 60; i++) service.update(100);
+    expect(service.debugState().phase).toBe('outro');
+    for (let i = 0; i < 40; i++) service.update(100);
+    expect(service.isRunning()).toBe(false);
+    expect(controls.enabled).toBe(true);
+    expect(camera.position.toArray()).toEqual([0, 300, -200]);
   });
 });

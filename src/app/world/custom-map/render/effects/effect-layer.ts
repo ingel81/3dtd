@@ -33,7 +33,8 @@ import { DEFAULT_SPIN } from '../objects/spin';
  * Lights: every light gets an additive glow quad at its height and its
  * light baked onto the land around it (lamp-light.ts, every map material
  * samples it): cheap, all of them. A pool of POINT_LIGHTS real point
- * lights follows the lights nearest to the camera's focus. Both fade in by
+ * lights follows the lights nearest to the camera's focus, fading the
+ * farthest of them out before they change hands (poolFade). Both fade in by
  * darkness (`setDarkness`: 0 by day, 1 at night) so a day map pays for
  * none. The pool's size is fixed, so moving the lights never recompiles a
  * material.
@@ -59,6 +60,23 @@ const MIN_LIGHT_HEIGHT = 0.75;
 export function lightCap(height: number): number {
   const h = Math.max(height, MIN_LIGHT_HEIGHT);
   return PEAK_ILLUMINANCE * h * h;
+}
+
+/** Share of the distance to the nearest light left out where a pool light starts to fade */
+const POOL_FADE = 0.7;
+
+/**
+ * Strength of a pool light at squared distance `d2` from the focus, `out2`
+ * that of the nearest light the pool leaves out: full up close, fading to
+ * nothing as it nears that one. A light enters and leaves the pool at
+ * nothing, so moving the camera along a row of torches hands the real light
+ * on smoothly instead of switching it from one torch to the next (the wall
+ * by a torch jumped from lit to dark)
+ */
+export function poolFade(d2: number, out2: number): number {
+  if (!Number.isFinite(out2) || out2 <= 0) return 1;
+  const t = Math.min(1, Math.max(0, (Math.sqrt(d2 / out2) - POOL_FADE) / (1 - POOL_FADE)));
+  return 1 - t * t * (3 - 2 * t);
 }
 
 interface LightSpot {
@@ -114,7 +132,8 @@ export class EffectLayer {
   private lampsLit = false;
   private darkness = 0;
   private readonly nearestSpots: LightSpot[] = [];
-  private readonly nearestDistances = new Float64Array(POINT_LIGHTS);
+  /** One more than the pool: the nearest light left out fades the farthest ones in the pool (poolFade) */
+  private readonly nearestDistances = new Float64Array(POINT_LIGHTS + 1);
   /** The quality level's share of particles and real point lights (render-quality.ts) */
   private particleShare = 1;
   private lightCount = POINT_LIGHTS;
@@ -551,7 +570,10 @@ export class EffectLayer {
     this.time.value += dt;
     if (LAMP_LIGHT_UNIFORMS.uLampSteady.value === this.lamps.steady) LAMP_LIGHT_UNIFORMS.uLampTime.value = this.time.value;
     if (this.retired.length && ++this.retiredFrames > 2) this.freeRetired();
-    const live = this.pool[0].visible ? this.nearest(focus) : 0;
+    const found = this.pool[0].visible ? this.nearest(focus) : 0;
+    const live = Math.min(found, this.lightCount);
+    // Distance of the nearest light the pool leaves out (squared), Infinity when all fit
+    const out = found > live ? this.nearestDistances[live] : Infinity;
     this.pool.forEach((light, k) => {
       const spot = k < live ? this.nearestSpots[k] : undefined;
       if (!spot) {
@@ -564,7 +586,12 @@ export class EffectLayer {
       const flicker = spot.flicker
         ? 0.82 + 0.12 * Math.sin(this.time.value * 9 + spot.seed) + 0.06 * Math.sin(this.time.value * 23 + spot.seed * 3)
         : 1;
-      light.intensity = Math.min(spot.intensity * CANDELA, spot.cap) * flicker * this.darkness * (spot.blink ? blinkOn(this.time.value, spot.blink, spot.seed) : 1);
+      light.intensity =
+        Math.min(spot.intensity * CANDELA, spot.cap) *
+        flicker *
+        this.darkness *
+        poolFade(this.nearestDistances[k], out) *
+        (spot.blink ? blinkOn(this.time.value, spot.blink, spot.seed) : 1);
       light.updateMatrixWorld();
     });
   }
@@ -594,8 +621,8 @@ export class EffectLayer {
   }
 
   /**
-   * The level's lightCount spots nearest to `focus` into `nearestSpots` (nearest
-   * first), without allocating; returns how many there are
+   * The level's lightCount spots nearest to `focus`, and the next one, into
+   * `nearestSpots` (nearest first), without allocating; returns how many there are
    */
   private nearest(focus: Vector3): number {
     return this.nearestOf(this.extraSpots, focus, this.nearestOf(this.spots, focus, 0));
@@ -606,8 +633,8 @@ export class EffectLayer {
     const dist = this.nearestDistances;
     for (const s of list) {
       const d = s.position.distanceToSquared(focus);
-      const most = this.lightCount;
-      if (most === 0) return 0;
+      if (this.lightCount === 0) return 0;
+      const most = this.lightCount + 1;
       if (count === most && d >= dist[count - 1]) continue;
       // Insert in order; when full the farthest drops out
       let k = count < most ? count++ : count - 1;

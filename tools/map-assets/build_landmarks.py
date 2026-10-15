@@ -94,8 +94,11 @@ def hillside(part, width, height, depth, seed, rnd):
 def tunnel_portal(name, concrete=False, seed=1):
     """Road tunnel mouth cut into a hill, front -Y, the road runs in along +Y from the origin: a façade with
     an arched opening 8 m wide, wing walls stepping down at both sides, a vault 14 m deep fading into a dark
-    back, rock of the hill around and above. Stone: a masonry façade with voussoirs, a keystone and a cornice.
-    Concrete: a flatter arch under a projecting hood, lamps along the vault"""
+    back. Stone: a masonry façade with voussoirs, a keystone and a cornice, rock of the hill around and above.
+    Concrete (the portal of OSM road tunnels): a plain headwall with a flat arch framed by a band, pilasters
+    at its ends, a coping and a parapet on top, lamps along the vault and a shell round it, no rock: the
+    world's ground is the hill (src/app/world/osm/convert/tunnels.ts raises it to the headwall's top),
+    and from the game camera lumps of rock read as boulders, not as a portal"""
     clear_scene()
     rnd = random.Random(seed)
     if concrete:
@@ -124,11 +127,20 @@ def tunnel_portal(name, concrete=False, seed=1):
             m = (a + b) / 2
             bottom = spring + math.sqrt(max(0.0, half * half - m * m)) * flat
             box(wall, m, thick / 2, bottom, b - a, thick, top - bottom)
-        # Hood: a projecting slab over the mouth on two side piers
-        box(trim, 0, -0.9, crown + 0.5, half * 2 + 3.0, 2.2, 0.8)
+        # A band round the arch and down its jambs, standing out of the headwall
+        arch_ring(trim, half, spring, thick + 0.35, -0.35, width=0.8, stones=20, flat=flat)
         for s in (-1, 1):
-            box(trim, s * (half + 0.9), -0.9, -0.3, 1.2, 2.2, crown + 0.8)
-        box(trim, 0, -0.2, top - 0.2, front_w + 0.4, thick + 1.2, 0.5)
+            box(trim, s * (half + 0.4), thick / 2 - 0.175, -0.3, 0.8, thick + 0.35, spring + 0.3)
+            # Pilasters at the ends of the headwall
+            box(trim, s * (front_w / 2 - 0.6), thick / 2 - 0.15, -1.5, 1.2, thick + 0.3, top + 1.5)
+        # Coping over the headwall and a parapet on it, the edge one sees from above
+        box(trim, 0, thick / 2 - 0.1, top - 0.35, front_w + 0.4, thick + 0.6, 0.45)
+        box(wall, 0, 0.1, top + 0.1, front_w, 0.45, 1.0)
+        box(trim, 0, 0.1, top + 1.1, front_w + 0.2, 0.65, 0.18)
+        # A shell round the vault (under the raised ground, seen only where a map leaves it bare)
+        for s in (-1, 1):
+            box(wall, s * (half + 0.4), thick + deep / 2, -1.5, 0.8, deep, crown + 1.5)
+        box(wall, 0, thick + deep / 2, crown, half * 2 + 1.6, deep, 0.8)
         lamps = Part(flat_material('tunnel-lamp', (1.0, 0.85, 0.55), 0.3, emission=(1.0, 0.8, 0.5), strength=2.0), bevel=0.0)
         for k in range(5):
             y = 1.5 + k * 2.8
@@ -160,15 +172,16 @@ def tunnel_portal(name, concrete=False, seed=1):
     # Road surface inside, below the opening (the terrain stops at the façade)
     floor = [Vector((-half, thick, 0.02)), Vector((half, thick, 0.02)), Vector((half, deep, 0.02)), Vector((-half, deep, 0.02))]
     inner.quad(floor, [(0, 0), (2 * half, 0), (2 * half, deep), (0, deep)])
-    hillside(rock, front_w + 6.0, top + 2.0, deep + 6.0, seed * 10, rnd)
-    for k in range(6):
-        s = -1 if k % 2 else 1
-        lump(rock, Vector((s * rnd.uniform(front_w / 2 + 2.5, front_w / 2 + 6.0), rnd.uniform(-5.0, -1.0), -0.6)),
-             Vector((rnd.uniform(0.6, 1.4), rnd.uniform(0.5, 1.1), rnd.uniform(0.4, 0.9))), seed * 10 + 20 + k, subdiv=2)
-    objects = [wall.to_object(name), trim.to_object(name + '-trim'), inner.to_object(name + '-inner'), dark.to_object(name + '-dark'),
-               smooth(rock.to_object(name + '-rock'))]
+    objects = [wall.to_object(name), trim.to_object(name + '-trim'), inner.to_object(name + '-inner'), dark.to_object(name + '-dark')]
     if concrete:
         objects.append(lamps.to_object(name + '-lamps'))
+    else:
+        hillside(rock, front_w + 6.0, top + 2.0, deep + 6.0, seed * 10, rnd)
+        for k in range(6):
+            s = -1 if k % 2 else 1
+            lump(rock, Vector((s * rnd.uniform(front_w / 2 + 2.5, front_w / 2 + 6.0), rnd.uniform(-5.0, -1.0), -0.6)),
+                 Vector((rnd.uniform(0.6, 1.4), rnd.uniform(0.5, 1.1), rnd.uniform(0.4, 0.9))), seed * 10 + 20 + k, subdiv=2)
+        objects.append(smooth(rock.to_object(name + '-rock')))
     export(name, objects, lod=500)
 
 

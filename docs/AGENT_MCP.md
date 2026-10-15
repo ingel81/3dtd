@@ -90,7 +90,8 @@ betrifft:
 | Water: Füllen, Gießen, See, Malen, Meer, Fluss bearbeiten | `map.fill`, `pour(at, kind)`, `lake`, `waterMask`, `sea`; `moveRiverPoint`, `addRiverPoint`, `removeRiverPoint`, `riverWidth`, `riverKind`, `simplifyRiver`, `carveRiverBed`, `removeRiver` (das Bett folgt wie im Water-Panel, `relayRiver`) |
 | Objects: Setzen, Streuen, Linie (auch Mauer-Kits), Auswahl bearbeiten, Duplizieren, Gruppen, Hangneigung | `map.place`, `scatter`, `line(asset, line, { spacing, offset, bothSides, turn, corners, front, alignToSlope })`, `changeObjects(ids, patch)`, `duplicate`, `group`/`ungroup`, `alignToSlope`, `removeObjects` |
 | Roads: Zeichnen und Bearbeiten | `map.path`, `walk`; `moveNode`, `splitRoad`, `mergeNodes`, `removeNode`, `dissolveNode`, `connectNodes`, `editRoads(ids, { width, kind, style })`, `smoothRoad`, `straightenRoad`, `roadSurface(ids, material | 'none')` (eine von der Straßenbürste gebaute Straße wird neu gelegt, `editRoads` aus dem Paths-Tool) |
-| Spawns und HQ | `map.spawn`, `moveSpawn`, `renameSpawn`, `removeSpawn`, `hq`; `move_marker` |
+| Spawns und HQ | `map.spawn`, `moveSpawn`, `renameSpawn`, `removeSpawn`, `optionalLane(id, optional)` (Schalter „optional“ einer Spur), `hq`; `move_marker` |
+| Map: Intro flight | `map.intro({ kind: 'orbit' \| 'path', ... })`, `map.intro(null)` für den Standard-Flug; Lesefunktion `map.introFlight()`, `map_summary` nennt `intro` |
 | Copy and stamps, Prefabs | `map.copyArea(rect, to, { rotation, feather, parts })`; `map.savePrefab(name, ids, ground)` (in die Datei der Karte, Id `pf-<n>`, beim Abspielen dieselbe), `map.placePrefab(idOrName, to, { rotation, feather })`, Lesefunktion `map.prefabs()`; `save_stamp`, `paste_stamp` (auch aus anderen Karten) |
 | Sky and weather, Rules, Map details | `set_sky`, `set_rules`, `set_map_info`; `map.environment`, `map.gameplay` |
 
@@ -105,7 +106,7 @@ in einem eigenen `EditorDocument` (`DryHost` in `editor-agent.ts`): keine Ansich
 Katalog, Stempel und Versionen kommen vom echten Wirt. Die Antwort: `{ dryRun, ok, answer, changes, check }`, `answer`
 ist, was der echte Aufruf geantwortet hätte, `changes` der Unterschied der Kopie zur Karte (`mapDiff` in
 `agent-reads.ts`: verschobene Höhenpunkte mit größtem Heben und Senken und Rechteck, Farbe, Wasser, Objekte neu,
-weg, geändert je Asset, Straßen, Spawns, HQ, Himmel, Regeln, Name, Größe), `check` die Befunde des Prüfens der Kopie.
+weg, geändert je Asset, Straßen, Spawns, HQ, Himmel, Regeln, Intro-Flug, Name, Größe), `check` die Befunde des Prüfens der Kopie.
 Ein abgelehnter Aufruf antwortet wie ohne `dry_run`. `run_script` spielt im Probelauf auf der Kopie ab (ohne Animation),
 statt wie bis Teil 1 nur die Sandbox laufen zu lassen; die Erosion läuft im eigenen Terrain-Worker auf den Höhen der
 Kopie.
@@ -148,7 +149,7 @@ Wasserpinsel entlang Punkten, Objekte setzen, streuen, in Reihen, Wege, Spawns, 
 Werkzeug Life, LEVEL_EDITOR.md; mit `map.symmetry` entstehen die Bilder mit, die Id ist die des gezeichneten; eine
 unbekannte Option, Art oder zu wenige Punkte brechen mit Grund ab).
 Lesen: `map.h(x, y)`, `map.slope`, `map.noise`, `map.ridged`, `map.objects(rect)`, `map.markers()`, `map.roads()`,
-`map.layers()`, `map.waterBodies()`, `map.lanes()`, `map.issues()`, `map.life()`. `map_summary` nennt unter `life` die
+`map.layers()`, `map.waterBodies()`, `map.lanes()`, `map.issues()`, `map.life()`, `map.introFlight()`. `map_summary` nennt unter `life` die
 Schalter, die Dichte, den Umgebungston und die Bereiche (Id, Art, Form, Punkte, Dichte). Dazu `rng(seed)`, `facing(a, b)`, `log(...)`. Die volle
 Liste mit Argumenten liefert `script_api` (`scriptReference()` aus `SCRIPT_OPS` in `agent/map-script.ts`).
 
@@ -180,7 +181,7 @@ Ablauf:
    bekommt nach jedem Schritt mit, was sich änderte.
 3. **Ein Undo-Schritt**: `EditorSession.agentEdit` hält den Ablauf wie einen Geländejob (Ansicht gesperrt, Job mit
    Cancel im Map-Panel, Speichern und Undo warten). Fertig wird vorher und nachher zu einem `SnapshotCommand`
-   (Gelände, Objekte, Wege, Spawns, HQ, Himmel, Regeln, Leben). Bei Fehler oder Cancel geht die Karte auf den Stand davor
+   (Gelände, Objekte, Wege, Spawns, HQ, Himmel, Regeln, Leben, Intro-Flug). Bei Fehler oder Cancel geht die Karte auf den Stand davor
    zurück.
 4. **Antwort**: Zahl der Befehle und Schritte, Logzeilen, Rückgabewert, Befunde des Prüfens, und `sameAsSandbox`:
    ein Fingerabdruck der Karte nach dem Abspielen gegen den der Kopie (gleicher Code, gleicher Seed; anders nur, wenn

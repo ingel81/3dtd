@@ -55,6 +55,15 @@ export function buildMoonBase(): CustomMapDocument {
     k.level(ringAt({ x, y }, r, 40, 0.08), { radius: 12, falloff: 1 }, k.h(x, y) + h, 0.5);
     k.roughen(ringAt({ x, y }, r, 40), { radius: 12, falloff: 0.8 }, 1, 9111 + x);
   }
+  // Highland massifs in three corners, away from the landing zones: broad rounded swells 26 to 32 m over the plain
+  // with a lower shoulder, worn smooth as the lunar highlands are, a skyline behind the craters
+  for (const [x, y, r, h] of [[190, 195, 85, 32], [-195, -195, 75, 28], [195, -205, 70, 26]] as const) {
+    k.raise({ x, y }, { radius: r, falloff: 1 }, h);
+    const a = k.noise.hash(x, y, 43) * Math.PI * 2;
+    k.raise({ x: x + Math.cos(a) * r * 0.6, y: y + Math.sin(a) * r * 0.6 }, { radius: r * 0.6, falloff: 1 }, h * 0.4);
+    k.smooth({ x, y }, { radius: r * 1.1, falloff: 0.6 }, 8);
+    k.roughen({ x, y }, { radius: r, falloff: 0.8 }, 2, 9120 + x);
+  }
   k.erode(hq, { radius: 150, strength: 1 }, 4);
   k.erode(ringAt(great, 56, 24), { radius: 30, strength: 1 }, 3);
 

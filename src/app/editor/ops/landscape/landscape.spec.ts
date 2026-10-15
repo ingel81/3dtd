@@ -220,7 +220,7 @@ describe('biome brush', () => {
     const hell = paint(ed, 'hell', 3, 1, 5, -110);
     expect(hell.layersFull).toEqual([]);
     const t = ed.doc.terrain;
-    const ground = t.layers.findIndex((l) => l.material === 'hell-ground');
+    const ground = t.layers.findIndex((l) => l.material === 'cinders');
     expect(ground).toBeGreaterThan(0);
     const res = t.splat.resolution;
     const w = new Float32Array(12);
@@ -286,6 +286,20 @@ describe('biome brush', () => {
     expect(seen.filter((c) => c.water)).toHaveLength(1);
     const merged = mergeChanges({ bodies: [0], bodyRect: { i0: 0, j0: 0, i1: 2, j1: 2 } }, { bodies: [1], bodyRect: { i0: 5, j0: 5, i1: 6, j1: 6 } });
     expect(merged).toMatchObject({ bodies: [0, 1], bodyRect: { i0: 0, j0: 0, i1: 6, j1: 6 } });
+  });
+
+  it('hell reads as ash and basalt, not as fallen leaves: grey and black ground first, the red earth a patch', () => {
+    const hell = biomeById('hell')!;
+    const materials = catalog.materials;
+    const first = hell.ground.map((g) => g.material.find((id) => materials.has(id))!);
+    expect(first.every((id) => materials.get(id)!.tags!.some((tag) => tag === 'volcanic' || tag === 'hell'))).toBe(true);
+    expect(hell.ground.flatMap((g) => g.material)).not.toContain('brimstone');
+    // Share of warm ground (red or yellow well over its blue): at most a patch
+    const warm = hell.ground.filter((g, k) => {
+      const [r, , b] = materials.get(first[k])!.color.match(/[0-9a-f]{2}/gi)!.map((h) => parseInt(h, 16));
+      return r - b > 60;
+    });
+    expect(warm.reduce((a, g) => a + g.share, 0)).toBeLessThanOrEqual(0.2);
   });
 
   it('every biome paints with the shipped catalogue', () => {

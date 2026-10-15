@@ -34,6 +34,12 @@ import type { HeightField } from '../height-field';
 export const APRON_RINGS = [0, 12, 40, 100, 220, 300, 380, 460, 540, 620, 700, 790, 880, 980, 1090, 1210, 1340, 1480, 1640, 2200, 3000];
 /** Water may extend over the rings up to this distance */
 export const RIVER_REACH = 220;
+/**
+ * A wet stretch of the border at least this long (metres) is a coast whose sea goes on; a shorter one is a river's
+ * mouth: its water runs on over the blurred profile and ends where the bed rises above it, the valley fills up and
+ * the backdrop range closes over it, instead of a slot as wide as the river cut through the apron to the horizon
+ */
+export const SEA_RUN = 160;
 /** Metres beyond the border where the backdrop range starts to rise, and where it reaches its height */
 const BACKDROP_FROM = 250;
 const BACKDROP_FULL = 900;
@@ -118,6 +124,7 @@ export class ApronProfile {
       });
     }
     this.wetShare = n ? wet / n : 0;
+    const sea = seaStretches(wetAt, Math.ceil(SEA_RUN / field.cellSize));
     this.wet = wetAt;
     this.waterLevel = water ? water.level : null;
     this.heights = new Float32Array(APRON_RINGS.length * n);
@@ -135,8 +142,8 @@ export class ApronProfile {
           const crest = Math.pow(0.58 * ridge(1 / 350) + 0.3 * ridge(1 / 140) + 0.12 * ridge(1 / 60), 1.5);
           h += backdrop * smoothstepRange(BACKDROP_FROM, BACKDROP_FULL, dist) * (0.3 + 0.7 * crest);
         }
-        // Sea beyond a wet border (and everywhere around a mostly wet one): the floor falls off
-        if (water && r > 0 && (wetAt[k] || this.wetShare > 0.5)) h = Math.min(h, water.level - 1.5 - dist * 0.01);
+        // Sea beyond a coast (and everywhere around a mostly wet border): the floor falls off; a river's mouth keeps the profile
+        if (water && r > 0 && (sea[k] || this.wetShare > 0.5)) h = Math.min(h, water.level - 1.5 - dist * 0.01);
         this.heights[r * n + k] = h;
       });
     });
@@ -296,4 +303,24 @@ function smoothNoise(x: number, y: number): number {
   return (
     r(xi, yi) * (1 - u) * (1 - v) + r(xi + 1, yi) * u * (1 - v) + r(xi, yi + 1) * (1 - u) * v + r(xi + 1, yi + 1) * u * v
   );
+}
+
+/** The wet border points that belong to a run of at least `length` wet points (the border is a closed ring) */
+function seaStretches(wet: Uint8Array, length: number): Uint8Array {
+  const n = wet.length;
+  const out = new Uint8Array(n);
+  const start = wet.indexOf(0);
+  if (start < 0) return out.fill(1);
+  // From a dry point once round the ring: each run of wet points is marked when it ends
+  let run = 0;
+  for (let i = 1; i <= n; i++) {
+    const k = (start + i) % n;
+    if (wet[k]) {
+      run++;
+      continue;
+    }
+    if (run >= length) for (let j = 1; j <= run; j++) out[(k - j + n) % n] = 1;
+    run = 0;
+  }
+  return out;
 }

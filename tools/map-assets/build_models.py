@@ -13,7 +13,7 @@ bent outwards from the crown centre (soft, round lighting), houses from
 boxes with box-mapped UVs. Rocks, fern and barrel are Poly Haven models,
 decimated to game budgets. Deterministic for the seeds below. The models
 of the biome sets live in build_nature.py, build_structures.py and
-build_props.py, build_city.py, build_space.py, build_extreme.py, build_landmarks.py, build_modern.py and build_extras.py; the helpers all share are in
+build_props.py, build_city.py, build_space.py, build_extreme.py, build_landmarks.py, build_modern.py, build_modern2.py and build_extras.py; the helpers all share are in
 blender_kit.py.
 """
 import os
@@ -48,7 +48,7 @@ def base_models():
         'log': lambda: log('log'),
         'fern': lambda: import_model('fern_02', 0.9, 900, 'fern'),
         'rock-small': lambda: import_model('namaqualand_boulder_04', 0.9, 500, 'rock-small', desaturate=0.7),
-        'rock-large': lambda: import_model('namaqualand_boulder_02', 2.6, 1200, 'rock-large', desaturate=0.7),
+        'rock-large': lambda: import_model('namaqualand_boulder_02', 2.6, 1200, 'rock-large', desaturate=0.7, ground=True, close=True),
         'barrel': lambda: import_model('Barrel_01', 1.0, 1200, 'barrel'),
         'house': lambda: house('house', 7.0, 5.0, 3.6, 'clay_roof_tiles_02', 'grey_plaster_02', wall_tint=(1.08, 1.02, 0.9)),
         'house-large': lambda: house('house-large', 10.0, 7.0, 6.4, 'grey_roof_tiles', 'grey_plaster_02', storeys=2,
@@ -75,6 +75,7 @@ def main():
     import build_landmarks
     import build_levels
     import build_modern
+    import build_modern2
     import build_nature
     import build_props
     import build_space
@@ -82,7 +83,7 @@ def main():
     import build_vehicles
     registry = base_models()
     for module in (build_nature, build_structures, build_props, build_city, build_space, build_extreme, build_vehicles, build_levels,
-                   build_landmarks, build_modern, build_extras):
+                   build_landmarks, build_modern, build_modern2, build_extras):
         for name, fn in module.models().items():
             assert name not in registry, name
             registry[name] = fn

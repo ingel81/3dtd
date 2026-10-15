@@ -2,8 +2,8 @@
  * A real place to a custom map document (docs/OSM_WORLD_PLAN.md, phase O1
  * "grey world"): the ground from elevation tiles, the roads from
  * OpenStreetMap as the map's street graph, levelled and painted, the HQ on
- * the place and spawns as on the real places. Land, water, buildings and
- * furniture follow in later phases.
+ * the place and spawns as on the real places, then land and water,
+ * buildings, furniture and plants.
  *
  * `convertOsm` is pure and DOM-free (Node, specs, the worker); `loadOsmInput`
  * downloads what it reads (Overpass, elevation tiles) or takes it from the
@@ -25,6 +25,7 @@ import { growVegetation, type VegetationReport } from './convert/vegetation';
 import { objectCost } from '../custom-map/render/objects/scene-cost';
 import { carveWater, paintWater, settleWater, WATER_MATERIALS, type WaterPaintRole, type WaterReport } from './convert/water';
 import { layOut, OsmLayout, type LayoutReport } from './convert/layout';
+import { placeFurniture, type FurnitureReport } from './convert/furniture';
 import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
 
 /** Side of an OSM world, metres: always 2.4 km (decision 2 of the plan), spawns up to 1000 m from the HQ in the middle */
@@ -64,16 +65,16 @@ export interface OsmImportOptions {
   /** The asset catalogue's objects: the buildings take their models and scene cost from it (convert/buildings.ts) */
   catalog?: readonly BuildingCatalogEntry[];
   /**
-   * Scene cost per plant asset on this map (vegetation.ts plantCosts, from
-   * the catalogue): the plants are held to their budget by it. An asset
-   * missing counts as an unknown object (dearer, so the forests come out
-   * thinner)
+   * Scene cost per plant and furniture asset on this map (vegetation.ts assetCosts, from
+   * the catalogue): the plants and the furniture are held to their budgets
+   * by it. An asset missing counts as an unknown object (dearer, so the
+   * forests come out thinner)
    */
-  plantCosts?: Record<string, number>;
+  costs?: Record<string, number>;
 }
 
 /** One step of the conversion, for the progress list */
-export type OsmConvertStep = 'parse' | 'terrain' | 'roads' | 'water' | 'level' | 'ground' | 'shores' | 'paint' | 'layout' | 'buildings' | 'plants';
+export type OsmConvertStep = 'parse' | 'terrain' | 'roads' | 'water' | 'level' | 'ground' | 'shores' | 'paint' | 'layout' | 'buildings' | 'furniture' | 'plants';
 
 export interface OsmImportReport {
   place: { lat: number; lon: number; address: string };
@@ -89,6 +90,7 @@ export interface OsmImportReport {
   layers: string[];
   layout: LayoutReport;
   buildings: BuildingReport;
+  furniture: FurnitureReport;
   /** Milliseconds per step */
   ms: Record<string, number>;
   warnings: string[];
@@ -103,7 +105,7 @@ export interface OsmImportResult {
 export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}, onStep?: (step: OsmConvertStep) => void): OsmImportResult {
   const ms: Record<string, number> = {};
   let t = performance.now();
-  const order: OsmConvertStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'plants'];
+  const order: OsmConvertStep[] = ['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'buildings', 'furniture', 'plants'];
   const step = (name: string) => {
     const now = performance.now();
     ms[name] = Math.round(now - t);
@@ -180,9 +182,14 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
   warnings.push(...buildings.warnings);
   step('buildings');
 
-  // The plants keep off the footprints and hold their own share of the scene budget (the buildings have no cap for now)
+  // Fences, walls, tracks, lamps and the points of the street, in their own share of the scene budget
   const unknownCost = objectCost(undefined, side * side);
-  const plants = growVegetation(doc, features, ground.land, water, { costOf: (asset) => options.plantCosts?.[asset] ?? unknownCost });
+  const costOf = (asset: string) => options.costs?.[asset] ?? unknownCost;
+  const furniture = placeFurniture(doc, features, water, { costOf });
+  step('furniture');
+
+  // The plants keep off the footprints and hold their own share of the scene budget (the buildings have no cap for now)
+  const plants = growVegetation(doc, features, ground.land, water, { costOf });
   step('plants');
 
   const dem = input.dem ? input.dem.source : null;
@@ -215,6 +222,7 @@ export function convertOsm(input: OsmImportInput, options: OsmImportOptions = {}
       layers: t0.layers.map((l) => l.material),
       layout,
       buildings: buildings.report,
+      furniture,
       ms,
       warnings,
     },

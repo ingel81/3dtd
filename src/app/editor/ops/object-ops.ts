@@ -7,6 +7,8 @@ import type { CustomMapDocument, MapObject, MapPoint, MapTerrain } from '../../w
 import { CompoundCommand, PatchCommand, patchLayout, type EditCommand } from '../model/editor-document';
 import { heightAt, slopeAt, insideMap, sampleRectAround, sampleX, sampleY, type GridRect } from '../model/grid';
 import { RegionRecorder } from '../model/region-patch';
+import { waterLevelAt } from '../../world/custom-map/water-level';
+import { boxDistance, groundRing, type GroundBox } from '../../world/custom-map/object-ground';
 import { HEIGHT_LIMITS } from './terrain-ops';
 import { brushWeight, type BrushSettings } from './brush';
 
@@ -194,47 +196,78 @@ export function levelsGround(entry: { footing?: { category: string; float?: bool
   return !!f && (f.category === 'building' || !!f.turns) && !f.float && !f.stilts;
 }
 
+/** What levelling needs of a catalogue entry: its footprint radius at scale 1 and, for buildings, its ground rectangle */
+export interface LevelFooting {
+  radius: number;
+  footing?: { box?: GroundBox };
+}
+
 /**
  * Levels the ground under a building placed anew, so it stands whole and no
- * slope cuts into it on any side: the samples within its footprint radius
- * (`footprint` at scale 1, times its scale), BUILDING_PAD and one grid cell
- * more go to its base height, the mean of the ground under its middle and
- * eight points of its footprint (cut and fill alike); beyond that the
- * levelled ground blends smoothly into the land over the footprint radius,
- * at least BUILDING_BLEND metres and twice the height of the cut or fill,
- * so its banks stay gentle. The renderer stands it on the lowest of those
- * eight points (seatHeight), on level ground its base. `beforeWrite` saves
- * the rectangle first (an undo step). Returns the changed samples'
+ * slope cuts into it on any side: the samples within its ground (object-ground.ts:
+ * the footprint disc, `radius` at scale 1 times its scale, cut with the turned
+ * rectangle of its catalogue `box` where it has one), BUILDING_PAD and one grid
+ * cell more go to its base height, the mean of the ground under its middle and
+ * eight points of its ground's edge (groundRing; cut and fill alike); beyond
+ * that the levelled ground blends smoothly into the land over the footprint
+ * radius (with a rectangle its half width or depth, the smaller), at least
+ * BUILDING_BLEND metres and twice the height of the cut or fill, so its banks
+ * stay gentle. A long building levels a long pad with banks along its sides,
+ * not the disc of half its length. Dry ground is cut no lower than the water
+ * under the levelled samples (a hut on a shore digs no pit below the sea). The renderer stands it on the lowest
+ * of those eight points (seatHeight), on level ground its base. `beforeWrite`
+ * saves the rectangle first (an undo step). Returns the changed samples'
  * rectangle; null on ground level within 5 cm. Moving it later levels nothing.
  */
-export function levelUnderBuilding(terrain: MapTerrain, o: MapObject, footprint: number, beforeWrite?: (rect: GridRect) => void): GridRect | null {
-  const r = footprint * (o.scale || 1);
+export function levelUnderBuilding(terrain: MapTerrain, o: MapObject, entry: LevelFooting, beforeWrite?: (rect: GridRect) => void): GridRect | null {
+  const s = o.scale || 1;
+  const r = entry.radius * s;
+  const box = entry.footing?.box;
+  const ring = groundRing(entry.radius, box, o);
   const ground = [heightAt(terrain, o.x, o.y)];
-  for (let k = 0; k < 8; k++) {
-    const a = (k / 8) * Math.PI * 2;
-    ground.push(heightAt(terrain, o.x + Math.cos(a) * r, o.y + Math.sin(a) * r));
-  }
+  for (let k = 0; k < ring.length; k += 2) ground.push(heightAt(terrain, ring[k], ring[k + 1]));
   if (Math.max(...ground) - Math.min(...ground) < 0.05) return null;
   const base = ground.reduce((a, b) => a + b, 0) / ground.length;
   // One grid cell more: the ground between the samples at the footprint's edge is level too
-  const core = r + BUILDING_PAD + terrain.grid.cellSize;
+  const core = BUILDING_PAD + terrain.grid.cellSize;
   // Banks no steeper than one in two: a deep cut or fill blends out wider
   let step = 0;
-  for (let k = 0; k < 8; k++) {
-    const a = (k / 8) * Math.PI * 2;
-    step = Math.max(step, Math.abs(heightAt(terrain, o.x + Math.cos(a) * core, o.y + Math.sin(a) * core) - base));
+  for (let k = 0; k < ring.length; k += 2) {
+    const dx = ring[k] - o.x;
+    const dy = ring[k + 1] - o.y;
+    const d = Math.hypot(dx, dy) || 1;
+    step = Math.max(step, Math.abs(heightAt(terrain, ring[k] + (dx / d) * core, ring[k + 1] + (dy / d) * core) - base));
   }
-  const blend = Math.max(BUILDING_BLEND, r, 2 * step);
-  const rect = sampleRectAround(terrain, o.x, o.y, core + blend);
+  // Over its narrow side: a long building's banks as wide as it is deep, not as half its length
+  const blend = Math.max(BUILDING_BLEND, box ? Math.min(r, Math.min(box[2], box[3]) * s) : r, 2 * step);
+  const rect = sampleRectAround(terrain, o.x, o.y, r + core + blend);
   beforeWrite?.(rect);
   const g = terrain.grid;
+  const cos = Math.cos(o.rotation);
+  const sin = Math.sin(o.rotation);
+  const weights: number[] = [];
+  // Water beside the pad: dry ground is cut no lower than its level, so a hut on a shore digs no pit under the sea
+  let floor = -Infinity;
   for (let j = rect.j0; j <= rect.j1; j++) {
     for (let i = rect.i0; i <= rect.i1; i++) {
-      const d = Math.hypot(sampleX(terrain, i) - o.x, sampleY(terrain, j) - o.y);
-      if (d >= core + blend) continue;
-      const f = d <= core ? 1 : 1 - smoothstep((d - core) / blend);
+      const dx = sampleX(terrain, i) - o.x;
+      const dy = sampleY(terrain, j) - o.y;
+      // How far outside the object's ground: past its disc and, with a box, past its rectangle
+      const outside = Math.max(Math.hypot(dx, dy) - r, box ? boxDistance(box, s, dx, dy, cos, sin) : 0);
+      const f = outside >= core + blend ? 0 : outside <= core ? 1 : 1 - smoothstep((outside - core) / blend);
+      weights.push(f);
+      if (f > 0) floor = Math.max(floor, waterLevelAt(terrain, o.x + dx, o.y + dy, g.heights[j * g.columns + i]) ?? -Infinity);
+    }
+  }
+  let w = 0;
+  for (let j = rect.j0; j <= rect.j1; j++) {
+    for (let i = rect.i0; i <= rect.i1; i++) {
+      const f = weights[w++];
+      if (!f) continue;
       const k = j * g.columns + i;
-      g.heights[k] = Math.min(HEIGHT_LIMITS.max, Math.max(HEIGHT_LIMITS.min, g.heights[k] + (base - g.heights[k]) * f));
+      const h = g.heights[k];
+      const to = h >= floor ? Math.max(floor, base) : base;
+      g.heights[k] = Math.min(HEIGHT_LIMITS.max, Math.max(HEIGHT_LIMITS.min, h + (to - h) * f));
     }
   }
   return rect;
@@ -250,12 +283,12 @@ export function levelForBuildings(
   doc: CustomMapDocument,
   label: string,
   objects: readonly MapObject[],
-  entry: { footing?: { category: string; float?: boolean }; radius: number },
+  entry: { footing?: { category: string; float?: boolean; box?: GroundBox }; radius: number },
 ): EditCommand | null {
   if (!levelsGround(entry)) return null;
   const recorder = new RegionRecorder(doc.terrain.grid.heights, patchLayout(doc, 'heights'));
   let changed = false;
-  for (const o of objects) changed = !!levelUnderBuilding(doc.terrain, o, entry.radius, (r) => recorder.touch(r)) || changed;
+  for (const o of objects) changed = !!levelUnderBuilding(doc.terrain, o, entry, (r) => recorder.touch(r)) || changed;
   return changed ? new PatchCommand(label, [{ target: 'heights', patches: recorder.finish() }]) : null;
 }
 

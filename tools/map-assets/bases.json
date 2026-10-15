@@ -1,6 +1,6 @@
 {
   "rock-small": [0.6,0.6,0],
-  "rock-large": [3.7,1.8,0],
+  "rock-large": [3.7,1.7,0.1],
   "boulder": [0.7,1.3,0.1],
   "rock-granite": [1.1,2,0],
   "rock-granite-flat": [1.1,2.7,0],
@@ -8,7 +8,7 @@
   "rock-desert": [1.4,1.9,0],
   "rock-desert-large": [1,1.8,0.2],
   "rock-sandstone": [2.1,1.2,0.1],
-  "rock-sandstone-large": [4.7,2.5,0.1],
+  "rock-sandstone-large": [4,2.3,0.2],
   "rock-basalt": [1.2,1.7,0],
   "rock-basalt-large": [1,1.7,0.2],
   "rock-snow": [1.9,1,0.1],

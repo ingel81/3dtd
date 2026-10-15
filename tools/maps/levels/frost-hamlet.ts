@@ -118,7 +118,8 @@ export function buildFrostHamlet(): CustomMapDocument {
   // The square's fire and lanterns by the doors
   k.place('campfire', 34, 128);
   for (const [x, y] of [[-16, 154], [-24, 122], [56, 158], [60, 101], [94, 145]] as const) if (k.free(x, y, 0.5)) k.place('lantern', x, y);
-  // TODO(E179): sled dogs beside the sleds
+  // A dog team waiting beside each village sled
+  for (const [x, y, r] of [[-30, 180, 2.2], [48, 112, 0.6]] as const) if (k.free(x, y, 3)) k.place('dog-sled', x, y, { rotation: r });
 
   // ---- On the ice: fishers' huts and holes, a sled, skates of snow
   for (const [x, y, r] of [[-40, 30, 0.4], [60, -20, 2.1], [-20, -40, 1.2], [70, 50, 2.8], [-60, -10, 0.9]] as const) {
@@ -156,7 +157,6 @@ export function buildFrostHamlet(): CustomMapDocument {
   // ---- Life: ravens over the village and the wood west of it, snow flurries blowing along the ridges and over the
   // village, ice fog drifting low over the lake, smoke from every house (their chimneys); the wind over the snow, the
   // fire crackling on the square
-  // TODO(E190): the bell at each wave
   const village = k.lifeArea('birds', [{ x: -70, y: 110 }, { x: 110, y: 110 }, { x: 110, y: 200 }, { x: -70, y: 200 }], { species: 'crows', height: 22, density: 0.7 });
   k.lifeArea('birds', [{ x: -150, y: 60 }, { x: -90, y: 60 }, { x: -90, y: 110 }, { x: -150, y: 110 }], { species: 'crows', height: 18, density: 0.5 });
   k.lifeRoute('snow', [{ x: -230, y: 200 }, { x: -150, y: 230 }, { x: -60, y: 235 }, { x: 70, y: 232 }, { x: 160, y: 220 }, { x: 240, y: 180 }], { density: 0.8 });

@@ -19,7 +19,7 @@ export function buildArchipelago(): CustomMapDocument {
   });
   for (const m of ['grass', 'grass-lush', 'sand-coast', 'sand', 'rocky-ground', 'pebbles', 'cobblestone-grey', 'grass-dry']) k.layer(m);
   // Rock on the cliffs, grey with lichen as the coast's cliff rocks (tidal gravel read as earth on a wall)
-  k.cliffs('rock-mossy', 36);
+  k.cliffs('limestone', 36);
 
   // ---- Sea floor and islands
   for (let y = -300; y <= 300; y += 110) for (let x = -300; x <= 300; x += 110) k.level({ x, y }, { radius: 130, falloff: 0.4 }, -7);
@@ -84,6 +84,17 @@ export function buildArchipelago(): CustomMapDocument {
   for (const [n, c] of coasts.entries()) k.rockyCoast(coastLines[n], { land: 'left', top: c.top, bed: -4, rocks: c.rocks });
   // The lighthouse rock's crown: rock walls on its steep flanks, not a painted slope
   k.cliffRocks(islands[5].at, { radius: 30 });
+  // Sea stacks out at the edges of the sound: slim towers of rock in the open water, alone or in twos, a second
+  // shoulder off the main spire, ragged. Depth before the horizon, away from the walks, the boats and the ships
+  for (const [n, [x, y, h]] of ([[215, 205, 30], [236, 178, 17], [232, -140, 26], [-236, -62, 28], [-222, -40, 15], [140, -232, 23], [-60, -236, 19]] as const).entries()) {
+    const at = { x, y };
+    const a = k.noise.hash(n, 2, 92) * Math.PI * 2;
+    k.raise(at, { radius: 8, falloff: 0.7 }, 9);
+    k.raise(at, { radius: 4 + h * 0.08, falloff: 0.55 }, h - 2);
+    k.raise({ x: x + Math.cos(a) * 4, y: y + Math.sin(a) * 4 }, { radius: 4, falloff: 0.6 }, h * 0.35);
+    k.roughen(at, { radius: 8, falloff: 0.5 }, 3.5, 90 + n);
+  }
+
   // A sandbank in the open water south of the middle isle, a wreck stranded on it
   const bank = { x: -140, y: -95 };
   k.level([bank, { x: bank.x + 22, y: bank.y - 8 }], { radius: 22, falloff: 0.4 }, 0.6);
@@ -160,7 +171,7 @@ export function buildArchipelago(): CustomMapDocument {
 
   // ---- Life: gulls round the lighthouse rock, over the harbour and the wreck; rowing boats drifting in the harbour,
   // a fishing boat going out round the main island and back; the surf on the rocky coasts, birdsong on the islands
-  // TODO(E190): gull calls, surf spray on the rocks
+  // TODO(E190): surf spray on the rocks
   const ring = (at: MapPoint, r: number): MapPoint[] => Array.from({ length: 8 }, (_, i) => ({ x: at.x + Math.cos((i / 8) * Math.PI * 2) * r, y: at.y + Math.sin((i / 8) * Math.PI * 2) * r }));
   k.lifeArea('birds', ring(islands[5].at, 60), { species: 'gulls', height: 30, density: 1.2 });
   k.lifeArea('birds', ring(harbour, 45), { species: 'gulls', height: 22 });
@@ -168,6 +179,9 @@ export function buildArchipelago(): CustomMapDocument {
   k.lifeArea('boats', ring(harbour, 18), { density: 0.5 });
   k.lifeRoute('boats', [{ x: harbour.x + 20, y: harbour.y - 14 }, { x: 160, y: -150 }, { x: 175, y: -60 }, { x: 255, y: -10 }], { asset: 'fishing-boat' });
   for (const n of [0, 1, 5, 6]) k.lifeRoute('sound', coastLines[n], { sound: 'surf', volume: n === 5 ? 0.8 : 0.6 });
+  // Gull calls where the gulls wheel: the lighthouse rock and the harbour
+  k.lifeArea('sound', ring(islands[5].at, 50), { sound: 'gulls', volume: 0.5 });
+  k.lifeArea('sound', ring(harbour, 35), { sound: 'gulls', volume: 0.45 });
   k.lifeSettings({ ambience: { sound: 'biome', volume: 0.45 } });
 
   k.clearRoads();

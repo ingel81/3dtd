@@ -75,8 +75,8 @@ export class RiverSurface {
     this.mesh.geometry = buildRiver(river);
   }
 
-  setSky(skyUniforms: ShaderMaterial['uniforms'], sunIntensity: number): void {
-    setWaterSky(this.mesh.material, skyUniforms, sunIntensity);
+  setSky(skyUniforms: ShaderMaterial['uniforms'], sunIntensity: number, darkness = 0): void {
+    setWaterSky(this.mesh.material, skyUniforms, sunIntensity, darkness);
   }
 
   /** Switchable effects (refraction); `copy` is the view's frame copy */
