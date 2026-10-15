@@ -140,9 +140,6 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
 - [ ] **E201 Bauverbot um Gebäude als Kreis** (2026-10-15, Befund fx-osm4): Bauverbot und Sitzhöhe rechnen mit
       footprint × Skala als Kreis; lange Gebäude sperren über die Straße hinaus (Schule 46 m: 21 m Radius). Grundriss
       als Rechteck nehmen.
-- [ ] **E202 Ferne Berge am Kartenrand besser texturieren** (User, 2026-10-15, Moon Base): das unerreichbare Gebirge
-      ringsum (Schürze, `terrain-apron.ts`, Farbe aus `apron-paint.ts`) wirkt flach und grob; mehr Struktur (Fels an
-      Steilhängen, Detail- oder Makrotextur, Schattierung nach Hangneigung), für alle Karten.
 - [ ] **E194 Erde am Mondhimmel sieht zu schlecht aus** (User, 2026-10-15, Bild Moon Base mit der Erde über dem
       Nordrand): Planet-Einstellung (`environment.planet`, `sky-dome.ts`) zeichnet die Erde zu grob. Besser: echte
       Erdtextur (Kontinente, Wolken, Ozeanglanz), Tag-Nacht-Grenze passend zur Sonne, Atmosphärensaum, scharf bei der
@@ -237,6 +234,8 @@ eigenen Karten, Coop-Protokoll 5). Vier Worker-Branches darauf laufen (Abschnitt
 
 Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Zeit hat.
 
+- [ ] **E202 Ferne Berge am Kartenrand**: Fels an Steilflanken, Rinnen, Schnee/Staub je Look, Gipfel aus dem Dunst
+      (Moon Base, Mountain Pass, Red Canyon, Frost Hamlet zum Horizont).
 - [ ] **Editor** E158 Tour 23 Schritte, E159 Probewelle 1x bis 8x, E165 Seitenleiste umbrechend mit Anfasser, E166
       Hilfe-Reiter, E167 ruhiges Create map, E168 Werkzeug Look (Esc), E169 Scene cost statt Objektzahl.
 - [ ] **E170 Eigene Karten nach E154**: Bauflächen-Overlay, Test ab Welle N, Difficulty, Mars nach NASA-Farben, Plant
