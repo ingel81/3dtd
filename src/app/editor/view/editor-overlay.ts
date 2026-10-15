@@ -48,6 +48,8 @@ const PREVIEW_DOTS = 600;
 const ROUTE_DOT_SPACING = 40;
 /** Metres per second the dots move, about a fast enemy */
 const ROUTE_DOT_SPEED = 28;
+/** Radius in metres of a path node outside the Paths tool: a dot on the road that does not grow from far */
+const NODE_DOT = 0.6;
 
 export type GroundHeight = (x: number, y: number) => number;
 
@@ -137,7 +139,8 @@ export class EditorOverlay {
   private lifeChosenPoint = -1;
   /** Markers and handles grow with the view distance so they keep a size on screen */
   private markerScale = 1;
-  private showNodes = true;
+  /** Path nodes as handles that grow with the view distance (the Paths tool), else as small dots of a fixed size */
+  private nodeHandles = false;
 
   /**
    * @param height The ground: markers, rings and handles stand on it
@@ -282,9 +285,22 @@ export class EditorOverlay {
     this.draft.visible = true;
   }
 
-  setNodesVisible(on: boolean): void {
-    this.showNodes = on;
-    this.nodes.visible = on;
+  /**
+   * Path nodes as handles (the Paths tool) or as small dots that keep their size on the map: an OSM map's
+   * thousands of nodes as handles would cover it from far. A selected node is a handle either way.
+   */
+  setNodeHandles(on: boolean): void {
+    if (this.nodeHandles === on) return;
+    this.nodeHandles = on;
+    this.scaleNodes();
+  }
+
+  private scaleNodes(): void {
+    for (const n of this.nodes.children) {
+      if (!(n instanceof Mesh)) continue;
+      const handle = this.nodeHandles || n.material === this.nodeSelected;
+      n.scale.setScalar(handle ? n.userData['size'] * this.markerScale : NODE_DOT);
+    }
   }
 
   /** Spawns, HQ and path nodes from the document */
@@ -310,13 +326,11 @@ export class EditorOverlay {
     this.markers.add(this.nameTag('HQ', TD_THEME.brassLight, -doc.hq.x, this.height(doc.hq.x, doc.hq.y), 18, this.markerScale, doc.hq.y));
 
     clear(this.nodes);
-    this.nodes.visible = this.showNodes;
     for (const n of doc.paths.nodes) {
       const chosen = nodes.has(n.id);
       const mesh = new Mesh(this.nodeGeometry, chosen ? this.nodeSelected : this.nodeMaterial);
       const degree = doc.paths.edges.reduce((d, e) => d + (e.a === n.id || e.b === n.id ? 1 : 0), 0);
       mesh.userData['size'] = degree > 2 ? 2.4 : 1.8;
-      mesh.scale.setScalar(mesh.userData['size'] * this.markerScale);
       mesh.position.set(-n.x, this.height(n.x, n.y) + 1, n.y);
       mesh.renderOrder = 11;
       this.nodes.add(mesh);
@@ -332,6 +346,7 @@ export class EditorOverlay {
       line.frustumCulled = false;
       this.nodes.add(line);
     }
+    this.scaleNodes();
   }
 
   /** Rings around selected objects, a line along a selected edge */
@@ -626,7 +641,7 @@ export class EditorOverlay {
       if (m instanceof Sprite) m.position.y = m.userData['ground'] + m.userData['lift'] * scale;
       else m.scale.setScalar(scale);
     }
-    for (const n of this.nodes.children) if (n instanceof Mesh) n.scale.setScalar(n.userData['size'] * scale);
+    this.scaleNodes();
     if (this.lifeHandleAt.length) this.placeLifeHandles();
   }
 

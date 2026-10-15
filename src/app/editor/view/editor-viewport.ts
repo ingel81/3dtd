@@ -232,6 +232,8 @@ export class EditorViewport {
     this.tool = tool;
     tool.activate?.(this.ctx);
     this.overlay.setBrush(null, 0, 0);
+    // Road nodes are handles only where they are edited
+    this.overlay.setNodeHandles(tool.id === 'paths');
   }
 
   get activeTool(): EditorTool | null {
