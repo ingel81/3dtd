@@ -18,16 +18,27 @@ import { COVER_GLSL, type CoverMap } from './cover-map';
 import { WIND_UNIFORMS } from './wind';
 
 /**
- * Rain or snow where the camera looks: a box of streaks or flakes around the
- * camera's focus on the ground (a game camera hangs far above the action),
- * reaching up towards the camera, that wraps as the view moves (each particle's spot is fixed in the world
- * and folded into the box), so the weather fills the view without
- * simulating anything. Fog weather has no particles; the environment
- * thickens its fog instead (CustomMapEnvironment).
+ * Rain or snow where the camera looks: three nested boxes of streaks or
+ * flakes (CASCADES), each a cube ahead of the camera, each the next one's
+ * size times four, an equal share of the particles in each. Every box
+ * wraps as the view moves (each particle's spot is fixed in the world and
+ * folded into its box), so the weather fills the view near and far at any
+ * height without simulating anything: the small box the air in front of the
+ * lens, the large one the land from a game camera hundreds of metres up.
+ * A box thins out towards its walls, where the next one goes on; the
+ * outermost ends in the haze. One box around the focus left the view
+ * outside it empty: a rectangle of snow over the far ground, none near a
+ * low camera, a patch of it under a high one. Fog weather has no particles;
+ * the environment thickens its fog instead (CustomMapEnvironment).
  */
 
-const BOX = new Vector3(160, 70, 160);
+/** Edge of each box, m: the air at the lens, the scene, the land to the haze */
+export const CASCADES = [40, 160, 640] as const;
+/** How far ahead of the camera a box's centre lies, in its own edge */
+const AHEAD = 0.35;
 const MAX_RAIN = 24000;
+/** Most a particle grows with its distance (a flake at 35 m and more), times */
+const GROW_MAX = 6;
 
 /** What the layer shows: the map's weather, or a biome's ambient particles */
 export type WeatherParticles = MapWeather | 'embers' | 'ash' | 'dust';
@@ -49,6 +60,7 @@ export class WeatherLayer {
     return this.mesh.geometry.instanceCount > 0;
   }
   private readonly cam = new Vector3();
+  private readonly ahead = new Vector3();
 
   constructor() {
     const quad = new PlaneGeometry(1, 1);
@@ -63,6 +75,10 @@ export class WeatherLayer {
       seeds[i] = s / 2147483647;
     }
     g.setAttribute('aSeed', new InstancedBufferAttribute(seeds, 3));
+    // Particle k in box k mod 3: any instance count shares out evenly
+    const cascade = new Float32Array(MAX_RAIN);
+    for (let k = 0; k < MAX_RAIN; k++) cascade[k] = k % CASCADES.length;
+    g.setAttribute('aCascade', new InstancedBufferAttribute(cascade, 1));
     g.instanceCount = 0;
     quad.dispose();
     const material = new ShaderMaterial({
@@ -70,8 +86,8 @@ export class WeatherLayer {
         UniformsLib.fog,
         {
           uTime: { value: 0 },
-          uCam: { value: new Vector3() },
-          uBox: { value: BOX.clone() },
+          uCenters: { value: CASCADES.map(() => new Vector3()) },
+          uSizes: { value: [...CASCADES] },
           uLight: { value: 1 },
           // Kind and cover are uniforms, not defines: a change of weather never compiles a program
           uKind: { value: 0 },
@@ -121,16 +137,17 @@ export class WeatherLayer {
     m.uniforms['uLight'].value = light;
   }
 
-  /** `focus`: the ground point the camera looks at, in the map group's space */
-  update(dt: number, camera: Camera, focus: Vector3): void {
+  /** Puts the boxes ahead of the camera, in the map group's space */
+  update(dt: number, camera: Camera): void {
     if (!this.mesh.visible) return;
     camera.getWorldPosition(this.cam);
+    camera.getWorldDirection(this.ahead).add(this.cam);
     this.mesh.parent?.worldToLocal(this.cam);
-    // Centre between the focus and the camera, at most half the box above the ground
-    this.cam.lerp(focus, 0.6);
-    this.cam.y = Math.min(this.cam.y, focus.y + BOX.y * 0.45);
+    this.mesh.parent?.worldToLocal(this.ahead);
+    this.ahead.sub(this.cam).normalize();
     const u = this.mesh.material.uniforms;
-    u['uCam'].value.copy(this.cam);
+    const centers = u['uCenters'].value as Vector3[];
+    CASCADES.forEach((size, c) => centers[c].copy(this.cam).addScaledVector(this.ahead, size * AHEAD));
     u['uTime'].value += dt;
   }
 
@@ -146,9 +163,10 @@ const WEATHER_VERTEX = /* glsl */ `
 #include <fog_pars_vertex>
 #include <logdepthbuf_pars_vertex>
 attribute vec3 aSeed;
+attribute float aCascade;
 uniform float uTime;
-uniform vec3 uCam;
-uniform vec3 uBox;
+uniform vec3 uCenters[${CASCADES.length}];
+uniform float uSizes[${CASCADES.length}];
 varying vec2 vUv;
 varying float vFade;
 uniform int uKind;
@@ -173,33 +191,49 @@ void main() {
     // Dust blows along near the ground
     fall = vec3(0.0, sin(uTime * 0.8 + aSeed.y * 20.0) * 0.8, sin(uTime + aSeed.x * 10.0)) + wind * uTime * (1.5 + 9.0 * uWindStrength);
   }
-  vec3 local = aSeed * uBox + fall;
-  vec3 p = uCam + mod(local - uCam, uBox) - uBox * 0.5;
-  // Thin out at the edges of the box, so its walls never show
-  vec3 rel = abs(p - uCam) / (uBox * 0.5);
-  vFade = 1.0 - smoothstep(0.7, 1.0, max(rel.x, max(rel.y, rel.z)));
+  int cascade = int(aCascade + 0.5);
+  vec3 center = uCenters[0];
+  float size = uSizes[0];
+  if (cascade == 1) {
+    center = uCenters[1];
+    size = uSizes[1];
+  } else if (cascade == 2) {
+    center = uCenters[2];
+    size = uSizes[2];
+  }
+  vec3 box = vec3(size);
+  vec3 local = aSeed * box + fall;
+  vec3 p = center + mod(local - center, box) - box * 0.5;
+  // Thin out towards the walls of the box, so they never show: the next box goes on there
+  vec3 rel = abs(p - center) / (box * 0.5);
+  vFade = 1.0 - smoothstep(0.5, 1.0, max(rel.x, max(rel.y, rel.z)));
   vFade = min(1.0, vFade * 1.6);
   // Under a roof or below the ground: not drawn (ash and dust stay above the ground as well)
   if (uHasCover > 0.5) vFade *= step(coverTopAt(p), p.y);
   vUv = uv;
   // Far from the camera particles grow (a game camera looks from 100 m and more), and thin out
   float camDist = length(cameraPosition - p);
-  float grow = max(1.0, camDist / 35.0);
+  // Up to GROW_MAX: the largest box reaches some 500 m, where flakes grown without a bound were metres
+  // wide and veiled the whole picture in grey (and cost their overdraw)
+  float grow = clamp(camDist / 35.0, 1.0, ${GROW_MAX.toFixed(1)});
   // Ash and embers stay small: grown with the distance they read as a field of pale dots over the
   // map from the game camera (they hang everywhere, rain and snow show as a veil)
   if (uKind == 2 || uKind == 3) grow = min(grow, 1.8);
   // Right in front of the lens a streak or flake would fill the screen
   vFade *= smoothstep(3.0, 9.0, camDist);
   if (uKind == 4) {
-    // Dust stays low: fade with height over the box's floor
-    vFade *= 1.0 - smoothstep(0.0, 0.5, (p.y - (uCam.y - uBox.y * 0.5)) / uBox.y);
+    // Dust stays low: within some 20 m of the ground (the boxes hang round the camera, not on the land);
+    // without a cover map in the lower half of its box
+    vFade *= uHasCover > 0.5
+      ? 1.0 - smoothstep(6.0, 20.0, p.y - coverTopAt(p))
+      : 1.0 - smoothstep(0.0, 0.5, (p.y - (center.y - size * 0.5)) / size);
   }
   vec4 mvPosition;
   if (uKind != 0) {
     vFade /= sqrt(grow);
-    float size = uKind == 4 ? 0.6 : uKind == 2 ? 0.12 : 0.14;
+    float flake = uKind == 4 ? 0.6 : uKind == 2 ? 0.12 : 0.14;
     mvPosition = viewMatrix * vec4(p, 1.0);
-    mvPosition.xy += position.xy * size * grow * 1.6;
+    mvPosition.xy += position.xy * flake * grow * 1.6;
   } else {
     vFade /= grow;
     // A streak standing upright, turned towards the camera

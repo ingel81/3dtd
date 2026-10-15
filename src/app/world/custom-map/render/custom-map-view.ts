@@ -135,7 +135,6 @@ export class CustomMapView {
   private readonly hitPoint = new Vector3();
   private readonly mapPoint = { x: 0, y: 0 };
   private readonly focusPoint = new Vector3();
-  private readonly worldFocus = new Vector3();
   private readonly grassCenter = new Vector3();
   /** Centre of the ground the camera sees, the sun's shadow box's (group and scene space) */
   private readonly shadowCenter = new Vector3();
@@ -451,8 +450,8 @@ export class CustomMapView {
     for (const r of this.rivers) r.update(clock);
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
-    // focusPoint is in the group's frame (the map's), worldFocus in the scene's: the game moves the
-    // group so that its HQ sits at the scene origin, and the lights and sky live in the scene
+    // focusPoint is in the group's frame (the map's): the game moves the group so that its HQ sits at
+    // the scene origin, and the lights and sky live in the scene
     if (focus) {
       this.group.worldToLocal(this.focusPoint.copy(focus));
     } else {
@@ -462,7 +461,6 @@ export class CustomMapView {
     }
     this.terrain.update(this.camPos, clock, this.focusPoint);
     const reach = this.camPos.distanceTo(this.focusPoint);
-    this.group.localToWorld(this.worldFocus.copy(this.focusPoint));
     // Shadow box fitted to the ground the camera sees: sharp up close, wide from high up or looking far
     const fit = fitShadowBox(camera, this.group, this.focusPoint, this.shadowCenter);
     // The box's radius in its steps (shrinking only well below it), for the casters round its centre too:
@@ -488,7 +486,7 @@ export class CustomMapView {
       this.environment.invalidateShadows();
     }
     this.watchDecals();
-    this.environment.update(clock, camera, this.worldFocus);
+    this.environment.update(clock, camera);
     if (this.mapEffects.shadowCascade) {
       // The cached map's reach on the map, where the far cascade takes over
       const r = this.environment.shadowArea(this.shadowArea);

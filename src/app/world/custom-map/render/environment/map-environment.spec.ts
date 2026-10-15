@@ -48,7 +48,7 @@ describe('sun shadow cache', () => {
   const frame = (e: CustomMapEnvironment, r: ReturnType<typeof fakeRenderer>, focus: Vector3, radius: number): number => {
     const before = r.parts;
     e.focus(focus, radius);
-    e.update(0.016, e.sun.shadow.camera, focus);
+    e.update(0.016, e.sun.shadow.camera);
     return r.parts - before;
   };
   const parts = SHADOW_PARTS;
@@ -221,11 +221,10 @@ describe('sky texture for reflections', () => {
     const e = new CustomMapEnvironment(env);
     const r = fakeRenderer();
     attach(e, r);
-    const focus = new Vector3();
-    for (let k = 0; k < 6; k++) e.update(0.016, e.sun.shadow.camera, focus);
+    for (let k = 0; k < 6; k++) e.update(0.016, e.sun.shadow.camera);
     expect(r.renders).toBe(2);
     e.set({ ...env, sky: 'dusk' });
-    e.update(0.016, e.sun.shadow.camera, focus);
+    e.update(0.016, e.sun.shadow.camera);
     expect(r.renders).toBe(3);
     e.dispose();
   });

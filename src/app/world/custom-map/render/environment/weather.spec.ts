@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { Group, PerspectiveCamera, Vector3 } from 'three';
 import { CustomMapEnvironment } from './map-environment';
+import { CASCADES, WeatherLayer } from './weather';
 
 const env = { sky: 'day' as const, sunAzimuth: 200, sunElevation: 40, fogDensity: 0.001, tint: '#ffffff' };
 
@@ -57,5 +59,33 @@ describe('weather', () => {
     e.set(env);
     expect(e.weather.mesh.visible).toBe(false);
     e.dispose();
+  });
+
+  it('hangs its boxes ahead of the camera, nested, the particles shared out evenly, wherever the camera is', () => {
+    const layer = new WeatherLayer();
+    const map = new Group();
+    map.position.set(500, 0, -200);
+    map.add(layer.mesh);
+    map.updateMatrixWorld(true);
+    layer.set('snow', 1, 1);
+    const centers = layer.mesh.material.uniforms['uCenters'].value as Vector3[];
+    const cascade = layer.mesh.geometry.getAttribute('aCascade');
+    const per = CASCADES.map((_, c) => Array.from({ length: layer.mesh.geometry.instanceCount }, (__, k) => cascade.getX(k)).filter((x) => x === c).length);
+    expect(Math.max(...per) - Math.min(...per)).toBeLessThanOrEqual(1);
+    for (const [eye, look] of [[new Vector3(0, 400, 0), new Vector3(1, 0, 0)], [new Vector3(800, 2, -200), new Vector3(0, 2, -200)]] as const) {
+      const camera = new PerspectiveCamera();
+      camera.position.copy(eye);
+      camera.lookAt(look);
+      camera.updateMatrixWorld(true);
+      layer.update(0.016, camera);
+      const local = map.worldToLocal(eye.clone());
+      const dir = look.clone().sub(eye).normalize();
+      CASCADES.forEach((size, c) => {
+        // Ahead along the view, the camera inside every box: near and far ground both in some box
+        expect(centers[c].clone().sub(local).dot(dir)).toBeCloseTo(size * 0.35, 3);
+        expect(centers[c].distanceTo(local)).toBeLessThan(size / 2);
+      });
+    }
+    layer.dispose();
   });
 });

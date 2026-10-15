@@ -441,12 +441,12 @@ export class CustomMapEnvironment {
     HEIGHT_FOG_UNIFORMS.uFogBase.value = height;
   }
 
-  /** Per frame: the wind's clock runs, the sky dome follows the camera, clouds drift, weather follows the focus */
-  update(dt: number, camera: Camera, focus: Vector3): void {
+  /** Per frame: the wind's clock runs, the sky dome follows the camera, clouds drift, weather follows the view */
+  update(dt: number, camera: Camera): void {
     WIND_UNIFORMS.uWindTime.value += dt;
     this.skyDome.update(dt, camera);
     if (this.renderer) this.skyDome.bake(this.renderer);
-    this.weather.update(dt, camera, focus);
+    this.weather.update(dt, camera);
     if (this.renderer && this.scene && this.renderer.shadowMap.enabled) this.updateShadows(this.renderer, this.scene, camera);
   }
 
