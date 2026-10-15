@@ -40,7 +40,7 @@ export function buildHarborTown(): CustomMapDocument {
   const northLine: MapPoint[] = [north, { x: -64, y: 64 }, { x: 0, y: 64 }, hq];
   const westLine: MapPoint[] = [west, { x: -128, y: 0 }, { x: -128, y: -128 }, hq];
   const eastLine: MapPoint[] = [east, { x: 128, y: 128 }, { x: 128, y: -64 }, { x: 64, y: -64 }, { x: 64, y: -128 }, hq];
-  for (const line of [northLine, westLine, eastLine]) k.path(line, 10, 'road', 2);
+  const streets = [northLine, westLine, eastLine].map((line) => k.path(line, 10, 'road', 2)!);
   k.spawn('Hill Road', north.x, north.y);
   k.spawn('West Gate', west.x, west.y);
   k.spawn('East Road', east.x, east.y);
@@ -48,6 +48,15 @@ export function buildHarborTown(): CustomMapDocument {
 
   // ---- The town: the street grid with brick and apartment blocks, a little green up the hill
   k.biome('city', [{ x: -160, y: 160 }, { x: 0, y: 160 }, { x: 160, y: 160 }, { x: -160, y: 40 }, { x: 0, y: 30 }, { x: 160, y: 40 }, { x: -160, y: -80 }, { x: 0, y: -70 }, { x: 160, y: -70 }], { radius: 100, strength: 0.85 });
+  // The three streets the columns come down: asphalt between sidewalks as the city grid's streets, no cobbles
+  // (the road's own surface, kept in its dress so the editor's "Rebuild road dressing" lays asphalt again)
+  for (const line of [northLine, westLine, eastLine]) k.paint('sidewalk', line, { radius: 8.5, falloff: 0.2 }, 1);
+  for (const e of k.doc.paths.edges) {
+    if (!streets.includes(e.id)) continue;
+    e.surface = 'asphalt';
+    e.dress = { adapt: false, surface: 'asphalt', lamps: false, fences: false, objects: [] };
+  }
+  k.paintRoads('asphalt', streets, 1);
   k.paint('grass-leafy', [{ x: -200, y: 230 }, { x: 200, y: 230 }], { radius: 40, falloff: 1 }, 0.6);
   k.scatter(['tree-oak', 'tree-maple', 'shrub-wide'], [{ x: -200, y: 230 }, { x: 200, y: 230 }], { radius: 36, strength: 0.8 }, { density: 3, minDistance: 6 });
 
